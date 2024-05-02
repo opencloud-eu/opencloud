@@ -3,14 +3,15 @@ package command
 import (
 	"context"
 	"fmt"
+	"os/signal"
 
-	"github.com/oklog/run"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
 	"github.com/urfave/cli/v2"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/generators"
+	"github.com/opencloud-eu/opencloud/pkg/runner"
 	"github.com/opencloud-eu/opencloud/services/audit/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/audit/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/audit/pkg/logging"
@@ -29,13 +30,15 @@ func Server(cfg *config.Config) *cli.Command {
 			return configlog.ReturnFatal(parser.ParseConfig(cfg))
 		},
 		Action: func(c *cli.Context) error {
-			var (
-				gr     = run.Group{}
-				logger = logging.Configure(cfg.Service.Name, cfg.Log)
+			var cancel context.CancelFunc
+			ctx := cfg.Context
+			if ctx == nil {
+				ctx, cancel = signal.NotifyContext(context.Background(), runner.StopSignals...)
+				defer cancel()
+			}
 
-				ctx, cancel = context.WithCancel(c.Context)
-			)
-			defer cancel()
+			logger := logging.Configure(cfg.Service.Name, cfg.Log)
+			gr := runner.NewGroup()
 
 			connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
 			client, err := stream.NatsFromConfig(connName, false, stream.NatsConfig(cfg.Events))
@@ -47,24 +50,17 @@ func Server(cfg *config.Config) *cli.Command {
 				return err
 			}
 
-			gr.Add(func() error {
-				svc.AuditLoggerFromConfig(ctx, cfg.Auditlog, evts, logger)
-				return nil
-			}, func(err error) {
-				if err == nil {
-					logger.Info().
-						Str("transport", "stream").
-						Str("server", cfg.Service.Name).
-						Msg("Shutting down server")
-				} else {
-					logger.Error().Err(err).
-						Str("transport", "stream").
-						Str("server", cfg.Service.Name).
-						Msg("Shutting down server")
-				}
+			// we need an additional context for the audit server in order to
+			// cancel it anytime
+			svcCtx, svcCancel := context.WithCancel(ctx)
+			defer svcCancel()
 
-				cancel()
-			})
+			gr.Add(runner.New("audit_svc", func() error {
+				svc.AuditLoggerFromConfig(svcCtx, cfg.Auditlog, evts, logger)
+				return nil
+			}, func() {
+				svcCancel()
+			}))
 
 			{
 				debugServer, err := debug.Server(
@@ -77,12 +73,18 @@ func Server(cfg *config.Config) *cli.Command {
 					return err
 				}
 
-				gr.Add(debugServer.ListenAndServe, func(_ error) {
-					_ = debugServer.Shutdown(ctx)
-					cancel()
-				})
+				gr.Add(runner.NewGolangHttpServerRunner("audit_debug", debugServer))
 			}
-			return gr.Run()
+
+			grResults := gr.Run(ctx)
+
+			// return the first non-nil error found in the results
+			for _, grResult := range grResults {
+				if grResult.RunnerError != nil {
+					return grResult.RunnerError
+				}
+			}
+			return nil
 		},
 	}
 }

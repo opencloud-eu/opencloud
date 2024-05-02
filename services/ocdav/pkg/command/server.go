@@ -3,11 +3,13 @@ package command
 import (
 	"context"
 	"fmt"
+	"os/signal"
 
-	"github.com/oklog/run"
 	"github.com/opencloud-eu/opencloud/pkg/broker"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/registry"
+	"github.com/opencloud-eu/opencloud/pkg/runner"
+	ohttp "github.com/opencloud-eu/opencloud/pkg/service/http"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 	"github.com/opencloud-eu/opencloud/services/ocdav/pkg/config"
@@ -34,85 +36,77 @@ func Server(cfg *config.Config) *cli.Command {
 			if err != nil {
 				return err
 			}
-			gr := run.Group{}
-			ctx, cancel := context.WithCancel(c.Context)
 
-			defer cancel()
+			var cancel context.CancelFunc
+			ctx := cfg.Context
+			if ctx == nil {
+				ctx, cancel = signal.NotifyContext(context.Background(), runner.StopSignals...)
+				defer cancel()
+			}
 
-			gr.Add(func() error {
-				// init reva shared config explicitly as the go-micro based ocdav does not use
-				// the reva runtime. But we need e.g. the shared client settings to be initialized
-				sc := map[string]interface{}{
-					"jwt_secret":                cfg.TokenManager.JWTSecret,
-					"gatewaysvc":                cfg.Reva.Address,
-					"skip_user_groups_in_token": cfg.SkipUserGroupsInToken,
-					"grpc_client_options":       cfg.Reva.GetGRPCClientConfig(),
-				}
-				if err := sharedconf.Decode(sc); err != nil {
-					logger.Error().Err(err).Msg("error decoding shared config for ocdav")
-				}
-				opts := []ocdav.Option{
-					ocdav.Name(cfg.HTTP.Namespace + "." + cfg.Service.Name),
-					ocdav.Version(version.GetString()),
-					ocdav.Context(ctx),
-					ocdav.Logger(logger.Logger),
-					ocdav.Address(cfg.HTTP.Addr),
-					ocdav.AllowCredentials(cfg.HTTP.CORS.AllowCredentials),
-					ocdav.AllowedMethods(cfg.HTTP.CORS.AllowedMethods),
-					ocdav.AllowedHeaders(cfg.HTTP.CORS.AllowedHeaders),
-					ocdav.AllowedOrigins(cfg.HTTP.CORS.AllowedOrigins),
-					ocdav.FilesNamespace(cfg.FilesNamespace),
-					ocdav.WebdavNamespace(cfg.WebdavNamespace),
-					ocdav.OCMNamespace(cfg.OCMNamespace),
-					ocdav.AllowDepthInfinity(cfg.AllowPropfindDepthInfinity),
-					ocdav.SharesNamespace(cfg.SharesNamespace),
-					ocdav.Timeout(cfg.Timeout),
-					ocdav.Insecure(cfg.Insecure),
-					ocdav.PublicURL(cfg.PublicURL),
-					ocdav.Prefix(cfg.HTTP.Prefix),
-					ocdav.GatewaySvc(cfg.Reva.Address),
-					ocdav.JWTSecret(cfg.TokenManager.JWTSecret),
-					ocdav.ProductName(cfg.Status.ProductName),
-					ocdav.ProductVersion(cfg.Status.ProductVersion),
-					ocdav.Product(cfg.Status.Product),
-					ocdav.Version(cfg.Status.Version),
-					ocdav.VersionString(cfg.Status.VersionString),
-					ocdav.Edition(cfg.Status.Edition),
-					ocdav.MachineAuthAPIKey(cfg.MachineAuthAPIKey),
-					ocdav.Broker(broker.NoOp{}),
-					// ocdav.FavoriteManager() // FIXME needs a proper persistence implementation https://github.com/owncloud/ocis/issues/1228
-					// ocdav.LockSystem(), // will default to the CS3 lock system
-					// ocdav.TLSConfig() // tls config for the http server
-					ocdav.MetricsEnabled(true),
-					ocdav.MetricsNamespace("opencloud"),
-					ocdav.Tracing("Adding these strings is a workaround for ->", "https://github.com/cs3org/reva/issues/4131"),
-					ocdav.WithTraceProvider(traceProvider),
-					ocdav.RegisterTTL(registry.GetRegisterTTL()),
-					ocdav.RegisterInterval(registry.GetRegisterInterval()),
-					ocdav.URLSigningSharedSecret(cfg.URLSigningSharedSecret),
-				}
+			gr := runner.NewGroup()
 
-				s, err := ocdav.Service(opts...)
-				if err != nil {
-					return err
-				}
+			// init reva shared config explicitly as the go-micro based ocdav does not use
+			// the reva runtime. But we need e.g. the shared client settings to be initialized
+			sc := map[string]interface{}{
+				"jwt_secret":                cfg.TokenManager.JWTSecret,
+				"gatewaysvc":                cfg.Reva.Address,
+				"skip_user_groups_in_token": cfg.SkipUserGroupsInToken,
+				"grpc_client_options":       cfg.Reva.GetGRPCClientConfig(),
+			}
+			if err := sharedconf.Decode(sc); err != nil {
+				logger.Error().Err(err).Msg("error decoding shared config for ocdav")
+			}
+			opts := []ocdav.Option{
+				ocdav.Name(cfg.HTTP.Namespace + "." + cfg.Service.Name),
+				ocdav.Version(version.GetString()),
+				ocdav.Context(ctx),
+				ocdav.Logger(logger.Logger),
+				ocdav.Address(cfg.HTTP.Addr),
+				ocdav.AllowCredentials(cfg.HTTP.CORS.AllowCredentials),
+				ocdav.AllowedMethods(cfg.HTTP.CORS.AllowedMethods),
+				ocdav.AllowedHeaders(cfg.HTTP.CORS.AllowedHeaders),
+				ocdav.AllowedOrigins(cfg.HTTP.CORS.AllowedOrigins),
+				ocdav.FilesNamespace(cfg.FilesNamespace),
+				ocdav.WebdavNamespace(cfg.WebdavNamespace),
+				ocdav.OCMNamespace(cfg.OCMNamespace),
+				ocdav.AllowDepthInfinity(cfg.AllowPropfindDepthInfinity),
+				ocdav.SharesNamespace(cfg.SharesNamespace),
+				ocdav.Timeout(cfg.Timeout),
+				ocdav.Insecure(cfg.Insecure),
+				ocdav.PublicURL(cfg.PublicURL),
+				ocdav.Prefix(cfg.HTTP.Prefix),
+				ocdav.GatewaySvc(cfg.Reva.Address),
+				ocdav.JWTSecret(cfg.TokenManager.JWTSecret),
+				ocdav.ProductName(cfg.Status.ProductName),
+				ocdav.ProductVersion(cfg.Status.ProductVersion),
+				ocdav.Product(cfg.Status.Product),
+				ocdav.Version(cfg.Status.Version),
+				ocdav.VersionString(cfg.Status.VersionString),
+				ocdav.Edition(cfg.Status.Edition),
+				ocdav.MachineAuthAPIKey(cfg.MachineAuthAPIKey),
+				ocdav.Broker(broker.NoOp{}),
+				// ocdav.FavoriteManager() // FIXME needs a proper persistence implementation https://github.com/owncloud/ocis/issues/1228
+				// ocdav.LockSystem(), // will default to the CS3 lock system
+				// ocdav.TLSConfig() // tls config for the http server
+				ocdav.MetricsEnabled(true),
+				ocdav.MetricsNamespace("ocis"),
+				ocdav.Tracing("Adding these strings is a workaround for ->", "https://github.com/cs3org/reva/issues/4131"),
+				ocdav.WithTraceProvider(traceProvider),
+				ocdav.RegisterTTL(registry.GetRegisterTTL()),
+				ocdav.RegisterInterval(registry.GetRegisterInterval()),
+				ocdav.URLSigningSharedSecret(cfg.URLSigningSharedSecret),
+			}
 
-				return s.Run()
-			}, func(err error) {
-				if err == nil {
-					logger.Info().
-						Str("transport", "http").
-						Str("server", cfg.Service.Name).
-						Msg("Shutting down server")
-				} else {
-					logger.Error().Err(err).
-						Str("transport", "http").
-						Str("server", cfg.Service.Name).
-						Msg("Shutting down server")
-				}
+			s, err := ocdav.Service(opts...)
+			if err != nil {
+				return err
+			}
 
-				cancel()
-			})
+			// creating a runner for a go-micro service is a bit complex, so we'll
+			// wrap the go-micro service with an ocis service the same way as
+			// ocis-pkg/service/http is doing in order to reuse the factory.
+			gr.Add(runner.NewGoMicroHttpServerRunner("ocdav_http", ohttp.Service{Service: s}))
 
 			debugServer, err := debug.Server(
 				debug.Logger(logger),
@@ -125,12 +119,17 @@ func Server(cfg *config.Config) *cli.Command {
 				return err
 			}
 
-			gr.Add(debugServer.ListenAndServe, func(_ error) {
-				_ = debugServer.Shutdown(ctx)
-				cancel()
-			})
+			gr.Add(runner.NewGolangHttpServerRunner("ocdav_debug", debugServer))
 
-			return gr.Run()
+			grResults := gr.Run(ctx)
+
+			// return the first non-nil error found in the results
+			for _, grResult := range grResults {
+				if grResult.RunnerError != nil {
+					return grResult.RunnerError
+				}
+			}
+			return nil
 		},
 	}
 }

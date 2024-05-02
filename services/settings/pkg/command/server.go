@@ -3,9 +3,10 @@ package command
 import (
 	"context"
 	"fmt"
+	"os/signal"
 
-	"github.com/oklog/run"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
+	"github.com/opencloud-eu/opencloud/pkg/runner"
 	ogrpc "github.com/opencloud-eu/opencloud/pkg/service/grpc"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/pkg/version"
@@ -42,14 +43,19 @@ func Server(cfg *config.Config) *cli.Command {
 				return err
 			}
 
-			servers := run.Group{}
-			ctx, cancel := context.WithCancel(c.Context)
-			defer cancel()
+			var cancel context.CancelFunc
+			ctx := cfg.Context
+			if ctx == nil {
+				ctx, cancel = signal.NotifyContext(context.Background(), runner.StopSignals...)
+				defer cancel()
+			}
 
 			mtrcs := metrics.New()
 			mtrcs.BuildInfo.WithLabelValues(version.GetString()).Set(1)
 
 			handle := svc.NewDefaultLanguageService(cfg, svc.NewService(cfg, logger))
+
+			servers := runner.NewGroup()
 
 			// prepare an HTTP server and add it to the group run.
 			httpServer, err := http.Server(
@@ -67,21 +73,7 @@ func Server(cfg *config.Config) *cli.Command {
 					Msg("Error initializing http service")
 				return fmt.Errorf("could not initialize http service: %w", err)
 			}
-			servers.Add(httpServer.Run, func(err error) {
-				if err == nil {
-					logger.Info().
-						Str("transport", "http").
-						Str("server", cfg.Service.Name).
-						Msg("Shutting down server")
-				} else {
-					logger.Error().Err(err).
-						Str("transport", "http").
-						Str("server", cfg.Service.Name).
-						Msg("Shutting down server")
-				}
-
-				cancel()
-			})
+			servers.Add(runner.NewGoMicroHttpServerRunner("settings_http", httpServer))
 
 			// prepare a gRPC server and add it to the group run.
 			grpcServer := grpc.Server(
@@ -93,21 +85,7 @@ func Server(cfg *config.Config) *cli.Command {
 				grpc.ServiceHandler(handle),
 				grpc.TraceProvider(traceProvider),
 			)
-			servers.Add(grpcServer.Run, func(_ error) {
-				if err == nil {
-					logger.Info().
-						Str("transport", "grpc").
-						Str("server", cfg.Service.Name).
-						Msg("Shutting down server")
-				} else {
-					logger.Error().Err(err).
-						Str("transport", "grpc").
-						Str("server", cfg.Service.Name).
-						Msg("Shutting down server")
-				}
-
-				cancel()
-			})
+			servers.Add(runner.NewGoMicroGrpcServerRunner("settings_grpc", grpcServer))
 
 			// prepare a debug server and add it to the group run.
 			debugServer, err := debug.Server(
@@ -120,12 +98,17 @@ func Server(cfg *config.Config) *cli.Command {
 				return err
 			}
 
-			servers.Add(debugServer.ListenAndServe, func(_ error) {
-				_ = debugServer.Shutdown(ctx)
-				cancel()
-			})
+			servers.Add(runner.NewGolangHttpServerRunner("settings_debug", debugServer))
 
-			return servers.Run()
+			grResults := servers.Run(ctx)
+
+			// return the first non-nil error found in the results
+			for _, grResult := range grResults {
+				if grResult.RunnerError != nil {
+					return grResult.RunnerError
+				}
+			}
+			return nil
 		},
 	}
 }

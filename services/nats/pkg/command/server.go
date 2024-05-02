@@ -4,14 +4,13 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"time"
-
-	"github.com/oklog/run"
+	"os/signal"
 
 	"github.com/urfave/cli/v2"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	pkgcrypto "github.com/opencloud-eu/opencloud/pkg/crypto"
+	"github.com/opencloud-eu/opencloud/pkg/runner"
 	"github.com/opencloud-eu/opencloud/services/nats/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/nats/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/nats/pkg/logging"
@@ -31,11 +30,14 @@ func Server(cfg *config.Config) *cli.Command {
 		Action: func(c *cli.Context) error {
 			logger := logging.Configure(cfg.Service.Name, cfg.Log)
 
-			gr := run.Group{}
-			ctx, cancel := context.WithCancel(c.Context)
+			var cancel context.CancelFunc
+			ctx := cfg.Context
+			if ctx == nil {
+				ctx, cancel = signal.NotifyContext(context.Background(), runner.StopSignals...)
+				defer cancel()
+			}
 
-			defer cancel()
-
+			gr := runner.NewGroup()
 			{
 				debugServer, err := debug.Server(
 					debug.Logger(logger),
@@ -47,10 +49,7 @@ func Server(cfg *config.Config) *cli.Command {
 					return err
 				}
 
-				gr.Add(debugServer.ListenAndServe, func(_ error) {
-					_ = debugServer.Shutdown(ctx)
-					cancel()
-				})
+				gr.Add(runner.NewGolangHttpServerRunner("nats_debug", debugServer))
 			}
 
 			var tlsConf *tls.Config
@@ -77,8 +76,7 @@ func Server(cfg *config.Config) *cli.Command {
 				}
 			}
 			natsServer, err := nats.NewNATSServer(
-				ctx,
-				logger,
+				logging.NewLogWrapper(logger),
 				nats.Host(cfg.Nats.Host),
 				nats.Port(cfg.Nats.Port),
 				nats.ClusterID(cfg.Nats.ClusterID),
@@ -90,40 +88,21 @@ func Server(cfg *config.Config) *cli.Command {
 				return err
 			}
 
-			gr.Add(func() error {
-				err := make(chan error, 1)
-				select {
-				case <-ctx.Done():
-					return nil
-				case err <- natsServer.ListenAndServe():
-					return <-err
-				}
-
-			}, func(err error) {
-				if err == nil {
-					logger.Info().
-						Str("transport", "nats").
-						Str("server", cfg.Service.Name).
-						Msg("letting other services deregister")
-
-					time.Sleep(3 * time.Second)
-
-					logger.Info().
-						Str("transport", "nats").
-						Str("server", cfg.Service.Name).
-						Msg("Shutting down server")
-				} else {
-					logger.Error().Err(err).
-						Str("transport", "nats").
-						Str("server", cfg.Service.Name).
-						Msg("Shutting down server")
-				}
-
+			gr.Add(runner.New("nats_svc", func() error {
+				return natsServer.ListenAndServe()
+			}, func() {
 				natsServer.Shutdown()
-				cancel()
-			})
+			}))
 
-			return gr.Run()
+			grResults := gr.Run(ctx)
+
+			// return the first non-nil error found in the results
+			for _, grResult := range grResults {
+				if grResult.RunnerError != nil {
+					return grResult.RunnerError
+				}
+			}
+			return nil
 		},
 	}
 }

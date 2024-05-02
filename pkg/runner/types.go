@@ -1,8 +1,14 @@
 package runner
 
 import (
+	"os"
 	"strings"
+	"syscall"
 	"time"
+)
+
+var (
+	StopSignals = []os.Signal{syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT}
 )
 
 // Runable represent a task that can be executed by the Runner.
