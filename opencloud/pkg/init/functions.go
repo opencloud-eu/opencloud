@@ -46,11 +46,11 @@ func backupOcisConfigFile(configPath string) (string, error) {
 	return targetBackupConfig, nil
 }
 
-// printBanner prints the generated OCIS config banner.
+// printBanner prints the generated OpenCloud config banner.
 func printBanner(targetPath, ocisAdminServicePassword, targetBackupConfig string) {
 	fmt.Printf(
 		"\n=========================================\n"+
-			" generated OCIS Config\n"+
+			" generated OpenCloud Config\n"+
 			"=========================================\n"+
 			" configpath : %s\n"+
 			" user       : admin\n"+
