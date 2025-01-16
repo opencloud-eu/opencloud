@@ -18,13 +18,13 @@ import (
 func InitCommand(cfg *config.Config) *cli.Command {
 	return &cli.Command{
 		Name:  "init",
-		Usage: "initialise an ocis config",
+		Usage: "initialise an OpenCloud config",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "insecure",
 				EnvVars: []string{"OC_INSECURE"},
 				Value:   "ask",
-				Usage:   "Allow insecure oCIS config",
+				Usage:   "Allow insecure OpenCloud config",
 			},
 			&cli.BoolFlag{
 				Name:    "diff",
@@ -42,7 +42,7 @@ func InitCommand(cfg *config.Config) *cli.Command {
 			&cli.StringFlag{
 				Name:    "config-path",
 				Value:   defaults.BaseConfigPath(),
-				Usage:   "Config path for the ocis runtime",
+				Usage:   "Config path for the OpenCloud runtime",
 				EnvVars: []string{"OC_CONFIG_DIR", "OC_BASE_DATA_PATH"},
 			},
 			&cli.StringFlag{
@@ -56,7 +56,7 @@ func InitCommand(cfg *config.Config) *cli.Command {
 			insecureFlag := c.String("insecure")
 			insecure := false
 			if insecureFlag == "ask" {
-				answer := strings.ToLower(stringPrompt("Do you want to configure Infinite Scale with certificate checking disabled?\n This is not recommended for public instances! [yes | no = default]"))
+				answer := strings.ToLower(stringPrompt("Do you want to configure OpenCloud with certificate checking disabled?\n This is not recommended for public instances! [yes | no = default]"))
 				if answer == "yes" || answer == "y" {
 					insecure = true
 				}
