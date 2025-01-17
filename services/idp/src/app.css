@@ -1,9 +1,16 @@
 /* additional css on top of kpop */
 @font-face {
-  font-family: Inter;
-  src: url(./fonts/inter.woff2) format('woff2'), url(./fonts/inter.ttf) format('truetype');
-  font-weight: 100 900;
-  font-style: oblique 0deg 12deg;
+  font-family: OpenTalk;
+  src: url('./fonts/opentalk-500.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+
+}
+@font-face {
+  font-family: OpenTalk;
+  src: url('./fonts/opentalk-750.woff2') format('woff2');
+  font-weight: bold;
+  font-style: normal;
 }
 
 html {
@@ -11,7 +18,7 @@ html {
 }
 
 body {
-  font-family: Inter, sans-serif;
+  font-family: OpenTalk, sans-serif;
 }
 
 strong {
@@ -19,7 +26,7 @@ strong {
 }
 
 .oc-login-bg {
-  background-image: url(./images/background.jpg);
+  background-image: url(./images/background.png);
   background-size: cover;
   background-repeat: no-repeat;
   background-position: center;
@@ -101,9 +108,9 @@ strong {
 .oc-button-primary {
   /* Needs to be important to overwrite material-ui */
   width: 100%;
-  background: linear-gradient(to right, #2c588e, #4e85c8) -1px;
-  background-size: 103% !important;
+  background: #e2baff !important;
   border: 1px solid transparent !important;
+  color: #19353f !important;
 }
 
 .oc-checkbox-dark svg {

@@ -37,7 +37,8 @@ assets: pnpm-build \
 assets/identifier/static:
 	mkdir -p assets/identifier/static
 
-FAVICON_URL = https://raw.githubusercontent.com/owncloud/assets/main/favicon.ico
+# check if url is stable, if not replace with stable location
+FAVICON_URL = https://opencloud.eu/themes/salsa/dist/assets/favicon/favicon.ico
 
 .PHONY: assets/identifier/static/favicon.ico # force overwrite
 assets/identifier/static/favicon.ico:

@@ -63,7 +63,7 @@ const ResponsiveScreen = (props) => {
             </div>
         </div>
         <footer className="oc-footer-message">
-              <Trans i18nKey="konnect.footer.slogan"><strong>OpenCloud</strong> - a safe home for all your data</Trans>
+              <Trans i18nKey="konnect.footer.slogan"><strong>OpenCloud</strong> - excellent file sharing</Trans>
         </footer>
     </Grid>
   );
