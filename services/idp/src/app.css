@@ -1,18 +1,4 @@
 /* additional css on top of kpop */
-@font-face {
-  font-family: OpenTalk;
-  src: url('./fonts/opentalk-500.woff2') format('woff2');
-  font-weight: normal;
-  font-style: normal;
-
-}
-@font-face {
-  font-family: OpenTalk;
-  src: url('./fonts/opentalk-750.woff2') format('woff2');
-  font-weight: bold;
-  font-style: normal;
-}
-
 html {
   font-feature-settings: "cv11";
 }
