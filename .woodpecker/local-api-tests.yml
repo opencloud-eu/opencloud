@@ -1,0 +1,28 @@
+---
+when:
+  - event: push
+    branch: main
+  - event: tag
+    ref: refs/tags/v*
+  - event: manual
+  - event: pull_request
+matrix:
+  include:
+    - NAME: apiBasic
+      SUITES: apiArchiver,apiContract,apiCors,apiAsyncUpload,apiDownloads,apiDepthInfinity,apiLocks,apiActivities
+    - NAME: apiSettings
+      SUITES: apiSettings
+    - NAME: apiGraph
+      SUITES: apiGraph,apiServiceAvailability
+    - NAME: graphUserGroup
+      SUITES: apiGraphUserGroup
+
+steps:
+  - name: first-step-${NAME}
+    image: owncloudci/golang:1.22
+    commands:
+      - echo "${SUITES}"
+      - echo "${NAME}"
+
+depends_on:
+  - build

@@ -1,0 +1,35 @@
+---
+when:
+  - event: push
+    branch: main
+  - event: tag
+    ref: refs/tags/v*
+  - event: manual
+  - event: pull_request
+
+steps:
+  - name: create directories
+    image: owncloudci/golang:1.22
+    commands:
+      #- ls opencloud/bin/opencloud-${CI_COMMIT_SHA}/
+      - mkdir -p  opencloud/bin/opencloud-${CI_COMMIT_SHA}
+  - name: fetch-binary
+    image: micbar/plugin-s3cache:custom
+    pull: true
+    settings:
+      bucket: cache
+      paths: opencloud/bin/opencloud-${CI_COMMIT_SHA}/
+      mode: download
+      access_key:
+        from_secret: minio_access_key_id
+      secret_key:
+        from_secret: minio_secret_access_key
+      endpoint: minio.woodpecker.opencloud.rocks
+      use_ssl: true
+  - name: show download
+    image: owncloudci/golang:1.22
+    commands:
+      #- ls opencloud/bin/opencloud-${CI_COMMIT_SHA}/
+      - tree opencloud/bin/
+depends_on:
+  - build

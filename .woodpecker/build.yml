@@ -1,0 +1,63 @@
+---
+when:
+  - event: push
+    branch: main
+  - event: tag
+    ref: refs/tags/v*
+  - event: manual
+  - event: pull_request
+
+variables:
+  - &build-opencloud
+    name: build-opencloud
+    image: owncloudci/golang:1.22
+    commands:
+      #- make -C opencloud build
+      - mkdir -p  opencloud/bin/opencloud-${CI_COMMIT_SHA}
+      - touch opencloud/bin/opencloud-${CI_COMMIT_SHA}/testfile
+      #- mv opencloud/bin/opencloud opencloud/bin/opencloud-${CI_COMMIT_SHA}
+      #- ls opencloud/bin
+  - &generate-assets
+    name: generate-assets
+    image: owncloudci/nodejs:20
+    commands:
+      - make -C services/idp generate
+      - make -C services/web ci-node-generate-no-clone
+  - &generate-opencloud
+    name: generate-opencloud
+    image: owncloudci/golang:1.22
+    commands:
+      - make -C opencloud generate
+  - &store-binary
+    name: store-binary
+    pull: true
+    image: micbar/plugin-s3cache:custom
+    settings:
+      bucket: cache
+      paths: opencloud/bin/opencloud-${CI_COMMIT_SHA}/
+      mode: upload
+      access_key:
+        from_secret: minio_access_key_id
+      secret_key:
+        from_secret: minio_secret_access_key
+      endpoint: minio.woodpecker.opencloud.rocks
+      use_ssl: true
+
+
+
+steps:
+  - name: clone-web
+    image: woodpeckerci/plugin-git
+    settings:
+      partial: false
+      depth: 1
+      path: services/web/assets/core/origin
+      remote: https://github.com/opencloud-eu/web.git
+      ref: main
+  #- *generate-assets
+  #- *generate-opencloud
+  - *build-opencloud
+  - *store-binary
+
+depends_on:
+  - coding
