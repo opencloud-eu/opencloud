@@ -1,0 +1,13 @@
+---
+when:
+  - event: [ push, pull_request ]
+    branch: main
+  - event: tag
+    ref: refs/tags/v*
+
+steps:
+  - name: all-arch-build
+    image: golang:1.23
+    commands:
+      - make test
+
