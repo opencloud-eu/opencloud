@@ -1,8 +1,8 @@
 First of all, thank you for taking the time to read this and your interest in contributing to OpenCloud!
 
-The following is a set of guidelines for contributing to most of the projects hosted in the [OpenCloud Organization](https://github.com/opencloud-eu) on [GitHub](https://www.github.com). These are mostly guidelines, not rules. Use your best judgment, and feel free to propose changes to this document in a pull request.
+The following is a set of guidelines suitable to most of the projects hosted in the [OpenCloud Organization](https://github.com/opencloud-eu). These are mostly guidelines, not rules. Use your best judgement, and feel free to propose changes to this document in a pull request.
 
-For simplicity reasons, this document mostly refers to the [OpenCloud project](https://www.github.com/opencloud-eu/opencloud), but it should be easily transferable to other (sub)projects.
+For simplicity reasons, this document mostly refers to the [opencloud repository](https://www.github.com/opencloud-eu/opencloud), but it should be easily transferable to other (sub)projects.
 
 #### Table Of Contents
 
@@ -21,13 +21,10 @@ For simplicity reasons, this document mostly refers to the [OpenCloud project](h
 *   [Pull Requests](#pull-requests)
 *   [Documentation Contributions](#documentation-contributions)
 *   [Internationalization](#internationalization)
-*   [Deployments: Docker, Ansible and friends](#deployments-docker-ansible-and-friends)
 
 [Styleguides](#styleguides)
 *   [Git Commit Messages](#git-commit-messages)
 *   [Golang Styleguide](#golang-styleguide)
-*   [Web Styleguide](#web-styleguide)
-*   [Documentation Styleguide](#documentation-styleguide)
 
 [Additional Notes](#additional-notes)
 *   [Issue and Pull Request Labels](#issue-and-pull-request-labels)
@@ -36,9 +33,7 @@ For simplicity reasons, this document mostly refers to the [OpenCloud project](h
 
 > **Note:** Please don't file an issue to ask a question. You'll get faster results by using the resources below.
 
-For general questions, please refer to [OpenCloud's FAQs](https://opencloud.eu/faq/) or ask on the [OpenCloud Central Server](https://central.opencloud.eu/).
-
-We also have a [Matrix Channet](TODO) to answer your questions specifically about OpenCloud.
+For general questions, please refer to [OpenCloud's FAQs](https://opencloud.eu/faq/) or check the [project page](https://github.com/opencloud-eu) for communication channels.
 
 ## What should I know before I get started
 
@@ -52,7 +47,7 @@ The OpenCloud project follows the strict GitHub workflow of development as brief
 
 ### OpenCloud Company, Engineering Partners and Community
 
-OpenCloud is largely created by developers who are employed by the [OpenCloud company](https://opencloud.eu), which is located in Germany. It is providing support for OpenCloud for customers worldwide. In addition, there are engineering partners who also work full time on OpenCloud related code, for example in [CERN REVA](https://github.com/cs3org/reva/).
+OpenCloud is largely created by developers who are employed by the [OpenCloud company](https://opencloud.eu), which is located in Germany. It is providing support for OpenCloud for customers mainly in the EC. In addition, there are engineering partners who also work full time on OpenCloud related code, for example on the component [REVA](https://github.com/cs3org/reva/).
 
 Because of that fact, the pace that the development is moving forward is sometimes high for people who are not willing and/or able to spend a comparable amount of time to contribute. Even though this can be a challenge, it should not scare anybody away. Here is our clear commitment that we feel honored by everybody who is interested in our work and improves it, no matter how big the contribution might be.
 
@@ -60,7 +55,7 @@ We as the full time devs from either organization are doing our best to listen, 
 
 ### Licensing and CLA
 
-We are very happy that there *no CLA* required for any of the code of OpenCloud.
+ There is *no CLA* required for any of the public code of OpenCloud.
 
 ## How Can I Contribute
 
@@ -70,7 +65,7 @@ There are many ways to contribute to open source projects, and all are equally v
 
 This way to contribute to the project can not be overestimated: People who talk about their experience with OpenCloud and help others with that are the key to success of the project.
 
-There are too many ways of doing that to line them up here, but examples are answering questions in [OpenCloud Central](https://central.opencloud.eu/) or in the [OpenCloud Matrix channel](TODO), writing blog posts etc. pp.
+There are too many ways of doing that to line them up here, but examples are answering questions in any social media or in the [OpenCloud Matrix channel](https://matrix.to/#/#opencloud:matrix.org), writing blog posts etc. pp.
 
 There is no formal guideline to this, just do it :-)
 
@@ -78,15 +73,15 @@ There is no formal guideline to this, just do it :-)
 
 This section guides you through submitting a bug report for OpenCloud. Following these guidelines helps maintainers and the community understand your report :pencil:, reproduce the behavior :computer: :computer:, and find related reports :mag_right:.
 
-Before creating bug reports, please check [this list](#before-submitting-a-bug-report) as you might find out that you don't need to create one. When you are creating a bug report, please [include as many details as possible](#how-do-i-submit-a-good-bug-report). Fill out [the required template](https://github.com/opencloud-eu/opencloud/issues/new?Type%3ABug&template=bug_report.md), the information it asks for helps us resolve issues faster.
+Before creating bug reports, please check [this list](#before-submitting-a-bug-report) as you might find out that you don't need to create one. When you are creating a bug report, please [include as many details as possible](#how-do-i-submit-a-good-bug-report). Fill out [the required template](https://github.com/opencloud-eu/opencloud/issues/new?Type%3ABug&template=bug_report.md), the information it asks for helps to resolve issues faster.
 
 > **Note:** If you find a **Closed** issue that seems like it is the same thing that you're experiencing, open a new issue and include a link to the original issue in the body of your new one. If you have permission to reopen the issue, feel free to do so.
 
 #### Before Submitting A Bug Report
 
-*   **Make sure you are running a recent version** Usually, developers' interest in old versions of software drops very fast once a new shiny version has been released. So the general recommendation is: Use the latest released version or even the current master to reproduce problems that you might encounter. That helps a lot to attract developers attention.
+*   **Make sure you are running a recent version** Usually, developers' interest in old versions of software drops very fast once a new version has been released. So the general requirement is: Use the latest released version or even the current master to reproduce problems that you might encounter. That helps a lot to attract developers attention.
 *   **Determine which [repository](https://github.com/opencloud-eu) the problem should be reported in**.
-*   **Perform a [cursory search](https://github.com/search?q=+is%3Aissue+user%3Aopencloud)** with possibly a more granular filter on the repository, to see if the problem has already been reported. If it has **and the issue is still open**, add a comment to the existing issue instead of opening a new one **if you have new information**. Please abstain from adding "plus ones", except using the GitHub emojis. That might indicate how many users are affected.
+*   **Perform a [cursory search](https://github.com/search?q=+is%3Aissue+user%3Aopencloud)** with possibly a more granular filter on the repository, to see if the problem has already been reported. If it has **and the issue is still open**, add a comment to the existing issue instead of opening a new one **if you have new information**. Please abstain from adding "plus ones", except using the GitHub emojis. That indicates how many users are affected.
 
 #### How Do I Submit A (Good) Bug Report
 
@@ -142,7 +137,7 @@ Unsure where to begin contributing to OpenCloud? You can start by looking throug
 
 It is fine to pick one of the list following personal preference. While not perfect, number of comments is a reasonable proxy for impact a given change will have.
 
-To find out how to set up OpenCloud for local development please refer to the [Developer Documentation](https://docs.opencloud.eu/development/getting-started/). It contains a lot of information that will come in handy when starting to work on the project.
+To find out how to set up OpenCloud for local development please refer to the [Developer Documentation](https://docs.opencloud.eu/docs/development/getting-started/). It contains a lot of information that will come in handy when starting to work on the project.
 
 ### Pull Requests
 
@@ -160,17 +155,13 @@ While the prerequisites above must be satisfied prior to having your pull reques
 
 OpenCloud is very proud of the documentation it has, which is the work of a great team of people. Of course, also the documentation is open to contributions.
 
-See the [Getting Started Guide](https://docs.opencloud.eu/development/getting-started/) on how to get started. Other useful information is summarized in the [Documentation Readme](https://github.com/opencloud-eu/docs).
+You find more guideance in the [Documentation Repo](https://github.com/opencloud-eu/docs) on how to get started.
 
 ### Internationalization
 
 Our projects are getting translated into many languages to allow people from all over the world to use OpenCloud in their native language. For translations, OpenCloud uses [Transifex](https://www.transifex.com) as a community based collaboration platform for internationalization.
 
 For contributions please refer to the [Transifex Resources](https://www.transifex.com/resources/) to learn how to improve OpenClouds translations there.
-
-### Deployments: Docker, Ansible and friends
-
-Depending on the OpenCloud component, there is complex deployment tooling to install in various environments. There is for example [OpenCloud Ansible](https://github.com/opencloud-eu/ansible) with Ansible resources. Contributions to that are very appreciated and follow the same guidelines as every other code contribution.
 
 ## Styleguides
 
@@ -187,14 +178,6 @@ To keep up with a consistent code and tooling landscape, some OpenCloud modules 
 ### Golang Styleguide
 
 Use the built-in golang code formatter before submitting the patch. Also, consulting documentation like [Effective Go](https://golang.org/doc/effective_go) or [Practical Go](http://bit.ly/gcsg-2019) helps to improve the code quality.
-
-### Web Styleguide
-
-Refer to related documents in the [OpenCloud Web Repository](https://github.com/opencloud-eu/web).
-
-#### Documentation Styleguide
-
-See the [OpenCloud Documentation Styleguide](https://github.com/opencloud-eu/docs/blob/master/docs/style-guide.md).
 
 ## Additional Notes
 
