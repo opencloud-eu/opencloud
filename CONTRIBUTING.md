@@ -1,3 +1,5 @@
+# OpenCloud Contribution Guidelines
+
 First of all, thank you for taking the time to read this and your interest in contributing to OpenCloud!
 
 The following is a set of guidelines suitable to most of the projects hosted in the [OpenCloud Organization](https://github.com/opencloud-eu). These are mostly guidelines, not rules. Use your best judgement, and feel free to propose changes to this document in a pull request.
