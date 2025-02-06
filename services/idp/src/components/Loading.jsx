@@ -24,7 +24,7 @@ class Loading extends React.PureComponent {
           ))}
           {renderIf(error !== null)(() => (
             <div>
-              <Typography className="oc-light" variant="h5" gutterBottom align="center">
+              <Typography variant="h5" gutterBottom align="center">
                 {t("konnect.loading.error.headline", "Failed to connect to server")}
               </Typography>
               <Typography align="center" color="error">

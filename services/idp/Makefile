@@ -32,7 +32,9 @@ ci-node-generate: assets
 .PHONY: assets
 assets: pnpm-build \
 		assets/identifier/static \
-		assets/identifier/static/favicon.ico
+		assets/identifier/static/favicon.ico \
+		assets/identifier/static/icon-lilac.svg
+
 
 assets/identifier/static:
 	mkdir -p assets/identifier/static
@@ -40,6 +42,10 @@ assets/identifier/static:
 .PHONY: assets/identifier/static/favicon.ico # force overwrite
 assets/identifier/static/favicon.ico:
 	cp src/images/favicon.ico assets/identifier/static/favicon.ico
+
+.PHONY: assets/identifier/static/icon-lilac.svg
+assets/identifier/static/icon-lilac.svg:
+	cp src/images/icon-lilac.svg assets/identifier/static/icon-lilac.svg
 
 .PHONY: pnpm-build
 pnpm-build: node_modules

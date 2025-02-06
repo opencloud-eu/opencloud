@@ -15,10 +15,13 @@ const styles = theme => ({
   root: {
     display: 'flex',
     flex: 1,
+    zIndex: 999
   },
   content: {
-    position: 'relative',
-    width: '100%'
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   actions: {
     marginTop: -40,
@@ -27,8 +30,6 @@ const styles = theme => ({
     paddingRight: theme.spacing(3)
   },
   wrapper: {
-    width: '100%',
-    maxWidth: 300,
     display: 'flex',
     flex: 1,
     alignItems: 'center'
@@ -59,7 +60,11 @@ const ResponsiveScreen = (props) => {
         <div className={classes.wrapper}>
             <div className={classes.content}>
               {logo}
-              {content}
+              <div className={'oc-card'}>
+                <div className={'oc-card-body'}>
+                {content}
+                </div>
+              </div>
             </div>
         </div>
         <footer className="oc-footer-message">

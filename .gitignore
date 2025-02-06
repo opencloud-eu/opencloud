@@ -39,7 +39,7 @@ vendor-php
 .php-cs-fixer.cache
 suite-logs
 
-# QA activity reports 
+# QA activity reports
 tests/qa-activity-report/reports/
 
 # drone CI is in .drone.star, do not let someone accidentally commit a local .drone.yml
@@ -60,3 +60,4 @@ go.work
 go.work.sum
 .env
 .envrc
+.DS_Store

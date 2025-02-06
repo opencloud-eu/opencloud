@@ -1,151 +1,194 @@
 /* additional css on top of kpop */
 @font-face {
-  font-family: OpenCloud;
-  src: url('./fonts/OpenCloud500-Regular.woff2') format('woff2');
-  font-weight: normal;
-  font-style: normal;
+    font-family: OpenCloud;
+    src: url('./fonts/OpenCloud500-Regular.woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
 
 }
+
 @font-face {
-  font-family: OpenCloud;
-  src: url('./fonts/OpenCloud750-Bold.woff2') format('woff2');
-  font-weight: bold;
-  font-style: normal;
+    font-family: OpenCloud;
+    src: url('./fonts/OpenCloud750-Bold.woff2') format('woff2');
+    font-weight: bold;
+    font-style: normal;
 }
 
 html {
-  font-feature-settings: "cv11";
+    font-feature-settings: "cv11";
+    color: #20434f !important;
 }
 
 body {
-  font-family: OpenCloud, sans-serif;
+    font-family: OpenCloud, sans-serif;
 }
 
 strong {
-  font-weight: 600;
+    font-weight: 600;
+}
+
+.oc-font-weight-light {
+    font-weight: 300;
 }
 
 .oc-login-bg {
-  background-image: url(./images/background.png);
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-position: center;
-  z-index: 0;
-  display: flex;
-  width: 100%;
+    background: #20434F;
+    display: flex;
+    width: 100%;
+}
+
+.oc-login-bg-icon {
+    position: fixed;
+    right: -3vw;
+    bottom: -3vh;
+    height: 50vh;
+    z-index: 0;
+}
+
+.oc-login-bg-image {
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
 }
 
 #loader {
-  /* NOTE(longsleep): White here needed because of the background image */
-  color: white;
-  text-shadow: #000 0 0 1px;
+    /* NOTE(longsleep): White here needed because of the background image */
+    color: white;
+    text-shadow: #000 0 0 1px;
 }
 
 .oc-logo {
-  position: absolute;
-  top: -130px;
-  left: 50%;
-  height: 80px;
-  transform: translateX(-50%);
+    height: 80px;
+    z-index: 0;
+    margin-bottom: 40px;
 }
 
 .oc-progress {
-  /* Needs to be important to overwrite material-ui */
-  background-color: rgba(78, 133, 200, 0.8) !important;
-  height: 4px;
-  width: 100px;
+    /* Needs to be important to overwrite material-ui */
+    background-color: rgba(78, 133, 200, 0.8) !important;
+    height: 4px;
+    width: 100px;
 }
 
 .oc-progress > div {
-  /* Needs to be important to overwrite material-ui */
-  background-color: #4a76ac !important;
+    /* Needs to be important to overwrite material-ui */
+    background-color: #4a76ac !important;
 }
 
 .oc-input {
-  background-color: #fff;
-  border: 1px solid #fff;
-  border-radius: 3px;
-  height: 40px;
-  width: 300px;
-  padding: 16px;
-  box-sizing: border-box;
-  font-size: 1rem;
+    border: 1px solid #20434f;
+    border-radius: 4px;
+    height: 45px;
+    width: 100%;
+    padding: 16px;
+    box-sizing: border-box;
+    font-size: 1rem;
 }
 
 .oc-label {
-  color: #fff;
-  display: inline-block;
-  margin-bottom: 5px;
+    display: block;
+    margin-bottom: 12px;
+    font-weight: 700;
 }
 
 .oc-input.error {
-  outline: none;
-  border: 1px solid #fe4600;
+    outline: none;
+    border: 1px solid #fe4600;
 }
 
 .MuiTypography-colorError {
-  color: #fe4600 !important;
+    color: #fe4600 !important;
 }
 
 .oc-input:focus {
-  outline: none;
-  border: 1px solid #fff;
+    outline: 2px solid #e2baff;
+    border: 1px solid #fff;
 }
 
 .oc-input + .oc-input {
-  margin-top: 15px;
+    margin-top: 15px;
 }
 
 .MuiTouchRipple-root {
-  display: none !important;
+    display: none !important;
+}
+
+.oc-card {
+    background: white;
+    display: inline-flex;
+    width: 500px;
+}
+
+.oc-card-body {
+    padding: 40px;
+    width: 100%;
 }
 
 .oc-button {
-  /* Needs to be important to overwrite material-ui */
-  font-size: 1.0625rem !important;
+    /* Needs to be important to overwrite material-ui */
+    font-size: 1.0625rem !important;
+    border-radius: 100px !important;
+    box-shadow: none !important;
+    font-weight: 700 !important;
 }
 
 .oc-button-primary {
-  /* Needs to be important to overwrite material-ui */
-  width: 100%;
-  background: #e2baff !important;
-  border: 1px solid transparent !important;
-  color: #19353f !important;
+    /* Needs to be important to overwrite material-ui */
+    width: 100%;
+    background: #e2baff !important;
+    border-radius: 100px !important;
+    color: #20434f !important;
+    box-shadow: none !important;
+    font-weight: 700 !important;
 }
 
-.oc-checkbox-dark svg {
-  /* Needs to be important to overwrite material-ui */
-  fill: white !important;
+.oc-button-secondary {
+    /* Needs to be important to overwrite material-ui */
+    width: 100%;
+    border-radius: 100px !important;
+    background: #F1F3F4 !important;
+    color: #20434f !important;
+    box-shadow: none !important;
 }
 
 .oc-footer-message {
-  color: white;
-  padding: 10px;
-  font-size: 0.8rem;
+    color: white;
+    padding: 10px;
+    font-size: 0.8rem;
 }
 
 @media only screen and (max-width: 768px) {
-  .oc-logo {
-    height: 60px;
-    top: -90px;
-  }
+    .oc-logo {
+        height: 60px;
+        top: -90px;
+    }
+
+    .oc-login-bg-icon {
+        display: none;
+    }
+
+    .oc-card {
+        min-width: 50vw !important;
+    }
+}
+
+@media only screen and (max-width: 600px) {
+    .oc-card {
+        width: 100vw !important;
+    }
 }
 
 /* Helpers */
 .oc-mt-l {
-  margin-top: 24px !important;
+    margin-top: 24px !important;
 }
 
 .oc-mb-m {
-  margin-bottom: 20px !important;
-}
-
-.oc-light {
-  color: #fff !important;
+    margin-bottom: 20px !important;
 }
 
 .oc-login-form div:not(:last-of-type) {
-  margin-bottom: 15px;
+    margin-bottom: 20px;
 }
 
 
@@ -154,14 +197,14 @@ strong {
  * Used to hide an element visually, but keeping it accessible for accessibility tools.
  */
 .oc-invisible-sr {
-  border: 0 !important;
-  clip: rect(1px, 1px, 1px, 1px) !important;
-  height: 1px !important;
-  overflow: hidden !important;
-  padding: 0 !important;
-  /* Need to make sure we override any existing styles. */
-  position: absolute !important;
-  top: 0;
-  white-space: nowrap;
-  width: 1px !important;
+    border: 0 !important;
+    clip: rect(1px, 1px, 1px, 1px) !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    /* Need to make sure we override any existing styles. */
+    position: absolute !important;
+    top: 0;
+    white-space: nowrap;
+    width: 1px !important;
 }
