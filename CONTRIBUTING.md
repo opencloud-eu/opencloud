@@ -83,7 +83,7 @@ Before creating bug reports, please check [this list](#before-submitting-a-bug-r
 
 *   **Make sure you are running a recent version** Usually, developers' interest in old versions of software drops very fast once a new version has been released. So the general requirement is: Use the latest released version or even the current master to reproduce problems that you might encounter. That helps a lot to attract developers attention.
 *   **Determine which [repository](https://github.com/opencloud-eu) the problem should be reported in**.
-*   **Perform a [cursory search](https://github.com/search?q=+is%3Aissue+org%3Aopencloud-eu%3Atype=issues)** with possibly a more granular filter on the repository, to see if the problem has already been reported. If it has **and the issue is still open**, add a comment to the existing issue instead of opening a new one **if you have new information**. Please abstain from adding "+1" comments. Instead use the GitHub reaction emojis to indicate that you are affected by the issue as well.
+*   **Perform a [cursory search](https://github.com/search?q=org%3Aopencloud-eu+type%3Aissue+&type=issues)** with possibly a more granular filter on the repository, to see if the problem has already been reported. If it has **and the issue is still open**, add a comment to the existing issue instead of opening a new one **if you have new information**. Please abstain from adding "+1" comments. Instead use the GitHub reaction emojis to indicate that you are affected by the issue as well.
 
 #### How Do I Submit A (Good) Bug Report
 
