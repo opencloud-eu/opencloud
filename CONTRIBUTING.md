@@ -49,7 +49,7 @@ The OpenCloud project follows the strict GitHub workflow of development as brief
 
 ### OpenCloud Company, Engineering Partners and Community
 
-OpenCloud is largely created by developers who are employed by the [OpenCloud company](https://opencloud.eu), which is located in Germany. It is providing support for OpenCloud for customers mainly in the EC. In addition, there are engineering partners who also work full time on OpenCloud related code, for example on the component [REVA](https://github.com/cs3org/reva/).
+OpenCloud is largely created by developers who are employed by the [OpenCloud company](https://opencloud.eu), which is located in Germany. It is providing support for OpenCloud for customers mainly in the EU. In addition, there are engineering partners who also work full time on OpenCloud related code, for example on the component [REVA](https://github.com/cs3org/reva/).
 
 Because of that fact, the pace that the development is moving forward is sometimes high for people who are not willing and/or able to spend a comparable amount of time to contribute. Even though this can be a challenge, it should not scare anybody away. Here is our clear commitment that we feel honored by everybody who is interested in our work and improves it, no matter how big the contribution might be.
 
