@@ -51,7 +51,6 @@
       "defaults": {
         "logo": "themes/opencloud/assets/logo.svg",
         "favicon": "themes/opencloud/assets/favicon.ico",
-        "background": "themes/opencloud/assets/background.png",
         "designTokens": {
           "breakpoints": {
             "xsmall-max": "",
