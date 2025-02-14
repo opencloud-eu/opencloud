@@ -27,8 +27,17 @@ include ../../.make/generate.mk
 .PHONY: ci-go-generate
 ci-go-generate: # CI runs ci-node-generate automatically before this target
 
+.PHONY: ci-node-generate-no-clone
+ci-node-generate-no-clone: make-assets
+
 .PHONY: ci-node-generate
 ci-node-generate: pull-assets
+
+.PHONY: make-assets
+make-assets:
+	make -C assets/core/origin release
+	tar xfv assets/core/origin/release/web.tar.gz -C assets/core/
+	rm -rf assets/core/origin
 
 .PHONY: pull-assets
 pull-assets:

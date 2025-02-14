@@ -1,0 +1,18 @@
+---
+when:
+  - event: push
+    branch: main
+  - event: tag
+    ref: refs/tags/v*
+  - event: manual
+  - event: pull_request
+
+
+steps:
+  - name: unit-tests
+    image: golang:1.23
+    commands:
+      - make test
+
+depends_on:
+  - coding

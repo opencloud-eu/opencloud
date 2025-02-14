@@ -1,0 +1,32 @@
+---
+when:
+  - event: push
+    branch: main
+  - event: tag
+    ref: refs/tags/v*
+  - event: manual
+  - event: pull_request
+
+steps:
+  #- name: coding-standard-php
+  #  image: owncloudci/php:8.2
+  #  depends_on: []
+  #  environment:
+  #    COMPOSER_HOME: /woodpecker/src/github.com/opencloud-eu/opencloud/.cache/composer
+  #  commands:
+  #    - make vendor-bin-codestyle
+  #- name: code-sniffer-standard-php
+  #  image: owncloudci/php:8.2
+  #  depends_on: []
+  #  environment:
+  #    COMPOSER_HOME: /woodpecker/src/github.com/opencloud-eu/opencloud/.cache/composer
+  #  commands:
+  #    - make vendor-bin-codesniffer
+  - name: code-style-golang
+    image: owncloudci/golang:1.22
+    depends_on: []
+    commands:
+      - mkdir -p cache/checkstyle
+  #    - make ci-golangci-lint
+  #    - mv checkstyle.xml cache/checkstyle/checkstyle.xml
+
