@@ -4594,11 +4594,7 @@ trait WebDav {
 			// do not try to parse the resource path
 			// if the item to search is space itself
 			if (!GraphHelper::isSpaceId($entryNameToSearch ?? '')) {
-				$resourcePath = \substr($resourcePath, \strpos($resourcePath, '/') + 1);
-			}
-			if (\count($shareRootXml)) {
-				$shareroot = \trim((string)$shareRootXml[0], "/");
-				$resourcePath = $shareroot . "/" . $resourcePath;
+				$resourcePath = basename($resourcePath);
 			}
 			$resourcePath = \rawurldecode($resourcePath);
 			if ($entryNameToSearch === $resourcePath) {

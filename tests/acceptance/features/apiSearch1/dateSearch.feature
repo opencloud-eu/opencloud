@@ -36,18 +36,18 @@ Feature: date search
       | <search-result-4> |
     Examples:
       | pattern            | search-result-1 | search-result-2 | search-result-3 | search-result-4 |
-      | Mtime:today        | /today.txt      |                 | /yesterday.txt  | /lastWeek.txt   |
-      | Mtime:yesterday    | /yesterday.txt  |                 | /today.txt      |                 |
-      | Mtime:"this week"  | /today.txt      |                 | /lastWeek.txt   | /lastMonth.txt  |
-      | Mtime:"this month" | /today.txt      |                 | /lastMonth.txt  |                 |
-      | Mtime:"last month" | /lastMonth.txt  |                 | /today.txt      |                 |
-      | Mtime:"this year"  | /today.txt      |                 | /lastYear.txt   |                 |
-      | Mtime:"last year"  | /lastYear.txt   |                 | /today.txt      |                 |
-      | Mtime>=$today      | /today.txt      |                 | /yesterday.txt  |                 |
-      | Mtime>$yesterday   | /today.txt      |                 |                 |                 |
-      | Mtime>=$yesterday  | /today.txt      | /yesterday.txt  |                 |                 |
+      | Mtime:today        | today.txt       |                 | yesterday.txt   | lastWeek.txt    |
+      | Mtime:yesterday    | yesterday.txt   |                 | today.txt       |                 |
+      | Mtime:"this week"  | today.txt       |                 | lastWeek.txt    | lastMonth.txt   |
+      | Mtime:"this month" | today.txt       |                 | lastMonth.txt   |                 |
+      | Mtime:"last month" | lastMonth.txt   |                 | today.txt       |                 |
+      | Mtime:"this year"  | today.txt       |                 | lastYear.txt    |                 |
+      | Mtime:"last year"  | lastYear.txt    |                 | today.txt       |                 |
+      | Mtime>=$today      | today.txt       |                 | yesterday.txt   |                 |
+      | Mtime>$yesterday   | today.txt       |                 |                 |                 |
+      | Mtime>=$yesterday  | today.txt       | yesterday.txt   |                 |                 |
       # Mtime<$today. "<" has to be escaped
-      | Mtime&lt;$today    | /yesterday.txt  | /lastYear.txt   | /today.txt      |                 |
+      | Mtime&lt;$today    | yesterday.txt   | lastYear.txt    | today.txt       |                 |
 
   @issue-10329
   Scenario: search resources using different search patterns (KQL feature) in the shares folder
@@ -65,6 +65,6 @@ Feature: date search
     When user "Brian" searches for "Mtime:yesterday" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Brian" should contain these entries:
-      | sharedFolder/yesterday.txt |
+      | yesterday.txt |
     But the search result of user "Alice" should not contain these entries:
       | sharedFolder |

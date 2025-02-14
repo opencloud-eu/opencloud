@@ -182,7 +182,11 @@ class SearchContext implements Context {
 				$property['value'],
 				$user
 			);
-			$fileResultProperty = $fileResult->xpath("d:propstat//" . $property['name']);
+			if (is_object($fileResult)) {
+				$fileResultProperty = $fileResult->xpath("d:propstat//" . $property['name']);
+			} else {
+				throw new Exception("Expected fileResult to be an object, but found " . gettype($fileResult));
+			}
 			if ($fileResultProperty) {
 				Assert::assertMatchesRegularExpression(
 					"/" . $property['value'] . "/",

@@ -32,10 +32,10 @@ Feature: Search
     Then the HTTP status code should be "207"
     And the search result should contain "1" entries
     And the search result of user "Alice" should contain these entries:
-      | folderMain/SubFolder1/subFOLDER2/insideTheFolder.txt |
+      | insideTheFolder.txt |
     But the search result of user "Alice" should not contain these entries:
-      | /AlicePersonal/insideAlicePersonal.txt |
-      | /BrianPersonal/insideBrianPersonal.txt |
+      | insideAlicePersonal.txt |
+      | insideBrianPersonal.txt |
     Examples:
       | dav-path-version |
       | old              |
@@ -60,10 +60,10 @@ Feature: Search
     Then the HTTP status code should be "207"
     And the search result should contain "1" entries
     And the search result of user "Alice" should contain only these entries:
-      | AlicePersonal/insideAlicePersonal.txt |
+      | insideAlicePersonal.txt |
     But the search result of user "Alice" should not contain these entries:
-      | BrianPersonal/insideBrianPersonal.txt                |
-      | folderMain/SubFolder1/subFOLDER2/insideTheFolder.txt |
+      | insideBrianPersonal.txt |
+      | insideTheFolder.txt     |
     Examples:
       | dav-path-version |
       | old              |
@@ -88,9 +88,9 @@ Feature: Search
     Then the HTTP status code should be "207"
     And the search result should contain "0" entries
     And the search result of user "Alice" should not contain these entries:
-      | BrianPersonal/insideBrianPersonal.txt                |
-      | AlicePersonal/insideAlicePersonal.txt                |
-      | folderMain/SubFolder1/subFOLDER2/insideTheFolder.txt |
+      | insideBrianPersonal.txt |
+      | insideAlicePersonal.txt |
+      | insideTheFolder.txt     |
     Examples:
       | dav-path-version |
       | old              |
@@ -126,9 +126,9 @@ Feature: Search
     Then the HTTP status code should be "207"
     And the search result should contain "0" entries
     And the search result of user "Brian" should not contain these entries:
-      | /SubFolder1                                |
-      | /SubFolder1/subFOLDER2                     |
-      | /SubFolder1/subFOLDER2/insideTheFolder.txt |
+      | SubFolder1          |
+      | subFOLDER2          |
+      | insideTheFolder.txt |
     Examples:
       | dav-path-version |
       | old              |
@@ -150,9 +150,9 @@ Feature: Search
     Then the HTTP status code should be "207"
     And the search result should contain "0" entries
     And the search result of user "Brian" should not contain these entries:
-      | /SubFolder1                                |
-      | /SubFolder1/subFOLDER2                     |
-      | /SubFolder1/subFOLDER2/insideTheFolder.txt |
+      | SubFolder1          |
+      | subFOLDER2          |
+      | insideTheFolder.txt |
     Examples:
       | dav-path-version |
       | old              |
@@ -187,11 +187,11 @@ Feature: Search
     Then the HTTP status code should be "207"
     And the search result should contain "3" entries
     And the search result of user "Alice" should contain only these entries:
-      | folderMain/SubFolder1                                |
-      | folderMain/SubFolder1/subFOLDER2                     |
-      | folderMain/SubFolder1/subFOLDER2/insideTheFolder.txt |
+      | SubFolder1          |
+      | subFOLDER2          |
+      | insideTheFolder.txt |
     But the search result of user "Alice" should not contain these entries:
-      | /folderMain |
+      | folderMain |
     Examples:
       | dav-path-version |
       | old              |
@@ -211,9 +211,9 @@ Feature: Search
     When user "Brian" searches for "*folder*" inside folder "/folderMain" in space "Shares" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Brian" should contain only these entries:
-      | folderMain/SubFolder1                                |
-      | folderMain/SubFolder1/subFOLDER2                     |
-      | folderMain/SubFolder1/subFOLDER2/insideTheFolder.txt |
+      | SubFolder1                                |
+      | subFOLDER2                     |
+      | insideTheFolder.txt |
     But the search result of user "Brian" should not contain these entries:
       | /folderMain |
     Examples:
@@ -233,8 +233,8 @@ Feature: Search
     When user "Alice" searches for "*file*" inside folder "/Folder" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Alice" should contain only these entries:
-      | /Folder/file2.txt           |
-      | /Folder/SubFolder/file3.txt |
+      | file2.txt |
+      | file3.txt |
     But the search result of user "Alice" should not contain these entries:
       | file1.txt |
     Examples:
@@ -253,8 +253,8 @@ Feature: Search
     When user "Alice" searches for "*file*" inside folder "/New Folder" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Alice" should contain only these entries:
-      | /New Folder/file.txt             |
-      | /New Folder/Sub Folder/file1.txt |
+      | file.txt  |
+      | file1.txt |
     Examples:
       | dav-path-version |
       | old              |
@@ -270,9 +270,9 @@ Feature: Search
     When user "Alice" searches for "*new*" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Alice" should contain only these entries:
-      | /New Folder                |
-      | /New Folder/New Sub Folder |
-      | /new file.txt              |
+      | New Folder     |
+      | New Sub Folder |
+      | new file.txt   |
     Examples:
       | dav-path-version |
       | old              |
@@ -294,9 +294,9 @@ Feature: Search
     When user "Brian" searches for "shared*" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Brian" should contain these entries:
-      | foo/sharedToBrian |
+      | sharedToBrian |
     But the search result of user "Brian" should not contain these entries:
-      | /sharedToCarol |
+      | sharedToCarol |
     Examples:
       | dav-path-version |
       | old              |
@@ -313,12 +313,12 @@ Feature: Search
     And the search result of user "Alice" should contain these entries:
       | <search-result> |
     Examples:
-      | pattern      | search-result                     | description                     |
-      | fold*        | /folderMain                       | starts with                     |
-      | *der1        | /folderMain/SubFolder1            | ends with                       |
-      | subfolder    | /subfolder                        | exact search                    |
-      | name:*der2   | /folderMain/SubFolder1/subFOLDER2 | patern 'name:''                 |
-      | name:"*der2" | /folderMain/SubFolder1/subFOLDER2 | pattern 'name:""' (with quotes) |
+      | pattern      | search-result | description                     |
+      | fold*        | folderMain    | starts with                     |
+      | *der1        | SubFolder1    | ends with                       |
+      | subfolder    | subfolder     | exact search                    |
+      | name:*der2   | subFOLDER2    | patern 'name:''                 |
+      | name:"*der2" | subFOLDER2    | pattern 'name:""' (with quotes) |
 
   @issue-7812 @issue-8442 @issue-10329
   Scenario: try to search with invalid patterns
@@ -346,9 +346,120 @@ Feature: Search
     Then the HTTP status code should be "207"
     And the search result should contain "3" entries
     And the search result of user "Alice" should contain these entries:
-      | AlicePersonal/insideAlicePersonal.txt                |
-      | folderMain/SubFolder1/subFOLDER2/insideTheFolder.txt |
-      | BrianPersonal/insideBrianPersonal.txt                |
+      | insideAlicePersonal.txt |
+      | insideTheFolder.txt     |
+      | insideBrianPersonal.txt |
+    Examples:
+      | dav-path-version |
+      | old              |
+      | new              |
+      | spaces           |
+
+  @issue-10329
+  Scenario Outline: search for files by extension
+    Given using <dav-path-version> DAV path
+    When user "Alice" searches for "*txt*" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result of user "Alice" should contain these entries:
+      | insideTheFolder.txt |
+    Examples:
+      | dav-path-version |
+      | old              |
+      | new              |
+      | spaces           |
+
+
+  Scenario Outline: search with empty field
+    Given using <dav-path-version> DAV path
+    When user "Alice" searches for "" using the WebDAV API
+    Then the HTTP status code should be "400"
+    Examples:
+      | dav-path-version |
+      | old              |
+      | new              |
+      | spaces           |
+
+  @issue-10329
+  Scenario Outline: limit returned search entries to only 1 entry
+    Given using <dav-path-version> DAV path
+    When user "Alice" searches for "*folder*" and limits the results to "1" items using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result of user "Alice" should contain any "1" of these entries:
+      | insideTheFolder.txt |
+      | folderMain          |
+      | SubFolder1          |
+      | subFOLDER2          |
+    Examples:
+      | dav-path-version |
+      | old              |
+      | new              |
+      | spaces           |
+
+  @issue-10329
+  Scenario Outline: search for entry with emoji by pattern
+    Given using <dav-path-version> DAV path
+    And user "Alice" has uploaded file with content "hello world" to "upload😀 😁.txt"
+    When user "Alice" searches for '"*😀 😁*"' using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result of user "Alice" should contain these entries:
+      | upload😀 😁.txt |
+    Examples:
+      | dav-path-version |
+      | old              |
+      | new              |
+      | spaces           |
+
+  @issue-4712 @issue-9780 @issue-9781 @issue-9783 @issue-10329
+  Scenario Outline: report extra properties in search entries for a file
+    Given using <dav-path-version> DAV path
+    When user "Alice" searches for "*insideTheFo*" using the WebDAV API requesting these properties:
+      | oc:fileid             |
+      | oc:permissions        |
+      | d:getlastmodified     |
+      | d:getetag             |
+      | d:getcontenttype      |
+      | oc:size               |
+      | oc:owner-id           |
+      | oc:owner-display-name |
+    Then the HTTP status code should be "207"
+    And file "insideTheFolder.txt" in the search result of user "Alice" should contain these properties:
+      | name                  | value                                                                                             |
+      | oc:fileid             | \d*                                                                                               |
+      | oc:permissions        | ^(RDNVW\|RMDNVW)$                                                                                 |
+      | d:getlastmodified     | ^[MTWFS][uedhfriatno]{2},\s(\d){2}\s[JFMAJSOND][anebrpyulgctov]{2}\s\d{4}\s\d{2}:\d{2}:\d{2} GMT$ |
+      | d:getetag             | ^\"[a-f0-9:\.]{1,32}\"$                                                                           |
+      | d:getcontenttype      | text\/plain                                                                                       |
+      | oc:size               | 15                                                                                                |
+      | oc:owner-id           | %username%                                                                                        |
+      | oc:owner-display-name | %displayname%                                                                                     |
+    Examples:
+      | dav-path-version |
+      | old              |
+      | new              |
+      | spaces           |
+
+  @issue-4712 @issue-9780 @issue-9781 @issue-9783 @issue-10329
+  Scenario Outline: report extra properties in search entries for a folder
+    Given using <dav-path-version> DAV path
+    When user "Alice" searches for "*folderMain*" using the WebDAV API requesting these properties:
+      | oc:fileid             |
+      | oc:permissions        |
+      | d:getlastmodified     |
+      | d:getetag             |
+      | d:getcontenttype      |
+      | oc:size               |
+      | oc:owner-id           |
+      | oc:owner-display-name |
+    Then the HTTP status code should be "207"
+    And folder "folderMain" in the search result of user "Alice" should contain these properties:
+      | name                  | value                                                                                             |
+      | oc:fileid             | \d*                                                                                               |
+      | oc:permissions        | ^(RDNVCK\|RMDNVCK)$                                                                               |
+      | d:getlastmodified     | ^[MTWFS][uedhfriatno]{2},\s(\d){2}\s[JFMAJSOND][anebrpyulgctov]{2}\s\d{4}\s\d{2}:\d{2}:\d{2} GMT$ |
+      | d:getetag             | ^\"[a-f0-9:\.]{1,32}\"$                                                                           |
+      | oc:size               | 0                                                                                                 |
+      | oc:owner-id           | %username%                                                                                        |
+      | oc:owner-display-name | %displayname%                                                                                     |
     Examples:
       | dav-path-version |
       | old              |

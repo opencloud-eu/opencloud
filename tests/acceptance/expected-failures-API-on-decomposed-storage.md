@@ -63,15 +63,6 @@ _ocdav: api compatibility, return correct status code_
 - [coreApiAuth/webDavLOCKAuth.feature:46](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiAuth/webDavLOCKAuth.feature#L46)
 - [coreApiAuth/webDavLOCKAuth.feature:58](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiAuth/webDavLOCKAuth.feature#L58)
 
-#### [Missing properties in REPORT response](https://github.com/owncloud/ocis/issues/9780), [d:getetag property has empty value in REPORT response](https://github.com/opencloud-eu/opencloud/issues/9783)
-
-- [coreApiWebdavOperations/search.feature:180](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavOperations/search.feature#L180)
-- [coreApiWebdavOperations/search.feature:181](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavOperations/search.feature#L181)
-- [coreApiWebdavOperations/search.feature:182](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavOperations/search.feature#L182)
-- [coreApiWebdavOperations/search.feature:208](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavOperations/search.feature#L208)
-- [coreApiWebdavOperations/search.feature:209](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavOperations/search.feature#L209)
-- [coreApiWebdavOperations/search.feature:210](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavOperations/search.feature#L210)
-
 #### [Support for favorites](https://github.com/owncloud/ocis/issues/1228)
 
 - [coreApiFavorites/favorites.feature:101](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiFavorites/favorites.feature#L101)
@@ -157,23 +148,6 @@ _ocdav: api compatibility, return correct status code_
 - [coreApiWebdavProperties/copyFile.feature:1094](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavProperties/copyFile.feature#L1094)
 - [coreApiWebdavProperties/copyFile.feature:1095](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavProperties/copyFile.feature#L1095)
 - [coreApiWebdavProperties/copyFile.feature:1096](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavProperties/copyFile.feature#L1096)
-
-#### [same href in REPORT request for all dav-path-version](https://github.com/owncloud/ocis/issues/7060)
-
-- [coreApiWebdavOperations/search.feature:42](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavOperations/search.feature#L42)
-- [coreApiWebdavOperations/search.feature:43](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavOperations/search.feature#L43)
-- [coreApiWebdavOperations/search.feature:60](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavOperations/search.feature#L60)
-- [coreApiWebdavOperations/search.feature:61](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavOperations/search.feature#L61)
-- [coreApiWebdavOperations/search.feature:79](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavOperations/search.feature#L79)
-- [coreApiWebdavOperations/search.feature:80](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavOperations/search.feature#L80)
-- [coreApiWebdavOperations/search.feature:110](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavOperations/search.feature#L110)
-- [coreApiWebdavOperations/search.feature:111](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavOperations/search.feature#L111)
-- [coreApiWebdavOperations/search.feature:130](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavOperations/search.feature#L130)
-- [coreApiWebdavOperations/search.feature:131](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavOperations/search.feature#L131)
-- [coreApiWebdavOperations/search.feature:151](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavOperations/search.feature#L151)
-- [coreApiWebdavOperations/search.feature:152](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavOperations/search.feature#L152)
-- [coreApiWebdavOperations/search.feature:229](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavOperations/search.feature#L229)
-- [coreApiWebdavOperations/search.feature:230](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavOperations/search.feature#L230)
 
 #### [Trying to restore personal file to file of share received folder returns 403 but the share file is deleted (new dav path)](https://github.com/owncloud/ocis/issues/10356)
 

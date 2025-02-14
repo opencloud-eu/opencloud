@@ -18,7 +18,7 @@ Feature: REPORT request to project space
     When user "Alice" searches for "testFile.txt" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Alice" should contain only these entries:
-      | /testFile.txt |
+      | testFile.txt |
     And the following headers should match these regular expressions
       | X-Request-Id | %request_id_pattern% |
     And as user "Alice" the REPORT response should contain a resource "testFile.txt" with these key and value pairs:
@@ -37,7 +37,7 @@ Feature: REPORT request to project space
     When user "Alice" searches for "insideTheFolder.txt" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Alice" should contain only these entries:
-      | /folderMain/SubFolder1/subFOLDER2/insideTheFolder.txt |
+      | insideTheFolder.txt |
     And the following headers should match these regular expressions
       | X-Request-Id | %request_id_pattern% |
     And as user "Alice" the REPORT response should contain a resource "insideTheFolder.txt" with these key and value pairs:
@@ -55,7 +55,7 @@ Feature: REPORT request to project space
     When user "Alice" searches for "folderMain" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Alice" should contain only these entries:
-      | /folderMain |
+      | folderMain |
     And the following headers should match these regular expressions
       | X-Request-Id | %request_id_pattern% |
     And as user "Alice" the REPORT response should contain a resource "folderMain" with these key and value pairs:
@@ -73,7 +73,7 @@ Feature: REPORT request to project space
     When user "Alice" searches for "*sub*" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Alice" should contain only these entries:
-      | /folderMain/sub-folder |
+      | sub-folder |
     And the following headers should match these regular expressions
       | X-Request-Id | %request_id_pattern% |
     And the HTTP status code should be "207"

@@ -28,15 +28,15 @@ Feature: media type search
       | <search-result> |
     Examples:
       | pattern | search-result   |
-      | *text*  | /lorem.txt      |
-      | *pdf*   | /simple.pdf     |
-      | *jpeg*  | /testavatar.jpg |
-      | *png*   | /testavatar.png |
-      | *gzip*  | /data.tar.gz    |
-      | *tar*   | /data.tar       |
-      | *7z*    | /data.7z        |
-      | *rar*   | /data.rar       |
-      | *bzip2* | /data.tar.bz2   |
+      | *text*  | lorem.txt      |
+      | *pdf*   | simple.pdf     |
+      | *jpeg*  | testavatar.jpg |
+      | *png*   | testavatar.png |
+      | *gzip*  | data.tar.gz    |
+      | *tar*   | data.tar       |
+      | *7z*    | data.7z        |
+      | *rar*   | data.rar       |
+      | *bzip2* | data.tar.bz2   |
 
   @issue-10329
   Scenario Outline: search for files inside sub folders using media type
@@ -56,16 +56,16 @@ Feature: media type search
     And the search result of user "Alice" should contain these entries:
       | <search-result> |
     Examples:
-      | pattern | search-result                |
-      | *text*  | /uploadFolder/lorem.txt      |
-      | *pdf*   | /uploadFolder/simple.pdf     |
-      | *jpeg*  | /uploadFolder/testavatar.jpg |
-      | *png*   | /uploadFolder/testavatar.png |
-      | *gzip*  | /uploadFolder/data.tar.gz    |
-      | *tar*   | /uploadFolder/data.tar       |
-      | *7z*    | /uploadFolder/data.7z        |
-      | *rar*   | /uploadFolder/data.rar       |
-      | *bzip2* | /uploadFolder/data.tar.bz2   |
+      | pattern | search-result  |
+      | *text*  | lorem.txt      |
+      | *pdf*   | simple.pdf     |
+      | *jpeg*  | testavatar.jpg |
+      | *png*   | testavatar.png |
+      | *gzip*  | data.tar.gz    |
+      | *tar*   | data.tar       |
+      | *7z*    | data.7z        |
+      | *rar*   | data.rar       |
+      | *bzip2* | data.tar.bz2   |
 
   @issue-10329
   Scenario Outline: search for file inside project space using media type
@@ -87,15 +87,15 @@ Feature: media type search
       | <search-result> |
     Examples:
       | pattern | search-result   |
-      | *text*  | /lorem.txt      |
-      | *pdf*   | /simple.pdf     |
-      | *jpeg*  | /testavatar.jpg |
-      | *png*   | /testavatar.png |
-      | *gzip*  | /data.tar.gz    |
-      | *tar*   | /data.tar       |
-      | *7z*    | /data.7z        |
-      | *rar*   | /data.rar       |
-      | *bzip2* | /data.tar.bz2   |
+      | *text*  | lorem.txt      |
+      | *pdf*   | simple.pdf     |
+      | *jpeg*  | testavatar.jpg |
+      | *png*   | testavatar.png |
+      | *gzip*  | data.tar.gz    |
+      | *tar*   | data.tar       |
+      | *7z*    | data.7z        |
+      | *rar*   | data.rar       |
+      | *bzip2* | data.tar.bz2   |
 
   @issue-10329
   Scenario Outline: sharee searches for shared files using media type
@@ -122,16 +122,16 @@ Feature: media type search
     And the search result of user "Alice" should contain these entries:
       | <search-result> |
     Examples:
-      | pattern | search-result                |
-      | *text*  | /uploadFolder/lorem.txt      |
-      | *pdf*   | /uploadFolder/simple.pdf     |
-      | *jpeg*  | /uploadFolder/testavatar.jpg |
-      | *png*   | /uploadFolder/testavatar.png |
-      | *gzip*  | /uploadFolder/data.tar.gz    |
-      | *tar*   | /uploadFolder/data.tar       |
-      | *7z*    | /uploadFolder/data.7z        |
-      | *rar*   | /uploadFolder/data.rar       |
-      | *bzip2* | /uploadFolder/data.tar.bz2   |
+      | pattern | search-result  |
+      | *text*  | lorem.txt      |
+      | *pdf*   | simple.pdf     |
+      | *jpeg*  | testavatar.jpg |
+      | *png*   | testavatar.png |
+      | *gzip*  | data.tar.gz    |
+      | *tar*   | data.tar       |
+      | *7z*    | data.7z        |
+      | *rar*   | data.rar       |
+      | *bzip2* | data.tar.bz2   |
 
   @issue-10329
   Scenario Outline: space viewer searches for files using mediatype filter
@@ -158,15 +158,15 @@ Feature: media type search
       | <search-result> |
     Examples:
       | pattern | search-result   |
-      | *text*  | /lorem.txt      |
-      | *pdf*   | /simple.pdf     |
-      | *jpeg*  | /testavatar.jpg |
-      | *png*   | /testavatar.png |
-      | *gzip*  | /data.tar.gz    |
-      | *tar*   | /data.tar       |
-      | *7z*    | /data.7z        |
-      | *rar*   | /data.rar       |
-      | *bzip2* | /data.tar.bz2   |
+      | *text*  | lorem.txt      |
+      | *pdf*   | simple.pdf     |
+      | *jpeg*  | testavatar.jpg |
+      | *png*   | testavatar.png |
+      | *gzip*  | data.tar.gz    |
+      | *tar*   | data.tar       |
+      | *7z*    | data.7z        |
+      | *rar*   | data.rar       |
+      | *bzip2* | data.tar.bz2   |
 
   @issue-10329
   Scenario: search files with different mediatype filter

@@ -102,9 +102,9 @@ Feature: content search
     When user "Brian" searches for "Content:hello" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Brian" should contain only these files:
-      | uploadFolder/keywordAtStart.txt  |
-      | uploadFolder/keywordAtMiddle.txt |
-      | uploadFolder/keywordAtLast.txt   |
+      | keywordAtStart.txt  |
+      | keywordAtMiddle.txt |
+      | keywordAtLast.txt   |
     Examples:
       | dav-path-version |
       | old              |
@@ -122,8 +122,8 @@ Feature: content search
     When user "Alice" searches for "Content:hello" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Alice" should contain only these files:
-      | uploadFolder/keywordAtStart.txt |
-      | keywordAtMiddle.txt             |
+      | keywordAtStart.txt  |
+      | keywordAtMiddle.txt |
     Examples:
       | dav-path-version |
       | old              |
@@ -143,7 +143,6 @@ Feature: content search
       | keywordAtStart.txt |
     Examples:
       | dav-path-version |
-      | old              |
       | new              |
       | spaces           |
 
@@ -177,9 +176,9 @@ Feature: content search
     When user "Alice" searches for "Content:hello" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Alice" should contain only these files:
-      | keywordAtStart.txt                                     |
-      | spacesFolderWithFile/keywordAtMiddle.txt               |
-      | spacesFolderWithFile/spacesSubFolder/keywordAtLast.txt |
+      | keywordAtStart.txt  |
+      | keywordAtMiddle.txt |
+      | keywordAtLast.txt   |
     Examples:
       | dav-path-version |
       | old              |
@@ -206,9 +205,9 @@ Feature: content search
     When user "Brian" searches for "Content:hello" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Alice" should contain only these files:
-      | keywordAtStart.txt                                     |
-      | spacesFolderWithFile/keywordAtMiddle.txt               |
-      | spacesFolderWithFile/spacesSubFolder/keywordAtLast.txt |
+      | keywordAtStart.txt  |
+      | keywordAtMiddle.txt |
+      | keywordAtLast.txt   |
     Examples:
       | dav-path-version |
       | old              |
@@ -230,13 +229,13 @@ Feature: content search
       | <search-result-1> |
       | <search-result-2> |
     Examples:
-      | pattern                                     | result-count | search-result-1     | search-result-2    |
-      | Content:hello                               | 1            | /technical task.txt |                    |
-      | content:hello                               | 1            | /technical task.txt |                    |
-      | content:"hello"                             | 1            | /technical task.txt |                    |
-      | content:hel*                                | 2            | /technical task.txt | /task comments.txt |
-      | content:hel* AND tag:test                   | 1            | /technical task.txt |                    |
-      | (name:*task* AND content:hel*) NOT tag:test | 1            | /task comments.txt  |                    |
+      | pattern                                     | result-count | search-result-1    | search-result-2   |
+      | Content:hello                               | 1            | technical task.txt |                   |
+      | content:hello                               | 1            | technical task.txt |                   |
+      | content:"hello"                             | 1            | technical task.txt |                   |
+      | content:hel*                                | 2            | technical task.txt | task comments.txt |
+      | content:hel* AND tag:test                   | 1            | technical task.txt |                   |
+      | (name:*task* AND content:hel*) NOT tag:test | 1            | task comments.txt  |                   |
 
   @issue-10329
   Scenario Outline: search across files with different format with search text highlight

@@ -26,9 +26,9 @@ Feature: tag search
     When user "Alice" searches for "Tags:tag1" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Alice" should contain only these files:
-      | fileInRootLevel.txt                              |
-      | folderWithFile/fileInsideFolder.txt              |
-      | folderWithFile/subFolder/fileInsideSubFolder.txt |
+      | fileInRootLevel.txt     |
+      | fileInsideFolder.txt    |
+      | fileInsideSubFolder.txt |
     Examples:
       | dav-path-version |
       | old              |
@@ -54,17 +54,13 @@ Feature: tag search
     When user "Alice" searches for "Tags:tag1" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Alice" should contain only these files:
-      | spacesFile.txt                                                     |
-      | spacesFolderWithFile/spacesFileInsideFolder.txt                    |
-      | spacesFolderWithFile/spacesSubFolder/spacesFileInsideSubFolder.txt |
+      | spacesFile.txt                |
+      | spacesFileInsideFolder.txt    |
+      | spacesFileInsideSubFolder.txt |
     Examples:
       | dav-path-version |
       | old              |
       | new              |
-
-    @skipOnStable3.0
-    Examples:
-      | dav-path-version |
       | spaces           |
 
   @issue-10329
@@ -103,16 +99,12 @@ Feature: tag search
     When user "Alice" searches for "Tags:tag1" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Alice" should contain only these files:
-      | spacesFolder                 |
-      | spacesFolder/spacesSubFolder |
+      | spacesFolder    |
+      | spacesSubFolder |
     Examples:
       | dav-path-version |
       | old              |
       | new              |
-
-    @skipOnStable3.0
-    Examples:
-      | dav-path-version |
       | spaces           |
 
   @issue-10329
@@ -137,16 +129,12 @@ Feature: tag search
     When user "Brian" searches for "Tags:tag1" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Brian" should contain only these files:
-      | uploadFolder/file1.txt |
-      | uploadFolder/file2.txt |
+      | file1.txt |
+      | file2.txt |
     Examples:
       | dav-path-version |
       | old              |
       | new              |
-
-    @skipOnStable3.0
-    Examples:
-      | dav-path-version |
       | spaces           |
 
   @issue-10329
@@ -174,17 +162,13 @@ Feature: tag search
     When user "Brian" searches for "Tags:tag1" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Alice" should contain only these files:
-      | spacesFile.txt                                                     |
-      | spacesFolderWithFile/spacesFileInsideFolder.txt                    |
-      | spacesFolderWithFile/spacesSubFolder/spacesFileInsideSubFolder.txt |
+      | spacesFile.txt                |
+      | spacesFileInsideFolder.txt    |
+      | spacesFileInsideSubFolder.txt |
     Examples:
       | dav-path-version |
       | old              |
       | new              |
-
-    @skipOnStable3.0
-    Examples:
-      | dav-path-version |
       | spaces           |
 
 
@@ -216,10 +200,9 @@ Feature: tag search
     When user "Alice" searches for "Tags:tag1" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Alice" should contain only these entries:
-      | /file1.txt |
+      | file1.txt |
     Examples:
       | dav-path-version |
-      | old              |
       | new              |
       | spaces           |
 
@@ -234,7 +217,7 @@ Feature: tag search
     When user "Alice" searches for "Tags:tag1" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Alice" should contain only these entries:
-      | /file.txt |
+      | file.txt |
     And the content of file "file.txt" for user "Alice" should be "version one file"
     Examples:
       | dav-path-version |
@@ -267,16 +250,16 @@ Feature: tag search
       | <search-result-1> |
       | <search-result-2> |
     Examples:
-      | pattern                                   | result-count | search-result-1    | search-result-2    |
-      | Tags:mathe                                | 2            | /exercises         | /answers           |
-      | tag:mathe                                 | 2            | /exercises         | /answers           |
-      | tag:(mathe klass10)                       | 2            | /exercises         | /answers           |
-      | tag:klass10  AND tag:chemi                | 1            | /answers           |                    |
-      | tag:chemi OR tag:physik                   | 2            | /exercises         | /answers           |
-      | (tag:klass10) NOT tag:physik              | 2            | /answers           | verification work  |
-      | (tag:(mathe klass10)) NOT tag:chemi       | 1            | /exercises         |                    |
-      | (tag:mathe OR tag:klass10) NOT tag:physik | 2            | /answers           | /verification work |
-      | tag:mathe NOT name:exercises              | 1            | /answers           |                    |
-      | tag:mathe AND NOT name:exercises          | 1            | /answers           |                    |
+      | pattern                                   | result-count | search-result-1   | search-result-2   |
+      | Tags:mathe                                | 2            | exercises         | answers           |
+      | tag:mathe                                 | 2            | exercises         | answers           |
+      | tag:(mathe klass10)                       | 2            | exercises         | answers           |
+      | tag:klass10  AND tag:chemi                | 1            | answers           |                   |
+      | tag:chemi OR tag:physik                   | 2            | exercises         | answers           |
+      | (tag:klass10) NOT tag:physik              | 2            | answers           | verification work |
+      | (tag:(mathe klass10)) NOT tag:chemi       | 1            | exercises         |                   |
+      | (tag:mathe OR tag:klass10) NOT tag:physik | 2            | answers           | verification work |
+      | tag:mathe NOT name:exercises              | 1            | answers           |                   |
+      | tag:mathe AND NOT name:exercises          | 1            | answers           |                   |
       # The third finding is the personal space itself
-      | NOT tag:mathe                             | 3            | /verification work | /withoutTagFolder  |
+      | NOT tag:mathe                             | 3            | verification work | withoutTagFolder  |

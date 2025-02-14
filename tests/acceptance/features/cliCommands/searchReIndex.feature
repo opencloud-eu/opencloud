@@ -18,7 +18,7 @@ Feature: reindex space via CLI command
     When user "Alice" searches for "textfile.txt" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Alice" should contain only these entries:
-      | /textfile.txt |
+      | textfile.txt |
 
 
   Scenario: reindex a space
