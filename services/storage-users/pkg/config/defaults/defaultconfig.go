@@ -91,7 +91,7 @@ func DefaultConfig() *config.Config {
 		TransferExpires:         86400,
 		UploadExpiration:        24 * 60 * 60,
 		GracefulShutdownTimeout: 30,
-		Driver:                  "decomposed",
+		Driver:                  "posix",
 		Drivers: config.Drivers{
 			OwnCloudSQL: config.OwnCloudSQLDriver{
 				Root:                  filepath.Join(defaults.BaseDataPath(), "storage", "owncloud"),
@@ -163,7 +163,7 @@ func DefaultConfig() *config.Config {
 			TTL:      24 * 60 * time.Second,
 		},
 		IDCache: config.IDCache{
-			Store:    "memory",
+			Store:    "nats-js-kv",
 			Nodes:    []string{"127.0.0.1:9233"},
 			Database: "ids-storage-users",
 			TTL:      24 * 60 * time.Second,
