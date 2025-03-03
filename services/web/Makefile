@@ -32,6 +32,7 @@ ci-node-generate: pull-assets
 
 .PHONY: pull-assets
 pull-assets:
+	rm -rf assets/core/origin
 	git clean -xfd assets
 	git clone -b main --depth 1 https://github.com/opencloud-eu/web.git assets/core/origin
 	make -C assets/core/origin release
