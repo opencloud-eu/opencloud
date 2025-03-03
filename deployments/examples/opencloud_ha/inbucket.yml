@@ -1,0 +1,34 @@
+---
+services:
+  opencloud:
+    environment:
+      NOTIFICATIONS_SMTP_HOST: inbucket
+      NOTIFICATIONS_SMTP_PORT: 2500
+      NOTIFICATIONS_SMTP_SENDER: OpenCloud notifications <notifications@${OC_DOMAIN:-cloud.opencloud.test}>
+      NOTIFICATIONS_SMTP_USERNAME: notifications@${OC_DOMAIN:-cloud.opencloud.test}
+      # the mail catcher uses self signed certificates
+      NOTIFICATIONS_SMTP_INSECURE: "true"
+
+  inbucket:
+    image: inbucket/inbucket
+    # changelog: https://github.com/inbucket/inbucket/blob/main/CHANGELOG.md
+    networks:
+      - opencloud-net
+    entrypoint:
+      - /bin/sh
+    command: [ "-c", "apk add openssl; openssl req -subj '/CN=inbucket.test' -x509 -sha256 -nodes -days 365 -newkey rsa:2048 -keyout /tmp/server.key -out /tmp/server.crt; /start-inbucket.sh" ]
+    environment:
+      INBUCKET_SMTP_TLSENABLED: "true"
+      INBUCKET_SMTP_TLSPRIVKEY: /tmp/server.key
+      INBUCKET_SMTP_TLSCERT: /tmp/server.crt
+      INBUCKET_STORAGE_MAILBOXMSGCAP: 1000
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.inbucket.entrypoints=https"
+      - "traefik.http.routers.inbucket.rule=Host(`${INBUCKET_DOMAIN:-mail.opencloud.test}`)"
+      - "traefik.http.routers.inbucket.tls.certresolver=http"
+      - "traefik.http.routers.inbucket.service=inbucket"
+      - "traefik.http.services.inbucket.loadbalancer.server.port=9000"
+    logging:
+      driver: ${LOG_DRIVER:-local}
+    restart: always

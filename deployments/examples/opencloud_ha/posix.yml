@@ -1,0 +1,10 @@
+---
+services:
+  opencloud:
+    environment:
+      # activate posix storage driver for users
+      STORAGE_USERS_DRIVER: posix
+      # keep system data on decomposed storage since this are only small files atm
+      STORAGE_SYSTEM_DRIVER: decomposed
+      # posix requires a shared cache store
+      STORAGE_USERS_ID_CACHE_STORE: "nats-js-kv"

@@ -1,0 +1,17 @@
+---
+services:
+  opencloud:
+    depends_on:
+      unzip-init:
+        condition: service_completed_successfully
+
+  unzip-init:
+    image: opencloud-eu/web-extensions:unzip-0.4.0
+    user: root
+    volumes:
+      - opencloud-apps:/apps
+    entrypoint:
+      - /bin/sh
+    command: ["-c", "cp -R /var/lib/nginx/html/unzip/ /apps"]
+
+

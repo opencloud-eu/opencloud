@@ -1,0 +1,14 @@
+---
+services:
+  opencloud:
+    environment:
+      # activate decomposeds3 storage driver
+      STORAGE_USERS_DRIVER: decomposeds3
+      # keep system data on opencloud storage since this are only small files atm
+      STORAGE_SYSTEM_DRIVER: decomposed
+      # decomposeds3 specific settings
+      STORAGE_USERS_DECOMPOSEDS3_ENDPOINT: ${DECOMPOSEDS3_ENDPOINT:-http://minio:9000}
+      STORAGE_USERS_DECOMPOSEDS3_REGION: ${DECOMPOSEDS3_REGION:-default}
+      STORAGE_USERS_DECOMPOSEDS3_ACCESS_KEY: ${DECOMPOSEDS3_ACCESS_KEY:-opencloud}
+      STORAGE_USERS_DECOMPOSEDS3_SECRET_KEY: ${DECOMPOSEDS3_SECRET_KEY:-opencloud-secret-key}
+      STORAGE_USERS_DECOMPOSEDS3_BUCKET: ${DECOMPOSEDS3_BUCKET:-opencloud-bucket}

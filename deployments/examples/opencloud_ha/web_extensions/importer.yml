@@ -1,0 +1,52 @@
+---
+services:
+  traefik:
+    networks:
+      opencloud-net:
+        aliases:
+          - ${COMPANION_DOMAIN:-companion.opencloud.test}
+  opencloud:
+    volumes:
+      # the cloud importer needs to be enabled in the web.yaml
+      - ./config/opencloud/apps.yaml:/etc/opencloud/apps.yaml
+    depends_on:
+      importer-init:
+        condition: service_completed_successfully
+
+  importer-init:
+    image: opencloud-eu/web-extensions:importer-0.3.0
+    user: root
+    volumes:
+      - opencloud-apps:/apps
+    entrypoint:
+      - /bin/sh
+    command: [ "-c", "cp -R /var/lib/nginx/html/importer/ /apps" ]
+
+  companion:
+    image: ${COMPANION_IMAGE:-transloadit/companion:5.5.0}
+    networks:
+      - opencloud-net
+    environment:
+      NODE_ENV: production
+      NODE_TLS_REJECT_UNAUTHORIZED: 0
+      COMPANION_DATADIR: /tmp/companion/
+      COMPANION_DOMAIN: ${COMPANION_DOMAIN:-companion.opencloud.test}
+      COMPANION_PROTOCOL: https
+      COMPANION_UPLOAD_URLS: "^https://${OC_DOMAIN:-cloud.opencloud.test}/"
+      COMPANION_ONEDRIVE_KEY: "${COMPANION_ONEDRIVE_KEY}"
+      COMPANION_ONEDRIVE_SECRET: "${COMPANION_ONEDRIVE_SECRET}"
+    volumes:
+      - companion-data:/tmp/companion/
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.companion.entrypoints=https"
+      - "traefik.http.routers.companion.rule=Host(`${COMPANION_DOMAIN:-companion.opencloud.test}`)"
+      - "traefik.http.routers.companion.tls.certresolver=http"
+      - "traefik.http.routers.companion.service=companion"
+      - "traefik.http.services.companion.loadbalancer.server.port=3020"
+    logging:
+      driver: ${LOG_DRIVER:-local}
+    restart: always
+
+volumes:
+  companion-data:

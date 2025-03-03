@@ -1,0 +1,114 @@
+---
+services:
+  traefik:
+    networks:
+      opencloud-net:
+        aliases:
+          - ${OC_DOMAIN:-cloud.opencloud.test}
+  opencloud:
+    image: ${OC_DOCKER_IMAGE:-opencloudeu/opencloud}:${OC_DOCKER_TAG:-latest}
+    # changelog: https://github.com/opencloud-eu/opencloud/tree/main/changelog
+    # release notes: https://docs.opencloud.eu/opencloud_release_notes.html
+    networks:
+      opencloud-net:
+    entrypoint:
+      - /bin/sh
+    # run opencloud init to initialize a configuration file with random secrets
+    # it will fail on subsequent runs, because the config file already exists
+    # therefore we ignore the error and then start the opencloud server
+    command: ["-c", "opencloud init || true; opencloud server"]
+    environment:
+      # enable services that are not started automatically
+      OC_ADD_RUN_SERVICES: ${START_ADDITIONAL_SERVICES}
+      OC_URL: https://${OC_DOMAIN:-cloud.opencloud.test}
+      OC_LOG_LEVEL: ${LOG_LEVEL:-info}
+      OC_LOG_COLOR: "${LOG_PRETTY:-false}"
+      OC_LOG_PRETTY: "${LOG_PRETTY:-false}"
+      # do not use SSL between Traefik and OpenCloud
+      PROXY_TLS: "false"
+      # make the REVA gateway accessible to the app drivers
+      GATEWAY_GRPC_ADDR: 0.0.0.0:9142
+      # INSECURE: needed if OpenCloud / Traefik is using self generated certificates
+      OC_INSECURE: "${INSECURE:-false}"
+      # basic auth (not recommended, but needed for eg. WebDav clients that do not support OpenID Connect)
+      PROXY_ENABLE_BASIC_AUTH: "${PROXY_ENABLE_BASIC_AUTH:-false}"
+      # admin user password
+      IDM_ADMIN_PASSWORD: "${ADMIN_PASSWORD:-admin}" # this overrides the admin password from the configuration file
+      # demo users
+      IDM_CREATE_DEMO_USERS: "${DEMO_USERS:-false}"
+      # email server (if configured)
+      NOTIFICATIONS_SMTP_HOST: "${SMTP_HOST}"
+      NOTIFICATIONS_SMTP_PORT: "${SMTP_PORT}"
+      NOTIFICATIONS_SMTP_SENDER: "${SMTP_SENDER:-OpenCloud notifications <notifications@${OC_DOMAIN:-cloud.opencloud.test}>}"
+      NOTIFICATIONS_SMTP_USERNAME: "${SMTP_USERNAME}"
+      NOTIFICATIONS_SMTP_INSECURE: "${SMTP_INSECURE}"
+      # make the registry available to the app provider containers
+      MICRO_REGISTRY: "nats-js-kv"
+      MICRO_REGISTRY_ADDRESS: 127.0.0.1:9233
+      STORAGE_USERS_FILEMETADATA_CACHE_STORE: "nats-js-kv"
+      STORAGE_USERS_FILEMETADATA_CACHE_STORE_NODES: "opencloud:9233"
+      STORAGE_USERS_ID_CACHE_STORE: "nats-js-kv"
+      STORAGE_USERS_ID_CACHE_STORE_NODES: "opencloud:9233"
+      NATS_NATS_HOST: 0.0.0.0
+      NATS_NATS_PORT: 9233
+      PROXY_CSP_CONFIG_FILE_LOCATION: /etc/opencloud/csp.yaml
+      # these three vars are needed to the csp config file to include the web office apps and the importer
+      COLLABORA_DOMAIN: ${COLLABORA_DOMAIN:-collabora.opencloud.test}
+      ONLYOFFICE_DOMAIN: ${ONLYOFFICE_DOMAIN:-onlyoffice.opencloud.test}
+      COMPANION_DOMAIN: ${COMPANION_DOMAIN:-companion.opencloud.test}
+      # enable to allow using the banned passwords list
+      OC_PASSWORD_POLICY_BANNED_PASSWORDS_LIST: banned-password-list.txt
+    volumes:
+      - ./config/opencloud/app-registry.yaml:/etc/opencloud/app-registry.yaml
+      - ./config/opencloud/csp.yaml:/etc/opencloud/csp.yaml
+      - ./config/opencloud/banned-password-list.txt:/etc/opencloud/banned-password-list.txt
+      # configure the .env file to use own paths instead of docker internal volumes
+      - ${OC_CONFIG_DIR:-opencloud-config}:/etc/opencloud
+      - ${OC_DATA_DIR:-opencloud-data}:/var/lib/opencloud
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.opencloud.entrypoints=https"
+      - "traefik.http.routers.opencloud.rule=Host(`${OC_DOMAIN:-cloud.opencloud.test}`)"
+      - "traefik.http.routers.opencloud.tls.certresolver=http"
+      - "traefik.http.routers.opencloud.service=opencloud"
+      - "traefik.http.services.opencloud.loadbalancer.server.port=9200"
+    logging:
+      driver: ${LOG_DRIVER:-local}
+    restart: always
+
+  opencloud-storage-users-2:
+    image: ${OC_DOCKER_IMAGE:-opencloudeu/opencloud}:${OC_DOCKER_TAG:-latest}
+    networks:
+      opencloud-net:
+    entrypoint:
+      - /bin/sh
+    command: ["-c", "opencloud storage-users server"]
+    environment:
+      OC_URL: https://${OC_DOMAIN:-cloud.opencloud.test}
+      OC_LOG_LEVEL: ${LOG_LEVEL:-info}
+      OC_LOG_COLOR: "${LOG_PRETTY:-false}"
+      OC_LOG_PRETTY: "${LOG_PRETTY:-false}"
+
+      MICRO_REGISTRY: "nats-js-kv"
+      MICRO_REGISTRY_ADDRESS: "opencloud:9233"
+      STORAGE_USERS_FILEMETADATA_CACHE_STORE: "nats-js-kv"
+      STORAGE_USERS_FILEMETADATA_CACHE_STORE_NODES: "opencloud:9233"
+      STORAGE_USERS_ID_CACHE_STORE: "nats-js-kv"
+      STORAGE_USERS_ID_CACHE_STORE_NODES: "opencloud:9233"
+      OC_EVENTS_ENDPOINT: "opencloud:9233"
+      GATEWAY_GRPC_ADDR: "opencloud:9142"
+      STORAGE_USERS_GRPC_ADDR: "opencloud-storage-users-2:9157"
+      STORAGE_USERS_HTTP_ADDR: "opencloud-storage-users-2:9158"
+    volumes:
+      - ./config/opencloud/app-registry.yaml:/etc/opencloud/app-registry.yaml
+      - ./config/opencloud/csp.yaml:/etc/opencloud/csp.yaml
+      - ./config/opencloud/banned-password-list.txt:/etc/opencloud/banned-password-list.txt
+      - ${OC_CONFIG_DIR:-opencloud-config}:/etc/opencloud
+      - ${OC_DATA_DIR:-opencloud-data}:/var/lib/opencloud
+    logging:
+      driver: ${LOG_DRIVER:-local}
+    restart: always
+
+volumes:
+  opencloud-config:
+  opencloud-data:

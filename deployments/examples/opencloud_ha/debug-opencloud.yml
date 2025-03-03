@@ -1,0 +1,7 @@
+---
+services:
+
+  opencloud:
+    command: [ "-c", "opencloud init || true; dlv --listen=:40000 --headless=true --continue --check-go-version=false --api-version=2 --accept-multiclient exec /usr/bin/opencloud server" ]
+    ports:
+      - 40000:40000

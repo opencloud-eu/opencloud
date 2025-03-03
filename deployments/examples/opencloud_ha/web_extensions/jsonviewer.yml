@@ -1,0 +1,15 @@
+---
+services:
+  opencloud:
+    depends_on:
+      jsonviewer-init:
+        condition: service_completed_successfully
+
+  jsonviewer-init:
+    image: opencloud-eu/web-extensions:json-viewer-0.3.0
+    user: root
+    volumes:
+      - opencloud-apps:/apps
+    entrypoint:
+      - /bin/sh
+    command: ["-c", "cp -R /var/lib/nginx/html/json-viewer/ /apps"]

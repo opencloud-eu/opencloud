@@ -1,0 +1,15 @@
+---
+services:
+  opencloud:
+    depends_on:
+      externalsites-init:
+        condition: service_completed_successfully
+
+  externalsites-init:
+    image: opencloud-eu/web-extensions:external-sites-0.3.0
+    user: root
+    volumes:
+      - opencloud-apps:/apps
+    entrypoint:
+      - /bin/sh
+    command: ["-c", "cp -R /var/lib/nginx/html/external-sites/ /apps"]

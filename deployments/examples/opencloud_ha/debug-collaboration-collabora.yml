@@ -1,0 +1,9 @@
+---
+services:
+
+  collaboration:
+    command: [ "-c", "dlv --listen=:40000 --headless=true --continue --check-go-version=false --api-version=2 --accept-multiclient exec /usr/bin/opencloud collaboration server" ]
+    environment:
+      COLLABORATION_LOG_LEVEL: debug
+    ports:
+      - 40001:40000

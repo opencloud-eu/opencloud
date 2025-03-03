@@ -1,0 +1,26 @@
+---
+
+services:
+  opencloud:
+    environment:
+      # tracing
+      OC_TRACING_ENABLED: "true"
+      OC_TRACING_TYPE: "jaeger"
+      OC_TRACING_ENDPOINT: jaeger-agent:6831
+      # metrics
+      # if OpenCloud runs as a single process, all  <debug>/metrics endpoints
+      # will expose the same metrics, so it's sufficient to query one endpoint
+      PROXY_DEBUG_ADDR: 0.0.0.0:9205
+
+  collaboration-oo:
+    environment:
+      # tracing
+      OC_TRACING_ENABLED: "true"
+      OC_TRACING_TYPE: "jaeger"
+      OC_TRACING_ENDPOINT: jaeger-agent:6831
+      # metrics
+      COLLABORATION_DEBUG_ADDR: 0.0.0.0:9304
+
+networks:
+  opencloud-net:
+    external: true

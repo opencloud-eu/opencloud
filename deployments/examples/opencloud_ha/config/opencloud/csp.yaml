@@ -1,0 +1,45 @@
+directives:
+  child-src:
+    - '''self'''
+  connect-src:
+    - '''self'''
+    - 'blob:'
+    - 'https://${COMPANION_DOMAIN|companion.opencloud.test}/'
+    - 'wss://${COMPANION_DOMAIN|companion.opencloud.test}/'
+    - 'https://raw.githubusercontent.com/opencloud/awesome-apps/'
+  default-src:
+    - '''none'''
+  font-src:
+    - '''self'''
+  frame-ancestors:
+    - '''self'''
+  frame-src:
+    - '''self'''
+    - 'blob:'
+    - 'https://embed.diagrams.net/'
+    # In contrary to bash and docker the default is given after the | character
+    - 'https://${ONLYOFFICE_DOMAIN|onlyoffice.opencloud.test}/'
+    - 'https://${COLLABORA_DOMAIN|collabora.opencloud.test}/'
+    # This is needed for the external-sites web extension when embedding sites
+    - 'https://opencloud.dev'
+  img-src:
+    - '''self'''
+    - 'data:'
+    - 'blob:'
+    - 'https://raw.githubusercontent.com/opencloud/awesome-apps/'
+    # In contrary to bash and docker the default is given after the | character
+    - 'https://${ONLYOFFICE_DOMAIN|onlyoffice.opencloud.test}/'
+    - 'https://${COLLABORA_DOMAIN|collabora.opencloud.test}/'
+  manifest-src:
+    - '''self'''
+  media-src:
+    - '''self'''
+  object-src:
+    - '''self'''
+    - 'blob:'
+  script-src:
+    - '''self'''
+    - '''unsafe-inline'''
+  style-src:
+    - '''self'''
+    - '''unsafe-inline'''

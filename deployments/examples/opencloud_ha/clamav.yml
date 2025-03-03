@@ -1,0 +1,29 @@
+---
+services:
+  opencloud:
+    environment:
+      ANTIVIRUS_SCANNER_TYPE: "clamav"
+      ANTIVIRUS_CLAMAV_SOCKET: "/var/run/clamav/clamd.sock"
+      # the antivirus service needs manual startup, see .env and opencloud.yaml for START_ADDITIONAL_SERVICES
+      # configure the antivirus service
+      POSTPROCESSING_STEPS: "virusscan"
+      # PROXY_TLS is set to "false", the download url has no https
+      STORAGE_USERS_DATA_GATEWAY_URL: http://opencloud:9200/data
+    volumes:
+      - "clamav-socket:/var/run/clamav"
+
+  clamav:
+    image: clamav/clamav:${CLAMAV_DOCKER_TAG:-latest}
+    # release notes: https://blog.clamav.net
+    networks:
+      opencloud-net:
+    volumes:
+      - "clamav-socket:/tmp"
+      - "clamav-db:/var/lib/clamav"
+    logging:
+      driver: ${LOG_DRIVER:-local}
+    restart: always
+
+volumes:
+  clamav-socket:
+  clamav-db:

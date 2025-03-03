@@ -1,0 +1,23 @@
+importer:
+  config:
+    companionUrl: https://${COMPANION_DOMAIN|companion.opencloud.test}
+    supportedClouds:
+      - WebdavPublicLink
+      #- OneDrive # needs a client id and secret
+      #- GoogleDrive # needs a client id and secret and an addition to the DNS zone
+external-sites:
+  config:
+    sites:
+      # For settings see: https://github.com/opencloud-eu/web-extensions/tree/main/packages/web-app-external-sites
+      - name: OpenCloud
+        url: "https://opencloud.eu"
+        target: embedded
+        color: "#0D856F"
+        icon: cloud
+        priority: 50
+      - name: Wikipedia
+        url: "https://www.wikipedia.org"
+        target: external
+        color: "#0D856F"
+        icon: book
+        priority: 51

@@ -1,0 +1,15 @@
+---
+services:
+  opencloud:
+    depends_on:
+      drawio-init:
+        condition: service_completed_successfully
+
+  drawio-init:
+    image: opencloud-eu/web-extensions:draw-io-0.3.0
+    user: root
+    volumes:
+      - opencloud-apps:/apps
+    entrypoint:
+      - /bin/sh
+    command: ["-c", "cp -R /var/lib/nginx/html/draw-io/ /apps"]

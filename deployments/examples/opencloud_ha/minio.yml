@@ -1,0 +1,32 @@
+---
+services:
+  minio:
+    image: minio/minio:latest
+    # release notes: https://github.com/minio/minio/releases
+    networks:
+      opencloud-net:
+    entrypoint:
+      - /bin/sh
+    command:
+      [
+        "-c",
+        "mkdir -p /data/${DECOMPOSEDS3_BUCKET:-opencloud-bucket} && minio server --console-address ':9001' /data",
+      ]
+    volumes:
+      - minio-data:/data
+    environment:
+      MINIO_ROOT_USER: ${DECOMPOSEDS3_ACCESS_KEY:-opencloud}
+      MINIO_ROOT_PASSWORD: ${DECOMPOSEDS3_SECRET_KEY:-opencloud-secret-key}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.minio.entrypoints=https"
+      - "traefik.http.routers.minio.rule=Host(`${MINIO_DOMAIN:-minio.opencloud.test}`)"
+      - "traefik.http.routers.minio.tls.certresolver=http"
+      - "traefik.http.routers.minio.service=minio"
+      - "traefik.http.services.minio.loadbalancer.server.port=9001"
+    logging:
+      driver: ${LOG_DRIVER:-local}
+    restart: always
+
+volumes:
+  minio-data:

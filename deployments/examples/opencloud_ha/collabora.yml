@@ -1,0 +1,85 @@
+---
+services:
+  traefik:
+    networks:
+      opencloud-net:
+        aliases:
+          - ${COLLABORA_DOMAIN:-collabora.opencloud.test}
+          - ${WOPISERVER_DOMAIN:-wopiserver.opencloud.test}
+  opencloud:
+    environment:
+      # make collabora the secure view app
+      FRONTEND_APP_HANDLER_SECURE_VIEW_APP_ADDR: eu.opencloud.api.collaboration.CollaboraOnline
+      GRAPH_AVAILABLE_ROLES: "b1e2218d-eef8-4d4c-b82d-0f1a1b48f3b5,a8d5fe5e-96e3-418d-825b-534dbdf22b99,fb6c3e19-e378-47e5-b277-9732f9de6e21,58c63c02-1d89-4572-916a-870abc5a1b7d,2d00ce52-1fc2-4dbc-8b95-a73b73395f5a,1c996275-f1c9-4e71-abdf-a42f6495e960,312c0871-5ef7-4b3a-85b6-0e4074c64049,aa97fe03-7980-45ac-9e50-b325749fd7e6"
+
+  collaboration:
+    image: ${OC_DOCKER_IMAGE:-opencloudeu/opencloud}:${OC_DOCKER_TAG:-latest}
+    networks:
+      opencloud-net:
+    depends_on:
+      opencloud:
+        condition: service_started
+      collabora:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+    command: [ "-c", "opencloud collaboration server" ]
+    environment:
+      COLLABORATION_GRPC_ADDR: 0.0.0.0:9301
+      COLLABORATION_HTTP_ADDR: 0.0.0.0:9300
+      MICRO_REGISTRY: "nats-js-kv"
+      MICRO_REGISTRY_ADDRESS: "opencloud:9233"
+      COLLABORATION_WOPI_SRC: https://${WOPISERVER_DOMAIN:-wopiserver.opencloud.test}
+      COLLABORATION_APP_NAME: "CollaboraOnline"
+      COLLABORATION_APP_PRODUCT: "Collabora"
+      COLLABORATION_APP_ADDR: https://${COLLABORA_DOMAIN:-collabora.opencloud.test}
+      COLLABORATION_APP_ICON: https://${COLLABORA_DOMAIN:-collabora.opencloud.test}/favicon.ico
+      COLLABORATION_APP_INSECURE: "${INSECURE:-true}"
+      COLLABORATION_CS3API_DATAGATEWAY_INSECURE: "${INSECURE:-true}"
+      COLLABORATION_LOG_LEVEL: ${LOG_LEVEL:-info}
+      OC_URL: https://${OC_DOMAIN:-cloud.opencloud.test}
+    volumes:
+      # configure the .env file to use own paths instead of docker internal volumes
+      - ${OC_CONFIG_DIR:-opencloud-config}:/etc/opencloud
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.collaboration.entrypoints=https"
+      - "traefik.http.routers.collaboration.rule=Host(`${WOPISERVER_DOMAIN:-wopiserver.opencloud.test}`)"
+      - "traefik.http.routers.collaboration.tls.certresolver=http"
+      - "traefik.http.routers.collaboration.service=collaboration"
+      - "traefik.http.services.collaboration.loadbalancer.server.port=9300"
+    logging:
+      driver: ${LOG_DRIVER:-local}
+    restart: always
+
+  collabora:
+    image: collabora/code:24.04.11.1.1
+    # release notes: https://www.collaboraonline.com/release-notes/
+    networks:
+      opencloud-net:
+    environment:
+      aliasgroup1: https://${WOPISERVER_DOMAIN:-wopiserver.opencloud.test}:443
+      DONT_GEN_SSL_CERT: "YES"
+      extra_params: |
+        --o:ssl.enable=${COLLABORA_SSL_ENABLE:-true} \
+        --o:ssl.ssl_verification=${COLLABORA_SSL_VERIFICATION:-true} \
+        --o:ssl.termination=true \
+        --o:welcome.enable=false \
+        --o:net.frame_ancestors=${OC_DOMAIN:-cloud.opencloud.test}
+      username: ${COLLABORA_ADMIN_USER:-admin}
+      password: ${COLLABORA_ADMIN_PASSWORD:-admin}
+    cap_add:
+      - MKNOD
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.collabora.entrypoints=https"
+      - "traefik.http.routers.collabora.rule=Host(`${COLLABORA_DOMAIN:-collabora.opencloud.test}`)"
+      - "traefik.http.routers.collabora.tls.certresolver=http"
+      - "traefik.http.routers.collabora.service=collabora"
+      - "traefik.http.services.collabora.loadbalancer.server.port=9980"
+    logging:
+      driver: ${LOG_DRIVER:-local}
+    restart: always
+    command: ["bash", "-c", "coolconfig generate-proof-key ; /start-collabora-online.sh"]
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9980/hosting/discovery" ]
