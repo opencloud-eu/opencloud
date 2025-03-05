@@ -61,3 +61,6 @@ go.work.sum
 .env
 .envrc
 .DS_Store
+
+# example deployments
+**/opencloud-sandbox-*
