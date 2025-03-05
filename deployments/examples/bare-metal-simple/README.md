@@ -39,6 +39,6 @@ There is also a hosted version of this script that makes it even
 easier:
 
 ```
-curl -L https://opencloud.eu/oc-install.sh | bash -x 
+curl -L https://opencloud.eu/install.sh | bash -x 
 ```
 
