@@ -1,4 +1,4 @@
-"""oCIS CI definition
+"""OpenCloud CI definition
 """
 
 # Production release tags
@@ -67,7 +67,7 @@ dirs = {
     "opencloudBinArtifact": "opencloud-binary-amd64",
 }
 
-# OCIS URLs
+# OpenCloud URLs
 OC_SERVER_NAME = "opencloud-server"
 OCIS_URL = "https://%s:9200" % OC_SERVER_NAME
 OCIS_DOMAIN = "%s:9200" % OC_SERVER_NAME
