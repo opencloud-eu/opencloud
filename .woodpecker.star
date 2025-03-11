@@ -2354,6 +2354,9 @@ def build():
             "image": OC_CI_GOLANG,
             "commands": [
                 "retry -t 3 'make -C opencloud build'",
+                "ls opencloud",
+                "ls opencloud/bin",
+
             ],
             "environment": CI_HTTP_PROXY_ENV,
         },
