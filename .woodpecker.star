@@ -2291,7 +2291,7 @@ def opencloudServer(storage = "opencloud", accounts_hash_difficulty = 4, volumes
                 },
             },
             "commands": [
-                "ls /woodpicker -a",
+                "ls /woodpecker -a",
                 "ls %s -a" % dirs["base"],
                 "%s init --insecure true" % dirs["opencloudBin"],
                 "cat $OC_CONFIG_DIR/opencloud.yaml",
@@ -2541,6 +2541,7 @@ def genericCache(name, action, mounts, cache_path):
             "filename": "%s.tar" % (name),
             "path": cache_path,
             "fallback_path": cache_path,
+            "workdir": dirs["base"],
         },
     }
     return step
