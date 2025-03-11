@@ -652,7 +652,7 @@ def testOpencloud(ctx):
                 },
                 "bucket": "cache",
                 "source": "cache/**/*",
-                "target": "%s/%s" % (repo_slug, ctx.build.commit + "-${DRONE_BUILD_NUMBER}"),
+                "target": "%s/%s" % (repo_slug, ctx.build.commit + "-${CI_PIPELINE_NUMBER}"),
                 "path_style": True,
                 "access_key": {
                     "from_secret": "cache_s3_access_key",
@@ -1438,7 +1438,7 @@ def uploadTracingResult(ctx):
             "path_style": True,
             "source": "webTestRunner/reports/e2e/playwright/tracing/**/*",
             "strip_prefix": "webTestRunner/reports/e2e/playwright/tracing",
-            "target": "/${DRONE_REPO}/${DRONE_BUILD_NUMBER}/tracing",
+            "target": "/${DRONE_REPO}/${CI_PIPELINE_NUMBER}/tracing",
         },
         "environment": {
             "AWS_ACCESS_KEY_ID": {
@@ -1466,7 +1466,7 @@ def logTracingResults():
         "commands": [
             "cd %s/reports/e2e/playwright/tracing/" % dirs["web"],
             'echo "To see the trace, please open the following link in the console"',
-            'for f in *.zip; do echo "npx playwright show-trace https://cache.owncloud.com/public/${DRONE_REPO}/${DRONE_BUILD_NUMBER}/tracing/$f \n"; done',
+            'for f in *.zip; do echo "npx playwright show-trace https://cache.owncloud.com/public/${DRONE_REPO}/${CI_PIPELINE_NUMBER}/tracing/$f \n"; done',
         ],
         "when": {
             "status": [
@@ -2578,7 +2578,7 @@ def genericCachePurge(flush_path):
 
 def genericBuildArtifactCache(ctx, name, action, path):
     if action == "rebuild" or action == "restore":
-        cache_path = "%s/%s/%s" % ("cache", repo_slug, ctx.build.commit + "-${DRONE_BUILD_NUMBER}")
+        cache_path = "%s/%s/%s" % ("cache", repo_slug, ctx.build.commit + "-${CI_PIPELINE_NUMBER}")
         name = "%s_build_artifact_cache" % (name)
         return genericCache(name, action, [path], cache_path)
 
