@@ -913,7 +913,7 @@ def localApiTestPipeline(ctx):
                                      opencloudServer(storage, params["accounts_hash_difficulty"], extra_server_environment = params["extraServerEnvironment"], with_wrapper = True, tika_enabled = params["tikaNeeded"]) +
                                      (waitForClamavService() if params["antivirusNeeded"] else []) +
                                      (waitForEmailService() if params["emailNeeded"] else []) +
-                                     (opencloudServer(storage, params["accounts_hash_difficulty"], deploy_type ="federation", extra_server_environment = params["extraServerEnvironment"]) if params["federationServer"] else []) +
+                                     (opencloudServer(storage, params["accounts_hash_difficulty"], deploy_type = "federation", extra_server_environment = params["extraServerEnvironment"]) if params["federationServer"] else []) +
                                      ((wopiCollaborationService("fakeoffice") + wopiCollaborationService("collabora") + wopiCollaborationService("onlyoffice")) if params["collaborationServiceNeeded"] else []) +
                                      (ocisHealthCheck("wopi", ["wopi-collabora:9304", "wopi-onlyoffice:9304", "wopi-fakeoffice:9304"]) if params["collaborationServiceNeeded"] else []) +
                                      localApiTests(ctx, name, params["suites"], storage, params["extraEnvironment"], run_with_remote_php) +
@@ -1079,7 +1079,7 @@ def wopiValidatorTests(ctx, storage, wopiServerType, accounts_hash_difficulty = 
         "steps": restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
                  fakeOffice() +
                  waitForServices("fake-office", ["fakeoffice:8080"]) +
-                 opencloudServer(storage, accounts_hash_difficulty, deploy_type ="wopi_validator", extra_server_environment = extra_server_environment) +
+                 opencloudServer(storage, accounts_hash_difficulty, deploy_type = "wopi_validator", extra_server_environment = extra_server_environment) +
                  wopiServer +
                  waitForServices("wopi-fakeoffice", ["wopi-fakeoffice:9300"]) +
                  [
@@ -2163,7 +2163,7 @@ def notify(ctx):
         ],
     }
 
-def opencloudServer(storage ="opencloud", accounts_hash_difficulty = 4, volumes = [], depends_on = [], deploy_type ="", extra_server_environment = {}, with_wrapper = False, tika_enabled = False):
+def opencloudServer(storage = "opencloud", accounts_hash_difficulty = 4, volumes = [], depends_on = [], deploy_type ="", extra_server_environment = {}, with_wrapper = False, tika_enabled = False):
     user = "0:0"
     container_name = OC_SERVER_NAME
     environment = {
