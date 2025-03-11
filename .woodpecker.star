@@ -427,10 +427,10 @@ def main(ctx):
         checkTestSuitesInExpectedFailures(ctx) + \
         buildWebCache(ctx) + \
         getGoBinForTesting(ctx) + \
-        buildOcisBinaryForTesting(ctx) + \
+        buildOpencloudBinaryForTesting(ctx) + \
         checkStarlark() + \
         build_release_helpers + \
-        testOcisAndUploadResults(ctx)
+        testOpencloudAndUploadResults(ctx)
 
     # testPipelines(ctx)
     # build_release_pipelines =  \
@@ -492,8 +492,8 @@ def buildWebCache(ctx):
         cachePipeline("web-pnpm", generateWebPnpmCache(ctx)),
     ]
 
-def testOcisAndUploadResults(ctx):
-    pipeline = testOcis(ctx)
+def testOpencloudAndUploadResults(ctx):
+    pipeline = testOpencloud(ctx)
 
     ######################################################################
     # The triggers have been disabled for now, since the govulncheck can #
@@ -620,7 +620,7 @@ def restoreGoBinCache():
         },
     ]
 
-def testOcis(ctx):
+def testOpencloud(ctx):
     steps = restoreGoBinCache() + makeGoGenerate("") + [
         {
             "name": "golangci-lint",
@@ -713,7 +713,7 @@ def scanOcis(ctx):
         "workspace": workspace,
     }
 
-def buildOcisBinaryForTesting(ctx):
+def buildOpencloudBinaryForTesting(ctx):
     return [{
         "name": "build_opencloud_binary_for_testing",
         "steps": makeNodeGenerate("") +
@@ -920,7 +920,7 @@ def localApiTestPipeline(ctx):
                             "services": (emailService() if params["emailNeeded"] else []) +
                                         (clamavService() if params["antivirusNeeded"] else []) +
                                         ((fakeOffice() + collaboraService() + onlyofficeService()) if params["collaborationServiceNeeded"] else []),
-                            "depends_on": getPipelineNames(buildOcisBinaryForTesting(ctx)),
+                            "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx)),
                             "when": [
                                 {
                                     "event": ["push", "manual"],
@@ -985,7 +985,7 @@ def cs3ApiTests(ctx, storage, accounts_hash_difficulty = 4):
                          ],
                      },
                  ],
-        "depends_on": getPipelineNames(buildOcisBinaryForTesting(ctx)),
+        "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx)),
         "when": [
             {
                 "event": ["push", "manual"],
@@ -1102,7 +1102,7 @@ def wopiValidatorTests(ctx, storage, wopiServerType, accounts_hash_difficulty = 
                      },
                  ] +
                  validatorTests,
-        "depends_on": getPipelineNames(buildOcisBinaryForTesting(ctx)),
+        "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx)),
         "when": [
             {
                 "event": ["push", "manual"],
@@ -1153,7 +1153,7 @@ def coreApiTests(ctx, part_number = 1, number_of_parts = 1, with_remote_php = Fa
                  ] +
                  logRequests(),
         "services": redisForOCStorage(storage),
-        "depends_on": getPipelineNames(buildOcisBinaryForTesting(ctx)),
+        "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx)),
         "when": [
             {
                 "event": ["push", "manual"],
@@ -1281,7 +1281,7 @@ def e2eTestPipeline(ctx):
                 pipelines.append({
                     "name": "e2e-tests-%s-%s" % (name, run_part),
                     "steps": steps_before + [run_e2e] + steps_after,
-                    "depends_on": getPipelineNames(buildOcisBinaryForTesting(ctx) + buildWebCache(ctx)),
+                    "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
                     "when": e2e_trigger,
                 })
         else:
@@ -1289,7 +1289,7 @@ def e2eTestPipeline(ctx):
             pipelines.append({
                 "name": "e2e-tests-%s" % name,
                 "steps": steps_before + [step_e2e] + steps_after,
-                "depends_on": getPipelineNames(buildOcisBinaryForTesting(ctx) + buildWebCache(ctx)),
+                "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
                 "when": e2e_trigger,
             })
 
@@ -1418,7 +1418,7 @@ def multiServiceE2ePipeline(ctx):
         pipelines.append({
             "name": "e2e-tests-multi-service",
             "steps": steps,
-            "depends_on": getPipelineNames(buildOcisBinaryForTesting(ctx) + buildWebCache(ctx)),
+            "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
             "workspace": e2e_trigger,
         })
     return pipelines
@@ -1521,7 +1521,7 @@ def dockerRelease(ctx, arch, repo, build_type):
         "REVISION=%s" % (ctx.build.commit),
         "VERSION=%s" % (ctx.build.ref.replace("refs/tags/", "") if ctx.build.event == "tag" else "master"),
     ]
-    depends_on = getPipelineNames(testOcisAndUploadResults(ctx) + testPipelines(ctx))
+    depends_on = getPipelineNames(testOpencloudAndUploadResults(ctx) + testPipelines(ctx))
 
     if ctx.build.event == "tag":
         depends_on = []
@@ -1613,7 +1613,7 @@ def binaryReleases(ctx):
 
     # uploads binary to https://download.owncloud.com/ocis/ocis/daily/
     target = "/ocis/%s/daily" % (ctx.repo.name.replace("ocis-", ""))
-    depends_on = getPipelineNames(testOcisAndUploadResults(ctx) + testPipelines(ctx))
+    depends_on = getPipelineNames(testOpencloudAndUploadResults(ctx) + testPipelines(ctx))
 
     if ctx.build.event == "tag":
         depends_on = []
@@ -2748,7 +2748,7 @@ def litmus(ctx, storage):
                      },
                  ],
         "services": redisForOCStorage(storage),
-        "depends_on": getPipelineNames(buildOcisBinaryForTesting(ctx)),
+        "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx)),
         "when": [
             {
                 "event": ["push", "manual"],
