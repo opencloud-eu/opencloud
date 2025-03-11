@@ -2293,8 +2293,8 @@ def opencloudServer(storage = "opencloud", accounts_hash_difficulty = 4, volumes
             "commands": [
                 "find",
                 "%s init --insecure true" % dirs["opencloudBin"],
-                "cat $OCIS_CONFIG_DIR/ocis.yaml",
-                "cp tests/config/drone/app-registry.yaml /root/.ocis/config/app-registry.yaml",
+                "cat $OC_CONFIG_DIR/opencloud.yaml",
+                "cp tests/config/drone/app-registry.yaml $OC_CONFIG_DIR/app-registry.yaml",
             ] + (wrapper_commands),
             "depends_on": depends_on,
         },
