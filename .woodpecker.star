@@ -2291,8 +2291,8 @@ def opencloudServer(storage = "opencloud", accounts_hash_difficulty = 4, volumes
                 },
             },
             "commands": [
-                "ls opencloud -a",
-                "ls opencloud/bin -a",
+                "ls /woodpicker -a",
+                "ls %s -a" % dirs["base"],
                 "%s init --insecure true" % dirs["opencloudBin"],
                 "cat $OC_CONFIG_DIR/opencloud.yaml",
                 "cp tests/config/drone/app-registry.yaml $OC_CONFIG_DIR/app-registry.yaml",
@@ -2528,6 +2528,7 @@ def genericCache(name, action, mounts, cache_path):
             "endpoint": {
                 "from_secret": "cache_s3_server",
             },
+            "debug": True,
             "rebuild": rebuild,
             "restore": restore,
             "mount": mounts,
