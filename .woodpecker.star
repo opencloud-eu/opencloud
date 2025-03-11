@@ -2163,7 +2163,7 @@ def notify(ctx):
         ],
     }
 
-def opencloudServer(storage = "opencloud", accounts_hash_difficulty = 4, volumes = [], depends_on = [], deploy_type ="", extra_server_environment = {}, with_wrapper = False, tika_enabled = False):
+def opencloudServer(storage = "opencloud", accounts_hash_difficulty = 4, volumes = [], depends_on = [], deploy_type = "", extra_server_environment = {}, with_wrapper = False, tika_enabled = False):
     user = "0:0"
     container_name = OC_SERVER_NAME
     environment = {
@@ -2291,7 +2291,8 @@ def opencloudServer(storage = "opencloud", accounts_hash_difficulty = 4, volumes
                 },
             },
             "commands": [
-                "find",
+                "ls -a",
+                "ls ../ -a",
                 "%s init --insecure true" % dirs["opencloudBin"],
                 "cat $OC_CONFIG_DIR/opencloud.yaml",
                 "cp tests/config/drone/app-registry.yaml $OC_CONFIG_DIR/app-registry.yaml",
