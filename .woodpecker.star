@@ -368,12 +368,12 @@ MINIO_MC_ENV = {
 }
 
 CI_HTTP_PROXY_ENV = {
-    # "HTTP_PROXY": {
-    #     "from_secret": "ci_http_proxy",
-    # },
-    # "HTTPS_PROXY": {
-    #     "from_secret": "ci_http_proxy",
-    # },
+    "HTTP_PROXY": {
+        "from_secret": "ci_http_proxy",
+    },
+    "HTTPS_PROXY": {
+        "from_secret": "ci_http_proxy",
+    },
 }
 
 def pipelineDependsOn(pipeline, dependant_pipelines):
