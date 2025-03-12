@@ -2291,8 +2291,6 @@ def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, volume
                 },
             },
             "commands": [
-                "ls /woodpecker -a",
-                "ls %s -a" % dirs["base"],
                 "%s init --insecure true" % dirs["opencloudBin"],
                 "cat $OC_CONFIG_DIR/opencloud.yaml",
                 "cp tests/config/drone/app-registry.yaml $OC_CONFIG_DIR/app-registry.yaml",
@@ -2354,9 +2352,6 @@ def build():
             "image": OC_CI_GOLANG,
             "commands": [
                 "retry -t 3 'make -C opencloud build'",
-                "ls opencloud",
-                "ls opencloud/bin",
-
             ],
             "environment": CI_HTTP_PROXY_ENV,
         },
