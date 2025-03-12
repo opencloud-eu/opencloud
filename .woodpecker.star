@@ -511,7 +511,7 @@ def testPipelines(ctx):
     pipelines = []
 
     if config["litmus"]:
-        pipelines += litmus(ctx, "opencloud")
+        pipelines += litmus(ctx, "decomposed")
 
     if "skip" not in config["cs3ApiTests"] or not config["cs3ApiTests"]["skip"]:
         pipelines.append(cs3ApiTests(ctx, "ocis", "default"))
@@ -886,7 +886,7 @@ def localApiTestPipeline(ctx):
         "skip": False,
         "extraEnvironment": {},
         "extraServerEnvironment": {},
-        "storages": ["ocis"],
+        "storages": ["decomposed"],
         "accounts_hash_difficulty": 4,
         "emailNeeded": False,
         "antivirusNeeded": False,
@@ -2163,7 +2163,7 @@ def notify(ctx):
         ],
     }
 
-def opencloudServer(storage = "opencloud", accounts_hash_difficulty = 4, volumes = [], depends_on = [], deploy_type = "", extra_server_environment = {}, with_wrapper = False, tika_enabled = False):
+def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, volumes = [], depends_on = [], deploy_type = "", extra_server_environment = {}, with_wrapper = False, tika_enabled = False):
     user = "0:0"
     container_name = OC_SERVER_NAME
     environment = {
