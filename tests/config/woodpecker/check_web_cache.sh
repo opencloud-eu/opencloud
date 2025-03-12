@@ -1,5 +1,5 @@
 #!/bin/bash
-source .drone.env
+source .woodpecker.env
 
 # if no $1 is supplied end the script
 # Can be web, acceptance or e2e

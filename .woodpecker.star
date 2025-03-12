@@ -304,7 +304,7 @@ config = {
     },
     "e2eTests": {
         "part": {
-            "skip": True,
+            "skip": False,
             "totalParts": 4,  # divide and run all suites in parts (divide pipelines)
             "xsuites": ["search", "app-provider", "oidc", "ocm"],  # suites to skip
         },
@@ -2787,15 +2787,15 @@ def setupForLitmus():
         ],
     }]
 
-def getDroneEnvAndCheckScript(ctx):
-    ocis_git_base_url = "https://raw.githubusercontent.com/opencloud-eu/opencloud"
-    path_to_drone_env = "%s/%s/.drone.env" % (ocis_git_base_url, ctx.build.commit)
-    path_to_check_script = "%s/%s/tests/config/woodpecker/check_web_cache.sh" % (ocis_git_base_url, ctx.build.commit)
+def getWoodpeckerEnvAndCheckScript(ctx):
+    opencloud_git_base_url = "https://raw.githubusercontent.com/opencloud-eu/opencloud"
+    path_to_woodpecker_env = "%s/%s/.woodpecker.env" % (opencloud_git_base_url, ctx.build.commit)
+    path_to_check_script = "%s/%s/tests/config/woodpecker/check_web_cache.sh" % (opencloud_git_base_url, ctx.build.commit)
     return {
-        "name": "get-drone-env-and-check-script",
+        "name": "get-woodpecker-env-and-check-script",
         "image": OC_UBUNTU,
         "commands": [
-            "curl -s -o .drone.env %s" % path_to_drone_env,
+            "curl -s -o .woodpecker.env %s" % path_to_woodpecker_env,
             "curl -s -o check_web_cache.sh %s" % path_to_check_script,
         ],
     }
@@ -2822,16 +2822,16 @@ def cloneWeb():
         "name": "clone-web",
         "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
         "commands": [
-            ". ./.drone.env",
+            ". ./.woodpecker.env",
             "rm -rf %s" % dirs["web"],
-            "git clone -b $WEB_BRANCH --single-branch --no-tags https://github.com/owncloud/web.git %s" % dirs["web"],
+            "git clone -b $WEB_BRANCH --single-branch --no-tags https://github.com/opencloud-eu/web.git %s" % dirs["web"],
             "cd %s && git checkout $WEB_COMMITID" % dirs["web"],
         ],
     }
 
 def generateWebPnpmCache(ctx):
     return [
-        getDroneEnvAndCheckScript(ctx),
+        getWoodpeckerEnvAndCheckScript(ctx),
         checkForWebCache("web-pnpm"),
         cloneWeb(),
         {
@@ -2859,7 +2859,7 @@ def generateWebPnpmCache(ctx):
             "image": MINIO_MC,
             "environment": MINIO_MC_ENV,
             "commands": [
-                "source ./.drone.env",
+                "source ./.woodpecker.env",
                 # cache using the minio/mc client to the public bucket (long term bucket)
                 "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
                 "mc cp -r -a %s s3/$CACHE_BUCKET/opencloud/web-test-runner/$WEB_COMMITID" % dirs["webPnpmZip"],
@@ -2869,7 +2869,7 @@ def generateWebPnpmCache(ctx):
 
 def generateWebCache(ctx):
     return [
-        getDroneEnvAndCheckScript(ctx),
+        getWoodpeckerEnvAndCheckScript(ctx),
         checkForWebCache("web"),
         cloneWeb(),
         {
@@ -2885,7 +2885,7 @@ def generateWebCache(ctx):
             "image": MINIO_MC,
             "environment": MINIO_MC_ENV,
             "commands": [
-                "source ./.drone.env",
+                "source ./.woodpecker.env",
                 # cache using the minio/mc client to the 'owncloud' bucket (long term bucket)
                 "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
                 "mc cp -r -a %s s3/$CACHE_BUCKET/opencloud/web-test-runner/$WEB_COMMITID" % dirs["webZip"],
@@ -2899,7 +2899,7 @@ def restoreWebCache():
         "image": MINIO_MC,
         "environment": MINIO_MC_ENV,
         "commands": [
-            "source ./.drone.env",
+            "source ./.woodpecker.env",
             "rm -rf %s" % dirs["web"],
             "mkdir -p %s" % dirs["web"],
             "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
@@ -2919,7 +2919,7 @@ def restoreWebPnpmCache():
         "image": MINIO_MC,
         "environment": MINIO_MC_ENV,
         "commands": [
-            "source ./.drone.env",
+            "source ./.woodpecker.env",
             "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
             "mc cp -r -a s3/$CACHE_BUCKET/opencloud/web-test-runner/$WEB_COMMITID/pnpm-store.tar.gz %s" % dirs["zip"],
         ],
