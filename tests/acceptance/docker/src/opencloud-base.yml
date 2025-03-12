@@ -15,7 +15,7 @@ services:
       STORAGE_SYSTEM_DRIVER_OC_ROOT: /srv/app/tmp/opencloud/storage/metadata
       SHARING_USER_JSON_FILE: /srv/app/tmp/opencloud/shares.json
       PROXY_ENABLE_BASIC_AUTH: "true"
-      WEB_UI_CONFIG_FILE: /drone/src/tests/config/drone/opencloud-config.json
+      WEB_UI_CONFIG_FILE: /woodpecker/src/github.com/opencloud-eu/opencloud/tests/config/drone/opencloud-config.json
       ACCOUNTS_HASH_DIFFICULTY: 4
       OC_INSECURE: "true"
       IDM_CREATE_DEMO_USERS: "true"
@@ -52,11 +52,11 @@ services:
       SEARCH_EXTRACTOR_CS3SOURCE_INSECURE: "true"
 
       # fonts map for txt thumbnails (including unicode support)
-      THUMBNAILS_TXT_FONTMAP_FILE: "/drone/src/tests/config/drone/fontsMap.json"
+      THUMBNAILS_TXT_FONTMAP_FILE: "/woodpecker/src/github.com/opencloud-eu/opencloud/tests/config/drone/fontsMap.json"
     ports:
       - '9200:9200'
       - '5200:5200' ## ocwrapper
       - '9174:9174' ## notifications debug
     volumes:
-      - ../../../config:/drone/src/tests/config
+      - ../../../config:/woodpecker/src/github.com/opencloud-eu/opencloud/tests/config
       - ../../../ocwrapper/bin/ocwrapper:/usr/bin/ocwrapper

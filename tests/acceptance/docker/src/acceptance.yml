@@ -1,10 +1,10 @@
 services:
   acceptance-tests:
     image: owncloudci/php:8.2
-    working_dir: /drone/src
+    working_dir: /woodpecker/src/github.com/opencloud-eu/opencloud
     command: /bin/bash /test/run-tests.sh
     environment:
-      OC_ROOT: /drone/src
+      OC_ROOT: /woodpecker/src/github.com/opencloud-eu/opencloud
       TEST_SERVER_URL: https://opencloud-server:9200
       OC_WRAPPER_URL: http://opencloud-server:5200
       STORAGE_DRIVER: $STORAGE_DRIVER
@@ -17,8 +17,8 @@ services:
       EMAIL_HOST: email
       EMAIL_PORT: 9000
     env_file:
-      - ../../../../.drone.env
+      - ../../../../.woodpecker.env
     volumes:
       - ./run-tests.sh:/test/run-tests.sh
-      - ../../../../:/drone/src
+      - ../../../../:/woodpecker/src/github.com/opencloud-eu/opencloud
       - ../../../../vendor-bin/behat/composer.json:/tmp/vendor-bin/behat/composer.json
