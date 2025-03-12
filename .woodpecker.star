@@ -536,6 +536,7 @@ def getGoBinForTesting(ctx):
         "name": "get-go-bin-cache",
         "steps": checkGoBinCache() +
                  cacheGoBin(),
+
         "when": [
             {
                 "event": ["push", "manual"],
@@ -567,6 +568,15 @@ def checkGoBinCache():
             "bash -x %s/tests/config/drone/check_go_bin_cache.sh %s %s" % (dirs["baseGo"], dirs["baseGo"], dirs["gobinTar"]),
         ],
     }]
+
+def detatchedStep():
+    return [
+        {
+            "name": "detatched-redis",
+            "image": "redis",
+            "detach": True,
+        },
+    ]
 
 def cacheGoBin():
     return [
@@ -718,6 +728,7 @@ def buildOpencloudBinaryForTesting(ctx):
     return [{
         "name": "build_opencloud_binary_for_testing",
         "steps": makeNodeGenerate("") +
+                 detatchedStep() +
                  makeGoGenerate("") +
                  build() +
                  rebuildBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]),
