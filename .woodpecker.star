@@ -664,7 +664,7 @@ def testOpencloud(ctx):
     ]
 
     return {
-        "name": "linting_and_unitTests",
+        "name": "linting_and_unitTests %s" % an_undefined_variable,
         "steps": steps,
         "when": [
             {
