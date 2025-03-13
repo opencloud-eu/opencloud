@@ -1201,6 +1201,7 @@ def e2eTestPipeline(ctx):
     extra_server_environment = {
         "OC_PASSWORD_POLICY_BANNED_PASSWORDS_LIST": "%s" % dirs["bannedPasswordList"],
         "OC_SHOW_USER_EMAIL_IN_RESULTS": True,
+        "FRONTEND_OCS_ENABLE_DENIALS": True,
     }
 
     e2e_trigger = [
