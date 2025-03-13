@@ -1199,7 +1199,7 @@ def e2eTestPipeline(ctx):
     }
 
     extra_server_environment = {
-        "OCIS_PASSWORD_POLICY_BANNED_PASSWORDS_LIST": "%s" % dirs["bannedPasswordList"],
+        "OC_PASSWORD_POLICY_BANNED_PASSWORDS_LIST": "%s" % dirs["bannedPasswordList"],
     }
 
     e2e_trigger = [
