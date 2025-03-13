@@ -1268,7 +1268,8 @@ def e2eTestPipeline(ctx):
         }
 
         # steps_after = uploadTracingResult(ctx) + \
-        steps_after = logTracingResults()
+        # steps_after = logTracingResults()
+        steps_after = []
 
         if params["totalParts"]:
             for index in range(params["totalParts"]):
