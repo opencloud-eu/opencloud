@@ -516,7 +516,7 @@ def testPipelines(ctx):
     pipelines = []
 
     if config["litmus"]:
-        pipelines += litmus(ctx, "decomposed")
+        pipelines += litmus(ctx, "posix")
 
     if "skip" not in config["cs3ApiTests"] or not config["cs3ApiTests"]["skip"]:
         pipelines.append(cs3ApiTests(ctx, "ocis", "default"))
@@ -891,7 +891,7 @@ def localApiTestPipeline(ctx):
         "skip": False,
         "extraEnvironment": {},
         "extraServerEnvironment": {},
-        "storages": ["decomposed"],
+        "storages": ["posix"],
         "accounts_hash_difficulty": 4,
         "emailNeeded": False,
         "antivirusNeeded": False,
@@ -943,7 +943,7 @@ def localApiTestPipeline(ctx):
                         pipelines.append(pipeline)
     return pipelines
 
-def localApiTests(ctx, name, suites, storage = "decomposed", extra_environment = {}, with_remote_php = False):
+def localApiTests(ctx, name, suites, storage = "posix", extra_environment = {}, with_remote_php = False):
     test_dir = "%s/tests/acceptance" % dirs["base"]
     expected_failures_file = "%s/expected-failures-localAPI-on-%s-storage.md" % (test_dir, storage)
 
@@ -2096,7 +2096,7 @@ def notify(ctx):
         "runs_on": status,
     }
 
-def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, volumes = [], depends_on = [], deploy_type = "", extra_server_environment = {}, with_wrapper = False, tika_enabled = False):
+def opencloudServer(storage = "posix", accounts_hash_difficulty = 4, volumes = [], depends_on = [], deploy_type = "", extra_server_environment = {}, with_wrapper = False, tika_enabled = False):
     user = "0:0"
     container_name = OC_SERVER_NAME
     environment = {
