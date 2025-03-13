@@ -1256,7 +1256,7 @@ def e2eTestPipeline(ctx):
             "name": "e2e-tests",
             "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
             "environment": {
-                "BASE_URL_OCIS": OC_DOMAIN,
+                "OC_BASE_URL": OC_DOMAIN,
                 "HEADLESS": True,
                 "RETRY": "1",
                 "WEB_UI_CONFIG_FILE": "%s/%s" % (dirs["base"], dirs["opencloudConfig"]),
