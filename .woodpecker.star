@@ -1183,8 +1183,7 @@ def apiTests(ctx):
 
     with_remote_php = [True]
     if ctx.build.event == "cron" or "full-ci" in ctx.build.title.lower():
-        # TODO set again to False again when working on the tests withoutRemotePhp
-        with_remote_php.append(True)
+        with_remote_php.append(False)
 
     defaults = {
         "withRemotePhp": with_remote_php,
