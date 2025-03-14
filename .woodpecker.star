@@ -310,7 +310,7 @@ config = {
             "xsuites": ["search", "app-provider", "app-provider-onlyOffice", "app-store", "keycloak", "oidc", "ocm"],  # suites to skip
         },
         "search": {
-            "skip": True,
+            "skip": False,
             "suites": ["search"],  # suites to run
             "tikaNeeded": True,
         },
