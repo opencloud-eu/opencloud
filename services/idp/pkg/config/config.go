@@ -99,7 +99,7 @@ type Settings struct {
 	IdentifierRegistrationConf        string `yaml:"-"`
 	IdentifierScopesConf              string `yaml:"-"` // unused
 	IdentifierDefaultBannerLogo       string
-	IdentifierDefaultSignInPageText   string `yaml:"default_sign_in_page_text" env:"IDP_DEFAULT_SIGNIN_PAGE_TEXT" desc:"" introductionVersion:"1.0.0"`
+	IdentifierDefaultSignInPageText   string `yaml:"default_sign_in_page_text" env:"IDP_DEFAULT_SIGNIN_PAGE_TEXT" desc:"" introductionVersion:"2.0.0"`
 	IdentifierDefaultUsernameHintText string
 	IdentifierUILocales               []string
 
