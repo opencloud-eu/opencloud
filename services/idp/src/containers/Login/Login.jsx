@@ -121,82 +121,80 @@ function Login(props) {
   };
 
   return (
-    <div>
+    <div className={classes.main}>
+      <h1 className={classes.header}>
+        {" "}
+        {t("konnect.login.headline", "Sign in")}
+      </h1>
       {branding?.signinPageText && (
         <Typography
           variant="body2"
           dangerouslySetInnerHTML={{ __html: branding.signinPageText }}
         />
       )}
-      <div className={classes.main}>
-        <h1 className={classes.header}>
-          {" "}
-          {t("konnect.login.headline", "Sign in")}
-        </h1>
-        <form
-          action=""
-          className="oc-login-form"
-          onSubmit={(event) => handleNextClick(event)}
-        >
-          <TextInput
-            autoFocus
-            autoCapitalize="off"
-            spellCheck="false"
-            value={username}
-            onChange={handleChange("username")}
-            autoComplete="kopano-account username"
-            placeholder={t("konnect.login.usernameField.label", "Username")}
-            label={t("konnect.login.usernameField.label", "Username")}
-            id="oc-login-username"
-            {...extraPropsUsername}
-          />
-          <TextInput
-            type="password"
-            margin="normal"
-            onChange={handleChange("password")}
-            autoComplete="kopano-account current-password"
-            placeholder={t("konnect.login.passwordField.label", "Password")}
-            label={t("konnect.login.passwordField.label", "Password")}
-            id="oc-login-password"
-            {...extraPropsPassword}
-          />
-          {hasError && (
-            <Typography
-              id="oc-login-error-message"
+      <form
+        action=""
+        className="oc-login-form"
+        onSubmit={(event) => handleNextClick(event)}
+      >
+        <TextInput
+          autoFocus
+          autoCapitalize="off"
+          spellCheck="false"
+          value={username}
+          onChange={handleChange("username")}
+          autoComplete="kopano-account username"
+          placeholder={t("konnect.login.usernameField.label", "Username")}
+          label={t("konnect.login.usernameField.label", "Username")}
+          id="oc-login-username"
+          {...extraPropsUsername}
+        />
+        <TextInput
+          type="password"
+          margin="normal"
+          onChange={handleChange("password")}
+          autoComplete="kopano-account current-password"
+          placeholder={t("konnect.login.passwordField.label", "Password")}
+          label={t("konnect.login.passwordField.label", "Password")}
+          id="oc-login-password"
+          {...extraPropsPassword}
+        />
+        {hasError && (
+          <Typography
+            id="oc-login-error-message"
+            variant="subtitle2"
+            component="span"
+            color="error"
+            className={classes.message}
+          >
+            {errorMessage}
+          </Typography>
+        )}
+        <div className={classes.wrapper}>
+          {loginFailed && passwordResetLink && (
+            <Link
+              id="oc-login-password-reset"
+              href={passwordResetLink}
               variant="subtitle2"
-              component="span"
-              color="error"
-              className={classes.message}
             >
-              {errorMessage}
-            </Typography>
+              {"Reset password?"}
+            </Link>
           )}
-          <div className={classes.wrapper}>
-            {loginFailed && passwordResetLink && (
-              <Link
-                id="oc-login-password-reset"
-                href={passwordResetLink}
-                variant="subtitle2"
-              >
-                {"Reset password?"}
-              </Link>
-            )}
-            <Button
-              type="submit"
-              color="primary"
-              variant="contained"
-              className="oc-button-primary oc-mt-l"
-              disabled={!!loading}
-              onClick={handleNextClick}
-            >
-              {t("konnect.login.nextButton.label", "Log in")}
-            </Button>
-            {loading && (
-              <CircularProgress size={24} className={classes.buttonProgress} />
-            )}
-          </div>
-        </form>
-      </div>
+          <Button
+            type="submit"
+            color="primary"
+            variant="contained"
+            className="oc-button-primary oc-mt-l"
+            disabled={!!loading}
+            onClick={handleNextClick}
+          >
+            {t("konnect.login.nextButton.label", "Log in")}
+          </Button>
+          {loading && (
+            <CircularProgress size={24} className={classes.buttonProgress} />
+          )}
+        </div>
+      </form>
     </div>
   );
 }
