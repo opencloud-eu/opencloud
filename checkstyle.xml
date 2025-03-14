@@ -1,0 +1,639 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<checkstyle version="5.0">
+  <file name="opencloud/pkg/backup/provider.go">
+    <error column="20" line="225" message="Magic number: 2, in &lt;condition&gt; detected" severity="error" source="mnd"></error>
+    <error column="15" line="230" message="Magic number: 2, in &lt;condition&gt; detected" severity="error" source="mnd"></error>
+  </file>
+  <file name="opencloud/pkg/command/benchmark.go">
+    <error column="29" line="417" message="fmt.Sprintf can be replaced with faster strconv.Itoa" severity="error" source="perfsprint"></error>
+    <error column="29" line="419" message="fmt.Sprintf can be replaced with faster strconv.Itoa" severity="error" source="perfsprint"></error>
+  </file>
+  <file name="opencloud/pkg/command/decomposedfs.go">
+    <error column="17" line="129" message="Error return value of `n.SetTreeSize` is not checked" severity="error" source="errcheck"></error>
+    <error column="23" line="169" message="Error return value of `child.SetTreeSize` is not checked" severity="error" source="errcheck"></error>
+    <error column="12" line="118" message="ineffectual assignment to err" severity="error" source="ineffassign"></error>
+  </file>
+  <file name="opencloud/pkg/command/helper/common.go">
+    <error column="1" line="7" message="exported: exported function SubcommandDescription should have comment or be unexported" severity="error" source="revive"></error>
+    <error column="9" line="8" message="fmt.Sprintf can be replaced with string concatenation" severity="error" source="perfsprint"></error>
+  </file>
+  <file name="opencloud/pkg/command/init.go">
+    <error column="2" line="80" message="assigned to input, but reassigned without using the value" severity="error" source="wastedassign"></error>
+  </file>
+  <file name="opencloud/pkg/command/shares.go">
+    <error column="6" line="174" message="func `revaPublicShareConfig` is unused" severity="error" source="unused"></error>
+  </file>
+  <file name="opencloud/pkg/init/functions.go">
+    <error column="9" line="86" message="G204: Subprocess launched with a potential tainted input or cmd arguments" severity="error" source="gosec"></error>
+    <error column="46" line="69" message="Magic number: 0600, in &lt;argument&gt; detected" severity="error" source="mnd"></error>
+    <error column="43" line="81" message="Magic number: 0600, in &lt;argument&gt; detected" severity="error" source="mnd"></error>
+    <error column="40" line="102" message="Magic number: 0600, in &lt;argument&gt; detected" severity="error" source="mnd"></error>
+  </file>
+  <file name="opencloud/pkg/init/init.go">
+    <error column="1" line="25" message="Function name: CreateConfig, Cyclomatic Complexity: 35, Halstead Volume: 6944.73, Maintainability Index: 15" severity="error" source="maintidx"></error>
+    <error column="32" line="49" message="Magic number: 0700, in &lt;argument&gt; detected" severity="error" source="mnd"></error>
+    <error column="10" line="27" message="fmt.Errorf can be replaced with errors.New" severity="error" source="perfsprint"></error>
+    <error column="10" line="30" message="fmt.Errorf can be replaced with errors.New" severity="error" source="perfsprint"></error>
+    <error column="10" line="34" message="fmt.Errorf can be replaced with errors.New" severity="error" source="perfsprint"></error>
+  </file>
+  <file name="opencloud/pkg/runtime/cmd/list.go">
+    <error column="13" line="19" message="unused-parameter: parameter &#39;cmd&#39; seems to be unused, consider removing or renaming it as _" severity="error" source="revive"></error>
+  </file>
+  <file name="opencloud/pkg/runtime/service/service.go">
+    <error column="9" line="439" message="G114: Use of net/http serve function that has no support for setting timeouts" severity="error" source="gosec"></error>
+    <error column="1" line="97" message="Function name: NewService, Cyclomatic Complexity: 3, Halstead Volume: 11513.50, Maintainability Index: 18" severity="error" source="maintidx"></error>
+  </file>
+  <file name="opencloud/pkg/trash/trash.go">
+    <error column="3" line="50" message="error is not nil (line 46) but it returns nil" severity="error" source="nilerr"></error>
+  </file>
+  <file name="pkg/clihelper/app.go">
+    <error column="1" line="8" message="exported: exported function DefaultApp should have comment or be unexported" severity="error" source="revive"></error>
+  </file>
+  <file name="pkg/config/defaults/paths.go">
+    <error column="2" line="10" message="exported: comment on exported var BaseDataPathType should be of the form &#34;BaseDataPathType ...&#34;" severity="error" source="revive"></error>
+    <error column="2" line="12" message="exported: comment on exported var BaseDataPathValue should be of the form &#34;BaseDataPathValue ...&#34;" severity="error" source="revive"></error>
+    <error column="1" line="16" message="exported: exported function BaseDataPath should have comment or be unexported" severity="error" source="revive"></error>
+    <error column="2" line="43" message="exported: comment on exported var BaseConfigPathType should be of the form &#34;BaseConfigPathType ...&#34;" severity="error" source="revive"></error>
+    <error column="2" line="45" message="exported: comment on exported var BaseConfigPathValue should be of the form &#34;BaseConfigPathValue ...&#34;" severity="error" source="revive"></error>
+    <error column="1" line="49" message="exported: exported function BaseConfigPath should have comment or be unexported" severity="error" source="revive"></error>
+  </file>
+  <file name="pkg/config/envdecode/envdecode.go">
+    <error column="5" line="22" message="exported: exported var ErrNoTargetFieldsAreSet should have comment or be unexported" severity="error" source="revive"></error>
+    <error column="6" line="315" message="exported: exported type ConfigInfo should have comment or be unexported" severity="error" source="revive"></error>
+    <error column="6" line="325" message="exported: exported type ConfigInfoSlice should have comment or be unexported" severity="error" source="revive"></error>
+    <error column="1" line="337" message="exported: comment on exported function Export should be of the form &#34;Export ...&#34;" severity="error" source="revive"></error>
+    <error column="9" line="37" message="interface method Decode must have named param for type string" severity="error" source="inamedparam"></error>
+  </file>
+  <file name="pkg/cors/option.go">
+    <error column="1" line="24" message="exported: comment on exported function NewOptions should be of the form &#34;NewOptions ...&#34;" severity="error" source="revive"></error>
+    <error column="1" line="63" message="exported: comment on exported function AllowCredentials should be of the form &#34;AllowCredentials ...&#34;" severity="error" source="revive"></error>
+  </file>
+  <file name="pkg/generators/password.go">
+    <error column="2" line="39" message="for loop can be changed to use an integer range (Go 1.22+)" severity="error" source="intrange"></error>
+  </file>
+  <file name="pkg/ldap/ldap.go">
+    <error column="3" line="19" message="for loop can be changed to use an integer range (Go 1.22+)" severity="error" source="intrange"></error>
+  </file>
+  <file name="pkg/log/log.go">
+    <error column="2" line="19" message="exported: exported var RequestIDString should have comment or be unexported" severity="error" source="revive"></error>
+    <error column="6" line="56" message="exported: exported type LineInfoHook should have comment or be unexported" severity="error" source="revive"></error>
+    <error column="1" line="22" message="don&#39;t use `init` function" severity="error" source="gochecknoinits"></error>
+    <error column="38" line="62" message="Magic number: 3, in &lt;argument&gt; detected" severity="error" source="mnd"></error>
+    <error column="74" line="108" message="Magic number: 0644, in &lt;argument&gt; detected" severity="error" source="mnd"></error>
+  </file>
+  <file name="pkg/markdown/markdown.go">
+    <error column="11" line="80" message="fmt.Sprintf can be replaced with string concatenation" severity="error" source="perfsprint"></error>
+  </file>
+  <file name="pkg/middleware/account.go">
+    <error column="26" line="45" message="non-canonical header &#34;x-access-token&#34;, instead use: &#34;X-Access-Token&#34;" severity="error" source="canonicalheader"></error>
+    <error column="30" line="38" message="Magic number: 60, in &lt;argument&gt; detected" severity="error" source="mnd"></error>
+    <error column="39" line="69" message="avoid direct access to proto field u.Id.OpaqueId, use u.GetId().GetOpaqueId() instead" severity="error" source="protogetter"></error>
+    <error column="7" line="70" message="avoid direct access to proto field u.Opaque, use u.GetOpaque() instead" severity="error" source="protogetter"></error>
+    <error column="21" line="71" message="avoid direct access to proto field u.Opaque.Map, use u.GetOpaque().GetMap() instead" severity="error" source="protogetter"></error>
+    <error column="46" line="72" message="avoid direct access to proto field roles.Value, use roles.GetValue() instead" severity="error" source="protogetter"></error>
+    <error column="21" line="55" message="must be dispatched by Msg or Send method" severity="error" source="zerologlint"></error>
+  </file>
+  <file name="pkg/natsjsregistry/registry.go">
+    <error column="1" line="31" message="don&#39;t use `init` function" severity="error" source="gochecknoinits"></error>
+  </file>
+  <file name="pkg/oidc/claims.go">
+    <error column="67" line="58" message="`seperated` is a misspelling of `separated`" severity="error" source="misspell"></error>
+    <error column="20" line="26" message="Magic number: 2, in &lt;operation&gt; detected" severity="error" source="mnd"></error>
+  </file>
+  <file name="pkg/oidc/client.go">
+    <error column="50" line="160" message="G115: integer overflow conversion uint64 -&gt; int64" severity="error" source="gosec"></error>
+    <error column="50" line="161" message="G115: integer overflow conversion uint64 -&gt; int64" severity="error" source="gosec"></error>
+    <error column="31" line="108" message="&#34;GET&#34; can be replaced by http.MethodGet" severity="error" source="usestdlibvars"></error>
+    <error column="30" line="225" message="&#34;GET&#34; can be replaced by http.MethodGet" severity="error" source="usestdlibvars"></error>
+  </file>
+  <file name="pkg/registry/service.go">
+    <error column="28" line="80" message="string `http` has 3 occurrences, make it a constant" severity="error" source="goconst"></error>
+    <error column="36" line="75" message="fmt.Sprint can be replaced with faster strconv.Itoa" severity="error" source="perfsprint"></error>
+  </file>
+  <file name="pkg/roles/manager.go">
+    <error column="24" line="78" message="avoid direct access to proto field res.Bundles, use res.GetBundles() instead" severity="error" source="protogetter"></error>
+    <error column="13" line="81" message="avoid direct access to proto field role.Id, use role.GetId() instead" severity="error" source="protogetter"></error>
+    <error column="27" line="103" message="avoid direct access to proto field role.Settings, use role.GetSettings() instead" severity="error" source="protogetter"></error>
+    <error column="7" line="104" message="avoid direct access to proto field setting.Id, use setting.GetId() instead" severity="error" source="protogetter"></error>
+    <error column="35" line="121" message="avoid direct access to proto field assignmentResponse.Assignments, use assignmentResponse.GetAssignments() instead" severity="error" source="protogetter"></error>
+    <error column="29" line="123" message="avoid direct access to proto field assignmentResponse.Assignments, use assignmentResponse.GetAssignments() instead" severity="error" source="protogetter"></error>
+    <error column="29" line="124" message="avoid direct access to proto field assignment.RoleId, use assignment.GetRoleId() instead" severity="error" source="protogetter"></error>
+  </file>
+  <file name="pkg/service/debug/service.go">
+    <error column="10" line="73" message="G112: Potential Slowloris Attack because ReadHeaderTimeout is not configured in the http.Server" severity="error" source="gosec"></error>
+  </file>
+  <file name="pkg/service/grpc/client.go">
+    <error column="24" line="78" message="G402: TLS InsecureSkipVerify set true." severity="error" source="gosec"></error>
+  </file>
+  <file name="pkg/service/grpc/service.go">
+    <error column="16" line="38" message="G402: TLS MinVersion too low." severity="error" source="gosec"></error>
+  </file>
+  <file name="pkg/service/http/service.go">
+    <error column="17" line="50" message="G402: TLS MinVersion too low." severity="error" source="gosec"></error>
+  </file>
+  <file name="pkg/shared/memlimit.go">
+    <error column="1" line="10" message="don&#39;t use `init` function" severity="error" source="gochecknoinits"></error>
+  </file>
+  <file name="pkg/shared/shared_types.go">
+    <error column="36" line="79" message="tag is not aligned, should be: yaml:&#34;token_manager&#34; mask:&#34;struct&#34;" severity="error" source="tagalign"></error>
+    <error column="36" line="81" message="tag is not aligned, should be: yaml:&#34;machine_auth_api_key&#34; env:&#34;OC_MACHINE_AUTH_API_KEY&#34; desc:&#34;Machine auth API key used to validate internal requests necessary for the access to resources from other services.&#34; introductionVersion:&#34;1.0.0&#34; mask:&#34;password&#34;" severity="error" source="tagalign"></error>
+    <error column="36" line="82" message="tag is not aligned, should be: yaml:&#34;transfer_secret,omitempty&#34; env:&#34;REVA_TRANSFER_SECRET&#34; desc:&#34;The secret used for signing the requests towards the data gateway for up- and downloads.&#34; introductionVersion:&#34;1.0.0&#34; mask:&#34;password&#34;" severity="error" source="tagalign"></error>
+    <error column="36" line="84" message="tag is not aligned, should be: yaml:&#34;system_user_api_key&#34; env:&#34;SYSTEM_USER_API_KEY&#34; desc:&#34;API key for all system users.&#34; introductionVersion:&#34;1.0.0&#34; mask:&#34;password&#34;" severity="error" source="tagalign"></error>
+    <error column="19" line="31" message="tag is not aligned , should be: yaml:&#34;jwt_secret&#34; env:&#34;OC_JWT_SECRET&#34; desc:&#34;The secret to mint and validate jwt tokens.&#34; introductionVersion:&#34;1.0.0&#34; mask:&#34;password&#34;" severity="error" source="tagalign"></error>
+  </file>
+  <file name="pkg/sync/cache.go">
+    <error column="19" line="27" message="G115: integer overflow conversion int -&gt; uint64" severity="error" source="gosec"></error>
+  </file>
+  <file name="pkg/tracing/tracing.go">
+    <error column="16" line="108" message="SA1019: grpc.DialContext is deprecated: use NewClient instead.  Will be supported throughout 1.x. " severity="error" source="staticcheck"></error>
+    <error column="4" line="111" message="SA1019: grpc.WithBlock is deprecated: this DialOption is not supported by NewClient. Will be supported throughout 1.x. " severity="error" source="staticcheck"></error>
+    <error column="2" line="13" message="SA1019: &#34;go.opentelemetry.io/otel/exporters/jaeger&#34; is deprecated: This module is no longer supported. OpenTelemetry dropped support for Jaeger exporter in July 2023. Jaeger officially accepts and recommends using OTLP. Use [go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp] or [go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc] instead. " severity="error" source="staticcheck"></error>
+  </file>
+  <file name="services/activitylog/pkg/service/http.go">
+    <error column="1" line="46" message="cyclomatic complexity 43 of func `(*ActivitylogService).HandleGetItemActivities` is high (&gt; 35)" severity="error" source="gocyclo"></error>
+  </file>
+  <file name="services/antivirus/pkg/config/defaults/defaultconfig.go">
+    <error column="25" line="31" message="Magic number: 10, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+    <error column="14" line="41" message="Magic number: 5, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+  </file>
+  <file name="services/antivirus/pkg/service/service.go">
+    <error column="2" line="121" message="for loop can be changed to use an integer range (Go 1.22+)" severity="error" source="intrange"></error>
+  </file>
+  <file name="services/audit/pkg/types/conversion.go">
+    <error column="24" line="552" message="G115: integer overflow conversion uint64 -&gt; int64" severity="error" source="gosec"></error>
+    <error column="9" line="56" message="avoid direct access to proto field ev.Sharer.OpaqueId, use ev.Sharer.GetOpaqueId() instead" severity="error" source="protogetter"></error>
+    <error column="78" line="58" message="avoid direct access to proto field ev.ItemID.OpaqueId, use ev.ItemID.GetOpaqueId() instead" severity="error" source="protogetter"></error>
+    <error column="44" line="60" message="avoid direct access to proto field ev.ItemID.OpaqueId, use ev.ItemID.GetOpaqueId() instead" severity="error" source="protogetter"></error>
+    <error column="9" line="76" message="avoid direct access to proto field ev.Sharer.OpaqueId, use ev.Sharer.GetOpaqueId() instead" severity="error" source="protogetter"></error>
+    <error column="77" line="78" message="avoid direct access to proto field ev.ItemID.OpaqueId, use ev.ItemID.GetOpaqueId() instead" severity="error" source="protogetter"></error>
+    <error column="9" line="96" message="avoid direct access to proto field ev.Sharer.OpaqueId, use ev.Sharer.GetOpaqueId() instead" severity="error" source="protogetter"></error>
+    <error column="78" line="98" message="avoid direct access to proto field ev.ShareID.OpaqueId, use ev.ShareID.GetOpaqueId() instead" severity="error" source="protogetter"></error>
+    <error column="23" line="394" message="avoid direct access to proto field ev.GranteeUserID.OpaqueId, use ev.GranteeUserID.GetOpaqueId() instead" severity="error" source="protogetter"></error>
+    <error column="23" line="395" message="avoid direct access to proto field ev.GranteeUserID.OpaqueId, use ev.GranteeUserID.GetOpaqueId() instead" severity="error" source="protogetter"></error>
+    <error column="24" line="397" message="avoid direct access to proto field ev.GranteeGroupID.OpaqueId, use ev.GranteeGroupID.GetOpaqueId() instead" severity="error" source="protogetter"></error>
+    <error column="24" line="398" message="avoid direct access to proto field ev.GranteeGroupID.OpaqueId, use ev.GranteeGroupID.GetOpaqueId() instead" severity="error" source="protogetter"></error>
+    <error column="23" line="413" message="avoid direct access to proto field ev.GranteeUserID.OpaqueId, use ev.GranteeUserID.GetOpaqueId() instead" severity="error" source="protogetter"></error>
+    <error column="24" line="416" message="avoid direct access to proto field ev.GranteeGroupID.OpaqueId, use ev.GranteeGroupID.GetOpaqueId() instead" severity="error" source="protogetter"></error>
+    <error column="35" line="428" message="avoid direct access to proto field ev.Space.Opaque, use ev.Space.GetOpaque() instead" severity="error" source="protogetter"></error>
+    <error column="11" line="430" message="avoid direct access to proto field ev.Space.Name, use ev.Space.GetName() instead" severity="error" source="protogetter"></error>
+    <error column="109" line="434" message="avoid direct access to proto field ev.Space.Name, use ev.Space.GetName() instead" severity="error" source="protogetter"></error>
+    <error column="21" line="525" message="avoid direct access to proto field uid.OpaqueId, use uid.GetOpaqueId() instead" severity="error" source="protogetter"></error>
+    <error column="10" line="526" message="avoid direct access to proto field uid.OpaqueId, use uid.GetOpaqueId() instead" severity="error" source="protogetter"></error>
+    <error column="21" line="527" message="avoid direct access to proto field gid.OpaqueId, use gid.GetOpaqueId() instead" severity="error" source="protogetter"></error>
+    <error column="10" line="528" message="avoid direct access to proto field gid.OpaqueId, use gid.GetOpaqueId() instead" severity="error" source="protogetter"></error>
+    <error column="7" line="159" message="assigned to sid, but reassigned without using the value" severity="error" source="wastedassign"></error>
+  </file>
+  <file name="services/auth-basic/pkg/config/defaults/defaultconfig.go">
+    <error column="23" line="76" message="Magic number: 3306, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+    <error column="23" line="79" message="Magic number: 90, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+  </file>
+  <file name="services/collaboration/pkg/config/defaults/defaultconfig.go">
+    <error column="14" line="41" message="Magic number: 30, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+  </file>
+  <file name="services/collaboration/pkg/connector/contentconnector.go">
+    <error column="25" line="152" message="G402: TLS InsecureSkipVerify may be true." severity="error" source="gosec"></error>
+  </file>
+  <file name="services/collaboration/pkg/connector/fileconnector.go">
+    <error column="21" line="221" message="G115: integer overflow conversion int64 -&gt; uint64" severity="error" source="gosec"></error>
+    <error column="21" line="247" message="G115: integer overflow conversion int64 -&gt; uint64" severity="error" source="gosec"></error>
+    <error column="20" line="390" message="G115: integer overflow conversion int64 -&gt; uint64" severity="error" source="gosec"></error>
+    <error column="2" line="24" message="SA1019: &#34;github.com/golang/protobuf/proto&#34; is deprecated: Use the &#34;google.golang.org/protobuf/proto&#34; package instead. " severity="error" source="staticcheck"></error>
+  </file>
+  <file name="services/collaboration/pkg/connector/fileinfo/collabora.go">
+    <error column="1" line="1" message="package-comments: should have a package comment" severity="error" source="revive"></error>
+  </file>
+  <file name="services/collaboration/pkg/connector/fileinfo/microsoft.go">
+    <error column="1" line="167" message="cyclomatic complexity 61 of func `(*Microsoft).SetProperties` is high (&gt; 35)" severity="error" source="gocyclo"></error>
+  </file>
+  <file name="services/collaboration/pkg/connector/fileinfo/onlyoffice.go">
+    <error column="1" line="133" message="cyclomatic complexity 39 of func `(*OnlyOffice).SetProperties` is high (&gt; 35)" severity="error" source="gocyclo"></error>
+  </file>
+  <file name="services/collaboration/pkg/helpers/discovery.go">
+    <error column="25" line="26" message="G402: TLS InsecureSkipVerify may be true." severity="error" source="gosec"></error>
+  </file>
+  <file name="services/collaboration/pkg/middleware/accesslog.go">
+    <error column="37" line="30" message="non-canonical header &#34;X-WOPI-Override&#34;, instead use: &#34;X-Wopi-Override&#34;" severity="error" source="canonicalheader"></error>
+  </file>
+  <file name="services/collaboration/pkg/middleware/crypto.go">
+    <error column="12" line="52" message="SA1019: cipher.NewCFBEncrypter has been deprecated since Go 1.24 and an alternative has been available since Go 1.2: CFB mode is not authenticated, which generally enables active attacks to manipulate and recover the plaintext. It is recommended that applications use [AEAD] modes instead. The standard library implementation of CFB is also unoptimized and not validated as part of the FIPS 140-3 module. If an unauthenticated [Stream] mode is required, use [NewCTR] instead. " severity="error" source="staticcheck"></error>
+    <error column="12" line="79" message="SA1019: cipher.NewCFBDecrypter has been deprecated since Go 1.24 and an alternative has been available since Go 1.2: CFB mode is not authenticated, which generally enables active attacks to manipulate and recover the plaintext. It is recommended that applications use [AEAD] modes instead. The standard library implementation of CFB is also unoptimized and not validated as part of the FIPS 140-3 module. If an unauthenticated [Stream] mode is required, use [NewCTR] instead. " severity="error" source="staticcheck"></error>
+  </file>
+  <file name="services/collaboration/pkg/middleware/proofkeys.go">
+    <error column="25" line="46" message="non-canonical header &#34;X-WOPI-TimeStamp&#34;, instead use: &#34;X-Wopi-Timestamp&#34;" severity="error" source="canonicalheader"></error>
+    <error column="17" line="52" message="non-canonical header &#34;X-WOPI-Proof&#34;, instead use: &#34;X-Wopi-Proof&#34;" severity="error" source="canonicalheader"></error>
+    <error column="17" line="53" message="non-canonical header &#34;X-WOPI-ProofOld&#34;, instead use: &#34;X-Wopi-Proofold&#34;" severity="error" source="canonicalheader"></error>
+  </file>
+  <file name="services/collaboration/pkg/middleware/tracing.go">
+    <error column="30" line="29" message="non-canonical header &#34;X-WOPI-Override&#34;, instead use: &#34;X-Wopi-Override&#34;" severity="error" source="canonicalheader"></error>
+    <error column="53" line="34" message="non-canonical header &#34;X-WOPI-SessionId&#34;, instead use: &#34;X-Wopi-Sessionid&#34;" severity="error" source="canonicalheader"></error>
+  </file>
+  <file name="services/collaboration/pkg/middleware/wopicontext.go">
+    <error column="2" line="5" message="G501: Blocklisted import crypto/md5: weak cryptographic primitive" severity="error" source="gosec"></error>
+    <error column="8" line="219" message="G401: Use of weak cryptographic primitive" severity="error" source="gosec"></error>
+    <error column="38" line="61" message="non-canonical header &#34;X-WOPI-SessionId&#34;, instead use: &#34;X-Wopi-Sessionid&#34;" severity="error" source="canonicalheader"></error>
+    <error column="37" line="62" message="non-canonical header &#34;X-WOPI-Override&#34;, instead use: &#34;X-Wopi-Override&#34;" severity="error" source="canonicalheader"></error>
+    <error column="34" line="63" message="non-canonical header &#34;X-WOPI-Proof&#34;, instead use: &#34;X-Wopi-Proof&#34;" severity="error" source="canonicalheader"></error>
+    <error column="37" line="64" message="non-canonical header &#34;X-WOPI-ProofOld&#34;, instead use: &#34;X-Wopi-Proofold&#34;" severity="error" source="canonicalheader"></error>
+    <error column="34" line="65" message="non-canonical header &#34;X-WOPI-TimeStamp&#34;, instead use: &#34;X-Wopi-Timestamp&#34;" severity="error" source="canonicalheader"></error>
+  </file>
+  <file name="services/collaboration/pkg/proofkeys/handler.go">
+    <error column="25" line="205" message="G402: TLS InsecureSkipVerify may be true." severity="error" source="gosec"></error>
+    <error column="6" line="21" message="exported: exported type PubKeys should have comment or be unexported" severity="error" source="revive"></error>
+    <error column="6" line="27" message="exported: exported type Verifier should have comment or be unexported" severity="error" source="revive"></error>
+    <error column="6" line="31" message="exported: exported type VerifyHandler should have comment or be unexported" severity="error" source="revive"></error>
+    <error column="10" line="94" message="indent-error-flow: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary)" severity="error" source="revive"></error>
+    <error column="11" line="119" message="indent-error-flow: if block ends with a return statement, so drop this else and outdent its block" severity="error" source="revive"></error>
+  </file>
+  <file name="services/eventhistory/pkg/config/defaults/defaultconfig.go">
+    <error column="14" line="40" message="Magic number: 336, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+  </file>
+  <file name="services/eventhistory/pkg/server/grpc/option.go">
+    <error column="22" line="111" message="SA1019: trace.NewNoopTracerProvider is deprecated: Use [go.opentelemetry.io/otel/trace/noop.NewTracerProvider] instead. " severity="error" source="staticcheck"></error>
+  </file>
+  <file name="services/eventhistory/pkg/service/service.go">
+    <error column="27" line="53" message="the given struct should be annotated with the `json` tag" severity="error" source="musttag"></error>
+    <error column="41" line="138" message="the given struct should be annotated with the `json` tag" severity="error" source="musttag"></error>
+    <error column="21" line="79" message="avoid direct access to proto field req.Ids, use req.GetIds() instead" severity="error" source="protogetter"></error>
+    <error column="54" line="104" message="avoid direct access to proto field req.UserID, use req.GetUserID() instead" severity="error" source="protogetter"></error>
+    <error column="41" line="106" message="avoid direct access to proto field req.UserID, use req.GetUserID() instead" severity="error" source="protogetter"></error>
+    <error column="19" line="116" message="avoid direct access to proto field e.Event, use e.GetEvent() instead" severity="error" source="protogetter"></error>
+  </file>
+  <file name="services/frontend/pkg/command/events.go">
+    <error column="22" line="173" message="must be dispatched by Msg or Send method" severity="error" source="zerologlint"></error>
+    <error column="22" line="175" message="must be dispatched by Msg or Send method" severity="error" source="zerologlint"></error>
+  </file>
+  <file name="services/frontend/pkg/config/defaults/defaultconfig.go">
+    <error column="29" line="85" message="Magic number: 1e+7, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+    <error column="29" line="89" message="Magic number: 3, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+    <error column="17" line="102" message="Magic number: 10000, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+    <error column="17" line="103" message="Magic number: 1073741824, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+    <error column="33" line="116" message="Magic number: 300, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+    <error column="28" line="135" message="Magic number: 8, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+  </file>
+  <file name="services/frontend/pkg/revaconfig/config.go">
+    <error column="1" line="21" message="Function name: FrontendConfigFromStruct, Cyclomatic Complexity: 6, Halstead Volume: 8971.65, Maintainability Index: 16" severity="error" source="maintidx"></error>
+  </file>
+  <file name="services/gateway/pkg/config/defaults/defaultconfig.go">
+    <error column="41" line="40" message="Magic number: 60, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+    <error column="29" line="45" message="Magic number: 300, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+    <error column="29" line="49" message="Magic number: 300, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+  </file>
+  <file name="services/graph/pkg/config/defaults/defaultconfig.go">
+    <error column="29" line="61" message="Magic number: 20, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+    <error column="29" line="64" message="Magic number: 3, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+    <error column="37" line="73" message="Magic number: 60, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+    <error column="20" line="75" message="Magic number: 60, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+    <error column="26" line="117" message="Magic number: 336, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+    <error column="19" line="124" message="Magic number: 20, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+  </file>
+  <file name="services/graph/pkg/identity/backend.go">
+    <error column="1" line="11" message="File is not properly formatted" severity="error" source="gofmt"></error>
+    <error column="23" line="62" message="the interface has more than 15 methods: 25" severity="error" source="interfacebloat"></error>
+  </file>
+  <file name="services/graph/pkg/identity/ldap/reconnect.go">
+    <error column="33" line="307" message="unused-parameter: parameter &#39;username&#39; seems to be unused, consider removing or renaming it as _" severity="error" source="revive"></error>
+    <error column="48" line="311" message="unused-parameter: parameter &#39;username&#39; seems to be unused, consider removing or renaming it as _" severity="error" source="revive"></error>
+    <error column="36" line="332" message="unused-parameter: parameter &#39;dn&#39; seems to be unused, consider removing or renaming it as _" severity="error" source="revive"></error>
+    <error column="45" line="336" message="unused-parameter: parameter &#39;searchRequest&#39; seems to be unused, consider removing or renaming it as _" severity="error" source="revive"></error>
+    <error column="40" line="341" message="unused-parameter: parameter &#39;ctx&#39; seems to be unused, consider removing or renaming it as _" severity="error" source="revive"></error>
+    <error column="52" line="347" message="unused-parameter: parameter &#39;domain&#39; seems to be unused, consider removing or renaming it as _" severity="error" source="revive"></error>
+    <error column="36" line="362" message="unused-parameter: parameter &#39;searchRequest&#39; seems to be unused, consider removing or renaming it as _" severity="error" source="revive"></error>
+    <error column="41" line="367" message="unused-parameter: parameter &#39;ctx&#39; seems to be unused, consider removing or renaming it as _" severity="error" source="revive"></error>
+    <error column="37" line="373" message="unused-parameter: parameter &#39;ctx&#39; seems to be unused, consider removing or renaming it as _" severity="error" source="revive"></error>
+    <error column="6" line="35" message="exported: exported type Config should have comment or be unexported" severity="error" source="revive"></error>
+    <error column="1" line="42" message="exported: exported function NewLDAPWithReconnect should have comment or be unexported" severity="error" source="revive"></error>
+    <error column="1" line="53" message="exported: exported method ConnWithReconnect.Search should have comment or be unexported" severity="error" source="revive"></error>
+    <error column="1" line="79" message="exported: exported method ConnWithReconnect.Add should have comment or be unexported" severity="error" source="revive"></error>
+    <error column="1" line="102" message="exported: exported method ConnWithReconnect.Del should have comment or be unexported" severity="error" source="revive"></error>
+    <error column="1" line="126" message="exported: exported method ConnWithReconnect.Modify should have comment or be unexported" severity="error" source="revive"></error>
+    <error column="1" line="150" message="exported: exported method ConnWithReconnect.PasswordModify should have comment or be unexported" severity="error" source="revive"></error>
+    <error column="1" line="175" message="exported: exported method ConnWithReconnect.ModifyDN should have comment or be unexported" severity="error" source="revive"></error>
+  </file>
+  <file name="services/graph/pkg/identity/ldap_education_class.go">
+    <error column="11" line="211" message="fmt.Sprintf can be replaced with string concatenation" severity="error" source="perfsprint"></error>
+  </file>
+  <file name="services/graph/pkg/identity/ldap_education_user.go">
+    <error column="1" line="9" message="File is not properly formatted" severity="error" source="gofmt"></error>
+  </file>
+  <file name="services/graph/pkg/identity/ldap_group.go">
+    <error column="2" line="470" message="assigned to filter, but reassigned without using the value" severity="error" source="wastedassign"></error>
+  </file>
+  <file name="services/graph/pkg/middleware/auth.go">
+    <error column="22" line="46" message="non-canonical header &#34;x-access-token&#34;, instead use: &#34;X-Access-Token&#34;" severity="error" source="canonicalheader"></error>
+  </file>
+  <file name="services/graph/pkg/service/v0/api_driveitem_permissions_links.go">
+    <error column="18" line="424" message="G115: integer overflow conversion int64 -&gt; uint32" severity="error" source="gosec"></error>
+  </file>
+  <file name="services/graph/pkg/service/v0/api_drives_drive_item.go">
+    <error column="43" line="503" message="copylocks: call of api.logger.Debug().Interface copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.ResourceId contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+  </file>
+  <file name="services/graph/pkg/service/v0/driveitems.go">
+    <error column="10" line="358" message="copylocks: return copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.Grantee contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="10" line="376" message="copylocks: return copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.Grantee contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="9" line="378" message="copylocks: return copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.Grantee contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="59" line="638" message="copylocks: getPathForResource passes lock by value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.ResourceId contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="50" line="649" message="copylocks: call of fmt.Errorf copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.ResourceId contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+  </file>
+  <file name="services/graph/pkg/service/v0/drives.go">
+    <error column="50" line="501" message="non-canonical header &#34;restore&#34;, instead use: &#34;Restore&#34;" severity="error" source="canonicalheader"></error>
+    <error column="43" line="417" message="copylocks: call of logger.Debug().Interface copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.CreateStorageSpaceRequest contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="35" line="582" message="copylocks: call of logger.Debug().Interface copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.ResourceId contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="35" line="586" message="copylocks: call of logger.Debug().Interface copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.ResourceId contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="35" line="590" message="copylocks: call of logger.Debug().Interface copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.ResourceId contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="45" line="771" message="copylocks: call of logger.Debug().Err(err).Interface copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.ResourceId contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="77" line="1086" message="copylocks: call of logger.Debug().Str(&#34;grpc&#34;, dRes.GetStatus().GetMessage()).Interface copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.ResourceId contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+  </file>
+  <file name="services/graph/pkg/service/v0/graph.go">
+    <error column="9" line="153" message="copylocks: return copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.ResourceId contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="6" line="55" message="the methods of &#34;Graph&#34; use pointer receiver and non-pointer receiver." severity="error" source="recvcheck"></error>
+  </file>
+  <file name="services/graph/pkg/validate/libregraph.go">
+    <error column="2" line="89" message="Consider pre-allocating `availableRoles`" severity="error" source="prealloc"></error>
+  </file>
+  <file name="services/groups/pkg/config/defaults/defaultconfig.go">
+    <error column="25" line="73" message="Magic number: 3306, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+    <error column="25" line="76" message="Magic number: 90, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+  </file>
+  <file name="services/idp/idp.go">
+    <error column="5" line="9" message="exported: exported var Assets should have comment or be unexported" severity="error" source="revive"></error>
+  </file>
+  <file name="services/idp/pkg/config/defaults/defaultconfig.go">
+    <error column="55" line="71" message="Magic number: 30, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+  </file>
+  <file name="services/idp/pkg/service/v0/service.go">
+    <error column="12" line="36" message="interface method ServeHTTP must have named param for type http.ResponseWriter" severity="error" source="inamedparam"></error>
+    <error column="2" line="329" message="ineffectual assignment to indexHTML" severity="error" source="ineffassign"></error>
+    <error column="6" line="253" message="the methods of &#34;IDP&#34; use pointer receiver and non-pointer receiver." severity="error" source="recvcheck"></error>
+  </file>
+  <file name="services/invitations/pkg/metrics/metrics.go">
+    <error column="37" line="38" message="Metric: opencloud_invitations_invitation_latency_microseconds Error: use base unit &#34;seconds&#34; instead of &#34;microseconds&#34;" severity="error" source="promlinter"></error>
+  </file>
+  <file name="services/nats/pkg/config/defaults/defaultconfig.go">
+    <error column="15" line="35" message="Magic number: 9233, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+  </file>
+  <file name="services/notifications/pkg/config/defaults/defaultconfig.go">
+    <error column="14" line="50" message="Magic number: 336, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+  </file>
+  <file name="services/notifications/pkg/email/composer.go">
+    <error column="41" line="24" message="printf: non-constant format string in call to (*github.com/leonelquinteros/gotext.Locale).Get" severity="error" source="govet"></error>
+    <error column="42" line="28" message="printf: non-constant format string in call to (*github.com/leonelquinteros/gotext.Locale).Get" severity="error" source="govet"></error>
+    <error column="45" line="32" message="printf: non-constant format string in call to (*github.com/leonelquinteros/gotext.Locale).Get" severity="error" source="govet"></error>
+  </file>
+  <file name="services/ocdav/pkg/config/defaults/defaultconfig.go">
+    <error column="22" line="87" message="Magic number: 84300, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+  </file>
+  <file name="services/ocm/pkg/config/defaults/defaultconfig.go">
+    <error column="21" line="105" message="Magic number: 24, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+    <error column="21" line="106" message="Magic number: 30, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+  </file>
+  <file name="services/ocs/pkg/config/defaults/defaultconfig.go">
+    <error column="23" line="45" message="Magic number: 12, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+  </file>
+  <file name="services/ocs/pkg/service/v0/response/response.go">
+    <error column="29" line="72" message="unused-parameter: parameter &#39;w&#39; seems to be unused, consider removing or renaming it as _" severity="error" source="revive"></error>
+    <error column="3" line="36" message="naked return in func `MarshalXML` with 38 lines of code" severity="error" source="nakedret"></error>
+    <error column="3" line="41" message="naked return in func `MarshalXML` with 38 lines of code" severity="error" source="nakedret"></error>
+    <error column="4" line="50" message="naked return in func `MarshalXML` with 38 lines of code" severity="error" source="nakedret"></error>
+  </file>
+  <file name="services/ocs/pkg/service/v0/service.go">
+    <error column="12" line="22" message="interface method ServeHTTP must have named param for type http.ResponseWriter" severity="error" source="inamedparam"></error>
+  </file>
+  <file name="services/ocs/pkg/service/v0/users.go">
+    <error column="12" line="27" message="avoid direct access to proto field u.Id.OpaqueId, use u.GetId().GetOpaqueId() instead" severity="error" source="protogetter"></error>
+  </file>
+  <file name="services/policies/pkg/config/defaults/defaultconfig.go">
+    <error column="13" line="40" message="Magic number: 10, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+  </file>
+  <file name="services/policies/pkg/engine/engine.go">
+    <error column="10" line="59" message="copylocks: return copies lock value: github.com/opencloud-eu/opencloud/services/policies/pkg/engine.Environment contains github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1.User contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="10" line="63" message="copylocks: return copies lock value: github.com/opencloud-eu/opencloud/services/policies/pkg/engine.Environment contains github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1.User contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="9" line="73" message="copylocks: return copies lock value: github.com/opencloud-eu/opencloud/services/policies/pkg/engine.Environment contains github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1.User contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="9" line="66" message="avoid direct access to proto field pEnv.Stage, use pEnv.GetStage() instead" severity="error" source="protogetter"></error>
+  </file>
+  <file name="services/policies/pkg/engine/opa/engine.go">
+    <error column="59" line="57" message="copylocks: Evaluate passes lock by value: github.com/opencloud-eu/opencloud/services/policies/pkg/engine.Environment contains github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1.User contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="44" line="73" message="copylocks: call of rego.EvalInput copies lock value: github.com/opencloud-eu/opencloud/services/policies/pkg/engine.Environment contains github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1.User contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="2" line="9" message="SA1019: &#34;github.com/open-policy-agent/opa/rego&#34; is deprecated: This package is intended for older projects transitioning from OPA v0.x and will remain for the lifetime of OPA v1.x, but its use is not recommended. For newer features and behaviours, such as defaulting to the Rego v1 syntax, use the corresponding components in the [github.com/open-policy-agent/opa/v1] package instead. See https://www.openpolicyagent.org/docs/latest/v0-compatibility/ for more information. " severity="error" source="staticcheck"></error>
+    <error column="2" line="10" message="SA1019: &#34;github.com/open-policy-agent/opa/topdown/print&#34; is deprecated: This package is intended for older projects transitioning from OPA v0.x and will remain for the lifetime of OPA v1.x, but its use is not recommended. For newer features and behaviours, such as defaulting to the Rego v1 syntax, use the corresponding components in the [github.com/open-policy-agent/opa/v1] package instead. See https://www.openpolicyagent.org/docs/latest/v0-compatibility/ for more information. " severity="error" source="staticcheck"></error>
+  </file>
+  <file name="services/policies/pkg/engine/opa/opa.go">
+    <error column="2" line="4" message="SA1019: &#34;github.com/open-policy-agent/opa/topdown/print&#34; is deprecated: This package is intended for older projects transitioning from OPA v0.x and will remain for the lifetime of OPA v1.x, but its use is not recommended. For newer features and behaviours, such as defaulting to the Rego v1 syntax, use the corresponding components in the [github.com/open-policy-agent/opa/v1] package instead. See https://www.openpolicyagent.org/docs/latest/v0-compatibility/ for more information. " severity="error" source="staticcheck"></error>
+  </file>
+  <file name="services/policies/pkg/engine/opa/rf_mimetype.go">
+    <error column="2" line="10" message="SA1019: &#34;github.com/open-policy-agent/opa/ast&#34; is deprecated: This package is intended for older projects transitioning from OPA v0.x and will remain for the lifetime of OPA v1.x, but its use is not recommended. For newer features and behaviours, such as defaulting to the Rego v1 syntax, use the corresponding components in the [github.com/open-policy-agent/opa/v1] package instead. See https://www.openpolicyagent.org/docs/latest/v0-compatibility/ for more information. " severity="error" source="staticcheck"></error>
+    <error column="2" line="11" message="SA1019: &#34;github.com/open-policy-agent/opa/rego&#34; is deprecated: This package is intended for older projects transitioning from OPA v0.x and will remain for the lifetime of OPA v1.x, but its use is not recommended. For newer features and behaviours, such as defaulting to the Rego v1 syntax, use the corresponding components in the [github.com/open-policy-agent/opa/v1] package instead. See https://www.openpolicyagent.org/docs/latest/v0-compatibility/ for more information. " severity="error" source="staticcheck"></error>
+    <error column="2" line="12" message="SA1019: &#34;github.com/open-policy-agent/opa/types&#34; is deprecated: This package is intended for older projects transitioning from OPA v0.x and will remain for the lifetime of OPA v1.x, but its use is not recommended. For newer features and behaviours, such as defaulting to the Rego v1 syntax, use the corresponding components in the [github.com/open-policy-agent/opa/v1] package instead. See https://www.openpolicyagent.org/docs/latest/v0-compatibility/ for more information. " severity="error" source="staticcheck"></error>
+  </file>
+  <file name="services/policies/pkg/engine/opa/rf_resource.go">
+    <error column="2" line="8" message="SA1019: &#34;github.com/open-policy-agent/opa/ast&#34; is deprecated: This package is intended for older projects transitioning from OPA v0.x and will remain for the lifetime of OPA v1.x, but its use is not recommended. For newer features and behaviours, such as defaulting to the Rego v1 syntax, use the corresponding components in the [github.com/open-policy-agent/opa/v1] package instead. See https://www.openpolicyagent.org/docs/latest/v0-compatibility/ for more information. " severity="error" source="staticcheck"></error>
+    <error column="2" line="9" message="SA1019: &#34;github.com/open-policy-agent/opa/rego&#34; is deprecated: This package is intended for older projects transitioning from OPA v0.x and will remain for the lifetime of OPA v1.x, but its use is not recommended. For newer features and behaviours, such as defaulting to the Rego v1 syntax, use the corresponding components in the [github.com/open-policy-agent/opa/v1] package instead. See https://www.openpolicyagent.org/docs/latest/v0-compatibility/ for more information. " severity="error" source="staticcheck"></error>
+    <error column="2" line="10" message="SA1019: &#34;github.com/open-policy-agent/opa/types&#34; is deprecated: This package is intended for older projects transitioning from OPA v0.x and will remain for the lifetime of OPA v1.x, but its use is not recommended. For newer features and behaviours, such as defaulting to the Rego v1 syntax, use the corresponding components in the [github.com/open-policy-agent/opa/v1] package instead. See https://www.openpolicyagent.org/docs/latest/v0-compatibility/ for more information. " severity="error" source="staticcheck"></error>
+  </file>
+  <file name="services/policies/pkg/service/event/service.go">
+    <error column="16" line="77" message="copylocks: assignment copies lock value to env.User: github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1.User contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="23" line="81" message="copylocks: assignment copies lock value to env.Resource.ID: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.ResourceId contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="62" line="84" message="copylocks: call of s.engine.Evaluate copies lock value: github.com/opencloud-eu/opencloud/services/policies/pkg/engine.Environment contains github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1.User contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+  </file>
+  <file name="services/policies/pkg/service/grpc/service.go">
+    <error column="55" line="31" message="copylocks: call of s.engine.Evaluate copies lock value: github.com/opencloud-eu/opencloud/services/policies/pkg/engine.Environment contains github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1.User contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="42" line="26" message="avoid direct access to proto field request.Environment, use request.GetEnvironment() instead" severity="error" source="protogetter"></error>
+  </file>
+  <file name="services/postprocessing/pkg/config/config.go">
+    <error column="275" line="32" message="`explicitely` is a misspelling of `explicitly`" severity="error" source="misspell"></error>
+  </file>
+  <file name="services/postprocessing/pkg/config/defaults/defaultconfig.go">
+    <error column="26" line="34" message="Magic number: 3, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+    <error column="26" line="35" message="Magic number: 5, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+    <error column="26" line="36" message="Magic number: 14, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+  </file>
+  <file name="services/postprocessing/pkg/service/service.go">
+    <error column="38" line="224" message="the given struct should be annotated with the `json` tag" severity="error" source="musttag"></error>
+  </file>
+  <file name="services/proxy/pkg/config/debug.go">
+    <error column="16" line="6" message="tag is not aligned, should be: yaml:&#34;token&#34; env:&#34;PROXY_DEBUG_TOKEN&#34; desc:&#34;Token to secure the metrics endpoint.&#34; introductionVersion:&#34;1.0.0&#34; mask:&#34;password&#34;" severity="error" source="tagalign"></error>
+  </file>
+  <file name="services/proxy/pkg/config/defaults/defaultconfig.go">
+    <error column="29" line="51" message="Magic number: 10, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+    <error column="37" line="81" message="Magic number: 12, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+  </file>
+  <file name="services/proxy/pkg/middleware/authentication.go">
+    <error column="15" line="48" message="interface method Authenticate must have all named params" severity="error" source="inamedparam"></error>
+    <error column="9" line="210" message="SA1019: trace.NewNoopTracerProvider is deprecated: Use [go.opentelemetry.io/otel/trace/noop.NewTracerProvider] instead. " severity="error" source="staticcheck"></error>
+    <error column="68" line="68" message="&#34;OPTIONS&#34; can be replaced by http.MethodOptions" severity="error" source="usestdlibvars"></error>
+  </file>
+  <file name="services/proxy/pkg/middleware/create_home.go">
+    <error column="26" line="48" message="non-canonical header &#34;x-access-token&#34;, instead use: &#34;X-Access-Token&#34;" severity="error" source="canonicalheader"></error>
+  </file>
+  <file name="services/proxy/pkg/middleware/https_redirect.go">
+    <error column="27" line="11" message="non-canonical header &#34;x-forwarded-proto&#34;, instead use: &#34;X-Forwarded-Proto&#34;" severity="error" source="canonicalheader"></error>
+  </file>
+  <file name="services/proxy/pkg/middleware/oidc_auth.go">
+    <error column="6" line="44" message="the methods of &#34;OIDCAuthenticator&#34; use pointer receiver and non-pointer receiver." severity="error" source="recvcheck"></error>
+  </file>
+  <file name="services/proxy/pkg/middleware/policies.go">
+    <error column="11" line="103" message="ineffectual assignment to err" severity="error" source="ineffassign"></error>
+  </file>
+  <file name="services/proxy/pkg/middleware/public_share_auth.go">
+    <error column="64" line="35" message="const &#34;headerShareToken&#34; used as a key at http.Header, but &#34;public-token&#34; is not canonical, want &#34;Public-Token&#34;" severity="error" source="canonicalheader"></error>
+    <error column="62" line="48" message="const &#34;headerShareToken&#34; used as a key at http.Header, but &#34;public-token&#34; is not canonical, want &#34;Public-Token&#34;" severity="error" source="canonicalheader"></error>
+    <error column="62" line="55" message="const &#34;headerShareToken&#34; used as a key at http.Header, but &#34;public-token&#34; is not canonical, want &#34;Public-Token&#34;" severity="error" source="canonicalheader"></error>
+    <error column="15" line="121" message="const &#34;_headerRevaAccessToken&#34; used as a key at http.Header, but &#34;x-access-token&#34; is not canonical, want &#34;X-Access-Token&#34;" severity="error" source="canonicalheader"></error>
+  </file>
+  <file name="services/proxy/pkg/staticroutes/staticroutes.go">
+    <error column="6" line="16" message="the methods of &#34;StaticRouteHandler&#34; use pointer receiver and non-pointer receiver." severity="error" source="recvcheck"></error>
+  </file>
+  <file name="services/proxy/pkg/user/backend/cs3.go">
+    <error column="9" line="516" message="copylocks: return copies lock value: github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1.User contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="7" line="126" message="avoid direct access to proto field res.Status.Code, use res.GetStatus().GetCode() instead" severity="error" source="protogetter"></error>
+    <error column="6" line="127" message="avoid direct access to proto field res.Status.Code, use res.GetStatus().GetCode() instead" severity="error" source="protogetter"></error>
+    <error column="10" line="133" message="avoid direct access to proto field res.User, use res.GetUser() instead" severity="error" source="protogetter"></error>
+    <error column="7" line="153" message="avoid direct access to proto field res.Status.Code, use res.GetStatus().GetCode() instead" severity="error" source="protogetter"></error>
+    <error column="9" line="157" message="avoid direct access to proto field res.User, use res.GetUser() instead" severity="error" source="protogetter"></error>
+    <error column="6" line="25" message="the methods of &#34;cs3backend&#34; use pointer receiver and non-pointer receiver." severity="error" source="recvcheck"></error>
+  </file>
+  <file name="services/proxy/pkg/webdav/response.go">
+    <error column="6" line="39" message="exported: exported type Exception should have comment or be unexported" severity="error" source="revive"></error>
+    <error column="1" line="71" message="exported: exported function HandleWebdavError should have comment or be unexported" severity="error" source="revive"></error>
+  </file>
+  <file name="services/proxy/pkg/webdav/webdav.go">
+    <error column="1" line="7" message="exported: comment on exported function IsWebdavRequest should be of the form &#34;IsWebdavRequest ...&#34;" severity="error" source="revive"></error>
+  </file>
+  <file name="services/search/pkg/command/index.go">
+    <error column="13" line="24" message="Duplicate words (one) found" severity="error" source="dupword"></error>
+  </file>
+  <file name="services/search/pkg/config/defaults/defaultconfig.go">
+    <error column="22" line="53" message="Magic number: 1000, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+    <error column="43" line="57" message="Magic number: 1024, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+  </file>
+  <file name="services/search/pkg/content/basic.go">
+    <error column="13" line="26" message="avoid direct access to proto field ri.Name, use ri.GetName() instead" severity="error" source="protogetter"></error>
+    <error column="13" line="27" message="avoid direct access to proto field ri.Size, use ri.GetSize() instead" severity="error" source="protogetter"></error>
+    <error column="13" line="28" message="avoid direct access to proto field ri.MimeType, use ri.GetMimeType() instead" severity="error" source="protogetter"></error>
+    <error column="10" line="31" message="avoid direct access to proto field ri.ArbitraryMetadata.GetMetadata(), use ri.GetArbitraryMetadata().GetMetadata() instead" severity="error" source="protogetter"></error>
+    <error column="5" line="37" message="avoid direct access to proto field ri.Mtime, use ri.GetMtime() instead" severity="error" source="protogetter"></error>
+    <error column="30" line="38" message="avoid direct access to proto field ri.Mtime, use ri.GetMtime() instead" severity="error" source="protogetter"></error>
+  </file>
+  <file name="services/search/pkg/content/cs3.go">
+    <error column="56" line="55" message="avoid direct access to proto field res.Status.Message, use res.GetStatus().GetMessage() instead" severity="error" source="protogetter"></error>
+  </file>
+  <file name="services/search/pkg/engine/bleve.go">
+    <error column="94" line="224" message="G115: integer overflow conversion int -&gt; int32" severity="error" source="gosec"></error>
+    <error column="22" line="232" message="G115: integer overflow conversion uint64 -&gt; int32" severity="error" source="gosec"></error>
+    <error column="39" line="204" message="copylocks: call of resourceIDtoSearchID copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.ResourceId contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="38" line="207" message="copylocks: call of resourceIDtoSearchID copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.ResourceId contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="38" line="209" message="copylocks: call of resourceIDtoSearchID copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.ResourceId contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+  </file>
+  <file name="services/search/pkg/engine/engine.go">
+    <error column="30" line="41" message="copylocks: resourceIDtoSearchID passes lock by value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.ResourceId contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+  </file>
+  <file name="services/search/pkg/query/error.go">
+    <error column="1" line="41" message="exported: exported function IsValidationError should have comment or be unexported" severity="error" source="revive"></error>
+  </file>
+  <file name="services/search/pkg/search/service.go">
+    <error column="10" line="254" message="G115: integer overflow conversion int -&gt; int32" severity="error" source="gosec"></error>
+    <error column="19" line="501" message="G115: integer overflow conversion int32 -&gt; uint64" severity="error" source="gosec"></error>
+  </file>
+  <file name="services/settings/pkg/server/grpc/server.go">
+    <error column="10" line="82" message="copylocks: assignment copies lock value to *res: github.com/cs3org/go-cs3apis/cs3/permissions/v1beta1.CheckPermissionResponse contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="19" line="60" message="interface method CheckPermission must have named param for type context.Context" severity="error" source="inamedparam"></error>
+  </file>
+  <file name="services/settings/pkg/server/http/server.go">
+    <error column="23" line="90" message="Error return value of `micro.RegisterHandler` is not checked" severity="error" source="errcheck"></error>
+  </file>
+  <file name="services/settings/pkg/store/defaults/defaults.go">
+    <error column="1" line="662" message="File is not properly formatted" severity="error" source="gofmt"></error>
+    <error column="20" line="640" message="string literal contains rune in Han script" severity="error" source="gosmopolitan"></error>
+  </file>
+  <file name="services/settings/pkg/store/errortypes/errortypes.go">
+    <error column="6" line="6" message="the error type name `BundleNotFound` should conform to the `XxxError` format" severity="error" source="errname"></error>
+  </file>
+  <file name="services/settings/pkg/store/metadata/permissions.go">
+    <error column="2" line="39" message="return both a `nil` error and an invalid value: use a sentinel error instead" severity="error" source="nilnil"></error>
+  </file>
+  <file name="services/sharing/pkg/config/defaults/defaultconfig.go">
+    <error column="1" line="92" message="cyclomatic complexity 41 of func `EnsureDefaults` is high (&gt; 35)" severity="error" source="gocyclo"></error>
+    <error column="17" line="55" message="Magic number: 3306, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+    <error column="28" line="82" message="Magic number: 8, in &lt;assign&gt; detected" severity="error" source="mnd"></error>
+  </file>
+  <file name="services/sse/pkg/config/config.go">
+    <error column="19" line="15" message="tag is not aligned, should be: yaml:&#34;debug&#34; mask:&#34;struct&#34;" severity="error" source="tagalign"></error>
+    <error column="26" line="25" message="tag is not aligned , should be: json:&#34;-&#34; yaml:&#34;-&#34;" severity="error" source="tagalign"></error>
+  </file>
+  <file name="services/storage-users/pkg/command/trash_bin.go">
+    <error column="15" line="41" message="Duplicate words (already) found" severity="error" source="dupword"></error>
+    <error column="9" line="487" message="composites: github.com/opencloud-eu/opencloud/pkg/log.Logger struct literal uses unkeyed fields" severity="error" source="govet"></error>
+    <error column="41" line="141" message="copylocks: call of listRecycle copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.Reference contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="41" line="215" message="copylocks: call of listRecycle copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.Reference contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="41" line="246" message="copylocks: call of restore copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.Reference contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="41" line="317" message="copylocks: call of listRecycle copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.Reference contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="40" line="336" message="copylocks: call of restore copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.Reference contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="76" line="346" message="copylocks: listRecycle passes lock by value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.Reference contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="72" line="361" message="copylocks: restore passes lock by value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.Reference contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="12" line="362" message="copylocks: assignment copies lock value to dst: (github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.Reference, bool) contains github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.Reference contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="62" line="371" message="copylocks: call of isDestinationExists copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.Reference contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="58" line="393" message="copylocks: call of resolveDestination copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.Reference contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="86" line="410" message="copylocks: resolveDestination passes lock by value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.Reference contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="9" line="411" message="copylocks: assignment copies lock value to dst: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.Reference contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="54" line="417" message="copylocks: call of isDestinationExists copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.Reference contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="84" line="429" message="copylocks: isDestinationExists passes lock by value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.Reference contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+  </file>
+  <file name="services/storage-users/pkg/command/uploads.go">
+    <error column="24" line="166" message="copylocks: call of append copies lock value: github.com/opencloud-eu/opencloud/services/storage-users/pkg/command.Session contains github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1.UserId contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+  </file>
+  <file name="services/thumbnails/pkg/metrics/metrics.go">
+    <error column="37" line="30" message="Metric: opencloud_thumbnails_getthumbnail_latency_microseconds Error: use base unit &#34;seconds&#34; instead of &#34;microseconds&#34;" severity="error" source="promlinter"></error>
+  </file>
+  <file name="services/thumbnails/pkg/preprocessor/textanalyzer.go">
+    <error column="16" line="12" message="`preceeded` is a misspelling of `preceded`" severity="error" source="misspell"></error>
+  </file>
+  <file name="services/thumbnails/pkg/thumbnail/imgsource/cs3.go">
+    <error column="34" line="62" message="copylocks: call of s.checkImageFileSize copies lock value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.Reference contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+    <error column="58" line="116" message="copylocks: checkImageFileSize passes lock by value: github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1.Reference contains google.golang.org/protobuf/runtime/protoimpl.MessageState contains sync.Mutex" severity="error" source="govet"></error>
+  </file>
+  <file name="services/userlog/pkg/service/conversion.go">
+    <error column="2" line="31" message="var `_resourceTypeGlobal` is unused" severity="error" source="unused"></error>
+  </file>
+  <file name="services/userlog/pkg/service/http.go">
+    <error column="9" line="120" message="Error return value of `w.Write` is not checked" severity="error" source="errcheck"></error>
+    <error column="36" line="214" message="non-canonical header &#34;secret&#34;, instead use: &#34;Secret&#34;" severity="error" source="canonicalheader"></error>
+    <error column="10" line="119" message="Error return value of `encoding/json.Marshal` is not checked: unsafe type `interface{}` found" severity="error" source="errchkjson"></error>
+    <error column="4" line="231" message="S1023: redundant `return` statement" severity="error" source="gosimple"></error>
+    <error column="5" line="205" message="`arbitray` is a misspelling of `arbitrary`" severity="error" source="misspell"></error>
+  </file>
+  <file name="services/web/pkg/apps/apps.go">
+    <error column="9" line="109" message="golang.org/x/exp/maps.Values() can be replaced by slices.AppendSeq(make([]T, 0, len(data)), maps.Values(data))" severity="error" source="exptostd"></error>
+    <error column="2" line="11" message="Import statement &#39;golang.org/x/exp/maps&#39; can be replaced by &#39;maps&#39;" severity="error" source="exptostd"></error>
+  </file>
+  <file name="services/web/pkg/metrics/metrics.go">
+    <error column="1" line="1" message="package-comments: should have a package comment" severity="error" source="revive"></error>
+  </file>
+  <file name="services/web/web.go">
+    <error column="5" line="10" message="exported: exported var Assets should have comment or be unexported" severity="error" source="revive"></error>
+  </file>
+  <file name="services/webdav/pkg/constants/constants.go">
+    <error column="2" line="6" message="exported: exported const ContextKeyID should have comment (or a comment on this block) or be unexported" severity="error" source="revive"></error>
+    <error column="1" line="1" message="package-comments: should have a package comment" severity="error" source="revive"></error>
+  </file>
+  <file name="services/webdav/pkg/dav/requests/thumbnail.go">
+    <error column="25" line="76" message="G115: integer overflow conversion int64 -&gt; int32" severity="error" source="gosec"></error>
+    <error column="25" line="77" message="G115: integer overflow conversion int64 -&gt; int32" severity="error" source="gosec"></error>
+  </file>
+  <file name="services/webdav/pkg/service/v0/search.go">
+    <error column="18" line="56" message="G115: integer overflow conversion int -&gt; int32" severity="error" source="gosec"></error>
+    <error column="26" line="124" message="the given struct should be annotated with the `xml` tag" severity="error" source="musttag"></error>
+  </file>
+  <file name="services/webdav/pkg/service/v0/service.go">
+    <error column="11" line="577" message="G404: Use of weak random number generator (math/rand or math/rand/v2 instead of crypto/rand)" severity="error" source="gosec"></error>
+  </file>
+  <file name="services/webfinger/pkg/metrics/metrics.go">
+    <error column="37" line="38" message="Metric: opencloud_webfinger_webfinger_latency_microseconds Error: use base unit &#34;seconds&#34; instead of &#34;microseconds&#34;" severity="error" source="promlinter"></error>
+  </file>
+  <file name="services/webfinger/pkg/relations/owncloud_instance.go">
+    <error column="34" line="75" message="Error return value of `instance.hrefTemplate.Execute` is not checked" severity="error" source="errcheck"></error>
+  </file>
+  <file name="tests/qa-activity-report/generate-qa-activity-report.go">
+    <error column="9" line="126" message="G204: Subprocess launched with a potential tainted input or cmd arguments" severity="error" source="gosec"></error>
+    <error column="9" line="136" message="G204: Subprocess launched with a potential tainted input or cmd arguments" severity="error" source="gosec"></error>
+  </file>
+</checkstyle>
