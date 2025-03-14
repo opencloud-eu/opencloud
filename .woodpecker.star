@@ -1317,8 +1317,7 @@ def multiServiceE2ePipeline(ctx):
         "tikaNeeded": False,
     }
 
-    e2e_trigger = {
-        "when": [
+    e2e_trigger = [
             {
                 "event": ["push", "manual"],
                 "branch": "main",
@@ -1329,8 +1328,7 @@ def multiServiceE2ePipeline(ctx):
                     "exclude": skipIfUnchanged(ctx, "e2e-tests"),
                 },
             },
-        ],
-    }
+        ]
 
     if ("skip-e2e" in ctx.build.title.lower()):
         return pipelines
@@ -1350,7 +1348,7 @@ def multiServiceE2ePipeline(ctx):
         "GATEWAY_STORAGE_USERS_MOUNT_ID": "storage-users-id",
         "OC_SHOW_USER_EMAIL_IN_RESULTS": True,
         # Needed for enabling all roles
-        "GRAPH_AVAILABLE_ROLES": "%s",
+        "GRAPH_AVAILABLE_ROLES": "%s" % GRAPH_AVAILABLE_ROLES,
     }
 
     storage_users_environment = {
@@ -1432,7 +1430,7 @@ def multiServiceE2ePipeline(ctx):
             "name": "e2e-tests-multi-service",
             "steps": steps,
             "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
-            "workspace": e2e_trigger,
+            "when": e2e_trigger,
         })
     return pipelines
 
