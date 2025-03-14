@@ -96,6 +96,7 @@ func Posix(cfg *config.Config, enableFSScan bool) map[string]interface{} {
 		"treesize_accounting":        true,
 		"asyncfileuploads":           cfg.Drivers.Posix.AsyncUploads,
 		"scan_debounce_delay":        cfg.Drivers.Posix.ScanDebounceDelay,
+		"max_quota":                  cfg.Drivers.Decomposed.MaxQuota,
 		"idcache": map[string]interface{}{
 			"cache_store":               cfg.IDCache.Store,
 			"cache_nodes":               cfg.IDCache.Nodes,

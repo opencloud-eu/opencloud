@@ -199,6 +199,7 @@ type PosixDriver struct {
 	GeneralSpacePathTemplate  string        `yaml:"generalspacepath_template" env:"STORAGE_USERS_POSIX_GENERAL_SPACE_PATH_TEMPLATE" desc:"Template string to construct the paths of the projects space roots." introductionVersion:"1.0.0"`
 	PermissionsEndpoint       string        `yaml:"permissions_endpoint" env:"STORAGE_USERS_PERMISSION_ENDPOINT;STORAGE_USERS_POSIX_PERMISSIONS_ENDPOINT" desc:"Endpoint of the permissions service. The endpoints can differ for 'decomposed', 'posix' and 'decomposeds3'." introductionVersion:"1.0.0"`
 	AsyncUploads              bool          `yaml:"async_uploads" env:"OC_ASYNC_UPLOADS" desc:"Enable asynchronous file uploads." introductionVersion:"1.0.0"`
+	MaxQuota                  uint64        `yaml:"max_quota" env:"OC_SPACES_MAX_QUOTA;STORAGE_USERS_POSIX_MAX_QUOTA" desc:"Set a global max quota for spaces in bytes. A value of 0 equals unlimited. If not using the global OC_SPACES_MAX_QUOTA, you must define the FRONTEND_MAX_QUOTA in the frontend service." introductionVersion:"2.0.0"`
 	ScanDebounceDelay         time.Duration `yaml:"scan_debounce_delay" env:"STORAGE_USERS_POSIX_SCAN_DEBOUNCE_DELAY" desc:"The time in milliseconds to wait before scanning the filesystem for changes after a change has been detected." introductionVersion:"1.0.0"`
 
 	UseSpaceGroups bool `yaml:"use_space_groups" env:"STORAGE_USERS_POSIX_USE_SPACE_GROUPS" desc:"Use space groups to manage permissions on spaces." introductionVersion:"1.0.0"`
