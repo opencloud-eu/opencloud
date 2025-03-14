@@ -60,6 +60,7 @@ dirs = {
     "opencloudConfig": "tests/config/woodpecker/opencloud-config.json",
     "ocis": "/woodpecker/src/github.com/opencloud-eu/opencloud/srv/app/tmp/ocis",
     "ocisRevaDataRoot": "/woodpecker/src/github.com/opencloud-eu/opencloud/srv/app/tmp/ocis/owncloud/data",
+    "multiServiceBase": "/woodpecker/src/github.com/opencloud-eu/opencloud/multiServiceRoot",
     "ocWrapper": "/woodpecker/src/github.com/opencloud-eu/opencloud/tests/ocwrapper",
     "bannedPasswordList": "tests/config/woodpecker/banned-password-list.txt",
     "ocmProviders": "tests/config/woodpecker/providers.json",
@@ -1360,7 +1361,7 @@ def multiServiceE2ePipeline(ctx):
         "OC_CACHE_STORE": "nats-js-kv",
         "OC_CACHE_STORE_NODES": "%s:9233" % OC_SERVER_NAME,
         "MICRO_REGISTRY_ADDRESS": "%s:9233" % OC_SERVER_NAME,
-        "STORAGE_USERS_DRIVER_OC_ROOT": dirs["base"] + "/storage_users"
+        "OC_BASE_DATA_PATH": dirs["multiServiceBase"]
     }
     storage_users1_environment = {
         "STORAGE_USERS_GRPC_ADDR": "storageusers1:9157",
