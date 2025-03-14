@@ -921,7 +921,7 @@ def localApiTestPipeline(ctx):
                                      (waitForEmailService() if params["emailNeeded"] else []) +
                                      (opencloudServer(storage, params["accounts_hash_difficulty"], deploy_type = "federation", extra_server_environment = params["extraServerEnvironment"]) if params["federationServer"] else []) +
                                      ((wopiCollaborationService("fakeoffice") + wopiCollaborationService("collabora") + wopiCollaborationService("onlyoffice")) if params["collaborationServiceNeeded"] else []) +
-                                     (ocisHealthCheck("wopi", ["wopi-collabora:9304", "wopi-onlyoffice:9304", "wopi-fakeoffice:9304"]) if params["collaborationServiceNeeded"] else []) +
+                                     (openCloudHealthCheck("wopi", ["wopi-collabora:9304", "wopi-onlyoffice:9304", "wopi-fakeoffice:9304"]) if params["collaborationServiceNeeded"] else []) +
                                      localApiTests(ctx, name, params["suites"], storage, params["extraEnvironment"], run_with_remote_php) +
                                      logRequests(),
                             "services": (emailService() if params["emailNeeded"] else []) +
@@ -1340,7 +1340,7 @@ def multiServiceE2ePipeline(ctx):
 
     extra_server_environment = {
         "OC_PASSWORD_POLICY_BANNED_PASSWORDS_LIST": "%s" % dirs["bannedPasswordList"],
-        "OC_JWT_SECRET": "some-ocis-jwt-secret",
+        "OC_JWT_SECRET": "some-opencloud-jwt-secret",
         "OC_SERVICE_ACCOUNT_ID": "service-account-id",
         "OC_SERVICE_ACCOUNT_SECRET": "service-account-secret",
         "OC_EXCLUDE_RUN_SERVICES": "storage-users",
@@ -1351,7 +1351,7 @@ def multiServiceE2ePipeline(ctx):
 
     storage_users_environment = {
         "OC_CORS_ALLOW_ORIGINS": "%s,https://%s:9201" % (OC_URL, OC_SERVER_NAME),
-        "STORAGE_USERS_JWT_SECRET": "some-ocis-jwt-secret",
+        "STORAGE_USERS_JWT_SECRET": "some-opencloud-jwt-secret",
         "STORAGE_USERS_MOUNT_ID": "storage-users-id",
         "STORAGE_USERS_SERVICE_ACCOUNT_ID": "service-account-id",
         "STORAGE_USERS_SERVICE_ACCOUNT_SECRET": "service-account-secret",
@@ -1383,7 +1383,7 @@ def multiServiceE2ePipeline(ctx):
 
     storage_users_services = startOpenCloudService("storage-users", "storageusers1", storage_users1_environment) + \
                              startOpenCloudService("storage-users", "storageusers2", storage_users2_environment) + \
-                             ocisHealthCheck("storage-users", ["storageusers1:9159", "storageusers2:9159"])
+                             openCloudHealthCheck("storage-users", ["storageusers1:9159", "storageusers2:9159"])
 
     for _, suite in config["e2eMultiService"].items():
         if "skip" in suite and suite["skip"]:
@@ -2979,7 +2979,7 @@ def waitForServices(name, services = []):
         ],
     }]
 
-def ocisHealthCheck(name, services = []):
+def openCloudHealthCheck(name, services = []):
     commands = []
     timeout = 300
     curl_command = ["timeout %s bash -c 'while [ $(curl -s %s/%s ", "-w %{http_code} -o /dev/null) != 200 ]; do sleep 1; done'"]
