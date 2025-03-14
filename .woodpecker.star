@@ -1317,7 +1317,6 @@ def multiServiceE2ePipeline(ctx):
     }
 
     e2e_trigger = {
-        "when": [
             {
                 "event": ["push", "manual"],
                 "branch": "main",
@@ -1328,7 +1327,6 @@ def multiServiceE2ePipeline(ctx):
                     "exclude": skipIfUnchanged(ctx, "e2e-tests"),
                 },
             },
-        ],
     }
 
     if ("skip-e2e" in ctx.build.title.lower()):
@@ -1428,7 +1426,7 @@ def multiServiceE2ePipeline(ctx):
             "name": "e2e-tests-multi-service",
             "steps": steps,
             "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
-            "workspace": e2e_trigger,
+            "when": e2e_trigger,
         })
     return pipelines
 
