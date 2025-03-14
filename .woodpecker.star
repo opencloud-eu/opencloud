@@ -317,7 +317,7 @@ config = {
     },
     "e2eMultiService": {
         "testSuites": {
-            "skip": True,
+            "skip": False,
             "suites": [
                 "smoke",
                 "shares",
@@ -1338,18 +1338,18 @@ def multiServiceE2ePipeline(ctx):
         return pipelines
 
     extra_server_environment = {
-        "OCIS_PASSWORD_POLICY_BANNED_PASSWORDS_LIST": "%s" % dirs["bannedPasswordList"],
-        "OCIS_JWT_SECRET": "some-ocis-jwt-secret",
-        "OCIS_SERVICE_ACCOUNT_ID": "service-account-id",
-        "OCIS_SERVICE_ACCOUNT_SECRET": "service-account-secret",
-        "OCIS_EXCLUDE_RUN_SERVICES": "storage-users",
-        "OCIS_GATEWAY_GRPC_ADDR": "0.0.0.0:9142",
+        "OC_PASSWORD_POLICY_BANNED_PASSWORDS_LIST": "%s" % dirs["bannedPasswordList"],
+        "OC_JWT_SECRET": "some-ocis-jwt-secret",
+        "OC_SERVICE_ACCOUNT_ID": "service-account-id",
+        "OC_SERVICE_ACCOUNT_SECRET": "service-account-secret",
+        "OC_EXCLUDE_RUN_SERVICES": "storage-users",
+        "OC_GATEWAY_GRPC_ADDR": "0.0.0.0:9142",
         "SETTINGS_GRPC_ADDR": "0.0.0.0:9191",
         "GATEWAY_STORAGE_USERS_MOUNT_ID": "storage-users-id",
     }
 
     storage_users_environment = {
-        "OCIS_CORS_ALLOW_ORIGINS": "%s,https://%s:9201" % (OC_URL, OC_SERVER_NAME),
+        "OC_CORS_ALLOW_ORIGINS": "%s,https://%s:9201" % (OC_URL, OC_SERVER_NAME),
         "STORAGE_USERS_JWT_SECRET": "some-ocis-jwt-secret",
         "STORAGE_USERS_MOUNT_ID": "storage-users-id",
         "STORAGE_USERS_SERVICE_ACCOUNT_ID": "service-account-id",
@@ -1357,8 +1357,8 @@ def multiServiceE2ePipeline(ctx):
         "STORAGE_USERS_GATEWAY_GRPC_ADDR": "%s:9142" % OC_SERVER_NAME,
         "STORAGE_USERS_EVENTS_ENDPOINT": "%s:9233" % OC_SERVER_NAME,
         "STORAGE_USERS_DATA_GATEWAY_URL": "%s/data" % OC_URL,
-        "OCIS_CACHE_STORE": "nats-js-kv",
-        "OCIS_CACHE_STORE_NODES": "%s:9233" % OC_SERVER_NAME,
+        "OC_CACHE_STORE": "nats-js-kv",
+        "OC_CACHE_STORE_NODES": "%s:9233" % OC_SERVER_NAME,
         "MICRO_REGISTRY_ADDRESS": "%s:9233" % OC_SERVER_NAME,
     }
     storage_users1_environment = {
@@ -1381,10 +1381,10 @@ def multiServiceE2ePipeline(ctx):
 
     storage_volume = [{
         "name": "storage",
-        "path": "/root/.ocis",
+        "path": "/root/.opencloud",
     }]
-    storage_users_services = startOcisService("storage-users", "storageusers1", storage_users1_environment, storage_volume) + \
-                             startOcisService("storage-users", "storageusers2", storage_users2_environment, storage_volume) + \
+    storage_users_services = startOpenCloudService("storage-users", "storageusers1", storage_users1_environment, storage_volume) + \
+                             startOpenCloudService("storage-users", "storageusers2", storage_users2_environment, storage_volume) + \
                              ocisHealthCheck("storage-users", ["storageusers1:9159", "storageusers2:9159"])
 
     for _, suite in config["e2eMultiService"].items():
@@ -1414,7 +1414,7 @@ def multiServiceE2ePipeline(ctx):
                 "name": "e2e-tests",
                 "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
                 "environment": {
-                    "BASE_URL_OCIS": OC_DOMAIN,
+                    "OC_BASE_URL": OC_DOMAIN,
                     "HEADLESS": True,
                     "RETRY": "1",
                 },
@@ -1422,8 +1422,9 @@ def multiServiceE2ePipeline(ctx):
                     "cd %s/tests/e2e" % dirs["web"],
                     "bash run-e2e.sh %s" % e2e_args,
                 ],
-            }] + logTracingResults()
+            }]
 
+        # + logTracingResults()
         # uploadTracingResult(ctx) + \
         pipelines.append({
             "name": "e2e-tests-multi-service",
@@ -2146,9 +2147,9 @@ def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, volume
 
     return steps
 
-def startOcisService(service = None, name = None, environment = {}, volumes = []):
+def startOpenCloudService(service = None, name = None, environment = {}, volumes = []):
     """
-    Starts an OCIS service in a detached container.
+    Starts an OpenCloud service in a detached container.
 
     Args:
         service (str): The name of the service to start.
@@ -2851,7 +2852,7 @@ def wopiCollaborationService(name):
 
     environment["COLLABORATION_WOPI_SRC"] = "http://%s:9300" % service_name
 
-    return startOcisService("collaboration", service_name, environment)
+    return startOpenCloudService("collaboration", service_name, environment)
 
 def tikaService():
     return [{
