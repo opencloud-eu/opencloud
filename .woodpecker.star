@@ -1360,6 +1360,7 @@ def multiServiceE2ePipeline(ctx):
         "OC_CACHE_STORE": "nats-js-kv",
         "OC_CACHE_STORE_NODES": "%s:9233" % OC_SERVER_NAME,
         "MICRO_REGISTRY_ADDRESS": "%s:9233" % OC_SERVER_NAME,
+        "STORAGE_USERS_DRIVER_OC_ROOT": dirs["base"] + "/storage_users"
     }
     storage_users1_environment = {
         "STORAGE_USERS_GRPC_ADDR": "storageusers1:9157",
@@ -1379,12 +1380,8 @@ def multiServiceE2ePipeline(ctx):
     for item in storage_users_environment:
         storage_users2_environment[item] = storage_users_environment[item]
 
-    storage_volume = [{
-        "name": "storage",
-        "path": "/root/.opencloud",
-    }]
-    storage_users_services = startOpenCloudService("storage-users", "storageusers1", storage_users1_environment, storage_volume) + \
-                             startOpenCloudService("storage-users", "storageusers2", storage_users2_environment, storage_volume) + \
+    storage_users_services = startOpenCloudService("storage-users", "storageusers1", storage_users1_environment) + \
+                             startOpenCloudService("storage-users", "storageusers2", storage_users2_environment) + \
                              ocisHealthCheck("storage-users", ["storageusers1:9159", "storageusers2:9159"])
 
     for _, suite in config["e2eMultiService"].items():
@@ -2147,7 +2144,7 @@ def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, volume
 
     return steps
 
-def startOpenCloudService(service = None, name = None, environment = {}, volumes = []):
+def startOpenCloudService(service = None, name = None, environment = {}):
     """
     Starts an OpenCloud service in a detached container.
 
@@ -2155,7 +2152,6 @@ def startOpenCloudService(service = None, name = None, environment = {}, volumes
         service (str): The name of the service to start.
         name (str): The name of the container.
         environment (dict): The environment variables to set in the container.
-        volumes (list): The volumes to mount in the container.
 
     Returns:
         list: A list of pipeline steps to start the service.
