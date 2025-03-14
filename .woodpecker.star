@@ -1318,17 +1318,17 @@ def multiServiceE2ePipeline(ctx):
     }
 
     e2e_trigger = [
-            {
-                "event": ["push", "manual"],
-                "branch": "main",
+        {
+            "event": ["push", "manual"],
+            "branch": "main",
+        },
+        {
+            "event": "pull_request",
+            "path": {
+                "exclude": skipIfUnchanged(ctx, "e2e-tests"),
             },
-            {
-                "event": "pull_request",
-                "path": {
-                    "exclude": skipIfUnchanged(ctx, "e2e-tests"),
-                },
-            },
-        ]
+        },
+    ]
 
     if ("skip-e2e" in ctx.build.title.lower()):
         return pipelines
