@@ -100,7 +100,7 @@ config = {
                 "apiLocks",
                 "apiActivities",
             ],
-            "skip": True,
+            "skip": False,
         },
         "settings": {
             "suites": [
@@ -141,31 +141,31 @@ config = {
             "suites": [
                 "apiSpaces",
             ],
-            "skip": True,
+            "skip": False,
         },
         "spacesShares": {
             "suites": [
                 "apiSpacesShares",
             ],
-            "skip": True,
+            "skip": False,
         },
         "spacesDavOperation": {
             "suites": [
                 "apiSpacesDavOperation",
             ],
-            "skip": True,
+            "skip": False,
         },
         "search1": {
             "suites": [
                 "apiSearch1",
             ],
-            "skip": True,
+            "skip": False,
         },
         "search2": {
             "suites": [
                 "apiSearch2",
             ],
-            "skip": True,
+            "skip": False,
         },
         "sharingNg": {
             "suites": [
@@ -173,13 +173,13 @@ config = {
                 "apiSharingNg1",
                 "apiSharingNg2",
             ],
-            "skip": True,
+            "skip": False,
         },
         "sharingNgShareInvitation": {
             "suites": [
                 "apiSharingNgShareInvitation",
             ],
-            "skip": True,
+            "skip": False,
         },
         "sharingNgLinkShare": {
             "suites": [
