@@ -1194,7 +1194,7 @@ github.com/open-policy-agent/opa/v1/types
 github.com/open-policy-agent/opa/v1/util
 github.com/open-policy-agent/opa/v1/util/decoding
 github.com/open-policy-agent/opa/v1/version
-# github.com/opencloud-eu/reva/v2 v2.27.3-0.20250314084055-d2fcfe6b3445
+# github.com/opencloud-eu/reva/v2 v2.27.3-0.20250314084055-d2fcfe6b3445 => github.com/aduffeck/reva/v2 v2.27.3-0.20250318074457-f8b5baf2372f
 ## explicit; go 1.24.1
 github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v2/cmd/revad/runtime
@@ -2421,3 +2421,4 @@ stash.kopano.io/kgol/rndm
 # github.com/unrolled/secure => github.com/DeepDiver1975/secure v0.0.0-20240611112133-abc838fb797c
 # github.com/go-micro/plugins/v4/store/nats-js-kv => github.com/kobergj/plugins/v4/store/nats-js-kv v0.0.0-20240807130109-f62bb67e8c90
 # go-micro.dev/v4 => github.com/butonic/go-micro/v4 v4.11.1-0.20241115112658-b5d4de5ed9b3
+# github.com/opencloud-eu/reva/v2 => github.com/aduffeck/reva/v2 v2.27.3-0.20250318074457-f8b5baf2372f
