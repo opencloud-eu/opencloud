@@ -102,6 +102,10 @@ type Session interface {
 	LockID() string
 }
 
+type IDCachingTree interface {
+	WarmupIDCache(root string, assimilate, onlyDirty bool) error
+}
+
 type SessionStore interface {
 	New(ctx context.Context) *upload.DecomposedFsSession
 	List(ctx context.Context) ([]*upload.DecomposedFsSession, error)
@@ -1304,6 +1308,11 @@ func (fs *Decomposedfs) RestoreRecycleItem(ctx context.Context, space *provider.
 			return err
 		}
 		sizeDiff = int64(treeSize)
+
+		// Warmup posix IDCache if restored path is a directory
+		if cachingTree, ok := fs.tp.(IDCachingTree); ok {
+			_ = cachingTree.WarmupIDCache(restoredNode.InternalPath(), false, false)
+		}
 	} else {
 		sizeDiff = restoredNode.Blobsize
 	}

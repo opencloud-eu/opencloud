@@ -135,7 +135,7 @@ func New(m map[string]interface{}) (*Options, error) {
 	o.Root = filepath.Clean(o.Root)
 
 	if o.PersonalSpaceAliasTemplate == "" {
-		o.PersonalSpaceAliasTemplate = "{{.SpaceType}}/{{.User.Username}}"
+		o.PersonalSpaceAliasTemplate = "{{.SpaceType}}/{{.User.Username | lower}}"
 	}
 
 	if o.GeneralSpaceAliasTemplate == "" {

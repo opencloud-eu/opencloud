@@ -26,13 +26,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
+	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/lookup"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options"
@@ -145,7 +145,7 @@ func trashRootForNode(n *node.Node) string {
 }
 
 func (tb *Trashbin) MoveToTrash(ctx context.Context, n *node.Node, path string) error {
-	key := uuid.New().String()
+	key := n.ID
 	trashPath := trashRootForNode(n)
 
 	err := os.MkdirAll(filepath.Join(trashPath, "info"), 0755)
@@ -197,6 +197,30 @@ func (tb *Trashbin) ListRecycle(ctx context.Context, spaceID string, key, relati
 			return nil, err
 		}
 		originalPath = filepath.Join(originalPath, relativePath)
+
+		fi, err := os.Stat(base)
+		if err != nil {
+			return nil, err
+		}
+		item := &provider.RecycleItem{
+			Key:  filepath.Join(key, relativePath),
+			Size: uint64(fi.Size()),
+			Ref: &provider.Reference{
+				ResourceId: &provider.ResourceId{
+					SpaceId:  spaceID,
+					OpaqueId: spaceID,
+				},
+				Path: originalPath,
+			},
+			DeletionTime: ts,
+			Type:         provider.ResourceType_RESOURCE_TYPE_FILE,
+		}
+		if fi.IsDir() {
+			item.Type = provider.ResourceType_RESOURCE_TYPE_CONTAINER
+		} else {
+			item.Type = provider.ResourceType_RESOURCE_TYPE_FILE
+		}
+		return []*provider.RecycleItem{item}, nil
 	}
 
 	items := []*provider.RecycleItem{}
@@ -286,6 +310,10 @@ func (tb *Trashbin) RestoreRecycleItem(ctx context.Context, spaceID string, key,
 	_, id, _, err := tb.lu.MetadataBackend().IdentifyPath(ctx, trashPath)
 	if err != nil {
 		return nil, err
+	}
+	if id == "" {
+		return nil, errtypes.NotFound("trashbin: item not found")
+
 	}
 
 	// update parent id in case it was restored to a different location

@@ -439,8 +439,8 @@ github.com/go-acme/lego/v4/challenge
 # github.com/go-asn1-ber/asn1-ber v1.5.7
 ## explicit; go 1.13
 github.com/go-asn1-ber/asn1-ber
-# github.com/go-chi/chi/v5 v5.2.0
-## explicit; go 1.14
+# github.com/go-chi/chi/v5 v5.2.1
+## explicit; go 1.20
 github.com/go-chi/chi/v5
 github.com/go-chi/chi/v5/middleware
 # github.com/go-chi/render v1.0.3
@@ -1194,7 +1194,7 @@ github.com/open-policy-agent/opa/v1/types
 github.com/open-policy-agent/opa/v1/util
 github.com/open-policy-agent/opa/v1/util/decoding
 github.com/open-policy-agent/opa/v1/version
-# github.com/opencloud-eu/reva/v2 v2.27.3-0.20250312134906-766c69c5d1be
+# github.com/opencloud-eu/reva/v2 v2.27.3-0.20250314084055-d2fcfe6b3445
 ## explicit; go 1.24.1
 github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v2/cmd/revad/runtime
@@ -1629,12 +1629,12 @@ github.com/pmezard/go-difflib/difflib
 ## explicit; go 1.16
 github.com/pquerna/cachecontrol
 github.com/pquerna/cachecontrol/cacheobject
-# github.com/prometheus/alertmanager v0.27.0
-## explicit; go 1.21
+# github.com/prometheus/alertmanager v0.28.1
+## explicit; go 1.22.0
 github.com/prometheus/alertmanager/asset
 github.com/prometheus/alertmanager/featurecontrol
-github.com/prometheus/alertmanager/matchers/compat
-github.com/prometheus/alertmanager/matchers/parse
+github.com/prometheus/alertmanager/matcher/compat
+github.com/prometheus/alertmanager/matcher/parse
 github.com/prometheus/alertmanager/pkg/labels
 github.com/prometheus/alertmanager/template
 github.com/prometheus/alertmanager/types
@@ -1652,7 +1652,9 @@ github.com/prometheus/client_model/go
 # github.com/prometheus/common v0.62.0
 ## explicit; go 1.21
 github.com/prometheus/common/expfmt
+github.com/prometheus/common/helpers/templates
 github.com/prometheus/common/model
+github.com/prometheus/common/promslog
 # github.com/prometheus/procfs v0.15.1
 ## explicit; go 1.20
 github.com/prometheus/procfs
@@ -1778,13 +1780,13 @@ github.com/shamaton/msgpack/v2/internal/encoding
 github.com/shamaton/msgpack/v2/internal/stream/decoding
 github.com/shamaton/msgpack/v2/internal/stream/encoding
 github.com/shamaton/msgpack/v2/time
-# github.com/shurcooL/httpfs v0.0.0-20190707220628-8d4bc4ba7749
-## explicit
+# github.com/shurcooL/httpfs v0.0.0-20230704072500-f1e31cf0ba5c
+## explicit; go 1.19
 github.com/shurcooL/httpfs/filter
 github.com/shurcooL/httpfs/union
 github.com/shurcooL/httpfs/vfsutil
-# github.com/shurcooL/vfsgen v0.0.0-20200824052919-0d455de96546
-## explicit
+# github.com/shurcooL/vfsgen v0.0.0-20230704071429-0000e147ea92
+## explicit; go 1.19
 github.com/shurcooL/vfsgen
 # github.com/sirupsen/logrus v1.9.3
 ## explicit; go 1.13
