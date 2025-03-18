@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/defaults"
+	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/sharing/pkg/config"
 )
@@ -135,7 +136,7 @@ func SharingConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string]
 					"tls-insecure":     cfg.Events.TLSInsecure,
 					"tls-root-ca-cert": cfg.Events.TLSRootCaCertPath,
 					"enable-tls":       cfg.Events.EnableTLS,
-					"name":             "sharing-eventsmiddleware",
+					"name":             generators.GenerateConnectionName(cfg.Service.Name, generators.NTYPE_BUS),
 					"username":         cfg.Events.AuthUsername,
 					"password":         cfg.Events.AuthPassword,
 				},

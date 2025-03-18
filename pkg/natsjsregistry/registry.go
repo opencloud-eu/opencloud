@@ -13,6 +13,7 @@ import (
 
 	natsjskv "github.com/go-micro/plugins/v4/store/nats-js-kv"
 	"github.com/nats-io/nats.go"
+	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"go-micro.dev/v4/registry"
 	"go-micro.dev/v4/server"
 	"go-micro.dev/v4/store"
@@ -186,6 +187,11 @@ func (n *storeregistry) storeOptions(opts registry.Options) []store.Option {
 		storeoptions = append(storeoptions, natsjskv.DefaultTTL(defaultTTL))
 	}
 
+	serviceName := "_oc" // use "_oc" as default service name if nothing else is provided
+	if name, ok := opts.Context.Value(serviceNameKey{}).(string); ok {
+		serviceName = name
+	}
+
 	addr := []string{"127.0.0.1:9233"}
 	if len(opts.Addrs) > 0 {
 		addr = opts.Addrs
@@ -195,7 +201,7 @@ func (n *storeregistry) storeOptions(opts registry.Options) []store.Option {
 	storeoptions = append(storeoptions, store.Nodes(addr...))
 
 	natsOptions := nats.GetDefaultOptions()
-	natsOptions.Name = "nats-js-kv-registry"
+	natsOptions.Name = generators.GenerateConnectionName(serviceName, generators.NTYPE_REGISTRY)
 	natsOptions.User, natsOptions.Password = getAuth()
 	natsOptions.ReconnectedCB = func(_ *nats.Conn) {
 		if err := n.Init(); err != nil {
