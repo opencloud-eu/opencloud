@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
+	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/config/parser"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
@@ -40,7 +41,8 @@ func RestartPostprocessing(cfg *config.Config) *cli.Command {
 			return configlog.ReturnFatal(parser.ParseConfig(cfg))
 		},
 		Action: func(c *cli.Context) error {
-			stream, err := stream.NatsFromConfig(cfg.Service.Name, false, stream.NatsConfig{
+			connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTYPE_BUS)
+			stream, err := stream.NatsFromConfig(connName, false, stream.NatsConfig{
 				Endpoint:             cfg.Postprocessing.Events.Endpoint,
 				Cluster:              cfg.Postprocessing.Events.Cluster,
 				EnableTLS:            cfg.Postprocessing.Events.EnableTLS,

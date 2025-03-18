@@ -17,6 +17,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
+	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/registry"
 	"github.com/opencloud-eu/opencloud/pkg/service/grpc"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
@@ -94,7 +95,8 @@ func Server(cfg *config.Config) *cli.Command {
 				registeredEvents[typ.String()] = e
 			}
 
-			client, err := stream.NatsFromConfig(cfg.Service.Name, false, stream.NatsConfig(cfg.Notifications.Events))
+			connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTYPE_BUS)
+			client, err := stream.NatsFromConfig(connName, false, stream.NatsConfig(cfg.Notifications.Events))
 			if err != nil {
 				return err
 			}

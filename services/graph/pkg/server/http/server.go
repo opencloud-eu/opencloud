@@ -16,6 +16,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/account"
 	"github.com/opencloud-eu/opencloud/pkg/cors"
+	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/keycloak"
 	"github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/pkg/registry"
@@ -56,7 +57,8 @@ func Server(opts ...Option) (http.Service, error) {
 
 	if options.Config.Events.Endpoint != "" {
 		var err error
-		eventsStream, err = stream.NatsFromConfig(options.Config.Service.Name, false, stream.NatsConfig(options.Config.Events))
+		connName := generators.GenerateConnectionName(options.Config.Service.Name, generators.NTYPE_BUS)
+		eventsStream, err = stream.NatsFromConfig(connName, false, stream.NatsConfig(options.Config.Events))
 		if err != nil {
 			options.Logger.Error().
 				Err(err).

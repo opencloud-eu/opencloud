@@ -10,6 +10,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
+	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/services/sse/pkg/config"
@@ -52,7 +53,8 @@ func Server(cfg *config.Config) *cli.Command {
 			}
 
 			{
-				natsStream, err := stream.NatsFromConfig(cfg.Service.Name, true, stream.NatsConfig(cfg.Events))
+				connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTYPE_BUS)
+				natsStream, err := stream.NatsFromConfig(connName, true, stream.NatsConfig(cfg.Events))
 				if err != nil {
 					return err
 				}

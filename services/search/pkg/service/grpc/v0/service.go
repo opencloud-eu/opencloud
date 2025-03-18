@@ -24,6 +24,7 @@ import (
 	"go-micro.dev/v4/metadata"
 	grpcmetadata "google.golang.org/grpc/metadata"
 
+	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/registry"
 	v0 "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
@@ -115,7 +116,8 @@ func NewHandler(opts ...Option) (searchsvc.SearchProviderHandler, func(), error)
 
 	// setup event handling
 
-	stream, err := raw.FromConfig(context.Background(), cfg.Service.Name, raw.Config{
+	connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTYPE_BUS)
+	stream, err := raw.FromConfig(context.Background(), connName, raw.Config{
 		Endpoint:             cfg.Events.Endpoint,
 		Cluster:              cfg.Events.Cluster,
 		EnableTLS:            cfg.Events.EnableTLS,

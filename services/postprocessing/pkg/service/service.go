@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/config"
@@ -46,7 +47,8 @@ var (
 
 // NewPostprocessingService returns a new instance of a postprocessing service
 func NewPostprocessingService(ctx context.Context, logger log.Logger, sto store.Store, tp trace.TracerProvider, cfg *config.Config) (*PostprocessingService, error) {
-	pub, err := stream.NatsFromConfig(cfg.Service.Name, false, stream.NatsConfig{
+	connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTYPE_BUS)
+	pub, err := stream.NatsFromConfig(connName, false, stream.NatsConfig{
 		Endpoint:             cfg.Postprocessing.Events.Endpoint,
 		Cluster:              cfg.Postprocessing.Events.Cluster,
 		EnableTLS:            cfg.Postprocessing.Events.EnableTLS,
@@ -55,11 +57,11 @@ func NewPostprocessingService(ctx context.Context, logger log.Logger, sto store.
 		AuthUsername:         cfg.Postprocessing.Events.AuthUsername,
 		AuthPassword:         cfg.Postprocessing.Events.AuthPassword,
 	})
-
 	if err != nil {
 		return nil, err
 	}
-	raw, err := raw.FromConfig(ctx, cfg.Service.Name, raw.Config{
+
+	raw, err := raw.FromConfig(ctx, connName, raw.Config{
 		Endpoint:             cfg.Postprocessing.Events.Endpoint,
 		Cluster:              cfg.Postprocessing.Events.Cluster,
 		EnableTLS:            cfg.Postprocessing.Events.EnableTLS,
