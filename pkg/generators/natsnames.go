@@ -8,12 +8,14 @@ import (
 // NType is an enum type for the different types of NATS connections
 type NType int
 
+// Enum values for NType
 const (
 	NTypeBus NType = iota
 	NTypeKeyValue
 	NTypeRegistry
 )
 
+// String returns the string representation of a NType
 func (n NType) String() string {
 	return []string{"bus", "kv", "reg"}[n]
 }
