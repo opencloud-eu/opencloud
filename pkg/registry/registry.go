@@ -59,6 +59,7 @@ func GetRegistry(opts ...Option) mRegistry.Registry {
 			_reg = natsjsregistry.NewRegistry(
 				mRegistry.Addrs(cfg.Addresses...),
 				natsjsregistry.DefaultTTL(cfg.RegisterTTL),
+				natsjsregistry.ServiceName("_oc"),
 			)
 		case "memory":
 			_reg = memr.NewRegistry()

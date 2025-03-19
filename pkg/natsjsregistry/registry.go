@@ -30,7 +30,15 @@ var (
 )
 
 func init() {
-	cmd.DefaultRegistries[_registryName] = NewRegistry
+	cmd.DefaultRegistries[_registryName] = NewRegistryMicro
+}
+
+// NewRegistryMicro returns a new natsjs registry, forcing the service name
+// to be "_go-micro". This is the registry that is intended to be used by
+// go-micro
+func NewRegistryMicro(opts ...registry.Option) registry.Registry {
+	overwrittenOpts := append(opts, ServiceName("_go-micro"))
+	return NewRegistry(overwrittenOpts...)
 }
 
 // NewRegistry returns a new natsjs registry
@@ -187,7 +195,7 @@ func (n *storeregistry) storeOptions(opts registry.Options) []store.Option {
 		storeoptions = append(storeoptions, natsjskv.DefaultTTL(defaultTTL))
 	}
 
-	serviceName := "_oc" // use "_oc" as default service name if nothing else is provided
+	serviceName := "_unknown" // use "_unknown" as default service name if nothing else is provided
 	if name, ok := opts.Context.Value(serviceNameKey{}).(string); ok {
 		serviceName = name
 	}
