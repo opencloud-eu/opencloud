@@ -95,7 +95,7 @@ func Server(cfg *config.Config) *cli.Command {
 				registeredEvents[typ.String()] = e
 			}
 
-			connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTYPE_BUS)
+			connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
 			client, err := stream.NatsFromConfig(connName, false, stream.NatsConfig(cfg.Notifications.Events))
 			if err != nil {
 				return err

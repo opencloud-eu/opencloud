@@ -71,7 +71,7 @@ func Server(cfg *config.Config) *cli.Command {
 
 			defer cancel()
 
-			connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTYPE_BUS)
+			connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
 			evStream, err := stream.NatsFromConfig(connName, false, stream.NatsConfig(cfg.Events))
 			if err != nil {
 				logger.Error().Err(err).Msg("Failed to initialize event stream")

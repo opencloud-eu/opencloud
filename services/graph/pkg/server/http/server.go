@@ -57,7 +57,7 @@ func Server(opts ...Option) (http.Service, error) {
 
 	if options.Config.Events.Endpoint != "" {
 		var err error
-		connName := generators.GenerateConnectionName(options.Config.Service.Name, generators.NTYPE_BUS)
+		connName := generators.GenerateConnectionName(options.Config.Service.Name, generators.NTypeBus)
 		eventsStream, err = stream.NatsFromConfig(connName, false, stream.NatsConfig(options.Config.Events))
 		if err != nil {
 			options.Logger.Error().

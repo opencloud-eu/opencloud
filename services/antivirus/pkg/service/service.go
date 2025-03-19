@@ -115,7 +115,7 @@ func (av Antivirus) Run() error {
 		av.config.Events.TLSInsecure = false
 	}
 
-	connName := generators.GenerateConnectionName(av.config.Service.Name, generators.NTYPE_BUS)
+	connName := generators.GenerateConnectionName(av.config.Service.Name, generators.NTypeBus)
 	natsStream, err := stream.NatsFromConfig(connName, false, stream.NatsConfig(av.config.Events))
 	if err != nil {
 		return err

@@ -58,7 +58,7 @@ func StorageUsersConfigFromStruct(cfg *config.Config) map[string]interface{} {
 					"tls-insecure":     cfg.Events.TLSInsecure,
 					"tls-root-ca-cert": cfg.Events.TLSRootCaCertPath,
 					"enable-tls":       cfg.Events.EnableTLS,
-					"name":             generators.GenerateConnectionName(cfg.Service.Name, generators.NTYPE_BUS),
+					"name":             generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus),
 					"username":         cfg.Events.AuthUsername,
 					"password":         cfg.Events.AuthPassword,
 				},

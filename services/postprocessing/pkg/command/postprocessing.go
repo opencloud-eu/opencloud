@@ -41,7 +41,7 @@ func RestartPostprocessing(cfg *config.Config) *cli.Command {
 			return configlog.ReturnFatal(parser.ParseConfig(cfg))
 		},
 		Action: func(c *cli.Context) error {
-			connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTYPE_BUS)
+			connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
 			stream, err := stream.NatsFromConfig(connName, false, stream.NatsConfig{
 				Endpoint:             cfg.Postprocessing.Events.Endpoint,
 				Cluster:              cfg.Postprocessing.Events.Cluster,

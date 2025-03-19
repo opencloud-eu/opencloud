@@ -9,9 +9,9 @@ import (
 type NType int
 
 const (
-	NTYPE_BUS NType = iota
-	NTYPE_KEYVALUE
-	NTYPE_REGISTRY
+	NTypeBus NType = iota
+	NTypeKeyValue
+	NTypeRegistry
 )
 
 func (n NType) String() string {

@@ -9,7 +9,7 @@ import (
 
 // NewStream prepares the requested nats stream and returns it.
 func NewStream(cfg *config.Config) (events.Stream, error) {
-	connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTYPE_BUS)
+	connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
 	return stream.NatsFromConfig(connName, false, stream.NatsConfig{
 		Endpoint:             cfg.Events.Addr,
 		Cluster:              cfg.Events.ClusterID,

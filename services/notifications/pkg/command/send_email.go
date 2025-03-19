@@ -32,7 +32,7 @@ func SendEmail(cfg *config.Config) *cli.Command {
 			if !daily && !weekly {
 				return errors.New("at least one of '--daily' or '--weekly' must be set")
 			}
-			connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTYPE_BUS)
+			connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
 			s, err := stream.NatsFromConfig(connName, false, stream.NatsConfig(cfg.Notifications.Events))
 			if err != nil {
 				return err

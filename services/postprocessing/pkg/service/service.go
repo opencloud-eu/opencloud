@@ -47,7 +47,7 @@ var (
 
 // NewPostprocessingService returns a new instance of a postprocessing service
 func NewPostprocessingService(ctx context.Context, logger log.Logger, sto store.Store, tp trace.TracerProvider, cfg *config.Config) (*PostprocessingService, error) {
-	connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTYPE_BUS)
+	connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
 	pub, err := stream.NatsFromConfig(connName, false, stream.NatsConfig{
 		Endpoint:             cfg.Postprocessing.Events.Endpoint,
 		Cluster:              cfg.Postprocessing.Events.Cluster,

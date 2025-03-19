@@ -116,7 +116,7 @@ func NewHandler(opts ...Option) (searchsvc.SearchProviderHandler, func(), error)
 
 	// setup event handling
 
-	connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTYPE_BUS)
+	connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
 	stream, err := raw.FromConfig(context.Background(), connName, raw.Config{
 		Endpoint:             cfg.Events.Endpoint,
 		Cluster:              cfg.Events.Cluster,

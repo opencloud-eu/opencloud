@@ -53,7 +53,7 @@ func Server(cfg *config.Config) *cli.Command {
 			}
 
 			{
-				connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTYPE_BUS)
+				connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
 				natsStream, err := stream.NatsFromConfig(connName, true, stream.NatsConfig(cfg.Events))
 				if err != nil {
 					return err

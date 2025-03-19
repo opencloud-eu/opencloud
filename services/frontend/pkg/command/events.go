@@ -35,7 +35,7 @@ var _registeredEvents = []events.Unmarshaller{
 
 // ListenForEvents listens for events and acts accordingly
 func ListenForEvents(ctx context.Context, cfg *config.Config, l log.Logger) error {
-	connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTYPE_BUS)
+	connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
 	bus, err := stream.NatsFromConfig(connName, false, stream.NatsConfig(cfg.Events))
 	if err != nil {
 		l.Error().Err(err).Msg("cannot connect to nats")

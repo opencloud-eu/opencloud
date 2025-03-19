@@ -201,7 +201,7 @@ func (n *storeregistry) storeOptions(opts registry.Options) []store.Option {
 	storeoptions = append(storeoptions, store.Nodes(addr...))
 
 	natsOptions := nats.GetDefaultOptions()
-	natsOptions.Name = generators.GenerateConnectionName(serviceName, generators.NTYPE_REGISTRY)
+	natsOptions.Name = generators.GenerateConnectionName(serviceName, generators.NTypeRegistry)
 	natsOptions.User, natsOptions.Password = getAuth()
 	natsOptions.ReconnectedCB = func(_ *nats.Conn) {
 		if err := n.Init(); err != nil {
