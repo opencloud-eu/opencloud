@@ -45,7 +45,7 @@ import (
 
 var tracer trace.Tracer
 
-const RevisionsDir = ".oc-nodes"
+const MetadataDir = ".oc-nodes"
 
 var _spaceTypePersonal = "personal"
 var _spaceTypeProject = "project"
@@ -288,7 +288,7 @@ func (lu *Lookup) InternalPath(spaceID, nodeID string) string {
 		if len(spaceRoot) == 0 {
 			return ""
 		}
-		return filepath.Join(spaceRoot, RevisionsDir, Pathify(nodeID, 4, 2))
+		return filepath.Join(spaceRoot, MetadataDir, Pathify(nodeID, 4, 2))
 	}
 
 	path, _ := lu.IDCache.Get(context.Background(), spaceID, nodeID)
@@ -303,7 +303,7 @@ func (lu *Lookup) VersionPath(spaceID, nodeID, version string) string {
 		return ""
 	}
 
-	return filepath.Join(spaceRoot, RevisionsDir, Pathify(nodeID, 4, 2)+node.RevisionIDDelimiter+version)
+	return filepath.Join(spaceRoot, MetadataDir, Pathify(nodeID, 4, 2)+node.RevisionIDDelimiter+version)
 }
 
 // VersionPath returns the "current" path of the node
@@ -313,7 +313,7 @@ func (lu *Lookup) CurrentPath(spaceID, nodeID string) string {
 		return ""
 	}
 
-	return filepath.Join(spaceRoot, RevisionsDir, Pathify(nodeID, 4, 2)+node.CurrentIDDelimiter)
+	return filepath.Join(spaceRoot, MetadataDir, Pathify(nodeID, 4, 2)+node.CurrentIDDelimiter)
 }
 
 // refFromCS3 creates a CS3 reference from a set of bytes. This method should remain private

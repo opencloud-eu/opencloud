@@ -24,13 +24,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/pkg/errors"
 	"github.com/rogpeppe/go-internal/lockedfile"
-	"github.com/shamaton/msgpack/v2"
 
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
@@ -63,32 +63,48 @@ func (tp *Tree) CreateRevision(ctx context.Context, n *node.Node, version string
 	vf, err := os.OpenFile(versionPath, os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		if os.IsExist(err) {
-			revisionNode := node.NewBaseNode(n.SpaceID, n.ID+node.RevisionIDDelimiter+version, tp.lookup)
-			revisionPath := tp.lookup.MetadataBackend().MetadataPath(revisionNode)
-			b, err := os.ReadFile(revisionPath)
+			dir := filepath.Dir(versionPath)
+			base := filepath.Base(versionPath)
+			files, err := os.ReadDir(dir)
 			if err != nil {
 				return "", err
 			}
 
-			m := map[string][]byte{}
-			if err := msgpack.Unmarshal(b, &m); err != nil {
-				return "", err
-			}
-
-			bid := m["user.oc.blobid"]
-			if string(bid) != "" {
-				if err := tp.DeleteBlob(&node.Node{
-					BaseNode: *revisionNode,
-					BlobID:   string(bid),
-				}); err != nil {
-					return "", err
+			// find revision with highest number
+			highest := 0
+			for _, file := range files {
+				if file.IsDir() {
+					continue
+				}
+				name := file.Name()
+				if !strings.HasPrefix(name, base) || strings.HasSuffix(name, ".mpk") {
+					continue
+				}
+				ext := strings.TrimPrefix(name, base+".")
+				if ext == "" || ext == base {
+					continue
+				}
+				num, err := strconv.Atoi(ext)
+				if err != nil {
+					continue
+				}
+				if num > highest {
+					highest = num
 				}
 			}
 
-			err = os.Remove(versionPath)
+			// rename existing revision
+			oldNode := node.NewBaseNode(n.SpaceID, n.ID+node.RevisionIDDelimiter+version+"."+strconv.Itoa(highest+1), tp.lookup)
+			err = tp.lookup.MetadataBackend().Rename(versionNode, oldNode)
 			if err != nil {
 				return "", err
 			}
+			newPath := versionPath + "." + strconv.Itoa(highest+1)
+			err = os.Rename(versionPath, newPath)
+			if err != nil {
+				return "", err
+			}
+
 			vf, err = os.OpenFile(versionPath, os.O_CREATE|os.O_WRONLY|os.O_EXCL, 0600)
 			if err != nil {
 				return "", err

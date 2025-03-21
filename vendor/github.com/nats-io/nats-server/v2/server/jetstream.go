@@ -32,6 +32,7 @@ import (
 
 	"github.com/minio/highwayhash"
 	"github.com/nats-io/nats-server/v2/server/sysmem"
+	"github.com/nats-io/nats-server/v2/server/tpm"
 	"github.com/nats-io/nkeys"
 	"github.com/nats-io/nuid"
 )
@@ -47,6 +48,7 @@ type JetStreamConfig struct {
 	Domain       string        `json:"domain,omitempty"`
 	CompressOK   bool          `json:"compress_ok,omitempty"`
 	UniqueTag    string        `json:"unique_tag,omitempty"`
+	Strict       bool          `json:"strict,omitempty"`
 }
 
 // Statistics about JetStream for this server.
@@ -90,6 +92,7 @@ type JetStreamAccountStats struct {
 }
 
 type JetStreamAPIStats struct {
+	Level    int    `json:"level"`
 	Total    uint64 `json:"total"`
 	Errors   uint64 `json:"errors"`
 	Inflight uint64 `json:"inflight,omitempty"`
@@ -173,6 +176,9 @@ type jsAccount struct {
 	updatesSub *subscription
 	lupdate    time.Time
 	utimer     *time.Timer
+
+	// Which account to send NRG traffic into. Empty string is system account.
+	nrgAccount string
 }
 
 // Track general usage for this account.
@@ -370,6 +376,40 @@ func (s *Server) checkStoreDir(cfg *JetStreamConfig) error {
 	return nil
 }
 
+// This function sets/updates the jetstream encryption key and cipher based
+// on options. If the TPM options have been specified, a key is generated
+// and sealed by the TPM.
+func (s *Server) initJetStreamEncryption() (err error) {
+	opts := s.getOpts()
+
+	// The TPM settings and other encryption settings are mutually exclusive.
+	if opts.JetStreamKey != _EMPTY_ && opts.JetStreamTpm.KeysFile != _EMPTY_ {
+		return fmt.Errorf("JetStream encryption key may not be used with TPM options")
+	}
+	// if we are using the standard method to set the encryption key just return and carry on.
+	if opts.JetStreamKey != _EMPTY_ {
+		return nil
+	}
+	// if the tpm options are not used then no encryption has been configured and return.
+	if opts.JetStreamTpm.KeysFile == _EMPTY_ {
+		return nil
+	}
+
+	if opts.JetStreamTpm.Pcr == 0 {
+		// Default PCR to use in the TPM. Values can be 0-23, and most platforms
+		// reserve values 0-12 for the OS, boot locker, disc encryption, etc.
+		// 16 used for debugging. In sticking to NATS tradition, we'll use 22
+		// as the default with the option being configurable.
+		opts.JetStreamTpm.Pcr = 22
+	}
+
+	// Using the TPM to generate or get the encryption key and update the encryption options.
+	opts.JetStreamKey, err = tpm.LoadJetStreamEncryptionKeyFromTPM(opts.JetStreamTpm.SrkPassword,
+		opts.JetStreamTpm.KeysFile, opts.JetStreamTpm.KeyPassword, opts.JetStreamTpm.Pcr)
+
+	return err
+}
+
 // enableJetStream will start up the JetStream subsystem.
 func (s *Server) enableJetStream(cfg JetStreamConfig) error {
 	js := &jetStream{srv: s, config: cfg, accounts: make(map[string]*jsAccount), apiSubs: NewSublistNoCache()}
@@ -402,6 +442,10 @@ func (s *Server) enableJetStream(cfg JetStreamConfig) error {
 		os.Remove(tmpfile.Name())
 	}
 
+	if err := s.initJetStreamEncryption(); err != nil {
+		return err
+	}
+
 	// JetStream is an internal service so we need to make sure we have a system account.
 	// This system account will export the JetStream service endpoints.
 	if s.SystemAccount() == nil {
@@ -419,6 +463,11 @@ func (s *Server) enableJetStream(cfg JetStreamConfig) error {
 		s.Noticef("")
 	}
 	s.Noticef("---------------- JETSTREAM ----------------")
+
+	if cfg.Strict {
+		s.Noticef("  Strict:          %t", cfg.Strict)
+	}
+
 	s.Noticef("  Max Memory:      %s", friendlyBytes(cfg.MaxMemory))
 	s.Noticef("  Max Storage:     %s", friendlyBytes(cfg.MaxStore))
 	s.Noticef("  Store Directory: \"%s\"", cfg.StoreDir)
@@ -429,6 +478,11 @@ func (s *Server) enableJetStream(cfg JetStreamConfig) error {
 	if ek := opts.JetStreamKey; ek != _EMPTY_ {
 		s.Noticef("  Encryption:      %s", opts.JetStreamCipher)
 	}
+	if opts.JetStreamTpm.KeysFile != _EMPTY_ {
+		s.Noticef("  TPM File:        %q, Pcr: %d", opts.JetStreamTpm.KeysFile,
+			opts.JetStreamTpm.Pcr)
+	}
+	s.Noticef("  API Level:       %d", JSApiLevel)
 	s.Noticef("-------------------------------------------")
 
 	// Setup our internal subscriptions.
@@ -508,6 +562,7 @@ func (s *Server) restartJetStream() error {
 		MaxMemory:    opts.JetStreamMaxMemory,
 		MaxStore:     opts.JetStreamMaxStore,
 		Domain:       opts.JetStreamDomain,
+		Strict:       opts.JetStreamStrict,
 	}
 	s.Noticef("Restarting JetStream")
 	err := s.EnableJetStream(&cfg)
@@ -1408,7 +1463,7 @@ func (a *Account) EnableJetStream(limits map[string]JetStreamAccountLimits) erro
 				// the consumer can reconnect. We will create it as a durable and switch it.
 				cfg.ConsumerConfig.Durable = ofi.Name()
 			}
-			obs, err := e.mset.addConsumerWithAssignment(&cfg.ConsumerConfig, _EMPTY_, nil, true, ActionCreateOrUpdate)
+			obs, err := e.mset.addConsumerWithAssignment(&cfg.ConsumerConfig, _EMPTY_, nil, true, ActionCreateOrUpdate, false)
 			if err != nil {
 				s.Warnf("    Error adding consumer %q: %v", cfg.Name, err)
 				continue
@@ -1652,6 +1707,7 @@ func (a *Account) JetStreamUsage() JetStreamAccountStats {
 		stats.Memory, stats.Store = jsa.storageTotals()
 		stats.Domain = js.config.Domain
 		stats.API = JetStreamAPIStats{
+			Level:  JSApiLevel,
 			Total:  jsa.apiTotal,
 			Errors: jsa.apiErrors,
 		}
@@ -2338,6 +2394,7 @@ func (js *jetStream) usageStats() *JetStreamStats {
 	stats.ReservedStore = uint64(js.storeReserved)
 	s := js.srv
 	js.mu.RUnlock()
+	stats.API.Level = JSApiLevel
 	stats.API.Total = uint64(atomic.LoadInt64(&js.apiTotal))
 	stats.API.Errors = uint64(atomic.LoadInt64(&js.apiErrors))
 	stats.API.Inflight = uint64(atomic.LoadInt64(&js.apiInflight))
@@ -2480,6 +2537,9 @@ func (s *Server) dynJetStreamConfig(storeDir string, maxStore, maxMem int64) *Je
 
 	opts := s.getOpts()
 
+	// Strict mode.
+	jsc.Strict = opts.JetStreamStrict
+
 	// Sync options.
 	jsc.SyncInterval = opts.SyncInterval
 	jsc.SyncAlways = opts.SyncAlways
@@ -2569,7 +2629,7 @@ func (a *Account) addStreamTemplate(tc *StreamTemplateConfig) (*streamTemplate, 
 	// FIXME(dlc) - Hacky
 	tcopy := tc.deepCopy()
 	tcopy.Config.Name = "_"
-	cfg, apiErr := s.checkStreamCfg(tcopy.Config, a)
+	cfg, apiErr := s.checkStreamCfg(tcopy.Config, a, false)
 	if apiErr != nil {
 		return nil, apiErr
 	}
@@ -2871,11 +2931,11 @@ func (s *Server) resourcesExceededError() {
 	}
 	s.rerrMu.Unlock()
 
-	// If we are meta leader we should relinguish that here.
+	// If we are meta leader we should relinquish that here.
 	if didAlert {
 		if js := s.getJetStream(); js != nil {
 			js.mu.RLock()
-			if cc := js.cluster; cc != nil && cc.isLeader() {
+			if cc := js.cluster; cc != nil && cc.meta != nil {
 				cc.meta.StepDown()
 			}
 			js.mu.RUnlock()

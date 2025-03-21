@@ -1,4 +1,4 @@
-// Copyright 2018-2024 The NATS Authors
+// Copyright 2018-2025 The NATS Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -61,6 +61,7 @@ type Account struct {
 	sqmu         sync.Mutex
 	sl           *Sublist
 	ic           *client
+	sq           *sendq
 	isid         uint64
 	etmr         *time.Timer
 	ctmr         *time.Timer
@@ -97,6 +98,12 @@ type Account struct {
 	nameTag      string
 	lastLimErr   int64
 	routePoolIdx int
+	// If the trace destination is specified and a message with a traceParentHdr
+	// is received, and has the least significant bit of the last token set to 1,
+	// then if traceDestSampling is > 0 and < 100, a random value will be selected
+	// and if it falls between 0 and that value, message tracing will be triggered.
+	traceDest         string
+	traceDestSampling int
 	// Guarantee that only one goroutine can be running either checkJetStreamMigrate
 	// or clearObserverState at a given time for this account to prevent interleaving.
 	jscmMu sync.Mutex
@@ -132,6 +139,10 @@ type streamImport struct {
 	claim   *jwt.Import
 	usePub  bool
 	invalid bool
+	// This is `allow_trace` and when true and message tracing is happening,
+	// we will trace egresses past the account boundary, if `false`, we stop
+	// at the account boundary.
+	atrc bool
 }
 
 const ClientInfoHdr = "Nats-Request-Info"
@@ -156,6 +167,7 @@ type serviceImport struct {
 	share       bool
 	tracking    bool
 	didDeliver  bool
+	atrc        bool        // allow trace (got from service export)
 	trackingHdr http.Header // header from request
 }
 
@@ -213,6 +225,11 @@ type serviceExport struct {
 	latency    *serviceLatency
 	rtmr       *time.Timer
 	respThresh time.Duration
+	// This is `allow_trace` and when true and message tracing is happening,
+	// when processing a service import we will go through account boundary
+	// and trace egresses on that other account. If `false`, we stop at the
+	// account boundary.
+	atrc bool
 }
 
 // Used to track service latency.
@@ -250,11 +267,29 @@ func (a *Account) String() string {
 	return a.Name
 }
 
+func (a *Account) setTraceDest(dest string) {
+	a.mu.Lock()
+	a.traceDest = dest
+	a.mu.Unlock()
+}
+
+func (a *Account) getTraceDestAndSampling() (string, int) {
+	a.mu.RLock()
+	dest := a.traceDest
+	sampling := a.traceDestSampling
+	a.mu.RUnlock()
+	return dest, sampling
+}
+
 // Used to create shallow copies of accounts for transfer
 // from opts to real accounts in server struct.
+// Account `na` write lock is expected to be held on entry
+// while account `a` is the one from the Options struct
+// being loaded/reloaded and do not need locking.
 func (a *Account) shallowCopy(na *Account) {
 	na.Nkey = a.Nkey
 	na.Issuer = a.Issuer
+	na.traceDest, na.traceDestSampling = a.traceDest, a.traceDestSampling
 
 	if a.imports.streams != nil {
 		na.imports.streams = make([]*streamImport, 0, len(a.imports.streams))
@@ -423,6 +458,29 @@ func (a *Account) GetName() string {
 	name := a.Name
 	a.mu.RUnlock()
 	return name
+}
+
+// getNameTag will return the name tag or the account name if not set.
+func (a *Account) getNameTag() string {
+	if a == nil {
+		return _EMPTY_
+	}
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.getNameTagLocked()
+}
+
+// getNameTagLocked will return the name tag or the account name if not set.
+// Lock should be held.
+func (a *Account) getNameTagLocked() string {
+	if a == nil {
+		return _EMPTY_
+	}
+	nameTag := a.nameTag
+	if nameTag == _EMPTY_ {
+		nameTag = a.Name
+	}
+	return nameTag
 }
 
 // NumConnections returns active number of clients for this account for
@@ -623,7 +681,7 @@ func (a *Account) AddWeightedMappings(src string, dests ...*MapDest) error {
 		if tw[d.Cluster] > 100 {
 			return fmt.Errorf("total weight needs to be <= 100")
 		}
-		err := ValidateMappingDestination(d.Subject)
+		err := ValidateMapping(src, d.Subject)
 		if err != nil {
 			return err
 		}
@@ -1905,11 +1963,13 @@ func (a *Account) addServiceImport(dest *Account, from, to string, claim *jwt.Im
 		return nil, ErrMissingAccount
 	}
 
+	var atrc bool
 	dest.mu.RLock()
 	se := dest.getServiceExport(to)
 	if se != nil {
 		rt = se.respType
 		lat = se.latency
+		atrc = se.atrc
 	}
 	dest.mu.RUnlock()
 
@@ -1954,7 +2014,7 @@ func (a *Account) addServiceImport(dest *Account, from, to string, claim *jwt.Im
 	if claim != nil {
 		share = claim.Share
 	}
-	si := &serviceImport{dest, claim, se, nil, from, to, tr, 0, rt, lat, nil, nil, usePub, false, false, share, false, false, nil}
+	si := &serviceImport{dest, claim, se, nil, from, to, tr, 0, rt, lat, nil, nil, usePub, false, false, share, false, false, atrc, nil}
 	a.imports.services[from] = si
 	a.mu.Unlock()
 
@@ -2178,9 +2238,15 @@ func shouldSample(l *serviceLatency, c *client) (bool, http.Header) {
 		}
 		return true, http.Header{trcB3: b3} // sampling allowed or left to recipient of header
 	} else if tId := h[trcCtx]; len(tId) != 0 {
+		var sample bool
 		// sample 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
 		tk := strings.Split(tId[0], "-")
-		if len(tk) == 4 && len([]byte(tk[3])) == 2 && tk[3] == "01" {
+		if len(tk) == 4 && len([]byte(tk[3])) == 2 {
+			if hexVal, err := strconv.ParseInt(tk[3], 16, 8); err == nil {
+				sample = hexVal&0x1 == 0x1
+			}
+		}
+		if sample {
 			return true, newTraceCtxHeader(h, tId)
 		} else {
 			return false, nil
@@ -2392,6 +2458,18 @@ func (a *Account) SetServiceExportResponseThreshold(export string, maxTime time.
 	return nil
 }
 
+func (a *Account) SetServiceExportAllowTrace(export string, allowTrace bool) error {
+	a.mu.Lock()
+	se := a.getServiceExport(export)
+	if se == nil {
+		a.mu.Unlock()
+		return fmt.Errorf("no export defined for %q", export)
+	}
+	se.atrc = allowTrace
+	a.mu.Unlock()
+	return nil
+}
+
 // This is for internal service import responses.
 func (a *Account) addRespServiceImport(dest *Account, to string, osi *serviceImport, tracking bool, header http.Header) *serviceImport {
 	nrr := string(osi.acc.newServiceReply(tracking))
@@ -2401,7 +2479,7 @@ func (a *Account) addRespServiceImport(dest *Account, to string, osi *serviceImp
 
 	// dest is the requestor's account. a is the service responder with the export.
 	// Marked as internal here, that is how we distinguish.
-	si := &serviceImport{dest, nil, osi.se, nil, nrr, to, nil, 0, rt, nil, nil, nil, false, true, false, osi.share, false, false, nil}
+	si := &serviceImport{dest, nil, osi.se, nil, nrr, to, nil, 0, rt, nil, nil, nil, false, true, false, osi.share, false, false, false, nil}
 
 	if a.exports.responses == nil {
 		a.exports.responses = make(map[string]*serviceImport)
@@ -2430,6 +2508,10 @@ func (a *Account) addRespServiceImport(dest *Account, to string, osi *serviceImp
 
 // AddStreamImportWithClaim will add in the stream import from a specific account with optional token.
 func (a *Account) AddStreamImportWithClaim(account *Account, from, prefix string, imClaim *jwt.Import) error {
+	return a.addStreamImportWithClaim(account, from, prefix, false, imClaim)
+}
+
+func (a *Account) addStreamImportWithClaim(account *Account, from, prefix string, allowTrace bool, imClaim *jwt.Import) error {
 	if account == nil {
 		return ErrMissingAccount
 	}
@@ -2452,7 +2534,7 @@ func (a *Account) AddStreamImportWithClaim(account *Account, from, prefix string
 		}
 	}
 
-	return a.AddMappedStreamImportWithClaim(account, from, prefix+from, imClaim)
+	return a.addMappedStreamImportWithClaim(account, from, prefix+from, allowTrace, imClaim)
 }
 
 // AddMappedStreamImport helper for AddMappedStreamImportWithClaim
@@ -2462,6 +2544,10 @@ func (a *Account) AddMappedStreamImport(account *Account, from, to string) error
 
 // AddMappedStreamImportWithClaim will add in the stream import from a specific account with optional token.
 func (a *Account) AddMappedStreamImportWithClaim(account *Account, from, to string, imClaim *jwt.Import) error {
+	return a.addMappedStreamImportWithClaim(account, from, to, false, imClaim)
+}
+
+func (a *Account) addMappedStreamImportWithClaim(account *Account, from, to string, allowTrace bool, imClaim *jwt.Import) error {
 	if account == nil {
 		return ErrMissingAccount
 	}
@@ -2507,7 +2593,10 @@ func (a *Account) AddMappedStreamImportWithClaim(account *Account, from, to stri
 		a.mu.Unlock()
 		return ErrStreamImportDuplicate
 	}
-	a.imports.streams = append(a.imports.streams, &streamImport{account, from, to, tr, nil, imClaim, usePub, false})
+	if imClaim != nil {
+		allowTrace = imClaim.AllowTrace
+	}
+	a.imports.streams = append(a.imports.streams, &streamImport{account, from, to, tr, nil, imClaim, usePub, false, allowTrace})
 	a.mu.Unlock()
 	return nil
 }
@@ -2525,7 +2614,7 @@ func (a *Account) isStreamImportDuplicate(acc *Account, from string) bool {
 
 // AddStreamImport will add in the stream import from a specific account.
 func (a *Account) AddStreamImport(account *Account, from, prefix string) error {
-	return a.AddStreamImportWithClaim(account, from, prefix, nil)
+	return a.addStreamImportWithClaim(account, from, prefix, false, nil)
 }
 
 // IsPublicExport is a placeholder to denote a public export.
@@ -2844,7 +2933,9 @@ func (a *Account) checkStreamImportsEqual(b *Account) bool {
 		bm[bim.acc.Name+bim.from+bim.to] = bim
 	}
 	for _, aim := range a.imports.streams {
-		if _, ok := bm[aim.acc.Name+aim.from+aim.to]; !ok {
+		if bim, ok := bm[aim.acc.Name+aim.from+aim.to]; !ok {
+			return false
+		} else if aim.atrc != bim.atrc {
 			return false
 		}
 	}
@@ -2929,6 +3020,9 @@ func isServiceExportEqual(a, b *serviceExport) bool {
 		if a.latency.subject != b.latency.subject {
 			return false
 		}
+	}
+	if a.atrc != b.atrc {
+		return false
 	}
 	return true
 }
@@ -3205,6 +3299,19 @@ func (s *Server) updateAccountClaimsWithRefresh(a *Account, ac *jwt.AccountClaim
 	// Grab trace label under lock.
 	tl := a.traceLabel()
 
+	var td string
+	var tds int
+	if ac.Trace != nil {
+		// Update trace destination and sampling
+		td, tds = string(ac.Trace.Destination), ac.Trace.Sampling
+		if !IsValidPublishSubject(td) {
+			td, tds = _EMPTY_, 0
+		} else if tds <= 0 || tds > 100 {
+			tds = 100
+		}
+	}
+	a.traceDest, a.traceDestSampling = td, tds
+
 	// Check for external authorization.
 	if ac.HasExternalAuthorization() {
 		a.extAuth = &jwt.ExternalAuthorization{}
@@ -3332,6 +3439,9 @@ func (s *Server) updateAccountClaimsWithRefresh(a *Account, ac *jwt.AccountClaim
 				if err := a.SetServiceExportResponseThreshold(sub, e.ResponseThreshold); err != nil {
 					s.Debugf("Error adding service export response threshold for [%s]: %v", tl, err)
 				}
+			}
+			if err := a.SetServiceExportAllowTrace(sub, e.AllowTrace); err != nil {
+				s.Debugf("Error adding allow_trace for %q: %v", sub, err)
 			}
 		}
 
@@ -3470,10 +3580,15 @@ func (s *Server) updateAccountClaimsWithRefresh(a *Account, ac *jwt.AccountClaim
 				if si != nil && si.acc.Name == a.Name {
 					// Check for if we are still authorized for an import.
 					si.invalid = !a.checkServiceImportAuthorized(acc, si.to, si.claim)
-					if si.latency != nil && !si.response {
-						// Make sure we should still be tracking latency.
+					// Make sure we should still be tracking latency and if we
+					// are allowed to trace.
+					if !si.response {
 						if se := a.getServiceExport(si.to); se != nil {
-							si.latency = se.latency
+							if si.latency != nil {
+								si.latency = se.latency
+							}
+							// Update allow trace.
+							si.atrc = se.atrc
 						}
 					}
 				}
@@ -3567,6 +3682,7 @@ func (s *Server) updateAccountClaimsWithRefresh(a *Account, ac *jwt.AccountClaim
 
 	a.updated = time.Now()
 	clients := a.getClientsLocked()
+	ajs := a.js
 	a.mu.Unlock()
 
 	// Sort if we are over the limit.
@@ -3589,6 +3705,26 @@ func (s *Server) updateAccountClaimsWithRefresh(a *Account, ac *jwt.AccountClaim
 		// our imports properly. This allows this server to proxy JS traffic correctly.
 		s.checkJetStreamExports()
 		a.enableAllJetStreamServiceImportsAndMappings()
+	}
+
+	if ajs != nil {
+		// Check whether the account NRG status changed. If it has then we need to notify the
+		// Raft groups running on the system so that they can move their subs if needed.
+		a.mu.Lock()
+		previous := ajs.nrgAccount
+		switch ac.ClusterTraffic {
+		case "system", _EMPTY_:
+			ajs.nrgAccount = _EMPTY_
+		case "owner":
+			ajs.nrgAccount = a.Name
+		default:
+			s.Errorf("Account claim for %q has invalid value %q for cluster traffic account", a.Name, ac.ClusterTraffic)
+		}
+		changed := ajs.nrgAccount != previous
+		a.mu.Unlock()
+		if changed {
+			s.updateNRGAccountStatus()
+		}
 	}
 
 	for i, c := range clients {
@@ -3906,6 +4042,25 @@ func (dr *DirAccResolver) Reload() error {
 	return dr.DirJWTStore.Reload()
 }
 
+// ServerAPIClaimUpdateResponse is the response to $SYS.REQ.ACCOUNT.<id>.CLAIMS.UPDATE and $SYS.REQ.CLAIMS.UPDATE
+type ServerAPIClaimUpdateResponse struct {
+	Server *ServerInfo        `json:"server"`
+	Data   *ClaimUpdateStatus `json:"data,omitempty"`
+	Error  *ClaimUpdateError  `json:"error,omitempty"`
+}
+
+type ClaimUpdateError struct {
+	Account     string `json:"account,omitempty"`
+	Code        int    `json:"code"`
+	Description string `json:"description,omitempty"`
+}
+
+type ClaimUpdateStatus struct {
+	Account string `json:"account,omitempty"`
+	Code    int    `json:"code,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
 func respondToUpdate(s *Server, respSubj string, acc string, message string, err error) {
 	if err == nil {
 		if acc == _EMPTY_ {
@@ -3923,22 +4078,26 @@ func respondToUpdate(s *Server, respSubj string, acc string, message string, err
 	if respSubj == _EMPTY_ {
 		return
 	}
-	server := &ServerInfo{}
-	response := map[string]interface{}{"server": server}
-	m := map[string]interface{}{}
-	if acc != _EMPTY_ {
-		m["account"] = acc
+
+	response := ServerAPIClaimUpdateResponse{
+		Server: &ServerInfo{},
 	}
+
 	if err == nil {
-		m["code"] = http.StatusOK
-		m["message"] = message
-		response["data"] = m
+		response.Data = &ClaimUpdateStatus{
+			Account: acc,
+			Code:    http.StatusOK,
+			Message: message,
+		}
 	} else {
-		m["code"] = http.StatusInternalServerError
-		m["description"] = fmt.Sprintf("%s - %v", message, err)
-		response["error"] = m
+		response.Error = &ClaimUpdateError{
+			Account:     acc,
+			Code:        http.StatusInternalServerError,
+			Description: fmt.Sprintf("%s - %v", message, err),
+		}
 	}
-	s.sendInternalMsgLocked(respSubj, _EMPTY_, server, response)
+
+	s.sendInternalMsgLocked(respSubj, _EMPTY_, response.Server, response)
 }
 
 func handleListRequest(store *DirJWTStore, s *Server, reply string) {

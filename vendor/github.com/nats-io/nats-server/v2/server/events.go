@@ -31,7 +31,6 @@ import (
 	"time"
 
 	"github.com/klauspost/compress/s2"
-
 	"github.com/nats-io/jwt/v2"
 	"github.com/nats-io/nats-server/v2/server/certidp"
 	"github.com/nats-io/nats-server/v2/server/pse"
@@ -215,6 +214,7 @@ type AccountNumConns struct {
 // AccountStat contains the data common between AccountNumConns and AccountStatz
 type AccountStat struct {
 	Account       string    `json:"acc"`
+	Name          string    `json:"name"`
 	Conns         int       `json:"conns"`
 	LeafNodes     int       `json:"leafnodes"`
 	TotalConns    int       `json:"total_conns"`
@@ -264,6 +264,7 @@ type ServerInfo struct {
 const (
 	JetStreamEnabled     ServerCapability = 1 << iota // Server had JetStream enabled.
 	BinaryStreamSnapshot                              // New stream snapshot capability.
+	AccountNRG                                        // Move NRG traffic out of system account.
 )
 
 // Set JetStream capability.
@@ -287,6 +288,17 @@ func (si *ServerInfo) SetBinaryStreamSnapshot() {
 // JetStreamEnabled indicates whether or not we have binary stream snapshot capbilities.
 func (si *ServerInfo) BinaryStreamSnapshot() bool {
 	return si.Flags&BinaryStreamSnapshot != 0
+}
+
+// Set account NRG capability.
+func (si *ServerInfo) SetAccountNRG() {
+	si.Flags |= AccountNRG
+}
+
+// AccountNRG indicates whether or not we support moving the NRG traffic out of the
+// system account and into the asset account.
+func (si *ServerInfo) AccountNRG() bool {
+	return si.Flags&AccountNRG != 0
 }
 
 // ClientInfo is detailed information about the client forming a connection.
@@ -348,21 +360,22 @@ func (ci *ClientInfo) forAdvisory() *ClientInfo {
 
 // ServerStats hold various statistics that we will periodically send out.
 type ServerStats struct {
-	Start            time.Time      `json:"start"`
-	Mem              int64          `json:"mem"`
-	Cores            int            `json:"cores"`
-	CPU              float64        `json:"cpu"`
-	Connections      int            `json:"connections"`
-	TotalConnections uint64         `json:"total_connections"`
-	ActiveAccounts   int            `json:"active_accounts"`
-	NumSubs          uint32         `json:"subscriptions"`
-	Sent             DataStats      `json:"sent"`
-	Received         DataStats      `json:"received"`
-	SlowConsumers    int64          `json:"slow_consumers"`
-	Routes           []*RouteStat   `json:"routes,omitempty"`
-	Gateways         []*GatewayStat `json:"gateways,omitempty"`
-	ActiveServers    int            `json:"active_servers,omitempty"`
-	JetStream        *JetStreamVarz `json:"jetstream,omitempty"`
+	Start              time.Time           `json:"start"`
+	Mem                int64               `json:"mem"`
+	Cores              int                 `json:"cores"`
+	CPU                float64             `json:"cpu"`
+	Connections        int                 `json:"connections"`
+	TotalConnections   uint64              `json:"total_connections"`
+	ActiveAccounts     int                 `json:"active_accounts"`
+	NumSubs            uint32              `json:"subscriptions"`
+	Sent               DataStats           `json:"sent"`
+	Received           DataStats           `json:"received"`
+	SlowConsumers      int64               `json:"slow_consumers"`
+	SlowConsumersStats *SlowConsumersStats `json:"slow_consumer_stats,omitempty"`
+	Routes             []*RouteStat        `json:"routes,omitempty"`
+	Gateways           []*GatewayStat      `json:"gateways,omitempty"`
+	ActiveServers      int                 `json:"active_servers,omitempty"`
+	JetStream          *JetStreamVarz      `json:"jetstream,omitempty"`
 }
 
 // RouteStat holds route statistics.
@@ -506,10 +519,14 @@ RESET:
 					si.Version = VERSION
 					si.Time = time.Now().UTC()
 					si.Tags = tags
+					si.Flags = 0
 					if js {
 						// New capability based flags.
 						si.SetJetStreamEnabled()
 						si.SetBinaryStreamSnapshot()
+						if s.accountNRGAllowed.Load() {
+							si.SetAccountNRG()
+						}
 					}
 				}
 				var b []byte
@@ -684,7 +701,7 @@ func (s *Server) sendInternalAccountMsgWithReply(a *Account, subject, reply stri
 }
 
 // Send system style message to an account scope.
-func (s *Server) sendInternalAccountSysMsg(a *Account, subj string, si *ServerInfo, msg interface{}) {
+func (s *Server) sendInternalAccountSysMsg(a *Account, subj string, si *ServerInfo, msg any, ct compressionType) {
 	s.mu.RLock()
 	if s.sys == nil || s.sys.sendq == nil || a == nil {
 		s.mu.RUnlock()
@@ -697,7 +714,7 @@ func (s *Server) sendInternalAccountSysMsg(a *Account, subj string, si *ServerIn
 	c := a.internalClient()
 	a.mu.Unlock()
 
-	sendq.push(newPubMsg(c, subj, _EMPTY_, si, nil, msg, noCompression, false, false))
+	sendq.push(newPubMsg(c, subj, _EMPTY_, si, nil, msg, ct, false, false))
 }
 
 // This will queue up a message to be sent.
@@ -895,6 +912,16 @@ func (s *Server) sendStatsz(subj string) {
 	m.Stats.Sent.Msgs = atomic.LoadInt64(&s.outMsgs)
 	m.Stats.Sent.Bytes = atomic.LoadInt64(&s.outBytes)
 	m.Stats.SlowConsumers = atomic.LoadInt64(&s.slowConsumers)
+	// Evaluate the slow consumer stats, but set it only if one of the value is not 0.
+	scs := &SlowConsumersStats{
+		Clients:  s.NumSlowConsumersClients(),
+		Routes:   s.NumSlowConsumersRoutes(),
+		Gateways: s.NumSlowConsumersGateways(),
+		Leafs:    s.NumSlowConsumersLeafs(),
+	}
+	if scs.Clients != 0 || scs.Routes != 0 || scs.Gateways != 0 || scs.Leafs != 0 {
+		m.Stats.SlowConsumersStats = scs
+	}
 	m.Stats.NumSubs = s.numSubscriptions()
 	// Routes
 	s.forEachRoute(func(r *client) {
@@ -980,6 +1007,7 @@ func (s *Server) sendStatsz(subj string) {
 				jStat.Meta.Pending = ipq.len()
 			}
 		}
+		jStat.Limits = &s.getOpts().JetStreamLimits
 		m.Stats.JetStream = jStat
 		s.mu.RLock()
 	}
@@ -1657,7 +1685,8 @@ func (s *Server) remoteServerUpdate(sub *subscription, c *client, _ *Account, su
 	}
 
 	node := getHash(si.Name)
-	s.nodeToInfo.Store(node, nodeInfo{
+	accountNRG := si.AccountNRG()
+	oldInfo, _ := s.nodeToInfo.Swap(node, nodeInfo{
 		si.Name,
 		si.Version,
 		si.Cluster,
@@ -1669,7 +1698,14 @@ func (s *Server) remoteServerUpdate(sub *subscription, c *client, _ *Account, su
 		false,
 		si.JetStreamEnabled(),
 		si.BinaryStreamSnapshot(),
+		accountNRG,
 	})
+	if oldInfo == nil || accountNRG != oldInfo.(nodeInfo).accountNRG {
+		// One of the servers we received statsz from changed its mind about
+		// whether or not it supports in-account NRG, so update the groups
+		// with this information.
+		s.updateNRGAccountStatus()
+	}
 }
 
 // updateRemoteServer is called when we have an update from a remote server.
@@ -1716,12 +1752,33 @@ func (s *Server) processNewServer(si *ServerInfo) {
 				false,
 				si.JetStreamEnabled(),
 				si.BinaryStreamSnapshot(),
+				si.AccountNRG(),
 			})
 		}
 	}
+	go s.updateNRGAccountStatus()
 	// Announce ourselves..
 	// Do this in a separate Go routine.
 	go s.sendStatszUpdate()
+}
+
+// Works out whether all nodes support moving the NRG traffic into
+// the account and moves it appropriately.
+// Server lock MUST NOT be held on entry.
+func (s *Server) updateNRGAccountStatus() {
+	s.rnMu.RLock()
+	raftNodes := make([]RaftNode, 0, len(s.raftNodes))
+	for _, n := range s.raftNodes {
+		raftNodes = append(raftNodes, n)
+	}
+	s.rnMu.RUnlock()
+	for _, n := range raftNodes {
+		// In the event that the node is happy that all nodes that
+		// it cares about haven't changed, this will be a no-op.
+		if err := n.RecreateInternalSubs(); err != nil {
+			n.Stop()
+		}
+	}
 }
 
 // If GW is enabled on this server and there are any leaf node connections,
@@ -2338,6 +2395,7 @@ func (a *Account) statz() *AccountStat {
 	leafConns := a.numLocalLeafNodes()
 	return &AccountStat{
 		Account:    a.Name,
+		Name:       a.getNameTagLocked(),
 		Conns:      localConns,
 		LeafNodes:  leafConns,
 		TotalConns: localConns + leafConns,
@@ -2408,7 +2466,7 @@ func (s *Server) accountConnectEvent(c *client) {
 			Jwt:        c.opts.JWT,
 			IssuerKey:  issuerForClient(c),
 			Tags:       c.tags,
-			NameTag:    c.nameTag,
+			NameTag:    c.acc.getNameTag(),
 			Kind:       c.kindString(),
 			ClientType: c.clientTypeString(),
 			MQTTClient: c.getMQTTClientID(),
@@ -2460,7 +2518,7 @@ func (s *Server) accountDisconnectEvent(c *client, now time.Time, reason string)
 			Jwt:        c.opts.JWT,
 			IssuerKey:  issuerForClient(c),
 			Tags:       c.tags,
-			NameTag:    c.nameTag,
+			NameTag:    c.acc.getNameTag(),
 			Kind:       c.kindString(),
 			ClientType: c.clientTypeString(),
 			MQTTClient: c.getMQTTClientID(),
@@ -2514,7 +2572,7 @@ func (s *Server) sendAuthErrorEvent(c *client) {
 			Jwt:        c.opts.JWT,
 			IssuerKey:  issuerForClient(c),
 			Tags:       c.tags,
-			NameTag:    c.nameTag,
+			NameTag:    c.acc.getNameTag(),
 			Kind:       c.kindString(),
 			ClientType: c.clientTypeString(),
 			MQTTClient: c.getMQTTClientID(),
@@ -2572,7 +2630,7 @@ func (s *Server) sendAccountAuthErrorEvent(c *client, acc *Account, reason strin
 			Jwt:        c.opts.JWT,
 			IssuerKey:  issuerForClient(c),
 			Tags:       c.tags,
-			NameTag:    c.nameTag,
+			NameTag:    c.acc.getNameTag(),
 			Kind:       c.kindString(),
 			ClientType: c.clientTypeString(),
 			MQTTClient: c.getMQTTClientID(),
@@ -2589,7 +2647,7 @@ func (s *Server) sendAccountAuthErrorEvent(c *client, acc *Account, reason strin
 	}
 	c.mu.Unlock()
 
-	s.sendInternalAccountSysMsg(acc, authErrorAccountEventSubj, &m.Server, &m)
+	s.sendInternalAccountSysMsg(acc, authErrorAccountEventSubj, &m.Server, &m, noCompression)
 }
 
 // Internal message callback.

@@ -1,4 +1,4 @@
-// Copyright 2012-2024 The NATS Authors
+// Copyright 2012-2025 The NATS Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -28,28 +28,26 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"regexp"
-	"runtime/pprof"
-	"unicode"
-
-	// Allow dynamic profiling.
-	_ "net/http/pprof"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	// Allow dynamic profiling.
+	_ "net/http/pprof"
+
 	"github.com/klauspost/compress/s2"
 	"github.com/nats-io/jwt/v2"
+	"github.com/nats-io/nats-server/v2/logger"
 	"github.com/nats-io/nkeys"
 	"github.com/nats-io/nuid"
-
-	"github.com/nats-io/nats-server/v2/logger"
 )
 
 const (
@@ -59,6 +57,49 @@ const (
 	// This is for the first ping for client connections.
 	firstClientPingInterval = 2 * time.Second
 )
+
+// These are protocol versions sent between server connections: ROUTER, LEAF and
+// GATEWAY. We may have protocol versions that have a meaning only for a certain
+// type of connections, but we don't have to have separate enums for that.
+// However, it is CRITICAL to not change the order of those constants since they
+// are exchanged between servers. When adding a new protocol version, add to the
+// end of the list, don't try to group them by connection types.
+const (
+	// RouteProtoZero is the original Route protocol from 2009.
+	// http://nats.io/documentation/internals/nats-protocol/
+	RouteProtoZero = iota
+	// RouteProtoInfo signals a route can receive more then the original INFO block.
+	// This can be used to update remote cluster permissions, etc...
+	RouteProtoInfo
+	// RouteProtoV2 is the new route/cluster protocol that provides account support.
+	RouteProtoV2
+	// MsgTraceProto indicates that this server understands distributed message tracing.
+	MsgTraceProto
+)
+
+// Will return the latest server-to-server protocol versions, unless the
+// option to override it is set.
+func (s *Server) getServerProto() int {
+	opts := s.getOpts()
+	// Initialize with the latest protocol version.
+	proto := MsgTraceProto
+	// For tests, we want to be able to make this server behave
+	// as an older server so check this option to see if we should override.
+	if opts.overrideProto < 0 {
+		// The option overrideProto is set to 0 by default (when creating an
+		// Options structure). Since this is the same value than the original
+		// proto RouteProtoZero, tests call setServerProtoForTest() with the
+		// desired protocol level, which sets it as negative value equal to:
+		// (wantedProto + 1) * -1. Here we compute back the real value.
+		proto = (opts.overrideProto * -1) - 1
+	}
+	return proto
+}
+
+// Used by tests.
+func setServerProtoForTest(wantedProto int) int {
+	return (wantedProto + 1) * -1
+}
 
 // Info is the information sent to clients, routes, gateways, and leaf nodes,
 // to help them understand information about this server.
@@ -101,6 +142,7 @@ type Info struct {
 	RoutePoolIdx  int                `json:"route_pool_idx,omitempty"`
 	RouteAccount  string             `json:"route_account,omitempty"`
 	RouteAccReqID string             `json:"route_acc_add_reqid,omitempty"`
+	GossipMode    byte               `json:"gossip_mode,omitempty"`
 
 	// Gateways Specific
 	Gateway           string   `json:"gateway,omitempty"`             // Name of the origin Gateway (sent by gateway's INFO)
@@ -189,6 +231,7 @@ type Server struct {
 	leafRemoteAccounts sync.Map
 	leafNodeEnabled    bool
 	leafDisableConnect bool // Used in test only
+	leafNoCluster      bool // Indicate that this server has only remotes and no cluster defined
 
 	quitCh           chan struct{}
 	startupComplete  chan struct{}
@@ -320,6 +363,14 @@ type Server struct {
 
 	// Queue to process JS API requests that come from routes (or gateways)
 	jsAPIRoutedReqs *ipQueue[*jsAPIRoutedReq]
+
+	// Delayed API responses.
+	delayedAPIResponses *ipQueue[*delayedAPIResponse]
+
+	// Whether moving NRG traffic into accounts is permitted on this server.
+	// Controls whether or not the account NRG capability is set in statsz.
+	// Currently used by unit tests to simulate nodes not supporting account NRG.
+	accountNRGAllowed atomic.Bool
 }
 
 // For tracking JS nodes.
@@ -335,6 +386,7 @@ type nodeInfo struct {
 	offline         bool
 	js              bool
 	binarySnapshots bool
+	accountNRG      bool
 }
 
 // Make sure all are 64bits for atomic use
@@ -683,6 +735,14 @@ func NewServer(opts *Options) (*Server, error) {
 		syncOutSem:         make(chan struct{}, maxConcurrentSyncRequests),
 	}
 
+	// Delayed API response queue. Create regardless if JetStream is configured
+	// or not (since it can be enabled/disabled with config reload, we want this
+	// queue to exist at all times).
+	s.delayedAPIResponses = newIPQueue[*delayedAPIResponse](s, "delayed API responses")
+
+	// By default we'll allow account NRG.
+	s.accountNRGAllowed.Store(true)
+
 	// Fill up the maximum in flight syncRequests for this server.
 	// Used in JetStream catchup semantics.
 	for i := 0; i < maxConcurrentSyncRequests; i++ {
@@ -701,6 +761,7 @@ func NewServer(opts *Options) (*Server, error) {
 	// If we have solicited leafnodes but no clustering and no clustername.
 	// However we may need a stable clustername so use the server name.
 	if len(opts.LeafNode.Remotes) > 0 && opts.Cluster.Port == 0 && opts.Cluster.Name == _EMPTY_ {
+		s.leafNoCluster = true
 		opts.Cluster.Name = opts.ServerName
 	}
 
@@ -726,7 +787,7 @@ func NewServer(opts *Options) (*Server, error) {
 			opts.Tags,
 			&JetStreamConfig{MaxMemory: opts.JetStreamMaxMemory, MaxStore: opts.JetStreamMaxStore, CompressOK: true},
 			nil,
-			false, true, true,
+			false, true, true, true,
 		})
 	}
 
@@ -968,6 +1029,9 @@ func (s *Server) ClientURL() string {
 }
 
 func validateCluster(o *Options) error {
+	if o.Cluster.Name != _EMPTY_ && strings.Contains(o.Cluster.Name, " ") {
+		return ErrClusterNameHasSpaces
+	}
 	if o.Cluster.Compression.Mode != _EMPTY_ {
 		if err := validateAndNormalizeCompressionOption(&o.Cluster.Compression, CompressionS2Fast); err != nil {
 			return err
@@ -977,8 +1041,9 @@ func validateCluster(o *Options) error {
 		return fmt.Errorf("cluster: %v", err)
 	}
 	// Check that cluster name if defined matches any gateway name.
-	if o.Gateway.Name != "" && o.Gateway.Name != o.Cluster.Name {
-		if o.Cluster.Name != "" {
+	// Note that we have already verified that the gateway name does not have spaces.
+	if o.Gateway.Name != _EMPTY_ && o.Gateway.Name != o.Cluster.Name {
+		if o.Cluster.Name != _EMPTY_ {
 			return ErrClusterNameConfigConflict
 		}
 		// Set this here so we do not consider it dynamic.
@@ -1018,6 +1083,9 @@ func validateOptions(o *Options) error {
 	if int64(o.MaxPayload) > o.MaxPending {
 		return fmt.Errorf("max_payload (%v) cannot be higher than max_pending (%v)",
 			o.MaxPayload, o.MaxPending)
+	}
+	if o.ServerName != _EMPTY_ && strings.Contains(o.ServerName, " ") {
+		return errors.New("server name cannot contain spaces")
 	}
 	// Check that the trust configuration is correct.
 	if err := validateTrustedOperators(o); err != nil {
@@ -1315,8 +1383,9 @@ func (s *Server) configureAccounts(reloading bool) (map[string]struct{}, error) 
 
 	// Add any required exports from system account.
 	if s.sys != nil {
+		sysAcc := s.sys.account
 		s.mu.Unlock()
-		s.addSystemAccountExports(s.sys.account)
+		s.addSystemAccountExports(sysAcc)
 		s.mu.Lock()
 	}
 
@@ -1702,7 +1771,7 @@ func (s *Server) setSystemAccount(acc *Account) error {
 		recvq:   newIPQueue[*inSysMsg](s, "System recvQ"),
 		recvqp:  newIPQueue[*inSysMsg](s, "System recvQ Pings"),
 		resetCh: make(chan struct{}),
-		sq:      s.newSendQ(),
+		sq:      s.newSendQ(acc),
 		statsz:  statsHBInterval,
 		orphMax: 5 * eventsHBInterval,
 		chkOrph: 3 * eventsHBInterval,
@@ -2120,7 +2189,17 @@ func (s *Server) Start() {
 
 	// Snapshot server options.
 	opts := s.getOpts()
-	clusterName := s.ClusterName()
+
+	// Capture if this server is a leaf that has no cluster, so we don't
+	// display the cluster name if that is the case.
+	s.mu.RLock()
+	leafNoCluster := s.leafNoCluster
+	s.mu.RUnlock()
+
+	var clusterName string
+	if !leafNoCluster {
+		clusterName = s.ClusterName()
+	}
 
 	s.Noticef("  Version:  %s", VERSION)
 	s.Noticef("  Git:      [%s]", gc)
@@ -2165,7 +2244,11 @@ func (s *Server) Start() {
 	}
 
 	if opts.ConfigFile != _EMPTY_ {
-		s.Noticef("Using configuration file: %s", opts.ConfigFile)
+		var cd string
+		if opts.configDigest != "" {
+			cd = fmt.Sprintf("(%s)", opts.configDigest)
+		}
+		s.Noticef("Using configuration file: %s %s", opts.ConfigFile, cd)
 	}
 
 	hasOperators := len(opts.TrustedOperators) > 0
@@ -2280,6 +2363,7 @@ func (s *Server) Start() {
 			StoreDir:     opts.StoreDir,
 			SyncInterval: opts.SyncInterval,
 			SyncAlways:   opts.SyncAlways,
+			Strict:       opts.JetStreamStrict,
 			MaxMemory:    opts.JetStreamMaxMemory,
 			MaxStore:     opts.JetStreamMaxStore,
 			Domain:       opts.JetStreamDomain,
@@ -2326,6 +2410,11 @@ func (s *Server) Start() {
 		}
 	}
 
+	// Delayed API response handling. Start regardless of JetStream being
+	// currently configured or not (since it can be enabled/disabled with
+	// configuration reload).
+	s.startGoRoutine(s.delayedAPIResponder)
+
 	// Start OCSP Stapling monitoring for TLS certificates if enabled. Hook TLS handshake for
 	// OCSP check on peers (LEAF and CLIENT kind) if enabled.
 	s.startOCSPMonitoring()
@@ -2357,9 +2446,6 @@ func (s *Server) Start() {
 	// Solicit remote servers for leaf node connections.
 	if len(opts.LeafNode.Remotes) > 0 {
 		s.solicitLeafNodeRemotes(opts.LeafNode.Remotes)
-		if opts.Cluster.Name == opts.ServerName && strings.ContainsFunc(opts.Cluster.Name, unicode.IsSpace) {
-			s.Warnf("Server name has spaces and used as the cluster name, leaf remotes may not connect properly")
-		}
 	}
 
 	// TODO (ik): I wanted to refactor this by starting the client
@@ -3075,7 +3161,16 @@ func (s *Server) createClientEx(conn net.Conn, inProcess bool) *client {
 	}
 	now := time.Now()
 
-	c := &client{srv: s, nc: conn, opts: defaultOpts, mpay: maxPay, msubs: maxSubs, start: now, last: now}
+	c := &client{
+		srv:   s,
+		nc:    conn,
+		opts:  defaultOpts,
+		mpay:  maxPay,
+		msubs: maxSubs,
+		start: now,
+		last:  now,
+		iproc: inProcess,
+	}
 
 	c.registerWithAccount(s.globalAccount())
 

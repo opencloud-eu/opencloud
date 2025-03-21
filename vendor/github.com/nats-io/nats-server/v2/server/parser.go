@@ -49,6 +49,7 @@ type pubArg struct {
 	size      int
 	hdr       int
 	psi       []*serviceImport
+	trace     *msgTrace
 	delivered bool // Only used for service imports
 }
 
@@ -286,7 +287,11 @@ func (c *client) parse(buf []byte) error {
 				if trace {
 					c.traceInOp("HPUB", arg)
 				}
-				if err := c.processHeaderPub(arg); err != nil {
+				var remaining []byte
+				if i < len(buf) {
+					remaining = buf[i+1:]
+				}
+				if err := c.processHeaderPub(arg, remaining); err != nil {
 					return err
 				}
 
@@ -484,11 +489,19 @@ func (c *client) parse(buf []byte) error {
 				c.msgBuf = buf[c.as : i+1]
 			}
 
+			var mt *msgTrace
+			if c.pa.hdr > 0 {
+				mt = c.initMsgTrace()
+			}
 			// Check for mappings.
 			if (c.kind == CLIENT || c.kind == LEAF) && c.in.flags.isSet(hasMappings) {
 				changed := c.selectMappedSubject()
-				if trace && changed {
-					c.traceInOp("MAPPING", []byte(fmt.Sprintf("%s -> %s", c.pa.mapped, c.pa.subject)))
+				if changed {
+					if trace {
+						c.traceInOp("MAPPING", []byte(fmt.Sprintf("%s -> %s", c.pa.mapped, c.pa.subject)))
+					}
+					// c.pa.subject is the subject the original is now mapped to.
+					mt.addSubjectMappingEvent(c.pa.subject)
 				}
 			}
 			if trace {
@@ -496,11 +509,14 @@ func (c *client) parse(buf []byte) error {
 			}
 
 			c.processInboundMsg(c.msgBuf)
+
+			mt.sendEvent()
 			c.argBuf, c.msgBuf, c.header = nil, nil, nil
 			c.drop, c.as, c.state = 0, i+1, OP_START
 			// Drop all pub args
 			c.pa.arg, c.pa.pacache, c.pa.origin, c.pa.account, c.pa.subject, c.pa.mapped = nil, nil, nil, nil, nil, nil
 			c.pa.reply, c.pa.hdr, c.pa.size, c.pa.szb, c.pa.hdb, c.pa.queues = nil, -1, 0, nil, nil, nil
+			c.pa.trace = nil
 			c.pa.delivered = false
 			lmsg = false
 		case OP_A:
@@ -1273,7 +1289,7 @@ func (c *client) clonePubArg(lmsg bool) error {
 		if c.pa.hdr < 0 {
 			return c.processPub(c.argBuf)
 		} else {
-			return c.processHeaderPub(c.argBuf)
+			return c.processHeaderPub(c.argBuf, nil)
 		}
 	}
 }

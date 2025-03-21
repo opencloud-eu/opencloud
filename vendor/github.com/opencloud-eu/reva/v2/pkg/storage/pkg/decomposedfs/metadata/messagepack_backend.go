@@ -43,12 +43,6 @@ type MessagePackBackend struct {
 	metaCache cache.FileMetadataCache
 }
 
-type readWriteCloseSeekTruncater interface {
-	io.ReadWriteCloser
-	io.Seeker
-	Truncate(int64) error
-}
-
 // NewMessagePackBackend returns a new MessagePackBackend instance
 func NewMessagePackBackend(o cache.Config) MessagePackBackend {
 	return MessagePackBackend{
@@ -148,7 +142,6 @@ func (b MessagePackBackend) AllWithLockedSource(ctx context.Context, n MetadataN
 func (b MessagePackBackend) saveAttributes(ctx context.Context, n MetadataNode, setAttribs map[string][]byte, deleteAttribs []string, acquireLock bool) error {
 	var (
 		err error
-		f   readWriteCloseSeekTruncater
 	)
 	ctx, span := tracer.Start(ctx, "saveAttributes")
 	defer func() {
@@ -160,16 +153,13 @@ func (b MessagePackBackend) saveAttributes(ctx context.Context, n MetadataNode, 
 		span.End()
 	}()
 
-	lockPath := b.LockfilePath(n)
 	metaPath := b.MetadataPath(n)
 	if acquireLock {
-		_, subspan := tracer.Start(ctx, "lockedfile.OpenFile")
-		f, err = lockedfile.OpenFile(lockPath, os.O_RDWR|os.O_CREATE, 0600)
-		subspan.End()
+		unlock, err := b.Lock(n)
 		if err != nil {
 			return err
 		}
-		defer f.Close()
+		defer func() { _ = unlock() }()
 	}
 	// Read current state
 	_, subspan := tracer.Start(ctx, "os.ReadFile")

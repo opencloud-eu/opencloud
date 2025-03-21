@@ -87,7 +87,7 @@ func New(m map[string]interface{}, stream events.Stream, log *zerolog.Logger) (s
 					return ""
 				}
 
-				return filepath.Join(spaceRoot, lookup.RevisionsDir, lookup.Pathify(n.GetID(), 4, 2)+".mpk")
+				return filepath.Join(spaceRoot, lookup.MetadataDir)
 			},
 			o.FileMetadataCache), um, o, &timemanager.Manager{})
 	default:

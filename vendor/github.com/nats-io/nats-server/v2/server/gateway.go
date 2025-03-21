@@ -19,12 +19,14 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net"
 	"net/url"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -217,6 +219,8 @@ type gateway struct {
 	// interest-only mode "immediately", so the outbound should disregard
 	// the optimistic mode when checking for interest.
 	interestOnlyMode bool
+	// Name of the remote server
+	remoteName string
 }
 
 // Outbound subject interest entry.
@@ -298,17 +302,20 @@ func (r *RemoteGatewayOpts) clone() *RemoteGatewayOpts {
 
 // Ensure that gateway is properly configured.
 func validateGatewayOptions(o *Options) error {
-	if o.Gateway.Name == "" && o.Gateway.Port == 0 {
+	if o.Gateway.Name == _EMPTY_ && o.Gateway.Port == 0 {
 		return nil
 	}
-	if o.Gateway.Name == "" {
-		return fmt.Errorf("gateway has no name")
+	if o.Gateway.Name == _EMPTY_ {
+		return errors.New("gateway has no name")
+	}
+	if strings.Contains(o.Gateway.Name, " ") {
+		return ErrGatewayNameHasSpaces
 	}
 	if o.Gateway.Port == 0 {
 		return fmt.Errorf("gateway %q has no port specified (select -1 for random port)", o.Gateway.Name)
 	}
 	for i, g := range o.Gateway.Gateways {
-		if g.Name == "" {
+		if g.Name == _EMPTY_ {
 			return fmt.Errorf("gateway in the list %d has no name", i)
 		}
 		if len(g.URLs) == 0 {
@@ -528,6 +535,7 @@ func (s *Server) startGatewayAcceptLoop() {
 		Gateway:      opts.Gateway.Name,
 		GatewayNRP:   true,
 		Headers:      s.supportsHeaders(),
+		Proto:        s.getServerProto(),
 	}
 	// Unless in some tests we want to keep the old behavior, we are now
 	// (since v2.9.0) indicate that this server will switch all accounts
@@ -1035,6 +1043,10 @@ func (c *client) processGatewayInfo(info *Info) {
 	}
 	if isFirstINFO {
 		c.opts.Name = info.ID
+		// Get the protocol version from the INFO protocol. This will be checked
+		// to see if this connection supports message tracing for instance.
+		c.opts.Protocol = info.Proto
+		c.gw.remoteName = info.Name
 	}
 	c.mu.Unlock()
 
@@ -2400,7 +2412,7 @@ func (s *Server) gatewayUpdateSubInterest(accName string, sub *subscription, cha
 		if change < 0 {
 			return
 		}
-		entry = &sitally{n: 1, q: sub.queue != nil}
+		entry = &sitally{n: change, q: sub.queue != nil}
 		st[string(key)] = entry
 		first = true
 	} else {
@@ -2528,6 +2540,14 @@ func (c *client) sendMsgToGateways(acc *Account, msg, subject, reply []byte, qgr
 	if len(gws) == 0 {
 		return false
 	}
+
+	mt, _ := c.isMsgTraceEnabled()
+	if mt != nil {
+		pa := c.pa
+		msg = mt.setOriginAccountHeaderIfNeeded(c, acc, msg)
+		defer func() { c.pa = pa }()
+	}
+
 	var (
 		queuesa    = [512]byte{}
 		queues     = queuesa[:0]
@@ -2635,6 +2655,11 @@ func (c *client) sendMsgToGateways(acc *Account, msg, subject, reply []byte, qgr
 				mreply = append(mreply, reply...)
 			}
 		}
+
+		if mt != nil {
+			msg = mt.setHopHeader(c, msg)
+		}
+
 		// Setup the message header.
 		// Make sure we are an 'R' proto by default
 		c.msgb[0] = 'R'

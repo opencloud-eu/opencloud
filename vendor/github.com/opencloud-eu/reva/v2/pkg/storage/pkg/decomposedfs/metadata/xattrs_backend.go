@@ -168,7 +168,7 @@ func (b XattrsBackend) Set(ctx context.Context, n MetadataNode, key string, val 
 func (b XattrsBackend) SetMultiple(ctx context.Context, n MetadataNode, attribs map[string][]byte, acquireLock bool) (err error) {
 	path := n.InternalPath()
 	if acquireLock {
-		err := os.MkdirAll(filepath.Dir(path), 0600)
+		err := os.MkdirAll(filepath.Dir(path), 0700)
 		if err != nil {
 			return err
 		}

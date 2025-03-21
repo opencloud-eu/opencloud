@@ -415,14 +415,13 @@ func (s *Server) Connz(opts *ConnzOptions) (*Connz, error) {
 		// Fill in user if auth requested.
 		if auth {
 			ci.AuthorizedUser = client.getRawAuthUser()
-			// Add in account iff not the global account.
-			if client.acc != nil && (client.acc.Name != globalAccountName) {
-				ci.Account = client.acc.Name
+			if name := client.acc.GetName(); name != globalAccountName {
+				ci.Account = name
 			}
 			ci.JWT = client.opts.JWT
 			ci.IssuerKey = issuerForClient(client)
 			ci.Tags = client.tags
-			ci.NameTag = client.nameTag
+			ci.NameTag = client.acc.getNameTag()
 		}
 		client.mu.Unlock()
 		pconns[i] = ci
@@ -465,9 +464,11 @@ func (s *Server) Connz(opts *ConnzOptions) (*Connz, error) {
 		// Fill in user if auth requested.
 		if auth {
 			cc.AuthorizedUser = cc.user
-			// Add in account iff not the global account.
 			if cc.acc != _EMPTY_ && (cc.acc != globalAccountName) {
 				cc.Account = cc.acc
+				if acc, err := s.LookupAccount(cc.acc); err == nil {
+					cc.NameTag = acc.getNameTag()
+				}
 			}
 		}
 		pconns[i] = &cc.ConnInfo
@@ -926,21 +927,21 @@ type SubszOptions struct {
 
 // SubDetail is for verbose information for subscriptions.
 type SubDetail struct {
-	Account string `json:"account,omitempty"`
-	Subject string `json:"subject"`
-	Queue   string `json:"qgroup,omitempty"`
-	Sid     string `json:"sid"`
-	Msgs    int64  `json:"msgs"`
-	Max     int64  `json:"max,omitempty"`
-	Cid     uint64 `json:"cid"`
+	Account    string `json:"account,omitempty"`
+	AccountTag string `json:"account_tag,omitempty"`
+	Subject    string `json:"subject"`
+	Queue      string `json:"qgroup,omitempty"`
+	Sid        string `json:"sid"`
+	Msgs       int64  `json:"msgs"`
+	Max        int64  `json:"max,omitempty"`
+	Cid        uint64 `json:"cid"`
 }
 
 // Subscription client should be locked and guaranteed to be present.
 func newSubDetail(sub *subscription) SubDetail {
 	sd := newClientSubDetail(sub)
-	if sub.client.acc != nil {
-		sd.Account = sub.client.acc.Name
-	}
+	sd.Account = sub.client.acc.GetName()
+	sd.AccountTag = sub.client.acc.getNameTag()
 	return sd
 }
 
@@ -1228,6 +1229,7 @@ type Varz struct {
 	Subscriptions         uint32                 `json:"subscriptions"`
 	HTTPReqStats          map[string]uint64      `json:"http_req_stats"`
 	ConfigLoadTime        time.Time              `json:"config_load_time"`
+	ConfigDigest          string                 `json:"config_digest"`
 	Tags                  jwt.TagList            `json:"tags,omitempty"`
 	TrustedOperatorsJwt   []string               `json:"trusted_operators_jwt,omitempty"`
 	TrustedOperatorsClaim []*jwt.OperatorClaims  `json:"trusted_operators_claim,omitempty"`
@@ -1242,6 +1244,7 @@ type JetStreamVarz struct {
 	Config *JetStreamConfig `json:"config,omitempty"`
 	Stats  *JetStreamStats  `json:"stats,omitempty"`
 	Meta   *MetaClusterInfo `json:"meta,omitempty"`
+	Limits *JSLimitOpts     `json:"limits,omitempty"`
 }
 
 // ClusterOptsVarz contains monitoring cluster information
@@ -1467,6 +1470,7 @@ func (s *Server) updateJszVarz(js *jetStream, v *JetStreamVarz, doConfig bool) {
 		js.mu.RUnlock()
 	}
 	v.Stats = js.usageStats()
+	v.Limits = &s.getOpts().JetStreamLimits
 	if mg := js.getMetaGroup(); mg != nil {
 		if ci := s.raftNodeToClusterInfo(mg); ci != nil {
 			v.Meta = &MetaClusterInfo{Name: ci.Name, Leader: ci.Leader, Peer: getHash(ci.Leader), Size: mg.ClusterSize()}
@@ -1601,6 +1605,11 @@ func (s *Server) createVarz(pcpu float64, rss int64) *Varz {
 		TrustedOperatorsJwt:   opts.operatorJWT,
 		TrustedOperatorsClaim: opts.TrustedOperators,
 	}
+	// If this is a leaf without cluster, reset the cluster name (that is otherwise
+	// set to the server name).
+	if s.leafNoCluster {
+		varz.Cluster.Name = _EMPTY_
+	}
 	if len(opts.Routes) > 0 {
 		varz.Cluster.URLs = urlsToStrings(opts.Routes)
 	}
@@ -1675,6 +1684,7 @@ func (s *Server) updateVarzConfigReloadableFields(v *Varz) {
 	v.TLSTimeout = opts.TLSTimeout
 	v.WriteDeadline = opts.WriteDeadline
 	v.ConfigLoadTime = s.configTime.UTC()
+	v.ConfigDigest = opts.configDigest
 	// Update route URLs if applicable
 	if s.varzUpdateRouteURLs {
 		v.Cluster.URLs = urlsToStrings(opts.Routes)
@@ -1844,6 +1854,7 @@ func (s *Server) HandleVarz(w http.ResponseWriter, r *http.Request) {
 		}
 		sv.Stats = v.Stats
 		sv.Meta = v.Meta
+		sv.Limits = v.Limits
 		s.mu.RUnlock()
 	}
 
@@ -2747,27 +2758,27 @@ func (s *Server) accountInfo(accName string) (*AccountInfo, error) {
 		mappings[src] = dests
 	}
 	return &AccountInfo{
-		accName,
-		a.updated.UTC(),
-		isSys,
-		a.expired.Load(),
-		!a.incomplete,
-		a.js != nil,
-		a.numLocalLeafNodes(),
-		a.numLocalConnections(),
-		a.sl.Count(),
-		mappings,
-		exports,
-		imports,
-		a.claimJWT,
-		a.Issuer,
-		a.nameTag,
-		a.tags,
-		claim,
-		vrIssues,
-		collectRevocations(a.usersRevoked),
-		a.sl.Stats(),
-		responses,
+		AccountName: accName,
+		LastUpdate:  a.updated.UTC(),
+		IsSystem:    isSys,
+		Expired:     a.expired.Load(),
+		Complete:    !a.incomplete,
+		JetStream:   a.js != nil,
+		LeafCnt:     a.numLocalLeafNodes(),
+		ClientCnt:   a.numLocalConnections(),
+		SubCnt:      a.sl.Count(),
+		Mappings:    mappings,
+		Exports:     exports,
+		Imports:     imports,
+		Jwt:         a.claimJWT,
+		IssuerKey:   a.Issuer,
+		NameTag:     a.getNameTagLocked(),
+		Tags:        a.tags,
+		Claim:       claim,
+		Vr:          vrIssues,
+		RevokedUser: collectRevocations(a.usersRevoked),
+		Sublist:     a.sl.Stats(),
+		Responses:   responses,
 	}, nil
 }
 
@@ -2791,6 +2802,7 @@ type HealthzOptions struct {
 	JSEnabled     bool   `json:"js-enabled,omitempty"`
 	JSEnabledOnly bool   `json:"js-enabled-only,omitempty"`
 	JSServerOnly  bool   `json:"js-server-only,omitempty"`
+	JSMetaOnly    bool   `json:"js-meta-only,omitempty"`
 	Account       string `json:"account,omitempty"`
 	Stream        string `json:"stream,omitempty"`
 	Consumer      string `json:"consumer,omitempty"`
@@ -2859,6 +2871,7 @@ type JSInfo struct {
 	Now      time.Time       `json:"now"`
 	Disabled bool            `json:"disabled,omitempty"`
 	Config   JetStreamConfig `json:"config,omitempty"`
+	Limits   *JSLimitOpts    `json:"limits,omitempty"`
 	JetStreamStats
 	Streams   int              `json:"streams"`
 	Consumers int              `json:"consumers"`
@@ -3026,6 +3039,8 @@ func (s *Server) Jsz(opts *JSzOptions) (*JSInfo, error) {
 		jsi.Disabled = true
 		return jsi, nil
 	}
+
+	jsi.Limits = &s.getOpts().JetStreamLimits
 
 	js.mu.RLock()
 	isLeader := js.cluster == nil || js.cluster.isLeader()
@@ -3268,6 +3283,10 @@ func (s *Server) HandleHealthz(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	jsMetaOnly, err := decodeBool(w, r, "js-meta-only")
+	if err != nil {
+		return
+	}
 
 	includeDetails, err := decodeBool(w, r, "details")
 	if err != nil {
@@ -3278,6 +3297,7 @@ func (s *Server) HandleHealthz(w http.ResponseWriter, r *http.Request) {
 		JSEnabled:     jsEnabled,
 		JSEnabledOnly: jsEnabledOnly,
 		JSServerOnly:  jsServerOnly,
+		JSMetaOnly:    jsMetaOnly,
 		Account:       r.URL.Query().Get("account"),
 		Stream:        r.URL.Query().Get("stream"),
 		Consumer:      r.URL.Query().Get("consumer"),
@@ -3368,6 +3388,11 @@ func (s *Server) healthz(opts *HealthzOptions) *HealthStatus {
 				Error: err.Error(),
 			})
 		}
+		return health
+	}
+
+	// If JSServerOnly is true, then do not check further accounts, streams and consumers.
+	if opts.JSServerOnly {
 		return health
 	}
 
@@ -3549,6 +3574,7 @@ func (s *Server) healthz(opts *HealthzOptions) *HealthStatus {
 		}
 		return health
 	}
+
 	// If we are not current with the meta leader.
 	if !meta.Healthy() {
 		if !details {
@@ -3562,11 +3588,6 @@ func (s *Server) healthz(opts *HealthzOptions) *HealthStatus {
 				},
 			}
 		}
-		return health
-	}
-
-	// If JSServerOnly is true, then do not check further accounts, streams and consumers.
-	if opts.JSServerOnly {
 		return health
 	}
 
@@ -3584,6 +3605,11 @@ func (s *Server) healthz(opts *HealthzOptions) *HealthStatus {
 				},
 			}
 		}
+		return health
+	}
+
+	// Skips doing full healthz and only checks the meta leader.
+	if opts.JSMetaOnly {
 		return health
 	}
 
