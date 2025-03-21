@@ -155,12 +155,13 @@ _ocdav: api compatibility, return correct status code_
 
 #### [Uploading file with mtime gives 500 error](https://github.com/opencloud-eu/opencloud/issues/391)
 
-- [coreApiWebdavUpload/uploadFile.feature:400](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavUpload/uploadFile.feature#L400)
-- [coreApiWebdavUpload/uploadFile.feature:401](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavUpload/uploadFile.feature#L401)
-- [coreApiWebdavUpload/uploadFile.feature:402](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavUpload/uploadFile.feature#L402)
-- [coreApiWebdavUploadTUS/uploadFileMtime.feature:79](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavUploadTUS/uploadFileMtime.feature#L79)
-- [coreApiWebdavUploadTUS/uploadFileMtime.feature:80](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavUploadTUS/uploadFileMtime.feature#L80)
-- [coreApiWebdavUploadTUS/uploadFileMtime.feature:81](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavUploadTUS/uploadFileMtime.feature#L81)
+- [coreApiWebdavUploadTUS/uploadFileMtime.feature:65](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavUploadTUS/uploadFileMtime.feature#L65)
+- [coreApiWebdavUploadTUS/uploadFileMtime.feature:66](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavUploadTUS/uploadFileMtime.feature#L66)
+- [coreApiWebdavUploadTUS/uploadFileMtime.feature:67](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavUploadTUS/uploadFileMtime.feature#L67)
+- [coreApiVersions/fileVersions.feature:296](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiVersions/fileVersions.feature#L296)
+- [coreApiVersions/fileVersions.feature:297](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiVersions/fileVersions.feature#L297)
+- [coreApiVersions/fileVersions.feature:298](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiVersions/fileVersions.feature#L298)
+- [coreApiVersions/fileVersions.feature:301](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiVersions/fileVersions.feature#L301)
 
 ### Won't fix
 
