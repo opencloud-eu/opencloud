@@ -99,7 +99,7 @@ func (cinfo *Collabora) SetProperties(props map[string]interface{}) {
 		case KeyUserCanWrite:
 			cinfo.UserCanWrite = value.(bool)
 		case KeyUserCanNotWriteRelative:
-			cinfo.UserCanNotWriteRelative = value.(bool)
+			cinfo.UserCanNotWriteRelative = true // FIXME: set to `value.(bool)` again for https://github.com/opencloud-eu/web/issues/422
 		case KeyUserID:
 			cinfo.UserID = value.(string)
 		case KeyUserFriendlyName:
