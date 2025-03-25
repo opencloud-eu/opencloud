@@ -1272,6 +1272,9 @@ func (f *FileConnector) CheckFileInfo(ctx context.Context) (*ConnectorResponse, 
 
 		fileinfo.KeyPostMessageOrigin:            f.cfg.Commons.OpenCloudURL,
 		fileinfo.KeyLicenseCheckForEditIsEnabled: f.cfg.App.LicenseCheckEnable,
+
+		// forbid PutRelativeFile, hide "Save As" and "Export As" buttons
+		fileinfo.KeyUserCanNotWriteRelative: true,
 	}
 
 	switch wopiContext.ViewMode {

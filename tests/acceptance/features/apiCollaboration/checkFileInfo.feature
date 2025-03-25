@@ -108,7 +108,7 @@ Feature: check file info with different wopi apps
             "const": false
           },
           "UserCanNotWriteRelative": {
-            "const": false
+            "const": true
           },
           "UserCanPresent": {
             "const": false
@@ -183,7 +183,7 @@ Feature: check file info with different wopi apps
             "const": true
           },
           "UserCanNotWriteRelative": {
-            "const": false
+            "const": true
           },
           "EnableOwnerTermination": {
             "const": true
@@ -266,7 +266,7 @@ Feature: check file info with different wopi apps
             "const": false
           },
           "UserCanNotWriteRelative": {
-            "const": false
+            "const": true
           },
           "UserCanRename": {
             "const": true
@@ -358,7 +358,7 @@ Feature: check file info with different wopi apps
             "const": false
           },
           "UserCanNotWriteRelative": {
-            "const": false
+            "const": true
           },
           "UserCanRename": {
             "const": <user-can-rename>
@@ -501,7 +501,7 @@ Feature: check file info with different wopi apps
             "const": false
           },
           "UserCanNotWriteRelative": {
-            "const": false
+            "const": true
           },
           "UserCanPresent": {
             "const": false
@@ -581,7 +581,7 @@ Feature: check file info with different wopi apps
             "const": <user-can-write>
           },
           "UserCanNotWriteRelative": {
-            "const": false
+            "const": true
           },
           "EnableOwnerTermination": {
             "const": true
@@ -691,7 +691,7 @@ Feature: check file info with different wopi apps
             "const": true
           },
           "UserCanNotWriteRelative": {
-            "const": false
+            "const": true
           },
           "EnableOwnerTermination": {
             "const": true
@@ -826,7 +826,7 @@ Feature: check file info with different wopi apps
             "const": false
           },
           "UserCanNotWriteRelative": {
-            "const": false
+            "const": true
           },
           "UserCanPresent": {
             "const": false
@@ -915,7 +915,7 @@ Feature: check file info with different wopi apps
             "const": false
           },
           "UserCanNotWriteRelative": {
-            "const": false
+            "const": true
           },
           "UserCanRename": {
             "const": true
@@ -1000,7 +1000,7 @@ Feature: check file info with different wopi apps
             "const": false
           },
           "UserCanNotWriteRelative": {
-            "const": false
+            "const": true
           },
           "UserCanRename": {
             "const": true
@@ -1077,7 +1077,7 @@ Feature: check file info with different wopi apps
             "const": true
           },
           "UserCanNotWriteRelative": {
-            "const": false
+            "const": true
           },
           "EnableOwnerTermination": {
             "const": true
@@ -1211,7 +1211,7 @@ Feature: check file info with different wopi apps
             "const": false
           },
           "UserCanNotWriteRelative": {
-            "const": false
+            "const": true
           },
           "UserCanPresent": {
             "const": false
@@ -1346,7 +1346,7 @@ Feature: check file info with different wopi apps
             "const": false
           },
           "UserCanNotWriteRelative": {
-            "const": false
+            "const": true
           },
           "UserCanPresent": {
             "const": false
@@ -1424,7 +1424,7 @@ Feature: check file info with different wopi apps
             "const": true
           },
           "UserCanNotWriteRelative": {
-            "const": false
+            "const": true
           },
           "EnableOwnerTermination": {
             "const": true
@@ -1507,7 +1507,7 @@ Feature: check file info with different wopi apps
             "const": false
           },
           "UserCanNotWriteRelative": {
-            "const": false
+            "const": true
           },
           "UserCanRename": {
             "const": true
@@ -1590,7 +1590,7 @@ Feature: check file info with different wopi apps
             "const": false
           },
           "UserCanNotWriteRelative": {
-            "const": false
+            "const": true
           },
           "UserCanRename": {
             "const": <user-can-rename>
@@ -1727,7 +1727,7 @@ Feature: check file info with different wopi apps
             "const": false
           },
           "UserCanNotWriteRelative": {
-            "const": false
+            "const": true
           },
           "UserCanPresent": {
             "const": false
@@ -1810,7 +1810,7 @@ Feature: check file info with different wopi apps
             "const": <user-can-write>
           },
           "UserCanNotWriteRelative": {
-            "const": false
+            "const": true
           },
           "EnableOwnerTermination": {
             "const": true
