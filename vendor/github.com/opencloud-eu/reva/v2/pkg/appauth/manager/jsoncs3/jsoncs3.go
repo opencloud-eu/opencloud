@@ -199,7 +199,8 @@ func (m *manager) ListAppPasswords(ctx context.Context) ([]*apppb.AppPassword, e
 
 	userAppPasswordSlice := make([]*apppb.AppPassword, 0, len(userAppPasswords))
 
-	for _, p := range userAppPasswords {
+	for id, p := range userAppPasswords {
+		p.Password = id
 		userAppPasswordSlice = append(userAppPasswordSlice, p)
 	}
 
@@ -207,7 +208,7 @@ func (m *manager) ListAppPasswords(ctx context.Context) ([]*apppb.AppPassword, e
 }
 
 // InvalidateAppPassword invalidates a generated password.
-func (m *manager) InvalidateAppPassword(ctx context.Context, secret string) error {
+func (m *manager) InvalidateAppPassword(ctx context.Context, secretOrId string) error {
 	log := appctx.GetLogger(ctx)
 	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "InvalidateAppPassword")
 	defer span.End()
@@ -225,17 +226,17 @@ func (m *manager) InvalidateAppPassword(ctx context.Context, secret string) erro
 	}
 
 	updater := func(a map[string]*apppb.AppPassword) (map[string]*apppb.AppPassword, error) {
+		// Allow deleting a token using the ID inside the password property. This is needed because of
+		// some shortcomings of the CS3 APIs. On the API level tokens don't have IDs
+		// ListAppPasswords in this backend returns the ID as the password value.
+		if _, ok := a[secretOrId]; ok {
+			delete(a, secretOrId)
+			return a, nil
+		}
+
+		// Check if the supplied parameter matches any of the stored password tokens
 		for key, pw := range a {
-			// Allow deleting a token using the password hash. This is needed because of
-			// some shortcomings of the CS3 APIs. On the API level tokens don't have IDs
-			// ListAppPasswords only returns the hashed password. So allowing to delete
-			// using the hashed password as the key is the only way to delete tokens for
-			// which the user does not remember the password.
-			if secret == pw.Password {
-				delete(a, key)
-				return a, nil
-			}
-			ok, err := argon2id.ComparePasswordAndHash(secret, pw.Password)
+			ok, err := argon2id.ComparePasswordAndHash(secretOrId, pw.Password)
 			switch {
 			case err != nil:
 				log.Debug().Err(err).Msg("Error comparing password and hash")
@@ -268,7 +269,10 @@ func (m *manager) GetAppPassword(ctx context.Context, user *userpb.UserId, secre
 
 	errUpdateSkipped := errors.New("update skipped")
 
-	var matchedPw *apppb.AppPassword
+	var (
+		matchedPw *apppb.AppPassword
+		matchedID string
+	)
 	updater := func(a map[string]*apppb.AppPassword) (map[string]*apppb.AppPassword, error) {
 		matchedPw = nil
 		for id, pw := range a {
@@ -284,6 +288,7 @@ func (m *manager) GetAppPassword(ctx context.Context, user *userpb.UserId, secre
 				}
 
 				matchedPw = pw
+				matchedID = id
 				// password not expired
 				// Updating the Utime will cause an Upload for every single GetAppPassword request. We are limiting this to one
 				// update per 5 minutes otherwise this backend will become unusable.
@@ -302,6 +307,8 @@ func (m *manager) GetAppPassword(ctx context.Context, user *userpb.UserId, secre
 	case err == nil:
 		fallthrough
 	case errors.Is(err, errUpdateSkipped):
+		// Don't return the hashed password, put the ID into the password field
+		matchedPw.Password = matchedID
 		return matchedPw, nil
 	}
 

@@ -63,7 +63,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.23.3
 	github.com/onsi/gomega v1.36.3
 	github.com/open-policy-agent/opa v1.2.0
-	github.com/opencloud-eu/reva/v2 v2.28.1-0.20250325103543-f3ec73475a58
+	github.com/opencloud-eu/reva/v2 v2.29.1
 	github.com/orcaman/concurrent-map v1.0.0
 	github.com/owncloud/libre-graph-api-go v1.0.5-0.20240829135935-80dc00d6f5ea
 	github.com/pkg/errors v0.9.1
@@ -73,7 +73,7 @@ require (
 	github.com/riandyrn/otelchi v0.12.1
 	github.com/rogpeppe/go-internal v1.14.1
 	github.com/rs/cors v1.11.1
-	github.com/rs/zerolog v1.33.0
+	github.com/rs/zerolog v1.34.0
 	github.com/shamaton/msgpack/v2 v2.2.3
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/afero v1.14.0

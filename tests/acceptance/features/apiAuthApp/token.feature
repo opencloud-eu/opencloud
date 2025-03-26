@@ -58,7 +58,7 @@ Feature: create auth-app token
               ],
               "properties": {
                 "token": {
-                  "pattern": "^\\$argon2id\\$v=19\\$m=65536,t=1,p=16\\$.+$"
+                  "pattern": "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$"
                 },
                 "label": {
                   "const": "Generated via API"
@@ -75,7 +75,7 @@ Feature: create auth-app token
               ],
               "properties": {
                 "token": {
-                  "pattern": "^\\$argon2id\\$v=19\\$m=65536,t=1,p=16\\$.+$"
+                  "pattern": "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$"
                 },
                 "label": {
                   "const": "Generated via CLI"
@@ -92,7 +92,7 @@ Feature: create auth-app token
               ],
               "properties": {
                 "token": {
-                  "pattern": "^\\$argon2id\\$v=19\\$m=65536,t=1,p=16\\$.+$"
+                  "pattern": "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$"
                 },
                 "label": {
                   "const": "Generated via API (Impersonation)"

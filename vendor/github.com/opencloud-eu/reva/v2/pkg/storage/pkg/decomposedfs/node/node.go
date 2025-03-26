@@ -435,16 +435,32 @@ func ReadNode(ctx context.Context, lu PathLookup, spaceID, nodeID string, canLis
 		return nil, errtypes.InternalError("Missing parent ID on node")
 	}
 
-	if revisionSuffix == "" {
-		n.BlobID, n.Blobsize, err = lu.ReadBlobIDAndSizeAttr(ctx, n, attrs)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		versionNode := NewBaseNode(spaceID, nodeID+RevisionIDDelimiter+revisionSuffix, lu)
-		n.BlobID, n.Blobsize, err = lu.ReadBlobIDAndSizeAttr(ctx, versionNode, nil)
-		if err != nil {
-			return nil, err
+	if n.Type(ctx) == provider.ResourceType_RESOURCE_TYPE_FILE {
+		if revisionSuffix == "" {
+			var (
+				idOk, sizeOk bool
+				d            []byte
+				err          error
+			)
+
+			if d, idOk = attrs[prefixes.BlobIDAttr]; idOk {
+				n.BlobID = string(d)
+			}
+			if d, sizeOk = attrs[prefixes.BlobsizeAttr]; sizeOk {
+				n.Blobsize, err = strconv.ParseInt(string(d), 10, 64)
+			}
+			if err != nil || !idOk || !sizeOk {
+				n.BlobID, n.Blobsize, err = lu.ReadBlobIDAndSizeAttr(ctx, n, attrs)
+				if err != nil {
+					return nil, err
+				}
+			}
+		} else {
+			versionNode := NewBaseNode(spaceID, nodeID+RevisionIDDelimiter+revisionSuffix, lu)
+			n.BlobID, n.Blobsize, err = lu.ReadBlobIDAndSizeAttr(ctx, versionNode, nil)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
