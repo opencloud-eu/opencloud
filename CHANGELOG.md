@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@JammingBen, @ScharfViktor, @aduffeck, @amrita-shrestha, @butonic, @dragotin, @individual-it, @kulmann, @micbar, @prashant-gurung899, @rhafer
+@JammingBen, @ScharfViktor, @aduffeck, @amrita-shrestha, @butonic, @dragonchaser, @dragotin, @individual-it, @kulmann, @micbar, @prashant-gurung899, @rhafer
 
 ### 💥 Breaking changes
 
