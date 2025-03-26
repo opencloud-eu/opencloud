@@ -10,6 +10,19 @@
 
 - [posix] change storage users default to posixfs [[#237](https://github.com/opencloud-eu/opencloud/pull/237)]
 
+### 🐛 Bug Fixes
+
+- Bump reva to 2.29.1 [[#501](https://github.com/opencloud-eu/opencloud/pull/501)]
+- remove workaround for translation formatting [[#491](https://github.com/opencloud-eu/opencloud/pull/491)]
+- [full-ci] fix(collaboration): hide SaveAs and ExportAs buttons in web office [[#471](https://github.com/opencloud-eu/opencloud/pull/471)]
+- fix: add missing debug docker [[#481](https://github.com/opencloud-eu/opencloud/pull/481)]
+- Downgrade nats.go to 1.39.1 [[#479](https://github.com/opencloud-eu/opencloud/pull/479)]
+-  fix cli driver initialization for "posix"  [[#459](https://github.com/opencloud-eu/opencloud/pull/459)]
+- Do not cache when there was an error gathering the data [[#462](https://github.com/opencloud-eu/opencloud/pull/462)]
+- fix(storage-users): 'uploads sessions' command crash [[#446](https://github.com/opencloud-eu/opencloud/pull/446)]
+- fix: org name in multiarch dev build [[#431](https://github.com/opencloud-eu/opencloud/pull/431)]
+- fix local setup [[#440](https://github.com/opencloud-eu/opencloud/pull/440)]
+
 ### 📈 Enhancement
 
 - [full-ci] chore(web): update web to v2.1.0 [[#497](https://github.com/opencloud-eu/opencloud/pull/497)]
@@ -19,17 +32,6 @@
 - Completely remove "edition" from capabilities [[#434](https://github.com/opencloud-eu/opencloud/pull/434)]
 - feat: add post logout redirect uris for mobile clients [[#411](https://github.com/opencloud-eu/opencloud/pull/411)]
 - chore: bump version to v1.1.0 [[#422](https://github.com/opencloud-eu/opencloud/pull/422)]
-
-### 🐛 Bug Fixes
-
-- [full-ci] fix(collaboration): hide SaveAs and ExportAs buttons in web office [[#471](https://github.com/opencloud-eu/opencloud/pull/471)]
-- fix: add missing debug docker [[#481](https://github.com/opencloud-eu/opencloud/pull/481)]
-- Downgrade nats.go to 1.39.1 [[#479](https://github.com/opencloud-eu/opencloud/pull/479)]
--  fix cli driver initialization for "posix"  [[#459](https://github.com/opencloud-eu/opencloud/pull/459)]
-- Do not cache when there was an error gathering the data [[#462](https://github.com/opencloud-eu/opencloud/pull/462)]
-- fix(storage-users): 'uploads sessions' command crash [[#446](https://github.com/opencloud-eu/opencloud/pull/446)]
-- fix: org name in multiarch dev build [[#431](https://github.com/opencloud-eu/opencloud/pull/431)]
-- fix local setup [[#440](https://github.com/opencloud-eu/opencloud/pull/440)]
 
 ### ✅ Tests
 
