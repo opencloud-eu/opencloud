@@ -581,7 +581,7 @@ Feature: check file info with different wopi apps
             "const": <user-can-write>
           },
           "UserCanNotWriteRelative": {
-            "const": false
+            "const": true
           },
           "EnableOwnerTermination": {
             "const": true
