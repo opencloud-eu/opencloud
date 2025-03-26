@@ -21,19 +21,19 @@ var (
 func NewTextTemplate(mt MessageTemplate, locale, defaultLocale string, translationPath string, vars map[string]string) (MessageTemplate, error) {
 	var err error
 	t := l10n.NewTranslatorFromCommonConfig(defaultLocale, _domain, translationPath, _translationFS, "l10n/locale").Locale(locale)
-	mt.Subject, err = composeMessage(t.Get("%s", mt.Subject), vars)
+	mt.Subject, err = composeMessage(t.Get(mt.Subject, []interface{}{}...), vars)
 	if err != nil {
 		return mt, err
 	}
-	mt.Greeting, err = composeMessage(t.Get("%s", mt.Greeting), vars)
+	mt.Greeting, err = composeMessage(t.Get(mt.Greeting, []interface{}{}...), vars)
 	if err != nil {
 		return mt, err
 	}
-	mt.MessageBody, err = composeMessage(t.Get("%s", mt.MessageBody), vars)
+	mt.MessageBody, err = composeMessage(t.Get(mt.MessageBody, []interface{}{}...), vars)
 	if err != nil {
 		return mt, err
 	}
-	mt.CallToAction, err = composeMessage(t.Get("%s", mt.CallToAction), vars)
+	mt.CallToAction, err = composeMessage(t.Get(mt.CallToAction, []interface{}{}...), vars)
 	if err != nil {
 		return mt, err
 	}
@@ -44,19 +44,19 @@ func NewTextTemplate(mt MessageTemplate, locale, defaultLocale string, translati
 func NewHTMLTemplate(mt MessageTemplate, locale, defaultLocale string, translationPath string, vars map[string]string) (MessageTemplate, error) {
 	var err error
 	t := l10n.NewTranslatorFromCommonConfig(defaultLocale, _domain, translationPath, _translationFS, "l10n/locale").Locale(locale)
-	mt.Subject, err = composeMessage(t.Get("%s", mt.Subject), vars)
+	mt.Subject, err = composeMessage(t.Get(mt.Subject, []interface{}{}...), vars)
 	if err != nil {
 		return mt, err
 	}
-	mt.Greeting, err = composeMessage(newlineToBr(t.Get("%s", mt.Greeting)), vars)
+	mt.Greeting, err = composeMessage(newlineToBr(t.Get(mt.Greeting, []interface{}{}...)), vars)
 	if err != nil {
 		return mt, err
 	}
-	mt.MessageBody, err = composeMessage(newlineToBr(t.Get("%s", mt.MessageBody)), vars)
+	mt.MessageBody, err = composeMessage(newlineToBr(t.Get(mt.MessageBody, []interface{}{}...)), vars)
 	if err != nil {
 		return mt, err
 	}
-	mt.CallToAction, err = composeMessage(callToActionToHTML(t.Get("%s", mt.CallToAction)), vars)
+	mt.CallToAction, err = composeMessage(callToActionToHTML(t.Get(mt.CallToAction, []interface{}{}...)), vars)
 	if err != nil {
 		return mt, err
 	}
@@ -71,18 +71,18 @@ func NewGroupedTextTemplate(gmt GroupedMessageTemplate, vars map[string]string, 
 
 	var err error
 	t := l10n.NewTranslatorFromCommonConfig(defaultLocale, _domain, translationPath, _translationFS, "l10n/locale").Locale(locale)
-	gmt.Subject, err = composeMessage(t.Get("%s", gmt.Subject), vars)
+	gmt.Subject, err = composeMessage(t.Get(gmt.Subject, []interface{}{}...), vars)
 	if err != nil {
 		return gmt, err
 	}
-	gmt.Greeting, err = composeMessage(t.Get("%s", gmt.Greeting), vars)
+	gmt.Greeting, err = composeMessage(t.Get(gmt.Greeting, []interface{}{}...), vars)
 	if err != nil {
 		return gmt, err
 	}
 
 	bodyParts := make([]string, 0, len(mtsVars))
 	for i, mt := range mts {
-		bodyPart, err := composeMessage(t.Get("%s", mt.MessageBody), mtsVars[i])
+		bodyPart, err := composeMessage(t.Get(mt.MessageBody, []interface{}{}...), mtsVars[i])
 		if err != nil {
 			return gmt, err
 		}
@@ -100,18 +100,18 @@ func NewGroupedHTMLTemplate(gmt GroupedMessageTemplate, vars map[string]string, 
 
 	var err error
 	t := l10n.NewTranslatorFromCommonConfig(defaultLocale, _domain, translationPath, _translationFS, "l10n/locale").Locale(locale)
-	gmt.Subject, err = composeMessage(t.Get("%s", gmt.Subject), vars)
+	gmt.Subject, err = composeMessage(t.Get(gmt.Subject, []interface{}{}...), vars)
 	if err != nil {
 		return gmt, err
 	}
-	gmt.Greeting, err = composeMessage(newlineToBr(t.Get("%s", gmt.Greeting)), vars)
+	gmt.Greeting, err = composeMessage(newlineToBr(t.Get(gmt.Greeting, []interface{}{}...)), vars)
 	if err != nil {
 		return gmt, err
 	}
 
 	bodyParts := make([]string, 0, len(mtsVars))
 	for i, mt := range mts {
-		bodyPart, err := composeMessage(t.Get("%s", mt.MessageBody), mtsVars[i])
+		bodyPart, err := composeMessage(t.Get(mt.MessageBody, []interface{}{}...), mtsVars[i])
 		if err != nil {
 			return gmt, err
 		}

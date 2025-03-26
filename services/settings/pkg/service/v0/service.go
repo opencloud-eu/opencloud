@@ -697,7 +697,7 @@ func translateBundle(bundle *settingsmsg.Bundle, t *gotext.Locale) *settingsmsg.
 			// translate interval names ('Instant', 'Daily', 'Weekly', 'Never')
 			value := set.GetSingleChoiceValue()
 			for i, v := range value.GetOptions() {
-				value.Options[i].DisplayValue = t.Get("%s", v.GetDisplayValue())
+				value.Options[i].DisplayValue = t.Get(v.GetDisplayValue(), []interface{}{}...)
 			}
 			set.Value = &settingsmsg.Setting_SingleChoiceValue{SingleChoiceValue: value}
 			fallthrough
@@ -710,9 +710,9 @@ func translateBundle(bundle *settingsmsg.Bundle, t *gotext.Locale) *settingsmsg.
 			defaults.SettingUUIDProfileEventSpaceDisabled,
 			defaults.SettingUUIDProfileEventSpaceDeleted:
 			// translate event names ('Share Received', 'Share Removed', ...)
-			set.DisplayName = t.Get("%s", set.GetDisplayName())
+			set.DisplayName = t.Get(set.GetDisplayName(), []interface{}{}...)
 			// translate event descriptions ('Notify me when I receive a share', ...)
-			set.Description = t.Get("%s", set.GetDescription())
+			set.Description = t.Get(set.GetDescription(), []interface{}{}...)
 			bundle.Settings[i] = set
 		}
 	}
