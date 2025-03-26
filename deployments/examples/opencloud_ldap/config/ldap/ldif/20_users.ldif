@@ -1,0 +1,20 @@
+# Start dn with uid (user identifier / login), not cn (Firstname + Surname)
+dn: uid=alan,ou=users,dc=opencloud,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: openCloudUser
+objectClass: person
+objectClass: posixAccount
+objectClass: top
+uid: alan
+givenName: Alan
+sn: Turing
+cn: turing
+displayName: Alan Turing
+description: a ldap user
+mail: alan@example.org
+uidNumber: 20000
+gidNumber: 30000
+homeDirectory: /home/alan
+openCloudUUID: 4c510ada-c86b-4815-8820-42cdf82c3d51
+userPassword:: e1NTSEF9TXJEcXpFNGdKbXZxbVRVTGhvWEZ1VzJBbkV3NWFLK3J3WTIvbHc9PQ==

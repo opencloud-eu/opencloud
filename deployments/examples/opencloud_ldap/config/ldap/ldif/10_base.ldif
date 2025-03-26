@@ -1,0 +1,13 @@
+dn: dc=opencloud,dc=com
+objectClass: organization
+objectClass: dcObject
+dc: opencloud
+o: opencloud
+
+dn: ou=users,dc=opencloud,dc=com
+objectClass: organizationalUnit
+ou: users
+
+dn: ou=groups,dc=opencloud,dc=com
+objectClass: organizationalUnit
+ou: groups

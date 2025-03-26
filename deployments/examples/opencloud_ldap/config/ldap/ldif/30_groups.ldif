@@ -1,0 +1,77 @@
+dn: cn=users,ou=groups,dc=opencloud,dc=com
+objectClass: groupOfNames
+objectClass: openCloud
+objectClass: top
+cn: users
+description: Users
+openCloudUUID: 509a9dcd-bb37-4f4f-a01a-19dca27d9cfa
+member: uid=einstein,ou=users,dc=opencloud,dc=com
+member: uid=marie,ou=users,dc=opencloud,dc=com
+member: uid=richard,ou=users,dc=opencloud,dc=com
+member: uid=moss,ou=users,dc=opencloud,dc=com
+member: uid=admin,ou=users,dc=opencloud,dc=com
+
+dn: cn=sailing-lovers,ou=groups,dc=opencloud,dc=com
+objectClass: groupOfNames
+objectClass: openCloud
+objectClass: top
+cn: sailing-lovers
+description: Sailing lovers
+openCloudUUID: 6040aa17-9c64-4fef-9bd0-77234d71bad0
+member: uid=einstein,ou=users,dc=opencloud,dc=com
+
+dn: cn=violin-haters,ou=groups,dc=opencloud,dc=com
+objectClass: groupOfNames
+objectClass: openCloud
+objectClass: top
+cn: violin-haters
+description: Violin haters
+openCloudUUID: dd58e5ec-842e-498b-8800-61f2ec6f911f
+member: uid=einstein,ou=users,dc=opencloud,dc=com
+
+dn: cn=radium-lovers,ou=groups,dc=opencloud,dc=com
+objectClass: groupOfNames
+objectClass: openCloud
+objectClass: top
+cn: radium-lovers
+description: Radium lovers
+openCloudUUID: 7b87fd49-286e-4a5f-bafd-c535d5dd997a
+member: uid=marie,ou=users,dc=opencloud,dc=com
+
+dn: cn=polonium-lovers,ou=groups,dc=opencloud,dc=com
+objectClass: groupOfNames
+objectClass: openCloud
+objectClass: top
+cn: polonium-lovers
+description: Polonium lovers
+openCloudUUID: cedc21aa-4072-4614-8676-fa9165f598ff
+member: uid=marie,ou=users,dc=opencloud,dc=com
+
+dn: cn=quantum-lovers,ou=groups,dc=opencloud,dc=com
+objectClass: groupOfNames
+objectClass: openCloud
+objectClass: top
+cn: quantum-lovers
+description: Quantum lovers
+openCloudUUID: a1726108-01f8-4c30-88df-2b1a9d1cba1a
+member: uid=richard,ou=users,dc=opencloud,dc=com
+
+dn: cn=philosophy-haters,ou=groups,dc=opencloud,dc=com
+objectClass: groupOfNames
+objectClass: openCloud
+objectClass: top
+cn: philosophy-haters
+description: Philosophy haters
+openCloudUUID: 167cbee2-0518-455a-bfb2-031fe0621e5d
+member: uid=richard,ou=users,dc=opencloud,dc=com
+
+dn: cn=physics-lovers,ou=groups,dc=opencloud,dc=com
+objectClass: groupOfNames
+objectClass: openCloud
+objectClass: top
+cn: physics-lovers
+description: Physics lovers
+openCloudUUID: 262982c1-2362-4afa-bfdf-8cbfef64a06e
+member: uid=einstein,ou=users,dc=opencloud,dc=com
+member: uid=marie,ou=users,dc=opencloud,dc=com
+member: uid=richard,ou=users,dc=opencloud,dc=com
