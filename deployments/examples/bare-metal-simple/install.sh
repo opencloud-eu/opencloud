@@ -37,7 +37,7 @@ function backup_file () {
 # URL pattern of the download file
 # https://github.com/opencloud-eu/opencloud/releases/download/v1.0.0/opencloud-1.0.0-linux-amd64
 
-dlversion="${OC_VERSION:-1.1.0}"
+dlversion="${OC_VERSION:-2.0.0}"
 dlurl="https://github.com/opencloud-eu/opencloud/releases/download/v${dlversion}/"
 
 sandbox="opencloud-sandbox-${dlversion}"

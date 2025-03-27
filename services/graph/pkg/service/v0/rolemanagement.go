@@ -14,7 +14,7 @@ import (
 // GetRoleDefinitions a list of permission roles than can be used when sharing with users or groups
 func (g Graph) GetRoleDefinitions(w http.ResponseWriter, r *http.Request) {
 	render.Status(r, http.StatusOK)
-	render.JSON(w, r, unifiedrole.GetRoles(unifiedrole.RoleFilterIDs(g.config.UnifiedRoles.AvailableRoles...)))
+	render.JSON(w, r, g.availableRoles)
 }
 
 // GetRoleDefinition a permission role than can be used when sharing with users or groups

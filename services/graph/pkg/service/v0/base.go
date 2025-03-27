@@ -46,6 +46,7 @@ type BaseGraphService struct {
 	gatewaySelector pool.Selectable[gateway.GatewayAPIClient]
 	identityCache   identity.IdentityCache
 	config          *config.Config
+	availableRoles  []*libregraph.UnifiedRoleDefinition
 }
 
 func (g BaseGraphService) getSpaceRootPermissions(ctx context.Context, spaceID *storageprovider.StorageSpaceId) ([]libregraph.Permission, error) {
@@ -86,8 +87,7 @@ func (g BaseGraphService) CS3ReceivedSharesToDriveItems(ctx context.Context, rec
 		return nil, err
 	}
 
-	availableRoles := unifiedrole.GetRoles(unifiedrole.RoleFilterIDs(g.config.UnifiedRoles.AvailableRoles...))
-	return cs3ReceivedSharesToDriveItems(ctx, g.logger, gatewayClient, g.identityCache, receivedShares, availableRoles)
+	return cs3ReceivedSharesToDriveItems(ctx, g.logger, gatewayClient, g.identityCache, receivedShares, g.availableRoles)
 }
 
 func (g BaseGraphService) CS3ReceivedOCMSharesToDriveItems(ctx context.Context, receivedShares []*ocm.ReceivedShare) ([]libregraph.DriveItem, error) {
@@ -96,8 +96,7 @@ func (g BaseGraphService) CS3ReceivedOCMSharesToDriveItems(ctx context.Context, 
 		return nil, err
 	}
 
-	availableRoles := unifiedrole.GetRoles(unifiedrole.RoleFilterIDs(g.config.UnifiedRoles.AvailableRoles...))
-	return cs3ReceivedOCMSharesToDriveItems(ctx, g.logger, gatewayClient, g.identityCache, receivedShares, availableRoles)
+	return cs3ReceivedOCMSharesToDriveItems(ctx, g.logger, gatewayClient, g.identityCache, receivedShares, g.availableRoles)
 }
 
 func (g BaseGraphService) cs3SpacePermissionsToLibreGraph(ctx context.Context, space *storageprovider.StorageSpace, apiVersion APIVersion) []libregraph.Permission {
@@ -196,9 +195,8 @@ func (g BaseGraphService) cs3SpacePermissionsToLibreGraph(ctx context.Context, s
 			p.SetExpirationDateTime(time.Unix(int64(exp.GetSeconds()), int64(exp.GetNanos())))
 		}
 
-		availableRoles := unifiedrole.GetRoles(unifiedrole.RoleFilterIDs(g.config.UnifiedRoles.AvailableRoles...))
 		if role := unifiedrole.CS3ResourcePermissionsToRole(
-			availableRoles,
+			g.availableRoles,
 			perm,
 			unifiedrole.UnifiedRoleConditionDrive,
 			false,
@@ -601,7 +599,7 @@ func (g BaseGraphService) cs3UserShareToPermission(ctx context.Context, share *c
 		perm.SetCreatedDateTime(cs3TimestampToTime(share.GetCtime()))
 	}
 	role := unifiedrole.CS3ResourcePermissionsToRole(
-		unifiedrole.GetRoles(unifiedrole.RoleFilterIDs(g.config.UnifiedRoles.AvailableRoles...)),
+		g.availableRoles,
 		share.GetPermissions().GetPermissions(),
 		roleCondition,
 		false,
@@ -689,9 +687,8 @@ func (g BaseGraphService) cs3OCMShareToPermission(ctx context.Context, share *oc
 		}
 	}
 
-	availableRoles := unifiedrole.GetRoles(unifiedrole.RoleFilterIDs(g.config.UnifiedRoles.AvailableRoles...))
 	role := unifiedrole.CS3ResourcePermissionsToRole(
-		availableRoles,
+		g.availableRoles,
 		permissions,
 		roleCondition,
 		true,

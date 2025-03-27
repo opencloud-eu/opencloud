@@ -10,7 +10,6 @@ import (
 	libregraph "github.com/owncloud/libre-graph-api-go"
 
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
-	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
 )
 
 // ListSharedWithMe lists the files shared with the current user.
@@ -40,8 +39,7 @@ func (g Graph) listSharedWithMe(ctx context.Context) ([]libregraph.DriveItem, er
 		g.logger.Error().Err(err).Msg("listing shares failed")
 		return nil, err
 	}
-	availableRoles := unifiedrole.GetRoles(unifiedrole.RoleFilterIDs(g.config.UnifiedRoles.AvailableRoles...))
-	driveItems, err := cs3ReceivedSharesToDriveItems(ctx, g.logger, gatewayClient, g.identityCache, listReceivedSharesResponse.GetShares(), availableRoles)
+	driveItems, err := cs3ReceivedSharesToDriveItems(ctx, g.logger, gatewayClient, g.identityCache, listReceivedSharesResponse.GetShares(), g.availableRoles)
 	if err != nil {
 		g.logger.Error().Err(err).Msg("could not convert received shares to drive items")
 		return nil, err
@@ -53,7 +51,7 @@ func (g Graph) listSharedWithMe(ctx context.Context) ([]libregraph.DriveItem, er
 			g.logger.Error().Err(err).Msg("listing shares failed")
 			return nil, err
 		}
-		ocmDriveItems, err := cs3ReceivedOCMSharesToDriveItems(ctx, g.logger, gatewayClient, g.identityCache, listReceivedOCMSharesResponse.GetShares(), availableRoles)
+		ocmDriveItems, err := cs3ReceivedOCMSharesToDriveItems(ctx, g.logger, gatewayClient, g.identityCache, listReceivedOCMSharesResponse.GetShares(), g.availableRoles)
 		if err != nil {
 			g.logger.Error().Err(err).Msg("could not convert received ocm shares to drive items")
 			return nil, err

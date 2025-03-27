@@ -83,6 +83,7 @@ func NewDriveItemPermissionsService(logger log.Logger, gatewaySelector pool.Sele
 			gatewaySelector: gatewaySelector,
 			identityCache:   identityCache,
 			config:          config,
+			availableRoles:  unifiedrole.GetRoles(unifiedrole.RoleFilterIDs(config.UnifiedRoles.AvailableRoles...)),
 		},
 	}, nil
 }

@@ -31,9 +31,9 @@ to download. If not set, there is a reasonable default.
 Call
 
 ```
-OC_VERSION="1.0.0" ./install.sh
+OC_VERSION="2.0.0" ./install.sh
 ``` 
-to install the OpenCloud version 1.0.0
+to install the OpenCloud version 2.0.0
 
 There is also a hosted version of this script that makes it even
 easier:

@@ -31,6 +31,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity/ldap"
 	graphm "github.com/opencloud-eu/opencloud/services/graph/pkg/middleware"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
 )
 
 const (
@@ -148,6 +149,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 			identityCache:   identityCache,
 			gatewaySelector: options.GatewaySelector,
 			config:          options.Config,
+			availableRoles:  unifiedrole.GetRoles(unifiedrole.RoleFilterIDs(options.Config.UnifiedRoles.AvailableRoles...)),
 		},
 		mux:                      m,
 		specialDriveItemsCache:   spacePropertiesCache,
