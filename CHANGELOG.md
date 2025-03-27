@@ -1,6 +1,14 @@
 # Changelog
 
-## [2.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v2.0.1) - 2025-03-27
+## [2.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.1.0) - 2025-03-27
+
+### ❤️ Thanks to all contributors! ❤️
+
+@ScharfViktor, @butonic, @individual-it
+
+### 📈 Enhancement
+
+- graph: reduce memory allocations [[#494](https://github.com/opencloud-eu/opencloud/pull/494)]
 
 ### 📦️ Dependencies
 
