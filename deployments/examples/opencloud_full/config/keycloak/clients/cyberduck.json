@@ -1,0 +1,67 @@
+{
+  "clientId": "3keLfua0olYvW1zKXTDB3OjAMPEYWEQNuiscli395GKJOiPnPURNQWGvGCJZf4Hw",
+  "name": "Cyberduck",
+  "description": "",
+  "surrogateAuthRequired": false,
+  "enabled": true,
+  "alwaysDisplayInConsole": false,
+  "clientAuthenticatorType": "client-secret",
+  "secret": "yoqICbLIeYbpZPqDH4D8k4NKb04HqnrWBntEeVZEQ5gO1RmaUlln0Aqu1dj2UoF4",
+  "redirectUris": [
+    "x-cyberduck-action:oauth",
+    "x-mountainduck-action:oauth"
+  ],
+  "webOrigins": [],
+  "notBefore": 0,
+  "bearerOnly": false,
+  "consentRequired": false,
+  "standardFlowEnabled": true,
+  "implicitFlowEnabled": false,
+  "directAccessGrantsEnabled": true,
+  "serviceAccountsEnabled": false,
+  "publicClient": false,
+  "frontchannelLogout": false,
+  "protocol": "openid-connect",
+  "attributes": {
+    "saml.assertion.signature": "false",
+    "saml.force.post.binding": "false",
+    "saml.multivalued.roles": "false",
+    "saml.encrypt": "false",
+    "oauth2.device.authorization.grant.enabled": "false",
+    "backchannel.logout.revoke.offline.tokens": "false",
+    "saml.server.signature": "false",
+    "saml.server.signature.keyinfo.ext": "false",
+    "exclude.session.state.from.auth.response": "false",
+    "oidc.ciba.grant.enabled": "false",
+    "backchannel.logout.session.required": "true",
+    "client_credentials.use_refresh_token": "false",
+    "saml_force_name_id_format": "false",
+    "saml.client.signature": "false",
+    "tls.client.certificate.bound.access.tokens": "false",
+    "saml.authnstatement": "false",
+    "display.on.consent.screen": "false",
+    "saml.onetimeuse.condition": "false"
+  },
+  "authenticationFlowBindingOverrides": {},
+  "fullScopeAllowed": true,
+  "nodeReRegistrationTimeout": -1,
+  "defaultClientScopes": [
+    "web-origins",
+    "profile",
+    "roles",
+    "groups",
+    "basic",
+    "email"
+  ],
+  "optionalClientScopes": [
+    "address",
+    "phone",
+    "offline_access",
+    "microprofile-jwt"
+  ],
+  "access": {
+    "view": true,
+    "configure": true,
+    "manage": true
+  }
+}

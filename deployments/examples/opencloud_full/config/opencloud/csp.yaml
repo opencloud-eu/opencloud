@@ -7,6 +7,7 @@ directives:
     - 'https://${COMPANION_DOMAIN|companion.opencloud.test}/'
     - 'wss://${COMPANION_DOMAIN|companion.opencloud.test}/'
     - 'https://raw.githubusercontent.com/opencloud-eu/awesome-apps/'
+    - 'https://${KEYCLOAK_DOMAIN|keycloak.opencloud.test}/'
   default-src:
     - '''none'''
   font-src:
