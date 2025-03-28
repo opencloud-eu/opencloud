@@ -1,0 +1,27 @@
+name: Require Pull Request Labels
+on:
+  pull_request:
+    types: [opened, labeled, unlabeled, synchronize]
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: mheap/github-action-required-labels@v5
+        with:
+          mode: minimum
+          count: 1
+          labels: |
+            Type:Bug
+            Type:Enhancement
+            Type:Feature
+            Type:Breaking-Change
+            Type:Test
+            Type:Documentation
+            Type:Maintenance
+            Type:Security
+            Type:Dependencies
+            dependencies
+          add_comment: true
