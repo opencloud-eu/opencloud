@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @ScharfViktor, @butonic, @individual-it
+@AlexAndBear, @ScharfViktor, @butonic, @individual-it, @micbar
 
 ### 📈 Enhancement
 
