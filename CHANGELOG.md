@@ -1,10 +1,10 @@
 # Changelog
 
-## [2.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.1.0) - 2025-03-27
+## [2.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.1.0) - 2025-03-28
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @butonic, @individual-it
+@AlexAndBear, @ScharfViktor, @butonic, @individual-it
 
 ### 📈 Enhancement
 
