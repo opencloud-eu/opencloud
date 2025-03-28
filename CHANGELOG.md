@@ -10,10 +10,6 @@
 
 - graph: reduce memory allocations [[#494](https://github.com/opencloud-eu/opencloud/pull/494)]
 
-### 📦️ Dependencies
-
-- build(deps): bump google.golang.org/protobuf from 1.36.5 to 1.36.6 [[#498](https://github.com/opencloud-eu/opencloud/pull/498)]
-
 ## [2.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.0.0) - 2025-03-26
 
 ### ❤️ Thanks to all contributors! ❤️
