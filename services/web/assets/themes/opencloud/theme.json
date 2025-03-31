@@ -94,9 +94,9 @@
           "label": "Light Theme",
           "designTokens": {
             "roles": {
-              "primary": "#07677F",
+              "primary": "#E2BAFF",
               "surfaceTint": "#07677F",
-              "onPrimary": "#FFFFFF",
+              "onPrimary": "#19353F",
               "primaryContainer": "#B7EAFF",
               "onPrimaryContainer": "#001F28",
               "secondary": "#20434f",
