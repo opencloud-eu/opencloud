@@ -6,6 +6,10 @@
 
 @AlexAndBear, @ScharfViktor, @butonic, @individual-it, @micbar
 
+### 🐛 Bug Fixes
+
+- fix: typo in dev docs [[#540](https://github.com/opencloud-eu/opencloud/pull/540)]
+
 ### 📈 Enhancement
 
 - feat: support svg as icon [[#538](https://github.com/opencloud-eu/opencloud/pull/538)]
