@@ -8,6 +8,7 @@
 
 ### 📈 Enhancement
 
+- feat: support svg as icon [[#538](https://github.com/opencloud-eu/opencloud/pull/538)]
 - feat: change theme.json primary color [[#536](https://github.com/opencloud-eu/opencloud/pull/536)]
 - graph: reduce memory allocations [[#494](https://github.com/opencloud-eu/opencloud/pull/494)]
 
