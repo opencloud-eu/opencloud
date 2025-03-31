@@ -21,6 +21,7 @@ services:
       OC_ADMIN_USER_ID: ""
       GRAPH_ASSIGN_DEFAULT_USER_ROLE: "false"
       GRAPH_USERNAME_MATCH: "none"
+      KEYCLOAK_DOMAIN: ${KEYCLOAK_DOMAIN:-keycloak.opencloud.test} 
 
   postgres:
     image: postgres:alpine
