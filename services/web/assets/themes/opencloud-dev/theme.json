@@ -43,7 +43,7 @@
           }
         },
         "logo": "themes/opencloud-dev/assets/logo.svg",
-        "favicon": "themes/opencloud-dev/assets/favicon.jpg"
+        "favicon": "themes/opencloud-dev/assets/favicon.svg"
       },
       "themes": [
         {

@@ -50,7 +50,7 @@
     "web": {
       "defaults": {
         "logo": "themes/opencloud/assets/logo.svg",
-        "favicon": "themes/opencloud/assets/favicon.ico",
+        "favicon": "themes/opencloud/assets/favicon.svg",
         "designTokens": {
           "breakpoints": {
             "xsmall-max": "",
