@@ -1,10 +1,10 @@
 # Changelog
 
-## [2.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.1.0) - 2025-03-31
+## [2.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.1.0) - 2025-04-01
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @ScharfViktor, @butonic, @individual-it, @micbar
+@AlexAndBear, @JammingBen, @ScharfViktor, @butonic, @individual-it, @micbar
 
 ### 🐛 Bug Fixes
 
@@ -18,6 +18,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/urfave/cli/v2 from 2.27.5 to 2.27.6 [[#509](https://github.com/opencloud-eu/opencloud/pull/509)]
 - fix keycloak example #465 [[#535](https://github.com/opencloud-eu/opencloud/pull/535)]
 
 ## [2.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.0.0) - 2025-03-26
