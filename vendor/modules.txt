@@ -1865,7 +1865,7 @@ github.com/tus/tusd/v2/pkg/handler
 ## explicit; go 1.13
 github.com/unrolled/secure
 github.com/unrolled/secure/cspbuilder
-# github.com/urfave/cli/v2 v2.27.5
+# github.com/urfave/cli/v2 v2.27.6
 ## explicit; go 1.18
 github.com/urfave/cli/v2
 # github.com/wk8/go-ordered-map v1.0.0

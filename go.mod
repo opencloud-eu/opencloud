@@ -84,7 +84,7 @@ require (
 	github.com/tidwall/gjson v1.18.0
 	github.com/tus/tusd/v2 v2.7.1
 	github.com/unrolled/secure v1.16.0
-	github.com/urfave/cli/v2 v2.27.5
+	github.com/urfave/cli/v2 v2.27.6
 	github.com/xhit/go-simple-mail/v2 v2.16.0
 	go-micro.dev/v4 v4.11.0
 	go.etcd.io/bbolt v1.4.0
