@@ -1,13 +1,16 @@
 # Changelog
 
-## [2.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.1.0) - 2025-04-01
+## [2.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.1.0) - 2025-04-02
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @ScharfViktor, @butonic, @individual-it, @micbar
+@AlexAndBear, @JammingBen, @ScharfViktor, @aduffeck, @butonic, @individual-it, @micbar
 
 ### 🐛 Bug Fixes
 
+- fix: full deployment tika description is wrong [[#553](https://github.com/opencloud-eu/opencloud/pull/553)]
+- fix: traefik credentials [[#555](https://github.com/opencloud-eu/opencloud/pull/555)]
+- Enable scan/watch in the storageprovider only [[#546](https://github.com/opencloud-eu/opencloud/pull/546)]
 - fix: typo in dev docs [[#540](https://github.com/opencloud-eu/opencloud/pull/540)]
 
 ### 📈 Enhancement
