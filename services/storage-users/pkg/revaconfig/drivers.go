@@ -85,7 +85,7 @@ func Local(cfg *config.Config) map[string]interface{} {
 }
 
 // Posix is the config mapping for the Posix storage driver
-func Posix(cfg *config.Config, enableFSScan bool) map[string]interface{} {
+func Posix(cfg *config.Config, enableFSScan, enableFSWatch bool) map[string]interface{} {
 	return map[string]interface{}{
 		"root":                        cfg.Drivers.Posix.Root,
 		"personalspacepath_template":  cfg.Drivers.Posix.PersonalSpacePathTemplate,
@@ -137,7 +137,7 @@ func Posix(cfg *config.Config, enableFSScan bool) map[string]interface{} {
 		"use_space_groups":           cfg.Drivers.Posix.UseSpaceGroups,
 		"enable_fs_revisions":        cfg.Drivers.Posix.EnableFSRevisions,
 		"scan_fs":                    enableFSScan,
-		"watch_fs":                   cfg.Drivers.Posix.WatchFS,
+		"watch_fs":                   enableFSWatch,
 		"watch_type":                 cfg.Drivers.Posix.WatchType,
 		"watch_path":                 cfg.Drivers.Posix.WatchPath,
 		"watch_folder_kafka_brokers": cfg.Drivers.Posix.WatchFolderKafkaBrokers,

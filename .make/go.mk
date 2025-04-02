@@ -18,20 +18,19 @@ SOURCES ?= $(shell find . -name "*.go" -type f -not -path "./node_modules/*")
 TAGS ?=
 
 ifndef OUTPUT
-	ifneq ($(DRONE_TAG),)
-		OUTPUT ?= $(subst v,,$(DRONE_TAG))
+	ifneq ($(CI_COMMIT_TAG),)
+		OUTPUT ?= $(subst v,,$(CI_COMMIT_TAG))
 	else
 		OUTPUT ?= testing
 	endif
 endif
 
-ifndef VERSION
-	ifneq ($(DRONE_TAG),)
-		VERSION ?= $(subst v,,$(DRONE_TAG))
-	else
-		STRING ?= $(shell git rev-parse --short HEAD)
-	endif
+ifeq ($(VERSION), daily)
+	STRING ?= $(shell git rev-parse --short HEAD)
+else ifeq ($(VERSION),)
+	STRING ?= $(shell git rev-parse --short HEAD)
 endif
+
 
 ifndef DATE
 	DATE := $(shell date -u '+%Y%m%d')

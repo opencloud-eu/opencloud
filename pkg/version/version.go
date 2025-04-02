@@ -46,18 +46,17 @@ func GetString() string {
 // Parsed returns a semver Version
 func Parsed() (version *semver.Version) {
 	versionToParse := LatestTag
-	if Tag != "" {
+	// use the placeholder version if the tag is empty or when we are creating a daily build
+	if Tag != "" && Tag != "daily" {
 		versionToParse = Tag
 	}
 	version, err := semver.NewVersion(versionToParse)
-	// We have no semver version but a commitid
 	if err != nil {
 		// this should never happen
-		if err != nil {
-			return &semver.Version{}
-		}
+		return &semver.Version{}
 	}
 	if String != "" {
+		// We have no tagged version but a commitid
 		nVersion, err := version.SetMetadata(String)
 		if err != nil {
 			return &semver.Version{}

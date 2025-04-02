@@ -108,7 +108,7 @@ func ListUploadSessions(cfg *config.Config) *cli.Command {
 			var fsStream events.Stream
 			if cfg.Driver == "posix" {
 				// We need to init the posix driver with 'scanfs' disabled
-				drivers["posix"] = revaconfig.Posix(cfg, false)
+				drivers["posix"] = revaconfig.Posix(cfg, false, false)
 				// Also posix refuses to start without an events stream
 				fsStream, err = event.NewStream(cfg)
 				if err != nil {
