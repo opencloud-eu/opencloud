@@ -21,6 +21,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/open-policy-agent/opa from 1.2.0 to 1.3.0 [[#508](https://github.com/opencloud-eu/opencloud/pull/508)]
 - build(deps): bump github.com/urfave/cli/v2 from 2.27.5 to 2.27.6 [[#509](https://github.com/opencloud-eu/opencloud/pull/509)]
 - fix keycloak example #465 [[#535](https://github.com/opencloud-eu/opencloud/pull/535)]
 
