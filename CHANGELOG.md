@@ -4,7 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @ScharfViktor, @aduffeck, @butonic, @individual-it, @micbar
+@AlexAndBear, @JammingBen, @ScharfViktor, @aduffeck, @butonic, @individual-it, @micbar, @rhafer
+
+### ✅ Tests
+
+- Revert "Disable the 'exclude' patterns on the path conditional for now" [[#561](https://github.com/opencloud-eu/opencloud/pull/561)]
 
 ### 🐛 Bug Fixes
 
