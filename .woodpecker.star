@@ -2177,11 +2177,6 @@ def build():
     ]
 
 def skipIfUnchanged(ctx, type):
-    ## FIXME: the 'exclude' feature (https://woodpecker-ci.org/docs/usage/workflow-syntax#path) does not seem to provide
-    # what we need. It seems to skip the build as soon as one of the changed files matches an exclude pattern, we only
-    # want to skip of ALL changed files match. So skip this condition for now:
-    return []
-
     if "full-ci" in ctx.build.title.lower() or ctx.build.event == "tag" or ctx.build.event == "cron":
         return []
 
