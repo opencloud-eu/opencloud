@@ -61,7 +61,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/ginkgo/v2 v2.23.3
-	github.com/onsi/gomega v1.36.3
+	github.com/onsi/gomega v1.37.0
 	github.com/open-policy-agent/opa v1.3.0
 	github.com/opencloud-eu/reva/v2 v2.29.1
 	github.com/orcaman/concurrent-map v1.0.0

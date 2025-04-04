@@ -23,5 +23,6 @@ jobs:
             Type:Maintenance
             Type:Security
             Type:Dependencies
+            Type:DevOps
             dependencies
           add_comment: true
