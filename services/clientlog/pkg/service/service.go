@@ -11,7 +11,6 @@ import (
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	group "github.com/cs3org/go-cs3apis/cs3/identity/group/v1beta1"
 	user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
-	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"go.opentelemetry.io/otel/trace"
 
@@ -219,33 +218,16 @@ func processShareEvent(ctx context.Context, ref *provider.Reference, gwc gateway
 
 // custom logic for item trashed event
 func processItemTrashedEvent(ctx context.Context, ref *provider.Reference, gwc gateway.GatewayAPIClient, initiatorid string, itemID *provider.ResourceId) ([]string, FileEvent, error) {
-	resp, err := gwc.ListRecycle(ctx, &provider.ListRecycleRequest{
-		Ref: ref,
-		Key: itemID.GetOpaqueId(),
-	})
-	if err != nil {
-		return nil, FileEvent{}, err
-	}
-	if resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
-		return nil, FileEvent{}, fmt.Errorf("error listing recycle: %s", resp.GetStatus().GetMessage())
+	data := FileEvent{
+		ItemID: storagespace.FormatResourceID(itemID),
+		// TODO: check with web if parentID is needed
+		// ParentItemID: storagespace.FormatResourceID(*item.GetRef().GetResourceId()),
+		SpaceID:     storagespace.FormatStorageID(itemID.GetStorageId(), itemID.GetSpaceId()),
+		InitiatorID: initiatorid,
 	}
 
-	for _, item := range resp.GetRecycleItems() {
-		if item.GetKey() == itemID.GetOpaqueId() {
-
-			data := FileEvent{
-				ItemID: storagespace.FormatResourceID(itemID),
-				// TODO: check with web if parentID is needed
-				// ParentItemID: storagespace.FormatResourceID(*item.GetRef().GetResourceId()),
-				SpaceID:     storagespace.FormatStorageID(itemID.GetStorageId(), itemID.GetSpaceId()),
-				InitiatorID: initiatorid,
-			}
-
-			users, err := utils.GetSpaceMembers(ctx, itemID.GetSpaceId(), gwc, utils.ViewerRole)
-			return users, data, err
-		}
-	}
-	return nil, FileEvent{}, errors.New("item not found in recycle bin")
+	users, err := utils.GetSpaceMembers(ctx, itemID.GetSpaceId(), gwc, utils.ViewerRole)
+	return users, data, err
 }
 
 // adds share related data to the FileEvent
