@@ -6,16 +6,17 @@
 
 @AlexAndBear, @JammingBen, @ScharfViktor, @aduffeck, @butonic, @individual-it, @micbar, @rhafer
 
-### ✅ Tests
-
-- Revert "Disable the 'exclude' patterns on the path conditional for now" [[#561](https://github.com/opencloud-eu/opencloud/pull/561)]
-
 ### 🐛 Bug Fixes
 
+- fix(opencloud_full): add missing SMTP env vars [[#563](https://github.com/opencloud-eu/opencloud/pull/563)]
 - fix: full deployment tika description is wrong [[#553](https://github.com/opencloud-eu/opencloud/pull/553)]
 - fix: traefik credentials [[#555](https://github.com/opencloud-eu/opencloud/pull/555)]
 - Enable scan/watch in the storageprovider only [[#546](https://github.com/opencloud-eu/opencloud/pull/546)]
 - fix: typo in dev docs [[#540](https://github.com/opencloud-eu/opencloud/pull/540)]
+
+### ✅ Tests
+
+- Revert "Disable the 'exclude' patterns on the path conditional for now" [[#561](https://github.com/opencloud-eu/opencloud/pull/561)]
 
 ### 📈 Enhancement
 
