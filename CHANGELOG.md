@@ -8,6 +8,7 @@
 
 ### 🐛 Bug Fixes
 
+- Simplify item-trashed SSEs. Also fixes it for coll. posix fs. [[#565](https://github.com/opencloud-eu/opencloud/pull/565)]
 - fix(opencloud_full): add missing SMTP env vars [[#563](https://github.com/opencloud-eu/opencloud/pull/563)]
 - fix: full deployment tika description is wrong [[#553](https://github.com/opencloud-eu/opencloud/pull/553)]
 - fix: traefik credentials [[#555](https://github.com/opencloud-eu/opencloud/pull/555)]
