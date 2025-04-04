@@ -1,0 +1,256 @@
+
+model {
+  guest = person 'Guest' {
+    description 'A user external to the organization'
+    style {
+        color muted
+    }
+  }
+  user = person 'User' {
+    description 'A member of the organization'
+  }
+  admin = person 'Admin' {
+    description 'A user with administrative permissions'
+  }
+
+  opencloud = softwaresystem 'OpenCloud' {
+    description 'File sharing and collaboration platform'
+
+    // clients TODO make this a container
+    component web 'Web SPA' {
+      description 'Vue.js application'
+      style {
+        icon tech:vue
+        shape browser
+      }
+    }
+    component desktop 'Desktop client' {
+      description 'Platform independent application'
+      style {
+        icon tech:cplusplus
+        shape browser
+      }
+    }
+    component android 'Android client' {
+      description 'Android App'
+      style {
+        icon tech:kotlin
+        shape mobile
+      }
+    }
+    component iOS 'iOS client' {
+      description 'iOS App'
+      style {
+        icon tech:swift
+        shape mobile
+      }
+    }
+
+    container proxy 'Proxy' {
+      description '
+        Authenticates and routes requests
+        [HTTPS]
+      '
+      style {
+        icon tech:go
+      }
+      // services
+      gocomponent serviceWeb 'web' {
+        description 'Delivers the static content and the Web SPA'
+      }
+      gocomponent serviceGraph 'graph' {
+        description 'Serves a libregraph API for spaces'
+      }
+
+      serviceGraph -> cs3storageprovider-system 'checks permissions?\n[GRPC]'
+
+      gocomponent serviceOCDav 'ocdav' {
+        description 'Serves a WebDAV API for spaces'
+      }
+      gocomponent serviceWebDav 'webdav' {
+        description 'Serves thumbnails for spaces'
+      }
+      gocomponent serviceAntivirus 'antivirus'
+      gocomponent serviceActivityLog 'activitylog'
+      gocomponent serviceAudit 'audit'
+      gocomponent serviceClientLog 'clientlog'
+      gocomponent serviceCollaboration 'collaboration' 
+      gocomponent serviceEventHistory 'eventhistory'
+      gocomponent serviceIDM 'idm'
+      gocomponent serviceIDP 'idp'
+      gocomponent serviceInvitations 'invitations'
+      gocomponent serviceNats 'nats'
+      gocomponent serviceNotifications 'notifications'
+      gocomponent servicePolicies 'policies'
+      gocomponent servicePostProcessing 'postprocessing'
+      gocomponent serviceSearch 'search'
+      gocomponent serviceSettings 'settings'
+      gocomponent serviceSSE 'sse'
+      gocomponent serviceThumbnails 'thumbnails'
+      gocomponent serviceUserlog 'userlog'
+      gocomponent serviceWebfinger 'webfinger'
+
+    }
+    container cs3gateway 'gateway' {
+      description '
+        Authenticates and routes requests
+        [GRPC]
+      '
+      style {
+        icon tech:go
+      }
+      // services
+      gocomponent cs3storageprovider 'storage-users' {
+        description 'Serves a CS3 API for storage providers'
+      }
+      
+      cs3storageprovider -> storage 'manages files on'
+
+      gocomponent cs3users 'users' {
+        description 'Serves a CS3 API for users'
+      }
+      gocomponent cs3groups 'groups' {
+        description 'Serves a CS3 API for groups'
+      }
+      gocomponent serviceAppProvider 'app-provider' // TODO delete this - part of collaboration, right?
+      gocomponent serviceAuthApp 'auth-app'
+      gocomponent serviceAuthBasic 'auth-basic'
+      gocomponent serviceAuthBearer 'auth-bearer'
+      gocomponent serviceAuthMachine 'auth-machine'
+      gocomponent serviceAuthService 'auth-service'
+      gocomponent serviceFrontend 'frontend'
+      gocomponent serviceOCM 'ocm'
+      gocomponent serviceOCS 'ocs'
+      gocomponent serviceSharing 'sharing'
+      gocomponent serviceStoragePubliclink 'storage-publiclink'
+      gocomponent serviceStorageShares 'storage-shares'
+    }
+
+    //cs3gateway -> cs3storageprovider 'makes CS3 calls\n[GRPC]'
+    
+    container cs3gateway-system 'storage-system gateway' {
+      description '
+        Authenticates and routes requests
+        [GRPC]
+      '
+      style {
+        icon tech:go
+      }
+      // services
+      gocomponent cs3storageprovider-system 'storage-system' {
+        description 'Serves a CS3 API for storage providers'
+      }
+      cs3storageprovider-system -> storage 'persists files on'
+
+      gocomponent cs3users-system 'users' {
+        description 'Serves a CS3 API for users'
+      }
+      gocomponent cs3groups-system 'groups' {
+        description 'Serves a CS3 API for groups'
+      }
+    }
+
+    // users interact with the clients
+    user -> web 'manages files via'
+    user -> desktop 'manages files via'
+    user -> iOS 'manages files via'
+    user -> android 'manages files via'
+
+    // UI fetches data from the Backend
+    serviceWeb -> web 'delivers to the users web browser\n[HTTPS]'
+    user -> serviceWeb 'visits cloud.example.com\n[HTTPS]'
+
+    // proxy authenticates and routes requests
+    web -> serviceWeb 'fetches theme from\n[HTTPS]'
+    web -> serviceGraph 'fetches spaces, users and groups from\n[HTTPS]'
+    web -> serviceOCDav 'manages files in a space via\n[HTTPS]'
+    web -> serviceWebDav 'fetches thumbnails from\n[HTTPS]'
+    serviceOCDav -> cs3storageprovider 'makes CS3 calls\n[GRPC]'
+    serviceGraph -> cs3storageprovider 'makes CS3 calls\n[GRPC]'
+    serviceGraph -> cs3users 'makes CS3 calls\n[GRPC]'
+    serviceGraph -> cs3groups 'makes CS3 calls\n[GRPC]'
+
+
+  }
+  
+  collabora = existingsystem 'Collabora Online' {
+    description 'Online office suite'
+  }
+  clamav = existingsystem 'ClamAV' {
+    description 'An antivirus engine'
+  }
+  tika = existingsystem 'Apache Tika' {
+    description 'An open source content analysis toolkit'
+    style {
+      icon tech:java
+    }
+  }
+  openldap = existingsystem 'OpenLDAP' {
+    description 'An LDAP server'
+  }
+  storage = existingsystem 'POSIX storage' {
+    description '
+      POSIX capable storage with
+      a watch/notification mechanism
+      local ext4, xfs, btrfs, zfs, ...
+      distributed cephfs, gpfs, NFS, ...
+    '
+  }
+  idp = existingsystem 'Identity Provider' {
+    description 'OpenID Connect capable identity provider 
+    that authenticates users'
+  }
+  mta = existingsystem 'E-Mail Server' {
+    description 'Mail Transfer Agent that sends notifications'
+  }
+  
+  // Customer uses the UI
+  guest -> opencloud 'manages shared files'
+  user -> opencloud 'manages files'
+  admin -> opencloud 'manages spaces and users'
+
+  opencloud -> collabora 'opens documents in'
+  opencloud -> idp 'authenticaties users with'
+  opencloud -> clamav 'scans uploaded files with'
+  opencloud -> openldap 'searches recipients in'
+  opencloud -> mta 'sends e-mails via'
+  opencloud -> storage 'manages files on'
+
+}
+
+
+views {
+    view context of opencloud {
+    title "OpenCloud System - SystemContext"
+    include
+      guest,
+      user,
+      admin,
+      opencloud,
+      collabora,
+      openldap,
+      clamav,
+      storage,
+      idp,
+      mta
+  }
+
+  view container of opencloud {
+    title "OpenCloud System - Container"
+    include
+      user,
+      opencloud,
+      web,
+      desktop,
+      iOS,
+      android,
+      proxy.*,
+      cs3gateway.*,
+      cs3gateway-system.*,
+      storage
+
+
+    exclude
+      user -> serviceWeb
+  }
+}

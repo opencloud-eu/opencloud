@@ -1,0 +1,271 @@
+// Define deployment node kinds
+specification {
+  deploymentNode node
+  deploymentNode pod
+  deploymentNode statefulset
+  deploymentNode pvc {
+    style {
+      color gray
+      shape cylinder
+    }
+  }
+  deploymentNode namespace
+  deploymentNode tenant
+  deploymentNode kubernetes {
+    style {
+      icon tech:kubernetes
+      multiple true
+    }
+  }
+  deploymentNode environment {
+    style {
+      color gray
+    }
+  }
+}
+
+// Deployment model
+deployment {
+
+  node customerNode {
+    // References to model.c4
+    instanceOf user
+  }
+
+  environment prod 'Production' {
+    kubernetes cluster 'Kubernetes' {
+      namespace antivirus 'Shared Antivirus namespace' {
+        // TODO how does this scale?
+        style {
+          color red
+        }
+        pod antivirus 'ClamAV pod' {
+          instanceOf clamav
+        }
+      }
+      antivirus -> instance1 'scans files for'
+      antivirus -> instance2 'scans files for'
+
+      namespace tika 'Shared Tika namespace' {
+        // TODO how does this scale?
+        style {
+          color red
+        }
+        pod tike 'tike pod' {
+          instanceOf tika
+        }
+      }
+      tika -> instance1 'extracts file metadata for'
+      tika -> instance2 'extracts file metadata for'
+      
+      namespace collaboraonlinecluster 'Collabora Online cluster' {
+        style {
+          color red
+        }
+        statefulset collaboraonline1 'collaboraonline statefulset 1' 
+        statefulset collaboraonline2 'collaboraonline statefulset 2'
+      }
+      collaboraonlinecluster -> instance1 'provides collabora online editing'
+      collaboraonlinecluster -> instance2 'provides collabora online editing'
+
+      tenant tenant1 'Tenant 1' {
+        style {
+          color indigo
+        }
+
+        namespace natscluster1 'Nats Cluster for instance 1' {
+          style {
+            color indigo
+          }
+          statefulset nats1 'nats statefulset 1' 
+          statefulset nats2 'nats statefulset 2' 
+          statefulset nats3 'nats statefulset 3' 
+        }
+        natscluster1 -> instance1 'provides caching and messaging'
+
+        namespace openldapcluster1 'OpenLDAP cluster for instance 1' {
+          style {
+            color indigo
+          }
+          statefulset openldap1 'openldap statefulset 1' 
+          statefulset openldap2 'openldap statefulset 2' 
+        }
+        openldapcluster1 -> instance1 'provides user and group information'
+
+        namespace keycloakcluster1 'Keycloak cluster for instance 1' {
+          style {
+            color indigo
+          }
+          statefulset keycloak1 'keycloak statefulset 1' 
+          statefulset keycloak2 'keycloak statefulset 2' 
+          statefulset postgres1 'postgres statefulset 1'
+          statefulset postgres2 'postgres statefulset 2'
+          statefulset postgres3 'postgres statefulset 3'
+        }
+        keycloakcluster1 -> instance1 'provides user authentication'
+        
+        namespace instance1 'Opencloud namespace' {
+          pod proxy 'Proxy pod' {
+            instanceOf opencloud.proxy
+          }
+          proxy -> opencloud 'routes requests to'
+          proxy -> thumbnails 'routes requests to'
+
+          pod opencloud 'OpenCloud pod' {
+            description '
+              single pod for most services
+            '
+            instanceOf opencloud.serviceWeb
+            instanceOf opencloud.serviceOCDav
+            instanceOf opencloud.serviceWebDav
+            instanceOf opencloud.serviceGraph
+            instanceOf opencloud.serviceSearch
+            instanceOf opencloud.cs3gateway
+          }
+          pod thumbnails 'thumbnails pod' {
+            description 'creates thumbnails for files'
+            // dedicated container to minimize security risks,
+            // how can we limit what the container can do? use a scratch image?
+          }
+          pod storageprovider 'Storageprovider pod' {
+            description '
+              translates CS3 calls using a storage driver
+              [posix, decomposed, decomposeds3]
+            '
+            instanceOf opencloud.cs3storageprovider
+            pvc storage 'Storage' {
+              description 'Persistent volume for the storage provider'
+            }
+            cs3storageprovider -> storage 'accesses files on'
+          }
+          opencloud.cs3gateway -> storageprovider 'makes CS3 calls\n[GRPC]'
+        }
+        
+      }
+
+      tenant tenant2 'Tenant 2' {
+        style {
+          color indigo
+        }
+
+        namespace natscluster2 'Nats Cluster for instance 2' {
+          style {
+            color secondary
+          }
+          statefulset nats1 'nats statefulset 1' 
+          statefulset nats2 'nats statefulset 2' 
+          statefulset nats3 'nats statefulset 3' 
+        }
+        natscluster2 -> instance2 'provides caching and messaging'
+
+        namespace openldapcluster2 'OpenLDAP cluster for instance 2' {
+          style {
+            color secondary
+          }
+          statefulset openldap1 'openldap statefulset 1' 
+          statefulset openldap2 'openldap statefulset 2' 
+        }
+        openldapcluster2 -> instance2 'provides user and group information'
+
+
+        namespace keycloakcluster2 'Keycloak cluster for instance 2' {
+          style {
+            color secondary
+          }
+          statefulset keycloak1 'keycloak statefulset 1' 
+          statefulset keycloak2 'keycloak statefulset 2' 
+          statefulset postgres1 'postgres statefulset 1'
+          statefulset postgres2 'postgres statefulset 2'
+          statefulset postgres3 'postgres statefulset 3'
+        }
+        keycloakcluster2 -> instance2 'provides user authentication'
+
+        namespace instance2 'Otherinstance namespace' {
+          style {
+            color green
+          }
+          pod proxy 'Proxy pod' {
+            style {
+              color green
+            }
+            instanceOf opencloud.proxy
+          }
+          proxy -> opencloud 'routes requests to'
+          proxy -> thumbnails 'routes requests to'
+
+          pod opencloud 'OpenCloud pod' {
+            style {
+              color green
+            }
+            description '
+              single pod for most services
+            '
+            instanceOf opencloud.serviceWeb
+            instanceOf opencloud.serviceOCDav
+            instanceOf opencloud.serviceWebDav
+            instanceOf opencloud.serviceGraph
+            instanceOf opencloud.serviceSearch
+            instanceOf opencloud.cs3gateway
+          }
+          pod thumbnails 'thumbnails pod' {
+            style {
+              color green
+            }
+            description 'creates thumbnails for files'
+            // dedicated container to minimize security risks,
+            // how can we limit what the container can do? use a scratch image?
+          }
+          pod storageprovider 'Storageprovider pod' {
+            style {
+              color green
+            }
+            description '
+              translates CS3 calls using a storage driver
+              [posix, decomposed, decomposeds3]
+            '
+            instanceOf opencloud.cs3storageprovider {
+              style {
+                color green
+              }
+            }
+            pvc storage 'Storage' {
+              description 'Persistent volume for the storage provider'
+            }
+            cs3storageprovider -> storage 'accesses files on'
+          }
+          opencloud.cs3gateway -> storageprovider 'makes CS3 calls\n[GRPC]'
+        }
+      }
+      
+    }
+  }
+}
+
+views {
+  deployment view deployment {
+    title 'Deployment view'
+    description 'Deployment view of the system'
+
+    include
+      //user,
+      prod,
+      cluster._,
+      antivirus._,
+      tenant1._,
+      tenant2._,
+      natscluster1._,
+      collaboraonlinecluster._,
+      keycloakcluster1._,
+      instance1.*,
+      instance1.cs3storageprovider -> instance1.storage,
+      instance1.proxy -> instance1.opencloud,
+      instance2.*,
+      instance2.cs3storageprovider -> instance2.storage,
+    exclude
+      instance1.proxy -> instance1.storageprovider,
+      //nstance1.proxy ->,
+      instance2.proxy -> instance2.storageprovider,
+      //instance2.proxy ->
+
+	}
+}
