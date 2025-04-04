@@ -18,7 +18,7 @@ services:
       OC_LDAP_USER_FILTER: "(objectclass=opencloud)"
       OC_LDAP_USER_OBJECTCLASS: "inetOrgPerson"
       LDAP_LOGIN_ATTRIBUTES: "uid"
-      OC_ADMIN_USER_ID: "ddc2004c-0977-11eb-9d3f-a793888cd0f8"
+      OC_ADMIN_USER_ID: "f7fc96f6-ceb4-4387-bd69-07a6d7992973"
       IDP_LDAP_LOGIN_ATTRIBUTE: "uid"
       IDP_LDAP_UUID_ATTRIBUTE: "openclouduuid"
       IDP_LDAP_UUID_ATTRIBUTE_TYPE: binary
