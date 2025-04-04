@@ -2,7 +2,7 @@ dn: dc=opencloud,dc=com
 objectClass: organization
 objectClass: dcObject
 dc: opencloud
-o: opencloud
+o: openCloud
 
 dn: ou=users,dc=opencloud,dc=com
 objectClass: organizationalUnit
