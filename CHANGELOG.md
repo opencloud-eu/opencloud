@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @ScharfViktor, @aduffeck, @butonic, @individual-it, @micbar, @rhafer
+@AlexAndBear, @JammingBen, @ScharfViktor, @aduffeck, @butonic, @individual-it, @kulmann, @micbar, @rhafer
 
 ### 🐛 Bug Fixes
 
@@ -27,6 +27,7 @@
 
 ### 📦️ Dependencies
 
+- [full-ci] chore(web): bump web to v2.2.0 [[#570](https://github.com/opencloud-eu/opencloud/pull/570)]
 - build(deps): bump github.com/onsi/gomega from 1.36.3 to 1.37.0 [[#566](https://github.com/opencloud-eu/opencloud/pull/566)]
 - build(deps): bump golang.org/x/net from 0.37.0 to 0.38.0 [[#557](https://github.com/opencloud-eu/opencloud/pull/557)]
 - build(deps-dev): bump eslint-plugin-jsx-a11y from 6.9.0 to 6.10.2 in /services/idp [[#542](https://github.com/opencloud-eu/opencloud/pull/542)]
