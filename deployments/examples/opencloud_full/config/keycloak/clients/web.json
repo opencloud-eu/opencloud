@@ -1,19 +1,21 @@
 {
   "clientId": "web",
-  "name": "",
+  "name": "OpenCloud Web App",
   "description": "",
-  "rootUrl": "https://cloud.opencloud.test",
-  "adminUrl": "https://cloud.opencloud.test",
+  "rootUrl": "{{OC_URL}}",
+  "adminUrl": "{{OC_URL}}",
   "baseUrl": "",
   "surrogateAuthRequired": false,
   "enabled": true,
   "alwaysDisplayInConsole": false,
   "clientAuthenticatorType": "client-secret",
   "redirectUris": [
-    "https://cloud.opencloud.test/*"
+    "{{OC_URL}}/",
+    "{{OC_URL}}/oidc-callback.html",
+    "{{OC_URL}}/oidc-silent-redirect.html"
   ],
   "webOrigins": [
-    "https://cloud.opencloud.test"
+    "{{OC_URL}}"
   ],
   "notBefore": 0,
   "bearerOnly": false,
@@ -37,7 +39,7 @@
     "saml.server.signature.keyinfo.ext": "false",
     "exclude.session.state.from.auth.response": "false",
     "oidc.ciba.grant.enabled": "false",
-    "backchannel.logout.url": "https://cloud.opencloud/backchannel_logout",
+    "backchannel.logout.url": "{{OC_URL}}/backchannel_logout",
     "backchannel.logout.session.required": "true",
     "client_credentials.use_refresh_token": "false",
     "saml_force_name_id_format": "false",

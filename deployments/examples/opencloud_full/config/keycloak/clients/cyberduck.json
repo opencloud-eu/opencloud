@@ -1,12 +1,11 @@
 {
-  "clientId": "3keLfua0olYvW1zKXTDB3OjAMPEYWEQNuiscli395GKJOiPnPURNQWGvGCJZf4Hw",
+  "clientId": "Cyberduck",
   "name": "Cyberduck",
-  "description": "",
+  "description": "File transfer utility client",
   "surrogateAuthRequired": false,
   "enabled": true,
   "alwaysDisplayInConsole": false,
   "clientAuthenticatorType": "client-secret",
-  "secret": "yoqICbLIeYbpZPqDH4D8k4NKb04HqnrWBntEeVZEQ5gO1RmaUlln0Aqu1dj2UoF4",
   "redirectUris": [
     "x-cyberduck-action:oauth",
     "x-mountainduck-action:oauth"
@@ -19,7 +18,7 @@
   "implicitFlowEnabled": false,
   "directAccessGrantsEnabled": true,
   "serviceAccountsEnabled": false,
-  "publicClient": false,
+  "publicClient": true,
   "frontchannelLogout": false,
   "protocol": "openid-connect",
   "attributes": {

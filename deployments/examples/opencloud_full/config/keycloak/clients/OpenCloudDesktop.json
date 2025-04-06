@@ -1,13 +1,13 @@
 {
-  "clientId": "mxd5OQDk6es5LzOzRvidJNfXLUZS2oN3oUFeXPP8LpPrhx3UroJFduGEYIBOxkY1",
-  "name": "OpenCloud iOS app",
+  "clientId": "OpenCloudDesktop",
+  "name": "OpenCloud Desktop Client",
   "surrogateAuthRequired": false,
   "enabled": true,
   "alwaysDisplayInConsole": false,
   "clientAuthenticatorType": "client-secret",
-  "secret": "KFeFWWEZO9TkisIQzR3fo7hfiMXlOpaqP8CFuTbSHzV1TUuGECglPxpiVKJfOXIx",
   "redirectUris": [
-    "oc://ios.opencloud.com"
+    "http://127.0.0.1",
+    "http://localhost"
   ],
   "webOrigins": [],
   "notBefore": 0,
@@ -17,7 +17,7 @@
   "implicitFlowEnabled": false,
   "directAccessGrantsEnabled": true,
   "serviceAccountsEnabled": false,
-  "publicClient": false,
+  "publicClient": true,
   "frontchannelLogout": false,
   "protocol": "openid-connect",
   "attributes": {
