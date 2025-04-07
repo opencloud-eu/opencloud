@@ -1,10 +1,15 @@
 # Changelog
 
-## [2.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.1.0) - 2025-04-04
+## [2.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.1.0) - 2025-04-07
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @AlexAndBear, @JammingBen, @ScharfViktor, @aduffeck, @butonic, @individual-it, @kulmann, @micbar, @rhafer
+
+### ✅ Tests
+
+- [full-ci] fix expected spanish string in test [[#596](https://github.com/opencloud-eu/opencloud/pull/596)]
+- Revert "Disable the 'exclude' patterns on the path conditional for now" [[#561](https://github.com/opencloud-eu/opencloud/pull/561)]
 
 ### 🐛 Bug Fixes
 
@@ -14,10 +19,6 @@
 - fix: traefik credentials [[#555](https://github.com/opencloud-eu/opencloud/pull/555)]
 - Enable scan/watch in the storageprovider only [[#546](https://github.com/opencloud-eu/opencloud/pull/546)]
 - fix: typo in dev docs [[#540](https://github.com/opencloud-eu/opencloud/pull/540)]
-
-### ✅ Tests
-
-- Revert "Disable the 'exclude' patterns on the path conditional for now" [[#561](https://github.com/opencloud-eu/opencloud/pull/561)]
 
 ### 📈 Enhancement
 
