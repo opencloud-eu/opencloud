@@ -416,8 +416,6 @@ def main(ctx):
       none
     """
 
-    pipelines = []
-
     build_release_helpers = \
         readyReleaseGo() + \
         docs()
@@ -431,8 +429,8 @@ def main(ctx):
 
     test_pipelines = \
         codestyle(ctx) + \
-        checkGherkinLint(ctx) + \
-        checkTestSuitesInExpectedFailures(ctx) + \
+        checkGherkinLint() + \
+        checkTestSuitesInExpectedFailures() + \
         buildWebCache(ctx) + \
         getGoBinForTesting(ctx) + \
         buildOpencloudBinaryForTesting(ctx) + \
@@ -474,7 +472,7 @@ def main(ctx):
         ),
     )
 
-    pipelineSanityChecks(ctx, pipelines)
+    pipelineSanityChecks(pipelines)
     return pipelines
 
 def cachePipeline(name, steps):
@@ -772,7 +770,7 @@ def vendorbinCodesniffer(phpVersion):
         ],
     }]
 
-def checkTestSuitesInExpectedFailures(ctx):
+def checkTestSuitesInExpectedFailures():
     return [{
         "name": "check-suites-in-expected-failures",
         "steps": [
@@ -791,7 +789,7 @@ def checkTestSuitesInExpectedFailures(ctx):
         ],
     }]
 
-def checkGherkinLint(ctx):
+def checkGherkinLint():
     return [{
         "name": "check-gherkin-standard",
         "steps": [
@@ -932,7 +930,7 @@ def localApiTestPipeline(ctx):
                                      (opencloudServer(storage, params["accounts_hash_difficulty"], deploy_type = "federation", extra_server_environment = params["extraServerEnvironment"]) if params["federationServer"] else []) +
                                      ((wopiCollaborationService("fakeoffice") + wopiCollaborationService("collabora") + wopiCollaborationService("onlyoffice")) if params["collaborationServiceNeeded"] else []) +
                                      (openCloudHealthCheck("wopi", ["wopi-collabora:9304", "wopi-onlyoffice:9304", "wopi-fakeoffice:9304"]) if params["collaborationServiceNeeded"] else []) +
-                                     localApiTests(ctx, name, params["suites"], storage, params["extraEnvironment"], run_with_remote_php) +
+                                     localApiTests(name, params["suites"], storage, params["extraEnvironment"], run_with_remote_php) +
                                      logRequests(),
                             "services": (emailService() if params["emailNeeded"] else []) +
                                         (clamavService() if params["antivirusNeeded"] else []) +
@@ -954,9 +952,9 @@ def localApiTestPipeline(ctx):
                         pipelines.append(pipeline)
     return pipelines
 
-def localApiTests(ctx, name, suites, storage = "decomposed", extra_environment = {}, with_remote_php = False):
+def localApiTests(name, suites, storage = "decomposed", extra_environment = {}, with_remote_php = False):
     test_dir = "%s/tests/acceptance" % dirs["base"]
-    expected_failures_file = "%s/expected-failures-localAPI-on-decomposed-storage.md" % (test_dir)
+    expected_failures_file = "%s/expected-failures-localAPI-on-decomposed-storage.md" % test_dir
 
     environment = {
         "TEST_SERVER_URL": OC_URL,
@@ -990,7 +988,7 @@ def cs3ApiTests(ctx, storage, accounts_hash_difficulty = 4):
     return {
         "name": "cs3ApiTests-%s" % storage,
         "steps": restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
-                 opencloudServer(storage, accounts_hash_difficulty, [], [], "cs3api_validator") +
+                 opencloudServer(storage, accounts_hash_difficulty, deploy_type = "cs3api_validator") +
                  [
                      {
                          "name": "cs3ApiTests",
@@ -1036,7 +1034,6 @@ def wopiValidatorTests(ctx, storage, wopiServerType, accounts_hash_difficulty = 
     ]
 
     validatorTests = []
-    wopiServer = []
     extra_server_environment = {}
 
     if wopiServerType == "cs3":
@@ -1204,7 +1201,7 @@ def apiTests(ctx):
 
     for runPart in range(1, config["apiTests"]["numberOfParts"] + 1):
         for run_with_remote_php in defaults["withRemotePhp"]:
-            if (not debugPartsEnabled or (debugPartsEnabled and runPart in debugParts)):
+            if not debugPartsEnabled or (debugPartsEnabled and runPart in debugParts):
                 pipelines.append(coreApiTests(ctx, runPart, config["apiTests"]["numberOfParts"], run_with_remote_php))
 
     return pipelines
@@ -1244,10 +1241,10 @@ def e2eTestPipeline(ctx):
 
     pipelines = []
 
-    if ("skip-e2e" in ctx.build.title.lower()):
+    if "skip-e2e" in ctx.build.title.lower():
         return pipelines
 
-    if (ctx.build.event == "tag"):
+    if ctx.build.event == "tag":
         return pipelines
 
     storage = "posix"
@@ -1347,11 +1344,11 @@ def multiServiceE2ePipeline(ctx):
         },
     ]
 
-    if ("skip-e2e" in ctx.build.title.lower()):
+    if "skip-e2e" in ctx.build.title.lower():
         return pipelines
 
     # run this pipeline only for cron jobs and full-ci PRs
-    if (not "full-ci" in ctx.build.title.lower() and ctx.build.event != "cron"):
+    if not "full-ci" in ctx.build.title.lower() and ctx.build.event != "cron":
         return pipelines
 
     storage = "posix"
@@ -1455,7 +1452,7 @@ def multiServiceE2ePipeline(ctx):
         })
     return pipelines
 
-def uploadTracingResult(ctx):
+def uploadTracingResult():
     return [{
         "name": "upload-tracing-result",
         "image": PLUGINS_S3,
@@ -1549,7 +1546,7 @@ def dockerReleases(ctx):
 
 def dockerRelease(ctx, repo, build_type):
     build_args = [
-        "REVISION=%s" % (ctx.build.commit),
+        "REVISION=%s" % ctx.build.commit,
         "VERSION=%s" % (ctx.build.ref.replace("refs/tags/", "") if ctx.build.event == "tag" else "daily"),
     ]
 
@@ -1848,7 +1845,7 @@ def releaseDockerReadme(repo, build_type):
                         "from_secret": "docker_password",
                     },
                     "PUSHRM_TARGET": repo,
-                    "PUSHRM_SHORT": "Docker images for %s" % (repo),
+                    "PUSHRM_SHORT": "Docker images for %s" % repo,
                     "PUSHRM_FILE": "README.md",
                 },
             },
@@ -1908,7 +1905,7 @@ def makeNodeGenerate(module):
     if module == "":
         make = "make"
     else:
-        make = "make -C %s" % (module)
+        make = "make -C %s" % module
     return [
         {
             "name": "generate nodejs",
@@ -1918,7 +1915,7 @@ def makeNodeGenerate(module):
             },
             "commands": [
                 "pnpm config set store-dir ./.pnpm-store",
-                "for i in $(seq 3); do %s node-generate-prod && break || sleep 1; done" % (make),
+                "for i in $(seq 3); do %s node-generate-prod && break || sleep 1; done" % make,
             ],
         },
     ]
@@ -1927,13 +1924,13 @@ def makeGoGenerate(module):
     if module == "":
         make = "make"
     else:
-        make = "make -C %s" % (module)
+        make = "make -C %s" % module
     return [
         {
             "name": "generate go",
             "image": OC_CI_GOLANG,
             "commands": [
-                "for i in $(seq 3); do %s go-generate && break || sleep 1; done" % (make),
+                "for i in $(seq 3); do %s go-generate && break || sleep 1; done" % make,
             ],
             "environment": CI_HTTP_PROXY_ENV,
         },
@@ -1972,13 +1969,13 @@ def notify(ctx):
         "runs_on": status,
     }
 
-def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, volumes = [], depends_on = [], deploy_type = "", extra_server_environment = {}, with_wrapper = False, tika_enabled = False):
+def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, depends_on = [], deploy_type = "", extra_server_environment = {}, with_wrapper = False, tika_enabled = False):
     user = "0:0"
     container_name = OC_SERVER_NAME
     environment = {
         "OC_URL": OC_URL,
         "OC_CONFIG_DIR": "/root/.opencloud/config",  # needed for checking config later
-        "STORAGE_USERS_DRIVER": "%s" % (storage),
+        "STORAGE_USERS_DRIVER": "%s" % storage,
         "PROXY_ENABLE_BASIC_AUTH": True,
         "WEB_UI_CONFIG_FILE": "%s/%s" % (dirs["base"], dirs["opencloudConfig"]),
         "OC_LOG_LEVEL": "error",
@@ -2068,7 +2065,7 @@ def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, volume
     # That will allow OpenCloud to use whatever its built-in default is.
     # Otherwise pass in a value from 4 to about 11 or 12 (default 4, for making regular tests fast)
     # The high values cause lots of CPU to be used when hashing passwords, and really slow down the tests.
-    if (accounts_hash_difficulty != "default"):
+    if accounts_hash_difficulty != "default":
         environment["ACCOUNTS_HASH_DIFFICULTY"] = accounts_hash_difficulty
 
     for item in extra_server_environment:
@@ -2081,7 +2078,7 @@ def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, volume
     ]
 
     wait_for_opencloud = {
-        "name": "wait-for-%s" % (container_name),
+        "name": "wait-for-%s" % container_name,
         "image": OC_CI_ALPINE,
         "commands": [
             # wait for opencloud-server to be ready (5 minutes)
@@ -2105,7 +2102,7 @@ def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, volume
             "%s init --insecure true" % dirs["opencloudBin"],
             "cat $OC_CONFIG_DIR/opencloud.yaml",
             "cp tests/config/woodpecker/app-registry.yaml $OC_CONFIG_DIR/app-registry.yaml",
-        ] + (wrapper_commands),
+        ] + wrapper_commands,
     }
 
     steps = [
@@ -2206,8 +2203,6 @@ def skipIfUnchanged(ctx, type):
         skip = base + unit + acceptance
     elif type == "cache":
         skip = base
-    else:
-        return []
 
     return skip
 
@@ -2239,13 +2234,13 @@ def example_deploys(ctx):
 
     deploys = []
     for config in configs:
-        deploys.append(deploy(ctx, config, rebuild))
+        deploys.append(deploy(config, rebuild))
 
     return deploys
 
-def deploy(ctx, config, rebuild):
+def deploy(config, rebuild):
     return {
-        "name": "deploy_%s" % (config),
+        "name": "deploy_%s" % config,
         "steps": [
             {
                 "name": "clone continuous deployment playbook",
@@ -2260,7 +2255,7 @@ def deploy(ctx, config, rebuild):
                 "image": OC_CI_DRONE_ANSIBLE,
                 "failure": "ignore",
                 "environment": {
-                    "CONTINUOUS_DEPLOY_SERVERS_CONFIG": "../%s" % (config),
+                    "CONTINUOUS_DEPLOY_SERVERS_CONFIG": "../%s" % config,
                     "REBUILD": rebuild,
                     "HCLOUD_API_TOKEN": {
                         "from_secret": "hcloud_api_token",
@@ -2350,7 +2345,7 @@ def genericCache(name, action, mounts, cache_path):
             "secret_key": {
                 "from_secret": "cache_s3_secret_key",
             },
-            "filename": "%s.tar" % (name),
+            "filename": "%s.tar" % name,
             "path": cache_path,
             "fallback_path": cache_path,
         },
@@ -2395,7 +2390,7 @@ def genericCachePurge(flush_path):
 def genericBuildArtifactCache(ctx, name, action, path):
     if action == "rebuild" or action == "restore":
         cache_path = "%s/%s/%s" % ("cache", repo_slug, ctx.build.commit + "-${CI_PIPELINE_NUMBER}")
-        name = "%s_build_artifact_cache" % (name)
+        name = "%s_build_artifact_cache" % name
         return genericCache(name, action, [path], cache_path)
 
     if action == "purge":
@@ -2412,14 +2407,13 @@ def rebuildBuildArtifactCache(ctx, name, path):
 def purgeBuildArtifactCache(ctx):
     return genericBuildArtifactCache(ctx, "", "purge", [])
 
-def pipelineSanityChecks(ctx, pipelines):
+def pipelineSanityChecks(pipelines):
     """pipelineSanityChecks helps the CI developers to find errors before running it
 
     These sanity checks are only executed on when converting starlark to yaml.
     Error outputs are only visible when the conversion is done with the woodpecker cli.
 
     Args:
-      ctx: woodpecker passes a context with information which the pipeline can be adapted to
       pipelines: pipelines to be checked, normally you should run this on the return value of main()
 
     Returns:
@@ -2431,7 +2425,7 @@ def pipelineSanityChecks(ctx, pipelines):
     for pipeline in pipelines:
         pipeline_name = pipeline["name"]
         if len(pipeline_name) > max_name_length:
-            print("Error: pipeline name %s is longer than 50 characters" % (pipeline_name))
+            print("Error: pipeline name %s is longer than 50 characters" % pipeline_name)
 
         for step in pipeline["steps"]:
             step_name = step["name"]
@@ -2482,7 +2476,7 @@ def pipelineSanityChecks(ctx, pipelines):
 def litmus(ctx, storage):
     pipelines = []
 
-    if (config["litmus"] == False):
+    if not config["litmus"]:
         return pipelines
 
     environment = {
