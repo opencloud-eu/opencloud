@@ -4,6 +4,11 @@ objectClass: dcObject
 dc: opencloud
 o: openCloud
 
+dn: cn=admin,dc=opencloud,dc=com
+objectClass: person
+cn: admin
+sn: admin
+
 dn: ou=users,dc=opencloud,dc=com
 objectClass: organizationalUnit
 ou: users
