@@ -30,10 +30,15 @@ func DefaultConfig() *config.Config {
 		},
 		Workers:              10,
 		InfectedFileHandling: "delete",
+		// defaults from clamav sample conf: MaxScanSize=400M, MaxFileSize=100M, StreamMaxLength=100M
+		// https://github.com/Cisco-Talos/clamav/blob/main/etc/clamd.conf.sample
+		MaxScanSize:     "100MB",
+		MaxScanSizeMode: config.MaxScanSizeModePartial,
 		Scanner: config.Scanner{
-			Type: "clamav",
+			Type: config.ScannerTypeClamAV,
 			ClamAV: config.ClamAV{
-				Socket: "/run/clamav/clamd.ctl",
+				Socket:  "/run/clamav/clamd.ctl",
+				Timeout: 5 * time.Minute,
 			},
 			ICAP: config.ICAP{
 				URL:     "icap://127.0.0.1:1344",
@@ -57,4 +62,9 @@ func EnsureDefaults(cfg *config.Config) {
 
 // Sanitize sanitizes the configuration
 func Sanitize(cfg *config.Config) {
+	defaultConfig := DefaultConfig()
+
+	if cfg.MaxScanSize == "" {
+		cfg.MaxScanSize = defaultConfig.MaxScanSize
+	}
 }

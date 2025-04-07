@@ -45,7 +45,7 @@ func Server(cfg *config.Config) *cli.Command {
 			{
 				svc, err := service.NewAntivirus(cfg, logger, traceProvider)
 				if err != nil {
-					return err
+					return cli.Exit(err.Error(), 1)
 				}
 
 				gr.Add(svc.Run, func(_ error) {

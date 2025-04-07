@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"slices"
 	"sync"
 	"time"
 
@@ -37,38 +38,44 @@ type Scanner interface {
 }
 
 // NewAntivirus returns a service implementation for Service.
-func NewAntivirus(c *config.Config, l log.Logger, tp trace.TracerProvider) (Antivirus, error) {
-
+func NewAntivirus(cfg *config.Config, logger log.Logger, tracerProvider trace.TracerProvider) (Antivirus, error) {
 	var scanner Scanner
 	var err error
-	switch c.Scanner.Type {
+	switch cfg.Scanner.Type {
 	default:
-		return Antivirus{}, fmt.Errorf("unknown av scanner: '%s'", c.Scanner.Type)
-	case "clamav":
-		scanner = scanners.NewClamAV(c.Scanner.ClamAV.Socket)
-	case "icap":
-		scanner, err = scanners.NewICAP(c.Scanner.ICAP.URL, c.Scanner.ICAP.Service, c.Scanner.ICAP.Timeout)
+		return Antivirus{}, fmt.Errorf("unknown av scanner: '%s'", cfg.Scanner.Type)
+	case config.ScannerTypeClamAV:
+		scanner, err = scanners.NewClamAV(cfg.Scanner.ClamAV.Socket, cfg.Scanner.ClamAV.Timeout)
+	case config.ScannerTypeICap:
+		scanner, err = scanners.NewICAP(cfg.Scanner.ICAP.URL, cfg.Scanner.ICAP.Service, cfg.Scanner.ICAP.Timeout)
 	}
 	if err != nil {
 		return Antivirus{}, err
 	}
 
-	av := Antivirus{c: c, l: l, tp: tp, s: scanner, client: rhttp.GetHTTPClient(rhttp.Insecure(true))}
+	av := Antivirus{config: cfg, log: logger, tracerProvider: tracerProvider, scanner: scanner, client: rhttp.GetHTTPClient(rhttp.Insecure(true))}
 
-	switch o := events.PostprocessingOutcome(c.InfectedFileHandling); o {
-	case events.PPOutcomeContinue, events.PPOutcomeAbort, events.PPOutcomeDelete:
-		av.o = o
+	switch mode := cfg.MaxScanSizeMode; mode {
+	case config.MaxScanSizeModeSkip, config.MaxScanSizeModePartial:
+		break
 	default:
-		return av, fmt.Errorf("unknown infected file handling '%s'", o)
+		return av, fmt.Errorf("unknown max scan size mode '%s'", cfg.MaxScanSizeMode)
 	}
 
-	if c.MaxScanSize != "" {
-		b, err := bytesize.Parse(c.MaxScanSize)
+	switch outcome := events.PostprocessingOutcome(cfg.InfectedFileHandling); outcome {
+	case events.PPOutcomeContinue, events.PPOutcomeAbort, events.PPOutcomeDelete:
+		av.outcome = outcome
+	default:
+		return av, fmt.Errorf("unknown infected file handling '%s'", outcome)
+	}
+
+	if cfg.MaxScanSize != "" {
+		b, err := bytesize.Parse(cfg.MaxScanSize)
 		if err != nil {
 			return av, err
 		}
 
-		av.m = b.Bytes()
+		av.maxScanSize = b.Bytes()
 	}
 
 	return av, nil
@@ -76,23 +83,23 @@ func NewAntivirus(c *config.Config, l log.Logger, tp trace.TracerProvider) (Anti
 
 // Antivirus defines implements the business logic for Service.
 type Antivirus struct {
-	c  *config.Config
-	l  log.Logger
-	s  Scanner
-	o  events.PostprocessingOutcome
-	m  uint64
-	tp trace.TracerProvider
+	config         *config.Config
+	log            log.Logger
+	scanner        Scanner
+	outcome        events.PostprocessingOutcome
+	maxScanSize    uint64
+	tracerProvider trace.TracerProvider
 
 	client *http.Client
 }
 
 // Run runs the service
 func (av Antivirus) Run() error {
-	evtsCfg := av.c.Events
+	eventsCfg := av.config.Events
 
 	var rootCAPool *x509.CertPool
-	if av.c.Events.TLSRootCACertificate != "" {
-		rootCrtFile, err := os.Open(evtsCfg.TLSRootCACertificate)
+	if av.config.Events.TLSRootCACertificate != "" {
+		rootCrtFile, err := os.Open(eventsCfg.TLSRootCACertificate)
 		if err != nil {
 			return err
 		}
@@ -104,10 +111,10 @@ func (av Antivirus) Run() error {
 
 		rootCAPool = x509.NewCertPool()
 		rootCAPool.AppendCertsFromPEM(certBytes.Bytes())
-		av.c.Events.TLSInsecure = false
+		av.config.Events.TLSInsecure = false
 	}
 
-	natsStream, err := stream.NatsFromConfig(av.c.Service.Name, false, stream.NatsConfig(av.c.Events))
+	natsStream, err := stream.NatsFromConfig(av.config.Service.Name, false, stream.NatsConfig(av.config.Events))
 	if err != nil {
 		return err
 	}
@@ -118,7 +125,7 @@ func (av Antivirus) Run() error {
 	}
 
 	wg := sync.WaitGroup{}
-	for i := 0; i < av.c.Workers; i++ {
+	for i := 0; i < av.config.Workers; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -127,11 +134,11 @@ func (av Antivirus) Run() error {
 				if err != nil {
 					switch {
 					case errors.Is(err, ErrFatal):
-						av.l.Fatal().Err(err).Msg("fatal error - exiting")
+						av.log.Fatal().Err(err).Msg("fatal error - exiting")
 					case errors.Is(err, ErrEvent):
-						av.l.Error().Err(err).Msg("continuing")
+						av.log.Error().Err(err).Msg("continuing")
 					default:
-						av.l.Fatal().Err(err).Msg("unknown error - exiting")
+						av.log.Fatal().Err(err).Msg("unknown error - exiting")
 					}
 				}
 			}
@@ -143,20 +150,20 @@ func (av Antivirus) Run() error {
 }
 
 func (av Antivirus) processEvent(e events.Event, s events.Publisher) error {
-	ctx := e.GetTraceContext(context.Background())
-	ctx, span := av.tp.Tracer("antivirus").Start(ctx, "processEvent")
+	ctx, span := av.tracerProvider.Tracer("antivirus").Start(e.GetTraceContext(context.Background()), "processEvent")
 	defer span.End()
-	av.l.Info().Str("traceID", span.SpanContext().TraceID().String()).Msg("TraceID")
+	av.log.Info().Str("traceID", span.SpanContext().TraceID().String()).Msg("TraceID")
+
 	ev := e.Event.(events.StartPostprocessingStep)
 	if ev.StepToStart != events.PPStepAntivirus {
 		return nil
 	}
 
-	if av.c.DebugScanOutcome != "" {
-		av.l.Warn().Str("antivir, clamav", ">>>>>>> ANTIVIRUS_DEBUG_SCAN_OUTCOME IS SET NO ACTUAL VIRUS SCAN IS PERFORMED!").Send()
+	if av.config.DebugScanOutcome != "" {
+		av.log.Warn().Str("antivir, clamav", ">>>>>>> ANTIVIRUS_DEBUG_SCAN_OUTCOME IS SET NO ACTUAL VIRUS SCAN IS PERFORMED!").Send()
 		if err := events.Publish(ctx, s, events.PostprocessingStepFinished{
 			FinishedStep:  events.PPStepAntivirus,
-			Outcome:       events.PostprocessingOutcome(av.c.DebugScanOutcome),
+			Outcome:       events.PostprocessingOutcome(av.config.DebugScanOutcome),
 			UploadID:      ev.UploadID,
 			ExecutingUser: ev.ExecutingUser,
 			Filename:      ev.Filename,
@@ -167,13 +174,14 @@ func (av Antivirus) processEvent(e events.Event, s events.Publisher) error {
 				ResourceID:  ev.ResourceID,
 			},
 		}); err != nil {
-			av.l.Fatal().Err(err).Str("uploadid", ev.UploadID).Interface("resourceID", ev.ResourceID).Msg("cannot publish events - exiting")
+			av.log.Fatal().Err(err).Str("uploadid", ev.UploadID).Interface("resourceID", ev.ResourceID).Msg("cannot publish events - exiting")
 			return fmt.Errorf("%w: cannot publish events", ErrFatal)
 		}
 		return fmt.Errorf("%w: no actual virus scan performed", ErrEvent)
 	}
 
-	av.l.Debug().Str("uploadid", ev.UploadID).Str("filename", ev.Filename).Msg("Starting virus scan.")
+	av.log.Debug().Str("uploadid", ev.UploadID).Str("filename", ev.Filename).Msg("Starting virus scan.")
+
 	var errmsg string
 	start := time.Now()
 	res, err := av.process(ev)
@@ -185,17 +193,17 @@ func (av Antivirus) processEvent(e events.Event, s events.Publisher) error {
 	var outcome events.PostprocessingOutcome
 	switch {
 	case res.Infected:
-		outcome = av.o
+		outcome = av.outcome
 	case !res.Infected && err == nil:
 		outcome = events.PPOutcomeContinue
 	case err != nil:
 		outcome = events.PPOutcomeRetry
 	default:
-		// Not sure what this is about. abort.
+		// Not sure what this is about. Abort.
 		outcome = events.PPOutcomeAbort
 	}
 
-	av.l.Info().Str("uploadid", ev.UploadID).Interface("resourceID", ev.ResourceID).Str("virus", res.Description).Str("outcome", string(outcome)).Str("filename", ev.Filename).Str("user", ev.ExecutingUser.GetId().GetOpaqueId()).Bool("infected", res.Infected).Dur("duration", duration).Msg("File scanned")
+	av.log.Info().Str("uploadid", ev.UploadID).Interface("resourceID", ev.ResourceID).Str("virus", res.Description).Str("outcome", string(outcome)).Str("filename", ev.Filename).Str("user", ev.ExecutingUser.GetId().GetOpaqueId()).Bool("infected", res.Infected).Dur("duration", duration).Msg("File scanned")
 	if err := events.Publish(ctx, s, events.PostprocessingStepFinished{
 		FinishedStep:  events.PPStepAntivirus,
 		Outcome:       outcome,
@@ -210,7 +218,7 @@ func (av Antivirus) processEvent(e events.Event, s events.Publisher) error {
 			ErrorMsg:    errmsg,
 		},
 	}); err != nil {
-		av.l.Fatal().Err(err).Str("uploadid", ev.UploadID).Interface("resourceID", ev.ResourceID).Msg("cannot publish events - exiting")
+		av.log.Fatal().Err(err).Str("uploadid", ev.UploadID).Interface("resourceID", ev.ResourceID).Msg("cannot publish events - exiting")
 		return fmt.Errorf("%w: %s", ErrFatal, err)
 	}
 	return nil
@@ -218,11 +226,24 @@ func (av Antivirus) processEvent(e events.Event, s events.Publisher) error {
 
 // process the scan
 func (av Antivirus) process(ev events.StartPostprocessingStep) (scanners.Result, error) {
-	if ev.Filesize == 0 || (0 < av.m && av.m < ev.Filesize) {
-		av.l.Info().Str("uploadid", ev.UploadID).Uint64("limit", av.m).Uint64("filesize", ev.Filesize).Msg("Skipping file to be virus scanned because its file size is higher than the defined limit.")
-		return scanners.Result{
-			ScanTime: time.Now(),
-		}, nil
+	if ev.Filesize == 0 {
+		av.log.Info().Str("uploadid", ev.UploadID).Msg("Skipping file to be virus scanned, file size is 0.")
+		return scanners.Result{ScanTime: time.Now()}, nil
+	}
+
+	headers := make(map[string]string)
+	switch {
+	case av.maxScanSize == 0:
+		// there is no size limit
+		break
+	case av.config.MaxScanSizeMode == config.MaxScanSizeModeSkip && ev.Filesize > av.maxScanSize:
+		// skip the file if it is bigger than the max scan size
+		av.log.Info().Str("uploadid", ev.UploadID).Uint64("filesize", ev.Filesize).
+			Msg("Skipping file to be virus scanned, file size is bigger than max scan size.")
+		return scanners.Result{ScanTime: time.Now()}, nil
+	case av.config.MaxScanSizeMode == config.MaxScanSizeModePartial && ev.Filesize > av.maxScanSize:
+		// set the range header to only download the first maxScanSize bytes
+		headers["Range"] = fmt.Sprintf("bytes=0-%d", av.maxScanSize-1)
 	}
 
 	var err error
@@ -230,56 +251,61 @@ func (av Antivirus) process(ev events.StartPostprocessingStep) (scanners.Result,
 
 	switch ev.UploadID {
 	default:
-		rrc, err = av.downloadViaToken(ev.URL)
+		rrc, err = av.downloadViaToken(ev.URL, headers)
 	case "":
-		rrc, err = av.downloadViaReva(ev.URL, ev.Token, ev.RevaToken)
+		rrc, err = av.downloadViaReva(ev.URL, ev.Token, ev.RevaToken, headers)
 	}
 	if err != nil {
-		av.l.Error().Err(err).Str("uploadid", ev.UploadID).Msg("error downloading file")
+		av.log.Error().Err(err).Str("uploadid", ev.UploadID).Msg("error downloading file")
 		return scanners.Result{}, err
 	}
-	defer rrc.Close()
-	av.l.Debug().Str("uploadid", ev.UploadID).Msg("Downloaded file successfully, starting virusscan")
+	defer func() {
+		_ = rrc.Close()
+	}()
 
-	res, err := av.s.Scan(scanners.Input{Body: rrc, Size: int64(ev.Filesize), Url: ev.URL, Name: ev.Filename})
+	av.log.Debug().Str("uploadid", ev.UploadID).Msg("Downloaded file successfully, starting virusscan")
+
+	res, err := av.scanner.Scan(scanners.Input{Body: rrc, Size: int64(ev.Filesize), Url: ev.URL, Name: ev.Filename})
 	if err != nil {
-		av.l.Error().Err(err).Str("uploadid", ev.UploadID).Msg("error scanning file")
+		av.log.Error().Err(err).Str("uploadid", ev.UploadID).Msg("error scanning file")
 	}
 
 	return res, err
 }
 
 // download will download the file
-func (av Antivirus) downloadViaToken(url string) (io.ReadCloser, error) {
+func (av Antivirus) downloadViaToken(url string, headers map[string]string) (io.ReadCloser, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return av.doDownload(req)
+	return av.doDownload(req, headers)
 }
 
 // download will download the file
-func (av Antivirus) downloadViaReva(url string, dltoken string, revatoken string) (io.ReadCloser, error) {
-	ctx := ctxpkg.ContextSetToken(context.Background(), revatoken)
-
-	req, err := rhttp.NewRequest(ctx, http.MethodGet, url, nil)
+func (av Antivirus) downloadViaReva(url string, dltoken string, revatoken string, headers map[string]string) (io.ReadCloser, error) {
+	req, err := rhttp.NewRequest(ctxpkg.ContextSetToken(context.Background(), revatoken), http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("X-Reva-Transfer", dltoken)
 
-	return av.doDownload(req)
+	return av.doDownload(req, headers)
 }
 
-func (av Antivirus) doDownload(req *http.Request) (io.ReadCloser, error) {
+func (av Antivirus) doDownload(req *http.Request, headers map[string]string) (io.ReadCloser, error) {
+	for k, v := range headers {
+		req.Header.Add(k, v)
+	}
+
 	res, err := av.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 
-	if res.StatusCode != http.StatusOK {
-		res.Body.Close()
+	if !slices.Contains([]int{http.StatusOK, http.StatusPartialContent}, res.StatusCode) {
+		_ = res.Body.Close()
 		return nil, fmt.Errorf("unexpected status code from Download %v", res.StatusCode)
 	}
 

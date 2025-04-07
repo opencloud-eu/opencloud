@@ -4,6 +4,8 @@ services:
     environment:
       ANTIVIRUS_SCANNER_TYPE: "clamav"
       ANTIVIRUS_CLAMAV_SOCKET: "/var/run/clamav/clamd.sock"
+      ANTIVIRUS_MAX_SCAN_SIZE_MODE: ${ANTIVIRUS_MAX_SCAN_SIZE_MODE:-partial}
+      ANTIVIRUS_MAX_SCAN_SIZE: ${ANTIVIRUS_MAX_SCAN_SIZE:-100MB}
       # the antivirus service needs manual startup, see .env and opencloud.yaml for START_ADDITIONAL_SERVICES
       # configure the antivirus service
       POSTPROCESSING_STEPS: "virusscan"

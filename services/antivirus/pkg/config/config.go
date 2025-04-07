@@ -5,6 +5,26 @@ import (
 	"time"
 )
 
+// ScannerType gives info which scanner is used
+type ScannerType string
+
+const (
+	// ScannerTypeClamAV defines that clamav is used
+	ScannerTypeClamAV ScannerType = "clamav"
+	// ScannerTypeICap defines that icap is used
+	ScannerTypeICap ScannerType = "icap"
+)
+
+// MaxScanSizeMode defines the mode of handling files that exceed the maximum scan size
+type MaxScanSizeMode string
+
+const (
+	// MaxScanSizeModeSkip defines that files that are bigger than the max scan size will be skipped
+	MaxScanSizeModeSkip MaxScanSizeMode = "skip"
+	// MaxScanSizeModePartial defines that only the file up to the max size will be used
+	MaxScanSizeModePartial MaxScanSizeMode = "partial"
+)
+
 // Config combines all available configuration parts.
 type Config struct {
 	File string
@@ -20,8 +40,9 @@ type Config struct {
 	Events               Events
 	Workers              int `yaml:"workers" env:"ANTIVIRUS_WORKERS" desc:"The number of concurrent go routines that fetch events from the event queue." introductionVersion:"1.0.0"`
 
-	Scanner     Scanner
-	MaxScanSize string `yaml:"max-scan-size" env:"ANTIVIRUS_MAX_SCAN_SIZE" desc:"The maximum scan size the virus scanner can handle. Only this many bytes of a file will be scanned. 0 means unlimited and is the default. Usable common abbreviations: [KB, KiB, MB, MiB, GB, GiB, TB, TiB, PB, PiB, EB, EiB], example: 2GB." introductionVersion:"1.0.0"`
+	Scanner         Scanner
+	MaxScanSize     string          `yaml:"max-scan-size" env:"ANTIVIRUS_MAX_SCAN_SIZE" desc:"The maximum scan size the virus scanner can handle.0 means unlimited. Usable common abbreviations: [KB, KiB, MB, MiB, GB, GiB, TB, TiB, PB, PiB, EB, EiB], example: 2GB." introductionVersion:"1.0.0"`
+	MaxScanSizeMode MaxScanSizeMode `yaml:"max-scan-size-mode" env:"ANTIVIRUS_MAX_SCAN_SIZE_MODE" desc:"Defines the mode of handling files that exceed the maximum scan size. Supported options are: 'skip', which skips files that are bigger than the max scan size, and 'truncate' (default), which only uses the file up to the max size." introductionVersion:"2.1.0"`
 
 	Context context.Context `json:"-" yaml:"-"`
 
@@ -62,7 +83,7 @@ type Events struct {
 
 // Scanner provides configuration options for the virus scanner
 type Scanner struct {
-	Type string `yaml:"type" env:"ANTIVIRUS_SCANNER_TYPE" desc:"The antivirus scanner to use. Supported values are 'clamav' and 'icap'." introductionVersion:"1.0.0"`
+	Type ScannerType `yaml:"type" env:"ANTIVIRUS_SCANNER_TYPE" desc:"The antivirus scanner to use. Supported values are 'clamav' and 'icap'." introductionVersion:"1.0.0"`
 
 	ClamAV ClamAV // only if Type == clamav
 	ICAP   ICAP   // only if Type == icap
@@ -70,7 +91,8 @@ type Scanner struct {
 
 // ClamAV provides configuration option for clamav
 type ClamAV struct {
-	Socket string `yaml:"socket" env:"ANTIVIRUS_CLAMAV_SOCKET" desc:"The socket clamav is running on. Note the default value is an example which needs adaption according your OS." introductionVersion:"1.0.0"`
+	Socket  string        `yaml:"socket" env:"ANTIVIRUS_CLAMAV_SOCKET" desc:"The socket clamav is running on. Note the default value is an example which needs adaption according your OS." introductionVersion:"1.0.0"`
+	Timeout time.Duration `yaml:"scan_timeout" env:"ANTIVIRUS_CLAMAV_SCAN_TIMEOUT" desc:"Scan timeout for the ClamAV client. Defaults to '5m' (5 minutes). See the Environment Variable Types description for more details." introductionVersion:"2.1.0"`
 }
 
 // ICAP provides configuration options for icap
