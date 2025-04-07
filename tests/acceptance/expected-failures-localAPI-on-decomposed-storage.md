@@ -193,7 +193,6 @@
 - [apiServiceAvailability/serviceAvailabilityCheck.feature:125](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiServiceAvailability/serviceAvailabilityCheck.feature#L125)
 
 #### [Skip tests for different languages](https://github.com/opencloud-eu/opencloud/issues/183)
-- [apiAntivirus/antivirus.feature:311](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiAntivirus/antivirus.feature#L311)
 - [apiActivities/activities.feature:2598](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiActivities/activities.feature#L2598)
 
 
