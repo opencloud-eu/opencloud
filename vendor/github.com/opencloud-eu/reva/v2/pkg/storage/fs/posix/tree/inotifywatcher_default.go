@@ -7,6 +7,7 @@ package tree
 
 import (
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options"
 	"github.com/rs/zerolog"
 )
 
@@ -17,6 +18,6 @@ type NullWatcher struct{}
 func (*NullWatcher) Watch(path string) {}
 
 // NewInotifyWatcher returns a new inotify watcher
-func NewInotifyWatcher(tree *Tree, log *zerolog.Logger) (*NullWatcher, error) {
+func NewInotifyWatcher(_ *Tree, _ *options.Options, _ *zerolog.Logger) (*NullWatcher, error) {
 	return nil, errtypes.NotSupported("inotify watcher is not supported on this platform")
 }

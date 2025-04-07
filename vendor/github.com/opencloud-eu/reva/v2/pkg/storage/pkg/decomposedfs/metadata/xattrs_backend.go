@@ -51,13 +51,14 @@ func NewXattrsBackend(o cache.Config) XattrsBackend {
 func (XattrsBackend) Name() string { return "xattrs" }
 
 // IdentifyPath returns the space id, node id and mtime of a file
-func (b XattrsBackend) IdentifyPath(_ context.Context, path string) (string, string, time.Time, error) {
+func (b XattrsBackend) IdentifyPath(_ context.Context, path string) (string, string, string, time.Time, error) {
 	spaceID, _ := xattr.Get(path, prefixes.SpaceIDAttr)
 	id, _ := xattr.Get(path, prefixes.IDAttr)
+	parentID, _ := xattr.Get(path, prefixes.ParentidAttr)
 
 	mtimeAttr, _ := xattr.Get(path, prefixes.MTimeAttr)
 	mtime, _ := time.Parse(time.RFC3339Nano, string(mtimeAttr))
-	return string(spaceID), string(id), mtime, nil
+	return string(spaceID), string(id), string(parentID), mtime, nil
 }
 
 // Get an extended attribute value for the given key

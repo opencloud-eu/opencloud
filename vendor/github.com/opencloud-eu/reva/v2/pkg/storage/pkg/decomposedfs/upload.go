@@ -73,8 +73,12 @@ func (fs *Decomposedfs) Upload(ctx context.Context, req storage.UploadRequest, u
 		if err != nil {
 			return &provider.ResourceInfo{}, errors.Wrap(err, "Decomposedfs: error opening assembled file")
 		}
-		defer fd.Close()
-		defer os.RemoveAll(assembledFile)
+		defer func() {
+			_ = fd.Close()
+		}()
+		defer func() {
+			_ = os.RemoveAll(assembledFile)
+		}()
 		req.Body = fd
 
 		size, err := session.WriteChunk(ctx, 0, req.Body)
@@ -347,6 +351,7 @@ func (fs *Decomposedfs) UseIn(composer *tusd.StoreComposer) {
 	composer.UseTerminater(fs)
 	composer.UseConcater(fs)
 	composer.UseLengthDeferrer(fs)
+	composer.UseContentServer(fs)
 }
 
 // To implement the core tus.io protocol as specified in https://tus.io/protocols/resumable-upload.html#core-protocol
@@ -354,8 +359,14 @@ func (fs *Decomposedfs) UseIn(composer *tusd.StoreComposer) {
 // - the upload needs to implement the tusd.Upload interface: WriteChunk, GetInfo, GetReader and FinishUpload
 
 // NewUpload returns a new tus Upload instance
-func (fs *Decomposedfs) NewUpload(ctx context.Context, info tusd.FileInfo) (tusd.Upload, error) {
+func (fs *Decomposedfs) NewUpload(_ context.Context, _ tusd.FileInfo) (tusd.Upload, error) {
 	return nil, fmt.Errorf("not implemented, use InitiateUpload on the CS3 API to start a new upload")
+}
+
+// AsServableUpload returns a ServableUpload
+// which implements the tusd.ServableUpload interface and
+func (fs *Decomposedfs) AsServableUpload(u tusd.Upload) tusd.ServableUpload {
+	return u.(*upload.DecomposedFsSession)
 }
 
 // GetUpload returns the Upload for the given upload id

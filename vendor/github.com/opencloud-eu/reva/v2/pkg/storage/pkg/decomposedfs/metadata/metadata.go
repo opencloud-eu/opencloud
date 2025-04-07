@@ -47,7 +47,7 @@ type MetadataNode interface {
 // Backend defines the interface for file attribute backends
 type Backend interface {
 	Name() string
-	IdentifyPath(ctx context.Context, path string) (string, string, time.Time, error)
+	IdentifyPath(ctx context.Context, path string) (string, string, string, time.Time, error)
 
 	All(ctx context.Context, n MetadataNode) (map[string][]byte, error)
 	AllWithLockedSource(ctx context.Context, n MetadataNode, source io.Reader) (map[string][]byte, error)
@@ -74,8 +74,8 @@ type NullBackend struct{}
 func (NullBackend) Name() string { return "null" }
 
 // IdentifyPath returns the ids and mtime of a file
-func (NullBackend) IdentifyPath(ctx context.Context, path string) (string, string, time.Time, error) {
-	return "", "", time.Time{}, errUnconfiguredError
+func (NullBackend) IdentifyPath(ctx context.Context, path string) (string, string, string, time.Time, error) {
+	return "", "", "", time.Time{}, errUnconfiguredError
 }
 
 // All reads all extended attributes for a node

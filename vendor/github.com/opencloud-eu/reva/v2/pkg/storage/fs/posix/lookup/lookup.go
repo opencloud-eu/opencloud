@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
@@ -72,6 +73,7 @@ type Lookup struct {
 	Options *options.Options
 
 	IDCache         IDCache
+	IDHistoryCache  IDCache
 	metadataBackend metadata.Backend
 	userMapper      usermapper.Mapper
 	tm              node.TimeManager
@@ -79,10 +81,15 @@ type Lookup struct {
 
 // New returns a new Lookup instance
 func New(b metadata.Backend, um usermapper.Mapper, o *options.Options, tm node.TimeManager) *Lookup {
+	idHistoryConf := o.Options.IDCache
+	idHistoryConf.Database = o.Options.IDCache.Table + "_history"
+	idHistoryConf.TTL = 1 * time.Minute
+
 	lu := &Lookup{
 		Options:         o,
 		metadataBackend: b,
-		IDCache:         NewStoreIDCache(&o.Options),
+		IDCache:         NewStoreIDCache(o.Options.IDCache),
+		IDHistoryCache:  NewStoreIDCache(idHistoryConf),
 		userMapper:      um,
 		tm:              tm,
 	}

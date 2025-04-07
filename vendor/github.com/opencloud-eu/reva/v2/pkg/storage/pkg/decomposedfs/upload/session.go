@@ -32,6 +32,7 @@ import (
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	typespb "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
+
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
@@ -46,49 +47,49 @@ type DecomposedFsSession struct {
 }
 
 // Context returns a context with the user, logger and lockid used when initiating the upload session
-func (s *DecomposedFsSession) Context(ctx context.Context) context.Context { // restore logger from file info
-	sub := s.store.log.With().Int("pid", os.Getpid()).Logger()
+func (session *DecomposedFsSession) Context(ctx context.Context) context.Context { // restore logger from file info
+	sub := session.store.log.With().Int("pid", os.Getpid()).Logger()
 	ctx = appctx.WithLogger(ctx, &sub)
-	ctx = ctxpkg.ContextSetLockID(ctx, s.lockID())
-	ctx = ctxpkg.ContextSetUser(ctx, s.executantUser())
-	return ctxpkg.ContextSetInitiator(ctx, s.InitiatorID())
+	ctx = ctxpkg.ContextSetLockID(ctx, session.lockID())
+	ctx = ctxpkg.ContextSetUser(ctx, session.executantUser())
+	return ctxpkg.ContextSetInitiator(ctx, session.InitiatorID())
 }
 
-func (s *DecomposedFsSession) lockID() string {
-	return s.info.MetaData["lockid"]
+func (session *DecomposedFsSession) lockID() string {
+	return session.info.MetaData["lockid"]
 }
-func (s *DecomposedFsSession) executantUser() *userpb.User {
+func (session *DecomposedFsSession) executantUser() *userpb.User {
 	var o *typespb.Opaque
-	_ = json.Unmarshal([]byte(s.info.Storage["UserOpaque"]), &o)
+	_ = json.Unmarshal([]byte(session.info.Storage["UserOpaque"]), &o)
 	return &userpb.User{
 		Id: &userpb.UserId{
-			Type:     userpb.UserType(userpb.UserType_value[s.info.Storage["UserType"]]),
-			Idp:      s.info.Storage["Idp"],
-			OpaqueId: s.info.Storage["UserId"],
+			Type:     userpb.UserType(userpb.UserType_value[session.info.Storage["UserType"]]),
+			Idp:      session.info.Storage["Idp"],
+			OpaqueId: session.info.Storage["UserId"],
 		},
-		Username:    s.info.Storage["UserName"],
-		DisplayName: s.info.Storage["UserDisplayName"],
+		Username:    session.info.Storage["UserName"],
+		DisplayName: session.info.Storage["UserDisplayName"],
 		Opaque:      o,
 	}
 }
 
 // Purge deletes the upload session metadata and written binary data
-func (s *DecomposedFsSession) Purge(ctx context.Context) error {
+func (session *DecomposedFsSession) Purge(ctx context.Context) error {
 	_, span := tracer.Start(ctx, "Purge")
 	defer span.End()
-	sessionPath := sessionPath(s.store.root, s.info.ID)
+	sessionPath := sessionPath(session.store.root, session.info.ID)
 	if err := os.Remove(sessionPath); err != nil {
 		return err
 	}
-	if err := os.Remove(s.binPath()); err != nil {
+	if err := os.Remove(session.binPath()); err != nil {
 		return err
 	}
 	return nil
 }
 
 // TouchBin creates a file to contain the binary data. It's size will be used to keep track of the tus upload offset.
-func (s *DecomposedFsSession) TouchBin() error {
-	file, err := os.OpenFile(s.binPath(), os.O_CREATE|os.O_WRONLY, defaultFilePerm)
+func (session *DecomposedFsSession) TouchBin() error {
+	file, err := os.OpenFile(session.binPath(), os.O_CREATE|os.O_WRONLY, defaultFilePerm)
 	if err != nil {
 		return err
 	}
@@ -98,17 +99,17 @@ func (s *DecomposedFsSession) TouchBin() error {
 // Persist writes the upload session metadata to disk
 // events can update the scan outcome and the finished event might read an empty file because of race conditions
 // so we need to lock the file while writing and use atomic writes
-func (s *DecomposedFsSession) Persist(ctx context.Context) error {
+func (session *DecomposedFsSession) Persist(ctx context.Context) error {
 	_, span := tracer.Start(ctx, "Persist")
 	defer span.End()
-	sessionPath := sessionPath(s.store.root, s.info.ID)
+	sessionPath := sessionPath(session.store.root, session.info.ID)
 	// create folder structure (if needed)
 	if err := os.MkdirAll(filepath.Dir(sessionPath), 0700); err != nil {
 		return err
 	}
 
 	var d []byte
-	d, err := json.Marshal(s.info)
+	d, err := json.Marshal(session.info)
 	if err != nil {
 		return err
 	}
@@ -116,28 +117,28 @@ func (s *DecomposedFsSession) Persist(ctx context.Context) error {
 }
 
 // ToFileInfo returns tus compatible FileInfo so the tus handler can access the upload offset
-func (s *DecomposedFsSession) ToFileInfo() tusd.FileInfo {
-	return s.info
+func (session *DecomposedFsSession) ToFileInfo() tusd.FileInfo {
+	return session.info
 }
 
 // ProviderID returns the provider id
-func (s *DecomposedFsSession) ProviderID() string {
-	return s.info.MetaData["providerID"]
+func (session *DecomposedFsSession) ProviderID() string {
+	return session.info.MetaData["providerID"]
 }
 
 // SpaceID returns the space id
-func (s *DecomposedFsSession) SpaceID() string {
-	return s.info.Storage["SpaceRoot"]
+func (session *DecomposedFsSession) SpaceID() string {
+	return session.info.Storage["SpaceRoot"]
 }
 
 // NodeID returns the node id
-func (s *DecomposedFsSession) NodeID() string {
-	return s.info.Storage["NodeId"]
+func (session *DecomposedFsSession) NodeID() string {
+	return session.info.Storage["NodeId"]
 }
 
 // NodeParentID returns the nodes parent id
-func (s *DecomposedFsSession) NodeParentID() string {
-	return s.info.Storage["NodeParentId"]
+func (session *DecomposedFsSession) NodeParentID() string {
+	return session.info.Storage["NodeParentId"]
 }
 
 // NodeExists returns wether or not the node existed during InitiateUpload.
@@ -148,63 +149,63 @@ func (s *DecomposedFsSession) NodeParentID() string {
 // A node should be created as part of InitiateUpload. When listing a directory
 // we can decide if we want to skip the entry, or expose uploed progress
 // information. But that is a bigger change and might involve client work.
-func (s *DecomposedFsSession) NodeExists() bool {
-	return s.info.Storage["NodeExists"] == "true"
+func (session *DecomposedFsSession) NodeExists() bool {
+	return session.info.Storage["NodeExists"] == "true"
 }
 
 // HeaderIfMatch returns the if-match header for the upload session
-func (s *DecomposedFsSession) HeaderIfMatch() string {
-	return s.info.MetaData["if-match"]
+func (session *DecomposedFsSession) HeaderIfMatch() string {
+	return session.info.MetaData["if-match"]
 }
 
 // HeaderIfNoneMatch returns the if-none-match header for the upload session
-func (s *DecomposedFsSession) HeaderIfNoneMatch() string {
-	return s.info.MetaData["if-none-match"]
+func (session *DecomposedFsSession) HeaderIfNoneMatch() string {
+	return session.info.MetaData["if-none-match"]
 }
 
 // HeaderIfUnmodifiedSince returns the if-unmodified-since header for the upload session
-func (s *DecomposedFsSession) HeaderIfUnmodifiedSince() string {
-	return s.info.MetaData["if-unmodified-since"]
+func (session *DecomposedFsSession) HeaderIfUnmodifiedSince() string {
+	return session.info.MetaData["if-unmodified-since"]
 }
 
 // Node returns the node for the session
-func (s *DecomposedFsSession) Node(ctx context.Context) (*node.Node, error) {
-	return node.ReadNode(ctx, s.store.lu, s.SpaceID(), s.info.Storage["NodeId"], false, nil, true)
+func (session *DecomposedFsSession) Node(ctx context.Context) (*node.Node, error) {
+	return node.ReadNode(ctx, session.store.lu, session.SpaceID(), session.info.Storage["NodeId"], false, nil, true)
 }
 
 // ID returns the upload session id
-func (s *DecomposedFsSession) ID() string {
-	return s.info.ID
+func (session *DecomposedFsSession) ID() string {
+	return session.info.ID
 }
 
 // Filename returns the name of the node which is not the same as the name af the file being uploaded for legacy chunked uploads
-func (s *DecomposedFsSession) Filename() string {
-	return s.info.Storage["NodeName"]
+func (session *DecomposedFsSession) Filename() string {
+	return session.info.Storage["NodeName"]
 }
 
 // Chunk returns the chunk name when a legacy chunked upload was started
-func (s *DecomposedFsSession) Chunk() string {
-	return s.info.Storage["Chunk"]
+func (session *DecomposedFsSession) Chunk() string {
+	return session.info.Storage["Chunk"]
 }
 
 // SetMetadata is used to fill the upload metadata that will be exposed to the end user
-func (s *DecomposedFsSession) SetMetadata(key, value string) {
-	s.info.MetaData[key] = value
+func (session *DecomposedFsSession) SetMetadata(key, value string) {
+	session.info.MetaData[key] = value
 }
 
 // SetStorageValue is used to set metadata only relevant for the upload session implementation
-func (s *DecomposedFsSession) SetStorageValue(key, value string) {
-	s.info.Storage[key] = value
+func (session *DecomposedFsSession) SetStorageValue(key, value string) {
+	session.info.Storage[key] = value
 }
 
 // SetSize will set the upload size of the underlying tus info.
-func (s *DecomposedFsSession) SetSize(size int64) {
-	s.info.Size = size
+func (session *DecomposedFsSession) SetSize(size int64) {
+	session.info.Size = size
 }
 
 // SetSizeIsDeferred is uset to change the SizeIsDeferred property of the underlying tus info.
-func (s *DecomposedFsSession) SetSizeIsDeferred(value bool) {
-	s.info.SizeIsDeferred = value
+func (session *DecomposedFsSession) SetSizeIsDeferred(value bool) {
+	session.info.SizeIsDeferred = value
 }
 
 // Dir returns the directory to which the upload is made
@@ -227,115 +228,115 @@ func (s *DecomposedFsSession) SetSizeIsDeferred(value bool) {
 //
 // I think we can safely determine the path later, right before emitting the
 // event. And maybe make it configurable, because only audit needs it, anyway.
-func (s *DecomposedFsSession) Dir() string {
-	return s.info.Storage["Dir"]
+func (session *DecomposedFsSession) Dir() string {
+	return session.info.Storage["Dir"]
 }
 
 // Size returns the upload size
-func (s *DecomposedFsSession) Size() int64 {
-	return s.info.Size
+func (session *DecomposedFsSession) Size() int64 {
+	return session.info.Size
 }
 
 // SizeDiff returns the size diff that was calculated after postprocessing
-func (s *DecomposedFsSession) SizeDiff() int64 {
-	sizeDiff, _ := strconv.ParseInt(s.info.MetaData["sizeDiff"], 10, 64)
+func (session *DecomposedFsSession) SizeDiff() int64 {
+	sizeDiff, _ := strconv.ParseInt(session.info.MetaData["sizeDiff"], 10, 64)
 	return sizeDiff
 }
 
 // Reference returns a reference that can be used to access the uploaded resource
-func (s *DecomposedFsSession) Reference() provider.Reference {
+func (session *DecomposedFsSession) Reference() provider.Reference {
 	return provider.Reference{
 		ResourceId: &provider.ResourceId{
-			StorageId: s.info.MetaData["providerID"],
-			SpaceId:   s.info.Storage["SpaceRoot"],
-			OpaqueId:  s.info.Storage["NodeId"],
+			StorageId: session.info.MetaData["providerID"],
+			SpaceId:   session.info.Storage["SpaceRoot"],
+			OpaqueId:  session.info.Storage["NodeId"],
 		},
 		// Path is not used
 	}
 }
 
 // Executant returns the id of the user that initiated the upload session
-func (s *DecomposedFsSession) Executant() userpb.UserId {
+func (session *DecomposedFsSession) Executant() userpb.UserId {
 	return userpb.UserId{
-		Type:     userpb.UserType(userpb.UserType_value[s.info.Storage["UserType"]]),
-		Idp:      s.info.Storage["Idp"],
-		OpaqueId: s.info.Storage["UserId"],
+		Type:     userpb.UserType(userpb.UserType_value[session.info.Storage["UserType"]]),
+		Idp:      session.info.Storage["Idp"],
+		OpaqueId: session.info.Storage["UserId"],
 	}
 }
 
 // SetExecutant is used to remember the user that initiated the upload session
-func (s *DecomposedFsSession) SetExecutant(u *userpb.User) {
-	s.info.Storage["Idp"] = u.GetId().GetIdp()
-	s.info.Storage["UserId"] = u.GetId().GetOpaqueId()
-	s.info.Storage["UserType"] = utils.UserTypeToString(u.GetId().Type)
-	s.info.Storage["UserName"] = u.GetUsername()
-	s.info.Storage["UserDisplayName"] = u.GetDisplayName()
+func (session *DecomposedFsSession) SetExecutant(u *userpb.User) {
+	session.info.Storage["Idp"] = u.GetId().GetIdp()
+	session.info.Storage["UserId"] = u.GetId().GetOpaqueId()
+	session.info.Storage["UserType"] = utils.UserTypeToString(u.GetId().Type)
+	session.info.Storage["UserName"] = u.GetUsername()
+	session.info.Storage["UserDisplayName"] = u.GetDisplayName()
 
 	b, _ := json.Marshal(u.GetOpaque())
-	s.info.Storage["UserOpaque"] = string(b)
+	session.info.Storage["UserOpaque"] = string(b)
 }
 
 // Offset returns the current upload offset
-func (s *DecomposedFsSession) Offset() int64 {
-	return s.info.Offset
+func (session *DecomposedFsSession) Offset() int64 {
+	return session.info.Offset
 }
 
 // SpaceOwner returns the id of the space owner
-func (s *DecomposedFsSession) SpaceOwner() *userpb.UserId {
+func (session *DecomposedFsSession) SpaceOwner() *userpb.UserId {
 	return &userpb.UserId{
 		// idp and type do not seem to be consumed and the node currently only stores the user id anyway
-		OpaqueId: s.info.Storage["SpaceOwnerOrManager"],
+		OpaqueId: session.info.Storage["SpaceOwnerOrManager"],
 	}
 }
 
 // Expires returns the time the upload session expires
-func (s *DecomposedFsSession) Expires() time.Time {
+func (session *DecomposedFsSession) Expires() time.Time {
 	var t time.Time
-	if value, ok := s.info.MetaData["expires"]; ok {
+	if value, ok := session.info.MetaData["expires"]; ok {
 		t, _ = utils.MTimeToTime(value)
 	}
 	return t
 }
 
 // MTime returns the mtime to use for the uploaded file
-func (s *DecomposedFsSession) MTime() time.Time {
+func (session *DecomposedFsSession) MTime() time.Time {
 	var t time.Time
-	if value, ok := s.info.MetaData["mtime"]; ok {
+	if value, ok := session.info.MetaData["mtime"]; ok {
 		t, _ = utils.MTimeToTime(value)
 	}
 	return t
 }
 
 // IsProcessing returns true if all bytes have been received. The session then has entered postprocessing state.
-func (s *DecomposedFsSession) IsProcessing() bool {
+func (session *DecomposedFsSession) IsProcessing() bool {
 	// We might need a more sophisticated way to determine processing status soon
-	return s.info.Size == s.info.Offset && s.info.MetaData["scanResult"] == ""
+	return session.info.Size == session.info.Offset && session.info.MetaData["scanResult"] == ""
 }
 
 // binPath returns the path to the file storing the binary data.
-func (s *DecomposedFsSession) binPath() string {
-	return filepath.Join(s.store.root, "uploads", s.info.ID)
+func (session *DecomposedFsSession) binPath() string {
+	return filepath.Join(session.store.root, "uploads", session.info.ID)
 }
 
 // InitiatorID returns the id of the initiating client
-func (s *DecomposedFsSession) InitiatorID() string {
-	return s.info.MetaData["initiatorid"]
+func (session *DecomposedFsSession) InitiatorID() string {
+	return session.info.MetaData["initiatorid"]
 }
 
 // SetScanData sets virus scan data to the upload session
-func (s *DecomposedFsSession) SetScanData(result string, date time.Time) {
-	s.info.MetaData["scanResult"] = result
-	s.info.MetaData["scanDate"] = date.Format(time.RFC3339)
+func (session *DecomposedFsSession) SetScanData(result string, date time.Time) {
+	session.info.MetaData["scanResult"] = result
+	session.info.MetaData["scanDate"] = date.Format(time.RFC3339)
 }
 
 // ScanData returns the virus scan data
-func (s *DecomposedFsSession) ScanData() (string, time.Time) {
-	date := s.info.MetaData["scanDate"]
+func (session *DecomposedFsSession) ScanData() (string, time.Time) {
+	date := session.info.MetaData["scanDate"]
 	if date == "" {
 		return "", time.Time{}
 	}
 	d, _ := time.Parse(time.RFC3339, date)
-	return s.info.MetaData["scanResult"], d
+	return session.info.MetaData["scanResult"], d
 }
 
 // sessionPath returns the path to the .info file storing the file's info.

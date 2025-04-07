@@ -129,7 +129,7 @@ func New(lu node.PathLookup, bs node.Blobstore, um usermapper.Mapper, trashbin *
 				return nil, err
 			}
 		default:
-			t.watcher, err = NewInotifyWatcher(t, log)
+			t.watcher, err = NewInotifyWatcher(t, o, log)
 			if err != nil {
 				return nil, err
 			}
@@ -299,9 +299,11 @@ func (t *Tree) Move(ctx context.Context, oldNode *node.Node, newNode *node.Node)
 			return errors.Wrap(err, "Decomposedfs: Move: error deleting target node "+newNode.ID)
 		}
 	}
-
-	// we are moving the node to a new parent, any target has been removed
-	// bring old node to the new parent
+	oldParent := oldNode.ParentPath()
+	newParent := newNode.ParentPath()
+	if newNode.ID == "" {
+		newNode.ID = oldNode.ID
+	}
 
 	// update target parentid and name
 	attribs := node.Attributes{}
@@ -311,27 +313,23 @@ func (t *Tree) Move(ctx context.Context, oldNode *node.Node, newNode *node.Node)
 		return errors.Wrap(err, "Decomposedfs: could not update old node attributes")
 	}
 
-	// rename node
-	err = os.Rename(
-		filepath.Join(oldNode.ParentPath(), oldNode.Name),
-		filepath.Join(newNode.ParentPath(), newNode.Name),
-	)
-	if err != nil {
-		return errors.Wrap(err, "Decomposedfs: could not move child")
-	}
-
 	// update the id cache
-	if newNode.ID == "" {
-		newNode.ID = oldNode.ID
-	}
 	// invalidate old tree
 	err = t.lookup.IDCache.DeleteByPath(ctx, filepath.Join(oldNode.ParentPath(), oldNode.Name))
 	if err != nil {
 		return err
 	}
-
 	if err := t.lookup.CacheID(ctx, newNode.SpaceID, newNode.ID, filepath.Join(newNode.ParentPath(), newNode.Name)); err != nil {
 		t.log.Error().Err(err).Str("spaceID", newNode.SpaceID).Str("id", newNode.ID).Str("path", filepath.Join(newNode.ParentPath(), newNode.Name)).Msg("could not cache id")
+	}
+
+	// rename node
+	err = os.Rename(
+		filepath.Join(oldParent, oldNode.Name),
+		filepath.Join(newParent, newNode.Name),
+	)
+	if err != nil {
+		return errors.Wrap(err, "Decomposedfs: could not move child")
 	}
 
 	// rename the lock (if it exists)

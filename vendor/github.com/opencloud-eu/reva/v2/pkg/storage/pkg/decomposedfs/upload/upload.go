@@ -44,15 +44,15 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rhttp/datatx/metrics"
+	"github.com/opencloud-eu/reva/v2/pkg/rhttp/datatx/utils/download"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
 
 var (
-	tracer           trace.Tracer
-	ErrAlreadyExists = tusd.NewError("ERR_ALREADY_EXISTS", "file already exists", http.StatusConflict)
-	defaultFilePerm  = os.FileMode(0664)
+	tracer          trace.Tracer
+	defaultFilePerm = os.FileMode(0664)
 )
 
 func init() {
@@ -60,7 +60,7 @@ func init() {
 }
 
 // WriteChunk writes the stream from the reader to the given offset of the upload
-func (session *DecomposedFsSession) WriteChunk(ctx context.Context, offset int64, src io.Reader) (int64, error) {
+func (session *DecomposedFsSession) WriteChunk(ctx context.Context, _ int64, src io.Reader) (int64, error) {
 	ctx, span := tracer.Start(session.Context(ctx), "WriteChunk")
 	defer span.End()
 	_, subspan := tracer.Start(ctx, "os.OpenFile")
@@ -69,7 +69,9 @@ func (session *DecomposedFsSession) WriteChunk(ctx context.Context, offset int64
 	if err != nil {
 		return 0, err
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	// calculate cheksum here? needed for the TUS checksum extension. https://tus.io/protocols/resumable-upload.html#checksum
 	// TODO but how do we get the `Upload-Checksum`? WriteChunk() only has a context, offset and the reader ...
@@ -259,7 +261,9 @@ func (session *DecomposedFsSession) ConcatUploads(_ context.Context, uploads []t
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	for _, partialUpload := range uploads {
 		fileUpload := partialUpload.(*DecomposedFsSession)
@@ -268,7 +272,9 @@ func (session *DecomposedFsSession) ConcatUploads(_ context.Context, uploads []t
 		if err != nil {
 			return err
 		}
-		defer src.Close()
+		defer func() {
+			_ = src.Close()
+		}()
 
 		if _, err := io.Copy(file, src); err != nil {
 			return err
@@ -298,9 +304,9 @@ func (session *DecomposedFsSession) Finalize(ctx context.Context) (err error) {
 }
 
 func checkHash(expected string, h hash.Hash) error {
-	hash := hex.EncodeToString(h.Sum(nil))
-	if expected != hash {
-		return errtypes.ChecksumMismatch(fmt.Sprintf("invalid checksum: expected %s got %x", expected, hash))
+	shash := hex.EncodeToString(h.Sum(nil))
+	if expected != shash {
+		return errtypes.ChecksumMismatch(fmt.Sprintf("invalid checksum: expected %s got %x", expected, shash))
 	}
 	return nil
 }
@@ -397,6 +403,57 @@ func (session *DecomposedFsSession) URL(_ context.Context) (string, error) {
 	}
 
 	return joinurl(session.store.tknopts.DataGatewayEndpoint, tkn), nil
+}
+
+// ServeContent serves the content of the upload and implements the http.ServeContent interface needed by tusd,
+// it is used by the tusd handler to serve the content of the upload and supports range requests
+func (session *DecomposedFsSession) ServeContent(ctx context.Context, w http.ResponseWriter, req *http.Request) error {
+	_, span := tracer.Start(session.Context(ctx), "ServeContent")
+	defer span.End()
+
+	f, err := os.Open(session.binPath())
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+
+	var r io.Reader = f
+	if err := func() error {
+		if req.Header.Get("Range") == "" {
+			return nil
+		}
+
+		ranges, err := download.ParseRange(req.Header.Get("Range"), info.Size())
+		switch {
+		case len(ranges) == 0:
+			fallthrough
+		case errors.Is(err, download.ErrInvalidRange):
+			// ignore invalid range and return the whole file
+			return nil
+		case err != nil:
+			return err
+		}
+
+		r = io.NewSectionReader(f, ranges[0].Start, ranges[0].Length)
+		w.WriteHeader(http.StatusPartialContent)
+		w.Header().Set("Content-Range", ranges[0].ContentRange(info.Size()))
+		return nil
+	}(); err != nil {
+		return err
+	}
+
+	if _, err := io.Copy(w, r); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // replace with url.JoinPath after switching to go1.19

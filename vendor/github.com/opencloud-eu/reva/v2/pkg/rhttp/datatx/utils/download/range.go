@@ -29,15 +29,13 @@ import (
 
 // taken from https://golang.org/src/net/http/fs.go
 
-// ErrSeeker is returned by ServeContent's sizeFunc when the content
-// doesn't seek properly. The underlying Seeker's error text isn't
-// included in the sizeFunc reply so it's not sent over HTTP to end
-// users.
-var ErrSeeker = errors.New("seeker can't seek")
+// ErrInvalidRange is returned by serveContent's parseRange if the Range is
+// malformed or invalid.
+var ErrInvalidRange = errors.New("invalid range")
 
 // ErrNoOverlap is returned by serveContent's parseRange if first-byte-pos of
 // all of the byte-range-spec values is greater than the content size.
-var ErrNoOverlap = errors.New("invalid range: failed to overlap")
+var ErrNoOverlap = fmt.Errorf("%w: failed to overlap", ErrInvalidRange)
 
 // HTTPRange specifies the byte range to be sent to the client.
 type HTTPRange struct {
@@ -65,7 +63,7 @@ func ParseRange(s string, size int64) ([]HTTPRange, error) {
 	}
 	const b = "bytes="
 	if !strings.HasPrefix(s, b) {
-		return nil, errors.New("invalid range")
+		return nil, ErrInvalidRange
 	}
 	ranges := []HTTPRange{}
 	noOverlap := false
@@ -76,7 +74,7 @@ func ParseRange(s string, size int64) ([]HTTPRange, error) {
 		}
 		i := strings.Index(ra, "-")
 		if i < 0 {
-			return nil, errors.New("invalid range")
+			return nil, ErrInvalidRange
 		}
 		start, end := textproto.TrimString(ra[:i]), textproto.TrimString(ra[i+1:])
 		var r HTTPRange
@@ -85,7 +83,7 @@ func ParseRange(s string, size int64) ([]HTTPRange, error) {
 			// range start relative to the end of the file.
 			i, err := strconv.ParseInt(end, 10, 64)
 			if err != nil {
-				return nil, errors.New("invalid range")
+				return nil, ErrInvalidRange
 			}
 			if i > size {
 				i = size
@@ -95,7 +93,7 @@ func ParseRange(s string, size int64) ([]HTTPRange, error) {
 		} else {
 			i, err := strconv.ParseInt(start, 10, 64)
 			if err != nil || i < 0 {
-				return nil, errors.New("invalid range")
+				return nil, ErrInvalidRange
 			}
 			if i >= size {
 				// If the range begins after the size of the content,
@@ -110,7 +108,7 @@ func ParseRange(s string, size int64) ([]HTTPRange, error) {
 			} else {
 				i, err := strconv.ParseInt(end, 10, 64)
 				if err != nil || r.Start > i {
-					return nil, errors.New("invalid range")
+					return nil, ErrInvalidRange
 				}
 				if i >= size {
 					i = size - 1
@@ -146,7 +144,7 @@ func RangesMIMESize(ranges []HTTPRange, contentType string, contentSize int64) (
 		_, _ = mw.CreatePart(ra.MimeHeader(contentType, contentSize))
 		encSize += ra.Length
 	}
-	mw.Close()
+	_ = mw.Close()
 	encSize += int64(w)
 	return
 }

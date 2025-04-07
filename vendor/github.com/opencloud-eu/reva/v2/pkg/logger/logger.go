@@ -50,6 +50,7 @@ type Option func(l *zerolog.Logger)
 // New creates a new logger.
 func New(opts ...Option) *zerolog.Logger {
 	// create a default logger
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 	zl := zerolog.New(os.Stderr).With().Timestamp().Caller().Logger()
 	for _, opt := range opts {
 		opt(&zl)
@@ -127,7 +128,7 @@ type LogConf struct {
 
 func fromConfig(conf *LogConf) (*zerolog.Logger, error) {
 	if conf.Level == "" {
-		conf.Level = zerolog.DebugLevel.String()
+		conf.Level = zerolog.InfoLevel.String()
 	}
 
 	var opts []Option

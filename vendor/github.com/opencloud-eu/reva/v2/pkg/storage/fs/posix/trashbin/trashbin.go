@@ -164,17 +164,22 @@ func (tb *Trashbin) MoveToTrash(ctx context.Context, n *node.Node, path string) 
 		return err
 	}
 
-	// purge metadata
+	// 1. "Forget" the node
 	if err = tb.lu.IDCache.DeleteByPath(ctx, path); err != nil {
 		return err
 	}
-	err = tb.lu.MetadataBackend().Purge(ctx, n)
+
+	// 2. Move the node to the trash
+	itemTrashPath := filepath.Join(trashPath, "files", key+".trashitem")
+	err = os.Rename(path, itemTrashPath)
 	if err != nil {
 		return err
 	}
 
-	itemTrashPath := filepath.Join(trashPath, "files", key+".trashitem")
-	return os.Rename(path, itemTrashPath)
+	// 3. Purge the node from the metadata backend. This will not delete the xattrs from the
+	// node as it has already been moved but still remove it from the file metadata cache so
+	// that the metadata is no longer available when reading the node.
+	return tb.lu.MetadataBackend().Purge(ctx, n)
 }
 
 // ListRecycle returns the list of available recycle items
@@ -315,7 +320,7 @@ func (tb *Trashbin) RestoreRecycleItem(ctx context.Context, spaceID string, key,
 	}
 	// TODO the decomposed trash also checks the permissions on the restore node
 
-	_, id, _, err := tb.lu.MetadataBackend().IdentifyPath(ctx, trashPath)
+	_, id, _, _, err := tb.lu.MetadataBackend().IdentifyPath(ctx, trashPath)
 	if err != nil {
 		return nil, err
 	}
@@ -325,7 +330,7 @@ func (tb *Trashbin) RestoreRecycleItem(ctx context.Context, spaceID string, key,
 	}
 
 	// update parent id in case it was restored to a different location
-	_, parentID, _, err := tb.lu.MetadataBackend().IdentifyPath(ctx, filepath.Dir(restorePath))
+	_, parentID, _, _, err := tb.lu.MetadataBackend().IdentifyPath(ctx, filepath.Dir(restorePath))
 	if err != nil {
 		return nil, err
 	}

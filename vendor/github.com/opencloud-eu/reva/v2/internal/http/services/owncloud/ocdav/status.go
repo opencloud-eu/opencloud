@@ -34,6 +34,7 @@ func (s *svc) doStatus(w http.ResponseWriter, r *http.Request) {
 		NeedsDBUpgrade: false,
 		Version:        s.c.Version,
 		VersionString:  s.c.VersionString,
+		Edition:        s.c.Edition,
 		ProductName:    s.c.ProductName,
 		ProductVersion: s.c.ProductVersion,
 		Product:        s.c.Product,

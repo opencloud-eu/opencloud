@@ -243,17 +243,21 @@ func (t *Tree) Scan(path string, action EventAction, isDir bool) error {
 	case ActionMoveFrom:
 		t.log.Debug().Str("path", path).Bool("isDir", isDir).Msg("scanning path (ActionMoveFrom)")
 		// 6. file/directory moved out of the watched directory
-		//   -> update directory
-		err := t.HandleFileDelete(path)
-		if err != nil {
-			t.log.Error().Err(err).Str("path", path).Bool("isDir", isDir).Msg("failed to handle deleted item")
-		}
-		err = t.setDirty(filepath.Dir(path), true)
-		if err != nil {
-			t.log.Error().Err(err).Str("path", path).Bool("isDir", isDir).Msg("failed to mark directory as dirty")
+		//   -> remove from caches
+
+		// remember the id of the moved away item
+		spaceID, nodeID, err := t.lookup.IDsForPath(context.Background(), path)
+		if err == nil {
+			err = t.lookup.IDHistoryCache.Set(context.Background(), spaceID, nodeID, path)
+			if err != nil {
+				t.log.Error().Err(err).Str("path", path).Msg("failed to cache the id of the moved item")
+			}
 		}
 
-		go func() { _ = t.WarmupIDCache(filepath.Dir(path), false, true) }()
+		err = t.HandleFileDelete(path, false) // Do not send a item-trashed SSE in case of moves. They trigger a item-renamed event instead.
+		if err != nil {
+			t.log.Error().Err(err).Str("path", path).Bool("isDir", isDir).Msg("failed to handle moved away item")
+		}
 
 	case ActionDelete:
 		t.log.Debug().Str("path", path).Bool("isDir", isDir).Msg("handling deleted item")
@@ -261,7 +265,7 @@ func (t *Tree) Scan(path string, action EventAction, isDir bool) error {
 		// 7. Deleted file or directory
 		//   -> update parent and all children
 
-		err := t.HandleFileDelete(path)
+		err := t.HandleFileDelete(path, true)
 		if err != nil {
 			t.log.Error().Err(err).Str("path", path).Bool("isDir", isDir).Msg("failed to handle deleted item")
 		}
@@ -276,12 +280,20 @@ func (t *Tree) Scan(path string, action EventAction, isDir bool) error {
 	return nil
 }
 
-func (t *Tree) HandleFileDelete(path string) error {
+func (t *Tree) HandleFileDelete(path string, sendSSE bool) error {
 	spaceID, id, err := t.lookup.IDsForPath(context.Background(), path)
 	if err != nil {
 		return err
 	}
 	n := node.NewBaseNode(spaceID, id, t.lookup)
+	if n.InternalPath() != path {
+		return fmt.Errorf("internal path does not match path")
+	}
+	_, err = os.Stat(path)
+	if err == nil || !os.IsNotExist(err) {
+		t.log.Info().Str("path", path).Msg("file that was about to be cleared still exists/exists again. We'll leave it alone")
+		return nil
+	}
 
 	// purge metadata
 	if err := t.lookup.IDCache.DeleteByPath(context.Background(), path); err != nil {
@@ -289,6 +301,10 @@ func (t *Tree) HandleFileDelete(path string) error {
 	}
 	if err := t.lookup.MetadataBackend().Purge(context.Background(), n); err != nil {
 		t.log.Error().Err(err).Str("path", path).Msg("could not purge metadata")
+	}
+
+	if !sendSSE {
+		return nil
 	}
 
 	parentNode, err := t.getNodeForPath(filepath.Dir(path))
@@ -355,6 +371,7 @@ func (t *Tree) findSpaceId(path string) (string, node.Attributes, error) {
 }
 
 func (t *Tree) assimilate(item scanItem) error {
+	t.log.Debug().Str("path", item.Path).Bool("rescan", item.ForceRescan).Bool("recurse", item.Recurse).Msg("assimilate")
 	var err error
 
 	// First find the space id
@@ -383,17 +400,20 @@ func (t *Tree) assimilate(item scanItem) error {
 	}
 
 	// check for the id attribute again after grabbing the lock, maybe the file was assimilated/created by us in the meantime
-	_, id, mtime, err := t.lookup.MetadataBackend().IdentifyPath(context.Background(), item.Path)
+	_, id, parentID, mtime, err := t.lookup.MetadataBackend().IdentifyPath(context.Background(), item.Path)
 	if err != nil {
 		return err
 	}
 
 	if id != "" {
 		// the file has an id set, we already know it from the past
-		n := node.NewBaseNode(spaceID, id, t.lookup)
+		// n := node.NewBaseNode(spaceID, id, t.lookup)
 
 		previousPath, ok := t.lookup.GetCachedID(context.Background(), spaceID, id)
-		previousParentID, _ := t.lookup.MetadataBackend().Get(context.Background(), n, prefixes.ParentidAttr)
+		if previousPath == "" || !ok {
+			previousPath, ok = t.lookup.IDHistoryCache.Get(context.Background(), spaceID, id)
+		}
+		// previousParentID, _ := t.lookup.MetadataBackend().Get(context.Background(), n, prefixes.ParentidAttr)
 
 		// compare metadata mtime with actual mtime. if it matches AND the path hasn't changed (move operation)
 		// we can skip the assimilation because the file was handled by us
@@ -405,7 +425,7 @@ func (t *Tree) assimilate(item scanItem) error {
 		}
 
 		// was it moved or copied/restored with a clashing id?
-		if ok && len(previousParentID) > 0 && previousPath != item.Path {
+		if ok && len(parentID) > 0 && previousPath != item.Path {
 			_, err := os.Stat(previousPath)
 			if err == nil {
 				// this id clashes with an existing item -> clear metadata and re-assimilate
@@ -445,13 +465,13 @@ func (t *Tree) assimilate(item scanItem) error {
 					}()
 				}
 
-				parentID := attrs.String(prefixes.ParentidAttr)
+				newParentID := attrs.String(prefixes.ParentidAttr)
 				if len(parentID) > 0 {
 					ref := &provider.Reference{
 						ResourceId: &provider.ResourceId{
 							StorageId: t.options.MountID,
 							SpaceId:   spaceID,
-							OpaqueId:  parentID,
+							OpaqueId:  newParentID,
 						},
 						Path: filepath.Base(item.Path),
 					}
@@ -459,7 +479,7 @@ func (t *Tree) assimilate(item scanItem) error {
 						ResourceId: &provider.ResourceId{
 							StorageId: t.options.MountID,
 							SpaceId:   spaceID,
-							OpaqueId:  string(previousParentID),
+							OpaqueId:  parentID,
 						},
 						Path: filepath.Base(previousPath),
 					}
@@ -615,54 +635,56 @@ assimilate:
 
 	n.SpaceRoot = &node.Node{BaseNode: node.BaseNode{SpaceID: spaceID, ID: spaceID}}
 
-	go func() {
-		// Copy the previous current version to a revision
-		currentNode := node.NewBaseNode(n.SpaceID, n.ID+node.CurrentIDDelimiter, t.lookup)
-		currentPath := currentNode.InternalPath()
-		stat, err := os.Stat(currentPath)
-		if err != nil {
-			t.log.Error().Err(err).Str("path", path).Str("currentPath", currentPath).Msg("could not stat current path")
-			return
-		}
-		revisionPath := t.lookup.VersionPath(n.SpaceID, n.ID, stat.ModTime().UTC().Format(time.RFC3339Nano))
+	if t.options.EnableFSRevisions {
+		go func() {
+			// Copy the previous current version to a revision
+			currentNode := node.NewBaseNode(n.SpaceID, n.ID+node.CurrentIDDelimiter, t.lookup)
+			currentPath := currentNode.InternalPath()
+			stat, err := os.Stat(currentPath)
+			if err != nil {
+				t.log.Error().Err(err).Str("path", path).Str("currentPath", currentPath).Msg("could not stat current path")
+				return
+			}
+			revisionPath := t.lookup.VersionPath(n.SpaceID, n.ID, stat.ModTime().UTC().Format(time.RFC3339Nano))
 
-		err = os.Rename(currentPath, revisionPath)
-		if err != nil {
-			t.log.Error().Err(err).Str("path", path).Str("revisionPath", revisionPath).Msg("could not create revision")
-			return
-		}
+			err = os.Rename(currentPath, revisionPath)
+			if err != nil {
+				t.log.Error().Err(err).Str("path", path).Str("revisionPath", revisionPath).Msg("could not create revision")
+				return
+			}
 
-		// Copy the new version to the current version
-		w, err := os.OpenFile(currentPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
-		if err != nil {
-			t.log.Error().Err(err).Str("path", path).Str("currentPath", currentPath).Msg("could not open current path for writing")
-			return
-		}
-		defer w.Close()
-		r, err := os.OpenFile(n.InternalPath(), os.O_RDONLY, 0600)
-		if err != nil {
-			t.log.Error().Err(err).Str("path", path).Msg("could not open file for reading")
-			return
-		}
-		defer r.Close()
+			// Copy the new version to the current version
+			w, err := os.OpenFile(currentPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+			if err != nil {
+				t.log.Error().Err(err).Str("path", path).Str("currentPath", currentPath).Msg("could not open current path for writing")
+				return
+			}
+			defer w.Close()
+			r, err := os.OpenFile(n.InternalPath(), os.O_RDONLY, 0600)
+			if err != nil {
+				t.log.Error().Err(err).Str("path", path).Msg("could not open file for reading")
+				return
+			}
+			defer r.Close()
 
-		_, err = io.Copy(w, r)
-		if err != nil {
-			t.log.Error().Err(err).Str("currentPath", currentPath).Str("path", path).Msg("could not copy new version to current version")
-			return
-		}
+			_, err = io.Copy(w, r)
+			if err != nil {
+				t.log.Error().Err(err).Str("currentPath", currentPath).Str("path", path).Msg("could not copy new version to current version")
+				return
+			}
 
-		err = t.lookup.CopyMetadata(context.Background(), n, currentNode, func(attributeName string, value []byte) (newValue []byte, copy bool) {
-			return value, strings.HasPrefix(attributeName, prefixes.ChecksumPrefix) ||
-				attributeName == prefixes.TypeAttr ||
-				attributeName == prefixes.BlobIDAttr ||
-				attributeName == prefixes.BlobsizeAttr
-		}, false)
-		if err != nil {
-			t.log.Error().Err(err).Str("currentPath", currentPath).Str("path", path).Msg("failed to copy xattrs to 'current' file")
-			return
-		}
-	}()
+			err = t.lookup.CopyMetadata(context.Background(), n, currentNode, func(attributeName string, value []byte) (newValue []byte, copy bool) {
+				return value, strings.HasPrefix(attributeName, prefixes.ChecksumPrefix) ||
+					attributeName == prefixes.TypeAttr ||
+					attributeName == prefixes.BlobIDAttr ||
+					attributeName == prefixes.BlobsizeAttr
+			}, false)
+			if err != nil {
+				t.log.Error().Err(err).Str("currentPath", currentPath).Str("path", path).Msg("failed to copy xattrs to 'current' file")
+				return
+			}
+		}()
+	}
 
 	err = t.Propagate(context.Background(), n, 0)
 	if err != nil {
@@ -735,7 +757,7 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
 			sizes[path] += 0 // Make sure to set the size to 0 for empty directories
 		}
 
-		nodeSpaceID, id, _, err := t.lookup.MetadataBackend().IdentifyPath(context.Background(), path)
+		nodeSpaceID, id, _, _, err := t.lookup.MetadataBackend().IdentifyPath(context.Background(), path)
 		if err == nil && len(id) > 0 {
 			if len(nodeSpaceID) > 0 {
 				spaceID = nodeSpaceID
@@ -757,7 +779,7 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
 						break
 					}
 
-					spaceID, _, _, err = t.lookup.MetadataBackend().IdentifyPath(context.Background(), spaceCandidate)
+					spaceID, _, _, _, err = t.lookup.MetadataBackend().IdentifyPath(context.Background(), spaceCandidate)
 					if err == nil && len(spaceID) > 0 {
 						err = scopeSpace(path)
 						if err != nil {
@@ -791,7 +813,11 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
 				t.log.Error().Err(err).Str("path", path).Msg("could not assimilate item")
 			}
 		}
-		return t.setDirty(path, false)
+
+		if info.IsDir() {
+			return t.setDirty(path, false)
+		}
+		return nil
 	})
 
 	for dir, size := range sizes {

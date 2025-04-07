@@ -54,33 +54,34 @@ func NewMessagePackBackend(o cache.Config) MessagePackBackend {
 func (MessagePackBackend) Name() string { return "messagepack" }
 
 // IdentifyPath returns the id and mtime of a file
-func (b MessagePackBackend) IdentifyPath(_ context.Context, path string) (string, string, time.Time, error) {
+func (b MessagePackBackend) IdentifyPath(_ context.Context, path string) (string, string, string, time.Time, error) {
 	metaPath := filepath.Clean(path + ".mpk")
 	source, err := os.Open(metaPath)
 	// // No cached entry found. Read from storage and store in cache
 	if err != nil {
-		return "", "", time.Time{}, err
+		return "", "", "", time.Time{}, err
 	}
 	msgBytes, err := io.ReadAll(source)
 	if err != nil || len(msgBytes) == 0 {
-		return "", "", time.Time{}, err
+		return "", "", "", time.Time{}, err
 
 	}
 	attribs := map[string][]byte{}
 	err = msgpack.Unmarshal(msgBytes, &attribs)
 	if err != nil {
-		return "", "", time.Time{}, err
+		return "", "", "", time.Time{}, err
 	}
 
 	spaceID := attribs[prefixes.IDAttr]
 	id := attribs[prefixes.IDAttr]
+	parentID := attribs[prefixes.ParentidAttr]
 
 	mtimeAttr := attribs[prefixes.MTimeAttr]
 	mtime, err := time.Parse(time.RFC3339Nano, string(mtimeAttr))
 	if err != nil {
-		return "", "", time.Time{}, err
+		return "", "", "", time.Time{}, err
 	}
-	return string(spaceID), string(id), mtime, nil
+	return string(spaceID), string(id), string(parentID), mtime, nil
 }
 
 // All reads all extended attributes for a node

@@ -242,16 +242,35 @@ type tusdLogger struct {
 
 // Handle handles the record
 func (l tusdLogger) Handle(_ context.Context, r slog.Record) error {
+	var logev *zerolog.Event
 	switch r.Level {
 	case slog.LevelDebug:
-		l.log.Debug().Msg(r.Message)
+		logev = l.log.Debug()
 	case slog.LevelInfo:
-		l.log.Info().Msg(r.Message)
+		logev = l.log.Info()
 	case slog.LevelWarn:
-		l.log.Warn().Msg(r.Message)
+		logev = l.log.Warn()
 	case slog.LevelError:
-		l.log.Error().Msg(r.Message)
+		logev = l.log.Error()
 	}
+	r.Attrs(func(a slog.Attr) bool {
+		// Resolve the Attr's value before doing anything else.
+		a.Value = a.Value.Resolve()
+		// Ignore empty Attrs.
+		if a.Equal(slog.Attr{}) {
+			return true
+		}
+		switch a.Value.Kind() {
+		case slog.KindBool:
+			logev = logev.Bool(a.Key, a.Value.Bool())
+		case slog.KindInt64:
+			logev = logev.Int64(a.Key, a.Value.Int64())
+		default:
+			logev = logev.Str(a.Key, a.Value.String())
+		}
+		return true
+	})
+	logev.Msg(r.Message)
 	return nil
 }
 
@@ -262,7 +281,7 @@ func (l tusdLogger) Enabled(_ context.Context, _ slog.Level) bool { return true 
 func (l tusdLogger) WithAttrs(attr []slog.Attr) slog.Handler {
 	fields := make(map[string]interface{}, len(attr))
 	for _, a := range attr {
-		fields[a.Key] = a.Value
+		fields[a.Key] = a.Value.String()
 	}
 	c := l.log.With().Fields(fields).Logger()
 	sLog := tusdLogger{log: &c}

@@ -27,6 +27,7 @@ type Config struct {
 	FavoriteStorageDrivers      map[string]map[string]interface{} `mapstructure:"favorite_storage_drivers"`
 	Version                     string                            `mapstructure:"version"`
 	VersionString               string                            `mapstructure:"version_string"`
+	Edition                     string                            `mapstructure:"edition"`
 	Product                     string                            `mapstructure:"product"`
 	ProductName                 string                            `mapstructure:"product_name"`
 	ProductVersion              string                            `mapstructure:"product_version"`

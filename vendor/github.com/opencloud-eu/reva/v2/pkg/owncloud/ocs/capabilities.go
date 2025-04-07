@@ -142,6 +142,7 @@ type Status struct {
 	NeedsDBUpgrade ocsBool `json:"needsDbUpgrade" xml:"needsDbUpgrade"`
 	Version        string  `json:"version" xml:"version"`
 	VersionString  string  `json:"versionstring" xml:"versionstring"`
+	Edition        string  `json:"edition" xml:"edition"`
 	ProductName    string  `json:"productname" xml:"productname"`
 	Product        string  `json:"product" xml:"product"`
 	ProductVersion string  `json:"productversion" xml:"productversion"`
@@ -308,6 +309,7 @@ type Version struct {
 	Minor          int    `json:"minor" xml:"minor"`
 	Micro          int    `json:"micro" xml:"micro"` // = patch level
 	String         string `json:"string" xml:"string"`
+	Edition        string `json:"edition" xml:"edition"`
 	Product        string `json:"product" xml:"product"`
 	ProductVersion string `json:"productversion" xml:"productversion"`
 }

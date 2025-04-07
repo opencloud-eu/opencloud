@@ -45,13 +45,14 @@ func NewHybridBackend(offloadLimit int, metadataPathFunc MetadataPathFunc, o cac
 func (HybridBackend) Name() string { return "hybrid" }
 
 // IdentifyPath returns the space id, node id and mtime of a file
-func (b HybridBackend) IdentifyPath(_ context.Context, path string) (string, string, time.Time, error) {
+func (b HybridBackend) IdentifyPath(_ context.Context, path string) (string, string, string, time.Time, error) {
 	spaceID, _ := xattr.Get(path, prefixes.SpaceIDAttr)
 	id, _ := xattr.Get(path, prefixes.IDAttr)
+	parentID, _ := xattr.Get(path, prefixes.ParentidAttr)
 
 	mtimeAttr, _ := xattr.Get(path, prefixes.MTimeAttr)
 	mtime, _ := time.Parse(time.RFC3339Nano, string(mtimeAttr))
-	return string(spaceID), string(id), mtime, nil
+	return string(spaceID), string(id), string(parentID), mtime, nil
 }
 
 // Get an extended attribute value for the given key

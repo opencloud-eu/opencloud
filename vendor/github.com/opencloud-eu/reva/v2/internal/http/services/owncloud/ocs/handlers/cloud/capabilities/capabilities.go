@@ -69,6 +69,9 @@ func (h *Handler) Init(c *config.Config) {
 	if h.c.Capabilities.Core.Status.VersionString == "" {
 		h.c.Capabilities.Core.Status.VersionString = "10.0.11" // TODO make build determined
 	}
+	if h.c.Capabilities.Core.Status.Edition == "" {
+		h.c.Capabilities.Core.Status.Edition = "" // TODO make build determined
+	}
 	if h.c.Capabilities.Core.Status.ProductName == "" {
 		h.c.Capabilities.Core.Status.ProductName = "reva" // TODO make build determined
 	}
@@ -217,6 +220,7 @@ func (h *Handler) Init(c *config.Config) {
 			Minor:          0,
 			Micro:          11,
 			String:         "10.0.11",
+			Edition:        "",
 			Product:        "reva",
 			ProductVersion: "",
 		}

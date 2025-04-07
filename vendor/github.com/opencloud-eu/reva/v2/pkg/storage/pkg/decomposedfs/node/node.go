@@ -178,7 +178,9 @@ type BaseNode struct {
 	SpaceID string
 	ID      string
 
-	lu PathLookup
+	lu             PathLookup
+	internalPathID string
+	internalPath   string
 }
 
 func NewBaseNode(spaceID, nodeID string, lu PathLookup) *BaseNode {
@@ -194,7 +196,13 @@ func (n *BaseNode) GetID() string      { return n.ID }
 
 // InternalPath returns the internal path of the Node
 func (n *BaseNode) InternalPath() string {
-	return n.lu.InternalPath(n.SpaceID, n.ID)
+	if len(n.internalPath) > 0 && n.ID == n.internalPathID {
+		return n.internalPath
+	}
+
+	n.internalPath = n.lu.InternalPath(n.SpaceID, n.ID)
+	n.internalPathID = n.ID
+	return n.internalPath
 }
 
 // Node represents a node in the tree and provides methods to get a Parent or Child instance
@@ -209,6 +217,7 @@ type Node struct {
 	SpaceRoot *Node
 
 	xattrsCache map[string][]byte
+	disabled    *bool
 	nodeType    *provider.ResourceType
 }
 
@@ -912,7 +921,7 @@ func (n *Node) AsResourceInfo(ctx context.Context, rp *provider.ResourcePermissi
 		ri.Opaque = utils.AppendPlainToOpaque(ri.Opaque, "scantime", date.Format(time.RFC3339Nano))
 	}
 
-	sublog.Debug().
+	sublog.Trace().
 		Interface("ri", ri).
 		Msg("AsResourceInfo")
 
@@ -978,7 +987,7 @@ func (n *Node) readQuotaIntoOpaque(ctx context.Context, ri *provider.ResourceInf
 			appctx.GetLogger(ctx).Error().Err(err).Str("spaceid", n.SpaceID).Str("nodeid", n.ID).Str("nodepath", n.InternalPath()).Str("quota", v).Msg("malformed quota")
 		}
 	case metadata.IsAttrUnset(err):
-		appctx.GetLogger(ctx).Debug().Str("spaceid", n.SpaceID).Str("nodeid", n.ID).Str("nodepath", n.InternalPath()).Msg("quota not set")
+		appctx.GetLogger(ctx).Trace().Str("spaceid", n.SpaceID).Str("nodeid", n.ID).Str("nodepath", n.InternalPath()).Msg("quota not set")
 	default:
 		appctx.GetLogger(ctx).Error().Err(err).Str("spaceid", n.SpaceID).Str("nodeid", n.ID).Str("nodepath", n.InternalPath()).Msg("could not read quota")
 	}
@@ -996,10 +1005,17 @@ func (n *Node) HasPropagation(ctx context.Context) (propagation bool) {
 // only used to check if a space is disabled
 // FIXME confusing with the trash logic
 func (n *Node) IsDisabled(ctx context.Context) bool {
-	if _, err := n.GetDTime(ctx); err == nil {
-		return true
+	if n.disabled != nil {
+		return *n.disabled
 	}
-	return false
+	if _, err := n.GetDTime(ctx); err == nil {
+		v := true
+		n.disabled = &v
+	} else {
+		v := false
+		n.disabled = &v
+	}
+	return *n.disabled
 }
 
 // GetTreeSize reads the treesize from the extended attributes
@@ -1116,7 +1132,7 @@ func (n *Node) ReadUserPermissions(ctx context.Context, u *userpb.User) (ap *pro
 		}
 	}
 
-	appctx.GetLogger(ctx).Debug().Interface("permissions", ap).Str("spaceid", n.SpaceID).Str("nodeid", n.ID).Interface("user", u).Msg("returning aggregated permissions")
+	appctx.GetLogger(ctx).Trace().Interface("permissions", ap).Str("spaceid", n.SpaceID).Str("nodeid", n.ID).Interface("user", u).Msg("returning aggregated permissions")
 	return ap, false, nil
 }
 
