@@ -6,6 +6,13 @@
 
 @AlexAndBear, @JammingBen, @ScharfViktor, @aduffeck, @butonic, @individual-it, @kulmann, @micbar, @rhafer
 
+### 📈 Enhancement
+
+- [full-ci] reva bump 2.31.0 [[#599](https://github.com/opencloud-eu/opencloud/pull/599)]
+- feat: support svg as icon [[#538](https://github.com/opencloud-eu/opencloud/pull/538)]
+- feat: change theme.json primary color [[#536](https://github.com/opencloud-eu/opencloud/pull/536)]
+- graph: reduce memory allocations [[#494](https://github.com/opencloud-eu/opencloud/pull/494)]
+
 ### ✅ Tests
 
 - [full-ci] fix expected spanish string in test [[#596](https://github.com/opencloud-eu/opencloud/pull/596)]
@@ -19,12 +26,6 @@
 - fix: traefik credentials [[#555](https://github.com/opencloud-eu/opencloud/pull/555)]
 - Enable scan/watch in the storageprovider only [[#546](https://github.com/opencloud-eu/opencloud/pull/546)]
 - fix: typo in dev docs [[#540](https://github.com/opencloud-eu/opencloud/pull/540)]
-
-### 📈 Enhancement
-
-- feat: support svg as icon [[#538](https://github.com/opencloud-eu/opencloud/pull/538)]
-- feat: change theme.json primary color [[#536](https://github.com/opencloud-eu/opencloud/pull/536)]
-- graph: reduce memory allocations [[#494](https://github.com/opencloud-eu/opencloud/pull/494)]
 
 ### 📦️ Dependencies
 
