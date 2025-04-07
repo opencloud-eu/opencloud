@@ -1,13 +1,12 @@
 {
-  "clientId": "e4rAsNUSIUs0lF4nbv9FmCeUkTlV9GdgTLDH1b5uie7syb90SzEVrbN7HIpmWJeD",
-  "name": "openCloud Android app",
+  "clientId": "OpenCloudIOS",
+  "name": "OpenCloud iOS App",
   "surrogateAuthRequired": false,
   "enabled": true,
   "alwaysDisplayInConsole": false,
   "clientAuthenticatorType": "client-secret",
-  "secret": "dInFYGV33xKzhbRmpqQltYNdfLdJIfJ9L5ISoKhNoT9qZftpdWSP71VrpGR9pmoD",
   "redirectUris": [
-    "oc://android.opencloud.com"
+    "oc://ios.opencloud.eu"
   ],
   "webOrigins": [],
   "notBefore": 0,
@@ -17,7 +16,7 @@
   "implicitFlowEnabled": false,
   "directAccessGrantsEnabled": true,
   "serviceAccountsEnabled": false,
-  "publicClient": false,
+  "publicClient": true,
   "frontchannelLogout": false,
   "protocol": "openid-connect",
   "attributes": {
@@ -25,7 +24,7 @@
     "saml.force.post.binding": "false",
     "saml.multivalued.roles": "false",
     "saml.encrypt": "false",
-    "post.logout.redirect.uris": "+",
+    "post.logout.redirect.uris": "oc://ios.opencloud.eu",
     "backchannel.logout.revoke.offline.tokens": "false",
     "saml.server.signature": "false",
     "saml.server.signature.keyinfo.ext": "false",
