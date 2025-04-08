@@ -81,4 +81,5 @@ type Status struct {
 	Product        string
 	ProductName    string
 	ProductVersion string
+	Edition        string `yaml:"edition" env:"OC_EDITION;OCDAV_EDITION" desc:"Edition of OpenCloud. Used for branding purposes." introductionVersion:"1.0.0"`
 }

@@ -2043,6 +2043,17 @@ class FeatureContext extends BehatVariablesContext {
 	}
 
 	/**
+	 * @return string
+	 */
+	public function getEditionFromStatus(): string {
+		$decodedResponse = $this->getJsonDecodedStatusPhp();
+		if (isset($decodedResponse['edition'])) {
+			return $decodedResponse['edition'];
+		}
+		return '';
+	}
+
+	/**
 	 * @return string|null
 	 */
 	public function getProductNameFromStatus(): ?string {
@@ -2268,6 +2279,14 @@ class FeatureContext extends BehatVariablesContext {
 				"function" => [
 					$this,
 					"getProductNameFromStatus"
+				],
+				"parameter" => []
+			],
+			[
+				"code" => "%edition%",
+				"function" => [
+					$this,
+					"getEditionFromStatus"
 				],
 				"parameter" => []
 			],

@@ -47,6 +47,7 @@ Feature: default capabilities for normal user
                     "required": [
                       "version",
                       "versionstring",
+                      "edition",
                       "productname"
                     ],
                     "properties": {
@@ -55,6 +56,9 @@ Feature: default capabilities for normal user
                       },
                       "versionstring": {
                         "const": "%versionstring%"
+                      },
+                      "edition": {
+                        "const": "%edition%"
                       },
                       "productname": {
                         "const": "%productname%"

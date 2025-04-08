@@ -208,6 +208,7 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 									"needsDbUpgrade": false,
 									"version":        version.Legacy,
 									"versionstring":  version.LegacyString,
+									"edition":        cfg.Edition,
 									"productname":    "OpenCloud",
 									"product":        "OpenCloud",
 									"productversion": version.GetString(),

@@ -193,12 +193,17 @@ Feature: capabilities
                   "status": {
                     "type": "object",
                     "required": [
+                      "edition",
                       "product",
                       "productname",
                       "version",
                       "versionstring"
                     ],
                     "properties": {
+                      "edition": {
+                        "type": "string",
+                        "enum": ["%edition%"]
+                      },
                       "product": {
                         "type": "string",
                         "enum": ["%productname%"]
@@ -225,12 +230,17 @@ Feature: capabilities
             "type": "object",
             "required": [
               "string",
+              "edition",
               "product"
             ],
             "properties": {
               "string": {
                 "type": "string",
                 "enum": ["%versionstring%"]
+              },
+              "edition": {
+                "type": "string",
+                "enum": ["%edition%"]
               },
               "product": {
                 "type": "string",

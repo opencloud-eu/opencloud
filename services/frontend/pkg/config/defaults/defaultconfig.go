@@ -87,6 +87,7 @@ func DefaultConfig() *config.Config {
 		DefaultUploadProtocol:    "tus",
 		DefaultLinkPermissions:   1,
 		SearchMinLength:          3,
+		Edition:                  "",
 		Checksums: config.Checksums{
 			SupportedTypes:      []string{"sha1", "md5", "adler32"},
 			PreferredUploadType: "sha1",

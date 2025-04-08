@@ -214,6 +214,11 @@ class CapabilitiesContext implements Context {
 		$this->featureContext->theHTTPStatusCodeShouldBe(200, '', $response);
 
 		$responseXmlObject = HttpRequestHelper::getResponseXml($response, __METHOD__)->data->capabilities;
+		$edition = $this->getParameterValueFromXml(
+			$responseXmlObject,
+			'core',
+			'status@@@edition'
+		);
 
 		$product = $this->getParameterValueFromXml(
 			$responseXmlObject,
@@ -238,6 +243,7 @@ class CapabilitiesContext implements Context {
 			);
 		}
 
+		$jsonExpectedDecoded['edition'] = $edition;
 		$jsonExpectedDecoded['product'] = $product;
 		$jsonExpectedDecoded['productname'] = $productName;
 
