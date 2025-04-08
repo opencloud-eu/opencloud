@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @Svanvith, @individual-it
+@JammingBen, @ScharfViktor, @Svanvith, @individual-it
 
 ### ✨ Features
 
@@ -12,7 +12,7 @@
 
 ### 📈 Enhancement
 
-- chore: bump version to v2.1.0 [[#614](https://github.com/opencloud-eu/opencloud/pull/614)]
+- revert: completely remove "edition" from capabilities [[#601](https://github.com/opencloud-eu/opencloud/pull/601)]
 
 ## [2.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.1.0) - 2025-04-07
 
