@@ -10,6 +10,10 @@
 
 - feat: improve the info about storage path in deployment example [[#617](https://github.com/opencloud-eu/opencloud/pull/617)]
 
+### 🐛 Bug Fixes
+
+- fix inbucket setup [[#619](https://github.com/opencloud-eu/opencloud/pull/619)]
+
 ### 📈 Enhancement
 
 - revert: completely remove "edition" from capabilities [[#601](https://github.com/opencloud-eu/opencloud/pull/601)]
