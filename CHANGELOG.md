@@ -4,7 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @individual-it
+@ScharfViktor, @Svanvith, @individual-it
+
+### ✨ Features
+
+- feat: improve the info about storage path in deployment example [[#617](https://github.com/opencloud-eu/opencloud/pull/617)]
 
 ### 📈 Enhancement
 
