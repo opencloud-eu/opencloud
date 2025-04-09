@@ -9,12 +9,12 @@ services:
       # Ldap IDP specific configuration
       OC_LDAP_URI: ldaps://ldap-server:1636
       OC_LDAP_INSECURE: "true"
-      OC_LDAP_BIND_DN: "cn=admin,dc=opencloud,dc=com"
+      OC_LDAP_BIND_DN: "cn=admin,dc=opencloud,dc=eu"
       OC_LDAP_BIND_PASSWORD: ${LDAP_ADMIN_PASSWORD:-admin}
-      OC_LDAP_GROUP_BASE_DN: "ou=groups,dc=opencloud,dc=com"
+      OC_LDAP_GROUP_BASE_DN: "ou=groups,dc=opencloud,dc=eu"
       OC_LDAP_GROUP_FILTER: "(objectclass=opencloudobject)"
       OC_LDAP_GROUP_OBJECTCLASS: "groupOfNames"
-      OC_LDAP_USER_BASE_DN: "ou=users,dc=opencloud,dc=com"
+      OC_LDAP_USER_BASE_DN: "ou=users,dc=opencloud,dc=eu"
       OC_LDAP_USER_FILTER: "(objectclass=openclouduser)"
       OC_LDAP_USER_OBJECTCLASS: "inetOrgPerson"
       LDAP_LOGIN_ATTRIBUTES: "uid"
@@ -39,7 +39,7 @@ services:
       LDAP_TLS_CA_FILE: /opt/bitnami/openldap/share/openldap.crt
       LDAP_TLS_CERT_FILE: /opt/bitnami/openldap/share/openldap.crt
       LDAP_TLS_KEY_FILE: /opt/bitnami/openldap/share/openldap.key
-      LDAP_ROOT: "dc=opencloud,dc=com"
+      LDAP_ROOT: "dc=opencloud,dc=eu"
       LDAP_ADMIN_PASSWORD: ${LDAP_ADMIN_PASSWORD:-admin}
     ports:
       - "127.0.0.1:389:1389"
