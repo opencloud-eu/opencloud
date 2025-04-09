@@ -58,7 +58,6 @@ understand code more easily, even when coming from different developers or vendo
 
 Namely those packages are
 
-- `/packages/babel-preset`
 - `/packages/eslint-config`
 - `/packages/extension-sdk`
 - `/packages/prettier-config`
