@@ -11,6 +11,10 @@
 - feat: add dev docs for web [[#623](https://github.com/opencloud-eu/opencloud/pull/623)]
 - feat: improve the info about storage path in deployment example [[#617](https://github.com/opencloud-eu/opencloud/pull/617)]
 
+### 📚 Documentation
+
+- chore: move dev docs to opencloud-eu/docs repo [[#635](https://github.com/opencloud-eu/opencloud/pull/635)]
+
 ### 🐛 Bug Fixes
 
 - fix: web dev docs broken links [[#633](https://github.com/opencloud-eu/opencloud/pull/633)]
