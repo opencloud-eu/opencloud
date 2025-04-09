@@ -34,7 +34,7 @@ The source code is hosted at [https://github.com/opencloud-eu/web](https://githu
 
 ## Configuration
 
-Depending on the backend you are using, there are sample config files provided in the [config folder](https://github.com/opencloud-eu/web/tree/main/config) of the OpenCloud Web git repository. See below for available backends. Also, find some of the configuration details below.
+There are sample config files provided in the [config folder](https://github.com/opencloud-eu/web/tree/main/config) of the OpenCloud Web git repository. See below for some configuration details.
 
 - `customTranslations` You can specify one or multiple files to overwrite existing translations. For example set this option to `[{url: "https://localhost:9200/customTranslations.json"}]`.
 
