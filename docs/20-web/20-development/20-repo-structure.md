@@ -26,7 +26,7 @@ Having these packages side by side within the `/packages` folder of the repo is 
 
 ### tests Folder
 
-We're using the [Playwright](https://playwright.dev) for UI testing. The UI tests are located in the `/tests/e2e`
+We're using the [Playwright](https://playwright.dev) for UI testing. The UI tests are located in the `/tests/e2e`.
 
 You're more than welcome to make a pull request and adjust this section of the docs accordingly. :-)
 You can read more about testing in our [testing section](./../30-testing/intro.md)
