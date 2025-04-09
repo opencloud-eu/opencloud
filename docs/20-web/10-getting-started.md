@@ -28,7 +28,7 @@ The bundled frontend code automatically gets mounted into the Docker containers,
 
 For more details on how to set up Web for development, please see [tooling](./20-development/30-tooling.md).
 
-### Source Code
+## Source Code
 
 The source code is hosted at [https://github.com/opencloud-eu/web](https://github.com/opencloud-eu/web).
 
