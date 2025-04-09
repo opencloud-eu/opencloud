@@ -15,6 +15,7 @@ This setup currently doesn't work on Windows out of the box.
 
 <details>
   <summary>Workaround</summary>
+  
   One of our contributors has opened a PR to a dependency that prevents us from successfully bundling the frontend.
   Feel free to check out [their changes](https://github.com/egoist/rollup-plugin-postcss/pull/384) and build them locally if you absolutely want to work on Windows.
 </details>
