@@ -4,10 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@JammingBen, @ScharfViktor, @Svanvith, @individual-it
+@AlexAndBear, @JammingBen, @ScharfViktor, @Svanvith, @individual-it
 
 ### ✨ Features
 
+- feat: add dev docs for web [[#623](https://github.com/opencloud-eu/opencloud/pull/623)]
 - feat: improve the info about storage path in deployment example [[#617](https://github.com/opencloud-eu/opencloud/pull/617)]
 
 ### 🐛 Bug Fixes
