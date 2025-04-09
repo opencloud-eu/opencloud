@@ -12,7 +12,7 @@ Since it is a living document, please open a PR if you find something missing.
 ## Contributing to OpenCloud Web
 
 Everyone is invited to contribute. Simply fork the [codebase](https://github.com/opencloud-eu/web/),
-check the [issues](https://github.com/opencloud-eu/web/issues?q=is%3Aopen+is%3Aissue+label%3ATopic%3Agood-first-issue)
+check the [issues](https://github.com/opencloud-eu/web/issues?q=is%3Aopen%20is%3Aissue%20label%3AType%3AGood-First-Issue)
 for a suitable one and open a pull request!
 
 ### Linting and Tests
