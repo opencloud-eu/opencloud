@@ -13,6 +13,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix: web dev docs broken links [[#633](https://github.com/opencloud-eu/opencloud/pull/633)]
 - fix inbucket setup [[#619](https://github.com/opencloud-eu/opencloud/pull/619)]
 
 ### 📈 Enhancement
