@@ -20,7 +20,7 @@ for a suitable one and open a pull request!
 To make sure your pull request can be efficiently reviewed and won't need a lot of changes down the road, please run the linter and
 the unit tests via `pnpm lint --fix` and `pnpm test:unit` locally. Our [CI](https://drone.opencloud.eu/opencloud/web) will run on
 pull requests and report back any problems after that. For a further introduction on how we handle testing, please head to
-the [testing docs](./../30-testing/intro.md).
+the [testing docs](./../30-testing/index.md).
 
 
 ## Code Conventions
