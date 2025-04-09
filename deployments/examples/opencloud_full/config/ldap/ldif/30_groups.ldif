@@ -1,0 +1,88 @@
+dn: cn=users,ou=groups,dc=opencloud,dc=eu
+objectClass: groupOfNames
+objectClass: openCloudObject
+objectClass: top
+cn: users
+description: Users
+openCloudUUID: 509a9dcd-bb37-4f4f-a01a-19dca27d9cfa
+member: uid=alan,ou=users,dc=opencloud,dc=eu
+member: uid=mary,ou=users,dc=opencloud,dc=eu
+member: uid=margaret,ou=users,dc=opencloud,dc=eu
+member: uid=dennis,ou=users,dc=opencloud,dc=eu
+member: uid=lynn,ou=users,dc=opencloud,dc=eu
+member: uid=admin,ou=users,dc=opencloud,dc=eu
+
+dn: cn=chess-lovers,ou=groups,dc=opencloud,dc=eu
+objectClass: groupOfNames
+objectClass: openCloudObject
+objectClass: top
+cn: chess-lovers
+description: Chess lovers
+openCloudUUID: 9d31ec04-dd80-11ef-ac47-a38ba68cc36d
+member: uid=alan,ou=users,dc=opencloud,dc=eu
+
+dn: cn=machine-lovers,ou=groups,dc=opencloud,dc=eu
+objectClass: groupOfNames
+objectClass: openCloudObject
+objectClass: top
+cn: machine-lovers
+description: Machine Lovers
+openCloudUUID: d901562a-dd80-11ef-a510-fba1ed43fb21
+member: uid=alan,ou=users,dc=opencloud,dc=eu
+
+dn: cn=bible-readers,ou=groups,dc=opencloud,dc=eu
+objectClass: groupOfNames
+objectClass: openCloudObject
+objectClass: top
+cn: bible-readers
+description: Bible readers
+openCloudUUID: 2fc6ba22-dd81-11ef-89e6-e3eff494a998
+member: uid=mary,ou=users,dc=opencloud,dc=eu
+
+dn: cn=apollos,ou=groups,dc=opencloud,dc=eu
+objectClass: groupOfNames
+objectClass: openCloudObject
+objectClass: top
+cn: apollos
+description: Contributors to the Appollo mission
+openCloudUUID: 6f9bab36-dd94-11ef-a252-dbbdd20299dd
+member: uid=margaret,ou=users,dc=opencloud,dc=eu
+
+dn: cn=unix-lovers,ou=groups,dc=opencloud,dc=eu
+objectClass: groupOfNames
+objectClass: openCloudObject
+objectClass: top
+cn: unix-lovers
+description: Unix lovers
+openCloudUUID: 75bc3882-dd94-11ef-ad60-335f3df6cef3
+member: uid=dennis,ou=users,dc=opencloud,dc=eu
+
+dn: cn=basic-haters,ou=groups,dc=opencloud,dc=eu
+objectClass: groupOfNames
+objectClass: openCloudObject
+objectClass: top
+cn: basic-haters
+description: Haters of the Basic programming language
+openCloudUUID: a4eb2c12-dd94-11ef-9ebe-eb96f938d517
+member: uid=dennis,ou=users,dc=opencloud,dc=eu
+
+dn: cn=vlsi-lovers,ou=groups,dc=opencloud,dc=eu
+objectClass: groupOfNames
+objectClass: openCloudObject
+objectClass: top
+cn: vlsi-lovers
+description: Lovers of VLSI microchip design
+openCloudUUID: 914ce3de-e899-11ef-9a4b-732fbb2acc42
+member: uid=lynn,ou=users,dc=opencloud,dc=eu
+
+dn: cn=programmers,ou=groups,dc=opencloud,dc=eu
+objectClass: groupOfNames
+objectClass: openCloudObject
+objectClass: top
+cn: programmers
+description: Computer Programmers
+openCloudUUID: ce4aa240-dd94-11ef-82b8-4f4828849072
+member: uid=alan,ou=users,dc=opencloud,dc=eu
+member: uid=margaret,ou=users,dc=opencloud,dc=eu
+member: uid=dennis,ou=users,dc=opencloud,dc=eu
+member: uid=lynn,ou=users,dc=opencloud,dc=eu

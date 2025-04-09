@@ -106,15 +106,15 @@ and most prominently also in the `files` app we have defined some extension poin
 For building an extension you can choose from the types predefined by the OpenCloud Web extension system. See the full list of available extension types below.
 
 1. `ActionExtension` (type `action`) - An extension that can register `Action` items which then get shown in various places (e.g. context menus, batch actions), depending on the
-   extension points referenced in the extension respectively. Most commonly used for file and folder actions (e.g. copy, rename, delete, etc.). For details, please refer to the [action docs](./20-extension-types/10-actions.md)
-2. `SearchExtension` (type `search`) - An extension that can register additional search providers. For details, please refer to the [search docs](./20-extension-types/60-search.md).
+   extension points referenced in the extension respectively. Most commonly used for file and folder actions (e.g. copy, rename, delete, etc.). For details, please refer to the [action docs](./20-extension-types/10-action-extensions.md)
+2. `SearchExtension` (type `search`) - An extension that can register additional search providers. For details, please refer to the [search docs](./20-extension-types/70-search-extensions.md).
 3. `SidebarNavExtension` (type `sidebarNav`) - An extension that can register additional navigation items for the left sidebar. These can be scoped to specific apps, and programmatically enabled/disabled.
-   For details, please refer to the [sidebar nav docs](./20-extension-types/50-left-sidebar-menu-item.md).
-4. `SidebarPanelExtension`, (type `sidebarPanel`) - An extension that can register panels for the right sidebar. For details, please refer to the [sidebar panel docs](./20-extension-types/60-right-sidebar-panels.md).
+   For details, please refer to the [sidebar nav docs](./20-extension-types/50-left-sidebar-menu-item-extensions.md).
+4. `SidebarPanelExtension`, (type `sidebarPanel`) - An extension that can register panels for the right sidebar. For details, please refer to the [sidebar panel docs](./20-extension-types/60-right-sidebar-panel-extensions.md).
 5. `FolderViewExtension` (type `folderView`) - An extension that can register additional ways of displaying the content of a folder (resources like spaces, folders or files) to the user.
-   For details, please refer to the [folder view docs](./20-extension-types/40-folder-view.md).
+   For details, please refer to the [folder view docs](./20-extension-types/40-folder-view-extensions.md).
 6. `CustomComponentExtension` (type `customComponent`) - An extension that can register a custom component for a render target. For details, please refer to the
-   [custom component docs](./20-extension-types/30-custom-components.md)
+   [custom component docs](./20-extension-types/30-custom-component-extensions.md)
 
 You're free to introduce your own extension types within your application code and use the extension registry to query the available ones. However, if you have the impression
 that an important extension type is missing and would be beneficial for the platform, please reach out to us by opening a [GitHub issue](https://github.com/opencloud-eu/web/issues/new/choose).
