@@ -1,7 +1,7 @@
 ---
 sidebar_position: 1
 id: intro
-title: OpenCloud Developer Docs
+title: Welcome
 custom_edit_url: https://github.com/opencloud-eu/opencloud/edit/main/docs/intro.md
 ---
 
