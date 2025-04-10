@@ -4,7 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@JammingBen
+@JammingBen, @fschade
+
+### 🐛 Bug Fixes
+
+- fix(antivirus | backport): introduce a default max scan size for the full example deployment [[#620](https://github.com/opencloud-eu/opencloud/pull/620)]
 
 ### 📈 Enhancement
 
