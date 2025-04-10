@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.2.0) - 2025-04-10
+
+### ❤️ Thanks to all contributors! ❤️
+
+@JammingBen
+
+### 📈 Enhancement
+
+- [full-ci] chore(web): bump web to v2.1.1 [[#638](https://github.com/opencloud-eu/opencloud/pull/638)]
+
 ## [2.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.0.0) - 2025-03-26
 
 ### ❤️ Thanks to all contributors! ❤️
