@@ -21,7 +21,7 @@ type Config struct {
 	Workers              int `yaml:"workers" env:"ANTIVIRUS_WORKERS" desc:"The number of concurrent go routines that fetch events from the event queue." introductionVersion:"1.0.0"`
 
 	Scanner     Scanner
-	MaxScanSize string `yaml:"max-scan-size" env:"ANTIVIRUS_MAX_SCAN_SIZE" desc:"The maximum scan size the virus scanner can handle. Only this many bytes of a file will be scanned. 0 means unlimited and is the default. Usable common abbreviations: [KB, KiB, MB, MiB, GB, GiB, TB, TiB, PB, PiB, EB, EiB], example: 2GB." introductionVersion:"1.0.0"`
+	MaxScanSize string `yaml:"max-scan-size" env:"ANTIVIRUS_MAX_SCAN_SIZE" desc:"The maximum scan size the virus scanner can handle. 0 means unlimited. Usable common abbreviations: [KB, KiB, MB, MiB, GB, GiB, TB, TiB, PB, PiB, EB, EiB], example: 2GB." introductionVersion:"1.0.0"`
 
 	Context context.Context `json:"-" yaml:"-"`
 
