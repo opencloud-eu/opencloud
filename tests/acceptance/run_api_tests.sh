@@ -4,7 +4,7 @@
 export LOCAL_TEST=true
 export START_EMAIL=true
 export WITH_WRAPPER=true
-export STORAGE_DRIVER=${STORAGE_DRIVER:-decomposed}
+export STORAGE_DRIVER=${STORAGE_DRIVER:-posix}
 export TEST_ROOT_PATH="/drone/src/tests"
 
 # LOCAL TEST WITHOUT EXTRA ENVS

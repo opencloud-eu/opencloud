@@ -8,6 +8,13 @@ dn: ou=users,dc=opencloud,dc=eu
 objectClass: organizationalUnit
 ou: users
 
+dn: cn=admin,dc=opencloud,dc=eu
+objectClass: inetOrgPerson
+objectClass: person
+cn: admin
+sn: admin
+uid: ldapadmin
+
 dn: ou=groups,dc=opencloud,dc=eu
 objectClass: organizationalUnit
 ou: groups

@@ -10,6 +10,7 @@ services:
     environment:
       LDAP_HOST: ldap-server
       LDAP_PORT: 1389
+      LDAP_LOGIN_OBJECTCLASS: "inetOrgPerson"
       APP_URL: "https://${LDAP_MANAGER_DOMAIN:-ldap.opencloud.test}"
     labels:
       - "traefik.enable=true"
