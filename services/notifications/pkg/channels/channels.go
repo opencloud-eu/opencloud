@@ -68,6 +68,10 @@ func (m Mail) getMailClient() (*mail.SMTPClient, error) {
 	}
 	server.TLSConfig.InsecureSkipVerify = m.conf.Notifications.SMTP.Insecure
 
+	if m.conf.Notifications.SMTP.Helo != "" {
+		server.Helo = m.conf.Notifications.SMTP.Helo
+	}
+
 	switch strings.ToLower(m.conf.Notifications.SMTP.Authentication) {
 	case "login":
 		server.Authentication = mail.AuthLogin
