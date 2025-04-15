@@ -4,12 +4,17 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @ScharfViktor, @Svanvith, @amrita-shrestha, @individual-it, @micbar
+@AlexAndBear, @JammingBen, @ScharfViktor, @Svanvith, @amrita-shrestha, @individual-it, @jnweiger, @micbar
 
 ### ✨ Features
 
 - feat: add dev docs for web [[#623](https://github.com/opencloud-eu/opencloud/pull/623)]
 - feat: improve the info about storage path in deployment example [[#617](https://github.com/opencloud-eu/opencloud/pull/617)]
+
+### 📈 Enhancement
+
+- Feat: install.sh now honors OC_BASE_DIR and OC_HOST [[#574](https://github.com/opencloud-eu/opencloud/pull/574)]
+- revert: completely remove "edition" from capabilities [[#601](https://github.com/opencloud-eu/opencloud/pull/601)]
 
 ### ✅ Tests
 
@@ -23,10 +28,6 @@
 
 - fix: web dev docs broken links [[#633](https://github.com/opencloud-eu/opencloud/pull/633)]
 - fix inbucket setup [[#619](https://github.com/opencloud-eu/opencloud/pull/619)]
-
-### 📈 Enhancement
-
-- revert: completely remove "edition" from capabilities [[#601](https://github.com/opencloud-eu/opencloud/pull/601)]
 
 ### 📦️ Dependencies
 
