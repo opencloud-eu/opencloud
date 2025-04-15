@@ -1,10 +1,10 @@
 # Changelog
 
-## [2.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.2.0) - 2025-04-14
+## [2.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.2.0) - 2025-04-15
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @ScharfViktor, @Svanvith, @individual-it, @micbar
+@AlexAndBear, @JammingBen, @ScharfViktor, @Svanvith, @amrita-shrestha, @individual-it, @micbar
 
 ### ✨ Features
 
