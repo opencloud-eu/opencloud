@@ -18,7 +18,11 @@ services:
       PROXY_USER_OIDC_CLAIM: "preferred_username"
       PROXY_USER_CS3_CLAIM: "username"
       OC_EXCLUDE_RUN_SERVICES: "idp"
+      
+      # admin and demo accounts must be created in Keycloak
       OC_ADMIN_USER_ID: ""
+      SETTINGS_SETUP_DEFAULT_ASSIGNMENTS: "false"
+
       GRAPH_ASSIGN_DEFAULT_USER_ROLE: "false"
       GRAPH_USERNAME_MATCH: "none"
       KEYCLOAK_DOMAIN: ${KEYCLOAK_DOMAIN:-keycloak.opencloud.test} 
