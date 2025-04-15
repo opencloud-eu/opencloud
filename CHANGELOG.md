@@ -4,12 +4,18 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @ScharfViktor, @Svanvith, @amrita-shrestha, @individual-it, @jnweiger, @micbar
+@AlexAndBear, @JammingBen, @ScharfViktor, @Svanvith, @amrita-shrestha, @butonic, @individual-it, @jnweiger, @micbar
 
 ### ✨ Features
 
 - feat: add dev docs for web [[#623](https://github.com/opencloud-eu/opencloud/pull/623)]
 - feat: improve the info about storage path in deployment example [[#617](https://github.com/opencloud-eu/opencloud/pull/617)]
+
+### 🐛 Bug Fixes
+
+- fix deployment: do not create demo accounts when using keycloak [[#671](https://github.com/opencloud-eu/opencloud/pull/671)]
+- fix: web dev docs broken links [[#633](https://github.com/opencloud-eu/opencloud/pull/633)]
+- fix inbucket setup [[#619](https://github.com/opencloud-eu/opencloud/pull/619)]
 
 ### 📈 Enhancement
 
@@ -23,11 +29,6 @@
 ### 📚 Documentation
 
 - chore: move dev docs to opencloud-eu/docs repo [[#635](https://github.com/opencloud-eu/opencloud/pull/635)]
-
-### 🐛 Bug Fixes
-
-- fix: web dev docs broken links [[#633](https://github.com/opencloud-eu/opencloud/pull/633)]
-- fix inbucket setup [[#619](https://github.com/opencloud-eu/opencloud/pull/619)]
 
 ### 📦️ Dependencies
 
