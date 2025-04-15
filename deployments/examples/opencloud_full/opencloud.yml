@@ -71,6 +71,11 @@ services:
       - "traefik.http.routers.opencloud.tls.certresolver=http"
       - "traefik.http.routers.opencloud.service=opencloud"
       - "traefik.http.services.opencloud.loadbalancer.server.port=9200"
+      # fix for MKCOL and MOVE
+      - "traefik.http.routers.opencloud-mkcol.rule=Host(`${OC_DOMAIN:-cloud.opencloud.test}`) && (Method(`MKCOL`) || Method(`MOVE`))"
+      - "traefik.http.routers.opencloud-mkcol.middlewares=opencloud-mkcol-body"
+      - "traefik.http.routers.opencloud-mkcol.service=opencloud"
+      - "traefik.http.middlewares.opencloud-mkcol-body.buffering.maxRequestBodyBytes=1"
     logging:
       driver: ${LOG_DRIVER:-local}
     restart: always
