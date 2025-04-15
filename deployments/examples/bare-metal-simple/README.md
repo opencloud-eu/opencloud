@@ -26,6 +26,18 @@ This script should **NOT** be run as user root.
 Set the environment variable `OC_VERSION` to the version you want
 to download. If not set, there is a reasonable default. 
 
+## Data Location
+
+Set the environment variable `OC_BASE_DIR` to a directory where the
+`data` and `config` subdirectories shall be located. Per default,
+both configuration and storage data are within a sandbox subdirectory
+in the current working directory.
+
+## Server Address
+
+Set the environment variable `OC_HOST` to the fully qualified hostname
+of this server to allow remote accesse. Default: `localhost`.
+
 # Example
 
 Call
