@@ -78,6 +78,19 @@ FED_OC_SERVER_NAME = "federation-opencloud-server"
 OC_FED_URL = "https://%s:10200" % FED_OC_SERVER_NAME
 OC_FED_DOMAIN = "%s:10200" % FED_OC_SERVER_NAME
 
+event = {
+    "base": {
+        "event": ["push", "manual"],
+        "branch": "main",
+    },
+    "pull_request": {
+        "event": "pull_request",
+    },
+    "tag": {
+        "event": "tag",
+    },
+}
+
 # configuration
 config = {
     "cs3ApiTests": {
@@ -485,9 +498,7 @@ def cachePipeline(name, steps):
                 "event": ["push", "manual"],
                 "branch": ["main", "stable-*"],
             },
-            {
-                "event": "pull_request",
-            },
+            event["pull_request"],
         ],
     }
 
@@ -545,6 +556,7 @@ def getGoBinForTesting(ctx):
         "steps": checkGoBinCache() +
                  cacheGoBin(),
         "when": [
+            event["tag"],
             {
                 "event": ["push", "manual"],
                 "branch": ["main", "stable-*"],
@@ -554,9 +566,6 @@ def getGoBinForTesting(ctx):
                 "path": {
                     "exclude": skipIfUnchanged(ctx, "unit-tests"),
                 },
-            },
-            {
-                "event": "tag",
             },
         ],
         "workspace": workspace,
@@ -678,10 +687,7 @@ def testOpencloud(ctx):
         "name": "linting_and_unitTests",
         "steps": steps,
         "when": [
-            {
-                "event": ["push", "manual"],
-                "branch": "main",
-            },
+            event["base"],
             {
                 "event": "pull_request",
                 "path": {
@@ -709,10 +715,7 @@ def scanOpencloud(ctx):
         "name": "go-vulnerability-scanning",
         "steps": steps,
         "when": [
-            {
-                "event": ["push", "manual"],
-                "branch": "main",
-            },
+            event["base"],
             {
                 "event": "pull_request",
                 "path": {
@@ -732,10 +735,7 @@ def buildOpencloudBinaryForTesting(ctx):
                  build() +
                  rebuildBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]),
         "when": [
-            {
-                "event": ["push", "manual"],
-                "branch": "main",
-            },
+            event["base"],
             {
                 "event": "pull_request",
                 "path": {
@@ -782,11 +782,7 @@ def checkTestSuitesInExpectedFailures():
                 ],
             },
         ],
-        "when": [
-            {
-                "event": "pull_request",
-            },
-        ],
+        "when": [event["pull_request"]],
     }]
 
 def checkGherkinLint():
@@ -802,11 +798,7 @@ def checkGherkinLint():
                 ],
             },
         ],
-        "when": [
-            {
-                "event": "pull_request",
-            },
-        ],
+        "when": [event["pull_request"]],
     }]
 
 def codestyle(ctx):
@@ -867,10 +859,7 @@ def codestyle(ctx):
                          ],
                 "depends_on": [],
                 "when": [
-                    {
-                        "event": ["push", "manual"],
-                        "branch": "main",
-                    },
+                    event["base"],
                     {
                         "event": "pull_request",
                         "path": {
@@ -937,10 +926,7 @@ def localApiTestPipeline(ctx):
                                         ((fakeOffice() + collaboraService() + onlyofficeService()) if params["collaborationServiceNeeded"] else []),
                             "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx)),
                             "when": [
-                                {
-                                    "event": ["push", "manual"],
-                                    "branch": "main",
-                                },
+                                event["base"],
                                 {
                                     "event": "pull_request",
                                     "path": {
@@ -1003,10 +989,7 @@ def cs3ApiTests(ctx, storage, accounts_hash_difficulty = 4):
                  ],
         "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx)),
         "when": [
-            {
-                "event": ["push", "manual"],
-                "branch": "main",
-            },
+            event["base"],
             {
                 "event": "pull_request",
                 "path": {
@@ -1119,10 +1102,7 @@ def wopiValidatorTests(ctx, storage, wopiServerType, accounts_hash_difficulty = 
                  validatorTests,
         "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx)),
         "when": [
-            {
-                "event": ["push", "manual"],
-                "branch": "main",
-            },
+            event["base"],
             {
                 "event": "pull_request",
                 "path": {
@@ -1173,10 +1153,7 @@ def coreApiTests(ctx, part_number = 1, number_of_parts = 1, with_remote_php = Fa
         "services": redisForOCStorage(storage),
         "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx)),
         "when": [
-            {
-                "event": ["push", "manual"],
-                "branch": "main",
-            },
+            event["base"],
             {
                 "event": "pull_request",
                 "path": {
@@ -1223,10 +1200,7 @@ def e2eTestPipeline(ctx):
     }
 
     e2e_trigger = [
-        {
-            "event": ["push", "manual"],
-            "branch": "main",
-        },
+        event["base"],
         {
             "event": "pull_request",
             "path": {
@@ -1332,10 +1306,7 @@ def multiServiceE2ePipeline(ctx):
     }
 
     e2e_trigger = [
-        {
-            "event": ["push", "manual"],
-            "branch": "main",
-        },
+        event["base"],
         {
             "event": "pull_request",
             "path": {
@@ -1579,11 +1550,7 @@ def dockerRelease(ctx, repo, build_type):
                         "from_secret": "ci_http_proxy",
                     },
                 },
-                "when": [
-                    {
-                        "event": ["pull_request"],
-                    },
-                ],
+                "when": [event["pull_request"]],
             },
             {
                 "name": "build-and-push",
@@ -1625,31 +1592,21 @@ def dockerRelease(ctx, repo, build_type):
                     ],
                 },
                 "when": [
-                    {
-                        "event": ["push", "manual"],
-                        "branch": "main",
-                    },
-                    {
-                        "event": "tag",
-                    },
+                    event["base"],
+                    event["tag"],
                 ],
             },
         ],
         "depends_on": depends_on,
         "when": [
-            {
-                "event": ["push", "manual"],
-                "branch": "main",
-            },
+            event["base"],
             {
                 "event": "pull_request",
                 "path": {
                     "exclude": skipIfUnchanged(ctx, "build-docker"),
                 },
             },
-            {
-                "event": "tag",
-            },
+            event["tag"],
         ],
     }
 
@@ -1683,13 +1640,8 @@ def binaryRelease(ctx, arch, depends_on = []):
                     "make -C opencloud release-finish",
                 ],
                 "when": [
-                    {
-                        "event": ["push", "manual"],
-                        "branch": "main",
-                    },
-                    {
-                        "event": "tag",
-                    },
+                    event["base"],
+                    event["tag"],
                 ],
             },
             {
@@ -1706,27 +1658,20 @@ def binaryRelease(ctx, arch, depends_on = []):
                     "prerelease": len(ctx.build.ref.split("-")) > 1,
                 },
                 "when": [
-                    {
-                        "event": "tag",
-                    },
+                    event["tag"],
                 ],
             },
         ],
         "depends_on": depends_on,
         "when": [
-            {
-                "event": ["push", "manual"],
-                "branch": "main",
-            },
+            event["base"],
             {
                 "event": "pull_request",
                 "path": {
                     "exclude": skipIfUnchanged(ctx, "build-binary"),
                 },
             },
-            {
-                "event": "tag",
-            },
+            event["tag"],
         ],
     }
 
@@ -1785,23 +1730,14 @@ def licenseCheck(ctx):
                     "prerelease": len(ctx.build.ref.split("-")) > 1,
                 },
                 "when": [
-                    {
-                        "event": "tag",
-                    },
+                    event["tag"],
                 ],
             },
         ],
         "when": [
-            {
-                "event": ["push", "manual"],
-                "branch": "main",
-            },
-            {
-                "event": "pull_request",
-            },
-            {
-                "event": "tag",
-            },
+            event["base"],
+            event["pull_request"],
+            event["tag"],
         ],
         "workspace": workspace,
     }
@@ -1822,12 +1758,7 @@ def readyReleaseGo():
                 },
             },
         ],
-        "when": [
-            {
-                "event": ["push", "manual"],
-                "branch": "main",
-            },
-        ],
+        "when": [event["base"]],
     }]
 
 def releaseDockerReadme(repo, build_type):
@@ -1863,13 +1794,8 @@ def releaseDockerReadme(repo, build_type):
             },
         ],
         "when": [
-            {
-                "event": ["push", "manual"],
-                "branch": "main",
-            },
-            {
-                "event": "tag",
-            },
+            event["base"],
+            event["tag"],
         ],
     }
 
@@ -1962,9 +1888,7 @@ def notify(ctx):
                 "event": ["push", "manual"],
                 "branch": ["main", "release-*"],
             },
-            {
-                "event": "tag",
-            },
+            event["tag"],
         ],
         "runs_on": status,
     }
@@ -2283,13 +2207,8 @@ def deploy(config, rebuild):
             },
         ],
         "when": [
-            {
-                "event": ["push", "manual"],
-                "branch": "main",
-            },
-            {
-                "event": "tag",
-            },
+            event["base"],
+            event["tag"],
         ],
     }
 
@@ -2319,11 +2238,7 @@ def checkStarlark():
             },
         ],
         "depends_on": [],
-        "when": [
-            {
-                "event": "pull_request",
-            },
-        ],
+        "when": [event["pull_request"]],
     }]
 
 def genericCache(name, action, mounts, cache_path):
@@ -2383,13 +2298,8 @@ def genericCachePurge(flush_path):
             },
         ],
         "when": [
-            {
-                "event": ["push", "manual"],
-                "branch": "main",
-            },
-            {
-                "event": "pull_request",
-            },
+            event["base"],
+            event["pull_request"],
         ],
         "runs_on": ["success", "failure"],
     }
@@ -2568,10 +2478,7 @@ def litmus(ctx, storage):
         "services": redisForOCStorage(storage),
         "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx)),
         "when": [
-            {
-                "event": ["push", "manual"],
-                "branch": "main",
-            },
+            event["base"],
             {
                 "event": "pull_request",
                 "path": {
