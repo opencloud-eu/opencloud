@@ -132,6 +132,7 @@ config = {
             "suites": [
                 "apiGraph",
                 "apiServiceAvailability",
+                "collaborativePosix",
             ],
             "skip": False,
             "withRemotePhp": [True],
@@ -945,6 +946,7 @@ def localApiTests(name, suites, storage = "decomposed", extra_environment = {}, 
         "OC_WRAPPER_URL": "http://%s:5200" % OC_SERVER_NAME,
         "WITH_REMOTE_PHP": with_remote_php,
         "COLLABORATION_SERVICE_URL": "http://wopi-fakeoffice:9300",
+        "OC_STORAGE_PATH": "$HOME/.opencloud/storage/users/users",
     }
 
     for item in extra_environment:
@@ -1920,6 +1922,7 @@ def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, depend
         "WEB_DEBUG_ADDR": "0.0.0.0:9104",
         "WEBDAV_DEBUG_ADDR": "0.0.0.0:9119",
         "WEBFINGER_DEBUG_ADDR": "0.0.0.0:9279",
+        "STORAGE_USERS_POSIX_WATCH_FS": True,
     }
 
     if storage == "posix":
@@ -2001,6 +2004,8 @@ def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, depend
             },
         },
         "commands": [
+            "apt-get update",
+            "apt-get install -y inotify-tools",
             "%s init --insecure true" % dirs["opencloudBin"],
             "cat $OC_CONFIG_DIR/opencloud.yaml",
             "cp tests/config/woodpecker/app-registry.yaml $OC_CONFIG_DIR/app-registry.yaml",

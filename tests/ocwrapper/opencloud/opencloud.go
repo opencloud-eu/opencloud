@@ -271,3 +271,36 @@ func RunCommand(command string, inputs []string) (int, string) {
 
 	return c.ProcessState.ExitCode(), cmdOutput
 }
+
+func RunRawCommand(command string, inputs []string) (int, string) {
+	logs := new(strings.Builder)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	fmt.Print("Running command: ", command)
+
+	c := exec.CommandContext(ctx, "bash", "-c", command)
+
+	ptyF, err := pty.Start(c)
+	if err != nil {
+		log.Panic(err)
+	}
+	defer ptyF.Close()
+
+	for _, input := range inputs {
+		fmt.Fprintf(ptyF, "%s\n", input)
+	}
+
+	var cmdOutput string
+	if err := c.Wait(); err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			cmdOutput = "Command timed out:\n"
+		}
+	}
+
+	io.Copy(logs, ptyF)
+	cmdOutput += logs.String()
+	cmdOutput = strings.TrimLeft(cmdOutput, strings.Join(inputs, "\r\n"))
+
+	return c.ProcessState.ExitCode(), cmdOutput
+}
