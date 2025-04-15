@@ -23,7 +23,6 @@ OC_CI_ALPINE = "owncloudci/alpine:latest"
 OC_CI_BAZEL_BUILDIFIER = "owncloudci/bazel-buildifier:latest"
 OC_CI_CLAMAVD = "owncloudci/clamavd"
 OC_CI_DRONE_ANSIBLE = "owncloudci/drone-ansible:latest"
-OC_CI_DRONE_SKIP_PIPELINE = "owncloudci/drone-skip-pipeline"
 OC_CI_GOLANG = "docker.io/golang:1.24"
 OC_CI_NODEJS = "owncloudci/nodejs:%s"
 OC_CI_PHP = "owncloudci/php:%s"
@@ -32,18 +31,12 @@ OC_CS3_API_VALIDATOR = "opencloudeu/cs3api-validator:latest"
 OC_LITMUS = "owncloudci/litmus:latest"
 OC_UBUNTU = "owncloud/ubuntu:20.04"
 ONLYOFFICE_DOCUMENT_SERVER = "onlyoffice/documentserver:7.5.1"
-PLUGINS_CODACY = "plugins/codacy:1"
 PLUGINS_DOCKER_BUILDX = "woodpeckerci/plugin-docker-buildx:latest"
-PLUGINS_GH_PAGES = "plugins/gh-pages:1"
 PLUGINS_GITHUB_RELEASE = "woodpeckerci/plugin-release"
-PLUGINS_GIT_ACTION = "plugins/git-action:1"
-PLUGINS_GIT_PUSH = "appleboy/drone-git-push"
-PLUGINS_MANIFEST = "plugins/manifest:1"
 PLUGINS_S3 = "plugins/s3:1"
 PLUGINS_S3_CACHE = "plugins/s3-cache:1"
 PLUGINS_SLACK = "plugins/slack:1"
 REDIS = "redis:6-alpine"
-SONARSOURCE_SONAR_SCANNER_CLI = "sonarsource/sonar-scanner-cli:11.0"
 READY_RELEASE_GO = "woodpeckerci/plugin-ready-release-go:latest"
 
 DEFAULT_PHP_VERSION = "8.2"
@@ -59,7 +52,6 @@ dirs = {
     "gobinTar": "go-bin.tar.gz",
     "gobinTarPath": "/go/src/github.com/opencloud-eu/opencloud/go-bin.tar.gz",
     "opencloudConfig": "tests/config/woodpecker/opencloud-config.json",
-    "ocis": "/woodpecker/src/github.com/opencloud-eu/opencloud/srv/app/tmp/ocis",
     "opencloudRevaDataRoot": "/woodpecker/src/github.com/opencloud-eu/opencloud/srv/app/tmp/ocis/owncloud/data",
     "multiServiceOcBaseDataPath": "/woodpecker/src/github.com/opencloud-eu/opencloud/multiServiceData",
     "ocWrapper": "/woodpecker/src/github.com/opencloud-eu/opencloud/tests/ocwrapper",
