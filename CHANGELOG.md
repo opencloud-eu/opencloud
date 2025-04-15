@@ -11,16 +11,17 @@
 - feat: add dev docs for web [[#623](https://github.com/opencloud-eu/opencloud/pull/623)]
 - feat: improve the info about storage path in deployment example [[#617](https://github.com/opencloud-eu/opencloud/pull/617)]
 
+### 📈 Enhancement
+
+- feat(web): remove old and unused color tokens [[#665](https://github.com/opencloud-eu/opencloud/pull/665)]
+- Feat: install.sh now honors OC_BASE_DIR and OC_HOST [[#574](https://github.com/opencloud-eu/opencloud/pull/574)]
+- revert: completely remove "edition" from capabilities [[#601](https://github.com/opencloud-eu/opencloud/pull/601)]
+
 ### 🐛 Bug Fixes
 
 - fix deployment: do not create demo accounts when using keycloak [[#671](https://github.com/opencloud-eu/opencloud/pull/671)]
 - fix: web dev docs broken links [[#633](https://github.com/opencloud-eu/opencloud/pull/633)]
 - fix inbucket setup [[#619](https://github.com/opencloud-eu/opencloud/pull/619)]
-
-### 📈 Enhancement
-
-- Feat: install.sh now honors OC_BASE_DIR and OC_HOST [[#574](https://github.com/opencloud-eu/opencloud/pull/574)]
-- revert: completely remove "edition" from capabilities [[#601](https://github.com/opencloud-eu/opencloud/pull/601)]
 
 ### ✅ Tests
 
