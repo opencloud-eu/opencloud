@@ -83,6 +83,7 @@ func (IndexResponse) Render(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (g Groupware) Ping(w http.ResponseWriter, r *http.Request) {
+	g.logger.Info().Msg("groupware pinged")
 	w.WriteHeader(http.StatusNoContent)
 }
 
