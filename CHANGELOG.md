@@ -35,6 +35,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/nats-io/nats-server/v2 from 2.11.0 to 2.11.1 [[#679](https://github.com/opencloud-eu/opencloud/pull/679)]
 - build(deps): bump github.com/onsi/ginkgo/v2 from 2.23.3 to 2.23.4 [[#637](https://github.com/opencloud-eu/opencloud/pull/637)]
 - build(deps): bump github.com/coreos/go-oidc/v3 from 3.13.0 to 3.14.1 [[#603](https://github.com/opencloud-eu/opencloud/pull/603)]
 - build(deps-dev): bump typescript from 5.7.3 to 5.8.3 in /services/idp [[#604](https://github.com/opencloud-eu/opencloud/pull/604)]
