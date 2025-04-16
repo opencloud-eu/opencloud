@@ -32,6 +32,7 @@ type OpenCloudConfig struct {
 	AuthBearer        AuthbearerService     `yaml:"auth_bearer"`
 	Users             UsersAndGroupsService `yaml:"users"`
 	Groups            UsersAndGroupsService `yaml:"groups"`
+	Groupware         GroupwareService      `yaml:"groupware"`
 	Ocdav             InsecureService       `yaml:"ocdav"`
 	Ocm               OcmService            `yaml:"ocm"`
 	Thumbnails        ThumbnailService      `yaml:"thumbnails"`
@@ -124,6 +125,17 @@ type GraphService struct {
 	Spaces         InsecureService
 	Identity       LdapBasedService
 	ServiceAccount ServiceAccount `yaml:"service_account"`
+}
+
+// GroupwareSettings is the configuration for the groupware settings
+type GroupwareSettings struct {
+	WebdavAllowInsecure bool   `yaml:"webdav_allow_insecure"`
+	Cs3AllowInsecure    bool   `yaml:"cs3_allow_insecure"`
+}
+
+// GroupwareService is the configuration for the groupware service
+type GroupwareService struct {
+	Groupware GroupwareSettings
 }
 
 // IdmService is the configuration for the IDM service

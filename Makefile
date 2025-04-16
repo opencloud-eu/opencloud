@@ -39,6 +39,7 @@ OC_MODULES = \
 	services/gateway \
 	services/graph \
 	services/groups \
+	services/groupware \
 	services/idm \
 	services/idp \
 	services/invitations \

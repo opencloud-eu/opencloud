@@ -25,6 +25,7 @@ import (
 	gateway "github.com/opencloud-eu/opencloud/services/gateway/pkg/command"
 	graph "github.com/opencloud-eu/opencloud/services/graph/pkg/command"
 	groups "github.com/opencloud-eu/opencloud/services/groups/pkg/command"
+	groupware "github.com/opencloud-eu/opencloud/services/groupware/pkg/command"
 	idm "github.com/opencloud-eu/opencloud/services/idm/pkg/command"
 	idp "github.com/opencloud-eu/opencloud/services/idp/pkg/command"
 	invitations "github.com/opencloud-eu/opencloud/services/invitations/pkg/command"
@@ -136,6 +137,11 @@ var svccmds = []register.Command{
 	func(cfg *config.Config) *cli.Command {
 		return ServiceCommand(cfg, cfg.Groups.Service.Name, groups.GetCommands(cfg.Groups), func(c *config.Config) {
 			cfg.Groups.Commons = cfg.Commons
+		})
+	},
+	func(cfg *config.Config) *cli.Command {
+		return ServiceCommand(cfg, cfg.Groupware.Service.Name, groupware.GetCommands(cfg.Groupware), func(c *config.Config) {
+			cfg.Groupware.Commons = cfg.Commons
 		})
 	},
 	func(cfg *config.Config) *cli.Command {
