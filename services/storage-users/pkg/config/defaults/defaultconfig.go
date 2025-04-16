@@ -151,6 +151,7 @@ func DefaultConfig() *config.Config {
 				ScanDebounceDelay:          1 * time.Second,
 				WatchFS:                    false,
 				EnableFSRevisions:          false,
+				InotifyStatsFrequency:      5 * time.Minute,
 			},
 		},
 		Events: config.Events{

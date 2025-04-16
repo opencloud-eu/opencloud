@@ -214,10 +214,11 @@ type PosixDriver struct {
 
 	EnableFSRevisions bool `yaml:"enable_fs_revisions" env:"STORAGE_USERS_POSIX_ENABLE_FS_REVISIONS" desc:"Allow for generating revisions from changes done to the local storage. Note: This doubles the number of bytes stored on disk because a copy of the current revision is stored to be turned into a revision later." introductionVersion:"1.0.0"`
 
-	WatchFS                 bool   `yaml:"watch_fs" env:"STORAGE_USERS_POSIX_WATCH_FS" desc:"Enable the filesystem watcher to detect changes to the filesystem. This is used to detect changes to the filesystem and update the metadata accordingly." introductionVersion:"2.0.0"`
-	WatchType               string `yaml:"watch_type" env:"STORAGE_USERS_POSIX_WATCH_TYPE" desc:"Type of the watcher to use for getting notified about changes to the filesystem. Currently available options are 'inotifywait' (default), 'gpfswatchfolder' and 'gpfsfileauditlogging'." introductionVersion:"1.0.0"`
-	WatchPath               string `yaml:"watch_path" env:"STORAGE_USERS_POSIX_WATCH_PATH" desc:"Path to the watch directory/file. Only applies to the 'gpfsfileauditlogging' and 'inotifywait' watcher, in which case it is the path of the file audit log file/base directory to watch." introductionVersion:"1.0.0"`
-	WatchFolderKafkaBrokers string `yaml:"watch_folder_kafka_hosts" env:"STORAGE_USERS_POSIX_WATCH_FOLDER_KAFKA_BROKERS" desc:"Comma-separated list of kafka brokers to read the watchfolder events from." introductionVersion:"1.0.0"`
+	WatchFS                 bool          `yaml:"watch_fs" env:"STORAGE_USERS_POSIX_WATCH_FS" desc:"Enable the filesystem watcher to detect changes to the filesystem. This is used to detect changes to the filesystem and update the metadata accordingly." introductionVersion:"2.0.0"`
+	WatchType               string        `yaml:"watch_type" env:"STORAGE_USERS_POSIX_WATCH_TYPE" desc:"Type of the watcher to use for getting notified about changes to the filesystem. Currently available options are 'inotifywait' (default), 'gpfswatchfolder' and 'gpfsfileauditlogging'." introductionVersion:"1.0.0"`
+	WatchPath               string        `yaml:"watch_path" env:"STORAGE_USERS_POSIX_WATCH_PATH" desc:"Path to the watch directory/file. Only applies to the 'gpfsfileauditlogging' and 'inotifywait' watcher, in which case it is the path of the file audit log file/base directory to watch." introductionVersion:"1.0.0"`
+	WatchFolderKafkaBrokers string        `yaml:"watch_folder_kafka_hosts" env:"STORAGE_USERS_POSIX_WATCH_FOLDER_KAFKA_BROKERS" desc:"Comma-separated list of kafka brokers to read the watchfolder events from." introductionVersion:"1.0.0"`
+	InotifyStatsFrequency   time.Duration `yaml:"inotify_stats_frequency" env:"STORAGE_USERS_POSIX_INOTIFY_STATS_FREQUENCY" desc:"Frequency to log inotify stats." introductionVersion:"%%NEXT%%"`
 }
 
 // Events combines the configuration options for the event bus.
