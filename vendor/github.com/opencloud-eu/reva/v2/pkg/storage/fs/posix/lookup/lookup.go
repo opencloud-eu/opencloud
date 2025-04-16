@@ -392,11 +392,14 @@ func (lu *Lookup) GenerateSpaceID(spaceType string, owner *user.User) (string, e
 	case _spaceTypeProject:
 		return uuid.New().String(), nil
 	case _spaceTypePersonal:
-		path := templates.WithUser(owner, lu.Options.PersonalSpacePathTemplate)
+		relPath := templates.WithUser(owner, lu.Options.PersonalSpacePathTemplate)
+		path := filepath.Join(lu.Options.Root, relPath)
 
-		spaceID, _, err := lu.IDsForPath(context.TODO(), filepath.Join(lu.Options.Root, path))
+		// do we already know about this space?
+		spaceID, _, err := lu.IDsForPath(context.TODO(), path)
 		if err != nil {
-			_, err := os.Stat(filepath.Join(lu.Options.Root, path))
+			// check if the space exists on disk incl. attributes
+			spaceID, _, _, err := lu.metadataBackend.IdentifyPath(context.TODO(), path)
 			if err != nil {
 				if metadata.IsNotExist(err) || metadata.IsAttrUnset(err) {
 					return uuid.New().String(), nil
@@ -404,6 +407,10 @@ func (lu *Lookup) GenerateSpaceID(spaceType string, owner *user.User) (string, e
 					return "", err
 				}
 			}
+			if len(spaceID) == 0 {
+				return "", errtypes.InternalError("encountered empty space id on disk")
+			}
+			return spaceID, nil
 		}
 		return spaceID, nil
 	default:
