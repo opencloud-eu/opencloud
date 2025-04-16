@@ -123,6 +123,7 @@ func DefaultConfig() *config.Config {
 				MaxConcurrency:             5,
 				LockCycleDurationFactor:    30,
 				DisableMultipart:           true,
+				AsyncUploads:               true,
 			},
 			Decomposed: config.DecomposedDriver{
 				Propagator:                 "sync",
