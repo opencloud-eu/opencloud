@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @ScharfViktor, @Svanvith, @amrita-shrestha, @butonic, @individual-it, @jnweiger, @micbar
+@AlexAndBear, @JammingBen, @ScharfViktor, @Svanvith, @aduffeck, @amrita-shrestha, @butonic, @individual-it, @jnweiger, @micbar
 
 ### ✨ Features
 
@@ -13,6 +13,7 @@
 
 ### 📈 Enhancement
 
+- Add env var to make the inotify stats frequency configurable [[#552](https://github.com/opencloud-eu/opencloud/pull/552)]
 - feat(web): remove old and unused color tokens [[#665](https://github.com/opencloud-eu/opencloud/pull/665)]
 - Feat: install.sh now honors OC_BASE_DIR and OC_HOST [[#574](https://github.com/opencloud-eu/opencloud/pull/574)]
 - revert: completely remove "edition" from capabilities [[#601](https://github.com/opencloud-eu/opencloud/pull/601)]
