@@ -19,6 +19,7 @@ import (
 	gateway "github.com/opencloud-eu/opencloud/services/gateway/pkg/config"
 	graph "github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	groups "github.com/opencloud-eu/opencloud/services/groups/pkg/config"
+	groupware "github.com/opencloud-eu/opencloud/services/groupware/pkg/config"
 	idm "github.com/opencloud-eu/opencloud/services/idm/pkg/config"
 	idp "github.com/opencloud-eu/opencloud/services/idp/pkg/config"
 	invitations "github.com/opencloud-eu/opencloud/services/invitations/pkg/config"
@@ -99,6 +100,7 @@ type Config struct {
 	Gateway           *gateway.Config        `yaml:"gateway"`
 	Graph             *graph.Config          `yaml:"graph"`
 	Groups            *groups.Config         `yaml:"groups"`
+	Groupware         *groupware.Config      `yaml:"groupware"`
 	IDM               *idm.Config            `yaml:"idm"`
 	IDP               *idp.Config            `yaml:"idp"`
 	Invitations       *invitations.Config    `yaml:"invitations"`
