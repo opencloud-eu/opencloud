@@ -1,18 +1,19 @@
 # Changelog
 
-## [2.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.2.0) - 2025-04-10
+## [2.1.1](https://github.com/opencloud-eu/opencloud/releases/tag/v2.1.1) - 2025-04-16
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@JammingBen, @fschade
+@JammingBen, @ScharfViktor, @fschade
 
 ### 🐛 Bug Fixes
 
 - fix(antivirus | backport): introduce a default max scan size for the full example deployment [[#620](https://github.com/opencloud-eu/opencloud/pull/620)]
-
-### 📈 Enhancement
-
 - [full-ci] chore(web): bump web to v2.1.1 [[#638](https://github.com/opencloud-eu/opencloud/pull/638)]
+
+### 📦️ Dependencies
+
+- build(deps): bump github.com/nats-io/nats-server/v2 [[#683](https://github.com/opencloud-eu/opencloud/pull/683)]
 
 ## [2.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.0.0) - 2025-03-26
 
