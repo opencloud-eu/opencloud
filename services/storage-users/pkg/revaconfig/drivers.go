@@ -140,7 +140,8 @@ func Posix(cfg *config.Config, enableFSScan, enableFSWatch bool) map[string]inte
 		"watch_fs":                   enableFSWatch,
 		"watch_type":                 cfg.Drivers.Posix.WatchType,
 		"watch_path":                 cfg.Drivers.Posix.WatchPath,
-		"watch_folder_kafka_brokers": cfg.Drivers.Posix.WatchFolderKafkaBrokers,
+		"watch_notification_brokers": cfg.Drivers.Posix.WatchNotificationBrokers,
+		"watch_root":                 cfg.Drivers.Posix.WatchRoot,
 		"inotify_stats_frequency":    cfg.Drivers.Posix.InotifyStatsFrequency,
 	}
 }
