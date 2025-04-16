@@ -1,0 +1,36 @@
+---
+services:
+  traefik:
+    networks:
+      opencloud-net:
+        aliases:
+          - ${STALWART_DOMAIN:-stalwart.opencloud.test}
+
+  stalwart:
+    image: stalwartlabs/mail-server:latest
+    networks:
+      - opencloud-net
+    ports:
+      - "127.0.0.1:143:143"
+      - "127.0.0.1:993:993"
+    volumes:
+      - ./config/stalwart:/opt/stalwart-mail/etc
+      - stalwart-data:/opt/stalwart-mail/data
+      - stalwart-logs:/opt/stalwart-mail/logs
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.stalwart.entrypoints=https"
+      - "traefik.http.routers.stalwart.rule=Host(`${STALWART_DOMAIN:-stalwart.opencloud.test}`)"
+      - "traefik.http.routers.stalwart.tls.certresolver=http"
+      - "traefik.http.routers.stalwart.service=stalwart"
+      - "traefik.http.services.stalwart.loadbalancer.server.port=8080"
+    logging:
+      driver: ${LOG_DRIVER:-local}
+    restart: always
+
+volumes:
+  stalwart-data:
+  stalwart-logs:
+
+networks:
+  opencloud-net:
