@@ -826,6 +826,8 @@ func (kv *kvs) PurgeDeletes(opts ...PurgeOpt) error {
 			deleteMarkers = append(deleteMarkers, entry)
 		}
 	}
+	// Stop watcher here so as we purge we do not have the system continually updating numPending.
+	watcher.Stop()
 
 	var (
 		pr StreamPurgeRequest
@@ -929,13 +931,14 @@ func (kv *kvs) History(key string, opts ...WatchOpt) ([]KeyValueEntry, error) {
 
 // Implementation for Watch
 type watcher struct {
-	mu          sync.Mutex
-	updates     chan KeyValueEntry
-	sub         *Subscription
-	initDone    bool
-	initPending uint64
-	received    uint64
-	ctx         context.Context
+	mu            sync.Mutex
+	updates       chan KeyValueEntry
+	sub           *Subscription
+	initDone      bool
+	initPending   uint64
+	received      uint64
+	ctx           context.Context
+	initDoneTimer *time.Timer
 }
 
 // Context returns the context for the watcher if set.
@@ -1044,8 +1047,11 @@ func (kv *kvs) WatchFiltered(keys []string, opts ...WatchOpt) (KeyWatcher, error
 				w.initPending = delta
 			}
 			if w.received > w.initPending || delta == 0 {
+				w.initDoneTimer.Stop()
 				w.initDone = true
 				w.updates <- nil
+			} else if w.initDoneTimer != nil {
+				w.initDoneTimer.Reset(kv.js.opts.wait)
 			}
 		}
 	}
@@ -1088,6 +1094,16 @@ func (kv *kvs) WatchFiltered(keys []string, opts ...WatchOpt) (KeyWatcher, error
 		if sub.jsi != nil && sub.jsi.pending == 0 {
 			w.initDone = true
 			w.updates <- nil
+		} else {
+			// Set a timer to send the marker if we do not get any messages.
+			w.initDoneTimer = time.AfterFunc(kv.js.opts.wait, func() {
+				w.mu.Lock()
+				defer w.mu.Unlock()
+				if !w.initDone {
+					w.initDone = true
+					w.updates <- nil
+				}
+			})
 		}
 	} else {
 		// if UpdatesOnly was used, mark initialization as complete
@@ -1095,8 +1111,14 @@ func (kv *kvs) WatchFiltered(keys []string, opts ...WatchOpt) (KeyWatcher, error
 	}
 	// Set us up to close when the waitForMessages func returns.
 	sub.pDone = func(_ string) {
+		w.mu.Lock()
+		defer w.mu.Unlock()
+		if w.initDoneTimer != nil {
+			w.initDoneTimer.Stop()
+		}
 		close(w.updates)
 	}
+
 	sub.mu.Unlock()
 
 	w.sub = sub
