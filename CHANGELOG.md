@@ -8,6 +8,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix(decomposeds3): enable async-uploads by default (#686) [[#694](https://github.com/opencloud-eu/opencloud/pull/694)]
 - fix(antivirus | backport): introduce a default max scan size for the full example deployment [[#620](https://github.com/opencloud-eu/opencloud/pull/620)]
 - [full-ci] chore(web): bump web to v2.1.1 [[#638](https://github.com/opencloud-eu/opencloud/pull/638)]
 
