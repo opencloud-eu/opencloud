@@ -13,6 +13,7 @@
 
 ### 📦️ Dependencies
 
+- chore: bump reva to v2.29.2 [[#681](https://github.com/opencloud-eu/opencloud/pull/681)]
 - build(deps): bump github.com/nats-io/nats-server/v2 [[#683](https://github.com/opencloud-eu/opencloud/pull/683)]
 
 ## [2.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.0.0) - 2025-03-26
