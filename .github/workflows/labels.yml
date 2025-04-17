@@ -26,3 +26,4 @@ jobs:
             Type:DevOps
             dependencies
           add_comment: true
+          token: ${{ secrets.GH_TOKEN_OPENCLOUDERS }}
