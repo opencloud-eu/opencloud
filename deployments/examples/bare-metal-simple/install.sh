@@ -34,10 +34,18 @@ function backup_file () {
     fi
 }
 
+function get_latest_version() {
+     latest_version=`curl --silent "https://api.github.com/repos/opencloud-eu/opencloud/releases/latest" \
+	     | jq -r .tag_name \
+	     | sed -e s/^v//`
+}
+
 # URL pattern of the download file
 # https://github.com/opencloud-eu/opencloud/releases/download/v1.0.0/opencloud-1.0.0-linux-amd64
 
-dlversion="${OC_VERSION:-2.0.0}"
+get_latest_version
+
+dlversion="${OC_VERSION:-$latest_version}"
 dlurl="https://github.com/opencloud-eu/opencloud/releases/download/v${dlversion}/"
 
 sandbox="opencloud-sandbox-${dlversion}"
