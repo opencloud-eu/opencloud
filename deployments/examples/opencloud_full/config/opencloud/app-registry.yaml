@@ -12,49 +12,49 @@ app_registry:
     name: OpenDocument
     description: OpenDocument text document
     icon: ''
-    default_app: Collabora
+    default_app: CollaboraOnline
     allow_creation: true
   - mime_type: application/vnd.oasis.opendocument.spreadsheet
     extension: ods
     name: OpenSpreadsheet
     description: OpenDocument spreadsheet document
     icon: ''
-    default_app: Collabora
+    default_app: CollaboraOnline
     allow_creation: true
   - mime_type: application/vnd.oasis.opendocument.presentation
     extension: odp
     name: OpenPresentation
     description: OpenDocument presentation document
     icon: ''
-    default_app: Collabora
+    default_app: CollaboraOnline
     allow_creation: true
   - mime_type: application/vnd.openxmlformats-officedocument.wordprocessingml.document
     extension: docx
     name: Microsoft Word
     description: Microsoft Word document
     icon: ''
-    default_app: OnlyOffice
+    default_app: CollaboraOnline
     allow_creation: true
   - mime_type: application/vnd.openxmlformats-officedocument.wordprocessingml.form
     extension: docxf
     name: Form Document
     description: Form Document
     icon: ''
-    default_app: OnlyOffice
+    default_app: CollaboraOnline
     allow_creation: true
   - mime_type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
     extension: xlsx
     name: Microsoft Excel
     description: Microsoft Excel document
     icon: ''
-    default_app: OnlyOffice
+    default_app: CollaboraOnline
     allow_creation: true
   - mime_type: application/vnd.openxmlformats-officedocument.presentationml.presentation
     extension: pptx
     name: Microsoft PowerPoint
     description: Microsoft PowerPoint document
     icon: ''
-    default_app: OnlyOffice
+    default_app: CollaboraOnline
     allow_creation: true
   - mime_type: application/vnd.jupyter
     extension: ipynb
