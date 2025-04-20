@@ -422,8 +422,7 @@ def main(ctx):
     pipelines = []
 
     build_release_helpers = \
-        readyReleaseGo() + \
-        docs()
+        readyReleaseGo()
 
     build_release_helpers.append(
         pipelineDependsOn(
@@ -1672,7 +1671,15 @@ def binaryRelease(ctx, arch, depends_on = []):
             {
                 "name": "build",
                 "image": OC_CI_GOLANG,
-                "environment": CI_HTTP_PROXY_ENV,
+                "environment": {
+                    "VERSION": (ctx.build.ref.replace("refs/tags/", "") if ctx.build.event == "tag" else "daily"),
+                    "HTTP_PROXY": {
+                        "from_secret": "ci_http_proxy",
+                    },
+                    "HTTPS_PROXY": {
+                        "from_secret": "ci_http_proxy",
+                    },
+                },
                 "commands": [
                     "make -C opencloud release-%s" % arch,
                 ],
@@ -1870,34 +1877,6 @@ def releaseDockerReadme(repo, build_type):
             },
         ],
     }
-
-def docs():
-    return [
-        {
-            "name": "dev-docs",
-            "steps": [
-                {
-                    "name": "devdocs",
-                    "image": "codeberg.org/xfix/plugin-codeberg-pages-deploy:1",
-                    "settings": {
-                        "folder": "docs",
-                        "branch": "docs-%s" % branch,
-                        "git_config_email": "${CI_COMMIT_AUTHOR_EMAIL}",
-                        "git_config_name": "${CI_COMMIT_AUTHOR}",
-                        "ssh_key": {
-                            "from_secret": "ssh_key",
-                        },
-                    },
-                },
-            ],
-            "when": [
-                {
-                    "event": "push",
-                    "branch": ["main", "stable-*"],
-                },
-            ],
-        },
-    ]
 
 def makeNodeGenerate(module):
     if module == "":
