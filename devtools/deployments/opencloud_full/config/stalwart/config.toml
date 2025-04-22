@@ -1,5 +1,5 @@
 authentication.fallback-admin.secret = "$6$4qPYDVhaUHkKcY7s$bB6qhcukb9oFNYRIvaDZgbwxrMa2RvF5dumCjkBFdX19lSNqrgKltf3aPrFMuQQKkZpK2YNuQ83hB1B3NiWzj."
-authentication.fallback-admin.user = "admin"
+authentication.fallback-admin.user = "mailadmin"
 authentication.master.secret = "$6$4qPYDVhaUHkKcY7s$bB6qhcukb9oFNYRIvaDZgbwxrMa2RvF5dumCjkBFdX19lSNqrgKltf3aPrFMuQQKkZpK2YNuQ83hB1B3NiWzj."
 authentication.master.user = "master"
 directory.ldap.attributes.class = "objectClass"
