@@ -35,9 +35,10 @@ function backup_file () {
 }
 
 function get_latest_version() {
-     latest_version=`curl --silent "https://api.github.com/repos/opencloud-eu/opencloud/releases/latest" \
-	     | jq -r .tag_name \
-	     | sed -e s/^v//`
+     latest_version=$(curl -s https://api.github.com/repos/opencloud-eu/opencloud/releases/latest \
+	     | grep '"tag_name":' \
+	     | awk -F: '{print $2}' \
+         | tr -d ' ",v')
 }
 
 # URL pattern of the download file
