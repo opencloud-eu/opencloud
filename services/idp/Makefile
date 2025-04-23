@@ -6,7 +6,6 @@ include ../../.bingo/Variables.mk
 endif
 
 include ../../.make/default.mk
-include ../../.make/recursion.mk
 include ../../.make/go.mk
 include ../../.make/release.mk
 include ../../.make/docs.mk
@@ -16,20 +15,16 @@ node-generate-prod: assets
 
 .PHONY: assets
 assets: pnpm-build \
-		assets/identifier/static \
 		assets/identifier/static/favicon.svg \
 		assets/identifier/static/icon-lilac.svg
 
-assets/identifier/static:
-	mkdir -p assets/identifier/static
-
 .PHONY: assets/identifier/static/favicon.svg # force overwrite
-assets/identifier/static/favicon.svg:
+assets/identifier/static/favicon.svg: pnpm-build
 	cp src/images/favicon.svg assets/identifier/static/favicon.svg
 	rm assets/identifier/static/favicon.ico
 
 .PHONY: assets/identifier/static/icon-lilac.svg
-assets/identifier/static/icon-lilac.svg:
+assets/identifier/static/icon-lilac.svg: pnpm-build
 	cp src/images/icon-lilac.svg assets/identifier/static/icon-lilac.svg
 
 .PHONY: pnpm-build

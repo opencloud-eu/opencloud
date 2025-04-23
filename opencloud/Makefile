@@ -11,7 +11,6 @@ ifneq (, $(shell command -v go 2> /dev/null)) # suppress `command not found warn
 include ../.bingo/Variables.mk
 endif
 include ../.make/default.mk
-include ../.make/recursion.mk
 include ../.make/go.mk
 include ../.make/release.mk
 include ../.make/docs.mk

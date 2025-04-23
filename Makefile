@@ -78,8 +78,6 @@ ifneq (, $(shell command -v go 2> /dev/null)) # suppress `command not found warn
 include .bingo/Variables.mk
 endif
 
-include .make/recursion.mk
-
 .PHONY: help
 help:
 	@echo "Please use 'make <target>' where <target> is one of the following:"
