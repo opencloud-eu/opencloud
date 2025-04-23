@@ -1,15 +1,23 @@
 # Changelog
 
-## [2.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.2.0) - 2025-04-22
+## [2.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.2.0) - 2025-04-23
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @ScharfViktor, @Svanvith, @aduffeck, @amrita-shrestha, @butonic, @dragotin, @fschade, @individual-it, @jnweiger, @micbar, @michaelstingl
+@AlexAndBear, @JammingBen, @ScharfViktor, @Svanvith, @aduffeck, @amrita-shrestha, @butonic, @dragotin, @fschade, @individual-it, @jnweiger, @micbar, @michaelstingl, @rhafer
 
 ### ✨ Features
 
 - feat: add dev docs for web [[#623](https://github.com/opencloud-eu/opencloud/pull/623)]
 - feat: improve the info about storage path in deployment example [[#617](https://github.com/opencloud-eu/opencloud/pull/617)]
+
+### 🐛 Bug Fixes
+
+- Some smaller Makefile adjustments [[#709](https://github.com/opencloud-eu/opencloud/pull/709)]
+- fix(decomposeds3): enable async-uploads by default [[#686](https://github.com/opencloud-eu/opencloud/pull/686)]
+- fix deployment: do not create demo accounts when using keycloak [[#671](https://github.com/opencloud-eu/opencloud/pull/671)]
+- fix: web dev docs broken links [[#633](https://github.com/opencloud-eu/opencloud/pull/633)]
+- fix inbucket setup [[#619](https://github.com/opencloud-eu/opencloud/pull/619)]
 
 ### 📈 Enhancement
 
@@ -25,13 +33,6 @@
 
 - Fix broken links in opencloud_full README.md [[#643](https://github.com/opencloud-eu/opencloud/pull/643)]
 - chore: move dev docs to opencloud-eu/docs repo [[#635](https://github.com/opencloud-eu/opencloud/pull/635)]
-
-### 🐛 Bug Fixes
-
-- fix(decomposeds3): enable async-uploads by default [[#686](https://github.com/opencloud-eu/opencloud/pull/686)]
-- fix deployment: do not create demo accounts when using keycloak [[#671](https://github.com/opencloud-eu/opencloud/pull/671)]
-- fix: web dev docs broken links [[#633](https://github.com/opencloud-eu/opencloud/pull/633)]
-- fix inbucket setup [[#619](https://github.com/opencloud-eu/opencloud/pull/619)]
 
 ### ✅ Tests
 
