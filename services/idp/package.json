@@ -74,7 +74,7 @@
     "@fontsource/roboto": "^5.1.0",
     "@material-ui/core": "^4.12.4",
     "@material-ui/icons": "^4.11.3",
-    "@testing-library/jest-dom": "^6.4.8",
+    "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^11.2.7",
     "@testing-library/user-event": "^14.5.2",
     "@types/jest": "^29.5.12",
