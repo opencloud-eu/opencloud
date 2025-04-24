@@ -13,6 +13,7 @@
 
 ### 🐛 Bug Fixes
 
+- Makefile: fix protobuf dependencies [[#714](https://github.com/opencloud-eu/opencloud/pull/714)]
 - Some smaller Makefile adjustments [[#709](https://github.com/opencloud-eu/opencloud/pull/709)]
 - fix(decomposeds3): enable async-uploads by default [[#686](https://github.com/opencloud-eu/opencloud/pull/686)]
 - fix deployment: do not create demo accounts when using keycloak [[#671](https://github.com/opencloud-eu/opencloud/pull/671)]
