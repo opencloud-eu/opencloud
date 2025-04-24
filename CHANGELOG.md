@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.2.0) - 2025-04-23
+## [2.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.2.0) - 2025-04-24
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -40,6 +40,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump golang.org/x/text from 0.23.0 to 0.24.0 [[#641](https://github.com/opencloud-eu/opencloud/pull/641)]
 - build(deps-dev): bump webpack from 5.96.1 to 5.99.6 in /services/idp [[#707](https://github.com/opencloud-eu/opencloud/pull/707)]
 - build(deps): bump github.com/nats-io/nats-server/v2 from 2.11.0 to 2.11.1 [[#679](https://github.com/opencloud-eu/opencloud/pull/679)]
 - build(deps): bump github.com/onsi/ginkgo/v2 from 2.23.3 to 2.23.4 [[#637](https://github.com/opencloud-eu/opencloud/pull/637)]
