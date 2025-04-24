@@ -14,12 +14,12 @@ protoc-deps: $(BINGO)
 	@cd ../.. && GOPATH="" GOBIN=".bingo" $(BINGO) get -l github.com/favadi/protoc-go-inject-tag
 
 .PHONY: buf-generate
-buf-generate: $(BUF) protoc-deps $(SHA1_LOCK_FILE)
+buf-generate: $(SHA1_LOCK_FILE)
 	@find $(abspath $(CURDIR)/../../protogen/proto/) -type f -print0 | sort -z | xargs -0 sha1sum > buf.sha1.lock.tmp
 	@cmp $(SHA1_LOCK_FILE) buf.sha1.lock.tmp --quiet || $(MAKE) -B $(SHA1_LOCK_FILE)
 	@rm -f buf.sha1.lock.tmp
 
-$(SHA1_LOCK_FILE):
+$(SHA1_LOCK_FILE): $(BUF) protoc-deps
 	@echo "generating protobuf content"
 	cd ../../protogen/proto && $(BUF) generate
 	find $(abspath $(CURDIR)/../../protogen/proto/) -type f -print0 | sort -z | xargs -0 sha1sum > $(SHA1_LOCK_FILE)
