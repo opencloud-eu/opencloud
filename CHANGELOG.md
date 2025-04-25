@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.2.0) - 2025-04-24
+## [2.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.2.0) - 2025-04-25
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -41,6 +41,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump google.golang.org/grpc from 1.71.1 to 1.72.0 [[#721](https://github.com/opencloud-eu/opencloud/pull/721)]
 - build(deps): bump golang.org/x/oauth2 from 0.28.0 to 0.29.0 [[#602](https://github.com/opencloud-eu/opencloud/pull/602)]
 - build(deps): bump @testing-library/jest-dom from 6.4.8 to 6.6.3 in /services/idp [[#666](https://github.com/opencloud-eu/opencloud/pull/666)]
 - build(deps): bump golang.org/x/text from 0.23.0 to 0.24.0 [[#641](https://github.com/opencloud-eu/opencloud/pull/641)]
