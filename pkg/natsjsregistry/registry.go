@@ -13,8 +13,8 @@ import (
 
 	natsjskv "github.com/go-micro/plugins/v4/store/nats-js-kv"
 	"github.com/nats-io/nats.go"
+	"go-micro.dev/v4/logger"
 	"go-micro.dev/v4/registry"
-	"go-micro.dev/v4/server"
 	"go-micro.dev/v4/store"
 	"go-micro.dev/v4/util/cmd"
 )
@@ -32,10 +32,19 @@ func init() {
 	cmd.DefaultRegistries[_registryName] = NewRegistry
 }
 
+func nodeKey(s *registry.Service) string {
+	return serviceKey(s) + _serviceDelimiter + s.Nodes[0].Id
+}
+
+func serviceKey(s *registry.Service) string {
+	return s.Name + _serviceDelimiter + s.Version
+}
+
 // NewRegistry returns a new natsjs registry
 func NewRegistry(opts ...registry.Option) registry.Registry {
 	options := registry.Options{
 		Context: context.Background(),
+		Logger:  logger.DefaultLogger,
 	}
 	for _, o := range opts {
 		o(&options)
@@ -84,6 +93,8 @@ func (n *storeregistry) Register(s *registry.Service, opts ...registry.RegisterO
 		return errors.New("wont store nil service")
 	}
 
+	n.opts.Logger.Logf(logger.DebugLevel, "Registering service %s", s.Name)
+
 	var options registry.RegisterOptions
 	options.TTL = n.defaultTTL
 	for _, o := range opts {
@@ -95,7 +106,7 @@ func (n *storeregistry) Register(s *registry.Service, opts ...registry.RegisterO
 		return err
 	}
 	return n.store.Write(&store.Record{
-		Key:    s.Name + _serviceDelimiter + server.DefaultId + _serviceDelimiter + s.Version,
+		Key:    nodeKey(s),
 		Value:  b,
 		Expiry: options.TTL,
 	})
@@ -105,7 +116,10 @@ func (n *storeregistry) Register(s *registry.Service, opts ...registry.RegisterO
 func (n *storeregistry) Deregister(s *registry.Service, _ ...registry.DeregisterOption) error {
 	n.lock.RLock()
 	defer n.lock.RUnlock()
-	return n.store.Delete(s.Name + _serviceDelimiter + server.DefaultId + _serviceDelimiter + s.Version)
+
+	n.opts.Logger.Logf(logger.DebugLevel, "Deregistering service %s", s.Name)
+
+	return n.store.Delete(nodeKey(s))
 }
 
 // GetService gets a specific service from the registry
@@ -145,12 +159,17 @@ func (n *storeregistry) listServices(opts ...store.ListOption) ([]*registry.Serv
 			// TODO: continue ?
 			return nil, err
 		}
-		if versions[s.Version] == nil {
-			versions[s.Version] = s
+		if _, ok := versions[serviceKey(s)]; !ok {
+			versions[serviceKey(s)] = s
 		} else {
-			versions[s.Version].Nodes = append(versions[s.Version].Nodes, s.Nodes...)
+			versions[serviceKey(s)].Nodes = append(versions[serviceKey(s)].Nodes, s.Nodes...)
 		}
 	}
+
+	if len(versions) == 0 {
+		return nil, registry.ErrNotFound
+	}
+
 	svcs := make([]*registry.Service, 0, len(versions))
 	for _, s := range versions {
 		svcs = append(svcs, s)
