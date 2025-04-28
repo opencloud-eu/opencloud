@@ -12,6 +12,17 @@
 - feat: add dev docs for web [[#623](https://github.com/opencloud-eu/opencloud/pull/623)]
 - feat: improve the info about storage path in deployment example [[#617](https://github.com/opencloud-eu/opencloud/pull/617)]
 
+### 📈 Enhancement
+
+- [full-ci] chore(web): bump web to v2.3.0 [[#738](https://github.com/opencloud-eu/opencloud/pull/738)]
+- bare-metal-deploy. getting latest version [[#699](https://github.com/opencloud-eu/opencloud/pull/699)]
+- Automatically find the latest released version of opencloud [[#687](https://github.com/opencloud-eu/opencloud/pull/687)]
+- Expose more config vars for the posix fs watchers [[#669](https://github.com/opencloud-eu/opencloud/pull/669)]
+- Add env var to make the inotify stats frequency configurable [[#552](https://github.com/opencloud-eu/opencloud/pull/552)]
+- feat(web): remove old and unused color tokens [[#665](https://github.com/opencloud-eu/opencloud/pull/665)]
+- Feat: install.sh now honors OC_BASE_DIR and OC_HOST [[#574](https://github.com/opencloud-eu/opencloud/pull/574)]
+- revert: completely remove "edition" from capabilities [[#601](https://github.com/opencloud-eu/opencloud/pull/601)]
+
 ### 📚 Documentation
 
 - Update descirption of COLLABORA_SSL_ENABLE [[#724](https://github.com/opencloud-eu/opencloud/pull/724)]
@@ -26,16 +37,6 @@
 - fix deployment: do not create demo accounts when using keycloak [[#671](https://github.com/opencloud-eu/opencloud/pull/671)]
 - fix: web dev docs broken links [[#633](https://github.com/opencloud-eu/opencloud/pull/633)]
 - fix inbucket setup [[#619](https://github.com/opencloud-eu/opencloud/pull/619)]
-
-### 📈 Enhancement
-
-- bare-metal-deploy. getting latest version [[#699](https://github.com/opencloud-eu/opencloud/pull/699)]
-- Automatically find the latest released version of opencloud [[#687](https://github.com/opencloud-eu/opencloud/pull/687)]
-- Expose more config vars for the posix fs watchers [[#669](https://github.com/opencloud-eu/opencloud/pull/669)]
-- Add env var to make the inotify stats frequency configurable [[#552](https://github.com/opencloud-eu/opencloud/pull/552)]
-- feat(web): remove old and unused color tokens [[#665](https://github.com/opencloud-eu/opencloud/pull/665)]
-- Feat: install.sh now honors OC_BASE_DIR and OC_HOST [[#574](https://github.com/opencloud-eu/opencloud/pull/574)]
-- revert: completely remove "edition" from capabilities [[#601](https://github.com/opencloud-eu/opencloud/pull/601)]
 
 ### ✅ Tests
 
