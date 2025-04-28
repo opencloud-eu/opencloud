@@ -292,6 +292,13 @@ func (session *DecomposedFsSession) Finalize(ctx context.Context) (err error) {
 	revisionNode := node.New(session.SpaceID(), session.NodeID(), "", "", session.Size(), session.ID(),
 		provider.ResourceType_RESOURCE_TYPE_FILE, session.SpaceOwner(), session.store.lu)
 
+	// lock the node before writing the blob
+	unlock, err := session.store.lu.MetadataBackend().Lock(revisionNode)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = unlock() }()
+
 	// upload the data to the blobstore
 	_, subspan := tracer.Start(ctx, "WriteBlob")
 	err = session.store.tp.WriteBlob(revisionNode, session.binPath())

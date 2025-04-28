@@ -56,7 +56,7 @@ func (s *svc) handlePathCopy(w http.ResponseWriter, r *http.Request, ns string) 
 	ctx, span := appctx.GetTracerProvider(r.Context()).Tracer(tracerName).Start(r.Context(), "copy")
 	defer span.End()
 
-	if r.Body != http.NoBody {
+	if !isBodyEmpty(r) {
 		w.WriteHeader(http.StatusUnsupportedMediaType)
 		b, err := errors.Marshal(http.StatusUnsupportedMediaType, "body must be empty", "", "")
 		errors.HandleWebdavError(appctx.GetLogger(ctx), w, b, err)
@@ -331,7 +331,7 @@ func (s *svc) handleSpacesCopy(w http.ResponseWriter, r *http.Request, spaceID s
 	ctx, span := appctx.GetTracerProvider(r.Context()).Tracer(tracerName).Start(r.Context(), "spaces_copy")
 	defer span.End()
 
-	if r.Body != http.NoBody {
+	if !isBodyEmpty(r) {
 		w.WriteHeader(http.StatusUnsupportedMediaType)
 		b, err := errors.Marshal(http.StatusUnsupportedMediaType, "body must be empty", "", "")
 		errors.HandleWebdavError(appctx.GetLogger(ctx), w, b, err)

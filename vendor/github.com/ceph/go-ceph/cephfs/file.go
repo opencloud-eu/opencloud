@@ -101,6 +101,9 @@ func (f *File) read(buf []byte, offset int64) (int, error) {
 	if err := f.validate(); err != nil {
 		return 0, err
 	}
+	if len(buf) == 0 {
+		return 0, nil
+	}
 	bufptr := (*C.char)(unsafe.Pointer(&buf[0]))
 	ret := C.ceph_read(
 		f.mount.mount, f.fd, bufptr, C.int64_t(len(buf)), C.int64_t(offset))
@@ -177,6 +180,9 @@ func (f *File) Preadv(data [][]byte, offset int64) (int, error) {
 func (f *File) write(buf []byte, offset int64) (int, error) {
 	if err := f.validate(); err != nil {
 		return 0, err
+	}
+	if len(buf) == 0 {
+		return 0, nil
 	}
 	bufptr := (*C.char)(unsafe.Pointer(&buf[0]))
 	ret := C.ceph_write(

@@ -36,7 +36,6 @@ import (
 	"github.com/pkg/xattr"
 	"github.com/rs/zerolog/log"
 
-	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata"
@@ -342,10 +341,9 @@ func (t *Tree) getNodeForPath(path string) (*node.Node, error) {
 	return node.ReadNode(context.Background(), t.lookup, spaceID, nodeID, false, nil, false)
 }
 
-func (t *Tree) findSpaceId(path string) (string, node.Attributes, error) {
+func (t *Tree) findSpaceId(path string) (string, error) {
 	// find the space id, scope by the according user
 	spaceCandidate := path
-	spaceAttrs := node.Attributes{}
 	for strings.HasPrefix(spaceCandidate, t.options.Root) {
 		spaceID, _, err := t.lookup.IDsForPath(context.Background(), spaceCandidate)
 		if err == nil && len(spaceID) > 0 {
@@ -353,67 +351,62 @@ func (t *Tree) findSpaceId(path string) (string, node.Attributes, error) {
 				// set the uid and gid for the space
 				fi, err := os.Stat(spaceCandidate)
 				if err != nil {
-					return "", spaceAttrs, err
+					return "", err
 				}
 				sys := fi.Sys().(*syscall.Stat_t)
 				gid := int(sys.Gid)
 				_, err = t.userMapper.ScopeUserByIds(-1, gid)
 				if err != nil {
-					return "", spaceAttrs, err
+					return "", err
 				}
 			}
 
-			return spaceID, spaceAttrs, nil
+			return spaceID, nil
 		}
 		spaceCandidate = filepath.Dir(spaceCandidate)
 	}
-	return "", spaceAttrs, fmt.Errorf("could not find space for path %s", path)
+	return "", fmt.Errorf("could not find space for path %s", path)
 }
 
 func (t *Tree) assimilate(item scanItem) error {
 	t.log.Debug().Str("path", item.Path).Bool("rescan", item.ForceRescan).Bool("recurse", item.Recurse).Msg("assimilate")
 	var err error
 
-	// First find the space id
-	spaceID, spaceAttrs, err := t.findSpaceId(item.Path)
+	spaceID, id, parentID, mtime, err := t.lookup.MetadataBackend().IdentifyPath(context.Background(), item.Path)
 	if err != nil {
 		return err
 	}
 
-	assimilationNode := &assimilationNode{
-		spaceID: spaceID,
-		path:    item.Path,
-	}
-
-	// lock the file for assimilation
-	unlock, err := t.lookup.MetadataBackend().Lock(assimilationNode)
-	if err != nil {
-		return errors.Wrap(err, "failed to lock item for assimilation")
-	}
-	defer func() {
-		_ = unlock()
-	}()
-
-	user := &userv1beta1.UserId{
-		Idp:      string(spaceAttrs[prefixes.OwnerIDPAttr]),
-		OpaqueId: string(spaceAttrs[prefixes.OwnerIDAttr]),
-	}
-
-	// check for the id attribute again after grabbing the lock, maybe the file was assimilated/created by us in the meantime
-	_, id, parentID, mtime, err := t.lookup.MetadataBackend().IdentifyPath(context.Background(), item.Path)
-	if err != nil {
-		return err
+	if spaceID == "" {
+		// node didn't have a space ID attached. try to find it by walking up the path on disk
+		spaceID, err = t.findSpaceId(item.Path)
+		if err != nil {
+			return err
+		}
 	}
 
 	if id != "" {
 		// the file has an id set, we already know it from the past
-		// n := node.NewBaseNode(spaceID, id, t.lookup)
+
+		// lock the file for re-assimilation
+		assimilationNode := &assimilationNode{
+			spaceID: spaceID,
+			nodeId:  id,
+			path:    item.Path,
+		}
+
+		unlock, err := t.lookup.MetadataBackend().Lock(assimilationNode)
+		if err != nil {
+			return errors.Wrap(err, "failed to lock item for assimilation")
+		}
+		defer func() {
+			_ = unlock()
+		}()
 
 		previousPath, ok := t.lookup.GetCachedID(context.Background(), spaceID, id)
 		if previousPath == "" || !ok {
 			previousPath, ok = t.lookup.IDHistoryCache.Get(context.Background(), spaceID, id)
 		}
-		// previousParentID, _ := t.lookup.MetadataBackend().Get(context.Background(), n, prefixes.ParentidAttr)
 
 		// compare metadata mtime with actual mtime. if it matches AND the path hasn't changed (move operation)
 		// we can skip the assimilation because the file was handled by us
@@ -446,7 +439,7 @@ func (t *Tree) assimilate(item scanItem) error {
 				if err := t.lookup.CacheID(context.Background(), spaceID, id, item.Path); err != nil {
 					t.log.Error().Err(err).Str("spaceID", spaceID).Str("id", id).Str("path", item.Path).Msg("could not cache id")
 				}
-				_, attrs, err := t.updateFile(item.Path, id, spaceID)
+				_, attrs, err := t.updateFile(item.Path, id, spaceID, fi)
 				if err != nil {
 					return err
 				}
@@ -484,9 +477,6 @@ func (t *Tree) assimilate(item scanItem) error {
 						Path: filepath.Base(previousPath),
 					}
 					t.PublishEvent(events.ItemMoved{
-						SpaceOwner:   user,
-						Executant:    user,
-						Owner:        user,
 						Ref:          ref,
 						OldReference: oldRef,
 						Timestamp:    utils.TSNow(),
@@ -500,16 +490,38 @@ func (t *Tree) assimilate(item scanItem) error {
 				t.log.Error().Err(err).Str("spaceID", spaceID).Str("id", id).Str("path", item.Path).Msg("could not cache id")
 			}
 
-			_, _, err := t.updateFile(item.Path, id, spaceID)
+			_, _, err := t.updateFile(item.Path, id, spaceID, fi)
 			if err != nil {
 				return err
 			}
 		}
 	} else {
 		t.log.Debug().Str("path", item.Path).Msg("new item detected")
+		assimilationNode := &assimilationNode{
+			spaceID: spaceID,
+			// Use the path as the node ID (which is used for calculating the lock file path) since we do not have an ID yet
+			nodeId: strings.ReplaceAll(strings.TrimPrefix(item.Path, "/"), "/", "-"),
+		}
+		unlock, err := t.lookup.MetadataBackend().Lock(assimilationNode)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = unlock() }()
+
+		// check if the file got an ID while we were waiting for the lock
+		_, id, _, _, err = t.lookup.MetadataBackend().IdentifyPath(context.Background(), item.Path)
+		if err != nil {
+			return err
+		}
+		if id != "" {
+			// file was assimilated by another thread while we were waiting for the lock
+			t.log.Debug().Str("path", item.Path).Msg("file was assimilated by another thread")
+			return nil
+		}
+
 		// assimilate new file
 		newId := uuid.New().String()
-		fi, _, err := t.updateFile(item.Path, newId, spaceID)
+		fi, _, err := t.updateFile(item.Path, newId, spaceID, nil)
 		if err != nil {
 			return err
 		}
@@ -523,25 +535,19 @@ func (t *Tree) assimilate(item scanItem) error {
 		}
 		if fi.IsDir() {
 			t.PublishEvent(events.ContainerCreated{
-				SpaceOwner: user,
-				Executant:  user,
-				Owner:      user,
-				Ref:        ref,
-				Timestamp:  utils.TSNow(),
+				Ref:       ref,
+				Timestamp: utils.TSNow(),
 			})
 		} else {
 			if fi.Size() == 0 {
 				t.PublishEvent(events.FileTouched{
-					SpaceOwner: user,
-					Executant:  user,
-					Ref:        ref,
-					Timestamp:  utils.TSNow(),
+					Ref:       ref,
+					Timestamp: utils.TSNow(),
 				})
 			} else {
 				t.PublishEvent(events.UploadReady{
-					SpaceOwner: user,
-					FileRef:    ref,
-					Timestamp:  utils.TSNow(),
+					FileRef:   ref,
+					Timestamp: utils.TSNow(),
 				})
 			}
 		}
@@ -549,7 +555,7 @@ func (t *Tree) assimilate(item scanItem) error {
 	return nil
 }
 
-func (t *Tree) updateFile(path, id, spaceID string) (fs.FileInfo, node.Attributes, error) {
+func (t *Tree) updateFile(path, id, spaceID string, fi fs.FileInfo) (fs.FileInfo, node.Attributes, error) {
 	retries := 1
 	parentID := ""
 	bn := assimilationNode{spaceID: spaceID, nodeId: id, path: path}
@@ -585,9 +591,12 @@ assimilate:
 	}
 
 	// assimilate file
-	fi, err := os.Stat(path)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to stat item")
+	if fi == nil {
+		var err error
+		fi, err = os.Stat(path)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "failed to stat item")
+		}
 	}
 
 	attrs, err := t.lookup.MetadataBackend().All(context.Background(), bn)
@@ -604,13 +613,6 @@ assimilate:
 		attributes[prefixes.ParentidAttr] = []byte(parentID)
 	}
 
-	sha1h, md5h, adler32h, err := node.CalculateChecksums(context.Background(), path)
-	if err == nil {
-		attributes[prefixes.ChecksumPrefix+"sha1"] = sha1h.Sum(nil)
-		attributes[prefixes.ChecksumPrefix+"md5"] = md5h.Sum(nil)
-		attributes[prefixes.ChecksumPrefix+"adler32"] = adler32h.Sum(nil)
-	}
-
 	var n *node.Node
 	if fi.IsDir() {
 		attributes.SetInt64(prefixes.TypeAttr, int64(provider.ResourceType_RESOURCE_TYPE_CONTAINER))
@@ -625,6 +627,13 @@ assimilate:
 		}
 		n = node.New(spaceID, id, parentID, filepath.Base(path), treeSize, "", provider.ResourceType_RESOURCE_TYPE_CONTAINER, nil, t.lookup)
 	} else {
+		sha1h, md5h, adler32h, err := node.CalculateChecksums(context.Background(), path)
+		if err == nil {
+			attributes[prefixes.ChecksumPrefix+"sha1"] = sha1h.Sum(nil)
+			attributes[prefixes.ChecksumPrefix+"md5"] = md5h.Sum(nil)
+			attributes[prefixes.ChecksumPrefix+"adler32"] = adler32h.Sum(nil)
+		}
+
 		blobID := uuid.NewString()
 		attributes.SetString(prefixes.BlobIDAttr, blobID)
 		attributes.SetInt64(prefixes.BlobsizeAttr, fi.Size())

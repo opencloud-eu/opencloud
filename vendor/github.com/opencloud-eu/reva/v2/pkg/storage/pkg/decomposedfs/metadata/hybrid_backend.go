@@ -46,7 +46,12 @@ func (HybridBackend) Name() string { return "hybrid" }
 
 // IdentifyPath returns the space id, node id and mtime of a file
 func (b HybridBackend) IdentifyPath(_ context.Context, path string) (string, string, string, time.Time, error) {
-	spaceID, _ := xattr.Get(path, prefixes.SpaceIDAttr)
+	spaceID, err := xattr.Get(path, prefixes.SpaceIDAttr)
+	if err != nil {
+		if IsNotExist(err) {
+			return "", "", "", time.Time{}, err
+		}
+	}
 	id, _ := xattr.Get(path, prefixes.IDAttr)
 	parentID, _ := xattr.Get(path, prefixes.ParentidAttr)
 
