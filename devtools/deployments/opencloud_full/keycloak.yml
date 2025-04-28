@@ -57,6 +57,8 @@ services:
       KC_FEATURES: impersonation
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN_USER:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+    ports:
+      - "8080:8080"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.keycloak.entrypoints=https"
