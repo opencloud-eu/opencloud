@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v2.0.1) - 2025-04-20
+## [2.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v2.0.1) - 2025-04-28
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -14,6 +14,7 @@
 
 ### 📦️ Dependencies
 
+- chore: prepare release, bump version [[#731](https://github.com/opencloud-eu/opencloud/pull/731)]
 - Port #567 [[#689](https://github.com/opencloud-eu/opencloud/pull/689)]
 - chore: bump reva to v2.29.2 [[#681](https://github.com/opencloud-eu/opencloud/pull/681)]
 - build(deps): bump github.com/nats-io/nats-server/v2 [[#683](https://github.com/opencloud-eu/opencloud/pull/683)]
