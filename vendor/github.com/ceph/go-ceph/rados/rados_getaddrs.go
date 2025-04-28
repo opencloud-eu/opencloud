@@ -1,5 +1,3 @@
-//go:build ceph_preview
-
 package rados
 
 // #cgo LDFLAGS: -lrados

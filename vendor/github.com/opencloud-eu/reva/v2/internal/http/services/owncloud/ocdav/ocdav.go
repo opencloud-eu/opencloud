@@ -20,6 +20,7 @@ package ocdav
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"path"
 	"strings"
@@ -398,4 +399,18 @@ func (s *svc) referenceIsChildOf(ctx context.Context, selector pool.Selectable[g
 // filename returns the base filename from a path and replaces any slashes with an empty string
 func filename(p string) string {
 	return strings.Trim(path.Base(p), "/")
+}
+
+// isBodyEmpty returns true when the Body of the request is Empty
+func isBodyEmpty(r *http.Request) bool {
+	if r.Body != nil && r.Body != http.NoBody {
+		buf := make([]byte, 0)
+		_, err := r.Body.Read(buf)
+		if err != io.EOF {
+			// We currently do not support extended mkcol https://datatracker.ietf.org/doc/rfc5689/
+			// TODO let clients send a body with properties to set on the new resource
+			return false
+		}
+	}
+	return true
 }

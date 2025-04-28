@@ -46,4 +46,6 @@ var (
 	errInvalid     = getError(-C.EINVAL)
 	errNameTooLong = getError(-C.ENAMETOOLONG)
 	errRange       = getError(-C.ERANGE)
+	errBadFile     = getError(-C.EBADF)
+	errNotDir      = getError(-C.ENOTDIR)
 )

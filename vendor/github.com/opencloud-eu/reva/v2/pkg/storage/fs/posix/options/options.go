@@ -39,11 +39,12 @@ type Options struct {
 	// a revision when the file is changed.
 	EnableFSRevisions bool `mapstructure:"enable_fs_revisions"`
 
-	ScanFS                  bool   `mapstructure:"scan_fs"`
-	WatchFS                 bool   `mapstructure:"watch_fs"`
-	WatchType               string `mapstructure:"watch_type"`
-	WatchPath               string `mapstructure:"watch_path"`
-	WatchFolderKafkaBrokers string `mapstructure:"watch_folder_kafka_brokers"`
+	ScanFS                   bool   `mapstructure:"scan_fs"`
+	WatchFS                  bool   `mapstructure:"watch_fs"`
+	WatchType                string `mapstructure:"watch_type"`
+	WatchPath                string `mapstructure:"watch_path"`
+	WatchRoot                string `mapstructure:"watch_root"` // base directory for the watch. events will be considered relative to this path
+	WatchNotificationBrokers string `mapstructure:"watch_notification_brokers"`
 
 	// InotifyWatcher specific options
 	InotifyStatsFrequency time.Duration `mapstructure:"inotify_stats_frequency"`

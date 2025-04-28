@@ -107,7 +107,7 @@ func (s *svc) handleSpacesMkCol(w http.ResponseWriter, r *http.Request, spaceID 
 }
 
 func (s *svc) handleMkcol(ctx context.Context, w http.ResponseWriter, r *http.Request, parentRef, childRef *provider.Reference, log zerolog.Logger) (status int, err error) {
-	if r.Body != http.NoBody {
+	if !isBodyEmpty(r) {
 		// We currently do not support extended mkcol https://datatracker.ietf.org/doc/rfc5689/
 		// TODO let clients send a body with properties to set on the new resource
 		return http.StatusUnsupportedMediaType, fmt.Errorf("extended-mkcol not supported")

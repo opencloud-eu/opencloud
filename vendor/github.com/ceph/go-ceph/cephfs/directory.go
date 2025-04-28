@@ -47,7 +47,14 @@ func (mount *MountInfo) OpenDir(path string) (*Directory, error) {
 //
 //	int ceph_closedir(struct ceph_mount_info *cmount, struct ceph_dir_result *dirp);
 func (dir *Directory) Close() error {
-	return getError(C.ceph_closedir(dir.mount.mount, dir.dir))
+	if dir.dir == nil {
+		return nil
+	}
+	if err := getError(C.ceph_closedir(dir.mount.mount, dir.dir)); err != nil {
+		return err
+	}
+	dir.dir = nil
+	return nil
 }
 
 // Inode represents an inode number in the file system.
@@ -141,6 +148,9 @@ func toDirEntryPlus(de *C.struct_dirent, s C.struct_ceph_statx) *DirEntryPlus {
 //
 //	int ceph_readdir_r(struct ceph_mount_info *cmount, struct ceph_dir_result *dirp, struct dirent *de);
 func (dir *Directory) ReadDir() (*DirEntry, error) {
+	if dir.dir == nil {
+		return nil, errBadFile
+	}
 	var de C.struct_dirent
 	ret := C.ceph_readdir_r(dir.mount.mount, dir.dir, &de)
 	if ret < 0 {
@@ -165,6 +175,9 @@ func (dir *Directory) ReadDir() (*DirEntry, error) {
 func (dir *Directory) ReadDirPlus(
 	want StatxMask, flags AtFlags) (*DirEntryPlus, error) {
 
+	if dir.dir == nil {
+		return nil, errBadFile
+	}
 	var (
 		de C.struct_dirent
 		s  C.struct_ceph_statx
@@ -193,6 +206,9 @@ func (dir *Directory) ReadDirPlus(
 //
 //	void ceph_rewinddir(struct ceph_mount_info *cmount, struct ceph_dir_result *dirp);
 func (dir *Directory) RewindDir() {
+	if dir.dir == nil {
+		return
+	}
 	C.ceph_rewinddir(dir.mount.mount, dir.dir)
 }
 

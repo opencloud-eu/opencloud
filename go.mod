@@ -63,12 +63,12 @@ require (
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.37.0
 	github.com/open-policy-agent/opa v1.3.0
-	github.com/opencloud-eu/reva/v2 v2.31.0
+	github.com/opencloud-eu/reva/v2 v2.32.0
 	github.com/orcaman/concurrent-map v1.0.0
 	github.com/owncloud/libre-graph-api-go v1.0.5-0.20240829135935-80dc00d6f5ea
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/xattr v0.4.10
-	github.com/prometheus/client_golang v1.21.1
+	github.com/prometheus/client_golang v1.22.0
 	github.com/r3labs/sse/v2 v2.10.0
 	github.com/riandyrn/otelchi v0.12.1
 	github.com/rogpeppe/go-internal v1.14.1
@@ -152,7 +152,7 @@ require (
 	github.com/bluele/gcache v0.0.2 // indirect
 	github.com/bombsimon/logrusr/v3 v3.1.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
-	github.com/ceph/go-ceph v0.32.0 // indirect
+	github.com/ceph/go-ceph v0.33.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73 // indirect
 	github.com/cloudflare/circl v1.3.7 // indirect
@@ -197,7 +197,7 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-redis/redis/v8 v8.11.5 // indirect
 	github.com/go-resty/resty/v2 v2.7.0 // indirect
-	github.com/go-sql-driver/mysql v1.9.1 // indirect
+	github.com/go-sql-driver/mysql v1.9.2 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/go-test/deep v1.1.0 // indirect

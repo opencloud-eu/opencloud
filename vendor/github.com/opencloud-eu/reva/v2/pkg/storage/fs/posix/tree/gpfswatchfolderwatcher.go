@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -30,16 +31,18 @@ import (
 )
 
 type GpfsWatchFolderWatcher struct {
-	tree    *Tree
-	brokers []string
-	log     *zerolog.Logger
+	tree       *Tree
+	brokers    []string
+	log        *zerolog.Logger
+	watch_root string
 }
 
 func NewGpfsWatchFolderWatcher(tree *Tree, kafkaBrokers []string, log *zerolog.Logger) (*GpfsWatchFolderWatcher, error) {
 	return &GpfsWatchFolderWatcher{
-		tree:    tree,
-		brokers: kafkaBrokers,
-		log:     log,
+		tree:       tree,
+		brokers:    kafkaBrokers,
+		watch_root: tree.options.WatchRoot,
+		log:        log,
 	}, nil
 }
 
@@ -66,30 +69,32 @@ func (w *GpfsWatchFolderWatcher) Watch(topic string) {
 			continue
 		}
 
+		path := filepath.Join(w.watch_root, lwev.Path)
+
 		go func() {
 			isDir := strings.Contains(lwev.Event, "IN_ISDIR")
 
 			var err error
 			switch {
 			case strings.Contains(lwev.Event, "IN_DELETE"):
-				err = w.tree.Scan(lwev.Path, ActionDelete, isDir)
+				err = w.tree.Scan(path, ActionDelete, isDir)
 
 			case strings.Contains(lwev.Event, "IN_MOVE_FROM"):
-				err = w.tree.Scan(lwev.Path, ActionMoveFrom, isDir)
+				err = w.tree.Scan(path, ActionMoveFrom, isDir)
 
 			case strings.Contains(lwev.Event, "IN_CREATE"):
-				err = w.tree.Scan(lwev.Path, ActionCreate, isDir)
+				err = w.tree.Scan(path, ActionCreate, isDir)
 
 			case strings.Contains(lwev.Event, "IN_CLOSE_WRITE"):
 				bytesWritten, convErr := strconv.Atoi(lwev.BytesWritten)
 				if convErr == nil && bytesWritten > 0 {
-					err = w.tree.Scan(lwev.Path, ActionUpdate, isDir)
+					err = w.tree.Scan(path, ActionUpdate, isDir)
 				}
 			case strings.Contains(lwev.Event, "IN_MOVED_TO"):
-				err = w.tree.Scan(lwev.Path, ActionMove, isDir)
+				err = w.tree.Scan(path, ActionMove, isDir)
 			}
 			if err != nil {
-				w.log.Error().Err(err).Str("path", lwev.Path).Msg("error scanning path")
+				w.log.Error().Err(err).Str("path", path).Msg("error scanning path")
 			}
 		}()
 	}

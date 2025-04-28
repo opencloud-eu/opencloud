@@ -117,14 +117,22 @@ func New(lu node.PathLookup, bs node.Blobstore, um usermapper.Mapper, trashbin *
 	if o.WatchFS {
 		watchPath := o.WatchPath
 		var err error
+
+		t.log.Info().Str("watch type", o.WatchType).Str("path", o.WatchPath).Str("root", o.WatchRoot).
+			Str("brokers", o.WatchNotificationBrokers).Msg("Watching fs")
 		switch o.WatchType {
 		case "gpfswatchfolder":
-			t.watcher, err = NewGpfsWatchFolderWatcher(t, strings.Split(o.WatchFolderKafkaBrokers, ","), log)
+			t.watcher, err = NewGpfsWatchFolderWatcher(t, strings.Split(o.WatchNotificationBrokers, ","), log)
 			if err != nil {
 				return nil, err
 			}
 		case "gpfsfileauditlogging":
 			t.watcher, err = NewGpfsFileAuditLoggingWatcher(t, o.WatchPath, log)
+			if err != nil {
+				return nil, err
+			}
+		case "cephfs":
+			t.watcher, err = NewCephfsWatcher(t, strings.Split(o.WatchNotificationBrokers, ","), log)
 			if err != nil {
 				return nil, err
 			}
