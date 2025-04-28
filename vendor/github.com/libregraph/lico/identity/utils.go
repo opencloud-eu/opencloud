@@ -20,7 +20,7 @@ package identity
 import (
 	"fmt"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/libregraph/oidc-go"
 
 	konnectoidc "github.com/libregraph/lico/oidc"

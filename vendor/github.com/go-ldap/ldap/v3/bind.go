@@ -3,15 +3,19 @@ package ldap
 import (
 	"bytes"
 	"crypto/md5"
+	"encoding/binary"
+	"encoding/hex"
 	enchex "encoding/hex"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"strings"
+	"unicode/utf16"
 
 	"github.com/Azure/go-ntlmssp"
 	ber "github.com/go-asn1-ber/asn1-ber"
+	"golang.org/x/crypto/md4" //nolint:staticcheck
 )
 
 // SimpleBindRequest represents a username/password bind operation
@@ -216,7 +220,7 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 		}
 	}
 
-	if params != nil {
+	if len(params) > 0 {
 		resp := computeResponse(
 			params,
 			"ldap/"+strings.ToLower(digestMD5BindRequest.Host),
@@ -248,6 +252,34 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 		l.Debug.Printf("%d: got response %p", msgCtx.id, packet)
 		if err != nil {
 			return nil, fmt.Errorf("read packet: %s", err)
+		}
+
+		if len(packet.Children) == 2 {
+			response := packet.Children[1]
+			if response == nil {
+				return result, GetLDAPError(packet)
+			}
+			if response.ClassType == ber.ClassApplication && response.TagType == ber.TypeConstructed && len(response.Children) >= 3 {
+				if ber.Type(response.Children[0].Tag) == ber.Type(ber.TagInteger) || ber.Type(response.Children[0].Tag) == ber.Type(ber.TagEnumerated) {
+					resultCode := uint16(response.Children[0].Value.(int64))
+					if resultCode == 14 {
+						msgCtx, err := l.doRequest(digestMD5BindRequest)
+						if err != nil {
+							return nil, err
+						}
+						defer l.finishMessage(msgCtx)
+						packetResponse, ok := <-msgCtx.responses
+						if !ok {
+							return nil, NewError(ErrorNetwork, errors.New("ldap: response channel closed"))
+						}
+						packet, err = packetResponse.ReadPacket()
+						l.Debug.Printf("%d: got response %p", msgCtx.id, packet)
+						if err != nil {
+							return nil, fmt.Errorf("read packet: %s", err)
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -406,17 +438,36 @@ type NTLMBindRequest struct {
 	Hash string
 	// Controls are optional controls to send with the bind request
 	Controls []Control
+	// Negotiator allows to specify a custom NTLM negotiator.
+	Negotiator NTLMNegotiator
 }
 
-func (req *NTLMBindRequest) appendTo(envelope *ber.Packet) error {
+// NTLMNegotiator is an abstraction of an NTLM implementation that produces and
+// processes NTLM binary tokens.
+type NTLMNegotiator interface {
+	Negotiate(domain string, workstation string) ([]byte, error)
+	ChallengeResponse(challenge []byte, username string, hash string) ([]byte, error)
+}
+
+func (req *NTLMBindRequest) appendTo(envelope *ber.Packet) (err error) {
 	request := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationBindRequest, nil, "Bind Request")
 	request.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, 3, "Version"))
 	request.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "User Name"))
 
+	var negMessage []byte
+
 	// generate an NTLMSSP Negotiation message for the  specified domain (it can be blank)
-	negMessage, err := ntlmssp.NewNegotiateMessage(req.Domain, "")
-	if err != nil {
-		return fmt.Errorf("err creating negmessage: %s", err)
+	switch {
+	case req.Negotiator == nil:
+		negMessage, err = ntlmssp.NewNegotiateMessage(req.Domain, "")
+		if err != nil {
+			return fmt.Errorf("create NTLM negotiate message: %s", err)
+		}
+	default:
+		negMessage, err = req.Negotiator.Negotiate(req.Domain, "")
+		if err != nil {
+			return fmt.Errorf("create NTLM negotiate message with custom negotiator: %s", err)
+		}
 	}
 
 	// append the generated NTLMSSP message as a TagEnumerated BER value
@@ -514,18 +565,29 @@ func (l *Conn) NTLMChallengeBind(ntlmBindRequest *NTLMBindRequest) (*NTLMBindRes
 	if ntlmsspChallenge != nil {
 		var err error
 		var responseMessage []byte
-		// generate a response message to the challenge with the given Username/Password if password is provided
-		if ntlmBindRequest.Hash != "" {
+
+		switch {
+		case ntlmBindRequest.Hash == "" && ntlmBindRequest.Password == "" && !ntlmBindRequest.AllowEmptyPassword:
+			err = fmt.Errorf("need a password or hash to generate reply")
+		case ntlmBindRequest.Negotiator == nil && ntlmBindRequest.Hash != "":
 			responseMessage, err = ntlmssp.ProcessChallengeWithHash(ntlmsspChallenge, ntlmBindRequest.Username, ntlmBindRequest.Hash)
-		} else if ntlmBindRequest.Password != "" || ntlmBindRequest.AllowEmptyPassword {
+		case ntlmBindRequest.Negotiator == nil && (ntlmBindRequest.Password != "" || ntlmBindRequest.AllowEmptyPassword):
+			// generate a response message to the challenge with the given Username/Password if password is provided
 			_, _, domainNeeded := ntlmssp.GetDomain(ntlmBindRequest.Username)
 			responseMessage, err = ntlmssp.ProcessChallenge(ntlmsspChallenge, ntlmBindRequest.Username, ntlmBindRequest.Password, domainNeeded)
-		} else {
-			err = fmt.Errorf("need a password or hash to generate reply")
+		default:
+			hash := ntlmBindRequest.Hash
+			if len(hash) == 0 {
+				hash = ntHash(ntlmBindRequest.Password)
+			}
+
+			responseMessage, err = ntlmBindRequest.Negotiator.ChallengeResponse(ntlmsspChallenge, ntlmBindRequest.Username, hash)
 		}
+
 		if err != nil {
-			return result, fmt.Errorf("parsing ntlm-challenge: %s", err)
+			return result, fmt.Errorf("process NTLM challenge: %s", err)
 		}
+
 		packet = ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
 		packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, l.nextMessageID(), "MessageID"))
 
@@ -559,6 +621,18 @@ func (l *Conn) NTLMChallengeBind(ntlmBindRequest *NTLMBindRequest) (*NTLMBindRes
 	return result, err
 }
 
+func ntHash(pass string) string {
+	runes := utf16.Encode([]rune(pass))
+
+	b := bytes.Buffer{}
+	_ = binary.Write(&b, binary.LittleEndian, &runes)
+
+	hash := md4.New()
+	_, _ = hash.Write(b.Bytes())
+
+	return hex.EncodeToString(hash.Sum(nil))
+}
+
 // GSSAPIClient interface is used as the client-side implementation for the
 // GSSAPI SASL mechanism.
 // Interface inspired by GSSAPIClient from golang.org/x/crypto/ssh
@@ -577,6 +651,9 @@ type GSSAPIClient interface {
 	// to InitSecContext via the token parameters.
 	// See RFC 4752 section 3.1.
 	InitSecContext(target string, token []byte) (outputToken []byte, needContinue bool, err error)
+	// InitSecContextWithOptions is the same as InitSecContext but allows for additional options to be passed to the context establishment.
+	// See RFC 4752 section 3.1.
+	InitSecContextWithOptions(target string, token []byte, options []int) (outputToken []byte, needContinue bool, err error)
 	// NegotiateSaslAuth performs the last step of the Sasl handshake.
 	// It takes a token, which, when unwrapped, describes the servers supported
 	// security layers (first octet) and maximum receive buffer (remaining
@@ -614,6 +691,11 @@ func (l *Conn) GSSAPIBind(client GSSAPIClient, servicePrincipal, authzid string)
 
 // GSSAPIBindRequest performs the GSSAPI SASL bind using the provided GSSAPI client.
 func (l *Conn) GSSAPIBindRequest(client GSSAPIClient, req *GSSAPIBindRequest) error {
+	return l.GSSAPIBindRequestWithAPOptions(client, req, []int{})
+}
+
+// GSSAPIBindRequest performs the GSSAPI SASL bind using the provided GSSAPI client.
+func (l *Conn) GSSAPIBindRequestWithAPOptions(client GSSAPIClient, req *GSSAPIBindRequest, APOptions []int) error {
 	//nolint:errcheck
 	defer client.DeleteSecContext()
 
@@ -624,7 +706,7 @@ func (l *Conn) GSSAPIBindRequest(client GSSAPIClient, req *GSSAPIBindRequest) er
 	for {
 		if needInit {
 			// Establish secure context between client and server.
-			reqToken, needInit, err = client.InitSecContext(req.ServicePrincipalName, recvToken)
+			reqToken, needInit, err = client.InitSecContextWithOptions(req.ServicePrincipalName, recvToken, APOptions)
 			if err != nil {
 				return err
 			}

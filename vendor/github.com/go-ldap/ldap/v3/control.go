@@ -709,7 +709,7 @@ func (c *ControlDirSync) Encode() *ber.Packet {
 
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
 	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypeDirSync, "Control Type ("+ControlTypeMap[ControlTypeDirSync]+")"))
-	packet.AppendChild(ber.NewBoolean(ber.ClassUniversal, ber.TypePrimitive, ber.TagBoolean, c.Criticality, "Criticality")) // must be true always
+	packet.AppendChild(ber.NewLDAPBoolean(ber.ClassUniversal, ber.TypePrimitive, ber.TagBoolean, c.Criticality, "Criticality")) // must be true always
 
 	val := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, nil, "Control Value (DirSync)")
 	seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "DirSync Control Value")
@@ -755,7 +755,7 @@ func NewControlServerSideSorting(value *ber.Packet) (*ControlServerSideSorting, 
 	sequences := val[0].Children
 
 	for i, sequence := range sequences {
-		sortKey := &SortKey{}
+		sortKey := new(SortKey)
 
 		if len(sequence.Children) < 2 {
 			return nil, fmt.Errorf("attributeType or matchingRule is missing from sequence %d", i)
@@ -864,10 +864,14 @@ func (c ControlServerSideSortingCode) Valid() error {
 }
 
 func NewControlServerSideSortingResult(pkt *ber.Packet) (*ControlServerSideSortingResult, error) {
-	control := &ControlServerSideSortingResult{}
+	control := new(ControlServerSideSortingResult)
 
 	if pkt == nil || len(pkt.Children) == 0 {
-		return nil, fmt.Errorf("bad packet")
+		// This is currently not compliant with the ServerSideSorting RFC (see https://datatracker.ietf.org/doc/html/rfc2891#section-1.2).
+		// but it's necessary because there seems to be a bug in the implementation of the popular OpenLDAP server.
+		//
+		// See: https://github.com/go-ldap/ldap/pull/546
+		return control, nil
 	}
 
 	codeInt, err := ber.ParseInt64(pkt.Children[0].Data.Bytes())
@@ -875,8 +879,7 @@ func NewControlServerSideSortingResult(pkt *ber.Packet) (*ControlServerSideSorti
 		return nil, err
 	}
 
-	code := ControlServerSideSortingCode(codeInt)
-	if err := code.Valid(); err != nil {
+	if err = ControlServerSideSortingCode(codeInt).Valid(); err != nil {
 		return nil, err
 	}
 

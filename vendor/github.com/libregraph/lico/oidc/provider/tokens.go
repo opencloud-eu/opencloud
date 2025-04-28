@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/libregraph/oidc-go"
 	"github.com/longsleep/rndm"
 
@@ -51,13 +51,13 @@ func (p *Provider) makeAccessToken(ctx context.Context, audience string, auth id
 		TokenType:               konnect.TokenTypeAccessToken,
 		AuthorizedScopesList:    authorizedScopesList,
 		AuthorizedClaimsRequest: auth.AuthorizedClaims(),
-		StandardClaims: jwt.StandardClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    p.issuerIdentifier,
 			Subject:   auth.Subject(),
-			Audience:  audience,
-			ExpiresAt: time.Now().Add(p.accessTokenDuration).Unix(),
-			IssuedAt:  time.Now().Unix(),
-			Id:        rndm.GenerateRandomString(24),
+			Audience:  jwt.ClaimStrings{audience},
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(p.accessTokenDuration)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ID:        rndm.GenerateRandomString(24),
 		},
 	}
 
@@ -137,12 +137,12 @@ func (p *Provider) makeIDToken(ctx context.Context, ar *payload.AuthenticationRe
 
 	idTokenClaims := &konnectoidc.IDTokenClaims{
 		Nonce: ar.Nonce,
-		StandardClaims: jwt.StandardClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    p.issuerIdentifier,
 			Subject:   publicSubject,
-			Audience:  ar.ClientID,
-			ExpiresAt: time.Now().Add(p.idTokenDuration).Unix(),
-			IssuedAt:  time.Now().Unix(),
+			Audience:  jwt.ClaimStrings{ar.ClientID},
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(p.idTokenDuration)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
 
@@ -327,13 +327,13 @@ func (p *Provider) makeRefreshToken(ctx context.Context, audience string, auth i
 		ApprovedScopesList:    approvedScopesList,
 		ApprovedClaimsRequest: auth.AuthorizedClaims(),
 		Ref:                   ref,
-		StandardClaims: jwt.StandardClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    p.issuerIdentifier,
 			Subject:   auth.Subject(),
-			Audience:  audience,
-			ExpiresAt: time.Now().Add(p.refreshTokenDuration).Unix(),
-			IssuedAt:  time.Now().Unix(),
-			Id:        rndm.GenerateRandomString(24),
+			Audience:  jwt.ClaimStrings{audience},
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(p.refreshTokenDuration)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ID:        rndm.GenerateRandomString(24),
 		},
 	}
 

@@ -44,6 +44,7 @@ const ResponsiveScreen = (props) => {
     loading,
     children,
     className,
+    branding,
     ...other
   } = props;
   const { theme } = useContext(OpenCloudContext);
@@ -55,21 +56,38 @@ const ResponsiveScreen = (props) => {
   const content = loading ? <Loading/> : (withoutPadding ? children : <DialogContent>{children}</DialogContent>);
 
   return (
-    <Grid container justifyContent="center" alignItems="center" direction="column" spacing={0}
-      className={classNames(classes.root, className)} {...other}>
-        <div className={classes.wrapper}>
-            <div className={classes.content}>
+    <Grid
+      container
+      justifyContent="center"
+      alignItems="center"
+      direction="column"
+      spacing={0}
+      className={classNames(classes.root, className)}
+      {...other}
+    >
+      <div className={classes.wrapper}>
+        <div className={classes.content}>
+          {branding?.signinPageLogoURI ? (
+            <a
+              href={branding.signinPageLogoURI}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               {logo}
-              <div className={'oc-card'}>
-                <div className={'oc-card-body'}>
-                {content}
-                </div>
-              </div>
-            </div>
+            </a>
+          ) : (
+            logo
+          )}
+          <div className={"oc-card"}>
+            <div className={"oc-card-body"}>{content}</div>
+          </div>
         </div>
-        <footer className="oc-footer-message">
-              <Trans i18nKey="konnect.footer.slogan"><strong>OpenCloud</strong> - excellent file sharing</Trans>
-        </footer>
+      </div>
+      <footer className="oc-footer-message">
+        <Trans i18nKey="konnect.footer.slogan">
+          <strong>OpenCloud</strong> - excellent file sharing
+        </Trans>
+      </footer>
     </Grid>
   );
 };

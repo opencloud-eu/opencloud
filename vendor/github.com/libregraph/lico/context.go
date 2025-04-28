@@ -21,7 +21,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // key is an unexported type for keys defined in this package.

@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/libregraph/oidc-go"
 	"github.com/longsleep/rndm"
 	"golang.org/x/oauth2"

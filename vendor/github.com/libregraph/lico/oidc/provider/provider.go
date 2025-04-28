@@ -29,7 +29,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/libregraph/oidc-go"
 	"github.com/rs/cors"
 	"github.com/sirupsen/logrus"
@@ -42,7 +42,6 @@ import (
 	"github.com/libregraph/lico/managers"
 	konnectoidc "github.com/libregraph/lico/oidc"
 	"github.com/libregraph/lico/oidc/code"
-	"github.com/libregraph/lico/signing"
 	"github.com/libregraph/lico/utils"
 )
 
@@ -208,7 +207,7 @@ func (p *Provider) SetSigningKey(id string, key crypto.Signer) error {
 	case *ecdsa.PrivateKey:
 		signingMethod = jwt.SigningMethodES256
 	case ed25519.PrivateKey:
-		signingMethod = signing.SigningMethodEdDSA
+		signingMethod = jwt.SigningMethodEdDSA
 	default:
 		return fmt.Errorf("unsupported signer type: %v", s)
 	}
@@ -307,7 +306,7 @@ func (p *Provider) SetSigningKey(id string, key crypto.Signer) error {
 			PrivateKey:    key,
 			SigningMethod: jwt.SigningMethodPS512,
 		}
-	case *signing.SigningMethodEdwardsCurve:
+	case *jwt.SigningMethodEd25519:
 		p.signingKeys[signingMethod] = &SigningKey{
 			ID:            id,
 			PrivateKey:    key,
@@ -429,7 +428,7 @@ func (p *Provider) InitializeMetadata() error {
 		jwt.SigningMethodPS384.Alg(),
 		jwt.SigningMethodPS512.Alg(),
 		jwt.SigningMethodNone.Alg(),
-		signing.SigningMethodEdDSA.Alg(),
+		jwt.SigningMethodEdDSA.Alg(),
 	}
 	p.metadata.TokenEndpointAuthMethodsSupported = []string{
 		oidc.AuthMethodClientSecretBasic,

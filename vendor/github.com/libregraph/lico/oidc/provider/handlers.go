@@ -24,7 +24,7 @@ import (
 	"strings"
 
 	"github.com/go-jose/go-jose/v3"
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/libregraph/oidc-go"
 	"github.com/longsleep/rndm"
 	"github.com/sirupsen/logrus"
@@ -429,14 +429,14 @@ func (p *Provider) TokenHandler(rw http.ResponseWriter, req *http.Request) {
 		claims := tr.RefreshToken.Claims.(*konnect.RefreshTokenClaims)
 
 		// Ensure that the authorization code was issued to the client id.
-		if claims.Audience != tr.ClientID {
+		if claims.Audience[0] != tr.ClientID {
 			err = konnectoidc.NewOAuth2Error(oidc.ErrorCodeOAuth2InvalidGrant, "client_id mismatch")
 			goto done
 		}
 
 		// TODO(longsleep): Compare standard claims issuer.
 
-		userID, sessionRef := p.getUserIDAndSessionRefFromClaims(&claims.StandardClaims, nil, claims.IdentityClaims)
+		userID, sessionRef := p.getUserIDAndSessionRefFromClaims(&claims.RegisteredClaims, nil, claims.IdentityClaims)
 		if userID == "" {
 			err = konnectoidc.NewOAuth2Error(oidc.ErrorCodeOAuth2InvalidToken, "missing data in kc.identity claim")
 			goto done
@@ -496,7 +496,7 @@ func (p *Provider) TokenHandler(rw http.ResponseWriter, req *http.Request) {
 
 		// Create fake request for token generation.
 		ar = &payload.AuthenticationRequest{
-			ClientID: claims.Audience,
+			ClientID: claims.Audience[0],
 		}
 
 		// Remember refresh token claims, for use in access and id token generators later on.
@@ -602,7 +602,7 @@ func (p *Provider) UserInfoHandler(rw http.ResponseWriter, req *http.Request) {
 	var requestedClaimsMap []*payload.ClaimsRequestMap
 	var authorizedScopes map[string]bool
 
-	userID, sessionRef := p.getUserIDAndSessionRefFromClaims(&claims.StandardClaims, claims.SessionClaims, claims.IdentityClaims)
+	userID, sessionRef := p.getUserIDAndSessionRefFromClaims(&claims.RegisteredClaims, claims.SessionClaims, claims.IdentityClaims)
 
 	ctx := konnect.NewClaimsContext(konnect.NewRequestContext(req.Context(), req), claims)
 
@@ -628,7 +628,7 @@ func (p *Provider) UserInfoHandler(rw http.ResponseWriter, req *http.Request) {
 		found = false
 	}
 	if !found {
-		p.logger.WithField("sub", claims.StandardClaims.Subject).Debugln("userinfo request user not found")
+		p.logger.WithField("sub", claims.RegisteredClaims.Subject).Debugln("userinfo request user not found")
 		p.ErrorPage(rw, http.StatusNotFound, "", "user not found")
 		return
 	}
@@ -721,7 +721,7 @@ done:
 	// Support returning signed user info if the registered client requested it
 	// as specified in https://openid.net/specs/openid-connect-core-1_0.html#UserInfoResponse and
 	// https://openid.net/specs/openid-connect-registration-1_0.html#ClientMetadata
-	registration, _ := p.clients.Get(ctx, claims.Audience)
+	registration, _ := p.clients.Get(ctx, claims.Audience[0])
 	if registration != nil {
 		if registration.RawUserInfoSignedResponseAlg != "" {
 			// Get alg.
@@ -934,8 +934,8 @@ done:
 		ClientID:     cr.ID,
 		ClientSecret: cr.Secret,
 
-		ClientIDIssuedAt:      cr.IDIssuedAt,
-		ClientSecretExpiresAt: cr.SecretExpiresAt,
+		ClientIDIssuedAt:      cr.IDIssuedAt.Unix(),
+		ClientSecretExpiresAt: cr.SecretExpiresAt.Unix(),
 
 		ClientRegistrationRequest: *crr,
 	}

@@ -415,10 +415,14 @@ func (im *IdentifierIdentityManager) EndSession(ctx context.Context, rw http.Res
 
 	origin := utils.OriginFromRequestHeaders(req.Header)
 
+	clientID := ""
 	if esr.IDTokenHint != nil {
 		// Extended request, verify IDTokenHint and its claims if available.
 		esrClaims = esr.IDTokenHint.Claims.(*konnectoidc.IDTokenClaims)
-		clientDetails, err = im.clients.Lookup(ctx, esrClaims.Audience, "", esr.PostLogoutRedirectURI, origin, true)
+		if len(esrClaims.Audience) == 1 {
+			clientID = esrClaims.Audience[0]
+		}
+		clientDetails, err = im.clients.Lookup(ctx, clientID, "", esr.PostLogoutRedirectURI, origin, true)
 		if err != nil {
 			// This error is not fatal since according to
 			// the spec in https://openid.net/specs/openid-connect-session-1_0.html#RPLogout the
@@ -471,7 +475,7 @@ func (im *IdentifierIdentityManager) EndSession(ctx context.Context, rw http.Res
 			query.Add("flow", identifier.FlowOIDC)
 		}
 		if esrClaims != nil {
-			query.Add("client_id", esrClaims.Audience)
+			query.Add("client_id", clientID)
 		}
 
 		u.RawQuery = query.Encode()

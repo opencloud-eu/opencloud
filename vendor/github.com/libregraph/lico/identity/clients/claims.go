@@ -18,17 +18,12 @@
 package clients
 
 import (
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // RegistrationClaims are claims used to with dynamic clients.
 type RegistrationClaims struct {
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 
 	*ClientRegistration
-}
-
-// Valid implements the jwt claims interface.
-func (crc RegistrationClaims) Valid() error {
-	return crc.StandardClaims.Valid()
 }

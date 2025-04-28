@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/libregraph/oidc-go"
 
 	konnectoidc "github.com/libregraph/lico/oidc"
@@ -337,9 +337,7 @@ func (ar *AuthenticationRequest) Validate(keyFunc jwt.Keyfunc) error {
 	}
 
 	if ar.RawIDTokenHint != "" {
-		parser := &jwt.Parser{
-			SkipClaimsValidation: true,
-		}
+		parser := jwt.NewParser(jwt.WithoutClaimsValidation())
 		idTokenHint, err := parser.ParseWithClaims(ar.RawIDTokenHint, &konnectoidc.IDTokenClaims{}, func(token *jwt.Token) (interface{}, error) {
 			if keyFunc != nil {
 				return keyFunc(token)

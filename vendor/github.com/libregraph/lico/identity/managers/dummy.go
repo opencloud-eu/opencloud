@@ -23,7 +23,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"github.com/libregraph/oidc-go"
 	"github.com/longsleep/rndm"

@@ -18,7 +18,7 @@
 package identity
 
 import (
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // User defines a most simple user with an id defined as subject.

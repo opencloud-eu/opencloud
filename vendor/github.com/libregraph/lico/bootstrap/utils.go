@@ -16,10 +16,8 @@ import (
 	"strings"
 
 	"github.com/go-jose/go-jose/v3"
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/sirupsen/logrus"
-
-	"github.com/libregraph/lico/signing"
 )
 
 func parseJSONWebKey(jsonBytes []byte) (*jose.JSONWebKey, error) {
@@ -297,7 +295,7 @@ func validateSigners(bs *bootstrap) error {
 		if !haveECDSA {
 			return fmt.Errorf("no private key for signing method: %s", bs.config.SigningMethod.Alg())
 		}
-	case *signing.SigningMethodEdwardsCurve:
+	case *jwt.SigningMethodEd25519:
 		if !haveEd25519 {
 			return fmt.Errorf("no private key for signing method: %s", bs.config.SigningMethod.Alg())
 		}

@@ -20,7 +20,7 @@ package payload
 import (
 	"errors"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/libregraph/lico/identity/clients"
 )
@@ -30,7 +30,7 @@ import (
 // requests specified at
 // https://openid.net/specs/openid-connect-core-1_0.html#JWTRequests
 type RequestObjectClaims struct {
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 
 	RawScope        string         `json:"scope"`
 	Claims          *ClaimsRequest `json:"claims"`

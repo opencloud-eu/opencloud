@@ -412,7 +412,7 @@ func readPacket(reader io.Reader) (*Packet, int, error) {
 				p.Value = val
 			}
 		case TagRelativeOID:
-			oid, err := parseObjectIdentifier(content)
+			oid, err := parseRelativeObjectIdentifier(content)
 			if err == nil {
 				p.Value = OIDToString(oid)
 			}
@@ -560,16 +560,14 @@ func NewBoolean(classType Class, tagType Type, tag Tag, value bool, description 
 
 // NewLDAPBoolean returns a RFC 4511-compliant Boolean packet.
 func NewLDAPBoolean(classType Class, tagType Type, tag Tag, value bool, description string) *Packet {
-	intValue := int64(0)
-
-	if value {
-		intValue = 255
-	}
-
 	p := Encode(classType, tagType, tag, nil, description)
 
 	p.Value = value
-	p.Data.Write(encodeInteger(intValue))
+	if value {
+		p.Data.Write([]byte{255})
+	} else {
+		p.Data.Write([]byte{0})
+	}
 
 	return p
 }
@@ -663,6 +661,25 @@ func NewOID(classType Class, tagType Type, tag Tag, value interface{}, descripti
 	return p
 }
 
+func NewRelativeOID(classType Class, tagType Type, tag Tag, value interface{}, description string) *Packet {
+	p := Encode(classType, tagType, tag, nil, description)
+
+	switch v := value.(type) {
+	case string:
+		encoded, err := encodeRelativeOID(v)
+		if err != nil {
+			fmt.Printf("failed writing %v", err)
+			return nil
+		}
+		p.Value = v
+		p.Data.Write(encoded)
+		// TODO: support []int already ?
+	default:
+		panic(fmt.Sprintf("Invalid type %T, expected float{64|32}", v))
+	}
+	return p
+}
+
 // encodeOID takes a string representation of an OID and returns its DER-encoded byte slice along with any error.
 func encodeOID(oidString string) ([]byte, error) {
 	// Convert the string representation to an asn1.ObjectIdentifier
@@ -682,6 +699,26 @@ func encodeOID(oidString string) ([]byte, error) {
 
 	encoded = appendBase128Int(encoded[:0], int64(oid[0]*40+oid[1]))
 	for i := 2; i < len(oid); i++ {
+		encoded = appendBase128Int(encoded, int64(oid[i]))
+	}
+
+	return encoded, nil
+}
+
+func encodeRelativeOID(oidString string) ([]byte, error) {
+	parts := strings.Split(oidString, ".")
+	oid := make([]int, len(parts))
+	for i, part := range parts {
+		var val int
+		if _, err := fmt.Sscanf(part, "%d", &val); err != nil {
+			return nil, fmt.Errorf("invalid RELATIVE OID part '%s': %w", part, err)
+		}
+		oid[i] = val
+	}
+
+	encoded := make([]byte, 0)
+
+	for i := 0; i < len(oid); i++ {
 		encoded = appendBase128Int(encoded, int64(oid[i]))
 	}
 
@@ -761,6 +798,27 @@ func parseObjectIdentifier(bytes []byte) (s []int, err error) {
 	}
 
 	i := 2
+	for ; offset < len(bytes); i++ {
+		v, offset, err = parseBase128Int(bytes, offset)
+		if err != nil {
+			return
+		}
+		s[i] = v
+	}
+	s = s[0:i]
+	return
+}
+
+func parseRelativeObjectIdentifier(bytes []byte) (s []int, err error) {
+	if len(bytes) == 0 {
+		err = fmt.Errorf("zero length RELATIVE OBJECT IDENTIFIER")
+		return
+	}
+
+	s = make([]int, len(bytes)+1)
+
+	var v, offset int
+	i := 0
 	for ; offset < len(bytes); i++ {
 		v, offset, err = parseBase128Int(bytes, offset)
 		if err != nil {

@@ -20,7 +20,7 @@ package lico
 import (
 	"errors"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/libregraph/lico/oidc"
 	"github.com/libregraph/lico/oidc/payload"
@@ -67,7 +67,7 @@ const (
 
 // AccessTokenClaims define the claims found in access tokens issued.
 type AccessTokenClaims struct {
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 
 	TokenType TokenTypeValue `json:"lg.t"`
 
@@ -81,20 +81,16 @@ type AccessTokenClaims struct {
 	*oidc.SessionClaims
 }
 
-// Valid implements the jwt.Claims interface.
-func (c AccessTokenClaims) Valid() error {
-	if err := c.StandardClaims.Valid(); err != nil {
-		return err
+// Validate implements the jwt.ClaimsValidator interface.
+func (c AccessTokenClaims) Validate() error {
+	if !c.TokenType.Is(TokenTypeAccessToken) {
+		return errors.New("not an access token")
 	}
-	if c.IdentityClaims != nil {
-		if err := c.IdentityClaims.Valid(); err != nil {
-			return err
-		}
+	if len(c.Audience) != 1 {
+		return errors.New("access token must have exactly one audience value")
 	}
-	if c.TokenType.Is(TokenTypeAccessToken) {
-		return nil
-	}
-	return errors.New("not an access token")
+
+	return nil
 }
 
 // AuthorizedScopes returns a map with scope keys and true value of all scopes
@@ -110,7 +106,7 @@ func (c AccessTokenClaims) AuthorizedScopes() map[string]bool {
 
 // RefreshTokenClaims define the claims used by refresh tokens.
 type RefreshTokenClaims struct {
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 
 	TokenType TokenTypeValue `json:"lg.t"`
 
@@ -123,20 +119,17 @@ type RefreshTokenClaims struct {
 	IdentityProvider string        `json:"lg.p,omitempty"`
 }
 
-// Valid implements the jwt.Claims interface.
-func (c RefreshTokenClaims) Valid() error {
-	if err := c.StandardClaims.Valid(); err != nil {
-		return err
+// Validate implements the jwt.ClaimsValidator interface.
+func (c RefreshTokenClaims) Validate() error {
+	if !c.TokenType.Is(TokenTypeRefreshToken) {
+		return errors.New("not a refresh token")
 	}
-	if c.IdentityClaims != nil {
-		if err := c.IdentityClaims.Valid(); err != nil {
-			return err
-		}
+
+	if len(c.Audience) != 1 {
+		return errors.New("refresh token must have exactly one audience value")
 	}
-	if c.TokenType.Is(TokenTypeRefreshToken) {
-		return nil
-	}
-	return errors.New("not a refresh token")
+
+	return nil
 }
 
 // NumericIDClaims define the claims used with the konnect/id scope.
@@ -147,8 +140,8 @@ type NumericIDClaims struct {
 	NumericIDUsername string `json:"username,omitempty"`
 }
 
-// Valid implements the jwt.Claims interface.
-func (c NumericIDClaims) Valid() error {
+// Validate implements the jwt.ClaimsValidator interface.
+func (c NumericIDClaims) Validate() error {
 	if c.NumericIDUsername == "" {
 		return errors.New("username claim not valid")
 	}
@@ -160,8 +153,8 @@ type UniqueUserIDClaims struct {
 	UniqueUserID string `json:"lg.uuid,omitempty"`
 }
 
-// Valid implements the jwt.Claims interface.
-func (c UniqueUserIDClaims) Valid() error {
+// Validate implements the jwt.ClaimsValidator interface.
+func (c UniqueUserIDClaims) Validate() error {
 	if c.UniqueUserID == "" {
 		return errors.New("lg.uuid claim not valid")
 	}

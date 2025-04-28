@@ -58,6 +58,7 @@ func DefaultConfig() *config.Config {
 			IdentifierScopesConf:               "",
 			IdentifierDefaultBannerLogo:        "",
 			IdentifierDefaultSignInPageText:    "",
+			IdentifierDefaultLogoTargetURI:     "",
 			IdentifierDefaultUsernameHintText:  "",
 			SigningKid:                         "private-key",
 			SigningMethod:                      "PS256",

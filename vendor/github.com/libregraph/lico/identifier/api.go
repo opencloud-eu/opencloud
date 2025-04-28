@@ -47,10 +47,11 @@ func (i Identifier) writeHelloResponse(rw http.ResponseWriter, req *http.Request
 	response := &HelloResponse{
 		State: r.State,
 		Branding: &meta.Branding{
-			BannerLogo:       i.defaultBannerLogo,
-			UsernameHintText: i.Config.DefaultUsernameHintText,
-			SignInPageText:   i.Config.DefaultSignInPageText,
-			Locales:          i.Config.UILocales,
+			BannerLogo:        i.defaultBannerLogo,
+			UsernameHintText:  i.Config.DefaultUsernameHintText,
+			SignInPageText:    i.Config.DefaultSignInPageText,
+			SignInPageLogoURI: i.Config.DefaultSignInPageLogoURI,
+			Locales:           i.Config.UILocales,
 		},
 	}
 

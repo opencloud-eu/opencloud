@@ -27,7 +27,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/libregraph/oidc-go"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
@@ -358,7 +358,7 @@ func (r *Registry) getDynamicClient(clientID string) (*ClientRegistration, bool)
 				// TODO(longsleep): Add secure client secret.
 				registration = claims.ClientRegistration
 				registration.ID = clientID
-				registration.Secret = claims.StandardClaims.Subject
+				registration.Secret = claims.RegisteredClaims.Subject
 				registration.Dynamic = true
 			}
 		}

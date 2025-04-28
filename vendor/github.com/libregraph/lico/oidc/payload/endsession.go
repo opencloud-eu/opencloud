@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/libregraph/oidc-go"
 
 	konnectoidc "github.com/libregraph/lico/oidc"
@@ -67,9 +67,7 @@ func NewEndSessionRequest(values url.Values, providerMetadata *oidc.WellKnown) (
 // Validate validates the request data of the accociated endSession request.
 func (esr *EndSessionRequest) Validate(keyFunc jwt.Keyfunc) error {
 	if esr.RawIDTokenHint != "" {
-		parser := &jwt.Parser{
-			SkipClaimsValidation: true,
-		}
+		parser := jwt.NewParser(jwt.WithoutClaimsValidation())
 		idTokenHint, err := parser.ParseWithClaims(esr.RawIDTokenHint, &konnectoidc.IDTokenClaims{}, func(token *jwt.Token) (interface{}, error) {
 			if keyFunc != nil {
 				return keyFunc(token)

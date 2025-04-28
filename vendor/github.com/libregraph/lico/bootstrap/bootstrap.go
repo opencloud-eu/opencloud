@@ -33,7 +33,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/longsleep/rndm"
 	"github.com/sirupsen/logrus"
 
@@ -259,6 +259,9 @@ func (bs *bootstrap) initialize(settings *Settings) error {
 	}
 	if settings.IdentifierDefaultSignInPageText != "" {
 		bs.config.IdentifierDefaultSignInPageText = &settings.IdentifierDefaultSignInPageText
+	}
+	if settings.IdentifierDefaultLogoTargetURI != "" {
+		bs.config.IdentifierDefaultLogoTargetURI = &settings.IdentifierDefaultLogoTargetURI
 	}
 	if settings.IdentifierDefaultUsernameHintText != "" {
 		bs.config.IdentifierDefaultUsernameHintText = &settings.IdentifierDefaultUsernameHintText

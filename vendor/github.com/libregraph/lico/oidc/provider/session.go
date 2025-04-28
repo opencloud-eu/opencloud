@@ -23,7 +23,7 @@ import (
 	"encoding/gob"
 	"net/http"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/longsleep/rndm"
 
 	konnect "github.com/libregraph/lico"
@@ -112,10 +112,15 @@ func (p *Provider) unserializeSession(value string) (*payload.Session, error) {
 	return &session, nil
 }
 
-func (p *Provider) getUserIDAndSessionRefFromClaims(claims *jwt.StandardClaims, sessionClaims *oidc.SessionClaims, identityClaims jwt.MapClaims) (string, *string) {
+func (p *Provider) getUserIDAndSessionRefFromClaims(claims *jwt.RegisteredClaims, sessionClaims *oidc.SessionClaims, identityClaims jwt.MapClaims) (string, *string) {
 	if claims == nil || identityClaims == nil {
 		return "", nil
 	}
+
+	if len(claims.Audience) != 1 {
+		return "", nil
+	}
+	audience := claims.Audience[0]
 
 	userIDClaim, _ := identityClaims[konnect.IdentifiedUserIDClaim].(string)
 	if userIDClaim == "" {
@@ -136,5 +141,5 @@ func (p *Provider) getUserIDAndSessionRefFromClaims(claims *jwt.StandardClaims, 
 	// NOTE(longsleep): Return the userID from claims and generate a session ref
 	// for it. Session refs use the userClaim if available and set by the
 	// underlaying backend.
-	return userIDClaim, identity.GetSessionRef(p.identityManager.Name(), claims.Audience, userClaim)
+	return userIDClaim, identity.GetSessionRef(p.identityManager.Name(), audience, userClaim)
 }

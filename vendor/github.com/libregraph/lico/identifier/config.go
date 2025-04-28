@@ -46,10 +46,11 @@ type Config struct {
 	AuthorizationEndpointURI *url.URL
 	SignedOutEndpointURI     *url.URL
 
-	DefaultBannerLogo       []byte
-	DefaultSignInPageText   *string
-	DefaultUsernameHintText *string
-	UILocales               []string
+	DefaultBannerLogo        []byte
+	DefaultSignInPageText    *string
+	DefaultSignInPageLogoURI *string
+	DefaultUsernameHintText  *string
+	UILocales                []string
 
 	Backend backends.Backend
 }

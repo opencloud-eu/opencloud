@@ -100,6 +100,7 @@ func NewService(opts ...Option) Service {
 		IdentifierScopesConf:              options.Config.IDP.IdentifierScopesConf,
 		IdentifierDefaultBannerLogo:       options.Config.IDP.IdentifierDefaultBannerLogo,
 		IdentifierDefaultSignInPageText:   options.Config.IDP.IdentifierDefaultSignInPageText,
+		IdentifierDefaultLogoTargetURI:    options.Config.IDP.IdentifierDefaultLogoTargetURI,
 		IdentifierDefaultUsernameHintText: options.Config.IDP.IdentifierDefaultUsernameHintText,
 		IdentifierUILocales:               options.Config.IDP.IdentifierUILocales,
 		SigningKid:                        options.Config.IDP.SigningKid,

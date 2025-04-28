@@ -65,7 +65,7 @@
     "source-map-explorer": "^2.5.3",
     "terser": "^5.30.4",
     "typescript": "^5.2.2",
-    "vite": "^4.5.2",
+    "vite": "^4.5.13",
     "vite-plugin-checker": "^0.6.2",
     "vite-plugin-eslint": "^1.8.1",
     "vitest": "^0.34.6"

@@ -44,6 +44,7 @@ type Settings struct {
 	IdentifierScopesConf              string
 	IdentifierDefaultBannerLogo       string
 	IdentifierDefaultSignInPageText   string
+	IdentifierDefaultLogoTargetURI    string
 	IdentifierDefaultUsernameHintText string
 	IdentifierUILocales               []string
 	SigningKid                        string

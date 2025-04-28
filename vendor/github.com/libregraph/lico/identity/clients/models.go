@@ -25,7 +25,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/longsleep/rndm"
 	"github.com/mendsley/gojwk"
 	"golang.org/x/crypto/blake2b"
@@ -54,9 +54,9 @@ type ClientRegistration struct {
 
 	ImplicitScopes []string `yaml:"implicit_scopes" json:"-"`
 
-	Dynamic         bool  `yaml:"-" json:"-"`
-	IDIssuedAt      int64 `yaml:"-" json:"-"`
-	SecretExpiresAt int64 `yaml:"-" json:"-"`
+	Dynamic         bool      `yaml:"-" json:"-"`
+	IDIssuedAt      time.Time `yaml:"-" json:"-"`
+	SecretExpiresAt time.Time `yaml:"-" json:"-"`
 
 	Contacts        []string `yaml:"contacts,flow" json:"contacts,omitempty"`
 	Name            string   `yaml:"name" json:"name,omitempty"`
@@ -153,9 +153,9 @@ func (cr *ClientRegistration) SetDynamic(ctx context.Context, creator func(ctx c
 	}
 
 	// Initialize basic client registration data for dynamic client.
-	cr.IDIssuedAt = time.Now().Unix()
+	cr.IDIssuedAt = time.Now()
 	if registry.dynamicClientSecretDuration > 0 {
-		cr.SecretExpiresAt = time.Now().Add(registry.dynamicClientSecretDuration).Unix()
+		cr.SecretExpiresAt = time.Now().Add(registry.dynamicClientSecretDuration)
 	}
 	cr.Dynamic = true
 
@@ -168,10 +168,10 @@ func (cr *ClientRegistration) SetDynamic(ctx context.Context, creator func(ctx c
 	// client_id. See https://openid.net/specs/openid-connect-registration-1_0.html#StatelessRegistration
 	// for more information. We use a JWT as client_id.
 	claims := &RegistrationClaims{
-		StandardClaims: jwt.StandardClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   sub,
-			IssuedAt:  cr.IDIssuedAt,
-			ExpiresAt: cr.SecretExpiresAt,
+			IssuedAt:  jwt.NewNumericDate(cr.IDIssuedAt),
+			ExpiresAt: jwt.NewNumericDate(cr.SecretExpiresAt),
 		},
 		ClientRegistration: cr,
 	}

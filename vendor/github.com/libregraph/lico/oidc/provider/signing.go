@@ -20,7 +20,7 @@ package provider
 import (
 	"crypto"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // A SigningKey bundles a signer with meta data and a signign method.

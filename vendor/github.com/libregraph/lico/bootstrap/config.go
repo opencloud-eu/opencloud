@@ -24,7 +24,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/libregraph/lico/config"
 )
@@ -51,6 +51,7 @@ type Config struct {
 	IdentifierScopesConf              string
 	IdentifierDefaultBannerLogo       []byte
 	IdentifierDefaultSignInPageText   *string
+	IdentifierDefaultLogoTargetURI    *string
 	IdentifierDefaultUsernameHintText *string
 	IdentifierUILocales               []string
 

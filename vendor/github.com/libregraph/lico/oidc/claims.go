@@ -18,12 +18,12 @@
 package oidc
 
 import (
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // IDTokenClaims define the claims found in OIDC ID Tokens.
 type IDTokenClaims struct {
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 
 	Nonce           string `json:"nonce,omitempty"`
 	AuthTime        int64  `json:"auth_time,omitempty"`
@@ -36,14 +36,10 @@ type IDTokenClaims struct {
 	*SessionClaims
 }
 
-// Valid implements the jwt.Claims interface.
-func (c IDTokenClaims) Valid() (err error) {
-	return c.StandardClaims.Valid()
-}
-
 // ProfileClaims define the claims for the OIDC profile scope.
 // https://openid.net/specs/openid-connect-basic-1_0.html#Scopes
 type ProfileClaims struct {
+	jwt.RegisteredClaims
 	Name              string `json:"name,omitempty"`
 	FamilyName        string `json:"family_name,omitempty"`
 	GivenName         string `json:"given_name,omitempty"`
@@ -60,14 +56,10 @@ func NewProfileClaims(claims jwt.Claims) *ProfileClaims {
 	return claims.(*ProfileClaims)
 }
 
-// Valid implements the jwt.Claims interface.
-func (c ProfileClaims) Valid() error {
-	return nil
-}
-
 // EmailClaims define the claims for the OIDC email scope.
 // https://openid.net/specs/openid-connect-basic-1_0.html#Scopes
 type EmailClaims struct {
+	jwt.RegisteredClaims
 	Email         string `json:"email,omitempty"`
 	EmailVerified bool   `json:"email_verified"`
 }
@@ -82,20 +74,10 @@ func NewEmailClaims(claims jwt.Claims) *EmailClaims {
 	return claims.(*EmailClaims)
 }
 
-// Valid implements the jwt.Claims interface.
-func (c EmailClaims) Valid() error {
-	return nil
-}
-
 // UserInfoClaims define the claims defined by the OIDC UserInfo
 // endpoint.
 type UserInfoClaims struct {
 	Subject string `json:"sub,omitempty"`
-}
-
-// Valid implements the jwt.Claims interface.
-func (c UserInfoClaims) Valid() error {
-	return nil
 }
 
 // SessionClaims define claims related to front end sessions, for example as
