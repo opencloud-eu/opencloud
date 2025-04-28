@@ -72,11 +72,14 @@ const ResponsiveScreen = (props) => {
               href={branding.signinPageLogoURI}
               target="_blank"
               rel="noopener noreferrer"
+              className='oc-logo-container'
             >
               {logo}
             </a>
           ) : (
-            logo
+            <div className='oc-logo-container'>
+              {logo}
+            </div>
           )}
           <div className={"oc-card"}>
             <div className={"oc-card-body"}>{content}</div>

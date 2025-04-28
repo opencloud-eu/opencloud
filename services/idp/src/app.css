@@ -60,6 +60,9 @@ strong {
 .oc-logo {
     height: 80px;
     z-index: 0;
+}
+
+.oc-logo-container {
     margin-bottom: 40px;
 }
 
