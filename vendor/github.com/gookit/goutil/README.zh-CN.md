@@ -1418,6 +1418,7 @@ func BlankOr(val, defVal string) string
 func ZeroOr[T ~string](val, defVal T) T
 func ErrorOr(s string, err error, defVal string) string
 func OrElse(s, orVal string) string
+func OrElseNilSafe(s *string, orVal string) string
 func OrHandle(s string, fn comdef.StringHandleFunc) string
 func Valid(ss ...string) string
 func Replaces(str string, pairs map[string]string) string

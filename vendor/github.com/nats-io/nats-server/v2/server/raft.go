@@ -59,6 +59,7 @@ type RaftNode interface {
 	SetObserver(isObserver bool)
 	IsObserver() bool
 	Campaign() error
+	CampaignImmediately() error
 	ID() string
 	Group() string
 	Peers() []*Peer
@@ -89,7 +90,7 @@ type WAL interface {
 	RemoveMsg(index uint64) (bool, error)
 	Compact(index uint64) (uint64, error)
 	Purge() (uint64, error)
-	PurgeEx(subject string, seq, keep uint64, noMarkers bool) (uint64, error)
+	PurgeEx(subject string, seq, keep uint64) (uint64, error)
 	Truncate(seq uint64) error
 	State() StreamState
 	FastState(*StreamState)
@@ -153,7 +154,7 @@ type raft struct {
 	qn    int             // Number of nodes needed to establish quorum
 	peers map[string]*lps // Other peers in the Raft group
 
-	removed map[string]struct{}            // Peers that were removed from the group
+	removed map[string]time.Time           // Peers that were removed from the group
 	acks    map[uint64]map[string]struct{} // Append entry responses/acks, map of entry index -> peer ID
 	pae     map[uint64]*appendEntry        // Pending append entries
 
@@ -252,6 +253,7 @@ const (
 	lostQuorumIntervalDefault      = hbIntervalDefault * 10 // 10 seconds
 	lostQuorumCheckIntervalDefault = hbIntervalDefault * 10 // 10 seconds
 	observerModeIntervalDefault    = 48 * time.Hour
+	peerRemoveTimeoutDefault       = 5 * time.Minute
 )
 
 var (
@@ -263,6 +265,7 @@ var (
 	lostQuorumInterval   = lostQuorumIntervalDefault
 	lostQuorumCheck      = lostQuorumCheckIntervalDefault
 	observerModeInterval = observerModeIntervalDefault
+	peerRemoveTimeout    = peerRemoveTimeoutDefault
 )
 
 type RaftConfig struct {
@@ -600,7 +603,7 @@ func (n *raft) recreateInternalSubsLocked() error {
 		if a, _ := n.s.lookupAccount(n.accName); a != nil {
 			a.mu.RLock()
 			if a.js != nil {
-				target = a.js.nrgAccount
+				target = a.nrgAccount
 			}
 			a.mu.RUnlock()
 		}
@@ -891,9 +894,9 @@ func (n *raft) ProposeAddPeer(peer string) error {
 func (n *raft) doRemovePeerAsLeader(peer string) {
 	n.Lock()
 	if n.removed == nil {
-		n.removed = map[string]struct{}{}
+		n.removed = map[string]time.Time{}
 	}
-	n.removed[peer] = struct{}{}
+	n.removed[peer] = time.Now()
 	if _, ok := n.peers[peer]; ok {
 		delete(n.peers, peer)
 		// We should decrease our cluster size since we are tracking this peer and the peer is most likely already gone.
@@ -1172,9 +1175,12 @@ func (n *raft) InstallSnapshot(data []byte) error {
 		return errNoSnapAvailable
 	}
 
-	term := n.pterm
+	var term uint64
 	if ae, _ := n.loadEntry(n.applied); ae != nil {
 		term = ae.term
+	} else {
+		n.debug("Not snapshotting as entry %d is not available", n.applied)
+		return errNoSnapAvailable
 	}
 
 	n.debug("Installing snapshot of %d bytes", len(data))
@@ -1639,7 +1645,14 @@ func (n *raft) StepDown(preferred ...string) error {
 func (n *raft) Campaign() error {
 	n.Lock()
 	defer n.Unlock()
-	return n.campaign()
+	return n.campaign(randCampaignTimeout())
+}
+
+// CampaignImmediately will have our node start a leadership vote after minimal delay.
+func (n *raft) CampaignImmediately() error {
+	n.Lock()
+	defer n.Unlock()
+	return n.campaign(minCampaignTimeout / 2)
 }
 
 func randCampaignTimeout() time.Duration {
@@ -1649,12 +1662,12 @@ func randCampaignTimeout() time.Duration {
 
 // Campaign will have our node start a leadership vote.
 // Lock should be held.
-func (n *raft) campaign() error {
+func (n *raft) campaign(et time.Duration) error {
 	n.debug("Starting campaign")
 	if n.State() == Leader {
 		return errAlreadyLeader
 	}
-	n.resetElect(randCampaignTimeout())
+	n.resetElect(et)
 	return nil
 }
 
@@ -2957,9 +2970,9 @@ func (n *raft) applyCommit(index uint64) error {
 
 			// Make sure we have our removed map.
 			if n.removed == nil {
-				n.removed = make(map[string]struct{})
+				n.removed = make(map[string]time.Time)
 			}
-			n.removed[peer] = struct{}{}
+			n.removed[peer] = time.Now()
 
 			if _, ok := n.peers[peer]; ok {
 				delete(n.peers, peer)
@@ -3074,8 +3087,13 @@ func (n *raft) adjustClusterSizeAndQuorum() {
 func (n *raft) trackPeer(peer string) error {
 	n.Lock()
 	var needPeerAdd, isRemoved bool
+	var rts time.Time
 	if n.removed != nil {
-		_, isRemoved = n.removed[peer]
+		rts, isRemoved = n.removed[peer]
+		// Removed peers can rejoin after timeout.
+		if isRemoved && time.Since(rts) >= peerRemoveTimeout {
+			isRemoved = false
+		}
 	}
 	if n.State() == Leader {
 		if lp, ok := n.peers[peer]; !ok || !lp.kp {
@@ -3261,12 +3279,13 @@ func (n *raft) truncateWAL(term, index uint64) {
 	if err := n.wal.Truncate(index); err != nil {
 		// If we get an invalid sequence, reset our wal all together.
 		// We will not have holes, so this means we do not have this message stored anymore.
+		// This is normal when truncating back to applied/snapshot.
 		if err == ErrInvalidSequence {
-			n.debug("Resetting WAL")
+			n.debug("Clearing WAL")
 			n.wal.Truncate(0)
 			// If our index is non-zero use PurgeEx to set us to the correct next index.
 			if index > 0 {
-				n.wal.PurgeEx(fwcs, index+1, 0, true)
+				n.wal.PurgeEx(fwcs, index+1, 0)
 			}
 		} else {
 			n.warn("Error truncating WAL: %v", err)
@@ -3453,6 +3472,10 @@ func (n *raft) processAppendEntry(ae *appendEntry, sub *subscription) {
 					// Check if only our terms do not match here.
 					// Make sure pterms match and we take on the leader's.
 					// This prevents constant spinning.
+					n.truncateWAL(ae.pterm, ae.pindex)
+				} else if ae.pindex == n.applied {
+					// Entry can't be found, this is normal because we have a snapshot at this index.
+					// Truncate back to where we've created the snapshot.
 					n.truncateWAL(ae.pterm, ae.pindex)
 				} else {
 					n.resetWAL()

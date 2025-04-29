@@ -220,7 +220,18 @@ name = config.String("name")
 fmt.Print(name) // new name
 ```
 
+## 加载配置文件
+
+- `LoadExists(sourceFiles ...string) (err error)` 从存在的配置文件里加载数据，会忽略不存在的文件
+- `LoadFiles(sourceFiles ...string) (err error)` 从给定的配置文件里加载数据，有文件不存在则会panic
+
+> **TIP**: 更多加载方式请查看 `config.Load*` 相关方法
+
 ## 从ENV载入数据
+
+`LoadOSEnvs` 支持从环境变量中读取数据，并解析为配置数据。格式为 `ENV_NAME: config_key`
+
+- `config_key` 可以是 key path 格式。 eg: `{"DB_USERNAME": "db.username"}` 值将会映射到 `db` 配置的 `username`
 
 ```go
 // os env: APP_NAME=config APP_DEBUG=true
@@ -234,13 +245,36 @@ config.String("app_name") // "config"
 
 ## 从命令行参数载入数据
 
-支持简单的从命令行 `flag` 参数解析，加载数据
+支持简单的从命令行 `flag` 参数解析，加载数据。
+
+- 配置参数格式为 `name:type:desc` OR `name:type` OR `name:desc` (type, desc 是可选的)
+  - `type` 可以设置 `flag` 的类型，支持 `bool`, `int`, `string`(默认)
+  - `desc` 可以设置 `flag` 的描述信息
+- `name` 可以是 key path 格式。 eg: `db.username`, input: `--db.username=someone` 值将会映射到 `db` 配置的 `username`
 
 ```go
-// flags like: --name inhere --env dev --age 99 --debug
+// 'debug' flag is bool type
+config.LoadFlags([]string{"env", "debug:bool"})
+// can with flag desc message
+config.LoadFlags([]string{"env:set the run env"})
+config.LoadFlags([]string{"debug:bool:set debug mode"})
+// can set value to map key. eg: myapp --map1.sub-key=val
+config.LoadFlags([]string{"map1.sub-key"})
+```
+
+Examples:
+
+```go
+// flags like: --name inhere --env dev --age 99 --debug --map1.sub-key=val
 
 // load flag info
-keys := []string{"name", "env", "age:int" "debug:bool"}
+keys := []string{
+"name",
+"env:set the run env",
+"age:int",
+"debug:bool:set debug mode",
+"map1.sub-key",
+}
 err := config.LoadFlags(keys)
 
 // read
@@ -248,6 +282,7 @@ config.String("name") // "inhere"
 config.String("env") // "dev"
 config.Int("age") // 99
 config.Bool("debug") // true
+config.Get("map1") // map[string]any{"sub-key":"val"}
 ```
 
 ## 创建自定义实例
@@ -366,6 +401,8 @@ type Options struct {
 }
 ```
 
+> **提示**: 访问 https://pkg.go.dev/github.com/gookit/config/v2#Options 查看最新的选项信息
+
 Examples for set options:
 
 ```go
@@ -417,7 +454,7 @@ NEW: 支持通过结构标签 `default` 解析并设置默认值
 
 - `LoadData(dataSource ...any) (err error)` 从struct或map加载数据
 - `LoadFlags(keys []string) (err error)` 从命令行参数载入数据
-- `LoadOSEnvs(nameToKeyMap map[string]string)` 从ENV载入数据
+- `LoadOSEnvs(nameToKeyMap map[string]string)` 从ENV载入配置数据
 - `LoadExists(sourceFiles ...string) (err error)` 从存在的配置文件里加载数据，会忽略不存在的文件
 - `LoadFiles(sourceFiles ...string) (err error)` 从给定的配置文件里加载数据，有文件不存在则会panic
 - `LoadFromDir(dirPath, format string) (err error)` 从给定目录里加载自定格式的文件,文件名会作为 key

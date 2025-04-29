@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"path"
+	"path/filepath"
 	"runtime"
 	"strconv"
 )
@@ -112,7 +112,7 @@ func (f *Func) FileLine() (file string, line int) {
 func (f *Func) Location() string {
 	file, line := f.FileLine()
 
-	return f.Name() + "(), " + path.Base(file) + ":" + strconv.Itoa(line)
+	return f.Name() + "(), " + filepath.Base(file) + ":" + strconv.Itoa(line)
 }
 
 // String of the func

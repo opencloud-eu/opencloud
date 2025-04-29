@@ -196,9 +196,16 @@ func (c *Context) existsBuffer() bool {
 
 func (c *Context) bufferedSrc() []rune {
 	src := c.buf[:c.notSpaceCharPos]
-	if len(src) > 0 && src[len(src)-1] == '\n' && c.isDocument() && c.literalOpt == "-" {
-		// remove end '\n' character
-		src = src[:len(src)-1]
+	if c.isDocument() && c.literalOpt == "-" {
+		// remove end '\n' character and trailing empty lines
+		// https://yaml.org/spec/1.2.2/#8112-block-chomping-indicator
+		for {
+			if len(src) > 0 && src[len(src)-1] == '\n' {
+				src = src[:len(src)-1]
+				continue
+			}
+			break
+		}
 	}
 	return src
 }

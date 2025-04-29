@@ -93,10 +93,11 @@ func (b *Buffer) writeAnysWithNl(vs []any, nl bool) {
 	}
 }
 
-// Printf quiet write message to buffer, ignore error.
-func (b *Buffer) Printf(tpl string, vs ...any) {
-	_, _ = b.WriteString(fmt.Sprintf(tpl, vs...))
-}
+// Printf quick write message to buffer, ignore error.
+func (b *Buffer) Printf(tpl string, vs ...any) { _, _ = fmt.Fprintf(b, tpl, vs...) }
+
+// Println quick write message with newline to buffer, will ignore error.
+func (b *Buffer) Println(vs ...any) { _, _ = fmt.Fprintln(b, vs...) }
 
 // ResetGet buffer string. alias of ResetAndGet()
 func (b *Buffer) ResetGet() string {

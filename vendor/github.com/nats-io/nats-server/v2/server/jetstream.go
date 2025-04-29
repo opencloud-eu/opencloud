@@ -176,9 +176,6 @@ type jsAccount struct {
 	updatesSub *subscription
 	lupdate    time.Time
 	utimer     *time.Timer
-
-	// Which account to send NRG traffic into. Empty string is system account.
-	nrgAccount string
 }
 
 // Track general usage for this account.
@@ -715,7 +712,12 @@ func (a *Account) enableAllJetStreamServiceImportsAndMappings() error {
 		return fmt.Errorf("jetstream account not registered")
 	}
 
-	if !a.serviceImportExists(jsAllAPI) {
+	var dstAccName string
+	if sacc := s.SystemAccount(); sacc != nil {
+		dstAccName = sacc.Name
+	}
+
+	if !a.serviceImportExists(dstAccName, jsAllAPI) {
 		// Capture si so we can turn on implicit sharing with JetStream layer.
 		// Make sure to set "to" otherwise will incur performance slow down.
 		si, err := a.addServiceImport(s.SystemAccount(), jsAllAPI, jsAllAPI, nil)

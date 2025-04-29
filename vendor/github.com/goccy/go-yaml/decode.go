@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
@@ -16,11 +15,12 @@ import (
 	"strconv"
 	"time"
 
+	"golang.org/x/xerrors"
+
 	"github.com/goccy/go-yaml/ast"
 	"github.com/goccy/go-yaml/internal/errors"
 	"github.com/goccy/go-yaml/parser"
 	"github.com/goccy/go-yaml/token"
-	"golang.org/x/xerrors"
 )
 
 // Decoder reads and decodes YAML values from an input stream.
@@ -488,6 +488,21 @@ func (d *Decoder) fileToNode(f *ast.File) ast.Node {
 func (d *Decoder) convertValue(v reflect.Value, typ reflect.Type, src ast.Node) (reflect.Value, error) {
 	if typ.Kind() != reflect.String {
 		if !v.Type().ConvertibleTo(typ) {
+
+			// Special case for "strings -> floats" aka scientific notation
+			// If the destination type is a float and the source type is a string, check if we can
+			// use strconv.ParseFloat to convert the string to a float.
+			if (typ.Kind() == reflect.Float32 || typ.Kind() == reflect.Float64) &&
+				v.Type().Kind() == reflect.String {
+				if f, err := strconv.ParseFloat(v.String(), 64); err == nil {
+					if typ.Kind() == reflect.Float32 {
+						return reflect.ValueOf(float32(f)), nil
+					} else if typ.Kind() == reflect.Float64 {
+						return reflect.ValueOf(f), nil
+					}
+					// else, fall through to the error below
+				}
+			}
 			return reflect.Zero(typ), errTypeMismatch(typ, v.Type(), src.GetToken())
 		}
 		return v.Convert(typ), nil
@@ -877,6 +892,15 @@ func (d *Decoder) decodeValue(ctx context.Context, dst reflect.Value, src ast.No
 				dst.SetInt(int64(vv))
 				return nil
 			}
+		case string: // handle scientific notation
+			if i, err := strconv.ParseFloat(vv, 64); err == nil {
+				if 0 <= i && i <= math.MaxUint64 && !dst.OverflowInt(int64(i)) {
+					dst.SetInt(int64(i))
+					return nil
+				}
+			} else { // couldn't be parsed as float
+				return errTypeMismatch(valueType, reflect.TypeOf(v), src.GetToken())
+			}
 		default:
 			return errTypeMismatch(valueType, reflect.TypeOf(v), src.GetToken())
 		}
@@ -899,6 +923,16 @@ func (d *Decoder) decodeValue(ctx context.Context, dst reflect.Value, src ast.No
 				dst.SetUint(uint64(vv))
 				return nil
 			}
+		case string: // handle scientific notation
+			if i, err := strconv.ParseFloat(vv, 64); err == nil {
+				if 0 <= i && i <= math.MaxUint64 && !dst.OverflowUint(uint64(i)) {
+					dst.SetUint(uint64(i))
+					return nil
+				}
+			} else { // couldn't be parsed as float
+				return errTypeMismatch(valueType, reflect.TypeOf(v), src.GetToken())
+			}
+
 		default:
 			return errTypeMismatch(valueType, reflect.TypeOf(v), src.GetToken())
 		}
@@ -1501,10 +1535,19 @@ func (d *Decoder) decodeMap(ctx context.Context, dst reflect.Value, src ast.Node
 			}
 			continue
 		}
-		k := reflect.ValueOf(d.nodeToValue(key))
-		if k.IsValid() && k.Type().ConvertibleTo(keyType) {
-			k = k.Convert(keyType)
+
+		k := d.createDecodableValue(keyType)
+		if d.canDecodeByUnmarshaler(k) {
+			if err := d.decodeByUnmarshaler(ctx, k, key); err != nil {
+				return errors.Wrapf(err, "failed to decode by unmarshaler")
+			}
+		} else {
+			k = reflect.ValueOf(d.nodeToValue(key))
+			if k.IsValid() && k.Type().ConvertibleTo(keyType) {
+				k = k.Convert(keyType)
+			}
 		}
+
 		if k.IsValid() {
 			if err := d.validateDuplicateKey(keyMap, k.Interface(), key); err != nil {
 				return errors.Wrapf(err, "invalid map key")
@@ -1621,7 +1664,7 @@ func (d *Decoder) resolveReference() error {
 		}
 	}
 	for _, reader := range d.referenceReaders {
-		bytes, err := ioutil.ReadAll(reader)
+		bytes, err := io.ReadAll(reader)
 		if err != nil {
 			return errors.Wrapf(err, "failed to read buffer")
 		}

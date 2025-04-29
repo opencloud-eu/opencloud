@@ -19,3 +19,10 @@ func ChangeUserUidGid(newUid int, newGid int) (err error) {
 func ChangeUserUIDGid(newUid int, newGid int) (err error) {
 	return nil
 }
+
+// IsAdmin Determine whether the current user is an administrator
+func IsAdmin() bool {
+	// 执行 net session 判断
+	_, err := ExecCmd("net", []string{"session"})
+	return err == nil
+}

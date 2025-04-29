@@ -2,7 +2,7 @@ package parser
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/goccy/go-yaml/ast"
@@ -730,7 +730,7 @@ func Parse(tokens token.Tokens, mode Mode) (*ast.File, error) {
 
 // Parse parse from filename, and returns ast.File
 func ParseFile(filename string, mode Mode) (*ast.File, error) {
-	file, err := ioutil.ReadFile(filename)
+	file, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read file: %s", filename)
 	}

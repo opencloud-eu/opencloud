@@ -231,15 +231,57 @@ name = config.String("name")
 fmt.Print(name) // "new name"
 ```
 
-## Load from flags
+## Load from ENV
 
-> Support simple flags parameter parsing, loading
+Support load ENV vars to config data.
+
+- Support set value to sub key in map.
+  - eg: `{"DB_USERNAME": "db.username"}` value will set to `username` in `db`
 
 ```go
-// flags like: --name inhere --env dev --age 99 --debug
+// os env: APP_NAME=config APP_DEBUG=true DB_USERNAME=someone
+
+// load ENV info
+config.LoadOSEnvs(map[string]string{"APP_NAME": "app_name", "APP_DEBUG": "app_debug", "DB_USERNAME": "db.username"})
+
+// read
+config.Bool("app_debug") // true
+config.String("app_name") // "config"
+```
+
+## Load from flags
+
+Support simple CLI flags parameter parsing, load to config data.
+
+- define format: `name:type:desc` OR `name:type` OR `name:desc` (type, desc is optional)
+  - `type` can set `flag` type. allow: `bool`, `int`, `string`(default)
+  - `desc` can set `flag` description
+- `name` can be in key path format. 
+  - eg: `db.username`, input: `--db.username=someone` values will be mapped to `username` of the `db` configuration
+
+```go
+// 'debug' flag is bool type
+config.LoadFlags([]string{"env", "debug:bool"})
+// can with flag desc message
+config.LoadFlags([]string{"env:set the run env"})
+config.LoadFlags([]string{"debug:bool:set debug mode"})
+// can set value to map key. eg: myapp --map1.sub-key=val
+config.LoadFlags([]string{"map1.sub-key"})
+```
+
+Examples:
+
+```go
+// flags like: --name inhere --env dev --age 99 --debug --map1.sub-key=val
 
 // load flag info
-keys := []string{"name", "env", "age:int" "debug:bool"}
+keys := []string{
+	"name",
+	"env:set the run env",
+	"age:int",
+	"debug:bool:set debug mode",
+	"map1.sub-key",
+}
 err := config.LoadFlags(keys)
 
 // read
@@ -247,18 +289,7 @@ config.String("name") // "inhere"
 config.String("env") // "dev"
 config.Int("age") // 99
 config.Bool("debug") // true
-```
-
-## Load from ENV
-
-```go
-// os env: APP_NAME=config APP_DEBUG=true
-// load ENV info
-config.LoadOSEnvs(map[string]string{"APP_NAME": "app_name", "APP_DEBUG": "app_debug"})
-
-// read
-config.Bool("app_debug") // true
-config.String("app_name") // "config"
+config.Get("map1") // map[string]any{"sub-key":"val"}
 ```
 
 ## New config instance
@@ -376,6 +407,8 @@ type Options struct {
 	ParseDefault bool
 }
 ```
+
+> **TIP**: please visit https://pkg.go.dev/github.com/gookit/config/v2#Options to see the latest options information
 
 Examples for set options:
 

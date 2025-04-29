@@ -99,10 +99,10 @@ func (c *Config) Data() map[string]any {
 	return c.data
 }
 
-// Sub return sub config data by key
+// Sub return a map config data by key
 func Sub(key string) map[string]any { return dc.Sub(key) }
 
-// Sub get sub config data by key
+// Sub get a map config data by key
 //
 // Note: will don't apply any options, like ParseEnv
 func (c *Config) Sub(key string) map[string]any {
@@ -127,23 +127,24 @@ func (c *Config) Keys() []string {
 }
 
 // Get config value by key string, support get sub-value by key path(eg. 'map.key'),
-//
-//   - ok is true, find value from config
-//   - ok is false, not found or error
 func Get(key string, findByPath ...bool) any { return dc.Get(key, findByPath...) }
 
-// Get config value by key
+// Get config value by key, findByPath default is true.
 func (c *Config) Get(key string, findByPath ...bool) any {
 	val, _ := c.GetValue(key, findByPath...)
 	return val
 }
 
-// GetValue get value by given key string.
+// GetValue get value by given key string. findByPath default is true.
 func GetValue(key string, findByPath ...bool) (any, bool) {
 	return dc.GetValue(key, findByPath...)
 }
 
-// GetValue get value by given key string.
+// GetValue get value by given key string. findByPath default is true.
+//
+// Return:
+//   - ok is true, find value from config
+//   - ok is false, not found or error
 func (c *Config) GetValue(key string, findByPath ...bool) (value any, ok bool) {
 	sep := c.opts.Delimiter
 	if key = formatKey(key, string(sep)); key == "" {

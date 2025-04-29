@@ -19,5 +19,6 @@
 *.cov
 .DS_Store
 
+*~
 testdata/
 vendor/

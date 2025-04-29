@@ -6,7 +6,6 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -121,7 +120,7 @@ const (
 //
 //	file, err := OpenFile("path/to/file.txt", FsCWFlags, 0666)
 func OpenFile(filePath string, flag int, perm os.FileMode) (*os.File, error) {
-	fileDir := path.Dir(filePath)
+	fileDir := filepath.Dir(filePath)
 	if err := os.MkdirAll(fileDir, DefaultDirPerm); err != nil {
 		return nil, err
 	}
@@ -177,7 +176,7 @@ func OpenReadFile(filepath string) (*os.File, error) {
 //
 //	CreateFile("path/to/file.txt", 0664, 0666)
 func CreateFile(fpath string, filePerm, dirPerm os.FileMode, fileFlag ...int) (*os.File, error) {
-	dirPath := path.Dir(fpath)
+	dirPath := filepath.Dir(fpath)
 	if !IsDir(dirPath) {
 		err := os.MkdirAll(dirPath, dirPerm)
 		if err != nil {

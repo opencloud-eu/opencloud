@@ -54,13 +54,40 @@ func MustOK(err error) {
 	}
 }
 
-// Must if error is not empty, will panic
+// Must return like (v, error). will panic on error, otherwise return v.
+//
+// Usage:
+//
+//	// old
+//	v, err := fn()
+//	if err != nil {
+//		panic(err)
+//	}
+//
+//	// new
+//	v := goutil.Must(fn())
 func Must[T any](v T, err error) T {
 	if err != nil {
 		panic(err)
 	}
 	return v
 }
+
+// MustIgnore for return like (v, error). Ignore return v and will panic on error.
+//
+// Useful for io, file operation func: (n int, err error)
+//
+// Usage:
+//
+//	// old
+//	_, err := fn()
+//	if err != nil {
+//		panic(err)
+//	}
+//
+//	// new
+//	basefn.MustIgnore(fn())
+func MustIgnore(_ any, err error) { PanicErr(err) }
 
 // ErrOnFail return input error on cond is false, otherwise return nil
 func ErrOnFail(cond bool, err error) error {

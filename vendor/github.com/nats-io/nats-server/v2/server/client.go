@@ -56,6 +56,11 @@ const (
 	ACCOUNT
 )
 
+// Internal clients. kind should be SYSTEM, JETSTREAM or ACCOUNT
+func isInternalClient(kind int) bool {
+	return kind == SYSTEM || kind == JETSTREAM || kind == ACCOUNT
+}
+
 // Extended type of a CLIENT connection. This is returned by c.clientType()
 // and indicate what type of client connection we are dealing with.
 // If invoked on a non CLIENT connection, NON_CLIENT type is returned.
@@ -1897,12 +1902,29 @@ func (c *client) flushSignal() {
 // Traces a message.
 // Will NOT check if tracing is enabled, does NOT need the client lock.
 func (c *client) traceMsg(msg []byte) {
-	maxTrace := c.srv.getOpts().MaxTracedMsgLen
-	if maxTrace > 0 && (len(msg)-LEN_CR_LF) > maxTrace {
+	opts := c.srv.getOpts()
+	maxTrace := opts.MaxTracedMsgLen
+	headersOnly := opts.TraceHeaders
+	suffix := LEN_CR_LF
+
+	// If TraceHeaders is enabled, extract only the header portion of the msg.
+	// If a header is present, it ends with an additional trailing CRLF.
+	if headersOnly {
+		msg, _ = c.msgParts(msg)
+		suffix += LEN_CR_LF
+	}
+
+	// Do not emit a log line for zero-length payloads.
+	l := len(msg) - suffix
+	if l <= 0 {
+		return
+	}
+
+	if maxTrace > 0 && l > maxTrace {
 		tm := fmt.Sprintf("%q", msg[:maxTrace])
-		c.Tracef("<<- MSG_PAYLOAD: [\"%s...\"]", tm[1:maxTrace+1])
+		c.Tracef("<<- MSG_PAYLOAD: [\"%s...\"]", tm[1:len(tm)-1])
 	} else {
-		c.Tracef("<<- MSG_PAYLOAD: [%q]", msg[:len(msg)-LEN_CR_LF])
+		c.Tracef("<<- MSG_PAYLOAD: [%q]", msg[:l])
 	}
 }
 
@@ -1969,20 +1991,26 @@ func (c *client) processErr(errStr string) {
 
 // Password pattern matcher.
 var passPat = regexp.MustCompile(`"?\s*pass\S*?"?\s*[:=]\s*"?(([^",\r\n}])*)`)
+var tokenPat = regexp.MustCompile(`"?\s*auth_token\S*?"?\s*[:=]\s*"?(([^",\r\n}])*)`)
 
-// removePassFromTrace removes any notion of passwords from trace
+// removeSecretsFromTrace removes any notion of passwords/tokens from trace
 // messages for logging.
-func removePassFromTrace(arg []byte) []byte {
-	if !bytes.Contains(arg, []byte(`pass`)) {
-		return arg
+func removeSecretsFromTrace(arg []byte) []byte {
+	buf := redact("pass", passPat, arg)
+	return redact("auth_token", tokenPat, buf)
+}
+
+func redact(name string, pat *regexp.Regexp, proto []byte) []byte {
+	if !bytes.Contains(proto, []byte(name)) {
+		return proto
 	}
 	// Take a copy of the connect proto just for the trace message.
 	var _arg [4096]byte
-	buf := append(_arg[:0], arg...)
+	buf := append(_arg[:0], proto...)
 
-	m := passPat.FindAllSubmatchIndex(buf, -1)
+	m := pat.FindAllSubmatchIndex(buf, -1)
 	if len(m) == 0 {
-		return arg
+		return proto
 	}
 
 	redactedPass := []byte("[REDACTED]")
@@ -1993,7 +2021,7 @@ func removePassFromTrace(arg []byte) []byte {
 		start := i[2]
 		end := i[3]
 
-		// Replace password substring.
+		// Replace value substring.
 		buf = append(buf[:start], append(redactedPass, buf[end:]...)...)
 		break
 	}
@@ -2765,7 +2793,7 @@ func (c *client) processSubEx(subject, queue, bsid []byte, cb msgHandler, noForw
 
 	// This check does not apply to SYSTEM or JETSTREAM or ACCOUNT clients (because they don't have a `nc`...)
 	// When a connection is closed though, we set c.subs to nil. So check for the map to not be nil.
-	if (c.isClosed() && (kind != SYSTEM && kind != JETSTREAM && kind != ACCOUNT)) || (c.subs == nil) {
+	if (c.isClosed() && !isInternalClient(kind)) || (c.subs == nil) {
 		c.mu.Unlock()
 		return nil, ErrConnectionClosed
 	}
@@ -4307,7 +4335,7 @@ func sliceHeader(key string, hdr []byte) []byte {
 	if len(hdr) == 0 {
 		return nil
 	}
-	index := bytes.Index(hdr, []byte(key))
+	index := bytes.Index(hdr, stringToBytes(key))
 	hdrLen := len(hdr)
 	// Check that we have enough characters, this will handle the -1 case of the key not
 	// being found and will also handle not having enough characters for trailing CRLF.
@@ -4663,11 +4691,21 @@ func (c *client) processMsgResults(acc *Account, r *SublistResult, msg, deliver,
 	// Check for JetStream encoded reply subjects.
 	// For now these will only be on $JS.ACK prefixed reply subjects.
 	var remapped bool
-	if len(creply) > 0 &&
-		c.kind != CLIENT && c.kind != SYSTEM && c.kind != JETSTREAM && c.kind != ACCOUNT &&
-		bytes.HasPrefix(creply, []byte(jsAckPre)) {
+	if len(creply) > 0 && c.kind != CLIENT && !isInternalClient(c.kind) && bytes.HasPrefix(creply, []byte(jsAckPre)) {
 		// We need to rewrite the subject and the reply.
-		if li := bytes.LastIndex(creply, []byte("@")); li != -1 && li < len(creply)-1 {
+		// But, we must be careful that the stream name, consumer name, and subject can contain '@' characters.
+		// JS ACK contains at least 8 dots, find the first @ after this prefix.
+		// - $JS.ACK.<stream>.<consumer>.<delivered>.<sseq>.<cseq>.<tm>.<pending>
+		counter := 0
+		li := bytes.IndexFunc(creply, func(rn rune) bool {
+			if rn == '.' {
+				counter++
+			} else if rn == '@' {
+				return counter >= 8
+			}
+			return false
+		})
+		if li != -1 && li < len(creply)-1 {
 			remapped = true
 			subj, creply = creply[li+1:], creply[:li]
 		}
@@ -6080,7 +6118,7 @@ func (c *client) getRawAuthUser() string {
 	case c.opts.JWT != _EMPTY_:
 		return c.pubKey
 	case c.opts.Token != _EMPTY_:
-		return c.opts.Token
+		return "[REDACTED]"
 	default:
 		return _EMPTY_
 	}
@@ -6097,7 +6135,7 @@ func (c *client) getAuthUser() string {
 	case c.opts.JWT != _EMPTY_:
 		return fmt.Sprintf("JWT User %q", c.pubKey)
 	case c.opts.Token != _EMPTY_:
-		return fmt.Sprintf("Token %q", c.opts.Token)
+		return fmt.Sprintf("Token %q", "[REDACTED]")
 	default:
 		return `User "N/A"`
 	}

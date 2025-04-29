@@ -39,6 +39,17 @@ func SimpleMerge(src, dst map[string]any) map[string]any {
 	return dst
 }
 
+// Merge1level merge multi any map[string]any data. only merge one level data.
+func Merge1level(mps ...map[string]any) map[string]any {
+	newMp := make(map[string]any)
+	for _, mp := range mps {
+		for k, v := range mp {
+			newMp[k] = v
+		}
+	}
+	return newMp
+}
+
 // func DeepMerge(src, dst map[string]any, deep int) map[string]any { TODO
 // }
 

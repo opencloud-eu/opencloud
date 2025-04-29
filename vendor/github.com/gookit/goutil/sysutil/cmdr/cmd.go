@@ -394,12 +394,17 @@ func (c *Cmd) Output() (string, error) {
 		return "DRY-RUN: ok", nil
 	}
 
-	output, err := c.Cmd.Output()
+	bs, err := c.Cmd.Output()
 
 	if c.AfterRun != nil {
 		c.AfterRun(c, err)
 	}
-	return string(output), err
+	return string(bs), err
+}
+
+// AllOutput run and return output, will combine stderr and stdout output
+func (c *Cmd) AllOutput() (string, error) {
+	return c.CombinedOutput()
 }
 
 // CombinedOutput run and return output, will combine stderr and stdout output
@@ -412,12 +417,11 @@ func (c *Cmd) CombinedOutput() (string, error) {
 		return "DRY-RUN: ok", nil
 	}
 
-	output, err := c.Cmd.CombinedOutput()
-
+	bs, err := c.Cmd.CombinedOutput()
 	if c.AfterRun != nil {
 		c.AfterRun(c, err)
 	}
-	return string(output), err
+	return string(bs), err
 }
 
 // MustRun a command. will panic on error
@@ -444,7 +448,6 @@ func (c *Cmd) Run() error {
 
 	// do running
 	err := c.Cmd.Run()
-
 	if c.AfterRun != nil {
 		c.AfterRun(c, err)
 	}

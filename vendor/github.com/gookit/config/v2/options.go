@@ -22,35 +22,44 @@ type HookFunc func(event string, c *Config)
 
 // Options config options
 type Options struct {
-	// ParseEnv parse env in string value and default value. like: "${EnvName}" "${EnvName|default}"
+	// ParseEnv parse env in string value and default value. default: false
+	//
+	//  - like: "${EnvName}" "${EnvName|default}"
 	ParseEnv bool
-	// ParseTime parses a duration string to time.Duration
+	// ParseTime parses a duration string to `time.Duration`. default: false
+	//
 	// eg: 10s, 2m
 	ParseTime bool
-	// Readonly config is readonly
-	Readonly bool
-	// ParseDefault tag on binding data to struct. tag: default
+	// ParseDefault tag on binding data to struct. default: false
+	//
+	//  - tag: default
 	ParseDefault bool
-	// EnableCache enable config data cache
+	// Readonly config is readonly. default: false
+	Readonly bool
+	// EnableCache enable config data cache. default: false
 	EnableCache bool
-	// ParseKey parse key path, allow find value by key path. eg: 'key.sub' will find `map[key]sub`
+	// ParseKey support key path, allow find value by key path. default: true
+	//
+	// - eg: 'key.sub' will find `map[key]sub`
 	ParseKey bool
 	// TagName tag name for binding data to struct
 	//
 	// Deprecated: please set tag name by DecoderConfig, or use SetTagName()
 	TagName string
-	// Delimiter the delimiter char for split key path, if `FindByPath=true`. default is '.'
+	// Delimiter the delimiter char for split key path, on `ParseKey=true`.
+	//
+	// - default is '.'
 	Delimiter byte
-	// DumpFormat default write format
+	// DumpFormat default write format. default is 'json'
 	DumpFormat string
-	// ReadFormat default input format
+	// ReadFormat default input format. default is 'json'
 	ReadFormat string
 	// DecoderConfig setting for binding data to struct. such as: TagName
 	DecoderConfig *mapstructure.DecoderConfig
-	// HookFunc on data changed. you can do something...
-	HookFunc HookFunc
 	// MergeOptions settings for merge two data
 	MergeOptions []func(*mergo.Config)
+	// HookFunc on data changed. you can do something...
+	HookFunc HookFunc
 	// WatchChange bool
 }
 

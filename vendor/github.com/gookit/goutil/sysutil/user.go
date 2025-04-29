@@ -7,7 +7,7 @@ import (
 	"github.com/gookit/goutil/internal/comfunc"
 )
 
-// MustFindUser must find an system user by name
+// MustFindUser must find a system user by name
 func MustFindUser(uname string) *user.User {
 	u, err := user.Lookup(uname)
 	if err != nil {
@@ -16,14 +16,13 @@ func MustFindUser(uname string) *user.User {
 	return u
 }
 
-// LoginUser must get current user
+// LoginUser must get current user, will panic if error
 func LoginUser() *user.User {
 	return CurrentUser()
 }
 
-// CurrentUser must get current user
+// CurrentUser must get current user, will panic if error
 func CurrentUser() *user.User {
-	// check $HOME/.terminfo
 	u, err := user.Current()
 	if err != nil {
 		panic(err)
@@ -31,9 +30,8 @@ func CurrentUser() *user.User {
 	return u
 }
 
-// UHomeDir get user home dir path.
+// UHomeDir get user home dir path, ignore error. (by user.Current)
 func UHomeDir() string {
-	// check $HOME/.terminfo
 	u, err := user.Current()
 	if err != nil {
 		return ""
@@ -42,37 +40,32 @@ func UHomeDir() string {
 }
 
 // homeDir cache
-var homeDir string
+var _homeDir string
 
-// UserHomeDir is alias of os.UserHomeDir, but ignore error
+// UserHomeDir is alias of os.UserHomeDir, but ignore error.(by os.UserHomeDir)
 func UserHomeDir() string {
-	if homeDir == "" {
-		homeDir, _ = os.UserHomeDir()
+	if _homeDir == "" {
+		_homeDir, _ = os.UserHomeDir()
 	}
-	return homeDir
+	return _homeDir
 }
 
 // HomeDir get user home dir path.
-func HomeDir() string {
-	return UserHomeDir()
+func HomeDir() string { return UserHomeDir() }
+
+// UserDir will prepend user home dir to subPaths
+func UserDir(subPaths ...string) string {
+	return comfunc.JoinPaths2(UserHomeDir(), subPaths)
 }
 
-// UserDir will prepend user home dir to subPath
-func UserDir(subPath string) string {
-	dir := UserHomeDir()
-	return dir + "/" + subPath
-}
-
-// UserCacheDir will prepend user `$HOME/.cache` to subPath
-func UserCacheDir(subPath string) string {
-	dir := UserHomeDir()
-	return dir + "/.cache/" + subPath
+// UserCacheDir will prepend user `$HOME/.cache` to subPaths
+func UserCacheDir(subPaths ...string) string {
+	return comfunc.JoinPaths3(UserHomeDir(), ".cache", subPaths)
 }
 
 // UserConfigDir will prepend user `$HOME/.config` to subPath
-func UserConfigDir(subPath string) string {
-	dir := UserHomeDir()
-	return dir + "/.config/" + subPath
+func UserConfigDir(subPaths ...string) string {
+	return comfunc.JoinPaths3(UserHomeDir(), ".config", subPaths)
 }
 
 // ExpandPath will parse `~` as user home dir path.

@@ -55,7 +55,7 @@ func BaseConvByTpl(src string, fromBase, toBase string) string {
 	}
 
 	// convert to base 10
-	var dec uint64 = 0
+	var dec uint64
 	if fromBase == Base10Chars {
 		var err error
 		dec, err = strconv.ParseUint(src, 10, 0)

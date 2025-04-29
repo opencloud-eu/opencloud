@@ -28,12 +28,12 @@ func (c *Config) SetData(data map[string]any) {
 	c.fireHook(OnSetData)
 }
 
-// Set val by key
+// Set value by key. setByPath default is true
 func Set(key string, val any, setByPath ...bool) error {
 	return dc.Set(key, val, setByPath...)
 }
 
-// Set a value by key string.
+// Set a value by key string. setByPath default is true
 func (c *Config) Set(key string, val any, setByPath ...bool) (err error) {
 	if c.opts.Readonly {
 		return ErrReadonly

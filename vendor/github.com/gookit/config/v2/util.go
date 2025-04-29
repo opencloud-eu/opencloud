@@ -134,20 +134,28 @@ func Getenv(name string, defVal ...string) (val string) {
 	return
 }
 
-func parseVarNameAndType(key string) (string, string) {
+func parseVarNameAndType(key string) (string, string, string) {
+	var desc string
 	typ := "string"
 	key = strings.Trim(key, "-")
 
 	// can set var type: int, uint, bool
 	if strings.IndexByte(key, ':') > 0 {
-		list := strings.SplitN(key, ":", 2)
+		list := strings.SplitN(key, ":", 3)
 		key, typ = list[0], list[1]
+		if len(list) == 3 {
+			desc = list[2]
+		}
 
+		// if type is not valid and has multi words, as desc message.
 		if _, ok := validTypes[typ]; !ok {
+			if desc == "" && strings.ContainsRune(typ, ' ') {
+				desc = typ
+			}
 			typ = "string"
 		}
 	}
-	return key, typ
+	return key, typ, desc
 }
 
 // format key

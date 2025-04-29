@@ -1,6 +1,9 @@
 package strutil
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
 
 // BeforeFirst get substring before first sep.
 func BeforeFirst(s, sep string) string {
@@ -135,6 +138,14 @@ func SplitNTrimmed(s, sep string, n int) (ss []string) {
 		ss = append(ss, strings.TrimSpace(val))
 	}
 	return
+}
+
+// 根据空白字符（空格，TAB，换行等）分隔字符串
+var whitespaceRegexp = regexp.MustCompile("\\s+")
+
+// SplitByWhitespace Separate strings by whitespace characters (space, TAB, newline, etc.)
+func SplitByWhitespace(s string) []string {
+	return whitespaceRegexp.Split(s, -1)
 }
 
 // Substr for a string.

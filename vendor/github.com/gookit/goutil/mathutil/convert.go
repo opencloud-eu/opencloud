@@ -192,7 +192,16 @@ func ToIntWith(in any, optFns ...ConvOptionFn[int]) (iVal int, err error) {
 			iVal = int(tVal)
 		}
 	case string:
-		iVal, err = strconv.Atoi(strings.TrimSpace(tVal))
+		sVal := strings.TrimSpace(tVal)
+		iVal, err = strconv.Atoi(sVal)
+		// handle the case where the string might be a float
+		if err != nil && checkfn.IsNumeric(sVal) {
+			var floatVal float64
+			if floatVal, err = strconv.ParseFloat(sVal, 64); err == nil {
+				iVal = int(math.Round(floatVal))
+				err = nil
+			}
+		}
 	case comdef.Int64able: // eg: json.Number
 		var i64 int64
 		if i64, err = tVal.Int64(); err == nil {
@@ -287,7 +296,16 @@ func ToInt64With(in any, optFns ...ConvOptionFn[int64]) (i64 int64, err error) {
 
 	switch tVal := in.(type) {
 	case string:
-		i64, err = strconv.ParseInt(strings.TrimSpace(tVal), 10, 0)
+		sVal := strings.TrimSpace(tVal)
+		i64, err = strconv.ParseInt(sVal, 10, 0)
+		// handle the case where the string might be a float
+		if err != nil && checkfn.IsNumeric(sVal) {
+			var floatVal float64
+			if floatVal, err = strconv.ParseFloat(sVal, 64); err == nil {
+				i64 = int64(math.Round(floatVal))
+				err = nil
+			}
+		}
 	case int:
 		i64 = int64(tVal)
 	case int8:

@@ -83,6 +83,7 @@ func SaveFile(filePath string, data any, optFns ...OpenOptionFunc) error {
 // Usage:
 //
 //	fsutil.PutContents(filePath, contents, fsutil.FsCWAFlags) // append write
+//	fsutil.Must2(fsutil.PutContents(filePath, contents)) // panic on error
 func PutContents(filePath string, data any, fileFlag ...int) (int, error) {
 	f, err := QuickOpenFile(filePath, basefn.FirstOr(fileFlag, FsCWTFlags))
 	if err != nil {

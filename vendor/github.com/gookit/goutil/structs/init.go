@@ -2,7 +2,9 @@ package structs
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/gookit/goutil/internal/varexpr"
 	"github.com/gookit/goutil/reflects"
@@ -10,6 +12,7 @@ import (
 )
 
 const defaultInitTag = "default"
+const defaultEnvPrefixTag = "defaultenvprefix"
 
 // InitOptFunc define
 type InitOptFunc func(opt *InitOptions)
@@ -17,7 +20,8 @@ type InitOptFunc func(opt *InitOptions)
 // InitOptions struct
 type InitOptions struct {
 	// TagName default value tag name. tag: default
-	TagName string
+	TagName          string
+	EnvPrefixTagName string
 	// ParseEnv var name on default value. eg: `default:"${APP_ENV}"`
 	//
 	// default: false
@@ -49,7 +53,7 @@ func Init(ptr any, optFns ...InitOptFunc) error {
 //	fmt.Printf("%+v\n", u1) // Output: {Name:inhere Age:30}
 func InitDefaults(ptr any, optFns ...InitOptFunc) error {
 	rv := reflect.ValueOf(ptr)
-	if rv.Kind() != reflect.Ptr {
+	if !reflects.IsValidPtr(rv) {
 		return errors.New("must be provider an pointer value")
 	}
 
@@ -58,15 +62,15 @@ func InitDefaults(ptr any, optFns ...InitOptFunc) error {
 		return errors.New("must be provider an struct value")
 	}
 
-	opt := &InitOptions{TagName: defaultInitTag}
+	opt := &InitOptions{TagName: defaultInitTag, EnvPrefixTagName: defaultEnvPrefixTag}
 	for _, fn := range optFns {
 		fn(opt)
 	}
 
-	return initDefaults(rv, opt)
+	return initDefaults(rv, opt, "")
 }
 
-func initDefaults(rv reflect.Value, opt *InitOptions) error {
+func initDefaults(rv reflect.Value, opt *InitOptions, envPrefix string) error {
 	rt := rv.Type()
 
 	for i := 0; i < rt.NumField(); i++ {
@@ -80,10 +84,12 @@ func initDefaults(rv reflect.Value, opt *InitOptions) error {
 		if !hasTag || val == "-" {
 			continue
 		}
+		prefixVar, _ := sf.Tag.Lookup(opt.EnvPrefixTagName)
+		childPrefixVar := fmt.Sprintf("%s%s", envPrefix, prefixVar)
 
 		fv := rv.Field(i)
 		if fv.Kind() == reflect.Struct {
-			if err := initDefaults(fv, opt); err != nil {
+			if err := initDefaults(fv, opt, childPrefixVar); err != nil {
 				return err
 			}
 			continue
@@ -95,7 +101,7 @@ func initDefaults(rv reflect.Value, opt *InitOptions) error {
 			if fv.Kind() == reflect.Pointer {
 				fv = fv.Elem()
 				if fv.Kind() == reflect.Struct {
-					if err := initDefaults(fv, opt); err != nil {
+					if err := initDefaults(fv, opt, childPrefixVar); err != nil {
 						return err
 					}
 				}
@@ -109,7 +115,7 @@ func initDefaults(rv reflect.Value, opt *InitOptions) error {
 				if el.Kind() == reflect.Struct && fv.Len() > 0 {
 					for i := 0; i < fv.Len(); i++ {
 						subFv := reflect.Indirect(fv.Index(i))
-						if err := initDefaults(subFv, opt); err != nil {
+						if err := initDefaults(subFv, opt, childPrefixVar); err != nil {
 							return err
 						}
 					}
@@ -126,7 +132,7 @@ func initDefaults(rv reflect.Value, opt *InitOptions) error {
 
 			fv = fv.Elem()
 			if fv.Kind() == reflect.Struct {
-				if err := initDefaults(fv, opt); err != nil {
+				if err := initDefaults(fv, opt, childPrefixVar); err != nil {
 					return err
 				}
 				continue
@@ -148,7 +154,7 @@ func initDefaults(rv reflect.Value, opt *InitOptions) error {
 				// make sub-struct and init. like: `SubStruct`
 				subFv := reflect.New(el)
 				subFvE := subFv.Elem()
-				if err := initDefaults(subFvE, opt); err != nil {
+				if err := initDefaults(subFvE, opt, childPrefixVar); err != nil {
 					return err
 				}
 
@@ -164,7 +170,7 @@ func initDefaults(rv reflect.Value, opt *InitOptions) error {
 			}
 		}
 
-		if err := initDefaultValue(fv, val, opt.ParseEnv); err != nil {
+		if err := initDefaultValue(fv, val, opt.ParseEnv, envPrefix); err != nil {
 			return err
 		}
 	}
@@ -172,13 +178,32 @@ func initDefaults(rv reflect.Value, opt *InitOptions) error {
 	return nil
 }
 
-func initDefaultValue(fv reflect.Value, val string, parseEnv bool) error {
+func enhanceDefaultVar(val string, envPrefix string) string {
+	cleaned_var := strings.TrimSpace(val)
+	if strings.HasPrefix(cleaned_var, "${") && strings.HasSuffix(cleaned_var, "}") {
+		parts := strings.SplitN(cleaned_var[2:len(cleaned_var)-1], "|", 2)
+		if len(parts) > 0 {
+			env := strings.TrimSpace(parts[0])
+			if env != "" {
+				if len(parts) == 1 {
+					return fmt.Sprintf("${%s%s}", envPrefix, env)
+				} else {
+					return fmt.Sprintf("${%s%s|%s}", envPrefix, env, parts[1])
+				}
+			}
+		}
+	}
+	return val
+}
+
+func initDefaultValue(fv reflect.Value, val string, parseEnv bool, envPrefix string) error {
 	if val == "" || !fv.CanSet() {
 		return nil
 	}
 
 	// parse env var
 	if parseEnv {
+		val = enhanceDefaultVar(val, envPrefix)
 		val = varexpr.SafeParse(val)
 	}
 
@@ -189,7 +214,13 @@ func initDefaultValue(fv reflect.Value, val string, parseEnv bool) error {
 		ss := strutil.SplitTrimmed(val, ",")
 		valRv, err := reflects.ConvSlice(reflect.ValueOf(ss), fv.Type().Elem())
 		if err == nil {
-			reflects.SetRValue(fv, valRv)
+			if fv.Kind() == reflect.Array {
+				for i := 0; i < valRv.Len(); i++ {
+					fv.Index(i).Set(valRv.Index(i))
+				}
+			} else {
+				reflects.SetRValue(fv, valRv)
+			}
 		}
 		return err
 	}

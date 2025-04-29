@@ -468,7 +468,7 @@ func (n *rootNode) String() string {
 
 func (n *rootNode) filter(node ast.Node) (ast.Node, error) {
 	if n.child == nil {
-		return nil, nil
+		return node, nil
 	}
 	filtered, err := n.child.filter(node)
 	if err != nil {

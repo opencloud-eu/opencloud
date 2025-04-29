@@ -139,7 +139,7 @@ func (t *traceOption) Apply(server *Server) {
 	server.Noticef("Reloaded: trace = %v", t.newValue)
 }
 
-// traceOption implements the option interface for the `trace` setting.
+// traceVersboseOption implements the option interface for the `trace_verbose` setting.
 type traceVerboseOption struct {
 	traceLevelOption
 	newValue bool
@@ -148,6 +148,17 @@ type traceVerboseOption struct {
 // Apply is a no-op because logging will be reloaded after options are applied.
 func (t *traceVerboseOption) Apply(server *Server) {
 	server.Noticef("Reloaded: trace_verbose = %v", t.newValue)
+}
+
+// traceHeadersOption implements the option interface for the `trace_headers` setting.
+type traceHeadersOption struct {
+	traceLevelOption
+	newValue bool
+}
+
+// Apply is a no-op because logging will be reloaded after options are applied.
+func (t *traceHeadersOption) Apply(server *Server) {
+	server.Noticef("Reloaded: trace_headers = %v", t.newValue)
 }
 
 // debugOption implements the option interface for the `debug` setting.
@@ -717,6 +728,15 @@ func (jso jetStreamOption) IsStatszChange() bool {
 	return true
 }
 
+type defaultSentinelOption struct {
+	noopOption
+	newValue string
+}
+
+func (so *defaultSentinelOption) Apply(s *Server) {
+	s.Noticef("Reloaded: default_sentinel = %s", so.newValue)
+}
+
 type ocspOption struct {
 	tlsOption
 	newValue *OCSPConfig
@@ -1231,6 +1251,8 @@ func (s *Server) diffOptions(newOpts *Options) ([]option, error) {
 		switch optName {
 		case "traceverbose":
 			diffOpts = append(diffOpts, &traceVerboseOption{newValue: newValue.(bool)})
+		case "traceheaders":
+			diffOpts = append(diffOpts, &traceHeadersOption{newValue: newValue.(bool)})
 		case "trace":
 			diffOpts = append(diffOpts, &traceOption{newValue: newValue.(bool)})
 		case "debug":
@@ -1625,6 +1647,8 @@ func (s *Server) diffOptions(newOpts *Options) ([]option, error) {
 				return nil, fmt.Errorf("config reload not supported for %s: old=%v, new=%v",
 					field.Name, oldValue, newValue)
 			}
+		case "defaultsentinel":
+			diffOpts = append(diffOpts, &defaultSentinelOption{newValue: newValue.(string)})
 		case "systemaccount":
 			if oldValue != DEFAULT_SYSTEM_ACCOUNT || newValue != _EMPTY_ {
 				return nil, fmt.Errorf("config reload not supported for %s: old=%v, new=%v",
@@ -2279,7 +2303,7 @@ func (s *Server) reloadClusterPoolAndAccounts(co *clusterOption, opts *Options) 
 					}
 					// Otherwise get the route pool index it would have been before
 					// the move so we can send the protocol to those routes.
-					rpi = s.computeRoutePoolIdx(acc)
+					rpi = computeRoutePoolIdx(s.routesPoolSize, acc.Name)
 				}
 				acc.mu.Unlock()
 				// Generate the INFO protocol to send indicating that this account
@@ -2290,21 +2314,56 @@ func (s *Server) reloadClusterPoolAndAccounts(co *clusterOption, opts *Options) 
 					RouteAccReqID: s.accAddedReqID,
 				}
 				proto := generateInfoJSON(&ri)
-				// Go over each remote's route at pool index `rpi` and remove
-				// remote subs for this account and send the protocol.
-				s.forEachRouteIdx(rpi, func(r *client) bool {
+				// Since v2.11.0, we support remotes with a different pool size
+				// (for rolling upgrades), so we need to use the remote route
+				// pool index (based on the remote configured pool size) since
+				// the remote subscriptions will be attached to the route at
+				// that index, not at our account's route pool index. However,
+				// we are going to send the protocol through the route that
+				// handles this account from our pool size perspective (that
+				// would be the route at index `rpi`).
+				removeSubsAndSendProto := func(r *client, doSubs, doProto bool) {
 					r.mu.Lock()
+					defer r.mu.Unlock()
 					// Exclude routes to servers that don't support pooling.
-					if !r.route.noPool {
+					if r.route.noPool {
+						return
+					}
+					if doSubs {
 						if subs := r.removeRemoteSubsForAcc(an); len(subs) > 0 {
 							sl.RemoveBatch(subs)
 						}
+					}
+					if doProto {
 						r.enqueueProto(proto)
 						protosSent++
 					}
-					r.mu.Unlock()
-					return true
-				})
+				}
+				for remote, conns := range s.routes {
+					r := conns[rpi]
+					// The route connection at this index is currently not up,
+					// so we won't be able to send the protocol, so move to the
+					// next remote.
+					if r == nil {
+						continue
+					}
+					doSubs := true
+					// Check the remote's route pool size and if different than
+					// ours, remove the subs on that other route.
+					remotePoolSize, ok := s.remoteRoutePoolSize[remote]
+					if ok && remotePoolSize != s.routesPoolSize {
+						// This is the remote's route pool index for this account
+						rrpi := computeRoutePoolIdx(remotePoolSize, an)
+						if rr := conns[rrpi]; rr != nil {
+							removeSubsAndSendProto(rr, true, false)
+							// Indicate that we have already remove the subs.
+							doSubs = false
+						}
+					}
+					// Now send the protocol from the route that handles the
+					// account from this server perspective.
+					removeSubsAndSendProto(r, doSubs, true)
+				}
 			}
 		}
 		if protosSent > 0 {

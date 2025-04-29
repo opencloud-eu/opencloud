@@ -1,7 +1,7 @@
 package goinfo
 
 import (
-	"path"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -91,7 +91,7 @@ func GetCallersInfo(skip, max int) []string {
 
 		if strings.ContainsRune(file, '/') {
 			name = fc.Name()
-			file = path.Base(file)
+			file = filepath.Base(file)
 			// eg: github.com/gookit/goutil/goinfo_test.someFunc2(),stack_test.go:26
 			callers = append(callers, name+"(),"+file+":"+strconv.Itoa(line))
 		}

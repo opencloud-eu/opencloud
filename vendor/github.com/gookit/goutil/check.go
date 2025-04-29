@@ -26,6 +26,17 @@ func IsEmpty(v any) bool {
 	return reflects.IsEmpty(reflect.ValueOf(v))
 }
 
+// Alias of the IsEmptyReal()
+var IsZeroReal = IsEmptyReal
+
+// IsEmptyReal checks for empty given value and also real empty value if the passed value is a pointer
+func IsEmptyReal(v any) bool {
+	if v == nil {
+		return true
+	}
+	return reflects.IsEmptyReal(reflect.ValueOf(v))
+}
+
 // IsFunc value
 func IsFunc(val any) bool {
 	if val == nil {

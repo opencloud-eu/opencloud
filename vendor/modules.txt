@@ -642,7 +642,7 @@ github.com/goccy/go-json/internal/encoder/vm_color_indent
 github.com/goccy/go-json/internal/encoder/vm_indent
 github.com/goccy/go-json/internal/errors
 github.com/goccy/go-json/internal/runtime
-# github.com/goccy/go-yaml v1.11.2
+# github.com/goccy/go-yaml v1.12.0
 ## explicit; go 1.19
 github.com/goccy/go-yaml
 github.com/goccy/go-yaml/ast
@@ -720,11 +720,11 @@ github.com/google/uuid
 # github.com/gookit/color v1.5.4
 ## explicit; go 1.18
 github.com/gookit/color
-# github.com/gookit/config/v2 v2.2.5
+# github.com/gookit/config/v2 v2.2.6
 ## explicit; go 1.19
 github.com/gookit/config/v2
 github.com/gookit/config/v2/yaml
-# github.com/gookit/goutil v0.6.15
+# github.com/gookit/goutil v0.6.18
 ## explicit; go 1.19
 github.com/gookit/goutil
 github.com/gookit/goutil/arrutil
@@ -989,10 +989,10 @@ github.com/mschoch/smat
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 ## explicit
 github.com/munnerz/goautoneg
-# github.com/nats-io/jwt/v2 v2.7.3
-## explicit; go 1.22
+# github.com/nats-io/jwt/v2 v2.7.4
+## explicit; go 1.23.0
 github.com/nats-io/jwt/v2
-# github.com/nats-io/nats-server/v2 v2.11.1
+# github.com/nats-io/nats-server/v2 v2.11.2
 ## explicit; go 1.23.0
 github.com/nats-io/nats-server/v2/conf
 github.com/nats-io/nats-server/v2/internal/fastrand

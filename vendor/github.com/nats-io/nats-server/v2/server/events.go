@@ -21,9 +21,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"net/http"
 	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -376,6 +378,8 @@ type ServerStats struct {
 	Gateways           []*GatewayStat      `json:"gateways,omitempty"`
 	ActiveServers      int                 `json:"active_servers,omitempty"`
 	JetStream          *JetStreamVarz      `json:"jetstream,omitempty"`
+	MemLimit           int64               `json:"gomemlimit,omitempty"`
+	MaxProcs           int                 `json:"gomaxprocs,omitempty"`
 }
 
 // RouteStat holds route statistics.
@@ -821,6 +825,10 @@ func (s *Server) updateServerUsage(v *ServerStats) {
 	var vss int64
 	pse.ProcUsage(&v.CPU, &v.Mem, &vss)
 	v.Cores = runtime.NumCPU()
+	v.MaxProcs = runtime.GOMAXPROCS(-1)
+	if mm := debug.SetMemoryLimit(-1); mm < math.MaxInt64 {
+		v.MemLimit = mm
+	}
 }
 
 // Generate a route stat for our statz update.
@@ -2284,10 +2292,11 @@ func (s *Server) registerSystemImports(a *Account) {
 	if sacc == nil || sacc == a {
 		return
 	}
+	dstAccName := sacc.Name
 	// FIXME(dlc) - make a shared list between sys exports etc.
 
 	importSrvc := func(subj, mappedSubj string) {
-		if !a.serviceImportExists(subj) {
+		if !a.serviceImportExists(dstAccName, subj) {
 			if err := a.addServiceImportWithClaim(sacc, subj, mappedSubj, nil, true); err != nil {
 				s.Errorf("Error setting up system service import %s -> %s for account: %v",
 					subj, mappedSubj, err)
@@ -2824,8 +2833,6 @@ func (s *Server) remoteLatencyUpdate(sub *subscription, _ *client, _ *Account, s
 	si.rc = nil
 	acc.mu.Unlock()
 
-	// Make sure we remove the entry here.
-	acc.removeServiceImport(si.from)
 	// Send the metrics
 	s.sendInternalAccountMsg(acc, lsub, m1)
 }

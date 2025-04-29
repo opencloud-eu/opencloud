@@ -45,6 +45,8 @@ var layoutMap = map[int][]string{
 }
 
 // ToTime convert date string to time.Time
+//
+// NOTE: always use local timezone.
 func ToTime(s string, layouts ...string) (t time.Time, err error) {
 	// custom layout
 	if len(layouts) > 0 {

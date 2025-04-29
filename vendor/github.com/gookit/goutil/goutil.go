@@ -23,28 +23,50 @@ func PanicIf(cond bool, fmtAndArgs ...any) {
 	basefn.PanicIf(cond, fmtAndArgs...)
 }
 
-// PanicIfErr if error is not empty, will panic
-func PanicIfErr(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
-// PanicErr if error is not empty, will panic
+// PanicErr if error is not empty, will panic.
+// Alias of basefn.PanicErr()
 func PanicErr(err error) {
 	if err != nil {
 		panic(err)
 	}
 }
 
-// MustOK if error is not empty, will panic
-func MustOK(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
+// PanicIfErr if error is not empty, will panic.
+// Alias of basefn.PanicErr()
+func PanicIfErr(err error) { PanicErr(err) }
 
-// Must if error is not empty, will panic
+// MustOK if error is not empty, will panic.
+// Alias of basefn.MustOK()
+func MustOK(err error) { PanicErr(err) }
+
+// MustIgnore for return like (v, error). Ignore return v and will panic on error.
+//
+// Useful for io, file operation func: (n int, err error)
+//
+// Usage:
+//
+//	// old
+//	_, err := fn()
+//	if err != nil {
+//		panic(err)
+//	}
+//
+//	// new
+//	goutil.MustIgnore(fn())
+func MustIgnore(_ any, err error) { PanicErr(err) }
+
+// Must return like (v, error). will panic on error, otherwise return v.
+//
+// Usage:
+//
+//	// old
+//	v, err := fn()
+//	if err != nil {
+//		panic(err)
+//	}
+//
+//	// new
+//	v := goutil.Must(fn())
 func Must[T any](v T, err error) T {
 	if err != nil {
 		panic(err)

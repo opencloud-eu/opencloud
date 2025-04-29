@@ -135,13 +135,13 @@ func Differences[T any](first, second []T, fn Comparer[T]) []T {
 		return CloneSlice(first)
 	}
 
-	max := firstLen
+	maxLn := firstLen
 	if secondLen > firstLen {
-		max = secondLen
+		maxLn = secondLen
 	}
 
 	result := make([]T, 0)
-	for i := 0; i < max; i++ {
+	for i := 0; i < maxLn; i++ {
 		if i < firstLen {
 			s := first[i]
 			if i, _ := TwowaySearch(second, s, fn); i < 0 {

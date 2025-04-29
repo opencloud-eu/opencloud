@@ -216,12 +216,15 @@ func FindInDir(dir string, handleFn HandleFunc, filters ...FilterFunc) (e error)
 		return // ignore I/O error
 	}
 
-	// names, _ := d.Readdirnames(-1)
-	// sort.Strings(names)
-
 	des, err := os.ReadDir(dir)
 	if err != nil {
 		return
+	}
+
+	// remove the last '/' char
+	dirLn := len(dir)
+	if dirLn > 1 && dir[dirLn-1] == '/' {
+		dir = dir[:dirLn-1]
 	}
 
 	for _, ent := range des {

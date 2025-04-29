@@ -59,7 +59,7 @@ type SimpleType interface {
 	Int | Uint | Float | ~string | ~bool
 }
 
-// ScalarType interface type.
+// ScalarType basic interface type.
 //
 // TIP: has bool type, it cannot be ordered
 //

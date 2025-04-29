@@ -116,6 +116,13 @@ func New(name string, opts ...OptionFn) *Config {
 	return NewEmpty(name, opts...).WithDriver(JSONDriver)
 }
 
+// NewGeneric create generic config instance with custom options.
+//
+//   - default add options: ParseEnv, ParseDefault, ParseTime
+func NewGeneric(name string, opts ...OptionFn) *Config {
+	return NewEmpty(name, ParseEnv, ParseDefault, ParseTime).WithOptions(opts...).WithDriver(JSONDriver)
+}
+
 // NewEmpty create config instance with custom options
 func NewEmpty(name string, opts ...OptionFn) *Config {
 	c := &Config{

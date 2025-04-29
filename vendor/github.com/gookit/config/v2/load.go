@@ -108,18 +108,19 @@ func (c *Config) LoadOSEnv(keys []string, keyToLower bool) {
 	c.fireHook(OnLoadData)
 }
 
-// LoadOSEnvs load data from OS ENVs. format: {ENV_NAME: config_key}
+// LoadOSEnvs load data from OS ENVs. see Config.LoadOSEnvs
 func LoadOSEnvs(nameToKeyMap map[string]string) { dc.LoadOSEnvs(nameToKeyMap) }
 
-// LoadOSEnvs load data from os ENVs. format: {ENV_NAME: config_key}
+// LoadOSEnvs load data from os ENVs. format: `{ENV_NAME: config_key}`
+//
+//   - `config_key` allow use key path. eg: `{"DB_USERNAME": "db.username"}`
 func (c *Config) LoadOSEnvs(nameToKeyMap map[string]string) {
-	for name, key := range nameToKeyMap {
+	for name, cfgKey := range nameToKeyMap {
 		if val := os.Getenv(name); val != "" {
-			if key == "" {
-				key = strings.ToLower(name)
+			if cfgKey == "" {
+				cfgKey = strings.ToLower(name)
 			}
-
-			_ = c.Set(key, val)
+			_ = c.Set(cfgKey, val)
 		}
 	}
 
@@ -135,8 +136,8 @@ var validTypes = map[string]int{
 	"string": 1,
 }
 
-// LoadFlags load data from cli flags
-func LoadFlags(keys []string) error { return dc.LoadFlags(keys) }
+// LoadFlags load data from cli flags. see Config.LoadFlags
+func LoadFlags(defines []string) error { return dc.LoadFlags(defines) }
 
 // LoadFlags parse command line arguments, based on provide keys.
 //
@@ -144,13 +145,20 @@ func LoadFlags(keys []string) error { return dc.LoadFlags(keys) }
 //
 //	// 'debug' flag is bool type
 //	c.LoadFlags([]string{"env", "debug:bool"})
-func (c *Config) LoadFlags(keys []string) (err error) {
+//	// can with flag desc message
+//	c.LoadFlags([]string{"env:set the run env"})
+//	c.LoadFlags([]string{"debug:bool:set debug mode"})
+//	// can set value to map key. eg: myapp --map1.sub-key=val
+//	c.LoadFlags([]string{"--map1.sub-key"})
+func (c *Config) LoadFlags(defines []string) (err error) {
 	hash := map[string]int8{}
 
 	// bind vars
-	for _, key := range keys {
-		key, typ := parseVarNameAndType(key)
-		desc := "config flag " + key
+	for _, str := range defines {
+		key, typ, desc := parseVarNameAndType(str)
+		if desc == "" {
+			desc = "config flag " + key
+		}
 
 		switch typ {
 		case "int":
@@ -181,7 +189,12 @@ func (c *Config) LoadFlags(keys []string) (err error) {
 			return
 		}
 
-		_ = c.Set(name, f.Value.String()) // ignore error
+		// if f.Value implement the flag.Getter, read typed value
+		if gtr, ok := f.Value.(flag.Getter); ok {
+			_ = c.Set(name, gtr.Get())
+			// } else { // TIP: basic type flag always implements Getter interface
+			// 	_ = c.Set(name, f.Value.String()) // ignore error
+		}
 	})
 
 	c.fireHook(OnLoadData)

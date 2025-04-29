@@ -146,6 +146,10 @@ func structToMap(obj reflect.Value, opt *MapOptions, mp map[string]any) (map[str
 		}
 
 		field := reflect.Indirect(obj.Field(i))
+		if !field.IsValid() {
+			continue
+		}
+
 		if field.Kind() == reflect.Struct {
 			// collect anonymous struct values to parent.
 			if ft.Anonymous && opt.MergeAnonymous {

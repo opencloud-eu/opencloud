@@ -50,6 +50,9 @@ type SetOptions struct {
 	// default: false
 	ParseDefaultEnv bool
 
+	// DefaultEnvPrefixTag name. tag: defaultenvprefix
+	DefaultEnvPrefixTag string
+
 	// StopOnError if true, will stop set value on error happened. default: false
 	// StopOnError bool
 }
@@ -76,17 +79,18 @@ func SetValues(ptr any, data map[string]any, optFns ...SetOptFunc) error {
 	}
 
 	opt := &SetOptions{
-		FieldTagName:  defaultFieldTag,
-		DefaultValTag: defaultInitTag,
+		FieldTagName:        defaultFieldTag,
+		DefaultValTag:       defaultInitTag,
+		DefaultEnvPrefixTag: defaultEnvPrefixTag,
 	}
 
 	for _, fn := range optFns {
 		fn(opt)
 	}
-	return setValues(rv, data, opt)
+	return setValues(rv, data, opt, "")
 }
 
-func setValues(rv reflect.Value, data map[string]any, opt *SetOptions) error {
+func setValues(rv reflect.Value, data map[string]any, opt *SetOptions, envPrefix string) error {
 	if len(data) == 0 {
 		return nil
 	}
@@ -119,7 +123,7 @@ func setValues(rv reflect.Value, data map[string]any, opt *SetOptions) error {
 		// set field value by default tag.
 		if !ok && opt.ParseDefault && fv.IsZero() {
 			defVal := ft.Tag.Get(opt.DefaultValTag)
-			if err := initDefaultValue(fv, defVal, opt.ParseDefaultEnv); err != nil {
+			if err := initDefaultValue(fv, defVal, opt.ParseDefaultEnv, envPrefix); err != nil {
 				es = append(es, err)
 			}
 			continue
@@ -155,8 +159,11 @@ func setValues(rv reflect.Value, data map[string]any, opt *SetOptions) error {
 				continue
 			}
 
+			defEnvPrefixVal := ft.Tag.Get(opt.DefaultEnvPrefixTag)
+			childEnvPrefix := fmt.Sprintf("%s%s", envPrefix, defEnvPrefixVal)
+
 			// recursive processing sub-struct
-			if err = setValues(fv, asMp, opt); err != nil {
+			if err = setValues(fv, asMp, opt, childEnvPrefix); err != nil {
 				es = append(es, err)
 			}
 			continue

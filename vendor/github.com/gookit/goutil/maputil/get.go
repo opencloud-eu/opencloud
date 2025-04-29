@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gookit/goutil/comdef"
 	"github.com/gookit/goutil/reflects"
 )
 
@@ -193,6 +194,14 @@ func Keys(mp any) (keys []string) {
 	return
 }
 
+// TypedKeys get all keys of the given typed map.
+func TypedKeys[K comdef.SimpleType, V any](mp map[K]V) (keys []K) {
+	for key := range mp {
+		keys = append(keys, key)
+	}
+	return
+}
+
 // Values get all values from the given map.
 func Values(mp any) (values []any) {
 	rv := reflect.Indirect(reflect.ValueOf(mp))
@@ -207,6 +216,14 @@ func Values(mp any) (values []any) {
 	return
 }
 
+// TypedValues get all values from the given typed map.
+func TypedValues[K comdef.SimpleType, V any](mp map[K]V) (values []V) {
+	for _, val := range mp {
+		values = append(values, val)
+	}
+	return
+}
+
 // EachAnyMap iterates the given map and calls the given function for each item.
 func EachAnyMap(mp any, fn func(key string, val any)) {
 	rv := reflect.Indirect(reflect.ValueOf(mp))
@@ -216,5 +233,12 @@ func EachAnyMap(mp any, fn func(key string, val any)) {
 
 	for _, key := range rv.MapKeys() {
 		fn(key.String(), rv.MapIndex(key).Interface())
+	}
+}
+
+// EachTypedMap iterates the given map and calls the given function for each item.
+func EachTypedMap[K comdef.SimpleType, V any](mp map[K]V, fn func(key K, val V)) {
+	for key, val := range mp {
+		fn(key, val)
 	}
 }

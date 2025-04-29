@@ -51,6 +51,14 @@ func OrElse(s, orVal string) string {
 	return orVal
 }
 
+// OrElseNilSafe return default value on s is nil, otherwise return s
+func OrElseNilSafe(s *string, orVal string) string {
+	if s == nil || *s == "" {
+		return orVal
+	}
+	return *s
+}
+
 // OrHandle return fn(s) on s is not empty.
 func OrHandle(s string, fn comdef.StringHandleFunc) string {
 	if s != "" {

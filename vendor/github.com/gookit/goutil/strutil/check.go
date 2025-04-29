@@ -290,9 +290,8 @@ func LikeMatch(pattern, s string) bool {
 	if pattern[0] == '%' {
 		if ln > 2 && pattern[ln-1] == '%' {
 			return strings.Contains(s, pattern[1:ln-1])
-		} else {
-			return strings.HasSuffix(s, pattern[1:])
 		}
+		return strings.HasSuffix(s, pattern[1:])
 	}
 
 	// eg `abc%`
