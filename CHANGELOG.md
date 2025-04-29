@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.2.1](https://github.com/opencloud-eu/opencloud/releases/tag/v2.2.1) - 2025-04-29
+
+### ❤️ Thanks to all contributors! ❤️
+
+@AlexAndBear
+
+### 🐛 Bug Fixes
+
+- fix: idp login logo url exceeds logo [[#742](https://github.com/opencloud-eu/opencloud/pull/742)]
+
 ## [2.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.2.0) - 2025-04-28
 
 ### ❤️ Thanks to all contributors! ❤️
