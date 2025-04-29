@@ -4,11 +4,16 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear
+@AlexAndBear, @butonic
 
 ### 🐛 Bug Fixes
 
 - fix: idp login logo url exceeds logo [[#742](https://github.com/opencloud-eu/opencloud/pull/742)]
+
+### 📦️ Dependencies
+
+- build(deps): bump github.com/blevesearch/bleve/v2 from 2.4.4 to 2.5.0 [[#743](https://github.com/opencloud-eu/opencloud/pull/743)]
+- build(deps): bump github.com/gabriel-vasile/mimetype from 1.4.8 to 1.4.9 [[#744](https://github.com/opencloud-eu/opencloud/pull/744)]
 
 ## [2.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.2.0) - 2025-04-28
 
