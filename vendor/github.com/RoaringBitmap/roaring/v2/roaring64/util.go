@@ -1,6 +1,6 @@
 package roaring64
 
-import "github.com/RoaringBitmap/roaring"
+import "github.com/RoaringBitmap/roaring/v2"
 
 func highbits(x uint64) uint32 {
 	return uint32(x >> 32)

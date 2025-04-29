@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/RoaringBitmap/roaring"
+	"github.com/RoaringBitmap/roaring/v2"
 )
 
 var defaultWorkerCount = runtime.NumCPU()
@@ -144,6 +144,8 @@ func (c parChunk) size() int {
 	return c.ra.size()
 }
 
+// parNaiveStartAt returns the index of the first key that is inclusive between start and last
+// Returns the size if there is no such key
 func parNaiveStartAt(ra *roaringArray64, start uint32, last uint32) int {
 	for idx, key := range ra.keys {
 		if key >= start && key <= last {
@@ -170,7 +172,6 @@ func orOnRange(ra1, ra2 *roaringArray64, start, last uint32) *roaringArray64 {
 		key2 = ra2.getKeyAtIndex(idx2)
 
 		for key1 <= last && key2 <= last {
-
 			if key1 < key2 {
 				answer.appendCopy(*ra1, idx1)
 				idx1++
@@ -188,7 +189,7 @@ func orOnRange(ra1, ra2 *roaringArray64, start, last uint32) *roaringArray64 {
 			} else {
 				c1 := ra1.getContainerAtIndex(idx1)
 
-				//answer.appendContainer(key1, c1.lazyOR(ra2.getContainerAtIndex(idx2)), false)
+				// answer.appendContainer(key1, c1.lazyOR(ra2.getContainerAtIndex(idx2)), false)
 				answer.appendContainer(key1, roaring.Or(c1, ra2.getContainerAtIndex(idx2)), false)
 				idx1++
 				idx2++
@@ -261,7 +262,7 @@ func iorOnRange(ra1, ra2 *roaringArray64, start, last uint32) *roaringArray64 {
 			} else {
 				c1 := ra1.getWritableContainerAtIndex(idx1)
 
-				//ra1.containers[idx1] = c1.lazyIOR(ra2.getContainerAtIndex(idx2))
+				// ra1.containers[idx1] = c1.lazyIOR(ra2.getContainerAtIndex(idx2))
 				c1.Or(ra2.getContainerAtIndex(idx2))
 				ra1.setContainerAtIndex(idx1, c1)
 

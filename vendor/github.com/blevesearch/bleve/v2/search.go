@@ -31,8 +31,10 @@ import (
 	"github.com/blevesearch/bleve/v2/util"
 )
 
-var reflectStaticSizeSearchResult int
-var reflectStaticSizeSearchStatus int
+var (
+	reflectStaticSizeSearchResult int
+	reflectStaticSizeSearchStatus int
+)
 
 func init() {
 	var sr SearchResult
@@ -444,6 +446,12 @@ type SearchResult struct {
 	MaxScore float64                        `json:"max_score"`
 	Took     time.Duration                  `json:"took"`
 	Facets   search.FacetResults            `json:"facets"`
+	// special fields that are applicable only for search
+	// results that are obtained from a presearch
+	SynonymResult search.FieldTermSynonymMap `json:"synonym_result,omitempty"`
+
+	// The following fields are applicable to BM25 preSearch
+	BM25Stats *search.BM25Stats `json:"bm25_stats,omitempty"`
 }
 
 func (sr *SearchResult) Size() int {
@@ -491,7 +499,7 @@ func (sr *SearchResult) String() string {
 		rv = "No matches"
 	}
 	if len(sr.Facets) > 0 {
-		rv += fmt.Sprintf("Facets:\n")
+		rv += "Facets:\n"
 		for fn, f := range sr.Facets {
 			rv += fmt.Sprintf("%s(%d)\n", fn, f.Total)
 			for _, t := range f.Terms.Terms() {
@@ -588,4 +596,14 @@ func (r *SearchRequest) SortFunc() func(data sort.Interface) {
 	}
 
 	return sort.Sort
+}
+
+func isMatchNoneQuery(q query.Query) bool {
+	_, ok := q.(*query.MatchNoneQuery)
+	return ok
+}
+
+func isMatchAllQuery(q query.Query) bool {
+	_, ok := q.(*query.MatchAllQuery)
+	return ok
 }

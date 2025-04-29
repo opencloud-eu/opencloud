@@ -23,7 +23,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/RoaringBitmap/roaring"
 	"github.com/blevesearch/bleve/v2/search"
 	index "github.com/blevesearch/bleve_index_api"
 	segment_api "github.com/blevesearch/scorch_segment_api/v2"
@@ -65,11 +64,6 @@ func (o *OptimizeVR) Finish() error {
 	var errorsM sync.Mutex
 	var errors []error
 
-	var snapshotGlobalDocNums map[int]*roaring.Bitmap
-	if o.requiresFiltering {
-		snapshotGlobalDocNums = o.snapshot.globalDocNums()
-	}
-
 	defer o.invokeSearcherEndCallback()
 
 	wg := sync.WaitGroup{}
@@ -104,27 +98,12 @@ func (o *OptimizeVR) Finish() error {
 						// for each VR, populate postings list and iterators
 						// by passing the obtained vector index and getting similar vectors.
 
-						// Only applies to filtered kNN.
-						if vr.eligibleDocIDs != nil && len(vr.eligibleDocIDs) > 0 {
-							eligibleVectorInternalIDs := vr.getEligibleDocIDs()
-							if snapshotGlobalDocNums != nil {
-								// Only the eligible documents belonging to this segment
-								// will get filtered out.
-								// There is no way to determine which doc belongs to which segment
-								eligibleVectorInternalIDs.And(snapshotGlobalDocNums[index])
-							}
-
-							eligibleLocalDocNums := make([]uint64,
-								eligibleVectorInternalIDs.GetCardinality())
-							// get the (segment-)local document numbers
-							for i, docNum := range eligibleVectorInternalIDs.ToArray() {
-								localDocNum := o.snapshot.localDocNumFromGlobal(index,
-									uint64(docNum))
-								eligibleLocalDocNums[i] = localDocNum
-							}
-
+						// check if the vector reader is configured to use a pre-filter
+						// to filter out ineligible documents before performing
+						// kNN search.
+						if vr.eligibleSelector != nil {
 							pl, err = vecIndex.SearchWithFilter(vr.vector, vr.k,
-								eligibleLocalDocNums, vr.searchParams)
+								vr.eligibleSelector.SegmentEligibleDocs(index), vr.searchParams)
 						} else {
 							pl, err = vecIndex.Search(vr.vector, vr.k, vr.searchParams)
 						}
@@ -178,7 +157,7 @@ func (s *IndexSnapshotVectorReader) VectorOptimize(ctx context.Context,
 	}
 	o.ctx = ctx
 	if !o.requiresFiltering {
-		o.requiresFiltering = len(s.eligibleDocIDs) > 0
+		o.requiresFiltering = s.eligibleSelector != nil
 	}
 
 	if o.snapshot != s.snapshot {

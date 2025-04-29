@@ -1,11 +1,11 @@
 # ![bleve](docs/bleve.png) bleve
 
-[![Tests](https://github.com/blevesearch/bleve/workflows/Tests/badge.svg?branch=master&event=push)](https://github.com/blevesearch/bleve/actions?query=workflow%3ATests+event%3Apush+branch%3Amaster)
+[![Tests](https://github.com/blevesearch/bleve/actions/workflows/tests.yml/badge.svg?branch=master&event=push)](https://github.com/blevesearch/bleve/actions/workflows/tests.yml?query=event%3Apush+branch%3Amaster)
 [![Coverage Status](https://coveralls.io/repos/github/blevesearch/bleve/badge.svg?branch=master)](https://coveralls.io/github/blevesearch/bleve?branch=master)
-[![GoDoc](https://godoc.org/github.com/blevesearch/bleve?status.svg)](https://godoc.org/github.com/blevesearch/bleve)
-[![Join the chat at https://gitter.im/blevesearch/bleve](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/blevesearch/bleve?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Go Reference](https://pkg.go.dev/badge/github.com/blevesearch/bleve/v2.svg)](https://pkg.go.dev/github.com/blevesearch/bleve/v2)
+[![Join the chat](https://badges.gitter.im/join_chat.svg)](https://app.gitter.im/#/room/#blevesearch_bleve:gitter.im)
 [![codebeat](https://codebeat.co/badges/38a7cbc9-9cf5-41c0-a315-0746178230f4)](https://codebeat.co/projects/github-com-blevesearch-bleve)
-[![Go Report Card](https://goreportcard.com/badge/blevesearch/bleve)](https://goreportcard.com/report/blevesearch/bleve)
+[![Go Report Card](https://goreportcard.com/badge/github.com/blevesearch/bleve/v2)](https://goreportcard.com/report/github.com/blevesearch/bleve/v2)
 [![Sourcegraph](https://sourcegraph.com/github.com/blevesearch/bleve/-/badge.svg)](https://sourcegraph.com/github.com/blevesearch/bleve?badge)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
@@ -24,7 +24,8 @@ A modern indexing + search library in GO
     * [query string syntax](http://www.blevesearch.com/docs/Query-String-Query/)
     * [geo spatial search](https://github.com/blevesearch/bleve/blob/master/geo/README.md)
     * approximate k-nearest neighbors via [vector search](https://github.com/blevesearch/bleve/blob/master/docs/vectors.md)
-* [tf-idf](https://en.wikipedia.org/wiki/Tf-idf) scoring
+    * [synonym search](https://github.com/blevesearch/bleve/blob/master/docs/synonyms.md)
+* [tf-idf](https://github.com/blevesearch/bleve/blob/master/docs/scoring.md#tf-idf) / [bm25](https://github.com/blevesearch/bleve/blob/master/docs/scoring.md#bm25) scoring models
 * Hybrid search: exact + semantic
 * Query time boosting
 * Search result match highlighting with document fragments
@@ -42,7 +43,7 @@ message := struct{
 	Body string
 }{
 	Id:   "example",
-	From: "marty.schoch@gmail.com",
+	From: "xyz@couchbase.com",
 	Body: "bleve indexing is easy",
 }
 

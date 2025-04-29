@@ -23,7 +23,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/RoaringBitmap/roaring"
+	"github.com/RoaringBitmap/roaring/v2"
 	faiss "github.com/blevesearch/go-faiss"
 )
 
@@ -105,7 +105,7 @@ func (vc *vectorIndexCache) addDocVecIDMapToCacheLOCKED(ce *cacheEntry) map[uint
 		return ce.docVecIDMap
 	}
 
-	docVecIDMap := make(map[uint32][]int64)
+	docVecIDMap := make(map[uint32][]int64, len(ce.vecDocIDMap))
 	for vecID, docID := range ce.vecDocIDMap {
 		docVecIDMap[docID] = append(docVecIDMap[docID], vecID)
 	}

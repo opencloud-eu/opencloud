@@ -37,10 +37,10 @@ const (
 	CosineSimilarity = "cosine"
 )
 
-const DefaultSimilarityMetric = EuclideanDistance
+const DefaultVectorSimilarityMetric = EuclideanDistance
 
 // Supported similarity metrics for vector fields
-var SupportedSimilarityMetrics = map[string]struct{}{
+var SupportedVectorSimilarityMetrics = map[string]struct{}{
 	EuclideanDistance: {},
 	InnerProduct:      {},
 	CosineSimilarity:  {},

@@ -19,7 +19,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/RoaringBitmap/roaring"
+	"github.com/RoaringBitmap/roaring/v2"
 	index "github.com/blevesearch/bleve_index_api"
 	segment "github.com/blevesearch/scorch_segment_api/v2"
 	bolt "go.etcd.io/bbolt"
@@ -303,7 +303,7 @@ func (o *Builder) Close() error {
 	}
 
 	// fill the root bolt with this fake index snapshot
-	_, _, err = prepareBoltSnapshot(is, tx, o.path, o.segPlugin, nil)
+	_, _, err = prepareBoltSnapshot(is, tx, o.path, o.segPlugin, nil, nil)
 	if err != nil {
 		_ = tx.Rollback()
 		_ = rootBolt.Close()

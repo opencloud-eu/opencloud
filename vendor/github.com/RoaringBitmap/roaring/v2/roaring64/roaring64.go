@@ -8,12 +8,14 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/RoaringBitmap/roaring"
-	"github.com/RoaringBitmap/roaring/internal"
+	"github.com/RoaringBitmap/roaring/v2"
+	"github.com/RoaringBitmap/roaring/v2/internal"
 )
 
-const serialCookieNoRunContainer = 12346 // only arrays and bitmaps
-const serialCookie = 12347               // runs, arrays, and bitmaps
+const (
+	serialCookieNoRunContainer = 12346 // only arrays and bitmaps
+	serialCookie               = 12347 // runs, arrays, and bitmaps
+)
 
 // Bitmap represents a compressed bitmap where you can add integers.
 type Bitmap struct {
@@ -25,7 +27,6 @@ func (rb *Bitmap) ToBase64() (string, error) {
 	buf := new(bytes.Buffer)
 	_, err := rb.WriteTo(buf)
 	return base64.StdEncoding.EncodeToString(buf.Bytes()), err
-
 }
 
 // FromBase64 deserializes a bitmap from Base64
@@ -52,7 +53,6 @@ func (rb *Bitmap) ToBytes() ([]byte, error) {
 // implementations (Java, Go, C++) and it has a specification :
 // https://github.com/RoaringBitmap/RoaringFormatSpec#extention-for-64-bit-implementations
 func (rb *Bitmap) WriteTo(stream io.Writer) (int64, error) {
-
 	var n int64
 	buf := make([]byte, 8)
 	binary.LittleEndian.PutUint64(buf, uint64(rb.highlowcontainer.size()))
@@ -87,11 +87,10 @@ func (rb *Bitmap) WriteTo(stream io.Writer) (int64, error) {
 func (rb *Bitmap) FromUnsafeBytes(data []byte) (p int64, err error) {
 	stream := internal.NewByteBuffer(data)
 	sizeBuf := make([]byte, 8)
-	n, err := stream.Read(sizeBuf)
+	_, err = stream.Read(sizeBuf)
 	if err != nil {
 		return 0, err
 	}
-	p += int64(n)
 	size := binary.LittleEndian.Uint64(sizeBuf)
 
 	rb.highlowcontainer.resize(0)
@@ -115,17 +114,16 @@ func (rb *Bitmap) FromUnsafeBytes(data []byte) (p int64, err error) {
 		if err != nil {
 			return 0, fmt.Errorf("error in bitmap.UnsafeFromBytes: could not read key #%d: %w", i, err)
 		}
-		p += 4
 		rb.highlowcontainer.keys[i] = binary.LittleEndian.Uint32(keyBuf)
 		rb.highlowcontainer.containers[i] = roaring.NewBitmap()
 		n, err := rb.highlowcontainer.containers[i].ReadFrom(stream)
+
 		if n == 0 || err != nil {
 			return int64(n), fmt.Errorf("Could not deserialize bitmap for key #%d: %s", i, err)
 		}
-		p += int64(n)
 	}
 
-	return p, nil
+	return stream.GetReadBytes(), nil
 }
 
 // ReadFrom reads a serialized version of this bitmap from stream.
@@ -167,22 +165,14 @@ func (rb *Bitmap) ReadFrom(stream io.Reader) (p int64, err error) {
 		rb.highlowcontainer.keys[i] = binary.LittleEndian.Uint32(keyBuf)
 		rb.highlowcontainer.containers[i] = roaring.NewBitmap()
 		n, err := rb.highlowcontainer.containers[i].ReadFrom(stream)
+
 		if n == 0 || err != nil {
 			return int64(n), fmt.Errorf("Could not deserialize bitmap for key #%d: %s", i, err)
 		}
 		p += int64(n)
 	}
-
 	return p, nil
 }
-
-// FromBuffer creates a bitmap from its serialized version stored in buffer
-// func (rb *Bitmap) FromBuffer(data []byte) (p int64, err error) {
-//
-//	// TODO: Add buffer interning as in base roaring package.
-//	buf := bytes.NewBuffer(data)
-//	return rb.ReadFrom(buf)
-// }
 
 // MarshalBinary implements the encoding.BinaryMarshaler interface for the bitmap
 // (same as ToBytes)
@@ -1249,6 +1239,10 @@ func (rb *Bitmap) Stats() roaring.Statistics {
 // that this function is much cheaper computationally than WriteTo.
 func (rb *Bitmap) GetSerializedSizeInBytes() uint64 {
 	return rb.highlowcontainer.serializedSizeInBytes()
+}
+
+func (rb *Bitmap) Validate() error {
+	return rb.highlowcontainer.validate()
 }
 
 // Roaring32AsRoaring64 inserts a 32-bit roaring bitmap into

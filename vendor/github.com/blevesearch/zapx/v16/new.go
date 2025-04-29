@@ -174,23 +174,6 @@ func (s *interim) convert() (uint64, uint64, error) {
 		s.FieldsMap = map[string]uint16{}
 	}
 
-	args := map[string]interface{}{
-		"results":   s.results,
-		"chunkMode": s.chunkMode,
-	}
-	if s.opaque == nil {
-		s.opaque = map[int]resetable{}
-		for i, x := range segmentSections {
-			s.opaque[int(i)] = x.InitOpaque(args)
-		}
-	} else {
-		for k, v := range args {
-			for _, op := range s.opaque {
-				op.Set(k, v)
-			}
-		}
-	}
-
 	s.getOrDefineField("_id") // _id field is fieldID 0
 
 	for _, result := range s.results {
@@ -206,6 +189,25 @@ func (s *interim) convert() (uint64, uint64, error) {
 
 	for fieldID, fieldName := range s.FieldsInv {
 		s.FieldsMap[fieldName] = uint16(fieldID + 1)
+	}
+
+	args := map[string]interface{}{
+		"results":   s.results,
+		"chunkMode": s.chunkMode,
+		"fieldsMap": s.FieldsMap,
+		"fieldsInv": s.FieldsInv,
+	}
+	if s.opaque == nil {
+		s.opaque = map[int]resetable{}
+		for i, x := range segmentSections {
+			s.opaque[int(i)] = x.InitOpaque(args)
+		}
+	} else {
+		for k, v := range args {
+			for _, op := range s.opaque {
+				op.Set(k, v)
+			}
+		}
 	}
 
 	s.processDocuments()

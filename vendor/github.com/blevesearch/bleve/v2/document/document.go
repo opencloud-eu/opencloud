@@ -34,6 +34,7 @@ type Document struct {
 	Fields           []Field `json:"fields"`
 	CompositeFields  []*CompositeField
 	StoredFieldsSize uint64
+	indexed          bool
 }
 
 func (d *Document) StoredFieldsBytes() uint64 {
@@ -45,6 +46,13 @@ func NewDocument(id string) *Document {
 		id:              id,
 		Fields:          make([]Field, 0),
 		CompositeFields: make([]*CompositeField, 0),
+	}
+}
+
+func NewSynonymDocument(id string) *Document {
+	return &Document{
+		id:     id,
+		Fields: make([]Field, 0),
 	}
 }
 
@@ -132,4 +140,20 @@ func (d *Document) VisitComposite(visitor index.CompositeFieldVisitor) {
 
 func (d *Document) HasComposite() bool {
 	return len(d.CompositeFields) > 0
+}
+
+func (d *Document) VisitSynonymFields(visitor index.SynonymFieldVisitor) {
+	for _, f := range d.Fields {
+		if sf, ok := f.(index.SynonymField); ok {
+			visitor(sf)
+		}
+	}
+}
+
+func (d *Document) SetIndexed() {
+	d.indexed = true
+}
+
+func (d *Document) Indexed() bool {
+	return d.indexed
 }

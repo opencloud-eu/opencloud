@@ -17,7 +17,7 @@ package zap
 import (
 	"fmt"
 
-	"github.com/RoaringBitmap/roaring"
+	"github.com/RoaringBitmap/roaring/v2"
 	index "github.com/blevesearch/bleve_index_api"
 	segment "github.com/blevesearch/scorch_segment_api/v2"
 	"github.com/blevesearch/vellum"
@@ -44,6 +44,13 @@ func (d *Dictionary) PostingsList(term []byte, except *roaring.Bitmap,
 		preallocPL = pl
 	}
 	return d.postingsList(term, except, preallocPL)
+}
+
+func (d *Dictionary) Cardinality() int {
+	if d.fst != nil {
+		return d.fst.Len()
+	}
+	return 0
 }
 
 func (d *Dictionary) postingsList(term []byte, except *roaring.Bitmap, rv *PostingsList) (*PostingsList, error) {

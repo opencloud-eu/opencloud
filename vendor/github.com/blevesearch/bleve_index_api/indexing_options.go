@@ -24,6 +24,21 @@ const (
 	SkipFreqNorm
 )
 
+const (
+	BM25Scoring  = "bm25"
+	TFIDFScoring = "tfidf"
+)
+
+// Scoring model indicates the algorithm used to rank documents fetched
+// for a query performed on a text field.
+const DefaultScoringModel = TFIDFScoring
+
+// Supported similarity models
+var SupportedScoringModels = map[string]struct{}{
+	BM25Scoring:  {},
+	TFIDFScoring: {},
+}
+
 func (o FieldIndexingOptions) IsIndexed() bool {
 	return o&IndexField != 0
 }

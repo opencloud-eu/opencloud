@@ -23,7 +23,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/RoaringBitmap/roaring"
+	"github.com/RoaringBitmap/roaring/v2"
 	"github.com/blevesearch/bleve/v2/registry"
 	index "github.com/blevesearch/bleve_index_api"
 	segment "github.com/blevesearch/scorch_segment_api/v2"
@@ -110,7 +110,8 @@ type internalStats struct {
 
 func NewScorch(storeName string,
 	config map[string]interface{},
-	analysisQueue *index.AnalysisQueue) (index.Index, error) {
+	analysisQueue *index.AnalysisQueue,
+) (index.Index, error) {
 	rv := &Scorch{
 		version:              Version,
 		config:               config,
@@ -137,7 +138,9 @@ func NewScorch(storeName string,
 
 	typ, ok := config["spatialPlugin"].(string)
 	if ok {
-		rv.loadSpatialAnalyzerPlugin(typ)
+		if err := rv.loadSpatialAnalyzerPlugin(typ); err != nil {
+			return nil, err
+		}
 	}
 
 	rv.root = &IndexSnapshot{parent: rv, refs: 1, creator: "NewScorch"}
@@ -156,6 +159,18 @@ func NewScorch(storeName string,
 	aecbName, ok := config["asyncErrorCallbackName"].(string)
 	if ok {
 		rv.onAsyncError = RegistryAsyncErrorCallbacks[aecbName]
+	}
+	// validate any custom persistor options to
+	// prevent an async error in the persistor routine
+	_, err = rv.parsePersisterOptions()
+	if err != nil {
+		return nil, err
+	}
+	// validate any custom merge planner options to
+	// prevent an async error in the merger routine
+	_, err = rv.parseMergePlannerOptions()
+	if err != nil {
+		return nil, err
 	}
 
 	return rv, nil
@@ -230,7 +245,7 @@ func (s *Scorch) openBolt() error {
 		s.unsafeBatch = true
 	}
 
-	var rootBoltOpt = *bolt.DefaultOptions
+	rootBoltOpt := *bolt.DefaultOptions
 	if s.readOnly {
 		rootBoltOpt.ReadOnly = true
 		rootBoltOpt.OpenFile = func(path string, flag int, mode os.FileMode) (*os.File, error) {
@@ -244,7 +259,7 @@ func (s *Scorch) openBolt() error {
 		}
 	} else {
 		if s.path != "" {
-			err := os.MkdirAll(s.path, 0700)
+			err := os.MkdirAll(s.path, 0o700)
 			if err != nil {
 				return err
 			}
@@ -263,7 +278,7 @@ func (s *Scorch) openBolt() error {
 	rootBoltPath := s.path + string(os.PathSeparator) + "root.bolt"
 	var err error
 	if s.path != "" {
-		s.rootBolt, err = bolt.Open(rootBoltPath, 0600, &rootBoltOpt)
+		s.rootBolt, err = bolt.Open(rootBoltPath, 0o600, &rootBoltOpt)
 		if err != nil {
 			return err
 		}
@@ -325,7 +340,9 @@ func (s *Scorch) openBolt() error {
 
 	typ, ok := s.config["spatialPlugin"].(string)
 	if ok {
-		s.loadSpatialAnalyzerPlugin(typ)
+		if err := s.loadSpatialAnalyzerPlugin(typ); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -424,6 +441,10 @@ func (s *Scorch) Batch(batch *index.Batch) (err error) {
 	for itemsDeQueued < numUpdates {
 		result := <-resultChan
 		resultSize := result.Size()
+		// check if the document is searchable by the index
+		if result.Indexed() {
+			atomic.AddUint64(&s.stats.TotMutationsFiltered, 1)
+		}
 		atomic.AddUint64(&s.iStats.analysisBytesAdded, uint64(resultSize))
 		totalAnalysisSize += resultSize
 		analysisResults[itemsDeQueued] = result
@@ -477,8 +498,8 @@ func (s *Scorch) Batch(batch *index.Batch) (err error) {
 }
 
 func (s *Scorch) prepareSegment(newSegment segment.Segment, ids []string,
-	internalOps map[string][]byte, persistedCallback index.BatchCallback, stats *fieldStats) error {
-
+	internalOps map[string][]byte, persistedCallback index.BatchCallback, stats *fieldStats,
+) error {
 	// new introduction
 	introduction := &segmentIntroduction{
 		id:                atomic.AddUint64(&s.nextSegmentID, 1),
@@ -572,7 +593,8 @@ func (s *Scorch) BytesReadQueryTime() uint64 {
 }
 
 func (s *Scorch) diskFileStats(rootSegmentPaths map[string]struct{}) (uint64,
-	uint64, uint64) {
+	uint64, uint64,
+) {
 	var numFilesOnDisk, numBytesUsedDisk, numBytesOnDiskByRoot uint64
 	if s.path != "" {
 		files, err := os.ReadDir(s.path)
@@ -635,6 +657,8 @@ func (s *Scorch) StatsMap() map[string]interface{} {
 	m["term_searchers_started"] = m["TotTermSearchersStarted"]
 	m["term_searchers_finished"] = m["TotTermSearchersFinished"]
 	m["knn_searches"] = m["TotKNNSearches"]
+	m["synonym_searches"] = m["TotSynonymSearches"]
+	m["total_mutations_filtered"] = m["TotMutationsFiltered"]
 
 	m["num_bytes_read_at_query_time"] = m["TotBytesReadAtQueryTime"]
 	m["num_plain_text_bytes_indexed"] = m["TotIndexedPlainTextBytes"]
@@ -656,6 +680,17 @@ func (s *Scorch) StatsMap() map[string]interface{} {
 	m["num_persister_nap_pause_completed"] = m["TotPersisterNapPauseCompleted"]
 	m["num_persister_nap_merger_break"] = m["TotPersisterMergerNapBreak"]
 	m["total_compaction_written_bytes"] = m["TotFileMergeWrittenBytes"]
+
+	// the bool stat `index_bgthreads_active` indicates whether the background routines
+	// (which are responsible for the index to attain a steady state) are still
+	// doing some work.
+	if rootEpoch, ok := m["CurRootEpoch"].(uint64); ok {
+		if lastMergedEpoch, ok := m["LastMergedEpoch"].(uint64); ok {
+			if lastPersistedEpoch, ok := m["LastPersistedEpoch"].(uint64); ok {
+				m["index_bgthreads_active"] = !(lastMergedEpoch == rootEpoch && lastPersistedEpoch == rootEpoch)
+			}
+		}
+	}
 
 	// calculate the aggregate of all the segment's field stats
 	aggFieldStats := newFieldStats()
@@ -705,6 +740,27 @@ func analyze(d index.Document, fn customAnalyzerPluginInitFunc) {
 				d.VisitComposite(func(cf index.CompositeField) {
 					cf.Compose(field.Name(), field.AnalyzedLength(), field.AnalyzedTokenFrequencies())
 				})
+				// Since the encoded geoShape is only necessary within the doc values
+				// of the geoShapeField, it has been removed from the field's term dictionary.
+				// However, '_all' field uses its term dictionary as its docValues, so it
+				// becomes necessary to add the geoShape into the '_all' field's term dictionary
+				if f, ok := field.(index.GeoShapeField); ok {
+					d.VisitComposite(func(cf index.CompositeField) {
+						geoshape := f.EncodedShape()
+						cf.Compose(field.Name(), 1, index.TokenFrequencies{
+							string(geoshape): &index.TokenFreq{
+								Term: geoshape,
+								Locations: []*index.TokenLocation{
+									{
+										Start:    0,
+										End:      len(geoshape),
+										Position: 1,
+									},
+								},
+							},
+						})
+					})
+				}
 			}
 		}
 	})
@@ -771,7 +827,10 @@ func (s *Scorch) unmarkIneligibleForRemoval(filename string) {
 }
 
 func init() {
-	registry.RegisterIndexType(Name, NewScorch)
+	err := registry.RegisterIndexType(Name, NewScorch)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func parseToTimeDuration(i interface{}) (time.Duration, error) {
@@ -812,7 +871,6 @@ func (fs *fieldStats) Store(statName, fieldName string, value uint64) {
 
 // Combine the given stats map with the existing map
 func (fs *fieldStats) Aggregate(stats segment.FieldStats) {
-
 	statMap := stats.Fetch()
 	if statMap == nil {
 		return

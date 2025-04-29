@@ -1,4 +1,7 @@
+issue-845-fix: True
+resolve-type-alias: False
 with-expecter: true
+disable-version-string: True
 filename: "{{.InterfaceName | snakecase }}.go"
 dir: "{{.PackageName}}/mocks"
 mockname: "{{.InterfaceName}}"

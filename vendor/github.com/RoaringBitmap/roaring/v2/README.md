@@ -10,7 +10,7 @@
 This is a go version of the Roaring bitmap data structure. 
 
 Roaring bitmaps are used by several major systems such as [Apache Lucene][lucene] and derivative systems such as [Solr][solr] and
-[Elasticsearch][elasticsearch], [Apache Druid (Incubating)][druid], [LinkedIn Pinot][pinot], [Netflix Atlas][atlas],  [Apache Spark][spark], [OpenSearchServer][opensearchserver], [anacrolix/torrent][anacrolix/torrent], [Whoosh][whoosh],  [Pilosa][pilosa],  [Microsoft Visual Studio Team Services (VSTS)][vsts], and eBay's [Apache Kylin][kylin]. The YouTube SQL Engine, [Google Procella](https://research.google/pubs/pub48388/), uses Roaring bitmaps for indexing.
+[Elasticsearch][elasticsearch], [Apache Druid (Incubating)][druid], [LinkedIn Pinot][pinot], [Netflix Atlas][atlas],  [Apache Spark][spark], [OpenSearchServer][opensearchserver], [anacrolix/torrent][anacrolix/torrent], [Whoosh][whoosh], [Redpanda](https://github.com/redpanda-data/redpanda), [Pilosa][pilosa],  [Microsoft Visual Studio Team Services (VSTS)][vsts], and eBay's [Apache Kylin][kylin]. The YouTube SQL Engine, [Google Procella](https://research.google/pubs/pub48388/), uses Roaring bitmaps for indexing.
 
 [lucene]: https://lucene.apache.org/
 [solr]: https://lucene.apache.org/solr/
@@ -163,7 +163,7 @@ they include
   - github.com/philhofer/fwd
   - github.com/jtolds/gls
 
-Note that the smat library requires Go 1.6 or better.
+Note that the smat library requires Go 1.15 or better.
 
 #### Installation
 
@@ -188,7 +188,7 @@ package main
 
 import (
     "fmt"
-    "github.com/RoaringBitmap/roaring"
+    "github.com/RoaringBitmap/roaring/v2"
     "bytes"
 )
 
@@ -249,15 +249,20 @@ consider the following sample of code:
 	buf := new(bytes.Buffer)
 	size,err:=rb.WriteTo(buf)
 	if err != nil {
-		t.Errorf("Failed writing")
+		fmt.Println("Failed writing") // return or panic
 	}
 	newrb:= New()
 	size,err=newrb.ReadFrom(buf)
 	if err != nil {
-		t.Errorf("Failed reading")
+		fmt.Println("Failed reading") // return or panic
+	}
+	// if buf is an untrusted source, you should validate the result
+	// (this adds a bit of complexity but it is necessary for security)
+	if newrb.Validate() != nil {
+		fmt.Println("Failed validation") // return or panic
 	}
 	if ! rb.Equals(newrb) {
-		t.Errorf("Cannot retrieve serialized version")
+		fmt.Println("Cannot retrieve serialized version")
 	}
 ```
 
@@ -280,7 +285,7 @@ package main
 
 import (
     "fmt"
-    "github.com/RoaringBitmap/roaring/roaring64"
+    "github.com/RoaringBitmap/roaring/v2/roaring64"
     "bytes"
 )
 
@@ -356,7 +361,7 @@ https://coveralls.io/github/RoaringBitmap/roaring?branch=master
 Type
 
          go test -bench Benchmark -run -
-         
+
 To run benchmarks on [Real Roaring Datasets](https://github.com/RoaringBitmap/real-roaring-datasets)
 run the following:
 
@@ -369,9 +374,8 @@ BENCH_REAL_DATA=1 go test -bench BenchmarkRealData -run -
 
 You can use roaring with gore:
 
-- go get -u github.com/motemen/gore
+- go install github.com/x-motemen/gore/cmd/gore@latest
 - Make sure that ``$GOPATH/bin`` is in your ``$PATH``.
-- go get github.com/RoaringBitmap/roaring
 
 ```go
 $ gore

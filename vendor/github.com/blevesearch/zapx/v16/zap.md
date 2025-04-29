@@ -28,9 +28,9 @@
 
 ### Chunked data
 
-	[--------]
-	[        ]
-	[--------]
+    [--------]
+    [        ]
+    [--------]
 
 ## Overview
 
@@ -64,7 +64,6 @@ Footer section describes the configuration of particular ZAP file. The format of
      CF. Chunk Factor.
       V. Version.
      CC. CRC32.
-
 
 ## Stored Fields
 
@@ -114,10 +113,9 @@ Sections Index is a set of NF uint64 addresses (0 through F# - 1) each of which 
      NS. Number of index sections
      Sn. nth index section
 
-
 ## Inverted Text Index Section
 
-Each fields has its own types of indexes in separate sections as indicated above. This can be a vector index or inverted text index.
+Each field has its own types of indexes in separate sections as indicated above. This can be a vector index or inverted text index.
 
 In case of inverted text index, the dictionary is encoded in [Vellum](https://github.com/couchbase/vellum) format. Dictionary consists of pairs `(term, offset)`, where `offset` indicates the position of postings (list of documents) for this particular term.
 
@@ -151,6 +149,8 @@ In case of inverted text index, the dictionary is encoded in [Vellum](https://gi
     |   |                                                                |
     |   |================================================================+- Vector Index Section
     |   |                                                                |
+    |   +================================================================+- Synonym Index Section
+    |   |                                                                |
     |   |================================================================+- Sections Info
     +-----------------------------+                                      |
         |                         |                                      |
@@ -162,22 +162,76 @@ In case of inverted text index, the dictionary is encoded in [Vellum](https://gi
 
          ITI - Inverted Text Index
 
+## Synonym Index Section
+
+In a synonyms index, the relationship between a term and its synonyms is represented using a Thesaurus. The Thesaurus is encoded in the [Vellum](https://github.com/couchbase/vellum) format and consists of pairs in the form `(term, offset)`. Here, the offset specifies the position of the postings list containing the synonyms for the given term. The postings list is stored as a Roaring64 bitmap, with each entry representing an encoded synonym for the term.
+
+        |================================================================+- Inverted Text Index Section
+        |                                                                |
+        |================================================================+- Vector Index Section
+        |                                                                |
+        +================================================================+- Synonym Index Section
+        |                                                                |
+        |    (Offset)  +~~~~~+----------+...+---+                        |
+        |   +--------->|  RL | ROARING64 BITMAP |                        |
+        |   |          +~~~~~+----------+...+---+                        +-------------------+         
+        |   |(Term -> Offset)                                                                |    
+        |   +--------+                                                                       |
+        |            |                            Term ID to Term map (NST Entries)          |   
+        |    +~~~~+~~~~+~~~~~[{~~~~~+~~~~+~~~~~~}{~~~~~+~~~~+~~~~~~}...{~~~~~+~~~~+~~~~~~}]  |
+        | +->| VL | VD | NST || TID | TL | Term || TID | TL | Term |   | TID | TL | Term |   |
+        | |  +~~~~+~~~~+~~~~~[{~~~~~+~~~~+~~~~~~}{~~~~~+~~~~+~~~~~~}...{~~~~~+~~~~+~~~~~~}]  |
+        | |                                                                                  |
+        | +----------------------------+                                                     |
+        |                              |                                                     |   
+        | +~~~~~~~~~~+~~~~~~~~+~~~~~~~~~~~~~~~~~+                                            |
+    +-----> DV Start | DV End | ThesaurusOffset |                                            |   
+    |   | +~~~~~~~~~~+~~~~~~~~+~~~~~~~~~~~~~~~~~+                        +-------------------+
+    |   |                                                                |
+    |   |                                                                |
+    |   |================================================================+- Sections Info
+    +-----------------------------+                                      |
+        |                         |                                      |
+        |     +-------+-----+-----+------+~~~~~~~~+~~~~~~~~+--+...+--+   |
+        |     |  ...  | SI  | SI ADDR    |   NS   | Length |    Name |   |
+        |     +-------+-----+------------+~~~~~~~~+~~~~~~~~+--+...+--+   |
+        +================================================================+
+
+         SI  - Synonym Index
+         VL  - Vellum Length
+         VD  - Vellum Data (Term -> Offset)
+         RL  - Roaring64 Length
+         NST - Number of entries in the term ID to term map
+         TID - Term ID (32-bit)
+         TL  - Term Length
+
+### Synonym Encoding
+
+        ROARING64 BITMAP
+
+        Each 64-bit entry consists of two parts: the first 32 bits represent the Term ID (TID),
+        and the next 32 bits represent the Document Number (DN).
+
+        [{~~~~~+~~~~}{~~~~~+~~~~}...{~~~~~+~~~~}]
+         | TID | DN || TID | DN |   | TID | DN |
+        [{~~~~~+~~~~}{~~~~~+~~~~}...{~~~~~+~~~~}]
+
+            TID - Term ID (32-bit)
+            DN  - Document Number (32-bit)
 
 ## Doc Values
 
 DocValue start and end offsets are stored within the section content of each field. This allows each field having its own type of index to choose whether to store the doc values or not. For example, it may not make sense to store doc values for vector indexing and so, the offsets can be invalid ones for it whereas the fields having text indexing may have valid doc values offsets.
 
-
-	+================================================================+
-	|     +------...--+                                              |
-	|  +->+ DocValues +<-+                                           |
-	|  |  +------...--+  |                                           |
-	|==|=================|===========================================+- Inverted Text
-	++~+~~~~~~~~~+~~~~~~~+~~+~~~~~~~~+-----------------------...--+  |  Index Section
-	|| DV START  |  DV END  | LENGTH | VELLUM DATA: TERM -> OFFSET|  |
-	++~~~~~~~~~~~+~~~~~~~~~~+~~~~~~~~+-----------------------...--+  |
-	+================================================================+
-
+    +================================================================+
+    |     +------...--+                                              |
+    |  +->+ DocValues +<-+                                           |
+    |  |  +------...--+  |                                           |
+    |==|=================|===========================================+- Inverted Text
+    ++~+~~~~~~~~~+~~~~~~~+~~+~~~~~~~~+-----------------------...--+  |  Index Section
+    || DV START  |  DV END  | LENGTH | VELLUM DATA: TERM -> OFFSET|  |
+    ++~~~~~~~~~~~+~~~~~~~~~~+~~~~~~~~+-----------------------...--+  |
+    +================================================================+
 
 DocValues is chunked Snappy-compressed values for each document and field.
 

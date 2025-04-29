@@ -1,12 +1,18 @@
 package roaring
 
 import (
+	"errors"
 	"fmt"
 )
 
 type arrayContainer struct {
 	content []uint16
 }
+
+var (
+	ErrArrayIncorrectSort = errors.New("incorrectly sorted array")
+	ErrArrayInvalidSize   = errors.New("invalid array size")
+)
 
 func (ac *arrayContainer) String() string {
 	s := "{"
@@ -26,8 +32,7 @@ func (ac *arrayContainer) fillLeastSignificant16bits(x []uint32, i int, mask uin
 	_ = x[len(ac.content)-1+i]
 	_ = ac.content[len(ac.content)-1]
 	for k := 0; k < len(ac.content); k++ {
-		x[k+i] =
-			uint32(ac.content[k]) | mask
+		x[k+i] = uint32(ac.content[k]) | mask
 	}
 	return i + len(ac.content)
 }
@@ -60,8 +65,24 @@ func (ac *arrayContainer) minimum() uint16 {
 	return ac.content[0] // assume not empty
 }
 
+func (ac *arrayContainer) safeMinimum() (uint16, error) {
+	if len(ac.content) == 0 {
+		return 0, errors.New("empty array")
+	}
+
+	return ac.minimum(), nil
+}
+
 func (ac *arrayContainer) maximum() uint16 {
 	return ac.content[len(ac.content)-1] // assume not empty
+}
+
+func (ac *arrayContainer) safeMaximum() (uint16, error) {
+	if len(ac.content) == 0 {
+		return 0, errors.New("empty array")
+	}
+
+	return ac.maximum(), nil
 }
 
 func (ac *arrayContainer) getSizeInBytes() int {
@@ -168,7 +189,7 @@ func (ac *arrayContainer) notClose(firstOfRange, lastOfRange int) container {
 		return ac.toBitmapContainer().not(firstOfRange, lastOfRange+1)
 	}
 	answer := newArrayContainer()
-	answer.content = make([]uint16, newCardinality, newCardinality) //a hack for sure
+	answer.content = make([]uint16, newCardinality, newCardinality) // a hack for sure
 
 	copy(answer.content, ac.content[:startIndex])
 	outPos := startIndex
@@ -194,11 +215,9 @@ func (ac *arrayContainer) notClose(firstOfRange, lastOfRange int) container {
 	}
 	answer.content = answer.content[:newCardinality]
 	return answer
-
 }
 
 func (ac *arrayContainer) equals(o container) bool {
-
 	srb, ok := o.(*arrayContainer)
 	if ok {
 		// Check if the containers are the same object.
@@ -239,8 +258,8 @@ func (ac *arrayContainer) toBitmapContainer() *bitmapContainer {
 	bc := newBitmapContainer()
 	bc.loadData(ac)
 	return bc
-
 }
+
 func (ac *arrayContainer) iadd(x uint16) (wasNew bool) {
 	// Special case adding to the end of the container.
 	l := len(ac.content)
@@ -352,7 +371,6 @@ func (ac *arrayContainer) ior(a container) container {
 		return ac.iorArray(x)
 	case *bitmapContainer:
 		return a.(*bitmapContainer).orArray(ac)
-		//return ac.iorBitmap(x) // note: this does not make sense
 	case *runContainer16:
 		if x.isFull() {
 			return x.clone()
@@ -589,7 +607,6 @@ func (ac *arrayContainer) iandBitmap(bc *bitmapContainer) container {
 	}
 	ac.content = ac.content[:pos]
 	return ac
-
 }
 
 func (ac *arrayContainer) xor(a container) container {
@@ -630,7 +647,6 @@ func (ac *arrayContainer) xorArray(value2 *arrayContainer) container {
 	length := exclusiveUnion2by2(value1.content, value2.content, answer.content)
 	answer.content = answer.content[:length]
 	return answer
-
 }
 
 func (ac *arrayContainer) andNot(a container) container {
@@ -822,7 +838,6 @@ func (ac *arrayContainer) inotClose(firstOfRange, lastOfRange int) container {
 	} else { // no expansion needed
 		ac.negateRange(buffer, startIndex, lastIndex, firstOfRange, lastOfRange+1)
 		if cardinalityChange < 0 {
-
 			for i := startIndex + newValuesInRange; i < newCardinality; i++ {
 				ac.content[i] = ac.content[i-cardinalityChange]
 			}
@@ -915,7 +930,6 @@ func (ac *arrayContainer) rank(x uint16) int {
 		return answer + 1
 	}
 	return -answer - 1
-
 }
 
 func (ac *arrayContainer) selectInt(x uint16) int {
@@ -969,6 +983,179 @@ func (ac *arrayContainer) realloc(size int) {
 	} else {
 		ac.content = ac.content[:size]
 	}
+}
+
+// previousValue returns either the target if found or the previous smaller present value.
+// If the target is out of bounds a -1 is returned.
+// Ex: target=4 ac=[2,3,4,6,7] returns 4
+// Ex: target=5 ac=[2,3,4,6,7] returns 4
+// Ex: target=6 ac=[2,3,4,6,7] returns 6
+// Ex: target=8 ac=[2,3,4,6,7] returns 7
+// Ex: target=1 ac=[2,3,4,6,7] returns -1
+// Ex: target=0 ac=[2,3,4,6,7] returns -1
+func (ac *arrayContainer) previousValue(target uint16) int {
+	result := binarySearchUntil(ac.content, target)
+
+	if result.index == len(ac.content) {
+		return int(ac.maximum())
+	}
+
+	if result.outOfBounds() {
+		return -1
+	}
+
+	return int(result.value)
+}
+
+// previousAbsentValue returns either the target if not found or the next larger missing value.
+// If the target is out of bounds a -1 is returned
+// Ex: target=4 ac=[1,2,3,4,6,7] returns 0
+// Ex: target=5 ac=[1,2,3,4,6,7] returns 5
+// Ex: target=6 ac=[1,2,3,4,6,7] returns 5
+// Ex: target=8 ac=[1,2,3,4,6,7] returns 8
+func (ac *arrayContainer) previousAbsentValue(target uint16) int {
+	cardinality := len(ac.content)
+
+	if cardinality == 0 {
+		return int(target)
+	}
+
+	if target > ac.maximum() {
+		return int(target)
+	}
+
+	result := binarySearchPast(ac.content, target)
+
+	if result.notFound() {
+		return int(target)
+	}
+
+	// If the target was found at index 1, then the next value down must be result.value-1
+	if result.index == 1 {
+		if ac.minimum() != result.value-1 {
+			return int(result.value - 1)
+		}
+	}
+
+	low := -1
+	high := result.index
+
+	// This uses the pigeon-hole principle.
+	// the if statement compares the difference in indices vs
+	// the difference in values. Suppose mid = 10 and result.index = 5
+	// with ac.content[mid] = 100 and target = 10
+	// then we have 5 slots for values but we need to fit in 90 values
+	// so some of the values must be missing
+	for low+1 < high {
+		midIndex := (high + low) >> 1
+		indexDifference := result.index - midIndex
+		valueDifference := target - ac.content[midIndex]
+		if indexDifference < int(valueDifference) {
+			low = midIndex
+		} else {
+			high = midIndex
+		}
+	}
+
+	if high == 0 {
+		return int(ac.minimum()) - 1
+	}
+
+	return int(ac.content[high] - 1)
+}
+
+// nextAbsentValue returns either the target if not found or the next larger missing value.
+// If the target is out of bounds a -1 is returned
+// Ex: target=4 ac=[1,2,3,4,6,7] returns 5
+// Ex: target=5 ac=[1,2,3,4,6,7] returns 5
+// Ex: target=0 ac=[1,2,3,4,6,7] returns 0
+// Ex: target=8 ac=[1,2,3,4,6,7] returns 8
+func (ac *arrayContainer) nextAbsentValue(target uint16) int {
+	cardinality := len(ac.content)
+
+	if cardinality == 0 {
+		return int(target)
+	}
+	if target < ac.minimum() {
+		return int(target)
+	}
+
+	result := binarySearchPast(ac.content, target)
+
+	if result.notFound() {
+		return int(target)
+	}
+
+	if result.index == cardinality-2 {
+		if ac.maximum() != result.value+1 {
+			return int(result.value + 1)
+		}
+	}
+
+	low := result.index
+	high := len(ac.content)
+
+	// This uses the pigeon-hole principle.
+	// the if statement compares the difference in indices vs
+	// the difference in values. Suppose mid = 10 and result.index = 5
+	// with ac.content[mid] = 100 and target = 10
+	// then we have 5 slots for values but we need to fit in 90 values
+	// so some of the values must be missing
+	for low+1 < high {
+		midIndex := (high + low) >> 1
+		indexDifference := midIndex - result.index
+		valueDifference := ac.content[midIndex] - target
+		if indexDifference < int(valueDifference) {
+			high = midIndex
+		} else {
+			low = midIndex
+		}
+	}
+
+	if low == cardinality-1 {
+		return int(ac.content[cardinality-1] + 1)
+	}
+
+	return int(ac.content[low] + 1)
+}
+
+// nextValue returns either the target if found or the next larger value.
+// if the target is out of bounds a -1 is returned
+//
+// Ex: target=4 ac=[1,2,3,4,6,7] returns 4
+// Ex: target=5 ac=[1,2,3,4,6,7] returns 6
+// Ex: target=6 ac=[1,2,3,4,6,7] returns 6
+// Ex: target=0 ac=[1,2,3,4,6,7] returns 1
+// Ex: target=100 ac=[1,2,3,4,6,7] returns -1
+func (ac *arrayContainer) nextValue(target uint16) int {
+	cardinality := len(ac.content)
+	if cardinality == 0 {
+		return -1
+	}
+
+	//if target < ac.minimum() {
+	//	return -1
+	//}
+	//if target > ac.maximum() {
+	//		return -1
+	//	}
+
+	result := binarySearchUntil(ac.content, target)
+	if result.exactMatch {
+		return int(result.value)
+	}
+
+	if !result.exactMatch && result.index == -1 {
+		return int(ac.content[0])
+	}
+	if result.outOfBounds() {
+		return -1
+	}
+
+	if result.index < len(ac.content)-1 {
+		return int(ac.content[result.index+1])
+	}
+	return -1
 }
 
 func newArrayContainer() *arrayContainer {
@@ -1039,15 +1226,12 @@ func (ac *arrayContainer) numberOfRuns() (nr int) {
 
 // convert to run or array *if needed*
 func (ac *arrayContainer) toEfficientContainer() container {
-
 	numRuns := ac.numberOfRuns()
-
 	sizeAsRunContainer := runContainer16SerializedSizeInBytes(numRuns)
 	sizeAsBitmapContainer := bitmapContainerSizeInBytes()
 	card := ac.getCardinality()
 	sizeAsArrayContainer := arrayContainerSizeInBytes(card)
-
-	if sizeAsRunContainer <= minOfInt(sizeAsBitmapContainer, sizeAsArrayContainer) {
+	if sizeAsRunContainer < minOfInt(sizeAsBitmapContainer, sizeAsArrayContainer) {
 		return newRunContainer16FromArray(ac)
 	}
 	if card <= arrayDefaultMaxSize {
@@ -1098,4 +1282,29 @@ func (ac *arrayContainer) addOffset(x uint16) (container, container) {
 	}
 
 	return low, high
+}
+
+// validate checks cardinality and sort order of the array container
+func (ac *arrayContainer) validate() error {
+	cardinality := ac.getCardinality()
+
+	if cardinality <= 0 {
+		return ErrArrayInvalidSize
+	}
+
+	if cardinality > arrayDefaultMaxSize {
+		return ErrArrayInvalidSize
+	}
+
+	previous := ac.content[0]
+	for i := 1; i < len(ac.content); i++ {
+		next := ac.content[i]
+		if previous > next {
+			return ErrArrayIncorrectSort
+		}
+		previous = next
+
+	}
+
+	return nil
 }

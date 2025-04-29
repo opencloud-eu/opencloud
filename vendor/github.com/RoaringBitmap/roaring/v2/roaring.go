@@ -12,7 +12,7 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/RoaringBitmap/roaring/internal"
+	"github.com/RoaringBitmap/roaring/v2/internal"
 	"github.com/bits-and-blooms/bitset"
 )
 
@@ -26,7 +26,6 @@ func (rb *Bitmap) ToBase64() (string, error) {
 	buf := new(bytes.Buffer)
 	_, err := rb.WriteTo(buf)
 	return base64.StdEncoding.EncodeToString(buf.Bytes()), err
-
 }
 
 // FromBase64 deserializes a bitmap from Base64
@@ -54,10 +53,12 @@ func (rb *Bitmap) ToBytes() ([]byte, error) {
 	return rb.highlowcontainer.toBytes()
 }
 
-const wordSize = uint64(64)
-const log2WordSize = uint64(6)
-const capacity = ^uint64(0)
-const bitmapContainerSize = (1 << 16) / 64 // bitmap size in words
+const (
+	wordSize            = uint64(64)
+	log2WordSize        = uint64(6)
+	capacity            = ^uint64(0)
+	bitmapContainerSize = (1 << 16) / 64 // bitmap size in words
+)
 
 // DenseSize returns the size of the bitmap when stored as a dense bitmap.
 func (rb *Bitmap) DenseSize() uint64 {
@@ -276,14 +277,19 @@ func (rb *Bitmap) Checksum() uint64 {
 	return hash
 }
 
-// FromUnsafeBytes reads a serialized version of this bitmap from the byte buffer without copy.
+// FromUnsafeBytes reads a serialized version of this bitmap from the byte buffer without copy
+// (for advanced users only, you must be an expert Go programmer!).
+// E.g., you can use this method to read a serialized bitmap from a memory-mapped file written out
+// with the WriteTo method.
+// The format specification is
+// https://github.com/RoaringBitmap/RoaringFormatSpec
 // It is the caller's responsibility to ensure that the input data is not modified and remains valid for the entire lifetime of this bitmap.
 // This method avoids small allocations but holds references to the input data buffer. It is GC-friendly, but it may consume more memory eventually.
 // The containers in the resulting bitmap are immutable containers tied to the provided byte array and they rely on
 // copy-on-write which means that modifying them creates copies. Thus FromUnsafeBytes is more likely to be appropriate for read-only use cases,
 // when the resulting bitmap can be considered immutable.
 //
-// See also the FromBuffer function.
+// See also the FromBuffer function. We recommend benchmarking both functions to determine which one is more suitable for your use case.
 // See https://github.com/RoaringBitmap/roaring/pull/395 for more details.
 func (rb *Bitmap) FromUnsafeBytes(data []byte, cookieHeader ...byte) (p int64, err error) {
 	stream := internal.NewByteBuffer(data)
@@ -291,11 +297,13 @@ func (rb *Bitmap) FromUnsafeBytes(data []byte, cookieHeader ...byte) (p int64, e
 }
 
 // ReadFrom reads a serialized version of this bitmap from stream.
+// E.g., you can use this method to read a serialized bitmap from a file written
+// with the WriteTo method.
 // The format is compatible with other RoaringBitmap
 // implementations (Java, C) and is documented here:
 // https://github.com/RoaringBitmap/RoaringFormatSpec
-// Since io.Reader is regarded as a stream and cannot be read twice.
-// So add cookieHeader to accept the 4-byte data that has been read in roaring64.ReadFrom.
+// Since io.Reader is regarded as a stream and cannot be read twice,
+// we add cookieHeader to accept the 4-byte data that has been read in roaring64.ReadFrom.
 // It is not necessary to pass cookieHeader when call roaring.ReadFrom to read the roaring32 data directly.
 func (rb *Bitmap) ReadFrom(reader io.Reader, cookieHeader ...byte) (p int64, err error) {
 	stream, ok := reader.(internal.ByteInput)
@@ -313,7 +321,18 @@ func (rb *Bitmap) ReadFrom(reader io.Reader, cookieHeader ...byte) (p int64, err
 	return
 }
 
-// FromBuffer creates a bitmap from its serialized version stored in buffer
+// MustReadFrom calls ReadFrom internally.
+// After deserialization Validate will be called.
+// If the Bitmap fails to validate, a panic with the validation error will be thrown
+func (rb *Bitmap) MustReadFrom(reader io.Reader, cookieHeader ...byte) (p int64, err error) {
+	rb.ReadFrom(reader, cookieHeader...)
+	if err := rb.Validate(); err != nil {
+		panic(err)
+	}
+	return
+}
+
+// FromBuffer creates a bitmap from its serialized version stored in buffer (E.g., as written by WriteTo).
 //
 // The format specification is available here:
 // https://github.com/RoaringBitmap/RoaringFormatSpec
@@ -960,7 +979,6 @@ func (rb *Bitmap) CheckedAdd(x uint32) bool {
 	newac := newArrayContainer()
 	rb.highlowcontainer.insertNewKeyValueAt(-i-1, hb, newac.iaddReturnMinimized(lowbits(x)))
 	return true
-
 }
 
 // AddInt adds the integer x to the bitmap (convenience method: the parameter is casted to uint32 and we call Add)
@@ -998,7 +1016,6 @@ func (rb *Bitmap) CheckedRemove(x uint32) bool {
 		return C.getCardinality() < oldcard
 	}
 	return false
-
 }
 
 // IsEmpty returns true if the Bitmap is empty (it is faster than doing (GetCardinality() == 0))
@@ -1088,7 +1105,7 @@ main:
 						break main
 					}
 					s1 = rb.highlowcontainer.getKeyAtIndex(pos1)
-				} else { //s1 > s2
+				} else { // s1 > s2
 					pos2 = x2.highlowcontainer.advanceUntil(s1, pos2)
 					if pos2 == length2 {
 						break main
@@ -1187,7 +1204,7 @@ main:
 						break main
 					}
 					s1 = rb.highlowcontainer.getKeyAtIndex(pos1)
-				} else { //s1 > s2
+				} else { // s1 > s2
 					pos2 = x2.highlowcontainer.advanceUntil(s1, pos2)
 					if pos2 == length2 {
 						break main
@@ -1256,7 +1273,7 @@ main:
 						break main
 					}
 					s1 = rb.highlowcontainer.getKeyAtIndex(pos1)
-				} else { //s1 > s2
+				} else { // s1 > s2
 					pos2 = x2.highlowcontainer.advanceUntil(s1, pos2)
 					if pos2 == length2 {
 						break main
@@ -1396,7 +1413,7 @@ main:
 						break main
 					}
 					s1 = rb.highlowcontainer.getKeyAtIndex(pos1)
-				} else { //s1 > s2
+				} else { // s1 > s2
 					pos2 = x2.highlowcontainer.advanceUntil(s1, pos2)
 					if pos2 == length2 {
 						break main
@@ -1584,7 +1601,7 @@ main:
 					}
 					s1 = x1.highlowcontainer.getKeyAtIndex(pos1)
 					s2 = x2.highlowcontainer.getKeyAtIndex(pos2)
-				} else { //s1 > s2
+				} else { // s1 > s2
 					pos2 = x2.highlowcontainer.advanceUntil(s1, pos2)
 					if pos2 == length2 {
 						break main
@@ -1632,7 +1649,6 @@ func BitmapOf(dat ...uint32) *Bitmap {
 // The function uses 64-bit parameters even though a Bitmap stores 32-bit values because it is allowed and meaningful to use [0,uint64(0x100000000)) as a range
 // while uint64(0x100000000) cannot be represented as a 32-bit value.
 func (rb *Bitmap) Flip(rangeStart, rangeEnd uint64) {
-
 	if rangeEnd > MaxUint32+1 {
 		panic("rangeEnd > MaxUint32+1")
 	}
@@ -1869,6 +1885,206 @@ func (rb *Bitmap) CloneCopyOnWriteContainers() {
 	rb.highlowcontainer.cloneCopyOnWriteContainers()
 }
 
+// NextValue returns the next largest value in the bitmap, or -1
+// if none is present. This function should not be used inside
+// a performance-sensitive loop: prefer iterators if
+// performance is a concern.
+func (rb *Bitmap) NextValue(target uint32) int64 {
+	originalKey := highbits(target)
+	query := lowbits(target)
+	var nextValue int64
+	nextValue = -1
+	containerIndex := rb.highlowcontainer.advanceUntil(originalKey, -1)
+	for containerIndex < rb.highlowcontainer.size() && nextValue == -1 {
+		containerKey := rb.highlowcontainer.getKeyAtIndex(containerIndex)
+		container := rb.highlowcontainer.getContainer(containerKey)
+		// if containerKey > orginalKey then we are past the container which mapped to the orignal key
+		// in that case we can just return the minimum from that container
+		var responseBit int64
+		if containerKey > originalKey {
+			bit, err := container.safeMinimum()
+			if err == nil {
+				responseBit = -1
+			}
+			responseBit = int64(bit)
+		} else {
+			responseBit = int64(container.nextValue(query))
+		}
+
+		if responseBit == -1 {
+			nextValue = -1
+		} else {
+			nextValue = int64(combineLoHi32(uint32(responseBit), uint32(containerKey)))
+		}
+		containerIndex++
+	}
+
+	return nextValue
+}
+
+// PreviousValue returns the previous largest value in the bitmap, or -1
+// if none is present. This function should not be used inside
+// a performance-sensitive loop: prefer iterators if
+// performance is a concern.
+func (rb *Bitmap) PreviousValue(target uint32) int64 {
+	if rb.IsEmpty() {
+		return -1
+	}
+
+	originalKey := highbits(uint32(target))
+	query := lowbits(uint32(target))
+	var prevValue int64
+	prevValue = -1
+	containerIndex := rb.highlowcontainer.advanceUntil(originalKey, -1)
+
+	if containerIndex == rb.highlowcontainer.size() {
+		return int64(rb.Maximum())
+	}
+
+	if rb.highlowcontainer.getKeyAtIndex(containerIndex) > originalKey {
+		// target absent, key of first container after target too high
+		containerIndex--
+	}
+
+	for containerIndex != -1 && prevValue == -1 {
+		containerKey := rb.highlowcontainer.getKeyAtIndex(containerIndex)
+		container := rb.highlowcontainer.getContainer(containerKey)
+		// if containerKey > originalKey then we are past the container which mapped to the original key
+		// in that case we can just return the minimum from that container
+		var responseBit int
+		if containerKey < originalKey {
+			bit, err := container.safeMaximum()
+
+			if err == nil {
+				responseBit = -1
+			}
+			responseBit = int(bit)
+		} else {
+			responseBit = container.previousValue(query)
+		}
+
+		if responseBit == -1 {
+			prevValue = -1
+		} else {
+			prevValue = int64(combineLoHi32(uint32(responseBit), uint32(containerKey)))
+		}
+		containerIndex--
+	}
+
+	return prevValue
+}
+
+// NextAbsentValue returns the next largest missing value in the bitmap, or -1
+// if none is present. This function should not be used inside
+// a performance-sensitive loop: prefer iterators if
+// performance is a concern.
+func (rb *Bitmap) NextAbsentValue(target uint32) int64 {
+	originalKey := highbits(target)
+	query := lowbits(target)
+	var nextValue int64
+	nextValue = -1
+
+	containerIndex := rb.highlowcontainer.advanceUntil(originalKey, -1)
+	if containerIndex == rb.highlowcontainer.size() {
+		// if we are here it means no container found, just return the target
+		return int64(target)
+	}
+
+	containerKey := rb.highlowcontainer.getKeyAtIndex(containerIndex)
+
+	keyspace := uint32(containerKey) << 16
+	if target < keyspace {
+		// target is less than the start of the keyspace start
+		// that means target cannot be in the keyspace
+		return int64(target)
+	}
+
+	container := rb.highlowcontainer.getContainer(containerKey)
+	nextValue = int64(container.nextAbsentValue(query))
+	for {
+		if nextValue != (1 << 16) {
+			return int64(combineLoHi32(uint32(nextValue), keyspace))
+		}
+
+		if containerIndex == rb.highlowcontainer.size()-1 {
+			val, err := container.safeMaximum()
+			if err == nil {
+				return -1
+			}
+			return int64(val) + 1
+		}
+		containerIndex++
+		nextContainerKey := rb.highlowcontainer.getKeyAtIndex(containerIndex)
+		if containerKey < nextContainerKey {
+			// There is a gap between keys
+			// Just increment the current key and shift to get HoB
+			return int64(containerKey+1) << 16
+		}
+		containerKey = nextContainerKey
+		container = rb.highlowcontainer.getContainer(containerKey)
+		nextValue = int64(container.nextAbsentValue(0))
+	}
+}
+
+// PreviousAbsentValue returns the previous largest missing value in the bitmap, or -1
+// if none is present. This function should not be used inside
+// a performance-sensitive loop: prefer iterators if
+// performance is a concern.
+func (rb *Bitmap) PreviousAbsentValue(target uint32) int64 {
+	originalKey := highbits(target)
+	query := lowbits(target)
+	var prevValue int64
+	prevValue = -1
+
+	containerIndex := rb.highlowcontainer.advanceUntil(originalKey, -1)
+
+	if containerIndex == rb.highlowcontainer.size() {
+		// if we are here it means no container found, just return the target
+		return int64(target)
+	}
+
+	if containerIndex == -1 {
+		// if we are here it means no container found, just return the target
+		return int64(target)
+	}
+
+	containerKey := rb.highlowcontainer.getKeyAtIndex(containerIndex)
+	keyspace := uint32(containerKey) << 16
+	if target < keyspace {
+		// target is less than the start of the keyspace start
+		// that means target cannot be in the keyspace
+		return int64(target)
+	}
+
+	container := rb.highlowcontainer.getContainer(containerKey)
+	prevValue = int64(container.previousAbsentValue(query))
+	for {
+		if prevValue != -1 {
+			return int64(combineLoHi32(uint32(prevValue), keyspace))
+		}
+
+		if containerIndex == 0 {
+			val, err := container.safeMinimum()
+			if err == nil {
+				// OR panic, Java panics
+				return -1
+			}
+			return int64(val) - 1
+		}
+		containerIndex--
+		nextContainerKey := rb.highlowcontainer.getKeyAtIndex(containerIndex)
+		if nextContainerKey < containerKey-1 {
+			// There is a gap between keys, eg missing container
+			// Just decrement the current key and shift to get HoB of the missing container
+			return (int64(containerKey) << 16) - 1
+		}
+		containerKey = nextContainerKey
+		container = rb.highlowcontainer.getContainer(containerKey)
+		highestPossible16 := (1 << 16) - 1
+		prevValue = int64(container.previousAbsentValue(uint16(highestPossible16)))
+	}
+}
+
 // FlipInt calls Flip after casting the parameters (convenience method)
 func FlipInt(bm *Bitmap, rangeStart, rangeEnd int) *Bitmap {
 	return Flip(bm, uint64(rangeStart), uint64(rangeEnd))
@@ -1915,4 +2131,11 @@ func (rb *Bitmap) Stats() Statistics {
 		}
 	}
 	return stats
+}
+
+// Validate checks if the bitmap is internally consistent.
+// You may call it after deserialization to check that the bitmap is valid.
+// This function returns an error if the bitmap is invalid, nil otherwise.
+func (rb *Bitmap) Validate() error {
+	return rb.highlowcontainer.validate()
 }

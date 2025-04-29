@@ -1,7 +1,9 @@
 package roaring64
 
 import (
-	"github.com/RoaringBitmap/roaring"
+	"errors"
+
+	"github.com/RoaringBitmap/roaring/v2"
 )
 
 type roaringArray64 struct {
@@ -10,6 +12,11 @@ type roaringArray64 struct {
 	needCopyOnWrite []bool
 	copyOnWrite     bool
 }
+
+var (
+	ErrKeySortOrder          = errors.New("keys were out of order")
+	ErrCardinalityConstraint = errors.New("size of arrays was not coherent")
+)
 
 // runOptimize compresses the element containers to minimize space consumed.
 // Q: how does this interact with copyOnWrite and needCopyOnWrite?
@@ -140,7 +147,6 @@ func (ra *roaringArray64) clear() {
 }
 
 func (ra *roaringArray64) clone() *roaringArray64 {
-
 	sa := roaringArray64{}
 	sa.copyOnWrite = ra.copyOnWrite
 
@@ -328,6 +334,15 @@ func (ra *roaringArray64) hasRunCompression() bool {
 	return false
 }
 
+/**
+ * Find the smallest integer index strictly larger than pos such that array[index].key&gt;=min. If none can
+ * be found, return size. Based on code by O. Kaser.
+ *
+ * @param min minimal value
+ * @param pos index to exceed
+ * @return the smallest index greater than pos such that array[index].key is at least as large as
+ *         min, or size if it is not possible.
+ */
 func (ra *roaringArray64) advanceUntil(min uint32, pos int) int {
 	lower := pos + 1
 
@@ -400,4 +415,48 @@ func (ra *roaringArray64) serializedSizeInBytes() uint64 {
 		answer += c.GetSerializedSizeInBytes()
 	}
 	return answer
+}
+
+func (ra *roaringArray64) checkKeysSorted() bool {
+	if len(ra.keys) == 0 || len(ra.keys) == 1 {
+		return true
+	}
+	previous := ra.keys[0]
+	for nextIdx := 1; nextIdx < len(ra.keys); nextIdx++ {
+		next := ra.keys[nextIdx]
+		if previous >= next {
+			return false
+		}
+		previous = next
+
+	}
+	return true
+}
+
+// validate checks the referential integrity
+// ensures len(keys) == len(containers), recurses and checks each container type
+func (ra *roaringArray64) validate() error {
+	if !ra.checkKeysSorted() {
+		return ErrKeySortOrder
+	}
+
+	if len(ra.keys) != len(ra.containers) {
+		return ErrCardinalityConstraint
+	}
+
+	if len(ra.keys) != len(ra.needCopyOnWrite) {
+		return ErrCardinalityConstraint
+	}
+
+	for _, maps := range ra.containers {
+		err := maps.Validate()
+		if err != nil {
+			return err
+		}
+		if maps.IsEmpty() {
+			return errors.New("empty container")
+		}
+	}
+
+	return nil
 }

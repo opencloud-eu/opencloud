@@ -299,6 +299,15 @@ func (rb *Bitmap) FrozenView(buf []byte) error {
 	return rb.highlowcontainer.frozenView(buf)
 }
 
+func (rb *Bitmap) MustFrozenView(buf []byte) error {
+	if err := rb.FrozenView(buf); err != nil {
+		return err
+	}
+	err := rb.Validate()
+
+	return err
+}
+
 /* Verbatim specification from CRoaring.
  *
  * FROZEN SERIALIZATION FORMAT DESCRIPTION

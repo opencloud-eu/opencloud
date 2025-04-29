@@ -52,6 +52,7 @@ func fill(arr []uint64, val uint64) {
 		arr[i] = val
 	}
 }
+
 func fillRange(arr []uint64, start, end int, val uint64) {
 	for i := start; i < end; i++ {
 		arr[i] = val
@@ -112,8 +113,17 @@ func fillArrayXOR(container []uint16, bitmap1, bitmap2 []uint64) {
 func highbits(x uint32) uint16 {
 	return uint16(x >> 16)
 }
+
 func lowbits(x uint32) uint16 {
 	return uint16(x & maxLowBit)
+}
+
+func combineLoHi16(lob uint16, hob uint16) uint32 {
+	return combineLoHi32(uint32(lob), uint32(hob))
+}
+
+func combineLoHi32(lob uint32, hob uint32) uint32 {
+	return uint32(lob) | (hob << 16)
 }
 
 const maxLowBit = 0xFFFF
@@ -146,7 +156,6 @@ func resetBitmapRange(bitmap []uint64, start int, end int) {
 		bitmap[i] = 0
 	}
 	bitmap[endword] &= ^(^uint64(0) >> (uint(-end) % 64))
-
 }
 
 func setBitmapRange(bitmap []uint64, start int, end int) {
@@ -242,7 +251,6 @@ func selectBitPosition(w uint64, j int) int {
 		}
 	}
 	return seen + int(counter)
-
 }
 
 func panicOn(err error) {

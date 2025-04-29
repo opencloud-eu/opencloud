@@ -17,7 +17,7 @@ package segment
 import (
 	"fmt"
 
-	"github.com/RoaringBitmap/roaring"
+	"github.com/RoaringBitmap/roaring/v2"
 	index "github.com/blevesearch/bleve_index_api"
 )
 
@@ -68,6 +68,9 @@ type TermDictionary interface {
 		startKeyInclusive, endKeyExclusive []byte) DictionaryIterator
 
 	Contains(key []byte) (bool, error)
+
+	// returns total number of terms in the term dictionary
+	Cardinality() int
 }
 
 type DictionaryIterator interface {
@@ -177,4 +180,60 @@ type FieldStats interface {
 	Store(statName, fieldName string, value uint64)
 	Aggregate(stats FieldStats)
 	Fetch() map[string]map[string]uint64
+}
+
+// ThesaurusSegment provides access to a thesaurus within a specific segment of the index.
+type ThesaurusSegment interface {
+	Segment
+	// Thesaurus returns the Thesaurus with the specified name.
+	Thesaurus(name string) (Thesaurus, error)
+}
+
+// Thesaurus encapsulates a structured collection of terms and their associated synonyms.
+type Thesaurus interface {
+	// SynonymsList retrieves a list of synonyms for the specified term. The `except` parameter
+	// excludes specific synonyms, such as those originating from deleted documents. The `prealloc`
+	// parameter allows the use of preallocated memory to optimize performance.
+	SynonymsList(term []byte, except *roaring.Bitmap, prealloc SynonymsList) (SynonymsList, error)
+
+	// AutomatonIterator creates an iterator over the thesaurus keys/terms using the provided automaton.
+	// The iteration is constrained by the specified key range [startKeyInclusive, endKeyExclusive).
+	// These terms or keys are the ones that have a SynonymsList associated with them, in the thesaurus.
+	AutomatonIterator(a Automaton, startKeyInclusive, endKeyExclusive []byte) ThesaurusIterator
+
+	// Contains checks if the given key exists in the thesaurus.
+	Contains(key []byte) (bool, error)
+}
+
+// ThesaurusIterator iterates over terms in a thesaurus.
+type ThesaurusIterator interface {
+	// Next returns the next entry in the thesaurus or an error if iteration fails.
+	Next() (*index.ThesaurusEntry, error)
+}
+
+// SynonymsList represents a list of synonyms for a term.
+type SynonymsList interface {
+	// Iterator returns an iterator to traverse the list of synonyms.
+	// The `prealloc` parameter can be used to reuse existing memory for the iterator.
+	Iterator(prealloc SynonymsIterator) SynonymsIterator
+
+	Size() int
+}
+
+// SynonymsIterator provides a mechanism to iterate over a list of synonyms.
+type SynonymsIterator interface {
+	// Next returns the next synonym in the list or an error if iteration fails.
+	Next() (Synonym, error)
+
+	Size() int
+}
+
+// Synonym represents a single synonym for a term in the thesaurus.
+type Synonym interface {
+	// Number returns the document number from which the synonym originates.
+	Number() uint32
+	// Term returns the textual representation of the synonym.
+	Term() string
+
+	Size() int
 }

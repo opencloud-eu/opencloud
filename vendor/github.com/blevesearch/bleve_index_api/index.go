@@ -105,12 +105,41 @@ type CopyReader interface {
 	CloseCopyReader() error
 }
 
-type IndexReaderRegexp interface {
-	FieldDictRegexp(field string, regex string) (FieldDict, error)
+// RegexAutomaton abstracts an automaton built using a regex pattern.
+type RegexAutomaton interface {
+	// MatchesRegex returns true if the given string matches the regex pattern
+	// used to build the automaton.
+	MatchesRegex(string) bool
 }
 
+// IndexReaderRegexp provides functionality to work with regex-based field dictionaries.
+type IndexReaderRegexp interface {
+	// FieldDictRegexp returns a FieldDict for terms matching the specified regex pattern
+	// in the dictionary of the given field.
+	FieldDictRegexp(field string, regex string) (FieldDict, error)
+
+	// FieldDictRegexpAutomaton returns a FieldDict and a RegexAutomaton that can be used
+	// to match strings against the regex pattern.
+	FieldDictRegexpAutomaton(field string, regex string) (FieldDict, RegexAutomaton, error)
+}
+
+// FuzzyAutomaton abstracts a Levenshtein automaton built using a term and a fuzziness value.
+type FuzzyAutomaton interface {
+	// MatchAndDistance checks if the given string is within the fuzziness distance
+	// of the term used to build the automaton. It also returns the edit (Levenshtein)
+	// distance between the string and the term.
+	MatchAndDistance(term string) (bool, uint8)
+}
+
+// IndexReaderFuzzy provides functionality to work with fuzzy matching in field dictionaries.
 type IndexReaderFuzzy interface {
+	// FieldDictFuzzy returns a FieldDict for terms that are within the specified fuzziness
+	// distance of the given term and match the specified prefix in the given field.
 	FieldDictFuzzy(field string, term string, fuzziness int, prefix string) (FieldDict, error)
+
+	// FieldDictFuzzyAutomaton returns a FieldDict and a FuzzyAutomaton that can be used
+	// to calculate the edit distance between the term and other strings.
+	FieldDictFuzzyAutomaton(field string, term string, fuzziness int, prefix string) (FieldDict, FuzzyAutomaton, error)
 }
 
 type IndexReaderContains interface {
@@ -202,14 +231,16 @@ type TermFieldReader interface {
 }
 
 type DictEntry struct {
-	Term  string
-	Count uint64
+	Term         string
+	Count        uint64
+	EditDistance uint8
 }
 
 type FieldDict interface {
 	Next() (*DictEntry, error)
 	Close() error
 
+	Cardinality() int
 	BytesRead() uint64
 }
 
@@ -250,4 +281,69 @@ type DocValueReader interface {
 type IndexBuilder interface {
 	Index(doc Document) error
 	Close() error
+}
+
+// ThesaurusTermReader is an interface for enumerating synonyms of a term in a thesaurus.
+type ThesaurusTermReader interface {
+	// Next returns the next synonym of the term, or an error if something goes wrong.
+	// Returns nil when the enumeration is complete.
+	Next() (string, error)
+
+	// Close releases any resources associated with the reader.
+	Close() error
+
+	Size() int
+}
+
+// ThesaurusEntry represents a term in the thesaurus for which synonyms are stored.
+type ThesaurusEntry struct {
+	Term string
+}
+
+// ThesaurusKeys is an interface for enumerating terms (keys) in a thesaurus.
+type ThesaurusKeys interface {
+	// Next returns the next key in the thesaurus, or an error if something goes wrong.
+	// Returns nil when the enumeration is complete.
+	Next() (*ThesaurusEntry, error)
+
+	// Close releases any resources associated with the reader.
+	Close() error
+}
+
+// ThesaurusReader is an interface for accessing a thesaurus in the index.
+type ThesaurusReader interface {
+	IndexReader
+
+	// ThesaurusTermReader returns a reader for the synonyms of a given term in the
+	// specified thesaurus.
+	ThesaurusTermReader(ctx context.Context, name string, term []byte) (ThesaurusTermReader, error)
+
+	// ThesaurusKeys returns a reader for all terms in the specified thesaurus.
+	ThesaurusKeys(name string) (ThesaurusKeys, error)
+
+	// ThesaurusKeysFuzzy returns a reader for terms in the specified thesaurus that
+	// match the given prefix and are within the specified fuzziness distance from
+	// the provided term.
+	ThesaurusKeysFuzzy(name string, term string, fuzziness int, prefix string) (ThesaurusKeys, error)
+
+	// ThesaurusKeysRegexp returns a reader for terms in the specified thesaurus that
+	// match the given regular expression pattern.
+	ThesaurusKeysRegexp(name string, regex string) (ThesaurusKeys, error)
+
+	// ThesaurusKeysPrefix returns a reader for terms in the specified thesaurus that
+	// start with the given prefix.
+	ThesaurusKeysPrefix(name string, termPrefix []byte) (ThesaurusKeys, error)
+}
+
+// EligibleDocumentSelector filters documents based on specific eligibility criteria.
+// It can be extended with additional methods for filtering and retrieval.
+type EligibleDocumentSelector interface {
+	// AddEligibleDocumentMatch marks a document as eligible for selection.
+	// id is the internal identifier of the document to be added.
+	AddEligibleDocumentMatch(id IndexInternalID) error
+
+	// SegmentEligibleDocs returns a list of eligible document IDs within a given segment.
+	// segmentID identifies the segment for which eligible documents are retrieved.
+	// This must be called after all eligible documents have been added.
+	SegmentEligibleDocs(segmentID int) []uint64
 }

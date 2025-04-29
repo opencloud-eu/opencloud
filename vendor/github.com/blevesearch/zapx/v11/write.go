@@ -18,7 +18,7 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/RoaringBitmap/roaring"
+	"github.com/RoaringBitmap/roaring/v2"
 )
 
 // writes out the length of the roaring bitmap in bytes as varint

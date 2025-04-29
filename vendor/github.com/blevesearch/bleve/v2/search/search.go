@@ -23,9 +23,11 @@ import (
 	index "github.com/blevesearch/bleve_index_api"
 )
 
-var reflectStaticSizeDocumentMatch int
-var reflectStaticSizeSearchContext int
-var reflectStaticSizeLocation int
+var (
+	reflectStaticSizeDocumentMatch int
+	reflectStaticSizeSearchContext int
+	reflectStaticSizeLocation      int
+)
 
 func init() {
 	var dm DocumentMatch
@@ -167,13 +169,6 @@ type DocumentMatch struct {
 	// results are completed
 	FieldTermLocations []FieldTermLocation `json:"-"`
 
-	// used to indicate if this match is a partial match
-	// in the case of a disjunction search
-	// this means that the match is partial because
-	// not all sub-queries matched
-	// if false, all the sub-queries matched
-	PartialMatch bool `json:"partial_match,omitempty"`
-
 	// used to indicate the sub-scores that combined to form the
 	// final score for this document match.  This is only populated
 	// when the search request's query is a DisjunctionQuery
@@ -268,7 +263,7 @@ func (dm *DocumentMatch) Size() int {
 		sizeInBytes += size.SizeOfString + len(entry)
 	}
 
-	for k, _ := range dm.Fields {
+	for k := range dm.Fields {
 		sizeInBytes += size.SizeOfString + len(k) +
 			size.SizeOfPtr
 	}

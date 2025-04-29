@@ -39,9 +39,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 import (
+	"errors"
 	"fmt"
 	"sort"
-	"unsafe"
 )
 
 // runContainer16 does run-length encoding of sets of
@@ -58,6 +58,16 @@ type interval16 struct {
 	start  uint16
 	length uint16 // length minus 1
 }
+
+var (
+	ErrRunIntervalsEmpty  = errors.New("run contained no interval")
+	ErrRunNonSorted       = errors.New("runs were not sorted")
+	ErrRunIntervalEqual   = errors.New("intervals were equal")
+	ErrRunIntervalOverlap = errors.New("intervals overlapped or were continguous")
+	ErrRunIntervalSize    = errors.New("too many intervals relative to data")
+	MaxNumIntervals       = 2048
+	MaxIntervalsSum       = 2048
+)
 
 func newInterval16Range(start, last uint16) interval16 {
 	if last < start {
@@ -201,7 +211,6 @@ func newRunContainer16FromVals(alreadySorted bool, vals ...uint16) *runContainer
 // somewhat efficiently. For reference, see the Java
 // https://github.com/RoaringBitmap/RoaringBitmap/blob/master/src/main/java/org/roaringbitmap/RunContainer.java#L145-L192
 func newRunContainer16FromBitmapContainer(bc *bitmapContainer) *runContainer16 {
-
 	rc := &runContainer16{}
 	nbrRuns := bc.numberOfRuns()
 	if nbrRuns == 0 {
@@ -251,7 +260,6 @@ func newRunContainer16FromBitmapContainer(bc *bitmapContainer) *runContainer16 {
 		curWord = curWordWith1s & (curWordWith1s + 1)
 		// We've lathered and rinsed, so repeat...
 	}
-
 }
 
 // newRunContainer16FromArray populates a new
@@ -293,7 +301,6 @@ func newRunContainer16FromArray(arr *arrayContainer) *runContainer16 {
 // If you have a small number of additions to an already
 // big runContainer16, calling Add() may be faster.
 func (rc *runContainer16) set(alreadySorted bool, vals ...uint16) {
-
 	rc2 := newRunContainer16FromVals(alreadySorted, vals...)
 	un := rc.union(rc2)
 	rc.iv = un.iv
@@ -374,7 +381,6 @@ func intersectInterval16s(a, b interval16) (res interval16, isEmpty bool) {
 // union merges two runContainer16s, producing
 // a new runContainer16 with the union of rc and b.
 func (rc *runContainer16) union(b *runContainer16) *runContainer16 {
-
 	// rc is also known as 'a' here, but golint insisted we
 	// call it rc for consistency with the rest of the methods.
 
@@ -457,7 +463,6 @@ func (rc *runContainer16) union(b *runContainer16) *runContainer16 {
 					break aAdds
 				}
 			}
-
 		}
 
 		if !bDone {
@@ -471,7 +476,6 @@ func (rc *runContainer16) union(b *runContainer16) *runContainer16 {
 					break bAdds
 				}
 			}
-
 		}
 
 		m = append(m, merged)
@@ -489,7 +493,6 @@ func (rc *runContainer16) union(b *runContainer16) *runContainer16 {
 
 // unionCardinality returns the cardinality of the merger of two runContainer16s,  the union of rc and b.
 func (rc *runContainer16) unionCardinality(b *runContainer16) uint {
-
 	// rc is also known as 'a' here, but golint insisted we
 	// call it rc for consistency with the rest of the methods.
 	answer := uint(0)
@@ -528,7 +531,7 @@ func (rc *runContainer16) unionCardinality(b *runContainer16) uint {
 			}
 			if !mergedUpdated {
 				// we know that merged is disjoint from cura and curb
-				//m = append(m, merged)
+				// m = append(m, merged)
 				answer += uint(merged.last()) - uint(merged.start) + 1
 				mergedUsed = false
 			}
@@ -539,11 +542,11 @@ func (rc *runContainer16) unionCardinality(b *runContainer16) uint {
 			if !canMerge16(cura, curb) {
 				if cura.start < curb.start {
 					answer += uint(cura.last()) - uint(cura.start) + 1
-					//m = append(m, cura)
+					// m = append(m, cura)
 					na++
 				} else {
 					answer += uint(curb.last()) - uint(curb.start) + 1
-					//m = append(m, curb)
+					// m = append(m, curb)
 					nb++
 				}
 			} else {
@@ -574,7 +577,6 @@ func (rc *runContainer16) unionCardinality(b *runContainer16) uint {
 					break aAdds
 				}
 			}
-
 		}
 
 		if !bDone {
@@ -588,10 +590,9 @@ func (rc *runContainer16) unionCardinality(b *runContainer16) uint {
 					break bAdds
 				}
 			}
-
 		}
 
-		//m = append(m, merged)
+		// m = append(m, merged)
 		answer += uint(merged.last()) - uint(merged.start) + 1
 	}
 	for _, r := range rc.iv[na:] {
@@ -615,7 +616,6 @@ func (rc *runContainer16) indexOfIntervalAtOrAfter(key int, startIndex int) int 
 // intersect returns a new runContainer16 holding the
 // intersection of rc (also known as 'a')  and b.
 func (rc *runContainer16) intersect(b *runContainer16) *runContainer16 {
-
 	a := rc
 	numa := int(len(a.iv))
 	numb := int(len(b.iv))
@@ -645,8 +645,7 @@ func (rc *runContainer16) intersect(b *runContainer16) *runContainer16 {
 toploop:
 	for acuri < numa && bcuri < numb {
 
-		isOverlap, isLeftoverA, isLeftoverB, leftoverstart, intersection =
-			intersectWithLeftover16(astart, int(a.iv[acuri].last()), bstart, int(b.iv[bcuri].last()))
+		isOverlap, isLeftoverA, isLeftoverB, leftoverstart, intersection = intersectWithLeftover16(astart, int(a.iv[acuri].last()), bstart, int(b.iv[bcuri].last()))
 
 		if !isOverlap {
 			switch {
@@ -664,7 +663,6 @@ toploop:
 				}
 				bstart = int(b.iv[bcuri].start)
 			}
-
 		} else {
 			// isOverlap
 			output = append(output, intersection)
@@ -748,8 +746,7 @@ toploop:
 	for acuri < numa && bcuri < numb {
 		pass++
 
-		isOverlap, isLeftoverA, isLeftoverB, leftoverstart, intersection =
-			intersectWithLeftover16(astart, int(a.iv[acuri].last()), bstart, int(b.iv[bcuri].last()))
+		isOverlap, isLeftoverA, isLeftoverB, leftoverstart, intersection = intersectWithLeftover16(astart, int(a.iv[acuri].last()), bstart, int(b.iv[bcuri].last()))
 
 		if !isOverlap {
 			switch {
@@ -767,7 +764,6 @@ toploop:
 				}
 				bstart = int(b.iv[bcuri].start)
 			}
-
 		} else {
 			// isOverlap
 			answer += int(intersection.last()) - int(intersection.start) + 1
@@ -941,7 +937,7 @@ func (rc *runContainer16) searchRange(key int, startIndex int, endxIndex int) (w
 //	b) whichInterval16 == -1 if key is before our first
 //	   interval16 in rc.iv;
 //
-//	c) whichInterval16 is set to the minimum index of rc.iv
+//	c) whichInterval16 is set to the maximum index of rc.iv
 //	   which comes strictly before the key;
 //	   so  rc.iv[whichInterval16].last < key,
 //	   and  if whichInterval16+1 exists, then key < rc.iv[whichInterval16+1].start
@@ -1014,10 +1010,10 @@ func newRunContainer16TakeOwnership(iv []interval16) *runContainer16 {
 	return rc
 }
 
-const baseRc16Size = int(unsafe.Sizeof(runContainer16{}))
-const perIntervalRc16Size = int(unsafe.Sizeof(interval16{}))
-
-const baseDiskRc16Size = int(unsafe.Sizeof(uint16(0)))
+const (
+	baseRc16Size        = 2
+	perIntervalRc16Size = 4
+)
 
 // see also runContainer16SerializedSizeInBytes(numRuns int) int
 
@@ -1030,7 +1026,7 @@ func (rc *runContainer16) getSizeInBytes() int {
 // runContainer16SerializedSizeInBytes returns the number of bytes of disk
 // required to hold numRuns in a runContainer16.
 func runContainer16SerializedSizeInBytes(numRuns int) int {
-	return perIntervalRc16Size*numRuns + baseDiskRc16Size
+	return perIntervalRc16Size*numRuns + baseRc16Size
 }
 
 // Add adds a single value k to the set.
@@ -1274,7 +1270,7 @@ func (ri *runIterator16) nextMany(hs uint32, buf []uint32) int {
 				break
 			}
 		} else {
-			ri.curPosInIndex += uint16(moreVals) //moreVals always fits in uint16
+			ri.curPosInIndex += uint16(moreVals) // moreVals always fits in uint16
 		}
 	}
 
@@ -1315,7 +1311,7 @@ func (ri *runIterator16) nextMany64(hs uint64, buf []uint64) int {
 				break
 			}
 		} else {
-			ri.curPosInIndex += uint16(moreVals) //moreVals always fits in uint16
+			ri.curPosInIndex += uint16(moreVals) // moreVals always fits in uint16
 		}
 	}
 
@@ -1324,7 +1320,6 @@ func (ri *runIterator16) nextMany64(hs uint64, buf []uint64) int {
 
 // remove removes key from the container.
 func (rc *runContainer16) removeKey(key uint16) (wasPresent bool) {
-
 	var index int
 	index, wasPresent, _ = rc.search(int(key))
 	if !wasPresent {
@@ -1361,7 +1356,7 @@ func (rc *runContainer16) deleteAt(curIndex *int, curPosInIndex *uint16) {
 		*curPosInIndex--
 		// if we leave *curIndex alone, then Next() will work properly even after the delete.
 	default:
-		//middle
+		// middle
 		// split into two, adding an interval16
 		new0 := newInterval16Range(rc.iv[ci].start, rc.iv[ci].start+*curPosInIndex-1)
 
@@ -1376,7 +1371,6 @@ func (rc *runContainer16) deleteAt(curIndex *int, curPosInIndex *uint16) {
 		*curIndex++
 		*curPosInIndex = 0
 	}
-
 }
 
 func have4Overlap16(astart, alast, bstart, blast int) bool {
@@ -1501,6 +1495,26 @@ func (iv interval16) equal(b interval16) bool {
 
 func (iv interval16) isSuperSetOf(b interval16) bool {
 	return iv.start <= b.start && b.last() <= iv.last()
+}
+
+func (iv interval16) isNonContiguousDisjoint(b interval16) bool {
+	// cover the zero start case
+	if iv.start == b.start {
+		return false
+	}
+
+	nonContiguous1 := uint32(iv.start) == uint32(b.last())+1 || uint32(iv.last()) == uint32(b.start)+1
+	nonContiguous2 := uint32(b.start) == uint32(iv.last())+1 || uint32(b.last()) == uint32(iv.start)+1
+	if nonContiguous1 || nonContiguous2 {
+		return false
+	}
+	ivl := iv.last()
+	bl := b.last()
+
+	c1 := iv.start <= b.start && b.start <= ivl
+	c2 := b.start <= iv.start && iv.start <= bl
+
+	return !c1 && !c2
 }
 
 func (iv interval16) subtractInterval(del interval16) (left []interval16, delcount int) {
@@ -1678,7 +1692,6 @@ func (rc *runContainer16) isubtract(del interval16) {
 // port of run_container_andnot from CRoaring...
 // https://github.com/RoaringBitmap/CRoaring/blob/master/src/containers/run.c#L435-L496
 func (rc *runContainer16) AndNotRunContainer16(b *runContainer16) *runContainer16 {
-
 	if len(b.iv) == 0 || len(rc.iv) == 0 {
 		return rc
 	}
@@ -1781,8 +1794,23 @@ func (rc *runContainer16) minimum() uint16 {
 	return rc.iv[0].start // assume not empty
 }
 
+func (rc *runContainer16) safeMinimum() (uint16, error) {
+	if len(rc.iv) == 0 {
+		return 0, errors.New("Empty runs")
+	}
+
+	return rc.minimum(), nil
+}
+
 func (rc *runContainer16) maximum() uint16 {
 	return rc.iv[len(rc.iv)-1].last() // assume not empty
+}
+
+func (rc *runContainer16) safeMaximum() (uint16, error) {
+	if len(rc.iv) == 0 {
+		return 0, errors.New("Empty runs")
+	}
+	return rc.maximum(), nil // assume not empty
 }
 
 func (rc *runContainer16) isFull() bool {
@@ -1949,7 +1977,6 @@ func (rc *runContainer16) getManyIterator() manyIterable {
 // add the values in the range [firstOfRange, endx). endx
 // is still abe to express 2^16 because it is an int not an uint16.
 func (rc *runContainer16) iaddRange(firstOfRange, endx int) container {
-
 	if firstOfRange > endx {
 		panic(fmt.Sprintf("invalid %v = endx > firstOfRange", endx))
 	}
@@ -2002,7 +2029,6 @@ func (rc *runContainer16) not(firstOfRange, endx int) container {
 // makes 2 more passes through the arrays than should be
 // strictly necessary. Measure both ways though--this may not matter.
 func (rc *runContainer16) Not(firstOfRange, endx int) *runContainer16 {
-
 	if firstOfRange > endx {
 		panic(fmt.Sprintf("invalid %v = endx > firstOfRange == %v", endx, firstOfRange))
 	}
@@ -2066,12 +2092,12 @@ func (rc *runContainer16) equals(o container) bool {
 	rit := rc.getShortIterator()
 	bit := o.getShortIterator()
 
-	//k := 0
+	// k := 0
 	for rit.hasNext() {
 		if bit.next() != rit.next() {
 			return false
 		}
-		//k++
+		// k++
 	}
 	return true
 }
@@ -2132,7 +2158,7 @@ func (rc *runContainer16) andBitmapContainerCardinality(bc *bitmapContainer) int
 	for i := range rc.iv {
 		answer += bc.getCardinalityInRange(uint(rc.iv[i].start), uint(rc.iv[i].last())+1)
 	}
-	//bc.computeCardinality()
+	// bc.computeCardinality()
 	return answer
 }
 
@@ -2150,7 +2176,7 @@ func (rc *runContainer16) orArray(ac *arrayContainer) container {
 	}
 	intervals, cardMinusOne := runArrayUnionToRuns(rc, ac)
 	result := newRunContainer16TakeOwnership(intervals)
-	if len(intervals) >= 2048 && cardMinusOne >= arrayDefaultMaxSize {
+	if len(intervals) >= MaxNumIntervals && cardMinusOne >= arrayDefaultMaxSize {
 		return newBitmapContainerFromRun(result)
 	}
 	if len(intervals)*2 > 1+int(cardMinusOne) {
@@ -2190,7 +2216,6 @@ func (rc *runContainer16) inplaceUnion(rc2 *runContainer16) container {
 }
 
 func (rc *runContainer16) iorBitmapContainer(bc *bitmapContainer) container {
-
 	it := bc.getShortIterator()
 	for it.hasNext() {
 		rc.Add(it.next())
@@ -2206,11 +2231,11 @@ func (rc *runContainer16) iorArray(ac *arrayContainer) container {
 		return rc
 	}
 	var cardMinusOne uint16
-	//TODO: perform the union algorithm in-place using rc.iv
+	// TODO: perform the union algorithm in-place using rc.iv
 	// this can be done with methods like the in-place array container union
 	// but maybe lazily moving the remaining elements back.
 	rc.iv, cardMinusOne = runArrayUnionToRuns(rc, ac)
-	if len(rc.iv) >= 2048 && cardMinusOne >= arrayDefaultMaxSize {
+	if len(rc.iv) >= MaxNumIntervals && cardMinusOne >= arrayDefaultMaxSize {
 		return newBitmapContainerFromRun(rc)
 	}
 	if len(rc.iv)*2 > 1+int(cardMinusOne) {
@@ -2438,12 +2463,8 @@ func (rc *runContainer16) toBitmapContainer() *bitmapContainer {
 }
 
 func (rc *runContainer16) iandNotRunContainer16(x2 *runContainer16) container {
-	rcb := rc.toBitmapContainer()
-	x2b := x2.toBitmapContainer()
-	rcb.iandNotBitmapSurely(x2b)
 	// TODO: check size and optimize the return value
-	// TODO: is inplace modification really required? If not, elide the copy.
-	rc2 := newRunContainer16FromBitmapContainer(rcb)
+	rc2 := rc.AndNotRunContainer16(x2)
 	*rc = *rc2
 	return rc
 }
@@ -2492,7 +2513,7 @@ func (rc *runContainer16) toEfficientContainer() container {
 	sizeAsBitmapContainer := bitmapContainerSizeInBytes()
 	card := rc.getCardinality()
 	sizeAsArrayContainer := arrayContainerSizeInBytes(card)
-	if sizeAsRunContainer <= minOfInt(sizeAsBitmapContainer, sizeAsArrayContainer) {
+	if sizeAsRunContainer < minOfInt(sizeAsBitmapContainer, sizeAsArrayContainer) {
 		return rc
 	}
 	if card <= arrayDefaultMaxSize {
@@ -2511,7 +2532,6 @@ func (rc *runContainer16) toArrayContainer() *arrayContainer {
 }
 
 func newRunContainer16FromContainer(c container) *runContainer16 {
-
 	switch x := c.(type) {
 	case *runContainer16:
 		return x.Clone()
@@ -2621,4 +2641,170 @@ func (rc *runContainer16) addOffset(x uint16) (container, container) {
 	}
 
 	return low, high
+}
+
+// nextValue returns either the `target` if found or the next larger value.
+// If the target is in the interior or a run then `target` will be returned
+// Ex: If our run structure resmembles [[a,c], [d,f]] with a <= target <= c then `target` will be returned.
+// Ex: If c < target < d then d is returned.
+// Ex: If target < a then a is returned
+// if the target > max, this is out of bounds and -1 is returned
+func (rc *runContainer16) nextValue(target uint16) int {
+	if len(rc.iv) == 0 {
+		return -1
+	}
+
+	whichIndex, alreadyPresent, _ := rc.search(int(target))
+
+	if alreadyPresent {
+		return int(target)
+	}
+
+	if whichIndex == -1 {
+		return int(rc.iv[0].start)
+	}
+
+	if whichIndex == len(rc.iv)-1 {
+		return -1
+	}
+
+	// The if relies on the non-contiguous nature of runs.
+	// If we have two runs [a,b] and another run [c,d]
+	// We can rely on the invariant that b+1 < c
+	// We will return c
+	possibleNext := whichIndex + 1
+	if possibleNext < len(rc.iv) {
+		return int(rc.iv[possibleNext].start)
+	}
+
+	return -1
+}
+
+// nextAbsentValue returns the next absent value.
+// By construction the next absent value will be located between gaps in runs
+//
+// Ex: if our runs resemble [[a,b],[c,d]] and a <= target <= b  then b+1 will not be equal to c, b+1 will be returned
+// Ex: if target < a then target is returned
+// Ex: if target > d then target is returned
+func (rc *runContainer16) nextAbsentValue(target uint16) int {
+	whichIndex, alreadyPresent, _ := rc.search(int(target))
+
+	if !alreadyPresent {
+		return int(target)
+	}
+
+	return int(rc.iv[whichIndex].last()) + 1
+}
+
+// previousValue will return the previous present value
+// If the target is in the interior of a run  then `target` will be returned
+//
+// Example:
+// If our run structure resmembles [[a,c], [d,f]] with a <= target  <= c then target will be returned.
+// If c < target < d then c is returned.
+// if target > f then f is returned
+// if the target is less than a, this is out of bounds and -1 is returned
+func (rc *runContainer16) previousValue(target uint16) int {
+	whichIndex, alreadyPresent, _ := rc.search(int(target))
+
+	if len(rc.iv) == 0 {
+		return int(target)
+	}
+
+	if alreadyPresent {
+		return int(target)
+	}
+	if whichIndex == -1 {
+		return -1
+	}
+
+	return int(rc.iv[whichIndex].last())
+}
+
+// previousAbsentValue will return the previous absent value
+// If the target is in the interior of a run then then the start of the range minus 1 will be returned
+//
+// Example:
+// If our run structure resmembles [[x,z], [a,c], [d,f]] with a <= target  <= c then a-1 will be returned.
+// if the target < x then target is returned
+// if target > f then target is returned
+func (rc *runContainer16) previousAbsentValue(target uint16) int {
+	whichIndex, alreadyPresent, _ := rc.search(int(target))
+
+	if !alreadyPresent {
+		return int(target)
+	}
+
+	return int(rc.iv[whichIndex].start) - 1
+}
+
+// isNonContiguousDisjoint returns an error if the intervals overlap e.g have non-empty intersection
+func isNonContiguousDisjoint(outer interval16, inner interval16) error {
+	if !outer.isNonContiguousDisjoint(inner) {
+		return ErrRunIntervalOverlap
+	}
+
+	return nil
+}
+
+// validate checks the run container referential integrity
+// Ensures runs are not degenerate, non-contiguous and non-overlapping
+func (rc *runContainer16) validate() error {
+	if rc.getCardinality() == 0 {
+		return ErrRunIntervalsEmpty
+	}
+
+	intervalsSum := 0
+	for outeridx := range rc.iv {
+		// The length being stored is the actual length - 1.
+		// So we need to add 1 to get the actual length.
+		// It is not possible to have a run with length 0.
+
+		outerInterval := rc.iv[outeridx]
+
+		intervalsSum += outerInterval.runlen()
+		for inneridx := outeridx + 1; inneridx < len(rc.iv); inneridx++ {
+
+			innerInterval := rc.iv[inneridx]
+
+			if outerInterval.equal(innerInterval) {
+				return ErrRunIntervalEqual
+			}
+
+			// only check the start of runs
+			// if the run length overlap the next check will catch that.
+			if outerInterval.start >= innerInterval.start {
+				return ErrRunNonSorted
+			}
+
+			err := isNonContiguousDisjoint(outerInterval, innerInterval)
+			if err != nil {
+				return err
+			}
+		}
+
+	}
+	/*
+			if number of distinct values in the container >= 2048 then
+		    check that the number of runs is no more than 2047
+		    (otherwise you could use a bitset container)
+			else
+		    check that the number of runs < (number of distinct values) / 2
+		    (otherwise you could use an array container)
+	*/
+
+	sizeAsRunContainer := runContainer16SerializedSizeInBytes(len(rc.iv))
+	sizeAsBitmapContainer := bitmapContainerSizeInBytes()
+	sizeAsArrayContainer := arrayContainerSizeInBytes(intervalsSum)
+	// this is always ok:
+	if sizeAsRunContainer < minOfInt(sizeAsBitmapContainer, sizeAsArrayContainer) {
+		return nil
+	}
+	if sizeAsRunContainer >= sizeAsBitmapContainer {
+		return ErrRunIntervalSize
+	}
+	if sizeAsRunContainer >= sizeAsArrayContainer {
+		return ErrRunIntervalSize
+	}
+	return nil
 }

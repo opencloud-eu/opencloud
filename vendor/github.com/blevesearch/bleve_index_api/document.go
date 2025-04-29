@@ -14,7 +14,10 @@
 
 package index
 
-import "time"
+import (
+	"net"
+	"time"
+)
 
 type Document interface {
 	ID() string
@@ -29,6 +32,8 @@ type Document interface {
 	AddIDField()
 
 	StoredFieldsBytes() uint64
+
+	Indexed() bool
 }
 
 type FieldVisitor func(Field)
@@ -81,6 +86,11 @@ type GeoPointField interface {
 
 type GeoShapeField interface {
 	GeoShape() (GeoJSON, error)
+	EncodedShape() []byte
+}
+
+type IPField interface {
+	IP() (net.IP, error)
 }
 
 // TokenizableSpatialField is an optional interface for fields that
@@ -90,4 +100,27 @@ type TokenizableSpatialField interface {
 	// initialise relevant spatial analyzer plugins for the field
 	// to override the spatial token generations during the analysis phase.
 	SetSpatialAnalyzerPlugin(SpatialAnalyzerPlugin)
+}
+
+// SynonymField represents a field that contains a list of synonyms for a set of terms.
+// Each SynonymField is generated from a single synonym definition, and its name corresponds
+// to the synonym source to which the synonym definition belongs.
+type SynonymField interface {
+	Field
+	// IterateSynonyms iterates over the synonyms for the term in the field.
+	// The provided visitor function is called with each term and its corresponding synonyms.
+	IterateSynonyms(visitor func(term string, synonyms []string))
+}
+
+// SynonymFieldVisitor is a function type used to visit a SynonymField within a document.
+type SynonymFieldVisitor func(SynonymField)
+
+// SynonymDocument represents a special type of document that contains synonym fields.
+// Each SynonymField is a field with a list of synonyms for a set of terms.
+// These fields are derived from synonym definitions, and their names correspond to the synonym sources.
+type SynonymDocument interface {
+	Document
+	// VisitSynonymFields allows iteration over all synonym fields in the document.
+	// The provided visitor function is called for each synonym field.
+	VisitSynonymFields(visitor SynonymFieldVisitor)
 }
