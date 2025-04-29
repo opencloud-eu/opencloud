@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @butonic
+@AlexAndBear, @butonic, @micbar
 
 ### 🐛 Bug Fixes
 
