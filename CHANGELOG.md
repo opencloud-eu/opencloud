@@ -1,10 +1,14 @@
 # Changelog
 
-## [2.2.1](https://github.com/opencloud-eu/opencloud/releases/tag/v2.2.1) - 2025-04-29
+## [2.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.3.0) - 2025-04-29
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @AlexAndBear, @butonic, @micbar
+
+### ✨ Features
+
+- feat: set idp logo defaul url [[#746](https://github.com/opencloud-eu/opencloud/pull/746)]
 
 ### 🐛 Bug Fixes
 
