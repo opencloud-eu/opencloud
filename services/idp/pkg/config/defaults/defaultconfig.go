@@ -58,7 +58,7 @@ func DefaultConfig() *config.Config {
 			IdentifierScopesConf:               "",
 			IdentifierDefaultBannerLogo:        "",
 			IdentifierDefaultSignInPageText:    "",
-			IdentifierDefaultLogoTargetURI:     "",
+			IdentifierDefaultLogoTargetURI:     "https://opencloud.eu",
 			IdentifierDefaultUsernameHintText:  "",
 			SigningKid:                         "private-key",
 			SigningMethod:                      "PS256",
