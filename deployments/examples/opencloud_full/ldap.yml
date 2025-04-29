@@ -12,18 +12,16 @@ services:
       OC_LDAP_BIND_DN: "cn=admin,dc=opencloud,dc=eu"
       OC_LDAP_BIND_PASSWORD: ${LDAP_ADMIN_PASSWORD:-admin}
       OC_LDAP_GROUP_BASE_DN: "ou=groups,dc=opencloud,dc=eu"
-      OC_LDAP_GROUP_FILTER: "(objectclass=opencloudobject)"
-      OC_LDAP_GROUP_OBJECTCLASS: "groupOfNames"
+      OC_LDAP_GROUP_SCHEMA_ID: "entryUUID"
       OC_LDAP_USER_BASE_DN: "ou=users,dc=opencloud,dc=eu"
-      OC_LDAP_USER_FILTER: "(objectclass=openclouduser)"
-      OC_LDAP_USER_OBJECTCLASS: "inetOrgPerson"
-      LDAP_LOGIN_ATTRIBUTES: "uid"
-      OC_ADMIN_USER_ID: "f7fc96f6-ceb4-4387-bd69-07a6d7992973"
-      IDP_LDAP_LOGIN_ATTRIBUTE: "uid"
-      IDP_LDAP_UUID_ATTRIBUTE: "openclouduuid"
-      IDP_LDAP_UUID_ATTRIBUTE_TYPE: binary
-      GRAPH_LDAP_SERVER_WRITE_ENABLED: "true" # assuming the external ldap is writable
+      OC_LDAP_USER_FILTER: "(objectclass=inetOrgPerson)"
+      OC_LDAP_USER_SCHEMA_ID: "entryUUID"
+      OC_LDAP_DISABLE_USER_MECHANISM: "none"
+      GRAPH_LDAP_SERVER_UUID: "true"
+      GRAPH_LDAP_GROUP_CREATE_BASE_DN: "ou=custom,ou=groups,dc=opencloud,dc=eu"
       GRAPH_LDAP_REFINT_ENABLED: "true" # osixia has refint enabled.
+      FRONTEND_READONLY_USER_ATTRIBUTES: "user.onPremisesSamAccountName,user.displayName,user.mail,user.passwordProfile,user.accountEnabled,user.appRoleAssignments"
+      OC_LDAP_SERVER_WRITE_ENABLED: "false" # assuming the external ldap is not writable
       # OC_RUN_SERVICES specifies to start all services except glauth, idm and accounts. These are replaced by external services
       OC_EXCLUDE_RUN_SERVICES: idm
 
@@ -46,7 +44,6 @@ services:
       - "127.0.0.1:636:1636"
     volumes:
       - ./config/ldap/ldif:/ldifs
-      - ../shared/config/ldap/schemas/10_opencloud_schema.ldif:/schemas/10_opencloud_schema.ldif
       - ./config/ldap/docker-entrypoint-override.sh:/opt/bitnami/scripts/openldap/docker-entrypoint-override.sh
       - ldap-certs:/opt/bitnami/openldap/share
       - ldap-data:/bitnami/openldap
