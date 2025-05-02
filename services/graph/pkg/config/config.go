@@ -36,6 +36,8 @@ type Config struct {
 	Keycloak       Keycloak       `yaml:"keycloak"`
 	ServiceAccount ServiceAccount `yaml:"service_account"`
 
+	Mail Mail `yaml:"mail"`
+
 	Context context.Context `yaml:"-"`
 
 	Metadata Metadata `yaml:"metadata_config"`
@@ -179,4 +181,17 @@ type Store struct {
 	EnableTLS            bool     `yaml:"enable_tls" env:"OC_PERSISTENT_STORE_ENABLE_TLS;GRAPH_STORE_ENABLE_TLS" desc:"Enable TLS for the connection to the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"%%NEXT%%"`
 	TLSInsecure          bool     `yaml:"tls_insecure" env:"OC_INSECURE;OC_PERSISTENT_STORE_TLS_INSECURE;GRAPH_STORE_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"%%NEXT%%"`
 	TLSRootCACertificate string   `yaml:"tls_root_ca_certificate" env:"OC_PERSISTENT_STORE_TLS_ROOT_CA_CERTIFICATE;GRAPH_STORE_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided GRAPH_STORE_TLS_INSECURE will be seen as false." introductionVersion:"%%NEXT%%"`
+}
+
+type MasterAuth struct {
+	Username string `yaml:"username" env:"OC_JMAP_MASTER_USERNAME;GROUPWARE_JMAP_MASTER_USERNAME"`
+	Password string `yaml:"password" env:"OC_JMAP_MASTER_PASSWORD;GROUPWARE_JMAP_MASTER_PASSWORD"`
+}
+
+type Mail struct {
+	Master          MasterAuth    `yaml:"master"`
+	BaseUrl         string        `yaml:"base_url" env:"OC_JMAP_BASE_URL;GROUPWARE_BASE_URL"`
+	JmapUrl         string        `yaml:"jmap_url" env:"OC_JMAP_JMAP_URL;GROUPWARE_JMAP_URL"`
+	Timeout         time.Duration `yaml:"timeout" env:"OC_JMAP_TIMEOUT"`
+	ContextCacheTTL time.Duration `yaml:"context_cache_ttl" env:"OC_JMAP_CONTEXT_CACHE_TTL"`
 }
