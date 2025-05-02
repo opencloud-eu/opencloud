@@ -37,6 +37,8 @@ type Config struct {
 	Keycloak       Keycloak       `yaml:"keycloak"`
 	ServiceAccount ServiceAccount `yaml:"service_account"`
 
+	Mail Mail `yaml:"mail"`
+
 	Context context.Context `yaml:"-"`
 
 	Metadata Metadata `yaml:"metadata_config"`
@@ -177,4 +179,17 @@ type Store struct {
 	Database     string   `yaml:"database" env:"GRAPH_STORE_DATABASE" desc:"The database name the configured store should use." introductionVersion:"1.0.0"`
 	AuthUsername string   `yaml:"username" env:"OC_PERSISTENT_STORE_AUTH_USERNAME;GRAPH_STORE_AUTH_USERNAME" desc:"The username to authenticate with the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
 	AuthPassword string   `yaml:"password" env:"OC_PERSISTENT_STORE_AUTH_PASSWORD;GRAPH_STORE_AUTH_PASSWORD" desc:"The password to authenticate with the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
+}
+
+type MasterAuth struct {
+	Username string `yaml:"username" env:"OC_JMAP_MASTER_USERNAME;GROUPWARE_JMAP_MASTER_USERNAME"`
+	Password string `yaml:"password" env:"OC_JMAP_MASTER_PASSWORD;GROUPWARE_JMAP_MASTER_PASSWORD"`
+}
+
+type Mail struct {
+	Master          MasterAuth    `yaml:"master"`
+	BaseUrl         string        `yaml:"base_url" env:"OC_JMAP_BASE_URL;GROUPWARE_BASE_URL"`
+	JmapUrl         string        `yaml:"jmap_url" env:"OC_JMAP_JMAP_URL;GROUPWARE_JMAP_URL"`
+	Timeout         time.Duration `yaml:"timeout" env:"OC_JMAP_TIMEOUT"`
+	ContextCacheTTL time.Duration `yaml:"context_cache_ttl" env:"OC_JMAP_CONTEXT_CACHE_TTL"`
 }

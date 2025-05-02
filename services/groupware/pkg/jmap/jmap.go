@@ -1,243 +1,95 @@
 package jmap
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"log"
-	"log/slog"
-	"net/http"
+
+	"github.com/opencloud-eu/opencloud/pkg/log"
 )
-
-type WellKnownJmap struct {
-	ApiUrl          string            `json:"apiUrl"`
-	PrimaryAccounts map[string]string `json:"primaryAccounts"`
-}
-
-/*
-func bearer(req *http.Request, token string) {
-	req.Header.Add("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(token)))
-}
-*/
-
-func fetch[T any](client *http.Client, url string, username string, password string, mapper func(body *[]byte) T) T {
-	req, reqErr := http.NewRequest(http.MethodGet, url, nil)
-	if reqErr != nil {
-		panic(reqErr)
-	}
-	req.SetBasicAuth(username, password)
-
-	res, getErr := client.Do(req)
-	if getErr != nil {
-		panic(getErr)
-	}
-	if res.StatusCode != 200 {
-		panic(fmt.Sprintf("HTTP status code not 200: %d", res.StatusCode))
-	}
-	if res.Body != nil {
-		defer func(Body io.ReadCloser) {
-			err := Body.Close()
-			if err != nil {
-				log.Fatal(err)
-			}
-		}(res.Body)
-	}
-
-	body, readErr := io.ReadAll(res.Body)
-	if readErr != nil {
-		log.Fatal(readErr)
-	}
-
-	return mapper(&body)
-}
-
-func simpleCommand(cmd string, params map[string]any) [][]any {
-	jmap := make([][]any, 1)
-	jmap[0] = make([]any, 3)
-	jmap[0][0] = cmd
-	jmap[0][1] = params
-	jmap[0][2] = "0"
-	return jmap
-}
 
 const (
 	JmapCore = "urn:ietf:params:jmap:core"
 	JmapMail = "urn:ietf:params:jmap:mail"
 )
 
-func command[T any](client *http.Client, ctx context.Context, url string, username string, password string, methodCalls *[][]any, mapper func(body *[]byte) T) T {
-	jmapWrapper := map[string]any{
-		"using":       []string{JmapCore, JmapMail},
-		"methodCalls": methodCalls,
-	}
-
-	/*
-		{
-		"using":[
-		  "urn:ietf:params:jmap:core",
-		  "urn:ietf:params:jmap:mail"
-		],
-		"methodCalls":[
-		  [
-		    "Identity/get", {
-		      "accountId": "cp"
-		    }, "0"
-		  ]
-		]
-		}
-	*/
-
-	bodyBytes, marshalErr := json.Marshal(jmapWrapper)
-	if marshalErr != nil {
-		panic(marshalErr)
-	}
-
-	req, reqErr := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(bodyBytes))
-	if reqErr != nil {
-		panic(reqErr)
-	}
-	req.SetBasicAuth(username, password)
-	req.Header.Add("Content-Type", "application/json")
-
-	slog.Info("jmap", "url", url, "username", username)
-	res, postErr := client.Do(req)
-	if postErr != nil {
-		panic(postErr)
-	}
-	if res.StatusCode != 200 {
-		panic(fmt.Sprintf("HTTP status code not 200: %d", res.StatusCode))
-	}
-	if res.Body != nil {
-		defer func(Body io.ReadCloser) {
-			err := Body.Close()
-			if err != nil {
-				log.Fatal(err)
-			}
-		}(res.Body)
-	}
-
-	body, readErr := io.ReadAll(res.Body)
-	if readErr != nil {
-		log.Fatal(readErr)
-	}
-
-	if slog.Default().Enabled(ctx, slog.LevelDebug) {
-		slog.Debug(ctx.Value("operation").(string) + " response: " + string(body))
-	}
-
-	return mapper(&body)
-}
-
-type JmapFolder struct {
-	Id            string
-	Name          string
-	Role          string
-	TotalEmails   int
-	UnreadEmails  int
-	TotalThreads  int
-	UnreadThreads int
-}
-type JmapFolders struct {
-	Folders []JmapFolder
-	state   string
-}
-
-type JmapCommandResponse struct {
-	MethodResponses [][]any `json:"methodResponses"`
-	SessionState    string  `json:"sessionState"`
-}
-
 type JmapClient struct {
-	client    *http.Client
-	username  string
-	password  string
-	url       string
-	accountId string
-	ctx       context.Context
+	wellKnown JmapWellKnownClient
+	api       JmapApiClient
 }
 
-func New(client *http.Client, ctx context.Context, username string, password string, url string, accountId string) JmapClient {
+func NewJmapClient(wellKnown JmapWellKnownClient, api JmapApiClient) JmapClient {
 	return JmapClient{
-		client:    client,
-		ctx:       ctx,
-		username:  username,
-		password:  password,
-		url:       url,
-		accountId: accountId,
+		wellKnown: wellKnown,
+		api:       api,
 	}
 }
 
-func (jmap *JmapClient) FetchWellKnown() WellKnownJmap {
-	return fetch(jmap.client, jmap.url+"/.well-known/jmap", jmap.username, jmap.password, func(body *[]byte) WellKnownJmap {
-		var data WellKnownJmap
-		jsonErr := json.Unmarshal(*body, &data)
-		if jsonErr != nil {
-			panic(jsonErr)
-		}
-
-		/*
-			u, urlErr := url.Parse(data.ApiUrl)
-			if urlErr != nil {
-				panic(urlErr)
-			}
-			jmap.url = jmap.url + u.Path
-		*/
-		jmap.accountId = data.PrimaryAccounts[JmapMail]
-		return data
-	})
+type JmapContext struct {
+	AccountId string
+	JmapUrl   string
 }
 
-func (jmap *JmapClient) GetMailboxes() JmapFolders {
-	/*
-		{"methodResponses":
-		[["Mailbox/get",
-		{"accountId":"cs","state":"n","list":
-		[{"id":"a","name":"Inbox","parentId":null,"role":"inbox","sortOrder":0,"isSubscribed":true,"totalEmails":0,"unreadEmails":0,"totalThreads":0,"unreadThreads":0,"myRights":{"mayReadItems":true,"mayAddItems":true,"mayRemoveItems":true,"maySetSeen":true,"maySetKeywords":true,"mayCreateChild":true,"mayRename":true,"mayDelete":true,"maySubmit":true}},{"id":"b","name":"Deleted Items","parentId":null,"role":"trash","sortOrder":0,"isSubscribed":true,"totalEmails":0,"unreadEmails":0,"totalThreads":0,"unreadThreads":0,"myRights":{"mayReadItems":true,"mayAddItems":true,"mayRemoveItems":true,"maySetSeen":true,"maySetKeywords":true,"mayCreateChild":true,"mayRename":true,"mayDelete":true,"maySubmit":true}},{"id":"c","name":"Junk Mail","parentId":null,"role":"junk","sortOrder":0,"isSubscribed":true,"totalEmails":0,"unreadEmails":0,"totalThreads":0,"unreadThreads":0,"myRights":{"mayReadItems":true,"mayAddItems":true,"mayRemoveItems":true,"maySetSeen":true,"maySetKeywords":true,"mayCreateChild":true,"mayRename":true,"mayDelete":true,"maySubmit":true}},{"id":"d","name":"Drafts","parentId":null,"role":"drafts","sortOrder":0,"isSubscribed":true,"totalEmails":0,"unreadEmails":0,"totalThreads":0,"unreadThreads":0,"myRights":{"mayReadItems":true,"mayAddItems":true,"mayRemoveItems":true,"maySetSeen":true,"maySetKeywords":true,"mayCreateChild":true,"mayRename":true,"mayDelete":true,"maySubmit":true}},{"id":"e","name":"Sent Items","parentId":null,"role":"sent","sortOrder":0,"isSubscribed":true,"totalEmails":0,"unreadEmails":0,"totalThreads":0,"unreadThreads":0,"myRights":{"mayReadItems":true,"mayAddItems":true,"mayRemoveItems":true,"maySetSeen":true,"maySetKeywords":true,"mayCreateChild":true,"mayRename":true,"mayDelete":true,"maySubmit":true}}],"notFound":[]},"0"]],"sessionState":"3e25b2a0"}
+func NewJmapContext(wellKnown WellKnownJmap) (JmapContext, error) {
+	// TODO validate
+	return JmapContext{
+		AccountId: wellKnown.PrimaryAccounts[JmapMail],
+		JmapUrl:   wellKnown.ApiUrl,
+	}, nil
+}
 
-	*/
-	cmd := simpleCommand("Mailbox/get", map[string]any{"accountId": jmap.accountId})
-	commandCtx := context.WithValue(jmap.ctx, "operation", "GetMailboxes")
-	return command(jmap.client, commandCtx, jmap.url, jmap.username, jmap.password, &cmd, func(body *[]byte) JmapFolders {
+func (j *JmapClient) FetchJmapContext(username string, logger *log.Logger) (JmapContext, error) {
+	wk, err := j.wellKnown.GetWellKnown(username, logger)
+	if err != nil {
+		return JmapContext{}, err
+	}
+	return NewJmapContext(wk)
+}
+
+type ContextKey int
+
+const (
+	ContextAccountId ContextKey = iota
+	ContextOperationId
+)
+
+func (j *JmapClient) validate(jmapContext JmapContext) error {
+	if jmapContext.AccountId == "" {
+		return fmt.Errorf("AccountId not set")
+	}
+	return nil
+}
+
+func (j *JmapClient) GetMailboxes(jc JmapContext, ctx context.Context, logger *log.Logger) (JmapFolders, error) {
+	if err := j.validate(jc); err != nil {
+		return JmapFolders{}, err
+	}
+
+	logger.Info().Str("command", "Mailbox/get").Str("accountId", jc.AccountId).Msg("GetMailboxes")
+	cmd := simpleCommand("Mailbox/get", map[string]any{"accountId": jc.AccountId})
+	commandCtx := context.WithValue(ctx, ContextOperationId, "GetMailboxes")
+	return command(j.api, logger, commandCtx, &cmd, func(body *[]byte) (JmapFolders, error) {
 		var data JmapCommandResponse
-		jsonErr := json.Unmarshal(*body, &data)
-		if jsonErr != nil {
-			panic(jsonErr)
+		err := json.Unmarshal(*body, &data)
+		if err != nil {
+			logger.Error().Err(err).Msg("failed to deserialize body JSON payload")
+			var zero JmapFolders
+			return zero, err
 		}
-		first := data.MethodResponses[0]
-		params := first[1]
-		payload := params.(map[string]any)
-		state := payload["state"].(string)
-		list := payload["list"].([]any)
-		folders := make([]JmapFolder, len(list))
-		for i, a := range list {
-			item := a.(map[string]any)
-			folders[i] = JmapFolder{
-				Id:            item["id"].(string),
-				Name:          item["name"].(string),
-				Role:          item["role"].(string),
-				TotalEmails:   int(item["totalEmails"].(float64)),
-				UnreadEmails:  int(item["unreadEmails"].(float64)),
-				TotalThreads:  int(item["totalThreads"].(float64)),
-				UnreadThreads: int(item["unreadThreads"].(float64)),
-			}
-		}
-		return JmapFolders{Folders: folders, state: state}
+		return parseMailboxGetResponse(data)
 	})
 }
 
-type Emails struct {
-	Emails []Email
-	State  string
-}
+func (j *JmapClient) EmailQuery(jc JmapContext, ctx context.Context, logger *log.Logger, mailboxId string) (Emails, error) {
+	if err := j.validate(jc); err != nil {
+		return Emails{}, err
+	}
 
-func (jmap *JmapClient) EmailQuery(mailboxId string) Emails {
 	cmd := make([][]any, 4)
 	cmd[0] = []any{
 		"Email/query",
 		map[string]any{
-			"accountId": jmap.accountId,
+			"accountId": jc.AccountId,
 			"filter": map[string]any{
 				"inMailbox": mailboxId,
 			},
@@ -257,7 +109,7 @@ func (jmap *JmapClient) EmailQuery(mailboxId string) Emails {
 	cmd[1] = []any{
 		"Email/get",
 		map[string]any{
-			"accountId": jmap.accountId,
+			"accountId": jc.AccountId,
 			"#ids": map[string]any{
 				"resultOf": "0",
 				"name":     "Email/query",
@@ -270,7 +122,7 @@ func (jmap *JmapClient) EmailQuery(mailboxId string) Emails {
 	cmd[2] = []any{
 		"Thread/get",
 		map[string]any{
-			"accountId": jmap.accountId,
+			"accountId": jc.AccountId,
 			"#ids": map[string]any{
 				"resultOf": "1",
 				"name":     "Email/get",
@@ -282,7 +134,7 @@ func (jmap *JmapClient) EmailQuery(mailboxId string) Emails {
 	cmd[3] = []any{
 		"Email/get",
 		map[string]any{
-			"accountId": jmap.accountId,
+			"accountId": jc.AccountId,
 			"#ids": map[string]any{
 				"resultOf": "2",
 				"name":     "Thread/get",
@@ -303,58 +155,36 @@ func (jmap *JmapClient) EmailQuery(mailboxId string) Emails {
 		"3",
 	}
 
-	commandCtx := context.WithValue(jmap.ctx, "operation", "GetMailboxes")
-	return command(jmap.client, commandCtx, jmap.url, jmap.username, jmap.password, &cmd, func(body *[]byte) Emails {
+	commandCtx := context.WithValue(ctx, ContextOperationId, "EmailQuery")
+	return command(j.api, logger, commandCtx, &cmd, func(body *[]byte) (Emails, error) {
 		var data JmapCommandResponse
-		jsonErr := json.Unmarshal(*body, &data)
-		if jsonErr != nil {
-			panic(jsonErr)
+		err := json.Unmarshal(*body, &data)
+		if err != nil {
+			logger.Error().Err(err).Msg("failed to unmarshal response payload")
+			return Emails{}, err
 		}
-		matches := make([][]any, 1)
-		for _, elem := range data.MethodResponses {
-			if elem[0] == "Email/get" && elem[2] == "3" {
-				matches = append(matches, elem)
+		first := retrieveResponseMatch(&data, 3, "Email/get", "3")
+		if first == nil {
+			return Emails{Emails: []Email{}, State: data.SessionState}, nil
+		}
+		if len(first) != 3 {
+			return Emails{}, fmt.Errorf("wrong Email/get response payload size, expecting a length of 3 but it is %v", len(first))
+		}
+
+		payload := first[1].(map[string]any)
+		list, listExists := payload["list"].([]any)
+		if !listExists {
+			return Emails{}, fmt.Errorf("wrong Email/get response payload size, expecting a length of 3 but it is %v", len(first))
+		}
+
+		emails := make([]Email, 0, len(list))
+		for _, elem := range list {
+			email, err := mapEmail(elem.(map[string]any))
+			if err != nil {
+				return Emails{}, err
 			}
+			emails = append(emails, email)
 		}
-		/*
-			matches := lo.Filter(data.MethodResponses, func(elem []any, index int) bool {
-				return elem[0] == "Email/get" && elem[2] == "3"
-			})
-		*/
-		payload := matches[0][1].(map[string]any)
-		list := payload["list"].([]any)
-
-		/*
-			{
-			            "threadId": "cc",
-			            "mailboxIds": {
-			              "a": true
-			            },
-			            "keywords": {},
-			            "hasAttachment": false,
-			            "from": [
-			              {
-			                "name": null,
-			                "email": "root@nsa.gov"
-			              }
-			            ],
-			            "subject": "Hello 5",
-			            "receivedAt": "2025-04-10T13:07:27Z",
-			            "size": 47,
-			            "preview": "Hi <3",
-			            "id": "iiaaaaaa"
-			          },
-		*/
-
-		emails := make([]Email, len(list))
-		for i, elem := range list {
-			emails[i] = NewEmail(elem.(map[string]any))
-		}
-		/*
-			emails := lo.Map(list, func(elem any, _ int) Email {
-				return NewEmail(elem.(map[string]any))
-			})
-		*/
-		return Emails{Emails: emails, State: data.SessionState}
+		return Emails{Emails: emails, State: data.SessionState}, nil
 	})
 }
