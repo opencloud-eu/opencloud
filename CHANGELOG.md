@@ -6,7 +6,9 @@
 
 @ScharfViktor
 
+### 🐛 Bug Fixes
 
+- Abort when the space root has already been created [[#766](https://github.com/opencloud-eu/opencloud/pull/766)]
 
 ## [2.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v2.0.1) - 2025-04-28
 
