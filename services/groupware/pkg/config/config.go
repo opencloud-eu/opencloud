@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 )
@@ -29,8 +30,8 @@ type MasterAuth struct {
 }
 
 type Mail struct {
-	Master           MasterAuth `yaml:"master"`
-	JmapUrl          string     `yaml:"jmap_url" env:"OC_JMAP_URL;GROUPWARE_JMAP_URL"`
-	CS3AllowInsecure bool       `yaml:"cs3_allow_insecure" env:"OC_INSECURE;GROUPWARE_CS3SOURCE_INSECURE" desc:"Ignore untrusted SSL certificates when connecting to the CS3 source." introductionVersion:"1.0.0"`
-	RevaGateway      string     `yaml:"reva_gateway" env:"OC_REVA_GATEWAY" desc:"CS3 gateway used to look up user metadata" introductionVersion:"1.0.0"`
+	Master  MasterAuth    `yaml:"master"`
+	BaseUrl string        `yaml:"base_url" env:"OC_JMAP_BASE_URL;GROUPWARE_BASE_URL"`
+	JmapUrl string        `yaml:"jmap_url" env:"OC_JMAP_JMAP_URL;GROUPWARE_JMAP_URL"`
+	Timeout time.Duration `yaml:"timeout" env:"OC_JMAP_TIMEOUT"`
 }

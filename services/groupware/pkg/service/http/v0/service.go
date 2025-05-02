@@ -1,7 +1,9 @@
 package svc
 
 import (
+	"crypto/tls"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -12,14 +14,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/jmap"
 )
-
-/*
-type contextKey string
-
-const (
-	keyContextKey contextKey = "key"
-)
-*/
 
 // Service defines the service handlers.
 type Service interface {
@@ -42,11 +36,7 @@ func NewService(opts ...Option) Service {
 		),
 	)
 
-	svc := Groupware{
-		config: options.Config,
-		mux:    m,
-		logger: options.Logger,
-	}
+	svc := NewGroupware(options.Config, &options.Logger, m)
 
 	m.Route(options.Config.HTTP.Root, func(r chi.Router) {
 		r.Get("/", svc.WellDefined)
@@ -61,17 +51,29 @@ func NewService(opts ...Option) Service {
 	return svc
 }
 
-// Thumbnails implements the business logic for Service.
 type Groupware struct {
-	config     *config.Config
-	logger     log.Logger
-	mux        *chi.Mux
-	httpClient *http.Client
+	jmapClient       jmap.JmapClient
+	usernameProvider jmap.HttpJmapUsernameProvider
+	config           *config.Config
+	logger           *log.Logger
+	mux              *chi.Mux
 }
 
-// ServeHTTP implements the Service interface.
-func (s Groupware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.mux.ServeHTTP(w, r)
+func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux) *Groupware {
+	usernameProvider := jmap.NewRevaContextHttpJmapUsernameProvider()
+	httpApiClient := httpApiClient(config, usernameProvider)
+	jmapClient := jmap.NewJmapClient(httpApiClient, httpApiClient)
+	return &Groupware{
+		jmapClient:       jmapClient,
+		usernameProvider: usernameProvider,
+		config:           config,
+		mux:              mux,
+		logger:           logger,
+	}
+}
+
+func (g Groupware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	g.mux.ServeHTTP(w, r)
 }
 
 type IndexResponse struct {
@@ -87,10 +89,36 @@ func (g Groupware) Ping(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (g Groupware) WellDefined(w http.ResponseWriter, r *http.Request) {
-	//logger := g.logger.SubloggerWithRequestID(r.Context())
+func httpApiClient(config *config.Config, usernameProvider jmap.HttpJmapUsernameProvider) *jmap.HttpJmapApiClient {
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.ResponseHeaderTimeout = time.Duration(10) * time.Second
+	tlsConfig := &tls.Config{InsecureSkipVerify: true}
+	tr.TLSClientConfig = tlsConfig
+	c := *http.DefaultClient
+	c.Transport = tr
 
-	client := jmap.New(g.httpClient, r.Context(), "alan", "demo", "https://stalwart.opencloud.test/jmap", "cs")
-	wellKnown := client.FetchWellKnown()
-	_ = render.Render(w, r, IndexResponse{AccountId: wellKnown.PrimaryAccounts[jmap.JmapMail]})
+	api := jmap.NewHttpJmapApiClient(
+		config.Mail.BaseUrl,
+		config.Mail.JmapUrl,
+		&c,
+		usernameProvider,
+		config.Mail.Master.Username,
+		config.Mail.Master.Password,
+	)
+	return api
+}
+func (g Groupware) WellDefined(w http.ResponseWriter, r *http.Request) {
+	logger := g.logger.SubloggerWithRequestID(r.Context())
+	username, err := g.usernameProvider.GetUsername(r.Context(), &logger)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	jmapContext, err := g.jmapClient.FetchJmapContext(username, &logger)
+	if err != nil {
+		return
+	}
+
+	_ = render.Render(w, r, IndexResponse{AccountId: jmapContext.AccountId})
 }

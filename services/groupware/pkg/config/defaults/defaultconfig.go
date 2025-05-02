@@ -3,7 +3,6 @@ package defaults
 import (
 	"strings"
 
-	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/config"
 )
 
@@ -26,12 +25,11 @@ func DefaultConfig() *config.Config {
 		},
 		Mail: config.Mail{
 			Master: config.MasterAuth{
-				Username: "master",
-				Password: "secret",
+				Username: "masteradmin",
+				Password: "admin",
 			},
-			JmapUrl:          "https://stalwart.opencloud.test/jmap",
-			RevaGateway:      shared.DefaultRevaConfig().Address,
-			CS3AllowInsecure: false,
+			BaseUrl: "https://stalwart.opencloud.test",
+			JmapUrl: "https://stalwart.opencloud.test/jmap",
 		},
 		HTTP: config.HTTP{
 			Addr:      "127.0.0.1:9276",
@@ -78,6 +76,8 @@ func EnsureDefaults(cfg *config.Config) {
 	if cfg.Commons != nil {
 		cfg.HTTP.TLS = cfg.Commons.HTTPServiceTLS
 	}
+
+	// TODO p.bleser add Mail here
 
 }
 

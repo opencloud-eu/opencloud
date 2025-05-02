@@ -40,6 +40,7 @@ type Config struct {
 	ServiceAccount ServiceAccount `yaml:"service_account"`
 
 	MachineAuthAPIKey string `yaml:"machine_auth_api_key" env:"OC_MACHINE_AUTH_API_KEY;GRAPH_MACHINE_AUTH_API_KEY" desc:"Machine auth API key used to validate internal requests necessary for the access to resources from other services." introductionVersion:"7.5.0" mask:"password"`
+	Mail Mail `yaml:"mail"`
 
 	Context context.Context `yaml:"-"`
 
@@ -214,4 +215,17 @@ type Store struct {
 // ones the webdav service uses for the same list.
 type Thumbnails struct {
 	AdditionalSourceTypes []string `yaml:"additional_source_types" env:"OC_THUMBNAILS_ADDITIONAL_SOURCE_TYPES;GRAPH_THUMBNAILS_ADDITIONAL_SOURCE_TYPES" desc:"Additional mime types a preview is announced for, the same list the webdav service attempts previews for. The types the build ships are included; this only adds to them." introductionVersion:"9.0.0"`
+}
+
+type MasterAuth struct {
+	Username string `yaml:"username" env:"OC_JMAP_MASTER_USERNAME;GROUPWARE_JMAP_MASTER_USERNAME"`
+	Password string `yaml:"password" env:"OC_JMAP_MASTER_PASSWORD;GROUPWARE_JMAP_MASTER_PASSWORD"`
+}
+
+type Mail struct {
+	Master          MasterAuth    `yaml:"master"`
+	BaseUrl         string        `yaml:"base_url" env:"OC_JMAP_BASE_URL;GROUPWARE_BASE_URL"`
+	JmapUrl         string        `yaml:"jmap_url" env:"OC_JMAP_JMAP_URL;GROUPWARE_JMAP_URL"`
+	Timeout         time.Duration `yaml:"timeout" env:"OC_JMAP_TIMEOUT"`
+	ContextCacheTTL time.Duration `yaml:"context_cache_ttl" env:"OC_JMAP_CONTEXT_CACHE_TTL"`
 }
