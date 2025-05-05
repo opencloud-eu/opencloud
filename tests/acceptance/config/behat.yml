@@ -465,13 +465,7 @@ default:
       contexts:
         - FeatureContext: *common_feature_context_params
         - CliContext:
-        # - OcConfigContext:
-        # - FilesVersionsContext:
-        # - SharingNgContext:
-        # - SearchContext:
-        # - TagContext:
-        # - TrashbinContext:
-        # - SpacesTUSContext:
+        - OcConfigContext:
 
     coreApiMain:
       paths:

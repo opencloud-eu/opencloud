@@ -447,7 +447,7 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator creates folder :folder for user :user
+	 * @When the administrator creates folder :folder for user :user on the POSIX filesystem
 	 *
 	 * @param string $folder
 	 * @param string $user
@@ -466,7 +466,7 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator checks storage folder for user :user
+	 * @When the administrator lists the content of the POSIX storage folder of user :user
 	 *
 	 * @param string $user
 	 *
