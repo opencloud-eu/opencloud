@@ -899,6 +899,7 @@ def localApiTestPipeline(ctx):
                 for item in defaults:
                     params[item] = matrix[item] if item in matrix else defaults[item]
                 for storage in params["storages"]:
+                    print("Using storage:", storage)
                     for run_with_remote_php in params["withRemotePhp"]:
                         pipeline = {
                             "name": "%s-%s%s-%s" % ("CLI" if name.startswith("cli") else "API", name, "-withoutRemotePhp" if not run_with_remote_php else "", storage),
