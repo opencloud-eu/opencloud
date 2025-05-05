@@ -4,10 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @ScharfViktor, @butonic, @micbar
+@AlexAndBear, @ScharfViktor, @butonic, @micbar, @rhafer
 
 ### ✨ Features
 
+- proxy(router): Allow to set some outgoing headers [[#756](https://github.com/opencloud-eu/opencloud/pull/756)]
 - feat: set idp logo defaul url [[#746](https://github.com/opencloud-eu/opencloud/pull/746)]
 
 ### ✅ Tests
