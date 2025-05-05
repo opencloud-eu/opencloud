@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.3.0) - 2025-05-02
+## [2.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.3.0) - 2025-05-05
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -16,6 +16,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/beevik/etree from 1.5.0 to 1.5.1 [[#759](https://github.com/opencloud-eu/opencloud/pull/759)]
 - build(deps): bump github.com/nats-io/nats-server/v2 from 2.11.2 to 2.11.3 [[#762](https://github.com/opencloud-eu/opencloud/pull/762)]
 - build(deps): bump github.com/nats-io/nats-server/v2 from 2.11.1 to 2.11.2 [[#754](https://github.com/opencloud-eu/opencloud/pull/754)]
 - build(deps): bump github.com/gookit/config/v2 from 2.2.5 to 2.2.6 [[#753](https://github.com/opencloud-eu/opencloud/pull/753)]
