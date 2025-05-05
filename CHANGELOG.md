@@ -21,6 +21,9 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/nats-io/nats.go from 1.41.2 to 1.42.0 [[#776](https://github.com/opencloud-eu/opencloud/pull/776)]
+- build(deps): bump golang.org/x/oauth2 from 0.29.0 to 0.30.0 [[#775](https://github.com/opencloud-eu/opencloud/pull/775)]
+- build(deps): bump i18next-http-backend from 2.5.2 to 3.0.2 in /services/idp [[#774](https://github.com/opencloud-eu/opencloud/pull/774)]
 - build(deps): bump github.com/beevik/etree from 1.5.0 to 1.5.1 [[#759](https://github.com/opencloud-eu/opencloud/pull/759)]
 - build(deps): bump github.com/nats-io/nats-server/v2 from 2.11.2 to 2.11.3 [[#762](https://github.com/opencloud-eu/opencloud/pull/762)]
 - build(deps): bump github.com/nats-io/nats-server/v2 from 2.11.1 to 2.11.2 [[#754](https://github.com/opencloud-eu/opencloud/pull/754)]
