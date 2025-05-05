@@ -4,11 +4,15 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @butonic, @micbar
+@AlexAndBear, @ScharfViktor, @butonic, @micbar
 
 ### ✨ Features
 
 - feat: set idp logo defaul url [[#746](https://github.com/opencloud-eu/opencloud/pull/746)]
+
+### ✅ Tests
+
+- collaborative posix test [[#672](https://github.com/opencloud-eu/opencloud/pull/672)]
 
 ### 🐛 Bug Fixes
 
