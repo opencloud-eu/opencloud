@@ -10,6 +10,7 @@ services:
       WITH_WRAPPER: $WITH_WRAPPER
       OC_URL: "https://opencloud-server:9200"
       STORAGE_USERS_DRIVER: $STORAGE_DRIVER
+      STORAGE_USERS_POSIX_WATCH_FS: "true"
       STORAGE_USERS_DRIVER_LOCAL_ROOT: /srv/app/tmp/opencloud/local/root
       STORAGE_USERS_DRIVER_OC_ROOT: /srv/app/tmp/opencloud/storage/users
       STORAGE_SYSTEM_DRIVER_OC_ROOT: /srv/app/tmp/opencloud/storage/metadata

@@ -35,6 +35,15 @@ class CliContext implements Context {
 	private SpacesContext $spacesContext;
 
 	/**
+	 * opencloud user storage path
+	 *
+	 * @return string
+	 */
+	public static function getStoragePath(): string {
+		return getenv('OC_STORAGE_PATH') ?: '/var/lib/opencloud/storage/users/users';
+	}
+
+	/**
 	 * @BeforeScenario
 	 *
 	 * @param BeforeScenarioScope $scope
@@ -85,8 +94,8 @@ class CliContext implements Context {
 	): void {
 		$command = "idm resetpassword -u $user";
 		$body = [
-			"command" => $command,
-			"inputs" => [$password, $password]
+		  "command" => $command,
+		  "inputs" => [$password, $password]
 		];
 
 		$this->featureContext->setResponse(CliHelper::runCommand($body));
@@ -105,7 +114,7 @@ class CliContext implements Context {
 		$path = $this->featureContext->getStorageUsersRoot();
 		$command = "trash purge-empty-dirs -p $path --dry-run=false";
 		$body = [
-			"command" => $command
+		  "command" => $command
 		];
 		$this->featureContext->setResponse(CliHelper::runCommand($body));
 	}
@@ -119,7 +128,7 @@ class CliContext implements Context {
 		$path = $this->featureContext->getStorageUsersRoot();
 		$command = "backup consistency -p $path";
 		$body = [
-			"command" => $command
+		  "command" => $command
 		];
 		$this->featureContext->setResponse(CliHelper::runCommand($body));
 	}
@@ -139,7 +148,7 @@ class CliContext implements Context {
 		$user = $this->featureContext->getActualUserName($user);
 		$command = "auth-app create --user-name=$user --expiration=$expirationTime";
 		$body = [
-			"command" => $command
+		  "command" => $command
 		];
 		$this->featureContext->setResponse(CliHelper::runCommand($body));
 	}
@@ -159,7 +168,7 @@ class CliContext implements Context {
 		$user = $this->featureContext->getActualUserName($user);
 		$command = "auth-app create --user-name=$user --expiration=$expirationTime";
 		$body = [
-			"command" => $command
+		  "command" => $command
 		];
 
 		$response = CliHelper::runCommand($body);
@@ -182,7 +191,7 @@ class CliContext implements Context {
 		$path = $this->featureContext->getStorageUsersRoot();
 		$command = "revisions purge -p $path --dry-run=false";
 		$body = [
-			"command" => $command
+		  "command" => $command
 		];
 		$this->featureContext->setResponse(CliHelper::runCommand($body));
 	}
@@ -201,7 +210,7 @@ class CliContext implements Context {
 		$fileId = $this->spacesContext->getFileId($user, $space, $file);
 		$command = "revisions purge -p $path -r $fileId --dry-run=false";
 		$body = [
-			"command" => $command
+		  "command" => $command
 		];
 		$this->featureContext->setResponse(CliHelper::runCommand($body));
 	}
@@ -214,7 +223,7 @@ class CliContext implements Context {
 	public function theAdministratorReindexesAllSpacesUsingTheCli(): void {
 		$command = "search index --all-spaces";
 		$body = [
-			"command" => $command
+		  "command" => $command
 		];
 		$this->featureContext->setResponse(CliHelper::runCommand($body));
 	}
@@ -230,7 +239,7 @@ class CliContext implements Context {
 		$spaceId = $this->spacesContext->getSpaceIdByName($this->featureContext->getAdminUsername(), $spaceName);
 		$command = "search index --space $spaceId";
 		$body = [
-			"command" => $command
+		  "command" => $command
 		];
 		$this->featureContext->setResponse(CliHelper::runCommand($body));
 	}
@@ -248,7 +257,7 @@ class CliContext implements Context {
 		$spaceId = $this->spacesContext->getSpaceIdByName($adminUsername, $space);
 		$command = "revisions purge -p $path -r $spaceId --dry-run=false";
 		$body = [
-			"command" => $command
+		  "command" => $command
 		];
 		$this->featureContext->setResponse(CliHelper::runCommand($body));
 	}
@@ -306,7 +315,7 @@ class CliContext implements Context {
 		}
 		$command = "storage-users uploads sessions --json $flag";
 		$body = [
-			"command" => $command
+		  "command" => $command
 		];
 		$this->featureContext->setResponse(CliHelper::runCommand($body));
 	}
@@ -326,7 +335,7 @@ class CliContext implements Context {
 		$flagString = trim($flag);
 		$command = "storage-users uploads sessions $flagString --clean --json";
 		$body = [
-			"command" => $command
+		  "command" => $command
 		];
 		$this->featureContext->setResponse(CliHelper::runCommand($body));
 	}
@@ -339,7 +348,7 @@ class CliContext implements Context {
 	public function theAdministratorRestartsTheUploadSessionsThatAreInPostprocessing(): void {
 		$command = "storage-users uploads sessions --processing --restart --json";
 		$body = [
-			"command" => $command
+		  "command" => $command
 		];
 		$this->featureContext->setResponse(CliHelper::runCommand($body));
 	}
@@ -365,7 +374,7 @@ class CliContext implements Context {
 
 		$command = "storage-users uploads sessions --id=$uploadId --restart --json";
 		$body = [
-			"command" => $command
+		  "command" => $command
 		];
 		$this->featureContext->setResponse(CliHelper::runCommand($body));
 	}
@@ -431,9 +440,45 @@ class CliContext implements Context {
 	public function cleanUploadsSessions(): void {
 		$command = "storage-users uploads sessions --clean";
 		$body = [
-			"command" => $command
+		  "command" => $command
 		];
 		$response = CliHelper::runCommand($body);
 		Assert::assertEquals("200", $response->getStatusCode(), "Failed to clean upload sessions");
+	}
+
+	/**
+	 * @When the administrator creates folder :folder for user :user on the POSIX filesystem
+	 *
+	 * @param string $folder
+	 * @param string $user
+	 *
+	 * @return void
+	 */
+	public function theAdministratorCreatesFolder(string $folder, string $user): void {
+		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$storagePath = $this->getStoragePath();
+		$body = [
+		  "command" => "mkdir -p $storagePath/$userUuid/$folder",
+		  "raw" => true
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+		sleep(1);
+	}
+
+	/**
+	 * @When the administrator lists the content of the POSIX storage folder of user :user
+	 *
+	 * @param string $user
+	 *
+	 * @return void
+	 */
+	public function theAdministratorCheckUsersFolder(string $user): void {
+		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$storagePath = $this->getStoragePath();
+		$body = [
+		  "command" => "ls -la $storagePath/$userUuid",
+		  "raw" => true
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
 	}
 }

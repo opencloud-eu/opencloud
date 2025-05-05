@@ -48,8 +48,8 @@ else
 	SEARCH_EXTRACTOR_TYPE := basic
 endif
 
-# default to decomposedfs
-STORAGE_DRIVER ?= decomposed
+# default to posix
+STORAGE_DRIVER ?= posix
 ifeq ($(STORAGE_DRIVER),posix)
 	# posix requires a additional driver config
 	COMPOSE_FILE := $(COMPOSE_FILE):src/posix.yml

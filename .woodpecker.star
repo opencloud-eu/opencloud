@@ -132,6 +132,7 @@ config = {
             "suites": [
                 "apiGraph",
                 "apiServiceAvailability",
+                "collaborativePosix",
             ],
             "skip": False,
             "withRemotePhp": [True],
@@ -939,12 +940,13 @@ def localApiTests(name, suites, storage = "decomposed", extra_environment = {}, 
         "SEND_SCENARIO_LINE_REFERENCES": True,
         "STORAGE_DRIVER": storage,
         "BEHAT_SUITES": ",".join(suites),
-        "BEHAT_FILTER_TAGS": "~@skip&&~@skipOnGraph&&~@skipOnOpencloud-%s-Storage" % storage,
+        "BEHAT_FILTER_TAGS": "~@skip&&~@skipOnOpencloud-%s-Storage" % storage,
         "EXPECTED_FAILURES_FILE": expected_failures_file,
         "UPLOAD_DELETE_WAIT_TIME": "1" if storage == "owncloud" else 0,
         "OC_WRAPPER_URL": "http://%s:5200" % OC_SERVER_NAME,
         "WITH_REMOTE_PHP": with_remote_php,
         "COLLABORATION_SERVICE_URL": "http://wopi-fakeoffice:9300",
+        "OC_STORAGE_PATH": "$HOME/.opencloud/storage/users/users",
     }
 
     for item in extra_environment:
@@ -1107,7 +1109,7 @@ def coreApiTests(ctx, part_number = 1, number_of_parts = 1, with_remote_php = Fa
     storage = "posix"
     if "[decomposed]" in ctx.build.title.lower():
         storage = "decomposed"
-    filterTags = "~@skipOnGraph&&~@skipOnOpencloud-%s-Storage" % storage
+    filterTags = "~@skipOnOpencloud-%s-Storage" % storage
     test_dir = "%s/tests/acceptance" % dirs["base"]
     expected_failures_file = "%s/expected-failures-API-on-%s-storage.md" % (test_dir, storage)
 
@@ -2001,6 +2003,8 @@ def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, depend
             },
         },
         "commands": [
+            "apt-get update",
+            "apt-get install -y inotify-tools",
             "%s init --insecure true" % dirs["opencloudBin"],
             "cat $OC_CONFIG_DIR/opencloud.yaml",
             "cp tests/config/woodpecker/app-registry.yaml $OC_CONFIG_DIR/app-registry.yaml",

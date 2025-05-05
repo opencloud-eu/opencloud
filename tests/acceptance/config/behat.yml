@@ -458,6 +458,15 @@ default:
         - TrashbinContext:
         - SpacesTUSContext:
 
+    collaborativePosix:
+      paths:
+        - "%paths.base%/../features/collaborativePosix"
+      context: *common_ldap_suite_context
+      contexts:
+        - FeatureContext: *common_feature_context_params
+        - CliContext:
+        - OcConfigContext:
+
     coreApiMain:
       paths:
         - "%paths.base%/../features/coreApiMain"

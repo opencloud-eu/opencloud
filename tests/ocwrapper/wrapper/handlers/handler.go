@@ -198,7 +198,19 @@ func CommandHandler(res http.ResponseWriter, req *http.Request) {
 			}
 		}
 	}
+	raw := false
+	if r, ok := body["raw"].(bool); ok {
+		raw = r
+	}
 
-	exitCode, output := opencloud.RunCommand(command, stdIn)
+	var exitCode int
+	var output string
+
+
+	if raw {
+		exitCode, output = opencloud.RunRawCommand(command, stdIn)
+	} else {
+		exitCode, output = opencloud.RunCommand(command, stdIn)
+	}
 	sendCmdResponse(res, exitCode, output)
 }
