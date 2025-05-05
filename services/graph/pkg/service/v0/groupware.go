@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
-	"github.com/opencloud-eu/opencloud/services/groupware/pkg/jmap"
 
 	"github.com/go-chi/render"
 

@@ -9,10 +9,10 @@ import (
 	"github.com/go-chi/render"
 	"github.com/riandyrn/otelchi"
 
+	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/config"
-	"github.com/opencloud-eu/opencloud/services/groupware/pkg/jmap"
 )
 
 // Service defines the service handlers.
