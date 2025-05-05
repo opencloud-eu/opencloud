@@ -1,3 +1,10 @@
+Release 1.5.1
+=============
+
+**Fixes**
+
+* Fixed a bug in `InsertChildAt`.
+
 Release 1.5.0
 =============
 

@@ -831,7 +831,7 @@ func (e *Element) InsertChildAt(index int, t Token) {
 	}
 
 	if t.Parent() != nil {
-		if t.Parent() == e && t.Index() > index {
+		if t.Parent() == e && t.Index() < index {
 			index--
 		}
 		t.Parent().RemoveChild(t)

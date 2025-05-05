@@ -149,7 +149,7 @@ github.com/aws/aws-sdk-go/service/sts/stsiface
 # github.com/bbalet/stopwords v1.0.0
 ## explicit
 github.com/bbalet/stopwords
-# github.com/beevik/etree v1.5.0
+# github.com/beevik/etree v1.5.1
 ## explicit; go 1.21.0
 github.com/beevik/etree
 # github.com/beorn7/perks v1.0.1
