@@ -45,7 +45,7 @@ func (s *ActivitylogService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // HandleGetItemActivities handles the request to get the activities of an item.
 func (s *ActivitylogService) HandleGetItemActivities(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	ctx = metadata.AppendToOutgoingContext(ctx, revactx.TokenHeader, r.Header.Get("X-Access-Token"))
+	ctx = metadata.AppendToOutgoingContext(ctx, revactx.TokenHeader, r.Header.Get(revactx.TokenHeader))
 
 	activeUser, ok := revactx.ContextGetUser(ctx)
 	if !ok {

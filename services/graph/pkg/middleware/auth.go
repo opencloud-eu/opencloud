@@ -11,7 +11,6 @@ import (
 	opkgm "github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	"github.com/opencloud-eu/reva/v2/pkg/auth/scope"
-	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/token/manager/jwt"
 )
@@ -43,7 +42,7 @@ func Auth(opts ...account.Option) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
-			t := r.Header.Get("x-access-token")
+			t := r.Header.Get(revactx.TokenHeader)
 			if t == "" {
 				errorcode.InvalidAuthenticationToken.Render(w, r, http.StatusUnauthorized, "Access token is empty.")
 				/* msgraph error for GET https://graph.microsoft.com/v1.0/me
@@ -84,10 +83,10 @@ func Auth(opts ...account.Option) func(http.Handler) http.Handler {
 			}
 			ctx = metadata.AppendToOutgoingContext(ctx, revactx.TokenHeader, t)
 
-			initiatorID := r.Header.Get(ctxpkg.InitiatorHeader)
+			initiatorID := r.Header.Get(revactx.InitiatorHeader)
 			if initiatorID != "" {
-				ctx = ctxpkg.ContextSetInitiator(ctx, initiatorID)
-				ctx = metadata.AppendToOutgoingContext(ctx, ctxpkg.InitiatorHeader, initiatorID)
+				ctx = revactx.ContextSetInitiator(ctx, initiatorID)
+				ctx = metadata.AppendToOutgoingContext(ctx, revactx.InitiatorHeader, initiatorID)
 			}
 
 			next.ServeHTTP(w, r.WithContext(ctx))

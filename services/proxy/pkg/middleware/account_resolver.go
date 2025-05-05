@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jellydator/ttlcache/v3"
+	"github.com/opencloud-eu/opencloud/services/proxy/pkg/router"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles"
 
@@ -99,8 +100,7 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	claims := oidc.FromContext(ctx)
 	user, ok := revactx.ContextGetUser(ctx)
-	token := ""
-	// TODO what if an X-Access-Token is set? happens eg for download requests to the /data endpoint in the reva frontend
+	token, hasToken := revactx.ContextGetToken(ctx)
 
 	if claims == nil && !ok {
 		m.next.ServeHTTP(w, req)
@@ -192,10 +192,11 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		req = req.WithContext(ctx)
 
 		m.logger.Debug().Interface("claims", claims).Interface("user", user).Msg("associated claims with user")
-	} else if user != nil {
+	} else if user != nil && !hasToken {
+		// If we already have a token (e.g. the app auth middleware adds the token to the context) there is no need
+		// to get yet another one here.
 		var err error
 		_, token, err = m.userProvider.GetUserByClaims(req.Context(), "username", user.Username)
-
 		if errors.Is(err, backend.ErrAccountDisabled) {
 			m.logger.Debug().Interface("user", user).Msg("Disabled")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -209,7 +210,13 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	req.Header.Set(revactx.TokenHeader, token)
+	ri := router.ContextRoutingInfo(ctx)
+	if ri.RemoteUserHeader() != "" {
+		req.Header.Set(ri.RemoteUserHeader(), user.GetId().GetOpaqueId())
+	}
+	if !ri.SkipXAccessToken() {
+		req.Header.Set(revactx.TokenHeader, token)
+	}
 
 	m.next.ServeHTTP(w, req)
 }

@@ -9,6 +9,7 @@ import (
 	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/oidc"
+	"github.com/opencloud-eu/opencloud/services/proxy/pkg/router"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend/mocks"
 	userRoleMocks "github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles/mocks"
@@ -206,6 +207,7 @@ func mockRequest(claims map[string]interface{}) (*http.Request, *httptest.Respon
 	}
 
 	ctx := oidc.NewContext(context.Background(), claims)
+	ctx = router.SetRoutingInfo(ctx, router.RoutingInfo{})
 	req := httptest.NewRequest("GET", "http://example.com/foo", nil).WithContext(ctx)
 	rw := httptest.NewRecorder()
 

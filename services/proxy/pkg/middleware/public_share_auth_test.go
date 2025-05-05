@@ -58,7 +58,7 @@ var _ = Describe("Authenticating requests", Label("PublicShareAuthenticator"), f
 				Expect(req2).ToNot(BeNil())
 
 				h := req2.Header
-				Expect(h.Get(_headerRevaAccessToken)).To(Equal("exampletoken"))
+				Expect(h.Get(headerRevaAccessToken)).To(Equal("exampletoken"))
 			})
 		})
 		Context("using signature authentication", func() {
@@ -71,7 +71,7 @@ var _ = Describe("Authenticating requests", Label("PublicShareAuthenticator"), f
 				Expect(req2).ToNot(BeNil())
 
 				h := req2.Header
-				Expect(h.Get(_headerRevaAccessToken)).To(Equal("exampletoken"))
+				Expect(h.Get(headerRevaAccessToken)).To(Equal("exampletoken"))
 			})
 		})
 	})
@@ -85,7 +85,7 @@ var _ = Describe("Authenticating requests", Label("PublicShareAuthenticator"), f
 				Expect(req2).ToNot(BeNil())
 
 				h := req2.Header
-				Expect(h.Get(_headerRevaAccessToken)).To(Equal("otherexampletoken"))
+				Expect(h.Get(headerRevaAccessToken)).To(Equal("otherexampletoken"))
 			})
 		})
 		Context("not using a public-token", func() {

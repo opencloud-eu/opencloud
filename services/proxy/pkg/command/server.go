@@ -294,6 +294,7 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 		authenticators = append(authenticators, middleware.AppAuthAuthenticator{
 			Logger:              logger,
 			RevaGatewaySelector: gatewaySelector,
+			UserRoleAssigner:    roleAssigner,
 		})
 	}
 	authenticators = append(authenticators, middleware.NewOIDCAuthenticator(

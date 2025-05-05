@@ -278,7 +278,7 @@ func (a *AuthAppService) authenticateUser(userID, userName string, gwc gateway.G
 
 func getContext(r *http.Request) context.Context {
 	ctx := r.Context()
-	return metadata.AppendToOutgoingContext(ctx, ctxpkg.TokenHeader, r.Header.Get("X-Access-Token"))
+	return metadata.AppendToOutgoingContext(ctx, ctxpkg.TokenHeader, r.Header.Get(ctxpkg.TokenHeader))
 }
 
 func buildClientID(userID, userName string) string {

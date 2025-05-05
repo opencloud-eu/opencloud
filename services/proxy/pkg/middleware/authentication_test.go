@@ -163,7 +163,7 @@ var _ = Describe("Authenticating requests", Label("Authentication"), func() {
 				EnableBasicAuth(true),
 			)
 			testHandler := handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				Expect(r.Header.Get(_headerRevaAccessToken)).To(Equal("otherexampletoken"))
+				Expect(r.Header.Get(headerRevaAccessToken)).To(Equal("otherexampletoken"))
 			}))
 			rr := httptest.NewRecorder()
 			testHandler.ServeHTTP(rr, req)
@@ -178,7 +178,7 @@ var _ = Describe("Authenticating requests", Label("Authentication"), func() {
 				EnableBasicAuth(true),
 			)
 			testHandler := handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				Expect(r.Header.Get(_headerRevaAccessToken)).To(Equal("exampletoken"))
+				Expect(r.Header.Get(headerRevaAccessToken)).To(Equal("exampletoken"))
 			}))
 			rr := httptest.NewRecorder()
 			testHandler.ServeHTTP(rr, req)
@@ -193,7 +193,7 @@ var _ = Describe("Authenticating requests", Label("Authentication"), func() {
 				EnableBasicAuth(true),
 			)
 			testHandler := handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				Expect(r.Header.Get(_headerRevaAccessToken)).To(Equal("otherexampletoken"))
+				Expect(r.Header.Get(headerRevaAccessToken)).To(Equal("otherexampletoken"))
 			}))
 			rr := httptest.NewRecorder()
 			testHandler.ServeHTTP(rr, req)

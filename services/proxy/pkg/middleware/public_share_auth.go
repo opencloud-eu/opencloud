@@ -6,11 +6,12 @@ import (
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 )
 
 const (
-	_headerRevaAccessToken  = "x-access-token"
+	headerRevaAccessToken   = revactx.TokenHeader
 	headerShareToken        = "public-token"
 	basicAuthPasswordPrefix = "password|"
 	authenticationType      = "publicshares"
@@ -118,7 +119,7 @@ func (a PublicShareAuthenticator) Authenticate(r *http.Request) (*http.Request, 
 		return nil, false
 	}
 
-	r.Header.Add(_headerRevaAccessToken, authResp.Token)
+	r.Header.Add(headerRevaAccessToken, authResp.Token)
 
 	a.Logger.Debug().
 		Str("authenticator", "public_share").

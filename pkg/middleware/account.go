@@ -42,7 +42,7 @@ func ExtractAccountUUID(opts ...account.Option) func(http.Handler) http.Handler 
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			token := r.Header.Get("x-access-token")
+			token := r.Header.Get(revactx.TokenHeader)
 			if len(token) == 0 {
 				roleIDsJSON, _ := json.Marshal([]string{})
 				ctx := metadata.Set(r.Context(), RoleIDs, string(roleIDsJSON))

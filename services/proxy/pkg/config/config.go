@@ -64,9 +64,12 @@ type Route struct {
 	// Backend is a static URL to forward the request to
 	Backend string `yaml:"backend,omitempty"`
 	// Service name to look up in the registry
-	Service     string `yaml:"service,omitempty"`
-	ApacheVHost bool   `yaml:"apache_vhost,omitempty"`
-	Unprotected bool   `yaml:"unprotected,omitempty"`
+	Service           string            `yaml:"service,omitempty"`
+	ApacheVHost       bool              `yaml:"apache_vhost,omitempty"`
+	Unprotected       bool              `yaml:"unprotected,omitempty"`
+	AdditionalHeaders map[string]string `yaml:"additional_headers,omitempty"`
+	RemoteUserHeader  string            `yaml:"remote_user_header,omitempty"`
+	SkipXAccessToken  bool              `yaml:"skip_x_access_token"`
 }
 
 // RouteType defines the type of route

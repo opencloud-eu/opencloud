@@ -45,7 +45,7 @@ func (m createHome) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	token := req.Header.Get("x-access-token")
+	token := req.Header.Get(revactx.TokenHeader)
 
 	// we need to pass the token to authenticate the CreateHome request.
 	//ctx := tokenpkg.ContextSetToken(r.Context(), token)
@@ -84,7 +84,7 @@ func (m createHome) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (m createHome) shouldServe(req *http.Request) bool {
-	return req.Header.Get("x-access-token") != ""
+	return req.Header.Get(revactx.TokenHeader) != ""
 }
 
 func (m createHome) getUserRoles(user *userv1beta1.User) ([]string, error) {

@@ -86,9 +86,11 @@ func New(serviceSelector selector.Selector, policySelectorCfg *config.PolicySele
 
 // RoutingInfo contains the proxy rewrite hook and some information about the route.
 type RoutingInfo struct {
-	rewrite     func(*httputil.ProxyRequest)
-	endpoint    string
-	unprotected bool
+	rewrite          func(*httputil.ProxyRequest)
+	endpoint         string
+	unprotected      bool
+	remoteUserHeader string
+	skipXAccessToken bool
 }
 
 // Rewrite returns the proxy rewrite hook.
@@ -99,6 +101,17 @@ func (r RoutingInfo) Rewrite() func(*httputil.ProxyRequest) {
 // IsRouteUnprotected returns true if the route doesn't need to be authenticated.
 func (r RoutingInfo) IsRouteUnprotected() bool {
 	return r.unprotected
+}
+
+// RemoteUserHeader returns the name of Header for setting the remote user value
+func (r RoutingInfo) RemoteUserHeader() string {
+	return r.remoteUserHeader
+}
+
+// SkipXAccessToken return true if the reva access token should not be added to the
+// outgoing request
+func (r RoutingInfo) SkipXAccessToken() bool {
+	return r.skipXAccessToken
 }
 
 // Router handles the routing of HTTP requests according to the given policies.
@@ -126,8 +139,10 @@ func (rt Router) addHost(policy string, target *url.URL, route config.Route) {
 	}
 
 	rt.rewriters[policy][routeType][route.Method] = append(rt.rewriters[policy][routeType][route.Method], RoutingInfo{
-		endpoint:    route.Endpoint,
-		unprotected: route.Unprotected,
+		endpoint:         route.Endpoint,
+		unprotected:      route.Unprotected,
+		remoteUserHeader: route.RemoteUserHeader,
+		skipXAccessToken: route.SkipXAccessToken,
 		rewrite: func(req *httputil.ProxyRequest) {
 			if route.Service != "" {
 				// select next node
@@ -159,6 +174,10 @@ func (rt Router) addHost(policy string, target *url.URL, route config.Route) {
 			// see https://stackoverflow.com/questions/34745654/golang-reverseproxy-with-apache2-sni-hostname-error
 			if route.ApacheVHost {
 				req.Out.Host = target.Host
+			}
+
+			for k, v := range route.AdditionalHeaders {
+				req.Out.Header.Set(k, v)
 			}
 
 			req.Out.URL.Path = singleJoiningSlash(target.Path, req.Out.URL.Path)
@@ -209,6 +228,8 @@ func (rt Router) Route(r *http.Request) (RoutingInfo, bool) {
 		if rt.rewriters[pol][rtype][r.Method] != nil {
 			// use specific method
 			method = r.Method
+		} else {
+			method = ""
 		}
 
 		for _, ri := range rt.rewriters[pol][rtype][method] {
