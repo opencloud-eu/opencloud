@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.3.0) - 2025-05-05
+## [2.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.3.0) - 2025-05-06
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -8,6 +8,7 @@
 
 ### ✨ Features
 
+- deployment: Adapt opencloud_full to include radicale [[#773](https://github.com/opencloud-eu/opencloud/pull/773)]
 - proxy(router): Allow to set some outgoing headers [[#756](https://github.com/opencloud-eu/opencloud/pull/756)]
 - feat: set idp logo defaul url [[#746](https://github.com/opencloud-eu/opencloud/pull/746)]
 
