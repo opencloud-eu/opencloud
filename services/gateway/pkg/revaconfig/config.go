@@ -30,7 +30,7 @@ func GatewayConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]i
 			"grpc_client_options":       cfg.Reva.GetGRPCClientConfig(),
 		},
 		"grpc": map[string]interface{}{
-			"network": cfg.GRPC.Protocol,
+			"network": "dns", //cfg.GRPC.Protocol,
 			"address": cfg.GRPC.Addr,
 			"tls_settings": map[string]interface{}{
 				"enabled":     cfg.GRPC.TLS.Enabled,
@@ -102,12 +102,27 @@ func GatewayConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]i
 					},
 				},
 				"storageregistry": map[string]interface{}{
-					"driver": cfg.StorageRegistry.Driver,
+					"driver": "static", //cfg.StorageRegistry.Driver,
+					//"json":   "/root/opencloud/static-config.json",
 					"drivers": map[string]interface{}{
-						"spaces": map[string]interface{}{
-							"providers": spacesProviders(cfg, logger),
+						// "spaces": map[string]interface{}{
+						// 	"providers": spacesProviders(cfg, logger),
+						// },
+						"static": map[string]interface{}{
+							"home_provider": "/home",
+							"rules": map[string]interface{}{
+								"/eos/user/[dlntz]":  map[string]interface{}{"address": "localhost:16000"},
+								"/eos/user/[agjkw]":  map[string]interface{}{"address": "localhost:16001"},
+								"/eos/user/[horsy]":  map[string]interface{}{"address": "localhost:16002"},
+								"/eos/user/[bemvx]":  map[string]interface{}{"address": "localhost:16003"},
+								"/eos/user/[cfipqu]": map[string]interface{}{"address": "localhost:16004"},
+								"/home":              map[string]interface{}{"address": "localhost:16001"},
+							},
 						},
 					},
+					// "rules": []string{
+					// 	"/eos/user/[dlntz]", "/eos/user/[agjkw]", "/eos/user/[horsy]", "/eos/user/[bemvx]", "/eos/user/[cfipqu]",
+					//},
 				},
 			},
 			"interceptors": map[string]interface{}{
