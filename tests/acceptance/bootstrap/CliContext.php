@@ -35,12 +35,23 @@ class CliContext implements Context {
 	private SpacesContext $spacesContext;
 
 	/**
-	 * opencloud user storage path
+	 * opencloud users storage path
 	 *
 	 * @return string
 	 */
-	public static function getStoragePath(): string {
-		return getenv('OC_STORAGE_PATH') ?: '/var/lib/opencloud/storage/users/users';
+	public static function getUsersStoragePath(): string {
+		$path = getenv('OC_STORAGE_PATH') ?: '/var/lib/opencloud/storage/users';
+		return $path . '/users';
+	}
+
+	/**
+	 * opencloud project spaces storage path
+	 *
+	 * @return string
+	 */
+	public static function getProjectsStoragePath(): string {
+		$path = getenv('OC_STORAGE_PATH') ?: '/var/lib/opencloud/storage/users';
+		return $path . '/projects';
 	}
 
 	/**
@@ -447,7 +458,7 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator creates folder :folder for user :user on the POSIX filesystem
+	 * @When the administrator creates the folder :folder for user :user on the POSIX filesystem
 	 *
 	 * @param string $folder
 	 * @param string $user
@@ -456,7 +467,7 @@ class CliContext implements Context {
 	 */
 	public function theAdministratorCreatesFolder(string $folder, string $user): void {
 		$userUuid = $this->featureContext->getUserIdByUserName($user);
-		$storagePath = $this->getStoragePath();
+		$storagePath = $this->getUsersStoragePath();
 		$body = [
 		  "command" => "mkdir -p $storagePath/$userUuid/$folder",
 		  "raw" => true
@@ -474,11 +485,207 @@ class CliContext implements Context {
 	 */
 	public function theAdministratorCheckUsersFolder(string $user): void {
 		$userUuid = $this->featureContext->getUserIdByUserName($user);
-		$storagePath = $this->getStoragePath();
+		$storagePath = $this->getUsersStoragePath();
 		$body = [
 		  "command" => "ls -la $storagePath/$userUuid",
 		  "raw" => true
 		];
 		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 * @When the administrator creates the file :file with content :content for user :user on the POSIX filesystem
+	 *
+	 * @param string $file
+	 * @param string $content
+	 * @param string $user
+	 *
+	 * @return void
+	 */
+	public function theAdministratorCreatesFile(string $file, string $content, string $user): void {
+		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$storagePath = $this->getUsersStoragePath();
+		$safeContent = escapeshellarg($content);
+		$body = [
+		  "command" => "echo -n $safeContent > $storagePath/$userUuid/$file",
+		  "raw" => true
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+		sleep(1);
+	}
+
+	/**
+	 * @When the administrator puts the content :content into the file :file in the POSIX storage folder of user :user
+	 *
+	 * @param string $content
+	 * @param string $file
+	 * @param string $user
+	 *
+	 * @return void
+	 */
+	public function theAdministratorChangesFileContent(string $content, string $file, string $user): void {
+		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$storagePath = $this->getUsersStoragePath();
+		$safeContent = escapeshellarg($content);
+		$body = [
+			"command" => "echo -n $safeContent >> $storagePath/$userUuid/$file",
+			"raw" => true
+		  ];
+		sleep(1);
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+		sleep(1);
+	}
+
+	/**
+	 * @When the administrator reads the content of the file :file in the POSIX storage folder of user :user
+	 *
+	 * @param string $user
+	 * @param string $file
+	 *
+	 * @return void
+	 */
+	public function theAdministratorReadsTheFileContent(string $user, string $file): void {
+		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$storagePath = $this->getUsersStoragePath();
+		$body = [
+		  "command" => "cat $storagePath/$userUuid/$file",
+		  "raw" => true
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 * @When the administrator copies the file :file to the folder :folder for user :user on the POSIX filesystem
+	 *
+	 * @param string $user
+	 * @param string $file
+	 * @param string $folder
+	 *
+	 * @return void
+	 */
+	public function theAdministratorCopiesFileToFolder(string $user, string $file, string $folder): void {
+		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$storagePath = $this->getUsersStoragePath();
+
+		$source = "$storagePath/$userUuid/$file";
+		$destination = "$storagePath/$userUuid/$folder";
+
+		$body = [
+		  "command" => "cp $source $destination",
+		  "raw" => true
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+		sleep(1);
+	}
+
+	/**
+	 * @When the administrator moves the file :file to the folder :folder for user :user on the POSIX filesystem
+	 *
+	 * @param string $user
+	 * @param string $file
+	 * @param string $folder
+	 *
+	 * @return void
+	 */
+	public function theAdministratorMovesFileToFolder(string $user, string $file, string $folder): void {
+		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$storagePath = $this->getUsersStoragePath();
+
+		$source = "$storagePath/$userUuid/$file";
+		$destination = "$storagePath/$userUuid/$folder";
+
+		$body = [
+		  "command" => "mv $source $destination",
+		  "raw" => true
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+		sleep(1);
+	}
+
+	/**
+	 * @When the administrator deletes the file :file for user :user on the POSIX filesystem
+	 *
+	 * @param string $file
+	 * @param string $user
+	 *
+	 * @return void
+	 */
+	public function theAdministratorDeletesFile(string $file, string $user): void {
+		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$storagePath = $this->getUsersStoragePath();
+
+		$body = [
+		  "command" => "rm $storagePath/$userUuid/$file",
+		  "raw" => true
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+		sleep(1);
+	}
+
+	/**
+	 * @When the administrator deletes the folder :folder for user :user on the POSIX filesystem
+	 *
+	 * @param string $folder
+	 * @param string $user
+	 *
+	 * @return void
+	 */
+	public function theAdministratorDeletesFolder(string $folder, string $user): void {
+		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$storagePath = $this->getUsersStoragePath();
+
+		$body = [
+		  "command" => "rm -r $storagePath/$userUuid/$folder",
+		  "raw" => true
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+		sleep(1);
+	}
+
+	/**
+	 * @When the administrator copies the file :file to the space :space for user :user on the POSIX filesystem
+	 *
+	 * @param string $user
+	 * @param string $file
+	 * @param string $space
+	 *
+	 * @return void
+	 */
+	public function theAdministratorCopiesFileToSpace(string $user, string $file, string $space): void {
+		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$usersStoragePath = $this->getUsersStoragePath();
+		$projectsStoragePath = $this->getProjectsStoragePath();
+		$spaceId = $this->spacesContext->getSpaceIdByName($this->featureContext->getAdminUsername(), $space);
+		$spaceId = explode('$', $spaceId)[1];
+
+		$source = "$usersStoragePath/$userUuid/$file";
+		$destination = "$projectsStoragePath/$spaceId";
+
+		$body = [
+		  "command" => "cp $source $destination",
+		  "raw" => true
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+		sleep(1);
+	}
+
+	/**
+	 * @When the administrator deletes the project space :space on the POSIX filesystem
+	 *
+	 * @param string $space
+	 *
+	 * @return void
+	 */
+	public function theAdministratorDeletesSpace(string $space): void {
+		$projectsStoragePath = $this->getProjectsStoragePath();
+		$spaceId = $this->spacesContext->getSpaceIdByName($this->featureContext->getAdminUsername(), $space);
+		$spaceId = explode('$', $spaceId)[1];
+
+		$body = [
+		  "command" => "rm -r $projectsStoragePath/$spaceId",
+		  "raw" => true
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+		sleep(1);
 	}
 }

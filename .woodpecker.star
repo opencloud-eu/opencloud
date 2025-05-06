@@ -946,7 +946,7 @@ def localApiTests(name, suites, storage = "decomposed", extra_environment = {}, 
         "OC_WRAPPER_URL": "http://%s:5200" % OC_SERVER_NAME,
         "WITH_REMOTE_PHP": with_remote_php,
         "COLLABORATION_SERVICE_URL": "http://wopi-fakeoffice:9300",
-        "OC_STORAGE_PATH": "$HOME/.opencloud/storage/users/users",
+        "OC_STORAGE_PATH": "$HOME/.opencloud/storage/users",
     }
 
     for item in extra_environment:
