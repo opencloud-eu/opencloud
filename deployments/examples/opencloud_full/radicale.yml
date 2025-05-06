@@ -1,0 +1,18 @@
+---
+services:
+  opencloud:
+    volumes:
+      # external sites needs to have additional routes configured in the proxy
+      - ./config/opencloud/proxy.yaml:/etc/opencloud/proxy.yaml
+  radicale:
+    image: ${RADICALE_DOCKER_IMAGE:-opencloudeu/radicale}:${RADICALE_DOCKER_TAG:-latest}
+    networks:
+      opencloud-net:
+    logging:
+      driver: ${LOG_DRIVER:-local}
+    restart: always
+    volumes:
+      - ./config/radicale/config:/etc/radicale/config
+      - ${RADICALE_DATA_DIR:-radicale-data}:/var/lib/radicale
+volumes:
+  radicale-data:

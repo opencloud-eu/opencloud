@@ -1,0 +1,40 @@
+# This adds four additional routes to the proxy. Forwarding
+# request on '/carddav/', '/caldav/' and the respective '/.well-knwown'
+# endpoints to the radicale container and setting the required headers.
+additional_policies:
+  - name: default
+    routes:
+      - endpoint: /caldav/
+        backend: http://radicale:5232
+        remote_user_header: X-Remote-User
+        skip_x_access_token: true
+        additional_headers:
+          - X-Script-Name: /caldav
+      - endpoint: /.well-known/caldav
+        backend: http://radicale:5232
+        remote_user_header: X-Remote-User
+        skip_x_access_token: true
+        additional_headers:
+          - X-Script-Name: /caldav
+      - endpoint: /carddav/
+        backend: http://radicale:5232
+        remote_user_header: X-Remote-User
+        skip_x_access_token: true
+        additional_headers:
+          - X-Script-Name: /carddav
+      - endpoint: /.well-known/carddav
+        backend: http://radicale:5232
+        remote_user_header: X-Remote-User
+        skip_x_access_token: true
+        additional_headers:
+          - X-Script-Name: /carddav
+# To enable the radicale web UI add this rule.
+# "unprotected" is True because the Web UI itself ask for
+# the password.
+# Also set "type" to "internal" in the config/radicale/config
+#      - endpoint: /caldav/.web/
+#        backend: http://radicale:5232/
+#        unprotected: true
+#        skip_x_access_token: true
+#        additional_headers:
+#          - X-Script-Name: /caldav
