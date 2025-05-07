@@ -27,6 +27,7 @@ OC_MODULES = \
 	services/app-provider \
 	services/app-registry \
 	services/audit \
+	services/auth-api \
 	services/auth-app \
 	services/auth-basic \
 	services/auth-bearer \

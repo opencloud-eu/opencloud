@@ -12,6 +12,7 @@ import (
 	appprovider "github.com/opencloud-eu/opencloud/services/app-provider/pkg/command"
 	appregistry "github.com/opencloud-eu/opencloud/services/app-registry/pkg/command"
 	audit "github.com/opencloud-eu/opencloud/services/audit/pkg/command"
+	authapi "github.com/opencloud-eu/opencloud/services/auth-api/pkg/command"
 	authapp "github.com/opencloud-eu/opencloud/services/auth-app/pkg/command"
 	authbasic "github.com/opencloud-eu/opencloud/services/auth-basic/pkg/command"
 	authbearer "github.com/opencloud-eu/opencloud/services/auth-bearer/pkg/command"
@@ -262,6 +263,11 @@ var serviceCommands = []register.Command{
 	func(cfg *config.Config) *cobra.Command {
 		return ServiceCommand(cfg, cfg.Webfinger.Service.Name, webfinger.GetCommands(cfg.Webfinger), func(c *config.Config) {
 			cfg.Webfinger.Commons = cfg.Commons
+		})
+	},
+	func(cfg *config.Config) *cli.Command {
+		return ServiceCommand(cfg, cfg.AuthApi.Service.Name, authapi.GetCommands(cfg.AuthApi), func(c *config.Config) {
+			cfg.AuthApi.Commons = cfg.Commons
 		})
 	},
 }

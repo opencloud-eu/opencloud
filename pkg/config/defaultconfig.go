@@ -7,6 +7,7 @@ import (
 	appProvider "github.com/opencloud-eu/opencloud/services/app-provider/pkg/config/defaults"
 	appRegistry "github.com/opencloud-eu/opencloud/services/app-registry/pkg/config/defaults"
 	audit "github.com/opencloud-eu/opencloud/services/audit/pkg/config/defaults"
+	authapi "github.com/opencloud-eu/opencloud/services/auth-api/pkg/config/defaults"
 	authapp "github.com/opencloud-eu/opencloud/services/auth-app/pkg/config/defaults"
 	authbasic "github.com/opencloud-eu/opencloud/services/auth-basic/pkg/config/defaults"
 	authbearer "github.com/opencloud-eu/opencloud/services/auth-bearer/pkg/config/defaults"
@@ -63,6 +64,7 @@ func DefaultConfig() *Config {
 		AppProvider:       appProvider.DefaultConfig(),
 		AppRegistry:       appRegistry.DefaultConfig(),
 		Audit:             audit.DefaultConfig(),
+		AuthApi:           authapi.DefaultConfig(),
 		AuthApp:           authapp.DefaultConfig(),
 		AuthBasic:         authbasic.DefaultConfig(),
 		AuthBearer:        authbearer.DefaultConfig(),

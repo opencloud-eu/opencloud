@@ -24,6 +24,7 @@ import (
 	appProvider "github.com/opencloud-eu/opencloud/services/app-provider/pkg/command"
 	appRegistry "github.com/opencloud-eu/opencloud/services/app-registry/pkg/command"
 	audit "github.com/opencloud-eu/opencloud/services/audit/pkg/command"
+	authapi "github.com/opencloud-eu/opencloud/services/auth-api/pkg/command"
 	authapp "github.com/opencloud-eu/opencloud/services/auth-app/pkg/command"
 	authbasic "github.com/opencloud-eu/opencloud/services/auth-basic/pkg/command"
 	authmachine "github.com/opencloud-eu/opencloud/services/auth-machine/pkg/command"
@@ -199,11 +200,6 @@ func NewService(ctx context.Context, options ...Option) (*Service, error) {
 		cfg.Groups.Commons = cfg.Commons
 		return groups.Execute(cfg.Groups)
 	})
-	reg(3, opts.Config.Groupware.Service.Name, func(ctx context.Context, cfg *occfg.Config) error {
-		cfg.Groupware.Context = ctx
-		cfg.Groupware.Commons = cfg.Commons
-		return groupware.Execute(cfg.Groupware)
-	})
 	reg(3, opts.Config.IDM.Service.Name, func(ctx context.Context, cfg *occfg.Config) error {
 		cfg.IDM.Context = ctx
 		cfg.IDM.Commons = cfg.Commons
@@ -347,6 +343,16 @@ func NewService(ctx context.Context, options ...Option) (*Service, error) {
 		cfg.Notifications.Context = ctx
 		cfg.Notifications.Commons = cfg.Commons
 		return notifications.Execute(cfg.Notifications)
+	})
+	areg(opts.Config.AuthApi.Service.Name, func(ctx context.Context, cfg *occfg.Config) error {
+		cfg.AuthApi.Context = ctx
+		cfg.AuthApi.Commons = cfg.Commons
+		return authapi.Execute(cfg.AuthApi)
+	})
+	areg(opts.Config.Groupware.Service.Name, func(ctx context.Context, cfg *occfg.Config) error {
+		cfg.Groupware.Context = ctx
+		cfg.Groupware.Commons = cfg.Commons
+		return groupware.Execute(cfg.Groupware)
 	})
 
 	return s, nil
