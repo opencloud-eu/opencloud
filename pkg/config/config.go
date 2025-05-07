@@ -7,6 +7,7 @@ import (
 	appProvider "github.com/opencloud-eu/opencloud/services/app-provider/pkg/config"
 	appRegistry "github.com/opencloud-eu/opencloud/services/app-registry/pkg/config"
 	audit "github.com/opencloud-eu/opencloud/services/audit/pkg/config"
+	authapi "github.com/opencloud-eu/opencloud/services/auth-api/pkg/config"
 	authapp "github.com/opencloud-eu/opencloud/services/auth-app/pkg/config"
 	authbasic "github.com/opencloud-eu/opencloud/services/auth-basic/pkg/config"
 	authbearer "github.com/opencloud-eu/opencloud/services/auth-bearer/pkg/config"
@@ -128,4 +129,5 @@ type Config struct {
 	WebDAV            *webdav.Config         `yaml:"webdav"`
 	Webfinger         *webfinger.Config      `yaml:"webfinger"`
 	Search            *search.Config         `yaml:"search"`
+	AuthApi           *authapi.Config        `yaml:"authapi"`
 }
