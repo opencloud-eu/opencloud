@@ -153,7 +153,7 @@ Feature: List a federated sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 1
+                      "const": 10
                     },
                     "description": {
                       "const": "View and download."
@@ -176,7 +176,7 @@ Feature: List a federated sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 2
+                      "const": 100
                     },
                     "description": {
                       "const": "View, download and edit."
@@ -228,7 +228,7 @@ Feature: List a federated sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 1
+                      "const": 10
                     },
                     "description": {
                       "const": "View and download."
@@ -251,7 +251,7 @@ Feature: List a federated sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 2
+                      "const": 60
                     },
                     "description": {
                       "const": "View, download, upload, edit, add and delete."

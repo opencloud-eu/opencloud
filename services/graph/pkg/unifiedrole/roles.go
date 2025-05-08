@@ -226,7 +226,28 @@ var (
 					Condition:              proto.String(UnifiedRoleConditionFolderFederatedUser),
 				},
 			},
-			LibreGraphWeight: proto.Int32(0),
+			LibreGraphWeight: proto.Int32(10),
+		}
+	}()
+
+	// roleSecureViewer creates a secure viewer role
+	roleSecureViewer = func() *libregraph.UnifiedRoleDefinition {
+		r := conversions.NewSecureViewerRole()
+		return &libregraph.UnifiedRoleDefinition{
+			Id:          proto.String(UnifiedRoleSecureViewerID),
+			Description: proto.String(_secureViewerUnifiedRoleDescription),
+			DisplayName: proto.String(cs3RoleToDisplayName(r)),
+			RolePermissions: []libregraph.UnifiedRolePermission{
+				{
+					AllowedResourceActions: CS3ResourcePermissionsToLibregraphActions(r.CS3ResourcePermissions()),
+					Condition:              proto.String(UnifiedRoleConditionFile),
+				},
+				{
+					AllowedResourceActions: CS3ResourcePermissionsToLibregraphActions(r.CS3ResourcePermissions()),
+					Condition:              proto.String(UnifiedRoleConditionFolder),
+				},
+			},
+			LibreGraphWeight: proto.Int32(20),
 		}
 	}()
 
@@ -255,7 +276,7 @@ var (
 					Condition:              proto.String(UnifiedRoleConditionFolderFederatedUser),
 				},
 			},
-			LibreGraphWeight: proto.Int32(0),
+			LibreGraphWeight: proto.Int32(30),
 		}
 	}()
 
@@ -272,7 +293,24 @@ var (
 					Condition:              proto.String(UnifiedRoleConditionDrive),
 				},
 			},
-			LibreGraphWeight: proto.Int32(0),
+			LibreGraphWeight: proto.Int32(40),
+		}
+	}()
+
+	// roleEditorLite creates an editor-lite role
+	roleEditorLite = func() *libregraph.UnifiedRoleDefinition {
+		r := conversions.NewEditorLiteRole()
+		return &libregraph.UnifiedRoleDefinition{
+			Id:          proto.String(UnifiedRoleEditorLiteID),
+			Description: proto.String(_editorLiteUnifiedRoleDescription),
+			DisplayName: proto.String(cs3RoleToDisplayName(r)),
+			RolePermissions: []libregraph.UnifiedRolePermission{
+				{
+					AllowedResourceActions: CS3ResourcePermissionsToLibregraphActions(r.CS3ResourcePermissions()),
+					Condition:              proto.String(UnifiedRoleConditionFolder),
+				},
+			},
+			LibreGraphWeight: proto.Int32(50),
 		}
 	}()
 
@@ -293,7 +331,7 @@ var (
 					Condition:              proto.String(UnifiedRoleConditionFolderFederatedUser),
 				},
 			},
-			LibreGraphWeight: proto.Int32(0),
+			LibreGraphWeight: proto.Int32(60),
 		}
 	}()
 
@@ -314,24 +352,7 @@ var (
 					Condition:              proto.String(UnifiedRoleConditionFolderFederatedUser),
 				},
 			},
-			LibreGraphWeight: proto.Int32(0),
-		}
-	}()
-
-	// roleSpaceEditor creates an editor role
-	roleSpaceEditor = func() *libregraph.UnifiedRoleDefinition {
-		r := conversions.NewSpaceEditorRole()
-		return &libregraph.UnifiedRoleDefinition{
-			Id:          proto.String(UnifiedRoleSpaceEditorID),
-			Description: proto.String(_spaceEditorUnifiedRoleDescription),
-			DisplayName: proto.String(cs3RoleToDisplayName(r)),
-			RolePermissions: []libregraph.UnifiedRolePermission{
-				{
-					AllowedResourceActions: CS3ResourcePermissionsToLibregraphActions(r.CS3ResourcePermissions()),
-					Condition:              proto.String(UnifiedRoleConditionDrive),
-				},
-			},
-			LibreGraphWeight: proto.Int32(0),
+			LibreGraphWeight: proto.Int32(70),
 		}
 	}()
 
@@ -348,7 +369,24 @@ var (
 					Condition:              proto.String(UnifiedRoleConditionDrive),
 				},
 			},
-			LibreGraphWeight: proto.Int32(0),
+			LibreGraphWeight: proto.Int32(80),
+		}
+	}()
+
+	// roleSpaceEditor creates an editor role
+	roleSpaceEditor = func() *libregraph.UnifiedRoleDefinition {
+		r := conversions.NewSpaceEditorRole()
+		return &libregraph.UnifiedRoleDefinition{
+			Id:          proto.String(UnifiedRoleSpaceEditorID),
+			Description: proto.String(_spaceEditorUnifiedRoleDescription),
+			DisplayName: proto.String(cs3RoleToDisplayName(r)),
+			RolePermissions: []libregraph.UnifiedRolePermission{
+				{
+					AllowedResourceActions: CS3ResourcePermissionsToLibregraphActions(r.CS3ResourcePermissions()),
+					Condition:              proto.String(UnifiedRoleConditionDrive),
+				},
+			},
+			LibreGraphWeight: proto.Int32(90),
 		}
 	}()
 
@@ -369,7 +407,7 @@ var (
 					Condition:              proto.String(UnifiedRoleConditionFileFederatedUser),
 				},
 			},
-			LibreGraphWeight: proto.Int32(0),
+			LibreGraphWeight: proto.Int32(100),
 		}
 	}()
 
@@ -390,24 +428,7 @@ var (
 					Condition:              proto.String(UnifiedRoleConditionFileFederatedUser),
 				},
 			},
-			LibreGraphWeight: proto.Int32(0),
-		}
-	}()
-
-	// roleEditorLite creates an editor-lite role
-	roleEditorLite = func() *libregraph.UnifiedRoleDefinition {
-		r := conversions.NewEditorLiteRole()
-		return &libregraph.UnifiedRoleDefinition{
-			Id:          proto.String(UnifiedRoleEditorLiteID),
-			Description: proto.String(_editorLiteUnifiedRoleDescription),
-			DisplayName: proto.String(cs3RoleToDisplayName(r)),
-			RolePermissions: []libregraph.UnifiedRolePermission{
-				{
-					AllowedResourceActions: CS3ResourcePermissionsToLibregraphActions(r.CS3ResourcePermissions()),
-					Condition:              proto.String(UnifiedRoleConditionFolder),
-				},
-			},
-			LibreGraphWeight: proto.Int32(0),
+			LibreGraphWeight: proto.Int32(110),
 		}
 	}()
 
@@ -424,30 +445,10 @@ var (
 					Condition:              proto.String(UnifiedRoleConditionDrive),
 				},
 			},
-			LibreGraphWeight: proto.Int32(0),
+			LibreGraphWeight: proto.Int32(120),
 		}
 	}()
 
-	// roleSecureViewer creates a secure viewer role
-	roleSecureViewer = func() *libregraph.UnifiedRoleDefinition {
-		r := conversions.NewSecureViewerRole()
-		return &libregraph.UnifiedRoleDefinition{
-			Id:          proto.String(UnifiedRoleSecureViewerID),
-			Description: proto.String(_secureViewerUnifiedRoleDescription),
-			DisplayName: proto.String(cs3RoleToDisplayName(r)),
-			RolePermissions: []libregraph.UnifiedRolePermission{
-				{
-					AllowedResourceActions: CS3ResourcePermissionsToLibregraphActions(r.CS3ResourcePermissions()),
-					Condition:              proto.String(UnifiedRoleConditionFile),
-				},
-				{
-					AllowedResourceActions: CS3ResourcePermissionsToLibregraphActions(r.CS3ResourcePermissions()),
-					Condition:              proto.String(UnifiedRoleConditionFolder),
-				},
-			},
-			LibreGraphWeight: proto.Int32(0),
-		}
-	}()
 	// roleDenied creates a secure viewer role
 	roleDenied = func() *libregraph.UnifiedRoleDefinition {
 		r := conversions.NewDeniedRole()
@@ -461,7 +462,7 @@ var (
 					Condition:              proto.String(UnifiedRoleConditionFolder),
 				},
 			},
-			LibreGraphWeight: proto.Int32(0),
+			LibreGraphWeight: proto.Int32(200),
 		}
 	}()
 )
@@ -531,39 +532,17 @@ func GetLegacyRoleName(role libregraph.UnifiedRoleDefinition) string {
 	return legacyNames[role.GetId()]
 }
 
-// weightRoles sorts the provided role definitions by the number of permissions[n].actions they grant,
-// the implementation is optimistic and assumes that the weight relies on the number of available actions.
+// weightRoles sorts the provided role definitions by the number of LibreGraphWeight,
 // descending - false - sorts the roles from least to most permissions
 // descending - true - sorts the roles from most to least permissions
 func weightRoles(roleSet []*libregraph.UnifiedRoleDefinition, constraints string, descending bool) []*libregraph.UnifiedRoleDefinition {
-	slices.SortFunc(roleSet, func(i, j *libregraph.UnifiedRoleDefinition) int {
-		var ia []string
-		for _, rp := range i.GetRolePermissions() {
-			if rp.GetCondition() == constraints {
-				ia = append(ia, rp.GetAllowedResourceActions()...)
-			}
+	slices.SortFunc(roleSet, func(a, b *libregraph.UnifiedRoleDefinition) int {
+		if descending {
+			return cmp.Compare(b.GetLibreGraphWeight(), a.GetLibreGraphWeight())
 		}
-
-		var ja []string
-		for _, rp := range j.GetRolePermissions() {
-			if rp.GetCondition() == constraints {
-				ja = append(ja, rp.GetAllowedResourceActions()...)
-			}
-		}
-
-		switch descending {
-		case true:
-			return cmp.Compare(len(ja), len(ia))
-		default:
-			return cmp.Compare(len(ia), len(ja))
-		}
+		return cmp.Compare(a.GetLibreGraphWeight(), b.GetLibreGraphWeight())
 	})
 
-	for i, role := range roleSet {
-		role.LibreGraphWeight = libregraph.PtrInt32(int32(i) + 1)
-	}
-
-	// return for the sake of consistency, optional because the slice is modified in place
 	return roleSet
 }
 

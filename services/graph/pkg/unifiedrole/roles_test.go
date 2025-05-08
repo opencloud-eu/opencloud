@@ -100,16 +100,16 @@ func TestGetRolesByPermissions(t *testing.T) {
 			givenActions: getRoleActions(unifiedrole.RoleViewer),
 			constraints:  unifiedrole.UnifiedRoleConditionFolder,
 			unifiedRoleDefinition: []*libregraph.UnifiedRoleDefinition{
-				unifiedrole.RoleSecureViewer,
 				unifiedrole.RoleViewer,
+				unifiedrole.RoleSecureViewer,
 			},
 		},
 		"RoleViewer | file": {
 			givenActions: getRoleActions(unifiedrole.RoleViewer),
 			constraints:  unifiedrole.UnifiedRoleConditionFile,
 			unifiedRoleDefinition: []*libregraph.UnifiedRoleDefinition{
-				unifiedrole.RoleSecureViewer,
 				unifiedrole.RoleViewer,
+				unifiedrole.RoleSecureViewer,
 			},
 		},
 		"RoleViewer | file | federated": {
@@ -124,8 +124,8 @@ func TestGetRolesByPermissions(t *testing.T) {
 			givenActions: getRoleActions(unifiedrole.RoleFileEditor),
 			constraints:  unifiedrole.UnifiedRoleConditionFile,
 			unifiedRoleDefinition: []*libregraph.UnifiedRoleDefinition{
-				unifiedrole.RoleSecureViewer,
 				unifiedrole.RoleViewer,
+				unifiedrole.RoleSecureViewer,
 				unifiedrole.RoleFileEditor,
 			},
 		},
@@ -133,8 +133,8 @@ func TestGetRolesByPermissions(t *testing.T) {
 			givenActions: getRoleActions(unifiedrole.RoleEditor),
 			constraints:  unifiedrole.UnifiedRoleConditionFolder,
 			unifiedRoleDefinition: []*libregraph.UnifiedRoleDefinition{
-				unifiedrole.RoleSecureViewer,
 				unifiedrole.RoleViewer,
+				unifiedrole.RoleSecureViewer,
 				unifiedrole.RoleEditorLite,
 				unifiedrole.RoleEditor,
 			},
@@ -161,8 +161,8 @@ func TestGetRolesByPermissions(t *testing.T) {
 			givenActions: getRoleActions(unifiedrole.BuildInRoles...),
 			constraints:  unifiedrole.UnifiedRoleConditionFile,
 			unifiedRoleDefinition: []*libregraph.UnifiedRoleDefinition{
-				unifiedrole.RoleSecureViewer,
 				unifiedrole.RoleViewer,
+				unifiedrole.RoleSecureViewer,
 				unifiedrole.RoleViewerListGrants,
 				unifiedrole.RoleFileEditor,
 				unifiedrole.RoleFileEditorListGrants,
@@ -172,13 +172,13 @@ func TestGetRolesByPermissions(t *testing.T) {
 			givenActions: getRoleActions(unifiedrole.BuildInRoles...),
 			constraints:  unifiedrole.UnifiedRoleConditionFolder,
 			unifiedRoleDefinition: []*libregraph.UnifiedRoleDefinition{
-				unifiedrole.RoleDenied,
-				unifiedrole.RoleSecureViewer,
 				unifiedrole.RoleViewer,
+				unifiedrole.RoleSecureViewer,
 				unifiedrole.RoleViewerListGrants,
 				unifiedrole.RoleEditorLite,
 				unifiedrole.RoleEditor,
 				unifiedrole.RoleEditorListGrants,
+				unifiedrole.RoleDenied,
 			},
 		},
 		"BuildInRoles | drive": {
@@ -215,7 +215,7 @@ func TestGetRolesByPermissions(t *testing.T) {
 
 			for i, generatedDefinition := range generatedDefinitions {
 				g.Expect(generatedDefinition.Id).To(Equal(tc.unifiedRoleDefinition[i].Id))
-				g.Expect(*generatedDefinition.LibreGraphWeight).To(Equal(int32(i + 1)))
+				g.Expect(generatedDefinition.LibreGraphWeight).To(Equal(tc.unifiedRoleDefinition[i].LibreGraphWeight))
 			}
 
 			generatedActions := getRoleActions(generatedDefinitions...)
