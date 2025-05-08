@@ -22,6 +22,8 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/open-policy-agent/opa from 1.3.0 to 1.4.2 [[#784](https://github.com/opencloud-eu/opencloud/pull/784)]
+- build(deps): bump golang.org/x/sync from 0.13.0 to 0.14.0 [[#785](https://github.com/opencloud-eu/opencloud/pull/785)]
 - build(deps-dev): bump eslint-plugin-import from 2.30.0 to 2.31.0 in /services/idp [[#777](https://github.com/opencloud-eu/opencloud/pull/777)]
 - build(deps): bump github.com/nats-io/nats.go from 1.41.2 to 1.42.0 [[#776](https://github.com/opencloud-eu/opencloud/pull/776)]
 - build(deps): bump golang.org/x/oauth2 from 0.29.0 to 0.30.0 [[#775](https://github.com/opencloud-eu/opencloud/pull/775)]
