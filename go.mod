@@ -5,7 +5,7 @@ go 1.24.1
 require (
 	dario.cat/mergo v1.0.1
 	github.com/CiscoM31/godata v1.0.10
-	github.com/KimMachineGun/automemlimit v0.7.1
+	github.com/KimMachineGun/automemlimit v0.7.2
 	github.com/Masterminds/semver v1.5.0
 	github.com/MicahParks/keyfunc/v2 v2.1.0
 	github.com/Nerzal/gocloak/v13 v13.9.0

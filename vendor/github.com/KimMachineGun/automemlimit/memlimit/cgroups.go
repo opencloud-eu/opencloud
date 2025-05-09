@@ -276,11 +276,9 @@ func parseMountInfoLine(line string) (mountInfo, error) {
 		fields1 = append(fields1, "")
 	}
 
-	fields2 := strings.Split(fieldss[1], " ")
+	fields2 := strings.SplitN(fieldss[1], " ", 3)
 	if len(fields2) < 3 {
 		return mountInfo{}, fmt.Errorf("not enough fields after separator: %v", fields2)
-	} else if len(fields2) > 3 {
-		return mountInfo{}, fmt.Errorf("too many fields after separator: %v", fields2)
 	}
 
 	return mountInfo{
