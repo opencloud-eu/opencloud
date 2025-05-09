@@ -19,7 +19,6 @@ directives:
     - 'blob:'
     - 'https://embed.diagrams.net/'
     # In contrary to bash and docker the default is given after the | character
-    - 'https://${ONLYOFFICE_DOMAIN|onlyoffice.opencloud.test}/'
     - 'https://${COLLABORA_DOMAIN|collabora.opencloud.test}/'
     # This is needed for the external-sites web extension when embedding sites
     - 'https://docs.opencloud.eu'
@@ -29,7 +28,6 @@ directives:
     - 'blob:'
     - 'https://raw.githubusercontent.com/opencloud-eu/awesome-apps/'
     # In contrary to bash and docker the default is given after the | character
-    - 'https://${ONLYOFFICE_DOMAIN|onlyoffice.opencloud.test}/'
     - 'https://${COLLABORA_DOMAIN|collabora.opencloud.test}/'
   manifest-src:
     - '''self'''
