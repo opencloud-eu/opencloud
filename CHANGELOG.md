@@ -22,6 +22,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/KimMachineGun/automemlimit from 0.7.1 to 0.7.2 [[#803](https://github.com/opencloud-eu/opencloud/pull/803)]
 - build(deps): bump golang.org/x/crypto from 0.37.0 to 0.38.0 [[#802](https://github.com/opencloud-eu/opencloud/pull/802)]
 - build(deps): bump github.com/open-policy-agent/opa from 1.3.0 to 1.4.2 [[#784](https://github.com/opencloud-eu/opencloud/pull/784)]
 - build(deps): bump golang.org/x/sync from 0.13.0 to 0.14.0 [[#785](https://github.com/opencloud-eu/opencloud/pull/785)]
