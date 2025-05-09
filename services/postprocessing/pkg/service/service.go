@@ -108,7 +108,7 @@ func NewPostprocessingService(ctx context.Context, logger log.Logger, sto store.
 func (pps *PostprocessingService) Run() error {
 	wg := sync.WaitGroup{}
 
-	for i := 0; i < pps.c.Workers; i++ {
+	for range pps.c.Workers {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

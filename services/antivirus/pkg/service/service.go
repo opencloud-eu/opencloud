@@ -138,7 +138,7 @@ func (av Antivirus) Run() error {
 	}
 
 	wg := sync.WaitGroup{}
-	for i := 0; i < av.config.Workers; i++ {
+	for range av.config.Workers {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
