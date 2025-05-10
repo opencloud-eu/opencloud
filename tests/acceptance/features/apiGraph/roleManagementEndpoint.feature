@@ -30,7 +30,7 @@ Feature: permissions role definitions
               ],
               "properties": {
                 "@libre.graph.weight": {
-                  "const": 0
+                  "const": 10
                 },
                 "description": {
                   "const": "View and download."
@@ -152,7 +152,7 @@ Feature: permissions role definitions
               ],
               "properties": {
                 "@libre.graph.weight": {
-                  "const": 0
+                  "const": 40
                 },
                 "description": {
                   "const": "View and download."
@@ -205,7 +205,7 @@ Feature: permissions role definitions
               ],
               "properties": {
                 "@libre.graph.weight": {
-                  "const": 0
+                  "const": 60
                 },
                 "description": {
                   "const": "View, download, upload, edit, add and delete."
@@ -293,7 +293,7 @@ Feature: permissions role definitions
               ],
               "properties": {
                 "@libre.graph.weight": {
-                  "const": 0
+                  "const": 90
                 },
                 "description": {
                   "const": "View, download, upload, edit, add, delete including the history."
@@ -353,7 +353,7 @@ Feature: permissions role definitions
               ],
               "properties": {
                 "@libre.graph.weight": {
-                  "const": 0
+                  "const": 100
                 },
                 "description": {
                   "const": "View, download and edit."
@@ -435,7 +435,7 @@ Feature: permissions role definitions
               ],
               "properties": {
                 "@libre.graph.weight": {
-                  "const": 0
+                  "const": 50
                 },
                 "description": {
                   "const": "View, download and upload."
@@ -488,7 +488,7 @@ Feature: permissions role definitions
               ],
               "properties": {
                 "@libre.graph.weight": {
-                  "const": 0
+                  "const": 120
                 },
                 "description": {
                   "const": "View, download, upload, edit, add, delete and manage members."
@@ -564,7 +564,7 @@ Feature: permissions role definitions
           ],
           "properties": {
             "@libre.graph.weight":{
-              "const": 0
+              "const": 10
             },
             "description": {
               "const": "View and download."
@@ -695,7 +695,7 @@ Feature: permissions role definitions
         ],
         "properties": {
           "@libre.graph.weight": {
-            "const": 0
+            "const": 20
           },
           "description": {
             "const": "View only documents, images and PDFs. Watermarks will be applied."

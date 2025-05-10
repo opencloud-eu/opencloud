@@ -60,7 +60,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 1
+                      "const": 10
                     },
                     "description": {
                       "const": "View and download."
@@ -83,7 +83,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 2
+                      "const": 50
                     },
                     "description": {
                       "const": "View, download and upload."
@@ -106,7 +106,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 3
+                      "const": 60
                     },
                     "description": {
                       "const": "View, download, upload, edit, add and delete."
@@ -183,7 +183,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 1
+                      "const": 40
                     },
                     "description": {
                       "const": "View and download."
@@ -206,7 +206,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 2
+                      "const": 90
                     },
                     "description": {
                       "const": "View, download, upload, edit, add, delete including the history."
@@ -229,7 +229,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 3
+                      "const": 120
                     },
                     "description": {
                       "const": "View, download, upload, edit, add, delete and manage members."
@@ -316,7 +316,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 1
+                      "const": 40
                     },
                     "description": {
                       "const": "View and download."
@@ -339,7 +339,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 2
+                      "const": 90
                     },
                     "description": {
                       "const": "View, download, upload, edit, add, delete including the history."
@@ -362,7 +362,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 3
+                      "const": 120
                     },
                     "description": {
                       "const": "View, download, upload, edit, add, delete and manage members."
@@ -580,7 +580,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 1
+                      "const": 10
                     },
                     "description": {
                       "const": "View and download."
@@ -603,7 +603,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 2
+                      "const": 100
                     },
                     "description": {
                       "const": "View, download and edit."
@@ -680,7 +680,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 1
+                      "const": 10
                     },
                     "description": {
                       "const": "View and download."
@@ -703,7 +703,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 2
+                      "const": 50
                     },
                     "description": {
                       "const": "View, download and upload."
@@ -726,7 +726,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 3
+                      "const": 60
                     },
                     "description": {
                       "const": "View, download, upload, edit, add and delete."
@@ -803,7 +803,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 1
+                      "const": 10
                     },
                     "description": {
                       "const": "View and download."
@@ -826,7 +826,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 2
+                      "const": 100
                     },
                     "description": {
                       "const": "View, download and edit."
@@ -926,7 +926,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 1
+                      "const": 40
                     },
                     "description": {
                       "const": "View and download."
@@ -949,7 +949,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 2
+                      "const": 90
                     },
                     "description": {
                       "const": "View, download, upload, edit, add, delete including the history."
@@ -972,7 +972,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 3
+                      "const": 120
                     },
                     "description": {
                       "const": "View, download, upload, edit, add, delete and manage members."
@@ -1048,7 +1048,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 1
+                      "const": 40
                     },
                     "description": {
                       "const": "View and download."
@@ -1071,7 +1071,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 2
+                      "const": 90
                     },
                     "description": {
                       "const": "View, download, upload, edit, add, delete including the history."
@@ -1094,7 +1094,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 3
+                      "const": 120
                     },
                     "description": {
                       "const": "View, download, upload, edit, add, delete and manage members."
@@ -1330,7 +1330,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 1
+                      "const": 40
                     },
                     "description": {
                       "const": "View and download."
@@ -1353,7 +1353,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 2
+                      "const": 90
                     },
                     "description": {
                       "const": "View, download, upload, edit, add, delete including the history."
@@ -1376,7 +1376,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 3
+                      "const": 120
                     },
                     "description": {
                       "const": "View, download, upload, edit, add, delete and manage members."
@@ -1668,7 +1668,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 1
+                      "const": 40
                     },
                     "description": {
                       "const": "View and download."
@@ -1691,7 +1691,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 2
+                      "const": 90
                     },
                     "description": {
                       "const": "View, download, upload, edit, add, delete including the history."
@@ -1714,7 +1714,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 3
+                      "const": 120
                     },
                     "description": {
                       "const": "View, download, upload, edit, add, delete and manage members."
@@ -2188,7 +2188,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 1
+                      "const": 20
                     },
                     "description": {
                       "const": "View only documents, images and PDFs. Watermarks will be applied."
@@ -2297,7 +2297,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 2
+                      "const": 80
                     },
                     "description": {
                       "const": "View, download, upload, edit, add and delete."
@@ -2377,7 +2377,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 1
+                      "const": 200
                     },
                     "description": {
                       "const": "Deny all access."
@@ -2474,7 +2474,7 @@ Feature: List a sharing permissions
                   ],
                   "properties": {
                     "@libre.graph.weight": {
-                      "const": 1
+                      "const": 200
                     },
                     "description": {
                       "const": "Deny all access."
