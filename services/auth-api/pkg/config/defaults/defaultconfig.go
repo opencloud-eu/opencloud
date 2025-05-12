@@ -31,6 +31,9 @@ func DefaultConfig() *config.Config {
 		Service: config.Service{
 			Name: "auth-api",
 		},
+		Authentication: config.AuthenticationAPI{
+			JwkEndpoint: "https://keycloak.opencloud.test/realms/openCloud/protocol/openid-connect/certs",
+		},
 	}
 }
 
