@@ -24,6 +24,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump dario.cat/mergo from 1.0.1 to 1.0.2 [[#829](https://github.com/opencloud-eu/opencloud/pull/829)]
 - build(deps): bump golang.org/x/image from 0.26.0 to 0.27.0 [[#817](https://github.com/opencloud-eu/opencloud/pull/817)]
 - build(deps): bump github.com/CiscoM31/godata from 1.0.10 to 1.0.11 [[#815](https://github.com/opencloud-eu/opencloud/pull/815)]
 - build(deps): bump github.com/KimMachineGun/automemlimit from 0.7.1 to 0.7.2 [[#803](https://github.com/opencloud-eu/opencloud/pull/803)]
