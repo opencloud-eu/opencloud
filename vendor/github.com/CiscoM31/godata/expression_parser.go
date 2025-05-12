@@ -58,8 +58,9 @@ const (
 	ExpressionTokenDuration                                    // duration      = [ "duration" ] SQUOTE durationValue SQUOTE
 	ExpressionTokenGuid                                        // [25] A 128-bit GUID
 	ExpressionTokenAssignement                                 // The '=' assignement for function arguments.
-	ExpressionTokenGeographyPolygon                            //
-	ExpressionTokenGeometryPolygon                             //
+	ExpressionTokenGeographyPolygon                            // A polygon with geodetic (ie spherical) coordinates. Parsed Token.Value is '<long> <lat>,<long> <lat>...'
+	ExpressionTokenGeometryPolygon                             // A polygon with planar (ie cartesian) coordinates. Parsed Token.Value is '<long> <lat>,<long> <lat>...'
+	ExpressionTokenGeographyPoint                              // A geodetic coordinate point. Parsed Token.Value is '<long> <lat>'
 	expressionTokenLast
 )
 
@@ -94,6 +95,7 @@ func (e ExpressionTokenType) String() string {
 		"ExpressionTokenAssignement",
 		"ExpressionTokenGeographyPolygon",
 		"ExpressionTokenGeometryPolygon",
+		"ExpressionTokenGeographyPoint",
 		"expressionTokenLast",
 	}[e]
 }
@@ -178,15 +180,11 @@ func NewExpressionTokenizer() *Tokenizer {
 	// E.g. ABNF for 'geo.distance':
 	// distanceMethodCallExpr   = "geo.distance"   OPEN BWS commonExpr BWS COMMA BWS commonExpr BWS CLOSE
 	t.Add("(?i)^(?P<token>(geo.distance|geo.intersects|geo.length))[\\s(]", ExpressionTokenFunc)
-	// geographyPolygon   = geographyPrefix SQUOTE fullPolygonLiteral SQUOTE
-	// fullPolygonLiteral = sridLiteral polygonLiteral
-	// sridLiteral      = "SRID" EQ 1*5DIGIT SEMI
-	// polygonLiteral     = "Polygon" polygonData
-	// polygonData        = OPEN ringLiteral *( COMMA ringLiteral ) CLOSE
-	// Example: geography'SRID=0;Polygon((-122.031577 47.578581, -122.031577 47.678581, -122.131577 47.678581))'
-	t.Add(`^geography'SRID=[0-9]{1,5};Polygon\(\((-?[0-9]+\.[0-9]+\s+-?[0-9]+\.[0-9]+)(,\s-?[0-9]+\.[0-9]+\s+-?[0-9]+\.[0-9]+)*\)\)'`, ExpressionTokenGeographyPolygon)
-	// geometryPolygon    = geometryPrefix SQUOTE fullPolygonLiteral         SQUOTE
-	t.Add(`^geometry'SRID=[0-9]{1,5};Polygon\(\((-?[0-9]+\.[0-9]+\s+-?[0-9]+\.[0-9]+)(,\s-?[0-9]+\.[0-9]+\s+-?[0-9]+\.[0-9]+)*\)\)'`, ExpressionTokenGeometryPolygon)
+	// Example: geography'POLYGON((-122.031577 47.578581, -122.031577 47.678581, -122.131577 47.678581))'
+	t.Add(`(?i)^geography'(?:SRID=(\d{1,5});)?POLYGON\s*\(\(\s*(?P<subtoken>-?\d+(\.\d+)?\s+-?\d+(\.\d+)?(?:\s*,\s*-?\d+(\.\d+)?\s+-?\d+(\.\d+)?)*?)\s*\)\)'`, ExpressionTokenGeographyPolygon)
+	t.Add(`(?i)^geometry'(?:SRID=(\d{1,5});)?POLYGON\s*\(\(\s*(?P<subtoken>-?\d+(\.\d+)?\s+-?\d+(\.\d+)?(?:\s*,\s*-?\d+(\.\d+)?\s+-?\d+(\.\d+)?)*?)\s*\)\)'`, ExpressionTokenGeometryPolygon)
+	// Example: geography'POINT(-122.131577 47.678581)'
+	t.Add(`(?i)^geography'POINT\s*\(\s*(?P<subtoken>-?\d+(\.\d+)?\s+-?\d+(\.\d+)?)\s*\)'`, ExpressionTokenGeographyPoint)
 	// According to ODATA ABNF notation, functions must be followed by a open parenthesis with no space
 	// between the function name and the open parenthesis.
 	// However, we are leniently allowing space characters between the function and the open parenthesis.
@@ -315,7 +313,7 @@ func NewExpressionParser() *ExpressionParser {
 	//   Edm.Boolean geo.intersects(Edm.GeometryPoint,Edm.GeometryPolygon)
 	// The geo.intersects function returns true if the specified point lies within the interior
 	// or on the boundary of the specified polygon, otherwise it returns false.
-	parser.DefineFunction("geo.intersects", []int{2}, false)
+	parser.DefineFunction("geo.intersects", []int{2}, true)
 	// The geo.length function has the following signatures:
 	//   Edm.Double geo.length(Edm.GeographyLineString)
 	//   Edm.Double geo.length(Edm.GeometryLineString)
@@ -329,7 +327,7 @@ func NewExpressionParser() *ExpressionParser {
 	parser.DefineFunction("all", []int{2}, true)
 	// Define 'case' as a function accepting 1-10 arguments. Each argument is a pair of expressions separated by a colon.
 	// See https://docs.oasis-open.org/odata/odata/v4.01/odata-v4.01-part2-url-conventions.html#sec_case
-	parser.DefineFunction("case", []int{1,2,3,4,5,6,7,8,9,10}, true)
+	parser.DefineFunction("case", []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, true)
 
 	return parser
 }

@@ -21,8 +21,7 @@ func ParseFilterString(ctx context.Context, filter string) (*GoDataFilterQuery, 
 	if err != nil {
 		return nil, err
 	}
-	if tree == nil || tree.Token == nil ||
-		(len(tree.Children) == 0 && tree.Token.Type != ExpressionTokenBoolean) {
+	if tree == nil || tree.Token == nil || !GlobalFilterParser.isBooleanExpression(tree.Token) {
 		return nil, BadRequestError("Value must be a boolean expression")
 	}
 	return &GoDataFilterQuery{tree, filter}, nil

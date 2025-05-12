@@ -901,7 +901,7 @@ def localApiTestPipeline(ctx):
                 for storage in params["storages"]:
                     for run_with_remote_php in params["withRemotePhp"]:
                         pipeline = {
-                            "name": "%s-%s%s-%s" % ("CLI" if name.startswith("cli") else "API", name, "-withoutRemotePhp" if not run_with_remote_php else "", storage),
+                            "name": "%s-%s%s-%s" % ("CLI" if name.startswith("cli") else "API", name, "-withoutRemotePhp" if not run_with_remote_php else "", "decomposed" if name.startswith("cli") else storage),
                             "steps": restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
                                      (tikaService() if params["tikaNeeded"] else []) +
                                      (waitForServices("online-offices", ["collabora:9980", "onlyoffice:443", "fakeoffice:8080"]) if params["collaborationServiceNeeded"] else []) +
@@ -932,7 +932,7 @@ def localApiTestPipeline(ctx):
 
 def localApiTests(name, suites, storage = "decomposed", extra_environment = {}, with_remote_php = False):
     test_dir = "%s/tests/acceptance" % dirs["base"]
-    expected_failures_file = "%s/expected-failures-localAPI-on-decomposed-storage.md" % test_dir
+    expected_failures_file = "%s/expected-failures-localAPI-on-%s-storage.md" % (test_dir, storage)
 
     environment = {
         "TEST_SERVER_URL": OC_URL,

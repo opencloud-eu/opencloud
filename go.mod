@@ -4,7 +4,7 @@ go 1.24.1
 
 require (
 	dario.cat/mergo v1.0.1
-	github.com/CiscoM31/godata v1.0.10
+	github.com/CiscoM31/godata v1.0.11
 	github.com/KimMachineGun/automemlimit v0.7.2
 	github.com/Masterminds/semver v1.5.0
 	github.com/MicahParks/keyfunc/v2 v2.1.0
@@ -98,7 +98,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.35.0
 	golang.org/x/crypto v0.38.0
 	golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac
-	golang.org/x/image v0.26.0
+	golang.org/x/image v0.27.0
 	golang.org/x/net v0.39.0
 	golang.org/x/oauth2 v0.30.0
 	golang.org/x/sync v0.14.0
