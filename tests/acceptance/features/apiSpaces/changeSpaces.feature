@@ -434,7 +434,7 @@ Feature: Change data of space
     When user "<user>" uploads a file inside space "Project Jupiter" with content "" to ".space/newSpaceImage.png" using the WebDAV API
     And user "<user>" sets the file ".space/newSpaceImage.png" as a space image in a special section of the "Project Jupiter" space
     Then the HTTP status code should be "200"
-    And the JSON response should contain space called "Project Jupiter" owned by "Alice" with description file ".space/newSpaceImage.png" and match
+    And the JSON response should contain space called "Project Jupiter" owned by "Alice" with space image ".space/newSpaceImage.png" and match
       """
       {
         "type": "object",
@@ -598,3 +598,77 @@ Feature: Change data of space
       | role                          |
       | Space Editor Without Versions |
       | Space Editor                  |
+
+  @issue-462
+  Scenario: user doesn't lose the space image when admin fetches the space
+    Given the administrator has assigned the role "Space Admin" to user "Brian" using the Graph API
+    And user "Alice" has created a folder ".space" in space "Project Jupiter"
+    And user "Alice" has uploaded a file inside space "Project Jupiter" with content "" to ".space/spaceImage.jpeg"
+    And user "Alice" has set the file ".space/spaceImage.jpeg" as a space image in a special section of the "Project Jupiter" space
+    When user "Brian" lists all spaces via the Graph API
+    And user "Alice" lists all available spaces via the Graph API with query "$filter=driveType eq 'project'"
+    Then the HTTP status code should be "200"
+    And the JSON response should contain space called "Project Jupiter" owned by "Alice" with space image ".space/spaceImage.png" and match
+      """
+      {
+        "type": "object",
+        "required": [
+          "name",
+          "special"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": ["Project Jupiter"]
+          },
+          "special": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "size",
+                "name",
+                "specialFolder",
+                "file"
+              ],
+              "properties": {
+                "size": {
+                  "type": "number",
+                  "enum": [0]
+                },
+                "name": {
+                  "type": "string",
+                  "enum": ["spaceImage.jpeg"]
+                },
+                "specialFolder": {
+                  "type": "object",
+                  "required": [
+                    "name"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "enum": ["image"]
+                    }
+                  }
+                },
+                "file": {
+                  "type": "object",
+                  "required": [
+                    "mimeType"
+                  ],
+                  "properties": {
+                    "mimeType": {
+                      "type": "string",
+                      "enum": ["image/jpeg"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      """
