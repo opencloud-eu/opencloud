@@ -15,8 +15,6 @@ import (
 func Server(opts ...Option) (http.Service, error) {
 	options := newOptions(opts...)
 
-	fmt.Printf("===== HTTP addr: %v\n", options.Config.HTTP.Addr)
-
 	service, err := http.NewService(
 		http.TLSConfig(options.Config.HTTP.TLS),
 		http.Logger(options.Logger),
@@ -37,6 +35,8 @@ func Server(opts ...Option) (http.Service, error) {
 	handle := svc.NewService(
 		svc.Logger(options.Logger),
 		svc.Config(options.Config),
+		svc.Metrics(options.Metrics),
+		svc.TraceProvider(options.TraceProvider),
 		svc.Middleware(
 			middleware.RealIP,
 			middleware.RequestID,

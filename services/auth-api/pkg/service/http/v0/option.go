@@ -5,6 +5,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/auth-api/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/auth-api/pkg/metrics"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -16,6 +17,7 @@ type Options struct {
 	Logger        log.Logger
 	Config        *config.Config
 	Middleware    []func(http.Handler) http.Handler
+	Metrics       *metrics.Metrics
 	TraceProvider trace.TracerProvider
 }
 
@@ -48,5 +50,17 @@ func Config(val *config.Config) Option {
 func Middleware(val ...func(http.Handler) http.Handler) Option {
 	return func(o *Options) {
 		o.Middleware = val
+	}
+}
+
+func TraceProvider(tp trace.TracerProvider) Option {
+	return func(o *Options) {
+		o.TraceProvider = tp
+	}
+}
+
+func Metrics(m *metrics.Metrics) Option {
+	return func(o *Options) {
+		o.Metrics = m
 	}
 }

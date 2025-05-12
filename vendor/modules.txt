@@ -37,9 +37,15 @@ github.com/Masterminds/semver/v3
 # github.com/Masterminds/sprig v2.22.0+incompatible
 ## explicit
 github.com/Masterminds/sprig
+# github.com/MicahParks/jwkset v0.8.0
+## explicit; go 1.21
+github.com/MicahParks/jwkset
 # github.com/MicahParks/keyfunc/v2 v2.1.0
 ## explicit; go 1.18
 github.com/MicahParks/keyfunc/v2
+# github.com/MicahParks/keyfunc/v3 v3.3.11
+## explicit; go 1.21
+github.com/MicahParks/keyfunc/v3
 # github.com/Microsoft/go-winio v0.6.2
 ## explicit; go 1.21
 github.com/Microsoft/go-winio
