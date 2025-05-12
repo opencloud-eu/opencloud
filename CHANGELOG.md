@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.3.0) - 2025-05-10
+## [2.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.3.0) - 2025-05-12
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -12,14 +12,15 @@
 - proxy(router): Allow to set some outgoing headers [[#756](https://github.com/opencloud-eu/opencloud/pull/756)]
 - feat: set idp logo defaul url [[#746](https://github.com/opencloud-eu/opencloud/pull/746)]
 
+### ✅ Tests
+
+- collaboration posix tests [[#780](https://github.com/opencloud-eu/opencloud/pull/780)]
+- collaborative posix test [[#672](https://github.com/opencloud-eu/opencloud/pull/672)]
+
 ### 🐛 Bug Fixes
 
 - fix: show special roles at the end of the list [[#806](https://github.com/opencloud-eu/opencloud/pull/806)]
 - fix: idp login logo url exceeds logo [[#742](https://github.com/opencloud-eu/opencloud/pull/742)]
-
-### ✅ Tests
-
-- collaborative posix test [[#672](https://github.com/opencloud-eu/opencloud/pull/672)]
 
 ### 📦️ Dependencies
 
