@@ -24,4 +24,5 @@ type Config struct {
 }
 
 type AuthenticationAPI struct {
+	JwkEndpoint string `yaml:"jwk_endpoint"`
 }
