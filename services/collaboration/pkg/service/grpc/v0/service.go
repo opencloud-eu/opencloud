@@ -292,6 +292,10 @@ func (s *Service) addQueryToURL(baseURL string, req *appproviderv1beta1.OpenInAp
 		}
 	}
 
+	if strings.ToLower(s.config.App.Product) == "collabora" {
+		q.Add("closebutton", "false")
+	}
+
 	qs := q.Encode()
 	u.RawQuery = qs
 
