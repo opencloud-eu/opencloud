@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"path"
 
 	"github.com/gofrs/uuid"
-	"github.com/oklog/run"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/registry"
+	"github.com/opencloud-eu/opencloud/pkg/runner"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
@@ -38,60 +39,42 @@ func Server(cfg *config.Config) *cli.Command {
 			if err != nil {
 				return err
 			}
-			gr := run.Group{}
-			ctx, cancel := context.WithCancel(c.Context)
 
-			defer cancel()
+			var cancel context.CancelFunc
+			ctx := cfg.Context
+			if ctx == nil {
+				ctx, cancel = signal.NotifyContext(context.Background(), runner.StopSignals...)
+				defer cancel()
+			}
 
-			// make sure the run group executes all interrupt handlers when the context is canceled
-			gr.Add(func() error {
-				<-ctx.Done()
-				return nil
-			}, func(_ error) {
-			})
+			gr := runner.NewGroup()
 
-			gr.Add(func() error {
+			{
 				pidFile := path.Join(os.TempDir(), "revad-"+cfg.Service.Name+"-"+uuid.Must(uuid.NewV4()).String()+".pid")
 				rCfg := revaconfig.StorageUsersConfigFromStruct(cfg)
 				reg := registry.GetRegistry()
 
-				runtime.RunWithOptions(rCfg, pidFile,
+				revaSrv := runtime.RunDrivenServerWithOptions(rCfg, pidFile,
 					runtime.WithLogger(&logger.Logger),
 					runtime.WithRegistry(reg),
 					runtime.WithTraceProvider(traceProvider),
 				)
-
-				return nil
-			}, func(err error) {
-				if err == nil {
-					logger.Info().
-						Str("transport", "reva").
-						Str("server", cfg.Service.Name).
-						Msg("Shutting down server")
-				} else {
-					logger.Error().Err(err).
-						Str("transport", "reva").
-						Str("server", cfg.Service.Name).
-						Msg("Shutting down server")
-				}
-
-				cancel()
-			})
-
-			debugServer, err := debug.Server(
-				debug.Logger(logger),
-				debug.Context(ctx),
-				debug.Config(cfg),
-			)
-			if err != nil {
-				logger.Info().Err(err).Str("server", "debug").Msg("Failed to initialize server")
-				return err
+				gr.Add(runner.NewRevaServiceRunner("storage-users_revad", revaSrv))
 			}
 
-			gr.Add(debugServer.ListenAndServe, func(err error) {
-				_ = debugServer.Shutdown(ctx)
-				cancel()
-			})
+			{
+				debugServer, err := debug.Server(
+					debug.Logger(logger),
+					debug.Context(ctx),
+					debug.Config(cfg),
+				)
+				if err != nil {
+					logger.Info().Err(err).Str("server", "debug").Msg("Failed to initialize server")
+					return err
+				}
+
+				gr.Add(runner.NewGolangHttpServerRunner("storage-users_debug", debugServer))
+			}
 
 			grpcSvc := registry.BuildGRPCService(cfg.GRPC.Namespace+"."+cfg.Service.Name, cfg.GRPC.Protocol, cfg.GRPC.Addr, version.GetString())
 			if err := registry.RegisterService(ctx, logger, grpcSvc, cfg.Debug.Addr); err != nil {
@@ -113,25 +96,19 @@ func Server(cfg *config.Config) *cli.Command {
 				if err != nil {
 					logger.Fatal().Err(err).Msg("can't create event handler")
 				}
-
-				gr.Add(eventSVC.Run, func(err error) {
-					if err == nil {
-						logger.Info().
-							Str("transport", "stream").
-							Str("server", cfg.Service.Name).
-							Msg("Shutting down server")
-					} else {
-						logger.Error().Err(err).
-							Str("transport", "stream").
-							Str("server", cfg.Service.Name).
-							Msg("Shutting down server")
-					}
-
-					cancel()
-				})
+				// The event service Run() function handles the stop signal itself
+				go eventSVC.Run()
 			}
 
-			return gr.Run()
+			grResults := gr.Run(ctx)
+
+			// return the first non-nil error found in the results
+			for _, grResult := range grResults {
+				if grResult.RunnerError != nil {
+					return grResult.RunnerError
+				}
+			}
+			return nil
 		},
 	}
 }

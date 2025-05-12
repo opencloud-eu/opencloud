@@ -55,7 +55,7 @@ func Server(cfg *config.Config) *cli.Command {
 
 			handle := svc.NewDefaultLanguageService(cfg, svc.NewService(cfg, logger))
 
-			servers := runner.NewGroup()
+			gr := runner.NewGroup()
 
 			// prepare an HTTP server and add it to the group run.
 			httpServer, err := http.Server(
@@ -73,7 +73,7 @@ func Server(cfg *config.Config) *cli.Command {
 					Msg("Error initializing http service")
 				return fmt.Errorf("could not initialize http service: %w", err)
 			}
-			servers.Add(runner.NewGoMicroHttpServerRunner("settings_http", httpServer))
+			gr.Add(runner.NewGoMicroHttpServerRunner("settings_http", httpServer))
 
 			// prepare a gRPC server and add it to the group run.
 			grpcServer := grpc.Server(
@@ -85,7 +85,7 @@ func Server(cfg *config.Config) *cli.Command {
 				grpc.ServiceHandler(handle),
 				grpc.TraceProvider(traceProvider),
 			)
-			servers.Add(runner.NewGoMicroGrpcServerRunner("settings_grpc", grpcServer))
+			gr.Add(runner.NewGoMicroGrpcServerRunner("settings_grpc", grpcServer))
 
 			// prepare a debug server and add it to the group run.
 			debugServer, err := debug.Server(
@@ -98,9 +98,9 @@ func Server(cfg *config.Config) *cli.Command {
 				return err
 			}
 
-			servers.Add(runner.NewGolangHttpServerRunner("settings_debug", debugServer))
+			gr.Add(runner.NewGolangHttpServerRunner("settings_debug", debugServer))
 
-			grResults := servers.Run(ctx)
+			grResults := gr.Run(ctx)
 
 			// return the first non-nil error found in the results
 			for _, grResult := range grResults {

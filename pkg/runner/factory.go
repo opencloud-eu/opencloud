@@ -9,6 +9,7 @@ import (
 
 	ogrpc "github.com/opencloud-eu/opencloud/pkg/service/grpc"
 	ohttp "github.com/opencloud-eu/opencloud/pkg/service/http"
+	"github.com/opencloud-eu/reva/v2/cmd/revad/runtime"
 	"google.golang.org/grpc"
 )
 
@@ -102,7 +103,8 @@ func NewGolangHttpServerRunner(name string, server *http.Server, opts ...Option)
 		// Since Shutdown might take some time, don't block
 		go func() {
 			// give 5 secs for the shutdown to finish
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			// TODO: To discuss the default timeout
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel()
 
 			debugCh <- server.Shutdown(shutdownCtx)
@@ -127,6 +129,26 @@ func NewGolangGrpcServerRunner(name string, server *grpc.Server, listener net.Li
 		// Since GracefulStop might take some time, don't block
 		go func() {
 			server.GracefulStop()
+		}()
+	}, opts...)
+
+	return r
+}
+
+func NewRevaServiceRunner(name string, server runtime.RevaDrivenServer, opts ...Option) *Runner {
+	httpCh := make(chan error, 1)
+	r := New(name, func() error {
+		// start the server and return if it fails
+		if err := server.Start(); err != nil {
+			return err
+		}
+		return <-httpCh // wait for the result
+	}, func() {
+		// stop implies deregistering and waiting for the request to finish,
+		// so don't block
+		go func() {
+			httpCh <- server.Stop() // stop and send a result through a channel
+			close(httpCh)
 		}()
 	}, opts...)
 

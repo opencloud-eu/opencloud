@@ -2,13 +2,15 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"net/rpc"
-	"os"
+	"os/signal"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -16,6 +18,7 @@ import (
 	"github.com/olekukonko/tablewriter"
 	occfg "github.com/opencloud-eu/opencloud/pkg/config"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/runner"
 	ogrpc "github.com/opencloud-eu/opencloud/pkg/service/grpc"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	activitylog "github.com/opencloud-eu/opencloud/services/activitylog/pkg/command"
@@ -358,8 +361,9 @@ func Start(ctx context.Context, o ...Option) error {
 		return err
 	}
 
-	// get a cancel function to stop the service
-	ctx, cancel := context.WithCancel(ctx)
+	// cancel the context when a signal is received.
+	notifyCtx, cancel := signal.NotifyContext(ctx, runner.StopSignals...)
+	defer cancel()
 
 	// tolerance controls backoff cycles from the supervisor.
 	tolerance := 5
@@ -397,6 +401,7 @@ func Start(ctx context.Context, o ...Option) error {
 	if err != nil {
 		s.Log.Fatal().Err(err).Msg("could not start listener")
 	}
+	srv := new(http.Server)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -404,7 +409,6 @@ func Start(ctx context.Context, o ...Option) error {
 			if _, err = net.Dial("tcp", net.JoinHostPort(s.cfg.Runtime.Host, s.cfg.Runtime.Port)); err != nil {
 				reason.WriteString("runtime address already in use")
 			}
-
 			fmt.Println(reason.String())
 		}
 	}()
@@ -417,10 +421,7 @@ func Start(ctx context.Context, o ...Option) error {
 	// go supervisor.Serve()
 	// because that will briefly create a race condition as it starts up, if you try to .Add() services immediately afterward.
 	// https://pkg.go.dev/github.com/thejerf/suture/v4@v4.0.0#Supervisor
-	go s.Supervisor.ServeBackground(s.context)
-
-	// trap will block on context done channel for interruptions.
-	go trap(s, ctx)
+	go s.Supervisor.ServeBackground(s.context) // TODO Why does Supervisor uses s.context?
 
 	for i, service := range s.Services {
 		scheduleServiceTokens(s, service)
@@ -434,7 +435,15 @@ func Start(ctx context.Context, o ...Option) error {
 	// schedule services that are optional
 	scheduleServiceTokens(s, s.Additional)
 
-	return http.Serve(l, nil)
+	go func() {
+		if err = srv.Serve(l); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			s.Log.Fatal().Err(err).Msg("could not start rpc server")
+		}
+	}()
+
+	// trapShutdownCtx will block on the context-done channel for interruptions.
+	trapShutdownCtx(s, srv, notifyCtx)
+	return nil
 }
 
 // scheduleServiceTokens adds service tokens to the service supervisor.
@@ -501,20 +510,51 @@ func (s *Service) List(_ struct{}, reply *string) error {
 	return nil
 }
 
-// trap blocks on halt channel. When the runtime is interrupted it
-// signals the controller to stop any supervised process.
-func trap(s *Service, ctx context.Context) {
+func trapShutdownCtx(s *Service, srv *http.Server, ctx context.Context) {
 	<-ctx.Done()
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// TODO: To discuss the default timeout
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(ctx); err != nil {
+			s.Log.Error().Err(err).Msg("could not shutdown tcp listener")
+			return
+		}
+		s.Log.Info().Msg("tcp listener shutdown")
+	}()
+
 	for sName := range s.serviceToken {
 		for i := range s.serviceToken[sName] {
-			if err := s.Supervisor.Remove(s.serviceToken[sName][i]); err != nil {
-				s.Log.Error().Err(err).Str("service", "runtime service").Msgf("terminating with signal: %v", s)
-			}
+			wg.Add(1)
+			go func() {
+				s.Log.Warn().Msgf("=== RemoveAndWait for %s", sName)
+				defer wg.Done()
+				// TODO: To discuss the default timeout
+				if err := s.Supervisor.RemoveAndWait(s.serviceToken[sName][i], 20*time.Second); err != nil && !errors.Is(err, suture.ErrSupervisorNotRunning) {
+					s.Log.Error().Err(err).Str("service", sName).Msgf("terminating with signal: %+v", s)
+				}
+				s.Log.Warn().Msgf("=== Done RemoveAndWait for %s", sName)
+			}()
 		}
 	}
-	s.Log.Debug().Str("service", "runtime service").Msgf("terminating with signal: %v", s)
-	time.Sleep(3 * time.Second) // give the services time to deregister
-	os.Exit(0)                  // FIXME this cause an early exit that prevents services from shitting down properly
+
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	// TODO: To discuss the default timeout
+	case <-time.After(30 * time.Second):
+		s.Log.Fatal().Msg("ocis graceful shutdown timeout reached, terminating")
+	case <-done:
+		s.Log.Info().Msg("all ocis services gracefully stopped")
+		return
+	}
 }
 
 // pingNats will attempt to connect to nats, blocking until a connection is established
