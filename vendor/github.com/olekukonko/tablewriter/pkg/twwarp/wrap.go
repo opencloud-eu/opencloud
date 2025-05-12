@@ -5,26 +5,33 @@
 // This module is a Table Writer  API for the Go Programming Language.
 // The protocols were written in pure Go and works on windows and unix systems
 
-package tablewriter
+package twwarp
 
 import (
 	"math"
 	"strings"
+	"unicode"
 
 	"github.com/mattn/go-runewidth"
 )
 
-var (
+const (
 	nl = "\n"
 	sp = " "
 )
 
 const defaultPenalty = 1e5
 
-// Wrap wraps s into a paragraph of lines of length lim, with minimal
+// WrapString wraps s into a paragraph of lines of length lim, with minimal
 // raggedness.
 func WrapString(s string, lim int) ([]string, int) {
-	words := strings.Split(strings.Replace(s, nl, sp, -1), sp)
+	if s == sp {
+		return []string{sp}, lim
+	}
+	words := SplitWords(s)
+	if len(words) == 0 {
+		return []string{""}, lim
+	}
 	var lines []string
 	max := 0
 	for _, v := range words {
@@ -37,6 +44,29 @@ func WrapString(s string, lim int) ([]string, int) {
 		lines = append(lines, strings.Join(line, sp))
 	}
 	return lines, lim
+}
+
+func SplitWords(s string) []string {
+	words := make([]string, 0, len(s)/5)
+	var wordBegin int
+	wordPending := false
+	for i, c := range s {
+		if unicode.IsSpace(c) {
+			if wordPending {
+				words = append(words, s[wordBegin:i])
+				wordPending = false
+			}
+			continue
+		}
+		if !wordPending {
+			wordBegin = i
+			wordPending = true
+		}
+	}
+	if wordPending {
+		words = append(words, s[wordBegin:])
+	}
+	return words
 }
 
 // WrapWords is the low-level line-breaking algorithm, useful if you need more
@@ -52,35 +82,41 @@ func WrapString(s string, lim int) ([]string, int) {
 // added to the error.
 func WrapWords(words []string, spc, lim, pen int) [][]string {
 	n := len(words)
-
-	length := make([][]int, n)
+	if n == 0 {
+		return nil
+	}
+	lengths := make([]int, n)
 	for i := 0; i < n; i++ {
-		length[i] = make([]int, n)
-		length[i][i] = runewidth.StringWidth(words[i])
-		for j := i + 1; j < n; j++ {
-			length[i][j] = length[i][j-1] + spc + runewidth.StringWidth(words[j])
-		}
+		lengths[i] = runewidth.StringWidth(words[i])
 	}
 	nbrk := make([]int, n)
 	cost := make([]int, n)
 	for i := range cost {
 		cost[i] = math.MaxInt32
 	}
+	remainderLen := lengths[n-1]
 	for i := n - 1; i >= 0; i-- {
-		if length[i][n-1] <= lim {
+		if i < n-1 {
+			remainderLen += spc + lengths[i]
+		}
+		if remainderLen <= lim {
 			cost[i] = 0
 			nbrk[i] = n
-		} else {
-			for j := i + 1; j < n; j++ {
-				d := lim - length[i][j-1]
-				c := d*d + cost[j]
-				if length[i][j-1] > lim {
-					c += pen // too-long lines get a worse penalty
-				}
-				if c < cost[i] {
-					cost[i] = c
-					nbrk[i] = j
-				}
+			continue
+		}
+		phraseLen := lengths[i]
+		for j := i + 1; j < n; j++ {
+			if j > i+1 {
+				phraseLen += spc + lengths[j-1]
+			}
+			d := lim - phraseLen
+			c := d*d + cost[j]
+			if phraseLen > lim {
+				c += pen // too-long lines get a worse penalty
+			}
+			if c < cost[i] {
+				cost[i] = c
+				nbrk[i] = j
 			}
 		}
 	}

@@ -1,0 +1,79 @@
+package tw
+
+// Operation Status Constants
+// Used to indicate the success or failure of operations
+const (
+	Fail    = -1 // Operation failed
+	Success = 1  // Operation succeeded
+
+	DefaultMinlColumnWidth = 8
+)
+
+const (
+	Empty   = ""
+	Skip    = ""
+	Space   = " "
+	NewLine = "\n"
+)
+
+// Feature State Constants
+// Represents enabled/disabled states for features
+const (
+	On  State = Success // Feature is enabled
+	Off State = Fail    // Feature is disabled
+)
+
+// Table Alignment Constants
+// Defines text alignment options for table content
+const (
+	AlignNone    Align = "none"    // Center-aligned text
+	AlignCenter  Align = "center"  // Center-aligned text
+	AlignRight   Align = "right"   // Right-aligned text
+	AlignLeft    Align = "left"    // Left-aligned text
+	AlignDefault       = AlignLeft // Left-aligned text
+)
+
+const (
+	Header Position = "header" // Table header section
+	Row    Position = "row"    // Table row section
+	Footer Position = "footer" // Table footer section
+)
+
+const (
+	LevelHeader Level = iota // Topmost line position
+	LevelBody                // LevelBody line position
+	LevelFooter              // LevelFooter line position
+)
+
+const (
+	LocationFirst  Location = "first"  // Topmost line position
+	LocationMiddle Location = "middle" // LevelBody line position
+	LocationEnd    Location = "end"    // LevelFooter line position
+)
+
+// Text Wrapping Constants
+// Defines text wrapping behavior in table cells
+const (
+	WrapNone     = iota // No wrapping
+	WrapNormal          // Standard word wrapping
+	WrapTruncate        // Truncate text with ellipsis
+	WrapBreak           // Break words to fit
+)
+
+// Cell Merge Constants
+// Specifies cell merging behavior in tables
+
+const (
+	MergeNone         = iota // No merging
+	MergeVertical            // Merge cells vertically
+	MergeHorizontal          // Merge cells horizontally
+	MergeBoth                // Merge both vertically and horizontally
+	MergeHierarchical        // Hierarchical merging
+)
+
+// Special Character Constants
+// Defines special characters used in formatting
+const (
+	CharEllipsis = "…" // Ellipsis character for truncation
+	CharBreak    = "↩" // Break character for wrapping
+)
