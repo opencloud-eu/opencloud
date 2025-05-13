@@ -51,7 +51,7 @@ require (
 	github.com/kovidgoyal/imaging v1.6.4
 	github.com/leonelquinteros/gotext v1.7.1
 	github.com/libregraph/idm v0.5.0
-	github.com/libregraph/lico v0.65.2-0.20250428103211-356e98f98457
+	github.com/libregraph/lico v0.66.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mna/pigeon v1.3.0
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826

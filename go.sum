@@ -718,8 +718,8 @@ github.com/leonelquinteros/gotext v1.7.1 h1:/JNPeE3lY5JeVYv2+KBpz39994W3W9fmZCGq
 github.com/leonelquinteros/gotext v1.7.1/go.mod h1:I0WoFDn9u2D3VbPnnDPT8mzZu0iSXG8iih+AH2fHHqg=
 github.com/libregraph/idm v0.5.0 h1:tDMwKbAOZzdeDYMxVlY5PbSqRKO7dbAW9KT42A51WSk=
 github.com/libregraph/idm v0.5.0/go.mod h1:BGMwIQ/6orJSPVzJ1x6kgG2JyG9GY05YFmbsnaD80k0=
-github.com/libregraph/lico v0.65.2-0.20250428103211-356e98f98457 h1:cwmUM+mSeqWYtZKAHn8QN7ns1nNf3Pc8nUfShka9+x0=
-github.com/libregraph/lico v0.65.2-0.20250428103211-356e98f98457/go.mod h1:2s2UkO0pY7/k1UlenXwio1qenfHZ217Npx22YyZJfSA=
+github.com/libregraph/lico v0.66.0 h1:7T6fD1YF0Ep9n0g4KN6dvWHTlDC3awrQpgsP5GdYCF4=
+github.com/libregraph/lico v0.66.0/go.mod h1:QI7NfmAkAWQ2y97iVfLv10S8tcvPQjc630uyfHGjIOw=
 github.com/libregraph/oidc-go v1.1.0 h1:RyudjL3UyQblqeBQI06W53PniWobqODeeyAy6v/HumA=
 github.com/libregraph/oidc-go v1.1.0/go.mod h1:qW9ubcXvZrfbbWZBaLMuk7bt5qAUMYyt9/NtXQt07Cw=
 github.com/linode/linodego v0.25.3/go.mod h1:GSBKPpjoQfxEfryoCRcgkuUOCuVtGHWhzI8OMdycNTE=

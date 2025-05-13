@@ -4,6 +4,28 @@
 
 
 
+## v0.66.0 (2025-04-28)
+
+- Remove built-in survey client from the licod runner
+- Bump caniuse-lite to latest
+- Bump github.com/beevik/etree from 1.5.0 to 1.5.1
+- Bump github.com/go-ldap/ldap/v3 from 3.4.6 to 3.4.11
+- Add optional URL to branding
+- Bump github.com/russellhaering/goxmldsig from 1.4.0 to 1.5.0
+- Bump golang.org/x/net from 0.24.0 to 0.38.0
+- Bump vite from 4.5.2 to 4.5.13 in /identifier
+- Bump golang.org/x/net from 0.24.0 to 0.36.0
+- Bump github.com/golang-jwt/jwt/v4 from 4.5.0 to 4.5.2
+- Bump Go minimal toolchain to 1.23.6
+- Bump project to Go 1.22 and update CI to Go 1.24
+- Bump github.com/golang-jwt/jwt/v5 from 5.2.1 to 5.2.2
+- Bump github.com/go-jose/go-jose/v3 from 3.0.3 to 3.0.4
+- Bump sigs.k8s.io/yaml from 1.3.0 to 1.4.0
+- Fix CI pipeline and bump CI to use Go 1.22
+- Bump golang.org/x/crypto from 0.22.0 to 0.31.0
+- Bump golang-jwt/jwt from 4.5.0 to 5.2.1
+
+
 ## v0.65.1 (2024-12-09)
 
 - Set focus to password field when login_hint is given
