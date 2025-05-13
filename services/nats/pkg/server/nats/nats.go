@@ -5,6 +5,9 @@ import (
 	"time"
 
 	nserver "github.com/nats-io/nats-server/v2/server"
+	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/services/nats/pkg/logging"
+	"github.com/rs/zerolog"
 )
 
 var NATSListenAndServeLoopTimer = 1 * time.Second
@@ -15,7 +18,7 @@ type NATSServer struct {
 }
 
 // NatsOption configures the new NATSServer instance
-func NewNATSServer(ctx context.Context, logger nserver.Logger, opts ...NatsOption) (*NATSServer, error) {
+func NewNATSServer(ctx context.Context, logger log.Logger, opts ...NatsOption) (*NATSServer, error) {
 	natsOpts := &nserver.Options{}
 
 	for _, o := range opts {
@@ -32,7 +35,8 @@ func NewNATSServer(ctx context.Context, logger nserver.Logger, opts ...NatsOptio
 		return nil, err
 	}
 
-	server.SetLoggerV2(logger, true, true, false)
+	nLogger := logging.NewLogWrapper(logger)
+	server.SetLoggerV2(nLogger, logger.GetLevel() <= zerolog.DebugLevel, logger.GetLevel() <= zerolog.TraceLevel, false)
 
 	return &NATSServer{
 		ctx:    ctx,

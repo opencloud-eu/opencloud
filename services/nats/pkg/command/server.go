@@ -78,7 +78,7 @@ func Server(cfg *config.Config) *cli.Command {
 			}
 			natsServer, err := nats.NewNATSServer(
 				ctx,
-				logging.NewLogWrapper(logger),
+				logger,
 				nats.Host(cfg.Nats.Host),
 				nats.Port(cfg.Nats.Port),
 				nats.ClusterID(cfg.Nats.ClusterID),
