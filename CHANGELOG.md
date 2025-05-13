@@ -26,6 +26,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/libregraph/lico from 0.65.2-0.20250428103211-356e98f98457 to 0.66.0 [[#839](https://github.com/opencloud-eu/opencloud/pull/839)]
 - build(deps): bump i18next from 23.16.8 to 25.1.2 in /services/idp [[#832](https://github.com/opencloud-eu/opencloud/pull/832)]
 - build(deps): bump dario.cat/mergo from 1.0.1 to 1.0.2 [[#829](https://github.com/opencloud-eu/opencloud/pull/829)]
 - build(deps): bump golang.org/x/image from 0.26.0 to 0.27.0 [[#817](https://github.com/opencloud-eu/opencloud/pull/817)]
