@@ -44,6 +44,13 @@ Feature: create a resources using collaborative posixfs
     And the content of file "/folder/test.txt" for user "Alice" should be "content"
 
 
+  Scenario: rename file
+    Given user "Alice" has uploaded file with content "content" to "test.txt"
+    When the administrator renames the file "test.txt" to "new-name.txt" for user "Alice" on the POSIX filesystem
+    Then the command should be successful
+    And the content of file "/new-name.txt" for user "Alice" should be "content"
+
+
   Scenario: move file to folder
     Given user "Alice" has created folder "/folder"
     And user "Alice" has uploaded file with content "content" to "test.txt"
@@ -85,3 +92,66 @@ Feature: create a resources using collaborative posixfs
     When the administrator deletes the project space "Project space" on the POSIX filesystem
     Then the command should be successful
     And the user "Alice" should not have a space called "Project space"
+
+
+  Scenario: user doesn't lose file versions after renaming the file
+    Given user "Brian" has been created with default attributes
+    And user "Alice" has uploaded file with content "content" to "textfile.txt"
+    And user "Alice" has uploaded file with content "new content version 2" to "textfile.txt"
+    And user "Alice" has uploaded file with content "new content version 3" to "textfile.txt"
+    When the administrator renames the file "textfile.txt" to "new-name.txt" for user "Alice" on the POSIX filesystem
+    Then the command should be successful
+    When user "Alice" gets the number of versions of file "new-name.txt"
+    Then the HTTP status code should be "207"
+    And the number of versions should be "2"
+
+
+  Scenario: user doesn't lose file versions after changing the file content
+    Given user "Alice" has uploaded file with content "content" to "textfile.txt"
+    And user "Alice" has uploaded file with content "new content version 2" to "textfile.txt"
+    And user "Alice" has uploaded file with content "new content version 3" to "textfile.txt"
+    When the administrator puts the content "new" into the file "textfile.txt" in the POSIX storage folder of user "Alice"
+    Then the command should be successful
+    When user "Alice" gets the number of versions of file "textfile.txt"
+    Then the HTTP status code should be "207"
+    And the number of versions should be "2"
+
+
+  Scenario: user doesn't lose share and public link after renaming the file
+    Given user "Brian" has been created with default attributes
+    And user "Alice" has uploaded file with content "content" to "textfile.txt"
+    And user "Alice" has created the following resource link share:
+      | resource        | textfile.txt |
+      | space           | Personal     |
+      | permissionsRole | view         |
+      | password        | %public%     |
+    And user "Alice" has sent the following resource share invitation:
+      | resource        | textfile.txt |
+      | space           | Personal     |
+      | sharee          | Brian        |
+      | shareType       | user         |
+      | permissionsRole | Viewer       |
+    When the administrator renames the file "textfile.txt" to "new-name.txt" for user "Alice" on the POSIX filesystem
+    Then the command should be successful
+    And user "Brian" should have a share "textfile.txt" shared by user "Alice" from space "Personal"
+    And the public should be able to download file "textfile.txt" from the last link share with password "%public%" and the content should be "content"
+
+
+  Scenario: user doesn't lose share and public link after changing the file content
+    Given user "Brian" has been created with default attributes
+    And user "Alice" has uploaded file with content "content" to "textfile.txt"
+    And user "Alice" has created the following resource link share:
+      | resource        | textfile.txt |
+      | space           | Personal     |
+      | permissionsRole | view         |
+      | password        | %public%     |
+    And user "Alice" has sent the following resource share invitation:
+      | resource        | textfile.txt |
+      | space           | Personal     |
+      | sharee          | Brian        |
+      | shareType       | user         |
+      | permissionsRole | Viewer       |
+    When the administrator puts the content "new" into the file "textfile.txt" in the POSIX storage folder of user "Alice"
+    Then the command should be successful
+    And for user "Brian" the content of the file "textfile.txt" of the space "Shares" should be "contentnew"
+    And the public should be able to download file "textfile.txt" from the last link share with password "%public%" and the content should be "contentnew"

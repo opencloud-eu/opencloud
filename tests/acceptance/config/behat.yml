@@ -466,6 +466,8 @@ default:
         - FeatureContext: *common_feature_context_params
         - CliContext:
         - OcConfigContext:
+        - SharingNgContext:
+        - PublicWebDavContext:
 
     coreApiMain:
       paths:
