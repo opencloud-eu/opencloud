@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.3.0) - 2025-05-12
+## [2.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.3.0) - 2025-05-13
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -14,6 +14,7 @@
 
 ### ✅ Tests
 
+- [test-only] test for #452 [[#826](https://github.com/opencloud-eu/opencloud/pull/826)]
 - collaboration posix tests [[#780](https://github.com/opencloud-eu/opencloud/pull/780)]
 - collaborative posix test [[#672](https://github.com/opencloud-eu/opencloud/pull/672)]
 
