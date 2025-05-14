@@ -145,8 +145,8 @@ importers:
         specifier: 16.4.7
         version: 16.4.7
       dotenv-expand:
-        specifier: 10.0.0
-        version: 10.0.0
+        specifier: 12.0.2
+        version: 12.0.2
       eslint:
         specifier: ^7.32.0
         version: 7.32.0
@@ -2858,8 +2858,8 @@ packages:
   dot-case@3.0.4:
     resolution: {integrity: sha512-Kv5nKlh6yRrdrGvxeJ2e5y2eRUpkUosIW4A2AS38zwSz27zu7ufDwQPi5Jhs3XAlGNetl3bmnGhQsMtkKJnj3w==}
 
-  dotenv-expand@10.0.0:
-    resolution: {integrity: sha512-GopVGCpVS1UKH75VKHGuQFqS1Gusej0z4FyQkPdwjil2gNIv+LNsqBlboOzpJFZKVT95GkCyWJbBSdFEFUWI2A==}
+  dotenv-expand@12.0.2:
+    resolution: {integrity: sha512-lXpXz2ZE1cea1gL4sz2Ipj8y4PiVjytYr3Ij0SWoms1PGxIv7m2CRKuRuCRtHdVuvM/hNJPMxt5PbhboNC4dPQ==}
     engines: {node: '>=12'}
 
   dotenv@16.4.7:
@@ -9461,7 +9461,9 @@ snapshots:
       no-case: 3.0.4
       tslib: 2.6.3
 
-  dotenv-expand@10.0.0: {}
+  dotenv-expand@12.0.2:
+    dependencies:
+      dotenv: 16.4.7
 
   dotenv@16.4.7: {}
 
