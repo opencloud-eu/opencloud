@@ -337,13 +337,17 @@ config = {
         "architectures": ["arm64", "amd64"],
         "production": {
             # NOTE: need to be updated if new production releases are determined
-            "tags": ["2.0", "3.0"],
+            "tags": ["2.0"],
             "repo": docker_repo_slug,
             "build_type": "production",
         },
         "rolling": {
             "repo": docker_repo_slug + "-rolling",
             "build_type": "rolling",
+        },
+        "daily": {
+            "repo": docker_repo_slug + "-rolling",
+            "build_type": "daily",
         },
     },
     "litmus": True,
@@ -1519,7 +1523,7 @@ def logTracingResults():
 def dockerReleases(ctx):
     pipelines = []
     docker_repos = []
-    build_type = "daily"
+    build_type = ""
 
     if ctx.build.event == "tag":
         tag = ctx.build.ref.replace("refs/tags/v", "").lower()
@@ -1530,15 +1534,17 @@ def dockerReleases(ctx):
                 is_production = True
                 break
 
-        # Tags starting with 2.0 or 3.0 indicate a production release → push to opencloudeu/opencloud
         if is_production:
             docker_repos.append(config["dockerReleases"]["production"]["repo"])
             build_type = config["dockerReleases"]["production"]["build_type"]
 
-            # Tags starting with 2.x or 3.x indicate a rolling release → push to opencloudeu/opencloud-rolling
         else:
             docker_repos.append(config["dockerReleases"]["rolling"]["repo"])
             build_type = config["dockerReleases"]["rolling"]["build_type"]
+
+    else:
+        docker_repos.append(config["dockerReleases"]["daily"]["repo"])
+        build_type = config["dockerReleases"]["daily"]["build_type"]
 
     for repo in docker_repos:
         repo_pipelines = []
