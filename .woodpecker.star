@@ -2107,7 +2107,7 @@ def skipIfUnchanged(ctx, type):
         skip = base + acceptance
     elif type == "build-binary" or type == "build-docker" or type == "litmus":
         skip = base + unit + acceptance
-    elif type == "cache": or "base"
+    elif type == "cache" or type == "base":
         skip = base
 
     return skip
