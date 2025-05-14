@@ -12,17 +12,18 @@
 - proxy(router): Allow to set some outgoing headers [[#756](https://github.com/opencloud-eu/opencloud/pull/756)]
 - feat: set idp logo defaul url [[#746](https://github.com/opencloud-eu/opencloud/pull/746)]
 
+### ✅ Tests
+
+- PosixTest. Check that version, share and link still exist [[#837](https://github.com/opencloud-eu/opencloud/pull/837)]
+- [test-only] test for #452 [[#826](https://github.com/opencloud-eu/opencloud/pull/826)]
+- collaboration posix tests [[#780](https://github.com/opencloud-eu/opencloud/pull/780)]
+- collaborative posix test [[#672](https://github.com/opencloud-eu/opencloud/pull/672)]
+
 ### 🐛 Bug Fixes
 
 - nats: Don't enable debug and trace logging by default [[#825](https://github.com/opencloud-eu/opencloud/pull/825)]
 - fix: show special roles at the end of the list [[#806](https://github.com/opencloud-eu/opencloud/pull/806)]
 - fix: idp login logo url exceeds logo [[#742](https://github.com/opencloud-eu/opencloud/pull/742)]
-
-### ✅ Tests
-
-- [test-only] test for #452 [[#826](https://github.com/opencloud-eu/opencloud/pull/826)]
-- collaboration posix tests [[#780](https://github.com/opencloud-eu/opencloud/pull/780)]
-- collaborative posix test [[#672](https://github.com/opencloud-eu/opencloud/pull/672)]
 
 ### 📦️ Dependencies
 
