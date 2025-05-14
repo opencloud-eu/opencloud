@@ -46,6 +46,9 @@ const styles = (theme) => ({
     marginTop: 5,
     marginBottom: 5,
   },
+  signinPageText: {
+    marginBottom: 12
+  }
 });
 
 function Login(props) {
@@ -128,6 +131,7 @@ function Login(props) {
       </h1>
       {branding?.signinPageText && (
         <Typography
+          className={classes.signinPageText}
           variant="body2"
           dangerouslySetInnerHTML={{ __html: branding.signinPageText }}
         />

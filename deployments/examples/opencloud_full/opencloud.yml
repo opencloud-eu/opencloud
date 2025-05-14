@@ -36,6 +36,8 @@ services:
       IDM_ADMIN_PASSWORD: "${ADMIN_PASSWORD:-admin}" # this overrides the admin password from the configuration file
       # demo users
       IDM_CREATE_DEMO_USERS: "${DEMO_USERS:-false}"
+      # idp login form settings
+      IDP_DEFAULT_SIGNIN_PAGE_TEXT: "${IDP_DEFAULT_SIGNIN_PAGE_TEXT}"
       # email server (if configured)
       NOTIFICATIONS_SMTP_HOST: "${SMTP_HOST}"
       NOTIFICATIONS_SMTP_PORT: "${SMTP_PORT}"

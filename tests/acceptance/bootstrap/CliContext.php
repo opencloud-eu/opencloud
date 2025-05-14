@@ -579,6 +579,30 @@ class CliContext implements Context {
 	}
 
 	/**
+	 * @When the administrator renames the file :file to :newName for user :user on the POSIX filesystem
+	 *
+	 * @param string $user
+	 * @param string $file
+	 * @param string $newName
+	 *
+	 * @return void
+	 */
+	public function theAdministratorRenamesFile(string $user, string $file, string $newName): void {
+		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$storagePath = $this->getUsersStoragePath();
+
+		$source = "$storagePath/$userUuid/$file";
+		$destination = "$storagePath/$userUuid/$newName";
+
+		$body = [
+		  "command" => "mv $source $destination",
+		  "raw" => true
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+		sleep(1);
+	}
+
+	/**
 	 * @When the administrator moves the file :file to the folder :folder for user :user on the POSIX filesystem
 	 *
 	 * @param string $user
