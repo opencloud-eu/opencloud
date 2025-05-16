@@ -4,13 +4,17 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @ScharfViktor, @butonic, @micbar, @rhafer
+@AlexAndBear, @ScharfViktor, @aduffeck, @butonic, @micbar, @rhafer
 
 ### ✨ Features
 
 - deployment: Adapt opencloud_full to include radicale [[#773](https://github.com/opencloud-eu/opencloud/pull/773)]
 - proxy(router): Allow to set some outgoing headers [[#756](https://github.com/opencloud-eu/opencloud/pull/756)]
 - feat: set idp logo defaul url [[#746](https://github.com/opencloud-eu/opencloud/pull/746)]
+
+### 📈 Enhancement
+
+- Reduce load caused by the activitylog service [[#842](https://github.com/opencloud-eu/opencloud/pull/842)]
 
 ### ✅ Tests
 
