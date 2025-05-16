@@ -521,9 +521,18 @@ func (t *Tree) assimilate(item scanItem) error {
 
 		// assimilate new file
 		newId := uuid.New().String()
-		fi, _, err := t.updateFile(item.Path, newId, spaceID, nil)
+		fi, attrs, err := t.updateFile(item.Path, newId, spaceID, nil)
 		if err != nil {
 			return err
+		}
+
+		var parentId *provider.ResourceId
+		if len(attrs[prefixes.ParentidAttr]) > 0 {
+			parentId = &provider.ResourceId{
+				StorageId: t.options.MountID,
+				SpaceId:   spaceID,
+				OpaqueId:  string(attrs[prefixes.ParentidAttr]),
+			}
 		}
 
 		ref := &provider.Reference{
@@ -536,17 +545,20 @@ func (t *Tree) assimilate(item scanItem) error {
 		if fi.IsDir() {
 			t.PublishEvent(events.ContainerCreated{
 				Ref:       ref,
+				ParentID:  parentId,
 				Timestamp: utils.TSNow(),
 			})
 		} else {
 			if fi.Size() == 0 {
 				t.PublishEvent(events.FileTouched{
 					Ref:       ref,
+					ParentID:  parentId,
 					Timestamp: utils.TSNow(),
 				})
 			} else {
 				t.PublishEvent(events.UploadReady{
 					FileRef:   ref,
+					ParentID:  parentId,
 					Timestamp: utils.TSNow(),
 				})
 			}

@@ -1,6 +1,8 @@
 package defaults
 
 import (
+	"time"
+
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/config"
@@ -50,6 +52,7 @@ func DefaultConfig() *config.Config {
 				AllowCredentials: true,
 			},
 		},
+		WriteBufferDuration: 10 * time.Second,
 	}
 }
 

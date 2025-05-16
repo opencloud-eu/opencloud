@@ -32,6 +32,8 @@ type Config struct {
 	ServiceAccount ServiceAccount `yaml:"service_account"`
 
 	Context context.Context `yaml:"-"`
+
+	WriteBufferDuration time.Duration `yaml:"write_buffer_duration" env:"ACTIVITYLOG_WRITE_BUFFER_DURATION" desc:"The duration to wait before flushing the write buffer. This is used to reduce the number of writes to the store." introductionVersion:"%%NEXT%%"`
 }
 
 // Events combines the configuration options for the event bus.

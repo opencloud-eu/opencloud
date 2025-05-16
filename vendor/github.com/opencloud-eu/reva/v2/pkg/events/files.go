@@ -31,6 +31,7 @@ type ContainerCreated struct {
 	SpaceOwner        *user.UserId
 	Executant         *user.UserId
 	Ref               *provider.Reference
+	ParentID          *provider.ResourceId
 	Owner             *user.UserId
 	Timestamp         *types.Timestamp
 	ImpersonatingUser *user.User
@@ -65,6 +66,7 @@ type FileTouched struct {
 	SpaceOwner        *user.UserId
 	Executant         *user.UserId
 	Ref               *provider.Reference
+	ParentID          *provider.ResourceId
 	Timestamp         *types.Timestamp
 	ImpersonatingUser *user.User
 }

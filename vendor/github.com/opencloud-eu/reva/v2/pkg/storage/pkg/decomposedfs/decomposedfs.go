@@ -343,6 +343,7 @@ func (fs *Decomposedfs) Postprocessing(ch <-chan events.Event) {
 			}
 
 			now := time.Now()
+			var parentId *provider.ResourceId
 			if failed {
 				// if no other upload session is in progress (processing id != session id) or has finished (processing id == "")
 				latestSession, err := n.ProcessingID(ctx)
@@ -356,6 +357,11 @@ func (fs *Decomposedfs) Postprocessing(ch <-chan events.Event) {
 					}
 				}
 			} else if p := getParent(); p != nil {
+				parentId = &provider.ResourceId{
+					StorageId: session.ProviderID(),
+					SpaceId:   session.SpaceID(),
+					OpaqueId:  p.ID,
+				}
 				// update parent tmtime to propagate etag change after successful postprocessing
 				_ = p.SetTMTime(ctx, &now)
 				if err := fs.tp.Propagate(ctx, p, 0); err != nil {
@@ -389,6 +395,7 @@ func (fs *Decomposedfs) Postprocessing(ch <-chan events.Event) {
 						},
 						Path: utils.MakeRelativePath(filepath.Join(session.Dir(), session.Filename())),
 					},
+					ParentID:          parentId,
 					Timestamp:         utils.TimeToTS(now),
 					SpaceOwner:        n.SpaceOwnerOrManager(ctx),
 					IsVersion:         isVersion,

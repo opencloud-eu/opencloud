@@ -12,7 +12,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/oidc"
 	"github.com/pkg/errors"
-	"github.com/shamaton/msgpack/v2"
+	"github.com/vmihailenco/msgpack/v5"
 	store "go-micro.dev/v4/store"
 	"golang.org/x/crypto/sha3"
 	"golang.org/x/oauth2"
@@ -66,7 +66,7 @@ func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[stri
 		m.Logger.Error().Err(err).Msg("could not read from userinfo cache")
 	}
 	if len(record) > 0 {
-		if err = msgpack.UnmarshalAsMap(record[0].Value, &claims); err == nil {
+		if err = msgpack.Unmarshal(record[0].Value, &claims); err == nil {
 			m.Logger.Debug().Interface("claims", claims).Msg("cache hit for userinfo")
 			if ok := verifyExpiresAt(claims, m.TimeFunc()); !ok {
 				return nil, false, jwt.ErrTokenExpired
@@ -102,7 +102,7 @@ func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[stri
 	// always set an exp claim
 	claims["exp"] = expiration.Unix()
 	go func() {
-		if d, err := msgpack.MarshalAsMap(claims); err != nil {
+		if d, err := msgpack.Marshal(claims); err != nil {
 			m.Logger.Error().Err(err).Msg("failed to marshal claims for userinfo cache")
 		} else {
 			err = m.userInfoCache.Write(&store.Record{

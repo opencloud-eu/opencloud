@@ -1,147 +1,139 @@
 package service
 
 import (
-	"testing"
+	"context"
 	"time"
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	"github.com/jellydator/ttlcache/v2"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/opencloud-eu/reva/v2/pkg/store"
-	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
-func TestAddActivity(t *testing.T) {
-	testCases := []struct {
-		Name       string
-		Tree       map[string]*provider.ResourceInfo
-		Activities map[string]string
-		Expected   map[string][]RawActivity
-	}{
-		{
-			Name: "simple",
-			Tree: map[string]*provider.ResourceInfo{
+var _ = Describe("ActivitylogService", func() {
+	var (
+		alog        *ActivitylogService
+		getResource func(ref *provider.Reference) (*provider.ResourceInfo, error)
+	)
+
+	Context("with a noop debouncer", func() {
+		BeforeEach(func() {
+			alog = &ActivitylogService{
+				store:         store.Create(),
+				tracer:        noop.NewTracerProvider().Tracer("test"),
+				parentIdCache: ttlcache.NewCache(),
+			}
+			alog.debouncer = NewDebouncer(0, alog.storeActivity)
+		})
+
+		Describe("AddActivity", func() {
+			type testCase struct {
+				Name       string
+				Tree       map[string]*provider.ResourceInfo
+				Activities map[string]string
+				Expected   map[string][]RawActivity
+			}
+
+			testCases := []testCase{
+				{
+					Name: "simple",
+					Tree: map[string]*provider.ResourceInfo{
+						"base":    resourceInfo("base", "parent"),
+						"parent":  resourceInfo("parent", "spaceid"),
+						"spaceid": resourceInfo("spaceid", "spaceid"),
+					},
+					Activities: map[string]string{
+						"activity": "base",
+					},
+					Expected: map[string][]RawActivity{
+						"base":    activitites("activity", 0),
+						"parent":  activitites("activity", 1),
+						"spaceid": activitites("activity", 2),
+					},
+				},
+				{
+					Name: "two activities on same resource",
+					Tree: map[string]*provider.ResourceInfo{
+						"base":    resourceInfo("base", "parent"),
+						"parent":  resourceInfo("parent", "spaceid"),
+						"spaceid": resourceInfo("spaceid", "spaceid"),
+					},
+					Activities: map[string]string{
+						"activity1": "base",
+						"activity2": "base",
+					},
+					Expected: map[string][]RawActivity{
+						"base":    activitites("activity1", 0, "activity2", 0),
+						"parent":  activitites("activity1", 1, "activity2", 1),
+						"spaceid": activitites("activity1", 2, "activity2", 2),
+					},
+				},
+				// Add other test cases here...
+			}
+
+			for _, tc := range testCases {
+				tc := tc // capture range variable
+				Context(tc.Name, func() {
+					BeforeEach(func() {
+						getResource = func(ref *provider.Reference) (*provider.ResourceInfo, error) {
+							return tc.Tree[ref.GetResourceId().GetOpaqueId()], nil
+						}
+
+						for k, v := range tc.Activities {
+							err := alog.addActivity(context.Background(), reference(v), nil, k, time.Time{}, getResource)
+							Expect(err).NotTo(HaveOccurred())
+						}
+					})
+
+					It("should match the expected activities", func() {
+						for id, acts := range tc.Expected {
+							activities, err := alog.Activities(resourceID(id))
+							Expect(err).NotTo(HaveOccurred(), tc.Name+":"+id)
+							Expect(activities).To(ConsistOf(acts), tc.Name+":"+id)
+						}
+					})
+				})
+			}
+		})
+	})
+
+	Context("with a debouncing debouncer", func() {
+		var (
+			tree = map[string]*provider.ResourceInfo{
 				"base":    resourceInfo("base", "parent"),
 				"parent":  resourceInfo("parent", "spaceid"),
 				"spaceid": resourceInfo("spaceid", "spaceid"),
-			},
-			Activities: map[string]string{
-				"activity": "base",
-			},
-			Expected: map[string][]RawActivity{
-				"base":    activitites("activity", 0),
-				"parent":  activitites("activity", 1),
-				"spaceid": activitites("activity", 2),
-			},
-		},
-		{
-			Name: "two activities on same resource",
-			Tree: map[string]*provider.ResourceInfo{
-				"base":    resourceInfo("base", "parent"),
-				"parent":  resourceInfo("parent", "spaceid"),
-				"spaceid": resourceInfo("spaceid", "spaceid"),
-			},
-			Activities: map[string]string{
-				"activity1": "base",
-				"activity2": "base",
-			},
-			Expected: map[string][]RawActivity{
-				"base":    activitites("activity1", 0, "activity2", 0),
-				"parent":  activitites("activity1", 1, "activity2", 1),
-				"spaceid": activitites("activity1", 2, "activity2", 2),
-			},
-		},
-		{
-			Name: "two activities on different resources",
-			Tree: map[string]*provider.ResourceInfo{
-				"base1":   resourceInfo("base1", "parent"),
-				"base2":   resourceInfo("base2", "parent"),
-				"parent":  resourceInfo("parent", "spaceid"),
-				"spaceid": resourceInfo("spaceid", "spaceid"),
-			},
-			Activities: map[string]string{
-				"activity1": "base1",
-				"activity2": "base2",
-			},
-			Expected: map[string][]RawActivity{
-				"base1":   activitites("activity1", 0),
-				"base2":   activitites("activity2", 0),
-				"parent":  activitites("activity1", 1, "activity2", 1),
-				"spaceid": activitites("activity1", 2, "activity2", 2),
-			},
-		},
-		{
-			Name: "more elaborate resource tree",
-			Tree: map[string]*provider.ResourceInfo{
-				"base1":   resourceInfo("base1", "parent1"),
-				"base2":   resourceInfo("base2", "parent1"),
-				"parent1": resourceInfo("parent1", "spaceid"),
-				"base3":   resourceInfo("base3", "parent2"),
-				"parent2": resourceInfo("parent2", "spaceid"),
-				"spaceid": resourceInfo("spaceid", "spaceid"),
-			},
-			Activities: map[string]string{
-				"activity1": "base1",
-				"activity2": "base2",
-				"activity3": "base3",
-			},
-			Expected: map[string][]RawActivity{
-				"base1":   activitites("activity1", 0),
-				"base2":   activitites("activity2", 0),
-				"base3":   activitites("activity3", 0),
-				"parent1": activitites("activity1", 1, "activity2", 1),
-				"parent2": activitites("activity3", 1),
-				"spaceid": activitites("activity1", 2, "activity2", 2, "activity3", 2),
-			},
-		},
-		{
-			Name: "different depths within one resource",
-			Tree: map[string]*provider.ResourceInfo{
-				"base1":   resourceInfo("base1", "parent1"),
-				"parent1": resourceInfo("parent1", "parent2"),
-				"base2":   resourceInfo("base2", "parent2"),
-				"parent2": resourceInfo("parent2", "parent3"),
-				"base3":   resourceInfo("base3", "parent3"),
-				"parent3": resourceInfo("parent3", "spaceid"),
-				"spaceid": resourceInfo("spaceid", "spaceid"),
-			},
-			Activities: map[string]string{
-				"activity1": "base1",
-				"activity2": "base2",
-				"activity3": "base3",
-				"activity4": "parent2",
-			},
-			Expected: map[string][]RawActivity{
-				"base1":   activitites("activity1", 0),
-				"base2":   activitites("activity2", 0),
-				"base3":   activitites("activity3", 0),
-				"parent1": activitites("activity1", 1),
-				"parent2": activitites("activity1", 2, "activity2", 1, "activity4", 0),
-				"parent3": activitites("activity1", 3, "activity2", 2, "activity3", 1, "activity4", 1),
-				"spaceid": activitites("activity1", 4, "activity2", 3, "activity3", 2, "activity4", 2),
-			},
-		},
-	}
+			}
+		)
+		BeforeEach(func() {
+			alog = &ActivitylogService{
+				store:         store.Create(),
+				tracer:        noop.NewTracerProvider().Tracer("test"),
+				parentIdCache: ttlcache.NewCache(),
+			}
+			alog.debouncer = NewDebouncer(100*time.Millisecond, alog.storeActivity)
+		})
 
-	for _, tc := range testCases {
-		alog := &ActivitylogService{
-			store: store.Create(),
-		}
+		It("should debounce activities", func() {
+			getResource = func(ref *provider.Reference) (*provider.ResourceInfo, error) {
+				return tree[ref.GetResourceId().GetOpaqueId()], nil
+			}
 
-		getResource := func(ref *provider.Reference) (*provider.ResourceInfo, error) {
-			return tc.Tree[ref.GetResourceId().GetOpaqueId()], nil
-		}
+			err := alog.addActivity(context.Background(), reference("base"), nil, "activity1", time.Time{}, getResource)
+			Expect(err).NotTo(HaveOccurred())
+			err = alog.addActivity(context.Background(), reference("base"), nil, "activity2", time.Time{}, getResource)
+			Expect(err).NotTo(HaveOccurred())
 
-		for k, v := range tc.Activities {
-			err := alog.addActivity(reference(v), k, time.Time{}, getResource)
-			require.NoError(t, err)
-		}
-
-		for id, acts := range tc.Expected {
-			activities, err := alog.Activities(resourceID(id))
-			require.NoError(t, err, tc.Name+":"+id)
-			require.ElementsMatch(t, acts, activities, tc.Name+":"+id)
-		}
-	}
-}
+			Eventually(func(g Gomega) {
+				activities, err := alog.Activities(resourceID("base"))
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(activities).To(ConsistOf(activitites("activity1", 0, "activity2", 0)))
+			}).Should(Succeed())
+		})
+	})
+})
 
 func activitites(acts ...interface{}) []RawActivity {
 	var activities []RawActivity

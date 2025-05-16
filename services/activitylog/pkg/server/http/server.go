@@ -88,6 +88,7 @@ func Server(opts ...Option) (http.Service, error) {
 		svc.HistoryClient(options.HistoryClient),
 		svc.ValueClient(options.ValueClient),
 		svc.RegisteredEvents(options.RegisteredEvents),
+		svc.WriteBufferDuration(options.Config.WriteBufferDuration),
 	)
 	if err != nil {
 		return http.Service{}, err

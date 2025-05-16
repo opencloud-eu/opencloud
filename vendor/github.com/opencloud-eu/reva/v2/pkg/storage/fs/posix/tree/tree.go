@@ -453,7 +453,8 @@ func (t *Tree) ListFolder(ctx context.Context, n *node.Node) ([]*node.Node, erro
 
 				child, err := node.ReadNode(ctx, t.lookup, n.SpaceID, nodeID, false, n.SpaceRoot, true)
 				if err != nil {
-					return err
+					t.log.Error().Err(err).Str("path", path).Msg("failed to read node")
+					continue
 				}
 
 				// prevent listing denied resources

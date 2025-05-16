@@ -1,6 +1,8 @@
 package service
 
 import (
+	"time"
+
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	"github.com/go-chi/chi/v5"
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -18,16 +20,17 @@ type Option func(*Options)
 
 // Options for the activitylog service
 type Options struct {
-	Logger           log.Logger
-	Config           *config.Config
-	TraceProvider    trace.TracerProvider
-	Stream           events.Stream
-	RegisteredEvents []events.Unmarshaller
-	Store            microstore.Store
-	GatewaySelector  pool.Selectable[gateway.GatewayAPIClient]
-	Mux              *chi.Mux
-	HistoryClient    ehsvc.EventHistoryService
-	ValueClient      settingssvc.ValueService
+	Logger              log.Logger
+	Config              *config.Config
+	TraceProvider       trace.TracerProvider
+	Stream              events.Stream
+	RegisteredEvents    []events.Unmarshaller
+	Store               microstore.Store
+	GatewaySelector     pool.Selectable[gateway.GatewayAPIClient]
+	Mux                 *chi.Mux
+	HistoryClient       ehsvc.EventHistoryService
+	ValueClient         settingssvc.ValueService
+	WriteBufferDuration time.Duration
 }
 
 // Logger configures a logger for the activitylog service
@@ -97,5 +100,12 @@ func HistoryClient(hc ehsvc.EventHistoryService) Option {
 func ValueClient(vs settingssvc.ValueService) Option {
 	return func(o *Options) {
 		o.ValueClient = vs
+	}
+}
+
+// WriteBufferDuration sets the write buffer duration
+func WriteBufferDuration(d time.Duration) Option {
+	return func(o *Options) {
+		o.WriteBufferDuration = d
 	}
 }

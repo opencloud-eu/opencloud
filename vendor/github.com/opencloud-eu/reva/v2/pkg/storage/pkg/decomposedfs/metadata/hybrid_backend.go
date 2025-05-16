@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/pkg/xattr"
 	"github.com/rogpeppe/go-internal/lockedfile"
-	"github.com/shamaton/msgpack/v2"
+	"github.com/vmihailenco/msgpack/v5"
 
 	"github.com/opencloud-eu/reva/v2/pkg/storage/cache"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"

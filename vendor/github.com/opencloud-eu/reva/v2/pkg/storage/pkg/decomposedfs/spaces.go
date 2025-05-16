@@ -52,7 +52,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"github.com/pkg/errors"
-	"github.com/shamaton/msgpack/v2"
+	"github.com/vmihailenco/msgpack/v5"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -129,7 +129,11 @@ func (fs *Decomposedfs) CreateStorageSpace(ctx context.Context, req *provider.Cr
 	}
 
 	// 770 permissions for the space
-	if err := os.MkdirAll(rootPath, 0770); err != nil {
+	if err := os.Mkdir(rootPath, 0770); err != nil {
+		if os.IsExist(err) {
+			// Someone has created the space in the meantime. Abort.
+			return nil, errtypes.AlreadyExists(spaceID)
+		}
 		return nil, errors.Wrap(err, fmt.Sprintf("Decomposedfs: error creating space %s", rootPath))
 	}
 

@@ -1886,6 +1886,7 @@ def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, depend
         "OC_JWT_SECRET": "some-opencloud-jwt-secret",
         "EVENTHISTORY_STORE": "memory",
         "OC_TRANSLATION_PATH": "%s/tests/config/translations" % dirs["base"],
+        "ACTIVITYLOG_WRITE_BUFFER_DURATION": "0",  # Disable write buffer so that test expectations are met in time
         # debug addresses required for running services health tests
         "ACTIVITYLOG_DEBUG_ADDR": "0.0.0.0:9197",
         "APP_PROVIDER_DEBUG_ADDR": "0.0.0.0:9165",

@@ -184,6 +184,7 @@ type UploadReady struct {
 	ExecutingUser     *user.User
 	ImpersonatingUser *user.User
 	FileRef           *provider.Reference
+	ParentID          *provider.ResourceId
 	Timestamp         *types.Timestamp
 	Failed            bool
 	IsVersion         bool

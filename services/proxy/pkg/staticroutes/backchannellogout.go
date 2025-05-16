@@ -10,7 +10,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"github.com/pkg/errors"
-	"github.com/shamaton/msgpack/v2"
+	"github.com/vmihailenco/msgpack/v5"
 	microstore "go-micro.dev/v4/store"
 )
 
@@ -86,7 +86,7 @@ func (s StaticRouteHandler) publishBackchannelLogoutEvent(ctx context.Context, r
 	}
 
 	var claims map[string]interface{}
-	if err = msgpack.UnmarshalAsMap(urecords[0].Value, &claims); err != nil {
+	if err = msgpack.Unmarshal(urecords[0].Value, &claims); err != nil {
 		return fmt.Errorf("could not unmarshal userinfo: %w", err)
 	}
 
