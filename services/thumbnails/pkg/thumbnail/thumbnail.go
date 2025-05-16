@@ -10,25 +10,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/thumbnail/storage"
 )
 
-var (
-	// SupportedMimeTypes contains an all mimetypes which are supported by the thumbnailer.
-	SupportedMimeTypes = map[string]struct{}{
-		"image/png":                         {},
-		"image/jpg":                         {},
-		"image/jpeg":                        {},
-		"image/gif":                         {},
-		"image/bmp":                         {},
-		"image/x-ms-bmp":                    {},
-		"image/tiff":                        {},
-		"text/plain":                        {},
-		"audio/flac":                        {},
-		"audio/mpeg":                        {},
-		"audio/ogg":                         {},
-		"application/vnd.geogebra.slides":   {},
-		"application/vnd.geogebra.pinboard": {},
-	}
-)
-
 // Request bundles information needed to generate a thumbnail for a file
 type Request struct {
 	Resolution image.Rectangle
