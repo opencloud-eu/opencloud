@@ -10,7 +10,7 @@ import (
 
 	"github.com/CiscoM31/godata"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
-	libregraph "github.com/owncloud/libre-graph-api-go"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"

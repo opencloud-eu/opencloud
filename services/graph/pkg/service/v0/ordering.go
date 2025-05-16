@@ -3,7 +3,7 @@ package svc
 import (
 	"strings"
 
-	libregraph "github.com/owncloud/libre-graph-api-go"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 )
 
 // lessSpacesByLastModifiedDateTime reports whether the element i

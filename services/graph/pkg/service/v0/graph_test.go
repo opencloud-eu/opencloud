@@ -23,7 +23,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
-	libregraph "github.com/owncloud/libre-graph-api-go"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
 	"github.com/tidwall/gjson"

@@ -27,7 +27,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	identitymocks "github.com/opencloud-eu/opencloud/services/graph/pkg/identity/mocks"
 	service "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
-	libregraph "github.com/owncloud/libre-graph-api-go"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 )
 
 type schoolList struct {

@@ -12,7 +12,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity/mocks"
-	libregraph "github.com/owncloud/libre-graph-api-go"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

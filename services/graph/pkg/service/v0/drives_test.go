@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/CiscoM31/godata"
-	libregraph "github.com/owncloud/libre-graph-api-go"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	libregraph "github.com/owncloud/libre-graph-api-go"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
 )

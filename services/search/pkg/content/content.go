@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/bbalet/stopwords"
-	libregraph "github.com/owncloud/libre-graph-api-go"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 )
 
 func init() {

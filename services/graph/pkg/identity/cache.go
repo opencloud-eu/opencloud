@@ -12,7 +12,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	revautils "github.com/opencloud-eu/reva/v2/pkg/utils"
-	libregraph "github.com/owncloud/libre-graph-api-go"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 )
 
 // IdentityCache implements a simple ttl based cache for looking up users and groups by ID

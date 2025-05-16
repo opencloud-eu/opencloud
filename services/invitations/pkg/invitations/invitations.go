@@ -1,6 +1,6 @@
 package invitations
 
-import libregraph "github.com/owncloud/libre-graph-api-go"
+import libregraph "github.com/opencloud-eu/libre-graph-api-go"
 
 // Invitation represents an invitation as per https://learn.microsoft.com/en-us/graph/api/resources/invitation?view=graph-rest-1.0
 type Invitation struct {

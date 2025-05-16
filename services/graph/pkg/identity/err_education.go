@@ -3,7 +3,7 @@ package identity
 import (
 	"context"
 
-	libregraph "github.com/owncloud/libre-graph-api-go"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 )
 
 // ErrEducationBackend is a dummy EducationBackend, doing nothing

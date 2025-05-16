@@ -11,7 +11,7 @@ import (
 	storageprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
-	libregraph "github.com/owncloud/libre-graph-api-go"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"

@@ -11,7 +11,7 @@ import (
 	ocm "github.com/cs3org/go-cs3apis/cs3/sharing/ocm/v1beta1"
 	storageprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/go-chi/render"
-	libregraph "github.com/owncloud/libre-graph-api-go"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"

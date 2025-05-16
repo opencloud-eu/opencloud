@@ -8,7 +8,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/keycloak"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/invitations/pkg/invitations"
-	libregraph "github.com/owncloud/libre-graph-api-go"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 )
 
 const (

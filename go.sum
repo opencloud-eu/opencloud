@@ -860,6 +860,8 @@ github.com/open-policy-agent/opa v1.4.2 h1:ag4upP7zMsa4WE2p1pwAFeG4Pn3mNwfAx9DLh
 github.com/open-policy-agent/opa v1.4.2/go.mod h1:DNzZPKqKh4U0n0ANxcCVlw8lCSv2c+h5G/3QvSYdWZ8=
 github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a h1:Sakl76blJAaM6NxylVkgSzktjo2dS504iDotEFJsh3M=
 github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a/go.mod h1:pjcozWijkNPbEtX5SIQaxEW/h8VAVZYTLx+70bmB3LY=
+github.com/opencloud-eu/libre-graph-api-go v1.0.5 h1:Wv09oIjCF8zRN8roPzjXXo6ORp2h87/YhmdXE9N4p/A=
+github.com/opencloud-eu/libre-graph-api-go v1.0.5/go.mod h1:pzatilMEHZFT3qV7C/X3MqOa3NlRQuYhlRhZTL+hN6Q=
 github.com/opencloud-eu/reva/v2 v2.32.0 h1:JRWPleHiEl0film95Gkh1iBEhc6eikEsx5FKLfVx6l8=
 github.com/opencloud-eu/reva/v2 v2.32.0/go.mod h1:FDhGVC+ZsRRWdC3am4EbuILBtviTbCDVrTUjFECOqvg=
 github.com/opentracing/opentracing-go v1.1.0/go.mod h1:UkNAQd3GIcIGf0SeVgPpRdFStlNbqXla1AfSYxPUl2o=
@@ -870,8 +872,6 @@ github.com/oracle/oci-go-sdk v24.3.0+incompatible/go.mod h1:VQb79nF8Z2cwLkLS35uk
 github.com/orcaman/concurrent-map v1.0.0 h1:I/2A2XPCb4IuQWcQhBhSwGfiuybl/J0ev9HDbW65HOY=
 github.com/orcaman/concurrent-map v1.0.0/go.mod h1:Lu3tH6HLW3feq74c2GC+jIMS/K2CFcDWnWD9XkenwhI=
 github.com/ovh/go-ovh v1.1.0/go.mod h1:AxitLZ5HBRPyUd+Zl60Ajaag+rNTdVXWIkzfrVuTXWA=
-github.com/owncloud/libre-graph-api-go v1.0.5-0.20240829135935-80dc00d6f5ea h1:ClVthQOjKb7uI2DhHFzIPy+adc6plptGaryH20KOoxQ=
-github.com/owncloud/libre-graph-api-go v1.0.5-0.20240829135935-80dc00d6f5ea/go.mod h1:yXI+rmE8yYx+ZsGVrnCpprw/gZMcxjwntnX2y2+VKxY=
 github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c h1:rp5dCmg/yLR3mgFuSOe4oEnDDmGLROTvMragMUXpTQw=
 github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c/go.mod h1:X07ZCGwUbLaax7L0S3Tw4hpejzu63ZrrQiUe6W0hcy0=
 github.com/pablodz/inotifywaitgo v0.0.9 h1:njquRbBU7fuwIe5rEvtaniVBjwWzcpdUVptSgzFqZsw=

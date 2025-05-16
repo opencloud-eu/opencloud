@@ -5,7 +5,7 @@ import (
 	"slices"
 
 	"github.com/go-playground/validator/v10"
-	libregraph "github.com/owncloud/libre-graph-api-go"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
 )

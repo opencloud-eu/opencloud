@@ -12,7 +12,7 @@ import (
 	"github.com/go-ldap/ldap/v3"
 	"github.com/gofrs/uuid"
 	"github.com/libregraph/idm/pkg/ldapdn"
-	libregraph "github.com/owncloud/libre-graph-api-go"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 )

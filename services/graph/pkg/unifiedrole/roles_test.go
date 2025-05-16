@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	libregraph "github.com/owncloud/libre-graph-api-go"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
