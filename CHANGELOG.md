@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.3.0) - 2025-05-16
+## [2.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v2.3.0) - 2025-05-19
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -31,6 +31,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump google.golang.org/grpc from 1.72.0 to 1.72.1 [[#862](https://github.com/opencloud-eu/opencloud/pull/862)]
 - build(deps): bump golang.org/x/net from 0.39.0 to 0.40.0 [[#855](https://github.com/opencloud-eu/opencloud/pull/855)]
 - build(deps-dev): bump dotenv-expand from 10.0.0 to 12.0.2 in /services/idp [[#831](https://github.com/opencloud-eu/opencloud/pull/831)]
 - build(deps): bump github.com/libregraph/lico from 0.65.2-0.20250428103211-356e98f98457 to 0.66.0 [[#839](https://github.com/opencloud-eu/opencloud/pull/839)]
