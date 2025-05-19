@@ -434,12 +434,12 @@ def main(ctx):
 
     test_pipelines = \
         codestyle(ctx) + \
-        checkGherkinLint() + \
-        checkTestSuitesInExpectedFailures() + \
+        checkGherkinLint(ctx) + \
+        checkTestSuitesInExpectedFailures(ctx) + \
         buildWebCache(ctx) + \
         getGoBinForTesting(ctx) + \
         buildOpencloudBinaryForTesting(ctx) + \
-        checkStarlark() + \
+        checkStarlark(ctx) + \
         build_release_helpers + \
         testOpencloudAndUploadResults(ctx) + \
         testPipelines(ctx)
@@ -480,7 +480,7 @@ def main(ctx):
     pipelineSanityChecks(pipelines)
     return pipelines
 
-def cachePipeline(name, steps):
+def cachePipeline(ctx, name, steps):
     return {
         "name": "build-%s-cache" % name,
         "skip_clone": True,
@@ -490,14 +490,19 @@ def cachePipeline(name, steps):
                 "event": ["push", "manual"],
                 "branch": ["main", "stable-*"],
             },
-            event["pull_request"],
+            {
+                "event": "pull_request",
+                "path": {
+                    "exclude": skipIfUnchanged(ctx, "base"),
+                },
+            },
         ],
     }
 
 def buildWebCache(ctx):
     return [
-        cachePipeline("web", generateWebCache(ctx)),
-        cachePipeline("web-pnpm", generateWebPnpmCache(ctx)),
+        cachePipeline(ctx, "web", generateWebCache(ctx)),
+        cachePipeline(ctx, "web-pnpm", generateWebPnpmCache(ctx)),
     ]
 
 def testOpencloudAndUploadResults(ctx):
@@ -762,7 +767,7 @@ def vendorbinCodesniffer(phpVersion):
         ],
     }]
 
-def checkTestSuitesInExpectedFailures():
+def checkTestSuitesInExpectedFailures(ctx):
     return [{
         "name": "check-suites-in-expected-failures",
         "steps": [
@@ -774,10 +779,18 @@ def checkTestSuitesInExpectedFailures():
                 ],
             },
         ],
-        "when": [event["pull_request"]],
+        "when": [
+            event["base"],
+            {
+                "event": "pull_request",
+                "path": {
+                    "exclude": skipIfUnchanged(ctx, "acceptance-tests"),
+                },
+            },
+        ],
     }]
 
-def checkGherkinLint():
+def checkGherkinLint(ctx):
     return [{
         "name": "check-gherkin-standard",
         "steps": [
@@ -790,7 +803,15 @@ def checkGherkinLint():
                 ],
             },
         ],
-        "when": [event["pull_request"]],
+        "when": [
+            event["base"],
+            {
+                "event": "pull_request",
+                "path": {
+                    "exclude": skipIfUnchanged(ctx, "lint"),
+                },
+            },
+        ],
     }]
 
 def codestyle(ctx):
@@ -2188,7 +2209,7 @@ def deploy(config, rebuild):
         ],
     }
 
-def checkStarlark():
+def checkStarlark(ctx):
     return [{
         "name": "check-starlark",
         "steps": [
@@ -2214,7 +2235,15 @@ def checkStarlark():
             },
         ],
         "depends_on": [],
-        "when": [event["pull_request"]],
+        "when": [
+            event["base"],
+            {
+                "event": "pull_request",
+                "path": {
+                    "exclude": skipIfUnchanged(ctx, "base"),
+                },
+            },
+        ],
     }]
 
 def genericCache(name, action, mounts, cache_path):
