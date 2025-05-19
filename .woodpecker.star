@@ -1,12 +1,6 @@
 """OpenCloud CI definition
 """
 
-# Production release tags
-# NOTE: need to be updated if new production releases are determined
-# - follow semver
-# - omit 'v' prefix
-PRODUCTION_RELEASE_TAGS = ["2.0", "3.0"]
-
 # Repository
 
 repo_slug = "opencloud-eu/opencloud"
@@ -344,6 +338,20 @@ config = {
     },
     "dockerReleases": {
         "architectures": ["arm64", "amd64"],
+        "production": {
+            # NOTE: need to be updated if new production releases are determined
+            "tags": ["2.0"],
+            "repo": docker_repo_slug,
+            "build_type": "production",
+        },
+        "rolling": {
+            "repo": docker_repo_slug + "-rolling",
+            "build_type": "rolling",
+        },
+        "daily": {
+            "repo": docker_repo_slug + "-rolling",
+            "build_type": "daily",
+        },
     },
     "litmus": True,
     "codestyle": True,
@@ -1495,26 +1503,31 @@ def logTracingResults():
 def dockerReleases(ctx):
     pipelines = []
     docker_repos = []
-    build_type = "daily"
+    build_type = ""
 
-    # dockerhub repo
-    #  - "opencloudeu/opencloud-rolling"
-    repo = docker_repo_slug + "-rolling"
-    docker_repos.append(repo)
-
-    # production release repo
     if ctx.build.event == "tag":
         tag = ctx.build.ref.replace("refs/tags/v", "").lower()
-        for prod_tag in PRODUCTION_RELEASE_TAGS:
+
+        is_production = False
+        for prod_tag in config["dockerReleases"]["production"]["tags"]:
             if tag.startswith(prod_tag):
-                docker_repos.append(docker_repo_slug)
+                is_production = True
                 break
+
+        if is_production:
+            docker_repos.append(config["dockerReleases"]["production"]["repo"])
+            build_type = config["dockerReleases"]["production"]["build_type"]
+
+        else:
+            docker_repos.append(config["dockerReleases"]["rolling"]["repo"])
+            build_type = config["dockerReleases"]["rolling"]["build_type"]
+
+    else:
+        docker_repos.append(config["dockerReleases"]["daily"]["repo"])
+        build_type = config["dockerReleases"]["daily"]["build_type"]
 
     for repo in docker_repos:
         repo_pipelines = []
-        if ctx.build.event == "tag":
-            build_type = "rolling" if "rolling" in repo else "production"
-
         repo_pipelines.append(dockerRelease(ctx, repo, build_type))
 
         # manifest = releaseDockerManifest(ctx, repo, build_type)
