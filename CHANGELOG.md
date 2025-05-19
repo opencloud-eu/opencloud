@@ -31,6 +31,7 @@
 
 ### 📦️ Dependencies
 
+- chore:reva bump v.2.33 [[#884](https://github.com/opencloud-eu/opencloud/pull/884)]
 - build(deps): bump google.golang.org/grpc from 1.72.0 to 1.72.1 [[#862](https://github.com/opencloud-eu/opencloud/pull/862)]
 - build(deps): bump golang.org/x/net from 0.39.0 to 0.40.0 [[#855](https://github.com/opencloud-eu/opencloud/pull/855)]
 - build(deps-dev): bump dotenv-expand from 10.0.0 to 12.0.2 in /services/idp [[#831](https://github.com/opencloud-eu/opencloud/pull/831)]
