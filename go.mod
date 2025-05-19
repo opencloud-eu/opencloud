@@ -64,7 +64,7 @@ require (
 	github.com/onsi/gomega v1.37.0
 	github.com/open-policy-agent/opa v1.4.2
 	github.com/opencloud-eu/libre-graph-api-go v1.0.5
-	github.com/opencloud-eu/reva/v2 v2.32.1-0.20250515093940-2fb4f836b59d
+	github.com/opencloud-eu/reva/v2 v2.33.0
 	github.com/orcaman/concurrent-map v1.0.0
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/xattr v0.4.10
@@ -285,7 +285,7 @@ require (
 	github.com/rs/xid v1.6.0 // indirect
 	github.com/russellhaering/goxmldsig v1.5.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/segmentio/kafka-go v0.4.47 // indirect
+	github.com/segmentio/kafka-go v0.4.48 // indirect
 	github.com/segmentio/ksuid v1.0.4 // indirect
 	github.com/sercand/kuberesolver/v5 v5.1.1 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
