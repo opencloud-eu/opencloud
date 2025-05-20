@@ -61,6 +61,8 @@ type Config struct {
 
 	ConfigurableNotifications bool `yaml:"configurable_notifications" env:"FRONTEND_CONFIGURABLE_NOTIFICATIONS" desc:"Allow configuring notifications via web client." introductionVersion:"1.0.0"`
 
+	ServerManagedSpaces bool `yaml:"server_managed_spaces" env:"OC_CLAIM_MANAGED_SPACES_ENABLED" desc:"Block adding/removing users to spaces through the web UI." introductionVersion:"%%NEXT%%"`
+
 	Groupware Groupware `yaml:"groupware"`
 
 	Context context.Context `yaml:"-"`
