@@ -419,12 +419,14 @@ func (p *Handler) HandleSpacesPropfind(w http.ResponseWriter, r *http.Request, s
 	resourceInfos := []*provider.ResourceInfo{
 		res.Info,
 	}
+	sublog.Info().Str("parent-ri", res.Info.Path).Msg("FindMe HandleSpacesPropfind")
 	if res.Info.Type == provider.ResourceType_RESOURCE_TYPE_CONTAINER && depth != net.DepthZero {
 		childInfos, ok := p.getSpaceResourceInfos(ctx, w, r, pf, &ref, r.URL.Path, depth, sublog)
 		if !ok {
 			// getResourceInfos handles responses in case of an error so we can just return here.
 			return
 		}
+		//sublog.Info().Str("parent-ri", res.Info.Path)..Msg("FindMe HandleSpacesPropfind (child)")
 		resourceInfos = append(resourceInfos, childInfos...)
 	}
 
@@ -792,6 +794,7 @@ func (p *Handler) getSpaceResourceInfos(ctx context.Context, w http.ResponseWrit
 		return nil, false
 	}
 	for _, info := range res.Infos {
+		log.Info().Str("requestPath", requestPath).Str("info.path-orig", info.Path).Str("info.path-new", path.Join(requestPath, info.Path)).Msg("FindMe - getSpacesResourceInfos")
 		info.Path = path.Join(requestPath, info.Path)
 	}
 	resourceInfos = append(resourceInfos, res.Infos...)
@@ -1076,6 +1079,7 @@ func mdToPropResponse(ctx context.Context, pf *XML, md *provider.ResourceInfo, p
 	if md.Type == provider.ResourceType_RESOURCE_TYPE_CONTAINER {
 		ref += "/"
 	}
+	sublog.Info().Str("BaseURI", baseURI).Str("p", p).Str("ref", ref).Msg("FindMe mdToPropResponse")
 
 	response := ResponseXML{
 		Href:     net.EncodePath(ref),

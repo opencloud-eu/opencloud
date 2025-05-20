@@ -740,9 +740,9 @@ func (g Graph) cs3StorageSpaceToDrive(ctx context.Context, baseURL *url.URL, spa
 		return nil, errors.New("space has no root")
 	}
 	spaceRid := proto.Clone(space.Root).(*storageprovider.ResourceId)
-	if space.Root.GetSpaceId() == space.Root.GetOpaqueId() {
-		spaceRid.OpaqueId = ""
-	}
+	//if space.Root.GetSpaceId() == space.Root.GetOpaqueId() {
+	spaceRid.OpaqueId = ""
+	//}
 	spaceID := storagespace.FormatResourceID(spaceRid)
 
 	permissions := g.cs3SpacePermissionsToLibreGraph(ctx, space, apiVersion)

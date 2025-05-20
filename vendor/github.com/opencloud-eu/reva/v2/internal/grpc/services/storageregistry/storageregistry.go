@@ -29,6 +29,7 @@ import (
 	registrypb "github.com/cs3org/go-cs3apis/cs3/storage/registry/v1beta1"
 	typespb "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/mitchellh/mapstructure"
+	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
@@ -107,7 +108,9 @@ func getRegistry(c *config) (storage.Registry, error) {
 }
 
 func (s *service) ListStorageProviders(ctx context.Context, req *registrypb.ListStorageProvidersRequest) (*registrypb.ListStorageProvidersResponse, error) {
+	log := appctx.GetLogger(ctx)
 	pinfos, err := s.reg.ListProviders(ctx, sdk.DecodeOpaqueMap(req.Opaque))
+	log.Warn().Any("pinfos", pinfos).Err(err).Msg("ListStorageProviders")
 	if err != nil {
 		return &registrypb.ListStorageProvidersResponse{
 			Status: status.NewInternal(ctx, "error getting list of storage providers"),

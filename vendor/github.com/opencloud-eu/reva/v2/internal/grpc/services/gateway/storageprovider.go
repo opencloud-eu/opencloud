@@ -298,7 +298,17 @@ func (s *svc) ListStorageSpaces(ctx context.Context, req *provider.ListStorageSp
 
 	spaces := []*provider.StorageSpace{}
 	for _, providerInfo := range res.Providers {
-		spaces = append(spaces, decodeSpaces(providerInfo)...)
+		//spaces = append(spaces, decodeSpaces(providerInfo)...)
+		c, err := s.getSpacesProviderClient(ctx, providerInfo)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.ListStorageSpaces(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		spaces = append(spaces, resp.StorageSpaces...)
+		//spaces = append(spaces, decodeSpaces(providerInfo)...)
 	}
 
 	return &provider.ListStorageSpacesResponse{
@@ -1140,6 +1150,8 @@ func (s *svc) findProvider(ctx context.Context, listReq *registry.ListStoragePro
 	if err != nil {
 		return nil, errors.Wrap(err, "gateway: error getting storage registry client")
 	}
+	log := appctx.GetLogger(ctx)
+	log.Warn().Any("listReq", listReq).Msg("FindMe")
 	res, err := c.ListStorageProviders(ctx, listReq)
 	if err != nil {
 		return nil, errors.Wrap(err, "gateway: error calling ListStorageProviders")
