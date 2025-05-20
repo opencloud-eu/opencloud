@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net"
 	"net/http"
-	"time"
 
 	ogrpc "github.com/opencloud-eu/opencloud/pkg/service/grpc"
 	ohttp "github.com/opencloud-eu/opencloud/pkg/service/http"
@@ -102,9 +101,8 @@ func NewGolangHttpServerRunner(name string, server *http.Server, opts ...Option)
 	}, func() {
 		// Since Shutdown might take some time, don't block
 		go func() {
-			// give 5 secs for the shutdown to finish
-			// TODO: To discuss the default timeout
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			// TODO: Provide the adjustable TimeoutDuration
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), DefaultInterruptDuration)
 			defer cancel()
 
 			debugCh <- server.Shutdown(shutdownCtx)
@@ -135,6 +133,14 @@ func NewGolangGrpcServerRunner(name string, server *grpc.Server, listener net.Li
 	return r
 }
 
+// NewRevaServiceRunner creates a new runner based on the provided reva RevaDrivenServer
+// The runner will behave as described:
+// * The task is to start a server and listen for connections. If the server
+// can't start, the task will finish with that error.
+// * The stopper will call the server's stop method and send the result to
+// the task.
+// * The stopper will run asynchronously because the stop method could take a
+// while and we don't want to block
 func NewRevaServiceRunner(name string, server runtime.RevaDrivenServer, opts ...Option) *Runner {
 	httpCh := make(chan error, 1)
 	r := New(name, func() error {

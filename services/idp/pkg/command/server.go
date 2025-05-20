@@ -60,11 +60,11 @@ func Server(cfg *config.Config) *cli.Command {
 			}
 
 			var cancel context.CancelFunc
-			ctx := cfg.Context
-			if ctx == nil {
-				ctx, cancel = signal.NotifyContext(context.Background(), runner.StopSignals...)
+			if cfg.Context == nil {
+				cfg.Context, cancel = signal.NotifyContext(context.Background(), runner.StopSignals...)
 				defer cancel()
 			}
+			ctx := cfg.Context
 
 			metrics := metrics.New()
 			metrics.BuildInfo.WithLabelValues(version.GetString()).Set(1)

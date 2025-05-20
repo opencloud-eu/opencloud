@@ -109,9 +109,8 @@ func Server(cfg *config.Config) *cli.Command {
 			)
 
 			var cancel context.CancelFunc
-			ctx := cfg.Context
-			if ctx == nil {
-				ctx, cancel = signal.NotifyContext(context.Background(), runner.StopSignals...)
+			if cfg.Context == nil {
+				cfg.Context, cancel = signal.NotifyContext(context.Background(), runner.StopSignals...)
 				defer cancel()
 			}
 
@@ -192,7 +191,7 @@ func Server(cfg *config.Config) *cli.Command {
 				server, err := proxyHTTP.Server(
 					proxyHTTP.Handler(lh.Handler()),
 					proxyHTTP.Logger(logger),
-					proxyHTTP.Context(ctx),
+					proxyHTTP.Context(cfg.Context),
 					proxyHTTP.Config(cfg),
 					proxyHTTP.Metrics(metrics.New()),
 					proxyHTTP.Middlewares(middlewares),
@@ -212,7 +211,7 @@ func Server(cfg *config.Config) *cli.Command {
 			{
 				debugServer, err := debug.Server(
 					debug.Logger(logger),
-					debug.Context(ctx),
+					debug.Context(cfg.Context),
 					debug.Config(cfg),
 				)
 				if err != nil {
@@ -223,7 +222,7 @@ func Server(cfg *config.Config) *cli.Command {
 				gr.Add(runner.NewGolangHttpServerRunner("proxy_debug", debugServer))
 			}
 
-			grResults := gr.Run(ctx)
+			grResults := gr.Run(cfg.Context)
 
 			// return the first non-nil error found in the results
 			for _, grResult := range grResults {

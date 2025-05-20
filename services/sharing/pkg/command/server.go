@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path"
 	"path/filepath"
 
-	"github.com/gofrs/uuid"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/registry"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
@@ -52,29 +50,35 @@ func Server(cfg *config.Config) *cli.Command {
 			}
 
 			var cancel context.CancelFunc
-			ctx := cfg.Context
-			if ctx == nil {
-				ctx, cancel = signal.NotifyContext(context.Background(), runner.StopSignals...)
+			if cfg.Context == nil {
+				cfg.Context, cancel = signal.NotifyContext(context.Background(), runner.StopSignals...)
 				defer cancel()
 			}
+			ctx := cfg.Context
 
 			gr := runner.NewGroup()
 
 			{
-				pidFile := path.Join(os.TempDir(), "revad-"+cfg.Service.Name+"-"+uuid.Must(uuid.NewV4()).String()+".pid")
 				rCfg, err := revaconfig.SharingConfigFromStruct(cfg, logger)
 				if err != nil {
 					return err
 				}
-				reg := registry.GetRegistry()
 
-				revaSrv := runtime.RunDrivenServerWithOptions(rCfg, pidFile,
+				// run the appropriate reva servers based on the config
+				if rServer := runtime.NewDrivenHTTPServerWithOptions(rCfg,
 					runtime.WithLogger(&logger.Logger),
-					runtime.WithRegistry(reg),
+					runtime.WithRegistry(registry.GetRegistry()),
 					runtime.WithTraceProvider(traceProvider),
-				)
-
-				gr.Add(runner.NewRevaServiceRunner("sharing_revad", revaSrv))
+				); rServer != nil {
+					gr.Add(runner.NewRevaServiceRunner(cfg.Service.Name+".rhttp", rServer))
+				}
+				if rServer := runtime.NewDrivenGRPCServerWithOptions(rCfg,
+					runtime.WithLogger(&logger.Logger),
+					runtime.WithRegistry(registry.GetRegistry()),
+					runtime.WithTraceProvider(traceProvider),
+				); rServer != nil {
+					gr.Add(runner.NewRevaServiceRunner(cfg.Service.Name+".rgrpc", rServer))
+				}
 			}
 
 			{

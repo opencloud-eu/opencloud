@@ -7,11 +7,9 @@ import (
 var (
 	// DefaultInterruptDuration is the default value for the `WithInterruptDuration`
 	// for the "regular" runners. This global value can be adjusted if needed.
-	// TODO: To discuss the default timeout
 	DefaultInterruptDuration = 20 * time.Second
 	// DefaultGroupInterruptDuration is the default value for the `WithInterruptDuration`
 	// for the group runners. This global value can be adjusted if needed.
-	// TODO: To discuss the default timeout
 	DefaultGroupInterruptDuration = 25 * time.Second
 )
 
