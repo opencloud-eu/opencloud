@@ -111,6 +111,8 @@ func (c *cachedSpacesAPIClient) CreateStorageSpace(ctx context.Context, in *prov
 		switch {
 		case err != nil:
 			return nil, err
+		case resp.Status == nil:
+			return nil, errors.New("No response received from spaces API client")
 		case resp.Status.Code != rpc.Code_CODE_OK && resp.Status.Code != rpc.Code_CODE_ALREADY_EXISTS:
 			return resp, nil
 		case key == "":

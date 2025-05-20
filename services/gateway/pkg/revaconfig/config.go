@@ -2,7 +2,6 @@ package revaconfig
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"strings"
 
@@ -104,26 +103,22 @@ func GatewayConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]i
 				},
 				"storageregistry": map[string]interface{}{
 					"driver": cfg.StorageRegistry.Driver,
-					//"json":   "/root/opencloud/static-config.json",
 					"drivers": map[string]interface{}{
 						"spaces": map[string]interface{}{
 							"providers": spacesProviders(cfg, logger),
 						},
-						"static": map[string]interface{}{
-							"home_provider": "/home",
-							"rules": map[string]interface{}{
-								"/eos/user/[dlntz]":  map[string]interface{}{"address": "dns:localhost:16001"},
-								"/eos/user/[agjkw]":  map[string]interface{}{"address": "dns:localhost:16001"},
-								"/eos/user/[horsy]":  map[string]interface{}{"address": "dns:localhost:16001"},
-								"/eos/user/[bemvx]":  map[string]interface{}{"address": "dns:localhost:16001"},
-								"/eos/user/[cfipqu]": map[string]interface{}{"address": "dns:localhost:16001"},
-								"/home":              map[string]interface{}{"address": "dns:localhost:16001"},
-							},
-						},
+						// "static": map[string]interface{}{
+						// 	"home_provider": "/home",
+						// 	"rules": map[string]interface{}{
+						// 		"/eos/user/[dlntz]":  map[string]interface{}{"address": "dns:localhost:16001"},
+						// 		"/eos/user/[agjkw]":  map[string]interface{}{"address": "dns:localhost:16001"},
+						// 		"/eos/user/[horsy]":  map[string]interface{}{"address": "dns:localhost:16001"},
+						// 		"/eos/user/[bemvx]":  map[string]interface{}{"address": "dns:localhost:16001"},
+						// 		"/eos/user/[cfipqu]": map[string]interface{}{"address": "dns:localhost:16001"},
+						// 		"/home":              map[string]interface{}{"address": "dns:localhost:16001"},
+						// 	},
+						// },
 					},
-					// "rules": []string{
-					// 	"/eos/user/[dlntz]", "/eos/user/[agjkw]", "/eos/user/[horsy]", "/eos/user/[bemvx]", "/eos/user/[cfipqu]",
-					//},
 				},
 			},
 			"interceptors": map[string]interface{}{
@@ -169,7 +164,7 @@ func spacesProviders(cfg *config.Config, logger log.Logger) map[string]map[strin
 			"providerid": cfg.StorageRegistry.StorageUsersMountID,
 			"spaces": map[string]interface{}{
 				"personal": map[string]interface{}{
-					"mount_point":   "/eos",
+					"mount_point":   "/eos/user",
 					"path_template": "/eos/user/{{substr 0 1 .CurrentUser.Id.OpaqueId}}/{{.CurrentUser.Id.OpaqueId}}",
 				},
 				"project": map[string]interface{}{
@@ -224,10 +219,4 @@ func spacesProviders(cfg *config.Config, logger log.Logger) map[string]map[strin
 		},
 		// medatada storage not part of the global namespace
 	}
-}
-
-func addrPrefix(addr string) string {
-	addr = strings.ReplaceAll(addr, "127.0.0.1", "localhost")
-	return fmt.Sprintf("dns:///%s", addr)
-	//return addr
 }
