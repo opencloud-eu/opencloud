@@ -190,16 +190,16 @@ var _ = Describe("Discovery", func() {
 				Expect(resp.GetAppUrl().GetFormParameters()["access_token_ttl"]).To(Equal(strconv.FormatInt(nowTime.Add(5*time.Hour).Unix()*1000, 10)))
 			},
 			Entry("Microsoft chat no lang", "Microsoft", "", false, "https://cloud.opencloud.test/hosting/wopi/word/edit?WOPISrc=https%3A%2F%2Fwopi.opencloud.test%2Fwopi%2Ffiles%2F2f6ec18696dd1008106749bd94106e5cfad5c09e15de7b77088d03843e71b43e"),
-			Entry("Collabora chat no lang", "Collabora", "", false, "https://cloud.opencloud.test/hosting/wopi/word/view?WOPISrc=https%3A%2F%2Fwopi.opencloud.test%2Fwopi%2Ffiles%2F2f6ec18696dd1008106749bd94106e5cfad5c09e15de7b77088d03843e71b43e"),
+			Entry("Collabora chat no lang", "Collabora", "", false, "https://cloud.opencloud.test/hosting/wopi/word/view?WOPISrc=https%3A%2F%2Fwopi.opencloud.test%2Fwopi%2Ffiles%2F2f6ec18696dd1008106749bd94106e5cfad5c09e15de7b77088d03843e71b43e&closebutton=false"),
 			Entry("OnlyOffice chat no lang", "OnlyOffice", "", false, "https://cloud.opencloud.test/hosting/wopi/word/edit?WOPISrc=https%3A%2F%2Fwopi.opencloud.test%2Fwopi%2Ffiles%2F2f6ec18696dd1008106749bd94106e5cfad5c09e15de7b77088d03843e71b43e"),
 			Entry("Microsoft chat lang", "Microsoft", "de", false, "https://cloud.opencloud.test/hosting/wopi/word/edit?UI_LLCC=de-DE&WOPISrc=https%3A%2F%2Fwopi.opencloud.test%2Fwopi%2Ffiles%2F2f6ec18696dd1008106749bd94106e5cfad5c09e15de7b77088d03843e71b43e"),
-			Entry("Collabora chat lang", "Collabora", "de", false, "https://cloud.opencloud.test/hosting/wopi/word/view?WOPISrc=https%3A%2F%2Fwopi.opencloud.test%2Fwopi%2Ffiles%2F2f6ec18696dd1008106749bd94106e5cfad5c09e15de7b77088d03843e71b43e&lang=de-DE"),
+			Entry("Collabora chat lang", "Collabora", "de", false, "https://cloud.opencloud.test/hosting/wopi/word/view?WOPISrc=https%3A%2F%2Fwopi.opencloud.test%2Fwopi%2Ffiles%2F2f6ec18696dd1008106749bd94106e5cfad5c09e15de7b77088d03843e71b43e&closebutton=false&lang=de-DE"),
 			Entry("OnlyOffice chat lang", "OnlyOffice", "de", false, "https://cloud.opencloud.test/hosting/wopi/word/edit?WOPISrc=https%3A%2F%2Fwopi.opencloud.test%2Fwopi%2Ffiles%2F2f6ec18696dd1008106749bd94106e5cfad5c09e15de7b77088d03843e71b43e&ui=de-DE"),
 			Entry("Microsoft no chat no lang", "Microsoft", "", true, "https://cloud.opencloud.test/hosting/wopi/word/edit?WOPISrc=https%3A%2F%2Fwopi.opencloud.test%2Fwopi%2Ffiles%2F2f6ec18696dd1008106749bd94106e5cfad5c09e15de7b77088d03843e71b43e&dchat=1"),
-			Entry("Collabora no chat no lang", "Collabora", "", true, "https://cloud.opencloud.test/hosting/wopi/word/view?WOPISrc=https%3A%2F%2Fwopi.opencloud.test%2Fwopi%2Ffiles%2F2f6ec18696dd1008106749bd94106e5cfad5c09e15de7b77088d03843e71b43e&dchat=1"),
+			Entry("Collabora no chat no lang", "Collabora", "", true, "https://cloud.opencloud.test/hosting/wopi/word/view?WOPISrc=https%3A%2F%2Fwopi.opencloud.test%2Fwopi%2Ffiles%2F2f6ec18696dd1008106749bd94106e5cfad5c09e15de7b77088d03843e71b43e&closebutton=false&dchat=1"),
 			Entry("OnlyOffice no chat no lang", "OnlyOffice", "", true, "https://cloud.opencloud.test/hosting/wopi/word/edit?WOPISrc=https%3A%2F%2Fwopi.opencloud.test%2Fwopi%2Ffiles%2F2f6ec18696dd1008106749bd94106e5cfad5c09e15de7b77088d03843e71b43e&dchat=1"),
 			Entry("Microsoft no chat lang", "Microsoft", "de", true, "https://cloud.opencloud.test/hosting/wopi/word/edit?UI_LLCC=de-DE&WOPISrc=https%3A%2F%2Fwopi.opencloud.test%2Fwopi%2Ffiles%2F2f6ec18696dd1008106749bd94106e5cfad5c09e15de7b77088d03843e71b43e&dchat=1"),
-			Entry("Collabora no chat lang", "Collabora", "de", true, "https://cloud.opencloud.test/hosting/wopi/word/view?WOPISrc=https%3A%2F%2Fwopi.opencloud.test%2Fwopi%2Ffiles%2F2f6ec18696dd1008106749bd94106e5cfad5c09e15de7b77088d03843e71b43e&dchat=1&lang=de-DE"),
+			Entry("Collabora no chat lang", "Collabora", "de", true, "https://cloud.opencloud.test/hosting/wopi/word/view?WOPISrc=https%3A%2F%2Fwopi.opencloud.test%2Fwopi%2Ffiles%2F2f6ec18696dd1008106749bd94106e5cfad5c09e15de7b77088d03843e71b43e&closebutton=false&dchat=1&lang=de-DE"),
 			Entry("OnlyOffice no chat lang", "OnlyOffice", "de", true, "https://cloud.opencloud.test/hosting/wopi/word/edit?WOPISrc=https%3A%2F%2Fwopi.opencloud.test%2Fwopi%2Ffiles%2F2f6ec18696dd1008106749bd94106e5cfad5c09e15de7b77088d03843e71b43e&dchat=1&ui=de-DE"),
 		)
 		It("Success with Wopi Proxy", func() {
@@ -244,7 +244,7 @@ var _ = Describe("Discovery", func() {
 			Expect(err).To(Succeed())
 			Expect(resp.GetStatus().GetCode()).To(Equal(rpcv1beta1.Code_CODE_OK))
 			Expect(resp.GetAppUrl().GetMethod()).To(Equal("POST"))
-			Expect(resp.GetAppUrl().GetAppUrl()).To(Equal("https://cloud.opencloud.test/hosting/wopi/word/edit?UI_LLCC=en-US&WOPISrc=https%3A%2F%2Foffice.proxy.opencloud.test%2Fwopi%2Ffiles%2FeyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1IjoiaHR0cHM6Ly93b3BpLm9wZW5jbG91ZC50ZXN0L3dvcGkvZmlsZXMvIiwiZiI6IjJmNmVjMTg2OTZkZDEwMDgxMDY3NDliZDk0MTA2ZTVjZmFkNWMwOWUxNWRlN2I3NzA4OGQwMzg0M2U3MWI0M2UifQ.j873xu7TkqtIokSIQXW5y7-BRRrHgIURqAx4WY_zxTA&closebutton=false"))
+			Expect(resp.GetAppUrl().GetAppUrl()).To(Equal("https://cloud.opencloud.test/hosting/wopi/word/edit?UI_LLCC=en-US&WOPISrc=https%3A%2F%2Foffice.proxy.opencloud.test%2Fwopi%2Ffiles%2FeyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1IjoiaHR0cHM6Ly93b3BpLm9wZW5jbG91ZC50ZXN0L3dvcGkvZmlsZXMvIiwiZiI6IjJmNmVjMTg2OTZkZDEwMDgxMDY3NDliZDk0MTA2ZTVjZmFkNWMwOWUxNWRlN2I3NzA4OGQwMzg0M2U3MWI0M2UifQ.j873xu7TkqtIokSIQXW5y7-BRRrHgIURqAx4WY_zxTA"))
 			Expect(resp.GetAppUrl().GetFormParameters()["access_token_ttl"]).To(Equal(strconv.FormatInt(nowTime.Add(5*time.Hour).Unix()*1000, 10)))
 		})
 		It("Fail with invalid app url", func() {
