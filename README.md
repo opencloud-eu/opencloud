@@ -3,6 +3,7 @@
 [![status-badge](https://ci.opencloud.eu/api/badges/3/status.svg)](https://ci.opencloud.eu/repos/3)
  [![Matrix](https://img.shields.io/matrix/opencloud%3Amatrix.org?logo=matrix)](https://app.element.io/#/room/#opencloud:matrix.org)
  [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+ [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/opencloud-eu/opencloud)
 
 # Server Backend
 
