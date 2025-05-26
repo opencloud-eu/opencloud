@@ -1117,7 +1117,7 @@ func (s *svc) findSingleSpace(ctx context.Context, ref *provider.Reference) ([]*
 		return nil, errtypes.BadRequest("missing reference")
 	case ref.ResourceId != nil:
 		if ref.ResourceId.OpaqueId == "" {
-			ref.ResourceId.OpaqueId = ref.ResourceId.SpaceId
+			// ref.ResourceId.OpaqueId = ref.ResourceId.SpaceId
 		}
 	case ref.Path != "": //  TODO implement a mount path cache in the registry?
 		// nothing to do here either
