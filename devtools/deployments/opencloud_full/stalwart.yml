@@ -7,16 +7,16 @@ services:
           - ${STALWART_DOMAIN:-stalwart.opencloud.test}
 
   stalwart:
-    image: stalwartlabs/mail-server:latest
+    image: stalwartlabs/stalwart:v0.12-alpine
     networks:
       - opencloud-net
     ports:
       - "127.0.0.1:143:143"
       - "127.0.0.1:993:993"
     volumes:
-      - ./config/stalwart:/opt/stalwart-mail/etc
-      - stalwart-data:/opt/stalwart-mail/data
-      - stalwart-logs:/opt/stalwart-mail/logs
+      - ./config/stalwart:/opt/stalwart/etc
+      - stalwart-data:/opt/stalwart/data
+      - stalwart-logs:/opt/stalwart/logs
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.stalwart.entrypoints=https"
