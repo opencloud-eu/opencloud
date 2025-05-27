@@ -55,7 +55,7 @@ func Server(cfg *config.Config) *cli.Command {
 			svcCtx, svcCancel := context.WithCancel(ctx)
 			defer svcCancel()
 
-			gr.Add(runner.New("audit_svc", func() error {
+			gr.Add(runner.New(cfg.Service.Name+".svc", func() error {
 				svc.AuditLoggerFromConfig(svcCtx, cfg.Auditlog, evts, logger)
 				return nil
 			}, func() {
@@ -73,7 +73,7 @@ func Server(cfg *config.Config) *cli.Command {
 					return err
 				}
 
-				gr.Add(runner.NewGolangHttpServerRunner("audit_debug", debugServer))
+				gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", debugServer))
 			}
 
 			grResults := gr.Run(ctx)

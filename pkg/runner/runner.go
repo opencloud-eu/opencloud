@@ -32,7 +32,7 @@ type Runner struct {
 //
 // The interrupt duration, which can be set through the `WithInterruptDuration`
 // option, will be used to ensure the runner doesn't block forever. If the
-// option isn't supplied, the default value (10 secs) will be used.
+// option isn't supplied, the default value `DefaultInterruptDuration` will be used.
 // The interrupt duration will be used to start a timeout when the
 // runner gets interrupted (either the context of the `Run` method is done
 // or this runner's `Interrupt` method is called). If the timeout is reached,

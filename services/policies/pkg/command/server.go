@@ -102,7 +102,7 @@ func Server(cfg *config.Config) *cli.Command {
 					return err
 				}
 
-				gr.Add(runner.NewGoMicroGrpcServerRunner("policies_grpc", svc))
+				gr.Add(runner.NewGoMicroGrpcServerRunner(cfg.Service.Name+".grpc", svc))
 			}
 
 			{
@@ -118,7 +118,7 @@ func Server(cfg *config.Config) *cli.Command {
 					return err
 				}
 
-				gr.Add(runner.New("policies_svc", func() error {
+				gr.Add(runner.New(cfg.Service.Name+".svc", func() error {
 					return eventSvc.Run()
 				}, func() {
 					eventSvc.Close()
@@ -136,7 +136,7 @@ func Server(cfg *config.Config) *cli.Command {
 					return err
 				}
 
-				gr.Add(runner.NewGolangHttpServerRunner("policies_debug", debugServer))
+				gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", debugServer))
 			}
 
 			grResults := gr.Run(ctx)

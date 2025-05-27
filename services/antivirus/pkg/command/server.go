@@ -47,14 +47,14 @@ func Server(cfg *config.Config) *cli.Command {
 				return err
 			}
 
-			gr := runner.NewGroup()
+			gr := runner.NewGroup(runner.Option())
 			{
 				svc, err := service.NewAntivirus(cfg, logger, traceProvider)
 				if err != nil {
 					return cli.Exit(err.Error(), 1)
 				}
 
-				gr.Add(runner.New("antivirus_svc", func() error {
+				gr.Add(runner.New(cfg.Service.Name+".svc", func() error {
 					return svc.Run()
 				}, func() {
 					svc.Close()
@@ -72,7 +72,7 @@ func Server(cfg *config.Config) *cli.Command {
 					return err
 				}
 
-				gr.Add(runner.NewGolangHttpServerRunner("antivirus_debug", debugServer))
+				gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", debugServer))
 			}
 
 			grResults := gr.Run(ctx)

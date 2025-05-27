@@ -69,7 +69,7 @@ func Server(cfg *config.Config) *cli.Command {
 				return err
 			}
 
-			gr.Add(runner.NewGoMicroGrpcServerRunner("search_grpc", grpcServer))
+			gr.Add(runner.NewGoMicroGrpcServerRunner(cfg.Service.Name+".grpc", grpcServer))
 
 			debugServer, err := debug.Server(
 				debug.Logger(logger),
@@ -81,7 +81,7 @@ func Server(cfg *config.Config) *cli.Command {
 				return err
 			}
 
-			gr.Add(runner.NewGolangHttpServerRunner("search_debug", debugServer))
+			gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", debugServer))
 
 			grResults := gr.Run(ctx)
 

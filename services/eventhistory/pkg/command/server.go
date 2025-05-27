@@ -87,7 +87,7 @@ func Server(cfg *config.Config) *cli.Command {
 				grpc.TraceProvider(traceProvider),
 			)
 
-			gr.Add(runner.NewGoMicroGrpcServerRunner("eventhistory_grpc", service))
+			gr.Add(runner.NewGoMicroGrpcServerRunner(cfg.Service.Name+".grpc", service))
 
 			{
 				debugServer, err := debug.Server(
@@ -100,7 +100,7 @@ func Server(cfg *config.Config) *cli.Command {
 					return err
 				}
 
-				gr.Add(runner.NewGolangHttpServerRunner("eventhistory_debug", debugServer))
+				gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", debugServer))
 			}
 
 			grResults := gr.Run(ctx)

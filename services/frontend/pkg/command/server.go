@@ -79,7 +79,7 @@ func Server(cfg *config.Config) *cli.Command {
 					return err
 				}
 
-				gr.Add(runner.NewGolangHttpServerRunner("frontend_debug", debugServer))
+				gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", debugServer))
 			}
 
 			httpSvc := registry.BuildHTTPService(cfg.HTTP.Namespace+"."+cfg.Service.Name, cfg.HTTP.Addr, version.GetString())
@@ -88,7 +88,7 @@ func Server(cfg *config.Config) *cli.Command {
 			}
 
 			// add event handler
-			gr.Add(runner.New("frontend_event",
+			gr.Add(runner.New(cfg.Service.Name+".event",
 				func() error {
 					return ListenForEvents(ctx, cfg, logger)
 				}, func() {

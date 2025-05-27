@@ -64,7 +64,7 @@ func Server(cfg *config.Config) *cli.Command {
 					return err
 				}
 
-				gr.Add(runner.New("postprocessing_svc", func() error {
+				gr.Add(runner.New(cfg.Service.Name+".svc", func() error {
 					return svc.Run()
 				}, func() {
 					svc.Close()

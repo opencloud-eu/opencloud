@@ -73,7 +73,7 @@ func Server(cfg *config.Config) *cli.Command {
 					Msg("Error initializing http service")
 				return fmt.Errorf("could not initialize http service: %w", err)
 			}
-			gr.Add(runner.NewGoMicroHttpServerRunner("settings_http", httpServer))
+			gr.Add(runner.NewGoMicroHttpServerRunner(cfg.Service.Name+".http", httpServer))
 
 			// prepare a gRPC server and add it to the group run.
 			grpcServer := grpc.Server(
@@ -85,7 +85,7 @@ func Server(cfg *config.Config) *cli.Command {
 				grpc.ServiceHandler(handle),
 				grpc.TraceProvider(traceProvider),
 			)
-			gr.Add(runner.NewGoMicroGrpcServerRunner("settings_grpc", grpcServer))
+			gr.Add(runner.NewGoMicroGrpcServerRunner(cfg.Service.Name+".grpc", grpcServer))
 
 			// prepare a debug server and add it to the group run.
 			debugServer, err := debug.Server(
@@ -98,7 +98,7 @@ func Server(cfg *config.Config) *cli.Command {
 				return err
 			}
 
-			gr.Add(runner.NewGolangHttpServerRunner("settings_debug", debugServer))
+			gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", debugServer))
 
 			grResults := gr.Run(ctx)
 

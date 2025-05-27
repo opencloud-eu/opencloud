@@ -136,7 +136,7 @@ func Server(cfg *config.Config) *cli.Command {
 					return err
 				}
 
-				gr.Add(runner.NewGoMicroHttpServerRunner("userlog_http", server))
+				gr.Add(runner.NewGoMicroHttpServerRunner(cfg.Service.Name+".http", server))
 			}
 
 			{
@@ -150,7 +150,7 @@ func Server(cfg *config.Config) *cli.Command {
 					return err
 				}
 
-				gr.Add(runner.NewGolangHttpServerRunner("userlog_debug", debugServer))
+				gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", debugServer))
 			}
 
 			grResults := gr.Run(ctx)

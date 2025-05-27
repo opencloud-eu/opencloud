@@ -109,7 +109,7 @@ func Server(cfg *config.Config) *cli.Command {
 					return err
 				}
 
-				gr.Add(runner.New("clientlog_svc", func() error {
+				gr.Add(runner.New(cfg.Service.Name+".svc", func() error {
 					return svc.Run()
 				}, func() {
 					svc.Close()
@@ -127,7 +127,7 @@ func Server(cfg *config.Config) *cli.Command {
 					return err
 				}
 
-				gr.Add(runner.NewGolangHttpServerRunner("clientlog_debug", debugServer))
+				gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", debugServer))
 			}
 
 			grResults := gr.Run(ctx)

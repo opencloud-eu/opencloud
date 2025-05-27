@@ -106,7 +106,7 @@ func Server(cfg *config.Config) *cli.Command {
 			// creating a runner for a go-micro service is a bit complex, so we'll
 			// wrap the go-micro service with an ocis service the same way as
 			// ocis-pkg/service/http is doing in order to reuse the factory.
-			gr.Add(runner.NewGoMicroHttpServerRunner("ocdav_http", ohttp.Service{Service: s}))
+			gr.Add(runner.NewGoMicroHttpServerRunner(cfg.Service.Name+".http", ohttp.Service{Service: s}))
 
 			debugServer, err := debug.Server(
 				debug.Logger(logger),
@@ -119,7 +119,7 @@ func Server(cfg *config.Config) *cli.Command {
 				return err
 			}
 
-			gr.Add(runner.NewGolangHttpServerRunner("ocdav_debug", debugServer))
+			gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", debugServer))
 
 			grResults := gr.Run(ctx)
 

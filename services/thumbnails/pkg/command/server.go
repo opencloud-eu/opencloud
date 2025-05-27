@@ -64,7 +64,7 @@ func Server(cfg *config.Config) *cli.Command {
 				grpc.TraceProvider(traceProvider),
 				grpc.MaxConcurrentRequests(cfg.GRPC.MaxConcurrentRequests),
 			)
-			gr.Add(runner.NewGoMicroGrpcServerRunner("thumbnails_grpc", service))
+			gr.Add(runner.NewGoMicroGrpcServerRunner(cfg.Service.Name+".grpc", service))
 
 			server, err := debug.Server(
 				debug.Logger(logger),
@@ -75,7 +75,7 @@ func Server(cfg *config.Config) *cli.Command {
 				logger.Info().Err(err).Str("transport", "debug").Msg("Failed to initialize server")
 				return err
 			}
-			gr.Add(runner.NewGolangHttpServerRunner("thumbnails_debug", server))
+			gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", server))
 
 			httpServer, err := http.Server(
 				http.Logger(logger),
@@ -93,7 +93,7 @@ func Server(cfg *config.Config) *cli.Command {
 
 				return err
 			}
-			gr.Add(runner.NewGoMicroHttpServerRunner("thumbnails_http", httpServer))
+			gr.Add(runner.NewGoMicroHttpServerRunner(cfg.Service.Name+".http", httpServer))
 
 			grResults := gr.Run(ctx)
 

@@ -113,7 +113,7 @@ func Server(cfg *config.Config) *cli.Command {
 			if err != nil {
 				return err
 			}
-			gr.Add(runner.NewGolangGrpcServerRunner("collaboration_grpc", grpcServer, l))
+			gr.Add(runner.NewGolangGrpcServerRunner(cfg.Service.Name+".grpc", grpcServer, l))
 
 			// start debug server
 			debugServer, err := debug.Server(
@@ -125,7 +125,7 @@ func Server(cfg *config.Config) *cli.Command {
 				logger.Error().Err(err).Str("transport", "debug").Msg("Failed to initialize server")
 				return err
 			}
-			gr.Add(runner.NewGolangHttpServerRunner("collaboration_debug", debugServer))
+			gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", debugServer))
 
 			// start HTTP server
 			httpServer, err := http.Server(

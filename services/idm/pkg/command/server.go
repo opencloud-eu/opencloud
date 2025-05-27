@@ -83,7 +83,7 @@ func Server(cfg *config.Config) *cli.Command {
 				svcCtx, svcCancel := context.WithCancel(ctx)
 				defer svcCancel()
 
-				gr.Add(runner.New("idm_svc", func() error {
+				gr.Add(runner.New(cfg.Service.Name+".svc", func() error {
 					return svc.Serve(svcCtx)
 				}, func() {
 					svcCancel()
@@ -101,7 +101,7 @@ func Server(cfg *config.Config) *cli.Command {
 					return err
 				}
 
-				gr.Add(runner.NewGolangHttpServerRunner("idm_debug", debugServer))
+				gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", debugServer))
 			}
 
 			grResults := gr.Run(ctx)

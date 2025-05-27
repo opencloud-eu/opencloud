@@ -49,7 +49,7 @@ func Server(cfg *config.Config) *cli.Command {
 					return err
 				}
 
-				gr.Add(runner.NewGolangHttpServerRunner("nats_debug", debugServer))
+				gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", debugServer))
 			}
 
 			var tlsConf *tls.Config
@@ -88,7 +88,7 @@ func Server(cfg *config.Config) *cli.Command {
 				return err
 			}
 
-			gr.Add(runner.New("nats_svc", func() error {
+			gr.Add(runner.New(cfg.Service.Name+".svc", func() error {
 				return natsServer.ListenAndServe()
 			}, func() {
 				natsServer.Shutdown()

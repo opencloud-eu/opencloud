@@ -21,7 +21,7 @@ import (
 //
 // The interrupt duration for the group can be set through the
 // `WithInterruptDuration` option. If the option isn't supplied, the default
-// value (15 secs) will be used.
+// value `DefaultGroupInterruptDuration` will be used.
 //
 // It's recommended that the timeouts are handled by each runner individually,
 // meaning that each runner's timeout should be less than the group runner's

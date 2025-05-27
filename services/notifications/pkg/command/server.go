@@ -77,7 +77,7 @@ func Server(cfg *config.Config) *cli.Command {
 					return err
 				}
 
-				gr.Add(runner.NewGolangHttpServerRunner("notifications_debug", debugServer))
+				gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", debugServer))
 			}
 
 			// evs defines a list of events to subscribe to
@@ -140,7 +140,7 @@ func Server(cfg *config.Config) *cli.Command {
 				cfg.Notifications.EmailTemplatePath, cfg.Notifications.DefaultLanguage, cfg.WebUIURL,
 				cfg.Notifications.TranslationPath, cfg.Notifications.SMTP.Sender, notificationStore, historyClient, registeredEvents)
 
-			gr.Add(runner.New("notifications_svc", func() error {
+			gr.Add(runner.New(cfg.Service.Name+".svc", func() error {
 				return svc.Run()
 			}, func() {
 				svc.Close()

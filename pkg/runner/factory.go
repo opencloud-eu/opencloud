@@ -101,7 +101,7 @@ func NewGolangHttpServerRunner(name string, server *http.Server, opts ...Option)
 	}, func() {
 		// Since Shutdown might take some time, don't block
 		go func() {
-			// TODO: Provide the adjustable TimeoutDuration
+			// Use the DefaultInterruptDuration or InterruptDuration as the shutdown timeout.
 			shutdownCtx, cancel := context.WithTimeout(context.Background(), DefaultInterruptDuration)
 			defer cancel()
 
