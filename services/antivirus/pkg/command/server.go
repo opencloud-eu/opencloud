@@ -47,7 +47,7 @@ func Server(cfg *config.Config) *cli.Command {
 				return err
 			}
 
-			gr := runner.NewGroup(runner.Option())
+			gr := runner.NewGroup()
 			{
 				svc, err := service.NewAntivirus(cfg, logger, traceProvider)
 				if err != nil {

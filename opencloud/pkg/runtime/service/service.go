@@ -392,28 +392,8 @@ func Start(ctx context.Context, o ...Option) error {
 		}
 	}
 
-	if err = rpc.Register(s); err != nil {
-		if s != nil {
-			s.Log.Fatal().Err(err).Msg("could not register rpc service")
-		}
-	}
-	rpc.HandleHTTP()
-
-	l, err := net.Listen("tcp", net.JoinHostPort(s.cfg.Runtime.Host, s.cfg.Runtime.Port))
-	if err != nil {
-		s.Log.Fatal().Err(err).Msg("could not start listener")
-	}
-	srv := new(http.Server)
-
-	defer func() {
-		if r := recover(); r != nil {
-			reason := strings.Builder{}
-			if _, err = net.Dial("tcp", net.JoinHostPort(s.cfg.Runtime.Host, s.cfg.Runtime.Port)); err != nil {
-				reason.WriteString("runtime address already in use")
-			}
-			fmt.Println(reason.String())
-		}
-	}()
+	// register and run the runtime rpc server
+	s.runRPCServer()
 
 	// prepare the set of services to run
 	s.generateRunSet(s.cfg)
@@ -437,14 +417,8 @@ func Start(ctx context.Context, o ...Option) error {
 	// schedule services that are optional
 	scheduleServiceTokens(s, s.Additional)
 
-	go func() {
-		if err = srv.Serve(l); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			s.Log.Fatal().Err(err).Msg("could not start rpc server")
-		}
-	}()
-
 	// trapShutdownCtx will block on the context-done channel for interruptions.
-	trapShutdownCtx(s, srv, ctx)
+	trapShutdownCtx(s, ctx)
 	return nil
 }
 
@@ -512,20 +486,32 @@ func (s *Service) List(_ struct{}, reply *string) error {
 	return nil
 }
 
-func trapShutdownCtx(s *Service, srv *http.Server, ctx context.Context) {
-	<-ctx.Done()
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		ctx, cancel := context.WithTimeout(context.Background(), _defaultShutdownTimeoutDuration)
-		defer cancel()
-		if err := srv.Shutdown(ctx); err != nil {
-			s.Log.Error().Err(err).Msg("could not shutdown tcp listener")
+// register and run the runtime rpc server
+func (s *Service) runRPCServer() {
+	if err := rpc.Register(s); err != nil {
+		if s != nil {
+			s.Log.Fatal().Err(err).Msg("could not register rpc service")
 			return
 		}
-		s.Log.Info().Msg("tcp listener shutdown")
+	}
+	rpc.HandleHTTP()
+	// run rpc server
+	srv := new(http.Server)
+	go func() {
+		l, err := net.Listen("tcp", net.JoinHostPort(s.cfg.Runtime.Host, s.cfg.Runtime.Port))
+		if err != nil {
+			s.Log.Fatal().Err(err).Msg("could not start listener")
+			return
+		}
+		if err = srv.Serve(l); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			s.Log.Fatal().Err(err).Msg("could not start rpc server")
+		}
 	}()
+}
+
+func trapShutdownCtx(s *Service, ctx context.Context) {
+	<-ctx.Done()
+	wg := sync.WaitGroup{}
 
 	for sName := range s.serviceToken {
 		for i := range s.serviceToken[sName] {
