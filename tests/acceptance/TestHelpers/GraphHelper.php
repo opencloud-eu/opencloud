@@ -2168,6 +2168,7 @@ class GraphHelper {
 	 * @param string $user
 	 * @param string $password
 	 * @param string $spaceId
+	 * @param string|null $query
 	 *
 	 * @return ResponseInterface
 	 * @throws GuzzleException
@@ -2177,9 +2178,14 @@ class GraphHelper {
 		string $xRequestId,
 		string $user,
 		string $password,
-		string $spaceId
+		string $spaceId,
+		?string $query = null
 	): ResponseInterface {
 		$url = self::getBetaFullUrl($baseUrl, "drives/$spaceId/root/permissions");
+		if ($query !== null) {
+			$url .= "?$query";
+		}
+
 		return HttpRequestHelper::get(
 			$url,
 			$xRequestId,

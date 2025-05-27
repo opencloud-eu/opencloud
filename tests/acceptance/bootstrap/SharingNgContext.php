@@ -182,6 +182,37 @@ class SharingNgContext implements Context {
 	}
 
 	/**
+	 * @param string $user
+	 * @param string $space
+	 * @param string|null $query
+	 * @param string|null $spaceOwner
+	 *
+	 * @return ResponseInterface
+	 * @throws GuzzleException
+	 */
+	private function getDrivePermissionsList(
+		string $user,
+		string $space,
+		?string $query = null,
+		?string $spaceOwner = null,
+	): ResponseInterface {
+		if ($spaceOwner) {
+			$spaceId = ($this->spacesContext->getSpaceByName($spaceOwner, $space))["id"];
+		} else {
+			$spaceId = ($this->spacesContext->getSpaceByName($user, $space))["id"];
+		}
+
+		return GraphHelper::getDrivePermissionsList(
+			$this->featureContext->getBaseUrl(),
+			$this->featureContext->getStepLineRef(),
+			$user,
+			$this->featureContext->getPasswordForUser($user),
+			$spaceId,
+			$query
+		);
+	}
+
+	/**
 	 * @When /^user "([^"]*)" gets permissions list for (folder|file) "([^"]*)" of the space "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $user
@@ -265,7 +296,7 @@ class SharingNgContext implements Context {
 	public function sendShareInvitation(
 		string $user,
 		array $shareInfo,
-		string $fileId = null,
+		?string $fileId = null,
 		bool $federatedShare = false
 	): ResponseInterface {
 		if ($shareInfo['space'] === 'Personal' || $shareInfo['space'] === 'Shares') {
@@ -1576,16 +1607,7 @@ class SharingNgContext implements Context {
 	 *
 	 */
 	public function userListsThePermissionsOfDriveUsingRootEndPointOFTheGraphApi(string $user, string $space): void {
-		$spaceId = ($this->spacesContext->getSpaceByName($user, $space))["id"];
-
-		$response = GraphHelper::getDrivePermissionsList(
-			$this->featureContext->getBaseUrl(),
-			$this->featureContext->getStepLineRef(),
-			$user,
-			$this->featureContext->getPasswordForUser($user),
-			$spaceId
-		);
-		$this->featureContext->setResponse($response);
+		$this->featureContext->setResponse($this->getDrivePermissionsList($user, $space));
 	}
 
 	/**
@@ -1771,15 +1793,7 @@ class SharingNgContext implements Context {
 	 * @throws GuzzleException
 	 */
 	public function userShouldNotHaveAnyPermissionsOnSpace(string $user, string $shareType, string $space): void {
-		$spaceId = ($this->spacesContext->getSpaceByName($user, $space))["id"];
-
-		$response = GraphHelper::getDrivePermissionsList(
-			$this->featureContext->getBaseUrl(),
-			$this->featureContext->getStepLineRef(),
-			$user,
-			$this->featureContext->getPasswordForUser($user),
-			$spaceId
-		);
+		$response = $this->getDrivePermissionsList($user, $space);
 		$responseBody = $this->featureContext->getJsonDecodedResponse($response);
 		foreach ($responseBody['value'] as $value) {
 			switch ($shareType) {
@@ -1878,16 +1892,7 @@ class SharingNgContext implements Context {
 		string $space,
 		string $spaceOwner
 	): void {
-		$spaceId = ($this->spacesContext->getSpaceByName($spaceOwner, $space))["id"];
-
-		$response = GraphHelper::getDrivePermissionsList(
-			$this->featureContext->getBaseUrl(),
-			$this->featureContext->getStepLineRef(),
-			$user,
-			$this->featureContext->getPasswordForUser($user),
-			$spaceId
-		);
-		$this->featureContext->setResponse($response);
+		$this->featureContext->setResponse($this->getDrivePermissionsList($user, $space, null, $spaceOwner));
 	}
 
 	/**
@@ -2117,5 +2122,76 @@ class SharingNgContext implements Context {
 		$this->featureContext->setResponse(
 			$this->getPermissionsList($user, $fileOrFolder, $space, $resource, $query)
 		);
+	}
+
+	/**
+	 * @When /^user "([^"]*)" gets the permittion list of (folder|file) "([^"]*)" from the space "([^"]*)" using the Graph API with query "([^"]*)"$/
+	 *
+	 * @param string $user
+	 * @param string $fileOrFolder (file|folder)
+	 * @param string $resource
+	 * @param string $space
+	 * @param string $query
+	 *
+	 * @return void
+	 * @throws Exception
+	 */
+	public function userGetsPermissionsListWithQueryForFileOfTheSpaceUsingTheGraphApi(
+		string $user,
+		string $fileOrFolder,
+		string $resource,
+		string $space,
+		string $query
+	): void {
+		$this->featureContext->setResponse(
+			$this->getPermissionsList($user, $fileOrFolder, $space, $resource, $query)
+		);
+	}
+
+	/**
+	 * @When /^user "([^"]*)" gets the drive permittion list of the space "([^"]*)" using the Graph API with query "([^"]*)"$/
+	 *
+	 * @param string $user
+	 * @param string $space
+	 * @param string $query
+	 *
+	 * @return void
+	 * @throws Exception
+	 */
+	public function userGetsDrivePermissionsListWithQueryUsingTheGraphApi(
+		string $user,
+		string $space,
+		string $query
+	): void {
+		$this->featureContext->setResponse($this->getDrivePermissionsList($user, $space, $query));
+	}
+
+	/**
+	 * @Then /^the JSON data of the response should (not |)contain the following keys:$/
+	 *
+	 * @param string|null $shouldOrNot (not| )
+	 * @param TableNode $table
+	 *
+	 * @return void
+	 * @throws Exception
+	 */
+	public function theJsonDataResponseShouldOrNotContainData(string $shouldOrNot, TableNode $table): void {
+		$response = $this->featureContext->getJsonDecodedResponse($this->featureContext->getResponse());
+
+		foreach ($table->getColumn(0) as $key) {
+			$keyExists = \array_key_exists($key, $response);
+
+			if (\trim($shouldOrNot) !== "not") {
+				Assert::assertTrue(
+					$keyExists,
+					"Expected key '$key' to exist in the JSON response, but it doesn't."
+				);
+			} else {
+				Assert::assertFalse(
+					$keyExists,
+					"Key '$key' should not exist in the JSON response, but it does."
+				);
+			}
+		}
 	}
 }

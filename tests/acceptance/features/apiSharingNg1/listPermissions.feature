@@ -2250,7 +2250,7 @@ Feature: List a sharing permissions
       }
       """
 
-
+  @env-config
   Scenario: user lists permissions of a space after enabling 'Space Editor Without Versions' role
     Given the administrator has enabled the permissions role "Space Editor Without Versions"
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -2562,6 +2562,181 @@ Feature: List a sharing permissions
               "message": {
                 "pattern": "stat: error: not found: %user_id_pattern%$"
               }
+            }
+          }
+        }
+      }
+      """
+
+
+  Scenario: user lists permissions of a folder in personal space with select filter
+    Given user "Brian" has been created with default attributes
+    And user "Alice" has created folder "folder"
+    And user "Alice" has sent the following resource share invitation:
+      | resource        | folder   |
+      | space           | Personal |
+      | sharee          | Brian    |
+      | shareType       | user     |
+      | permissionsRole | Viewer   |
+    When user "Alice" gets the permittion list of folder "folder" from the space "Personal" using the Graph API with query "$select=@libre.graph.permissions.roles.allowedValues"
+    Then the HTTP status code should be "200"
+    And the JSON data of the response should contain the following keys:
+      | @libre.graph.permissions.roles.allowedValues |
+    And the JSON data of the response should not contain the following keys:
+      | @libre.graph.permissions.actions.allowedValues |
+      | value                                          |
+    When user "Alice" gets the permittion list of folder "folder" from the space "Personal" using the Graph API with query "$select=@libre.graph.permissions.actions.allowedValues"
+    Then the HTTP status code should be "200"
+    And the JSON data of the response should contain the following keys:
+      | @libre.graph.permissions.actions.allowedValues |
+    And the JSON data of the response should not contain the following keys:
+      | @libre.graph.permissions.roles.allowedValues   |
+      | value                                          |
+    And the JSON data of the response should match
+      """
+      {
+        "type": "object",
+        "required": [
+          "@libre.graph.permissions.actions.allowedValues"
+        ],
+        "properties": {
+          "@libre.graph.permissions.actions.allowedValues": {
+            "const": [
+              "libre.graph/driveItem/permissions/create",
+              "libre.graph/driveItem/children/create",
+              "libre.graph/driveItem/standard/delete",
+              "libre.graph/driveItem/path/read",
+              "libre.graph/driveItem/quota/read",
+              "libre.graph/driveItem/content/read",
+              "libre.graph/driveItem/upload/create",
+              "libre.graph/driveItem/permissions/read",
+              "libre.graph/driveItem/children/read",
+              "libre.graph/driveItem/versions/read",
+              "libre.graph/driveItem/deleted/read",
+              "libre.graph/driveItem/path/update",
+              "libre.graph/driveItem/permissions/delete",
+              "libre.graph/driveItem/deleted/delete",
+              "libre.graph/driveItem/versions/update",
+              "libre.graph/driveItem/deleted/update",
+              "libre.graph/driveItem/basic/read",
+              "libre.graph/driveItem/permissions/update",
+              "libre.graph/driveItem/permissions/deny"
+            ]
+          }
+        }
+      }
+      """
+
+
+  Scenario: user lists permissions of a project space with select filter
+    Given using spaces DAV path
+    And user "Brian" has been created with default attributes
+    And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
+    And user "Alice" has created a space "new-space" with the default quota using the Graph API
+    And user "Alice" has sent the following space share invitation:
+      | space           | new-space    |
+      | sharee          | Brian        |
+      | shareType       | user         |
+      | permissionsRole | Space Viewer |
+    When user "Alice" gets the drive permittion list of the space "new-space" using the Graph API with query "$select=@libre.graph.permissions.actions.allowedValues"
+    Then the HTTP status code should be "200"
+    And the JSON data of the response should contain the following keys:
+      | @libre.graph.permissions.actions.allowedValues |
+    And the JSON data of the response should not contain the following keys:
+      | @libre.graph.permissions.roles.allowedValues |
+      | value                                        |
+    When user "Alice" gets the drive permittion list of the space "new-space" using the Graph API with query "$select=@libre.graph.permissions.roles.allowedValues"
+    Then the HTTP status code should be "200"
+    And the JSON data of the response should contain the following keys:
+      | @libre.graph.permissions.roles.allowedValues |
+    And the JSON data of the response should not contain the following keys:
+      | @libre.graph.permissions.actions.allowedValues |
+      | value                                        |
+    And the JSON data of the response should match
+      """
+      {
+        "type": "object",
+        "required": [
+          "@libre.graph.permissions.roles.allowedValues"
+        ],
+        "properties": {
+          "@libre.graph.permissions.roles.allowedValues": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "uniqueItems": true,
+            "items": {
+              "oneOf":  [
+                {
+                  "type": "object",
+                  "required": [
+                    "@libre.graph.weight",
+                    "description",
+                    "displayName",
+                    "id"
+                  ],
+                  "properties": {
+                    "@libre.graph.weight": {
+                      "const": 40
+                    },
+                    "description": {
+                      "const": "View and download."
+                    },
+                    "displayName": {
+                      "const": "Can view"
+                    },
+                    "id": {
+                      "const": "a8d5fe5e-96e3-418d-825b-534dbdf22b99"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "@libre.graph.weight",
+                    "description",
+                    "displayName",
+                    "id"
+                  ],
+                  "properties": {
+                    "@libre.graph.weight": {
+                      "const": 90
+                    },
+                    "description": {
+                      "const": "View, download, upload, edit, add, delete including the history."
+                    },
+                    "displayName": {
+                      "const": "Can edit"
+                    },
+                    "id": {
+                      "const": "58c63c02-1d89-4572-916a-870abc5a1b7d"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "@libre.graph.weight",
+                    "description",
+                    "displayName",
+                    "id"
+                  ],
+                  "properties": {
+                    "@libre.graph.weight": {
+                      "const": 120
+                    },
+                    "description": {
+                      "const": "View, download, upload, edit, add, delete and manage members."
+                    },
+                    "displayName": {
+                      "const": "Can manage"
+                    },
+                    "id": {
+                      "const": "312c0871-5ef7-4b3a-85b6-0e4074c64049"
+                    }
+                  }
+                }
+              ]
             }
           }
         }
