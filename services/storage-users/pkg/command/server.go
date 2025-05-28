@@ -100,7 +100,12 @@ func Server(cfg *config.Config) *cli.Command {
 					logger.Fatal().Err(err).Msg("can't create event handler")
 				}
 				// The event service Run() function handles the stop signal itself
-				go eventSVC.Run()
+				go func() {
+					err := eventSVC.Run()
+					if err != nil {
+						logger.Fatal().Err(err).Msg("can't run event server")
+					}
+				}()
 			}
 
 			grResults := gr.Run(ctx)
