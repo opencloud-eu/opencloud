@@ -187,9 +187,11 @@ type MasterAuth struct {
 }
 
 type Mail struct {
-	Master          MasterAuth    `yaml:"master"`
-	BaseUrl         string        `yaml:"base_url" env:"OC_JMAP_BASE_URL;GROUPWARE_BASE_URL"`
-	JmapUrl         string        `yaml:"jmap_url" env:"OC_JMAP_JMAP_URL;GROUPWARE_JMAP_URL"`
-	Timeout         time.Duration `yaml:"timeout" env:"OC_JMAP_TIMEOUT"`
-	ContextCacheTTL time.Duration `yaml:"context_cache_ttl" env:"OC_JMAP_CONTEXT_CACHE_TTL"`
+	Master            MasterAuth    `yaml:"master"`
+	BaseUrl           string        `yaml:"base_url" env:"GROUPWARE_BASE_URL"`
+	JmapUrl           string        `yaml:"jmap_url" env:"GROUPWARE_JMAP_URL"`
+	Timeout           time.Duration `yaml:"timeout" env:"GROUPWARE_JMAP_TIMEOUT"`
+	SessionCacheTTL   time.Duration `yaml:"session_cache_ttl" env:"GROUPWARE_SESSION_CACHE_TTL"`
+	DefaultEmailLimit int           `yaml:"default_email_limit" env:"GROUPWARE_JMAP_DEFAULT_EMAIL_LIMIT"`
+	MaxBodyValueBytes int           `yaml:"max_body_value_bytes" env:"GROUPWARE_JMAP_MAx_BODY_VALUE_BYTES"`
 }

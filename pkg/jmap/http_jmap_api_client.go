@@ -58,24 +58,25 @@ func (h *HttpJmapApiClient) authWithUsername(logger *log.Logger, username string
 	return nil
 }
 
-func (h *HttpJmapApiClient) GetWellKnown(username string, logger *log.Logger) (WellKnownJmap, error) {
+func (h *HttpJmapApiClient) GetWellKnown(username string, logger *log.Logger) (WellKnownResponse, error) {
 	wellKnownUrl := h.baseurl + "/.well-known/jmap"
 
 	req, err := http.NewRequest(http.MethodGet, wellKnownUrl, nil)
 	if err != nil {
 		logger.Error().Err(err).Msgf("failed to create GET request for %v", wellKnownUrl)
-		return WellKnownJmap{}, err
+		return WellKnownResponse{}, err
 	}
 	h.authWithUsername(logger, username, req)
+	req.Header.Add("Cache-Control", "no-cache, no-store, must-revalidate") // spec recommendation
 
 	res, err := h.client.Do(req)
 	if err != nil {
 		logger.Error().Err(err).Msgf("failed to perform GET %v", wellKnownUrl)
-		return WellKnownJmap{}, err
+		return WellKnownResponse{}, err
 	}
 	if res.StatusCode != 200 {
 		logger.Error().Str("status", res.Status).Msg("HTTP response status code is not 200")
-		return WellKnownJmap{}, fmt.Errorf("HTTP response status is %v", res.Status)
+		return WellKnownResponse{}, fmt.Errorf("HTTP response status is %v", res.Status)
 	}
 	if res.Body != nil {
 		defer func(Body io.ReadCloser) {
@@ -89,14 +90,14 @@ func (h *HttpJmapApiClient) GetWellKnown(username string, logger *log.Logger) (W
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to read response body")
-		return WellKnownJmap{}, err
+		return WellKnownResponse{}, err
 	}
 
-	var data WellKnownJmap
+	var data WellKnownResponse
 	err = json.Unmarshal(body, &data)
 	if err != nil {
 		logger.Error().Str("url", wellKnownUrl).Err(err).Msg("failed to decode JSON payload from .well-known/jmap response")
-		return WellKnownJmap{}, err
+		return WellKnownResponse{}, err
 	}
 
 	return data, nil

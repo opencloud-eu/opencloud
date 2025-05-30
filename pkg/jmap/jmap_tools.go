@@ -7,7 +7,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
-func command[T any](api JmapApiClient,
+func command[T any](api ApiClient,
 	logger *log.Logger,
 	ctx context.Context,
 	methodCalls *[][]any,
@@ -62,7 +62,7 @@ func mapFolder(item map[string]any) JmapFolder {
 	}
 }
 
-func parseMailboxGetResponse(data JmapCommandResponse) (JmapFolders, error) {
+func parseMailboxGetResponse(data JmapCommandResponse) (Folders, error) {
 	first := data.MethodResponses[0]
 	params := first[1]
 	payload := params.(map[string]any)
@@ -74,10 +74,20 @@ func parseMailboxGetResponse(data JmapCommandResponse) (JmapFolders, error) {
 		folder := mapFolder(item)
 		folders = append(folders, folder)
 	}
-	return JmapFolders{Folders: folders, state: state}, nil
+	return Folders{Folders: folders, state: state}, nil
 }
 
-func mapEmail(elem map[string]any) (Email, error) {
+func firstFromStringArray(obj map[string]any, key string) string {
+	ary, ok := obj[key]
+	if ok {
+		if ary := ary.([]any); len(ary) > 0 {
+			return ary[0].(string)
+		}
+	}
+	return ""
+}
+
+func mapEmail(elem map[string]any, fetchBodies bool, logger *log.Logger) (Email, error) {
 	fromList := elem["from"].([]any)
 	from := fromList[0].(map[string]any)
 	var subject string
@@ -100,11 +110,70 @@ func mapEmail(elem map[string]any) (Email, error) {
 		return Email{}, err
 	}
 
+	bodies := map[string]string{}
+	if fetchBodies {
+		bodyValuesAny, ok := elem["bodyValues"]
+		if ok {
+			bodyValues := bodyValuesAny.(map[string]any)
+			textBody, ok := elem["textBody"].([]any)
+			if ok && len(textBody) > 0 {
+				pick := textBody[0].(map[string]any)
+				mime := pick["type"].(string)
+				partId := pick["partId"].(string)
+				content, ok := bodyValues[partId]
+				if ok {
+					m := content.(map[string]any)
+					value, ok = m["value"]
+					if ok {
+						bodies[mime] = value.(string)
+					} else {
+						logger.Warn().Msg("textBody part has no value")
+					}
+				} else {
+					logger.Warn().Msgf("textBody references non-existent partId=%v", partId)
+				}
+			} else {
+				logger.Warn().Msgf("no textBody: %v", elem)
+			}
+			htmlBody, ok := elem["htmlBody"].([]any)
+			if ok && len(htmlBody) > 0 {
+				pick := htmlBody[0].(map[string]any)
+				mime := pick["type"].(string)
+				partId := pick["partId"].(string)
+				content, ok := bodyValues[partId]
+				if ok {
+					m := content.(map[string]any)
+					value, ok = m["value"]
+					if ok {
+						bodies[mime] = value.(string)
+					} else {
+						logger.Warn().Msg("htmlBody part has no value")
+					}
+				} else {
+					logger.Warn().Msgf("htmlBody references non-existent partId=%v", partId)
+				}
+			} else {
+				logger.Warn().Msg("no htmlBody")
+			}
+		} else {
+			logger.Warn().Msg("no bodies found in email")
+		}
+	} else {
+		bodies = nil
+	}
+
 	return Email{
+		Id:             elem["id"].(string),
+		MessageId:      firstFromStringArray(elem, "messageId"),
+		BlobId:         elem["blobId"].(string),
+		ThreadId:       elem["threadId"].(string),
+		Size:           int(elem["size"].(float64)),
 		From:           from["email"].(string),
 		Subject:        subject,
 		HasAttachments: hasAttachments,
 		Received:       received,
+		Preview:        elem["preview"].(string),
+		Bodies:         bodies,
 	}, nil
 }
 
