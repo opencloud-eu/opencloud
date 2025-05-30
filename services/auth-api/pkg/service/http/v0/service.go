@@ -45,7 +45,7 @@ func NewService(opts ...Option) Service {
 		),
 	)
 
-	svc, err := NewAuthenticationApi(options.Config, &options.Logger, options.TraceProvider, m)
+	svc, err := NewAuthenticationApi(options.Config, &options.Logger, options.Metrics, options.TraceProvider, m)
 	if err != nil {
 		panic(err) // TODO p.bleser what to do when we encounter an error in a NewService() ?
 	}
