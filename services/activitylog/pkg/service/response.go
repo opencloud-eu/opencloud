@@ -12,9 +12,9 @@ import (
 	user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
-	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 
 	"github.com/opencloud-eu/opencloud/pkg/l10n"
 )
@@ -59,6 +59,13 @@ type Resource struct {
 type Actor struct {
 	ID          string `json:"id"`
 	DisplayName string `json:"displayName"`
+}
+
+// Sharee represents a share reciever (group or user)
+type Sharee struct {
+	ID          string `json:"id"`
+	DisplayName string `json:"displayName"`
+	ShareType   string `json:"shareType"`
 }
 
 // ActivityOption allows setting variables for an activity
@@ -204,20 +211,23 @@ func WithSharee(uid *user.UserId, gid *group.GroupId) ActivityOption {
 		case uid != nil:
 			u, err := utils.GetUser(uid, gwc)
 			if err != nil {
-				vars["sharee"] = Actor{
+				vars["sharee"] = Sharee{
 					DisplayName: "DeletedUser",
+					ShareType:   "user",
 				}
 				return err
 			}
 
-			vars["sharee"] = Actor{
+			vars["sharee"] = Sharee{
 				ID:          uid.GetOpaqueId(),
 				DisplayName: u.GetUsername(),
+				ShareType:   "user",
 			}
 		case gid != nil:
-			vars["sharee"] = Actor{
+			vars["sharee"] = Sharee{
 				ID:          gid.GetOpaqueId(),
 				DisplayName: "DeletedGroup",
+				ShareType:   "group",
 			}
 			r, err := gwc.GetGroup(ctx, &group.GetGroupRequest{GroupId: gid})
 			if err != nil {
@@ -228,9 +238,10 @@ func WithSharee(uid *user.UserId, gid *group.GroupId) ActivityOption {
 				return fmt.Errorf("error getting group: %s", r.GetStatus().GetMessage())
 			}
 
-			vars["sharee"] = Actor{
+			vars["sharee"] = Sharee{
 				ID:          gid.GetOpaqueId(),
 				DisplayName: r.GetGroup().GetDisplayName(),
+				ShareType:   "group",
 			}
 
 		}
