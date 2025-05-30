@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path"
 	"strings"
 
 	"github.com/go-chi/render"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/metadata"
+	revaMetadata "github.com/opencloud-eu/reva/v2/pkg/storage/utils/metadata"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/storage/metadata"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 )
 
@@ -38,28 +40,38 @@ var (
 
 	// ErrMissingArgument is returned when a required argument is missing
 	ErrMissingArgument = errors.New("required argument is missing")
+
+	// ProfilePhotoPath is a function that returns the path for the profile photo of a user
+	ProfilePhotoPath = func(id string) string {
+		return path.Join(id, "profile_photo")
+	}
 )
 
 // UsersUserProfilePhotoService is the implementation of the UsersUserProfilePhotoProvider interface
 type UsersUserProfilePhotoService struct {
-	storage metadata.Storage
+	storage *metadata.Deep
 }
 
 // NewUsersUserProfilePhotoService creates a new UsersUserProfilePhotoService
-func NewUsersUserProfilePhotoService(storage metadata.Storage) (UsersUserProfilePhotoService, error) {
+func NewUsersUserProfilePhotoService(storage revaMetadata.Storage) (UsersUserProfilePhotoService, error) {
+	deepStorage, err := metadata.NewDeepStorage(storage)
+	if err != nil {
+		return UsersUserProfilePhotoService{}, fmt.Errorf("could not create deep storage: %w", err)
+	}
+
 	return UsersUserProfilePhotoService{
-		storage: storage,
+		storage: deepStorage,
 	}, nil
 }
 
 // GetPhoto retrieves the requested photo
 func (s UsersUserProfilePhotoService) GetPhoto(ctx context.Context, id string) ([]byte, error) {
-	return s.storage.SimpleDownload(ctx, id)
+	return s.storage.SimpleDownload(ctx, ProfilePhotoPath(id))
 }
 
 // DeletePhoto deletes the requested photo
 func (s UsersUserProfilePhotoService) DeletePhoto(ctx context.Context, id string) error {
-	return s.storage.Delete(ctx, id)
+	return s.storage.Delete(ctx, ProfilePhotoPath(id))
 }
 
 // UpdatePhoto updates the requested photo
@@ -82,7 +94,7 @@ func (s UsersUserProfilePhotoService) UpdatePhoto(ctx context.Context, id string
 		return fmt.Errorf("%w: %s", ErrInvalidContentType, contentType)
 	}
 
-	return s.storage.SimpleUpload(ctx, id, photo)
+	return s.storage.SimpleUpload(ctx, ProfilePhotoPath(id), photo)
 }
 
 // UsersUserProfilePhotoApi contains all photo related api endpoints
