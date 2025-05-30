@@ -212,10 +212,8 @@ type httpStorage struct {
 // not block the return of this function.
 func NewStorageFromHTTP(remoteJWKSetURL string, options HTTPClientStorageOptions) (Storage, error) {
 	if options.Client == nil {
-		fmt.Println("***** USING DEFAULT HTTP CLIENT *****")
 		options.Client = http.DefaultClient
 	} else {
-		fmt.Println("***** USING PROVIDED HTTP CLIENT *****")
 	}
 	if options.Ctx == nil {
 		options.Ctx = context.Background()
