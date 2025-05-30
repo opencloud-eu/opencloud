@@ -165,71 +165,17 @@ const mailboxes = `{"methodResponses": [
 	},"0"]
 ], "sessionState":"3e25b2a0"
 }`
-const mails2 = `{"methodResponses":[
-   ["Email/query",{
-     "accountId":"j",
-     "queryState":"sqcakzewfqdk7oay",
-     "canCalculateChanges":true,
-     "position":0,
-     "ids":["fmaaaabh"],
-     "total":1
-   }, "0"],
-   ["Email/get", {
-     "accountId":"j",
-     "state":"sqcakzewfqdk7oay",
-     "list":[
-       {
-         "threadId":"bl",
-         "id":"fmaaaabh"
-       }
-     ],
-     "notFound":[]
-   }, "1"],
-   ["Thread/get",{
-     "accountId":"j",
-     "state":"sqcakzewfqdk7oay",
-     "list":[
-       {
-         "id":"bl",
-         "emailIds":["fmaaaabh"]
-       }
-     ],
-     "notFound":[]
-   }, "2 "],
-   ["Email/get",{
-     "accountId":"j",
-     "state":"sqcakzewfqdk7oay",
-     "list":[
-       {
-         "threadId":"bl",
-         "mailboxIds":{"a":true},
-         "keywords":{},
-         "hasAttachment":false,
-         "from":[
-           {"name":"current generally", "email":"current.generally@example.com"}
-         ],
-         "subject":"eros auctor proin",
-         "receivedAt":"2025-04-30T09:47:44Z",
-         "size":15423,
-         "preview":"Lorem ipsum dolor sit amet consectetur adipiscing elit sed urna tristique himenaeos eu a mattis laoreet aliquet enim. Magnis est facilisis nibh nisl vitae nisi mauris nostra velit donec erat pellentesque sagittis ligula turpis suscipit ultricies. Morbi ...",
-         "id":"fmaaaabh"
-       }
-     ],
-     "notFound":[]
-   }, "3"]
-   ], "sessionState":"3e25b2a0"
- }`
 
 type TestJmapWellKnownClient struct {
 	t *testing.T
 }
 
-func NewTestJmapWellKnownClient(t *testing.T) JmapWellKnownClient {
+func NewTestJmapWellKnownClient(t *testing.T) WellKnownClient {
 	return &TestJmapWellKnownClient{t: t}
 }
 
-func (t *TestJmapWellKnownClient) GetWellKnown(username string, logger *log.Logger) (WellKnownJmap, error) {
-	return WellKnownJmap{
+func (t *TestJmapWellKnownClient) GetWellKnown(username string, logger *log.Logger) (WellKnownResponse, error) {
+	return WellKnownResponse{
 		ApiUrl:          "test://",
 		PrimaryAccounts: map[string]string{JmapMail: generateRandomString(2 + seededRand.Intn(10))},
 	}, nil
@@ -239,7 +185,7 @@ type TestJmapApiClient struct {
 	t *testing.T
 }
 
-func NewTestJmapApiClient(t *testing.T) JmapApiClient {
+func NewTestJmapApiClient(t *testing.T) ApiClient {
 	return &TestJmapApiClient{t: t}
 }
 
@@ -275,15 +221,15 @@ func TestRequests(t *testing.T) {
 	wkClient := NewTestJmapWellKnownClient(t)
 	logger := log.NopLogger()
 	ctx := context.Background()
-	client := NewJmapClient(wkClient, apiClient)
+	client := NewClient(wkClient, apiClient)
 
-	jc := JmapContext{AccountId: "123", JmapUrl: "test://"}
+	session := Session{AccountId: "123", JmapUrl: "test://"}
 
-	folders, err := client.GetMailboxes(jc, ctx, &logger)
+	folders, err := client.GetMailboxes(session, ctx, &logger)
 	require.NoError(err)
 	require.Len(folders.Folders, 5)
 
-	emails, err := client.EmailQuery(jc, ctx, &logger, "Inbox")
+	emails, err := client.EmailThreadsQuery(session, ctx, &logger, "Inbox")
 	require.NoError(err)
 	require.Len(emails.Emails, 1)
 

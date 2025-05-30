@@ -52,7 +52,7 @@ func NewService(opts ...Option) Service {
 }
 
 type Groupware struct {
-	jmapClient       jmap.JmapClient
+	jmapClient       jmap.Client
 	usernameProvider jmap.HttpJmapUsernameProvider
 	config           *config.Config
 	logger           *log.Logger
@@ -62,7 +62,7 @@ type Groupware struct {
 func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux) *Groupware {
 	usernameProvider := jmap.NewRevaContextHttpJmapUsernameProvider()
 	httpApiClient := httpApiClient(config, usernameProvider)
-	jmapClient := jmap.NewJmapClient(httpApiClient, httpApiClient)
+	jmapClient := jmap.NewClient(httpApiClient, httpApiClient)
 	return &Groupware{
 		jmapClient:       jmapClient,
 		usernameProvider: usernameProvider,
@@ -115,7 +115,7 @@ func (g Groupware) WellDefined(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jmapContext, err := g.jmapClient.FetchJmapContext(username, &logger)
+	jmapContext, err := g.jmapClient.FetchSession(username, &logger)
 	if err != nil {
 		return
 	}
