@@ -185,9 +185,8 @@ func message(email jmap.Email, logger log.Logger) Message {
 	var body ItemBody
 	switch len(email.Bodies) {
 	case 0:
-		logger.Info().Msgf("zero bodies: %v", email)
+		break
 	case 1:
-		logger.Info().Msg("1 body")
 		for mime, content := range email.Bodies {
 			body = ItemBody{Content: content, ContentType: mime}
 			logger.Debug().Msgf("one body: %v", mime)
@@ -196,17 +195,13 @@ func message(email jmap.Email, logger log.Logger) Message {
 		content, ok := email.Bodies["text/html"]
 		if ok {
 			body = ItemBody{Content: content, ContentType: "text/html"}
-			logger.Info().Msgf("%v bodies: picked text/html", len(email.Bodies))
 		} else {
 			content, ok = email.Bodies["text/plain"]
 			if ok {
 				body = ItemBody{Content: content, ContentType: "text/plain"}
-				logger.Info().Msgf("%v bodies: picked text/plain", len(email.Bodies))
 			} else {
-				logger.Info().Msgf("%v bodies: neither text/html nor text/plain", len(email.Bodies))
 				for mime, content := range email.Bodies {
 					body = ItemBody{Content: content, ContentType: mime}
-					logger.Info().Msgf("%v bodies: picked first: %v", len(email.Bodies), mime)
 					break
 				}
 			}
