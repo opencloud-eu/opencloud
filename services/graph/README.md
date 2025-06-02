@@ -129,9 +129,8 @@ The default language can be defined via the `OC_DEFAULT_LANGUAGE` environment va
 
 Unified Roles are roles granted a user for sharing and can be enabled or disabled. A CLI command is provided to list existing roles and their state among other data.
 
-{{< hint info >}}
+::: info
 Note that a disabled role does not lose previously assigned permissions. It only means that the role is not available for new assignments.
-{{< /hint >}}
 
 The following roles are **enabled** by default:
 

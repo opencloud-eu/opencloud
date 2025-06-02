@@ -105,9 +105,8 @@ When all instances of a federation should trust each other, an `ocmproviders.jso
 ]
 ```
 
-{{< hint info >}}
+::: info
 Note: the `domain` must not contain the protocol as it has to match the [GOCDB site object domain](https://developer.sciencemesh.io/docs/technical-documentation/central-database/#site-object).
-{{< /hint >}}
 
 The above federation consists of two instances: `cloud1.opencloud.test` and `cloud2.opencloud.test` that can use the Invitation workflow described below to generate, send and accept invitations.
 
@@ -121,9 +120,8 @@ The data backend of the `ocminvitemanager` is configurable. The only supported b
 
 ## Creating Shares
 
-{{< hint info >}}
+::: info
 The below info is outdated as we allow creating federated shares using the graph API. Clients can now discover the available sharing roles and invite federated users using the graph API.
-{{< /hint >}}
 
 OCM Shares are currently created using the ocs API, just like regular shares. The difference is the share type, which is 6 (ShareTypeFederatedCloudShare) in this case, and a few additional parameters required for identifying the remote user.
 
