@@ -22,13 +22,14 @@ Feature: REPORT request to project space
     And the following headers should match these regular expressions
       | X-Request-Id | %request_id_pattern% |
     And as user "Alice" the REPORT response should contain a resource "testFile.txt" with these key and value pairs:
-      | key                | value             |
-      | oc:fileid          | %file_id_pattern% |
-      | oc:file-parent     | %file_id_pattern% |
-      | oc:name            | testFile.txt      |
-      | d:getcontenttype   | text/plain        |
-      | oc:permissions     | RDNVW             |
-      | d:getcontentlength | 12                |
+      | key                | value                     |
+      | oc:fileid          | %file_id_pattern%         |
+      | oc:file-parent     | %file_id_pattern%         |
+      | oc:name            | testFile.txt              |
+      | d:getcontenttype   | text/plain                |
+      | oc:permissions     | RDNVW                     |
+      | oc:privatelink     | %base_url%/f/[0-9a-z-$%]+ |
+      | d:getcontentlength | 12                        |
 
   @issue-10329
   Scenario: check the response of the searched sub-file
@@ -41,13 +42,14 @@ Feature: REPORT request to project space
     And the following headers should match these regular expressions
       | X-Request-Id | %request_id_pattern% |
     And as user "Alice" the REPORT response should contain a resource "insideTheFolder.txt" with these key and value pairs:
-      | key                | value               |
-      | oc:fileid          | %file_id_pattern%   |
-      | oc:file-parent     | %file_id_pattern%   |
-      | oc:name            | insideTheFolder.txt |
-      | d:getcontenttype   | text/plain          |
-      | oc:permissions     | RDNVW               |
-      | d:getcontentlength | 12                  |
+      | key                | value                     |
+      | oc:fileid          | %file_id_pattern%         |
+      | oc:file-parent     | %file_id_pattern%         |
+      | oc:name            | insideTheFolder.txt       |
+      | d:getcontenttype   | text/plain                |
+      | oc:permissions     | RDNVW                     |
+      | oc:privatelink     | %base_url%/f/[0-9a-z-$%]+ |
+      | d:getcontentlength | 12                        |
 
   @issue-10329
   Scenario: check the response of the searched folder
@@ -59,13 +61,14 @@ Feature: REPORT request to project space
     And the following headers should match these regular expressions
       | X-Request-Id | %request_id_pattern% |
     And as user "Alice" the REPORT response should contain a resource "folderMain" with these key and value pairs:
-      | key              | value                |
-      | oc:fileid        | %file_id_pattern%    |
-      | oc:file-parent   | %file_id_pattern%    |
-      | oc:name          | folderMain           |
-      | d:getcontenttype | httpd/unix-directory |
-      | oc:permissions   | RDNVCK               |
-      | oc:size          | 0                    |
+      | key              | value                     |
+      | oc:fileid        | %file_id_pattern%         |
+      | oc:file-parent   | %file_id_pattern%         |
+      | oc:name          | folderMain                |
+      | d:getcontenttype | httpd/unix-directory      |
+      | oc:permissions   | RDNVCK                    |
+      | oc:privatelink   | %base_url%/f/[0-9a-z-$%]+ |
+      | oc:size          | 0                         |
 
   @issue-10329
   Scenario: check the response of the searched sub-folder
@@ -78,10 +81,11 @@ Feature: REPORT request to project space
       | X-Request-Id | %request_id_pattern% |
     And the HTTP status code should be "207"
     And as user "Alice" the REPORT response should contain a resource "sub-folder" with these key and value pairs:
-      | key              | value                |
-      | oc:fileid        | %file_id_pattern%    |
-      | oc:file-parent   | %file_id_pattern%    |
-      | oc:name          | sub-folder           |
-      | d:getcontenttype | httpd/unix-directory |
-      | oc:permissions   | RDNVCK               |
-      | oc:size          | 0                    |
+      | key              | value                     |
+      | oc:fileid        | %file_id_pattern%         |
+      | oc:file-parent   | %file_id_pattern%         |
+      | oc:name          | sub-folder                |
+      | d:getcontenttype | httpd/unix-directory      |
+      | oc:permissions   | RDNVCK                    |
+      | oc:privatelink   | %base_url%/f/[0-9a-z-$%]+ |
+      | oc:size          | 0                         |

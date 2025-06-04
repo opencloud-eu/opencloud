@@ -29,15 +29,16 @@ Feature: Report test
     And the following headers should match these regular expressions
       | X-Request-Id | %request_id_pattern% |
     And as user "Brian" the REPORT response should contain a resource "SubFolder1" with these key and value pairs:
-      | key               | value                |
-      | oc:fileid         | %file_id_pattern%    |
-      | oc:file-parent    | %file_id_pattern%    |
-      | oc:shareroot      | /folderMain          |
-      | oc:name           | SubFolder1           |
-      | d:getcontenttype  | httpd/unix-directory |
-      | oc:permissions    | S                    |
-      | oc:size           | 12                   |
-      | oc:remote-item-id | %file_id_pattern%    |
+      | key               | value                     |
+      | oc:fileid         | %file_id_pattern%         |
+      | oc:file-parent    | %file_id_pattern%         |
+      | oc:shareroot      | /folderMain               |
+      | oc:name           | SubFolder1                |
+      | d:getcontenttype  | httpd/unix-directory      |
+      | oc:permissions    | S                         |
+      | oc:privatelink    | %base_url%/f/[0-9a-z-$%]+ |
+      | oc:size           | 12                        |
+      | oc:remote-item-id | %file_id_pattern%         |
     Examples:
       | dav-path-version |
       | old              |
@@ -59,15 +60,16 @@ Feature: Report test
     And the following headers should match these regular expressions
       | X-Request-Id | %request_id_pattern% |
     And as user "Brian" the REPORT response should contain a resource "insideTheFolder.txt" with these key and value pairs:
-      | key                | value               |
-      | oc:fileid          | %file_id_pattern%   |
-      | oc:file-parent     | %file_id_pattern%   |
-      | oc:shareroot       | /folderMain         |
-      | oc:name            | insideTheFolder.txt |
-      | d:getcontenttype   | text/plain          |
-      | oc:permissions     | SD                  |
-      | d:getcontentlength | 12                  |
-      | oc:remote-item-id  | %file_id_pattern%   |
+      | key                | value                     |
+      | oc:fileid          | %file_id_pattern%         |
+      | oc:file-parent     | %file_id_pattern%         |
+      | oc:shareroot       | /folderMain               |
+      | oc:name            | insideTheFolder.txt       |
+      | d:getcontenttype   | text/plain                |
+      | oc:permissions     | SD                        |
+      | oc:privatelink     | %base_url%/f/[0-9a-z-$%]+ |
+      | d:getcontentlength | 12                        |
+      | oc:remote-item-id  | %file_id_pattern%         |
     Examples:
       | dav-path-version |
       | old              |

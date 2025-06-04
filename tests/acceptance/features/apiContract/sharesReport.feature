@@ -27,14 +27,15 @@ Feature: REPORT request to Shares space
     And the following headers should match these regular expressions
       | X-Request-Id | %request_id_pattern% |
     And as user "Brian" the REPORT response should contain a resource "SubFolder1" with these key and value pairs:
-      | key               | value                |
-      | oc:fileid         | %file_id_pattern%    |
-      | oc:file-parent    | %file_id_pattern%    |
-      | oc:shareroot      | /folderMain          |
-      | oc:name           | SubFolder1           |
-      | d:getcontenttype  | httpd/unix-directory |
-      | oc:permissions    | S                    |
-      | oc:remote-item-id | %file_id_pattern%    |
+      | key               | value                     |
+      | oc:fileid         | %file_id_pattern%         |
+      | oc:file-parent    | %file_id_pattern%         |
+      | oc:shareroot      | /folderMain               |
+      | oc:name           | SubFolder1                |
+      | d:getcontenttype  | httpd/unix-directory      |
+      | oc:permissions    | S                         |
+      | oc:privatelink    | %base_url%/f/[0-9a-z-$%]+ |
+      | oc:remote-item-id | %file_id_pattern%         |
     Examples:
       | dav-path-version |
       | old              |
@@ -50,15 +51,16 @@ Feature: REPORT request to Shares space
     And the following headers should match these regular expressions
       | X-Request-Id | %request_id_pattern% |
     And as user "Brian" the REPORT response should contain a resource "frodo.txt" with these key and value pairs:
-      | key                | value             |
-      | oc:fileid          | %file_id_pattern% |
-      | oc:file-parent     | %file_id_pattern% |
-      | oc:shareroot       | /folderMain       |
-      | oc:name            | frodo.txt         |
-      | d:getcontenttype   | text/plain        |
-      | oc:permissions     | S                 |
-      | d:getcontentlength | 34                |
-      | oc:remote-item-id  | %file_id_pattern% |
+      | key                | value                     |
+      | oc:fileid          | %file_id_pattern%         |
+      | oc:file-parent     | %file_id_pattern%         |
+      | oc:shareroot       | /folderMain               |
+      | oc:name            | frodo.txt                 |
+      | d:getcontenttype   | text/plain                |
+      | oc:permissions     | S                         |
+      | oc:privatelink     | %base_url%/f/[0-9a-z-$%]+ |
+      | d:getcontentlength | 34                        |
+      | oc:remote-item-id  | %file_id_pattern%         |
     Examples:
       | dav-path-version |
       | old              |
@@ -105,24 +107,26 @@ Feature: REPORT request to Shares space
     And the following headers should match these regular expressions
       | X-Request-Id | %request_id_pattern% |
     And as user "Brian" the REPORT response should contain a resource "secureFolder" with these key and value pairs:
-      | key               | value                |
-      | oc:shareroot      | /secureFolder        |
-      | oc:name           | secureFolder         |
-      | d:getcontenttype  | httpd/unix-directory |
-      | oc:permissions    | SMX                  |
-      | oc:size           | 14                   |
-      | oc:remote-item-id | %file_id_pattern%    |
+      | key               | value                     |
+      | oc:shareroot      | /secureFolder             |
+      | oc:name           | secureFolder              |
+      | d:getcontenttype  | httpd/unix-directory      |
+      | oc:permissions    | SMX                       |
+      | oc:privatelink    | %base_url%/f/[0-9a-z-$%]+ |
+      | oc:size           | 14                        |
+      | oc:remote-item-id | %file_id_pattern%         |
     When user "Brian" searches for "secure.txt" using the WebDAV API
     And the following headers should match these regular expressions
       | X-Request-Id | %request_id_pattern% |
     Then the HTTP status code should be "207"
     And as user "Brian" the REPORT response should contain a resource "secure.txt" with these key and value pairs:
-      | key                | value         |
-      | oc:shareroot       | /secureFolder |
-      | oc:name            | secure.txt    |
-      | d:getcontenttype   | text/plain    |
-      | oc:permissions     | SX            |
-      | d:getcontentlength | 14            |
+      | key                | value                     |
+      | oc:shareroot       | /secureFolder             |
+      | oc:name            | secure.txt                |
+      | d:getcontenttype   | text/plain                |
+      | oc:permissions     | SX                        |
+      | oc:privatelink     | %base_url%/f/[0-9a-z-$%]+ |
+      | d:getcontentlength | 14                        |
     Examples:
       | dav-path-version |
       | old              |
@@ -146,12 +150,13 @@ Feature: REPORT request to Shares space
     And the following headers should match these regular expressions
       | X-Request-Id | %request_id_pattern% |
     And as user "Brian" the REPORT response should contain a resource "secure.txt" with these key and value pairs:
-      | key                | value       |
-      | oc:shareroot       | /secure.txt |
-      | oc:name            | secure.txt  |
-      | d:getcontenttype   | text/plain  |
-      | oc:permissions     | SMX         |
-      | d:getcontentlength | 14          |
+      | key                | value                     |
+      | oc:shareroot       | /secure.txt               |
+      | oc:name            | secure.txt                |
+      | d:getcontenttype   | text/plain                |
+      | oc:permissions     | SMX                       |
+      | oc:privatelink     | %base_url%/f/[0-9a-z-$%]+ |
+      | d:getcontentlength | 14                        |
     Examples:
       | dav-path-version |
       | old              |
