@@ -23,6 +23,7 @@ type HttpJmapApiClient struct {
 	usernameProvider HttpJmapUsernameProvider
 	masterUser       string
 	masterPassword   string
+	userAgent        string
 }
 
 /*
@@ -39,6 +40,7 @@ func NewHttpJmapApiClient(baseurl string, jmapurl string, client *http.Client, u
 		usernameProvider: usernameProvider,
 		masterUser:       masterUser,
 		masterPassword:   masterPassword,
+		userAgent:        "OpenCloud/" + version.GetString(),
 	}
 }
 
@@ -52,7 +54,7 @@ func (h *HttpJmapApiClient) auth(logger *log.Logger, ctx context.Context, req *h
 	return nil
 }
 
-func (h *HttpJmapApiClient) authWithUsername(logger *log.Logger, username string, req *http.Request) error {
+func (h *HttpJmapApiClient) authWithUsername(_ *log.Logger, username string, req *http.Request) error {
 	masterUsername := username + "%" + h.masterUser
 	req.SetBasicAuth(masterUsername, h.masterPassword)
 	return nil
@@ -103,8 +105,11 @@ func (h *HttpJmapApiClient) GetWellKnown(username string, logger *log.Logger) (W
 	return data, nil
 }
 
-func (h *HttpJmapApiClient) Command(ctx context.Context, logger *log.Logger, request map[string]any) ([]byte, error) {
+func (h *HttpJmapApiClient) Command(ctx context.Context, logger *log.Logger, session *Session, request Request) ([]byte, error) {
 	jmapUrl := h.jmapurl
+	if jmapUrl == "" {
+		jmapUrl = session.JmapUrl
+	}
 
 	bodyBytes, marshalErr := json.Marshal(request)
 	if marshalErr != nil {
@@ -118,7 +123,7 @@ func (h *HttpJmapApiClient) Command(ctx context.Context, logger *log.Logger, req
 		return nil, reqErr
 	}
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("User-Agent", "OpenCloud/"+version.GetString())
+	req.Header.Add("User-Agent", h.userAgent)
 	h.auth(logger, ctx, req)
 
 	res, err := h.client.Do(req)
