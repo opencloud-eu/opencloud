@@ -2,169 +2,17 @@ package jmap
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/stretchr/testify/require"
 )
-
-const mails1 = `{"methodResponses": [
-["Email/query",{
-  "accountId":"j",
-  "queryState":"sqcakzewfqdk7oay",
-  "canCalculateChanges":true,
-  "position":0,
-  "ids":["fmaaaabh"],
-  "total":1
-},"0"],
-["Email/get",{
-  "accountId":"j",
-  "state":"sqcakzewfqdk7oay",
-  "list":[
-    {"threadId":"bl","id":"fmaaaabh"}
-  ],"notFound":[]
-},"1"],
-["Thread/get",{
-  "accountId":"j",
-  "state":"sqcakzewfqdk7oay",
-  "list":[
-    {"id":"bl","emailIds":["fmaaaabh"]}
-  ],"notFound":[]
-},"2"],
-["Email/get",{
-  "accountId":"j",
-  "state":"sqcakzewfqdk7oay",
-  "list":[
-    {"threadId":"bl","mailboxIds":{"a":true},"keywords":{},"hasAttachment":false,"from":[{"name":"current generally","email":"current.generally"}],"subject":"eros auctor proin","receivedAt":"2025-04-30T09:47:44Z","size":15423,"preview":"Lorem ipsum dolor sit amet consectetur adipiscing elit sed urna tristique himenaeos eu a mattis laoreet aliquet enim. Magnis est facilisis nibh nisl vitae nisi mauris nostra velit donec erat pellentesque sagittis ligula turpis suscipit ultricies. Morbi ...","id":"fmaaaabh"}
-  ],"notFound":[]
-},"3"]
-],"sessionState":"3e25b2a0"
-}`
-
-const mailboxes = `{"methodResponses": [
-	["Mailbox/get", {
-		"accountId":"cs",
-		"state":"n",
-		"list": [
-			{
-				"id":"a",
-				"name":"Inbox",
-				"parentId":null,
-				"role":"inbox",
-				"sortOrder":0,
-				"isSubscribed":true,
-				"totalEmails":0,
-				"unreadEmails":0,
-				"totalThreads":0,
-				"unreadThreads":0,
-				"myRights":{
-					"mayReadItems":true,
-					"mayAddItems":true,
-					"mayRemoveItems":true,
-					"maySetSeen":true,
-					"maySetKeywords":true,
-					"mayCreateChild":true,
-					"mayRename":true,
-					"mayDelete":true,
-					"maySubmit":true
-				}
-			},{
-				"id":"b",
-				"name":"Deleted Items",
-				"parentId":null,
-				"role":"trash",
-				"sortOrder":0,
-				"isSubscribed":true,
-				"totalEmails":0,
-				"unreadEmails":0,
-				"totalThreads":0,
-				"unreadThreads":0,
-				"myRights":{
-					"mayReadItems":true,
-					"mayAddItems":true,
-					"mayRemoveItems":true,
-					"maySetSeen":true,
-					"maySetKeywords":true,
-					"mayCreateChild":true,
-					"mayRename":true,
-					"mayDelete":true,
-					"maySubmit":true
-				}
-			},{
-				"id":"c",
-				"name":"Junk Mail",
-				"parentId":null,
-				"role":"junk",
-				"sortOrder":0,
-				"isSubscribed":true,
-				"totalEmails":0,
-				"unreadEmails":0,
-				"totalThreads":0,
-				"unreadThreads":0,
-				"myRights":{
-					"mayReadItems":true,
-					"mayAddItems":true,
-					"mayRemoveItems":true,
-					"maySetSeen":true,
-					"maySetKeywords":true,
-					"mayCreateChild":true,
-					"mayRename":true,
-					"mayDelete":true,
-					"maySubmit":true
-				}
-			},{
-				"id":"d",
-				"name":"Drafts",
-				"parentId":null,
-				"role":"drafts",
-				"sortOrder":0,
-				"isSubscribed":true,
-				"totalEmails":0,
-				"unreadEmails":0,
-				"totalThreads":0,
-				"unreadThreads":0,
-				"myRights":{
-					"mayReadItems":true,
-					"mayAddItems":true,
-					"mayRemoveItems":true,
-					"maySetSeen":true,
-					"maySetKeywords":true,
-					"mayCreateChild":true,
-					"mayRename":true,
-					"mayDelete":true,
-					"maySubmit":true
-				}
-			},{
-				"id":"e",
-				"name":"Sent Items",
-				"parentId":null,
-				"role":"sent",
-				"sortOrder":0,
-				"isSubscribed":true,
-				"totalEmails":0,
-				"unreadEmails":0,
-				"totalThreads":0,
-				"unreadThreads":0,
-				"myRights":{
-					"mayReadItems":true,
-					"mayAddItems":true,
-					"mayRemoveItems":true,
-					"maySetSeen":true,
-					"maySetKeywords":true,
-					"mayCreateChild":true,
-					"mayRename":true,
-					"mayDelete":true,
-					"maySubmit":true
-				}
-			}
-		],
-		"notFound":[]
-	},"0"]
-], "sessionState":"3e25b2a0"
-}`
 
 type TestJmapWellKnownClient struct {
 	t *testing.T
@@ -176,6 +24,7 @@ func NewTestJmapWellKnownClient(t *testing.T) WellKnownClient {
 
 func (t *TestJmapWellKnownClient) GetWellKnown(username string, logger *log.Logger) (WellKnownResponse, error) {
 	return WellKnownResponse{
+		Username:        generateRandomString(8),
 		ApiUrl:          "test://",
 		PrimaryAccounts: map[string]string{JmapMail: generateRandomString(2 + seededRand.Intn(10))},
 	}, nil
@@ -189,17 +38,32 @@ func NewTestJmapApiClient(t *testing.T) ApiClient {
 	return &TestJmapApiClient{t: t}
 }
 
-func (t *TestJmapApiClient) Command(ctx context.Context, logger *log.Logger, request map[string]any) ([]byte, error) {
-	methodCalls := request["methodCalls"].(*[][]any)
-	command := (*methodCalls)[0][0].(string)
+func serveTestFile(t *testing.T, name string) ([]byte, error) {
+	cwd, _ := os.Getwd()
+	p := filepath.Join(cwd, "testdata", name)
+	bytes, err := os.ReadFile(p)
+	if err != nil {
+		return bytes, err
+	}
+	// try to parse it first to avoid any deeper issues that are caused by the test tools
+	var target map[string]any
+	err = json.Unmarshal(bytes, &target)
+	if err != nil {
+		t.Errorf("failed to parse JSON test data file '%v': %v", p, err)
+	}
+	return bytes, err
+}
+
+func (t *TestJmapApiClient) Command(ctx context.Context, logger *log.Logger, session *Session, request Request) ([]byte, error) {
+	command := request.MethodCalls[0].Command
 	switch command {
-	case "Mailbox/get":
-		return []byte(mailboxes), nil
-	case "Email/query":
-		return []byte(mails1), nil
+	case MailboxGet:
+		return serveTestFile(t.t, "mailboxes1.json")
+	case EmailQuery:
+		return serveTestFile(t.t, "mails1.json")
 	default:
-		require.Fail(t.t, "unsupported jmap command: %v", command)
-		return nil, fmt.Errorf("unsupported jmap command: %v", command)
+		require.Fail(t.t, "TestJmapApiClient: unsupported jmap command: %v", command)
+		return nil, fmt.Errorf("TestJmapApiClient: unsupported jmap command: %v", command)
 	}
 }
 
@@ -225,15 +89,22 @@ func TestRequests(t *testing.T) {
 
 	session := Session{AccountId: "123", JmapUrl: "test://"}
 
-	folders, err := client.GetMailboxes(session, ctx, &logger)
+	folders, err := client.GetMailboxes(&session, ctx, &logger)
 	require.NoError(err)
-	require.Len(folders.Folders, 5)
+	require.Len(folders.List, 5)
 
-	emails, err := client.EmailThreadsQuery(session, ctx, &logger, "Inbox")
+	emails, err := client.GetEmails(&session, ctx, &logger, "Inbox", 0, 0, true, 0)
 	require.NoError(err)
-	require.Len(emails.Emails, 1)
+	require.Len(emails.Emails, 3)
 
-	email := emails.Emails[0]
-	require.Equal("eros auctor proin", email.Subject)
-	require.Equal(false, email.HasAttachments)
+	{
+		email := emails.Emails[0]
+		require.Equal("Ornare Senectus Ultrices Elit", email.Subject)
+		require.Equal(false, email.HasAttachments)
+	}
+	{
+		email := emails.Emails[1]
+		require.Equal("Lorem Tortor Eros Blandit Adipiscing Scelerisque Fermentum", email.Subject)
+		require.Equal(false, email.HasAttachments)
+	}
 }

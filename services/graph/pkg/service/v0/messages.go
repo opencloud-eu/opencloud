@@ -10,7 +10,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	libregraph "github.com/owncloud/libre-graph-api-go"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 )
 
 // GetMessages implements the Service interface.
