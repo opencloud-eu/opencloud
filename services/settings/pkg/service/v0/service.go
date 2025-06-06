@@ -285,7 +285,10 @@ func (g Service) GetValue(_ context.Context, req *settingssvc.GetValueRequest, r
 
 // GetValueByUniqueIdentifiers implements the ValueService interface
 func (g Service) GetValueByUniqueIdentifiers(ctx context.Context, req *settingssvc.GetValueByUniqueIdentifiersRequest, res *settingssvc.GetValueResponse) error {
+	ownAccountID, _ := metadata.Get(ctx, middleware.AccountID)
 	req.AccountUuid = getValidatedAccountUUID(ctx, req.GetAccountUuid())
+	//log.Error().Str("acc-uuid", req.GetAccountUuid()).Str("OwnAccountId", ownAccountID).Msg("can't get value of another user")
+	fmt.Printf("Failed to get value of other user; req id: %s, ctx id: %s\n", req.GetAccountUuid(), ownAccountID)
 	if !g.isCurrentUser(ctx, req.GetAccountUuid()) {
 		return merrors.Forbidden(g.id, "can't get value of another user")
 	}

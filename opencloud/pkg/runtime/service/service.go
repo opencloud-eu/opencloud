@@ -471,8 +471,10 @@ func (s *Service) generateRunSet(cfg *occfg.Config) {
 		runset[name] = struct{}{}
 	}
 
+	fmt.Printf("Disabled: %+v", cfg.Runtime.Disabled)
 	// remove services if explicitly excluded by config
 	for _, name := range cfg.Runtime.Disabled {
+		fmt.Printf("Deleting service: %s", name)
 		delete(runset, name)
 	}
 }
