@@ -2,186 +2,175 @@ package jmap
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"reflect"
 	"time"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
 func command[T any](api ApiClient,
 	logger *log.Logger,
 	ctx context.Context,
-	methodCalls *[][]any,
-	mapper func(body *[]byte) (T, error)) (T, error) {
-	body := map[string]any{
-		"using":       []string{JmapCore, JmapMail},
-		"methodCalls": methodCalls,
-	}
+	session *Session,
+	request Request,
+	mapper func(body *Response) (T, error)) (T, error) {
 
-	/*
-		{
-		"using":[
-		  "urn:ietf:params:jmap:core",
-		  "urn:ietf:params:jmap:mail"
-		],
-		"methodCalls":[
-		  [
-		    "Identity/get", {
-		      "accountId": "cp"
-		    }, "0"
-		  ]
-		]
-		}
-	*/
-
-	responseBody, err := api.Command(ctx, logger, body)
+	responseBody, err := api.Command(ctx, logger, session, request)
 	if err != nil {
 		var zero T
 		return zero, err
 	}
-	return mapper(&responseBody)
-}
 
-func simpleCommand(cmd string, params map[string]any) [][]any {
-	jmap := make([][]any, 1)
-	jmap[0] = make([]any, 3)
-	jmap[0][0] = cmd
-	jmap[0][1] = params
-	jmap[0][2] = "0"
-	return jmap
-}
-
-func mapFolder(item map[string]any) JmapFolder {
-	return JmapFolder{
-		Id:            item["id"].(string),
-		Name:          item["name"].(string),
-		Role:          item["role"].(string),
-		TotalEmails:   int(item["totalEmails"].(float64)),
-		UnreadEmails:  int(item["unreadEmails"].(float64)),
-		TotalThreads:  int(item["totalThreads"].(float64)),
-		UnreadThreads: int(item["unreadThreads"].(float64)),
-	}
-}
-
-func parseMailboxGetResponse(data JmapCommandResponse) (Folders, error) {
-	first := data.MethodResponses[0]
-	params := first[1]
-	payload := params.(map[string]any)
-	state := payload["state"].(string)
-	list := payload["list"].([]any)
-	folders := make([]JmapFolder, 0, len(list))
-	for _, a := range list {
-		item := a.(map[string]any)
-		folder := mapFolder(item)
-		folders = append(folders, folder)
-	}
-	return Folders{Folders: folders, state: state}, nil
-}
-
-func firstFromStringArray(obj map[string]any, key string) string {
-	ary, ok := obj[key]
-	if ok {
-		if ary := ary.([]any); len(ary) > 0 {
-			return ary[0].(string)
-		}
-	}
-	return ""
-}
-
-func mapEmail(elem map[string]any, fetchBodies bool, logger *log.Logger) (Email, error) {
-	fromList := elem["from"].([]any)
-	from := fromList[0].(map[string]any)
-	var subject string
-	var value any = elem["subject"]
-	if value != nil {
-		subject = value.(string)
-	} else {
-		subject = ""
-	}
-	var hasAttachments bool
-	hasAttachmentsAny := elem["hasAttachments"]
-	if hasAttachmentsAny != nil {
-		hasAttachments = hasAttachmentsAny.(bool)
-	} else {
-		hasAttachments = false
-	}
-
-	received, err := time.ParseInLocation(time.RFC3339, elem["receivedAt"].(string), time.UTC)
+	var data Response
+	err = json.Unmarshal(responseBody, &data)
 	if err != nil {
-		return Email{}, err
+		logger.Error().Err(err).Msg("failed to deserialize body JSON payload")
+		var zero T
+		return zero, err
 	}
 
-	bodies := map[string]string{}
-	if fetchBodies {
-		bodyValuesAny, ok := elem["bodyValues"]
-		if ok {
-			bodyValues := bodyValuesAny.(map[string]any)
-			textBody, ok := elem["textBody"].([]any)
-			if ok && len(textBody) > 0 {
-				pick := textBody[0].(map[string]any)
-				mime := pick["type"].(string)
-				partId := pick["partId"].(string)
-				content, ok := bodyValues[partId]
-				if ok {
-					m := content.(map[string]any)
-					value, ok = m["value"]
-					if ok {
-						bodies[mime] = value.(string)
-					} else {
-						logger.Warn().Msg("textBody part has no value")
-					}
-				} else {
-					logger.Warn().Msgf("textBody references non-existent partId=%v", partId)
-				}
-			} else {
-				logger.Warn().Msgf("no textBody: %v", elem)
-			}
-			htmlBody, ok := elem["htmlBody"].([]any)
-			if ok && len(htmlBody) > 0 {
-				pick := htmlBody[0].(map[string]any)
-				mime := pick["type"].(string)
-				partId := pick["partId"].(string)
-				content, ok := bodyValues[partId]
-				if ok {
-					m := content.(map[string]any)
-					value, ok = m["value"]
-					if ok {
-						bodies[mime] = value.(string)
-					} else {
-						logger.Warn().Msg("htmlBody part has no value")
-					}
-				} else {
-					logger.Warn().Msgf("htmlBody references non-existent partId=%v", partId)
-				}
-			} else {
-				logger.Warn().Msg("no htmlBody")
-			}
-		} else {
-			logger.Warn().Msg("no bodies found in email")
-		}
-	} else {
-		bodies = nil
-	}
-
-	return Email{
-		Id:             elem["id"].(string),
-		MessageId:      firstFromStringArray(elem, "messageId"),
-		BlobId:         elem["blobId"].(string),
-		ThreadId:       elem["threadId"].(string),
-		Size:           int(elem["size"].(float64)),
-		From:           from["email"].(string),
-		Subject:        subject,
-		HasAttachments: hasAttachments,
-		Received:       received,
-		Preview:        elem["preview"].(string),
-		Bodies:         bodies,
-	}, nil
+	return mapper(&data)
 }
 
-func retrieveResponseMatch(data *JmapCommandResponse, length int, operation string, tag string) []any {
-	for _, elem := range data.MethodResponses {
-		if len(elem) == length && elem[0] == operation && elem[2] == tag {
-			return elem
+func mapstructStringToTimeHook() mapstructure.DecodeHookFunc {
+	// mapstruct isn't able to properly map RFC3339 date strings into Time
+	// objects, which is why we require this custom hook,
+	// see https://github.com/mitchellh/mapstructure/issues/41
+	return func(from reflect.Type, to reflect.Type, data any) (any, error) {
+		if to != reflect.TypeOf(time.Time{}) {
+			return data, nil
+		}
+		switch from.Kind() {
+		case reflect.String:
+			return time.Parse(time.RFC3339, data.(string))
+		case reflect.Float64:
+			return time.Unix(0, int64(data.(float64))*int64(time.Millisecond)), nil
+		case reflect.Int64:
+			return time.Unix(0, data.(int64)*int64(time.Millisecond)), nil
+		default:
+			return data, nil
 		}
 	}
+}
+
+func decodeMap(input map[string]any, target any) error {
+	// https://github.com/mitchellh/mapstructure/issues/41
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		Metadata:             nil,
+		DecodeHook:           mapstructure.ComposeDecodeHookFunc(mapstructStringToTimeHook()),
+		Result:               &target,
+		ErrorUnused:          false,
+		ErrorUnset:           false,
+		IgnoreUntaggedFields: false,
+	})
+	if err != nil {
+		return err
+	}
+	return decoder.Decode(input)
+}
+
+func decodeParameters(input any, target any) error {
+	m, ok := input.(map[string]any)
+	if !ok {
+		return fmt.Errorf("decodeParameters: parameters is not a map but a %T", input)
+	}
+	return decodeMap(m, target)
+}
+
+func retrieveResponseMatch(data *Response, command Command, tag string) (Invocation, bool) {
+	for _, inv := range data.MethodResponses {
+		if command == inv.Command && tag == inv.Tag {
+			return inv, true
+		}
+	}
+	return Invocation{}, false
+}
+
+func retrieveResponseMatchParameters[T any](data *Response, command Command, tag string, target *T) error {
+	match, ok := retrieveResponseMatch(data, command, tag)
+	if !ok {
+		return fmt.Errorf("failed to find JMAP response invocation match for command '%v' and tag '%v'", command, tag)
+	}
+	params := match.Parameters
+	typedParams, ok := params.(T)
+	if !ok {
+		actualType := reflect.TypeOf(params)
+		expectedType := reflect.TypeOf(*target)
+		return fmt.Errorf("JMAP response invocation matches command '%v' and tag '%v' but the type %v does not match the expected %v", command, tag, actualType, expectedType)
+	}
+	*target = typedParams
+	return nil
+}
+
+func (e *EmailBodyStructure) UnmarshalJSON(bs []byte) error {
+	m := map[string]any{}
+	err := json.Unmarshal(bs, &m)
+	if err != nil {
+		return err
+	}
+	return decodeMap(m, e)
+}
+
+func (e *EmailBodyStructure) MarshalJSON() ([]byte, error) {
+	m := map[string]any{}
+	m["type"] = e.Type
+	m["partId"] = e.PartId
+	for k, v := range e.Other {
+		m[k] = v
+	}
+	return json.Marshal(m)
+}
+
+func (i *Invocation) MarshalJSON() ([]byte, error) {
+	// JMAP requests have a slightly unusual structure since they are not a JSON object
+	// but, instead, a three-element array composed of
+	// 0: the command (e.g. "Email/query")
+	// 1: the actual payload of the request (structure depends on the command)
+	// 2: a tag that can be used to identify the matching response payload
+	// That implementation aspect thus requires us to use a custom marshalling hook.
+	arr := []any{string(i.Command), i.Parameters, i.Tag}
+	return json.Marshal(arr)
+}
+
+func (i *Invocation) UnmarshalJSON(bs []byte) error {
+	// JMAP responses have a slightly unusual structure since they are not a JSON object
+	// but, instead, a three-element array composed of
+	// 0: the command (e.g. "Thread/get") this is a response to
+	// 1: the actual payload of the response (structure depends on the command)
+	// 2: the tag (same as in the request invocation)
+	// That implementation aspect thus requires us to use a custom unmarshalling hook.
+	arr := []any{}
+	err := json.Unmarshal(bs, &arr)
+	if err != nil {
+		return err
+	}
+	if len(arr) != 3 {
+		// JMAP response must really always be an array of three elements
+		return fmt.Errorf("Invocation array length ought to be 3 but is %d", len(arr))
+	}
+	// The first element in the array is the command:
+	i.Command = Command(arr[0].(string))
+	// The third element in the array is the tag:
+	i.Tag = arr[2].(string)
+
+	// Due to the dynamic nature of request and response types in JMAP, we
+	// switch to using mapstruct here to deserialize the payload in the "parameters"
+	// element of JMAP invocation response arrays, as their expected struct type
+	// is directly inferred from the command (e.g. "Mailbox/get")
+	payload := arr[1]
+
+	paramsFactory, ok := CommandResponseTypeMap[i.Command]
+	if !ok {
+		return fmt.Errorf("unsupported JMAP operation cannot be unmarshalled: %v", i.Command)
+	}
+	params := paramsFactory()
+	err = decodeParameters(payload, &params)
+	if err != nil {
+		return err
+	}
+	i.Parameters = params
 	return nil
 }

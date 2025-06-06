@@ -2,10 +2,10 @@ package jmap
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/rs/zerolog"
 )
 
 type Client struct {
@@ -26,23 +26,14 @@ type Session struct {
 	JmapUrl   string
 }
 
-type ContextKey int
-
 const (
-	ContextAccountId ContextKey = iota
-	ContextOperationId
-	ContextUsername
-)
-
-func (s Session) DecorateSession(ctx context.Context) context.Context {
-	ctx = context.WithValue(ctx, ContextUsername, s.Username)
-	ctx = context.WithValue(ctx, ContextAccountId, s.AccountId)
-	return ctx
-}
-
-const (
-	logUsername  = "username"
-	logAccountId = "account-id"
+	logOperation   = "operation"
+	logUsername    = "username"
+	logAccountId   = "account-id"
+	logMailboxId   = "mailbox-id"
+	logFetchBodies = "fetch-bodies"
+	logOffset      = "offset"
+	logLimit       = "limit"
 )
 
 func (s Session) DecorateLogger(l log.Logger) log.Logger {
@@ -79,196 +70,90 @@ func (j *Client) FetchSession(username string, logger *log.Logger) (Session, err
 	return NewSession(wk)
 }
 
-func (j *Client) GetMailboxes(session Session, ctx context.Context, logger *log.Logger) (Folders, error) {
-	logger.Info().Str("command", "Mailbox/get").Str("accountId", session.AccountId).Msg("GetMailboxes")
-	cmd := simpleCommand("Mailbox/get", map[string]any{"accountId": session.AccountId})
-	commandCtx := context.WithValue(ctx, ContextOperationId, "GetMailboxes")
-	return command(j.api, logger, commandCtx, &cmd, func(body *[]byte) (Folders, error) {
-		var data JmapCommandResponse
-		err := json.Unmarshal(*body, &data)
-		if err != nil {
-			logger.Error().Err(err).Msg("failed to deserialize body JSON payload")
-			var zero Folders
-			return zero, err
-		}
-		return parseMailboxGetResponse(data)
+func (j *Client) logger(operation string, session *Session, logger *log.Logger) *log.Logger {
+	return &log.Logger{Logger: logger.With().Str(logOperation, operation).Str(logUsername, session.Username).Str(logAccountId, session.AccountId).Logger()}
+}
+
+func (j *Client) loggerParams(operation string, session *Session, logger *log.Logger, params func(zerolog.Context) zerolog.Context) *log.Logger {
+	base := logger.With().Str(logOperation, operation).Str(logUsername, session.Username).Str(logAccountId, session.AccountId)
+	return &log.Logger{Logger: params(base).Logger()}
+}
+
+func (j *Client) GetIdentity(session *Session, ctx context.Context, logger *log.Logger) (IdentityGetResponse, error) {
+	logger = j.logger("GetIdentity", session, logger)
+	cmd, err := NewRequest(NewInvocation(IdentityGet, IdentityGetCommand{AccountId: session.AccountId}, "0"))
+	if err != nil {
+		return IdentityGetResponse{}, err
+	}
+	return command(j.api, logger, ctx, session, cmd, func(body *Response) (IdentityGetResponse, error) {
+		var response IdentityGetResponse
+		err = retrieveResponseMatchParameters(body, IdentityGet, "0", &response)
+		return response, err
 	})
 }
 
-func (j *Client) GetEmails(session Session, ctx context.Context, logger *log.Logger, mailboxId string, offset int, limit int, fetchBodies bool, maxBodyValueBytes int) (Emails, error) {
-	cmd := make([][]any, 2)
-	cmd[0] = []any{
-		"Email/query",
-		map[string]any{
-			"accountId": session.AccountId,
-			"filter": map[string]any{
-				"inMailbox": mailboxId,
-			},
-			"sort": []map[string]any{
-				{
-					"isAscending": false,
-					"property":    "receivedAt",
-				},
-			},
-			"collapseThreads": true,
-			"position":        offset,
-			"limit":           limit,
-			"calculateTotal":  true,
-		},
-		"0",
+func (j *Client) GetVacation(session *Session, ctx context.Context, logger *log.Logger) (VacationResponseGetResponse, error) {
+	logger = j.logger("GetVacation", session, logger)
+	cmd, err := NewRequest(NewInvocation(VacationResponseGet, VacationResponseGetCommand{AccountId: session.AccountId}, "0"))
+	if err != nil {
+		return VacationResponseGetResponse{}, err
 	}
-	cmd[1] = []any{
-		"Email/get",
-		map[string]any{
-			"accountId":          session.AccountId,
-			"fetchAllBodyValues": fetchBodies,
-			"maxBodyValueBytes":  maxBodyValueBytes,
-			"#ids": map[string]any{
-				"name":     "Email/query",
-				"path":     "/ids/*",
-				"resultOf": "0",
-			},
-		},
-		"1",
-	}
-	commandCtx := context.WithValue(ctx, ContextOperationId, "GetEmails")
-
-	logger = &log.Logger{Logger: logger.With().Str("mailboxId", mailboxId).Bool("fetchBodies", fetchBodies).Int("offset", offset).Int("limit", limit).Logger()}
-
-	return command(j.api, logger, commandCtx, &cmd, func(body *[]byte) (Emails, error) {
-		var data JmapCommandResponse
-		err := json.Unmarshal(*body, &data)
-		if err != nil {
-			logger.Error().Err(err).Msg("failed to unmarshal response payload")
-			return Emails{}, err
-		}
-		first := retrieveResponseMatch(&data, 3, "Email/get", "1")
-		if first == nil {
-			return Emails{Emails: []Email{}, State: data.SessionState}, nil
-		}
-		if len(first) != 3 {
-			return Emails{}, fmt.Errorf("wrong Email/get response payload size, expecting a length of 3 but it is %v", len(first))
-		}
-
-		payload := first[1].(map[string]any)
-		list, listExists := payload["list"].([]any)
-		if !listExists {
-			return Emails{}, fmt.Errorf("wrong Email/get response payload size, expecting a length of 3 but it is %v", len(first))
-		}
-
-		emails := make([]Email, 0, len(list))
-		for _, elem := range list {
-			email, err := mapEmail(elem.(map[string]any), fetchBodies, logger)
-			if err != nil {
-				return Emails{}, err
-			}
-			emails = append(emails, email)
-		}
-		return Emails{Emails: emails, State: data.SessionState}, nil
+	return command(j.api, logger, ctx, session, cmd, func(body *Response) (VacationResponseGetResponse, error) {
+		var response VacationResponseGetResponse
+		err = retrieveResponseMatchParameters(body, VacationResponseGet, "0", &response)
+		return response, err
 	})
 }
 
-func (j *Client) EmailThreadsQuery(session Session, ctx context.Context, logger *log.Logger, mailboxId string) (Emails, error) {
-	cmd := make([][]any, 4)
-	cmd[0] = []any{
-		"Email/query",
-		map[string]any{
-			"accountId": session.AccountId,
-			"filter": map[string]any{
-				"inMailbox": mailboxId,
-			},
-			"sort": []map[string]any{
-				{
-					"isAscending": false,
-					"property":    "receivedAt",
-				},
-			},
-			"collapseThreads": true,
-			"position":        0,
-			"limit":           30,
-			"calculateTotal":  true,
-		},
-		"0",
+func (j *Client) GetMailboxes(session *Session, ctx context.Context, logger *log.Logger) (MailboxGetResponse, error) {
+	logger = j.logger("GetMailboxes", session, logger)
+	cmd, err := NewRequest(NewInvocation(MailboxGet, MailboxGetCommand{AccountId: session.AccountId}, "0"))
+	if err != nil {
+		return MailboxGetResponse{}, err
 	}
-	cmd[1] = []any{
-		"Email/get",
-		map[string]any{
-			"accountId": session.AccountId,
-			"#ids": map[string]any{
-				"resultOf": "0",
-				"name":     "Email/query",
-				"path":     "/ids",
-			},
-			"properties": []string{"threadId"},
-		},
-		"1",
-	}
-	cmd[2] = []any{
-		"Thread/get",
-		map[string]any{
-			"accountId": session.AccountId,
-			"#ids": map[string]any{
-				"resultOf": "1",
-				"name":     "Email/get",
-				"path":     "/list/*/threadId",
-			},
-		},
-		"2",
-	}
-	cmd[3] = []any{
-		"Email/get",
-		map[string]any{
-			"accountId": session.AccountId,
-			"#ids": map[string]any{
-				"resultOf": "2",
-				"name":     "Thread/get",
-				"path":     "/list/*/emailIds",
-			},
-			"properties": []string{
-				"threadId",
-				"mailboxIds",
-				"keywords",
-				"hasAttachment",
-				"from",
-				"subject",
-				"receivedAt",
-				"size",
-				"preview",
-			},
-		},
-		"3",
+	return command(j.api, logger, ctx, session, cmd, func(body *Response) (MailboxGetResponse, error) {
+		var response MailboxGetResponse
+		err = retrieveResponseMatchParameters(body, MailboxGet, "0", &response)
+		return response, err
+	})
+}
+
+type Emails struct {
+	Emails []Email
+	State  string
+}
+
+func (j *Client) GetEmails(session *Session, ctx context.Context, logger *log.Logger, mailboxId string, offset int, limit int, fetchBodies bool, maxBodyValueBytes int) (Emails, error) {
+	logger = j.loggerParams("GetEmails", session, logger, func(z zerolog.Context) zerolog.Context {
+		return z.Bool(logFetchBodies, fetchBodies).Int(logOffset, offset).Int(logLimit, limit)
+	})
+	cmd, err := NewRequest(
+		NewInvocation(EmailQuery, EmailQueryCommand{
+			AccountId:       session.AccountId,
+			Filter:          &Filter{InMailbox: mailboxId},
+			Sort:            []Sort{{Property: "receivedAt", IsAscending: false}},
+			CollapseThreads: true,
+			Position:        offset,
+			Limit:           limit,
+			CalculateTotal:  false,
+		}, "0"),
+		NewInvocation(EmailGet, EmailGetCommand{
+			AccountId:          session.AccountId,
+			FetchAllBodyValues: fetchBodies,
+			MaxBodyValueBytes:  maxBodyValueBytes,
+			IdRef:              &Ref{Name: EmailQuery, Path: "/ids/*", ResultOf: "0"},
+		}, "1"),
+	)
+	if err != nil {
+		return Emails{}, err
 	}
 
-	commandCtx := context.WithValue(ctx, ContextOperationId, "EmailThreadsQuery")
-	return command(j.api, logger, commandCtx, &cmd, func(body *[]byte) (Emails, error) {
-		var data JmapCommandResponse
-		err := json.Unmarshal(*body, &data)
+	return command(j.api, logger, ctx, session, cmd, func(body *Response) (Emails, error) {
+		var response EmailGetResponse
+		err = retrieveResponseMatchParameters(body, EmailGet, "1", &response)
 		if err != nil {
-			logger.Error().Err(err).Msg("failed to unmarshal response payload")
 			return Emails{}, err
 		}
-		first := retrieveResponseMatch(&data, 3, "Email/get", "3")
-		if first == nil {
-			return Emails{Emails: []Email{}, State: data.SessionState}, nil
-		}
-		if len(first) != 3 {
-			return Emails{}, fmt.Errorf("wrong Email/get response payload size, expecting a length of 3 but it is %v", len(first))
-		}
-
-		payload := first[1].(map[string]any)
-		list, listExists := payload["list"].([]any)
-		if !listExists {
-			return Emails{}, fmt.Errorf("wrong Email/get response payload size, expecting a length of 3 but it is %v", len(first))
-		}
-
-		emails := make([]Email, 0, len(list))
-		for _, elem := range list {
-			email, err := mapEmail(elem.(map[string]any), false, logger)
-			if err != nil {
-				return Emails{}, err
-			}
-			emails = append(emails, email)
-		}
-		return Emails{Emails: emails, State: data.SessionState}, nil
+		return Emails{Emails: response.List, State: body.SessionState}, nil
 	})
 }

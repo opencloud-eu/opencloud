@@ -1,0 +1,16 @@
+{
+  "name": "groupware",
+  "version": "1.0.0",
+  "main": "groupware.ts",
+  "type": "module",
+  "scripts": {
+    "test": "k6 run groupware.ts"
+  },
+  "keywords": [],
+  "author": "Pascal Bleser <p.bleser@opencloud.eu>",
+  "license": "ASL",
+  "description": "",
+  "devDependencies": {
+    "@types/k6": "^1.0.2"
+  }
+}

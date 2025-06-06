@@ -8,6 +8,7 @@ import (
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 )
 
+// implements HttpJmapUsernameProvider
 type RevaContextHttpJmapUsernameProvider struct {
 }
 

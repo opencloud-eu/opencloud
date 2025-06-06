@@ -1,0 +1,277 @@
+{
+  "methodResponses": [
+    [
+      "Email/query",
+      {
+        "accountId": "d",
+        "queryState": "suqmq",
+        "canCalculateChanges": true,
+        "position": 0,
+        "ids": [
+          "moyaaaddw",
+          "mouaaaddv",
+          "moqaaaddu"
+        ],
+        "limit": 3
+      },
+      "0"
+    ],
+    [
+      "Email/get",
+      {
+        "accountId": "d",
+        "state": "suqmq",
+        "list": [
+          {
+            "id": "moyaaaddw",
+            "blobId": "cbejozsk1fgcviw7thwzsvtgmf1ep0a3izjoimj02jmtsunpeuwmsaya1yma",
+            "threadId": "ddw",
+            "mailboxIds": {
+              "a": true
+            },
+            "keywords": {},
+            "size": 1842,
+            "receivedAt": "2025-06-02T09:31:01Z",
+            "messageId": [
+              "1748856661.7568858@example.com"
+            ],
+            "inReplyTo": null,
+            "references": null,
+            "sender": [
+              {
+                "name": "Beloved Deadly",
+                "email": "beloved.deadly@example.com"
+              }
+            ],
+            "from": [
+              {
+                "name": "Beloved Deadly",
+                "email": "beloved.deadly@example.com"
+              }
+            ],
+            "to": [
+              {
+                "name": "alan",
+                "email": "alan@example.com"
+              }
+            ],
+            "cc": [
+              {
+                "name": "Team Lead",
+                "email": "lead@example.com"
+              },
+              {
+                "name": "Coworker",
+                "email": "coworker@example.com"
+              }
+            ],
+            "bcc": null,
+            "replyTo": null,
+            "subject": "Ornare Senectus Ultrices Elit",
+            "sentAt": "2025-06-02T11:31:01+02:00",
+            "hasAttachment": false,
+            "preview": "Lorem tortor eros blandit adipiscing scelerisque fermentum fames himenaeos varius pulvinar nascetur erat turpis risus sagittis felis augue efficitur proin ante id suspendisse eu mattis.\nEst sociosqu arcu elit penatibus vehicula magnis senectus maximus m...",
+            "bodyValues": {
+              "0": {
+                "isEncodingProblem": false,
+                "isTruncated": false,
+                "value": "<p>Lorem tortor eros blandit adipiscing scelerisque fermentum fames himenaeos varius pulvinar nascetur erat turpis risus sagittis felis augue efficitur proin ante id suspendisse eu mattis.</p>\n<p>Est sociosqu arcu elit penatibus vehicula magnis senectus maximus massa nisl praesent viverra malesuada sapien. Semper tempus ridiculus habitasse pharetra molestie vehicula class, placerat pulvinar interdum viverra nam feugiat blandit urna inceptos lobortis odio imperdiet ante neque. Dui vulputate finibus lacinia non ultricies conubia velit vestibulum eleifend venenatis nec quam justo magnis urna aliquet commodo senectus montes lectus blandit tortor sollicitudin elit curae natoque tempus imperdiet curabitur. Phasellus imperdiet mollis ultrices tellus pellentesque sodales malesuada sociosqu curae finibus nostra taciti ultricies duis quam ex habitant fusce vitae torquent felis vulputate. Urna non litora adipiscing mollis hac consectetur fusce duis sit imperdiet pretium arcu malesuada magna faucibus ad himenaeos consequat etiam fermentum. Elit ac placerat conubia dis malesuada dui torquent odio convallis pulvinar, netus lectus natoque taciti ultrices nostra vivamus fringilla lacinia feugiat aenean at ultricies mi fusce lobortis amet est nec phasellus. Dapibus mus venenatis cursus maecenas ultrices rutrum convallis velit pretium sodales mi lorem cras hac semper nibh laoreet curabitur sem est ultricies in lacus ornare senectus blandit.</p>"
+              }
+            },
+            "textBody": [
+              {
+                "partId": "0",
+                "blobId": "cfejozsk1fgcviw7thwzsvtgmf1ep0a3izjoimj02jmtsunpeuwmsaya1ymiqa0kbm",
+                "size": 1450,
+                "name": null,
+                "type": "text/html",
+                "charset": "utf-8",
+                "disposition": null,
+                "cid": null,
+                "language": null,
+                "location": null
+              }
+            ],
+            "htmlBody": [
+              {
+                "partId": "0",
+                "blobId": "cfejozsk1fgcviw7thwzsvtgmf1ep0a3izjoimj02jmtsunpeuwmsaya1ymiqa0kbm",
+                "size": 1450,
+                "name": null,
+                "type": "text/html",
+                "charset": "utf-8",
+                "disposition": null,
+                "cid": null,
+                "language": null,
+                "location": null
+              }
+            ],
+            "attachments": []
+          },
+          {
+            "id": "mouaaaddv",
+            "blobId": "can2gyjt2yc1s0jo7zvikomhq0bhh7atp177v1l039kqtdqyicpiuaya1uma",
+            "threadId": "ddv",
+            "mailboxIds": {
+              "a": true
+            },
+            "keywords": {},
+            "size": 4603,
+            "receivedAt": "2025-06-02T09:31:01Z",
+            "messageId": [
+              "1748856661.8998663@example.com"
+            ],
+            "inReplyTo": null,
+            "references": null,
+            "sender": [
+              {
+                "name": "Helped Notably",
+                "email": "helped.notably@example.com"
+              }
+            ],
+            "from": [
+              {
+                "name": "Helped Notably",
+                "email": "helped.notably@example.com"
+              }
+            ],
+            "to": [
+              {
+                "name": "alan",
+                "email": "alan@example.com"
+              }
+            ],
+            "cc": null,
+            "bcc": null,
+            "replyTo": null,
+            "subject": "Lorem Tortor Eros Blandit Adipiscing Scelerisque Fermentum",
+            "sentAt": "2025-06-02T11:31:01+02:00",
+            "hasAttachment": false,
+            "preview": "Consectetur facilisi suscipit ex ultrices nibh torquent fermentum urna et, aptent nostra euismod tempus scelerisque inceptos quis aenean magna nec tellus sociosqu est mauris commodo congue blandit cursus cubilia. Metus congue magna imperdiet tempor dign...",
+            "bodyValues": {
+              "1": {
+                "isEncodingProblem": false,
+                "isTruncated": false,
+                "value": "Consectetur facilisi suscipit ex ultrices nibh torquent fermentum urna et, aptent nostra euismod tempus scelerisque inceptos quis aenean magna nec tellus sociosqu est mauris commodo congue blandit cursus cubilia. Metus congue magna imperdiet tempor dignissim phasellus quam per ridiculus curabitur taciti potenti tellus faucibus morbi erat aliquam euismod nascetur mattis. Potenti mauris sollicitudin netus a neque nascetur auctor aptent purus sodales ultricies finibus euismod dolor vivamus vestibulum congue dis id leo inceptos natoque torquent quis libero. Venenatis pharetra pellentesque sit quisque quis posuere efficitur imperdiet, ullamcorper ornare augue a porttitor fermentum ad phasellus quam proin dolor mollis vestibulum eu inceptos nostra. Vestibulum orci consequat arcu eros pharetra nunc blandit nibh ligula risus porta auctor diam lectus maximus commodo interdum dapibus morbi duis. Efficitur vehicula at lacus augue sit dapibus non suspendisse laoreet lacinia metus nam sollicitudin luctus sagittis leo ullamcorper tempus platea mi aptent aliquet primis. Ipsum erat cursus ad fusce sagittis dui convallis magnis mi porttitor aliquam quis efficitur inceptos commodo conubia vivamus sociosqu interdum himenaeos penatibus mollis platea in fames auctor.\nLobortis netus arcu malesuada finibus euismod massa ut fames mattis dignissim leo suspendisse purus parturient iaculis consectetur hac imperdiet commodo dui. Ante efficitur ut amet aenean gravida eleifend justo ipsum suspendisse bibendum dignissim leo pharetra sit tincidunt vel aliquam turpis elit feugiat facilisis quis tellus aliquet class magna consequat. Gravida felis elit ipsum convallis ornare integer orci lectus semper mattis sodales fusce sed in hendrerit pellentesque himenaeos aenean velit. Sed dui facilisi morbi nullam per sollicitudin ligula taciti tellus quisque faucibus sapien penatibus maecenas mattis consequat tempor litora volutpat posuere nisi lacinia luctus interdum nam tortor dictum."
+              },
+              "2": {
+                "isEncodingProblem": false,
+                "isTruncated": false,
+                "value": "<p>Consectetur facilisi suscipit ex ultrices nibh torquent fermentum urna et, aptent nostra euismod tempus scelerisque inceptos quis aenean magna nec tellus sociosqu est mauris commodo congue blandit cursus cubilia. Metus congue magna imperdiet tempor dignissim phasellus quam per ridiculus curabitur taciti potenti tellus faucibus morbi erat aliquam euismod nascetur mattis. Potenti mauris sollicitudin netus a neque nascetur auctor aptent purus sodales ultricies finibus euismod dolor vivamus vestibulum congue dis id leo inceptos natoque torquent quis libero. Venenatis pharetra pellentesque sit quisque quis posuere efficitur imperdiet, ullamcorper ornare augue a porttitor fermentum ad phasellus quam proin dolor mollis vestibulum eu inceptos nostra. Vestibulum orci consequat arcu eros pharetra nunc blandit nibh ligula risus porta auctor diam lectus maximus commodo interdum dapibus morbi duis. Efficitur vehicula at lacus augue sit dapibus non suspendisse laoreet lacinia metus nam sollicitudin luctus sagittis leo ullamcorper tempus platea mi aptent aliquet primis. Ipsum erat cursus ad fusce sagittis dui convallis magnis mi porttitor aliquam quis efficitur inceptos commodo conubia vivamus sociosqu interdum himenaeos penatibus mollis platea in fames auctor.</p>\n<p>Lobortis netus arcu malesuada finibus euismod massa ut fames mattis dignissim leo suspendisse purus parturient iaculis consectetur hac imperdiet commodo dui. Ante efficitur ut amet aenean gravida eleifend justo ipsum suspendisse bibendum dignissim leo pharetra sit tincidunt vel aliquam turpis elit feugiat facilisis quis tellus aliquet class magna consequat. Gravida felis elit ipsum convallis ornare integer orci lectus semper mattis sodales fusce sed in hendrerit pellentesque himenaeos aenean velit. Sed dui facilisi morbi nullam per sollicitudin ligula taciti tellus quisque faucibus sapien penatibus maecenas mattis consequat tempor litora volutpat posuere nisi lacinia luctus interdum nam tortor dictum.</p>"
+              }
+            },
+            "textBody": [
+              {
+                "partId": "1",
+                "blobId": "cen2gyjt2yc1s0jo7zvikomhq0bhh7atp177v1l039kqtdqyicpiuaya1umo7a0zb2",
+                "size": 1977,
+                "name": null,
+                "type": "text/plain",
+                "charset": "utf-8",
+                "disposition": null,
+                "cid": null,
+                "language": null,
+                "location": null
+              }
+            ],
+            "htmlBody": [
+              {
+                "partId": "2",
+                "blobId": "cen2gyjt2yc1s0jo7zvikomhq0bhh7atp177v1l039kqtdqyicpiuaya1umicfghb2",
+                "size": 1991,
+                "name": null,
+                "type": "text/html",
+                "charset": "utf-8",
+                "disposition": null,
+                "cid": null,
+                "language": null,
+                "location": null
+              }
+            ],
+            "attachments": []
+          },
+          {
+            "id": "moqaaaddu",
+            "blobId": "cbnhjfwus1qzaro9g77ccattplywro3h209ajriudofqma00u2eo1aya1qma",
+            "threadId": "ddu",
+            "mailboxIds": {
+              "a": true
+            },
+            "keywords": {},
+            "size": 10654,
+            "receivedAt": "2025-06-02T09:31:01Z",
+            "messageId": [
+              "1748856661.8411591@example.com"
+            ],
+            "inReplyTo": null,
+            "references": null,
+            "sender": [
+              {
+                "name": "Endless Virtually",
+                "email": "endless.virtually@example.com"
+              }
+            ],
+            "from": [
+              {
+                "name": "Endless Virtually",
+                "email": "endless.virtually@example.com"
+              }
+            ],
+            "to": [
+              {
+                "name": "alan",
+                "email": "alan@example.com"
+              }
+            ],
+            "cc": null,
+            "bcc": null,
+            "replyTo": null,
+            "subject": "Consectetur Facilisi Suscipit Ex Ultrices Nibh Torquent Fermentum Urna",
+            "sentAt": "2025-06-02T11:31:01+02:00",
+            "hasAttachment": false,
+            "preview": "Congue a rutrum vestibulum finibus dictum pharetra vehicula tortor ultrices rhoncus, litora tempus phasellus sapien class cursus gravida justo inceptos eleifend nisl ad posuere et magnis ullamcorper vitae porta suspendisse amet. Fringilla turpis ultrici...",
+            "bodyValues": {
+              "0": {
+                "isEncodingProblem": false,
+                "isTruncated": false,
+                "value": "Congue a rutrum vestibulum finibus dictum pharetra vehicula tortor ultrices rhoncus, litora tempus phasellus sapien class cursus gravida justo inceptos eleifend nisl ad posuere et magnis ullamcorper vitae porta suspendisse amet. Fringilla turpis ultricies non senectus mi lectus lacus, consequat finibus risus ligula semper laoreet malesuada sociosqu natoque fames lobortis libero ex curae interdum. Placerat etiam viverra odio posuere sodales ullamcorper penatibus nisl pretium sociosqu tortor montes netus tristique porttitor mattis varius facilisi dui neque mollis vivamus metus platea. Consectetur nascetur laoreet commodo aliquet amet bibendum lacus mattis mollis suspendisse himenaeos inceptos adipiscing montes sodales viverra a elementum dignissim. Luctus netus laoreet dis magnis cursus ligula phasellus interdum conubia senectus rutrum efficitur dolor maximus torquent odio velit fames potenti adipiscing sit metus lacus tortor. Ac imperdiet torquent nam natoque placerat faucibus tempor finibus ante integer at pellentesque nascetur sodales morbi leo eleifend ultricies euismod luctus eros tempus varius habitasse tortor erat laoreet sed et interdum. Augue mollis sodales dictumst sem eros sollicitudin imperdiet fusce vitae diam libero ullamcorper tortor accumsan pulvinar platea elit velit praesent potenti.\nPotenti nam diam quam senectus mus condimentum torquent, posuere hendrerit netus habitant vestibulum sagittis dignissim montes risus neque etiam proin ante elementum purus. Torquent porta nibh phasellus arcu maecenas curae elit sit habitant ultrices mus nisi metus ridiculus venenatis montes nulla senectus enim mauris semper. Laoreet suscipit lectus conubia aptent a felis ultricies cras platea amet sapien proin potenti luctus quam nisl sollicitudin blandit dignissim mollis. Quam maximus dolor accumsan ad quisque dictum ornare tellus fusce congue aptent tristique eros rhoncus nibh aenean parturient ipsum nostra ultrices hac.\nTurpis porttitor rhoncus pellentesque tempus praesent auctor orci tristique suspendisse bibendum class mollis sollicitudin pulvinar mi augue maximus aliquam conubia odio imperdiet. Dignissim potenti penatibus imperdiet quisque morbi cubilia lorem quis aenean adipiscing consequat sociosqu est aliquam ut phasellus ullamcorper nisi nisl mollis tortor proin gravida commodo ligula laoreet ex eget. Sem cursus sapien iaculis nulla orci vehicula varius, hac efficitur integer vestibulum fringilla quisque facilisis habitant id nam accumsan primis enim nibh odio. Iaculis dapibus est luctus dis euismod purus sociosqu magna felis vitae scelerisque curae tempor nisl primis dictumst dignissim non sit taciti suscipit pretium duis elit quisque suspendisse penatibus donec egestas.\nSenectus etiam tempus sollicitudin vivamus id quam eu, proin semper sodales volutpat velit pharetra ut gravida nec leo nascetur sapien commodo accumsan lacus. Dolor felis sagittis elementum sodales pulvinar mauris consequat eleifend, torquent taciti diam lobortis malesuada tristique ad convallis ornare aenean facilisi posuere hendrerit non montes. Hac suspendisse amet netus lorem erat ex vulputate quisque placerat ultrices tincidunt morbi dictum eleifend ut curabitur fames tortor sem. Est ante ut ex nunc tincidunt taciti eget ipsum imperdiet aliquam placerat class sociosqu cras at a eleifend per himenaeos sagittis quisque interdum dictum convallis suspendisse. Nibh sed vivamus ad magnis fermentum lorem fames ultricies quis curae, amet pulvinar nisi commodo maximus tellus sapien ante mattis purus tincidunt mi hendrerit morbi tristique adipiscing ipsum himenaeos ligula et. Neque tempus amet condimentum commodo euismod leo dis lacus nisl dignissim, hendrerit mi quisque facilisi massa habitant nec enim felis integer dolor sapien vitae parturient est nostra curae ornare mus etiam dui. Habitant vel integer fringilla curae auctor quisque porta lectus sodales lorem lobortis taciti, dignissim maecenas aptent sit curabitur velit ridiculus fames dolor sollicitudin condimentum purus arcu cursus vehicula adipiscing consequat amet facilisis turpis ultrices porttitor vivamus. Bibendum aliquet sem felis magnis nascetur gravida dolor porttitor augue lobortis risus blandit habitasse auctor nam litora convallis morbi ullamcorper nibh odio pharetra ornare per netus tristique volutpat enim.\nEuismod nibh elementum arcu etiam vel orci egestas cursus ultricies, integer turpis vitae porta dolor dignissim libero tristique vestibulum a est proin nec vivamus suspendisse rutrum semper inceptos. Mi consequat odio litora lorem pulvinar blandit ac lectus pharetra dolor, dignissim sociosqu ad rhoncus duis bibendum interdum primis montes morbi ex vestibulum est adipiscing potenti conubia eros ullamcorper dui. Velit libero sem arcu eros dapibus nostra ante cursus aliquam aliquet convallis congue sociosqu magnis malesuada rhoncus et amet lobortis bibendum pulvinar molestie. Ut ipsum ligula sapien viverra sociosqu habitant habitasse nam himenaeos dis facilisis id semper aliquet mauris magnis consectetur diam volutpat. Ante amet vel felis diam sagittis ullamcorper ultrices cursus enim conubia primis fermentum cras quam fringilla vehicula aliquam duis consectetur augue velit praesent quis eleifend. Vestibulum condimentum eleifend sociosqu efficitur habitant ultricies porta donec aliquet enim, penatibus nullam dis nulla pharetra rutrum laoreet tellus nisl lacus primis nam tempus ultrices pretium suscipit vivamus rhoncus arcu. Senectus non neque ac pellentesque amet felis id dolor porta luctus elementum nisl eleifend risus laoreet bibendum facilisi litora. Rhoncus quam odio tristique mi taciti phasellus egestas lacus senectus sodales nullam himenaeos tellus diam facilisi nunc consequat sollicitudin dolor semper enim nulla justo.\nQuisque sem lectus himenaeos ac aliquam nibh ultrices bibendum nullam ipsum viverra euismod etiam senectus commodo pretium tincidunt volutpat non nostra torquent cras. Nibh congue rhoncus lobortis taciti diam proin lacus nisl dis sodales euismod finibus felis suscipit viverra commodo laoreet molestie rutrum nisi ex maecenas. Ridiculus venenatis justo mattis sit fringilla nisi arcu aptent primis quis ipsum habitant tincidunt vel adipiscing. Bibendum rhoncus convallis proin sollicitudin praesent dui maximus at hendrerit turpis ultrices fames enim vel orci molestie conubia himenaeos vestibulum dolor mauris ut lobortis hac rutrum. Potenti varius aliquam volutpat neque bibendum pretium mus justo natoque ac turpis montes sollicitudin orci cubilia posuere parturient. Aenean nisl montes dignissim at vitae nec vel nam nunc lectus iaculis augue nibh dictumst.\nHimenaeos quis primis elementum scelerisque fringilla litora proin eu porttitor duis magnis urna mi maecenas vestibulum curae phasellus amet facilisi augue. Vel enim facilisis vehicula elit eleifend ut natoque lobortis, dolor pretium egestas non nascetur habitant condimentum odio dapibus porttitor rutrum sem nec fermentum luctus consequat. Netus natoque fames ligula iaculis duis quam facilisis cras, nam felis per eleifend himenaeos senectus maximus suscipit quis amet est tempor sem nascetur orci dictum. Nunc inceptos habitasse nisl est id semper elit lacus, adipiscing interdum viverra primis dis porta pulvinar montes class ad duis netus potenti per rutrum nostra. Primis sit gravida consequat fermentum platea curabitur orci dis senectus id iaculis pellentesque ad elit duis feugiat lorem vitae sodales nisi mus euismod.\nLigula amet interdum fringilla mauris hendrerit semper justo nisl aenean facilisis sed tellus venenatis lorem sapien. Condimentum et pulvinar tempus aenean scelerisque aliquet donec inceptos lacinia nulla, penatibus ultrices sapien nec volutpat quisque ridiculus natoque habitant ultricies nibh feugiat accumsan a arcu lorem pharetra faucibus taciti posuere. Malesuada amet suscipit dictum nam id varius taciti eu sollicitudin erat convallis nostra scelerisque neque justo finibus. Eros hac ultrices mus felis pellentesque maecenas platea tellus est interdum accumsan tempus adipiscing nostra nec neque vitae suspendisse quam. Velit imperdiet diam senectus dictum metus ipsum nisl quam habitasse nibh commodo convallis integer netus magna lectus ante lacus per. Inceptos commodo sed ullamcorper volutpat libero at varius lacus ad ac facilisis posuere accumsan diam fames pretium penatibus mauris ornare mollis aenean gravida finibus quis curae.\nFinibus libero conubia lobortis netus at nisl sed leo amet consectetur laoreet phasellus fusce nascetur dis molestie dolor quis duis nibh primis cubilia curabitur hac potenti. Himenaeos erat etiam libero commodo auctor sit duis tortor mi rhoncus eu ridiculus sem nulla amet ornare potenti enim feugiat mus placerat posuere pretium curabitur sociosqu. Phasellus fames massa non est ultrices aenean velit, tempor ipsum felis interdum fringilla pretium magna nisi dignissim ante ridiculus volutpat vestibulum. Per vulputate quam maximus fermentum conubia ullamcorper lorem integer eu bibendum auctor tortor sodales congue morbi semper nullam himenaeos pulvinar facilisi senectus dignissim.\nLobortis ullamcorper est ultrices dis tempus accumsan ex felis, fusce velit efficitur mattis ac facilisi bibendum suspendisse augue tellus fermentum eleifend aenean ante mollis aliquam. Ornare himenaeos nostra gravida etiam fermentum vehicula morbi odio vestibulum tempor, est porttitor congue habitant neque facilisis fames eleifend dapibus varius ex justo blandit purus leo aenean litora viverra scelerisque. Et consequat aliquam class mi ultricies nunc sagittis turpis lorem odio nullam est suspendisse ad mattis dis id posuere aptent proin maecenas pharetra fringilla. Per nulla volutpat luctus vestibulum cubilia ullamcorper quisque venenatis aptent enim curae aenean nullam dis conubia ligula maecenas phasellus curabitur. Platea aptent vehicula urna est nisl porttitor ornare at fusce, vestibulum fames torquent potenti lectus cras suspendisse tincidunt ipsum natoque commodo nibh quisque praesent ultrices facilisi egestas dis turpis. Eleifend nulla fusce neque vel egestas congue libero ridiculus urna curabitur placerat sapien sociosqu nunc convallis nascetur dapibus ultricies tincidunt pellentesque aliquet duis malesuada laoreet condimentum venenatis erat potenti turpis."
+              }
+            },
+            "textBody": [
+              {
+                "partId": "0",
+                "blobId": "cfnhjfwus1qzaro9g77ccattplywro3h209ajriudofqma00u2eo1aya1qmpsavfka",
+                "size": 10277,
+                "name": null,
+                "type": "text/plain",
+                "charset": "utf-8",
+                "disposition": null,
+                "cid": null,
+                "language": null,
+                "location": null
+              }
+            ],
+            "htmlBody": [
+              {
+                "partId": "0",
+                "blobId": "cfnhjfwus1qzaro9g77ccattplywro3h209ajriudofqma00u2eo1aya1qmpsavfka",
+                "size": 10277,
+                "name": null,
+                "type": "text/plain",
+                "charset": "utf-8",
+                "disposition": null,
+                "cid": null,
+                "language": null,
+                "location": null
+              }
+            ],
+            "attachments": []
+          }
+        ],
+        "notFound": []
+      },
+      "1"
+    ]
+  ],
+  "sessionState": "3e25b2a0"
+}
