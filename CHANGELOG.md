@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @ScharfViktor, @aduffeck, @butonic, @fschade, @kulmann, @micbar, @prashant-gurung899, @rhafer
+@AlexAndBear, @ScharfViktor, @VuiMuich, @aduffeck, @butonic, @fschade, @kulmann, @micbar, @prashant-gurung899, @rhafer
 
 ### 💥 Breaking changes
 
@@ -16,18 +16,19 @@
 - Add profile photo [[#864](https://github.com/opencloud-eu/opencloud/pull/864)]
 - feat: hide close button in collabora [[#828](https://github.com/opencloud-eu/opencloud/pull/828)]
 
+### 🐛 Bug Fixes
+
+- Fix broken urls in README.md of deployment example [[#1023](https://github.com/opencloud-eu/opencloud/pull/1023)]
+- Make activitylog service scalable [[#941](https://github.com/opencloud-eu/opencloud/pull/941)]
+- Fix purging revisions from decomposeds3 blobstores [[#958](https://github.com/opencloud-eu/opencloud/pull/958)]
+- fix(graph-metadata): lazy cs3 metadata storage initialization [[#946](https://github.com/opencloud-eu/opencloud/pull/946)]
+- always get the user email for admin user [[#898](https://github.com/opencloud-eu/opencloud/pull/898)]
+
 ### ✅ Tests
 
 - apiTest. select option for root/permissions endpoint [[#942](https://github.com/opencloud-eu/opencloud/pull/942)]
 - [full-ci] ApiTest. checking private link in report response [[#993](https://github.com/opencloud-eu/opencloud/pull/993)]
 - [full-ci] Change `eicar_com.zip` virus file and update tests [[#992](https://github.com/opencloud-eu/opencloud/pull/992)]
-
-### 🐛 Bug Fixes
-
-- Make activitylog service scalable [[#941](https://github.com/opencloud-eu/opencloud/pull/941)]
-- Fix purging revisions from decomposeds3 blobstores [[#958](https://github.com/opencloud-eu/opencloud/pull/958)]
-- fix(graph-metadata): lazy cs3 metadata storage initialization [[#946](https://github.com/opencloud-eu/opencloud/pull/946)]
-- always get the user email for admin user [[#898](https://github.com/opencloud-eu/opencloud/pull/898)]
 
 ### 📚 Documentation
 
