@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v3.0.1) - 2025-06-10
+
+### 📦️ Dependencies
+
+- build(deps): bump query-string from 9.1.1 to 9.2.0 in /services/idp [[#1031](https://github.com/opencloud-eu/opencloud/pull/1031)]
+
 ## [3.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.0.0) - 2025-06-10
 
 ### ❤️ Thanks to all contributors! ❤️
