@@ -64,10 +64,10 @@ require (
 	github.com/onsi/gomega v1.37.0
 	github.com/open-policy-agent/opa v1.5.1
 	github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250603072916-fa601fb14450
-	github.com/opencloud-eu/reva/v2 v2.33.1-0.20250603070030-797b412f62db
+	github.com/opencloud-eu/reva/v2 v2.33.1
 	github.com/orcaman/concurrent-map v1.0.0
 	github.com/pkg/errors v0.9.1
-	github.com/pkg/xattr v0.4.10
+	github.com/pkg/xattr v0.4.11
 	github.com/prometheus/client_golang v1.22.0
 	github.com/r3labs/sse/v2 v2.10.0
 	github.com/riandyrn/otelchi v0.12.1
@@ -96,7 +96,7 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.36.0
 	go.opentelemetry.io/otel/sdk v1.36.0
 	go.opentelemetry.io/otel/trace v1.36.0
-	golang.org/x/crypto v0.38.0
+	golang.org/x/crypto v0.39.0
 	golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac
 	golang.org/x/image v0.28.0
 	golang.org/x/net v0.40.0
