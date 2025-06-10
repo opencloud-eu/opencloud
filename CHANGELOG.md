@@ -18,6 +18,7 @@
 
 ### 📈 Enhancement
 
+- graph: Add $filter to only list (and/or count) member permissions [[#996](https://github.com/opencloud-eu/opencloud/pull/996)]
 - [full-ci] chore: bump web to v3.0.0 [[#1026](https://github.com/opencloud-eu/opencloud/pull/1026)]
 - [full-ci] chore: bump web to v3.0.0-alpha.1 [[#972](https://github.com/opencloud-eu/opencloud/pull/972)]
 - feat: add shareType to sharees field on activities api [[#954](https://github.com/opencloud-eu/opencloud/pull/954)]
