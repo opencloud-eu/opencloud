@@ -45,6 +45,7 @@
 
 ### 📦️ Dependencies
 
+- [full-ci] chore:reva bump v.2.33.1 [[#1027](https://github.com/opencloud-eu/opencloud/pull/1027)]
 - build(deps): bump i18next from 25.1.2 to 25.2.1 in /services/idp [[#1024](https://github.com/opencloud-eu/opencloud/pull/1024)]
 - build(deps): bump golang.org/x/image from 0.27.0 to 0.28.0 [[#1012](https://github.com/opencloud-eu/opencloud/pull/1012)]
 - build(deps): bump @types/node from 22.15.29 to 22.15.30 in /services/idp [[#1008](https://github.com/opencloud-eu/opencloud/pull/1008)]
