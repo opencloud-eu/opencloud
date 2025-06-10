@@ -515,6 +515,119 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			Expect(len(permissions.Value)).To(Equal(1))
 			Expect(permissions.Value[0].GetLibreGraphPermissionsActions()[0]).To(Equal("none"))
 		})
+		It("Does not list public shares when requested so", func() {
+			opt := svc.ListPermissionsQueryOptions{
+				NoLinkPermissions: true,
+			}
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+			gatewayClient.On("ListShares", mock.Anything, mock.Anything).Return(listSharesResponse, nil)
+			permissions, err := driveItemPermissionsService.ListPermissions(context.Background(), itemID, opt)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(permissions.LibreGraphPermissionsActionsAllowedValues)).ToNot(BeZero())
+			Expect(len(permissions.LibreGraphPermissionsRolesAllowedValues)).ToNot(BeZero())
+		})
+		It("Does not return permissions when the NoValues option is set", func() {
+			opt := svc.ListPermissionsQueryOptions{
+				NoValues: true,
+			}
+			listSharesResponse.Shares = []*collaboration.Share{
+				{
+					Id: &collaboration.ShareId{OpaqueId: "1"},
+					Permissions: &collaboration.SharePermissions{
+						Permissions: roleconversions.NewViewerRole().CS3ResourcePermissions(),
+					},
+					ResourceId: &provider.ResourceId{
+						StorageId: "1",
+						SpaceId:   "2",
+						OpaqueId:  "3",
+					},
+					Grantee: &provider.Grantee{
+						Type: provider.GranteeType_GRANTEE_TYPE_USER,
+						Id: &provider.Grantee_UserId{
+							UserId: &userpb.UserId{
+								OpaqueId: "user-id",
+							},
+						},
+					},
+				},
+			}
+			listPublicSharesResponse.Share = []*link.PublicShare{
+				{
+					Id: &link.PublicShareId{
+						OpaqueId: "public-share-id",
+					},
+					Token: "public-share-token",
+					// the link shares the same resource id
+					ResourceId: &provider.ResourceId{
+						StorageId: "1",
+						SpaceId:   "2",
+						OpaqueId:  "3",
+					},
+					Permissions: &link.PublicSharePermissions{Permissions: roleconversions.NewViewerRole().CS3ResourcePermissions()},
+				},
+			}
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+			gatewayClient.On("ListShares", mock.Anything, mock.Anything).Return(listSharesResponse, nil)
+			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(getUserResponse, nil)
+			gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(listPublicSharesResponse, nil)
+			permissions, err := driveItemPermissionsService.ListPermissions(context.Background(), itemID, opt)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(permissions.LibreGraphPermissionsActionsAllowedValues)).ToNot(BeZero())
+			Expect(len(permissions.LibreGraphPermissionsRolesAllowedValues)).ToNot(BeZero())
+			Expect(len(permissions.Value)).To(BeZero())
+		})
+		It("Returns a count when the Count option is set", func() {
+			opt := svc.ListPermissionsQueryOptions{
+				Count: true,
+			}
+			listSharesResponse.Shares = []*collaboration.Share{
+				{
+					Id: &collaboration.ShareId{OpaqueId: "1"},
+					Permissions: &collaboration.SharePermissions{
+						Permissions: roleconversions.NewViewerRole().CS3ResourcePermissions(),
+					},
+					ResourceId: &provider.ResourceId{
+						StorageId: "1",
+						SpaceId:   "2",
+						OpaqueId:  "3",
+					},
+					Grantee: &provider.Grantee{
+						Type: provider.GranteeType_GRANTEE_TYPE_USER,
+						Id: &provider.Grantee_UserId{
+							UserId: &userpb.UserId{
+								OpaqueId: "user-id",
+							},
+						},
+					},
+				},
+			}
+			listPublicSharesResponse.Share = []*link.PublicShare{
+				{
+					Id: &link.PublicShareId{
+						OpaqueId: "public-share-id",
+					},
+					Token: "public-share-token",
+					// the link shares the same resource id
+					ResourceId: &provider.ResourceId{
+						StorageId: "1",
+						SpaceId:   "2",
+						OpaqueId:  "3",
+					},
+					Permissions: &link.PublicSharePermissions{Permissions: roleconversions.NewViewerRole().CS3ResourcePermissions()},
+				},
+			}
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+			gatewayClient.On("ListShares", mock.Anything, mock.Anything).Return(listSharesResponse, nil)
+			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(getUserResponse, nil)
+			gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(listPublicSharesResponse, nil)
+			permissions, err := driveItemPermissionsService.ListPermissions(context.Background(), itemID, opt)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(permissions.LibreGraphPermissionsActionsAllowedValues)).ToNot(BeZero())
+			Expect(len(permissions.LibreGraphPermissionsRolesAllowedValues)).ToNot(BeZero())
+			count := int(permissions.GetOdataCount())
+			Expect(count).To(Equal(2)) // 1 share + 1 public share
+			Expect(len(permissions.Value)).To(Equal(count))
+		})
 	})
 	Describe("ListSpaceRootPermissions", func() {
 		var (
