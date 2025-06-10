@@ -227,11 +227,11 @@ func (t *Tree) TouchFile(ctx context.Context, n *node.Node, markprocessing bool,
 	}
 
 	if err := os.MkdirAll(filepath.Dir(nodePath), 0700); err != nil {
-		return errors.Wrap(err, "Decomposedfs: error creating node")
+		return errors.Wrap(err, "posixfs: error creating node")
 	}
 	f, err := os.Create(nodePath)
 	if err != nil {
-		return errors.Wrap(err, "Decomposedfs: error creating node")
+		return errors.Wrap(err, "posixfs: error creating node")
 	}
 
 	attributes := n.NodeMetadata(ctx)
@@ -304,21 +304,13 @@ func (t *Tree) Move(ctx context.Context, oldNode *node.Node, newNode *node.Node)
 	if newNode.Exists {
 		// TODO make sure all children are deleted
 		if err := os.RemoveAll(newNode.InternalPath()); err != nil {
-			return errors.Wrap(err, "Decomposedfs: Move: error deleting target node "+newNode.ID)
+			return errors.Wrap(err, "posixfs: Move: error deleting target node "+newNode.ID)
 		}
 	}
 	oldParent := oldNode.ParentPath()
 	newParent := newNode.ParentPath()
 	if newNode.ID == "" {
 		newNode.ID = oldNode.ID
-	}
-
-	// update target parentid and name
-	attribs := node.Attributes{}
-	attribs.SetString(prefixes.ParentidAttr, newNode.ParentID)
-	attribs.SetString(prefixes.NameAttr, newNode.Name)
-	if err := oldNode.SetXattrsWithContext(ctx, attribs, true); err != nil {
-		return errors.Wrap(err, "Decomposedfs: could not update old node attributes")
 	}
 
 	// update the id cache
@@ -337,14 +329,28 @@ func (t *Tree) Move(ctx context.Context, oldNode *node.Node, newNode *node.Node)
 		filepath.Join(newParent, newNode.Name),
 	)
 	if err != nil {
-		return errors.Wrap(err, "Decomposedfs: could not move child")
+		if err := t.lookup.CacheID(ctx, oldNode.SpaceID, oldNode.ID, filepath.Join(oldNode.ParentPath(), oldNode.Name)); err != nil {
+			t.log.Error().Err(err).Str("spaceID", oldNode.SpaceID).Str("id", oldNode.ID).Str("path", filepath.Join(oldNode.ParentPath(), oldNode.Name)).Msg("could not reset cached id after failed move")
+		}
+		if err := t.WarmupIDCache(filepath.Join(oldNode.ParentPath(), oldNode.Name), false, false); err != nil {
+			t.log.Error().Err(err).Str("spaceID", oldNode.SpaceID).Str("id", oldNode.ID).Str("path", filepath.Join(oldNode.ParentPath(), oldNode.Name)).Msg("could not warum cached after failed move")
+		}
+		return errors.Wrap(err, "posixfs: could not move child")
+	}
+
+	// update target parentid and name
+	attribs := node.Attributes{}
+	attribs.SetString(prefixes.ParentidAttr, newNode.ParentID)
+	attribs.SetString(prefixes.NameAttr, newNode.Name)
+	if err := newNode.SetXattrsWithContext(ctx, attribs, true); err != nil {
+		return errors.Wrap(err, "posixfs: could not update node attributes")
 	}
 
 	// rename the lock (if it exists)
 	if _, err := os.Stat(lockFilePath); err == nil {
 		err = os.Rename(lockFilePath, newNode.LockFilePath())
 		if err != nil {
-			return errors.Wrap(err, "Decomposedfs: could not move lock")
+			return errors.Wrap(err, "posixfs: could not move lock")
 		}
 	}
 
@@ -370,11 +376,11 @@ func (t *Tree) Move(ctx context.Context, oldNode *node.Node, newNode *node.Node)
 
 	err = t.Propagate(ctx, oldNode, -sizeDiff)
 	if err != nil {
-		return errors.Wrap(err, "Decomposedfs: Move: could not propagate old node")
+		return errors.Wrap(err, "posixfs: Move: could not propagate old node")
 	}
 	err = t.Propagate(ctx, newNode, sizeDiff)
 	if err != nil {
-		return errors.Wrap(err, "Decomposedfs: Move: could not propagate new node")
+		return errors.Wrap(err, "posixfs: Move: could not propagate new node")
 	}
 	return nil
 }
@@ -643,7 +649,7 @@ func (t *Tree) createDirNode(ctx context.Context, n *node.Node) (err error) {
 	}()
 
 	if err := os.MkdirAll(path, 0700); err != nil {
-		return errors.Wrap(err, "Decomposedfs: error creating node")
+		return errors.Wrap(err, "posixfs: error creating node")
 	}
 
 	if err := idcache.Set(ctx, n.SpaceID, n.ID, path); err != nil {
