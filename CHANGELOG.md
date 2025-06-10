@@ -16,6 +16,14 @@
 - Add profile photo [[#864](https://github.com/opencloud-eu/opencloud/pull/864)]
 - feat: hide close button in collabora [[#828](https://github.com/opencloud-eu/opencloud/pull/828)]
 
+### 📈 Enhancement
+
+- [full-ci] chore: bump web to v3.0.0 [[#1026](https://github.com/opencloud-eu/opencloud/pull/1026)]
+- [full-ci] chore: bump web to v3.0.0-alpha.1 [[#972](https://github.com/opencloud-eu/opencloud/pull/972)]
+- feat: add shareType to sharees field on activities api [[#954](https://github.com/opencloud-eu/opencloud/pull/954)]
+- graph: Add more $select options to ListPermissions endpoint [[#916](https://github.com/opencloud-eu/opencloud/pull/916)]
+- feat: add webp format [[#869](https://github.com/opencloud-eu/opencloud/pull/869)]
+
 ### ✅ Tests
 
 - apiTest. count permission in the list permissions endpoint [[#1010](https://github.com/opencloud-eu/opencloud/pull/1010)]
@@ -34,13 +42,6 @@
 ### 📚 Documentation
 
 - Updated boxes in readme [[#970](https://github.com/opencloud-eu/opencloud/pull/970)]
-
-### 📈 Enhancement
-
-- [full-ci] chore: bump web to v3.0.0-alpha.1 [[#972](https://github.com/opencloud-eu/opencloud/pull/972)]
-- feat: add shareType to sharees field on activities api [[#954](https://github.com/opencloud-eu/opencloud/pull/954)]
-- graph: Add more $select options to ListPermissions endpoint [[#916](https://github.com/opencloud-eu/opencloud/pull/916)]
-- feat: add webp format [[#869](https://github.com/opencloud-eu/opencloud/pull/869)]
 
 ### 📦️ Dependencies
 
