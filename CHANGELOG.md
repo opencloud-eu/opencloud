@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.0.0) - 2025-06-06
+## [3.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.0.0) - 2025-06-10
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -42,6 +42,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump golang.org/x/image from 0.27.0 to 0.28.0 [[#1012](https://github.com/opencloud-eu/opencloud/pull/1012)]
 - build(deps): bump @types/node from 22.15.29 to 22.15.30 in /services/idp [[#1008](https://github.com/opencloud-eu/opencloud/pull/1008)]
 - build(deps): bump github.com/open-policy-agent/opa from 1.5.0 to 1.5.1 [[#1000](https://github.com/opencloud-eu/opencloud/pull/1000)]
 - build(deps): bump golang.org/x/sync from 0.14.0 to 0.15.0 [[#1006](https://github.com/opencloud-eu/opencloud/pull/1006)]
