@@ -4,6 +4,8 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump google.golang.org/grpc from 1.72.2 to 1.73.0 [[#1034](https://github.com/opencloud-eu/opencloud/pull/1034)]
+- build(deps): bump golang.org/x/net from 0.40.0 to 0.41.0 [[#1033](https://github.com/opencloud-eu/opencloud/pull/1033)]
 - build(deps-dev): bump jest from 29.7.0 to 30.0.0 in /services/idp [[#1040](https://github.com/opencloud-eu/opencloud/pull/1040)]
 - build(deps-dev): bump css-minimizer-webpack-plugin from 7.0.0 to 7.0.2 in /services/idp [[#1038](https://github.com/opencloud-eu/opencloud/pull/1038)]
 - build(deps): bump query-string from 9.1.1 to 9.2.0 in /services/idp [[#1031](https://github.com/opencloud-eu/opencloud/pull/1031)]
