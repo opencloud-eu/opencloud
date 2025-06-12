@@ -1,14 +1,19 @@
 # Changelog
 
-## [3.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v3.0.1) - 2025-06-12
+## [3.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.1.0) - 2025-06-12
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@rhafer
+@fschade, @rhafer
 
 ### 📚 Documentation
 
+- fix(docs): WEB_ASSET_PATH was still mentioned in the web readme [[#943](https://github.com/opencloud-eu/opencloud/pull/943)]
 - Fix link in CONTRIBUTING.md [[#1048](https://github.com/opencloud-eu/opencloud/pull/1048)]
+
+### 📈 Enhancement
+
+- cleanup: Avoid fetching group membership when not needed [[#1036](https://github.com/opencloud-eu/opencloud/pull/1036)]
 
 ### 📦️ Dependencies
 
