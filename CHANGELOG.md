@@ -1,9 +1,18 @@
 # Changelog
 
-## [3.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v3.0.1) - 2025-06-11
+## [3.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v3.0.1) - 2025-06-12
+
+### ❤️ Thanks to all contributors! ❤️
+
+@rhafer
+
+### 📚 Documentation
+
+- Fix link in CONTRIBUTING.md [[#1048](https://github.com/opencloud-eu/opencloud/pull/1048)]
 
 ### 📦️ Dependencies
 
+- build(deps): bump go.etcd.io/bbolt from 1.4.0 to 1.4.1 [[#1045](https://github.com/opencloud-eu/opencloud/pull/1045)]
 - build(deps): bump google.golang.org/grpc from 1.72.2 to 1.73.0 [[#1034](https://github.com/opencloud-eu/opencloud/pull/1034)]
 - build(deps): bump golang.org/x/net from 0.40.0 to 0.41.0 [[#1033](https://github.com/opencloud-eu/opencloud/pull/1033)]
 - build(deps-dev): bump jest from 29.7.0 to 30.0.0 in /services/idp [[#1040](https://github.com/opencloud-eu/opencloud/pull/1040)]
