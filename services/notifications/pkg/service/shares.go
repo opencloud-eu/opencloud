@@ -79,7 +79,7 @@ func (s eventsNotifier) prepareShareCreated(logger zerolog.Logger, e events.Shar
 		return owner, shareFolder, shareLink, ctx, err
 	}
 
-	owner, err = utils.GetUserWithContext(ctx, e.Sharer, gatewayClient)
+	owner, err = utils.GetUserNoGroups(ctx, e.Sharer, gatewayClient)
 	if err != nil {
 		logger.Error().
 			Err(err).
@@ -108,7 +108,7 @@ func (s eventsNotifier) handleShareExpired(e events.ShareExpired, eventId string
 		return
 	}
 
-	owner, err := utils.GetUserWithContext(ctx, e.ShareOwner, gatewayClient)
+	owner, err := utils.GetUserNoGroups(ctx, e.ShareOwner, gatewayClient)
 	if err != nil {
 		logger.Error().Err(err).Msg("Could not get user")
 		return

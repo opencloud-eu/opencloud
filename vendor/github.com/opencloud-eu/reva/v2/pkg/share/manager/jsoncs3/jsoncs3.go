@@ -843,7 +843,7 @@ func (m *Manager) ListReceivedShares(ctx context.Context, filters []*collaborati
 		if err != nil {
 			return nil, err
 		}
-		u, err := utils.GetUser(forUser, client)
+		u, err := utils.GetUser(ctx, forUser, client)
 		if err != nil {
 			return nil, errtypes.BadRequest("user not found")
 		}

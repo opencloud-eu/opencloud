@@ -485,7 +485,7 @@ func (m *mgr) ListReceivedShares(ctx context.Context, filters []*collaboration.F
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to list shares")
 		}
-		u, err := utils.GetUser(forUser, gwc)
+		u, err := utils.GetUser(ctx, forUser, gwc)
 		if err != nil {
 			return nil, errtypes.BadRequest("user not found")
 		}

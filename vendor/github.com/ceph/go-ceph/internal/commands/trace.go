@@ -9,7 +9,7 @@ import (
 // NewTraceCommander is a RadosCommander that wraps a given RadosCommander
 // and when commands are executes prints debug level "traces" to the
 // standard output.
-func NewTraceCommander(c ccom.RadosCommander) ccom.RadosCommander {
+func NewTraceCommander(c ccom.RadosBufferCommander) ccom.RadosBufferCommander {
 	return &tracingCommander{c}
 }
 
@@ -19,7 +19,7 @@ func NewTraceCommander(c ccom.RadosCommander) ccom.RadosCommander {
 // interface in FSAdmin. You can layer any sort of debugging, error injection,
 // or whatnot between the FSAdmin layer and the RADOS layer.
 type tracingCommander struct {
-	conn ccom.RadosCommander
+	conn ccom.RadosBufferCommander
 }
 
 func (t *tracingCommander) MgrCommand(buf [][]byte) ([]byte, string, error) {
@@ -42,6 +42,42 @@ func (t *tracingCommander) MonCommand(buf []byte) ([]byte, string, error) {
 	fmt.Println("(MON Command)")
 	fmt.Println("IN:", string(buf))
 	r, s, err := t.conn.MonCommand(buf)
+	fmt.Println("OUT(result):", string(r))
+	if s != "" {
+		fmt.Println("OUT(status):", s)
+	}
+	if err != nil {
+		fmt.Println("OUT(error):", err.Error())
+	}
+	return r, s, err
+}
+
+func (t *tracingCommander) MgrCommandWithInputBuffer(
+	cbuf [][]byte, dbuf []byte) ([]byte, string, error) {
+
+	fmt.Println("(MGR Command w/buffer)")
+	for i := range cbuf {
+		fmt.Println("IN:", string(cbuf[i]))
+	}
+	fmt.Println("IN DATA:", string(dbuf))
+	r, s, err := t.conn.MgrCommandWithInputBuffer(cbuf, dbuf)
+	fmt.Println("OUT(result):", string(r))
+	if s != "" {
+		fmt.Println("OUT(status):", s)
+	}
+	if err != nil {
+		fmt.Println("OUT(error):", err.Error())
+	}
+	return r, s, err
+}
+
+func (t *tracingCommander) MonCommandWithInputBuffer(
+	cbuf []byte, dbuf []byte) ([]byte, string, error) {
+
+	fmt.Println("(MON Command w/buffer)")
+	fmt.Println("IN:", string(cbuf))
+	fmt.Println("IN DATA:", string(dbuf))
+	r, s, err := t.conn.MonCommandWithInputBuffer(cbuf, dbuf)
 	fmt.Println("OUT(result):", string(r))
 	if s != "" {
 		fmt.Println("OUT(status):", s)

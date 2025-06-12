@@ -347,7 +347,7 @@ func (c *Converter) getResource(ctx context.Context, resourceID *storageprovider
 	return resource, err
 }
 
-func (c *Converter) getUser(_ context.Context, userID *user.UserId) (*user.User, error) {
+func (c *Converter) getUser(ctx context.Context, userID *user.UserId) (*user.User, error) {
 	if u, ok := c.users[userID.GetOpaqueId()]; ok {
 		return u, nil
 	}
@@ -355,7 +355,7 @@ func (c *Converter) getUser(_ context.Context, userID *user.UserId) (*user.User,
 	if err != nil {
 		return nil, err
 	}
-	usr, err := utils.GetUser(userID, gwc)
+	usr, err := utils.GetUserNoGroups(ctx, userID, gwc)
 	if err == nil {
 		c.users[userID.GetOpaqueId()] = usr
 	}

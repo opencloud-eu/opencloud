@@ -71,14 +71,21 @@ func GetServiceUserToken(ctx context.Context, gwc gateway.GatewayAPIClient, serv
 }
 
 // GetUser gets the specified user
-// Deprecated: Use GetUserWithContext()
-func GetUser(userID *user.UserId, gwc gateway.GatewayAPIClient) (*user.User, error) {
-	return GetUserWithContext(context.Background(), userID, gwc)
+func GetUser(ctx context.Context, userID *user.UserId, gwc gateway.GatewayAPIClient) (*user.User, error) {
+	return getUser(ctx, userID, false, gwc)
 }
 
-// GetUserWithContext gets the specified user
-func GetUserWithContext(ctx context.Context, userID *user.UserId, gwc gateway.GatewayAPIClient) (*user.User, error) {
-	getUserResponse, err := gwc.GetUser(ctx, &user.GetUserRequest{UserId: userID})
+// GetUserNoGroups gets the specified user without expanding groupmemberships
+func GetUserNoGroups(ctx context.Context, userID *user.UserId, gwc gateway.GatewayAPIClient) (*user.User, error) {
+	return getUser(ctx, userID, true, gwc)
+}
+
+// getUser gets the specified user
+func getUser(ctx context.Context, userID *user.UserId, skipGroups bool, gwc gateway.GatewayAPIClient) (*user.User, error) {
+	getUserResponse, err := gwc.GetUser(ctx, &user.GetUserRequest{
+		UserId:                 userID,
+		SkipFetchingUserGroups: skipGroups,
+	})
 	if err != nil {
 		return nil, err
 	}

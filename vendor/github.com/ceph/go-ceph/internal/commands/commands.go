@@ -51,3 +51,41 @@ func MarshalMonCommand(m ccom.MonCommander, v interface{}) Response {
 	}
 	return RawMonCommand(m, b)
 }
+
+// MarshalMgrCommandWithBuffer takes a generic interface{} value, converts
+// it to JSON and sends the JSON, along with the buffer data, to the MGR as
+// a command.
+func MarshalMgrCommandWithBuffer(
+	m ccom.MgrBufferCommander, v interface{}, buf []byte) Response {
+
+	b, err := json.Marshal(v)
+	if err != nil {
+		return Response{err: err}
+	}
+	if err := validate(m); err != nil {
+		return Response{err: err}
+	}
+	return NewResponse(m.MgrCommandWithInputBuffer(
+		[][]byte{b},
+		buf,
+	))
+}
+
+// MarshalMonCommandWithBuffer takes a generic interface{} value, converts
+// it to JSON and sends the JSON, along with the buffer data, to the MON(s)
+// as a command.
+func MarshalMonCommandWithBuffer(
+	m ccom.MonBufferCommander, v interface{}, buf []byte) Response {
+
+	b, err := json.Marshal(v)
+	if err != nil {
+		return Response{err: err}
+	}
+	if err := validate(m); err != nil {
+		return Response{err: err}
+	}
+	return NewResponse(m.MonCommandWithInputBuffer(
+		b,
+		buf,
+	))
+}

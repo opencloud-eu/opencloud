@@ -182,7 +182,7 @@ func WithUser(uid *user.UserId, u *user.User, impersonator *user.User) ActivityO
 		case u != nil:
 			target = u
 		case uid != nil:
-			us, err := utils.GetUserWithContext(ctx, uid, gwc)
+			us, err := utils.GetUserNoGroups(ctx, uid, gwc)
 			target = us
 
 			if err != nil {
@@ -209,7 +209,7 @@ func WithSharee(uid *user.UserId, gid *group.GroupId) ActivityOption {
 	return func(ctx context.Context, gwc gateway.GatewayAPIClient, vars map[string]interface{}) error {
 		switch {
 		case uid != nil:
-			u, err := utils.GetUser(uid, gwc)
+			u, err := utils.GetUserNoGroups(ctx, uid, gwc)
 			if err != nil {
 				vars["sharee"] = Sharee{
 					DisplayName: "DeletedUser",

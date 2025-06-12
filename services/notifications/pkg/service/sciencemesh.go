@@ -26,7 +26,7 @@ func (s eventsNotifier) handleScienceMeshInviteTokenGenerated(e events.ScienceMe
 		return
 	}
 
-	owner, err := utils.GetUserWithContext(ctx, e.Sharer, gatewayClient)
+	owner, err := utils.GetUserNoGroups(ctx, e.Sharer, gatewayClient)
 	if err != nil {
 		logger.Error().Err(err).Msg("unable to get user")
 		return

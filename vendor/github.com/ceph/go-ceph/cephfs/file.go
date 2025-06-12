@@ -7,6 +7,10 @@ package cephfs
 #include <stdlib.h>
 #include <fcntl.h>
 #include <cephfs/libcephfs.h>
+
+int _go_ceph_fchown(struct ceph_mount_info *cmount, int fd, uid_t uid, gid_t gid) {
+	return ceph_fchown(cmount, fd, uid, gid);
+}
 */
 import "C"
 
@@ -278,13 +282,13 @@ func (f *File) Fchmod(mode uint32) error {
 //
 // Implements:
 //
-//	int ceph_fchown(struct ceph_mount_info *cmount, int fd, int uid, int gid);
+//	int ceph_fchown(struct ceph_mount_info *cmount, int fd, uid_t uid, gid_t gid);
 func (f *File) Fchown(user uint32, group uint32) error {
 	if err := f.validate(); err != nil {
 		return err
 	}
 
-	ret := C.ceph_fchown(f.mount.mount, f.fd, C.int(user), C.int(group))
+	ret := C._go_ceph_fchown(f.mount.mount, f.fd, C.uid_t(user), C.gid_t(group))
 	return getError(ret)
 }
 

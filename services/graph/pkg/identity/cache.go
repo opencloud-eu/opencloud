@@ -9,10 +9,10 @@ import (
 	cs3User "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	"github.com/jellydator/ttlcache/v3"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	revautils "github.com/opencloud-eu/reva/v2/pkg/utils"
-	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 )
 
 // IdentityCache implements a simple ttl based cache for looking up users and groups by ID
@@ -94,7 +94,7 @@ func (cache IdentityCache) GetUser(ctx context.Context, userid string) (libregra
 		cs3UserID := &cs3User.UserId{
 			OpaqueId: userid,
 		}
-		u, err := revautils.GetUserWithContext(ctx, cs3UserID, gatewayClient)
+		u, err := revautils.GetUserNoGroups(ctx, cs3UserID, gatewayClient)
 		if err != nil {
 			if revautils.IsErrNotFound(err) {
 				return libregraph.User{}, ErrNotFound

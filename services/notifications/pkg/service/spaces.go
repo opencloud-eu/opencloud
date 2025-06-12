@@ -61,7 +61,7 @@ func (s eventsNotifier) prepareSpaceShared(logger zerolog.Logger, e events.Space
 		return executant, spaceName, shareLink, ctx, err
 	}
 
-	executant, err = utils.GetUserWithContext(ctx, e.Executant, gatewayClient)
+	executant, err = utils.GetUserNoGroups(ctx, e.Executant, gatewayClient)
 	if err != nil {
 		logger.Error().
 			Err(err).
@@ -146,7 +146,7 @@ func (s eventsNotifier) prepareSpaceUnshared(logger zerolog.Logger, e events.Spa
 		return executant, spaceName, shareLink, ctx, err
 	}
 
-	executant, err = utils.GetUserWithContext(ctx, e.Executant, gatewayClient)
+	executant, err = utils.GetUserNoGroups(ctx, e.Executant, gatewayClient)
 	if err != nil {
 		logger.Error().
 			Err(err).
@@ -199,7 +199,7 @@ func (s eventsNotifier) handleSpaceMembershipExpired(e events.SpaceMembershipExp
 		return
 	}
 
-	owner, err := utils.GetUser(e.SpaceOwner, gatewayClient)
+	owner, err := utils.GetUserNoGroups(ctx, e.SpaceOwner, gatewayClient)
 	if err != nil {
 		logger.Error().
 			Err(err).
