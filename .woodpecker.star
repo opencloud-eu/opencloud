@@ -46,6 +46,8 @@ READY_RELEASE_GO = "woodpeckerci/plugin-ready-release-go:latest"
 DEFAULT_PHP_VERSION = "8.2"
 DEFAULT_NODEJS_VERSION = "20"
 
+CACHE_S3_SERVER = "https://s3.ci.opencloud.eu"
+
 dirs = {
     "base": "/woodpecker/src/github.com/opencloud-eu/opencloud",
     "web": "/woodpecker/src/github.com/opencloud-eu/opencloud/webTestRunner",
@@ -669,9 +671,7 @@ def testOpencloud(ctx):
             "name": "scan-result-cache",
             "image": PLUGINS_S3,
             "settings": {
-                "endpoint": {
-                    "from_secret": "cache_s3_server",
-                },
+                "endpoint": CACHE_S3_SERVER,
                 "bucket": "cache",
                 "source": "cache/**/*",
                 "target": "%s/%s" % (repo_slug, ctx.build.commit + "-${CI_PIPELINE_NUMBER}"),
@@ -1473,9 +1473,7 @@ def uploadTracingResult(ctx):
             "bucket": {
                 "from_secret": "cache_public_s3_bucket",
             },
-            "endpoint": {
-                "from_secret": "cache_public_s3_server",
-            },
+            "endpoint": CACHE_S3_SERVER,
             "path_style": True,
             "source": "webTestRunner/reports/e2e/playwright/tracing/**/*",
             "strip_prefix": "webTestRunner/reports/e2e/playwright/tracing",
@@ -2323,9 +2321,7 @@ def genericCache(name, action, mounts, cache_path):
         "name": "%s_%s" % (action, name),
         "image": PLUGINS_S3_CACHE,
         "settings": {
-            "endpoint": {
-                "from_secret": "cache_s3_server",
-            },
+            "endpoint": CACHE_S3_SERVER,
             "rebuild": rebuild,
             "restore": restore,
             "mount": mounts,
@@ -2356,9 +2352,7 @@ def genericCachePurge(flush_path):
                     "secret_key": {
                         "from_secret": "cache_s3_secret_key",
                     },
-                    "endpoint": {
-                        "from_secret": "cache_s3_server",
-                    },
+                    "endpoint": CACHE_S3_SERVER,
                     "flush": True,
                     "flush_age": 1,
                     "flush_path": flush_path,
