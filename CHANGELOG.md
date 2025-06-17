@@ -1,10 +1,10 @@
 # Changelog
 
-## [3.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.1.0) - 2025-06-12
+## [3.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.1.0) - 2025-06-17
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@fschade, @rhafer
+@aduffeck, @fschade, @rhafer
 
 ### 📚 Documentation
 
@@ -17,6 +17,7 @@
 
 ### 📦️ Dependencies
 
+- Bump reva to pull in the latest fixes [[#1063](https://github.com/opencloud-eu/opencloud/pull/1063)]
 - build(deps): bump go.etcd.io/bbolt from 1.4.0 to 1.4.1 [[#1045](https://github.com/opencloud-eu/opencloud/pull/1045)]
 - build(deps): bump google.golang.org/grpc from 1.72.2 to 1.73.0 [[#1034](https://github.com/opencloud-eu/opencloud/pull/1034)]
 - build(deps): bump golang.org/x/net from 0.40.0 to 0.41.0 [[#1033](https://github.com/opencloud-eu/opencloud/pull/1033)]
