@@ -63,7 +63,7 @@ func (s *svc) handleDelete(ctx context.Context, w http.ResponseWriter, r *http.R
 
 	req := &provider.DeleteRequest{
 		Ref:    ref,
-		LockId: requestLockToken(r),
+		LockId: requestLock(r),
 	}
 
 	// FIXME the lock token is part of the application level protocol, it should be part of the DeleteRequest message not the opaque

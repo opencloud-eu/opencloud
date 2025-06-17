@@ -125,15 +125,15 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 			m.logger.Debug().Interface("claims", claims).Msg("Autoprovisioning user")
-			user, err = m.userProvider.CreateUserFromClaims(req.Context(), claims)
+			newuser, err := m.userProvider.CreateUserFromClaims(req.Context(), claims)
 			if err != nil {
 				m.logger.Error().Err(err).Msg("Autoprovisioning user failed")
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-			user, token, err = m.userProvider.GetUserByClaims(req.Context(), "userid", user.Id.OpaqueId)
+			user, token, err = m.userProvider.GetUserByClaims(req.Context(), "userid", newuser.Id.OpaqueId)
 			if err != nil {
-				m.logger.Error().Err(err).Str("userid", user.Id.OpaqueId).Msg("Error getting token for autoprovisioned user")
+				m.logger.Error().Err(err).Str("userid", newuser.Id.OpaqueId).Msg("Error getting token for autoprovisioned user")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}

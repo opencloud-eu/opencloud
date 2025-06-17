@@ -869,8 +869,8 @@ github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-202505121527
 github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a/go.mod h1:pjcozWijkNPbEtX5SIQaxEW/h8VAVZYTLx+70bmB3LY=
 github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250603072916-fa601fb14450 h1:QWn9G2f1R/EbyZSbkjtd9jqNq9X0NIphmmD4KYLNZtA=
 github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250603072916-fa601fb14450/go.mod h1:pzatilMEHZFT3qV7C/X3MqOa3NlRQuYhlRhZTL+hN6Q=
-github.com/opencloud-eu/reva/v2 v2.33.2-0.20250612080213-85468735dbd6 h1:9NUMVWfrRIJtm41kPNc4bXjCsaIyerumuMx3rnFYNro=
-github.com/opencloud-eu/reva/v2 v2.33.2-0.20250612080213-85468735dbd6/go.mod h1:o3ilVD4jpf3v6nk2oG9D7rCh/TRVEBAUOzH9z83d+Yc=
+github.com/opencloud-eu/reva/v2 v2.33.2-0.20250617081629-b8210a01030e h1:NGAlzzIwtWBBHON+jyXlLwAlIe2v9PVpT90qSu+qLeA=
+github.com/opencloud-eu/reva/v2 v2.33.2-0.20250617081629-b8210a01030e/go.mod h1:ky99pvvufLA7wxDHo5RoImfm4H9QqSyvZAHPkcdFTi8=
 github.com/opentracing/opentracing-go v1.1.0/go.mod h1:UkNAQd3GIcIGf0SeVgPpRdFStlNbqXla1AfSYxPUl2o=
 github.com/opentracing/opentracing-go v1.2.0 h1:uEJPy/1a5RIPAJ0Ov+OIO8OxWu77jEv+1B0VhjKrZUs=
 github.com/opentracing/opentracing-go v1.2.0/go.mod h1:GxEUsuufX4nBwe+T+Wl9TAgYrxe9dPLANfrWvHYVTgc=

@@ -26,6 +26,7 @@ import (
 	"io"
 	"net/http"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -60,6 +61,8 @@ import (
 //
 // we stick to the recommendation and use the URN Namespace
 const lockTokenPrefix = "urn:uuid:"
+
+var requestLockRegex = regexp.MustCompile(`\(<(urn:uuid:[0-9a-fA-F-]+)>\)`)
 
 // TODO(jfd) implement lock
 // see Web Distributed Authoring and Versioning (WebDAV) Locking Protocol:
@@ -694,6 +697,11 @@ func (s *svc) unlockReference(ctx context.Context, _ http.ResponseWriter, r *htt
 	return http.StatusInternalServerError, err
 }
 
-func requestLockToken(r *http.Request) string {
-	return strings.TrimSuffix(strings.TrimPrefix(r.Header.Get(net.HeaderLockToken), "<"), ">")
+func requestLock(r *http.Request) string {
+	matches := requestLockRegex.FindStringSubmatch(r.Header.Get(net.HeaderIf))
+	if len(matches) < 2 {
+		return ""
+	}
+
+	return matches[1] // the first match is the whole string, the second is the token
 }

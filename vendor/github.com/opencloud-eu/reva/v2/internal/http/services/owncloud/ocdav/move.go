@@ -297,7 +297,7 @@ func (s *svc) handleMove(ctx context.Context, w http.ResponseWriter, r *http.Req
 	mReq := &provider.MoveRequest{
 		Source:      src,
 		Destination: dst,
-		LockId:      requestLockToken(r),
+		LockId:      requestLock(r),
 	}
 	mRes, err := client.Move(ctx, mReq)
 	if err != nil {
