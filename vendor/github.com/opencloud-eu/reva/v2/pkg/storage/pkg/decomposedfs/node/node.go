@@ -505,12 +505,17 @@ func (n *Node) Child(ctx context.Context, name string) (*Node, error) {
 		return nil, err
 	}
 
-	c, err = ReadNode(ctx, n.lu, spaceID, nodeID, false, n.SpaceRoot, true)
+	readNode, err := ReadNode(ctx, n.lu, spaceID, nodeID, false, n.SpaceRoot, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read child node")
 	}
+	if !readNode.Exists {
+		// if the node does not exist we return the manually crafted node instead which contains more
+		// information than the read node, e.g. the parent id and the name
+		return c, nil
+	}
 
-	return c, nil
+	return readNode, nil
 }
 
 // ParentWithReader returns the parent node
