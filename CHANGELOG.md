@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.1.0) - 2025-06-17
+## [3.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.1.0) - 2025-06-19
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -17,6 +17,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/KimMachineGun/automemlimit from 0.7.2 to 0.7.3 [[#1062](https://github.com/opencloud-eu/opencloud/pull/1062)]
 - Bump reva to pull in the latest fixes [[#1063](https://github.com/opencloud-eu/opencloud/pull/1063)]
 - build(deps): bump go.etcd.io/bbolt from 1.4.0 to 1.4.1 [[#1045](https://github.com/opencloud-eu/opencloud/pull/1045)]
 - build(deps): bump google.golang.org/grpc from 1.72.2 to 1.73.0 [[#1034](https://github.com/opencloud-eu/opencloud/pull/1034)]
