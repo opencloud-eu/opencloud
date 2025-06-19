@@ -17,6 +17,8 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.26.3 to 2.27.0 [[#1072](https://github.com/opencloud-eu/opencloud/pull/1072)]
+- build(deps): bump github.com/jellydator/ttlcache/v3 from 3.3.0 to 3.4.0 [[#1071](https://github.com/opencloud-eu/opencloud/pull/1071)]
 - build(deps): bump github.com/urfave/cli/v2 from 2.27.6 to 2.27.7 [[#1061](https://github.com/opencloud-eu/opencloud/pull/1061)]
 - build(deps): bump github.com/KimMachineGun/automemlimit from 0.7.2 to 0.7.3 [[#1062](https://github.com/opencloud-eu/opencloud/pull/1062)]
 - Bump reva to pull in the latest fixes [[#1063](https://github.com/opencloud-eu/opencloud/pull/1063)]
