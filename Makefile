@@ -65,7 +65,8 @@ OC_MODULES = \
 	services/webdav\
 	services/webfinger\
 	opencloud \
-	pkg
+	pkg \
+	protogen
 
 # bin file definitions
 PHP_CS_FIXER=php -d zend.enable_gc=0 vendor-bin/opencloud-codestyle/vendor/bin/php-cs-fixer
@@ -350,4 +351,3 @@ generate-qa-activity-report: node_modules
 		exit 1; \
 	fi
 	go run tests/qa-activity-report/generate-qa-activity-report.go --month ${MONTH} --year ${YEAR}
-

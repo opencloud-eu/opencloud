@@ -1,18 +1,14 @@
-issue-845-fix: True
-resolve-type-alias: False
-with-expecter: true
-disable-version-string: True
+# maintain v2 separate mocks dir
+dir: "{{.InterfaceDir}}/mocks"
+structname: "{{.InterfaceName}}"
 filename: "{{.InterfaceName | snakecase }}.go"
-mockname: "{{.InterfaceName}}"
-outpkg: "mocks"
+pkgname: mocks
+
+template: testify
 packages:
-    github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend:
-        config:
-          dir: "pkg/user/backend/mocks"
-        interfaces:
-            UserBackend:
-    github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles:
-        config:
-          dir: "pkg/userroles/mocks"
-        interfaces:
-            UserRoleAssigner:
+  github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend:
+    interfaces:
+      UserBackend: {}
+  github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles:
+    interfaces:
+      UserRoleAssigner: {}

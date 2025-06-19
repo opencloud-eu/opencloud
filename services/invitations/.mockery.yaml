@@ -1,13 +1,13 @@
-issue-845-fix: True
-resolve-type-alias: False
-with-expecter: true
-disable-version-string: True
+# maintain v2 separate mocks dir
+dir: "{{.InterfaceDir}}/mocks"
+structname: "{{.InterfaceName}}"
 filename: "{{.InterfaceName | snakecase }}.go"
-mockname: "{{.InterfaceName}}"
-outpkg: "mocks"
+pkgname: mocks
+
+template: testify
 packages:
-    github.com/opencloud-eu/opencloud/pkg/keycloak:
-        config:
-            dir: "pkg/backends/keycloak/mocks"
-        interfaces:
-            Client:
+  github.com/opencloud-eu/opencloud/pkg/keycloak:
+    config:
+      dir: pkg/backends/keycloak/mocks
+    interfaces:
+      Client: {}

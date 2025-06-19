@@ -1,24 +1,23 @@
-issue-845-fix: True
-resolve-type-alias: False
-with-expecter: true
-disable-version-string: True
-filename: "{{.InterfaceName | snakecase }}.go"
+# maintain v2 separate mocks dir
 dir: "{{.InterfaceDir}}/mocks"
-mockname: "{{.InterfaceName}}"
-outpkg: "mocks"
+structname: "{{.InterfaceName}}"
+filename: "{{.InterfaceName | snakecase }}.go"
+pkgname: mocks
+
+template: testify
 packages:
-    github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0:
-        interfaces:
-            EventHistoryService:
-    github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/policies/v0:
-        interfaces:
-            PoliciesProviderService:
-    github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0:
-        interfaces:
-            SearchProviderService:
-    github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0:
-        interfaces:
-            ValueService:
-    github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/thumbnails/v0:
-        interfaces:
-            ThumbnailService:
+  github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0:
+    interfaces:
+      EventHistoryService: {}
+  github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/policies/v0:
+    interfaces:
+      PoliciesProviderService: {}
+  github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0:
+    interfaces:
+      SearchProviderService: {}
+  github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0:
+    interfaces:
+      ValueService: {}
+  github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/thumbnails/v0:
+    interfaces:
+      ThumbnailService: {}

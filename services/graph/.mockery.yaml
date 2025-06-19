@@ -1,49 +1,47 @@
-issue-845-fix: True
-resolve-type-alias: False
-with-expecter: true
-disable-version-string: True
+# maintain v2 separate mocks dir
+dir: "{{.InterfaceDir}}/mocks"
+structname: "{{.InterfaceName}}"
 filename: "{{.InterfaceName | snakecase }}.go"
-mockname: "{{.InterfaceName}}"
-outpkg: "mocks"
+pkgname: mocks
+
+template: testify
 packages:
-    github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0:
+  github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0:
+    config:
+      dir: mocks
+    interfaces:
+      BaseGraphProvider: {}
+      DrivesDriveItemProvider: {}
+      DriveItemPermissionsProvider: {}
+      HTTPClient: {}
+      Permissions: {}
+      RoleService: {}
+      UsersUserProfilePhotoProvider: {}
+  github.com/opencloud-eu/reva/v2/pkg/events:
+    config:
+      dir: mocks
+    interfaces:
+      Publisher: {}
+  github.com/opencloud-eu/reva/v2/pkg/storage/utils/metadata:
+    config:
+      dir: mocks
+    interfaces:
+      Storage: {}
+  github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool:
+    config:
+      dir: mocks
+    interfaces:
+      Selectable:
         config:
-            dir: "mocks"
-        interfaces:
-            BaseGraphProvider:
-            DrivesDriveItemProvider:
-            DriveItemPermissionsProvider:
-            HTTPClient:
-            Permissions:
-            RoleService:
-            UsersUserProfilePhotoProvider:
-    github.com/opencloud-eu/reva/v2/pkg/events:
+          filename: gateway_selector.go
+  github.com/opencloud-eu/opencloud/services/graph/pkg/identity:
+    interfaces:
+      Backend: {}
+      EducationBackend: {}
+  github.com/go-ldap/ldap/v3:
+    config:
+      dir: pkg/identity/mocks
+    interfaces:
+      Client:
         config:
-            dir: "mocks"
-        interfaces:
-            Publisher:
-    github.com/opencloud-eu/reva/v2/pkg/storage/utils/metadata:
-        config:
-            dir: "mocks"
-        interfaces:
-            Storage:
-    github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool:
-        config:
-            dir: "mocks"
-        interfaces:
-            Selectable:
-              config:
-                filename: "gateway_selector.go"
-    github.com/opencloud-eu/opencloud/services/graph/pkg/identity:
-        config:
-            dir: "pkg/identity/mocks"
-        interfaces:
-            Backend:
-            EducationBackend:
-    github.com/go-ldap/ldap/v3:
-        config:
-            dir: "pkg/identity/mocks"
-        interfaces:
-            Client:
-                config:
-                    filename: "ldapclient.go"
+          filename: ldapclient.go
