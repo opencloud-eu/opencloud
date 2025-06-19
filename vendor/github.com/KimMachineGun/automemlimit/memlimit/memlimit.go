@@ -169,7 +169,7 @@ func SetGoMemLimitWithOpts(opts ...Option) (_ int64, _err error) {
 
 	// set the memory limit and start refresh
 	limit, err := updateGoMemLimit(uint64(snapshot), provider, cfg.logger)
-	go refresh(provider, cfg.logger, cfg.refresh)
+	refresh(provider, cfg.logger, cfg.refresh)
 	if err != nil {
 		if errors.Is(err, ErrNoLimit) {
 			cfg.logger.Info("memory is not limited, skipping")
@@ -200,7 +200,7 @@ func updateGoMemLimit(currLimit uint64, provider Provider, logger *slog.Logger) 
 	return newLimit, nil
 }
 
-// refresh periodically fetches the memory limit from the provider and reapplies it if it has changed.
+// refresh spawns a goroutine that runs every refresh duration and updates the GOMEMLIMIT if it has changed.
 // See more details in the documentation of WithRefreshInterval.
 func refresh(provider Provider, logger *slog.Logger, refresh time.Duration) {
 	if refresh == 0 {
@@ -210,22 +210,24 @@ func refresh(provider Provider, logger *slog.Logger, refresh time.Duration) {
 	provider = noErrNoLimitProvider(provider)
 
 	t := time.NewTicker(refresh)
-	for range t.C {
-		err := func() (_err error) {
-			snapshot := debug.SetMemoryLimit(-1)
-			defer rollbackOnPanic(logger, snapshot, &_err)
+	go func() {
+		for range t.C {
+			err := func() (_err error) {
+				snapshot := debug.SetMemoryLimit(-1)
+				defer rollbackOnPanic(logger, snapshot, &_err)
 
-			_, err := updateGoMemLimit(uint64(snapshot), provider, logger)
+				_, err := updateGoMemLimit(uint64(snapshot), provider, logger)
+				if err != nil {
+					return err
+				}
+
+				return nil
+			}()
 			if err != nil {
-				return err
+				logger.Error("failed to refresh GOMEMLIMIT", slog.Any("error", err))
 			}
-
-			return nil
-		}()
-		if err != nil {
-			logger.Error("failed to refresh GOMEMLIMIT", slog.Any("error", err))
 		}
-	}
+	}()
 }
 
 // rollbackOnPanic rollbacks to the snapshot on panic.
