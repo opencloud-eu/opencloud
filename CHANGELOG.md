@@ -17,6 +17,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/urfave/cli/v2 from 2.27.6 to 2.27.7 [[#1061](https://github.com/opencloud-eu/opencloud/pull/1061)]
 - build(deps): bump github.com/KimMachineGun/automemlimit from 0.7.2 to 0.7.3 [[#1062](https://github.com/opencloud-eu/opencloud/pull/1062)]
 - Bump reva to pull in the latest fixes [[#1063](https://github.com/opencloud-eu/opencloud/pull/1063)]
 - build(deps): bump go.etcd.io/bbolt from 1.4.0 to 1.4.1 [[#1045](https://github.com/opencloud-eu/opencloud/pull/1045)]
