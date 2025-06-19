@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@aduffeck, @fschade, @rhafer
+@06kellyjac, @aduffeck, @fschade, @rhafer
 
 ### 📚 Documentation
 
