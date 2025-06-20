@@ -103,7 +103,7 @@ Explain the problem and include additional details to help maintainers reproduce
 Provide more context by answering these questions:
 
 *   **Did the problem start happening recently** (e.g. after updating to a new version) or was this always a problem?
-*   If the problem started happening recently, **can you reproduce the problem in an older version?** What's the most recent version in which the problem doesn't happen? You can find more information about how to set up [test environments](https://docs.opencloud.eu/devel/testing) in the [developer documentation](https://docs.opencloud.eu/devel).
+*   If the problem started happening recently, **can you reproduce the problem in an older version?** What's the most recent version in which the problem doesn't happen? You can find more information about how to set up [test environments](https://docs.opencloud.eu/devel/testing) in the [developer documentation](https://docs.opencloud.eu/docs/dev/intro).
 *   **Can you reliably reproduce the issue?** If not, provide details about how often the problem happens and under which conditions it normally happens.
 
 Include details about your configuration and environment as asked for in the template.
@@ -139,7 +139,7 @@ Unsure where to begin contributing to OpenCloud? You can start by looking throug
 
 It is fine to pick one of the list following personal preference. While not perfect, number of comments is a reasonable proxy for impact a given change will have.
 
-To find out how to set up OpenCloud for local development please refer to the [Developer Documentation](https://docs.opencloud.eu/devel/getting-started). It contains a lot of information that will come in handy when starting to work on the project.
+To find out how to set up OpenCloud for local development please refer to the [Developer Documentation](https://docs.opencloud.eu/docs/dev/web/getting-started). It contains a lot of information that will come in handy when starting to work on the project.
 
 ### Pull Requests
 
