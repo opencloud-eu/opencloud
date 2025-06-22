@@ -244,7 +244,7 @@ var _ = Describe("Discovery", func() {
 			Expect(err).To(Succeed())
 			Expect(resp.GetStatus().GetCode()).To(Equal(rpcv1beta1.Code_CODE_OK))
 			Expect(resp.GetAppUrl().GetMethod()).To(Equal("POST"))
-			Expect(resp.GetAppUrl().GetAppUrl()).To(Equal("https://cloud.opencloud.test/hosting/wopi/word/edit?UI_LLCC=en-US&WOPISrc=https%3A%2F%2Foffice.proxy.opencloud.test%2Fwopi%2Ffiles%2FeyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1IjoiaHR0cHM6Ly93b3BpLm9wZW5jbG91ZC50ZXN0L3dvcGkvZmlsZXMvIiwiZiI6IjJmNmVjMTg2OTZkZDEwMDgxMDY3NDliZDk0MTA2ZTVjZmFkNWMwOWUxNWRlN2I3NzA4OGQwMzg0M2U3MWI0M2UifQ.j873xu7TkqtIokSIQXW5y7-BRRrHgIURqAx4WY_zxTA"))
+			Expect(resp.GetAppUrl().GetAppUrl()).To(Equal("https://cloud.opencloud.test/hosting/wopi/word/edit?UI_LLCC=en-GB&WOPISrc=https%3A%2F%2Foffice.proxy.opencloud.test%2Fwopi%2Ffiles%2FeyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1IjoiaHR0cHM6Ly93b3BpLm9wZW5jbG91ZC50ZXN0L3dvcGkvZmlsZXMvIiwiZiI6IjJmNmVjMTg2OTZkZDEwMDgxMDY3NDliZDk0MTA2ZTVjZmFkNWMwOWUxNWRlN2I3NzA4OGQwMzg0M2U3MWI0M2UifQ.j873xu7TkqtIokSIQXW5y7-BRRrHgIURqAx4WY_zxTA"))
 			Expect(resp.GetAppUrl().GetFormParameters()["access_token_ttl"]).To(Equal(strconv.FormatInt(nowTime.Add(5*time.Hour).Unix()*1000, 10)))
 		})
 		It("Fail with invalid app url", func() {
@@ -372,7 +372,7 @@ var _ = Describe("Discovery", func() {
 			Expect(err).To(Succeed())
 			Expect(resp.GetStatus().GetCode()).To(Equal(rpcv1beta1.Code_CODE_OK))
 			Expect(resp.GetAppUrl().GetMethod()).To(Equal("POST"))
-			Expect(resp.GetAppUrl().GetAppUrl()).To(Equal("https://cloud.opencloud.test/hosting/wopi/word/edit?WOPISrc=htttps%3A%2F%2Fwopi.opencloud.test%2Fwopi%2Ffiles%2F2f6ec18696dd1008106749bd94106e5cfad5c09e15de7b77088d03843e71b43e&ui=en-US"))
+			Expect(resp.GetAppUrl().GetAppUrl()).To(Equal("https://cloud.opencloud.test/hosting/wopi/word/edit?WOPISrc=htttps%3A%2F%2Fwopi.opencloud.test%2Fwopi%2Ffiles%2F2f6ec18696dd1008106749bd94106e5cfad5c09e15de7b77088d03843e71b43e&ui=en-GB"))
 			Expect(resp.GetAppUrl().GetFormParameters()["access_token_ttl"]).To(Equal(strconv.FormatInt(nowTime.Add(5*time.Hour).Unix()*1000, 10)))
 		})
 	})
