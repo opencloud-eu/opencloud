@@ -258,7 +258,7 @@ func (s *Service) addQueryToURL(baseURL string, req *appproviderv1beta1.OpenInAp
 	case "de":
 		lang = "de-DE"
 	case "en":
-		lang = "en-US"
+		lang = "en-GB"
 	case "es":
 		lang = "es-ES"
 	case "fr":
