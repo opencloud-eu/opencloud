@@ -1,13 +1,14 @@
 # Changelog
 
-## [3.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.1.0) - 2025-06-19
+## [3.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.1.0) - 2025-06-22
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@06kellyjac, @aduffeck, @fschade, @rhafer
+@06kellyjac, @Leander-Wendt, @aduffeck, @fschade, @rhafer
 
 ### 📚 Documentation
 
+- Update the href of CONTRIBUTING to the dev docs [[#1077](https://github.com/opencloud-eu/opencloud/pull/1077)]
 - fix(docs): WEB_ASSET_PATH was still mentioned in the web readme [[#943](https://github.com/opencloud-eu/opencloud/pull/943)]
 - Fix link in CONTRIBUTING.md [[#1048](https://github.com/opencloud-eu/opencloud/pull/1048)]
 
