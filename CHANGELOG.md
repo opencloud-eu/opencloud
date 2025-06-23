@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.1.0) - 2025-06-22
+## [3.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.1.0) - 2025-06-23
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -18,6 +18,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/go-chi/chi/v5 from 5.2.1 to 5.2.2 [[#1075](https://github.com/opencloud-eu/opencloud/pull/1075)]
 - build(deps): bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.26.3 to 2.27.0 [[#1072](https://github.com/opencloud-eu/opencloud/pull/1072)]
 - build(deps): bump github.com/jellydator/ttlcache/v3 from 3.3.0 to 3.4.0 [[#1071](https://github.com/opencloud-eu/opencloud/pull/1071)]
 - build(deps): bump github.com/urfave/cli/v2 from 2.27.6 to 2.27.7 [[#1061](https://github.com/opencloud-eu/opencloud/pull/1061)]
