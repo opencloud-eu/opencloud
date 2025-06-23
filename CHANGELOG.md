@@ -4,7 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@06kellyjac, @Leander-Wendt, @aduffeck, @fschade, @rhafer
+@06kellyjac, @AlexAndBear, @Leander-Wendt, @aduffeck, @fschade, @rhafer
+
+### 🐛 Bug Fixes
+
+- fix: collabora use metrics instead of imperial metric system [[#1086](https://github.com/opencloud-eu/opencloud/pull/1086)]
 
 ### 📚 Documentation
 
