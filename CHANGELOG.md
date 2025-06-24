@@ -6,6 +6,10 @@
 
 @06kellyjac, @AlexAndBear, @Leander-Wendt, @aduffeck, @fschade, @individual-it, @rhafer
 
+### ✨ Features
+
+- feat: adjust space template image to match brand color [[#1098](https://github.com/opencloud-eu/opencloud/pull/1098)]
+
 ### 🐛 Bug Fixes
 
 - fix: collabora use metrics instead of imperial metric system [[#1086](https://github.com/opencloud-eu/opencloud/pull/1086)]
