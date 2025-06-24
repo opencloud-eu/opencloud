@@ -16,10 +16,7 @@ directives:
     - 'blob:'
     - 'https://embed.diagrams.net/'
   img-src:
-    - '''self'''
-    - 'data:'
-    - 'blob:'
-    - 'https://raw.githubusercontent.com/opencloud-eu/awesome/'
+  - '''*'''
   manifest-src:
     - '''self'''
   media-src:
