@@ -16,7 +16,7 @@ directives:
     - 'blob:'
     - 'https://embed.diagrams.net/'
   img-src:
-  - '''*'''
+    - '*'
   manifest-src:
     - '''self'''
   media-src:

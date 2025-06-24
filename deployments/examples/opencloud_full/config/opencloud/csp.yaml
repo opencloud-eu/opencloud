@@ -23,12 +23,7 @@ directives:
     # This is needed for the external-sites web extension when embedding sites
     - 'https://docs.opencloud.eu'
   img-src:
-    - '''self'''
-    - 'data:'
-    - 'blob:'
-    - 'https://raw.githubusercontent.com/opencloud-eu/awesome-apps/'
-    # In contrary to bash and docker the default is given after the | character
-    - 'https://${COLLABORA_DOMAIN|collabora.opencloud.test}/'
+    - '*'
   manifest-src:
     - '''self'''
   media-src:
