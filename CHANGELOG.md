@@ -1,10 +1,10 @@
 # Changelog
 
-## [3.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.1.0) - 2025-06-23
+## [3.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.1.0) - 2025-06-24
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@06kellyjac, @AlexAndBear, @Leander-Wendt, @aduffeck, @fschade, @rhafer
+@06kellyjac, @AlexAndBear, @Leander-Wendt, @aduffeck, @fschade, @individual-it, @rhafer
 
 ### 🐛 Bug Fixes
 
