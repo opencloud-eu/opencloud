@@ -28,6 +28,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc from 1.36.0 to 1.37.0 [[#1111](https://github.com/opencloud-eu/opencloud/pull/1111)]
 - build(deps): bump go.opentelemetry.io/otel from 1.36.0 to 1.37.0 [[#1112](https://github.com/opencloud-eu/opencloud/pull/1112)]
 - build(deps): bump github.com/go-chi/chi/v5 from 5.2.1 to 5.2.2 [[#1075](https://github.com/opencloud-eu/opencloud/pull/1075)]
 - build(deps): bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.26.3 to 2.27.0 [[#1072](https://github.com/opencloud-eu/opencloud/pull/1072)]
