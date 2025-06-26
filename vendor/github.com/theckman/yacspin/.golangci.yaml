@@ -1,0 +1,71 @@
+run:
+  tests: true
+
+# all available settings of specific linters
+linters-settings:
+  govet:
+    # report about shadowed variables
+    check-shadowing: true
+  gofmt:
+    # simplify code: gofmt with `-s` option, true by default
+    simplify: true
+  dupl:
+    # tokens count to trigger issue, 150 by default
+    threshold: 100
+  goconst:
+    # minimal length of string constant, 3 by default
+    min-len: 3
+    # minimal occurrences count to trigger, 3 by default
+    min-occurrences: 3
+  misspell:
+    # Correct spellings using locale preferences for US or UK.
+    # Default is to use a neutral variety of English.
+    # Setting locale to US will correct the British spelling of 'colour' to 'color'.
+    locale: US
+  staticcheck:
+    checks: [ "all" ]
+  revive:
+    confidence: 0.8
+    ignore-generated-header: true
+    rules:
+      - name: context-keys-type
+      - name: time-naming
+      - name: var-declaration
+      - name: unexported-return
+      - name: errorf
+      - name: blank-imports
+      - name: context-as-argument
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+      - name: increment-decrement
+      - name: var-naming
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: indent-error-flow
+      - name: superfluous-else
+      - name: struct-tag
+      - name: modifies-value-receiver
+      - name: range-val-in-closure
+      - name: range-val-address
+      - name: atomic
+      - name: empty-lines
+      - name: early-return
+      - name: useless-break
+
+linters:
+  enable:
+    - revive
+    - govet
+    - gosec
+    - staticcheck
+    - typecheck
+  fast: false
+
+issues:
+  exclude-use-default: false
+  exclude:
+    - G104

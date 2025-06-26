@@ -374,9 +374,7 @@ MINIO_MC_ENV = {
     "CACHE_BUCKET": {
         "from_secret": "cache_s3_bucket",
     },
-    "MC_HOST": {
-        "from_secret": "cache_s3_server",
-    },
+    "MC_HOST": CACHE_S3_SERVER,
     "AWS_ACCESS_KEY_ID": {
         "from_secret": "cache_s3_access_key",
     },
