@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.1.0) - 2025-06-24
+## [3.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.1.0) - 2025-06-26
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -9,6 +9,12 @@
 ### ✨ Features
 
 - feat: adjust space template image to match brand color [[#1098](https://github.com/opencloud-eu/opencloud/pull/1098)]
+
+### 📈 Enhancement
+
+- Add a "posixfs consistency" command [[#1091](https://github.com/opencloud-eu/opencloud/pull/1091)]
+- feat: add accessibility url to theme.json files [[#1108](https://github.com/opencloud-eu/opencloud/pull/1108)]
+- cleanup: Avoid fetching group membership when not needed [[#1036](https://github.com/opencloud-eu/opencloud/pull/1036)]
 
 ### 🐛 Bug Fixes
 
@@ -20,12 +26,9 @@
 - fix(docs): WEB_ASSET_PATH was still mentioned in the web readme [[#943](https://github.com/opencloud-eu/opencloud/pull/943)]
 - Fix link in CONTRIBUTING.md [[#1048](https://github.com/opencloud-eu/opencloud/pull/1048)]
 
-### 📈 Enhancement
-
-- cleanup: Avoid fetching group membership when not needed [[#1036](https://github.com/opencloud-eu/opencloud/pull/1036)]
-
 ### 📦️ Dependencies
 
+- build(deps): bump go.opentelemetry.io/otel from 1.36.0 to 1.37.0 [[#1112](https://github.com/opencloud-eu/opencloud/pull/1112)]
 - build(deps): bump github.com/go-chi/chi/v5 from 5.2.1 to 5.2.2 [[#1075](https://github.com/opencloud-eu/opencloud/pull/1075)]
 - build(deps): bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.26.3 to 2.27.0 [[#1072](https://github.com/opencloud-eu/opencloud/pull/1072)]
 - build(deps): bump github.com/jellydator/ttlcache/v3 from 3.3.0 to 3.4.0 [[#1071](https://github.com/opencloud-eu/opencloud/pull/1071)]
