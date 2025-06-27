@@ -10,6 +10,13 @@
 
 - feat: adjust space template image to match brand color [[#1098](https://github.com/opencloud-eu/opencloud/pull/1098)]
 
+### 📚 Documentation
+
+- [full-ci] chore: bump web to v3.1.0 [[#1129](https://github.com/opencloud-eu/opencloud/pull/1129)]
+- Update the href of CONTRIBUTING to the dev docs [[#1077](https://github.com/opencloud-eu/opencloud/pull/1077)]
+- fix(docs): WEB_ASSET_PATH was still mentioned in the web readme [[#943](https://github.com/opencloud-eu/opencloud/pull/943)]
+- Fix link in CONTRIBUTING.md [[#1048](https://github.com/opencloud-eu/opencloud/pull/1048)]
+
 ### 📈 Enhancement
 
 - feat: re-enable Save As and Export in collabora [[#1119](https://github.com/opencloud-eu/opencloud/pull/1119)]
@@ -20,12 +27,6 @@
 ### 🐛 Bug Fixes
 
 - fix: collabora use metrics instead of imperial metric system [[#1086](https://github.com/opencloud-eu/opencloud/pull/1086)]
-
-### 📚 Documentation
-
-- Update the href of CONTRIBUTING to the dev docs [[#1077](https://github.com/opencloud-eu/opencloud/pull/1077)]
-- fix(docs): WEB_ASSET_PATH was still mentioned in the web readme [[#943](https://github.com/opencloud-eu/opencloud/pull/943)]
-- Fix link in CONTRIBUTING.md [[#1048](https://github.com/opencloud-eu/opencloud/pull/1048)]
 
 ### 📦️ Dependencies
 
