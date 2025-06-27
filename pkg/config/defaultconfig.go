@@ -14,6 +14,7 @@ import (
 	authservice "github.com/opencloud-eu/opencloud/services/auth-service/pkg/config/defaults"
 	clientlog "github.com/opencloud-eu/opencloud/services/clientlog/pkg/config/defaults"
 	collaboration "github.com/opencloud-eu/opencloud/services/collaboration/pkg/config/defaults"
+	console "github.com/opencloud-eu/opencloud/services/console/pkg/config/defaults"
 	eventhistory "github.com/opencloud-eu/opencloud/services/eventhistory/pkg/config/defaults"
 	frontend "github.com/opencloud-eu/opencloud/services/frontend/pkg/config/defaults"
 	gateway "github.com/opencloud-eu/opencloud/services/gateway/pkg/config/defaults"
@@ -69,6 +70,7 @@ func DefaultConfig() *Config {
 		AuthService:       authservice.DefaultConfig(),
 		Clientlog:         clientlog.DefaultConfig(),
 		Collaboration:     collaboration.DefaultConfig(),
+		Console:           console.DefaultConfig(),
 		EventHistory:      eventhistory.DefaultConfig(),
 		Frontend:          frontend.DefaultConfig(),
 		Gateway:           gateway.DefaultConfig(),

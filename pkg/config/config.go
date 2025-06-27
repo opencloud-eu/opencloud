@@ -14,6 +14,7 @@ import (
 	authservice "github.com/opencloud-eu/opencloud/services/auth-service/pkg/config"
 	clientlog "github.com/opencloud-eu/opencloud/services/clientlog/pkg/config"
 	collaboration "github.com/opencloud-eu/opencloud/services/collaboration/pkg/config"
+	console "github.com/opencloud-eu/opencloud/services/console/pkg/config"
 	eventhistory "github.com/opencloud-eu/opencloud/services/eventhistory/pkg/config"
 	frontend "github.com/opencloud-eu/opencloud/services/frontend/pkg/config"
 	gateway "github.com/opencloud-eu/opencloud/services/gateway/pkg/config"
@@ -94,6 +95,7 @@ type Config struct {
 	AuthService       *authservice.Config    `yaml:"auth_service"`
 	Clientlog         *clientlog.Config      `yaml:"clientlog"`
 	Collaboration     *collaboration.Config  `yaml:"collaboration"`
+	Console           *console.Config        `yaml:"console"`
 	EventHistory      *eventhistory.Config   `yaml:"eventhistory"`
 	Frontend          *frontend.Config       `yaml:"frontend"`
 	Gateway           *gateway.Config        `yaml:"gateway"`

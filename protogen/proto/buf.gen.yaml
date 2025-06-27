@@ -25,6 +25,7 @@ plugins:
          opencloud.services.eventhistory.v0;\
          opencloud.messages.eventhistory.v0;\
          opencloud.services.policies.v0;\
+         opencloud.services.web.v0;\
          opencloud.messages.policies.v0"
 
   - name: openapiv2

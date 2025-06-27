@@ -15,6 +15,11 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/mohae/deepcopy"
 	"github.com/olekukonko/tablewriter"
+	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
+	"github.com/opencloud-eu/reva/v2/pkg/logger"
+	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/thejerf/suture/v4"
+
 	occfg "github.com/opencloud-eu/opencloud/pkg/config"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
@@ -31,6 +36,7 @@ import (
 	authservice "github.com/opencloud-eu/opencloud/services/auth-service/pkg/command"
 	clientlog "github.com/opencloud-eu/opencloud/services/clientlog/pkg/command"
 	collaboration "github.com/opencloud-eu/opencloud/services/collaboration/pkg/command"
+	console "github.com/opencloud-eu/opencloud/services/console/pkg/command"
 	eventhistory "github.com/opencloud-eu/opencloud/services/eventhistory/pkg/command"
 	frontend "github.com/opencloud-eu/opencloud/services/frontend/pkg/command"
 	gateway "github.com/opencloud-eu/opencloud/services/gateway/pkg/command"
@@ -61,10 +67,6 @@ import (
 	web "github.com/opencloud-eu/opencloud/services/web/pkg/command"
 	webdav "github.com/opencloud-eu/opencloud/services/webdav/pkg/command"
 	webfinger "github.com/opencloud-eu/opencloud/services/webfinger/pkg/command"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
-	"github.com/opencloud-eu/reva/v2/pkg/logger"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/thejerf/suture/v4"
 )
 
 var (
@@ -333,6 +335,11 @@ func NewService(ctx context.Context, options ...Option) (*Service, error) {
 		cfg.Collaboration.Context = ctx
 		cfg.Collaboration.Commons = cfg.Commons
 		return collaboration.Execute(cfg.Collaboration)
+	})
+	areg(opts.Config.Console.Service.Name, func(ctx context.Context, cfg *occfg.Config) error {
+		cfg.Console.Context = ctx
+		cfg.Console.Commons = cfg.Commons
+		return console.Execute(cfg.Console)
 	})
 	areg(opts.Config.Policies.Service.Name, func(ctx context.Context, cfg *occfg.Config) error {
 		cfg.Policies.Context = ctx

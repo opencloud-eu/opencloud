@@ -6,7 +6,6 @@ import (
 
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"go-micro.dev/v4"
 
 	"github.com/opencloud-eu/opencloud/pkg/cors"
 	"github.com/opencloud-eu/opencloud/pkg/middleware"
@@ -16,7 +15,10 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/x/io/fsx"
 	"github.com/opencloud-eu/opencloud/services/web"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/apps"
+	"github.com/opencloud-eu/opencloud/services/web/pkg/fs"
 	svc "github.com/opencloud-eu/opencloud/services/web/pkg/service/v0"
+
+	"go-micro.dev/v4"
 )
 
 var (
@@ -71,10 +73,11 @@ func Server(opts ...Option) (http.Service, error) {
 		fsx.NewBasePathFs(fsx.NewOsFs(), options.Config.Asset.CorePath),
 		fsx.NewBasePathFs(fsx.FromIOFS(web.Assets), "assets/core"),
 	)
-	themeFS := fsx.NewFallbackFS(
-		fsx.NewBasePathFs(fsx.NewOsFs(), options.Config.Asset.ThemesPath),
-		fsx.NewBasePathFs(fsx.FromIOFS(web.Assets), "assets/themes"),
-	)
+
+	themeFS, err := fs.NewThemeFS(options.Config)
+	if err != nil {
+		return http.Service{}, fmt.Errorf("could not initialize theme filesystem: %w", err)
+	}
 
 	handle, err := svc.NewService(
 		svc.Logger(options.Logger),
