@@ -29,6 +29,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc from 0.61.0 to 0.62.0 [[#1122](https://github.com/opencloud-eu/opencloud/pull/1122)]
 - build(deps): bump go.opentelemetry.io/contrib/zpages from 0.61.0 to 0.62.0 [[#1123](https://github.com/opencloud-eu/opencloud/pull/1123)]
 - build(deps): bump go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc from 1.36.0 to 1.37.0 [[#1111](https://github.com/opencloud-eu/opencloud/pull/1111)]
 - build(deps): bump go.opentelemetry.io/otel from 1.36.0 to 1.37.0 [[#1112](https://github.com/opencloud-eu/opencloud/pull/1112)]
