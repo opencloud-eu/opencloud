@@ -1,10 +1,10 @@
 # Changelog
 
-## [3.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.1.0) - 2025-06-26
+## [3.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.1.0) - 2025-06-27
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@06kellyjac, @AlexAndBear, @Leander-Wendt, @aduffeck, @fschade, @individual-it, @rhafer
+@06kellyjac, @AlexAndBear, @Leander-Wendt, @aduffeck, @fschade, @individual-it, @kulmann, @rhafer
 
 ### ✨ Features
 
@@ -12,6 +12,7 @@
 
 ### 📈 Enhancement
 
+- feat: re-enable Save As and Export in collabora [[#1119](https://github.com/opencloud-eu/opencloud/pull/1119)]
 - Add a "posixfs consistency" command [[#1091](https://github.com/opencloud-eu/opencloud/pull/1091)]
 - feat: add accessibility url to theme.json files [[#1108](https://github.com/opencloud-eu/opencloud/pull/1108)]
 - cleanup: Avoid fetching group membership when not needed [[#1036](https://github.com/opencloud-eu/opencloud/pull/1036)]
