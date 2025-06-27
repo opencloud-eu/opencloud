@@ -101,7 +101,7 @@ func checkPosixfsConsistency(c *cli.Context, cfg *config.Config) error {
 
 	checkSpaces(filepath.Join(rootPath, "users"))
 	spinner.Suffix(" Personal spaces check ")
-	spinner.StopMessage("completed")
+	spinner.StopMessage("completed\n")
 	spinner.Stop()
 
 	checkSpaces(filepath.Join(rootPath, "projects"))
@@ -192,14 +192,21 @@ func checkSpaceID(spacePath string) {
 			return
 		}
 		restartRequired = true
-		fixSpaceID(spacePath, targetID, entries)
+
+		obsoleteIDs := []string{}
+		for id := range uniqueIDs {
+			if id != targetID {
+				obsoleteIDs = append(obsoleteIDs, id)
+			}
+		}
+		fixSpaceID(spacePath, obsoleteIDs, targetID, entries)
 		spinner.Unpause()
 	} else {
 		logSuccess("")
 	}
 }
 
-func fixSpaceID(spacePath, targetID string, entries []EntryInfo) {
+func fixSpaceID(spacePath string, obsoleteIDs []string, targetID string, entries []EntryInfo) {
 	// Set all parentid attributes to the proper space ID
 	err := setAllParentIDAttributes(entries, targetID)
 	if err != nil {
@@ -221,7 +228,7 @@ func fixSpaceID(spacePath, targetID string, entries []EntryInfo) {
 	}
 
 	// update the index
-	err = updateOwnerIndexFile(spacePath, targetID)
+	err = updateOwnerIndexFile(spacePath, obsoleteIDs)
 	if err != nil {
 		logFailure("Could not update the owner index file: %v", err)
 	}
@@ -295,7 +302,7 @@ func setAllParentIDAttributes(entries []EntryInfo, targetID string) error {
 }
 
 // updateOwnerIndexFile handles the logic of reading, modifying, and writing the MessagePack index file.
-func updateOwnerIndexFile(basePath string, targetID string) error {
+func updateOwnerIndexFile(basePath string, obsoleteIDs []string) error {
 	fmt.Printf("  Rewriting index file '%s'\n", basePath)
 
 	ownerID, err := xattr.Get(basePath, ownerIDAttrName)
@@ -321,18 +328,17 @@ func updateOwnerIndexFile(basePath string, targetID string) error {
 
 	// Remove obsolete IDs from the map
 	itemsRemoved := 0
-	for id := range indexMap {
-		if id != targetID {
-			if _, ok := indexMap[id]; ok {
-				delete(indexMap, id)
-				itemsRemoved++
-				fmt.Printf("    - Removing obsolete ID '%s' from index.\n", id)
-			}
+	for _, id := range obsoleteIDs {
+		if _, exists := indexMap[id]; exists {
+			fmt.Printf("    - Removing obsolete ID '%s' from index.\n", id)
+			delete(indexMap, id)
+			itemsRemoved++
+		} else {
+			fmt.Printf("    - Obsolete ID '%s' not found in index\n", id)
 		}
 	}
 
 	if itemsRemoved == 0 {
-		fmt.Printf("  No obsolete IDs found in the index file. Nothing to change.\n")
 		return nil
 	}
 
