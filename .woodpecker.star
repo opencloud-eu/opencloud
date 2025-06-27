@@ -308,7 +308,7 @@ config = {
         "part": {
             "skip": False,
             "totalParts": 4,  # divide and run all suites in parts (divide pipelines)
-            "xsuites": ["search", "app-provider", "app-provider-onlyOffice", "app-store", "keycloak", "oidc", "ocm", "user-settings"],  # suites to skip
+            "xsuites": ["search", "app-provider", "app-provider-onlyOffice", "app-store", "keycloak", "oidc", "ocm", "user-settings", "a11y"],  # suites to skip
         },
         "search": {
             "skip": False,
