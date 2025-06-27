@@ -10,6 +10,11 @@
 
 - feat: adjust space template image to match brand color [[#1098](https://github.com/opencloud-eu/opencloud/pull/1098)]
 
+### 🐛 Bug Fixes
+
+- Only remove obsolete IDs from the index [[#1127](https://github.com/opencloud-eu/opencloud/pull/1127)]
+- fix: collabora use metrics instead of imperial metric system [[#1086](https://github.com/opencloud-eu/opencloud/pull/1086)]
+
 ### 📚 Documentation
 
 - [full-ci] chore: bump web to v3.1.0 [[#1129](https://github.com/opencloud-eu/opencloud/pull/1129)]
@@ -23,10 +28,6 @@
 - Add a "posixfs consistency" command [[#1091](https://github.com/opencloud-eu/opencloud/pull/1091)]
 - feat: add accessibility url to theme.json files [[#1108](https://github.com/opencloud-eu/opencloud/pull/1108)]
 - cleanup: Avoid fetching group membership when not needed [[#1036](https://github.com/opencloud-eu/opencloud/pull/1036)]
-
-### 🐛 Bug Fixes
-
-- fix: collabora use metrics instead of imperial metric system [[#1086](https://github.com/opencloud-eu/opencloud/pull/1086)]
 
 ### 📦️ Dependencies
 
