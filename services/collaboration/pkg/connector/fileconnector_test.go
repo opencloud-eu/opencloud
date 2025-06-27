@@ -1780,7 +1780,7 @@ var _ = Describe("FileConnector", func() {
 				OwnerID:                 "61616262636340637573746f6d496470", // hex of aabbcc@customIdp
 				Size:                    int64(998877),
 				BaseFileName:            "test.txt",
-				UserCanNotWriteRelative: true,
+				UserCanNotWriteRelative: false,
 				DisableExport:           true,
 				DisableCopy:             true,
 				DisablePrint:            true,
@@ -1962,7 +1962,7 @@ var _ = Describe("FileConnector", func() {
 				OwnerID:                 "61616262636340637573746f6d496470", // hex of aabbcc@customIdp
 				Size:                    int64(998877),
 				BaseFileName:            "test.txt",
-				UserCanNotWriteRelative: true,
+				UserCanNotWriteRelative: false,
 				DisableExport:           true,
 				DisableCopy:             true,
 				DisablePrint:            true,

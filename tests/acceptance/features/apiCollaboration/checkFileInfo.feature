@@ -183,7 +183,7 @@ Feature: check file info with different wopi apps
             "const": true
           },
           "UserCanNotWriteRelative": {
-            "const": true
+            "const": false
           },
           "EnableOwnerTermination": {
             "const": true
@@ -581,7 +581,7 @@ Feature: check file info with different wopi apps
             "const": <user-can-write>
           },
           "UserCanNotWriteRelative": {
-            "const": true
+            "const": false
           },
           "EnableOwnerTermination": {
             "const": true
@@ -691,7 +691,7 @@ Feature: check file info with different wopi apps
             "const": true
           },
           "UserCanNotWriteRelative": {
-            "const": true
+            "const": false
           },
           "EnableOwnerTermination": {
             "const": true
@@ -1077,7 +1077,7 @@ Feature: check file info with different wopi apps
             "const": true
           },
           "UserCanNotWriteRelative": {
-            "const": true
+            "const": false
           },
           "EnableOwnerTermination": {
             "const": true
@@ -1424,7 +1424,7 @@ Feature: check file info with different wopi apps
             "const": true
           },
           "UserCanNotWriteRelative": {
-            "const": true
+            "const": false
           },
           "EnableOwnerTermination": {
             "const": true
@@ -1810,7 +1810,7 @@ Feature: check file info with different wopi apps
             "const": <user-can-write>
           },
           "UserCanNotWriteRelative": {
-            "const": true
+            "const": false
           },
           "EnableOwnerTermination": {
             "const": true

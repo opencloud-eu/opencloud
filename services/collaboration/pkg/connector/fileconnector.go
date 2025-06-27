@@ -1273,8 +1273,6 @@ func (f *FileConnector) CheckFileInfo(ctx context.Context) (*ConnectorResponse, 
 		fileinfo.KeyPostMessageOrigin:            f.cfg.Commons.OpenCloudURL,
 		fileinfo.KeyLicenseCheckForEditIsEnabled: f.cfg.App.LicenseCheckEnable,
 
-		// set to true for Collabora until we have a web embed mode for "Save As" and "Export As"
-		// see the FIXME in ./fileinfo/collabora.go and https://github.com/opencloud-eu/web/issues/422
 		fileinfo.KeyUserCanNotWriteRelative: false,
 	}
 
