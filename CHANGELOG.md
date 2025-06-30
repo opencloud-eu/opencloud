@@ -10,6 +10,10 @@
 
 - feat: adjust space template image to match brand color [[#1098](https://github.com/opencloud-eu/opencloud/pull/1098)]
 
+### ✅ Tests
+
+- enable user-settings e2e tests [[#1140](https://github.com/opencloud-eu/opencloud/pull/1140)]
+
 ### 🐛 Bug Fixes
 
 - Only remove obsolete IDs from the index [[#1127](https://github.com/opencloud-eu/opencloud/pull/1127)]
@@ -31,6 +35,8 @@
 
 ### 📦️ Dependencies
 
+- [decomposed] bump-version-v3.1.0 [[#1142](https://github.com/opencloud-eu/opencloud/pull/1142)]
+- build(deps): bump go.etcd.io/bbolt from 1.4.1 to 1.4.2 [[#1131](https://github.com/opencloud-eu/opencloud/pull/1131)]
 - [full-ci] chore:reva bump v.2.34 [[#1139](https://github.com/opencloud-eu/opencloud/pull/1139)]
 - build(deps): bump go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc from 0.61.0 to 0.62.0 [[#1122](https://github.com/opencloud-eu/opencloud/pull/1122)]
 - build(deps): bump go.opentelemetry.io/contrib/zpages from 0.61.0 to 0.62.0 [[#1123](https://github.com/opencloud-eu/opencloud/pull/1123)]
