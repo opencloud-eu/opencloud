@@ -125,7 +125,7 @@ func (h *appsHandler) webappTemplate(ctx context.Context, id *ocmpb.ShareId) (st
 		return "", errtypes.BadRequest("share does not contain webapp protocol")
 	}
 
-	return webapp.UriTemplate, nil
+	return webapp.Uri, nil
 }
 
 func getWebappProtocol(protocols []*ocmpb.Protocol) (*ocmpb.WebappProtocol, bool) {

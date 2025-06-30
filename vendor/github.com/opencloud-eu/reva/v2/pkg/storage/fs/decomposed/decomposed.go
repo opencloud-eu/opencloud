@@ -42,6 +42,12 @@ func New(m map[string]interface{}, stream events.Stream, log *zerolog.Logger) (s
 		return nil, err
 	}
 
+	if log == nil {
+		log = &zerolog.Logger{}
+	}
+	decomposedLog := log.With().Str("driver", "decomposed").Logger()
+	log = &decomposedLog
+
 	bs, err := blobstore.New(path.Join(o.Root))
 	if err != nil {
 		return nil, err

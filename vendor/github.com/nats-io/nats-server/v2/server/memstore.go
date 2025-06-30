@@ -83,6 +83,12 @@ func (ms *memStore) UpdateConfig(cfg *StreamConfig) error {
 
 	ms.mu.Lock()
 	ms.cfg = *cfg
+	// Create or delete the THW if needed.
+	if cfg.AllowMsgTTL && ms.ttls == nil {
+		ms.ttls = thw.NewHashWheel()
+	} else if !cfg.AllowMsgTTL && ms.ttls != nil {
+		ms.ttls = nil
+	}
 	// Limits checks and enforcement.
 	ms.enforceMsgLimit()
 	ms.enforceBytesLimit()
@@ -112,7 +118,7 @@ func (ms *memStore) UpdateConfig(cfg *StreamConfig) error {
 	}
 	ms.mu.Unlock()
 
-	if cfg.MaxAge != 0 {
+	if cfg.MaxAge != 0 || cfg.AllowMsgTTL {
 		ms.expireMsgs()
 	}
 	return nil
@@ -1461,6 +1467,19 @@ func (ms *memStore) deleteFirstMsgOrPanic() {
 
 func (ms *memStore) deleteFirstMsg() bool {
 	return ms.removeMsg(ms.state.FirstSeq, false)
+}
+
+// SubjectForSeq will return what the subject is for this sequence if found.
+func (ms *memStore) SubjectForSeq(seq uint64) (string, error) {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+	if seq < ms.state.FirstSeq {
+		return _EMPTY_, ErrStoreMsgNotFound
+	}
+	if sm, ok := ms.msgs[seq]; ok {
+		return sm.subj, nil
+	}
+	return _EMPTY_, ErrStoreMsgNotFound
 }
 
 // LoadMsg will lookup the message by sequence number and return it if found.

@@ -42,8 +42,8 @@ func NewWebappProtocol(uriTemplate string, viewMode appprovider.ViewMode) *ocm.P
 	return &ocm.Protocol{
 		Term: &ocm.Protocol_WebappOptions{
 			WebappOptions: &ocm.WebappProtocol{
-				UriTemplate: uriTemplate,
-				ViewMode:    viewMode,
+				Uri:      uriTemplate,
+				ViewMode: viewMode,
 			},
 		},
 	}

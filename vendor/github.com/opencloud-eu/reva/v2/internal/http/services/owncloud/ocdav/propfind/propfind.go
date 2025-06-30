@@ -38,6 +38,7 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/iancoleman/strcase"
+	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/thumbnail"
 	"github.com/opencloud-eu/reva/v2/internal/grpc/services/storageprovider"
 	"github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/config"
 	"github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/errors"
@@ -1287,6 +1288,13 @@ func mdToPropResponse(ctx context.Context, pf *XML, md *provider.ResourceInfo, p
 			appendMetadataProp(k, "oc", "photo", "libre.graph.photo", photoKeys)
 		}
 
+		if md.Type == provider.ResourceType_RESOURCE_TYPE_CONTAINER {
+			// directories have no preview
+			appendToNotFound(prop.NotFound("oc:has-preview"))
+		} else if md.MimeType != "" {
+			hasPreview(md, appendToOK)
+		}
+
 		// ls do not report any properties as missing by default
 		if ls == nil {
 			// favorites from arbitrary metadata
@@ -1589,6 +1597,13 @@ func mdToPropResponse(ctx context.Context, pf *XML, md *provider.ResourceInfo, p
 					// see https://doc.owncloud.com/server/admin_manual/configuration/server/occ_command.html#maintenance-commands
 					// TODO(jfd): double check the client behavior with reva on backup restore
 					fallthrough
+				case "has-preview":
+					if md.Type == provider.ResourceType_RESOURCE_TYPE_CONTAINER {
+						// directories have no preview
+						appendToNotFound(prop.NotFound("oc:has-preview"))
+					} else if md.MimeType != "" {
+						hasPreview(md, appendToOK)
+					}
 				default:
 					appendToNotFound(prop.NotFound("oc:" + pf.Prop[i].Local))
 				}
@@ -1712,6 +1727,15 @@ func mdToPropResponse(ctx context.Context, pf *XML, md *provider.ResourceInfo, p
 	}
 
 	return &response, nil
+}
+
+func hasPreview(md *provider.ResourceInfo, appendToOK func(p ...prop.PropertyXML)) {
+	_, match := thumbnail.SupportedMimeTypes[md.MimeType]
+	if match {
+		appendToOK(prop.Escaped("oc:has-preview", "1"))
+	} else {
+		appendToOK(prop.Escaped("oc:has-preview", "0"))
+	}
 }
 
 func activeLocks(log *zerolog.Logger, lock *provider.Lock) string {

@@ -41,6 +41,12 @@ func New(m map[string]interface{}, stream events.Stream, log *zerolog.Logger) (s
 		return nil, err
 	}
 
+	if log == nil {
+		log = &zerolog.Logger{}
+	}
+	decomposeds3Log := log.With().Str("driver", "decomposeds3").Logger()
+	log = &decomposeds3Log
+
 	if !o.S3ConfigComplete() {
 		return nil, fmt.Errorf("S3 configuration incomplete")
 	}

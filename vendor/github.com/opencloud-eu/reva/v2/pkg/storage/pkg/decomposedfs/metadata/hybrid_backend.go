@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/google/renameio/v2"
@@ -108,6 +109,11 @@ func (b HybridBackend) GetInt64(ctx context.Context, n MetadataNode, key string)
 
 func (b HybridBackend) list(ctx context.Context, n MetadataNode, acquireLock bool) (attribs []string, err error) {
 	filePath := n.InternalPath()
+
+	if len(filePath) == 0 {
+		return nil, &xattr.Error{Op: "HybridBackend.list", Path: n.InternalPath(), Err: syscall.ENOENT} // attribute not found
+	}
+
 	attrs, err := xattr.List(filePath)
 	if err == nil {
 		return attrs, nil
