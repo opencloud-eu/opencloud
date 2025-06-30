@@ -1,10 +1,10 @@
 # Changelog
 
-## [3.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.1.0) - 2025-06-27
+## [3.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.1.0) - 2025-06-30
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@06kellyjac, @AlexAndBear, @Leander-Wendt, @aduffeck, @fschade, @individual-it, @kulmann, @rhafer
+@06kellyjac, @AlexAndBear, @Leander-Wendt, @ScharfViktor, @aduffeck, @fschade, @individual-it, @kulmann, @rhafer
 
 ### ✨ Features
 
@@ -31,6 +31,7 @@
 
 ### 📦️ Dependencies
 
+- [full-ci] chore:reva bump v.2.34 [[#1139](https://github.com/opencloud-eu/opencloud/pull/1139)]
 - build(deps): bump go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc from 0.61.0 to 0.62.0 [[#1122](https://github.com/opencloud-eu/opencloud/pull/1122)]
 - build(deps): bump go.opentelemetry.io/contrib/zpages from 0.61.0 to 0.62.0 [[#1123](https://github.com/opencloud-eu/opencloud/pull/1123)]
 - build(deps): bump go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc from 1.36.0 to 1.37.0 [[#1111](https://github.com/opencloud-eu/opencloud/pull/1111)]
