@@ -648,6 +648,13 @@ func (fs *fileStore) UpdateConfig(cfg *StreamConfig) error {
 		return err
 	}
 
+	// Create or delete the THW if needed.
+	if cfg.AllowMsgTTL && fs.ttls == nil {
+		fs.ttls = thw.NewHashWheel()
+	} else if !cfg.AllowMsgTTL && fs.ttls != nil {
+		fs.ttls = nil
+	}
+
 	// Limits checks and enforcement.
 	fs.enforceMsgLimit()
 	fs.enforceBytesLimit()
@@ -666,7 +673,7 @@ func (fs *fileStore) UpdateConfig(cfg *StreamConfig) error {
 	}
 	fs.mu.Unlock()
 
-	if cfg.MaxAge != 0 {
+	if cfg.MaxAge != 0 || cfg.AllowMsgTTL {
 		fs.expireMsgs()
 	}
 	return nil
@@ -7390,6 +7397,24 @@ func (mb *msgBlock) msgFromBufEx(buf []byte, sm *StoreMsg, hh hash.Hash64, doCop
 	}
 
 	return sm, nil
+}
+
+// SubjectForSeq will return what the subject is for this sequence if found.
+func (fs *fileStore) SubjectForSeq(seq uint64) (string, error) {
+	fs.mu.RLock()
+	if seq < fs.state.FirstSeq {
+		fs.mu.RUnlock()
+		return _EMPTY_, ErrStoreMsgNotFound
+	}
+	var smv StoreMsg
+	mb := fs.selectMsgBlock(seq)
+	fs.mu.RUnlock()
+	if mb != nil {
+		if sm, _, _ := mb.fetchMsgNoCopy(seq, &smv); sm != nil {
+			return sm.subj, nil
+		}
+	}
+	return _EMPTY_, ErrStoreMsgNotFound
 }
 
 // LoadMsg will lookup the message by sequence number and return it if found.

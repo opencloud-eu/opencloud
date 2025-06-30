@@ -55,7 +55,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mna/pigeon v1.3.0
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
-	github.com/nats-io/nats-server/v2 v2.11.4
+	github.com/nats-io/nats-server/v2 v2.11.5
 	github.com/nats-io/nats.go v1.43.0
 	github.com/oklog/run v1.1.0
 	github.com/olekukonko/tablewriter v1.0.7
@@ -330,7 +330,7 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/mod v0.25.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
-	golang.org/x/time v0.11.0 // indirect
+	golang.org/x/time v0.12.0 // indirect
 	golang.org/x/tools v0.33.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/genproto v0.0.0-20250303144028-a0af3efb3deb // indirect
