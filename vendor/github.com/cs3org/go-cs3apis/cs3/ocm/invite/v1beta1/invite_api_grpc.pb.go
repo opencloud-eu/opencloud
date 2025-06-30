@@ -56,7 +56,7 @@ type InviteAPIClient interface {
 	ListInviteTokens(ctx context.Context, in *ListInviteTokensRequest, opts ...grpc.CallOption) (*ListInviteTokensResponse, error)
 	// Forwards a received invite to the remote sync'n'share system provider. The remote
 	// system SHALL get an `invite-accepted` call as follows:
-	// https://cs3org.github.io/OCM-API/docs.html?branch=v1.1.0&repo=OCM-API&user=cs3org#/paths/~1invite-accepted/post
+	// https://cs3org.github.io/OCM-API/docs.html?branch=v1.2.0&repo=OCM-API&user=cs3org#/paths/~1invite-accepted/post
 	// MUST return CODE_NOT_FOUND if the token does not exist.
 	// MUST return CODE_INVALID_ARGUMENT if the token expired.
 	// MUST return CODE_ALREADY_EXISTS if the user already accepted an invite.
@@ -158,7 +158,7 @@ type InviteAPIServer interface {
 	ListInviteTokens(context.Context, *ListInviteTokensRequest) (*ListInviteTokensResponse, error)
 	// Forwards a received invite to the remote sync'n'share system provider. The remote
 	// system SHALL get an `invite-accepted` call as follows:
-	// https://cs3org.github.io/OCM-API/docs.html?branch=v1.1.0&repo=OCM-API&user=cs3org#/paths/~1invite-accepted/post
+	// https://cs3org.github.io/OCM-API/docs.html?branch=v1.2.0&repo=OCM-API&user=cs3org#/paths/~1invite-accepted/post
 	// MUST return CODE_NOT_FOUND if the token does not exist.
 	// MUST return CODE_INVALID_ARGUMENT if the token expired.
 	// MUST return CODE_ALREADY_EXISTS if the user already accepted an invite.

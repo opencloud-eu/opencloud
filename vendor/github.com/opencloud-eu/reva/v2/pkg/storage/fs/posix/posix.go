@@ -69,6 +69,12 @@ func New(m map[string]interface{}, stream events.Stream, log *zerolog.Logger) (s
 		return nil, err
 	}
 
+	if log == nil {
+		log = &zerolog.Logger{}
+	}
+	posixLog := log.With().Str("driver", "posix").Logger()
+	log = &posixLog
+
 	fs := &posixFS{}
 	var um usermapper.Mapper
 	if o.UseSpaceGroups {
