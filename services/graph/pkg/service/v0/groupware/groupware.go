@@ -215,7 +215,9 @@ func (g Groupware) GetMessages(w http.ResponseWriter, r *http.Request) {
 		}
 
 		inboxId := pickInbox(mailboxGetResponse.List)
-		// TODO handle not found
+		if inboxId == "" {
+			return nil, fmt.Errorf("failed to find an inbox folder")
+		}
 		logger = log.Logger{Logger: logger.With().Str(logFolderId, inboxId).Logger()}
 
 		emails, err := g.jmapClient.GetEmails(session, ctx, &logger, inboxId, offset, limit, true, g.maxBodyValueBytes)
