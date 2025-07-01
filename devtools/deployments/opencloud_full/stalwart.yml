@@ -7,7 +7,7 @@ services:
           - ${STALWART_DOMAIN:-stalwart.opencloud.test}
 
   stalwart:
-    image: stalwartlabs/stalwart:v0.12.4-alpine
+    image: ghcr.io/stalwartlabs/stalwart:v0.12.5-alpine
     networks:
       - opencloud-net
     ports:
