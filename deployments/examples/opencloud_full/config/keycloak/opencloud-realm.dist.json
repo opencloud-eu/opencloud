@@ -2167,6 +2167,23 @@
               }
             },
             {
+              "id": "96bc2621-a714-4f15-ac1d-bc32df94382d",
+              "name": "display name",
+              "providerId": "full-name-ldap-mapper",
+              "subComponents": {},
+              "config": {
+                "read.only": [
+                  "false"
+                ],
+                "write.only": [
+                  "true"
+                ],
+                "ldap.full.name.attribute": [
+                  "displayName"
+                ]
+              }
+            },
+            {
               "id": "cab8b569-0f50-4e13-b2a5-d24ee513cd8b",
               "name": "first name",
               "providerId": "user-attribute-ldap-mapper",
