@@ -22,6 +22,10 @@ func NewTestJmapWellKnownClient(t *testing.T) WellKnownClient {
 	return &TestJmapWellKnownClient{t: t}
 }
 
+func (t *TestJmapWellKnownClient) Close() error {
+	return nil
+}
+
 func (t *TestJmapWellKnownClient) GetWellKnown(username string, logger *log.Logger) (WellKnownResponse, error) {
 	return WellKnownResponse{
 		Username:        generateRandomString(8),
@@ -36,6 +40,10 @@ type TestJmapApiClient struct {
 
 func NewTestJmapApiClient(t *testing.T) ApiClient {
 	return &TestJmapApiClient{t: t}
+}
+
+func (t TestJmapApiClient) Close() error {
+	return nil
 }
 
 func serveTestFile(t *testing.T, name string) ([]byte, error) {
@@ -89,7 +97,7 @@ func TestRequests(t *testing.T) {
 
 	session := Session{AccountId: "123", JmapUrl: "test://"}
 
-	folders, err := client.GetMailboxes(&session, ctx, &logger)
+	folders, err := client.GetAllMailboxes(&session, ctx, &logger)
 	require.NoError(err)
 	require.Len(folders.List, 5)
 

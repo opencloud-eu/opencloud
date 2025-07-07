@@ -57,7 +57,8 @@ type Mailbox struct {
 }
 
 type MailboxGetCommand struct {
-	AccountId string `json:"accountId"`
+	AccountId string   `json:"accountId"`
+	Ids       []string `json:"ids,omitempty"`
 }
 
 type Filter struct {
@@ -79,6 +80,8 @@ type Filter struct {
 type Sort struct {
 	Property    string `json:"property,omitempty"`
 	IsAscending bool   `json:"isAscending,omitempty"`
+	Keyword     string `json:"keyword,omitempty"`
+	Collation   string `json:"collation,omitempty"`
 }
 
 type EmailQueryCommand struct {
@@ -169,7 +172,7 @@ type Invocation struct {
 	Tag        string
 }
 
-func NewInvocation(command Command, parameters any, tag string) Invocation {
+func invocation(command Command, parameters any, tag string) Invocation {
 	return Invocation{
 		Command:    command,
 		Parameters: parameters,
@@ -183,7 +186,7 @@ type Request struct {
 	CreatedIds  map[string]string `json:"createdIds,omitempty"`
 }
 
-func NewRequest(methodCalls ...Invocation) (Request, error) {
+func request(methodCalls ...Invocation) (Request, error) {
 	return Request{
 		Using:       []string{JmapCore, JmapMail},
 		MethodCalls: methodCalls,
@@ -241,7 +244,6 @@ type EmailCreate struct {
 	ReceivedAt    time.Time          `json:"receivedAt,omitzero"`
 	SentAt        time.Time          `json:"sentAt,omitzero"`
 	BodyStructure EmailBodyStructure `json:"bodyStructure,omitempty"`
-	//BodyStructure map[string]any  `json:"bodyStructure,omitempty"`
 }
 
 type EmailSetCommand struct {
