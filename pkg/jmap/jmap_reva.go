@@ -3,24 +3,30 @@ package jmap
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 )
 
-// implements HttpJmapUsernameProvider
-type RevaContextHttpJmapUsernameProvider struct {
+// HttpJmapUsernameProvider implementation that uses Reva's enrichment of the Context
+// to retrieve the current username.
+type revaContextHttpJmapUsernameProvider struct {
 }
 
-func NewRevaContextHttpJmapUsernameProvider() RevaContextHttpJmapUsernameProvider {
-	return RevaContextHttpJmapUsernameProvider{}
+var _ HttpJmapUsernameProvider = revaContextHttpJmapUsernameProvider{}
+
+func NewRevaContextHttpJmapUsernameProvider() HttpJmapUsernameProvider {
+	return revaContextHttpJmapUsernameProvider{}
 }
 
-func (r RevaContextHttpJmapUsernameProvider) GetUsername(ctx context.Context, logger *log.Logger) (string, error) {
+var errUserNotInContext = fmt.Errorf("user not in context")
+
+func (r revaContextHttpJmapUsernameProvider) GetUsername(req *http.Request, ctx context.Context, logger *log.Logger) (string, error) {
 	u, ok := revactx.ContextGetUser(ctx)
 	if !ok {
-		logger.Error().Msg("could not get user: user not in context")
-		return "", fmt.Errorf("user not in context")
+		logger.Error().Msg("could not get user: user not in reva context")
+		return "", errUserNotInContext
 	}
 	return u.GetUsername(), nil
 }

@@ -109,7 +109,7 @@ func httpApiClient(config *config.Config, usernameProvider jmap.HttpJmapUsername
 }
 func (g Groupware) WellDefined(w http.ResponseWriter, r *http.Request) {
 	logger := g.logger.SubloggerWithRequestID(r.Context())
-	username, err := g.usernameProvider.GetUsername(r.Context(), &logger)
+	username, err := g.usernameProvider.GetUsername(r, r.Context(), &logger)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return

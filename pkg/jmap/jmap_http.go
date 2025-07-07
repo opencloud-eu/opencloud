@@ -7,13 +7,15 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 )
 
 type HttpJmapUsernameProvider interface {
-	GetUsername(ctx context.Context, logger *log.Logger) (string, error)
+	// Provide the username for JMAP operations.
+	GetUsername(req *http.Request, ctx context.Context, logger *log.Logger) (string, error)
 }
 
 type HttpJmapApiClient struct {
@@ -25,6 +27,11 @@ type HttpJmapApiClient struct {
 	masterPassword   string
 	userAgent        string
 }
+
+var (
+	_ ApiClient       = &HttpJmapApiClient{}
+	_ WellKnownClient = &HttpJmapApiClient{}
+)
 
 /*
 func bearer(req *http.Request, token string) {
@@ -44,10 +51,27 @@ func NewHttpJmapApiClient(baseurl string, jmapurl string, client *http.Client, u
 	}
 }
 
+func (h *HttpJmapApiClient) Close() error {
+	h.client.CloseIdleConnections()
+	return nil
+}
+
+type AuthenticationError struct {
+	Err error
+}
+
+func (e AuthenticationError) Error() string {
+	return fmt.Sprintf("failed to find user for authentication: %v", e.Err.Error())
+}
+func (e AuthenticationError) Unwrap() error {
+	return e.Err
+}
+
 func (h *HttpJmapApiClient) auth(logger *log.Logger, ctx context.Context, req *http.Request) error {
-	username, err := h.usernameProvider.GetUsername(ctx, logger)
+	username, err := h.usernameProvider.GetUsername(req, ctx, logger)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to find username")
+		return AuthenticationError{Err: err}
 	}
 	masterUsername := username + "%" + h.masterUser
 	req.SetBasicAuth(masterUsername, h.masterPassword)
@@ -60,13 +84,28 @@ func (h *HttpJmapApiClient) authWithUsername(_ *log.Logger, username string, req
 	return nil
 }
 
+type HttpError struct {
+	Method   string
+	Url      string
+	Username string
+	Op       string
+	Err      error
+}
+
+func (e HttpError) Error() string {
+	return fmt.Sprintf("HTTP error for method=%v url='%v' username='%v' while %v: %v", e.Method, e.Url, e.Username, e.Op, e.Err.Error())
+}
+func (e HttpError) Unwrap() error {
+	return e.Err
+}
+
 func (h *HttpJmapApiClient) GetWellKnown(username string, logger *log.Logger) (WellKnownResponse, error) {
-	wellKnownUrl := h.baseurl + "/.well-known/jmap"
+	wellKnownUrl := path.Join(h.baseurl, ".well-known", "jmap")
 
 	req, err := http.NewRequest(http.MethodGet, wellKnownUrl, nil)
 	if err != nil {
 		logger.Error().Err(err).Msgf("failed to create GET request for %v", wellKnownUrl)
-		return WellKnownResponse{}, err
+		return WellKnownResponse{}, HttpError{Op: "creating request", Method: http.MethodGet, Url: wellKnownUrl, Username: username, Err: err}
 	}
 	h.authWithUsername(logger, username, req)
 	req.Header.Add("Cache-Control", "no-cache, no-store, must-revalidate") // spec recommendation
@@ -74,11 +113,11 @@ func (h *HttpJmapApiClient) GetWellKnown(username string, logger *log.Logger) (W
 	res, err := h.client.Do(req)
 	if err != nil {
 		logger.Error().Err(err).Msgf("failed to perform GET %v", wellKnownUrl)
-		return WellKnownResponse{}, err
+		return WellKnownResponse{}, HttpError{Op: "performing request", Method: http.MethodGet, Url: wellKnownUrl, Username: username, Err: err}
 	}
 	if res.StatusCode != 200 {
 		logger.Error().Str("status", res.Status).Msg("HTTP response status code is not 200")
-		return WellKnownResponse{}, fmt.Errorf("HTTP response status is %v", res.Status)
+		return WellKnownResponse{}, HttpError{Op: "processing response", Method: http.MethodGet, Url: wellKnownUrl, Username: username, Err: fmt.Errorf("status is %v", res.Status)}
 	}
 	if res.Body != nil {
 		defer func(Body io.ReadCloser) {
@@ -92,14 +131,14 @@ func (h *HttpJmapApiClient) GetWellKnown(username string, logger *log.Logger) (W
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to read response body")
-		return WellKnownResponse{}, err
+		return WellKnownResponse{}, HttpError{Op: "reading response body", Method: http.MethodGet, Url: wellKnownUrl, Username: username, Err: err}
 	}
 
 	var data WellKnownResponse
 	err = json.Unmarshal(body, &data)
 	if err != nil {
 		logger.Error().Str("url", wellKnownUrl).Err(err).Msg("failed to decode JSON payload from .well-known/jmap response")
-		return WellKnownResponse{}, err
+		return WellKnownResponse{}, HttpError{Op: "reading decoding response JSON payload", Method: http.MethodGet, Url: wellKnownUrl, Username: username, Err: err}
 	}
 
 	return data, nil
@@ -129,11 +168,11 @@ func (h *HttpJmapApiClient) Command(ctx context.Context, logger *log.Logger, ses
 	res, err := h.client.Do(req)
 	if err != nil {
 		logger.Error().Err(err).Msgf("failed to perform GET %v", jmapUrl)
-		return nil, err
+		return nil, HttpError{Op: "performing request", Method: http.MethodPost, Url: jmapUrl, Username: session.Username, Err: err}
 	}
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		logger.Error().Str("status", res.Status).Msg("HTTP response status code is not 2xx")
-		return nil, fmt.Errorf("HTTP response status is %v", res.Status)
+		return nil, HttpError{Op: "processing response", Method: http.MethodPost, Url: jmapUrl, Username: session.Username, Err: fmt.Errorf("status is %v", res.Status)}
 	}
 	if res.Body != nil {
 		defer func(Body io.ReadCloser) {
@@ -147,7 +186,7 @@ func (h *HttpJmapApiClient) Command(ctx context.Context, logger *log.Logger, ses
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to read response body")
-		return nil, err
+		return nil, HttpError{Op: "reading response body", Method: http.MethodPost, Url: jmapUrl, Username: session.Username, Err: err}
 	}
 
 	return body, nil
