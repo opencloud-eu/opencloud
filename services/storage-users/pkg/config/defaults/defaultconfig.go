@@ -112,7 +112,7 @@ func DefaultConfig() *config.Config {
 				UserLayout:                 "{{.Id.OpaqueId}}",
 				Region:                     "default",
 				SendContentMd5:             true,
-				ConcurrentStreamParts:      true,
+				ConcurrentStreamParts:      false,
 				NumThreads:                 4,
 				PersonalSpaceAliasTemplate: "{{.SpaceType}}/{{.User.Username | lower}}",
 				PersonalSpacePathTemplate:  "",
@@ -123,6 +123,7 @@ func DefaultConfig() *config.Config {
 				MaxConcurrency:             5,
 				LockCycleDurationFactor:    30,
 				DisableMultipart:           true,
+				PartSize:                   16777216,
 				AsyncUploads:               true,
 			},
 			Decomposed: config.DecomposedDriver{
