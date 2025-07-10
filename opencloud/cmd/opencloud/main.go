@@ -10,6 +10,7 @@ import (
 func main() {
 	if err := command.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
+		fmt.Println(5)
 		os.Exit(1)
 	}
 }
