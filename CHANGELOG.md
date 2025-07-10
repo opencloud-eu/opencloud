@@ -6,7 +6,9 @@
 
 @ScharfViktor
 
+### 📦️ Dependencies
 
+- [full-ci] Reva bump 2.29.4 [[#1202](https://github.com/opencloud-eu/opencloud/pull/1202)]
 
 ## [2.0.2](https://github.com/opencloud-eu/opencloud/releases/tag/v2.0.2) - 2025-05-02
 
