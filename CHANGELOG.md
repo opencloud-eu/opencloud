@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.3](https://github.com/opencloud-eu/opencloud/releases/tag/v2.0.3) - 2025-07-10
+
+### ❤️ Thanks to all contributors! ❤️
+
+@ScharfViktor
+
+
+
 ## [2.0.2](https://github.com/opencloud-eu/opencloud/releases/tag/v2.0.2) - 2025-05-02
 
 ### ❤️ Thanks to all contributors! ❤️
