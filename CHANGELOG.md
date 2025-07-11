@@ -1,10 +1,10 @@
 # Changelog
 
-## [3.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.2.0) - 2025-07-10
+## [3.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.2.0) - 2025-07-11
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @ScharfViktor, @dragonchaser, @fschade, @jnweiger, @micbar
+@AlexAndBear, @JammingBen, @ScharfViktor, @dragonchaser, @fschade, @jnweiger, @micbar
 
 ### ✨ Features
 
@@ -12,6 +12,7 @@
 
 ### 📈 Enhancement
 
+- feat(web): add dark mode and adjust light theme colors [[#1188](https://github.com/opencloud-eu/opencloud/pull/1188)]
 - change: set better decomposedS3 defaults for multipart upload [[#1200](https://github.com/opencloud-eu/opencloud/pull/1200)]
 - add missing full username mapper to the full example [[#1181](https://github.com/opencloud-eu/opencloud/pull/1181)]
 
