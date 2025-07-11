@@ -4,23 +4,24 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @ScharfViktor, @dragonchaser, @fschade, @jnweiger, @micbar
+@AlexAndBear, @JammingBen, @ScharfViktor, @Svanvith, @dragonchaser, @fschade, @jnweiger, @micbar
 
 ### ✨ Features
 
 - Add `HasTrashedItems` property to /me/drives endpoint [[#1163](https://github.com/opencloud-eu/opencloud/pull/1163)]
+
+### 🐛 Bug Fixes
+
+- Update config.go [[#1183](https://github.com/opencloud-eu/opencloud/pull/1183)]
+- Update Makefile [[#1187](https://github.com/opencloud-eu/opencloud/pull/1187)]
+- fix(collaboration): re register app providers in a configurable interval [[#1035](https://github.com/opencloud-eu/opencloud/pull/1035)]
+- Fix lico idp doesn't load opencloud font anymore [[#1153](https://github.com/opencloud-eu/opencloud/pull/1153)]
 
 ### 📈 Enhancement
 
 - feat(web): add dark mode and adjust light theme colors [[#1188](https://github.com/opencloud-eu/opencloud/pull/1188)]
 - change: set better decomposedS3 defaults for multipart upload [[#1200](https://github.com/opencloud-eu/opencloud/pull/1200)]
 - add missing full username mapper to the full example [[#1181](https://github.com/opencloud-eu/opencloud/pull/1181)]
-
-### 🐛 Bug Fixes
-
-- Update Makefile [[#1187](https://github.com/opencloud-eu/opencloud/pull/1187)]
-- fix(collaboration): re register app providers in a configurable interval [[#1035](https://github.com/opencloud-eu/opencloud/pull/1035)]
-- Fix lico idp doesn't load opencloud font anymore [[#1153](https://github.com/opencloud-eu/opencloud/pull/1153)]
 
 ### 📦️ Dependencies
 
