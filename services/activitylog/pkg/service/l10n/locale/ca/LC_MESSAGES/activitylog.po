@@ -1,0 +1,102 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# 
+# Translators:
+# Ivan Fustero, 2025
+# 
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: EMAIL\n"
+"POT-Creation-Date: 2025-01-27 11:01+0100\n"
+"PO-Revision-Date: 2025-01-27 10:17+0000\n"
+"Last-Translator: Ivan Fustero, 2025\n"
+"Language-Team: Catalan (https://app.transifex.com/opencloud-eu/teams/204053/ca/)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: ca\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: pkg/service/response.go:44
+msgid "description"
+msgstr "descripció"
+
+#: pkg/service/response.go:43
+msgid "display name"
+msgstr "nom a mostrar"
+
+#: pkg/service/response.go:42
+msgid "expiration date"
+msgstr "data de venciment"
+
+#: pkg/service/response.go:41
+msgid "password"
+msgstr "contrasenya"
+
+#: pkg/service/response.go:40
+msgid "permission"
+msgstr "permís"
+
+#: pkg/service/response.go:39
+msgid "some field"
+msgstr "algun camp"
+
+#: pkg/service/response.go:26
+msgid "{resource} was downloaded via public link {token}"
+msgstr "{resource} s'ha baixat a través de l'enllaç públic {token}"
+
+#: pkg/service/response.go:24
+msgid "{user} added {resource} to {folder}"
+msgstr "{user} ha afegit {resource} a {folder}"
+
+#: pkg/service/response.go:36
+msgid "{user} added {sharee} as member of {space}"
+msgstr "{user} ha afegit {resource} a {folder}"
+
+#: pkg/service/response.go:27
+msgid "{user} deleted {resource} from {folder}"
+msgstr "{user} ha suprimit {resource} de {folder}"
+
+#: pkg/service/response.go:28
+msgid "{user} moved {resource} to {folder}"
+msgstr "{user} ha mogut {resource} cap a {folder}"
+
+#: pkg/service/response.go:35
+msgid "{user} removed link to {resource}"
+msgstr " {user} ha suprimit l'enllaç de {resource}"
+
+#: pkg/service/response.go:32
+msgid "{user} removed {sharee} from {resource}"
+msgstr "{user} ha suprimit {sharee} de {resource}"
+
+#: pkg/service/response.go:37
+msgid "{user} removed {sharee} from {space}"
+msgstr "{user} ha suprimit {sharee} de {space}"
+
+#: pkg/service/response.go:29
+msgid "{user} renamed {oldResource} to {resource}"
+msgstr "{user} ha renombrat {oldResource} a {resource}"
+
+#: pkg/service/response.go:33
+msgid "{user} shared {resource} via link"
+msgstr "{user} ha compartit {resource} via enllaç"
+
+#: pkg/service/response.go:30
+msgid "{user} shared {resource} with {sharee}"
+msgstr "{user} ha compartit {resource} amb {sharee}"
+
+#: pkg/service/response.go:34
+msgid "{user} updated {field} for a link {token} on {resource}"
+msgstr "{user} ha actualitzat {field} per l'enllaç {token} a {resource}"
+
+#: pkg/service/response.go:31
+msgid "{user} updated {field} for the {resource}"
+msgstr "{user} ha actualitzat {field} per al {resource}"
+
+#: pkg/service/response.go:25
+msgid "{user} updated {resource} in {folder}"
+msgstr "{user} ha actualitzat {resource} a {folder}"

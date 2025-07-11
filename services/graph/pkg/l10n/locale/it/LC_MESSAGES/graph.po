@@ -4,7 +4,7 @@
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 # 
 # Translators:
-# Jörn Friedrich Dreyer <jfd@butonic.de>, 2025
+# Simone Broglia, 2025
 # 
 #, fuzzy
 msgid ""
@@ -13,13 +13,13 @@ msgstr ""
 "Report-Msgid-Bugs-To: EMAIL\n"
 "POT-Creation-Date: 2025-07-09 14:37+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
-"Last-Translator: Jörn Friedrich Dreyer <jfd@butonic.de>, 2025\n"
-"Language-Team: German (https://app.transifex.com/opencloud-eu/teams/204053/de/)\n"
+"Last-Translator: Simone Broglia, 2025\n"
+"Language-Team: Italian (https://app.transifex.com/opencloud-eu/teams/204053/it/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: de\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Language: it\n"
+"Plural-Forms: nplurals=3; plural=n == 1 ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;\n"
 
 #. UnifiedRole Editor, Role DisplayName (resolves directly)
 #. UnifiedRole EditorListGrants, Role DisplayName (resolves directly)
@@ -30,23 +30,23 @@ msgstr ""
 #: pkg/unifiedrole/roles.go:128 pkg/unifiedrole/roles.go:140
 #: pkg/unifiedrole/roles.go:146
 msgid "Can edit"
-msgstr "Kann bearbeiten"
+msgstr "Può modificare"
 
 #. UnifiedRole SpaseEditorWithoutVersions, Role DisplayName (resolves
 #. directly)
 #: pkg/unifiedrole/roles.go:134
 msgid "Can edit without versions"
-msgstr "Kann bearbeiten ohne Historie"
+msgstr "Può modificare senza versioni"
 
 #. UnifiedRole Manager, Role DisplayName (resolves directly)
 #: pkg/unifiedrole/roles.go:158
 msgid "Can manage"
-msgstr "Kann verwalten"
+msgstr "Può gestire"
 
 #. UnifiedRole EditorLite, Role DisplayName (resolves directly)
 #: pkg/unifiedrole/roles.go:152
 msgid "Can upload"
-msgstr "Kann hochladen"
+msgstr "Può caricare"
 
 #. UnifiedRole Viewer, Role DisplayName (resolves directly)
 #. UnifiedRole Viewer, Role DisplayName (resolves directly)
@@ -54,85 +54,82 @@ msgstr "Kann hochladen"
 #: pkg/unifiedrole/roles.go:98 pkg/unifiedrole/roles.go:104
 #: pkg/unifiedrole/roles.go:110
 msgid "Can view"
-msgstr "Kann anzeigen"
+msgstr "Può visualizzare"
 
 #. UnifiedRole SecureViewer, Role DisplayName (resolves directly)
 #: pkg/unifiedrole/roles.go:164
 msgid "Can view (secure)"
-msgstr "Kann anzeigen (sichere Ansicht)"
+msgstr "Può visualizzare (protetto)"
 
 #. UnifiedRole FullDenial, Role DisplayName (resolves directly)
 #: pkg/unifiedrole/roles.go:170
 msgid "Cannot access"
-msgstr "Kann nicht zugreifen"
+msgstr "Accesso non consentito"
 
 #. UnifiedRole FullDenial, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:167
 msgid "Deny all access."
-msgstr "Jeder Zugriff ist verboten."
+msgstr "Blocca tutti gli accessi"
 
 #. default description for new spaces
 #: pkg/service/v0/spacetemplates.go:32
 msgid "Here you can add a description for this Space."
-msgstr "Hier können Sie eine Beschreibung für diesen Space einfügen."
+msgstr "Qui puoi aggiungere una descrizione per questo Spazio."
 
 #. UnifiedRole Viewer, Role Description (resolves directly)
 #. UnifiedRole SpaceViewer, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:95 pkg/unifiedrole/roles.go:107
 msgid "View and download."
-msgstr "Ansehen und herunterladen."
+msgstr "Visualizza e scarica."
 
 #. UnifiedRole SecureViewer, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:161
 msgid "View only documents, images and PDFs. Watermarks will be applied."
 msgstr ""
-"Ansehen von Dokumenten, Bildern und PDF's. Wasserzeichen werden angewendet."
+"Visualizza solo documenti, immagini e PDF. Verranno applicate filigrane."
 
 #. UnifiedRole FileEditor, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:137
 msgid "View, download and edit."
-msgstr "Ansehen, herunterladen und editieren."
+msgstr "Visualizza, scarica e modifica."
 
 #. UnifiedRole ViewerListGrants, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:101
 msgid "View, download and show all invited people."
-msgstr "Ansehen, herunterladen und anzeigen aller eingeladenen Benutzer."
+msgstr "Visualizza, scarica e mostra tutte le persone invitate."
 
 #. UnifiedRole EditorLite, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:149
 msgid "View, download and upload."
-msgstr "Ansehen, herunterladen und hochladen."
+msgstr "Visualizza, scarica e carica."
 
 #. UnifiedRole FileEditorListGrants, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:143
 msgid "View, download, edit and show all invited people."
-msgstr ""
-"Ansehen, herunterladen, bearbeiten und anzeigen aller eingeladenen Benutzer."
+msgstr "Visualizza, scarica, modifica e mostra tutte le persone invitate."
 
 #. UnifiedRole Editor, Role Description (resolves directly)
 #. UnifiedRole SpaseEditorWithoutVersions, Role Description (resolves
 #. directly)
 #: pkg/unifiedrole/roles.go:113 pkg/unifiedrole/roles.go:131
 msgid "View, download, upload, edit, add and delete."
-msgstr "Ansehen, herunterladen, hochladen, editieren, hinzufügen, löschen."
+msgstr "Visualizza, scarica, carica, modifica, aggiungi ed elimina."
 
 #. UnifiedRole Manager, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:155
 msgid "View, download, upload, edit, add, delete and manage members."
 msgstr ""
-"Ansehen, herunterladen, hochladen, bearbeiten, hinzufügen, löschen, teilen "
-"und Mitglieder verwalten."
+"Visualizza, scarica, carica, modifica, aggiungi, elimina e gestisci i "
+"membri."
 
 #. UnifiedRoleListGrants Editor, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:119
 msgid "View, download, upload, edit, add, delete and show all invited people."
 msgstr ""
-"Ansehen, herunterladen, hochladen, bearbeiten, löschen und anzeigen aller "
-"eingeladenen Benutzer."
+"Visualizza, scarica, carica, modifica, aggiungi, elimina e mostra tutte le "
+"persone invitate."
 
 #. UnifiedRole SpaseEditor, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:125
 msgid "View, download, upload, edit, add, delete including the history."
-msgstr ""
-"Ansehen, herunterladen, hochladen, bearbeiten, hinzufügen, löschen - "
-"inklusive der Historie."
+msgstr "View, download, upload, edit, add, delete including the history."

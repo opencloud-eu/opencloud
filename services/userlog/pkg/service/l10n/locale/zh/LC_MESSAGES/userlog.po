@@ -4,7 +4,7 @@
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 # 
 # Translators:
-# Jörn Friedrich Dreyer <jfd@butonic.de>, 2025
+# YQS Yang, 2025
 # 
 #, fuzzy
 msgid ""
@@ -13,107 +13,101 @@ msgstr ""
 "Report-Msgid-Bugs-To: EMAIL\n"
 "POT-Creation-Date: 2025-07-09 14:37+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
-"Last-Translator: Jörn Friedrich Dreyer <jfd@butonic.de>, 2025\n"
-"Language-Team: German (https://app.transifex.com/opencloud-eu/teams/204053/de/)\n"
+"Last-Translator: YQS Yang, 2025\n"
+"Language-Team: Chinese (https://app.transifex.com/opencloud-eu/teams/204053/zh/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: de\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Language: zh\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 
 #: pkg/service/templates.go:39
 msgid "Access to Space {space} lost"
-msgstr "Ihr Zugriff auf den Space {space} ist abgelaufen."
+msgstr "无法访问空间{space}"
 
 #: pkg/service/templates.go:54
 msgid "Access to {resource} expired"
-msgstr "Ihr Zugriff auf {resource} ist abgelaufen."
+msgstr "对{resource}的访问权限已过期"
 
 #: pkg/service/templates.go:59
 msgid ""
 "Attention! The instance will be shut down and deprovisioned on {date}. "
 "Download all your data before that date as no access past that date is "
 "possible."
-msgstr ""
-"Achtung! Diese Instanz wird am {date} heruntergefahren und außer Betrieb "
-"genommen werden. Laden Sie Ihre Daten vor diesem Tag herunter, da Sie danach"
-" nicht mehr darauf zugreifen können."
+msgstr "请注意！实例将于{date}关闭并解除配置。请在此日期前下载所有数据，之后将无法访问。"
 
 #: pkg/service/templates.go:14
 msgid "File {resource} was deleted because it violates the policies"
-msgstr ""
-"Datei {resource} wurde gelöscht, weil sie gegen die Richtlinien verstößt."
+msgstr "文件{resource}因违反策略已被删除"
 
 #: pkg/service/templates.go:58
 msgid "Instance will be shut down and deprovisioned"
-msgstr "Instanz wird heruntergefahren und außer Betrieb genommen werden."
+msgstr "实例将被关闭并解除配置"
 
 #: pkg/service/templates.go:38
 msgid "Membership expired"
-msgstr "Mitgliedschaft ausgelaufen"
+msgstr "成员资格已过期"
 
 #: pkg/service/templates.go:13
 msgid "Policies enforced"
-msgstr "Verstoß gegen Richtlinien"
+msgstr "策略已执行"
 
 #: pkg/service/templates.go:23
 msgid "Removed from Space"
-msgstr "Sie wurden aus einem Space entfernt"
+msgstr "已从空间中移除"
 
 #: pkg/service/templates.go:43
 msgid "Resource shared"
-msgstr "Neue Freigabe"
+msgstr "资源已共享"
 
 #: pkg/service/templates.go:48
 msgid "Resource unshared"
-msgstr "Freigabe entfernt"
+msgstr "资源已取消共享"
 
 #: pkg/service/templates.go:53
 msgid "Share expired"
-msgstr "Freigabe abgelaufen"
+msgstr "共享已过期"
 
 #: pkg/service/templates.go:33
 msgid "Space deleted"
-msgstr "Space gelöscht"
+msgstr "空间已删除"
 
 #: pkg/service/templates.go:28
 msgid "Space disabled"
-msgstr "Space deaktiviert"
+msgstr "空间已禁用"
 
 #: pkg/service/templates.go:18
 msgid "Space shared"
-msgstr "Space freigegeben"
+msgstr "空间已共享"
 
 #: pkg/service/templates.go:8
 msgid "Virus found"
-msgstr "Virus gefunden"
+msgstr "发现病毒"
 
 #: pkg/service/templates.go:9
 msgid "Virus found in {resource}. Upload not possible. Virus: {virus}"
-msgstr ""
-"In {resource} wurde potenziell schädlicher Code gefunden. Das Hochladen wurde abgebrochen.\n"
-"Grund: {virus}"
+msgstr "在{resource}中发现病毒。无法上传。病毒名称：{virus}"
 
 #: pkg/service/templates.go:19
 msgid "{user} added you to Space {space}"
-msgstr "{user} hat Sie zu Space {space} hinzugefügt"
+msgstr "{user}已将您添加到空间{space}"
 
 #: pkg/service/templates.go:34
 msgid "{user} deleted Space {space}"
-msgstr "{user} hat Space {space} gelöscht"
+msgstr "{user}已删除空间{space}"
 
 #: pkg/service/templates.go:29
 msgid "{user} disabled Space {space}"
-msgstr "{user} hat Space {space} deaktiviert"
+msgstr "{user}已禁用空间{space}"
 
 #: pkg/service/templates.go:24
 msgid "{user} removed you from Space {space}"
-msgstr "{user} hat Sie aus Space {space} entfernt."
+msgstr "{user}已将您从空间{space}中移除"
 
 #: pkg/service/templates.go:44
 msgid "{user} shared {resource} with you"
-msgstr "{user} hat {resource} mit Ihnen geteilt"
+msgstr "{user}已与您共享{resource}"
 
 #: pkg/service/templates.go:49
 msgid "{user} unshared {resource} with you"
-msgstr "{user} hat die Freigabe auf {resource} für Sie aufgehoben"
+msgstr "{user}已取消与您共享{resource}"

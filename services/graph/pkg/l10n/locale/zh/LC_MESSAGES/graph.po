@@ -4,7 +4,7 @@
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 # 
 # Translators:
-# Jörn Friedrich Dreyer <jfd@butonic.de>, 2025
+# YQS Yang, 2025
 # 
 #, fuzzy
 msgid ""
@@ -13,13 +13,13 @@ msgstr ""
 "Report-Msgid-Bugs-To: EMAIL\n"
 "POT-Creation-Date: 2025-07-09 14:37+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
-"Last-Translator: Jörn Friedrich Dreyer <jfd@butonic.de>, 2025\n"
-"Language-Team: German (https://app.transifex.com/opencloud-eu/teams/204053/de/)\n"
+"Last-Translator: YQS Yang, 2025\n"
+"Language-Team: Chinese (https://app.transifex.com/opencloud-eu/teams/204053/zh/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: de\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Language: zh\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 
 #. UnifiedRole Editor, Role DisplayName (resolves directly)
 #. UnifiedRole EditorListGrants, Role DisplayName (resolves directly)
@@ -30,23 +30,23 @@ msgstr ""
 #: pkg/unifiedrole/roles.go:128 pkg/unifiedrole/roles.go:140
 #: pkg/unifiedrole/roles.go:146
 msgid "Can edit"
-msgstr "Kann bearbeiten"
+msgstr "可编辑"
 
 #. UnifiedRole SpaseEditorWithoutVersions, Role DisplayName (resolves
 #. directly)
 #: pkg/unifiedrole/roles.go:134
 msgid "Can edit without versions"
-msgstr "Kann bearbeiten ohne Historie"
+msgstr "可编辑（无版本控制）"
 
 #. UnifiedRole Manager, Role DisplayName (resolves directly)
 #: pkg/unifiedrole/roles.go:158
 msgid "Can manage"
-msgstr "Kann verwalten"
+msgstr "可管理"
 
 #. UnifiedRole EditorLite, Role DisplayName (resolves directly)
 #: pkg/unifiedrole/roles.go:152
 msgid "Can upload"
-msgstr "Kann hochladen"
+msgstr "可上传"
 
 #. UnifiedRole Viewer, Role DisplayName (resolves directly)
 #. UnifiedRole Viewer, Role DisplayName (resolves directly)
@@ -54,85 +54,77 @@ msgstr "Kann hochladen"
 #: pkg/unifiedrole/roles.go:98 pkg/unifiedrole/roles.go:104
 #: pkg/unifiedrole/roles.go:110
 msgid "Can view"
-msgstr "Kann anzeigen"
+msgstr "可查看"
 
 #. UnifiedRole SecureViewer, Role DisplayName (resolves directly)
 #: pkg/unifiedrole/roles.go:164
 msgid "Can view (secure)"
-msgstr "Kann anzeigen (sichere Ansicht)"
+msgstr "可查看（安全）"
 
 #. UnifiedRole FullDenial, Role DisplayName (resolves directly)
 #: pkg/unifiedrole/roles.go:170
 msgid "Cannot access"
-msgstr "Kann nicht zugreifen"
+msgstr "无法访问"
 
 #. UnifiedRole FullDenial, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:167
 msgid "Deny all access."
-msgstr "Jeder Zugriff ist verboten."
+msgstr "拒绝所有访问。"
 
 #. default description for new spaces
 #: pkg/service/v0/spacetemplates.go:32
 msgid "Here you can add a description for this Space."
-msgstr "Hier können Sie eine Beschreibung für diesen Space einfügen."
+msgstr "此处可为该空间添加描述。"
 
 #. UnifiedRole Viewer, Role Description (resolves directly)
 #. UnifiedRole SpaceViewer, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:95 pkg/unifiedrole/roles.go:107
 msgid "View and download."
-msgstr "Ansehen und herunterladen."
+msgstr "查看和下载。"
 
 #. UnifiedRole SecureViewer, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:161
 msgid "View only documents, images and PDFs. Watermarks will be applied."
-msgstr ""
-"Ansehen von Dokumenten, Bildern und PDF's. Wasserzeichen werden angewendet."
+msgstr "仅可查看文档、图片和PDF，且会添加水印。"
 
 #. UnifiedRole FileEditor, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:137
 msgid "View, download and edit."
-msgstr "Ansehen, herunterladen und editieren."
+msgstr "查看、下载和编辑。"
 
 #. UnifiedRole ViewerListGrants, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:101
 msgid "View, download and show all invited people."
-msgstr "Ansehen, herunterladen und anzeigen aller eingeladenen Benutzer."
+msgstr "查看、下载并显示所有受邀人员。"
 
 #. UnifiedRole EditorLite, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:149
 msgid "View, download and upload."
-msgstr "Ansehen, herunterladen und hochladen."
+msgstr "查看、下载和上传。"
 
 #. UnifiedRole FileEditorListGrants, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:143
 msgid "View, download, edit and show all invited people."
-msgstr ""
-"Ansehen, herunterladen, bearbeiten und anzeigen aller eingeladenen Benutzer."
+msgstr "查看、下载、编辑并显示所有受邀人员。"
 
 #. UnifiedRole Editor, Role Description (resolves directly)
 #. UnifiedRole SpaseEditorWithoutVersions, Role Description (resolves
 #. directly)
 #: pkg/unifiedrole/roles.go:113 pkg/unifiedrole/roles.go:131
 msgid "View, download, upload, edit, add and delete."
-msgstr "Ansehen, herunterladen, hochladen, editieren, hinzufügen, löschen."
+msgstr "查看、下载、上传、编辑、添加和删除。"
 
 #. UnifiedRole Manager, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:155
 msgid "View, download, upload, edit, add, delete and manage members."
-msgstr ""
-"Ansehen, herunterladen, hochladen, bearbeiten, hinzufügen, löschen, teilen "
-"und Mitglieder verwalten."
+msgstr "查看、下载、上传、编辑、添加、删除和管理成员。"
 
 #. UnifiedRoleListGrants Editor, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:119
 msgid "View, download, upload, edit, add, delete and show all invited people."
-msgstr ""
-"Ansehen, herunterladen, hochladen, bearbeiten, löschen und anzeigen aller "
-"eingeladenen Benutzer."
+msgstr "查看、下载、上传、编辑、添加、删除并显示所有受邀人员。"
 
 #. UnifiedRole SpaseEditor, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:125
 msgid "View, download, upload, edit, add, delete including the history."
-msgstr ""
-"Ansehen, herunterladen, hochladen, bearbeiten, hinzufügen, löschen - "
-"inklusive der Historie."
+msgstr "查看、下载、上传、编辑、添加和删除（含历史版本）。"

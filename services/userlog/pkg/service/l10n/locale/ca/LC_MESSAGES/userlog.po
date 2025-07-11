@@ -4,7 +4,7 @@
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 # 
 # Translators:
-# Jörn Friedrich Dreyer <jfd@butonic.de>, 2025
+# Ivan Fustero, 2025
 # 
 #, fuzzy
 msgid ""
@@ -13,21 +13,21 @@ msgstr ""
 "Report-Msgid-Bugs-To: EMAIL\n"
 "POT-Creation-Date: 2025-07-09 14:37+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
-"Last-Translator: Jörn Friedrich Dreyer <jfd@butonic.de>, 2025\n"
-"Language-Team: German (https://app.transifex.com/opencloud-eu/teams/204053/de/)\n"
+"Last-Translator: Ivan Fustero, 2025\n"
+"Language-Team: Catalan (https://app.transifex.com/opencloud-eu/teams/204053/ca/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: de\n"
+"Language: ca\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: pkg/service/templates.go:39
 msgid "Access to Space {space} lost"
-msgstr "Ihr Zugriff auf den Space {space} ist abgelaufen."
+msgstr "S'ha perdut l'accés a l'espai {space}"
 
 #: pkg/service/templates.go:54
 msgid "Access to {resource} expired"
-msgstr "Ihr Zugriff auf {resource} ist abgelaufen."
+msgstr "L'accés a {resource} ha caducat"
 
 #: pkg/service/templates.go:59
 msgid ""
@@ -35,85 +35,82 @@ msgid ""
 "Download all your data before that date as no access past that date is "
 "possible."
 msgstr ""
-"Achtung! Diese Instanz wird am {date} heruntergefahren und außer Betrieb "
-"genommen werden. Laden Sie Ihre Daten vor diesem Tag herunter, da Sie danach"
-" nicht mehr darauf zugreifen können."
+"Atenció! La instància es tancarà el {date}. Descarrega les dades abans, "
+"perquè després no s’hi podrà accedir."
 
 #: pkg/service/templates.go:14
 msgid "File {resource} was deleted because it violates the policies"
-msgstr ""
-"Datei {resource} wurde gelöscht, weil sie gegen die Richtlinien verstößt."
+msgstr "S'ha suprimit el fitxer {resource} perquè viola les polítiques"
 
 #: pkg/service/templates.go:58
 msgid "Instance will be shut down and deprovisioned"
-msgstr "Instanz wird heruntergefahren und außer Betrieb genommen werden."
+msgstr "La instància es tancarà i es desactivarà"
 
 #: pkg/service/templates.go:38
 msgid "Membership expired"
-msgstr "Mitgliedschaft ausgelaufen"
+msgstr "La pertinença ha expirat"
 
 #: pkg/service/templates.go:13
 msgid "Policies enforced"
-msgstr "Verstoß gegen Richtlinien"
+msgstr "Polítiques aplicades"
 
 #: pkg/service/templates.go:23
 msgid "Removed from Space"
-msgstr "Sie wurden aus einem Space entfernt"
+msgstr "Eliminat de l'espai"
 
 #: pkg/service/templates.go:43
 msgid "Resource shared"
-msgstr "Neue Freigabe"
+msgstr "Recurs compartit"
 
 #: pkg/service/templates.go:48
 msgid "Resource unshared"
-msgstr "Freigabe entfernt"
+msgstr "Recurs sense compartir"
 
 #: pkg/service/templates.go:53
 msgid "Share expired"
-msgstr "Freigabe abgelaufen"
+msgstr "La compartició ha caducat"
 
 #: pkg/service/templates.go:33
 msgid "Space deleted"
-msgstr "Space gelöscht"
+msgstr "Espai eliminat"
 
 #: pkg/service/templates.go:28
 msgid "Space disabled"
-msgstr "Space deaktiviert"
+msgstr "Espai desactivat"
 
 #: pkg/service/templates.go:18
 msgid "Space shared"
-msgstr "Space freigegeben"
+msgstr "Espai compartit"
 
 #: pkg/service/templates.go:8
 msgid "Virus found"
-msgstr "Virus gefunden"
+msgstr "S'ha trobat un virus"
 
 #: pkg/service/templates.go:9
 msgid "Virus found in {resource}. Upload not possible. Virus: {virus}"
 msgstr ""
-"In {resource} wurde potenziell schädlicher Code gefunden. Das Hochladen wurde abgebrochen.\n"
-"Grund: {virus}"
+"S'ha trobat un virus a {resource}. La càrrega no és possible. Virus: {virus}"
 
 #: pkg/service/templates.go:19
 msgid "{user} added you to Space {space}"
-msgstr "{user} hat Sie zu Space {space} hinzugefügt"
+msgstr "{user} us ha afegit a l'espai {space}"
 
 #: pkg/service/templates.go:34
 msgid "{user} deleted Space {space}"
-msgstr "{user} hat Space {space} gelöscht"
+msgstr "{user} ha suprimit l'espai {space}"
 
 #: pkg/service/templates.go:29
 msgid "{user} disabled Space {space}"
-msgstr "{user} hat Space {space} deaktiviert"
+msgstr "{user} ha desactvat l'espai {space}"
 
 #: pkg/service/templates.go:24
 msgid "{user} removed you from Space {space}"
-msgstr "{user} hat Sie aus Space {space} entfernt."
+msgstr "{user} us ha tret de l'espai {space}"
 
 #: pkg/service/templates.go:44
 msgid "{user} shared {resource} with you"
-msgstr "{user} hat {resource} mit Ihnen geteilt"
+msgstr "{user} ha compartit {resource} amb vós"
 
 #: pkg/service/templates.go:49
 msgid "{user} unshared {resource} with you"
-msgstr "{user} hat die Freigabe auf {resource} für Sie aufgehoben"
+msgstr "{user} ha deixat de compartir {resource} amb vós"

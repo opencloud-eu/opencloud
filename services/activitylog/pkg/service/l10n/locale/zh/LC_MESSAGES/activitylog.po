@@ -1,0 +1,102 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# 
+# Translators:
+# YQS Yang, 2025
+# 
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: EMAIL\n"
+"POT-Creation-Date: 2025-01-27 11:01+0100\n"
+"PO-Revision-Date: 2025-01-27 10:17+0000\n"
+"Last-Translator: YQS Yang, 2025\n"
+"Language-Team: Chinese (https://app.transifex.com/opencloud-eu/teams/204053/zh/)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: zh\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: pkg/service/response.go:44
+msgid "description"
+msgstr "描述"
+
+#: pkg/service/response.go:43
+msgid "display name"
+msgstr "显示名称"
+
+#: pkg/service/response.go:42
+msgid "expiration date"
+msgstr "过期日期"
+
+#: pkg/service/response.go:41
+msgid "password"
+msgstr "密码"
+
+#: pkg/service/response.go:40
+msgid "permission"
+msgstr "权限"
+
+#: pkg/service/response.go:39
+msgid "some field"
+msgstr "特定字段"
+
+#: pkg/service/response.go:26
+msgid "{resource} was downloaded via public link {token}"
+msgstr "{resource} 已通过公开链接 {token} 下载"
+
+#: pkg/service/response.go:24
+msgid "{user} added {resource} to {folder}"
+msgstr "{user} 将 {resource} 添加到 {folder}"
+
+#: pkg/service/response.go:36
+msgid "{user} added {sharee} as member of {space}"
+msgstr "{user} 添加 {sharee} 成为 {space} 的成员"
+
+#: pkg/service/response.go:27
+msgid "{user} deleted {resource} from {folder}"
+msgstr "{user} 从 {folder} 中删除 {resource}"
+
+#: pkg/service/response.go:28
+msgid "{user} moved {resource} to {folder}"
+msgstr "{user} 将 {resource} 移动到 {folder}"
+
+#: pkg/service/response.go:35
+msgid "{user} removed link to {resource}"
+msgstr "{user} 移除了 {resource} 的链接"
+
+#: pkg/service/response.go:32
+msgid "{user} removed {sharee} from {resource}"
+msgstr "{user} 将 {sharee} 从 {resource} 移除"
+
+#: pkg/service/response.go:37
+msgid "{user} removed {sharee} from {space}"
+msgstr "{user} 将 {sharee} 从 {space} 移除"
+
+#: pkg/service/response.go:29
+msgid "{user} renamed {oldResource} to {resource}"
+msgstr "{user} 将 {oldResource} 重命名为 {resource}"
+
+#: pkg/service/response.go:33
+msgid "{user} shared {resource} via link"
+msgstr "{user} 通过链接分享了 {resource}"
+
+#: pkg/service/response.go:30
+msgid "{user} shared {resource} with {sharee}"
+msgstr "{user} 与 {sharee} 分享了 {resource}"
+
+#: pkg/service/response.go:34
+msgid "{user} updated {field} for a link {token} on {resource}"
+msgstr "{user} 更新了 {resource} 上链接 {token} 的 {field}"
+
+#: pkg/service/response.go:31
+msgid "{user} updated {field} for the {resource}"
+msgstr "{user} 更新了 {resource} 的 {field}"
+
+#: pkg/service/response.go:25
+msgid "{user} updated {resource} in {folder}"
+msgstr "{user} 在 {folder} 中更新了 {resource}"
