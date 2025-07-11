@@ -13,6 +13,7 @@
 ### 🐛 Bug Fixes
 
 - Update config.go [[#1183](https://github.com/opencloud-eu/opencloud/pull/1183)]
+- Fix wrong build version [[#1210](https://github.com/opencloud-eu/opencloud/pull/1210)]
 - Update Makefile [[#1187](https://github.com/opencloud-eu/opencloud/pull/1187)]
 - fix(collaboration): re register app providers in a configurable interval [[#1035](https://github.com/opencloud-eu/opencloud/pull/1035)]
 - Fix lico idp doesn't load opencloud font anymore [[#1153](https://github.com/opencloud-eu/opencloud/pull/1153)]
