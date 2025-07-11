@@ -1539,10 +1539,10 @@ def dockerReleases(ctx):
     return pipelines
 
 def dockerRelease(ctx, repo, build_type):
-    build_args = [
-        "REVISION=%s" % ctx.build.commit,
-        "VERSION=%s" % (ctx.build.ref.replace("refs/tags/", "") if ctx.build.event == "tag" else "daily"),
-    ]
+    build_args = {
+        "REVISION": "%s" % ctx.build.commit,
+        "VERSION": "%s" % (ctx.build.ref.replace("refs/tags/", "") if ctx.build.event == "tag" else "daily"),
+    }
 
     depends_on = getPipelineNames(getGoBinForTesting(ctx))
 
