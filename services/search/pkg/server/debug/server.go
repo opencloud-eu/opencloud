@@ -3,6 +3,7 @@ package debug
 import (
 	"context"
 	"net/http"
+	"net/url"
 
 	"github.com/opencloud-eu/opencloud/pkg/checks"
 	"github.com/opencloud-eu/opencloud/pkg/handlers"
@@ -22,7 +23,11 @@ func Server(opts ...Option) (*http.Server, error) {
 		WithCheck("nats reachability", checks.NewNatsCheck(options.Config.Events.Endpoint)).
 		WithCheck("tika-check", func(ctx context.Context) error {
 			if options.Config.Extractor.Type == "tika" {
-				return checks.NewTCPCheck(options.Config.Extractor.Tika.TikaURL)(ctx)
+				u, err := url.Parse(options.Config.Extractor.Tika.TikaURL)
+				if err != nil {
+					return err
+				}
+				return checks.NewTCPCheck(u.Host)(ctx)
 			}
 			return nil
 		})

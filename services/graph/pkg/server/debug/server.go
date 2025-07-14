@@ -2,6 +2,7 @@ package debug
 
 import (
 	"net/http"
+	"net/url"
 
 	"github.com/opencloud-eu/opencloud/pkg/checks"
 	"github.com/opencloud-eu/opencloud/pkg/handlers"
@@ -17,9 +18,13 @@ func Server(opts ...Option) (*http.Server, error) {
 		WithLogger(options.Logger).
 		WithCheck("web reachability", checks.NewHTTPCheck(options.Config.HTTP.Addr))
 
+	u, err := url.Parse(options.Config.Identity.LDAP.URI)
+	if err != nil {
+		return nil, err
+	}
 	readyHandlerConfiguration := healthHandlerConfiguration.
 		WithCheck("nats reachability", checks.NewNatsCheck(options.Config.Events.Endpoint)).
-		WithCheck("ldap reachability", checks.NewTCPCheck(options.Config.Identity.LDAP.URI))
+		WithCheck("ldap reachability", checks.NewTCPCheck(u.Host))
 
 	return debug.NewService(
 		debug.Logger(options.Logger),

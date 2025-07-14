@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/url"
 
 	"github.com/dutchcoders/go-clamd"
 
@@ -28,7 +29,11 @@ func Server(opts ...Option) (*http.Server, error) {
 			case "clamav":
 				return clamd.NewClamd(cfg.Scanner.ClamAV.Socket).Ping()
 			case "icap":
-				return checks.NewTCPCheck(cfg.Scanner.ICAP.URL)(ctx)
+				u, err := url.Parse(cfg.Scanner.ICAP.URL)
+				if err != nil {
+					return err
+				}
+				return checks.NewTCPCheck(u.Host)(ctx)
 			}
 		})
 

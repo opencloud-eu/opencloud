@@ -2192,7 +2192,7 @@ def translation_sync(ctx):
             {
                 "event": "cron",
                 "cron": "translation-sync",
-            }
+            },
         ],
     }]
 
