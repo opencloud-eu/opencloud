@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.2.0) - 2025-07-11
+## [3.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.2.0) - 2025-07-14
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -26,6 +26,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump golang.org/x/term from 0.32.0 to 0.33.0 [[#1208](https://github.com/opencloud-eu/opencloud/pull/1208)]
 - build(deps): bump github.com/olekukonko/tablewriter from 1.0.7 to 1.0.8 [[#1174](https://github.com/opencloud-eu/opencloud/pull/1174)]
 - build(deps): bump github.com/nats-io/nats-server/v2 from 2.11.5 to 2.11.6 [[#1164](https://github.com/opencloud-eu/opencloud/pull/1164)]
 - build(deps): bump github.com/go-playground/validator/v10 from 10.26.0 to 10.27.0 [[#1165](https://github.com/opencloud-eu/opencloud/pull/1165)]
