@@ -122,8 +122,8 @@ func DefaultConfig() *config.Config {
 				MaxAcquireLockCycles:       20,
 				MaxConcurrency:             5,
 				LockCycleDurationFactor:    30,
-				DisableMultipart:           true,
-				PartSize:                   16777216,
+				DisableMultipart:           false,
+				PartSize:                   0,
 				AsyncUploads:               true,
 			},
 			Decomposed: config.DecomposedDriver{
