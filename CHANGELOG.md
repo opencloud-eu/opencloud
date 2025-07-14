@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @ScharfViktor, @Svanvith, @dragonchaser, @fschade, @jnweiger, @micbar
+@AlexAndBear, @JammingBen, @ScharfViktor, @Svanvith, @butonic, @dragonchaser, @fschade, @jnweiger, @micbar, @rhafer
 
 ### ✨ Features
 
@@ -12,6 +12,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix ready checks [[#1222](https://github.com/opencloud-eu/opencloud/pull/1222)]
 - Update config.go [[#1183](https://github.com/opencloud-eu/opencloud/pull/1183)]
 - Fix wrong build version [[#1210](https://github.com/opencloud-eu/opencloud/pull/1210)]
 - Update Makefile [[#1187](https://github.com/opencloud-eu/opencloud/pull/1187)]
