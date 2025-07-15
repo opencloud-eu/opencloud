@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.2.0) - 2025-07-14
+## [3.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.2.0) - 2025-07-15
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -28,6 +28,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump golang.org/x/text from 0.26.0 to 0.27.0 [[#1227](https://github.com/opencloud-eu/opencloud/pull/1227)]
 - build(deps): bump golang.org/x/sync from 0.15.0 to 0.16.0 [[#1209](https://github.com/opencloud-eu/opencloud/pull/1209)]
 - build(deps): bump golang.org/x/term from 0.32.0 to 0.33.0 [[#1208](https://github.com/opencloud-eu/opencloud/pull/1208)]
 - build(deps): bump github.com/olekukonko/tablewriter from 1.0.7 to 1.0.8 [[#1174](https://github.com/opencloud-eu/opencloud/pull/1174)]
