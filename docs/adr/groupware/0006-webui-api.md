@@ -93,15 +93,6 @@ We are assuming that the APIs are public APIs (not just technically) and may be 
 
 Implications are that care must be put into providing an API that is stable, versioned, has a changelog, and potentially provided as a product with [LTS (Long-term Support)](https://en.wikipedia.org/wiki/Long-term_support) options.
 
-> [!WARNING]  
-> There is still disagreement over this item, as some (e.g. <p.bleser@opencloud.eu>) question whether it is
->
-> * realistic to expect third parties to implement rich groupware clients that will fully integrate with the capabilities our platform will provide, which is not just emails and contacts, but also the [Resource Linking](./0003-groupware-resource-linking.md) abilities (in which case they might just as well use our OpenCloud Groupware UI), instead of being content to consume protocols such as IMAP/POP, SMTP, CalDAV, CardDAV or [JMAP](https://jmap.io/spec-mail.html) directly from [Stalwart](https://stalw.art/);
-> * necessary to provide those with such a level of maintenant and support;
-> * not sufficient to only maintain a subset, possibly small, for integration purposes.
->
-> While such requirements make sense for the OpenCloud Drive components, as it may not only be considered as a UI client, but also as a storage service in its own right, and furthermore due to many integration scenarios that arise from that consideration, it may be argued that it is not the case for a Groupware application. If integration with granular APIs is desired by third parties nevertheless (e.g. create calendar events, read contacts, ...), existing standard protocols will be available through IMAP, CalDAV, CardDAV.
-
 ## Considered Options
 
 * [LibreGraph](#libregraph)
