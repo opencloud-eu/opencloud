@@ -79,9 +79,9 @@ type EventHistoryService_GetEvents_Call struct {
 }
 
 // GetEvents is a helper method to define mock.On call
-//   - ctx
-//   - in
-//   - opts
+//   - ctx context.Context
+//   - in *v0.GetEventsRequest
+//   - opts ...client.CallOption
 func (_e *EventHistoryService_Expecter) GetEvents(ctx interface{}, in interface{}, opts ...interface{}) *EventHistoryService_GetEvents_Call {
 	return &EventHistoryService_GetEvents_Call{Call: _e.mock.On("GetEvents",
 		append([]interface{}{ctx, in}, opts...)...)}
@@ -89,8 +89,25 @@ func (_e *EventHistoryService_Expecter) GetEvents(ctx interface{}, in interface{
 
 func (_c *EventHistoryService_GetEvents_Call) Run(run func(ctx context.Context, in *v0.GetEventsRequest, opts ...client.CallOption)) *EventHistoryService_GetEvents_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		variadicArgs := args[2].([]client.CallOption)
-		run(args[0].(context.Context), args[1].(*v0.GetEventsRequest), variadicArgs...)
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *v0.GetEventsRequest
+		if args[1] != nil {
+			arg1 = args[1].(*v0.GetEventsRequest)
+		}
+		var arg2 []client.CallOption
+		var variadicArgs []client.CallOption
+		if len(args) > 2 {
+			variadicArgs = args[2].([]client.CallOption)
+		}
+		arg2 = variadicArgs
+		run(
+			arg0,
+			arg1,
+			arg2...,
+		)
 	})
 	return _c
 }
@@ -145,9 +162,9 @@ type EventHistoryService_GetEventsForUser_Call struct {
 }
 
 // GetEventsForUser is a helper method to define mock.On call
-//   - ctx
-//   - in
-//   - opts
+//   - ctx context.Context
+//   - in *v0.GetEventsForUserRequest
+//   - opts ...client.CallOption
 func (_e *EventHistoryService_Expecter) GetEventsForUser(ctx interface{}, in interface{}, opts ...interface{}) *EventHistoryService_GetEventsForUser_Call {
 	return &EventHistoryService_GetEventsForUser_Call{Call: _e.mock.On("GetEventsForUser",
 		append([]interface{}{ctx, in}, opts...)...)}
@@ -155,8 +172,25 @@ func (_e *EventHistoryService_Expecter) GetEventsForUser(ctx interface{}, in int
 
 func (_c *EventHistoryService_GetEventsForUser_Call) Run(run func(ctx context.Context, in *v0.GetEventsForUserRequest, opts ...client.CallOption)) *EventHistoryService_GetEventsForUser_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		variadicArgs := args[2].([]client.CallOption)
-		run(args[0].(context.Context), args[1].(*v0.GetEventsForUserRequest), variadicArgs...)
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *v0.GetEventsForUserRequest
+		if args[1] != nil {
+			arg1 = args[1].(*v0.GetEventsForUserRequest)
+		}
+		var arg2 []client.CallOption
+		var variadicArgs []client.CallOption
+		if len(args) > 2 {
+			variadicArgs = args[2].([]client.CallOption)
+		}
+		arg2 = variadicArgs
+		run(
+			arg0,
+			arg1,
+			arg2...,
+		)
 	})
 	return _c
 }

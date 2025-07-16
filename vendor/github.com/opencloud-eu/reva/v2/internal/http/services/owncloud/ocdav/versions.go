@@ -200,7 +200,7 @@ func (h *VersionsHandler) doListVersions(w http.ResponseWriter, r *http.Request,
 	prefer := net.ParsePrefer(r.Header.Get("prefer"))
 	returnMinimal := prefer[net.HeaderPreferReturn] == "minimal"
 
-	propRes, err := propfind.MultistatusResponse(ctx, &pf, infos, s.c.PublicURL, "", nil, returnMinimal)
+	propRes, err := propfind.MultistatusResponse(ctx, &pf, infos, s.c.PublicURL, "", nil, returnMinimal, nil)
 	if err != nil {
 		sublog.Error().Err(err).Msg("error formatting propfind")
 		w.WriteHeader(http.StatusInternalServerError)

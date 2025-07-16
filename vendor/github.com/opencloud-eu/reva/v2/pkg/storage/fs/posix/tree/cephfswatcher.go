@@ -98,11 +98,13 @@ func (w *CephFSWatcher) Watch(topic string) {
 			switch {
 			case mask&CEPH_MDS_NOTIFY_DELETE > 0:
 				err = w.tree.Scan(path, ActionDelete, isDir)
-			case mask&CEPH_MDS_NOTIFY_CREATE > 0 || mask&CEPH_MDS_NOTIFY_MOVED_TO > 0:
+			case mask&CEPH_MDS_NOTIFY_MOVED_TO > 0:
 				if ev.SrcMask > 0 {
 					// This is a move, clean up the old path
 					err = w.tree.Scan(filepath.Join(w.tree.options.WatchRoot, ev.SrcPath), ActionMoveFrom, isDir)
 				}
+				err = w.tree.Scan(path, ActionMove, isDir)
+			case mask&CEPH_MDS_NOTIFY_CREATE > 0:
 				err = w.tree.Scan(path, ActionCreate, isDir)
 			case mask&CEPH_MDS_NOTIFY_CLOSE_WRITE > 0:
 				err = w.tree.Scan(path, ActionUpdate, isDir)

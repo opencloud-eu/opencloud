@@ -79,9 +79,9 @@ type ThumbnailService_GetThumbnail_Call struct {
 }
 
 // GetThumbnail is a helper method to define mock.On call
-//   - ctx
-//   - in
-//   - opts
+//   - ctx context.Context
+//   - in *v0.GetThumbnailRequest
+//   - opts ...client.CallOption
 func (_e *ThumbnailService_Expecter) GetThumbnail(ctx interface{}, in interface{}, opts ...interface{}) *ThumbnailService_GetThumbnail_Call {
 	return &ThumbnailService_GetThumbnail_Call{Call: _e.mock.On("GetThumbnail",
 		append([]interface{}{ctx, in}, opts...)...)}
@@ -89,8 +89,25 @@ func (_e *ThumbnailService_Expecter) GetThumbnail(ctx interface{}, in interface{
 
 func (_c *ThumbnailService_GetThumbnail_Call) Run(run func(ctx context.Context, in *v0.GetThumbnailRequest, opts ...client.CallOption)) *ThumbnailService_GetThumbnail_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		variadicArgs := args[2].([]client.CallOption)
-		run(args[0].(context.Context), args[1].(*v0.GetThumbnailRequest), variadicArgs...)
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *v0.GetThumbnailRequest
+		if args[1] != nil {
+			arg1 = args[1].(*v0.GetThumbnailRequest)
+		}
+		var arg2 []client.CallOption
+		var variadicArgs []client.CallOption
+		if len(args) > 2 {
+			variadicArgs = args[2].([]client.CallOption)
+		}
+		arg2 = variadicArgs
+		run(
+			arg0,
+			arg1,
+			arg2...,
+		)
 	})
 	return _c
 }

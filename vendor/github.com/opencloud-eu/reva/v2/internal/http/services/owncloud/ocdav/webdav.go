@@ -72,7 +72,7 @@ func (h *WebDavHandler) Handler(s *svc) http.Handler {
 		var status int // status 0 means the handler already sent the response
 		switch r.Method {
 		case MethodPropfind:
-			p := propfind.NewHandler(config.PublicURL, s.gatewaySelector, config)
+			p := propfind.NewHandler(config.PublicURL, s.gatewaySelector, s.urlSigner, config)
 			p.HandlePathPropfind(w, r, ns)
 		case MethodLock:
 			status, err = s.handleLock(w, r, ns)

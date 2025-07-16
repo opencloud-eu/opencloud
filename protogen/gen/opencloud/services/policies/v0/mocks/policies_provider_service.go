@@ -79,9 +79,9 @@ type PoliciesProviderService_Evaluate_Call struct {
 }
 
 // Evaluate is a helper method to define mock.On call
-//   - ctx
-//   - in
-//   - opts
+//   - ctx context.Context
+//   - in *v0.EvaluateRequest
+//   - opts ...client.CallOption
 func (_e *PoliciesProviderService_Expecter) Evaluate(ctx interface{}, in interface{}, opts ...interface{}) *PoliciesProviderService_Evaluate_Call {
 	return &PoliciesProviderService_Evaluate_Call{Call: _e.mock.On("Evaluate",
 		append([]interface{}{ctx, in}, opts...)...)}
@@ -89,8 +89,25 @@ func (_e *PoliciesProviderService_Expecter) Evaluate(ctx interface{}, in interfa
 
 func (_c *PoliciesProviderService_Evaluate_Call) Run(run func(ctx context.Context, in *v0.EvaluateRequest, opts ...client.CallOption)) *PoliciesProviderService_Evaluate_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		variadicArgs := args[2].([]client.CallOption)
-		run(args[0].(context.Context), args[1].(*v0.EvaluateRequest), variadicArgs...)
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *v0.EvaluateRequest
+		if args[1] != nil {
+			arg1 = args[1].(*v0.EvaluateRequest)
+		}
+		var arg2 []client.CallOption
+		var variadicArgs []client.CallOption
+		if len(args) > 2 {
+			variadicArgs = args[2].([]client.CallOption)
+		}
+		arg2 = variadicArgs
+		run(
+			arg0,
+			arg1,
+			arg2...,
+		)
 	})
 	return _c
 }

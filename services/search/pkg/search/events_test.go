@@ -1,7 +1,6 @@
 package search_test
 
 import (
-	"context"
 	"sync/atomic"
 
 	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
@@ -12,24 +11,27 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 	searchMocks "github.com/opencloud-eu/opencloud/services/search/pkg/search/mocks"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
+	"github.com/opencloud-eu/reva/v2/pkg/events/raw"
+	rawMocks "github.com/opencloud-eu/reva/v2/pkg/events/raw/mocks"
 	"github.com/stretchr/testify/mock"
-	mEvents "go-micro.dev/v4/events"
 )
 
 var _ = DescribeTable("events",
-	func(mcks []string, e interface{}, asyncUploads bool) {
+	func(mcks []string, e any, asyncUploads bool) {
 		var (
 			s     = &searchMocks.Searcher{}
 			calls atomic.Int32
 		)
 
-		bus, _ := mEvents.NewStream()
+		stream := rawMocks.NewStream(GinkgoT())
+		ch := make(chan raw.Event, 1)
+		stream.EXPECT().Consume(mock.Anything, mock.Anything).Return((<-chan raw.Event)(ch), nil)
 
-		search.HandleEvents(s, bus, log.NewLogger(), &config.Config{
+		search.HandleEvents(s, stream, &config.Config{
 			Events: config.Events{
 				AsyncUploads: asyncUploads,
 			},
-		})
+		}, log.NewLogger())
 
 		for _, mck := range mcks {
 			s.On(mck, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
@@ -37,9 +39,10 @@ var _ = DescribeTable("events",
 			})
 		}
 
-		err := events.Publish(context.Background(), bus, e)
+		ch <- raw.Event{
+			Event: events.Event{Event: e},
+		}
 
-		Expect(err).To(BeNil())
 		Eventually(func() int {
 			return int(calls.Load())
 		}, "2s").Should(Equal(len(mcks)))

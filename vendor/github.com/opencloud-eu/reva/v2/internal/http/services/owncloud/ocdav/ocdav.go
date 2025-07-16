@@ -20,6 +20,7 @@ package ocdav
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"path"
@@ -41,6 +42,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/rhttp"
 	"github.com/opencloud-eu/reva/v2/pkg/rhttp/global"
 	"github.com/opencloud-eu/reva/v2/pkg/rhttp/router"
+	"github.com/opencloud-eu/reva/v2/pkg/signedurl"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/favorite"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/favorite/registry"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/templates"
@@ -69,6 +71,7 @@ type svc struct {
 	LockSystem          LockSystem
 	userIdentifierCache *ttlcache.Cache
 	nameValidators      []Validator
+	urlSigner           signedurl.Signer
 }
 
 func (s *svc) Config() *config.Config {
@@ -116,6 +119,15 @@ func NewWith(conf *config.Config, fm favorite.Manager, ls LockSystem, _ *zerolog
 	// be safe - init the conf again
 	conf.Init()
 
+	var signer signedurl.Signer
+	if conf.URLSigningSharedSecret != "" {
+		var err error
+		signer, err = signedurl.NewJWTSignedURL(signedurl.WithSecret(conf.URLSigningSharedSecret))
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize URL signer: %w", err)
+		}
+	}
+
 	s := &svc{
 		c:             conf,
 		webDavHandler: new(WebDavHandler),
@@ -129,6 +141,7 @@ func NewWith(conf *config.Config, fm favorite.Manager, ls LockSystem, _ *zerolog
 		LockSystem:          ls,
 		userIdentifierCache: ttlcache.NewCache(),
 		nameValidators:      ValidatorsFromConfig(conf),
+		urlSigner:           signer,
 	}
 	_ = s.userIdentifierCache.SetTTL(60 * time.Second)
 

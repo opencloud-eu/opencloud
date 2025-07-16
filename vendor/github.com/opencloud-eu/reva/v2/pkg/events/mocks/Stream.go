@@ -40,14 +40,13 @@ func (_m *Stream) EXPECT() *Stream_Expecter {
 
 // Consume provides a mock function with given fields: _a0, _a1
 func (_m *Stream) Consume(_a0 string, _a1 ...events.ConsumeOption) (<-chan events.Event, error) {
-	_va := make([]interface{}, len(_a1))
-	for _i := range _a1 {
-		_va[_i] = _a1[_i]
+	var tmpRet mock.Arguments
+	if len(_a1) > 0 {
+		tmpRet = _m.Called(_a0, _a1)
+	} else {
+		tmpRet = _m.Called(_a0)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, _a0)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for Consume")
@@ -113,14 +112,13 @@ func (_c *Stream_Consume_Call) RunAndReturn(run func(string, ...events.ConsumeOp
 
 // Publish provides a mock function with given fields: _a0, _a1, _a2
 func (_m *Stream) Publish(_a0 string, _a1 interface{}, _a2 ...events.PublishOption) error {
-	_va := make([]interface{}, len(_a2))
-	for _i := range _a2 {
-		_va[_i] = _a2[_i]
+	var tmpRet mock.Arguments
+	if len(_a2) > 0 {
+		tmpRet = _m.Called(_a0, _a1, _a2)
+	} else {
+		tmpRet = _m.Called(_a0, _a1)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, _a0, _a1)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for Publish")

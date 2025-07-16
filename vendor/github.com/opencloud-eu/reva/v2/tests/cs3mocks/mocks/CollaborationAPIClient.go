@@ -45,14 +45,13 @@ func (_m *CollaborationAPIClient) EXPECT() *CollaborationAPIClient_Expecter {
 
 // CreateShare provides a mock function with given fields: ctx, in, opts
 func (_m *CollaborationAPIClient) CreateShare(ctx context.Context, in *collaborationv1beta1.CreateShareRequest, opts ...grpc.CallOption) (*collaborationv1beta1.CreateShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateShare")
@@ -119,14 +118,13 @@ func (_c *CollaborationAPIClient_CreateShare_Call) RunAndReturn(run func(context
 
 // GetReceivedShare provides a mock function with given fields: ctx, in, opts
 func (_m *CollaborationAPIClient) GetReceivedShare(ctx context.Context, in *collaborationv1beta1.GetReceivedShareRequest, opts ...grpc.CallOption) (*collaborationv1beta1.GetReceivedShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetReceivedShare")
@@ -193,14 +191,13 @@ func (_c *CollaborationAPIClient_GetReceivedShare_Call) RunAndReturn(run func(co
 
 // GetShare provides a mock function with given fields: ctx, in, opts
 func (_m *CollaborationAPIClient) GetShare(ctx context.Context, in *collaborationv1beta1.GetShareRequest, opts ...grpc.CallOption) (*collaborationv1beta1.GetShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetShare")
@@ -267,14 +264,13 @@ func (_c *CollaborationAPIClient_GetShare_Call) RunAndReturn(run func(context.Co
 
 // ListReceivedShares provides a mock function with given fields: ctx, in, opts
 func (_m *CollaborationAPIClient) ListReceivedShares(ctx context.Context, in *collaborationv1beta1.ListReceivedSharesRequest, opts ...grpc.CallOption) (*collaborationv1beta1.ListReceivedSharesResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListReceivedShares")
@@ -341,14 +337,13 @@ func (_c *CollaborationAPIClient_ListReceivedShares_Call) RunAndReturn(run func(
 
 // ListShares provides a mock function with given fields: ctx, in, opts
 func (_m *CollaborationAPIClient) ListShares(ctx context.Context, in *collaborationv1beta1.ListSharesRequest, opts ...grpc.CallOption) (*collaborationv1beta1.ListSharesResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListShares")
@@ -415,14 +410,13 @@ func (_c *CollaborationAPIClient_ListShares_Call) RunAndReturn(run func(context.
 
 // RemoveShare provides a mock function with given fields: ctx, in, opts
 func (_m *CollaborationAPIClient) RemoveShare(ctx context.Context, in *collaborationv1beta1.RemoveShareRequest, opts ...grpc.CallOption) (*collaborationv1beta1.RemoveShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for RemoveShare")
@@ -489,14 +483,13 @@ func (_c *CollaborationAPIClient_RemoveShare_Call) RunAndReturn(run func(context
 
 // UpdateReceivedShare provides a mock function with given fields: ctx, in, opts
 func (_m *CollaborationAPIClient) UpdateReceivedShare(ctx context.Context, in *collaborationv1beta1.UpdateReceivedShareRequest, opts ...grpc.CallOption) (*collaborationv1beta1.UpdateReceivedShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateReceivedShare")
@@ -563,14 +556,13 @@ func (_c *CollaborationAPIClient_UpdateReceivedShare_Call) RunAndReturn(run func
 
 // UpdateShare provides a mock function with given fields: ctx, in, opts
 func (_m *CollaborationAPIClient) UpdateShare(ctx context.Context, in *collaborationv1beta1.UpdateShareRequest, opts ...grpc.CallOption) (*collaborationv1beta1.UpdateShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateShare")

@@ -13,7 +13,7 @@ import (
 	"github.com/jellydator/ttlcache/v2"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
+	"github.com/opencloud-eu/reva/v2/pkg/events/raw"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/token"
 	"github.com/opencloud-eu/reva/v2/pkg/token/manager/jwt"
@@ -79,7 +79,11 @@ func NewHandler(opts ...Option) (searchsvc.SearchProviderHandler, func(), error)
 		return nil, teardown, fmt.Errorf("unknown search extractor: %s", cfg.Extractor.Type)
 	}
 
-	bus, err := stream.NatsFromConfig(cfg.Service.Name, false, stream.NatsConfig{
+	ss := search.NewService(selector, eng, extractor, logger, cfg)
+
+	// setup event handling
+
+	stream, err := raw.FromConfig(context.Background(), cfg.Service.Name, raw.Config{
 		Endpoint:             cfg.Events.Endpoint,
 		Cluster:              cfg.Events.Cluster,
 		EnableTLS:            cfg.Events.EnableTLS,
@@ -87,15 +91,14 @@ func NewHandler(opts ...Option) (searchsvc.SearchProviderHandler, func(), error)
 		TLSRootCACertificate: cfg.Events.TLSRootCACertificate,
 		AuthUsername:         cfg.Events.AuthUsername,
 		AuthPassword:         cfg.Events.AuthPassword,
+		MaxAckPending:        cfg.Events.MaxAckPending,
+		AckWait:              cfg.Events.AckWait,
 	})
 	if err != nil {
 		return nil, teardown, err
 	}
 
-	ss := search.NewService(selector, eng, extractor, logger, cfg)
-
-	// setup event handling
-	if err := search.HandleEvents(ss, bus, logger, cfg); err != nil {
+	if err := search.HandleEvents(ss, stream, cfg, logger); err != nil {
 		return nil, teardown, err
 	}
 

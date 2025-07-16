@@ -92,7 +92,9 @@ func (iw *InotifyWatcher) Watch(path string) {
 						err = iw.tree.Scan(event.Filename, ActionDelete, event.IsDir)
 					case inotifywaitgo.MOVED_FROM:
 						err = iw.tree.Scan(event.Filename, ActionMoveFrom, event.IsDir)
-					case inotifywaitgo.CREATE, inotifywaitgo.MOVED_TO:
+					case inotifywaitgo.MOVED_TO:
+						err = iw.tree.Scan(event.Filename, ActionMove, event.IsDir)
+					case inotifywaitgo.CREATE:
 						err = iw.tree.Scan(event.Filename, ActionCreate, event.IsDir)
 					case inotifywaitgo.CLOSE_WRITE:
 						err = iw.tree.Scan(event.Filename, ActionUpdate, event.IsDir)

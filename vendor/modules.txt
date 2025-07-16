@@ -1018,6 +1018,8 @@ github.com/nats-io/nats-server/v2/server/tpm
 github.com/nats-io/nats.go
 github.com/nats-io/nats.go/encoders/builtin
 github.com/nats-io/nats.go/internal/parser
+github.com/nats-io/nats.go/internal/syncx
+github.com/nats-io/nats.go/jetstream
 github.com/nats-io/nats.go/util
 # github.com/nats-io/nkeys v0.4.11
 ## explicit; go 1.23.0
@@ -1211,7 +1213,7 @@ github.com/open-policy-agent/opa/v1/version
 # github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250707143759-32eaae12b2ce
 ## explicit; go 1.18
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v2 v2.34.1-0.20250704134423-74abc5f04717
+# github.com/opencloud-eu/reva/v2 v2.34.1-0.20250716074813-cfe225225b23
 ## explicit; go 1.24.1
 github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v2/cmd/revad/runtime
@@ -1363,6 +1365,8 @@ github.com/opencloud-eu/reva/v2/pkg/eosclient/eosgrpc/eos_grpc
 github.com/opencloud-eu/reva/v2/pkg/errtypes
 github.com/opencloud-eu/reva/v2/pkg/events
 github.com/opencloud-eu/reva/v2/pkg/events/mocks
+github.com/opencloud-eu/reva/v2/pkg/events/raw
+github.com/opencloud-eu/reva/v2/pkg/events/raw/mocks
 github.com/opencloud-eu/reva/v2/pkg/events/stream
 github.com/opencloud-eu/reva/v2/pkg/group
 github.com/opencloud-eu/reva/v2/pkg/group/manager/json
@@ -1470,6 +1474,7 @@ github.com/opencloud-eu/reva/v2/pkg/share/manager/memory
 github.com/opencloud-eu/reva/v2/pkg/share/manager/owncloudsql
 github.com/opencloud-eu/reva/v2/pkg/share/manager/registry
 github.com/opencloud-eu/reva/v2/pkg/sharedconf
+github.com/opencloud-eu/reva/v2/pkg/signedurl
 github.com/opencloud-eu/reva/v2/pkg/siteacc
 github.com/opencloud-eu/reva/v2/pkg/siteacc/account
 github.com/opencloud-eu/reva/v2/pkg/siteacc/account/contact
@@ -2010,7 +2015,7 @@ go.etcd.io/bbolt
 go.etcd.io/bbolt/errors
 go.etcd.io/bbolt/internal/common
 go.etcd.io/bbolt/internal/freelist
-# go.etcd.io/etcd/api/v3 v3.6.1
+# go.etcd.io/etcd/api/v3 v3.6.2
 ## explicit; go 1.23.0
 go.etcd.io/etcd/api/v3/authpb
 go.etcd.io/etcd/api/v3/etcdserverpb
@@ -2019,7 +2024,7 @@ go.etcd.io/etcd/api/v3/mvccpb
 go.etcd.io/etcd/api/v3/v3rpc/rpctypes
 go.etcd.io/etcd/api/v3/version
 go.etcd.io/etcd/api/v3/versionpb
-# go.etcd.io/etcd/client/pkg/v3 v3.6.1
+# go.etcd.io/etcd/client/pkg/v3 v3.6.2
 ## explicit; go 1.23.0
 go.etcd.io/etcd/client/pkg/v3/fileutil
 go.etcd.io/etcd/client/pkg/v3/logutil
@@ -2028,7 +2033,7 @@ go.etcd.io/etcd/client/pkg/v3/tlsutil
 go.etcd.io/etcd/client/pkg/v3/transport
 go.etcd.io/etcd/client/pkg/v3/types
 go.etcd.io/etcd/client/pkg/v3/verify
-# go.etcd.io/etcd/client/v3 v3.6.1
+# go.etcd.io/etcd/client/v3 v3.6.2
 ## explicit; go 1.23.0
 go.etcd.io/etcd/client/v3
 go.etcd.io/etcd/client/v3/credentials
@@ -2157,7 +2162,7 @@ go.uber.org/zap/internal/pool
 go.uber.org/zap/internal/stacktrace
 go.uber.org/zap/zapcore
 go.uber.org/zap/zapgrpc
-# golang.org/x/crypto v0.39.0
+# golang.org/x/crypto v0.40.0
 ## explicit; go 1.23.0
 golang.org/x/crypto/argon2
 golang.org/x/crypto/bcrypt

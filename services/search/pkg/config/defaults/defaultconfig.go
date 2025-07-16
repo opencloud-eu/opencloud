@@ -2,6 +2,7 @@ package defaults
 
 import (
 	"path/filepath"
+	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
@@ -53,6 +54,8 @@ func DefaultConfig() *config.Config {
 			DebounceDuration: 1000,
 			AsyncUploads:     true,
 			EnableTLS:        false,
+			MaxAckPending:    1000,
+			AckWait:          1 * time.Minute,
 		},
 		ContentExtractionSizeLimit: 20 * 1024 * 1024, // Limit content extraction to <20MB files by default
 	}

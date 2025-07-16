@@ -79,9 +79,9 @@ type ValueService_GetValue_Call struct {
 }
 
 // GetValue is a helper method to define mock.On call
-//   - ctx
-//   - in
-//   - opts
+//   - ctx context.Context
+//   - in *v0.GetValueRequest
+//   - opts ...client.CallOption
 func (_e *ValueService_Expecter) GetValue(ctx interface{}, in interface{}, opts ...interface{}) *ValueService_GetValue_Call {
 	return &ValueService_GetValue_Call{Call: _e.mock.On("GetValue",
 		append([]interface{}{ctx, in}, opts...)...)}
@@ -89,8 +89,25 @@ func (_e *ValueService_Expecter) GetValue(ctx interface{}, in interface{}, opts 
 
 func (_c *ValueService_GetValue_Call) Run(run func(ctx context.Context, in *v0.GetValueRequest, opts ...client.CallOption)) *ValueService_GetValue_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		variadicArgs := args[2].([]client.CallOption)
-		run(args[0].(context.Context), args[1].(*v0.GetValueRequest), variadicArgs...)
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *v0.GetValueRequest
+		if args[1] != nil {
+			arg1 = args[1].(*v0.GetValueRequest)
+		}
+		var arg2 []client.CallOption
+		var variadicArgs []client.CallOption
+		if len(args) > 2 {
+			variadicArgs = args[2].([]client.CallOption)
+		}
+		arg2 = variadicArgs
+		run(
+			arg0,
+			arg1,
+			arg2...,
+		)
 	})
 	return _c
 }
@@ -145,9 +162,9 @@ type ValueService_GetValueByUniqueIdentifiers_Call struct {
 }
 
 // GetValueByUniqueIdentifiers is a helper method to define mock.On call
-//   - ctx
-//   - in
-//   - opts
+//   - ctx context.Context
+//   - in *v0.GetValueByUniqueIdentifiersRequest
+//   - opts ...client.CallOption
 func (_e *ValueService_Expecter) GetValueByUniqueIdentifiers(ctx interface{}, in interface{}, opts ...interface{}) *ValueService_GetValueByUniqueIdentifiers_Call {
 	return &ValueService_GetValueByUniqueIdentifiers_Call{Call: _e.mock.On("GetValueByUniqueIdentifiers",
 		append([]interface{}{ctx, in}, opts...)...)}
@@ -155,8 +172,25 @@ func (_e *ValueService_Expecter) GetValueByUniqueIdentifiers(ctx interface{}, in
 
 func (_c *ValueService_GetValueByUniqueIdentifiers_Call) Run(run func(ctx context.Context, in *v0.GetValueByUniqueIdentifiersRequest, opts ...client.CallOption)) *ValueService_GetValueByUniqueIdentifiers_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		variadicArgs := args[2].([]client.CallOption)
-		run(args[0].(context.Context), args[1].(*v0.GetValueByUniqueIdentifiersRequest), variadicArgs...)
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *v0.GetValueByUniqueIdentifiersRequest
+		if args[1] != nil {
+			arg1 = args[1].(*v0.GetValueByUniqueIdentifiersRequest)
+		}
+		var arg2 []client.CallOption
+		var variadicArgs []client.CallOption
+		if len(args) > 2 {
+			variadicArgs = args[2].([]client.CallOption)
+		}
+		arg2 = variadicArgs
+		run(
+			arg0,
+			arg1,
+			arg2...,
+		)
 	})
 	return _c
 }
@@ -211,9 +245,9 @@ type ValueService_ListValues_Call struct {
 }
 
 // ListValues is a helper method to define mock.On call
-//   - ctx
-//   - in
-//   - opts
+//   - ctx context.Context
+//   - in *v0.ListValuesRequest
+//   - opts ...client.CallOption
 func (_e *ValueService_Expecter) ListValues(ctx interface{}, in interface{}, opts ...interface{}) *ValueService_ListValues_Call {
 	return &ValueService_ListValues_Call{Call: _e.mock.On("ListValues",
 		append([]interface{}{ctx, in}, opts...)...)}
@@ -221,8 +255,25 @@ func (_e *ValueService_Expecter) ListValues(ctx interface{}, in interface{}, opt
 
 func (_c *ValueService_ListValues_Call) Run(run func(ctx context.Context, in *v0.ListValuesRequest, opts ...client.CallOption)) *ValueService_ListValues_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		variadicArgs := args[2].([]client.CallOption)
-		run(args[0].(context.Context), args[1].(*v0.ListValuesRequest), variadicArgs...)
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *v0.ListValuesRequest
+		if args[1] != nil {
+			arg1 = args[1].(*v0.ListValuesRequest)
+		}
+		var arg2 []client.CallOption
+		var variadicArgs []client.CallOption
+		if len(args) > 2 {
+			variadicArgs = args[2].([]client.CallOption)
+		}
+		arg2 = variadicArgs
+		run(
+			arg0,
+			arg1,
+			arg2...,
+		)
 	})
 	return _c
 }
@@ -277,9 +328,9 @@ type ValueService_SaveValue_Call struct {
 }
 
 // SaveValue is a helper method to define mock.On call
-//   - ctx
-//   - in
-//   - opts
+//   - ctx context.Context
+//   - in *v0.SaveValueRequest
+//   - opts ...client.CallOption
 func (_e *ValueService_Expecter) SaveValue(ctx interface{}, in interface{}, opts ...interface{}) *ValueService_SaveValue_Call {
 	return &ValueService_SaveValue_Call{Call: _e.mock.On("SaveValue",
 		append([]interface{}{ctx, in}, opts...)...)}
@@ -287,8 +338,25 @@ func (_e *ValueService_Expecter) SaveValue(ctx interface{}, in interface{}, opts
 
 func (_c *ValueService_SaveValue_Call) Run(run func(ctx context.Context, in *v0.SaveValueRequest, opts ...client.CallOption)) *ValueService_SaveValue_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		variadicArgs := args[2].([]client.CallOption)
-		run(args[0].(context.Context), args[1].(*v0.SaveValueRequest), variadicArgs...)
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *v0.SaveValueRequest
+		if args[1] != nil {
+			arg1 = args[1].(*v0.SaveValueRequest)
+		}
+		var arg2 []client.CallOption
+		var variadicArgs []client.CallOption
+		if len(args) > 2 {
+			variadicArgs = args[2].([]client.CallOption)
+		}
+		arg2 = variadicArgs
+		run(
+			arg0,
+			arg1,
+			arg2...,
+		)
 	})
 	return _c
 }

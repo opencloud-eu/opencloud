@@ -82,7 +82,7 @@ func (h *SpacesHandler) Handler(s *svc, trashbinHandler *TrashbinHandler) http.H
 		var err error
 		switch r.Method {
 		case MethodPropfind:
-			p := propfind.NewHandler(config.PublicURL, s.gatewaySelector, config)
+			p := propfind.NewHandler(config.PublicURL, s.gatewaySelector, s.urlSigner, config)
 			p.HandleSpacesPropfind(w, r, spaceID)
 		case MethodProppatch:
 			status, err = s.handleSpacesProppatch(w, r, spaceID)

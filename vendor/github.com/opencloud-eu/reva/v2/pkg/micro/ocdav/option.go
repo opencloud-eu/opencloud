@@ -401,3 +401,10 @@ func RegisterInterval(interval time.Duration) Option {
 		o.RegisterInterval = interval
 	}
 }
+
+// URLSigningSharedSecret provides a function to set the URLSigningSharedSecret config option.
+func URLSigningSharedSecret(secret string) Option {
+	return func(o *Options) {
+		o.config.URLSigningSharedSecret = secret
+	}
+}

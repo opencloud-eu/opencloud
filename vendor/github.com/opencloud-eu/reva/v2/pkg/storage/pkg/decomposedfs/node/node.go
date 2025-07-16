@@ -1117,22 +1117,22 @@ func (n *Node) ReadUserPermissions(ctx context.Context, u *userpb.User) (ap *pro
 			continue
 		}
 
-		if isGrantExpired(g) {
-			continue
-		}
-
 		switch {
 		case err == nil:
+			if isGrantExpired(g) {
+				continue
+			}
+
 			// If all permissions are set to false we have a deny grant
 			if grants.PermissionsEqual(g.Permissions, &provider.ResourcePermissions{}) {
 				return NoPermissions(), true, nil
 			}
 			AddPermissions(ap, g.GetPermissions())
 		case metadata.IsAttrUnset(err):
-			appctx.GetLogger(ctx).Error().Str("spaceid", n.SpaceID).Str("nodeid", n.ID).Str("grant", grantees[i]).Interface("grantees", grantees).Msg("grant vanished from node after listing")
+			appctx.GetLogger(ctx).Error().Err(err).Str("spaceid", n.SpaceID).Str("nodeid", n.ID).Str("path", n.InternalPath()).Str("grant", grantees[i]).Interface("grantees", grantees).Msg("grant vanished from node after listing")
 			// continue with next segment
 		default:
-			appctx.GetLogger(ctx).Error().Err(err).Str("spaceid", n.SpaceID).Str("nodeid", n.ID).Str("grant", grantees[i]).Msg("error reading permissions")
+			appctx.GetLogger(ctx).Error().Err(err).Str("spaceid", n.SpaceID).Str("nodeid", n.ID).Str("path", n.InternalPath()).Str("grant", grantees[i]).Msg("error reading permissions")
 			// continue with next segment
 		}
 	}

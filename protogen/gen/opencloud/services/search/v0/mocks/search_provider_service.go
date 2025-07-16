@@ -79,9 +79,9 @@ type SearchProviderService_IndexSpace_Call struct {
 }
 
 // IndexSpace is a helper method to define mock.On call
-//   - ctx
-//   - in
-//   - opts
+//   - ctx context.Context
+//   - in *v0.IndexSpaceRequest
+//   - opts ...client.CallOption
 func (_e *SearchProviderService_Expecter) IndexSpace(ctx interface{}, in interface{}, opts ...interface{}) *SearchProviderService_IndexSpace_Call {
 	return &SearchProviderService_IndexSpace_Call{Call: _e.mock.On("IndexSpace",
 		append([]interface{}{ctx, in}, opts...)...)}
@@ -89,8 +89,25 @@ func (_e *SearchProviderService_Expecter) IndexSpace(ctx interface{}, in interfa
 
 func (_c *SearchProviderService_IndexSpace_Call) Run(run func(ctx context.Context, in *v0.IndexSpaceRequest, opts ...client.CallOption)) *SearchProviderService_IndexSpace_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		variadicArgs := args[2].([]client.CallOption)
-		run(args[0].(context.Context), args[1].(*v0.IndexSpaceRequest), variadicArgs...)
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *v0.IndexSpaceRequest
+		if args[1] != nil {
+			arg1 = args[1].(*v0.IndexSpaceRequest)
+		}
+		var arg2 []client.CallOption
+		var variadicArgs []client.CallOption
+		if len(args) > 2 {
+			variadicArgs = args[2].([]client.CallOption)
+		}
+		arg2 = variadicArgs
+		run(
+			arg0,
+			arg1,
+			arg2...,
+		)
 	})
 	return _c
 }
@@ -145,9 +162,9 @@ type SearchProviderService_Search_Call struct {
 }
 
 // Search is a helper method to define mock.On call
-//   - ctx
-//   - in
-//   - opts
+//   - ctx context.Context
+//   - in *v0.SearchRequest
+//   - opts ...client.CallOption
 func (_e *SearchProviderService_Expecter) Search(ctx interface{}, in interface{}, opts ...interface{}) *SearchProviderService_Search_Call {
 	return &SearchProviderService_Search_Call{Call: _e.mock.On("Search",
 		append([]interface{}{ctx, in}, opts...)...)}
@@ -155,8 +172,25 @@ func (_e *SearchProviderService_Expecter) Search(ctx interface{}, in interface{}
 
 func (_c *SearchProviderService_Search_Call) Run(run func(ctx context.Context, in *v0.SearchRequest, opts ...client.CallOption)) *SearchProviderService_Search_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		variadicArgs := args[2].([]client.CallOption)
-		run(args[0].(context.Context), args[1].(*v0.SearchRequest), variadicArgs...)
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *v0.SearchRequest
+		if args[1] != nil {
+			arg1 = args[1].(*v0.SearchRequest)
+		}
+		var arg2 []client.CallOption
+		var variadicArgs []client.CallOption
+		if len(args) > 2 {
+			variadicArgs = args[2].([]client.CallOption)
+		}
+		arg2 = variadicArgs
+		run(
+			arg0,
+			arg1,
+			arg2...,
+		)
 	})
 	return _c
 }

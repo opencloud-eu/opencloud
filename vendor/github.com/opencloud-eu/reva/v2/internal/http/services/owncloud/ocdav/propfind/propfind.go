@@ -52,6 +52,7 @@ import (
 	rstatus "github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/rhttp/router"
+	"github.com/opencloud-eu/reva/v2/pkg/signedurl"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"github.com/rs/zerolog"
@@ -214,14 +215,16 @@ type Handler struct {
 	PublicURL string
 	selector  pool.Selectable[gateway.GatewayAPIClient]
 	c         *config.Config
+	urlSigner signedurl.Signer
 }
 
 // NewHandler returns a new PropfindHandler instance
-func NewHandler(publicURL string, selector pool.Selectable[gateway.GatewayAPIClient], c *config.Config) *Handler {
+func NewHandler(publicURL string, selector pool.Selectable[gateway.GatewayAPIClient], signer signedurl.Signer, c *config.Config) *Handler {
 	return &Handler{
 		PublicURL: publicURL,
 		selector:  selector,
 		c:         c,
+		urlSigner: signer,
 	}
 }
 
@@ -494,7 +497,7 @@ func (p *Handler) propfindResponse(ctx context.Context, w http.ResponseWriter, r
 	prefer := net.ParsePrefer(r.Header.Get(net.HeaderPrefer))
 	returnMinimal := prefer[net.HeaderPreferReturn] == "minimal"
 
-	propRes, err := MultistatusResponse(ctx, &pf, resourceInfos, p.PublicURL, namespace, linkshares, returnMinimal)
+	propRes, err := MultistatusResponse(ctx, &pf, resourceInfos, p.PublicURL, namespace, linkshares, returnMinimal, p.urlSigner)
 	if err != nil {
 		log.Error().Err(err).Msg("error formatting propfind")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -985,7 +988,7 @@ func ReadPropfind(r io.Reader) (pf XML, status int, err error) {
 }
 
 // MultistatusResponse converts a list of resource infos into a multistatus response string
-func MultistatusResponse(ctx context.Context, pf *XML, mds []*provider.ResourceInfo, publicURL, ns string, linkshares map[string]struct{}, returnMinimal bool) ([]byte, error) {
+func MultistatusResponse(ctx context.Context, pf *XML, mds []*provider.ResourceInfo, publicURL, ns string, linkshares map[string]struct{}, returnMinimal bool, downloadURLSigner signedurl.Signer) ([]byte, error) {
 	g, ctx := errgroup.WithContext(ctx)
 
 	type work struct {
@@ -1020,7 +1023,7 @@ func MultistatusResponse(ctx context.Context, pf *XML, mds []*provider.ResourceI
 	for i := 0; i < numWorkers; i++ {
 		g.Go(func() error {
 			for work := range workChan {
-				res, err := mdToPropResponse(ctx, pf, work.info, publicURL, ns, linkshares, returnMinimal)
+				res, err := mdToPropResponse(ctx, pf, work.info, publicURL, ns, linkshares, returnMinimal, downloadURLSigner)
 				if err != nil {
 					return err
 				}
@@ -1061,7 +1064,7 @@ func MultistatusResponse(ctx context.Context, pf *XML, mds []*provider.ResourceI
 // mdToPropResponse converts the CS3 metadata into a webdav PropResponse
 // ns is the CS3 namespace that needs to be removed from the CS3 path before
 // prefixing it with the baseURI
-func mdToPropResponse(ctx context.Context, pf *XML, md *provider.ResourceInfo, publicURL, ns string, linkshares map[string]struct{}, returnMinimal bool) (*ResponseXML, error) {
+func mdToPropResponse(ctx context.Context, pf *XML, md *provider.ResourceInfo, publicURL, ns string, linkshares map[string]struct{}, returnMinimal bool, urlSigner signedurl.Signer) (*ResponseXML, error) {
 	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "md_to_prop_response")
 	span.SetAttributes(attribute.KeyValue{Key: "publicURL", Value: attribute.StringValue(publicURL)})
 	span.SetAttributes(attribute.KeyValue{Key: "ns", Value: attribute.StringValue(ns)})
@@ -1516,23 +1519,14 @@ func mdToPropResponse(ctx context.Context, pf *XML, md *provider.ResourceInfo, p
 						appendToNotFound(prop.NotFound("oc:owner-display-name"))
 					}
 				case "downloadURL": // desktop
-					if isPublic && md.Type == provider.ResourceType_RESOURCE_TYPE_FILE {
-						var path string
-						if !ls.PasswordProtected {
-							path = p
+					if md.Type == provider.ResourceType_RESOURCE_TYPE_FILE {
+						url := downloadURL(ctx, sublog, isPublic, p, ls, publicURL, baseURI, urlSigner)
+						if url != "" {
+							appendToOK(prop.Escaped("oc:downloadURL", url))
 						} else {
-							expiration := time.Unix(int64(ls.Signature.SignatureExpiration.Seconds), int64(ls.Signature.SignatureExpiration.Nanos))
-							var sb strings.Builder
-
-							sb.WriteString(p)
-							sb.WriteString("?signature=")
-							sb.WriteString(ls.Signature.Signature)
-							sb.WriteString("&expiration=")
-							sb.WriteString(url.QueryEscape(expiration.Format(time.RFC3339)))
-
-							path = sb.String()
+							appendToNotFound(prop.NotFound("oc:" + pf.Prop[i].Local))
 						}
-						appendToOK(prop.Escaped("oc:downloadURL", publicURL+baseURI+path))
+
 					} else {
 						appendToNotFound(prop.NotFound("oc:" + pf.Prop[i].Local))
 					}
@@ -1736,6 +1730,42 @@ func hasPreview(md *provider.ResourceInfo, appendToOK func(p ...prop.PropertyXML
 	} else {
 		appendToOK(prop.Escaped("oc:has-preview", "0"))
 	}
+}
+
+func downloadURL(ctx context.Context, log zerolog.Logger, isPublic bool, path string, ls *link.PublicShare, publicURL string, baseURI string, urlSigner signedurl.Signer) string {
+	switch {
+	case isPublic:
+		var queryString string
+		if !ls.PasswordProtected {
+			queryString = path
+		} else {
+			expiration := time.Unix(int64(ls.Signature.SignatureExpiration.Seconds), int64(ls.Signature.SignatureExpiration.Nanos))
+			var sb strings.Builder
+
+			sb.WriteString(path)
+			sb.WriteString("?signature=")
+			sb.WriteString(ls.Signature.Signature)
+			sb.WriteString("&expiration=")
+			sb.WriteString(url.QueryEscape(expiration.Format(time.RFC3339)))
+
+			queryString = sb.String()
+		}
+		return publicURL + baseURI + queryString
+	case urlSigner != nil:
+		u, ok := ctxpkg.ContextGetUser(ctx)
+		if !ok {
+			log.Error().Msg("could not get user from context for download URL signing")
+			return ""
+		}
+		signedURL, err := urlSigner.Sign(publicURL+baseURI+path, u.Id.OpaqueId, 30*time.Minute)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to sign download URL")
+			return ""
+		} else {
+			return signedURL
+		}
+	}
+	return ""
 }
 
 func activeLocks(log *zerolog.Logger, lock *provider.Lock) string {

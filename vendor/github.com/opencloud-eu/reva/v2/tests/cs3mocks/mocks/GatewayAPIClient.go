@@ -76,14 +76,13 @@ func (_m *GatewayAPIClient) EXPECT() *GatewayAPIClient_Expecter {
 
 // AcceptInvite provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) AcceptInvite(ctx context.Context, in *invitev1beta1.AcceptInviteRequest, opts ...grpc.CallOption) (*invitev1beta1.AcceptInviteResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for AcceptInvite")
@@ -150,14 +149,13 @@ func (_c *GatewayAPIClient_AcceptInvite_Call) RunAndReturn(run func(context.Cont
 
 // AddAppProvider provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) AddAppProvider(ctx context.Context, in *registryv1beta1.AddAppProviderRequest, opts ...grpc.CallOption) (*registryv1beta1.AddAppProviderResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for AddAppProvider")
@@ -224,14 +222,13 @@ func (_c *GatewayAPIClient_AddAppProvider_Call) RunAndReturn(run func(context.Co
 
 // Authenticate provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) Authenticate(ctx context.Context, in *gatewayv1beta1.AuthenticateRequest, opts ...grpc.CallOption) (*gatewayv1beta1.AuthenticateResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for Authenticate")
@@ -298,14 +295,13 @@ func (_c *GatewayAPIClient_Authenticate_Call) RunAndReturn(run func(context.Cont
 
 // CancelTransfer provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) CancelTransfer(ctx context.Context, in *txv1beta1.CancelTransferRequest, opts ...grpc.CallOption) (*txv1beta1.CancelTransferResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for CancelTransfer")
@@ -372,14 +368,13 @@ func (_c *GatewayAPIClient_CancelTransfer_Call) RunAndReturn(run func(context.Co
 
 // CheckPermission provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) CheckPermission(ctx context.Context, in *permissionsv1beta1.CheckPermissionRequest, opts ...grpc.CallOption) (*permissionsv1beta1.CheckPermissionResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for CheckPermission")
@@ -446,14 +441,13 @@ func (_c *GatewayAPIClient_CheckPermission_Call) RunAndReturn(run func(context.C
 
 // CreateContainer provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) CreateContainer(ctx context.Context, in *providerv1beta1.CreateContainerRequest, opts ...grpc.CallOption) (*providerv1beta1.CreateContainerResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateContainer")
@@ -520,14 +514,13 @@ func (_c *GatewayAPIClient_CreateContainer_Call) RunAndReturn(run func(context.C
 
 // CreateHome provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) CreateHome(ctx context.Context, in *providerv1beta1.CreateHomeRequest, opts ...grpc.CallOption) (*providerv1beta1.CreateHomeResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateHome")
@@ -594,14 +587,13 @@ func (_c *GatewayAPIClient_CreateHome_Call) RunAndReturn(run func(context.Contex
 
 // CreateOCMCoreShare provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) CreateOCMCoreShare(ctx context.Context, in *corev1beta1.CreateOCMCoreShareRequest, opts ...grpc.CallOption) (*corev1beta1.CreateOCMCoreShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateOCMCoreShare")
@@ -668,14 +660,13 @@ func (_c *GatewayAPIClient_CreateOCMCoreShare_Call) RunAndReturn(run func(contex
 
 // CreateOCMShare provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) CreateOCMShare(ctx context.Context, in *ocmv1beta1.CreateOCMShareRequest, opts ...grpc.CallOption) (*ocmv1beta1.CreateOCMShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateOCMShare")
@@ -742,14 +733,13 @@ func (_c *GatewayAPIClient_CreateOCMShare_Call) RunAndReturn(run func(context.Co
 
 // CreatePublicShare provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) CreatePublicShare(ctx context.Context, in *linkv1beta1.CreatePublicShareRequest, opts ...grpc.CallOption) (*linkv1beta1.CreatePublicShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreatePublicShare")
@@ -816,14 +806,13 @@ func (_c *GatewayAPIClient_CreatePublicShare_Call) RunAndReturn(run func(context
 
 // CreateShare provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) CreateShare(ctx context.Context, in *collaborationv1beta1.CreateShareRequest, opts ...grpc.CallOption) (*collaborationv1beta1.CreateShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateShare")
@@ -890,14 +879,13 @@ func (_c *GatewayAPIClient_CreateShare_Call) RunAndReturn(run func(context.Conte
 
 // CreateStorageSpace provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) CreateStorageSpace(ctx context.Context, in *providerv1beta1.CreateStorageSpaceRequest, opts ...grpc.CallOption) (*providerv1beta1.CreateStorageSpaceResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateStorageSpace")
@@ -964,14 +952,13 @@ func (_c *GatewayAPIClient_CreateStorageSpace_Call) RunAndReturn(run func(contex
 
 // CreateSymlink provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) CreateSymlink(ctx context.Context, in *providerv1beta1.CreateSymlinkRequest, opts ...grpc.CallOption) (*providerv1beta1.CreateSymlinkResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateSymlink")
@@ -1038,14 +1025,13 @@ func (_c *GatewayAPIClient_CreateSymlink_Call) RunAndReturn(run func(context.Con
 
 // CreateTransfer provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) CreateTransfer(ctx context.Context, in *txv1beta1.CreateTransferRequest, opts ...grpc.CallOption) (*txv1beta1.CreateTransferResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateTransfer")
@@ -1112,14 +1098,13 @@ func (_c *GatewayAPIClient_CreateTransfer_Call) RunAndReturn(run func(context.Co
 
 // Delete provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) Delete(ctx context.Context, in *providerv1beta1.DeleteRequest, opts ...grpc.CallOption) (*providerv1beta1.DeleteResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for Delete")
@@ -1186,14 +1171,13 @@ func (_c *GatewayAPIClient_Delete_Call) RunAndReturn(run func(context.Context, *
 
 // DeleteAcceptedUser provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) DeleteAcceptedUser(ctx context.Context, in *invitev1beta1.DeleteAcceptedUserRequest, opts ...grpc.CallOption) (*invitev1beta1.DeleteAcceptedUserResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeleteAcceptedUser")
@@ -1260,14 +1244,13 @@ func (_c *GatewayAPIClient_DeleteAcceptedUser_Call) RunAndReturn(run func(contex
 
 // DeleteOCMCoreShare provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) DeleteOCMCoreShare(ctx context.Context, in *corev1beta1.DeleteOCMCoreShareRequest, opts ...grpc.CallOption) (*corev1beta1.DeleteOCMCoreShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeleteOCMCoreShare")
@@ -1334,14 +1317,13 @@ func (_c *GatewayAPIClient_DeleteOCMCoreShare_Call) RunAndReturn(run func(contex
 
 // DeleteStorageSpace provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) DeleteStorageSpace(ctx context.Context, in *providerv1beta1.DeleteStorageSpaceRequest, opts ...grpc.CallOption) (*providerv1beta1.DeleteStorageSpaceResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeleteStorageSpace")
@@ -1408,14 +1390,13 @@ func (_c *GatewayAPIClient_DeleteStorageSpace_Call) RunAndReturn(run func(contex
 
 // FindAcceptedUsers provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) FindAcceptedUsers(ctx context.Context, in *invitev1beta1.FindAcceptedUsersRequest, opts ...grpc.CallOption) (*invitev1beta1.FindAcceptedUsersResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindAcceptedUsers")
@@ -1482,14 +1463,13 @@ func (_c *GatewayAPIClient_FindAcceptedUsers_Call) RunAndReturn(run func(context
 
 // FindGroups provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) FindGroups(ctx context.Context, in *groupv1beta1.FindGroupsRequest, opts ...grpc.CallOption) (*groupv1beta1.FindGroupsResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindGroups")
@@ -1556,14 +1536,13 @@ func (_c *GatewayAPIClient_FindGroups_Call) RunAndReturn(run func(context.Contex
 
 // FindUsers provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) FindUsers(ctx context.Context, in *userv1beta1.FindUsersRequest, opts ...grpc.CallOption) (*userv1beta1.FindUsersResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindUsers")
@@ -1630,14 +1609,13 @@ func (_c *GatewayAPIClient_FindUsers_Call) RunAndReturn(run func(context.Context
 
 // ForwardInvite provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) ForwardInvite(ctx context.Context, in *invitev1beta1.ForwardInviteRequest, opts ...grpc.CallOption) (*invitev1beta1.ForwardInviteResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ForwardInvite")
@@ -1704,14 +1682,13 @@ func (_c *GatewayAPIClient_ForwardInvite_Call) RunAndReturn(run func(context.Con
 
 // GenerateAppPassword provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GenerateAppPassword(ctx context.Context, in *applicationsv1beta1.GenerateAppPasswordRequest, opts ...grpc.CallOption) (*applicationsv1beta1.GenerateAppPasswordResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GenerateAppPassword")
@@ -1778,14 +1755,13 @@ func (_c *GatewayAPIClient_GenerateAppPassword_Call) RunAndReturn(run func(conte
 
 // GenerateInviteToken provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GenerateInviteToken(ctx context.Context, in *invitev1beta1.GenerateInviteTokenRequest, opts ...grpc.CallOption) (*invitev1beta1.GenerateInviteTokenResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GenerateInviteToken")
@@ -1852,14 +1828,13 @@ func (_c *GatewayAPIClient_GenerateInviteToken_Call) RunAndReturn(run func(conte
 
 // GetAcceptedUser provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetAcceptedUser(ctx context.Context, in *invitev1beta1.GetAcceptedUserRequest, opts ...grpc.CallOption) (*invitev1beta1.GetAcceptedUserResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetAcceptedUser")
@@ -1926,14 +1901,13 @@ func (_c *GatewayAPIClient_GetAcceptedUser_Call) RunAndReturn(run func(context.C
 
 // GetAppPassword provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetAppPassword(ctx context.Context, in *applicationsv1beta1.GetAppPasswordRequest, opts ...grpc.CallOption) (*applicationsv1beta1.GetAppPasswordResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetAppPassword")
@@ -2000,14 +1974,13 @@ func (_c *GatewayAPIClient_GetAppPassword_Call) RunAndReturn(run func(context.Co
 
 // GetAppProviders provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetAppProviders(ctx context.Context, in *registryv1beta1.GetAppProvidersRequest, opts ...grpc.CallOption) (*registryv1beta1.GetAppProvidersResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetAppProviders")
@@ -2074,14 +2047,13 @@ func (_c *GatewayAPIClient_GetAppProviders_Call) RunAndReturn(run func(context.C
 
 // GetDefaultAppProviderForMimeType provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetDefaultAppProviderForMimeType(ctx context.Context, in *registryv1beta1.GetDefaultAppProviderForMimeTypeRequest, opts ...grpc.CallOption) (*registryv1beta1.GetDefaultAppProviderForMimeTypeResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetDefaultAppProviderForMimeType")
@@ -2148,14 +2120,13 @@ func (_c *GatewayAPIClient_GetDefaultAppProviderForMimeType_Call) RunAndReturn(r
 
 // GetGroup provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetGroup(ctx context.Context, in *groupv1beta1.GetGroupRequest, opts ...grpc.CallOption) (*groupv1beta1.GetGroupResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetGroup")
@@ -2222,14 +2193,13 @@ func (_c *GatewayAPIClient_GetGroup_Call) RunAndReturn(run func(context.Context,
 
 // GetGroupByClaim provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetGroupByClaim(ctx context.Context, in *groupv1beta1.GetGroupByClaimRequest, opts ...grpc.CallOption) (*groupv1beta1.GetGroupByClaimResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetGroupByClaim")
@@ -2296,14 +2266,13 @@ func (_c *GatewayAPIClient_GetGroupByClaim_Call) RunAndReturn(run func(context.C
 
 // GetHome provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetHome(ctx context.Context, in *providerv1beta1.GetHomeRequest, opts ...grpc.CallOption) (*providerv1beta1.GetHomeResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetHome")
@@ -2370,14 +2339,13 @@ func (_c *GatewayAPIClient_GetHome_Call) RunAndReturn(run func(context.Context, 
 
 // GetInfoByDomain provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetInfoByDomain(ctx context.Context, in *v1beta1.GetInfoByDomainRequest, opts ...grpc.CallOption) (*v1beta1.GetInfoByDomainResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetInfoByDomain")
@@ -2444,14 +2412,13 @@ func (_c *GatewayAPIClient_GetInfoByDomain_Call) RunAndReturn(run func(context.C
 
 // GetKey provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetKey(ctx context.Context, in *preferencesv1beta1.GetKeyRequest, opts ...grpc.CallOption) (*preferencesv1beta1.GetKeyResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetKey")
@@ -2518,14 +2485,13 @@ func (_c *GatewayAPIClient_GetKey_Call) RunAndReturn(run func(context.Context, *
 
 // GetLock provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetLock(ctx context.Context, in *providerv1beta1.GetLockRequest, opts ...grpc.CallOption) (*providerv1beta1.GetLockResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetLock")
@@ -2592,14 +2558,13 @@ func (_c *GatewayAPIClient_GetLock_Call) RunAndReturn(run func(context.Context, 
 
 // GetMembers provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetMembers(ctx context.Context, in *groupv1beta1.GetMembersRequest, opts ...grpc.CallOption) (*groupv1beta1.GetMembersResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetMembers")
@@ -2666,14 +2631,13 @@ func (_c *GatewayAPIClient_GetMembers_Call) RunAndReturn(run func(context.Contex
 
 // GetOCMShare provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetOCMShare(ctx context.Context, in *ocmv1beta1.GetOCMShareRequest, opts ...grpc.CallOption) (*ocmv1beta1.GetOCMShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetOCMShare")
@@ -2740,14 +2704,13 @@ func (_c *GatewayAPIClient_GetOCMShare_Call) RunAndReturn(run func(context.Conte
 
 // GetOCMShareByToken provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetOCMShareByToken(ctx context.Context, in *ocmv1beta1.GetOCMShareByTokenRequest, opts ...grpc.CallOption) (*ocmv1beta1.GetOCMShareByTokenResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetOCMShareByToken")
@@ -2814,14 +2777,13 @@ func (_c *GatewayAPIClient_GetOCMShareByToken_Call) RunAndReturn(run func(contex
 
 // GetPath provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetPath(ctx context.Context, in *providerv1beta1.GetPathRequest, opts ...grpc.CallOption) (*providerv1beta1.GetPathResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetPath")
@@ -2888,14 +2850,13 @@ func (_c *GatewayAPIClient_GetPath_Call) RunAndReturn(run func(context.Context, 
 
 // GetPublicShare provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetPublicShare(ctx context.Context, in *linkv1beta1.GetPublicShareRequest, opts ...grpc.CallOption) (*linkv1beta1.GetPublicShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetPublicShare")
@@ -2962,14 +2923,13 @@ func (_c *GatewayAPIClient_GetPublicShare_Call) RunAndReturn(run func(context.Co
 
 // GetPublicShareByToken provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetPublicShareByToken(ctx context.Context, in *linkv1beta1.GetPublicShareByTokenRequest, opts ...grpc.CallOption) (*linkv1beta1.GetPublicShareByTokenResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetPublicShareByToken")
@@ -3036,14 +2996,13 @@ func (_c *GatewayAPIClient_GetPublicShareByToken_Call) RunAndReturn(run func(con
 
 // GetQuota provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetQuota(ctx context.Context, in *gatewayv1beta1.GetQuotaRequest, opts ...grpc.CallOption) (*providerv1beta1.GetQuotaResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetQuota")
@@ -3110,14 +3069,13 @@ func (_c *GatewayAPIClient_GetQuota_Call) RunAndReturn(run func(context.Context,
 
 // GetReceivedOCMShare provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetReceivedOCMShare(ctx context.Context, in *ocmv1beta1.GetReceivedOCMShareRequest, opts ...grpc.CallOption) (*ocmv1beta1.GetReceivedOCMShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetReceivedOCMShare")
@@ -3184,14 +3142,13 @@ func (_c *GatewayAPIClient_GetReceivedOCMShare_Call) RunAndReturn(run func(conte
 
 // GetReceivedShare provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetReceivedShare(ctx context.Context, in *collaborationv1beta1.GetReceivedShareRequest, opts ...grpc.CallOption) (*collaborationv1beta1.GetReceivedShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetReceivedShare")
@@ -3258,14 +3215,13 @@ func (_c *GatewayAPIClient_GetReceivedShare_Call) RunAndReturn(run func(context.
 
 // GetShare provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetShare(ctx context.Context, in *collaborationv1beta1.GetShareRequest, opts ...grpc.CallOption) (*collaborationv1beta1.GetShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetShare")
@@ -3332,14 +3288,13 @@ func (_c *GatewayAPIClient_GetShare_Call) RunAndReturn(run func(context.Context,
 
 // GetTransferStatus provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetTransferStatus(ctx context.Context, in *txv1beta1.GetTransferStatusRequest, opts ...grpc.CallOption) (*txv1beta1.GetTransferStatusResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetTransferStatus")
@@ -3406,14 +3361,13 @@ func (_c *GatewayAPIClient_GetTransferStatus_Call) RunAndReturn(run func(context
 
 // GetUser provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetUser(ctx context.Context, in *userv1beta1.GetUserRequest, opts ...grpc.CallOption) (*userv1beta1.GetUserResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetUser")
@@ -3480,14 +3434,13 @@ func (_c *GatewayAPIClient_GetUser_Call) RunAndReturn(run func(context.Context, 
 
 // GetUserByClaim provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetUserByClaim(ctx context.Context, in *userv1beta1.GetUserByClaimRequest, opts ...grpc.CallOption) (*userv1beta1.GetUserByClaimResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetUserByClaim")
@@ -3554,14 +3507,13 @@ func (_c *GatewayAPIClient_GetUserByClaim_Call) RunAndReturn(run func(context.Co
 
 // GetUserGroups provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) GetUserGroups(ctx context.Context, in *userv1beta1.GetUserGroupsRequest, opts ...grpc.CallOption) (*userv1beta1.GetUserGroupsResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetUserGroups")
@@ -3628,14 +3580,13 @@ func (_c *GatewayAPIClient_GetUserGroups_Call) RunAndReturn(run func(context.Con
 
 // HasMember provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) HasMember(ctx context.Context, in *groupv1beta1.HasMemberRequest, opts ...grpc.CallOption) (*groupv1beta1.HasMemberResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for HasMember")
@@ -3702,14 +3653,13 @@ func (_c *GatewayAPIClient_HasMember_Call) RunAndReturn(run func(context.Context
 
 // InitiateFileDownload provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) InitiateFileDownload(ctx context.Context, in *providerv1beta1.InitiateFileDownloadRequest, opts ...grpc.CallOption) (*gatewayv1beta1.InitiateFileDownloadResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for InitiateFileDownload")
@@ -3776,14 +3726,13 @@ func (_c *GatewayAPIClient_InitiateFileDownload_Call) RunAndReturn(run func(cont
 
 // InitiateFileUpload provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) InitiateFileUpload(ctx context.Context, in *providerv1beta1.InitiateFileUploadRequest, opts ...grpc.CallOption) (*gatewayv1beta1.InitiateFileUploadResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for InitiateFileUpload")
@@ -3850,14 +3799,13 @@ func (_c *GatewayAPIClient_InitiateFileUpload_Call) RunAndReturn(run func(contex
 
 // InvalidateAppPassword provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) InvalidateAppPassword(ctx context.Context, in *applicationsv1beta1.InvalidateAppPasswordRequest, opts ...grpc.CallOption) (*applicationsv1beta1.InvalidateAppPasswordResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for InvalidateAppPassword")
@@ -3924,14 +3872,13 @@ func (_c *GatewayAPIClient_InvalidateAppPassword_Call) RunAndReturn(run func(con
 
 // IsProviderAllowed provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) IsProviderAllowed(ctx context.Context, in *v1beta1.IsProviderAllowedRequest, opts ...grpc.CallOption) (*v1beta1.IsProviderAllowedResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for IsProviderAllowed")
@@ -3998,14 +3945,13 @@ func (_c *GatewayAPIClient_IsProviderAllowed_Call) RunAndReturn(run func(context
 
 // ListAllProviders provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) ListAllProviders(ctx context.Context, in *v1beta1.ListAllProvidersRequest, opts ...grpc.CallOption) (*v1beta1.ListAllProvidersResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListAllProviders")
@@ -4072,14 +4018,13 @@ func (_c *GatewayAPIClient_ListAllProviders_Call) RunAndReturn(run func(context.
 
 // ListAppPasswords provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) ListAppPasswords(ctx context.Context, in *applicationsv1beta1.ListAppPasswordsRequest, opts ...grpc.CallOption) (*applicationsv1beta1.ListAppPasswordsResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListAppPasswords")
@@ -4146,14 +4091,13 @@ func (_c *GatewayAPIClient_ListAppPasswords_Call) RunAndReturn(run func(context.
 
 // ListAppProviders provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) ListAppProviders(ctx context.Context, in *registryv1beta1.ListAppProvidersRequest, opts ...grpc.CallOption) (*registryv1beta1.ListAppProvidersResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListAppProviders")
@@ -4220,14 +4164,13 @@ func (_c *GatewayAPIClient_ListAppProviders_Call) RunAndReturn(run func(context.
 
 // ListAuthProviders provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) ListAuthProviders(ctx context.Context, in *authregistryv1beta1.ListAuthProvidersRequest, opts ...grpc.CallOption) (*gatewayv1beta1.ListAuthProvidersResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListAuthProviders")
@@ -4294,14 +4237,13 @@ func (_c *GatewayAPIClient_ListAuthProviders_Call) RunAndReturn(run func(context
 
 // ListContainer provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) ListContainer(ctx context.Context, in *providerv1beta1.ListContainerRequest, opts ...grpc.CallOption) (*providerv1beta1.ListContainerResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListContainer")
@@ -4368,14 +4310,13 @@ func (_c *GatewayAPIClient_ListContainer_Call) RunAndReturn(run func(context.Con
 
 // ListContainerStream provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) ListContainerStream(ctx context.Context, in *providerv1beta1.ListContainerStreamRequest, opts ...grpc.CallOption) (gatewayv1beta1.GatewayAPI_ListContainerStreamClient, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListContainerStream")
@@ -4442,14 +4383,13 @@ func (_c *GatewayAPIClient_ListContainerStream_Call) RunAndReturn(run func(conte
 
 // ListExistingPublicShares provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) ListExistingPublicShares(ctx context.Context, in *linkv1beta1.ListPublicSharesRequest, opts ...grpc.CallOption) (*gatewayv1beta1.ListExistingPublicSharesResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListExistingPublicShares")
@@ -4516,14 +4456,13 @@ func (_c *GatewayAPIClient_ListExistingPublicShares_Call) RunAndReturn(run func(
 
 // ListExistingReceivedShares provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) ListExistingReceivedShares(ctx context.Context, in *collaborationv1beta1.ListReceivedSharesRequest, opts ...grpc.CallOption) (*gatewayv1beta1.ListExistingReceivedSharesResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListExistingReceivedShares")
@@ -4590,14 +4529,13 @@ func (_c *GatewayAPIClient_ListExistingReceivedShares_Call) RunAndReturn(run fun
 
 // ListExistingShares provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) ListExistingShares(ctx context.Context, in *collaborationv1beta1.ListSharesRequest, opts ...grpc.CallOption) (*gatewayv1beta1.ListExistingSharesResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListExistingShares")
@@ -4664,14 +4602,13 @@ func (_c *GatewayAPIClient_ListExistingShares_Call) RunAndReturn(run func(contex
 
 // ListFileVersions provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) ListFileVersions(ctx context.Context, in *providerv1beta1.ListFileVersionsRequest, opts ...grpc.CallOption) (*providerv1beta1.ListFileVersionsResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListFileVersions")
@@ -4738,14 +4675,13 @@ func (_c *GatewayAPIClient_ListFileVersions_Call) RunAndReturn(run func(context.
 
 // ListInviteTokens provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) ListInviteTokens(ctx context.Context, in *invitev1beta1.ListInviteTokensRequest, opts ...grpc.CallOption) (*invitev1beta1.ListInviteTokensResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListInviteTokens")
@@ -4812,14 +4748,13 @@ func (_c *GatewayAPIClient_ListInviteTokens_Call) RunAndReturn(run func(context.
 
 // ListOCMShares provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) ListOCMShares(ctx context.Context, in *ocmv1beta1.ListOCMSharesRequest, opts ...grpc.CallOption) (*ocmv1beta1.ListOCMSharesResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListOCMShares")
@@ -4886,14 +4821,13 @@ func (_c *GatewayAPIClient_ListOCMShares_Call) RunAndReturn(run func(context.Con
 
 // ListPublicShares provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) ListPublicShares(ctx context.Context, in *linkv1beta1.ListPublicSharesRequest, opts ...grpc.CallOption) (*linkv1beta1.ListPublicSharesResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListPublicShares")
@@ -4960,14 +4894,13 @@ func (_c *GatewayAPIClient_ListPublicShares_Call) RunAndReturn(run func(context.
 
 // ListReceivedOCMShares provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) ListReceivedOCMShares(ctx context.Context, in *ocmv1beta1.ListReceivedOCMSharesRequest, opts ...grpc.CallOption) (*ocmv1beta1.ListReceivedOCMSharesResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListReceivedOCMShares")
@@ -5034,14 +4967,13 @@ func (_c *GatewayAPIClient_ListReceivedOCMShares_Call) RunAndReturn(run func(con
 
 // ListReceivedShares provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) ListReceivedShares(ctx context.Context, in *collaborationv1beta1.ListReceivedSharesRequest, opts ...grpc.CallOption) (*collaborationv1beta1.ListReceivedSharesResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListReceivedShares")
@@ -5108,14 +5040,13 @@ func (_c *GatewayAPIClient_ListReceivedShares_Call) RunAndReturn(run func(contex
 
 // ListRecycle provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) ListRecycle(ctx context.Context, in *providerv1beta1.ListRecycleRequest, opts ...grpc.CallOption) (*providerv1beta1.ListRecycleResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListRecycle")
@@ -5182,14 +5113,13 @@ func (_c *GatewayAPIClient_ListRecycle_Call) RunAndReturn(run func(context.Conte
 
 // ListRecycleStream provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) ListRecycleStream(ctx context.Context, in *providerv1beta1.ListRecycleStreamRequest, opts ...grpc.CallOption) (gatewayv1beta1.GatewayAPI_ListRecycleStreamClient, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListRecycleStream")
@@ -5256,14 +5186,13 @@ func (_c *GatewayAPIClient_ListRecycleStream_Call) RunAndReturn(run func(context
 
 // ListShares provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) ListShares(ctx context.Context, in *collaborationv1beta1.ListSharesRequest, opts ...grpc.CallOption) (*collaborationv1beta1.ListSharesResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListShares")
@@ -5330,14 +5259,13 @@ func (_c *GatewayAPIClient_ListShares_Call) RunAndReturn(run func(context.Contex
 
 // ListStorageSpaces provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) ListStorageSpaces(ctx context.Context, in *providerv1beta1.ListStorageSpacesRequest, opts ...grpc.CallOption) (*providerv1beta1.ListStorageSpacesResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListStorageSpaces")
@@ -5404,14 +5332,13 @@ func (_c *GatewayAPIClient_ListStorageSpaces_Call) RunAndReturn(run func(context
 
 // ListSupportedMimeTypes provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) ListSupportedMimeTypes(ctx context.Context, in *registryv1beta1.ListSupportedMimeTypesRequest, opts ...grpc.CallOption) (*registryv1beta1.ListSupportedMimeTypesResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListSupportedMimeTypes")
@@ -5478,14 +5405,13 @@ func (_c *GatewayAPIClient_ListSupportedMimeTypes_Call) RunAndReturn(run func(co
 
 // ListTransfers provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) ListTransfers(ctx context.Context, in *txv1beta1.ListTransfersRequest, opts ...grpc.CallOption) (*txv1beta1.ListTransfersResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListTransfers")
@@ -5552,14 +5478,13 @@ func (_c *GatewayAPIClient_ListTransfers_Call) RunAndReturn(run func(context.Con
 
 // Move provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) Move(ctx context.Context, in *providerv1beta1.MoveRequest, opts ...grpc.CallOption) (*providerv1beta1.MoveResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for Move")
@@ -5626,14 +5551,13 @@ func (_c *GatewayAPIClient_Move_Call) RunAndReturn(run func(context.Context, *pr
 
 // OpenInApp provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) OpenInApp(ctx context.Context, in *gatewayv1beta1.OpenInAppRequest, opts ...grpc.CallOption) (*appproviderv1beta1.OpenInAppResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for OpenInApp")
@@ -5700,14 +5624,13 @@ func (_c *GatewayAPIClient_OpenInApp_Call) RunAndReturn(run func(context.Context
 
 // PurgeRecycle provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) PurgeRecycle(ctx context.Context, in *providerv1beta1.PurgeRecycleRequest, opts ...grpc.CallOption) (*providerv1beta1.PurgeRecycleResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for PurgeRecycle")
@@ -5774,14 +5697,13 @@ func (_c *GatewayAPIClient_PurgeRecycle_Call) RunAndReturn(run func(context.Cont
 
 // RefreshLock provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) RefreshLock(ctx context.Context, in *providerv1beta1.RefreshLockRequest, opts ...grpc.CallOption) (*providerv1beta1.RefreshLockResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for RefreshLock")
@@ -5848,14 +5770,13 @@ func (_c *GatewayAPIClient_RefreshLock_Call) RunAndReturn(run func(context.Conte
 
 // RemoveOCMShare provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) RemoveOCMShare(ctx context.Context, in *ocmv1beta1.RemoveOCMShareRequest, opts ...grpc.CallOption) (*ocmv1beta1.RemoveOCMShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for RemoveOCMShare")
@@ -5922,14 +5843,13 @@ func (_c *GatewayAPIClient_RemoveOCMShare_Call) RunAndReturn(run func(context.Co
 
 // RemovePublicShare provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) RemovePublicShare(ctx context.Context, in *linkv1beta1.RemovePublicShareRequest, opts ...grpc.CallOption) (*linkv1beta1.RemovePublicShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for RemovePublicShare")
@@ -5996,14 +5916,13 @@ func (_c *GatewayAPIClient_RemovePublicShare_Call) RunAndReturn(run func(context
 
 // RemoveShare provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) RemoveShare(ctx context.Context, in *collaborationv1beta1.RemoveShareRequest, opts ...grpc.CallOption) (*collaborationv1beta1.RemoveShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for RemoveShare")
@@ -6070,14 +5989,13 @@ func (_c *GatewayAPIClient_RemoveShare_Call) RunAndReturn(run func(context.Conte
 
 // RestoreFileVersion provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) RestoreFileVersion(ctx context.Context, in *providerv1beta1.RestoreFileVersionRequest, opts ...grpc.CallOption) (*providerv1beta1.RestoreFileVersionResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for RestoreFileVersion")
@@ -6144,14 +6062,13 @@ func (_c *GatewayAPIClient_RestoreFileVersion_Call) RunAndReturn(run func(contex
 
 // RestoreRecycleItem provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) RestoreRecycleItem(ctx context.Context, in *providerv1beta1.RestoreRecycleItemRequest, opts ...grpc.CallOption) (*providerv1beta1.RestoreRecycleItemResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for RestoreRecycleItem")
@@ -6218,14 +6135,13 @@ func (_c *GatewayAPIClient_RestoreRecycleItem_Call) RunAndReturn(run func(contex
 
 // RetryTransfer provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) RetryTransfer(ctx context.Context, in *txv1beta1.RetryTransferRequest, opts ...grpc.CallOption) (*txv1beta1.RetryTransferResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for RetryTransfer")
@@ -6292,14 +6208,13 @@ func (_c *GatewayAPIClient_RetryTransfer_Call) RunAndReturn(run func(context.Con
 
 // SetArbitraryMetadata provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) SetArbitraryMetadata(ctx context.Context, in *providerv1beta1.SetArbitraryMetadataRequest, opts ...grpc.CallOption) (*providerv1beta1.SetArbitraryMetadataResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for SetArbitraryMetadata")
@@ -6366,14 +6281,13 @@ func (_c *GatewayAPIClient_SetArbitraryMetadata_Call) RunAndReturn(run func(cont
 
 // SetDefaultAppProviderForMimeType provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) SetDefaultAppProviderForMimeType(ctx context.Context, in *registryv1beta1.SetDefaultAppProviderForMimeTypeRequest, opts ...grpc.CallOption) (*registryv1beta1.SetDefaultAppProviderForMimeTypeResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for SetDefaultAppProviderForMimeType")
@@ -6440,14 +6354,13 @@ func (_c *GatewayAPIClient_SetDefaultAppProviderForMimeType_Call) RunAndReturn(r
 
 // SetKey provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) SetKey(ctx context.Context, in *preferencesv1beta1.SetKeyRequest, opts ...grpc.CallOption) (*preferencesv1beta1.SetKeyResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for SetKey")
@@ -6514,14 +6427,13 @@ func (_c *GatewayAPIClient_SetKey_Call) RunAndReturn(run func(context.Context, *
 
 // SetLock provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) SetLock(ctx context.Context, in *providerv1beta1.SetLockRequest, opts ...grpc.CallOption) (*providerv1beta1.SetLockResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for SetLock")
@@ -6588,14 +6500,13 @@ func (_c *GatewayAPIClient_SetLock_Call) RunAndReturn(run func(context.Context, 
 
 // Stat provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) Stat(ctx context.Context, in *providerv1beta1.StatRequest, opts ...grpc.CallOption) (*providerv1beta1.StatResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for Stat")
@@ -6662,14 +6573,13 @@ func (_c *GatewayAPIClient_Stat_Call) RunAndReturn(run func(context.Context, *pr
 
 // TouchFile provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) TouchFile(ctx context.Context, in *providerv1beta1.TouchFileRequest, opts ...grpc.CallOption) (*providerv1beta1.TouchFileResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for TouchFile")
@@ -6736,14 +6646,13 @@ func (_c *GatewayAPIClient_TouchFile_Call) RunAndReturn(run func(context.Context
 
 // Unlock provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) Unlock(ctx context.Context, in *providerv1beta1.UnlockRequest, opts ...grpc.CallOption) (*providerv1beta1.UnlockResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for Unlock")
@@ -6810,14 +6719,13 @@ func (_c *GatewayAPIClient_Unlock_Call) RunAndReturn(run func(context.Context, *
 
 // UnsetArbitraryMetadata provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) UnsetArbitraryMetadata(ctx context.Context, in *providerv1beta1.UnsetArbitraryMetadataRequest, opts ...grpc.CallOption) (*providerv1beta1.UnsetArbitraryMetadataResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for UnsetArbitraryMetadata")
@@ -6884,14 +6792,13 @@ func (_c *GatewayAPIClient_UnsetArbitraryMetadata_Call) RunAndReturn(run func(co
 
 // UpdateOCMCoreShare provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) UpdateOCMCoreShare(ctx context.Context, in *corev1beta1.UpdateOCMCoreShareRequest, opts ...grpc.CallOption) (*corev1beta1.UpdateOCMCoreShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateOCMCoreShare")
@@ -6958,14 +6865,13 @@ func (_c *GatewayAPIClient_UpdateOCMCoreShare_Call) RunAndReturn(run func(contex
 
 // UpdateOCMShare provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) UpdateOCMShare(ctx context.Context, in *ocmv1beta1.UpdateOCMShareRequest, opts ...grpc.CallOption) (*ocmv1beta1.UpdateOCMShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateOCMShare")
@@ -7032,14 +6938,13 @@ func (_c *GatewayAPIClient_UpdateOCMShare_Call) RunAndReturn(run func(context.Co
 
 // UpdatePublicShare provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) UpdatePublicShare(ctx context.Context, in *linkv1beta1.UpdatePublicShareRequest, opts ...grpc.CallOption) (*linkv1beta1.UpdatePublicShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdatePublicShare")
@@ -7106,14 +7011,13 @@ func (_c *GatewayAPIClient_UpdatePublicShare_Call) RunAndReturn(run func(context
 
 // UpdateReceivedOCMShare provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) UpdateReceivedOCMShare(ctx context.Context, in *ocmv1beta1.UpdateReceivedOCMShareRequest, opts ...grpc.CallOption) (*ocmv1beta1.UpdateReceivedOCMShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateReceivedOCMShare")
@@ -7180,14 +7084,13 @@ func (_c *GatewayAPIClient_UpdateReceivedOCMShare_Call) RunAndReturn(run func(co
 
 // UpdateReceivedShare provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) UpdateReceivedShare(ctx context.Context, in *collaborationv1beta1.UpdateReceivedShareRequest, opts ...grpc.CallOption) (*collaborationv1beta1.UpdateReceivedShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateReceivedShare")
@@ -7254,14 +7157,13 @@ func (_c *GatewayAPIClient_UpdateReceivedShare_Call) RunAndReturn(run func(conte
 
 // UpdateShare provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) UpdateShare(ctx context.Context, in *collaborationv1beta1.UpdateShareRequest, opts ...grpc.CallOption) (*collaborationv1beta1.UpdateShareResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateShare")
@@ -7328,14 +7230,13 @@ func (_c *GatewayAPIClient_UpdateShare_Call) RunAndReturn(run func(context.Conte
 
 // UpdateStorageSpace provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) UpdateStorageSpace(ctx context.Context, in *providerv1beta1.UpdateStorageSpaceRequest, opts ...grpc.CallOption) (*providerv1beta1.UpdateStorageSpaceResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateStorageSpace")
@@ -7402,14 +7303,13 @@ func (_c *GatewayAPIClient_UpdateStorageSpace_Call) RunAndReturn(run func(contex
 
 // WhoAmI provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) WhoAmI(ctx context.Context, in *gatewayv1beta1.WhoAmIRequest, opts ...grpc.CallOption) (*gatewayv1beta1.WhoAmIResponse, error) {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
 	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, in)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for WhoAmI")
