@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @ScharfViktor, @Svanvith, @butonic, @dragonchaser, @fschade, @jnweiger, @micbar, @rhafer
+@AlexAndBear, @JammingBen, @ScharfViktor, @Svanvith, @aduffeck, @butonic, @dragonchaser, @fschade, @jnweiger, @micbar, @rhafer
 
 ### ✨ Features
 
@@ -12,6 +12,7 @@
 
 ### 📈 Enhancement
 
+- Switch to the raw nats consumer instead of the go-micro events [[#1171](https://github.com/opencloud-eu/opencloud/pull/1171)]
 - change: adjust default values for the S3 Uploads [[#1224](https://github.com/opencloud-eu/opencloud/pull/1224)]
 - feat(web): add dark mode and adjust light theme colors [[#1188](https://github.com/opencloud-eu/opencloud/pull/1188)]
 - change: set better decomposedS3 defaults for multipart upload [[#1200](https://github.com/opencloud-eu/opencloud/pull/1200)]
