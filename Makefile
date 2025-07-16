@@ -65,6 +65,7 @@ OC_MODULES = \
 	services/webdav\
 	services/webfinger\
 	opencloud \
+	pkg \
 	protogen
 
 # bin file definitions
