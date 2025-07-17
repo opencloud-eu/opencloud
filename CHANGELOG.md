@@ -12,6 +12,7 @@
 
 ### 📈 Enhancement
 
+- proxy(sign_url_auth): Allow to verify server signed URLs [[#1191](https://github.com/opencloud-eu/opencloud/pull/1191)]
 - Switch to the raw nats consumer instead of the go-micro events [[#1171](https://github.com/opencloud-eu/opencloud/pull/1171)]
 - change: adjust default values for the S3 Uploads [[#1224](https://github.com/opencloud-eu/opencloud/pull/1224)]
 - feat(web): add dark mode and adjust light theme colors [[#1188](https://github.com/opencloud-eu/opencloud/pull/1188)]
