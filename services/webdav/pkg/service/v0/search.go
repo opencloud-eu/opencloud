@@ -22,6 +22,7 @@ import (
 
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
+	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/thumbnail"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/constants"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/net"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/prop"
@@ -195,9 +196,15 @@ func matchToPropResponse(ctx context.Context, publicURL string, match *searchmsg
 	}
 	propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("oc:name", match.Entity.Name))
 	propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("d:getlastmodified", match.Entity.LastModifiedTime.AsTime().Format(constants.RFC1123)))
-	propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("d:getcontenttype", match.Entity.MimeType))
 	propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("oc:permissions", match.Entity.Permissions))
 	propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("oc:highlights", match.Entity.Highlights))
+	propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("d:getcontenttype", match.Entity.MimeType))
+	_, isSupportedMimeType := thumbnail.SupportedMimeTypes[match.Entity.MimeType]
+	if isSupportedMimeType {
+		propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("oc:has-preview", "1"))
+	} else {
+		propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("oc:has-preview", "0"))
+	}
 
 	t := tags.New(match.Entity.Tags...)
 	propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("oc:tags", t.AsList()))
@@ -232,6 +239,15 @@ func matchToPropResponse(ctx context.Context, publicURL string, match *searchmsg
 	}
 
 	return &response, nil
+}
+
+func hasPreview(md *provider.ResourceInfo, appendToOK func(p ...prop.PropertyXML)) {
+	_, match := thumbnail.SupportedMimeTypes[md.MimeType]
+	if match {
+		appendToOK(prop.Escaped("oc:has-preview", "1"))
+	} else {
+		appendToOK(prop.Escaped("oc:has-preview", "0"))
+	}
 }
 
 type report struct {
