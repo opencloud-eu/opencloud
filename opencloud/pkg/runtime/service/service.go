@@ -521,7 +521,15 @@ func trap(s *Service, ctx context.Context) {
 func pingNats(cfg *occfg.Config) error {
 	// We need to get a natsconfig from somewhere. We can use any one.
 	evcfg := cfg.Postprocessing.Postprocessing.Events
-	_, err := stream.NatsFromConfig("initial", true, stream.NatsConfig(evcfg))
+	_, err := stream.NatsFromConfig("initial", true, stream.NatsConfig{
+		Endpoint:             evcfg.Endpoint,
+		Cluster:              evcfg.Cluster,
+		EnableTLS:            evcfg.EnableTLS,
+		TLSInsecure:          evcfg.TLSInsecure,
+		TLSRootCACertificate: evcfg.TLSRootCACertificate,
+		AuthUsername:         evcfg.AuthUsername,
+		AuthPassword:         evcfg.AuthPassword,
+	})
 	return err
 }
 

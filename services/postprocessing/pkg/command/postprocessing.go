@@ -40,7 +40,15 @@ func RestartPostprocessing(cfg *config.Config) *cli.Command {
 			return configlog.ReturnFatal(parser.ParseConfig(cfg))
 		},
 		Action: func(c *cli.Context) error {
-			stream, err := stream.NatsFromConfig(cfg.Service.Name, false, stream.NatsConfig(cfg.Postprocessing.Events))
+			stream, err := stream.NatsFromConfig(cfg.Service.Name, false, stream.NatsConfig{
+				Endpoint:             cfg.Postprocessing.Events.Endpoint,
+				Cluster:              cfg.Postprocessing.Events.Cluster,
+				EnableTLS:            cfg.Postprocessing.Events.EnableTLS,
+				TLSInsecure:          cfg.Postprocessing.Events.TLSInsecure,
+				TLSRootCACertificate: cfg.Postprocessing.Events.TLSRootCACertificate,
+				AuthUsername:         cfg.Postprocessing.Events.AuthUsername,
+				AuthPassword:         cfg.Postprocessing.Events.AuthPassword,
+			})
 			if err != nil {
 				return err
 			}

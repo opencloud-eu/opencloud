@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/oklog/run"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
 	"github.com/opencloud-eu/reva/v2/pkg/store"
 	"github.com/urfave/cli/v2"
 	microstore "go-micro.dev/v4/store"
@@ -47,11 +46,6 @@ func Server(cfg *config.Config) *cli.Command {
 			}
 
 			{
-				bus, err := stream.NatsFromConfig(cfg.Service.Name, false, stream.NatsConfig(cfg.Postprocessing.Events))
-				if err != nil {
-					return err
-				}
-
 				st := store.Create(
 					store.Store(cfg.Store.Store),
 					store.TTL(cfg.Store.TTL),
@@ -61,7 +55,7 @@ func Server(cfg *config.Config) *cli.Command {
 					store.Authentication(cfg.Store.AuthUsername, cfg.Store.AuthPassword),
 				)
 
-				svc, err := service.NewPostprocessingService(ctx, bus, logger, st, traceProvider, cfg.Postprocessing)
+				svc, err := service.NewPostprocessingService(ctx, logger, st, traceProvider, cfg)
 				if err != nil {
 					return err
 				}
