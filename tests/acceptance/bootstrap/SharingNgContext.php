@@ -352,7 +352,8 @@ class SharingNgContext implements Context {
 
 		$permissionsRole = $shareInfo['permissionsRole'] ?? null;
 		$permissionsAction = $shareInfo['permissionsAction'] ?? null;
-		$expirationDateTime = $shareInfo["expirationDateTime"] ?? null;
+		$expirationDateTime = (\array_key_exists('expirationDateTime', $shareInfo))
+			? \date(DATE_RFC3339, \strtotime($shareInfo['expirationDateTime'])) : null;
 
 		$response = GraphHelper::sendSharingInvitation(
 			$this->featureContext->getBaseUrl(),
@@ -425,7 +426,8 @@ class SharingNgContext implements Context {
 
 		$permissionsRole = $rows['permissionsRole'] ?? null;
 		$permissionsAction = $rows['permissionsAction'] ?? null;
-		$expirationDateTime = $rows["expirationDateTime"] ?? null;
+		$expirationDateTime = (\array_key_exists('expirationDateTime', $rows))
+			? \date(DATE_RFC3339, \strtotime($rows['expirationDateTime'])) : null;
 
 		return GraphHelper::sendSharingInvitationForDrive(
 			$this->featureContext->getBaseUrl(),

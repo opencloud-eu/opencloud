@@ -157,7 +157,7 @@ func getMemoryLimitV1(chs []cgroupHierarchy, mis []mountInfo) (uint64, error) {
 		return 0, err
 	}
 
-	// retrieve the memory limit from the memory.stats and memory.limit_in_bytes files.
+	// retrieve the memory limit from the memory.stat and memory.limit_in_bytes files.
 	return readMemoryLimitV1FromPath(cgroupPath)
 }
 
@@ -173,7 +173,7 @@ func getCgroupV1NoLimit() uint64 {
 func readMemoryLimitV1FromPath(cgroupPath string) (uint64, error) {
 	// read hierarchical_memory_limit and memory.limit_in_bytes files.
 	// but if hierarchical_memory_limit is not available, then use the max value as a fallback.
-	hml, err := readHierarchicalMemoryLimit(filepath.Join(cgroupPath, "memory.stats"))
+	hml, err := readHierarchicalMemoryLimit(filepath.Join(cgroupPath, "memory.stat"))
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return 0, fmt.Errorf("failed to read hierarchical_memory_limit: %w", err)
 	} else if hml == 0 {
@@ -202,8 +202,8 @@ func readMemoryLimitV1FromPath(cgroupPath string) (uint64, error) {
 	return limit, nil
 }
 
-// readHierarchicalMemoryLimit extracts hierarchical_memory_limit from memory.stats.
-// this function expects the path to be memory.stats file.
+// readHierarchicalMemoryLimit extracts hierarchical_memory_limit from memory.stat.
+// this function expects the path to be memory.stat file.
 func readHierarchicalMemoryLimit(path string) (uint64, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -217,12 +217,12 @@ func readHierarchicalMemoryLimit(path string) (uint64, error) {
 
 		fields := strings.Split(line, " ")
 		if len(fields) < 2 {
-			return 0, fmt.Errorf("failed to parse memory.stats %q: not enough fields", line)
+			return 0, fmt.Errorf("failed to parse memory.stat %q: not enough fields", line)
 		}
 
 		if fields[0] == "hierarchical_memory_limit" {
 			if len(fields) > 2 {
-				return 0, fmt.Errorf("failed to parse memory.stats %q: too many fields for hierarchical_memory_limit", line)
+				return 0, fmt.Errorf("failed to parse memory.stat %q: too many fields for hierarchical_memory_limit", line)
 			}
 			return strconv.ParseUint(fields[1], 10, 64)
 		}
