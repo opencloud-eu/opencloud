@@ -15,6 +15,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
+	"github.com/opencloud-eu/reva/v2/pkg/signedurl"
 	microstore "go-micro.dev/v4/store"
 	"golang.org/x/crypto/pbkdf2"
 )
@@ -26,6 +27,7 @@ const (
 	_paramOCExpires    = "OC-Expires"
 	_paramOCVerb       = "OC-Verb"
 	_paramOCAlgo       = "OC-Algo"
+	_paramOCJWTSig     = "oc-jwt-sig"
 )
 
 var (
@@ -46,13 +48,21 @@ type SignedURLAuthenticator struct {
 	UserRoleAssigner   userroles.UserRoleAssigner
 	Store              microstore.Store
 	Now                func() time.Time
+	URLVerifier        signedurl.Verifier
 }
 
-func (m SignedURLAuthenticator) shouldServe(req *http.Request) bool {
+func (m SignedURLAuthenticator) shouldServeLegacy(req *http.Request) bool {
 	if !m.PreSignedURLConfig.Enabled {
 		return false
 	}
 	return req.URL.Query().Get(_paramOCSignature) != ""
+}
+
+func (m SignedURLAuthenticator) shouldServe(req *http.Request) bool {
+	if m.URLVerifier == nil {
+		return false
+	}
+	return req.URL.Query().Get(_paramOCJWTSig) != ""
 }
 
 func (m SignedURLAuthenticator) validate(req *http.Request) (err error) {
@@ -216,10 +226,61 @@ func (m SignedURLAuthenticator) createSignature(url string, signingKey []byte) s
 
 // Authenticate implements the authenticator interface to authenticate requests via signed URL auth.
 func (m SignedURLAuthenticator) Authenticate(r *http.Request) (*http.Request, bool) {
-	if !m.shouldServe(r) {
-		return nil, false
+	switch {
+	case m.shouldServeLegacy(r):
+		return m.authenticateLegacy(r)
+	case m.shouldServe(r):
+		return m.authenticate(r)
+	}
+	return nil, false
+}
+
+func (m SignedURLAuthenticator) authenticate(r *http.Request) (*http.Request, bool) {
+	u := r.URL.String()
+	if !r.URL.IsAbs() {
+		u = "https://" + r.Host + u
 	}
 
+	userid, err := m.URLVerifier.Verify(u)
+	if err != nil {
+		m.Logger.Error().
+			Err(err).
+			Str("authenticator", "signed_url_jwt").
+			Str("path", r.URL.Path).
+			Str("url", u).
+			Msg("Could not verify JWT signature")
+		return nil, false
+	}
+	user, _, err := m.UserProvider.GetUserByClaims(r.Context(), "userid", userid)
+	if err != nil {
+		m.Logger.Error().
+			Err(err).
+			Str("authenticator", "signed_url_jwt").
+			Str("path", r.URL.Path).
+			Msg("Could not get user by claim")
+		return nil, false
+	}
+	user, err = m.UserRoleAssigner.ApplyUserRole(r.Context(), user)
+	if err != nil {
+		m.Logger.Error().
+			Err(err).
+			Str("authenticator", "signed_url").
+			Str("path", r.URL.Path).
+			Msg("Could not get user by claim")
+		return nil, false
+	}
+	ctx := revactx.ContextSetUser(r.Context(), user)
+	r = r.WithContext(ctx)
+	m.Logger.Debug().
+		Str("authenticator", "signed_url").
+		Str("path", r.URL.Path).
+		Msg("successfully authenticated request")
+	return r, true
+}
+
+// authenticateLegacy is a helper function to authenticate requests that use the legacy
+// client side signed URLs
+func (m SignedURLAuthenticator) authenticateLegacy(r *http.Request) (*http.Request, bool) {
 	user, _, err := m.UserProvider.GetUserByClaims(r.Context(), "username", r.URL.Query().Get(_paramOCCredential))
 	if err != nil {
 		m.Logger.Error().
@@ -254,7 +315,6 @@ func (m SignedURLAuthenticator) Authenticate(r *http.Request) (*http.Request, bo
 		return nil, false
 	}
 
-	// TODO: set user in context
 	m.Logger.Debug().
 		Str("authenticator", "signed_url").
 		Str("path", r.URL.Path).

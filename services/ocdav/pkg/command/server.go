@@ -89,6 +89,7 @@ func Server(cfg *config.Config) *cli.Command {
 					ocdav.WithTraceProvider(traceProvider),
 					ocdav.RegisterTTL(registry.GetRegisterTTL()),
 					ocdav.RegisterInterval(registry.GetRegisterInterval()),
+					ocdav.URLSigningSharedSecret(cfg.URLSigningSharedSecret),
 				}
 
 				s, err := ocdav.Service(opts...)

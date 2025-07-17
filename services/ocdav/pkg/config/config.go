@@ -34,8 +34,9 @@ type Config struct {
 
 	MachineAuthAPIKey string `yaml:"machine_auth_api_key" env:"OC_MACHINE_AUTH_API_KEY;OCDAV_MACHINE_AUTH_API_KEY" desc:"Machine auth API key used to validate internal requests necessary for the access to resources from other services." introductionVersion:"1.0.0"`
 
-	Context context.Context `yaml:"-"`
-	Status  Status          `yaml:"-"`
+	URLSigningSharedSecret string          `yaml:"url_signing_shared_secret" env:"OC_URL_SIGNING_SHARED_SECRET" desc:"The shared secret used to sign URLs." introductionVersion:"4.0.0"`
+	Context                context.Context `yaml:"-"`
+	Status                 Status          `yaml:"-"`
 
 	AllowPropfindDepthInfinity bool `yaml:"allow_propfind_depth_infinity" env:"OCDAV_ALLOW_PROPFIND_DEPTH_INFINITY" desc:"Allow the use of depth infinity in PROPFINDS. When enabled, a propfind will traverse through all subfolders. If many subfolders are expected, depth infinity can cause heavy server load and/or delayed response times." introductionVersion:"1.0.0"`
 }

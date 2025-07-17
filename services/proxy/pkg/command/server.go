@@ -36,6 +36,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v2/pkg/signedurl"
 	"github.com/opencloud-eu/reva/v2/pkg/store"
 	"github.com/urfave/cli/v2"
 	"go-micro.dev/v4/selector"
@@ -316,6 +317,16 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 		Logger:              logger,
 		RevaGatewaySelector: gatewaySelector,
 	})
+
+	var signURLVerifier signedurl.Verifier
+
+	if cfg.PreSignedURL.JWTSigningSharedSecret != "" {
+		var err error
+		signURLVerifier, err = signedurl.NewJWTSignedURL(signedurl.WithSecret(cfg.PreSignedURL.JWTSigningSharedSecret))
+		if err != nil {
+			logger.Fatal().Err(err).Msg("Failed to initialize signed URL configuration.")
+		}
+	}
 	authenticators = append(authenticators, middleware.SignedURLAuthenticator{
 		Logger:             logger,
 		PreSignedURLConfig: cfg.PreSignedURL,
@@ -323,6 +334,7 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 		UserRoleAssigner:   roleAssigner,
 		Store:              signingKeyStore,
 		Now:                time.Now,
+		URLVerifier:        signURLVerifier,
 	})
 
 	cspConfig, err := middleware.LoadCSPConfig(cfg)

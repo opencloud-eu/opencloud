@@ -180,9 +180,10 @@ type StaticSelectorConf struct {
 
 // PreSignedURL is the config for the pre-signed url middleware
 type PreSignedURL struct {
-	AllowedHTTPMethods []string     `yaml:"allowed_http_methods"`
-	Enabled            bool         `yaml:"enabled" env:"PROXY_ENABLE_PRESIGNEDURLS" desc:"Allow OCS to get a signing key to sign requests." introductionVersion:"1.0.0"`
-	SigningKeys        *SigningKeys `yaml:"signing_keys"`
+	AllowedHTTPMethods     []string     `yaml:"allowed_http_methods"`
+	Enabled                bool         `yaml:"enabled" env:"PROXY_ENABLE_PRESIGNEDURLS" desc:"Allow OCS to get a signing key to sign requests." introductionVersion:"1.0.0"`
+	SigningKeys            *SigningKeys `yaml:"signing_keys"`
+	JWTSigningSharedSecret string       `yaml:"url_signing_shared_secret" env:"OC_URL_SIGNING_SHARED_SECRET" desc:"The shared secret used to sign URLs." introductionVersion:"4.0.0"`
 }
 
 // SigningKeys is a store configuration.

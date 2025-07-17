@@ -9,11 +9,12 @@ import (
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
+	"github.com/opencloud-eu/reva/v2/pkg/signedurl"
 	"github.com/stretchr/testify/assert"
 	"go-micro.dev/v4/store"
 )
 
-func TestSignedURLAuth_shouldServe(t *testing.T) {
+func TestSignedURLAuthLegacy_shouldServe(t *testing.T) {
 	pua := SignedURLAuthenticator{}
 	tests := []struct {
 		url      string
@@ -28,6 +29,39 @@ func TestSignedURLAuth_shouldServe(t *testing.T) {
 
 	for _, tt := range tests {
 		pua.PreSignedURLConfig.Enabled = tt.enabled
+		r := httptest.NewRequest("", tt.url, nil)
+		result := pua.shouldServeLegacy(r)
+
+		if result != tt.expected {
+			t.Errorf("with %s expected %t got %t", tt.url, tt.expected, result)
+		}
+	}
+}
+
+func TestSignedURLAuth_shouldServe(t *testing.T) {
+	tests := []struct {
+		url      string
+		secret   string
+		enabled  bool
+		expected bool
+	}{
+		{"https://example.com/example.jpg", "", true, false},
+		{"https://example.com/example.jpg", "", false, false},
+		{"https://example.com/example.jpg?oc-jwt-sig=something1", "secret", true, true},
+		{"https://example.com/example.jpg?oc-jwt-sig=something2", "", true, false},
+		{"https://example.com/example.jpg?oc-jwt-sig=something3", "secret", false, true},
+	}
+
+	for _, tt := range tests {
+		pua := SignedURLAuthenticator{}
+		pua.PreSignedURLConfig.Enabled = tt.enabled
+		if tt.secret != "" {
+			signURLVerifier, err := signedurl.NewJWTSignedURL(signedurl.WithSecret(tt.secret))
+			if err != nil {
+				t.Fatalf("failed to create signed URL verifier: %v", err)
+			}
+			pua.URLVerifier = signURLVerifier
+		}
 		r := httptest.NewRequest("", tt.url, nil)
 		result := pua.shouldServe(r)
 
