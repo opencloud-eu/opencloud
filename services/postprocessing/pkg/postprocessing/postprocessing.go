@@ -24,6 +24,7 @@ type Postprocessing struct {
 	Failures          int
 	InitiatorID       string
 	Finished          bool
+	StartTime         time.Time
 
 	config config.Postprocessing
 }

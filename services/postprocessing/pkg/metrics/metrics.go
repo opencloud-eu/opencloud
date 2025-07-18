@@ -10,7 +10,7 @@ var (
 	Namespace = "opencloud"
 
 	// Subsystem defines the subsystem for the defines metrics.
-	Subsystem = "search"
+	Subsystem = "postprocessing"
 )
 
 // Metrics defines the available metrics of this service.
@@ -20,8 +20,9 @@ type Metrics struct {
 	EventsOutstandingAcks prometheus.Gauge
 	EventsUnprocessed     prometheus.Gauge
 	EventsRedelivered     prometheus.Gauge
-	SearchDuration        *prometheus.HistogramVec
-	IndexDuration         *prometheus.HistogramVec
+	InProgress            prometheus.Gauge
+	Finished              *prometheus.CounterVec
+	Duration              *prometheus.HistogramVec
 }
 
 // New initializes the available metrics.
@@ -51,18 +52,23 @@ func New() *Metrics {
 			Name:      "events_redelivered",
 			Help:      "Number of redelivered events",
 		}),
-		SearchDuration: promauto.NewHistogramVec(prometheus.HistogramOpts{
+		InProgress: promauto.NewGauge(prometheus.GaugeOpts{
 			Namespace: Namespace,
 			Subsystem: Subsystem,
-			Name:      "search_duration_seconds",
-			Help:      "Duration of search operations in seconds",
-			Buckets:   []float64{0.1, 0.5, 1, 2.5, 5, 10, 30, 60},
+			Name:      "in_progress",
+			Help:      "Number of postprocessing events in progress",
+		}),
+		Finished: promauto.NewCounterVec(prometheus.CounterOpts{
+			Namespace: Namespace,
+			Subsystem: Subsystem,
+			Name:      "finished",
+			Help:      "Number of finished postprocessing events",
 		}, []string{"status"}),
-		IndexDuration: promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Duration: promauto.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: Namespace,
 			Subsystem: Subsystem,
-			Name:      "index_duration_seconds",
-			Help:      "Duration of indexing operations in seconds",
+			Name:      "duration_seconds",
+			Help:      "Duration of postprocessing operations in seconds",
 			Buckets:   []float64{0.1, 0.5, 1, 2.5, 5, 10, 30, 60, 120, 300, 600, 1200},
 		}, []string{"status"}),
 	}

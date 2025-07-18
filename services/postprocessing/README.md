@@ -119,3 +119,17 @@ Depending if you want to restart/resume all or defined failed uploads, different
       opencloud postprocessing resume -s "finished"  # Equivalent to the above
       opencloud postprocessing resume -s "virusscan" # Resume all uploads currently in virusscan step
       ```
+
+## Metrics
+
+The postprocessing service exposes the following prometheus metrics at `<debug_endpoint>/metrics` (as configured using the `POSTPROCESSING_DEBUG_ADDR` env var):
+
+| Metric Name | Type | Description | Labels |
+| --- | --- | --- | --- |
+| `opencloud_postprocessing_build_info` | Gauge | Build information | `version` |
+| `opencloud_postprocessing_events_outstanding_acks` | Gauge | Number of outstanding acks for events | |
+| `opencloud_postprocessing_events_unprocessed` | Gauge | Number of unprocessed events | |
+| `opencloud_postprocessing_events_redelivered` | Gauge | Number of redelivered events | |
+| `opencloud_postprocessing_in_progress` | Gauge | Number of postprocessing events in progress | |
+| `opencloud_postprocessing_finished` | Counter | Number of finished postprocessing events | `status` |
+| `opencloud_postprocessing_duration_seconds` | Histogram | Duration of postprocessing operations in seconds | `status` |

@@ -3,6 +3,7 @@ package service
 import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/metrics"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -15,6 +16,7 @@ type Options struct {
 	Config         *config.Config
 	JWTSecret      string
 	TracerProvider trace.TracerProvider
+	Metrics        *metrics.Metrics
 }
 
 func newOptions(opts ...Option) Options {
@@ -52,5 +54,14 @@ func JWTSecret(val string) Option {
 func TracerProvider(val trace.TracerProvider) Option {
 	return func(o *Options) {
 		o.TracerProvider = val
+	}
+}
+
+// Metrics provides a function to set the Metrics option.
+func Metrics(val *metrics.Metrics) Option {
+	return func(o *Options) {
+		if val != nil {
+			o.Metrics = val
+		}
 	}
 }

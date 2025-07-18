@@ -1,11 +1,13 @@
 package search
 
 import (
+	"context"
 	"time"
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/metrics"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/events/raw"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
@@ -13,7 +15,7 @@ import (
 
 // HandleEvents listens to the needed events,
 // it handles the whole resource indexing livecycle.
-func HandleEvents(s Searcher, stream raw.Stream, cfg *config.Config, logger log.Logger) error {
+func HandleEvents(s Searcher, stream raw.Stream, cfg *config.Config, m *metrics.Metrics, logger log.Logger) error {
 	evts := []events.Unmarshaller{
 		events.ItemTrashed{},
 		events.ItemRestored{},
@@ -35,6 +37,10 @@ func HandleEvents(s Searcher, stream raw.Stream, cfg *config.Config, logger log.
 	ch, err := stream.Consume("search-pull", evts...)
 	if err != nil {
 		return err
+	}
+
+	if m != nil {
+		monitorMetrics(stream, "search-pull", m, logger)
 	}
 
 	if cfg.Events.NumConsumers == 0 {
@@ -102,4 +108,26 @@ func HandleEvents(s Searcher, stream raw.Stream, cfg *config.Config, logger log.
 	}
 
 	return nil
+}
+
+func monitorMetrics(stream raw.Stream, name string, m *metrics.Metrics, logger log.Logger) {
+	ctx := context.Background()
+	consumer, err := stream.JetStream().Consumer(ctx, name)
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to get consumer")
+	}
+	ticker := time.NewTicker(5 * time.Second)
+	go func() {
+		for range ticker.C {
+			info, err := consumer.Info(ctx)
+			if err != nil {
+				logger.Error().Err(err).Msg("failed to get consumer")
+			}
+
+			m.EventsOutstandingAcks.Set(float64(info.NumAckPending))
+			m.EventsUnprocessed.Set(float64(info.NumPending))
+			m.EventsRedelivered.Set(float64(info.NumRedelivered))
+			logger.Trace().Msg("updated search event metrics")
+		}
+	}()
 }

@@ -130,6 +130,7 @@ type commonLoggingResponseWriter interface {
 	http.Flusher
 	Status() int
 	Size() int
+	Unwrap() http.ResponseWriter
 }
 
 // responseLogger is wrapper of http.ResponseWriter that keeps track of its HTTP
@@ -168,6 +169,10 @@ func (l *responseLogger) Flush() {
 	if ok {
 		f.Flush()
 	}
+}
+
+func (l *responseLogger) Unwrap() http.ResponseWriter {
+	return l.w
 }
 
 type hijackLogger struct {

@@ -162,3 +162,16 @@ The indexing process tries to be self-healing in some situations.
 In the following example, let's assume a file tree `foo/bar/baz` exists.
 If the folder `bar` gets renamed to `new-bar`, the path to `baz` is no longer `foo/bar/baz` but `foo/new-bar/baz`.
 The search service checks the change and either just updates the path in the index or creates a new index for all items affected if none was present.
+
+## Metrics
+
+The search service exposes the following prometheus metrics at `<debug_endpoint>/metrics` (as configured using the `SEARCH_DEBUG_ADDR` env var):
+
+| Metric Name | Type | Description | Labels |
+| --- | --- | --- | --- |
+| `opencloud_search_build_info` | Gauge | Build information | `version` |
+| `opencloud_search_events_outstanding_acks` | Gauge | Number of outstanding acks for events | |
+| `opencloud_search_events_unprocessed` | Gauge | Number of unprocessed events | |
+| `opencloud_search_events_redelivered` | Gauge | Number of redelivered events | |
+| `opencloud_search_search_duration_seconds` | Histogram | Duration of search operations in seconds | `status` |
+| `opencloud_search_index_duration_seconds` | Histogram | Duration of indexing operations in seconds | `status` |

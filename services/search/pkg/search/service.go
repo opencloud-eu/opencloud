@@ -14,6 +14,7 @@ import (
 	rpcv1beta1 "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	collaborationv1beta1 "github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -21,7 +22,6 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/walker"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
-	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
@@ -31,6 +31,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/engine"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/metrics"
 )
 
 const (
@@ -59,6 +60,7 @@ type Service struct {
 	gatewaySelector pool.Selectable[gateway.GatewayAPIClient]
 	engine          engine.Engine
 	extractor       content.Extractor
+	metrics         *metrics.Metrics
 
 	serviceAccountID     string
 	serviceAccountSecret string
@@ -67,12 +69,13 @@ type Service struct {
 var errSkipSpace error
 
 // NewService creates a new Provider instance.
-func NewService(gatewaySelector pool.Selectable[gateway.GatewayAPIClient], eng engine.Engine, extractor content.Extractor, logger log.Logger, cfg *config.Config) *Service {
+func NewService(gatewaySelector pool.Selectable[gateway.GatewayAPIClient], eng engine.Engine, extractor content.Extractor, metrics *metrics.Metrics, logger log.Logger, cfg *config.Config) *Service {
 	var s = &Service{
 		gatewaySelector: gatewaySelector,
 		engine:          eng,
 		logger:          logger,
 		extractor:       extractor,
+		metrics:         metrics,
 
 		serviceAccountID:     cfg.ServiceAccount.ServiceAccountID,
 		serviceAccountSecret: cfg.ServiceAccount.ServiceAccountSecret,
@@ -84,6 +87,21 @@ func NewService(gatewaySelector pool.Selectable[gateway.GatewayAPIClient], eng e
 // Search processes a search request and passes it down to the engine.
 func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*searchsvc.SearchResponse, error) {
 	s.logger.Debug().Str("query", req.Query).Msg("performing a search")
+
+	// collect metrics
+	startTime := time.Now()
+	success := false
+	defer func() {
+		if s.metrics == nil {
+			return
+		}
+
+		status := "success"
+		if !success {
+			status = "error"
+		}
+		s.metrics.SearchDuration.WithLabelValues(status).Observe(time.Since(startTime).Seconds())
+	}()
 
 	gatewayClient, err := s.gatewaySelector.Next()
 	if err != nil {
@@ -255,6 +273,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 		matches = matches[0:limit]
 	}
 
+	success = true
 	return &searchsvc.SearchResponse{
 		Matches:      matches,
 		TotalMatches: total,
@@ -425,6 +444,20 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId) error {
 	}
 	rootID.OpaqueId = rootID.SpaceId
 
+	// Collect metrics
+	startTime := time.Now()
+	success := false
+	defer func() {
+		if s.metrics == nil {
+			return
+		}
+		status := "success"
+		if !success {
+			status = "error"
+		}
+		s.metrics.IndexDuration.WithLabelValues(status).Observe(time.Since(startTime).Seconds())
+	}()
+
 	w := walker.NewWalker(s.gatewaySelector)
 	err = w.Walk(ownerCtx, &rootID, func(wd string, info *provider.ResourceInfo, err error) error {
 		if err != nil {
@@ -465,6 +498,7 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId) error {
 	}
 
 	logDocCount(s.engine, s.logger)
+	success = true
 
 	return nil
 }

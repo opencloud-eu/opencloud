@@ -672,7 +672,7 @@ github.com/gogo/protobuf/protoc-gen-gogo/descriptor
 # github.com/golang-jwt/jwt/v4 v4.5.2
 ## explicit; go 1.16
 github.com/golang-jwt/jwt/v4
-# github.com/golang-jwt/jwt/v5 v5.2.2
+# github.com/golang-jwt/jwt/v5 v5.2.3
 ## explicit; go 1.18
 github.com/golang-jwt/jwt/v5
 # github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
@@ -1213,7 +1213,7 @@ github.com/open-policy-agent/opa/v1/version
 # github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250707143759-32eaae12b2ce
 ## explicit; go 1.18
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v2 v2.34.1-0.20250716074813-cfe225225b23
+# github.com/opencloud-eu/reva/v2 v2.34.1-0.20250717130558-81c1803fb574
 ## explicit; go 1.24.1
 github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v2/cmd/revad/runtime
@@ -2333,7 +2333,7 @@ google.golang.org/genproto/googleapis/api/httpbody
 ## explicit; go 1.23.0
 google.golang.org/genproto/googleapis/rpc/errdetails
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.73.0
+# google.golang.org/grpc v1.74.0
 ## explicit; go 1.23.0
 google.golang.org/grpc
 google.golang.org/grpc/attributes

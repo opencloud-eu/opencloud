@@ -31,7 +31,7 @@ var _ = DescribeTable("events",
 			Events: config.Events{
 				AsyncUploads: asyncUploads,
 			},
-		}, log.NewLogger())
+		}, nil, log.NewLogger())
 
 		for _, mck := range mcks {
 			s.On(mck, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {

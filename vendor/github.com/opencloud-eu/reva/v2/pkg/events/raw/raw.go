@@ -62,10 +62,11 @@ func (re *Event) InProgress() error {
 
 type Stream interface {
 	Consume(group string, evs ...events.Unmarshaller) (<-chan Event, error)
+	JetStream() jetstream.Stream
 }
 
 type RawStream struct {
-	Js jetstream.Stream
+	js jetstream.Stream
 
 	c Config
 }
@@ -130,7 +131,7 @@ func FromConfig(ctx context.Context, name string, cfg Config) (Stream, error) {
 		}
 
 		s = &RawStream{
-			Js: js,
+			js: js,
 			c:  cfg,
 		}
 		return nil
@@ -186,7 +187,7 @@ func (s *RawStream) Consume(group string, evs ...events.Unmarshaller) (<-chan Ev
 }
 
 func (s *RawStream) consumeRaw(group string) (<-chan RawEvent, error) {
-	consumer, err := s.Js.CreateOrUpdateConsumer(context.Background(), jetstream.ConsumerConfig{
+	consumer, err := s.js.CreateOrUpdateConsumer(context.Background(), jetstream.ConsumerConfig{
 		Durable:       group,
 		DeliverPolicy: jetstream.DeliverNewPolicy,
 		AckPolicy:     jetstream.AckExplicitPolicy, // Require manual acknowledgment
@@ -213,4 +214,8 @@ func (s *RawStream) consumeRaw(group string) (<-chan RawEvent, error) {
 	}
 
 	return channel, nil
+}
+
+func (s *RawStream) JetStream() jetstream.Stream {
+	return s.js
 }

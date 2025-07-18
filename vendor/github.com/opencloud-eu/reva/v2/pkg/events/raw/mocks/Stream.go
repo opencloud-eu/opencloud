@@ -21,7 +21,9 @@
 package mocks
 
 import (
+	jetstream "github.com/nats-io/nats.go/jetstream"
 	events "github.com/opencloud-eu/reva/v2/pkg/events"
+
 	mock "github.com/stretchr/testify/mock"
 
 	raw "github.com/opencloud-eu/reva/v2/pkg/events/raw"
@@ -108,6 +110,53 @@ func (_c *Stream_Consume_Call) Return(_a0 <-chan raw.Event, _a1 error) *Stream_C
 }
 
 func (_c *Stream_Consume_Call) RunAndReturn(run func(string, ...events.Unmarshaller) (<-chan raw.Event, error)) *Stream_Consume_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// JetStream provides a mock function with no fields
+func (_m *Stream) JetStream() jetstream.Stream {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for JetStream")
+	}
+
+	var r0 jetstream.Stream
+	if rf, ok := ret.Get(0).(func() jetstream.Stream); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(jetstream.Stream)
+		}
+	}
+
+	return r0
+}
+
+// Stream_JetStream_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'JetStream'
+type Stream_JetStream_Call struct {
+	*mock.Call
+}
+
+// JetStream is a helper method to define mock.On call
+func (_e *Stream_Expecter) JetStream() *Stream_JetStream_Call {
+	return &Stream_JetStream_Call{Call: _e.mock.On("JetStream")}
+}
+
+func (_c *Stream_JetStream_Call) Run(run func()) *Stream_JetStream_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Stream_JetStream_Call) Return(_a0 jetstream.Stream) *Stream_JetStream_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Stream_JetStream_Call) RunAndReturn(run func() jetstream.Stream) *Stream_JetStream_Call {
 	_c.Call.Return(run)
 	return _c
 }

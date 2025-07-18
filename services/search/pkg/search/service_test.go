@@ -90,7 +90,7 @@ var _ = Describe("Searchprovider", func() {
 		indexClient = &engineMocks.Engine{}
 		extractor = &contentMocks.Extractor{}
 
-		s = search.NewService(gatewaySelector, indexClient, extractor, logger, &config.Config{})
+		s = search.NewService(gatewaySelector, indexClient, extractor, nil, logger, &config.Config{})
 
 		gatewayClient.On("Authenticate", mock.Anything, mock.Anything).Return(&gateway.AuthenticateResponse{
 			Status: status.NewOK(ctx),
@@ -110,7 +110,7 @@ var _ = Describe("Searchprovider", func() {
 
 	Describe("New", func() {
 		It("returns a new instance", func() {
-			s := search.NewService(gatewaySelector, indexClient, extractor, logger, &config.Config{})
+			s := search.NewService(gatewaySelector, indexClient, extractor, nil, logger, &config.Config{})
 			Expect(s).ToNot(BeNil())
 		})
 	})

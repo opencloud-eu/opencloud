@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/version"
 	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/postprocessing"
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
@@ -22,14 +24,15 @@ import (
 
 // PostprocessingService is an instance of the service handling postprocessing of files
 type PostprocessingService struct {
-	ctx    context.Context
-	log    log.Logger
-	events <-chan raw.Event
-	pub    events.Publisher
-	steps  []events.Postprocessingstep
-	store  store.Store
-	c      config.Postprocessing
-	tp     trace.TracerProvider
+	ctx     context.Context
+	log     log.Logger
+	events  <-chan raw.Event
+	pub     events.Publisher
+	steps   []events.Postprocessingstep
+	store   store.Store
+	c       config.Postprocessing
+	tp      trace.TracerProvider
+	metrics *metrics.Metrics
 }
 
 var (
@@ -78,15 +81,20 @@ func NewPostprocessingService(ctx context.Context, logger log.Logger, sto store.
 		return nil, err
 	}
 
+	m := metrics.New()
+	m.BuildInfo.WithLabelValues(version.GetString()).Set(1)
+	monitorMetrics(raw, "postprocessing-pull", m, logger)
+
 	return &PostprocessingService{
-		ctx:    ctx,
-		log:    logger,
-		events: evs,
-		pub:    pub,
-		steps:  getSteps(cfg.Postprocessing),
-		store:  sto,
-		c:      cfg.Postprocessing,
-		tp:     tp,
+		ctx:     ctx,
+		log:     logger,
+		events:  evs,
+		pub:     pub,
+		steps:   getSteps(cfg.Postprocessing),
+		store:   sto,
+		c:       cfg.Postprocessing,
+		tp:      tp,
+		metrics: m,
 	}, nil
 }
 
@@ -149,7 +157,9 @@ func (pps *PostprocessingService) processEvent(e raw.Event) error {
 			Steps:             pps.steps,
 			InitiatorID:       e.InitiatorID,
 			ImpersonatingUser: ev.ImpersonatingUser,
+			StartTime:         time.Now(),
 		}
+		pps.metrics.InProgress.Inc()
 		next = pp.Init(ev)
 	case events.PostprocessingStepFinished:
 		if ev.UploadID == "" {
@@ -200,17 +210,27 @@ func (pps *PostprocessingService) processEvent(e raw.Event) error {
 			}
 		})
 	case events.UploadReady:
+		pps.metrics.InProgress.Dec()
+		// the upload failed - let's keep it around for a while - but mark it as finished
+		pp, err = pps.getPP(pps.store, ev.UploadID)
+		if err != nil {
+			pps.log.Error().Str("uploadID", ev.UploadID).Err(err).Msg("cannot get upload")
+			return fmt.Errorf("%w: cannot get upload", ErrEvent)
+		}
+
 		if ev.Failed {
-			// the upload failed - let's keep it around for a while - but mark it as finished
-			pp, err = pps.getPP(pps.store, ev.UploadID)
-			if err != nil {
-				pps.log.Error().Str("uploadID", ev.UploadID).Err(err).Msg("cannot get upload")
-				return fmt.Errorf("%w: cannot get upload", ErrEvent)
+			pps.metrics.Finished.WithLabelValues("failed").Inc()
+			if !pp.StartTime.IsZero() {
+				pps.metrics.Duration.WithLabelValues("failed").Observe(time.Since(pp.StartTime).Seconds())
 			}
 			pp.Finished = true
 			return storePP(pps.store, pp)
 		}
 
+		pps.metrics.Finished.WithLabelValues("succeeded").Inc()
+		if !pp.StartTime.IsZero() {
+			pps.metrics.Duration.WithLabelValues("succeeded").Observe(time.Since(pp.StartTime).Seconds())
+		}
 		// the storage provider thinks the upload is done - so no need to keep it any more
 		if err := pps.store.Delete(ev.UploadID); err != nil {
 			pps.log.Error().Str("uploadID", ev.UploadID).Err(err).Msg("cannot delete upload")
@@ -359,4 +379,26 @@ func (pps *PostprocessingService) findUploadsByStep(step events.Postprocessingst
 	}
 
 	return ids
+}
+
+func monitorMetrics(stream raw.Stream, name string, m *metrics.Metrics, logger log.Logger) {
+	ctx := context.Background()
+	consumer, err := stream.JetStream().Consumer(ctx, name)
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to get consumer")
+	}
+	ticker := time.NewTicker(5 * time.Second)
+	go func() {
+		for range ticker.C {
+			info, err := consumer.Info(ctx)
+			if err != nil {
+				logger.Error().Err(err).Msg("failed to get consumer")
+			}
+
+			m.EventsOutstandingAcks.Set(float64(info.NumAckPending))
+			m.EventsUnprocessed.Set(float64(info.NumPending))
+			m.EventsRedelivered.Set(float64(info.NumRedelivered))
+			logger.Trace().Msg("updated postprocessing event metrics")
+		}
+	}()
 }
