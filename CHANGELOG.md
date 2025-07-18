@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.2.0) - 2025-07-17
+## [3.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.2.0) - 2025-07-18
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -8,6 +8,7 @@
 
 ### ✨ Features
 
+- Metrics [[#1242](https://github.com/opencloud-eu/opencloud/pull/1242)]
 - Add `HasTrashedItems` property to /me/drives endpoint [[#1163](https://github.com/opencloud-eu/opencloud/pull/1163)]
 
 ### 📈 Enhancement
