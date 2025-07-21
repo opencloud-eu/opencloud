@@ -382,6 +382,7 @@ MINIO_MC_ENV = {
     "AWS_SECRET_ACCESS_KEY": {
         "from_secret": "cache_s3_secret_key",
     },
+    "PUBLIC_BUCKET": "public",
 }
 
 CI_HTTP_PROXY_ENV = {
@@ -1214,6 +1215,7 @@ def e2eTestPipeline(ctx):
         "xsuites": [],
         "totalParts": 0,
         "tikaNeeded": False,
+        "reportTracing": False,
     }
 
     extra_server_environment = {
@@ -1267,6 +1269,9 @@ def e2eTestPipeline(ctx):
         if params["xsuites"]:
             e2e_args += " --xsuites %s" % ",".join(params["xsuites"])
 
+        if "with-tracing" in ctx.build.title.lower():
+            params["reportTracing"] = True
+
         steps_before = \
             restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBin"]) + \
             restoreWebCache() + \
@@ -1283,15 +1288,14 @@ def e2eTestPipeline(ctx):
                 "RETRY": "1",
                 "WEB_UI_CONFIG_FILE": "%s/%s" % (dirs["base"], dirs["opencloudConfig"]),
                 "LOCAL_UPLOAD_DIR": "/uploads",
+                "REPORT_TRACING": params["reportTracing"],
             },
             "commands": [
                 "cd %s/tests/e2e" % dirs["web"],
             ],
         }
 
-        # steps_after = uploadTracingResult(ctx) + \
-        # steps_after = logTracingResults()
-        steps_after = []
+        steps_after = uploadTracingResult(ctx)
 
         if params["totalParts"]:
             for index in range(params["totalParts"]):
@@ -1327,6 +1331,7 @@ def multiServiceE2ePipeline(ctx):
         "suites": [],
         "xsuites": [],
         "tikaNeeded": False,
+        "reportTracing": False,
     }
 
     e2e_trigger = [
@@ -1416,6 +1421,9 @@ def multiServiceE2ePipeline(ctx):
         if params["xsuites"]:
             e2e_args += " --xsuites %s" % ",".join(params["xsuites"])
 
+        if "with-tracing" in ctx.build.title.lower():
+            params["reportTracing"] = True
+
         steps = \
             restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBin"]) + \
             restoreWebCache() + \
@@ -1430,6 +1438,7 @@ def multiServiceE2ePipeline(ctx):
                     "OC_BASE_URL": OC_DOMAIN,
                     "HEADLESS": True,
                     "RETRY": "1",
+                    "REPORT_TRACING": params["reportTracing"],
                 },
                 "commands": [
                     "cd %s/tests/e2e" % dirs["web"],
@@ -1437,8 +1446,7 @@ def multiServiceE2ePipeline(ctx):
                 ],
             }]
 
-        # + logTracingResults()
-        # uploadTracingResult(ctx) + \
+        uploadTracingResult(ctx) + \
         pipelines.append({
             "name": "e2e-tests-multi-service",
             "steps": steps,
@@ -1447,56 +1455,24 @@ def multiServiceE2ePipeline(ctx):
         })
     return pipelines
 
-def uploadTracingResult():
+def uploadTracingResult(ctx):
+    status = ["failure"]
+    if "with-tracing" in ctx.build.title.lower():
+        status = ["failure", "success"]
+
     return [{
         "name": "upload-tracing-result",
-        "image": PLUGINS_S3,
-        "settings": {
-            "bucket": {
-                "from_secret": "cache_public_s3_bucket",
-            },
-            "endpoint": CACHE_S3_SERVER,
-            "path_style": True,
-            "source": "webTestRunner/reports/e2e/playwright/tracing/**/*",
-            "strip_prefix": "webTestRunner/reports/e2e/playwright/tracing",
-            "target": "/${DRONE_REPO}/${CI_PIPELINE_NUMBER}/tracing",
-        },
-        "environment": {
-            "AWS_ACCESS_KEY_ID": {
-                "from_secret": "cache_public_s3_access_key",
-            },
-            "AWS_SECRET_ACCESS_KEY": {
-                "from_secret": "cache_public_s3_secret_key",
-            },
-        },
-        "when": {
-            "status": [
-                "failure",
-            ],
-            "event": [
-                "pull_request",
-                "cron",
-            ],
-        },
-    }]
-
-def logTracingResults():
-    return [{
-        "name": "log-tracing-result",
-        "image": OC_UBUNTU,
+        "image": MINIO_MC,
+        "environment": MINIO_MC_ENV,
         "commands": [
+            "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
+            "mc cp -a %s/reports/e2e/playwright/tracing/* s3/$PUBLIC_BUCKET/web/tracing/$CI_REPO_NAME/$CI_PIPELINE_NUMBER/" % dirs["web"],
             "cd %s/reports/e2e/playwright/tracing/" % dirs["web"],
             'echo "To see the trace, please open the following link in the console"',
-            'for f in *.zip; do echo "npx playwright show-trace https://cache.owncloud.com/public/${DRONE_REPO}/${CI_PIPELINE_NUMBER}/tracing/$f \n"; done',
+            'for f in *.zip; do echo "npx playwright show-trace $MC_HOST/$PUBLIC_BUCKET/web/tracing/$CI_REPO_NAME/$CI_PIPELINE_NUMBER/$f \n"; done',
         ],
         "when": {
-            "status": [
-                "failure",
-            ],
-            "event": [
-                "pull_request",
-                "cron",
-            ],
+            "status": status,
         },
     }]
 
