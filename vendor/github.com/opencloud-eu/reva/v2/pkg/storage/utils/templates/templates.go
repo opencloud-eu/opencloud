@@ -71,6 +71,16 @@ type (
 	}
 )
 
+// Base returns the base path for the given template string.
+func Base(tpl string) string {
+	tpl = clean(tpl)
+
+	if i := strings.Index(tpl, "{{"); i != -1 {
+		return tpl[0:i]
+	}
+	return tpl
+}
+
 // WithUser generates a layout based on user data.
 func WithUser(u *userpb.User, tpl string) string {
 	tpl = clean(tpl)

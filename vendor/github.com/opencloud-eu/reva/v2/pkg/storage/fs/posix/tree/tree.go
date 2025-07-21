@@ -51,6 +51,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/permissions"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/tree/propagator"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/usermapper"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/templates"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
 
@@ -77,7 +78,9 @@ type Tree struct {
 	propagator  propagator.Propagator
 	permissions permissions.Permissions
 
-	options *options.Options
+	options            *options.Options
+	personalSpacesRoot string
+	projectSpacesRoot  string
 
 	userMapper    usermapper.Mapper
 	idCache       store.Store
@@ -95,6 +98,7 @@ type PermissionCheckFunc func(rp *provider.ResourcePermissions) bool
 // New returns a new instance of Tree
 func New(lu node.PathLookup, bs node.Blobstore, um usermapper.Mapper, trashbin *trashbin.Trashbin, permissions permissions.Permissions, o *options.Options, es events.Stream, cache store.Store, log *zerolog.Logger) (*Tree, error) {
 	scanQueue := make(chan scanItem)
+
 	t := &Tree{
 		lookup:      lu.(*lookup.Lookup),
 		blobstore:   bs,
@@ -108,8 +112,10 @@ func New(lu node.PathLookup, bs node.Blobstore, um usermapper.Mapper, trashbin *
 		scanDebouncer: NewScanDebouncer(o.ScanDebounceDelay, func(item scanItem) {
 			scanQueue <- item
 		}),
-		es:  es,
-		log: log,
+		es:                 es,
+		log:                log,
+		personalSpacesRoot: filepath.Clean(filepath.Join(o.Root, templates.Base(o.PersonalSpacePathTemplate))),
+		projectSpacesRoot:  filepath.Clean(filepath.Join(o.Root, templates.Base(o.GeneralSpacePathTemplate))),
 	}
 
 	// Start watching for fs events and put them into the queue
@@ -665,7 +671,7 @@ func (t *Tree) createDirNode(ctx context.Context, n *node.Node) (err error) {
 }
 
 func (t *Tree) isIgnored(path string) bool {
-	return isLockFile(path) || isTrash(path) || t.isUpload(path) || t.isInternal(path)
+	return isLockFile(path) || isTrash(path) || t.isUpload(path) || t.isInternal(path) || t.isRootPath(path)
 }
 
 func (t *Tree) isUpload(path string) bool {
@@ -676,10 +682,14 @@ func (t *Tree) isIndex(path string) bool {
 	return strings.HasPrefix(path, filepath.Join(t.options.Root, "indexes"))
 }
 
-func (t *Tree) isInternal(path string) bool {
+func (t *Tree) isRootPath(path string) bool {
 	return path == t.options.Root ||
-		path == filepath.Join(t.options.Root, "users") ||
-		t.isIndex(path) || strings.Contains(path, lookup.MetadataDir)
+		path == t.personalSpacesRoot ||
+		path == t.projectSpacesRoot
+}
+
+func (t *Tree) isInternal(path string) bool {
+	return t.isIndex(path) || strings.Contains(path, lookup.MetadataDir)
 }
 
 func isLockFile(path string) bool {
