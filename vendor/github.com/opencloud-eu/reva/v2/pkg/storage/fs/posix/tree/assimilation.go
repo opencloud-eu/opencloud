@@ -773,16 +773,20 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
 
 	sizes := make(map[string]int64)
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		// skip lock and upload files
-		if t.isIndex(path) || isTrash(path) || t.isUpload(path) {
-			return filepath.SkipDir
-		}
-		if t.isInternal(path) || isLockFile(path) {
-			return nil
-		}
-
 		if err != nil {
 			return err
+		}
+
+		// skip irrelevant files
+		if t.isInternal(path) ||
+			isLockFile(path) ||
+			isTrash(path) ||
+			t.isUpload(path) ||
+			t.isIndex(path) {
+			return filepath.SkipDir
+		}
+		if t.isRootPath(path) {
+			return nil // ignore the root paths
 		}
 
 		// calculate tree sizes
@@ -867,6 +871,9 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
 	})
 
 	for dir, size := range sizes {
+		if t.isRootPath(dir) {
+			continue
+		}
 		spaceID, id, err := t.lookup.IDsForPath(context.Background(), dir)
 		if err != nil {
 			t.log.Error().Err(err).Str("path", dir).Msg("could not get ids for path")

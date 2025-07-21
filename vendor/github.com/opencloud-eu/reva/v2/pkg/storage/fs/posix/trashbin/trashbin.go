@@ -359,7 +359,7 @@ func (tb *Trashbin) RestoreRecycleItem(ctx context.Context, spaceID string, key,
 	}
 
 	// cleanup trash info
-	if relativePath == "." || relativePath == "/" {
+	if relativePath == "" || relativePath == "." || relativePath == "/" {
 		return restoredNode, os.Remove(filepath.Join(trashRoot, "info", key+".trashinfo"))
 	} else {
 		return restoredNode, nil
