@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.2.0) - 2025-07-18
+## [3.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.2.0) - 2025-07-21
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -31,6 +31,7 @@
 
 ### 📦️ Dependencies
 
+- [full-ci] Reva bump 2.35.0 [[#1255](https://github.com/opencloud-eu/opencloud/pull/1255)]
 - build(deps): bump golang.org/x/net from 0.41.0 to 0.42.0 [[#1232](https://github.com/opencloud-eu/opencloud/pull/1232)]
 - build(deps): bump github.com/KimMachineGun/automemlimit from 0.7.3 to 0.7.4 [[#1226](https://github.com/opencloud-eu/opencloud/pull/1226)]
 - build(deps): bump golang.org/x/text from 0.26.0 to 0.27.0 [[#1227](https://github.com/opencloud-eu/opencloud/pull/1227)]
