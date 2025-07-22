@@ -1,16 +1,11 @@
 ---
-status: proposed
-date: 2025-06-25
-author: Pascal Bleser <p.bleser@opencloud.eu>
-decision-makers:
-consulted:
-informed:
+status: accepted
+date: 2025-07-22
+author: pbleser-oc
+consulted: AlexAndBear, butonic, dragotin, fschade, JammingBen, kulmann, martinherfurth, micbar, rhafer
 title: "API for the Groupware Web UI"
-template: https://raw.githubusercontent.com/adr/madr/refs/tags/4.0.0/template/adr-template.md
 ---
 <!-- markdownlint-disable-file MD024 MD033 -->
-
-* Status: draft
 
 ## Context
 
@@ -61,7 +56,7 @@ Communication between the OpenCloud Groupware and Stalwart will make use of the 
 
 The API for the OpenCloud Web UI is **not** supposed to be an abstraction of that and thus may use JMAP data formats.
 
-Other [MUAs (Mail User Agents)](https://en.wikipedia.org/wiki/Email_client) converse directly with Stalwart using [IMAP](https://en.wikipedia.org/wiki/Internet_Message_Access_Protocol) or [POP3](https://en.wikipedia.org/wiki/Post_Office_Protocol), [SMTP](https://en.wikipedia.org/wiki/Simple_Mail_Transfer_Protocol), [CalDAV](https://en.wikipedia.org/wiki/CalDAV), [CardDAV](https://en.wikipedia.org/wiki/CardDAV).
+Other [MUAs (Mail User Agents)](https://en.wikipedia.org/wiki/Email_client) converse directly with Stalwart using [IMAP](https://en.wikipedia.org/wiki/Internet_Message_Access_Protocol) or [POP3](https://en.wikipedia.org/wiki/Post_Office_Protocol), [SMTP](https://en.wikipedia.org/wiki/Simple_Mail_Transfer_Protocol), [CalDAV](https://en.wikipedia.org/wiki/CalDAV), [CardDAV](https://en.wikipedia.org/wiki/CardDAV), or JMAP itself.
 
 This ADR concerns the decision regarding which API approach/process/technology/specification to use, not the details of the data model and such, which will need to be fleshed out following the requirements and priorities of the OpenCloud UI Client development, regardless of the selected approach.
 
@@ -93,6 +88,8 @@ We are assuming that the APIs are public APIs (not just technically) and may be 
 
 Implications are that care must be put into providing an API that is stable, versioned, has a changelog, and potentially provided as a product with [LTS (Long-term Support)](https://en.wikipedia.org/wiki/Long-term_support) options.
 
+This also hints at the necessity of a capability exchange/discovery protocol between clients and the Groupware backend, as we will have different versions of clients and servers in the wild, and they need to be able to understand each other. Crucially, if locally running clients are developed, they can go a long time without being updated.
+
 ## Considered Options
 
 * [LibreGraph](#libregraph)
@@ -101,18 +98,23 @@ Implications are that care must be put into providing an API that is stable, ver
 
 ## Decision Outcome
 
-TODO
+The decision was made to go with the custom REST implementation option, mainly due to
+
+* the use of LibreGraph providing little benefits
+  * if would provide us with a fleshed out API for groupware
+  * but we would not implement it fully
+  * and it is really an API for Outlook and Exchange, not a generic groupware standard
+  * furthermore, a significant blocker is that it does not provide for a way to support multiple accounts for a user
+  * the experience of implementing and using the LibreGraph API for the Drive components has made light of some challenges that we would not like to repeat
+* using JMAP directly
+  * is a very interesting option in terms of standards, as it is an RFC,
+  * but we currently see that approach as too risky as per the potential complexity of parsing payloads of JMAP commands and their backreferences, plugging those across commands that must be forwarded as-is to Stalwart and others that need to be handled by the Groupware middleware itself, but also the potential need to reverse engineer the high-level meaning of chained low-level JMAP commands in order to implement enrichment, caches, reverse indexes, etc...
+  * however, it might be a better path forward in the future, especially if JMAP becomes a viable option for replacing the current use of LibreGraph as well
 
 ### Consequences
 
-> [!NOTE]
-> Implementation effort estimations (and obviously the efforts themselves) will be impacted by the decision.
-
-TODO
-
-### Confirmation
-
-TODO
+* we will need to design an API on our own, from scratch, albeit maximally making use of JMAP data structures
+* that API will need to be maintained as a product, with documentation, versioning, LTS
 
 ## Pros and Cons of the Options
 
@@ -164,10 +166,8 @@ GET /v1.0/me/messages?$select=sender,subject&$count=50&$orderby=received
 #### Decision Drivers
 
 * UI Driven
-  * TODO the OpenCloud Web Team strongly prefers not to use LibreGraph
-    * TODO reasons here
-  * one upside is that there is already a client stack for performing LibreGraph operations, which could be reused to some degree for the Groupware APIs as well
-    * it does not amount to all that much code though
+  * some members the OpenCloud Web Team strongly prefers not to use LibreGraph due to its complexity and to the fact that we would have to reftrofit operations into an existing API that was designed by a third party
+  * one upside is that there is already a client stack for performing LibreGraph operations, which could be reused to some degree for the Groupware APIs as well; it does not amount to all that much code though
 * Economic Awareness
   * more complexity and more effort as the other options due to the inherent complexity of the specification
   * a data model is already specified in full, which might save us some time on that front
@@ -198,7 +198,7 @@ GET /v1.0/me/messages?$select=sender,subject&$count=50&$orderby=received
 * [RFC 9404](https://www.rfc-editor.org/rfc/rfc9404.html): JMAP Blob Management Extension
 * [RFC 9425](https://www.rfc-editor.org/rfc/rfc9425.html): JMAP Quotas
 * [RFC 9553](https://www.rfc-editor.org/rfc/rfc9553.html): uses JSContact
-* [RFC 8984](https://www.rfc-editor.org/rfc/rfc8984.html): uses JSCalndar
+* [RFC 8984](https://www.rfc-editor.org/rfc/rfc8984.html): uses JSCalendar
 
 of which some are still in development at the time of writing:
 
@@ -279,7 +279,10 @@ To exemplify the JMAP protocol, the following code block is a JMAP request that
 * potentially does not require implementation efforts on the backend side
 * would obviously support the full potential of JMAP and Stalwart
 * we could potentially extend JMAP with our own data models and operations based on the [JMAP Core Protocol](https://jmap.io/spec-core.html), possibly even propose them as RFCs
-* we can start with JMAP request objects that contain only a few or even only one JMAP methods (indicated by the [maxCallsInRequest capability](https://datatracker.ietf.org/doc/html/rfc8620#section-2)), allowing more calls as we need. Clients could implement the funtionality they need using multiple requests in the beginning, then we implement missing functionality on the server. This would allow us to speed up requests that we need while at the same time giving clients the ability to make any necessary individual calls. 
+* we can start with JMAP request objects that contain only a few or even only one JMAP methods (indicated by the [maxCallsInRequest capability](https://datatracker.ietf.org/doc/html/rfc8620#section-2)), allowing more calls as we need
+  * clients could implement the funtionality they need using multiple requests in the beginning, then we implement missing functionality on the server
+  * this would allow us to speed up requests that we need while at the same time giving clients the ability to make any necessary individual calls
+  * probably only a partially useful approach since chaining JMAP requests is necessary for even the most mundane operations, to avoid the inefficiency of multiple roundtrips
 
 #### Neutral
 
@@ -309,6 +312,21 @@ To exemplify the JMAP protocol, the following code block is a JMAP request that
     > My initial thought is to implement this as a JMAP extension rather than inventing another protocol similar to ManageSieve, which feels somewhat like a "Frankenstein" IMAP extension.
     >
     > Many mailbox providers already offer some or all of these settings through their web interfaces, but a standardized JMAP-based extension could let users adjust these directly within their preferred email clients or via APIs.
+
+#### Bad
+
+* potentially bad: most probably too flexible for its own good, as it makes it difficult to reverse-engineer the high-level meaning of a set of JMAP requests in order to capture its semantics, e.g. to implement caching or reverse indexes for performance
+* since the OpenCloud Drive backends use the LibreGraph API, using a JMAP based API for Groupware bears the risk of having multiple APIs to do the same thing, which we need to be careful about, and avoid if possible
+
+> [!NOTE]  
+> This seems like a mild "bad" item, but the risk risk here is significant: if it turns out that we need to capture the semantics of API requests to perform additional operations (e.g. caching or indexing for performance reasons, or to decorate the data from Stalwart with information from other services), then we would have to re-implement the whole API as JMAP is too complex to parse to extract semantics from.
+
+#### Two Approaches
+
+There are two approaches as to how to implement our protocol based on JMAP:
+
+* either our clients must split JMAP operations and send some to Stalwart, and others to the Groupware backend (depending on which endpoint is in charge of which API)
+* or our clients send all the JMAP operations to the Groupware backend, which is then in charge to relay JMAP commands that are to be handled by Stalwart to Stalwart
 
 ##### Directly to Stalwart
 
@@ -397,18 +415,15 @@ graph LR
   stalwart-->stalwart_storage
 ```
 
-#### Bad
-
-* potentially bad: most probably too flexible for its own good, as it makes it difficult to reverse-engineer the high-level meaning of a set of JMAP requests in order to capture its semantics, e.g. to implement caching or reverse indexes for performance
-
-> [!NOTE]  
-> This seems like a mild "bad" item, but the risk risk here is significant: if it turns out that we need to capture the semantics of API requests to perform additional operations (e.g. caching or indexing for performance reasons, or to decorate the data from Stalwart with information from other services), then we would have to re-implement the whole API as JMAP is too complex to parse to extract semantics from.
-
 #### Decision Drivers
 
 * UI Driven
+  * the UI team did not express any particular preference for this option, but the JMAP protocol is simple to implement on any client
 * Economic Awareness
+  * there would be less of a need to develop an API, but that doesn't put much into the balance
+  * developing a generic inbound JMAP command processing engine that is capable of resolving backreferences with requests that can be sent out to different backends (Stalwart, Drive, Groupware, OpenTalk, ...) seems risky in terms of complexity, also since Go doesn't have much of a [well-supported Reactive framework](https://github.com/ReactiveX/RxGo)
 * Efficiency
+  * the ability of the JMAP protocol to chain multiple low-level commands provides for a very efficient way to compose higher-level operations without the need for multiple round-trips
 * Third Party Consumption
   * for some of the operations, we could point to the JMAP documentation and RFCs, although that would not make for a great experience either, we would probably need to replicate it
   * our protocol extensions will have to be maintained just like the other options
@@ -421,9 +436,9 @@ graph LR
 
 A custom REST API would implement the resources and semantics as they are needed by the UI, and would be strongly if not fully UI-driven.
 
-The data model could, or even should, remain close or equal to JMAP's, to avoid data loss by converting back and forth.
+The data model should remain close or equal to JMAP's, to avoid data loss by converting back and forth.
 
-TODO more fluff here: drawbacks of maintaining an API ourselves, do we need to version it, what is the cost of maintaining it, keeping it stable to the outside, look into existing standards for data representation (e.g. JSON:API ?)
+We might look into existing specifications for formatting JSON payloads, such as [JSON:API](https://jsonapi.org/) or partial ones such as such as [JSON-LD](https://json-ld.org/) for relationships between resources, but this is currently outside of the scope of this ADR.
 
 ```mermaid
 graph LR
@@ -472,21 +487,19 @@ GET /groupware/startup/1/?mails=50
 
 #### Neutral
 
-* does not follow any standard (besides REST), although the purpose is solely to build an API for the OpenCloud UI, not an API that is meant to be consumed by many different clients
-  * TODO have a look at [JSON:API](https://jsonapi.org/)
-  * TODO look into GraphQL (most probably suffers from similar issues to Graph API though: too complex, no database backend to automate the implementation)
 * if there is a requirement for considering that API as a public API for third party integrators, then the API also needs to be documented, maintained, versioned, and kept stable as much as possible (this is neutral because it is a requirement that exists with every option)
 
 #### Bad
 
-* more implementation effort than JMAP
+* only partially follows any standards (REST, JSON, JMAP for data models)
 * requires designing the API from scratch, as opposed to using the Graph API which already prescribes one
   * although it probably makes sense to re-use the data model of JMAP, which is prescribed in RFCs, also to avoid data loss and copying things around needlessly
+* since the OpenCloud Drive backends use the LibreGraph API, using a custom REST API for Groupware bears the risk of having multiple APIs to do the same thing, which we need to be careful about, and avoid if possible
 
 #### Decision Drivers
 
 * UI Driven
-  * favoured solution for the OpenCloud Web UI team (TODO add reasons)
+  * favoured solution for the OpenCloud Web UI team
 * Economic Awareness
   * designing a new custom API is not much effort since it is UI requirements driven
   * maintaining a new custom API or JMAP extensions is not more effort either, since the exact same thing needs to be done with LibreGraph, as it will have numerous exceptions and will require documenting those, as well as which parts of the Microsoft Graph API are implemented and which aren't
@@ -497,4 +510,3 @@ GET /groupware/startup/1/?mails=50
     * documentation
     * LTS
     * versioning
-
