@@ -1288,10 +1288,11 @@ def e2eTestPipeline(ctx):
                 "RETRY": "1",
                 "WEB_UI_CONFIG_FILE": "%s/%s" % (dirs["base"], dirs["opencloudConfig"]),
                 "LOCAL_UPLOAD_DIR": "/uploads",
+                "BROWSER": "chromium",
                 "REPORT_TRACING": params["reportTracing"],
             },
             "commands": [
-                "cd %s/tests/e2e" % dirs["web"],
+                "cd %s/tests/e2e && pnpm exec playwright install chromium --with-deps" % dirs["web"],
             ],
         }
 
