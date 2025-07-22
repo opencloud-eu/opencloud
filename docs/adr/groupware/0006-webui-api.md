@@ -279,6 +279,7 @@ To exemplify the JMAP protocol, the following code block is a JMAP request that
 * potentially does not require implementation efforts on the backend side
 * would obviously support the full potential of JMAP and Stalwart
 * we could potentially extend JMAP with our own data models and operations based on the [JMAP Core Protocol](https://jmap.io/spec-core.html), possibly even propose them as RFCs
+* we can start with JMAP request objects that contain only a few or even only one JMAP methods (indicated by the [maxCallsInRequest capability](https://datatracker.ietf.org/doc/html/rfc8620#section-2)), allowing more calls as we need. Clients could implement the funtionality they need using multiple requests in the beginning, then we implement missing functionality on the server. This would allow us to speed up requests that we need while at the same time giving clients the ability to make any necessary individual calls. 
 
 #### Neutral
 
@@ -467,6 +468,7 @@ GET /groupware/startup/1/?mails=50
 * can also be tailored to the capabilities of JMAP without exposing all of its flexibility
 * provides the potential for expanding upon what JMAP provides
 * would support the full potential of JMAP and Stalwart since the API would be designed accordingly
+* allows learning how to use and cache individual JMAP method call responses, allowing to make a better decision in the future if JMAP should be used by clients
 
 #### Neutral
 
