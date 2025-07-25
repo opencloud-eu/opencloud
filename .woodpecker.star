@@ -1292,7 +1292,7 @@ def e2eTestPipeline(ctx):
                 "REPORT_TRACING": params["reportTracing"],
             },
             "commands": [
-                "cd %s/tests/e2e && pnpm exec playwright install chromium --with-deps" % dirs["web"],
+                "cd %s/tests/e2e" % dirs["web"],
             ],
         }
 
@@ -1305,6 +1305,7 @@ def e2eTestPipeline(ctx):
                 run_e2e.update(step_e2e)
                 run_e2e["commands"] = [
                     "cd %s/tests/e2e" % dirs["web"],
+                    "pnpm exec playwright install chromium --with-deps",
                     "bash run-e2e.sh %s --run-part %d" % (e2e_args, run_part),
                 ]
                 pipelines.append({
