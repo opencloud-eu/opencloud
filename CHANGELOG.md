@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.2.1](https://github.com/opencloud-eu/opencloud/releases/tag/v3.2.1) - 2025-07-25
+
+### ❤️ Thanks to all contributors! ❤️
+
+@dragonchaser
+
+
+
 ## [3.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.2.0) - 2025-07-21
 
 ### ❤️ Thanks to all contributors! ❤️
