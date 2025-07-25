@@ -135,18 +135,6 @@ func DefaultConfig() *config.Config {
 			Nodes:    []string{"127.0.0.1:9233"},
 			Database: "graph",
 		},
-		Mail: config.Mail{
-			Master: config.MasterAuth{
-				Username: "master",
-				Password: "admin",
-			},
-			BaseUrl:           "https://stalwart.opencloud.test",
-			JmapUrl:           "https://stalwart.opencloud.test/jmap",
-			Timeout:           time.Duration(3 * time.Second),
-			SessionCacheTTL:   time.Duration(1 * time.Hour),
-			DefaultEmailLimit: 100,
-			MaxBodyValueBytes: 0,
-		},
 	}
 }
 

@@ -14,6 +14,7 @@ services:
       - "127.0.0.1:143:143"
       - "127.0.0.1:993:993"
     volumes:
+      - /etc/localtime:/etc/localtime:ro
       - ./config/stalwart:/opt/stalwart/etc
       - stalwart-data:/opt/stalwart/data
       - stalwart-logs:/opt/stalwart/logs

@@ -36,8 +36,6 @@ type Config struct {
 	Keycloak       Keycloak       `yaml:"keycloak"`
 	ServiceAccount ServiceAccount `yaml:"service_account"`
 
-	Mail Mail `yaml:"mail"`
-
 	Context context.Context `yaml:"-"`
 
 	Metadata Metadata `yaml:"metadata_config"`
@@ -183,17 +181,3 @@ type Store struct {
 	TLSRootCACertificate string   `yaml:"tls_root_ca_certificate" env:"OC_PERSISTENT_STORE_TLS_ROOT_CA_CERTIFICATE;GRAPH_STORE_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided GRAPH_STORE_TLS_INSECURE will be seen as false." introductionVersion:"%%NEXT%%"`
 }
 
-type MasterAuth struct {
-	Username string `yaml:"username" env:"OC_JMAP_MASTER_USERNAME;GROUPWARE_JMAP_MASTER_USERNAME"`
-	Password string `yaml:"password" env:"OC_JMAP_MASTER_PASSWORD;GROUPWARE_JMAP_MASTER_PASSWORD"`
-}
-
-type Mail struct {
-	Master            MasterAuth    `yaml:"master"`
-	BaseUrl           string        `yaml:"base_url" env:"GROUPWARE_BASE_URL"`
-	JmapUrl           string        `yaml:"jmap_url" env:"GROUPWARE_JMAP_URL"`
-	Timeout           time.Duration `yaml:"timeout" env:"GROUPWARE_JMAP_TIMEOUT"`
-	SessionCacheTTL   time.Duration `yaml:"session_cache_ttl" env:"GROUPWARE_SESSION_CACHE_TTL"`
-	DefaultEmailLimit int           `yaml:"default_email_limit" env:"GROUPWARE_JMAP_DEFAULT_EMAIL_LIMIT"`
-	MaxBodyValueBytes int           `yaml:"max_body_value_bytes" env:"GROUPWARE_JMAP_MAx_BODY_VALUE_BYTES"`
-}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -95,7 +96,10 @@ func TestRequests(t *testing.T) {
 	ctx := context.Background()
 	client := NewClient(wkClient, apiClient)
 
-	session := Session{AccountId: "123", JmapUrl: "test://"}
+	jmapUrl, err := url.Parse("http://localhost/jmap")
+	require.NoError(err)
+
+	session := Session{AccountId: "123", Username: "user123", JmapUrl: *jmapUrl}
 
 	folders, err := client.GetAllMailboxes(&session, ctx, &logger)
 	require.NoError(err)

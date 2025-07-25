@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	occfg "github.com/opencloud-eu/opencloud/pkg/config"
+	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/config/defaults"
 
@@ -34,6 +35,10 @@ func ParseConfig(cfg *config.Config) error {
 }
 
 // Validate can validate the configuration
-func Validate(_ *config.Config) error {
+func Validate(cfg *config.Config) error {
+	if cfg.TokenManager.JWTSecret == "" {
+		return shared.MissingJWTTokenError(cfg.Service.Name)
+	}
+
 	return nil
 }

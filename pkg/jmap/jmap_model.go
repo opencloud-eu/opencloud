@@ -43,17 +43,17 @@ type WellKnownResponse struct {
 }
 
 type Mailbox struct {
-	Id            string
-	Name          string
-	ParentId      string
-	Role          string
-	SortOrder     int
-	IsSubscribed  bool
-	TotalEmails   int
-	UnreadEmails  int
-	TotalThreads  int
-	UnreadThreads int
-	MyRights      map[string]bool
+	Id            string          `json:"id,omitempty"`
+	Name          string          `json:"name,omitempty"`
+	ParentId      string          `json:"parentId,omitempty"`
+	Role          string          `json:"role,omitempty"`
+	SortOrder     int             `json:"sortOrder,omitempty"`
+	IsSubscribed  bool            `json:"isSubscribed,omitempty"`
+	TotalEmails   int             `json:"totalEmails,omitempty"`
+	UnreadEmails  int             `json:"unreadEmails,omitempty"`
+	TotalThreads  int             `json:"totalThreads,omitempty"`
+	UnreadThreads int             `json:"unreadThreads,omitempty"`
+	MyRights      map[string]bool `json:"myRights,omitempty"`
 }
 
 type MailboxGetCommand struct {
@@ -61,7 +61,40 @@ type MailboxGetCommand struct {
 	Ids       []string `json:"ids,omitempty"`
 }
 
-type Filter struct {
+type MailboxGetRefCommand struct {
+	AccountId string `json:"accountId"`
+	IdRef     *Ref   `json:"#ids,omitempty"`
+}
+
+type MailboxFilterCondition struct {
+	ParentId     string `json:"parentId,omitempty"`
+	Name         string `json:"name,omitempty"`
+	Role         string `json:"role,omitempty"`
+	HasAnyRole   *bool  `json:"hasAnyRole,omitempty"`
+	IsSubscribed *bool  `json:"isSubscribed,omitempty"`
+}
+
+type MailboxFilterOperator struct {
+	Operator   string                   `json:"operator"`
+	Conditions []MailboxFilterCondition `json:"conditions"`
+}
+
+type MailboxComparator struct {
+	Property       string `json:"property"`
+	IsAscending    bool   `json:"isAscending,omitempty"`
+	Limit          int    `json:"limit,omitzero"`
+	CalculateTotal bool   `json:"calculateTotal,omitempty"`
+}
+
+type SimpleMailboxQueryCommand struct {
+	AccountId    string                 `json:"accountId"`
+	Filter       MailboxFilterCondition `json:"filter,omitempty"`
+	Sort         []MailboxComparator    `json:"sort,omitempty"`
+	SortAsTree   bool                   `json:"sortAsTree,omitempty"`
+	FilterAsTree bool                   `json:"filterAsTree,omitempty"`
+}
+
+type MessageFilter struct {
 	InMailbox               string    `json:"inMailbox,omitempty"`
 	InMailboxOtherThan      []string  `json:"inMailboxOtherThan,omitempty"`
 	Before                  time.Time `json:"before,omitzero"` // omitzero requires Go 1.24
@@ -85,13 +118,13 @@ type Sort struct {
 }
 
 type EmailQueryCommand struct {
-	AccountId       string  `json:"accountId"`
-	Filter          *Filter `json:"filter,omitempty"`
-	Sort            []Sort  `json:"sort,omitempty"`
-	CollapseThreads bool    `json:"collapseThreads,omitempty"`
-	Position        int     `json:"position,omitempty"`
-	Limit           int     `json:"limit,omitempty"`
-	CalculateTotal  bool    `json:"calculateTotal,omitempty"`
+	AccountId       string         `json:"accountId"`
+	Filter          *MessageFilter `json:"filter,omitempty"`
+	Sort            []Sort         `json:"sort,omitempty"`
+	CollapseThreads bool           `json:"collapseThreads,omitempty"`
+	Position        int            `json:"position,omitempty"`
+	Limit           int            `json:"limit,omitempty"`
+	CalculateTotal  bool           `json:"calculateTotal,omitempty"`
 }
 
 type Ref struct {
@@ -100,7 +133,7 @@ type Ref struct {
 	ResultOf string  `json:"resultOf,omitempty"`
 }
 
-type EmailGetCommand struct {
+type EmailGetRefCommand struct {
 	AccountId          string `json:"accountId"`
 	FetchAllBodyValues bool   `json:"fetchAllBodyValues,omitempty"`
 	MaxBodyValueBytes  int    `json:"maxBodyValueBytes,omitempty"`
@@ -108,49 +141,49 @@ type EmailGetCommand struct {
 }
 
 type EmailAddress struct {
-	Name  string
-	Email string
+	Name  string `json:"name,omitempty"`
+	Email string `json:"email,omitempty"`
 }
 
 type EmailBodyRef struct {
-	PartId      string
-	BlobId      string
-	Size        int
-	Name        string
-	Type        string
-	Charset     string
-	Disposition string
-	Cid         string
-	Language    string
-	Location    string
+	PartId      string `json:"partId,omitempty"`
+	BlobId      string `json:"blobId,omitempty"`
+	Size        int    `json:"size,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Type        string `json:"type,omitempty"`
+	Charset     string `json:"charset,omitempty"`
+	Disposition string `json:"disposition,omitempty"`
+	Cid         string `json:"cid,omitempty"`
+	Language    string `json:"language,omitempty"`
+	Location    string `json:"location,omitempty"`
 }
 
 type EmailBody struct {
-	IsEncodingProblem bool
-	IsTruncated       bool
-	Value             string
+	IsEncodingProblem bool   `json:"isEncodingProblem,omitempty"`
+	IsTruncated       bool   `json:"isTruncated,omitempty"`
+	Value             string `json:"value,omitempty"`
 }
 type Email struct {
-	Id             string
-	MessageId      []string
-	BlobId         string
-	ThreadId       string
-	Size           int
-	From           []EmailAddress
-	To             []EmailAddress
-	Cc             []EmailAddress
-	Bcc            []EmailAddress
-	ReplyTo        []EmailAddress
-	Subject        string
-	HasAttachments bool
-	ReceivedAt     time.Time
-	SentAt         time.Time
-	Preview        string
-	BodyValues     map[string]EmailBody
-	TextBody       []EmailBodyRef
-	HtmlBody       []EmailBodyRef
-	Keywords       map[string]bool
-	MailboxIds     map[string]bool
+	Id             string               `json:"id,omitempty"`
+	MessageId      []string             `json:"messageId,omitempty"`
+	BlobId         string               `json:"blobId,omitempty"`
+	ThreadId       string               `json:"threadId,omitempty"`
+	Size           int                  `json:"size,omitempty"`
+	From           []EmailAddress       `json:"from,omitempty"`
+	To             []EmailAddress       `json:"to,omitempty"`
+	Cc             []EmailAddress       `json:"cc,omitempty"`
+	Bcc            []EmailAddress       `json:"bcc,omitempty"`
+	ReplyTo        []EmailAddress       `json:"replyTo,omitempty"`
+	Subject        string               `json:"subject,omitempty"`
+	HasAttachments bool                 `json:"hasAttachments,omitempty"`
+	ReceivedAt     time.Time            `json:"receivedAt,omitempty"`
+	SentAt         time.Time            `json:"sentAt,omitempty"`
+	Preview        string               `json:"preview,omitempty"`
+	BodyValues     map[string]EmailBody `json:"bodyValues,omitempty"`
+	TextBody       []EmailBodyRef       `json:"textBody,omitempty"`
+	HtmlBody       []EmailBodyRef       `json:"htmlBody,omitempty"`
+	Keywords       map[string]bool      `json:"keywords,omitempty"`
+	MailboxIds     map[string]bool      `json:"mailboxIds,omitempty"`
 }
 
 type Command string

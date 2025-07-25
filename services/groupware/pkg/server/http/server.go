@@ -4,10 +4,12 @@ import (
 	"fmt"
 
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/opencloud-eu/opencloud/pkg/account"
 	"github.com/opencloud-eu/opencloud/pkg/cors"
 	opencloudmiddleware "github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/pkg/service/http"
 	"github.com/opencloud-eu/opencloud/pkg/version"
+	groupwaremiddleware "github.com/opencloud-eu/opencloud/services/groupware/pkg/middleware"
 	svc "github.com/opencloud-eu/opencloud/services/groupware/pkg/service/http/v0"
 	"go-micro.dev/v4"
 )
@@ -33,7 +35,7 @@ func Server(opts ...Option) (http.Service, error) {
 		return http.Service{}, fmt.Errorf("could not initialize http service: %w", err)
 	}
 
-	handle := svc.NewService(
+	handle, err := svc.NewService(
 		svc.Logger(options.Logger),
 		svc.Config(options.Config),
 		svc.Middleware(
@@ -51,8 +53,15 @@ func Server(opts ...Option) (http.Service, error) {
 				version.GetString(),
 			),
 			opencloudmiddleware.Logger(options.Logger),
+			groupwaremiddleware.Auth(
+				account.Logger(options.Logger),
+				account.JWTSecret(options.Config.TokenManager.JWTSecret),
+			),
 		),
 	)
+	if err != nil {
+		return http.Service{}, err
+	}
 
 	{
 		handle = svc.NewInstrument(handle, options.Metrics)
