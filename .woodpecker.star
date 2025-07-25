@@ -1292,7 +1292,8 @@ def e2eTestPipeline(ctx):
                 "REPORT_TRACING": params["reportTracing"],
             },
             "commands": [
-                "cd %s/tests/e2e" % dirs["web"],
+                "cd %s && pnpm exec playwright install chromium --with-deps" % dirs["web"],
+                "cd tests/e2e",
             ],
         }
 
@@ -1304,8 +1305,9 @@ def e2eTestPipeline(ctx):
                 run_e2e = {}
                 run_e2e.update(step_e2e)
                 run_e2e["commands"] = [
-                    "cd %s/tests/e2e" % dirs["web"],
+                    "cd %s" % dirs["web"],
                     "pnpm exec playwright install chromium --with-deps",
+                    "cd tests/e2e",
                     "bash run-e2e.sh %s --run-part %d" % (e2e_args, run_part),
                 ]
                 pipelines.append({
@@ -2693,7 +2695,7 @@ def restoreWebPnpmCache():
             "tar -xvf %s" % dirs["webPnpmZip"],
             'npm install --silent --global --force "$(jq -r ".packageManager" < package.json)"',
             "pnpm config set store-dir ./.pnpm-store",
-            "for i in $(seq 3); do pnpm install && break || sleep 1; done",
+            "for i in $(seq 3); do pnpm install --no-frozen-lockfile && break || sleep 1; done",
         ],
     }]
 
