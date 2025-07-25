@@ -130,6 +130,13 @@ func (a *MeDriveApiService) GetHomeExecute(r ApiGetHomeRequest) (*Drive, *http.R
 type ApiListSharedByMeRequest struct {
 	ctx context.Context
 	ApiService *MeDriveApiService
+	expand *[]string
+}
+
+// Expand related entities
+func (r ApiListSharedByMeRequest) Expand(expand []string) ApiListSharedByMeRequest {
+	r.expand = &expand
+	return r
 }
 
 func (r ApiListSharedByMeRequest) Execute() (*CollectionOfDriveItems1, *http.Response, error) {
@@ -173,6 +180,9 @@ func (a *MeDriveApiService) ListSharedByMeExecute(r ApiListSharedByMeRequest) (*
 	localVarQueryParams := url.Values{}
 	localVarFormParams := url.Values{}
 
+	if r.expand != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "$expand", r.expand, "form", "csv")
+	}
 	// to determine the Content-Type header
 	localVarHTTPContentTypes := []string{}
 
@@ -238,6 +248,13 @@ func (a *MeDriveApiService) ListSharedByMeExecute(r ApiListSharedByMeRequest) (*
 type ApiListSharedWithMeRequest struct {
 	ctx context.Context
 	ApiService *MeDriveApiService
+	expand *[]string
+}
+
+// Expand related entities
+func (r ApiListSharedWithMeRequest) Expand(expand []string) ApiListSharedWithMeRequest {
+	r.expand = &expand
+	return r
 }
 
 func (r ApiListSharedWithMeRequest) Execute() (*CollectionOfDriveItems1, *http.Response, error) {
@@ -281,6 +298,9 @@ func (a *MeDriveApiService) ListSharedWithMeExecute(r ApiListSharedWithMeRequest
 	localVarQueryParams := url.Values{}
 	localVarFormParams := url.Values{}
 
+	if r.expand != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "$expand", r.expand, "form", "csv")
+	}
 	// to determine the Content-Type header
 	localVarHTTPContentTypes := []string{}
 

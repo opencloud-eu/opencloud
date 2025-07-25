@@ -117,8 +117,13 @@ func (s Thumbnails) GetThumbnail(w http.ResponseWriter, r *http.Request) {
 // TransferTokenValidator validates a transfer token
 func (s Thumbnails) TransferTokenValidator(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger := s.logger.SubloggerWithRequestID(r.Context())
 		tokenString := r.Header.Get("Transfer-Token")
+		if tokenString == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		logger := s.logger.SubloggerWithRequestID(r.Context())
 		token, err := jwt.ParseWithClaims(tokenString, &tjwt.ThumbnailClaims{}, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
