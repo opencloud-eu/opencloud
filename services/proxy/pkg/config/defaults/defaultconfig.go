@@ -279,9 +279,8 @@ func DefaultPolicies() []config.Policy {
 					SkipXAccessToken: true,
 				},
 				{
-					Endpoint:    "/groupware",
-					Service:     "eu.opencloud.web.groupware",
-					Unprotected: true,
+					Endpoint: "/groupware",
+					Service:  "eu.opencloud.web.groupware",
 				},
 				{
 					Endpoint:    "/auth",

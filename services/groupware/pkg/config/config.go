@@ -21,17 +21,23 @@ type Config struct {
 
 	Mail Mail `yaml:"mail"`
 
+	TokenManager *TokenManager `yaml:"token_manager"`
+
 	Context context.Context `yaml:"-"`
 }
 
-type MasterAuth struct {
-	Username string `yaml:"username" env:"OC_JMAP_MASTER_USERNAME;GROUPWARE_JMAP_MASTER_USERNAME"`
-	Password string `yaml:"password" env:"OC_JMAP_MASTER_PASSWORD;GROUPWARE_JMAP_MASTER_PASSWORD"`
+type MailMasterAuth struct {
+	Username string `yaml:"username" env:"GROUPWARE_JMAP_MASTER_USERNAME"`
+	Password string `yaml:"password" env:"GROUPWARE_JMAP_MASTER_PASSWORD"`
 }
 
 type Mail struct {
-	Master  MasterAuth    `yaml:"master"`
-	BaseUrl string        `yaml:"base_url" env:"OC_JMAP_BASE_URL;GROUPWARE_BASE_URL"`
-	JmapUrl string        `yaml:"jmap_url" env:"OC_JMAP_JMAP_URL;GROUPWARE_JMAP_URL"`
-	Timeout time.Duration `yaml:"timeout" env:"OC_JMAP_TIMEOUT"`
+	Master                 MailMasterAuth `yaml:"master"`
+	BaseUrl                string         `yaml:"base_url" env:"GROUPWARE_JMAP_BASE_URL"`
+	Timeout                time.Duration  `yaml:"timeout" env:"GROUPWARE_JMAP_TIMEOUT"`
+	DefaultEmailLimit      int            `yaml:"default_email_limit" env:"GROUPWARE_DEFAULT_EMAIL_LIMIT"`
+	MaxBodyValueBytes      int            `yaml:"max_body_value_bytes" env:"GROUPWARE_MAX_BODY_VALUE_BYTES"`
+	ResponseHeaderTimeout  time.Duration  `yaml:"response_header_timeout" env:"GROUPWARE_RESPONSE_HEADER_TIMEOUT"`
+	SessionCacheTtl        time.Duration  `yaml:"session_cache_ttl" env:"GROUPWARE_SESSION_CACHE_TTL"`
+	SessionFailureCacheTtl time.Duration  `yaml:"session_failure_cache_ttl" env:"GROUPWARE_SESSION_FAILURE_CACHE_TTL"`
 }

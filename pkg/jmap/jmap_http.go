@@ -7,25 +7,18 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"path"
+	"net/url"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 )
 
-type HttpJmapUsernameProvider interface {
-	// Provide the username for JMAP operations.
-	GetUsername(req *http.Request, ctx context.Context, logger *log.Logger) (string, error)
-}
-
 type HttpJmapApiClient struct {
-	baseurl          string
-	jmapurl          string
-	client           *http.Client
-	usernameProvider HttpJmapUsernameProvider
-	masterUser       string
-	masterPassword   string
-	userAgent        string
+	baseurl        url.URL
+	client         *http.Client
+	masterUser     string
+	masterPassword string
+	userAgent      string
 }
 
 var (
@@ -39,15 +32,13 @@ func bearer(req *http.Request, token string) {
 }
 */
 
-func NewHttpJmapApiClient(baseurl string, jmapurl string, client *http.Client, usernameProvider HttpJmapUsernameProvider, masterUser string, masterPassword string) *HttpJmapApiClient {
+func NewHttpJmapApiClient(baseurl url.URL, client *http.Client, masterUser string, masterPassword string) *HttpJmapApiClient {
 	return &HttpJmapApiClient{
-		baseurl:          baseurl,
-		jmapurl:          jmapurl,
-		client:           client,
-		usernameProvider: usernameProvider,
-		masterUser:       masterUser,
-		masterPassword:   masterPassword,
-		userAgent:        "OpenCloud/" + version.GetString(),
+		baseurl:        baseurl,
+		client:         client,
+		masterUser:     masterUser,
+		masterPassword: masterPassword,
+		userAgent:      "OpenCloud/" + version.GetString(),
 	}
 }
 
@@ -67,18 +58,7 @@ func (e AuthenticationError) Unwrap() error {
 	return e.Err
 }
 
-func (h *HttpJmapApiClient) auth(logger *log.Logger, ctx context.Context, req *http.Request) error {
-	username, err := h.usernameProvider.GetUsername(req, ctx, logger)
-	if err != nil {
-		logger.Error().Err(err).Msg("failed to find username")
-		return AuthenticationError{Err: err}
-	}
-	masterUsername := username + "%" + h.masterUser
-	req.SetBasicAuth(masterUsername, h.masterPassword)
-	return nil
-}
-
-func (h *HttpJmapApiClient) authWithUsername(_ *log.Logger, username string, req *http.Request) error {
+func (h *HttpJmapApiClient) auth(username string, logger *log.Logger, req *http.Request) error {
 	masterUsername := username + "%" + h.masterUser
 	req.SetBasicAuth(masterUsername, h.masterPassword)
 	return nil
@@ -100,14 +80,14 @@ func (e HttpError) Unwrap() error {
 }
 
 func (h *HttpJmapApiClient) GetWellKnown(username string, logger *log.Logger) (WellKnownResponse, error) {
-	wellKnownUrl := path.Join(h.baseurl, ".well-known", "jmap")
+	wellKnownUrl := h.baseurl.JoinPath(".well-known", "jmap").String()
 
 	req, err := http.NewRequest(http.MethodGet, wellKnownUrl, nil)
 	if err != nil {
 		logger.Error().Err(err).Msgf("failed to create GET request for %v", wellKnownUrl)
 		return WellKnownResponse{}, HttpError{Op: "creating request", Method: http.MethodGet, Url: wellKnownUrl, Username: username, Err: err}
 	}
-	h.authWithUsername(logger, username, req)
+	h.auth(username, logger, req)
 	req.Header.Add("Cache-Control", "no-cache, no-store, must-revalidate") // spec recommendation
 
 	res, err := h.client.Do(req)
@@ -145,10 +125,7 @@ func (h *HttpJmapApiClient) GetWellKnown(username string, logger *log.Logger) (W
 }
 
 func (h *HttpJmapApiClient) Command(ctx context.Context, logger *log.Logger, session *Session, request Request) ([]byte, error) {
-	jmapUrl := h.jmapurl
-	if jmapUrl == "" {
-		jmapUrl = session.JmapUrl
-	}
+	jmapUrl := session.JmapUrl.String()
 
 	bodyBytes, marshalErr := json.Marshal(request)
 	if marshalErr != nil {
@@ -163,7 +140,7 @@ func (h *HttpJmapApiClient) Command(ctx context.Context, logger *log.Logger, ses
 	}
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("User-Agent", h.userAgent)
-	h.auth(logger, ctx, req)
+	h.auth(session.Username, logger, req)
 
 	res, err := h.client.Do(req)
 	if err != nil {

@@ -2,6 +2,7 @@ package defaults
 
 import (
 	"strings"
+	"time"
 
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/config"
 )
@@ -18,18 +19,23 @@ func FullDefaultConfig() *config.Config {
 func DefaultConfig() *config.Config {
 	return &config.Config{
 		Debug: config.Debug{
-			Addr:   "127.0.0.1:9202",
+			Addr:   "127.0.0.1:9292",
 			Token:  "",
 			Pprof:  false,
 			Zpages: false,
 		},
 		Mail: config.Mail{
-			Master: config.MasterAuth{
-				Username: "masteradmin",
+			Master: config.MailMasterAuth{
+				Username: "master",
 				Password: "admin",
 			},
-			BaseUrl: "https://stalwart.opencloud.test",
-			JmapUrl: "https://stalwart.opencloud.test/jmap",
+			BaseUrl:                "https://stalwart.opencloud.test",
+			Timeout:                30 * time.Second,
+			DefaultEmailLimit:      -1,
+			MaxBodyValueBytes:      -1,
+			ResponseHeaderTimeout:  10 * time.Second,
+			SessionCacheTtl:        30 * time.Second,
+			SessionFailureCacheTtl: 15 * time.Second,
 		},
 		HTTP: config.HTTP{
 			Addr:      "127.0.0.1:9276",
@@ -72,13 +78,16 @@ func EnsureDefaults(cfg *config.Config) {
 	} else if cfg.Tracing == nil {
 		cfg.Tracing = &config.Tracing{}
 	}
-
+	if cfg.TokenManager == nil && cfg.Commons != nil && cfg.Commons.TokenManager != nil {
+		cfg.TokenManager = &config.TokenManager{
+			JWTSecret: cfg.Commons.TokenManager.JWTSecret,
+		}
+	} else if cfg.TokenManager == nil {
+		cfg.TokenManager = &config.TokenManager{}
+	}
 	if cfg.Commons != nil {
 		cfg.HTTP.TLS = cfg.Commons.HTTPServiceTLS
 	}
-
-	// TODO p.bleser add Mail here
-
 }
 
 // Sanitize sanitized the configuration

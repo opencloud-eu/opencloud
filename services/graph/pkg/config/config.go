@@ -37,8 +37,6 @@ type Config struct {
 	Keycloak       Keycloak       `yaml:"keycloak"`
 	ServiceAccount ServiceAccount `yaml:"service_account"`
 
-	Mail Mail `yaml:"mail"`
-
 	Context context.Context `yaml:"-"`
 
 	Metadata Metadata `yaml:"metadata_config"`
@@ -181,17 +179,3 @@ type Store struct {
 	AuthPassword string   `yaml:"password" env:"OC_PERSISTENT_STORE_AUTH_PASSWORD;GRAPH_STORE_AUTH_PASSWORD" desc:"The password to authenticate with the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
 }
 
-type MasterAuth struct {
-	Username string `yaml:"username" env:"OC_JMAP_MASTER_USERNAME;GROUPWARE_JMAP_MASTER_USERNAME"`
-	Password string `yaml:"password" env:"OC_JMAP_MASTER_PASSWORD;GROUPWARE_JMAP_MASTER_PASSWORD"`
-}
-
-type Mail struct {
-	Master            MasterAuth    `yaml:"master"`
-	BaseUrl           string        `yaml:"base_url" env:"GROUPWARE_BASE_URL"`
-	JmapUrl           string        `yaml:"jmap_url" env:"GROUPWARE_JMAP_URL"`
-	Timeout           time.Duration `yaml:"timeout" env:"GROUPWARE_JMAP_TIMEOUT"`
-	SessionCacheTTL   time.Duration `yaml:"session_cache_ttl" env:"GROUPWARE_SESSION_CACHE_TTL"`
-	DefaultEmailLimit int           `yaml:"default_email_limit" env:"GROUPWARE_JMAP_DEFAULT_EMAIL_LIMIT"`
-	MaxBodyValueBytes int           `yaml:"max_body_value_bytes" env:"GROUPWARE_JMAP_MAx_BODY_VALUE_BYTES"`
-}
