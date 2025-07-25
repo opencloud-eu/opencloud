@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/url"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/rs/zerolog"
@@ -46,12 +47,9 @@ func NewClient(wellKnown WellKnownClient, api ApiClient) Client {
 // instead of being part of the Session, since the username is always part of the request (typically in
 // the authentication token payload.)
 type Session struct {
-	// The name of the user to use to authenticate against Stalwart
-	Username string
-	// The identifier of the account to use when performing JMAP operations with Stalwart
-	AccountId string
-	// The base URL to use for JMAP operations towards Stalwart
-	JmapUrl string
+	Username  string  // The name of the user to use to authenticate against Stalwart
+	AccountId string  // The identifier of the account to use when performing JMAP operations with Stalwart
+	JmapUrl   url.URL // The base URL to use for JMAP operations towards Stalwart
 }
 
 const (
@@ -87,6 +85,18 @@ var (
 	errWellKnownResponseHasNoApiUrl               = fmt.Errorf("well-known response has no API URL")
 )
 
+type WellKnownResponseHasInvalidApiUrlError struct {
+	ApiUrl string
+	Err    error
+}
+
+func (e WellKnownResponseHasInvalidApiUrlError) Error() string {
+	return fmt.Sprintf("well-known response contains an invalid API URL '%s': %v", e.ApiUrl, e.Err.Error())
+}
+func (e WellKnownResponseHasInvalidApiUrlError) Unwrap() error {
+	return e.Err
+}
+
 // Create a new Session from a WellKnownResponse.
 func NewSession(wellKnownResponse WellKnownResponse) (Session, error) {
 	username := wellKnownResponse.Username
@@ -97,14 +107,18 @@ func NewSession(wellKnownResponse WellKnownResponse) (Session, error) {
 	if accountId == "" {
 		return Session{}, errWellKnownResponseHasJmapMailPrimaryAccount
 	}
-	apiUrl := wellKnownResponse.ApiUrl
-	if apiUrl == "" {
+	apiStr := wellKnownResponse.ApiUrl
+	if apiStr == "" {
 		return Session{}, errWellKnownResponseHasNoApiUrl
+	}
+	apiUrl, err := url.Parse(apiStr)
+	if err != nil {
+		return Session{}, WellKnownResponseHasInvalidApiUrlError{ApiUrl: apiStr, Err: err}
 	}
 	return Session{
 		Username:  username,
 		AccountId: accountId,
-		JmapUrl:   apiUrl,
+		JmapUrl:   *apiUrl,
 	}, nil
 }
 
@@ -172,31 +186,85 @@ func (j *Client) GetAllMailboxes(session *Session, ctx context.Context, logger *
 	return j.GetMailbox(session, ctx, logger, nil)
 }
 
+// https://jmap.io/spec-mail.html#mailboxquery
+func (j *Client) QueryMailbox(session *Session, ctx context.Context, logger *log.Logger, filter MailboxFilterCondition) (MailboxQueryResponse, error) {
+	logger = j.logger("QueryMailbox", session, logger)
+	cmd, err := request(invocation(MailboxQuery, SimpleMailboxQueryCommand{AccountId: session.AccountId, Filter: filter}, "0"))
+	if err != nil {
+		return MailboxQueryResponse{}, err
+	}
+	return command(j.api, logger, ctx, session, cmd, func(body *Response) (MailboxQueryResponse, error) {
+		var response MailboxQueryResponse
+		err = retrieveResponseMatchParameters(body, MailboxQuery, "0", &response)
+		return response, err
+	})
+}
+
+type Mailboxes struct {
+	Mailboxes []Mailbox `json:"mailboxes,omitempty"`
+	State     string    `json:"state,omitempty"`
+}
+
+func (j *Client) SearchMailboxes(session *Session, ctx context.Context, logger *log.Logger, filter MailboxFilterCondition) (Mailboxes, error) {
+	logger = j.logger("SearchMailboxes", session, logger)
+
+	cmd, err := request(
+		invocation(MailboxQuery, SimpleMailboxQueryCommand{AccountId: session.AccountId, Filter: filter}, "0"),
+		invocation(MailboxGet, MailboxGetRefCommand{
+			AccountId: session.AccountId,
+			IdRef:     &Ref{Name: MailboxQuery, Path: "/ids/*", ResultOf: "0"},
+		}, "1"),
+	)
+	if err != nil {
+		return Mailboxes{}, err
+	}
+
+	return command(j.api, logger, ctx, session, cmd, func(body *Response) (Mailboxes, error) {
+		var response MailboxGetResponse
+		err = retrieveResponseMatchParameters(body, MailboxGet, "1", &response)
+		if err != nil {
+			return Mailboxes{}, err
+		}
+		return Mailboxes{Mailboxes: response.List, State: body.SessionState}, nil
+	})
+}
+
 type Emails struct {
-	Emails []Email
-	State  string
+	Emails []Email `json:"emails,omitempty"`
+	State  string  `json:"state,omitempty"`
 }
 
 func (j *Client) GetEmails(session *Session, ctx context.Context, logger *log.Logger, mailboxId string, offset int, limit int, fetchBodies bool, maxBodyValueBytes int) (Emails, error) {
 	logger = j.loggerParams("GetEmails", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Int(logOffset, offset).Int(logLimit, limit)
 	})
+
+	query := EmailQueryCommand{
+		AccountId:       session.AccountId,
+		Filter:          &MessageFilter{InMailbox: mailboxId},
+		Sort:            []Sort{{Property: emailSortByReceivedAt, IsAscending: false}},
+		CollapseThreads: true,
+		CalculateTotal:  false,
+	}
+	if offset >= 0 {
+		query.Position = offset
+	}
+	if limit >= 0 {
+		query.Limit = limit
+	}
+
+	get := EmailGetRefCommand{
+		AccountId:          session.AccountId,
+		FetchAllBodyValues: fetchBodies,
+		IdRef:              &Ref{Name: EmailQuery, Path: "/ids/*", ResultOf: "0"},
+	}
+	if maxBodyValueBytes >= 0 {
+		get.MaxBodyValueBytes = maxBodyValueBytes
+	}
+
 	cmd, err := request(
-		invocation(EmailQuery, EmailQueryCommand{
-			AccountId:       session.AccountId,
-			Filter:          &Filter{InMailbox: mailboxId},
-			Sort:            []Sort{{Property: emailSortByReceivedAt, IsAscending: false}},
-			CollapseThreads: true,
-			Position:        offset,
-			Limit:           limit,
-			CalculateTotal:  false,
-		}, "0"),
-		invocation(EmailGet, EmailGetCommand{
-			AccountId:          session.AccountId,
-			FetchAllBodyValues: fetchBodies,
-			MaxBodyValueBytes:  maxBodyValueBytes,
-			IdRef:              &Ref{Name: EmailQuery, Path: "/ids/*", ResultOf: "0"},
-		}, "1"),
+		invocation(EmailQuery, query, "0"),
+		invocation(EmailGet, get, "1"),
 	)
 	if err != nil {
 		return Emails{}, err

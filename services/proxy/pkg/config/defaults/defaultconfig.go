@@ -318,9 +318,8 @@ func DefaultPolicies() []config.Policy {
 					Service:  "eu.opencloud.web.groupware",
 				},
 				{
-					Endpoint:    "/groupware",
-					Service:     "eu.opencloud.web.groupware",
-					Unprotected: true,
+					Endpoint: "/groupware",
+					Service:  "eu.opencloud.web.groupware",
 				},
 				{
 					Endpoint:    "/auth",

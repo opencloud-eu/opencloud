@@ -21,7 +21,6 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	graphm "github.com/opencloud-eu/opencloud/services/graph/pkg/middleware"
-	"github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0/groupware"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )
@@ -200,8 +199,6 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 		natskv:                   options.NatsKeyValue,
 	}
 
-	gw := groupware.NewGroupware(&options.Logger, options.Config)
-
 	if options.PermissionService == nil {
 		grpcClient, err := grpc.NewClient(append(grpc.GetClientOptions(options.Config.GRPCClientTLS), grpc.WithTraceProvider(options.TraceProvider))...)
 		if err != nil {
@@ -322,9 +319,6 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 					r.Patch("/", usersUserProfilePhotoApi.UpsertProfilePhoto(GetUserIDFromCTX))
 					r.Delete("/", usersUserProfilePhotoApi.DeleteProfilePhoto(GetUserIDFromCTX))
 				})
-				r.Get("/messages", gw.GetMessages)
-				r.Get("/identity", gw.GetIdentity)
-				r.Get("/vacation", gw.GetVacation)
 			})
 			r.Route("/users", func(r chi.Router) {
 				r.Get("/", svc.GetUsers)

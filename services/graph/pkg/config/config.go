@@ -40,7 +40,6 @@ type Config struct {
 	ServiceAccount ServiceAccount `yaml:"service_account"`
 
 	MachineAuthAPIKey string `yaml:"machine_auth_api_key" env:"OC_MACHINE_AUTH_API_KEY;GRAPH_MACHINE_AUTH_API_KEY" desc:"Machine auth API key used to validate internal requests necessary for the access to resources from other services." introductionVersion:"7.5.0" mask:"password"`
-	Mail Mail `yaml:"mail"`
 
 	Context context.Context `yaml:"-"`
 
@@ -217,17 +216,3 @@ type Thumbnails struct {
 	AdditionalSourceTypes []string `yaml:"additional_source_types" env:"OC_THUMBNAILS_ADDITIONAL_SOURCE_TYPES;GRAPH_THUMBNAILS_ADDITIONAL_SOURCE_TYPES" desc:"Additional mime types a preview is announced for, the same list the webdav service attempts previews for. The types the build ships are included; this only adds to them." introductionVersion:"9.0.0"`
 }
 
-type MasterAuth struct {
-	Username string `yaml:"username" env:"OC_JMAP_MASTER_USERNAME;GROUPWARE_JMAP_MASTER_USERNAME"`
-	Password string `yaml:"password" env:"OC_JMAP_MASTER_PASSWORD;GROUPWARE_JMAP_MASTER_PASSWORD"`
-}
-
-type Mail struct {
-	Master            MasterAuth    `yaml:"master"`
-	BaseUrl           string        `yaml:"base_url" env:"GROUPWARE_BASE_URL"`
-	JmapUrl           string        `yaml:"jmap_url" env:"GROUPWARE_JMAP_URL"`
-	Timeout           time.Duration `yaml:"timeout" env:"GROUPWARE_JMAP_TIMEOUT"`
-	SessionCacheTTL   time.Duration `yaml:"session_cache_ttl" env:"GROUPWARE_SESSION_CACHE_TTL"`
-	DefaultEmailLimit int           `yaml:"default_email_limit" env:"GROUPWARE_JMAP_DEFAULT_EMAIL_LIMIT"`
-	MaxBodyValueBytes int           `yaml:"max_body_value_bytes" env:"GROUPWARE_JMAP_MAx_BODY_VALUE_BYTES"`
-}
