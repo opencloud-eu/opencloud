@@ -16,20 +16,20 @@ func command[T any](api ApiClient,
 	ctx context.Context,
 	session *Session,
 	request Request,
-	mapper func(body *Response) (T, error)) (T, error) {
+	mapper func(body *Response) (T, Error)) (T, Error) {
 
-	responseBody, err := api.Command(ctx, logger, session, request)
-	if err != nil {
+	responseBody, jmapErr := api.Command(ctx, logger, session, request)
+	if jmapErr != nil {
 		var zero T
-		return zero, err
+		return zero, jmapErr
 	}
 
 	var data Response
-	err = json.Unmarshal(responseBody, &data)
+	err := json.Unmarshal(responseBody, &data)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to deserialize body JSON payload")
 		var zero T
-		return zero, err
+		return zero, SimpleError{code: JmapErrorDecodingResponseBody, err: err}
 	}
 
 	return mapper(&data)
