@@ -23,23 +23,23 @@ const (
 	JmapKeywordMdnSent   = "$mdnsent"
 )
 
-type WellKnownAccount struct {
+type SessionAccount struct {
 	Name                string         `json:"name,omitempty"`
 	IsPersonal          bool           `json:"isPersonal"`
 	IsReadOnly          bool           `json:"isReadOnly"`
 	AccountCapabilities map[string]any `json:"accountCapabilities,omitempty"`
 }
 
-type WellKnownResponse struct {
-	Capabilities    map[string]any              `json:"capabilities,omitempty"`
-	Accounts        map[string]WellKnownAccount `json:"accounts,omitempty"`
-	PrimaryAccounts map[string]string           `json:"primaryAccounts,omitempty"`
-	Username        string                      `json:"username,omitempty"`
-	ApiUrl          string                      `json:"apiUrl,omitempty"`
-	DownloadUrl     string                      `json:"downloadUrl,omitempty"`
-	UploadUrl       string                      `json:"uploadUrl,omitempty"`
-	EventSourceUrl  string                      `json:"eventSourceUrl,omitempty"`
-	State           string                      `json:"state,omitempty"`
+type SessionResponse struct {
+	Capabilities    map[string]any            `json:"capabilities,omitempty"`
+	Accounts        map[string]SessionAccount `json:"accounts,omitempty"`
+	PrimaryAccounts map[string]string         `json:"primaryAccounts,omitempty"`
+	Username        string                    `json:"username,omitempty"`
+	ApiUrl          string                    `json:"apiUrl,omitempty"`
+	DownloadUrl     string                    `json:"downloadUrl,omitempty"`
+	UploadUrl       string                    `json:"uploadUrl,omitempty"`
+	EventSourceUrl  string                    `json:"eventSourceUrl,omitempty"`
+	State           string                    `json:"state,omitempty"`
 }
 
 type Mailbox struct {

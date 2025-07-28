@@ -9,10 +9,10 @@ import (
 
 func TestDeserializeMailboxGetResponse(t *testing.T) {
 	require := require.New(t)
-	jsonBytes, err := serveTestFile(t, "mailboxes1.json")
-	require.NoError(err)
+	jsonBytes, jmapErr := serveTestFile(t, "mailboxes1.json")
+	require.NoError(jmapErr)
 	var data Response
-	err = json.Unmarshal(jsonBytes, &data)
+	err := json.Unmarshal(jsonBytes, &data)
 	require.NoError(err)
 	require.Empty(data.CreatedIds)
 	require.Equal("3e25b2a0", data.SessionState)
@@ -62,10 +62,10 @@ func TestDeserializeMailboxGetResponse(t *testing.T) {
 
 func TestDeserializeEmailGetResponse(t *testing.T) {
 	require := require.New(t)
-	jsonBytes, err := serveTestFile(t, "mails1.json")
-	require.NoError(err)
+	jsonBytes, jmapErr := serveTestFile(t, "mails1.json")
+	require.NoError(jmapErr)
 	var data Response
-	err = json.Unmarshal(jsonBytes, &data)
+	err := json.Unmarshal(jsonBytes, &data)
 	require.NoError(err)
 	require.Empty(data.CreatedIds)
 	require.Equal("3e25b2a0", data.SessionState)

@@ -11,7 +11,7 @@ import (
 )
 
 type Client struct {
-	wellKnown WellKnownClient
+	wellKnown SessionClient
 	api       ApiClient
 	io.Closer
 }
@@ -20,7 +20,7 @@ func (j *Client) Close() error {
 	return j.api.Close()
 }
 
-func NewClient(wellKnown WellKnownClient, api ApiClient) Client {
+func NewClient(wellKnown SessionClient, api ApiClient) Client {
 	return Client{
 		wellKnown: wellKnown,
 		api:       api,
@@ -79,41 +79,23 @@ func (s Session) DecorateLogger(l log.Logger) log.Logger {
 	}
 }
 
-var (
-	errWellKnownResponseHasNoUsername             = fmt.Errorf("well-known response has no username")
-	errWellKnownResponseHasJmapMailPrimaryAccount = fmt.Errorf("PrimaryAccounts in well-known response has no entry for %v", JmapMail)
-	errWellKnownResponseHasNoApiUrl               = fmt.Errorf("well-known response has no API URL")
-)
-
-type WellKnownResponseHasInvalidApiUrlError struct {
-	ApiUrl string
-	Err    error
-}
-
-func (e WellKnownResponseHasInvalidApiUrlError) Error() string {
-	return fmt.Sprintf("well-known response contains an invalid API URL '%s': %v", e.ApiUrl, e.Err.Error())
-}
-func (e WellKnownResponseHasInvalidApiUrlError) Unwrap() error {
-	return e.Err
-}
-
 // Create a new Session from a WellKnownResponse.
-func NewSession(wellKnownResponse WellKnownResponse) (Session, error) {
-	username := wellKnownResponse.Username
+func NewSession(sessionResponse SessionResponse) (Session, Error) {
+	username := sessionResponse.Username
 	if username == "" {
-		return Session{}, errWellKnownResponseHasNoUsername
+		return Session{}, SimpleError{code: JmapErrorInvalidSessionResponse, err: fmt.Errorf("JMAP session response does not provide a username")}
 	}
-	accountId := wellKnownResponse.PrimaryAccounts[JmapMail]
+	accountId := sessionResponse.PrimaryAccounts[JmapMail]
 	if accountId == "" {
-		return Session{}, errWellKnownResponseHasJmapMailPrimaryAccount
+		return Session{}, SimpleError{code: JmapErrorInvalidSessionResponse, err: fmt.Errorf("JMAP session response does not provide a primary mail account")}
 	}
-	apiStr := wellKnownResponse.ApiUrl
+	apiStr := sessionResponse.ApiUrl
 	if apiStr == "" {
-		return Session{}, errWellKnownResponseHasNoApiUrl
+		return Session{}, SimpleError{code: JmapErrorInvalidSessionResponse, err: fmt.Errorf("JMAP session response does not provide an API URL")}
 	}
 	apiUrl, err := url.Parse(apiStr)
 	if err != nil {
-		return Session{}, WellKnownResponseHasInvalidApiUrlError{ApiUrl: apiStr, Err: err}
+		return Session{}, SimpleError{code: JmapErrorInvalidSessionResponse, err: fmt.Errorf("JMAP session response provides an invalid API URL")}
 	}
 	return Session{
 		Username:  username,
@@ -123,8 +105,8 @@ func NewSession(wellKnownResponse WellKnownResponse) (Session, error) {
 }
 
 // Retrieve JMAP well-known data from the Stalwart server and create a Session from that.
-func (j *Client) FetchSession(username string, logger *log.Logger) (Session, error) {
-	wk, err := j.wellKnown.GetWellKnown(username, logger)
+func (j *Client) FetchSession(username string, logger *log.Logger) (Session, Error) {
+	wk, err := j.wellKnown.GetSession(username, logger)
 	if err != nil {
 		return Session{}, err
 	}
@@ -141,62 +123,62 @@ func (j *Client) loggerParams(operation string, session *Session, logger *log.Lo
 }
 
 // https://jmap.io/spec-mail.html#identityget
-func (j *Client) GetIdentity(session *Session, ctx context.Context, logger *log.Logger) (IdentityGetResponse, error) {
+func (j *Client) GetIdentity(session *Session, ctx context.Context, logger *log.Logger) (IdentityGetResponse, Error) {
 	logger = j.logger("GetIdentity", session, logger)
 	cmd, err := request(invocation(IdentityGet, IdentityGetCommand{AccountId: session.AccountId}, "0"))
 	if err != nil {
-		return IdentityGetResponse{}, err
+		return IdentityGetResponse{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
 	}
-	return command(j.api, logger, ctx, session, cmd, func(body *Response) (IdentityGetResponse, error) {
+	return command(j.api, logger, ctx, session, cmd, func(body *Response) (IdentityGetResponse, Error) {
 		var response IdentityGetResponse
 		err = retrieveResponseMatchParameters(body, IdentityGet, "0", &response)
-		return response, err
+		return response, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 	})
 }
 
 // https://jmap.io/spec-mail.html#vacationresponseget
-func (j *Client) GetVacationResponse(session *Session, ctx context.Context, logger *log.Logger) (VacationResponseGetResponse, error) {
+func (j *Client) GetVacationResponse(session *Session, ctx context.Context, logger *log.Logger) (VacationResponseGetResponse, Error) {
 	logger = j.logger("GetVacationResponse", session, logger)
 	cmd, err := request(invocation(VacationResponseGet, VacationResponseGetCommand{AccountId: session.AccountId}, "0"))
 	if err != nil {
-		return VacationResponseGetResponse{}, err
+		return VacationResponseGetResponse{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
 	}
-	return command(j.api, logger, ctx, session, cmd, func(body *Response) (VacationResponseGetResponse, error) {
+	return command(j.api, logger, ctx, session, cmd, func(body *Response) (VacationResponseGetResponse, Error) {
 		var response VacationResponseGetResponse
 		err = retrieveResponseMatchParameters(body, VacationResponseGet, "0", &response)
-		return response, err
+		return response, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 	})
 }
 
 // https://jmap.io/spec-mail.html#mailboxget
-func (j *Client) GetMailbox(session *Session, ctx context.Context, logger *log.Logger, ids []string) (MailboxGetResponse, error) {
+func (j *Client) GetMailbox(session *Session, ctx context.Context, logger *log.Logger, ids []string) (MailboxGetResponse, Error) {
 	logger = j.logger("GetMailbox", session, logger)
 	cmd, err := request(invocation(MailboxGet, MailboxGetCommand{AccountId: session.AccountId, Ids: ids}, "0"))
 	if err != nil {
-		return MailboxGetResponse{}, err
+		return MailboxGetResponse{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
 	}
-	return command(j.api, logger, ctx, session, cmd, func(body *Response) (MailboxGetResponse, error) {
+	return command(j.api, logger, ctx, session, cmd, func(body *Response) (MailboxGetResponse, Error) {
 		var response MailboxGetResponse
 		err = retrieveResponseMatchParameters(body, MailboxGet, "0", &response)
-		return response, err
+		return response, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 	})
 }
 
-func (j *Client) GetAllMailboxes(session *Session, ctx context.Context, logger *log.Logger) (MailboxGetResponse, error) {
+func (j *Client) GetAllMailboxes(session *Session, ctx context.Context, logger *log.Logger) (MailboxGetResponse, Error) {
 	return j.GetMailbox(session, ctx, logger, nil)
 }
 
 // https://jmap.io/spec-mail.html#mailboxquery
-func (j *Client) QueryMailbox(session *Session, ctx context.Context, logger *log.Logger, filter MailboxFilterCondition) (MailboxQueryResponse, error) {
+func (j *Client) QueryMailbox(session *Session, ctx context.Context, logger *log.Logger, filter MailboxFilterCondition) (MailboxQueryResponse, Error) {
 	logger = j.logger("QueryMailbox", session, logger)
 	cmd, err := request(invocation(MailboxQuery, SimpleMailboxQueryCommand{AccountId: session.AccountId, Filter: filter}, "0"))
 	if err != nil {
-		return MailboxQueryResponse{}, err
+		return MailboxQueryResponse{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
 	}
-	return command(j.api, logger, ctx, session, cmd, func(body *Response) (MailboxQueryResponse, error) {
+	return command(j.api, logger, ctx, session, cmd, func(body *Response) (MailboxQueryResponse, Error) {
 		var response MailboxQueryResponse
 		err = retrieveResponseMatchParameters(body, MailboxQuery, "0", &response)
-		return response, err
+		return response, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 	})
 }
 
@@ -205,7 +187,7 @@ type Mailboxes struct {
 	State     string    `json:"state,omitempty"`
 }
 
-func (j *Client) SearchMailboxes(session *Session, ctx context.Context, logger *log.Logger, filter MailboxFilterCondition) (Mailboxes, error) {
+func (j *Client) SearchMailboxes(session *Session, ctx context.Context, logger *log.Logger, filter MailboxFilterCondition) (Mailboxes, Error) {
 	logger = j.logger("SearchMailboxes", session, logger)
 
 	cmd, err := request(
@@ -216,14 +198,14 @@ func (j *Client) SearchMailboxes(session *Session, ctx context.Context, logger *
 		}, "1"),
 	)
 	if err != nil {
-		return Mailboxes{}, err
+		return Mailboxes{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
 	}
 
-	return command(j.api, logger, ctx, session, cmd, func(body *Response) (Mailboxes, error) {
+	return command(j.api, logger, ctx, session, cmd, func(body *Response) (Mailboxes, Error) {
 		var response MailboxGetResponse
 		err = retrieveResponseMatchParameters(body, MailboxGet, "1", &response)
 		if err != nil {
-			return Mailboxes{}, err
+			return Mailboxes{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
 		}
 		return Mailboxes{Mailboxes: response.List, State: body.SessionState}, nil
 	})
@@ -234,7 +216,7 @@ type Emails struct {
 	State  string  `json:"state,omitempty"`
 }
 
-func (j *Client) GetEmails(session *Session, ctx context.Context, logger *log.Logger, mailboxId string, offset int, limit int, fetchBodies bool, maxBodyValueBytes int) (Emails, error) {
+func (j *Client) GetEmails(session *Session, ctx context.Context, logger *log.Logger, mailboxId string, offset int, limit int, fetchBodies bool, maxBodyValueBytes int) (Emails, Error) {
 	logger = j.loggerParams("GetEmails", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Int(logOffset, offset).Int(logLimit, limit)
 	})
@@ -267,14 +249,14 @@ func (j *Client) GetEmails(session *Session, ctx context.Context, logger *log.Lo
 		invocation(EmailGet, get, "1"),
 	)
 	if err != nil {
-		return Emails{}, err
+		return Emails{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
 	}
 
-	return command(j.api, logger, ctx, session, cmd, func(body *Response) (Emails, error) {
+	return command(j.api, logger, ctx, session, cmd, func(body *Response) (Emails, Error) {
 		var response EmailGetResponse
 		err = retrieveResponseMatchParameters(body, EmailGet, "1", &response)
 		if err != nil {
-			return Emails{}, err
+			return Emails{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
 		}
 		return Emails{Emails: response.List, State: body.SessionState}, nil
 	})
