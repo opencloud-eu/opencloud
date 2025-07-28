@@ -19,7 +19,7 @@ type TestJmapWellKnownClient struct {
 	t *testing.T
 }
 
-func NewTestJmapWellKnownClient(t *testing.T) WellKnownClient {
+func NewTestJmapWellKnownClient(t *testing.T) SessionClient {
 	return &TestJmapWellKnownClient{t: t}
 }
 
@@ -27,8 +27,8 @@ func (t *TestJmapWellKnownClient) Close() error {
 	return nil
 }
 
-func (t *TestJmapWellKnownClient) GetWellKnown(username string, logger *log.Logger) (WellKnownResponse, error) {
-	return WellKnownResponse{
+func (t *TestJmapWellKnownClient) GetSession(username string, logger *log.Logger) (SessionResponse, Error) {
+	return SessionResponse{
 		Username:        generateRandomString(8),
 		ApiUrl:          "test://",
 		PrimaryAccounts: map[string]string{JmapMail: generateRandomString(2 + seededRand.Intn(10))},
@@ -47,12 +47,12 @@ func (t TestJmapApiClient) Close() error {
 	return nil
 }
 
-func serveTestFile(t *testing.T, name string) ([]byte, error) {
+func serveTestFile(t *testing.T, name string) ([]byte, Error) {
 	cwd, _ := os.Getwd()
 	p := filepath.Join(cwd, "testdata", name)
 	bytes, err := os.ReadFile(p)
 	if err != nil {
-		return bytes, err
+		return bytes, SimpleError{code: 0, err: err}
 	}
 	// try to parse it first to avoid any deeper issues that are caused by the test tools
 	var target map[string]any
@@ -60,10 +60,10 @@ func serveTestFile(t *testing.T, name string) ([]byte, error) {
 	if err != nil {
 		t.Errorf("failed to parse JSON test data file '%v': %v", p, err)
 	}
-	return bytes, err
+	return bytes, SimpleError{code: 0, err: err}
 }
 
-func (t *TestJmapApiClient) Command(ctx context.Context, logger *log.Logger, session *Session, request Request) ([]byte, error) {
+func (t *TestJmapApiClient) Command(ctx context.Context, logger *log.Logger, session *Session, request Request) ([]byte, Error) {
 	command := request.MethodCalls[0].Command
 	switch command {
 	case MailboxGet:
@@ -72,7 +72,7 @@ func (t *TestJmapApiClient) Command(ctx context.Context, logger *log.Logger, ses
 		return serveTestFile(t.t, "mails1.json")
 	default:
 		require.Fail(t.t, "TestJmapApiClient: unsupported jmap command: %v", command)
-		return nil, fmt.Errorf("TestJmapApiClient: unsupported jmap command: %v", command)
+		return nil, SimpleError{code: 0, err: fmt.Errorf("TestJmapApiClient: unsupported jmap command: %v", command)}
 	}
 }
 

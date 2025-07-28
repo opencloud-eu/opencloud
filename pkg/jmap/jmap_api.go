@@ -8,10 +8,10 @@ import (
 )
 
 type ApiClient interface {
-	Command(ctx context.Context, logger *log.Logger, session *Session, request Request) ([]byte, error)
+	Command(ctx context.Context, logger *log.Logger, session *Session, request Request) ([]byte, Error)
 	io.Closer
 }
 
-type WellKnownClient interface {
-	GetWellKnown(username string, logger *log.Logger) (WellKnownResponse, error)
+type SessionClient interface {
+	GetSession(username string, logger *log.Logger) (SessionResponse, Error)
 }

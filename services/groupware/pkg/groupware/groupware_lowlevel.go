@@ -124,27 +124,11 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux) (*Gro
 		return nil, GroupwareInitializationError{Message: "Mail.Master.Password is empty"}
 	}
 
-	defaultEmailLimit := config.Mail.DefaultEmailLimit
-	if defaultEmailLimit < 0 {
-		defaultEmailLimit = 0
-	}
-	maxBodyValueBytes := config.Mail.MaxBodyValueBytes
-	if maxBodyValueBytes < 0 {
-		maxBodyValueBytes = 0
-	}
-
-	responseHeaderTimeout := config.Mail.ResponseHeaderTimeout
-	if responseHeaderTimeout < 0 {
-		responseHeaderTimeout = 0
-	}
-	sessionCacheTtl := config.Mail.SessionCacheTtl
-	if sessionCacheTtl < 0 {
-		sessionCacheTtl = 0
-	}
-	sessionFailureCacheTtl := config.Mail.SessionFailureCacheTtl
-	if sessionFailureCacheTtl < 0 {
-		sessionFailureCacheTtl = 0
-	}
+	defaultEmailLimit := max(config.Mail.DefaultEmailLimit, 0)
+	maxBodyValueBytes := max(config.Mail.MaxBodyValueBytes, 0)
+	responseHeaderTimeout := max(config.Mail.ResponseHeaderTimeout, 0)
+	sessionCacheTtl := max(config.Mail.SessionCacheTtl, 0)
+	sessionFailureCacheTtl := max(config.Mail.SessionFailureCacheTtl, 0)
 
 	tr := http.DefaultTransport.(*http.Transport).Clone()
 	tr.ResponseHeaderTimeout = responseHeaderTimeout
@@ -223,7 +207,7 @@ func (g Groupware) session(req *http.Request, ctx context.Context, logger *log.L
 }
 
 func (g Groupware) respond(w http.ResponseWriter, r *http.Request,
-	handler func(r *http.Request, ctx context.Context, logger *log.Logger, session *jmap.Session) (any, string, error)) {
+	handler func(r *http.Request, ctx context.Context, logger *log.Logger, session *jmap.Session) (any, string, *ApiError)) {
 	ctx := r.Context()
 	logger := g.logger.SubloggerWithRequestID(ctx)
 	session, ok, err := g.session(r, ctx, &logger)
@@ -240,10 +224,10 @@ func (g Groupware) respond(w http.ResponseWriter, r *http.Request,
 	}
 	logger = session.DecorateLogger(logger)
 
-	response, state, err := handler(r, ctx, &logger, &session)
-	if err != nil {
-		logger.Error().Err(err).Interface(logQuery, r.URL.Query()).Msg(err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
+	response, state, apierr := handler(r, ctx, &logger, &session)
+	if apierr != nil {
+		logger.Warn().Interface("error", apierr).Msgf("API error: %v", apierr)
+		render.Render(w, r, errorResponses(*apierr))
 		return
 	}
 
@@ -251,7 +235,7 @@ func (g Groupware) respond(w http.ResponseWriter, r *http.Request,
 		w.Header().Add("ETag", state)
 	}
 	if response == nil {
-		w.WriteHeader(http.StatusNotFound)
+		render.Status(r, http.StatusNotFound)
 	} else {
 		render.Status(r, http.StatusOK)
 		render.JSON(w, r, response)
