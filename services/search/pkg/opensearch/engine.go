@@ -48,6 +48,15 @@ func (e *Engine) Move(id string, parentID string, target string) error {
 }
 
 func (e *Engine) Delete(id string) error {
+	_, err := e.client.Update(context.Background(), opensearchgoAPI.UpdateReq{
+		Index:      e.index,
+		DocumentID: id,
+		Body:       bytes.NewReader([]byte(`{"doc": {"Deleted": true}}`)),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to mark document as deleted: %w", err)
+	}
+
 	return nil
 }
 

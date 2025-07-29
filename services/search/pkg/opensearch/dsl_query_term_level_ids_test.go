@@ -12,14 +12,12 @@ func TestIDsQuery(t *testing.T) {
 	tests := []tableTest[opensearch.Builder, map[string]any]{
 		{
 			name: "empty",
-			got:  opensearch.NewIDsQuery(),
+			got:  opensearch.NewIDsQuery(nil),
 			want: nil,
 		},
 		{
 			name: "ids",
-			got: opensearch.NewIDsQuery(opensearch.IDsQueryOptions{Boost: 1.0}).
-				Values("1", "2").
-				Values("3", "3"),
+			got:  opensearch.NewIDsQuery([]string{"1", "2", "3", "3"}, opensearch.IDsQueryOptions{Boost: 1.0}),
 			want: map[string]any{
 				"ids": map[string]any{
 					"values": []string{"1", "2", "3"},

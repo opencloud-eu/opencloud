@@ -19,7 +19,7 @@ type TestClient struct {
 
 func NewDefaultTestClient(t *testing.T) *TestClient {
 	client, err := opensearchgoAPI.NewDefaultClient()
-	require.NoError(t, err, "Failed to create OpenSearch client")
+	require.NoError(t, err, "failed to create OpenSearch client")
 
 	return NewTestClient(t, client)
 }
@@ -92,7 +92,7 @@ func (tc *TestClient) IndicesRefresh(ctx context.Context, indices []string, allo
 }
 
 func (tc *TestClient) IndicesDelete(ctx context.Context, indices []string) error {
-	if err := tc.IndicesRefresh(ctx, indices, []int{404}); err != nil {
+	if err := tc.IndicesRefresh(ctx, indices, []int{}); err != nil {
 		return err
 	}
 
@@ -109,13 +109,14 @@ func (tc *TestClient) IndicesDelete(ctx context.Context, indices []string) error
 	}
 }
 
-func (tc *TestClient) IndicesCount(ctx context.Context, indices []string) (int, error) {
+func (tc *TestClient) IndicesCount(ctx context.Context, indices []string, body string) (int, error) {
 	if err := tc.IndicesRefresh(ctx, indices, []int{404}); err != nil {
 		return 0, err
 	}
 
 	resp, err := tc.c.Indices.Count(ctx, &opensearchgoAPI.IndicesCountReq{
 		Indices: indices,
+		Body:    strings.NewReader(body),
 	})
 
 	switch {
@@ -123,26 +124,6 @@ func (tc *TestClient) IndicesCount(ctx context.Context, indices []string) (int, 
 		return 0, fmt.Errorf("failed to count documents in indices: %w", err)
 	default:
 		return resp.Count, nil
-	}
-}
-
-func (tc *TestClient) IndexCreate(ctx context.Context, index string, body string) error {
-	if err := tc.IndicesRefresh(ctx, []string{index}, []int{404}); err != nil {
-		return err
-	}
-
-	resp, err := tc.c.Indices.Create(ctx, opensearchgoAPI.IndicesCreateReq{
-		Index: index,
-		Body:  strings.NewReader(body),
-	})
-
-	switch {
-	case err != nil:
-		return fmt.Errorf("failed to create index %s: %w", index, err)
-	case !resp.Acknowledged:
-		return fmt.Errorf("index creation not acknowledged for index %s", index)
-	default:
-		return nil
 	}
 }
 
@@ -173,18 +154,6 @@ func (trc *testRequireClient) IndicesReset(indices []string) {
 	require.NoError(trc.t, trc.tc.IndicesReset(trc.t.Context(), indices))
 }
 
-func (trc *testRequireClient) IndicesExists(indices []string, expected bool) {
-	exist, err := trc.tc.IndicesExists(trc.t.Context(), indices)
-	switch {
-	case expected == true:
-		require.NoError(trc.t, err, "Expected indices to exist, but got an error")
-		require.True(trc.t, exist, "Expected indices to exist, but got an error response")
-	default:
-		require.Error(trc.t, err)
-		require.False(trc.t, exist, "Expected indices to not exist, but got an error response")
-	}
-}
-
 func (trc *testRequireClient) IndicesRefresh(indices []string, ignore []int) {
 	require.NoError(trc.t, trc.tc.IndicesRefresh(trc.t.Context(), indices, ignore))
 }
@@ -193,20 +162,16 @@ func (trc *testRequireClient) IndicesDelete(indices []string) {
 	require.NoError(trc.t, trc.tc.IndicesDelete(trc.t.Context(), indices))
 }
 
-func (trc *testRequireClient) IndicesCount(indices []string, expected int) {
-	count, err := trc.tc.IndicesCount(trc.t.Context(), indices)
+func (trc *testRequireClient) IndicesCount(indices []string, body string, expected int) {
+	count, err := trc.tc.IndicesCount(trc.t.Context(), indices, body)
 
 	switch {
 	case expected <= 0:
-		require.True(trc.t, count <= 0, "Expected indices to have no documents, but got a count of %d", count)
+		require.True(trc.t, count <= 0, "expected indices to have no documents, but got a count of %d", count)
 	default:
-		require.Equal(trc.t, expected, count, "Expected indices to have %d documents, but got %d", expected, count)
-		require.NoError(trc.t, err, "Expected indices to have documents, but got an error")
+		require.Equal(trc.t, expected, count, "expected indices to have %d documents, but got %d", expected, count)
+		require.NoError(trc.t, err, "expected indices to have documents, but got an error")
 	}
-}
-
-func (trc *testRequireClient) IndexCreate(index string, body string) {
-	require.NoError(trc.t, trc.tc.IndexCreate(trc.t.Context(), index, body))
 }
 
 func (trc *testRequireClient) DocumentCreate(index string, id, body string) {
