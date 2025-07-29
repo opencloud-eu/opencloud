@@ -1,6 +1,7 @@
 package opensearch
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
@@ -8,52 +9,43 @@ import (
 
 type KQL struct{}
 
-func (k KQL) Compile(givenAst *ast.Ast) (Builder, error) {
-	q, err := k.compile(givenAst)
-	if err != nil {
-		return nil, err
-	}
-	return q, nil
-}
-
-func (k KQL) compile(a *ast.Ast) (Builder, error) {
-	q, _, err := k.walk(0, a.Nodes)
-	if err != nil {
-		return nil, err
-	}
-
-	return q, nil
-}
-
-func (k KQL) walk(offset int, nodes []ast.Node) (Builder, int, error) {
-	var boolQuery = NewBoolQuery()
-	for i := offset; i < len(nodes); i++ {
-		switch n := nodes[i].(type) {
-		case *ast.StringNode:
-			field := k.getField(n.Key)
-
-			switch spaces := strings.Split(n.Value, " "); {
-			case len(spaces) == 1:
-				boolQuery.Must(NewTermQuery[string](field).Value(n.Value))
-			case len(spaces) > 1:
-				boolQuery.Must(NewMatchPhraseQuery(field).Query(n.Value))
-			default:
-				continue
-			}
-		case *ast.OperatorNode:
+func (k KQL) Compile(a *ast.Ast) (*RootQuery, error) {
+	switch {
+	case len(a.Nodes) == 0:
+		return nil, errors.New("no nodes in AST")
+	case len(a.Nodes) == 1:
+		builder, err := k.getBuilder(a.Nodes[0])
+		if err != nil {
+			return nil, err
 		}
-
+		return NewRootQuery(builder), nil
 	}
 
-	return boolQuery, 0, nil
+	return nil, nil
 }
 
-func (k KQL) getField(name string) string {
-	if name == "" {
+func (k KQL) getBuilder(someNode ast.Node) (Builder, error) {
+	var query Builder
+	switch node := someNode.(type) {
+	case *ast.StringNode:
+		field := k.mapField(node.Key)
+		switch spaces := strings.Split(node.Value, " "); {
+		case len(spaces) == 1:
+			query = NewTermQuery[string](field).Value(node.Value)
+		case len(spaces) > 1:
+			query = NewMatchPhraseQuery(field).Query(node.Value)
+		}
+	}
+
+	return query, nil
+}
+
+func (k KQL) mapField(field string) string {
+	if field == "" {
 		return "Name"
 	}
 
-	fields := map[string]string{
+	mappings := map[string]string{
 		"rootid":    "RootID",
 		"path":      "Path",
 		"id":        "ID",
@@ -68,9 +60,9 @@ func (k KQL) getField(name string) string {
 		"hidden":    "Hidden",
 	}
 
-	if _, ok := fields[strings.ToLower(name)]; ok {
-		return fields[strings.ToLower(name)]
+	if mapped, ok := mappings[strings.ToLower(field)]; ok {
+		return mapped
 	}
 
-	return name
+	return field
 }

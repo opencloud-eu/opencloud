@@ -8,6 +8,8 @@ import (
 
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
+	"github.com/opencloud-eu/opencloud/pkg/kql"
+	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/engine"
 )
@@ -22,7 +24,48 @@ func NewEngine(index string, client *opensearchgoAPI.Client) (*Engine, error) {
 }
 
 func (e *Engine) Search(ctx context.Context, sir *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error) {
-	return &searchService.SearchIndexResponse{}, nil
+	ast, err := kql.Builder{}.Build(sir.Query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build query: %w", err)
+	}
+
+	query, err := KQL{}.Compile(ast)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile query: %w", err)
+	}
+
+	body, err := query.MarshalJSON()
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal query: %w", err)
+	}
+
+	resp, err := e.client.Search(context.Background(), &opensearchgoAPI.SearchReq{
+		Indices: []string{e.index},
+		Body:    bytes.NewReader(body),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to count documents: %w", err)
+	}
+
+	matches := make([]*searchMessage.Match, len(resp.Hits.Hits))
+	for i, hit := range resp.Hits.Hits {
+		resource, err := convert[engine.Resource](hit.Source)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert hit %d: %w", i, err)
+		}
+
+		matches[i] = &searchMessage.Match{
+			Score: hit.Score,
+			Entity: &searchMessage.Entity{
+				Name: resource.Name,
+			},
+		}
+	}
+
+	return &searchService.SearchIndexResponse{
+		Matches:      matches,
+		TotalMatches: int32(resp.Hits.Total.Value),
+	}, nil
 }
 
 func (e *Engine) Upsert(id string, r engine.Resource) error {
