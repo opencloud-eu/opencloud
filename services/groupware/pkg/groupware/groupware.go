@@ -1,12 +1,10 @@
 package groupware
 
 import (
-	"context"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/render"
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -30,34 +28,21 @@ func (IndexResponse) Render(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (g Groupware) Index(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	logger := g.logger.SubloggerWithRequestID(ctx)
-
-	session, ok, err := g.session(r, ctx, &logger)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	if ok {
-		//logger = session.DecorateLogger(logger)
-		_ = render.Render(w, r, IndexResponse{AccountId: session.AccountId})
-	} else {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
+	g.respond(w, r, func(req Request) (any, string, *ApiError) {
+		return IndexResponse{AccountId: req.session.AccountId}, "", nil
+	})
 }
 
 func (g Groupware) GetIdentity(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(r *http.Request, ctx context.Context, logger *log.Logger, session *jmap.Session) (any, string, *ApiError) {
-		res, err := g.jmap.GetIdentity(session, ctx, logger)
+	g.respond(w, r, func(req Request) (any, string, *ApiError) {
+		res, err := g.jmap.GetIdentity(req.session, req.ctx, req.logger)
 		return res, res.State, apiErrorFromJmap(err)
 	})
 }
 
 func (g Groupware) GetVacation(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(r *http.Request, ctx context.Context, logger *log.Logger, session *jmap.Session) (any, string, *ApiError) {
-		res, err := g.jmap.GetVacationResponse(session, ctx, logger)
+	g.respond(w, r, func(req Request) (any, string, *ApiError) {
+		res, err := g.jmap.GetVacationResponse(req.session, req.ctx, req.logger)
 		return res, res.State, apiErrorFromJmap(err)
 	})
 }
@@ -69,8 +54,8 @@ func (g Groupware) GetMailboxById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	g.respond(w, r, func(r *http.Request, ctx context.Context, logger *log.Logger, session *jmap.Session) (any, string, *ApiError) {
-		res, err := g.jmap.GetMailbox(session, ctx, logger, []string{mailboxId})
+	g.respond(w, r, func(req Request) (any, string, *ApiError) {
+		res, err := g.jmap.GetMailbox(req.session, req.ctx, req.logger, []string{mailboxId})
 		if err != nil {
 			return res, "", apiErrorFromJmap(err)
 		}
@@ -109,29 +94,28 @@ func (g Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) {
 		hasCriteria = true
 	}
 
-	if hasCriteria {
-		g.respond(w, r, func(r *http.Request, ctx context.Context, logger *log.Logger, session *jmap.Session) (any, string, *ApiError) {
-			mailboxes, err := g.jmap.SearchMailboxes(session, ctx, logger, filter)
+	g.respond(w, r, func(req Request) (any, string, *ApiError) {
+		if hasCriteria {
+			mailboxes, err := g.jmap.SearchMailboxes(req.session, req.ctx, req.logger, filter)
 			if err != nil {
 				return nil, "", apiErrorFromJmap(err)
 			}
 			return mailboxes.Mailboxes, mailboxes.State, nil
-		})
-	} else {
-		g.respond(w, r, func(r *http.Request, ctx context.Context, logger *log.Logger, session *jmap.Session) (any, string, *ApiError) {
-			mailboxes, err := g.jmap.GetAllMailboxes(session, ctx, logger)
+		} else {
+			mailboxes, err := g.jmap.GetAllMailboxes(req.session, req.ctx, req.logger)
 			if err != nil {
 				return nil, "", apiErrorFromJmap(err)
 			}
 			return mailboxes.List, mailboxes.State, nil
-		})
-	}
+		}
+	})
 }
 
 func (g Groupware) GetMessages(w http.ResponseWriter, r *http.Request) {
 	mailboxId := chi.URLParam(r, "mailbox")
-	g.respond(w, r, func(r *http.Request, ctx context.Context, logger *log.Logger, session *jmap.Session) (any, string, *ApiError) {
+	g.respond(w, r, func(req Request) (any, string, *ApiError) {
 		page, ok, _ := ParseNumericParam(r, "page", -1)
+		logger := req.logger
 		if ok {
 			logger = &log.Logger{Logger: logger.With().Int("page", page).Logger()}
 		}
@@ -146,7 +130,7 @@ func (g Groupware) GetMessages(w http.ResponseWriter, r *http.Request) {
 			limit = g.defaultEmailLimit
 		}
 
-		emails, err := g.jmap.GetEmails(session, ctx, logger, mailboxId, offset, limit, true, g.maxBodyValueBytes)
+		emails, err := g.jmap.GetEmails(req.session, req.ctx, logger, mailboxId, offset, limit, true, g.maxBodyValueBytes)
 		if err != nil {
 			return nil, "", apiErrorFromJmap(err)
 		}
