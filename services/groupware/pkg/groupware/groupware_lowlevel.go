@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -22,63 +21,6 @@ const (
 	logFolderId = "folder-id"
 	logQuery    = "query"
 )
-
-type cachedSession interface {
-	Success() bool
-	Get() jmap.Session
-	Error() error
-}
-
-type succeededSession struct {
-	session jmap.Session
-}
-
-func (s succeededSession) Success() bool {
-	return true
-}
-func (s succeededSession) Get() jmap.Session {
-	return s.session
-}
-func (s succeededSession) Error() error {
-	return nil
-}
-
-var _ cachedSession = succeededSession{}
-
-type failedSession struct {
-	err error
-}
-
-func (s failedSession) Success() bool {
-	return false
-}
-func (s failedSession) Get() jmap.Session {
-	panic("this should never be called")
-}
-func (s failedSession) Error() error {
-	return s.err
-}
-
-var _ cachedSession = failedSession{}
-
-type sessionCacheLoader struct {
-	logger     *log.Logger
-	jmapClient jmap.Client
-	errorTtl   time.Duration
-}
-
-func (l *sessionCacheLoader) Load(c *ttlcache.Cache[string, cachedSession], username string) *ttlcache.Item[string, cachedSession] {
-	session, err := l.jmapClient.FetchSession(username, l.logger)
-	if err != nil {
-		l.logger.Warn().Str("username", username).Err(err).Msgf("failed to create session for '%v'", username)
-		return c.Set(username, failedSession{err: err}, l.errorTtl)
-	} else {
-		l.logger.Debug().Str("username", username).Msgf("successfully created session for '%v'", username)
-		return c.Set(username, succeededSession{session: session}, 0) // 0 = use the TTL configured on the Cache
-	}
-}
-
-var _ ttlcache.Loader[string, cachedSession] = &sessionCacheLoader{}
 
 type Groupware struct {
 	mux               *chi.Mux
@@ -127,8 +69,9 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux) (*Gro
 	defaultEmailLimit := max(config.Mail.DefaultEmailLimit, 0)
 	maxBodyValueBytes := max(config.Mail.MaxBodyValueBytes, 0)
 	responseHeaderTimeout := max(config.Mail.ResponseHeaderTimeout, 0)
-	sessionCacheTtl := max(config.Mail.SessionCacheTtl, 0)
-	sessionFailureCacheTtl := max(config.Mail.SessionFailureCacheTtl, 0)
+	sessionCacheMaxCapacity := uint64(max(config.Mail.SessionCache.MaxCapacity, 0))
+	sessionCacheTtl := max(config.Mail.SessionCache.Ttl, 0)
+	sessionFailureCacheTtl := max(config.Mail.SessionCache.FailureTtl, 0)
 
 	tr := http.DefaultTransport.(*http.Transport).Clone()
 	tr.ResponseHeaderTimeout = responseHeaderTimeout
@@ -157,9 +100,8 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux) (*Gro
 		}
 
 		sessionCache = ttlcache.New(
-			ttlcache.WithTTL[string, cachedSession](
-				sessionCacheTtl,
-			),
+			ttlcache.WithCapacity[string, cachedSession](sessionCacheMaxCapacity),
+			ttlcache.WithTTL[string, cachedSession](sessionCacheTtl),
 			ttlcache.WithDisableTouchOnHit[string, cachedSession](),
 			ttlcache.WithLoader(sessionLoader),
 		)
@@ -206,27 +148,45 @@ func (g Groupware) session(req *http.Request, ctx context.Context, logger *log.L
 	return jmap.Session{}, false, nil
 }
 
-func (g Groupware) respond(w http.ResponseWriter, r *http.Request,
-	handler func(r *http.Request, ctx context.Context, logger *log.Logger, session *jmap.Session) (any, string, *ApiError)) {
+// using a wrapper class for requests, to group multiple parameters, really to avoid crowding the
+// API of handlers but also to make it easier to expand it in the future without having to modify
+// the parameter list of every single handler function
+type Request struct {
+	r       *http.Request
+	ctx     context.Context
+	logger  *log.Logger
+	session *jmap.Session
+}
+
+func (g Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(r Request) (any, string, *ApiError)) {
 	ctx := r.Context()
 	logger := g.logger.SubloggerWithRequestID(ctx)
 	session, ok, err := g.session(r, ctx, &logger)
 	if err != nil {
 		logger.Error().Err(err).Interface(logQuery, r.URL.Query()).Msg("failed to determine JMAP session")
-		w.WriteHeader(http.StatusInternalServerError)
+		render.Status(r, http.StatusInternalServerError)
 		return
 	}
 	if !ok {
 		// no session = authentication failed
 		logger.Warn().Err(err).Interface(logQuery, r.URL.Query()).Msg("could not authenticate")
-		w.WriteHeader(http.StatusForbidden)
+		render.Status(r, http.StatusForbidden)
 		return
 	}
 	logger = session.DecorateLogger(logger)
 
-	response, state, apierr := handler(r, ctx, &logger, &session)
+	req := Request{
+		r:       r,
+		ctx:     ctx,
+		logger:  &logger,
+		session: &session,
+	}
+
+	response, state, apierr := handler(req)
 	if apierr != nil {
 		logger.Warn().Interface("error", apierr).Msgf("API error: %v", apierr)
+		w.Header().Add("Content-Type", ContentTypeJsonApi)
+		render.Status(r, apierr.NumStatus)
 		render.Render(w, r, errorResponses(*apierr))
 		return
 	}
@@ -242,8 +202,8 @@ func (g Groupware) respond(w http.ResponseWriter, r *http.Request,
 	}
 }
 
-func (g Groupware) withSession(w http.ResponseWriter, r *http.Request,
-	handler func(r *http.Request, ctx context.Context, logger *log.Logger, session *jmap.Session) (any, string, error)) (any, string, error) {
+/*
+func (g Groupware) withSession(w http.ResponseWriter, r *http.Request, handler func(r Request) (any, string, error)) (any, string, error) {
 	ctx := r.Context()
 	logger := g.logger.SubloggerWithRequestID(ctx)
 	session, ok, err := g.session(r, ctx, &logger)
@@ -258,9 +218,17 @@ func (g Groupware) withSession(w http.ResponseWriter, r *http.Request,
 	}
 	logger = session.DecorateLogger(logger)
 
-	response, state, err := handler(r, ctx, &logger, &session)
+	req := Request{
+		r:       r,
+		ctx:     ctx,
+		logger:  &logger,
+		session: &session,
+	}
+
+	response, state, err := handler(req)
 	if err != nil {
 		logger.Error().Err(err).Interface(logQuery, r.URL.Query()).Msg(err.Error())
 	}
 	return response, state, err
 }
+*/
