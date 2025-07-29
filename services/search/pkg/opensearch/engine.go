@@ -61,7 +61,7 @@ func (e *Engine) Purge(id string) error {
 		DocumentID: id,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to index document: %w", err)
+		return fmt.Errorf("failed to purge document: %w", err)
 	}
 
 	return nil

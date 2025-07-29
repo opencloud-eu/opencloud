@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -38,7 +39,12 @@ func (tc *TestClient) Client() *opensearchgoAPI.Client {
 func (tc *TestClient) IndicesReset(ctx context.Context, indices []string) error {
 	indicesToDelete := make([]string, 0, len(indices))
 	for _, index := range indices {
-		if err := tc.IndicesRefresh(ctx, indices); err != nil {
+		exist, err := tc.IndicesExists(ctx, []string{index})
+		if err != nil {
+			return fmt.Errorf("failed to check if index %s exists: %w", index, err)
+		}
+
+		if !exist {
 			continue
 		}
 
@@ -54,7 +60,7 @@ func (tc *TestClient) IndicesReset(ctx context.Context, indices []string) error 
 }
 
 func (tc *TestClient) IndicesExists(ctx context.Context, indices []string) (bool, error) {
-	if err := tc.IndicesRefresh(ctx, indices); err != nil {
+	if err := tc.IndicesRefresh(ctx, indices, []int{404}); err != nil {
 		return false, err
 	}
 
@@ -62,25 +68,31 @@ func (tc *TestClient) IndicesExists(ctx context.Context, indices []string) (bool
 		Indices: indices,
 	})
 	switch {
+	case resp != nil && resp.StatusCode == 404:
+		return false, nil
 	case err != nil:
-		return false, err
-	case resp.IsError():
+		return false, fmt.Errorf("failed to check if indices exist: %w", err)
+	case resp != nil && resp.IsError():
 		return false, fmt.Errorf("failed to check if indices exist: %s", resp.String())
 	default:
 		return true, nil
 	}
 }
 
-func (tc *TestClient) IndicesRefresh(ctx context.Context, indices []string) error {
-	_, err := tc.c.Indices.Refresh(ctx, &opensearchgoAPI.IndicesRefreshReq{
+func (tc *TestClient) IndicesRefresh(ctx context.Context, indices []string, allow []int) error {
+	resp, err := tc.c.Indices.Refresh(ctx, &opensearchgoAPI.IndicesRefreshReq{
 		Indices: indices,
 	})
 
-	return err
+	if err != nil && !(resp != nil && slices.Contains(allow, resp.Inspect().Response.StatusCode)) {
+		return fmt.Errorf("failed to refresh indices %v: %w", indices, err)
+	}
+
+	return nil
 }
 
 func (tc *TestClient) IndicesDelete(ctx context.Context, indices []string) error {
-	if err := tc.IndicesRefresh(ctx, indices); err != nil {
+	if err := tc.IndicesRefresh(ctx, indices, []int{404}); err != nil {
 		return err
 	}
 
@@ -98,7 +110,7 @@ func (tc *TestClient) IndicesDelete(ctx context.Context, indices []string) error
 }
 
 func (tc *TestClient) IndicesCount(ctx context.Context, indices []string) (int, error) {
-	if err := tc.IndicesRefresh(ctx, indices); err != nil {
+	if err := tc.IndicesRefresh(ctx, indices, []int{404}); err != nil {
 		return 0, err
 	}
 
@@ -115,6 +127,10 @@ func (tc *TestClient) IndicesCount(ctx context.Context, indices []string) (int, 
 }
 
 func (tc *TestClient) IndexCreate(ctx context.Context, index string, body string) error {
+	if err := tc.IndicesRefresh(ctx, []string{index}, []int{404}); err != nil {
+		return err
+	}
+
 	resp, err := tc.c.Indices.Create(ctx, opensearchgoAPI.IndicesCreateReq{
 		Index: index,
 		Body:  strings.NewReader(body),
@@ -130,13 +146,31 @@ func (tc *TestClient) IndexCreate(ctx context.Context, index string, body string
 	}
 }
 
+func (tc *TestClient) DocumentCreate(ctx context.Context, index string, id, body string) error {
+	if err := tc.IndicesRefresh(ctx, []string{index}, []int{404}); err != nil {
+		return err
+	}
+
+	_, err := tc.c.Document.Create(ctx, opensearchgoAPI.DocumentCreateReq{
+		Index:      index,
+		DocumentID: id,
+		Body:       strings.NewReader(body),
+	})
+	switch {
+	case err != nil:
+		return fmt.Errorf("failed to create document in index %s: %w", index, err)
+	default:
+		return nil
+	}
+}
+
 type testRequireClient struct {
 	tc *TestClient
 	t  *testing.T
 }
 
 func (trc *testRequireClient) IndicesReset(indices []string) {
-	require.NoError(trc.t, trc.tc.IndicesReset(trc.t.Context(), indices), "Failed to reset indices")
+	require.NoError(trc.t, trc.tc.IndicesReset(trc.t.Context(), indices))
 }
 
 func (trc *testRequireClient) IndicesExists(indices []string, expected bool) {
@@ -151,12 +185,12 @@ func (trc *testRequireClient) IndicesExists(indices []string, expected bool) {
 	}
 }
 
-func (trc *testRequireClient) IndicesRefresh(indices []string) {
-	require.NoError(trc.t, trc.tc.IndicesRefresh(trc.t.Context(), indices), "Failed to refresh indices")
+func (trc *testRequireClient) IndicesRefresh(indices []string, ignore []int) {
+	require.NoError(trc.t, trc.tc.IndicesRefresh(trc.t.Context(), indices, ignore))
 }
 
 func (trc *testRequireClient) IndicesDelete(indices []string) {
-	require.NoError(trc.t, trc.tc.IndicesDelete(trc.t.Context(), indices), "Failed to delete indices")
+	require.NoError(trc.t, trc.tc.IndicesDelete(trc.t.Context(), indices))
 }
 
 func (trc *testRequireClient) IndicesCount(indices []string, expected int) {
@@ -172,5 +206,9 @@ func (trc *testRequireClient) IndicesCount(indices []string, expected int) {
 }
 
 func (trc *testRequireClient) IndexCreate(index string, body string) {
-	require.NoError(trc.t, trc.tc.IndexCreate(trc.t.Context(), index, body), "Failed to create index %s", index)
+	require.NoError(trc.t, trc.tc.IndexCreate(trc.t.Context(), index, body))
+}
+
+func (trc *testRequireClient) DocumentCreate(index string, id, body string) {
+	require.NoError(trc.t, trc.tc.DocumentCreate(trc.t.Context(), index, id, body))
 }

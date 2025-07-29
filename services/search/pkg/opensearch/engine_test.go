@@ -15,6 +15,8 @@ func TestEngine_Upsert(t *testing.T) {
 	tc.Require.IndicesReset([]string{index})
 	tc.Require.IndicesCount([]string{index}, 0)
 
+	defer tc.Require.IndicesDelete([]string{index})
+
 	engine, err := opensearch.NewEngine(index, tc.Client())
 	assert.NoError(t, err)
 
@@ -23,7 +25,6 @@ func TestEngine_Upsert(t *testing.T) {
 		assert.NoError(t, engine.Upsert(document.ID, document))
 
 		tc.Require.IndicesCount([]string{index}, 1)
-		tc.Require.IndicesDelete([]string{index})
 	})
 }
 
@@ -39,20 +40,19 @@ func TestEngine_Purge(t *testing.T) {
 	tc.Require.IndicesReset([]string{index})
 	tc.Require.IndicesCount([]string{index}, 0)
 
+	defer tc.Require.IndicesDelete([]string{index})
+
 	engine, err := opensearch.NewEngine(index, tc.Client())
 	assert.NoError(t, err)
 
 	t.Run("Purge with full document", func(t *testing.T) {
 		document := ostest.Testdata.Resources.Full
-		assert.NoError(t, engine.Upsert(document.ID, document))
-
+		tc.Require.DocumentCreate(index, document.ID, toJSON(t, document))
 		tc.Require.IndicesCount([]string{index}, 1)
 
 		assert.NoError(t, engine.Purge(document.ID))
 
 		tc.Require.IndicesCount([]string{index}, 0)
-
-		tc.Require.IndicesDelete([]string{index})
 	})
 }
 

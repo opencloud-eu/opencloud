@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type tableTest[G any, W any] struct {
@@ -15,6 +15,6 @@ type tableTest[G any, W any] struct {
 
 func toJSON(t *testing.T, data any) string {
 	jsonData, err := json.Marshal(data)
-	assert.NoError(t, err, "failed to marshal data to JSON")
+	require.NoError(t, err, "failed to marshal data to JSON")
 	return string(jsonData)
 }
