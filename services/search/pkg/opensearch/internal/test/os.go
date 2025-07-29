@@ -145,6 +145,24 @@ func (tc *TestClient) DocumentCreate(ctx context.Context, index string, id, body
 	}
 }
 
+func (tc *TestClient) Update(ctx context.Context, index string, id, body string) error {
+	if err := tc.IndicesRefresh(ctx, []string{index}, []int{404}); err != nil {
+		return err
+	}
+
+	_, err := tc.c.Update(ctx, opensearchgoAPI.UpdateReq{
+		Index:      index,
+		DocumentID: id,
+		Body:       strings.NewReader(body),
+	})
+	switch {
+	case err != nil:
+		return fmt.Errorf("failed to update document in index %s: %w", index, err)
+	default:
+		return nil
+	}
+}
+
 type testRequireClient struct {
 	tc *TestClient
 	t  *testing.T
@@ -176,4 +194,8 @@ func (trc *testRequireClient) IndicesCount(indices []string, body string, expect
 
 func (trc *testRequireClient) DocumentCreate(index string, id, body string) {
 	require.NoError(trc.t, trc.tc.DocumentCreate(trc.t.Context(), index, id, body))
+}
+
+func (trc *testRequireClient) Update(index string, id, body string) {
+	require.NoError(trc.t, trc.tc.Update(trc.t.Context(), index, id, body))
 }

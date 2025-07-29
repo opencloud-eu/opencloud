@@ -58,7 +58,7 @@ func TestEngine_Delete(t *testing.T) {
 }
 
 func TestEngine_Restore(t *testing.T) {
-	index := "test-engine-delete"
+	index := "test-engine-restore"
 	tc := ostest.NewDefaultTestClient(t)
 	tc.Require.IndicesReset([]string{index})
 	tc.Require.IndicesCount([]string{index}, "", 0)
@@ -107,4 +107,36 @@ func TestEngine_Purge(t *testing.T) {
 	})
 }
 
-func TestEngine_DocCount(t *testing.T) {}
+func TestEngine_DocCount(t *testing.T) {
+	index := "test-engine-doc-count"
+	tc := ostest.NewDefaultTestClient(t)
+	tc.Require.IndicesReset([]string{index})
+	tc.Require.IndicesCount([]string{index}, "", 0)
+
+	defer tc.Require.IndicesDelete([]string{index})
+
+	engine, err := opensearch.NewEngine(index, tc.Client())
+	assert.NoError(t, err)
+
+	t.Run("ignore deleted documents", func(t *testing.T) {
+		document := ostest.Testdata.Resources.Full
+		tc.Require.DocumentCreate(index, document.ID, toJSON(t, document))
+		tc.Require.IndicesCount([]string{index}, "", 1)
+
+		count, err := engine.DocCount()
+		assert.NoError(t, err)
+		assert.Equal(t, uint64(1), count)
+
+		tc.Require.Update(index, document.ID, toJSON(t, map[string]any{
+			"doc": map[string]any{
+				"Deleted": true,
+			},
+		}))
+
+		tc.Require.IndicesCount([]string{index}, "", 1)
+
+		count, err = engine.DocCount()
+		assert.NoError(t, err)
+		assert.Equal(t, uint64(0), count)
+	})
+}

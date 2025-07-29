@@ -11,6 +11,8 @@ func isEmpty(x any) bool {
 	switch {
 	case x == nil:
 		return true
+	case reflect.ValueOf(x).Kind() == reflect.Bool:
+		return false
 	case reflect.DeepEqual(x, reflect.Zero(reflect.TypeOf(x)).Interface()):
 		return true
 	case reflect.ValueOf(x).Kind() == reflect.Map && reflect.ValueOf(x).Len() == 0:

@@ -48,10 +48,19 @@ func (e *Engine) Move(id string, parentID string, target string) error {
 }
 
 func (e *Engine) Delete(id string) error {
-	_, err := e.client.Update(context.Background(), opensearchgoAPI.UpdateReq{
+	body, err := json.Marshal(map[string]any{
+		"doc": map[string]bool{
+			"Deleted": true,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal body: %w", err)
+	}
+
+	_, err = e.client.Update(context.Background(), opensearchgoAPI.UpdateReq{
 		Index:      e.index,
 		DocumentID: id,
-		Body:       bytes.NewReader([]byte(`{"doc": {"Deleted": true}}`)),
+		Body:       bytes.NewReader(body),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to mark document as deleted: %w", err)
@@ -61,10 +70,19 @@ func (e *Engine) Delete(id string) error {
 }
 
 func (e *Engine) Restore(id string) error {
-	_, err := e.client.Update(context.Background(), opensearchgoAPI.UpdateReq{
+	body, err := json.Marshal(map[string]any{
+		"doc": map[string]bool{
+			"Deleted": false,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal body: %w", err)
+	}
+
+	_, err = e.client.Update(context.Background(), opensearchgoAPI.UpdateReq{
 		Index:      e.index,
 		DocumentID: id,
-		Body:       bytes.NewReader([]byte(`{"doc": {"Deleted": false}}`)),
+		Body:       bytes.NewReader(body),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to mark document as deleted: %w", err)
@@ -86,5 +104,20 @@ func (e *Engine) Purge(id string) error {
 }
 
 func (e *Engine) DocCount() (uint64, error) {
-	return 0, nil
+	body, err := NewRootQuery(
+		NewTermQuery[bool]("Deleted").Value(false),
+	).MarshalJSON()
+	if err != nil {
+		return 0, fmt.Errorf("failed to marshal query: %w", err)
+	}
+
+	resp, err := e.client.Indices.Count(context.Background(), &opensearchgoAPI.IndicesCountReq{
+		Indices: []string{e.index},
+		Body:    bytes.NewReader(body),
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to count documents: %w", err)
+	}
+
+	return uint64(resp.Count), nil
 }

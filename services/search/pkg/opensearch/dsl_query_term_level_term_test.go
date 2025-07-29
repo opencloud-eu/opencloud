@@ -17,11 +17,11 @@ func TestTermQuery(t *testing.T) {
 		},
 		{
 			name: "naked",
-			got:  opensearch.NewTermQuery[bool]("deleted").Value(true),
+			got:  opensearch.NewTermQuery[bool]("deleted").Value(false),
 			want: map[string]any{
 				"term": map[string]any{
 					"deleted": map[string]any{
-						"value": true,
+						"value": false,
 					},
 				},
 			},
