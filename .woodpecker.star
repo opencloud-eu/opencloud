@@ -45,6 +45,7 @@ dirs = {
     "zip": "/woodpecker/src/github.com/opencloud-eu/opencloud/zip",
     "webZip": "/woodpecker/src/github.com/opencloud-eu/opencloud/zip/web.tar.gz",
     "webPnpmZip": "/woodpecker/src/github.com/opencloud-eu/opencloud/zip/web-pnpm.tar.gz",
+    "playwrightBrowsersArchive": "/woodpecker/src/github.com/opencloud-eu/opencloud/zip/playwright-browsers.tar.gz",
     "baseGo": "/go/src/github.com/opencloud-eu/opencloud",
     "gobinTar": "go-bin.tar.gz",
     "gobinTarPath": "/go/src/github.com/opencloud-eu/opencloud/go-bin.tar.gz",
@@ -450,6 +451,7 @@ def main(ctx):
         checkGherkinLint(ctx) + \
         checkTestSuitesInExpectedFailures(ctx) + \
         buildWebCache(ctx) + \
+        cacheBrowsers(ctx) + \
         getGoBinForTesting(ctx) + \
         buildOpencloudBinaryForTesting(ctx) + \
         checkStarlark(ctx) + \
@@ -1276,6 +1278,7 @@ def e2eTestPipeline(ctx):
             restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBin"]) + \
             restoreWebCache() + \
             restoreWebPnpmCache() + \
+            restoreBrowsersCache() + \
             (tikaService() if params["tikaNeeded"] else []) + \
             opencloudServer(storage, extra_server_environment = extra_server_environment, tika_enabled = params["tikaNeeded"])
 
@@ -1288,6 +1291,8 @@ def e2eTestPipeline(ctx):
                 "RETRY": "1",
                 "WEB_UI_CONFIG_FILE": "%s/%s" % (dirs["base"], dirs["opencloudConfig"]),
                 "LOCAL_UPLOAD_DIR": "/uploads",
+                "PLAYWRIGHT_BROWSERS_PATH": "%s/%s" % (dirs["base"], ".playwright"),
+                "BROWSER": "chromium",
                 "REPORT_TRACING": params["reportTracing"],
             },
             "commands": [
@@ -2622,6 +2627,77 @@ def generateWebPnpmCache(ctx):
         },
     ]
 
+def cacheBrowsers(ctx):
+    e2e_trigger = [
+        event["base"],
+        {
+            "event": "pull_request",
+            "path": {
+                "exclude": skipIfUnchanged(ctx, "e2e-tests"),
+            },
+        },
+        {
+            "event": "tag",
+            "ref": "refs/tags/**",
+        },
+    ]
+
+    check_browser_step = [{
+        "name": "check-browsers-cache",
+        "image": MINIO_MC,
+        "environment": MINIO_MC_ENV,
+        "commands": [
+            "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
+            "mc ls --recursive s3/$CACHE_BUCKET/web",
+            "cd %s" % dirs["web"],
+            "bash tests/woodpecker/script.sh check_browsers_cache",
+        ],
+    }]
+
+    webPnpmCacheSteps = restoreWebPnpmCache(extra_commands = [
+        ". ./.woodpecker.env",
+        "if $BROWSER_CACHE_FOUND; then exit 0; fi",
+    ])
+
+    browser_cache_steps = [
+        {
+            "name": "install-browsers",
+            "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+            "environment": {
+                "PLAYWRIGHT_BROWSERS_PATH": ".playwright",
+            },
+            "commands": [
+                ". ./.woodpecker.env",
+                "if $BROWSER_CACHE_FOUND; then exit 0; fi",
+                "cd %s" % dirs["web"],
+                "pnpm exec playwright install --with-deps",
+                "pnpm exec playwright install --list",
+                "tar -czf %s .playwright" % dirs["playwrightBrowsersArchive"],
+            ],
+        },
+        {
+            "name": "upload-browsers-cache",
+            "image": MINIO_MC,
+            "environment": MINIO_MC_ENV,
+            "commands": [
+                ". ./.woodpecker.env",
+                "if $BROWSER_CACHE_FOUND; then exit 0; fi",
+                "cd %s" % dirs["web"],
+                "playwright_version=$(bash tests/woodpecker/script.sh get_playwright_version)",
+                "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
+                "mc cp -r -a %s s3/$CACHE_BUCKET/web/browsers-cache/$playwright_version/" % dirs["playwrightBrowsersArchive"],
+                "mc ls --recursive s3/$CACHE_BUCKET/web",
+            ],
+        },
+    ]
+
+    return [{
+        "name": "cache-browsers",
+        "depends_on": getPipelineNames(buildWebCache(ctx)),
+        "steps": restoreWebCache() + check_browser_step + webPnpmCacheSteps + browser_cache_steps,
+        "when": e2e_trigger,
+    }]
+
 def generateWebCache(ctx):
     return [
         getWoodpeckerEnvAndCheckScript(ctx),
@@ -2671,12 +2747,12 @@ def restoreWebCache():
         ],
     }]
 
-def restoreWebPnpmCache():
+def restoreWebPnpmCache(extra_commands = []):
     return [{
         "name": "restore-web-pnpm-cache",
         "image": MINIO_MC,
         "environment": MINIO_MC_ENV,
-        "commands": [
+        "commands": extra_commands + [
             "source ./.woodpecker.env",
             "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
             "mc cp -r -a s3/$CACHE_BUCKET/opencloud/web-test-runner/$WEB_COMMITID/web-pnpm.tar.gz %s" % dirs["zip"],
@@ -2685,15 +2761,37 @@ def restoreWebPnpmCache():
         # we need to install again because the node_modules are not cached
         "name": "unzip-and-install-pnpm",
         "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
-        "commands": [
+        "commands": extra_commands + [
             "cd %s" % dirs["web"],
             "rm -rf .pnpm-store",
             "tar -xvf %s" % dirs["webPnpmZip"],
             'npm install --silent --global --force "$(jq -r ".packageManager" < package.json)"',
             "pnpm config set store-dir ./.pnpm-store",
-            "for i in $(seq 3); do pnpm install && break || sleep 1; done",
+            "for i in $(seq 3); do pnpm install --no-frozen-lockfile && break || sleep 1; done",
         ],
     }]
+
+def restoreBrowsersCache():
+    return [
+        {
+            "name": "restore-browsers-cache",
+            "image": MINIO_MC,
+            "environment": MINIO_MC_ENV,
+            "commands": [
+                "cd %s" % dirs["web"],
+                "playwright_version=$(bash tests/woodpecker/script.sh get_playwright_version)",
+                "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
+                "mc cp -r -a s3/$CACHE_BUCKET/web/browsers-cache/$playwright_version/playwright-browsers.tar.gz %s" % dirs["web"],
+            ],
+        },
+        {
+            "name": "unzip-browsers-cache",
+            "image": OC_UBUNTU,
+            "commands": [
+                "tar -xvf /woodpecker/src/github.com/opencloud-eu/opencloud/webTestRunner/playwright-browsers.tar.gz -C .",
+            ],
+        },
+    ]
 
 def emailService():
     return [{
