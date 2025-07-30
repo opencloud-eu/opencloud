@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@aduffeck, @dragonchaser
+@aduffeck, @dragonchaser, @individual-it
 
 
 
