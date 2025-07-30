@@ -1,51 +1,33 @@
 package opensearch
 
 import (
-	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
+	"github.com/opencloud-eu/opencloud/pkg/kql"
 )
 
 type KQL struct{}
 
-func (k KQL) Compile(a *ast.Ast) (*RootQuery, error) {
-	switch {
-	case len(a.Nodes) == 0:
-		return nil, errors.New("no nodes in AST")
-	case len(a.Nodes) == 1:
-		builder, err := k.getBuilder(a.Nodes[0])
-		if err != nil {
-			return nil, err
-		}
-		return NewRootQuery(builder), nil
-	}
-
-	return nil, nil
+func NewKQL() (*KQL, error) {
+	return &KQL{}, nil
 }
 
-func (k KQL) getBuilder(someNode ast.Node) (Builder, error) {
-	var query Builder
-	switch node := someNode.(type) {
-	case *ast.StringNode:
-		field := k.mapField(node.Key)
-		switch spaces := strings.Split(node.Value, " "); {
-		case len(spaces) == 1:
-			query = NewTermQuery[string](field).Value(node.Value)
-		case len(spaces) > 1:
-			query = NewMatchPhraseQuery(field).Query(node.Value)
-		}
+func (k *KQL) Compile(tree *ast.Ast) (Builder, error) {
+	q, err := k.compile(tree.Nodes)
+	if err != nil {
+		return nil, err
 	}
-
-	return query, nil
+	return q, nil
 }
 
-func (k KQL) mapField(field string) string {
-	if field == "" {
+func (k *KQL) getFieldName(name string) string {
+	if name == "" {
 		return "Name"
 	}
 
-	mappings := map[string]string{
+	var _fields = map[string]string{
 		"rootid":    "RootID",
 		"path":      "Path",
 		"id":        "ID",
@@ -60,9 +42,53 @@ func (k KQL) mapField(field string) string {
 		"hidden":    "Hidden",
 	}
 
-	if mapped, ok := mappings[strings.ToLower(field)]; ok {
-		return mapped
+	switch n, ok := _fields[strings.ToLower(name)]; {
+	case ok:
+		return n
+	default:
+		return name
+	}
+}
+
+func (k *KQL) getOperatorValueAt(nodes []ast.Node, i int) string {
+	if i < 0 || i >= len(nodes) {
+		return ""
 	}
 
-	return field
+	if opn, ok := nodes[i].(*ast.OperatorNode); ok {
+		return opn.Value
+	}
+
+	return ""
+}
+
+func (k *KQL) compile(nodes []ast.Node) (Builder, error) {
+	boolQuery := NewBoolQuery()
+
+	add := boolQuery.Must
+	for i, node := range nodes {
+
+		prevOp := k.getOperatorValueAt(nodes, i-1)
+		nextOp := k.getOperatorValueAt(nodes, i+1)
+
+		switch {
+		case nextOp == kql.BoolOR || prevOp == kql.BoolOR:
+			add = boolQuery.Should
+		case nextOp == kql.BoolAND || prevOp == kql.BoolAND:
+			add = boolQuery.Must
+		}
+
+		switch node := node.(type) {
+		case *ast.StringNode:
+			add(NewTermQuery[string](k.getFieldName(node.Key)).Value(node.Value))
+		case *ast.GroupNode:
+			group, err := k.compile(node.Nodes)
+			if err != nil {
+				return nil, fmt.Errorf("failed to build group: %w", err)
+			}
+			add(group)
+		}
+	}
+
+	return boolQuery, nil
 }

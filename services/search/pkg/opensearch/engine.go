@@ -29,12 +29,17 @@ func (e *Engine) Search(ctx context.Context, sir *searchService.SearchIndexReque
 		return nil, fmt.Errorf("failed to build query: %w", err)
 	}
 
-	query, err := KQL{}.Compile(ast)
+	compiler, err := NewKQL()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create KQL compiler: %w", err)
+	}
+
+	query, err := compiler.Compile(ast)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile query: %w", err)
 	}
 
-	body, err := query.MarshalJSON()
+	body, err := NewRootQuery(query).MarshalJSON()
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal query: %w", err)
 	}

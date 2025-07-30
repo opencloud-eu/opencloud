@@ -84,7 +84,8 @@ func (tc *TestClient) IndicesRefresh(ctx context.Context, indices []string, allo
 		Indices: indices,
 	})
 
-	if err != nil && !(resp != nil && slices.Contains(allow, resp.Inspect().Response.StatusCode)) {
+	isAllowed := resp != nil && slices.Contains(allow, resp.Inspect().Response.StatusCode)
+	if err != nil && !isAllowed {
 		return fmt.Errorf("failed to refresh indices %v: %w", indices, err)
 	}
 
@@ -102,7 +103,7 @@ func (tc *TestClient) IndicesDelete(ctx context.Context, indices []string) error
 	switch {
 	case err != nil:
 		return fmt.Errorf("failed to delete indices: %w", err)
-	case resp.Acknowledged != true:
+	case !resp.Acknowledged:
 		return errors.New("indices deletion not acknowledged")
 	default:
 		return nil

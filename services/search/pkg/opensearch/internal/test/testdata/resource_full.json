@@ -1,6 +1,7 @@
 {
+  "ID" : "1$2!3",
   "Title" : "dumme title",
-  "Name" : "dummy name",
+  "Name" : "dummy",
   "Content" : "dummy content",
   "Size" : 42,
   "Mtime" : "2025-07-24 15:15:01.324093 +0200 CEST m=+0.000056251",
