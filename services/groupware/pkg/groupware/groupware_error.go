@@ -10,38 +10,71 @@ import (
 )
 
 type Link struct {
-	Href  string         `json:"href"`
-	Rel   string         `json:"rel,omitempty"`
-	Title string         `json:"title,omitempty"`
-	Type  string         `json:"type,omitempty"`
-	Meta  map[string]any `json:"meta,omitempty"`
+	// A string whose value is a URI-reference [RFC3986 Section 4.1] pointing to the link’s target.
+	Href string `json:"href"`
+	// A string indicating the link’s relation type. The string MUST be a valid link relation type.
+	// required: false
+	Rel string `json:"rel,omitempty"`
+	// A string which serves as a label for the destination of a link such that it can be used as a human-readable identifier (e.g., a menu entry).
+	// required: false
+	Title string `json:"title,omitempty"`
+	// A string indicating the media type of the link’s target.
+	// required: false
+	Type string `json:"type,omitempty"`
+	// A meta object containing non-standard meta-information about the link.
+	// required: false
+	Meta map[string]any `json:"meta,omitempty"`
 }
 
 type ErrorLinks struct {
+	// A link that leads to further details about this particular occurrence of the problem.
+	// When dereferenced, this URI SHOULD return a human-readable description of the error.
+	// This is either a string containing an URL, or a Link object.
 	About any `json:"about,omitempty"`
-	Type  any `json:"type"` // either a string containing an URL, or a Link object
+	// A link that identifies the type of error that this particular error is an instance of.
+	// This URI SHOULD be dereferenceable to a human-readable explanation of the general error.
+	// This is either a string containing an URL, or a Link object.
+	Type any `json:"type"`
 }
 
 type ErrorSource struct {
-	Pointer   string `json:"pointer,omitempty"`   // a JSON Pointer [RFC6901] to the value in the request document that caused the error
-	Parameter string `json:"parameter,omitempty"` // a string indicating which URI query parameter caused the error
-	Header    string `json:"header,omitempty"`    // a string indicating the name of a single request header which caused the error
+	// A JSON Pointer [RFC6901] to the value in the request document that caused the error
+	// (e.g. "/data" for a primary data object, or "/data/attributes/title" for a specific attribute).
+	// This MUST point to a value in the request document that exists; if it doesn’t, the client SHOULD simply ignore the pointer.
+	Pointer string `json:"pointer,omitempty"`
+	// A string indicating which URI query parameter caused the error.
+	Parameter string `json:"parameter,omitempty"`
+	// A string indicating the name of a single request header which caused the error.
+	Header string `json:"header,omitempty"`
 }
 
-type ApiError struct {
-	Id        string         `json:"id"` // a unique identifier for this particular occurrence of the problem
-	Links     *ErrorLinks    `json:"links,omitempty"`
-	NumStatus int            `json:"-"`
-	Status    string         `json:"status"`           // the HTTP status code applicable to this problem, expressed as a string value
-	Code      string         `json:"code"`             // an application-specific error code, expressed as a string value
-	Title     string         `json:"title,omitempty"`  // a short, human-readable summary of the problem that SHOULD NOT change from occurrence to occurrence of the problem
-	Detail    string         `json:"detail,omitempty"` // a human-readable explanation specific to this occurrence of the problem
-	Source    *ErrorSource   `json:"source,omitempty"` // an object containing references to the primary source of the error
-	Meta      map[string]any `json:"meta,omitempty"`   // a meta object containing non-standard meta-information about the error
+// [Error](https://jsonapi.org/format/#error-objects)
+type Error struct {
+	// A unique identifier for this particular occurrence of the problem
+	Id string `json:"id"`
+	// Further detail links about the error.
+	// required: false
+	Links *ErrorLinks `json:"links,omitempty"`
+	// swagger:ignore
+	NumStatus int `json:"-"`
+	// The HTTP status code applicable to this problem, expressed as a string value.
+	Status string `json:"status"`
+	// An application-specific error code, expressed as a string value.
+	Code string `json:"code"`
+	// A short, human-readable summary of the problem that SHOULD NOT change from occurrence to occurrence of the problem.
+	Title string `json:"title,omitempty"`
+	// A human-readable explanation specific to this occurrence of the problem.
+	Detail string `json:"detail,omitempty"`
+	// An object containing references to the primary source of the error.
+	Source *ErrorSource `json:"source,omitempty"`
+	// A meta object containing non-standard meta-information about the error.
+	Meta map[string]any `json:"meta,omitempty"`
 }
 
+// swagger:response ErrorResponse
 type ErrorResponse struct {
-	Errors []ApiError `json:"errors"`
+	// List of error objects
+	Errors []Error `json:"errors"`
 }
 
 var _ render.Renderer = ErrorResponse{}
@@ -197,14 +230,14 @@ var (
 )
 
 type ErrorOpt interface {
-	apply(error *ApiError)
+	apply(error *Error)
 }
 
 type ErrorLinksOpt struct {
 	links *ErrorLinks
 }
 
-func (o ErrorLinksOpt) apply(error *ApiError) {
+func (o ErrorLinksOpt) apply(error *Error) {
 	error.Links = o.links
 }
 
@@ -212,7 +245,7 @@ type SourceLinksOpt struct {
 	source *ErrorSource
 }
 
-func (o SourceLinksOpt) apply(error *ApiError) {
+func (o SourceLinksOpt) apply(error *Error) {
 	error.Source = o.source
 }
 
@@ -220,7 +253,7 @@ type MetaLinksOpt struct {
 	meta map[string]any
 }
 
-func (o MetaLinksOpt) apply(error *ApiError) {
+func (o MetaLinksOpt) apply(error *Error) {
 	error.Meta = o.meta
 }
 
@@ -228,7 +261,7 @@ type CodeOpt struct {
 	code string
 }
 
-func (o CodeOpt) apply(error *ApiError) {
+func (o CodeOpt) apply(error *Error) {
 	error.Code = o.code
 }
 
@@ -237,13 +270,13 @@ type TitleOpt struct {
 	detail string
 }
 
-func (o TitleOpt) apply(error *ApiError) {
+func (o TitleOpt) apply(error *Error) {
 	error.Title = o.title
 	error.Detail = o.detail
 }
 
 func errorResponse(id string, error GroupwareError, options ...ErrorOpt) ErrorResponse {
-	err := ApiError{
+	err := Error{
 		Id:        id,
 		NumStatus: error.Status,
 		Status:    strconv.Itoa(error.Status),
@@ -257,12 +290,12 @@ func errorResponse(id string, error GroupwareError, options ...ErrorOpt) ErrorRe
 	}
 
 	return ErrorResponse{
-		Errors: []ApiError{err},
+		Errors: []Error{err},
 	}
 }
 
-func apiError(id string, error GroupwareError, options ...ErrorOpt) ApiError {
-	err := ApiError{
+func apiError(id string, error GroupwareError, options ...ErrorOpt) Error {
+	err := Error{
 		Id:        id,
 		NumStatus: error.Status,
 		Status:    strconv.Itoa(error.Status),
@@ -278,7 +311,7 @@ func apiError(id string, error GroupwareError, options ...ErrorOpt) ApiError {
 	return err
 }
 
-func apiErrorFromJmap(error jmap.Error) *ApiError {
+func apiErrorFromJmap(error jmap.Error) *Error {
 	if error == nil {
 		return nil
 	}
@@ -290,6 +323,6 @@ func apiErrorFromJmap(error jmap.Error) *ApiError {
 	return &api
 }
 
-func errorResponses(errors ...ApiError) ErrorResponse {
+func errorResponses(errors ...Error) ErrorResponse {
 	return ErrorResponse{Errors: errors}
 }
