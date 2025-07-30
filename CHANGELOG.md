@@ -6,7 +6,10 @@
 
 @aduffeck, @dragonchaser, @individual-it
 
+### 🐛 Bug Fixes
 
+- Do not try to log metrics when we failed to get the consumer info [[#1289](https://github.com/opencloud-eu/opencloud/pull/1289)]
+- Add thumbnails to sharedWithMe and sharedByMe requests [[#1257](https://github.com/opencloud-eu/opencloud/pull/1257)]
 
 ## [3.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.2.0) - 2025-07-21
 
