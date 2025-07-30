@@ -393,6 +393,7 @@ func monitorMetrics(stream raw.Stream, name string, m *metrics.Metrics, logger l
 			info, err := consumer.Info(ctx)
 			if err != nil {
 				logger.Error().Err(err).Msg("failed to get consumer")
+				continue
 			}
 
 			m.EventsOutstandingAcks.Set(float64(info.NumAckPending))
