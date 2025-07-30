@@ -32,6 +32,10 @@ func command[T any](api ApiClient,
 		return zero, SimpleError{code: JmapErrorDecodingResponseBody, err: err}
 	}
 
+	if data.SessionState != session.State {
+		// TODO(pbleser-oc) handle session renewal
+	}
+
 	return mapper(&data)
 }
 

@@ -10,43 +10,28 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
-func (g Groupware) Route(r chi.Router) {
-	r.Get("/", g.Index)
-	r.Get("/mailboxes", g.GetMailboxes) // ?name=&role=&subcribed=
-	r.Get("/mailbox/{id}", g.GetMailboxById)
-	r.Get("/{mailbox}/messages", g.GetMessages)
-	r.Get("/identity", g.GetIdentity)
-	r.Get("/vacation", g.GetVacation)
+// When the request succeeds.
+// swagger:response MailboxResponse200
+type SwaggerGetMailboxById200 struct {
+	// in: body
+	Body struct {
+		*jmap.Mailbox
+	}
 }
 
-type IndexResponse struct {
-	AccountId string
-}
-
-func (IndexResponse) Render(w http.ResponseWriter, r *http.Request) error {
-	return nil
-}
-
-func (g Groupware) Index(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) (any, string, *ApiError) {
-		return IndexResponse{AccountId: req.session.AccountId}, "", nil
-	})
-}
-
-func (g Groupware) GetIdentity(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) (any, string, *ApiError) {
-		res, err := g.jmap.GetIdentity(req.session, req.ctx, req.logger)
-		return res, res.State, apiErrorFromJmap(err)
-	})
-}
-
-func (g Groupware) GetVacation(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) (any, string, *ApiError) {
-		res, err := g.jmap.GetVacationResponse(req.session, req.ctx, req.logger)
-		return res, res.State, apiErrorFromJmap(err)
-	})
-}
-
+// swagger:route GET /accounts/{account}/mailboxes/{id} mailboxes_by_id
+// Get a specific mailbox by its identifier.
+//
+// A Mailbox represents a named set of Emails.
+// This is the primary mechanism for organising Emails within an account.
+// It is analogous to a folder or a label in other systems.
+//
+// responses:
+//
+//	200: MailboxResponse200
+//	400: ErrorResponse400
+//	404: ErrorResponse404
+//	500: ErrorResponse500
 func (g Groupware) GetMailboxById(w http.ResponseWriter, r *http.Request) {
 	mailboxId := chi.URLParam(r, "mailbox")
 	if mailboxId == "" {
@@ -54,7 +39,7 @@ func (g Groupware) GetMailboxById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	g.respond(w, r, func(req Request) (any, string, *ApiError) {
+	g.respond(w, r, func(req Request) (any, string, *Error) {
 		res, err := g.jmap.GetMailbox(req.session, req.ctx, req.logger, []string{mailboxId})
 		if err != nil {
 			return res, "", apiErrorFromJmap(err)
@@ -68,6 +53,41 @@ func (g Groupware) GetMailboxById(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// swagger:parameters mailboxes
+type SwaggerMailboxesParams struct {
+	// The name of the mailbox, with substring matching.
+	// in: query
+	Name string `json:"name,omitempty"`
+	// The role of the mailbox.
+	// in: query
+	Role string `json:"role,omitempty"`
+	// Whether the mailbox is subscribed by the user or not.
+	// When omitted, the subscribed and unsubscribed mailboxes are returned.
+	// in: query
+	Subscribed bool `json:"subscribed,omitempty"`
+}
+
+// When the request succeeds.
+// swagger:response MailboxesResponse200
+type SwaggerMailboxesResponse200 struct {
+	// in: body
+	Body []jmap.Mailbox
+}
+
+// swagger:route GET /accounts/{account}/mailboxes mailboxes
+// Get the list of all the mailboxes of an account.
+//
+// A Mailbox represents a named set of Emails.
+// This is the primary mechanism for organising Emails within an account.
+// It is analogous to a folder or a label in other systems.
+//
+// When none of the query parameters are specified, all the mailboxes are returned.
+//
+// responses:
+//
+//	200: MailboxesResponse200
+//	400: ErrorResponse400
+//	500: ErrorResponse500
 func (g Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	var filter jmap.MailboxFilterCondition
@@ -94,7 +114,7 @@ func (g Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) {
 		hasCriteria = true
 	}
 
-	g.respond(w, r, func(req Request) (any, string, *ApiError) {
+	g.respond(w, r, func(req Request) (any, string, *Error) {
 		if hasCriteria {
 			mailboxes, err := g.jmap.SearchMailboxes(req.session, req.ctx, req.logger, filter)
 			if err != nil {
@@ -113,7 +133,7 @@ func (g Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) {
 
 func (g Groupware) GetMessages(w http.ResponseWriter, r *http.Request) {
 	mailboxId := chi.URLParam(r, "mailbox")
-	g.respond(w, r, func(req Request) (any, string, *ApiError) {
+	g.respond(w, r, func(req Request) (any, string, *Error) {
 		page, ok, _ := ParseNumericParam(r, "page", -1)
 		logger := req.logger
 		if ok {

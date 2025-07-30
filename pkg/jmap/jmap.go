@@ -47,9 +47,14 @@ func NewClient(wellKnown SessionClient, api ApiClient) Client {
 // instead of being part of the Session, since the username is always part of the request (typically in
 // the authentication token payload.)
 type Session struct {
-	Username  string  // The name of the user to use to authenticate against Stalwart
-	AccountId string  // The identifier of the account to use when performing JMAP operations with Stalwart
-	JmapUrl   url.URL // The base URL to use for JMAP operations towards Stalwart
+	// The name of the user to use to authenticate against Stalwart
+	Username string
+	// The base URL to use for JMAP operations towards Stalwart
+	JmapUrl url.URL
+	// TODO
+	MailAccountId string
+
+	SessionResponse
 }
 
 const (
@@ -75,7 +80,7 @@ const (
 // Create a new log.Logger that is decorated with fields containing information about the Session.
 func (s Session) DecorateLogger(l log.Logger) log.Logger {
 	return log.Logger{
-		Logger: l.With().Str(logUsername, s.Username).Str(logAccountId, s.AccountId).Logger(),
+		Logger: l.With().Str(logUsername, s.Username).Str(logAccountId, s.MailAccountId).Logger(),
 	}
 }
 
@@ -85,8 +90,8 @@ func NewSession(sessionResponse SessionResponse) (Session, Error) {
 	if username == "" {
 		return Session{}, SimpleError{code: JmapErrorInvalidSessionResponse, err: fmt.Errorf("JMAP session response does not provide a username")}
 	}
-	accountId := sessionResponse.PrimaryAccounts[JmapMail]
-	if accountId == "" {
+	mailAccountId := sessionResponse.PrimaryAccounts.Mail
+	if mailAccountId == "" {
 		return Session{}, SimpleError{code: JmapErrorInvalidSessionResponse, err: fmt.Errorf("JMAP session response does not provide a primary mail account")}
 	}
 	apiStr := sessionResponse.ApiUrl
@@ -98,9 +103,10 @@ func NewSession(sessionResponse SessionResponse) (Session, Error) {
 		return Session{}, SimpleError{code: JmapErrorInvalidSessionResponse, err: fmt.Errorf("JMAP session response provides an invalid API URL")}
 	}
 	return Session{
-		Username:  username,
-		AccountId: accountId,
-		JmapUrl:   *apiUrl,
+		Username:        username,
+		MailAccountId:   mailAccountId,
+		JmapUrl:         *apiUrl,
+		SessionResponse: sessionResponse,
 	}, nil
 }
 
@@ -114,18 +120,18 @@ func (j *Client) FetchSession(username string, logger *log.Logger) (Session, Err
 }
 
 func (j *Client) logger(operation string, session *Session, logger *log.Logger) *log.Logger {
-	return &log.Logger{Logger: logger.With().Str(logOperation, operation).Str(logUsername, session.Username).Str(logAccountId, session.AccountId).Logger()}
+	return &log.Logger{Logger: logger.With().Str(logOperation, operation).Str(logUsername, session.Username).Str(logAccountId, session.MailAccountId).Logger()}
 }
 
 func (j *Client) loggerParams(operation string, session *Session, logger *log.Logger, params func(zerolog.Context) zerolog.Context) *log.Logger {
-	base := logger.With().Str(logOperation, operation).Str(logUsername, session.Username).Str(logAccountId, session.AccountId)
+	base := logger.With().Str(logOperation, operation).Str(logUsername, session.Username).Str(logAccountId, session.MailAccountId)
 	return &log.Logger{Logger: params(base).Logger()}
 }
 
 // https://jmap.io/spec-mail.html#identityget
 func (j *Client) GetIdentity(session *Session, ctx context.Context, logger *log.Logger) (IdentityGetResponse, Error) {
 	logger = j.logger("GetIdentity", session, logger)
-	cmd, err := request(invocation(IdentityGet, IdentityGetCommand{AccountId: session.AccountId}, "0"))
+	cmd, err := request(invocation(IdentityGet, IdentityGetCommand{AccountId: session.MailAccountId}, "0"))
 	if err != nil {
 		return IdentityGetResponse{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
 	}
@@ -139,7 +145,7 @@ func (j *Client) GetIdentity(session *Session, ctx context.Context, logger *log.
 // https://jmap.io/spec-mail.html#vacationresponseget
 func (j *Client) GetVacationResponse(session *Session, ctx context.Context, logger *log.Logger) (VacationResponseGetResponse, Error) {
 	logger = j.logger("GetVacationResponse", session, logger)
-	cmd, err := request(invocation(VacationResponseGet, VacationResponseGetCommand{AccountId: session.AccountId}, "0"))
+	cmd, err := request(invocation(VacationResponseGet, VacationResponseGetCommand{AccountId: session.MailAccountId}, "0"))
 	if err != nil {
 		return VacationResponseGetResponse{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
 	}
@@ -153,7 +159,7 @@ func (j *Client) GetVacationResponse(session *Session, ctx context.Context, logg
 // https://jmap.io/spec-mail.html#mailboxget
 func (j *Client) GetMailbox(session *Session, ctx context.Context, logger *log.Logger, ids []string) (MailboxGetResponse, Error) {
 	logger = j.logger("GetMailbox", session, logger)
-	cmd, err := request(invocation(MailboxGet, MailboxGetCommand{AccountId: session.AccountId, Ids: ids}, "0"))
+	cmd, err := request(invocation(MailboxGet, MailboxGetCommand{AccountId: session.MailAccountId, Ids: ids}, "0"))
 	if err != nil {
 		return MailboxGetResponse{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
 	}
@@ -171,7 +177,7 @@ func (j *Client) GetAllMailboxes(session *Session, ctx context.Context, logger *
 // https://jmap.io/spec-mail.html#mailboxquery
 func (j *Client) QueryMailbox(session *Session, ctx context.Context, logger *log.Logger, filter MailboxFilterCondition) (MailboxQueryResponse, Error) {
 	logger = j.logger("QueryMailbox", session, logger)
-	cmd, err := request(invocation(MailboxQuery, SimpleMailboxQueryCommand{AccountId: session.AccountId, Filter: filter}, "0"))
+	cmd, err := request(invocation(MailboxQuery, SimpleMailboxQueryCommand{AccountId: session.MailAccountId, Filter: filter}, "0"))
 	if err != nil {
 		return MailboxQueryResponse{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
 	}
@@ -191,9 +197,9 @@ func (j *Client) SearchMailboxes(session *Session, ctx context.Context, logger *
 	logger = j.logger("SearchMailboxes", session, logger)
 
 	cmd, err := request(
-		invocation(MailboxQuery, SimpleMailboxQueryCommand{AccountId: session.AccountId, Filter: filter}, "0"),
+		invocation(MailboxQuery, SimpleMailboxQueryCommand{AccountId: session.MailAccountId, Filter: filter}, "0"),
 		invocation(MailboxGet, MailboxGetRefCommand{
-			AccountId: session.AccountId,
+			AccountId: session.MailAccountId,
 			IdRef:     &Ref{Name: MailboxQuery, Path: "/ids/*", ResultOf: "0"},
 		}, "1"),
 	)
@@ -222,7 +228,7 @@ func (j *Client) GetEmails(session *Session, ctx context.Context, logger *log.Lo
 	})
 
 	query := EmailQueryCommand{
-		AccountId:       session.AccountId,
+		AccountId:       session.MailAccountId,
 		Filter:          &MessageFilter{InMailbox: mailboxId},
 		Sort:            []Sort{{Property: emailSortByReceivedAt, IsAscending: false}},
 		CollapseThreads: true,
@@ -236,7 +242,7 @@ func (j *Client) GetEmails(session *Session, ctx context.Context, logger *log.Lo
 	}
 
 	get := EmailGetRefCommand{
-		AccountId:          session.AccountId,
+		AccountId:          session.MailAccountId,
 		FetchAllBodyValues: fetchBodies,
 		IdRef:              &Ref{Name: EmailQuery, Path: "/ids/*", ResultOf: "0"},
 	}

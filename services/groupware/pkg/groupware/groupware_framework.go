@@ -158,7 +158,21 @@ type Request struct {
 	session *jmap.Session
 }
 
-func (g Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(r Request) (any, string, *ApiError)) {
+func (r Request) GetAccountId() string {
+	return chi.URLParam(r.r, "account")
+}
+
+func (r Request) GetAccount() (jmap.SessionAccount, bool) {
+	accountId := r.GetAccountId()
+	account, ok := r.session.Accounts[accountId]
+	if !ok {
+		r.logger.Debug().Msgf("failed to find account '%v'", accountId)
+		return jmap.SessionAccount{}, false
+	}
+	return account, true
+}
+
+func (g Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(r Request) (any, string, *Error)) {
 	ctx := r.Context()
 	logger := g.logger.SubloggerWithRequestID(ctx)
 	session, ok, err := g.session(r, ctx, &logger)
@@ -187,6 +201,7 @@ func (g Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(
 		logger.Warn().Interface("error", apierr).Msgf("API error: %v", apierr)
 		w.Header().Add("Content-Type", ContentTypeJsonApi)
 		render.Status(r, apierr.NumStatus)
+		w.WriteHeader(apierr.NumStatus)
 		render.Render(w, r, errorResponses(*apierr))
 		return
 	}
@@ -195,7 +210,9 @@ func (g Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(
 		w.Header().Add("ETag", state)
 	}
 	if response == nil {
+		logger.Debug().Msgf("respond: response is nil, 404")
 		render.Status(r, http.StatusNotFound)
+		w.WriteHeader(http.StatusNotFound)
 	} else {
 		render.Status(r, http.StatusOK)
 		render.JSON(w, r, response)

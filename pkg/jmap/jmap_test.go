@@ -28,10 +28,20 @@ func (t *TestJmapWellKnownClient) Close() error {
 }
 
 func (t *TestJmapWellKnownClient) GetSession(username string, logger *log.Logger) (SessionResponse, Error) {
+	pa := generateRandomString(2 + seededRand.Intn(10))
 	return SessionResponse{
-		Username:        generateRandomString(8),
-		ApiUrl:          "test://",
-		PrimaryAccounts: map[string]string{JmapMail: generateRandomString(2 + seededRand.Intn(10))},
+		Username: generateRandomString(8),
+		ApiUrl:   "test://",
+		PrimaryAccounts: SessionPrimaryAccounts{
+			Core:             pa,
+			Mail:             pa,
+			Submission:       pa,
+			VacationResponse: pa,
+			Sieve:            pa,
+			Blob:             pa,
+			Quota:            pa,
+			Websocket:        pa,
+		},
 	}, nil
 }
 
@@ -99,7 +109,7 @@ func TestRequests(t *testing.T) {
 	jmapUrl, err := url.Parse("http://localhost/jmap")
 	require.NoError(err)
 
-	session := Session{AccountId: "123", Username: "user123", JmapUrl: *jmapUrl}
+	session := Session{MailAccountId: "123", Username: "user123", JmapUrl: *jmapUrl}
 
 	folders, err := client.GetAllMailboxes(&session, ctx, &logger)
 	require.NoError(err)
