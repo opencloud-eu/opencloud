@@ -16,10 +16,10 @@ func TestKQL_Compile(t *testing.T) {
 			name: "Name is the default field",
 			got: &ast.Ast{
 				Nodes: []ast.Node{
-					&ast.StringNode{Value: "moby di*"},
+					&ast.StringNode{Value: "openCloud"},
 				},
 			},
-			want: opensearch.NewTermQuery[string]("Name").Value("moby di*"),
+			want: opensearch.NewTermQuery[string]("Name").Value("openCloud"),
 		},
 		{
 			name: "remaps known field names",
@@ -35,32 +35,41 @@ func TestKQL_Compile(t *testing.T) {
 			name: "remaps known field names",
 			got: &ast.Ast{
 				Nodes: []ast.Node{
-					&ast.StringNode{Key: "a", Value: "a"},
+					&ast.StringNode{Key: "Name", Value: "openCloud"},
 				},
 			},
-			want: opensearch.NewTermQuery[string]("a").Value("a"),
+			want: opensearch.NewTermQuery[string]("Name").Value("openCloud"),
+		},
+		{
+			name: "remaps known field names",
+			got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "Name", Value: "open cloud"},
+				},
+			},
+			want: opensearch.NewMatchPhraseQuery("Name").Query("open cloud"),
 		},
 		// kql to os dsl - structure tests
 		{
 			name: "[*]",
 			got: &ast.Ast{
 				Nodes: []ast.Node{
-					&ast.StringNode{Key: "name", Value: "moby di*"},
+					&ast.StringNode{Key: "name", Value: "openCloud"},
 				},
 			},
-			want: opensearch.NewTermQuery[string]("Name").Value("moby di*"),
+			want: opensearch.NewTermQuery[string]("Name").Value("openCloud"),
 		},
 		{
 			name: "[* *]",
 			got: &ast.Ast{
 				Nodes: []ast.Node{
-					&ast.StringNode{Key: "name", Value: "moby di*"},
+					&ast.StringNode{Key: "name", Value: "openCloud"},
 					&ast.StringNode{Key: "age", Value: "32"},
 				},
 			},
 			want: opensearch.NewBoolQuery().
 				Must(
-					opensearch.NewTermQuery[string]("Name").Value("moby di*"),
+					opensearch.NewTermQuery[string]("Name").Value("openCloud"),
 					opensearch.NewTermQuery[string]("age").Value("32"),
 				),
 		},
@@ -68,14 +77,14 @@ func TestKQL_Compile(t *testing.T) {
 			name: "[* AND *]",
 			got: &ast.Ast{
 				Nodes: []ast.Node{
-					&ast.StringNode{Key: "name", Value: "moby di*"},
+					&ast.StringNode{Key: "name", Value: "openCloud"},
 					&ast.OperatorNode{Value: "AND"},
 					&ast.StringNode{Key: "age", Value: "32"},
 				},
 			},
 			want: opensearch.NewBoolQuery().
 				Must(
-					opensearch.NewTermQuery[string]("Name").Value("moby di*"),
+					opensearch.NewTermQuery[string]("Name").Value("openCloud"),
 					opensearch.NewTermQuery[string]("age").Value("32"),
 				),
 		},
@@ -83,14 +92,14 @@ func TestKQL_Compile(t *testing.T) {
 			name: "[* OR *]",
 			got: &ast.Ast{
 				Nodes: []ast.Node{
-					&ast.StringNode{Key: "name", Value: "moby di*"},
+					&ast.StringNode{Key: "name", Value: "openCloud"},
 					&ast.OperatorNode{Value: "OR"},
 					&ast.StringNode{Key: "age", Value: "32"},
 				},
 			},
 			want: opensearch.NewBoolQuery().
 				Should(
-					opensearch.NewTermQuery[string]("Name").Value("moby di*"),
+					opensearch.NewTermQuery[string]("Name").Value("openCloud"),
 					opensearch.NewTermQuery[string]("age").Value("32"),
 				),
 		},
@@ -98,7 +107,7 @@ func TestKQL_Compile(t *testing.T) {
 			name: "[* OR * OR *]",
 			got: &ast.Ast{
 				Nodes: []ast.Node{
-					&ast.StringNode{Key: "name", Value: "moby di*"},
+					&ast.StringNode{Key: "name", Value: "openCloud"},
 					&ast.OperatorNode{Value: "OR"},
 					&ast.StringNode{Key: "age", Value: "32"},
 					&ast.OperatorNode{Value: "OR"},
@@ -107,7 +116,7 @@ func TestKQL_Compile(t *testing.T) {
 			},
 			want: opensearch.NewBoolQuery().
 				Should(
-					opensearch.NewTermQuery[string]("Name").Value("moby di*"),
+					opensearch.NewTermQuery[string]("Name").Value("openCloud"),
 					opensearch.NewTermQuery[string]("age").Value("32"),
 					opensearch.NewTermQuery[string]("age").Value("44"),
 				),

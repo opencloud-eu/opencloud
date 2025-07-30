@@ -67,7 +67,12 @@ func (k *KQL) getBuilder(node ast.Node) (Builder, error) {
 	var builder Builder
 	switch node := node.(type) {
 	case *ast.StringNode:
-		builder = NewTermQuery[string](k.getFieldName(node.Key)).Value(node.Value)
+		switch len(strings.Split(node.Value, " ")) {
+		case 1:
+			builder = NewTermQuery[string](k.getFieldName(node.Key)).Value(node.Value)
+		default:
+			builder = NewMatchPhraseQuery(k.getFieldName(node.Key)).Query(node.Value)
+		}
 	case *ast.GroupNode:
 		group, err := k.compile(node.Nodes)
 		if err != nil {

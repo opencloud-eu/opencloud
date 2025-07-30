@@ -1,9 +1,11 @@
 package opensearch_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
@@ -26,9 +28,11 @@ func TestEngine_Search(t *testing.T) {
 	assert.NoError(t, err)
 
 	t.Run("most simple search", func(t *testing.T) {
-		resp, err := engine.Search(t.Context(), &searchService.SearchIndexRequest{Query: "\"" + document.Name + "\""})
+		resp, err := engine.Search(t.Context(), &searchService.SearchIndexRequest{
+			Query: fmt.Sprintf(`"%s" Content:"%s"`, document.Name, document.Content),
+		})
 		assert.NoError(t, err)
-		assert.Len(t, resp.Matches, 1)
+		require.Len(t, resp.Matches, 1)
 		assert.Equal(t, int32(1), resp.TotalMatches)
 		assert.Equal(t, document.Name, resp.Matches[0].Entity.Name)
 	})
