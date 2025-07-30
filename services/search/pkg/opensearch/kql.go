@@ -19,6 +19,7 @@ func (k *KQL) Compile(tree *ast.Ast) (Builder, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return q, nil
 }
 
@@ -62,12 +63,27 @@ func (k *KQL) getOperatorValueAt(nodes []ast.Node, i int) string {
 	return ""
 }
 
+func (k *KQL) getBuilder(node ast.Node) (Builder, error) {
+	var builder Builder
+	switch node := node.(type) {
+	case *ast.StringNode:
+		builder = NewTermQuery[string](k.getFieldName(node.Key)).Value(node.Value)
+	case *ast.GroupNode:
+		group, err := k.compile(node.Nodes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build group: %w", err)
+		}
+		builder = group
+	}
+
+	return builder, nil
+}
+
 func (k *KQL) compile(nodes []ast.Node) (Builder, error) {
 	boolQuery := NewBoolQuery()
-
 	add := boolQuery.Must
-	for i, node := range nodes {
 
+	for i, node := range nodes {
 		prevOp := k.getOperatorValueAt(nodes, i-1)
 		nextOp := k.getOperatorValueAt(nodes, i+1)
 
@@ -78,15 +94,21 @@ func (k *KQL) compile(nodes []ast.Node) (Builder, error) {
 			add = boolQuery.Must
 		}
 
-		switch node := node.(type) {
-		case *ast.StringNode:
-			add(NewTermQuery[string](k.getFieldName(node.Key)).Value(node.Value))
-		case *ast.GroupNode:
-			group, err := k.compile(node.Nodes)
-			if err != nil {
-				return nil, fmt.Errorf("failed to build group: %w", err)
-			}
-			add(group)
+		if _, ok := node.(*ast.OperatorNode); ok {
+			// operatorNodes are not builders, so we skip them
+			continue
+		}
+
+		builder, err := k.getBuilder(node)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get builder for node %T: %w", node, err)
+		}
+
+		switch {
+		case len(nodes) == 1:
+			return builder, nil
+		default:
+			add(builder)
 		}
 	}
 

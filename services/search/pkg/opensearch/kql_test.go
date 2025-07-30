@@ -19,10 +19,7 @@ func TestKQL_Compile(t *testing.T) {
 					&ast.StringNode{Value: "moby di*"},
 				},
 			},
-			want: opensearch.NewBoolQuery().
-				Must(
-					opensearch.NewTermQuery[string]("Name").Value("moby di*"),
-				),
+			want: opensearch.NewTermQuery[string]("Name").Value("moby di*"),
 		},
 		{
 			name: "remaps known field names",
@@ -31,12 +28,18 @@ func TestKQL_Compile(t *testing.T) {
 					&ast.StringNode{Key: "mediatype", Value: "application/gzip"},
 				},
 			},
-			want: opensearch.NewBoolQuery().
-				Must(
-					opensearch.NewTermQuery[string]("MimeType").Value("application/gzip"),
-				),
+			want: opensearch.NewTermQuery[string]("MimeType").Value("application/gzip"),
 		},
 		// kql to os dsl - type tests
+		{
+			name: "remaps known field names",
+			got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "a", Value: "a"},
+				},
+			},
+			want: opensearch.NewTermQuery[string]("a").Value("a"),
+		},
 		// kql to os dsl - structure tests
 		{
 			name: "[*]",
@@ -45,10 +48,7 @@ func TestKQL_Compile(t *testing.T) {
 					&ast.StringNode{Key: "name", Value: "moby di*"},
 				},
 			},
-			want: opensearch.NewBoolQuery().
-				Must(
-					opensearch.NewTermQuery[string]("Name").Value("moby di*"),
-				),
+			want: opensearch.NewTermQuery[string]("Name").Value("moby di*"),
 		},
 		{
 			name: "[* *]",
