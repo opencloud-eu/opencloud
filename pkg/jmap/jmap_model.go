@@ -11,6 +11,11 @@ const (
 	JmapSubmission       = "urn:ietf:params:jmap:submission"
 	JmapVacationResponse = "urn:ietf:params:jmap:vacationresponse"
 	JmapCalendars        = "urn:ietf:params:jmap:calendars"
+	JmapSieve            = "urn:ietf:params:jmap:sieve"
+	JmapBlob             = "urn:ietf:params:jmap:blob"
+	JmapQuota            = "urn:ietf:params:jmap:quota"
+	JmapWebsocket        = "urn:ietf:params:jmap:websocket"
+
 	JmapKeywordPrefix    = "$"
 	JmapKeywordSeen      = "$seen"
 	JmapKeywordDraft     = "$draft"
@@ -23,17 +28,119 @@ const (
 	JmapKeywordMdnSent   = "$mdnsent"
 )
 
+type SessionMailAccountCapabilities struct {
+	MaxMailboxesPerEmail       int      `json:"maxMailboxesPerEmail"`
+	MaxMailboxDepth            int      `json:"maxMailboxDepth"`
+	MaxSizeMailboxName         int      `json:"maxSizeMailboxName"`
+	MaxSizeAttachmentsPerEmail int      `json:"maxSizeAttachmentsPerEmail"`
+	EmailQuerySortOptions      []string `json:"emailQuerySortOptions"`
+	MayCreateTopLevelMailbox   bool     `json:"mayCreateTopLevelMailbox"`
+}
+
+type SessionSubmissionAccountCapabilities struct {
+	MaxDelayedSend       int                 `json:"maxDelayedSend"`
+	SubmissionExtensions map[string][]string `json:"submissionExtensions"`
+}
+
+type SessionVacationResponseAccountCapabilities struct {
+}
+
+type SessionSieveAccountCapabilities struct {
+	MaxSizeScriptName   int      `json:"maxSizeScriptName"`
+	MaxSizeScript       int      `json:"maxSizeScript"`
+	MaxNumberScripts    int      `json:"maxNumberScripts"`
+	MaxNumberRedirects  int      `json:"maxNumberRedirects"`
+	SieveExtensions     []string `json:"sieveExtensions"`
+	NotificationMethods []string `json:"notificationMethods"`
+	ExternalLists       any      `json:"externalLists"` // ?
+}
+
+type SessionBlobAccountCapabilities struct {
+	MaxSizeBlobSet            int      `json:"maxSizeBlobSet"`
+	MaxDataSources            int      `json:"maxDataSources"`
+	SupportedTypeNames        []string `json:"supportedTypeNames"`
+	SupportedDigestAlgorithms []string `json:"supportedDigestAlgorithms"`
+}
+
+type SessionQuotaAccountCapabilities struct {
+}
+
+type SessionAccountCapabilities struct {
+	Mail             SessionMailAccountCapabilities             `json:"urn:ietf:params:jmap:mail"`
+	Submission       SessionSubmissionAccountCapabilities       `json:"urn:ietf:params:jmap:submission"`
+	VacationResponse SessionVacationResponseAccountCapabilities `json:"urn:ietf:params:jmap:vacationresponse"`
+	Sieve            SessionSieveAccountCapabilities            `json:"urn:ietf:params:jmap:sieve"`
+	Blob             SessionBlobAccountCapabilities             `json:"urn:ietf:params:jmap:blob"`
+	Quota            SessionQuotaAccountCapabilities            `json:"urn:ietf:params:jmap:quota"`
+}
+
 type SessionAccount struct {
-	Name                string         `json:"name,omitempty"`
-	IsPersonal          bool           `json:"isPersonal"`
-	IsReadOnly          bool           `json:"isReadOnly"`
-	AccountCapabilities map[string]any `json:"accountCapabilities,omitempty"`
+	Name                string                     `json:"name,omitempty"`
+	IsPersonal          bool                       `json:"isPersonal"`
+	IsReadOnly          bool                       `json:"isReadOnly"`
+	AccountCapabilities SessionAccountCapabilities `json:"accountCapabilities,omitempty"`
+}
+
+type SessionCoreCapabilities struct {
+	MaxSizeUpload         int      `json:"maxSizeUpload"`
+	MaxConcurrentUpload   int      `json:"maxConcurrentUpload"`
+	MaxSizeRequest        int      `json:"maxSizeRequest"`
+	MaxConcurrentRequests int      `json:"maxConcurrentRequests"`
+	MaxCallsInRequest     int      `json:"maxCallsInRequest"`
+	MaxObjectsInGet       int      `json:"maxObjectsInGet"`
+	MaxObjectsInSet       int      `json:"maxObjectsInSet"`
+	CollationAlgorithms   []string `json:"collationAlgorithms"`
+}
+
+type SessionMailCapabilities struct {
+}
+
+type SessionSubmissionCapabilities struct {
+}
+
+type SessionVacationResponseCapabilities struct {
+}
+
+type SessionSieveCapabilities struct {
+}
+
+type SessionBlobCapabilities struct {
+}
+
+type SessionQuotaCapabilities struct {
+}
+
+type SessionWebsocketCapabilities struct {
+	Url          string `json:"url"`
+	SupportsPush bool   `json:"supportsPush"`
+}
+
+type SessionCapabilities struct {
+	Core             SessionCoreCapabilities             `json:"urn:ietf:params:jmap:core"`
+	Mail             SessionMailCapabilities             `json:"urn:ietf:params:jmap:mail"`
+	Submission       SessionSubmissionCapabilities       `json:"urn:ietf:params:jmap:submission"`
+	VacationResponse SessionVacationResponseCapabilities `json:"urn:ietf:params:jmap:vacationresponse"`
+	Sieve            SessionSieveCapabilities            `json:"urn:ietf:params:jmap:sieve"`
+	Blob             SessionBlobCapabilities             `json:"urn:ietf:params:jmap:blob"`
+	Quota            SessionQuotaCapabilities            `json:"urn:ietf:params:jmap:quota"`
+	Websocket        SessionWebsocketCapabilities        `json:"urn:ietf:params:jmap:websocket"`
+}
+
+type SessionPrimaryAccounts struct {
+	Core             string `json:"urn:ietf:params:jmap:core"`
+	Mail             string `json:"urn:ietf:params:jmap:mail"`
+	Submission       string `json:"urn:ietf:params:jmap:submission"`
+	VacationResponse string `json:"urn:ietf:params:jmap:vacationresponse"`
+	Sieve            string `json:"urn:ietf:params:jmap:sieve"`
+	Blob             string `json:"urn:ietf:params:jmap:blob"`
+	Quota            string `json:"urn:ietf:params:jmap:quota"`
+	Websocket        string `json:"urn:ietf:params:jmap:websocket"`
 }
 
 type SessionResponse struct {
-	Capabilities    map[string]any            `json:"capabilities,omitempty"`
+	Capabilities    SessionCapabilities       `json:"capabilities,omitempty"`
 	Accounts        map[string]SessionAccount `json:"accounts,omitempty"`
-	PrimaryAccounts map[string]string         `json:"primaryAccounts,omitempty"`
+	PrimaryAccounts SessionPrimaryAccounts    `json:"primaryAccounts,omitempty"`
 	Username        string                    `json:"username,omitempty"`
 	ApiUrl          string                    `json:"apiUrl,omitempty"`
 	DownloadUrl     string                    `json:"downloadUrl,omitempty"`
@@ -326,21 +433,45 @@ type VacationResponseGetCommand struct {
 	AccountId string `json:"accountId"`
 }
 
+// https://datatracker.ietf.org/doc/html/rfc8621#section-8
 type VacationResponse struct {
-	Id        string    `json:"id"`
-	IsEnabled bool      `json:"isEnabled"`
-	FromDate  time.Time `json:"fromDate,omitzero"`
-	ToDate    time.Time `json:"toDate,omitzero"`
-	Subject   string    `json:"subject,omitempty"`
-	TextBody  string    `json:"textBody,omitempty"`
-	HtmlBody  string    `json:"htmlBody,omitempty"`
+	// The id of the object.
+	// There is only ever one VacationResponse object, and its id is "singleton"
+	Id string `json:"id"`
+	// Should a vacation response be sent if a message arrives between the "fromDate" and "toDate"?
+	IsEnabled bool `json:"isEnabled"`
+	// If "isEnabled" is true, messages that arrive on or after this date-time (but before the "toDate" if defined) should receive the
+	// user's vacation response. If null, the vacation response is effective immediately.
+	FromDate time.Time `json:"fromDate,omitzero"`
+	// If "isEnabled" is true, messages that arrive before this date-time but on or after the "fromDate" if defined) should receive the
+	// user's vacation response.  If null, the vacation response is effective indefinitely.
+	ToDate time.Time `json:"toDate,omitzero"`
+	// The subject that will be used by the message sent in response to messages when the vacation response is enabled.
+	// If null, an appropriate subject SHOULD be set by the server.
+	Subject string `json:"subject,omitempty"`
+	// The plaintext body to send in response to messages when the vacation response is enabled.
+	// If this is null, the server SHOULD generate a plaintext body part from the "htmlBody" when sending vacation responses
+	// but MAY choose to send the response as HTML only.  If both "textBody" and "htmlBody" are null, an appropriate default
+	// body SHOULD be generated for responses by the server.
+	TextBody string `json:"textBody,omitempty"`
+	// The HTML body to send in response to messages when the vacation response is enabled.
+	// If this is null, the server MAY choose to generate an HTML body part from the "textBody" when sending vacation responses
+	// or MAY choose to send the response as plaintext only.
+	HtmlBody string `json:"htmlBody,omitempty"`
 }
 
 type VacationResponseGetResponse struct {
-	AccountId string             `json:"accountId"`
-	State     string             `json:"state,omitempty"`
-	List      []VacationResponse `json:"list,omitempty"`
-	NotFound  []any              `json:"notFound,omitempty"`
+	// The identifier of the account this response pertains to.
+	AccountId string `json:"accountId"`
+	// A string representing the state on the server for all the data of this type in the account
+	// (not just the objects returned in this call).
+	// If the data changes, this string MUST change. If the data is unchanged, servers SHOULD return the same state string
+	// on subsequent requests for this data type.
+	State string `json:"state,omitempty"`
+	// An array of VacationResponse objects.
+	List []VacationResponse `json:"list,omitempty"`
+	// Contains identifiers of requested objects that were not found.
+	NotFound []any `json:"notFound,omitempty"`
 }
 
 var CommandResponseTypeMap = map[Command]func() any{
