@@ -5,6 +5,7 @@ import (
 )
 
 type IndexLimits struct {
+	// The maximum file size, in octets, that the server will accept for a single file upload (for any purpose).
 	MaxSizeUpload         int `json:"maxSizeUpload"`
 	MaxConcurrentUpload   int `json:"maxConcurrentUpload"`
 	MaxSizeRequest        int `json:"maxSizeRequest"`

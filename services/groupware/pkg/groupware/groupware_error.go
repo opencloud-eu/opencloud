@@ -1,9 +1,11 @@
 package groupware
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
@@ -11,6 +13,8 @@ import (
 
 type Link struct {
 	// A string whose value is a URI-reference [RFC3986 Section 4.1] pointing to the link’s target.
+	//
+	// [RFC3986 Section 4.1]: https://datatracker.ietf.org/doc/html/rfc3986#section-4.1
 	Href string `json:"href"`
 	// A string indicating the link’s relation type. The string MUST be a valid link relation type.
 	// required: false
@@ -41,6 +45,8 @@ type ErrorSource struct {
 	// A JSON Pointer [RFC6901] to the value in the request document that caused the error
 	// (e.g. "/data" for a primary data object, or "/data/attributes/title" for a specific attribute).
 	// This MUST point to a value in the request document that exists; if it doesn’t, the client SHOULD simply ignore the pointer.
+	//
+	// [RFC6901]: https://datatracker.ietf.org/doc/html/rfc6901
 	Pointer string `json:"pointer,omitempty"`
 	// A string indicating which URI query parameter caused the error.
 	Parameter string `json:"parameter,omitempty"`
@@ -48,7 +54,9 @@ type ErrorSource struct {
 	Header string `json:"header,omitempty"`
 }
 
-// [Error](https://jsonapi.org/format/#error-objects)
+// [Error] describes an error.
+//
+// [Error]: https://jsonapi.org/format/#error-objects
 type Error struct {
 	// A unique identifier for this particular occurrence of the problem
 	Id string `json:"id"`
@@ -90,6 +98,9 @@ func (e ErrorResponse) Render(w http.ResponseWriter, r *http.Request) error {
 }
 
 const (
+	// The [JSON:API] Content Type for errors
+	//
+	// [JSON:API]: https://jsonapi.org/
 	ContentTypeJsonApi = "application/vnd.api+json"
 )
 
@@ -134,6 +145,7 @@ func groupwareErrorFromJmap(j jmap.Error) *GroupwareError {
 
 const (
 	ErrorCodeGeneric                    = "ERRGEN"
+	ErrorCodeInvalidAuthentication      = "AUTINV"
 	ErrorCodeMissingAuthentication      = "AUTMIS"
 	ErrorCodeForbiddenGeneric           = "AUTFOR"
 	ErrorCodeInvalidRequest             = "INVREQ"
@@ -146,6 +158,8 @@ const (
 	ErrorCodeInvalidSessionResponse     = "INVSES"
 	ErrorCodeInvalidRequestPayload      = "INVRQP"
 	ErrorCodeInvalidResponsePayload     = "INVRSP"
+	ErrorCodeInvalidRequestParameter    = "INVPAR"
+	ErrorCodeNonExistingAccount         = "INVACC"
 )
 
 var (
@@ -154,6 +168,12 @@ var (
 		Code:   ErrorCodeGeneric,
 		Title:  "Unspecific Error",
 		Detail: "Error without a specific description.",
+	}
+	ErrorInvalidAuthentication = GroupwareError{
+		Status: http.StatusUnauthorized,
+		Code:   ErrorCodeMissingAuthentication,
+		Title:  "Invalid Authentication",
+		Detail: "Failed to determine the authentication credentials.",
 	}
 	ErrorMissingAuthentication = GroupwareError{
 		Status: http.StatusUnauthorized,
@@ -227,6 +247,18 @@ var (
 		Title:  "Invalid Response Payload",
 		Detail: "The payload of the response received from the mail server is invalid.",
 	}
+	ErrorInvalidRequestParameter = GroupwareError{
+		Status: http.StatusBadRequest,
+		Code:   ErrorCodeInvalidRequestParameter,
+		Title:  "Invalid Request Parameter",
+		Detail: "At least one of the parameters in the request is invalid.",
+	}
+	ErrorNonExistingAccount = GroupwareError{
+		Status: http.StatusBadRequest,
+		Code:   ErrorCodeNonExistingAccount,
+		Title:  "Invalid Account Parameter",
+		Detail: "The account the request is for does not exist.",
+	}
 )
 
 type ErrorOpt interface {
@@ -241,12 +273,25 @@ func (o ErrorLinksOpt) apply(error *Error) {
 	error.Links = o.links
 }
 
+var _ = withLinks // unused for now, but will be
+func withLinks(links *ErrorLinks) ErrorLinksOpt {
+	return ErrorLinksOpt{
+		links: links,
+	}
+}
+
 type SourceLinksOpt struct {
 	source *ErrorSource
 }
 
 func (o SourceLinksOpt) apply(error *Error) {
 	error.Source = o.source
+}
+
+func withSource(source *ErrorSource) SourceLinksOpt {
+	return SourceLinksOpt{
+		source: source,
+	}
 }
 
 type MetaLinksOpt struct {
@@ -257,12 +302,26 @@ func (o MetaLinksOpt) apply(error *Error) {
 	error.Meta = o.meta
 }
 
+var _ = withMeta // unused for now, but will be
+func withMeta(meta map[string]any) MetaLinksOpt {
+	return MetaLinksOpt{
+		meta: meta,
+	}
+}
+
 type CodeOpt struct {
 	code string
 }
 
 func (o CodeOpt) apply(error *Error) {
 	error.Code = o.code
+}
+
+var _ = withCode // unused for now, but will be
+func withCode(code string) CodeOpt {
+	return CodeOpt{
+		code: code,
+	}
 }
 
 type TitleOpt struct {
@@ -275,6 +334,29 @@ func (o TitleOpt) apply(error *Error) {
 	error.Detail = o.detail
 }
 
+var _ = withTitle // unused for now, but will be
+func withTitle(title string, detail string) TitleOpt {
+	return TitleOpt{
+		title:  title,
+		detail: detail,
+	}
+}
+
+type DetailOpt struct {
+	detail string
+}
+
+func (o DetailOpt) apply(error *Error) {
+	error.Detail = o.detail
+}
+
+func withDetail(detail string) DetailOpt {
+	return DetailOpt{
+		detail: detail,
+	}
+}
+
+/*
 func errorResponse(id string, error GroupwareError, options ...ErrorOpt) ErrorResponse {
 	err := Error{
 		Id:        id,
@@ -293,9 +375,24 @@ func errorResponse(id string, error GroupwareError, options ...ErrorOpt) ErrorRe
 		Errors: []Error{err},
 	}
 }
+*/
 
-func apiError(id string, error GroupwareError, options ...ErrorOpt) Error {
-	err := Error{
+func errorId(r *http.Request, ctx context.Context) string {
+	requestId := chimiddleware.GetReqID(ctx)
+	localId := uuid.NewString()
+	if requestId != "" {
+		return requestId + "." + localId
+	} else {
+		return localId
+	}
+}
+
+func (r Request) errorId() string {
+	return errorId(r.r, r.ctx)
+}
+
+func apiError(id string, error GroupwareError, options ...ErrorOpt) *Error {
+	err := &Error{
 		Id:        id,
 		NumStatus: error.Status,
 		Status:    strconv.Itoa(error.Status),
@@ -305,13 +402,13 @@ func apiError(id string, error GroupwareError, options ...ErrorOpt) Error {
 	}
 
 	for _, o := range options {
-		o.apply(&err)
+		o.apply(err)
 	}
 
 	return err
 }
 
-func apiErrorFromJmap(error jmap.Error) *Error {
+func (r Request) apiErrorFromJmap(error jmap.Error) *Error {
 	if error == nil {
 		return nil
 	}
@@ -319,8 +416,9 @@ func apiErrorFromJmap(error jmap.Error) *Error {
 	if gwe == nil {
 		return nil
 	}
-	api := apiError(uuid.NewString(), *gwe)
-	return &api
+
+	errorId := r.errorId()
+	return apiError(errorId, *gwe)
 }
 
 func errorResponses(errors ...Error) ErrorResponse {

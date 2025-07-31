@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -59,7 +58,7 @@ func (e AuthenticationError) Unwrap() error {
 	return e.Err
 }
 
-func (h *HttpJmapApiClient) auth(username string, logger *log.Logger, req *http.Request) error {
+func (h *HttpJmapApiClient) auth(username string, _ *log.Logger, req *http.Request) error {
 	masterUsername := username + "%" + h.masterUser
 	req.SetBasicAuth(masterUsername, h.masterPassword)
 	return nil
@@ -127,15 +126,6 @@ func (h *HttpJmapApiClient) Command(ctx context.Context, logger *log.Logger, ses
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("User-Agent", h.userAgent)
 	h.auth(session.Username, logger, req)
-
-	{
-		if logger.Trace().Enabled() {
-			safereq := req.Clone(ctx)
-			safereq.Header.Set("Authorization", "***")
-			bytes, _ := httputil.DumpRequest(safereq, false)
-			logger.Info().Msgf("sending command: %s", string(bytes))
-		}
-	}
 
 	res, err := h.client.Do(req)
 	if err != nil {
