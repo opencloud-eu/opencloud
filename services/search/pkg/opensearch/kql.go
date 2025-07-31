@@ -1,11 +1,16 @@
 package opensearch
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
 	"github.com/opencloud-eu/opencloud/pkg/kql"
+)
+
+var (
+	ErrUnsupportedNodeType = fmt.Errorf("unsupported node type")
 )
 
 type KQL struct{}
@@ -21,6 +26,56 @@ func (k *KQL) Compile(tree *ast.Ast) (Builder, error) {
 	}
 
 	return q, nil
+}
+
+func (k *KQL) compile(nodes []ast.Node) (Builder, error) {
+	if len(nodes) == 0 {
+		return nil, fmt.Errorf("no nodes to compile")
+	}
+
+	if len(nodes) == 1 {
+		builder, err := k.getBuilder(nodes[0])
+		if err != nil {
+			return nil, fmt.Errorf("failed to get builder for single node: %w", err)
+		}
+		return builder, nil
+	}
+
+	boolQuery := NewBoolQuery()
+	add := boolQuery.Must
+
+	for i, node := range nodes {
+		nextOp := k.getOperatorValueAt(nodes, i+1)
+
+		switch {
+		case nextOp == kql.BoolOR:
+			add = boolQuery.Should
+		case nextOp == kql.BoolAND:
+			add = boolQuery.Must
+		}
+
+		builder, err := k.getBuilder(node)
+		switch {
+		// if the node is not known, we skip it, such as an operator node
+		case errors.Is(err, ErrUnsupportedNodeType):
+			continue
+		case err != nil:
+			return nil, fmt.Errorf("failed to get builder for node %T: %w", node, err)
+		}
+
+		if _, ok := node.(*ast.OperatorNode); ok {
+			// operatorNodes are not builders, so we skip them
+			continue
+		}
+
+		add(builder)
+	}
+
+	if len(boolQuery.should) != 0 {
+		boolQuery.options.MinimumShouldMatch = 1
+	}
+
+	return boolQuery, nil
 }
 
 func (k *KQL) getFieldName(name string) string {
@@ -67,6 +122,11 @@ func (k *KQL) getBuilder(node ast.Node) (Builder, error) {
 	var builder Builder
 	switch node := node.(type) {
 	case *ast.StringNode:
+		if strings.Contains(node.Value, "*") {
+			builder = NewWildcardQuery(k.getFieldName(node.Key)).Value(node.Value)
+			break
+		}
+
 		switch len(strings.Split(node.Value, " ")) {
 		case 1:
 			builder = NewTermQuery[string](k.getFieldName(node.Key)).Value(node.Value)
@@ -79,43 +139,9 @@ func (k *KQL) getBuilder(node ast.Node) (Builder, error) {
 			return nil, fmt.Errorf("failed to build group: %w", err)
 		}
 		builder = group
+	default:
+		return nil, fmt.Errorf("%w: %T", ErrUnsupportedNodeType, node)
 	}
 
 	return builder, nil
-}
-
-func (k *KQL) compile(nodes []ast.Node) (Builder, error) {
-	boolQuery := NewBoolQuery()
-	add := boolQuery.Must
-
-	for i, node := range nodes {
-		prevOp := k.getOperatorValueAt(nodes, i-1)
-		nextOp := k.getOperatorValueAt(nodes, i+1)
-
-		switch {
-		case nextOp == kql.BoolOR || prevOp == kql.BoolOR:
-			add = boolQuery.Should
-		case nextOp == kql.BoolAND || prevOp == kql.BoolAND:
-			add = boolQuery.Must
-		}
-
-		if _, ok := node.(*ast.OperatorNode); ok {
-			// operatorNodes are not builders, so we skip them
-			continue
-		}
-
-		builder, err := k.getBuilder(node)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get builder for node %T: %w", node, err)
-		}
-
-		switch {
-		case len(nodes) == 1:
-			return builder, nil
-		default:
-			add(builder)
-		}
-	}
-
-	return boolQuery, nil
 }
