@@ -1,10 +1,18 @@
 package opensearch
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
+	"time"
 
 	"dario.cat/mergo"
+	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
+)
+
+var (
+	ErrUnhealthyCluster = fmt.Errorf("cluster is not healthy")
 )
 
 func isEmpty(x any) bool {
@@ -56,4 +64,27 @@ func convert[T any](v any) (T, error) {
 	}
 
 	return t, nil
+}
+
+func clusterHealth(ctx context.Context, client *opensearchgoAPI.Client, indices []string) (*opensearchgoAPI.ClusterHealthResp, bool, error) {
+	resp, err := client.Cluster.Health(ctx, &opensearchgoAPI.ClusterHealthReq{
+		Indices: indices,
+		Params: opensearchgoAPI.ClusterHealthParams{
+			Local:   opensearchgoAPI.ToPointer(true),
+			Timeout: 5 * time.Second,
+		},
+	})
+	if err != nil {
+		return nil, false, fmt.Errorf("%w, failed to get cluster health: %w", ErrUnhealthyCluster, err)
+	}
+
+	if resp.TimedOut {
+		return resp, false, fmt.Errorf("%w, cluster health request timed out", ErrUnhealthyCluster)
+	}
+
+	if resp.Status != "green" && resp.Status != "yellow" {
+		return resp, false, fmt.Errorf("%w, cluster health is not green or yellow: %s", ErrUnhealthyCluster, resp.Status)
+	}
+
+	return resp, true, nil
 }

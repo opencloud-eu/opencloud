@@ -115,6 +115,22 @@ func (tc *TestClient) IndicesDelete(ctx context.Context, indices []string) error
 	}
 }
 
+func (tc *TestClient) IndicesCreate(ctx context.Context, index string, body string) error {
+	resp, err := tc.c.Indices.Create(ctx, opensearchgoAPI.IndicesCreateReq{
+		Index: index,
+		Body:  strings.NewReader(body),
+	})
+
+	switch {
+	case err != nil:
+		return fmt.Errorf("failed to create index %s: %w", index, err)
+	case !resp.Acknowledged:
+		return fmt.Errorf("index creation not acknowledged for %s", index)
+	default:
+		return nil
+	}
+}
+
 func (tc *TestClient) IndicesCount(ctx context.Context, indices []string, body string) (int, error) {
 	if err := tc.IndicesRefresh(ctx, indices, []int{404}); err != nil {
 		return 0, err
@@ -180,6 +196,10 @@ func (trc *testRequireClient) IndicesReset(indices []string) {
 
 func (trc *testRequireClient) IndicesRefresh(indices []string, ignore []int) {
 	require.NoError(trc.t, trc.tc.IndicesRefresh(trc.t.Context(), indices, ignore))
+}
+
+func (trc *testRequireClient) IndicesCreate(index string, body string) {
+	require.NoError(trc.t, trc.tc.IndicesCreate(trc.t.Context(), index, body))
 }
 
 func (trc *testRequireClient) IndicesDelete(indices []string) {

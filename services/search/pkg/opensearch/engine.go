@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
@@ -22,6 +24,14 @@ type Engine struct {
 }
 
 func NewEngine(index string, client *opensearchgoAPI.Client) (*Engine, error) {
+	_, healthy, err := clusterHealth(context.Background(), client, []string{index})
+	switch {
+	case err != nil:
+		return nil, fmt.Errorf("failed to get cluster health: %w", err)
+	case !healthy:
+		return nil, fmt.Errorf("cluster health is not healthy")
+	}
+
 	return &Engine{index: index, client: client}, nil
 }
 
@@ -41,9 +51,25 @@ func (e *Engine) Search(ctx context.Context, sir *searchService.SearchIndexReque
 		return nil, fmt.Errorf("failed to compile query: %w", err)
 	}
 
-	body, err := NewRootQuery(builderToBoolQuery(builder).Filter(
+	boolQuery := builderToBoolQuery(builder).Filter(
 		NewTermQuery[bool]("Deleted").Value(false),
-	)).MarshalJSON()
+	)
+
+	if sir.Ref != nil {
+		boolQuery.Filter(
+			NewMatchPhraseQuery("RootID").Query(
+				storagespace.FormatResourceID(
+					&storageProvider.ResourceId{
+						StorageId: sir.Ref.GetResourceId().GetStorageId(),
+						SpaceId:   sir.Ref.GetResourceId().GetSpaceId(),
+						OpaqueId:  sir.Ref.GetResourceId().GetOpaqueId(),
+					},
+				),
+			),
+		)
+	}
+
+	body, err := NewRootQuery(boolQuery).MarshalJSON()
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal query: %w", err)
 	}

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	opensearchgo "github.com/opensearch-project/opensearch-go/v4"
+	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -12,11 +14,27 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
+func TestNewEngine(t *testing.T) {
+	t.Run("fails to create if the cluster is not healthy", func(t *testing.T) {
+		client, err := opensearchgoAPI.NewClient(opensearchgoAPI.Config{
+			Client: opensearchgo.Config{
+				Addresses: []string{"http://localhost:1025"},
+			},
+		})
+		require.NoError(t, err, "failed to create OpenSearch client")
+
+		engine, err := opensearch.NewEngine("test-engine-new-engine", client)
+		assert.Nil(t, engine)
+		assert.ErrorIs(t, err, opensearch.ErrUnhealthyCluster)
+	})
+}
+
 func TestEngine_Search(t *testing.T) {
 	index := "test-engine-search"
 	tc := opensearchtest.NewDefaultTestClient(t)
 	tc.Require.IndicesReset([]string{index})
 	tc.Require.IndicesCount([]string{index}, "", 0)
+	tc.Require.IndicesCreate(index, "")
 
 	defer tc.Require.IndicesDelete([]string{index})
 
@@ -60,6 +78,7 @@ func TestEngine_Upsert(t *testing.T) {
 	tc := opensearchtest.NewDefaultTestClient(t)
 	tc.Require.IndicesReset([]string{index})
 	tc.Require.IndicesCount([]string{index}, "", 0)
+	tc.Require.IndicesCreate(index, "")
 
 	defer tc.Require.IndicesDelete([]string{index})
 
@@ -81,6 +100,7 @@ func TestEngine_Delete(t *testing.T) {
 	tc := opensearchtest.NewDefaultTestClient(t)
 	tc.Require.IndicesReset([]string{index})
 	tc.Require.IndicesCount([]string{index}, "", 0)
+	tc.Require.IndicesCreate(index, "")
 
 	defer tc.Require.IndicesDelete([]string{index})
 
@@ -108,6 +128,7 @@ func TestEngine_Restore(t *testing.T) {
 	tc := opensearchtest.NewDefaultTestClient(t)
 	tc.Require.IndicesReset([]string{index})
 	tc.Require.IndicesCount([]string{index}, "", 0)
+	tc.Require.IndicesCreate(index, "")
 
 	defer tc.Require.IndicesDelete([]string{index})
 
@@ -136,6 +157,7 @@ func TestEngine_Purge(t *testing.T) {
 	tc := opensearchtest.NewDefaultTestClient(t)
 	tc.Require.IndicesReset([]string{index})
 	tc.Require.IndicesCount([]string{index}, "", 0)
+	tc.Require.IndicesCreate(index, "")
 
 	defer tc.Require.IndicesDelete([]string{index})
 
@@ -158,6 +180,7 @@ func TestEngine_DocCount(t *testing.T) {
 	tc := opensearchtest.NewDefaultTestClient(t)
 	tc.Require.IndicesReset([]string{index})
 	tc.Require.IndicesCount([]string{index}, "", 0)
+	tc.Require.IndicesCreate(index, "")
 
 	defer tc.Require.IndicesDelete([]string{index})
 
