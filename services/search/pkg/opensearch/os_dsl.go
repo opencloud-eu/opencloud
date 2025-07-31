@@ -85,3 +85,19 @@ func applyBuilders(target map[string]any, key string, bs ...Builder) error {
 
 	return nil
 }
+
+func builderToBoolQuery(b Builder) *BoolQuery {
+	var bq *BoolQuery
+
+	if q, ok := b.(*RootQuery); ok {
+		b = q.query
+	}
+
+	if q, ok := b.(*BoolQuery); !ok {
+		bq = NewBoolQuery().Must(b)
+	} else {
+		bq = q
+	}
+
+	return bq
+}
