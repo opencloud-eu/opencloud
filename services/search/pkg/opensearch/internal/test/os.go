@@ -89,7 +89,10 @@ func (tc *TestClient) IndicesRefresh(ctx context.Context, indices []string, allo
 		Indices: indices,
 	})
 
-	isAllowed := resp != nil && slices.Contains(allow, resp.Inspect().Response.StatusCode)
+	isAllowed := resp != nil
+	isAllowed = isAllowed && resp.Inspect().Response != nil
+	isAllowed = isAllowed && slices.Contains(allow, resp.Inspect().Response.StatusCode)
+
 	if err != nil && !isAllowed {
 		return fmt.Errorf("failed to refresh indices %v: %w", indices, err)
 	}

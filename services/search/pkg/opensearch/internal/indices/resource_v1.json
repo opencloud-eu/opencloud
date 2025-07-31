@@ -1,0 +1,34 @@
+{
+  "index_patterns": [
+    "opencloud-default-resource"
+  ],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 1
+    },
+    "mappings": {
+      "properties": {
+        "ID": {
+          "type": "keyword"
+        },
+        "ParentID": {
+          "type": "keyword"
+        },
+        "RootID": {
+          "type": "keyword"
+        },
+        "Deleted": {
+          "type": "boolean"
+        },
+        "Hidden": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "version": 1,
+  "_meta": {
+    "description": "using component templates"
+  }
+}

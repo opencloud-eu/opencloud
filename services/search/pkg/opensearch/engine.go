@@ -24,12 +24,20 @@ type Engine struct {
 }
 
 func NewEngine(index string, client *opensearchgoAPI.Client) (*Engine, error) {
-	_, healthy, err := clusterHealth(context.Background(), client, []string{index})
+	// first check if the cluster is healthy, we cannot expect that the index exists at this point,
+	// so we pass nil for the indices parameter and only check the cluster health
+	_, healthy, err := clusterHealth(context.Background(), client, nil)
 	switch {
 	case err != nil:
 		return nil, fmt.Errorf("failed to get cluster health: %w", err)
 	case !healthy:
 		return nil, fmt.Errorf("cluster health is not healthy")
+	}
+
+	// apply the index template, this will create the index if it does not exist,
+	// or update it if it does exist
+	if err := IndexTemplateResourceV1.Apply(context.Background(), client); err != nil {
+		return nil, fmt.Errorf("failed to apply index template: %w", err)
 	}
 
 	return &Engine{index: index, client: client}, nil
@@ -57,7 +65,7 @@ func (e *Engine) Search(ctx context.Context, sir *searchService.SearchIndexReque
 
 	if sir.Ref != nil {
 		boolQuery.Filter(
-			NewMatchPhraseQuery("RootID").Query(
+			NewTermQuery[string]("RootID").Value(
 				storagespace.FormatResourceID(
 					&storageProvider.ResourceId{
 						StorageId: sir.Ref.GetResourceId().GetStorageId(),
@@ -74,7 +82,7 @@ func (e *Engine) Search(ctx context.Context, sir *searchService.SearchIndexReque
 		return nil, fmt.Errorf("failed to marshal query: %w", err)
 	}
 
-	resp, err := e.client.Search(context.Background(), &opensearchgoAPI.SearchReq{
+	resp, err := e.client.Search(ctx, &opensearchgoAPI.SearchReq{
 		Indices: []string{e.index},
 		Body:    bytes.NewReader(body),
 	})
