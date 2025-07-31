@@ -1,4 +1,4 @@
-package ostest
+package opensearchtest
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	opensearchgo "github.com/opensearch-project/opensearch-go/v4"
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +19,11 @@ type TestClient struct {
 }
 
 func NewDefaultTestClient(t *testing.T) *TestClient {
-	client, err := opensearchgoAPI.NewDefaultClient()
+	client, err := opensearchgoAPI.NewClient(opensearchgoAPI.Config{
+		Client: opensearchgo.Config{
+			Addresses: []string{"http://localhost:9200"},
+		},
+	})
 	require.NoError(t, err, "failed to create OpenSearch client")
 
 	return NewTestClient(t, client)

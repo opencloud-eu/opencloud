@@ -6,23 +6,24 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
 func TestNewMatchPhraseQuery(t *testing.T) {
-	tests := []tableTest[opensearch.Builder, map[string]any]{
+	tests := []opensearchtest.TableTest[opensearch.Builder, map[string]any]{
 		{
-			name: "empty",
-			got:  opensearch.NewMatchPhraseQuery("empty"),
-			want: nil,
+			Name: "empty",
+			Got:  opensearch.NewMatchPhraseQuery("empty"),
+			Want: nil,
 		},
 		{
-			name: "options",
-			got: opensearch.NewMatchPhraseQuery("name", opensearch.MatchPhraseQueryOptions{
+			Name: "options",
+			Got: opensearch.NewMatchPhraseQuery("name", opensearch.MatchPhraseQueryOptions{
 				Analyzer:       "analyzer",
 				Slop:           2,
 				ZeroTermsQuery: "all",
 			}),
-			want: map[string]any{
+			Want: map[string]any{
 				"match_phrase": map[string]any{
 					"name": map[string]any{
 						"analyzer":         "analyzer",
@@ -33,9 +34,9 @@ func TestNewMatchPhraseQuery(t *testing.T) {
 			},
 		},
 		{
-			name: "query",
-			got:  opensearch.NewMatchPhraseQuery("name").Query("some match query"),
-			want: map[string]any{
+			Name: "query",
+			Got:  opensearch.NewMatchPhraseQuery("name").Query("some match query"),
+			Want: map[string]any{
 				"match_phrase": map[string]any{
 					"name": map[string]any{
 						"query": "some match query",
@@ -44,13 +45,13 @@ func TestNewMatchPhraseQuery(t *testing.T) {
 			},
 		},
 		{
-			name: "full",
-			got: opensearch.NewMatchPhraseQuery("name", opensearch.MatchPhraseQueryOptions{
+			Name: "full",
+			Got: opensearch.NewMatchPhraseQuery("name", opensearch.MatchPhraseQueryOptions{
 				Analyzer:       "analyzer",
 				Slop:           2,
 				ZeroTermsQuery: "all",
 			}).Query("some match query"),
-			want: map[string]any{
+			Want: map[string]any{
 				"match_phrase": map[string]any{
 					"name": map[string]any{
 						"query":            "some match query",
@@ -64,11 +65,8 @@ func TestNewMatchPhraseQuery(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			gotJSON, err := test.got.MarshalJSON()
-			assert.NoError(t, err)
-
-			assert.JSONEq(t, toJSON(t, test.want), string(gotJSON))
+		t.Run(test.Name, func(t *testing.T) {
+			assert.JSONEq(t, opensearchtest.ToJSON(t, test.Want), opensearchtest.ToJSON(t, test.Got))
 		})
 	}
 }

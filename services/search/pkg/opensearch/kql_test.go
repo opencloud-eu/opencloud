@@ -7,60 +7,61 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
 func TestKQL_Compile(t *testing.T) {
-	tests := []tableTest[*ast.Ast, opensearch.Builder]{
+	tests := []opensearchtest.TableTest[*ast.Ast, opensearch.Builder]{
 		// field name tests
 		{
-			name: "Name is the default field",
-			got: &ast.Ast{
+			Name: "Name is the default field",
+			Got: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.StringNode{Value: "openCloud"},
 				},
 			},
-			want: opensearch.NewTermQuery[string]("Name").Value("openCloud"),
+			Want: opensearch.NewTermQuery[string]("Name").Value("openCloud"),
 		},
 		{
-			name: "remaps known field names",
-			got: &ast.Ast{
+			Name: "remaps known field names",
+			Got: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.StringNode{Key: "mediatype", Value: "application/gzip"},
 				},
 			},
-			want: opensearch.NewTermQuery[string]("MimeType").Value("application/gzip"),
+			Want: opensearch.NewTermQuery[string]("MimeType").Value("application/gzip"),
 		},
 		// kql to os dsl - type tests
 		{
-			name: "term query",
-			got: &ast.Ast{
+			Name: "term query",
+			Got: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.StringNode{Key: "Name", Value: "openCloud"},
 				},
 			},
-			want: opensearch.NewTermQuery[string]("Name").Value("openCloud"),
+			Want: opensearch.NewTermQuery[string]("Name").Value("openCloud"),
 		},
 		{
-			name: "match-phrase query",
-			got: &ast.Ast{
+			Name: "match-phrase query",
+			Got: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.StringNode{Key: "Name", Value: "open cloud"},
 				},
 			},
-			want: opensearch.NewMatchPhraseQuery("Name").Query("open cloud"),
+			Want: opensearch.NewMatchPhraseQuery("Name").Query("open cloud"),
 		},
 		{
-			name: "wildcard query",
-			got: &ast.Ast{
+			Name: "wildcard query",
+			Got: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.StringNode{Key: "Name", Value: "open*"},
 				},
 			},
-			want: opensearch.NewWildcardQuery("Name").Value("open*"),
+			Want: opensearch.NewWildcardQuery("Name").Value("open*"),
 		},
 		{
-			name: "bool query",
-			got: &ast.Ast{
+			Name: "bool query",
+			Got: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.GroupNode{Nodes: []ast.Node{
 						&ast.StringNode{Value: "a"},
@@ -68,79 +69,79 @@ func TestKQL_Compile(t *testing.T) {
 					}},
 				},
 			},
-			want: opensearch.NewBoolQuery().Must(
+			Want: opensearch.NewBoolQuery().Must(
 				opensearch.NewTermQuery[string]("Name").Value("a"),
 				opensearch.NewTermQuery[string]("Name").Value("b"),
 			),
 		},
 		{
-			name: "no bool query for single term",
-			got: &ast.Ast{
+			Name: "no bool query for single term",
+			Got: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.GroupNode{Nodes: []ast.Node{
 						&ast.StringNode{Value: "any"},
 					}},
 				},
 			},
-			want: opensearch.NewWildcardQuery("Name").Value("open*"),
+			Want: opensearch.NewTermQuery[string]("Name").Value("any"),
 		},
 		// kql to os dsl - structure tests
 		{
-			name: "[*]",
-			got: &ast.Ast{
+			Name: "[*]",
+			Got: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.StringNode{Key: "name", Value: "openCloud"},
 				},
 			},
-			want: opensearch.NewTermQuery[string]("Name").Value("openCloud"),
+			Want: opensearch.NewTermQuery[string]("Name").Value("openCloud"),
 		},
 		{
-			name: "[* *]",
-			got: &ast.Ast{
+			Name: "[* *]",
+			Got: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.StringNode{Key: "name", Value: "openCloud"},
 					&ast.StringNode{Key: "age", Value: "32"},
 				},
 			},
-			want: opensearch.NewBoolQuery().
+			Want: opensearch.NewBoolQuery().
 				Must(
 					opensearch.NewTermQuery[string]("Name").Value("openCloud"),
 					opensearch.NewTermQuery[string]("age").Value("32"),
 				),
 		},
 		{
-			name: "[* AND *]",
-			got: &ast.Ast{
+			Name: "[* AND *]",
+			Got: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.StringNode{Key: "name", Value: "openCloud"},
 					&ast.OperatorNode{Value: "AND"},
 					&ast.StringNode{Key: "age", Value: "32"},
 				},
 			},
-			want: opensearch.NewBoolQuery().
+			Want: opensearch.NewBoolQuery().
 				Must(
 					opensearch.NewTermQuery[string]("Name").Value("openCloud"),
 					opensearch.NewTermQuery[string]("age").Value("32"),
 				),
 		},
 		{
-			name: "[* OR *]",
-			got: &ast.Ast{
+			Name: "[* OR *]",
+			Got: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.StringNode{Key: "name", Value: "openCloud"},
 					&ast.OperatorNode{Value: "OR"},
 					&ast.StringNode{Key: "age", Value: "32"},
 				},
 			},
-			want: opensearch.NewBoolQuery(opensearch.BoolQueryOptions{MinimumShouldMatch: 1}).
+			Want: opensearch.NewBoolQuery(opensearch.BoolQueryOptions{MinimumShouldMatch: 1}).
 				Should(
 					opensearch.NewTermQuery[string]("Name").Value("openCloud"),
 					opensearch.NewTermQuery[string]("age").Value("32"),
 				),
 		},
 		{
-			name: "[* OR * OR *]",
-			got: &ast.Ast{
+			Name: "[* OR * OR *]",
+			Got: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.StringNode{Key: "name", Value: "openCloud"},
 					&ast.OperatorNode{Value: "OR"},
@@ -149,7 +150,7 @@ func TestKQL_Compile(t *testing.T) {
 					&ast.StringNode{Key: "age", Value: "44"},
 				},
 			},
-			want: opensearch.NewBoolQuery(opensearch.BoolQueryOptions{MinimumShouldMatch: 1}).
+			Want: opensearch.NewBoolQuery(opensearch.BoolQueryOptions{MinimumShouldMatch: 1}).
 				Should(
 					opensearch.NewTermQuery[string]("Name").Value("openCloud"),
 					opensearch.NewTermQuery[string]("age").Value("32"),
@@ -157,8 +158,8 @@ func TestKQL_Compile(t *testing.T) {
 				),
 		},
 		{
-			name: "[* AND * OR *]",
-			got: &ast.Ast{
+			Name: "[* AND * OR *]",
+			Got: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.StringNode{Key: "a", Value: "a"},
 					&ast.OperatorNode{Value: "AND"},
@@ -167,7 +168,7 @@ func TestKQL_Compile(t *testing.T) {
 					&ast.StringNode{Key: "c", Value: "c"},
 				},
 			},
-			want: opensearch.NewBoolQuery(opensearch.BoolQueryOptions{MinimumShouldMatch: 1}).
+			Want: opensearch.NewBoolQuery(opensearch.BoolQueryOptions{MinimumShouldMatch: 1}).
 				Must(
 					opensearch.NewTermQuery[string]("a").Value("a"),
 				).
@@ -177,8 +178,8 @@ func TestKQL_Compile(t *testing.T) {
 				),
 		},
 		{
-			name: "[* OR * AND *]",
-			got: &ast.Ast{
+			Name: "[* OR * AND *]",
+			Got: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.StringNode{Key: "a", Value: "a"},
 					&ast.OperatorNode{Value: "OR"},
@@ -187,7 +188,7 @@ func TestKQL_Compile(t *testing.T) {
 					&ast.StringNode{Key: "c", Value: "c"},
 				},
 			},
-			want: opensearch.NewBoolQuery(opensearch.BoolQueryOptions{MinimumShouldMatch: 1}).
+			Want: opensearch.NewBoolQuery(opensearch.BoolQueryOptions{MinimumShouldMatch: 1}).
 				Must(
 					opensearch.NewTermQuery[string]("b").Value("b"),
 					opensearch.NewTermQuery[string]("c").Value("c"),
@@ -197,8 +198,8 @@ func TestKQL_Compile(t *testing.T) {
 				),
 		},
 		{
-			name: "NEW[* OR * AND *]",
-			got: &ast.Ast{
+			Name: "NEW[* OR * AND *]",
+			Got: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.StringNode{Key: "a", Value: "a"},
 					&ast.OperatorNode{Value: "OR"},
@@ -207,7 +208,7 @@ func TestKQL_Compile(t *testing.T) {
 					&ast.StringNode{Key: "c", Value: "c"},
 				},
 			},
-			want: opensearch.NewBoolQuery(opensearch.BoolQueryOptions{MinimumShouldMatch: 1}).
+			Want: opensearch.NewBoolQuery(opensearch.BoolQueryOptions{MinimumShouldMatch: 1}).
 				Should(
 					opensearch.NewTermQuery[string]("a").Value("a"),
 				).
@@ -217,8 +218,8 @@ func TestKQL_Compile(t *testing.T) {
 				),
 		},
 		{
-			name: "[[* OR * OR *] AND *]",
-			got: &ast.Ast{
+			Name: "[[* OR * OR *] AND *]",
+			Got: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.GroupNode{Nodes: []ast.Node{
 						&ast.StringNode{Key: "a", Value: "a"},
@@ -231,7 +232,7 @@ func TestKQL_Compile(t *testing.T) {
 					&ast.StringNode{Key: "d", Value: "d"},
 				},
 			},
-			want: opensearch.NewBoolQuery().
+			Want: opensearch.NewBoolQuery().
 				Must(
 					opensearch.NewBoolQuery(opensearch.BoolQueryOptions{MinimumShouldMatch: 1}).
 						Should(
@@ -245,20 +246,14 @@ func TestKQL_Compile(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+		t.Run(test.Name, func(t *testing.T) {
 			compiler, err := opensearch.NewKQL()
 			assert.NoError(t, err)
 
-			got, err := compiler.Compile(test.got)
+			dsl, err := compiler.Compile(test.Got)
 			assert.NoError(t, err)
 
-			gotJSON, err := got.MarshalJSON()
-			assert.NoError(t, err)
-
-			wantJSON, err := test.want.MarshalJSON()
-			assert.NoError(t, err)
-
-			assert.JSONEq(t, string(wantJSON), string(gotJSON))
+			assert.JSONEq(t, opensearchtest.ToJSON(t, test.Want), opensearchtest.ToJSON(t, dsl))
 		})
 	}
 }

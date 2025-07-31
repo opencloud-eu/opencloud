@@ -6,14 +6,15 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
 func TestQuery(t *testing.T) {
-	tests := []tableTest[opensearch.Builder, map[string]any]{
+	tests := []opensearchtest.TableTest[opensearch.Builder, map[string]any]{
 		{
-			name: "simple",
-			got:  opensearch.NewRootQuery(opensearch.NewTermQuery[string]("name").Value("tom")),
-			want: map[string]any{
+			Name: "simple",
+			Got:  opensearch.NewRootQuery(opensearch.NewTermQuery[string]("name").Value("tom")),
+			Want: map[string]any{
 				"query": map[string]any{
 					"term": map[string]any{
 						"name": map[string]any{
@@ -26,11 +27,8 @@ func TestQuery(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			gotJSON, err := test.got.MarshalJSON()
-			assert.NoError(t, err)
-
-			assert.JSONEq(t, toJSON(t, test.want), string(gotJSON))
+		t.Run(test.Name, func(t *testing.T) {
+			assert.JSONEq(t, opensearchtest.ToJSON(t, test.Want), opensearchtest.ToJSON(t, test.Got))
 		})
 	}
 }

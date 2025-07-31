@@ -6,19 +6,20 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
 func TestIDsQuery(t *testing.T) {
-	tests := []tableTest[opensearch.Builder, map[string]any]{
+	tests := []opensearchtest.TableTest[opensearch.Builder, map[string]any]{
 		{
-			name: "empty",
-			got:  opensearch.NewIDsQuery(nil),
-			want: nil,
+			Name: "empty",
+			Got:  opensearch.NewIDsQuery(nil),
+			Want: nil,
 		},
 		{
-			name: "ids",
-			got:  opensearch.NewIDsQuery([]string{"1", "2", "3", "3"}, opensearch.IDsQueryOptions{Boost: 1.0}),
-			want: map[string]any{
+			Name: "ids",
+			Got:  opensearch.NewIDsQuery([]string{"1", "2", "3", "3"}, opensearch.IDsQueryOptions{Boost: 1.0}),
+			Want: map[string]any{
 				"ids": map[string]any{
 					"values": []string{"1", "2", "3"},
 					"boost":  1.0,
@@ -28,11 +29,8 @@ func TestIDsQuery(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			gotJSON, err := test.got.MarshalJSON()
-			assert.NoError(t, err)
-
-			assert.JSONEq(t, toJSON(t, test.want), string(gotJSON))
+		t.Run(test.Name, func(t *testing.T) {
+			assert.JSONEq(t, opensearchtest.ToJSON(t, test.Want), opensearchtest.ToJSON(t, test.Got))
 		})
 	}
 }

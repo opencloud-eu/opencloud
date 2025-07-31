@@ -6,23 +6,24 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
 func TestWildcardQuery(t *testing.T) {
-	tests := []tableTest[opensearch.Builder, map[string]any]{
+	tests := []opensearchtest.TableTest[opensearch.Builder, map[string]any]{
 		{
-			name: "empty",
-			got:  opensearch.NewWildcardQuery("empty"),
-			want: nil,
+			Name: "empty",
+			Got:  opensearch.NewWildcardQuery("empty"),
+			Want: nil,
 		},
 		{
-			name: "wildcard",
-			got: opensearch.NewWildcardQuery("name", opensearch.WildcardQueryOptions{
+			Name: "wildcard",
+			Got: opensearch.NewWildcardQuery("name", opensearch.WildcardQueryOptions{
 				Boost:           1.0,
 				CaseInsensitive: true,
 				Rewrite:         opensearch.TopTermsBlendedFreqsN,
 			}).Value("opencl*"),
-			want: map[string]any{
+			Want: map[string]any{
 				"wildcard": map[string]any{
 					"name": map[string]any{
 						"value":            "opencl*",
@@ -36,11 +37,8 @@ func TestWildcardQuery(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			gotJSON, err := test.got.MarshalJSON()
-			assert.NoError(t, err)
-
-			assert.JSONEq(t, toJSON(t, test.want), string(gotJSON))
+		t.Run(test.Name, func(t *testing.T) {
+			assert.JSONEq(t, opensearchtest.ToJSON(t, test.Want), opensearchtest.ToJSON(t, test.Got))
 		})
 	}
 }

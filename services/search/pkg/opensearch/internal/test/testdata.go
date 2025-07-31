@@ -1,4 +1,4 @@
-package ostest
+package opensearchtest
 
 import (
 	"encoding/json"

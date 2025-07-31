@@ -6,23 +6,24 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
 func TestBoolQuery(t *testing.T) {
-	tests := []tableTest[opensearch.Builder, map[string]any]{
+	tests := []opensearchtest.TableTest[opensearch.Builder, map[string]any]{
 		{
-			name: "empty",
-			got:  opensearch.NewBoolQuery(),
-			want: nil,
+			Name: "empty",
+			Got:  opensearch.NewBoolQuery(),
+			Want: nil,
 		},
 		{
-			name: "naked",
-			got: opensearch.NewBoolQuery(opensearch.BoolQueryOptions{
+			Name: "naked",
+			Got: opensearch.NewBoolQuery(opensearch.BoolQueryOptions{
 				MinimumShouldMatch: 10,
 				Boost:              10,
 				Name:               "some-name",
 			}),
-			want: map[string]any{
+			Want: map[string]any{
 				"bool": map[string]any{
 					"minimum_should_match": 10,
 					"boost":                10,
@@ -31,9 +32,9 @@ func TestBoolQuery(t *testing.T) {
 			},
 		},
 		{
-			name: "must",
-			got:  opensearch.NewBoolQuery().Must(opensearch.NewTermQuery[string]("name").Value("tom")),
-			want: map[string]any{
+			Name: "must",
+			Got:  opensearch.NewBoolQuery().Must(opensearch.NewTermQuery[string]("name").Value("tom")),
+			Want: map[string]any{
 				"bool": map[string]any{
 					"must": []map[string]any{
 						{
@@ -48,9 +49,9 @@ func TestBoolQuery(t *testing.T) {
 			},
 		},
 		{
-			name: "must_not",
-			got:  opensearch.NewBoolQuery().MustNot(opensearch.NewTermQuery[string]("name").Value("tom")),
-			want: map[string]any{
+			Name: "must_not",
+			Got:  opensearch.NewBoolQuery().MustNot(opensearch.NewTermQuery[string]("name").Value("tom")),
+			Want: map[string]any{
 				"bool": map[string]any{
 					"must_not": []map[string]any{
 						{
@@ -65,9 +66,9 @@ func TestBoolQuery(t *testing.T) {
 			},
 		},
 		{
-			name: "should",
-			got:  opensearch.NewBoolQuery().Should(opensearch.NewTermQuery[string]("name").Value("tom")),
-			want: map[string]any{
+			Name: "should",
+			Got:  opensearch.NewBoolQuery().Should(opensearch.NewTermQuery[string]("name").Value("tom")),
+			Want: map[string]any{
 				"bool": map[string]any{
 					"should": []map[string]any{
 						{
@@ -82,9 +83,9 @@ func TestBoolQuery(t *testing.T) {
 			},
 		},
 		{
-			name: "filter",
-			got:  opensearch.NewBoolQuery().Filter(opensearch.NewTermQuery[string]("name").Value("tom")),
-			want: map[string]any{
+			Name: "filter",
+			Got:  opensearch.NewBoolQuery().Filter(opensearch.NewTermQuery[string]("name").Value("tom")),
+			Want: map[string]any{
 				"bool": map[string]any{
 					"filter": []map[string]any{
 						{
@@ -99,13 +100,13 @@ func TestBoolQuery(t *testing.T) {
 			},
 		},
 		{
-			name: "full",
-			got: opensearch.NewBoolQuery().
+			Name: "full",
+			Got: opensearch.NewBoolQuery().
 				Must(opensearch.NewTermQuery[string]("name").Value("tom")).
 				MustNot(opensearch.NewTermQuery[bool]("deleted").Value(true)).
 				Should(opensearch.NewTermQuery[string]("gender").Value("male")).
 				Filter(opensearch.NewTermQuery[int]("age").Value(42)),
-			want: map[string]any{
+			Want: map[string]any{
 				"bool": map[string]any{
 					"must": []map[string]any{
 						{
@@ -149,11 +150,9 @@ func TestBoolQuery(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			gotJSON, err := test.got.MarshalJSON()
-			assert.NoError(t, err)
+		t.Run(test.Name, func(t *testing.T) {
 
-			assert.JSONEq(t, toJSON(t, test.want), string(gotJSON))
+			assert.JSONEq(t, opensearchtest.ToJSON(t, test.Want), opensearchtest.ToJSON(t, test.Got))
 		})
 	}
 }

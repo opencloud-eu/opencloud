@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
+	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
 	"github.com/opencloud-eu/opencloud/pkg/kql"
@@ -44,6 +46,8 @@ func (e *Engine) Search(ctx context.Context, sir *searchService.SearchIndexReque
 		return nil, fmt.Errorf("failed to marshal query: %w", err)
 	}
 
+	// todo: ignore deleted resources
+
 	resp, err := e.client.Search(context.Background(), &opensearchgoAPI.SearchReq{
 		Indices: []string{e.index},
 		Body:    bytes.NewReader(body),
@@ -53,23 +57,30 @@ func (e *Engine) Search(ctx context.Context, sir *searchService.SearchIndexReque
 	}
 
 	matches := make([]*searchMessage.Match, len(resp.Hits.Hits))
+	totalMatches := resp.Hits.Total.Value
 	for i, hit := range resp.Hits.Hits {
-		resource, err := convert[engine.Resource](hit.Source)
+		match, err := searchHitToSearchMessageMatch(hit)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert hit %d: %w", i, err)
 		}
 
-		matches[i] = &searchMessage.Match{
-			Score: hit.Score,
-			Entity: &searchMessage.Entity{
-				Name: resource.Name,
-			},
+		if sir.Ref != nil {
+			hitPath := strings.TrimSuffix(match.GetEntity().GetRef().GetPath(), "/")
+			requestedPath := utils.MakeRelativePath(sir.Ref.Path)
+			isRoot := hitPath == requestedPath
+
+			if !isRoot && requestedPath != "." && !strings.HasPrefix(hitPath, requestedPath+"/") {
+				totalMatches--
+				continue
+			}
 		}
+
+		matches[i] = match
 	}
 
 	return &searchService.SearchIndexResponse{
 		Matches:      matches,
-		TotalMatches: int32(resp.Hits.Total.Value),
+		TotalMatches: int32(totalMatches),
 	}, nil
 }
 

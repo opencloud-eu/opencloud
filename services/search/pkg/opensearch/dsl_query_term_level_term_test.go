@@ -6,19 +6,20 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
 func TestTermQuery(t *testing.T) {
-	tests := []tableTest[opensearch.Builder, map[string]any]{
+	tests := []opensearchtest.TableTest[opensearch.Builder, map[string]any]{
 		{
-			name: "empty",
-			got:  opensearch.NewTermQuery[string]("empty"),
-			want: nil,
+			Name: "empty",
+			Got:  opensearch.NewTermQuery[string]("empty"),
+			Want: nil,
 		},
 		{
-			name: "naked",
-			got:  opensearch.NewTermQuery[bool]("deleted").Value(false),
-			want: map[string]any{
+			Name: "naked",
+			Got:  opensearch.NewTermQuery[bool]("deleted").Value(false),
+			Want: map[string]any{
 				"term": map[string]any{
 					"deleted": map[string]any{
 						"value": false,
@@ -27,13 +28,13 @@ func TestTermQuery(t *testing.T) {
 			},
 		},
 		{
-			name: "term",
-			got: opensearch.NewTermQuery[bool]("deleted", opensearch.TermQueryOptions{
+			Name: "term",
+			Got: opensearch.NewTermQuery[bool]("deleted", opensearch.TermQueryOptions{
 				Boost:           1.0,
 				CaseInsensitive: true,
 				Name:            "is-deleted",
 			}).Value(true),
-			want: map[string]any{
+			Want: map[string]any{
 				"term": map[string]any{
 					"deleted": map[string]any{
 						"value":            true,
@@ -47,11 +48,8 @@ func TestTermQuery(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			gotJSON, err := test.got.MarshalJSON()
-			assert.NoError(t, err)
-
-			assert.JSONEq(t, toJSON(t, test.want), string(gotJSON))
+		t.Run(test.Name, func(t *testing.T) {
+			assert.JSONEq(t, opensearchtest.ToJSON(t, test.Want), opensearchtest.ToJSON(t, test.Got))
 		})
 	}
 }
