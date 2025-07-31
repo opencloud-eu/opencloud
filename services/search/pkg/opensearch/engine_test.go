@@ -29,12 +29,29 @@ func TestEngine_Search(t *testing.T) {
 
 	t.Run("most simple search", func(t *testing.T) {
 		resp, err := engine.Search(t.Context(), &searchService.SearchIndexRequest{
-			Query: fmt.Sprintf(`"%s" Content:"%s"`, document.Name, document.Content),
+			Query: fmt.Sprintf(`"%s"`, document.Name),
 		})
 		assert.NoError(t, err)
 		require.Len(t, resp.Matches, 1)
 		assert.Equal(t, int32(1), resp.TotalMatches)
-		assert.Equal(t, document.Name, resp.Matches[0].Entity.Name)
+		assert.Equal(t, document.ID, fmt.Sprintf("%s$%s!%s", resp.Matches[0].Entity.Id.StorageId, resp.Matches[0].Entity.Id.SpaceId, resp.Matches[0].Entity.Id.OpaqueId))
+	})
+
+	t.Run("ignores files that are marked as deleted", func(t *testing.T) {
+		deletedDocument := opensearchtest.Testdata.Resources.Full
+		deletedDocument.ID = "1$2!4"
+		deletedDocument.Deleted = true
+
+		tc.Require.DocumentCreate(index, deletedDocument.ID, opensearchtest.ToJSON(t, deletedDocument))
+		tc.Require.IndicesCount([]string{index}, "", 2)
+
+		resp, err := engine.Search(t.Context(), &searchService.SearchIndexRequest{
+			Query: fmt.Sprintf(`"%s"`, document.Name),
+		})
+		assert.NoError(t, err)
+		require.Len(t, resp.Matches, 1)
+		assert.Equal(t, int32(1), resp.TotalMatches)
+		assert.Equal(t, document.ID, fmt.Sprintf("%s$%s!%s", resp.Matches[0].Entity.Id.StorageId, resp.Matches[0].Entity.Id.SpaceId, resp.Matches[0].Entity.Id.OpaqueId))
 	})
 }
 

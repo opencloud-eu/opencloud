@@ -36,17 +36,17 @@ func (e *Engine) Search(ctx context.Context, sir *searchService.SearchIndexReque
 		return nil, fmt.Errorf("failed to create KQL compiler: %w", err)
 	}
 
-	query, err := compiler.Compile(ast)
+	builder, err := compiler.Compile(ast)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile query: %w", err)
 	}
 
-	body, err := NewRootQuery(query).MarshalJSON()
+	body, err := NewRootQuery(builderToBoolQuery(builder).Filter(
+		NewTermQuery[bool]("Deleted").Value(false),
+	)).MarshalJSON()
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal query: %w", err)
 	}
-
-	// todo: ignore deleted resources
 
 	resp, err := e.client.Search(context.Background(), &opensearchgoAPI.SearchReq{
 		Indices: []string{e.index},
