@@ -75,21 +75,35 @@ type SessionAccountCapabilities struct {
 }
 
 type SessionAccount struct {
-	Name                string                     `json:"name,omitempty"`
-	IsPersonal          bool                       `json:"isPersonal"`
+	// A user-friendly string to show when presenting content from this account, e.g., the email address representing the owner of the account.
+	Name string `json:"name,omitempty"`
+	// This is true if the account belongs to the authenticated user rather than a group account or a personal account of another user that has been shared with them.
+	IsPersonal bool `json:"isPersonal"`
+	// This is true if the entire account is read-only.
 	IsReadOnly          bool                       `json:"isReadOnly"`
 	AccountCapabilities SessionAccountCapabilities `json:"accountCapabilities,omitempty"`
 }
 
 type SessionCoreCapabilities struct {
-	MaxSizeUpload         int      `json:"maxSizeUpload"`
-	MaxConcurrentUpload   int      `json:"maxConcurrentUpload"`
-	MaxSizeRequest        int      `json:"maxSizeRequest"`
-	MaxConcurrentRequests int      `json:"maxConcurrentRequests"`
-	MaxCallsInRequest     int      `json:"maxCallsInRequest"`
-	MaxObjectsInGet       int      `json:"maxObjectsInGet"`
-	MaxObjectsInSet       int      `json:"maxObjectsInSet"`
-	CollationAlgorithms   []string `json:"collationAlgorithms"`
+	// The maximum file size, in octets, that the server will accept for a single file upload (for any purpose)
+	MaxSizeUpload int `json:"maxSizeUpload"`
+	// The maximum number of concurrent requests the server will accept to the upload endpoint.
+	MaxConcurrentUpload int `json:"maxConcurrentUpload"`
+	// The maximum size, in octets, that the server will accept for a single request to the API endpoint.
+	MaxSizeRequest int `json:"maxSizeRequest"`
+	// The maximum number of concurrent requests the server will accept to the API endpoint.
+	MaxConcurrentRequests int `json:"maxConcurrentRequests"`
+	// The maximum number of method calls the server will accept in a single request to the API endpoint.
+	MaxCallsInRequest int `json:"maxCallsInRequest"`
+	// The maximum number of objects that the client may request in a single /get type method call.
+	MaxObjectsInGet int `json:"maxObjectsInGet"`
+	// The maximum number of objects the client may send to create, update, or destroy in a single /set type method call.
+	// This is the combined total, e.g., if the maximum is 10, you could not create 7 objects and destroy 6, as this would be 13 actions,
+	// which exceeds the limit.
+	MaxObjectsInSet int `json:"maxObjectsInSet"`
+	// A list of identifiers for algorithms registered in the collation registry, as defined in [@!RFC4790], that the server
+	// supports for sorting when querying records.
+	CollationAlgorithms []string `json:"collationAlgorithms"`
 }
 
 type SessionMailCapabilities struct {
@@ -138,15 +152,33 @@ type SessionPrimaryAccounts struct {
 }
 
 type SessionResponse struct {
-	Capabilities    SessionCapabilities       `json:"capabilities,omitempty"`
-	Accounts        map[string]SessionAccount `json:"accounts,omitempty"`
-	PrimaryAccounts SessionPrimaryAccounts    `json:"primaryAccounts,omitempty"`
-	Username        string                    `json:"username,omitempty"`
-	ApiUrl          string                    `json:"apiUrl,omitempty"`
-	DownloadUrl     string                    `json:"downloadUrl,omitempty"`
-	UploadUrl       string                    `json:"uploadUrl,omitempty"`
-	EventSourceUrl  string                    `json:"eventSourceUrl,omitempty"`
-	State           string                    `json:"state,omitempty"`
+	Capabilities SessionCapabilities       `json:"capabilities"`
+	Accounts     map[string]SessionAccount `json:"accounts,omitempty"`
+	// A map of capability URIs (as found in accountCapabilities) to the account id that is considered to be the user’s main or default
+	// account for data pertaining to that capability.
+	// If no account being returned belongs to the user, or in any other way there is no appropriate way to determine a default account,
+	// there MAY be no entry for a particular URI, even though that capability is supported by the server (and in the capabilities object).
+	// urn:ietf:params:jmap:core SHOULD NOT be present.
+	PrimaryAccounts SessionPrimaryAccounts `json:"primaryAccounts"`
+	// The username associated with the given credentials, or the empty string if none.
+	Username string `json:"username,omitempty"`
+	// The URL to use for JMAP API requests.
+	ApiUrl string `json:"apiUrl,omitempty"`
+	// The URL endpoint to use when downloading files, in URI Template (level 1) format [@!RFC6570].
+	// The URL MUST contain variables called accountId, blobId, type, and name.
+	DownloadUrl string `json:"downloadUrl,omitempty"`
+	// The URL endpoint to use when uploading files, in URI Template (level 1) format [@!RFC6570].
+	// The URL MUST contain a variable called accountId.
+	UploadUrl string `json:"uploadUrl,omitempty"`
+	// The URL to connect to for push events, as described in Section 7.3, in URI Template (level 1) format [@!RFC6570].
+	// The URL MUST contain variables called types, closeafter, and ping.
+	EventSourceUrl string `json:"eventSourceUrl,omitempty"`
+	// A (preferably short) string representing the state of this object on the server.
+	// If the value of any other property on the Session object changes, this string will change.
+	// The current value is also returned on the API Response object (see Section 3.4), allowing clients to quickly
+	// determine if the session information has changed (e.g., an account has been added or removed),
+	// so they need to refetch the object.
+	State string `json:"state,omitempty"`
 }
 
 type Mailbox struct {
@@ -154,12 +186,12 @@ type Mailbox struct {
 	Name          string          `json:"name,omitempty"`
 	ParentId      string          `json:"parentId,omitempty"`
 	Role          string          `json:"role,omitempty"`
-	SortOrder     int             `json:"sortOrder,omitempty"`
-	IsSubscribed  bool            `json:"isSubscribed,omitempty"`
-	TotalEmails   int             `json:"totalEmails,omitempty"`
-	UnreadEmails  int             `json:"unreadEmails,omitempty"`
-	TotalThreads  int             `json:"totalThreads,omitempty"`
-	UnreadThreads int             `json:"unreadThreads,omitempty"`
+	SortOrder     int             `json:"sortOrder"`
+	IsSubscribed  bool            `json:"isSubscribed"`
+	TotalEmails   int             `json:"totalEmails"`
+	UnreadEmails  int             `json:"unreadEmails"`
+	TotalThreads  int             `json:"totalThreads"`
+	UnreadThreads int             `json:"unreadThreads"`
 	MyRights      map[string]bool `json:"myRights,omitempty"`
 }
 
@@ -232,6 +264,13 @@ type EmailQueryCommand struct {
 	Position        int            `json:"position,omitempty"`
 	Limit           int            `json:"limit,omitempty"`
 	CalculateTotal  bool           `json:"calculateTotal,omitempty"`
+}
+
+type EmailGetCommand struct {
+	AccountId          string   `json:"accountId"`
+	FetchAllBodyValues bool     `json:"fetchAllBodyValues,omitempty"`
+	MaxBodyValueBytes  int      `json:"maxBodyValueBytes,omitempty"`
+	Ids                []string `json:"ids,omitempty"`
 }
 
 type Ref struct {

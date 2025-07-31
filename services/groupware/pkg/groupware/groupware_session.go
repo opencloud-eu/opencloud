@@ -48,7 +48,7 @@ var _ cachedSession = failedSession{}
 
 type sessionCacheLoader struct {
 	logger     *log.Logger
-	jmapClient jmap.Client
+	jmapClient *jmap.Client
 	errorTtl   time.Duration
 }
 

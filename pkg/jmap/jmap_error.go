@@ -12,6 +12,7 @@ const (
 	JmapErrorInvalidSessionResponse
 	JmapErrorInvalidJmapRequestPayload
 	JmapErrorInvalidJmapResponsePayload
+	JmapErrorMethodLevel
 )
 
 type Error interface {
