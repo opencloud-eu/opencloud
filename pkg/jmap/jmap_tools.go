@@ -5,16 +5,43 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
+type eventListeners[T any] struct {
+	listeners []T
+	m         sync.Mutex
+}
+
+func (e *eventListeners[T]) add(listener T) {
+	e.m.Lock()
+	defer e.m.Unlock()
+	e.listeners = append(e.listeners, listener)
+}
+
+func (e *eventListeners[T]) signal(signal func(T)) {
+	e.m.Lock()
+	defer e.m.Unlock()
+	for _, listener := range e.listeners {
+		signal(listener)
+	}
+}
+
+func newEventListeners[T any]() *eventListeners[T] {
+	return &eventListeners[T]{
+		listeners: []T{},
+	}
+}
+
 func command[T any](api ApiClient,
 	logger *log.Logger,
 	ctx context.Context,
 	session *Session,
+	sessionOutdatedHandler func(session *Session),
 	request Request,
 	mapper func(body *Response) (T, Error)) (T, Error) {
 
@@ -33,7 +60,24 @@ func command[T any](api ApiClient,
 	}
 
 	if data.SessionState != session.State {
-		// TODO(pbleser-oc) handle session renewal
+		if sessionOutdatedHandler != nil {
+			sessionOutdatedHandler(session)
+		}
+	}
+
+	// search for an "error" response
+	// https://jmap.io/spec-core.html#method-level-errors
+	for _, mr := range data.MethodResponses {
+		if mr.Command == "error" {
+			err := fmt.Errorf("found method level error in response '%v'", mr.Tag)
+			if payload, ok := mr.Parameters.(map[string]any); ok {
+				if errorType, ok := payload["type"]; ok {
+					err = fmt.Errorf("found method level error in response '%v', type: '%v'", mr.Tag, errorType)
+				}
+			}
+			var zero T
+			return zero, SimpleError{code: JmapErrorMethodLevel, err: err}
+		}
 	}
 
 	return mapper(&data)

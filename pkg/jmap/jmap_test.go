@@ -109,13 +109,13 @@ func TestRequests(t *testing.T) {
 	jmapUrl, err := url.Parse("http://localhost/jmap")
 	require.NoError(err)
 
-	session := Session{MailAccountId: "123", Username: "user123", JmapUrl: *jmapUrl}
+	session := Session{DefaultMailAccountId: "123", Username: "user123", JmapUrl: *jmapUrl}
 
-	folders, err := client.GetAllMailboxes(&session, ctx, &logger)
+	folders, err := client.GetAllMailboxes("a", &session, ctx, &logger)
 	require.NoError(err)
 	require.Len(folders.List, 5)
 
-	emails, err := client.GetEmails(&session, ctx, &logger, "Inbox", 0, 0, true, 0)
+	emails, err := client.GetAllEmails("a", &session, ctx, &logger, "Inbox", 0, 0, true, 0)
 	require.NoError(err)
 	require.Len(emails.Emails, 3)
 
