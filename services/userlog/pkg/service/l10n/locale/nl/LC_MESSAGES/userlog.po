@@ -1,0 +1,118 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# 
+# Translators:
+# Stephan Paternotte <stephan@paternottes.net>, 2025
+# 
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: EMAIL\n"
+"POT-Creation-Date: 2025-08-01 00:00+0000\n"
+"PO-Revision-Date: 2025-01-27 10:17+0000\n"
+"Last-Translator: Stephan Paternotte <stephan@paternottes.net>, 2025\n"
+"Language-Team: Dutch (https://app.transifex.com/opencloud-eu/teams/204053/nl/)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: nl\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: pkg/service/templates.go:39
+msgid "Access to Space {space} lost"
+msgstr "Toegang tot ruimte {space} kwijtgeraakt"
+
+#: pkg/service/templates.go:54
+msgid "Access to {resource} expired"
+msgstr "Toegang tot {resource} verlopen"
+
+#: pkg/service/templates.go:59
+msgid ""
+"Attention! The instance will be shut down and deprovisioned on {date}. "
+"Download all your data before that date as no access past that date is "
+"possible."
+msgstr ""
+"Let op! De instantie wordt op {date} afgesloten en afgeschakeld. Download "
+"voor deze datum al je gegevens, aangezien erna geen toegang meer mogelijk "
+"is."
+
+#: pkg/service/templates.go:14
+msgid "File {resource} was deleted because it violates the policies"
+msgstr ""
+"Bestand {resource} is verwijderd vanwege scheding van de beleidsregels"
+
+#: pkg/service/templates.go:58
+msgid "Instance will be shut down and deprovisioned"
+msgstr "De instantie zal worden afgesloten en afgeschakeld"
+
+#: pkg/service/templates.go:38
+msgid "Membership expired"
+msgstr "Lidmaatschap verlopen"
+
+#: pkg/service/templates.go:13
+msgid "Policies enforced"
+msgstr "Beleid afgedwongen"
+
+#: pkg/service/templates.go:23
+msgid "Removed from Space"
+msgstr "Verwijderd uit ruimte"
+
+#: pkg/service/templates.go:43
+msgid "Resource shared"
+msgstr "Bron gedeeld"
+
+#: pkg/service/templates.go:48
+msgid "Resource unshared"
+msgstr "Bron niet gedeeld"
+
+#: pkg/service/templates.go:53
+msgid "Share expired"
+msgstr "Gedeelde map verlopen"
+
+#: pkg/service/templates.go:33
+msgid "Space deleted"
+msgstr "Ruimte verwijderd"
+
+#: pkg/service/templates.go:28
+msgid "Space disabled"
+msgstr "Ruimte uitgeschakeld"
+
+#: pkg/service/templates.go:18
+msgid "Space shared"
+msgstr "Ruimte gedeeld"
+
+#: pkg/service/templates.go:8
+msgid "Virus found"
+msgstr "Virus aangetroffen"
+
+#: pkg/service/templates.go:9
+msgid "Virus found in {resource}. Upload not possible. Virus: {virus}"
+msgstr ""
+"Virus aangetroffen in {resource}. Uploaden niet mogelijk. Virus: {virus}"
+
+#: pkg/service/templates.go:19
+msgid "{user} added you to Space {space}"
+msgstr "{user} heeft u toegevoegd aan ruimte {space}"
+
+#: pkg/service/templates.go:34
+msgid "{user} deleted Space {space}"
+msgstr "{user} heeft ruimte {space} verwijderd"
+
+#: pkg/service/templates.go:29
+msgid "{user} disabled Space {space}"
+msgstr "{user} heeft ruimte {space} uitgeschakeld"
+
+#: pkg/service/templates.go:24
+msgid "{user} removed you from Space {space}"
+msgstr "{user} heeft u verwijderd uit ruimte {space}"
+
+#: pkg/service/templates.go:44
+msgid "{user} shared {resource} with you"
+msgstr "{user} heeft {resource} met u gedeeld"
+
+#: pkg/service/templates.go:49
+msgid "{user} unshared {resource} with you"
+msgstr "{user} heeft het delen van {resource} met u beëindigd"
