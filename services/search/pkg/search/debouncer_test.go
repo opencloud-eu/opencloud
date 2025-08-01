@@ -115,6 +115,26 @@ var _ = Describe("SpaceDebouncer", func() {
 		}, "300ms").Should(Equal(1))
 	})
 
+	It("doesn't run the timeout function if the work function has been called", func() {
+		debouncer = search.NewSpaceDebouncer(100*time.Millisecond, 250*time.Millisecond, func(id *sprovider.StorageSpaceId) {
+			if id.OpaqueId == "spaceid" {
+				callCount.Add(1)
+			}
+		}, log.NewLogger())
+
+		// Initial call to start the timers
+		debouncer.Debounce(spaceid, nil)
+
+		// Wait for the debounce timer to fire
+		Eventually(func() int {
+			return int(callCount.Load())
+		}, "200ms").Should(Equal(1))
+
+		// The timeout function should not be called
+		time.Sleep(300 * time.Millisecond)
+		Expect(int(callCount.Load())).To(Equal(1))
+	})
+
 	It("calls the ack function when the debounce fires", func() {
 		var ackCalled atomic.Bool
 		ackFunc := func() error {

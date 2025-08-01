@@ -24,7 +24,7 @@ type workItem struct {
 	t       *time.Timer
 	timeout *time.Timer
 
-	trigger func()
+	work func()
 }
 
 type AckFunc func() error
@@ -54,7 +54,8 @@ func (d *SpaceDebouncer) Debounce(id *provider.StorageSpaceId, ack AckFunc) {
 		return
 	}
 
-	trigger := func() {
+	wi := &workItem{}
+	wi.work = func() {
 		if _, ok := d.inProgress.Load(id.OpaqueId); ok {
 			// Reschedule this run for when the previous run has finished
 			d.mutex.Lock()
@@ -66,9 +67,12 @@ func (d *SpaceDebouncer) Debounce(id *provider.StorageSpaceId, ack AckFunc) {
 		}
 
 		d.mutex.Lock()
+		wi.timeout.Stop() // stop the timeout timer if it is running
 		delete(d.pending, id.OpaqueId)
 		d.inProgress.Store(id.OpaqueId, true)
-		defer d.inProgress.Delete(id.OpaqueId)
+		defer func() {
+			d.inProgress.Delete(id.OpaqueId)
+		}()
 		d.mutex.Unlock() // release the lock early to allow other goroutines to debounce
 
 		d.f(id)
@@ -80,16 +84,13 @@ func (d *SpaceDebouncer) Debounce(id *provider.StorageSpaceId, ack AckFunc) {
 			}
 		}()
 	}
-	t := time.AfterFunc(d.after, trigger)
+	wi.t = time.AfterFunc(d.after, wi.work)
+	wi.timeout = time.AfterFunc(d.timeout, func() {
+		d.log.Debug().Msg("timeout while waiting for space debouncer to finish")
+		wi.t.Stop()
+		wi.work()
+	})
 
-	d.pending[id.OpaqueId] = &workItem{
-		trigger: trigger,
-		t:       t,
-		timeout: time.AfterFunc(d.timeout, func() {
-			d.log.Debug().Msg("timeout while waiting for space debouncer to finish")
-			t.Stop()
-			trigger()
-		}),
-	}
+	d.pending[id.OpaqueId] = wi
 
 }
