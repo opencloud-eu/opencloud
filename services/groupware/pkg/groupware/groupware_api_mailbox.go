@@ -106,6 +106,7 @@ func (g Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) {
 	if subscribed != "" {
 		b, err := strconv.ParseBool(subscribed)
 		if err != nil {
+			// TODO proper response object
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
