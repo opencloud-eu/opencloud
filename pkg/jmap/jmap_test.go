@@ -122,11 +122,11 @@ func TestRequests(t *testing.T) {
 	{
 		email := emails.Emails[0]
 		require.Equal("Ornare Senectus Ultrices Elit", email.Subject)
-		require.Equal(false, email.HasAttachments)
+		require.Equal(false, email.HasAttachment)
 	}
 	{
 		email := emails.Emails[1]
 		require.Equal("Lorem Tortor Eros Blandit Adipiscing Scelerisque Fermentum", email.Subject)
-		require.Equal(false, email.HasAttachments)
+		require.Equal(false, email.HasAttachment)
 	}
 }
