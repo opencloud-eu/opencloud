@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2025-08-01 00:00+0000\n"
+"POT-Creation-Date: 2025-08-02 00:00+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Stephan Paternotte <stephan@paternottes.net>, 2025\n"
 "Language-Team: Dutch (https://app.transifex.com/opencloud-eu/teams/204053/nl/)\n"
@@ -39,7 +39,7 @@ msgstr "wachtwoord"
 
 #: pkg/service/response.go:40
 msgid "permission"
-msgstr "toestemming"
+msgstr "machtiging"
 
 #: pkg/service/response.go:39
 msgid "some field"
@@ -47,7 +47,7 @@ msgstr "een veld"
 
 #: pkg/service/response.go:26
 msgid "{resource} was downloaded via public link {token}"
-msgstr "{resource} is gedownload via openbare koppeling {token}"
+msgstr "{resource} is gedownload via openbare link {token}"
 
 #: pkg/service/response.go:24
 msgid "{user} added {resource} to {folder}"
@@ -67,7 +67,7 @@ msgstr "{user} heeft {resource} verplaatst naar {folder}"
 
 #: pkg/service/response.go:35
 msgid "{user} removed link to {resource}"
-msgstr "{user} heeft koppeling naar {resource} verwijderd"
+msgstr "{user} heeft link naar {resource} verwijderd"
 
 #: pkg/service/response.go:32
 msgid "{user} removed {sharee} from {resource}"
@@ -91,8 +91,7 @@ msgstr "{user} heeft {resource} gedeeld met {sharee}"
 
 #: pkg/service/response.go:34
 msgid "{user} updated {field} for a link {token} on {resource}"
-msgstr ""
-"{user} heeft {field} bijgewerkt voor een koppeling {token} op {resource}"
+msgstr "{user} heeft {field} bijgewerkt voor een link {token} op {resource}"
 
 #: pkg/service/response.go:31
 msgid "{user} updated {field} for the {resource}"

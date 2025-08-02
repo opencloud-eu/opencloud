@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2025-08-01 00:00+0000\n"
+"POT-Creation-Date: 2025-08-02 00:00+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Stephan Paternotte <stephan@paternottes.net>, 2025\n"
 "Language-Team: Dutch (https://app.transifex.com/opencloud-eu/teams/204053/nl/)\n"
@@ -84,7 +84,7 @@ msgstr "ScienceMesh: {InitiatorName} wil met u samenwerken"
 #. ShareExpired email template, Subject field (resolves directly)
 #: pkg/email/templates.go:30
 msgid "Share to '{ShareFolder}' expired at {ExpiredAt}"
-msgstr "Gedeelde map '{ShareFolder}' is verlopen op {ExpiredAt}"
+msgstr "Share '{ShareFolder}' is verlopen op {ExpiredAt}"
 
 #. MembershipExpired email template, resolves via {{ .MessageBody }}
 #: pkg/email/templates.go:76
@@ -95,7 +95,7 @@ msgid ""
 msgstr ""
 "Uw lidmaatschap van ruimte {SpaceName} is verlopen op {ExpiredAt}\n"
 "\n"
-"Hoewel dit lidmaatschap is verlopen, kunt u mogelijk nog steeds toegang hebben via andere gedeelde mappen en/of ruimtelidmaatschappen."
+"Hoewel dit lidmaatschap is verlopen, kunt u mogelijk nog steeds toegang hebben via andere shares en/of ruimtelidmaatschappen."
 
 #. ShareExpired email template, resolves via {{ .MessageBody }}
 #: pkg/email/templates.go:34
@@ -106,7 +106,7 @@ msgid ""
 msgstr ""
 "Uw toegang tot {ShareFolder} is verlopen op {ExpiredAt}\n"
 "\n"
-"Hoewel de toegang is ingetrokken, kunt u mogelijk nog steeds toegang hebben via andere gedeelde mappen en/of ruimtelidmaatschappen."
+"Hoewel de toegang is ingetrokken, kunt u mogelijk nog steeds toegang hebben via andere shares en/of ruimtelidmaatschappen."
 
 #. ScienceMeshInviteTokenGeneratedWithoutShareLink email template, resolves
 #. via {{ .MessageBody }}

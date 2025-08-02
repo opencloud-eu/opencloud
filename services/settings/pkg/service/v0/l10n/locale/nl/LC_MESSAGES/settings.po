@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2025-08-01 00:00+0000\n"
+"POT-Creation-Date: 2025-08-02 00:00+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Stephan Paternotte <stephan@paternottes.net>, 2025\n"
 "Language-Team: Dutch (https://app.transifex.com/opencloud-eu/teams/204053/nl/)\n"
@@ -78,12 +78,12 @@ msgstr ""
 #. description of the notification option 'Share Removed'
 #: pkg/store/defaults/templates.go:14
 msgid "Notify when a received share has been removed"
-msgstr "Stuur een melding wanneer een met mij gedeelde map is ingetrokken"
+msgstr "Stuur een melding wanneer een share met mij is ingetrokken"
 
 #. description of the notification option 'Share Expired'
 #: pkg/store/defaults/templates.go:18
 msgid "Notify when a received share has expired"
-msgstr "Stuur een melding wanneer een met mij gedeelde map is verlopen"
+msgstr "Stuur een melding wanneer een share met mij is verlopen"
 
 #. description of the notification option 'Space Deleted'
 #: pkg/store/defaults/templates.go:38
@@ -114,17 +114,17 @@ msgstr "Geselecteerde waarde:"
 #. name of the notification option 'Share Expired'
 #: pkg/store/defaults/templates.go:16
 msgid "Share Expired"
-msgstr "Gedeelde map verlopen"
+msgstr "Share verlopen"
 
 #. name of the notification option 'Share Received'
 #: pkg/store/defaults/templates.go:8
 msgid "Share Received"
-msgstr "Gedeelde map ontvangen"
+msgstr "Share ontvangen"
 
 #. name of the notification option 'Share Removed'
 #: pkg/store/defaults/templates.go:12
 msgid "Share Removed"
-msgstr "Gedeelde map ingetrokken"
+msgstr "Share ingetrokken"
 
 #. name of the notification option 'Space Deleted'
 #: pkg/store/defaults/templates.go:36

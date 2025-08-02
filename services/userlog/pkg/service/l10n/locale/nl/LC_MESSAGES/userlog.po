@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2025-08-01 00:00+0000\n"
+"POT-Creation-Date: 2025-08-02 00:00+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Stephan Paternotte <stephan@paternottes.net>, 2025\n"
 "Language-Team: Dutch (https://app.transifex.com/opencloud-eu/teams/204053/nl/)\n"
@@ -62,15 +62,15 @@ msgstr "Verwijderd uit ruimte"
 
 #: pkg/service/templates.go:43
 msgid "Resource shared"
-msgstr "Bron gedeeld"
+msgstr "Hulpbron gedeeld"
 
 #: pkg/service/templates.go:48
 msgid "Resource unshared"
-msgstr "Bron niet gedeeld"
+msgstr "Hulpbron niet gedeeld"
 
 #: pkg/service/templates.go:53
 msgid "Share expired"
-msgstr "Gedeelde map verlopen"
+msgstr "Share verlopen"
 
 #: pkg/service/templates.go:33
 msgid "Space deleted"
