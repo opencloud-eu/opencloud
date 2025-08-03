@@ -34,7 +34,7 @@ func TestKQL_Compile(t *testing.T) {
 		},
 		// kql to os dsl - type tests
 		{
-			Name: "term query",
+			Name: "term query - string node",
 			Got: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.StringNode{Key: "Name", Value: "openCloud"},
@@ -43,7 +43,25 @@ func TestKQL_Compile(t *testing.T) {
 			Want: opensearch.NewTermQuery[string]("Name").Value("openCloud"),
 		},
 		{
-			Name: "match-phrase query",
+			Name: "term query - boolean node - true",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.BooleanNode{Key: "Deleted", Value: true},
+				},
+			},
+			Want: opensearch.NewTermQuery[bool]("Deleted").Value(true),
+		},
+		{
+			Name: "term query - boolean node - false",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.BooleanNode{Key: "Deleted", Value: false},
+				},
+			},
+			Want: opensearch.NewTermQuery[bool]("Deleted").Value(false),
+		},
+		{
+			Name: "match-phrase query - string node",
 			Got: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.StringNode{Key: "Name", Value: "open cloud"},
@@ -52,7 +70,7 @@ func TestKQL_Compile(t *testing.T) {
 			Want: opensearch.NewMatchPhraseQuery("Name").Query("open cloud"),
 		},
 		{
-			Name: "wildcard query",
+			Name: "wildcard query - string node",
 			Got: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.StringNode{Key: "Name", Value: "open*"},

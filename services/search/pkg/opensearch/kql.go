@@ -122,6 +122,8 @@ func (k *KQL) getOperatorValueAt(nodes []ast.Node, i int) string {
 func (k *KQL) getBuilder(node ast.Node) (Builder, error) {
 	var builder Builder
 	switch node := node.(type) {
+	case *ast.BooleanNode:
+		builder = NewTermQuery[bool](k.getFieldName(node.Key)).Value(node.Value)
 	case *ast.StringNode:
 		if strings.Contains(node.Value, "*") {
 			builder = NewWildcardQuery(k.getFieldName(node.Key)).Value(node.Value)
