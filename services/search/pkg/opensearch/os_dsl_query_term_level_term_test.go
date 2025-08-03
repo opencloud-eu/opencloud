@@ -17,7 +17,7 @@ func TestTermQuery(t *testing.T) {
 			Want: nil,
 		},
 		{
-			Name: "naked",
+			Name: "op-options",
 			Got:  opensearch.NewTermQuery[bool]("deleted").Value(false),
 			Want: map[string]any{
 				"term": map[string]any{
@@ -28,7 +28,7 @@ func TestTermQuery(t *testing.T) {
 			},
 		},
 		{
-			Name: "term",
+			Name: "with-options",
 			Got: opensearch.NewTermQuery[bool]("deleted", opensearch.TermQueryOptions{
 				Boost:           1.0,
 				CaseInsensitive: true,

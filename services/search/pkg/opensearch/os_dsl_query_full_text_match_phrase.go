@@ -31,9 +31,7 @@ func (q *MatchPhraseQuery) Map() (map[string]any, error) {
 		return nil, err
 	}
 
-	if !isEmpty(q.query) {
-		data["query"] = q.query
-	}
+	applyValue(data, "query", q.query)
 
 	if isEmpty(data) {
 		return nil, nil

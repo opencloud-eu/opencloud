@@ -43,6 +43,24 @@ func (f BuilderFunc) String() string {
 	return string(b)
 }
 
+func applyValue[T any](target map[string]any, key string, v T) {
+	if target == nil || isEmpty(key) || isEmpty(v) {
+		return
+	}
+
+	target[key] = v
+}
+
+func applyValues[T any](target map[string]any, values map[string]T) {
+	if target == nil || isEmpty(values) {
+		return
+	}
+
+	for k, v := range values {
+		applyValue[T](target, k, v)
+	}
+}
+
 func applyBuilder(target map[string]any, key string, builder Builder) error {
 	if target == nil || isEmpty(key) || isEmpty(builder) {
 		return nil

@@ -17,7 +17,7 @@ func TestBoolQuery(t *testing.T) {
 			Want: nil,
 		},
 		{
-			Name: "naked",
+			Name: "with-options",
 			Got: opensearch.NewBoolQuery(opensearch.BoolQueryOptions{
 				MinimumShouldMatch: 10,
 				Boost:              10,

@@ -31,9 +31,7 @@ func (q *TermQuery[T]) Map() (map[string]any, error) {
 		return nil, err
 	}
 
-	if !isEmpty(q.value) {
-		data["value"] = q.value
-	}
+	applyValue(data, "value", q.value)
 
 	if isEmpty(data) {
 		return nil, nil

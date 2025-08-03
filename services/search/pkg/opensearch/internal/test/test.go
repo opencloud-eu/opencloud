@@ -11,6 +11,7 @@ type TableTest[G any, W any] struct {
 	Name string
 	Got  G
 	Want W
+	Err  error
 }
 
 func ToJSON(t *testing.T, data any) string {

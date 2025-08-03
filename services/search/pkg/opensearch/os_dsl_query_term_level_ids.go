@@ -24,9 +24,7 @@ func (q *IDsQuery) Map() (map[string]any, error) {
 		return nil, err
 	}
 
-	if !isEmpty(q.values) {
-		data["values"] = q.values
-	}
+	applyValue(data, "values", q.values)
 
 	if isEmpty(data) {
 		return nil, nil
