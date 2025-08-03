@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
 	"github.com/opencloud-eu/opencloud/pkg/kql"
@@ -133,6 +134,27 @@ func (k *KQL) getBuilder(node ast.Node) (Builder, error) {
 		default:
 			builder = NewMatchPhraseQuery(k.getFieldName(node.Key)).Query(node.Value)
 		}
+	case *ast.DateTimeNode:
+		if node.Operator == nil {
+			return builder, fmt.Errorf("date time node without operator: %w", ErrUnsupportedNodeType)
+		}
+
+		q := NewRangeQuery[time.Time](k.getFieldName(node.Key))
+
+		switch node.Operator.Value {
+		case ">":
+			q.Gt(node.Value)
+		case ">=":
+			q.Gte(node.Value)
+		case "<":
+			q.Lt(node.Value)
+		case "<=":
+			q.Lte(node.Value)
+		default:
+			return nil, fmt.Errorf("unsupported operator %s for date time node: %w", node.Operator.Value, ErrUnsupportedNodeType)
+		}
+
+		return q, nil
 	case *ast.GroupNode:
 		group, err := k.compile(node.Nodes)
 		if err != nil {

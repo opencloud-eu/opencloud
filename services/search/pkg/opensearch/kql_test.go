@@ -2,6 +2,7 @@ package opensearch_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -84,6 +85,58 @@ func TestKQL_Compile(t *testing.T) {
 				},
 			},
 			Want: opensearch.NewTermQuery[string]("Name").Value("any"),
+		},
+		{
+			Name: "range query >",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.DateTimeNode{
+						Key:      "Mtime",
+						Operator: &ast.OperatorNode{Value: ">"},
+						Value:    opensearchtest.TimeMustParse(t, "2023-09-05T08:42:11.23554+02:00"),
+					},
+				},
+			},
+			Want: opensearch.NewRangeQuery[time.Time]("Mtime").Gt(opensearchtest.TimeMustParse(t, "2023-09-05T08:42:11.23554+02:00")),
+		},
+		{
+			Name: "range query >=",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.DateTimeNode{
+						Key:      "Mtime",
+						Operator: &ast.OperatorNode{Value: ">="},
+						Value:    opensearchtest.TimeMustParse(t, "2023-09-05T08:42:11.23554+02:00"),
+					},
+				},
+			},
+			Want: opensearch.NewRangeQuery[time.Time]("Mtime").Gte(opensearchtest.TimeMustParse(t, "2023-09-05T08:42:11.23554+02:00")),
+		},
+		{
+			Name: "range query <",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.DateTimeNode{
+						Key:      "Mtime",
+						Operator: &ast.OperatorNode{Value: "<"},
+						Value:    opensearchtest.TimeMustParse(t, "2023-09-05T08:42:11.23554+02:00"),
+					},
+				},
+			},
+			Want: opensearch.NewRangeQuery[time.Time]("Mtime").Lt(opensearchtest.TimeMustParse(t, "2023-09-05T08:42:11.23554+02:00")),
+		},
+		{
+			Name: "range query <=",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.DateTimeNode{
+						Key:      "Mtime",
+						Operator: &ast.OperatorNode{Value: "<="},
+						Value:    opensearchtest.TimeMustParse(t, "2023-09-05T08:42:11.23554+02:00"),
+					},
+				},
+			},
+			Want: opensearch.NewRangeQuery[time.Time]("Mtime").Lte(opensearchtest.TimeMustParse(t, "2023-09-05T08:42:11.23554+02:00")),
 		},
 		// kql to os dsl - structure tests
 		{
@@ -253,7 +306,7 @@ func TestKQL_Compile(t *testing.T) {
 			dsl, err := compiler.Compile(test.Got)
 			assert.NoError(t, err)
 
-			assert.JSONEq(t, opensearchtest.ToJSON(t, test.Want), opensearchtest.ToJSON(t, dsl))
+			assert.JSONEq(t, opensearchtest.JSONMustMarshal(t, test.Want), opensearchtest.JSONMustMarshal(t, dsl))
 		})
 	}
 }

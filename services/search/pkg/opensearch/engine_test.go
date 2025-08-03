@@ -37,7 +37,7 @@ func TestEngine_Search(t *testing.T) {
 	defer tc.Require.IndicesDelete([]string{index})
 
 	document := opensearchtest.Testdata.Resources.Full
-	tc.Require.DocumentCreate(index, document.ID, opensearchtest.ToJSON(t, document))
+	tc.Require.DocumentCreate(index, document.ID, opensearchtest.JSONMustMarshal(t, document))
 	tc.Require.IndicesCount([]string{index}, "", 1)
 
 	engine, err := opensearch.NewEngine(index, tc.Client())
@@ -58,7 +58,7 @@ func TestEngine_Search(t *testing.T) {
 		deletedDocument.ID = "1$2!4"
 		deletedDocument.Deleted = true
 
-		tc.Require.DocumentCreate(index, deletedDocument.ID, opensearchtest.ToJSON(t, deletedDocument))
+		tc.Require.DocumentCreate(index, deletedDocument.ID, opensearchtest.JSONMustMarshal(t, deletedDocument))
 		tc.Require.IndicesCount([]string{index}, "", 2)
 
 		resp, err := engine.Search(t.Context(), &searchService.SearchIndexRequest{
@@ -105,7 +105,7 @@ func TestEngine_Delete(t *testing.T) {
 
 	t.Run("mark document as deleted", func(t *testing.T) {
 		document := opensearchtest.Testdata.Resources.Full
-		tc.Require.DocumentCreate(index, document.ID, opensearchtest.ToJSON(t, document))
+		tc.Require.DocumentCreate(index, document.ID, opensearchtest.JSONMustMarshal(t, document))
 		tc.Require.IndicesCount([]string{index}, "", 1)
 
 		tc.Require.IndicesCount([]string{index}, opensearch.NewRootQuery(
@@ -133,7 +133,7 @@ func TestEngine_Restore(t *testing.T) {
 	t.Run("mark document as not deleted", func(t *testing.T) {
 		document := opensearchtest.Testdata.Resources.Full
 		document.Deleted = true
-		tc.Require.DocumentCreate(index, document.ID, opensearchtest.ToJSON(t, document))
+		tc.Require.DocumentCreate(index, document.ID, opensearchtest.JSONMustMarshal(t, document))
 		tc.Require.IndicesCount([]string{index}, "", 1)
 
 		tc.Require.IndicesCount([]string{index}, opensearch.NewRootQuery(
@@ -160,7 +160,7 @@ func TestEngine_Purge(t *testing.T) {
 
 	t.Run("purge with full document", func(t *testing.T) {
 		document := opensearchtest.Testdata.Resources.Full
-		tc.Require.DocumentCreate(index, document.ID, opensearchtest.ToJSON(t, document))
+		tc.Require.DocumentCreate(index, document.ID, opensearchtest.JSONMustMarshal(t, document))
 		tc.Require.IndicesCount([]string{index}, "", 1)
 
 		require.NoError(t, engine.Purge(document.ID))
@@ -182,14 +182,14 @@ func TestEngine_DocCount(t *testing.T) {
 
 	t.Run("ignore deleted documents", func(t *testing.T) {
 		document := opensearchtest.Testdata.Resources.Full
-		tc.Require.DocumentCreate(index, document.ID, opensearchtest.ToJSON(t, document))
+		tc.Require.DocumentCreate(index, document.ID, opensearchtest.JSONMustMarshal(t, document))
 		tc.Require.IndicesCount([]string{index}, "", 1)
 
 		count, err := engine.DocCount()
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), count)
 
-		tc.Require.Update(index, document.ID, opensearchtest.ToJSON(t, map[string]any{
+		tc.Require.Update(index, document.ID, opensearchtest.JSONMustMarshal(t, map[string]any{
 			"doc": map[string]any{
 				"Deleted": true,
 			},

@@ -18,7 +18,7 @@ func TestSearchHitToSearchMessageMatch(t *testing.T) {
 
 	hit := opensearchgoAPI.SearchHit{
 		Score:  1.1,
-		Source: json.RawMessage(opensearchtest.ToJSON(t, resource)),
+		Source: json.RawMessage(opensearchtest.JSONMustMarshal(t, resource)),
 	}
 	match, err := opensearch.SearchHitToSearchMessageMatch(hit)
 	assert.NoError(t, err)
@@ -32,6 +32,6 @@ func TestSearchHitToSearchMessageMatch(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Equal(t, resource.Audio.Bitrate, match.Entity.Audio.Bitrate)
-		assert.JSONEq(t, opensearchtest.ToJSON(t, audio), opensearchtest.ToJSON(t, match.Entity.Audio))
+		assert.JSONEq(t, opensearchtest.JSONMustMarshal(t, audio), opensearchtest.JSONMustMarshal(t, match.Entity.Audio))
 	})
 }

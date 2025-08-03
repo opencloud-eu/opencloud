@@ -30,7 +30,7 @@ func TestBuilderToBoolQuery(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			assert.JSONEq(t, opensearchtest.ToJSON(t, test.Want), opensearchtest.ToJSON(t, opensearch.BuilderToBoolQuery(test.Got)))
+			assert.JSONEq(t, opensearchtest.JSONMustMarshal(t, test.Want), opensearchtest.JSONMustMarshal(t, opensearch.BuilderToBoolQuery(test.Got)))
 		})
 	}
 }
