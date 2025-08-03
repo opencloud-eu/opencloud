@@ -47,12 +47,15 @@ func (k *KQL) compile(nodes []ast.Node) (Builder, error) {
 
 	for i, node := range nodes {
 		nextOp := k.getOperatorValueAt(nodes, i+1)
+		prevOp := k.getOperatorValueAt(nodes, i-1)
 
 		switch {
 		case nextOp == kql.BoolOR:
 			add = boolQuery.Should
 		case nextOp == kql.BoolAND:
 			add = boolQuery.Must
+		case prevOp == kql.BoolNOT:
+			add = boolQuery.MustNot
 		}
 
 		builder, err := k.getBuilder(node)

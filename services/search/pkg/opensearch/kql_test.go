@@ -211,6 +211,36 @@ func TestKQL_Compile(t *testing.T) {
 				),
 		},
 		{
+			Name: "[NOT *]",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.OperatorNode{Value: "NOT"},
+					&ast.StringNode{Key: "age", Value: "32"},
+				},
+			},
+			Want: opensearch.NewBoolQuery().
+				MustNot(
+					opensearch.NewTermQuery[string]("age").Value("32"),
+				),
+		},
+		{
+			Name: "[* NOT *]",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: "openCloud"},
+					&ast.OperatorNode{Value: "NOT"},
+					&ast.StringNode{Key: "age", Value: "32"},
+				},
+			},
+			Want: opensearch.NewBoolQuery().
+				Must(
+					opensearch.NewTermQuery[string]("Name").Value("openCloud"),
+				).
+				MustNot(
+					opensearch.NewTermQuery[string]("age").Value("32"),
+				),
+		},
+		{
 			Name: "[* OR * OR *]",
 			Got: &ast.Ast{
 				Nodes: []ast.Node{
@@ -269,7 +299,7 @@ func TestKQL_Compile(t *testing.T) {
 				),
 		},
 		{
-			Name: "NEW[* OR * AND *]",
+			Name: "[* OR * AND *]",
 			Got: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.StringNode{Key: "a", Value: "a"},
@@ -313,6 +343,34 @@ func TestKQL_Compile(t *testing.T) {
 						),
 					opensearch.NewTermQuery[string]("d").Value("d"),
 				),
+		},
+		{
+			Name: "[[* OR * OR *] AND NOT *]",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.GroupNode{Nodes: []ast.Node{
+						&ast.StringNode{Key: "a", Value: "a"},
+						&ast.OperatorNode{Value: "OR"},
+						&ast.StringNode{Key: "b", Value: "b"},
+						&ast.OperatorNode{Value: "OR"},
+						&ast.StringNode{Key: "c", Value: "c"},
+					}},
+					&ast.OperatorNode{Value: "AND"},
+					&ast.OperatorNode{Value: "NOT"},
+					&ast.StringNode{Key: "d", Value: "d"},
+				},
+			},
+			Want: opensearch.NewBoolQuery().
+				Must(
+					opensearch.NewBoolQuery(opensearch.BoolQueryOptions{MinimumShouldMatch: 1}).
+						Should(
+							opensearch.NewTermQuery[string]("a").Value("a"),
+							opensearch.NewTermQuery[string]("b").Value("b"),
+							opensearch.NewTermQuery[string]("c").Value("c"),
+						),
+				).MustNot(
+				opensearch.NewTermQuery[string]("d").Value("d"),
+			),
 		},
 	}
 
