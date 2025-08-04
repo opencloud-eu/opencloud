@@ -15,3 +15,8 @@ type ApiClient interface {
 type SessionClient interface {
 	GetSession(username string, logger *log.Logger) (SessionResponse, Error)
 }
+
+type BlobClient interface {
+	UploadBinary(ctx context.Context, logger *log.Logger, session *Session, uploadUrl string, contentType string, content io.Reader) (UploadedBlob, Error)
+	DownloadBinary(ctx context.Context, logger *log.Logger, session *Session, downloadUrl string) (*BlobDownload, Error)
+}

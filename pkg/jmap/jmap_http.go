@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/version"
@@ -24,6 +25,7 @@ type HttpJmapApiClient struct {
 var (
 	_ ApiClient     = &HttpJmapApiClient{}
 	_ SessionClient = &HttpJmapApiClient{}
+	_ BlobClient    = &HttpJmapApiClient{}
 )
 
 /*
@@ -152,4 +154,89 @@ func (h *HttpJmapApiClient) Command(ctx context.Context, logger *log.Logger, ses
 	}
 
 	return body, nil
+}
+
+func (h *HttpJmapApiClient) UploadBinary(ctx context.Context, logger *log.Logger, session *Session, uploadUrl string, contentType string, body io.Reader) (UploadedBlob, Error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uploadUrl, body)
+	if err != nil {
+		logger.Error().Err(err).Msgf("failed to create POST request for %v", uploadUrl)
+		return UploadedBlob{}, SimpleError{code: JmapErrorCreatingRequest, err: err}
+	}
+	req.Header.Add("Content-Type", contentType)
+	req.Header.Add("User-Agent", h.userAgent)
+	h.auth(session.Username, logger, req)
+
+	res, err := h.client.Do(req)
+	if err != nil {
+		logger.Error().Err(err).Msgf("failed to perform POST %v", uploadUrl)
+		return UploadedBlob{}, SimpleError{code: JmapErrorSendingRequest, err: err}
+	}
+	if res.StatusCode < 200 || res.StatusCode > 299 {
+		logger.Error().Str("status", res.Status).Msg("HTTP response status code is not 2xx")
+		return UploadedBlob{}, SimpleError{code: JmapErrorServerResponse, err: err}
+	}
+	if res.Body != nil {
+		defer func(Body io.ReadCloser) {
+			err := Body.Close()
+			if err != nil {
+				logger.Error().Err(err).Msg("failed to close response body")
+			}
+		}(res.Body)
+	}
+
+	responseBody, err := io.ReadAll(res.Body)
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to read response body")
+		return UploadedBlob{}, SimpleError{code: JmapErrorServerResponse, err: err}
+	}
+
+	var result UploadedBlob
+	err = json.Unmarshal(responseBody, &result)
+	if err != nil {
+		logger.Error().Str("url", uploadUrl).Err(err).Msg("failed to decode JSON payload from the upload response")
+		return UploadedBlob{}, SimpleError{code: JmapErrorDecodingResponseBody, err: err}
+	}
+
+	return result, nil
+}
+
+func (h *HttpJmapApiClient) DownloadBinary(ctx context.Context, logger *log.Logger, session *Session, downloadUrl string) (*BlobDownload, Error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadUrl, nil)
+	if err != nil {
+		logger.Error().Err(err).Msgf("failed to create GET request for %v", downloadUrl)
+		return nil, SimpleError{code: JmapErrorCreatingRequest, err: err}
+	}
+	req.Header.Add("User-Agent", h.userAgent)
+	h.auth(session.Username, logger, req)
+
+	res, err := h.client.Do(req)
+	if err != nil {
+		logger.Error().Err(err).Msgf("failed to perform GET %v", downloadUrl)
+		return nil, SimpleError{code: JmapErrorSendingRequest, err: err}
+	}
+	if res.StatusCode == http.StatusNotFound {
+		return nil, nil
+	}
+	if res.StatusCode < 200 || res.StatusCode > 299 {
+		logger.Error().Str("status", res.Status).Msg("HTTP response status code is not 2xx")
+		return nil, SimpleError{code: JmapErrorServerResponse, err: err}
+	}
+
+	sizeStr := res.Header.Get("Content-Length")
+	size := -1
+	if sizeStr != "" {
+		size, err = strconv.Atoi(sizeStr)
+		if err != nil {
+			logger.Warn().Err(err).Msgf("failed to parse Content-Length blob download response header value '%v'", sizeStr)
+			size = -1
+		}
+	}
+
+	return &BlobDownload{
+		Body:               res.Body,
+		Size:               size,
+		Type:               res.Header.Get("Content-Type"),
+		ContentDisposition: res.Header.Get("Content-Disposition"),
+		CacheControl:       res.Header.Get("Cache-Control"),
+	}, nil
 }

@@ -116,7 +116,7 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux) (*Gro
 		masterPassword,
 	)
 
-	jmapClient := jmap.NewClient(api, api)
+	jmapClient := jmap.NewClient(api, api, api)
 
 	var sessionCache *ttlcache.Cache[string, cachedSession]
 	{
@@ -334,6 +334,53 @@ func (g Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(
 	} else {
 		render.Status(r, http.StatusOK)
 		render.JSON(w, r, response)
+	}
+}
+
+func (g Groupware) stream(w http.ResponseWriter, r *http.Request, handler func(r Request, w http.ResponseWriter) *Error) {
+	ctx := r.Context()
+	logger := g.logger.SubloggerWithRequestID(ctx)
+
+	username, ok, err := g.usernameProvider.GetUsername(r, ctx, &logger)
+	if err != nil {
+		g.serveError(w, r, apiError(errorId(r, ctx), ErrorInvalidAuthentication))
+		return
+	}
+	if !ok {
+		g.serveError(w, r, apiError(errorId(r, ctx), ErrorMissingAuthentication))
+		return
+	}
+
+	logger = log.Logger{Logger: logger.With().Str(logUsername, logstr(username)).Logger()}
+
+	session, ok, err := g.session(username, r, ctx, &logger)
+	if err != nil {
+		logger.Error().Err(err).Interface(logQuery, r.URL.Query()).Msg("failed to determine JMAP session")
+		render.Status(r, http.StatusInternalServerError)
+		return
+	}
+	if !ok {
+		// no session = authentication failed
+		logger.Warn().Err(err).Interface(logQuery, r.URL.Query()).Msg("could not authenticate")
+		render.Status(r, http.StatusForbidden)
+		return
+	}
+	logger = session.DecorateLogger(logger)
+
+	req := Request{
+		r:       r,
+		ctx:     ctx,
+		logger:  &logger,
+		session: &session,
+	}
+
+	apierr := handler(req, w)
+	if apierr != nil {
+		g.log(apierr)
+		w.Header().Add("Content-Type", ContentTypeJsonApi)
+		render.Status(r, apierr.NumStatus)
+		w.WriteHeader(apierr.NumStatus)
+		render.Render(w, r, errorResponses(*apierr))
 	}
 }
 

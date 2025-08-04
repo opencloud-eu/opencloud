@@ -2,15 +2,20 @@ package jmap
 
 import (
 	"context"
+	"crypto/sha512"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/stretchr/testify/require"
 )
@@ -55,6 +60,39 @@ func NewTestJmapApiClient(t *testing.T) ApiClient {
 
 func (t TestJmapApiClient) Close() error {
 	return nil
+}
+
+type TestJmapBlobClient struct {
+	t *testing.T
+}
+
+func NewTestJmapBlobClient(t *testing.T) BlobClient {
+	return &TestJmapBlobClient{t: t}
+}
+
+func (t TestJmapBlobClient) UploadBinary(ctx context.Context, logger *log.Logger, session *Session, uploadUrl string, contentType string, body io.Reader) (UploadedBlob, Error) {
+	bytes, err := io.ReadAll(body)
+	if err != nil {
+		return UploadedBlob{}, SimpleError{code: 0, err: err}
+	}
+	hasher := sha512.New()
+	hasher.Write(bytes)
+	return UploadedBlob{
+		Id:     uuid.NewString(),
+		Size:   len(bytes),
+		Type:   contentType,
+		Sha512: base64.StdEncoding.EncodeToString(hasher.Sum(nil)),
+	}, nil
+}
+
+func (h *TestJmapBlobClient) DownloadBinary(ctx context.Context, logger *log.Logger, session *Session, downloadUrl string) (*BlobDownload, Error) {
+	return &BlobDownload{
+		Body:               io.NopCloser(strings.NewReader("")),
+		Size:               -1,
+		Type:               "text/plain",
+		ContentDisposition: "attachment; filename=\"file.txt\"",
+		CacheControl:       "",
+	}, nil
 }
 
 func serveTestFile(t *testing.T, name string) ([]byte, Error) {
@@ -102,9 +140,10 @@ func TestRequests(t *testing.T) {
 	require := require.New(t)
 	apiClient := NewTestJmapApiClient(t)
 	wkClient := NewTestJmapWellKnownClient(t)
+	blobClient := NewTestJmapBlobClient(t)
 	logger := log.NopLogger()
 	ctx := context.Background()
-	client := NewClient(wkClient, apiClient)
+	client := NewClient(wkClient, apiClient, blobClient)
 
 	jmapUrl, err := url.Parse("http://localhost/jmap")
 	require.NoError(err)
