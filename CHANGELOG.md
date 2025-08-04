@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.2.2](https://github.com/opencloud-eu/opencloud/releases/tag/v3.2.2) - 2025-08-02
+## [3.2.2](https://github.com/opencloud-eu/opencloud/releases/tag/v3.2.2) - 2025-08-04
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -8,6 +8,7 @@
 
 ### 🐛 Bug Fixes
 
+- Improve indexing performance using batches [[#1306](https://github.com/opencloud-eu/opencloud/pull/1306)]
 - Do not run the timout func if the work func has run [[#1302](https://github.com/opencloud-eu/opencloud/pull/1302)]
 
 ## [3.2.1](https://github.com/opencloud-eu/opencloud/releases/tag/v3.2.1) - 2025-07-30
