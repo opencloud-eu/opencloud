@@ -23,6 +23,9 @@ type Engine interface {
 	Restore(id string) error
 	Purge(id string) error
 	DocCount() (uint64, error)
+
+	StartBatch(batchSize int) error
+	EndBatch() error
 }
 
 // Resource is the entity that is stored in the index.

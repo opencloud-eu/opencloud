@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/blevesearch/bleve/v2"
@@ -20,10 +21,11 @@ import (
 	"github.com/blevesearch/bleve/v2/mapping"
 	"github.com/blevesearch/bleve/v2/search/query"
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
-	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
@@ -32,10 +34,16 @@ import (
 	searchQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query"
 )
 
+const _batchSize = 500
+
 // Bleve represents a search engine which utilizes bleve to search and store resources.
 type Bleve struct {
 	index        bleve.Index
 	queryCreator searchQuery.Creator[query.Query]
+	batch        *bleve.Batch
+	batchSize    int
+	m            sync.Mutex // batch operations in bleve are not thread-safe
+	log          log.Logger
 }
 
 // NewBleveIndex returns a new bleve index
@@ -60,10 +68,11 @@ func NewBleveIndex(root string) (bleve.Index, error) {
 }
 
 // NewBleveEngine creates a new Bleve instance
-func NewBleveEngine(index bleve.Index, queryCreator searchQuery.Creator[query.Query]) *Bleve {
+func NewBleveEngine(index bleve.Index, queryCreator searchQuery.Creator[query.Query], log log.Logger) *Bleve {
 	return &Bleve{
 		index:        index,
 		queryCreator: queryCreator,
+		log:          log,
 	}
 }
 
@@ -233,8 +242,60 @@ func (b *Bleve) Search(ctx context.Context, sir *searchService.SearchIndexReques
 	}, nil
 }
 
+func (b *Bleve) StartBatch(batchSize int) error {
+	b.m.Lock()
+	defer b.m.Unlock()
+
+	if batchSize <= 0 {
+		return errors.New("batch size must be greater than 0")
+	}
+
+	if b.batch != nil {
+		b.log.Debug().Msg("reusing another batch that has already been started")
+		return nil
+	}
+
+	b.log.Debug().Msg("Starting new batch")
+	b.batch = b.index.NewBatch()
+	b.batchSize = batchSize
+	return nil
+}
+
+func (b *Bleve) EndBatch() error {
+	b.m.Lock()
+	defer b.m.Unlock()
+
+	if b.batch == nil {
+		return errors.New("no batch started")
+	}
+
+	b.log.Debug().Int("size", b.batch.Size()).Msg("Ending batch")
+	if err := b.index.Batch(b.batch); err != nil {
+		return err
+	}
+
+	b.batch = nil
+	return nil
+}
+
 // Upsert indexes or stores Resource data fields.
 func (b *Bleve) Upsert(id string, r Resource) error {
+	b.m.Lock()
+	defer b.m.Unlock()
+
+	if b.batch != nil {
+		if err := b.batch.Index(id, r); err != nil {
+			return err
+		}
+		if b.batch.Size() >= b.batchSize {
+			b.log.Debug().Int("size", b.batch.Size()).Msg("Committing batch")
+			if err := b.index.Batch(b.batch); err != nil {
+				return err
+			}
+			b.batch = b.index.NewBatch()
+		}
+		return nil
+	}
 	return b.index.Index(id, r)
 }
 
@@ -298,6 +359,19 @@ func (b *Bleve) Restore(id string) error {
 
 // Purge removes a resource from the index, irreversible operation.
 func (b *Bleve) Purge(id string) error {
+	b.m.Lock()
+	defer b.m.Unlock()
+
+	if b.batch != nil {
+		b.batch.Delete(id)
+		if b.batch.Size() >= b.batchSize {
+			if err := b.index.Batch(b.batch); err != nil {
+				return err
+			}
+			b.batch = b.index.NewBatch()
+		}
+		return nil
+	}
 	return b.index.Delete(id)
 }
 
@@ -452,7 +526,7 @@ func (b *Bleve) updateEntity(id string, mutateFunc func(r *Resource)) (*Resource
 
 	mutateFunc(it)
 
-	return it, b.index.Index(it.ID, it)
+	return it, b.Upsert(id, *it)
 }
 
 func (b *Bleve) setDeleted(id string, deleted bool) error {
@@ -468,6 +542,7 @@ func (b *Bleve) setDeleted(id string, deleted bool) error {
 			bleve.NewQueryStringQuery("RootID:"+it.RootID),
 			bleve.NewQueryStringQuery("Path:"+escapeQuery(it.Path+"/*")),
 		)
+
 		bleveReq := bleve.NewSearchRequest(q)
 		bleveReq.Size = math.MaxInt
 		bleveReq.Fields = []string{"*"}
@@ -476,6 +551,8 @@ func (b *Bleve) setDeleted(id string, deleted bool) error {
 			return err
 		}
 
+		b.StartBatch(_batchSize)
+		defer b.EndBatch()
 		for _, h := range res.Hits {
 			_, err := b.updateEntity(h.ID, func(r *Resource) {
 				r.Deleted = deleted
@@ -484,6 +561,7 @@ func (b *Bleve) setDeleted(id string, deleted bool) error {
 				return err
 			}
 		}
+		b.EndBatch()
 	}
 
 	return nil

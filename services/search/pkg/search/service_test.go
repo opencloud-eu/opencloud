@@ -122,6 +122,8 @@ var _ = Describe("Searchprovider", func() {
 				User:   user,
 			}, nil)
 			extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{}, nil)
+			indexClient.On("StartBatch", mock.Anything, mock.Anything).Return(nil)
+			indexClient.On("EndBatch", mock.Anything, mock.Anything).Return(nil)
 			indexClient.On("Upsert", mock.Anything, mock.Anything).Return(nil)
 			indexClient.On("Search", mock.Anything, mock.Anything).Return(&searchsvc.SearchIndexResponse{}, nil)
 			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&sprovider.StatResponse{

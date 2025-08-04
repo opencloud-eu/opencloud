@@ -28,6 +28,7 @@ type Config struct {
 	Engine                     Engine                `yaml:"engine"`
 	Extractor                  Extractor             `yaml:"extractor"`
 	ContentExtractionSizeLimit uint64                `yaml:"content_extraction_size_limit" env:"SEARCH_CONTENT_EXTRACTION_SIZE_LIMIT" desc:"Maximum file size in bytes that is allowed for content extraction." introductionVersion:"1.0.0"`
+	BatchSize                  int                   `yaml:"batch_size" env:"SEARCH_BATCH_SIZE" desc:"The number of documents to process in a single batch. Defaults to 500." introductionVersion:"1.0.0"`
 
 	ServiceAccount ServiceAccount `yaml:"service_account"`
 

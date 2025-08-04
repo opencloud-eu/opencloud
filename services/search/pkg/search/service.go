@@ -64,6 +64,8 @@ type Service struct {
 
 	serviceAccountID     string
 	serviceAccountSecret string
+
+	batchSize int
 }
 
 var errSkipSpace error
@@ -79,6 +81,8 @@ func NewService(gatewaySelector pool.Selectable[gateway.GatewayAPIClient], eng e
 
 		serviceAccountID:     cfg.ServiceAccount.ServiceAccountID,
 		serviceAccountSecret: cfg.ServiceAccount.ServiceAccountSecret,
+
+		batchSize: cfg.BatchSize,
 	}
 
 	return s
@@ -459,6 +463,12 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId) error {
 	}()
 
 	w := walker.NewWalker(s.gatewaySelector)
+	s.engine.StartBatch(s.batchSize)
+	defer func() {
+		if err := s.engine.EndBatch(); err != nil {
+			s.logger.Error().Err(err).Msg("failed to end batch")
+		}
+	}()
 	err = w.Walk(ownerCtx, &rootID, func(wd string, info *provider.ResourceInfo, err error) error {
 		if err != nil {
 			s.logger.Error().Err(err).Msg("error walking the tree")

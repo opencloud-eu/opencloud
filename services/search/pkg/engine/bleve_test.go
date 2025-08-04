@@ -8,9 +8,10 @@ import (
 	sprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
+	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
@@ -53,6 +54,7 @@ var _ = Describe("Bleve", func() {
 		rootResource   engine.Resource
 		parentResource engine.Resource
 		childResource  engine.Resource
+		childResource2 engine.Resource
 	)
 
 	BeforeEach(func() {
@@ -62,7 +64,7 @@ var _ = Describe("Bleve", func() {
 		idx, err = bleveSearch.NewMemOnly(mapping)
 		Expect(err).ToNot(HaveOccurred())
 
-		eng = engine.NewBleveEngine(idx, bleve.DefaultCreator)
+		eng = engine.NewBleveEngine(idx, bleve.DefaultCreator, log.Logger{})
 		Expect(err).ToNot(HaveOccurred())
 
 		rootResource = engine.Resource{
@@ -89,11 +91,20 @@ var _ = Describe("Bleve", func() {
 			Type:     uint64(sprovider.ResourceType_RESOURCE_TYPE_FILE),
 			Document: content.Document{Name: "child.pdf"},
 		}
+
+		childResource2 = engine.Resource{
+			ID:       "1$2!5",
+			ParentID: parentResource.ID,
+			RootID:   rootResource.ID,
+			Path:     "./parent d!r/child2.pdf",
+			Type:     uint64(sprovider.ResourceType_RESOURCE_TYPE_FILE),
+			Document: content.Document{Name: "child2.pdf"},
+		}
 	})
 
 	Describe("New", func() {
 		It("returns a new index instance", func() {
-			b := engine.NewBleveEngine(idx, bleve.DefaultCreator)
+			b := engine.NewBleveEngine(idx, bleve.DefaultCreator, log.Logger{})
 			Expect(b).ToNot(BeNil())
 		})
 	})
@@ -483,6 +494,55 @@ var _ = Describe("Bleve", func() {
 			Expect(matches[0].Entity.ParentId.OpaqueId).To(Equal("somewhereopaqueid"))
 			Expect(matches[0].Entity.Ref.Path).To(Equal("./somewhere/else/newname"))
 
+		})
+	})
+
+	Describe("StartBatch", func() {
+		It("starts a new batch", func() {
+			err := eng.StartBatch(100)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = eng.Upsert(childResource.ID, childResource)
+			Expect(err).ToNot(HaveOccurred())
+
+			count, err := idx.DocCount()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(count).To(Equal(uint64(0)))
+
+			err = eng.EndBatch()
+			Expect(err).ToNot(HaveOccurred())
+
+			count, err = idx.DocCount()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(count).To(Equal(uint64(1)))
+
+			query := bleveSearch.NewMatchQuery("child.pdf")
+			res, err := idx.Search(bleveSearch.NewSearchRequest(query))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Hits.Len()).To(Equal(1))
+		})
+
+		It("doesn't overwrite batches that are already in progress", func() {
+			err := eng.StartBatch(100)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = eng.Upsert(childResource.ID, childResource)
+			Expect(err).ToNot(HaveOccurred())
+
+			count, err := idx.DocCount()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(count).To(Equal(uint64(0)))
+
+			err = eng.StartBatch(100)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = eng.Upsert(childResource2.ID, childResource2)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(eng.EndBatch()).To(Succeed())
+			count, err = idx.DocCount()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(count).To(Equal(uint64(2)))
 		})
 	})
 

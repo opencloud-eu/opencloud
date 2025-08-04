@@ -58,6 +58,7 @@ func DefaultConfig() *config.Config {
 			AckWait:          1 * time.Minute,
 		},
 		ContentExtractionSizeLimit: 20 * 1024 * 1024, // Limit content extraction to <20MB files by default
+		BatchSize:                  500,
 	}
 }
 

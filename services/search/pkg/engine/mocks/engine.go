@@ -143,6 +143,50 @@ func (_c *Engine_DocCount_Call) RunAndReturn(run func() (uint64, error)) *Engine
 	return _c
 }
 
+// EndBatch provides a mock function for the type Engine
+func (_mock *Engine) EndBatch() error {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for EndBatch")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func() error); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// Engine_EndBatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EndBatch'
+type Engine_EndBatch_Call struct {
+	*mock.Call
+}
+
+// EndBatch is a helper method to define mock.On call
+func (_e *Engine_Expecter) EndBatch() *Engine_EndBatch_Call {
+	return &Engine_EndBatch_Call{Call: _e.mock.On("EndBatch")}
+}
+
+func (_c *Engine_EndBatch_Call) Run(run func()) *Engine_EndBatch_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Engine_EndBatch_Call) Return(err error) *Engine_EndBatch_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *Engine_EndBatch_Call) RunAndReturn(run func() error) *Engine_EndBatch_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Move provides a mock function for the type Engine
 func (_mock *Engine) Move(id string, parentid string, target string) error {
 	ret := _mock.Called(id, parentid, target)
@@ -372,6 +416,57 @@ func (_c *Engine_Search_Call) Return(searchIndexResponse *v0.SearchIndexResponse
 }
 
 func (_c *Engine_Search_Call) RunAndReturn(run func(ctx context.Context, req *v0.SearchIndexRequest) (*v0.SearchIndexResponse, error)) *Engine_Search_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// StartBatch provides a mock function for the type Engine
+func (_mock *Engine) StartBatch(batchSize int) error {
+	ret := _mock.Called(batchSize)
+
+	if len(ret) == 0 {
+		panic("no return value specified for StartBatch")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(int) error); ok {
+		r0 = returnFunc(batchSize)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// Engine_StartBatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StartBatch'
+type Engine_StartBatch_Call struct {
+	*mock.Call
+}
+
+// StartBatch is a helper method to define mock.On call
+//   - batchSize int
+func (_e *Engine_Expecter) StartBatch(batchSize interface{}) *Engine_StartBatch_Call {
+	return &Engine_StartBatch_Call{Call: _e.mock.On("StartBatch", batchSize)}
+}
+
+func (_c *Engine_StartBatch_Call) Run(run func(batchSize int)) *Engine_StartBatch_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 int
+		if args[0] != nil {
+			arg0 = args[0].(int)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *Engine_StartBatch_Call) Return(err error) *Engine_StartBatch_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *Engine_StartBatch_Call) RunAndReturn(run func(batchSize int) error) *Engine_StartBatch_Call {
 	_c.Call.Return(run)
 	return _c
 }
