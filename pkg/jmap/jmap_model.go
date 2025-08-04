@@ -1,6 +1,7 @@
 package jmap
 
 import (
+	"io"
 	"time"
 )
 
@@ -1295,6 +1296,14 @@ type BlobGetResponse struct {
 	State     string `json:"state,omitempty"`
 	List      []Blob `json:"list,omitempty"`
 	NotFound  []any  `json:"notFound,omitempty"`
+}
+
+type BlobDownload struct {
+	Body               io.ReadCloser
+	Size               int
+	Type               string
+	ContentDisposition string
+	CacheControl       string
 }
 
 const (
