@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"strings"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/rs/zerolog"
@@ -18,6 +19,7 @@ type SessionEventListener interface {
 type Client struct {
 	wellKnown             SessionClient
 	api                   ApiClient
+	blob                  BlobClient
 	sessionEventListeners *eventListeners[SessionEventListener]
 	io.Closer
 }
@@ -26,10 +28,11 @@ func (j *Client) Close() error {
 	return j.api.Close()
 }
 
-func NewClient(wellKnown SessionClient, api ApiClient) Client {
+func NewClient(wellKnown SessionClient, api ApiClient, blob BlobClient) Client {
 	return Client{
 		wellKnown:             wellKnown,
 		api:                   api,
+		blob:                  blob,
 		sessionEventListeners: newEventListeners[SessionEventListener](),
 	}
 }
@@ -63,6 +66,9 @@ type Session struct {
 	// The upload URL template
 	UploadUrlTemplate string
 
+	// The upload URL template
+	DownloadUrlTemplate string
+
 	// TODO
 	DefaultMailAccountId string
 
@@ -91,12 +97,17 @@ func newSession(sessionResponse SessionResponse) (Session, Error) {
 	if uploadUrl == "" {
 		return Session{}, SimpleError{code: JmapErrorInvalidSessionResponse, err: fmt.Errorf("JMAP session response does not provide an upload URL")}
 	}
+	downloadUrl := sessionResponse.DownloadUrl
+	if downloadUrl == "" {
+		return Session{}, SimpleError{code: JmapErrorInvalidSessionResponse, err: fmt.Errorf("JMAP session response does not provide an download URL")}
+	}
 
 	return Session{
 		Username:             username,
 		DefaultMailAccountId: mailAccountId,
 		JmapUrl:              *apiUrl,
 		UploadUrlTemplate:    uploadUrl,
+		DownloadUrlTemplate:  downloadUrl,
 		SessionResponse:      sessionResponse,
 	}, nil
 }
@@ -126,6 +137,9 @@ const (
 	logOffset       = "offset"
 	logLimit        = "limit"
 	logApiUrl       = "apiurl"
+	logDownloadUrl  = "downloadurl"
+	logBlobId       = "blobId"
+	logUploadUrl    = "downloadurl"
 	logSessionState = "session-state"
 	logSince        = "since"
 
@@ -538,6 +552,25 @@ type UploadedBlob struct {
 	Size   int    `json:"size"`
 	Type   string `json:"type"`
 	Sha512 string `json:"sha:512"`
+}
+
+func (j *Client) UploadBlobStream(accountId string, session *Session, ctx context.Context, logger *log.Logger, contentType string, body io.Reader) (UploadedBlob, Error) {
+	aid := session.BlobAccountId(accountId)
+	// TODO(pbleser-oc) use a library for proper URL template parsing
+	uploadUrl := strings.ReplaceAll(session.UploadUrlTemplate, "{accountId}", aid)
+	return j.blob.UploadBinary(ctx, logger, session, uploadUrl, contentType, body)
+}
+
+func (j *Client) DownloadBlobStream(accountId string, blobId string, name string, typ string, session *Session, ctx context.Context, logger *log.Logger) (*BlobDownload, Error) {
+	aid := session.BlobAccountId(accountId)
+	// TODO(pbleser-oc) use a library for proper URL template parsing
+	downloadUrl := session.DownloadUrlTemplate
+	downloadUrl = strings.ReplaceAll(downloadUrl, "{accountId}", aid)
+	downloadUrl = strings.ReplaceAll(downloadUrl, "{blobId}", blobId)
+	downloadUrl = strings.ReplaceAll(downloadUrl, "{name}", name)
+	downloadUrl = strings.ReplaceAll(downloadUrl, "{type}", typ)
+	logger = &log.Logger{Logger: logger.With().Str(logDownloadUrl, downloadUrl).Str(logBlobId, blobId).Str(logAccountId, aid).Logger()}
+	return j.blob.DownloadBinary(ctx, logger, session, downloadUrl)
 }
 
 func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Context, logger *log.Logger, data []byte, contentType string) (UploadedBlob, Error) {

@@ -11,6 +11,8 @@ const (
 	QueryParamSize     = "size"
 	UriParamMessagesId = "id"
 	UriParamBlobId     = "blobid"
+	UriParamBlobName   = "blobname"
+	QueryParamBlobType = "type"
 	QueryParamSince    = "since"
 	HeaderSince        = "if-none-match"
 )
@@ -20,14 +22,21 @@ func (g Groupware) Route(r chi.Router) {
 	r.Get("/accounts", g.GetAccounts)
 	r.Route("/accounts/{account}", func(r chi.Router) {
 		r.Get("/", g.GetAccount)
-		r.Get("/mailboxes", g.GetMailboxes) // ?name=&role=&subcribed=
-		r.Get("/mailboxes/{mailbox}", g.GetMailbox)
-		r.Get("/mailboxes/{mailbox}/messages", g.GetAllMessages)
-		r.Get("/messages/{id}", g.GetMessagesById)
-		r.Get("/messages", g.GetMessageUpdates)
 		r.Get("/identity", g.GetIdentity)
 		r.Get("/vacation", g.GetVacation)
-		r.Get("/blobs/{blobid}", g.GetBlob)
+		r.Route("/mailboxes", func(r chi.Router) {
+			r.Get("/", g.GetMailboxes) // ?name=&role=&subcribed=
+			r.Get("/{mailbox}", g.GetMailbox)
+			r.Get("/{mailbox}/messages", g.GetAllMessages)
+		})
+		r.Route("/messages", func(r chi.Router) {
+			r.Get("/", g.GetMessageUpdates)
+			r.Get("/{id}", g.GetMessagesById)
+		})
+		r.Route("/blobs", func(r chi.Router) {
+			r.Get("/{blobid}", g.GetBlob)
+			r.Get("/{blobid}/{blobname}", g.DownloadBlob) // ?type=
+		})
 	})
 	r.NotFound(g.NotFound)
 }

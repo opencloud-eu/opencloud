@@ -150,6 +150,7 @@ const (
 	ErrorCodeForbiddenGeneric           = "AUTFOR"
 	ErrorCodeInvalidRequest             = "INVREQ"
 	ErrorCodeServerResponse             = "SRVRSP"
+	ErrorCodeStreamingResponse          = "SRVRST"
 	ErrorCodeServerReadingResponse      = "SRVRRE"
 	ErrorCodeServerDecodingResponseBody = "SRVDRB"
 	ErrorCodeEncodingRequestBody        = "ENCREQ"
@@ -204,6 +205,12 @@ var (
 		Code:   ErrorCodeServerResponse,
 		Title:  "Server Response Body could not be decoded",
 		Detail: "The mail server response body could not be decoded.",
+	}
+	ErrorStreamingResponse = GroupwareError{
+		Status: http.StatusInternalServerError,
+		Code:   ErrorCodeStreamingResponse,
+		Title:  "Server Response Body could not be streamed",
+		Detail: "The mail server response body could not be streamed.",
 	}
 	ErrorProcessingResponse = GroupwareError{
 		Status: http.StatusInternalServerError,
