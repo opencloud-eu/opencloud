@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"path"
 	"strings"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
+	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	"github.com/opencloud-eu/opencloud/pkg/kql"
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
@@ -118,9 +120,26 @@ func (e *Engine) Search(ctx context.Context, sir *searchService.SearchIndexReque
 		return nil, fmt.Errorf("failed to marshal query: %w", err)
 	}
 
+	searchParams := opensearchgoAPI.SearchParams{}
+
+	switch {
+	case sir.PageSize == -1:
+		searchParams.Size = conversions.ToPointer(math.MaxInt)
+	case sir.PageSize == 0:
+		searchParams.Size = conversions.ToPointer(200)
+	default:
+		searchParams.Size = conversions.ToPointer(int(sir.PageSize))
+	}
+
+	// fixMe: see getDescendants
+	if *searchParams.Size > 250 {
+		searchParams.Size = conversions.ToPointer(250)
+	}
+
 	resp, err := e.client.Search(ctx, &opensearchgoAPI.SearchReq{
 		Indices: []string{e.index},
 		Body:    bytes.NewReader(body),
+		Params:  searchParams,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to search: %w", err)
@@ -329,26 +348,50 @@ func (e *Engine) getDescendants(resourceType uint64, rootID, rootPath string) ([
 		return nil, fmt.Errorf("failed to marshal query: %w", err)
 	}
 
-	resp, err := e.client.Search(context.TODO(), &opensearchgoAPI.SearchReq{
-		Indices: []string{e.index},
-		Body:    bytes.NewReader(body),
-	})
-	switch {
-	case err != nil:
-		return nil, fmt.Errorf("failed to search for document: %w", err)
-	case resp.Hits.Total.Value == 0 || len(resp.Hits.Hits) == 0:
-		return nil, nil // no descendants found, fin
-	}
-
-	descendants := make([]engine.Resource, resp.Hits.Total.Value)
-	for i, hit := range resp.Hits.Hits {
-		descendant, err := convert[engine.Resource](hit.Source)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert hit source %d: %w", i, err)
+	// unfortunately, we need to use recursion to fetch all descendants because of the paging
+	// toDo: check the docs to find a better and most important more efficient way to fetch (or update) all descendants
+	var doSearch func(params opensearchgoAPI.SearchParams) ([]engine.Resource, error)
+	doSearch = func(params opensearchgoAPI.SearchParams) ([]engine.Resource, error) {
+		resp, err := e.client.Search(context.TODO(), &opensearchgoAPI.SearchReq{
+			Indices: []string{e.index},
+			Body:    bytes.NewReader(body),
+			Params:  params,
+		})
+		switch {
+		case err != nil:
+			return nil, fmt.Errorf("failed to search for document: %w", err)
+		case resp.Hits.Total.Value == 0 || len(resp.Hits.Hits) == 0:
+			return nil, nil // no descendants found, fin
 		}
 
-		descendants[i] = descendant
+		descendants := make([]engine.Resource, len(resp.Hits.Hits))
+		for i, hit := range resp.Hits.Hits {
+			descendant, err := convert[engine.Resource](hit.Source)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert hit source %d: %w", i, err)
+			}
+
+			descendants[i] = descendant
+		}
+
+		if len(descendants) < resp.Hits.Total.Value {
+			switch params.From {
+			case nil:
+				params.From = opensearchgoAPI.ToPointer(len(resp.Hits.Hits))
+			default:
+				params.From = opensearchgoAPI.ToPointer(*params.From + len(resp.Hits.Hits))
+
+			}
+			moreDescendants, err := doSearch(params)
+			if err != nil {
+				return nil, fmt.Errorf("failed to search for more descendants: %w", err)
+			}
+
+			descendants = append(descendants, moreDescendants...)
+		}
+
+		return descendants, nil
 	}
 
-	return descendants, nil
+	return doSearch(opensearchgoAPI.SearchParams{})
 }
