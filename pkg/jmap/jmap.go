@@ -250,10 +250,10 @@ func (j *Client) GetAllMailboxes(accountId string, session *Session, ctx context
 }
 
 // https://jmap.io/spec-mail.html#mailboxquery
-func (j *Client) QueryMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, filter MailboxFilterCondition) (MailboxQueryResponse, Error) {
+func (j *Client) QueryMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, filter MailboxFilterElement) (MailboxQueryResponse, Error) {
 	aid := session.MailAccountId(accountId)
 	logger = j.logger(aid, "QueryMailbox", session, logger)
-	cmd, err := request(invocation(MailboxQuery, SimpleMailboxQueryCommand{AccountId: aid, Filter: filter}, "0"))
+	cmd, err := request(invocation(MailboxQuery, MailboxQueryCommand{AccountId: aid, Filter: filter}, "0"))
 	if err != nil {
 		return MailboxQueryResponse{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
 	}
@@ -269,12 +269,12 @@ type Mailboxes struct {
 	State     string    `json:"state,omitempty"`
 }
 
-func (j *Client) SearchMailboxes(accountId string, session *Session, ctx context.Context, logger *log.Logger, filter MailboxFilterCondition) (Mailboxes, Error) {
+func (j *Client) SearchMailboxes(accountId string, session *Session, ctx context.Context, logger *log.Logger, filter MailboxFilterElement) (Mailboxes, Error) {
 	aid := session.MailAccountId(accountId)
 	logger = j.logger(aid, "SearchMailboxes", session, logger)
 
 	cmd, err := request(
-		invocation(MailboxQuery, SimpleMailboxQueryCommand{AccountId: aid, Filter: filter}, "0"),
+		invocation(MailboxQuery, MailboxQueryCommand{AccountId: aid, Filter: filter}, "0"),
 		invocation(MailboxGet, MailboxGetRefCommand{
 			AccountId: aid,
 			IdRef:     &ResultReference{Name: MailboxQuery, Path: "/ids/*", ResultOf: "0"},
@@ -330,7 +330,7 @@ func (j *Client) GetAllEmails(accountId string, session *Session, ctx context.Co
 
 	query := EmailQueryCommand{
 		AccountId:       aid,
-		Filter:          &MessageFilter{InMailbox: mailboxId},
+		Filter:          &EmailFilterCondition{InMailbox: mailboxId},
 		Sort:            []Sort{{Property: emailSortByReceivedAt, IsAscending: false}},
 		CollapseThreads: true,
 		CalculateTotal:  false,
@@ -516,6 +516,77 @@ func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.
 			State:          body.SessionState,
 		}, nil
 	})
+}
+
+type EmailQueryResult struct {
+	Snippets   []SearchSnippet `json:"snippets,omitempty"`
+	QueryState string          `json:"queryState"`
+	Total      int             `json:"total"`
+	Limit      int             `json:"limit,omitzero"`
+	Position   int             `json:"position,omitzero"`
+}
+
+func (j *Client) QueryEmails(accountId string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, offset int, limit int, fetchBodies bool, maxBodyValueBytes int) (EmailQueryResult, Error) {
+	aid := session.MailAccountId(accountId)
+	logger = j.loggerParams(aid, "QueryEmails", session, logger, func(z zerolog.Context) zerolog.Context {
+		return z.Bool(logFetchBodies, fetchBodies)
+	})
+
+	query := EmailQueryCommand{
+		AccountId:       aid,
+		Filter:          filter,
+		Sort:            []Sort{{Property: emailSortByReceivedAt, IsAscending: false}},
+		CollapseThreads: true,
+		CalculateTotal:  true,
+	}
+	if offset >= 0 {
+		query.Position = offset
+	}
+	if limit >= 0 {
+		query.Limit = limit
+	}
+
+	snippet := SearchSnippetRefCommand{
+		AccountId: aid,
+		Filter:    filter,
+		EmailIdRef: &ResultReference{
+			ResultOf: "0",
+			Name:     EmailQuery,
+			Path:     "/ids/*",
+		},
+	}
+
+	cmd, err := request(
+		invocation(EmailQuery, query, "0"),
+		invocation(SearchSnippetGet, snippet, "1"),
+	)
+
+	if err != nil {
+		return EmailQueryResult{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
+	}
+
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (EmailQueryResult, Error) {
+		var queryResponse EmailQueryResponse
+		err = retrieveResponseMatchParameters(body, EmailQuery, "0", &queryResponse)
+		if err != nil {
+			return EmailQueryResult{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
+		}
+
+		var snippetResponse SearchSnippetGetResponse
+		err = retrieveResponseMatchParameters(body, SearchSnippetGet, "1", &snippetResponse)
+		if err != nil {
+			return EmailQueryResult{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
+		}
+
+		return EmailQueryResult{
+			Snippets:   snippetResponse.List,
+			QueryState: queryResponse.QueryState,
+			Total:      queryResponse.Total,
+			Limit:      queryResponse.Limit,
+			Position:   queryResponse.Position,
+		}, nil
+	})
+
 }
 
 func (j *Client) GetBlob(accountId string, session *Session, ctx context.Context, logger *log.Logger, id string) (*Blob, Error) {
