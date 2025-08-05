@@ -18,6 +18,8 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/token"
 	"github.com/opencloud-eu/reva/v2/pkg/token/manager/jwt"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	opensearchgo "github.com/opensearch-project/opensearch-go/v4"
+	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 	merrors "go-micro.dev/v4/errors"
 	"go-micro.dev/v4/metadata"
 	grpcmetadata "google.golang.org/grpc/metadata"

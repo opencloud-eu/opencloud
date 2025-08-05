@@ -260,6 +260,14 @@ func (e *Engine) DocCount() (uint64, error) {
 	return uint64(resp.Count), nil
 }
 
+func (e *Engine) StartBatch(_ int) error {
+	return nil
+}
+
+func (e *Engine) EndBatch() error {
+	return nil
+}
+
 func (e *Engine) deleteResource(id string, deleted bool) error {
 	resource, err := e.getResource(id)
 	if err != nil {
