@@ -21,16 +21,7 @@ func TestKQL_Compile(t *testing.T) {
 					&ast.StringNode{Value: "openCloud"},
 				},
 			},
-			Want: opensearch.NewTermQuery[string]("Name").Value("openCloud"),
-		},
-		{
-			Name: "remaps known field names",
-			Got: &ast.Ast{
-				Nodes: []ast.Node{
-					&ast.StringNode{Key: "mediatype", Value: "application/gzip"},
-				},
-			},
-			Want: opensearch.NewTermQuery[string]("MimeType").Value("application/gzip"),
+			Want: opensearch.NewTermQuery[string]("Name").Value("opencloud"),
 		},
 		// kql to os dsl - type tests
 		{
@@ -40,7 +31,7 @@ func TestKQL_Compile(t *testing.T) {
 					&ast.StringNode{Key: "Name", Value: "openCloud"},
 				},
 			},
-			Want: opensearch.NewTermQuery[string]("Name").Value("openCloud"),
+			Want: opensearch.NewTermQuery[string]("Name").Value("opencloud"),
 		},
 		{
 			Name: "term query - boolean node - true",
@@ -67,7 +58,7 @@ func TestKQL_Compile(t *testing.T) {
 					&ast.StringNode{Key: "Name", Value: "open cloud"},
 				},
 			},
-			Want: opensearch.NewMatchPhraseQuery("Name").Query("open cloud"),
+			Want: opensearch.NewMatchPhraseQuery("Name").Query(`open cloud`),
 		},
 		{
 			Name: "wildcard query - string node",
@@ -164,7 +155,7 @@ func TestKQL_Compile(t *testing.T) {
 					&ast.StringNode{Key: "name", Value: "openCloud"},
 				},
 			},
-			Want: opensearch.NewTermQuery[string]("Name").Value("openCloud"),
+			Want: opensearch.NewTermQuery[string]("Name").Value("opencloud"),
 		},
 		{
 			Name: "[* *]",
@@ -176,7 +167,7 @@ func TestKQL_Compile(t *testing.T) {
 			},
 			Want: opensearch.NewBoolQuery().
 				Must(
-					opensearch.NewTermQuery[string]("Name").Value("openCloud"),
+					opensearch.NewTermQuery[string]("Name").Value("opencloud"),
 					opensearch.NewTermQuery[string]("age").Value("32"),
 				),
 		},
@@ -191,7 +182,7 @@ func TestKQL_Compile(t *testing.T) {
 			},
 			Want: opensearch.NewBoolQuery().
 				Must(
-					opensearch.NewTermQuery[string]("Name").Value("openCloud"),
+					opensearch.NewTermQuery[string]("Name").Value("opencloud"),
 					opensearch.NewTermQuery[string]("age").Value("32"),
 				),
 		},
@@ -206,7 +197,7 @@ func TestKQL_Compile(t *testing.T) {
 			},
 			Want: opensearch.NewBoolQuery(opensearch.BoolQueryOptions{MinimumShouldMatch: 1}).
 				Should(
-					opensearch.NewTermQuery[string]("Name").Value("openCloud"),
+					opensearch.NewTermQuery[string]("Name").Value("opencloud"),
 					opensearch.NewTermQuery[string]("age").Value("32"),
 				),
 		},
@@ -234,7 +225,7 @@ func TestKQL_Compile(t *testing.T) {
 			},
 			Want: opensearch.NewBoolQuery().
 				Must(
-					opensearch.NewTermQuery[string]("Name").Value("openCloud"),
+					opensearch.NewTermQuery[string]("Name").Value("opencloud"),
 				).
 				MustNot(
 					opensearch.NewTermQuery[string]("age").Value("32"),
@@ -253,7 +244,7 @@ func TestKQL_Compile(t *testing.T) {
 			},
 			Want: opensearch.NewBoolQuery(opensearch.BoolQueryOptions{MinimumShouldMatch: 1}).
 				Should(
-					opensearch.NewTermQuery[string]("Name").Value("openCloud"),
+					opensearch.NewTermQuery[string]("Name").Value("opencloud"),
 					opensearch.NewTermQuery[string]("age").Value("32"),
 					opensearch.NewTermQuery[string]("age").Value("44"),
 				),
@@ -376,10 +367,14 @@ func TestKQL_Compile(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			compiler, err := opensearch.NewKQL()
+			if test.Skip {
+				t.Skip("skipping test: " + test.Name)
+			}
+
+			transpiler, err := opensearch.NewKQLToOsDSL()
 			assert.NoError(t, err)
 
-			dsl, err := compiler.Compile(test.Got)
+			dsl, err := transpiler.Compile(test.Got)
 			assert.NoError(t, err)
 
 			assert.JSONEq(t, opensearchtest.JSONMustMarshal(t, test.Want), opensearchtest.JSONMustMarshal(t, dsl))

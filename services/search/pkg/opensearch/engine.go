@@ -24,20 +24,52 @@ type Engine struct {
 }
 
 func NewEngine(index string, client *opensearchgoAPI.Client) (*Engine, error) {
-	// first check if the cluster is healthy, we cannot expect that the index exists at this point,
-	// so we pass nil for the indices parameter and only check the cluster health
-	_, healthy, err := clusterHealth(context.Background(), client, nil)
+	pingResp, err := client.Ping(context.TODO(), &opensearchgoAPI.PingReq{})
+	switch {
+	case err != nil:
+		return nil, fmt.Errorf("%w, failed to ping opensearch: %w", ErrUnhealthyCluster, err)
+	case pingResp.IsError():
+		return nil, fmt.Errorf("%w, failed to ping opensearch", ErrUnhealthyCluster)
+	}
+
+	// apply the index template
+	if err := IndexTemplateResourceV1.Apply(context.TODO(), client); err != nil {
+		return nil, fmt.Errorf("failed to apply index template: %w", err)
+	}
+
+	indicesExistsResp, err := client.Indices.Exists(context.TODO(), opensearchgoAPI.IndicesExistsReq{
+		Indices: []string{index},
+	})
+	switch {
+	case indicesExistsResp != nil && indicesExistsResp.StatusCode == 404:
+		break
+	case err != nil:
+		return nil, fmt.Errorf("failed to check if index exists: %w", err)
+	case indicesExistsResp == nil:
+		return nil, fmt.Errorf("unexpected nil response when checking if index exists")
+	}
+
+	// if the index does not exist, we need to create it
+	if indicesExistsResp.StatusCode == 404 {
+		resp, err := client.Indices.Create(context.TODO(), opensearchgoAPI.IndicesCreateReq{
+			Index: index,
+			// the body is not necessary; we will use an index template to define the index settings and mappings
+		})
+		switch {
+		case err != nil:
+			return nil, fmt.Errorf("failed to create index: %w", err)
+		case !resp.Acknowledged:
+			return nil, fmt.Errorf("failed to create index: %s", index)
+		}
+	}
+
+	// first check if the cluster is healthy
+	_, healthy, err := clusterHealth(context.TODO(), client, []string{index})
 	switch {
 	case err != nil:
 		return nil, fmt.Errorf("failed to get cluster health: %w", err)
 	case !healthy:
 		return nil, fmt.Errorf("cluster health is not healthy")
-	}
-
-	// apply the index template, this will create the index if it does not exist,
-	// or update it if it does exist
-	if err := IndexTemplateResourceV1.Apply(context.Background(), client); err != nil {
-		return nil, fmt.Errorf("failed to apply index template: %w", err)
 	}
 
 	return &Engine{index: index, client: client}, nil
@@ -49,12 +81,12 @@ func (e *Engine) Search(ctx context.Context, sir *searchService.SearchIndexReque
 		return nil, fmt.Errorf("failed to build query: %w", err)
 	}
 
-	compiler, err := NewKQL()
+	transpiler, err := NewKQLToOsDSL()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create KQL compiler: %w", err)
 	}
 
-	builder, err := compiler.Compile(ast)
+	builder, err := transpiler.Compile(ast)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile query: %w", err)
 	}
@@ -124,7 +156,7 @@ func (e *Engine) Upsert(id string, r engine.Resource) error {
 		return fmt.Errorf("failed to marshal resource: %w", err)
 	}
 
-	_, err = e.client.Document.Create(context.Background(), opensearchgoAPI.DocumentCreateReq{
+	_, err = e.client.Document.Create(context.TODO(), opensearchgoAPI.DocumentCreateReq{
 		Index:      e.index,
 		DocumentID: id,
 		Body:       bytes.NewReader(body),
@@ -150,7 +182,7 @@ func (e *Engine) Delete(id string) error {
 		return fmt.Errorf("failed to marshal body: %w", err)
 	}
 
-	_, err = e.client.Update(context.Background(), opensearchgoAPI.UpdateReq{
+	_, err = e.client.Update(context.TODO(), opensearchgoAPI.UpdateReq{
 		Index:      e.index,
 		DocumentID: id,
 		Body:       bytes.NewReader(body),
@@ -172,7 +204,7 @@ func (e *Engine) Restore(id string) error {
 		return fmt.Errorf("failed to marshal body: %w", err)
 	}
 
-	_, err = e.client.Update(context.Background(), opensearchgoAPI.UpdateReq{
+	_, err = e.client.Update(context.TODO(), opensearchgoAPI.UpdateReq{
 		Index:      e.index,
 		DocumentID: id,
 		Body:       bytes.NewReader(body),
@@ -185,7 +217,7 @@ func (e *Engine) Restore(id string) error {
 }
 
 func (e *Engine) Purge(id string) error {
-	_, err := e.client.Document.Delete(context.Background(), opensearchgoAPI.DocumentDeleteReq{
+	_, err := e.client.Document.Delete(context.TODO(), opensearchgoAPI.DocumentDeleteReq{
 		Index:      e.index,
 		DocumentID: id,
 	})
@@ -204,7 +236,7 @@ func (e *Engine) DocCount() (uint64, error) {
 		return 0, fmt.Errorf("failed to marshal query: %w", err)
 	}
 
-	resp, err := e.client.Indices.Count(context.Background(), &opensearchgoAPI.IndicesCountReq{
+	resp, err := e.client.Indices.Count(context.TODO(), &opensearchgoAPI.IndicesCountReq{
 		Indices: []string{e.index},
 		Body:    bytes.NewReader(body),
 	})

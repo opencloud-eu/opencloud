@@ -5,4 +5,5 @@ type TableTest[G any, W any] struct {
 	Got  G
 	Want W
 	Err  error
+	Skip bool
 }

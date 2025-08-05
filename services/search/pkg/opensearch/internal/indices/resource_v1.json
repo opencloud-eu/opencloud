@@ -1,6 +1,6 @@
 {
   "index_patterns": [
-    "opencloud-default-resource"
+    "opencloud-default-*"
   ],
   "template": {
     "settings": {
@@ -17,6 +17,9 @@
         },
         "RootID": {
           "type": "keyword"
+        },
+        "MimeType": {
+          "type": "wildcard"
         },
         "Deleted": {
           "type": "boolean"
