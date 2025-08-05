@@ -1553,6 +1553,13 @@ github.com/opencloud-eu/reva/v2/pkg/utils/cfg
 github.com/opencloud-eu/reva/v2/pkg/utils/ldap
 github.com/opencloud-eu/reva/v2/pkg/utils/list
 github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks
+# github.com/opensearch-project/opensearch-go/v4 v4.5.0
+## explicit; go 1.22
+github.com/opensearch-project/opensearch-go/v4
+github.com/opensearch-project/opensearch-go/v4/internal/version
+github.com/opensearch-project/opensearch-go/v4/opensearchapi
+github.com/opensearch-project/opensearch-go/v4/opensearchtransport
+github.com/opensearch-project/opensearch-go/v4/signer
 # github.com/opentracing/opentracing-go v1.2.0
 ## explicit; go 1.14
 github.com/opentracing/opentracing-go
@@ -1678,6 +1685,12 @@ github.com/russellhaering/goxmldsig/types
 # github.com/russross/blackfriday/v2 v2.1.0
 ## explicit
 github.com/russross/blackfriday/v2
+# github.com/samber/lo v1.51.0
+## explicit; go 1.18
+github.com/samber/lo
+github.com/samber/lo/internal/constraints
+github.com/samber/lo/internal/rand
+github.com/samber/lo/mutable
 # github.com/segmentio/kafka-go v0.4.48
 ## explicit; go 1.15
 github.com/segmentio/kafka-go

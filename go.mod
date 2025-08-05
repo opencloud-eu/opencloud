@@ -65,6 +65,7 @@ require (
 	github.com/open-policy-agent/opa v1.6.0
 	github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76
 	github.com/opencloud-eu/reva/v2 v2.36.1-0.20250827073033-ede93b948fc8
+	github.com/opensearch-project/opensearch-go/v4 v4.5.0
 	github.com/orcaman/concurrent-map v1.0.0
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/xattr v0.4.12
@@ -74,6 +75,7 @@ require (
 	github.com/rogpeppe/go-internal v1.14.1
 	github.com/rs/cors v1.11.1
 	github.com/rs/zerolog v1.34.0
+	github.com/samber/lo v1.51.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/afero v1.14.0
 	github.com/spf13/cobra v1.9.1
