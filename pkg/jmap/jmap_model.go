@@ -244,6 +244,14 @@ type SetError struct {
 	Description string `json:"description,omitempty"`
 }
 
+type FilterOperatorTerm string
+
+const (
+	And FilterOperatorTerm = "AND"
+	Or  FilterOperatorTerm = "OR"
+	Not FilterOperatorTerm = "NOT"
+)
+
 type Mailbox struct {
 	Id            string          `json:"id,omitempty"`
 	Name          string          `json:"name,omitempty"`
@@ -274,7 +282,12 @@ type MailboxChangesCommand struct {
 	MaxChanges int    `json:"maxChanges,omitzero"`
 }
 
+type MailboxFilterElement interface {
+	_isAMailboxFilterElement() // marker method
+}
+
 type MailboxFilterCondition struct {
+	MailboxFilterElement
 	ParentId     string `json:"parentId,omitempty"`
 	Name         string `json:"name,omitempty"`
 	Role         string `json:"role,omitempty"`
@@ -282,10 +295,15 @@ type MailboxFilterCondition struct {
 	IsSubscribed *bool  `json:"isSubscribed,omitempty"`
 }
 
+var _ MailboxFilterElement = &MailboxFilterCondition{}
+
 type MailboxFilterOperator struct {
-	Operator   string                   `json:"operator"`
-	Conditions []MailboxFilterCondition `json:"conditions"`
+	MailboxFilterElement
+	Operator   FilterOperatorTerm     `json:"operator"`
+	Conditions []MailboxFilterElement `json:"conditions,omitempty"`
 }
+
+var _ MailboxFilterElement = &MailboxFilterOperator{}
 
 type MailboxComparator struct {
 	Property       string `json:"property"`
@@ -294,15 +312,20 @@ type MailboxComparator struct {
 	CalculateTotal bool   `json:"calculateTotal,omitempty"`
 }
 
-type SimpleMailboxQueryCommand struct {
-	AccountId    string                 `json:"accountId"`
-	Filter       MailboxFilterCondition `json:"filter,omitempty"`
-	Sort         []MailboxComparator    `json:"sort,omitempty"`
-	SortAsTree   bool                   `json:"sortAsTree,omitempty"`
-	FilterAsTree bool                   `json:"filterAsTree,omitempty"`
+type MailboxQueryCommand struct {
+	AccountId    string               `json:"accountId"`
+	Filter       MailboxFilterElement `json:"filter,omitempty"`
+	Sort         []MailboxComparator  `json:"sort,omitempty"`
+	SortAsTree   bool                 `json:"sortAsTree,omitempty"`
+	FilterAsTree bool                 `json:"filterAsTree,omitempty"`
 }
 
-type MessageFilter struct {
+type EmailFilterElement interface {
+	_isAnEmailFilterElement() // marker method
+}
+
+type EmailFilterCondition struct {
+	EmailFilterElement
 	InMailbox               string    `json:"inMailbox,omitempty"`
 	InMailboxOtherThan      []string  `json:"inMailboxOtherThan,omitempty"`
 	Before                  time.Time `json:"before,omitzero"` // omitzero requires Go 1.24
@@ -316,7 +339,24 @@ type MessageFilter struct {
 	NotKeyword              string    `json:"notKeyword,omitempty"`
 	HasAttachment           bool      `json:"hasAttachment,omitempty"`
 	Text                    string    `json:"text,omitempty"`
+	From                    string    `json:"from,omitempty"`
+	To                      string    `json:"to,omitempty"`
+	Cc                      string    `json:"cc,omitempty"`
+	Bcc                     string    `json:"bcc,omitempty"`
+	Subject                 string    `json:"subject,omitempty"`
+	Body                    string    `json:"body,omitempty"`
+	Header                  []string  `json:"header,omitempty"`
 }
+
+var _ EmailFilterElement = &EmailFilterCondition{}
+
+type EmailFilterOperator struct {
+	EmailFilterElement
+	Operator   FilterOperatorTerm   `json:"operator"`
+	Conditions []EmailFilterElement `json:"conditions,omitempty"`
+}
+
+var _ EmailFilterElement = &EmailFilterOperator{}
 
 type Sort struct {
 	Property    string `json:"property,omitempty"`
@@ -326,13 +366,13 @@ type Sort struct {
 }
 
 type EmailQueryCommand struct {
-	AccountId       string         `json:"accountId"`
-	Filter          *MessageFilter `json:"filter,omitempty"`
-	Sort            []Sort         `json:"sort,omitempty"`
-	CollapseThreads bool           `json:"collapseThreads,omitempty"`
-	Position        int            `json:"position,omitempty"`
-	Limit           int            `json:"limit,omitempty"`
-	CalculateTotal  bool           `json:"calculateTotal,omitempty"`
+	AccountId       string             `json:"accountId"`
+	Filter          EmailFilterElement `json:"filter,omitempty"`
+	Sort            []Sort             `json:"sort,omitempty"`
+	CollapseThreads bool               `json:"collapseThreads,omitempty"`
+	Position        int                `json:"position,omitempty"`
+	Limit           int                `json:"limit,omitempty"`
+	CalculateTotal  bool               `json:"calculateTotal,omitempty"`
 }
 
 type EmailGetCommand struct {
@@ -1306,6 +1346,24 @@ type BlobDownload struct {
 	CacheControl       string
 }
 
+type SearchSnippet struct {
+	EmailId string `json:"emailId"`
+	Subject string `json:"subject,omitempty"`
+	Preview string `json:"preview,omitempty"`
+}
+
+type SearchSnippetRefCommand struct {
+	AccountId  string             `json:"accountId"`
+	Filter     EmailFilterElement `json:"filter,omitempty"`
+	EmailIdRef *ResultReference   `json:"#emailIds,omitempty"`
+}
+
+type SearchSnippetGetResponse struct {
+	AccountId string          `json:"accountId"`
+	List      []SearchSnippet `json:"list,omitempty"`
+	NotFound  []string        `json:"notFound,omitempty"`
+}
+
 const (
 	BlobGet             Command = "Blob/get"
 	BlobUpload          Command = "Blob/upload"
@@ -1320,6 +1378,7 @@ const (
 	MailboxChanges      Command = "Mailbox/changes"
 	IdentityGet         Command = "Identity/get"
 	VacationResponseGet Command = "VacationResponse/get"
+	SearchSnippetGet    Command = "SearchSnippet/get"
 )
 
 var CommandResponseTypeMap = map[Command]func() any{
@@ -1334,4 +1393,5 @@ var CommandResponseTypeMap = map[Command]func() any{
 	ThreadGet:           func() any { return ThreadGetResponse{} },
 	IdentityGet:         func() any { return IdentityGetResponse{} },
 	VacationResponseGet: func() any { return VacationResponseGetResponse{} },
+	SearchSnippetGet:    func() any { return SearchSnippetGetResponse{} },
 }

@@ -5,16 +5,29 @@ import (
 )
 
 const (
-	UriParamAccount    = "account"
-	UriParamMailboxId  = "mailbox"
-	QueryParamPage     = "page"
-	QueryParamSize     = "size"
-	UriParamMessagesId = "id"
-	UriParamBlobId     = "blobid"
-	UriParamBlobName   = "blobname"
-	QueryParamBlobType = "type"
-	QueryParamSince    = "since"
-	HeaderSince        = "if-none-match"
+	UriParamAccount          = "account"
+	UriParamMailboxId        = "mailbox"
+	UriParamMessagesId       = "id"
+	UriParamBlobId           = "blobid"
+	UriParamBlobName         = "blobname"
+	QueryParamBlobType       = "type"
+	QueryParamSince          = "since"
+	QueryParamMailboxId      = "mailbox"
+	QueryParamNotInMailboxId = "notmailbox"
+	QueryParamSearchText     = "text"
+	QueryParamSearchFrom     = "from"
+	QueryParamSearchTo       = "to"
+	QueryParamSearchCc       = "cc"
+	QueryParamSearchBcc      = "bcc"
+	QueryParamSearchSubject  = "subject"
+	QueryParamSearchBody     = "body"
+	QueryParamSearchBefore   = "before"
+	QueryParamSearchAfter    = "after"
+	QueryParamSearchMinSize  = "minsize"
+	QueryParamSearchMaxSize  = "maxsize"
+	QueryParamOffset         = "offset"
+	QueryParamLimit          = "limit"
+	HeaderSince              = "if-none-match"
 )
 
 func (g Groupware) Route(r chi.Router) {
@@ -30,7 +43,7 @@ func (g Groupware) Route(r chi.Router) {
 			r.Get("/{mailbox}/messages", g.GetAllMessages)
 		})
 		r.Route("/messages", func(r chi.Router) {
-			r.Get("/", g.GetMessageUpdates)
+			r.Get("/", g.GetMessages)
 			r.Get("/{id}", g.GetMessagesById)
 		})
 		r.Route("/blobs", func(r chi.Router) {
