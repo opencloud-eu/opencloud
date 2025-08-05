@@ -13,12 +13,12 @@ var Testdata = struct {
 	Resources resourceTestdata
 }{
 	Resources: resourceTestdata{
-		Full: loadTestdata[engine.Resource]("resource_full.json"),
+		File: loadTestdata[engine.Resource]("resource_file.json"),
 	},
 }
 
 type resourceTestdata struct {
-	Full engine.Resource
+	File engine.Resource
 }
 
 func loadTestdata[D any](name string) D {

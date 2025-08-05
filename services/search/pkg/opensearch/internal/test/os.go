@@ -188,6 +188,22 @@ func (tc *TestClient) Update(ctx context.Context, index string, id, body string)
 	}
 }
 
+func (tc *TestClient) Search(ctx context.Context, index string, body string) (opensearchgoAPI.SearchHits, error) {
+	if err := tc.IndicesRefresh(ctx, []string{index}, []int{404}); err != nil {
+		return opensearchgoAPI.SearchHits{}, err
+	}
+
+	resp, err := tc.c.Search(ctx, &opensearchgoAPI.SearchReq{
+		Indices: []string{index},
+		Body:    strings.NewReader(body),
+	})
+	if err != nil {
+		return opensearchgoAPI.SearchHits{}, fmt.Errorf("failed to search in index %s: %w", index, err)
+	}
+
+	return resp.Hits, nil
+}
+
 type testRequireClient struct {
 	tc *TestClient
 	t  *testing.T
@@ -227,4 +243,10 @@ func (trc *testRequireClient) DocumentCreate(index string, id, body string) {
 
 func (trc *testRequireClient) Update(index string, id, body string) {
 	require.NoError(trc.t, trc.tc.Update(trc.t.Context(), index, id, body))
+}
+
+func (trc *testRequireClient) Search(index string, body string) opensearchgoAPI.SearchHits {
+	hits, err := trc.tc.Search(trc.t.Context(), index, body)
+	require.NoError(trc.t, err)
+	return hits
 }

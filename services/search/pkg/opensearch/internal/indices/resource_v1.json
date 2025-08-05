@@ -21,6 +21,9 @@
         "MimeType": {
           "type": "wildcard"
         },
+        "Path": {
+          "type": "wildcard"
+        },
         "Deleted": {
           "type": "boolean"
         },

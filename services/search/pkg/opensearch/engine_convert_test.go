@@ -13,7 +13,7 @@ import (
 )
 
 func TestSearchHitToSearchMessageMatch(t *testing.T) {
-	resource := opensearchtest.Testdata.Resources.Full
+	resource := opensearchtest.Testdata.Resources.File
 	resource.MimeType = "audio/anything"
 
 	hit := opensearchgoAPI.SearchHit{
