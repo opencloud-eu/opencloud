@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2025-08-01 00:00+0000\n"
+"POT-Creation-Date: 2025-08-05 00:01+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Stephan Paternotte <stephan@paternottes.net>, 2025\n"
 "Language-Team: Dutch (https://app.transifex.com/opencloud-eu/teams/204053/nl/)\n"
@@ -74,7 +74,7 @@ msgstr "Alle toegang weigeren."
 #. default description for new spaces
 #: pkg/service/v0/spacetemplates.go:32
 msgid "Here you can add a description for this Space."
-msgstr "Hier kunt u een beschrijving voor deze ruimte toevoegen."
+msgstr "Hier kun je een beschrijving voor deze ruimte toevoegen."
 
 #. UnifiedRole Viewer, Role Description (resolves directly)
 #. UnifiedRole SpaceViewer, Role Description (resolves directly)

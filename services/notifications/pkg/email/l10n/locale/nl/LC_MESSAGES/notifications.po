@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2025-08-02 00:00+0000\n"
+"POT-Creation-Date: 2025-08-05 00:01+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Stephan Paternotte <stephan@paternottes.net>, 2025\n"
 "Language-Team: Dutch (https://app.transifex.com/opencloud-eu/teams/204053/nl/)\n"
@@ -79,7 +79,7 @@ msgstr "Rapportage"
 #. field (resolves directly)
 #: pkg/email/templates.go:85 pkg/email/templates.go:102
 msgid "ScienceMesh: {InitiatorName} wants to collaborate with you"
-msgstr "ScienceMesh: {InitiatorName} wil met u samenwerken"
+msgstr "ScienceMesh: {InitiatorName} wil met je samenwerken"
 
 #. ShareExpired email template, Subject field (resolves directly)
 #: pkg/email/templates.go:30
@@ -93,9 +93,9 @@ msgid ""
 "\n"
 "Even though this membership has expired you still might have access through other shares and/or space memberships"
 msgstr ""
-"Uw lidmaatschap van ruimte {SpaceName} is verlopen op {ExpiredAt}\n"
+"Jouw lidmaatschap van ruimte {SpaceName} is verlopen op {ExpiredAt}\n"
 "\n"
-"Hoewel dit lidmaatschap is verlopen, kunt u mogelijk nog steeds toegang hebben via andere shares en/of ruimtelidmaatschappen."
+"Hoewel dit lidmaatschap is verlopen, kun je mogelijk nog steeds toegang hebben via andere shares en/of ruimtelidmaatschappen."
 
 #. ShareExpired email template, resolves via {{ .MessageBody }}
 #: pkg/email/templates.go:34
@@ -104,9 +104,9 @@ msgid ""
 "\n"
 "Even though this share has been revoked you still might have access through other shares and/or space memberships."
 msgstr ""
-"Uw toegang tot {ShareFolder} is verlopen op {ExpiredAt}\n"
+"Jouw toegang tot {ShareFolder} is verlopen op {ExpiredAt}\n"
 "\n"
-"Hoewel de toegang is ingetrokken, kunt u mogelijk nog steeds toegang hebben via andere shares en/of ruimtelidmaatschappen."
+"Hoewel de toegang is ingetrokken, kun je mogelijk nog steeds toegang hebben via andere shares en/of ruimtelidmaatschappen."
 
 #. ScienceMeshInviteTokenGeneratedWithoutShareLink email template, resolves
 #. via {{ .MessageBody }}
@@ -117,8 +117,8 @@ msgid ""
 "  Token: {Token}\n"
 "  ProviderDomain: {ProviderDomain}"
 msgstr ""
-"{ShareSharer} ({ShareSharerMail}) wil samenwerkingsbronnen met u delen.\n"
-"Open uw federatie-instellingen en gebruik de volgende gegevens.:\n"
+"{ShareSharer} ({ShareSharerMail}) wil samenwerkingsbronnen met je delen.\n"
+"Open je federatie-instellingen en gebruik de volgende gegevens.:\n"
 "  Token: {Token}\n"
 "  ProviderDomain: {ProviderDomain}"
 
@@ -134,28 +134,28 @@ msgid ""
 "  Token: {Token}\n"
 "  ProviderDomain: {ProviderDomain}"
 msgstr ""
-"{ShareSharer} ({ShareSharerMail}) wil samenwerkingsbronnen met u delen.\n"
+"{ShareSharer} ({ShareSharerMail}) wil samenwerkingsbronnen met je delen.\n"
 "Open de volgende URL om de uitnodiging te accepteren:\n"
 "{ShareLink}\n"
 "\n"
-"Alternatief kunt u uw federatie-instellingen openen en de volgende gegevens gebruiken.:\n"
+"Alternatief kun je je federatie-instellingen openen en de volgende gegevens gebruiken.:\n"
 "  Token: {Token}\n"
 "  ProviderDomain: {ProviderDomain}"
 
 #. ShareCreated email template, resolves via {{ .MessageBody }}
 #: pkg/email/templates.go:21
 msgid "{ShareSharer} has shared \"{ShareFolder}\" with you."
-msgstr "{ShareSharer} heeft \"{ShareFolder}\" met u gedeeld."
+msgstr "{ShareSharer} heeft \"{ShareFolder}\" met jou gedeeld."
 
 #. ShareCreated email template, Subject field (resolves directly)
 #: pkg/email/templates.go:17
 msgid "{ShareSharer} shared '{ShareFolder}' with you"
-msgstr "{ShareSharer} deelt '{ShareFolder}' met u"
+msgstr "{ShareSharer} deelt '{ShareFolder}' met jou"
 
 #. SharedSpace email template, resolves via {{ .MessageBody }}
 #: pkg/email/templates.go:48
 msgid "{SpaceSharer} has invited you to join \"{SpaceName}\"."
-msgstr "{SpaceSharer} heeft u uitgenodigd om deel te nemen in \"{SpaceName}\"."
+msgstr "{SpaceSharer} heeft je uitgenodigd om deel te nemen in \"{SpaceName}\"."
 
 #. UnsharedSpace email template, resolves via {{ .MessageBody }}
 #: pkg/email/templates.go:61
@@ -164,16 +164,16 @@ msgid ""
 "\n"
 "You might still have access through your other groups or direct membership."
 msgstr ""
-"{SpaceSharer} heeft u verwijderd uit \"{SpaceName}\".\n"
+"{SpaceSharer} heeft jou verwijderd uit \"{SpaceName}\".\n"
 "\n"
-"U hebt mogelijk nog steeds toegang via andere groepen of directe lidmaatschap."
+"Je hebt mogelijk nog steeds toegang via andere groepen of directe lidmaatschap."
 
 #. SharedSpace email template, Subject field (resolves directly)
 #: pkg/email/templates.go:44
 msgid "{SpaceSharer} invited you to join {SpaceName}"
-msgstr "{SpaceSharer} heeft u uitgenodigd om deel te nemen in {SpaceName}"
+msgstr "{SpaceSharer} heeft jou uitgenodigd om deel te nemen in {SpaceName}"
 
 #. UnsharedSpace email template, Subject field (resolves directly)
 #: pkg/email/templates.go:57
 msgid "{SpaceSharer} removed you from {SpaceName}"
-msgstr "{SpaceSharer} heeft u verwijderd uit {SpaceName}"
+msgstr "{SpaceSharer} heeft jou verwijderd uit {SpaceName}"
