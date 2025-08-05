@@ -29,6 +29,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/engine"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/query/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
@@ -54,6 +55,35 @@ func NewHandler(opts ...Option) (searchsvc.SearchProviderHandler, func(), error)
 		}
 
 		eng = engine.NewBleveEngine(idx, bleve.DefaultCreator, logger)
+	case "open-search":
+		client, err := opensearchgoAPI.NewClient(opensearchgoAPI.Config{
+			Client: opensearchgo.Config{
+				Addresses:             cfg.Engine.OpenSearch.Addresses,
+				Username:              cfg.Engine.OpenSearch.Username,
+				Password:              cfg.Engine.OpenSearch.Password,
+				Header:                cfg.Engine.OpenSearch.Header,
+				CACert:                cfg.Engine.OpenSearch.CACert,
+				RetryOnStatus:         cfg.Engine.OpenSearch.RetryOnStatus,
+				DisableRetry:          cfg.Engine.OpenSearch.DisableRetry,
+				EnableRetryOnTimeout:  cfg.Engine.OpenSearch.EnableRetryOnTimeout,
+				MaxRetries:            cfg.Engine.OpenSearch.MaxRetries,
+				CompressRequestBody:   cfg.Engine.OpenSearch.CompressRequestBody,
+				DiscoverNodesOnStart:  cfg.Engine.OpenSearch.DiscoverNodesOnStart,
+				DiscoverNodesInterval: cfg.Engine.OpenSearch.DiscoverNodesInterval,
+				EnableMetrics:         cfg.Engine.OpenSearch.EnableMetrics,
+				EnableDebugLogger:     cfg.Engine.OpenSearch.EnableDebugLogger,
+			},
+		})
+		if err != nil {
+			return nil, teardown, fmt.Errorf("failed to create OpenSearch client: %w", err)
+		}
+
+		ose, err := opensearch.NewEngine("opencloud-default-resource", client)
+		if err != nil {
+			return nil, teardown, fmt.Errorf("failed to create OpenSearch engine: %w", err)
+		}
+
+		eng = ose
 	default:
 		return nil, teardown, fmt.Errorf("unknown search engine: %s", cfg.Engine.Type)
 	}

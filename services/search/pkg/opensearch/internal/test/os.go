@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/opencloud-eu/opencloud/services/search/pkg/config/defaults"
 	opensearchgo "github.com/opensearch-project/opensearch-go/v4"
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 	"github.com/stretchr/testify/require"
@@ -21,7 +22,7 @@ type TestClient struct {
 func NewDefaultTestClient(t *testing.T) *TestClient {
 	client, err := opensearchgoAPI.NewClient(opensearchgoAPI.Config{
 		Client: opensearchgo.Config{
-			Addresses: []string{"http://localhost:9200"},
+			Addresses: defaults.DefaultConfig().Engine.OpenSearch.Addresses,
 		},
 	})
 	require.NoError(t, err, "failed to create OpenSearch client")

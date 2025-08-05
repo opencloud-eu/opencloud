@@ -39,6 +39,9 @@ func DefaultConfig() *config.Config {
 			Bleve: config.EngineBleve{
 				Datapath: filepath.Join(defaults.BaseDataPath(), "search"),
 			},
+			OpenSearch: config.EngineOpenSearch{
+				Addresses: []string{"http://localhost:9201"},
+			},
 		},
 		Extractor: config.Extractor{
 			Type:             "basic",
