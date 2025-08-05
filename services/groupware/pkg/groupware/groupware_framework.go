@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -222,6 +223,29 @@ func (r Request) parseNumericParam(param string, defaultValue int) (int, bool, *
 	return int(value), true, nil
 }
 
+func (r Request) parseDateParam(param string) (time.Time, bool, *Error) {
+	q := r.r.URL.Query()
+	if !q.Has(param) {
+		return time.Time{}, false, nil
+	}
+
+	str := q.Get(param)
+	if str == "" {
+		return time.Time{}, false, nil
+	}
+
+	t, err := time.Parse(time.RFC3339, str)
+	if err != nil {
+		errorId := r.errorId()
+		msg := fmt.Sprintf("Invalid RFC3339 value for query parameter '%v': '%s': %s", param, logstr(str), err.Error())
+		return time.Time{}, true, apiError(errorId, ErrorInvalidRequestParameter,
+			withDetail(msg),
+			withSource(&ErrorSource{Parameter: param}),
+		)
+	}
+	return t, true, nil
+}
+
 // Safely caps a string to a given size to avoid log bombing.
 // Use this function to wrap strings that are user input (HTTP headers, path parameters, URI parameters, HTTP body, ...).
 func logstr(text string) string {
@@ -232,6 +256,22 @@ func logstr(text string) string {
 	} else {
 		return string(runes[0:logMaxStrLength-1]) + `\u2026` // hellip
 	}
+}
+
+type SafeLogStringArrayMarshaller struct {
+	array []string
+}
+
+func (m SafeLogStringArrayMarshaller) MarshalZerologArray(a *zerolog.Array) {
+	for _, elem := range m.array {
+		a.Str(logstr(elem))
+	}
+}
+
+var _ zerolog.LogArrayMarshaler = SafeLogStringArrayMarshaller{}
+
+func logstrarray(array []string) SafeLogStringArrayMarshaller {
+	return SafeLogStringArrayMarshaller{array: array}
 }
 
 func (g Groupware) log(error *Error) {

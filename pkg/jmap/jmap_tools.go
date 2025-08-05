@@ -51,15 +51,15 @@ func command[T any](api ApiClient,
 		return zero, jmapErr
 	}
 
-	var data Response
-	err := json.Unmarshal(responseBody, &data)
+	var response Response
+	err := json.Unmarshal(responseBody, &response)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to deserialize body JSON payload")
 		var zero T
 		return zero, SimpleError{code: JmapErrorDecodingResponseBody, err: err}
 	}
 
-	if data.SessionState != session.State {
+	if response.SessionState != session.State {
 		if sessionOutdatedHandler != nil {
 			sessionOutdatedHandler(session)
 		}
@@ -67,7 +67,7 @@ func command[T any](api ApiClient,
 
 	// search for an "error" response
 	// https://jmap.io/spec-core.html#method-level-errors
-	for _, mr := range data.MethodResponses {
+	for _, mr := range response.MethodResponses {
 		if mr.Command == "error" {
 			err := fmt.Errorf("found method level error in response '%v'", mr.Tag)
 			if payload, ok := mr.Parameters.(map[string]any); ok {
@@ -80,7 +80,7 @@ func command[T any](api ApiClient,
 		}
 	}
 
-	return mapper(&data)
+	return mapper(&response)
 }
 
 func mapstructStringToTimeHook() mapstructure.DecodeHookFunc {
