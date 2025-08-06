@@ -132,6 +132,7 @@ func bootstrap(logger log.Logger, cfg *config.Config, srvcfg server.Config) erro
 		Name     string
 		Password string
 		ID       string
+		TenantID string
 		Issuer   string
 	}
 
@@ -151,12 +152,16 @@ func bootstrap(logger log.Logger, cfg *config.Config, srvcfg server.Config) erro
 	}
 
 	if cfg.AdminUserID != "" {
-		serviceUsers = append(serviceUsers, svcUser{
+		adminUser := svcUser{
 			Name:     "admin",
 			Password: cfg.ServiceUserPasswords.OCAdmin,
 			ID:       cfg.AdminUserID,
 			Issuer:   cfg.DemoUsersIssuerUrl,
-		})
+		}
+		if cfg.CreateDemoUsers {
+			adminUser.TenantID = "cd22ea13-f6b4-4f5f-a2c2-69b5a0f07a8b"
+		}
+		serviceUsers = append(serviceUsers, adminUser)
 	}
 
 	bdb := &ldbbolt.LdbBolt{}

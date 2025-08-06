@@ -79,6 +79,7 @@ func ldapConfigFromString(cfg config.LDAPDriver) map[string]interface{} {
 		"idp":                        cfg.IDP,
 		"user_schema": map[string]interface{}{
 			"id":              cfg.UserSchema.ID,
+			"tenantId":        cfg.UserSchema.TenantID,
 			"idIsOctetString": cfg.UserSchema.IDIsOctetString,
 			"mail":            cfg.UserSchema.Mail,
 			"displayName":     cfg.UserSchema.DisplayName,

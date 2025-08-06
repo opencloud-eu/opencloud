@@ -10,12 +10,12 @@ import (
 	cs3group "github.com/cs3org/go-cs3apis/cs3/identity/group/v1beta1"
 	cs3user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	cs3rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/odata"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 )
 
 var (
@@ -44,7 +44,7 @@ func (i *CS3) UpdateUser(ctx context.Context, nameOrID string, user libregraph.U
 }
 
 // GetUser implements the Backend Interface.
-func (i *CS3) GetUser(ctx context.Context, userID string, _ *godata.GoDataRequest) (*libregraph.User, error) {
+func (i *CS3) GetUser(ctx context.Context, nameOrId string, _ *godata.GoDataRequest) (*libregraph.User, error) {
 	logger := i.Logger.SubloggerWithRequestID(ctx)
 	logger.Debug().Str("backend", "cs3").Msg("GetUser")
 	gatewayClient, err := i.GatewaySelector.Next()
@@ -53,22 +53,43 @@ func (i *CS3) GetUser(ctx context.Context, userID string, _ *godata.GoDataReques
 		return nil, errorcode.New(errorcode.ServiceNotAvailable, err.Error())
 	}
 
+	// Try to get the user by username first
 	res, err := gatewayClient.GetUserByClaim(ctx, &cs3user.GetUserByClaimRequest{
-		Claim: "userid", // FIXME add consts to reva
-		Value: userID,
+		Claim: "username", // FIXME add consts to reva
+		Value: nameOrId,
 	})
 
 	switch {
 	case err != nil:
-		logger.Error().Str("backend", "cs3").Err(err).Str("userid", userID).Msg("error sending get user by claim id grpc request: transport error")
+		logger.Error().Str("backend", "cs3").Err(err).Str("nameOrId", nameOrId).Msg("error sending get user by claim id grpc request: transport error")
+		return nil, errorcode.New(errorcode.ServiceNotAvailable, err.Error())
+	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_OK:
+		return CreateUserModelFromCS3(res.GetUser()), nil
+	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_NOT_FOUND:
+		// If the user was not found by username, try to get it by user ID
+	default:
+		logger.Debug().Str("backend", "cs3").Err(err).Str("nameOrId", nameOrId).Msg("error sending get user by claim id grpc request")
+		return nil, errorcode.New(errorcode.GeneralException, res.GetStatus().GetMessage())
+
+	}
+
+	// If the user was not found by username, try to get it by user ID
+	res, err = gatewayClient.GetUserByClaim(ctx, &cs3user.GetUserByClaimRequest{
+		Claim: "userid", // FIXME add consts to reva
+		Value: nameOrId,
+	})
+	switch {
+	case err != nil:
+		logger.Error().Str("backend", "cs3").Err(err).Str("nameOrId", nameOrId).Msg("error sending get user by claim id grpc request: transport error")
 		return nil, errorcode.New(errorcode.ServiceNotAvailable, err.Error())
 	case res.GetStatus().GetCode() != cs3rpc.Code_CODE_OK:
 		if res.GetStatus().GetCode() == cs3rpc.Code_CODE_NOT_FOUND {
 			return nil, errorcode.New(errorcode.ItemNotFound, res.GetStatus().GetMessage())
 		}
-		logger.Debug().Str("backend", "cs3").Err(err).Str("userid", userID).Msg("error sending get user by claim id grpc request")
+		logger.Debug().Str("backend", "cs3").Err(err).Str("nameOrId", nameOrId).Msg("error sending get user by claim id grpc request")
 		return nil, errorcode.New(errorcode.GeneralException, res.GetStatus().GetMessage())
 	}
+
 	return CreateUserModelFromCS3(res.GetUser()), nil
 }
 
@@ -167,7 +188,7 @@ func (i *CS3) GetGroups(ctx context.Context, oreq *godata.GoDataRequest) ([]*lib
 
 // CreateGroup implements the Backend Interface. It's currently not supported for the CS3 backend
 func (i *CS3) CreateGroup(ctx context.Context, group libregraph.Group) (*libregraph.Group, error) {
-	return nil, errorcode.New(errorcode.NotSupported, "not implemented")
+	return nil, errNotImplemented
 }
 
 // GetGroup implements the Backend Interface.
@@ -202,25 +223,25 @@ func (i *CS3) GetGroup(ctx context.Context, groupID string, queryParam url.Value
 
 // DeleteGroup implements the Backend Interface. It's currently not supported for the CS3 backend
 func (i *CS3) DeleteGroup(ctx context.Context, id string) error {
-	return errorcode.New(errorcode.NotSupported, "not implemented")
+	return errNotImplemented
 }
 
 // UpdateGroupName implements the Backend Interface. It's currently not supported for the CS3 backend
 func (i *CS3) UpdateGroupName(ctx context.Context, groupID string, groupName string) error {
-	return errorcode.New(errorcode.NotSupported, "not implemented")
+	return errNotImplemented
 }
 
 // GetGroupMembers implements the Backend Interface. It's currently not supported for the CS3 backend
 func (i *CS3) GetGroupMembers(ctx context.Context, groupID string, _ *godata.GoDataRequest) ([]*libregraph.User, error) {
-	return nil, errorcode.New(errorcode.NotSupported, "not implemented")
+	return nil, errNotImplemented
 }
 
 // AddMembersToGroup implements the Backend Interface. It's currently not supported for the CS3 backend
 func (i *CS3) AddMembersToGroup(ctx context.Context, groupID string, memberID []string) error {
-	return errorcode.New(errorcode.NotSupported, "not implemented")
+	return errNotImplemented
 }
 
 // RemoveMemberFromGroup implements the Backend Interface. It's currently not supported for the CS3 backend
 func (i *CS3) RemoveMemberFromGroup(ctx context.Context, groupID string, memberID string) error {
-	return errorcode.New(errorcode.NotSupported, "not implemented")
+	return errNotImplemented
 }

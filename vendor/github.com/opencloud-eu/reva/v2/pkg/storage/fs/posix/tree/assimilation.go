@@ -178,7 +178,7 @@ func (t *Tree) workScanQueue() {
 				}
 
 				if item.Recurse {
-					err = t.WarmupIDCache(item.Path, true, false)
+					err = t.WarmupIDCache(item.Path, true, true)
 					if err != nil {
 						log.Error().Err(err).Str("path", item.Path).Msg("failed to warmup id cache")
 					}
@@ -435,11 +435,18 @@ func (t *Tree) assimilate(item scanItem) error {
 
 		// compare metadata mtime with actual mtime. if it matches AND the path hasn't changed (move operation)
 		// we can skip the assimilation because the file was handled by us
-		fi, err := os.Stat(item.Path)
-		if err == nil && previousPath == item.Path {
-			if mtime.Equal(fi.ModTime()) {
-				return nil
-			}
+		fi, err := os.Lstat(item.Path)
+		if err != nil {
+			return err
+		}
+
+		if previousPath == item.Path && mtime.Equal(fi.ModTime()) {
+			return nil
+		}
+
+		if !fi.IsDir() && !fi.Mode().IsRegular() {
+			t.log.Trace().Str("path", item.Path).Msg("skipping non-regular file")
+			return nil
 		}
 
 		// was it moved or copied/restored with a clashing id?
@@ -783,10 +790,15 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
 			isTrash(path) ||
 			t.isUpload(path) ||
 			t.isIndex(path) {
-			return filepath.SkipDir
+			return nil
 		}
 		if t.isRootPath(path) {
 			return nil // ignore the root paths
+		}
+
+		if !info.IsDir() && !info.Mode().IsRegular() {
+			t.log.Trace().Str("path", path).Msg("skipping non-regular file")
+			return nil
 		}
 
 		// calculate tree sizes

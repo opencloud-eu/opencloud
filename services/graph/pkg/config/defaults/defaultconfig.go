@@ -96,6 +96,7 @@ func DefaultConfig() *config.Config {
 				// FIXME: switch this to some more widely available attribute by default
 				//        ideally this needs to	be constant for the lifetime of a users
 				UserIDAttribute:           "openCloudUUID",
+				UserTenantIDAttribute:     "",
 				UserTypeAttribute:         "openCloudUserType",
 				UserEnabledAttribute:      "openCloudUserEnabled",
 				DisableUserMechanism:      "attribute",

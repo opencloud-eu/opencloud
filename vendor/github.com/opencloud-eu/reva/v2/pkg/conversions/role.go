@@ -183,6 +183,8 @@ func RoleFromName(name string) *Role {
 		return NewManagerRole()
 	case RoleSecureViewer:
 		return NewSecureViewerRole()
+	case RoleCoowner:
+		return NewCoownerRole()
 	default:
 		return NewUnknownRole()
 	}

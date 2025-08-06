@@ -166,12 +166,22 @@ func (s *service) isPathAllowed(path string) bool {
 func (s *service) CreateShare(ctx context.Context, req *collaboration.CreateShareRequest) (*collaboration.CreateShareResponse, error) {
 	log := appctx.GetLogger(ctx)
 	user := ctxpkg.ContextMustGetUser(ctx)
-
 	// Grants must not allow grant permissions
 	if HasGrantPermissions(req.GetGrant().GetPermissions().GetPermissions()) {
 		return &collaboration.CreateShareResponse{
 			Status: status.NewInvalidArg(ctx, "resharing not supported"),
 		}, nil
+	}
+
+	// check if the grantee is a user or group
+	if req.GetGrant().GetGrantee().GetType() == provider.GranteeType_GRANTEE_TYPE_USER {
+		// check if the tenantId of the user matches the tenantId of the target user
+		if user.GetId().GetTenantId() != req.GetGrant().GetGrantee().GetUserId().GetTenantId() {
+			log.Warn().Msg("user tenantId does not match the target user tenantId, this is not supported yet")
+			return &collaboration.CreateShareResponse{
+				Status: status.NewPermissionDenied(ctx, nil, "user tenantId does not match the target user tenantId"),
+			}, nil
+		}
 	}
 
 	gatewayClient, err := s.gatewaySelector.Next()
