@@ -29,7 +29,7 @@ func TestRootQuery(t *testing.T) {
 			Got: opensearch.NewRootQuery(
 				opensearch.NewTermQuery[string]("content").Value("content"),
 				opensearch.RootQueryOptions{
-					Highlight: opensearch.RootQueryHighlight{
+					Highlight: &opensearch.RootQueryHighlight{
 						PreTags:  []string{"<b>"},
 						PostTags: []string{"</b>"},
 						Fields: map[string]opensearch.RootQueryHighlight{

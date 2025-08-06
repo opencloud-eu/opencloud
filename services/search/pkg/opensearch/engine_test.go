@@ -23,26 +23,26 @@ func TestNewEngine(t *testing.T) {
 		})
 		require.NoError(t, err, "failed to create OpenSearch client")
 
-		engine, err := opensearch.NewEngine("test-engine-new-engine", client)
-		require.Nil(t, engine)
+		backend, err := opensearch.NewEngine("test-engine-new-engine", client)
+		require.Nil(t, backend)
 		require.ErrorIs(t, err, opensearch.ErrUnhealthyCluster)
 	})
 }
 
 func TestEngine_Search(t *testing.T) {
-	index := "opencloud-default-resource"
+	indexName := "opencloud-test-resource"
 	tc := opensearchtest.NewDefaultTestClient(t)
-	tc.Require.IndicesReset([]string{index})
-	tc.Require.IndicesCount([]string{index}, "", 0)
+	tc.Require.IndicesReset([]string{indexName})
+	tc.Require.IndicesCount([]string{indexName}, "", 0)
 
-	defer tc.Require.IndicesDelete([]string{index})
+	defer tc.Require.IndicesDelete([]string{indexName})
+
+	backend, err := opensearch.NewEngine(indexName, tc.Client())
+	require.NoError(t, err)
 
 	document := opensearchtest.Testdata.Resources.File
-	tc.Require.DocumentCreate(index, document.ID, opensearchtest.JSONMustMarshal(t, document))
-	tc.Require.IndicesCount([]string{index}, "", 1)
-
-	backend, err := opensearch.NewEngine(index, tc.Client())
-	require.NoError(t, err)
+	tc.Require.DocumentCreate(indexName, document.ID, opensearchtest.JSONMustMarshal(t, document))
+	tc.Require.IndicesCount([]string{indexName}, "", 1)
 
 	t.Run("most simple search", func(t *testing.T) {
 		resp, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{
@@ -59,8 +59,8 @@ func TestEngine_Search(t *testing.T) {
 		deletedDocument.ID = "1$2!4"
 		deletedDocument.Deleted = true
 
-		tc.Require.DocumentCreate(index, deletedDocument.ID, opensearchtest.JSONMustMarshal(t, deletedDocument))
-		tc.Require.IndicesCount([]string{index}, "", 2)
+		tc.Require.DocumentCreate(indexName, deletedDocument.ID, opensearchtest.JSONMustMarshal(t, deletedDocument))
+		tc.Require.IndicesCount([]string{indexName}, "", 2)
 
 		resp, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{
 			Query: fmt.Sprintf(`"%s"`, document.Name),
@@ -73,43 +73,43 @@ func TestEngine_Search(t *testing.T) {
 }
 
 func TestEngine_Upsert(t *testing.T) {
-	index := "opencloud-default-resource"
+	indexName := "opencloud-test-resource"
 	tc := opensearchtest.NewDefaultTestClient(t)
-	tc.Require.IndicesReset([]string{index})
-	tc.Require.IndicesCount([]string{index}, "", 0)
+	tc.Require.IndicesReset([]string{indexName})
+	tc.Require.IndicesCount([]string{indexName}, "", 0)
 
-	defer tc.Require.IndicesDelete([]string{index})
+	defer tc.Require.IndicesDelete([]string{indexName})
 
-	backend, err := opensearch.NewEngine(index, tc.Client())
+	backend, err := opensearch.NewEngine(indexName, tc.Client())
 	require.NoError(t, err)
 
 	t.Run("upsert with full document", func(t *testing.T) {
 		document := opensearchtest.Testdata.Resources.File
 		require.NoError(t, backend.Upsert(document.ID, document))
 
-		tc.Require.IndicesCount([]string{index}, "", 1)
+		tc.Require.IndicesCount([]string{indexName}, "", 1)
 	})
 }
 
 func TestEngine_Move(t *testing.T) {
-	index := "opencloud-default-resource"
+	indexName := "opencloud-test-resource"
 	tc := opensearchtest.NewDefaultTestClient(t)
-	tc.Require.IndicesReset([]string{index})
-	tc.Require.IndicesCount([]string{index}, "", 0)
+	tc.Require.IndicesReset([]string{indexName})
+	tc.Require.IndicesCount([]string{indexName}, "", 0)
 
-	defer tc.Require.IndicesDelete([]string{index})
+	defer tc.Require.IndicesDelete([]string{indexName})
 
-	backend, err := opensearch.NewEngine(index, tc.Client())
+	backend, err := opensearch.NewEngine(indexName, tc.Client())
 	require.NoError(t, err)
 
 	t.Run("moves the document to a new path", func(t *testing.T) {
 		document := opensearchtest.Testdata.Resources.File
-		tc.Require.DocumentCreate(index, document.ID, opensearchtest.JSONMustMarshal(t, document))
-		tc.Require.IndicesCount([]string{index}, "", 1)
+		tc.Require.DocumentCreate(indexName, document.ID, opensearchtest.JSONMustMarshal(t, document))
+		tc.Require.IndicesCount([]string{indexName}, "", 1)
 
 		resources := opensearchtest.SearchHitsMustBeConverted[engine.Resource](t,
 			tc.Require.Search(
-				index,
+				indexName,
 				opensearch.NewRootQuery(
 					opensearch.NewIDsQuery([]string{document.ID}),
 				).String(),
@@ -123,7 +123,7 @@ func TestEngine_Move(t *testing.T) {
 
 		resources = opensearchtest.SearchHitsMustBeConverted[engine.Resource](t,
 			tc.Require.Search(
-				index,
+				indexName,
 				opensearch.NewRootQuery(
 					opensearch.NewIDsQuery([]string{document.ID}),
 				).String(),
@@ -135,109 +135,109 @@ func TestEngine_Move(t *testing.T) {
 }
 
 func TestEngine_Delete(t *testing.T) {
-	index := "opencloud-default-resource"
+	indexName := "opencloud-test-resource"
 	tc := opensearchtest.NewDefaultTestClient(t)
-	tc.Require.IndicesReset([]string{index})
-	tc.Require.IndicesCount([]string{index}, "", 0)
+	tc.Require.IndicesReset([]string{indexName})
+	tc.Require.IndicesCount([]string{indexName}, "", 0)
 
-	defer tc.Require.IndicesDelete([]string{index})
+	defer tc.Require.IndicesDelete([]string{indexName})
 
-	backend, err := opensearch.NewEngine(index, tc.Client())
+	backend, err := opensearch.NewEngine(indexName, tc.Client())
 	require.NoError(t, err)
 
 	t.Run("mark document as deleted", func(t *testing.T) {
 		document := opensearchtest.Testdata.Resources.File
-		tc.Require.DocumentCreate(index, document.ID, opensearchtest.JSONMustMarshal(t, document))
-		tc.Require.IndicesCount([]string{index}, "", 1)
+		tc.Require.DocumentCreate(indexName, document.ID, opensearchtest.JSONMustMarshal(t, document))
+		tc.Require.IndicesCount([]string{indexName}, "", 1)
 
-		tc.Require.IndicesCount([]string{index}, opensearch.NewRootQuery(
+		tc.Require.IndicesCount([]string{indexName}, opensearch.NewRootQuery(
 			opensearch.NewTermQuery[bool]("Deleted").Value(true),
 		).String(), 0)
 
 		require.NoError(t, backend.Delete(document.ID))
-		tc.Require.IndicesCount([]string{index}, opensearch.NewRootQuery(
+		tc.Require.IndicesCount([]string{indexName}, opensearch.NewRootQuery(
 			opensearch.NewTermQuery[bool]("Deleted").Value(true),
 		).String(), 1)
 	})
 }
 
 func TestEngine_Restore(t *testing.T) {
-	index := "opencloud-default-resource"
+	indexName := "opencloud-test-resource"
 	tc := opensearchtest.NewDefaultTestClient(t)
-	tc.Require.IndicesReset([]string{index})
-	tc.Require.IndicesCount([]string{index}, "", 0)
+	tc.Require.IndicesReset([]string{indexName})
+	tc.Require.IndicesCount([]string{indexName}, "", 0)
 
-	defer tc.Require.IndicesDelete([]string{index})
+	defer tc.Require.IndicesDelete([]string{indexName})
 
-	backend, err := opensearch.NewEngine(index, tc.Client())
+	backend, err := opensearch.NewEngine(indexName, tc.Client())
 	require.NoError(t, err)
 
 	t.Run("mark document as not deleted", func(t *testing.T) {
 		document := opensearchtest.Testdata.Resources.File
 		document.Deleted = true
-		tc.Require.DocumentCreate(index, document.ID, opensearchtest.JSONMustMarshal(t, document))
-		tc.Require.IndicesCount([]string{index}, "", 1)
+		tc.Require.DocumentCreate(indexName, document.ID, opensearchtest.JSONMustMarshal(t, document))
+		tc.Require.IndicesCount([]string{indexName}, "", 1)
 
-		tc.Require.IndicesCount([]string{index}, opensearch.NewRootQuery(
+		tc.Require.IndicesCount([]string{indexName}, opensearch.NewRootQuery(
 			opensearch.NewTermQuery[bool]("Deleted").Value(true),
 		).String(), 1)
 
 		require.NoError(t, backend.Restore(document.ID))
-		tc.Require.IndicesCount([]string{index}, opensearch.NewRootQuery(
+		tc.Require.IndicesCount([]string{indexName}, opensearch.NewRootQuery(
 			opensearch.NewTermQuery[bool]("Deleted").Value(true),
 		).String(), 0)
 	})
 }
 
 func TestEngine_Purge(t *testing.T) {
-	index := "opencloud-default-resource"
+	indexName := "opencloud-test-resource"
 	tc := opensearchtest.NewDefaultTestClient(t)
-	tc.Require.IndicesReset([]string{index})
-	tc.Require.IndicesCount([]string{index}, "", 0)
+	tc.Require.IndicesReset([]string{indexName})
+	tc.Require.IndicesCount([]string{indexName}, "", 0)
 
-	defer tc.Require.IndicesDelete([]string{index})
+	defer tc.Require.IndicesDelete([]string{indexName})
 
-	backend, err := opensearch.NewEngine(index, tc.Client())
+	backend, err := opensearch.NewEngine(indexName, tc.Client())
 	require.NoError(t, err)
 
 	t.Run("purge with full document", func(t *testing.T) {
 		document := opensearchtest.Testdata.Resources.File
-		tc.Require.DocumentCreate(index, document.ID, opensearchtest.JSONMustMarshal(t, document))
-		tc.Require.IndicesCount([]string{index}, "", 1)
+		tc.Require.DocumentCreate(indexName, document.ID, opensearchtest.JSONMustMarshal(t, document))
+		tc.Require.IndicesCount([]string{indexName}, "", 1)
 
 		require.NoError(t, backend.Purge(document.ID))
 
-		tc.Require.IndicesCount([]string{index}, "", 0)
+		tc.Require.IndicesCount([]string{indexName}, "", 0)
 	})
 }
 
 func TestEngine_DocCount(t *testing.T) {
-	index := "opencloud-default-resource"
+	indexName := "opencloud-test-resource"
 	tc := opensearchtest.NewDefaultTestClient(t)
-	tc.Require.IndicesReset([]string{index})
-	tc.Require.IndicesCount([]string{index}, "", 0)
+	tc.Require.IndicesReset([]string{indexName})
+	tc.Require.IndicesCount([]string{indexName}, "", 0)
 
-	defer tc.Require.IndicesDelete([]string{index})
+	defer tc.Require.IndicesDelete([]string{indexName})
 
-	backend, err := opensearch.NewEngine(index, tc.Client())
+	backend, err := opensearch.NewEngine(indexName, tc.Client())
 	require.NoError(t, err)
 
 	t.Run("ignore deleted documents", func(t *testing.T) {
 		document := opensearchtest.Testdata.Resources.File
-		tc.Require.DocumentCreate(index, document.ID, opensearchtest.JSONMustMarshal(t, document))
-		tc.Require.IndicesCount([]string{index}, "", 1)
+		tc.Require.DocumentCreate(indexName, document.ID, opensearchtest.JSONMustMarshal(t, document))
+		tc.Require.IndicesCount([]string{indexName}, "", 1)
 
 		count, err := backend.DocCount()
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), count)
 
-		tc.Require.Update(index, document.ID, opensearchtest.JSONMustMarshal(t, map[string]any{
+		tc.Require.Update(indexName, document.ID, opensearchtest.JSONMustMarshal(t, map[string]any{
 			"doc": map[string]any{
 				"Deleted": true,
 			},
 		}))
 
-		tc.Require.IndicesCount([]string{index}, "", 1)
+		tc.Require.IndicesCount([]string{indexName}, "", 1)
 
 		count, err = backend.DocCount()
 		require.NoError(t, err)

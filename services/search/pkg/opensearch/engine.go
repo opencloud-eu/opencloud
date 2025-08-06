@@ -39,34 +39,8 @@ func NewEngine(index string, client *opensearchgoAPI.Client) (*Engine, error) {
 	}
 
 	// apply the index template
-	if err := IndexTemplateResourceV1.Apply(context.TODO(), client); err != nil {
+	if err := IndexManagerLatest.Apply(context.TODO(), index, client); err != nil {
 		return nil, fmt.Errorf("failed to apply index template: %w", err)
-	}
-
-	indicesExistsResp, err := client.Indices.Exists(context.TODO(), opensearchgoAPI.IndicesExistsReq{
-		Indices: []string{index},
-	})
-	switch {
-	case indicesExistsResp != nil && indicesExistsResp.StatusCode == 404:
-		break
-	case err != nil:
-		return nil, fmt.Errorf("failed to check if index exists: %w", err)
-	case indicesExistsResp == nil:
-		return nil, fmt.Errorf("unexpected nil response when checking if index exists")
-	}
-
-	// if the index does not exist, we need to create it
-	if indicesExistsResp.StatusCode == 404 {
-		resp, err := client.Indices.Create(context.TODO(), opensearchgoAPI.IndicesCreateReq{
-			Index: index,
-			// the body is not necessary; we will use an index template to define the index settings and mappings
-		})
-		switch {
-		case err != nil:
-			return nil, fmt.Errorf("failed to create index: %w", err)
-		case !resp.Acknowledged:
-			return nil, fmt.Errorf("failed to create index: %s", index)
-		}
 	}
 
 	// first check if the cluster is healthy
@@ -116,7 +90,7 @@ func (e *Engine) Search(ctx context.Context, sir *searchService.SearchIndexReque
 	}
 
 	body, err := NewRootQuery(boolQuery, RootQueryOptions{
-		Highlight: RootQueryHighlight{
+		Highlight: &RootQueryHighlight{
 			PreTags:  []string{"<mark>"},
 			PostTags: []string{"</mark>"},
 			Fields: map[string]RootQueryHighlight{

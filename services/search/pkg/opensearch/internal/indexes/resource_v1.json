@@ -1,0 +1,33 @@
+{
+  "settings": {
+    "number_of_shards": "1",
+    "number_of_replicas": "1"
+  },
+  "mappings": {
+    "properties": {
+      "ID": {
+        "type": "keyword"
+      },
+      "ParentID": {
+        "type": "keyword"
+      },
+      "RootID": {
+        "type": "keyword"
+      },
+      "MimeType": {
+        "type": "wildcard",
+        "doc_values": false
+      },
+      "Path": {
+        "type": "wildcard",
+        "doc_values": false
+      },
+      "Deleted": {
+        "type": "boolean"
+      },
+      "Hidden": {
+        "type": "boolean"
+      }
+    }
+  }
+}

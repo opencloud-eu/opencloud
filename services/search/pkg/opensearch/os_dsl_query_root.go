@@ -50,7 +50,7 @@ func (q *RootQuery) String() string {
 }
 
 type RootQueryOptions struct {
-	Highlight RootQueryHighlight `json:"highlight,omitempty"`
+	Highlight *RootQueryHighlight `json:"highlight,omitempty"`
 }
 
 type RootQueryHighlight struct {
