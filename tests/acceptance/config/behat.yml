@@ -442,6 +442,13 @@ default:
         - AuthAppContext:
         - CliContext:
         - OcConfigContext:
+    
+    apiTenancy:
+      paths:
+        - "%paths.base%/../features/apiTenancy"
+      context: *common_ldap_suite_context
+      contexts:
+        - FeatureContext: *common_feature_context_params
 
     cliCommands:
       paths:
