@@ -14,24 +14,27 @@ const (
 )
 
 func (g Groupware) GetBlob(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) (any, string, *Error) {
+	g.respond(w, r, func(req Request) Response {
 		blobId := chi.URLParam(req.r, UriParamBlobId)
 		if blobId == "" {
 			errorId := req.errorId()
 			msg := fmt.Sprintf("Invalid value for path parameter '%v': empty", UriParamBlobId)
-			return nil, "", apiError(errorId, ErrorInvalidRequestParameter,
+			return errorResponse(apiError(errorId, ErrorInvalidRequestParameter,
 				withDetail(msg),
 				withSource(&ErrorSource{Parameter: UriParamBlobId}),
-			)
+			))
 		}
 
 		res, err := g.jmap.GetBlob(req.GetAccountId(), req.session, req.ctx, req.logger, blobId)
-		return res, res.Digest(), req.apiErrorFromJmap(err)
+		if err != nil {
+			return req.errorResponseFromJmap(err)
+		}
+		return etagOnlyResponse(res, res.Digest())
 	})
 }
 
 func (g Groupware) UploadBlob(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) (any, string, *Error) {
+	g.respond(w, r, func(req Request) Response {
 		contentType := r.Header.Get("Content-Type")
 		body := r.Body
 		if body != nil {
@@ -45,10 +48,10 @@ func (g Groupware) UploadBlob(w http.ResponseWriter, r *http.Request) {
 
 		resp, err := g.jmap.UploadBlobStream(req.GetAccountId(), req.session, req.ctx, req.logger, contentType, body)
 		if err != nil {
-			return resp, "", req.apiErrorFromJmap(err)
+			return req.errorResponseFromJmap(err)
 		}
 
-		return resp, resp.Sha512, nil
+		return etagOnlyResponse(resp, resp.Sha512)
 	})
 }
 

@@ -5,8 +5,11 @@ import (
 )
 
 func (g Groupware) GetIdentity(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) (any, string, *Error) {
+	g.respond(w, r, func(req Request) Response {
 		res, err := g.jmap.GetIdentity(req.GetAccountId(), req.session, req.ctx, req.logger)
-		return res, res.State, req.apiErrorFromJmap(err)
+		if err != nil {
+			return req.errorResponseFromJmap(err)
+		}
+		return response(res, res.State)
 	})
 }

@@ -38,16 +38,16 @@ func (g Groupware) GetMailbox(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	g.respond(w, r, func(req Request) (any, string, *Error) {
+	g.respond(w, r, func(req Request) Response {
 		res, err := g.jmap.GetMailbox(req.GetAccountId(), req.session, req.ctx, req.logger, []string{mailboxId})
 		if err != nil {
-			return res, "", req.apiErrorFromJmap(err)
+			return req.errorResponseFromJmap(err)
 		}
 
 		if len(res.List) == 1 {
-			return res.List[0], res.State, req.apiErrorFromJmap(err)
+			return response(res.List[0], res.State)
 		} else {
-			return nil, res.State, req.apiErrorFromJmap(err)
+			return notFoundResponse(res.State)
 		}
 	})
 }
@@ -114,19 +114,19 @@ func (g Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) {
 		hasCriteria = true
 	}
 
-	g.respond(w, r, func(req Request) (any, string, *Error) {
+	g.respond(w, r, func(req Request) Response {
 		if hasCriteria {
 			mailboxes, err := g.jmap.SearchMailboxes(req.GetAccountId(), req.session, req.ctx, req.logger, filter)
 			if err != nil {
-				return nil, "", req.apiErrorFromJmap(err)
+				return req.errorResponseFromJmap(err)
 			}
-			return mailboxes.Mailboxes, mailboxes.State, nil
+			return response(mailboxes.Mailboxes, mailboxes.State)
 		} else {
 			mailboxes, err := g.jmap.GetAllMailboxes(req.GetAccountId(), req.session, req.ctx, req.logger)
 			if err != nil {
-				return nil, "", req.apiErrorFromJmap(err)
+				return req.errorResponseFromJmap(err)
 			}
-			return mailboxes.List, mailboxes.State, nil
+			return response(mailboxes.List, mailboxes.State)
 		}
 	})
 }

@@ -29,8 +29,11 @@ type SwaggerVacationResponse200 struct {
 //	400: ErrorResponse400
 //	500: ErrorResponse500
 func (g Groupware) GetVacation(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) (any, string, *Error) {
+	g.respond(w, r, func(req Request) Response {
 		res, err := g.jmap.GetVacationResponse(req.GetAccountId(), req.session, req.ctx, req.logger)
-		return res, res.State, req.apiErrorFromJmap(err)
+		if err != nil {
+			return req.errorResponseFromJmap(err)
+		}
+		return response(res, res.State)
 	})
 }

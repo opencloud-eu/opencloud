@@ -68,7 +68,7 @@ type SwaggerIndexResponse struct {
 //
 //	200: IndexResponse
 func (g Groupware) Index(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) (any, string, *Error) {
+	g.respond(w, r, func(req Request) Response {
 		accounts := make(map[string]IndexAccount, len(req.session.Accounts))
 		for i, a := range req.session.Accounts {
 			accounts[i] = IndexAccount{
@@ -93,7 +93,7 @@ func (g Groupware) Index(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		return IndexResponse{
+		return response(IndexResponse{
 			Version:      Version,
 			Capabilities: Capabilities,
 			Limits: IndexLimits{
@@ -107,6 +107,6 @@ func (g Groupware) Index(w http.ResponseWriter, r *http.Request) {
 				Mail:       req.session.PrimaryAccounts.Mail,
 				Submission: req.session.PrimaryAccounts.Submission,
 			},
-		}, req.session.State, nil
+		}, req.session.State)
 	})
 }
