@@ -32,6 +32,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	utils "github.com/opencloud-eu/reva/v2/pkg/cbox/utils"
+	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/user"
 	"github.com/opencloud-eu/reva/v2/pkg/user/manager/registry"
 	"github.com/pkg/errors"
@@ -256,7 +257,10 @@ func (m *manager) GetUserByClaim(ctx context.Context, claim, value string, skipF
 	return u, nil
 }
 
-func (m *manager) FindUsers(ctx context.Context, query string, skipFetchingGroups bool) ([]*userpb.User, error) {
+func (m *manager) FindUsers(ctx context.Context, query, tenantID string, skipFetchingGroups bool) ([]*userpb.User, error) {
+	if tenantID != "" {
+		return nil, errtypes.NotSupported("tenant filter not supported in rest user manager")
+	}
 
 	// Look at namespaces filters. If the query starts with:
 	// "a" => look into primary/secondary/service accounts

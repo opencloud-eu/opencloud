@@ -121,7 +121,10 @@ func (m *manager) GetUserByClaim(ctx context.Context, claim, value string, skipF
 	return m.convertToCS3User(ctx, a, skipFetchingGroups)
 }
 
-func (m *manager) FindUsers(ctx context.Context, query string, skipFetchingGroups bool) ([]*userpb.User, error) {
+func (m *manager) FindUsers(ctx context.Context, query, tenantID string, skipFetchingGroups bool) ([]*userpb.User, error) {
+	if tenantID != "" {
+		return nil, errtypes.NotSupported("tenant filter not supported in opencloudsql user manager")
+	}
 
 	accounts, err := m.db.FindAccounts(ctx, query)
 	if err == sql.ErrNoRows {

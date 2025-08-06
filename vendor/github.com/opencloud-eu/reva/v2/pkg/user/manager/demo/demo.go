@@ -98,14 +98,20 @@ func extractClaim(u *userpb.User, claim string) (string, error) {
 }
 
 // TODO(jfd) compare sub?
-func userContains(u *userpb.User, query string) bool {
-	return strings.Contains(u.Username, query) || strings.Contains(u.DisplayName, query) || strings.Contains(u.Mail, query) || strings.Contains(u.Id.OpaqueId, query)
+func userContains(u *userpb.User, query, tenantID string) bool {
+	if tenantID != "" && u.Id.TenantId != tenantID {
+		return false
+	}
+	return strings.Contains(u.Username, query) ||
+		strings.Contains(u.DisplayName, query) ||
+		strings.Contains(u.Mail, query) ||
+		strings.Contains(u.Id.OpaqueId, query)
 }
 
-func (m *manager) FindUsers(ctx context.Context, query string, skipFetchingGroups bool) ([]*userpb.User, error) {
+func (m *manager) FindUsers(ctx context.Context, query, tenantID string, skipFetchingGroups bool) ([]*userpb.User, error) {
 	users := []*userpb.User{}
 	for _, u := range m.catalog {
-		if userContains(u, query) {
+		if userContains(u, query, tenantID) {
 			user := proto.Clone(u).(*userpb.User)
 			if skipFetchingGroups {
 				user.Groups = nil
@@ -131,6 +137,7 @@ func getUsers() map[string]*userpb.User {
 				Idp:      "http://localhost:9998",
 				OpaqueId: "4c510ada-c86b-4815-8820-42cdf82c3d51",
 				Type:     userpb.UserType_USER_TYPE_PRIMARY,
+				TenantId: "c239389d-c249-499d-ae80-07558429769a",
 			},
 			Username:    "einstein",
 			Groups:      []string{"sailing-lovers", "violin-haters", "physics-lovers"},
@@ -144,6 +151,7 @@ func getUsers() map[string]*userpb.User {
 				Idp:      "http://localhost:9998",
 				OpaqueId: "f7fbf8c8-139b-4376-b307-cf0a8c2d0d9c",
 				Type:     userpb.UserType_USER_TYPE_PRIMARY,
+				TenantId: "c239389d-c249-499d-ae80-07558429769a",
 			},
 			Username:    "marie",
 			Groups:      []string{"radium-lovers", "polonium-lovers", "physics-lovers"},
@@ -157,11 +165,36 @@ func getUsers() map[string]*userpb.User {
 				Idp:      "http://localhost:9998",
 				OpaqueId: "932b4540-8d16-481e-8ef4-588e4b6b151c",
 				Type:     userpb.UserType_USER_TYPE_PRIMARY,
+				TenantId: "c239389d-c249-499d-ae80-07558429769a",
 			},
 			Username:    "richard",
 			Groups:      []string{"quantum-lovers", "philosophy-haters", "physics-lovers"},
 			Mail:        "richard@example.org",
 			DisplayName: "Richard Feynman",
+		},
+		"bf2ee2f2-67bc-418f-ac4e-2f6427f9fb2f": {
+			Id: &userpb.UserId{
+				Idp:      "http://localhost:9998",
+				OpaqueId: "bf2ee2f2-67bc-418f-ac4e-2f6427f9fb2f",
+				Type:     userpb.UserType_USER_TYPE_PRIMARY,
+				TenantId: "d375ba5e-1140-472a-b199-ca7d671a9fe1",
+			},
+			Username:    "jen",
+			Groups:      []string{},
+			Mail:        "jen@example.org",
+			DisplayName: "Jen Barber",
+		},
+		"79a91ae3-13da-4bab-9f91-63c60295c7cf": {
+			Id: &userpb.UserId{
+				Idp:      "http://localhost:9998",
+				OpaqueId: "79a91ae3-13da-4bab-9f91-63c60295c7cf",
+				Type:     userpb.UserType_USER_TYPE_PRIMARY,
+				TenantId: "d375ba5e-1140-472a-b199-ca7d671a9fe1",
+			},
+			Username:    "ralph",
+			Groups:      []string{},
+			Mail:        "ralphi@example.org",
+			DisplayName: "Ralph Wiggum",
 		},
 	}
 }

@@ -26,6 +26,7 @@ import (
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	hcplugin "github.com/hashicorp/go-plugin"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
+	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/plugin"
 )
 
@@ -162,7 +163,11 @@ type FindUsersReply struct {
 }
 
 // FindUsers RPCClient FindUsers method
-func (m *RPCClient) FindUsers(ctx context.Context, query string, skipFetchingGroups bool) ([]*userpb.User, error) {
+func (m *RPCClient) FindUsers(ctx context.Context, query, tenantID string, skipFetchingGroups bool) ([]*userpb.User, error) {
+	if tenantID != "" {
+		return nil, errtypes.NotSupported("tenant filter not supported in rpc user manager")
+	}
+
 	ctxVal := appctx.GetKeyValuesFromCtx(ctx)
 	args := FindUsersArg{Ctx: ctxVal, Query: query, SkipFetchingGroups: skipFetchingGroups}
 	resp := FindUsersReply{}
@@ -209,6 +214,6 @@ func (m *RPCServer) GetUserGroups(args GetUserGroupsArg, resp *GetUserGroupsRepl
 // FindUsers RPCServer FindUsers method
 func (m *RPCServer) FindUsers(args FindUsersArg, resp *FindUsersReply) error {
 	ctx := appctx.PutKeyValuesToCtx(args.Ctx)
-	resp.User, resp.Err = m.Impl.FindUsers(ctx, args.Query, args.SkipFetchingGroups)
+	resp.User, resp.Err = m.Impl.FindUsers(ctx, args.Query, "", args.SkipFetchingGroups)
 	return nil
 }

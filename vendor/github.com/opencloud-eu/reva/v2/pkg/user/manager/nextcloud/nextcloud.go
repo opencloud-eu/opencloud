@@ -216,7 +216,11 @@ func (um *Manager) GetUserGroups(ctx context.Context, uid *userpb.UserId) ([]str
 }
 
 // FindUsers method as defined in https://github.com/cs3org/reva/blob/v1.13.0/pkg/user/user.go#L29-L35
-func (um *Manager) FindUsers(ctx context.Context, query string, skipFetchingGroups bool) ([]*userpb.User, error) {
+func (um *Manager) FindUsers(ctx context.Context, query, tenantID string, skipFetchingGroups bool) ([]*userpb.User, error) {
+	if tenantID != "" {
+		return nil, errtypes.NotSupported("tenant filter not supported in nextcloud user manager")
+	}
+
 	user, err := getUser(ctx)
 	if err != nil {
 		return nil, err

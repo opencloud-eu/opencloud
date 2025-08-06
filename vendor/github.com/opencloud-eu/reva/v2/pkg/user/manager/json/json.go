@@ -138,16 +138,19 @@ func extractClaim(u *userpb.User, claim string) (string, error) {
 }
 
 // TODO(jfd) search Opaque? compare sub?
-func userContains(u *userpb.User, query string) bool {
+func userContains(u *userpb.User, query, tenantID string) bool {
+	if tenantID != "" && u.Id.TenantId != tenantID {
+		return false
+	}
 	query = strings.ToLower(query)
 	return strings.Contains(strings.ToLower(u.Username), query) || strings.Contains(strings.ToLower(u.DisplayName), query) ||
 		strings.Contains(strings.ToLower(u.Mail), query) || strings.Contains(strings.ToLower(u.Id.OpaqueId), query)
 }
 
-func (m *manager) FindUsers(ctx context.Context, query string, skipFetchingGroups bool) ([]*userpb.User, error) {
+func (m *manager) FindUsers(ctx context.Context, query, tenantID string, skipFetchingGroups bool) ([]*userpb.User, error) {
 	users := []*userpb.User{}
 	for _, u := range m.users {
-		if userContains(u, query) {
+		if userContains(u, query, tenantID) {
 			user := proto.Clone(u).(*userpb.User)
 			if skipFetchingGroups {
 				user.Groups = nil

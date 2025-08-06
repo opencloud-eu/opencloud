@@ -24,18 +24,20 @@ import (
 	"path/filepath"
 	"sort"
 
-	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	"github.com/mitchellh/mapstructure"
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
+	"google.golang.org/grpc"
+
+	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
+	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/plugin"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v2/pkg/user"
 	"github.com/opencloud-eu/reva/v2/pkg/user/manager/registry"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
-	"google.golang.org/grpc"
 )
 
 func init() {
@@ -172,7 +174,9 @@ func (s *service) GetUserByClaim(ctx context.Context, req *userpb.GetUserByClaim
 }
 
 func (s *service) FindUsers(ctx context.Context, req *userpb.FindUsersRequest) (*userpb.FindUsersResponse, error) {
-	users, err := s.usermgr.FindUsers(ctx, req.Filter, req.SkipFetchingUserGroups)
+	currentUser := revactx.ContextMustGetUser(ctx)
+
+	users, err := s.usermgr.FindUsers(ctx, req.Filter, currentUser.Id.GetTenantId(), req.SkipFetchingUserGroups)
 	if err != nil {
 		res := &userpb.FindUsersResponse{
 			Status: status.NewInternal(ctx, "error finding users"),
