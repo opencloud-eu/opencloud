@@ -232,6 +232,42 @@ const (
 
 	// An ifInState argument was supplied, and it does not match the current state.
 	SetErrorTypeStateMismatch = "stateMismatch"
+
+	// The Email to be sent is invalid in some way.
+	//
+	// The SetError SHOULD contain a property called properties of type String[] that lists all the properties
+	// of the Email that were invalid.
+	SetErrorInvalidEmail = "invalidEmail"
+
+	// The envelope (supplied or generated) has more recipients than the server allows.
+	//
+	// A maxRecipients UnsignedInt property MUST also be present on the SetError specifying
+	// the maximum number of allowed recipients.
+	SetErrorTooManyRecipients = "tooManyRecipients"
+
+	// The envelope (supplied or generated) does not have any rcptTo email addresses.
+	SetErrorNoRecipients = "noRecipients"
+
+	// The rcptTo property of the envelope (supplied or generated) contains at least one rcptTo value which
+	// is not a valid email address for sending to.
+	//
+	// An invalidRecipients String[] property MUST also be present on the SetError, which is a list of the invalid addresses.
+	SetErrorInvalidRecipients = "invalidRecipients"
+
+	// The server does not permit the user to send a message with this envelope From address [RFC5321].
+	//
+	// [RFC5321]: https://datatracker.ietf.org/doc/html/rfc5321
+	SetErrorForbiddenMailFrom = "forbiddenMailFrom"
+
+	// The server does not permit the user to send a message with the From header field [RFC5322] of the message to be sent.
+	//
+	// [RFC5322]: https://datatracker.ietf.org/doc/html/rfc5322
+	SetErrorForbiddenFrom = "forbiddenFrom"
+
+	// The user does not have permission to send at all right now for some reason.
+	//
+	// A description String property MAY be present on the SetError object to display to the user why they are not permitted.
+	SetErrorForbiddenToSend = "forbiddenToSend"
 )
 
 type SetError struct {
@@ -242,6 +278,21 @@ type SetError struct {
 	//
 	// This is a non-localised string and is not intended to be shown directly to end users.
 	Description string `json:"description,omitempty"`
+
+	// Lists all the properties of the Email that were invalid.
+	//
+	// Only set for the invalidEmail error after a failed EmailSubmission/set errors.
+	Properties []string `json:"properties,omitempty"`
+
+	// Specifies the maximum number of allowed recipients.
+	//
+	// Only set for the tooManyRecipients error after a failed EmailSubmission/set errors.
+	MaxRecipients int `json:"maxRecipients,omitzero"`
+
+	// List of invalid addresses.
+	//
+	// Only set for the invalidRecipients error after a failed EmailSubmission/set errors.
+	InvalidRecipients []string `json:"invalidRecipients,omitempty"`
 }
 
 type FilterOperatorTerm string
@@ -607,6 +658,19 @@ type EmailHeader struct {
 	Value string `json:"value"`
 }
 
+// Email body part.
+//
+// The client may specify a partId OR a blobId, but not both.
+// If a partId is given, this partId MUST be present in the bodyValues property.
+//
+// The charset property MUST be omitted if a partId is given (the part’s content is included
+// in bodyValues, and the server may choose any appropriate encoding).
+//
+// The size property MUST be omitted if a partId is given. If a blobId is given, it may be
+// included but is ignored by the server (the size is actually calculated from the blob content
+// itself).
+//
+// A Content-Transfer-Encoding header field MUST NOT be given.
 type EmailBodyPart struct {
 	// Identifies this part uniquely within the Email.
 	//
@@ -895,6 +959,242 @@ type Email struct {
 	Preview string `json:"preview,omitempty"`
 }
 
+type Address struct {
+	// The email address being represented by the object.
+	//
+	// This is a “Mailbox” as used in the Reverse-path or Forward-path of the MAIL FROM or RCPT TO command in [RFC5321].
+	//
+	// [RFC5321]: https://datatracker.ietf.org/doc/html/rfc5321
+	Email string `json:"email,omitempty"`
+
+	// Any parameters to send with the email address (either mail-parameter or rcpt-parameter as appropriate,
+	// as specified in [RFC5321]).
+	//
+	// If supplied, each key in the object is a parameter name, and the value is either the parameter value (type String)
+	// or null if the parameter does not take a value.
+	//
+	// [RFC5321]: https://datatracker.ietf.org/doc/html/rfc5321
+	Parameters map[string]any `json:"parameters,omitempty"` // TODO RFC5321
+}
+
+// Information for use when sending via SMTP.
+type Envelope struct {
+	// The email address to use as the return address in the SMTP submission,
+	// plus any parameters to pass with the MAIL FROM address.
+	MailFrom Address `json:"mailFrom"`
+
+	// The email addresses to send the message to, and any RCPT TO parameters to pass with the recipient.
+	RcptTo []Address `json:"rcptTo"`
+}
+
+type EmailSubmissionUndoStatus string
+
+const (
+	UndoStatusPending  EmailSubmissionUndoStatus = "pending"
+	UndoStatusFinal    EmailSubmissionUndoStatus = "final"
+	UndoStatusCanceled EmailSubmissionUndoStatus = "canceled"
+)
+
+type DeliveryStatusDelivered string
+
+const (
+	DeliveredQueued  DeliveryStatusDelivered = "queued"
+	DeliveredYes     DeliveryStatusDelivered = "yes"
+	DeliveredNo      DeliveryStatusDelivered = "no"
+	DeliveredUnknown DeliveryStatusDelivered = "unknown"
+)
+
+type DeliveryStatusDisplayed string
+
+const (
+	DisplayedUnknown DeliveryStatusDisplayed = "unknown"
+	DisplayedYes     DeliveryStatusDisplayed = "yes"
+)
+
+type DeliveryStatus struct {
+	// The SMTP reply string returned for this recipient when the server last tried to
+	// relay the message, or in a later Delivery Status Notification (DSN, as defined in
+	// [RFC3464]) response for the message.
+	//
+	// This SHOULD be the response to the RCPT TO stage, unless this was accepted and the
+	// message as a whole was rejected at the end of the DATA stage, in which case the
+	// DATA stage reply SHOULD be used instead.
+	//
+	// [RFC3464]: https://datatracker.ietf.org/doc/html/rfc3464
+	SmtpReply string `json:"smtpReply"`
+
+	// Represents whether the message has been successfully delivered to the recipient.
+	//
+	// This MUST be one of the following values:
+	//   - queued: The message is in a local mail queue and status will change once it exits
+	//     the local mail queues. The smtpReply property may still change.
+	//   - yes: The message was successfully delivered to the mail store of the recipient.
+	//     The smtpReply property is final.
+	//   - no: Delivery to the recipient permanently failed. The smtpReply property is final.
+	//   - unknown: The final delivery status is unknown, (e.g., it was relayed to an external
+	//     machine and no further information is available).
+	//     The smtpReply property may still change if a DSN arrives.
+	Delivered DeliveryStatusDelivered `json:"delivered"`
+
+	// Represents whether the message has been displayed to the recipient.
+	//
+	// This MUST be one of the following values:
+	//   - unknown: The display status is unknown. This is the initial value.
+	//   - yes: The recipient’s system claims the message content has been displayed to the recipient.
+	//     Note that there is no guarantee that the recipient has noticed, read, or understood the content.
+	Displayed DeliveryStatusDisplayed `json:"displayed"`
+}
+
+type EmailSubmission struct {
+	// (server-set) The id of the EmailSubmission.
+	Id string `json:"id"`
+
+	// The id of the Identity to associate with this submission.
+	IdentityId string `json:"identityId"`
+
+	// The id of the Email to send.
+	//
+	// The Email being sent does not have to be a draft, for example, when “redirecting” an existing Email
+	// to a different address.
+	EmailId string `json:"emailId"`
+
+	// (server-set) The Thread id of the Email to send.
+	//
+	// This is set by the server to the threadId property of the Email referenced by the emailId.
+	ThreadId string `json:"threadId"`
+
+	// Information for use when sending via SMTP.
+	//
+	// If the envelope property is null or omitted on creation, the server MUST generate this from the
+	// referenced Email as follows:
+	//
+	//   - mailFrom: The email address in the Sender header field, if present; otherwise,
+	//     it’s the email address in the From header field, if present.
+	//     In either case, no parameters are added.
+	//   - rcptTo: The deduplicated set of email addresses from the To, Cc, and Bcc header fields,
+	//     if present, with no parameters for any of them.
+	Envelope *Envelope `json:"envelope,omitempty"`
+
+	// (server-set) The date the submission was/will be released for delivery.
+	SendAt time.Time `json:"sendAt,omitzero"`
+
+	// (server-set) This represents whether the submission may be canceled.
+	//
+	// This is server set on create and MUST be one of the following values:
+	//
+	//   - pending: It may be possible to cancel this submission.
+	//   - final: The message has been relayed to at least one recipient in a manner that cannot be
+	//     recalled. It is no longer possible to cancel this submission.
+	//   - canceled: The submission was canceled and will not be delivered to any recipient.
+	UndoStatus EmailSubmissionUndoStatus `json:"undoStatus"`
+
+	// (server-set) This represents the delivery status for each of the submission’s recipients, if known.
+	//
+	// This property MAY not be supported by all servers, in which case it will remain null.
+	//
+	// Servers that support it SHOULD update the EmailSubmission object each time the status of any of
+	// the recipients changes, even if some recipients are still being retried.
+	//
+	// This value is a map from the email address of each recipient to a DeliveryStatus object.
+	DeliveryStatus map[string]DeliveryStatus `json:"deliveryStatus"`
+
+	// (server-set) A list of blob ids for DSNs [RFC3464] received for this submission,
+	// in order of receipt, oldest first.
+	//
+	// The blob is the whole MIME message (with a top-level content-type of multipart/report), as received.
+	//
+	// [RFC3464]: https://datatracker.ietf.org/doc/html/rfc3464
+	DsnBlobIds []string `json:"dsnBlobIds,omitempty"`
+
+	// (server-set) A list of blob ids for MDNs [RFC8098] received for this submission,
+	// in order of receipt, oldest first.
+	//
+	// The blob is the whole MIME message (with a top-level content-type of multipart/report), as received.
+	//
+	// [RFC8098]: https://datatracker.ietf.org/doc/html/rfc8098
+	MdnBlobIds []string `json:"mdnBlobIds,omitempty"`
+}
+
+type EmailSubmissionGetRefCommand struct {
+	// The id of the account to use.
+	AccountId string `json:"accountId"`
+
+	IdRef *ResultReference `json:"#ids,omitempty"`
+
+	Properties []string `json:"properties,omitempty"`
+}
+
+type EmailSubmissionGetResponse struct {
+	AccountId string            `json:"accountId"`
+	State     string            `json:"state"`
+	List      []EmailSubmission `json:"list,omitempty"`
+	NotFound  []string          `json:"notFound,omitempty"`
+}
+
+// Patch Object.
+//
+// Example:
+//
+//   - moves it from the drafts folder (which has Mailbox id “7cb4e8ee-df87-4757-b9c4-2ea1ca41b38e”)
+//     to the sent folder (which we presume has Mailbox id “73dbcb4b-bffc-48bd-8c2a-a2e91ca672f6”)
+//
+//   - removes the $draft flag and
+//
+//     {
+//     "mailboxIds/7cb4e8ee-df87-4757-b9c4-2ea1ca41b38e": null,
+//     "mailboxIds/73dbcb4b-bffc-48bd-8c2a-a2e91ca672f6": true,
+//     "keywords/$draft": null
+//     }
+type PatchObject map[string]any
+
+// same as EmailSubmission but without the server-set attributes
+type EmailSubmissionCreate struct {
+	// The id of the Identity to associate with this submission.
+	IdentityId string `json:"identityId"`
+	// The id of the Email to send.
+	//
+	// The Email being sent does not have to be a draft, for example, when “redirecting” an existing
+	// Email to a different address.
+	EmailId string `json:"emailId"`
+
+	// Information for use when sending via SMTP.
+	Envelope *Envelope `json:"envelope,omitempty"`
+}
+
+type EmailSubmissionSetCommand struct {
+	AccountId string                           `json:"accountId"`
+	Create    map[string]EmailSubmissionCreate `json:"create,omitempty"`
+	OldState  string                           `json:"oldState,omitempty"`
+	NewState  string                           `json:"newState,omitempty"`
+
+	// A map of EmailSubmission id to an object containing properties to update on the Email object
+	// referenced by the EmailSubmission if the create/update/destroy succeeds.
+	//
+	// (For references to EmailSubmissions created in the same “/set” invocation, this is equivalent
+	// to a creation-reference, so the id will be the creation id prefixed with a #.)
+	OnSuccessUpdateEmail map[string]PatchObject `json:"onSuccessUpdateEmail,omitempty"`
+
+	// A list of EmailSubmission ids for which the Email with the corresponding emailId should be destroyed
+	// if the create/update/destroy succeeds.
+	//
+	// (For references to EmailSubmission creations, this is equivalent to a creation-reference so the
+	// id will be the creation id prefixed with a #.)
+	OnSuccessDestroyEmail []string `json:"onSuccessDestroyEmail,omitempty"`
+}
+
+type CreatedEmailSubmission struct {
+	Id string `json:"id"`
+}
+
+type EmailSubmissionSetResponse struct {
+	AccountId  string                            `json:"accountId"`
+	OldState   string                            `json:"oldState"`
+	NewState   string                            `json:"newState"`
+	Created    map[string]CreatedEmailSubmission `json:"created,omitempty"`
+	NotCreated map[string]SetError               `json:"notCreated,omitempty"`
+	// TODO(pbleser-oc) add updated and destroyed when they are needed
+}
+
 type Command string
 
 type Invocation struct {
@@ -1126,21 +1426,78 @@ type EmailBodyStructure struct {
 }
 
 type EmailCreate struct {
-	MailboxIds    map[string]bool    `json:"mailboxIds,omitempty"`
-	Keywords      map[string]bool    `json:"keywords,omitempty"`
-	From          []EmailAddress     `json:"from,omitempty"`
-	Subject       string             `json:"subject,omitempty"`
-	ReceivedAt    time.Time          `json:"receivedAt,omitzero"`
-	SentAt        time.Time          `json:"sentAt,omitzero"`
+	// The set of Mailbox ids this Email belongs to.
+	//
+	// An Email in the mail store MUST belong to one or more Mailboxes at all times
+	// (until it is destroyed).
+	//
+	// The set is represented as an object, with each key being a Mailbox id.
+	// The value for each key in the object MUST be true.
+	MailboxIds map[string]bool `json:"mailboxIds,omitempty"`
+
+	// A set of keywords that apply to the Email.
+	//
+	// The set is represented as an object, with the keys being the keywords.
+	// The value for each key in the object MUST be true.
+	Keywords map[string]bool `json:"keywords,omitempty"`
+
+	// The ["From:" field] specifies the author(s) of the message, that is, the mailbox(es)
+	// of the person(s) or system(s) responsible for the writing of the message
+	//
+	// ["From:" field]: https://www.rfc-editor.org/rfc/rfc5322.html#section-3.6.2
+	From []EmailAddress `json:"from,omitempty"`
+
+	// The "Subject:" field contains a short string identifying the topic of the message.
+	Subject string `json:"subject,omitempty"`
+
+	// The date the Email was received by the message store.
+	//
+	// (default: time of most recent Received header, or time of import on server if none).
+	ReceivedAt time.Time `json:"receivedAt,omitzero"`
+
+	// The origination date specifies the date and time at which the creator of the message indicated that
+	// the message was complete and ready to enter the mail delivery system.
+	//
+	// For instance, this might be the time that a user pushes the "send" or "submit" button in an
+	// application program.
+	//
+	// In any case, it is specifically not intended to convey the time that the message is actually transported,
+	// but rather the time at which the human or other creator of the message has put the message into its final
+	// form, ready for transport.
+	//
+	// (For example, a portable computer user who is not connected to a network might queue a message for delivery.
+	// The origination date is intended to contain the date and time that the user queued the message, not the time
+	// when the user connected to the network to send the message.)
+	SentAt time.Time `json:"sentAt,omitzero"`
+
+	// This is the full MIME structure of the message body, without recursing into message/rfc822 or message/global parts.
+	//
+	// Note that EmailBodyParts may have subParts if they are of type multipart/*.
 	BodyStructure EmailBodyStructure `json:"bodyStructure"`
+
+	// This is a map of partId to an EmailBodyValue object for none, some, or all text/* parts.
+	BodyValues map[string]EmailBodyValue `json:"bodyValues,omitempty"`
 }
+
+type EmailUpdate map[string]any
 
 type EmailSetCommand struct {
 	AccountId string                 `json:"accountId"`
 	Create    map[string]EmailCreate `json:"create,omitempty"`
+	Update    map[string]EmailUpdate `json:"update,omitempty"`
+	Destroy   []string               `json:"destroy,omitempty"`
 }
 
 type EmailSetResponse struct {
+	AccountId    string              `json:"accountId"`
+	OldState     string              `json:"oldState,omitempty"`
+	NewState     string              `json:"newState"`
+	Created      map[string]Email    `json:"created,omitempty"`
+	Updated      map[string]Email    `json:"updated,omitempty"`
+	Destroyed    []string            `json:"destroyed,omitempty"`
+	NotCreated   map[string]SetError `json:"notCreated,omitempty"`
+	NotUpdated   map[string]SetError `json:"notUpdated,omitempty"`
+	NotDestroyed map[string]SetError `json:"notDestroyed,omitempty"`
 }
 
 const (
@@ -1372,6 +1729,8 @@ const (
 	EmailChanges        Command = "Email/changes"
 	EmailSet            Command = "Email/set"
 	EmailImport         Command = "Email/import"
+	EmailSubmissionGet  Command = "EmailSubmission/get"
+	EmailSubmissionSet  Command = "EmailSubmission/set"
 	ThreadGet           Command = "Thread/get"
 	MailboxGet          Command = "Mailbox/get"
 	MailboxQuery        Command = "Mailbox/query"
@@ -1390,6 +1749,8 @@ var CommandResponseTypeMap = map[Command]func() any{
 	EmailQuery:          func() any { return EmailQueryResponse{} },
 	EmailChanges:        func() any { return EmailChangesResponse{} },
 	EmailGet:            func() any { return EmailGetResponse{} },
+	EmailSubmissionGet:  func() any { return EmailSubmissionGetResponse{} },
+	EmailSubmissionSet:  func() any { return EmailSubmissionSetResponse{} },
 	ThreadGet:           func() any { return ThreadGetResponse{} },
 	IdentityGet:         func() any { return IdentityGetResponse{} },
 	VacationResponseGet: func() any { return VacationResponseGetResponse{} },

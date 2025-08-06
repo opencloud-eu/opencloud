@@ -386,6 +386,9 @@ func errorResponse(id string, error GroupwareError, options ...ErrorOpt) ErrorRe
 
 func errorId(r *http.Request, ctx context.Context) string {
 	requestId := chimiddleware.GetReqID(ctx)
+	if requestId == "" {
+		requestId = r.Header.Get("x-request-id")
+	}
 	localId := uuid.NewString()
 	if requestId != "" {
 		return requestId + "." + localId
@@ -398,14 +401,14 @@ func (r Request) errorId() string {
 	return errorId(r.r, r.ctx)
 }
 
-func apiError(id string, error GroupwareError, options ...ErrorOpt) *Error {
+func apiError(id string, gwerr GroupwareError, options ...ErrorOpt) *Error {
 	err := &Error{
 		Id:        id,
-		NumStatus: error.Status,
-		Status:    strconv.Itoa(error.Status),
-		Code:      error.Code,
-		Title:     error.Title,
-		Detail:    error.Detail,
+		NumStatus: gwerr.Status,
+		Status:    strconv.Itoa(gwerr.Status),
+		Code:      gwerr.Code,
+		Title:     gwerr.Title,
+		Detail:    gwerr.Detail,
 	}
 
 	for _, o := range options {
@@ -415,11 +418,11 @@ func apiError(id string, error GroupwareError, options ...ErrorOpt) *Error {
 	return err
 }
 
-func (r Request) apiErrorFromJmap(error jmap.Error) *Error {
-	if error == nil {
+func (r Request) apiErrorFromJmap(err jmap.Error) *Error {
+	if err == nil {
 		return nil
 	}
-	gwe := groupwareErrorFromJmap(error)
+	gwe := groupwareErrorFromJmap(err)
 	if gwe == nil {
 		return nil
 	}
@@ -430,4 +433,8 @@ func (r Request) apiErrorFromJmap(error jmap.Error) *Error {
 
 func errorResponses(errors ...Error) ErrorResponse {
 	return ErrorResponse{Errors: errors}
+}
+
+func (r Request) errorResponseFromJmap(err jmap.Error) Response {
+	return errorResponse(r.apiErrorFromJmap(err))
 }

@@ -5,9 +5,9 @@ import (
 )
 
 const (
-	UriParamAccount          = "account"
+	UriParamAccount          = "accountid"
 	UriParamMailboxId        = "mailbox"
-	UriParamMessagesId       = "id"
+	UriParamMessageId        = "messageid"
 	UriParamBlobId           = "blobid"
 	UriParamBlobName         = "blobname"
 	QueryParamBlobType       = "type"
@@ -33,7 +33,7 @@ const (
 func (g Groupware) Route(r chi.Router) {
 	r.Get("/", g.Index)
 	r.Get("/accounts", g.GetAccounts)
-	r.Route("/accounts/{account}", func(r chi.Router) {
+	r.Route("/accounts/{accountid}", func(r chi.Router) {
 		r.Get("/", g.GetAccount)
 		r.Get("/identity", g.GetIdentity)
 		r.Get("/vacation", g.GetVacation)
@@ -44,7 +44,11 @@ func (g Groupware) Route(r chi.Router) {
 		})
 		r.Route("/messages", func(r chi.Router) {
 			r.Get("/", g.GetMessages)
-			r.Get("/{id}", g.GetMessagesById)
+			r.Post("/", g.CreateMessage)
+			r.Get("/{messageid}", g.GetMessagesById)
+			r.Patch("/{messageid}", g.UpdateMessage) // or PUT?
+			r.Put("/{messageid}", g.UpdateMessage)   // or PATCH?
+			r.Delete("/{messageId}", g.DeleteMessage)
 		})
 		r.Route("/blobs", func(r chi.Router) {
 			r.Get("/{blobid}", g.GetBlob)

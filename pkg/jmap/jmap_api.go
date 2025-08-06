@@ -20,3 +20,21 @@ type BlobClient interface {
 	UploadBinary(ctx context.Context, logger *log.Logger, session *Session, uploadUrl string, contentType string, content io.Reader) (UploadedBlob, Error)
 	DownloadBinary(ctx context.Context, logger *log.Logger, session *Session, downloadUrl string) (*BlobDownload, Error)
 }
+
+const (
+	logOperation    = "operation"
+	logUsername     = "username"
+	logAccountId    = "account-id"
+	logMailboxId    = "mailbox-id"
+	logFetchBodies  = "fetch-bodies"
+	logOffset       = "offset"
+	logLimit        = "limit"
+	logApiUrl       = "apiurl"
+	logDownloadUrl  = "downloadurl"
+	logBlobId       = "blobId"
+	logUploadUrl    = "downloadurl"
+	logSessionState = "session-state"
+	logSince        = "since"
+
+	defaultAccountId = "*"
+)
