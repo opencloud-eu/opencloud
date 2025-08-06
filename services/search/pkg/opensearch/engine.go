@@ -115,7 +115,15 @@ func (e *Engine) Search(ctx context.Context, sir *searchService.SearchIndexReque
 		)
 	}
 
-	body, err := NewRootQuery(boolQuery).MarshalJSON()
+	body, err := NewRootQuery(boolQuery, RootQueryOptions{
+		Highlight: RootQueryHighlight{
+			PreTags:  []string{"<mark>"},
+			PostTags: []string{"</mark>"},
+			Fields: map[string]RootQueryHighlight{
+				"Content": {},
+			},
+		},
+	}).MarshalJSON()
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal query: %w", err)
 	}

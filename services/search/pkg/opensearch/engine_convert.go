@@ -58,7 +58,14 @@ func searchHitToSearchMessageMatch(hit opensearchgoAPI.SearchHit) (*searchMessag
 			MimeType: resource.MimeType,
 			Deleted:  resource.Deleted,
 			Tags:     resource.Tags,
-			//Highlights: getFragmentValue(hit.Fragments, "Content", 0),
+			Highlights: func() string {
+				contentHighlights, ok := hit.Highlight["Content"]
+				if !ok {
+					return ""
+				}
+
+				return strings.Join(contentHighlights[:], "; ")
+			}(),
 			Audio: func() *searchMessage.Audio {
 				if !strings.HasPrefix(resource.MimeType, "audio/") {
 					return nil

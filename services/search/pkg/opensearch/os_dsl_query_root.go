@@ -9,8 +9,6 @@ type RootQuery struct {
 	options RootQueryOptions
 }
 
-type RootQueryOptions struct{}
-
 func NewRootQuery(builder Builder, o ...RootQueryOptions) *RootQuery {
 	return &RootQuery{query: builder, options: merge(o...)}
 }
@@ -49,4 +47,14 @@ func (q *RootQuery) MarshalJSON() ([]byte, error) {
 func (q *RootQuery) String() string {
 	b, _ := q.MarshalJSON()
 	return string(b)
+}
+
+type RootQueryOptions struct {
+	Highlight RootQueryHighlight `json:"highlight,omitempty"`
+}
+
+type RootQueryHighlight struct {
+	PreTags  []string                      `json:"pre_tags,omitempty"`
+	PostTags []string                      `json:"post_tags,omitempty"`
+	Fields   map[string]RootQueryHighlight `json:"fields,omitempty"`
 }

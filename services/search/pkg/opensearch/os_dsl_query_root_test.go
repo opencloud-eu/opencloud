@@ -9,7 +9,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
-func TestQuery(t *testing.T) {
+func TestRootQuery(t *testing.T) {
 	tests := []opensearchtest.TableTest[opensearch.Builder, map[string]any]{
 		{
 			Name: "simple",
@@ -20,6 +20,37 @@ func TestQuery(t *testing.T) {
 						"name": map[string]any{
 							"value": "tom",
 						},
+					},
+				},
+			},
+		},
+		{
+			Name: "highlight",
+			Got: opensearch.NewRootQuery(
+				opensearch.NewTermQuery[string]("content").Value("content"),
+				opensearch.RootQueryOptions{
+					Highlight: opensearch.RootQueryHighlight{
+						PreTags:  []string{"<b>"},
+						PostTags: []string{"</b>"},
+						Fields: map[string]opensearch.RootQueryHighlight{
+							"content": {},
+						},
+					},
+				},
+			),
+			Want: map[string]any{
+				"query": map[string]any{
+					"term": map[string]any{
+						"content": map[string]any{
+							"value": "content",
+						},
+					},
+				},
+				"highlight": map[string]any{
+					"pre_tags":  []string{"<b>"},
+					"post_tags": []string{"</b>"},
+					"fields": map[string]any{
+						"content": map[string]any{},
 					},
 				},
 			},
