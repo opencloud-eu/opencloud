@@ -5,17 +5,17 @@ import (
 )
 
 func (g Groupware) GetAccount(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) (any, string, *Error) {
+	g.respond(w, r, func(req Request) Response {
 		account, err := req.GetAccount()
 		if err != nil {
-			return nil, "", err
+			return errorResponse(err)
 		}
-		return account, req.session.State, nil
+		return response(account, req.session.State)
 	})
 }
 
 func (g Groupware) GetAccounts(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) (any, string, *Error) {
-		return req.session.Accounts, req.session.State, nil
+	g.respond(w, r, func(req Request) Response {
+		return response(req.session.Accounts, req.session.State)
 	})
 }

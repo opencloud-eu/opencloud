@@ -3,7 +3,9 @@ package groupware
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -180,6 +182,67 @@ type Request struct {
 	session *jmap.Session
 }
 
+type Response struct {
+	body         any
+	err          *Error
+	etag         string
+	sessionState string
+}
+
+func errorResponse(err *Error) Response {
+	return Response{
+		body:         nil,
+		err:          err,
+		etag:         "",
+		sessionState: "",
+	}
+}
+
+func response(body any, sessionStatus string) Response {
+	return Response{
+		body:         body,
+		err:          nil,
+		etag:         sessionStatus,
+		sessionState: sessionStatus,
+	}
+}
+
+func etagResponse(body any, sessionState string, etag string) Response {
+	return Response{
+		body:         body,
+		err:          nil,
+		etag:         etag,
+		sessionState: sessionState,
+	}
+}
+
+func etagOnlyResponse(body any, etag string) Response {
+	return Response{
+		body:         body,
+		err:          nil,
+		etag:         etag,
+		sessionState: "",
+	}
+}
+
+func noContentResponse(sessionStatus string) Response {
+	return Response{
+		body:         "",
+		err:          nil,
+		etag:         sessionStatus,
+		sessionState: sessionStatus,
+	}
+}
+
+func notFoundResponse(sessionStatus string) Response {
+	return Response{
+		body:         nil,
+		err:          nil,
+		etag:         sessionStatus,
+		sessionState: sessionStatus,
+	}
+}
+
 func (r Request) GetAccountId() string {
 	accountId := chi.URLParam(r.r, UriParamAccount)
 	return r.session.MailAccountId(accountId)
@@ -244,6 +307,22 @@ func (r Request) parseDateParam(param string) (time.Time, bool, *Error) {
 		)
 	}
 	return t, true, nil
+}
+
+func (r Request) body(target any) *Error {
+	body := r.r.Body
+	defer func(b io.ReadCloser) {
+		err := b.Close()
+		if err != nil {
+			r.logger.Error().Err(err).Msg("failed to close request body")
+		}
+	}(body)
+
+	err := json.NewDecoder(body).Decode(target)
+	if err != nil {
+		// TODO(pbleser-oc) error handling when failing to decode body
+	}
+	return nil
 }
 
 // Safely caps a string to a given size to avoid log bombing.
@@ -318,7 +397,7 @@ func (g Groupware) serveError(w http.ResponseWriter, r *http.Request, error *Err
 	render.Render(w, r, errorResponses(*error))
 }
 
-func (g Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(r Request) (any, string, *Error)) {
+func (g Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(r Request) Response) {
 	ctx := r.Context()
 	logger := g.logger.SubloggerWithRequestID(ctx)
 
@@ -355,23 +434,34 @@ func (g Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(
 		session: &session,
 	}
 
-	response, state, apierr := handler(req)
-	if apierr != nil {
-		g.log(apierr)
+	response := handler(req)
+	if response.err != nil {
+		g.log(response.err)
 		w.Header().Add("Content-Type", ContentTypeJsonApi)
-		render.Status(r, apierr.NumStatus)
-		w.WriteHeader(apierr.NumStatus)
-		render.Render(w, r, errorResponses(*apierr))
+		render.Status(r, response.err.NumStatus)
+		w.WriteHeader(response.err.NumStatus)
+		render.Render(w, r, errorResponses(*response.err))
 		return
 	}
 
-	if state != "" {
-		w.Header().Add("ETag", state)
+	if response.etag != "" {
+		w.Header().Add("ETag", response.etag)
 	}
-	if response == nil {
+	if response.sessionState != "" {
+		if response.etag == "" {
+			w.Header().Add("ETag", response.sessionState)
+		}
+		w.Header().Add("Session-State", response.sessionState)
+	}
+
+	switch response.body {
+	case nil:
 		render.Status(r, http.StatusNotFound)
 		w.WriteHeader(http.StatusNotFound)
-	} else {
+	case "":
+		render.Status(r, http.StatusNoContent)
+		w.WriteHeader(http.StatusNoContent)
+	default:
 		render.Status(r, http.StatusOK)
 		render.JSON(w, r, response)
 	}
