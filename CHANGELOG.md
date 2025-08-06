@@ -1,10 +1,14 @@
 # Changelog
 
-## [3.2.2](https://github.com/opencloud-eu/opencloud/releases/tag/v3.2.2) - 2025-08-05
+## [3.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.3.0) - 2025-08-06
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @aduffeck
+
+### ✨ Features
+
+- Tenant [[#1274](https://github.com/opencloud-eu/opencloud/pull/1274)]
 
 ### 🐛 Bug Fixes
 
