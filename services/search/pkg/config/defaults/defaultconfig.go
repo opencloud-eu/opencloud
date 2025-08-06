@@ -40,7 +40,12 @@ func DefaultConfig() *config.Config {
 				Datapath: filepath.Join(defaults.BaseDataPath(), "search"),
 			},
 			OpenSearch: config.EngineOpenSearch{
-				Addresses: []string{"http://localhost:9201"},
+				Client: config.EngineOpenSearchClient{
+					Addresses: []string{"http://localhost:9201"},
+				},
+				ResourceIndex: config.EngineOpenSearchResourceIndex{
+					Name: "opencloud-resource",
+				},
 			},
 		},
 		Extractor: config.Extractor{
