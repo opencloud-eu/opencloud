@@ -309,6 +309,29 @@ func (r Request) parseDateParam(param string) (time.Time, bool, *Error) {
 	return t, true, nil
 }
 
+func (r Request) parseBoolParam(param string, defaultValue bool) (bool, bool, *Error) {
+	q := r.r.URL.Query()
+	if !q.Has(param) {
+		return defaultValue, false, nil
+	}
+
+	str := q.Get(param)
+	if str == "" {
+		return defaultValue, false, nil
+	}
+
+	b, err := strconv.ParseBool(str)
+	if err != nil {
+		errorId := r.errorId()
+		msg := fmt.Sprintf("Invalid boolean value for query parameter '%v': '%s': %s", param, logstr(str), err.Error())
+		return defaultValue, true, apiError(errorId, ErrorInvalidRequestParameter,
+			withDetail(msg),
+			withSource(&ErrorSource{Parameter: param}),
+		)
+	}
+	return b, true, nil
+}
+
 func (r Request) body(target any) *Error {
 	body := r.r.Body
 	defer func(b io.ReadCloser) {
@@ -439,7 +462,6 @@ func (g Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(
 		g.log(response.err)
 		w.Header().Add("Content-Type", ContentTypeJsonApi)
 		render.Status(r, response.err.NumStatus)
-		w.WriteHeader(response.err.NumStatus)
 		render.Render(w, r, errorResponses(*response.err))
 		return
 	}
@@ -456,14 +478,12 @@ func (g Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(
 
 	switch response.body {
 	case nil:
-		render.Status(r, http.StatusNotFound)
 		w.WriteHeader(http.StatusNotFound)
 	case "":
-		render.Status(r, http.StatusNoContent)
 		w.WriteHeader(http.StatusNoContent)
 	default:
 		render.Status(r, http.StatusOK)
-		render.JSON(w, r, response)
+		render.JSON(w, r, response.body)
 	}
 }
 
