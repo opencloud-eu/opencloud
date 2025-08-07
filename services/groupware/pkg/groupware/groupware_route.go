@@ -5,29 +5,33 @@ import (
 )
 
 const (
-	UriParamAccount          = "accountid"
-	UriParamMailboxId        = "mailbox"
-	UriParamMessageId        = "messageid"
-	UriParamBlobId           = "blobid"
-	UriParamBlobName         = "blobname"
-	QueryParamBlobType       = "type"
-	QueryParamSince          = "since"
-	QueryParamMailboxId      = "mailbox"
-	QueryParamNotInMailboxId = "notmailbox"
-	QueryParamSearchText     = "text"
-	QueryParamSearchFrom     = "from"
-	QueryParamSearchTo       = "to"
-	QueryParamSearchCc       = "cc"
-	QueryParamSearchBcc      = "bcc"
-	QueryParamSearchSubject  = "subject"
-	QueryParamSearchBody     = "body"
-	QueryParamSearchBefore   = "before"
-	QueryParamSearchAfter    = "after"
-	QueryParamSearchMinSize  = "minsize"
-	QueryParamSearchMaxSize  = "maxsize"
-	QueryParamOffset         = "offset"
-	QueryParamLimit          = "limit"
-	HeaderSince              = "if-none-match"
+	UriParamAccount             = "accountid"
+	UriParamMailboxId           = "mailbox"
+	UriParamMessageId           = "messageid"
+	UriParamBlobId              = "blobid"
+	UriParamBlobName            = "blobname"
+	QueryParamBlobType          = "type"
+	QueryParamSince             = "since"
+	QueryParamMaxChanges        = "maxchanges"
+	QueryParamMailboxId         = "mailbox"
+	QueryParamNotInMailboxId    = "notmailbox"
+	QueryParamSearchText        = "text"
+	QueryParamSearchFrom        = "from"
+	QueryParamSearchTo          = "to"
+	QueryParamSearchCc          = "cc"
+	QueryParamSearchBcc         = "bcc"
+	QueryParamSearchSubject     = "subject"
+	QueryParamSearchBody        = "body"
+	QueryParamSearchBefore      = "before"
+	QueryParamSearchAfter       = "after"
+	QueryParamSearchMinSize     = "minsize"
+	QueryParamSearchMaxSize     = "maxsize"
+	QueryParamSearchKeyword     = "keyword"
+	QueryParamSearchFetchBodies = "fetchbodies"
+	QueryParamSearchFetchEmails = "fetchemails"
+	QueryParamOffset            = "offset"
+	QueryParamLimit             = "limit"
+	HeaderSince                 = "if-none-match"
 )
 
 func (g Groupware) Route(r chi.Router) {
@@ -43,7 +47,7 @@ func (g Groupware) Route(r chi.Router) {
 			r.Get("/{mailbox}/messages", g.GetAllMessages)
 		})
 		r.Route("/messages", func(r chi.Router) {
-			r.Get("/", g.GetMessages)
+			r.Get("/", g.GetMessages) // ?fetchemails=true&fetchbodies=true&text=&subject=&body=&keyword=&keyword=&...
 			r.Post("/", g.CreateMessage)
 			r.Get("/{messageid}", g.GetMessagesById)
 			r.Patch("/{messageid}", g.UpdateMessage) // or PUT?

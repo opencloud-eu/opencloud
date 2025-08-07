@@ -169,3 +169,68 @@ func TestRequests(t *testing.T) {
 		require.Equal(false, email.HasAttachment)
 	}
 }
+
+func TestEmailFilterSerialization(t *testing.T) {
+	expectedFilterJson := `
+{"operator":"AND","conditions":[{"hasKeyword":"seen","text":"sample"},{"hasKeyword":"draft"}]}
+`
+
+	require := require.New(t)
+
+	text := "sample"
+	mailboxId := ""
+	notInMailboxIds := []string{}
+	from := ""
+	to := ""
+	cc := ""
+	bcc := ""
+	subject := ""
+	body := ""
+	before := time.Time{}
+	after := time.Time{}
+	minSize := 0
+	maxSize := 0
+	keywords := []string{"seen", "draft"}
+
+	var filter EmailFilterElement
+
+	firstFilter := EmailFilterCondition{
+		Text:               text,
+		InMailbox:          mailboxId,
+		InMailboxOtherThan: notInMailboxIds,
+		From:               from,
+		To:                 to,
+		Cc:                 cc,
+		Bcc:                bcc,
+		Subject:            subject,
+		Body:               body,
+		Before:             before,
+		After:              after,
+		MinSize:            minSize,
+		MaxSize:            maxSize,
+	}
+	filter = &firstFilter
+
+	if len(keywords) > 0 {
+		firstFilter.HasKeyword = keywords[0]
+		if len(keywords) > 1 {
+			firstFilter.HasKeyword = keywords[0]
+			filters := make([]EmailFilterElement, len(keywords))
+			filters[0] = firstFilter
+			for i, keyword := range keywords[1:] {
+				filters[i+1] = EmailFilterCondition{
+					HasKeyword: keyword,
+				}
+			}
+			filter = &EmailFilterOperator{
+				Operator:   And,
+				Conditions: filters,
+			}
+		}
+	}
+
+	b, err := json.Marshal(filter)
+	require.NoError(err)
+	json := string(b)
+	require.Equal(strings.TrimSpace(expectedFilterJson), json)
+}
