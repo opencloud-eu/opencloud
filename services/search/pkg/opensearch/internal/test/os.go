@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"slices"
-	"strings"
 	"testing"
 
 	opensearchgo "github.com/opensearch-project/opensearch-go/v4"
@@ -120,10 +120,10 @@ func (tc *TestClient) IndicesDelete(ctx context.Context, indices []string) error
 	}
 }
 
-func (tc *TestClient) IndicesCreate(ctx context.Context, index string, body string) error {
+func (tc *TestClient) IndicesCreate(ctx context.Context, index string, body io.Reader) error {
 	resp, err := tc.c.Indices.Create(ctx, opensearchgoAPI.IndicesCreateReq{
 		Index: index,
-		Body:  strings.NewReader(body),
+		Body:  body,
 	})
 
 	switch {
@@ -136,14 +136,14 @@ func (tc *TestClient) IndicesCreate(ctx context.Context, index string, body stri
 	}
 }
 
-func (tc *TestClient) IndicesCount(ctx context.Context, indices []string, body string) (int, error) {
+func (tc *TestClient) IndicesCount(ctx context.Context, indices []string, body io.Reader) (int, error) {
 	if err := tc.IndicesRefresh(ctx, indices, []int{404}); err != nil {
 		return 0, err
 	}
 
 	resp, err := tc.c.Indices.Count(ctx, &opensearchgoAPI.IndicesCountReq{
 		Indices: indices,
-		Body:    strings.NewReader(body),
+		Body:    body,
 	})
 
 	switch {
@@ -154,7 +154,7 @@ func (tc *TestClient) IndicesCount(ctx context.Context, indices []string, body s
 	}
 }
 
-func (tc *TestClient) DocumentCreate(ctx context.Context, index string, id, body string) error {
+func (tc *TestClient) DocumentCreate(ctx context.Context, index, id string, body io.Reader) error {
 	if err := tc.IndicesRefresh(ctx, []string{index}, []int{404}); err != nil {
 		return err
 	}
@@ -162,7 +162,7 @@ func (tc *TestClient) DocumentCreate(ctx context.Context, index string, id, body
 	_, err := tc.c.Document.Create(ctx, opensearchgoAPI.DocumentCreateReq{
 		Index:      index,
 		DocumentID: id,
-		Body:       strings.NewReader(body),
+		Body:       body,
 	})
 	switch {
 	case err != nil:
@@ -172,7 +172,7 @@ func (tc *TestClient) DocumentCreate(ctx context.Context, index string, id, body
 	}
 }
 
-func (tc *TestClient) Update(ctx context.Context, index string, id, body string) error {
+func (tc *TestClient) Update(ctx context.Context, index, id string, body io.Reader) error {
 	if err := tc.IndicesRefresh(ctx, []string{index}, []int{404}); err != nil {
 		return err
 	}
@@ -180,7 +180,7 @@ func (tc *TestClient) Update(ctx context.Context, index string, id, body string)
 	_, err := tc.c.Update(ctx, opensearchgoAPI.UpdateReq{
 		Index:      index,
 		DocumentID: id,
-		Body:       strings.NewReader(body),
+		Body:       body,
 	})
 	switch {
 	case err != nil:
@@ -190,14 +190,14 @@ func (tc *TestClient) Update(ctx context.Context, index string, id, body string)
 	}
 }
 
-func (tc *TestClient) Search(ctx context.Context, index string, body string) (opensearchgoAPI.SearchHits, error) {
+func (tc *TestClient) Search(ctx context.Context, index string, body io.Reader) (opensearchgoAPI.SearchHits, error) {
 	if err := tc.IndicesRefresh(ctx, []string{index}, []int{404}); err != nil {
 		return opensearchgoAPI.SearchHits{}, err
 	}
 
 	resp, err := tc.c.Search(ctx, &opensearchgoAPI.SearchReq{
 		Indices: []string{index},
-		Body:    strings.NewReader(body),
+		Body:    body,
 	})
 	if err != nil {
 		return opensearchgoAPI.SearchHits{}, fmt.Errorf("failed to search in index %s: %w", index, err)
@@ -219,7 +219,7 @@ func (trc *testRequireClient) IndicesRefresh(indices []string, ignore []int) {
 	require.NoError(trc.t, trc.tc.IndicesRefresh(trc.t.Context(), indices, ignore))
 }
 
-func (trc *testRequireClient) IndicesCreate(index string, body string) {
+func (trc *testRequireClient) IndicesCreate(index string, body io.Reader) {
 	require.NoError(trc.t, trc.tc.IndicesCreate(trc.t.Context(), index, body))
 }
 
@@ -227,7 +227,7 @@ func (trc *testRequireClient) IndicesDelete(indices []string) {
 	require.NoError(trc.t, trc.tc.IndicesDelete(trc.t.Context(), indices))
 }
 
-func (trc *testRequireClient) IndicesCount(indices []string, body string, expected int) {
+func (trc *testRequireClient) IndicesCount(indices []string, body io.Reader, expected int) {
 	count, err := trc.tc.IndicesCount(trc.t.Context(), indices, body)
 
 	switch {
@@ -239,15 +239,15 @@ func (trc *testRequireClient) IndicesCount(indices []string, body string, expect
 	}
 }
 
-func (trc *testRequireClient) DocumentCreate(index string, id, body string) {
+func (trc *testRequireClient) DocumentCreate(index, id string, body io.Reader) {
 	require.NoError(trc.t, trc.tc.DocumentCreate(trc.t.Context(), index, id, body))
 }
 
-func (trc *testRequireClient) Update(index string, id, body string) {
+func (trc *testRequireClient) Update(index, id string, body io.Reader) {
 	require.NoError(trc.t, trc.tc.Update(trc.t.Context(), index, id, body))
 }
 
-func (trc *testRequireClient) Search(index string, body string) opensearchgoAPI.SearchHits {
+func (trc *testRequireClient) Search(index string, body io.Reader) opensearchgoAPI.SearchHits {
 	hits, err := trc.tc.Search(trc.t.Context(), index, body)
 	require.NoError(trc.t, err)
 	return hits

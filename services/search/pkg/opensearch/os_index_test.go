@@ -1,6 +1,7 @@
 package opensearch_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,7 +11,7 @@ import (
 	opensearchtest "github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
-func TestIndex(t *testing.T) {
+func TestIndexManager(t *testing.T) {
 	t.Run("index plausibility", func(t *testing.T) {
 		tests := []opensearchtest.TableTest[opensearch.IndexManager, struct{}]{
 			{
@@ -41,7 +42,7 @@ func TestIndex(t *testing.T) {
 
 		tc := opensearchtest.NewDefaultTestClient(t)
 		tc.Require.IndicesReset([]string{indexName})
-		tc.Require.IndicesCreate(indexName, indexManager.String())
+		tc.Require.IndicesCreate(indexName, strings.NewReader(indexManager.String()))
 
 		require.NoError(t, indexManager.Apply(t.Context(), indexName, tc.Client()))
 	})
@@ -55,7 +56,7 @@ func TestIndex(t *testing.T) {
 
 		body, err := sjson.Set(indexManager.String(), "settings.number_of_shards", "2")
 		require.NoError(t, err)
-		tc.Require.IndicesCreate(indexName, body)
+		tc.Require.IndicesCreate(indexName, strings.NewReader(body))
 
 		require.ErrorIs(t, indexManager.Apply(t.Context(), indexName, tc.Client()), opensearch.ErrManualActionRequired)
 	})

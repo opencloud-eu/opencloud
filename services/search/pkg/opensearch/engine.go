@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"math"
 	"path"
 	"strings"
 
@@ -21,8 +19,6 @@ import (
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/engine"
 )
-
-var ErrNoContainerType = fmt.Errorf("not a container type")
 
 type Engine struct {
 	index  string
@@ -89,40 +85,37 @@ func (e *Engine) Search(ctx context.Context, sir *searchService.SearchIndexReque
 		)
 	}
 
-	body, err := NewRootQuery(boolQuery, RootQueryOptions{
-		Highlight: &RootQueryHighlight{
-			PreTags:  []string{"<mark>"},
-			PostTags: []string{"</mark>"},
-			Fields: map[string]RootQueryHighlight{
-				"Content": {},
-			},
-		},
-	}).MarshalJSON()
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal query: %w", err)
-	}
-
 	searchParams := opensearchgoAPI.SearchParams{}
 
 	switch {
 	case sir.PageSize == -1:
-		searchParams.Size = conversions.ToPointer(math.MaxInt)
+		searchParams.Size = conversions.ToPointer(1000)
 	case sir.PageSize == 0:
 		searchParams.Size = conversions.ToPointer(200)
 	default:
 		searchParams.Size = conversions.ToPointer(int(sir.PageSize))
 	}
 
-	// fixMe: see getDescendants
-	if *searchParams.Size > 250 {
-		searchParams.Size = conversions.ToPointer(250)
+	req, err := BuildSearchReq(&opensearchgoAPI.SearchReq{
+		Indices: []string{e.index},
+		Params:  searchParams,
+	},
+		boolQuery,
+		SearchReqOptions{
+			Highlight: &HighlightOption{
+				PreTags:  []string{"<mark>"},
+				PostTags: []string{"</mark>"},
+				Fields: map[string]HighlightOption{
+					"Content": {},
+				},
+			},
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build search request: %w", err)
 	}
 
-	resp, err := e.client.Search(ctx, &opensearchgoAPI.SearchReq{
-		Indices: []string{e.index},
-		Body:    bytes.NewReader(body),
-		Params:  searchParams,
-	})
+	resp, err := e.client.Search(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search: %w", err)
 	}
@@ -174,67 +167,87 @@ func (e *Engine) Upsert(id string, r engine.Resource) error {
 }
 
 func (e *Engine) Move(id string, parentID string, target string) error {
+	return e.updateSelfAndDescendants(id, func(rootResource engine.Resource) *ScriptOption {
+		return &ScriptOption{
+			Source: `
+					if (ctx._source.ID == params.id ) { ctx._source.Name = params.newName; ctx._source.ParentID = params.parentID; }
+					ctx._source.Path = ctx._source.Path.replace(params.oldPath, params.newPath)
+				`,
+			Lang: "painless",
+			Params: map[string]any{
+				"id":       id,
+				"parentID": parentID,
+				"oldPath":  rootResource.Path,
+				"newPath":  utils.MakeRelativePath(target),
+				"newName":  path.Base(utils.MakeRelativePath(target)),
+			},
+		}
+	})
+}
+
+func (e *Engine) Delete(id string) error {
+	return e.updateSelfAndDescendants(id, func(_ engine.Resource) *ScriptOption {
+		return &ScriptOption{
+			Source: "ctx._source.Deleted = params.deleted",
+			Lang:   "painless",
+			Params: map[string]any{
+				"deleted": true,
+			},
+		}
+	})
+}
+
+func (e *Engine) Restore(id string) error {
+	return e.updateSelfAndDescendants(id, func(_ engine.Resource) *ScriptOption {
+		return &ScriptOption{
+			Source: "ctx._source.Deleted = params.deleted",
+			Lang:   "painless",
+			Params: map[string]any{
+				"deleted": false,
+			},
+		}
+	})
+}
+
+func (e *Engine) Purge(id string) error {
 	resource, err := e.getResource(id)
 	if err != nil {
 		return fmt.Errorf("failed to get resource: %w", err)
 	}
 
-	oldPath := resource.Path
-	resource.Path = utils.MakeRelativePath(target)
-	resource.Name = path.Base(resource.Path)
-	resource.ParentID = parentID
-
-	if err := e.Upsert(id, resource); err != nil {
-		return fmt.Errorf("failed to upsert resource: %w", err)
-	}
-
-	descendants, err := e.getDescendants(resource.Type, resource.RootID, oldPath)
-	if err != nil && !errors.Is(err, ErrNoContainerType) {
-		return fmt.Errorf("failed to find descendants: %w", err)
-	}
-
-	for _, descendant := range descendants {
-		descendant.Path = strings.Replace(descendant.Path, oldPath, resource.Path, 1)
-		if err := e.Upsert(descendant.ID, descendant); err != nil {
-			return fmt.Errorf("failed to upsert resource: %w", err)
-		}
-	}
-
-	return nil
-}
-
-func (e *Engine) Delete(id string) error {
-	return e.deleteResource(id, true)
-}
-
-func (e *Engine) Restore(id string) error {
-	return e.deleteResource(id, false)
-}
-
-func (e *Engine) Purge(id string) error {
-	_, err := e.client.Document.Delete(context.TODO(), opensearchgoAPI.DocumentDeleteReq{
-		Index:      e.index,
-		DocumentID: id,
-	})
+	req, err := BuildDocumentDeleteByQueryReq(
+		opensearchgoAPI.DocumentDeleteByQueryReq{
+			Indices: []string{e.index},
+		},
+		NewTermQuery[string]("Path").Value(resource.Path),
+	)
 	if err != nil {
-		return fmt.Errorf("failed to purge document: %w", err)
+		return fmt.Errorf("failed to build delete by query request: %w", err)
+	}
+
+	resp, err := e.client.Document.DeleteByQuery(context.TODO(), req)
+	switch {
+	case err != nil:
+		return fmt.Errorf("failed to delete by query: %w", err)
+	case len(resp.Failures) != 0:
+		return fmt.Errorf("failed to delete by query, failures: %v", resp.Failures)
 	}
 
 	return nil
 }
 
 func (e *Engine) DocCount() (uint64, error) {
-	body, err := NewRootQuery(
+	req, err := BuildIndicesCountReq(
+		&opensearchgoAPI.IndicesCountReq{
+			Indices: []string{e.index},
+		},
 		NewTermQuery[bool]("Deleted").Value(false),
-	).MarshalJSON()
+	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to marshal query: %w", err)
+		return 0, fmt.Errorf("failed to build count request: %w", err)
 	}
 
-	resp, err := e.client.Indices.Count(context.TODO(), &opensearchgoAPI.IndicesCountReq{
-		Indices: []string{e.index},
-		Body:    bytes.NewReader(body),
-	})
+	resp, err := e.client.Indices.Count(context.TODO(), req)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count documents: %w", err)
 	}
@@ -242,63 +255,52 @@ func (e *Engine) DocCount() (uint64, error) {
 	return uint64(resp.Count), nil
 }
 
-func (e *Engine) StartBatch(_ int) error {
-	return nil
-}
+func (e *Engine) updateSelfAndDescendants(id string, scriptProvider func(engine.Resource) *ScriptOption) error {
+	if scriptProvider == nil {
+		return fmt.Errorf("script cannot be nil")
+	}
 
-func (e *Engine) EndBatch() error {
-	return nil
-}
-
-func (e *Engine) deleteResource(id string, deleted bool) error {
 	resource, err := e.getResource(id)
 	if err != nil {
 		return fmt.Errorf("failed to get resource: %w", err)
 	}
 
-	descendants, err := e.getDescendants(resource.Type, resource.RootID, resource.Path)
-	if err != nil && !errors.Is(err, ErrNoContainerType) {
-		return fmt.Errorf("failed to find descendants: %w", err)
-	}
-
-	body, err := json.Marshal(map[string]any{
-		"doc": map[string]bool{
-			"Deleted": deleted,
+	req, err := BuildUpdateByQueryReq(
+		opensearchgoAPI.UpdateByQueryReq{
+			Indices: []string{e.index},
 		},
-	})
+		NewTermQuery[string]("Path").Value(resource.Path),
+		UpdateByQueryReqOptions{
+			Script: scriptProvider(resource),
+		},
+	)
 	if err != nil {
-		return fmt.Errorf("failed to marshal body: %w", err)
+		return fmt.Errorf("failed to build update by query request: %w", err)
 	}
 
-	for _, resource := range append([]engine.Resource{resource}, descendants...) {
-		if resource.Deleted == deleted {
-			continue // already marked as the desired state
-		}
-
-		if _, err = e.client.Update(context.TODO(), opensearchgoAPI.UpdateReq{
-			Index:      e.index,
-			DocumentID: resource.ID,
-			Body:       bytes.NewReader(body),
-		}); err != nil {
-			return fmt.Errorf("failed to mark document as deleted: %w", err)
-		}
+	resp, err := e.client.UpdateByQuery(context.TODO(), req)
+	switch {
+	case err != nil:
+		return fmt.Errorf("failed to update by query: %w", err)
+	case len(resp.Failures) != 0:
+		return fmt.Errorf("failed to update by query, failures: %v", resp.Failures)
 	}
 
 	return nil
 }
 
 func (e *Engine) getResource(id string) (engine.Resource, error) {
-	body, err := NewRootQuery(
+	req, err := BuildSearchReq(
+		&opensearchgoAPI.SearchReq{
+			Indices: []string{e.index},
+		},
 		NewIDsQuery([]string{id}),
-	).MarshalJSON()
+	)
 	if err != nil {
-		return engine.Resource{}, fmt.Errorf("failed to marshal query: %w", err)
+		return engine.Resource{}, fmt.Errorf("failed to build search request: %w", err)
 	}
 
-	resp, err := e.client.Search(context.TODO(), &opensearchgoAPI.SearchReq{
-		Indices: []string{e.index},
-		Body:    bytes.NewReader(body),
-	})
+	resp, err := e.client.Search(context.TODO(), req)
 	switch {
 	case err != nil:
 		return engine.Resource{}, fmt.Errorf("failed to search for resource: %w", err)
@@ -314,74 +316,10 @@ func (e *Engine) getResource(id string) (engine.Resource, error) {
 	return resource, nil
 }
 
-func (e *Engine) getDescendants(resourceType uint64, rootID, rootPath string) ([]engine.Resource, error) {
-	switch {
-	case resourceType != uint64(storageProvider.ResourceType_RESOURCE_TYPE_CONTAINER):
-		return nil, fmt.Errorf("%w: %d", ErrNoContainerType, resourceType)
-	case rootID == "":
-		return nil, fmt.Errorf("rootID cannot be empty")
-	case rootPath == "":
-		return nil, fmt.Errorf("rootPath cannot be empty")
-	}
+func (e *Engine) StartBatch(_ int) error {
+	return nil // todo: implement batch processing
+}
 
-	if !strings.HasSuffix(rootPath, "*") {
-		rootPath = strings.Join(append(strings.Split(rootPath, "/"), "*"), "/")
-	}
-
-	body, err := NewRootQuery(
-		NewBoolQuery().Must(
-			NewTermQuery[string]("RootID").Value(rootID),
-			NewWildcardQuery("Path").Value(rootPath),
-		),
-	).MarshalJSON()
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal query: %w", err)
-	}
-
-	// unfortunately, we need to use recursion to fetch all descendants because of the paging
-	// toDo: check the docs to find a better and most important more efficient way to fetch (or update) all descendants
-	var doSearch func(params opensearchgoAPI.SearchParams) ([]engine.Resource, error)
-	doSearch = func(params opensearchgoAPI.SearchParams) ([]engine.Resource, error) {
-		resp, err := e.client.Search(context.TODO(), &opensearchgoAPI.SearchReq{
-			Indices: []string{e.index},
-			Body:    bytes.NewReader(body),
-			Params:  params,
-		})
-		switch {
-		case err != nil:
-			return nil, fmt.Errorf("failed to search for document: %w", err)
-		case resp.Hits.Total.Value == 0 || len(resp.Hits.Hits) == 0:
-			return nil, nil // no descendants found, fin
-		}
-
-		descendants := make([]engine.Resource, len(resp.Hits.Hits))
-		for i, hit := range resp.Hits.Hits {
-			descendant, err := convert[engine.Resource](hit.Source)
-			if err != nil {
-				return nil, fmt.Errorf("failed to convert hit source %d: %w", i, err)
-			}
-
-			descendants[i] = descendant
-		}
-
-		if len(descendants) < resp.Hits.Total.Value {
-			switch params.From {
-			case nil:
-				params.From = opensearchgoAPI.ToPointer(len(resp.Hits.Hits))
-			default:
-				params.From = opensearchgoAPI.ToPointer(*params.From + len(resp.Hits.Hits))
-
-			}
-			moreDescendants, err := doSearch(params)
-			if err != nil {
-				return nil, fmt.Errorf("failed to search for more descendants: %w", err)
-			}
-
-			descendants = append(descendants, moreDescendants...)
-		}
-
-		return descendants, nil
-	}
-
-	return doSearch(opensearchgoAPI.SearchParams{})
+func (e *Engine) EndBatch() error {
+	return nil // todo: implement batch processing
 }

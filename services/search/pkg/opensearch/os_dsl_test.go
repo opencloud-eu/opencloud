@@ -17,11 +17,6 @@ func TestBuilderToBoolQuery(t *testing.T) {
 			Want: opensearch.NewBoolQuery().Must(opensearch.NewTermQuery[string]("Name").Value("openCloud")),
 		},
 		{
-			Name: "root-query",
-			Got:  opensearch.NewRootQuery(opensearch.NewTermQuery[string]("Name").Value("openCloud")),
-			Want: opensearch.NewBoolQuery().Must(opensearch.NewTermQuery[string]("Name").Value("openCloud")),
-		},
-		{
 			Name: "bool-query",
 			Got:  opensearch.NewBoolQuery().Must(opensearch.NewTermQuery[string]("Name").Value("openCloud")),
 			Want: opensearch.NewBoolQuery().Must(opensearch.NewTermQuery[string]("Name").Value("openCloud")),
