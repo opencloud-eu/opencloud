@@ -682,7 +682,17 @@ func (s *Service) RestoreItem(ref *provider.Reference) {
 		return
 	}
 
-	if err := s.engine.Restore(storagespace.FormatResourceID(stat.Info.Id)); err != nil {
+	batch, err := s.engine.StartBatch(s.batchSize)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("failed to start batch")
+		return
+	}
+	defer func() {
+		if err := batch.End(); err != nil {
+			s.logger.Error().Err(err).Msg("failed to end batch")
+		}
+	}()
+	if err := batch.Restore(storagespace.FormatResourceID(stat.Info.Id)); err != nil {
 		s.logger.Error().Err(err).Msg("failed to restore the changed resource in the index")
 	}
 }
@@ -694,7 +704,17 @@ func (s *Service) MoveItem(ref *provider.Reference) {
 		return
 	}
 
-	if err := s.engine.Move(storagespace.FormatResourceID(stat.GetInfo().GetId()), storagespace.FormatResourceID(stat.GetInfo().GetParentId()), path); err != nil {
+	batch, err := s.engine.StartBatch(s.batchSize)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("failed to start batch")
+		return
+	}
+	defer func() {
+		if err := batch.End(); err != nil {
+			s.logger.Error().Err(err).Msg("failed to end batch")
+		}
+	}()
+	if err := batch.Move(storagespace.FormatResourceID(stat.GetInfo().GetId()), storagespace.FormatResourceID(stat.GetInfo().GetParentId()), path); err != nil {
 		s.logger.Error().Err(err).Msg("failed to move the changed resource in the index")
 	}
 }
