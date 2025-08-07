@@ -157,7 +157,7 @@ func (g Groupware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // Provide a JMAP Session for the
-func (g Groupware) session(username string, req *http.Request, ctx context.Context, logger *log.Logger) (jmap.Session, bool, error) {
+func (g Groupware) session(username string, _ *http.Request, _ context.Context, _ *log.Logger) (jmap.Session, bool, error) {
 	item := g.sessionCache.Get(username)
 	if item != nil {
 		value := item.Value()
