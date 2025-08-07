@@ -574,3 +574,17 @@ func (g Groupware) NotFound(w http.ResponseWriter, r *http.Request) {
 	render.Status(r, http.StatusNotFound)
 	w.WriteHeader(http.StatusNotFound)
 }
+
+func uniq[T comparable](ary []T) []T {
+	m := map[T]bool{}
+	for _, v := range ary {
+		m[v] = true
+	}
+	set := make([]T, len(m))
+	i := 0
+	for v := range m {
+		set[i] = v
+		i++
+	}
+	return set
+}
