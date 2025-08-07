@@ -168,9 +168,9 @@ func (m *manager) GetUserByClaim(ctx context.Context, claim, value string, skipF
 
 // FindUser implements the user.Manager interface. Searches for users using a prefix-substring search on
 // the user attributes ('mail', 'username', 'displayname', 'userid') and returns the users.
-func (m *manager) FindUsers(ctx context.Context, query string, skipFetchingGroups bool) ([]*userpb.User, error) {
+func (m *manager) FindUsers(ctx context.Context, query, tenantID string, skipFetchingGroups bool) ([]*userpb.User, error) {
 	log := appctx.GetLogger(ctx)
-	entries, err := m.c.LDAPIdentity.GetLDAPUsers(log, m.ldapClient, query)
+	entries, err := m.c.LDAPIdentity.GetLDAPUsers(log, m.ldapClient, query, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -261,6 +261,7 @@ func (m *manager) ldapEntryToUserID(entry *ldap.Entry) (*userpb.UserId, error) {
 	return &userpb.UserId{
 		Idp:      m.c.Idp,
 		OpaqueId: uid,
+		TenantId: entry.GetEqualFoldAttributeValue(m.c.LDAPIdentity.User.Schema.TenantID),
 		Type:     m.c.LDAPIdentity.GetUserType(entry),
 	}, nil
 }
