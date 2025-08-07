@@ -1,6 +1,6 @@
 @skipOnReva
 Feature: add user
-  As an admin
+  As an admin random change just to trigger CI
   I want to be able to add users and store their password with the full hash difficulty
   So that I can give people controlled individual access to resources on the OpenCloud server
 
