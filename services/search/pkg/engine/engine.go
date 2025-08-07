@@ -17,15 +17,25 @@ var queryEscape = regexp.MustCompile(`([` + regexp.QuoteMeta(`+=&|><!(){}[]^\"~*
 // Engine is the interface to the search engine
 type Engine interface {
 	Search(ctx context.Context, req *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error)
+	DocCount() (uint64, error)
+
 	Upsert(id string, r Resource) error
 	Move(id string, parentid string, target string) error
 	Delete(id string) error
 	Restore(id string) error
 	Purge(id string) error
-	DocCount() (uint64, error)
 
-	StartBatch(batchSize int) error
-	EndBatch() error
+	StartBatch(batchSize int) (Batch, error)
+}
+
+type Batch interface {
+	Upsert(id string, r Resource) error
+	Move(id string, parentid string, target string) error
+	Delete(id string) error
+	Restore(id string) error
+	Purge(id string) error
+
+	End() error
 }
 
 // Resource is the entity that is stored in the index.

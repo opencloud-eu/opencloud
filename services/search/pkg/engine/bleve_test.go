@@ -499,17 +499,17 @@ var _ = Describe("Bleve", func() {
 
 	Describe("StartBatch", func() {
 		It("starts a new batch", func() {
-			err := eng.StartBatch(100)
+			b, err := eng.StartBatch(100)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = eng.Upsert(childResource.ID, childResource)
+			err = b.Upsert(childResource.ID, childResource)
 			Expect(err).ToNot(HaveOccurred())
 
 			count, err := idx.DocCount()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(count).To(Equal(uint64(0)))
 
-			err = eng.EndBatch()
+			err = b.End()
 			Expect(err).ToNot(HaveOccurred())
 
 			count, err = idx.DocCount()
@@ -522,24 +522,29 @@ var _ = Describe("Bleve", func() {
 			Expect(res.Hits.Len()).To(Equal(1))
 		})
 
-		It("doesn't overwrite batches that are already in progress", func() {
-			err := eng.StartBatch(100)
+		It("doesn't intertwine different batches", func() {
+			b, err := eng.StartBatch(100)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = eng.Upsert(childResource.ID, childResource)
+			err = b.Upsert(childResource.ID, childResource)
 			Expect(err).ToNot(HaveOccurred())
 
 			count, err := idx.DocCount()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(count).To(Equal(uint64(0)))
 
-			err = eng.StartBatch(100)
+			b2, err := eng.StartBatch(100)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = eng.Upsert(childResource2.ID, childResource2)
+			err = b2.Upsert(childResource2.ID, childResource2)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(eng.EndBatch()).To(Succeed())
+			Expect(b.End()).To(Succeed())
+			count, err = idx.DocCount()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(count).To(Equal(uint64(1)))
+
+			Expect(b2.End()).To(Succeed())
 			count, err = idx.DocCount()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(count).To(Equal(uint64(2)))

@@ -463,9 +463,12 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId) error {
 	}()
 
 	w := walker.NewWalker(s.gatewaySelector)
-	s.engine.StartBatch(s.batchSize)
+	batch, err := s.engine.StartBatch(s.batchSize)
+	if err != nil {
+		return err
+	}
 	defer func() {
-		if err := s.engine.EndBatch(); err != nil {
+		if err := batch.End(); err != nil {
 			s.logger.Error().Err(err).Msg("failed to end batch")
 		}
 	}()
@@ -498,7 +501,7 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId) error {
 			return nil
 		}
 
-		s.UpsertItem(ref)
+		s.doUpsertItem(ref, batch)
 
 		return nil
 	})
@@ -515,7 +518,17 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId) error {
 
 // TrashItem marks the item as deleted.
 func (s *Service) TrashItem(rID *provider.ResourceId) {
-	err := s.engine.Delete(storagespace.FormatResourceID(rID))
+	batch, err := s.engine.StartBatch(s.batchSize)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("failed to start batch")
+		return
+	}
+	defer func() {
+		if err := batch.End(); err != nil {
+			s.logger.Error().Err(err).Msg("failed to end batch")
+		}
+	}()
+	err = batch.Delete(storagespace.FormatResourceID(rID))
 	if err != nil {
 		s.logger.Error().Err(err).Interface("Id", rID).Msg("failed to remove item from index")
 	}
@@ -523,6 +536,11 @@ func (s *Service) TrashItem(rID *provider.ResourceId) {
 
 // UpsertItem indexes or stores Resource data fields.
 func (s *Service) UpsertItem(ref *provider.Reference) {
+	s.doUpsertItem(ref, nil)
+}
+
+// doUpsertItem indexes or stores Resource data fields.
+func (s *Service) doUpsertItem(ref *provider.Reference, batch engine.Batch) {
 	ctx, stat, path := s.resInfo(ref)
 	if ctx == nil || stat == nil || path == "" {
 		return
@@ -551,7 +569,12 @@ func (s *Service) UpsertItem(ref *provider.Reference) {
 		r.ParentID = storagespace.FormatResourceID(parentID)
 	}
 
-	if err = s.engine.Upsert(r.ID, r); err != nil {
+	if batch != nil {
+		err = batch.Upsert(r.ID, r)
+	} else {
+		err = s.engine.Upsert(r.ID, r)
+	}
+	if err != nil {
 		s.logger.Error().Err(err).Msg("error adding updating the resource in the index")
 	} else {
 		logDocCount(s.engine, s.logger)

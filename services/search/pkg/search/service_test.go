@@ -117,19 +117,21 @@ var _ = Describe("Searchprovider", func() {
 
 	Describe("IndexSpace", func() {
 		It("walks the space and indexes all files", func() {
+			batch := &engineMocks.Batch{}
+			batch.EXPECT().End().Return(nil)
 			gatewayClient.On("GetUserByClaim", mock.Anything, mock.Anything).Return(&userv1beta1.GetUserByClaimResponse{
 				Status: status.NewOK(context.Background()),
 				User:   user,
 			}, nil)
 			extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{}, nil)
-			indexClient.On("StartBatch", mock.Anything, mock.Anything).Return(nil)
-			indexClient.On("EndBatch", mock.Anything, mock.Anything).Return(nil)
-			indexClient.On("Upsert", mock.Anything, mock.Anything).Return(nil)
+			indexClient.On("StartBatch", mock.Anything, mock.Anything).Return(batch, nil)
+			batch.On("Upsert", mock.Anything, mock.Anything).Return(nil)
 			indexClient.On("Search", mock.Anything, mock.Anything).Return(&searchsvc.SearchIndexResponse{}, nil)
 			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&sprovider.StatResponse{
 				Status: status.NewOK(context.Background()),
 				Info:   ri,
 			}, nil)
+
 			err := s.IndexSpace(&sprovider.StorageSpaceId{OpaqueId: "storageid$spaceid!spaceid"})
 			Expect(err).ShouldNot(HaveOccurred())
 		})

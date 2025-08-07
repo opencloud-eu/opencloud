@@ -143,50 +143,6 @@ func (_c *Engine_DocCount_Call) RunAndReturn(run func() (uint64, error)) *Engine
 	return _c
 }
 
-// EndBatch provides a mock function for the type Engine
-func (_mock *Engine) EndBatch() error {
-	ret := _mock.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for EndBatch")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func() error); ok {
-		r0 = returnFunc()
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// Engine_EndBatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EndBatch'
-type Engine_EndBatch_Call struct {
-	*mock.Call
-}
-
-// EndBatch is a helper method to define mock.On call
-func (_e *Engine_Expecter) EndBatch() *Engine_EndBatch_Call {
-	return &Engine_EndBatch_Call{Call: _e.mock.On("EndBatch")}
-}
-
-func (_c *Engine_EndBatch_Call) Run(run func()) *Engine_EndBatch_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *Engine_EndBatch_Call) Return(err error) *Engine_EndBatch_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *Engine_EndBatch_Call) RunAndReturn(run func() error) *Engine_EndBatch_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // Move provides a mock function for the type Engine
 func (_mock *Engine) Move(id string, parentid string, target string) error {
 	ret := _mock.Called(id, parentid, target)
@@ -421,20 +377,31 @@ func (_c *Engine_Search_Call) RunAndReturn(run func(ctx context.Context, req *v0
 }
 
 // StartBatch provides a mock function for the type Engine
-func (_mock *Engine) StartBatch(batchSize int) error {
+func (_mock *Engine) StartBatch(batchSize int) (engine.Batch, error) {
 	ret := _mock.Called(batchSize)
 
 	if len(ret) == 0 {
 		panic("no return value specified for StartBatch")
 	}
 
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(int) error); ok {
+	var r0 engine.Batch
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(int) (engine.Batch, error)); ok {
+		return returnFunc(batchSize)
+	}
+	if returnFunc, ok := ret.Get(0).(func(int) engine.Batch); ok {
 		r0 = returnFunc(batchSize)
 	} else {
-		r0 = ret.Error(0)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(engine.Batch)
+		}
 	}
-	return r0
+	if returnFunc, ok := ret.Get(1).(func(int) error); ok {
+		r1 = returnFunc(batchSize)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
 }
 
 // Engine_StartBatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StartBatch'
@@ -461,12 +428,12 @@ func (_c *Engine_StartBatch_Call) Run(run func(batchSize int)) *Engine_StartBatc
 	return _c
 }
 
-func (_c *Engine_StartBatch_Call) Return(err error) *Engine_StartBatch_Call {
-	_c.Call.Return(err)
+func (_c *Engine_StartBatch_Call) Return(batch engine.Batch, err error) *Engine_StartBatch_Call {
+	_c.Call.Return(batch, err)
 	return _c
 }
 
-func (_c *Engine_StartBatch_Call) RunAndReturn(run func(batchSize int) error) *Engine_StartBatch_Call {
+func (_c *Engine_StartBatch_Call) RunAndReturn(run func(batchSize int) (engine.Batch, error)) *Engine_StartBatch_Call {
 	_c.Call.Return(run)
 	return _c
 }
