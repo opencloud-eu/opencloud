@@ -2,6 +2,8 @@ package groupware
 
 import (
 	"net/http"
+
+	"github.com/opencloud-eu/opencloud/pkg/jmap"
 )
 
 type IndexLimits struct {
@@ -37,6 +39,7 @@ type IndexAccount struct {
 	IsPersonal   bool                     `json:"isPersonal"`
 	IsReadOnly   bool                     `json:"isReadOnly"`
 	Capabilities IndexAccountCapabilities `json:"capabilities"`
+	Identities   []jmap.Identity          `json:"identities,omitempty"`
 }
 
 type IndexPrimaryAccounts struct {
@@ -69,28 +72,46 @@ type SwaggerIndexResponse struct {
 //	200: IndexResponse
 func (g Groupware) Index(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
+
+		accountIds := make([]string, len(req.session.Accounts))
+		i := 0
+		for k := range req.session.Accounts {
+			accountIds[i] = k
+			i++
+		}
+		accountIds = uniq(accountIds)
+
+		identitiesResponse, err := g.jmap.GetIdentities(accountIds, req.session, req.ctx, req.logger)
+		if err != nil {
+			return req.errorResponseFromJmap(err)
+		}
+
 		accounts := make(map[string]IndexAccount, len(req.session.Accounts))
-		for i, a := range req.session.Accounts {
-			accounts[i] = IndexAccount{
-				Name:       a.Name,
-				IsPersonal: a.IsPersonal,
-				IsReadOnly: a.IsReadOnly,
+		for accountId, account := range req.session.Accounts {
+			indexAccount := IndexAccount{
+				Name:       account.Name,
+				IsPersonal: account.IsPersonal,
+				IsReadOnly: account.IsReadOnly,
 				Capabilities: IndexAccountCapabilities{
 					Mail: IndexAccountMailCapabilities{
-						MaxMailboxDepth:            a.AccountCapabilities.Mail.MaxMailboxDepth,
-						MaxSizeMailboxName:         a.AccountCapabilities.Mail.MaxSizeMailboxName,
-						MaxSizeAttachmentsPerEmail: a.AccountCapabilities.Mail.MaxSizeAttachmentsPerEmail,
-						MayCreateTopLevelMailbox:   a.AccountCapabilities.Mail.MayCreateTopLevelMailbox,
-						MaxDelayedSend:             a.AccountCapabilities.Submission.MaxDelayedSend,
+						MaxMailboxDepth:            account.AccountCapabilities.Mail.MaxMailboxDepth,
+						MaxSizeMailboxName:         account.AccountCapabilities.Mail.MaxSizeMailboxName,
+						MaxSizeAttachmentsPerEmail: account.AccountCapabilities.Mail.MaxSizeAttachmentsPerEmail,
+						MayCreateTopLevelMailbox:   account.AccountCapabilities.Mail.MayCreateTopLevelMailbox,
+						MaxDelayedSend:             account.AccountCapabilities.Submission.MaxDelayedSend,
 					},
 					Sieve: IndexAccountSieveCapabilities{
-						MaxSizeScriptName:  a.AccountCapabilities.Sieve.MaxSizeScript,
-						MaxSizeScript:      a.AccountCapabilities.Sieve.MaxSizeScript,
-						MaxNumberScripts:   a.AccountCapabilities.Sieve.MaxNumberScripts,
-						MaxNumberRedirects: a.AccountCapabilities.Sieve.MaxNumberRedirects,
+						MaxSizeScriptName:  account.AccountCapabilities.Sieve.MaxSizeScript,
+						MaxSizeScript:      account.AccountCapabilities.Sieve.MaxSizeScript,
+						MaxNumberScripts:   account.AccountCapabilities.Sieve.MaxNumberScripts,
+						MaxNumberRedirects: account.AccountCapabilities.Sieve.MaxNumberRedirects,
 					},
 				},
 			}
+			if identity, ok := identitiesResponse.Identities[accountId]; ok {
+				indexAccount.Identities = identity
+			}
+			accounts[accountId] = indexAccount
 		}
 
 		return response(IndexResponse{

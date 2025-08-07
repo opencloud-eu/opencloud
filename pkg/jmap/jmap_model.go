@@ -1568,7 +1568,7 @@ type IdentityGetResponse struct {
 	AccountId string     `json:"accountId"`
 	State     string     `json:"state"`
 	List      []Identity `json:"list,omitempty"`
-	NotFound  []any      `json:"notFound,omitempty"`
+	NotFound  []string   `json:"notFound,omitempty"`
 }
 
 type VacationResponseGetCommand struct {
