@@ -245,7 +245,7 @@ func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.
 	})
 }
 
-type EmailQueryResult struct {
+type EmailSnippetQueryResult struct {
 	Snippets     []SearchSnippet `json:"snippets,omitempty"`
 	QueryState   string          `json:"queryState"`
 	Total        int             `json:"total"`
@@ -254,10 +254,10 @@ type EmailQueryResult struct {
 	SessionState string          `json:"sessionState,omitempty"`
 }
 
-func (j *Client) QueryEmails(accountId string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, offset int, limit int, fetchBodies bool, maxBodyValueBytes int) (EmailQueryResult, Error) {
+func (j *Client) QueryEmailSnippets(accountId string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, offset int, limit int) (EmailSnippetQueryResult, Error) {
 	aid := session.MailAccountId(accountId)
 	logger = j.loggerParams(aid, "QueryEmails", session, logger, func(z zerolog.Context) zerolog.Context {
-		return z.Bool(logFetchBodies, fetchBodies)
+		return z.Int(logLimit, limit).Int(logOffset, offset)
 	})
 
 	query := EmailQueryCommand{
@@ -290,6 +290,96 @@ func (j *Client) QueryEmails(accountId string, filter EmailFilterElement, sessio
 	)
 
 	if err != nil {
+		return EmailSnippetQueryResult{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
+	}
+
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (EmailSnippetQueryResult, Error) {
+		var queryResponse EmailQueryResponse
+		err = retrieveResponseMatchParameters(body, EmailQuery, "0", &queryResponse)
+		if err != nil {
+			return EmailSnippetQueryResult{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
+		}
+
+		var snippetResponse SearchSnippetGetResponse
+		err = retrieveResponseMatchParameters(body, SearchSnippetGet, "1", &snippetResponse)
+		if err != nil {
+			return EmailSnippetQueryResult{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
+		}
+
+		return EmailSnippetQueryResult{
+			Snippets:     snippetResponse.List,
+			QueryState:   queryResponse.QueryState,
+			Total:        queryResponse.Total,
+			Limit:        queryResponse.Limit,
+			Position:     queryResponse.Position,
+			SessionState: body.SessionState,
+		}, nil
+	})
+
+}
+
+type EmailWithSnippets struct {
+	Email    Email           `json:"email"`
+	Snippets []SearchSnippet `json:"snippets,omitempty"`
+}
+
+type EmailQueryResult struct {
+	Results      []EmailWithSnippets `json:"results"`
+	QueryState   string              `json:"queryState"`
+	Total        int                 `json:"total"`
+	Limit        int                 `json:"limit,omitzero"`
+	Position     int                 `json:"position,omitzero"`
+	SessionState string              `json:"sessionState,omitempty"`
+}
+
+func (j *Client) QueryEmails(accountId string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, offset int, limit int, fetchBodies bool, maxBodyValueBytes int) (EmailQueryResult, Error) {
+	aid := session.MailAccountId(accountId)
+	logger = j.loggerParams(aid, "QueryEmails", session, logger, func(z zerolog.Context) zerolog.Context {
+		return z.Bool(logFetchBodies, fetchBodies)
+	})
+
+	query := EmailQueryCommand{
+		AccountId:       aid,
+		Filter:          filter,
+		Sort:            []Sort{{Property: emailSortByReceivedAt, IsAscending: false}},
+		CollapseThreads: true,
+		CalculateTotal:  true,
+	}
+	if offset >= 0 {
+		query.Position = offset
+	}
+	if limit >= 0 {
+		query.Limit = limit
+	}
+
+	snippet := SearchSnippetRefCommand{
+		AccountId: aid,
+		Filter:    filter,
+		EmailIdRef: &ResultReference{
+			ResultOf: "0",
+			Name:     EmailQuery,
+			Path:     "/ids/*",
+		},
+	}
+
+	mails := EmailGetRefCommand{
+		AccountId: aid,
+		IdRef: &ResultReference{
+			ResultOf: "0",
+			Name:     EmailQuery,
+			Path:     "/ids/*",
+		},
+		FetchAllBodyValues: fetchBodies,
+		MaxBodyValueBytes:  maxBodyValueBytes,
+	}
+
+	cmd, err := request(
+		invocation(EmailQuery, query, "0"),
+		invocation(SearchSnippetGet, snippet, "1"),
+		invocation(EmailGet, mails, "2"),
+	)
+
+	if err != nil {
 		return EmailQueryResult{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
 	}
 
@@ -306,8 +396,35 @@ func (j *Client) QueryEmails(accountId string, filter EmailFilterElement, sessio
 			return EmailQueryResult{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
 		}
 
+		var emailsResponse EmailGetResponse
+		err = retrieveResponseMatchParameters(body, EmailGet, "2", &emailsResponse)
+		if err != nil {
+			return EmailQueryResult{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
+		}
+
+		snippetsById := map[string][]SearchSnippet{}
+		for _, snippet := range snippetResponse.List {
+			list, ok := snippetsById[snippet.EmailId]
+			if !ok {
+				list = []SearchSnippet{}
+			}
+			snippetsById[snippet.EmailId] = append(list, snippet)
+		}
+
+		results := []EmailWithSnippets{}
+		for _, email := range emailsResponse.List {
+			snippets, ok := snippetsById[email.Id]
+			if !ok {
+				snippets = []SearchSnippet{}
+			}
+			results = append(results, EmailWithSnippets{
+				Email:    email,
+				Snippets: snippets,
+			})
+		}
+
 		return EmailQueryResult{
-			Snippets:     snippetResponse.List,
+			Results:      results,
 			QueryState:   queryResponse.QueryState,
 			Total:        queryResponse.Total,
 			Limit:        queryResponse.Limit,

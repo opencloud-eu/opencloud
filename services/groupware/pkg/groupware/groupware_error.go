@@ -161,6 +161,7 @@ const (
 	ErrorCodeInvalidResponsePayload     = "INVRSP"
 	ErrorCodeInvalidRequestParameter    = "INVPAR"
 	ErrorCodeNonExistingAccount         = "INVACC"
+	ErrorCodeApiInconsistency           = "APIINC"
 )
 
 var (
@@ -265,6 +266,12 @@ var (
 		Code:   ErrorCodeNonExistingAccount,
 		Title:  "Invalid Account Parameter",
 		Detail: "The account the request is for does not exist.",
+	}
+	ErrorApiInconsistency = GroupwareError{
+		Status: http.StatusInternalServerError,
+		Code:   ErrorCodeApiInconsistency,
+		Title:  "API Inconsistency",
+		Detail: "Internal APIs returned unexpected data.",
 	}
 )
 

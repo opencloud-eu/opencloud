@@ -376,7 +376,6 @@ type EmailFilterElement interface {
 }
 
 type EmailFilterCondition struct {
-	EmailFilterElement
 	InMailbox               string    `json:"inMailbox,omitempty"`
 	InMailboxOtherThan      []string  `json:"inMailboxOtherThan,omitempty"`
 	Before                  time.Time `json:"before,omitzero"` // omitzero requires Go 1.24
@@ -399,12 +398,17 @@ type EmailFilterCondition struct {
 	Header                  []string  `json:"header,omitempty"`
 }
 
+func (f EmailFilterCondition) _isAnEmailFilterElement() {
+}
+
 var _ EmailFilterElement = &EmailFilterCondition{}
 
 type EmailFilterOperator struct {
-	EmailFilterElement
 	Operator   FilterOperatorTerm   `json:"operator"`
 	Conditions []EmailFilterElement `json:"conditions,omitempty"`
+}
+
+func (o EmailFilterOperator) _isAnEmailFilterElement() {
 }
 
 var _ EmailFilterElement = &EmailFilterOperator{}
