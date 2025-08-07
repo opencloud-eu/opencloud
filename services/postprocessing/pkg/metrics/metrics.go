@@ -36,12 +36,6 @@ var (
 		Name:      "events_redelivered",
 		Help:      "Number of redelivered events",
 	})
-	inProgress = promauto.NewGauge(prometheus.GaugeOpts{
-		Namespace: Namespace,
-		Subsystem: Subsystem,
-		Name:      "in_progress",
-		Help:      "Number of postprocessing events in progress",
-	})
 	finished = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Subsystem: Subsystem,
@@ -64,7 +58,6 @@ type Metrics struct {
 	EventsOutstandingAcks prometheus.Gauge
 	EventsUnprocessed     prometheus.Gauge
 	EventsRedelivered     prometheus.Gauge
-	InProgress            prometheus.Gauge
 	Finished              *prometheus.CounterVec
 	Duration              *prometheus.HistogramVec
 }
@@ -76,7 +69,6 @@ func New() *Metrics {
 		EventsOutstandingAcks: eventsOutstandingAcks,
 		EventsUnprocessed:     eventsUnprocessed,
 		EventsRedelivered:     eventsRedelivered,
-		InProgress:            inProgress,
 		Finished:              finished,
 		Duration:              duration,
 	}
