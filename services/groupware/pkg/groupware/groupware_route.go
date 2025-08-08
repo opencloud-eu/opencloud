@@ -39,19 +39,19 @@ func (g Groupware) Route(r chi.Router) {
 	r.Get("/accounts", g.GetAccounts)
 	r.Route("/accounts/{accountid}", func(r chi.Router) {
 		r.Get("/", g.GetAccount)
-		r.Get("/identity", g.GetIdentity)
+		r.Get("/identities", g.GetIdentities)
 		r.Get("/vacation", g.GetVacation)
+		r.Post("/vacation", g.SetVacation)
 		r.Route("/mailboxes", func(r chi.Router) {
 			r.Get("/", g.GetMailboxes) // ?name=&role=&subcribed=
 			r.Get("/{mailbox}", g.GetMailbox)
-			r.Get("/{mailbox}/messages", g.GetAllMessages)
+			r.Get("/{mailbox}/messages", g.GetAllMessagesInMailbox)
 		})
 		r.Route("/messages", func(r chi.Router) {
 			r.Get("/", g.GetMessages) // ?fetchemails=true&fetchbodies=true&text=&subject=&body=&keyword=&keyword=&...
 			r.Post("/", g.CreateMessage)
 			r.Get("/{messageid}", g.GetMessagesById)
-			r.Patch("/{messageid}", g.UpdateMessage) // or PUT?
-			r.Put("/{messageid}", g.UpdateMessage)   // or PATCH?
+			r.Put("/{messageid}", g.UpdateMessage) // or PATCH?
 			r.Delete("/{messageId}", g.DeleteMessage)
 		})
 		r.Route("/blobs", func(r chi.Router) {

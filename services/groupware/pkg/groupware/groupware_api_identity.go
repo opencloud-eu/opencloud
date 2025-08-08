@@ -4,7 +4,7 @@ import (
 	"net/http"
 )
 
-func (g Groupware) GetIdentity(w http.ResponseWriter, r *http.Request) {
+func (g Groupware) GetIdentities(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		res, err := g.jmap.GetIdentity(req.GetAccountId(), req.session, req.ctx, req.logger)
 		if err != nil {

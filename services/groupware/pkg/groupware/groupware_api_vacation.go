@@ -37,3 +37,19 @@ func (g Groupware) GetVacation(w http.ResponseWriter, r *http.Request) {
 		return response(res, res.State)
 	})
 }
+
+func (g Groupware) SetVacation(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		var body jmap.VacationResponseBody
+		err := req.body(&body)
+		if err != nil {
+			return errorResponse(err)
+		}
+
+		res, jerr := g.jmap.SetVacationResponse(req.GetAccountId(), body, req.session, req.ctx, req.logger)
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
+		}
+		return response(res, res.SessionState)
+	})
+}

@@ -23,6 +23,9 @@ const (
 
 type Emails struct {
 	Emails []Email `json:"emails,omitempty"`
+	Total  int     `json:"total,omitzero"`
+	Limit  int     `json:"limit,omitzero"`
+	Offset int     `json:"offset,omitzero"`
 	State  string  `json:"state,omitempty"`
 }
 
@@ -60,7 +63,7 @@ func (j *Client) GetAllEmails(accountId string, session *Session, ctx context.Co
 		Filter:          &EmailFilterCondition{InMailbox: mailboxId},
 		Sort:            []Sort{{Property: emailSortByReceivedAt, IsAscending: false}},
 		CollapseThreads: true,
-		CalculateTotal:  false,
+		CalculateTotal:  true,
 	}
 	if offset >= 0 {
 		query.Position = offset
@@ -87,12 +90,24 @@ func (j *Client) GetAllEmails(accountId string, session *Session, ctx context.Co
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (Emails, Error) {
-		var response EmailGetResponse
-		err = retrieveResponseMatchParameters(body, EmailGet, "1", &response)
+		var queryResponse EmailQueryResponse
+		err = retrieveResponseMatchParameters(body, EmailQuery, "0", &queryResponse)
 		if err != nil {
 			return Emails{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
 		}
-		return Emails{Emails: response.List, State: body.SessionState}, nil
+		var getResponse EmailGetResponse
+		err = retrieveResponseMatchParameters(body, EmailGet, "1", &getResponse)
+		if err != nil {
+			return Emails{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
+		}
+
+		return Emails{
+			Emails: getResponse.List,
+			State:  body.SessionState,
+			Total:  queryResponse.Total,
+			Limit:  queryResponse.Limit,
+			Offset: queryResponse.Position,
+		}, nil
 	})
 }
 
