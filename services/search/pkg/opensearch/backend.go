@@ -41,7 +41,7 @@ func NewBackend(index string, client *opensearchgoAPI.Client) (*Backend, error) 
 	}
 
 	// apply the index template
-	if err := osu.IndexManagerLatest.Apply(context.TODO(), index, client); err != nil {
+	if err := IndexManagerLatest.Apply(context.TODO(), index, client); err != nil {
 		return nil, fmt.Errorf("failed to apply index template: %w", err)
 	}
 
