@@ -6,11 +6,11 @@ import (
 )
 
 type IDsQuery struct {
-	values  []string
-	options *IDsQueryOptions
+	values []string
+	params *IDsQueryParams
 }
 
-type IDsQueryOptions struct {
+type IDsQueryParams struct {
 	Boost float32 `json:"boost,omitempty"`
 }
 
@@ -18,13 +18,13 @@ func NewIDsQuery(v ...string) *IDsQuery {
 	return &IDsQuery{values: slices.Compact(v)}
 }
 
-func (q *IDsQuery) Options(v *IDsQueryOptions) *IDsQuery {
-	q.options = v
+func (q *IDsQuery) Params(v *IDsQueryParams) *IDsQuery {
+	q.params = v
 	return q
 }
 
 func (q *IDsQuery) Map() (map[string]any, error) {
-	base, err := newBase(q.options)
+	base, err := newBase(q.params)
 	if err != nil {
 		return nil, err
 	}

@@ -7,17 +7,17 @@ import (
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 )
 
-type RequestBody[O any] struct {
-	query   Builder
-	options O
+type QueryReqBody[P any] struct {
+	query  Builder
+	params P
 }
 
-func NewRequestBody[O any](q Builder, o ...O) *RequestBody[O] {
-	return &RequestBody[O]{query: q, options: merge(o...)}
+func NewQueryReqBody[P any](q Builder, p ...P) *QueryReqBody[P] {
+	return &QueryReqBody[P]{query: q, params: merge(p...)}
 }
 
-func (q RequestBody[O]) Map() (map[string]any, error) {
-	base, err := newBase(q.options)
+func (q QueryReqBody[O]) Map() (map[string]any, error) {
+	base, err := newBase(q.params)
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +29,7 @@ func (q RequestBody[O]) Map() (map[string]any, error) {
 	return base, nil
 }
 
-func (q RequestBody[O]) MarshalJSON() ([]byte, error) {
+func (q QueryReqBody[O]) MarshalJSON() ([]byte, error) {
 	data, err := q.Map()
 	if err != nil {
 		return nil, err
@@ -40,13 +40,13 @@ func (q RequestBody[O]) MarshalJSON() ([]byte, error) {
 
 //----------------------------------------------------------------------------//
 
-type HighlightOption struct {
-	PreTags  []string                   `json:"pre_tags,omitempty"`
-	PostTags []string                   `json:"post_tags,omitempty"`
-	Fields   map[string]HighlightOption `json:"fields,omitempty"`
+type BodyParamHighlight struct {
+	PreTags  []string                      `json:"pre_tags,omitempty"`
+	PostTags []string                      `json:"post_tags,omitempty"`
+	Fields   map[string]BodyParamHighlight `json:"fields,omitempty"`
 }
 
-type ScriptOption struct {
+type BodyParamScript struct {
 	Source string         `json:"source,omitempty"`
 	Lang   string         `json:"lang,omitempty"`
 	Params map[string]any `json:"params,omitempty"`
@@ -54,8 +54,8 @@ type ScriptOption struct {
 
 //----------------------------------------------------------------------------//
 
-func BuildSearchReq(req *opensearchgoAPI.SearchReq, q Builder, o ...SearchReqOptions) (*opensearchgoAPI.SearchReq, error) {
-	body, err := json.Marshal(NewRequestBody(q, o...))
+func BuildSearchReq(req *opensearchgoAPI.SearchReq, q Builder, p ...SearchBodyParams) (*opensearchgoAPI.SearchReq, error) {
+	body, err := json.Marshal(NewQueryReqBody(q, p...))
 	if err != nil {
 		return nil, err
 	}
@@ -63,14 +63,14 @@ func BuildSearchReq(req *opensearchgoAPI.SearchReq, q Builder, o ...SearchReqOpt
 	return req, nil
 }
 
-type SearchReqOptions struct {
-	Highlight *HighlightOption `json:"highlight,omitempty"`
+type SearchBodyParams struct {
+	Highlight *BodyParamHighlight `json:"highlight,omitempty"`
 }
 
 //----------------------------------------------------------------------------//
 
 func BuildDocumentDeleteByQueryReq(req opensearchgoAPI.DocumentDeleteByQueryReq, q Builder) (opensearchgoAPI.DocumentDeleteByQueryReq, error) {
-	body, err := json.Marshal(NewRequestBody[any](q))
+	body, err := json.Marshal(NewQueryReqBody[any](q))
 	if err != nil {
 		return req, err
 	}
@@ -80,8 +80,8 @@ func BuildDocumentDeleteByQueryReq(req opensearchgoAPI.DocumentDeleteByQueryReq,
 
 //----------------------------------------------------------------------------//
 
-func BuildUpdateByQueryReq(req opensearchgoAPI.UpdateByQueryReq, q Builder, o ...UpdateByQueryReqOptions) (opensearchgoAPI.UpdateByQueryReq, error) {
-	body, err := json.Marshal(NewRequestBody(q, o...))
+func BuildUpdateByQueryReq(req opensearchgoAPI.UpdateByQueryReq, q Builder, o ...UpdateByQueryBodyParams) (opensearchgoAPI.UpdateByQueryReq, error) {
+	body, err := json.Marshal(NewQueryReqBody(q, o...))
 	if err != nil {
 		return req, err
 	}
@@ -89,14 +89,14 @@ func BuildUpdateByQueryReq(req opensearchgoAPI.UpdateByQueryReq, q Builder, o ..
 	return req, nil
 }
 
-type UpdateByQueryReqOptions struct {
-	Script *ScriptOption `json:"script,omitempty"`
+type UpdateByQueryBodyParams struct {
+	Script *BodyParamScript `json:"script,omitempty"`
 }
 
 //----------------------------------------------------------------------------//
 
 func BuildIndicesCountReq(req *opensearchgoAPI.IndicesCountReq, q Builder) (*opensearchgoAPI.IndicesCountReq, error) {
-	body, err := json.Marshal(NewRequestBody[any](q))
+	body, err := json.Marshal(NewQueryReqBody[any](q))
 	if err != nil {
 		return nil, err
 	}

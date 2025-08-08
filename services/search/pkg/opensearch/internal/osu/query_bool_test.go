@@ -17,8 +17,8 @@ func TestBoolQuery(t *testing.T) {
 			Want: nil,
 		},
 		{
-			Name: "with-options",
-			Got: osu.NewBoolQuery().Options(&osu.BoolQueryOptions{
+			Name: "with params",
+			Got: osu.NewBoolQuery().Params(&osu.BoolQueryParams{
 				MinimumShouldMatch: 10,
 				Boost:              10,
 				Name:               "some-name",

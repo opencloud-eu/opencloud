@@ -18,7 +18,7 @@ func TestWildcardQuery(t *testing.T) {
 		},
 		{
 			Name: "wildcard",
-			Got: osu.NewWildcardQuery("name").Options(&osu.WildcardQueryOptions{
+			Got: osu.NewWildcardQuery("name").Params(&osu.WildcardQueryParams{
 				Boost:           1.0,
 				CaseInsensitive: true,
 				Rewrite:         "top_terms_blended_freqs_N",

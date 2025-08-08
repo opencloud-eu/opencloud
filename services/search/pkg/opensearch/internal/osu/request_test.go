@@ -16,7 +16,7 @@ func TestRequestBody(t *testing.T) {
 	tests := []opensearchtest.TableTest[osu.Builder, map[string]any]{
 		{
 			Name: "simple",
-			Got:  osu.NewRequestBody[any](osu.NewTermQuery[string]("name").Value("tom")),
+			Got:  osu.NewQueryReqBody[any](osu.NewTermQuery[string]("name").Value("tom")),
 			Want: map[string]any{
 				"query": map[string]any{
 					"term": map[string]any{
@@ -44,11 +44,11 @@ func TestBuildSearchReq(t *testing.T) {
 				req, _ := osu.BuildSearchReq(
 					&opensearchgoAPI.SearchReq{},
 					osu.NewTermQuery[string]("content").Value("content"),
-					osu.SearchReqOptions{
-						Highlight: &osu.HighlightOption{
+					osu.SearchBodyParams{
+						Highlight: &osu.BodyParamHighlight{
 							PreTags:  []string{"<b>"},
 							PostTags: []string{"</b>"},
-							Fields: map[string]osu.HighlightOption{
+							Fields: map[string]osu.BodyParamHighlight{
 								"content": {},
 							},
 						},

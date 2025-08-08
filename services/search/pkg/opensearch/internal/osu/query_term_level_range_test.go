@@ -121,8 +121,8 @@ func TestRangeQuery(t *testing.T) {
 			Err:  errors.New(""),
 		},
 		{
-			Name: "options",
-			Got: osu.NewRangeQuery[time.Time]("created").Options(&osu.RangeQueryOptions{
+			Name: "with params",
+			Got: osu.NewRangeQuery[time.Time]("created").Params(&osu.RangeQueryParams{
 				Format:   "strict_date_optional_time",
 				Relation: "within",
 				Boost:    1.0,

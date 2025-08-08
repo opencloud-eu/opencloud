@@ -7,15 +7,15 @@ import (
 )
 
 type RangeQuery[T time.Time | string] struct {
-	field   string
-	gt      T
-	gte     T
-	lt      T
-	lte     T
-	options *RangeQueryOptions
+	field  string
+	gt     T
+	gte    T
+	lt     T
+	lte    T
+	params *RangeQueryParams
 }
 
-type RangeQueryOptions struct {
+type RangeQueryParams struct {
 	Format   string  `json:"format,omitempty"`
 	Relation string  `json:"relation,omitempty"`
 	Boost    float32 `json:"boost,omitempty"`
@@ -26,8 +26,8 @@ func NewRangeQuery[T time.Time | string](field string) *RangeQuery[T] {
 	return &RangeQuery[T]{field: field}
 }
 
-func (q *RangeQuery[T]) Options(v *RangeQueryOptions) *RangeQuery[T] {
-	q.options = v
+func (q *RangeQuery[T]) Params(v *RangeQueryParams) *RangeQuery[T] {
+	q.params = v
 	return q
 }
 
@@ -60,7 +60,7 @@ func (q *RangeQuery[T]) Map() (map[string]any, error) {
 		return nil, errors.New("cannot set both lt and lte in RangeQuery")
 	}
 
-	base, err := newBase(q.options)
+	base, err := newBase(q.params)
 	if err != nil {
 		return nil, err
 	}

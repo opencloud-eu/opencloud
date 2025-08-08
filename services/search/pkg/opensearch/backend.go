@@ -108,11 +108,11 @@ func (be *Backend) Search(ctx context.Context, sir *searchService.SearchIndexReq
 		Params:  searchParams,
 	},
 		boolQuery,
-		osu.SearchReqOptions{
-			Highlight: &osu.HighlightOption{
+		osu.SearchBodyParams{
+			Highlight: &osu.BodyParamHighlight{
 				PreTags:  []string{"<mark>"},
 				PostTags: []string{"</mark>"},
-				Fields: map[string]osu.HighlightOption{
+				Fields: map[string]osu.BodyParamHighlight{
 					"Content": {},
 				},
 			},
@@ -174,8 +174,8 @@ func (be *Backend) Upsert(id string, r engine.Resource) error {
 }
 
 func (be *Backend) Move(id string, parentID string, target string) error {
-	return be.updateSelfAndDescendants(id, func(rootResource engine.Resource) *osu.ScriptOption {
-		return &osu.ScriptOption{
+	return be.updateSelfAndDescendants(id, func(rootResource engine.Resource) *osu.BodyParamScript {
+		return &osu.BodyParamScript{
 			Source: `
 					if (ctx._source.ID == params.id ) { ctx._source.Name = params.newName; ctx._source.ParentID = params.parentID; }
 					ctx._source.Path = ctx._source.Path.replace(params.oldPath, params.newPath)
@@ -193,8 +193,8 @@ func (be *Backend) Move(id string, parentID string, target string) error {
 }
 
 func (be *Backend) Delete(id string) error {
-	return be.updateSelfAndDescendants(id, func(_ engine.Resource) *osu.ScriptOption {
-		return &osu.ScriptOption{
+	return be.updateSelfAndDescendants(id, func(_ engine.Resource) *osu.BodyParamScript {
+		return &osu.BodyParamScript{
 			Source: "ctx._source.Deleted = params.deleted",
 			Lang:   "painless",
 			Params: map[string]any{
@@ -205,8 +205,8 @@ func (be *Backend) Delete(id string) error {
 }
 
 func (be *Backend) Restore(id string) error {
-	return be.updateSelfAndDescendants(id, func(_ engine.Resource) *osu.ScriptOption {
-		return &osu.ScriptOption{
+	return be.updateSelfAndDescendants(id, func(_ engine.Resource) *osu.BodyParamScript {
+		return &osu.BodyParamScript{
 			Source: "ctx._source.Deleted = params.deleted",
 			Lang:   "painless",
 			Params: map[string]any{
@@ -265,7 +265,7 @@ func (be *Backend) DocCount() (uint64, error) {
 	return uint64(resp.Count), nil
 }
 
-func (be *Backend) updateSelfAndDescendants(id string, scriptProvider func(engine.Resource) *osu.ScriptOption) error {
+func (be *Backend) updateSelfAndDescendants(id string, scriptProvider func(engine.Resource) *osu.BodyParamScript) error {
 	if scriptProvider == nil {
 		return fmt.Errorf("script cannot be nil")
 	}
@@ -283,7 +283,7 @@ func (be *Backend) updateSelfAndDescendants(id string, scriptProvider func(engin
 			},
 		},
 		osu.NewTermQuery[string]("Path").Value(resource.Path),
-		osu.UpdateByQueryReqOptions{
+		osu.UpdateByQueryBodyParams{
 			Script: scriptProvider(resource),
 		},
 	)

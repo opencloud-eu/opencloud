@@ -5,12 +5,12 @@ import (
 )
 
 type MatchPhraseQuery struct {
-	field   string
-	query   string
-	options *MatchPhraseQueryOptions
+	field  string
+	query  string
+	params *MatchPhraseQueryParams
 }
 
-type MatchPhraseQueryOptions struct {
+type MatchPhraseQueryParams struct {
 	Analyzer       string `json:"analyzer,omitempty"`
 	Slop           int    `json:"slop,omitempty"`
 	ZeroTermsQuery string `json:"zero_terms_query,omitempty"`
@@ -20,8 +20,8 @@ func NewMatchPhraseQuery(field string) *MatchPhraseQuery {
 	return &MatchPhraseQuery{field: field}
 }
 
-func (q *MatchPhraseQuery) Options(v *MatchPhraseQueryOptions) *MatchPhraseQuery {
-	q.options = v
+func (q *MatchPhraseQuery) Params(v *MatchPhraseQueryParams) *MatchPhraseQuery {
+	q.params = v
 	return q
 }
 
@@ -31,7 +31,7 @@ func (q *MatchPhraseQuery) Query(v string) *MatchPhraseQuery {
 }
 
 func (q *MatchPhraseQuery) Map() (map[string]any, error) {
-	base, err := newBase(q.options)
+	base, err := newBase(q.params)
 	if err != nil {
 		return nil, err
 	}

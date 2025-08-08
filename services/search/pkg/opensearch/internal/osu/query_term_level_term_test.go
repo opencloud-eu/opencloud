@@ -17,7 +17,7 @@ func TestTermQuery(t *testing.T) {
 			Want: nil,
 		},
 		{
-			Name: "no-options",
+			Name: "no params",
 			Got:  osu.NewTermQuery[bool]("deleted").Value(false),
 			Want: map[string]any{
 				"term": map[string]any{
@@ -28,8 +28,8 @@ func TestTermQuery(t *testing.T) {
 			},
 		},
 		{
-			Name: "with-options",
-			Got: osu.NewTermQuery[bool]("deleted").Options(&osu.TermQueryOptions{
+			Name: "with params",
+			Got: osu.NewTermQuery[bool]("deleted").Params(&osu.TermQueryParams{
 				Boost:           1.0,
 				CaseInsensitive: true,
 				Name:            "is-deleted",

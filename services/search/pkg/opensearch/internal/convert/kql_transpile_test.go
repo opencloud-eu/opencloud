@@ -187,7 +187,7 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 				},
 			},
 			Want: osu.NewBoolQuery().
-				Options(&osu.BoolQueryOptions{MinimumShouldMatch: 1}).
+				Params(&osu.BoolQueryParams{MinimumShouldMatch: 1}).
 				Should(
 					osu.NewTermQuery[string]("Name").Value("openCloud"),
 					osu.NewTermQuery[string]("age").Value("32"),
@@ -235,7 +235,7 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 				},
 			},
 			Want: osu.NewBoolQuery().
-				Options(&osu.BoolQueryOptions{MinimumShouldMatch: 1}).
+				Params(&osu.BoolQueryParams{MinimumShouldMatch: 1}).
 				Should(
 					osu.NewTermQuery[string]("Name").Value("openCloud"),
 					osu.NewTermQuery[string]("age").Value("32"),
@@ -254,7 +254,7 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 				},
 			},
 			Want: osu.NewBoolQuery().
-				Options(&osu.BoolQueryOptions{MinimumShouldMatch: 1}).
+				Params(&osu.BoolQueryParams{MinimumShouldMatch: 1}).
 				Must(
 					osu.NewTermQuery[string]("a").Value("a"),
 				).
@@ -275,7 +275,7 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 				},
 			},
 			Want: osu.NewBoolQuery().
-				Options(&osu.BoolQueryOptions{MinimumShouldMatch: 1}).
+				Params(&osu.BoolQueryParams{MinimumShouldMatch: 1}).
 				Must(
 					osu.NewTermQuery[string]("b").Value("b"),
 					osu.NewTermQuery[string]("c").Value("c"),
@@ -296,7 +296,7 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 				},
 			},
 			Want: osu.NewBoolQuery().
-				Options(&osu.BoolQueryOptions{MinimumShouldMatch: 1}).
+				Params(&osu.BoolQueryParams{MinimumShouldMatch: 1}).
 				Should(
 					osu.NewTermQuery[string]("a").Value("a"),
 				).
@@ -323,7 +323,7 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 			Want: osu.NewBoolQuery().
 				Must(
 					osu.NewBoolQuery().
-						Options(&osu.BoolQueryOptions{MinimumShouldMatch: 1}).
+						Params(&osu.BoolQueryParams{MinimumShouldMatch: 1}).
 						Should(
 							osu.NewTermQuery[string]("a").Value("a"),
 							osu.NewTermQuery[string]("b").Value("b"),
@@ -351,7 +351,7 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 			Want: osu.NewBoolQuery().
 				Must(
 					osu.NewBoolQuery().
-						Options(&osu.BoolQueryOptions{MinimumShouldMatch: 1}).
+						Params(&osu.BoolQueryParams{MinimumShouldMatch: 1}).
 						Should(
 							osu.NewTermQuery[string]("a").Value("a"),
 							osu.NewTermQuery[string]("b").Value("b"),

@@ -5,12 +5,12 @@ import (
 )
 
 type TermQuery[T comparable] struct {
-	field   string
-	value   T
-	options *TermQueryOptions
+	field  string
+	value  T
+	params *TermQueryParams
 }
 
-type TermQueryOptions struct {
+type TermQueryParams struct {
 	Boost           float32 `json:"boost,omitempty"`
 	CaseInsensitive bool    `json:"case_insensitive,omitempty"`
 	Name            string  `json:"_name,omitempty"`
@@ -20,8 +20,8 @@ func NewTermQuery[T comparable](field string) *TermQuery[T] {
 	return &TermQuery[T]{field: field}
 }
 
-func (q *TermQuery[T]) Options(v *TermQueryOptions) *TermQuery[T] {
-	q.options = v
+func (q *TermQuery[T]) Params(v *TermQueryParams) *TermQuery[T] {
+	q.params = v
 	return q
 }
 
@@ -31,7 +31,7 @@ func (q *TermQuery[T]) Value(v T) *TermQuery[T] {
 }
 
 func (q *TermQuery[T]) Map() (map[string]any, error) {
-	base, err := newBase(q.options)
+	base, err := newBase(q.params)
 	if err != nil {
 		return nil, err
 	}

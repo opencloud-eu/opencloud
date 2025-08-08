@@ -9,10 +9,10 @@ type BoolQuery struct {
 	mustNot []Builder
 	should  []Builder
 	filter  []Builder
-	options *BoolQueryOptions
+	params  *BoolQueryParams
 }
 
-type BoolQueryOptions struct {
+type BoolQueryParams struct {
 	MinimumShouldMatch int16   `json:"minimum_should_match,omitempty"`
 	Boost              float32 `json:"boost,omitempty"`
 	Name               string  `json:"_name,omitempty"`
@@ -22,8 +22,8 @@ func NewBoolQuery() *BoolQuery {
 	return &BoolQuery{}
 }
 
-func (q *BoolQuery) Options(v *BoolQueryOptions) *BoolQuery {
-	q.options = v
+func (q *BoolQuery) Params(v *BoolQueryParams) *BoolQuery {
+	q.params = v
 	return q
 }
 
@@ -48,7 +48,7 @@ func (q *BoolQuery) Filter(v ...Builder) *BoolQuery {
 }
 
 func (q *BoolQuery) Map() (map[string]any, error) {
-	base, err := newBase(q.options)
+	base, err := newBase(q.params)
 	if err != nil {
 		return nil, err
 	}

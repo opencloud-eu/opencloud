@@ -110,19 +110,19 @@ func isEmpty(x any) bool {
 	}
 }
 
-func merge[T any](options ...T) T {
-	mapOptions := make(map[string]any)
+func merge[T any](vals ...T) T {
+	base := make(map[string]any)
 
-	for _, option := range options {
-		data, err := conversions.To[map[string]any](option)
+	for _, val := range vals {
+		data, err := conversions.To[map[string]any](val)
 		if err != nil {
 			continue
 		}
 
-		_ = mergo.Merge(&mapOptions, data)
+		_ = mergo.Merge(&base, data)
 	}
 
-	data, _ := conversions.To[T](mapOptions)
+	data, _ := conversions.To[T](base)
 
 	return data
 }

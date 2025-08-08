@@ -39,8 +39,8 @@ func (t kqlOpensearchTranspiler) transpile(nodes []ast.Node) (osu.Builder, error
 		return builder, nil
 	}
 
-	boolQueryOptions := &osu.BoolQueryOptions{}
-	boolQuery := osu.NewBoolQuery().Options(boolQueryOptions)
+	boolQueryParams := &osu.BoolQueryParams{}
+	boolQuery := osu.NewBoolQuery().Params(boolQueryParams)
 	boolQueryAdd := boolQuery.Must
 	for i, node := range nodes {
 		nextOp := t.getOperatorValueAt(nodes, i+1)
@@ -71,7 +71,7 @@ func (t kqlOpensearchTranspiler) transpile(nodes []ast.Node) (osu.Builder, error
 
 		if nextOp == kql.BoolOR {
 			// if there are should clauses, we set the minimum should match to 1
-			boolQueryOptions.MinimumShouldMatch = 1
+			boolQueryParams.MinimumShouldMatch = 1
 		}
 
 		boolQueryAdd(builder)

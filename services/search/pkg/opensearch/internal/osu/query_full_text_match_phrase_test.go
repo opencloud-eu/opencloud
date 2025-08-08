@@ -17,8 +17,8 @@ func TestNewMatchPhraseQuery(t *testing.T) {
 			Want: nil,
 		},
 		{
-			Name: "options",
-			Got: osu.NewMatchPhraseQuery("name").Options(&osu.MatchPhraseQueryOptions{
+			Name: "with params",
+			Got: osu.NewMatchPhraseQuery("name").Params(&osu.MatchPhraseQueryParams{
 				Analyzer:       "analyzer",
 				Slop:           2,
 				ZeroTermsQuery: "all",
@@ -46,7 +46,7 @@ func TestNewMatchPhraseQuery(t *testing.T) {
 		},
 		{
 			Name: "full",
-			Got: osu.NewMatchPhraseQuery("name").Options(&osu.MatchPhraseQueryOptions{
+			Got: osu.NewMatchPhraseQuery("name").Params(&osu.MatchPhraseQueryParams{
 				Analyzer:       "analyzer",
 				Slop:           2,
 				ZeroTermsQuery: "all",
