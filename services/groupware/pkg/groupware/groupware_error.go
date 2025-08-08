@@ -119,7 +119,7 @@ func groupwareErrorFromJmap(j jmap.Error) *GroupwareError {
 	case jmap.JmapErrorAuthenticationFailed:
 		return &ErrorForbidden
 	case jmap.JmapErrorInvalidHttpRequest:
-		return &ErrorInvalidRequest
+		return &ErrorInvalidBackendRequest
 	case jmap.JmapErrorServerResponse:
 		return &ErrorServerResponse
 	case jmap.JmapErrorReadingResponseBody:
@@ -148,7 +148,7 @@ const (
 	ErrorCodeInvalidAuthentication      = "AUTINV"
 	ErrorCodeMissingAuthentication      = "AUTMIS"
 	ErrorCodeForbiddenGeneric           = "AUTFOR"
-	ErrorCodeInvalidRequest             = "INVREQ"
+	ErrorCodeInvalidBackendRequest      = "INVREQ"
 	ErrorCodeServerResponse             = "SRVRSP"
 	ErrorCodeStreamingResponse          = "SRVRST"
 	ErrorCodeServerReadingResponse      = "SRVRRE"
@@ -162,6 +162,7 @@ const (
 	ErrorCodeInvalidRequestParameter    = "INVPAR"
 	ErrorCodeNonExistingAccount         = "INVACC"
 	ErrorCodeApiInconsistency           = "APIINC"
+	ErrorCodeInvalidUserRequest         = "INVURQ"
 )
 
 var (
@@ -189,9 +190,9 @@ var (
 		Title:  "Invalid Authentication",
 		Detail: "Authentication credentials were provided but are either invalid or not authorized to perform the request operation.",
 	}
-	ErrorInvalidRequest = GroupwareError{
+	ErrorInvalidBackendRequest = GroupwareError{
 		Status: http.StatusInternalServerError,
-		Code:   ErrorCodeInvalidRequest,
+		Code:   ErrorCodeInvalidBackendRequest,
 		Title:  "Invalid Request",
 		Detail: "The request that was meant to be sent to the mail server is invalid, which might be caused by configuration issues.",
 	}
@@ -260,6 +261,12 @@ var (
 		Code:   ErrorCodeInvalidRequestParameter,
 		Title:  "Invalid Request Parameter",
 		Detail: "At least one of the parameters in the request is invalid.",
+	}
+	ErrorInvalidUserRequest = GroupwareError{
+		Status: http.StatusBadRequest,
+		Code:   ErrorCodeInvalidUserRequest,
+		Title:  "Invalid Request",
+		Detail: "The request is invalid.",
 	}
 	ErrorNonExistingAccount = GroupwareError{
 		Status: http.StatusBadRequest,
