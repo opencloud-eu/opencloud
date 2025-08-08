@@ -1685,12 +1685,6 @@ github.com/russellhaering/goxmldsig/types
 # github.com/russross/blackfriday/v2 v2.1.0
 ## explicit
 github.com/russross/blackfriday/v2
-# github.com/samber/lo v1.51.0
-## explicit; go 1.18
-github.com/samber/lo
-github.com/samber/lo/internal/constraints
-github.com/samber/lo/internal/rand
-github.com/samber/lo/mutable
 # github.com/segmentio/kafka-go v0.4.48
 ## explicit; go 1.15
 github.com/segmentio/kafka-go

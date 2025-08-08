@@ -6,7 +6,6 @@ import (
 	"time"
 
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
-	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
@@ -26,9 +25,12 @@ func JSONMustMarshal(t *testing.T, data any) string {
 }
 
 func SearchHitsMustBeConverted[T any](t *testing.T, hits []opensearchgoAPI.SearchHit) []T {
-	return lo.ReduceRight(hits, func(agg []T, item opensearchgoAPI.SearchHit, _ int) []T {
-		resource, err := conversions.To[T](item.Source)
+	ts := make([]T, len(hits))
+	for i, hit := range hits {
+		resource, err := conversions.To[T](hit.Source)
 		require.NoError(t, err)
-		return append(agg, resource)
-	}, []T{})
+		ts[i] = resource
+	}
+
+	return ts
 }
