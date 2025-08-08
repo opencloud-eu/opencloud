@@ -1,4 +1,4 @@
-package opensearch
+package osu
 
 import (
 	"encoding/json"
@@ -7,7 +7,7 @@ import (
 type TermQuery[T comparable] struct {
 	field   string
 	value   T
-	options TermQueryOptions
+	options *TermQueryOptions
 }
 
 type TermQueryOptions struct {
@@ -16,8 +16,13 @@ type TermQueryOptions struct {
 	Name            string  `json:"_name,omitempty"`
 }
 
-func NewTermQuery[T comparable](field string, o ...TermQueryOptions) *TermQuery[T] {
-	return &TermQuery[T]{field: field, options: merge(o...)}
+func NewTermQuery[T comparable](field string) *TermQuery[T] {
+	return &TermQuery[T]{field: field}
+}
+
+func (q *TermQuery[T]) Options(v *TermQueryOptions) *TermQuery[T] {
+	q.options = v
+	return q
 }
 
 func (q *TermQuery[T]) Value(v T) *TermQuery[T] {
@@ -26,20 +31,20 @@ func (q *TermQuery[T]) Value(v T) *TermQuery[T] {
 }
 
 func (q *TermQuery[T]) Map() (map[string]any, error) {
-	data, err := convert[map[string]any](q.options)
+	base, err := newBase(q.options)
 	if err != nil {
 		return nil, err
 	}
 
-	applyValue(data, "value", q.value)
+	applyValue(base, "value", q.value)
 
-	if isEmpty(data) {
+	if isEmpty(base) {
 		return nil, nil
 	}
 
 	return map[string]any{
 		"term": map[string]any{
-			q.field: data,
+			q.field: base,
 		},
 	}, nil
 }

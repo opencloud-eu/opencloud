@@ -15,7 +15,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
-func TestNewEngine(t *testing.T) {
+func TestNewBackend(t *testing.T) {
 	t.Run("fails to create if the cluster is not healthy", func(t *testing.T) {
 		client, err := opensearchgoAPI.NewClient(opensearchgoAPI.Config{
 			Client: opensearchgo.Config{
@@ -24,21 +24,21 @@ func TestNewEngine(t *testing.T) {
 		})
 		require.NoError(t, err, "failed to create OpenSearch client")
 
-		backend, err := opensearch.NewEngine("test-engine-new-engine", client)
+		backend, err := opensearch.NewBackend("test-engine-new-engine", client)
 		require.Nil(t, backend)
 		require.ErrorIs(t, err, opensearch.ErrUnhealthyCluster)
 	})
 }
 
 func TestEngine_Search(t *testing.T) {
-	indexName := "opencloud-test-resource"
+	indexName := "opencloud-test-engine-search"
 	tc := opensearchtest.NewDefaultTestClient(t)
 	tc.Require.IndicesReset([]string{indexName})
 	tc.Require.IndicesCount([]string{indexName}, nil, 0)
 
 	defer tc.Require.IndicesDelete([]string{indexName})
 
-	backend, err := opensearch.NewEngine(indexName, tc.Client())
+	backend, err := opensearch.NewBackend(indexName, tc.Client())
 	require.NoError(t, err)
 
 	document := opensearchtest.Testdata.Resources.File
@@ -74,14 +74,14 @@ func TestEngine_Search(t *testing.T) {
 }
 
 func TestEngine_Upsert(t *testing.T) {
-	indexName := "opencloud-test-resource"
+	indexName := "opencloud-test-engine-upsert"
 	tc := opensearchtest.NewDefaultTestClient(t)
 	tc.Require.IndicesReset([]string{indexName})
 	tc.Require.IndicesCount([]string{indexName}, nil, 0)
 
 	defer tc.Require.IndicesDelete([]string{indexName})
 
-	backend, err := opensearch.NewEngine(indexName, tc.Client())
+	backend, err := opensearch.NewBackend(indexName, tc.Client())
 	require.NoError(t, err)
 
 	t.Run("upsert with full document", func(t *testing.T) {
@@ -93,14 +93,14 @@ func TestEngine_Upsert(t *testing.T) {
 }
 
 func TestEngine_Move(t *testing.T) {
-	indexName := "opencloud-test-resource"
+	indexName := "opencloud-test-engine-move"
 	tc := opensearchtest.NewDefaultTestClient(t)
 	tc.Require.IndicesReset([]string{indexName})
 	tc.Require.IndicesCount([]string{indexName}, nil, 0)
 
 	defer tc.Require.IndicesDelete([]string{indexName})
 
-	backend, err := opensearch.NewEngine(indexName, tc.Client())
+	backend, err := opensearch.NewBackend(indexName, tc.Client())
 	require.NoError(t, err)
 
 	t.Run("moves the document to a new path", func(t *testing.T) {
@@ -130,14 +130,14 @@ func TestEngine_Move(t *testing.T) {
 }
 
 func TestEngine_Delete(t *testing.T) {
-	indexName := "opencloud-test-resource"
+	indexName := "opencloud-test-engine-delete"
 	tc := opensearchtest.NewDefaultTestClient(t)
 	tc.Require.IndicesReset([]string{indexName})
 	tc.Require.IndicesCount([]string{indexName}, nil, 0)
 
 	defer tc.Require.IndicesDelete([]string{indexName})
 
-	backend, err := opensearch.NewEngine(indexName, tc.Client())
+	backend, err := opensearch.NewBackend(indexName, tc.Client())
 	require.NoError(t, err)
 
 	t.Run("mark document as deleted", func(t *testing.T) {
@@ -163,14 +163,14 @@ func TestEngine_Delete(t *testing.T) {
 }
 
 func TestEngine_Restore(t *testing.T) {
-	indexName := "opencloud-test-resource"
+	indexName := "opencloud-test-engine-restore"
 	tc := opensearchtest.NewDefaultTestClient(t)
 	tc.Require.IndicesReset([]string{indexName})
 	tc.Require.IndicesCount([]string{indexName}, nil, 0)
 
 	defer tc.Require.IndicesDelete([]string{indexName})
 
-	backend, err := opensearch.NewEngine(indexName, tc.Client())
+	backend, err := opensearch.NewBackend(indexName, tc.Client())
 	require.NoError(t, err)
 
 	t.Run("mark document as not deleted", func(t *testing.T) {
@@ -197,14 +197,14 @@ func TestEngine_Restore(t *testing.T) {
 }
 
 func TestEngine_Purge(t *testing.T) {
-	indexName := "opencloud-test-resource"
+	indexName := "opencloud-test-engine-purge"
 	tc := opensearchtest.NewDefaultTestClient(t)
 	tc.Require.IndicesReset([]string{indexName})
 	tc.Require.IndicesCount([]string{indexName}, nil, 0)
 
 	defer tc.Require.IndicesDelete([]string{indexName})
 
-	backend, err := opensearch.NewEngine(indexName, tc.Client())
+	backend, err := opensearch.NewBackend(indexName, tc.Client())
 	require.NoError(t, err)
 
 	t.Run("purge with full document", func(t *testing.T) {
@@ -219,14 +219,14 @@ func TestEngine_Purge(t *testing.T) {
 }
 
 func TestEngine_DocCount(t *testing.T) {
-	indexName := "opencloud-test-resource"
+	indexName := "opencloud-test-engine-doc-count"
 	tc := opensearchtest.NewDefaultTestClient(t)
 	tc.Require.IndicesReset([]string{indexName})
 	tc.Require.IndicesCount([]string{indexName}, nil, 0)
 
 	defer tc.Require.IndicesDelete([]string{indexName})
 
-	backend, err := opensearch.NewEngine(indexName, tc.Client())
+	backend, err := opensearch.NewBackend(indexName, tc.Client())
 	require.NoError(t, err)
 
 	t.Run("ignore deleted documents", func(t *testing.T) {

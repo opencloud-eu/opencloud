@@ -1,4 +1,4 @@
-package opensearch
+package convert
 
 import (
 	"fmt"
@@ -9,12 +9,13 @@ import (
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/engine"
 )
 
-func searchHitToSearchMessageMatch(hit opensearchgoAPI.SearchHit) (*searchMessage.Match, error) {
-	resource, err := convert[engine.Resource](hit.Source)
+func OpenSearchHitToMatch(hit opensearchgoAPI.SearchHit) (*searchMessage.Match, error) {
+	resource, err := conversions.To[engine.Resource](hit.Source)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert hit source: %w", err)
 	}
@@ -71,19 +72,19 @@ func searchHitToSearchMessageMatch(hit opensearchgoAPI.SearchHit) (*searchMessag
 					return nil
 				}
 
-				audio, _ := convert[*searchMessage.Audio](resource.Audio)
+				audio, _ := conversions.To[*searchMessage.Audio](resource.Audio)
 				return audio
 			}(),
 			Image: func() *searchMessage.Image {
-				image, _ := convert[*searchMessage.Image](resource.Image)
+				image, _ := conversions.To[*searchMessage.Image](resource.Image)
 				return image
 			}(),
 			Location: func() *searchMessage.GeoCoordinates {
-				geoCoordinates, _ := convert[*searchMessage.GeoCoordinates](resource.Location)
+				geoCoordinates, _ := conversions.To[*searchMessage.GeoCoordinates](resource.Location)
 				return geoCoordinates
 			}(),
 			Photo: func() *searchMessage.Photo {
-				photo, _ := convert[*searchMessage.Photo](resource.Photo)
+				photo, _ := conversions.To[*searchMessage.Photo](resource.Photo)
 				return photo
 			}(),
 		},

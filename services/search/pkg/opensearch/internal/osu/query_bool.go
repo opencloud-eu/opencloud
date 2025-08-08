@@ -1,4 +1,4 @@
-package opensearch
+package osu
 
 import (
 	"encoding/json"
@@ -9,7 +9,7 @@ type BoolQuery struct {
 	mustNot []Builder
 	should  []Builder
 	filter  []Builder
-	options BoolQueryOptions
+	options *BoolQueryOptions
 }
 
 type BoolQueryOptions struct {
@@ -18,8 +18,13 @@ type BoolQueryOptions struct {
 	Name               string  `json:"_name,omitempty"`
 }
 
-func NewBoolQuery(o ...BoolQueryOptions) *BoolQuery {
-	return &BoolQuery{options: merge(o...)}
+func NewBoolQuery() *BoolQuery {
+	return &BoolQuery{}
+}
+
+func (q *BoolQuery) Options(v *BoolQueryOptions) *BoolQuery {
+	q.options = v
+	return q
 }
 
 func (q *BoolQuery) Must(v ...Builder) *BoolQuery {
@@ -43,33 +48,33 @@ func (q *BoolQuery) Filter(v ...Builder) *BoolQuery {
 }
 
 func (q *BoolQuery) Map() (map[string]any, error) {
-	data, err := convert[map[string]any](q.options)
+	base, err := newBase(q.options)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := applyBuilders(data, "must", q.must...); err != nil {
+	if err := applyBuilders(base, "must", q.must...); err != nil {
 		return nil, err
 	}
 
-	if err := applyBuilders(data, "must_not", q.mustNot...); err != nil {
+	if err := applyBuilders(base, "must_not", q.mustNot...); err != nil {
 		return nil, err
 	}
 
-	if err := applyBuilders(data, "should", q.should...); err != nil {
+	if err := applyBuilders(base, "should", q.should...); err != nil {
 		return nil, err
 	}
 
-	if err := applyBuilders(data, "filter", q.filter...); err != nil {
+	if err := applyBuilders(base, "filter", q.filter...); err != nil {
 		return nil, err
 	}
 
-	if isEmpty(data) {
+	if isEmpty(base) {
 		return nil, nil
 	}
 
 	return map[string]any{
-		"bool": data,
+		"bool": base,
 	}, nil
 }
 

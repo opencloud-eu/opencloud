@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path"
 	"strings"
+	"time"
 
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
@@ -14,18 +15,23 @@ import (
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
-	"github.com/opencloud-eu/opencloud/pkg/kql"
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/engine"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/convert"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
 )
 
-type Engine struct {
+var (
+	ErrUnhealthyCluster = fmt.Errorf("cluster is not healthy")
+)
+
+type Backend struct {
 	index  string
 	client *opensearchgoAPI.Client
 }
 
-func NewEngine(index string, client *opensearchgoAPI.Client) (*Engine, error) {
+func NewBackend(index string, client *opensearchgoAPI.Client) (*Backend, error) {
 	pingResp, err := client.Ping(context.TODO(), &opensearchgoAPI.PingReq{})
 	switch {
 	case err != nil:
@@ -35,45 +41,46 @@ func NewEngine(index string, client *opensearchgoAPI.Client) (*Engine, error) {
 	}
 
 	// apply the index template
-	if err := IndexManagerLatest.Apply(context.TODO(), index, client); err != nil {
+	if err := osu.IndexManagerLatest.Apply(context.TODO(), index, client); err != nil {
 		return nil, fmt.Errorf("failed to apply index template: %w", err)
 	}
 
 	// first check if the cluster is healthy
-	_, healthy, err := clusterHealth(context.TODO(), client, []string{index})
+
+	resp, err := client.Cluster.Health(context.TODO(), &opensearchgoAPI.ClusterHealthReq{
+		Indices: []string{index},
+		Params: opensearchgoAPI.ClusterHealthParams{
+			Local:   opensearchgoAPI.ToPointer(true),
+			Timeout: 5 * time.Second,
+		},
+	})
 	switch {
 	case err != nil:
-		return nil, fmt.Errorf("failed to get cluster health: %w", err)
-	case !healthy:
-		return nil, fmt.Errorf("cluster health is not healthy")
+		return nil, fmt.Errorf("%w, failed to get cluster health: %w", ErrUnhealthyCluster, err)
+	case resp.TimedOut:
+		return nil, fmt.Errorf("%w, cluster health request timed out", ErrUnhealthyCluster)
+	case resp.Status != "green" && resp.Status != "yellow":
+		return nil, fmt.Errorf("%w, cluster health is not green or yellow: %s", ErrUnhealthyCluster, resp.Status)
 	}
 
-	return &Engine{index: index, client: client}, nil
+	return &Backend{index: index, client: client}, nil
 }
 
-func (e *Engine) Search(ctx context.Context, sir *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error) {
-	ast, err := kql.Builder{}.Build(sir.Query)
+func (be *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error) {
+	boolQuery, err := convert.KQLToOpenSearchBoolQuery(sir.Query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build query: %w", err)
+		return nil, fmt.Errorf("failed to convert KQL query to OpenSearch bool query: %w", err)
 	}
 
-	transpiler, err := NewKQLToOsDSL()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create KQL compiler: %w", err)
-	}
-
-	builder, err := transpiler.Compile(ast)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compile query: %w", err)
-	}
-
-	boolQuery := builderToBoolQuery(builder).Filter(
-		NewTermQuery[bool]("Deleted").Value(false),
+	// filter out deleted resources
+	boolQuery.Filter(
+		osu.NewTermQuery[bool]("Deleted").Value(false),
 	)
 
 	if sir.Ref != nil {
+		// if a reference is provided, filter by the root ID
 		boolQuery.Filter(
-			NewTermQuery[string]("RootID").Value(
+			osu.NewTermQuery[string]("RootID").Value(
 				storagespace.FormatResourceID(
 					&storageProvider.ResourceId{
 						StorageId: sir.Ref.GetResourceId().GetStorageId(),
@@ -96,16 +103,16 @@ func (e *Engine) Search(ctx context.Context, sir *searchService.SearchIndexReque
 		searchParams.Size = conversions.ToPointer(int(sir.PageSize))
 	}
 
-	req, err := BuildSearchReq(&opensearchgoAPI.SearchReq{
-		Indices: []string{e.index},
+	req, err := osu.BuildSearchReq(&opensearchgoAPI.SearchReq{
+		Indices: []string{be.index},
 		Params:  searchParams,
 	},
 		boolQuery,
-		SearchReqOptions{
-			Highlight: &HighlightOption{
+		osu.SearchReqOptions{
+			Highlight: &osu.HighlightOption{
 				PreTags:  []string{"<mark>"},
 				PostTags: []string{"</mark>"},
-				Fields: map[string]HighlightOption{
+				Fields: map[string]osu.HighlightOption{
 					"Content": {},
 				},
 			},
@@ -115,7 +122,7 @@ func (e *Engine) Search(ctx context.Context, sir *searchService.SearchIndexReque
 		return nil, fmt.Errorf("failed to build search request: %w", err)
 	}
 
-	resp, err := e.client.Search(ctx, req)
+	resp, err := be.client.Search(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search: %w", err)
 	}
@@ -123,7 +130,7 @@ func (e *Engine) Search(ctx context.Context, sir *searchService.SearchIndexReque
 	matches := make([]*searchMessage.Match, 0, len(resp.Hits.Hits))
 	totalMatches := resp.Hits.Total.Value
 	for _, hit := range resp.Hits.Hits {
-		match, err := searchHitToSearchMessageMatch(hit)
+		match, err := convert.OpenSearchHitToMatch(hit)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert hit to match: %w", err)
 		}
@@ -148,14 +155,14 @@ func (e *Engine) Search(ctx context.Context, sir *searchService.SearchIndexReque
 	}, nil
 }
 
-func (e *Engine) Upsert(id string, r engine.Resource) error {
+func (be *Backend) Upsert(id string, r engine.Resource) error {
 	body, err := json.Marshal(r)
 	if err != nil {
 		return fmt.Errorf("failed to marshal resource: %w", err)
 	}
 
-	_, err = e.client.Index(context.TODO(), opensearchgoAPI.IndexReq{
-		Index:      e.index,
+	_, err = be.client.Index(context.TODO(), opensearchgoAPI.IndexReq{
+		Index:      be.index,
 		DocumentID: id,
 		Body:       bytes.NewReader(body),
 	})
@@ -166,9 +173,9 @@ func (e *Engine) Upsert(id string, r engine.Resource) error {
 	return nil
 }
 
-func (e *Engine) Move(id string, parentID string, target string) error {
-	return e.updateSelfAndDescendants(id, func(rootResource engine.Resource) *ScriptOption {
-		return &ScriptOption{
+func (be *Backend) Move(id string, parentID string, target string) error {
+	return be.updateSelfAndDescendants(id, func(rootResource engine.Resource) *osu.ScriptOption {
+		return &osu.ScriptOption{
 			Source: `
 					if (ctx._source.ID == params.id ) { ctx._source.Name = params.newName; ctx._source.ParentID = params.parentID; }
 					ctx._source.Path = ctx._source.Path.replace(params.oldPath, params.newPath)
@@ -185,9 +192,9 @@ func (e *Engine) Move(id string, parentID string, target string) error {
 	})
 }
 
-func (e *Engine) Delete(id string) error {
-	return e.updateSelfAndDescendants(id, func(_ engine.Resource) *ScriptOption {
-		return &ScriptOption{
+func (be *Backend) Delete(id string) error {
+	return be.updateSelfAndDescendants(id, func(_ engine.Resource) *osu.ScriptOption {
+		return &osu.ScriptOption{
 			Source: "ctx._source.Deleted = params.deleted",
 			Lang:   "painless",
 			Params: map[string]any{
@@ -197,9 +204,9 @@ func (e *Engine) Delete(id string) error {
 	})
 }
 
-func (e *Engine) Restore(id string) error {
-	return e.updateSelfAndDescendants(id, func(_ engine.Resource) *ScriptOption {
-		return &ScriptOption{
+func (be *Backend) Restore(id string) error {
+	return be.updateSelfAndDescendants(id, func(_ engine.Resource) *osu.ScriptOption {
+		return &osu.ScriptOption{
 			Source: "ctx._source.Deleted = params.deleted",
 			Lang:   "painless",
 			Params: map[string]any{
@@ -209,26 +216,26 @@ func (e *Engine) Restore(id string) error {
 	})
 }
 
-func (e *Engine) Purge(id string) error {
-	resource, err := e.getResource(id)
+func (be *Backend) Purge(id string) error {
+	resource, err := be.getResource(id)
 	if err != nil {
 		return fmt.Errorf("failed to get resource: %w", err)
 	}
 
-	req, err := BuildDocumentDeleteByQueryReq(
+	req, err := osu.BuildDocumentDeleteByQueryReq(
 		opensearchgoAPI.DocumentDeleteByQueryReq{
-			Indices: []string{e.index},
+			Indices: []string{be.index},
 			Params: opensearchgoAPI.DocumentDeleteByQueryParams{
 				WaitForCompletion: conversions.ToPointer(true),
 			},
 		},
-		NewTermQuery[string]("Path").Value(resource.Path),
+		osu.NewTermQuery[string]("Path").Value(resource.Path),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to build delete by query request: %w", err)
 	}
 
-	resp, err := e.client.Document.DeleteByQuery(context.TODO(), req)
+	resp, err := be.client.Document.DeleteByQuery(context.TODO(), req)
 	switch {
 	case err != nil:
 		return fmt.Errorf("failed to delete by query: %w", err)
@@ -239,18 +246,18 @@ func (e *Engine) Purge(id string) error {
 	return nil
 }
 
-func (e *Engine) DocCount() (uint64, error) {
-	req, err := BuildIndicesCountReq(
+func (be *Backend) DocCount() (uint64, error) {
+	req, err := osu.BuildIndicesCountReq(
 		&opensearchgoAPI.IndicesCountReq{
-			Indices: []string{e.index},
+			Indices: []string{be.index},
 		},
-		NewTermQuery[bool]("Deleted").Value(false),
+		osu.NewTermQuery[bool]("Deleted").Value(false),
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to build count request: %w", err)
 	}
 
-	resp, err := e.client.Indices.Count(context.TODO(), req)
+	resp, err := be.client.Indices.Count(context.TODO(), req)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count documents: %w", err)
 	}
@@ -258,25 +265,25 @@ func (e *Engine) DocCount() (uint64, error) {
 	return uint64(resp.Count), nil
 }
 
-func (e *Engine) updateSelfAndDescendants(id string, scriptProvider func(engine.Resource) *ScriptOption) error {
+func (be *Backend) updateSelfAndDescendants(id string, scriptProvider func(engine.Resource) *osu.ScriptOption) error {
 	if scriptProvider == nil {
 		return fmt.Errorf("script cannot be nil")
 	}
 
-	resource, err := e.getResource(id)
+	resource, err := be.getResource(id)
 	if err != nil {
 		return fmt.Errorf("failed to get resource: %w", err)
 	}
 
-	req, err := BuildUpdateByQueryReq(
+	req, err := osu.BuildUpdateByQueryReq(
 		opensearchgoAPI.UpdateByQueryReq{
-			Indices: []string{e.index},
+			Indices: []string{be.index},
 			Params: opensearchgoAPI.UpdateByQueryParams{
 				WaitForCompletion: conversions.ToPointer(true),
 			},
 		},
-		NewTermQuery[string]("Path").Value(resource.Path),
-		UpdateByQueryReqOptions{
+		osu.NewTermQuery[string]("Path").Value(resource.Path),
+		osu.UpdateByQueryReqOptions{
 			Script: scriptProvider(resource),
 		},
 	)
@@ -284,7 +291,7 @@ func (e *Engine) updateSelfAndDescendants(id string, scriptProvider func(engine.
 		return fmt.Errorf("failed to build update by query request: %w", err)
 	}
 
-	resp, err := e.client.UpdateByQuery(context.TODO(), req)
+	resp, err := be.client.UpdateByQuery(context.TODO(), req)
 	switch {
 	case err != nil:
 		return fmt.Errorf("failed to update by query: %w", err)
@@ -295,18 +302,18 @@ func (e *Engine) updateSelfAndDescendants(id string, scriptProvider func(engine.
 	return nil
 }
 
-func (e *Engine) getResource(id string) (engine.Resource, error) {
-	req, err := BuildSearchReq(
+func (be *Backend) getResource(id string) (engine.Resource, error) {
+	req, err := osu.BuildSearchReq(
 		&opensearchgoAPI.SearchReq{
-			Indices: []string{e.index},
+			Indices: []string{be.index},
 		},
-		NewIDsQuery([]string{id}),
+		osu.NewIDsQuery(id),
 	)
 	if err != nil {
 		return engine.Resource{}, fmt.Errorf("failed to build search request: %w", err)
 	}
 
-	resp, err := e.client.Search(context.TODO(), req)
+	resp, err := be.client.Search(context.TODO(), req)
 	switch {
 	case err != nil:
 		return engine.Resource{}, fmt.Errorf("failed to search for resource: %w", err)
@@ -314,7 +321,7 @@ func (e *Engine) getResource(id string) (engine.Resource, error) {
 		return engine.Resource{}, fmt.Errorf("document with id %s not found", id)
 	}
 
-	resource, err := convert[engine.Resource](resp.Hits.Hits[0].Source)
+	resource, err := conversions.To[engine.Resource](resp.Hits.Hits[0].Source)
 	if err != nil {
 		return engine.Resource{}, fmt.Errorf("failed to convert hit source: %w", err)
 	}
@@ -322,10 +329,10 @@ func (e *Engine) getResource(id string) (engine.Resource, error) {
 	return resource, nil
 }
 
-func (e *Engine) StartBatch(_ int) error {
+func (be *Backend) StartBatch(_ int) error {
 	return nil // todo: implement batch processing
 }
 
-func (e *Engine) EndBatch() error {
+func (be *Backend) EndBatch() error {
 	return nil // todo: implement batch processing
 }

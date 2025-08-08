@@ -1,24 +1,24 @@
-package opensearch_test
+package osu_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
 func TestTermQuery(t *testing.T) {
-	tests := []opensearchtest.TableTest[opensearch.Builder, map[string]any]{
+	tests := []opensearchtest.TableTest[osu.Builder, map[string]any]{
 		{
 			Name: "empty",
-			Got:  opensearch.NewTermQuery[string]("empty"),
+			Got:  osu.NewTermQuery[string]("empty"),
 			Want: nil,
 		},
 		{
-			Name: "op-options",
-			Got:  opensearch.NewTermQuery[bool]("deleted").Value(false),
+			Name: "no-options",
+			Got:  osu.NewTermQuery[bool]("deleted").Value(false),
 			Want: map[string]any{
 				"term": map[string]any{
 					"deleted": map[string]any{
@@ -29,7 +29,7 @@ func TestTermQuery(t *testing.T) {
 		},
 		{
 			Name: "with-options",
-			Got: opensearch.NewTermQuery[bool]("deleted", opensearch.TermQueryOptions{
+			Got: osu.NewTermQuery[bool]("deleted").Options(&osu.TermQueryOptions{
 				Boost:           1.0,
 				CaseInsensitive: true,
 				Name:            "is-deleted",

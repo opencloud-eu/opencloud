@@ -1,4 +1,4 @@
-package opensearch_test
+package osu_test
 
 import (
 	"io"
@@ -8,15 +8,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
 func TestRequestBody(t *testing.T) {
-	tests := []opensearchtest.TableTest[opensearch.Builder, map[string]any]{
+	tests := []opensearchtest.TableTest[osu.Builder, map[string]any]{
 		{
 			Name: "simple",
-			Got:  opensearch.NewRequestBody[any](opensearch.NewTermQuery[string]("name").Value("tom")),
+			Got:  osu.NewRequestBody[any](osu.NewTermQuery[string]("name").Value("tom")),
 			Want: map[string]any{
 				"query": map[string]any{
 					"term": map[string]any{
@@ -41,14 +41,14 @@ func TestBuildSearchReq(t *testing.T) {
 		{
 			Name: "highlight",
 			Got: func() io.Reader {
-				req, _ := opensearch.BuildSearchReq(
+				req, _ := osu.BuildSearchReq(
 					&opensearchgoAPI.SearchReq{},
-					opensearch.NewTermQuery[string]("content").Value("content"),
-					opensearch.SearchReqOptions{
-						Highlight: &opensearch.HighlightOption{
+					osu.NewTermQuery[string]("content").Value("content"),
+					osu.SearchReqOptions{
+						Highlight: &osu.HighlightOption{
 							PreTags:  []string{"<b>"},
 							PostTags: []string{"</b>"},
-							Fields: map[string]opensearch.HighlightOption{
+							Fields: map[string]osu.HighlightOption{
 								"content": {},
 							},
 						},

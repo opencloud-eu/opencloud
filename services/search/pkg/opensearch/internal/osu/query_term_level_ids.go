@@ -1,4 +1,4 @@
-package opensearch
+package osu
 
 import (
 	"encoding/json"
@@ -7,31 +7,36 @@ import (
 
 type IDsQuery struct {
 	values  []string
-	options IDsQueryOptions
+	options *IDsQueryOptions
 }
 
 type IDsQueryOptions struct {
 	Boost float32 `json:"boost,omitempty"`
 }
 
-func NewIDsQuery(v []string, o ...IDsQueryOptions) *IDsQuery {
-	return &IDsQuery{values: slices.Compact(v), options: merge(o...)}
+func NewIDsQuery(v ...string) *IDsQuery {
+	return &IDsQuery{values: slices.Compact(v)}
+}
+
+func (q *IDsQuery) Options(v *IDsQueryOptions) *IDsQuery {
+	q.options = v
+	return q
 }
 
 func (q *IDsQuery) Map() (map[string]any, error) {
-	data, err := convert[map[string]any](q.options)
+	base, err := newBase(q.options)
 	if err != nil {
 		return nil, err
 	}
 
-	applyValue(data, "values", q.values)
+	applyValue(base, "values", q.values)
 
-	if isEmpty(data) {
+	if isEmpty(base) {
 		return nil, nil
 	}
 
 	return map[string]any{
-		"ids": data,
+		"ids": base,
 	}, nil
 }
 

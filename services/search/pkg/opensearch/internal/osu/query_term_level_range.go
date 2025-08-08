@@ -1,4 +1,4 @@
-package opensearch
+package osu
 
 import (
 	"encoding/json"
@@ -12,7 +12,7 @@ type RangeQuery[T time.Time | string] struct {
 	gte     T
 	lt      T
 	lte     T
-	options RangeQueryOptions
+	options *RangeQueryOptions
 }
 
 type RangeQueryOptions struct {
@@ -22,8 +22,13 @@ type RangeQueryOptions struct {
 	TimeZone string  `json:"time_zone,omitempty"`
 }
 
-func NewRangeQuery[T time.Time | string](field string, o ...RangeQueryOptions) *RangeQuery[T] {
-	return &RangeQuery[T]{field: field, options: merge(o...)}
+func NewRangeQuery[T time.Time | string](field string) *RangeQuery[T] {
+	return &RangeQuery[T]{field: field}
+}
+
+func (q *RangeQuery[T]) Options(v *RangeQueryOptions) *RangeQuery[T] {
+	q.options = v
+	return q
 }
 
 func (q *RangeQuery[T]) Gt(v T) *RangeQuery[T] {
@@ -47,11 +52,6 @@ func (q *RangeQuery[T]) Lte(v T) *RangeQuery[T] {
 }
 
 func (q *RangeQuery[T]) Map() (map[string]any, error) {
-	data, err := convert[map[string]any](q.options)
-	if err != nil {
-		return nil, err
-	}
-
 	if !isEmpty(q.gt) && !isEmpty(q.gte) {
 		return nil, errors.New("cannot set both gt and gte in RangeQuery")
 	}
@@ -60,20 +60,25 @@ func (q *RangeQuery[T]) Map() (map[string]any, error) {
 		return nil, errors.New("cannot set both lt and lte in RangeQuery")
 	}
 
-	applyValues(data, map[string]T{
+	base, err := newBase(q.options)
+	if err != nil {
+		return nil, err
+	}
+
+	applyValues(base, map[string]T{
 		"gt":  q.gt,
 		"gte": q.gte,
 		"lt":  q.lt,
 		"lte": q.lte,
 	})
 
-	if isEmpty(data) {
+	if isEmpty(base) {
 		return nil, nil
 	}
 
 	return map[string]any{
 		"range": map[string]any{
-			q.field: data,
+			q.field: base,
 		},
 	}, nil
 }

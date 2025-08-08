@@ -1,4 +1,4 @@
-package opensearch
+package osu
 
 import (
 	"bytes"
@@ -20,7 +20,7 @@ var (
 	IndexIndexManagerResourceV1 IndexManager = "resource_v1.json"
 )
 
-//go:embed internal/indexes/*.json
+//go:embed indexes/*.json
 var indexes embed.FS
 
 type IndexManager string
@@ -36,7 +36,7 @@ func (m IndexManager) String() string {
 
 func (m IndexManager) MarshalJSON() ([]byte, error) {
 	filePath := string(m)
-	body, err := indexes.ReadFile(path.Join("./internal/indexes", filePath))
+	body, err := indexes.ReadFile(path.Join("./indexes", filePath))
 	switch {
 	case err != nil:
 		return nil, fmt.Errorf("failed to read index file %s: %w", filePath, err)

@@ -80,12 +80,12 @@ func NewHandler(opts ...Option) (searchsvc.SearchProviderHandler, func(), error)
 			return nil, teardown, fmt.Errorf("failed to create OpenSearch client: %w", err)
 		}
 
-		backend, err := opensearch.NewEngine(cfg.Engine.OpenSearch.ResourceIndex.Name, client)
+		openSearchBackend, err := opensearch.NewBackend(cfg.Engine.OpenSearch.ResourceIndex.Name, client)
 		if err != nil {
-			return nil, teardown, fmt.Errorf("failed to create OpenSearch engine: %w", err)
+			return nil, teardown, fmt.Errorf("failed to create OpenSearch backend: %w", err)
 		}
 
-		eng = backend
+		eng = openSearchBackend
 	default:
 		return nil, teardown, fmt.Errorf("unknown search engine: %s", cfg.Engine.Type)
 	}

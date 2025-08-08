@@ -1,27 +1,27 @@
-package opensearch_test
+package osu_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
 func TestWildcardQuery(t *testing.T) {
-	tests := []opensearchtest.TableTest[opensearch.Builder, map[string]any]{
+	tests := []opensearchtest.TableTest[osu.Builder, map[string]any]{
 		{
 			Name: "empty",
-			Got:  opensearch.NewWildcardQuery("empty"),
+			Got:  osu.NewWildcardQuery("empty"),
 			Want: nil,
 		},
 		{
 			Name: "wildcard",
-			Got: opensearch.NewWildcardQuery("name", opensearch.WildcardQueryOptions{
+			Got: osu.NewWildcardQuery("name").Options(&osu.WildcardQueryOptions{
 				Boost:           1.0,
 				CaseInsensitive: true,
-				Rewrite:         opensearch.TopTermsBlendedFreqsN,
+				Rewrite:         "top_terms_blended_freqs_N",
 			}).Value("opencl*"),
 			Want: map[string]any{
 				"wildcard": map[string]any{

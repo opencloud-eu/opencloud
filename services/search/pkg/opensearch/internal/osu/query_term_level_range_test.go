@@ -1,4 +1,4 @@
-package opensearch_test
+package osu_test
 
 import (
 	"errors"
@@ -8,21 +8,21 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
 func TestRangeQuery(t *testing.T) {
 	now := time.Now()
-	tests := []opensearchtest.TableTest[opensearch.Builder, map[string]any]{
+	tests := []opensearchtest.TableTest[osu.Builder, map[string]any]{
 		{
 			Name: "empty",
-			Got:  opensearch.NewRangeQuery[string]("empty"),
+			Got:  osu.NewRangeQuery[string]("empty"),
 			Want: nil,
 		},
 		{
 			Name: "gt string",
-			Got:  opensearch.NewRangeQuery[string]("created").Gt("2023-01-01T00:00:00Z"),
+			Got:  osu.NewRangeQuery[string]("created").Gt("2023-01-01T00:00:00Z"),
 			Want: map[string]any{
 				"range": map[string]any{
 					"created": map[string]any{
@@ -33,7 +33,7 @@ func TestRangeQuery(t *testing.T) {
 		},
 		{
 			Name: "gt time",
-			Got:  opensearch.NewRangeQuery[time.Time]("created").Gt(now),
+			Got:  osu.NewRangeQuery[time.Time]("created").Gt(now),
 			Want: map[string]any{
 				"range": map[string]any{
 					"created": map[string]any{
@@ -44,7 +44,7 @@ func TestRangeQuery(t *testing.T) {
 		},
 		{
 			Name: "gte string",
-			Got:  opensearch.NewRangeQuery[string]("created").Gte("2023-01-01T00:00:00Z"),
+			Got:  osu.NewRangeQuery[string]("created").Gte("2023-01-01T00:00:00Z"),
 			Want: map[string]any{
 				"range": map[string]any{
 					"created": map[string]any{
@@ -55,7 +55,7 @@ func TestRangeQuery(t *testing.T) {
 		},
 		{
 			Name: "gte time",
-			Got:  opensearch.NewRangeQuery[time.Time]("created").Gte(now),
+			Got:  osu.NewRangeQuery[time.Time]("created").Gte(now),
 			Want: map[string]any{
 				"range": map[string]any{
 					"created": map[string]any{
@@ -66,13 +66,13 @@ func TestRangeQuery(t *testing.T) {
 		},
 		{
 			Name: "gt & gte",
-			Got:  opensearch.NewRangeQuery[time.Time]("created").Gt(now).Gte(now),
+			Got:  osu.NewRangeQuery[time.Time]("created").Gt(now).Gte(now),
 			Want: nil,
 			Err:  errors.New(""),
 		},
 		{
 			Name: "gt string",
-			Got:  opensearch.NewRangeQuery[string]("created").Lt("2023-01-01T00:00:00Z"),
+			Got:  osu.NewRangeQuery[string]("created").Lt("2023-01-01T00:00:00Z"),
 			Want: map[string]any{
 				"range": map[string]any{
 					"created": map[string]any{
@@ -83,7 +83,7 @@ func TestRangeQuery(t *testing.T) {
 		},
 		{
 			Name: "lt time",
-			Got:  opensearch.NewRangeQuery[time.Time]("created").Lt(now),
+			Got:  osu.NewRangeQuery[time.Time]("created").Lt(now),
 			Want: map[string]any{
 				"range": map[string]any{
 					"created": map[string]any{
@@ -94,7 +94,7 @@ func TestRangeQuery(t *testing.T) {
 		},
 		{
 			Name: "lte string",
-			Got:  opensearch.NewRangeQuery[string]("created").Lte("2023-01-01T00:00:00Z"),
+			Got:  osu.NewRangeQuery[string]("created").Lte("2023-01-01T00:00:00Z"),
 			Want: map[string]any{
 				"range": map[string]any{
 					"created": map[string]any{
@@ -105,7 +105,7 @@ func TestRangeQuery(t *testing.T) {
 		},
 		{
 			Name: "lte time",
-			Got:  opensearch.NewRangeQuery[time.Time]("created").Lte(now),
+			Got:  osu.NewRangeQuery[time.Time]("created").Lte(now),
 			Want: map[string]any{
 				"range": map[string]any{
 					"created": map[string]any{
@@ -116,13 +116,13 @@ func TestRangeQuery(t *testing.T) {
 		},
 		{
 			Name: "lt & lte",
-			Got:  opensearch.NewRangeQuery[time.Time]("created").Lt(now).Lte(now),
+			Got:  osu.NewRangeQuery[time.Time]("created").Lt(now).Lte(now),
 			Want: nil,
 			Err:  errors.New(""),
 		},
 		{
 			Name: "options",
-			Got: opensearch.NewRangeQuery[time.Time]("created", opensearch.RangeQueryOptions{
+			Got: osu.NewRangeQuery[time.Time]("created").Options(&osu.RangeQueryOptions{
 				Format:   "strict_date_optional_time",
 				Relation: "within",
 				Boost:    1.0,

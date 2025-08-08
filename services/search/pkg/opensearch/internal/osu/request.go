@@ -1,4 +1,4 @@
-package opensearch
+package osu
 
 import (
 	"bytes"
@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
+
+	"github.com/opencloud-eu/opencloud/pkg/conversions"
 )
 
 type RequestBody[O any] struct {
@@ -19,7 +21,7 @@ func NewRequestBody[O any](q Builder, o ...O) *RequestBody[O] {
 }
 
 func (q RequestBody[O]) Map() (map[string]any, error) {
-	data, err := convert[map[string]any](q.options)
+	data, err := conversions.To[map[string]any](q.options)
 	if err != nil {
 		return nil, err
 	}

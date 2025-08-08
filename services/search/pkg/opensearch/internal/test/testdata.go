@@ -1,13 +1,16 @@
 package opensearchtest
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path"
 
 	"github.com/opencloud-eu/opencloud/services/search/pkg/engine"
 )
+
+//go:embed testdata/*.json
+var testdata embed.FS
 
 var Testdata = struct {
 	Resources resourceTestdata
@@ -22,8 +25,8 @@ type resourceTestdata struct {
 }
 
 func loadTestdata[D any](name string) D {
-	name = path.Join("internal/test/testdata", name)
-	data, err := os.ReadFile(name)
+	name = path.Join("./testdata", name)
+	data, err := testdata.ReadFile(name)
 	if err != nil {
 		panic(fmt.Sprintf("failed to read testdata file %s: %v", name, err))
 	}

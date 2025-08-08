@@ -1,4 +1,4 @@
-package opensearch_test
+package osu_test
 
 import (
 	"strings"
@@ -7,16 +7,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/sjson"
 
-	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
 	opensearchtest "github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
 func TestIndexManager(t *testing.T) {
 	t.Run("index plausibility", func(t *testing.T) {
-		tests := []opensearchtest.TableTest[opensearch.IndexManager, struct{}]{
+		tests := []opensearchtest.TableTest[osu.IndexManager, struct{}]{
 			{
 				Name: "empty",
-				Got:  opensearch.IndexManagerLatest,
+				Got:  osu.IndexManagerLatest,
 			},
 		}
 		tc := opensearchtest.NewDefaultTestClient(t)
@@ -37,7 +37,7 @@ func TestIndexManager(t *testing.T) {
 	})
 
 	t.Run("does not create index if it already exists and is up to date", func(t *testing.T) {
-		indexManager := opensearch.IndexManagerLatest
+		indexManager := osu.IndexManagerLatest
 		indexName := "opencloud-test-resource"
 
 		tc := opensearchtest.NewDefaultTestClient(t)
@@ -48,7 +48,7 @@ func TestIndexManager(t *testing.T) {
 	})
 
 	t.Run("fails to create index if it already exists but is not up to date", func(t *testing.T) {
-		indexManager := opensearch.IndexManagerLatest
+		indexManager := osu.IndexManagerLatest
 		indexName := "opencloud-test-resource"
 
 		tc := opensearchtest.NewDefaultTestClient(t)
@@ -58,6 +58,6 @@ func TestIndexManager(t *testing.T) {
 		require.NoError(t, err)
 		tc.Require.IndicesCreate(indexName, strings.NewReader(body))
 
-		require.ErrorIs(t, indexManager.Apply(t.Context(), indexName, tc.Client()), opensearch.ErrManualActionRequired)
+		require.ErrorIs(t, indexManager.Apply(t.Context(), indexName, tc.Client()), osu.ErrManualActionRequired)
 	})
 }

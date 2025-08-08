@@ -1,4 +1,4 @@
-package opensearch
+package osu
 
 import (
 	"encoding/json"
@@ -7,17 +7,22 @@ import (
 type MatchPhraseQuery struct {
 	field   string
 	query   string
-	options MatchPhraseQueryOptions
+	options *MatchPhraseQueryOptions
 }
 
 type MatchPhraseQueryOptions struct {
-	Analyzer       Analyzer `json:"analyzer,omitempty"`
-	Slop           int      `json:"slop,omitempty"`
-	ZeroTermsQuery string   `json:"zero_terms_query,omitempty"`
+	Analyzer       string `json:"analyzer,omitempty"`
+	Slop           int    `json:"slop,omitempty"`
+	ZeroTermsQuery string `json:"zero_terms_query,omitempty"`
 }
 
-func NewMatchPhraseQuery(field string, o ...MatchPhraseQueryOptions) *MatchPhraseQuery {
-	return &MatchPhraseQuery{field: field, options: merge(o...)}
+func NewMatchPhraseQuery(field string) *MatchPhraseQuery {
+	return &MatchPhraseQuery{field: field}
+}
+
+func (q *MatchPhraseQuery) Options(v *MatchPhraseQueryOptions) *MatchPhraseQuery {
+	q.options = v
+	return q
 }
 
 func (q *MatchPhraseQuery) Query(v string) *MatchPhraseQuery {
@@ -26,20 +31,20 @@ func (q *MatchPhraseQuery) Query(v string) *MatchPhraseQuery {
 }
 
 func (q *MatchPhraseQuery) Map() (map[string]any, error) {
-	data, err := convert[map[string]any](q.options)
+	base, err := newBase(q.options)
 	if err != nil {
 		return nil, err
 	}
 
-	applyValue(data, "query", q.query)
+	applyValue(base, "query", q.query)
 
-	if isEmpty(data) {
+	if isEmpty(base) {
 		return nil, nil
 	}
 
 	return map[string]any{
 		"match_phrase": map[string]any{
-			q.field: data,
+			q.field: base,
 		},
 	}, nil
 }

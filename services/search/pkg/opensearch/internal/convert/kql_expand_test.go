@@ -1,4 +1,4 @@
-package opensearch_test
+package convert_test
 
 import (
 	"fmt"
@@ -6,12 +6,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/convert"
+
 	"github.com/opencloud-eu/opencloud/pkg/ast"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
-	opensearchtest "github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
-func TestExpandKQLASTNodes(t *testing.T) {
+func TestExpandKQLAST(t *testing.T) {
 	t.Run("always converts a value node to a pointer node", func(t *testing.T) {
 		tests := []opensearchtest.TableTest[[]ast.Node, []ast.Node]{
 			{
@@ -117,7 +118,7 @@ func TestExpandKQLASTNodes(t *testing.T) {
 
 		for _, test := range tests {
 			t.Run(test.Name, func(t *testing.T) {
-				result, err := opensearch.ExpandKQLASTNodes(test.Got)
+				result, err := convert.ExpandKQL(test.Got)
 				require.NoError(t, err)
 				require.Equal(t, test.Want, result)
 			})
@@ -233,7 +234,7 @@ func TestExpandKQLASTNodes(t *testing.T) {
 
 		for _, test := range tests {
 			t.Run(test.Name, func(t *testing.T) {
-				result, err := opensearch.ExpandKQLASTNodes(test.Got)
+				result, err := convert.ExpandKQL(test.Got)
 				require.NoError(t, err)
 				require.Equal(t, test.Want, result)
 			})
@@ -276,7 +277,7 @@ func TestExpandKQLASTNodes(t *testing.T) {
 
 		for _, test := range tests {
 			t.Run(test.Name, func(t *testing.T) {
-				result, err := opensearch.ExpandKQLASTNodes(test.Got)
+				result, err := convert.ExpandKQL(test.Got)
 				require.NoError(t, err)
 				require.Equal(t, test.Want, result)
 			})
@@ -526,7 +527,7 @@ func TestExpandKQLASTNodes(t *testing.T) {
 				if test.Skip {
 					t.Skip("Skipping test due to known issue")
 				}
-				result, err := opensearch.ExpandKQLASTNodes(test.Got)
+				result, err := convert.ExpandKQL(test.Got)
 				require.NoError(t, err)
 				require.EqualValues(t, test.Want, result)
 			})
@@ -597,7 +598,7 @@ func TestExpandKQLASTNodes(t *testing.T) {
 				if test.Skip {
 					t.Skip("Skipping test due to known issue")
 				}
-				result, err := opensearch.ExpandKQLASTNodes(test.Got)
+				result, err := convert.ExpandKQL(test.Got)
 				require.NoError(t, err)
 				require.EqualValues(t, test.Want, result)
 			})

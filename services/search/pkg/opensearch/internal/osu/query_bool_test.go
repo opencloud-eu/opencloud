@@ -1,24 +1,24 @@
-package opensearch_test
+package osu_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
 func TestBoolQuery(t *testing.T) {
-	tests := []opensearchtest.TableTest[opensearch.Builder, map[string]any]{
+	tests := []opensearchtest.TableTest[osu.Builder, map[string]any]{
 		{
 			Name: "empty",
-			Got:  opensearch.NewBoolQuery(),
+			Got:  osu.NewBoolQuery(),
 			Want: nil,
 		},
 		{
 			Name: "with-options",
-			Got: opensearch.NewBoolQuery(opensearch.BoolQueryOptions{
+			Got: osu.NewBoolQuery().Options(&osu.BoolQueryOptions{
 				MinimumShouldMatch: 10,
 				Boost:              10,
 				Name:               "some-name",
@@ -33,7 +33,7 @@ func TestBoolQuery(t *testing.T) {
 		},
 		{
 			Name: "must",
-			Got:  opensearch.NewBoolQuery().Must(opensearch.NewTermQuery[string]("name").Value("tom")),
+			Got:  osu.NewBoolQuery().Must(osu.NewTermQuery[string]("name").Value("tom")),
 			Want: map[string]any{
 				"bool": map[string]any{
 					"must": []map[string]any{
@@ -50,7 +50,7 @@ func TestBoolQuery(t *testing.T) {
 		},
 		{
 			Name: "must_not",
-			Got:  opensearch.NewBoolQuery().MustNot(opensearch.NewTermQuery[string]("name").Value("tom")),
+			Got:  osu.NewBoolQuery().MustNot(osu.NewTermQuery[string]("name").Value("tom")),
 			Want: map[string]any{
 				"bool": map[string]any{
 					"must_not": []map[string]any{
@@ -67,7 +67,7 @@ func TestBoolQuery(t *testing.T) {
 		},
 		{
 			Name: "should",
-			Got:  opensearch.NewBoolQuery().Should(opensearch.NewTermQuery[string]("name").Value("tom")),
+			Got:  osu.NewBoolQuery().Should(osu.NewTermQuery[string]("name").Value("tom")),
 			Want: map[string]any{
 				"bool": map[string]any{
 					"should": []map[string]any{
@@ -84,7 +84,7 @@ func TestBoolQuery(t *testing.T) {
 		},
 		{
 			Name: "filter",
-			Got:  opensearch.NewBoolQuery().Filter(opensearch.NewTermQuery[string]("name").Value("tom")),
+			Got:  osu.NewBoolQuery().Filter(osu.NewTermQuery[string]("name").Value("tom")),
 			Want: map[string]any{
 				"bool": map[string]any{
 					"filter": []map[string]any{
@@ -101,11 +101,11 @@ func TestBoolQuery(t *testing.T) {
 		},
 		{
 			Name: "full",
-			Got: opensearch.NewBoolQuery().
-				Must(opensearch.NewTermQuery[string]("name").Value("tom")).
-				MustNot(opensearch.NewTermQuery[bool]("deleted").Value(true)).
-				Should(opensearch.NewTermQuery[string]("gender").Value("male")).
-				Filter(opensearch.NewTermQuery[int]("age").Value(42)),
+			Got: osu.NewBoolQuery().
+				Must(osu.NewTermQuery[string]("name").Value("tom")).
+				MustNot(osu.NewTermQuery[bool]("deleted").Value(true)).
+				Should(osu.NewTermQuery[string]("gender").Value("male")).
+				Filter(osu.NewTermQuery[int]("age").Value(42)),
 			Want: map[string]any{
 				"bool": map[string]any{
 					"must": []map[string]any{

@@ -1,22 +1,14 @@
-package opensearch
+package osu
 
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
+
+	"dario.cat/mergo"
+
+	"github.com/opencloud-eu/opencloud/pkg/conversions"
 )
-
-type Rewrite string
-
-const (
-	ConstantScore         Rewrite = "constant_score"
-	ScoringBoolean        Rewrite = "scoring_boolean"
-	ConstantScoreBoolean  Rewrite = "constant_score_boolean"
-	TopTermsN             Rewrite = "top_terms_N"
-	TopTermsBoostN        Rewrite = "top_terms_boost_N"
-	TopTermsBlendedFreqsN Rewrite = "top_terms_blended_freqs_N"
-)
-
-type Analyzer string
 
 type Builder interface {
 	json.Marshaler
@@ -24,23 +16,24 @@ type Builder interface {
 	Map() (map[string]any, error)
 }
 
-type BuilderFunc func() (map[string]any, error)
+func newBase(v ...any) (map[string]any, error) {
+	base := make(map[string]any)
+	for _, value := range v {
+		data, err := conversions.To[map[string]any](value)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert value to map: %w", err)
+		}
 
-func (f BuilderFunc) Map() (map[string]any, error) {
-	return f()
-}
+		if isEmpty(data) {
+			continue
+		}
 
-func (f BuilderFunc) MarshalJSON() ([]byte, error) {
-	data, err := f.Map()
-	if err != nil {
-		return nil, err
+		if err := mergo.Merge(&base, data); err != nil {
+			return nil, fmt.Errorf("failed to merge value into base: %w", err)
+		}
 	}
-	return json.Marshal(data)
-}
 
-func (f BuilderFunc) String() string {
-	b, _ := f.MarshalJSON()
-	return string(b)
+	return base, nil
 }
 
 func applyValue[T any](target map[string]any, key string, v T) {
@@ -104,14 +97,34 @@ func applyBuilders(target map[string]any, key string, bs ...Builder) error {
 	return nil
 }
 
-func builderToBoolQuery(b Builder) *BoolQuery {
-	var bq *BoolQuery
+func isEmpty(x any) bool {
+	switch {
+	case x == nil:
+		return true
+	case reflect.ValueOf(x).Kind() == reflect.Bool:
+		return false
+	case reflect.DeepEqual(x, reflect.Zero(reflect.TypeOf(x)).Interface()):
+		return true
+	case reflect.ValueOf(x).Kind() == reflect.Map && reflect.ValueOf(x).Len() == 0:
+		return true
+	default:
+		return false
+	}
+}
 
-	if q, ok := b.(*BoolQuery); !ok {
-		bq = NewBoolQuery().Must(b)
-	} else {
-		bq = q
+func merge[T any](options ...T) T {
+	mapOptions := make(map[string]any)
+
+	for _, option := range options {
+		data, err := conversions.To[map[string]any](option)
+		if err != nil {
+			continue
+		}
+
+		_ = mergo.Merge(&mapOptions, data)
 	}
 
-	return bq
+	data, _ := conversions.To[T](mapOptions)
+
+	return data
 }

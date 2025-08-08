@@ -1,24 +1,24 @@
-package opensearch_test
+package osu_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
 func TestNewMatchPhraseQuery(t *testing.T) {
-	tests := []opensearchtest.TableTest[opensearch.Builder, map[string]any]{
+	tests := []opensearchtest.TableTest[osu.Builder, map[string]any]{
 		{
 			Name: "empty",
-			Got:  opensearch.NewMatchPhraseQuery("empty"),
+			Got:  osu.NewMatchPhraseQuery("empty"),
 			Want: nil,
 		},
 		{
 			Name: "options",
-			Got: opensearch.NewMatchPhraseQuery("name", opensearch.MatchPhraseQueryOptions{
+			Got: osu.NewMatchPhraseQuery("name").Options(&osu.MatchPhraseQueryOptions{
 				Analyzer:       "analyzer",
 				Slop:           2,
 				ZeroTermsQuery: "all",
@@ -35,7 +35,7 @@ func TestNewMatchPhraseQuery(t *testing.T) {
 		},
 		{
 			Name: "query",
-			Got:  opensearch.NewMatchPhraseQuery("name").Query("some match query"),
+			Got:  osu.NewMatchPhraseQuery("name").Query("some match query"),
 			Want: map[string]any{
 				"match_phrase": map[string]any{
 					"name": map[string]any{
@@ -46,7 +46,7 @@ func TestNewMatchPhraseQuery(t *testing.T) {
 		},
 		{
 			Name: "full",
-			Got: opensearch.NewMatchPhraseQuery("name", opensearch.MatchPhraseQueryOptions{
+			Got: osu.NewMatchPhraseQuery("name").Options(&osu.MatchPhraseQueryOptions{
 				Analyzer:       "analyzer",
 				Slop:           2,
 				ZeroTermsQuery: "all",
