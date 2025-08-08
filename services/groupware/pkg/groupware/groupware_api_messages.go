@@ -12,7 +12,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
-func (g Groupware) GetAllMessages(w http.ResponseWriter, r *http.Request) {
+func (g Groupware) GetAllMessagesInMailbox(w http.ResponseWriter, r *http.Request) {
 	mailboxId := chi.URLParam(r, UriParamMailboxId)
 	since := r.Header.Get(HeaderSince)
 
@@ -278,6 +278,14 @@ func (g Groupware) searchMessages(w http.ResponseWriter, r *http.Request) {
 		ok, filter, offset, limit, logger, errResp := g.buildQuery(req)
 		if !ok {
 			return errResp
+		}
+
+		var empty jmap.EmailFilterElement
+
+		if filter == empty {
+			errorId := req.errorId()
+			msg := "Invalid search request has no criteria"
+			return errorResponse(apiError(errorId, ErrorInvalidUserRequest, withDetail(msg)))
 		}
 
 		fetchEmails, ok, err := req.parseBoolParam(QueryParamSearchFetchEmails, false)

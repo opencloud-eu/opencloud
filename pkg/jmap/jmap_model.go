@@ -1616,6 +1616,27 @@ type VacationResponseGetResponse struct {
 	NotFound []any `json:"notFound,omitempty"`
 }
 
+type VacationResponseSetRequest struct {
+	AccountId string                      `json:"accountId"`
+	IfInState string                      `json:"ifInState,omitempty"`
+	Create    map[string]VacationResponse `json:"create,omitempty"`
+	Update    map[string]PatchObject      `json:"update,omitempty"`
+	Destroy   []string                    `json:"destroy,omitempty"`
+}
+
+type VacationResponseSetResponse struct {
+	AccountId    string                      `json:"accountId"`
+	OldState     string                      `json:"oldState,omitempty"`
+	NewState     string                      `json:"newState,omitempty"`
+	Created      map[string]VacationResponse `json:"created,omitempty"`
+	Updated      map[string]VacationResponse `json:"updated,omitempty"`
+	Destroyed    []string                    `json:"destroyed,omitempty"`
+	NotCreated   map[string]SetError         `json:"notCreated,omitempty"`
+	NotUpdated   map[string]SetError         `json:"notUpdated,omitempty"`
+	NotDestroyed map[string]SetError         `json:"notDestroyed,omitempty"`
+	State        string                      `json:"state,omitempty"`
+}
+
 // One of these attributes must be set, but not both.
 type DataSourceObject struct {
 	DataAsText   string `json:"data:asText,omitempty"`
@@ -1741,6 +1762,7 @@ const (
 	MailboxChanges      Command = "Mailbox/changes"
 	IdentityGet         Command = "Identity/get"
 	VacationResponseGet Command = "VacationResponse/get"
+	VacationResponseSet Command = "VacationResponse/set"
 	SearchSnippetGet    Command = "SearchSnippet/get"
 )
 
@@ -1758,5 +1780,6 @@ var CommandResponseTypeMap = map[Command]func() any{
 	ThreadGet:           func() any { return ThreadGetResponse{} },
 	IdentityGet:         func() any { return IdentityGetResponse{} },
 	VacationResponseGet: func() any { return VacationResponseGetResponse{} },
+	VacationResponseSet: func() any { return VacationResponseSetResponse{} },
 	SearchSnippetGet:    func() any { return SearchSnippetGetResponse{} },
 }
