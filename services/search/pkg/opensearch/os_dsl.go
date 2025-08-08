@@ -84,8 +84,8 @@ func applyBuilders(target map[string]any, key string, bs ...Builder) error {
 		return nil
 	}
 
-	builders := make([]map[string]any, len(bs))
-	for i, builder := range bs {
+	builders := make([]map[string]any, 0, len(bs))
+	for _, builder := range bs {
 		data, err := builder.Map()
 		switch {
 		case err != nil:
@@ -93,7 +93,7 @@ func applyBuilders(target map[string]any, key string, bs ...Builder) error {
 		case isEmpty(data):
 			continue
 		default:
-			builders[i] = data
+			builders = append(builders, data)
 		}
 	}
 

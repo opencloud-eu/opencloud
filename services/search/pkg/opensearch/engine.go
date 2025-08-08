@@ -120,12 +120,12 @@ func (e *Engine) Search(ctx context.Context, sir *searchService.SearchIndexReque
 		return nil, fmt.Errorf("failed to search: %w", err)
 	}
 
-	matches := make([]*searchMessage.Match, len(resp.Hits.Hits))
+	matches := make([]*searchMessage.Match, 0, len(resp.Hits.Hits))
 	totalMatches := resp.Hits.Total.Value
-	for i, hit := range resp.Hits.Hits {
+	for _, hit := range resp.Hits.Hits {
 		match, err := searchHitToSearchMessageMatch(hit)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert hit %d: %w", i, err)
+			return nil, fmt.Errorf("failed to convert hit to match: %w", err)
 		}
 
 		if sir.Ref != nil {
@@ -139,7 +139,7 @@ func (e *Engine) Search(ctx context.Context, sir *searchService.SearchIndexReque
 			}
 		}
 
-		matches[i] = match
+		matches = append(matches, match)
 	}
 
 	return &searchService.SearchIndexResponse{
@@ -218,6 +218,9 @@ func (e *Engine) Purge(id string) error {
 	req, err := BuildDocumentDeleteByQueryReq(
 		opensearchgoAPI.DocumentDeleteByQueryReq{
 			Indices: []string{e.index},
+			Params: opensearchgoAPI.DocumentDeleteByQueryParams{
+				WaitForCompletion: conversions.ToPointer(true),
+			},
 		},
 		NewTermQuery[string]("Path").Value(resource.Path),
 	)
@@ -268,6 +271,9 @@ func (e *Engine) updateSelfAndDescendants(id string, scriptProvider func(engine.
 	req, err := BuildUpdateByQueryReq(
 		opensearchgoAPI.UpdateByQueryReq{
 			Indices: []string{e.index},
+			Params: opensearchgoAPI.UpdateByQueryParams{
+				WaitForCompletion: conversions.ToPointer(true),
+			},
 		},
 		NewTermQuery[string]("Path").Value(resource.Path),
 		UpdateByQueryReqOptions{
