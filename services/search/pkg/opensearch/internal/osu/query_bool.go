@@ -85,8 +85,3 @@ func (q *BoolQuery) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(data)
 }
-
-func (q *BoolQuery) String() string {
-	b, _ := q.MarshalJSON()
-	return string(b)
-}

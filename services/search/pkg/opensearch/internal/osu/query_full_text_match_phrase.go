@@ -56,8 +56,3 @@ func (q *MatchPhraseQuery) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(data)
 }
-
-func (q *MatchPhraseQuery) String() string {
-	b, _ := q.MarshalJSON()
-	return string(b)
-}

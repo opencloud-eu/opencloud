@@ -90,8 +90,3 @@ func (q *RangeQuery[T]) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(data)
 }
-
-func (q *RangeQuery[T]) String() string {
-	b, _ := q.MarshalJSON()
-	return string(b)
-}

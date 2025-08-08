@@ -3,12 +3,8 @@ package osu
 import (
 	"bytes"
 	"encoding/json"
-	"io"
-	"strings"
 
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
-
-	"github.com/opencloud-eu/opencloud/pkg/conversions"
 )
 
 type RequestBody[O any] struct {
@@ -21,20 +17,16 @@ func NewRequestBody[O any](q Builder, o ...O) *RequestBody[O] {
 }
 
 func (q RequestBody[O]) Map() (map[string]any, error) {
-	data, err := conversions.To[map[string]any](q.options)
+	base, err := newBase(q.options)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := applyBuilder(data, "query", q.query); err != nil {
+	if err := applyBuilder(base, "query", q.query); err != nil {
 		return nil, err
 	}
 
-	if isEmpty(data) {
-		return nil, nil
-	}
-
-	return data, nil
+	return base, nil
 }
 
 func (q RequestBody[O]) MarshalJSON() ([]byte, error) {
@@ -44,15 +36,6 @@ func (q RequestBody[O]) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(data)
-}
-
-func (q RequestBody[O]) String() string {
-	b, _ := q.MarshalJSON()
-	return string(b)
-}
-
-func (q RequestBody[O]) Reader() io.Reader {
-	return strings.NewReader(q.String())
 }
 
 //----------------------------------------------------------------------------//
@@ -72,12 +55,11 @@ type ScriptOption struct {
 //----------------------------------------------------------------------------//
 
 func BuildSearchReq(req *opensearchgoAPI.SearchReq, q Builder, o ...SearchReqOptions) (*opensearchgoAPI.SearchReq, error) {
-	body := NewRequestBody(q, o...)
-	data, err := body.MarshalJSON()
+	body, err := json.Marshal(NewRequestBody(q, o...))
 	if err != nil {
 		return nil, err
 	}
-	req.Body = bytes.NewReader(data)
+	req.Body = bytes.NewReader(body)
 	return req, nil
 }
 
@@ -88,24 +70,22 @@ type SearchReqOptions struct {
 //----------------------------------------------------------------------------//
 
 func BuildDocumentDeleteByQueryReq(req opensearchgoAPI.DocumentDeleteByQueryReq, q Builder) (opensearchgoAPI.DocumentDeleteByQueryReq, error) {
-	body := NewRequestBody[any](q)
-	data, err := body.MarshalJSON()
+	body, err := json.Marshal(NewRequestBody[any](q))
 	if err != nil {
 		return req, err
 	}
-	req.Body = bytes.NewReader(data)
+	req.Body = bytes.NewReader(body)
 	return req, nil
 }
 
 //----------------------------------------------------------------------------//
 
 func BuildUpdateByQueryReq(req opensearchgoAPI.UpdateByQueryReq, q Builder, o ...UpdateByQueryReqOptions) (opensearchgoAPI.UpdateByQueryReq, error) {
-	body := NewRequestBody(q, o...)
-	data, err := body.MarshalJSON()
+	body, err := json.Marshal(NewRequestBody(q, o...))
 	if err != nil {
 		return req, err
 	}
-	req.Body = bytes.NewReader(data)
+	req.Body = bytes.NewReader(body)
 	return req, nil
 }
 
@@ -116,11 +96,10 @@ type UpdateByQueryReqOptions struct {
 //----------------------------------------------------------------------------//
 
 func BuildIndicesCountReq(req *opensearchgoAPI.IndicesCountReq, q Builder) (*opensearchgoAPI.IndicesCountReq, error) {
-	body := NewRequestBody[any](q)
-	data, err := body.MarshalJSON()
+	body, err := json.Marshal(NewRequestBody[any](q))
 	if err != nil {
 		return nil, err
 	}
-	req.Body = bytes.NewReader(data)
+	req.Body = bytes.NewReader(body)
 	return req, nil
 }

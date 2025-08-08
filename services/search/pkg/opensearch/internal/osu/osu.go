@@ -12,7 +12,6 @@ import (
 
 type Builder interface {
 	json.Marshaler
-	fmt.Stringer
 	Map() (map[string]any, error)
 }
 
@@ -64,11 +63,10 @@ func applyBuilder(target map[string]any, key string, builder Builder) error {
 		return fmt.Errorf("failed to map builder %s: %w", key, err)
 	}
 
-	if isEmpty(data) {
-		return nil
+	if !isEmpty(data) {
+		target[key] = data
 	}
 
-	target[key] = data
 	return nil
 }
 

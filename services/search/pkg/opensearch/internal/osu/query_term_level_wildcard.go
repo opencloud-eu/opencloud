@@ -56,8 +56,3 @@ func (q *WildcardQuery) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(data)
 }
-
-func (q *WildcardQuery) String() string {
-	b, _ := q.MarshalJSON()
-	return string(b)
-}

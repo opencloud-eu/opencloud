@@ -17,6 +17,15 @@ func TestIDsQuery(t *testing.T) {
 			Want: nil,
 		},
 		{
+			Name: "no options",
+			Got:  osu.NewIDsQuery("1", "2", "3", "3"),
+			Want: map[string]any{
+				"ids": map[string]any{
+					"values": []string{"1", "2", "3"},
+				},
+			},
+		},
+		{
 			Name: "ids",
 			Got:  osu.NewIDsQuery("1", "2", "3", "3").Options(&osu.IDsQueryOptions{Boost: 1.0}),
 			Want: map[string]any{

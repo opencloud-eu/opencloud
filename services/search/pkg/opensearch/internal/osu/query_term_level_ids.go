@@ -47,8 +47,3 @@ func (q *IDsQuery) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(data)
 }
-
-func (q *IDsQuery) String() string {
-	b, _ := q.MarshalJSON()
-	return string(b)
-}
