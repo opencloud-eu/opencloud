@@ -16,7 +16,7 @@ var Testdata = struct {
 	Resources resourceTestdata
 }{
 	Resources: resourceTestdata{
-		File: loadTestdata[engine.Resource]("resource_file.json"),
+		File: fromTestData[engine.Resource]("resource_file.json"),
 	},
 }
 
@@ -24,7 +24,7 @@ type resourceTestdata struct {
 	File engine.Resource
 }
 
-func loadTestdata[D any](name string) D {
+func fromTestData[D any](name string) D {
 	name = path.Join("./testdata", name)
 	data, err := testdata.ReadFile(name)
 	if err != nil {
