@@ -1,0 +1,25 @@
+dn: dc=opencloud,dc=eu
+objectClass: organization
+objectClass: dcObject
+dc: opencloud
+o: openCloud
+
+dn: ou=users,dc=opencloud,dc=eu
+objectClass: organizationalUnit
+ou: users
+
+dn: cn=admin,dc=opencloud,dc=eu
+objectClass: inetOrgPerson
+objectClass: person
+cn: admin
+sn: admin
+uid: ldapadmin
+departmentNumber: {{ .TenantID }}
+
+dn: ou=groups,dc=opencloud,dc=eu
+objectClass: organizationalUnit
+ou: groups
+
+dn: ou=custom,ou=groups,dc=opencloud,dc=eu
+objectClass: organizationalUnit
+ou: custom

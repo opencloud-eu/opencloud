@@ -90,6 +90,13 @@ class OcHelper {
 	}
 
 	/**
+	 * @return bool
+	 */
+	public static function isUsingPreparedLdapUsers(): bool {
+		return (\getenv("USE_PREPARED_LDAP_USERS") === "true");
+	}
+
+	/**
 	 * @return bool|string false if no command given or the command as string
 	 */
 	public static function getDeleteUserDataCommand() {

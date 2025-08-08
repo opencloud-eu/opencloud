@@ -450,7 +450,7 @@ class SpacesContext implements Context {
 	 * @throws Exception|GuzzleException
 	 */
 	public function cleanDataAfterTests(): void {
-		if (OcHelper::isTestingOnReva()) {
+		if (OcHelper::isTestingOnReva() || OcHelper::isUsingPreparedLdapUsers()) {
 			return;
 		}
 		$this->deleteAllProjectSpaces();

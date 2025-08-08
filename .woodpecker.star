@@ -33,6 +33,7 @@ PLUGINS_S3_CACHE = "plugins/s3-cache:1"
 PLUGINS_SLACK = "plugins/slack:1"
 REDIS = "redis:6-alpine"
 READY_RELEASE_GO = "woodpeckerci/plugin-ready-release-go:latest"
+OPENLDAP = "bitnami/openldap:2.6"
 
 DEFAULT_PHP_VERSION = "8.2"
 DEFAULT_NODEJS_VERSION = "20"
@@ -113,7 +114,7 @@ config = {
             "skip": False,
             "withRemotePhp": [True],
             "emailNeeded": True,
-            "extraEnvironment": {
+            "extraTestEnvironment": {
                 "EMAIL_HOST": "email",
                 "EMAIL_PORT": "9000",
             },
@@ -207,7 +208,7 @@ config = {
             "skip": False,
             "withRemotePhp": [True],
             "emailNeeded": True,
-            "extraEnvironment": {
+            "extraTestEnvironment": {
                 "EMAIL_HOST": "email",
                 "EMAIL_PORT": "9000",
             },
@@ -250,7 +251,7 @@ config = {
             "withRemotePhp": [True],
             "federationServer": True,
             "emailNeeded": True,
-            "extraEnvironment": {
+            "extraTestEnvironment": {
                 "EMAIL_HOST": "email",
                 "EMAIL_PORT": "9000",
             },
@@ -298,6 +299,36 @@ config = {
                 "OC_ASYNC_UPLOADS": True,
                 "OC_ADD_RUN_SERVICES": "antivirus",
                 "STORAGE_USERS_DRIVER": "decomposed",
+            },
+        },
+        "multiTenancy": {
+            "suites": [
+                "apiTenancy",
+            ],
+            "skip": False,
+            "withRemotePhp": [True],
+            "ldapNeeded": True,
+            "extraTestEnvironment": {
+                "USE_PREPARED_LDAP_USERS": True,
+            },
+            "extraServerEnvironment": {
+                "OC_LDAP_USER_SCHEMA_TENANT_ID": "departmentNumber",
+                "OC_LDAP_URI": "ldaps://ldap-server:1636",
+                "OC_LDAP_INSECURE": True,
+                "OC_LDAP_BIND_DN": "cn=admin,dc=opencloud,dc=eu",
+                "OC_LDAP_BIND_PASSWORD": "admin",
+                "OC_LDAP_GROUP_BASE_DN": "ou=groups,dc=opencloud,dc=eu",
+                "OC_LDAP_GROUP_SCHEMA_ID": "entryUUID",
+                "OC_LDAP_USER_BASE_DN": "ou=users,dc=opencloud,dc=eu",
+                "OC_LDAP_USER_FILTER": "(objectclass=inetOrgPerson)",
+                "OC_LDAP_USER_SCHEMA_ID": "entryUUID",
+                "OC_LDAP_DISABLE_USER_MECHANISM": "none",
+                "GRAPH_LDAP_SERVER_UUID": True,
+                "GRAPH_LDAP_GROUP_CREATE_BASE_DN": "ou=custom,ou=groups,dc=opencloud,dc=eu",
+                "GRAPH_LDAP_REFINT_ENABLED": True,
+                "FRONTEND_READONLY_USER_ATTRIBUTES": "user.onPremisesSamAccountName,user.displayName,user.mail,user.passwordProfile,user.accountEnabled,user.appRoleAssignments",
+                "OC_LDAP_SERVER_WRITE_ENABLED": False,
+                "OC_EXCLUDE_RUN_SERVICES": "idm",
             },
         },
     },
@@ -913,7 +944,7 @@ def localApiTestPipeline(ctx):
     defaults = {
         "suites": {},
         "skip": False,
-        "extraEnvironment": {},
+        "extraTestEnvironment": {},
         "extraServerEnvironment": {},
         "storages": storages,
         "accounts_hash_difficulty": 4,
@@ -924,6 +955,7 @@ def localApiTestPipeline(ctx):
         "collaborationServiceNeeded": False,
         "extraCollaborationEnvironment": {},
         "withRemotePhp": with_remote_php,
+        "ldapNeeded": False,
     }
 
     if "localApiTests" in config:
@@ -941,11 +973,13 @@ def localApiTestPipeline(ctx):
                                      (waitForServices("online-offices", ["collabora:9980", "onlyoffice:443", "fakeoffice:8080"]) if params["collaborationServiceNeeded"] else []) +
                                      (waitForClamavService() if params["antivirusNeeded"] else []) +
                                      (waitForEmailService() if params["emailNeeded"] else []) +
+                                     (ldapService() if params["ldapNeeded"] else []) +
+                                     (waitForLdapService() if params["ldapNeeded"] else []) +
                                      opencloudServer(storage, params["accounts_hash_difficulty"], extra_server_environment = params["extraServerEnvironment"], with_wrapper = True, tika_enabled = params["tikaNeeded"]) +
                                      (opencloudServer(storage, params["accounts_hash_difficulty"], deploy_type = "federation", extra_server_environment = params["extraServerEnvironment"]) if params["federationServer"] else []) +
                                      ((wopiCollaborationService("fakeoffice") + wopiCollaborationService("collabora") + wopiCollaborationService("onlyoffice")) if params["collaborationServiceNeeded"] else []) +
                                      (openCloudHealthCheck("wopi", ["wopi-collabora:9304", "wopi-onlyoffice:9304", "wopi-fakeoffice:9304"]) if params["collaborationServiceNeeded"] else []) +
-                                     localApiTests(name, params["suites"], storage, params["extraEnvironment"], run_with_remote_php) +
+                                     localApiTests(name, params["suites"], storage, params["extraTestEnvironment"], run_with_remote_php) +
                                      logRequests(),
                             "services": (emailService() if params["emailNeeded"] else []) +
                                         (clamavService() if params["antivirusNeeded"] else []) +
@@ -2820,6 +2854,49 @@ def waitForClamavService():
         "image": OC_CI_WAIT_FOR,
         "commands": [
             "wait-for -it clamav:3310 -t 600",
+        ],
+    }]
+
+def ldapService():
+    return [
+        {
+            "name": "ldap-server",
+            "image": OPENLDAP,
+            "detach": True,
+            "environment": {
+                "BITNAMI_DEBUG": "true",
+                "LDAP_TLS_VERIFY_CLIENT": "never",
+                "LDAP_ENABLE_TLS": "yes",
+                "LDAP_TLS_CA_FILE": "/opt/bitnami/openldap/share/openldap.crt",
+                "LDAP_TLS_CERT_FILE": "/opt/bitnami/openldap/share/openldap.crt",
+                "LDAP_TLS_KEY_FILE": "/opt/bitnami/openldap/share/openldap.key",
+                "LDAP_ROOT": "dc=opencloud,dc=eu",
+                "LDAP_ADMIN_PASSWORD": "admin",
+            },
+            "commands": [
+                "mkdir -p /opt/bitnami/openldap/share",
+                "mkdir -p /tmp/custom-scripts",
+                "mkdir -p /tmp/ldif-files",
+                "cp tests/config/woodpecker/ldap/*.ldif /tmp/ldif-files/",
+                "cp tests/config/woodpecker/ldap/docker-entrypoint-override.sh /tmp/custom-scripts/",
+                "chmod +x /tmp/custom-scripts/docker-entrypoint-override.sh",
+                "ls -la /tmp/ldif-files/",
+                "/tmp/custom-scripts/docker-entrypoint-override.sh /opt/bitnami/scripts/openldap/run.sh",
+            ],
+            "backend_options": {
+                "docker": {
+                    "user": "0:0",
+                },
+            },
+        },
+    ]
+
+def waitForLdapService():
+    return [{
+        "name": "wait-for-ldap",
+        "image": OC_CI_WAIT_FOR,
+        "commands": [
+            "wait-for -it ldap-server:1636 -t 600",
         ],
     }]
 

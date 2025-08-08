@@ -1,0 +1,13 @@
+dn: cn=new-features-lovers,ou=groups,dc=opencloud,dc=eu
+objectClass: groupOfNames
+objectClass: top
+cn: new-features-lovers
+description: New features lovers
+member: uid=alice,ou=users,dc=opencloud,dc=eu
+
+dn: cn=release-lovers,ou=groups,dc=opencloud,dc=eu
+objectClass: groupOfNames
+objectClass: top
+cn: release-lovers
+description: Release lovers
+member: uid=david,ou=users,dc=opencloud,dc=eu

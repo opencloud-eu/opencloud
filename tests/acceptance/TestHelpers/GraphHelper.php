@@ -344,8 +344,8 @@ class GraphHelper {
 	/**
 	 * @param string $baseUrl
 	 * @param string $xRequestId
-	 * @param string $adminUser
-	 * @param string $adminPassword
+	 * @param string $user
+	 * @param string $password
 	 * @param string $searchTerm
 	 *
 	 * @return ResponseInterface
@@ -353,16 +353,16 @@ class GraphHelper {
 	public static function searchUser(
 		string $baseUrl,
 		string $xRequestId,
-		string $adminUser,
-		string $adminPassword,
+		string $user,
+		string $password,
 		string $searchTerm
 	): ResponseInterface {
 		$url = self::getFullUrl($baseUrl, "users?\$search=$searchTerm");
 		return HttpRequestHelper::get(
 			$url,
 			$xRequestId,
-			$adminUser,
-			$adminPassword,
+			$user,
+			$password,
 			self::getRequestHeaders()
 		);
 	}

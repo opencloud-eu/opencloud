@@ -1,0 +1,74 @@
+dn: uid=alice,ou=users,dc=opencloud,dc=eu
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: alice
+givenName: Alice
+sn: Hansen
+cn: alice
+displayName: Alice Hansen
+description: Senior DevOps engineer responsible for cloud infrastructure automation.
+mail: alice@example.org
+departmentNumber: tenant-1
+userPassword:: e1NTSEF9eGY5OXlPOXVxSVJ5eTFxdFhQYVYxTnd6WE4wUWRReVU=
+
+dn: uid=brian,ou=users,dc=opencloud,dc=eu
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: brian
+givenName: Brian
+sn: Murphy
+cn: brian
+displayName: Brian Murphy
+description: IT support specialist focused on end-user systems and service desk operations.
+mail: brian@example.org
+departmentNumber: tenant-1
+userPassword:: e1NTSEF9Y0xpdnEzdUxzNzB3SjU0R1dmR0EybndxbUZoRmNoOXQ=
+
+dn: uid=carol,ou=users,dc=opencloud,dc=eu
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: carol
+givenName: Carol
+sn: King
+cn: carol
+displayName: Carol King
+description: Project manager leading enterprise IT solutions and digital transformation projects.
+mail: carol@example.org
+departmentNumber: tenant-2
+userPassword:: e1NTSEF9bWFiT2FyNEE4UWlJUm1Pb2JhNm1pYm1QMjQraDkzSEw=
+
+dn: uid=david,ou=users,dc=opencloud,dc=eu
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: david
+givenName: David
+sn: Lopez
+cn: david
+displayName: David Lopez
+description: Systems architect working on scalable backend services and platform reliability.
+mail: david@example.org
+departmentNumber: tenant-2
+userPassword:: e1NTSEF9MEh2a3J0UTVONmZNSUhyL1NlWVQvclBYTjg0bi9SYlc=
+
+dn: uid=admin,ou=users,dc=opencloud,dc=eu
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: admin
+givenName: Admin
+sn: Admin
+cn: Admin
+displayName: Admin
+description: System administrator
+mail: admin@example.org
+departmentNumber: tenant-1
+userPassword:: e1NTSEF9bFU2dDRHSC9Cb28wV2lnM1A0SVAzQTIyWE9aL2pCa1M=
