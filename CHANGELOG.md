@@ -4,11 +4,15 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@aduffeck, @michaelstingl
+@ScharfViktor, @aduffeck, @michaelstingl
 
 ### ✨ Features
 
 - Tenant [[#1274](https://github.com/opencloud-eu/opencloud/pull/1274)]
+
+### ✅ Tests
+
+- multiTenancyTests [[#1313](https://github.com/opencloud-eu/opencloud/pull/1313)]
 
 ### 🐛 Bug Fixes
 
