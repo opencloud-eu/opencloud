@@ -32,7 +32,7 @@ func TestNewBackend(t *testing.T) {
 
 func TestEngine_Search(t *testing.T) {
 	indexName := "opencloud-test-engine-search"
-	tc := opensearchtest.NewDefaultTestClient(t)
+	tc := opensearchtest.NewDefaultTestClient(t, defaultConfig.Engine.OpenSearch.Client)
 	tc.Require.IndicesReset([]string{indexName})
 	tc.Require.IndicesCount([]string{indexName}, nil, 0)
 
@@ -75,7 +75,7 @@ func TestEngine_Search(t *testing.T) {
 
 func TestEngine_Upsert(t *testing.T) {
 	indexName := "opencloud-test-engine-upsert"
-	tc := opensearchtest.NewDefaultTestClient(t)
+	tc := opensearchtest.NewDefaultTestClient(t, defaultConfig.Engine.OpenSearch.Client)
 	tc.Require.IndicesReset([]string{indexName})
 	tc.Require.IndicesCount([]string{indexName}, nil, 0)
 
@@ -94,7 +94,7 @@ func TestEngine_Upsert(t *testing.T) {
 
 func TestEngine_Move(t *testing.T) {
 	indexName := "opencloud-test-engine-move"
-	tc := opensearchtest.NewDefaultTestClient(t)
+	tc := opensearchtest.NewDefaultTestClient(t, defaultConfig.Engine.OpenSearch.Client)
 	tc.Require.IndicesReset([]string{indexName})
 	tc.Require.IndicesCount([]string{indexName}, nil, 0)
 
@@ -131,7 +131,7 @@ func TestEngine_Move(t *testing.T) {
 
 func TestEngine_Delete(t *testing.T) {
 	indexName := "opencloud-test-engine-delete"
-	tc := opensearchtest.NewDefaultTestClient(t)
+	tc := opensearchtest.NewDefaultTestClient(t, defaultConfig.Engine.OpenSearch.Client)
 	tc.Require.IndicesReset([]string{indexName})
 	tc.Require.IndicesCount([]string{indexName}, nil, 0)
 
@@ -164,7 +164,7 @@ func TestEngine_Delete(t *testing.T) {
 
 func TestEngine_Restore(t *testing.T) {
 	indexName := "opencloud-test-engine-restore"
-	tc := opensearchtest.NewDefaultTestClient(t)
+	tc := opensearchtest.NewDefaultTestClient(t, defaultConfig.Engine.OpenSearch.Client)
 	tc.Require.IndicesReset([]string{indexName})
 	tc.Require.IndicesCount([]string{indexName}, nil, 0)
 
@@ -198,7 +198,7 @@ func TestEngine_Restore(t *testing.T) {
 
 func TestEngine_Purge(t *testing.T) {
 	indexName := "opencloud-test-engine-purge"
-	tc := opensearchtest.NewDefaultTestClient(t)
+	tc := opensearchtest.NewDefaultTestClient(t, defaultConfig.Engine.OpenSearch.Client)
 	tc.Require.IndicesReset([]string{indexName})
 	tc.Require.IndicesCount([]string{indexName}, nil, 0)
 
@@ -220,7 +220,7 @@ func TestEngine_Purge(t *testing.T) {
 
 func TestEngine_DocCount(t *testing.T) {
 	indexName := "opencloud-test-engine-doc-count"
-	tc := opensearchtest.NewDefaultTestClient(t)
+	tc := opensearchtest.NewDefaultTestClient(t, defaultConfig.Engine.OpenSearch.Client)
 	tc.Require.IndicesReset([]string{indexName})
 	tc.Require.IndicesCount([]string{indexName}, nil, 0)
 

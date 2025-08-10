@@ -12,7 +12,7 @@ import (
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 	"github.com/stretchr/testify/require"
 
-	"github.com/opencloud-eu/opencloud/services/search/pkg/config/defaults"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 )
 
 type TestClient struct {
@@ -20,10 +20,12 @@ type TestClient struct {
 	Require *testRequireClient
 }
 
-func NewDefaultTestClient(t *testing.T) *TestClient {
+func NewDefaultTestClient(t *testing.T, cfg config.EngineOpenSearchClient) *TestClient {
 	client, err := opensearchgoAPI.NewClient(opensearchgoAPI.Config{
 		Client: opensearchgo.Config{
-			Addresses: defaults.DefaultConfig().Engine.OpenSearch.Client.Addresses,
+			Addresses: cfg.Addresses,
+			Username:  cfg.Username,
+			Password:  cfg.Password,
 		},
 	})
 	require.NoError(t, err, "failed to create OpenSearch client")

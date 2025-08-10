@@ -8,7 +8,7 @@ import (
 	"github.com/tidwall/sjson"
 
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
-	opensearchtest "github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
 func TestIndexManager(t *testing.T) {
@@ -19,7 +19,7 @@ func TestIndexManager(t *testing.T) {
 				Got:  opensearch.IndexManagerLatest,
 			},
 		}
-		tc := opensearchtest.NewDefaultTestClient(t)
+		tc := opensearchtest.NewDefaultTestClient(t, defaultConfig.Engine.OpenSearch.Client)
 
 		for _, test := range tests {
 			t.Run(test.Name, func(t *testing.T) {
@@ -40,7 +40,7 @@ func TestIndexManager(t *testing.T) {
 		indexManager := opensearch.IndexManagerLatest
 		indexName := "opencloud-test-resource"
 
-		tc := opensearchtest.NewDefaultTestClient(t)
+		tc := opensearchtest.NewDefaultTestClient(t, defaultConfig.Engine.OpenSearch.Client)
 		tc.Require.IndicesReset([]string{indexName})
 		tc.Require.IndicesCreate(indexName, strings.NewReader(indexManager.String()))
 
@@ -51,7 +51,7 @@ func TestIndexManager(t *testing.T) {
 		indexManager := opensearch.IndexManagerLatest
 		indexName := "opencloud-test-resource"
 
-		tc := opensearchtest.NewDefaultTestClient(t)
+		tc := opensearchtest.NewDefaultTestClient(t, defaultConfig.Engine.OpenSearch.Client)
 		tc.Require.IndicesReset([]string{indexName})
 
 		body, err := sjson.Set(indexManager.String(), "settings.number_of_shards", "2")
