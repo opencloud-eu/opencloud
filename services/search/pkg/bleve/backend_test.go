@@ -454,6 +454,34 @@ var _ = Describe("Bleve", func() {
 		})
 	})
 
+	Describe("Purge", func() {
+		It("removes a resource from the index", func() {
+			err := eng.Upsert(childResource.ID, childResource)
+			Expect(err).ToNot(HaveOccurred())
+			assertDocCount(rootResource.ID, "Name:child.pdf", 1)
+
+			err = eng.Purge(childResource.ID)
+
+			Expect(err).ToNot(HaveOccurred())
+			assertDocCount(rootResource.ID, "Name:child.pdf", 0)
+		})
+		It("removes a resource and its children from the index", func() {
+			err := eng.Upsert(parentResource.ID, parentResource)
+			Expect(err).ToNot(HaveOccurred())
+			err = eng.Upsert(childResource.ID, childResource)
+			Expect(err).ToNot(HaveOccurred())
+
+			assertDocCount(rootResource.ID, `"`+parentResource.Document.Name+`"`, 1)
+			assertDocCount(rootResource.ID, `"`+childResource.Document.Name+`"`, 1)
+
+			err = eng.Purge(parentResource.ID)
+			Expect(err).ToNot(HaveOccurred())
+
+			assertDocCount(rootResource.ID, `"`+parentResource.Document.Name+`"`, 0)
+			assertDocCount(rootResource.ID, `"`+childResource.Document.Name+`"`, 0)
+		})
+	})
+
 	Describe("Move", func() {
 		It("renames the parent and its child resources", func() {
 			err := eng.Upsert(parentResource.ID, parentResource)
