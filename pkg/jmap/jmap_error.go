@@ -1,5 +1,10 @@
 package jmap
 
+import (
+	"fmt"
+	"strings"
+)
+
 const (
 	JmapErrorAuthenticationFailed = iota
 	JmapErrorInvalidHttpRequest
@@ -13,6 +18,7 @@ const (
 	JmapErrorInvalidJmapRequestPayload
 	JmapErrorInvalidJmapResponsePayload
 	JmapErrorMethodLevel
+	JmapErrorSetError
 )
 
 type Error interface {
@@ -43,4 +49,14 @@ func simpleError(err error, code int) Error {
 	} else {
 		return nil
 	}
+}
+
+func setErrorError(err SetError, objectType ObjectType) Error {
+	var e error
+	if len(err.Properties) > 0 {
+		e = fmt.Errorf("failed to modify %s due to %s error in properties [%s]: %s", objectType, err.Type, strings.Join(err.Properties, ", "), err.Description)
+	} else {
+		e = fmt.Errorf("failed to modify %s due to %s error: %s", objectType, err.Type, err.Description)
+	}
+	return SimpleError{code: JmapErrorSetError, err: e}
 }

@@ -107,8 +107,9 @@ func serveTestFile(t *testing.T, name string) ([]byte, Error) {
 	err = json.Unmarshal(bytes, &target)
 	if err != nil {
 		t.Errorf("failed to parse JSON test data file '%v': %v", p, err)
+		return nil, SimpleError{code: 0, err: err}
 	}
-	return bytes, SimpleError{code: 0, err: err}
+	return bytes, nil
 }
 
 func (t *TestJmapApiClient) Command(ctx context.Context, logger *log.Logger, session *Session, request Request) ([]byte, Error) {
@@ -152,7 +153,7 @@ func TestRequests(t *testing.T) {
 
 	folders, err := client.GetAllMailboxes("a", &session, ctx, &logger)
 	require.NoError(err)
-	require.Len(folders.List, 5)
+	require.Len(folders.Mailboxes, 5)
 
 	emails, err := client.GetAllEmails("a", &session, ctx, &logger, "Inbox", 0, 0, true, 0)
 	require.NoError(err)

@@ -28,7 +28,7 @@ func (g Groupware) GetAllMessagesInMailbox(w http.ResponseWriter, r *http.Reques
 					withSource(&ErrorSource{Parameter: UriParamMailboxId}),
 				))
 			}
-			logger := &log.Logger{Logger: req.logger.With().Str(HeaderSince, since).Logger()}
+			logger := log.From(req.logger.With().Str(HeaderSince, since))
 
 			emails, jerr := g.jmap.GetEmailsInMailboxSince(req.GetAccountId(), req.session, req.ctx, logger, mailboxId, since, true, g.maxBodyValueBytes, maxChanges)
 			if jerr != nil {
@@ -64,7 +64,7 @@ func (g Groupware) GetAllMessagesInMailbox(w http.ResponseWriter, r *http.Reques
 				l = l.Int(QueryParamLimit, limit)
 			}
 
-			logger := &log.Logger{Logger: l.Logger()}
+			logger := log.From(l)
 
 			emails, jerr := g.jmap.GetAllEmails(req.GetAccountId(), req.session, req.ctx, logger, mailboxId, offset, limit, true, g.maxBodyValueBytes)
 			if jerr != nil {
@@ -82,14 +82,14 @@ func (g Groupware) GetMessagesById(w http.ResponseWriter, r *http.Request) {
 		ids := strings.Split(id, ",")
 		if len(ids) < 1 {
 			errorId := req.errorId()
-			msg := fmt.Sprintf("Invalid value for path parameter '%v': '%s': %s", UriParamMessageId, logstr(id), "empty list of mail ids")
+			msg := fmt.Sprintf("Invalid value for path parameter '%v': '%s': %s", UriParamMessageId, log.SafeString(id), "empty list of mail ids")
 			return errorResponse(apiError(errorId, ErrorInvalidRequestParameter,
 				withDetail(msg),
 				withSource(&ErrorSource{Parameter: UriParamMessageId}),
 			))
 		}
 
-		logger := &log.Logger{Logger: req.logger.With().Str("id", logstr(id)).Logger()}
+		logger := log.From(req.logger.With().Str("id", log.SafeString(id)))
 		emails, jerr := g.jmap.GetEmails(req.GetAccountId(), req.session, req.ctx, logger, ids, true, g.maxBodyValueBytes)
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
@@ -109,7 +109,7 @@ func (g Groupware) getMessagesSince(w http.ResponseWriter, r *http.Request, sinc
 		if ok {
 			l = l.Int(QueryParamMaxChanges, maxChanges)
 		}
-		logger := &log.Logger{Logger: l.Logger()}
+		logger := log.From(l)
 
 		emails, jerr := g.jmap.GetEmailsSince(req.GetAccountId(), req.session, req.ctx, logger, since, true, g.maxBodyValueBytes, maxChanges)
 		if jerr != nil {
@@ -192,31 +192,31 @@ func (g Groupware) buildQuery(req Request) (bool, jmap.EmailFilterElement, int, 
 	}
 
 	if mailboxId != "" {
-		l = l.Str(QueryParamMailboxId, logstr(mailboxId))
+		l = l.Str(QueryParamMailboxId, log.SafeString(mailboxId))
 	}
 	if len(notInMailboxIds) > 0 {
-		l = l.Array(QueryParamNotInMailboxId, logstrarray(notInMailboxIds))
+		l = l.Array(QueryParamNotInMailboxId, log.SafeStringArray(notInMailboxIds))
 	}
 	if text != "" {
-		l = l.Str(QueryParamSearchText, logstr(text))
+		l = l.Str(QueryParamSearchText, log.SafeString(text))
 	}
 	if from != "" {
-		l = l.Str(QueryParamSearchFrom, logstr(from))
+		l = l.Str(QueryParamSearchFrom, log.SafeString(from))
 	}
 	if to != "" {
-		l = l.Str(QueryParamSearchTo, logstr(to))
+		l = l.Str(QueryParamSearchTo, log.SafeString(to))
 	}
 	if cc != "" {
-		l = l.Str(QueryParamSearchCc, logstr(cc))
+		l = l.Str(QueryParamSearchCc, log.SafeString(cc))
 	}
 	if bcc != "" {
-		l = l.Str(QueryParamSearchBcc, logstr(bcc))
+		l = l.Str(QueryParamSearchBcc, log.SafeString(bcc))
 	}
 	if subject != "" {
-		l = l.Str(QueryParamSearchSubject, logstr(subject))
+		l = l.Str(QueryParamSearchSubject, log.SafeString(subject))
 	}
 	if body != "" {
-		l = l.Str(QueryParamSearchBody, logstr(body))
+		l = l.Str(QueryParamSearchBody, log.SafeString(body))
 	}
 
 	minSize, ok, err := req.parseNumericParam(QueryParamSearchMinSize, 0)
@@ -235,7 +235,7 @@ func (g Groupware) buildQuery(req Request) (bool, jmap.EmailFilterElement, int, 
 		l = l.Int(QueryParamSearchMaxSize, maxSize)
 	}
 
-	logger := &log.Logger{Logger: l.Logger()}
+	logger := log.From(l)
 
 	var filter jmap.EmailFilterElement
 
@@ -379,7 +379,7 @@ func (g Groupware) CreateMessage(w http.ResponseWriter, r *http.Request) {
 
 		l := req.logger.With()
 		l.Str(UriParamMessageId, messageId)
-		logger := &log.Logger{Logger: l.Logger()}
+		logger := log.From(l)
 
 		var body MessageCreation
 		err := req.body(&body)
