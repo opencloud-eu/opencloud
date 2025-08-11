@@ -47,6 +47,7 @@ type Searcher interface {
 	Search(ctx context.Context, req *searchsvc.SearchRequest) (*searchsvc.SearchResponse, error)
 	IndexSpace(rID *provider.StorageSpaceId) error
 	TrashItem(rID *provider.ResourceId)
+	PurgeItem(rID *provider.Reference)
 	UpsertItem(ref *provider.Reference)
 	RestoreItem(ref *provider.Reference)
 	MoveItem(ref *provider.Reference)
@@ -520,6 +521,27 @@ func (s *Service) TrashItem(rID *provider.ResourceId) {
 	if err := s.engine.Delete(storagespace.FormatResourceID(rID)); err != nil {
 		s.logger.Error().Err(err).Interface("Id", rID).Msg("failed to remove item from index")
 	}
+}
+
+func (s *Service) PurgeItem(ref *provider.Reference) {
+	if ref.Path != "" && ref.Path != "." {
+		s.logger.Warn().Str("path", ref.Path).Msg("purging an item with a path is not supported")
+		return
+	}
+
+	s.engine.StartBatch(s.batchSize)
+	defer func() {
+		if err := s.engine.EndBatch(); err != nil {
+			s.logger.Error().Err(err).Msg("failed to end batch")
+		}
+		logDocCount(s.engine, s.logger)
+	}()
+	err := s.engine.Purge(storagespace.FormatResourceID(ref.ResourceId))
+	if err != nil {
+		s.logger.Error().Err(err).Interface("Id", ref.ResourceId).Msg("failed to purge item from index")
+		return
+	}
+	s.logger.Info().Interface("Id", ref.ResourceId).Msg("purged item from index")
 }
 
 // UpsertItem indexes or stores Resource data fields.

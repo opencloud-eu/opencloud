@@ -18,6 +18,7 @@ import (
 func HandleEvents(s Searcher, stream raw.Stream, cfg *config.Config, m *metrics.Metrics, logger log.Logger) error {
 	evts := []events.Unmarshaller{
 		events.ItemTrashed{},
+		events.ItemPurged{},
 		events.ItemRestored{},
 		events.ItemMoved{},
 		events.ContainerCreated{},
@@ -76,6 +77,9 @@ func HandleEvents(s Searcher, stream raw.Stream, cfg *config.Config, m *metrics.
 					case events.ItemTrashed:
 						s.TrashItem(ev.ID)
 						indexSpaceDebouncer.Debounce(getSpaceID(ev.Ref), e.Ack)
+					case events.ItemPurged:
+						s.PurgeItem(ev.Ref)
+						e.Ack()
 					case events.ItemMoved:
 						s.MoveItem(ev.Ref)
 						indexSpaceDebouncer.Debounce(getSpaceID(ev.Ref), e.Ack)
