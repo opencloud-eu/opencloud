@@ -5,33 +5,36 @@ import (
 )
 
 const (
-	UriParamAccount             = "accountid"
-	UriParamMailboxId           = "mailbox"
-	UriParamMessageId           = "messageid"
-	UriParamBlobId              = "blobid"
-	UriParamBlobName            = "blobname"
-	QueryParamBlobType          = "type"
-	QueryParamSince             = "since"
-	QueryParamMaxChanges        = "maxchanges"
-	QueryParamMailboxId         = "mailbox"
-	QueryParamNotInMailboxId    = "notmailbox"
-	QueryParamSearchText        = "text"
-	QueryParamSearchFrom        = "from"
-	QueryParamSearchTo          = "to"
-	QueryParamSearchCc          = "cc"
-	QueryParamSearchBcc         = "bcc"
-	QueryParamSearchSubject     = "subject"
-	QueryParamSearchBody        = "body"
-	QueryParamSearchBefore      = "before"
-	QueryParamSearchAfter       = "after"
-	QueryParamSearchMinSize     = "minsize"
-	QueryParamSearchMaxSize     = "maxsize"
-	QueryParamSearchKeyword     = "keyword"
-	QueryParamSearchFetchBodies = "fetchbodies"
-	QueryParamSearchFetchEmails = "fetchemails"
-	QueryParamOffset            = "offset"
-	QueryParamLimit             = "limit"
-	HeaderSince                 = "if-none-match"
+	UriParamAccount                   = "accountid"
+	UriParamMailboxId                 = "mailbox"
+	UriParamMessageId                 = "messageid"
+	UriParamBlobId                    = "blobid"
+	UriParamBlobName                  = "blobname"
+	QueryParamMailboxSearchName       = "name"
+	QueryParamMailboxSearchRole       = "role"
+	QueryParamMailboxSearchSubscribed = "subscribed"
+	QueryParamBlobType                = "type"
+	QueryParamSince                   = "since"
+	QueryParamMaxChanges              = "maxchanges"
+	QueryParamMailboxId               = "mailbox"
+	QueryParamNotInMailboxId          = "notmailbox"
+	QueryParamSearchText              = "text"
+	QueryParamSearchFrom              = "from"
+	QueryParamSearchTo                = "to"
+	QueryParamSearchCc                = "cc"
+	QueryParamSearchBcc               = "bcc"
+	QueryParamSearchSubject           = "subject"
+	QueryParamSearchBody              = "body"
+	QueryParamSearchBefore            = "before"
+	QueryParamSearchAfter             = "after"
+	QueryParamSearchMinSize           = "minsize"
+	QueryParamSearchMaxSize           = "maxsize"
+	QueryParamSearchKeyword           = "keyword"
+	QueryParamSearchFetchBodies       = "fetchbodies"
+	QueryParamSearchFetchEmails       = "fetchemails"
+	QueryParamOffset                  = "offset"
+	QueryParamLimit                   = "limit"
+	HeaderSince                       = "if-none-match"
 )
 
 func (g Groupware) Route(r chi.Router) {
@@ -41,7 +44,7 @@ func (g Groupware) Route(r chi.Router) {
 		r.Get("/", g.GetAccount)
 		r.Get("/identities", g.GetIdentities)
 		r.Get("/vacation", g.GetVacation)
-		r.Post("/vacation", g.SetVacation)
+		r.Put("/vacation", g.SetVacation)
 		r.Route("/mailboxes", func(r chi.Router) {
 			r.Get("/", g.GetMailboxes) // ?name=&role=&subcribed=
 			r.Get("/{mailbox}", g.GetMailbox)

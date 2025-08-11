@@ -9,7 +9,13 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
-func (j *Client) GetBlob(accountId string, session *Session, ctx context.Context, logger *log.Logger, id string) (*Blob, Error) {
+type BlobResponse struct {
+	Blob         *Blob  `json:"blob,omitempty"`
+	State        string `json:"state"`
+	SessionState string `json:"sessionState"`
+}
+
+func (j *Client) GetBlob(accountId string, session *Session, ctx context.Context, logger *log.Logger, id string) (BlobResponse, Error) {
 	aid := session.BlobAccountId(accountId)
 
 	cmd, err := request(
@@ -20,29 +26,31 @@ func (j *Client) GetBlob(accountId string, session *Session, ctx context.Context
 		}, "0"),
 	)
 	if err != nil {
-		return nil, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
+		return BlobResponse{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (*Blob, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (BlobResponse, Error) {
 		var response BlobGetResponse
 		err = retrieveResponseMatchParameters(body, BlobGet, "0", &response)
 		if err != nil {
-			return nil, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
+			return BlobResponse{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
 		}
 
 		if len(response.List) != 1 {
-			return nil, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
+			return BlobResponse{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
 		}
 		get := response.List[0]
-		return &get, nil
+		return BlobResponse{Blob: &get, State: response.State, SessionState: body.SessionState}, nil
 	})
 }
 
 type UploadedBlob struct {
-	Id     string `json:"id"`
-	Size   int    `json:"size"`
-	Type   string `json:"type"`
-	Sha512 string `json:"sha:512"`
+	Id           string `json:"id"`
+	Size         int    `json:"size"`
+	Type         string `json:"type"`
+	Sha512       string `json:"sha:512"`
+	State        string `json:"state"`
+	SessionState string `json:"sessionState"`
 }
 
 func (j *Client) UploadBlobStream(accountId string, session *Session, ctx context.Context, logger *log.Logger, contentType string, body io.Reader) (UploadedBlob, Error) {
@@ -60,7 +68,7 @@ func (j *Client) DownloadBlobStream(accountId string, blobId string, name string
 	downloadUrl = strings.ReplaceAll(downloadUrl, "{blobId}", blobId)
 	downloadUrl = strings.ReplaceAll(downloadUrl, "{name}", name)
 	downloadUrl = strings.ReplaceAll(downloadUrl, "{type}", typ)
-	logger = &log.Logger{Logger: logger.With().Str(logDownloadUrl, downloadUrl).Str(logBlobId, blobId).Str(logAccountId, aid).Logger()}
+	logger = log.From(logger.With().Str(logDownloadUrl, downloadUrl).Str(logBlobId, blobId).Str(logAccountId, aid))
 	return j.blob.DownloadBinary(ctx, logger, session, downloadUrl)
 }
 
@@ -126,10 +134,12 @@ func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Cont
 		get := getResponse.List[0]
 
 		return UploadedBlob{
-			Id:     upload.Id,
-			Size:   upload.Size,
-			Type:   upload.Type,
-			Sha512: get.DigestSha512,
+			Id:           upload.Id,
+			Size:         upload.Size,
+			Type:         upload.Type,
+			Sha512:       get.DigestSha512,
+			State:        getResponse.State,
+			SessionState: body.SessionState,
 		}, nil
 	})
 

@@ -29,7 +29,11 @@ func (g Groupware) GetBlob(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return req.errorResponseFromJmap(err)
 		}
-		return etagOnlyResponse(res, res.Digest())
+		blob := res.Blob
+		if blob == nil {
+			return notFoundResponse("")
+		}
+		return etagOnlyResponse(res, blob.Digest())
 	})
 }
 

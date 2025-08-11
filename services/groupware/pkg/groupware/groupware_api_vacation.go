@@ -40,7 +40,7 @@ func (g Groupware) GetVacation(w http.ResponseWriter, r *http.Request) {
 
 func (g Groupware) SetVacation(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
-		var body jmap.VacationResponseBody
+		var body jmap.VacationResponsePayload
 		err := req.body(&body)
 		if err != nil {
 			return errorResponse(err)

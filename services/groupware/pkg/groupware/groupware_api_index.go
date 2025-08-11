@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
+	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
 type IndexLimits struct {
@@ -79,7 +80,7 @@ func (g Groupware) Index(w http.ResponseWriter, r *http.Request) {
 			accountIds[i] = k
 			i++
 		}
-		accountIds = uniq(accountIds)
+		accountIds = structs.Uniq(accountIds)
 
 		identitiesResponse, err := g.jmap.GetIdentities(accountIds, req.session, req.ctx, req.logger)
 		if err != nil {

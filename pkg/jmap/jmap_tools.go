@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"reflect"
 	"sync"
 	"time"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/rs/zerolog"
 )
 
 type eventListeners[T any] struct {
@@ -154,6 +154,14 @@ func retrieveResponseMatchParameters[T any](data *Response, command Command, tag
 	return nil
 }
 
+func (e EmailBodyStructure) MarshalJSON() ([]byte, error) {
+	m := map[string]any{}
+	maps.Copy(m, e.Other) // do this first to avoid overwriting type and partId
+	m["type"] = e.Type
+	m["partId"] = e.PartId
+	return json.Marshal(m)
+}
+
 func (e *EmailBodyStructure) UnmarshalJSON(bs []byte) error {
 	m := map[string]any{}
 	err := json.Unmarshal(bs, &m)
@@ -161,16 +169,6 @@ func (e *EmailBodyStructure) UnmarshalJSON(bs []byte) error {
 		return err
 	}
 	return decodeMap(m, e)
-}
-
-func (e *EmailBodyStructure) MarshalJSON() ([]byte, error) {
-	m := map[string]any{}
-	m["type"] = e.Type
-	m["partId"] = e.PartId
-	for k, v := range e.Other {
-		m[k] = v
-	}
-	return json.Marshal(m)
 }
 
 func (i *Invocation) MarshalJSON() ([]byte, error) {
@@ -222,48 +220,4 @@ func (i *Invocation) UnmarshalJSON(bs []byte) error {
 	}
 	i.Parameters = params
 	return nil
-}
-
-const logMaxStrLength = 1024
-
-// Safely caps a string to a given size to avoid log bombing.
-// Use this function to wrap strings that are user input (HTTP headers, path parameters, URI parameters, HTTP body, ...).
-func logstr(text string) string {
-	runes := []rune(text)
-
-	if len(runes) <= logMaxStrLength {
-		return text
-	} else {
-		return string(runes[0:logMaxStrLength-1]) + `\u2026` // hellip
-	}
-}
-
-type SafeLogStringArrayMarshaller struct {
-	array []string
-}
-
-func (m SafeLogStringArrayMarshaller) MarshalZerologArray(a *zerolog.Array) {
-	for _, elem := range m.array {
-		a.Str(logstr(elem))
-	}
-}
-
-var _ zerolog.LogArrayMarshaler = SafeLogStringArrayMarshaller{}
-
-func logstrarray(array []string) SafeLogStringArrayMarshaller {
-	return SafeLogStringArrayMarshaller{array: array}
-}
-
-func uniq[T comparable](ary []T) []T {
-	m := map[T]bool{}
-	for _, v := range ary {
-		m[v] = true
-	}
-	set := make([]T, len(m))
-	i := 0
-	for v := range m {
-		set[i] = v
-		i++
-	}
-	return set
 }
