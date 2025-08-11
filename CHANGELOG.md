@@ -10,6 +10,10 @@
 
 - Tenant [[#1274](https://github.com/opencloud-eu/opencloud/pull/1274)]
 
+### 📈 Enhancement
+
+- chore: bump web to v3.3.0 [[#1329](https://github.com/opencloud-eu/opencloud/pull/1329)]
+
 ### ✅ Tests
 
 - multiTenancyTests [[#1313](https://github.com/opencloud-eu/opencloud/pull/1313)]
