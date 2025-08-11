@@ -31,6 +31,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/pkg/xattr"
 	"github.com/rs/zerolog"
 	"go-micro.dev/v4/store"
 	"go.opentelemetry.io/otel"
@@ -117,6 +118,9 @@ func New(lu node.PathLookup, bs node.Blobstore, um usermapper.Mapper, trashbin *
 		personalSpacesRoot: filepath.Clean(filepath.Join(o.Root, templates.Base(o.PersonalSpacePathTemplate))),
 		projectSpacesRoot:  filepath.Clean(filepath.Join(o.Root, templates.Base(o.GeneralSpacePathTemplate))),
 	}
+	if err := t.checkStorage(); err != nil {
+		return nil, errors.Wrap(err, "tree: unfit storage '"+o.Root+"'")
+	}
 
 	// Start watching for fs events and put them into the queue
 	if o.WatchFS {
@@ -159,6 +163,51 @@ func New(lu node.PathLookup, bs node.Blobstore, um usermapper.Mapper, trashbin *
 	}
 
 	return t, nil
+}
+
+func (t *Tree) checkStorage() error {
+	// check if the root path is a directory
+	err := os.MkdirAll(t.options.Root, 0700)
+	if err != nil {
+		return errors.Wrap(err, "could not create root path")
+	}
+	fi, err := os.Stat(t.options.Root)
+	if err != nil {
+		return errors.Wrap(err, "root path does not exist")
+	}
+	if !fi.IsDir() {
+		return errors.New("root path is not a directory")
+	}
+
+	// check if extended attributes are supported
+	f, err := os.CreateTemp(t.options.Root, "posixfs-xattr-check-")
+	if err != nil {
+		return errors.Wrap(err, "could not create file in root path")
+	}
+	err = f.Close()
+	if err != nil {
+		return errors.Wrap(err, "could not close temp file")
+	}
+	defer func() {
+		if err := os.Remove(f.Name()); err != nil {
+			t.log.Error().Err(err).Str("path", f.Name()).Msg("could not remove temp file")
+		}
+	}()
+
+	attrKey := "user.posixfs.test"
+	attrVal := []byte("test")
+	if err := xattr.Set(f.Name(), attrKey, attrVal); err != nil {
+		return errors.Wrap(err, "extended attributes not supported")
+	}
+
+	val, err := xattr.Get(f.Name(), attrKey)
+	if err != nil {
+		return errors.Wrap(err, "extended attributes not supported")
+	}
+	if string(val) != string(attrVal) {
+		return errors.New("extended attribute mismatch")
+	}
+	return nil
 }
 
 func (t *Tree) PublishEvent(ev interface{}) {
