@@ -26,7 +26,6 @@ func TestDeserializeMailboxGetResponse(t *testing.T) {
 	require.Len(mgr.List, 5)
 	require.Equal("n", mgr.State)
 	require.Empty(mgr.NotFound)
-	var rights = []string{"mayReadItems", "mayAddItems", "mayRemoveItems", "maySetSeen", "maySetKeywords", "mayCreateChild", "mayRename", "mayDelete", "maySubmit"}
 	var folders = []struct {
 		id     string
 		name   string
@@ -53,10 +52,15 @@ func TestDeserializeMailboxGetResponse(t *testing.T) {
 		require.Zero(folder.SortOrder)
 		require.True(folder.IsSubscribed)
 
-		for _, right := range rights {
-			require.Contains(folder.MyRights, right)
-			require.True(folder.MyRights[right])
-		}
+		require.True(folder.MyRights.MayReadItems)
+		require.True(folder.MyRights.MayAddItems)
+		require.True(folder.MyRights.MayRemoveItems)
+		require.True(folder.MyRights.MaySetSeen)
+		require.True(folder.MyRights.MaySetKeywords)
+		require.True(folder.MyRights.MayCreateChild)
+		require.True(folder.MyRights.MayRename)
+		require.True(folder.MyRights.MayDelete)
+		require.True(folder.MyRights.MaySubmit)
 	}
 }
 
@@ -84,7 +88,7 @@ func TestDeserializeEmailGetResponse(t *testing.T) {
 	require.Equal("cbejozsk1fgcviw7thwzsvtgmf1ep0a3izjoimj02jmtsunpeuwmsaya1yma", email.BlobId)
 }
 
-func TestUnknown(t *testing.T) {
+func TestUnmarshallingUnknown(t *testing.T) {
 	require := require.New(t)
 
 	const text = `{
@@ -109,8 +113,24 @@ func TestUnknown(t *testing.T) {
 	require.Equal(bs.Other["header:x"], "yz")
 	require.Contains(bs.Other, "header:a")
 	require.Equal(bs.Other["header:a"], "bc")
+}
 
-	result, err := json.Marshal(target)
+func TestMarshallingUnknown(t *testing.T) {
+	require := require.New(t)
+
+	source := EmailCreate{
+		Subject: "aaa",
+		BodyStructure: EmailBodyStructure{
+			Type:   "a",
+			PartId: "b",
+			Other: map[string]any{
+				"header:x": "yz",
+				"header:a": "bc",
+			},
+		},
+	}
+
+	result, err := json.Marshal(source)
 	require.NoError(err)
-	require.Equal(`{"subject":"aaa","bodyStructure":{"type":"a","partId":"b","header:a":"bc","header:x":"yz"}}`, string(result))
+	require.Equal(`{"subject":"aaa","bodyStructure":{"header:a":"bc","header:x":"yz","partId":"b","type":"a"}}`, string(result))
 }

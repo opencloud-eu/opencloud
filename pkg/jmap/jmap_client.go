@@ -48,17 +48,17 @@ func (j *Client) FetchSession(username string, logger *log.Logger) (Session, Err
 }
 
 func (j *Client) logger(accountId string, operation string, session *Session, logger *log.Logger) *log.Logger {
-	zc := logger.With().Str(logOperation, operation).Str(logUsername, session.Username)
+	l := logger.With().Str(logOperation, operation).Str(logUsername, session.Username)
 	if accountId != "" {
-		zc = zc.Str(logAccountId, accountId)
+		l = l.Str(logAccountId, accountId)
 	}
-	return &log.Logger{Logger: zc.Logger()}
+	return log.From(l)
 }
 
 func (j *Client) loggerParams(accountId string, operation string, session *Session, logger *log.Logger, params func(zerolog.Context) zerolog.Context) *log.Logger {
-	zc := logger.With().Str(logOperation, operation).Str(logUsername, session.Username)
+	l := logger.With().Str(logOperation, operation).Str(logUsername, session.Username)
 	if accountId != "" {
-		zc = zc.Str(logAccountId, accountId)
+		l = l.Str(logAccountId, accountId)
 	}
-	return &log.Logger{Logger: params(zc).Logger()}
+	return log.From(l)
 }

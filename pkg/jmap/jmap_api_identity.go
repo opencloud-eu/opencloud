@@ -5,35 +5,47 @@ import (
 	"strconv"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/rs/zerolog"
 )
 
+type Identities struct {
+	Identities   []Identity `json:"identities"`
+	State        string     `json:"state"`
+	SessionState string     `json:"sessionState"`
+}
+
 // https://jmap.io/spec-mail.html#identityget
-func (j *Client) GetIdentity(accountId string, session *Session, ctx context.Context, logger *log.Logger) (IdentityGetResponse, Error) {
+func (j *Client) GetIdentity(accountId string, session *Session, ctx context.Context, logger *log.Logger) (Identities, Error) {
 	aid := session.MailAccountId(accountId)
 	logger = j.logger(aid, "GetIdentity", session, logger)
 	cmd, err := request(invocation(IdentityGet, IdentityGetCommand{AccountId: aid}, "0"))
 	if err != nil {
-		return IdentityGetResponse{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
+		return Identities{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
 	}
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (IdentityGetResponse, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (Identities, Error) {
 		var response IdentityGetResponse
 		err = retrieveResponseMatchParameters(body, IdentityGet, "0", &response)
-		return response, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+		return Identities{
+			Identities:   response.List,
+			State:        response.State,
+			SessionState: body.SessionState,
+		}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 	})
 }
 
 type IdentitiesGetResponse struct {
-	State      string                `json:"state"`
-	Identities map[string][]Identity `json:"identities,omitempty"`
-	NotFound   []string              `json:"notFound,omitempty"`
+	Identities   map[string][]Identity `json:"identities,omitempty"`
+	NotFound     []string              `json:"notFound,omitempty"`
+	State        string                `json:"state"`
+	SessionState string                `json:"sessionState"`
 }
 
 func (j *Client) GetIdentities(accountIds []string, session *Session, ctx context.Context, logger *log.Logger) (IdentitiesGetResponse, Error) {
-	uniqueAccountIds := uniq(accountIds)
+	uniqueAccountIds := structs.Uniq(accountIds)
 
 	logger = j.loggerParams("", "GetIdentities", session, logger, func(l zerolog.Context) zerolog.Context {
-		return l.Array(logAccountId, logstrarray(uniqueAccountIds))
+		return l.Array(logAccountId, log.SafeStringArray(uniqueAccountIds))
 	})
 
 	calls := make([]Invocation, len(uniqueAccountIds))
@@ -62,9 +74,10 @@ func (j *Client) GetIdentities(accountIds []string, session *Session, ctx contex
 		}
 
 		return IdentitiesGetResponse{
-			Identities: identities,
-			State:      lastState,
-			NotFound:   uniq(notFound),
+			Identities:   identities,
+			NotFound:     structs.Uniq(notFound),
+			State:        lastState,
+			SessionState: body.SessionState,
 		}, nil
 	})
 }

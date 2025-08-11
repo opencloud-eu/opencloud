@@ -36,10 +36,6 @@ const (
 	logQuery                 = "query"
 )
 
-const (
-	logMaxStrLength = 512
-)
-
 type Groupware struct {
 	mux               *chi.Mux
 	logger            *log.Logger
@@ -256,7 +252,7 @@ func (r Request) GetAccount() (jmap.SessionAccount, *Error) {
 		errorId := r.errorId()
 		r.logger.Debug().Msgf("failed to find account '%v'", accountId)
 		return jmap.SessionAccount{}, apiError(errorId, ErrorNonExistingAccount,
-			withDetail(fmt.Sprintf("The account '%v' does not exist", logstr(accountId))),
+			withDetail(fmt.Sprintf("The account '%v' does not exist", log.SafeString(accountId))),
 			withSource(&ErrorSource{Parameter: UriParamAccount}),
 		)
 	}
@@ -277,7 +273,7 @@ func (r Request) parseNumericParam(param string, defaultValue int) (int, bool, *
 	value, err := strconv.ParseInt(str, 10, 0)
 	if err != nil {
 		errorId := r.errorId()
-		msg := fmt.Sprintf("Invalid value for query parameter '%v': '%s': %s", param, logstr(str), err.Error())
+		msg := fmt.Sprintf("Invalid value for query parameter '%v': '%s': %s", param, log.SafeString(str), err.Error())
 		return defaultValue, true, apiError(errorId, ErrorInvalidRequestParameter,
 			withDetail(msg),
 			withSource(&ErrorSource{Parameter: param}),
@@ -300,7 +296,7 @@ func (r Request) parseDateParam(param string) (time.Time, bool, *Error) {
 	t, err := time.Parse(time.RFC3339, str)
 	if err != nil {
 		errorId := r.errorId()
-		msg := fmt.Sprintf("Invalid RFC3339 value for query parameter '%v': '%s': %s", param, logstr(str), err.Error())
+		msg := fmt.Sprintf("Invalid RFC3339 value for query parameter '%v': '%s': %s", param, log.SafeString(str), err.Error())
 		return time.Time{}, true, apiError(errorId, ErrorInvalidRequestParameter,
 			withDetail(msg),
 			withSource(&ErrorSource{Parameter: param}),
@@ -323,7 +319,7 @@ func (r Request) parseBoolParam(param string, defaultValue bool) (bool, bool, *E
 	b, err := strconv.ParseBool(str)
 	if err != nil {
 		errorId := r.errorId()
-		msg := fmt.Sprintf("Invalid boolean value for query parameter '%v': '%s': %s", param, logstr(str), err.Error())
+		msg := fmt.Sprintf("Invalid boolean value for query parameter '%v': '%s': %s", param, log.SafeString(str), err.Error())
 		return defaultValue, true, apiError(errorId, ErrorInvalidRequestParameter,
 			withDetail(msg),
 			withSource(&ErrorSource{Parameter: param}),
@@ -348,34 +344,6 @@ func (r Request) body(target any) *Error {
 	return nil
 }
 
-// Safely caps a string to a given size to avoid log bombing.
-// Use this function to wrap strings that are user input (HTTP headers, path parameters, URI parameters, HTTP body, ...).
-func logstr(text string) string {
-	runes := []rune(text)
-
-	if len(runes) <= logMaxStrLength {
-		return text
-	} else {
-		return string(runes[0:logMaxStrLength-1]) + `\u2026` // hellip
-	}
-}
-
-type SafeLogStringArrayMarshaller struct {
-	array []string
-}
-
-func (m SafeLogStringArrayMarshaller) MarshalZerologArray(a *zerolog.Array) {
-	for _, elem := range m.array {
-		a.Str(logstr(elem))
-	}
-}
-
-var _ zerolog.LogArrayMarshaler = SafeLogStringArrayMarshaller{}
-
-func logstrarray(array []string) SafeLogStringArrayMarshaller {
-	return SafeLogStringArrayMarshaller{array: array}
-}
-
 func (g Groupware) log(error *Error) {
 	var level *zerolog.Event
 	if error.NumStatus < 300 {
@@ -397,13 +365,13 @@ func (g Groupware) log(error *Error) {
 	l := level.Str(logErrorCode, error.Code).Str(logErrorId, error.Id).Int(logErrorStatus, error.NumStatus)
 	if error.Source != nil {
 		if error.Source.Header != "" {
-			l.Str(logErrorSourceHeader, logstr(error.Source.Header))
+			l.Str(logErrorSourceHeader, log.SafeString(error.Source.Header))
 		}
 		if error.Source.Parameter != "" {
-			l.Str(logErrorSourceParameter, logstr(error.Source.Parameter))
+			l.Str(logErrorSourceParameter, log.SafeString(error.Source.Parameter))
 		}
 		if error.Source.Pointer != "" {
-			l.Str(logErrorSourcePointer, logstr(error.Source.Pointer))
+			l.Str(logErrorSourcePointer, log.SafeString(error.Source.Pointer))
 		}
 	}
 	l.Msg(error.Title)
@@ -422,9 +390,10 @@ func (g Groupware) serveError(w http.ResponseWriter, r *http.Request, error *Err
 
 func (g Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(r Request) Response) {
 	ctx := r.Context()
-	logger := g.logger.SubloggerWithRequestID(ctx)
+	sl := g.logger.SubloggerWithRequestID(ctx)
+	logger := &sl
 
-	username, ok, err := g.usernameProvider.GetUsername(r, ctx, &logger)
+	username, ok, err := g.usernameProvider.GetUsername(r, ctx, logger)
 	if err != nil {
 		g.serveError(w, r, apiError(errorId(r, ctx), ErrorInvalidAuthentication))
 		return
@@ -434,9 +403,9 @@ func (g Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(
 		return
 	}
 
-	logger = log.Logger{Logger: logger.With().Str(logUsername, logstr(username)).Logger()}
+	logger = log.From(logger.With().Str(logUsername, log.SafeString(username)))
 
-	session, ok, err := g.session(username, r, ctx, &logger)
+	session, ok, err := g.session(username, r, ctx, logger)
 	if err != nil {
 		logger.Error().Err(err).Interface(logQuery, r.URL.Query()).Msg("failed to determine JMAP session")
 		render.Status(r, http.StatusInternalServerError)
@@ -448,12 +417,12 @@ func (g Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(
 		render.Status(r, http.StatusForbidden)
 		return
 	}
-	logger = session.DecorateLogger(logger)
+	decoratedLogger := session.DecorateLogger(*logger)
 
 	req := Request{
 		r:       r,
 		ctx:     ctx,
-		logger:  &logger,
+		logger:  decoratedLogger,
 		session: &session,
 	}
 
@@ -489,9 +458,10 @@ func (g Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(
 
 func (g Groupware) stream(w http.ResponseWriter, r *http.Request, handler func(r Request, w http.ResponseWriter) *Error) {
 	ctx := r.Context()
-	logger := g.logger.SubloggerWithRequestID(ctx)
+	sl := g.logger.SubloggerWithRequestID(ctx)
+	logger := &sl
 
-	username, ok, err := g.usernameProvider.GetUsername(r, ctx, &logger)
+	username, ok, err := g.usernameProvider.GetUsername(r, ctx, logger)
 	if err != nil {
 		g.serveError(w, r, apiError(errorId(r, ctx), ErrorInvalidAuthentication))
 		return
@@ -501,9 +471,9 @@ func (g Groupware) stream(w http.ResponseWriter, r *http.Request, handler func(r
 		return
 	}
 
-	logger = log.Logger{Logger: logger.With().Str(logUsername, logstr(username)).Logger()}
+	logger = log.From(logger.With().Str(logUsername, log.SafeString(username)))
 
-	session, ok, err := g.session(username, r, ctx, &logger)
+	session, ok, err := g.session(username, r, ctx, logger)
 	if err != nil {
 		logger.Error().Err(err).Interface(logQuery, r.URL.Query()).Msg("failed to determine JMAP session")
 		render.Status(r, http.StatusInternalServerError)
@@ -515,12 +485,12 @@ func (g Groupware) stream(w http.ResponseWriter, r *http.Request, handler func(r
 		render.Status(r, http.StatusForbidden)
 		return
 	}
-	logger = session.DecorateLogger(logger)
+	decoratedLogger := session.DecorateLogger(*logger)
 
 	req := Request{
 		r:       r,
 		ctx:     ctx,
-		logger:  &logger,
+		logger:  decoratedLogger,
 		session: &session,
 	}
 
@@ -534,57 +504,12 @@ func (g Groupware) stream(w http.ResponseWriter, r *http.Request, handler func(r
 	}
 }
 
-/*
-func (g Groupware) withSession(w http.ResponseWriter, r *http.Request, handler func(r Request) (any, string, error)) (any, string, error) {
-	ctx := r.Context()
-	logger := g.logger.SubloggerWithRequestID(ctx)
-	session, ok, err := g.session(r, ctx, &logger)
-	if err != nil {
-		logger.Error().Err(err).Interface(logQuery, r.URL.Query()).Msg("failed to determine JMAP session")
-		return nil, "", err
-	}
-	if !ok {
-		// no session = authentication failed
-		logger.Warn().Err(err).Interface(logQuery, r.URL.Query()).Msg("could not authenticate")
-		return nil, "", err
-	}
-	logger = session.DecorateLogger(logger)
-
-	req := Request{
-		r:       r,
-		ctx:     ctx,
-		logger:  &logger,
-		session: &session,
-	}
-
-	response, state, err := handler(req)
-	if err != nil {
-		logger.Error().Err(err).Interface(logQuery, r.URL.Query()).Msg(err.Error())
-	}
-	return response, state, err
-}
-*/
-
 func (g Groupware) NotFound(w http.ResponseWriter, r *http.Request) {
 	level := g.logger.Debug()
 	if level.Enabled() {
-		path := logstr(r.URL.Path)
+		path := log.SafeString(r.URL.Path)
 		level.Str("path", path).Int(logErrorStatus, http.StatusNotFound).Msgf("unmatched path: '%v'", path)
 	}
 	render.Status(r, http.StatusNotFound)
 	w.WriteHeader(http.StatusNotFound)
-}
-
-func uniq[T comparable](ary []T) []T {
-	m := map[T]bool{}
-	for _, v := range ary {
-		m[v] = true
-	}
-	set := make([]T, len(m))
-	i := 0
-	for v := range m {
-		set[i] = v
-		i++
-	}
-	return set
 }

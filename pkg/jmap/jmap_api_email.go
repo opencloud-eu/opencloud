@@ -3,6 +3,7 @@ package jmap
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -22,11 +23,12 @@ const (
 )
 
 type Emails struct {
-	Emails []Email `json:"emails,omitempty"`
-	Total  int     `json:"total,omitzero"`
-	Limit  int     `json:"limit,omitzero"`
-	Offset int     `json:"offset,omitzero"`
-	State  string  `json:"state,omitempty"`
+	Emails       []Email `json:"emails,omitempty"`
+	Total        int     `json:"total,omitzero"`
+	Limit        int     `json:"limit,omitzero"`
+	Offset       int     `json:"offset,omitzero"`
+	State        string  `json:"state,omitempty"`
+	SessionState string  `json:"sessionState"`
 }
 
 func (j *Client) GetEmails(accountId string, session *Session, ctx context.Context, logger *log.Logger, ids []string, fetchBodies bool, maxBodyValueBytes int) (Emails, Error) {
@@ -48,7 +50,7 @@ func (j *Client) GetEmails(accountId string, session *Session, ctx context.Conte
 		if err != nil {
 			return Emails{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
 		}
-		return Emails{Emails: response.List, State: body.SessionState}, nil
+		return Emails{Emails: response.List, State: response.State, SessionState: body.SessionState}, nil
 	})
 }
 
@@ -102,11 +104,12 @@ func (j *Client) GetAllEmails(accountId string, session *Session, ctx context.Co
 		}
 
 		return Emails{
-			Emails: getResponse.List,
-			State:  body.SessionState,
-			Total:  queryResponse.Total,
-			Limit:  queryResponse.Limit,
-			Offset: queryResponse.Position,
+			Emails:       getResponse.List,
+			Total:        queryResponse.Total,
+			Limit:        queryResponse.Limit,
+			Offset:       queryResponse.Position,
+			SessionState: body.SessionState,
+			State:        getResponse.State,
 		}, nil
 	})
 }
@@ -118,6 +121,7 @@ type EmailsSince struct {
 	Created        []Email  `json:"created,omitempty"`
 	Updated        []Email  `json:"updated,omitempty"`
 	State          string   `json:"state,omitempty"`
+	SessionState   string   `json:"sessionState"`
 }
 
 func (j *Client) GetEmailsInMailboxSince(accountId string, session *Session, ctx context.Context, logger *log.Logger, mailboxId string, since string, fetchBodies bool, maxBodyValueBytes int, maxChanges int) (EmailsSince, Error) {
@@ -185,7 +189,8 @@ func (j *Client) GetEmailsInMailboxSince(accountId string, session *Session, ctx
 			NewState:       mailboxResponse.NewState,
 			Created:        createdResponse.List,
 			Updated:        createdResponse.List,
-			State:          body.SessionState,
+			State:          createdResponse.State,
+			SessionState:   body.SessionState,
 		}, nil
 	})
 }
@@ -255,7 +260,8 @@ func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.
 			NewState:       changesResponse.NewState,
 			Created:        createdResponse.List,
 			Updated:        createdResponse.List,
-			State:          body.SessionState,
+			State:          updatedResponse.State,
+			SessionState:   body.SessionState,
 		}, nil
 	})
 }
@@ -323,10 +329,10 @@ func (j *Client) QueryEmailSnippets(accountId string, filter EmailFilterElement,
 
 		return EmailSnippetQueryResult{
 			Snippets:     snippetResponse.List,
-			QueryState:   queryResponse.QueryState,
 			Total:        queryResponse.Total,
 			Limit:        queryResponse.Limit,
 			Position:     queryResponse.Position,
+			QueryState:   queryResponse.QueryState,
 			SessionState: body.SessionState,
 		}, nil
 	})
@@ -340,10 +346,10 @@ type EmailWithSnippets struct {
 
 type EmailQueryResult struct {
 	Results      []EmailWithSnippets `json:"results"`
-	QueryState   string              `json:"queryState"`
 	Total        int                 `json:"total"`
 	Limit        int                 `json:"limit,omitzero"`
 	Position     int                 `json:"position,omitzero"`
+	QueryState   string              `json:"queryState"`
 	SessionState string              `json:"sessionState,omitempty"`
 }
 
@@ -440,10 +446,10 @@ func (j *Client) QueryEmails(accountId string, filter EmailFilterElement, sessio
 
 		return EmailQueryResult{
 			Results:      results,
-			QueryState:   queryResponse.QueryState,
 			Total:        queryResponse.Total,
 			Limit:        queryResponse.Limit,
 			Position:     queryResponse.Position,
+			QueryState:   queryResponse.QueryState,
 			SessionState: body.SessionState,
 		}, nil
 	})
@@ -451,10 +457,11 @@ func (j *Client) QueryEmails(accountId string, filter EmailFilterElement, sessio
 }
 
 type UploadedEmail struct {
-	Id     string `json:"id"`
-	Size   int    `json:"size"`
-	Type   string `json:"type"`
-	Sha512 string `json:"sha:512"`
+	Id           string `json:"id"`
+	Size         int    `json:"size"`
+	Type         string `json:"type"`
+	Sha512       string `json:"sha:512"`
+	SessionState string `json:"sessionState"`
 }
 
 func (j *Client) ImportEmail(accountId string, session *Session, ctx context.Context, logger *log.Logger, data []byte) (UploadedEmail, Error) {
@@ -519,18 +526,20 @@ func (j *Client) ImportEmail(accountId string, session *Session, ctx context.Con
 		get := getResponse.List[0]
 
 		return UploadedEmail{
-			Id:     upload.Id,
-			Size:   upload.Size,
-			Type:   upload.Type,
-			Sha512: get.DigestSha512,
+			Id:           upload.Id,
+			Size:         upload.Size,
+			Type:         upload.Type,
+			Sha512:       get.DigestSha512,
+			SessionState: body.SessionState,
 		}, nil
 	})
 
 }
 
 type CreatedEmail struct {
-	Email Email  `json:"email"`
-	State string `json:"state"`
+	Email        Email  `json:"email"`
+	State        string `json:"state"`
+	SessionState string `json:"sessionState"`
 }
 
 func (j *Client) CreateEmail(accountId string, email EmailCreate, session *Session, ctx context.Context, logger *log.Logger) (CreatedEmail, Error) {
@@ -560,22 +569,29 @@ func (j *Client) CreateEmail(accountId string, email EmailCreate, session *Sessi
 			// TODO(pbleser-oc) handle submission errors
 		}
 
+		setErr, notok := setResponse.NotCreated["c"]
+		if notok {
+			return CreatedEmail{}, setErrorError(setErr, EmailType)
+		}
+
 		created, ok := setResponse.Created["c"]
 		if !ok {
-			// failed to create?
-			// TODO(pbleser-oc) handle email creation failure
+			err = fmt.Errorf("failed to find %s in %s response", string(EmailType), string(EmailSet))
+			return CreatedEmail{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 
 		return CreatedEmail{
-			Email: created,
-			State: setResponse.NewState,
+			Email:        created,
+			State:        setResponse.NewState,
+			SessionState: body.SessionState,
 		}, nil
 	})
 }
 
 type UpdatedEmails struct {
-	Updated map[string]Email `json:"email"`
-	State   string           `json:"state"`
+	Updated      map[string]Email `json:"email"`
+	State        string           `json:"state"`
+	SessionState string           `json:"sessionState"`
 }
 
 // The Email/set method encompasses:
@@ -610,14 +626,16 @@ func (j *Client) UpdateEmails(accountId string, updates map[string]EmailUpdate, 
 			// TODO(pbleser-oc) handle submission errors
 		}
 		return UpdatedEmails{
-			Updated: setResponse.Updated,
-			State:   setResponse.NewState,
+			Updated:      setResponse.Updated,
+			State:        setResponse.NewState,
+			SessionState: body.SessionState,
 		}, nil
 	})
 }
 
 type DeletedEmails struct {
-	State string `json:"state"`
+	State        string `json:"state"`
+	SessionState string `json:"sessionState"`
 }
 
 func (j *Client) DeleteEmails(accountId string, destroy []string, session *Session, ctx context.Context, logger *log.Logger) (DeletedEmails, Error) {
@@ -643,7 +661,7 @@ func (j *Client) DeleteEmails(accountId string, destroy []string, session *Sessi
 			// error occured
 			// TODO(pbleser-oc) handle submission errors
 		}
-		return DeletedEmails{State: setResponse.NewState}, nil
+		return DeletedEmails{State: setResponse.NewState, SessionState: body.SessionState}, nil
 	})
 }
 
@@ -670,6 +688,8 @@ type SubmittedEmail struct {
 	//
 	// [RFC8098]: https://datatracker.ietf.org/doc/html/rfc8098
 	MdnBlobIds []string `json:"mdnBlobIds,omitempty"`
+
+	SessionState string `json:"sessionState"`
 }
 
 func (j *Client) SubmitEmail(accountId string, identityId string, emailId string, session *Session, ctx context.Context, logger *log.Logger, data []byte) (SubmittedEmail, Error) {
@@ -744,14 +764,15 @@ func (j *Client) SubmitEmail(accountId string, identityId string, emailId string
 		submission := getResponse.List[0]
 
 		return SubmittedEmail{
-			Id:         submission.Id,
-			State:      setResponse.NewState,
-			SendAt:     submission.SendAt,
-			ThreadId:   submission.ThreadId,
-			UndoStatus: submission.UndoStatus,
-			Envelope:   *submission.Envelope,
-			DsnBlobIds: submission.DsnBlobIds,
-			MdnBlobIds: submission.MdnBlobIds,
+			Id:           submission.Id,
+			State:        setResponse.NewState,
+			SendAt:       submission.SendAt,
+			ThreadId:     submission.ThreadId,
+			UndoStatus:   submission.UndoStatus,
+			Envelope:     *submission.Envelope,
+			DsnBlobIds:   submission.DsnBlobIds,
+			MdnBlobIds:   submission.MdnBlobIds,
+			SessionState: body.SessionState,
 		}, nil
 	})
 

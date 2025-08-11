@@ -2,6 +2,7 @@ package jmap
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -26,48 +27,8 @@ func (j *Client) GetVacationResponse(accountId string, session *Session, ctx con
 	})
 }
 
-type VacationResponseStatusChange struct {
-	VacationResponse VacationResponse `json:"vacationResponse"`
-	ResponseState    string           `json:"state"`
-	SessionState     string           `json:"sessionState"`
-}
-
-func (j *Client) SetVacationResponseStatus(accountId string, enabled bool, session *Session, ctx context.Context, logger *log.Logger) (VacationResponseStatusChange, Error) {
-	aid := session.MailAccountId(accountId)
-	logger = j.logger(aid, "EnableVacationResponse", session, logger)
-
-	cmd, err := request(invocation(VacationResponseSet, VacationResponseSetRequest{
-		AccountId: aid,
-		Update: map[string]PatchObject{
-			"u": {
-				"/isEnabled": enabled,
-			},
-		},
-	}, "0"))
-
-	if err != nil {
-		return VacationResponseStatusChange{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
-	}
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (VacationResponseStatusChange, Error) {
-		var response VacationResponseSetResponse
-		err = retrieveResponseMatchParameters(body, VacationResponseSet, "0", &response)
-		if err != nil {
-			return VacationResponseStatusChange{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
-		}
-		updated, ok := response.Updated["u"]
-		if !ok {
-			// TODO implement error when not updated
-		}
-
-		return VacationResponseStatusChange{
-			VacationResponse: updated,
-			ResponseState:    response.NewState,
-			SessionState:     response.State,
-		}, nil
-	})
-}
-
-type VacationResponseBody struct {
+// Same as VacationResponse but without the id.
+type VacationResponsePayload struct {
 	// Should a vacation response be sent if a message arrives between the "fromDate" and "toDate"?
 	IsEnabled bool `json:"isEnabled"`
 	// If "isEnabled" is true, messages that arrive on or after this date-time (but before the "toDate" if defined) should receive the
@@ -96,44 +57,59 @@ type VacationResponseChange struct {
 	SessionState     string           `json:"sessionState"`
 }
 
-func (j *Client) SetVacationResponse(accountId string, vacation VacationResponseBody, session *Session, ctx context.Context, logger *log.Logger) (VacationResponseChange, Error) {
+func (j *Client) SetVacationResponse(accountId string, vacation VacationResponsePayload, session *Session, ctx context.Context, logger *log.Logger) (VacationResponseChange, Error) {
 	aid := session.MailAccountId(accountId)
 	logger = j.logger(aid, "SetVacationResponse", session, logger)
 
-	set := VacationResponseSetRequest{
-		AccountId: aid,
-		Create: map[string]VacationResponse{
-			vacationResponseId: {
-				IsEnabled: vacation.IsEnabled,
-				FromDate:  vacation.FromDate,
-				ToDate:    vacation.ToDate,
-				Subject:   vacation.Subject,
-				TextBody:  vacation.TextBody,
-				HtmlBody:  vacation.HtmlBody,
+	cmd, err := request(
+		invocation(VacationResponseSet, VacationResponseSetCommand{
+			AccountId: aid,
+			Create: map[string]VacationResponse{
+				vacationResponseId: {
+					IsEnabled: vacation.IsEnabled,
+					FromDate:  vacation.FromDate,
+					ToDate:    vacation.ToDate,
+					Subject:   vacation.Subject,
+					TextBody:  vacation.TextBody,
+					HtmlBody:  vacation.HtmlBody,
+				},
 			},
-		},
-	}
-
-	cmd, err := request(invocation(VacationResponseSet, set, "0"))
+		}, "0"),
+		// chain a second request to get the current complete VacationResponse object
+		// after performing the changes, as that makes for a better API
+		invocation(VacationResponseGet, VacationResponseGetCommand{AccountId: aid}, "1"),
+	)
 	if err != nil {
 		return VacationResponseChange{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
 	}
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (VacationResponseChange, Error) {
-		var response VacationResponseSetResponse
-		err = retrieveResponseMatchParameters(body, VacationResponseSet, "0", &response)
+		var setResponse VacationResponseSetResponse
+		err = retrieveResponseMatchParameters(body, VacationResponseSet, "0", &setResponse)
 		if err != nil {
 			return VacationResponseChange{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 
-		created, ok := response.Created[vacationResponseId]
-		if !ok {
-			// TODO handle case where created is missing
+		setErr, notok := setResponse.NotCreated[vacationResponseId]
+		if notok {
+			// this means that the VacationResponse was not updated
+			return VacationResponseChange{}, setErrorError(setErr, VacationResponseType)
+		}
+
+		var getResponse VacationResponseGetResponse
+		err = retrieveResponseMatchParameters(body, VacationResponseGet, "1", &getResponse)
+		if err != nil {
+			return VacationResponseChange{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+		}
+
+		if len(getResponse.List) != 1 {
+			err = fmt.Errorf("failed to find %s in %s response", string(VacationResponseType), string(VacationResponseGet))
+			return VacationResponseChange{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 
 		return VacationResponseChange{
-			VacationResponse: created,
-			ResponseState:    response.NewState,
-			SessionState:     response.State,
+			VacationResponse: getResponse.List[0],
+			ResponseState:    setResponse.NewState,
+			SessionState:     body.SessionState,
 		}, nil
 	})
 }
