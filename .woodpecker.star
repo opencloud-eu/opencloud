@@ -1483,9 +1483,9 @@ def multiServiceE2ePipeline(ctx):
                     "cd %s/tests/e2e" % dirs["web"],
                     "bash run-e2e.sh %s" % e2e_args,
                 ],
-            }]
+            }] + \
+            uploadTracingResult(ctx)
 
-        uploadTracingResult(ctx) + \
         pipelines.append({
             "name": "e2e-tests-multi-service",
             "steps": steps,
