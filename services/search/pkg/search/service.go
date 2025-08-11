@@ -471,6 +471,7 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId) error {
 		if err := batch.Push(); err != nil {
 			s.logger.Error().Err(err).Msg("failed to end batch")
 		}
+		logDocCount(s.engine, s.logger)
 	}()
 	err = w.Walk(ownerCtx, &rootID, func(wd string, info *provider.ResourceInfo, err error) error {
 		if err != nil {
@@ -509,8 +510,6 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId) error {
 	if err != nil {
 		return err
 	}
-
-	logDocCount(s.engine, s.logger)
 	success = true
 
 	return nil
