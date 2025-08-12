@@ -19,7 +19,7 @@ func (j *Client) GetBlob(accountId string, session *Session, ctx context.Context
 	aid := session.BlobAccountId(accountId)
 
 	cmd, err := request(
-		invocation(BlobUpload, BlobGetCommand{
+		invocation(CommandBlobUpload, BlobGetCommand{
 			AccountId:  aid,
 			Ids:        []string{id},
 			Properties: []string{BlobPropertyData, BlobPropertyDigestSha512, BlobPropertySize},
@@ -31,7 +31,7 @@ func (j *Client) GetBlob(accountId string, session *Session, ctx context.Context
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (BlobResponse, Error) {
 		var response BlobGetResponse
-		err = retrieveResponseMatchParameters(body, BlobGet, "0", &response)
+		err = retrieveResponseMatchParameters(body, CommandBlobGet, "0", &response)
 		if err != nil {
 			return BlobResponse{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
 		}
@@ -93,15 +93,15 @@ func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Cont
 		AccountId: aid,
 		IdRef: &ResultReference{
 			ResultOf: "0",
-			Name:     BlobUpload,
+			Name:     CommandBlobUpload,
 			Path:     "/ids",
 		},
 		Properties: []string{BlobPropertyDigestSha512},
 	}
 
 	cmd, err := request(
-		invocation(BlobUpload, upload, "0"),
-		invocation(BlobGet, getHash, "1"),
+		invocation(CommandBlobUpload, upload, "0"),
+		invocation(CommandBlobGet, getHash, "1"),
 	)
 	if err != nil {
 		return UploadedBlob{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
@@ -109,13 +109,13 @@ func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Cont
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (UploadedBlob, Error) {
 		var uploadResponse BlobUploadResponse
-		err = retrieveResponseMatchParameters(body, BlobUpload, "0", &uploadResponse)
+		err = retrieveResponseMatchParameters(body, CommandBlobUpload, "0", &uploadResponse)
 		if err != nil {
 			return UploadedBlob{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
 		}
 
 		var getResponse BlobGetResponse
-		err = retrieveResponseMatchParameters(body, BlobGet, "1", &getResponse)
+		err = retrieveResponseMatchParameters(body, CommandBlobGet, "1", &getResponse)
 		if err != nil {
 			return UploadedBlob{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
 		}

@@ -7,15 +7,15 @@ import (
 )
 
 // When the request succeeds.
-// swagger:response VacationResponse200
-type SwaggerVacationResponse200 struct {
+// swagger:response GetVacationResponse200
+type SwaggerGetVacationResponse200 struct {
 	// in: body
 	Body struct {
 		*jmap.VacationResponseGetResponse
 	}
 }
 
-// swagger:route GET /accounts/{account}/vacation vacation
+// swagger:route GET /accounts/{account}/vacation vacation getvacation
 // Get vacation notice information.
 //
 // A vacation response sends an automatic reply when a message is delivered to the mail store, informing the original
@@ -25,7 +25,7 @@ type SwaggerVacationResponse200 struct {
 //
 // responses:
 //
-//	200: VacationResponse200
+//	200: GetVacationResponse200
 //	400: ErrorResponse400
 //	500: ErrorResponse500
 func (g Groupware) GetVacation(w http.ResponseWriter, r *http.Request) {
@@ -38,6 +38,26 @@ func (g Groupware) GetVacation(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// When the request succeeds.
+// swagger:response SetVacationResponse200
+type SwaggerSetVacationResponse200 struct {
+	// in: body
+	Body struct {
+		*jmap.VacationResponseChange
+	}
+}
+
+// swagger:route PUT /accounts/{account}/vacation vacation setvacation
+// Set the vacation notice information.
+//
+// A vacation response sends an automatic reply when a message is delivered to the mail store, informing the original
+// sender that their message may not be read for some time.
+//
+// responses:
+//
+//	200: SetVacationResponse200
+//	400: ErrorResponse400
+//	500: ErrorResponse500
 func (g Groupware) SetVacation(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		var body jmap.VacationResponsePayload

@@ -60,5 +60,8 @@ func (j *Client) loggerParams(accountId string, operation string, session *Sessi
 	if accountId != "" {
 		l = l.Str(logAccountId, accountId)
 	}
+	if params != nil {
+		l = params(l)
+	}
 	return log.From(l)
 }

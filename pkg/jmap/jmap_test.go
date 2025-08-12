@@ -115,9 +115,9 @@ func serveTestFile(t *testing.T, name string) ([]byte, Error) {
 func (t *TestJmapApiClient) Command(ctx context.Context, logger *log.Logger, session *Session, request Request) ([]byte, Error) {
 	command := request.MethodCalls[0].Command
 	switch command {
-	case MailboxGet:
+	case CommandMailboxGet:
 		return serveTestFile(t.t, "mailboxes1.json")
-	case EmailQuery:
+	case CommandEmailQuery:
 		return serveTestFile(t.t, "mails1.json")
 	default:
 		require.Fail(t.t, "TestJmapApiClient: unsupported jmap command: %v", command)
@@ -149,7 +149,7 @@ func TestRequests(t *testing.T) {
 	jmapUrl, err := url.Parse("http://localhost/jmap")
 	require.NoError(err)
 
-	session := Session{DefaultMailAccountId: "123", Username: "user123", JmapUrl: *jmapUrl}
+	session := Session{Username: "user123", JmapUrl: *jmapUrl}
 
 	folders, err := client.GetAllMailboxes("a", &session, ctx, &logger)
 	require.NoError(err)

@@ -1,0 +1,9 @@
+tags:
+  - name: init
+    description: Initialization APIs
+  - name: mailboxes
+    description: APIs that pertain to mailboxes
+  - name: messages
+    description: APIs about emails
+  - name: vacation
+    description: APIs about vacation responses
