@@ -17,19 +17,16 @@ func init() {
 
 type ImageDecoder struct{}
 
-func (v ImageDecoder) Convert(r io.Reader) (interface{}, error) {
-	buf, err := io.ReadAll(r)
-	if err != nil {
-		return nil, err
-	}
-	img, err := vips.NewImageFromBuffer(buf, nil)
+func (v ImageDecoder) Convert(r io.ReadCloser) (interface{}, error) {
+	src := vips.NewSource(r)
+	return vips.NewImageFromSource(src, nil)
 
 	// Alternative with vips 1.8+
-	// First test the RAW decoder, this is not implemented in NewImageFromBuffer
+	// First test the RAW decoder, this is not implemented in NewImageFromSrc
 	//
-	// img, err := vips.NewDcrawloadBuffer(buf, nil)
+	// img, err := vips.NewDcrawloadBuffer(src, nil)
 	// if err != nil {
-	// 	img, err = vips.NewImageFromBuffer(buf, nil)
+	// 	img, err = vips.NewImageFromSource(src, nil)
 	// }
-	return img, err
+	// return img, err
 }

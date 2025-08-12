@@ -13,7 +13,8 @@ import (
 type ImageDecoder struct{}
 
 // Convert reads the image file and returns the thumbnail image
-func (i ImageDecoder) Convert(r io.Reader) (interface{}, error) {
+func (i ImageDecoder) Convert(r io.ReadCloser) (interface{}, error) {
+	defer r.Close()
 	img, err := imaging.Decode(r, imaging.AutoOrientation(true))
 	if err != nil {
 		return nil, errors.Wrap(err, `could not decode the image`)
