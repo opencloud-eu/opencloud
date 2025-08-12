@@ -30,36 +30,185 @@ const (
 )
 
 type SessionMailAccountCapabilities struct {
-	MaxMailboxesPerEmail       int      `json:"maxMailboxesPerEmail"`
-	MaxMailboxDepth            int      `json:"maxMailboxDepth"`
-	MaxSizeMailboxName         int      `json:"maxSizeMailboxName"`
-	MaxSizeAttachmentsPerEmail int      `json:"maxSizeAttachmentsPerEmail"`
-	EmailQuerySortOptions      []string `json:"emailQuerySortOptions"`
-	MayCreateTopLevelMailbox   bool     `json:"mayCreateTopLevelMailbox"`
+	// The maximum number of Mailboxes that can be can assigned to a single Email object.
+	//
+	// This MUST be an integer >= 1, or null for no limit (or rather, the limit is always
+	// the number of Mailboxes in the account).
+	MaxMailboxesPerEmail int `json:"maxMailboxesPerEmail"`
+
+	// The maximum depth of the Mailbox hierarchy (i.e., one more than the maximum
+	// number of ancestors a Mailbox may have), or null for no limit.
+	MaxMailboxDepth int `json:"maxMailboxDepth"`
+
+	// The maximum length, in (UTF-8) octets, allowed for the name of a Mailbox.
+	//
+	// This MUST be at least 100, although it is recommended servers allow more.
+	MaxSizeMailboxName int `json:"maxSizeMailboxName"`
+
+	// The maximum total size of attachments, in octets, allowed for a single Email object.
+	//
+	// A server MAY still reject the import or creation of an Email with a lower attachment size
+	// total (for example, if the body includes several megabytes of text, causing the size of
+	// the encoded MIME structure to be over some server-defined limit).
+	//
+	// Note that this limit is for the sum of unencoded attachment sizes. Users are generally
+	// not knowledgeable about encoding overhead, etc., nor should they need to be, so marketing
+	// and help materials normally tell them the “max size attachments”.
+	//
+	// This is the unencoded size they see on their hard drive, so this capability matches that
+	// and allows the client to consistently enforce what the user understands as the limit.
+	//
+	// The server may separately have a limit for the total size of the message [RFC5322],
+	// created by combining the attachments (often base64 encoded) with the message headers and bodies.
+	//
+	// For example, suppose the server advertises maxSizeAttachmentsPerEmail: 50000000 (50 MB).
+	// The enforced server limit may be for a message size of 70000000 octets.
+	// Even with base64 encoding and a 2 MB HTML body, 50 MB attachments would fit under this limit.
+	//
+	// [RFC5322]: https://www.rfc-editor.org/rfc/rfc5322.html
+	MaxSizeAttachmentsPerEmail int `json:"maxSizeAttachmentsPerEmail"`
+
+	// A list of all the values the server supports for the “property” field of the Comparator
+	// object in an Email/query sort.
+	//
+	// This MAY include properties the client does not recognise (for example, custom properties
+	// specified in a vendor extension). Clients MUST ignore any unknown properties in the list.
+	EmailQuerySortOptions []string `json:"emailQuerySortOptions"`
+
+	// If true, the user may create a Mailbox in this account with a null parentId.
+	//
+	// (Permission for creating a child of an existing Mailbox is given by the myRights property
+	// on that Mailbox.)
+	MayCreateTopLevelMailbox bool `json:"mayCreateTopLevelMailbox"`
 }
 
 type SessionSubmissionAccountCapabilities struct {
-	MaxDelayedSend       int                 `json:"maxDelayedSend"`
+	// The number in seconds of the maximum delay the server supports in sending.
+	//
+	// This is 0 if the server does not support delayed send.
+	MaxDelayedSend int `json:"maxDelayedSend"`
+
+	// The set of SMTP submission extensions supported by the server, which the client may use
+	// when creating an EmailSubmission object.
+	//
+	// Each key in the object is the ehlo-name, and the value is a list of ehlo-args.
+	//
+	// A JMAP implementation that talks to a submission server [RFC6409] SHOULD have a configuration
+	// setting that allows an administrator to modify the set of submission EHLO capabilities it may
+	// expose on this property.
+	//
+	// This allows a JMAP server to easily add access to a new submission extension without code changes.
+	//
+	// By default, the JMAP server should hide EHLO capabilities that have to do with the transport
+	// mechanism and thus are only relevant to the JMAP server (for example, PIPELINING, CHUNKING, or STARTTLS).
+	//
+	// Examples of Submission extensions to include:
+	//   - FUTURERELEASE [RFC4865]
+	//   - SIZE [RFC1870]
+	//   - DSN [RFC3461]
+	//   - DELIVERYBY [RFC2852]
+	//   - MT-PRIORITY [RFC6710]
+	//
+	// A JMAP server MAY advertise an extension and implement the semantics of that extension locally
+	// on the JMAP server even if a submission server used by JMAP doesn’t implement it.
+	//
+	// The full IANA registry of submission extensions can be found at [iana.org].
+	//
+	// [RFC6409]: https://www.rfc-editor.org/rfc/rfc6409.html
+	// [RFC4865]: https://www.rfc-editor.org/rfc/rfc4865.html
+	// [RFC1870]: https://www.rfc-editor.org/rfc/rfc1870.html
+	// [RFC3461]: https://www.rfc-editor.org/rfc/rfc3461.html
+	// [RFC2852]: https://www.rfc-editor.org/rfc/rfc2852.html
+	// [RFC6710]: https://www.rfc-editor.org/rfc/rfc6710.html
+	// [iana.org]: https://www.iana.org/assignments/mail-parameters
 	SubmissionExtensions map[string][]string `json:"submissionExtensions"`
 }
 
+// This represents support for the VacationResponse data type and associated API methods.
+//
+// The value of this property is an empty object in both the JMAP session capabilities
+// property and an account’s accountCapabilities property.
 type SessionVacationResponseAccountCapabilities struct {
 }
 
 type SessionSieveAccountCapabilities struct {
-	MaxSizeScriptName   int      `json:"maxSizeScriptName"`
-	MaxSizeScript       int      `json:"maxSizeScript"`
-	MaxNumberScripts    int      `json:"maxNumberScripts"`
-	MaxNumberRedirects  int      `json:"maxNumberRedirects"`
-	SieveExtensions     []string `json:"sieveExtensions"`
+	// The maximum length, in octets, allowed for the name of a SieveScript.
+	//
+	// For compatibility with ManageSieve, this MUST be at least 512 (up to 128 Unicode characters).
+	MaxSizeScriptName int `json:"maxSizeScriptName"`
+
+	// The maximum size (in octets) of a Sieve script the server is willing to store for the user,
+	// or null for no limit.
+	MaxSizeScript int `json:"maxSizeScript"`
+
+	// The maximum number of Sieve scripts the server is willing to store for the user, or null for no limit.
+	MaxNumberScripts int `json:"maxNumberScripts"`
+
+	// The maximum number of Sieve "redirect" actions a script can perform during a single evaluation,
+	// or null for no limit.
+	//
+	// Note that this is different from the total number of "redirect" actions a script can contain.
+	MaxNumberRedirects int `json:"maxNumberRedirects"`
+
+	// A list of case-sensitive Sieve capability strings (as listed in the Sieve "require" action;
+	// see [RFC5228, Section 3.2]) indicating the extensions supported by the Sieve engine.
+	//
+	// [RFC5228, Section 3.2]: https://www.rfc-editor.org/rfc/rfc5228.html#section-3.2
+	SieveExtensions []string `json:"sieveExtensions"`
+
+	// A list of URI scheme parts [RFC3986] for notification methods supported by the Sieve "enotify"
+	// extension [RFC5435], or null if the extension is not supported by the Sieve engine.
+	//
+	// [RFC3986]: https://www.rfc-editor.org/rfc/rfc3986.html
+	// [RFC5435]: https://www.rfc-editor.org/rfc/rfc5435.html
 	NotificationMethods []string `json:"notificationMethods"`
-	ExternalLists       any      `json:"externalLists"` // ?
+
+	// A list of URI scheme parts [RFC3986] for externally stored list types supported by the
+	// Sieve "extlists" extension [RFC6134], or null if the extension is not supported by the Sieve engine.
+	//
+	// [RFC3986]: https://www.rfc-editor.org/rfc/rfc3986.html
+	// [RFC6134]: https://www.rfc-editor.org/rfc/rfc6134.html
+	ExternalLists []string `json:"externalLists"`
 }
 
 type SessionBlobAccountCapabilities struct {
-	MaxSizeBlobSet            int      `json:"maxSizeBlobSet"`
-	MaxDataSources            int      `json:"maxDataSources"`
-	SupportedTypeNames        []string `json:"supportedTypeNames"`
+	// The maximum size of the blob (in octets) that the server will allow to be created
+	// (including blobs created by concatenating multiple data sources together).
+	//
+	// Clients MUST NOT attempt to create blobs larger than this size.
+	//
+	// If this value is null, then clients are not required to limit the size of the blob
+	// they try to create, though servers can always reject creation of blobs regardless of
+	// size, e.g., due to lack of disk space or per-user rate limits.
+	MaxSizeBlobSet int `json:"maxSizeBlobSet"`
+
+	// The maximum number of DataSourceObjects allowed per creation in a Blob/upload.
+	//
+	// Servers MUST allow at least 64 DataSourceObjects per creation.
+	MaxDataSources int `json:"maxDataSources"`
+
+	// An array of data type names that are supported for Blob/lookup.
+	//
+	// If the server does not support lookups, then this will be the empty list.
+	//
+	// Note that the supportedTypeNames list may include private types that are not in the
+	// "JMAP Data Types" registry defined by this document.
+	//
+	// Clients MUST ignore type names they do not recognise.
+	SupportedTypeNames []string `json:"supportedTypeNames"`
+
+	// An array of supported digest algorithms that are supported for Blob/get.
+	//
+	// If the server does not support calculating blob digests, then this will be the empty
+	// list.
+	//
+	// Algorithms in this list MUST be present in the ["HTTP Digest Algorithm Values" registry]
+	// defined by [RFC3230]; however, in JMAP, they must be lowercased, e.g., "md5" rather than
+	// "MD5".
+	//
+	// Clients SHOULD prefer algorithms listed earlier in this list.
+	//
+	// ["HTTP Digest Algorithm Values" registry]: https://www.iana.org/assignments/http-dig-alg/http-dig-alg.xhtml
 	SupportedDigestAlgorithms []string `json:"supportedDigestAlgorithms"`
 }
 
@@ -126,8 +275,17 @@ type SessionQuotaCapabilities struct {
 }
 
 type SessionWebsocketCapabilities struct {
-	Url          string `json:"url"`
-	SupportsPush bool   `json:"supportsPush"`
+	// The wss-URI (see [Section 3 of RFC6455]) to use for initiating a JMAP-over-WebSocket
+	// handshake (the "WebSocket URL endpoint" colloquially).
+	//
+	// [Section 3 of RFC6455]: https://www.rfc-editor.org/rfc/rfc6455.html#section-3
+	Url string `json:"url"`
+
+	// This is true if the server supports push notifications over the WebSocket,
+	// as described in [Section 4.3.5 of RFC 8887].
+	//
+	// [Section 4.3.5 of RFC 8887]: https://www.rfc-editor.org/rfc/rfc8887.html#name-jmap-push-notifications
+	SupportsPush bool `json:"supportsPush"`
 }
 
 type SessionCapabilities struct {
@@ -153,27 +311,35 @@ type SessionPrimaryAccounts struct {
 }
 
 type SessionResponse struct {
-	Capabilities SessionCapabilities       `json:"capabilities"`
-	Accounts     map[string]SessionAccount `json:"accounts,omitempty"`
+	Capabilities SessionCapabilities `json:"capabilities"`
+
+	Accounts map[string]SessionAccount `json:"accounts,omitempty"`
+
 	// A map of capability URIs (as found in accountCapabilities) to the account id that is considered to be the user’s main or default
 	// account for data pertaining to that capability.
 	// If no account being returned belongs to the user, or in any other way there is no appropriate way to determine a default account,
 	// there MAY be no entry for a particular URI, even though that capability is supported by the server (and in the capabilities object).
 	// urn:ietf:params:jmap:core SHOULD NOT be present.
 	PrimaryAccounts SessionPrimaryAccounts `json:"primaryAccounts"`
+
 	// The username associated with the given credentials, or the empty string if none.
 	Username string `json:"username,omitempty"`
+
 	// The URL to use for JMAP API requests.
 	ApiUrl string `json:"apiUrl,omitempty"`
+
 	// The URL endpoint to use when downloading files, in URI Template (level 1) format [@!RFC6570].
 	// The URL MUST contain variables called accountId, blobId, type, and name.
 	DownloadUrl string `json:"downloadUrl,omitempty"`
+
 	// The URL endpoint to use when uploading files, in URI Template (level 1) format [@!RFC6570].
 	// The URL MUST contain a variable called accountId.
 	UploadUrl string `json:"uploadUrl,omitempty"`
+
 	// The URL to connect to for push events, as described in Section 7.3, in URI Template (level 1) format [@!RFC6570].
 	// The URL MUST contain variables called types, closeafter, and ping.
 	EventSourceUrl string `json:"eventSourceUrl,omitempty"`
+
 	// A (preferably short) string representing the state of this object on the server.
 	// If the value of any other property on the Session object changes, this string will change.
 	// The current value is also returned on the API Response object (see Section 3.4), allowing clients to quickly
@@ -184,31 +350,45 @@ type SessionResponse struct {
 
 // SetError type values.
 const (
-	// (create; update; destroy). The create/update/destroy would violate an ACL or other permissions policy.
+	// The create/update/destroy would violate an ACL or other permissions policy.
+	//
+	// (create; update; destroy).
 	SetErrorTypeForbidden = "forbidden"
 
-	// (create; update). The create would exceed a server-defined limit on the number or total size of objects of this type.
+	// The create would exceed a server-defined limit on the number or total size of objects of this type.
+	//
+	// (create; update).
 	SetErrorTypeOverQuota = "overQuota"
 
-	// (create; update). The create/update would result in an object that exceeds a server-defined limit for the maximum
+	// The create/update would result in an object that exceeds a server-defined limit for the maximum
 	// size of a single object of this type.
+	//
+	// (create; update).
 	SetErrorTypeTooLarge = "tooLarge"
 
-	// (create). Too many objects of this type have been created recently, and a server-defined rate limit has been reached.
+	// Too many objects of this type have been created recently, and a server-defined rate limit has been reached.
 	// It may work if tried again later.
+	//
+	// (create).
 	SetErrorTypeRateLimit = "rateLimit"
 
-	// (update; destroy). The id given to update/destroy cannot be found.
+	// The id given to update/destroy cannot be found.
+	//
+	// (update; destroy).
 	SetErrorTypeNotFound = "notFound"
 
-	// (update) The PatchObject given to update the record was not a valid patch (see the patch description).
+	// The PatchObject given to update the record was not a valid patch (see the patch description).
+	//
+	// (update).
 	SetErrorTypeInvalidPatch = "invalidPatch"
 
-	// (update). The client requested that an object be both updated and destroyed in the same /set request, and the server
+	// The client requested that an object be both updated and destroyed in the same /set request, and the server
 	// has decided to therefore ignore the update.
+	//
+	// (update).
 	SetErrorTypeWillDestroy = "willDestroy"
 
-	// (create; update). The record given is invalid in some way. For example:
+	// The record given is invalid in some way. For example:
 	//
 	//   - It contains properties that are invalid according to the type specification of this record type.
 	//   - It contains a property that may only be set by the server (e.g., “id”) and is different to the current value.
@@ -221,9 +401,13 @@ const (
 	//
 	// Individual methods MAY specify more specific errors for certain conditions that would otherwise result in an
 	// invalidProperties error. If the condition of one of these is met, it MUST be returned instead of the invalidProperties error.
+	//
+	// (create; update).
 	SetErrorTypeInvalidProperties = "invalidProperties"
 
-	// (create; destroy). This is a singleton type, so you cannot create another one or destroy the existing one.
+	// This is a singleton type, so you cannot create another one or destroy the existing one.
+	//
+	// (create; destroy).
 	SetErrorTypeSingleton = "singleton"
 
 	// The total number of objects to create, update, or destroy exceeds the maximum number the server is
@@ -400,7 +584,9 @@ type Mailbox struct {
 	// [RFC8457]: https://www.rfc-editor.org/rfc/rfc8457.html
 	Role string `json:"role,omitempty"`
 
-	// (default: 0) Defines the sort order of Mailboxes when presented in the client’s UI, so it is consistent between devices.
+	// Defines the sort order of Mailboxes when presented in the client’s UI, so it is consistent between devices.
+	//
+	// Default value: 0
 	//
 	// The number MUST be an integer in the range 0 <= sortOrder < 2^31.
 	//
@@ -462,9 +648,26 @@ type MailboxGetRefCommand struct {
 }
 
 type MailboxChangesCommand struct {
-	AccountId  string `json:"accountId"`
+	// The id of the account to use.
+	AccountId string `json:"accountId"`
+
+	// The current state of the client.
+	//
+	// This is the string that was returned as the state argument in the Mailbox/get response.
+	//
+	// The server will return the changes that have occurred since this state.
 	SinceState string `json:"sinceState,omitempty"`
-	MaxChanges int    `json:"maxChanges,omitzero"`
+
+	// The maximum number of ids to return in the response.
+	//
+	// The server MAY choose to return fewer than this value but MUST NOT return more.
+	//
+	// If not given by the client, the server may choose how many to return.
+	//
+	// If supplied by the client, the value MUST be a positive integer greater than 0.
+	//
+	// If a value outside of this range is given, the server MUST reject the call with an invalidArguments error.
+	MaxChanges int `json:"maxChanges,omitzero"`
 }
 
 type MailboxFilterElement interface {
@@ -507,32 +710,170 @@ type MailboxQueryCommand struct {
 
 type EmailFilterElement interface {
 	_isAnEmailFilterElement() // marker method
+	IsNotEmpty() bool
 }
 
 type EmailFilterCondition struct {
-	InMailbox               string    `json:"inMailbox,omitempty"`
-	InMailboxOtherThan      []string  `json:"inMailboxOtherThan,omitempty"`
-	Before                  time.Time `json:"before,omitzero"` // omitzero requires Go 1.24
-	After                   time.Time `json:"after,omitzero"`
-	MinSize                 int       `json:"minSize,omitempty"`
-	MaxSize                 int       `json:"maxSize,omitempty"`
-	AllInThreadHaveKeyword  string    `json:"allInThreadHaveKeyword,omitempty"`
-	SomeInThreadHaveKeyword string    `json:"someInThreadHaveKeyword,omitempty"`
-	NoneInThreadHaveKeyword string    `json:"noneInThreadHaveKeyword,omitempty"`
-	HasKeyword              string    `json:"hasKeyword,omitempty"`
-	NotKeyword              string    `json:"notKeyword,omitempty"`
-	HasAttachment           bool      `json:"hasAttachment,omitempty"`
-	Text                    string    `json:"text,omitempty"`
-	From                    string    `json:"from,omitempty"`
-	To                      string    `json:"to,omitempty"`
-	Cc                      string    `json:"cc,omitempty"`
-	Bcc                     string    `json:"bcc,omitempty"`
-	Subject                 string    `json:"subject,omitempty"`
-	Body                    string    `json:"body,omitempty"`
-	Header                  []string  `json:"header,omitempty"`
+	//  A Mailbox id.
+	//
+	// An Email must be in this Mailbox to match the condition.
+	InMailbox string `json:"inMailbox,omitempty"`
+
+	// A list of Mailbox ids.
+	//
+	// An Email must be in at least one Mailbox not in this list to match the condition.
+	//
+	// This is to allow messages solely in trash/spam to be easily excluded from a search.
+	InMailboxOtherThan []string `json:"inMailboxOtherThan,omitempty"`
+
+	// The receivedAt date-time of the Email must be before this date-time to match
+	// the condition.
+	Before time.Time `json:"before,omitzero"` // omitzero requires Go 1.24
+
+	// The receivedAt date-time of the Email must be the same or after this date-time
+	// to match the condition.
+	After time.Time `json:"after,omitzero"`
+
+	// The size property of the Email must be equal to or greater than this number to match
+	// the condition.
+	MinSize int `json:"minSize,omitempty"`
+
+	// The size property of the Email must be less than this number to match the condition.
+	MaxSize int `json:"maxSize,omitempty"`
+
+	// All Emails (including this one) in the same Thread as this Email must have the given
+	// keyword to match the condition.
+	AllInThreadHaveKeyword string `json:"allInThreadHaveKeyword,omitempty"`
+
+	// At least one Email (possibly this one) in the same Thread as this Email must have the
+	// given keyword to match the condition.
+	SomeInThreadHaveKeyword string `json:"someInThreadHaveKeyword,omitempty"`
+
+	// All Emails (including this one) in the same Thread as this Email must not have the
+	// given keyword to match the condition.
+	NoneInThreadHaveKeyword string `json:"noneInThreadHaveKeyword,omitempty"`
+
+	// This Email must have the given keyword to match the condition.
+	HasKeyword string `json:"hasKeyword,omitempty"`
+
+	// This Email must not have the given keyword to match the condition.
+	NotKeyword string `json:"notKeyword,omitempty"`
+
+	// The hasAttachment property of the Email must be identical to the value given to match
+	// the condition.
+	HasAttachment bool `json:"hasAttachment,omitempty"`
+
+	// Looks for the text in Emails.
+	//
+	// The server MUST look up text in the From, To, Cc, Bcc, and Subject header fields of the
+	// message and SHOULD look inside any text/* or other body parts that may be converted to
+	// text by the server.
+	//
+	// The server MAY extend the search to any additional textual property.
+	Text string `json:"text,omitempty"`
+
+	// Looks for the text in the From header field of the message.
+	From string `json:"from,omitempty"`
+
+	// Looks for the text in the To header field of the message.
+	To string `json:"to,omitempty"`
+
+	// Looks for the text in the Cc header field of the message.
+	Cc string `json:"cc,omitempty"`
+
+	// Looks for the text in the Bcc header field of the message.
+	Bcc string `json:"bcc,omitempty"`
+
+	// Looks for the text in the Subject header field of the message.
+	Subject string `json:"subject,omitempty"`
+
+	// Looks for the text in one of the body parts of the message.
+	//
+	// The server MAY exclude MIME body parts with content media types other than text/*
+	// and message/* from consideration in search matching.
+	//
+	// Care should be taken to match based on the text content actually presented to an end user
+	// by viewers for that media type or otherwise identified as appropriate for search indexing.
+	//
+	// Matching document metadata uninteresting to an end user (e.g., markup tag and attribute
+	// names) is undesirable.
+	Body string `json:"body,omitempty"`
+
+	// The array MUST contain either one or two elements.
+	//
+	// The first element is the name of the header field to match against.
+	//
+	// The second (optional) element is the text to look for in the header field value.
+	//
+	// If not supplied, the message matches simply if it has a header field of the given name.
+	Header []string `json:"header,omitempty"`
 }
 
 func (f EmailFilterCondition) _isAnEmailFilterElement() {
+}
+
+func (f EmailFilterCondition) IsNotEmpty() bool {
+	if !f.After.IsZero() {
+		return true
+	}
+	if f.AllInThreadHaveKeyword != "" {
+		return true
+	}
+	if len(f.Bcc) > 0 {
+		return true
+	}
+	if !f.Before.IsZero() {
+		return true
+	}
+	if f.Body != "" {
+		return true
+	}
+	if f.Cc != "" {
+		return true
+	}
+	if f.From != "" {
+		return true
+	}
+	if f.HasAttachment {
+		return true
+	}
+	if f.HasKeyword != "" {
+		return true
+	}
+	if len(f.Header) > 0 {
+		return true
+	}
+	if f.InMailbox != "" {
+		return true
+	}
+	if len(f.InMailboxOtherThan) > 0 {
+		return true
+	}
+	if f.MaxSize != 0 {
+		return true
+	}
+	if f.MinSize != 0 {
+		return true
+	}
+	if f.NoneInThreadHaveKeyword != "" {
+		return true
+	}
+	if f.NotKeyword != "" {
+		return true
+	}
+	if f.SomeInThreadHaveKeyword != "" {
+		return true
+	}
+	if f.Subject != "" {
+		return true
+	}
+	if f.Text != "" {
+		return true
+	}
+	if f.To != "" {
+		return true
+	}
+	return false
 }
 
 var _ EmailFilterElement = &EmailFilterCondition{}
@@ -545,23 +886,117 @@ type EmailFilterOperator struct {
 func (o EmailFilterOperator) _isAnEmailFilterElement() {
 }
 
-var _ EmailFilterElement = &EmailFilterOperator{}
-
-type Sort struct {
-	Property    string `json:"property,omitempty"`
-	IsAscending bool   `json:"isAscending,omitempty"`
-	Keyword     string `json:"keyword,omitempty"`
-	Collation   string `json:"collation,omitempty"`
+func (o EmailFilterOperator) IsNotEmpty() bool {
+	return len(o.Conditions) > 0
 }
 
+var _ EmailFilterElement = &EmailFilterOperator{}
+
+type EmailComparator struct {
+	// The name of the property on the objects to compare.
+	Property string `json:"property,omitempty"`
+
+	// If true, sort in ascending order.
+	//
+	// Optional; default value: true.
+	//
+	// If false, reverse the comparator’s results to sort in descending order.
+	IsAscending bool `json:"isAscending,omitempty"`
+
+	// The identifier, as registered in the collation registry defined in [RFC4790],
+	// for the algorithm to use when comparing the order of strings.
+	//
+	// Optional; default is server dependent.
+	//
+	// The algorithms the server supports are advertised in the capabilities object returned
+	// with the Session object.
+	//
+	// [RFC4790]: https://www.rfc-editor.org/rfc/rfc4790.html
+	Collation string `json:"collation,omitempty"`
+
+	// Email-specific: keyword that must be included in the Email object.
+	Keyword string `json:"keyword,omitempty"`
+}
+
+// If an anchor argument is given, the anchor is looked for in the results after filtering
+// and sorting.
+//
+// If found, the anchorOffset is then added to its index. If the resulting index is now negative,
+// it is clamped to 0. This index is now used exactly as though it were supplied as the position
+// argument. If the anchor is not found, the call is rejected with an anchorNotFound error.
+//
+// If an anchor is specified, any position argument supplied by the client MUST be ignored.
+// If no anchor is supplied, any anchorOffset argument MUST be ignored.
+//
+// A client can use anchor instead of position to find the index of an id within a large set of results.
 type EmailQueryCommand struct {
-	AccountId       string             `json:"accountId"`
-	Filter          EmailFilterElement `json:"filter,omitempty"`
-	Sort            []Sort             `json:"sort,omitempty"`
-	CollapseThreads bool               `json:"collapseThreads,omitempty"`
-	Position        int                `json:"position,omitempty"`
-	Limit           int                `json:"limit,omitempty"`
-	CalculateTotal  bool               `json:"calculateTotal,omitempty"`
+	// The id of the account to use.
+	AccountId string `json:"accountId"`
+
+	// Determines the set of Emails returned in the results.
+	//
+	// If null, all objects in the account of this type are included in the results.
+	Filter EmailFilterElement `json:"filter,omitempty"`
+
+	// Lists the names of properties to compare between two Email records, and how to compare
+	// them, to determine which comes first in the sort.
+	//
+	// If two Email records have an identical value for the first comparator, the next comparator
+	// will be considered, and so on. If all comparators are the same (this includes the case
+	// where an empty array or null is given as the sort argument), the sort order is server
+	// dependent, but it MUST be stable between calls to Email/query.
+	Sort []EmailComparator `json:"sort,omitempty"`
+
+	// If true, Emails in the same Thread as a previous Email in the list (given the
+	// filter and sort order) will be removed from the list.
+	//
+	// This means only one Email at most will be included in the list for any given Thread.
+	CollapseThreads bool `json:"collapseThreads,omitempty"`
+
+	// The zero-based index of the first id in the full list of results to return.
+	//
+	// If a negative value is given, it is an offset from the end of the list.
+	// Specifically, the negative value MUST be added to the total number of results given
+	// the filter, and if still negative, it’s clamped to 0. This is now the zero-based
+	// index of the first id to return.
+	//
+	// If the index is greater than or equal to the total number of objects in the results
+	// list, then the ids array in the response will be empty, but this is not an error.
+	Position int `json:"position,omitempty"`
+
+	// An Email id.
+	//
+	// If supplied, the position argument is ignored.
+	// The index of this id in the results will be used in combination with the anchorOffset
+	// argument to determine the index of the first result to return.
+	Anchor string `json:"anchor,omitempty"`
+
+	// The index of the first result to return relative to the index of the anchor,
+	// if an anchor is given.
+	//
+	// Default: 0.
+	//
+	// This MAY be negative.
+	//
+	// For example, -1 means the Email immediately preceding the anchor is the first result in
+	// the list returned.
+	AnchorOffset int `json:"anchorOffset,omitzero"`
+
+	// The maximum number of results to return.
+	//
+	// If null, no limit presumed.
+	// The server MAY choose to enforce a maximum limit argument.
+	// In this case, if a greater value is given (or if it is null), the limit is clamped
+	// to the maximum; the new limit is returned with the response so the client is aware.
+	//
+	// If a negative value is given, the call MUST be rejected with an invalidArguments error.
+	Limit int `json:"limit,omitempty"`
+
+	// Does the client wish to know the total number of results in the query?
+	//
+	// This may be slow and expensive for servers to calculate, particularly with complex filters,
+	// so clients should take care to only request the total when needed.
+	CalculateTotal bool `json:"calculateTotal,omitempty"`
 }
 
 type EmailGetCommand struct {
@@ -605,7 +1040,7 @@ type EmailGetCommand struct {
 	// (default: false) If true, the bodyValues property includes any text/* part in the bodyStructure property.
 	FetchAllBodyValues bool `json:"fetchAllBodyValues,omitzero"`
 
-	// (default: 0) If greater than zero, the value property of any EmailBodyValue object returned in bodyValues
+	// If greater than zero, the value property of any EmailBodyValue object returned in bodyValues
 	// MUST be truncated if necessary so it does not exceed this number of octets in size.
 	//
 	// If 0 (the default), no truncation occurs.
@@ -711,7 +1146,7 @@ type EmailGetRefCommand struct {
 	// (default: false) If true, the bodyValues property includes any text/* part in the bodyStructure property.
 	FetchAllBodyValues bool `json:"fetchAllBodyValues,omitzero"`
 
-	// (default: 0) If greater than zero, the value property of any EmailBodyValue object returned in bodyValues
+	// If greater than zero, the value property of any EmailBodyValue object returned in bodyValues
 	// MUST be truncated if necessary so it does not exceed this number of octets in size.
 	//
 	// If 0 (the default), no truncation occurs.
@@ -899,20 +1334,30 @@ type EmailBodyValue struct {
 	// probably not be exactly the same as the size property on the corresponding EmailBodyPart.
 	Value string `json:"value,omitempty"`
 
-	// (default: false) This is true if malformed sections were found while decoding the charset,
+	// This is true if malformed sections were found while decoding the charset,
 	// or the charset was unknown, or the content-transfer-encoding was unknown.
+	//
+	// Default value is false.
 	IsEncodingProblem bool `json:"isEncodingProblem,omitzero"`
 
-	// (default: false) This is true if the value has been truncated.
+	// This is true if the value has been truncated.
+	//
+	// Default value is false.
 	IsTruncated bool `json:"isTruncated,omitzero"`
 }
 
+// An Email.
+//
+// swagger:model
 type Email struct {
 	// The id of the Email object.
 	//
 	// Note that this is the JMAP object id, NOT the Message-ID header field value of the message [RFC5322].
 	//
 	// [RFC5322]: https://www.rfc-editor.org/rfc/rfc5322.html
+	//
+	// required: true
+	// example: eaaaaab
 	Id string `json:"id,omitempty"`
 
 	// The id representing the raw octets of the message [RFC5322] for this Email.
@@ -920,9 +1365,13 @@ type Email struct {
 	// This may be used to download the raw original message or to attach it directly to another Email, etc.
 	//
 	// [RFC5322]: https://www.rfc-editor.org/rfc/rfc5322.html
+	//
+	// example: cbbrzak0jw3gmtovgtwd1nd1p7p0czjlxx0ejgqws9oucgpuyr9fsayaae
 	BlobId string `json:"blobId,omitempty"`
 
 	// The id of the Thread to which this Email belongs.
+	//
+	// example: b
 	ThreadId string `json:"threadId,omitempty"`
 
 	// The set of Mailbox ids this Email belongs to.
@@ -931,6 +1380,8 @@ type Email struct {
 	// The set is represented as an object, with each key being a Mailbox id.
 	//
 	// The value for each key in the object MUST be true.
+	//
+	// example: {"a": true}
 	MailboxIds map[string]bool `json:"mailboxIds,omitempty"`
 
 	// A set of keywords that apply to the Email.
@@ -1128,25 +1579,52 @@ type Envelope struct {
 type EmailSubmissionUndoStatus string
 
 const (
-	UndoStatusPending  EmailSubmissionUndoStatus = "pending"
-	UndoStatusFinal    EmailSubmissionUndoStatus = "final"
+	// It may be possible to cancel this submission.
+	UndoStatusPending EmailSubmissionUndoStatus = "pending"
+
+	// The message has been relayed to at least one recipient in a manner that cannot be recalled.
+	// It is no longer possible to cancel this submission.
+	UndoStatusFinal EmailSubmissionUndoStatus = "final"
+
+	// The submission was canceled and will not be delivered to any recipient.
 	UndoStatusCanceled EmailSubmissionUndoStatus = "canceled"
 )
 
 type DeliveryStatusDelivered string
 
 const (
-	DeliveredQueued  DeliveryStatusDelivered = "queued"
-	DeliveredYes     DeliveryStatusDelivered = "yes"
-	DeliveredNo      DeliveryStatusDelivered = "no"
+	// The message is in a local mail queue and status will change once it exits the local mail
+	// queues.
+	// The smtpReply property may still change.
+	DeliveredQueued DeliveryStatusDelivered = "queued"
+
+	// The message was successfully delivered to the mail store of the recipient.
+	// The smtpReply property is final.
+	DeliveredYes DeliveryStatusDelivered = "yes"
+
+	// Delivery to the recipient permanently failed.
+	// The smtpReply property is final.
+	DeliveredNo DeliveryStatusDelivered = "no"
+
+	// The final delivery status is unknown, (e.g., it was relayed to an external machine
+	// and no further information is available).
+	//
+	// The smtpReply property may still change if a DSN arrives.
 	DeliveredUnknown DeliveryStatusDelivered = "unknown"
 )
 
 type DeliveryStatusDisplayed string
 
 const (
+	// The display status is unknown.
+	//
+	// This is the initial value.
 	DisplayedUnknown DeliveryStatusDisplayed = "unknown"
-	DisplayedYes     DeliveryStatusDisplayed = "yes"
+
+	// The recipient’s system claims the message content has been displayed to the recipient.
+	//
+	// Note that there is no guarantee that the recipient has noticed, read, or understood the content.
+	DisplayedYes DeliveryStatusDisplayed = "yes"
 )
 
 type DeliveryStatus struct {
@@ -1184,7 +1662,7 @@ type DeliveryStatus struct {
 }
 
 type EmailSubmission struct {
-	// (server-set) The id of the EmailSubmission.
+	// The id of the EmailSubmission (server-set).
 	Id string `json:"id"`
 
 	// The id of the Identity to associate with this submission.
@@ -1196,7 +1674,7 @@ type EmailSubmission struct {
 	// to a different address.
 	EmailId string `json:"emailId"`
 
-	// (server-set) The Thread id of the Email to send.
+	// The Thread id of the Email to send (server-set).
 	//
 	// This is set by the server to the threadId property of the Email referenced by the emailId.
 	ThreadId string `json:"threadId"`
@@ -1213,10 +1691,10 @@ type EmailSubmission struct {
 	//     if present, with no parameters for any of them.
 	Envelope *Envelope `json:"envelope,omitempty"`
 
-	// (server-set) The date the submission was/will be released for delivery.
+	// The date the submission was/will be released for delivery (server-set).
 	SendAt time.Time `json:"sendAt,omitzero"`
 
-	// (server-set) This represents whether the submission may be canceled.
+	// This represents whether the submission may be canceled (server-set).
 	//
 	// This is server set on create and MUST be one of the following values:
 	//
@@ -1226,7 +1704,7 @@ type EmailSubmission struct {
 	//   - canceled: The submission was canceled and will not be delivered to any recipient.
 	UndoStatus EmailSubmissionUndoStatus `json:"undoStatus"`
 
-	// (server-set) This represents the delivery status for each of the submission’s recipients, if known.
+	// This represents the delivery status for each of the submission’s recipients, if known (server-set).
 	//
 	// This property MAY not be supported by all servers, in which case it will remain null.
 	//
@@ -1236,16 +1714,16 @@ type EmailSubmission struct {
 	// This value is a map from the email address of each recipient to a DeliveryStatus object.
 	DeliveryStatus map[string]DeliveryStatus `json:"deliveryStatus"`
 
-	// (server-set) A list of blob ids for DSNs [RFC3464] received for this submission,
-	// in order of receipt, oldest first.
+	// A list of blob ids for DSNs [RFC3464] received for this submission,
+	// in order of receipt, oldest first (server-set) .
 	//
 	// The blob is the whole MIME message (with a top-level content-type of multipart/report), as received.
 	//
 	// [RFC3464]: https://datatracker.ietf.org/doc/html/rfc3464
 	DsnBlobIds []string `json:"dsnBlobIds,omitempty"`
 
-	// (server-set) A list of blob ids for MDNs [RFC8098] received for this submission,
-	// in order of receipt, oldest first.
+	// A list of blob ids for MDNs [RFC8098] received for this submission,
+	// in order of receipt, oldest first (server-set).
 	//
 	// The blob is the whole MIME message (with a top-level content-type of multipart/report), as received.
 	//
@@ -1257,16 +1735,50 @@ type EmailSubmissionGetRefCommand struct {
 	// The id of the account to use.
 	AccountId string `json:"accountId"`
 
+	// The ids of the EmailSubmission objects to return.
+	//
+	// If null, then all records of the data type are returned, if this is supported for that data
+	// type and the number of records does not exceed the maxObjectsInGet limit.
 	IdRef *ResultReference `json:"#ids,omitempty"`
 
+	// If supplied, only the properties listed in the array are returned for each EmailSubmission object.
+	//
+	// If null, all properties of the object are returned. The id property of the object is always returned,
+	// even if not explicitly requested. If an invalid property is requested, the call MUST be rejected
+	// with an invalidArguments error.
 	Properties []string `json:"properties,omitempty"`
 }
 
 type EmailSubmissionGetResponse struct {
-	AccountId string            `json:"accountId"`
-	State     string            `json:"state"`
-	List      []EmailSubmission `json:"list,omitempty"`
-	NotFound  []string          `json:"notFound,omitempty"`
+	// The id of the account used for the call.
+	AccountId string `json:"accountId"`
+
+	// A (preferably short) string representing the state on the server for all the data
+	// of this type in the account (not just the objects returned in this call).
+	//
+	// If the data changes, this string MUST change. If the EmailSubmission data is unchanged,
+	// servers SHOULD return the same state string on subsequent requests for this data type.
+	//
+	// When a client receives a response with a different state string to a previous call,
+	// it MUST either throw away all currently cached objects for the type or call
+	// EmailSubmission/changes to get the exact changes.
+	State string `json:"state"`
+
+	// An array of the EmailSubmission objects requested.
+	//
+	// This is the empty array if no objects were found or if the ids argument passed in
+	// was also an empty array.
+	//
+	// The results MAY be in a different order to the ids in the request arguments.
+	// If an identical id is included more than once in the request, the server MUST only
+	// include it once in either the list or the notFound argument of the response.
+	List []EmailSubmission `json:"list,omitempty"`
+
+	// This array contains the ids passed to the method for records that do not exist.
+	//
+	// The array is empty if all requested ids were found or if the ids argument passed in was
+	// either null or an empty array.
+	NotFound []string `json:"notFound,omitempty"`
 }
 
 // Patch Object.
@@ -1289,6 +1801,7 @@ type PatchObject map[string]any
 type EmailSubmissionCreate struct {
 	// The id of the Identity to associate with this submission.
 	IdentityId string `json:"identityId"`
+
 	// The id of the Email to send.
 	//
 	// The Email being sent does not have to be a draft, for example, when “redirecting” an existing
@@ -1325,11 +1838,28 @@ type CreatedEmailSubmission struct {
 }
 
 type EmailSubmissionSetResponse struct {
-	AccountId  string                            `json:"accountId"`
-	OldState   string                            `json:"oldState"`
-	NewState   string                            `json:"newState"`
-	Created    map[string]CreatedEmailSubmission `json:"created,omitempty"`
-	NotCreated map[string]SetError               `json:"notCreated,omitempty"`
+	// The id of the account used for the call.
+	AccountId string `json:"accountId"`
+
+	// This is the sinceState argument echoed back; it’s the state from which the server is returning changes.
+	OldState string `json:"oldState"`
+
+	// This is the state the client will be in after applying the set of changes to the old state.
+	NewState string `json:"newState"`
+
+	// If true, the client may call EmailSubmission/changes again with the newState returned to get further
+	// updates.
+	//
+	// If false, newState is the current server state.
+	HasMoreChanges bool `json:"hasMoreChanges"`
+
+	// An array of ids for records that have been created since the old state.
+	Created map[string]CreatedEmailSubmission `json:"created,omitempty"`
+
+	// A map of the creation id to a SetError object for each record that failed to be created, or
+	// null if all successful.
+	NotCreated map[string]SetError `json:"notCreated,omitempty"`
+
 	// TODO(pbleser-oc) add updated and destroyed when they are needed
 }
 
@@ -1358,15 +1888,20 @@ func invocation(command Command, parameters any, tag string) Invocation {
 
 type Request struct {
 	// The set of capabilities the client wishes to use.
+	//
 	// The client MAY include capability identifiers even if the method calls it makes do not utilise those capabilities.
-	// The server advertises the set of specifications it supports in the Session object (see [Section 2]), as keys on the capabilities property.
+	// The server advertises the set of specifications it supports in the Session object (see [Section 2]), as keys on
+	// the capabilities property.
 	//
 	// [Section 2]: https://jmap.io/spec-core.html#the-jmap-session-resource
 	Using []string `json:"using"`
+
 	// An array of method calls to process on the server.
+	//
 	// The method calls MUST be processed sequentially, in order.
 	MethodCalls []Invocation `json:"methodCalls"`
-	// (optional) A map of a (client-specified) creation id to the id the server assigned when a record was successfully created.
+
+	// A map of a (client-specified) creation id to the id the server assigned when a record was successfully created (optional).
 	CreatedIds map[string]string `json:"createdIds,omitempty"`
 }
 
@@ -1382,11 +1917,15 @@ type Response struct {
 	// An array of responses, in the same format as the methodCalls on the Request object.
 	// The output of the methods MUST be added to the methodResponses array in the same order that the methods are processed.
 	MethodResponses []Invocation `json:"methodResponses"`
-	// (optional; only returned if given in the request) A map of a (client-specified) creation id to the id the server
-	// assigned when a record was successfully created.
+
+	// A map of a (client-specified) creation id to the id the server assigned when a record was successfully created.
+	//
+	// Optional; only returned if given in the request.
+	//
 	// This MUST include all creation ids passed in the original createdIds parameter of the Request object, as well as any
 	// additional ones added for newly created records.
 	CreatedIds map[string]string `json:"createdIds,omitempty"`
+
 	// The current value of the “state” string on the Session object, as described in [Section 2].
 	// Clients may use this to detect if this object has changed and needs to be refetched.
 	//
@@ -1397,33 +1936,49 @@ type Response struct {
 type EmailQueryResponse struct {
 	// The id of the account used for the call.
 	AccountId string `json:"accountId"`
+
 	// A string encoding the current state of the query on the server.
+	//
 	// This string MUST change if the results of the query (i.e., the matching ids and their sort order) have changed.
 	// The queryState string MAY change if something has changed on the server, which means the results may have changed
 	// but the server doesn’t know for sure.
+	//
 	// The queryState string only represents the ordered list of ids that match the particular query (including its sort/filter).
 	// There is no requirement for it to change if a property on an object matching the query changes but the query results are unaffected
 	// (indeed, it is more efficient if the queryState string does not change in this case).
+	//
 	// The queryState string only has meaning when compared to future responses to a query with the same type/sort/filter or when used with
 	// /queryChanges to fetch changes.
+	//
 	// Should a client receive back a response with a different queryState string to a previous call, it MUST either throw away the currently
 	// cached query and fetch it again (note, this does not require fetching the records again, just the list of ids) or call
 	// Email/queryChanges to get the difference.
 	QueryState string `json:"queryState"`
+
 	// This is true if the server supports calling Email/queryChanges with these filter/sort parameters.
+	//
 	// Note, this does not guarantee that the Email/queryChanges call will succeed, as it may only be possible for a limited time
 	// afterwards due to server internal implementation details.
 	CanCalculateChanges bool `json:"canCalculateChanges"`
+
 	// The zero-based index of the first result in the ids array within the complete list of query results.
 	Position int `json:"position"`
+
 	// The list of ids for each Email in the query results, starting at the index given by the position argument of this
 	// response and continuing until it hits the end of the results or reaches the limit number of ids.
+	//
 	// If position is >= total, this MUST be the empty list.
 	Ids []string `json:"ids"`
-	// (only if requested) The total number of Emails in the results (given the filter).
+
+	// The total number of Emails in the results (given the filter).
+	//
+	// Only if requested.
+	//
 	// This argument MUST be omitted if the calculateTotal request argument is not true.
 	Total int `json:"total,omitempty,omitzero"`
-	// (if set by the server) The limit enforced by the server on the maximum number of results to return.
+
+	// The limit enforced by the server on the maximum number of results to return (if set by the server).
+	//
 	// This is only returned if the server set a limit or used a different limit than that given in the request.
 	Limit int `json:"limit,omitempty,omitzero"`
 }
@@ -1431,18 +1986,26 @@ type EmailQueryResponse struct {
 type EmailGetResponse struct {
 	// The id of the account used for the call.
 	AccountId string `json:"accountId"`
+
 	// A (preferably short) string representing the state on the server for all the data of this type
 	// in the account (not just the objects returned in this call).
+	//
 	// If the data changes, this string MUST change.
 	// If the Email data is unchanged, servers SHOULD return the same state string on subsequent requests for this data type.
 	State string `json:"state"`
+
 	// An array of the Email objects requested.
+	//
 	// This is the empty array if no objects were found or if the ids argument passed in was also an empty array.
+	//
 	// The results MAY be in a different order to the ids in the request arguments.
+	//
 	// If an identical id is included more than once in the request, the server MUST only include it once in either
 	// the list or the notFound argument of the response.
 	List []Email `json:"list"`
+
 	// This array contains the ids passed to the method for records that do not exist.
+	//
 	// The array is empty if all requested ids were found or if the ids argument passed in was either null or an empty array.
 	NotFound []any `json:"notFound"`
 }
@@ -1450,17 +2013,23 @@ type EmailGetResponse struct {
 type EmailChangesResponse struct {
 	// The id of the account used for the call.
 	AccountId string `json:"accountId"`
+
 	// This is the sinceState argument echoed back; it’s the state from which the server is returning changes.
 	OldState string `json:"oldState"`
+
 	// This is the state the client will be in after applying the set of changes to the old state.
 	NewState string `json:"newState"`
+
 	// If true, the client may call Email/changes again with the newState returned to get further updates.
 	// If false, newState is the current server state.
 	HasMoreChanges bool `json:"hasMoreChanges"`
+
 	// An array of ids for records that have been created since the old state.
 	Created []string `json:"created,omitempty"`
+
 	// An array of ids for records that have been updated since the old state.
 	Updated []string `json:"updated,omitempty"`
+
 	// An array of ids for records that have been destroyed since the old state.
 	Destroyed []string `json:"destroyed,omitempty"`
 }
@@ -1468,6 +2037,7 @@ type EmailChangesResponse struct {
 type MailboxGetResponse struct {
 	// The id of the account used for the call.
 	AccountId string `json:"accountId"`
+
 	// A (preferably short) string representing the state on the server for all the data of this type in the account
 	// (not just the objects returned in this call).
 	// If the data changes, this string MUST change.
@@ -1475,12 +2045,14 @@ type MailboxGetResponse struct {
 	// When a client receives a response with a different state string to a previous call, it MUST either throw away all currently
 	// cached objects for the type or call Foo/changes to get the exact changes.
 	State string `json:"state"`
+
 	// An array of the Mailbox objects requested.
 	// This is the empty array if no objects were found or if the ids argument passed in was also an empty array.
 	// The results MAY be in a different order to the ids in the request arguments.
 	// If an identical id is included more than once in the request, the server MUST only include it once in either
 	// the list or the notFound argument of the response.
 	List []Mailbox `json:"list"`
+
 	// This array contains the ids passed to the method for records that do not exist.
 	// The array is empty if all requested ids were found or if the ids argument passed in was either null or an empty array.
 	NotFound []any `json:"notFound"`
@@ -1553,12 +2125,12 @@ type MailboxQueryResponse struct {
 	// If position is >= total, this MUST be the empty list.
 	Ids []string `json:"ids"`
 
-	// (only if requested) The total number of Mailbox in the results (given the filter).
+	// The total number of Mailbox in the results (given the filter) (only if requested).
 	//
 	// This argument MUST be omitted if the calculateTotal request argument is not true.
 	Total int `json:"total,omitzero"`
 
-	// (if set by the server) The limit enforced by the server on the maximum number of results to return.
+	// The limit enforced by the server on the maximum number of results to return (if set by the server).
 	//
 	// This is only returned if the server set a limit or used a different limit than that given in the request.
 	Limit int `json:"limit,omitzero"`
@@ -1634,14 +2206,49 @@ type EmailSetCommand struct {
 }
 
 type EmailSetResponse struct {
-	AccountId    string              `json:"accountId"`
-	OldState     string              `json:"oldState,omitempty"`
-	NewState     string              `json:"newState"`
-	Created      map[string]Email    `json:"created,omitempty"`
-	Updated      map[string]Email    `json:"updated,omitempty"`
-	Destroyed    []string            `json:"destroyed,omitempty"`
-	NotCreated   map[string]SetError `json:"notCreated,omitempty"`
-	NotUpdated   map[string]SetError `json:"notUpdated,omitempty"`
+	// The id of the account used for the call.
+	AccountId string `json:"accountId"`
+
+	// The state string that would have been returned by Email/get before making the
+	// requested changes, or null if the server doesn’t know what the previous state
+	// string was.
+	OldState string `json:"oldState,omitempty"`
+
+	// The state string that will now be returned by Email/get.
+	NewState string `json:"newState"`
+
+	// A map of the creation id to an object containing any properties of the created Email object
+	// that were not sent by the client.
+	//
+	// This includes all server-set properties (such as the id in most object types) and any properties
+	// that were omitted by the client and thus set to a default by the server.
+	//
+	// This argument is null if no Email objects were successfully created.
+	Created map[string]Email `json:"created,omitempty"`
+
+	// The keys in this map are the ids of all Emails that were successfully updated.
+	//
+	// The value for each id is an Email object containing any property that changed in a way not
+	// explicitly requested by the PatchObject sent to the server, or null if none.
+	//
+	// This lets the client know of any changes to server-set or computed properties.
+	//
+	// This argument is null if no Email objects were successfully updated.
+	Updated map[string]Email `json:"updated,omitempty"`
+
+	// A list of Email ids for records that were successfully destroyed, or null if none.
+	Destroyed []string `json:"destroyed,omitempty"`
+
+	// A map of the creation id to a SetError object for each record that failed to be created,
+	// or null if all successful.
+	NotCreated map[string]SetError `json:"notCreated,omitempty"`
+
+	// A map of the Email id to a SetError object for each record that failed to be updated,
+	// or null if all successful.
+	NotUpdated map[string]SetError `json:"notUpdated,omitempty"`
+
+	// A map of the Email id to a SetError object for each record that failed to be destroyed,
+	// or null if all successful.
 	NotDestroyed map[string]SetError `json:"notDestroyed,omitempty"`
 }
 
@@ -1649,36 +2256,91 @@ const (
 	EmailMimeType = "message/rfc822"
 )
 
-type EmailToImport struct {
-	BlobId     string          `json:"blobId"`
+type EmailImport struct {
+	// The id of the blob containing the raw message [RFC5322].
+	//
+	// [RFC5322]: https://www.rfc-editor.org/rfc/rfc5322.html
+	BlobId string `json:"blobId"`
+
+	// The ids of the Mailboxes to assign this Email to.
+	//
+	// At least one Mailbox MUST be given.
 	MailboxIds map[string]bool `json:"mailboxIds"`
-	Keywords   map[string]bool `json:"keywords"`
-	ReceivedAt time.Time       `json:"receivedAt"`
+
+	// The keywords to apply to the Email.
+	Keywords map[string]bool `json:"keywords"`
+
+	// (default: time of most recent Received header, or time of import
+	// on server if none) The receivedAt date to set on the Email.
+	ReceivedAt time.Time `json:"receivedAt"`
 }
 
 type EmailImportCommand struct {
-	AccountId string                   `json:"accountId"`
-	IfInState string                   `json:"ifInState,omitempty"`
-	Emails    map[string]EmailToImport `json:"emails"`
+	AccountId string `json:"accountId"`
+
+	// This is a state string as returned by the Email/get method.
+	//
+	// If supplied, the string must match the current state of the account referenced
+	// by the accountId; otherwise, the method will be aborted and a stateMismatch
+	// error returned.
+	//
+	// If null, any changes will be applied to the current state.
+	IfInState string `json:"ifInState,omitempty"`
+
+	// A map of creation id (client specified) to EmailImport objects.
+	Emails map[string]EmailImport `json:"emails"`
 }
 
+// Successfully imported Email.
 type ImportedEmail struct {
-	Id       string `json:"id"`
-	BlobId   string `json:"blobId"`
+	// Id of the successfully imported Email.
+	Id string `json:"id"`
+
+	// Blob id of the successfully imported Email.
+	BlobId string `json:"blobId"`
+
+	// Thread id of the successfully imported Email.
 	ThreadId string `json:"threadId"`
-	Size     int    `json:"size"`
+
+	// Size of the successfully imported Email.
+	Size int `json:"size"`
 }
 
 type EmailImportResponse struct {
-	AccountId  string                   `json:"accountId"`
-	OldState   string                   `json:"oldState"`
-	NewState   string                   `json:"newState"`
-	Created    map[string]ImportedEmail `json:"created"`
-	NotCreated map[string]SetError      `json:"notCreated"`
+	// The id of the account used for this call.
+	AccountId string `json:"accountId"`
+
+	// The state string that would have been returned by Email/get on this account
+	// before making the requested changes, or null if the server doesn’t know
+	// what the previous state string was.
+	OldState string `json:"oldState"`
+
+	// The state string that will now be returned by Email/get on this account.
+	NewState string `json:"newState"`
+
+	// A map of the creation id to an object containing the id, blobId, threadId,
+	// and size properties for each successfully imported Email, or null if none.
+	Created map[string]ImportedEmail `json:"created"`
+
+	// A map of the creation id to a SetError object for each Email that failed to
+	// be created, or null if all successful.
+	NotCreated map[string]SetError `json:"notCreated"`
 }
 
+// Replies are grouped together with the original message to form a Thread.
+//
+// In JMAP, a Thread is simply a flat list of Emails, ordered by date.
+//
+// Every Email MUST belong to a Thread, even if it is the only Email in the Thread.
 type Thread struct {
-	Id       string
+	// The id of the Thread.
+	Id string
+
+	// The ids of the Emails in the Thread, sorted by the receivedAt date of the Email,
+	// oldest first.
+	//
+	// If two Emails have an identical date, the sort is server dependent but MUST be
+	// stable (sorting by id is recommended).
 	EmailIds []string
 }
 
@@ -1695,14 +2357,46 @@ type IdentityGetCommand struct {
 }
 
 type Identity struct {
-	Id            string         `json:"id"`
-	Name          string         `json:"name,omitempty"`
-	Email         string         `json:"email,omitempty"`
-	ReplyTo       string         `json:"replyTo:omitempty"`
-	Bcc           []EmailAddress `json:"bcc,omitempty"`
-	TextSignature string         `json:"textSignature,omitempty"`
-	HtmlSignature string         `json:"htmlSignature,omitempty"`
-	MayDelete     bool           `json:"mayDelete"`
+	// The id of the Identity.
+	Id string `json:"id"`
+
+	// The “From” name the client SHOULD use when creating a new Email from this Identity.
+	Name string `json:"name,omitempty"`
+
+	// The “From” email address the client MUST use when creating a new Email from this Identity.
+	//
+	// If the mailbox part of the address (the section before the “@”) is the single character
+	// * (e.g., *@example.com) then the client may use any valid address ending in that domain
+	// (e.g., foo@example.com).
+	Email string `json:"email,omitempty"`
+
+	// The Reply-To value the client SHOULD set when creating a new Email from this Identity.
+	ReplyTo string `json:"replyTo:omitempty"`
+
+	// The Bcc value the client SHOULD set when creating a new Email from this Identity.
+	Bcc []EmailAddress `json:"bcc,omitempty"`
+
+	// A signature the client SHOULD insert into new plaintext messages that will be sent from
+	// this Identity.
+	//
+	// Clients MAY ignore this and/or combine this with a client-specific signature preference.
+	TextSignature string `json:"textSignature,omitempty"`
+
+	// A signature the client SHOULD insert into new HTML messages that will be sent from this
+	// Identity.
+	//
+	// This text MUST be an HTML snippet to be inserted into the <body></body> section of the HTML.
+	//
+	// Clients MAY ignore this and/or combine this with a client-specific signature preference.
+	HtmlSignature string `json:"htmlSignature,omitempty"`
+
+	// Is the user allowed to delete this Identity?
+	//
+	// Servers may wish to set this to false for the user’s username or other default address.
+	//
+	// Attempts to destroy an Identity with mayDelete: false will be rejected with a standard
+	// forbidden SetError.
+	MayDelete bool `json:"mayDelete"`
 }
 
 type IdentityGetResponse struct {
@@ -1716,27 +2410,43 @@ type VacationResponseGetCommand struct {
 	AccountId string `json:"accountId"`
 }
 
-// https://datatracker.ietf.org/doc/html/rfc8621#section-8
+// Vacation Response
+//
+// A vacation response sends an automatic reply when a message is delivered to the mail store,
+// informing the original sender that their message may not be read for some time.
+//
+// Automated message sending can produce undesirable behaviour.
+// To avoid this, implementors MUST follow the recommendations set forth in [RFC3834].
+//
+// The VacationResponse object represents the state of vacation-response-related settings for an account.
+//
+// [RFC3834]: https://www.rfc-editor.org/rfc/rfc3834.html
 type VacationResponse struct {
 	// The id of the object.
 	// There is only ever one VacationResponse object, and its id is "singleton"
 	Id string `json:"id,omitempty"`
+
 	// Should a vacation response be sent if a message arrives between the "fromDate" and "toDate"?
 	IsEnabled bool `json:"isEnabled"`
+
 	// If "isEnabled" is true, messages that arrive on or after this date-time (but before the "toDate" if defined) should receive the
 	// user's vacation response. If null, the vacation response is effective immediately.
 	FromDate time.Time `json:"fromDate,omitzero"`
+
 	// If "isEnabled" is true, messages that arrive before this date-time but on or after the "fromDate" if defined) should receive the
 	// user's vacation response.  If null, the vacation response is effective indefinitely.
 	ToDate time.Time `json:"toDate,omitzero"`
+
 	// The subject that will be used by the message sent in response to messages when the vacation response is enabled.
 	// If null, an appropriate subject SHOULD be set by the server.
 	Subject string `json:"subject,omitempty"`
+
 	// The plaintext body to send in response to messages when the vacation response is enabled.
 	// If this is null, the server SHOULD generate a plaintext body part from the "htmlBody" when sending vacation responses
 	// but MAY choose to send the response as HTML only.  If both "textBody" and "htmlBody" are null, an appropriate default
 	// body SHOULD be generated for responses by the server.
 	TextBody string `json:"textBody,omitempty"`
+
 	// The HTML body to send in response to messages when the vacation response is enabled.
 	// If this is null, the server MAY choose to generate an HTML body part from the "textBody" when sending vacation responses
 	// or MAY choose to send the response as plaintext only.
@@ -1746,13 +2456,17 @@ type VacationResponse struct {
 type VacationResponseGetResponse struct {
 	// The identifier of the account this response pertains to.
 	AccountId string `json:"accountId"`
+
 	// A string representing the state on the server for all the data of this type in the account
 	// (not just the objects returned in this call).
+	//
 	// If the data changes, this string MUST change. If the data is unchanged, servers SHOULD return the same state string
 	// on subsequent requests for this data type.
 	State string `json:"state,omitempty"`
+
 	// An array of VacationResponse objects.
 	List []VacationResponse `json:"list,omitempty"`
+
 	// Contains identifiers of requested objects that were not found.
 	NotFound []any `json:"notFound,omitempty"`
 }
@@ -1833,14 +2547,32 @@ type BlobGetRefCommand struct {
 }
 
 type Blob struct {
-	Id                string `json:"id"`
-	DataAsText        string `json:"data:asText,omitempty"`
-	DataAsBase64      string `json:"data:asBase64,omitempty"`
-	DigestSha256      string `json:"digest:sha256,omitempty"`
-	DigestSha512      string `json:"digest:sha512,omitempty"`
-	IsEncodingProblem bool   `json:"isEncodingProblem,omitzero"`
-	IsTruncated       bool   `json:"isTruncated,omitzero"`
-	Size              int    `json:"size"`
+	// The unique identifier of the blob.
+	Id string `json:"id"`
+
+	// (raw octets, must be UTF-8)
+	DataAsText string `json:"data:asText,omitempty"`
+
+	// (base64 representation of octets)
+	DataAsBase64 string `json:"data:asBase64,omitempty"`
+
+	// The base64 encoding of the digest of the octets in the selected range,
+	// calculated using the SHA-256 algorithm.
+	DigestSha256 string `json:"digest:sha256,omitempty"`
+
+	// The base64 encoding of the digest of the octets in the selected range,
+	// calculated using the SHA-512 algorithm.
+	DigestSha512 string `json:"digest:sha512,omitempty"`
+
+	// If an encoding problem occured.
+	IsEncodingProblem bool `json:"isEncodingProblem,omitzero"`
+
+	// When requesting a range: the isTruncated property in the result MUST be
+	// set to true to tell the client that the requested range could not be fully satisfied.
+	IsTruncated bool `json:"isTruncated,omitzero"`
+
+	// The number of octets in the entire blob.
+	Size int `json:"size"`
 }
 
 // Picks the best digest if available, or ""
@@ -1869,16 +2601,51 @@ type BlobDownload struct {
 	CacheControl       string
 }
 
+// When doing a search on a String property, the client may wish to show the relevant
+// section of the body that matches the search as a preview and to highlight any
+// matching terms in both this and the subject of the Email.
+//
+// Search snippets represent this data.
+//
+// What is a relevant section of the body for preview is server defined. If the server is
+// unable to determine search snippets, it MUST return null for both the subject and preview
+// properties.
+//
+// Note that unlike most data types, a SearchSnippet DOES NOT have a property called id.
 type SearchSnippet struct {
+	// The Email id the snippet applies to.
 	EmailId string `json:"emailId"`
+
+	// If text from the filter matches the subject, this is the subject of the Email
+	// with the following transformations:
+	//
+	//   1. Any instance of the following three characters MUST be replaced by an
+	//      appropriate HTML entity: & (ampersand), < (less-than sign), and > (greater-than sign)
+	//      HTML. Other characters MAY also be replaced with an HTML entity form.
+	//   2. The matching words/phrases from the filter are wrapped in HTML <mark></mark> tags.
+	//
+	// If the subject does not match text from the filter, this property is null.
 	Subject string `json:"subject,omitempty"`
+
+	// If text from the filter matches the plaintext or HTML body, this is the
+	// relevant section of the body (converted to plaintext if originally HTML),
+	// with the same transformations as the subject property.
+	//
+	// It MUST NOT be bigger than 255 octets in size.
+	//
+	// If the body does not contain a match for the text from the filter, this property is null.
 	Preview string `json:"preview,omitempty"`
 }
 
-type SearchSnippetRefCommand struct {
-	AccountId  string             `json:"accountId"`
-	Filter     EmailFilterElement `json:"filter,omitempty"`
-	EmailIdRef *ResultReference   `json:"#emailIds,omitempty"`
+type SearchSnippetGetRefCommand struct {
+	// The id of the account to use.
+	AccountId string `json:"accountId"`
+
+	// The same filter as passed to Email/query.
+	Filter EmailFilterElement `json:"filter,omitempty"`
+
+	// The ids of the Emails to fetch snippets for.
+	EmailIdRef *ResultReference `json:"#emailIds,omitempty"`
 }
 
 type SearchSnippetGetResponse struct {
@@ -1888,39 +2655,39 @@ type SearchSnippetGetResponse struct {
 }
 
 const (
-	BlobGet             Command = "Blob/get"
-	BlobUpload          Command = "Blob/upload"
-	EmailGet            Command = "Email/get"
-	EmailQuery          Command = "Email/query"
-	EmailChanges        Command = "Email/changes"
-	EmailSet            Command = "Email/set"
-	EmailImport         Command = "Email/import"
-	EmailSubmissionGet  Command = "EmailSubmission/get"
-	EmailSubmissionSet  Command = "EmailSubmission/set"
-	ThreadGet           Command = "Thread/get"
-	MailboxGet          Command = "Mailbox/get"
-	MailboxQuery        Command = "Mailbox/query"
-	MailboxChanges      Command = "Mailbox/changes"
-	IdentityGet         Command = "Identity/get"
-	VacationResponseGet Command = "VacationResponse/get"
-	VacationResponseSet Command = "VacationResponse/set"
-	SearchSnippetGet    Command = "SearchSnippet/get"
+	CommandBlobGet             Command = "Blob/get"
+	CommandBlobUpload          Command = "Blob/upload"
+	CommandEmailGet            Command = "Email/get"
+	CommandEmailQuery          Command = "Email/query"
+	CommandEmailChanges        Command = "Email/changes"
+	CommandEmailSet            Command = "Email/set"
+	CommandEmailImport         Command = "Email/import"
+	CommandEmailSubmissionGet  Command = "EmailSubmission/get"
+	CommandEmailSubmissionSet  Command = "EmailSubmission/set"
+	CommandThreadGet           Command = "Thread/get"
+	CommandMailboxGet          Command = "Mailbox/get"
+	CommandMailboxQuery        Command = "Mailbox/query"
+	CommandMailboxChanges      Command = "Mailbox/changes"
+	CommandIdentityGet         Command = "Identity/get"
+	CommandVacationResponseGet Command = "VacationResponse/get"
+	CommandVacationResponseSet Command = "VacationResponse/set"
+	CommandSearchSnippetGet    Command = "SearchSnippet/get"
 )
 
 var CommandResponseTypeMap = map[Command]func() any{
-	BlobGet:             func() any { return BlobGetResponse{} },
-	BlobUpload:          func() any { return BlobUploadResponse{} },
-	MailboxQuery:        func() any { return MailboxQueryResponse{} },
-	MailboxGet:          func() any { return MailboxGetResponse{} },
-	MailboxChanges:      func() any { return MailboxChangesResponse{} },
-	EmailQuery:          func() any { return EmailQueryResponse{} },
-	EmailChanges:        func() any { return EmailChangesResponse{} },
-	EmailGet:            func() any { return EmailGetResponse{} },
-	EmailSubmissionGet:  func() any { return EmailSubmissionGetResponse{} },
-	EmailSubmissionSet:  func() any { return EmailSubmissionSetResponse{} },
-	ThreadGet:           func() any { return ThreadGetResponse{} },
-	IdentityGet:         func() any { return IdentityGetResponse{} },
-	VacationResponseGet: func() any { return VacationResponseGetResponse{} },
-	VacationResponseSet: func() any { return VacationResponseSetResponse{} },
-	SearchSnippetGet:    func() any { return SearchSnippetGetResponse{} },
+	CommandBlobGet:             func() any { return BlobGetResponse{} },
+	CommandBlobUpload:          func() any { return BlobUploadResponse{} },
+	CommandMailboxQuery:        func() any { return MailboxQueryResponse{} },
+	CommandMailboxGet:          func() any { return MailboxGetResponse{} },
+	CommandMailboxChanges:      func() any { return MailboxChangesResponse{} },
+	CommandEmailQuery:          func() any { return EmailQueryResponse{} },
+	CommandEmailChanges:        func() any { return EmailChangesResponse{} },
+	CommandEmailGet:            func() any { return EmailGetResponse{} },
+	CommandEmailSubmissionGet:  func() any { return EmailSubmissionGetResponse{} },
+	CommandEmailSubmissionSet:  func() any { return EmailSubmissionSetResponse{} },
+	CommandThreadGet:           func() any { return ThreadGetResponse{} },
+	CommandIdentityGet:         func() any { return IdentityGetResponse{} },
+	CommandVacationResponseGet: func() any { return VacationResponseGetResponse{} },
+	CommandVacationResponseSet: func() any { return VacationResponseSetResponse{} },
+	CommandSearchSnippetGet:    func() any { return SearchSnippetGetResponse{} },
 }

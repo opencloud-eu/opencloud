@@ -14,8 +14,8 @@ include ../../.make/docs.mk
 apidoc: swagger.yml
 
 .PHONY: swagger.yml
-swagger.yml:
-	swagger generate spec -c groupware -o ./swagger.yml
+swagger.yml:	apidoc.yml
+	swagger generate spec --output=$@ --include='groupware' --include='jmap' --scan-models --input=$<
 
 APIDOC_PORT=9999
 

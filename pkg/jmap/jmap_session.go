@@ -1,7 +1,7 @@
 package jmap
 
 import (
-	"fmt"
+	"errors"
 	"net/url"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -43,46 +43,46 @@ type Session struct {
 	// The upload URL template
 	DownloadUrlTemplate string
 
-	// TODO
-	DefaultMailAccountId string
-
 	SessionResponse
 }
+
+var (
+	invalidSessionResponseErrorMissingUsername    = SimpleError{code: JmapErrorInvalidSessionResponse, err: errors.New("JMAP session response does not provide a username")}
+	invalidSessionResponseErrorMissingApiUrl      = SimpleError{code: JmapErrorInvalidSessionResponse, err: errors.New("JMAP session response does not provide an API URL")}
+	invalidSessionResponseErrorInvalidApiUrl      = SimpleError{code: JmapErrorInvalidSessionResponse, err: errors.New("JMAP session response provides an invalid API URL")}
+	invalidSessionResponseErrorMissingUploadUrl   = SimpleError{code: JmapErrorInvalidSessionResponse, err: errors.New("JMAP session response does not provide an upload URL")}
+	invalidSessionResponseErrorMissingDownloadUrl = SimpleError{code: JmapErrorInvalidSessionResponse, err: errors.New("JMAP session response does not provide a download URL")}
+)
 
 // Create a new Session from a SessionResponse.
 func newSession(sessionResponse SessionResponse) (Session, Error) {
 	username := sessionResponse.Username
 	if username == "" {
-		return Session{}, SimpleError{code: JmapErrorInvalidSessionResponse, err: fmt.Errorf("JMAP session response does not provide a username")}
-	}
-	mailAccountId := sessionResponse.PrimaryAccounts.Mail
-	if mailAccountId == "" {
-		return Session{}, SimpleError{code: JmapErrorInvalidSessionResponse, err: fmt.Errorf("JMAP session response does not provide a primary mail account")}
+		return Session{}, invalidSessionResponseErrorMissingUsername
 	}
 	apiStr := sessionResponse.ApiUrl
 	if apiStr == "" {
-		return Session{}, SimpleError{code: JmapErrorInvalidSessionResponse, err: fmt.Errorf("JMAP session response does not provide an API URL")}
+		return Session{}, invalidSessionResponseErrorMissingApiUrl
 	}
 	apiUrl, err := url.Parse(apiStr)
 	if err != nil {
-		return Session{}, SimpleError{code: JmapErrorInvalidSessionResponse, err: fmt.Errorf("JMAP session response provides an invalid API URL")}
+		return Session{}, invalidSessionResponseErrorInvalidApiUrl
 	}
 	uploadUrl := sessionResponse.UploadUrl
 	if uploadUrl == "" {
-		return Session{}, SimpleError{code: JmapErrorInvalidSessionResponse, err: fmt.Errorf("JMAP session response does not provide an upload URL")}
+		return Session{}, invalidSessionResponseErrorMissingUploadUrl
 	}
 	downloadUrl := sessionResponse.DownloadUrl
 	if downloadUrl == "" {
-		return Session{}, SimpleError{code: JmapErrorInvalidSessionResponse, err: fmt.Errorf("JMAP session response does not provide an download URL")}
+		return Session{}, invalidSessionResponseErrorMissingDownloadUrl
 	}
 
 	return Session{
-		Username:             username,
-		DefaultMailAccountId: mailAccountId,
-		JmapUrl:              *apiUrl,
-		UploadUrlTemplate:    uploadUrl,
-		DownloadUrlTemplate:  downloadUrl,
-		SessionResponse:      sessionResponse,
+		Username:            username,
+		JmapUrl:             *apiUrl,
+		UploadUrlTemplate:   uploadUrl,
+		DownloadUrlTemplate: downloadUrl,
+		SessionResponse:     sessionResponse,
 	}, nil
 }
 
@@ -91,7 +91,7 @@ func (s *Session) MailAccountId(accountId string) string {
 		return accountId
 	}
 	// TODO(pbleser-oc) handle case where there is no default mail account
-	return s.DefaultMailAccountId
+	return s.PrimaryAccounts.Mail
 }
 
 func (s *Session) BlobAccountId(accountId string) string {

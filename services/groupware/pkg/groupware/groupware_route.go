@@ -54,7 +54,8 @@ func (g Groupware) Route(r chi.Router) {
 			r.Get("/", g.GetMessages) // ?fetchemails=true&fetchbodies=true&text=&subject=&body=&keyword=&keyword=&...
 			r.Post("/", g.CreateMessage)
 			r.Get("/{messageid}", g.GetMessagesById)
-			r.Put("/{messageid}", g.UpdateMessage) // or PATCH?
+			// r.Put("/{messageid}", g.ReplaceMessage) // TODO
+			r.Patch("/{messageid}", g.UpdateMessage)
 			r.Delete("/{messageId}", g.DeleteMessage)
 		})
 		r.Route("/blobs", func(r chi.Router) {
