@@ -6,7 +6,9 @@
 
 @fschade
 
+### 📦️ Dependencies
 
+- build(deps): bump github.com/onsi/gomega from 1.37.0 to 1.38.0 [[#1266](https://github.com/opencloud-eu/opencloud/pull/1266)]
 
 ## [3.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.3.0) - 2025-08-12
 
