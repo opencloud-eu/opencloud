@@ -1467,6 +1467,7 @@ def multiServiceE2ePipeline(ctx):
             restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBin"]) + \
             restoreWebCache() + \
             restoreWebPnpmCache() + \
+            restoreBrowsersCache() + \
             tikaService() + \
             opencloudServer(storage, extra_server_environment = extra_server_environment, tika_enabled = params["tikaNeeded"]) + \
             storage_users_services + \
