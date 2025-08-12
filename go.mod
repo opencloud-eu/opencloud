@@ -61,7 +61,7 @@ require (
 	github.com/olekukonko/tablewriter v1.0.8
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/ginkgo/v2 v2.23.4
-	github.com/onsi/gomega v1.37.0
+	github.com/onsi/gomega v1.38.0
 	github.com/open-policy-agent/opa v1.6.0
 	github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76
 	github.com/opencloud-eu/reva/v2 v2.36.0
