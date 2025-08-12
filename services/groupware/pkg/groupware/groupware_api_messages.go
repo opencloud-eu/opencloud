@@ -12,6 +12,45 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
+// When the request succeeds without a "since" query parameter.
+// swagger:response GetAllMessagesInMailbox200
+type SwaggerGetAllMessagesInMailbox200 struct {
+	// in: body
+	Body struct {
+		*jmap.Emails
+	}
+}
+
+// When the request succeeds with a "since" query parameter.
+// swagger:response GetAllMessagesInMailboxSince200
+type SwaggerGetAllMessagesInMailboxSince200 struct {
+	// in: body
+	Body struct {
+		*jmap.EmailsSince
+	}
+}
+
+// swagger:route GET /accounts/{account}/mailboxes/{id}/messages messages get_all_messages_in_mailbox
+// Get all the emails in a mailbox.
+//
+// Retrieve the list of all the emails that are in a given mailbox.
+//
+// The mailbox must be specified by its id, as part of the request URL path.
+//
+// A limit and an offset may be specified using the query parameters 'limit' and 'offset',
+// respectively.
+//
+// When the query parameter 'since' or the 'if-none-match' header is specified, then the
+// request behaves differently, performing a changes query to determine what has changed in
+// that mailbox since a given state identifier.
+//
+// responses:
+//
+//		200: GetAllMessagesInMailbox200
+//	 200: GetAllMessagesInMailboxSince200
+//		400: ErrorResponse400
+//		404: ErrorResponse404
+//		500: ErrorResponse500
 func (g Groupware) GetAllMessagesInMailbox(w http.ResponseWriter, r *http.Request) {
 	mailboxId := chi.URLParam(r, UriParamMailboxId)
 	since := r.Header.Get(HeaderSince)
@@ -144,7 +183,7 @@ type MessageSearchResults struct {
 	QueryState string              `json:"queryState,omitempty"`
 }
 
-func (g Groupware) buildQuery(req Request) (bool, jmap.EmailFilterElement, int, int, *log.Logger, Response) {
+func (g Groupware) buildFilter(req Request) (bool, jmap.EmailFilterElement, int, int, *log.Logger, Response) {
 	q := req.r.URL.Query()
 	mailboxId := q.Get(QueryParamMailboxId)
 	notInMailboxIds := q[QueryParamNotInMailboxId]
@@ -270,22 +309,19 @@ func (g Groupware) buildQuery(req Request) (bool, jmap.EmailFilterElement, int, 
 			}
 		}
 	}
+
 	return true, filter, offset, limit, logger, Response{}
 }
 
 func (g Groupware) searchMessages(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
-		ok, filter, offset, limit, logger, errResp := g.buildQuery(req)
+		ok, filter, offset, limit, logger, errResp := g.buildFilter(req)
 		if !ok {
 			return errResp
 		}
 
-		var empty jmap.EmailFilterElement
-
-		if filter == empty {
-			errorId := req.errorId()
-			msg := "Invalid search request has no criteria"
-			return errorResponse(apiError(errorId, ErrorInvalidUserRequest, withDetail(msg)))
+		if !filter.IsNotEmpty() {
+			filter = nil
 		}
 
 		fetchEmails, ok, err := req.parseBoolParam(QueryParamSearchFetchEmails, false)
@@ -293,7 +329,7 @@ func (g Groupware) searchMessages(w http.ResponseWriter, r *http.Request) {
 			return errorResponse(err)
 		}
 		if ok {
-			logger = &log.Logger{Logger: logger.With().Bool(QueryParamSearchFetchEmails, fetchEmails).Logger()}
+			logger = log.From(logger.With().Bool(QueryParamSearchFetchEmails, fetchEmails))
 		}
 
 		if fetchEmails {
@@ -302,7 +338,7 @@ func (g Groupware) searchMessages(w http.ResponseWriter, r *http.Request) {
 				return errorResponse(err)
 			}
 			if ok {
-				logger = &log.Logger{Logger: logger.With().Bool(QueryParamSearchFetchBodies, fetchBodies).Logger()}
+				logger = log.From(logger.With().Bool(QueryParamSearchFetchBodies, fetchBodies))
 			}
 
 			results, jerr := g.jmap.QueryEmails(req.GetAccountId(), filter, req.session, req.ctx, logger, offset, limit, fetchBodies, g.maxBodyValueBytes)
@@ -424,7 +460,7 @@ func (g Groupware) UpdateMessage(w http.ResponseWriter, r *http.Request) {
 		l := req.logger.With()
 		l.Str(UriParamMessageId, messageId)
 
-		logger := &log.Logger{Logger: l.Logger()}
+		logger := log.From(l)
 
 		var body map[string]any
 		err := req.body(&body)
@@ -463,7 +499,7 @@ func (g Groupware) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 		l := req.logger.With()
 		l.Str(UriParamMessageId, messageId)
 
-		logger := &log.Logger{Logger: l.Logger()}
+		logger := log.From(l)
 
 		deleted, jerr := g.jmap.DeleteEmails(req.GetAccountId(), []string{messageId}, req.session, req.ctx, logger)
 		if jerr != nil {

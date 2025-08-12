@@ -17,14 +17,14 @@ type MailboxesResponse struct {
 func (j *Client) GetMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, ids []string) (MailboxesResponse, Error) {
 	aid := session.MailAccountId(accountId)
 	logger = j.logger(aid, "GetMailbox", session, logger)
-	cmd, err := request(invocation(MailboxGet, MailboxGetCommand{AccountId: aid, Ids: ids}, "0"))
+	cmd, err := request(invocation(CommandMailboxGet, MailboxGetCommand{AccountId: aid, Ids: ids}, "0"))
 	if err != nil {
 		return MailboxesResponse{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (MailboxesResponse, Error) {
 		var response MailboxGetResponse
-		err = retrieveResponseMatchParameters(body, MailboxGet, "0", &response)
+		err = retrieveResponseMatchParameters(body, CommandMailboxGet, "0", &response)
 		if err != nil {
 			return MailboxesResponse{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
@@ -70,10 +70,10 @@ func (j *Client) SearchMailboxes(accountId string, session *Session, ctx context
 	logger = j.logger(aid, "SearchMailboxes", session, logger)
 
 	cmd, err := request(
-		invocation(MailboxQuery, MailboxQueryCommand{AccountId: aid, Filter: filter}, "0"),
-		invocation(MailboxGet, MailboxGetRefCommand{
+		invocation(CommandMailboxQuery, MailboxQueryCommand{AccountId: aid, Filter: filter}, "0"),
+		invocation(CommandMailboxGet, MailboxGetRefCommand{
 			AccountId: aid,
-			IdRef:     &ResultReference{Name: MailboxQuery, Path: "/ids/*", ResultOf: "0"},
+			IdRef:     &ResultReference{Name: CommandMailboxQuery, Path: "/ids/*", ResultOf: "0"},
 		}, "1"),
 	)
 	if err != nil {
@@ -82,7 +82,7 @@ func (j *Client) SearchMailboxes(accountId string, session *Session, ctx context
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (Mailboxes, Error) {
 		var response MailboxGetResponse
-		err = retrieveResponseMatchParameters(body, MailboxGet, "1", &response)
+		err = retrieveResponseMatchParameters(body, CommandMailboxGet, "1", &response)
 		if err != nil {
 			return Mailboxes{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
 		}

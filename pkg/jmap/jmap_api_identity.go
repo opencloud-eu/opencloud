@@ -19,13 +19,13 @@ type Identities struct {
 func (j *Client) GetIdentity(accountId string, session *Session, ctx context.Context, logger *log.Logger) (Identities, Error) {
 	aid := session.MailAccountId(accountId)
 	logger = j.logger(aid, "GetIdentity", session, logger)
-	cmd, err := request(invocation(IdentityGet, IdentityGetCommand{AccountId: aid}, "0"))
+	cmd, err := request(invocation(CommandIdentityGet, IdentityGetCommand{AccountId: aid}, "0"))
 	if err != nil {
 		return Identities{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
 	}
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (Identities, Error) {
 		var response IdentityGetResponse
-		err = retrieveResponseMatchParameters(body, IdentityGet, "0", &response)
+		err = retrieveResponseMatchParameters(body, CommandIdentityGet, "0", &response)
 		return Identities{
 			Identities:   response.List,
 			State:        response.State,
@@ -50,7 +50,7 @@ func (j *Client) GetIdentities(accountIds []string, session *Session, ctx contex
 
 	calls := make([]Invocation, len(uniqueAccountIds))
 	for i, accountId := range uniqueAccountIds {
-		calls[i] = invocation(IdentityGet, IdentityGetCommand{AccountId: accountId}, strconv.Itoa(i))
+		calls[i] = invocation(CommandIdentityGet, IdentityGetCommand{AccountId: accountId}, strconv.Itoa(i))
 	}
 
 	cmd, err := request(calls...)
@@ -63,7 +63,7 @@ func (j *Client) GetIdentities(accountIds []string, session *Session, ctx contex
 		notFound := []string{}
 		for i, accountId := range uniqueAccountIds {
 			var response IdentityGetResponse
-			err = retrieveResponseMatchParameters(body, IdentityGet, strconv.Itoa(i), &response)
+			err = retrieveResponseMatchParameters(body, CommandIdentityGet, strconv.Itoa(i), &response)
 			if err != nil {
 				return IdentitiesGetResponse{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 			} else {

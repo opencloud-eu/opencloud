@@ -18,7 +18,7 @@ type SwaggerGetMailboxById200 struct {
 	}
 }
 
-// swagger:route GET /accounts/{account}/mailboxes/{id} mailboxes_by_id
+// swagger:route GET /accounts/{account}/mailboxes/{id} mailboxes mailboxes_by_id
 // Get a specific mailbox by its identifier.
 //
 // A Mailbox represents a named set of Emails.
@@ -73,7 +73,7 @@ type SwaggerMailboxesResponse200 struct {
 	Body []jmap.Mailbox
 }
 
-// swagger:route GET /accounts/{account}/mailboxes mailboxes
+// swagger:route GET /accounts/{account}/mailboxes mailboxes mailboxes
 // Get the list of all the mailboxes of an account.
 //
 // A Mailbox represents a named set of Emails.

@@ -16,13 +16,13 @@ const (
 func (j *Client) GetVacationResponse(accountId string, session *Session, ctx context.Context, logger *log.Logger) (VacationResponseGetResponse, Error) {
 	aid := session.MailAccountId(accountId)
 	logger = j.logger(aid, "GetVacationResponse", session, logger)
-	cmd, err := request(invocation(VacationResponseGet, VacationResponseGetCommand{AccountId: aid}, "0"))
+	cmd, err := request(invocation(CommandVacationResponseGet, VacationResponseGetCommand{AccountId: aid}, "0"))
 	if err != nil {
 		return VacationResponseGetResponse{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
 	}
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (VacationResponseGetResponse, Error) {
 		var response VacationResponseGetResponse
-		err = retrieveResponseMatchParameters(body, VacationResponseGet, "0", &response)
+		err = retrieveResponseMatchParameters(body, CommandVacationResponseGet, "0", &response)
 		return response, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 	})
 }
@@ -62,7 +62,7 @@ func (j *Client) SetVacationResponse(accountId string, vacation VacationResponse
 	logger = j.logger(aid, "SetVacationResponse", session, logger)
 
 	cmd, err := request(
-		invocation(VacationResponseSet, VacationResponseSetCommand{
+		invocation(CommandVacationResponseSet, VacationResponseSetCommand{
 			AccountId: aid,
 			Create: map[string]VacationResponse{
 				vacationResponseId: {
@@ -77,14 +77,14 @@ func (j *Client) SetVacationResponse(accountId string, vacation VacationResponse
 		}, "0"),
 		// chain a second request to get the current complete VacationResponse object
 		// after performing the changes, as that makes for a better API
-		invocation(VacationResponseGet, VacationResponseGetCommand{AccountId: aid}, "1"),
+		invocation(CommandVacationResponseGet, VacationResponseGetCommand{AccountId: aid}, "1"),
 	)
 	if err != nil {
 		return VacationResponseChange{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
 	}
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (VacationResponseChange, Error) {
 		var setResponse VacationResponseSetResponse
-		err = retrieveResponseMatchParameters(body, VacationResponseSet, "0", &setResponse)
+		err = retrieveResponseMatchParameters(body, CommandVacationResponseSet, "0", &setResponse)
 		if err != nil {
 			return VacationResponseChange{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
@@ -96,13 +96,13 @@ func (j *Client) SetVacationResponse(accountId string, vacation VacationResponse
 		}
 
 		var getResponse VacationResponseGetResponse
-		err = retrieveResponseMatchParameters(body, VacationResponseGet, "1", &getResponse)
+		err = retrieveResponseMatchParameters(body, CommandVacationResponseGet, "1", &getResponse)
 		if err != nil {
 			return VacationResponseChange{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 
 		if len(getResponse.List) != 1 {
-			err = fmt.Errorf("failed to find %s in %s response", string(VacationResponseType), string(VacationResponseGet))
+			err = fmt.Errorf("failed to find %s in %s response", string(VacationResponseType), string(CommandVacationResponseGet))
 			return VacationResponseChange{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 

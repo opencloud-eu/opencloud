@@ -18,7 +18,7 @@ func TestDeserializeMailboxGetResponse(t *testing.T) {
 	require.Equal("3e25b2a0", data.SessionState)
 	require.Len(data.MethodResponses, 1)
 	resp := data.MethodResponses[0]
-	require.Equal(MailboxGet, resp.Command)
+	require.Equal(CommandMailboxGet, resp.Command)
 	require.Equal("0", resp.Tag)
 	require.IsType(MailboxGetResponse{}, resp.Parameters)
 	mgr := resp.Parameters.(MailboxGetResponse)
@@ -75,7 +75,7 @@ func TestDeserializeEmailGetResponse(t *testing.T) {
 	require.Equal("3e25b2a0", data.SessionState)
 	require.Len(data.MethodResponses, 2)
 	resp := data.MethodResponses[1]
-	require.Equal(EmailGet, resp.Command)
+	require.Equal(CommandEmailGet, resp.Command)
 	require.Equal("1", resp.Tag)
 	require.IsType(EmailGetResponse{}, resp.Parameters)
 	egr := resp.Parameters.(EmailGetResponse)
