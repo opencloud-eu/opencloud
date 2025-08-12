@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.3.0) - 2025-08-11
+## [3.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.3.0) - 2025-08-12
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -30,6 +30,7 @@
 
 ### 📦️ Dependencies
 
+- [decomposed] bump-version-v3.3.0 [[#1332](https://github.com/opencloud-eu/opencloud/pull/1332)]
 - [full-ci] Reva bump 2.36.0 [[#1328](https://github.com/opencloud-eu/opencloud/pull/1328)]
 - Bump reva [[#1315](https://github.com/opencloud-eu/opencloud/pull/1315)]
 
