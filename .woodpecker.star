@@ -1479,6 +1479,8 @@ def multiServiceE2ePipeline(ctx):
                     "HEADLESS": True,
                     "RETRY": "1",
                     "REPORT_TRACING": params["reportTracing"],
+                    "PLAYWRIGHT_BROWSERS_PATH": "%s/%s" % (dirs["base"], ".playwright"),
+                    "BROWSER": "chromium",
                 },
                 "commands": [
                     "cd %s/tests/e2e" % dirs["web"],
