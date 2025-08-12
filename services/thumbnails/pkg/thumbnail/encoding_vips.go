@@ -5,7 +5,7 @@ package thumbnail
 import (
 	"io"
 
-	"github.com/davidbyttow/govips/v2/vips"
+	"github.com/cshum/vipsgen/vips"
 	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/errors"
 )
 
@@ -14,12 +14,12 @@ type PngEncoder struct{}
 
 // Encode encodes to png format
 func (e PngEncoder) Encode(w io.Writer, img interface{}) error {
-	m, ok := img.(*vips.ImageRef)
+	m, ok := img.(*vips.Image)
 	if !ok {
 		return errors.ErrInvalidType
 	}
 
-	buf, _, err := m.ExportPng(vips.NewPngExportParams())
+	buf, err := m.PngsaveBuffer(nil)
 	if err != nil {
 		return err
 	}
@@ -42,12 +42,12 @@ type JpegEncoder struct{}
 
 // Encode encodes to jpg
 func (e JpegEncoder) Encode(w io.Writer, img interface{}) error {
-	m, ok := img.(*vips.ImageRef)
+	m, ok := img.(*vips.Image)
 	if !ok {
 		return errors.ErrInvalidType
 	}
 
-	buf, _, err := m.ExportJpeg(vips.NewJpegExportParams())
+	buf, err := m.JpegsaveBuffer(nil)
 	if err != nil {
 		return err
 	}

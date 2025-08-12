@@ -7,7 +7,7 @@ import (
 	"image"
 	"strings"
 
-	"github.com/davidbyttow/govips/v2/vips"
+	"github.com/cshum/vipsgen/vips"
 	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/errors"
 	"golang.org/x/image/bmp"
 )
@@ -39,7 +39,7 @@ func (g SimpleGenerator) ProcessorID() string {
 
 // Generate generates a alternative image version.
 func (g SimpleGenerator) Generate(size image.Rectangle, img interface{}) (interface{}, error) {
-	var m *vips.ImageRef
+	var m *vips.Image
 	var err error
 	switch img.(type) {
 	case *image.RGBA:
@@ -48,22 +48,21 @@ func (g SimpleGenerator) Generate(size image.Rectangle, img interface{}) (interf
 		if err = bmp.Encode(&buf, img.(*image.RGBA)); err != nil {
 			return nil, err
 		}
-		m, err = vips.NewImageFromReader(&buf)
+		m, err = vips.NewImageFromBuffer(buf.Bytes(), nil)
 		if err != nil {
 			return nil, err
 		}
 
-	case *vips.ImageRef:
-		m = img.(*vips.ImageRef)
+	case *vips.Image:
+		m = img.(*vips.Image)
 	default:
 		return nil, errors.ErrInvalidType
 	}
-
-	if err := m.ThumbnailWithSize(size.Dx(), 0, g.crop, g.size); err != nil {
+	if err := m.ThumbnailImage(size.Dx(), &vips.ThumbnailImageOptions{Crop: g.crop, Size: g.size}); err != nil {
 		return nil, err
 	}
 
-	if err := m.RemoveMetadata(); err != nil {
+	if err := m.RemoveExif(); err != nil {
 		return nil, err
 	}
 
@@ -75,8 +74,8 @@ func (g SimpleGenerator) Dimensions(img interface{}) (image.Rectangle, error) {
 	case *image.RGBA:
 		m := img.(*image.RGBA)
 		return m.Bounds(), nil
-	case *vips.ImageRef:
-		m := img.(*vips.ImageRef)
+	case *vips.Image:
+		m := img.(*vips.Image)
 		return image.Rect(0, 0, m.Width(), m.Height()), nil
 	default:
 		return image.Rectangle{}, errors.ErrInvalidType

@@ -355,15 +355,16 @@ github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1
 github.com/cs3org/go-cs3apis/cs3/storage/registry/v1beta1
 github.com/cs3org/go-cs3apis/cs3/tx/v1beta1
 github.com/cs3org/go-cs3apis/cs3/types/v1beta1
+# github.com/cshum/vipsgen v1.1.1
+## explicit; go 1.24.2
+github.com/cshum/vipsgen/pointer
+github.com/cshum/vipsgen/vips
 # github.com/cyphar/filepath-securejoin v0.3.6
 ## explicit; go 1.18
 github.com/cyphar/filepath-securejoin
 # github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 ## explicit
 github.com/davecgh/go-spew/spew
-# github.com/davidbyttow/govips/v2 v2.16.0
-## explicit; go 1.15
-github.com/davidbyttow/govips/v2/vips
 # github.com/deckarep/golang-set v1.8.0
 ## explicit; go 1.17
 github.com/deckarep/golang-set

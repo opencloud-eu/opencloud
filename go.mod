@@ -1,6 +1,8 @@
 module github.com/opencloud-eu/opencloud
 
-go 1.24.1
+go 1.24.2
+
+toolchain go1.24.5
 
 require (
 	dario.cat/mergo v1.0.2
@@ -15,7 +17,7 @@ require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/coreos/go-oidc/v3 v3.14.1
 	github.com/cs3org/go-cs3apis v0.0.0-20250725064958-2d9caef4db2a
-	github.com/davidbyttow/govips/v2 v2.16.0
+	github.com/cshum/vipsgen v1.1.1
 	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
 	github.com/dutchcoders/go-clamd v0.0.0-20170520113014-b970184f4d9e
 	github.com/egirna/icap-client v0.1.1
