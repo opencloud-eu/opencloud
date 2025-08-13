@@ -131,6 +131,7 @@ func DefaultConfig() *config.Config {
 			StorageAddress: "eu.opencloud.api.storage-system",
 			SystemUserIDP:  "internal",
 		},
+		UserSoftDeleteRetentionTime: 0,
 	}
 }
 
