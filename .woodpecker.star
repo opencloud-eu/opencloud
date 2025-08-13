@@ -501,7 +501,7 @@ def main(ctx):
         ),
     )
 
-    pipelines = test_pipelines + build_release_pipelines
+    pipelines = test_pipelines + build_release_pipelines + notifyMatrix(ctx)
 
     # if ctx.build.event == "cron":
     #     pipelines = \
@@ -514,14 +514,6 @@ def main(ctx):
     #             example_deploys(ctx),
     #             pipelines,
     #         )
-
-    # always append notification step
-    pipelines.append(
-        pipelineDependsOn(
-            notify(ctx),
-            pipelines,
-        ),
-    )
 
     pipelineSanityChecks(pipelines)
     return pipelines
@@ -1887,36 +1879,53 @@ def makeGoGenerate(module):
         },
     ]
 
-def notify(ctx):
-    status = ["failure"]
-    channel = config["rocketchat"]["channel"]
-    if ctx.build.event == "cron":
-        status.append("success")
-        channel = config["rocketchat"]["channel_cron"]
-
-    return {
+def notifyMatrix(ctx):
+    result = [{
         "name": "chat-notifications",
         "skip_clone": True,
+        "runs_on": ["success", "failure"],
+        "depends_on": getPipelineNames(testPipelines(ctx)),
         "steps": [
             {
-                "name": "notify-rocketchat",
-                "image": PLUGINS_SLACK,
-                "settings": {
-                    "webhook": {},
-                    "channel": channel,
+                "name": "notify-matrix",
+                "image": OC_CI_GOLANG,
+                "environment": {
+                    "HTTP_PROXY": {
+                        "from_secret": "ci_http_proxy",
+                    },
+                    "HTTPS_PROXY": {
+                        "from_secret": "ci_http_proxy",
+                    },
+                    "MATRIX_HOME_SERVER": "matrix.org",
+                    "MATRIX_ROOM_ALIAS": {
+                        "from_secret": "opencloud-notifications-channel",
+                    },
+                    "MATRIX_USER": {
+                        "from_secret": "opencloud-notifications-user",
+                    },
+                    "MATRIX_PASSWORD": {
+                        "from_secret": "opencloud-notifications-user-password",
+                    },
+                    "QA_REPO": "https://github.com/opencloud-eu/qa.git",
+                    "QA_REPO_BRANCH": "main",
+                    "CI_WOODPECKER_URL": "https://ci.opencloud.eu/",
+                    "CI_REPO_ID": "3",
+                    "CI_WOODPECKER_TOKEN": "no-auth-needed-on-this-repo",
                 },
+                "commands": [
+                    "git clone --single-branch --branch $QA_REPO_BRANCH $QA_REPO /tmp/qa",
+                    "cd /tmp/qa/scripts/matrix-notification/",
+                    "go run matrix-notification.go",
+                ],
             },
         ],
-        "depends_on": [],
         "when": [
-            {
-                "event": ["push", "manual"],
-                "branch": ["main", "release-*"],
-            },
-            event["tag"],
+            event["base"],
+            event["pull_request"],
         ],
-        "runs_on": status,
-    }
+    }]
+
+    return result
 
 def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, depends_on = [], deploy_type = "", extra_server_environment = {}, with_wrapper = False, tika_enabled = False):
     user = "0:0"
