@@ -460,7 +460,7 @@ var _ = Describe("Bleve", func() {
 			Expect(err).ToNot(HaveOccurred())
 			assertDocCount(rootResource.ID, "Name:child.pdf", 1)
 
-			err = eng.Purge(childResource.ID)
+			err = eng.Purge(childResource.ID, false)
 
 			Expect(err).ToNot(HaveOccurred())
 			assertDocCount(rootResource.ID, "Name:child.pdf", 0)
@@ -474,7 +474,7 @@ var _ = Describe("Bleve", func() {
 			assertDocCount(rootResource.ID, `"`+parentResource.Document.Name+`"`, 1)
 			assertDocCount(rootResource.ID, `"`+childResource.Document.Name+`"`, 1)
 
-			err = eng.Purge(parentResource.ID)
+			err = eng.Purge(parentResource.ID, false)
 			Expect(err).ToNot(HaveOccurred())
 
 			assertDocCount(rootResource.ID, `"`+parentResource.Document.Name+`"`, 0)

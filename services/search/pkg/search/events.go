@@ -21,6 +21,7 @@ func HandleEvents(s Searcher, stream raw.Stream, cfg *config.Config, m *metrics.
 		events.ItemPurged{},
 		events.ItemRestored{},
 		events.ItemMoved{},
+		events.TrashbinPurged{},
 		events.ContainerCreated{},
 		events.FileTouched{},
 		events.FileVersionRestored{},
@@ -79,6 +80,9 @@ func HandleEvents(s Searcher, stream raw.Stream, cfg *config.Config, m *metrics.
 						indexSpaceDebouncer.Debounce(getSpaceID(ev.Ref), e.Ack)
 					case events.ItemPurged:
 						s.PurgeItem(ev.Ref)
+						e.Ack()
+					case events.TrashbinPurged:
+						s.PurgeDeleted(getSpaceID(ev.Ref))
 						e.Ack()
 					case events.ItemMoved:
 						s.MoveItem(ev.Ref)

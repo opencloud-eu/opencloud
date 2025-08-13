@@ -45,7 +45,10 @@ const (
 // Searcher is the interface to the SearchService
 type Searcher interface {
 	Search(ctx context.Context, req *searchsvc.SearchRequest) (*searchsvc.SearchResponse, error)
+
 	IndexSpace(rID *provider.StorageSpaceId) error
+	PurgeDeleted(spaceID *provider.StorageSpaceId) error
+
 	TrashItem(rID *provider.ResourceId)
 	PurgeItem(rID *provider.Reference)
 	UpsertItem(ref *provider.Reference)
@@ -535,12 +538,38 @@ func (s *Service) PurgeItem(ref *provider.Reference) {
 		}
 		logDocCount(s.engine, s.logger)
 	}()
-	err := s.engine.Purge(storagespace.FormatResourceID(ref.ResourceId))
+	err := s.engine.Purge(storagespace.FormatResourceID(ref.ResourceId), false)
 	if err != nil {
 		s.logger.Error().Err(err).Interface("Id", ref.ResourceId).Msg("failed to purge item from index")
 		return
 	}
 	s.logger.Info().Interface("Id", ref.ResourceId).Msg("purged item from index")
+}
+
+func (s *Service) PurgeDeleted(spaceID *provider.StorageSpaceId) error {
+	if spaceID == nil {
+		return fmt.Errorf("spaceID must not be nil")
+	}
+
+	rootID, err := storagespace.ParseID(spaceID.OpaqueId)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("invalid space id")
+		return err
+	}
+	if rootID.StorageId == "" || rootID.SpaceId == "" {
+		s.logger.Error().Err(err).Msg("invalid space id")
+		return fmt.Errorf("invalid space id")
+	}
+	rootID.OpaqueId = rootID.SpaceId
+
+	s.engine.StartBatch(s.batchSize)
+	defer func() {
+		if err := s.engine.EndBatch(); err != nil {
+			s.logger.Error().Err(err).Msg("failed to end batch")
+		}
+		logDocCount(s.engine, s.logger)
+	}()
+	return s.engine.Purge(storagespace.FormatResourceID(&rootID), true)
 }
 
 // UpsertItem indexes or stores Resource data fields.
