@@ -1,10 +1,14 @@
 # Changelog
 
-## [3.3.1](https://github.com/opencloud-eu/opencloud/releases/tag/v3.3.1) - 2025-08-12
+## [3.3.1](https://github.com/opencloud-eu/opencloud/releases/tag/v3.3.1) - 2025-08-13
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@fschade
+@fschade, @prashant-gurung899
+
+### ✅ Tests
+
+- [full-ci] add pipeline to send CI notifications to matrix [[#1249](https://github.com/opencloud-eu/opencloud/pull/1249)]
 
 ### 📦️ Dependencies
 
