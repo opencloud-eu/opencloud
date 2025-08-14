@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.3.1](https://github.com/opencloud-eu/opencloud/releases/tag/v3.3.1) - 2025-08-13
+## [3.3.1](https://github.com/opencloud-eu/opencloud/releases/tag/v3.3.1) - 2025-08-14
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -12,6 +12,8 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump golang.org/x/image from 0.28.0 to 0.30.0 [[#1323](https://github.com/opencloud-eu/opencloud/pull/1323)]
+- build(deps): bump github.com/nats-io/nats-server/v2 from 2.11.6 to 2.11.7 [[#1339](https://github.com/opencloud-eu/opencloud/pull/1339)]
 - build(deps): bump github.com/onsi/gomega from 1.37.0 to 1.38.0 [[#1266](https://github.com/opencloud-eu/opencloud/pull/1266)]
 
 ## [3.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.3.0) - 2025-08-12
