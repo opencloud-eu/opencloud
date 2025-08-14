@@ -10,20 +10,21 @@ import (
 	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/opencloud-eu/opencloud/pkg/log"
-	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
-	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
-	contentMocks "github.com/opencloud-eu/opencloud/services/search/pkg/content/mocks"
-	engineMocks "github.com/opencloud-eu/opencloud/services/search/pkg/engine/mocks"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
+
+	"github.com/opencloud-eu/opencloud/pkg/log"
+	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
+	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
+	contentMocks "github.com/opencloud-eu/opencloud/services/search/pkg/content/mocks"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
+	engineMocks "github.com/opencloud-eu/opencloud/services/search/pkg/search/mocks"
 )
 
 var _ = Describe("Searchprovider", func() {
@@ -117,14 +118,14 @@ var _ = Describe("Searchprovider", func() {
 
 	Describe("IndexSpace", func() {
 		It("walks the space and indexes all files", func() {
-			batch := &engineMocks.Batch{}
-			batch.EXPECT().End().Return(nil)
+			batch := &engineMocks.BatchOperator{}
+			batch.EXPECT().Push().Return(nil)
 			gatewayClient.On("GetUserByClaim", mock.Anything, mock.Anything).Return(&userv1beta1.GetUserByClaimResponse{
 				Status: status.NewOK(context.Background()),
 				User:   user,
 			}, nil)
 			extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{}, nil)
-			indexClient.On("StartBatch", mock.Anything, mock.Anything).Return(batch, nil)
+			indexClient.On("NewBatch", mock.Anything).Return(batch, nil)
 			batch.On("Upsert", mock.Anything, mock.Anything).Return(nil)
 			indexClient.On("Search", mock.Anything, mock.Anything).Return(&searchsvc.SearchIndexResponse{}, nil)
 			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&sprovider.StatResponse{

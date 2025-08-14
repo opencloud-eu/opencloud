@@ -1,4 +1,4 @@
-package engine_test
+package bleve_test
 
 import (
 	"context"
@@ -14,14 +14,15 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/engine"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/query/bleve"
+	bleveQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query/bleve"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
 var _ = Describe("Bleve", func() {
 	var (
-		eng *engine.Bleve
+		eng *bleve.Backend
 		idx bleveSearch.Index
 
 		doSearch = func(id string, query, path string) (*searchsvc.SearchIndexResponse, error) {
@@ -51,30 +52,30 @@ var _ = Describe("Bleve", func() {
 			return res.Matches
 		}
 
-		rootResource   engine.Resource
-		parentResource engine.Resource
-		childResource  engine.Resource
-		childResource2 engine.Resource
+		rootResource   search.Resource
+		parentResource search.Resource
+		childResource  search.Resource
+		childResource2 search.Resource
 	)
 
 	BeforeEach(func() {
-		mapping, err := engine.BuildBleveMapping()
+		mapping, err := bleve.NewMapping()
 		Expect(err).ToNot(HaveOccurred())
 
 		idx, err = bleveSearch.NewMemOnly(mapping)
 		Expect(err).ToNot(HaveOccurred())
 
-		eng = engine.NewBleveEngine(idx, bleve.DefaultCreator, log.Logger{})
+		eng = bleve.NewBackend(idx, bleveQuery.DefaultCreator, log.Logger{})
 		Expect(err).ToNot(HaveOccurred())
 
-		rootResource = engine.Resource{
+		rootResource = search.Resource{
 			ID:       "1$2!2",
 			RootID:   "1$2!2",
 			Path:     ".",
 			Document: content.Document{},
 		}
 
-		parentResource = engine.Resource{
+		parentResource = search.Resource{
 			ID:       "1$2!3",
 			ParentID: rootResource.ID,
 			RootID:   rootResource.ID,
@@ -83,7 +84,7 @@ var _ = Describe("Bleve", func() {
 			Document: content.Document{Name: "parent d!r"},
 		}
 
-		childResource = engine.Resource{
+		childResource = search.Resource{
 			ID:       "1$2!4",
 			ParentID: parentResource.ID,
 			RootID:   rootResource.ID,
@@ -92,7 +93,7 @@ var _ = Describe("Bleve", func() {
 			Document: content.Document{Name: "child.pdf"},
 		}
 
-		childResource2 = engine.Resource{
+		childResource2 = search.Resource{
 			ID:       "1$2!5",
 			ParentID: parentResource.ID,
 			RootID:   rootResource.ID,
@@ -104,7 +105,7 @@ var _ = Describe("Bleve", func() {
 
 	Describe("New", func() {
 		It("returns a new index instance", func() {
-			b := engine.NewBleveEngine(idx, bleve.DefaultCreator, log.Logger{})
+			b := bleve.NewBackend(idx, bleveQuery.DefaultCreator, log.Logger{})
 			Expect(b).ToNot(BeNil())
 		})
 	})
@@ -286,7 +287,7 @@ var _ = Describe("Bleve", func() {
 
 		Context("with a file in the root of the space and folder with a file. all of them have the same name", func() {
 			BeforeEach(func() {
-				parentResource := engine.Resource{
+				parentResource := search.Resource{
 					ID:       "1$2!3",
 					ParentID: rootResource.ID,
 					RootID:   rootResource.ID,
@@ -295,7 +296,7 @@ var _ = Describe("Bleve", func() {
 					Document: content.Document{Name: "doc"},
 				}
 
-				childResource := engine.Resource{
+				childResource := search.Resource{
 					ID:       "1$2!4",
 					ParentID: parentResource.ID,
 					RootID:   rootResource.ID,
@@ -304,7 +305,7 @@ var _ = Describe("Bleve", func() {
 					Document: content.Document{Name: "doc.pdf"},
 				}
 
-				childResource2 := engine.Resource{
+				childResource2 := search.Resource{
 					ID:       "1$2!7",
 					ParentID: parentResource.ID,
 					RootID:   rootResource.ID,
@@ -313,7 +314,7 @@ var _ = Describe("Bleve", func() {
 					Document: content.Document{Name: "file.pdf"},
 				}
 
-				rootChildResource := engine.Resource{
+				rootChildResource := search.Resource{
 					ID:       "1$2!5",
 					ParentID: rootResource.ID,
 					RootID:   rootResource.ID,
@@ -322,7 +323,7 @@ var _ = Describe("Bleve", func() {
 					Document: content.Document{Name: "doc.pdf"},
 				}
 
-				rootChildResource2 := engine.Resource{
+				rootChildResource2 := search.Resource{
 					ID:       "1$2!6",
 					ParentID: rootResource.ID,
 					RootID:   rootResource.ID,
@@ -499,7 +500,7 @@ var _ = Describe("Bleve", func() {
 
 	Describe("StartBatch", func() {
 		It("starts a new batch", func() {
-			b, err := eng.StartBatch(100)
+			b, err := eng.NewBatch(100)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = b.Upsert(childResource.ID, childResource)
@@ -509,7 +510,7 @@ var _ = Describe("Bleve", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(count).To(Equal(uint64(0)))
 
-			err = b.End()
+			err = b.Push()
 			Expect(err).ToNot(HaveOccurred())
 
 			count, err = idx.DocCount()
@@ -523,7 +524,7 @@ var _ = Describe("Bleve", func() {
 		})
 
 		It("doesn't intertwine different batches", func() {
-			b, err := eng.StartBatch(100)
+			b, err := eng.NewBatch(100)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = b.Upsert(childResource.ID, childResource)
@@ -533,18 +534,18 @@ var _ = Describe("Bleve", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(count).To(Equal(uint64(0)))
 
-			b2, err := eng.StartBatch(100)
+			b2, err := eng.NewBatch(100)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = b2.Upsert(childResource2.ID, childResource2)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(b.End()).To(Succeed())
+			Expect(b.Push()).To(Succeed())
 			count, err = idx.DocCount()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(count).To(Equal(uint64(1)))
 
-			Expect(b2.End()).To(Succeed())
+			Expect(b2.Push()).To(Succeed())
 			count, err = idx.DocCount()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(count).To(Equal(uint64(2)))
@@ -555,7 +556,7 @@ var _ = Describe("Bleve", func() {
 
 		Context("with audio metadata", func() {
 			BeforeEach(func() {
-				resource := engine.Resource{
+				resource := search.Resource{
 					ID:       "1$2!7",
 					ParentID: rootResource.ID,
 					RootID:   rootResource.ID,
@@ -615,7 +616,7 @@ var _ = Describe("Bleve", func() {
 
 		Context("with location metadata", func() {
 			BeforeEach(func() {
-				resource := engine.Resource{
+				resource := search.Resource{
 					ID:       "1$2!7",
 					ParentID: rootResource.ID,
 					RootID:   rootResource.ID,

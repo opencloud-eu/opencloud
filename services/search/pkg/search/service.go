@@ -30,7 +30,6 @@ import (
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/engine"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/metrics"
 )
 
@@ -58,7 +57,7 @@ type Searcher interface {
 type Service struct {
 	logger          log.Logger
 	gatewaySelector pool.Selectable[gateway.GatewayAPIClient]
-	engine          engine.Engine
+	engine          Engine
 	extractor       content.Extractor
 	metrics         *metrics.Metrics
 
@@ -71,7 +70,7 @@ type Service struct {
 var errSkipSpace error
 
 // NewService creates a new Provider instance.
-func NewService(gatewaySelector pool.Selectable[gateway.GatewayAPIClient], eng engine.Engine, extractor content.Extractor, metrics *metrics.Metrics, logger log.Logger, cfg *config.Config) *Service {
+func NewService(gatewaySelector pool.Selectable[gateway.GatewayAPIClient], eng Engine, extractor content.Extractor, metrics *metrics.Metrics, logger log.Logger, cfg *config.Config) *Service {
 	var s = &Service{
 		gatewaySelector: gatewaySelector,
 		engine:          eng,
@@ -463,12 +462,12 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId) error {
 	}()
 
 	w := walker.NewWalker(s.gatewaySelector)
-	batch, err := s.engine.StartBatch(s.batchSize)
+	batch, err := s.engine.NewBatch(s.batchSize)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if err := batch.End(); err != nil {
+		if err := batch.Push(); err != nil {
 			s.logger.Error().Err(err).Msg("failed to end batch")
 		}
 	}()
@@ -518,18 +517,7 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId) error {
 
 // TrashItem marks the item as deleted.
 func (s *Service) TrashItem(rID *provider.ResourceId) {
-	batch, err := s.engine.StartBatch(s.batchSize)
-	if err != nil {
-		s.logger.Error().Err(err).Msg("failed to start batch")
-		return
-	}
-	defer func() {
-		if err := batch.End(); err != nil {
-			s.logger.Error().Err(err).Msg("failed to end batch")
-		}
-	}()
-	err = batch.Delete(storagespace.FormatResourceID(rID))
-	if err != nil {
+	if err := s.engine.Delete(storagespace.FormatResourceID(rID)); err != nil {
 		s.logger.Error().Err(err).Interface("Id", rID).Msg("failed to remove item from index")
 	}
 }
@@ -540,7 +528,7 @@ func (s *Service) UpsertItem(ref *provider.Reference) {
 }
 
 // doUpsertItem indexes or stores Resource data fields.
-func (s *Service) doUpsertItem(ref *provider.Reference, batch engine.Batch) {
+func (s *Service) doUpsertItem(ref *provider.Reference, batch BatchOperator) {
 	ctx, stat, path := s.resInfo(ref)
 	if ctx == nil || stat == nil || path == "" {
 		return
@@ -552,7 +540,7 @@ func (s *Service) doUpsertItem(ref *provider.Reference, batch engine.Batch) {
 		return
 	}
 
-	r := engine.Resource{
+	r := Resource{
 		ID: storagespace.FormatResourceID(stat.Info.Id),
 		RootID: storagespace.FormatResourceID(&provider.ResourceId{
 			StorageId: stat.Info.Id.StorageId,
@@ -682,17 +670,7 @@ func (s *Service) RestoreItem(ref *provider.Reference) {
 		return
 	}
 
-	batch, err := s.engine.StartBatch(s.batchSize)
-	if err != nil {
-		s.logger.Error().Err(err).Msg("failed to start batch")
-		return
-	}
-	defer func() {
-		if err := batch.End(); err != nil {
-			s.logger.Error().Err(err).Msg("failed to end batch")
-		}
-	}()
-	if err := batch.Restore(storagespace.FormatResourceID(stat.Info.Id)); err != nil {
+	if err := s.engine.Restore(storagespace.FormatResourceID(stat.Info.Id)); err != nil {
 		s.logger.Error().Err(err).Msg("failed to restore the changed resource in the index")
 	}
 }
@@ -704,17 +682,7 @@ func (s *Service) MoveItem(ref *provider.Reference) {
 		return
 	}
 
-	batch, err := s.engine.StartBatch(s.batchSize)
-	if err != nil {
-		s.logger.Error().Err(err).Msg("failed to start batch")
-		return
-	}
-	defer func() {
-		if err := batch.End(); err != nil {
-			s.logger.Error().Err(err).Msg("failed to end batch")
-		}
-	}()
-	if err := batch.Move(storagespace.FormatResourceID(stat.GetInfo().GetId()), storagespace.FormatResourceID(stat.GetInfo().GetParentId()), path); err != nil {
+	if err := s.engine.Move(storagespace.FormatResourceID(stat.GetInfo().GetId()), storagespace.FormatResourceID(stat.GetInfo().GetParentId()), path); err != nil {
 		s.logger.Error().Err(err).Msg("failed to move the changed resource in the index")
 	}
 }

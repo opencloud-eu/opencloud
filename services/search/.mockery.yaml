@@ -6,10 +6,6 @@ pkgname: mocks
 
 template: testify
 packages:
-  github.com/opencloud-eu/opencloud/services/search/pkg/engine:
-    interfaces:
-      Engine: {}
-      Batch: {}
   github.com/opencloud-eu/opencloud/services/search/pkg/content:
     interfaces:
       Extractor: {}
@@ -17,3 +13,5 @@ packages:
   github.com/opencloud-eu/opencloud/services/search/pkg/search:
     interfaces:
       Searcher: {}
+      Engine: { }
+      BatchOperator: { }
