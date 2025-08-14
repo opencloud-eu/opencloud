@@ -1,10 +1,14 @@
 # Changelog
 
-## [3.3.1](https://github.com/opencloud-eu/opencloud/releases/tag/v3.3.1) - 2025-08-14
+## [3.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.4.0) - 2025-08-14
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@fschade, @prashant-gurung899
+@fschade, @kulmann, @prashant-gurung899
+
+### 📈 Enhancement
+
+- feat: add defaultAppId option for the web config.json [[#1354](https://github.com/opencloud-eu/opencloud/pull/1354)]
 
 ### ✅ Tests
 
