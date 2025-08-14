@@ -834,10 +834,10 @@ func (js *jetStream) legacyJetStream() (nats.JetStreamContext, error) {
 	if js.opts.apiPrefix != "" {
 		opts = append(opts, nats.APIPrefix(js.opts.apiPrefix))
 	}
-	if js.opts.clientTrace != nil {
+	if js.opts.ClientTrace != nil {
 		opts = append(opts, nats.ClientTrace{
-			RequestSent:      js.opts.clientTrace.RequestSent,
-			ResponseReceived: js.opts.clientTrace.ResponseReceived,
+			RequestSent:      js.opts.ClientTrace.RequestSent,
+			ResponseReceived: js.opts.ClientTrace.ResponseReceived,
 		})
 	}
 	return js.conn.JetStream(opts...)
@@ -1044,7 +1044,11 @@ func (kv *kvs) updateRevision(ctx context.Context, key string, value []byte, rev
 	if kv.useJSPfx {
 		b.WriteString(kv.js.opts.apiPrefix)
 	}
-	b.WriteString(kv.pre)
+	if kv.putPre != "" {
+		b.WriteString(kv.putPre)
+	} else {
+		b.WriteString(kv.pre)
+	}
 	b.WriteString(key)
 
 	m := nats.Msg{Subject: b.String(), Header: nats.Header{}, Data: value}
@@ -1231,11 +1235,9 @@ func (kv *kvs) WatchFiltered(ctx context.Context, keys []string, opts ...WatchOp
 		// Check if done and initial values.
 		if !w.initDone {
 			w.received++
-			// We set this on the first trip through..
-			if w.initPending == 0 {
-				w.initPending = delta
-			}
-			if w.received > w.initPending || delta == 0 {
+			// Use the stable initPending value set at consumer creation.
+			// We're done if we've received all expected messages OR there are no more pending.
+			if w.received >= w.initPending || delta == 0 {
 				w.initDone = true
 				w.updates <- nil
 			}
@@ -1281,9 +1283,13 @@ func (kv *kvs) WatchFiltered(ctx context.Context, keys []string, opts ...WatchOp
 	// Skip if UpdatesOnly() is set, since there will never be updates initially.
 	if !o.updatesOnly {
 		initialPending, err := sub.InitialConsumerPending()
-		if err == nil && initialPending == 0 {
-			w.initDone = true
-			w.updates <- nil
+		if err == nil {
+			if initialPending == 0 {
+				w.initDone = true
+				w.updates <- nil
+			} else {
+				w.initPending = initialPending
+			}
 		}
 	} else {
 		// if UpdatesOnly was used, mark initialization as complete

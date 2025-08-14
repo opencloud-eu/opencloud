@@ -161,6 +161,18 @@ var (
 	// does not exist.
 	ErrConsumerNameAlreadyInUse JetStreamError = &jsError{message: "consumer name already in use"}
 
+	// ErrNotPullConsumer is returned when attempting to fetch or create pull
+	// consumer and the returned consumer is a push consumer.
+	ErrNotPullConsumer JetStreamError = &jsError{message: "consumer is not a pull consumer"}
+
+	// ErrNotPushConsumer is returned when attempting to fetch or create push
+	// consumer and the returned consumer is a pull consumer.
+	ErrNotPushConsumer JetStreamError = &jsError{message: "consumer is not a push consumer"}
+
+	// ErrConsumerAlreadyConsuming is returned when attempting to consume from
+	// the same push consumer more than once.
+	ErrConsumerAlreadyConsuming JetStreamError = &jsError{message: "consumer is already consuming"}
+
 	// ErrInvalidJSAck is returned when JetStream ack from message publish is
 	// invalid.
 	ErrInvalidJSAck JetStreamError = &jsError{message: "invalid jetstream publish response"}
@@ -258,6 +270,14 @@ var (
 	// ErrMsgIteratorClosed is returned when attempting to get message from a
 	// closed iterator.
 	ErrMsgIteratorClosed JetStreamError = &jsError{message: "messages iterator closed"}
+
+	// ErrConnectionClosed is returned when JetStream operations fail due to
+	// underlying connection being closed.
+	ErrConnectionClosed JetStreamError = &jsError{message: "connection closed"}
+
+	// ErrServerShutdown is returned when pull request fails due to server
+	// shutdown.
+	ErrServerShutdown JetStreamError = &jsError{message: "server shutdown"}
 
 	// ErrOrderedConsumerReset is returned when resetting ordered consumer fails
 	// due to too many attempts.
