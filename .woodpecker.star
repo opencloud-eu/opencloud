@@ -72,7 +72,7 @@ OC_FED_DOMAIN = "%s:10200" % FED_OC_SERVER_NAME
 event = {
     "base": {
         "event": ["push", "manual"],
-        "branch": "main",
+        "branch": ["main", "stable-*"],
     },
     "pull_request": {
         "event": "pull_request",
@@ -524,10 +524,7 @@ def cachePipeline(ctx, name, steps):
         "skip_clone": True,
         "steps": steps,
         "when": [
-            {
-                "event": ["push", "manual"],
-                "branch": ["main", "stable-*"],
-            },
+            event["base"],
             {
                 "event": "pull_request",
                 "path": {
@@ -592,10 +589,7 @@ def getGoBinForTesting(ctx):
                  cacheGoBin(),
         "when": [
             event["tag"],
-            {
-                "event": ["push", "manual"],
-                "branch": ["main", "stable-*"],
-            },
+            event["base"],
             {
                 "event": "pull_request",
                 "path": {
