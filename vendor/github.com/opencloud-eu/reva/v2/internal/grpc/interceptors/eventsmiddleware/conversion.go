@@ -19,6 +19,7 @@
 package eventsmiddleware
 
 import (
+	"strings"
 	"time"
 
 	group "github.com/cs3org/go-cs3apis/cs3/identity/group/v1beta1"
@@ -28,6 +29,7 @@ import (
 	link "github.com/cs3org/go-cs3apis/cs3/sharing/link/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
+	"github.com/opencloud-eu/reva/v2/pkg/rhttp/router"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
@@ -293,11 +295,45 @@ func ItemMoved(r *provider.MoveResponse, req *provider.MoveRequest, spaceOwner *
 	}
 }
 
+// TrashbinPurged converts the response to an event
+func TrashbinPurged(r *provider.PurgeRecycleResponse, req *provider.PurgeRecycleRequest, executant *user.User) events.TrashbinPurged {
+	return events.TrashbinPurged{
+		Executant: executant.GetId(),
+		Ref: &provider.Reference{
+			ResourceId: &provider.ResourceId{
+				StorageId: req.Ref.GetResourceId().GetStorageId(),
+				SpaceId:   req.Ref.GetResourceId().GetSpaceId(),
+				OpaqueId:  req.Ref.GetResourceId().GetSpaceId(),
+			},
+		},
+		Timestamp:         utils.TSNow(),
+		ImpersonatingUser: extractImpersonator(executant),
+	}
+}
+
 // ItemPurged converts the response to an event
 func ItemPurged(r *provider.PurgeRecycleResponse, req *provider.PurgeRecycleRequest, executant *user.User) events.ItemPurged {
+	root, relativePath := router.ShiftPath(req.Key)
+	if relativePath == "/" && !strings.HasSuffix(req.Key, "/") {
+		relativePath = ""
+	}
+	if root == "" {
+		// if there is no key this is about purging the whole trashbin
+		root = req.Ref.GetResourceId().GetSpaceId()
+	}
+
+	ref := &provider.Reference{
+		ResourceId: &provider.ResourceId{
+			StorageId: req.Ref.GetResourceId().GetStorageId(),
+			SpaceId:   req.Ref.GetResourceId().GetSpaceId(),
+			OpaqueId:  root,
+		},
+		Path: relativePath,
+	}
+
 	return events.ItemPurged{
 		Executant:         executant.GetId(),
-		Ref:               req.Ref,
+		Ref:               ref,
 		Timestamp:         utils.TSNow(),
 		ImpersonatingUser: extractImpersonator(executant),
 	}

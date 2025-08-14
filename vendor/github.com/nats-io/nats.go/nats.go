@@ -47,7 +47,7 @@ import (
 
 // Default Constants
 const (
-	Version                   = "1.43.0"
+	Version                   = "1.44.0"
 	DefaultURL                = "nats://127.0.0.1:4222"
 	DefaultPort               = 4222
 	DefaultMaxReconnect       = 60
@@ -1244,6 +1244,35 @@ func UserCredentials(userOrChainedFile string, seedFiles ...string) Option {
 	sigCB := func(nonce []byte) ([]byte, error) {
 		return sigHandler(nonce, keyFile)
 	}
+	return UserJWT(userCB, sigCB)
+}
+
+// UserCredentialBytes is a convenience function that takes the JWT and seed
+// values as byte slices. This allows passing credentials directly from memory
+// or environment variables without needing to write them to disk.
+func UserCredentialBytes(userOrChainedFileBytes []byte, seedFiles ...[]byte) Option {
+	userCB := func() (string, error) {
+		return nkeys.ParseDecoratedJWT(userOrChainedFileBytes)
+	}
+
+	var seedBytes []byte
+	if len(seedFiles) > 0 {
+		seedBytes = seedFiles[0]
+	} else {
+		seedBytes = userOrChainedFileBytes
+	}
+
+	sigCB := func(nonce []byte) ([]byte, error) {
+		kp, err := nkeys.ParseDecoratedNKey(seedBytes)
+		if err != nil {
+			return nil, fmt.Errorf("unable to extract key pair from bytes: %w", err)
+		}
+		defer kp.Wipe()
+
+		sig, _ := kp.Sign(nonce)
+		return sig, nil
+	}
+
 	return UserJWT(userCB, sigCB)
 }
 
@@ -5158,8 +5187,8 @@ func (s *Subscription) ClearMaxPending() error {
 
 // Pending Limits
 const (
-	// DefaultSubPendingMsgsLimit will be 512k msgs.
-	DefaultSubPendingMsgsLimit = 512 * 1024
+	// DefaultSubPendingMsgsLimit will be 500k msgs.
+	DefaultSubPendingMsgsLimit = 500_000
 	// DefaultSubPendingBytesLimit is 64MB
 	DefaultSubPendingBytesLimit = 64 * 1024 * 1024
 )
@@ -5509,6 +5538,14 @@ func (nc *Conn) close(status Status, doCBs bool, err error) {
 			close(s.mch)
 		}
 		s.mch = nil
+
+		// Call closed handler for non-AsyncSubscription types (AsyncSubscription handlers
+		// are called by waitForMsgs when it exits)
+		var done func(string)
+		if s.typ != AsyncSubscription && s.pDone != nil {
+			done = s.pDone
+		}
+
 		// Mark as invalid, for signaling to waitForMsgs
 		s.closed = true
 		// Mark connection closed in subscription
@@ -5519,6 +5556,11 @@ func (nc *Conn) close(status Status, doCBs bool, err error) {
 		}
 
 		s.mu.Unlock()
+
+		// Call the closed handler outside the lock to avoid potential deadlocks
+		if done != nil {
+			done(s.Subject)
+		}
 	}
 	nc.subs = nil
 	nc.subsMu.Unlock()
@@ -6107,18 +6149,12 @@ func sigHandler(nonce []byte, seedFile string) ([]byte, error) {
 type timeoutWriter struct {
 	timeout time.Duration
 	conn    net.Conn
-	err     error
 }
 
 // Write implements the io.Writer interface.
 func (tw *timeoutWriter) Write(p []byte) (int, error) {
-	if tw.err != nil {
-		return 0, tw.err
-	}
-
-	var n int
 	tw.conn.SetWriteDeadline(time.Now().Add(tw.timeout))
-	n, tw.err = tw.conn.Write(p)
+	n, err := tw.conn.Write(p)
 	tw.conn.SetWriteDeadline(time.Time{})
-	return n, tw.err
+	return n, err
 }

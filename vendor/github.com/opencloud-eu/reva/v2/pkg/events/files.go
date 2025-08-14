@@ -162,6 +162,22 @@ func (ItemMoved) Unmarshal(v []byte) (interface{}, error) {
 	return e, err
 }
 
+// TrashbinPurged is emitted when the whole trashbin is purged
+type TrashbinPurged struct {
+	Executant         *user.UserId
+	Ref               *provider.Reference
+	Owner             *user.UserId
+	Timestamp         *types.Timestamp
+	ImpersonatingUser *user.User
+}
+
+// Unmarshal to fulfill umarshaller interface
+func (TrashbinPurged) Unmarshal(v []byte) (interface{}, error) {
+	e := TrashbinPurged{}
+	err := json.Unmarshal(v, &e)
+	return e, err
+}
+
 // ItemPurged is emitted when a file or folder is removed from trashbin
 type ItemPurged struct {
 	Executant         *user.UserId
