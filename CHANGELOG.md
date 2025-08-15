@@ -4,16 +4,17 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@fschade, @individual-it, @kulmann, @prashant-gurung899, @rhafer
+@ScharfViktor, @fschade, @individual-it, @kulmann, @prashant-gurung899, @rhafer
+
+### ✅ Tests
+
+- tests for collaborativePosixFS [[#1342](https://github.com/opencloud-eu/opencloud/pull/1342)]
+- [full-ci] add pipeline to send CI notifications to matrix [[#1249](https://github.com/opencloud-eu/opencloud/pull/1249)]
 
 ### 📈 Enhancement
 
 - Dockerfile cleanup [[#1352](https://github.com/opencloud-eu/opencloud/pull/1352)]
 - feat: add defaultAppId option for the web config.json [[#1354](https://github.com/opencloud-eu/opencloud/pull/1354)]
-
-### ✅ Tests
-
-- [full-ci] add pipeline to send CI notifications to matrix [[#1249](https://github.com/opencloud-eu/opencloud/pull/1249)]
 
 ### 📦️ Dependencies
 
