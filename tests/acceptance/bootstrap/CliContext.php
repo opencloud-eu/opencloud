@@ -41,7 +41,12 @@ class CliContext implements Context {
 	 */
 	public static function getUsersStoragePath(): string {
 		$path = getenv('OC_STORAGE_PATH') ?: '/var/lib/opencloud/storage/users';
-		return $path . '/users';
+		// need for CI
+		$home = getenv('HOME');
+		$path = preg_replace('#^~/#', $home . '/', $path);
+		$path = str_replace('$HOME', $home, $path);
+
+		return rtrim($path, '/') . '/users';
 	}
 
 	/**
@@ -67,6 +72,51 @@ class CliContext implements Context {
 		// Get all the contexts you need in this context
 		$this->featureContext = BehatHelper::getContext($scope, $environment, 'FeatureContext');
 		$this->spacesContext = BehatHelper::getContext($scope, $environment, 'SpacesContext');
+	}
+
+	/**
+	 * expects a file to exist at the given path
+	 *
+	 * @param string $path
+	 * @param string|null $sizeGb
+	 * @param int $maxSeconds
+	 *
+	 * @return void
+	 */
+	private function waitForPath(string $path, ?string $sizeGb = null, int $maxSeconds = 10): void {
+		$escapedPath = escapeshellarg($path);
+
+		for ($i = 0; $i < $maxSeconds * 5; $i++) {
+			if ($sizeGb) {
+				if (!preg_match('/^(\d+)gb$/i', $sizeGb, $matches)) {
+					throw new \InvalidArgumentException("Invalid size format: $sizeGb. Use formats like 1gb, 5gb.");
+				}
+				$targetBytes = (int)$matches[1] * 1024 * 1024 * 1024;
+				$body = [
+					"command" => "[ -f $escapedPath ] && stat -c%s $escapedPath || echo 0",
+					"raw" => true
+				];
+				$data = json_decode((string)CliHelper::runCommand($body)->getBody(), true);
+
+				if (isset($data['message']) && (int)trim($data['message']) >= $targetBytes) {
+					return;
+				}
+			} else {
+				$body = [
+					"command" => "ls $escapedPath >/dev/null 2>&1 && echo exists || echo not_exists",
+					"raw" => true
+				];
+				$response = CliHelper::runCommand($body);
+				$data = json_decode((string)$response->getBody(), true);
+
+				if (isset($data['message']) && trim($data['message']) === 'exists') {
+					return;
+				}
+			}
+			usleep(200000);
+		}
+
+		throw new \Exception("Timeout waiting for: $path");
 	}
 
 	/**
@@ -468,11 +518,14 @@ class CliContext implements Context {
 	public function theAdministratorCreatesFolder(string $folder, string $user): void {
 		$userUuid = $this->featureContext->getUserIdByUserName($user);
 		$storagePath = $this->getUsersStoragePath();
+		$fullPath = "$storagePath/$userUuid/$folder";
+
 		$body = [
-		  "command" => "mkdir -p $storagePath/$userUuid/$folder",
+		  "command" => "mkdir -p $fullPath",
 		  "raw" => true
 		];
 		$this->featureContext->setResponse(CliHelper::runCommand($body));
+		$this->waitForPath($fullPath);
 		sleep(1);
 	}
 
@@ -505,12 +558,96 @@ class CliContext implements Context {
 	public function theAdministratorCreatesFile(string $file, string $content, string $user): void {
 		$userUuid = $this->featureContext->getUserIdByUserName($user);
 		$storagePath = $this->getUsersStoragePath();
+		$fullPath = "$storagePath/$userUuid/$file";
 		$safeContent = escapeshellarg($content);
 		$body = [
-		  "command" => "echo -n $safeContent > $storagePath/$userUuid/$file",
+		  "command" => "echo -n $safeContent > $fullPath",
 		  "raw" => true
 		];
 		$this->featureContext->setResponse(CliHelper::runCommand($body));
+		$this->waitForPath($fullPath);
+		sleep(1);
+	}
+
+	/**
+	 * @When the administrator creates the file :file with size :size for user :user on the POSIX filesystem
+	 *
+	 * @param string $file
+	 * @param string $size Example: "1gb", "5gb"
+	 * @param string $user
+	 *
+	 * @return void
+	 */
+	public function theAdministratorCreatesLargeFileWithSize(string $file, string $size, string $user): void {
+		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$storagePath = $this->getUsersStoragePath();
+
+		$size = strtolower($size);
+		if (!preg_match('/^(\d+)gb$/', $size, $matches)) {
+			throw new \InvalidArgumentException("Invalid size format: $size. Use formats like 1gb, 5gb.");
+		}
+
+		$count = (int)$matches[1] * 1024; // 1GB = 1024M
+		$bs = '1M';
+		$filePath = "$storagePath/$userUuid/$file";
+
+		$body = [
+			"command" => "dd if=/dev/zero of=$filePath bs=$bs count=$count",
+			"raw" => true
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+		$this->waitForPath($filePath, $size, 15);
+		sleep(7);
+	}
+
+	/**
+	 * @When the administrator creates :count files sequentially in the directory :dir for user :user on the POSIX filesystem
+	 *
+	 * @param int $count
+	 * @param string $dir
+	 * @param string $user
+	 *
+	 * @return void
+	 */
+	public function theAdministratorCreatesFilesSequentially(int $count, string $dir, string $user): void {
+		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$storagePath = $this->getUsersStoragePath() . "/$userUuid/$dir";
+		$cmd = '';
+		for ($i = 1; $i <= $count; $i++) {
+			$cmd .= "echo -n \"file $i content\" > $storagePath/file_$i.txt; ";
+		}
+		$body = [
+			"command" => $cmd,
+			"raw" => true
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+		$this->waitForPath("$storagePath/file_$count.txt");
+		sleep(3);
+	}
+
+	/**
+	 * @When the administrator creates :count files in parallel in the directory :dir for user :user on the POSIX filesystem
+	 *
+	 * @param int $count
+	 * @param string $dir
+	 * @param string $user
+	 *
+	 * @return void
+	 */
+	public function theAdministratorCreatesFilesInParallel(int $count, string $dir, string $user): void {
+		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$storagePath = $this->getUsersStoragePath() . "/$userUuid/$dir";
+		$cmd = "mkdir -p $storagePath; ";
+		for ($i = 1; $i <= $count; $i++) {
+			$cmd .= "echo -n \"parallel file $i content\" > $storagePath/parallel_$i.txt & ";
+		}
+		$cmd .= "wait";
+		$body = [
+			"command" => $cmd,
+			"raw" => true
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+		$this->waitForPath("$storagePath/parallel_$count.txt");
 		sleep(1);
 	}
 
@@ -711,5 +848,24 @@ class CliContext implements Context {
 		];
 		$this->featureContext->setResponse(CliHelper::runCommand($body));
 		sleep(1);
+	}
+
+	/**
+	 * @When the administrator checks the attribute :attribute of file :file for user :user on the POSIX filesystem
+	 *
+	 * @param string $attribute
+	 * @param string $file
+	 * @param string $user
+	 *
+	 * @return void
+	 */
+	public function theAdminChecksTheAttributeOfFileForUser(string $attribute, string $file, string $user): void {
+		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$storagePath = $this->getUsersStoragePath();
+		$body = [
+			"command" => "xattr -p -slz " . escapeshellarg($attribute) . " $storagePath/$userUuid/$file",
+			"raw" => true
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
 	}
 }
