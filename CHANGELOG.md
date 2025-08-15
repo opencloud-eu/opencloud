@@ -4,10 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@fschade, @individual-it, @kulmann, @prashant-gurung899
+@fschade, @individual-it, @kulmann, @prashant-gurung899, @rhafer
 
 ### 📈 Enhancement
 
+- Dockerfile cleanup [[#1352](https://github.com/opencloud-eu/opencloud/pull/1352)]
 - feat: add defaultAppId option for the web config.json [[#1354](https://github.com/opencloud-eu/opencloud/pull/1354)]
 
 ### ✅ Tests
