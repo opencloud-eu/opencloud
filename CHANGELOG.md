@@ -1,10 +1,10 @@
 # Changelog
 
-## [3.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.4.0) - 2025-08-14
+## [3.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.4.0) - 2025-08-15
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@fschade, @kulmann, @prashant-gurung899
+@fschade, @individual-it, @kulmann, @prashant-gurung899
 
 ### 📈 Enhancement
 
