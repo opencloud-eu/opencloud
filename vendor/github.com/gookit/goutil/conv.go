@@ -20,20 +20,16 @@ func Bool(v any) bool {
 }
 
 // ToBool try to convert type to bool
-func ToBool(v any) (bool, error) {
-	return comfunc.ToBool(v)
-}
+func ToBool(v any) (bool, error) { return comfunc.ToBool(v) }
 
-// String always convert value to string, will ignore error
+// String func. always converts value to string, will ignore error
 func String(v any) string {
 	s, _ := strutil.AnyToString(v, false)
 	return s
 }
 
 // ToString convert value to string, will return error on fail.
-func ToString(v any) (string, error) {
-	return strutil.AnyToString(v, true)
-}
+func ToString(v any) (string, error) { return strutil.AnyToString(v, true) }
 
 // Int convert value to int
 func Int(v any) int {
@@ -42,9 +38,7 @@ func Int(v any) int {
 }
 
 // ToInt try to convert value to int
-func ToInt(v any) (int, error) {
-	return mathutil.ToInt(v)
-}
+func ToInt(v any) (int, error) { return mathutil.ToInt(v) }
 
 // Int64 convert value to int64
 func Int64(v any) int64 {
@@ -53,9 +47,7 @@ func Int64(v any) int64 {
 }
 
 // ToInt64 try to convert value to int64
-func ToInt64(v any) (int64, error) {
-	return mathutil.ToInt64(v)
-}
+func ToInt64(v any) (int64, error) { return mathutil.ToInt64(v) }
 
 // Uint convert value to uint
 func Uint(v any) uint {
@@ -64,9 +56,7 @@ func Uint(v any) uint {
 }
 
 // ToUint try to convert value to uint
-func ToUint(v any) (uint, error) {
-	return mathutil.ToUint(v)
-}
+func ToUint(v any) (uint, error) { return mathutil.ToUint(v) }
 
 // Uint64 convert value to uint64
 func Uint64(v any) uint64 {
@@ -75,14 +65,10 @@ func Uint64(v any) uint64 {
 }
 
 // ToUint64 try to convert value to uint64
-func ToUint64(v any) (uint64, error) {
-	return mathutil.ToUint64(v)
-}
+func ToUint64(v any) (uint64, error) { return mathutil.ToUint64(v) }
 
 // BoolString convert bool to string
-func BoolString(bl bool) string {
-	return strconv.FormatBool(bl)
-}
+func BoolString(bl bool) string { return strconv.FormatBool(bl) }
 
 // BaseTypeVal convert custom type or intX,uintX,floatX to generic base type.
 //
@@ -136,7 +122,7 @@ func ConvOrDefault(val any, kind reflect.Kind, defVal any) any {
 //
 // Examples:
 //
-//	val, err := ToKind("123", reflect.Int) // 123
+//		val, err := ToKind("123", reflect.Int) // 123
 func ToKind(val any, kind reflect.Kind, fbFunc func(val any) (any, error)) (newVal any, err error) {
 	switch kind {
 	case reflect.Int:

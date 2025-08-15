@@ -18,7 +18,7 @@ func IsAdmin() bool {
 func ChangeUserByName(newUname string) error {
 	u := MustFindUser(newUname)
 	// syscall.Setlogin(newUname)
-	return ChangeUserUIDGid(strutil.IntOrPanic(u.Uid), strutil.IntOrPanic(u.Gid))
+	return ChangeUserUIDGid(strutil.MustInt(u.Uid), strutil.MustInt(u.Gid))
 }
 
 // ChangeUserUidGid change work user by new username uid,gid

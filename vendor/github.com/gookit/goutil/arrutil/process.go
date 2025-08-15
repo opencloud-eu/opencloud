@@ -74,7 +74,7 @@ func Column[T any, V any](list []T, mapFn func(obj T) (val V, find bool)) []V {
 }
 
 // Unique value in the given slice data.
-func Unique[T ~string | comdef.XintOrFloat](list []T) []T {
+func Unique[T comdef.NumberOrString](list []T) []T {
 	if len(list) < 2 {
 		return list
 	}
@@ -92,11 +92,24 @@ func Unique[T ~string | comdef.XintOrFloat](list []T) []T {
 }
 
 // IndexOf value in given slice.
-func IndexOf[T ~string | comdef.XintOrFloat](val T, list []T) int {
+func IndexOf[T comdef.NumberOrString](val T, list []T) int {
 	for i, v := range list {
 		if v == val {
 			return i
 		}
 	}
 	return -1
+}
+
+// FirstOr get first value of slice, if slice is empty, return the default value.
+func FirstOr[T any](list []T, defVal ...T) T {
+	if len(list) > 0 {
+		return list[0]
+	}
+
+	if len(defVal) > 0 {
+		return defVal[0]
+	}
+	var zero T
+	return zero
 }

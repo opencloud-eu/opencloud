@@ -28,16 +28,12 @@ func BinFile() string {
 }
 
 // Open file or url address
-func Open(fileOrURL string) error {
-	return OpenURL(fileOrURL)
-}
+func Open(fileOrURL string) error { return OpenURL(fileOrURL) }
 
 // OpenBrowser file or url address
-func OpenBrowser(fileOrURL string) error {
-	return OpenURL(fileOrURL)
-}
+func OpenBrowser(fileOrURL string) error { return OpenURL(fileOrURL) }
 
-// OpenFile opens new browser window for the file path.
+// OpenFile open files browser window for the file path.
 func OpenFile(path string) error {
 	fpath, err := filepath.Abs(path)
 	if err != nil {

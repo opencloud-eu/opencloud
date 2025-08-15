@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gookit/color"
 	"github.com/gookit/goutil/arrutil"
 	"github.com/gookit/goutil/cliutil/cmdline"
 	"github.com/gookit/goutil/errorx"
 	"github.com/gookit/goutil/maputil"
 	"github.com/gookit/goutil/mathutil"
 	"github.com/gookit/goutil/strutil/textutil"
+	"github.com/gookit/goutil/x/ccolor"
 )
 
 // Task struct
@@ -226,7 +226,7 @@ func (r *Runner) Run() error {
 		}
 
 		if r.DryRun {
-			color.Infof("DRY-RUN: task#%d execute completed\n\n", i+1)
+			ccolor.Infof("DRY-RUN: task#%d execute completed\n\n", i+1)
 			continue
 		}
 
@@ -265,7 +265,7 @@ func (r *Runner) RunTask(task *Task) (goon bool) {
 	// do running
 	if err := task.RunWith(r.Params); err != nil {
 		r.Errs[task.ID] = err
-		color.Errorf("Task#%d run error: %s\n", task.Index()+1, err)
+		ccolor.Errorf("Task#%d run error: %s\n", task.Index()+1, err)
 
 		// not ignore error, stop.
 		if !r.IgnoreErr {

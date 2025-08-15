@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-// DetectMime detect file mime type. alias of MimeType()
+// DetectMime detect a file mime type. alias of MimeType()
 func DetectMime(path string) string {
 	return MimeType(path)
 }

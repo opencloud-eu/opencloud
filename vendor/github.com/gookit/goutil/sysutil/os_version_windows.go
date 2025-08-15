@@ -6,6 +6,7 @@ import (
 
 	"github.com/gookit/goutil/errorx"
 	"github.com/gookit/goutil/strutil"
+	"golang.org/x/sys/windows"
 )
 
 // OSVersionInfo 结构体用于存储操作系统版本信息
@@ -22,18 +23,42 @@ type OSVersionInfo struct {
 	RevisionNumber uint32
 }
 
-// FetchOsVersion Get Windows system version information
+// cache: 全局变量
+var stdOv = VersionInfoBySys()
+
+// OsVersion Get operating system version information
+func OsVersion() *OSVersionInfo { return stdOv }
+
+// VersionInfoBySys Get Windows system version information by sys/windows
+func VersionInfoBySys() *OSVersionInfo {
+	// Get the Windows Version and Build Number
+	var majorVersion, minorVersion, buildNumber = windows.RtlGetNtVersionNumbers()
+
+	return &OSVersionInfo{
+		MajorVersion: uint16(majorVersion),
+		MinorVersion: uint16(minorVersion),
+		BuildNumber:  buildNumber,
+	}
+}
+
+// OsVersionByParse Get Windows system version information by parse string
+//
+//  cmdOut eg: "Microsoft Windows [Version 10.0.22631.4391]"
+func OsVersionByParse(cmdOut string) (*OSVersionInfo, error) {
+	return parseOsVersionString(cmdOut)
+}
+
+// OsVersionByVerCmd Get Windows system version information
 //
 // 还可用使用dll获取：
 //
 //	通过 GetVersion, GetVersionEx 函数获取的信息不准确. win11获取到 6.2.9200, 实际是 10.0.22631
-func FetchOsVersion() (*OSVersionInfo, error) {
+func OsVersionByVerCmd() (*OSVersionInfo, error) {
 	// Windows cmd 执行 ver 命令
 	out, err := ShellExec("ver", "cmd")
 	if err != nil {
 		return nil, err
 	}
-
 	return parseOsVersionString(out)
 }
 
@@ -47,9 +72,9 @@ func (ov *OSVersionInfo) IsWindows7() bool {
 	return ov.MajorVersion == 6 && ov.MinorVersion == 1
 }
 
-// IsWindows8 判断是否为 Windows 8
+// IsWindows8 判断是否为 Windows 8/8.1
 func (ov *OSVersionInfo) IsWindows8() bool {
-	return ov.MajorVersion == 6 && ov.MinorVersion == 2
+	return ov.MajorVersion == 6 && (ov.MinorVersion == 2 || ov.MinorVersion == 3)
 }
 
 // IsWindows10 判断是否为 Windows 10
@@ -129,15 +154,3 @@ func parseOsVersionString(out string) (*OSVersionInfo, error) {
 	return &ovi, nil
 }
 
-// 全局变量
-var stdOv, stdErr = FetchOsVersion()
-
-// OsVersion Get operating system version information
-func OsVersion() *OSVersionInfo {
-	return stdOv
-}
-
-// OvParseError error on parse os version info
-func OvParseError() error {
-	return stdErr
-}

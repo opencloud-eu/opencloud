@@ -7,56 +7,63 @@
 [![Coverage Status](https://coveralls.io/repos/github/gookit/goutil/badge.svg?branch=master)](https://coveralls.io/github/gookit/goutil?branch=master)
 [![Go Reference](https://pkg.go.dev/badge/github.com/gookit/goutil.svg)](https://pkg.go.dev/github.com/gookit/goutil)
 
-💪 Useful utils(**700+**) package for the Go: int, string, array/slice, map, error, time, format, CLI, ENV, filesystem, system, testing and more.
+💪 Useful utils(**800+**) package for the Go: int, string, array/slice, map, error, time, format, CLI, ENV, filesystem, system, testing and more.
 
 > **[中文说明](README.zh-CN.md)**
 
-**Basic packages:**
+## Packages
+
+### Basic packages
 
 - [`arrutil`](arrutil): Array/Slice util functions. eg: check, convert, formatting, enum, collections
-- [`cliutil`](cliutil) Command-line util functions. eg: colored print, read input, exec command
-- [`envutil`](envutil) ENV util for current runtime env information. eg: get one, get info, parse var
-- [`fmtutil`](fmtutil) Format data util functions. eg: data, size, time
-- [`fsutil`](fsutil) Filesystem util functions, quick create, read and write file. eg: file and dir check, operate
-- [`goinfo`](goinfo) provide some standard util functions for go.
-- [`jsonutil`](jsonutil) Provide some util functions for quick read, write, encode, decode JSON data.
+- [`byteutil`](byteutil): Provide some common bytes util functions. eg: convert, check and more
 - [`maputil`](maputil) Map data util functions. eg: convert, sub-value get, simple merge
 - [`mathutil`](mathutil) Math(int, number) util functions. eg: convert, math calc, random
-- [`netutil`](netutil) Network util functions. eg: Ip, IpV4, IpV6, Mac, Port, Hostname, etc.
 - [`reflects`](reflects) Provide extends reflect util functions.
 - [`structs`](structs) Provide some extends util functions for struct. eg: tag parse, struct data init
 - [`strutil`](strutil) String util functions. eg: bytes, check, convert, encode, format and more
 - [`sysutil`](sysutil) System util functions. eg: sysenv, exec, user, process
+- [`cliutil`](cliutil) Command-line util functions. eg: colored print, read input, exec command
+- [`envutil`](envutil) ENV util for current runtime env information. eg: get one, get info, parse var
+- [`fsutil`](fsutil) Filesystem util functions, quick create, read and write file. eg: file and dir check, operate
+- [`jsonutil`](jsonutil) Provide some util functions for quick read, write, encode, decode JSON data.
 
-**Extra packages:**
+### Debug & Test & Errors
+
+- [`dump`](dump): GO value printing tool. print slice, map will auto wrap each element and display the call location
+- [`errorx`](errorx) Provide an enhanced error implements for go, allow with stacktrace and wrap another error.
+- [`assert`](testutil/assert) Provides commonly asserts functions for help testing
+- [`testutil`](testutil) Test help util functions. eg: http test, mock ENV value
+- [`fakeobj`](x/fakeobj) provides a fake object for testing. such as fake fs.File, fs.FileInfo, fs.DirEntry etc.
+
+### Extra Tools packages
 
 - [`cflag`](cflag):  Wraps and extends go `flag.FlagSet` to build simple command line applications
-- cli util:
-  - [cmdline](cliutil/cmdline) Provide cmdline parse, args build to cmdline
-- [`dump`](dump): GO value printing tool. print slice, map will auto wrap each element and display the call location
-- [`encodes`](encodes): Provide some encoding/decoding, hash, crypto util functions. eg: base64, hex, etc.
-- [`errorx`](errorx) Provide an enhanced error implements for go, allow with stacktrace and wrap another error.
-- file util:
-  - [`finder`](fsutil/finder) Provides a simple and convenient filedir lookup function, supports filtering, excluding, matching, ignoring, etc.
-- net util:
-  - [httpreq](netutil/httpreq) An easier-to-use HTTP client that wraps http.Client, and with some http utils.
-- string util:
-  - [textscan](strutil/textscan) Implemented a parser that quickly scans and analyzes text content. It can be used to parse INI, Properties and other formats
-  - [textutil](strutil/textutil) Provide some extensions text handle util functions. eg: text replace, etc.
-- [syncs](syncs) Provides synchronization primitives util functions.
-- system util:
-  - [clipboard](sysutil/clipboard) Provide a simple clipboard read and write operations.
-  - [cmdr](sysutil/cmdr) Provide for quick build and run a cmd, batch run multi cmd tasks
-  - [process](sysutil/process) Provide some process handle util functions.
-- [`testutil`](testutil) Test help util functions. eg: http test, mock ENV value
-  - [assert](testutil/assert) Provides commonly asserts functions for help testing
-  - [fakeobj](testutil/fakeobj) provides a fake object for testing. such as fake fs.File, fs.FileInfo, fs.DirEntry etc.
+- [`ccolor`](x/ccolor): Simple command-line color output library that uses ANSI color codes to output text with colors.
 - [`timex`](timex) Provides an enhanced time.Time implementation. Add more commonly used functional methods
+  - Provides datetime format parsing like `Y-m-d H:i:s`
   - such as: DayStart(), DayAfter(), DayAgo(), DateFormat() and more.
+- [httpreq](netutil/httpreq) An easier-to-use HTTP client that wraps http.Client, and with some http utils.
+- [syncs](syncs) Provides synchronization primitives util functions.
+
+**More ...**
+
+- [`cmdline`](cliutil/cmdline) Provide cmdline parse, args build to cmdline
+- [`encodes`](encodes): Provide some encoding/decoding, hash, crypto util functions. eg: base64, hex, etc.
+- [`finder`](x/finder) Provides a simple and convenient file/dir lookup function, supports filtering, excluding, matching, ignoring, etc.
+- [`netutil`](netutil) Network util functions. eg: Ip, IpV4, IpV6, Mac, Port, Hostname, etc.
+- [textutil](strutil/textutil) Provide some extensions text handle util functions. eg: text replace, etc.
+- [textscan](strutil/textscan) Implemented a parser that quickly scans and analyzes text content. It can be used to parse INI, Properties and other formats
+- [`cmdr`](sysutil/cmdr) Provide for quick build and run a cmd, batch run multi cmd tasks
+- [`clipboard`](x/clipboard) Provide a simple clipboard read and write operations.
+- [`process`](sysutil/process) Provide some process handle util functions.
+- [`fmtutil`](x/fmtutil) Format data util functions. eg: data, size, time
+- [`goinfo`](x/goinfo) provide some standard util functions for go.
 
 ## Go Doc
 
-Please see [Go doc](https://pkg.go.dev/github.com/gookit/goutil)
+Please see [Go doc](https://pkg.go.dev/github.com/gookit/goutil).
+Wiki docs on [DeepWiki - gookit/goutil](https://deepwiki.com/gookit/goutil)
 
 ## Install
 
@@ -166,8 +173,9 @@ func Remove[T comdef.Compared](ls []T, val T) []T
 func Filter[T any](ls []T, filter ...comdef.MatchFunc[T]) []T
 func Map[T any, V any](list []T, mapFn MapFn[T, V]) []V
 func Column[T any, V any](list []T, mapFn func(obj T) (val V, find bool)) []V
-func Unique[T ~string | comdef.XintOrFloat](list []T) []T
-func IndexOf[T ~string | comdef.XintOrFloat](val T, list []T) int
+func Unique[T comdef.NumberOrString](list []T) []T
+func IndexOf[T comdef.NumberOrString](val T, list []T) int
+func FirstOr[T any](list []T, defVal ...T) T
 // source at arrutil/strings.go
 func StringsToAnys(ss []string) []any
 func StringsToSlice(ss []string) []any
@@ -212,6 +220,7 @@ ss, err := arrutil.ToStrings([]int{1, 2}) // ss: []string{"1", "2"}
 func NewBuffer() *Buffer
 // source at byteutil/byteutil.go
 func Md5(src any) []byte
+func Md5Sum(src any) []byte
 func ShortMd5(src any) []byte
 func Random(length int) ([]byte, error)
 func FirstLine(bs []byte) []byte
@@ -221,6 +230,7 @@ func SafeCut(bs []byte, sep byte) (before, after []byte)
 func SafeCuts(bs []byte, sep []byte) (before, after []byte)
 // source at byteutil/check.go
 func IsNumChar(c byte) bool
+func IsAlphaChar(c byte) bool
 // source at byteutil/conv.go
 func StrOrErr(bs []byte, err error) (string, error)
 func SafeString(bs []byte, err error) string
@@ -242,7 +252,7 @@ func NewChanPool(chSize int, width int, capWidth int) *ChanPool
 ```go
 // source at cflag/app.go
 func NewApp(fns ...func(app *App)) *App
-func NewCmd(name, desc string) *Cmd
+func NewCmd(name, desc string, runFunc ...func(c *Cmd) error) *Cmd
 // source at cflag/cflag.go
 func SetDebug(open bool)
 func New(fns ...func(c *CFlags)) *CFlags
@@ -275,7 +285,7 @@ func ReplaceShorts(args []string, shortsMap map[string]string) []string
 `cflag` usage please see [cflag/README.md](cflag/README.md)
 
 
-### CLI/Console
+### CLI Utils
 
 > Package `github.com/gookit/goutil/cliutil`
 
@@ -371,7 +381,7 @@ Build line: ./myapp -a val0 -m "this is message" arg0
 
 > More, please see [./cliutil/README](cliutil/README.md)
 
-### Dumper
+### Var Dumper
 
 > Package `github.com/gookit/goutil/dump`
 
@@ -446,20 +456,6 @@ Preview:
 ![](dump/_examples/preview-nested-struct.png)
 
 
-### Encodes
-
-> Package `github.com/gookit/goutil/encodes`
-
-```go
-// source at encodes/encodes.go
-func B32Encode(str string) string
-func B32Decode(str string) string
-func B64Encode(str string) string
-func B64EncodeBytes(src []byte) []byte
-func B64Decode(str string) string
-func B64DecodeBytes(str []byte) []byte
-```
-
 ### ENV/Environment
 
 > Package `github.com/gookit/goutil/envutil`
@@ -471,14 +467,16 @@ func ParseOrErr(val string) (string, error)
 func ParseValue(val string) string
 func VarParse(val string) string
 func ParseEnvValue(val string) string
-func SetEnvMap(mp map[string]string)
-func SetEnvs(kvPairs ...string)
-func UnsetEnvs(keys ...string)
+func SplitText2map(text string) map[string]string
+func SplitLineToKv(line string) (string, string)
 // source at envutil/get.go
 func Getenv(name string, def ...string) string
+func MustGet(name string) string
 func GetInt(name string, def ...int) int
 func GetBool(name string, def ...bool) bool
+func GetOne(names []string, defVal ...string) string
 func GetMulti(names ...string) map[string]string
+func OnExist(name string, fn func(val string)) bool
 func EnvPaths() []string
 func EnvMap() map[string]string
 func Environ() map[string]string
@@ -490,7 +488,6 @@ func IsWindows() bool
 func IsMac() bool
 func IsLinux() bool
 func IsMSys() bool
-func IsWSL() bool
 func IsTerminal(fd uintptr) bool
 func StdIsTerminal() bool
 func IsConsole(out io.Writer) bool
@@ -499,6 +496,12 @@ func IsSupportColor() bool
 func IsSupport256Color() bool
 func IsSupportTrueColor() bool
 func IsGithubActions() bool
+// source at envutil/set.go
+func SetEnvMap(mp map[string]string)
+func SetEnvs(kvPairs ...string)
+func UnsetEnvs(keys ...string)
+func LoadText(text string)
+func LoadString(line string) bool
 ```
 #### ENV Util Usage
 
@@ -562,7 +565,8 @@ func Err(msg string) error
 func Raw(msg string) error
 func Ef(tpl string, vars ...any) error
 func Errf(tpl string, vars ...any) error
-func Rawf(tpl string, vars ...any) error
+func Rf(tpl string, vs ...any) error
+func Rawf(tpl string, vs ...any) error
 func Cause(err error) error
 func Unwrap(err error) error
 func Previous(err error) error
@@ -651,24 +655,6 @@ runtime.goexit()
 ```
 
 
-### Format Utils
-
-> Package `github.com/gookit/goutil/fmtutil`
-
-```go
-// source at fmtutil/fmtutil.go
-func StringOrJSON(v any) ([]byte, error)
-// source at fmtutil/format.go
-func DataSize(size uint64) string
-func SizeToString(size uint64) string
-func StringToByte(sizeStr string) uint64
-func ParseByte(sizeStr string) uint64
-func PrettyJSON(v any) (string, error)
-func ArgsWithSpaces(vs []any) (message string)
-// source at fmtutil/time.go
-func HowLongAgo(sec int64) string
-```
-
 ### File System
 
 > Package `github.com/gookit/goutil/fsutil`
@@ -688,7 +674,7 @@ func PathMatch(pattern, s string) bool
 func NewEntry(fPath string, ent fs.DirEntry) Entry
 func NewFileInfo(fPath string, info fs.FileInfo) FileInfo
 // source at fsutil/find.go
-func FilePathInDirs(file string, dirs ...string) string
+func FilePathInDirs(fPath string, dirs ...string) string
 func FirstExists(paths ...string) string
 func FirstExistsDir(paths ...string) string
 func FirstExistsFile(paths ...string) string
@@ -707,20 +693,25 @@ func ExcludeDotFile(_ string, ent fs.DirEntry) bool
 func ExcludeSuffix(ss ...string) FilterFunc
 func ApplyFilters(fPath string, ent fs.DirEntry, filters []FilterFunc) bool
 func FindInDir(dir string, handleFn HandleFunc, filters ...FilterFunc) (e error)
+func FileInDirs(paths []string, names ...string) string
 // source at fsutil/fsutil.go
 func JoinPaths(elem ...string) string
-func JoinSubPaths(basePath string, elem ...string) string
+func JoinPaths3(basePath, secPath string, elems ...string) string
+func JoinSubPaths(basePath string, elems ...string) string
 func SlashPath(path string) string
 func UnixPath(path string) string
 func ToAbsPath(p string) string
+func Must2(_ any, err error)
 // source at fsutil/info.go
-func DirPath(fpath string) string
-func Dir(fpath string) string
-func PathName(fpath string) string
-func Name(fpath string) string
-func FileExt(fpath string) string
-func Extname(fpath string) string
-func Suffix(fpath string) string
+func DirPath(fPath string) string
+func Dir(fPath string) string
+func PathName(fPath string) string
+func PathNoExt(fPath string) string
+func Name(fPath string) string
+func NameNoExt(fPath string) string
+func FileExt(fPath string) string
+func Extname(fPath string) string
+func Suffix(fPath string) string
 func Expand(pathStr string) string
 func ExpandPath(pathStr string) string
 func ResolvePath(pathStr string) string
@@ -781,6 +772,7 @@ func OSTempDir(pattern string) (string, error)
 func TempDir(dir, pattern string) (string, error)
 func MustSave(filePath string, data any, optFns ...OpenOptionFunc)
 func SaveFile(filePath string, data any, optFns ...OpenOptionFunc) error
+func WriteData(filePath string, data any, fileFlag ...int) (int, error)
 func PutContents(filePath string, data any, fileFlag ...int) (int, error)
 func WriteFile(filePath string, data any, perm os.FileMode, fileFlag ...int) error
 func WriteOSFile(f *os.File, data any) (n int, err error)
@@ -819,27 +811,6 @@ func main() {
 ```
 
 
-### Go Info
-
-> Package `github.com/gookit/goutil/goinfo`
-
-```go
-// source at goinfo/gofunc.go
-func FuncName(fn any) string
-func CutFuncName(fullFcName string) (pkgPath, shortFnName string)
-func PkgName(fullFcName string) string
-func GoodFuncName(name string) bool
-// source at goinfo/goinfo.go
-func GoVersion() string
-func ParseGoVersion(line string) (*GoInfo, error)
-func OsGoInfo() (*GoInfo, error)
-// source at goinfo/stack.go
-func GetCallStacks(all bool) []byte
-func GetCallerInfo(skip int) string
-func SimpleCallersInfo(skip, num int) []string
-func GetCallersInfo(skip, max int) []string
-```
-
 ### JSON Utils
 
 > Package `github.com/gookit/goutil/jsonutil`
@@ -855,6 +826,7 @@ func EncodeUnescapeHTML(v any) ([]byte, error)
 func Decode(bts []byte, ptr any) error
 func DecodeString(str string, ptr any) error
 func DecodeReader(r io.Reader, ptr any) error
+func DecodeFile(file string, ptr any) error
 // source at jsonutil/jsonutil.go
 func WriteFile(filePath string, data any) error
 func WritePretty(filePath string, data any) error
@@ -880,9 +852,14 @@ func HasOneKey(mp any, keys ...any) (ok bool, key any)
 func HasAllKeys(mp any, keys ...any) (ok bool, noKey any)
 // source at maputil/convert.go
 func KeyToLower(src map[string]string) map[string]string
+func AnyToStrMap(src any) map[string]string
 func ToStringMap(src map[string]any) map[string]string
+func ToL2StringMap(groupsMap map[string]any) map[string]map[string]string
 func CombineToSMap(keys, values []string) SMap
 func CombineToMap[K comdef.SortedType, V any](keys []K, values []V) map[K]V
+func SliceToSMap(kvPairs ...string) map[string]string
+func SliceToMap(kvPairs ...any) map[string]any
+func SliceToTypeMap[T any](valFunc func(any) T, kvPairs ...any) map[string]T
 func ToAnyMap(mp any) map[string]any
 func TryAnyMap(mp any) (map[string]any, error)
 func HTTPQueryString(data map[string]any) string
@@ -901,14 +878,21 @@ func GetFromAny(path string, data any) (val any, ok bool)
 func GetByPath(path string, mp map[string]any) (val any, ok bool)
 func GetByPathKeys(mp map[string]any, keys []string) (val any, ok bool)
 func Keys(mp any) (keys []string)
+func TypedKeys[K comdef.SimpleType, V any](mp map[K]V) (keys []K)
+func FirstKey[T any](mp map[string]T) string
 func Values(mp any) (values []any)
+func TypedValues[K comdef.SimpleType, V any](mp map[K]V) (values []V)
 func EachAnyMap(mp any, fn func(key string, val any))
+func EachTypedMap[K comdef.SimpleType, V any](mp map[K]V, fn func(key K, val V))
 // source at maputil/maputil.go
 func SimpleMerge(src, dst map[string]any) map[string]any
+func Merge1level(mps ...map[string]any) map[string]any
 func DeepMerge(src, dst map[string]any, deep int) map[string]any
 func MergeSMap(src, dst map[string]string, ignoreCase bool) map[string]string
+func MergeStrMap(src, dst map[string]string) map[string]string
 func MergeStringMap(src, dst map[string]string, ignoreCase bool) map[string]string
 func MergeMultiSMap(mps ...map[string]string) map[string]string
+func MergeL2StrMap(mps ...map[string]map[string]string) map[string]map[string]string
 func FilterSMap(sm map[string]string) map[string]string
 func MakeByPath(path string, val any) (mp map[string]any)
 func MakeByKeys(keys []string, val any) (mp map[string]any)
@@ -922,21 +906,23 @@ func SetByKeys(mp *map[string]any, keys []string, val any) (err error)
 > Package `github.com/gookit/goutil/mathutil`
 
 ```go
+// source at mathutil/calc.go
+func Abs[T comdef.Int](val T) T
 // source at mathutil/check.go
 func IsNumeric(c byte) bool
 func Compare(first, second any, op string) bool
 func CompInt[T comdef.Xint](first, second T, op string) (ok bool)
 func CompInt64(first, second int64, op string) bool
 func CompFloat[T comdef.Float](first, second T, op string) (ok bool)
-func CompValue[T comdef.XintOrFloat](first, second T, op string) (ok bool)
-func InRange[T comdef.IntOrFloat](val, min, max T) bool
-func OutRange[T comdef.IntOrFloat](val, min, max T) bool
+func CompValue[T comdef.Number](first, second T, op string) (ok bool)
+func InRange[T comdef.Number](val, min, max T) bool
+func OutRange[T comdef.Number](val, min, max T) bool
 func InUintRange[T comdef.Uint](val, min, max T) bool
 // source at mathutil/compare.go
-func Min[T comdef.XintOrFloat](x, y T) T
-func Max[T comdef.XintOrFloat](x, y T) T
-func SwapMin[T comdef.XintOrFloat](x, y T) (T, T)
-func SwapMax[T comdef.XintOrFloat](x, y T) (T, T)
+func Min[T comdef.Number](x, y T) T
+func Max[T comdef.Number](x, y T) T
+func SwapMin[T comdef.Number](x, y T) (T, T)
+func SwapMax[T comdef.Number](x, y T) (T, T)
 func MaxInt(x, y int) int
 func SwapMaxInt(x, y int) (int, int)
 func MaxI64(x, y int64) int64
@@ -1011,15 +997,15 @@ func ToStringWith(in any, optFns ...comfunc.ConvOptionFn) (string, error)
 func DataSize(size uint64) string
 func HowLongAgo(sec int64) string
 // source at mathutil/mathutil.go
-func OrElse[T comdef.XintOrFloat](val, defVal T) T
-func ZeroOr[T comdef.XintOrFloat](val, defVal T) T
-func LessOr[T comdef.XintOrFloat](val, max, devVal T) T
-func LteOr[T comdef.XintOrFloat](val, max, devVal T) T
-func GreaterOr[T comdef.XintOrFloat](val, min, defVal T) T
-func GteOr[T comdef.XintOrFloat](val, min, defVal T) T
-func Mul[T1, T2 comdef.XintOrFloat](a T1, b T2) float64
+func OrElse[T comdef.Number](val, defVal T) T
+func ZeroOr[T comdef.Number](val, defVal T) T
+func LessOr[T comdef.Number](val, max, devVal T) T
+func LteOr[T comdef.Number](val, max, devVal T) T
+func GreaterOr[T comdef.Number](val, min, defVal T) T
+func GteOr[T comdef.Number](val, min, defVal T) T
+func Mul[T1, T2 comdef.Number](a T1, b T2) float64
 func MulF2i(a, b float64) int
-func Div[T1, T2 comdef.XintOrFloat](a T1, b T2) float64
+func Div[T1, T2 comdef.Number](a T1, b T2) float64
 func DivInt[T comdef.Integer](a, b T) int
 func DivF2i(a, b float64) int
 func Percent(val, total int) float64
@@ -1028,8 +1014,6 @@ func RandomInt(min, max int) int
 func RandInt(min, max int) int
 func RandIntWithSeed(min, max int, seed int64) int
 func RandomIntWithSeed(min, max int, seed int64) int
-// source at mathutil/value.go
-func New[T comdef.IntOrFloat](v T) *Num[T]
 ```
 
 ### Reflects
@@ -1038,6 +1022,8 @@ func New[T comdef.IntOrFloat](v T) *Num[T]
 
 ```go
 // source at reflects/check.go
+func IsTimeType(t reflect.Type) bool
+func IsDurationType(t reflect.Type) bool
 func HasChild(v reflect.Value) bool
 func IsArrayOrSlice(k reflect.Kind) bool
 func IsSimpleKind(k reflect.Kind) bool
@@ -1046,6 +1032,7 @@ func IsIntLike(k reflect.Kind) bool
 func IsIntx(k reflect.Kind) bool
 func IsUintX(k reflect.Kind) bool
 func IsNil(v reflect.Value) bool
+func IsValidPtr(v reflect.Value) bool
 func CanBeNil(typ reflect.Type) bool
 func IsFunc(val any) bool
 func IsEqual(src, dst any) bool
@@ -1056,12 +1043,13 @@ func BaseTypeVal(v reflect.Value) (value any, err error)
 func ToBaseVal(v reflect.Value) (value any, err error)
 func ConvToType(val any, typ reflect.Type) (rv reflect.Value, err error)
 func ValueByType(val any, typ reflect.Type) (rv reflect.Value, err error)
-func ValueByKind(val any, kind reflect.Kind) (rv reflect.Value, err error)
-func ConvToKind(val any, kind reflect.Kind) (rv reflect.Value, err error)
+func ValueByKind(val any, kind reflect.Kind) (reflect.Value, error)
+func ConvToKind(val any, kind reflect.Kind, fallback ...ConvFunc) (rv reflect.Value, err error)
 func ConvSlice(oldSlRv reflect.Value, newElemTyp reflect.Type) (rv reflect.Value, err error)
 func String(rv reflect.Value) string
 func ToString(rv reflect.Value) (str string, err error)
 func ValToString(rv reflect.Value, defaultAsErr bool) (str string, err error)
+func ToTimeOrDuration(str string, typ reflect.Type) (any, error)
 // source at reflects/func.go
 func NewFunc(fn any) *FuncX
 func Call2(fn reflect.Value, args []reflect.Value) (reflect.Value, error)
@@ -1069,8 +1057,9 @@ func Call(fn reflect.Value, args []reflect.Value, opt *CallOpt) ([]reflect.Value
 func SafeCall2(fun reflect.Value, args []reflect.Value) (val reflect.Value, err error)
 func SafeCall(fun reflect.Value, args []reflect.Value) (ret []reflect.Value, err error)
 // source at reflects/map.go
-func EachMap(mp reflect.Value, fn func(key, val reflect.Value))
-func EachStrAnyMap(mp reflect.Value, fn func(key string, val any))
+func TryAnyMap(mp reflect.Value) (map[string]any, error)
+func EachMap(mp reflect.Value, fn func(key, val reflect.Value)) (err error)
+func EachStrAnyMap(mp reflect.Value, fn func(key string, val any)) error
 func FlatMap(rv reflect.Value, fn FlatFunc)
 // source at reflects/slice.go
 func MakeSliceByElem(elTyp reflect.Type, len, cap int) reflect.Value
@@ -1097,32 +1086,6 @@ func Wrap(rv reflect.Value) Value
 func ValueOf(v any) Value
 ```
 
-### Stdio
-
-> Package `github.com/gookit/goutil/stdio`
-
-```go
-// source at stdio/ioutil.go
-func QuietFprint(w io.Writer, a ...any)
-func QuietFprintf(w io.Writer, tpl string, vs ...any)
-func QuietFprintln(w io.Writer, a ...any)
-func QuietWriteString(w io.Writer, ss ...string)
-// source at stdio/stdio.go
-func DiscardReader(src io.Reader)
-func ReadString(r io.Reader) string
-func MustReadReader(r io.Reader) []byte
-func NewIOReader(in any) io.Reader
-func NewScanner(in any) *bufio.Scanner
-func WriteByte(b byte)
-func WriteBytes(bs []byte)
-func WritelnBytes(bs []byte)
-func WriteString(s string)
-func Writeln(s string)
-// source at stdio/writer.go
-func WrapW(w io.Writer) *WriteWrapper
-func NewWriteWrapper(w io.Writer) *WriteWrapper
-```
-
 ### Structs
 
 > Package `github.com/gookit/goutil/structs`
@@ -1139,8 +1102,10 @@ func TryToSMap(st any, optFns ...MapOptFunc) (map[string]string, error)
 func MustToSMap(st any, optFns ...MapOptFunc) map[string]string
 func ToString(st any, optFns ...MapOptFunc) string
 func WithMapTagName(tagName string) MapOptFunc
+func WithUserFunc(fn CustomUserFunc) MapOptFunc
 func MergeAnonymous(opt *MapOptions)
 func ExportPrivate(opt *MapOptions)
+func WithIgnoreEmpty(opt *MapOptions)
 func StructToMap(st any, optFns ...MapOptFunc) (map[string]any, error)
 // source at structs/copy.go
 func MapStruct(srcSt, dstSt any)
@@ -1171,6 +1136,8 @@ func WrapValue(rv reflect.Value) *Wrapper
 // source at structs/writer.go
 func NewWriter(ptr any) *Wrapper
 func WithParseDefault(opt *SetOptions)
+func WithBeforeSetFn(fn BeforeSetFunc) SetOptFunc
+func BindData(ptr any, data map[string]any, optFns ...SetOptFunc) error
 func SetValues(ptr any, data map[string]any, optFns ...SetOptFunc) error
 ```
 
@@ -1180,10 +1147,12 @@ func SetValues(ptr any, data map[string]any, optFns ...SetOptFunc) error
 
 ```go
 // source at strutil/bytes.go
-func NewBuffer() *Buffer
+func NewBuffer(initSize ...int) *Buffer
 func NewByteChanPool(maxSize, width, capWidth int) *ByteChanPool
 // source at strutil/check.go
 func IsNumChar(c byte) bool
+func IsInt(s string) bool
+func IsFloat(s string) bool
 func IsNumeric(s string) bool
 func IsAlphabet(char uint8) bool
 func IsAlphaNum(c uint8) bool
@@ -1195,8 +1164,10 @@ func IContains(s, sub string) bool
 func ContainsByte(s string, c byte) bool
 func ContainsOne(s string, subs []string) bool
 func HasOneSub(s string, subs []string) bool
+func IContainsOne(s string, subs []string) bool
 func ContainsAll(s string, subs []string) bool
 func HasAllSubs(s string, subs []string) bool
+func IContainsAll(s string, subs []string) bool
 func IsStartsOf(s string, prefixes []string) bool
 func HasOnePrefix(s string, prefixes []string) bool
 func HasPrefix(s string, prefix string) bool
@@ -1214,6 +1185,7 @@ func IsSymbol(r rune) bool
 func HasEmpty(ss ...string) bool
 func IsAllEmpty(ss ...string) bool
 func IsVersion(s string) bool
+func IsVarName(s string) bool
 func Compare(s1, s2, op string) bool
 func VersionCompare(v1, v2, op string) bool
 func SimpleMatch(s string, keywords []string) bool
@@ -1231,6 +1203,7 @@ func Quote(s string) string
 func Unquote(s string) string
 func Join(sep string, ss ...string) string
 func JoinList(sep string, ss []string) string
+func JoinComma(ss []string) string
 func JoinAny(sep string, parts ...any) string
 func Implode(sep string, ss ...string) string
 func String(val any) (string, error)
@@ -1330,6 +1303,7 @@ func IndentBytes(b, prefix []byte) []byte
 func MicroTimeID() string
 func MicroTimeHexID() string
 func MTimeHexID() string
+func MTimeBase36() string
 func MTimeBaseID(toBase int) string
 func DatetimeNo(prefix string) string
 func DateSN(prefix string) string
@@ -1338,6 +1312,8 @@ func DateSNV2(prefix string, extBase ...int) string
 func Md5(src any) string
 func MD5(src any) string
 func GenMd5(src any) string
+func Md5Simple(src any) string
+func Md5Base62(src any) string
 func Md5Bytes(src any) []byte
 func ShortMd5(src any) string
 func HashPasswd(pwd, key string) string
@@ -1387,6 +1363,7 @@ func RunesWidth(rs []rune) (w int)
 func Truncate(s string, w int, tail string) string
 func TextTruncate(s string, w int, tail string) string
 func Utf8Truncate(s string, w int, tail string) string
+func Chunk[T ~string](s T, size int) []T
 func TextSplit(s string, w int) []string
 func Utf8Split(s string, w int) []string
 func TextWrap(s string, w int) string
@@ -1408,6 +1385,7 @@ func SplitNValid(s, sep string, n int) (ss []string)
 func SplitN(s, sep string, n int) (ss []string)
 func SplitTrimmed(s, sep string) (ss []string)
 func SplitNTrimmed(s, sep string, n int) (ss []string)
+func SplitByWhitespace(s string) []string
 func Substr(s string, pos, length int) string
 func SplitInlineComment(val string, strict ...bool) (string, string)
 func FirstLine(output string) string
@@ -1432,12 +1410,12 @@ func SubstrCount(s, substr string, params ...uint64) (int, error)
 
 ```go
 // source at syncs/chan.go
-func WaitCloseSignals(onClose func(sig os.Signal))
 func Go(f func() error) error
 // source at syncs/group.go
 func NewCtxErrGroup(ctx context.Context, limit ...int) (*ErrGroup, context.Context)
 func NewErrGroup(limit ...int) *ErrGroup
 // source at syncs/signal.go
+func WaitCloseSignals(onClose func(sig os.Signal), sigCh ...chan os.Signal)
 func SignalHandler(ctx context.Context, signals ...os.Signal) (execute func() error, interrupt func(error))
 ```
 
@@ -1453,15 +1431,14 @@ func QuickExec(cmdLine string, workDir ...string) (string, error)
 func ExecLine(cmdLine string, workDir ...string) (string, error)
 func ExecCmd(binName string, args []string, workDir ...string) (string, error)
 func ShellExec(cmdLine string, shells ...string) (string, error)
-// source at sysutil/stack.go
-func CallersInfos(skip, num int, filters ...func(file string, fc *runtime.Func) bool) []*CallerInfo
 // source at sysutil/sysenv.go
 func IsMSys() bool
+func IsWSL() bool
 func IsConsole(out io.Writer) bool
 func IsTerminal(fd uintptr) bool
 func StdIsTerminal() bool
 func Hostname() string
-func CurrentShell(onlyName bool) (path string)
+func CurrentShell(onlyName bool, fallbackShell ...string) string
 func HasShellEnv(shell string) bool
 func IsShellSpecialVar(c uint8) bool
 func FindExecutable(binName string) (string, error)
@@ -1471,11 +1448,13 @@ func Getenv(name string, def ...string) string
 func Environ() map[string]string
 func EnvMapWith(newEnv map[string]string) map[string]string
 func EnvPaths() []string
-func SearchPath(keywords string, limit int) []string
+func ToEnvPATH(paths []string) string
+func SearchPath(keywords string, limit int, opts ...SearchPathOption) []string
 // source at sysutil/sysgo.go
 func GoVersion() string
 func ParseGoVersion(line string) (*GoInfo, error)
 func OsGoInfo() (*GoInfo, error)
+func CallersInfos(skip, num int, filters ...goinfo.CallerFilterFunc) []*CallerInfo
 // source at sysutil/sysutil.go
 func Workdir() string
 func BinDir() string
@@ -1484,16 +1463,16 @@ func BinFile() string
 func Open(fileOrURL string) error
 func OpenBrowser(fileOrURL string) error
 func OpenFile(path string) error
-// source at sysutil/sysutil_nonwin.go
-func Kill(pid int, signal syscall.Signal) error
-func ProcessExists(pid int) bool
-// source at sysutil/sysutil_unix.go
+// source at sysutil/sysutil_linux.go
 func IsWin() bool
 func IsWindows() bool
 func IsMac() bool
 func IsDarwin() bool
 func IsLinux() bool
 func OpenURL(URL string) error
+// source at sysutil/sysutil_nonwin.go
+func Kill(pid int, signal syscall.Signal) error
+func ProcessExists(pid int) bool
 // source at sysutil/user.go
 func MustFindUser(uname string) *user.User
 func LoginUser() *user.User
@@ -1501,12 +1480,13 @@ func CurrentUser() *user.User
 func UHomeDir() string
 func UserHomeDir() string
 func HomeDir() string
-func UserDir(subPath string) string
-func UserCacheDir(subPath string) string
-func UserConfigDir(subPath string) string
+func UserDir(subPaths ...string) string
+func UserCacheDir(subPaths ...string) string
+func UserConfigDir(subPaths ...string) string
 func ExpandPath(path string) string
 func ExpandHome(path string) string
 // source at sysutil/user_nonwin.go
+func IsAdmin() bool
 func ChangeUserByName(newUname string) error
 func ChangeUserUidGid(newUID int, newGid int) error
 func ChangeUserUIDGid(newUID int, newGid int) (err error)
@@ -1524,15 +1504,18 @@ func MockEnvValue(key, val string, fn func(nv string))
 func MockEnvValues(kvMap map[string]string, fn func())
 func MockOsEnvByText(envText string, fn func())
 func MockOsEnv(mp map[string]string, fn func())
+func SetOsEnvs(mp map[string]string) string
+func RemoveTmpEnvs(tmpKey string)
 func ClearOSEnv()
 func RevertOSEnv()
+func RunOnCleanEnv(runFn func())
 func MockCleanOsEnv(mp map[string]string, fn func())
 // source at testutil/httpmock.go
-func NewHttpRequest(method, path string, data *MD) *http.Request
 func NewHTTPRequest(method, path string, data *MD) *http.Request
 func MockRequest(h http.Handler, method, path string, data *MD) *httptest.ResponseRecorder
+func MockHttpServer() *EchoServer
 func TestMain(m *testing.M)
-func NewEchoServer() *httptest.Server
+func NewEchoServer() *EchoServer
 func BuildEchoReply(r *http.Request) *EchoReply
 func ParseRespToReply(w *http.Response) *EchoReply
 func ParseBodyToReply(bd io.ReadCloser) *EchoReply
@@ -1548,7 +1531,7 @@ func SetTimeLocalUTC()
 func RestoreTimeLocal()
 // source at testutil/writer.go
 func NewTestWriter() *TestWriter
-func NewDirEnt(fpath string, isDir ...bool) *fakeobj.DirEntry
+func NewDirEnt(fPath string, isDir ...bool) *fakeobj.DirEntry
 ```
 
 ### Timex
@@ -1752,16 +1735,13 @@ Testing in docker:
 
 ```shell
 cd goutil
-docker run -ti -v $(pwd):/go/work golang:1.18
-root@xx:/go/work# go test ./...
+
+docker run -ti -v $(pwd):/go/goutil -e GOPROXY=https://goproxy.cn,direct golang:1.23
+# on Windows
+docker run -ti -v "${PWD}:/go/goutil" -e GOPROXY=https://goproxy.cn,direct golang:1.23
+
+root@xx:/go/goutil# go test ./...
 ```
-
-## Related
-
-- https://github.com/duke-git/lancet
-- https://github.com/samber/lo
-- https://github.com/zyedidia/generic
-- https://github.com/thoas/go-funk
 
 ## Gookit packages
 
@@ -1777,6 +1757,13 @@ root@xx:/go/work# go test ./...
 - [gookit/validate](https://github.com/gookit/validate) Use for data validation and filtering. support Map, Struct, Form data
 - [gookit/goutil](https://github.com/gookit/goutil) Some utils for the Go: string, array/slice, map, format, cli, env, filesystem, test and more
 - More, please see https://github.com/gookit
+
+## Related
+
+- https://github.com/duke-git/lancet
+- https://github.com/samber/lo
+- https://github.com/zyedidia/generic
+- https://github.com/thoas/go-funk
 
 ## License
 

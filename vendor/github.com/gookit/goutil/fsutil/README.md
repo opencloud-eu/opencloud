@@ -14,6 +14,8 @@ go get github.com/gookit/goutil/fsutil
 
 ## Find files
 
+More see [./finder](./finder)
+
 ```go
 // find all files in dir
 fsutil.FindInDir("./", func(filePath string, de fs.DirEntry) error {

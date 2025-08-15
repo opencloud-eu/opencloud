@@ -47,6 +47,10 @@ func StringsTryInts(ss []string) (ints []int, err error) {
 
 // StringsUnique unique string slice
 func StringsUnique(ss []string) []string {
+	if len(ss) == 0 {
+		return ss
+	}
+
 	var unique []string
 	for _, s := range ss {
 		if !StringsContains(unique, s) {

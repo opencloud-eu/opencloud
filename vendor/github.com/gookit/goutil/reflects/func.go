@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/gookit/goutil/basefn"
+	"github.com/gookit/goutil/x/basefn"
 )
 
 // FuncX wrap a go func. represent a function
@@ -86,7 +86,7 @@ func (f *FuncX) Call(args ...any) ([]any, error) {
 // The function must return 1 result, or 2 results, the second of which is an error.
 //
 //   - Only support func with 1 or 2 return values: (val) OR (val, err)
-//   - Will check args and try convert input args to func args type.
+//   - Will check args and try to convert input args to func args type.
 func (f *FuncX) Call2(args ...any) (any, error) {
 	// convert args to []reflect.Value
 	argRvs := make([]reflect.Value, len(args))

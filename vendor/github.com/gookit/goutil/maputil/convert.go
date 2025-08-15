@@ -11,8 +11,20 @@ import (
 	"github.com/gookit/goutil/strutil"
 )
 
+// alias functions
+var (
+	// ToStrMap convert map[string]any to map[string]string
+	ToStrMap = ToStringMap
+	// ToL2StrMap convert map[string]any to map[string]map[string]string
+	ToL2StrMap = ToL2StringMap
+)
+
 // KeyToLower convert keys to lower case.
 func KeyToLower(src map[string]string) map[string]string {
+	if len(src) == 0 {
+		return src
+	}
+
 	newMp := make(map[string]string, len(src))
 	for k, v := range src {
 		k = strings.ToLower(k)
@@ -21,7 +33,22 @@ func KeyToLower(src map[string]string) map[string]string {
 	return newMp
 }
 
-// ToStringMap convert map[string]any to map[string]string
+// AnyToStrMap try convert any(map[string]any, map[string]string) to map[string]string
+func AnyToStrMap(src any) map[string]string {
+	if src == nil {
+		return nil
+	}
+
+	if m, ok := src.(map[string]string); ok {
+		return m
+	}
+	if m, ok := src.(map[string]any); ok {
+		return ToStringMap(m)
+	}
+	return nil
+}
+
+// ToStringMap simple convert map[string]any to map[string]string
 func ToStringMap(src map[string]any) map[string]string {
 	strMp := make(map[string]string, len(src))
 	for k, v := range src {
@@ -30,7 +57,25 @@ func ToStringMap(src map[string]any) map[string]string {
 	return strMp
 }
 
-// CombineToSMap combine two string-slice to SMap(map[string]string)
+// ToL2StringMap convert map[string]any to map[string]map[string]string
+func ToL2StringMap(groupsMap map[string]any) map[string]map[string]string {
+	if len(groupsMap) == 0 {
+		return nil
+	}
+
+	l2sMap := make(map[string]map[string]string, len(groupsMap))
+
+	for k, v := range groupsMap {
+		if mp, ok := v.(map[string]any); ok {
+			l2sMap[k] = ToStringMap(mp)
+		} else if smp, ok := v.(map[string]string); ok {
+			l2sMap[k] = smp
+		}
+	}
+	return l2sMap
+}
+
+// CombineToSMap combine two string-slices to SMap(map[string]string)
 func CombineToSMap(keys, values []string) SMap {
 	return arrutil.CombineToSMap(keys, values)
 }
@@ -38,6 +83,54 @@ func CombineToSMap(keys, values []string) SMap {
 // CombineToMap combine two any slice to map[K]V. alias of arrutil.CombineToMap
 func CombineToMap[K comdef.SortedType, V any](keys []K, values []V) map[K]V {
 	return arrutil.CombineToMap(keys, values)
+}
+
+// SliceToSMap convert string k-v pairs slice to map[string]string
+//  - eg: []string{k1,v1,k2,v2} -> map[string]string{k1:v1, k2:v2}
+func SliceToSMap(kvPairs ...string) map[string]string {
+	ln := len(kvPairs)
+	// check kvPairs length must be even
+	if ln == 0 || ln%2 != 0 {
+		return nil
+	}
+
+	sMap := make(map[string]string, ln/2)
+	for i := 0; i < ln; i += 2 {
+		sMap[kvPairs[i]] = kvPairs[i+1]
+	}
+	return sMap
+}
+
+// SliceToMap convert any k-v pairs slice to map[string]any
+func SliceToMap(kvPairs ...any) map[string]any {
+	ln := len(kvPairs)
+	// check kvPairs length must be even
+	if ln == 0 || ln%2 != 0 {
+		return nil
+	}
+
+	mp := make(map[string]any, ln/2)
+	for i := 0; i < ln; i += 2 {
+		kStr := strutil.SafeString(kvPairs[i])
+		mp[kStr] = kvPairs[i+1]
+	}
+	return mp
+}
+
+// SliceToTypeMap convert k-v pairs slice to map[string]T
+func SliceToTypeMap[T any](valFunc func(any) T, kvPairs ...any) map[string]T {
+	ln := len(kvPairs)
+	// check kvPairs length must be even
+	if ln == 0 || ln%2 != 0 {
+		return nil
+	}
+
+	mp := make(map[string]T, ln/2)
+	for i := 0; i < ln; i += 2 {
+		kStr := strutil.SafeString(kvPairs[i])
+		mp[kStr] = valFunc(kvPairs[i+1])
+	}
+	return mp
 }
 
 // ToAnyMap convert map[TYPE1]TYPE2 to map[string]any
@@ -51,15 +144,23 @@ func TryAnyMap(mp any) (map[string]any, error) {
 	if aMp, ok := mp.(map[string]any); ok {
 		return aMp, nil
 	}
+	if sMp, ok := mp.(map[string]string); ok {
+		anyMp := make(map[string]any, len(sMp))
+		for k, v := range sMp {
+			anyMp[k] = v
+		}
+		return anyMp, nil
+	}
 
 	rv := reflect.Indirect(reflect.ValueOf(mp))
 	if rv.Kind() != reflect.Map {
-		return nil, errors.New("input is not a map value")
+		return nil, errors.New("input is not a map value type")
 	}
 
 	anyMp := make(map[string]any, rv.Len())
 	for _, key := range rv.MapKeys() {
-		anyMp[key.String()] = rv.MapIndex(key).Interface()
+		keyStr := strutil.SafeString(key.Interface())
+		anyMp[keyStr] = rv.MapIndex(key).Interface()
 	}
 	return anyMp, nil
 }
@@ -125,9 +226,7 @@ func ToString(mp map[string]any) string {
 }
 
 // ToString2 simple and quickly convert a map to string.
-func ToString2(mp any) string {
-	return NewFormatter(mp).Format()
-}
+func ToString2(mp any) string { return NewFormatter(mp).Format() }
 
 // FormatIndent format map data to string with newline and indent.
 func FormatIndent(mp any, indent string) string {

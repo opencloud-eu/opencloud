@@ -126,7 +126,7 @@ func SliceToInt64s(arr []any) []int64 {
 }
 
 /*************************************************************
- * convert func for anys
+ * convert func for any-slice
  *************************************************************/
 
 // AnyToSlice convert any(allow: array,slice) to []any
@@ -159,22 +159,28 @@ func MustToStrings(arr any) []string {
 
 // ToStrings convert any(allow: array,slice) to []string
 func ToStrings(arr any) (ret []string, err error) {
-	rv := reflect.ValueOf(arr)
-	if rv.Kind() == reflect.String {
-		return []string{rv.String()}, nil
+	// try direct convert
+	switch typVal := arr.(type) {
+	case string:
+		return []string{typVal}, nil
+	case []string:
+		return typVal, nil
+	case []any:
+		return SliceToStrings(typVal), nil
 	}
 
+	// try use reflect to convert
+	rv := reflect.ValueOf(arr)
 	if rv.Kind() != reflect.Slice && rv.Kind() != reflect.Array {
 		err = ErrInvalidType
 		return
 	}
 
 	for i := 0; i < rv.Len(); i++ {
-		str, err := strutil.ToString(rv.Index(i).Interface())
-		if err != nil {
-			return []string{}, err
+		str, err1 := strutil.ToString(rv.Index(i).Interface())
+		if err1 != nil {
+			return nil, err1
 		}
-
 		ret = append(ret, str)
 	}
 	return
@@ -182,17 +188,15 @@ func ToStrings(arr any) (ret []string, err error) {
 
 // SliceToStrings safe convert []any to []string
 func SliceToStrings(arr []any) []string {
-	return QuietStrings(arr)
-}
-
-// QuietStrings safe convert []any to []string
-func QuietStrings(arr []any) []string {
 	ss := make([]string, len(arr))
 	for i, v := range arr {
 		ss[i] = strutil.SafeString(v)
 	}
 	return ss
 }
+
+// QuietStrings safe convert []any to []string
+func QuietStrings(arr []any) []string { return SliceToStrings(arr) }
 
 // ConvType convert type of slice elements to new type slice, by the given newElemTyp type.
 //

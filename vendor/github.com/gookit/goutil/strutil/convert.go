@@ -71,6 +71,9 @@ func Join(sep string, ss ...string) string { return strings.Join(ss, sep) }
 // JoinList alias of strings.Join
 func JoinList(sep string, ss []string) string { return strings.Join(ss, sep) }
 
+// JoinComma quick join strings by comma
+func JoinComma(ss []string) string { return strings.Join(ss, ",") }
+
 // JoinAny type to string
 func JoinAny(sep string, parts ...any) string {
 	ss := make([]string, 0, len(parts))
@@ -100,7 +103,7 @@ func StringOrErr(val any) (string, error) { return ToStringWith(val) }
 // QuietString convert value to string, will ignore error. same as SafeString()
 func QuietString(val any) string { return SafeString(val) }
 
-// SafeString convert value to string, will ignore error
+// SafeString convert value to string. Will ignore error
 func SafeString(in any) string {
 	s, _ := AnyToString(in, false)
 	return s
@@ -109,7 +112,7 @@ func SafeString(in any) string {
 // StringOrPanic convert value to string, will panic on error
 func StringOrPanic(val any) string { return MustString(val) }
 
-// MustString convert value to string, will panic on error
+// MustString convert value to string. will panic on error
 func MustString(val any) string {
 	s, err := ToStringWith(val)
 	if err != nil {
@@ -161,13 +164,13 @@ func ToBool(s string) (bool, error) {
 // QuietBool convert to bool, will ignore error
 func QuietBool(s string) bool { return SafeBool(s) }
 
-// SafeBool convert to bool, will ignore error
+// SafeBool convert to bool and will ignore error
 func SafeBool(s string) bool {
 	val, _ := comfunc.StrToBool(strings.TrimSpace(s))
 	return val
 }
 
-// MustBool convert to bool, will panic on error
+// MustBool convert to bool and will panic on error
 func MustBool(s string) bool {
 	val, err := ToBool(s)
 	if err != nil {

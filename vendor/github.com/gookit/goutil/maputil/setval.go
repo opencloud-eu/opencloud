@@ -171,7 +171,7 @@ func setMapByKeys(rv reflect.Value, keys []string, nv reflect.Value) (err error)
 
 			if isSlice {
 				// key is slice index
-				if strutil.IsNumeric(key) {
+				if strutil.IsInt(key) {
 					idx, _ = strconv.Atoi(key)
 				}
 
@@ -231,7 +231,7 @@ func setMapByKeys(rv reflect.Value, keys []string, nv reflect.Value) (err error)
 
 					// next key is index number.
 					nxtKey := keys[i+1]
-					if strutil.IsNumeric(nxtKey) {
+					if strutil.IsInt(nxtKey) {
 						idx, _ = strconv.Atoi(nxtKey)
 						sliLen := tmpV.Len()
 						wantLen := idx + 1
@@ -275,7 +275,7 @@ func setMapByKeys(rv reflect.Value, keys []string, nv reflect.Value) (err error)
 			}
 
 			break
-		} else if isSlice && strutil.IsNumeric(key) { // (E). slice from ptr slice
+		} else if isSlice && strutil.IsInt(key) { // (E). slice from ptr slice
 			idx, _ = strconv.Atoi(key)
 			sliLen := rv.Len()
 			wantLen := idx + 1

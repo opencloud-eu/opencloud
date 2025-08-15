@@ -50,25 +50,30 @@ func ConvToType(val any, typ reflect.Type) (rv reflect.Value, err error) {
 
 // ValueByType create reflect.Value by give reflect.Type
 func ValueByType(val any, typ reflect.Type) (rv reflect.Value, err error) {
-	// handle kind: string, bool, intX, uintX, floatX
-	if typ.Kind() == reflect.String || typ.Kind() <= reflect.Float64 {
-		return ConvToKind(val, typ.Kind())
-	}
-
 	var ok bool
 	var newRv reflect.Value
 	if newRv, ok = val.(reflect.Value); !ok {
 		newRv = reflect.ValueOf(val)
 	}
 
-	// try auto convert slice type
-	if IsArrayOrSlice(newRv.Kind()) && IsArrayOrSlice(typ.Kind()) {
-		return ConvSlice(newRv, typ.Elem())
+	// fix: check newRv is valid
+	if !newRv.IsValid() {
+		return rv, comdef.ErrConvType
 	}
 
-	// check type. like map
+	// check the same type. like map
 	if newRv.Type() == typ {
 		return newRv, nil
+	}
+
+	// handle kind: string, bool, intX, uintX, floatX
+	if typ.Kind() == reflect.String || typ.Kind() <= reflect.Float64 {
+		return ConvToKind(val, typ.Kind())
+	}
+
+	// try the auto convert slice type
+	if IsArrayOrSlice(newRv.Kind()) && IsArrayOrSlice(typ.Kind()) {
+		return ConvSlice(newRv, typ.Elem())
 	}
 
 	err = comdef.ErrConvType
@@ -76,18 +81,16 @@ func ValueByType(val any, typ reflect.Type) (rv reflect.Value, err error) {
 }
 
 // ValueByKind convert and create reflect.Value by give reflect.Kind
-func ValueByKind(val any, kind reflect.Kind) (rv reflect.Value, err error) {
-	return ConvToKind(val, kind)
-}
+func ValueByKind(val any, kind reflect.Kind) (reflect.Value, error) { return ConvToKind(val, kind) }
 
 // ConvToKind convert and create reflect.Value by give reflect.Kind
 //
 // TIPs:
 //
 //	Only support kind: string, bool, intX, uintX, floatX
-func ConvToKind(val any, kind reflect.Kind) (rv reflect.Value, err error) {
-	if rv, ok := val.(reflect.Value); ok {
-		val = rv.Interface()
+func ConvToKind(val any, kind reflect.Kind, fallback ...ConvFunc) (rv reflect.Value, err error) {
+	if rv1, ok := val.(reflect.Value); ok {
+		val = rv1.Interface()
 	}
 
 	switch kind {
@@ -185,6 +188,12 @@ func ConvToKind(val any, kind reflect.Kind) (rv reflect.Value, err error) {
 			err = err1
 		}
 	default:
+		// call fallback func
+		if len(fallback) > 0 && fallback[0] != nil {
+			rv, err = fallback[0](val, kind)
+		} else {
+			err = comdef.ErrConvType
+		}
 		err = comdef.ErrConvType
 	}
 	return
@@ -253,4 +262,32 @@ func ValToString(rv reflect.Value, defaultAsErr bool) (str string, err error) {
 		}
 	}
 	return
+}
+
+// ToTimeOrDuration convert string to time.Time or time.Duration type
+//
+// If the target type is not match, return the input string.
+func ToTimeOrDuration(str string, typ reflect.Type) (any, error) {
+	// datetime, time, duration string should not greater than 64
+	if len(str) > 64 {
+		return str, nil
+	}
+	var anyVal any = str
+
+	// time.Time date string
+	if len(str) > 5 && IsTimeType(typ) {
+		ttVal, err := strutil.ToTime(str)
+		if err != nil {
+			return nil, err
+		}
+		anyVal = ttVal
+	} else if IsDurationType(typ) {
+		dVal, err := strutil.ToDuration(str)
+		if err != nil {
+			return nil, err
+		}
+		anyVal = dVal
+	}
+
+	return anyVal, nil
 }

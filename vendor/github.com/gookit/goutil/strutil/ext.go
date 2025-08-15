@@ -3,6 +3,8 @@ package strutil
 import (
 	"fmt"
 	"strings"
+
+	"github.com/gookit/goutil/mathutil"
 )
 
 // SimilarComparator definition
@@ -36,7 +38,7 @@ func Similarity(s, t string, rate float32) (float32, bool) {
 //	rate, ok :c.Similar(0.3)
 func (c *SimilarComparator) Similar(minDifferRate float32) (float32, bool) {
 	dist := c.editDistance([]byte(c.src), []byte(c.dst))
-	differRate := dist / float32(max(len(c.src), len(c.dst))+4)
+	differRate := dist / float32(mathutil.Max(len(c.src), len(c.dst))+4)
 
 	return differRate, differRate >= minDifferRate
 }
@@ -60,26 +62,12 @@ func (c *SimilarComparator) editDistance(s, t []byte) float32 {
 			if s[i-1] == t[j-1] {
 				d[i][j] = d[i-1][j-1]
 			} else {
-				d[i][j] = min(d[i-1][j]+1, min(d[i][j-1]+1, d[i-1][j-1]+1))
+				d[i][j] = mathutil.Min(d[i-1][j]+1, mathutil.Min(d[i][j-1]+1, d[i-1][j-1]+1))
 			}
 		}
 	}
 
 	return d[m][n]
-}
-
-func min(x, y float32) float32 {
-	if x < y {
-		return x
-	}
-	return y
-}
-
-func max(x, y int) int {
-	if x > y {
-		return x
-	}
-	return y
 }
 
 // Builder struct

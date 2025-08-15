@@ -58,6 +58,11 @@ func MergeSMap(src, dst map[string]string, ignoreCase bool) map[string]string {
 	return MergeStringMap(src, dst, ignoreCase)
 }
 
+// MergeStrMap simple merge two string map. merge src to dst map
+func MergeStrMap(src, dst map[string]string) map[string]string {
+	return MergeStringMap(src, dst, false)
+}
+
 // MergeStringMap simple merge two string map. merge src to dst map
 func MergeStringMap(src, dst map[string]string, ignoreCase bool) map[string]string {
 	if len(src) == 0 {
@@ -82,6 +87,25 @@ func MergeMultiSMap(mps ...map[string]string) map[string]string {
 	for _, mp := range mps {
 		for k, v := range mp {
 			newMp[k] = v
+		}
+	}
+	return newMp
+}
+
+// MergeL2StrMap merge multi level2 string-map data. The back map covers the front.
+func MergeL2StrMap(mps ...map[string]map[string]string) map[string]map[string]string {
+	newMp := make(map[string]map[string]string)
+	for _, mp := range mps {
+		for k, v := range mp {
+			// merge level 2 value
+			if oldV, ok := newMp[k]; ok {
+				for k1, v1 := range v {
+					oldV[k1] = v1
+				}
+				newMp[k] = oldV
+			} else {
+				newMp[k] = v
+			}
 		}
 	}
 	return newMp

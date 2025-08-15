@@ -1,27 +1,39 @@
 package reflects
 
 import (
+	"errors"
 	"reflect"
 	"strconv"
 )
 
+// TryAnyMap convert map[TYPE1]TYPE2 to map[string]any
+func TryAnyMap(mp reflect.Value) (map[string]any, error) {
+	saMap := make(map[string]any)
+	err := EachStrAnyMap(mp, func(key string, val any) {
+		saMap[key] = val
+	})
+
+	return saMap, err
+}
+
 // EachMap process any map data
-func EachMap(mp reflect.Value, fn func(key, val reflect.Value)) {
+func EachMap(mp reflect.Value, fn func(key, val reflect.Value)) (err error) {
 	if fn == nil {
 		return
 	}
 	if mp.Kind() != reflect.Map {
-		panic("only allow map value data")
+		return errors.New("EachMap: only allow map value data")
 	}
 
 	for _, key := range mp.MapKeys() {
 		fn(key, mp.MapIndex(key))
 	}
+	return
 }
 
 // EachStrAnyMap process any map data as string key and any value
-func EachStrAnyMap(mp reflect.Value, fn func(key string, val any)) {
-	EachMap(mp, func(key, val reflect.Value) {
+func EachStrAnyMap(mp reflect.Value, fn func(key string, val any)) error {
+	return EachMap(mp, func(key, val reflect.Value) {
 		fn(String(key), val.Interface())
 	})
 }

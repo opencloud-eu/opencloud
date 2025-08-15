@@ -4,15 +4,27 @@ package cmdr
 import (
 	"strings"
 
-	"github.com/gookit/color"
+	"github.com/gookit/goutil/x/ccolor"
 )
 
 // PrintCmdline on before exec
 func PrintCmdline(c *Cmd) {
 	if c.DryRun {
-		color.Yellowln("DRY-RUN>", c.Cmdline())
+		ccolor.Yellowln("DRY-RUN>", c.RawLine())
 	} else {
-		color.Yellowln(">", c.Cmdline())
+		ccolor.Yellowln(">", c.RawLine())
+	}
+}
+
+// PrintCmdline2 on before exec
+func PrintCmdline2(c *Cmd) {
+	if c.Dir != "" {
+		ccolor.Magentaln("> Workdir:", c.Dir)
+	}
+	if c.DryRun {
+		ccolor.Yellowln("DRY-RUN>", c.RawLine())
+	} else {
+		ccolor.Yellowln(">", c.RawLine())
 	}
 }
 

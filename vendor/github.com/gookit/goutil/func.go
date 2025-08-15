@@ -23,6 +23,14 @@ func CallOn(cond bool, fn ErrFunc) error {
 	return nil
 }
 
+// IfElseFn call okFunc() on condition is true, else call elseFn()
+func IfElseFn(cond bool, okFn, elseFn ErrFunc) error {
+	if cond {
+		return okFn()
+	}
+	return elseFn()
+}
+
 // CallOrElse call okFunc() on condition is true, else call elseFn()
 func CallOrElse(cond bool, okFn, elseFn ErrFunc) error {
 	if cond {
@@ -43,7 +51,7 @@ func SafeRun(fn func()) (err error) {
 		}
 	}()
 	fn()
-	return nil
+	return err
 }
 
 // SafeRunWithError sync run a func with error.

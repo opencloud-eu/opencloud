@@ -98,10 +98,9 @@ func Len(v reflect.Value) int {
 		return len(strconv.FormatInt(v.Int(), 10))
 	case reflect.Float32, reflect.Float64:
 		return len(fmt.Sprint(v.Interface()))
+	default:
+		return -1 // cannot get length
 	}
-
-	// cannot get length
-	return -1
 }
 
 // SliceSubKind get sub-elem kind of the array, slice, variadic-var. alias SliceElemKind()
@@ -152,7 +151,7 @@ func SetUnexportedValue(rv reflect.Value, value any) {
 
 // SetValue to a `reflect.Value`. will auto convert type if needed.
 func SetValue(rv reflect.Value, val any) error {
-	// get real type of the ptr value
+	// get a real type of the ptr value
 	if rv.Kind() == reflect.Ptr {
 		if rv.IsNil() {
 			elemTyp := rv.Type().Elem()
@@ -170,7 +169,7 @@ func SetValue(rv reflect.Value, val any) error {
 	return err
 }
 
-// SetRValue to a `reflect.Value`. will direct set value without convert type.
+// SetRValue to a `reflect.Value`. will direct set value without a type convert.
 func SetRValue(rv, val reflect.Value) {
 	if rv.Kind() == reflect.Ptr {
 		if rv.IsNil() {

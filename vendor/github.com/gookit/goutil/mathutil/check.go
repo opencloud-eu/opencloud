@@ -56,7 +56,7 @@ func CompFloat[T comdef.Float](first, second T, op string) (ok bool) {
 }
 
 // CompValue compare intX,uintX,floatX value. returns `first op(=,!=,<,<=,>,>=) second`
-func CompValue[T comdef.XintOrFloat](first, second T, op string) (ok bool) {
+func CompValue[T comdef.Number](first, second T, op string) (ok bool) {
 	switch op {
 	case "<", "lt":
 		ok = first < second
@@ -75,12 +75,12 @@ func CompValue[T comdef.XintOrFloat](first, second T, op string) (ok bool) {
 }
 
 // InRange check if val in int/float range [min, max]
-func InRange[T comdef.IntOrFloat](val, min, max T) bool {
+func InRange[T comdef.Number](val, min, max T) bool {
 	return val >= min && val <= max
 }
 
 // OutRange check if val not in int/float range [min, max]
-func OutRange[T comdef.IntOrFloat](val, min, max T) bool {
+func OutRange[T comdef.Number](val, min, max T) bool {
 	return val < min || val > max
 }
 

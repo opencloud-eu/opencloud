@@ -29,6 +29,9 @@ type Float64able interface {
 	Float64() (float64, error)
 }
 
+// MapFunc definition
+type MapFunc func(val any) (any, error)
+
 //
 //
 // Matcher type

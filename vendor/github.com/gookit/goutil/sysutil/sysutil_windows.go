@@ -10,6 +10,9 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+// OsName system name. like runtime.GOOS. only allow: linux, windows, darwin
+const OsName = Windows
+
 // IsWin system. linux windows darwin
 func IsWin() bool { return true }
 
@@ -27,7 +30,7 @@ func IsLinux() bool { return false }
 
 // Kill a process by pid
 func Kill(pid int, signal syscall.Signal) error {
-	return errors.New("not support")
+	return errors.New("not support on Windows")
 }
 
 // ProcessExists check process exists by pid
@@ -35,7 +38,7 @@ func ProcessExists(pid int) bool {
 	panic("TIP: please use sysutil/process.Exists()")
 }
 
-// OpenURL Open file or  browser URL
+// OpenURL Open file or browser URL
 //
 // - refers https://github.com/pkg/browser
 //

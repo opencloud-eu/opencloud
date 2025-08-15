@@ -9,7 +9,7 @@ import (
 type Wrapper struct {
 	// src any // source struct
 
-	// reflect.Value of source struct
+	// raw reflect.Value of source struct
 	rv reflect.Value
 
 	// FieldTagName field name for read/write value. default tag: json
@@ -20,10 +20,8 @@ type Wrapper struct {
 	fvCacheMap map[string]reflect.Value //lint:ignore U1000 for unused
 }
 
-// Wrap create a struct wrapper
-func Wrap(src any) *Wrapper {
-	return NewWrapper(src)
-}
+// Wrap quick create a struct wrapper
+func Wrap(src any) *Wrapper { return NewWrapper(src) }
 
 // NewWrapper create a struct wrapper
 func NewWrapper(src any) *Wrapper {
@@ -39,7 +37,7 @@ func WrapValue(rv reflect.Value) *Wrapper {
 	return &Wrapper{rv: rv}
 }
 
-// Get field value by name, name allow use dot syntax.
+// Get field value by name, name allows to use dot syntax.
 func (r *Wrapper) Get(name string) any {
 	val, ok := r.Lookup(name)
 	if !ok {
@@ -48,7 +46,7 @@ func (r *Wrapper) Get(name string) any {
 	return val
 }
 
-// Lookup field value by name, name allow use dot syntax.
+// Lookup field value by name, name allows to use dot syntax.
 func (r *Wrapper) Lookup(name string) (val any, ok bool) {
 	fv := r.rv.FieldByName(name)
 	if !fv.IsValid() {
@@ -61,15 +59,15 @@ func (r *Wrapper) Lookup(name string) (val any, ok bool) {
 	return
 }
 
-// Set field value by name, name allow use dot syntax.
+// Set field value by name. name allows using dot syntax.
 func (r *Wrapper) Set(name string, val any) error {
 	fv := r.rv.FieldByName(name)
 	if !fv.IsValid() {
-		return errors.New("field not found")
+		return errors.New("field " + name + " not found")
 	}
 
 	if !fv.CanSet() {
-		return errors.New("field can not set value")
+		return errors.New("can not set value for field: " + name)
 	}
 
 	fv.Set(reflect.ValueOf(val))

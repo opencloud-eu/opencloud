@@ -7,9 +7,9 @@ import (
 	"text/template"
 
 	"github.com/gookit/goutil"
-	"github.com/gookit/goutil/basefn"
 	"github.com/gookit/goutil/fsutil"
 	"github.com/gookit/goutil/strutil"
+	"github.com/gookit/goutil/x/basefn"
 )
 
 var builtInFuncs = template.FuncMap{

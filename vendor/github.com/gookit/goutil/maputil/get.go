@@ -202,6 +202,14 @@ func TypedKeys[K comdef.SimpleType, V any](mp map[K]V) (keys []K) {
 	return
 }
 
+// FirstKey returns the first key of the given map.
+func FirstKey[T any](mp map[string]T) string {
+	for key := range mp {
+		return key
+	}
+	return ""
+}
+
 // Values get all values from the given map.
 func Values(mp any) (values []any) {
 	rv := reflect.Indirect(reflect.ValueOf(mp))

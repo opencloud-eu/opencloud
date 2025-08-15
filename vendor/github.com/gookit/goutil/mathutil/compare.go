@@ -7,7 +7,7 @@ import (
 )
 
 // Min compare two value and return max value
-func Min[T comdef.XintOrFloat](x, y T) T {
+func Min[T comdef.Number](x, y T) T {
 	if x < y {
 		return x
 	}
@@ -15,7 +15,7 @@ func Min[T comdef.XintOrFloat](x, y T) T {
 }
 
 // Max compare two value and return max value
-func Max[T comdef.XintOrFloat](x, y T) T {
+func Max[T comdef.Number](x, y T) T {
 	if x > y {
 		return x
 	}
@@ -23,7 +23,7 @@ func Max[T comdef.XintOrFloat](x, y T) T {
 }
 
 // SwapMin compare and always return [min, max] value
-func SwapMin[T comdef.XintOrFloat](x, y T) (T, T) {
+func SwapMin[T comdef.Number](x, y T) (T, T) {
 	if x < y {
 		return x, y
 	}
@@ -31,7 +31,7 @@ func SwapMin[T comdef.XintOrFloat](x, y T) (T, T) {
 }
 
 // SwapMax compare and always return [max, min] value
-func SwapMax[T comdef.XintOrFloat](x, y T) (T, T) {
+func SwapMax[T comdef.Number](x, y T) (T, T) {
 	if x > y {
 		return x, y
 	}

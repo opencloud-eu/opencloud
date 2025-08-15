@@ -1,6 +1,10 @@
+//go:build darwin
 package sysutil
 
 import "os/exec"
+
+// OsName system name. like runtime.GOOS. allow: linux, windows, darwin
+const OsName = Darwin
 
 // IsWin system. linux windows darwin
 func IsWin() bool { return false }

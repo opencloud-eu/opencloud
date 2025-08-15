@@ -13,6 +13,14 @@ import (
 
 // Md5 Generate a 32-bit md5 bytes
 func Md5(src any) []byte {
+	bs := Md5Sum(src)
+	dst := make([]byte, hex.EncodedLen(len(bs)))
+	hex.Encode(dst, bs)
+	return dst
+}
+
+// Md5Sum Generate a md5 bytes
+func Md5Sum(src any) []byte {
 	h := md5.New()
 
 	switch val := src.(type) {
@@ -24,16 +32,11 @@ func Md5(src any) []byte {
 		h.Write([]byte(fmt.Sprint(src)))
 	}
 
-	bs := h.Sum(nil) // cap(bs) == 16
-	dst := make([]byte, hex.EncodedLen(len(bs)))
-	hex.Encode(dst, bs)
-	return dst
+	return h.Sum(nil) // cap(bs) == 16
 }
 
-// ShortMd5 Generate a 16-bit md5 bytes. remove first 8 and last 8 bytes from 32-bit md5.
-func ShortMd5(src any) []byte {
-	return Md5(src)[8:24]
-}
+// ShortMd5 Generate a 16-bit md5 bytes. remove the first 8 and last 8 bytes from 32-bit md5.
+func ShortMd5(src any) []byte { return Md5(src)[8:24] }
 
 // Random bytes generate
 func Random(length int) ([]byte, error) {

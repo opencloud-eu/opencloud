@@ -88,6 +88,8 @@ err = rr.Run()
 
 ### Functions API
 
+> generate by: `go doc ./sysutil`
+
 ```go
 func BinDir() string
 func BinFile() string
