@@ -6,13 +6,14 @@ ARG STRING
 
 RUN apk add bash make git curl gcc musl-dev libc-dev binutils-gold inotify-tools vips-dev
 
-COPY ../ /opencloud/
-
 WORKDIR /opencloud
-RUN GOOS="${TARGETOS:-linux}" GOARCH="${TARGETARCH:-amd64}" ; \
-    make -C opencloud release-linux-docker-${TARGETARCH} ENABLE_VIPS=true
+RUN --mount=type=bind,target=/opencloud \
+    --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache \
+    GOOS="${TARGETOS:-linux}" GOARCH="${TARGETARCH:-amd64}" ; \
+    make -C opencloud release-linux-docker-${TARGETARCH} ENABLE_VIPS=true DIST=/dist
 
-FROM alpine:3.20
+FROM alpine:3.21
 ARG VERSION
 ARG REVISION
 ARG TARGETOS
@@ -55,4 +56,4 @@ EXPOSE 9200/tcp
 ENTRYPOINT ["/usr/bin/opencloud"]
 CMD ["server"]
 
-COPY --from=build /opencloud/opencloud/dist/binaries/opencloud-linux-${TARGETARCH} /usr/bin/opencloud
+COPY --from=build /dist/binaries/opencloud-linux-${TARGETARCH} /usr/bin/opencloud
