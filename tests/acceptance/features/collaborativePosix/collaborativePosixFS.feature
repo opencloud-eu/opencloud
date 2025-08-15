@@ -4,24 +4,52 @@ Feature: create a resources using collaborative posixfs
   Background:
     Given the config "STORAGE_USERS_POSIX_WATCH_FS" has been set to "true"
     And user "Alice" has been created with default attributes
+    And user "Alice" has created folder "/firstFolder"
+
+
+  Scenario: administrator lists the content of the POSIX storage
+    Given user "Alice" has uploaded file with content "content" to "test.txt"
+    When the administrator lists the content of the POSIX storage folder of user "Alice"
+    Then the command output should contain "firstFolder"
+    And the command output should contain "test.txt"
 
 
   Scenario: create folder
-    Given user "Alice" has uploaded file with content "content" to "textfile.txt"
     When the administrator creates the folder "myFolder" for user "Alice" on the POSIX filesystem
     Then the command should be successful
-    When the administrator lists the content of the POSIX storage folder of user "Alice"
-    Then the command output should contain "myFolder"
     And as "Alice" folder "/myFolder" should exist
 
 
+  Scenario: create nested folder
+    When the administrator creates the folder "deep/nested/structure/myFolder" for user "Alice" on the POSIX filesystem
+    Then the command should be successful
+    And as "Alice" folder "/deep/nested/structure/myFolder" should exist
+
+
   Scenario: create file
-    Given user "Alice" has created folder "/folder"
     When the administrator creates the file "test.txt" with content "content" for user "Alice" on the POSIX filesystem
     Then the command should be successful
-    When the administrator lists the content of the POSIX storage folder of user "Alice"
-    Then the command output should contain "test.txt"
     And the content of file "/test.txt" for user "Alice" should be "content"
+
+
+  Scenario: create large file
+    When the administrator creates the file "largefile.txt" with size "1gb" for user "Alice" on the POSIX filesystem
+    Then the command should be successful
+    And as "Alice" file "/largefile.txt" should exist
+
+
+  Scenario: creates files sequentially in a folder
+    When the administrator creates 50 files sequentially in the directory "firstFolder" for user "Alice" on the POSIX filesystem
+    Then the command should be successful
+    And the content of file "/firstFolder/file_1.txt" for user "Alice" should be "file 1 content"
+    And the content of file "/firstFolder/file_50.txt" for user "Alice" should be "file 50 content"
+
+
+  Scenario: creates files in parallel in a folder
+    When the administrator creates 100 files in parallel in the directory "firstFolder" for user "Alice" on the POSIX filesystem
+    Then the command should be successful
+    And the content of file "/firstFolder/parallel_1.txt" for user "Alice" should be "parallel file 1 content"
+    And the content of file "/firstFolder/parallel_100.txt" for user "Alice" should be "parallel file 100 content"
 
 
   Scenario: edit file
@@ -37,11 +65,10 @@ Feature: create a resources using collaborative posixfs
 
 
   Scenario: copy file to folder
-    Given user "Alice" has created folder "/folder"
-    And user "Alice" has uploaded file with content "content" to "test.txt"
-    When the administrator copies the file "test.txt" to the folder "folder" for user "Alice" on the POSIX filesystem
+    Given user "Alice" has uploaded file with content "content" to "test.txt"
+    When the administrator copies the file "test.txt" to the folder "firstFolder" for user "Alice" on the POSIX filesystem
     Then the command should be successful
-    And the content of file "/folder/test.txt" for user "Alice" should be "content"
+    And the content of file "/firstFolder/test.txt" for user "Alice" should be "content"
 
 
   Scenario: rename file
@@ -52,11 +79,10 @@ Feature: create a resources using collaborative posixfs
 
 
   Scenario: move file to folder
-    Given user "Alice" has created folder "/folder"
-    And user "Alice" has uploaded file with content "content" to "test.txt"
-    When the administrator moves the file "test.txt" to the folder "folder" for user "Alice" on the POSIX filesystem
+    Given user "Alice" has uploaded file with content "content" to "test.txt"
+    When the administrator moves the file "test.txt" to the folder "firstFolder" for user "Alice" on the POSIX filesystem
     Then the command should be successful
-    And the content of file "/folder/test.txt" for user "Alice" should be "content"
+    And the content of file "/firstFolder/test.txt" for user "Alice" should be "content"
     And as "Alice" file "/test.txt" should not exist
 
 
@@ -68,11 +94,10 @@ Feature: create a resources using collaborative posixfs
 
 
   Scenario: delete folder
-    Given user "Alice" has created folder "/folder"
-    And user "Alice" has uploaded file with content "content" to "/folder/test.txt"
-    When the administrator deletes the folder "folder" for user "Alice" on the POSIX filesystem
+    And user "Alice" has uploaded file with content "content" to "/firstFolder/test.txt"
+    When the administrator deletes the folder "firstFolder" for user "Alice" on the POSIX filesystem
     Then the command should be successful
-    And as "Alice" folder "folder" should not exist
+    And as "Alice" folder "firstFolder" should not exist
 
 
   Scenario: copy file from personal to project space
@@ -155,3 +180,11 @@ Feature: create a resources using collaborative posixfs
     Then the command should be successful
     And for user "Brian" the content of the file "textfile.txt" of the space "Shares" should be "contentnew"
     And the public should be able to download file "textfile.txt" from the last link share with password "%public%" and the content should be "contentnew"
+
+  @issue-1100
+  Scenario: upload and rename file
+    When the administrator creates the file "test.txt" with content "content" for user "Alice" on the POSIX filesystem
+    And the administrator renames the file "test.txt" to "renamed.txt" for user "Alice" on the POSIX filesystem
+    And the administrator checks the attribute "user.oc.name" of file "renamed.txt" for user "Alice" on the POSIX filesystem
+    Then the command output should contain "renamed.txt"
+    And the content of file "/renamed.txt" for user "Alice" should be "content"
