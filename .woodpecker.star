@@ -74,6 +74,10 @@ event = {
         "event": ["push", "manual"],
         "branch": "main",
     },
+    "cron": {
+        "event": "cron",
+        "branch": "main",
+    },
     "pull_request": {
         "event": "pull_request",
     },
@@ -528,6 +532,7 @@ def cachePipeline(ctx, name, steps):
                 "event": ["push", "manual"],
                 "branch": ["main", "stable-*"],
             },
+            event["cron"],
             {
                 "event": "pull_request",
                 "path": {
@@ -592,6 +597,7 @@ def getGoBinForTesting(ctx):
                  cacheGoBin(),
         "when": [
             event["tag"],
+            event["cron"],
             {
                 "event": ["push", "manual"],
                 "branch": ["main", "stable-*"],
@@ -721,6 +727,7 @@ def testOpencloud(ctx):
         "steps": steps,
         "when": [
             event["base"],
+            event["cron"],
             {
                 "event": "pull_request",
                 "path": {
@@ -749,6 +756,7 @@ def scanOpencloud(ctx):
         "steps": steps,
         "when": [
             event["base"],
+            event["cron"],
             {
                 "event": "pull_request",
                 "path": {
@@ -769,6 +777,7 @@ def buildOpencloudBinaryForTesting(ctx):
                  rebuildBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]),
         "when": [
             event["base"],
+            event["cron"],
             {
                 "event": "pull_request",
                 "path": {
@@ -817,6 +826,7 @@ def checkTestSuitesInExpectedFailures(ctx):
         ],
         "when": [
             event["base"],
+            event["cron"],
             {
                 "event": "pull_request",
                 "path": {
@@ -841,6 +851,7 @@ def checkGherkinLint(ctx):
         ],
         "when": [
             event["base"],
+            event["cron"],
             {
                 "event": "pull_request",
                 "path": {
@@ -909,6 +920,7 @@ def codestyle(ctx):
                 "depends_on": [],
                 "when": [
                     event["base"],
+                    event["cron"],
                     {
                         "event": "pull_request",
                         "path": {
@@ -979,6 +991,7 @@ def localApiTestPipeline(ctx):
                             "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx)),
                             "when": [
                                 event["base"],
+                                event["cron"],
                                 {
                                     "event": "pull_request",
                                     "path": {
@@ -1043,6 +1056,7 @@ def cs3ApiTests(ctx, storage, accounts_hash_difficulty = 4):
         "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx)),
         "when": [
             event["base"],
+            event["cron"],
             {
                 "event": "pull_request",
                 "path": {
@@ -1156,6 +1170,7 @@ def wopiValidatorTests(ctx, storage, wopiServerType, accounts_hash_difficulty = 
         "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx)),
         "when": [
             event["base"],
+            event["cron"],
             {
                 "event": "pull_request",
                 "path": {
@@ -1207,6 +1222,7 @@ def coreApiTests(ctx, part_number = 1, number_of_parts = 1, with_remote_php = Fa
         "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx)),
         "when": [
             event["base"],
+            event["cron"],
             {
                 "event": "pull_request",
                 "path": {
@@ -1255,6 +1271,7 @@ def e2eTestPipeline(ctx):
 
     e2e_trigger = [
         event["base"],
+        event["cron"],
         {
             "event": "pull_request",
             "path": {
@@ -1629,6 +1646,7 @@ def dockerRelease(ctx, repo, build_type):
                     ],
                 },
                 "when": [
+                    event["cron"],
                     event["base"],
                     event["tag"],
                 ],
@@ -1636,6 +1654,7 @@ def dockerRelease(ctx, repo, build_type):
         ],
         "depends_on": depends_on,
         "when": [
+            event["cron"],
             event["base"],
             {
                 "event": "pull_request",
@@ -1685,6 +1704,7 @@ def binaryRelease(ctx, arch, depends_on = []):
                     "make -C opencloud release-finish",
                 ],
                 "when": [
+                    event["cron"],
                     event["base"],
                     event["tag"],
                 ],
@@ -1709,6 +1729,7 @@ def binaryRelease(ctx, arch, depends_on = []):
         ],
         "depends_on": depends_on,
         "when": [
+            event["cron"],
             event["base"],
             {
                 "event": "pull_request",
@@ -1839,6 +1860,7 @@ def releaseDockerReadme(repo, build_type):
             },
         ],
         "when": [
+            event["cron"],
             event["base"],
             event["tag"],
         ],
@@ -1920,6 +1942,7 @@ def notifyMatrix(ctx):
             },
         ],
         "when": [
+            event["cron"],
             event["base"],
             event["pull_request"],
         ],
@@ -2325,6 +2348,7 @@ def checkStarlark(ctx):
         ],
         "depends_on": [],
         "when": [
+            event["cron"],
             event["base"],
             {
                 "event": "pull_request",
@@ -2388,6 +2412,7 @@ def genericCachePurge(flush_path):
             },
         ],
         "when": [
+            event["cron"],
             event["base"],
             event["pull_request"],
         ],
@@ -2568,6 +2593,7 @@ def litmus(ctx, storage):
         "services": redisForOCStorage(storage),
         "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx)),
         "when": [
+            event["cron"],
             event["base"],
             {
                 "event": "pull_request",
