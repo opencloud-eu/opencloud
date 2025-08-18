@@ -25,14 +25,26 @@ type Float interface {
 	~float32 | ~float64
 }
 
-// IntOrFloat interface type. all int and float types
+// IntOrFloat interface type. all int and float types, but NOT uint types
 type IntOrFloat interface {
 	Int | Float
 }
 
-// XintOrFloat interface type. all int, uint and float types
+// Number interface type. contains all int, uint and float types
+type Number interface {
+	Int | Uint | Float
+}
+
+// XintOrFloat interface type. all int, uint and float types. alias of Number
+//
+// Deprecated: use Number instead.
 type XintOrFloat interface {
 	Int | Uint | Float
+}
+
+// NumberOrString interface type for (x)int, float, ~string types
+type NumberOrString interface {
+	Int | Uint | Float | ~string
 }
 
 // SortedType interface type. same of constraints.Ordered
@@ -67,3 +79,12 @@ type SimpleType interface {
 type ScalarType interface {
 	Int | Uint | Float | ~string | ~bool
 }
+
+// StrMap is alias of map[string]string
+type StrMap map[string]string
+
+// AnyMap is alias of map[string]any
+type AnyMap map[string]any
+
+// L2StrMap is alias of map[string]map[string]string
+type L2StrMap map[string]map[string]string

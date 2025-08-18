@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"os"
 )
 
 // MustString encode data to json string, will panic on error
@@ -61,4 +62,14 @@ func DecodeString(str string, ptr any) error {
 // DecodeReader decode JSON from io reader.
 func DecodeReader(r io.Reader, ptr any) error {
 	return json.NewDecoder(r).Decode(ptr)
+}
+
+// DecodeFile decode JSON from file, bind data to ptr.
+func DecodeFile(file string, ptr any) error {
+	bs, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+
+	return json.Unmarshal(bs, ptr)
 }

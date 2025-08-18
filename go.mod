@@ -40,7 +40,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-tika v0.3.1
 	github.com/google/uuid v1.6.0
-	github.com/gookit/config/v2 v2.2.6
+	github.com/gookit/config/v2 v2.2.7
 	github.com/gorilla/mux v1.8.1
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.1
 	github.com/invopop/validation v0.8.0
@@ -203,6 +203,7 @@ require (
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/go-test/deep v1.1.0 // indirect
+	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
@@ -219,8 +220,7 @@ require (
 	github.com/google/go-tpm v0.9.5 // indirect
 	github.com/google/pprof v0.0.0-20250403155104-27863c87afa6 // indirect
 	github.com/google/renameio/v2 v2.0.0 // indirect
-	github.com/gookit/color v1.5.4 // indirect
-	github.com/gookit/goutil v0.6.18 // indirect
+	github.com/gookit/goutil v0.7.1 // indirect
 	github.com/gorilla/handlers v1.5.1 // indirect
 	github.com/gorilla/schema v1.4.1 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 // indirect
@@ -314,7 +314,6 @@ require (
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
-	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
 	github.com/yashtewari/glob-intersection v0.2.0 // indirect
 	go.etcd.io/etcd/api/v3 v3.6.4 // indirect

@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"dario.cat/mergo"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/gookit/goutil"
-	"github.com/mitchellh/mapstructure"
 )
 
 // there are some event names for config data changed.
@@ -33,12 +33,15 @@ type Options struct {
 	// ParseDefault tag on binding data to struct. default: false
 	//
 	//  - tag: default
+	//
+	// NOTE: If you want to parse a substruct, you need to set the `default:""` flag on the struct,
+	// otherwise the fields that will not resolve to it will not be resolved.
 	ParseDefault bool
 	// Readonly config is readonly. default: false
 	Readonly bool
 	// EnableCache enable config data cache. default: false
 	EnableCache bool
-	// ParseKey support key path, allow find value by key path. default: true
+	// ParseKey support key path, allow finding value by key path. default: true
 	//
 	// - eg: 'key.sub' will find `map[key]sub`
 	ParseKey bool

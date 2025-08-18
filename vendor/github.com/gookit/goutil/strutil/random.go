@@ -2,10 +2,10 @@ package strutil
 
 import (
 	"github.com/gookit/goutil/byteutil"
-	"github.com/gookit/goutil/encodes"
+	"github.com/gookit/goutil/x/encodes"
 )
 
-// some constants string chars
+// some constant string chars
 const (
 	Numbers  = "0123456789"
 	HexChars = "0123456789abcdef" // base16

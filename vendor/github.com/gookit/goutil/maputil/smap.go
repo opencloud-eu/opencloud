@@ -5,22 +5,23 @@ import (
 	"github.com/gookit/goutil/strutil"
 )
 
-// SMap is alias of map[string]string
-type SMap map[string]string
+// SMap and StrMap is alias of map[string]string
+type SMap = StrMap
+type StrMap map[string]string
 
 // IsEmpty of the data map
-func (m SMap) IsEmpty() bool {
+func (m StrMap) IsEmpty() bool {
 	return len(m) == 0
 }
 
 // Has key on the data map
-func (m SMap) Has(key string) bool {
+func (m StrMap) Has(key string) bool {
 	_, ok := m[key]
 	return ok
 }
 
 // HasValue on the data map
-func (m SMap) HasValue(val string) bool {
+func (m StrMap) HasValue(val string) bool {
 	for _, v := range m {
 		if v == val {
 			return true
@@ -30,25 +31,25 @@ func (m SMap) HasValue(val string) bool {
 }
 
 // Load data to the map
-func (m SMap) Load(data map[string]string) {
+func (m StrMap) Load(data map[string]string) {
 	for k, v := range data {
 		m[k] = v
 	}
 }
 
 // Set value to the data map
-func (m SMap) Set(key string, val any) {
+func (m StrMap) Set(key string, val any) {
 	m[key] = strutil.MustString(val)
 }
 
 // Value get from the data map
-func (m SMap) Value(key string) (string, bool) {
+func (m StrMap) Value(key string) (string, bool) {
 	val, ok := m[key]
 	return val, ok
 }
 
 // Default get value by key. if not found, return defVal
-func (m SMap) Default(key, defVal string) string {
+func (m StrMap) Default(key, defVal string) string {
 	if val, ok := m[key]; ok {
 		return val
 	}
@@ -56,41 +57,51 @@ func (m SMap) Default(key, defVal string) string {
 }
 
 // Get value by key
-func (m SMap) Get(key string) string {
+func (m StrMap) Get(key string) string {
 	return m[key]
 }
 
 // Int value get
-func (m SMap) Int(key string) int {
+func (m StrMap) Int(key string) int {
 	if val, ok := m[key]; ok {
-		return mathutil.QuietInt(val)
+		return mathutil.SafeInt(val)
 	}
 	return 0
 }
 
 // Int64 value get
-func (m SMap) Int64(key string) int64 {
+func (m StrMap) Int64(key string) int64 {
 	if val, ok := m[key]; ok {
-		return mathutil.QuietInt64(val)
+		return mathutil.SafeInt64(val)
 	}
 	return 0
 }
 
 // Str value get
-func (m SMap) Str(key string) string {
+func (m StrMap) Str(key string) string {
 	return m[key]
 }
 
+// StrOne get first founded value by keys
+func (m SMap) StrOne(keys ...string) string {
+	for _, key := range keys {
+		if val, ok := m[key]; ok {
+			return val
+		}
+	}
+	return ""
+}
+
 // Bool value get
-func (m SMap) Bool(key string) bool {
+func (m StrMap) Bool(key string) bool {
 	if val, ok := m[key]; ok {
-		return strutil.QuietBool(val)
+		return strutil.SafeBool(val)
 	}
 	return false
 }
 
 // Ints value to []int
-func (m SMap) Ints(key string) []int {
+func (m StrMap) Ints(key string) []int {
 	if val, ok := m[key]; ok {
 		return strutil.Ints(val, ValSepStr)
 	}
@@ -98,7 +109,7 @@ func (m SMap) Ints(key string) []int {
 }
 
 // Strings value to []string
-func (m SMap) Strings(key string) (ss []string) {
+func (m StrMap) Strings(key string) (ss []string) {
 	if val, ok := m[key]; ok {
 		return strutil.ToSlice(val, ValSepStr)
 	}
@@ -106,21 +117,21 @@ func (m SMap) Strings(key string) (ss []string) {
 }
 
 // IfExist key, then call the fn with value.
-func (m SMap) IfExist(key string, fn func(val string)) {
+func (m StrMap) IfExist(key string, fn func(val string)) {
 	if val, ok := m[key]; ok {
 		fn(val)
 	}
 }
 
 // IfValid value is not empty, then call the fn
-func (m SMap) IfValid(key string, fn func(val string)) {
+func (m StrMap) IfValid(key string, fn func(val string)) {
 	if val, ok := m[key]; ok && val != "" {
 		fn(val)
 	}
 }
 
 // Keys of the string-map
-func (m SMap) Keys() []string {
+func (m StrMap) Keys() []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -129,7 +140,7 @@ func (m SMap) Keys() []string {
 }
 
 // Values of the string-map
-func (m SMap) Values() []string {
+func (m StrMap) Values() []string {
 	ss := make([]string, 0, len(m))
 	for _, v := range m {
 		ss = append(ss, v)
@@ -138,7 +149,7 @@ func (m SMap) Values() []string {
 }
 
 // ToKVPairs slice convert. eg: {k1:v1,k2:v2} => {k1,v1,k2,v2}
-func (m SMap) ToKVPairs() []string {
+func (m StrMap) ToKVPairs() []string {
 	pairs := make([]string, 0, len(m)*2)
 	for k, v := range m {
 		pairs = append(pairs, k, v)
@@ -147,6 +158,6 @@ func (m SMap) ToKVPairs() []string {
 }
 
 // String data to string
-func (m SMap) String() string {
+func (m StrMap) String() string {
 	return ToString2(m)
 }

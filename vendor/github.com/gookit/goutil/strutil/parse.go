@@ -19,7 +19,7 @@ func MustToTime(s string, layouts ...string) time.Time {
 	return t
 }
 
-// auto match use some commonly layouts.
+// auto match uses some common layouts.
 // key is layout length.
 var layoutMap = map[int][]string{
 	6:  {"200601", "060102", time.Kitchen},

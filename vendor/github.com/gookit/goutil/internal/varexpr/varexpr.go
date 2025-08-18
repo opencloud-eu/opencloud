@@ -62,11 +62,15 @@ var std = New()
 //	${var_name}            Only var name
 //	${var_name | default}  With default value
 //	${var_name | ?error}   With error on value is empty.
+//
+// see Parser.Parse
 func Parse(val string) (string, error) {
 	return std.Parse(val)
 }
 
 // SafeParse parse ENV var value from input string, support default value.
+//
+// see Parser.Parse
 func SafeParse(val string) string {
 	s, _ := std.Parse(val)
 	return s
@@ -100,6 +104,7 @@ func New(optFns ...ParseOptFn) *Parser {
 //	${var_name}            Only var name
 //	${var_name | default}  With default value
 //	${var_name | ?error}   With error on value is empty.
+//	${VAR_NAME1}/path/${VAR_NAME2}  Allow multi var name.
 func (p *Parser) Parse(val string) (newVal string, err error) {
 	if p.Regexp == nil {
 		p.useDefaultRegex()

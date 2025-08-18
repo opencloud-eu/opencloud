@@ -123,3 +123,8 @@ var numReg = regexp.MustCompile(`^[-+]?\d*\.?\d+$`)
 
 // IsNumeric returns true if the given string is a numeric, otherwise false.
 func IsNumeric(s string) bool { return numReg.MatchString(s) }
+
+// IsHttpURL check input is http/https url
+func IsHttpURL(s string) bool {
+	return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://")
+}

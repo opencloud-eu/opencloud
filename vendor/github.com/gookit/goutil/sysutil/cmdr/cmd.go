@@ -19,10 +19,12 @@ type Cmd struct {
 	*exec.Cmd
 	// Name of the command
 	Name string
-	// DryRun if True, not real execute command
+	// DryRun setting. if True, not really execute command
 	DryRun bool
-	// Vars mapping
+	// Vars mapping TODO
 	Vars map[string]string
+	// PrintLine placeholder for print command cline.
+	PrintLine string
 
 	// BeforeRun hook
 	BeforeRun func(c *Cmd)
@@ -87,6 +89,12 @@ func (c *Cmd) PrintCmdline() *Cmd {
 	return c
 }
 
+// PrintCmdline2 on exec command
+func (c *Cmd) PrintCmdline2() *Cmd {
+	c.BeforeRun = PrintCmdline2
+	return c
+}
+
 // OnBefore exec add hook
 func (c *Cmd) OnBefore(fn func(c *Cmd)) *Cmd {
 	c.BeforeRun = fn
@@ -135,7 +143,7 @@ func (c *Cmd) WithWorkDir(dir string) *Cmd {
 
 // WorkDirOnNE set workdir on input is not empty
 func (c *Cmd) WorkDirOnNE(dir string) *Cmd {
-	if dir == "" {
+	if dir != "" {
 		c.Dir = dir
 	}
 	return c
@@ -169,9 +177,7 @@ func (c *Cmd) AppendEnv(mp map[string]string) *Cmd {
 }
 
 // OutputToOS output to OS stdout and error
-func (c *Cmd) OutputToOS() *Cmd {
-	return c.ToOSStdoutStderr()
-}
+func (c *Cmd) OutputToOS() *Cmd { return c.ToOSStdoutStderr() }
 
 // ToOSStdoutStderr output to OS stdout and error
 func (c *Cmd) ToOSStdoutStderr() *Cmd {
@@ -208,27 +214,25 @@ func (c *Cmd) WithAnyArgs(args ...any) *Cmd {
 	return c
 }
 
-// AddArg add args and returns the current object
+// AddArg add args and return the current object
 func (c *Cmd) AddArg(args ...string) *Cmd { return c.WithArg(args...) }
 
-// WithArg add args and returns the current object. alias of the WithArg()
+// WithArg add args and return the current object. alias of the WithArg()
 func (c *Cmd) WithArg(args ...string) *Cmd {
 	c.Args = append(c.Args, args...)
 	return c
 }
 
-// AddArgf add args and returns the current object. alias of the WithArgf()
-func (c *Cmd) AddArgf(format string, args ...any) *Cmd {
-	return c.WithArgf(format, args...)
-}
+// AddArgf add args and return the current object. alias of the WithArgf()
+func (c *Cmd) AddArgf(format string, args ...any) *Cmd { return c.WithArgf(format, args...) }
 
-// WithArgf add arg and returns the current object
+// WithArgf add arg and return the current object
 func (c *Cmd) WithArgf(format string, args ...any) *Cmd {
 	c.Args = append(c.Args, fmt.Sprintf(format, args...))
 	return c
 }
 
-// ArgIf add arg and returns the current object
+// ArgIf add arg and return the current object
 func (c *Cmd) ArgIf(arg string, exprOk bool) *Cmd {
 	if exprOk {
 		c.Args = append(c.Args, arg)
@@ -236,7 +240,7 @@ func (c *Cmd) ArgIf(arg string, exprOk bool) *Cmd {
 	return c
 }
 
-// WithArgIf add arg and returns the current object
+// WithArgIf add arg and return the current object
 func (c *Cmd) WithArgIf(arg string, exprOk bool) *Cmd {
 	return c.ArgIf(arg, exprOk)
 }
@@ -252,7 +256,7 @@ func (c *Cmd) WithArgs(args []string) *Cmd {
 	return c
 }
 
-// WithArgsIf add arg and returns the current object
+// WithArgsIf add arg and return the current object
 func (c *Cmd) WithArgsIf(args []string, exprOk bool) *Cmd {
 	if exprOk && len(args) > 0 {
 		c.Args = append(c.Args, args...)
@@ -260,7 +264,7 @@ func (c *Cmd) WithArgsIf(args []string, exprOk bool) *Cmd {
 	return c
 }
 
-// WithVars add vars and returns the current object
+// WithVars add vars and return the current object
 func (c *Cmd) WithVars(vs map[string]string) *Cmd {
 	if len(vs) > 0 {
 		c.Vars = vs
@@ -268,7 +272,7 @@ func (c *Cmd) WithVars(vs map[string]string) *Cmd {
 	return c
 }
 
-// SetVar add var and returns the current object
+// SetVar add var and return the current object
 func (c *Cmd) SetVar(name, val string) *Cmd {
 	c.Vars[name] = val
 	return c
@@ -320,12 +324,16 @@ func (c *Cmd) ResetArgs() {
 }
 
 // Workdir of the command
-func (c *Cmd) Workdir() string {
-	return c.Dir
-}
+func (c *Cmd) Workdir() string { return c.Dir }
 
 // Cmdline to command line
-func (c *Cmd) Cmdline() string {
+func (c *Cmd) Cmdline() string { return comfunc.Cmdline(c.Args) }
+
+// RawLine raw command line for print show.
+func (c *Cmd) RawLine() string {
+	if c.PrintLine != "" {
+		return c.PrintLine
+	}
 	return comfunc.Cmdline(c.Args)
 }
 

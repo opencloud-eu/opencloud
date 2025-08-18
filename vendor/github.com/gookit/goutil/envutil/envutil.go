@@ -3,7 +3,9 @@ package envutil
 
 import (
 	"os"
+	"strings"
 
+	"github.com/gookit/goutil/internal/comfunc"
 	"github.com/gookit/goutil/internal/varexpr"
 )
 
@@ -42,36 +44,23 @@ func ParseValue(val string) string {
 }
 
 // VarParse alias of the ParseValue
-func VarParse(val string) string {
-	return varexpr.SafeParse(val)
-}
+func VarParse(val string) string { return varexpr.SafeParse(val) }
 
 // ParseEnvValue alias of the ParseValue
-func ParseEnvValue(val string) string {
-	return varexpr.SafeParse(val)
+func ParseEnvValue(val string) string { return varexpr.SafeParse(val) }
+
+// SplitText2map parse ENV text to map. Can use to parse .env file contents.
+func SplitText2map(text string) map[string]string {
+	envMp, _ := comfunc.ParseEnvLines(text, comfunc.ParseEnvLineOption{
+		SkipOnErrorLine: true,
+	})
+	return envMp
 }
 
-// SetEnvMap set multi ENV(string-map) to os
-func SetEnvMap(mp map[string]string) {
-	for key, value := range mp {
-		_ = os.Setenv(key, value)
+// SplitLineToKv parse ENV line to k-v. eg: 'DEBUG=true' => ['DEBUG', 'true']
+func SplitLineToKv(line string) (string, string) {
+	if line = strings.TrimSpace(line); line == "" {
+		return "", ""
 	}
-}
-
-// SetEnvs set multi k-v ENV pairs to os
-func SetEnvs(kvPairs ...string) {
-	if len(kvPairs)%2 == 1 {
-		panic("envutil.SetEnvs: odd argument count")
-	}
-
-	for i := 0; i < len(kvPairs); i += 2 {
-		_ = os.Setenv(kvPairs[i], kvPairs[i+1])
-	}
-}
-
-// UnsetEnvs from os
-func UnsetEnvs(keys ...string) {
-	for _, key := range keys {
-		_ = os.Unsetenv(key)
-	}
+	return comfunc.SplitLineToKv(line, "=")
 }

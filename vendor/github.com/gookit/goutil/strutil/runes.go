@@ -115,6 +115,10 @@ func Utf8Truncate(s string, w int, tail string) string {
 	return string(r[0:i]) + tail
 }
 
+// Chunk split string to chunks by size.
+// func Chunk[T ~string](s T, size int) []T {
+// }
+
 // TextSplit alias of the Utf8Split()
 func TextSplit(s string, w int) []string { return Utf8Split(s, w) }
 

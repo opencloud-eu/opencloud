@@ -7,8 +7,8 @@ import (
 	"io"
 	"os"
 
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/gookit/goutil/structs"
-	"github.com/mitchellh/mapstructure"
 )
 
 // Decode all config data to the dst ptr
@@ -37,17 +37,13 @@ func (c *Config) Decode(dst any) error {
 func MapStruct(key string, dst any) error { return dc.MapStruct(key, dst) }
 
 // MapStruct alias method of the 'Structure'
-func (c *Config) MapStruct(key string, dst any) error {
-	return c.Structure(key, dst)
-}
+func (c *Config) MapStruct(key string, dst any) error { return c.Structure(key, dst) }
 
 // BindStruct alias method of the 'Structure'
 func BindStruct(key string, dst any) error { return dc.BindStruct(key, dst) }
 
 // BindStruct alias method of the 'Structure'
-func (c *Config) BindStruct(key string, dst any) error {
-	return c.Structure(key, dst)
-}
+func (c *Config) BindStruct(key string, dst any) error { return c.Structure(key, dst) }
 
 // MapOnExists mapping data to the dst structure only on key exists.
 func MapOnExists(key string, dst any) error {
@@ -63,7 +59,6 @@ func (c *Config) MapOnExists(key string, dst any) error {
 	if err != nil && err == ErrNotFound {
 		return nil
 	}
-
 	return err
 }
 
@@ -86,6 +81,7 @@ func (c *Config) Structure(key string, dst any) (err error) {
 			if c.opts.ParseDefault {
 				err = structs.InitDefaults(dst, func(opt *structs.InitOptions) {
 					opt.ParseEnv = c.opts.ParseEnv
+					opt.ParseTime = c.opts.ParseTime // add ParseTime support on parse default value
 				})
 			}
 			return
@@ -116,6 +112,7 @@ func (c *Config) Structure(key string, dst any) (err error) {
 	if c.opts.ParseDefault {
 		err = structs.InitDefaults(dst, func(opt *structs.InitOptions) {
 			opt.ParseEnv = c.opts.ParseEnv
+			opt.ParseTime = c.opts.ParseTime
 		})
 	}
 	return err

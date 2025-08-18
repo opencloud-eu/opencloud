@@ -3,6 +3,7 @@ package cmdline
 import (
 	"strings"
 
+	"github.com/gookit/goutil/internal/comfunc"
 	"github.com/gookit/goutil/strutil"
 )
 
@@ -22,6 +23,12 @@ func NewBuilder(binFile string, args ...string) *LineBuilder {
 
 	b.AddArray(args)
 	return b
+}
+
+// ResetGet value, will reset after get.
+func (b *LineBuilder) ResetGet() string {
+	defer b.Reset()
+	return b.String()
 }
 
 // AddArg to builder
@@ -51,35 +58,10 @@ func (b *LineBuilder) AddAny(args ...any) {
 // WriteString arg string to the builder, will auto quote special string.
 // refer strconv.Quote()
 func (b *LineBuilder) WriteString(a string) (int, error) {
-	var quote byte
-	if pos := strings.IndexByte(a, '"'); pos > -1 {
-		quote = '\''
-		// fix: a = `--pretty=format:"one two three"`
-		if pos > 0 && a[len(a)-1] == '"' {
-			quote = 0
-		}
-	} else if pos := strings.IndexByte(a, '\''); pos > -1 {
-		quote = '"'
-		// fix: a = "--pretty=format:'one two three'"
-		if pos > 0 && a[len(a)-1] == '\'' {
-			quote = 0
-		}
-	} else if a == "" || strings.ContainsRune(a, ' ') {
-		quote = '"'
-	}
-
 	// add sep on not-first write.
 	if b.Len() != 0 {
 		_ = b.WriteByte(' ')
 	}
 
-	// no quote char OR not need quote
-	if quote == 0 {
-		return b.Builder.WriteString(a)
-	}
-
-	_ = b.WriteByte(quote) // add start quote
-	n, err := b.Builder.WriteString(a)
-	_ = b.WriteByte(quote) // add end quote
-	return n, err
+	return b.Builder.WriteString(comfunc.ShellQuote(a))
 }

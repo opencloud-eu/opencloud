@@ -7,7 +7,7 @@ import (
 	"os"
 	"text/scanner"
 
-	"github.com/gookit/goutil/basefn"
+	"github.com/gookit/goutil/x/basefn"
 )
 
 // NewIOReader instance by input file path or io.Reader

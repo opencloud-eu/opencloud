@@ -41,7 +41,7 @@ func AfterLast(s, sep string) string {
  * String split operation
  *************************************************************/
 
-// Cut same of the strings.Cut
+// Cut alias of the strings.Cut
 func Cut(s, sep string) (before string, after string, found bool) {
 	if i := strings.Index(s, sep); i >= 0 {
 		return s[:i], s[i+len(sep):], true
@@ -169,27 +169,25 @@ func Substr(s string, pos, length int) string {
 	return string(runes[pos:stopIdx])
 }
 
-// SplitInlineComment for an inline text string.
+// SplitInlineComment for an inline text string. default is strict mode.
 func SplitInlineComment(val string, strict ...bool) (string, string) {
-	// strict check: must with space
-	if len(strict) > 0 && strict[0] {
+	// strict check: must with a space
+	if len(strict) == 0 || strict[0] {
 		if pos := strings.Index(val, " #"); pos > -1 {
 			return strings.TrimRight(val[0:pos], " "), val[pos+1:]
 		}
-
 		if pos := strings.Index(val, " //"); pos > -1 {
 			return strings.TrimRight(val[0:pos], " "), val[pos+1:]
 		}
-	} else {
-		if pos := strings.IndexByte(val, '#'); pos > -1 {
-			return strings.TrimRight(val[0:pos], " "), val[pos:]
-		}
-
-		if pos := strings.Index(val, "//"); pos > -1 {
-			return strings.TrimRight(val[0:pos], " "), val[pos:]
-		}
+		return val, ""
 	}
 
+	if pos := strings.IndexByte(val, '#'); pos > -1 {
+		return strings.TrimRight(val[0:pos], " "), val[pos:]
+	}
+	if pos := strings.Index(val, "//"); pos > -1 {
+		return strings.TrimRight(val[0:pos], " "), val[pos:]
+	}
 	return val, ""
 }
 

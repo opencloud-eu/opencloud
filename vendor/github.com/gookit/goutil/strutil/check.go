@@ -6,18 +6,28 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/gookit/goutil/internal/checkfn"
 )
 
 // Equal check, alias of strings.EqualFold
 var Equal = strings.EqualFold
+var IsHttpURL = checkfn.IsHttpURL
 
 // IsNumChar returns true if the given character is a numeric, otherwise false.
 func IsNumChar(c byte) bool { return c >= '0' && c <= '9' }
 
-var numReg = regexp.MustCompile(`^\d+$`)
+var intReg = regexp.MustCompile(`^\d+$`)
+var floatReg = regexp.MustCompile(`^[-+]?\d*\.?\d+$`)
 
-// IsNumeric returns true if the given string is a numeric, otherwise false.
-func IsNumeric(s string) bool { return numReg.MatchString(s) }
+// IsInt check the string is an integer number
+func IsInt(s string) bool { return intReg.MatchString(s) }
+
+// IsFloat check the string is a float number
+func IsFloat(s string) bool { return floatReg.MatchString(s) }
+
+// IsNumeric returns true if the given string is a numeric(int/float), otherwise false.
+func IsNumeric(s string) bool { return checkfn.IsNumeric(s) }
 
 // IsAlphabet char
 func IsAlphabet(char uint8) bool {
@@ -44,7 +54,7 @@ func StrPos(s, sub string) int { return strings.Index(s, sub) }
 // BytePos alias of the strings.IndexByte
 func BytePos(s string, bt byte) int { return strings.IndexByte(s, bt) }
 
-// IEqual ignore case check given two string is equals.
+// IEqual ignore case check given two strings are equals.
 func IEqual(s1, s2 string) bool { return strings.EqualFold(s1, s2) }
 
 // NoCaseEq check two strings is equals and case-insensitivity
@@ -56,9 +66,7 @@ func IContains(s, sub string) bool {
 }
 
 // ContainsByte in given string.
-func ContainsByte(s string, c byte) bool {
-	return strings.IndexByte(s, c) >= 0
-}
+func ContainsByte(s string, c byte) bool { return strings.IndexByte(s, c) >= 0 }
 
 // InArray alias of HasOneSub()
 var InArray = HasOneSub
@@ -70,6 +78,17 @@ func ContainsOne(s string, subs []string) bool { return HasOneSub(s, subs) }
 func HasOneSub(s string, subs []string) bool {
 	for _, sub := range subs {
 		if strings.Contains(s, sub) {
+			return true
+		}
+	}
+	return false
+}
+
+// IContainsOne ignore case check has one substr(s) in the given string.
+func IContainsOne(s string, subs []string) bool {
+	s = strings.ToLower(s)
+	for _, sub := range subs {
+		if strings.Contains(s, strings.ToLower(sub)) {
 			return true
 		}
 	}
@@ -89,6 +108,17 @@ func HasAllSubs(s string, subs []string) bool {
 	return true
 }
 
+// IContainsAll like ContainsAll(), but ignore case
+func IContainsAll(s string, subs []string) bool {
+	s = strings.ToLower(s)
+	for _, sub := range subs {
+		if !strings.Contains(s, strings.ToLower(sub)) {
+			return false
+		}
+	}
+	return true
+}
+
 // StartsWithAny alias of the HasOnePrefix
 var StartsWithAny = HasOneSuffix
 
@@ -97,10 +127,10 @@ func IsStartsOf(s string, prefixes []string) bool {
 	return HasOnePrefix(s, prefixes)
 }
 
-// HasOnePrefix the string start withs one of the subs
+// HasOnePrefix the string starts with one of the subs
 func HasOnePrefix(s string, prefixes []string) bool {
 	for _, prefix := range prefixes {
-		if strings.HasPrefix(s, prefix) {
+		if len(s) >= len(prefix) && s[0:len(prefix)] == prefix {
 			return true
 		}
 	}
@@ -122,7 +152,7 @@ func HasSuffix(s string, suffix string) bool { return strings.HasSuffix(s, suffi
 // IsEndOf alias of the strings.HasSuffix
 func IsEndOf(s, suffix string) bool { return strings.HasSuffix(s, suffix) }
 
-// HasOneSuffix the string end withs one of the subs
+// HasOneSuffix the string end with one of the subs
 func HasOneSuffix(s string, suffixes []string) bool {
 	for _, suffix := range suffixes {
 		if strings.HasSuffix(s, suffix) {
@@ -138,7 +168,14 @@ func IsValidUtf8(s string) bool { return utf8.ValidString(s) }
 // ----- refer from github.com/yuin/goldmark/util
 
 // refer from github.com/yuin/goldmark/util
-var spaceTable = [256]int8{0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+var spaceTable = [256]int8{
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+}
 
 // IsSpace returns true if the given character is a space, otherwise false.
 func IsSpace(c byte) bool { return spaceTable[c] == 1 }
@@ -185,15 +222,25 @@ func IsAllEmpty(ss ...string) bool {
 	return true
 }
 
-var verRegex = regexp.MustCompile(`^[0-9][\d.]+(-\w+)?$`)
+var (
+	// regex for check version number
+	verRegex = regexp.MustCompile(`^[0-9][\d.]+(-\w+)?$`)
+	// regex for check variable name
+	varRegex = regexp.MustCompile(`^[a-zA-Z][\w-]*$`)
+	// IsVariableName alias for IsVarName
+	IsVariableName = IsVarName
+)
 
 // IsVersion number. eg: 1.2.0
 func IsVersion(s string) bool { return verRegex.MatchString(s) }
 
-// Compare for two string.
+// IsVarName is valid variable name.
+func IsVarName(s string) bool { return varRegex.MatchString(s) }
+
+// Compare for two strings.
 func Compare(s1, s2, op string) bool { return VersionCompare(s1, s2, op) }
 
-// VersionCompare for two version string.
+// VersionCompare for two version strings.
 func VersionCompare(v1, v2, op string) bool {
 	switch op {
 	case ">", "gt":
@@ -211,12 +258,12 @@ func VersionCompare(v1, v2, op string) bool {
 	}
 }
 
-// SimpleMatch all sub-string in the give text string.
+// SimpleMatch all substring in the give text string.
 //
 // Difference the ContainsAll:
 //
 //   - start with ^ for exclude contains check.
-//   - end with $ for check end with keyword.
+//   - end with $ for the check end with keyword.
 func SimpleMatch(s string, keywords []string) bool {
 	for _, keyword := range keywords {
 		kln := len(keyword)
@@ -245,7 +292,7 @@ func SimpleMatch(s string, keywords []string) bool {
 	return true
 }
 
-// QuickMatch check for a string. pattern can be a sub string.
+// QuickMatch check for a string. pattern can be a substring.
 func QuickMatch(pattern, s string) bool {
 	if strings.ContainsRune(pattern, '*') {
 		return GlobMatch(pattern, s)
@@ -303,7 +350,7 @@ func LikeMatch(pattern, s string) bool {
 
 // MatchNodePath check for a string match the pattern.
 //
-// Use on pattern:
+// Use on a pattern:
 //   - `*` match any to sep
 //   - `**` match any to end. only allow at start or end on pattern.
 //

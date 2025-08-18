@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gookit/goutil/basefn"
 	"github.com/gookit/goutil/mathutil"
+	"github.com/gookit/goutil/x/basefn"
 )
 
 // global id:
@@ -30,23 +30,22 @@ var (
 //	b32id := Base10Conv(mtId, 32) // eg: em1jia8akl78n len: 13
 //	b36id := Base10Conv(mtId, 36) // eg: 3ko088phiuoev len: 13
 //	b62id := Base10Conv(mtId, 62) // eg: kb24SKgsQ9V len: 11
-func MicroTimeID() string {
-	return MTimeBaseID(10)
-}
+func MicroTimeID() string { return MTimeBaseID(10) }
 
-// MicroTimeHexID micro time hex id generate.
+// MicroTimeHexID micro time HEX ID generate.
 //
 // return like: 5b5f0588af1761ad3(len: 16-17)
 func MicroTimeHexID() string { return MTimeHexID() }
 
-// MTimeHexID micro time hex id generate.
+// MTimeHexID micro time HEX ID generate.
 //
 // return like: 5b5f0588af1761ad3(len: 16-17)
-func MTimeHexID() string {
-	return MTimeBaseID(16)
-}
+func MTimeHexID() string { return MTimeBaseID(16) }
 
-// MTimeBaseID micro time BASE id generate. toBase: 2 - 36
+// MTimeBase36 micro time BASE36 id generate.
+func MTimeBase36() string { return MTimeBaseID(36) }
+
+// MTimeBaseID micro time BASE id generate. toBase: 2-36
 //
 // Examples:
 //   - MTimeBaseID(16): 5b5f0588af1761ad3(len: 16-17)
@@ -61,9 +60,7 @@ func MTimeBaseID(toBase int) string {
 //
 //   - No prefix, return like: 2023041410484904074285478388(len: 28)
 //   - With prefix, return like: prefix2023041410484904074285478388(len: 28 + len(prefix))
-func DatetimeNo(prefix string) string {
-	return DateSN(prefix)
-}
+func DatetimeNo(prefix string) string { return DateSN(prefix) }
 
 // DateSN generate date serial number. PREFIX + yyyyMMddHHmmss + ext(微秒+随机数)
 func DateSN(prefix string) string {

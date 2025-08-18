@@ -20,14 +20,33 @@ type InitOptFunc func(opt *InitOptions)
 // InitOptions struct
 type InitOptions struct {
 	// TagName default value tag name. tag: default
-	TagName          string
+	TagName string
+	// EnvPrefix default ENV prefix name.
+	EnvPrefix string
+	// EnvPrefixTagName default value tag name. tag: defaultenvprefix
 	EnvPrefixTagName string
 	// ParseEnv var name on default value. eg: `default:"${APP_ENV}"`
 	//
 	// default: false
 	ParseEnv bool
+	// ParseTime parse string to `time.Duration`, `time.Time`. default: false
+	//
+	// eg: default:"10s", default:"2025-04-23 15:04:05"
+	ParseTime bool
 	// ValueHook before set value hook TODO
 	ValueHook func(val string) any
+}
+
+// WithParseTime set parse time string on default value.
+func (opt *InitOptions) WithParseTime(val bool) *InitOptions {
+	opt.ParseTime = val
+	return opt
+}
+
+// WithParseEnv set parse env var on default value.
+func (opt *InitOptions) WithParseEnv(val bool) *InitOptions {
+	opt.ParseEnv = val
+	return opt
 }
 
 // Init struct default value by field "default" tag.
@@ -70,12 +89,17 @@ func InitDefaults(ptr any, optFns ...InitOptFunc) error {
 	return initDefaults(rv, opt, "")
 }
 
+// type InitBuilder struct {
+// 	opt InitOptions
+// }
+
 func initDefaults(rv reflect.Value, opt *InitOptions, envPrefix string) error {
 	rt := rv.Type()
+	opt.EnvPrefix = envPrefix
 
 	for i := 0; i < rt.NumField(); i++ {
 		sf := rt.Field(i)
-		// skip don't exported field
+		// skip doesn't exported field
 		if IsUnexported(sf.Name) {
 			continue
 		}
@@ -84,12 +108,22 @@ func initDefaults(rv reflect.Value, opt *InitOptions, envPrefix string) error {
 		if !hasTag || val == "-" {
 			continue
 		}
+
+		var childPrefixVar string
 		prefixVar, _ := sf.Tag.Lookup(opt.EnvPrefixTagName)
-		childPrefixVar := fmt.Sprintf("%s%s", envPrefix, prefixVar)
+		if prefixVar != "" {
+			childPrefixVar = fmt.Sprintf("%s%s", envPrefix, prefixVar)
+			// opt.EnvPrefix = childPrefixVar
+		}
 
 		fv := rv.Field(i)
 		if fv.Kind() == reflect.Struct {
-			if err := initDefaults(fv, opt, childPrefixVar); err != nil {
+			// special: struct is time.Time type
+			if reflects.IsTimeType(fv.Type()) {
+				if err := initDefaultValue(fv, val, opt); err != nil {
+					return err
+				}
+			} else if err := initDefaults(fv, opt, childPrefixVar); err != nil {
 				return err
 			}
 			continue
@@ -170,7 +204,7 @@ func initDefaults(rv reflect.Value, opt *InitOptions, envPrefix string) error {
 			}
 		}
 
-		if err := initDefaultValue(fv, val, opt.ParseEnv, envPrefix); err != nil {
+		if err := initDefaultValue(fv, val, opt); err != nil {
 			return err
 		}
 	}
@@ -179,9 +213,13 @@ func initDefaults(rv reflect.Value, opt *InitOptions, envPrefix string) error {
 }
 
 func enhanceDefaultVar(val string, envPrefix string) string {
-	cleaned_var := strings.TrimSpace(val)
-	if strings.HasPrefix(cleaned_var, "${") && strings.HasSuffix(cleaned_var, "}") {
-		parts := strings.SplitN(cleaned_var[2:len(cleaned_var)-1], "|", 2)
+	if len(envPrefix) == 0 {
+		return val
+	}
+	cleanedVar := strings.TrimSpace(val)
+
+	if strings.HasPrefix(cleanedVar, "${") && strings.HasSuffix(cleanedVar, "}") {
+		parts := strings.SplitN(cleanedVar[2:len(cleanedVar)-1], "|", 2)
 		if len(parts) > 0 {
 			env := strings.TrimSpace(parts[0])
 			if env != "" {
@@ -196,18 +234,26 @@ func enhanceDefaultVar(val string, envPrefix string) string {
 	return val
 }
 
-func initDefaultValue(fv reflect.Value, val string, parseEnv bool, envPrefix string) error {
+func initDefaultValue(fv reflect.Value, val string, opt *InitOptions) error {
 	if val == "" || !fv.CanSet() {
 		return nil
 	}
 
 	// parse env var
-	if parseEnv {
-		val = enhanceDefaultVar(val, envPrefix)
-		val = varexpr.SafeParse(val)
+	if opt.ParseEnv {
+		val = varexpr.SafeParse(enhanceDefaultVar(val, opt.EnvPrefix))
 	}
 
 	var anyVal any = val
+
+	// enhance: parse special value type. eg: time.Duration, time.Time
+	if opt.ParseTime {
+		newVal, err := reflects.ToTimeOrDuration(val, fv.Type())
+		if err != nil {
+			return err
+		}
+		anyVal = newVal
+	}
 
 	// simple slice: convert simple kind(string,intX,uintX,...) to slice. eg: "1,2,3" => []int{1,2,3}
 	if reflects.IsArrayOrSlice(fv.Kind()) && reflects.IsSimpleKind(reflects.SliceElemKind(fv.Type())) {

@@ -17,9 +17,7 @@ func MustFindUser(uname string) *user.User {
 }
 
 // LoginUser must get current user, will panic if error
-func LoginUser() *user.User {
-	return CurrentUser()
-}
+func LoginUser() *user.User { return CurrentUser() }
 
 // CurrentUser must get current user, will panic if error
 func CurrentUser() *user.User {

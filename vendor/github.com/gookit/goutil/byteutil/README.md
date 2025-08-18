@@ -1,6 +1,6 @@
 # Bytes Util
 
-Provide some commonly bytes util functions.
+Provide some common bytes util functions.
 
 ## Install
 

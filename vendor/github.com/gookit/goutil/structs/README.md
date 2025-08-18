@@ -1,6 +1,6 @@
 # Structs
 
-Provide some extends util functions for struct. eg: convert, tag parse, struct data init
+`structs` Provide some extends util functions for struct. eg: convert, tag parse, struct data init
 
 - `structs.Aliases` - implemented a simple string alias map.
 - Convert a struct to `map[string]any` data
@@ -67,7 +67,7 @@ type Extra struct {
 type User struct {
     Name  string `default:"inhere"`
     Age   int    `default:"30"`
-    Extra Extra
+    Extra Extra  `default:""` // NEED mark tag
 }
 
 u := &User{}

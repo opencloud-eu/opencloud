@@ -4,10 +4,10 @@ import (
 	"os"
 	"reflect"
 	"strings"
-	"time"
 
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/gookit/goutil/envutil"
-	"github.com/mitchellh/mapstructure"
+	"github.com/gookit/goutil/reflects"
 )
 
 // ValDecodeHookFunc returns a mapstructure.DecodeHookFunc
@@ -31,15 +31,9 @@ func ValDecodeHookFunc(parseEnv, parseTime bool) mapstructure.DecodeHookFunc {
 			return str, nil
 		}
 
-		// start char is number(1-9)
-		if str[0] > '0' && str[0] <= '9' {
-			// parse time string. eg: 10s
-			if parseTime && t.Kind() == reflect.Int64 {
-				dur, err := time.ParseDuration(str)
-				if err == nil {
-					return dur, nil
-				}
-			}
+		// feat: support parse time or duration string. eg: 10s
+		if parseTime && str[0] > '0' && str[0] <= '9' {
+			return reflects.ToTimeOrDuration(str, t)
 		}
 		return str, nil
 	}

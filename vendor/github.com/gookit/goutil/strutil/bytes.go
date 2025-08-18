@@ -7,8 +7,13 @@ import (
 // Buffer wrap and extends the bytes.Buffer
 type Buffer = byteutil.Buffer
 
-// NewBuffer instance
-func NewBuffer() *Buffer {
+// NewBuffer instance, can set init size
+func NewBuffer(initSize ...int) *Buffer {
+	if len(initSize) > 0 && initSize[0] > 0 {
+		buf := &Buffer{}
+		buf.Grow(initSize[0])
+		return buf
+	}
 	return &Buffer{}
 }
 

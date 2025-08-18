@@ -12,16 +12,16 @@ const (
 	MimeSniffLen = 512
 )
 
-// NameMatchFunc name match func, alias of comdef.StringMatchFunc
+// NameMatchFunc name matches func, alias of comdef.StringMatchFunc
 type NameMatchFunc = comdef.StringMatchFunc
 
-// PathMatchFunc path match func. alias of comdef.StringMatchFunc
+// PathMatchFunc path matches func. alias of comdef.StringMatchFunc
 type PathMatchFunc = comdef.StringMatchFunc
 
 // Entry extends fs.DirEntry, add some useful methods
 type Entry interface {
 	fs.DirEntry
-	// Path get file/dir full path. eg: "/path/to/file.go"
+	// Path gets file/dir full path. eg: "/path/to/file.go"
 	Path() string
 	// Info get file info. like fs.DirEntry.Info(), but will cache result.
 	Info() (fs.FileInfo, error)
@@ -42,12 +42,12 @@ func NewEntry(fPath string, ent fs.DirEntry) Entry {
 	}
 }
 
-// Path get full file/dir path. eg: "/path/to/file.go"
+// Path gets full file/dir path. eg: "/path/to/file.go"
 func (e *entry) Path() string {
 	return e.path
 }
 
-// Info get file info, will cache result
+// Info gets file info, will cache result
 func (e *entry) Info() (fs.FileInfo, error) {
 	if e.stat == nil {
 		e.stat, e.sErr = e.DirEntry.Info()
@@ -63,7 +63,7 @@ func (e *entry) String() string {
 // FileInfo extends fs.FileInfo, add some useful methods
 type FileInfo interface {
 	fs.FileInfo
-	// Path get file full path. eg: "/path/to/file.go"
+	// Path gets file full path. eg: "/path/to/file.go"
 	Path() string
 }
 
@@ -80,7 +80,7 @@ func NewFileInfo(fPath string, info fs.FileInfo) FileInfo {
 	}
 }
 
-// Path get file full path. eg: "/path/to/file.go"
+// Path gets file full path. eg: "/path/to/file.go"
 func (fi *fileInfo) Path() string {
 	return fi.fullPath
 }

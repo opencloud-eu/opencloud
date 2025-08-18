@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/gookit/goutil/stdio"
+	"github.com/gookit/goutil/x/stdio"
 )
 
 // DataFormatter interface
@@ -14,6 +14,13 @@ type DataFormatter interface {
 }
 
 // BaseFormatter struct
+//
+// Usage:
+//
+//	 type YourFormatter struct {
+//			comdef.BaseFormatter
+//	 }
+//	 // implement the DataFormatter interface...
 type BaseFormatter struct {
 	ow ByteStringWriter
 	// Out formatted to the writer
@@ -41,7 +48,7 @@ func (f *BaseFormatter) SetOutput(out io.Writer) {
 	f.Out = out
 }
 
-// BsWriter build and get
+// BsWriter warp the Out, build a ByteStringWriter
 func (f *BaseFormatter) BsWriter() ByteStringWriter {
 	if f.ow == nil {
 		if f.Out == nil {
@@ -52,6 +59,5 @@ func (f *BaseFormatter) BsWriter() ByteStringWriter {
 			f.ow = stdio.NewWriteWrapper(f.Out)
 		}
 	}
-
 	return f.ow
 }

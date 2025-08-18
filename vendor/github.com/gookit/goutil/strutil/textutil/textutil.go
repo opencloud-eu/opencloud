@@ -6,20 +6,21 @@ import (
 	"strings"
 
 	"github.com/gookit/goutil/arrutil"
+	"github.com/gookit/goutil/internal/comfunc"
 	"github.com/gookit/goutil/maputil"
 	"github.com/gookit/goutil/strutil"
 )
 
 // ReplaceVars by regex replace given tpl vars.
 //
-// If format is empty, will use {const defaultVarFormat}
+// If a format is empty, will use {const defaultVarFormat}
 func ReplaceVars(text string, vars map[string]any, format string) string {
 	return NewVarReplacer(format).Replace(text, vars)
 }
 
-// RenderSMap by regex replace given tpl vars.
+// RenderSMap by regex replacement given tpl vars.
 //
-// If format is empty, will use {const defaultVarFormat}
+// If a format is empty, will use {const defaultVarFormat}
 func RenderSMap(text string, vars map[string]string, format string) string {
 	return NewVarReplacer(format).RenderSimple(text, vars)
 }
@@ -61,4 +62,17 @@ func ParseInlineINI(tagVal string, keys ...string) (mp maputil.SMap, err error) 
 		mp[key] = val
 	}
 	return
+}
+
+// ParseSimpleINI parse simple multiline config string to a string-map.
+// Can use to parse simple INI or dotenv file contents.
+//
+// NOTE:
+//
+//   - it's like INI format contents.
+//   - support comments line with: "#", ";", "//"
+//   - support inline comments with: " #" eg: name=tom # a comments
+//   - DON'T support submap parse.
+func ParseSimpleINI(text string) (mp maputil.SMap, err error) {
+	return comfunc.ParseEnvLines(text, comfunc.ParseEnvLineOption{})
 }

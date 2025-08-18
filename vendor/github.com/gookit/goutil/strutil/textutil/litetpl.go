@@ -8,11 +8,11 @@ import (
 	"text/template"
 
 	"github.com/gookit/goutil/arrutil"
-	"github.com/gookit/goutil/basefn"
 	"github.com/gookit/goutil/fsutil"
 	"github.com/gookit/goutil/reflects"
 	"github.com/gookit/goutil/structs"
 	"github.com/gookit/goutil/strutil"
+	"github.com/gookit/goutil/x/basefn"
 )
 
 // LTemplateOptFn lite template option func

@@ -4,9 +4,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/gookit/goutil/basefn"
 	"github.com/gookit/goutil/internal/comfunc"
 	"github.com/gookit/goutil/strutil"
+	"github.com/gookit/goutil/x/basefn"
 )
 
 // Getenv get ENV value by key name, can with default value
@@ -16,6 +16,14 @@ func Getenv(name string, def ...string) string {
 		val = def[0]
 	}
 	return val
+}
+
+// MustGet get ENV value by key name, if not exists or empty, will panic
+func MustGet(name string) string {
+	if val := os.Getenv(name); val != "" {
+		return val
+	}
+	panic("ENV key '" + name + "' not exists")
 }
 
 // GetInt get int ENV value by key name, can with default value
@@ -34,6 +42,20 @@ func GetBool(name string, def ...bool) bool {
 	return basefn.FirstOr(def, false)
 }
 
+// GetOne get one not empty ENV value by input names.
+func GetOne(names []string, defVal ...string) string {
+	for _, name := range names {
+		if val := os.Getenv(name); val != "" {
+			return val
+		}
+	}
+
+	if len(defVal) > 0 {
+		return defVal[0]
+	}
+	return ""
+}
+
 // GetMulti ENV values by input names.
 func GetMulti(names ...string) map[string]string {
 	valMap := make(map[string]string, len(names))
@@ -44,6 +66,15 @@ func GetMulti(names ...string) map[string]string {
 		}
 	}
 	return valMap
+}
+
+// OnExist check ENV value by key name, if exists call fn
+func OnExist(name string, fn func(val string)) bool {
+	if val := os.Getenv(name); val != "" {
+		fn(val)
+		return true
+	}
+	return false
 }
 
 // EnvPaths get and split $PATH to []string

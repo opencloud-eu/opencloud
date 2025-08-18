@@ -26,7 +26,7 @@
   - `Readonly` 支持设置配置数据只读
   - `EnableCache` 支持设置配置数据缓存
   - `ParseEnv` 支持获取时自动解析string值里的ENV变量(`shell: ${SHELL}` -> `shell: /bin/zsh`)
-  - `ParseDefault` 支持在绑定数据到结构体时解析默认值 (tag: `default:"def_value"`, 配合ParseEnv也支持ENV变量)
+  - `ParseDefault` 支持在绑定数据到结构体时解析默认值 (tag: `default:"def_value"`, 配合`ParseEnv`也支持ENV变量)
   - `ParseTime` 支持绑定数据到struct时自动转换 `10s`,`2m` 为 `time.Duration`
   - 完整选项设置请查看 `config.Options`
 - 支持将全部或部分配置数据绑定到结构体 `config.BindStruct("key", &s)`
@@ -414,7 +414,9 @@ config.WithOptions(func(opt *Options) {
 
 ### 选项: 解析默认值
 
-NEW: 支持通过结构标签 `default` 解析并设置默认值
+NEW: 支持通过结构标签 `default` 解析并设置默认值，支持嵌套解析处理。
+
+> 注意 ⚠️ 如果想要解析子结构体字段，需要对父结构体设置 `default:""` 标记，否则不会解析子结构体的字段。
 
 ```go
 	// add option: config.ParseDefault

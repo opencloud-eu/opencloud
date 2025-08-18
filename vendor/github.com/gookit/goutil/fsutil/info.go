@@ -3,39 +3,66 @@ package fsutil
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/gookit/goutil/internal/comfunc"
 )
 
-// DirPath get dir path from filepath, without last name.
-func DirPath(fpath string) string { return filepath.Dir(fpath) }
+// DirPath get dir path from filepath, without a last name.
+func DirPath(fPath string) string { return filepath.Dir(fPath) }
 
-// Dir get dir path from filepath, without last name.
-func Dir(fpath string) string { return filepath.Dir(fpath) }
+// Dir get dir path from filepath, without a last name.
+func Dir(fPath string) string { return filepath.Dir(fPath) }
 
-// PathName get file/dir name from full path
-func PathName(fpath string) string { return filepath.Base(fpath) }
+// PathName get file/dir name from a full path
+func PathName(fPath string) string { return filepath.Base(fPath) }
+
+// PathNoExt get path from full path, without ext.
+//
+// eg: path/to/main.go => "path/to/main"
+func PathNoExt(fPath string) string {
+	ext := filepath.Ext(fPath)
+	if el := len(ext); el > 0 {
+		return fPath[:len(fPath)-el]
+	}
+	return fPath
+}
 
 // Name get file/dir name from full path.
 //
-// eg: path/to/main.go => main.go
-func Name(fpath string) string {
-	if fpath == "" {
+// eg: path/to/main.go => "main.go"
+func Name(fPath string) string {
+	if fPath == "" {
 		return ""
 	}
-	return filepath.Base(fpath)
+	return filepath.Base(fPath)
+}
+
+// NameNoExt get file name from a full path, without an ext.
+//
+// eg: path/to/main.go => "main"
+func NameNoExt(fPath string) string {
+	if fPath == "" {
+		return ""
+	}
+
+	fName := filepath.Base(fPath)
+	if pos := strings.LastIndexByte(fName, '.'); pos > 0 {
+		return fName[:pos]
+	}
+	return fName
 }
 
 // FileExt get filename ext. alias of filepath.Ext()
 //
 // eg: path/to/main.go => ".go"
-func FileExt(fpath string) string { return filepath.Ext(fpath) }
+func FileExt(fPath string) string { return filepath.Ext(fPath) }
 
 // Extname get filename ext. alias of filepath.Ext()
 //
 // eg: path/to/main.go => "go"
-func Extname(fpath string) string {
-	if ext := filepath.Ext(fpath); len(ext) > 0 {
+func Extname(fPath string) string {
+	if ext := filepath.Ext(fPath); len(ext) > 0 {
 		return ext[1:]
 	}
 	return ""
@@ -44,14 +71,14 @@ func Extname(fpath string) string {
 // Suffix get filename ext. alias of filepath.Ext()
 //
 // eg: path/to/main.go => ".go"
-func Suffix(fpath string) string { return filepath.Ext(fpath) }
+func Suffix(fPath string) string { return filepath.Ext(fPath) }
 
-// Expand will parse first `~` as user home dir path.
+// Expand will parse first `~` to user home dir path.
 func Expand(pathStr string) string {
 	return comfunc.ExpandHome(pathStr)
 }
 
-// ExpandPath will parse `~` as user home dir path.
+// ExpandPath will parse `~` to user home dir path.
 func ExpandPath(pathStr string) string {
 	return comfunc.ExpandHome(pathStr)
 }

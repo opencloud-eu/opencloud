@@ -1,17 +1,16 @@
 //go:build windows
-// +build windows
 
 package sysutil
 
 // ChangeUserByName change work user by new username.
-func ChangeUserByName(newUname string) (err error) {
+func ChangeUserByName(newUname string) error {
 	return ChangeUserUIDGid(0, 0)
 }
 
 // ChangeUserUidGid change work user by new username uid,gid
 //
 // Deprecated: use ChangeUserUIDGid instead
-func ChangeUserUidGid(newUid int, newGid int) (err error) {
+func ChangeUserUidGid(newUid int, newGid int) error {
 	return ChangeUserUIDGid(newUid, newGid)
 }
 

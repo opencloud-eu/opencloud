@@ -6,34 +6,25 @@ import (
 )
 
 // E new a raw go error. alias of errors.New()
-func E(msg string) error {
-	return errors.New(msg)
-}
+func E(msg string) error { return errors.New(msg) }
 
 // Err new a raw go error. alias of errors.New()
-func Err(msg string) error {
-	return errors.New(msg)
-}
+func Err(msg string) error { return errors.New(msg) }
 
 // Raw new a raw go error. alias of errors.New()
-func Raw(msg string) error {
-	return errors.New(msg)
-}
+func Raw(msg string) error { return errors.New(msg) }
 
-// Ef new a raw go error. alias of errors.New()
-func Ef(tpl string, vars ...any) error {
-	return fmt.Errorf(tpl, vars...)
-}
+// Ef new a raw go error. alias of fmt.Errorf
+func Ef(tpl string, vars ...any) error { return fmt.Errorf(tpl, vars...) }
 
-// Errf new a raw go error. alias of errors.New()
-func Errf(tpl string, vars ...any) error {
-	return fmt.Errorf(tpl, vars...)
-}
+// Errf new a raw go error. alias of fmt.Errorf
+func Errf(tpl string, vars ...any) error { return fmt.Errorf(tpl, vars...) }
 
-// Rawf new a raw go error. alias of errors.New()
-func Rawf(tpl string, vars ...any) error {
-	return fmt.Errorf(tpl, vars...)
-}
+// Rf new a raw go error. alias of fmt.Errorf
+func Rf(tpl string, vs ...any) error { return fmt.Errorf(tpl, vs...) }
+
+// Rawf new a raw go error. alias of fmt.Errorf
+func Rawf(tpl string, vs ...any) error { return fmt.Errorf(tpl, vs...) }
 
 /*************************************************************
  * helper func for error
@@ -74,7 +65,7 @@ func IsErrorX(err error) (ok bool) {
 	return
 }
 
-// ToErrorX convert check
+// ToErrorX convert check. like errors.As()
 func ToErrorX(err error) (ex *ErrorX, ok bool) {
 	ex, ok = err.(*ErrorX)
 	return

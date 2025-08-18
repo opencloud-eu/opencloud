@@ -11,19 +11,19 @@ import (
 	"github.com/gookit/goutil/strutil"
 )
 
-// FilePathInDirs get full file path in dirs.
+// FilePathInDirs get full file path in dirs. return empty string if not found.
 //
 // Params:
 //   - file: can be relative path, file name, full path.
 //   - dirs: dir paths
-func FilePathInDirs(file string, dirs ...string) string {
-	file = comfunc.ExpandHome(file)
-	if FileExists(file) {
-		return file
+func FilePathInDirs(fPath string, dirs ...string) string {
+	fPath = comfunc.ExpandHome(fPath)
+	if FileExists(fPath) {
+		return fPath
 	}
 
 	for _, dirPath := range dirs {
-		fPath := JoinSubPaths(dirPath, file)
+		fPath := JoinSubPaths(dirPath, fPath)
 		if FileExists(fPath) {
 			return fPath
 		}
@@ -102,12 +102,12 @@ func SearchNameUpx(dirPath, name string) (string, bool) {
 // WalkDir walks the file tree rooted at root, calling fn for each file or
 // directory in the tree, including root.
 //
-// TIP: will recursively find in sub dirs.
+// TIP: will recursively found in sub dirs.
 func WalkDir(dir string, fn fs.WalkDirFunc) error {
 	return filepath.WalkDir(dir, fn)
 }
 
-// Glob find files by glob path pattern. alias of filepath.Glob()
+// Glob finds files by glob path pattern. alias of filepath.Glob()
 // and support filter matched files by name.
 //
 // Usage:
@@ -132,8 +132,6 @@ func Glob(pattern string, fls ...NameMatchFunc) []string {
 }
 
 // GlobWithFunc find files by glob path pattern, then handle matched file
-//
-// - TIP: will be not find in subdir.
 func GlobWithFunc(pattern string, fn func(filePath string) error) (err error) {
 	files, err := filepath.Glob(pattern)
 	if err != nil {
@@ -207,7 +205,7 @@ func ApplyFilters(fPath string, ent fs.DirEntry, filters []FilterFunc) bool {
 
 // FindInDir code refer the go pkg: path/filepath.glob()
 //
-// - TIP: will be not find in subdir.
+// - TIP: will be not found in sub-dir.
 //
 // filters: return false will skip the file.
 func FindInDir(dir string, handleFn HandleFunc, filters ...FilterFunc) (e error) {
@@ -235,9 +233,22 @@ func FindInDir(dir string, handleFn HandleFunc, filters ...FilterFunc) (e error)
 			continue
 		}
 
-		if err := handleFn(filePath, ent); err != nil {
-			return err
+		if err1 := handleFn(filePath, ent); err1 != nil {
+			return err1
 		}
 	}
 	return nil
+}
+
+// FileInDirs returns the first file path in the given dirs.
+func FileInDirs(paths []string, names ...string) string {
+	for _, pathDir := range paths {
+		for _, name := range names {
+			file := pathDir + "/" + name
+			if IsFile(file) {
+				return file
+			}
+		}
+	}
+	return ""
 }
