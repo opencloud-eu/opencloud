@@ -11,6 +11,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles"
 
+	cs3user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/oidc"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
@@ -125,7 +126,8 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 			m.logger.Debug().Interface("claims", claims).Msg("Autoprovisioning user")
-			newuser, err := m.userProvider.CreateUserFromClaims(req.Context(), claims)
+			var newuser *cs3user.User
+			newuser, err = m.userProvider.CreateUserFromClaims(req.Context(), claims)
 			if err != nil {
 				m.logger.Error().Err(err).Msg("Autoprovisioning user failed")
 				w.WriteHeader(http.StatusInternalServerError)
