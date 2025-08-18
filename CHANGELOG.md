@@ -1,10 +1,14 @@
 # Changelog
 
-## [3.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.4.0) - 2025-08-15
+## [3.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.4.0) - 2025-08-18
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @ScharfViktor, @fschade, @individual-it, @kulmann, @prashant-gurung899, @rhafer
+
+### 🐛 Bug Fixes
+
+- fix(proxy): First login fails in auto provision setups [[#1353](https://github.com/opencloud-eu/opencloud/pull/1353)]
 
 ### ✅ Tests
 
