@@ -471,6 +471,9 @@ def main(ctx):
     if ctx.build.event == "cron" and ctx.build.sender == "translation-sync":
         return translation_sync(ctx)
 
+    #     if ctx.build.event == "pull_request_closed":
+    #         return None
+
     build_release_helpers = \
         readyReleaseGo()
 
@@ -1937,6 +1940,7 @@ def notifyMatrix(ctx):
                 "commands": [
                     "git clone --single-branch --branch $QA_REPO_BRANCH $QA_REPO /tmp/qa",
                     "cd /tmp/qa/scripts/matrix-notification/",
+                    "echo \'Sending notification to Matrix room\'",
                     "go run matrix-notification.go",
                 ],
             },
