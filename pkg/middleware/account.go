@@ -55,7 +55,7 @@ func ExtractAccountUUID(opts ...account.Option) func(http.Handler) http.Handler 
 				opt.Logger.Error().Err(err)
 				return
 			}
-			if ok, err := scope.VerifyScope(r.Context(), tokenScope, r); err != nil || !ok {
+			if ok, err := scope.VerifyScope(r.Context(), tokenScope, r.URL.Path); err != nil || !ok {
 				opt.Logger.Error().Err(err).Msg("verifying scope failed")
 				return
 			}
