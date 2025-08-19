@@ -24,7 +24,6 @@ var Languages = map[string]Language{
 	"ba": {Code: "ba", Name: "Bashkir", NativeName: "Башҡорт теле"},
 	"be": {Code: "be", Name: "Belarusian", NativeName: "Беларуская мова"},
 	"bg": {Code: "bg", Name: "Bulgarian", NativeName: "Български език"},
-	"bh": {Code: "bh", Name: "Bihari", NativeName: "भोजपुरी"},
 	"bi": {Code: "bi", Name: "Bislama", NativeName: "Bislama"},
 	"bm": {Code: "bm", Name: "Bambara", NativeName: "Bamanankan"},
 	"bn": {Code: "bn", Name: "Bengali", NativeName: "বাংলা"},

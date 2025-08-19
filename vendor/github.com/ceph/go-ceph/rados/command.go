@@ -43,6 +43,11 @@ func (c *Conn) MonCommandWithInputBuffer(args, inputBuffer []byte) ([]byte, stri
 
 // PGCommand sends a command to one of the PGs
 //
+// The args parameter takes a slice of byte slices but typically a single
+// slice element is sufficient. The use of two slices exists to best match
+// the structure of the underlying C call which is often a legacy interface
+// in Ceph.
+//
 // Implements:
 //
 //	int rados_pg_command(rados_t cluster, const char *pgstr,
@@ -55,6 +60,11 @@ func (c *Conn) PGCommand(pgid []byte, args [][]byte) ([]byte, string, error) {
 }
 
 // PGCommandWithInputBuffer sends a command to one of the PGs, with an input buffer
+//
+// The args parameter takes a slice of byte slices but typically a single
+// slice element is sufficient. The use of two slices exists to best match
+// the structure of the underlying C call which is often a legacy interface
+// in Ceph.
 //
 // Implements:
 //
@@ -87,19 +97,29 @@ func (c *Conn) PGCommandWithInputBuffer(pgid []byte, args [][]byte, inputBuffer 
 }
 
 // MgrCommand sends a command to a ceph-mgr.
+//
+// The args parameter takes a slice of byte slices but typically a single
+// slice element is sufficient. The use of two slices exists to best match
+// the structure of the underlying C call which is often a legacy interface
+// in Ceph.
 func (c *Conn) MgrCommand(args [][]byte) ([]byte, string, error) {
 	return c.MgrCommandWithInputBuffer(args, nil)
 }
 
 // MgrCommandWithInputBuffer sends a command, with an input buffer, to a ceph-mgr.
 //
+// The args parameter takes a slice of byte slices but typically a single
+// slice element is sufficient. The use of two slices exists to best match
+// the structure of the underlying C call which is often a legacy interface
+// in Ceph.
+//
 // Implements:
 //
 //	int rados_mgr_command(rados_t cluster, const char **cmd,
-//	                       size_t cmdlen, const char *inbuf,
-//	                       size_t inbuflen, char **outbuf,
-//	                       size_t *outbuflen, char **outs,
-//	                        size_t *outslen);
+//	                      size_t cmdlen, const char *inbuf,
+//	                      size_t inbuflen, char **outbuf,
+//	                      size_t *outbuflen, char **outs,
+//	                      size_t *outslen);
 func (c *Conn) MgrCommandWithInputBuffer(args [][]byte, inputBuffer []byte) ([]byte, string, error) {
 	ci := cutil.NewCommandInput(args, inputBuffer)
 	defer ci.Free()
@@ -121,12 +141,22 @@ func (c *Conn) MgrCommandWithInputBuffer(args [][]byte, inputBuffer []byte) ([]b
 }
 
 // OsdCommand sends a command to the specified ceph OSD.
+//
+// The args parameter takes a slice of byte slices but typically a single
+// slice element is sufficient. The use of two slices exists to best match
+// the structure of the underlying C call which is often a legacy interface
+// in Ceph.
 func (c *Conn) OsdCommand(osd int, args [][]byte) ([]byte, string, error) {
 	return c.OsdCommandWithInputBuffer(osd, args, nil)
 }
 
 // OsdCommandWithInputBuffer sends a command, with an input buffer, to the
 // specified ceph OSD.
+//
+// The args parameter takes a slice of byte slices but typically a single
+// slice element is sufficient. The use of two slices exists to best match
+// the structure of the underlying C call which is often a legacy interface
+// in Ceph.
 //
 // Implements:
 //
@@ -159,11 +189,21 @@ func (c *Conn) OsdCommandWithInputBuffer(
 }
 
 // MonCommandTarget sends a command to a specified monitor.
+//
+// The args parameter takes a slice of byte slices but typically a single
+// slice element is sufficient. The use of two slices exists to best match
+// the structure of the underlying C call which is often a legacy interface
+// in Ceph.
 func (c *Conn) MonCommandTarget(name string, args [][]byte) ([]byte, string, error) {
 	return c.MonCommandTargetWithInputBuffer(name, args, nil)
 }
 
 // MonCommandTargetWithInputBuffer sends a command, with an input buffer, to a specified monitor.
+//
+// The args parameter takes a slice of byte slices but typically a single
+// slice element is sufficient. The use of two slices exists to best match
+// the structure of the underlying C call which is often a legacy interface
+// in Ceph.
 //
 // Implements:
 //

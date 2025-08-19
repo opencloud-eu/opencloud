@@ -35,7 +35,6 @@ import (
 	_ "github.com/opencloud-eu/reva/v2/pkg/storage/fs/ocis"
 	_ "github.com/opencloud-eu/reva/v2/pkg/storage/fs/owncloudsql"
 	_ "github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix"
-	_ "github.com/opencloud-eu/reva/v2/pkg/storage/fs/s3"
 	_ "github.com/opencloud-eu/reva/v2/pkg/storage/fs/s3ng"
 	// Add your own here
 )

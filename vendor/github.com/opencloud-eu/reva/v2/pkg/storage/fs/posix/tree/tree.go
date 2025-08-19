@@ -720,7 +720,7 @@ func (t *Tree) createDirNode(ctx context.Context, n *node.Node) (err error) {
 }
 
 func (t *Tree) isIgnored(path string) bool {
-	return isLockFile(path) || isTrash(path) || t.isUpload(path) || t.isInternal(path) || t.isRootPath(path)
+	return isLockFile(path) || isTrash(path) || t.isUpload(path) || t.isInternal(path) || t.isRootPath(path) || t.isSpaceRoot(path)
 }
 
 func (t *Tree) isUpload(path string) bool {
@@ -735,6 +735,11 @@ func (t *Tree) isRootPath(path string) bool {
 	return path == t.options.Root ||
 		path == t.personalSpacesRoot ||
 		path == t.projectSpacesRoot
+}
+
+func (t *Tree) isSpaceRoot(path string) bool {
+	parent := filepath.Dir(path)
+	return parent == t.personalSpacesRoot || parent == t.projectSpacesRoot
 }
 
 func (t *Tree) isInternal(path string) bool {

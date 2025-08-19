@@ -659,7 +659,16 @@ assimilate:
 
 	var n *node.Node
 	if fi.IsDir() {
-		attributes.SetInt64(prefixes.TypeAttr, int64(provider.ResourceType_RESOURCE_TYPE_CONTAINER))
+		// The Space's name attribute might not match the directory name. Use the name as
+		// it was set before. Also the space root doesn't have a 'type' attribute
+		// currently so only set it for normal directories.
+		if t.isSpaceRoot(path) {
+			if previousAttribs != nil && previousAttribs[prefixes.NameAttr] != nil {
+				attributes[prefixes.NameAttr] = previousAttribs[prefixes.NameAttr]
+			}
+		} else {
+			attributes.SetInt64(prefixes.TypeAttr, int64(provider.ResourceType_RESOURCE_TYPE_CONTAINER))
+		}
 		attributes.SetInt64(prefixes.TreesizeAttr, 0)
 		if previousAttribs != nil && previousAttribs[prefixes.TreesizeAttr] != nil {
 			attributes[prefixes.TreesizeAttr] = previousAttribs[prefixes.TreesizeAttr]
