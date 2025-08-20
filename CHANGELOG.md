@@ -22,6 +22,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/onsi/ginkgo/v2 from 2.23.4 to 2.24.0 [[#1375](https://github.com/opencloud-eu/opencloud/pull/1375)]
 - build(deps): bump github.com/gookit/config/v2 from 2.2.6 to 2.2.7 [[#1359](https://github.com/opencloud-eu/opencloud/pull/1359)]
 - build(deps): bump golang.org/x/net from 0.42.0 to 0.43.0 [[#1356](https://github.com/opencloud-eu/opencloud/pull/1356)]
 - chore(dependencies): bump reva 19625996460b2e68da3bbaf539e554366c59e111 [[#1357](https://github.com/opencloud-eu/opencloud/pull/1357)]
