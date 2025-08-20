@@ -90,8 +90,10 @@ func HandleEvents(s Searcher, stream raw.Stream, cfg *config.Config, m *metrics.
 						indexSpaceDebouncer.Debounce(getSpaceID(ev.Ref), e.Ack)
 					case events.TagsAdded:
 						s.UpsertItem(ev.Ref)
+						indexSpaceDebouncer.Debounce(getSpaceID(ev.Ref), e.Ack)
 					case events.TagsRemoved:
 						s.UpsertItem(ev.Ref)
+						indexSpaceDebouncer.Debounce(getSpaceID(ev.Ref), e.Ack)
 					case events.FileUploaded:
 						indexSpaceDebouncer.Debounce(getSpaceID(ev.Ref), e.Ack)
 					case events.UploadReady:

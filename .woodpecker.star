@@ -1384,6 +1384,7 @@ def multiServiceE2ePipeline(ctx):
 
     e2e_trigger = [
         event["base"],
+        event["cron"],
         {
             "event": "pull_request",
             "path": {
