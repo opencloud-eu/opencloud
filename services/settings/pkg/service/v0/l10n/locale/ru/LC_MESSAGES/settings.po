@@ -5,16 +5,16 @@
 # 
 # Translators:
 # yellow sky, 2025
-# Анастасия Ванина, 2025
+# Lulufox, 2025
 # 
 #, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2025-08-08 00:01+0000\n"
+"POT-Creation-Date: 2025-08-20 00:01+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
-"Last-Translator: Анастасия Ванина, 2025\n"
+"Last-Translator: Lulufox, 2025\n"
 "Language-Team: Russian (https://app.transifex.com/opencloud-eu/teams/204053/ru/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -66,6 +66,8 @@ msgstr "Уведомлять, когда меня исключают из про
 #: pkg/store/defaults/templates.go:10
 msgid "Notify when I have received a share"
 msgstr ""
+"Уведомлять, когда мне предоставили доступ для совместного использования "
+"ресура"
 
 #. description of the notification option 'File Rejected'
 #: pkg/store/defaults/templates.go:42
@@ -80,11 +82,13 @@ msgstr ""
 #: pkg/store/defaults/templates.go:14
 msgid "Notify when a received share has been removed"
 msgstr ""
+"Уведомлять, когда у меня забрали доступ для совместного использования "
+"ресурса"
 
 #. description of the notification option 'Share Expired'
 #: pkg/store/defaults/templates.go:18
 msgid "Notify when a received share has expired"
-msgstr ""
+msgstr "Уведомлять, когда доступ для совместного использования ресурса истек"
 
 #. description of the notification option 'Space Deleted'
 #: pkg/store/defaults/templates.go:38
@@ -114,17 +118,17 @@ msgstr "Выбранное значение:"
 #. name of the notification option 'Share Expired'
 #: pkg/store/defaults/templates.go:16
 msgid "Share Expired"
-msgstr ""
+msgstr "Доступ для совместного использования истек"
 
 #. name of the notification option 'Share Received'
 #: pkg/store/defaults/templates.go:8
 msgid "Share Received"
-msgstr ""
+msgstr "Получен доступ для совместного использования ресурса"
 
 #. name of the notification option 'Share Removed'
 #: pkg/store/defaults/templates.go:12
 msgid "Share Removed"
-msgstr ""
+msgstr "Доступ для совместного использования ресурса отозван"
 
 #. name of the notification option 'Space Deleted'
 #: pkg/store/defaults/templates.go:36
