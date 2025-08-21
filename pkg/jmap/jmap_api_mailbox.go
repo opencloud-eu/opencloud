@@ -19,13 +19,15 @@ func (j *Client) GetMailbox(accountId string, session *Session, ctx context.Cont
 	logger = j.logger(aid, "GetMailbox", session, logger)
 	cmd, err := request(invocation(CommandMailboxGet, MailboxGetCommand{AccountId: aid, Ids: ids}, "0"))
 	if err != nil {
-		return MailboxesResponse{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
+		logger.Error().Err(err)
+		return MailboxesResponse{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (MailboxesResponse, Error) {
 		var response MailboxGetResponse
 		err = retrieveResponseMatchParameters(body, CommandMailboxGet, "0", &response)
 		if err != nil {
+			logger.Error().Err(err)
 			return MailboxesResponse{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 
@@ -77,14 +79,16 @@ func (j *Client) SearchMailboxes(accountId string, session *Session, ctx context
 		}, "1"),
 	)
 	if err != nil {
-		return Mailboxes{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
+		logger.Error().Err(err)
+		return Mailboxes{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (Mailboxes, Error) {
 		var response MailboxGetResponse
 		err = retrieveResponseMatchParameters(body, CommandMailboxGet, "1", &response)
 		if err != nil {
-			return Mailboxes{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
+			logger.Error().Err(err)
+			return Mailboxes{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 		return Mailboxes{Mailboxes: response.List, State: response.State, SessionState: body.SessionState}, nil
 	})

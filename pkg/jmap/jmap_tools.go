@@ -42,7 +42,7 @@ func command[T any](api ApiClient,
 	logger *log.Logger,
 	ctx context.Context,
 	session *Session,
-	sessionOutdatedHandler func(session *Session),
+	sessionOutdatedHandler func(session *Session, newState string),
 	request Request,
 	mapper func(body *Response) (T, Error)) (T, Error) {
 
@@ -62,7 +62,7 @@ func command[T any](api ApiClient,
 
 	if response.SessionState != session.State {
 		if sessionOutdatedHandler != nil {
-			sessionOutdatedHandler(session)
+			sessionOutdatedHandler(session, response.SessionState)
 		}
 	}
 

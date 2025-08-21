@@ -411,11 +411,7 @@ type MessageCreation struct {
 
 func (g Groupware) CreateMessage(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
-		messageId := chi.URLParam(r, UriParamMessageId)
-
-		l := req.logger.With()
-		l.Str(UriParamMessageId, messageId)
-		logger := log.From(l)
+		logger := req.logger
 
 		var body MessageCreation
 		err := req.body(&body)

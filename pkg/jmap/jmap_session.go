@@ -8,7 +8,7 @@ import (
 )
 
 type SessionEventListener interface {
-	OnSessionOutdated(session *Session)
+	OnSessionOutdated(session *Session, newSessionState string)
 }
 
 // Cached user related information

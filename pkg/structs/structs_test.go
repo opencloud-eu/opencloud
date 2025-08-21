@@ -83,3 +83,19 @@ func TestUniqWithStructs(t *testing.T) {
 		})
 	}
 }
+
+func TestKeys(t *testing.T) {
+	tests := []struct {
+		input    map[int]string
+		expected []int
+	}{
+		{map[int]string{5: "cinq", 1: "un", 3: "trois", 4: "vier"}, []int{5, 1, 3, 4}},
+		{map[int]string{1: "un"}, []int{1}},
+	}
+	for i, tt := range tests {
+		t.Run(fmt.Sprintf("%d: testing %v", i+1, tt.input), func(t *testing.T) {
+			result := Keys(tt.input)
+			assert.ElementsMatch(t, tt.expected, result)
+		})
+	}
+}

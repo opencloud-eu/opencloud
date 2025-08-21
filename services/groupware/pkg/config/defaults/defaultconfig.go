@@ -35,7 +35,7 @@ func DefaultConfig() *config.Config {
 			MaxBodyValueBytes:     -1,
 			ResponseHeaderTimeout: 10 * time.Second,
 			SessionCache: config.MailSessionCache{
-				Ttl:         30 * time.Second,
+				Ttl:         5 * time.Minute,
 				FailureTtl:  15 * time.Second,
 				MaxCapacity: 10_000,
 			},

@@ -26,18 +26,21 @@ func (j *Client) GetBlob(accountId string, session *Session, ctx context.Context
 		}, "0"),
 	)
 	if err != nil {
-		return BlobResponse{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
+		logger.Error().Err(err)
+		return BlobResponse{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (BlobResponse, Error) {
 		var response BlobGetResponse
 		err = retrieveResponseMatchParameters(body, CommandBlobGet, "0", &response)
 		if err != nil {
-			return BlobResponse{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
+			logger.Error().Err(err)
+			return BlobResponse{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 
 		if len(response.List) != 1 {
-			return BlobResponse{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
+			logger.Error().Msgf("%T.List has %v entries instead of 1", response, len(response.List))
+			return BlobResponse{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 		get := response.List[0]
 		return BlobResponse{Blob: &get, State: response.State, SessionState: body.SessionState}, nil
@@ -104,32 +107,38 @@ func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Cont
 		invocation(CommandBlobGet, getHash, "1"),
 	)
 	if err != nil {
-		return UploadedBlob{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
+		logger.Error().Err(err)
+		return UploadedBlob{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (UploadedBlob, Error) {
 		var uploadResponse BlobUploadResponse
 		err = retrieveResponseMatchParameters(body, CommandBlobUpload, "0", &uploadResponse)
 		if err != nil {
-			return UploadedBlob{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
+			logger.Error().Err(err)
+			return UploadedBlob{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 
 		var getResponse BlobGetResponse
 		err = retrieveResponseMatchParameters(body, CommandBlobGet, "1", &getResponse)
 		if err != nil {
-			return UploadedBlob{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
+			logger.Error().Err(err)
+			return UploadedBlob{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 
 		if len(uploadResponse.Created) != 1 {
-			return UploadedBlob{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
+			logger.Error().Msgf("%T.Created has %v entries instead of 1", uploadResponse, len(uploadResponse.Created))
+			return UploadedBlob{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 		upload, ok := uploadResponse.Created["0"]
 		if !ok {
-			return UploadedBlob{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
+			logger.Error().Msgf("%T.Created has no item '0'", uploadResponse)
+			return UploadedBlob{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 
 		if len(getResponse.List) != 1 {
-			return UploadedBlob{}, SimpleError{code: JmapErrorInvalidJmapResponsePayload, err: err}
+			logger.Error().Msgf("%T.List has %v entries instead of 1", getResponse, len(getResponse.List))
+			return UploadedBlob{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 		get := getResponse.List[0]
 
