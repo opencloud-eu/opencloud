@@ -150,66 +150,70 @@ type SwaggerIndexResponse struct {
 //	200: IndexResponse
 func (g Groupware) Index(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
-
-		accountIds := make([]string, len(req.session.Accounts))
-		i := 0
-		for k := range req.session.Accounts {
-			accountIds[i] = k
-			i++
-		}
-		accountIds = structs.Uniq(accountIds)
+		accountIds := structs.Keys(req.session.Accounts)
 
 		identitiesResponse, err := g.jmap.GetIdentities(accountIds, req.session, req.ctx, req.logger)
 		if err != nil {
 			return req.errorResponseFromJmap(err)
 		}
 
-		accounts := make(map[string]IndexAccount, len(req.session.Accounts))
-		for accountId, account := range req.session.Accounts {
-			indexAccount := IndexAccount{
-				Name:       account.Name,
-				IsPersonal: account.IsPersonal,
-				IsReadOnly: account.IsReadOnly,
-				Capabilities: IndexAccountCapabilities{
-					Mail: IndexAccountMailCapabilities{
-						MaxMailboxDepth:            account.AccountCapabilities.Mail.MaxMailboxDepth,
-						MaxSizeMailboxName:         account.AccountCapabilities.Mail.MaxSizeMailboxName,
-						MaxMailboxesPerEmail:       account.AccountCapabilities.Mail.MaxMailboxesPerEmail,
-						MaxSizeAttachmentsPerEmail: account.AccountCapabilities.Mail.MaxSizeAttachmentsPerEmail,
-						MayCreateTopLevelMailbox:   account.AccountCapabilities.Mail.MayCreateTopLevelMailbox,
-						MaxDelayedSend:             account.AccountCapabilities.Submission.MaxDelayedSend,
-					},
-					Sieve: IndexAccountSieveCapabilities{
-						MaxSizeScriptName:  account.AccountCapabilities.Sieve.MaxSizeScript,
-						MaxSizeScript:      account.AccountCapabilities.Sieve.MaxSizeScript,
-						MaxNumberScripts:   account.AccountCapabilities.Sieve.MaxNumberScripts,
-						MaxNumberRedirects: account.AccountCapabilities.Sieve.MaxNumberRedirects,
-					},
-				},
-			}
-			if identity, ok := identitiesResponse.Identities[accountId]; ok {
-				indexAccount.Identities = identity
-			}
-			accounts[accountId] = indexAccount
-		}
-
 		return response(IndexResponse{
-			Version:      Version,
-			Capabilities: Capabilities,
-			Limits: IndexLimits{
-				MaxSizeUpload:         req.session.Capabilities.Core.MaxSizeUpload,
-				MaxConcurrentUpload:   req.session.Capabilities.Core.MaxConcurrentUpload,
-				MaxSizeRequest:        req.session.Capabilities.Core.MaxSizeRequest,
-				MaxConcurrentRequests: req.session.Capabilities.Core.MaxConcurrentRequests,
-			},
-			Accounts: accounts,
-			PrimaryAccounts: IndexPrimaryAccounts{
-				Mail:             req.session.PrimaryAccounts.Mail,
-				Submission:       req.session.PrimaryAccounts.Submission,
-				Blob:             req.session.PrimaryAccounts.Blob,
-				VacationResponse: req.session.PrimaryAccounts.VacationResponse,
-				Sieve:            req.session.PrimaryAccounts.Sieve,
-			},
+			Version:         Version,
+			Capabilities:    Capabilities,
+			Limits:          buildIndexLimits(req.session),
+			Accounts:        buildIndexAccount(req.session, identitiesResponse.Identities),
+			PrimaryAccounts: buildIndexPrimaryAccounts(req.session),
 		}, req.session.State)
 	})
+}
+
+func buildIndexLimits(session *jmap.Session) IndexLimits {
+	return IndexLimits{
+		MaxSizeUpload:         session.Capabilities.Core.MaxSizeUpload,
+		MaxConcurrentUpload:   session.Capabilities.Core.MaxConcurrentUpload,
+		MaxSizeRequest:        session.Capabilities.Core.MaxSizeRequest,
+		MaxConcurrentRequests: session.Capabilities.Core.MaxConcurrentRequests,
+	}
+}
+
+func buildIndexPrimaryAccounts(session *jmap.Session) IndexPrimaryAccounts {
+	return IndexPrimaryAccounts{
+		Mail:             session.PrimaryAccounts.Mail,
+		Submission:       session.PrimaryAccounts.Submission,
+		Blob:             session.PrimaryAccounts.Blob,
+		VacationResponse: session.PrimaryAccounts.VacationResponse,
+		Sieve:            session.PrimaryAccounts.Sieve,
+	}
+}
+
+func buildIndexAccount(session *jmap.Session, identities map[string][]jmap.Identity) map[string]IndexAccount {
+	accounts := make(map[string]IndexAccount, len(session.Accounts))
+	for accountId, account := range session.Accounts {
+		indexAccount := IndexAccount{
+			Name:       account.Name,
+			IsPersonal: account.IsPersonal,
+			IsReadOnly: account.IsReadOnly,
+			Capabilities: IndexAccountCapabilities{
+				Mail: IndexAccountMailCapabilities{
+					MaxMailboxDepth:            account.AccountCapabilities.Mail.MaxMailboxDepth,
+					MaxSizeMailboxName:         account.AccountCapabilities.Mail.MaxSizeMailboxName,
+					MaxMailboxesPerEmail:       account.AccountCapabilities.Mail.MaxMailboxesPerEmail,
+					MaxSizeAttachmentsPerEmail: account.AccountCapabilities.Mail.MaxSizeAttachmentsPerEmail,
+					MayCreateTopLevelMailbox:   account.AccountCapabilities.Mail.MayCreateTopLevelMailbox,
+					MaxDelayedSend:             account.AccountCapabilities.Submission.MaxDelayedSend,
+				},
+				Sieve: IndexAccountSieveCapabilities{
+					MaxSizeScriptName:  account.AccountCapabilities.Sieve.MaxSizeScript,
+					MaxSizeScript:      account.AccountCapabilities.Sieve.MaxSizeScript,
+					MaxNumberScripts:   account.AccountCapabilities.Sieve.MaxNumberScripts,
+					MaxNumberRedirects: account.AccountCapabilities.Sieve.MaxNumberRedirects,
+				},
+			},
+		}
+		if identity, ok := identities[accountId]; ok {
+			indexAccount.Identities = identity
+		}
+		accounts[accountId] = indexAccount
+	}
+	return accounts
 }

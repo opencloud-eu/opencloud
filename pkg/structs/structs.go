@@ -2,6 +2,9 @@
 package structs
 
 import (
+	"maps"
+	"slices"
+
 	orderedmap "github.com/wk8/go-ordered-map"
 )
 
@@ -29,4 +32,12 @@ func Uniq[T comparable](source []T) []T {
 		i++
 	}
 	return set
+}
+
+func Keys[K comparable, V any](source map[K]V) []K {
+	if source == nil {
+		var zero []K
+		return zero
+	}
+	return slices.Collect(maps.Keys(source))
 }
