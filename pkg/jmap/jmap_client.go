@@ -32,9 +32,9 @@ func (j *Client) AddSessionEventListener(listener SessionEventListener) {
 	j.sessionEventListeners.add(listener)
 }
 
-func (j *Client) onSessionOutdated(session *Session) {
+func (j *Client) onSessionOutdated(session *Session, newSessionState string) {
 	j.sessionEventListeners.signal(func(listener SessionEventListener) {
-		listener.OnSessionOutdated(session)
+		listener.OnSessionOutdated(session, newSessionState)
 	})
 }
 

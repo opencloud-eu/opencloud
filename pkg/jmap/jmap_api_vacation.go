@@ -18,12 +18,17 @@ func (j *Client) GetVacationResponse(accountId string, session *Session, ctx con
 	logger = j.logger(aid, "GetVacationResponse", session, logger)
 	cmd, err := request(invocation(CommandVacationResponseGet, VacationResponseGetCommand{AccountId: aid}, "0"))
 	if err != nil {
-		return VacationResponseGetResponse{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
+		logger.Error().Err(err)
+		return VacationResponseGetResponse{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (VacationResponseGetResponse, Error) {
 		var response VacationResponseGetResponse
 		err = retrieveResponseMatchParameters(body, CommandVacationResponseGet, "0", &response)
-		return response, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+		if err != nil {
+			logger.Error().Err(err)
+			return VacationResponseGetResponse{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+		}
+		return response, nil
 	})
 }
 
@@ -80,29 +85,34 @@ func (j *Client) SetVacationResponse(accountId string, vacation VacationResponse
 		invocation(CommandVacationResponseGet, VacationResponseGetCommand{AccountId: aid}, "1"),
 	)
 	if err != nil {
-		return VacationResponseChange{}, SimpleError{code: JmapErrorInvalidJmapRequestPayload, err: err}
+		logger.Error().Err(err)
+		return VacationResponseChange{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (VacationResponseChange, Error) {
 		var setResponse VacationResponseSetResponse
 		err = retrieveResponseMatchParameters(body, CommandVacationResponseSet, "0", &setResponse)
 		if err != nil {
+			logger.Error().Err(err)
 			return VacationResponseChange{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 
 		setErr, notok := setResponse.NotCreated[vacationResponseId]
 		if notok {
 			// this means that the VacationResponse was not updated
+			logger.Error().Msgf("%T.NotCreated contains an error: %v", setResponse, setErr)
 			return VacationResponseChange{}, setErrorError(setErr, VacationResponseType)
 		}
 
 		var getResponse VacationResponseGetResponse
 		err = retrieveResponseMatchParameters(body, CommandVacationResponseGet, "1", &getResponse)
 		if err != nil {
+			logger.Error().Err(err)
 			return VacationResponseChange{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 
 		if len(getResponse.List) != 1 {
 			err = fmt.Errorf("failed to find %s in %s response", string(VacationResponseType), string(CommandVacationResponseGet))
+			logger.Error().Err(err)
 			return VacationResponseChange{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 

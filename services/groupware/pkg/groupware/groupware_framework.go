@@ -63,13 +63,16 @@ func (e GroupwareInitializationError) Unwrap() error {
 }
 
 type GroupwareSessionEventListener struct {
+	logger       *log.Logger
 	sessionCache *ttlcache.Cache[string, cachedSession]
 }
 
-func (l GroupwareSessionEventListener) OnSessionOutdated(session *jmap.Session) {
+func (l GroupwareSessionEventListener) OnSessionOutdated(session *jmap.Session, newSessionState string) {
 	// it's enough to remove the session from the cache, as it will be fetched on-demand
 	// the next time an operation is performed on behalf of the user
 	l.sessionCache.Delete(session.Username)
+
+	l.logger.Trace().Msgf("removed outdated session for user '%v': state %s -> %s", session.Username, session.State, newSessionState)
 }
 
 var _ jmap.SessionEventListener = GroupwareSessionEventListener{}
@@ -134,7 +137,28 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux) (*Gro
 		go sessionCache.Start()
 	}
 
-	sessionEventListener := GroupwareSessionEventListener{sessionCache: sessionCache}
+	if logger.Trace().Enabled() {
+		sessionCache.OnEviction(func(c context.Context, r ttlcache.EvictionReason, item *ttlcache.Item[string, cachedSession]) {
+			reason := ""
+			switch r {
+			case ttlcache.EvictionReasonDeleted:
+				reason = "deleted"
+			case ttlcache.EvictionReasonCapacityReached:
+				reason = "capacity reached"
+			case ttlcache.EvictionReasonExpired:
+				reason = fmt.Sprintf("expired after %vms", item.TTL().Milliseconds())
+			case ttlcache.EvictionReasonMaxCostExceeded:
+				reason = "max cost exceeded"
+			}
+			if reason == "" {
+				reason = fmt.Sprintf("unknown (%v)", r)
+			}
+
+			logger.Trace().Msgf("session cache eviction of user '%v': %v", item.Key(), reason)
+		})
+	}
+
+	sessionEventListener := GroupwareSessionEventListener{sessionCache: sessionCache, logger: logger}
 	jmapClient.AddSessionEventListener(&sessionEventListener)
 
 	return &Groupware{
@@ -388,7 +412,7 @@ func (g Groupware) serveError(w http.ResponseWriter, r *http.Request, error *Err
 	render.Render(w, r, errorResponses(*error))
 }
 
-func (g Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(r Request) Response) {
+func (g Groupware) withSession(w http.ResponseWriter, r *http.Request, handler func(r Request) Response) (Response, bool) {
 	ctx := r.Context()
 	sl := g.logger.SubloggerWithRequestID(ctx)
 	logger := &sl
@@ -396,11 +420,11 @@ func (g Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(
 	username, ok, err := g.usernameProvider.GetUsername(r, ctx, logger)
 	if err != nil {
 		g.serveError(w, r, apiError(errorId(r, ctx), ErrorInvalidAuthentication))
-		return
+		return Response{}, false
 	}
 	if !ok {
 		g.serveError(w, r, apiError(errorId(r, ctx), ErrorMissingAuthentication))
-		return
+		return Response{}, false
 	}
 
 	logger = log.From(logger.With().Str(logUsername, log.SafeString(username)))
@@ -409,13 +433,13 @@ func (g Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(
 	if err != nil {
 		logger.Error().Err(err).Interface(logQuery, r.URL.Query()).Msg("failed to determine JMAP session")
 		render.Status(r, http.StatusInternalServerError)
-		return
+		return Response{}, false
 	}
 	if !ok {
 		// no session = authentication failed
 		logger.Warn().Err(err).Interface(logQuery, r.URL.Query()).Msg("could not authenticate")
 		render.Status(r, http.StatusForbidden)
-		return
+		return Response{}, false
 	}
 	decoratedLogger := session.DecorateLogger(*logger)
 
@@ -427,6 +451,10 @@ func (g Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(
 	}
 
 	response := handler(req)
+	return response, true
+}
+
+func (g Groupware) sendResponse(w http.ResponseWriter, r *http.Request, response Response) {
 	if response.err != nil {
 		g.log(response.err)
 		w.Header().Add("Content-Type", ContentTypeJsonApi)
@@ -454,6 +482,14 @@ func (g Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(
 		render.Status(r, http.StatusOK)
 		render.JSON(w, r, response.body)
 	}
+}
+
+func (g Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(r Request) Response) {
+	response, ok := g.withSession(w, r, handler)
+	if !ok {
+		return
+	}
+	g.sendResponse(w, r, response)
 }
 
 func (g Groupware) stream(w http.ResponseWriter, r *http.Request, handler func(r Request, w http.ResponseWriter) *Error) {

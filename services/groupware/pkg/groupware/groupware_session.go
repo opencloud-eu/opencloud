@@ -59,7 +59,7 @@ func (l *sessionCacheLoader) Load(c *ttlcache.Cache[string, cachedSession], user
 		return c.Set(username, failedSession{err: err}, l.errorTtl)
 	} else {
 		l.logger.Debug().Str("username", username).Msgf("successfully created session for '%v'", username)
-		return c.Set(username, succeededSession{session: session}, 0) // 0 = use the TTL configured on the Cache
+		return c.Set(username, succeededSession{session: session}, ttlcache.DefaultTTL) // use the TTL configured on the Cache
 	}
 }
 
