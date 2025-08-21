@@ -6,6 +6,12 @@
 
 @ScharfViktor, @butonic, @fschade, @individual-it, @kulmann, @prashant-gurung899, @rhafer
 
+### 📈 Enhancement
+
+- directly connect to frontend [[#1373](https://github.com/opencloud-eu/opencloud/pull/1373)]
+- Dockerfile cleanup [[#1352](https://github.com/opencloud-eu/opencloud/pull/1352)]
+- feat: add defaultAppId option for the web config.json [[#1354](https://github.com/opencloud-eu/opencloud/pull/1354)]
+
 ### 🐛 Bug Fixes
 
 - ack tag events [[#1381](https://github.com/opencloud-eu/opencloud/pull/1381)]
@@ -15,11 +21,6 @@
 
 - tests for collaborativePosixFS [[#1342](https://github.com/opencloud-eu/opencloud/pull/1342)]
 - [full-ci] add pipeline to send CI notifications to matrix [[#1249](https://github.com/opencloud-eu/opencloud/pull/1249)]
-
-### 📈 Enhancement
-
-- Dockerfile cleanup [[#1352](https://github.com/opencloud-eu/opencloud/pull/1352)]
-- feat: add defaultAppId option for the web config.json [[#1354](https://github.com/opencloud-eu/opencloud/pull/1354)]
 
 ### 📦️ Dependencies
 
