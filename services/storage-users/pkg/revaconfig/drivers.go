@@ -278,19 +278,6 @@ func DecomposedNoEvents(cfg *config.Config) map[string]interface{} {
 	}
 }
 
-// S3 is the config mapping for the s3 storage driver
-func S3(cfg *config.Config) map[string]interface{} {
-	return map[string]interface{}{
-		"enable_home": false,
-		"region":      cfg.Drivers.S3.Region,
-		"access_key":  cfg.Drivers.S3.AccessKey,
-		"secret_key":  cfg.Drivers.S3.SecretKey,
-		"endpoint":    cfg.Drivers.S3.Endpoint,
-		"bucket":      cfg.Drivers.S3.Bucket,
-		"prefix":      cfg.Drivers.S3.Root,
-	}
-}
-
 // DecomposedS3 is the config mapping for the decomposeds3 storage driver
 func DecomposedS3(cfg *config.Config) map[string]interface{} {
 	return map[string]interface{}{
