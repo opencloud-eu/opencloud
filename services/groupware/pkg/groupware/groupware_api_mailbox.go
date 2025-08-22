@@ -31,7 +31,7 @@ type SwaggerGetMailboxById200 struct {
 //	400: ErrorResponse400
 //	404: ErrorResponse404
 //	500: ErrorResponse500
-func (g Groupware) GetMailbox(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) GetMailbox(w http.ResponseWriter, r *http.Request) {
 	mailboxId := chi.URLParam(r, UriParamMailboxId)
 	if mailboxId == "" {
 		w.WriteHeader(http.StatusBadRequest)
@@ -87,7 +87,7 @@ type SwaggerMailboxesResponse200 struct {
 //	200: MailboxesResponse200
 //	400: ErrorResponse400
 //	500: ErrorResponse500
-func (g Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	var filter jmap.MailboxFilterCondition
 
