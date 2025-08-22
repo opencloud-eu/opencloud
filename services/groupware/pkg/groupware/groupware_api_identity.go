@@ -24,7 +24,7 @@ type SwaggerGetIdentitiesResponse struct {
 //	400: ErrorResponse400
 //	404: ErrorResponse404
 //	500: ErrorResponse500
-func (g Groupware) GetIdentities(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) GetIdentities(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		res, err := g.jmap.GetIdentity(req.GetAccountId(), req.session, req.ctx, req.logger)
 		if err != nil {

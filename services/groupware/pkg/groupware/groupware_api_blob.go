@@ -13,7 +13,7 @@ const (
 	DefaultBlobDownloadType = "application/octet-stream"
 )
 
-func (g Groupware) GetBlob(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) GetBlob(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		blobId := chi.URLParam(req.r, UriParamBlobId)
 		if blobId == "" {
@@ -37,7 +37,7 @@ func (g Groupware) GetBlob(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (g Groupware) UploadBlob(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) UploadBlob(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		contentType := r.Header.Get("Content-Type")
 		body := r.Body
@@ -59,7 +59,7 @@ func (g Groupware) UploadBlob(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (g Groupware) DownloadBlob(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) DownloadBlob(w http.ResponseWriter, r *http.Request) {
 	g.stream(w, r, func(req Request, w http.ResponseWriter) *Error {
 		blobId := chi.URLParam(req.r, UriParamBlobId)
 		name := chi.URLParam(req.r, UriParamBlobName)

@@ -40,7 +40,11 @@ func (e SimpleError) Unwrap() error {
 	return e.err
 }
 func (e SimpleError) Error() string {
-	return e.err.Error()
+	if e.err != nil {
+		return e.err.Error()
+	} else {
+		return ""
+	}
 }
 
 func simpleError(err error, code int) Error {

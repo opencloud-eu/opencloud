@@ -7,7 +7,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
-func (g Groupware) GetAccount(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) GetAccount(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		account, err := req.GetAccount()
 		if err != nil {
@@ -17,7 +17,7 @@ func (g Groupware) GetAccount(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (g Groupware) GetAccounts(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) GetAccounts(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		return response(req.session.Accounts, req.session.State)
 	})
@@ -54,7 +54,7 @@ type SwaggerAccountBootstrapResponse struct {
 	}
 }
 
-func (g Groupware) GetAccountBootstrap(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) GetAccountBootstrap(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		mailAccountId := req.GetAccountId()
 		accountIds := structs.Keys(req.session.Accounts)

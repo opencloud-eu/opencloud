@@ -9,10 +9,14 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
+	"github.com/r3labs/sse/v2"
 	"github.com/rs/zerolog"
 
 	"github.com/jellydator/ttlcache/v3"
@@ -24,6 +28,7 @@ import (
 
 const (
 	logUsername              = "username" // this should match jmap.logUsername to avoid having the field twice in the logs under different keys
+	logUserId                = "user-id"
 	logErrorId               = "error-id"
 	logErrorCode             = "code"
 	logErrorStatus           = "status"
@@ -36,14 +41,37 @@ const (
 	logQuery                 = "query"
 )
 
+type User interface {
+	GetUsername() string
+	GetId() string
+}
+
+type UserProvider interface {
+	// Provide the user for JMAP operations.
+	GetUser(req *http.Request, ctx context.Context, logger *log.Logger) (User, error)
+}
+
+type Job struct {
+	id          uint64
+	description string
+	logger      *log.Logger
+	job         func(uint64, *log.Logger)
+}
+
 type Groupware struct {
 	mux               *chi.Mux
+	sseServer         *sse.Server
+	streams           map[string]time.Time
+	streamsLock       sync.Mutex
 	logger            *log.Logger
 	defaultEmailLimit int
 	maxBodyValueBytes int
 	sessionCache      *ttlcache.Cache[string, cachedSession]
 	jmap              *jmap.Client
-	usernameProvider  UsernameProvider
+	userProvider      UserProvider
+	eventChannel      chan Event
+	jobsChannel       chan Job
+	jobCounter        atomic.Uint64
 }
 
 type GroupwareInitializationError struct {
@@ -77,6 +105,12 @@ func (l GroupwareSessionEventListener) OnSessionOutdated(session *jmap.Session, 
 
 var _ jmap.SessionEventListener = GroupwareSessionEventListener{}
 
+type Event struct {
+	Type   string
+	Stream string
+	Body   any
+}
+
 func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux) (*Groupware, error) {
 	baseUrl, err := url.Parse(config.Mail.BaseUrl)
 	if err != nil {
@@ -102,14 +136,16 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux) (*Gro
 	sessionCacheTtl := max(config.Mail.SessionCache.Ttl, 0)
 	sessionFailureCacheTtl := max(config.Mail.SessionCache.FailureTtl, 0)
 
+	keepStreamsAlive := true // TODO configuration
+
 	tr := http.DefaultTransport.(*http.Transport).Clone()
 	tr.ResponseHeaderTimeout = responseHeaderTimeout
-	tlsConfig := &tls.Config{InsecureSkipVerify: true}
+	tlsConfig := &tls.Config{InsecureSkipVerify: true} // TODO make configurable
 	tr.TLSClientConfig = tlsConfig
 	c := *http.DefaultClient
 	c.Transport = tr
 
-	usernameProvider := NewRevaContextUsernameProvider()
+	userProvider := NewRevaContextUsernameProvider()
 
 	api := jmap.NewHttpJmapApiClient(
 		*baseUrl,
@@ -161,24 +197,144 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux) (*Gro
 	sessionEventListener := GroupwareSessionEventListener{sessionCache: sessionCache, logger: logger}
 	jmapClient.AddSessionEventListener(&sessionEventListener)
 
-	return &Groupware{
+	eventChannel := make(chan Event, 100) // TODO make channel queue buffering size configurable
+
+	sseServer := sse.New()
+	sseServer.EventTTL = time.Duration(5) * time.Minute // TODO configuration setting
+
+	workerQueueSize := 100 // TODO configuration setting
+	workerPoolSize := 10   // TODO configuration setting
+	jobsChannel := make(chan Job, workerQueueSize)
+
+	g := &Groupware{
 		mux:               mux,
+		sseServer:         sseServer,
+		streams:           map[string]time.Time{},
+		streamsLock:       sync.Mutex{},
 		logger:            logger,
 		sessionCache:      sessionCache,
-		usernameProvider:  usernameProvider,
+		userProvider:      userProvider,
 		jmap:              &jmapClient,
 		defaultEmailLimit: defaultEmailLimit,
 		maxBodyValueBytes: maxBodyValueBytes,
-	}, nil
+		eventChannel:      eventChannel,
+		jobsChannel:       jobsChannel,
+		jobCounter:        atomic.Uint64{},
+	}
+
+	/*
+		sessionCache.OnInsertion(func(c context.Context, item *ttlcache.Item[string, cachedSession]) {
+			str := sseServer.CreateStream(item.Key())
+			if logger.Trace().Enabled() {
+				logger.Trace().Msgf("created stream %v for '%v'", log.SafeString(str.ID), log.SafeString(item.Key()))
+			}
+		})
+	*/
+
+	for w := 1; w <= workerPoolSize; w++ {
+		go g.worker(jobsChannel)
+	}
+
+	if keepStreamsAlive {
+		ticker := time.NewTicker(time.Duration(30) * time.Second) // TODO configuration
+		//defer ticker.Stop()
+		go func() {
+			for range ticker.C {
+				g.keepStreamsAlive()
+			}
+		}()
+	}
+
+	go g.listenForEvents()
+
+	return g, nil
 }
 
-func (g Groupware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) worker(jobs <-chan Job) {
+	for job := range jobs {
+		before := time.Now()
+		logger := log.From(job.logger.With().Str("job", job.description).Uint64("job-id", job.id))
+		job.job(job.id, logger)
+		logger.Trace().Msgf("finished job %d [%s] in %v", job.id, job.description, time.Since(before)) // TODO remove
+	}
+}
+
+func (g *Groupware) job(logger *log.Logger, description string, f func(uint64, *log.Logger)) uint64 {
+	id := g.jobCounter.Add(1)
+	before := time.Now()
+	g.jobsChannel <- Job{id: id, description: description, logger: logger, job: f}
+	g.logger.Trace().Msgf("pushed job %d [%s] in %v", id, description, time.Since(before)) // TODO remove
+	return id
+}
+
+func (g *Groupware) listenForEvents() {
+	for ev := range g.eventChannel {
+		data, err := json.Marshal(ev.Body)
+		if err == nil {
+			published := g.sseServer.TryPublish(ev.Stream, &sse.Event{
+				Event: []byte(ev.Type),
+				Data:  data,
+			})
+			if !published && g.logger.Debug().Enabled() {
+				g.logger.Debug().Str("stream", log.SafeString(ev.Stream)).Msgf("dropped SSE event") // TODO more details
+			}
+		} else {
+			g.logger.Error().Err(err).Msgf("failed to serialize %T body to JSON", ev)
+		}
+	}
+}
+
+func (g *Groupware) push(user User, typ string, body any) {
+	g.eventChannel <- Event{Type: typ, Stream: user.GetUsername(), Body: body}
+}
+
+func (g *Groupware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	g.mux.ServeHTTP(w, r)
 }
 
+func (g *Groupware) addStream(stream string) bool {
+	g.streamsLock.Lock()
+	defer g.streamsLock.Unlock()
+	_, ok := g.streams[stream]
+	if ok {
+		return false
+	}
+	g.streams[stream] = time.Now()
+	return true
+}
+
+func (g *Groupware) keepStreamsAlive() {
+	event := &sse.Event{Comment: []byte("keepalive")}
+	g.streamsLock.Lock()
+	defer g.streamsLock.Unlock()
+	for stream := range g.streams {
+		g.sseServer.Publish(stream, event)
+	}
+}
+
+func (g *Groupware) ServeSSE(w http.ResponseWriter, r *http.Request) {
+	g.withSession(w, r, func(req Request) Response {
+		stream := req.GetUser().GetUsername()
+
+		if g.addStream(stream) {
+			str := g.sseServer.CreateStream(stream)
+			if g.logger.Trace().Enabled() {
+				g.logger.Trace().Msgf("created stream '%v'", log.SafeString(str.ID))
+			}
+		}
+
+		q := r.URL.Query()
+		q.Set("stream", stream)
+		r.URL.RawQuery = q.Encode()
+
+		g.sseServer.ServeHTTP(w, r)
+		return Response{}
+	})
+}
+
 // Provide a JMAP Session for the
-func (g Groupware) session(username string, _ *http.Request, _ context.Context, _ *log.Logger) (jmap.Session, bool, error) {
-	item := g.sessionCache.Get(username)
+func (g *Groupware) session(user User, _ *http.Request, _ context.Context, _ *log.Logger) (jmap.Session, bool, error) {
+	item := g.sessionCache.Get(user.GetUsername())
 	if item != nil {
 		value := item.Value()
 		if value != nil {
@@ -196,6 +352,8 @@ func (g Groupware) session(username string, _ *http.Request, _ context.Context, 
 // API of handlers but also to make it easier to expand it in the future without having to modify
 // the parameter list of every single handler function
 type Request struct {
+	g       *Groupware
+	user    User
 	r       *http.Request
 	ctx     context.Context
 	logger  *log.Logger
@@ -204,6 +362,7 @@ type Request struct {
 
 type Response struct {
 	body         any
+	status       int
 	err          *Error
 	etag         string
 	sessionState string
@@ -247,9 +406,30 @@ func etagOnlyResponse(body any, etag string) Response {
 
 func noContentResponse(sessionStatus string) Response {
 	return Response{
-		body:         "",
+		body:         nil,
+		status:       http.StatusNoContent,
 		err:          nil,
 		etag:         sessionStatus,
+		sessionState: sessionStatus,
+	}
+}
+
+func acceptedResponse(sessionStatus string) Response {
+	return Response{
+		body:         nil,
+		status:       http.StatusAccepted,
+		err:          nil,
+		etag:         sessionStatus,
+		sessionState: sessionStatus,
+	}
+}
+
+func timeoutResponse(sessionStatus string) Response {
+	return Response{
+		body:         nil,
+		status:       http.StatusRequestTimeout,
+		err:          nil,
+		etag:         "",
 		sessionState: sessionStatus,
 	}
 }
@@ -257,10 +437,23 @@ func noContentResponse(sessionStatus string) Response {
 func notFoundResponse(sessionStatus string) Response {
 	return Response{
 		body:         nil,
+		status:       http.StatusNotFound,
 		err:          nil,
 		etag:         sessionStatus,
 		sessionState: sessionStatus,
 	}
+}
+
+func (r Request) push(typ string, event any) {
+	r.g.push(r.user, typ, event)
+}
+
+func (r Request) GetUser() User {
+	return r.user
+}
+
+func (r Request) GetRequestId() string {
+	return chimiddleware.GetReqID(r.ctx)
 }
 
 func (r Request) GetAccountId() string {
@@ -368,7 +561,7 @@ func (r Request) body(target any) *Error {
 	return nil
 }
 
-func (g Groupware) log(error *Error) {
+func (g *Groupware) log(error *Error) {
 	var level *zerolog.Event
 	if error.NumStatus < 300 {
 		// shouldn't land here, but just in case: 1xx and 2xx are "OK" and should be logged as debug
@@ -401,7 +594,7 @@ func (g Groupware) log(error *Error) {
 	l.Msg(error.Title)
 }
 
-func (g Groupware) serveError(w http.ResponseWriter, r *http.Request, error *Error) {
+func (g *Groupware) serveError(w http.ResponseWriter, r *http.Request, error *Error) {
 	if error == nil {
 		return
 	}
@@ -412,24 +605,24 @@ func (g Groupware) serveError(w http.ResponseWriter, r *http.Request, error *Err
 	render.Render(w, r, errorResponses(*error))
 }
 
-func (g Groupware) withSession(w http.ResponseWriter, r *http.Request, handler func(r Request) Response) (Response, bool) {
+func (g *Groupware) withSession(w http.ResponseWriter, r *http.Request, handler func(r Request) Response) (Response, bool) {
 	ctx := r.Context()
 	sl := g.logger.SubloggerWithRequestID(ctx)
 	logger := &sl
 
-	username, ok, err := g.usernameProvider.GetUsername(r, ctx, logger)
+	user, err := g.userProvider.GetUser(r, ctx, logger)
 	if err != nil {
 		g.serveError(w, r, apiError(errorId(r, ctx), ErrorInvalidAuthentication))
 		return Response{}, false
 	}
-	if !ok {
+	if user == nil {
 		g.serveError(w, r, apiError(errorId(r, ctx), ErrorMissingAuthentication))
 		return Response{}, false
 	}
 
-	logger = log.From(logger.With().Str(logUsername, log.SafeString(username)))
+	logger = log.From(logger.With().Str(logUsername, log.SafeString(user.GetUsername())).Str(logUserId, log.SafeString(user.GetId())))
 
-	session, ok, err := g.session(username, r, ctx, logger)
+	session, ok, err := g.session(user, r, ctx, logger)
 	if err != nil {
 		logger.Error().Err(err).Interface(logQuery, r.URL.Query()).Msg("failed to determine JMAP session")
 		render.Status(r, http.StatusInternalServerError)
@@ -444,6 +637,8 @@ func (g Groupware) withSession(w http.ResponseWriter, r *http.Request, handler f
 	decoratedLogger := session.DecorateLogger(*logger)
 
 	req := Request{
+		g:       g,
+		user:    user,
 		r:       r,
 		ctx:     ctx,
 		logger:  decoratedLogger,
@@ -454,7 +649,7 @@ func (g Groupware) withSession(w http.ResponseWriter, r *http.Request, handler f
 	return response, true
 }
 
-func (g Groupware) sendResponse(w http.ResponseWriter, r *http.Request, response Response) {
+func (g *Groupware) sendResponse(w http.ResponseWriter, r *http.Request, response Response) {
 	if response.err != nil {
 		g.log(response.err)
 		w.Header().Add("Content-Type", ContentTypeJsonApi)
@@ -474,17 +669,15 @@ func (g Groupware) sendResponse(w http.ResponseWriter, r *http.Request, response
 	}
 
 	switch response.body {
-	case nil:
-		w.WriteHeader(http.StatusNotFound)
-	case "":
-		w.WriteHeader(http.StatusNoContent)
+	case nil, "":
+		w.WriteHeader(response.status)
 	default:
 		render.Status(r, http.StatusOK)
 		render.JSON(w, r, response.body)
 	}
 }
 
-func (g Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(r Request) Response) {
+func (g *Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(r Request) Response) {
 	response, ok := g.withSession(w, r, handler)
 	if !ok {
 		return
@@ -492,24 +685,24 @@ func (g Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(
 	g.sendResponse(w, r, response)
 }
 
-func (g Groupware) stream(w http.ResponseWriter, r *http.Request, handler func(r Request, w http.ResponseWriter) *Error) {
+func (g *Groupware) stream(w http.ResponseWriter, r *http.Request, handler func(r Request, w http.ResponseWriter) *Error) {
 	ctx := r.Context()
 	sl := g.logger.SubloggerWithRequestID(ctx)
 	logger := &sl
 
-	username, ok, err := g.usernameProvider.GetUsername(r, ctx, logger)
+	user, err := g.userProvider.GetUser(r, ctx, logger)
 	if err != nil {
 		g.serveError(w, r, apiError(errorId(r, ctx), ErrorInvalidAuthentication))
 		return
 	}
-	if !ok {
+	if user == nil {
 		g.serveError(w, r, apiError(errorId(r, ctx), ErrorMissingAuthentication))
 		return
 	}
 
-	logger = log.From(logger.With().Str(logUsername, log.SafeString(username)))
+	logger = log.From(logger.With().Str(logUsername, log.SafeString(user.GetUsername())).Str(logUserId, log.SafeString(user.GetId())))
 
-	session, ok, err := g.session(username, r, ctx, logger)
+	session, ok, err := g.session(user, r, ctx, logger)
 	if err != nil {
 		logger.Error().Err(err).Interface(logQuery, r.URL.Query()).Msg("failed to determine JMAP session")
 		render.Status(r, http.StatusInternalServerError)
@@ -540,12 +733,22 @@ func (g Groupware) stream(w http.ResponseWriter, r *http.Request, handler func(r
 	}
 }
 
-func (g Groupware) NotFound(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) NotFound(w http.ResponseWriter, r *http.Request) {
 	level := g.logger.Debug()
 	if level.Enabled() {
 		path := log.SafeString(r.URL.Path)
-		level.Str("path", path).Int(logErrorStatus, http.StatusNotFound).Msgf("unmatched path: '%v'", path)
+		method := log.SafeString(r.Method)
+		level.Str("path", path).Str("method", method).Int(logErrorStatus, http.StatusNotFound).Msgf("unmatched path: '%v'", path)
 	}
-	render.Status(r, http.StatusNotFound)
+	w.WriteHeader(http.StatusNotFound)
+}
+
+func (g *Groupware) MethodNotAllowed(w http.ResponseWriter, r *http.Request) {
+	level := g.logger.Debug()
+	if level.Enabled() {
+		path := log.SafeString(r.URL.Path)
+		method := log.SafeString(r.Method)
+		level.Str("path", path).Str("method", method).Int(logErrorStatus, http.StatusNotFound).Msgf("method not allowed: '%v'", method)
+	}
 	w.WriteHeader(http.StatusNotFound)
 }
