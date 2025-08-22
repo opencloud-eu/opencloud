@@ -12,7 +12,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2025-08-20 00:01+0000\n"
+"POT-Creation-Date: 2025-08-22 00:02+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Lulufox, 2025\n"
 "Language-Team: Russian (https://app.transifex.com/opencloud-eu/teams/204053/ru/)\n"
@@ -72,11 +72,11 @@ msgstr "{user} удалил(-а) ссылку на {resource}"
 
 #: pkg/service/response.go:32
 msgid "{user} removed {sharee} from {resource}"
-msgstr ""
+msgstr "{user} забрал у {sharee} доступ к {resource}"
 
 #: pkg/service/response.go:37
 msgid "{user} removed {sharee} from {space}"
-msgstr ""
+msgstr "{user} удалил {sharee} из участников {space}"
 
 #: pkg/service/response.go:29
 msgid "{user} renamed {oldResource} to {resource}"
