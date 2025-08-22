@@ -10,6 +10,7 @@ const (
 	UriParamMessageId                 = "messageid"
 	UriParamBlobId                    = "blobid"
 	UriParamBlobName                  = "blobname"
+	UriParamStreamId                  = "stream"
 	QueryParamMailboxSearchName       = "name"
 	QueryParamMailboxSearchRole       = "role"
 	QueryParamMailboxSearchSubscribed = "subscribed"
@@ -37,7 +38,9 @@ const (
 	HeaderSince                       = "if-none-match"
 )
 
-func (g Groupware) Route(r chi.Router) {
+func (g *Groupware) Route(r chi.Router) {
+	r.HandleFunc("/events/{stream}", g.ServeSSE)
+
 	r.Get("/", g.Index)
 	r.Get("/accounts", g.GetAccounts)
 	r.Route("/accounts/{accountid}", func(r chi.Router) {
@@ -57,12 +60,15 @@ func (g Groupware) Route(r chi.Router) {
 			r.Get("/{messageid}", g.GetMessagesById)
 			// r.Put("/{messageid}", g.ReplaceMessage) // TODO
 			r.Patch("/{messageid}", g.UpdateMessage)
-			r.Delete("/{messageId}", g.DeleteMessage)
+			r.Delete("/{messageid}", g.DeleteMessage)
+			r.MethodFunc("REPORT", "/{messageid}", g.AboutMessage)
 		})
 		r.Route("/blobs", func(r chi.Router) {
 			r.Get("/{blobid}", g.GetBlob)
 			r.Get("/{blobid}/{blobname}", g.DownloadBlob) // ?type=
 		})
 	})
+
 	r.NotFound(g.NotFound)
+	r.MethodNotAllowed(g.MethodNotAllowed)
 }

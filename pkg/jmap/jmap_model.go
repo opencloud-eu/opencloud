@@ -2344,6 +2344,11 @@ type Thread struct {
 	EmailIds []string
 }
 
+type ThreadGetCommand struct {
+	AccountId string   `json:"accountId"`
+	Ids       []string `json:"ids,omitempty"`
+}
+
 type ThreadGetResponse struct {
 	AccountId string
 	State     string
