@@ -38,6 +38,22 @@ func SafeStringArray(array []string) SafeLogStringArrayMarshaller {
 	return SafeLogStringArrayMarshaller{array: array}
 }
 
+type StringArrayMarshaller struct {
+	array []string
+}
+
+func (m StringArrayMarshaller) MarshalZerologArray(a *zerolog.Array) {
+	for _, elem := range m.array {
+		a.Str(elem)
+	}
+}
+
+var _ zerolog.LogArrayMarshaler = StringArrayMarshaller{}
+
+func StringArray(array []string) StringArrayMarshaller {
+	return StringArrayMarshaller{array: array}
+}
+
 func From(context zerolog.Context) *Logger {
 	return &Logger{Logger: context.Logger()}
 }

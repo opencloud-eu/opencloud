@@ -310,6 +310,10 @@ type SessionPrimaryAccounts struct {
 	Websocket        string `json:"urn:ietf:params:jmap:websocket"`
 }
 
+type SessionState string
+
+type State string
+
 type SessionResponse struct {
 	Capabilities SessionCapabilities `json:"capabilities"`
 
@@ -345,7 +349,7 @@ type SessionResponse struct {
 	// The current value is also returned on the API Response object (see Section 3.4), allowing clients to quickly
 	// determine if the session information has changed (e.g., an account has been added or removed),
 	// so they need to refetch the object.
-	State string `json:"state,omitempty"`
+	State SessionState `json:"state,omitempty"`
 }
 
 // SetError type values.
@@ -667,7 +671,7 @@ type MailboxChangesCommand struct {
 	// If supplied by the client, the value MUST be a positive integer greater than 0.
 	//
 	// If a value outside of this range is given, the server MUST reject the call with an invalidArguments error.
-	MaxChanges int `json:"maxChanges,omitzero"`
+	MaxChanges uint `json:"maxChanges,omitzero"`
 }
 
 type MailboxFilterElement interface {
@@ -962,7 +966,7 @@ type EmailQueryCommand struct {
 	//
 	// If the index is greater than or equal to the total number of objects in the results
 	// list, then the ids array in the response will be empty, but this is not an error.
-	Position int `json:"position,omitempty"`
+	Position uint `json:"position,omitempty"`
 
 	// An Email id.
 	//
@@ -990,7 +994,7 @@ type EmailQueryCommand struct {
 	// to the maximum; the new limit is returned with the response so the client is aware.
 	//
 	// If a negative value is given, the call MUST be rejected with an invalidArguments error.
-	Limit int `json:"limit,omitempty"`
+	Limit uint `json:"limit,omitempty"`
 
 	// Does the client wish to know the total number of results in the query?
 	//
@@ -1052,7 +1056,7 @@ type EmailGetCommand struct {
 	//
 	// There is no requirement for the truncated form to be a balanced tree or valid HTML (indeed, the original
 	// source may well be neither of these things).
-	MaxBodyValueBytes int `json:"maxBodyValueBytes,omitempty"`
+	MaxBodyValueBytes uint `json:"maxBodyValueBytes,omitempty"`
 }
 
 // Reference to Previous Method Results
@@ -1158,7 +1162,7 @@ type EmailGetRefCommand struct {
 	//
 	// There is no requirement for the truncated form to be a balanced tree or valid HTML (indeed, the original
 	// source may well be neither of these things).
-	MaxBodyValueBytes int `json:"maxBodyValueBytes,omitempty"`
+	MaxBodyValueBytes uint `json:"maxBodyValueBytes,omitempty"`
 }
 
 type EmailChangesCommand struct {
@@ -1176,7 +1180,7 @@ type EmailChangesCommand struct {
 	// The server MAY choose to return fewer than this value but MUST NOT return more.
 	// If not given by the client, the server may choose how many to return.
 	// If supplied by the client, the value MUST be a positive integer greater than 0.
-	MaxChanges int `json:"maxChanges,omitzero"`
+	MaxChanges uint `json:"maxChanges,omitzero"`
 }
 
 type EmailAddress struct {
@@ -1762,7 +1766,7 @@ type EmailSubmissionGetResponse struct {
 	// When a client receives a response with a different state string to a previous call,
 	// it MUST either throw away all currently cached objects for the type or call
 	// EmailSubmission/changes to get the exact changes.
-	State string `json:"state"`
+	State State `json:"state"`
 
 	// An array of the EmailSubmission objects requested.
 	//
@@ -1815,8 +1819,8 @@ type EmailSubmissionCreate struct {
 type EmailSubmissionSetCommand struct {
 	AccountId string                           `json:"accountId"`
 	Create    map[string]EmailSubmissionCreate `json:"create,omitempty"`
-	OldState  string                           `json:"oldState,omitempty"`
-	NewState  string                           `json:"newState,omitempty"`
+	OldState  State                            `json:"oldState,omitempty"`
+	NewState  State                            `json:"newState,omitempty"`
 
 	// A map of EmailSubmission id to an object containing properties to update on the Email object
 	// referenced by the EmailSubmission if the create/update/destroy succeeds.
@@ -1842,10 +1846,10 @@ type EmailSubmissionSetResponse struct {
 	AccountId string `json:"accountId"`
 
 	// This is the sinceState argument echoed back; it’s the state from which the server is returning changes.
-	OldState string `json:"oldState"`
+	OldState State `json:"oldState"`
 
 	// This is the state the client will be in after applying the set of changes to the old state.
-	NewState string `json:"newState"`
+	NewState State `json:"newState"`
 
 	// If true, the client may call EmailSubmission/changes again with the newState returned to get further
 	// updates.
@@ -1930,7 +1934,7 @@ type Response struct {
 	// Clients may use this to detect if this object has changed and needs to be refetched.
 	//
 	// [Section 2]: https://jmap.io/spec-core.html#the-jmap-session-resource
-	SessionState string `json:"sessionState"`
+	SessionState SessionState `json:"sessionState"`
 }
 
 type EmailQueryResponse struct {
@@ -1953,7 +1957,7 @@ type EmailQueryResponse struct {
 	// Should a client receive back a response with a different queryState string to a previous call, it MUST either throw away the currently
 	// cached query and fetch it again (note, this does not require fetching the records again, just the list of ids) or call
 	// Email/queryChanges to get the difference.
-	QueryState string `json:"queryState"`
+	QueryState State `json:"queryState"`
 
 	// This is true if the server supports calling Email/queryChanges with these filter/sort parameters.
 	//
@@ -1962,7 +1966,7 @@ type EmailQueryResponse struct {
 	CanCalculateChanges bool `json:"canCalculateChanges"`
 
 	// The zero-based index of the first result in the ids array within the complete list of query results.
-	Position int `json:"position"`
+	Position uint `json:"position"`
 
 	// The list of ids for each Email in the query results, starting at the index given by the position argument of this
 	// response and continuing until it hits the end of the results or reaches the limit number of ids.
@@ -1975,12 +1979,12 @@ type EmailQueryResponse struct {
 	// Only if requested.
 	//
 	// This argument MUST be omitted if the calculateTotal request argument is not true.
-	Total int `json:"total,omitempty,omitzero"`
+	Total uint `json:"total,omitempty,omitzero"`
 
 	// The limit enforced by the server on the maximum number of results to return (if set by the server).
 	//
 	// This is only returned if the server set a limit or used a different limit than that given in the request.
-	Limit int `json:"limit,omitempty,omitzero"`
+	Limit uint `json:"limit,omitempty,omitzero"`
 }
 
 type EmailGetResponse struct {
@@ -1992,7 +1996,7 @@ type EmailGetResponse struct {
 	//
 	// If the data changes, this string MUST change.
 	// If the Email data is unchanged, servers SHOULD return the same state string on subsequent requests for this data type.
-	State string `json:"state"`
+	State State `json:"state"`
 
 	// An array of the Email objects requested.
 	//
@@ -2015,10 +2019,10 @@ type EmailChangesResponse struct {
 	AccountId string `json:"accountId"`
 
 	// This is the sinceState argument echoed back; it’s the state from which the server is returning changes.
-	OldState string `json:"oldState"`
+	OldState State `json:"oldState"`
 
 	// This is the state the client will be in after applying the set of changes to the old state.
-	NewState string `json:"newState"`
+	NewState State `json:"newState"`
 
 	// If true, the client may call Email/changes again with the newState returned to get further updates.
 	// If false, newState is the current server state.
@@ -2044,7 +2048,7 @@ type MailboxGetResponse struct {
 	// If the Mailbox data is unchanged, servers SHOULD return the same state string on subsequent requests for this data type.
 	// When a client receives a response with a different state string to a previous call, it MUST either throw away all currently
 	// cached objects for the type or call Foo/changes to get the exact changes.
-	State string `json:"state"`
+	State State `json:"state"`
 
 	// An array of the Mailbox objects requested.
 	// This is the empty array if no objects were found or if the ids argument passed in was also an empty array.
@@ -2063,10 +2067,10 @@ type MailboxChangesResponse struct {
 	AccountId string `json:"accountId"`
 
 	// This is the sinceState argument echoed back; it’s the state from which the server is returning changes.
-	OldState string `json:"oldState"`
+	OldState State `json:"oldState"`
 
 	// This is the state the client will be in after applying the set of changes to the old state.
-	NewState string `json:"newState"`
+	NewState State `json:"newState"`
 
 	// If true, the client may call Mailbox/changes again with the newState returned to get further updates.
 	//
@@ -2108,7 +2112,7 @@ type MailboxQueryResponse struct {
 	// Should a client receive back a response with a different queryState string to a previous call, it MUST either
 	// throw away the currently cached query and fetch it again (note, this does not require fetching the records
 	// again, just the list of ids) or call Mailbox/queryChanges to get the difference.
-	QueryState string `json:"queryState"`
+	QueryState State `json:"queryState"`
 
 	// This is true if the server supports calling Mailbox/queryChanges with these filter/sort parameters.
 	//
@@ -2212,10 +2216,10 @@ type EmailSetResponse struct {
 	// The state string that would have been returned by Email/get before making the
 	// requested changes, or null if the server doesn’t know what the previous state
 	// string was.
-	OldState string `json:"oldState,omitempty"`
+	OldState State `json:"oldState,omitempty"`
 
 	// The state string that will now be returned by Email/get.
-	NewState string `json:"newState"`
+	NewState State `json:"newState"`
 
 	// A map of the creation id to an object containing any properties of the created Email object
 	// that were not sent by the client.
@@ -2313,10 +2317,10 @@ type EmailImportResponse struct {
 	// The state string that would have been returned by Email/get on this account
 	// before making the requested changes, or null if the server doesn’t know
 	// what the previous state string was.
-	OldState string `json:"oldState"`
+	OldState State `json:"oldState"`
 
 	// The state string that will now be returned by Email/get on this account.
-	NewState string `json:"newState"`
+	NewState State `json:"newState"`
 
 	// A map of the creation id to an object containing the id, blobId, threadId,
 	// and size properties for each successfully imported Email, or null if none.
@@ -2351,7 +2355,7 @@ type ThreadGetCommand struct {
 
 type ThreadGetResponse struct {
 	AccountId string
-	State     string
+	State     State
 	List      []Thread
 	NotFound  []any
 }
@@ -2406,7 +2410,7 @@ type Identity struct {
 
 type IdentityGetResponse struct {
 	AccountId string     `json:"accountId"`
-	State     string     `json:"state"`
+	State     State      `json:"state"`
 	List      []Identity `json:"list,omitempty"`
 	NotFound  []string   `json:"notFound,omitempty"`
 }
@@ -2467,7 +2471,7 @@ type VacationResponseGetResponse struct {
 	//
 	// If the data changes, this string MUST change. If the data is unchanged, servers SHOULD return the same state string
 	// on subsequent requests for this data type.
-	State string `json:"state,omitempty"`
+	State State `json:"state,omitempty"`
 
 	// An array of VacationResponse objects.
 	List []VacationResponse `json:"list,omitempty"`
@@ -2486,15 +2490,15 @@ type VacationResponseSetCommand struct {
 
 type VacationResponseSetResponse struct {
 	AccountId    string                      `json:"accountId"`
-	OldState     string                      `json:"oldState,omitempty"`
-	NewState     string                      `json:"newState,omitempty"`
+	OldState     State                       `json:"oldState,omitempty"`
+	NewState     State                       `json:"newState,omitempty"`
 	Created      map[string]VacationResponse `json:"created,omitempty"`
 	Updated      map[string]VacationResponse `json:"updated,omitempty"`
 	Destroyed    []string                    `json:"destroyed,omitempty"`
 	NotCreated   map[string]SetError         `json:"notCreated,omitempty"`
 	NotUpdated   map[string]SetError         `json:"notUpdated,omitempty"`
 	NotDestroyed map[string]SetError         `json:"notDestroyed,omitempty"`
-	State        string                      `json:"state,omitempty"`
+	XXXXXXState  State                       `json:"state,omitempty"`
 }
 
 // One of these attributes must be set, but not both.
@@ -2593,7 +2597,7 @@ func (b *Blob) Digest() string {
 
 type BlobGetResponse struct {
 	AccountId string `json:"accountId"`
-	State     string `json:"state,omitempty"`
+	State     State  `json:"state,omitempty"`
 	List      []Blob `json:"list,omitempty"`
 	NotFound  []any  `json:"notFound,omitempty"`
 }

@@ -42,14 +42,14 @@ func command[T any](api ApiClient,
 	logger *log.Logger,
 	ctx context.Context,
 	session *Session,
-	sessionOutdatedHandler func(session *Session, newState string),
+	sessionOutdatedHandler func(session *Session, newState SessionState),
 	request Request,
-	mapper func(body *Response) (T, Error)) (T, Error) {
+	mapper func(body *Response) (T, Error)) (T, SessionState, Error) {
 
 	responseBody, jmapErr := api.Command(ctx, logger, session, request)
 	if jmapErr != nil {
 		var zero T
-		return zero, jmapErr
+		return zero, "", jmapErr
 	}
 
 	var response Response
@@ -57,7 +57,7 @@ func command[T any](api ApiClient,
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to deserialize body JSON payload")
 		var zero T
-		return zero, SimpleError{code: JmapErrorDecodingResponseBody, err: err}
+		return zero, "", SimpleError{code: JmapErrorDecodingResponseBody, err: err}
 	}
 
 	if response.SessionState != session.State {
@@ -77,11 +77,13 @@ func command[T any](api ApiClient,
 				}
 			}
 			var zero T
-			return zero, SimpleError{code: JmapErrorMethodLevel, err: err}
+			return zero, response.SessionState, SimpleError{code: JmapErrorMethodLevel, err: err}
 		}
 	}
 
-	return mapper(&response)
+	result, jerr := mapper(&response)
+	sessionState := response.SessionState
+	return result, sessionState, jerr
 }
 
 func mapstructStringToTimeHook() mapstructure.DecodeHookFunc {

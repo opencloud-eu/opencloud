@@ -39,6 +39,7 @@ const (
 	logInvalidPathParameter  = "error-path-param"
 	logFolderId              = "folder-id"
 	logQuery                 = "query"
+	logEmailId               = "email-id"
 )
 
 type User interface {
@@ -64,8 +65,8 @@ type Groupware struct {
 	streams           map[string]time.Time
 	streamsLock       sync.Mutex
 	logger            *log.Logger
-	defaultEmailLimit int
-	maxBodyValueBytes int
+	defaultEmailLimit uint
+	maxBodyValueBytes uint
 	sessionCache      *ttlcache.Cache[string, cachedSession]
 	jmap              *jmap.Client
 	userProvider      UserProvider
@@ -95,12 +96,12 @@ type GroupwareSessionEventListener struct {
 	sessionCache *ttlcache.Cache[string, cachedSession]
 }
 
-func (l GroupwareSessionEventListener) OnSessionOutdated(session *jmap.Session, newSessionState string) {
+func (l GroupwareSessionEventListener) OnSessionOutdated(session *jmap.Session, newSessionState jmap.SessionState) {
 	// it's enough to remove the session from the cache, as it will be fetched on-demand
 	// the next time an operation is performed on behalf of the user
 	l.sessionCache.Delete(session.Username)
 
-	l.logger.Trace().Msgf("removed outdated session for user '%v': state %s -> %s", session.Username, session.State, newSessionState)
+	l.logger.Trace().Msgf("removed outdated session for user '%v': state %v -> %v", session.Username, session.State, newSessionState)
 }
 
 var _ jmap.SessionEventListener = GroupwareSessionEventListener{}
@@ -182,15 +183,16 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux) (*Gro
 			case ttlcache.EvictionReasonCapacityReached:
 				reason = "capacity reached"
 			case ttlcache.EvictionReasonExpired:
-				reason = fmt.Sprintf("expired after %vms", item.TTL().Milliseconds())
+				reason = fmt.Sprintf("expired after %v", item.TTL())
 			case ttlcache.EvictionReasonMaxCostExceeded:
 				reason = "max cost exceeded"
 			}
 			if reason == "" {
 				reason = fmt.Sprintf("unknown (%v)", r)
 			}
+			spentInCache := time.Since(item.Value().Since())
 
-			logger.Trace().Msgf("session cache eviction of user '%v': %v", item.Key(), reason)
+			logger.Trace().Msgf("session cache eviction of user '%v' after %v: %v", item.Key(), spentInCache, reason)
 		})
 	}
 
@@ -221,15 +223,6 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux) (*Gro
 		jobsChannel:       jobsChannel,
 		jobCounter:        atomic.Uint64{},
 	}
-
-	/*
-		sessionCache.OnInsertion(func(c context.Context, item *ttlcache.Item[string, cachedSession]) {
-			str := sseServer.CreateStream(item.Key())
-			if logger.Trace().Enabled() {
-				logger.Trace().Msgf("created stream %v for '%v'", log.SafeString(str.ID), log.SafeString(item.Key()))
-			}
-		})
-	*/
 
 	for w := 1; w <= workerPoolSize; w++ {
 		go g.worker(jobsChannel)
@@ -364,8 +357,8 @@ type Response struct {
 	body         any
 	status       int
 	err          *Error
-	etag         string
-	sessionState string
+	etag         jmap.State
+	sessionState jmap.SessionState
 }
 
 func errorResponse(err *Error) Response {
@@ -377,16 +370,16 @@ func errorResponse(err *Error) Response {
 	}
 }
 
-func response(body any, sessionStatus string) Response {
+func response(body any, sessionState jmap.SessionState) Response {
 	return Response{
 		body:         body,
 		err:          nil,
-		etag:         sessionStatus,
-		sessionState: sessionStatus,
+		etag:         jmap.State(sessionState),
+		sessionState: sessionState,
 	}
 }
 
-func etagResponse(body any, sessionState string, etag string) Response {
+func etagResponse(body any, sessionState jmap.SessionState, etag jmap.State) Response {
 	return Response{
 		body:         body,
 		err:          nil,
@@ -395,7 +388,7 @@ func etagResponse(body any, sessionState string, etag string) Response {
 	}
 }
 
-func etagOnlyResponse(body any, etag string) Response {
+func etagOnlyResponse(body any, etag jmap.State) Response {
 	return Response{
 		body:         body,
 		err:          nil,
@@ -404,43 +397,43 @@ func etagOnlyResponse(body any, etag string) Response {
 	}
 }
 
-func noContentResponse(sessionStatus string) Response {
+func noContentResponse(sessionState jmap.SessionState) Response {
 	return Response{
 		body:         nil,
 		status:       http.StatusNoContent,
 		err:          nil,
-		etag:         sessionStatus,
-		sessionState: sessionStatus,
+		etag:         jmap.State(sessionState),
+		sessionState: sessionState,
 	}
 }
 
-func acceptedResponse(sessionStatus string) Response {
+func acceptedResponse(sessionState jmap.SessionState) Response {
 	return Response{
 		body:         nil,
 		status:       http.StatusAccepted,
 		err:          nil,
-		etag:         sessionStatus,
-		sessionState: sessionStatus,
+		etag:         jmap.State(sessionState),
+		sessionState: sessionState,
 	}
 }
 
-func timeoutResponse(sessionStatus string) Response {
+func timeoutResponse(sessionState jmap.SessionState) Response {
 	return Response{
 		body:         nil,
 		status:       http.StatusRequestTimeout,
 		err:          nil,
 		etag:         "",
-		sessionState: sessionStatus,
+		sessionState: sessionState,
 	}
 }
 
-func notFoundResponse(sessionStatus string) Response {
+func notFoundResponse(sessionState jmap.SessionState) Response {
 	return Response{
 		body:         nil,
 		status:       http.StatusNotFound,
 		err:          nil,
-		etag:         sessionStatus,
-		sessionState: sessionStatus,
+		etag:         jmap.State(sessionState),
+		sessionState: sessionState,
 	}
 }
 
@@ -490,13 +483,40 @@ func (r Request) parseNumericParam(param string, defaultValue int) (int, bool, *
 	value, err := strconv.ParseInt(str, 10, 0)
 	if err != nil {
 		errorId := r.errorId()
-		msg := fmt.Sprintf("Invalid value for query parameter '%v': '%s': %s", param, log.SafeString(str), err.Error())
+		// don't include the original error, as it leaks too much about our implementation, e.g.:
+		// strconv.ParseInt: parsing \"a\": invalid syntax
+		msg := fmt.Sprintf("Invalid numeric value for query parameter '%v': '%s'", param, log.SafeString(str))
 		return defaultValue, true, apiError(errorId, ErrorInvalidRequestParameter,
 			withDetail(msg),
 			withSource(&ErrorSource{Parameter: param}),
 		)
 	}
 	return int(value), true, nil
+}
+
+func (r Request) parseUNumericParam(param string, defaultValue uint) (uint, bool, *Error) {
+	q := r.r.URL.Query()
+	if !q.Has(param) {
+		return defaultValue, false, nil
+	}
+
+	str := q.Get(param)
+	if str == "" {
+		return defaultValue, false, nil
+	}
+
+	value, err := strconv.ParseUint(str, 10, 0)
+	if err != nil {
+		errorId := r.errorId()
+		// don't include the original error, as it leaks too much about our implementation, e.g.:
+		// strconv.ParseInt: parsing \"a\": invalid syntax
+		msg := fmt.Sprintf("Invalid numeric value for query parameter '%v': '%s'", param, log.SafeString(str))
+		return defaultValue, true, apiError(errorId, ErrorInvalidRequestParameter,
+			withDetail(msg),
+			withSource(&ErrorSource{Parameter: param}),
+		)
+	}
+	return uint(value), true, nil
 }
 
 func (r Request) parseDateParam(param string) (time.Time, bool, *Error) {
@@ -658,22 +678,42 @@ func (g *Groupware) sendResponse(w http.ResponseWriter, r *http.Request, respons
 		return
 	}
 
+	etag := ""
+	sessionState := ""
+
 	if response.etag != "" {
-		w.Header().Add("ETag", response.etag)
-	}
-	if response.sessionState != "" {
-		if response.etag == "" {
-			w.Header().Add("ETag", response.sessionState)
-		}
-		w.Header().Add("Session-State", response.sessionState)
+		etag = string(response.etag)
 	}
 
-	switch response.body {
-	case nil, "":
-		w.WriteHeader(response.status)
-	default:
-		render.Status(r, http.StatusOK)
-		render.JSON(w, r, response.body)
+	if response.sessionState != "" {
+		sessionState = string(response.sessionState)
+		if etag == "" {
+			etag = sessionState
+		}
+	}
+
+	if sessionState != "" {
+		w.Header().Add("Session-State", string(sessionState))
+	}
+
+	notModified := false
+	if etag != "" {
+		challenge := r.Header.Get("if-none-match")
+		quotedEtag := "\"" + etag + "\""
+		notModified = challenge != "" && (challenge == etag || challenge == quotedEtag)
+		w.Header().Add("ETag", quotedEtag)
+	}
+
+	if notModified {
+		w.WriteHeader(http.StatusNotModified)
+	} else {
+		switch response.body {
+		case nil, "":
+			w.WriteHeader(response.status)
+		default:
+			render.Status(r, http.StatusOK)
+			render.JSON(w, r, response.body)
+		}
 	}
 }
 

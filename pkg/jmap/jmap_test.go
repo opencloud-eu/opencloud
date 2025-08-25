@@ -151,13 +151,15 @@ func TestRequests(t *testing.T) {
 
 	session := Session{Username: "user123", JmapUrl: *jmapUrl}
 
-	folders, err := client.GetAllMailboxes("a", &session, ctx, &logger)
+	folders, sessionState, err := client.GetAllMailboxes("a", &session, ctx, &logger)
 	require.NoError(err)
 	require.Len(folders.Mailboxes, 5)
+	require.NotEmpty(sessionState)
 
-	emails, err := client.GetAllEmails("a", &session, ctx, &logger, "Inbox", 0, 0, true, 0)
+	emails, sessionState, err := client.GetAllEmails("a", &session, ctx, &logger, "Inbox", 0, 0, true, 0)
 	require.NoError(err)
 	require.Len(emails.Emails, 3)
+	require.NotEmpty(sessionState)
 
 	{
 		email := emails.Emails[0]

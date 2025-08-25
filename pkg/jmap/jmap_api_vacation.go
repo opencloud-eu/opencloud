@@ -13,13 +13,13 @@ const (
 )
 
 // https://jmap.io/spec-mail.html#vacationresponseget
-func (j *Client) GetVacationResponse(accountId string, session *Session, ctx context.Context, logger *log.Logger) (VacationResponseGetResponse, Error) {
+func (j *Client) GetVacationResponse(accountId string, session *Session, ctx context.Context, logger *log.Logger) (VacationResponseGetResponse, SessionState, Error) {
 	aid := session.MailAccountId(accountId)
 	logger = j.logger(aid, "GetVacationResponse", session, logger)
 	cmd, err := request(invocation(CommandVacationResponseGet, VacationResponseGetCommand{AccountId: aid}, "0"))
 	if err != nil {
 		logger.Error().Err(err)
-		return VacationResponseGetResponse{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return VacationResponseGetResponse{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (VacationResponseGetResponse, Error) {
 		var response VacationResponseGetResponse
@@ -58,11 +58,10 @@ type VacationResponsePayload struct {
 
 type VacationResponseChange struct {
 	VacationResponse VacationResponse `json:"vacationResponse"`
-	ResponseState    string           `json:"state"`
-	SessionState     string           `json:"sessionState"`
+	ResponseState    State            `json:"state"`
 }
 
-func (j *Client) SetVacationResponse(accountId string, vacation VacationResponsePayload, session *Session, ctx context.Context, logger *log.Logger) (VacationResponseChange, Error) {
+func (j *Client) SetVacationResponse(accountId string, vacation VacationResponsePayload, session *Session, ctx context.Context, logger *log.Logger) (VacationResponseChange, SessionState, Error) {
 	aid := session.MailAccountId(accountId)
 	logger = j.logger(aid, "SetVacationResponse", session, logger)
 
@@ -86,7 +85,7 @@ func (j *Client) SetVacationResponse(accountId string, vacation VacationResponse
 	)
 	if err != nil {
 		logger.Error().Err(err)
-		return VacationResponseChange{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return VacationResponseChange{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (VacationResponseChange, Error) {
 		var setResponse VacationResponseSetResponse
@@ -119,7 +118,6 @@ func (j *Client) SetVacationResponse(accountId string, vacation VacationResponse
 		return VacationResponseChange{
 			VacationResponse: getResponse.List[0],
 			ResponseState:    setResponse.NewState,
-			SessionState:     body.SessionState,
 		}, nil
 	})
 }

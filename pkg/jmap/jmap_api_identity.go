@@ -10,19 +10,18 @@ import (
 )
 
 type Identities struct {
-	Identities   []Identity `json:"identities"`
-	State        string     `json:"state"`
-	SessionState string     `json:"sessionState"`
+	Identities []Identity `json:"identities"`
+	State      State      `json:"state"`
 }
 
 // https://jmap.io/spec-mail.html#identityget
-func (j *Client) GetIdentity(accountId string, session *Session, ctx context.Context, logger *log.Logger) (Identities, Error) {
+func (j *Client) GetIdentity(accountId string, session *Session, ctx context.Context, logger *log.Logger) (Identities, SessionState, Error) {
 	aid := session.MailAccountId(accountId)
 	logger = j.logger(aid, "GetIdentity", session, logger)
 	cmd, err := request(invocation(CommandIdentityGet, IdentityGetCommand{AccountId: aid}, "0"))
 	if err != nil {
 		logger.Error().Err(err)
-		return Identities{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return Identities{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (Identities, Error) {
 		var response IdentityGetResponse
@@ -32,21 +31,19 @@ func (j *Client) GetIdentity(accountId string, session *Session, ctx context.Con
 			return Identities{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 		return Identities{
-			Identities:   response.List,
-			State:        response.State,
-			SessionState: body.SessionState,
+			Identities: response.List,
+			State:      response.State,
 		}, nil
 	})
 }
 
 type IdentitiesGetResponse struct {
-	Identities   map[string][]Identity `json:"identities,omitempty"`
-	NotFound     []string              `json:"notFound,omitempty"`
-	State        string                `json:"state"`
-	SessionState string                `json:"sessionState"`
+	Identities map[string][]Identity `json:"identities,omitempty"`
+	NotFound   []string              `json:"notFound,omitempty"`
+	State      State                 `json:"state"`
 }
 
-func (j *Client) GetIdentities(accountIds []string, session *Session, ctx context.Context, logger *log.Logger) (IdentitiesGetResponse, Error) {
+func (j *Client) GetIdentities(accountIds []string, session *Session, ctx context.Context, logger *log.Logger) (IdentitiesGetResponse, SessionState, Error) {
 	uniqueAccountIds := structs.Uniq(accountIds)
 
 	logger = j.loggerParams("", "GetIdentities", session, logger, func(l zerolog.Context) zerolog.Context {
@@ -61,11 +58,11 @@ func (j *Client) GetIdentities(accountIds []string, session *Session, ctx contex
 	cmd, err := request(calls...)
 	if err != nil {
 		logger.Error().Err(err)
-		return IdentitiesGetResponse{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return IdentitiesGetResponse{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (IdentitiesGetResponse, Error) {
 		identities := make(map[string][]Identity, len(uniqueAccountIds))
-		lastState := ""
+		var lastState State
 		notFound := []string{}
 		for i, accountId := range uniqueAccountIds {
 			var response IdentityGetResponse
@@ -81,23 +78,21 @@ func (j *Client) GetIdentities(accountIds []string, session *Session, ctx contex
 		}
 
 		return IdentitiesGetResponse{
-			Identities:   identities,
-			NotFound:     structs.Uniq(notFound),
-			State:        lastState,
-			SessionState: body.SessionState,
+			Identities: identities,
+			NotFound:   structs.Uniq(notFound),
+			State:      lastState,
 		}, nil
 	})
 }
 
 type IdentitiesAndMailboxesGetResponse struct {
-	Identities   map[string][]Identity `json:"identities,omitempty"`
-	NotFound     []string              `json:"notFound,omitempty"`
-	State        string                `json:"state"`
-	SessionState string                `json:"sessionState"`
-	Mailboxes    []Mailbox             `json:"mailboxes"`
+	Identities map[string][]Identity `json:"identities,omitempty"`
+	NotFound   []string              `json:"notFound,omitempty"`
+	State      State                 `json:"state"`
+	Mailboxes  []Mailbox             `json:"mailboxes"`
 }
 
-func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId string, accountIds []string, session *Session, ctx context.Context, logger *log.Logger) (IdentitiesAndMailboxesGetResponse, Error) {
+func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId string, accountIds []string, session *Session, ctx context.Context, logger *log.Logger) (IdentitiesAndMailboxesGetResponse, SessionState, Error) {
 	uniqueAccountIds := structs.Uniq(accountIds)
 
 	logger = j.loggerParams("", "GetIdentitiesAndMailboxes", session, logger, func(l zerolog.Context) zerolog.Context {
@@ -113,11 +108,11 @@ func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId string, accountIds [
 	cmd, err := request(calls...)
 	if err != nil {
 		logger.Error().Err(err)
-		return IdentitiesAndMailboxesGetResponse{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return IdentitiesAndMailboxesGetResponse{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (IdentitiesAndMailboxesGetResponse, Error) {
 		identities := make(map[string][]Identity, len(uniqueAccountIds))
-		lastState := ""
+		var lastState State
 		notFound := []string{}
 		for i, accountId := range uniqueAccountIds {
 			var response IdentityGetResponse
@@ -140,11 +135,10 @@ func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId string, accountIds [
 		}
 
 		return IdentitiesAndMailboxesGetResponse{
-			Identities:   identities,
-			NotFound:     structs.Uniq(notFound),
-			State:        lastState,
-			SessionState: body.SessionState,
-			Mailboxes:    mailboxResponse.List,
+			Identities: identities,
+			NotFound:   structs.Uniq(notFound),
+			State:      lastState,
+			Mailboxes:  mailboxResponse.List,
 		}, nil
 	})
 }

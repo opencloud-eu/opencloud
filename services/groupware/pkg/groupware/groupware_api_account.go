@@ -59,7 +59,7 @@ func (g *Groupware) GetAccountBootstrap(w http.ResponseWriter, r *http.Request) 
 		mailAccountId := req.GetAccountId()
 		accountIds := structs.Keys(req.session.Accounts)
 
-		resp, jerr := g.jmap.GetIdentitiesAndMailboxes(mailAccountId, accountIds, req.session, req.ctx, req.logger)
+		resp, sessionState, jerr := g.jmap.GetIdentitiesAndMailboxes(mailAccountId, accountIds, req.session, req.ctx, req.logger)
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
@@ -73,6 +73,6 @@ func (g *Groupware) GetAccountBootstrap(w http.ResponseWriter, r *http.Request) 
 			Mailboxes: map[string][]jmap.Mailbox{
 				mailAccountId: resp.Mailboxes,
 			},
-		}, resp.SessionState)
+		}, sessionState)
 	})
 }
