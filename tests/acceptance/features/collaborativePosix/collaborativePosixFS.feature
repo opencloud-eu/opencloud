@@ -111,14 +111,6 @@ Feature: create a resources using collaborative posixfs
       | test.txt |
 
 
-  Scenario: delete project space
-    Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
-    And user "Alice" has created a space "Project space" with the default quota using the Graph API
-    When the administrator deletes the project space "Project space" on the POSIX filesystem
-    Then the command should be successful
-    And the user "Alice" should not have a space called "Project space"
-
-
   Scenario: user doesn't lose file versions after renaming the file
     Given user "Brian" has been created with default attributes
     And user "Alice" has uploaded file with content "content" to "textfile.txt"

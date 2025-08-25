@@ -103,7 +103,6 @@ type Drivers struct {
 	OwnCloudSQL  OwnCloudSQLDriver  `yaml:"owncloudsql"`
 	Posix        PosixDriver        `yaml:"posix"`
 
-	S3    S3Driver    `yaml:",omitempty"` // not supported by the OpenCloud product, therefore not part of docs
 	EOS   EOSDriver   `yaml:",omitempty"` // not supported by the OpenCloud product, therefore not part of docs
 	Local LocalDriver `yaml:",omitempty"` // not supported by the OpenCloud product, therefore not part of docs
 }
@@ -254,17 +253,6 @@ type IDCache struct {
 	DisablePersistence bool          `yaml:"disable_persistence" env:"OC_CACHE_DISABLE_PERSISTENCE;STORAGE_USERS_ID_CACHE_DISABLE_PERSISTENCE" desc:"Disables persistence of the cache. Only applies when store type 'nats-js-kv' is configured. Defaults to false." introductionVersion:"1.0.0"`
 	AuthUsername       string        `yaml:"username" env:"OC_CACHE_AUTH_USERNAME;STORAGE_USERS_ID_CACHE_AUTH_USERNAME" desc:"The username to authenticate with the cache store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
 	AuthPassword       string        `yaml:"password" env:"OC_CACHE_AUTH_PASSWORD;STORAGE_USERS_ID_CACHE_AUTH_PASSWORD" desc:"The password to authenticate with the cache store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
-}
-
-// S3Driver is the storage driver configuration when using 's3' storage driver
-type S3Driver struct {
-	// Root is the absolute path to the location of the data
-	Root      string `yaml:"root"`
-	Region    string `yaml:"region"`
-	AccessKey string `yaml:"access_key"`
-	SecretKey string `yaml:"secret_key"`
-	Endpoint  string `yaml:"endpoint"`
-	Bucket    string `yaml:"bucket"`
 }
 
 // EOSDriver is the storage driver configuration when using 'eos' storage driver

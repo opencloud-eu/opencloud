@@ -19,12 +19,22 @@ func cephBufferFree(p unsafe.Pointer) {
 }
 
 // MdsCommand sends commands to the specified MDS.
+//
+// The args parameter takes a slice of byte slices but typically a single
+// slice element is sufficient. The use of two slices exists to best match
+// the structure of the underlying C call which is often a legacy interface
+// in Ceph.
 func (mount *MountInfo) MdsCommand(mdsSpec string, args [][]byte) ([]byte, string, error) {
 	return mount.mdsCommand(mdsSpec, args, nil)
 }
 
 // MdsCommandWithInputBuffer sends commands to the specified MDS, with an input
 // buffer.
+//
+// The args parameter takes a slice of byte slices but typically a single
+// slice element is sufficient. The use of two slices exists to best match
+// the structure of the underlying C call which is often a legacy interface
+// in Ceph.
 func (mount *MountInfo) MdsCommandWithInputBuffer(mdsSpec string, args [][]byte, inputBuffer []byte) ([]byte, string, error) {
 	return mount.mdsCommand(mdsSpec, args, inputBuffer)
 }

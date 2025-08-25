@@ -14,7 +14,6 @@ func StorageProviderDrivers(cfg *config.Config) map[string]interface{} {
 		"localhome":    LocalHome(cfg),
 		"owncloudsql":  OwnCloudSQL(cfg),
 		"decomposed":   DecomposedNoEvents(cfg),
-		"s3":           S3(cfg),
 		"decomposeds3": DecomposedS3NoEvents(cfg),
 		"posix":        Posix(cfg, true, cfg.Drivers.Posix.WatchFS),
 
@@ -34,7 +33,6 @@ func DataProviderDrivers(cfg *config.Config) map[string]interface{} {
 		"localhome":    LocalHome(cfg),
 		"owncloudsql":  OwnCloudSQL(cfg),
 		"decomposed":   Decomposed(cfg),
-		"s3":           S3(cfg),
 		"decomposeds3": DecomposedS3(cfg),
 		"posix":        Posix(cfg, false, false),
 
