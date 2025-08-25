@@ -12,9 +12,11 @@ type cachedSession interface {
 	Success() bool
 	Get() jmap.Session
 	Error() error
+	Since() time.Time
 }
 
 type succeededSession struct {
+	since   time.Time
 	session jmap.Session
 }
 
@@ -27,11 +29,15 @@ func (s succeededSession) Get() jmap.Session {
 func (s succeededSession) Error() error {
 	return nil
 }
+func (s succeededSession) Since() time.Time {
+	return s.since
+}
 
 var _ cachedSession = succeededSession{}
 
 type failedSession struct {
-	err error
+	since time.Time
+	err   error
 }
 
 func (s failedSession) Success() bool {
@@ -42,6 +48,9 @@ func (s failedSession) Get() jmap.Session {
 }
 func (s failedSession) Error() error {
 	return s.err
+}
+func (s failedSession) Since() time.Time {
+	return s.since
 }
 
 var _ cachedSession = failedSession{}

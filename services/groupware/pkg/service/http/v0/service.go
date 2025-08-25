@@ -1,11 +1,13 @@
 package svc
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/riandyrn/otelchi"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/groupware"
 )
@@ -38,10 +40,17 @@ func NewService(opts ...Option) (Service, error) {
 
 	m.Route(options.Config.HTTP.Root, gw.Route)
 
-	_ = chi.Walk(m, func(method string, route string, _ http.Handler, middlewares ...func(http.Handler) http.Handler) error {
-		options.Logger.Debug().Str("method", method).Str("route", route).Int("middlewares", len(middlewares)).Msg("serving endpoint")
-		return nil
-	})
+	{
+		level := options.Logger.Debug()
+		if level.Enabled() {
+			routes := []string{}
+			_ = chi.Walk(m, func(method string, route string, _ http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+				routes = append(routes, fmt.Sprintf("%s %s", method, route))
+				return nil
+			})
+			level.Array("routes", log.StringArray(routes)).Msgf("serving %v endpoints", len(routes))
+		}
+	}
 
 	return gw, nil
 }

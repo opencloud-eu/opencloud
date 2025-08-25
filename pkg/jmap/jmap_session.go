@@ -8,7 +8,7 @@ import (
 )
 
 type SessionEventListener interface {
-	OnSessionOutdated(session *Session, newSessionState string)
+	OnSessionOutdated(session *Session, newSessionState SessionState)
 }
 
 // Cached user related information
@@ -115,5 +115,5 @@ func (s Session) DecorateLogger(l log.Logger) *log.Logger {
 	return log.From(l.With().
 		Str(logUsername, s.Username).
 		Str(logApiUrl, s.ApiUrl).
-		Str(logSessionState, s.State))
+		Str(logSessionState, string(s.State)))
 }

@@ -41,8 +41,8 @@ type Mail struct {
 	Master                MailMasterAuth   `yaml:"master"`
 	BaseUrl               string           `yaml:"base_url" env:"GROUPWARE_JMAP_BASE_URL"`
 	Timeout               time.Duration    `yaml:"timeout" env:"GROUPWARE_JMAP_TIMEOUT"`
-	DefaultEmailLimit     int              `yaml:"default_email_limit" env:"GROUPWARE_DEFAULT_EMAIL_LIMIT"`
-	MaxBodyValueBytes     int              `yaml:"max_body_value_bytes" env:"GROUPWARE_MAX_BODY_VALUE_BYTES"`
+	DefaultEmailLimit     uint             `yaml:"default_email_limit" env:"GROUPWARE_DEFAULT_EMAIL_LIMIT"`
+	MaxBodyValueBytes     uint             `yaml:"max_body_value_bytes" env:"GROUPWARE_MAX_BODY_VALUE_BYTES"`
 	ResponseHeaderTimeout time.Duration    `yaml:"response_header_timeout" env:"GROUPWARE_RESPONSE_HEADER_TIMEOUT"`
 	SessionCache          MailSessionCache `yaml:"session_cache"`
 }

@@ -148,11 +148,11 @@ type SwaggerIndexResponse struct {
 // responses:
 //
 //	200: IndexResponse
-func (g Groupware) Index(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) Index(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountIds := structs.Keys(req.session.Accounts)
 
-		identitiesResponse, err := g.jmap.GetIdentities(accountIds, req.session, req.ctx, req.logger)
+		identitiesResponse, sessionState, err := g.jmap.GetIdentities(accountIds, req.session, req.ctx, req.logger)
 		if err != nil {
 			return req.errorResponseFromJmap(err)
 		}
@@ -163,7 +163,7 @@ func (g Groupware) Index(w http.ResponseWriter, r *http.Request) {
 			Limits:          buildIndexLimits(req.session),
 			Accounts:        buildIndexAccount(req.session, identitiesResponse.Identities),
 			PrimaryAccounts: buildIndexPrimaryAccounts(req.session),
-		}, req.session.State)
+		}, sessionState)
 	})
 }
 
