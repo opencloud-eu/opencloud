@@ -11,3 +11,9 @@ const (
 var Capabilities = []string{
 	CapMail_1,
 }
+
+const (
+	RelationEntityEmail    = "email"
+	RelationTypeSameThread = "same-thread"
+	RelationTypeSameSender = "same-sender"
+)

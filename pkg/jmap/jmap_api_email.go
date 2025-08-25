@@ -23,27 +23,26 @@ const (
 )
 
 type Emails struct {
-	Emails       []Email `json:"emails,omitempty"`
-	Total        int     `json:"total,omitzero"`
-	Limit        int     `json:"limit,omitzero"`
-	Offset       int     `json:"offset,omitzero"`
-	State        string  `json:"state,omitempty"`
-	SessionState string  `json:"sessionState"`
+	Emails []Email `json:"emails,omitempty"`
+	Total  uint    `json:"total,omitzero"`
+	Limit  uint    `json:"limit,omitzero"`
+	Offset uint    `json:"offset,omitzero"`
+	State  State   `json:"state,omitempty"`
 }
 
-func (j *Client) GetEmails(accountId string, session *Session, ctx context.Context, logger *log.Logger, ids []string, fetchBodies bool, maxBodyValueBytes int) (Emails, Error) {
+func (j *Client) GetEmails(accountId string, session *Session, ctx context.Context, logger *log.Logger, ids []string, fetchBodies bool, maxBodyValueBytes uint) (Emails, SessionState, Error) {
 	aid := session.MailAccountId(accountId)
 	logger = j.logger(aid, "GetEmails", session, logger)
 
 	get := EmailGetCommand{AccountId: aid, Ids: ids, FetchAllBodyValues: fetchBodies}
-	if maxBodyValueBytes >= 0 {
+	if maxBodyValueBytes > 0 {
 		get.MaxBodyValueBytes = maxBodyValueBytes
 	}
 
 	cmd, err := request(invocation(CommandEmailGet, get, "0"))
 	if err != nil {
 		logger.Error().Err(err)
-		return Emails{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return Emails{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (Emails, Error) {
 		var response EmailGetResponse
@@ -52,14 +51,14 @@ func (j *Client) GetEmails(accountId string, session *Session, ctx context.Conte
 			logger.Error().Err(err)
 			return Emails{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
-		return Emails{Emails: response.List, State: response.State, SessionState: body.SessionState}, nil
+		return Emails{Emails: response.List, State: response.State}, nil
 	})
 }
 
-func (j *Client) GetAllEmails(accountId string, session *Session, ctx context.Context, logger *log.Logger, mailboxId string, offset int, limit int, fetchBodies bool, maxBodyValueBytes int) (Emails, Error) {
+func (j *Client) GetAllEmails(accountId string, session *Session, ctx context.Context, logger *log.Logger, mailboxId string, offset uint, limit uint, fetchBodies bool, maxBodyValueBytes uint) (Emails, SessionState, Error) {
 	aid := session.MailAccountId(accountId)
 	logger = j.loggerParams(aid, "GetAllEmails", session, logger, func(z zerolog.Context) zerolog.Context {
-		return z.Bool(logFetchBodies, fetchBodies).Int(logOffset, offset).Int(logLimit, limit)
+		return z.Bool(logFetchBodies, fetchBodies).Uint(logOffset, offset).Uint(logLimit, limit)
 	})
 
 	query := EmailQueryCommand{
@@ -69,10 +68,10 @@ func (j *Client) GetAllEmails(accountId string, session *Session, ctx context.Co
 		CollapseThreads: true,
 		CalculateTotal:  true,
 	}
-	if offset >= 0 {
+	if offset > 0 {
 		query.Position = offset
 	}
-	if limit >= 0 {
+	if limit > 0 {
 		query.Limit = limit
 	}
 
@@ -81,7 +80,7 @@ func (j *Client) GetAllEmails(accountId string, session *Session, ctx context.Co
 		FetchAllBodyValues: fetchBodies,
 		IdRef:              &ResultReference{Name: CommandEmailQuery, Path: "/ids/*", ResultOf: "0"},
 	}
-	if maxBodyValueBytes >= 0 {
+	if maxBodyValueBytes > 0 {
 		get.MaxBodyValueBytes = maxBodyValueBytes
 	}
 
@@ -91,7 +90,7 @@ func (j *Client) GetAllEmails(accountId string, session *Session, ctx context.Co
 	)
 	if err != nil {
 		logger.Error().Err(err)
-		return Emails{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return Emails{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (Emails, Error) {
@@ -109,12 +108,11 @@ func (j *Client) GetAllEmails(accountId string, session *Session, ctx context.Co
 		}
 
 		return Emails{
-			Emails:       getResponse.List,
-			Total:        queryResponse.Total,
-			Limit:        queryResponse.Limit,
-			Offset:       queryResponse.Position,
-			SessionState: body.SessionState,
-			State:        getResponse.State,
+			Emails: getResponse.List,
+			Total:  queryResponse.Total,
+			Limit:  queryResponse.Limit,
+			Offset: queryResponse.Position,
+			State:  getResponse.State,
 		}, nil
 	})
 }
@@ -122,14 +120,13 @@ func (j *Client) GetAllEmails(accountId string, session *Session, ctx context.Co
 type EmailsSince struct {
 	Destroyed      []string `json:"destroyed,omitzero"`
 	HasMoreChanges bool     `json:"hasMoreChanges,omitzero"`
-	NewState       string   `json:"newState"`
+	NewState       State    `json:"newState"`
 	Created        []Email  `json:"created,omitempty"`
 	Updated        []Email  `json:"updated,omitempty"`
-	State          string   `json:"state,omitempty"`
-	SessionState   string   `json:"sessionState"`
+	State          State    `json:"state,omitempty"`
 }
 
-func (j *Client) GetEmailsInMailboxSince(accountId string, session *Session, ctx context.Context, logger *log.Logger, mailboxId string, since string, fetchBodies bool, maxBodyValueBytes int, maxChanges int) (EmailsSince, Error) {
+func (j *Client) GetEmailsInMailboxSince(accountId string, session *Session, ctx context.Context, logger *log.Logger, mailboxId string, since string, fetchBodies bool, maxBodyValueBytes uint, maxChanges uint) (EmailsSince, SessionState, Error) {
 	aid := session.MailAccountId(accountId)
 	logger = j.loggerParams(aid, "GetEmailsInMailboxSince", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Str(logSince, since)
@@ -139,7 +136,7 @@ func (j *Client) GetEmailsInMailboxSince(accountId string, session *Session, ctx
 		AccountId:  aid,
 		SinceState: since,
 	}
-	if maxChanges >= 0 {
+	if maxChanges > 0 {
 		changes.MaxChanges = maxChanges
 	}
 
@@ -148,7 +145,7 @@ func (j *Client) GetEmailsInMailboxSince(accountId string, session *Session, ctx
 		FetchAllBodyValues: fetchBodies,
 		IdRef:              &ResultReference{Name: CommandMailboxChanges, Path: "/created", ResultOf: "0"},
 	}
-	if maxBodyValueBytes >= 0 {
+	if maxBodyValueBytes > 0 {
 		getCreated.MaxBodyValueBytes = maxBodyValueBytes
 	}
 	getUpdated := EmailGetRefCommand{
@@ -156,7 +153,7 @@ func (j *Client) GetEmailsInMailboxSince(accountId string, session *Session, ctx
 		FetchAllBodyValues: fetchBodies,
 		IdRef:              &ResultReference{Name: CommandMailboxChanges, Path: "/updated", ResultOf: "0"},
 	}
-	if maxBodyValueBytes >= 0 {
+	if maxBodyValueBytes > 0 {
 		getUpdated.MaxBodyValueBytes = maxBodyValueBytes
 	}
 
@@ -167,7 +164,7 @@ func (j *Client) GetEmailsInMailboxSince(accountId string, session *Session, ctx
 	)
 	if err != nil {
 		logger.Error().Err(err)
-		return EmailsSince{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return EmailsSince{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (EmailsSince, Error) {
@@ -199,12 +196,11 @@ func (j *Client) GetEmailsInMailboxSince(accountId string, session *Session, ctx
 			Created:        createdResponse.List,
 			Updated:        createdResponse.List,
 			State:          createdResponse.State,
-			SessionState:   body.SessionState,
 		}, nil
 	})
 }
 
-func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.Context, logger *log.Logger, since string, fetchBodies bool, maxBodyValueBytes int, maxChanges int) (EmailsSince, Error) {
+func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.Context, logger *log.Logger, since string, fetchBodies bool, maxBodyValueBytes uint, maxChanges uint) (EmailsSince, SessionState, Error) {
 	aid := session.MailAccountId(accountId)
 	logger = j.loggerParams(aid, "GetEmailsSince", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Str(logSince, since)
@@ -214,7 +210,7 @@ func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.
 		AccountId:  aid,
 		SinceState: since,
 	}
-	if maxChanges >= 0 {
+	if maxChanges > 0 {
 		changes.MaxChanges = maxChanges
 	}
 
@@ -223,7 +219,7 @@ func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.
 		FetchAllBodyValues: fetchBodies,
 		IdRef:              &ResultReference{Name: CommandEmailChanges, Path: "/created", ResultOf: "0"},
 	}
-	if maxBodyValueBytes >= 0 {
+	if maxBodyValueBytes > 0 {
 		getCreated.MaxBodyValueBytes = maxBodyValueBytes
 	}
 	getUpdated := EmailGetRefCommand{
@@ -231,7 +227,7 @@ func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.
 		FetchAllBodyValues: fetchBodies,
 		IdRef:              &ResultReference{Name: CommandEmailChanges, Path: "/updated", ResultOf: "0"},
 	}
-	if maxBodyValueBytes >= 0 {
+	if maxBodyValueBytes > 0 {
 		getUpdated.MaxBodyValueBytes = maxBodyValueBytes
 	}
 
@@ -241,7 +237,7 @@ func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.
 		invocation(CommandEmailGet, getUpdated, "2"),
 	)
 	if err != nil {
-		return EmailsSince{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return EmailsSince{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (EmailsSince, Error) {
@@ -273,24 +269,22 @@ func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.
 			Created:        createdResponse.List,
 			Updated:        createdResponse.List,
 			State:          updatedResponse.State,
-			SessionState:   body.SessionState,
 		}, nil
 	})
 }
 
 type EmailSnippetQueryResult struct {
-	Snippets     []SearchSnippet `json:"snippets,omitempty"`
-	QueryState   string          `json:"queryState"`
-	Total        int             `json:"total"`
-	Limit        int             `json:"limit,omitzero"`
-	Position     int             `json:"position,omitzero"`
-	SessionState string          `json:"sessionState,omitempty"`
+	Snippets   []SearchSnippet `json:"snippets,omitempty"`
+	Total      uint            `json:"total"`
+	Limit      uint            `json:"limit,omitzero"`
+	Position   uint            `json:"position,omitzero"`
+	QueryState State           `json:"queryState"`
 }
 
-func (j *Client) QueryEmailSnippets(accountId string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, offset int, limit int) (EmailSnippetQueryResult, Error) {
+func (j *Client) QueryEmailSnippets(accountId string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, offset uint, limit uint) (EmailSnippetQueryResult, SessionState, Error) {
 	aid := session.MailAccountId(accountId)
 	logger = j.loggerParams(aid, "QueryEmails", session, logger, func(z zerolog.Context) zerolog.Context {
-		return z.Int(logLimit, limit).Int(logOffset, offset)
+		return z.Uint(logLimit, limit).Uint(logOffset, offset)
 	})
 
 	query := EmailQueryCommand{
@@ -300,10 +294,10 @@ func (j *Client) QueryEmailSnippets(accountId string, filter EmailFilterElement,
 		CollapseThreads: true,
 		CalculateTotal:  true,
 	}
-	if offset >= 0 {
+	if offset > 0 {
 		query.Position = offset
 	}
-	if limit >= 0 {
+	if limit > 0 {
 		query.Limit = limit
 	}
 
@@ -324,7 +318,7 @@ func (j *Client) QueryEmailSnippets(accountId string, filter EmailFilterElement,
 
 	if err != nil {
 		logger.Error().Err(err)
-		return EmailSnippetQueryResult{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return EmailSnippetQueryResult{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (EmailSnippetQueryResult, Error) {
@@ -343,27 +337,25 @@ func (j *Client) QueryEmailSnippets(accountId string, filter EmailFilterElement,
 		}
 
 		return EmailSnippetQueryResult{
-			Snippets:     snippetResponse.List,
-			Total:        queryResponse.Total,
-			Limit:        queryResponse.Limit,
-			Position:     queryResponse.Position,
-			QueryState:   queryResponse.QueryState,
-			SessionState: body.SessionState,
+			Snippets:   snippetResponse.List,
+			Total:      queryResponse.Total,
+			Limit:      queryResponse.Limit,
+			Position:   queryResponse.Position,
+			QueryState: queryResponse.QueryState,
 		}, nil
 	})
 
 }
 
 type EmailQueryResult struct {
-	Results      []Email `json:"results"`
-	Total        int     `json:"total"`
-	Limit        int     `json:"limit,omitzero"`
-	Position     int     `json:"position,omitzero"`
-	QueryState   string  `json:"queryState"`
-	SessionState string  `json:"sessionState,omitempty"`
+	Emails     []Email `json:"emails"`
+	Total      uint    `json:"total"`
+	Limit      uint    `json:"limit,omitzero"`
+	Position   uint    `json:"position,omitzero"`
+	QueryState State   `json:"queryState"`
 }
 
-func (j *Client) QueryEmails(accountId string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, offset int, limit int, fetchBodies bool, maxBodyValueBytes int) (EmailQueryResult, Error) {
+func (j *Client) QueryEmails(accountId string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, offset uint, limit uint, fetchBodies bool, maxBodyValueBytes uint) (EmailQueryResult, SessionState, Error) {
 	aid := session.MailAccountId(accountId)
 	logger = j.loggerParams(aid, "QueryEmails", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies)
@@ -376,10 +368,10 @@ func (j *Client) QueryEmails(accountId string, filter EmailFilterElement, sessio
 		CollapseThreads: true,
 		CalculateTotal:  true,
 	}
-	if offset >= 0 {
+	if offset > 0 {
 		query.Position = offset
 	}
-	if limit >= 0 {
+	if limit > 0 {
 		query.Limit = limit
 	}
 
@@ -401,7 +393,7 @@ func (j *Client) QueryEmails(accountId string, filter EmailFilterElement, sessio
 
 	if err != nil {
 		logger.Error().Err(err)
-		return EmailQueryResult{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return EmailQueryResult{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (EmailQueryResult, Error) {
@@ -418,12 +410,11 @@ func (j *Client) QueryEmails(accountId string, filter EmailFilterElement, sessio
 		}
 
 		return EmailQueryResult{
-			Results:      emailsResponse.List,
-			Total:        queryResponse.Total,
-			Limit:        queryResponse.Limit,
-			Position:     queryResponse.Position,
-			QueryState:   queryResponse.QueryState,
-			SessionState: body.SessionState,
+			Emails:     emailsResponse.List,
+			Total:      queryResponse.Total,
+			Limit:      queryResponse.Limit,
+			Position:   queryResponse.Position,
+			QueryState: queryResponse.QueryState,
 		}, nil
 	})
 
@@ -435,15 +426,14 @@ type EmailWithSnippets struct {
 }
 
 type EmailQueryWithSnippetsResult struct {
-	Results      []EmailWithSnippets `json:"results"`
-	Total        int                 `json:"total"`
-	Limit        int                 `json:"limit,omitzero"`
-	Position     int                 `json:"position,omitzero"`
-	QueryState   string              `json:"queryState"`
-	SessionState string              `json:"sessionState,omitempty"`
+	Results    []EmailWithSnippets `json:"results"`
+	Total      uint                `json:"total"`
+	Limit      uint                `json:"limit,omitzero"`
+	Position   uint                `json:"position,omitzero"`
+	QueryState State               `json:"queryState"`
 }
 
-func (j *Client) QueryEmailsWithSnippets(accountId string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, offset int, limit int, fetchBodies bool, maxBodyValueBytes int) (EmailQueryWithSnippetsResult, Error) {
+func (j *Client) QueryEmailsWithSnippets(accountId string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, offset uint, limit uint, fetchBodies bool, maxBodyValueBytes uint) (EmailQueryWithSnippetsResult, SessionState, Error) {
 	aid := session.MailAccountId(accountId)
 	logger = j.loggerParams(aid, "QueryEmailsWithSnippets", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies)
@@ -456,10 +446,10 @@ func (j *Client) QueryEmailsWithSnippets(accountId string, filter EmailFilterEle
 		CollapseThreads: true,
 		CalculateTotal:  true,
 	}
-	if offset >= 0 {
+	if offset > 0 {
 		query.Position = offset
 	}
-	if limit >= 0 {
+	if limit > 0 {
 		query.Limit = limit
 	}
 
@@ -492,7 +482,7 @@ func (j *Client) QueryEmailsWithSnippets(accountId string, filter EmailFilterEle
 
 	if err != nil {
 		logger.Error().Err(err)
-		return EmailQueryWithSnippetsResult{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return EmailQueryWithSnippetsResult{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (EmailQueryWithSnippetsResult, Error) {
@@ -536,26 +526,24 @@ func (j *Client) QueryEmailsWithSnippets(accountId string, filter EmailFilterEle
 		}
 
 		return EmailQueryWithSnippetsResult{
-			Results:      results,
-			Total:        queryResponse.Total,
-			Limit:        queryResponse.Limit,
-			Position:     queryResponse.Position,
-			QueryState:   queryResponse.QueryState,
-			SessionState: body.SessionState,
+			Results:    results,
+			Total:      queryResponse.Total,
+			Limit:      queryResponse.Limit,
+			Position:   queryResponse.Position,
+			QueryState: queryResponse.QueryState,
 		}, nil
 	})
 
 }
 
 type UploadedEmail struct {
-	Id           string `json:"id"`
-	Size         int    `json:"size"`
-	Type         string `json:"type"`
-	Sha512       string `json:"sha:512"`
-	SessionState string `json:"sessionState"`
+	Id     string `json:"id"`
+	Size   int    `json:"size"`
+	Type   string `json:"type"`
+	Sha512 string `json:"sha:512"`
 }
 
-func (j *Client) ImportEmail(accountId string, session *Session, ctx context.Context, logger *log.Logger, data []byte) (UploadedEmail, Error) {
+func (j *Client) ImportEmail(accountId string, session *Session, ctx context.Context, logger *log.Logger, data []byte) (UploadedEmail, SessionState, Error) {
 	aid := session.MailAccountId(accountId)
 
 	encoded := base64.StdEncoding.EncodeToString(data)
@@ -587,7 +575,7 @@ func (j *Client) ImportEmail(accountId string, session *Session, ctx context.Con
 		invocation(CommandBlobGet, getHash, "1"),
 	)
 	if err != nil {
-		return UploadedEmail{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return UploadedEmail{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (UploadedEmail, Error) {
@@ -622,23 +610,21 @@ func (j *Client) ImportEmail(accountId string, session *Session, ctx context.Con
 		get := getResponse.List[0]
 
 		return UploadedEmail{
-			Id:           upload.Id,
-			Size:         upload.Size,
-			Type:         upload.Type,
-			Sha512:       get.DigestSha512,
-			SessionState: body.SessionState,
+			Id:     upload.Id,
+			Size:   upload.Size,
+			Type:   upload.Type,
+			Sha512: get.DigestSha512,
 		}, nil
 	})
 
 }
 
 type CreatedEmail struct {
-	Email        Email  `json:"email"`
-	State        string `json:"state"`
-	SessionState string `json:"sessionState"`
+	Email Email `json:"email"`
+	State State `json:"state"`
 }
 
-func (j *Client) CreateEmail(accountId string, email EmailCreate, session *Session, ctx context.Context, logger *log.Logger) (CreatedEmail, Error) {
+func (j *Client) CreateEmail(accountId string, email EmailCreate, session *Session, ctx context.Context, logger *log.Logger) (CreatedEmail, SessionState, Error) {
 	aid := session.MailAccountId(accountId)
 
 	cmd, err := request(
@@ -651,7 +637,7 @@ func (j *Client) CreateEmail(accountId string, email EmailCreate, session *Sessi
 	)
 	if err != nil {
 		logger.Error().Err(err)
-		return CreatedEmail{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return CreatedEmail{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (CreatedEmail, Error) {
@@ -681,17 +667,15 @@ func (j *Client) CreateEmail(accountId string, email EmailCreate, session *Sessi
 		}
 
 		return CreatedEmail{
-			Email:        created,
-			State:        setResponse.NewState,
-			SessionState: body.SessionState,
+			Email: created,
+			State: setResponse.NewState,
 		}, nil
 	})
 }
 
 type UpdatedEmails struct {
-	Updated      map[string]Email `json:"email"`
-	State        string           `json:"state"`
-	SessionState string           `json:"sessionState"`
+	Updated map[string]Email `json:"email"`
+	State   State            `json:"state"`
 }
 
 // The Email/set method encompasses:
@@ -702,7 +686,7 @@ type UpdatedEmails struct {
 // To create drafts, use the CreateEmail function instead.
 //
 // To delete mails, use the DeleteEmails function instead.
-func (j *Client) UpdateEmails(accountId string, updates map[string]EmailUpdate, session *Session, ctx context.Context, logger *log.Logger) (UpdatedEmails, Error) {
+func (j *Client) UpdateEmails(accountId string, updates map[string]EmailUpdate, session *Session, ctx context.Context, logger *log.Logger) (UpdatedEmails, SessionState, Error) {
 	aid := session.MailAccountId(accountId)
 
 	cmd, err := request(
@@ -713,7 +697,7 @@ func (j *Client) UpdateEmails(accountId string, updates map[string]EmailUpdate, 
 	)
 	if err != nil {
 		logger.Error().Err(err)
-		return UpdatedEmails{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return UpdatedEmails{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (UpdatedEmails, Error) {
@@ -728,19 +712,17 @@ func (j *Client) UpdateEmails(accountId string, updates map[string]EmailUpdate, 
 			// TODO(pbleser-oc) handle submission errors
 		}
 		return UpdatedEmails{
-			Updated:      setResponse.Updated,
-			State:        setResponse.NewState,
-			SessionState: body.SessionState,
+			Updated: setResponse.Updated,
+			State:   setResponse.NewState,
 		}, nil
 	})
 }
 
 type DeletedEmails struct {
-	State        string `json:"state"`
-	SessionState string `json:"sessionState"`
+	State State `json:"state"`
 }
 
-func (j *Client) DeleteEmails(accountId string, destroy []string, session *Session, ctx context.Context, logger *log.Logger) (DeletedEmails, Error) {
+func (j *Client) DeleteEmails(accountId string, destroy []string, session *Session, ctx context.Context, logger *log.Logger) (DeletedEmails, SessionState, Error) {
 	aid := session.MailAccountId(accountId)
 
 	cmd, err := request(
@@ -751,7 +733,7 @@ func (j *Client) DeleteEmails(accountId string, destroy []string, session *Sessi
 	)
 	if err != nil {
 		logger.Error().Err(err)
-		return DeletedEmails{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return DeletedEmails{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (DeletedEmails, Error) {
@@ -765,13 +747,13 @@ func (j *Client) DeleteEmails(accountId string, destroy []string, session *Sessi
 			// error occured
 			// TODO(pbleser-oc) handle submission errors
 		}
-		return DeletedEmails{State: setResponse.NewState, SessionState: body.SessionState}, nil
+		return DeletedEmails{State: setResponse.NewState}, nil
 	})
 }
 
 type SubmittedEmail struct {
 	Id         string                    `json:"id"`
-	State      string                    `json:"state"`
+	State      State                     `json:"state"`
 	SendAt     time.Time                 `json:"sendAt,omitzero"`
 	ThreadId   string                    `json:"threadId,omitempty"`
 	UndoStatus EmailSubmissionUndoStatus `json:"undoStatus,omitempty"`
@@ -792,11 +774,9 @@ type SubmittedEmail struct {
 	//
 	// [RFC8098]: https://datatracker.ietf.org/doc/html/rfc8098
 	MdnBlobIds []string `json:"mdnBlobIds,omitempty"`
-
-	SessionState string `json:"sessionState"`
 }
 
-func (j *Client) SubmitEmail(accountId string, identityId string, emailId string, session *Session, ctx context.Context, logger *log.Logger, data []byte) (SubmittedEmail, Error) {
+func (j *Client) SubmitEmail(accountId string, identityId string, emailId string, session *Session, ctx context.Context, logger *log.Logger, data []byte) (SubmittedEmail, SessionState, Error) {
 	aid := session.SubmissionAccountId(accountId)
 
 	set := EmailSubmissionSetCommand{
@@ -829,7 +809,7 @@ func (j *Client) SubmitEmail(accountId string, identityId string, emailId string
 	)
 	if err != nil {
 		logger.Error().Err(err)
-		return SubmittedEmail{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return SubmittedEmail{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (SubmittedEmail, Error) {
@@ -872,25 +852,19 @@ func (j *Client) SubmitEmail(accountId string, identityId string, emailId string
 		submission := getResponse.List[0]
 
 		return SubmittedEmail{
-			Id:           submission.Id,
-			State:        setResponse.NewState,
-			SendAt:       submission.SendAt,
-			ThreadId:     submission.ThreadId,
-			UndoStatus:   submission.UndoStatus,
-			Envelope:     *submission.Envelope,
-			DsnBlobIds:   submission.DsnBlobIds,
-			MdnBlobIds:   submission.MdnBlobIds,
-			SessionState: body.SessionState,
+			Id:         submission.Id,
+			State:      setResponse.NewState,
+			SendAt:     submission.SendAt,
+			ThreadId:   submission.ThreadId,
+			UndoStatus: submission.UndoStatus,
+			Envelope:   *submission.Envelope,
+			DsnBlobIds: submission.DsnBlobIds,
+			MdnBlobIds: submission.MdnBlobIds,
 		}, nil
 	})
 }
 
-type EmailsInThreadResult struct {
-	Emails       []Email `json:"emails"`
-	SessionState string  `json:"sessionState"`
-}
-
-func (j *Client) EmailsInThread(accountId string, threadId string, session *Session, ctx context.Context, logger *log.Logger, fetchBodies bool, maxBodyValueBytes int) (EmailsInThreadResult, Error) {
+func (j *Client) EmailsInThread(accountId string, threadId string, session *Session, ctx context.Context, logger *log.Logger, fetchBodies bool, maxBodyValueBytes uint) ([]Email, SessionState, Error) {
 	aid := session.MailAccountId(accountId)
 	logger = j.loggerParams(aid, "EmailsInThread", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Str("threadId", log.SafeString(threadId))
@@ -915,19 +889,16 @@ func (j *Client) EmailsInThread(accountId string, threadId string, session *Sess
 
 	if err != nil {
 		logger.Error().Err(err)
-		return EmailsInThreadResult{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return []Email{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (EmailsInThreadResult, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) ([]Email, Error) {
 		var emailsResponse EmailGetResponse
 		err = retrieveResponseMatchParameters(body, CommandEmailGet, "1", &emailsResponse)
 		if err != nil {
-			return EmailsInThreadResult{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return []Email{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
-		return EmailsInThreadResult{
-			Emails:       emailsResponse.List,
-			SessionState: body.SessionState,
-		}, nil
+		return emailsResponse.List, nil
 	})
 
 }

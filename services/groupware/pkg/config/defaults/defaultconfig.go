@@ -31,8 +31,8 @@ func DefaultConfig() *config.Config {
 			},
 			BaseUrl:               "https://stalwart.opencloud.test",
 			Timeout:               30 * time.Second,
-			DefaultEmailLimit:     -1,
-			MaxBodyValueBytes:     -1,
+			DefaultEmailLimit:     uint(0),
+			MaxBodyValueBytes:     uint(0),
 			ResponseHeaderTimeout: 10 * time.Second,
 			SessionCache: config.MailSessionCache{
 				Ttl:         5 * time.Minute,

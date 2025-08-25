@@ -35,6 +35,7 @@ const (
 	QueryParamSearchFetchEmails       = "fetchemails"
 	QueryParamOffset                  = "offset"
 	QueryParamLimit                   = "limit"
+	QueryParamDays                    = "days"
 	HeaderSince                       = "if-none-match"
 )
 
@@ -61,7 +62,7 @@ func (g *Groupware) Route(r chi.Router) {
 			// r.Put("/{messageid}", g.ReplaceMessage) // TODO
 			r.Patch("/{messageid}", g.UpdateMessage)
 			r.Delete("/{messageid}", g.DeleteMessage)
-			r.MethodFunc("REPORT", "/{messageid}", g.AboutMessage)
+			r.MethodFunc("REPORT", "/{messageid}", g.RelatedToMessage)
 		})
 		r.Route("/blobs", func(r chi.Router) {
 			r.Get("/{blobid}", g.GetBlob)

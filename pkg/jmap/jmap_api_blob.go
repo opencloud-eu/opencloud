@@ -10,12 +10,11 @@ import (
 )
 
 type BlobResponse struct {
-	Blob         *Blob  `json:"blob,omitempty"`
-	State        string `json:"state"`
-	SessionState string `json:"sessionState"`
+	Blob  *Blob `json:"blob,omitempty"`
+	State State `json:"state"`
 }
 
-func (j *Client) GetBlob(accountId string, session *Session, ctx context.Context, logger *log.Logger, id string) (BlobResponse, Error) {
+func (j *Client) GetBlob(accountId string, session *Session, ctx context.Context, logger *log.Logger, id string) (BlobResponse, SessionState, Error) {
 	aid := session.BlobAccountId(accountId)
 
 	cmd, err := request(
@@ -27,7 +26,7 @@ func (j *Client) GetBlob(accountId string, session *Session, ctx context.Context
 	)
 	if err != nil {
 		logger.Error().Err(err)
-		return BlobResponse{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return BlobResponse{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (BlobResponse, Error) {
@@ -43,17 +42,16 @@ func (j *Client) GetBlob(accountId string, session *Session, ctx context.Context
 			return BlobResponse{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 		get := response.List[0]
-		return BlobResponse{Blob: &get, State: response.State, SessionState: body.SessionState}, nil
+		return BlobResponse{Blob: &get, State: response.State}, nil
 	})
 }
 
 type UploadedBlob struct {
-	Id           string `json:"id"`
-	Size         int    `json:"size"`
-	Type         string `json:"type"`
-	Sha512       string `json:"sha:512"`
-	State        string `json:"state"`
-	SessionState string `json:"sessionState"`
+	Id     string `json:"id"`
+	Size   int    `json:"size"`
+	Type   string `json:"type"`
+	Sha512 string `json:"sha:512"`
+	State  State  `json:"state"`
 }
 
 func (j *Client) UploadBlobStream(accountId string, session *Session, ctx context.Context, logger *log.Logger, contentType string, body io.Reader) (UploadedBlob, Error) {
@@ -75,7 +73,7 @@ func (j *Client) DownloadBlobStream(accountId string, blobId string, name string
 	return j.blob.DownloadBinary(ctx, logger, session, downloadUrl)
 }
 
-func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Context, logger *log.Logger, data []byte, contentType string) (UploadedBlob, Error) {
+func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Context, logger *log.Logger, data []byte, contentType string) (UploadedBlob, SessionState, Error) {
 	aid := session.MailAccountId(accountId)
 
 	encoded := base64.StdEncoding.EncodeToString(data)
@@ -108,7 +106,7 @@ func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Cont
 	)
 	if err != nil {
 		logger.Error().Err(err)
-		return UploadedBlob{}, simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return UploadedBlob{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (UploadedBlob, Error) {
@@ -143,12 +141,11 @@ func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Cont
 		get := getResponse.List[0]
 
 		return UploadedBlob{
-			Id:           upload.Id,
-			Size:         upload.Size,
-			Type:         upload.Type,
-			Sha512:       get.DigestSha512,
-			State:        getResponse.State,
-			SessionState: body.SessionState,
+			Id:     upload.Id,
+			Size:   upload.Size,
+			Type:   upload.Type,
+			Sha512: get.DigestSha512,
+			State:  getResponse.State,
 		}, nil
 	})
 

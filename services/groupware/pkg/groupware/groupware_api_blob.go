@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/opencloud-eu/opencloud/pkg/jmap"
 )
 
 const (
@@ -25,7 +26,7 @@ func (g *Groupware) GetBlob(w http.ResponseWriter, r *http.Request) {
 			))
 		}
 
-		res, err := g.jmap.GetBlob(req.GetAccountId(), req.session, req.ctx, req.logger, blobId)
+		res, _, err := g.jmap.GetBlob(req.GetAccountId(), req.session, req.ctx, req.logger, blobId)
 		if err != nil {
 			return req.errorResponseFromJmap(err)
 		}
@@ -33,7 +34,7 @@ func (g *Groupware) GetBlob(w http.ResponseWriter, r *http.Request) {
 		if blob == nil {
 			return notFoundResponse("")
 		}
-		return etagOnlyResponse(res, blob.Digest())
+		return etagOnlyResponse(res, jmap.State(blob.Digest()))
 	})
 }
 
@@ -55,7 +56,7 @@ func (g *Groupware) UploadBlob(w http.ResponseWriter, r *http.Request) {
 			return req.errorResponseFromJmap(err)
 		}
 
-		return etagOnlyResponse(resp, resp.Sha512)
+		return etagOnlyResponse(resp, jmap.State(resp.Sha512))
 	})
 }
 

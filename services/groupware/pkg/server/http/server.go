@@ -41,6 +41,7 @@ func Server(opts ...Option) (http.Service, error) {
 		svc.Middleware(
 			middleware.RealIP,
 			middleware.RequestID,
+			groupwaremiddleware.TraceID,
 			opencloudmiddleware.Cors(
 				cors.Logger(options.Logger),
 				cors.AllowedOrigins(options.Config.HTTP.CORS.AllowedOrigins),
@@ -52,7 +53,7 @@ func Server(opts ...Option) (http.Service, error) {
 				options.Config.Service.Name,
 				version.GetString(),
 			),
-			opencloudmiddleware.Logger(options.Logger),
+			groupwaremiddleware.GroupwareLogger(options.Logger),
 			groupwaremiddleware.Auth(
 				account.Logger(options.Logger),
 				account.JWTSecret(options.Config.TokenManager.JWTSecret),

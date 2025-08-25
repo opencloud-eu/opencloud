@@ -39,15 +39,15 @@ func (g *Groupware) GetMailbox(w http.ResponseWriter, r *http.Request) {
 	}
 
 	g.respond(w, r, func(req Request) Response {
-		res, err := g.jmap.GetMailbox(req.GetAccountId(), req.session, req.ctx, req.logger, []string{mailboxId})
+		res, sessionState, err := g.jmap.GetMailbox(req.GetAccountId(), req.session, req.ctx, req.logger, []string{mailboxId})
 		if err != nil {
 			return req.errorResponseFromJmap(err)
 		}
 
 		if len(res.Mailboxes) == 1 {
-			return etagResponse(res.Mailboxes[0], res.SessionState, res.State)
+			return etagResponse(res.Mailboxes[0], sessionState, res.State)
 		} else {
-			return notFoundResponse(res.SessionState)
+			return notFoundResponse(sessionState)
 		}
 	})
 }
@@ -116,17 +116,17 @@ func (g *Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) {
 
 	g.respond(w, r, func(req Request) Response {
 		if hasCriteria {
-			mailboxes, err := g.jmap.SearchMailboxes(req.GetAccountId(), req.session, req.ctx, req.logger, filter)
+			mailboxes, sessionState, err := g.jmap.SearchMailboxes(req.GetAccountId(), req.session, req.ctx, req.logger, filter)
 			if err != nil {
 				return req.errorResponseFromJmap(err)
 			}
-			return etagResponse(mailboxes.Mailboxes, mailboxes.SessionState, mailboxes.State)
+			return etagResponse(mailboxes.Mailboxes, sessionState, mailboxes.State)
 		} else {
-			mailboxes, err := g.jmap.GetAllMailboxes(req.GetAccountId(), req.session, req.ctx, req.logger)
+			mailboxes, sessionState, err := g.jmap.GetAllMailboxes(req.GetAccountId(), req.session, req.ctx, req.logger)
 			if err != nil {
 				return req.errorResponseFromJmap(err)
 			}
-			return etagResponse(mailboxes.Mailboxes, mailboxes.SessionState, mailboxes.State)
+			return etagResponse(mailboxes.Mailboxes, sessionState, mailboxes.State)
 		}
 	})
 }
