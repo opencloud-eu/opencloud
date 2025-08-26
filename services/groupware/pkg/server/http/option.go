@@ -20,7 +20,7 @@ type Options struct {
 	Logger        log.Logger
 	Context       context.Context
 	Config        *config.Config
-	Metrics       *metrics.Metrics
+	Metrics       *metrics.HttpMetrics
 	Flags         []cli.Flag
 	TraceProvider trace.TracerProvider
 }
@@ -58,7 +58,7 @@ func Config(val *config.Config) Option {
 }
 
 // Metrics provides a function to set the metrics option.
-func Metrics(val *metrics.Metrics) Option {
+func Metrics(val *metrics.HttpMetrics) Option {
 	return func(o *Options) {
 		o.Metrics = val
 	}

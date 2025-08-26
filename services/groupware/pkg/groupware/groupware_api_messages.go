@@ -9,8 +9,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/services/groupware/pkg/metrics"
 )
 
 // When the request succeeds without a "since" query parameter.
@@ -574,14 +577,23 @@ func (g *Groupware) RelatedToMessage(w http.ResponseWriter, r *http.Request) {
 		reqId := req.GetRequestId()
 		accountId := req.GetAccountId()
 		logger := log.From(req.logger.With().Str(logEmailId, log.SafeString(id)))
+		getEmailsBefore := time.Now()
 		emails, sessionState, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, []string{id}, true, g.maxBodyValueBytes)
+		getEmailsDuration := time.Since(getEmailsBefore)
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
 		if len(emails.Emails) < 1 {
+			g.metrics.EmailByIdDuration.WithLabelValues(req.session.ApiUrl, metrics.ResultNotFound).Observe(getEmailsDuration.Seconds())
 			logger.Trace().Msg("failed to find any emails matching id") // the id is already in the log field
 			return notFoundResponse(sessionState)
 		}
+		g.metrics.EmailByIdDuration.
+			WithLabelValues(req.session.ApiUrl, metrics.ResultNotFound).(prometheus.ExemplarObserver).
+			ObserveWithExemplar(getEmailsDuration.Seconds(), prometheus.Labels{
+				metrics.Labels.RequestId: reqId,
+			})
+
 		email := emails.Emails[0]
 
 		beacon := email.ReceivedAt // TODO configurable: either relative to when the email was received, or relative to now
