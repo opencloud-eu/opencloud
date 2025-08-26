@@ -12,7 +12,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2025-08-21 00:01+0000\n"
+"POT-Creation-Date: 2025-08-26 00:01+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Lulufox, 2025\n"
 "Language-Team: Russian (https://app.transifex.com/opencloud-eu/teams/204053/ru/)\n"
@@ -118,6 +118,10 @@ msgid ""
 "  Token: {Token}\n"
 "  ProviderDomain: {ProviderDomain}"
 msgstr ""
+"{ShareSharer} ({ShareSharerMail}) хочет начать совместно использовать ресурсы вместе с Вами.\n"
+"Пожалуйста, перейдите в свои федеративные настройки и используйте следующие параметры:\n"
+"  Token: {Token}\n"
+"  ProviderDomain: {ProviderDomain}"
 
 #. ScienceMeshInviteTokenGenerated email template, resolves via {{
 #. .MessageBody }}
@@ -131,6 +135,12 @@ msgid ""
 "  Token: {Token}\n"
 "  ProviderDomain: {ProviderDomain}"
 msgstr ""
+"{ShareSharer} ({ShareSharerMail}) хочет начать совместно использовать ресурсы вместе с Вами.\n"
+"Чтобы принять приглашение, перейдите по ссылкеL:\n"
+"{ShareLink}\n"
+"Или перейдите в свои федеративные настройки и используйте следующие параметры:\n"
+"Token: {Token}\n"
+"ProviderDomain: {ProviderDomain}"
 
 #. ShareCreated email template, resolves via {{ .MessageBody }}
 #: pkg/email/templates.go:21
