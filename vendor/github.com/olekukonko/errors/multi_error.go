@@ -1,11 +1,13 @@
 package errors
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"strings"
 	"sync"
-	"time"
+	"sync/atomic"
 )
 
 // MultiError represents a thread-safe collection of errors with enhanced features.
@@ -45,40 +47,56 @@ func NewMultiError(opts ...MultiErrorOption) *MultiError {
 
 // Add appends an error to the collection with optional sampling, limit checks, and duplicate prevention.
 // Ignores nil errors and duplicates based on string equality; thread-safe.
-func (m *MultiError) Add(err error) {
-	if err == nil {
+func (m *MultiError) Add(errs ...error) {
+	if len(errs) == 0 {
 		return
 	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// Check for duplicates by comparing error messages
-	for _, e := range m.errors {
-		if e.Error() == err.Error() {
-			return
+	for _, err := range errs {
+		if err == nil {
+			continue
 		}
-	}
 
-	// Apply sampling if enabled and collection isn’t empty
-	if m.sampling && len(m.errors) > 0 {
-		var r uint32
-		if m.rand != nil {
-			r = uint32(m.rand.Int31n(100))
-		} else {
-			r = fastRand() % 100
+		// Check for duplicates by comparing error messages
+		duplicate := false
+		for _, e := range m.errors {
+			if e.Error() == err.Error() {
+				duplicate = true
+				break
+			}
 		}
-		if r > m.sampleRate { // Accept if random value is within sample rate
-			return
+		if duplicate {
+			continue
 		}
-	}
 
-	// Respect limit if set
-	if m.limit > 0 && len(m.errors) >= m.limit {
-		return
-	}
+		// Apply sampling if enabled and collection isn’t empty
+		if m.sampling && len(m.errors) > 0 {
+			var r uint32
+			if m.rand != nil {
+				r = uint32(m.rand.Int31n(100))
+			} else {
+				r = fastRand() % 100
+			}
+			if r > m.sampleRate { // Accept if random value is within sample rate
+				continue
+			}
+		}
 
-	m.errors = append(m.errors, err)
+		// Respect limit if set
+		if m.limit > 0 && len(m.errors) >= m.limit {
+			continue
+		}
+
+		m.errors = append(m.errors, err)
+	}
+}
+
+// Addf formats and adds a new error to the collection.
+func (m *MultiError) Addf(format string, args ...interface{}) {
+	m.Add(Newf(format, args...))
 }
 
 // Clear removes all errors from the collection.
@@ -300,6 +318,75 @@ func WithRand(r *rand.Rand) MultiErrorOption {
 	}
 }
 
+// MarshalJSON serializes the MultiError to JSON, including all contained errors and configuration metadata.
+// Thread-safe; errors are serialized using their MarshalJSON method if available, otherwise as strings.
+func (m *MultiError) MarshalJSON() ([]byte, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	// Get buffer from pool for efficiency
+	buf := jsonBufferPool.Get().(*bytes.Buffer)
+	defer jsonBufferPool.Put(buf)
+	buf.Reset()
+
+	// Create encoder
+	enc := json.NewEncoder(buf)
+	enc.SetEscapeHTML(false)
+
+	// Define JSON structure
+	type jsonError struct {
+		Error interface{} `json:"error"` // Holds either JSON-marshaled error or string
+	}
+
+	je := struct {
+		Count      int         `json:"count"`                 // Number of errors
+		Limit      int         `json:"limit,omitempty"`       // Maximum error limit (omitted if 0)
+		Sampling   bool        `json:"sampling,omitempty"`    // Whether sampling is enabled
+		SampleRate uint32      `json:"sample_rate,omitempty"` // Sampling rate (1-100, omitted if not sampling)
+		Errors     []jsonError `json:"errors"`                // List of errors
+	}{
+		Count:      len(m.errors),
+		Limit:      m.limit,
+		Sampling:   m.sampling,
+		SampleRate: m.sampleRate,
+	}
+
+	// Serialize each error
+	je.Errors = make([]jsonError, len(m.errors))
+	for i, err := range m.errors {
+		if err == nil {
+			je.Errors[i] = jsonError{Error: nil}
+			continue
+		}
+		// Check if the error implements json.Marshaler
+		if marshaler, ok := err.(json.Marshaler); ok {
+			marshaled, err := marshaler.MarshalJSON()
+			if err != nil {
+				// Fallback to string if marshaling fails
+				je.Errors[i] = jsonError{Error: err.Error()}
+			} else {
+				var raw json.RawMessage = marshaled
+				je.Errors[i] = jsonError{Error: raw}
+			}
+		} else {
+			// Use error string for non-marshaler errors
+			je.Errors[i] = jsonError{Error: err.Error()}
+		}
+	}
+
+	// Encode JSON
+	if err := enc.Encode(je); err != nil {
+		return nil, fmt.Errorf("failed to marshal MultiError: %v", err)
+	}
+
+	// Remove trailing newline
+	result := buf.Bytes()
+	if len(result) > 0 && result[len(result)-1] == '\n' {
+		result = result[:len(result)-1]
+	}
+	return result, nil
+}
+
 // defaultFormat provides the default formatting for multiple errors.
 // Returns a semicolon-separated list prefixed with the error count (e.g., "errors(3): err1; err2; err3").
 func defaultFormat(errs []error) string {
@@ -316,10 +403,21 @@ func defaultFormat(errs []error) string {
 
 // fastRand generates a quick pseudo-random number for sampling.
 // Uses a simple xorshift algorithm based on the current time; not cryptographically secure.
+var fastRandState uint32 = 1 // Must be non-zero
+
 func fastRand() uint32 {
-	r := uint32(time.Now().UnixNano())
-	r ^= r << 13
-	r ^= r >> 17
-	r ^= r << 5
-	return r
+	for {
+		// Atomically load the current state
+		old := atomic.LoadUint32(&fastRandState)
+		// Xorshift computation
+		x := old
+		x ^= x << 13
+		x ^= x >> 17
+		x ^= x << 5
+		// Attempt to store the new state atomically
+		if atomic.CompareAndSwapUint32(&fastRandState, old, x) {
+			return x
+		}
+		// Otherwise retry
+	}
 }

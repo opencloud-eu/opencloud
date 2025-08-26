@@ -11,8 +11,10 @@ import (
 // Useful for testing or buffering logs for later inspection.
 // It maintains a thread-safe slice of log entries, protected by a read-write mutex.
 type MemoryHandler struct {
-	mu      sync.RWMutex // Protects concurrent access to entries
-	entries []*lx.Entry  // Slice of stored log entries
+	mu         sync.RWMutex // Protects concurrent access to entries
+	entries    []*lx.Entry  // Slice of stored log entries
+	showTime   bool         // Whether to show timestamps when dumping
+	timeFormat string       // Time format for dumping
 }
 
 // NewMemoryHandler creates a new MemoryHandler.
@@ -25,6 +27,23 @@ type MemoryHandler struct {
 func NewMemoryHandler() *MemoryHandler {
 	return &MemoryHandler{
 		entries: make([]*lx.Entry, 0), // Initialize empty slice for entries
+	}
+}
+
+// Timestamped enables/disables timestamp display when dumping and optionally sets a time format.
+// Consistent with TextHandler and ColorizedHandler signature.
+// Example:
+//
+//	handler.Timestamped(true) // Enable with default format
+//	handler.Timestamped(true, time.StampMilli) // Enable with custom format
+//	handler.Timestamped(false) // Disable
+func (h *MemoryHandler) Timestamped(enable bool, format ...string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	h.showTime = enable
+	if len(format) > 0 && format[0] != "" {
+		h.timeFormat = format[0]
 	}
 }
 
@@ -82,6 +101,7 @@ func (h *MemoryHandler) Dump(w io.Writer) error {
 
 	// Create a temporary TextHandler to format entries
 	tempHandler := NewTextHandler(w)
+	tempHandler.Timestamped(h.showTime, h.timeFormat)
 
 	// Process each entry through the TextHandler
 	for _, entry := range h.entries {

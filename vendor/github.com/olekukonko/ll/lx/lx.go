@@ -124,6 +124,16 @@ type Handler interface {
 	Handle(e *Entry) error // Processes a log entry, returning any error
 }
 
+// Timestamper defines an interface for handlers that support timestamp configuration.
+// It includes a method to enable or disable timestamp logging and optionally set the timestamp format.
+type Timestamper interface {
+	// Timestamped enables or disables timestamp logging and allows specifying an optional format.
+	// Parameters:
+	//   enable: Boolean to enable or disable timestamp logging
+	//   format: Optional string(s) to specify the timestamp format
+	Timestamped(enable bool, format ...string)
+}
+
 // ClassType represents the type of a log entry.
 // It is an integer type used to categorize log entries (Text, JSON, Dump, Special, Raw),
 // influencing how handlers process and format them.

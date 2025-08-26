@@ -48,6 +48,11 @@ go get github.com/olekukonko/errors@latest
 
 ---
 
+> [!NOTE]  
+> ✓ added support for `errors.Errorf("user %w not found", errors.New("bob"))`  
+> ✓ added support for `sequential chain` execution
+``
+
 ## Using the `errors` Package
 
 ### Basic Error Creation
@@ -74,6 +79,7 @@ func main() {
 
 #### Formatted Error
 ```go
+// main.go
 package main
 
 import (
@@ -83,12 +89,21 @@ import (
 
 func main() {
   // Formatted error without stack trace
-  err := errors.Newf("user %s not found", "bob")
-  fmt.Println(err) // Output: "user bob not found"
+  errNoWrap := errors.Newf("user %s not found", "bob")
+  fmt.Println(errNoWrap) // Output: "user bob not found"
 
-  // Standard formatted error, no fmt.Errorf needed
-  stdErr := errors.Stdf("user %s not found", "bob")
-  fmt.Println(stdErr) // Output: "user bob not found"
+  // Standard formatted error, no fmt.Errorf needed (using own pkg)
+  stdErrNoWrap := errors.Stdf("user %s not found", "bob")
+  fmt.Println(stdErrNoWrap) // Output: "user bob not found"
+
+  // Added support for %w (compatible with fmt.Errorf output)
+  // errors.Errorf is alias of errors.Newf
+  errWrap := errors.Errorf("user %w not found", errors.New("bob"))
+  fmt.Println(errWrap) // Output: "user bob not found"
+
+  // Standard formatted error for comparison
+  stdErrWrap := fmt.Errorf("user %w not found", fmt.Errorf("bob"))
+  fmt.Println(stdErrWrap) // Output: "user bob not found"
 }
 ```
 
@@ -243,7 +258,7 @@ func main() {
 	enhanced := errors.WithStack(err)
 	fmt.Println("Error with stack:")
 	fmt.Println("Message:", enhanced.Error()) // Output: "basic error"
-	fmt.Println("Stack:", enhanced.Stack())   // Output: e.g., ["main.go:15", ...]
+	fmt.Println("Stack:", enhanced.Stack())   // Output: e.g., "main.go:15"
 }
 ```
 
@@ -996,6 +1011,198 @@ func contains(substr string) func(error) bool {
     return strings.Contains(err.Error(), substr)
   }
 }
+```
+
+### Chain Execution
+
+#### Sequential Task Processing
+```go
+package main
+
+import (
+  "fmt"
+  "github.com/olekukonko/errors"
+  "time"
+)
+
+// validateOrder checks order input.
+func validateOrder() error {
+  return nil // Simulate successful validation
+}
+
+// processKYC handles payment processing.
+func processKYC() error {
+  return nil // Simulate successful validation
+}
+
+// processPayment handles payment processing.
+func processPayment() error {
+  return errors.New("payment declined") // Simulate payment failure
+}
+
+// generateInvoice creates an invoice.
+func generateInvoice() error {
+  return errors.New("invoicing unavailable") // Simulate invoicing issue
+}
+
+// sendNotification sends a confirmation.
+func sendNotification() error {
+  return errors.New("notification failed") // Simulate notification failure
+}
+
+// processOrder simulates a multi-step order processing workflow.
+func processOrder() error {
+  c := errors.NewChain()
+
+  // Validate order input
+  c.Step(validateOrder).Tag("validation")
+
+  // KYC  Process
+  c.Step(validateOrder).Tag("validation")
+
+  // Process payment with retries
+  c.Step(processPayment).Tag("billing").Retry(3, 100*time.Millisecond)
+
+  // Generate invoice
+  c.Step(generateInvoice).Tag("invoicing")
+
+  // Send notification (optional)
+  c.Step(sendNotification).Tag("notification").Optional()
+
+  return c.Run()
+}
+
+func main() {
+  if err := processOrder(); err != nil {
+    // Print error to stderr and exit
+    errors.Inspect(err)
+  }
+  fmt.Println("Order processed successfully")
+}
+```
+
+#### Sequential Task Processing 2
+```go
+package main
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/olekukonko/errors"
+)
+
+// validate simulates a validation check that fails.
+func validate(name string) error {
+	return errors.Newf("validation for %s failed", name)
+}
+
+// validateOrder checks order input.
+func validateOrder() error {
+	return nil // Simulate successful validation
+}
+
+// verifyKYC handles Know Your Customer verification.
+func verifyKYC(name string) error {
+	return validate(name) // Simulate KYC validation failure
+}
+
+// processPayment handles payment processing.
+func processPayment() error {
+	return nil // Simulate successful payment
+}
+
+// processOrder coordinates the order processing workflow.
+func processOrder() error {
+	chain := errors.NewChain().
+		Step(validateOrder).     // Step 1: Validate order
+		Call(verifyKYC, "john"). // Step 2: Verify customer
+		Step(processPayment)     // Step 3: Process payment
+
+	if err := chain.Run(); err != nil {
+		return errors.Errorf("processing order: %w", err)
+	}
+	return nil
+}
+
+func main() {
+	if err := processOrder(); err != nil {
+		// Print the full error chain to stderr
+		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+		// Output
+		// ERROR: processing order: validation for john failed
+
+		// For debugging, you could print the stack trace:
+		// errors.Inspect(err)
+		os.Exit(1)
+	}
+
+	fmt.Println("order processed successfully")
+}
+
+```
+
+
+#### Retry with Timeout
+```go
+package main
+
+import (
+  "context"
+  "fmt"
+  "github.com/olekukonko/errors"
+  "time"
+)
+
+func main() {
+  c := errors.NewChain(
+    errors.ChainWithTimeout(1*time.Second),
+  ).
+          Step(func() error {
+            time.Sleep(2 * time.Second)
+            return errors.New("fetch failed")
+          }).
+    Tag("api").
+    Retry(3, 200*time.Millisecond)
+
+  err := c.Run()
+  if err != nil {
+    var deadlineErr error
+    if errors.As(err, &deadlineErr) && deadlineErr == context.DeadlineExceeded {
+      fmt.Println("Fetch timed out")
+    } else {
+      fmt.Printf("Fetch failed: %v\n", err)
+    }
+    return
+  }
+  fmt.Println("Fetch succeeded")
+}
+```
+
+#### Collecting All Errors
+```go
+package main
+
+import (
+  "fmt"
+  "github.com/olekukonko/errors"
+)
+
+func main() {
+  c := errors.NewChain(
+    errors.ChainWithMaxErrors(2),
+  ).
+    Step(func() error { return errors.New("task 1 failed") }).Tag("task1").
+    Step(func() error { return nil }).Tag("task2").
+    Step(func() error { return errors.New("task 3 failed") }).Tag("task3")
+
+  err := c.RunAll()
+  if err != nil {
+    errors.Inspect(err)
+    return
+  }
+  fmt.Println("All tasks completed successfully")
+}
 
 ```
 
@@ -1326,7 +1533,7 @@ func main() {
 ## FAQ
 
 - **When to use `Copy()`?**
-  - Use `Copy()` to create a modifiable duplicate of an error without altering the original.
+  - Use ` SOCIALCopy()` to create a modifiable duplicate of an error without altering the original.
 
 - **When to use `Free()`?**
   - Use in performance-critical loops; otherwise, autofree handles it (Go 1.24+).

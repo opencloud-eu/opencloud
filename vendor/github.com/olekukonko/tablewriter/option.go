@@ -717,6 +717,10 @@ func defaultConfig() Config {
 		Behavior: tw.Behavior{
 			AutoHide:  tw.Off,
 			TrimSpace: tw.On,
+			Structs: tw.Struct{
+				AutoHeader: tw.Off,
+				Tags:       []string{"json", "db"},
+			},
 		},
 	}
 }
@@ -844,6 +848,14 @@ func mergeConfig(dst, src Config) Config {
 	dst.Behavior.Compact = src.Behavior.Compact
 	dst.Behavior.Header = src.Behavior.Header
 	dst.Behavior.Footer = src.Behavior.Footer
+	dst.Behavior.Footer = src.Behavior.Footer
+
+	dst.Behavior.Structs.AutoHeader = src.Behavior.Structs.AutoHeader
+
+	// check lent of tags
+	if len(src.Behavior.Structs.Tags) > 0 {
+		dst.Behavior.Structs.Tags = src.Behavior.Structs.Tags
+	}
 
 	if src.Widths.Global != 0 {
 		dst.Widths.Global = src.Widths.Global

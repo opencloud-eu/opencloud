@@ -688,6 +688,12 @@ func (bb *BehaviorConfigBuilder) WithCompactMerge(state tw.State) *BehaviorConfi
 	return bb
 }
 
+// WithAutoHeader enables/disables automatic header extraction for structs in Bulk.
+func (bb *BehaviorConfigBuilder) WithAutoHeader(state tw.State) *BehaviorConfigBuilder {
+	bb.config.Structs.AutoHeader = state
+	return bb
+}
+
 // ColumnConfigBuilder configures column-specific settings
 type ColumnConfigBuilder struct {
 	parent *ConfigBuilder

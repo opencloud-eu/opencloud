@@ -2,7 +2,6 @@ package tablewriter
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/olekukonko/errors"
 	"github.com/olekukonko/ll"
 	"github.com/olekukonko/ll/lh"
@@ -180,65 +179,87 @@ func (t *Table) Caption(caption tw.Caption) *Table { // This is the one we modif
 // This method always contributes to a single logical row in the table.
 // To add multiple distinct rows, call Append multiple times (once for each row's data)
 // or use the Bulk() method if providing a slice where each element is a row.
-func (t *Table) Append(rows ...interface{}) error { // rows is already []interface{}
+func (t *Table) Append(rows ...interface{}) error {
 	t.ensureInitialized()
 
 	if t.config.Stream.Enable && t.hasPrinted {
+		// Streaming logic remains unchanged, as AutoHeader is a batch-mode concept.
 		t.logger.Debugf("Append() called in streaming mode with %d items for a single row", len(rows))
 		var rowItemForStream interface{}
 		if len(rows) == 1 {
 			rowItemForStream = rows[0]
 		} else {
-			rowItemForStream = rows // Pass the slice of items if multiple args
+			rowItemForStream = rows
 		}
 		if err := t.streamAppendRow(rowItemForStream); err != nil {
 			t.logger.Errorf("Error rendering streaming row: %v", err)
-			return fmt.Errorf("failed to stream append row: %w", err)
+			return errors.Newf("failed to stream append row").Wrap(err)
 		}
 		return nil
 	}
 
-	//Batch Mode Logic
+	// Batch Mode Logic
 	t.logger.Debugf("Append (Batch) received %d arguments: %v", len(rows), rows)
 
 	var cellsSource interface{}
 	if len(rows) == 1 {
 		cellsSource = rows[0]
-		t.logger.Debug("Append (Batch): Single argument provided. Treating it as the source for row cells.")
 	} else {
-		cellsSource = rows // 'rows' is []interface{} containing all arguments
-		t.logger.Debug("Append (Batch): Multiple arguments provided. Treating them directly as cells for one row.")
+		cellsSource = rows
+	}
+	// Check if we should attempt to auto-generate headers from this append operation.
+	// Conditions: AutoHeader is on, no headers are set yet, and this is the first data row.
+	isFirstRow := len(t.rows) == 0
+	if t.config.Behavior.Structs.AutoHeader.Enabled() && len(t.headers) == 0 && isFirstRow {
+		t.logger.Debug("Append: Triggering AutoHeader for the first row.")
+		headers := t.extractHeadersFromStruct(cellsSource)
+		if len(headers) > 0 {
+			// Set the extracted headers. The Header() method handles the rest.
+			t.Header(headers)
+		}
 	}
 
-	if err := t.appendSingle(cellsSource); err != nil {
+	// The rest of the function proceeds as before, converting the data to string lines.
+	lines, err := t.toStringLines(cellsSource, t.config.Row)
+	if err != nil {
 		t.logger.Errorf("Append (Batch) failed for cellsSource %v: %v", cellsSource, err)
 		return err
 	}
+	t.rows = append(t.rows, lines)
 
 	t.logger.Debugf("Append (Batch) completed for one row, total rows in table: %d", len(t.rows))
 	return nil
 }
 
-// Bulk adds multiple rows from a slice to the table (legacy method).
-// Parameter rows must be a slice compatible with stringer or []string.
-// Returns an error if the input is invalid or appending fails.
+// Bulk adds multiple rows from a slice to the table.
+// If Behavior.AutoHeader is enabled, no headers set, and rows is a slice of structs,
+// automatically extracts/sets headers from the first struct.
 func (t *Table) Bulk(rows interface{}) error {
-	t.logger.Debug("Starting Bulk operation")
 	rv := reflect.ValueOf(rows)
 	if rv.Kind() != reflect.Slice {
-		err := errors.Newf("Bulk expects a slice, got %T", rows)
-		t.logger.Debugf("Bulk error: %v", err)
-		return err
+		return errors.Newf("Bulk expects a slice, got %T", rows)
 	}
+	if rv.Len() == 0 {
+		return nil
+	}
+
+	// AutoHeader logic remains here, as it's a "Bulk" operation concept.
+	if t.config.Behavior.Structs.AutoHeader.Enabled() && len(t.headers) == 0 {
+		first := rv.Index(0).Interface()
+		// We can now correctly get headers from pointers or embedded structs
+		headers := t.extractHeadersFromStruct(first)
+		if len(headers) > 0 {
+			t.Header(headers)
+		}
+	}
+
+	// The rest of the logic is now just a loop over Append.
 	for i := 0; i < rv.Len(); i++ {
 		row := rv.Index(i).Interface()
-		t.logger.Debugf("Processing bulk row %d: %v", i, row)
-		if err := t.appendSingle(row); err != nil {
-			t.logger.Debugf("Bulk append failed at index %d: %v", i, err)
+		if err := t.Append(row); err != nil { // Use Append
 			return err
 		}
 	}
-	t.logger.Debugf("Bulk completed, processed %d rows", rv.Len())
 	return nil
 }
 
@@ -1383,13 +1404,13 @@ func (t *Table) render() error {
 	if err != nil {
 		t.writer = originalWriter
 		t.logger.Errorf("prepareContexts failed: %v", err)
-		return fmt.Errorf("failed to prepare table contexts: %w", err)
+		return errors.Newf("failed to prepare table contexts").Wrap(err)
 	}
 
 	if err := ctx.renderer.Start(t.writer); err != nil {
 		t.writer = originalWriter
 		t.logger.Errorf("Renderer Start() error: %v", err)
-		return fmt.Errorf("renderer start failed: %w", err)
+		return errors.Newf("renderer start failed").Wrap(err)
 	}
 
 	renderError := false
@@ -1404,7 +1425,7 @@ func (t *Table) render() error {
 		if renderErr := renderFn(ctx, mctx); renderErr != nil {
 			t.logger.Errorf("Renderer section error (%s): %v", sectionName, renderErr)
 			if !renderError {
-				firstRenderErr = fmt.Errorf("failed to render %s section: %w", sectionName, renderErr)
+				firstRenderErr = errors.Newf("failed to render %s section", sectionName).Wrap(renderErr)
 			}
 			renderError = true
 			break
@@ -1414,7 +1435,7 @@ func (t *Table) render() error {
 	if closeErr := ctx.renderer.Close(); closeErr != nil {
 		t.logger.Errorf("Renderer Close() error: %v", closeErr)
 		if !renderError {
-			firstRenderErr = fmt.Errorf("renderer close failed: %w", closeErr)
+			firstRenderErr = errors.Newf("renderer close failed").Wrap(closeErr)
 		}
 		renderError = true
 	}
