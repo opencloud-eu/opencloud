@@ -1184,7 +1184,7 @@ def wopiValidatorTests(ctx, storage, wopiServerType, accounts_hash_difficulty = 
         ],
     }
 
-def coreApiTests(ctx, part_number = 1, number_of_parts = 1, with_remote_php = False, accounts_hash_difficulty = 4):
+def coreApiTests(ctx, part_number = 1, number_of_parts = 1, with_remote_php = False, accounts_hash_difficulty = 4, watch_fs_enabled = False):
     storage = "posix"
     if "[decomposed]" in ctx.build.title.lower():
         storage = "decomposed"
@@ -1193,9 +1193,9 @@ def coreApiTests(ctx, part_number = 1, number_of_parts = 1, with_remote_php = Fa
     expected_failures_file = "%s/expected-failures-API-on-%s-storage.md" % (test_dir, storage)
 
     return {
-        "name": "Core-API-Tests-%s%s-%s" % (part_number, "-withoutRemotePhp" if not with_remote_php else "", storage),
+        "name": "Core-API-Tests-%s%s-%s%s" % (part_number, "-withoutRemotePhp" if not with_remote_php else "", storage, "-watchfs" if watch_fs_enabled else ""),
         "steps": restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
-                 opencloudServer(storage, accounts_hash_difficulty, with_wrapper = True) +
+                 opencloudServer(storage, accounts_hash_difficulty, with_wrapper = True, watch_fs_enabled = watch_fs_enabled) +
                  [
                      {
                          "name": "oC10ApiTests-%s" % part_number,
@@ -1242,17 +1242,21 @@ def apiTests(ctx):
     debugPartsEnabled = (len(debugParts) != 0)
 
     with_remote_php = [True]
+    enable_watch_fs = [False]
     if ctx.build.event == "cron" or "full-ci" in ctx.build.title.lower():
         with_remote_php.append(False)
+        enable_watch_fs.append(True)
 
     defaults = {
         "withRemotePhp": with_remote_php,
+        "enableWatchFs": enable_watch_fs,
     }
 
     for runPart in range(1, config["apiTests"]["numberOfParts"] + 1):
         for run_with_remote_php in defaults["withRemotePhp"]:
-            if not debugPartsEnabled or (debugPartsEnabled and runPart in debugParts):
-                pipelines.append(coreApiTests(ctx, runPart, config["apiTests"]["numberOfParts"], run_with_remote_php))
+            for run_with_watch_fs_enabled in defaults["enableWatchFs"]:
+                if not debugPartsEnabled or (debugPartsEnabled and runPart in debugParts):
+                    pipelines.append(coreApiTests(ctx, runPart, config["apiTests"]["numberOfParts"], run_with_remote_php, watch_fs_enabled = run_with_watch_fs_enabled))
 
     return pipelines
 
