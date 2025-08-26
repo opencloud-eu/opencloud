@@ -7,7 +7,7 @@ import (
 )
 
 // NewInstrument returns a service that instruments metrics.
-func NewInstrument(next Service, metrics *metrics.Metrics) Service {
+func NewInstrument(next Service, metrics *metrics.HttpMetrics) Service {
 	return instrument{
 		next:    next,
 		metrics: metrics,
@@ -16,7 +16,7 @@ func NewInstrument(next Service, metrics *metrics.Metrics) Service {
 
 type instrument struct {
 	next    Service
-	metrics *metrics.Metrics
+	metrics *metrics.HttpMetrics
 }
 
 // ServeHTTP implements the Service interface.
