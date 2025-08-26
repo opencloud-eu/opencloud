@@ -523,9 +523,22 @@ func (f *Blueprint) renderLine(ctx tw.Formatting) {
 
 		isTotalPattern := false
 
+		// Case-insensitive check for "total"
+		if isHMergeStart && colIndex > 0 {
+			if prevCellCtx, ok := ctx.Row.Current[colIndex-1]; ok {
+				if strings.Contains(strings.ToLower(prevCellCtx.Data), "total") {
+					isTotalPattern = true
+					f.logger.Debugf("renderLine: total pattern in row in %d", colIndex)
+				}
+			}
+		}
+
+		// Get the alignment from the configuration
+		align = cellCtx.Align
+
 		// Override alignment for footer merged cells
 		if (ctx.Row.Position == tw.Footer && isHMergeStart) || isTotalPattern {
-			if align != tw.AlignRight {
+			if align == tw.AlignNone {
 				f.logger.Debugf("renderLine: Applying AlignRight HMerge/TOTAL override for Footer col %d. Original/default align was: %s", colIndex, align)
 				align = tw.AlignRight
 			}

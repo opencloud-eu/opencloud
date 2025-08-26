@@ -31,7 +31,7 @@ func Code(err error) int {
 	if e, ok := err.(*Error); ok {
 		return e.Code()
 	}
-	return 500
+	return DefaultCode
 }
 
 // Context extracts the context map from an error, if it is an *Error.
@@ -63,7 +63,12 @@ func Convert(err error) *Error {
 	}
 
 	// Manual unwrapping as fallback
+	visited := make(map[error]bool)
 	for unwrapped := err; unwrapped != nil; {
+		if visited[unwrapped] {
+			break // Cycle detected
+		}
+		visited[unwrapped] = true
 		if e, ok := unwrapped.(*Error); ok {
 			return e
 		}
@@ -229,11 +234,15 @@ func IsRetryable(err error) bool {
 				}
 			}
 		}
-		// Fallback to context map
+		// Check regular context
 		if e.context != nil {
 			if val, ok := e.context[ctxRetry].(bool); ok {
 				return val
 			}
+		}
+		// Check cause recursively
+		if e.cause != nil {
+			return IsRetryable(e.cause)
 		}
 	}
 	lowerMsg := strings.ToLower(err.Error())

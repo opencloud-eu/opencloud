@@ -6,6 +6,7 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"time"
 )
 
 // TextHandler is a handler that outputs log entries as plain text.
@@ -13,7 +14,9 @@ import (
 // writing the result to the provided writer.
 // Thread-safe if the underlying writer is thread-safe.
 type TextHandler struct {
-	w io.Writer // Destination for formatted log output
+	w          io.Writer // Destination for formatted log output
+	showTime   bool      // Whether to display timestamps
+	timeFormat string    // Format for timestamps (defaults to time.RFC3339)
 }
 
 // NewTextHandler creates a new TextHandler writing to the specified writer.
@@ -24,7 +27,24 @@ type TextHandler struct {
 //	logger := ll.New("app").Enable().Handler(handler)
 //	logger.Info("Test") // Output: [app] INFO: Test
 func NewTextHandler(w io.Writer) *TextHandler {
-	return &TextHandler{w: w}
+	return &TextHandler{
+		w:          w,
+		showTime:   false,
+		timeFormat: time.RFC3339,
+	}
+}
+
+// Timestamped enables or disables timestamp display and optionally sets a custom time format.
+// If format is empty, defaults to RFC3339.
+// Example:
+//
+//	handler := NewTextHandler(os.Stdout).TextWithTime(true, time.StampMilli)
+//	// Output: Jan 02 15:04:05.000 [app] INFO: Test
+func (h *TextHandler) Timestamped(enable bool, format ...string) {
+	h.showTime = enable
+	if len(format) > 0 && format[0] != "" {
+		h.timeFormat = format[0]
+	}
 }
 
 // Handle processes a log entry and writes it as plain text.
@@ -59,6 +79,12 @@ func (h *TextHandler) Handle(e *lx.Entry) error {
 //	h.handleRegularOutput(&lx.Entry{Message: "test", Level: lx.LevelInfo}) // Writes "INFO: test"
 func (h *TextHandler) handleRegularOutput(e *lx.Entry) error {
 	var builder strings.Builder // Buffer for building formatted output
+
+	// Add timestamp if enabled
+	if h.showTime {
+		builder.WriteString(e.Timestamp.Format(h.timeFormat))
+		builder.WriteString(lx.Space)
+	}
 
 	// Format namespace based on style
 	switch e.Style {
@@ -139,6 +165,12 @@ func (h *TextHandler) handleRegularOutput(e *lx.Entry) error {
 func (h *TextHandler) handleDumpOutput(e *lx.Entry) error {
 	// For text handler, we just add a newline before dump output
 	var builder strings.Builder // Buffer for building formatted output
+
+	// Add timestamp if enabled
+	if h.showTime {
+		builder.WriteString(e.Timestamp.Format(h.timeFormat))
+		builder.WriteString(lx.Newline)
+	}
 
 	// Add separator lines and dump content
 	builder.WriteString("---- BEGIN DUMP ----\n")

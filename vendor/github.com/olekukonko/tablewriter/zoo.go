@@ -1197,6 +1197,10 @@ func (t *Table) convertToString(value interface{}) string {
 // convertItemToCells is responsible for converting a single input item (which could be
 // a struct, a basic type, or an item implementing Stringer/Formatter) into a slice
 // of strings, where each string represents a cell for the table row.
+// zoo.go
+
+// convertItemToCells is responsible for converting a single input item into a slice of strings.
+// It now uses the unified struct parser for structs.
 func (t *Table) convertItemToCells(item interface{}) ([]string, error) {
 	t.logger.Debugf("convertItemToCells: Converting item of type %T", item)
 
@@ -1204,10 +1208,10 @@ func (t *Table) convertItemToCells(item interface{}) ([]string, error) {
 	if t.stringer != nil {
 		res, err := t.convertToStringer(item)
 		if err == nil {
-			t.logger.Debugf("convertItemToCells: Used custom table stringer (t.stringer) for type %T. Produced %d cells: %v", item, len(res), res)
+			t.logger.Debugf("convertItemToCells: Used custom table stringer for type %T. Produced %d cells: %v", item, len(res), res)
 			return res, nil
 		}
-		t.logger.Warnf("convertItemToCells: Custom table stringer (t.stringer) was set but incompatible or errored for type %T: %v. Will attempt other conversion methods.", item, err)
+		t.logger.Warnf("convertItemToCells: Custom table stringer was set but incompatible for type %T: %v. Will attempt other methods.", item, err)
 	}
 
 	// 2. Handle untyped nil directly.
@@ -1216,85 +1220,26 @@ func (t *Table) convertItemToCells(item interface{}) ([]string, error) {
 		return []string{""}, nil
 	}
 
-	itemValue := reflect.ValueOf(item)
-	itemType := itemValue.Type()
-
-	// 3. Handle pointers: Dereference pointers to get to the underlying struct or value.
-	if itemType.Kind() == reflect.Ptr {
-		if itemValue.IsNil() {
-			t.logger.Debugf("convertItemToCells: Item is a nil pointer of type %s. Returning single empty cell.", itemType.String())
-			return []string{""}, nil
-		}
-		itemValue = itemValue.Elem()
-		itemType = itemValue.Type()
-		t.logger.Debugf("convertItemToCells: Dereferenced pointer, now processing type %s.", itemType.String())
+	// 3. Use the new unified struct parser. It handles pointers and embedding.
+	// We only care about the values it returns.
+	_, values := t.extractFieldsAndValuesFromStruct(item)
+	if values != nil {
+		t.logger.Debugf("convertItemToCells: Structs %T reflected into %d cells: %v", item, len(values), values)
+		return values, nil
 	}
 
-	// 4. Special handling for structs:
-	if itemType.Kind() == reflect.Struct {
-		// Check if the original item (before potential dereference) implements Formatter or Stringer.
-		if formatter, ok := item.(tw.Formatter); ok {
-			t.logger.Debugf("convertItemToCells: Struct item (type %s) is tw.Formatter. Using Format(). Resulting in 1 cell.", itemType.Name())
-			return []string{formatter.Format()}, nil
-		}
-		if stringer, ok := item.(fmt.Stringer); ok {
-			t.logger.Debugf("convertItemToCells: Struct item (type %s) is fmt.Stringer. Using String(). Resulting in 1 cell.", itemType.Name())
-			return []string{stringer.String()}, nil
-		}
-
-		t.logger.Debugf("convertItemToCells: Item is a struct (type %s). Attempting generic field reflection to expand into multiple cells.", itemType.Name())
-		numFields := itemValue.NumField()
-		structCells := make([]string, 0, numFields)
-		hasProcessableFields := false
-
-		for i := 0; i < numFields; i++ {
-			fieldMeta := itemType.Field(i)
-			if fieldMeta.PkgPath != "" {
-				t.logger.Debugf("convertItemToCells: Skipping unexported field %s in struct %s", fieldMeta.Name, itemType.Name())
-				continue
-			}
-			hasProcessableFields = true // Mark true if we encounter any exported field
-
-			jsonTag := fieldMeta.Tag.Get("json")
-			if jsonTag == "-" {
-				t.logger.Debugf("convertItemToCells: Skipping field %s in struct %s due to json:\"-\" tag", fieldMeta.Name, itemType.Name())
-				continue
-			}
-
-			fieldReflectedValue := itemValue.Field(i)
-			if strings.Contains(jsonTag, ",omitempty") && fieldReflectedValue.IsZero() {
-				t.logger.Debugf("convertItemToCells: Omitting zero value for field %s in struct %s due to omitempty tag", fieldMeta.Name, itemType.Name())
-				structCells = append(structCells, "")
-				continue
-			}
-			structCells = append(structCells, t.convertToString(fieldReflectedValue.Interface()))
-		}
-
-		// Only return expanded cells if there were processable fields.
-		// If a struct has no exported fields, or all were skipped via json:"-",
-		// it should still produce output (e.g. fmt.Sprintf of the struct) rather than an empty row.
-		if hasProcessableFields {
-			t.logger.Debugf("convertItemToCells: Struct %s reflected into %d cells: %v", itemType.Name(), len(structCells), structCells)
-			return structCells, nil
-		}
-
-		t.logger.Warnf("convertItemToCells: Struct %s has no processable exported fields. Falling back to Sprintf for the whole item (resulting in 1 cell).", itemType.Name())
-		return []string{t.convertToString(item)}, nil // 'item' is the original potentially pointer type
-	}
-
-	// 5. Item is NOT a struct. It might be a basic type or a non-struct type implementing Formatter/Stringer.
-	//    These should all result in a single cell.
+	// 4. Fallback for any other single item (e.g., basic types, or types that implement Stringer/Formatter).
+	// This code path is now for non-struct types.
 	if formatter, ok := item.(tw.Formatter); ok {
-		t.logger.Debugf("convertItemToCells: Item (non-struct, type %T) is tw.Formatter. Using Format(). Resulting in 1 cell.", item)
+		t.logger.Debugf("convertItemToCells: Item (non-struct, type %T) is tw.Formatter. Using Format().", item)
 		return []string{formatter.Format()}, nil
 	}
 	if stringer, ok := item.(fmt.Stringer); ok {
-		t.logger.Debugf("convertItemToCells: Item (non-struct, type %T) is fmt.Stringer. Using String(). Resulting in 1 cell.", item)
+		t.logger.Debugf("convertItemToCells: Item (non-struct, type %T) is fmt.Stringer. Using String().", item)
 		return []string{stringer.String()}, nil
 	}
 
-	// 6. Fallback for any other single item (e.g., basic types like int, string, bool):
-	t.logger.Debugf("convertItemToCells: Item (type %T) is a basic type or unhandled by other mechanisms. Treating as single cell via convertToString.", item)
+	t.logger.Debugf("convertItemToCells: Item (type %T) is a basic type. Treating as single cell via convertToString.", item)
 	return []string{t.convertToString(item)}, nil
 }
 
@@ -1693,4 +1638,93 @@ func (t *Table) updateWidths(row []string, widths tw.Mapper[int, int], padding t
 			t.logger.Debugf("  Col %d: Width %d not greater than current max %d for cell '%s'", i, totalWidth, currentMax, cell)
 		}
 	}
+}
+
+// extractHeadersFromStruct is now a thin wrapper around the new unified function.
+// It only cares about the header names.
+func (t *Table) extractHeadersFromStruct(sample interface{}) []string {
+	headers, _ := t.extractFieldsAndValuesFromStruct(sample)
+	return headers
+}
+
+// extractFieldsAndValuesFromStruct is the new single source of truth for struct reflection.
+// It recursively processes a struct, handling pointers and embedded structs,
+// and returns two slices: one for header names and one for string-converted values.
+func (t *Table) extractFieldsAndValuesFromStruct(sample interface{}) ([]string, []string) {
+	v := reflect.ValueOf(sample)
+	if v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			return nil, nil
+		}
+		v = v.Elem()
+	}
+
+	if v.Kind() != reflect.Struct {
+		return nil, nil
+	}
+
+	typ := v.Type()
+	headers := make([]string, 0, typ.NumField())
+	values := make([]string, 0, typ.NumField())
+
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		fieldValue := v.Field(i)
+
+		// Skip unexported fields
+		if field.PkgPath != "" {
+			continue
+		}
+
+		// Handle embedded structs recursively
+		if field.Anonymous {
+			h, val := t.extractFieldsAndValuesFromStruct(fieldValue.Interface())
+			if h != nil {
+				headers = append(headers, h...)
+				values = append(values, val...)
+			}
+			continue
+		}
+
+		var tagName string
+		skipField := false
+
+		// Loop through the priority list of configured tags (e.g., ["json", "db"])
+		for _, tagKey := range t.config.Behavior.Structs.Tags {
+			tagValue := field.Tag.Get(tagKey)
+
+			// If a tag is found...
+			if tagValue != "" {
+				// If the tag is "-", this field should be skipped entirely.
+				if tagValue == "-" {
+					skipField = true
+					break // Stop processing tags for this field.
+				}
+				// Otherwise, we've found our highest-priority tag. Store it and stop.
+				tagName = tagValue
+				break // Stop processing tags for this field.
+			}
+		}
+
+		// If the field was marked for skipping, continue to the next field.
+		if skipField {
+			continue
+		}
+
+		// Determine header name from the tag or fallback to the field name
+		headerName := field.Name
+		if tagName != "" {
+			headerName = strings.Split(tagName, ",")[0]
+		}
+		headers = append(headers, tw.Title(headerName))
+
+		// Determine value, respecting omitempty from the found tag
+		value := ""
+		if !strings.Contains(tagName, ",omitempty") || !fieldValue.IsZero() {
+			value = t.convertToString(fieldValue.Interface())
+		}
+		values = append(values, value)
+	}
+
+	return headers, values
 }

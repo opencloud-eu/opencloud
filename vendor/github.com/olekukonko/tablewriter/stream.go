@@ -1,7 +1,6 @@
 package tablewriter
 
 import (
-	"fmt"
 	"github.com/olekukonko/errors"
 	"github.com/olekukonko/tablewriter/pkg/twwidth"
 	"github.com/olekukonko/tablewriter/tw"
@@ -90,7 +89,7 @@ func (t *Table) Start() error {
 	if !t.renderer.Config().Streaming {
 		// Check if the configured renderer actually supports streaming.
 		t.logger.Error("Configured renderer does not support streaming.")
-		return fmt.Errorf("renderer does not support streaming")
+		return errors.Newf("renderer does not support streaming")
 	}
 
 	//t.renderer.Start(t.writer)
@@ -208,7 +207,7 @@ func (t *Table) streamAppendRow(row interface{}) error {
 	rawCellsSlice, err := t.convertCellsToStrings(row, t.config.Row)
 	if err != nil {
 		t.logger.Errorf("streamAppendRow: Failed to convert row to strings: %v", err)
-		return fmt.Errorf("failed to convert row to strings: %w", err)
+		return errors.Newf("failed to convert row to strings").Wrap(err)
 	}
 
 	if len(rawCellsSlice) == 0 {
@@ -221,7 +220,7 @@ func (t *Table) streamAppendRow(row interface{}) error {
 	}
 
 	if err := t.ensureStreamWidthsCalculated(rawCellsSlice, t.config.Row); err != nil {
-		return fmt.Errorf("failed to establish stream column count/widths: %w", err)
+		return errors.New("failed to establish stream column count/widths").Wrap(err)
 	}
 
 	// Now, check for column mismatch if a column count has been established.

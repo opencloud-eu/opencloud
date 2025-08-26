@@ -103,42 +103,124 @@ func (r *Retry) Execute(fn func() error) error {
 	var lastErr error
 
 	for attempt := 1; attempt <= r.maxAttempts; attempt++ {
+		// Check context before each attempt
+		select {
+		case <-r.ctx.Done():
+			return r.ctx.Err()
+		default:
+		}
+
 		err := fn()
 		if err == nil {
 			return nil
 		}
 
-		// Check if retry is applicable; return immediately if not retryable
+		lastErr = err
+
+		// Check if we should retry
 		if r.retryIf != nil && !r.retryIf(err) {
 			return err
 		}
 
-		lastErr = err
 		if r.onRetry != nil {
 			r.onRetry(attempt, err)
 		}
 
-		// Exit if this was the last attempt
+		// Don't delay after last attempt
 		if attempt == r.maxAttempts {
 			break
 		}
 
-		// Calculate delay with backoff, cap at maxDelay, and apply jitter if enabled
+		// Calculate delay with backoff
+		delay := r.backoff.Backoff(attempt, r.delay)
+		if r.maxDelay > 0 && delay > r.maxDelay {
+			delay = r.maxDelay
+		}
+		if r.jitter {
+			delay = addJitter(delay)
+		}
+
+		// Wait with context
+		select {
+		case <-r.ctx.Done():
+			return r.ctx.Err()
+		case <-time.After(delay):
+		}
+	}
+
+	return lastErr
+}
+
+// ExecuteContext runs the provided function with retry logic, respecting context cancellation.
+// Returns nil on success or the last error if all attempts fail or context is cancelled.
+func (r *Retry) ExecuteContext(ctx context.Context, fn func() error) error {
+	var lastErr error
+
+	// If the retry instance already has a context, use it. Otherwise, use the provided one.
+	// If both are provided, maybe create a derived context? For now, prioritize the one from WithContext.
+	execCtx := r.ctx
+	if execCtx == context.Background() && ctx != nil { // Use provided ctx if retry ctx is default and provided one isn't nil
+		execCtx = ctx
+	} else if ctx == nil { // Ensure we always have a non-nil context
+		execCtx = context.Background()
+	}
+	// Note: This logic might need refinement depending on how contexts should interact.
+	// A safer approach might be: if r.ctx != background, use it. Else use provided ctx.
+
+	for attempt := 1; attempt <= r.maxAttempts; attempt++ {
+		// Check context before executing the function
+		select {
+		case <-execCtx.Done():
+			return execCtx.Err() // Return context error immediately
+		default:
+			// Context is okay, proceed
+		}
+
+		err := fn()
+		if err == nil {
+			return nil // Success
+		}
+
+		// Check if retry is applicable based on the error
+		if r.retryIf != nil && !r.retryIf(err) {
+			return err // Not retryable, return the error
+		}
+
+		lastErr = err // Store the last encountered error
+
+		// Execute the OnRetry callback if configured
+		if r.onRetry != nil {
+			r.onRetry(attempt, err)
+		}
+
+		// Exit loop if this was the last attempt
+		if attempt == r.maxAttempts {
+			break
+		}
+
+		// --- Calculate and apply delay ---
 		currentDelay := r.backoff.Backoff(attempt, r.delay)
-		if currentDelay > r.maxDelay {
+		if r.maxDelay > 0 && currentDelay > r.maxDelay { // Check maxDelay > 0 before capping
 			currentDelay = r.maxDelay
 		}
 		if r.jitter {
 			currentDelay = addJitter(currentDelay)
 		}
-
-		// Wait with respect to context cancellation or timeout
+		if currentDelay < 0 { // Ensure delay isn't negative after jitter
+			currentDelay = 0
+		}
+		// --- Wait for the delay or context cancellation ---
 		select {
-		case <-r.ctx.Done():
-			return r.ctx.Err()
+		case <-execCtx.Done():
+			// If context is cancelled during the wait, return the context error
+			// Often more informative than returning the last application error.
+			return execCtx.Err()
 		case <-time.After(currentDelay):
+			// Wait finished, continue to the next attempt
 		}
 	}
+
+	// All attempts failed, return the last error encountered
 	return lastErr
 }
 

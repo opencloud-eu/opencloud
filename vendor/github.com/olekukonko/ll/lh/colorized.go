@@ -7,6 +7,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 )
 
 // Palette defines ANSI color codes for various log components.
@@ -76,8 +77,10 @@ var lightPalette = Palette{
 // writing the result to the provided writer.
 // Thread-safe if the underlying writer is thread-safe.
 type ColorizedHandler struct {
-	w       io.Writer // Destination for colored log output
-	palette Palette   // Color scheme for formatting
+	w          io.Writer // Destination for colored log output
+	palette    Palette   // Color scheme for formatting
+	showTime   bool      // Whether to display timestamps
+	timeFormat string    // Format for timestamps (defaults to time.RFC3339)
 }
 
 // ColorOption defines a configuration function for ColorizedHandler.
@@ -104,7 +107,12 @@ func WithColorPallet(pallet Palette) ColorOption {
 //	logger := ll.New("app").Enable().Handler(handler)
 //	logger.Info("Test") // Output: [app] <colored INFO>: Test
 func NewColorizedHandler(w io.Writer, opts ...ColorOption) *ColorizedHandler {
-	c := &ColorizedHandler{w: w} // Initialize with writer
+	// Initialize with writer
+	c := &ColorizedHandler{w: w,
+		showTime:   false,
+		timeFormat: time.RFC3339,
+	}
+
 	// Apply configuration options
 	for _, opt := range opts {
 		opt(c)
@@ -136,6 +144,19 @@ func (h *ColorizedHandler) Handle(e *lx.Entry) error {
 	}
 }
 
+// Timestamped enables or disables timestamp display and optionally sets a custom time format.
+// If format is empty, defaults to RFC3339.
+// Example:
+//
+//	handler := NewColorizedHandler(os.Stdout).Timestamped(true, time.StampMilli)
+//	// Output: Jan 02 15:04:05.000 [app] INFO: Test
+func (h *ColorizedHandler) Timestamped(enable bool, format ...string) {
+	h.showTime = enable
+	if len(format) > 0 && format[0] != "" {
+		h.timeFormat = format[0]
+	}
+}
+
 // handleRegularOutput handles normal log entries.
 // It formats the entry with colored namespace, level, message, fields, and stack trace (if present),
 // writing the result to the handler's writer.
@@ -145,6 +166,12 @@ func (h *ColorizedHandler) Handle(e *lx.Entry) error {
 //	h.handleRegularOutput(&lx.Entry{Message: "test", Level: lx.LevelInfo}) // Writes colored output
 func (h *ColorizedHandler) handleRegularOutput(e *lx.Entry) error {
 	var builder strings.Builder // Buffer for building formatted output
+
+	// Add timestamp if enabled
+	if h.showTime {
+		builder.WriteString(e.Timestamp.Format(h.timeFormat))
+		builder.WriteString(lx.Space)
+	}
 
 	// Format namespace with colors
 	h.formatNamespace(&builder, e)
@@ -345,6 +372,13 @@ func (h *ColorizedHandler) formatStack(b *strings.Builder, stack []byte) {
 //	h.handleDumpOutput(&lx.Entry{Class: lx.ClassDump, Message: "pos 00 hex: 61 62 'ab'"}) // Writes colored dump
 func (h *ColorizedHandler) handleDumpOutput(e *lx.Entry) error {
 	var builder strings.Builder
+
+	// Add timestamp if enabled
+	if h.showTime {
+		builder.WriteString(e.Timestamp.Format(h.timeFormat))
+		builder.WriteString(lx.Newline)
+	}
+
 	// Write colored BEGIN separator
 	builder.WriteString(h.palette.Title)
 	builder.WriteString("---- BEGIN DUMP ----")

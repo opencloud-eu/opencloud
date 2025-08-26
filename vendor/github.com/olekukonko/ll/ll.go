@@ -1116,6 +1116,24 @@ func (l *Logger) Style(style lx.StyleType) *Logger {
 	return l
 }
 
+// Timestamped enables or disables timestamp logging for the logger and optionally sets the timestamp format.
+// It is thread-safe, using a write lock to ensure safe concurrent access.
+// If the logger's handler supports the lx.Timestamper interface, the timestamp settings are applied.
+// The method returns the logger instance to support method chaining.
+// Parameters:
+//
+//	enable: Boolean to enable or disable timestamp logging
+//	format: Optional string(s) to specify the timestamp format
+func (l *Logger) Timestamped(enable bool, format ...string) *Logger {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if h, ok := l.handler.(lx.Timestamper); ok {
+		h.Timestamped(enable, format...)
+	}
+	return l
+}
+
 // Use adds a middleware function to process log entries before they are handled, returning
 // a Middleware handle for removal. Middleware returning a non-nil error stops the log.
 // It is thread-safe using a write lock.
@@ -1386,6 +1404,24 @@ func (l *Logger) shouldLog(level lx.LevelType) bool {
 func WithHandler(handler lx.Handler) Option {
 	return func(l *Logger) {
 		l.handler = handler
+	}
+}
+
+// WithTimestamped returns an Option that configures timestamp settings for the logger's existing handler.
+// It enables or disables timestamp logging and optionally sets the timestamp format if the handler
+// supports the lx.Timestamper interface. If no handler is set, the function has no effect.
+// Parameters:
+//
+//	enable: Boolean to enable or disable timestamp logging
+//	format: Optional string(s) to specify the timestamp format
+func WithTimestamped(enable bool, format ...string) Option {
+	return func(l *Logger) {
+		if l.handler != nil { // Check if a handler is set
+			// Verify if the handler supports the lx.Timestamper interface
+			if h, ok := l.handler.(lx.Timestamper); ok {
+				h.Timestamped(enable, format...) // Apply timestamp settings to the handler
+			}
+		}
 	}
 }
 
