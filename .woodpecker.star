@@ -583,7 +583,12 @@ def testPipelines(ctx):
     if "skip" not in config["apiTests"] or not config["apiTests"]["skip"]:
         pipelines += apiTests(ctx)
 
-    pipelines += e2eTestPipeline(ctx) + multiServiceE2ePipeline(ctx)
+    enable_watch_fs = [False]
+    if ctx.build.event == "cron" or "full-ci" in ctx.build.title.lower():
+        enable_watch_fs.append(True)
+
+    for run_with_watch_fs_enabled in enable_watch_fs:
+        pipelines += e2eTestPipeline(ctx, run_with_watch_fs_enabled) + multiServiceE2ePipeline(ctx, run_with_watch_fs_enabled)
 
     if ("skip" not in config["k6LoadTests"] or not config["k6LoadTests"]["skip"]) and ("k6-test" in ctx.build.title.lower() or ctx.build.event == "cron"):
         pipelines += k6LoadTests(ctx)
@@ -1260,7 +1265,7 @@ def apiTests(ctx):
 
     return pipelines
 
-def e2eTestPipeline(ctx):
+def e2eTestPipeline(ctx, watch_fs_enabled = False):
     defaults = {
         "skip": False,
         "suites": [],
@@ -1331,7 +1336,7 @@ def e2eTestPipeline(ctx):
             restoreWebPnpmCache() + \
             restoreBrowsersCache() + \
             (tikaService() if params["tikaNeeded"] else []) + \
-            opencloudServer(storage, extra_server_environment = extra_server_environment, tika_enabled = params["tikaNeeded"])
+            opencloudServer(storage, extra_server_environment = extra_server_environment, tika_enabled = params["tikaNeeded"], watch_fs_enabled = watch_fs_enabled)
 
         step_e2e = {
             "name": "e2e-tests",
@@ -1363,7 +1368,7 @@ def e2eTestPipeline(ctx):
                     "bash run-e2e.sh %s --run-part %d" % (e2e_args, run_part),
                 ]
                 pipelines.append({
-                    "name": "e2e-tests-%s-%s-%s" % (name, run_part, storage),
+                    "name": "e2e-tests-%s-%s-%s%s" % (name, run_part, storage, "-watchfs" if watch_fs_enabled else ""),
                     "steps": steps_before + [run_e2e] + steps_after,
                     "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
                     "when": e2e_trigger,
@@ -1371,7 +1376,7 @@ def e2eTestPipeline(ctx):
         else:
             step_e2e["commands"].append("bash run-e2e.sh %s" % e2e_args)
             pipelines.append({
-                "name": "e2e-tests-%s-%s" % (name, storage),
+                "name": "e2e-tests-%s-%s%s" % (name, storage, "-watchfs" if watch_fs_enabled else ""),
                 "steps": steps_before + [step_e2e] + steps_after,
                 "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
                 "when": e2e_trigger,
@@ -1379,7 +1384,7 @@ def e2eTestPipeline(ctx):
 
     return pipelines
 
-def multiServiceE2ePipeline(ctx):
+def multiServiceE2ePipeline(ctx, watch_fs_enabled = False):
     pipelines = []
 
     defaults = {
@@ -1425,6 +1430,9 @@ def multiServiceE2ePipeline(ctx):
         # Needed for enabling all roles
         "GRAPH_AVAILABLE_ROLES": "%s" % GRAPH_AVAILABLE_ROLES,
     }
+
+    if watch_fs_enabled:
+        extra_server_environment["STORAGE_USES_POSIX_WATCH_FS"] = True
 
     storage_users_environment = {
         "OC_CORS_ALLOW_ORIGINS": "%s,https://%s:9201" % (OC_URL, OC_SERVER_NAME),
@@ -1508,7 +1516,7 @@ def multiServiceE2ePipeline(ctx):
             uploadTracingResult(ctx)
 
         pipelines.append({
-            "name": "e2e-tests-multi-service",
+            "name": "e2e-tests-multi-service%s" % ("-watchfs" if watch_fs_enabled else ""),
             "steps": steps,
             "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
             "when": e2e_trigger,
