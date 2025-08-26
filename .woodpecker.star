@@ -938,8 +938,10 @@ def localApiTestPipeline(ctx):
     pipelines = []
 
     with_remote_php = [True]
+    enable_watch_fs = [False]
     if ctx.build.event == "cron" or "full-ci" in ctx.build.title.lower():
         with_remote_php.append(False)
+        enable_watch_fs.append(True)
 
     storages = ["posix"]
     if "[decomposed]" in ctx.build.title.lower():
@@ -959,6 +961,7 @@ def localApiTestPipeline(ctx):
         "collaborationServiceNeeded": False,
         "extraCollaborationEnvironment": {},
         "withRemotePhp": with_remote_php,
+        "enableWatchFs": enable_watch_fs,
         "ldapNeeded": False,
     }
 
@@ -970,36 +973,37 @@ def localApiTestPipeline(ctx):
                     params[item] = matrix[item] if item in matrix else defaults[item]
                 for storage in params["storages"]:
                     for run_with_remote_php in params["withRemotePhp"]:
-                        pipeline = {
-                            "name": "%s-%s%s-%s" % ("CLI" if name.startswith("cli") else "API", name, "-withoutRemotePhp" if not run_with_remote_php else "", "decomposed" if name.startswith("cli") else storage),
-                            "steps": restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
-                                     (tikaService() if params["tikaNeeded"] else []) +
-                                     (waitForServices("online-offices", ["collabora:9980", "onlyoffice:443", "fakeoffice:8080"]) if params["collaborationServiceNeeded"] else []) +
-                                     (waitForClamavService() if params["antivirusNeeded"] else []) +
-                                     (waitForEmailService() if params["emailNeeded"] else []) +
-                                     (ldapService() if params["ldapNeeded"] else []) +
-                                     (waitForLdapService() if params["ldapNeeded"] else []) +
-                                     opencloudServer(storage, params["accounts_hash_difficulty"], extra_server_environment = params["extraServerEnvironment"], with_wrapper = True, tika_enabled = params["tikaNeeded"]) +
-                                     (opencloudServer(storage, params["accounts_hash_difficulty"], deploy_type = "federation", extra_server_environment = params["extraServerEnvironment"]) if params["federationServer"] else []) +
-                                     ((wopiCollaborationService("fakeoffice") + wopiCollaborationService("collabora") + wopiCollaborationService("onlyoffice")) if params["collaborationServiceNeeded"] else []) +
-                                     (openCloudHealthCheck("wopi", ["wopi-collabora:9304", "wopi-onlyoffice:9304", "wopi-fakeoffice:9304"]) if params["collaborationServiceNeeded"] else []) +
-                                     localApiTests(name, params["suites"], storage, params["extraTestEnvironment"], run_with_remote_php) +
-                                     logRequests(),
-                            "services": (emailService() if params["emailNeeded"] else []) +
-                                        (clamavService() if params["antivirusNeeded"] else []) +
-                                        ((fakeOffice() + collaboraService() + onlyofficeService()) if params["collaborationServiceNeeded"] else []),
-                            "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx)),
-                            "when": [
-                                event["base"],
-                                event["cron"],
-                                {
-                                    "event": "pull_request",
-                                    "path": {
-                                        "exclude": skipIfUnchanged(ctx, "acceptance-tests"),
+                        for run_with_watch_fs_enabled in params["enableWatchFs"]:
+                            pipeline = {
+                                "name": "%s-%s%s-%s%s" % ("CLI" if name.startswith("cli") else "API", name, "-withoutRemotePhp" if not run_with_remote_php else "", "decomposed" if name.startswith("cli") else storage, "-watchfs" if run_with_watch_fs_enabled else ""),
+                                "steps": restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
+                                         (tikaService() if params["tikaNeeded"] else []) +
+                                         (waitForServices("online-offices", ["collabora:9980", "onlyoffice:443", "fakeoffice:8080"]) if params["collaborationServiceNeeded"] else []) +
+                                         (waitForClamavService() if params["antivirusNeeded"] else []) +
+                                         (waitForEmailService() if params["emailNeeded"] else []) +
+                                         (ldapService() if params["ldapNeeded"] else []) +
+                                         (waitForLdapService() if params["ldapNeeded"] else []) +
+                                         opencloudServer(storage, params["accounts_hash_difficulty"], extra_server_environment = params["extraServerEnvironment"], with_wrapper = True, tika_enabled = params["tikaNeeded"], watch_fs_enabled = run_with_watch_fs_enabled) +
+                                         (opencloudServer(storage, params["accounts_hash_difficulty"], deploy_type = "federation", extra_server_environment = params["extraServerEnvironment"], watch_fs_enabled = run_with_watch_fs_enabled) if params["federationServer"] else []) +
+                                         ((wopiCollaborationService("fakeoffice") + wopiCollaborationService("collabora") + wopiCollaborationService("onlyoffice")) if params["collaborationServiceNeeded"] else []) +
+                                         (openCloudHealthCheck("wopi", ["wopi-collabora:9304", "wopi-onlyoffice:9304", "wopi-fakeoffice:9304"]) if params["collaborationServiceNeeded"] else []) +
+                                         localApiTests(name, params["suites"], storage, params["extraTestEnvironment"], run_with_remote_php) +
+                                         logRequests(),
+                                "services": (emailService() if params["emailNeeded"] else []) +
+                                            (clamavService() if params["antivirusNeeded"] else []) +
+                                            ((fakeOffice() + collaboraService() + onlyofficeService()) if params["collaborationServiceNeeded"] else []),
+                                "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx)),
+                                "when": [
+                                    event["base"],
+                                    event["cron"],
+                                    {
+                                        "event": "pull_request",
+                                        "path": {
+                                            "exclude": skipIfUnchanged(ctx, "acceptance-tests"),
+                                        },
                                     },
-                                },
-                            ],
-                        }
+                                ],
+                            }
                         pipelines.append(pipeline)
     return pipelines
 
@@ -1951,7 +1955,7 @@ def notifyMatrix(ctx):
 
     return result
 
-def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, depends_on = [], deploy_type = "", extra_server_environment = {}, with_wrapper = False, tika_enabled = False):
+def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, depends_on = [], deploy_type = "", extra_server_environment = {}, with_wrapper = False, tika_enabled = False, watch_fs_enabled = False):
     user = "0:0"
     container_name = OC_SERVER_NAME
     environment = {
@@ -2043,6 +2047,9 @@ def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, depend
         environment["SEARCH_EXTRACTOR_TYPE"] = "tika"
         environment["SEARCH_EXTRACTOR_TIKA_TIKA_URL"] = "http://tika:9998"
         environment["SEARCH_EXTRACTOR_CS3SOURCE_INSECURE"] = True
+
+    if watch_fs_enabled:
+        environment["STORAGE_USES_POSIX_WATCH_FS"] = True
 
     # Pass in "default" accounts_hash_difficulty to not set this environment variable.
     # That will allow OpenCloud to use whatever its built-in default is.
