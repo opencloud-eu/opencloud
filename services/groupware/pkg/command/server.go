@@ -7,7 +7,6 @@ import (
 	"github.com/oklog/run"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
-	"github.com/opencloud-eu/opencloud/pkg/version"
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/logging"
@@ -37,12 +36,10 @@ func Server(cfg *config.Config) *cli.Command {
 			var (
 				gr          = run.Group{}
 				ctx, cancel = context.WithCancel(c.Context)
-				m           = metrics.New()
+				m           = metrics.NewHttpMetrics()
 			)
 
 			defer cancel()
-
-			m.BuildInfo.WithLabelValues(version.GetString()).Set(1)
 
 			server, err := debug.Server(
 				debug.Logger(logger),

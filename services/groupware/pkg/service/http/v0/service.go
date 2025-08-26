@@ -10,6 +10,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/groupware"
+	"github.com/opencloud-eu/opencloud/services/groupware/pkg/metrics"
 )
 
 // Service defines the service handlers.
@@ -51,6 +52,8 @@ func NewService(opts ...Option) (Service, error) {
 			level.Array("routes", log.StringArray(routes)).Msgf("serving %v endpoints", len(routes))
 		}
 	}
+
+	metrics.StartupMetrics()
 
 	return gw, nil
 }
