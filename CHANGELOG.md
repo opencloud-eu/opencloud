@@ -24,6 +24,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/olekukonko/tablewriter from 1.0.8 to 1.0.9 [[#1376](https://github.com/opencloud-eu/opencloud/pull/1376)]
 - build(deps): bump github.com/onsi/ginkgo/v2 from 2.24.0 to 2.25.1 [[#1396](https://github.com/opencloud-eu/opencloud/pull/1396)]
 - [full-ci] Bump reva to latest main [[#1372](https://github.com/opencloud-eu/opencloud/pull/1372)]
 - build(deps): bump github.com/prometheus/client_golang from 1.22.0 to 1.23.0 [[#1385](https://github.com/opencloud-eu/opencloud/pull/1385)]
