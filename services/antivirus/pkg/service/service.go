@@ -231,19 +231,21 @@ func (av Antivirus) process(ev events.StartPostprocessingStep) (scanners.Result,
 		return scanners.Result{ScanTime: time.Now()}, nil
 	}
 
+	filesize := ev.Filesize
 	headers := make(map[string]string)
 	switch {
 	case av.maxScanSize == 0:
 		// there is no size limit
 		break
-	case av.config.MaxScanSizeMode == config.MaxScanSizeModeSkip && ev.Filesize > av.maxScanSize:
+	case av.config.MaxScanSizeMode == config.MaxScanSizeModeSkip && filesize > av.maxScanSize:
 		// skip the file if it is bigger than the max scan size
-		av.log.Info().Str("uploadid", ev.UploadID).Uint64("filesize", ev.Filesize).
+		av.log.Info().Str("uploadid", ev.UploadID).Uint64("filesize", filesize).
 			Msg("Skipping file to be virus scanned, file size is bigger than max scan size.")
 		return scanners.Result{ScanTime: time.Now()}, nil
-	case av.config.MaxScanSizeMode == config.MaxScanSizeModePartial && ev.Filesize > av.maxScanSize:
+	case av.config.MaxScanSizeMode == config.MaxScanSizeModePartial && filesize > av.maxScanSize:
 		// set the range header to only download the first maxScanSize bytes
 		headers["Range"] = fmt.Sprintf("bytes=0-%d", av.maxScanSize-1)
+		filesize = av.maxScanSize // inform the scanner that we are only scanning part of the file
 	}
 
 	var err error
@@ -265,7 +267,7 @@ func (av Antivirus) process(ev events.StartPostprocessingStep) (scanners.Result,
 
 	av.log.Debug().Str("uploadid", ev.UploadID).Msg("Downloaded file successfully, starting virusscan")
 
-	res, err := av.scanner.Scan(scanners.Input{Body: rrc, Size: int64(ev.Filesize), Url: ev.URL, Name: ev.Filename})
+	res, err := av.scanner.Scan(scanners.Input{Body: rrc, Size: int64(filesize), Url: ev.URL, Name: ev.Filename})
 	if err != nil {
 		av.log.Error().Err(err).Str("uploadid", ev.UploadID).Msg("error scanning file")
 	}
