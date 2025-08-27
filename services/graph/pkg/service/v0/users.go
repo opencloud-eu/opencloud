@@ -12,11 +12,13 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/CiscoM31/godata"
 	invitepb "github.com/cs3org/go-cs3apis/cs3/ocm/invite/v1beta1"
 	cs3rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	storageprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	v1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
@@ -606,6 +608,8 @@ func getUserLanguage(ctx context.Context, valueService settingssvc.ValueService,
 
 // DeleteUser implements the Service interface.
 func (g Graph) DeleteUser(w http.ResponseWriter, r *http.Request) {
+	purgeUser := r.Header.Get("Prefer") == "purge"
+
 	logger := g.logger.SubloggerWithRequestID(r.Context())
 	logger.Debug().Msg("calling delete user")
 	sanitizedPath := strings.TrimPrefix(r.URL.Path, "/graph/v1.0/")
@@ -638,14 +642,23 @@ func (g Graph) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	e := events.UserDeleted{UserID: user.GetId()}
-	if currentUser, ok := revactx.ContextGetUser(r.Context()); ok {
-		if currentUser.GetId().GetOpaqueId() == user.GetId() {
-			logger.Debug().Msg("could not delete user: self deletion forbidden")
-			errorcode.NotAllowed.Render(w, r, http.StatusForbidden, "self deletion forbidden")
-			return
-		}
-		e.Executant = currentUser.GetId()
+	if g.config.UserSoftDeleteRetentionTime > 0 && purgeUser && user.GetAccountEnabled() {
+		logger.Debug().Msg("could not delete user: purgeUser is set but user is still enabled")
+		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "user should be hard deleted, but is still enabled, please soft delete first")
+		return
+	}
+
+	currentUser, ok := revactx.ContextGetUser(r.Context())
+	if !ok {
+		logger.Debug().Msg("could not delete user: user not in context")
+		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "user not in context")
+		return
+	}
+
+	if currentUser.GetId().GetOpaqueId() == user.GetId() {
+		logger.Debug().Msg("could not delete user: self deletion forbidden")
+		errorcode.NotAllowed.Render(w, r, http.StatusForbidden, "self deletion forbidden")
+		return
 	}
 
 	if g.gatewaySelector != nil {
@@ -692,34 +705,60 @@ func (g Graph) DeleteUser(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			}
-			purgeFlag := utils.AppendPlainToOpaque(nil, "purge", "")
-			_, err := client.DeleteStorageSpace(r.Context(), &storageprovider.DeleteStorageSpaceRequest{
-				Opaque: purgeFlag,
-				Id: &storageprovider.StorageSpaceId{
-					OpaqueId: sp.Id.OpaqueId,
-				},
-			})
-			if err != nil {
-				// transport error, log as error
-				logger.Error().Err(err).Msg("could not delete homespace: transport error")
-				errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "could not delete homespace, aborting")
-				return
+			// the space will if the system does not have a UserSoftDeleteRetentionTime configured, e.g. SoftDelete disabled
+			if g.config.UserSoftDeleteRetentionTime == 0 || (purgeUser && !user.GetAccountEnabled()) {
+				purgeSpaceFlag := utils.AppendPlainToOpaque(nil, "purge", "")
+				_, err := client.DeleteStorageSpace(r.Context(), &storageprovider.DeleteStorageSpaceRequest{
+					Opaque: purgeSpaceFlag,
+					Id: &storageprovider.StorageSpaceId{
+						OpaqueId: sp.Id.OpaqueId,
+					},
+				})
+				if err != nil {
+					// transport error, log as error
+					logger.Error().Err(err).Msg("could not delete homespace: transport error")
+					errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "could not delete homespace, aborting")
+					return
+				}
 			}
 			break
 		}
 	}
 
-	logger.Debug().Str("id", user.GetId()).Msg("calling delete user on backend")
-	err = g.identityBackend.DeleteUser(r.Context(), user.GetId())
+	if g.config.UserSoftDeleteRetentionTime == 0 || (purgeUser && !user.GetAccountEnabled()) {
+		logger.Debug().Str("id", user.GetId()).Msg("calling delete user on backend")
+		err = g.identityBackend.DeleteUser(r.Context(), user.GetId())
 
-	if err != nil {
-		logger.Debug().Err(err).Msg("could not delete user: backend error")
-		errorcode.RenderError(w, r, err)
-		return
+		if err != nil {
+			logger.Debug().Err(err).Msg("could not delete user: backend error")
+			errorcode.RenderError(w, r, err)
+			return
+		}
+	} else {
+		logger.Debug().Str("id", user.GetId()).Msg("calling soft delete user on backend")
+		userUpdate := *libregraph.NewUserUpdate()
+		userUpdate.AccountEnabled = libregraph.PtrBool(false)
+		g.identityBackend.UpdateUser(r.Context(), user.GetId(), userUpdate)
 	}
 
-	g.publishEvent(r.Context(), e)
-
+	if g.config.UserSoftDeleteRetentionTime == 0 ||
+		(g.config.UserSoftDeleteRetentionTime > 0 && purgeUser && !user.GetAccountEnabled()) {
+		e := events.UserDeleted{UserID: user.GetId()}
+		e.Executant = currentUser.GetId()
+		g.publishEvent(r.Context(), e)
+	} else {
+		e := events.UserSoftDeleted{
+			UserID:        user.GetId(),
+			RetentionTime: g.config.UserSoftDeleteRetentionTime,
+			Timestamp: &v1beta1.Timestamp{
+				Seconds: uint64(time.Now().Unix()),
+				Nanos:   uint32(time.Now().Nanosecond()),
+			},
+			Reason: "User deleted via Graph API", // TODO: this needs a proper implementation through the request
+		}
+		e.Executant = currentUser.GetId()
+		g.publishEvent(r.Context(), e)
+	}
 	render.Status(r, http.StatusNoContent)
 	render.NoContent(w, r)
 }

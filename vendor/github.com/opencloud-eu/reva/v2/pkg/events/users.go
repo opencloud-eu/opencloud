@@ -20,6 +20,7 @@ package events
 
 import (
 	"encoding/json"
+	"time"
 
 	user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
@@ -49,6 +50,22 @@ type UserDeleted struct {
 // Unmarshal to fulfill umarshaller interface
 func (UserDeleted) Unmarshal(v []byte) (interface{}, error) {
 	e := UserDeleted{}
+	err := json.Unmarshal(v, &e)
+	return e, err
+}
+
+// UserSoftDeleted is emitted when a user was soft-deleted
+type UserSoftDeleted struct {
+	Executant     *user.UserId
+	UserID        string
+	Timestamp     *types.Timestamp
+	RetentionTime time.Duration
+	Reason        string
+}
+
+// Unmarshal to fulfill unmarshaller interface
+func (UserSoftDeleted) Unmarshal(v []byte) (interface{}, error) {
+	e := UserSoftDeleted{}
 	err := json.Unmarshal(v, &e)
 	return e, err
 }

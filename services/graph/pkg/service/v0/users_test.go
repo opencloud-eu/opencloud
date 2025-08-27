@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
@@ -1011,6 +1012,107 @@ var _ = Describe("Users", func() {
 
 				Expect(rr.Code).To(Equal(http.StatusNoContent))
 				gatewayClient.AssertNumberOfCalls(GinkgoT(), "DeleteStorageSpace", 2) // 2 calls for the home space. first trash, then purge
+			})
+		})
+
+		Describe("SoftDeleteUser", func() {
+			var (
+				user *libregraph.User
+				//userUpdate   *libregraph.UserUpdate
+				expectedUser *libregraph.User
+			)
+
+			BeforeEach(func() {
+				cfg.UserSoftDeleteRetentionTime = 30 * 24 * time.Hour // 30 days
+				user = libregraph.NewUser("Display Name", "user")
+				user.SetMail("user@example.com")
+				user.SetId("/users/user")
+
+				//userUpdate = libregraph.NewUserUpdate()
+
+				expectedUser = libregraph.NewUser("Display Name", "user")
+				expectedUser.SetMail(user.GetMail())
+				expectedUser.SetId(user.GetId())
+
+				identityBackend.On("GetUser", mock.Anything, mock.Anything, mock.Anything).Return(user, nil)
+			})
+
+			It("soft deletes a user", func() {
+				otheruser := &userv1beta1.User{
+					Id: &userv1beta1.UserId{
+						OpaqueId: "otheruser",
+					},
+				}
+
+				lu := libregraph.User{}
+				lu.SetId(otheruser.Id.OpaqueId)
+				identityBackend.On("GetUser", mock.Anything, mock.Anything, mock.Anything).Return(&lu, nil)
+				identityBackend.On("DeleteUser", mock.Anything, mock.Anything).Return(nil)
+				identityBackend.On("UpdateUser", mock.Anything, mock.Anything, mock.Anything).Return(&lu, nil)
+				gatewayClient.On("DeleteStorageSpace", mock.Anything, mock.Anything).Return(&provider.DeleteStorageSpaceResponse{
+					Status: status.NewOK(ctx),
+				}, nil)
+				gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
+					Status: status.NewOK(ctx),
+					StorageSpaces: []*provider.StorageSpace{
+						{
+							Opaque:    &typesv1beta1.Opaque{},
+							Id:        &provider.StorageSpaceId{OpaqueId: "drive1"},
+							Root:      &provider.ResourceId{SpaceId: "space", OpaqueId: "space"},
+							SpaceType: "personal",
+							Owner:     otheruser,
+						},
+					},
+				}, nil)
+
+				r := httptest.NewRequest(http.MethodDelete, "/graph/v1.0/users/{userid}", nil)
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("userID", lu.GetId())
+				r = r.WithContext(context.WithValue(revactx.ContextSetUser(ctx, currentUser), chi.RouteCtxKey, rctx))
+				svc.DeleteUser(rr, r)
+
+				Expect(rr.Code).To(Equal(http.StatusNoContent))
+				gatewayClient.AssertNumberOfCalls(GinkgoT(), "DeleteStorageSpace", 0) // 2 calls for the home space. first trash, then purge
+
+			})
+
+			It("hard deletes the user", func() {
+				otheruser := &userv1beta1.User{
+					Id: &userv1beta1.UserId{
+						OpaqueId: "otheruser",
+					},
+				}
+
+				lu := libregraph.User{}
+				lu.SetId(otheruser.Id.OpaqueId)
+				identityBackend.On("GetUser", mock.Anything, mock.Anything, mock.Anything).Return(&lu, nil)
+				identityBackend.On("DeleteUser", mock.Anything, mock.Anything).Return(nil)
+				identityBackend.On("UpdateUser", mock.Anything, mock.Anything, mock.Anything).Return(&lu, nil)
+				gatewayClient.On("DeleteStorageSpace", mock.Anything, mock.Anything).Return(&provider.DeleteStorageSpaceResponse{
+					Status: status.NewOK(ctx),
+				}, nil)
+				gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
+					Status: status.NewOK(ctx),
+					StorageSpaces: []*provider.StorageSpace{
+						{
+							Opaque:    &typesv1beta1.Opaque{},
+							Id:        &provider.StorageSpaceId{OpaqueId: "drive1"},
+							Root:      &provider.ResourceId{SpaceId: "space", OpaqueId: "space"},
+							SpaceType: "personal",
+							Owner:     otheruser,
+						},
+					},
+				}, nil)
+
+				r := httptest.NewRequest(http.MethodDelete, "/graph/v1.0/users/{userid}", nil)
+				r.Header.Set("Prefer", "purge") // this header is used to indicate a hard delete
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("userID", lu.GetId())
+				r = r.WithContext(context.WithValue(revactx.ContextSetUser(ctx, currentUser), chi.RouteCtxKey, rctx))
+				svc.DeleteUser(rr, r)
+
+				Expect(rr.Code).To(Equal(http.StatusNoContent))
+				gatewayClient.AssertNumberOfCalls(GinkgoT(), "DeleteStorageSpace", 0) // 0 calls for the home space. since we are "just" soft deleting
 			})
 		})
 
