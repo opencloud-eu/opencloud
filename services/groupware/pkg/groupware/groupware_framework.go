@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -23,11 +22,14 @@ import (
 
 	"github.com/jellydator/ttlcache/v3"
 
+	cmap "github.com/orcaman/concurrent-map"
+
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/metrics"
+	groupwaremiddleware "github.com/opencloud-eu/opencloud/services/groupware/pkg/middleware"
 )
 
 const (
@@ -72,8 +74,7 @@ type Groupware struct {
 	mux               *chi.Mux
 	metrics           *metrics.Metrics
 	sseServer         *sse.Server
-	streams           map[string]time.Time
-	streamsLock       sync.Mutex
+	streams           cmap.ConcurrentMap
 	logger            *log.Logger
 	defaultEmailLimit uint
 	maxBodyValueBytes uint
@@ -147,10 +148,10 @@ func (s SessionCacheMetricsCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 func (s SessionCacheMetricsCollector) Collect(ch chan<- prometheus.Metric) {
 	m := s.supply()
-	ch <- prometheus.MustNewConstMetric(s.desc, prometheus.GaugeValue, float64(m.Evictions), metrics.SessionCacheTypeEvictions)
-	ch <- prometheus.MustNewConstMetric(s.desc, prometheus.GaugeValue, float64(m.Insertions), metrics.SessionCacheTypeInsertions)
-	ch <- prometheus.MustNewConstMetric(s.desc, prometheus.GaugeValue, float64(m.Hits), metrics.SessionCacheTypeHits)
-	ch <- prometheus.MustNewConstMetric(s.desc, prometheus.GaugeValue, float64(m.Misses), metrics.SessionCacheTypeMisses)
+	ch <- prometheus.MustNewConstMetric(s.desc, prometheus.GaugeValue, float64(m.Evictions), metrics.Values.SessionCache.Evictions)
+	ch <- prometheus.MustNewConstMetric(s.desc, prometheus.GaugeValue, float64(m.Insertions), metrics.Values.SessionCache.Insertions)
+	ch <- prometheus.MustNewConstMetric(s.desc, prometheus.GaugeValue, float64(m.Hits), metrics.Values.SessionCache.Hits)
+	ch <- prometheus.MustNewConstMetric(s.desc, prometheus.GaugeValue, float64(m.Misses), metrics.Values.SessionCache.Misses)
 }
 
 var _ prometheus.Collector = SessionCacheMetricsCollector{}
@@ -173,8 +174,6 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux) (*Gro
 		return nil, GroupwareInitializationError{Message: "Mail.Master.Password is empty"}
 	}
 
-	m := metrics.New()
-
 	defaultEmailLimit := max(config.Mail.DefaultEmailLimit, 0)
 	maxBodyValueBytes := max(config.Mail.MaxBodyValueBytes, 0)
 	responseHeaderTimeout := max(config.Mail.ResponseHeaderTimeout, 0)
@@ -189,10 +188,16 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux) (*Gro
 	keepStreamsAliveInterval := time.Duration(30) * time.Second // TODO configuration, make it 0 to disable keepalive
 	sseEventTtl := time.Duration(5) * time.Minute               // TODO configuration setting
 
+	insecure := true // TODO make configurable
+
+	m := metrics.New(logger)
+
 	tr := http.DefaultTransport.(*http.Transport).Clone()
 	tr.ResponseHeaderTimeout = responseHeaderTimeout
-	tlsConfig := &tls.Config{InsecureSkipVerify: true} // TODO make configurable
-	tr.TLSClientConfig = tlsConfig
+	if insecure {
+		tlsConfig := &tls.Config{InsecureSkipVerify: true} // TODO make configurable
+		tr.TLSClientConfig = tlsConfig
+	}
 	c := *http.DefaultClient
 	c.Transport = tr
 
@@ -203,6 +208,11 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux) (*Gro
 		&c,
 		masterUsername,
 		masterPassword,
+		jmap.HttpJmapApiClientMetrics{
+			SuccessfulRequestPerEndpointCounter:   m.SuccessfulRequestPerEndpointCounter,
+			FailedRequestPerEndpointCounter:       m.FailedRequestPerEndpointCounter,
+			FailedRequestStatusPerEndpointCounter: m.FailedRequestStatusPerEndpointCounter,
+		},
 	)
 
 	jmapClient := jmap.NewClient(api, api, api)
@@ -243,8 +253,11 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux) (*Gro
 				reason = fmt.Sprintf("unknown (%v)", r)
 			}
 			spentInCache := time.Since(item.Value().Since())
-
-			logger.Trace().Msgf("session cache eviction of user '%v' after %v: %v", item.Key(), spentInCache, reason)
+			typ := "successful"
+			if !item.Value().Success() {
+				typ = "failed"
+			}
+			logger.Trace().Msgf("%s session cache eviction of user '%v' after %v: %v", typ, item.Key(), spentInCache, reason)
 		})
 	}
 
@@ -254,7 +267,7 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux) (*Gro
 		counter: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: metrics.Namespace,
 			Subsystem: metrics.Subsystem,
-			Name:      "outdated_sessions",
+			Name:      "outdated_sessions_count",
 			Help:      "Counts outdated session events",
 		}),
 	}
@@ -356,8 +369,7 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux) (*Gro
 		mux:               mux,
 		metrics:           m,
 		sseServer:         sseServer,
-		streams:           map[string]time.Time{},
-		streamsLock:       sync.Mutex{},
+		streams:           cmap.New(),
 		logger:            logger,
 		sessionCache:      sessionCache,
 		userProvider:      userProvider,
@@ -427,6 +439,7 @@ func (g *Groupware) listenForEvents() {
 }
 
 func (g *Groupware) push(user User, typ string, body any) {
+	g.metrics.SSEEventsCounter.WithLabelValues(typ).Inc()
 	g.eventChannel <- Event{Type: typ, Stream: user.GetUsername(), Body: body}
 }
 
@@ -435,23 +448,14 @@ func (g *Groupware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *Groupware) addStream(stream string) bool {
-	g.streamsLock.Lock()
-	defer g.streamsLock.Unlock()
-	_, ok := g.streams[stream]
-	if ok {
-		return false
-	}
-	g.streams[stream] = time.Now()
-	return true
+	return g.streams.SetIfAbsent(stream, time.Now())
 }
 
 func (g *Groupware) keepStreamsAlive() {
 	event := &sse.Event{Comment: []byte("keepalive")}
-	g.streamsLock.Lock()
-	defer g.streamsLock.Unlock()
-	for stream := range g.streams {
+	g.streams.IterCb(func(stream string, created any) {
 		g.sseServer.Publish(stream, event)
-	}
+	})
 }
 
 func (g *Groupware) ServeSSE(w http.ResponseWriter, r *http.Request) {
@@ -475,7 +479,7 @@ func (g *Groupware) ServeSSE(w http.ResponseWriter, r *http.Request) {
 }
 
 // Provide a JMAP Session for the
-func (g *Groupware) session(user User, _ *http.Request, _ context.Context, _ *log.Logger) (jmap.Session, bool, error) {
+func (g *Groupware) session(user User, _ *http.Request, _ context.Context, _ *log.Logger) (jmap.Session, bool, *GroupwareError) {
 	item := g.sessionCache.Get(user.GetUsername())
 	if item != nil {
 		value := item.Value()
@@ -598,6 +602,10 @@ func (r Request) GetRequestId() string {
 	return chimiddleware.GetReqID(r.ctx)
 }
 
+func (r Request) GetTraceId() string {
+	return groupwaremiddleware.GetTraceID(r.ctx)
+}
+
 func (r Request) GetAccountId() string {
 	accountId := chi.URLParam(r.r, UriParamAccount)
 	return r.session.MailAccountId(accountId)
@@ -608,9 +616,9 @@ func (r Request) GetAccount() (jmap.SessionAccount, *Error) {
 
 	account, ok := r.session.Accounts[accountId]
 	if !ok {
-		errorId := r.errorId()
 		r.logger.Debug().Msgf("failed to find account '%v'", accountId)
-		return jmap.SessionAccount{}, apiError(errorId, ErrorNonExistingAccount,
+		// TODO metric for inexistent accounts
+		return jmap.SessionAccount{}, apiError(r.errorId(), ErrorNonExistingAccount,
 			withDetail(fmt.Sprintf("The account '%v' does not exist", log.SafeString(accountId))),
 			withSource(&ErrorSource{Parameter: UriParamAccount}),
 		)
@@ -618,7 +626,17 @@ func (r Request) GetAccount() (jmap.SessionAccount, *Error) {
 	return account, nil
 }
 
-func (r Request) parseNumericParam(param string, defaultValue int) (int, bool, *Error) {
+func (r Request) parameterError(param string, detail string) *Error {
+	return r.observedParameterError(ErrorInvalidRequestParameter,
+		withDetail(detail),
+		withSource(&ErrorSource{Parameter: param}))
+}
+
+func (r Request) parameterErrorResponse(param string, detail string) Response {
+	return errorResponse(r.parameterError(param, detail))
+}
+
+func (r Request) parseIntParam(param string, defaultValue int) (int, bool, *Error) {
 	q := r.r.URL.Query()
 	if !q.Has(param) {
 		return defaultValue, false, nil
@@ -631,11 +649,10 @@ func (r Request) parseNumericParam(param string, defaultValue int) (int, bool, *
 
 	value, err := strconv.ParseInt(str, 10, 0)
 	if err != nil {
-		errorId := r.errorId()
 		// don't include the original error, as it leaks too much about our implementation, e.g.:
 		// strconv.ParseInt: parsing \"a\": invalid syntax
 		msg := fmt.Sprintf("Invalid numeric value for query parameter '%v': '%s'", param, log.SafeString(str))
-		return defaultValue, true, apiError(errorId, ErrorInvalidRequestParameter,
+		return defaultValue, true, r.observedParameterError(ErrorInvalidRequestParameter,
 			withDetail(msg),
 			withSource(&ErrorSource{Parameter: param}),
 		)
@@ -643,7 +660,7 @@ func (r Request) parseNumericParam(param string, defaultValue int) (int, bool, *
 	return int(value), true, nil
 }
 
-func (r Request) parseUNumericParam(param string, defaultValue uint) (uint, bool, *Error) {
+func (r Request) parseUIntParam(param string, defaultValue uint) (uint, bool, *Error) {
 	q := r.r.URL.Query()
 	if !q.Has(param) {
 		return defaultValue, false, nil
@@ -656,11 +673,10 @@ func (r Request) parseUNumericParam(param string, defaultValue uint) (uint, bool
 
 	value, err := strconv.ParseUint(str, 10, 0)
 	if err != nil {
-		errorId := r.errorId()
 		// don't include the original error, as it leaks too much about our implementation, e.g.:
 		// strconv.ParseInt: parsing \"a\": invalid syntax
 		msg := fmt.Sprintf("Invalid numeric value for query parameter '%v': '%s'", param, log.SafeString(str))
-		return defaultValue, true, apiError(errorId, ErrorInvalidRequestParameter,
+		return defaultValue, true, r.observedParameterError(ErrorInvalidRequestParameter,
 			withDetail(msg),
 			withSource(&ErrorSource{Parameter: param}),
 		)
@@ -681,9 +697,8 @@ func (r Request) parseDateParam(param string) (time.Time, bool, *Error) {
 
 	t, err := time.Parse(time.RFC3339, str)
 	if err != nil {
-		errorId := r.errorId()
 		msg := fmt.Sprintf("Invalid RFC3339 value for query parameter '%v': '%s': %s", param, log.SafeString(str), err.Error())
-		return time.Time{}, true, apiError(errorId, ErrorInvalidRequestParameter,
+		return time.Time{}, true, r.observedParameterError(ErrorInvalidRequestParameter,
 			withDetail(msg),
 			withSource(&ErrorSource{Parameter: param}),
 		)
@@ -704,9 +719,8 @@ func (r Request) parseBoolParam(param string, defaultValue bool) (bool, bool, *E
 
 	b, err := strconv.ParseBool(str)
 	if err != nil {
-		errorId := r.errorId()
 		msg := fmt.Sprintf("Invalid boolean value for query parameter '%v': '%s': %s", param, log.SafeString(str), err.Error())
-		return defaultValue, true, apiError(errorId, ErrorInvalidRequestParameter,
+		return defaultValue, true, r.observedParameterError(ErrorInvalidRequestParameter,
 			withDetail(msg),
 			withSource(&ErrorSource{Parameter: param}),
 		)
@@ -725,9 +739,27 @@ func (r Request) body(target any) *Error {
 
 	err := json.NewDecoder(body).Decode(target)
 	if err != nil {
-		// TODO(pbleser-oc) error handling when failing to decode body
+		return r.observedParameterError(ErrorInvalidRequestBody, withSource(&ErrorSource{Pointer: "/"})) // we don't get any details here
 	}
 	return nil
+}
+
+func (r Request) observe(obs prometheus.Observer, value float64) {
+	metrics.WithExemplar(obs, value, r.GetRequestId(), r.GetTraceId())
+}
+
+func (r Request) observeParameterError(err *Error) *Error {
+	if err != nil {
+		r.g.metrics.ParameterErrorCounter.WithLabelValues(err.Code).Inc()
+	}
+	return err
+}
+
+func (r Request) observeJmapError(jerr jmap.Error) jmap.Error {
+	if jerr != nil {
+		r.g.metrics.JmapErrorCounter.WithLabelValues(r.session.JmapEndpoint, strconv.Itoa(jerr.Code())).Inc()
+	}
+	return jerr
 }
 
 func (g *Groupware) log(error *Error) {
@@ -781,26 +813,33 @@ func (g *Groupware) withSession(w http.ResponseWriter, r *http.Request, handler 
 
 	user, err := g.userProvider.GetUser(r, ctx, logger)
 	if err != nil {
+		g.metrics.AuthenticationFailureCounter.Inc()
 		g.serveError(w, r, apiError(errorId(r, ctx), ErrorInvalidAuthentication))
 		return Response{}, false
 	}
 	if user == nil {
+		g.metrics.AuthenticationFailureCounter.Inc()
 		g.serveError(w, r, apiError(errorId(r, ctx), ErrorMissingAuthentication))
 		return Response{}, false
 	}
 
 	logger = log.From(logger.With().Str(logUsername, log.SafeString(user.GetUsername())).Str(logUserId, log.SafeString(user.GetId())))
 
-	session, ok, err := g.session(user, r, ctx, logger)
-	if err != nil {
-		logger.Error().Err(err).Interface(logQuery, r.URL.Query()).Msg("failed to determine JMAP session")
-		render.Status(r, http.StatusInternalServerError)
+	session, ok, gwerr := g.session(user, r, ctx, logger)
+	if gwerr != nil {
+		g.metrics.SessionFailureCounter.Inc()
+		errorId := errorId(r, ctx)
+		logger.Error().Str("code", gwerr.Code).Str("error", gwerr.Title).Str("detail", gwerr.Detail).Str(logErrorId, errorId).Msg("failed to determine JMAP session")
+		g.serveError(w, r, apiError(errorId, *gwerr))
 		return Response{}, false
 	}
 	if !ok {
 		// no session = authentication failed
-		logger.Warn().Err(err).Interface(logQuery, r.URL.Query()).Msg("could not authenticate")
-		render.Status(r, http.StatusForbidden)
+		g.metrics.SessionFailureCounter.Inc()
+		errorId := errorId(r, ctx)
+		logger.Error().Str(logErrorId, errorId).Msg("could not authenticate, failed to find Session")
+		gwerr = &ErrorInvalidAuthentication
+		g.serveError(w, r, apiError(errorId, *gwerr))
 		return Response{}, false
 	}
 	decoratedLogger := session.DecorateLogger(*logger)
@@ -891,18 +930,22 @@ func (g *Groupware) stream(w http.ResponseWriter, r *http.Request, handler func(
 
 	logger = log.From(logger.With().Str(logUsername, log.SafeString(user.GetUsername())).Str(logUserId, log.SafeString(user.GetId())))
 
-	session, ok, err := g.session(user, r, ctx, logger)
-	if err != nil {
-		logger.Error().Err(err).Interface(logQuery, r.URL.Query()).Msg("failed to determine JMAP session")
-		render.Status(r, http.StatusInternalServerError)
+	session, ok, gwerr := g.session(user, r, ctx, logger)
+	if gwerr != nil {
+		errorId := errorId(r, ctx)
+		logger.Error().Str("code", gwerr.Code).Str("error", gwerr.Title).Str("detail", gwerr.Detail).Str(logErrorId, errorId).Msg("failed to determine JMAP session")
+		g.serveError(w, r, apiError(errorId, *gwerr))
 		return
 	}
 	if !ok {
 		// no session = authentication failed
-		logger.Warn().Err(err).Interface(logQuery, r.URL.Query()).Msg("could not authenticate")
-		render.Status(r, http.StatusForbidden)
+		errorId := errorId(r, ctx)
+		logger.Error().Str(logErrorId, errorId).Msg("could not authenticate, failed to find Session")
+		gwerr = &ErrorInvalidAuthentication
+		g.serveError(w, r, apiError(errorId, *gwerr))
 		return
 	}
+
 	decoratedLogger := session.DecorateLogger(*logger)
 
 	req := Request{

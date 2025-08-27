@@ -18,12 +18,7 @@ func (g *Groupware) GetBlob(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		blobId := chi.URLParam(req.r, UriParamBlobId)
 		if blobId == "" {
-			errorId := req.errorId()
-			msg := fmt.Sprintf("Invalid value for path parameter '%v': empty", UriParamBlobId)
-			return errorResponse(apiError(errorId, ErrorInvalidRequestParameter,
-				withDetail(msg),
-				withSource(&ErrorSource{Parameter: UriParamBlobId}),
-			))
+			return req.parameterErrorResponse(UriParamBlobId, fmt.Sprintf("Invalid value for path parameter '%v': empty", UriParamBlobId))
 		}
 
 		res, _, err := g.jmap.GetBlob(req.GetAccountId(), req.session, req.ctx, req.logger, blobId)
@@ -102,7 +97,7 @@ func (g *Groupware) DownloadBlob(w http.ResponseWriter, r *http.Request) {
 
 		_, err := io.Copy(w, blob.Body)
 		if err != nil {
-			return apiError(req.errorId(), ErrorStreamingResponse)
+			return req.observedParameterError(ErrorStreamingResponse)
 		}
 
 		return nil

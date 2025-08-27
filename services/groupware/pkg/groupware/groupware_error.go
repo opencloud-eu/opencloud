@@ -160,6 +160,7 @@ const (
 	ErrorCodeInvalidRequestPayload      = "INVRQP"
 	ErrorCodeInvalidResponsePayload     = "INVRSP"
 	ErrorCodeInvalidRequestParameter    = "INVPAR"
+	ErrorCodeInvalidRequestBody         = "INVBDY"
 	ErrorCodeNonExistingAccount         = "INVACC"
 	ErrorCodeApiInconsistency           = "APIINC"
 	ErrorCodeInvalidUserRequest         = "INVURQ"
@@ -261,6 +262,12 @@ var (
 		Code:   ErrorCodeInvalidRequestParameter,
 		Title:  "Invalid Request Parameter",
 		Detail: "At least one of the parameters in the request is invalid.",
+	}
+	ErrorInvalidRequestBody = GroupwareError{
+		Status: http.StatusBadRequest,
+		Code:   ErrorCodeInvalidRequestBody,
+		Title:  "Invalid Request Body",
+		Detail: "The body of the request is invalid.",
 	}
 	ErrorInvalidUserRequest = GroupwareError{
 		Status: http.StatusBadRequest,
@@ -432,6 +439,10 @@ func apiError(id string, gwerr GroupwareError, options ...ErrorOpt) *Error {
 	return err
 }
 
+func (r Request) observedParameterError(gwerr GroupwareError, options ...ErrorOpt) *Error {
+	return r.observeParameterError(apiError(r.errorId(), gwerr, options...))
+}
+
 func (r Request) apiErrorFromJmap(err jmap.Error) *Error {
 	if err == nil {
 		return nil
@@ -450,5 +461,5 @@ func errorResponses(errors ...Error) ErrorResponse {
 }
 
 func (r Request) errorResponseFromJmap(err jmap.Error) Response {
-	return errorResponse(r.apiErrorFromJmap(err))
+	return errorResponse(r.apiErrorFromJmap(r.observeJmapError(err)))
 }
