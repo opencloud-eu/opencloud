@@ -4,7 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @butonic, @fschade, @individual-it, @kulmann, @prashant-gurung899, @rhafer
+@ScharfViktor, @butonic, @dragonchaser, @fschade, @individual-it, @kulmann, @prashant-gurung899, @rhafer
+
+### ✨ Features
+
+- initial skel for user soft delete [[#1344](https://github.com/opencloud-eu/opencloud/pull/1344)]
 
 ### 📈 Enhancement
 
