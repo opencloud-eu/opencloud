@@ -8,7 +8,7 @@ import (
 )
 
 type Client struct {
-	wellKnown             SessionClient
+	session               SessionClient
 	api                   ApiClient
 	blob                  BlobClient
 	sessionEventListeners *eventListeners[SessionEventListener]
@@ -19,9 +19,9 @@ func (j *Client) Close() error {
 	return j.api.Close()
 }
 
-func NewClient(wellKnown SessionClient, api ApiClient, blob BlobClient) Client {
+func NewClient(sessionClient SessionClient, api ApiClient, blob BlobClient) Client {
 	return Client{
-		wellKnown:             wellKnown,
+		session:               sessionClient,
 		api:                   api,
 		blob:                  blob,
 		sessionEventListeners: newEventListeners[SessionEventListener](),
@@ -40,7 +40,7 @@ func (j *Client) onSessionOutdated(session *Session, newSessionState SessionStat
 
 // Retrieve JMAP well-known data from the Stalwart server and create a Session from that.
 func (j *Client) FetchSession(username string, logger *log.Logger) (Session, Error) {
-	wk, err := j.wellKnown.GetSession(username, logger)
+	wk, err := j.session.GetSession(username, logger)
 	if err != nil {
 		return Session{}, err
 	}

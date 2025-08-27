@@ -2,6 +2,7 @@ package jmap
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -36,12 +37,18 @@ type Session struct {
 
 	// The base URL to use for JMAP operations towards Stalwart
 	JmapUrl url.URL
+	// An identifier of the JmapUrl to use in metrics and tracing
+	JmapEndpoint string
 
 	// The upload URL template
 	UploadUrlTemplate string
+	// An identifier of the UploadUrlTemplate to use in metrics and tracing
+	UploadEndpoint string
 
 	// The upload URL template
 	DownloadUrlTemplate string
+	// An identifier of the DownloadUrlTemplate to use in metrics and tracing
+	DownloadEndpoint string
 
 	SessionResponse
 }
@@ -68,20 +75,28 @@ func newSession(sessionResponse SessionResponse) (Session, Error) {
 	if err != nil {
 		return Session{}, invalidSessionResponseErrorInvalidApiUrl
 	}
+	apiEndpoint := endpointOf(apiUrl)
+
 	uploadUrl := sessionResponse.UploadUrl
 	if uploadUrl == "" {
 		return Session{}, invalidSessionResponseErrorMissingUploadUrl
 	}
+	uploadEndpoint := toEndpoint(uploadUrl)
+
 	downloadUrl := sessionResponse.DownloadUrl
 	if downloadUrl == "" {
 		return Session{}, invalidSessionResponseErrorMissingDownloadUrl
 	}
+	downloadEndpoint := toEndpoint(downloadUrl)
 
 	return Session{
 		Username:            username,
 		JmapUrl:             *apiUrl,
+		JmapEndpoint:        apiEndpoint,
 		UploadUrlTemplate:   uploadUrl,
+		UploadEndpoint:      uploadEndpoint,
 		DownloadUrlTemplate: downloadUrl,
+		DownloadEndpoint:    downloadEndpoint,
 		SessionResponse:     sessionResponse,
 	}, nil
 }
@@ -116,4 +131,21 @@ func (s Session) DecorateLogger(l log.Logger) *log.Logger {
 		Str(logUsername, s.Username).
 		Str(logApiUrl, s.ApiUrl).
 		Str(logSessionState, string(s.State)))
+}
+
+func endpointOf(u *url.URL) string {
+	if u != nil {
+		return fmt.Sprintf("%s://%s", u.Scheme, u.Host)
+	} else {
+		return ""
+	}
+}
+
+func toEndpoint(str string) string {
+	u, err := url.Parse(str)
+	if err == nil {
+		return endpointOf(u)
+	} else {
+		return str
+	}
 }

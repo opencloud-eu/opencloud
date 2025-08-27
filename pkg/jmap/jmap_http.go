@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 )
@@ -20,6 +22,7 @@ type HttpJmapApiClient struct {
 	masterUser     string
 	masterPassword string
 	userAgent      string
+	metrics        HttpJmapApiClientMetrics
 }
 
 var (
@@ -34,13 +37,20 @@ func bearer(req *http.Request, token string) {
 }
 */
 
-func NewHttpJmapApiClient(baseurl url.URL, client *http.Client, masterUser string, masterPassword string) *HttpJmapApiClient {
+type HttpJmapApiClientMetrics struct {
+	SuccessfulRequestPerEndpointCounter   *prometheus.CounterVec
+	FailedRequestPerEndpointCounter       *prometheus.CounterVec
+	FailedRequestStatusPerEndpointCounter *prometheus.CounterVec
+}
+
+func NewHttpJmapApiClient(baseurl url.URL, client *http.Client, masterUser string, masterPassword string, metrics HttpJmapApiClientMetrics) *HttpJmapApiClient {
 	return &HttpJmapApiClient{
 		baseurl:        baseurl,
 		client:         client,
 		masterUser:     masterUser,
 		masterPassword: masterPassword,
 		userAgent:      "OpenCloud/" + version.GetString(),
+		metrics:        metrics,
 	}
 }
 
@@ -67,11 +77,12 @@ func (h *HttpJmapApiClient) auth(username string, _ *log.Logger, req *http.Reque
 }
 
 func (h *HttpJmapApiClient) GetSession(username string, logger *log.Logger) (SessionResponse, Error) {
-	wellKnownUrl := h.baseurl.JoinPath(".well-known", "jmap").String()
+	sessionUrl := h.baseurl.JoinPath(".well-known", "jmap")
+	sessionUrlStr := sessionUrl.String()
 
-	req, err := http.NewRequest(http.MethodGet, wellKnownUrl, nil)
+	req, err := http.NewRequest(http.MethodGet, sessionUrlStr, nil)
 	if err != nil {
-		logger.Error().Err(err).Msgf("failed to create GET request for %v", wellKnownUrl)
+		logger.Error().Err(err).Msgf("failed to create GET request for %v", sessionUrl)
 		return SessionResponse{}, SimpleError{code: JmapErrorInvalidHttpRequest, err: err}
 	}
 	h.auth(username, logger, req)
@@ -79,13 +90,23 @@ func (h *HttpJmapApiClient) GetSession(username string, logger *log.Logger) (Ses
 
 	res, err := h.client.Do(req)
 	if err != nil {
-		logger.Error().Err(err).Msgf("failed to perform GET %v", wellKnownUrl)
+		if h.metrics.FailedRequestPerEndpointCounter != nil {
+			h.metrics.FailedRequestPerEndpointCounter.WithLabelValues(endpointOf(sessionUrl)).Inc()
+		}
+		logger.Error().Err(err).Msgf("failed to perform GET %v", sessionUrl)
 		return SessionResponse{}, SimpleError{code: JmapErrorInvalidHttpRequest, err: err}
 	}
 	if res.StatusCode < 200 || res.StatusCode > 299 {
-		logger.Error().Str("status", res.Status).Msg("HTTP response status code is not 200")
+		if h.metrics.FailedRequestStatusPerEndpointCounter != nil {
+			h.metrics.FailedRequestStatusPerEndpointCounter.WithLabelValues(endpointOf(sessionUrl), strconv.Itoa(res.StatusCode)).Inc()
+		}
+		logger.Error().Str(logHttpStatusCode, res.Status).Msg("HTTP response status code is not 200")
 		return SessionResponse{}, SimpleError{code: JmapErrorServerResponse, err: fmt.Errorf("JMAP API response status is %v", res.Status)}
 	}
+	if h.metrics.SuccessfulRequestPerEndpointCounter != nil {
+		h.metrics.SuccessfulRequestPerEndpointCounter.WithLabelValues(endpointOf(sessionUrl)).Inc()
+	}
+
 	if res.Body != nil {
 		defer func(Body io.ReadCloser) {
 			err := Body.Close()
@@ -104,7 +125,7 @@ func (h *HttpJmapApiClient) GetSession(username string, logger *log.Logger) (Ses
 	var data SessionResponse
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		logger.Error().Str("url", wellKnownUrl).Err(err).Msg("failed to decode JSON payload from .well-known/jmap response")
+		logger.Error().Str("url", sessionUrlStr).Err(err).Msg("failed to decode JSON payload from .well-known/jmap response")
 		return SessionResponse{}, SimpleError{code: JmapErrorDecodingResponseBody, err: err}
 	}
 
@@ -131,10 +152,16 @@ func (h *HttpJmapApiClient) Command(ctx context.Context, logger *log.Logger, ses
 
 	res, err := h.client.Do(req)
 	if err != nil {
+		if h.metrics.FailedRequestPerEndpointCounter != nil {
+			h.metrics.FailedRequestPerEndpointCounter.WithLabelValues(session.JmapEndpoint).Inc()
+		}
 		logger.Error().Err(err).Msgf("failed to perform POST %v", jmapUrl)
 		return nil, SimpleError{code: JmapErrorSendingRequest, err: err}
 	}
 	if res.StatusCode < 200 || res.StatusCode > 299 {
+		if h.metrics.FailedRequestStatusPerEndpointCounter != nil {
+			h.metrics.FailedRequestStatusPerEndpointCounter.WithLabelValues(session.JmapEndpoint, strconv.Itoa(res.StatusCode)).Inc()
+		}
 		logger.Error().Str("status", res.Status).Msg("HTTP response status code is not 2xx")
 		return nil, SimpleError{code: JmapErrorServerResponse, err: err}
 	}
@@ -145,6 +172,9 @@ func (h *HttpJmapApiClient) Command(ctx context.Context, logger *log.Logger, ses
 				logger.Error().Err(err).Msg("failed to close response body")
 			}
 		}(res.Body)
+	}
+	if h.metrics.SuccessfulRequestPerEndpointCounter != nil {
+		h.metrics.SuccessfulRequestPerEndpointCounter.WithLabelValues(session.JmapEndpoint).Inc()
 	}
 
 	body, err := io.ReadAll(res.Body)
@@ -168,10 +198,16 @@ func (h *HttpJmapApiClient) UploadBinary(ctx context.Context, logger *log.Logger
 
 	res, err := h.client.Do(req)
 	if err != nil {
+		if h.metrics.FailedRequestPerEndpointCounter != nil {
+			h.metrics.FailedRequestPerEndpointCounter.WithLabelValues(session.UploadEndpoint).Inc()
+		}
 		logger.Error().Err(err).Msgf("failed to perform POST %v", uploadUrl)
 		return UploadedBlob{}, SimpleError{code: JmapErrorSendingRequest, err: err}
 	}
 	if res.StatusCode < 200 || res.StatusCode > 299 {
+		if h.metrics.FailedRequestStatusPerEndpointCounter != nil {
+			h.metrics.FailedRequestStatusPerEndpointCounter.WithLabelValues(session.UploadEndpoint, strconv.Itoa(res.StatusCode)).Inc()
+		}
 		logger.Error().Str("status", res.Status).Msg("HTTP response status code is not 2xx")
 		return UploadedBlob{}, SimpleError{code: JmapErrorServerResponse, err: err}
 	}
@@ -182,6 +218,9 @@ func (h *HttpJmapApiClient) UploadBinary(ctx context.Context, logger *log.Logger
 				logger.Error().Err(err).Msg("failed to close response body")
 			}
 		}(res.Body)
+	}
+	if h.metrics.SuccessfulRequestPerEndpointCounter != nil {
+		h.metrics.SuccessfulRequestPerEndpointCounter.WithLabelValues(session.UploadEndpoint).Inc()
 	}
 
 	responseBody, err := io.ReadAll(res.Body)
@@ -211,6 +250,9 @@ func (h *HttpJmapApiClient) DownloadBinary(ctx context.Context, logger *log.Logg
 
 	res, err := h.client.Do(req)
 	if err != nil {
+		if h.metrics.FailedRequestPerEndpointCounter != nil {
+			h.metrics.FailedRequestPerEndpointCounter.WithLabelValues(session.DownloadEndpoint).Inc()
+		}
 		logger.Error().Err(err).Msgf("failed to perform GET %v", downloadUrl)
 		return nil, SimpleError{code: JmapErrorSendingRequest, err: err}
 	}
@@ -218,8 +260,14 @@ func (h *HttpJmapApiClient) DownloadBinary(ctx context.Context, logger *log.Logg
 		return nil, nil
 	}
 	if res.StatusCode < 200 || res.StatusCode > 299 {
+		if h.metrics.FailedRequestStatusPerEndpointCounter != nil {
+			h.metrics.FailedRequestStatusPerEndpointCounter.WithLabelValues(session.DownloadEndpoint, strconv.Itoa(res.StatusCode)).Inc()
+		}
 		logger.Error().Str("status", res.Status).Msg("HTTP response status code is not 2xx")
 		return nil, SimpleError{code: JmapErrorServerResponse, err: err}
+	}
+	if h.metrics.SuccessfulRequestPerEndpointCounter != nil {
+		h.metrics.SuccessfulRequestPerEndpointCounter.WithLabelValues(session.DownloadEndpoint).Inc()
 	}
 
 	sizeStr := res.Header.Get("Content-Length")
