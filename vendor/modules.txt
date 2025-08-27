@@ -256,7 +256,7 @@ github.com/cloudflare/circl/math/mlsbset
 github.com/cloudflare/circl/sign
 github.com/cloudflare/circl/sign/ed25519
 github.com/cloudflare/circl/sign/ed448
-# github.com/coreos/go-oidc/v3 v3.14.1
+# github.com/coreos/go-oidc/v3 v3.15.0
 ## explicit; go 1.23.0
 github.com/coreos/go-oidc/v3/oidc
 # github.com/coreos/go-semver v0.3.1
@@ -1161,7 +1161,7 @@ github.com/open-policy-agent/opa/v1/version
 # github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76
 ## explicit; go 1.18
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v2 v2.36.1-0.20250821084632-bd1139154d90 => github.com/dragonchaser/reva/v2 v2.0.0-20250825135357-d2d4b6e0c09d
+# github.com/opencloud-eu/reva/v2 v2.36.1-0.20250827073033-ede93b948fc8
 ## explicit; go 1.24.1
 github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v2/cmd/revad/runtime
@@ -2347,8 +2347,8 @@ google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
-# google.golang.org/protobuf v1.36.7
-## explicit; go 1.22
+# google.golang.org/protobuf v1.36.8
+## explicit; go 1.23
 google.golang.org/protobuf/encoding/protodelim
 google.golang.org/protobuf/encoding/protojson
 google.golang.org/protobuf/encoding/prototext
@@ -2428,4 +2428,3 @@ stash.kopano.io/kgol/rndm
 # github.com/unrolled/secure => github.com/DeepDiver1975/secure v0.0.0-20240611112133-abc838fb797c
 # go-micro.dev/v4 => github.com/butonic/go-micro/v4 v4.11.1-0.20241115112658-b5d4de5ed9b3
 # github.com/go-micro/plugins/v4/store/nats-js-kv => github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a
-# github.com/opencloud-eu/reva/v2 => github.com/dragonchaser/reva/v2 v2.0.0-20250825135357-d2d4b6e0c09d

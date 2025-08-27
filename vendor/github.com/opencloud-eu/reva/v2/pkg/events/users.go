@@ -63,7 +63,7 @@ type UserSoftDeleted struct {
 	Reason        string
 }
 
-// Unmarshal to fulfill umarshaller interface
+// Unmarshal to fulfill unmarshaller interface
 func (UserSoftDeleted) Unmarshal(v []byte) (interface{}, error) {
 	e := UserSoftDeleted{}
 	err := json.Unmarshal(v, &e)
