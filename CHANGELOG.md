@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.4.0) - 2025-08-26
+## [3.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.4.0) - 2025-08-27
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -24,6 +24,8 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/nats-io/nats.go from 1.44.0 to 1.45.0 [[#1401](https://github.com/opencloud-eu/opencloud/pull/1401)]
+- build(deps): bump github.com/stretchr/testify from 1.10.0 to 1.11.0 [[#1400](https://github.com/opencloud-eu/opencloud/pull/1400)]
 - build(deps): bump github.com/olekukonko/tablewriter from 1.0.8 to 1.0.9 [[#1376](https://github.com/opencloud-eu/opencloud/pull/1376)]
 - build(deps): bump github.com/onsi/ginkgo/v2 from 2.24.0 to 2.25.1 [[#1396](https://github.com/opencloud-eu/opencloud/pull/1396)]
 - [full-ci] Bump reva to latest main [[#1372](https://github.com/opencloud-eu/opencloud/pull/1372)]
