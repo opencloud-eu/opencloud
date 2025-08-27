@@ -56,7 +56,7 @@ require (
 	github.com/mna/pigeon v1.3.0
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
 	github.com/nats-io/nats-server/v2 v2.11.7
-	github.com/nats-io/nats.go v1.44.0
+	github.com/nats-io/nats.go v1.45.0
 	github.com/oklog/run v1.2.0
 	github.com/olekukonko/tablewriter v1.0.9
 	github.com/onsi/ginkgo v1.16.5
@@ -77,7 +77,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/afero v1.14.0
 	github.com/spf13/cobra v1.9.1
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.0
 	github.com/test-go/testify v1.1.4
 	github.com/theckman/yacspin v0.13.12
 	github.com/thejerf/suture/v4 v4.0.6
