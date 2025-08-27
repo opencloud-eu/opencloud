@@ -9,8 +9,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/metrics"
@@ -64,12 +62,7 @@ func (g *Groupware) GetAllMessagesInMailbox(w http.ResponseWriter, r *http.Reque
 		maxChanges := uint(0)
 		g.respond(w, r, func(req Request) Response {
 			if mailboxId == "" {
-				errorId := req.errorId()
-				msg := fmt.Sprintf("Missing required mailbox ID path parameter '%v'", UriParamMailboxId)
-				return errorResponse(apiError(errorId, ErrorInvalidRequestParameter,
-					withDetail(msg),
-					withSource(&ErrorSource{Parameter: UriParamMailboxId}),
-				))
+				return req.parameterErrorResponse(UriParamMailboxId, fmt.Sprintf("Missing required mailbox ID path parameter '%v'", UriParamMailboxId))
 			}
 			logger := log.From(req.logger.With().Str(HeaderSince, since))
 
@@ -84,14 +77,9 @@ func (g *Groupware) GetAllMessagesInMailbox(w http.ResponseWriter, r *http.Reque
 		g.respond(w, r, func(req Request) Response {
 			l := req.logger.With()
 			if mailboxId == "" {
-				errorId := req.errorId()
-				msg := fmt.Sprintf("Missing required mailbox ID path parameter '%v'", UriParamMailboxId)
-				return errorResponse(apiError(errorId, ErrorInvalidRequestParameter,
-					withDetail(msg),
-					withSource(&ErrorSource{Parameter: UriParamMailboxId}),
-				))
+				return req.parameterErrorResponse(UriParamMailboxId, fmt.Sprintf("Missing required mailbox ID path parameter '%v'", UriParamMailboxId))
 			}
-			offset, ok, err := req.parseUNumericParam(QueryParamOffset, 0)
+			offset, ok, err := req.parseUIntParam(QueryParamOffset, 0)
 			if err != nil {
 				return errorResponse(err)
 			}
@@ -99,7 +87,7 @@ func (g *Groupware) GetAllMessagesInMailbox(w http.ResponseWriter, r *http.Reque
 				l = l.Uint(QueryParamOffset, offset)
 			}
 
-			limit, ok, err := req.parseUNumericParam(QueryParamLimit, g.defaultEmailLimit)
+			limit, ok, err := req.parseUIntParam(QueryParamLimit, g.defaultEmailLimit)
 			if err != nil {
 				return errorResponse(err)
 			}
@@ -124,12 +112,7 @@ func (g *Groupware) GetMessagesById(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		ids := strings.Split(id, ",")
 		if len(ids) < 1 {
-			errorId := req.errorId()
-			msg := fmt.Sprintf("Invalid value for path parameter '%v': '%s': %s", UriParamMessageId, log.SafeString(id), "empty list of mail ids")
-			return errorResponse(apiError(errorId, ErrorInvalidRequestParameter,
-				withDetail(msg),
-				withSource(&ErrorSource{Parameter: UriParamMessageId}),
-			))
+			return req.parameterErrorResponse(UriParamMessageId, fmt.Sprintf("Invalid value for path parameter '%v': '%s': %s", UriParamMessageId, log.SafeString(id), "empty list of mail ids"))
 		}
 
 		logger := log.From(req.logger.With().Str("id", log.SafeString(id)))
@@ -145,7 +128,7 @@ func (g *Groupware) GetMessagesById(w http.ResponseWriter, r *http.Request) {
 func (g *Groupware) getMessagesSince(w http.ResponseWriter, r *http.Request, since string) {
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With().Str(QueryParamSince, since)
-		maxChanges, ok, err := req.parseUNumericParam(QueryParamMaxChanges, 0)
+		maxChanges, ok, err := req.parseUIntParam(QueryParamMaxChanges, 0)
 		if err != nil {
 			return errorResponse(err)
 		}
@@ -187,7 +170,7 @@ type MessageSearchResults struct {
 	QueryState jmap.State          `json:"queryState,omitempty"`
 }
 
-func (g *Groupware) buildFilter(req Request) (bool, jmap.EmailFilterElement, uint, uint, *log.Logger, Response) {
+func (g *Groupware) buildFilter(req Request) (bool, jmap.EmailFilterElement, uint, uint, *log.Logger, *Error) {
 	q := req.r.URL.Query()
 	mailboxId := q.Get(QueryParamMailboxId)
 	notInMailboxIds := q[QueryParamNotInMailboxId]
@@ -202,17 +185,17 @@ func (g *Groupware) buildFilter(req Request) (bool, jmap.EmailFilterElement, uin
 
 	l := req.logger.With()
 
-	offset, ok, err := req.parseUNumericParam(QueryParamOffset, 0)
+	offset, ok, err := req.parseUIntParam(QueryParamOffset, 0)
 	if err != nil {
-		return false, nil, 0, 0, nil, errorResponse(err)
+		return false, nil, 0, 0, nil, err
 	}
 	if ok {
 		l = l.Uint(QueryParamOffset, offset)
 	}
 
-	limit, ok, err := req.parseUNumericParam(QueryParamLimit, g.defaultEmailLimit)
+	limit, ok, err := req.parseUIntParam(QueryParamLimit, g.defaultEmailLimit)
 	if err != nil {
-		return false, nil, 0, 0, nil, errorResponse(err)
+		return false, nil, 0, 0, nil, err
 	}
 	if ok {
 		l = l.Uint(QueryParamLimit, limit)
@@ -220,7 +203,7 @@ func (g *Groupware) buildFilter(req Request) (bool, jmap.EmailFilterElement, uin
 
 	before, ok, err := req.parseDateParam(QueryParamSearchBefore)
 	if err != nil {
-		return false, nil, 0, 0, nil, errorResponse(err)
+		return false, nil, 0, 0, nil, err
 	}
 	if ok {
 		l = l.Time(QueryParamSearchBefore, before)
@@ -228,7 +211,7 @@ func (g *Groupware) buildFilter(req Request) (bool, jmap.EmailFilterElement, uin
 
 	after, ok, err := req.parseDateParam(QueryParamSearchAfter)
 	if err != nil {
-		return false, nil, 0, 0, nil, errorResponse(err)
+		return false, nil, 0, 0, nil, err
 	}
 	if ok {
 		l = l.Time(QueryParamSearchAfter, after)
@@ -262,17 +245,17 @@ func (g *Groupware) buildFilter(req Request) (bool, jmap.EmailFilterElement, uin
 		l = l.Str(QueryParamSearchBody, log.SafeString(body))
 	}
 
-	minSize, ok, err := req.parseNumericParam(QueryParamSearchMinSize, 0)
+	minSize, ok, err := req.parseIntParam(QueryParamSearchMinSize, 0)
 	if err != nil {
-		return false, nil, 0, 0, nil, errorResponse(err)
+		return false, nil, 0, 0, nil, err
 	}
 	if ok {
 		l = l.Int(QueryParamSearchMinSize, minSize)
 	}
 
-	maxSize, ok, err := req.parseNumericParam(QueryParamSearchMaxSize, 0)
+	maxSize, ok, err := req.parseIntParam(QueryParamSearchMaxSize, 0)
 	if err != nil {
-		return false, nil, 0, 0, nil, errorResponse(err)
+		return false, nil, 0, 0, nil, err
 	}
 	if ok {
 		l = l.Int(QueryParamSearchMaxSize, maxSize)
@@ -314,14 +297,14 @@ func (g *Groupware) buildFilter(req Request) (bool, jmap.EmailFilterElement, uin
 		}
 	}
 
-	return true, filter, offset, limit, logger, Response{}
+	return true, filter, offset, limit, logger, nil
 }
 
 func (g *Groupware) searchMessages(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
-		ok, filter, offset, limit, logger, errResp := g.buildFilter(req)
+		ok, filter, offset, limit, logger, err := g.buildFilter(req)
 		if !ok {
-			return errResp
+			return errorResponse(err)
 		}
 
 		if !filter.IsNotEmpty() {
@@ -498,7 +481,6 @@ func (g *Groupware) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 
 		l := req.logger.With()
 		l.Str(UriParamMessageId, messageId)
-
 		logger := log.From(l)
 
 		_, sessionState, jerr := g.jmap.DeleteEmails(req.GetAccountId(), []string{messageId}, req.session, req.ctx, logger)
@@ -564,12 +546,12 @@ func (g *Groupware) RelatedToMessage(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, UriParamMessageId)
 
 	g.respond(w, r, func(req Request) Response {
-		limit, _, err := req.parseUNumericParam(QueryParamLimit, 10) // TODO configurable default limit
+		limit, _, err := req.parseUIntParam(QueryParamLimit, 10) // TODO configurable default limit
 		if err != nil {
 			return errorResponse(err)
 		}
 
-		days, _, err := req.parseUNumericParam(QueryParamDays, 5) // TODO configurable default days
+		days, _, err := req.parseUIntParam(QueryParamDays, 5) // TODO configurable default days
 		if err != nil {
 			return errorResponse(err)
 		}
@@ -583,16 +565,14 @@ func (g *Groupware) RelatedToMessage(w http.ResponseWriter, r *http.Request) {
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
+
 		if len(emails.Emails) < 1 {
-			g.metrics.EmailByIdDuration.WithLabelValues(req.session.ApiUrl, metrics.ResultNotFound).Observe(getEmailsDuration.Seconds())
+			req.observe(g.metrics.EmailByIdDuration.WithLabelValues(req.session.JmapEndpoint, metrics.Values.Result.NotFound), getEmailsDuration.Seconds())
 			logger.Trace().Msg("failed to find any emails matching id") // the id is already in the log field
 			return notFoundResponse(sessionState)
+		} else {
+			req.observe(g.metrics.EmailByIdDuration.WithLabelValues(req.session.JmapEndpoint, metrics.Values.Result.Found), getEmailsDuration.Seconds())
 		}
-		g.metrics.EmailByIdDuration.
-			WithLabelValues(req.session.ApiUrl, metrics.ResultNotFound).(prometheus.ExemplarObserver).
-			ObserveWithExemplar(getEmailsDuration.Seconds(), prometheus.Labels{
-				metrics.Labels.RequestId: reqId,
-			})
 
 		email := emails.Emails[0]
 
@@ -604,10 +584,14 @@ func (g *Groupware) RelatedToMessage(w http.ResponseWriter, r *http.Request) {
 		bgctx := context.Background()
 
 		g.job(logger, RelationTypeSameSender, func(jobId uint64, l *log.Logger) {
+			before := time.Now()
 			results, _, jerr := g.jmap.QueryEmails(accountId, filter, req.session, bgctx, l, 0, limit, false, g.maxBodyValueBytes)
+			duration := time.Since(before)
 			if jerr != nil {
+				req.observeJmapError(jerr)
 				l.Error().Err(jerr).Msgf("failed to query %v emails", RelationTypeSameSender)
 			} else {
+				req.observe(g.metrics.EmailSameSenderDuration.WithLabelValues(req.session.JmapEndpoint), duration.Seconds())
 				related := filterEmails(results.Emails, email)
 				l.Trace().Msgf("'%v' found %v other emails", RelationTypeSameSender, len(related))
 				if len(related) > 0 {
@@ -617,10 +601,14 @@ func (g *Groupware) RelatedToMessage(w http.ResponseWriter, r *http.Request) {
 		})
 
 		g.job(logger, RelationTypeSameThread, func(jobId uint64, l *log.Logger) {
+			before := time.Now()
 			emails, _, jerr := g.jmap.EmailsInThread(accountId, email.ThreadId, req.session, bgctx, l, false, g.maxBodyValueBytes)
+			duration := time.Since(before)
 			if jerr != nil {
+				req.observeJmapError(jerr)
 				l.Error().Err(jerr).Msgf("failed to list %v emails", RelationTypeSameThread)
 			} else {
+				req.observe(g.metrics.EmailSameThreadDuration.WithLabelValues(req.session.JmapEndpoint), duration.Seconds())
 				related := filterEmails(emails, email)
 				l.Trace().Msgf("'%v' found %v other emails", RelationTypeSameThread, len(related))
 				if len(related) > 0 {
