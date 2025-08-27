@@ -231,7 +231,7 @@ type SessionAccount struct {
 	IsPersonal bool `json:"isPersonal"`
 	// This is true if the entire account is read-only.
 	IsReadOnly          bool                       `json:"isReadOnly"`
-	AccountCapabilities SessionAccountCapabilities `json:"accountCapabilities,omitempty"`
+	AccountCapabilities SessionAccountCapabilities `json:"accountCapabilities"`
 }
 
 type SessionCoreCapabilities struct {
