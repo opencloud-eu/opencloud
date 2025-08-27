@@ -2,7 +2,6 @@ package groupware
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
 
@@ -33,11 +32,6 @@ type SwaggerGetMailboxById200 struct {
 //	500: ErrorResponse500
 func (g *Groupware) GetMailbox(w http.ResponseWriter, r *http.Request) {
 	mailboxId := chi.URLParam(r, UriParamMailboxId)
-	if mailboxId == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
 	g.respond(w, r, func(req Request) Response {
 		res, sessionState, err := g.jmap.GetMailbox(req.GetAccountId(), req.session, req.ctx, req.logger, []string{mailboxId})
 		if err != nil {
@@ -102,19 +96,17 @@ func (g *Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) {
 		filter.Role = role
 		hasCriteria = true
 	}
-	subscribed := q.Get(QueryParamMailboxSearchSubscribed)
-	if subscribed != "" {
-		b, err := strconv.ParseBool(subscribed)
-		if err != nil {
-			// TODO proper response object
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		filter.IsSubscribed = &b
-		hasCriteria = true
-	}
 
 	g.respond(w, r, func(req Request) Response {
+		subscribed, set, err := req.parseBoolParam(QueryParamMailboxSearchSubscribed, false)
+		if err != nil {
+			return errorResponse(err)
+		}
+		if set {
+			filter.IsSubscribed = &subscribed
+			hasCriteria = true
+		}
+
 		if hasCriteria {
 			mailboxes, sessionState, err := g.jmap.SearchMailboxes(req.GetAccountId(), req.session, req.ctx, req.logger, filter)
 			if err != nil {

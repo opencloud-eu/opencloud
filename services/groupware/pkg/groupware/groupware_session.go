@@ -11,7 +11,7 @@ import (
 type cachedSession interface {
 	Success() bool
 	Get() jmap.Session
-	Error() error
+	Error() *GroupwareError
 	Since() time.Time
 }
 
@@ -26,7 +26,7 @@ func (s succeededSession) Success() bool {
 func (s succeededSession) Get() jmap.Session {
 	return s.session
 }
-func (s succeededSession) Error() error {
+func (s succeededSession) Error() *GroupwareError {
 	return nil
 }
 func (s succeededSession) Since() time.Time {
@@ -37,7 +37,7 @@ var _ cachedSession = succeededSession{}
 
 type failedSession struct {
 	since time.Time
-	err   error
+	err   *GroupwareError
 }
 
 func (s failedSession) Success() bool {
@@ -46,7 +46,7 @@ func (s failedSession) Success() bool {
 func (s failedSession) Get() jmap.Session {
 	panic("this should never be called")
 }
-func (s failedSession) Error() error {
+func (s failedSession) Error() *GroupwareError {
 	return s.err
 }
 func (s failedSession) Since() time.Time {
@@ -65,10 +65,10 @@ func (l *sessionCacheLoader) Load(c *ttlcache.Cache[string, cachedSession], user
 	session, err := l.jmapClient.FetchSession(username, l.logger)
 	if err != nil {
 		l.logger.Warn().Str("username", username).Err(err).Msgf("failed to create session for '%v'", username)
-		return c.Set(username, failedSession{err: err}, l.errorTtl)
+		return c.Set(username, failedSession{since: time.Now(), err: groupwareErrorFromJmap(err)}, l.errorTtl)
 	} else {
 		l.logger.Debug().Str("username", username).Msgf("successfully created session for '%v'", username)
-		return c.Set(username, succeededSession{session: session}, ttlcache.DefaultTTL) // use the TTL configured on the Cache
+		return c.Set(username, succeededSession{since: time.Now(), session: session}, ttlcache.DefaultTTL) // use the TTL configured on the Cache
 	}
 }
 
