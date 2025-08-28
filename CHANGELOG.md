@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.4.0) - 2025-08-27
+## [3.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.4.0) - 2025-08-28
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -8,6 +8,7 @@
 
 ### ✨ Features
 
+- Search-service: add opensearch as distributed search backend [[#1290](https://github.com/opencloud-eu/opencloud/pull/1290)]
 - initial skel for user soft delete [[#1344](https://github.com/opencloud-eu/opencloud/pull/1344)]
 
 ### 📈 Enhancement
