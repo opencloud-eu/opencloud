@@ -9,13 +9,13 @@ import (
 
 var registered atomic.Bool
 
-func StartupMetrics() {
+func StartupMetrics(registerer prometheus.Registerer) {
 	// use an atomic boolean to make the operation idempotent,
 	// instead of causing a panic in case this function is
 	// called twice
 	if registered.CompareAndSwap(false, true) {
 		// https://github.com/prometheus/common/blob/8558a5b7db3c84fa38b4766966059a7bd5bfa2ee/version/info.go#L36-L56
-		prometheus.MustRegister(prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		registerer.Register(prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 			Namespace: Namespace,
 			Subsystem: Subsystem,
 			Name:      "build_info",
