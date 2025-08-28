@@ -55,6 +55,7 @@ type UploadedBlob struct {
 }
 
 func (j *Client) UploadBlobStream(accountId string, session *Session, ctx context.Context, logger *log.Logger, contentType string, body io.Reader) (UploadedBlob, Error) {
+	logger = log.From(logger.With().Str(logEndpoint, session.UploadEndpoint))
 	aid := session.BlobAccountId(accountId)
 	// TODO(pbleser-oc) use a library for proper URL template parsing
 	uploadUrl := strings.ReplaceAll(session.UploadUrlTemplate, "{accountId}", aid)
@@ -62,6 +63,7 @@ func (j *Client) UploadBlobStream(accountId string, session *Session, ctx contex
 }
 
 func (j *Client) DownloadBlobStream(accountId string, blobId string, name string, typ string, session *Session, ctx context.Context, logger *log.Logger) (*BlobDownload, Error) {
+	logger = log.From(logger.With().Str(logEndpoint, session.DownloadEndpoint))
 	aid := session.BlobAccountId(accountId)
 	// TODO(pbleser-oc) use a library for proper URL template parsing
 	downloadUrl := session.DownloadUrlTemplate

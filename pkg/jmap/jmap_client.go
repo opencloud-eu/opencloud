@@ -19,9 +19,9 @@ func (j *Client) Close() error {
 	return j.api.Close()
 }
 
-func NewClient(sessionClient SessionClient, api ApiClient, blob BlobClient) Client {
+func NewClient(session SessionClient, api ApiClient, blob BlobClient) Client {
 	return Client{
-		session:               sessionClient,
+		session:               session,
 		api:                   api,
 		blob:                  blob,
 		sessionEventListeners: newEventListeners[SessionEventListener](),
@@ -47,16 +47,16 @@ func (j *Client) FetchSession(username string, logger *log.Logger) (Session, Err
 	return newSession(wk)
 }
 
-func (j *Client) logger(accountId string, operation string, session *Session, logger *log.Logger) *log.Logger {
-	l := logger.With().Str(logOperation, operation).Str(logUsername, session.Username)
+func (j *Client) logger(accountId string, operation string, _ *Session, logger *log.Logger) *log.Logger {
+	l := logger.With().Str(logOperation, operation)
 	if accountId != "" {
 		l = l.Str(logAccountId, accountId)
 	}
 	return log.From(l)
 }
 
-func (j *Client) loggerParams(accountId string, operation string, session *Session, logger *log.Logger, params func(zerolog.Context) zerolog.Context) *log.Logger {
-	l := logger.With().Str(logOperation, operation).Str(logUsername, session.Username)
+func (j *Client) loggerParams(accountId string, operation string, _ *Session, logger *log.Logger, params func(zerolog.Context) zerolog.Context) *log.Logger {
+	l := logger.With().Str(logOperation, operation)
 	if accountId != "" {
 		l = l.Str(logAccountId, accountId)
 	}

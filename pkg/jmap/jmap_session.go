@@ -128,9 +128,9 @@ func (s *Session) SubmissionAccountId(accountId string) string {
 // Create a new log.Logger that is decorated with fields containing information about the Session.
 func (s Session) DecorateLogger(l log.Logger) *log.Logger {
 	return log.From(l.With().
-		Str(logUsername, s.Username).
-		Str(logApiUrl, s.ApiUrl).
-		Str(logSessionState, string(s.State)))
+		Str(logUsername, log.SafeString(s.Username)).
+		Str(logEndpoint, log.SafeString(s.JmapEndpoint)).
+		Str(logSessionState, log.SafeString(string(s.State))))
 }
 
 func endpointOf(u *url.URL) string {
