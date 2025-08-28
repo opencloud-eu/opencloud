@@ -42,15 +42,17 @@ type Config struct {
 	Metadata Metadata `yaml:"metadata_config"`
 
 	UserSoftDeleteRetentionTime time.Duration `yaml:"user_soft_delete_retention_time" env:"GRAPH_USER_SOFT_DELETE_RETENTION_TIME" desc:"The time after which a soft-deleted user is permanently deleted. If set to 0 (default), there is no soft delete retention time and users are deleted immediately after being soft-deleted. If set to a positive value, the user will be kept in the system for that duration before being permanently deleted." introductionVersion:"%%NEXT%%"`
+
+	Store Store `yaml:"store"`
 }
 
 type Spaces struct {
 	WebDavBase                      string `yaml:"webdav_base" env:"OC_URL;GRAPH_SPACES_WEBDAV_BASE" desc:"The public facing URL of WebDAV." introductionVersion:"1.0.0"`
 	WebDavPath                      string `yaml:"webdav_path" env:"GRAPH_SPACES_WEBDAV_PATH" desc:"The WebDAV sub-path for spaces." introductionVersion:"1.0.0"`
 	DefaultQuota                    string `yaml:"default_quota" env:"GRAPH_SPACES_DEFAULT_QUOTA" desc:"The default quota in bytes." introductionVersion:"1.0.0"`
-	ExtendedSpacePropertiesCacheTTL int    `yaml:"extended_space_properties_cache_ttl" env:"GRAPH_SPACES_EXTENDED_SPACE_PROPERTIES_CACHE_TTL" desc:"Max TTL in seconds for the spaces property cache." introductionVersion:"1.0.0"`
-	UsersCacheTTL                   int    `yaml:"users_cache_ttl" env:"GRAPH_SPACES_USERS_CACHE_TTL" desc:"Max TTL in seconds for the spaces users cache." introductionVersion:"1.0.0"`
-	GroupsCacheTTL                  int    `yaml:"groups_cache_ttl" env:"GRAPH_SPACES_GROUPS_CACHE_TTL" desc:"Max TTL in seconds for the spaces groups cache." introductionVersion:"1.0.0"`
+	ExtendedSpacePropertiesCacheTTL int    `yaml:"extended_space_properties_STORE_ttl" env:"GRAPH_SPACES_EXTENDED_SPACE_PROPERTIES_STORE_TTL" desc:"Max TTL in seconds for the spaces property cache." introductionVersion:"1.0.0"`
+	UsersCacheTTL                   int    `yaml:"users_STORE_ttl" env:"GRAPH_SPACES_USERS_STORE_TTL" desc:"Max TTL in seconds for the spaces users cache." introductionVersion:"1.0.0"`
+	GroupsCacheTTL                  int    `yaml:"groups_STORE_ttl" env:"GRAPH_SPACES_GROUPS_STORE_TTL" desc:"Max TTL in seconds for the spaces groups cache." introductionVersion:"1.0.0"`
 	StorageUsersAddress             string `yaml:"storage_users_address" env:"GRAPH_SPACES_STORAGE_USERS_ADDRESS" desc:"The address of the storage-users service." introductionVersion:"1.0.0"`
 	DefaultLanguage                 string `yaml:"default_language" env:"OC_DEFAULT_LANGUAGE" desc:"The default language used by services and the WebUI. If not defined, English will be used as default. See the documentation for more details." introductionVersion:"1.0.0"`
 	TranslationPath                 string `yaml:"translation_path" env:"OC_TRANSLATION_PATH;GRAPH_TRANSLATION_PATH" desc:"(optional) Set this to a path with custom translations to overwrite the builtin translations. Note that file and folder naming rules apply, see the documentation for more details." introductionVersion:"1.0.0"`
@@ -167,4 +169,15 @@ type Metadata struct {
 	SystemUserID     string `yaml:"system_user_id" env:"OC_SYSTEM_USER_ID;GRAPH_SYSTEM_USER_ID" desc:"ID of the OpenCloud STORAGE-SYSTEM system user. Admins need to set the ID for the STORAGE-SYSTEM system user in this config option which is then used to reference the user. Any reasonable long string is possible, preferably this would be an UUIDv4 format." introductionVersion:"%%NEXT%%"`
 	SystemUserIDP    string `yaml:"system_user_idp" env:"OC_SYSTEM_USER_IDP;GRAPH_SYSTEM_USER_IDP" desc:"IDP of the OpenCloud STORAGE-SYSTEM system user." introductionVersion:"%%NEXT%%"`
 	SystemUserAPIKey string `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY" desc:"API key for the STORAGE-SYSTEM system user." introductionVersion:"%%NEXT%%"`
+}
+
+// Store configures the store to use
+type Store struct {
+	Store        string        `yaml:"store" env:"OC_PERSISTENT_STORE;GRAPH_STORE" desc:"The type of the store. Supported values are: 'memory', 'nats-js-kv', 'redis-sentinel', 'noop'. See the text description for details." introductionVersion:"1.0.0"`
+	Nodes        []string      `yaml:"nodes" env:"OC_PERSISTENT_STORE_NODES;GRAPH_STORE_NODES" desc:"A list of nodes to access the configured store. This has no effect when 'memory' store is configured. Note that the behaviour how nodes are used is dependent on the library of the configured store. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
+	Database     string        `yaml:"database" env:"GRAPH_STORE_DATABASE" desc:"The database name the configured store should use." introductionVersion:"1.0.0"`
+	Table        string        `yaml:"table" env:"GRAPH_STORE_TABLE" desc:"The database table the store should use." introductionVersion:"1.0.0"`
+	TTL          time.Duration `yaml:"ttl" env:"OC_PERSISTENT_STORE_TTL;GRAPH_STORE_TTL" desc:"Time to live for events in the store. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
+	AuthUsername string        `yaml:"username" env:"OC_PERSISTENT_STORE_AUTH_USERNAME;GRAPH_STORE_AUTH_USERNAME" desc:"The username to authenticate with the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
+	AuthPassword string        `yaml:"password" env:"OC_PERSISTENT_STORE_AUTH_PASSWORD;GRAPH_STORE_AUTH_PASSWORD" desc:"The password to authenticate with the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
 }
