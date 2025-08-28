@@ -11,6 +11,7 @@ ALPINE_GIT = "alpine/git:latest"
 APACHE_TIKA = "apache/tika:2.8.0.0"
 CHKO_DOCKER_PUSHRM = "chko/docker-pushrm:1"
 COLLABORA_CODE = "collabora/code:24.04.5.1.1"
+OPEN_SEARCH = "opensearchproject/opensearch:2"
 INBUCKET_INBUCKET = "inbucket/inbucket"
 MINIO_MC = "minio/mc:RELEASE.2021-10-07T04-19-58Z"
 OC_CI_ALPINE = "owncloudci/alpine:latest"
@@ -699,9 +700,35 @@ def testOpencloud(ctx):
             "environment": CI_HTTP_PROXY_ENV,
         },
         {
+            "name": "open-search",
+            "image": OPEN_SEARCH,
+            "detach": True,
+            "environment": {
+                "discovery.type": "single-node",
+                "DISABLE_INSTALL_DEMO_CONFIG": True,
+                "DISABLE_SECURITY_PLUGIN": True,
+            },
+            "entrypoint": ["/usr/share/opensearch/opensearch-docker-entrypoint.sh", "opensearch"],
+        },
+        {
+            "name": "wait-for-open-search",
+            "image": OC_CI_ALPINE,
+            "commands": [
+                "bash -c '" +
+                "until curl -sS \"http://open-search:9200/_cat/health?h=status\" | grep \"green\\|yellow\"; do\n" +
+                "  echo \"Waiting for http://open-search:9200 to be healthy...\"\n" +
+                "  sleep 5\n" +
+                "done\n" +
+                "echo \"http://open-search:9200 healthy...\"\n" +
+                "'",
+            ],
+        },
+        {
             "name": "test",
             "image": OC_CI_GOLANG,
-            "environment": CI_HTTP_PROXY_ENV,
+            "environment": {
+                "SEARCH_ENGINE_OPEN_SEARCH_CLIENT_ADDRESSES": "http://open-search:9200",
+            },
             "commands": [
                 "mkdir -p cache/coverage",
                 "make test",

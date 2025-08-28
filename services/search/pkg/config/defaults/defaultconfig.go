@@ -39,6 +39,11 @@ func DefaultConfig() *config.Config {
 			Bleve: config.EngineBleve{
 				Datapath: filepath.Join(defaults.BaseDataPath(), "search"),
 			},
+			OpenSearch: config.EngineOpenSearch{
+				ResourceIndex: config.EngineOpenSearchResourceIndex{
+					Name: "opencloud-resource",
+				},
+			},
 		},
 		Extractor: config.Extractor{
 			Type:             "basic",

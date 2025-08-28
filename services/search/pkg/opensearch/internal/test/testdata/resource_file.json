@@ -1,0 +1,55 @@
+{
+  "ID" : "1$2!3",
+  "Title" : "dumme title",
+  "Name" : "dummy name",
+  "Content" : "dummy content",
+  "Size" : 42,
+  "Mtime" : "2025-07-24 15:15:01.324093 +0200 CEST m=+0.000056251",
+  "MimeType" : "image/jpeg",
+  "Tags" : [ "dummy" ],
+  "audio" : {
+    "album" : "Some Album",
+    "albumArtist" : "Some AlbumArtist",
+    "artist" : "Some Artist",
+    "bitrate" : 192,
+    "composers" : "Some Composers",
+    "copyright" : "",
+    "disc" : 2,
+    "discCount" : 5,
+    "duration" : 225000,
+    "genre" : "Some Genre",
+    "hasDrm" : false,
+    "isVariableBitrate" : true,
+    "title" : "Some Title",
+    "track" : 34,
+    "trackCount" : 99,
+    "year" : 2004
+  },
+  "image" : {
+    "height" : 100,
+    "width" : 100
+  },
+  "location" : {
+    "altitude" : 1047.7,
+    "latitude" : 49.48675890884328,
+    "longitude" : 11.103870357204285
+  },
+  "photo" : {
+    "cameraMake" : "CameraMake",
+    "cameraModel" : "CameraMake",
+    "exposureDenominator" : 1,
+    "exposureNumerator" : 1,
+    "fNumber" : 1,
+    "focalLength" : 1,
+    "iso" : 1,
+    "orientation" : 1,
+    "takenDateTime" : "2018-01-01T12:34:56Z"
+  },
+  "omitempty" : "1$2!3",
+  "RootID" : "1$2!1",
+  "Path" : "./doc",
+  "ParentID" : "1$2!2",
+  "Type" : 1,
+  "Deleted" : false,
+  "Hidden" : false
+}

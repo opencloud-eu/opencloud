@@ -18,6 +18,8 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/token"
 	"github.com/opencloud-eu/reva/v2/pkg/token/manager/jwt"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	opensearchgo "github.com/opensearch-project/opensearch-go/v4"
+	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 	merrors "go-micro.dev/v4/errors"
 	"go-micro.dev/v4/metadata"
 	grpcmetadata "google.golang.org/grpc/metadata"
@@ -29,6 +31,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/engine"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/query/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
@@ -54,6 +57,35 @@ func NewHandler(opts ...Option) (searchsvc.SearchProviderHandler, func(), error)
 		}
 
 		eng = engine.NewBleveEngine(idx, bleve.DefaultCreator, logger)
+	case "open-search":
+		client, err := opensearchgoAPI.NewClient(opensearchgoAPI.Config{
+			Client: opensearchgo.Config{
+				Addresses:             cfg.Engine.OpenSearch.Client.Addresses,
+				Username:              cfg.Engine.OpenSearch.Client.Username,
+				Password:              cfg.Engine.OpenSearch.Client.Password,
+				Header:                cfg.Engine.OpenSearch.Client.Header,
+				CACert:                cfg.Engine.OpenSearch.Client.CACert,
+				RetryOnStatus:         cfg.Engine.OpenSearch.Client.RetryOnStatus,
+				DisableRetry:          cfg.Engine.OpenSearch.Client.DisableRetry,
+				EnableRetryOnTimeout:  cfg.Engine.OpenSearch.Client.EnableRetryOnTimeout,
+				MaxRetries:            cfg.Engine.OpenSearch.Client.MaxRetries,
+				CompressRequestBody:   cfg.Engine.OpenSearch.Client.CompressRequestBody,
+				DiscoverNodesOnStart:  cfg.Engine.OpenSearch.Client.DiscoverNodesOnStart,
+				DiscoverNodesInterval: cfg.Engine.OpenSearch.Client.DiscoverNodesInterval,
+				EnableMetrics:         cfg.Engine.OpenSearch.Client.EnableMetrics,
+				EnableDebugLogger:     cfg.Engine.OpenSearch.Client.EnableDebugLogger,
+			},
+		})
+		if err != nil {
+			return nil, teardown, fmt.Errorf("failed to create OpenSearch client: %w", err)
+		}
+
+		openSearchBackend, err := opensearch.NewBackend(cfg.Engine.OpenSearch.ResourceIndex.Name, client)
+		if err != nil {
+			return nil, teardown, fmt.Errorf("failed to create OpenSearch backend: %w", err)
+		}
+
+		eng = openSearchBackend
 	default:
 		return nil, teardown, fmt.Errorf("unknown search engine: %s", cfg.Engine.Type)
 	}
