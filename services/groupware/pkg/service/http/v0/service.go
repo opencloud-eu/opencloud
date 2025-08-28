@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/riandyrn/otelchi"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -34,7 +35,11 @@ func NewService(opts ...Option) (Service, error) {
 		),
 	)
 
-	gw, err := groupware.NewGroupware(options.Config, &options.Logger, m)
+	logger := &options.Logger
+
+	registerer := metrics.NewLoggingPrometheusRegisterer(prometheus.DefaultRegisterer, logger)
+
+	gw, err := groupware.NewGroupware(options.Config, logger, m, registerer)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +58,7 @@ func NewService(opts ...Option) (Service, error) {
 		}
 	}
 
-	metrics.StartupMetrics()
+	metrics.StartupMetrics(registerer)
 
 	return gw, nil
 }
