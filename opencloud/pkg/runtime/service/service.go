@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"net/http"
 	"net/rpc"
@@ -382,7 +381,32 @@ func Start(ctx context.Context, o ...Option) error {
 					cancel()
 				}
 			}
-			s.Log.Info().Str("event", e.String()).Msg(fmt.Sprintf("supervisor: %v", e.Map()["supervisor_name"]))
+			switch ev := e.(type) {
+			case suture.EventServicePanic:
+				l := s.Log.Fatal()
+				if ev.Restarting {
+					l = s.Log.Error()
+				}
+				l.Str("event", e.String()).Str("service", ev.ServiceName).Str("supervisor", ev.SupervisorName).
+					Bool("restarting", ev.Restarting).Float64("failures", ev.CurrentFailures).Float64("threshold", ev.FailureThreshold).
+					Str("message", ev.PanicMsg).Msg("service panic")
+			case suture.EventServiceTerminate:
+				l := s.Log.Fatal()
+				if ev.Restarting {
+					l = s.Log.Error()
+				}
+				l.Str("event", e.String()).Str("service", ev.ServiceName).Str("supervisor", ev.SupervisorName).
+					Bool("restarting", ev.Restarting).Float64("failures", ev.CurrentFailures).Float64("threshold", ev.FailureThreshold).
+					Interface("error", ev.Err).Msg("service terminated")
+			case suture.EventBackoff:
+				s.Log.Warn().Str("event", e.String()).Str("supervisor", ev.SupervisorName).Msg("service backoff")
+			case suture.EventResume:
+				s.Log.Info().Str("event", e.String()).Str("supervisor", ev.SupervisorName).Msg("service resume")
+			case suture.EventStopTimeout:
+				s.Log.Warn().Str("event", e.String()).Str("service", ev.ServiceName).Str("supervisor", ev.SupervisorName).Msg("service resume")
+			default:
+				s.Log.Warn().Str("event", e.String()).Msgf("supervisor: %v", e.Map()["supervisor_name"])
+			}
 		},
 		FailureThreshold: 5,
 		FailureBackoff:   3 * time.Second,
