@@ -177,7 +177,20 @@ func New(logger *log.Logger) *Metrics {
 		}, []string{Labels.Endpoint}),
 	}
 
-	r := reflect.ValueOf(*m)
+	registerAll(m, logger)
+
+	return m
+}
+
+func WithExemplar(obs prometheus.Observer, value float64, requestId string, traceId string) {
+	obs.(prometheus.ExemplarObserver).ObserveWithExemplar(value, prometheus.Labels{Labels.RequestId: requestId, Labels.TraceId: traceId})
+}
+
+func registerAll(m any, logger *log.Logger) {
+	r := reflect.ValueOf(m)
+	if r.Kind() == reflect.Pointer {
+		r = r.Elem()
+	}
 	for i := 0; i < r.NumField(); i++ {
 		n := r.Type().Field(i).Name
 		f := r.Field(i)
@@ -190,9 +203,44 @@ func New(logger *log.Logger) *Metrics {
 			}
 		}
 	}
-	return m
 }
 
-func WithExemplar(obs prometheus.Observer, value float64, requestId string, traceId string) {
-	obs.(prometheus.ExemplarObserver).ObserveWithExemplar(value, prometheus.Labels{Labels.RequestId: requestId, Labels.TraceId: traceId})
+type ConstMetricCollector struct {
+	Metric prometheus.Metric
 }
+
+func (c ConstMetricCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- c.Metric.Desc()
+}
+func (c ConstMetricCollector) Collect(ch chan<- prometheus.Metric) {
+	ch <- c.Metric
+}
+
+type LoggingPrometheusRegisterer struct {
+	delegate prometheus.Registerer
+	logger   *log.Logger
+}
+
+func NewLoggingPrometheusRegisterer(delegate prometheus.Registerer, logger *log.Logger) LoggingPrometheusRegisterer {
+	return LoggingPrometheusRegisterer{
+		delegate: delegate,
+		logger:   logger,
+	}
+}
+
+func (r LoggingPrometheusRegisterer) Register(c prometheus.Collector) error {
+	err := r.delegate.Register(c)
+	if err != nil {
+		r.logger.Warn().Err(err).Msgf("failed to register metric")
+	}
+	return err
+}
+func (r LoggingPrometheusRegisterer) MustRegister(...prometheus.Collector) {
+	panic("don't use MustRegister")
+}
+
+func (r LoggingPrometheusRegisterer) Unregister(c prometheus.Collector) bool {
+	return r.delegate.Unregister(c)
+}
+
+var _ prometheus.Registerer = LoggingPrometheusRegisterer{}
