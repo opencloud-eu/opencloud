@@ -513,6 +513,20 @@ def main(ctx):
         ),
     )
 
+    test_pipelines.append(
+        pipelineDependsOn(
+            purgeTracingCache(ctx),
+            testPipelines(ctx),
+        ),
+    )
+
+    test_pipelines.append(
+        pipelineDependsOn(
+            purgeOpencloudWebBuildCache(ctx),
+            testPipelines(ctx),
+        ),
+    )
+
     pipelines = test_pipelines + build_release_pipelines + notifyMatrix(ctx)
 
     # if ctx.build.event == "cron":
@@ -2465,10 +2479,9 @@ def purgeCache(name, flush_path, flush_age):
                     'if [ -z "$to_delete" ]; then exit 0; fi',
                     "mc rm $to_delete",
                 ],
-            }
-        ]
+            },
+        ],
     }
-
 
 def genericBuildArtifactCache(ctx, name, action, path):
     if action == "rebuild" or action == "restore":
@@ -2477,7 +2490,7 @@ def genericBuildArtifactCache(ctx, name, action, path):
         return genericCache(name, action, [path], cache_path)
 
     if action == "purge":
-        return purgeCache("purge_build_artifact_cache", "cache/opencloud-eu/opencloud", 1)
+        return purgeCache("purge_opencloud_build_artifact_cache", "cache/opencloud-eu/opencloud", 1)
     return []
 
 def restoreBuildArtifactCache(ctx, name, path):
@@ -2491,6 +2504,12 @@ def purgeBuildArtifactCache(ctx):
 
 def purgeBrowserCache(ctx):
     return purgeCache("purge_browser_build_cache", "dev/web", 14)
+
+def purgeTracingCache(ctx):
+    return purgeCache("purge_playwright_tracing_cache", "public/web/tracing", 14)
+
+def purgeOpencloudWebBuildCache(ctx):
+    return purgeCache("purge_opencloud_web_build_cache", "dev/opencloud/web-test-runner", 14)
 
 def pipelineSanityChecks(pipelines):
     """pipelineSanityChecks helps the CI developers to find errors before running it
