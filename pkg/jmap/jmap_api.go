@@ -30,7 +30,7 @@ const (
 	logFetchBodies    = "fetch-bodies"
 	logOffset         = "offset"
 	logLimit          = "limit"
-	logApiUrl         = "apiurl"
+	logEndpoint       = "endpoint"
 	logDownloadUrl    = "downloadurl"
 	logBlobId         = "blobId"
 	logUploadUrl      = "downloadurl"
