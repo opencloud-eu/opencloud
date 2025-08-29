@@ -153,6 +153,18 @@ _ocdav: api compatibility, return correct status code_
 
 - [coreApiTrashbin/trashbinSharingToShares.feature:277](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiTrashbin/trashbinSharingToShares.feature#L277)
 
+#### [Preview. UTF characters do not display on prievew](https://github.com/opencloud-eu/opencloud/issues/1451)
+
+- [coreApiWebdavPreviews/previews.feature:249](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L249)
+- [coreApiWebdavPreviews/previews.feature:250](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L250)
+- [coreApiWebdavPreviews/previews.feature:251](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L251)
+
+#### [Preview of text file truncated](https://github.com/opencloud-eu/opencloud/issues/1452)
+
+- [coreApiWebdavPreviews/previews.feature:263](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L263)
+- [coreApiWebdavPreviews/previews.feature:264](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L264)
+- [coreApiWebdavPreviews/previews.feature:265](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L265)
+
 ### Won't fix
 
 Not everything needs to be implemented for opencloud.
