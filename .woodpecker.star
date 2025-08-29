@@ -34,7 +34,7 @@ PLUGINS_S3_CACHE = "plugins/s3-cache:1"
 PLUGINS_SLACK = "plugins/slack:1"
 REDIS = "redis:6-alpine"
 READY_RELEASE_GO = "woodpeckerci/plugin-ready-release-go:latest"
-OPENLDAP = "bitnami/openldap:2.6"
+OPENLDAP = "bitnamilegacy/openldap:2.6"
 
 DEFAULT_PHP_VERSION = "8.2"
 DEFAULT_NODEJS_VERSION = "20"
