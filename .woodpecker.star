@@ -646,7 +646,7 @@ def cacheGoBin():
             "commands": [
                 ". ./.env",
                 "if $BIN_CACHE_FOUND; then exit 0; fi",
-                "tar -czvf %s /go/bin" % dirs["gobinTarPath"],
+                "tar -czf %s /go/bin" % dirs["gobinTarPath"],
             ],
         },
         {
@@ -682,7 +682,7 @@ def restoreGoBinCache():
             "name": "extract-go-bin-cache",
             "image": OC_UBUNTU,
             "commands": [
-                "tar -xvmf %s -C /" % dirs["gobinTarPath"],
+                "tar -xmf %s -C /" % dirs["gobinTarPath"],
             ],
         },
     ]
@@ -2829,7 +2829,7 @@ def generateWebCache(ctx):
                 ". ./.woodpecker.env",
                 "if $WEB_CACHE_FOUND; then exit 0; fi",
                 "if [ ! -d '%s' ]; then mkdir -p %s; fi" % (dirs["zip"], dirs["zip"]),
-                "tar -czvf %s webTestRunner" % dirs["webZip"],
+                "tar -czf %s webTestRunner" % dirs["webZip"],
             ],
         },
         {
@@ -2862,7 +2862,7 @@ def restoreWebCache():
         "name": "unzip-web-cache",
         "image": OC_UBUNTU,
         "commands": [
-            "tar -xvf %s -C ." % dirs["webZip"],
+            "tar -xf %s -C ." % dirs["webZip"],
         ],
     }]
 
@@ -2883,7 +2883,7 @@ def restoreWebPnpmCache(extra_commands = []):
         "commands": extra_commands + [
             "cd %s" % dirs["web"],
             "rm -rf .pnpm-store",
-            "tar -xvf %s" % dirs["webPnpmZip"],
+            "tar -xf %s" % dirs["webPnpmZip"],
             'npm install --silent --global --force "$(jq -r ".packageManager" < package.json)"',
             "pnpm config set store-dir ./.pnpm-store",
             "for i in $(seq 3); do pnpm install --no-frozen-lockfile && break || sleep 1; done",
@@ -2907,7 +2907,7 @@ def restoreBrowsersCache():
             "name": "unzip-browsers-cache",
             "image": OC_UBUNTU,
             "commands": [
-                "tar -xvf /woodpecker/src/github.com/opencloud-eu/opencloud/webTestRunner/playwright-browsers.tar.gz -C .",
+                "tar -xf /woodpecker/src/github.com/opencloud-eu/opencloud/webTestRunner/playwright-browsers.tar.gz -C .",
             ],
         },
     ]
