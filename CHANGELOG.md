@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @butonic, @dragonchaser, @fschade, @individual-it, @kulmann, @prashant-gurung899, @rhafer
+@ScharfViktor, @butonic, @dragonchaser, @fschade, @individual-it, @kulmann, @pbleser-oc, @prashant-gurung899, @rhafer
 
 ### ✨ Features
 
@@ -29,6 +29,7 @@
 
 ### 📦️ Dependencies
 
+- Use bitnamilegacy [[#1418](https://github.com/opencloud-eu/opencloud/pull/1418)]
 - build(deps): bump github.com/nats-io/nats.go from 1.44.0 to 1.45.0 [[#1401](https://github.com/opencloud-eu/opencloud/pull/1401)]
 - build(deps): bump github.com/stretchr/testify from 1.10.0 to 1.11.0 [[#1400](https://github.com/opencloud-eu/opencloud/pull/1400)]
 - build(deps): bump github.com/olekukonko/tablewriter from 1.0.8 to 1.0.9 [[#1376](https://github.com/opencloud-eu/opencloud/pull/1376)]
