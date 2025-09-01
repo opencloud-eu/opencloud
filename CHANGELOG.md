@@ -4,10 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @butonic, @dragonchaser, @fschade, @individual-it, @kulmann, @pbleser-oc, @prashant-gurung899, @rhafer, @tylerlm
+@ScharfViktor, @butonic, @dragonchaser, @fschade, @individual-it, @kulmann, @pbleser-oc, @prashant-gurung899, @rhafer, @tammi-23, @tylerlm
 
 ### ✨ Features
 
+- feat: added capability for Edit Login Allowed [[#1406](https://github.com/opencloud-eu/opencloud/pull/1406)]
 - Search-service: add opensearch as distributed search backend [[#1290](https://github.com/opencloud-eu/opencloud/pull/1290)]
 - initial skel for user soft delete [[#1344](https://github.com/opencloud-eu/opencloud/pull/1344)]
 
