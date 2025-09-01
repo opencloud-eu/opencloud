@@ -224,6 +224,7 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 									"create_disabled":               !cfg.LDAPServerWriteEnabled,
 									"delete_disabled":               !cfg.LDAPServerWriteEnabled,
 									"change_password_self_disabled": changePasswordDisabled,
+									"edit_login_allowed_disabled":   cfg.EditLoginAllowedDisabled,
 								},
 							},
 							"checksums": map[string]interface{}{

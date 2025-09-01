@@ -38,16 +38,17 @@ type Config struct {
 	DisableSSE                     bool   `yaml:"disable_sse" env:"OC_DISABLE_SSE;FRONTEND_DISABLE_SSE" desc:"When set to true, clients are informed that the Server-Sent Events endpoint is not accessible." introductionVersion:"1.0.0"`
 	DefaultLinkPermissions         int    `yaml:"default_link_permissions" env:"FRONTEND_DEFAULT_LINK_PERMISSIONS" desc:"Defines the default permissions a link is being created with. Possible values are 0 (= internal link, for instance members only) and 1 (= public link with viewer permissions). Defaults to 1." introductionVersion:"1.0.0"`
 
-	PublicURL              string      `yaml:"public_url" env:"OC_URL;FRONTEND_PUBLIC_URL" desc:"The public facing URL of the OpenCloud frontend." introductionVersion:"1.0.0"`
-	MaxConcurrency         int         `yaml:"max_concurrency" env:"OC_MAX_CONCURRENCY;FRONTEND_MAX_CONCURRENCY" desc:"Maximum number of concurrent go-routines. Higher values can potentially get work done faster but will also cause more load on the system. Values of 0 or below will be ignored and the default value will be used." introductionVersion:"1.0.0"`
-	AppHandler             AppHandler  `yaml:"app_handler"`
-	Archiver               Archiver    `yaml:"archiver"`
-	DataGateway            DataGateway `yaml:"data_gateway"`
-	OCS                    OCS         `yaml:"ocs"`
-	Checksums              Checksums   `yaml:"checksums"`
-	ReadOnlyUserAttributes []string    `yaml:"read_only_user_attributes" env:"FRONTEND_READONLY_USER_ATTRIBUTES" desc:"A list of user attributes to indicate as read-only. Supported values: 'user.onPremisesSamAccountName' (username), 'user.displayName', 'user.mail', 'user.passwordProfile' (password), 'user.appRoleAssignments' (role), 'user.memberOf' (groups), 'user.accountEnabled' (login allowed), 'drive.quota' (quota). See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
-	LDAPServerWriteEnabled bool        `yaml:"ldap_server_write_enabled" env:"OC_LDAP_SERVER_WRITE_ENABLED;FRONTEND_LDAP_SERVER_WRITE_ENABLED" desc:"Allow creating, modifying and deleting LDAP users via the GRAPH API. This can only be set to 'true' when keeping default settings for the LDAP user and group attribute types (the 'OC_LDAP_USER_SCHEMA_* and 'OC_LDAP_GROUP_SCHEMA_* variables)." introductionVersion:"1.0.0"`
-	FullTextSearch         bool        `yaml:"full_text_search" env:"FRONTEND_FULL_TEXT_SEARCH_ENABLED" desc:"Set to true to signal the web client that full-text search is enabled." introductionVersion:"1.0.0"`
+	PublicURL                string      `yaml:"public_url" env:"OC_URL;FRONTEND_PUBLIC_URL" desc:"The public facing URL of the OpenCloud frontend." introductionVersion:"1.0.0"`
+	MaxConcurrency           int         `yaml:"max_concurrency" env:"OC_MAX_CONCURRENCY;FRONTEND_MAX_CONCURRENCY" desc:"Maximum number of concurrent go-routines. Higher values can potentially get work done faster but will also cause more load on the system. Values of 0 or below will be ignored and the default value will be used." introductionVersion:"1.0.0"`
+	AppHandler               AppHandler  `yaml:"app_handler"`
+	Archiver                 Archiver    `yaml:"archiver"`
+	DataGateway              DataGateway `yaml:"data_gateway"`
+	OCS                      OCS         `yaml:"ocs"`
+	Checksums                Checksums   `yaml:"checksums"`
+	ReadOnlyUserAttributes   []string    `yaml:"read_only_user_attributes" env:"FRONTEND_READONLY_USER_ATTRIBUTES" desc:"A list of user attributes to indicate as read-only. Supported values: 'user.onPremisesSamAccountName' (username), 'user.displayName', 'user.mail', 'user.passwordProfile' (password), 'user.appRoleAssignments' (role), 'user.memberOf' (groups), 'user.accountEnabled' (login allowed), 'drive.quota' (quota). See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
+	LDAPServerWriteEnabled   bool        `yaml:"ldap_server_write_enabled" env:"OC_LDAP_SERVER_WRITE_ENABLED;FRONTEND_LDAP_SERVER_WRITE_ENABLED" desc:"Allow creating, modifying and deleting LDAP users via the GRAPH API. This can only be set to 'true' when keeping default settings for the LDAP user and group attribute types (the 'OC_LDAP_USER_SCHEMA_* and 'OC_LDAP_GROUP_SCHEMA_* variables)." introductionVersion:"1.0.0"`
+	EditLoginAllowedDisabled bool        `yaml:"edit_login_allowed_disabled" env:"FRONTEND_EDIT_LOGIN_ALLOWED_DISABLED" desc:"Used to set if login is allowed/forbidden for for User." introductionVersion:"3.4.0"`
+	FullTextSearch           bool        `yaml:"full_text_search" env:"FRONTEND_FULL_TEXT_SEARCH_ENABLED" desc:"Set to true to signal the web client that full-text search is enabled." introductionVersion:"1.0.0"`
 
 	Middleware Middleware `yaml:"middleware"`
 
