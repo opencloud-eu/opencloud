@@ -4,7 +4,7 @@ directives:
   connect-src:
     - '''self'''
     - 'blob:'
-    - 'https://raw.githubusercontent.com/opencloud-eu/awesome/'
+    - 'https://raw.githubusercontent.com/opencloud-eu/awesome-apps/'
   default-src:
     - '''none'''
   font-src:
@@ -19,7 +19,7 @@ directives:
     - '''self'''
     - 'data:'
     - 'blob:'
-    - 'https://raw.githubusercontent.com/opencloud-eu/awesome/'
+    - 'https://raw.githubusercontent.com/opencloud-eu/awesome-apps/'
   manifest-src:
     - '''self'''
   media-src:
