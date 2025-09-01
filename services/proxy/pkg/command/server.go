@@ -343,6 +343,8 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 	}
 
 	return alice.New(
+		chimiddleware.RealIP,
+		chimiddleware.RequestID,
 		// first make sure we log all requests and redirect to https if necessary
 		otelhttp.NewMiddleware("proxy",
 			otelhttp.WithTracerProvider(traceProvider),
@@ -353,8 +355,6 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 		middleware.Tracer(traceProvider),
 		pkgmiddleware.TraceContext,
 		middleware.Instrumenter(metrics),
-		chimiddleware.RealIP,
-		chimiddleware.RequestID,
 		middleware.AccessLog(logger),
 		middleware.ContextLogger(logger),
 		middleware.HTTPSRedirect,
