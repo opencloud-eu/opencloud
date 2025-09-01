@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	ldapv3 "github.com/go-ldap/ldap/v3"
 	"github.com/jellydator/ttlcache/v3"
+	"github.com/nats-io/nats.go"
 	"github.com/riandyrn/otelchi"
 	microstore "go-micro.dev/v4/store"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/store"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"github.com/opencloud-eu/reva/v2/pkg/utils/ldap"
+	"github.com/pkg/errors"
 
 	ocldap "github.com/opencloud-eu/opencloud/pkg/ldap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -153,6 +155,37 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 		identity.IdentityCacheWithGroupsTTL(time.Duration(options.Config.Spaces.GroupsCacheTTL)),
 	)
 
+	// Connect to NATS servers
+	natsOptions := nats.Options{
+		Servers: options.Config.Store.Nodes,
+	}
+	conn, err := natsOptions.Connect()
+	if err != nil {
+		return Graph{}, err
+	}
+
+	js, err := conn.JetStream()
+	if err != nil {
+		return Graph{}, err
+	}
+
+	kv, err := js.KeyValue(options.Config.Store.Database)
+	if err != nil {
+		if !errors.Is(err, nats.ErrBucketNotFound) {
+			return Graph{}, errors.Wrapf(err, "Failed to get bucket (%s)", options.Config.Store.Database)
+		}
+
+		kv, err = js.CreateKeyValue(&nats.KeyValueConfig{
+			Bucket: options.Config.Store.Database,
+		})
+		if err != nil {
+			return Graph{}, errors.Wrapf(err, "Failed to create bucket (%s)", options.Config.Store.Database)
+		}
+	}
+	if err != nil {
+		return Graph{}, err
+	}
+
 	baseGraphService := BaseGraphService{
 		logger:          &options.Logger,
 		identityCache:   identityCache,
@@ -198,6 +231,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 		historyClient:            options.EventHistoryClient,
 		traceProvider:            options.TraceProvider,
 		valueService:             options.ValueService,
+		natskv:                   kv,
 	}
 
 	if err := setIdentityBackends(options, &svc); err != nil {

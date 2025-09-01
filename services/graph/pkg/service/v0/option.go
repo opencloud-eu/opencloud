@@ -7,6 +7,7 @@ import (
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	microstore "go-micro.dev/v4/store"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/opencloud-eu/opencloud/pkg/keycloak"
@@ -42,6 +43,7 @@ type Options struct {
 	SearchService            searchsvc.SearchProviderService
 	KeycloakClient           keycloak.Client
 	EventHistoryClient       ehsvc.EventHistoryService
+	Store                    microstore.Store
 	TraceProvider            trace.TracerProvider
 }
 
@@ -172,6 +174,13 @@ func KeycloakClient(val keycloak.Client) Option {
 func EventHistoryClient(val ehsvc.EventHistoryService) Option {
 	return func(o *Options) {
 		o.EventHistoryClient = val
+	}
+}
+
+// Store configures the store to use
+func Store(store microstore.Store) Option {
+	return func(o *Options) {
+		o.Store = store
 	}
 }
 

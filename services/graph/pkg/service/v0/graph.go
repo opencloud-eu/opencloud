@@ -12,6 +12,7 @@ import (
 	storageprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/go-chi/chi/v5"
 	"github.com/jellydator/ttlcache/v3"
+	"github.com/nats-io/nats.go"
 	"go-micro.dev/v4/client"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -67,6 +68,7 @@ type Graph struct {
 	keycloakClient           keycloak.Client
 	historyClient            ehsvc.EventHistoryService
 	traceProvider            trace.TracerProvider
+	natskv                   nats.KeyValue
 }
 
 // ServeHTTP implements the Service interface.
