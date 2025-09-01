@@ -20,7 +20,7 @@ var (
 
 	// ErrProcessNotFound is returned when a client is instantiated to
 	// reattach to an existing process and it isn't found.
-	ErrProcessNotFound = errors.New("Reattachment process not found")
+	ErrProcessNotFound = errors.New("reattachment process not found")
 )
 
 const unrecognizedRemotePluginMessage = `This usually means
