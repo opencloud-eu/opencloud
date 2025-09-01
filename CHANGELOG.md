@@ -13,6 +13,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix(antivirus): the file bytesize differs if the file is larger than … [[#1408](https://github.com/opencloud-eu/opencloud/pull/1408)]
 - Correct app store URL [[#1412](https://github.com/opencloud-eu/opencloud/pull/1412)]
 - ack tag events [[#1381](https://github.com/opencloud-eu/opencloud/pull/1381)]
 - fix(proxy): First login fails in auto provision setups [[#1353](https://github.com/opencloud-eu/opencloud/pull/1353)]
