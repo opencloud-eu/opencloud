@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"path"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 	tusd "github.com/tus/tusd/v2/pkg/handler"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc/metadata"
 
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
@@ -43,12 +45,17 @@ const DeniedMessage = "Operation denied due to security policies"
 func Policies(qs string, opts ...Option) func(next http.Handler) http.Handler {
 	options := newOptions(opts...)
 	logger := options.Logger
+	tracer := getTraceProvider(options).Tracer("proxy.middleware.policies")
 	gatewaySelector := options.RevaGatewaySelector
 	policiesProviderClient := options.PoliciesProviderService
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx, span := tracer.Start(r.Context(), fmt.Sprintf("%s %s", r.Method, r.URL.Path), trace.WithSpanKind(trace.SpanKindServer))
+			r = r.WithContext(ctx)
+			defer span.End()
 			if qs == "" {
+				span.End()
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -134,7 +141,7 @@ func Policies(qs string, opts ...Option) func(next http.Handler) http.Handler {
 				RenderError(w, r, req, http.StatusForbidden, DeniedMessage)
 				return
 			}
-
+			span.End()
 			next.ServeHTTP(w, r)
 		})
 	}
