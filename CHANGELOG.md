@@ -4,23 +4,24 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @butonic, @dragonchaser, @fschade, @individual-it, @kulmann, @pbleser-oc, @prashant-gurung899, @rhafer
+@ScharfViktor, @butonic, @dragonchaser, @fschade, @individual-it, @kulmann, @pbleser-oc, @prashant-gurung899, @rhafer, @tylerlm
 
 ### ✨ Features
 
 - Search-service: add opensearch as distributed search backend [[#1290](https://github.com/opencloud-eu/opencloud/pull/1290)]
 - initial skel for user soft delete [[#1344](https://github.com/opencloud-eu/opencloud/pull/1344)]
 
+### 🐛 Bug Fixes
+
+- Correct app store URL [[#1412](https://github.com/opencloud-eu/opencloud/pull/1412)]
+- ack tag events [[#1381](https://github.com/opencloud-eu/opencloud/pull/1381)]
+- fix(proxy): First login fails in auto provision setups [[#1353](https://github.com/opencloud-eu/opencloud/pull/1353)]
+
 ### 📈 Enhancement
 
 - directly connect to frontend [[#1373](https://github.com/opencloud-eu/opencloud/pull/1373)]
 - Dockerfile cleanup [[#1352](https://github.com/opencloud-eu/opencloud/pull/1352)]
 - feat: add defaultAppId option for the web config.json [[#1354](https://github.com/opencloud-eu/opencloud/pull/1354)]
-
-### 🐛 Bug Fixes
-
-- ack tag events [[#1381](https://github.com/opencloud-eu/opencloud/pull/1381)]
-- fix(proxy): First login fails in auto provision setups [[#1353](https://github.com/opencloud-eu/opencloud/pull/1353)]
 
 ### ✅ Tests
 
