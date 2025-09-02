@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.4.1](https://github.com/opencloud-eu/opencloud/releases/tag/v3.4.1) - 2025-09-02
+
+### ❤️ Thanks to all contributors! ❤️
+
+@prashant-gurung899
+
+### ✅ Tests
+
+- [full-ci] purge browsers, opencloud web and playwright tracing cache [[#1403](https://github.com/opencloud-eu/opencloud/pull/1403)]
+
 ## [3.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.4.0) - 2025-09-02
 
 ### ❤️ Thanks to all contributors! ❤️
