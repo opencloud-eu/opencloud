@@ -160,48 +160,70 @@ func (b *Backend) DocCount() (uint64, error) {
 }
 
 func (b *Backend) Upsert(id string, r search.Resource) error {
-	return b.withBatch(func(batch search.BatchOperator) error {
-		return batch.Upsert(id, r)
-	})
-}
-
-func (b *Backend) Move(rootID, parentID, location string) error {
-	return b.withBatch(func(batch search.BatchOperator) error {
-		return batch.Move(rootID, parentID, location)
-	})
-}
-
-func (b *Backend) Delete(id string) error {
-	return b.withBatch(func(batch search.BatchOperator) error {
-		return batch.Delete(id)
-	})
-}
-
-func (b *Backend) Restore(id string) error {
-	return b.withBatch(func(batch search.BatchOperator) error {
-		return batch.Restore(id)
-	})
-}
-
-func (b *Backend) Purge(id string) error {
-	return b.withBatch(func(batch search.BatchOperator) error {
-		return batch.Purge(id)
-	})
-}
-
-func (b *Backend) NewBatch(size int) (search.BatchOperator, error) {
-	return NewBatch(b.index, size)
-}
-
-func (b *Backend) withBatch(f func(batch search.BatchOperator) error) error {
 	batch, err := b.NewBatch(defaultBatchSize)
 	if err != nil {
 		return err
 	}
 
-	if err := f(batch); err != nil {
+	if err := batch.Upsert(id, r); err != nil {
 		return err
 	}
 
 	return batch.Push()
+}
+
+func (b *Backend) Move(rootID, parentID, location string) error {
+	batch, err := b.NewBatch(defaultBatchSize)
+	if err != nil {
+		return err
+	}
+
+	if err := batch.Move(rootID, parentID, location); err != nil {
+		return err
+	}
+
+	return batch.Push()
+}
+
+func (b *Backend) Delete(id string) error {
+	batch, err := b.NewBatch(defaultBatchSize)
+	if err != nil {
+		return err
+	}
+
+	if err := batch.Delete(id); err != nil {
+		return err
+	}
+
+	return batch.Push()
+}
+
+func (b *Backend) Restore(id string) error {
+	batch, err := b.NewBatch(defaultBatchSize)
+	if err != nil {
+		return err
+	}
+
+	if err := batch.Restore(id); err != nil {
+		return err
+	}
+
+	return batch.Push()
+}
+
+func (b *Backend) Purge(id string) error {
+	batch, err := b.NewBatch(defaultBatchSize)
+	if err != nil {
+		return err
+	}
+
+	if err := batch.Purge(id); err != nil {
+		return err
+	}
+
+	return batch.Push()
+}
+
+func (b *Backend) NewBatch(size int) (search.BatchOperator, error) {
+	return NewBatch(b.index, size)
 }

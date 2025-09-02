@@ -31,7 +31,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/engine"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
 	bleveQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"

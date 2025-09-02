@@ -5,17 +5,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
+
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/engine"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
 func OpenSearchHitToMatch(hit opensearchgoAPI.SearchHit) (*searchMessage.Match, error) {
-	resource, err := conversions.To[engine.Resource](hit.Source)
+	resource, err := conversions.To[search.Resource](hit.Source)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert hit source: %w", err)
 	}

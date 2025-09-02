@@ -1,26 +1,26 @@
 package opensearch
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"path"
 	"strings"
 	"time"
 
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
+
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
-	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/engine"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/convert"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
+
+const defaultBatchSize = 50
 
 var (
 	ErrUnhealthyCluster = fmt.Errorf("cluster is not healthy")
@@ -66,7 +66,7 @@ func NewBackend(index string, client *opensearchgoAPI.Client) (*Backend, error) 
 	return &Backend{index: index, client: client}, nil
 }
 
-func (be *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error) {
+func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error) {
 	boolQuery, err := convert.KQLToOpenSearchBoolQuery(sir.Query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert KQL query to OpenSearch bool query: %w", err)
@@ -104,7 +104,7 @@ func (be *Backend) Search(ctx context.Context, sir *searchService.SearchIndexReq
 	}
 
 	req, err := osu.BuildSearchReq(&opensearchgoAPI.SearchReq{
-		Indices: []string{be.index},
+		Indices: []string{b.index},
 		Params:  searchParams,
 	},
 		boolQuery,
@@ -122,7 +122,7 @@ func (be *Backend) Search(ctx context.Context, sir *searchService.SearchIndexReq
 		return nil, fmt.Errorf("failed to build search request: %w", err)
 	}
 
-	resp, err := be.client.Search(ctx, req)
+	resp, err := b.client.Search(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search: %w", err)
 	}
@@ -155,101 +155,10 @@ func (be *Backend) Search(ctx context.Context, sir *searchService.SearchIndexReq
 	}, nil
 }
 
-func (be *Backend) Upsert(id string, r engine.Resource) error {
-	body, err := json.Marshal(r)
-	if err != nil {
-		return fmt.Errorf("failed to marshal resource: %w", err)
-	}
-
-	_, err = be.client.Index(context.TODO(), opensearchgoAPI.IndexReq{
-		Index:      be.index,
-		DocumentID: id,
-		Body:       bytes.NewReader(body),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to index document: %w", err)
-	}
-
-	return nil
-}
-
-func (be *Backend) Move(id string, parentID string, target string) error {
-	return be.updateSelfAndDescendants(id, func(rootResource engine.Resource) *osu.BodyParamScript {
-		return &osu.BodyParamScript{
-			Source: `
-					if (ctx._source.ID == params.id ) { ctx._source.Name = params.newName; ctx._source.ParentID = params.parentID; }
-					ctx._source.Path = ctx._source.Path.replace(params.oldPath, params.newPath)
-				`,
-			Lang: "painless",
-			Params: map[string]any{
-				"id":       id,
-				"parentID": parentID,
-				"oldPath":  rootResource.Path,
-				"newPath":  utils.MakeRelativePath(target),
-				"newName":  path.Base(utils.MakeRelativePath(target)),
-			},
-		}
-	})
-}
-
-func (be *Backend) Delete(id string) error {
-	return be.updateSelfAndDescendants(id, func(_ engine.Resource) *osu.BodyParamScript {
-		return &osu.BodyParamScript{
-			Source: "ctx._source.Deleted = params.deleted",
-			Lang:   "painless",
-			Params: map[string]any{
-				"deleted": true,
-			},
-		}
-	})
-}
-
-func (be *Backend) Restore(id string) error {
-	return be.updateSelfAndDescendants(id, func(_ engine.Resource) *osu.BodyParamScript {
-		return &osu.BodyParamScript{
-			Source: "ctx._source.Deleted = params.deleted",
-			Lang:   "painless",
-			Params: map[string]any{
-				"deleted": false,
-			},
-		}
-	})
-}
-
-func (be *Backend) Purge(id string) error {
-	resource, err := be.getResource(id)
-	if err != nil {
-		return fmt.Errorf("failed to get resource: %w", err)
-	}
-
-	req, err := osu.BuildDocumentDeleteByQueryReq(
-		opensearchgoAPI.DocumentDeleteByQueryReq{
-			Indices: []string{be.index},
-			Params: opensearchgoAPI.DocumentDeleteByQueryParams{
-				WaitForCompletion: conversions.ToPointer(true),
-			},
-		},
-		osu.NewTermQuery[string]("Path").Value(resource.Path),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to build delete by query request: %w", err)
-	}
-
-	resp, err := be.client.Document.DeleteByQuery(context.TODO(), req)
-	switch {
-	case err != nil:
-		return fmt.Errorf("failed to delete by query: %w", err)
-	case len(resp.Failures) != 0:
-		return fmt.Errorf("failed to delete by query, failures: %v", resp.Failures)
-	}
-
-	return nil
-}
-
-func (be *Backend) DocCount() (uint64, error) {
+func (b *Backend) DocCount() (uint64, error) {
 	req, err := osu.BuildIndicesCountReq(
 		&opensearchgoAPI.IndicesCountReq{
-			Indices: []string{be.index},
+			Indices: []string{b.index},
 		},
 		osu.NewTermQuery[bool]("Deleted").Value(false),
 	)
@@ -257,7 +166,7 @@ func (be *Backend) DocCount() (uint64, error) {
 		return 0, fmt.Errorf("failed to build count request: %w", err)
 	}
 
-	resp, err := be.client.Indices.Count(context.TODO(), req)
+	resp, err := b.client.Indices.Count(context.TODO(), req)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count documents: %w", err)
 	}
@@ -265,74 +174,71 @@ func (be *Backend) DocCount() (uint64, error) {
 	return uint64(resp.Count), nil
 }
 
-func (be *Backend) updateSelfAndDescendants(id string, scriptProvider func(engine.Resource) *osu.BodyParamScript) error {
-	if scriptProvider == nil {
-		return fmt.Errorf("script cannot be nil")
-	}
-
-	resource, err := be.getResource(id)
+func (b *Backend) Upsert(id string, r search.Resource) error {
+	batch, err := b.NewBatch(defaultBatchSize)
 	if err != nil {
-		return fmt.Errorf("failed to get resource: %w", err)
+		return err
 	}
 
-	req, err := osu.BuildUpdateByQueryReq(
-		opensearchgoAPI.UpdateByQueryReq{
-			Indices: []string{be.index},
-			Params: opensearchgoAPI.UpdateByQueryParams{
-				WaitForCompletion: conversions.ToPointer(true),
-			},
-		},
-		osu.NewTermQuery[string]("Path").Value(resource.Path),
-		osu.UpdateByQueryBodyParams{
-			Script: scriptProvider(resource),
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("failed to build update by query request: %w", err)
+	if err := batch.Upsert(id, r); err != nil {
+		return err
 	}
 
-	resp, err := be.client.UpdateByQuery(context.TODO(), req)
-	switch {
-	case err != nil:
-		return fmt.Errorf("failed to update by query: %w", err)
-	case len(resp.Failures) != 0:
-		return fmt.Errorf("failed to update by query, failures: %v", resp.Failures)
-	}
-
-	return nil
+	return batch.Push()
 }
 
-func (be *Backend) getResource(id string) (engine.Resource, error) {
-	req, err := osu.BuildSearchReq(
-		&opensearchgoAPI.SearchReq{
-			Indices: []string{be.index},
-		},
-		osu.NewIDsQuery(id),
-	)
+func (b *Backend) Move(id string, parentID string, target string) error {
+	batch, err := b.NewBatch(defaultBatchSize)
 	if err != nil {
-		return engine.Resource{}, fmt.Errorf("failed to build search request: %w", err)
+		return err
 	}
 
-	resp, err := be.client.Search(context.TODO(), req)
-	switch {
-	case err != nil:
-		return engine.Resource{}, fmt.Errorf("failed to search for resource: %w", err)
-	case resp.Hits.Total.Value == 0 || len(resp.Hits.Hits) == 0:
-		return engine.Resource{}, fmt.Errorf("document with id %s not found", id)
+	if err := batch.Move(id, parentID, target); err != nil {
+		return err
 	}
 
-	resource, err := conversions.To[engine.Resource](resp.Hits.Hits[0].Source)
-	if err != nil {
-		return engine.Resource{}, fmt.Errorf("failed to convert hit source: %w", err)
-	}
-
-	return resource, nil
+	return batch.Push()
 }
 
-func (be *Backend) StartBatch(_ int) error {
-	return nil // todo: implement batch processing
+func (b *Backend) Delete(id string) error {
+	batch, err := b.NewBatch(defaultBatchSize)
+	if err != nil {
+		return err
+	}
+
+	if err := batch.Delete(id); err != nil {
+		return err
+	}
+
+	return batch.Push()
 }
 
-func (be *Backend) EndBatch() error {
-	return nil // todo: implement batch processing
+func (b *Backend) Restore(id string) error {
+	batch, err := b.NewBatch(defaultBatchSize)
+	if err != nil {
+		return err
+	}
+
+	if err := batch.Restore(id); err != nil {
+		return err
+	}
+
+	return batch.Push()
+}
+
+func (b *Backend) Purge(id string) error {
+	batch, err := b.NewBatch(defaultBatchSize)
+	if err != nil {
+		return err
+	}
+
+	if err := batch.Purge(id); err != nil {
+		return err
+	}
+
+	return batch.Push()
+}
+
+func (b *Backend) NewBatch(size int) (search.BatchOperator, error) {
+	return NewBatch(b.client, b.index, size)
 }
