@@ -32,6 +32,7 @@
 
 ### 📦️ Dependencies
 
+- [decomposed] bump-version-v3.4.0 [[#1442](https://github.com/opencloud-eu/opencloud/pull/1442)]
 - [full-ci] revaBump-2.37.0 [[#1433](https://github.com/opencloud-eu/opencloud/pull/1433)]
 - Use bitnamilegacy [[#1418](https://github.com/opencloud-eu/opencloud/pull/1418)]
 - build(deps): bump github.com/nats-io/nats.go from 1.44.0 to 1.45.0 [[#1401](https://github.com/opencloud-eu/opencloud/pull/1401)]
