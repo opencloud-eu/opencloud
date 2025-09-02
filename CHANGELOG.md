@@ -4,7 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@prashant-gurung899
+@aduffeck, @prashant-gurung899
+
+### 🐛 Bug Fixes
+
+- Do not intertwine different batch operations [[#1317](https://github.com/opencloud-eu/opencloud/pull/1317)]
 
 ### ✅ Tests
 
