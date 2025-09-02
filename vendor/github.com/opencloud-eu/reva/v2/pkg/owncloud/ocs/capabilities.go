@@ -133,6 +133,7 @@ type CapabilitiesGraphUsers struct {
 	CreateDisabled             ocsBool  `json:"create_disabled" xml:"create_disabled" mapstructure:"create_disabled"`
 	DeleteDisabled             ocsBool  `json:"delete_disabled" xml:"delete_disabled" mapstructure:"delete_disabled"`
 	ChangePasswordSelfDisabled ocsBool  `json:"change_password_self_disabled" xml:"change_password_self_disabled" mapstructure:"change_password_self_disabled"`
+	EditLoginAllowedDisabled   ocsBool  `json:"edit_login_allowed_disabled" xml:"edit_login_allowed_disabled" mapstructure:"edit_login_allowed_disabled"`
 }
 
 // Status holds basic status information
