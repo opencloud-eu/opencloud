@@ -1,5 +1,54 @@
 # Changelog
 
+## [3.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.4.0) - 2025-09-02
+
+### ❤️ Thanks to all contributors! ❤️
+
+@ScharfViktor, @butonic, @dragonchaser, @fschade, @individual-it, @kulmann, @pbleser-oc, @prashant-gurung899, @rhafer, @tammi-23, @tylerlm
+
+### ✨ Features
+
+- feat: added capability for Edit Login Allowed [[#1406](https://github.com/opencloud-eu/opencloud/pull/1406)]
+- Search-service: add opensearch as distributed search backend [[#1290](https://github.com/opencloud-eu/opencloud/pull/1290)]
+- initial skel for user soft delete [[#1344](https://github.com/opencloud-eu/opencloud/pull/1344)]
+
+### 🐛 Bug Fixes
+
+- fix(antivirus): the file bytesize differs if the file is larger than … [[#1408](https://github.com/opencloud-eu/opencloud/pull/1408)]
+- Correct app store URL [[#1412](https://github.com/opencloud-eu/opencloud/pull/1412)]
+- ack tag events [[#1381](https://github.com/opencloud-eu/opencloud/pull/1381)]
+- fix(proxy): First login fails in auto provision setups [[#1353](https://github.com/opencloud-eu/opencloud/pull/1353)]
+
+### 📈 Enhancement
+
+- directly connect to frontend [[#1373](https://github.com/opencloud-eu/opencloud/pull/1373)]
+- Dockerfile cleanup [[#1352](https://github.com/opencloud-eu/opencloud/pull/1352)]
+- feat: add defaultAppId option for the web config.json [[#1354](https://github.com/opencloud-eu/opencloud/pull/1354)]
+
+### ✅ Tests
+
+- tests for collaborativePosixFS [[#1342](https://github.com/opencloud-eu/opencloud/pull/1342)]
+- [full-ci] add pipeline to send CI notifications to matrix [[#1249](https://github.com/opencloud-eu/opencloud/pull/1249)]
+
+### 📦️ Dependencies
+
+- [decomposed] bump-version-v3.4.0 [[#1442](https://github.com/opencloud-eu/opencloud/pull/1442)]
+- [full-ci] revaBump-2.37.0 [[#1433](https://github.com/opencloud-eu/opencloud/pull/1433)]
+- Use bitnamilegacy [[#1418](https://github.com/opencloud-eu/opencloud/pull/1418)]
+- build(deps): bump github.com/nats-io/nats.go from 1.44.0 to 1.45.0 [[#1401](https://github.com/opencloud-eu/opencloud/pull/1401)]
+- build(deps): bump github.com/stretchr/testify from 1.10.0 to 1.11.0 [[#1400](https://github.com/opencloud-eu/opencloud/pull/1400)]
+- build(deps): bump github.com/olekukonko/tablewriter from 1.0.8 to 1.0.9 [[#1376](https://github.com/opencloud-eu/opencloud/pull/1376)]
+- build(deps): bump github.com/onsi/ginkgo/v2 from 2.24.0 to 2.25.1 [[#1396](https://github.com/opencloud-eu/opencloud/pull/1396)]
+- [full-ci] Bump reva to latest main [[#1372](https://github.com/opencloud-eu/opencloud/pull/1372)]
+- build(deps): bump github.com/prometheus/client_golang from 1.22.0 to 1.23.0 [[#1385](https://github.com/opencloud-eu/opencloud/pull/1385)]
+- build(deps): bump github.com/onsi/ginkgo/v2 from 2.23.4 to 2.24.0 [[#1375](https://github.com/opencloud-eu/opencloud/pull/1375)]
+- build(deps): bump github.com/gookit/config/v2 from 2.2.6 to 2.2.7 [[#1359](https://github.com/opencloud-eu/opencloud/pull/1359)]
+- build(deps): bump golang.org/x/net from 0.42.0 to 0.43.0 [[#1356](https://github.com/opencloud-eu/opencloud/pull/1356)]
+- chore(dependencies): bump reva 19625996460b2e68da3bbaf539e554366c59e111 [[#1357](https://github.com/opencloud-eu/opencloud/pull/1357)]
+- build(deps): bump golang.org/x/image from 0.28.0 to 0.30.0 [[#1323](https://github.com/opencloud-eu/opencloud/pull/1323)]
+- build(deps): bump github.com/nats-io/nats-server/v2 from 2.11.6 to 2.11.7 [[#1339](https://github.com/opencloud-eu/opencloud/pull/1339)]
+- build(deps): bump github.com/onsi/gomega from 1.37.0 to 1.38.0 [[#1266](https://github.com/opencloud-eu/opencloud/pull/1266)]
+
 ## [3.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.3.0) - 2025-08-12
 
 ### ❤️ Thanks to all contributors! ❤️
