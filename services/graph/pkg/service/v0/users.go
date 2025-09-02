@@ -1173,7 +1173,7 @@ func (g Graph) getUserStateFromNatsKeyValue(ctx context.Context, userID string) 
 	}
 
 	userState := userstate.UserState{}
-	if err := json.Unmarshal(entry.Value(), userState); err != nil {
+	if err := json.Unmarshal(entry.Value(), &userState); err != nil {
 		logger.Error().Err(err).Str("userid", userID).Msg("error unmarshalling user state from nats key value store")
 		return userstate.UserState{
 			UserId: userID,
