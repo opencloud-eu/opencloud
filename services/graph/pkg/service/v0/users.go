@@ -2,6 +2,7 @@ package svc
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -22,12 +23,14 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
+	"github.com/nats-io/nats.go"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	settingsmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/odata"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/userstate"
 	ocsettingssvc "github.com/opencloud-eu/opencloud/services/settings/pkg/service/v0"
 	"github.com/opencloud-eu/opencloud/services/settings/pkg/store/defaults"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
@@ -1102,4 +1105,68 @@ func (g Graph) searchOCMAcceptedUsers(ctx context.Context, odataReq *godata.GoDa
 		users = append(users, identity.CreateUserModelFromCS3(user))
 	}
 	return users, nil
+}
+
+func (g Graph) getUserStateFromNatsKeyValue(ctx context.Context, userID string) (userstate.UserState, error) {
+	logger := g.logger.SubloggerWithRequestID(ctx)
+	if g.natskv == nil {
+		logger.Debug().Msg("nats connection or user state key value store not configured")
+		return userstate.UserState{
+			UserId: userID,
+			State:  userstate.UserStateUnspecified,
+		}, nil
+	}
+
+	entry, err := g.natskv.Get(userID)
+	if err != nil {
+		if errors.Is(err, nats.ErrKeyNotFound) {
+			logger.Debug().Str("userid", userID).Msg("no user state found in nats key value store")
+			return userstate.UserState{
+				UserId: userID,
+				State:  userstate.UserStateUnspecified,
+			}, nil
+		}
+		logger.Error().Err(err).Str("userid", userID).Msg("error getting user state from nats key value store")
+		return userstate.UserState{
+			State: userstate.UserStateUnspecified,
+		}, err
+	}
+
+	userState := userstate.UserState{}
+	if err := json.Unmarshal(entry.Value(), userState); err != nil {
+		logger.Error().Err(err).Str("userid", userID).Msg("error unmarshalling user state from nats key value store")
+		return userstate.UserState{
+			UserId: userID,
+			State:  userstate.UserStateUnspecified,
+		}, err
+	}
+
+	return userState, nil
+}
+
+func (g Graph) setUserStateToNatsKeyValue(ctx context.Context, userID string, us userstate.UserState) error {
+	logger := g.logger.SubloggerWithRequestID(ctx)
+
+	if ok, err := userstate.IsValidUserState(&us); !ok {
+		logger.Debug().Str("userid", userID).Msg("invalid user state")
+		return fmt.Errorf("invalid user state: %w", err)
+	}
+
+	if g.natskv == nil {
+		logger.Debug().Msg("nats connection or user state key value store not configured")
+		return nil
+	}
+
+	data, err := json.Marshal(us)
+	if err != nil {
+		logger.Error().Err(err).Str("userid", userID).Msg("error marshalling user state to nats key value store")
+		return err
+	}
+
+	if _, err := g.natskv.Put(userID, data); err != nil {
+		logger.Error().Err(err).Str("userid", userID).Msg("error putting user state to nats key value store")
+		return err
+	}
+
+	return nil
 }
