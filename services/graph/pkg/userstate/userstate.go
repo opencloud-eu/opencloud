@@ -11,8 +11,11 @@ const (
 	UserStateEnabled
 	UserStateDisabled
 	UserStateSoftDeleted
+	UserStateHardDeleted
 )
 
+// UserState represents the state of a user account.
+// Note: This does not reflect state changes, these need to be red from the audit logs.
 type UserState struct {
 	UserId          string        `json:"userid"`
 	State           uint8         `json:"state"`

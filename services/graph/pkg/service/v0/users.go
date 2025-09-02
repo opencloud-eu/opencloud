@@ -645,7 +645,30 @@ func (g Graph) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if g.config.UserSoftDeleteRetentionTime > 0 && purgeUser && user.GetAccountEnabled() {
+	us, err := g.getUserStateFromNatsKeyValue(r.Context(), userID)
+	if err != nil {
+		logger.Error().Err(err).Str("id", userID).Msg("could not get user state")
+		us = userstate.UserState{
+			UserId: userID,
+			State:  userstate.UserStateUnspecified,
+		}
+	}
+
+	if us.State == userstate.UserStateHardDeleted {
+		logger.Debug().Str("id", userID).Msg("could not delete user: user already hard deleted")
+		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, "user not found")
+		return
+	}
+
+	if us.State == userstate.UserStateUnspecified {
+		if user.GetAccountEnabled() {
+			us.State = userstate.UserStateEnabled
+		} else {
+			us.State = userstate.UserStateSoftDeleted
+		}
+	}
+
+	if g.config.UserSoftDeleteRetentionTime > 0 && purgeUser && us.State == userstate.UserStateEnabled {
 		logger.Debug().Msg("could not delete user: purgeUser is set but user is still enabled")
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "user should be hard deleted, but is still enabled, please soft delete first")
 		return
@@ -709,7 +732,7 @@ func (g Graph) DeleteUser(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			// the space will if the system does not have a UserSoftDeleteRetentionTime configured, e.g. SoftDelete disabled
-			if g.config.UserSoftDeleteRetentionTime == 0 || (purgeUser && !user.GetAccountEnabled()) {
+			if g.config.UserSoftDeleteRetentionTime == 0 || (purgeUser && us.State == userstate.UserStateSoftDeleted) {
 				purgeSpaceFlag := utils.AppendPlainToOpaque(nil, "purge", "")
 				_, err := client.DeleteStorageSpace(r.Context(), &storageprovider.DeleteStorageSpaceRequest{
 					Opaque: purgeSpaceFlag,
@@ -728,24 +751,40 @@ func (g Graph) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if g.config.UserSoftDeleteRetentionTime == 0 || (purgeUser && !user.GetAccountEnabled()) {
+	if g.config.UserSoftDeleteRetentionTime == 0 || (purgeUser && us.State == userstate.UserStateSoftDeleted) {
 		logger.Debug().Str("id", user.GetId()).Msg("calling delete user on backend")
 		err = g.identityBackend.DeleteUser(r.Context(), user.GetId())
-
 		if err != nil {
 			logger.Debug().Err(err).Msg("could not delete user: backend error")
 			errorcode.RenderError(w, r, err)
 			return
 		}
+
+		us.State = userstate.UserStateHardDeleted
+		err = g.setUserStateToNatsKeyValue(r.Context(), userID, us)
+		if err != nil {
+			logger.Error().Err(err).Str("id", userID).Msg("could not set user state")
+			errorcode.RenderError(w, r, err)
+		}
 	} else {
 		logger.Debug().Str("id", user.GetId()).Msg("calling soft delete user on backend")
 		userUpdate := *libregraph.NewUserUpdate()
 		userUpdate.AccountEnabled = libregraph.PtrBool(false)
+		us.State = userstate.UserStateSoftDeleted
+		us.RetentionPeriod = g.config.UserSoftDeleteRetentionTime
+		us.Reason = "User soft deleted via Graph API" // TODO: this needs a proper implementation through the request
+		us.TimeStamp = time.Now()
+		err = g.setUserStateToNatsKeyValue(r.Context(), userID, us)
+		if err != nil {
+			logger.Error().Err(err).Str("id", userID).Msg("could not set user state")
+			errorcode.RenderError(w, r, err)
+			return
+		}
 		g.identityBackend.UpdateUser(r.Context(), user.GetId(), userUpdate)
 	}
 
 	if g.config.UserSoftDeleteRetentionTime == 0 ||
-		(g.config.UserSoftDeleteRetentionTime > 0 && purgeUser && !user.GetAccountEnabled()) {
+		(g.config.UserSoftDeleteRetentionTime > 0 && purgeUser && us.State == userstate.UserStateSoftDeleted) {
 		e := events.UserDeleted{UserID: user.GetId()}
 		e.Executant = currentUser.GetId()
 		g.publishEvent(r.Context(), e)
@@ -1107,6 +1146,7 @@ func (g Graph) searchOCMAcceptedUsers(ctx context.Context, odataReq *godata.GoDa
 	return users, nil
 }
 
+// getUserStateFromNatsKeyValue gets the user state from the nats key value store.
 func (g Graph) getUserStateFromNatsKeyValue(ctx context.Context, userID string) (userstate.UserState, error) {
 	logger := g.logger.SubloggerWithRequestID(ctx)
 	if g.natskv == nil {
@@ -1144,6 +1184,7 @@ func (g Graph) getUserStateFromNatsKeyValue(ctx context.Context, userID string) 
 	return userState, nil
 }
 
+// setUserStateToNatsKeyValue sets the user state in the nats key value store.
 func (g Graph) setUserStateToNatsKeyValue(ctx context.Context, userID string, us userstate.UserState) error {
 	logger := g.logger.SubloggerWithRequestID(ctx)
 
