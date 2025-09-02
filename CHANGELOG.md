@@ -20,6 +20,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/nats-io/nats-server/v2 from 2.11.7 to 2.11.8 [[#1410](https://github.com/opencloud-eu/opencloud/pull/1410)]
 - build(deps): bump github.com/gabriel-vasile/mimetype from 1.4.9 to 1.4.10 [[#1413](https://github.com/opencloud-eu/opencloud/pull/1413)]
 
 ## [3.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.4.0) - 2025-09-02
