@@ -1,10 +1,14 @@
 # Changelog
 
-## [3.4.1](https://github.com/opencloud-eu/opencloud/releases/tag/v3.4.1) - 2025-09-02
+## [3.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.5.0) - 2025-09-02
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@aduffeck, @prashant-gurung899
+@aduffeck, @prashant-gurung899, @rhafer
+
+### 📈 Enhancement
+
+- Tracing improvements [[#1436](https://github.com/opencloud-eu/opencloud/pull/1436)]
 
 ### 🐛 Bug Fixes
 
