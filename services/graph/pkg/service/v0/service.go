@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	ldapv3 "github.com/go-ldap/ldap/v3"
 	"github.com/jellydator/ttlcache/v3"
+	"github.com/riandyrn/otelchi"
 	microstore "go-micro.dev/v4/store"
 
 	"github.com/opencloud-eu/reva/v2/pkg/events"
@@ -28,6 +29,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/registry"
 	"github.com/opencloud-eu/opencloud/pkg/roles"
 	"github.com/opencloud-eu/opencloud/pkg/service/grpc"
+	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
 	graphm "github.com/opencloud-eu/opencloud/services/graph/pkg/middleware"
@@ -128,6 +130,14 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 
 	m := chi.NewMux()
 	m.Use(options.Middleware...)
+	m.Use(
+		otelchi.Middleware(
+			"graph",
+			otelchi.WithChiRoutes(m),
+			otelchi.WithTracerProvider(options.TraceProvider),
+			otelchi.WithPropagators(tracing.GetPropagator()),
+		),
+	)
 
 	spacePropertiesCache := ttlcache.New(
 		ttlcache.WithTTL[string, interface{}](

@@ -343,6 +343,8 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 	}
 
 	return alice.New(
+		chimiddleware.RealIP,
+		chimiddleware.RequestID,
 		// first make sure we log all requests and redirect to https if necessary
 		otelhttp.NewMiddleware("proxy",
 			otelhttp.WithTracerProvider(traceProvider),
@@ -353,8 +355,6 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 		middleware.Tracer(traceProvider),
 		pkgmiddleware.TraceContext,
 		middleware.Instrumenter(metrics),
-		chimiddleware.RealIP,
-		chimiddleware.RequestID,
 		middleware.AccessLog(logger),
 		middleware.ContextLogger(logger),
 		middleware.HTTPSRedirect,
@@ -370,6 +370,7 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 		),
 		middleware.AccountResolver(
 			middleware.Logger(logger),
+			middleware.TraceProvider(traceProvider),
 			middleware.UserProvider(userProvider),
 			middleware.UserRoleAssigner(roleAssigner),
 			middleware.SkipUserInfo(cfg.OIDC.SkipUserInfo),
@@ -380,17 +381,20 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 		),
 		middleware.SelectorCookie(
 			middleware.Logger(logger),
+			middleware.TraceProvider(traceProvider),
 			middleware.PolicySelectorConfig(*cfg.PolicySelector),
 		),
 		middleware.Policies(
 			cfg.PoliciesMiddleware.Query,
 			middleware.Logger(logger),
+			middleware.TraceProvider(traceProvider),
 			middleware.WithRevaGatewaySelector(gatewaySelector),
 			middleware.PoliciesProviderService(policiesProviderClient),
 		),
 		// finally, trigger home creation when a user logs in
 		middleware.CreateHome(
 			middleware.Logger(logger),
+			middleware.TraceProvider(traceProvider),
 			middleware.WithRevaGatewaySelector(gatewaySelector),
 			middleware.RoleQuotas(cfg.RoleQuotas),
 		),

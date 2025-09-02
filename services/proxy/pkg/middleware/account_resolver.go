@@ -10,6 +10,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/router"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles"
+	"go.opentelemetry.io/otel/trace"
 
 	cs3user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -24,6 +25,7 @@ import (
 func AccountResolver(optionSetters ...Option) func(next http.Handler) http.Handler {
 	options := newOptions(optionSetters...)
 	logger := options.Logger
+	tracer := getTraceProvider(options).Tracer("proxy.middleware.account_resolver")
 
 	lastGroupSyncCache := ttlcache.New(
 		ttlcache.WithTTL[string, struct{}](5*time.Minute),
@@ -35,6 +37,7 @@ func AccountResolver(optionSetters ...Option) func(next http.Handler) http.Handl
 		return &accountResolver{
 			next:                  next,
 			logger:                logger,
+			tracer:                tracer,
 			userProvider:          options.UserProvider,
 			userOIDCClaim:         options.UserOIDCClaim,
 			userCS3Claim:          options.UserCS3Claim,
@@ -49,6 +52,7 @@ func AccountResolver(optionSetters ...Option) func(next http.Handler) http.Handl
 type accountResolver struct {
 	next                  http.Handler
 	logger                log.Logger
+	tracer                trace.Tracer
 	userProvider          backend.UserBackend
 	userRoleAssigner      userroles.UserRoleAssigner
 	autoProvisionAccounts bool
@@ -98,12 +102,14 @@ func readUserIDClaim(path string, claims map[string]interface{}) (string, error)
 
 // TODO do not use the context to store values: https://medium.com/@cep21/how-to-correctly-use-context-context-in-go-1-7-8f2c0fafdf39
 func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	ctx := req.Context()
+	ctx, span := m.tracer.Start(req.Context(), fmt.Sprintf("%s %s", req.Method, req.URL.Path), trace.WithSpanKind(trace.SpanKindServer))
 	claims := oidc.FromContext(ctx)
 	user, ok := revactx.ContextGetUser(ctx)
 	token, hasToken := revactx.ContextGetToken(ctx)
-
+	req = req.WithContext(ctx)
+	defer span.End()
 	if claims == nil && !ok {
+		span.End()
 		m.next.ServeHTTP(w, req)
 		return
 	}
@@ -219,6 +225,6 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if !ri.SkipXAccessToken() {
 		req.Header.Set(revactx.TokenHeader, token)
 	}
-
+	span.End()
 	m.next.ServeHTTP(w, req)
 }

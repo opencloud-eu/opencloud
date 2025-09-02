@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -21,11 +23,13 @@ import (
 func CreateHome(optionSetters ...Option) func(next http.Handler) http.Handler {
 	options := newOptions(optionSetters...)
 	logger := options.Logger
+	tracer := getTraceProvider(options).Tracer("proxy.middleware.create_home")
 
 	return func(next http.Handler) http.Handler {
 		return &createHome{
 			next:                next,
 			logger:              logger,
+			tracer:              tracer,
 			revaGatewaySelector: options.RevaGatewaySelector,
 			roleQuotas:          options.RoleQuotas,
 		}
@@ -35,12 +39,17 @@ func CreateHome(optionSetters ...Option) func(next http.Handler) http.Handler {
 type createHome struct {
 	next                http.Handler
 	logger              log.Logger
+	tracer              trace.Tracer
 	revaGatewaySelector pool.Selectable[gateway.GatewayAPIClient]
 	roleQuotas          map[string]uint64
 }
 
 func (m createHome) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	ctx, span := m.tracer.Start(req.Context(), fmt.Sprintf("%s %s", req.Method, req.URL.Path), trace.WithSpanKind(trace.SpanKindServer))
+	req = req.WithContext(ctx)
+	defer span.End()
 	if !m.shouldServe(req) {
+		span.End()
 		m.next.ServeHTTP(w, req)
 		return
 	}
@@ -49,7 +58,7 @@ func (m createHome) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	// we need to pass the token to authenticate the CreateHome request.
 	//ctx := tokenpkg.ContextSetToken(r.Context(), token)
-	ctx := metadata.AppendToOutgoingContext(req.Context(), revactx.TokenHeader, token)
+	ctx = metadata.AppendToOutgoingContext(req.Context(), revactx.TokenHeader, token)
 
 	createHomeReq := &provider.CreateHomeRequest{}
 	u, ok := revactx.ContextGetUser(ctx)
@@ -79,7 +88,7 @@ func (m createHome) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 	}
-
+	span.End()
 	m.next.ServeHTTP(w, req)
 }
 

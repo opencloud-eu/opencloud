@@ -1,13 +1,10 @@
 package middleware
 
 import (
-	"fmt"
 	"net/http"
 
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
-	pkgtrace "github.com/opencloud-eu/opencloud/pkg/tracing"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -27,27 +24,12 @@ type tracer struct {
 }
 
 func (m tracer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var (
-		ctx  = r.Context()
-		span trace.Span
-	)
-
-	ctx = pkgtrace.Propagator.Extract(ctx, propagation.HeaderCarrier(r.Header))
-
-	tracer := m.traceProvider.Tracer("proxy")
-	spanOpts := []trace.SpanStartOption{
-		trace.WithSpanKind(trace.SpanKindServer),
-	}
-	ctx, span = tracer.Start(ctx, fmt.Sprintf("%s %v", r.Method, r.URL.Path), spanOpts...)
-	defer span.End()
-
+	span := trace.SpanFromContext(r.Context())
 	span.SetAttributes(
 		attribute.KeyValue{
 			Key:   "x-request-id",
 			Value: attribute.StringValue(chimiddleware.GetReqID(r.Context())),
 		})
 
-	pkgtrace.Propagator.Inject(ctx, propagation.HeaderCarrier(r.Header))
-
-	m.next.ServeHTTP(w, r.WithContext(ctx))
+	m.next.ServeHTTP(w, r)
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/router"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/webdav"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -52,7 +53,7 @@ type Authenticator interface {
 func Authentication(auths []Authenticator, opts ...Option) func(next http.Handler) http.Handler {
 	options := newOptions(opts...)
 	configureSupportedChallenges(options)
-	tracer := getTraceProvider(options).Tracer("proxy")
+	tracer := getTraceProvider(options).Tracer("proxy.middleware.authentication")
 
 	spanOpts := []trace.SpanStartOption{
 		trace.WithSpanKind(trace.SpanKindServer),
@@ -60,24 +61,28 @@ func Authentication(auths []Authenticator, opts ...Option) func(next http.Handle
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx, span := tracer.Start(r.Context(), fmt.Sprintf("%s %v", r.Method, r.URL.Path), spanOpts...)
-			defer span.End()
+			ctx, span := tracer.Start(r.Context(), fmt.Sprintf("%s %s", r.Method, r.URL.Path), spanOpts...)
 			r = r.WithContext(ctx)
+			defer span.End()
 
 			ri := router.ContextRoutingInfo(ctx)
 			if isOIDCTokenAuth(r) || ri.IsRouteUnprotected() || r.Method == "OPTIONS" {
 				// Either this is a request that does not need any authentication or
 				// the authentication for this request is handled by the IdP.
+				span.SetAttributes(attribute.Bool("routeunprotected", true))
+				span.End()
 				next.ServeHTTP(w, r)
 				return
 			}
 
 			for _, a := range auths {
 				if req, ok := a.Authenticate(r); ok {
+					span.End()
 					next.ServeHTTP(w, req)
 					return
 				}
 			}
+
 			if !isPublicPath(r.URL.Path) {
 				// Failed basic authentication attempts receive the Www-Authenticate header in the response
 				var touch bool
