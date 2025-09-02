@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/engine"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
 func TestNewBackend(t *testing.T) {
@@ -116,14 +116,14 @@ func TestEngine_Move(t *testing.T) {
 			},
 		})
 
-		resources := opensearchtest.SearchHitsMustBeConverted[engine.Resource](t, tc.Require.Search(indexName, strings.NewReader(body)).Hits)
+		resources := opensearchtest.SearchHitsMustBeConverted[search.Resource](t, tc.Require.Search(indexName, strings.NewReader(body)).Hits)
 		require.Len(t, resources, 1)
 		require.Equal(t, document.Path, resources[0].Path)
 
 		document.Path = "./new/path/to/resource"
 		require.NoError(t, backend.Move(document.ID, document.ParentID, document.Path))
 
-		resources = opensearchtest.SearchHitsMustBeConverted[engine.Resource](t, tc.Require.Search(indexName, strings.NewReader(body)).Hits)
+		resources = opensearchtest.SearchHitsMustBeConverted[search.Resource](t, tc.Require.Search(indexName, strings.NewReader(body)).Hits)
 		require.Len(t, resources, 1)
 		require.Equal(t, document.Path, resources[0].Path)
 	})

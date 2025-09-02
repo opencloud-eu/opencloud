@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/opencloud-eu/opencloud/services/search/pkg/engine"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
 //go:embed testdata/*.json
@@ -16,12 +16,12 @@ var Testdata = struct {
 	Resources resourceTestdata
 }{
 	Resources: resourceTestdata{
-		File: fromTestData[engine.Resource]("resource_file.json"),
+		File: fromTestData[search.Resource]("resource_file.json"),
 	},
 }
 
 type resourceTestdata struct {
-	File engine.Resource
+	File search.Resource
 }
 
 func fromTestData[D any](name string) D {

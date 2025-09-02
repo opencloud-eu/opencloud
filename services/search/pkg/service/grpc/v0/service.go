@@ -28,11 +28,11 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/registry"
 	v0 "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/engine"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/query/bleve"
+	bleveQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
@@ -44,10 +44,10 @@ func NewHandler(opts ...Option) (searchsvc.SearchProviderHandler, func(), error)
 	cfg := options.Config
 
 	// initialize search engine
-	var eng engine.Engine
+	var eng search.Engine
 	switch cfg.Engine.Type {
 	case "bleve":
-		idx, err := engine.NewBleveIndex(cfg.Engine.Bleve.Datapath)
+		idx, err := bleve.NewIndex(cfg.Engine.Bleve.Datapath)
 		if err != nil {
 			return nil, teardown, err
 		}
@@ -56,7 +56,7 @@ func NewHandler(opts ...Option) (searchsvc.SearchProviderHandler, func(), error)
 			_ = idx.Close()
 		}
 
-		eng = engine.NewBleveEngine(idx, bleve.DefaultCreator, logger)
+		eng = bleve.NewBackend(idx, bleveQuery.DefaultCreator, logger)
 	case "open-search":
 		client, err := opensearchgoAPI.NewClient(opensearchgoAPI.Config{
 			Client: opensearchgo.Config{

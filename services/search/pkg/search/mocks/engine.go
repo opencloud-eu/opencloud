@@ -8,7 +8,7 @@ import (
 	"context"
 
 	"github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/engine"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -143,50 +143,6 @@ func (_c *Engine_DocCount_Call) RunAndReturn(run func() (uint64, error)) *Engine
 	return _c
 }
 
-// EndBatch provides a mock function for the type Engine
-func (_mock *Engine) EndBatch() error {
-	ret := _mock.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for EndBatch")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func() error); ok {
-		r0 = returnFunc()
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// Engine_EndBatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EndBatch'
-type Engine_EndBatch_Call struct {
-	*mock.Call
-}
-
-// EndBatch is a helper method to define mock.On call
-func (_e *Engine_Expecter) EndBatch() *Engine_EndBatch_Call {
-	return &Engine_EndBatch_Call{Call: _e.mock.On("EndBatch")}
-}
-
-func (_c *Engine_EndBatch_Call) Run(run func()) *Engine_EndBatch_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *Engine_EndBatch_Call) Return(err error) *Engine_EndBatch_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *Engine_EndBatch_Call) RunAndReturn(run func() error) *Engine_EndBatch_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // Move provides a mock function for the type Engine
 func (_mock *Engine) Move(id string, parentid string, target string) error {
 	ret := _mock.Called(id, parentid, target)
@@ -246,6 +202,68 @@ func (_c *Engine_Move_Call) Return(err error) *Engine_Move_Call {
 }
 
 func (_c *Engine_Move_Call) RunAndReturn(run func(id string, parentid string, target string) error) *Engine_Move_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// NewBatch provides a mock function for the type Engine
+func (_mock *Engine) NewBatch(batchSize int) (search.BatchOperator, error) {
+	ret := _mock.Called(batchSize)
+
+	if len(ret) == 0 {
+		panic("no return value specified for NewBatch")
+	}
+
+	var r0 search.BatchOperator
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(int) (search.BatchOperator, error)); ok {
+		return returnFunc(batchSize)
+	}
+	if returnFunc, ok := ret.Get(0).(func(int) search.BatchOperator); ok {
+		r0 = returnFunc(batchSize)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(search.BatchOperator)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(int) error); ok {
+		r1 = returnFunc(batchSize)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// Engine_NewBatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'NewBatch'
+type Engine_NewBatch_Call struct {
+	*mock.Call
+}
+
+// NewBatch is a helper method to define mock.On call
+//   - batchSize int
+func (_e *Engine_Expecter) NewBatch(batchSize interface{}) *Engine_NewBatch_Call {
+	return &Engine_NewBatch_Call{Call: _e.mock.On("NewBatch", batchSize)}
+}
+
+func (_c *Engine_NewBatch_Call) Run(run func(batchSize int)) *Engine_NewBatch_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 int
+		if args[0] != nil {
+			arg0 = args[0].(int)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *Engine_NewBatch_Call) Return(batchOperator search.BatchOperator, err error) *Engine_NewBatch_Call {
+	_c.Call.Return(batchOperator, err)
+	return _c
+}
+
+func (_c *Engine_NewBatch_Call) RunAndReturn(run func(batchSize int) (search.BatchOperator, error)) *Engine_NewBatch_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -420,59 +438,8 @@ func (_c *Engine_Search_Call) RunAndReturn(run func(ctx context.Context, req *v0
 	return _c
 }
 
-// StartBatch provides a mock function for the type Engine
-func (_mock *Engine) StartBatch(batchSize int) error {
-	ret := _mock.Called(batchSize)
-
-	if len(ret) == 0 {
-		panic("no return value specified for StartBatch")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(int) error); ok {
-		r0 = returnFunc(batchSize)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// Engine_StartBatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StartBatch'
-type Engine_StartBatch_Call struct {
-	*mock.Call
-}
-
-// StartBatch is a helper method to define mock.On call
-//   - batchSize int
-func (_e *Engine_Expecter) StartBatch(batchSize interface{}) *Engine_StartBatch_Call {
-	return &Engine_StartBatch_Call{Call: _e.mock.On("StartBatch", batchSize)}
-}
-
-func (_c *Engine_StartBatch_Call) Run(run func(batchSize int)) *Engine_StartBatch_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 int
-		if args[0] != nil {
-			arg0 = args[0].(int)
-		}
-		run(
-			arg0,
-		)
-	})
-	return _c
-}
-
-func (_c *Engine_StartBatch_Call) Return(err error) *Engine_StartBatch_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *Engine_StartBatch_Call) RunAndReturn(run func(batchSize int) error) *Engine_StartBatch_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // Upsert provides a mock function for the type Engine
-func (_mock *Engine) Upsert(id string, r engine.Resource) error {
+func (_mock *Engine) Upsert(id string, r search.Resource) error {
 	ret := _mock.Called(id, r)
 
 	if len(ret) == 0 {
@@ -480,7 +447,7 @@ func (_mock *Engine) Upsert(id string, r engine.Resource) error {
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(string, engine.Resource) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(string, search.Resource) error); ok {
 		r0 = returnFunc(id, r)
 	} else {
 		r0 = ret.Error(0)
@@ -495,20 +462,20 @@ type Engine_Upsert_Call struct {
 
 // Upsert is a helper method to define mock.On call
 //   - id string
-//   - r engine.Resource
+//   - r search.Resource
 func (_e *Engine_Expecter) Upsert(id interface{}, r interface{}) *Engine_Upsert_Call {
 	return &Engine_Upsert_Call{Call: _e.mock.On("Upsert", id, r)}
 }
 
-func (_c *Engine_Upsert_Call) Run(run func(id string, r engine.Resource)) *Engine_Upsert_Call {
+func (_c *Engine_Upsert_Call) Run(run func(id string, r search.Resource)) *Engine_Upsert_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 string
 		if args[0] != nil {
 			arg0 = args[0].(string)
 		}
-		var arg1 engine.Resource
+		var arg1 search.Resource
 		if args[1] != nil {
-			arg1 = args[1].(engine.Resource)
+			arg1 = args[1].(search.Resource)
 		}
 		run(
 			arg0,
@@ -523,7 +490,7 @@ func (_c *Engine_Upsert_Call) Return(err error) *Engine_Upsert_Call {
 	return _c
 }
 
-func (_c *Engine_Upsert_Call) RunAndReturn(run func(id string, r engine.Resource) error) *Engine_Upsert_Call {
+func (_c *Engine_Upsert_Call) RunAndReturn(run func(id string, r search.Resource) error) *Engine_Upsert_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -17,10 +17,48 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/engine"
+	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
 )
 
 var scopeRegex = regexp.MustCompile(`scope:\s*([^" "\n\r]*)`)
+
+// Engine is the interface to the search engine
+type Engine interface {
+	Search(ctx context.Context, req *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error)
+	DocCount() (uint64, error)
+
+	Upsert(id string, r Resource) error
+	Move(id string, parentid string, target string) error
+	Delete(id string) error
+	Restore(id string) error
+	Purge(id string) error
+
+	NewBatch(batchSize int) (BatchOperator, error)
+}
+
+type BatchOperator interface {
+	Upsert(id string, r Resource) error
+	Move(rootID, parentID, location string) error
+	Delete(id string) error
+	Restore(id string) error
+	Purge(id string) error
+
+	Push() error
+}
+
+// Resource is the entity that is stored in the index.
+type Resource struct {
+	content.Document
+
+	ID       string
+	RootID   string
+	Path     string
+	ParentID string
+	Type     uint64
+	Deleted  bool
+	Hidden   bool
+}
 
 // ResolveReference makes sure the path is relative to the space root
 func ResolveReference(ctx context.Context, ref *provider.Reference, ri *provider.ResourceInfo, gatewaySelector pool.Selectable[gateway.GatewayAPIClient]) (*provider.Reference, error) {
@@ -61,7 +99,7 @@ func (ma matchArray) Less(i, j int) bool {
 	return ma[i].GetScore() > ma[j].GetScore()
 }
 
-func logDocCount(engine engine.Engine, logger log.Logger) {
+func logDocCount(engine Engine, logger log.Logger) {
 	c, err := engine.DocCount()
 	if err != nil {
 		logger.Error().Err(err).Msg("error getting document count from the index")

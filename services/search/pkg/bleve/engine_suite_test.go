@@ -1,4 +1,4 @@
-package engine_test
+package bleve_test
 
 import (
 	"testing"
@@ -9,5 +9,5 @@ import (
 
 func TestEngine(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Engine Suite")
+	RunSpecs(t, "Bleve Suite")
 }
