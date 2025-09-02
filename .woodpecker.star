@@ -328,6 +328,7 @@ config = {
                 "OC_LDAP_USER_FILTER": "(objectclass=inetOrgPerson)",
                 "OC_LDAP_USER_SCHEMA_ID": "entryUUID",
                 "OC_LDAP_DISABLE_USER_MECHANISM": "none",
+                "GRAPH_IDENTITY_BACKEND": "cs3",
                 "GRAPH_LDAP_SERVER_UUID": True,
                 "GRAPH_LDAP_GROUP_CREATE_BASE_DN": "ou=custom,ou=groups,dc=opencloud,dc=eu",
                 "GRAPH_LDAP_REFINT_ENABLED": True,

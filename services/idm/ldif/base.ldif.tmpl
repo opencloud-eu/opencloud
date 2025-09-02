@@ -31,7 +31,6 @@ displayName: Admin
 description: An admin for this OpenCloud instance.
 mail: admin@example.org
 openCloudUUID: {{ .ID }}
-openCloudTenantId: {{ .TenantID }}
 openCloudExternalIdentity:  $ {{ .Issuer }} $ {{ .ID }}
 {{ else -}}
 dn: uid={{ .Name }},ou=sysusers,o=libregraph-idm
