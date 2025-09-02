@@ -6,6 +6,8 @@ import (
 
 	"github.com/gabriel-vasile/mimetype/internal/charset"
 	"github.com/gabriel-vasile/mimetype/internal/json"
+	mkup "github.com/gabriel-vasile/mimetype/internal/markup"
+	"github.com/gabriel-vasile/mimetype/internal/scan"
 )
 
 var (
@@ -27,6 +29,7 @@ var (
 		[]byte("<BODY"),
 		[]byte("<BR"),
 		[]byte("<P"),
+		[]byte("<!--"),
 	)
 	// XML matches an Extensible Markup Language file.
 	XML = markup([]byte("<?XML"))
@@ -105,6 +108,18 @@ var (
 		[]byte("/usr/bin/python"),
 		[]byte("/usr/local/bin/python"),
 		[]byte("/usr/bin/env python"),
+		[]byte("/usr/bin/python2"),
+		[]byte("/usr/local/bin/python2"),
+		[]byte("/usr/bin/env python2"),
+		[]byte("/usr/bin/python3"),
+		[]byte("/usr/local/bin/python3"),
+		[]byte("/usr/bin/env python3"),
+	)
+	// Ruby matches a Ruby programming language file.
+	Ruby = shebang(
+		[]byte("/usr/bin/ruby"),
+		[]byte("/usr/local/bin/ruby"),
+		[]byte("/usr/bin/env ruby"),
 	)
 	// Tcl matches a Tcl programming language file.
 	Tcl = shebang(
@@ -120,19 +135,42 @@ var (
 	)
 	// Rtf matches a Rich Text Format file.
 	Rtf = prefix([]byte("{\\rtf"))
+	// Shell matches a shell script file.
+	Shell = shebang(
+		[]byte("/bin/sh"),
+		[]byte("/bin/bash"),
+		[]byte("/usr/local/bin/bash"),
+		[]byte("/usr/bin/env bash"),
+		[]byte("/bin/csh"),
+		[]byte("/usr/local/bin/csh"),
+		[]byte("/usr/bin/env csh"),
+		[]byte("/bin/dash"),
+		[]byte("/usr/local/bin/dash"),
+		[]byte("/usr/bin/env dash"),
+		[]byte("/bin/ksh"),
+		[]byte("/usr/local/bin/ksh"),
+		[]byte("/usr/bin/env ksh"),
+		[]byte("/bin/tcsh"),
+		[]byte("/usr/local/bin/tcsh"),
+		[]byte("/usr/bin/env tcsh"),
+		[]byte("/bin/zsh"),
+		[]byte("/usr/local/bin/zsh"),
+		[]byte("/usr/bin/env zsh"),
+	)
 )
 
 // Text matches a plain text file.
 //
 // TODO: This function does not parse BOM-less UTF16 and UTF32 files. Not really
 // sure it should. Linux file utility also requires a BOM for UTF16 and UTF32.
-func Text(raw []byte, limit uint32) bool {
+func Text(raw []byte, _ uint32) bool {
 	// First look for BOM.
 	if cset := charset.FromBOM(raw); cset != "" {
 		return true
 	}
 	// Binary data bytes as defined here: https://mimesniff.spec.whatwg.org/#binary-data-byte
-	for _, b := range raw {
+	for i := 0; i < min(len(raw), 4096); i++ {
+		b := raw[i]
 		if b <= 0x08 ||
 			b == 0x0B ||
 			0x0E <= b && b <= 0x1A ||
@@ -141,6 +179,14 @@ func Text(raw []byte, limit uint32) bool {
 		}
 	}
 	return true
+}
+
+// XHTML matches an XHTML file. This check depends on the XML check to have passed.
+func XHTML(raw []byte, limit uint32) bool {
+	raw = raw[:min(len(raw), 4096)]
+	b := scan.Bytes(raw)
+	return b.Search([]byte("<!DOCTYPE HTML"), scan.CompactWS|scan.IgnoreCase) != -1 ||
+		b.Search([]byte("<HTML XMLNS="), scan.CompactWS|scan.IgnoreCase) != -1
 }
 
 // Php matches a PHP: Hypertext Preprocessor file.
@@ -207,10 +253,12 @@ func jsonHelper(raw []byte, limit uint32, q string, wantTok int) bool {
 // types.
 func NdJSON(raw []byte, limit uint32) bool {
 	lCount, objOrArr := 0, 0
-	raw = dropLastLine(raw, limit)
-	var l []byte
-	for len(raw) != 0 {
-		l, raw = scanLine(raw)
+
+	s := scan.Bytes(raw)
+	s.DropLastLine(limit)
+	var l scan.Bytes
+	for len(s) != 0 {
+		l = s.Line()
 		_, inspected, firstToken, _ := json.Parse(json.QueryNone, l)
 		if len(l) != inspected {
 			return false
@@ -226,18 +274,84 @@ func NdJSON(raw []byte, limit uint32) bool {
 
 // Svg matches a SVG file.
 func Svg(raw []byte, limit uint32) bool {
-	return bytes.Contains(raw, []byte("<svg"))
+	return svgWithoutXMLDeclaration(raw) || svgWithXMLDeclaration(raw)
+}
+
+// svgWithoutXMLDeclaration matches a SVG image that does not have an XML header.
+// Example:
+//
+//	<!-- xml comment ignored -->
+//	<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+//	    <rect fill="#fff" stroke="#000" x="-70" y="-70" width="390" height="390"/>
+//	</svg>
+func svgWithoutXMLDeclaration(s scan.Bytes) bool {
+	for scan.ByteIsWS(s.Peek()) {
+		s.Advance(1)
+	}
+	for mkup.SkipAComment(&s) {
+	}
+	if !bytes.HasPrefix(s, []byte("<svg")) {
+		return false
+	}
+
+	targetName, targetVal := "xmlns", "http://www.w3.org/2000/svg"
+	aName, aVal, hasMore := "", "", true
+	for hasMore {
+		aName, aVal, hasMore = mkup.GetAnAttribute(&s)
+		if aName == targetName && aVal == targetVal {
+			return true
+		}
+		if !hasMore {
+			return false
+		}
+	}
+	return false
+}
+
+// svgWithXMLDeclaration matches a SVG image that has an XML header.
+// Example:
+//
+//	<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+//	<svg width="391" height="391" viewBox="-70.5 -70.5 391 391" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+//	    <rect fill="#fff" stroke="#000" x="-70" y="-70" width="390" height="390"/>
+//	</svg>
+func svgWithXMLDeclaration(s scan.Bytes) bool {
+	for scan.ByteIsWS(s.Peek()) {
+		s.Advance(1)
+	}
+	if !bytes.HasPrefix(s, []byte("<?xml")) {
+		return false
+	}
+
+	// version is a required attribute for XML.
+	hasVersion := false
+	aName, hasMore := "", true
+	for hasMore {
+		aName, _, hasMore = mkup.GetAnAttribute(&s)
+		if aName == "version" {
+			hasVersion = true
+			break
+		}
+		if !hasMore {
+			break
+		}
+	}
+	if len(s) > 4096 {
+		s = s[:4096]
+	}
+	return hasVersion && bytes.Contains(s, []byte("<svg"))
 }
 
 // Srt matches a SubRip file.
 func Srt(raw []byte, _ uint32) bool {
-	line, raw := scanLine(raw)
+	s := scan.Bytes(raw)
+	line := s.Line()
 
 	// First line must be 1.
 	if len(line) != 1 || line[0] != '1' {
 		return false
 	}
-	line, raw = scanLine(raw)
+	line = s.Line()
 	// Timestamp format (e.g: 00:02:16,612 --> 00:02:19,376) limits second line
 	// length to exactly 29 characters.
 	if len(line) != 29 {
@@ -266,7 +380,7 @@ func Srt(raw []byte, _ uint32) bool {
 		return false
 	}
 
-	line, _ = scanLine(raw)
+	line = s.Line()
 	// A third line must exist and not be empty. This is the actual subtitle text.
 	return len(line) != 0
 }
@@ -294,16 +408,4 @@ func Vtt(raw []byte, limit uint32) bool {
 	// Exact match.
 	return bytes.Equal(raw, []byte{0xEF, 0xBB, 0xBF, 0x57, 0x45, 0x42, 0x56, 0x54, 0x54}) || // UTF-8 BOM and "WEBVTT"
 		bytes.Equal(raw, []byte{0x57, 0x45, 0x42, 0x56, 0x54, 0x54}) // "WEBVTT"
-}
-
-// dropCR drops a terminal \r from the data.
-func dropCR(data []byte) []byte {
-	if len(data) > 0 && data[len(data)-1] == '\r' {
-		return data[0 : len(data)-1]
-	}
-	return data
-}
-func scanLine(b []byte) (line, remainder []byte) {
-	line, remainder, _ = bytes.Cut(b, []byte("\n"))
-	return dropCR(line), remainder
 }
