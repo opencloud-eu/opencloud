@@ -30,7 +30,7 @@ func ReattachFunc(pid int, addr net.Addr) runner.ReattachFunc {
 		if err != nil {
 			return nil, ErrProcessNotFound
 		}
-		conn.Close()
+		_ = conn.Close()
 
 		return &CmdAttachedRunner{
 			pid:     pid,

@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -202,7 +201,7 @@ type ClientConfig struct {
 	// SyncStdout, SyncStderr can be set to override the
 	// respective os.Std* values in the plugin. Care should be taken to
 	// avoid races here. If these are nil, then this will be set to
-	// ioutil.Discard.
+	// io.Discard.
 	SyncStdout io.Writer
 	SyncStderr io.Writer
 
@@ -345,7 +344,7 @@ func (s *SecureConfig) Check(filePath string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	_, err = io.Copy(s.Hash, file)
 	if err != nil {
@@ -401,7 +400,7 @@ func NewClient(config *ClientConfig) (c *Client) {
 	}
 
 	if config.Stderr == nil {
-		config.Stderr = ioutil.Discard
+		config.Stderr = io.Discard
 	}
 
 	if config.SyncStdout == nil {
@@ -514,7 +513,7 @@ func (c *Client) Kill() {
 		c.clientWaitGroup.Wait()
 
 		if hostSocketDir != "" {
-			os.RemoveAll(hostSocketDir)
+			_ = os.RemoveAll(hostSocketDir)
 		}
 
 		// Make sure there is no reference to the old process after it has been
@@ -743,7 +742,7 @@ func (c *Client) Start() (addr net.Addr, err error) {
 		rErr := recover()
 
 		if err != nil || rErr != nil {
-			runner.Kill(context.Background())
+			_ = runner.Kill(context.Background())
 		}
 
 		if rErr != nil {
@@ -780,7 +779,7 @@ func (c *Client) Start() (addr net.Addr, err error) {
 			c.logger.Info("plugin process exited", "plugin", runner.Name(), "id", runner.ID())
 		}
 
-		os.Stderr.Sync()
+		_ = os.Stderr.Sync()
 
 		// Set that we exited, which takes a lock
 		c.l.Lock()
@@ -853,15 +852,15 @@ func (c *Client) Start() (addr net.Addr, err error) {
 			var coreProtocol int
 			coreProtocol, err = strconv.Atoi(parts[0])
 			if err != nil {
-				err = fmt.Errorf("Error parsing core protocol version: %s", err)
+				err = fmt.Errorf("error parsing core protocol version: %s", err)
 				return
 			}
 
 			if coreProtocol != CoreProtocolVersion {
-				err = fmt.Errorf("Incompatible core API version with plugin. "+
+				err = fmt.Errorf("incompatible core API version with plugin. "+
 					"Plugin version: %s, Core version: %d\n\n"+
 					"To fix this, the plugin usually only needs to be recompiled.\n"+
-					"Please report this to the plugin author.", parts[0], CoreProtocolVersion)
+					"Please report this to the plugin author", parts[0], CoreProtocolVersion)
 				return
 			}
 		}
@@ -887,10 +886,16 @@ func (c *Client) Start() (addr net.Addr, err error) {
 		switch network {
 		case "tcp":
 			addr, err = net.ResolveTCPAddr("tcp", address)
+			if err != nil {
+				return nil, err
+			}
 		case "unix":
 			addr, err = net.ResolveUnixAddr("unix", address)
+			if err != nil {
+				return nil, err
+			}
 		default:
-			err = fmt.Errorf("Unknown address type: %s", address)
+			return nil, fmt.Errorf("unknown address type: %s", address)
 		}
 
 		// If we have a server type, then record that. We default to net/rpc
@@ -908,7 +913,7 @@ func (c *Client) Start() (addr net.Addr, err error) {
 			}
 		}
 		if !found {
-			err = fmt.Errorf("Unsupported plugin protocol %q. Supported: %v",
+			err = fmt.Errorf("unsupported plugin protocol %q. Supported: %v",
 				c.protocol, c.config.AllowedProtocols)
 			return addr, err
 		}
@@ -986,7 +991,7 @@ func (c *Client) reattach() (net.Addr, error) {
 		defer c.ctxCancel()
 
 		// Wait for the process to die
-		r.Wait(context.Background())
+		_ = r.Wait(context.Background())
 
 		// Log so we can see it
 		c.logger.Debug("reattached plugin process exited")
@@ -1041,7 +1046,7 @@ func (c *Client) checkProtoVersion(protoVersion string) (int, PluginSet, error) 
 		return version, plugins, nil
 	}
 
-	return 0, nil, fmt.Errorf("Incompatible API version with plugin. "+
+	return 0, nil, fmt.Errorf("incompatible API version with plugin. "+
 		"Plugin version: %d, Client versions: %d", serverVersion, clientVersions)
 }
 
@@ -1097,8 +1102,8 @@ func (c *Client) Protocol() Protocol {
 	return c.protocol
 }
 
-func netAddrDialer(addr net.Addr) func(string, time.Duration) (net.Conn, error) {
-	return func(_ string, _ time.Duration) (net.Conn, error) {
+func netAddrDialer(addr net.Addr) func(context.Context, string) (net.Conn, error) {
+	return func(context.Context, string) (net.Conn, error) {
 		// Connect to the client
 		conn, err := net.Dial(addr.Network(), addr.String())
 		if err != nil {
@@ -1106,7 +1111,7 @@ func netAddrDialer(addr net.Addr) func(string, time.Duration) (net.Conn, error) 
 		}
 		if tcpConn, ok := conn.(*net.TCPConn); ok {
 			// Make sure to set keep alive so that the connection doesn't die
-			tcpConn.SetKeepAlive(true)
+			_ = tcpConn.SetKeepAlive(true)
 		}
 
 		return conn, nil
@@ -1115,7 +1120,7 @@ func netAddrDialer(addr net.Addr) func(string, time.Duration) (net.Conn, error) 
 
 // dialer is compatible with grpc.WithDialer and creates the connection
 // to the plugin.
-func (c *Client) dialer(_ string, timeout time.Duration) (net.Conn, error) {
+func (c *Client) dialer(ctx context.Context, _ string) (net.Conn, error) {
 	muxer, err := c.getGRPCMuxer(c.address)
 	if err != nil {
 		return nil, err
@@ -1128,7 +1133,7 @@ func (c *Client) dialer(_ string, timeout time.Duration) (net.Conn, error) {
 			return nil, err
 		}
 	} else {
-		conn, err = netAddrDialer(c.address)("", timeout)
+		conn, err = netAddrDialer(c.address)(ctx, "")
 		if err != nil {
 			return nil, err
 		}
@@ -1162,13 +1167,21 @@ func (c *Client) getGRPCMuxer(addr net.Addr) (*grpcmux.GRPCClientMuxer, error) {
 func (c *Client) logStderr(name string, r io.Reader) {
 	defer c.clientWaitGroup.Done()
 	defer c.pipesWaitGroup.Done()
+
 	l := c.logger.Named(filepath.Base(name))
+	loggerLevel := l.GetLevel()
+	loggerDisabled := loggerLevel == hclog.Off
 
 	reader := bufio.NewReaderSize(r, c.config.PluginLogBufferSize)
 	// continuation indicates the previous line was a prefix
 	continuation := false
 
+	// inPanic indicates we saw the start of a stack trace and should divert all
+	// remaining untagged lines to stderr
+	var inPanic bool
+
 	for {
+
 		line, isPrefix, err := reader.ReadLine()
 		switch {
 		case err == io.EOF:
@@ -1178,7 +1191,7 @@ func (c *Client) logStderr(name string, r io.Reader) {
 			return
 		}
 
-		c.config.Stderr.Write(line)
+		_, _ = c.config.Stderr.Write(line)
 
 		// The line was longer than our max token size, so it's likely
 		// incomplete and won't unmarshal.
@@ -1187,14 +1200,26 @@ func (c *Client) logStderr(name string, r io.Reader) {
 
 			// if we're finishing a continued line, add the newline back in
 			if !isPrefix {
-				c.config.Stderr.Write([]byte{'\n'})
+				_, _ = c.config.Stderr.Write([]byte{'\n'})
 			}
 
 			continuation = isPrefix
 			continue
 		}
 
-		c.config.Stderr.Write([]byte{'\n'})
+		_, _ = c.config.Stderr.Write([]byte{'\n'})
+
+		//
+		// Any side-effects other than writing to the hclog logger must be
+		// above this point!
+		//
+
+		if loggerDisabled {
+			// If the logger we'd be writing to is completely disabled then
+			// we can skip all of the parsing work to decide what log level
+			// we'd use to write this line.
+			continue
+		}
 
 		entry, err := parseJSON(line)
 		// If output is not JSON format, print directly to Debug
@@ -1212,14 +1237,25 @@ func (c *Client) logStderr(name string, r io.Reader) {
 				l.Warn(line)
 			case strings.HasPrefix(line, "[ERROR]"):
 				l.Error(line)
+			case strings.HasPrefix(line, "panic: ") || strings.HasPrefix(line, "fatal error: "):
+				inPanic = true
+				fallthrough
+			case inPanic:
+				l.Error(line)
 			default:
 				l.Debug(line)
 			}
 		} else {
-			out := flattenKVPairs(entry.KVPairs)
+			logLevel := hclog.LevelFromString(entry.Level)
+			if logLevel != hclog.NoLevel && logLevel < loggerLevel {
+				// The logger will ignore this log entry anyway, so we
+				// won't spend any more time preparing it.
+				continue
+			}
 
+			out := flattenKVPairs(entry.KVPairs)
 			out = append(out, "timestamp", entry.Timestamp.Format(hclog.TimeFormat))
-			switch hclog.LevelFromString(entry.Level) {
+			switch logLevel {
 			case hclog.Trace:
 				l.Trace(entry.Message, out...)
 			case hclog.Debug:
