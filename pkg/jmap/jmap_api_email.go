@@ -31,10 +31,9 @@ type Emails struct {
 }
 
 func (j *Client) GetEmails(accountId string, session *Session, ctx context.Context, logger *log.Logger, ids []string, fetchBodies bool, maxBodyValueBytes uint) (Emails, SessionState, Error) {
-	aid := session.MailAccountId(accountId)
-	logger = j.logger(aid, "GetEmails", session, logger)
+	logger = j.logger(accountId, "GetEmails", session, logger)
 
-	get := EmailGetCommand{AccountId: aid, Ids: ids, FetchAllBodyValues: fetchBodies}
+	get := EmailGetCommand{AccountId: accountId, Ids: ids, FetchAllBodyValues: fetchBodies}
 	if maxBodyValueBytes > 0 {
 		get.MaxBodyValueBytes = maxBodyValueBytes
 	}
@@ -56,13 +55,12 @@ func (j *Client) GetEmails(accountId string, session *Session, ctx context.Conte
 }
 
 func (j *Client) GetAllEmails(accountId string, session *Session, ctx context.Context, logger *log.Logger, mailboxId string, offset uint, limit uint, fetchBodies bool, maxBodyValueBytes uint) (Emails, SessionState, Error) {
-	aid := session.MailAccountId(accountId)
-	logger = j.loggerParams(aid, "GetAllEmails", session, logger, func(z zerolog.Context) zerolog.Context {
+	logger = j.loggerParams(accountId, "GetAllEmails", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Uint(logOffset, offset).Uint(logLimit, limit)
 	})
 
 	query := EmailQueryCommand{
-		AccountId:       aid,
+		AccountId:       accountId,
 		Filter:          &EmailFilterCondition{InMailbox: mailboxId},
 		Sort:            []EmailComparator{{Property: emailSortByReceivedAt, IsAscending: false}},
 		CollapseThreads: true,
@@ -76,7 +74,7 @@ func (j *Client) GetAllEmails(accountId string, session *Session, ctx context.Co
 	}
 
 	get := EmailGetRefCommand{
-		AccountId:          aid,
+		AccountId:          accountId,
 		FetchAllBodyValues: fetchBodies,
 		IdRef:              &ResultReference{Name: CommandEmailQuery, Path: "/ids/*", ResultOf: "0"},
 	}
@@ -127,13 +125,12 @@ type EmailsSince struct {
 }
 
 func (j *Client) GetEmailsInMailboxSince(accountId string, session *Session, ctx context.Context, logger *log.Logger, mailboxId string, since string, fetchBodies bool, maxBodyValueBytes uint, maxChanges uint) (EmailsSince, SessionState, Error) {
-	aid := session.MailAccountId(accountId)
-	logger = j.loggerParams(aid, "GetEmailsInMailboxSince", session, logger, func(z zerolog.Context) zerolog.Context {
+	logger = j.loggerParams(accountId, "GetEmailsInMailboxSince", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Str(logSince, since)
 	})
 
 	changes := MailboxChangesCommand{
-		AccountId:  aid,
+		AccountId:  accountId,
 		SinceState: since,
 	}
 	if maxChanges > 0 {
@@ -141,7 +138,7 @@ func (j *Client) GetEmailsInMailboxSince(accountId string, session *Session, ctx
 	}
 
 	getCreated := EmailGetRefCommand{
-		AccountId:          aid,
+		AccountId:          accountId,
 		FetchAllBodyValues: fetchBodies,
 		IdRef:              &ResultReference{Name: CommandMailboxChanges, Path: "/created", ResultOf: "0"},
 	}
@@ -149,7 +146,7 @@ func (j *Client) GetEmailsInMailboxSince(accountId string, session *Session, ctx
 		getCreated.MaxBodyValueBytes = maxBodyValueBytes
 	}
 	getUpdated := EmailGetRefCommand{
-		AccountId:          aid,
+		AccountId:          accountId,
 		FetchAllBodyValues: fetchBodies,
 		IdRef:              &ResultReference{Name: CommandMailboxChanges, Path: "/updated", ResultOf: "0"},
 	}
@@ -201,13 +198,12 @@ func (j *Client) GetEmailsInMailboxSince(accountId string, session *Session, ctx
 }
 
 func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.Context, logger *log.Logger, since string, fetchBodies bool, maxBodyValueBytes uint, maxChanges uint) (EmailsSince, SessionState, Error) {
-	aid := session.MailAccountId(accountId)
-	logger = j.loggerParams(aid, "GetEmailsSince", session, logger, func(z zerolog.Context) zerolog.Context {
+	logger = j.loggerParams(accountId, "GetEmailsSince", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Str(logSince, since)
 	})
 
 	changes := EmailChangesCommand{
-		AccountId:  aid,
+		AccountId:  accountId,
 		SinceState: since,
 	}
 	if maxChanges > 0 {
@@ -215,7 +211,7 @@ func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.
 	}
 
 	getCreated := EmailGetRefCommand{
-		AccountId:          aid,
+		AccountId:          accountId,
 		FetchAllBodyValues: fetchBodies,
 		IdRef:              &ResultReference{Name: CommandEmailChanges, Path: "/created", ResultOf: "0"},
 	}
@@ -223,7 +219,7 @@ func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.
 		getCreated.MaxBodyValueBytes = maxBodyValueBytes
 	}
 	getUpdated := EmailGetRefCommand{
-		AccountId:          aid,
+		AccountId:          accountId,
 		FetchAllBodyValues: fetchBodies,
 		IdRef:              &ResultReference{Name: CommandEmailChanges, Path: "/updated", ResultOf: "0"},
 	}
@@ -282,13 +278,12 @@ type EmailSnippetQueryResult struct {
 }
 
 func (j *Client) QueryEmailSnippets(accountId string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, offset uint, limit uint) (EmailSnippetQueryResult, SessionState, Error) {
-	aid := session.MailAccountId(accountId)
-	logger = j.loggerParams(aid, "QueryEmails", session, logger, func(z zerolog.Context) zerolog.Context {
+	logger = j.loggerParams(accountId, "QueryEmails", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Uint(logLimit, limit).Uint(logOffset, offset)
 	})
 
 	query := EmailQueryCommand{
-		AccountId:       aid,
+		AccountId:       accountId,
 		Filter:          filter,
 		Sort:            []EmailComparator{{Property: emailSortByReceivedAt, IsAscending: false}},
 		CollapseThreads: true,
@@ -302,7 +297,7 @@ func (j *Client) QueryEmailSnippets(accountId string, filter EmailFilterElement,
 	}
 
 	snippet := SearchSnippetGetRefCommand{
-		AccountId: aid,
+		AccountId: accountId,
 		Filter:    filter,
 		EmailIdRef: &ResultReference{
 			ResultOf: "0",
@@ -356,13 +351,12 @@ type EmailQueryResult struct {
 }
 
 func (j *Client) QueryEmails(accountId string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, offset uint, limit uint, fetchBodies bool, maxBodyValueBytes uint) (EmailQueryResult, SessionState, Error) {
-	aid := session.MailAccountId(accountId)
-	logger = j.loggerParams(aid, "QueryEmails", session, logger, func(z zerolog.Context) zerolog.Context {
+	logger = j.loggerParams(accountId, "QueryEmails", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies)
 	})
 
 	query := EmailQueryCommand{
-		AccountId:       aid,
+		AccountId:       accountId,
 		Filter:          filter,
 		Sort:            []EmailComparator{{Property: emailSortByReceivedAt, IsAscending: false}},
 		CollapseThreads: true,
@@ -376,7 +370,7 @@ func (j *Client) QueryEmails(accountId string, filter EmailFilterElement, sessio
 	}
 
 	mails := EmailGetRefCommand{
-		AccountId: aid,
+		AccountId: accountId,
 		IdRef: &ResultReference{
 			ResultOf: "0",
 			Name:     CommandEmailQuery,
@@ -434,13 +428,12 @@ type EmailQueryWithSnippetsResult struct {
 }
 
 func (j *Client) QueryEmailsWithSnippets(accountId string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, offset uint, limit uint, fetchBodies bool, maxBodyValueBytes uint) (EmailQueryWithSnippetsResult, SessionState, Error) {
-	aid := session.MailAccountId(accountId)
-	logger = j.loggerParams(aid, "QueryEmailsWithSnippets", session, logger, func(z zerolog.Context) zerolog.Context {
+	logger = j.loggerParams(accountId, "QueryEmailsWithSnippets", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies)
 	})
 
 	query := EmailQueryCommand{
-		AccountId:       aid,
+		AccountId:       accountId,
 		Filter:          filter,
 		Sort:            []EmailComparator{{Property: emailSortByReceivedAt, IsAscending: false}},
 		CollapseThreads: true,
@@ -454,7 +447,7 @@ func (j *Client) QueryEmailsWithSnippets(accountId string, filter EmailFilterEle
 	}
 
 	snippet := SearchSnippetGetRefCommand{
-		AccountId: aid,
+		AccountId: accountId,
 		Filter:    filter,
 		EmailIdRef: &ResultReference{
 			ResultOf: "0",
@@ -464,7 +457,7 @@ func (j *Client) QueryEmailsWithSnippets(accountId string, filter EmailFilterEle
 	}
 
 	mails := EmailGetRefCommand{
-		AccountId: aid,
+		AccountId: accountId,
 		IdRef: &ResultReference{
 			ResultOf: "0",
 			Name:     CommandEmailQuery,
@@ -544,12 +537,10 @@ type UploadedEmail struct {
 }
 
 func (j *Client) ImportEmail(accountId string, session *Session, ctx context.Context, logger *log.Logger, data []byte) (UploadedEmail, SessionState, Error) {
-	aid := session.MailAccountId(accountId)
-
 	encoded := base64.StdEncoding.EncodeToString(data)
 
 	upload := BlobUploadCommand{
-		AccountId: aid,
+		AccountId: accountId,
 		Create: map[string]UploadObject{
 			"0": {
 				Data: []DataSourceObject{{
@@ -561,7 +552,7 @@ func (j *Client) ImportEmail(accountId string, session *Session, ctx context.Con
 	}
 
 	getHash := BlobGetRefCommand{
-		AccountId: aid,
+		AccountId: accountId,
 		IdRef: &ResultReference{
 			ResultOf: "0",
 			Name:     CommandBlobUpload,
@@ -625,11 +616,9 @@ type CreatedEmail struct {
 }
 
 func (j *Client) CreateEmail(accountId string, email EmailCreate, session *Session, ctx context.Context, logger *log.Logger) (CreatedEmail, SessionState, Error) {
-	aid := session.MailAccountId(accountId)
-
 	cmd, err := request(
 		invocation(CommandEmailSubmissionSet, EmailSetCommand{
-			AccountId: aid,
+			AccountId: accountId,
 			Create: map[string]EmailCreate{
 				"c": email,
 			},
@@ -687,11 +676,9 @@ type UpdatedEmails struct {
 //
 // To delete mails, use the DeleteEmails function instead.
 func (j *Client) UpdateEmails(accountId string, updates map[string]EmailUpdate, session *Session, ctx context.Context, logger *log.Logger) (UpdatedEmails, SessionState, Error) {
-	aid := session.MailAccountId(accountId)
-
 	cmd, err := request(
 		invocation(CommandEmailSet, EmailSetCommand{
-			AccountId: aid,
+			AccountId: accountId,
 			Update:    updates,
 		}, "0"),
 	)
@@ -723,11 +710,9 @@ type DeletedEmails struct {
 }
 
 func (j *Client) DeleteEmails(accountId string, destroy []string, session *Session, ctx context.Context, logger *log.Logger) (DeletedEmails, SessionState, Error) {
-	aid := session.MailAccountId(accountId)
-
 	cmd, err := request(
 		invocation(CommandEmailSet, EmailSetCommand{
-			AccountId: aid,
+			AccountId: accountId,
 			Destroy:   destroy,
 		}, "0"),
 	)
@@ -777,10 +762,8 @@ type SubmittedEmail struct {
 }
 
 func (j *Client) SubmitEmail(accountId string, identityId string, emailId string, session *Session, ctx context.Context, logger *log.Logger, data []byte) (SubmittedEmail, SessionState, Error) {
-	aid := session.SubmissionAccountId(accountId)
-
 	set := EmailSubmissionSetCommand{
-		AccountId: aid,
+		AccountId: accountId,
 		Create: map[string]EmailSubmissionCreate{
 			"s0": {
 				IdentityId: identityId,
@@ -795,7 +778,7 @@ func (j *Client) SubmitEmail(accountId string, identityId string, emailId string
 	}
 
 	get := EmailSubmissionGetRefCommand{
-		AccountId: aid,
+		AccountId: accountId,
 		IdRef: &ResultReference{
 			ResultOf: "0",
 			Name:     CommandEmailSubmissionSet,
@@ -865,18 +848,17 @@ func (j *Client) SubmitEmail(accountId string, identityId string, emailId string
 }
 
 func (j *Client) EmailsInThread(accountId string, threadId string, session *Session, ctx context.Context, logger *log.Logger, fetchBodies bool, maxBodyValueBytes uint) ([]Email, SessionState, Error) {
-	aid := session.MailAccountId(accountId)
-	logger = j.loggerParams(aid, "EmailsInThread", session, logger, func(z zerolog.Context) zerolog.Context {
+	logger = j.loggerParams(accountId, "EmailsInThread", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Str("threadId", log.SafeString(threadId))
 	})
 
 	cmd, err := request(
 		invocation(CommandThreadGet, ThreadGetCommand{
-			AccountId: aid,
+			AccountId: accountId,
 			Ids:       []string{threadId},
 		}, "0"),
 		invocation(CommandEmailGet, EmailGetRefCommand{
-			AccountId: aid,
+			AccountId: accountId,
 			IdRef: &ResultReference{
 				ResultOf: "0",
 				Name:     CommandThreadGet,

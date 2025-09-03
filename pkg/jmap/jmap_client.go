@@ -2,6 +2,7 @@ package jmap
 
 import (
 	"io"
+	"net/url"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/rs/zerolog"
@@ -39,8 +40,8 @@ func (j *Client) onSessionOutdated(session *Session, newSessionState SessionStat
 }
 
 // Retrieve JMAP well-known data from the Stalwart server and create a Session from that.
-func (j *Client) FetchSession(username string, logger *log.Logger) (Session, Error) {
-	wk, err := j.session.GetSession(username, logger)
+func (j *Client) FetchSession(sessionUrl *url.URL, username string, logger *log.Logger) (Session, Error) {
+	wk, err := j.session.GetSession(sessionUrl, username, logger)
 	if err != nil {
 		return Session{}, err
 	}
@@ -48,18 +49,14 @@ func (j *Client) FetchSession(username string, logger *log.Logger) (Session, Err
 }
 
 func (j *Client) logger(accountId string, operation string, _ *Session, logger *log.Logger) *log.Logger {
+	var _ string = accountId
 	l := logger.With().Str(logOperation, operation)
-	if accountId != "" {
-		l = l.Str(logAccountId, accountId)
-	}
 	return log.From(l)
 }
 
 func (j *Client) loggerParams(accountId string, operation string, _ *Session, logger *log.Logger, params func(zerolog.Context) zerolog.Context) *log.Logger {
+	var _ string = accountId
 	l := logger.With().Str(logOperation, operation)
-	if accountId != "" {
-		l = l.Str(logAccountId, accountId)
-	}
 	if params != nil {
 		l = params(l)
 	}

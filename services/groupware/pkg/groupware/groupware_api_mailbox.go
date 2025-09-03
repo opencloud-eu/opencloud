@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
 // When the request succeeds.
@@ -33,9 +34,14 @@ type SwaggerGetMailboxById200 struct {
 func (g *Groupware) GetMailbox(w http.ResponseWriter, r *http.Request) {
 	mailboxId := chi.URLParam(r, UriParamMailboxId)
 	g.respond(w, r, func(req Request) Response {
-		res, sessionState, err := g.jmap.GetMailbox(req.GetAccountId(), req.session, req.ctx, req.logger, []string{mailboxId})
+		accountId, err := req.GetAccountIdForMail()
 		if err != nil {
-			return req.errorResponseFromJmap(err)
+			return errorResponse(err)
+		}
+
+		res, sessionState, jerr := g.jmap.GetMailbox(accountId, req.session, req.ctx, req.logger, []string{mailboxId})
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
 		}
 
 		if len(res.Mailboxes) == 1 {
@@ -107,14 +113,20 @@ func (g *Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) {
 			hasCriteria = true
 		}
 
+		accountId, err := req.GetAccountIdForMail()
+		if err != nil {
+			return errorResponse(err)
+		}
+		logger := log.From(req.logger.With().Str(logAccountId, accountId))
+
 		if hasCriteria {
-			mailboxes, sessionState, err := g.jmap.SearchMailboxes(req.GetAccountId(), req.session, req.ctx, req.logger, filter)
+			mailboxes, sessionState, err := g.jmap.SearchMailboxes(accountId, req.session, req.ctx, logger, filter)
 			if err != nil {
 				return req.errorResponseFromJmap(err)
 			}
 			return etagResponse(mailboxes.Mailboxes, sessionState, mailboxes.State)
 		} else {
-			mailboxes, sessionState, err := g.jmap.GetAllMailboxes(req.GetAccountId(), req.session, req.ctx, req.logger)
+			mailboxes, sessionState, err := g.jmap.GetAllMailboxes(accountId, req.session, req.ctx, logger)
 			if err != nil {
 				return req.errorResponseFromJmap(err)
 			}

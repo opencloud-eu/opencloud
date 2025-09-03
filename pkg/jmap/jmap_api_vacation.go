@@ -14,9 +14,8 @@ const (
 
 // https://jmap.io/spec-mail.html#vacationresponseget
 func (j *Client) GetVacationResponse(accountId string, session *Session, ctx context.Context, logger *log.Logger) (VacationResponseGetResponse, SessionState, Error) {
-	aid := session.MailAccountId(accountId)
-	logger = j.logger(aid, "GetVacationResponse", session, logger)
-	cmd, err := request(invocation(CommandVacationResponseGet, VacationResponseGetCommand{AccountId: aid}, "0"))
+	logger = j.logger(accountId, "GetVacationResponse", session, logger)
+	cmd, err := request(invocation(CommandVacationResponseGet, VacationResponseGetCommand{AccountId: accountId}, "0"))
 	if err != nil {
 		logger.Error().Err(err)
 		return VacationResponseGetResponse{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
@@ -62,12 +61,11 @@ type VacationResponseChange struct {
 }
 
 func (j *Client) SetVacationResponse(accountId string, vacation VacationResponsePayload, session *Session, ctx context.Context, logger *log.Logger) (VacationResponseChange, SessionState, Error) {
-	aid := session.MailAccountId(accountId)
-	logger = j.logger(aid, "SetVacationResponse", session, logger)
+	logger = j.logger(accountId, "SetVacationResponse", session, logger)
 
 	cmd, err := request(
 		invocation(CommandVacationResponseSet, VacationResponseSetCommand{
-			AccountId: aid,
+			AccountId: accountId,
 			Create: map[string]VacationResponse{
 				vacationResponseId: {
 					IsEnabled: vacation.IsEnabled,
@@ -81,7 +79,7 @@ func (j *Client) SetVacationResponse(accountId string, vacation VacationResponse
 		}, "0"),
 		// chain a second request to get the current complete VacationResponse object
 		// after performing the changes, as that makes for a better API
-		invocation(CommandVacationResponseGet, VacationResponseGetCommand{AccountId: aid}, "1"),
+		invocation(CommandVacationResponseGet, VacationResponseGetCommand{AccountId: accountId}, "1"),
 	)
 	if err != nil {
 		logger.Error().Err(err)
