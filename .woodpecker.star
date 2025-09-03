@@ -527,6 +527,13 @@ def main(ctx):
         ),
     )
 
+    test_pipelines.append(
+        pipelineDependsOn(
+            purgeGoBinCache(ctx),
+            testPipelines(ctx),
+        ),
+    )
+
     pipelines = test_pipelines + build_release_pipelines + notifyMatrix(ctx)
 
     # if ctx.build.event == "cron":
@@ -2510,6 +2517,9 @@ def purgeTracingCache(ctx):
 
 def purgeOpencloudWebBuildCache(ctx):
     return purgeCache("purge_opencloud_web_build_cache", "dev/opencloud/web-test-runner", 14)
+
+def purgeGoBinCache(ctx):
+    return purgeCache("purge_go_bin_cache", "dev/opencloud/go-bin", 14)
 
 def pipelineSanityChecks(pipelines):
     """pipelineSanityChecks helps the CI developers to find errors before running it
