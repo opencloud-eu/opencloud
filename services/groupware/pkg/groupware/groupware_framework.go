@@ -5,15 +5,12 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 	"github.com/r3labs/sse/v2"
 	"github.com/rs/zerolog"
@@ -29,12 +26,12 @@ import (
 
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/metrics"
-	groupwaremiddleware "github.com/opencloud-eu/opencloud/services/groupware/pkg/middleware"
 )
 
 const (
 	logUsername              = "username" // this should match jmap.logUsername to avoid having the field twice in the logs under different keys
 	logUserId                = "user-id"
+	logAccountId             = "account-id"
 	logErrorId               = "error-id"
 	logErrorCode             = "code"
 	logErrorStatus           = "status"
@@ -129,12 +126,36 @@ type Event struct {
 	Body any
 }
 
+type groupwareHttpJmapApiClientMetricsRecorder struct {
+	m *metrics.Metrics
+}
+
+func (r groupwareHttpJmapApiClientMetricsRecorder) OnSuccessfulRequest(endpoint string, status int) {
+	r.m.SuccessfulRequestPerEndpointCounter.With(metrics.Endpoint(endpoint)).Inc()
+}
+func (r groupwareHttpJmapApiClientMetricsRecorder) OnFailedRequest(endpoint string, err error) {
+	r.m.FailedRequestPerEndpointCounter.With(metrics.Endpoint(endpoint)).Inc()
+}
+func (r groupwareHttpJmapApiClientMetricsRecorder) OnFailedRequestWithStatus(endpoint string, status int) {
+	r.m.FailedRequestStatusPerEndpointCounter.With(metrics.EndpointAndStatus(endpoint, status)).Inc()
+}
+func (r groupwareHttpJmapApiClientMetricsRecorder) OnResponseBodyReadingError(endpoint string, err error) {
+	r.m.ResponseBodyReadingErrorPerEndpointCounter.With(metrics.Endpoint(endpoint)).Inc()
+}
+func (r groupwareHttpJmapApiClientMetricsRecorder) OnResponseBodyUnmarshallingError(endpoint string, err error) {
+	r.m.ResponseBodyUnmarshallingErrorPerEndpointCounter.With(metrics.Endpoint(endpoint)).Inc()
+}
+
+var _ jmap.HttpJmapApiClientEventListener = groupwareHttpJmapApiClientMetricsRecorder{}
+
 func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prometheusRegistry prometheus.Registerer) (*Groupware, error) {
 	baseUrl, err := url.Parse(config.Mail.BaseUrl)
 	if err != nil {
 		logger.Error().Err(err).Msgf("failed to parse configured Mail.Baseurl '%v'", config.Mail.BaseUrl)
 		return nil, GroupwareInitializationError{Message: fmt.Sprintf("failed to parse configured Mail.BaseUrl '%s'", config.Mail.BaseUrl), Err: err}
 	}
+
+	sessionUrl := baseUrl.JoinPath(".well-known", "jmap")
 
 	masterUsername := config.Mail.Master.Username
 	if masterUsername == "" {
@@ -163,7 +184,7 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 
 	insecureTls := true // TODO make configurable
 
-	m := metrics.New(logger)
+	m := metrics.New(prometheusRegistry, logger)
 
 	// TODO add timeouts and other meaningful configuration settings for the HTTP client
 	tr := http.DefaultTransport.(*http.Transport).Clone()
@@ -177,16 +198,13 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 
 	userProvider := NewRevaContextUsernameProvider()
 
-	api := jmap.NewHttpJmapApiClient(
-		*baseUrl,
+	jmapMetricsAdapter := groupwareHttpJmapApiClientMetricsRecorder{m: m}
+
+	api := jmap.NewHttpJmapClient(
 		&c,
 		masterUsername,
 		masterPassword,
-		jmap.HttpJmapApiClientMetrics{
-			SuccessfulRequestPerEndpointCounter:   m.SuccessfulRequestPerEndpointCounter,
-			FailedRequestPerEndpointCounter:       m.FailedRequestPerEndpointCounter,
-			FailedRequestStatusPerEndpointCounter: m.FailedRequestStatusPerEndpointCounter,
-		},
+		jmapMetricsAdapter,
 	)
 
 	jmapClient := jmap.NewClient(api, api, api)
@@ -197,6 +215,10 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 			logger:     logger,
 			jmapClient: &jmapClient,
 			errorTtl:   sessionFailureCacheTtl,
+			sessionUrlProvider: func(username string) (*url.URL, *GroupwareError) {
+				// here is where we would implement server sharding
+				return sessionUrl, nil
+			},
 		}
 
 		sessionCache = ttlcache.New(
@@ -238,36 +260,20 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 	sessionEventListener := sessionEventListener{
 		sessionCache: sessionCache,
 		logger:       logger,
-		counter: prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: metrics.Namespace,
-			Subsystem: metrics.Subsystem,
-			Name:      "outdated_sessions_count",
-			Help:      "Counts outdated session events",
-		}),
+		counter:      m.OutdatedSessionsCounter,
 	}
 	jmapClient.AddSessionEventListener(&sessionEventListener)
 
 	// A channel to process SSE Events with a single worker.
 	eventChannel := make(chan Event, eventChannelSize)
 	{
-		totalWorkerBufferMetric, err := prometheus.NewConstMetric(prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.Namespace, metrics.Subsystem, "event_buffer_size"),
-			"Size of the buffer channel for server-sent events to process",
-			nil,
-			nil,
-		), prometheus.GaugeValue, float64(eventChannelSize))
+		eventBufferSizeMetric, err := prometheus.NewConstMetric(m.EventBufferSizeDesc, prometheus.GaugeValue, float64(eventChannelSize))
 		if err != nil {
-			logger.Warn().Err(err).Msg("failed to create event_buffer_size metric")
+			logger.Warn().Err(err).Msgf("failed to create metric %v", m.EventBufferSizeDesc.String())
 		} else {
-			prometheusRegistry.Register(metrics.ConstMetricCollector{Metric: totalWorkerBufferMetric})
+			prometheusRegistry.Register(metrics.ConstMetricCollector{Metric: eventBufferSizeMetric})
 		}
-
-		prometheusRegistry.Register(prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-			Namespace: metrics.Namespace,
-			Subsystem: metrics.Subsystem,
-			Name:      "event_buffer_queued",
-			Help:      "Number of queued server-sent events",
-		}, func() float64 {
+		prometheusRegistry.Register(prometheus.NewGaugeFunc(m.EventBufferQueuedOpts, func() float64 {
 			return float64(len(eventChannel))
 		}))
 	}
@@ -282,60 +288,35 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 		sseServer.OnUnsubscribe = func(streamID string, sub *sse.Subscriber) {
 			sseSubscribers.Add(-1)
 		}
-		prometheusRegistry.Register(prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-			Namespace: metrics.Namespace,
-			Subsystem: metrics.Subsystem,
-			Name:      "sse_subscribers",
-			Help:      "Number of subscribers for server-sent event streams",
-		}, func() float64 {
+		prometheusRegistry.Register(prometheus.NewGaugeFunc(m.SSESubscribersOpts, func() float64 {
 			return float64(sseSubscribers.Load())
 		}))
 	}
 
 	jobsChannel := make(chan Job, workerQueueSize)
 	{
-		totalWorkerBufferMetric, err := prometheus.NewConstMetric(prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.Namespace, metrics.Subsystem, "workers_buffer_size"),
-			"Size of the buffer channel for background worker jobs",
-			nil,
-			nil,
-		), prometheus.GaugeValue, float64(workerQueueSize))
+		totalWorkerBufferMetric, err := prometheus.NewConstMetric(m.WorkersBufferSizeDesc, prometheus.GaugeValue, float64(workerQueueSize))
 		if err != nil {
-			logger.Warn().Err(err).Msg("failed to create workers_buffer_size metric")
+			logger.Warn().Err(err).Msgf("failed to create metric %v", m.WorkersBufferSizeDesc.String())
 		} else {
 			prometheusRegistry.Register(metrics.ConstMetricCollector{Metric: totalWorkerBufferMetric})
 		}
 
-		prometheusRegistry.Register(prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-			Namespace: metrics.Namespace,
-			Subsystem: metrics.Subsystem,
-			Name:      "workers_buffer_queued",
-			Help:      "Number of queued background jobs",
-		}, func() float64 {
+		prometheusRegistry.Register(prometheus.NewGaugeFunc(m.WorkersBufferQueuedOpts, func() float64 {
 			return float64(len(jobsChannel))
 		}))
 	}
 
 	var busyWorkers atomic.Int32
 	{
-		totalWorkersMetric, err := prometheus.NewConstMetric(prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.Namespace, metrics.Subsystem, "workers_total"),
-			"Total amount of background job workers",
-			nil,
-			nil,
-		), prometheus.GaugeValue, float64(workerPoolSize))
+		totalWorkersMetric, err := prometheus.NewConstMetric(m.TotalWorkersDesc, prometheus.GaugeValue, float64(workerPoolSize))
 		if err != nil {
-			logger.Warn().Err(err).Msg("failed to create workers_total metric")
+			logger.Warn().Err(err).Msgf("failed to create metric %v", m.TotalWorkersDesc.String())
 		} else {
 			prometheusRegistry.Register(metrics.ConstMetricCollector{Metric: totalWorkersMetric})
 		}
 
-		prometheusRegistry.Register(prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-			Namespace: metrics.Namespace,
-			Subsystem: metrics.Subsystem,
-			Name:      "workers_busy",
-			Help:      "Number of background job workers that are currently busy executing jobs",
-		}, func() float64 {
+		prometheusRegistry.Register(prometheus.NewGaugeFunc(m.BusyWorkersOpts, func() float64 {
 			return float64(busyWorkers.Load())
 		}))
 	}
@@ -382,7 +363,7 @@ func (g *Groupware) worker(jobs <-chan Job, busy *atomic.Int32) {
 		logger := log.From(job.logger.With().Str(logJobDescription, job.description).Uint64(logJobId, job.id))
 		job.job(job.id, logger)
 		if logger.Trace().Enabled() {
-			logger.Trace().Msgf("finished job %d [%s] in %v", job.id, job.description, time.Since(before)) // TODO remove
+			logger.Trace().Msgf("finished job %d [%s] in %v", job.id, job.description, time.Since(before))
 		}
 		busy.Add(-1)
 	}
@@ -467,274 +448,6 @@ func (g *Groupware) session(user User, _ *http.Request, _ context.Context, _ *lo
 		}
 	}
 	return jmap.Session{}, false, nil
-}
-
-// using a wrapper class for requests, to group multiple parameters, really to avoid crowding the
-// API of handlers but also to make it easier to expand it in the future without having to modify
-// the parameter list of every single handler function
-type Request struct {
-	g       *Groupware
-	user    User
-	r       *http.Request
-	ctx     context.Context
-	logger  *log.Logger
-	session *jmap.Session
-}
-
-type Response struct {
-	body         any
-	status       int
-	err          *Error
-	etag         jmap.State
-	sessionState jmap.SessionState
-}
-
-func errorResponse(err *Error) Response {
-	return Response{
-		body:         nil,
-		err:          err,
-		etag:         "",
-		sessionState: "",
-	}
-}
-
-func response(body any, sessionState jmap.SessionState) Response {
-	return Response{
-		body:         body,
-		err:          nil,
-		etag:         jmap.State(sessionState),
-		sessionState: sessionState,
-	}
-}
-
-func etagResponse(body any, sessionState jmap.SessionState, etag jmap.State) Response {
-	return Response{
-		body:         body,
-		err:          nil,
-		etag:         etag,
-		sessionState: sessionState,
-	}
-}
-
-func etagOnlyResponse(body any, etag jmap.State) Response {
-	return Response{
-		body:         body,
-		err:          nil,
-		etag:         etag,
-		sessionState: "",
-	}
-}
-
-func noContentResponse(sessionState jmap.SessionState) Response {
-	return Response{
-		body:         nil,
-		status:       http.StatusNoContent,
-		err:          nil,
-		etag:         jmap.State(sessionState),
-		sessionState: sessionState,
-	}
-}
-
-func acceptedResponse(sessionState jmap.SessionState) Response {
-	return Response{
-		body:         nil,
-		status:       http.StatusAccepted,
-		err:          nil,
-		etag:         jmap.State(sessionState),
-		sessionState: sessionState,
-	}
-}
-
-func timeoutResponse(sessionState jmap.SessionState) Response {
-	return Response{
-		body:         nil,
-		status:       http.StatusRequestTimeout,
-		err:          nil,
-		etag:         "",
-		sessionState: sessionState,
-	}
-}
-
-func notFoundResponse(sessionState jmap.SessionState) Response {
-	return Response{
-		body:         nil,
-		status:       http.StatusNotFound,
-		err:          nil,
-		etag:         jmap.State(sessionState),
-		sessionState: sessionState,
-	}
-}
-
-func (r Request) push(typ string, event any) {
-	r.g.push(r.user, typ, event)
-}
-
-func (r Request) GetUser() User {
-	return r.user
-}
-
-func (r Request) GetRequestId() string {
-	return chimiddleware.GetReqID(r.ctx)
-}
-
-func (r Request) GetTraceId() string {
-	return groupwaremiddleware.GetTraceID(r.ctx)
-}
-
-func (r Request) GetAccountId() string {
-	accountId := chi.URLParam(r.r, UriParamAccount)
-	return r.session.MailAccountId(accountId)
-}
-
-func (r Request) GetAccount() (jmap.SessionAccount, *Error) {
-	accountId := r.GetAccountId()
-
-	account, ok := r.session.Accounts[accountId]
-	if !ok {
-		r.logger.Debug().Msgf("failed to find account '%v'", accountId)
-		// TODO metric for inexistent accounts
-		return jmap.SessionAccount{}, apiError(r.errorId(), ErrorNonExistingAccount,
-			withDetail(fmt.Sprintf("The account '%v' does not exist", log.SafeString(accountId))),
-			withSource(&ErrorSource{Parameter: UriParamAccount}),
-		)
-	}
-	return account, nil
-}
-
-func (r Request) parameterError(param string, detail string) *Error {
-	return r.observedParameterError(ErrorInvalidRequestParameter,
-		withDetail(detail),
-		withSource(&ErrorSource{Parameter: param}))
-}
-
-func (r Request) parameterErrorResponse(param string, detail string) Response {
-	return errorResponse(r.parameterError(param, detail))
-}
-
-func (r Request) parseIntParam(param string, defaultValue int) (int, bool, *Error) {
-	q := r.r.URL.Query()
-	if !q.Has(param) {
-		return defaultValue, false, nil
-	}
-
-	str := q.Get(param)
-	if str == "" {
-		return defaultValue, false, nil
-	}
-
-	value, err := strconv.ParseInt(str, 10, 0)
-	if err != nil {
-		// don't include the original error, as it leaks too much about our implementation, e.g.:
-		// strconv.ParseInt: parsing \"a\": invalid syntax
-		msg := fmt.Sprintf("Invalid numeric value for query parameter '%v': '%s'", param, log.SafeString(str))
-		return defaultValue, true, r.observedParameterError(ErrorInvalidRequestParameter,
-			withDetail(msg),
-			withSource(&ErrorSource{Parameter: param}),
-		)
-	}
-	return int(value), true, nil
-}
-
-func (r Request) parseUIntParam(param string, defaultValue uint) (uint, bool, *Error) {
-	q := r.r.URL.Query()
-	if !q.Has(param) {
-		return defaultValue, false, nil
-	}
-
-	str := q.Get(param)
-	if str == "" {
-		return defaultValue, false, nil
-	}
-
-	value, err := strconv.ParseUint(str, 10, 0)
-	if err != nil {
-		// don't include the original error, as it leaks too much about our implementation, e.g.:
-		// strconv.ParseInt: parsing \"a\": invalid syntax
-		msg := fmt.Sprintf("Invalid numeric value for query parameter '%v': '%s'", param, log.SafeString(str))
-		return defaultValue, true, r.observedParameterError(ErrorInvalidRequestParameter,
-			withDetail(msg),
-			withSource(&ErrorSource{Parameter: param}),
-		)
-	}
-	return uint(value), true, nil
-}
-
-func (r Request) parseDateParam(param string) (time.Time, bool, *Error) {
-	q := r.r.URL.Query()
-	if !q.Has(param) {
-		return time.Time{}, false, nil
-	}
-
-	str := q.Get(param)
-	if str == "" {
-		return time.Time{}, false, nil
-	}
-
-	t, err := time.Parse(time.RFC3339, str)
-	if err != nil {
-		msg := fmt.Sprintf("Invalid RFC3339 value for query parameter '%v': '%s': %s", param, log.SafeString(str), err.Error())
-		return time.Time{}, true, r.observedParameterError(ErrorInvalidRequestParameter,
-			withDetail(msg),
-			withSource(&ErrorSource{Parameter: param}),
-		)
-	}
-	return t, true, nil
-}
-
-func (r Request) parseBoolParam(param string, defaultValue bool) (bool, bool, *Error) {
-	q := r.r.URL.Query()
-	if !q.Has(param) {
-		return defaultValue, false, nil
-	}
-
-	str := q.Get(param)
-	if str == "" {
-		return defaultValue, false, nil
-	}
-
-	b, err := strconv.ParseBool(str)
-	if err != nil {
-		msg := fmt.Sprintf("Invalid boolean value for query parameter '%v': '%s': %s", param, log.SafeString(str), err.Error())
-		return defaultValue, true, r.observedParameterError(ErrorInvalidRequestParameter,
-			withDetail(msg),
-			withSource(&ErrorSource{Parameter: param}),
-		)
-	}
-	return b, true, nil
-}
-
-func (r Request) body(target any) *Error {
-	body := r.r.Body
-	defer func(b io.ReadCloser) {
-		err := b.Close()
-		if err != nil {
-			r.logger.Error().Err(err).Msg("failed to close request body")
-		}
-	}(body)
-
-	err := json.NewDecoder(body).Decode(target)
-	if err != nil {
-		return r.observedParameterError(ErrorInvalidRequestBody, withSource(&ErrorSource{Pointer: "/"})) // we don't get any details here
-	}
-	return nil
-}
-
-func (r Request) observe(obs prometheus.Observer, value float64) {
-	metrics.WithExemplar(obs, value, r.GetRequestId(), r.GetTraceId())
-}
-
-func (r Request) observeParameterError(err *Error) *Error {
-	if err != nil {
-		r.g.metrics.ParameterErrorCounter.WithLabelValues(err.Code).Inc()
-	}
-	return err
-}
-
-func (r Request) observeJmapError(jerr jmap.Error) jmap.Error {
-	if jerr != nil {
-		r.g.metrics.JmapErrorCounter.WithLabelValues(r.session.JmapEndpoint, strconv.Itoa(jerr.Code())).Inc()
-	}
-	return jerr
 }
 
 func (g *Groupware) log(error *Error) {

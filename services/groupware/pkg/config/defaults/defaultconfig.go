@@ -46,8 +46,8 @@ func DefaultConfig() *config.Config {
 			Namespace: "eu.opencloud.web",
 			CORS: config.CORS{
 				AllowedOrigins:   []string{"*"},
-				AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-				AllowedHeaders:   []string{"Authorization", "Origin", "Content-Type", "Accept", "X-Requested-With", "X-Request-Id", "Cache-Control"},
+				AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "REPORT"},
+				AllowedHeaders:   []string{"Authorization", "Origin", "Content-Type", "Accept", "X-Requested-With", "X-Request-Id", "Trace-Id", "Cache-Control"},
 				AllowCredentials: true,
 			},
 		},

@@ -1,6 +1,7 @@
 package groupware
 
 import (
+	"net/url"
 	"time"
 
 	"github.com/jellydator/ttlcache/v3"
@@ -69,17 +70,23 @@ func (s failedSession) Since() time.Time {
 var _ cachedSession = failedSession{}
 
 type sessionCacheLoader struct {
-	logger     *log.Logger
-	jmapClient *jmap.Client
-	errorTtl   time.Duration
+	logger             *log.Logger
+	sessionUrlProvider func(username string) (*url.URL, *GroupwareError)
+	jmapClient         *jmap.Client
+	errorTtl           time.Duration
 }
 
 func (l *sessionCacheLoader) Load(c *ttlcache.Cache[sessionKey, cachedSession], key sessionKey) *ttlcache.Item[sessionKey, cachedSession] {
 	username := usernameFromSessionKey(key)
-	session, err := l.jmapClient.FetchSession(username, l.logger)
-	if err != nil {
-		l.logger.Warn().Str("username", username).Err(err).Msgf("failed to create session for '%v'", key)
-		return c.Set(key, failedSession{since: time.Now(), err: groupwareErrorFromJmap(err)}, l.errorTtl)
+	sessionUrl, gwerr := l.sessionUrlProvider(username)
+	if gwerr != nil {
+		l.logger.Warn().Str("username", username).Str("code", gwerr.Code).Msgf("failed to determine session URL for '%v'", key)
+		return c.Set(key, failedSession{since: time.Now(), err: gwerr}, l.errorTtl)
+	}
+	session, jerr := l.jmapClient.FetchSession(sessionUrl, username, l.logger)
+	if jerr != nil {
+		l.logger.Warn().Str("username", username).Err(jerr).Msgf("failed to create session for '%v'", key)
+		return c.Set(key, failedSession{since: time.Now(), err: groupwareErrorFromJmap(jerr)}, l.errorTtl)
 	} else {
 		l.logger.Debug().Str("username", username).Msgf("successfully created session for '%v'", key)
 		return c.Set(key, succeededSession{since: time.Now(), session: session}, ttlcache.DefaultTTL) // use the TTL configured on the Cache

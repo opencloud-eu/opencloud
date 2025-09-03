@@ -162,6 +162,7 @@ const (
 	ErrorCodeInvalidRequestParameter    = "INVPAR"
 	ErrorCodeInvalidRequestBody         = "INVBDY"
 	ErrorCodeNonExistingAccount         = "INVACC"
+	ErrorCodeIndeterminateAccount       = "INDACC"
 	ErrorCodeApiInconsistency           = "APIINC"
 	ErrorCodeInvalidUserRequest         = "INVURQ"
 )
@@ -275,11 +276,17 @@ var (
 		Title:  "Invalid Request",
 		Detail: "The request is invalid.",
 	}
-	ErrorNonExistingAccount = GroupwareError{
+	ErrorIndeterminateAccount = GroupwareError{
 		Status: http.StatusBadRequest,
 		Code:   ErrorCodeNonExistingAccount,
 		Title:  "Invalid Account Parameter",
 		Detail: "The account the request is for does not exist.",
+	}
+	ErrorNonExistingAccount = GroupwareError{
+		Status: http.StatusBadRequest,
+		Code:   ErrorCodeIndeterminateAccount,
+		Title:  "Failed to determine Account",
+		Detail: "The account the request is for could not be determined.",
 	}
 	ErrorApiInconsistency = GroupwareError{
 		Status: http.StatusInternalServerError,

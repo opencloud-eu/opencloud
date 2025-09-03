@@ -14,9 +14,8 @@ type MailboxesResponse struct {
 
 // https://jmap.io/spec-mail.html#mailboxget
 func (j *Client) GetMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, ids []string) (MailboxesResponse, SessionState, Error) {
-	aid := session.MailAccountId(accountId)
-	logger = j.logger(aid, "GetMailbox", session, logger)
-	cmd, err := request(invocation(CommandMailboxGet, MailboxGetCommand{AccountId: aid, Ids: ids}, "0"))
+	logger = j.logger(accountId, "GetMailbox", session, logger)
+	cmd, err := request(invocation(CommandMailboxGet, MailboxGetCommand{AccountId: accountId, Ids: ids}, "0"))
 	if err != nil {
 		logger.Error().Err(err)
 		return MailboxesResponse{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
@@ -62,13 +61,12 @@ type Mailboxes struct {
 }
 
 func (j *Client) SearchMailboxes(accountId string, session *Session, ctx context.Context, logger *log.Logger, filter MailboxFilterElement) (Mailboxes, SessionState, Error) {
-	aid := session.MailAccountId(accountId)
-	logger = j.logger(aid, "SearchMailboxes", session, logger)
+	logger = j.logger(accountId, "SearchMailboxes", session, logger)
 
 	cmd, err := request(
-		invocation(CommandMailboxQuery, MailboxQueryCommand{AccountId: aid, Filter: filter}, "0"),
+		invocation(CommandMailboxQuery, MailboxQueryCommand{AccountId: accountId, Filter: filter}, "0"),
 		invocation(CommandMailboxGet, MailboxGetRefCommand{
-			AccountId: aid,
+			AccountId: accountId,
 			IdRef:     &ResultReference{Name: CommandMailboxQuery, Path: "/ids/*", ResultOf: "0"},
 		}, "1"),
 	)

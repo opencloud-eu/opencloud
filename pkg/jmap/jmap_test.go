@@ -32,7 +32,7 @@ func (t *TestJmapWellKnownClient) Close() error {
 	return nil
 }
 
-func (t *TestJmapWellKnownClient) GetSession(username string, logger *log.Logger) (SessionResponse, Error) {
+func (t *TestJmapWellKnownClient) GetSession(sessionUrl *url.URL, username string, logger *log.Logger) (SessionResponse, Error) {
 	pa := generateRandomString(2 + seededRand.Intn(10))
 	return SessionResponse{
 		Username: generateRandomString(8),
@@ -70,7 +70,7 @@ func NewTestJmapBlobClient(t *testing.T) BlobClient {
 	return &TestJmapBlobClient{t: t}
 }
 
-func (t TestJmapBlobClient) UploadBinary(ctx context.Context, logger *log.Logger, session *Session, uploadUrl string, contentType string, body io.Reader) (UploadedBlob, Error) {
+func (t TestJmapBlobClient) UploadBinary(ctx context.Context, logger *log.Logger, session *Session, uploadUrl string, endpoint string, contentType string, body io.Reader) (UploadedBlob, Error) {
 	bytes, err := io.ReadAll(body)
 	if err != nil {
 		return UploadedBlob{}, SimpleError{code: 0, err: err}
@@ -85,7 +85,7 @@ func (t TestJmapBlobClient) UploadBinary(ctx context.Context, logger *log.Logger
 	}, nil
 }
 
-func (h *TestJmapBlobClient) DownloadBinary(ctx context.Context, logger *log.Logger, session *Session, downloadUrl string) (*BlobDownload, Error) {
+func (h *TestJmapBlobClient) DownloadBinary(ctx context.Context, logger *log.Logger, session *Session, downloadUrl string, endpoint string) (*BlobDownload, Error) {
 	return &BlobDownload{
 		Body:               io.NopCloser(strings.NewReader("")),
 		Size:               -1,

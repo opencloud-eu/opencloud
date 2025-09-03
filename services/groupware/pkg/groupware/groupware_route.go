@@ -5,7 +5,9 @@ import (
 )
 
 const (
-	UriParamAccount                   = "accountid"
+	defaultAccountId = "*"
+
+	UriParamAccountId                 = "accountid"
 	UriParamMailboxId                 = "mailbox"
 	UriParamMessageId                 = "messageid"
 	UriParamBlobId                    = "blobid"

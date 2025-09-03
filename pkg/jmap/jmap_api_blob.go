@@ -15,11 +15,9 @@ type BlobResponse struct {
 }
 
 func (j *Client) GetBlob(accountId string, session *Session, ctx context.Context, logger *log.Logger, id string) (BlobResponse, SessionState, Error) {
-	aid := session.BlobAccountId(accountId)
-
 	cmd, err := request(
 		invocation(CommandBlobUpload, BlobGetCommand{
-			AccountId:  aid,
+			AccountId:  accountId,
 			Ids:        []string{id},
 			Properties: []string{BlobPropertyData, BlobPropertyDigestSha512, BlobPropertySize},
 		}, "0"),
@@ -56,32 +54,28 @@ type UploadedBlob struct {
 
 func (j *Client) UploadBlobStream(accountId string, session *Session, ctx context.Context, logger *log.Logger, contentType string, body io.Reader) (UploadedBlob, Error) {
 	logger = log.From(logger.With().Str(logEndpoint, session.UploadEndpoint))
-	aid := session.BlobAccountId(accountId)
 	// TODO(pbleser-oc) use a library for proper URL template parsing
-	uploadUrl := strings.ReplaceAll(session.UploadUrlTemplate, "{accountId}", aid)
-	return j.blob.UploadBinary(ctx, logger, session, uploadUrl, contentType, body)
+	uploadUrl := strings.ReplaceAll(session.UploadUrlTemplate, "{accountId}", accountId)
+	return j.blob.UploadBinary(ctx, logger, session, uploadUrl, session.UploadEndpoint, contentType, body)
 }
 
 func (j *Client) DownloadBlobStream(accountId string, blobId string, name string, typ string, session *Session, ctx context.Context, logger *log.Logger) (*BlobDownload, Error) {
 	logger = log.From(logger.With().Str(logEndpoint, session.DownloadEndpoint))
-	aid := session.BlobAccountId(accountId)
 	// TODO(pbleser-oc) use a library for proper URL template parsing
 	downloadUrl := session.DownloadUrlTemplate
-	downloadUrl = strings.ReplaceAll(downloadUrl, "{accountId}", aid)
+	downloadUrl = strings.ReplaceAll(downloadUrl, "{accountId}", accountId)
 	downloadUrl = strings.ReplaceAll(downloadUrl, "{blobId}", blobId)
 	downloadUrl = strings.ReplaceAll(downloadUrl, "{name}", name)
 	downloadUrl = strings.ReplaceAll(downloadUrl, "{type}", typ)
-	logger = log.From(logger.With().Str(logDownloadUrl, downloadUrl).Str(logBlobId, blobId).Str(logAccountId, aid))
-	return j.blob.DownloadBinary(ctx, logger, session, downloadUrl)
+	logger = log.From(logger.With().Str(logDownloadUrl, downloadUrl).Str(logBlobId, blobId))
+	return j.blob.DownloadBinary(ctx, logger, session, downloadUrl, session.DownloadEndpoint)
 }
 
 func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Context, logger *log.Logger, data []byte, contentType string) (UploadedBlob, SessionState, Error) {
-	aid := session.MailAccountId(accountId)
-
 	encoded := base64.StdEncoding.EncodeToString(data)
 
 	upload := BlobUploadCommand{
-		AccountId: aid,
+		AccountId: accountId,
 		Create: map[string]UploadObject{
 			"0": {
 				Data: []DataSourceObject{{
@@ -93,7 +87,7 @@ func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Cont
 	}
 
 	getHash := BlobGetRefCommand{
-		AccountId: aid,
+		AccountId: accountId,
 		IdRef: &ResultReference{
 			ResultOf: "0",
 			Name:     CommandBlobUpload,
