@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
 // When the request succeeds.
@@ -30,9 +31,15 @@ type SwaggerGetVacationResponse200 struct {
 //	500: ErrorResponse500
 func (g *Groupware) GetVacation(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
-		res, sessionState, err := g.jmap.GetVacationResponse(req.GetAccountId(), req.session, req.ctx, req.logger)
+		accountId, err := req.GetAccountIdForVacationResponse()
 		if err != nil {
-			return req.errorResponseFromJmap(err)
+			return errorResponse(err)
+		}
+		logger := log.From(req.logger.With().Str(logAccountId, accountId))
+
+		res, sessionState, jerr := g.jmap.GetVacationResponse(accountId, req.session, req.ctx, logger)
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
 		}
 		return etagResponse(res, sessionState, res.State)
 	})
@@ -66,7 +73,13 @@ func (g *Groupware) SetVacation(w http.ResponseWriter, r *http.Request) {
 			return errorResponse(err)
 		}
 
-		res, sessionState, jerr := g.jmap.SetVacationResponse(req.GetAccountId(), body, req.session, req.ctx, req.logger)
+		accountId, err := req.GetAccountIdForVacationResponse()
+		if err != nil {
+			return errorResponse(err)
+		}
+		logger := log.From(req.logger.With().Str(logAccountId, accountId))
+
+		res, sessionState, jerr := g.jmap.SetVacationResponse(accountId, body, req.session, req.ctx, logger)
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}

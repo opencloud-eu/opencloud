@@ -6,7 +6,6 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
-	"github.com/rs/zerolog"
 )
 
 type Identities struct {
@@ -16,9 +15,8 @@ type Identities struct {
 
 // https://jmap.io/spec-mail.html#identityget
 func (j *Client) GetIdentity(accountId string, session *Session, ctx context.Context, logger *log.Logger) (Identities, SessionState, Error) {
-	aid := session.MailAccountId(accountId)
-	logger = j.logger(aid, "GetIdentity", session, logger)
-	cmd, err := request(invocation(CommandIdentityGet, IdentityGetCommand{AccountId: aid}, "0"))
+	logger = j.logger(accountId, "GetIdentity", session, logger)
+	cmd, err := request(invocation(CommandIdentityGet, IdentityGetCommand{AccountId: accountId}, "0"))
 	if err != nil {
 		logger.Error().Err(err)
 		return Identities{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
@@ -46,9 +44,7 @@ type IdentitiesGetResponse struct {
 func (j *Client) GetIdentities(accountIds []string, session *Session, ctx context.Context, logger *log.Logger) (IdentitiesGetResponse, SessionState, Error) {
 	uniqueAccountIds := structs.Uniq(accountIds)
 
-	logger = j.loggerParams("", "GetIdentities", session, logger, func(l zerolog.Context) zerolog.Context {
-		return l.Array(logAccountId, log.SafeStringArray(uniqueAccountIds))
-	})
+	logger = j.logger("", "GetIdentities", session, logger)
 
 	calls := make([]Invocation, len(uniqueAccountIds))
 	for i, accountId := range uniqueAccountIds {
@@ -95,9 +91,7 @@ type IdentitiesAndMailboxesGetResponse struct {
 func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId string, accountIds []string, session *Session, ctx context.Context, logger *log.Logger) (IdentitiesAndMailboxesGetResponse, SessionState, Error) {
 	uniqueAccountIds := structs.Uniq(accountIds)
 
-	logger = j.loggerParams("", "GetIdentitiesAndMailboxes", session, logger, func(l zerolog.Context) zerolog.Context {
-		return l.Array(logAccountId, log.SafeStringArray(uniqueAccountIds))
-	})
+	logger = j.logger("", "GetIdentitiesAndMailboxes", session, logger)
 
 	calls := make([]Invocation, len(uniqueAccountIds)+1)
 	calls[0] = invocation(CommandMailboxGet, MailboxGetCommand{AccountId: mailboxAccountId}, "0")

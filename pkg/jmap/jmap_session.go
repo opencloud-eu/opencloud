@@ -101,30 +101,6 @@ func newSession(sessionResponse SessionResponse) (Session, Error) {
 	}, nil
 }
 
-func (s *Session) MailAccountId(accountId string) string {
-	if accountId != "" && accountId != defaultAccountId {
-		return accountId
-	}
-	// TODO(pbleser-oc) handle case where there is no default mail account
-	return s.PrimaryAccounts.Mail
-}
-
-func (s *Session) BlobAccountId(accountId string) string {
-	if accountId != "" && accountId != defaultAccountId {
-		return accountId
-	}
-	// TODO(pbleser-oc) handle case where there is no default blob account
-	return s.PrimaryAccounts.Blob
-}
-
-func (s *Session) SubmissionAccountId(accountId string) string {
-	if accountId != "" && accountId != defaultAccountId {
-		return accountId
-	}
-	// TODO(pbleser-oc) handle case where there is no default submission account
-	return s.PrimaryAccounts.Submission
-}
-
 // Create a new log.Logger that is decorated with fields containing information about the Session.
 func (s Session) DecorateLogger(l log.Logger) *log.Logger {
 	return log.From(l.With().

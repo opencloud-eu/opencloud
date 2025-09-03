@@ -4,12 +4,13 @@ import (
 	"net/http"
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
 func (g *Groupware) GetAccount(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
-		account, err := req.GetAccount()
+		account, err := req.GetAccountForMail()
 		if err != nil {
 			return errorResponse(err)
 		}
@@ -56,10 +57,14 @@ type SwaggerAccountBootstrapResponse struct {
 
 func (g *Groupware) GetAccountBootstrap(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
-		mailAccountId := req.GetAccountId()
+		mailAccountId, err := req.GetAccountIdForMail()
+		if err != nil {
+			return errorResponse(err)
+		}
+		logger := log.From(req.logger.With().Str(logAccountId, mailAccountId))
 		accountIds := structs.Keys(req.session.Accounts)
 
-		resp, sessionState, jerr := g.jmap.GetIdentitiesAndMailboxes(mailAccountId, accountIds, req.session, req.ctx, req.logger)
+		resp, sessionState, jerr := g.jmap.GetIdentitiesAndMailboxes(mailAccountId, accountIds, req.session, req.ctx, logger)
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}

@@ -11,15 +11,28 @@ import (
 func GroupwareLogger(logger log.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			level := logger.Debug()
-			if !level.Enabled() {
-				next.ServeHTTP(w, r)
-				return
-			}
-
 			start := time.Now()
 			wrap := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 			next.ServeHTTP(wrap, r)
+
+			level := logger.Debug()
+			err := recover()
+			if err != nil {
+				level = logger.Error()
+			}
+
+			if !level.Enabled() {
+				return
+			}
+
+			if err != nil {
+				switch e := err.(type) {
+				case error:
+					level = level.Err(e)
+				default:
+					level = level.Any("panic", e)
+				}
+			}
 
 			ctx := r.Context()
 
