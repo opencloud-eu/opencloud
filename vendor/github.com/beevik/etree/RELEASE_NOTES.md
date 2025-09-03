@@ -1,3 +1,14 @@
+Release 1.6.0
+=============
+
+**Changes**
+
+* Added new iterator versions of existing functions that return slices of
+  `Element` pointers: `ChildElementsSeq`, `SelectElementsSeq`,
+  `FindElementsSeq`, and `FindElementsPathSeq`.
+* Improved performance of functions that return a single element.
+* Because of its use of iterators, this package now requires go 1.23 or later.
+
 Release 1.5.1
 =============
 
