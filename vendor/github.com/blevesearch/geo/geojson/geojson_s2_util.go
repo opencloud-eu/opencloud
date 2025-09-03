@@ -25,19 +25,6 @@ import (
 
 // ------------------------------------------------------------------------
 
-// creates a shape index with all of the given polygons
-// and queries it with vertex model closed which considers
-// polygon edges and vertices to be part of the polygon.
-func polygonsContainsPoint(s2pgns []*s2.Polygon,
-	point *s2.Point) bool {
-	idx := s2.NewShapeIndex()
-	for _, s2pgn := range s2pgns {
-		idx.Add(s2pgn)
-	}
-
-	return s2.NewContainsPointQuery(idx, s2.VertexModelClosed).Contains(*point)
-}
-
 // project the point to all of the linestrings and check if
 // any of the projections are equal to the point.
 func polylineIntersectsPoint(pls []*s2.Polyline,
@@ -66,6 +53,21 @@ func polylineIntersectsPolygons(pls []*s2.Polyline,
 	containsQuery := s2.NewContainsPointQuery(idx, s2.VertexModelClosed)
 	for _, pl := range pls {
 		for _, point := range *pl {
+
+			// Precheck points within the bounds of the polygon
+			// and for small polygons, check if the point is contained
+			for _, s2pgn := range s2pgns {
+				if !s2pgn.PointWithinBound(point) {
+					continue
+				}
+
+				if small, inside := s2pgn.SmallPolygonContainsPoint(point); small {
+					if inside {
+						return true
+					}
+				}
+			}
+
 			if containsQuery.Contains(point) {
 				return true
 			}
@@ -95,12 +97,29 @@ func polylineIntersectsPolygons(pls []*s2.Polyline,
 // so we create a shape index and query it instead
 // s2.VertexModelClosed will not consider points on the edges, so
 // behaviour there is arbitrary
-func polygonIntersectsPoint(s2pgns []*s2.Polygon,
+func polygonsIntersectsPoint(s2pgns []*s2.Polygon,
 	point *s2.Point) bool {
 	idx := s2.NewShapeIndex()
 	for _, pgn := range s2pgns {
+		if !pgn.PointWithinBound(*point) {
+			continue
+		}
+
+		// We don't early exit here because the point may be contained
+		// on the vertices of the polygon, which is not considered
+		if small, inside := pgn.SmallPolygonContainsPoint(*point); small {
+			if inside {
+				return true
+			}
+		}
+
 		idx.Add(pgn)
 	}
+
+	if idx.Len() == 0 {
+		return false
+	}
+
 	return s2.NewContainsPointQuery(idx, s2.VertexModelClosed).Contains(*point)
 }
 

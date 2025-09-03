@@ -613,6 +613,27 @@ func (p *Polygon) ContainsPoint(point Point) bool {
 	return NewContainsPointQuery(p.index, VertexModelSemiOpen).Contains(point)
 }
 
+// Check whether the point is within the bounds of the polygon.
+func (p *Polygon) PointWithinBound(point Point) bool {
+	return p.bound.ContainsPoint(point)
+}
+
+// SmallPolygonContainsPoint checks if the polygon is small enough to use brute force
+// returns whether the check is possible and whether the point is contained
+// Does not consider vertices of the polygon
+func (p *Polygon) SmallPolygonContainsPoint(point Point) (bool, bool) {
+	const maxBruteForceVertices = 32
+	if p.numVertices < maxBruteForceVertices || p.index == nil {
+		inside := false
+		for _, l := range p.loops {
+			inside = inside != l.bruteForceContainsPoint(point)
+		}
+		return true, inside
+	}
+
+	return false, false
+}
+
 // ContainsCell reports whether the polygon contains the given cell.
 func (p *Polygon) ContainsCell(cell Cell) bool {
 	it := p.index.Iterator()

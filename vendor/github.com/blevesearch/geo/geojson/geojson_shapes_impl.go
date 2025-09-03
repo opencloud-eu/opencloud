@@ -933,7 +933,7 @@ func checkPointIntersectsShape(point *s2.Point, shapeIn, other index.GeoJSON) (b
 	// check if the other shape is a polygon.
 	if p2, ok := other.(*Polygon); ok {
 		// check if the point is contained within the polygon.
-		if polygonsContainsPoint([]*s2.Polygon{p2.s2pgn}, point) {
+		if polygonsIntersectsPoint([]*s2.Polygon{p2.s2pgn}, point) {
 			return true, nil
 		}
 
@@ -943,7 +943,7 @@ func checkPointIntersectsShape(point *s2.Point, shapeIn, other index.GeoJSON) (b
 	// check if the other shape is a multipolygon.
 	if p2, ok := other.(*MultiPolygon); ok {
 		// check if the point is contained within any of the polygons
-		if polygonsContainsPoint(p2.s2pgns, point) {
+		if polygonsIntersectsPoint(p2.s2pgns, point) {
 			return true, nil
 		}
 
@@ -1195,7 +1195,7 @@ func checkPolygonIntersectsShape(s2pgn *s2.Polygon, shapeIn,
 	other index.GeoJSON) (bool, error) {
 	// check if the other shape is a point.
 	if p2, ok := other.(*Point); ok {
-		if polygonIntersectsPoint([]*s2.Polygon{s2pgn}, p2.s2point) {
+		if polygonsIntersectsPoint([]*s2.Polygon{s2pgn}, p2.s2point) {
 			return true, nil
 		}
 
@@ -1205,7 +1205,7 @@ func checkPolygonIntersectsShape(s2pgn *s2.Polygon, shapeIn,
 	// check if the other shape is a multipoint.
 	if p2, ok := other.(*MultiPoint); ok {
 		for _, s2point := range p2.s2points {
-			if polygonIntersectsPoint([]*s2.Polygon{s2pgn}, s2point) {
+			if polygonsIntersectsPoint([]*s2.Polygon{s2pgn}, s2point) {
 				return true, nil
 			}
 		}
@@ -1293,10 +1293,8 @@ func checkMultiPolygonContainsShape(s2pgns []*s2.Polygon,
 	shapeIn, other index.GeoJSON) (bool, error) {
 	// check if the other shape is a point.
 	if p2, ok := other.(*Point); ok {
-		for _, s2pgn := range s2pgns {
-			if polygonIntersectsPoint([]*s2.Polygon{s2pgn}, p2.s2point) {
-				return true, nil
-			}
+		if polygonsIntersectsPoint(s2pgns, p2.s2point) {
+			return true, nil
 		}
 
 		return false, nil
