@@ -6,6 +6,11 @@
 
 @aduffeck, @prashant-gurung899, @rhafer
 
+### ✅ Tests
+
+- [full-ci] add pipeline to purge go-bin cache [[#1445](https://github.com/opencloud-eu/opencloud/pull/1445)]
+- [full-ci] purge browsers, opencloud web and playwright tracing cache [[#1403](https://github.com/opencloud-eu/opencloud/pull/1403)]
+
 ### 📈 Enhancement
 
 - Tracing improvements [[#1436](https://github.com/opencloud-eu/opencloud/pull/1436)]
@@ -13,10 +18,6 @@
 ### 🐛 Bug Fixes
 
 - Do not intertwine different batch operations [[#1317](https://github.com/opencloud-eu/opencloud/pull/1317)]
-
-### ✅ Tests
-
-- [full-ci] purge browsers, opencloud web and playwright tracing cache [[#1403](https://github.com/opencloud-eu/opencloud/pull/1403)]
 
 ### 📦️ Dependencies
 
