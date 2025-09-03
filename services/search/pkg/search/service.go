@@ -531,19 +531,13 @@ func (s *Service) PurgeItem(ref *provider.Reference) {
 		return
 	}
 
-	s.engine.StartBatch(s.batchSize)
-	defer func() {
-		if err := s.engine.EndBatch(); err != nil {
-			s.logger.Error().Err(err).Msg("failed to end batch")
-		}
-		logDocCount(s.engine, s.logger)
-	}()
 	err := s.engine.Purge(storagespace.FormatResourceID(ref.ResourceId), false)
 	if err != nil {
 		s.logger.Error().Err(err).Interface("Id", ref.ResourceId).Msg("failed to purge item from index")
 		return
 	}
 	s.logger.Info().Interface("Id", ref.ResourceId).Msg("purged item from index")
+	logDocCount(s.engine, s.logger)
 }
 
 func (s *Service) PurgeDeleted(spaceID *provider.StorageSpaceId) error {
@@ -562,14 +556,14 @@ func (s *Service) PurgeDeleted(spaceID *provider.StorageSpaceId) error {
 	}
 	rootID.OpaqueId = rootID.SpaceId
 
-	s.engine.StartBatch(s.batchSize)
-	defer func() {
-		if err := s.engine.EndBatch(); err != nil {
-			s.logger.Error().Err(err).Msg("failed to end batch")
-		}
-		logDocCount(s.engine, s.logger)
-	}()
-	return s.engine.Purge(storagespace.FormatResourceID(&rootID), true)
+	if err := s.engine.Purge(storagespace.FormatResourceID(&rootID), true); err != nil {
+		s.logger.Error().Err(err).Interface("Id", &rootID).Msg("failed to purge deleted items from index")
+		return err
+	}
+
+	logDocCount(s.engine, s.logger)
+
+	return nil
 }
 
 // UpsertItem indexes or stores Resource data fields.

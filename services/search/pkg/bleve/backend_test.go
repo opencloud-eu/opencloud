@@ -480,6 +480,26 @@ var _ = Describe("Bleve", func() {
 			assertDocCount(rootResource.ID, `"`+parentResource.Document.Name+`"`, 0)
 			assertDocCount(rootResource.ID, `"`+childResource.Document.Name+`"`, 0)
 		})
+		It("removes a resource and ignores its children from the index", func() {
+			err := eng.Upsert(parentResource.ID, parentResource)
+			Expect(err).ToNot(HaveOccurred())
+
+			assertDocCount(rootResource.ID, `"`+parentResource.Document.Name+`"`, 1)
+
+			err = eng.Delete(parentResource.ID)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = eng.Upsert(childResource.ID, childResource)
+			Expect(err).ToNot(HaveOccurred())
+
+			assertDocCount(rootResource.ID, `"`+childResource.Document.Name+`"`, 1)
+
+			err = eng.Purge(parentResource.ID, true)
+			Expect(err).ToNot(HaveOccurred())
+
+			assertDocCount(rootResource.ID, `"`+parentResource.Document.Name+`"`, 0)
+			assertDocCount(rootResource.ID, `"`+childResource.Document.Name+`"`, 1)
+		})
 	})
 
 	Describe("Move", func() {

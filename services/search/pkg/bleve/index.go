@@ -3,9 +3,7 @@ package bleve
 import (
 	"errors"
 	"math"
-	"path"
 	"path/filepath"
-	"strings"
 
 	"github.com/blevesearch/bleve/v2"
 	"github.com/blevesearch/bleve/v2/analysis/analyzer/custom"
@@ -16,7 +14,6 @@ import (
 	"github.com/blevesearch/bleve/v2/analysis/tokenizer/unicode"
 	"github.com/blevesearch/bleve/v2/mapping"
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
 
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
@@ -120,35 +117,6 @@ func searchResourcesByPath(rootId, lookupPath string, index bleve.Index) ([]*sea
 	resources := make([]*search.Resource, 0, res.Hits.Len())
 	for _, match := range res.Hits {
 		resources = append(resources, matchToResource(match))
-	}
-
-	return resources, nil
-}
-
-func searchAndUpdateResourcesLocation(rootID, parentID, location string, index bleve.Index) ([]*search.Resource, error) {
-	rootResource, err := searchResourceByID(rootID, index)
-	if err != nil {
-		return nil, err
-	}
-	currentPath := rootResource.Path
-	nextPath := utils.MakeRelativePath(location)
-
-	rootResource.Path = nextPath
-	rootResource.Name = path.Base(nextPath)
-	rootResource.ParentID = parentID
-
-	resources := []*search.Resource{rootResource}
-
-	if rootResource.Type == uint64(storageProvider.ResourceType_RESOURCE_TYPE_CONTAINER) {
-		descendantResources, err := searchResourcesByPath(rootResource.RootID, currentPath, index)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, descendantResource := range descendantResources {
-			descendantResource.Path = strings.Replace(descendantResource.Path, currentPath, nextPath, 1)
-			resources = append(resources, descendantResource)
-		}
 	}
 
 	return resources, nil

@@ -2,14 +2,18 @@ package bleve
 
 import (
 	"errors"
+	"path"
+	"strings"
 
 	"github.com/blevesearch/bleve/v2"
+	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	"github.com/opencloud-eu/reva/v2/pkg/utils"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
-var _ search.BatchOperator = &Batch{} // ensure Batch implements BatchOperator
+var _ search.BatchOperator = (*Batch)(nil) // ensure Batch implements BatchOperator
 
 type Batch struct {
 	batch *bleve.Batch
@@ -38,12 +42,32 @@ func (b *Batch) Upsert(id string, r search.Resource) error {
 
 func (b *Batch) Move(id, parentID, location string) error {
 	return b.withSizeLimit(func() error {
-		affectedResources, err := searchAndUpdateResourcesLocation(id, parentID, location, b.index)
+		rootResource, err := searchResourceByID(id, b.index)
 		if err != nil {
 			return err
 		}
+		currentPath := rootResource.Path
+		nextPath := utils.MakeRelativePath(location)
 
-		for _, resource := range affectedResources {
+		rootResource.Path = nextPath
+		rootResource.Name = path.Base(nextPath)
+		rootResource.ParentID = parentID
+
+		resources := []*search.Resource{rootResource}
+
+		if rootResource.Type == uint64(storageProvider.ResourceType_RESOURCE_TYPE_CONTAINER) {
+			descendantResources, err := searchResourcesByPath(rootResource.RootID, currentPath, b.index)
+			if err != nil {
+				return err
+			}
+
+			for _, descendantResource := range descendantResources {
+				descendantResource.Path = strings.Replace(descendantResource.Path, currentPath, nextPath, 1)
+				resources = append(resources, descendantResource)
+			}
+		}
+
+		for _, resource := range resources {
 			if err := b.batch.Index(resource.ID, resource); err != nil {
 				return err
 			}
@@ -87,9 +111,39 @@ func (b *Batch) Restore(id string) error {
 	})
 }
 
-func (b *Batch) Purge(id string) error {
+func (b *Batch) Purge(id string, onlyDeleted bool) error {
 	return b.withSizeLimit(func() error {
-		b.batch.Delete(id)
+		rootResource, err := searchResourceByID(id, b.index)
+		if err != nil {
+			return err
+		}
+
+		var affectResources []*search.Resource
+		add := func(resource *search.Resource) {
+			if onlyDeleted && !resource.Deleted {
+				return
+			}
+
+			affectResources = append(affectResources, resource)
+		}
+
+		add(rootResource)
+
+		if rootResource.Type == uint64(storageProvider.ResourceType_RESOURCE_TYPE_CONTAINER) {
+			descendantResources, err := searchResourcesByPath(rootResource.RootID, rootResource.Path, b.index)
+			if err != nil {
+				return err
+			}
+
+			for _, descendantResource := range descendantResources {
+				add(descendantResource)
+			}
+		}
+
+		for _, resource := range affectResources {
+			b.batch.Delete(resource.ID)
+		}
+
 		return nil
 	})
 }

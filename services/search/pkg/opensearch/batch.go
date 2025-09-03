@@ -18,7 +18,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
-var _ search.BatchOperator = &Batch{} // ensure Batch implements BatchOperator
+var _ search.BatchOperator = (*Batch)(nil) // ensure Batch implements BatchOperator
 
 type Batch struct {
 	client     *opensearchgoAPI.Client
@@ -136,11 +136,16 @@ func (b *Batch) Restore(id string) error {
 	})
 }
 
-func (b *Batch) Purge(id string) error {
+func (b *Batch) Purge(id string, onlyDeleted bool) error {
 	return b.withSizeLimit(func() error {
 		resource, err := searchResourceByID(context.Background(), b.client, b.index, id)
 		if err != nil {
 			return fmt.Errorf("failed to get resource: %w", err)
+		}
+
+		query := osu.NewBoolQuery().Must(osu.NewTermQuery[string]("Path").Value(resource.Path))
+		if onlyDeleted {
+			query.Must(osu.NewTermQuery[bool]("Deleted").Value(true))
 		}
 
 		req, err := osu.BuildDocumentDeleteByQueryReq(
@@ -150,7 +155,7 @@ func (b *Batch) Purge(id string) error {
 					WaitForCompletion: conversions.ToPointer(true),
 				},
 			},
-			osu.NewTermQuery[string]("Path").Value(resource.Path),
+			query,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to build delete by query request: %w", err)
