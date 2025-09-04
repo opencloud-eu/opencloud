@@ -123,10 +123,11 @@ func (h *HttpJmapClient) GetSession(sessionUrl *url.URL, username string, logger
 	//sessionUrl := baseurl.JoinPath(".well-known", "jmap")
 	sessionUrlStr := sessionUrl.String()
 	endpoint := endpointOf(sessionUrl)
+	logger = log.From(logger.With().Str(logEndpoint, endpoint))
 
 	req, err := http.NewRequest(http.MethodGet, sessionUrlStr, nil)
 	if err != nil {
-		logger.Error().Err(err).Str(logEndpoint, endpoint).Msgf("failed to create GET request for %v", sessionUrl)
+		logger.Error().Err(err).Msgf("failed to create GET request for %v", sessionUrl)
 		return SessionResponse{}, SimpleError{code: JmapErrorInvalidHttpRequest, err: err}
 	}
 	h.auth(username, logger, req)
@@ -135,12 +136,12 @@ func (h *HttpJmapClient) GetSession(sessionUrl *url.URL, username string, logger
 	res, err := h.client.Do(req)
 	if err != nil {
 		h.listener.OnFailedRequest(endpoint, err)
-		logger.Error().Err(err).Str(logEndpoint, endpoint).Msgf("failed to perform GET %v", sessionUrl)
+		logger.Error().Err(err).Msgf("failed to perform GET %v", sessionUrl)
 		return SessionResponse{}, SimpleError{code: JmapErrorInvalidHttpRequest, err: err}
 	}
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		h.listener.OnFailedRequestWithStatus(endpoint, res.StatusCode)
-		logger.Error().Str(logEndpoint, endpoint).Str(logHttpStatus, res.Status).Int(logHttpStatusCode, res.StatusCode).Msg("HTTP response status code is not 200")
+		logger.Error().Str(logHttpStatus, res.Status).Int(logHttpStatusCode, res.StatusCode).Msg("HTTP response status code is not 200")
 		return SessionResponse{}, SimpleError{code: JmapErrorServerResponse, err: fmt.Errorf("JMAP API response status is %v", res.Status)}
 	}
 	h.listener.OnSuccessfulRequest(endpoint, res.StatusCode)
@@ -156,7 +157,7 @@ func (h *HttpJmapClient) GetSession(sessionUrl *url.URL, username string, logger
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		logger.Error().Err(err).Str(logEndpoint, endpoint).Msg("failed to read response body")
+		logger.Error().Err(err).Msg("failed to read response body")
 		h.listener.OnResponseBodyReadingError(endpoint, err)
 		return SessionResponse{}, SimpleError{code: JmapErrorReadingResponseBody, err: err}
 	}
@@ -164,7 +165,7 @@ func (h *HttpJmapClient) GetSession(sessionUrl *url.URL, username string, logger
 	var data SessionResponse
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		logger.Error().Str(logEndpoint, endpoint).Str(logHttpUrl, sessionUrlStr).Err(err).Msg("failed to decode JSON payload from .well-known/jmap response")
+		logger.Error().Str(logHttpUrl, sessionUrlStr).Err(err).Msg("failed to decode JSON payload from .well-known/jmap response")
 		h.listener.OnResponseBodyUnmarshallingError(endpoint, err)
 		return SessionResponse{}, SimpleError{code: JmapErrorDecodingResponseBody, err: err}
 	}
@@ -175,16 +176,17 @@ func (h *HttpJmapClient) GetSession(sessionUrl *url.URL, username string, logger
 func (h *HttpJmapClient) Command(ctx context.Context, logger *log.Logger, session *Session, request Request) ([]byte, Error) {
 	jmapUrl := session.JmapUrl.String()
 	endpoint := session.JmapEndpoint
+	logger = log.From(logger.With().Str(logEndpoint, endpoint))
 
 	bodyBytes, err := json.Marshal(request)
 	if err != nil {
-		logger.Error().Err(err).Str(logEndpoint, endpoint).Msg("failed to marshall JSON payload")
+		logger.Error().Err(err).Msg("failed to marshall JSON payload")
 		return nil, SimpleError{code: JmapErrorEncodingRequestBody, err: err}
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, jmapUrl, bytes.NewBuffer(bodyBytes))
 	if err != nil {
-		logger.Error().Err(err).Str(logEndpoint, endpoint).Msgf("failed to create POST request for %v", jmapUrl)
+		logger.Error().Err(err).Msgf("failed to create POST request for %v", jmapUrl)
 		return nil, SimpleError{code: JmapErrorCreatingRequest, err: err}
 	}
 	req.Header.Add("Content-Type", "application/json")
@@ -194,7 +196,7 @@ func (h *HttpJmapClient) Command(ctx context.Context, logger *log.Logger, sessio
 	res, err := h.client.Do(req)
 	if err != nil {
 		h.listener.OnFailedRequest(endpoint, err)
-		logger.Error().Err(err).Str(logEndpoint, endpoint).Msgf("failed to perform POST %v", jmapUrl)
+		logger.Error().Err(err).Msgf("failed to perform POST %v", jmapUrl)
 		return nil, SimpleError{code: JmapErrorSendingRequest, err: err}
 	}
 	if res.StatusCode < 200 || res.StatusCode > 299 {
@@ -214,7 +216,7 @@ func (h *HttpJmapClient) Command(ctx context.Context, logger *log.Logger, sessio
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		logger.Error().Err(err).Str(logEndpoint, endpoint).Msg("failed to read response body")
+		logger.Error().Err(err).Msg("failed to read response body")
 		h.listener.OnResponseBodyReadingError(endpoint, err)
 		return nil, SimpleError{code: JmapErrorServerResponse, err: err}
 	}
@@ -223,9 +225,11 @@ func (h *HttpJmapClient) Command(ctx context.Context, logger *log.Logger, sessio
 }
 
 func (h *HttpJmapClient) UploadBinary(ctx context.Context, logger *log.Logger, session *Session, uploadUrl string, endpoint string, contentType string, body io.Reader) (UploadedBlob, Error) {
+	logger = log.From(logger.With().Str(logEndpoint, endpoint))
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uploadUrl, body)
 	if err != nil {
-		logger.Error().Err(err).Str(logEndpoint, endpoint).Msgf("failed to create POST request for %v", uploadUrl)
+		logger.Error().Err(err).Msgf("failed to create POST request for %v", uploadUrl)
 		return UploadedBlob{}, SimpleError{code: JmapErrorCreatingRequest, err: err}
 	}
 	req.Header.Add("Content-Type", contentType)
@@ -235,12 +239,12 @@ func (h *HttpJmapClient) UploadBinary(ctx context.Context, logger *log.Logger, s
 	res, err := h.client.Do(req)
 	if err != nil {
 		h.listener.OnFailedRequest(endpoint, err)
-		logger.Error().Err(err).Str(logEndpoint, endpoint).Msgf("failed to perform POST %v", uploadUrl)
+		logger.Error().Err(err).Msgf("failed to perform POST %v", uploadUrl)
 		return UploadedBlob{}, SimpleError{code: JmapErrorSendingRequest, err: err}
 	}
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		h.listener.OnFailedRequestWithStatus(endpoint, res.StatusCode)
-		logger.Error().Str(logEndpoint, endpoint).Str(logHttpStatus, res.Status).Int(logHttpStatusCode, res.StatusCode).Msg("HTTP response status code is not 2xx")
+		logger.Error().Str(logHttpStatus, res.Status).Int(logHttpStatusCode, res.StatusCode).Msg("HTTP response status code is not 2xx")
 		return UploadedBlob{}, SimpleError{code: JmapErrorServerResponse, err: err}
 	}
 	if res.Body != nil {
@@ -255,7 +259,7 @@ func (h *HttpJmapClient) UploadBinary(ctx context.Context, logger *log.Logger, s
 
 	responseBody, err := io.ReadAll(res.Body)
 	if err != nil {
-		logger.Error().Err(err).Str(logEndpoint, endpoint).Msg("failed to read response body")
+		logger.Error().Err(err).Msg("failed to read response body")
 		h.listener.OnResponseBodyReadingError(endpoint, err)
 		return UploadedBlob{}, SimpleError{code: JmapErrorServerResponse, err: err}
 	}
@@ -263,7 +267,7 @@ func (h *HttpJmapClient) UploadBinary(ctx context.Context, logger *log.Logger, s
 	var result UploadedBlob
 	err = json.Unmarshal(responseBody, &result)
 	if err != nil {
-		logger.Error().Str(logEndpoint, endpoint).Str(logHttpUrl, uploadUrl).Err(err).Msg("failed to decode JSON payload from the upload response")
+		logger.Error().Str(logHttpUrl, uploadUrl).Err(err).Msg("failed to decode JSON payload from the upload response")
 		h.listener.OnResponseBodyUnmarshallingError(endpoint, err)
 		return UploadedBlob{}, SimpleError{code: JmapErrorDecodingResponseBody, err: err}
 	}
@@ -272,9 +276,11 @@ func (h *HttpJmapClient) UploadBinary(ctx context.Context, logger *log.Logger, s
 }
 
 func (h *HttpJmapClient) DownloadBinary(ctx context.Context, logger *log.Logger, session *Session, downloadUrl string, endpoint string) (*BlobDownload, Error) {
+	logger = log.From(logger.With().Str(logEndpoint, endpoint))
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadUrl, nil)
 	if err != nil {
-		logger.Error().Err(err).Str(logEndpoint, endpoint).Msgf("failed to create GET request for %v", downloadUrl)
+		logger.Error().Err(err).Msgf("failed to create GET request for %v", downloadUrl)
 		return nil, SimpleError{code: JmapErrorCreatingRequest, err: err}
 	}
 	req.Header.Add("User-Agent", h.userAgent)
@@ -283,7 +289,7 @@ func (h *HttpJmapClient) DownloadBinary(ctx context.Context, logger *log.Logger,
 	res, err := h.client.Do(req)
 	if err != nil {
 		h.listener.OnFailedRequest(endpoint, err)
-		logger.Error().Err(err).Str(logEndpoint, endpoint).Msgf("failed to perform GET %v", downloadUrl)
+		logger.Error().Err(err).Msgf("failed to perform GET %v", downloadUrl)
 		return nil, SimpleError{code: JmapErrorSendingRequest, err: err}
 	}
 	if res.StatusCode == http.StatusNotFound {
@@ -291,7 +297,7 @@ func (h *HttpJmapClient) DownloadBinary(ctx context.Context, logger *log.Logger,
 	}
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		h.listener.OnFailedRequestWithStatus(endpoint, res.StatusCode)
-		logger.Error().Str(logEndpoint, endpoint).Str(logHttpStatus, res.Status).Int(logHttpStatusCode, res.StatusCode).Msg("HTTP response status code is not 2xx")
+		logger.Error().Str(logHttpStatus, res.Status).Int(logHttpStatusCode, res.StatusCode).Msg("HTTP response status code is not 2xx")
 		return nil, SimpleError{code: JmapErrorServerResponse, err: err}
 	}
 	h.listener.OnSuccessfulRequest(endpoint, res.StatusCode)
@@ -301,7 +307,7 @@ func (h *HttpJmapClient) DownloadBinary(ctx context.Context, logger *log.Logger,
 	if sizeStr != "" {
 		size, err = strconv.Atoi(sizeStr)
 		if err != nil {
-			logger.Warn().Err(err).Str(logEndpoint, endpoint).Msgf("failed to parse Content-Length blob download response header value '%v'", sizeStr)
+			logger.Warn().Err(err).Msgf("failed to parse Content-Length blob download response header value '%v'", sizeStr)
 			size = -1
 		}
 	}
