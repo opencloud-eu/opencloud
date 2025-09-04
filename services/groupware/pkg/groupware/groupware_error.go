@@ -144,27 +144,29 @@ func groupwareErrorFromJmap(j jmap.Error) *GroupwareError {
 }
 
 const (
-	ErrorCodeGeneric                    = "ERRGEN"
-	ErrorCodeInvalidAuthentication      = "AUTINV"
-	ErrorCodeMissingAuthentication      = "AUTMIS"
-	ErrorCodeForbiddenGeneric           = "AUTFOR"
-	ErrorCodeInvalidBackendRequest      = "INVREQ"
-	ErrorCodeServerResponse             = "SRVRSP"
-	ErrorCodeStreamingResponse          = "SRVRST"
-	ErrorCodeServerReadingResponse      = "SRVRRE"
-	ErrorCodeServerDecodingResponseBody = "SRVDRB"
-	ErrorCodeEncodingRequestBody        = "ENCREQ"
-	ErrorCodeCreatingRequest            = "CREREQ"
-	ErrorCodeSendingRequest             = "SNDREQ"
-	ErrorCodeInvalidSessionResponse     = "INVSES"
-	ErrorCodeInvalidRequestPayload      = "INVRQP"
-	ErrorCodeInvalidResponsePayload     = "INVRSP"
-	ErrorCodeInvalidRequestParameter    = "INVPAR"
-	ErrorCodeInvalidRequestBody         = "INVBDY"
-	ErrorCodeNonExistingAccount         = "INVACC"
-	ErrorCodeIndeterminateAccount       = "INDACC"
-	ErrorCodeApiInconsistency           = "APIINC"
-	ErrorCodeInvalidUserRequest         = "INVURQ"
+	ErrorCodeGeneric                           = "ERRGEN"
+	ErrorCodeInvalidAuthentication             = "AUTINV"
+	ErrorCodeMissingAuthentication             = "AUTMIS"
+	ErrorCodeForbiddenGeneric                  = "AUTFOR"
+	ErrorCodeInvalidBackendRequest             = "INVREQ"
+	ErrorCodeServerResponse                    = "SRVRSP"
+	ErrorCodeStreamingResponse                 = "SRVRST"
+	ErrorCodeServerReadingResponse             = "SRVRRE"
+	ErrorCodeServerDecodingResponseBody        = "SRVDRB"
+	ErrorCodeEncodingRequestBody               = "ENCREQ"
+	ErrorCodeCreatingRequest                   = "CREREQ"
+	ErrorCodeSendingRequest                    = "SNDREQ"
+	ErrorCodeInvalidSessionResponse            = "INVSES"
+	ErrorCodeInvalidRequestPayload             = "INVRQP"
+	ErrorCodeInvalidResponsePayload            = "INVRSP"
+	ErrorCodeInvalidRequestParameter           = "INVPAR"
+	ErrorCodeInvalidRequestBody                = "INVBDY"
+	ErrorCodeNonExistingAccount                = "INVACC"
+	ErrorCodeIndeterminateAccount              = "INDACC"
+	ErrorCodeApiInconsistency                  = "APIINC"
+	ErrorCodeInvalidUserRequest                = "INVURQ"
+	ErrorCodeUsernameEmailDomainNotGreenListed = "UEDGRE"
+	ErrorCodeUsernameEmailDomainRedListed      = "UEDRED"
 )
 
 var (
@@ -293,6 +295,18 @@ var (
 		Code:   ErrorCodeApiInconsistency,
 		Title:  "API Inconsistency",
 		Detail: "Internal APIs returned unexpected data.",
+	}
+	ErrorUsernameEmailDomainIsNotGreenlisted = GroupwareError{
+		Status: http.StatusUnauthorized,
+		Code:   ErrorCodeUsernameEmailDomainNotGreenListed,
+		Title:  "Domain is not greenlisted",
+		Detail: "The username email address domain is not greenlisted.",
+	}
+	ErrorUsernameEmailDomainIsRedlisted = GroupwareError{
+		Status: http.StatusUnauthorized,
+		Code:   ErrorCodeUsernameEmailDomainRedListed,
+		Title:  "Domain is redlisted",
+		Detail: "The username email address domain is redlisted.",
 	}
 )
 
