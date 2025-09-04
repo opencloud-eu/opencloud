@@ -15,9 +15,9 @@ import (
 type revaContextUserProvider struct {
 }
 
-var _ UserProvider = revaContextUserProvider{}
+var _ userProvider = revaContextUserProvider{}
 
-func NewRevaContextUsernameProvider() UserProvider {
+func newRevaContextUsernameProvider() userProvider {
 	return revaContextUserProvider{}
 }
 
@@ -27,26 +27,26 @@ var (
 	errUserNotInRevaContext = errors.New("failed to find user in reva context")
 )
 
-func (r revaContextUserProvider) GetUser(req *http.Request, ctx context.Context, logger *log.Logger) (User, error) {
+func (r revaContextUserProvider) GetUser(req *http.Request, ctx context.Context, logger *log.Logger) (user, error) {
 	u, ok := revactx.ContextGetUser(ctx)
 	if !ok {
 		err := errUserNotInRevaContext
 		logger.Error().Err(err).Ctx(ctx).Msgf("could not get user: user not in reva context: %v", ctx)
 		return nil, err
 	}
-	return RevaUser{user: u}, nil
+	return revaUser{user: u}, nil
 }
 
-type RevaUser struct {
+type revaUser struct {
 	user *userv1beta1.User
 }
 
-func (r RevaUser) GetUsername() string {
+func (r revaUser) GetUsername() string {
 	return r.user.GetUsername()
 }
 
-func (r RevaUser) GetId() string {
+func (r revaUser) GetId() string {
 	return r.user.GetId().GetOpaqueId()
 }
 
-var _ User = RevaUser{}
+var _ user = revaUser{}

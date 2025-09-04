@@ -27,7 +27,7 @@ import (
 // the parameter list of every single handler function
 type Request struct {
 	g       *Groupware
-	user    User
+	user    user
 	r       *http.Request
 	ctx     context.Context
 	logger  *log.Logger
@@ -38,7 +38,7 @@ func (r Request) push(typ string, event any) {
 	r.g.push(r.user, typ, event)
 }
 
-func (r Request) GetUser() User {
+func (r Request) GetUser() user {
 	return r.user
 }
 

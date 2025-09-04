@@ -17,17 +17,22 @@ var (
 )
 
 type DnsSessionUrlResolver struct {
-	defaultSessionUrl *url.URL
-	defaultDomain     string
-	domainGreenList   []string
-	domainRedList     []string
-	config            *dns.ClientConfig
-	client            *dns.Client
+	defaultSessionUrlSupplier func(string) (*url.URL, *GroupwareError)
+	defaultDomain             string
+	domainGreenList           []string
+	domainRedList             []string
+	config                    *dns.ClientConfig
+	client                    *dns.Client
 }
 
-func NewDnsSessionUrlResolver(defaultSessionUrl *url.URL, defaultDomain string,
-	config *dns.ClientConfig, domainGreenList []string, domainRedList []string,
-	dialTimeout time.Duration, readTimeout time.Duration,
+func NewDnsSessionUrlResolver(
+	defaultSessionUrlSupplier func(string) (*url.URL, *GroupwareError),
+	defaultDomain string,
+	config *dns.ClientConfig,
+	domainGreenList []string,
+	domainRedList []string,
+	dialTimeout time.Duration,
+	readTimeout time.Duration,
 ) (DnsSessionUrlResolver, error) {
 	// TODO the whole udp or tcp dialier configuration, see https://github.com/miekg/exdns/blob/master/q/q.go
 
@@ -37,10 +42,10 @@ func NewDnsSessionUrlResolver(defaultSessionUrl *url.URL, defaultDomain string,
 	}
 
 	return DnsSessionUrlResolver{
-		defaultSessionUrl: defaultSessionUrl,
-		defaultDomain:     defaultDomain,
-		config:            config,
-		client:            c,
+		defaultSessionUrlSupplier: defaultSessionUrlSupplier,
+		defaultDomain:             defaultDomain,
+		config:                    config,
+		client:                    c,
 	}, nil
 }
 
@@ -75,7 +80,7 @@ func (d DnsSessionUrlResolver) Resolve(username string) (*url.URL, *GroupwareErr
 		// nevertheless then?
 		if d.defaultDomain == "" {
 			// we don't, then let's fall back to the static session URL instead
-			return d.defaultSessionUrl, nil
+			return d.defaultSessionUrlSupplier(username)
 		}
 	} else {
 		domain = parts[len(parts)-1]
@@ -133,7 +138,7 @@ func (d DnsSessionUrlResolver) Resolve(username string) (*url.URL, *GroupwareErr
 		}
 	}
 
-	return d.defaultSessionUrl, nil
+	return d.defaultSessionUrlSupplier(username)
 }
 
 func (d DnsSessionUrlResolver) dnsQuery(c *dns.Client, msg *dns.Msg) (*dns.Msg, error) {
