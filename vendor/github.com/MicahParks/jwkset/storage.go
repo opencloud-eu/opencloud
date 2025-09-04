@@ -213,7 +213,6 @@ type httpStorage struct {
 func NewStorageFromHTTP(remoteJWKSetURL string, options HTTPClientStorageOptions) (Storage, error) {
 	if options.Client == nil {
 		options.Client = http.DefaultClient
-	} else {
 	}
 	if options.Ctx == nil {
 		options.Ctx = context.Background()
