@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.5.0) - 2025-09-03
+## [3.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.5.0) - 2025-09-04
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -21,6 +21,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/beevik/etree from 1.5.1 to 1.6.0 [[#1453](https://github.com/opencloud-eu/opencloud/pull/1453)]
 - build(deps): bump github.com/blevesearch/bleve/v2 from 2.5.2 to 2.5.3 [[#1450](https://github.com/opencloud-eu/opencloud/pull/1450)]
 - build(deps): bump go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp from 0.62.0 to 0.63.0 [[#1448](https://github.com/opencloud-eu/opencloud/pull/1448)]
 - build(deps): bump go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc from 0.62.0 to 0.63.0 [[#1446](https://github.com/opencloud-eu/opencloud/pull/1446)]
