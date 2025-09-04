@@ -43,7 +43,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gookit/config/v2 v2.2.7
 	github.com/gorilla/mux v1.8.1
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.1
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.2
 	github.com/invopop/validation v0.8.0
 	github.com/jellydator/ttlcache/v2 v2.11.1
 	github.com/jellydator/ttlcache/v3 v3.4.0
@@ -110,7 +110,7 @@ require (
 	golang.org/x/sync v0.16.0
 	golang.org/x/term v0.34.0
 	golang.org/x/text v0.28.0
-	google.golang.org/genproto/googleapis/api v0.0.0-20250707201910-8d1bb00bc6a7
+	google.golang.org/genproto/googleapis/api v0.0.0-20250818200422-3122310a409c
 	google.golang.org/grpc v1.75.0
 	google.golang.org/protobuf v1.36.8
 	gopkg.in/yaml.v2 v2.4.0
