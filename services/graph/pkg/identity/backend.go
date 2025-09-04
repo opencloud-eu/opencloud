@@ -121,7 +121,7 @@ func CreateUserModelFromCS3(u *cs3user.User) *libregraph.User {
 	if u.GetId() == nil {
 		u.Id = &cs3user.UserId{}
 	}
-	userType := cs3UserTypeToGraph(u.GetId().GetType())
+	userType := CS3UserTypeToGraph(u.GetId().GetType())
 	user := &libregraph.User{
 		Identities: []libregraph.ObjectIdentity{{
 			Issuer:           &u.GetId().Idp,
@@ -136,7 +136,7 @@ func CreateUserModelFromCS3(u *cs3user.User) *libregraph.User {
 	return user
 }
 
-func cs3UserTypeToGraph(cs3type cs3user.UserType) string {
+func CS3UserTypeToGraph(cs3type cs3user.UserType) string {
 	switch cs3type {
 	case cs3user.UserType_USER_TYPE_PRIMARY:
 		return UserTypeMember
