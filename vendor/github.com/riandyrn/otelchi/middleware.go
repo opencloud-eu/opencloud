@@ -13,6 +13,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 
 	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
 	"go.opentelemetry.io/otel/semconv/v1.20.0/httpconv"
@@ -23,6 +24,10 @@ const (
 	tracerName = "github.com/riandyrn/otelchi"
 )
 
+func newTracer(tp trace.TracerProvider) trace.Tracer {
+	return tp.Tracer(tracerName, trace.WithInstrumentationVersion(version.Version()))
+}
+
 // Middleware sets up a handler to start tracing the incoming
 // requests. The serverName parameter should describe the name of the
 // (virtual) server handling the request.
@@ -31,13 +36,12 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 	for _, opt := range opts {
 		opt.apply(&cfg)
 	}
-	if cfg.tracerProvider == nil {
-		cfg.tracerProvider = otel.GetTracerProvider()
+
+	var tracer oteltrace.Tracer
+	if cfg.tracerProvider != nil {
+		tracer = newTracer(cfg.tracerProvider)
 	}
-	tracer := cfg.tracerProvider.Tracer(
-		tracerName,
-		oteltrace.WithInstrumentationVersion(version.Version()),
-	)
+
 	if cfg.propagators == nil {
 		cfg.propagators = otel.GetTextMapPropagator()
 	}
@@ -167,8 +171,17 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	tracer := tw.tracer
+	if tracer == nil {
+		if span := trace.SpanFromContext(r.Context()); span.SpanContext().IsValid() {
+			tracer = newTracer(span.TracerProvider())
+		} else {
+			tracer = newTracer(otel.GetTracerProvider())
+		}
+	}
+
 	// start span
-	ctx, span := tw.tracer.Start(ctx, spanName, spanOpts...)
+	ctx, span := tracer.Start(ctx, spanName, spanOpts...)
 	defer span.End()
 
 	// put trace_id to response header only when `WithTraceIDResponseHeader` is used
