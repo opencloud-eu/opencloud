@@ -21,6 +21,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/spf13/cobra from 1.9.1 to 1.10.1 [[#1459](https://github.com/opencloud-eu/opencloud/pull/1459)]
 - build(deps): bump github.com/riandyrn/otelchi from 0.12.1 to 0.12.2 [[#1456](https://github.com/opencloud-eu/opencloud/pull/1456)]
 - build(deps): bump github.com/beevik/etree from 1.5.1 to 1.6.0 [[#1453](https://github.com/opencloud-eu/opencloud/pull/1453)]
 - build(deps): bump github.com/blevesearch/bleve/v2 from 2.5.2 to 2.5.3 [[#1450](https://github.com/opencloud-eu/opencloud/pull/1450)]
