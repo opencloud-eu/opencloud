@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-
-	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
 type SessionEventListener interface {
@@ -99,14 +97,6 @@ func newSession(sessionResponse SessionResponse) (Session, Error) {
 		DownloadEndpoint:    downloadEndpoint,
 		SessionResponse:     sessionResponse,
 	}, nil
-}
-
-// Create a new log.Logger that is decorated with fields containing information about the Session.
-func (s Session) DecorateLogger(l log.Logger) *log.Logger {
-	return log.From(l.With().
-		Str(logUsername, log.SafeString(s.Username)).
-		Str(logEndpoint, log.SafeString(s.JmapEndpoint)).
-		Str(logSessionState, log.SafeString(string(s.State))))
 }
 
 func endpointOf(u *url.URL) string {

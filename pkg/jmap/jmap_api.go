@@ -23,15 +23,13 @@ type BlobClient interface {
 }
 
 const (
-	logOperation    = "operation"
-	logUsername     = "username"
-	logMailboxId    = "mailbox-id"
-	logFetchBodies  = "fetch-bodies"
-	logOffset       = "offset"
-	logLimit        = "limit"
-	logDownloadUrl  = "download-url"
-	logBlobId       = "blob-id"
-	logUploadUrl    = "download-url"
-	logSessionState = "session-state"
-	logSince        = "since"
+	logOperation   = "operation"
+	logMailboxId   = "mailbox-id"
+	logFetchBodies = "fetch-bodies"
+	logOffset      = "offset"
+	logLimit       = "limit"
+	logDownloadUrl = "download-url"
+	logBlobId      = "blob-id"
+	logUploadUrl   = "download-url"
+	logSince       = "since"
 )

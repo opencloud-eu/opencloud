@@ -16,6 +16,8 @@ type Client struct {
 	io.Closer
 }
 
+var _ io.Closer = &Client{}
+
 func (j *Client) Close() error {
 	return j.api.Close()
 }

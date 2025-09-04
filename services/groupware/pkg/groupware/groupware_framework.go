@@ -18,8 +18,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/jellydator/ttlcache/v3"
-
 	cmap "github.com/orcaman/concurrent-map"
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
@@ -30,8 +28,9 @@ import (
 )
 
 const (
-	logUsername              = "username" // this should match jmap.logUsername to avoid having the field twice in the logs under different keys
+	logUsername              = "username"
 	logUserId                = "user-id"
+	logSessionState          = "session-state"
 	logAccountId             = "account-id"
 	logErrorId               = "error-id"
 	logErrorCode             = "code"
@@ -51,17 +50,17 @@ const (
 	logMethod                = "method"
 )
 
-// Minimalistic representation of a User, containing only the attributes that are
+// Minimalistic representation of a user, containing only the attributes that are
 // necessary for the Groupware implementation.
-type User interface {
+type user interface {
 	GetUsername() string
 	GetId() string
 }
 
 // Provides a User that is associated with a request.
-type UserProvider interface {
+type userProvider interface {
 	// Provide the user for JMAP operations.
-	GetUser(req *http.Request, ctx context.Context, logger *log.Logger) (User, error)
+	GetUser(req *http.Request, ctx context.Context, logger *log.Logger) (user, error)
 }
 
 // Background job that needs to be executed asynchronously by the Groupware.
@@ -89,9 +88,9 @@ type Groupware struct {
 	defaultEmailLimit uint
 	maxBodyValueBytes uint
 	// Caches successful and failed Sessions by the username.
-	sessionCache *ttlcache.Cache[sessionKey, cachedSession]
+	sessionCache sessionCache
 	jmap         *jmap.Client
-	userProvider UserProvider
+	userProvider userProvider
 	// SSE events that need to be pushed to clients.
 	eventChannel chan Event
 	// Background jobs that need to be executed.
@@ -127,9 +126,13 @@ type Event struct {
 	Body any
 }
 
+// A jmap.HttpJmapApiClientEventListener implementation that records those JMAP
+// events as metric increments.
 type groupwareHttpJmapApiClientMetricsRecorder struct {
 	m *metrics.Metrics
 }
+
+var _ jmap.HttpJmapApiClientEventListener = groupwareHttpJmapApiClientMetricsRecorder{}
 
 func (r groupwareHttpJmapApiClientMetricsRecorder) OnSuccessfulRequest(endpoint string, status int) {
 	r.m.SuccessfulRequestPerEndpointCounter.With(metrics.Endpoint(endpoint)).Inc()
@@ -146,8 +149,6 @@ func (r groupwareHttpJmapApiClientMetricsRecorder) OnResponseBodyReadingError(en
 func (r groupwareHttpJmapApiClientMetricsRecorder) OnResponseBodyUnmarshallingError(endpoint string, err error) {
 	r.m.ResponseBodyUnmarshallingErrorPerEndpointCounter.With(metrics.Endpoint(endpoint)).Inc()
 }
-
-var _ jmap.HttpJmapApiClientEventListener = groupwareHttpJmapApiClientMetricsRecorder{}
 
 func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prometheusRegistry prometheus.Registerer) (*Groupware, error) {
 	baseUrl, err := url.Parse(config.Mail.BaseUrl)
@@ -190,111 +191,68 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 	m := metrics.New(prometheusRegistry, logger)
 
 	// TODO add timeouts and other meaningful configuration settings for the HTTP client
-	tr := http.DefaultTransport.(*http.Transport).Clone()
-	tr.ResponseHeaderTimeout = responseHeaderTimeout
+	httpTransport := http.DefaultTransport.(*http.Transport).Clone()
+	httpTransport.ResponseHeaderTimeout = responseHeaderTimeout
 	if insecureTls {
 		tlsConfig := &tls.Config{InsecureSkipVerify: true} // TODO make configurable
-		tr.TLSClientConfig = tlsConfig
+		httpTransport.TLSClientConfig = tlsConfig
 	}
-	c := *http.DefaultClient
-	c.Transport = tr
+	httpClient := *http.DefaultClient
+	httpClient.Transport = httpTransport
 
-	userProvider := NewRevaContextUsernameProvider()
+	userProvider := newRevaContextUsernameProvider()
 
 	jmapMetricsAdapter := groupwareHttpJmapApiClientMetricsRecorder{m: m}
 
 	api := jmap.NewHttpJmapClient(
-		&c,
+		&httpClient,
 		masterUsername,
 		masterPassword,
 		jmapMetricsAdapter,
 	)
 
+	// api implements all three interfaces:
 	jmapClient := jmap.NewClient(api, api, api)
 
-	var sessionCache *ttlcache.Cache[sessionKey, cachedSession]
-	{
-		sessionUrlResolver := func(_ string) (*url.URL, *GroupwareError) {
-			return sessionUrl, nil
-		}
-		if useDnsForSessionResolution {
-			defaultSessionDomain := "example.com" // TODO default domain from configuration
-			// TODO resolv.conf or other configuration
-			conf, err := dns.ClientConfigFromFile("/etc/resolv.conf")
-			if err != nil {
-				return nil, GroupwareInitializationError{Message: "failed to parse DNS client configuration from /etc/resolv.conf", Err: err}
-			}
-
-			var domainGreenList []string = nil // TODO domain greenlist from configuration
-			var domainRedList []string = nil   // TODO domain redlist from configuration
-
-			dialTimeout := time.Duration(2) * time.Second // TODO configuration
-			readTimeout := time.Duration(2) * time.Second // TODO configuration
-
-			dnsSessionUrlResolver, err := NewDnsSessionUrlResolver(
-				sessionUrl,
-				defaultSessionDomain,
-				conf,
-				domainGreenList,
-				domainRedList,
-				dialTimeout,
-				readTimeout,
-			)
-			if err != nil {
-				return nil, GroupwareInitializationError{Message: "failed to instantiate the DNS session URL resolver", Err: err}
-			}
-			sessionUrlResolver = dnsSessionUrlResolver.Resolve
+	sessionCacheBuilder := newSessionCacheBuilder(
+		sessionUrl,
+		logger,
+		jmapClient.FetchSession,
+		prometheusRegistry,
+		m,
+		sessionCacheMaxCapacity,
+		sessionCacheTtl,
+		sessionFailureCacheTtl,
+	)
+	if useDnsForSessionResolution {
+		conf, err := dns.ClientConfigFromFile("/etc/resolv.conf")
+		if err != nil {
+			return nil, GroupwareInitializationError{Message: "failed to parse DNS client configuration from /etc/resolv.conf", Err: err}
 		}
 
-		sessionLoader := &sessionCacheLoader{
-			logger:             logger,
-			jmapClient:         &jmapClient,
-			errorTtl:           sessionFailureCacheTtl,
-			sessionUrlProvider: sessionUrlResolver,
-		}
+		var dnsDomainGreenList []string = nil            // TODO domain greenlist from configuration
+		var dnsDomainRedList []string = nil              // TODO domain redlist from configuration
+		dnsDialTimeout := time.Duration(2) * time.Second // TODO DNS server connection timeout configuration
+		dnsReadTimeout := time.Duration(2) * time.Second // TODO DNS server response reading timeout configuration
+		defaultDomain := "example.com"                   // TODO default domain when the username is not an email address configuration
 
-		sessionCache = ttlcache.New(
-			ttlcache.WithCapacity[sessionKey, cachedSession](sessionCacheMaxCapacity),
-			ttlcache.WithTTL[sessionKey, cachedSession](sessionCacheTtl),
-			ttlcache.WithDisableTouchOnHit[sessionKey, cachedSession](),
-			ttlcache.WithLoader(sessionLoader),
+		sessionCacheBuilder = sessionCacheBuilder.withDnsAutoDiscovery(
+			defaultDomain,
+			conf,
+			dnsDialTimeout,
+			dnsReadTimeout,
+			dnsDomainGreenList,
+			dnsDomainRedList,
 		)
-		go sessionCache.Start()
-
-		prometheusRegistry.Register(sessionCacheMetricsCollector{desc: m.SessionCacheDesc, supply: sessionCache.Metrics})
 	}
 
-	sessionCache.OnEviction(func(c context.Context, r ttlcache.EvictionReason, item *ttlcache.Item[sessionKey, cachedSession]) {
-		if logger.Trace().Enabled() {
-			reason := ""
-			switch r {
-			case ttlcache.EvictionReasonDeleted:
-				reason = "deleted"
-			case ttlcache.EvictionReasonCapacityReached:
-				reason = "capacity reached"
-			case ttlcache.EvictionReasonExpired:
-				reason = fmt.Sprintf("expired after %v", item.TTL())
-			case ttlcache.EvictionReasonMaxCostExceeded:
-				reason = "max cost exceeded"
-			}
-			if reason == "" {
-				reason = fmt.Sprintf("unknown (%v)", r)
-			}
-			spentInCache := time.Since(item.Value().Since())
-			tipe := "successful"
-			if !item.Value().Success() {
-				tipe = "failed"
-			}
-			logger.Trace().Msgf("%s session cache eviction of user '%v' after %v: %v", tipe, item.Key(), spentInCache, reason)
-		}
-	})
+	sessionCache, err := sessionCacheBuilder.build()
 
-	sessionEventListener := sessionEventListener{
-		sessionCache: sessionCache,
-		logger:       logger,
-		counter:      m.OutdatedSessionsCounter,
+	if err != nil {
+		// assuming that the error was logged in great detail upstream
+		return nil, GroupwareInitializationError{Message: "failed to initialize the session cache", Err: err}
 	}
-	jmapClient.AddSessionEventListener(&sessionEventListener)
+	jmapClient.AddSessionEventListener(sessionCache)
 
 	// A channel to process SSE Events with a single worker.
 	eventChannel := make(chan Event, eventChannelSize)
@@ -426,7 +384,7 @@ func (g *Groupware) listenForEvents() {
 	}
 }
 
-func (g *Groupware) push(user User, typ string, body any) {
+func (g *Groupware) push(user user, typ string, body any) {
 	g.metrics.SSEEventsCounter.WithLabelValues(typ).Inc()
 	g.eventChannel <- Event{Type: typ, Stream: user.GetUsername(), Body: body}
 }
@@ -467,16 +425,13 @@ func (g *Groupware) ServeSSE(w http.ResponseWriter, r *http.Request) {
 }
 
 // Provide a JMAP Session for the
-func (g *Groupware) session(user User, _ *http.Request, _ context.Context, _ *log.Logger) (jmap.Session, bool, *GroupwareError) {
-	item := g.sessionCache.Get(toSessionKey(user.GetUsername()))
-	if item != nil {
-		value := item.Value()
-		if value != nil {
-			if value.Success() {
-				return value.Get(), true, nil
-			} else {
-				return jmap.Session{}, false, value.Error()
-			}
+func (g *Groupware) session(user user, _ *http.Request, _ context.Context, _ *log.Logger) (jmap.Session, bool, *GroupwareError) {
+	s := g.sessionCache.Get(user.GetUsername())
+	if s != nil {
+		if s.Success() {
+			return s.Get(), true, nil
+		} else {
+			return jmap.Session{}, false, s.Error()
 		}
 	}
 	return jmap.Session{}, false, nil
@@ -562,7 +517,7 @@ func (g *Groupware) withSession(w http.ResponseWriter, r *http.Request, handler 
 		g.serveError(w, r, apiError(errorId, *gwerr))
 		return Response{}, false
 	}
-	decoratedLogger := session.DecorateLogger(*logger)
+	decoratedLogger := decorateLogger(logger, session)
 
 	req := Request{
 		g:       g,
@@ -666,7 +621,7 @@ func (g *Groupware) stream(w http.ResponseWriter, r *http.Request, handler func(
 		return
 	}
 
-	decoratedLogger := session.DecorateLogger(*logger)
+	decoratedLogger := decorateLogger(logger, session)
 
 	req := Request{
 		r:       r,
