@@ -250,6 +250,9 @@ github.com/cenkalti/backoff/v4
 # github.com/cenkalti/backoff/v5 v5.0.3
 ## explicit; go 1.23
 github.com/cenkalti/backoff/v5
+# github.com/cention-sany/utf7 v0.0.0-20170124080048-26cad61bd60a
+## explicit
+github.com/cention-sany/utf7
 # github.com/cespare/xxhash/v2 v2.3.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
@@ -402,6 +405,9 @@ github.com/docker/go-units
 # github.com/dustin/go-humanize v1.0.1
 ## explicit; go 1.16
 github.com/dustin/go-humanize
+# github.com/dustinkirkland/golang-petname v0.0.0-20240428194347-eebcea082ee0
+## explicit; go 1.20
+github.com/dustinkirkland/golang-petname
 # github.com/dutchcoders/go-clamd v0.0.0-20170520113014-b970184f4d9e
 ## explicit
 github.com/dutchcoders/go-clamd
@@ -415,6 +421,22 @@ github.com/ebitengine/purego/internal/xreflect
 # github.com/egirna/icap v0.0.0-20181108071049-d5ee18bd70bc
 ## explicit
 github.com/egirna/icap
+# github.com/emersion/go-imap/v2 v2.0.0-beta.5
+## explicit; go 1.18
+github.com/emersion/go-imap/v2
+github.com/emersion/go-imap/v2/imapclient
+github.com/emersion/go-imap/v2/internal
+github.com/emersion/go-imap/v2/internal/imapnum
+github.com/emersion/go-imap/v2/internal/imapwire
+github.com/emersion/go-imap/v2/internal/utf7
+# github.com/emersion/go-message v0.18.1
+## explicit; go 1.14
+github.com/emersion/go-message
+github.com/emersion/go-message/mail
+github.com/emersion/go-message/textproto
+# github.com/emersion/go-sasl v0.0.0-20241020182733-b788ff22d5a6
+## explicit; go 1.12
+github.com/emersion/go-sasl
 # github.com/emirpasic/gods v1.18.1
 ## explicit; go 1.2
 github.com/emirpasic/gods/containers
@@ -471,6 +493,16 @@ github.com/go-chi/chi/v5/middleware
 # github.com/go-chi/render v1.0.3
 ## explicit; go 1.16
 github.com/go-chi/render
+# github.com/go-crypt/crypt v0.4.5
+## explicit; go 1.23
+github.com/go-crypt/crypt/algorithm
+github.com/go-crypt/crypt/algorithm/shacrypt
+github.com/go-crypt/crypt/internal/encoding
+github.com/go-crypt/crypt/internal/random
+# github.com/go-crypt/x v0.4.7
+## explicit; go 1.23.0
+github.com/go-crypt/x/base64
+github.com/go-crypt/x/crypt
 # github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376
 ## explicit; go 1.13
 github.com/go-git/gcfg
@@ -637,8 +669,6 @@ github.com/go-task/slim-sprig
 # github.com/go-task/slim-sprig/v3 v3.0.0
 ## explicit; go 1.20
 github.com/go-task/slim-sprig/v3
-# github.com/go-test/deep v1.1.0
-## explicit; go 1.16
 # github.com/go-viper/mapstructure/v2 v2.5.0
 ## explicit; go 1.18
 github.com/go-viper/mapstructure/v2
@@ -686,6 +716,9 @@ github.com/goccy/go-yaml/token
 # github.com/gofrs/flock v0.13.1
 ## explicit; go 1.25.0
 github.com/gofrs/flock
+# github.com/gogs/chardet v0.0.0-20211120154057-b7413eaefb8f
+## explicit
+github.com/gogs/chardet
 # github.com/golang-jwt/jwt/v4 v4.5.2
 ## explicit; go 1.16
 github.com/golang-jwt/jwt/v4
@@ -811,6 +844,9 @@ github.com/iancoleman/strcase
 # github.com/imdario/mergo v0.3.16
 ## explicit; go 1.13
 github.com/imdario/mergo
+# github.com/inbucket/html2text v0.9.0
+## explicit; go 1.23.9
+github.com/inbucket/html2text
 # github.com/inconshreveable/mousetrap v1.1.0
 ## explicit; go 1.18
 github.com/inconshreveable/mousetrap
@@ -827,6 +863,13 @@ github.com/jellydator/ttlcache/v2
 # github.com/jellydator/ttlcache/v3 v3.4.1
 ## explicit; go 1.23.0
 github.com/jellydator/ttlcache/v3
+# github.com/jhillyerd/enmime/v2 v2.2.0
+## explicit; go 1.23.9
+github.com/jhillyerd/enmime/v2
+github.com/jhillyerd/enmime/v2/internal/coding
+github.com/jhillyerd/enmime/v2/internal/stringutil
+github.com/jhillyerd/enmime/v2/internal/textproto
+github.com/jhillyerd/enmime/v2/mediatype
 # github.com/jinzhu/now v1.1.5
 ## explicit; go 1.12
 github.com/jinzhu/now
@@ -2018,6 +2061,9 @@ github.com/spf13/viper/internal/encoding/json
 github.com/spf13/viper/internal/encoding/toml
 github.com/spf13/viper/internal/encoding/yaml
 github.com/spf13/viper/internal/features
+# github.com/ssor/bom v0.0.0-20170718123548-6386211fdfcf
+## explicit
+github.com/ssor/bom
 # github.com/stretchr/objx v0.5.3
 ## explicit; go 1.20
 github.com/stretchr/objx
@@ -2689,6 +2735,9 @@ gopkg.in/cenkalti/backoff.v1
 # gopkg.in/ini.v1 v1.67.3
 ## explicit; go 1.13
 gopkg.in/ini.v1
+# gopkg.in/loremipsum.v1 v1.1.2
+## explicit; go 1.17
+gopkg.in/loremipsum.v1
 # gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7
 ## explicit
 gopkg.in/tomb.v1
