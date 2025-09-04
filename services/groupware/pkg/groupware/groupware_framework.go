@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
+	"github.com/miekg/dns"
 	"github.com/r3labs/sse/v2"
 	"github.com/rs/zerolog"
 
@@ -182,6 +183,8 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 	keepStreamsAliveInterval := time.Duration(30) * time.Second // TODO configuration, make it 0 to disable keepalive
 	sseEventTtl := time.Duration(5) * time.Minute               // TODO configuration setting
 
+	useDnsForSessionResolution := false // TODO configuration setting, although still experimental, needs proper unit tests first
+
 	insecureTls := true // TODO make configurable
 
 	m := metrics.New(prometheusRegistry, logger)
@@ -211,14 +214,43 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 
 	var sessionCache *ttlcache.Cache[sessionKey, cachedSession]
 	{
+		sessionUrlResolver := func(_ string) (*url.URL, *GroupwareError) {
+			return sessionUrl, nil
+		}
+		if useDnsForSessionResolution {
+			defaultSessionDomain := "example.com" // TODO default domain from configuration
+			// TODO resolv.conf or other configuration
+			conf, err := dns.ClientConfigFromFile("/etc/resolv.conf")
+			if err != nil {
+				return nil, GroupwareInitializationError{Message: "failed to parse DNS client configuration from /etc/resolv.conf", Err: err}
+			}
+
+			var domainGreenList []string = nil // TODO domain greenlist from configuration
+			var domainRedList []string = nil   // TODO domain redlist from configuration
+
+			dialTimeout := time.Duration(2) * time.Second // TODO configuration
+			readTimeout := time.Duration(2) * time.Second // TODO configuration
+
+			dnsSessionUrlResolver, err := NewDnsSessionUrlResolver(
+				sessionUrl,
+				defaultSessionDomain,
+				conf,
+				domainGreenList,
+				domainRedList,
+				dialTimeout,
+				readTimeout,
+			)
+			if err != nil {
+				return nil, GroupwareInitializationError{Message: "failed to instantiate the DNS session URL resolver", Err: err}
+			}
+			sessionUrlResolver = dnsSessionUrlResolver.Resolve
+		}
+
 		sessionLoader := &sessionCacheLoader{
-			logger:     logger,
-			jmapClient: &jmapClient,
-			errorTtl:   sessionFailureCacheTtl,
-			sessionUrlProvider: func(username string) (*url.URL, *GroupwareError) {
-				// here is where we would implement server sharding
-				return sessionUrl, nil
-			},
+			logger:             logger,
+			jmapClient:         &jmapClient,
+			errorTtl:           sessionFailureCacheTtl,
+			sessionUrlProvider: sessionUrlResolver,
 		}
 
 		sessionCache = ttlcache.New(
@@ -249,11 +281,11 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 				reason = fmt.Sprintf("unknown (%v)", r)
 			}
 			spentInCache := time.Since(item.Value().Since())
-			typ := "successful"
+			tipe := "successful"
 			if !item.Value().Success() {
-				typ = "failed"
+				tipe = "failed"
 			}
-			logger.Trace().Msgf("%s session cache eviction of user '%v' after %v: %v", typ, item.Key(), spentInCache, reason)
+			logger.Trace().Msgf("%s session cache eviction of user '%v' after %v: %v", tipe, item.Key(), spentInCache, reason)
 		}
 	})
 
