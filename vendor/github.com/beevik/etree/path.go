@@ -5,6 +5,7 @@
 package etree
 
 import (
+	"iter"
 	"strconv"
 	"strings"
 )
@@ -122,6 +123,20 @@ func MustCompilePath(path string) Path {
 	return p
 }
 
+// traverse follows the path from the element e, yielding elements that match
+// the path's selectors and filters using iterators.
+func (p Path) traverse(e *Element) iter.Seq[*Element] {
+	pather := newPather()
+	return func(yield func(*Element) bool) {
+		pather.queue.add(node{e, p.segments})
+		for pather.queue.len() > 0 {
+			if cont := pather.eval(pather.queue.remove(), yield); !cont {
+				return
+			}
+		}
+	}
+}
+
 // A segment is a portion of a path between "/" characters.
 // It contains one selector and zero or more [filters].
 type segment struct {
@@ -148,6 +163,13 @@ type filter interface {
 	apply(p *pather)
 }
 
+// A node represents an element and the remaining path segments that
+// should be applied against it by the pather.
+type node struct {
+	e        *Element
+	segments []segment
+}
+
 // A pather is helper object that traverses an element tree using
 // a Path object.  It collects and deduplicates all elements matching
 // the path query.
@@ -159,13 +181,7 @@ type pather struct {
 	scratch    []*Element // used by filters
 }
 
-// A node represents an element and the remaining path segments that
-// should be applied against it by the pather.
-type node struct {
-	e        *Element
-	segments []segment
-}
-
+// newPather creates a new pather instance.
 func newPather() *pather {
 	return &pather{
 		results:    make([]*Element, 0),
@@ -175,20 +191,11 @@ func newPather() *pather {
 	}
 }
 
-// traverse follows the path from the element e, collecting
-// and then returning all elements that match the path's selectors
-// and filters.
-func (p *pather) traverse(e *Element, path Path) []*Element {
-	for p.queue.add(node{e, path.segments}); p.queue.len() > 0; {
-		p.eval(p.queue.remove())
-	}
-	return p.results
-}
-
-// eval evaluates the current path node by applying the remaining
-// path's selector rules against the node's element.
-func (p *pather) eval(n node) {
-	p.candidates = p.candidates[0:0]
+// eval evaluates the current path node by applying the remaining path's
+// selector rules against the node's element, yielding results via iterator.
+// Returns false if early termination is requested.
+func (p *pather) eval(n node, yield func(*Element) bool) bool {
+	p.candidates = p.candidates[:0]
 	seg, remain := n.segments[0], n.segments[1:]
 	seg.apply(n.e, p)
 
@@ -196,7 +203,9 @@ func (p *pather) eval(n node) {
 		for _, c := range p.candidates {
 			if in := p.inResults[c]; !in {
 				p.inResults[c] = true
-				p.results = append(p.results, c)
+				if !yield(c) {
+					return false
+				}
 			}
 		}
 	} else {
@@ -204,6 +213,7 @@ func (p *pather) eval(n node) {
 			p.queue.add(node{c, remain})
 		}
 	}
+	return true
 }
 
 // A compiler generates a compiled path from a path string.
