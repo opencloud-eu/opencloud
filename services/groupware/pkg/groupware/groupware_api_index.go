@@ -142,7 +142,7 @@ type SwaggerIndexResponse struct {
 	}
 }
 
-// swagger:route GET / init index
+// swagger:route GET /groupware bootstrap index
 // Get initial bootstrapping information for a user.
 //
 // responses:

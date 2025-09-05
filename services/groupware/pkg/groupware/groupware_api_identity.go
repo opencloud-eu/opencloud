@@ -16,7 +16,7 @@ type SwaggerGetIdentitiesResponse struct {
 	}
 }
 
-// swagger:route GET /accounts/{accountid}/identities identities identities
+// swagger:route GET /groupware/accounts/{account}/identities identity identities
 // Get the list of identities that are associated with an account.
 //
 // responses:

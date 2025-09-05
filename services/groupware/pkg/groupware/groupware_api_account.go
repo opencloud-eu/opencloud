@@ -8,6 +8,24 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
+// When the request succeeds.
+// swagger:response GetAccountResponse200
+type SwaggerGetAccountResponse struct {
+	// in: body
+	Body struct {
+		*jmap.SessionAccount
+	}
+}
+
+// swagger:route GET /groupware/accounts/{account} account account
+// Get attributes of a given account.
+//
+// responses:
+//
+//	200: GetAccountResponse200
+//	400: ErrorResponse400
+//	404: ErrorResponse404
+//	500: ErrorResponse500
 func (g *Groupware) GetAccount(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		account, err := req.GetAccountForMail()
@@ -18,6 +36,22 @@ func (g *Groupware) GetAccount(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// When the request succeeds.
+// swagger:response GetAccountsResponse200
+type SwaggerGetAccountsResponse struct {
+	// in: body
+	Body map[string]jmap.SessionAccount
+}
+
+// swagger:route GET /groupware/accounts account accounts
+// Get the list of all of the user's accounts.
+//
+// responses:
+//
+//	200: GetAccountsResponse200
+//	400: ErrorResponse400
+//	404: ErrorResponse404
+//	500: ErrorResponse500
 func (g *Groupware) GetAccounts(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		return response(req.session.Accounts, req.session.State)
@@ -47,7 +81,7 @@ type AccountBootstrapResponse struct {
 }
 
 // When the request suceeds.
-// swagger:response IndexResponse
+// swagger:response GetAccountBootstrapResponse200
 type SwaggerAccountBootstrapResponse struct {
 	// in: body
 	Body struct {
@@ -55,6 +89,15 @@ type SwaggerAccountBootstrapResponse struct {
 	}
 }
 
+// swagger:route GET /groupware/accounts/{account}/bootstrap account accountbootstrap
+// Get account bootstrapping.
+//
+// responses:
+//
+//	200: GetAccountBootstrapResponse200
+//	400: ErrorResponse400
+//	404: ErrorResponse404
+//	500: ErrorResponse500
 func (g *Groupware) GetAccountBootstrap(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		mailAccountId, err := req.GetAccountIdForMail()
