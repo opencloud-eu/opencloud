@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/libregraph/idm/pkg/ldapdn"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
-	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
@@ -81,7 +80,6 @@ type LDAP struct {
 type userAttributeMap struct {
 	displayName    string
 	id             string
-	tenantId       string
 	mail           string
 	userName       string
 	givenName      string
@@ -117,7 +115,6 @@ func NewLDAPBackend(lc ldap.Client, config config.LDAP, logger *log.Logger) (*LD
 	uam := userAttributeMap{
 		displayName:    config.UserDisplayNameAttribute,
 		id:             config.UserIDAttribute,
-		tenantId:       config.UserTenantIDAttribute,
 		mail:           config.UserEmailAttribute,
 		userName:       config.UserNameAttribute,
 		accountEnabled: config.UserEnabledAttribute,
@@ -617,17 +614,7 @@ func (i *LDAP) FilterUsers(ctx context.Context, oreq *godata.GoDataRequest, filt
 			i.userAttributeMap.displayName, search,
 		)
 	}
-
-	// apply tenant filter if applicable
-	var tenantFilter string
-	if i.userAttributeMap.tenantId != "" {
-		currentUser, ok := ctxpkg.ContextGetUser(ctx)
-		if ok && currentUser.Id.GetTenantId() != "" {
-			tenantFilter = fmt.Sprintf("(%s=%s)", i.userAttributeMap.tenantId, ldap.EscapeFilter(currentUser.Id.GetTenantId()))
-		}
-	}
-
-	userFilter = fmt.Sprintf("(&%s(objectClass=%s)%s%s%s)", i.userFilter, i.userObjectClass, queryFilter, userFilter, tenantFilter)
+	userFilter = fmt.Sprintf("(&%s(objectClass=%s)%s%s)", i.userFilter, i.userObjectClass, queryFilter, userFilter)
 	searchRequest := ldap.NewSearchRequest(
 		i.userBaseDN, i.userScope, ldap.NeverDerefAliases, 0, 0, false,
 		userFilter,
