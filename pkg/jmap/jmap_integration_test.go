@@ -449,7 +449,7 @@ func TestWithStalwart(t *testing.T) {
 		}
 
 		{
-			resp, sessionState, err := j.GetAllEmails(accountId, session, ctx, logger, inboxId, 0, 0, false, 0)
+			resp, sessionState, err := j.GetAllEmailsInMailbox(accountId, session, ctx, logger, inboxId, 0, 0, false, 0)
 			require.NoError(err)
 			require.Equal(session.State, sessionState)
 

@@ -31,5 +31,5 @@ const (
 	logDownloadUrl = "download-url"
 	logBlobId      = "blob-id"
 	logUploadUrl   = "download-url"
-	logSince       = "since"
+	logSinceState  = "since-state"
 )

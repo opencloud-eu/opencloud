@@ -1,0 +1,5 @@
+params:
+  account:
+    description: The identifier of the Account to use for this operation
+  mailbox:
+    description: The identifier of the Mailbox to perform this operation on

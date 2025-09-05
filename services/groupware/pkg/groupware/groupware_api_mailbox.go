@@ -18,7 +18,7 @@ type SwaggerGetMailboxById200 struct {
 	}
 }
 
-// swagger:route GET /accounts/{account}/mailboxes/{id} mailboxes mailboxes_by_id
+// swagger:route GET /groupware/accounts/{account}/mailboxes/{mailbox} mailbox mailboxes_by_id
 // Get a specific mailbox by its identifier.
 //
 // A Mailbox represents a named set of Emails.
@@ -73,7 +73,7 @@ type SwaggerMailboxesResponse200 struct {
 	Body []jmap.Mailbox
 }
 
-// swagger:route GET /accounts/{account}/mailboxes mailboxes mailboxes
+// swagger:route GET /groupware/accounts/{account}/mailboxes mailbox mailboxes
 // Get the list of all the mailboxes of an account.
 //
 // A Mailbox represents a named set of Emails.
@@ -132,5 +132,52 @@ func (g *Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) {
 			}
 			return etagResponse(mailboxes.Mailboxes, sessionState, mailboxes.State)
 		}
+	})
+}
+
+// When the request succeeds.
+// swagger:response MailboxChangesResponse200
+type SwaggerMailboxChangesResponse200 struct {
+	// in: body
+	Body *jmap.MailboxChanges
+}
+
+// swagger:route GET /groupware/accounts/{account}/mailboxes/{mailbox}/changes mailbox mailboxchanges
+// Get the changes that occured in a given mailbox since a certain state.
+//
+// responses:
+//
+//	200: MailboxChangesResponse200
+//	400: ErrorResponse400
+//	500: ErrorResponse500
+func (g *Groupware) GetMailboxChanges(w http.ResponseWriter, r *http.Request) {
+	mailboxId := chi.URLParam(r, UriParamMailboxId)
+	sinceState := r.Header.Get(HeaderSince)
+
+	g.respond(w, r, func(req Request) Response {
+		l := req.logger.With().Str(HeaderSince, sinceState)
+
+		maxChanges, ok, err := req.parseUIntParam(QueryParamMaxChanges, 0)
+		if err != nil {
+			return errorResponse(err)
+		}
+		if ok {
+			l = l.Uint(QueryParamMaxChanges, maxChanges)
+		}
+
+		accountId, err := req.GetAccountIdForMail()
+		if err != nil {
+			return errorResponse(err)
+		}
+		l = l.Str(logAccountId, accountId)
+
+		logger := log.From(l)
+
+		changes, sessionState, jerr := g.jmap.GetMailboxChanges(accountId, req.session, req.ctx, logger, mailboxId, sinceState, true, g.maxBodyValueBytes, maxChanges)
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
+		}
+
+		return etagResponse(changes, sessionState, changes.State)
 	})
 }

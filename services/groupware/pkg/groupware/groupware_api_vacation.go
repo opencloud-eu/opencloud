@@ -16,7 +16,7 @@ type SwaggerGetVacationResponse200 struct {
 	}
 }
 
-// swagger:route GET /accounts/{account}/vacation vacation getvacation
+// swagger:route GET /groupware/accounts/{account}/vacation vacation getvacation
 // Get vacation notice information.
 //
 // A vacation response sends an automatic reply when a message is delivered to the mail store, informing the original
@@ -54,7 +54,7 @@ type SwaggerSetVacationResponse200 struct {
 	}
 }
 
-// swagger:route PUT /accounts/{account}/vacation vacation setvacation
+// swagger:route PUT /groupware/accounts/{account}/vacation vacation setvacation
 // Set the vacation notice information.
 //
 // A vacation response sends an automatic reply when a message is delivered to the mail store, informing the original

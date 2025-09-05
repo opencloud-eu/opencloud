@@ -56,6 +56,7 @@ func (g *Groupware) Route(r chi.Router) {
 			r.Get("/", g.GetMailboxes) // ?name=&role=&subcribed=
 			r.Get("/{mailbox}", g.GetMailbox)
 			r.Get("/{mailbox}/messages", g.GetAllMessagesInMailbox)
+			r.Get("/{mailbox}/changes", g.GetMailboxChanges)
 		})
 		r.Route("/messages", func(r chi.Router) {
 			r.Get("/", g.GetMessages) // ?fetchemails=true&fetchbodies=true&text=&subject=&body=&keyword=&keyword=&...

@@ -1,9 +1,43 @@
+servers:
+  - url: https://localhost:9200/
+    description: Local Development Server
 tags:
-  - name: init
+  - name: bootstrap
+    x-displayName: Bootstrapping
     description: Initialization APIs
-  - name: mailboxes
+  - name: account
+    x-displayName: Accounts
+    description: APIs for accounts
+  - name: identity
+    x-displayName: Identities
+    description: APIs for identities
+  - name: mailbox
+    x-displayName: Mailboxes
     description: APIs that pertain to mailboxes
-  - name: messages
+  - name: message
+    x-displayName: Messages
     description: APIs about emails
   - name: vacation
+    x-displayName: Vacation Responses
     description: APIs about vacation responses
+x-tagGroups:
+  - name: Bootstrapping
+    tags:
+      - bootstrap
+  - name: Accounts
+    tags:
+      - account
+  - name: Emails
+    tags:
+      - identity
+      - mailbox
+      - message
+      - vacation
+components:
+  securitySchemes:
+    api:
+      description: Authentication for API Calls
+      type: openIdConnect
+      openIdConnectUrl: https://keycloak.opencloud.test/realms/openCloud/.well-known/openid-configuration
+  security:
+    - api
