@@ -28,11 +28,11 @@ type SwaggerGetAllMessagesInMailbox200 struct {
 type SwaggerGetAllMessagesInMailboxSince200 struct {
 	// in: body
 	Body struct {
-		*jmap.EmailsSince
+		*jmap.MailboxChanges
 	}
 }
 
-// swagger:route GET /accounts/{account}/mailboxes/{id}/messages messages get_all_messages_in_mailbox
+// swagger:route GET /groupware/accounts/{account}/mailboxes/{mailbox}/messages message get_all_messages_in_mailbox
 // Get all the emails in a mailbox.
 //
 // Retrieve the list of all the emails that are in a given mailbox.
@@ -72,7 +72,7 @@ func (g *Groupware) GetAllMessagesInMailbox(w http.ResponseWriter, r *http.Reque
 
 			logger := log.From(req.logger.With().Str(HeaderSince, since).Str(logAccountId, accountId))
 
-			emails, sessionState, jerr := g.jmap.GetEmailsInMailboxSince(accountId, req.session, req.ctx, logger, mailboxId, since, true, g.maxBodyValueBytes, maxChanges)
+			emails, sessionState, jerr := g.jmap.GetMailboxChanges(accountId, req.session, req.ctx, logger, mailboxId, since, true, g.maxBodyValueBytes, maxChanges)
 			if jerr != nil {
 				return req.errorResponseFromJmap(jerr)
 			}
@@ -109,7 +109,7 @@ func (g *Groupware) GetAllMessagesInMailbox(w http.ResponseWriter, r *http.Reque
 
 			logger := log.From(l)
 
-			emails, sessionState, jerr := g.jmap.GetAllEmails(accountId, req.session, req.ctx, logger, mailboxId, offset, limit, true, g.maxBodyValueBytes)
+			emails, sessionState, jerr := g.jmap.GetAllEmailsInMailbox(accountId, req.session, req.ctx, logger, mailboxId, offset, limit, true, g.maxBodyValueBytes)
 			if jerr != nil {
 				return req.errorResponseFromJmap(jerr)
 			}

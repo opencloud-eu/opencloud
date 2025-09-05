@@ -16,12 +16,6 @@
 //	Security:
 //	- bearer
 //
-//	SecurityDefinitions:
-//	bearer:
-//	  type: http
-//	  scheme: bearer
-//	  bearerFormat: JWT
-//
 // swagger:meta
 package groupware
 
@@ -46,11 +40,4 @@ type SwaggerErrorResponse500 struct {
 	Body struct {
 		*ErrorResponse
 	}
-}
-
-// swagger:parameters vacation mailboxes
-type SwaggerAccountParams struct {
-	// The identifier of the account.
-	// in: path
-	Account string `json:"account"`
 }

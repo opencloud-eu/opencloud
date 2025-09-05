@@ -30,6 +30,7 @@ type Emails struct {
 	State  State   `json:"state,omitempty"`
 }
 
+// Retrieve specific Emails by their id.
 func (j *Client) GetEmails(accountId string, session *Session, ctx context.Context, logger *log.Logger, ids []string, fetchBodies bool, maxBodyValueBytes uint) (Emails, SessionState, Error) {
 	logger = j.logger(accountId, "GetEmails", session, logger)
 
@@ -54,8 +55,9 @@ func (j *Client) GetEmails(accountId string, session *Session, ctx context.Conte
 	})
 }
 
-func (j *Client) GetAllEmails(accountId string, session *Session, ctx context.Context, logger *log.Logger, mailboxId string, offset uint, limit uint, fetchBodies bool, maxBodyValueBytes uint) (Emails, SessionState, Error) {
-	logger = j.loggerParams(accountId, "GetAllEmails", session, logger, func(z zerolog.Context) zerolog.Context {
+// Retrieve all the Emails in a given Mailbox by its id.
+func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, mailboxId string, offset uint, limit uint, fetchBodies bool, maxBodyValueBytes uint) (Emails, SessionState, Error) {
+	logger = j.loggerParams(accountId, "GetAllEmailsInMailbox", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Uint(logOffset, offset).Uint(logLimit, limit)
 	})
 
@@ -115,96 +117,15 @@ func (j *Client) GetAllEmails(accountId string, session *Session, ctx context.Co
 	})
 }
 
-type EmailsSince struct {
-	Destroyed      []string `json:"destroyed,omitzero"`
-	HasMoreChanges bool     `json:"hasMoreChanges,omitzero"`
-	NewState       State    `json:"newState"`
-	Created        []Email  `json:"created,omitempty"`
-	Updated        []Email  `json:"updated,omitempty"`
-	State          State    `json:"state,omitempty"`
-}
-
-func (j *Client) GetEmailsInMailboxSince(accountId string, session *Session, ctx context.Context, logger *log.Logger, mailboxId string, since string, fetchBodies bool, maxBodyValueBytes uint, maxChanges uint) (EmailsSince, SessionState, Error) {
-	logger = j.loggerParams(accountId, "GetEmailsInMailboxSince", session, logger, func(z zerolog.Context) zerolog.Context {
-		return z.Bool(logFetchBodies, fetchBodies).Str(logSince, since)
-	})
-
-	changes := MailboxChangesCommand{
-		AccountId:  accountId,
-		SinceState: since,
-	}
-	if maxChanges > 0 {
-		changes.MaxChanges = maxChanges
-	}
-
-	getCreated := EmailGetRefCommand{
-		AccountId:          accountId,
-		FetchAllBodyValues: fetchBodies,
-		IdRef:              &ResultReference{Name: CommandMailboxChanges, Path: "/created", ResultOf: "0"},
-	}
-	if maxBodyValueBytes > 0 {
-		getCreated.MaxBodyValueBytes = maxBodyValueBytes
-	}
-	getUpdated := EmailGetRefCommand{
-		AccountId:          accountId,
-		FetchAllBodyValues: fetchBodies,
-		IdRef:              &ResultReference{Name: CommandMailboxChanges, Path: "/updated", ResultOf: "0"},
-	}
-	if maxBodyValueBytes > 0 {
-		getUpdated.MaxBodyValueBytes = maxBodyValueBytes
-	}
-
-	cmd, err := request(
-		invocation(CommandMailboxChanges, changes, "0"),
-		invocation(CommandEmailGet, getCreated, "1"),
-		invocation(CommandEmailGet, getUpdated, "2"),
-	)
-	if err != nil {
-		logger.Error().Err(err)
-		return EmailsSince{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
-	}
-
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (EmailsSince, Error) {
-		var mailboxResponse MailboxChangesResponse
-		err = retrieveResponseMatchParameters(body, CommandMailboxChanges, "0", &mailboxResponse)
-		if err != nil {
-			logger.Error().Err(err)
-			return EmailsSince{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
-		}
-
-		var createdResponse EmailGetResponse
-		err = retrieveResponseMatchParameters(body, CommandEmailGet, "1", &createdResponse)
-		if err != nil {
-			logger.Error().Err(err)
-			return EmailsSince{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
-		}
-
-		var updatedResponse EmailGetResponse
-		err = retrieveResponseMatchParameters(body, CommandEmailGet, "2", &updatedResponse)
-		if err != nil {
-			logger.Error().Err(err)
-			return EmailsSince{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
-		}
-
-		return EmailsSince{
-			Destroyed:      mailboxResponse.Destroyed,
-			HasMoreChanges: mailboxResponse.HasMoreChanges,
-			NewState:       mailboxResponse.NewState,
-			Created:        createdResponse.List,
-			Updated:        createdResponse.List,
-			State:          createdResponse.State,
-		}, nil
-	})
-}
-
-func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.Context, logger *log.Logger, since string, fetchBodies bool, maxBodyValueBytes uint, maxChanges uint) (EmailsSince, SessionState, Error) {
+// Get all the Emails that have been created, updated or deleted since a given state.
+func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.Context, logger *log.Logger, sinceState string, fetchBodies bool, maxBodyValueBytes uint, maxChanges uint) (MailboxChanges, SessionState, Error) {
 	logger = j.loggerParams(accountId, "GetEmailsSince", session, logger, func(z zerolog.Context) zerolog.Context {
-		return z.Bool(logFetchBodies, fetchBodies).Str(logSince, since)
+		return z.Bool(logFetchBodies, fetchBodies).Str(logSinceState, sinceState)
 	})
 
 	changes := EmailChangesCommand{
 		AccountId:  accountId,
-		SinceState: since,
+		SinceState: sinceState,
 	}
 	if maxChanges > 0 {
 		changes.MaxChanges = maxChanges
@@ -233,32 +154,32 @@ func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.
 		invocation(CommandEmailGet, getUpdated, "2"),
 	)
 	if err != nil {
-		return EmailsSince{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return MailboxChanges{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (EmailsSince, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (MailboxChanges, Error) {
 		var changesResponse EmailChangesResponse
 		err = retrieveResponseMatchParameters(body, CommandEmailChanges, "0", &changesResponse)
 		if err != nil {
 			logger.Error().Err(err)
-			return EmailsSince{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return MailboxChanges{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 
 		var createdResponse EmailGetResponse
 		err = retrieveResponseMatchParameters(body, CommandEmailGet, "1", &createdResponse)
 		if err != nil {
 			logger.Error().Err(err)
-			return EmailsSince{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return MailboxChanges{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 
 		var updatedResponse EmailGetResponse
 		err = retrieveResponseMatchParameters(body, CommandEmailGet, "2", &updatedResponse)
 		if err != nil {
 			logger.Error().Err(err)
-			return EmailsSince{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return MailboxChanges{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 
-		return EmailsSince{
+		return MailboxChanges{
 			Destroyed:      changesResponse.Destroyed,
 			HasMoreChanges: changesResponse.HasMoreChanges,
 			NewState:       changesResponse.NewState,
