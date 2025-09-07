@@ -1,10 +1,15 @@
 # Changelog
 
-## [3.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.5.0) - 2025-09-05
+## [3.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.5.0) - 2025-09-07
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @aduffeck, @individual-it, @prashant-gurung899, @rhafer
+
+### 🐛 Bug Fixes
+
+- Remove items from the index when they are purged from the trashbin [[#1347](https://github.com/opencloud-eu/opencloud/pull/1347)]
+- Do not intertwine different batch operations [[#1317](https://github.com/opencloud-eu/opencloud/pull/1317)]
 
 ### ✅ Tests
 
@@ -15,10 +20,6 @@
 ### 📈 Enhancement
 
 - Tracing improvements [[#1436](https://github.com/opencloud-eu/opencloud/pull/1436)]
-
-### 🐛 Bug Fixes
-
-- Do not intertwine different batch operations [[#1317](https://github.com/opencloud-eu/opencloud/pull/1317)]
 
 ### 📦️ Dependencies
 
