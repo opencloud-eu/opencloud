@@ -32,7 +32,7 @@ type Engine interface {
 	Move(id string, parentid string, target string) error
 	Delete(id string) error
 	Restore(id string) error
-	Purge(id string) error
+	Purge(id string, onlyDeleted bool) error
 
 	NewBatch(batchSize int) (BatchOperator, error)
 }
@@ -42,7 +42,7 @@ type BatchOperator interface {
 	Move(rootID, parentID, location string) error
 	Delete(id string) error
 	Restore(id string) error
-	Purge(id string) error
+	Purge(id string, onlyDeleted bool) error
 
 	Push() error
 }

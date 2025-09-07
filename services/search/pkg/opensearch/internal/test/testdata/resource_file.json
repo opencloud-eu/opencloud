@@ -1,5 +1,9 @@
 {
-  "ID" : "1$2!3",
+  "ID" : "1$1!3",
+  "RootID" : "1$1!1",
+  "ParentID" : "1$1!2",
+  "Path" : "./parent d!r/child.jpg",
+  "Type" : 1,
   "Title" : "dumme title",
   "Name" : "dummy name",
   "Content" : "dummy content",
@@ -7,6 +11,8 @@
   "Mtime" : "2025-07-24 15:15:01.324093 +0200 CEST m=+0.000056251",
   "MimeType" : "image/jpeg",
   "Tags" : [ "dummy" ],
+  "Deleted" : false,
+  "Hidden" : false,
   "audio" : {
     "album" : "Some Album",
     "albumArtist" : "Some AlbumArtist",
@@ -44,12 +50,5 @@
     "iso" : 1,
     "orientation" : 1,
     "takenDateTime" : "2018-01-01T12:34:56Z"
-  },
-  "omitempty" : "1$2!3",
-  "RootID" : "1$2!1",
-  "Path" : "./doc",
-  "ParentID" : "1$2!2",
-  "Type" : 1,
-  "Deleted" : false,
-  "Hidden" : false
+  }
 }

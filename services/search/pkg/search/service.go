@@ -45,8 +45,12 @@ const (
 // Searcher is the interface to the SearchService
 type Searcher interface {
 	Search(ctx context.Context, req *searchsvc.SearchRequest) (*searchsvc.SearchResponse, error)
+
 	IndexSpace(rID *provider.StorageSpaceId) error
+	PurgeDeleted(spaceID *provider.StorageSpaceId) error
+
 	TrashItem(rID *provider.ResourceId)
+	PurgeItem(rID *provider.Reference)
 	UpsertItem(ref *provider.Reference)
 	RestoreItem(ref *provider.Reference)
 	MoveItem(ref *provider.Reference)
@@ -470,6 +474,7 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId) error {
 		if err := batch.Push(); err != nil {
 			s.logger.Error().Err(err).Msg("failed to end batch")
 		}
+		logDocCount(s.engine, s.logger)
 	}()
 	err = w.Walk(ownerCtx, &rootID, func(wd string, info *provider.ResourceInfo, err error) error {
 		if err != nil {
@@ -508,8 +513,6 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId) error {
 	if err != nil {
 		return err
 	}
-
-	logDocCount(s.engine, s.logger)
 	success = true
 
 	return nil
@@ -520,6 +523,47 @@ func (s *Service) TrashItem(rID *provider.ResourceId) {
 	if err := s.engine.Delete(storagespace.FormatResourceID(rID)); err != nil {
 		s.logger.Error().Err(err).Interface("Id", rID).Msg("failed to remove item from index")
 	}
+}
+
+func (s *Service) PurgeItem(ref *provider.Reference) {
+	if ref.Path != "" && ref.Path != "." {
+		s.logger.Warn().Str("path", ref.Path).Msg("purging an item with a path is not supported")
+		return
+	}
+
+	err := s.engine.Purge(storagespace.FormatResourceID(ref.ResourceId), false)
+	if err != nil {
+		s.logger.Error().Err(err).Interface("Id", ref.ResourceId).Msg("failed to purge item from index")
+		return
+	}
+	s.logger.Info().Interface("Id", ref.ResourceId).Msg("purged item from index")
+	logDocCount(s.engine, s.logger)
+}
+
+func (s *Service) PurgeDeleted(spaceID *provider.StorageSpaceId) error {
+	if spaceID == nil {
+		return fmt.Errorf("spaceID must not be nil")
+	}
+
+	rootID, err := storagespace.ParseID(spaceID.OpaqueId)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("invalid space id")
+		return err
+	}
+	if rootID.StorageId == "" || rootID.SpaceId == "" {
+		s.logger.Error().Err(err).Msg("invalid space id")
+		return fmt.Errorf("invalid space id")
+	}
+	rootID.OpaqueId = rootID.SpaceId
+
+	if err := s.engine.Purge(storagespace.FormatResourceID(&rootID), true); err != nil {
+		s.logger.Error().Err(err).Interface("Id", &rootID).Msg("failed to purge deleted items from index")
+		return err
+	}
+
+	logDocCount(s.engine, s.logger)
+
+	return nil
 }
 
 // UpsertItem indexes or stores Resource data fields.

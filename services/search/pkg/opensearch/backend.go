@@ -226,13 +226,13 @@ func (b *Backend) Restore(id string) error {
 	return batch.Push()
 }
 
-func (b *Backend) Purge(id string) error {
+func (b *Backend) Purge(id string, onlyDeleted bool) error {
 	batch, err := b.NewBatch(defaultBatchSize)
 	if err != nil {
 		return err
 	}
 
-	if err := batch.Purge(id); err != nil {
+	if err := batch.Purge(id, onlyDeleted); err != nil {
 		return err
 	}
 

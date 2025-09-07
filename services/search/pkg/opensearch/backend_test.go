@@ -212,9 +212,39 @@ func TestEngine_Purge(t *testing.T) {
 		tc.Require.DocumentCreate(indexName, document.ID, strings.NewReader(opensearchtest.JSONMustMarshal(t, document)))
 		tc.Require.IndicesCount([]string{indexName}, nil, 1)
 
-		require.NoError(t, backend.Purge(document.ID))
+		require.NoError(t, backend.Purge(document.ID, false))
 
 		tc.Require.IndicesCount([]string{indexName}, nil, 0)
+	})
+
+	t.Run("purge resource trees", func(t *testing.T) {
+		resourceFolder := opensearchtest.Testdata.Resources.Folder
+		tc.Require.DocumentCreate(indexName, resourceFolder.ID, strings.NewReader(opensearchtest.JSONMustMarshal(t, resourceFolder)))
+
+		resourceFile := opensearchtest.Testdata.Resources.File
+		tc.Require.DocumentCreate(indexName, resourceFile.ID, strings.NewReader(opensearchtest.JSONMustMarshal(t, resourceFile)))
+
+		tc.Require.IndicesCount([]string{indexName}, nil, 2)
+
+		require.NoError(t, backend.Purge(resourceFolder.ID, false))
+
+		tc.Require.IndicesCount([]string{indexName}, nil, 0)
+	})
+
+	t.Run("purge resource trees and ignores undeleted resources", func(t *testing.T) {
+		resourceFolder := opensearchtest.Testdata.Resources.Folder
+		tc.Require.DocumentCreate(indexName, resourceFolder.ID, strings.NewReader(opensearchtest.JSONMustMarshal(t, resourceFolder)))
+
+		resourceFile := opensearchtest.Testdata.Resources.File
+		tc.Require.DocumentCreate(indexName, resourceFile.ID, strings.NewReader(opensearchtest.JSONMustMarshal(t, resourceFile)))
+
+		tc.Require.IndicesCount([]string{indexName}, nil, 2)
+
+		require.NoError(t, backend.Delete(resourceFile.ID))
+		tc.Require.IndicesRefresh([]string{indexName}, nil)
+		require.NoError(t, backend.Purge(resourceFolder.ID, true))
+
+		tc.Require.IndicesCount([]string{indexName}, nil, 1)
 	})
 }
 
