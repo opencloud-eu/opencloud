@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.5.0) - 2025-09-07
+## [3.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.5.0) - 2025-09-08
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -23,6 +23,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/go-chi/chi/v5 from 5.2.2 to 5.2.3 [[#1460](https://github.com/opencloud-eu/opencloud/pull/1460)]
 - build(deps): bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.27.1 to 2.27.2 [[#1461](https://github.com/opencloud-eu/opencloud/pull/1461)]
 - build(deps): bump github.com/spf13/cobra from 1.9.1 to 1.10.1 [[#1459](https://github.com/opencloud-eu/opencloud/pull/1459)]
 - build(deps): bump github.com/riandyrn/otelchi from 0.12.1 to 0.12.2 [[#1456](https://github.com/opencloud-eu/opencloud/pull/1456)]
