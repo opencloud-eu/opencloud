@@ -157,7 +157,7 @@ type SwaggerMailboxesForAllAccountsResponse200 struct {
 	Body map[string][]jmap.Mailbox
 }
 
-// swagger:route GET /groupware/accounts/all/mailboxes mailbox mailboxesforallaccounts
+// swagger:route GET /groupware/accounts/all/mailboxes mailboxesforallaccounts mailbox
 // Get the list of all the mailboxes of all accounts of a user, potentially filtering on the
 // role of the mailboxes.
 //

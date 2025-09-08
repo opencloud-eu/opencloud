@@ -2498,7 +2498,6 @@ type VacationResponseSetResponse struct {
 	NotCreated   map[string]SetError         `json:"notCreated,omitempty"`
 	NotUpdated   map[string]SetError         `json:"notUpdated,omitempty"`
 	NotDestroyed map[string]SetError         `json:"notDestroyed,omitempty"`
-	XXXXXXState  State                       `json:"state,omitempty"`
 }
 
 // One of these attributes must be set, but not both.
