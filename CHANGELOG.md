@@ -23,6 +23,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump golang.org/x/sync from 0.16.0 to 0.17.0 [[#1477](https://github.com/opencloud-eu/opencloud/pull/1477)]
 - build(deps): bump go.etcd.io/bbolt from 1.4.2 to 1.4.3 [[#1463](https://github.com/opencloud-eu/opencloud/pull/1463)]
 - build(deps): bump github.com/go-chi/chi/v5 from 5.2.2 to 5.2.3 [[#1460](https://github.com/opencloud-eu/opencloud/pull/1460)]
 - build(deps): bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.27.1 to 2.27.2 [[#1461](https://github.com/opencloud-eu/opencloud/pull/1461)]
