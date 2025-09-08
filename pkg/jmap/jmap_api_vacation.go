@@ -14,7 +14,7 @@ const (
 
 // https://jmap.io/spec-mail.html#vacationresponseget
 func (j *Client) GetVacationResponse(accountId string, session *Session, ctx context.Context, logger *log.Logger) (VacationResponseGetResponse, SessionState, Error) {
-	logger = j.logger(accountId, "GetVacationResponse", session, logger)
+	logger = j.logger("GetVacationResponse", session, logger)
 	cmd, err := request(invocation(CommandVacationResponseGet, VacationResponseGetCommand{AccountId: accountId}, "0"))
 	if err != nil {
 		logger.Error().Err(err)
@@ -61,7 +61,7 @@ type VacationResponseChange struct {
 }
 
 func (j *Client) SetVacationResponse(accountId string, vacation VacationResponsePayload, session *Session, ctx context.Context, logger *log.Logger) (VacationResponseChange, SessionState, Error) {
-	logger = j.logger(accountId, "SetVacationResponse", session, logger)
+	logger = j.logger("SetVacationResponse", session, logger)
 
 	cmd, err := request(
 		invocation(CommandVacationResponseSet, VacationResponseSetCommand{

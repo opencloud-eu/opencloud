@@ -354,9 +354,13 @@ func TestWithStalwart(t *testing.T) {
 	var inboxFolder string
 	var inboxId string
 	{
-		resp, sessionState, err := j.GetAllMailboxes(accountId, session, ctx, logger)
+		respByAccountId, sessionState, err := j.GetAllMailboxes([]string{accountId}, session, ctx, logger)
 		require.NoError(err)
 		require.Equal(session.State, sessionState)
+		require.Len(respByAccountId, 1)
+		require.Contains(respByAccountId, accountId)
+		resp := respByAccountId[accountId]
+
 		mailboxesNameByRole := map[string]string{}
 		mailboxesUnreadByRole := map[string]int{}
 		for _, m := range resp.Mailboxes {
@@ -436,9 +440,12 @@ func TestWithStalwart(t *testing.T) {
 		}
 
 		{
-			resp, sessionState, err := j.GetAllMailboxes(accountId, session, ctx, logger)
+			respByAccountId, sessionState, err := j.GetAllMailboxes([]string{accountId}, session, ctx, logger)
 			require.NoError(err)
 			require.Equal(session.State, sessionState)
+			require.Len(respByAccountId, 1)
+			require.Contains(respByAccountId, accountId)
+			resp := respByAccountId[accountId]
 			mailboxesUnreadByRole := map[string]int{}
 			for _, m := range resp.Mailboxes {
 				if m.Role != "" {

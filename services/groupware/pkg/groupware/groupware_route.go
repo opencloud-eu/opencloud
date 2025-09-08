@@ -1,11 +1,13 @@
 package groupware
 
 import (
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 )
 
 const (
-	defaultAccountId = "*"
+	defaultAccountId = "_"
 
 	UriParamAccountId                 = "accountid"
 	UriParamMailboxId                 = "mailbox"
@@ -42,10 +44,14 @@ const (
 )
 
 func (g *Groupware) Route(r chi.Router) {
-	r.HandleFunc("/events/{stream}", g.ServeSSE)
-
 	r.Get("/", g.Index)
 	r.Get("/accounts", g.GetAccounts)
+	r.Route("/accounts/all", func(r chi.Router) {
+		r.Route("/mailboxes", func(r chi.Router) {
+			r.Get("/", g.GetMailboxesForAllAccounts)
+			r.Get("/changes", g.GetMailboxChangesForAllAccounts)
+		})
+	})
 	r.Route("/accounts/{accountid}", func(r chi.Router) {
 		r.Get("/", g.GetAccount)
 		r.Get("/bootstrap", g.GetAccountBootstrap)
@@ -65,7 +71,7 @@ func (g *Groupware) Route(r chi.Router) {
 			// r.Put("/{messageid}", g.ReplaceMessage) // TODO
 			r.Patch("/{messageid}", g.UpdateMessage)
 			r.Delete("/{messageid}", g.DeleteMessage)
-			r.MethodFunc("REPORT", "/{messageid}", g.RelatedToMessage)
+			Report(r, "/{messageid}", g.RelatedToMessage)
 		})
 		r.Route("/blobs", func(r chi.Router) {
 			r.Get("/{blobid}", g.GetBlob)
@@ -73,6 +79,12 @@ func (g *Groupware) Route(r chi.Router) {
 		})
 	})
 
+	r.HandleFunc("/events/{stream}", g.ServeSSE)
+
 	r.NotFound(g.NotFound)
 	r.MethodNotAllowed(g.MethodNotAllowed)
+}
+
+func Report(r chi.Router, pattern string, h http.HandlerFunc) {
+	r.MethodFunc("REPORT", pattern, h)
 }

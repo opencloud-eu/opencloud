@@ -4,9 +4,11 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog"
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
 // When the request succeeds.
@@ -39,13 +41,14 @@ func (g *Groupware) GetMailbox(w http.ResponseWriter, r *http.Request) {
 			return errorResponse(err)
 		}
 
-		res, sessionState, jerr := g.jmap.GetMailbox(accountId, req.session, req.ctx, req.logger, []string{mailboxId})
+		mailboxesByAccountId, sessionState, jerr := g.jmap.GetMailbox([]string{accountId}, req.session, req.ctx, req.logger, []string{mailboxId})
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
 
-		if len(res.Mailboxes) == 1 {
-			return etagResponse(res.Mailboxes[0], sessionState, res.State)
+		mailboxes, ok := mailboxesByAccountId[accountId]
+		if ok && len(mailboxes.Mailboxes) == 1 {
+			return etagResponse(mailboxes.Mailboxes[0], sessionState, mailboxes.State)
 		} else {
 			return notFoundResponse(sessionState)
 		}
@@ -74,7 +77,8 @@ type SwaggerMailboxesResponse200 struct {
 }
 
 // swagger:route GET /groupware/accounts/{account}/mailboxes mailbox mailboxes
-// Get the list of all the mailboxes of an account.
+// Get the list of all the mailboxes of an account, potentially filtering on the
+// name and/or role of the mailbox.
 //
 // A Mailbox represents a named set of Emails.
 // This is the primary mechanism for organising Emails within an account.
@@ -120,17 +124,87 @@ func (g *Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) {
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
 
 		if hasCriteria {
-			mailboxes, sessionState, err := g.jmap.SearchMailboxes(accountId, req.session, req.ctx, logger, filter)
+			mailboxesByAccountId, sessionState, err := g.jmap.SearchMailboxes([]string{accountId}, req.session, req.ctx, logger, filter)
 			if err != nil {
 				return req.errorResponseFromJmap(err)
 			}
-			return etagResponse(mailboxes.Mailboxes, sessionState, mailboxes.State)
+
+			mailboxes, ok := mailboxesByAccountId[accountId]
+			if ok {
+				return etagResponse(mailboxes.Mailboxes, sessionState, mailboxes.State)
+			} else {
+				return notFoundResponse(sessionState)
+			}
 		} else {
-			mailboxes, sessionState, err := g.jmap.GetAllMailboxes(accountId, req.session, req.ctx, logger)
+			mailboxesByAccountId, sessionState, err := g.jmap.GetAllMailboxes([]string{accountId}, req.session, req.ctx, logger)
 			if err != nil {
 				return req.errorResponseFromJmap(err)
 			}
-			return etagResponse(mailboxes.Mailboxes, sessionState, mailboxes.State)
+			mailboxes, ok := mailboxesByAccountId[accountId]
+			if ok {
+				return etagResponse(mailboxes.Mailboxes, sessionState, mailboxes.State)
+			} else {
+				return notFoundResponse(sessionState)
+			}
+		}
+	})
+}
+
+// When the request succeeds.
+// swagger:response MailboxesForAllAccountsResponse200
+type SwaggerMailboxesForAllAccountsResponse200 struct {
+	// in: body
+	Body map[string][]jmap.Mailbox
+}
+
+// swagger:route GET /groupware/accounts/all/mailboxes mailbox mailboxesforallaccounts
+// Get the list of all the mailboxes of all accounts of a user, potentially filtering on the
+// role of the mailboxes.
+//
+// responses:
+//
+//	200: MailboxesForAllAccountsResponse200
+//	400: ErrorResponse400
+//	500: ErrorResponse500
+func (g *Groupware) GetMailboxesForAllAccounts(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	var filter jmap.MailboxFilterCondition
+
+	hasCriteria := false
+	role := q.Get(QueryParamMailboxSearchRole)
+	if role != "" {
+		filter.Role = role
+		hasCriteria = true
+	}
+
+	g.respond(w, r, func(req Request) Response {
+		subscribed, set, err := req.parseBoolParam(QueryParamMailboxSearchSubscribed, false)
+		if err != nil {
+			return errorResponse(err)
+		}
+		if set {
+			filter.IsSubscribed = &subscribed
+			hasCriteria = true
+		}
+
+		accountIds := structs.Keys(req.session.Accounts)
+		if len(accountIds) < 1 {
+			return noContentResponse("")
+		}
+		logger := log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(accountIds)))
+
+		if hasCriteria {
+			mailboxesByAccountId, sessionState, err := g.jmap.SearchMailboxes(accountIds, req.session, req.ctx, logger, filter)
+			if err != nil {
+				return req.errorResponseFromJmap(err)
+			}
+			return response(mailboxesByAccountId, sessionState)
+		} else {
+			mailboxesByAccountId, sessionState, err := g.jmap.GetAllMailboxes(accountIds, req.session, req.ctx, logger)
+			if err != nil {
+				return req.errorResponseFromJmap(err)
+			}
+			return response(mailboxesByAccountId, sessionState)
 		}
 	})
 }
@@ -179,5 +253,58 @@ func (g *Groupware) GetMailboxChanges(w http.ResponseWriter, r *http.Request) {
 		}
 
 		return etagResponse(changes, sessionState, changes.State)
+	})
+}
+
+// When the request succeeds.
+// swagger:response MailboxChangesForAllAccountsResponse200
+type SwaggerMailboxChangesForAllAccountsResponse200 struct {
+	// in: body
+	Body map[string]jmap.MailboxChanges
+}
+
+// swagger:route GET /groupware/accounts/all/mailboxes/changes mailbox mailboxchangesforallaccounts
+// Get the changes that occured in all the mailboxes of all accounts.
+//
+// responses:
+//
+//	200: MailboxChangesForAllAccountsResponse200
+//	400: ErrorResponse400
+//	500: ErrorResponse500
+func (g *Groupware) GetMailboxChangesForAllAccounts(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		l := req.logger.With()
+
+		sinceStateMap, ok, err := req.parseMapParam(QueryParamSince)
+		if err != nil {
+			return errorResponse(err)
+		}
+		if ok {
+			dict := zerolog.Dict()
+			for k, v := range sinceStateMap {
+				dict.Str(log.SafeString(k), log.SafeString(v))
+			}
+			l = l.Dict(QueryParamSince, dict)
+		}
+
+		maxChanges, ok, err := req.parseUIntParam(QueryParamMaxChanges, 0)
+		if err != nil {
+			return errorResponse(err)
+		}
+		if ok {
+			l = l.Uint(QueryParamMaxChanges, maxChanges)
+		}
+
+		allAccountIds := structs.Keys(req.session.Accounts) // TODO(pbleser-oc) do we need a limit for a maximum amount of accounts to query at once?
+		l.Array(logAccountId, log.SafeStringArray(allAccountIds))
+
+		logger := log.From(l)
+
+		changesByAccountId, sessionState, jerr := g.jmap.GetMailboxChangesForMultipleAccounts(allAccountIds, req.session, req.ctx, logger, sinceStateMap, true, g.maxBodyValueBytes, maxChanges)
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
+		}
+
+		return response(changesByAccountId, sessionState)
 	})
 }
