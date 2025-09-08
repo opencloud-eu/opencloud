@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -222,6 +223,25 @@ func (r Request) parseBoolParam(param string, defaultValue bool) (bool, bool, *E
 		)
 	}
 	return b, true, nil
+}
+
+func (r Request) parseMapParam(param string) (map[string]string, bool, *Error) {
+	q := r.r.URL.Query()
+	if !q.Has(param) {
+		return map[string]string{}, false, nil
+	}
+
+	result := map[string]string{}
+	prefix := param + "."
+	for name, values := range q {
+		if strings.HasPrefix(name, prefix) {
+			if len(values) > 0 {
+				key := name[len(prefix)+1:]
+				result[key] = values[0]
+			}
+		}
+	}
+	return result, true, nil
 }
 
 func (r Request) body(target any) *Error {

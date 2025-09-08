@@ -151,8 +151,11 @@ func TestRequests(t *testing.T) {
 
 	session := Session{Username: "user123", JmapUrl: *jmapUrl}
 
-	folders, sessionState, err := client.GetAllMailboxes("a", &session, ctx, &logger)
+	foldersByAccountId, sessionState, err := client.GetAllMailboxes([]string{"a"}, &session, ctx, &logger)
 	require.NoError(err)
+	require.Len(foldersByAccountId, 1)
+	require.Contains(foldersByAccountId, "a")
+	folders := foldersByAccountId["a"]
 	require.Len(folders.Mailboxes, 5)
 	require.NotEmpty(sessionState)
 

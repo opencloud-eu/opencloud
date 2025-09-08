@@ -32,7 +32,7 @@ type Emails struct {
 
 // Retrieve specific Emails by their id.
 func (j *Client) GetEmails(accountId string, session *Session, ctx context.Context, logger *log.Logger, ids []string, fetchBodies bool, maxBodyValueBytes uint) (Emails, SessionState, Error) {
-	logger = j.logger(accountId, "GetEmails", session, logger)
+	logger = j.logger("GetEmails", session, logger)
 
 	get := EmailGetCommand{AccountId: accountId, Ids: ids, FetchAllBodyValues: fetchBodies}
 	if maxBodyValueBytes > 0 {
@@ -57,7 +57,7 @@ func (j *Client) GetEmails(accountId string, session *Session, ctx context.Conte
 
 // Retrieve all the Emails in a given Mailbox by its id.
 func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, mailboxId string, offset uint, limit uint, fetchBodies bool, maxBodyValueBytes uint) (Emails, SessionState, Error) {
-	logger = j.loggerParams(accountId, "GetAllEmailsInMailbox", session, logger, func(z zerolog.Context) zerolog.Context {
+	logger = j.loggerParams("GetAllEmailsInMailbox", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Uint(logOffset, offset).Uint(logLimit, limit)
 	})
 
@@ -119,7 +119,7 @@ func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx c
 
 // Get all the Emails that have been created, updated or deleted since a given state.
 func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.Context, logger *log.Logger, sinceState string, fetchBodies bool, maxBodyValueBytes uint, maxChanges uint) (MailboxChanges, SessionState, Error) {
-	logger = j.loggerParams(accountId, "GetEmailsSince", session, logger, func(z zerolog.Context) zerolog.Context {
+	logger = j.loggerParams("GetEmailsSince", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Str(logSinceState, sinceState)
 	})
 
@@ -199,7 +199,7 @@ type EmailSnippetQueryResult struct {
 }
 
 func (j *Client) QueryEmailSnippets(accountId string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, offset uint, limit uint) (EmailSnippetQueryResult, SessionState, Error) {
-	logger = j.loggerParams(accountId, "QueryEmails", session, logger, func(z zerolog.Context) zerolog.Context {
+	logger = j.loggerParams("QueryEmails", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Uint(logLimit, limit).Uint(logOffset, offset)
 	})
 
@@ -272,7 +272,7 @@ type EmailQueryResult struct {
 }
 
 func (j *Client) QueryEmails(accountId string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, offset uint, limit uint, fetchBodies bool, maxBodyValueBytes uint) (EmailQueryResult, SessionState, Error) {
-	logger = j.loggerParams(accountId, "QueryEmails", session, logger, func(z zerolog.Context) zerolog.Context {
+	logger = j.loggerParams("QueryEmails", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies)
 	})
 
@@ -349,7 +349,7 @@ type EmailQueryWithSnippetsResult struct {
 }
 
 func (j *Client) QueryEmailsWithSnippets(accountId string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, offset uint, limit uint, fetchBodies bool, maxBodyValueBytes uint) (EmailQueryWithSnippetsResult, SessionState, Error) {
-	logger = j.loggerParams(accountId, "QueryEmailsWithSnippets", session, logger, func(z zerolog.Context) zerolog.Context {
+	logger = j.loggerParams("QueryEmailsWithSnippets", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies)
 	})
 
@@ -769,7 +769,7 @@ func (j *Client) SubmitEmail(accountId string, identityId string, emailId string
 }
 
 func (j *Client) EmailsInThread(accountId string, threadId string, session *Session, ctx context.Context, logger *log.Logger, fetchBodies bool, maxBodyValueBytes uint) ([]Email, SessionState, Error) {
-	logger = j.loggerParams(accountId, "EmailsInThread", session, logger, func(z zerolog.Context) zerolog.Context {
+	logger = j.loggerParams("EmailsInThread", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Str("threadId", log.SafeString(threadId))
 	})
 
