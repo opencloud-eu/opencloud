@@ -1,5 +1,5 @@
 {
-  "clientId": "OpenCloudweb",
+  "clientId": "web",
   "name": "OpenCloud Web App",
   "description": "",
   "rootUrl": "{{OC_URL}}",
