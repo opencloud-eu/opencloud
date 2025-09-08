@@ -15,7 +15,7 @@ type Identities struct {
 
 // https://jmap.io/spec-mail.html#identityget
 func (j *Client) GetIdentity(accountId string, session *Session, ctx context.Context, logger *log.Logger) (Identities, SessionState, Error) {
-	logger = j.logger(accountId, "GetIdentity", session, logger)
+	logger = j.logger("GetIdentity", session, logger)
 	cmd, err := request(invocation(CommandIdentityGet, IdentityGetCommand{AccountId: accountId}, "0"))
 	if err != nil {
 		logger.Error().Err(err)
@@ -44,7 +44,7 @@ type IdentitiesGetResponse struct {
 func (j *Client) GetIdentities(accountIds []string, session *Session, ctx context.Context, logger *log.Logger) (IdentitiesGetResponse, SessionState, Error) {
 	uniqueAccountIds := structs.Uniq(accountIds)
 
-	logger = j.logger("", "GetIdentities", session, logger)
+	logger = j.logger("GetIdentities", session, logger)
 
 	calls := make([]Invocation, len(uniqueAccountIds))
 	for i, accountId := range uniqueAccountIds {
@@ -91,7 +91,7 @@ type IdentitiesAndMailboxesGetResponse struct {
 func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId string, accountIds []string, session *Session, ctx context.Context, logger *log.Logger) (IdentitiesAndMailboxesGetResponse, SessionState, Error) {
 	uniqueAccountIds := structs.Uniq(accountIds)
 
-	logger = j.logger("", "GetIdentitiesAndMailboxes", session, logger)
+	logger = j.logger("GetIdentitiesAndMailboxes", session, logger)
 
 	calls := make([]Invocation, len(uniqueAccountIds)+1)
 	calls[0] = invocation(CommandMailboxGet, MailboxGetCommand{AccountId: mailboxAccountId}, "0")

@@ -50,14 +50,12 @@ func (j *Client) FetchSession(sessionUrl *url.URL, username string, logger *log.
 	return newSession(wk)
 }
 
-func (j *Client) logger(accountId string, operation string, _ *Session, logger *log.Logger) *log.Logger {
-	var _ string = accountId
+func (j *Client) logger(operation string, _ *Session, logger *log.Logger) *log.Logger {
 	l := logger.With().Str(logOperation, operation)
 	return log.From(l)
 }
 
-func (j *Client) loggerParams(accountId string, operation string, _ *Session, logger *log.Logger, params func(zerolog.Context) zerolog.Context) *log.Logger {
-	var _ string = accountId
+func (j *Client) loggerParams(operation string, _ *Session, logger *log.Logger, params func(zerolog.Context) zerolog.Context) *log.Logger {
 	l := logger.With().Str(logOperation, operation)
 	if params != nil {
 		l = params(l)
