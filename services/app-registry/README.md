@@ -12,7 +12,7 @@ Administrators can set default applications for each MIME type and also allow th
 
 ### MIME Type Configuration
 
-Modifing the MIME type config can only be achieved via a yaml configuration. Using environment variables is not possible. For an example, see the `opencloud_full/config/opencloud/app-registry.yaml` at [docker-compose example](https://github.com/opencloud-eu/opencloud/tree/main/deployments/examples). The following is a brief structure and a field description:
+Modifing the MIME type config can only be achieved via a yaml configuration. Using environment variables is not possible. The following is a brief structure and a field description:
 
 **Structure**
 

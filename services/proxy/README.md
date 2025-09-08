@@ -237,7 +237,7 @@ For OpenCloud, external resources like an IDP (e.g. Keycloak) or when using web 
 
 To create a Content Security Policy (CSP), you need to create a yaml file containing the CSP definitions. To activate the settings, reference the file as value in the `PROXY_CSP_CONFIG_FILE_LOCATION` environment variable. For each change, a restart of the OpenCloud deployment or the proxy service is required.
 
-A working example for a CSP can be found in a sub path of the `config` directory of the [opencloud_full](https://github.com/opencloud-eu/opencloud/tree/main/deployments/examples/opencloud_full/config) deployment example.
+A working example for a CSP can be found in a sub path of the `config` directory of the [opencloud-compose](https://github.com/opencloud-eu/opencloud-compose/tree/main/config) deployment example.
 
 See the [Content Security Policy (CSP) Quick Reference Guide](https://content-security-policy.com) for a description of directives.
 
