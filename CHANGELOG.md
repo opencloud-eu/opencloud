@@ -6,14 +6,15 @@
 
 @Svanvith, @aduffeck, @individual-it, @prashant-gurung899, @rhafer
 
+### 🐛 Bug Fixes
+
+- fix(graph): Set the full CS3 user id in the Create Share request [[#1464](https://github.com/opencloud-eu/opencloud/pull/1464)]
+- Remove items from the index when they are purged from the trashbin [[#1347](https://github.com/opencloud-eu/opencloud/pull/1347)]
+- Do not intertwine different batch operations [[#1317](https://github.com/opencloud-eu/opencloud/pull/1317)]
+
 ### 📚 Documentation
 
 - remove opencloud_full from the read.me and add opencloud-compose instead [[#1474](https://github.com/opencloud-eu/opencloud/pull/1474)]
-
-### 🐛 Bug Fixes
-
-- Remove items from the index when they are purged from the trashbin [[#1347](https://github.com/opencloud-eu/opencloud/pull/1347)]
-- Do not intertwine different batch operations [[#1317](https://github.com/opencloud-eu/opencloud/pull/1317)]
 
 ### ✅ Tests
 
