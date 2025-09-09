@@ -16,17 +16,15 @@ type Identities struct {
 // https://jmap.io/spec-mail.html#identityget
 func (j *Client) GetIdentity(accountId string, session *Session, ctx context.Context, logger *log.Logger) (Identities, SessionState, Error) {
 	logger = j.logger("GetIdentity", session, logger)
-	cmd, err := request(invocation(CommandIdentityGet, IdentityGetCommand{AccountId: accountId}, "0"))
+	cmd, err := j.request(session, logger, invocation(CommandIdentityGet, IdentityGetCommand{AccountId: accountId}, "0"))
 	if err != nil {
-		logger.Error().Err(err)
-		return Identities{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return Identities{}, "", err
 	}
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (Identities, Error) {
 		var response IdentityGetResponse
-		err = retrieveResponseMatchParameters(body, CommandIdentityGet, "0", &response)
+		err = retrieveResponseMatchParameters(logger, body, CommandIdentityGet, "0", &response)
 		if err != nil {
-			logger.Error().Err(err)
-			return Identities{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return Identities{}, err
 		}
 		return Identities{
 			Identities: response.List,
@@ -51,10 +49,9 @@ func (j *Client) GetIdentities(accountIds []string, session *Session, ctx contex
 		calls[i] = invocation(CommandIdentityGet, IdentityGetCommand{AccountId: accountId}, strconv.Itoa(i))
 	}
 
-	cmd, err := request(calls...)
+	cmd, err := j.request(session, logger, calls...)
 	if err != nil {
-		logger.Error().Err(err)
-		return IdentitiesGetResponse{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return IdentitiesGetResponse{}, "", err
 	}
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (IdentitiesGetResponse, Error) {
 		identities := make(map[string][]Identity, len(uniqueAccountIds))
@@ -62,10 +59,9 @@ func (j *Client) GetIdentities(accountIds []string, session *Session, ctx contex
 		notFound := []string{}
 		for i, accountId := range uniqueAccountIds {
 			var response IdentityGetResponse
-			err = retrieveResponseMatchParameters(body, CommandIdentityGet, strconv.Itoa(i), &response)
+			err = retrieveResponseMatchParameters(logger, body, CommandIdentityGet, strconv.Itoa(i), &response)
 			if err != nil {
-				logger.Error().Err(err)
-				return IdentitiesGetResponse{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+				return IdentitiesGetResponse{}, err
 			} else {
 				identities[accountId] = response.List
 			}
@@ -99,10 +95,9 @@ func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId string, accountIds [
 		calls[i+1] = invocation(CommandIdentityGet, IdentityGetCommand{AccountId: accountId}, strconv.Itoa(i+1))
 	}
 
-	cmd, err := request(calls...)
+	cmd, err := j.request(session, logger, calls...)
 	if err != nil {
-		logger.Error().Err(err)
-		return IdentitiesAndMailboxesGetResponse{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return IdentitiesAndMailboxesGetResponse{}, "", err
 	}
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (IdentitiesAndMailboxesGetResponse, Error) {
 		identities := make(map[string][]Identity, len(uniqueAccountIds))
@@ -110,10 +105,9 @@ func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId string, accountIds [
 		notFound := []string{}
 		for i, accountId := range uniqueAccountIds {
 			var response IdentityGetResponse
-			err = retrieveResponseMatchParameters(body, CommandIdentityGet, strconv.Itoa(i+1), &response)
+			err = retrieveResponseMatchParameters(logger, body, CommandIdentityGet, strconv.Itoa(i+1), &response)
 			if err != nil {
-				logger.Error().Err(err)
-				return IdentitiesAndMailboxesGetResponse{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+				return IdentitiesAndMailboxesGetResponse{}, err
 			} else {
 				identities[accountId] = response.List
 			}
@@ -122,10 +116,9 @@ func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId string, accountIds [
 		}
 
 		var mailboxResponse MailboxGetResponse
-		err = retrieveResponseMatchParameters(body, CommandMailboxGet, "0", &mailboxResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandMailboxGet, "0", &mailboxResponse)
 		if err != nil {
-			logger.Error().Err(err)
-			return IdentitiesAndMailboxesGetResponse{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return IdentitiesAndMailboxesGetResponse{}, err
 		}
 
 		return IdentitiesAndMailboxesGetResponse{

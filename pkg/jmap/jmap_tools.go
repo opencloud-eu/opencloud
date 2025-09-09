@@ -140,17 +140,19 @@ func retrieveResponseMatch(data *Response, command Command, tag string) (Invocat
 	return Invocation{}, false
 }
 
-func retrieveResponseMatchParameters[T any](data *Response, command Command, tag string, target *T) error {
+func retrieveResponseMatchParameters[T any](logger *log.Logger, data *Response, command Command, tag string, target *T) Error {
 	match, ok := retrieveResponseMatch(data, command, tag)
 	if !ok {
-		return fmt.Errorf("failed to find JMAP response invocation match for command '%v' and tag '%v'", command, tag)
+		err := fmt.Errorf("failed to find JMAP response invocation match for command '%v' and tag '%v'", command, tag)
+		logger.Error().Msg(err.Error())
+		return simpleError(err, JmapErrorInvalidJmapResponsePayload)
 	}
 	params := match.Parameters
 	typedParams, ok := params.(T)
 	if !ok {
-		actualType := reflect.TypeOf(params)
-		expectedType := reflect.TypeOf(*target)
-		return fmt.Errorf("JMAP response invocation matches command '%v' and tag '%v' but the type %v does not match the expected %v", command, tag, actualType, expectedType)
+		err := fmt.Errorf("JMAP response invocation matches command '%v' and tag '%v' but the type %T does not match the expected %T", command, tag, params, *target)
+		logger.Error().Msg(err.Error())
+		return simpleError(err, JmapErrorInvalidJmapResponsePayload)
 	}
 	*target = typedParams
 	return nil
