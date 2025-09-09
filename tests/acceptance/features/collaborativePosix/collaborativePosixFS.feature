@@ -78,6 +78,13 @@ Feature: create a resources using collaborative posixfs
     And the content of file "/new-name.txt" for user "Alice" should be "content"
 
 
+  Scenario: rename a created file
+    Given the administrator has created the file "test.txt" with content "content" for user "Alice" on the POSIX filesystem
+    When the administrator renames the file "test.txt" to "test.md" for user "Alice" on the POSIX filesystem
+    Then the command should be successful
+    And the content of file "/test.md" for user "Alice" should be "content"
+
+
   Scenario: move file to folder
     Given user "Alice" has uploaded file with content "content" to "test.txt"
     When the administrator moves the file "test.txt" to the folder "firstFolder" for user "Alice" on the POSIX filesystem
