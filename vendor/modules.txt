@@ -1906,7 +1906,7 @@ github.com/skeema/knownhosts
 # github.com/spacewander/go-suffix-tree v0.0.0-20191010040751-0865e368c784
 ## explicit
 github.com/spacewander/go-suffix-tree
-# github.com/spf13/afero v1.14.0
+# github.com/spf13/afero v1.15.0
 ## explicit; go 1.23.0
 github.com/spf13/afero
 github.com/spf13/afero/internal/common
