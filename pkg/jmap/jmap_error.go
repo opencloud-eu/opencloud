@@ -1,6 +1,7 @@
 package jmap
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -19,6 +20,11 @@ const (
 	JmapErrorInvalidJmapResponsePayload
 	JmapErrorMethodLevel
 	JmapErrorSetError
+	JmapErrorTooManyMethodCalls
+)
+
+var (
+	errTooManyMethodCalls = errors.New("the amount of methodCalls in the request body would exceed the maximum that is configured in the session")
 )
 
 type Error interface {

@@ -39,17 +39,16 @@ func (j *Client) GetEmails(accountId string, session *Session, ctx context.Conte
 		get.MaxBodyValueBytes = maxBodyValueBytes
 	}
 
-	cmd, err := request(invocation(CommandEmailGet, get, "0"))
+	cmd, err := j.request(session, logger, invocation(CommandEmailGet, get, "0"))
 	if err != nil {
-		logger.Error().Err(err)
+		logger.Error().Err(err).Send()
 		return Emails{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (Emails, Error) {
 		var response EmailGetResponse
-		err = retrieveResponseMatchParameters(body, CommandEmailGet, "0", &response)
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "0", &response)
 		if err != nil {
-			logger.Error().Err(err)
-			return Emails{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return Emails{}, err
 		}
 		return Emails{Emails: response.List, State: response.State}, nil
 	})
@@ -84,27 +83,25 @@ func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx c
 		get.MaxBodyValueBytes = maxBodyValueBytes
 	}
 
-	cmd, err := request(
+	cmd, err := j.request(session, logger,
 		invocation(CommandEmailQuery, query, "0"),
 		invocation(CommandEmailGet, get, "1"),
 	)
 	if err != nil {
-		logger.Error().Err(err)
-		return Emails{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return Emails{}, "", err
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (Emails, Error) {
 		var queryResponse EmailQueryResponse
-		err = retrieveResponseMatchParameters(body, CommandEmailQuery, "0", &queryResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailQuery, "0", &queryResponse)
 		if err != nil {
-			logger.Error().Err(err)
-			return Emails{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return Emails{}, err
 		}
 		var getResponse EmailGetResponse
-		err = retrieveResponseMatchParameters(body, CommandEmailGet, "1", &getResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "1", &getResponse)
 		if err != nil {
-			logger.Error().Err(err)
-			return Emails{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			logger.Error().Err(err).Send()
+			return Emails{}, err
 		}
 
 		return Emails{
@@ -148,7 +145,7 @@ func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.
 		getUpdated.MaxBodyValueBytes = maxBodyValueBytes
 	}
 
-	cmd, err := request(
+	cmd, err := j.request(session, logger,
 		invocation(CommandEmailChanges, changes, "0"),
 		invocation(CommandEmailGet, getCreated, "1"),
 		invocation(CommandEmailGet, getUpdated, "2"),
@@ -159,24 +156,23 @@ func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (MailboxChanges, Error) {
 		var changesResponse EmailChangesResponse
-		err = retrieveResponseMatchParameters(body, CommandEmailChanges, "0", &changesResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailChanges, "0", &changesResponse)
 		if err != nil {
-			logger.Error().Err(err)
-			return MailboxChanges{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return MailboxChanges{}, err
 		}
 
 		var createdResponse EmailGetResponse
-		err = retrieveResponseMatchParameters(body, CommandEmailGet, "1", &createdResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "1", &createdResponse)
 		if err != nil {
-			logger.Error().Err(err)
-			return MailboxChanges{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			logger.Error().Err(err).Send()
+			return MailboxChanges{}, err
 		}
 
 		var updatedResponse EmailGetResponse
-		err = retrieveResponseMatchParameters(body, CommandEmailGet, "2", &updatedResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "2", &updatedResponse)
 		if err != nil {
-			logger.Error().Err(err)
-			return MailboxChanges{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			logger.Error().Err(err).Send()
+			return MailboxChanges{}, err
 		}
 
 		return MailboxChanges{
@@ -227,29 +223,25 @@ func (j *Client) QueryEmailSnippets(accountId string, filter EmailFilterElement,
 		},
 	}
 
-	cmd, err := request(
+	cmd, err := j.request(session, logger,
 		invocation(CommandEmailQuery, query, "0"),
 		invocation(CommandSearchSnippetGet, snippet, "1"),
 	)
-
 	if err != nil {
-		logger.Error().Err(err)
-		return EmailSnippetQueryResult{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return EmailSnippetQueryResult{}, "", err
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (EmailSnippetQueryResult, Error) {
 		var queryResponse EmailQueryResponse
-		err = retrieveResponseMatchParameters(body, CommandEmailQuery, "0", &queryResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailQuery, "0", &queryResponse)
 		if err != nil {
-			logger.Error().Err(err)
-			return EmailSnippetQueryResult{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return EmailSnippetQueryResult{}, err
 		}
 
 		var snippetResponse SearchSnippetGetResponse
-		err = retrieveResponseMatchParameters(body, CommandSearchSnippetGet, "1", &snippetResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandSearchSnippetGet, "1", &snippetResponse)
 		if err != nil {
-			logger.Error().Err(err)
-			return EmailSnippetQueryResult{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return EmailSnippetQueryResult{}, err
 		}
 
 		return EmailSnippetQueryResult{
@@ -301,27 +293,25 @@ func (j *Client) QueryEmails(accountId string, filter EmailFilterElement, sessio
 		MaxBodyValueBytes:  maxBodyValueBytes,
 	}
 
-	cmd, err := request(
+	cmd, err := j.request(session, logger,
 		invocation(CommandEmailQuery, query, "0"),
 		invocation(CommandEmailGet, mails, "1"),
 	)
-
 	if err != nil {
-		logger.Error().Err(err)
-		return EmailQueryResult{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return EmailQueryResult{}, "", err
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (EmailQueryResult, Error) {
 		var queryResponse EmailQueryResponse
-		err = retrieveResponseMatchParameters(body, CommandEmailQuery, "0", &queryResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailQuery, "0", &queryResponse)
 		if err != nil {
-			return EmailQueryResult{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return EmailQueryResult{}, err
 		}
 
 		var emailsResponse EmailGetResponse
-		err = retrieveResponseMatchParameters(body, CommandEmailGet, "1", &emailsResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "1", &emailsResponse)
 		if err != nil {
-			return EmailQueryResult{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return EmailQueryResult{}, err
 		}
 
 		return EmailQueryResult{
@@ -388,34 +378,34 @@ func (j *Client) QueryEmailsWithSnippets(accountId string, filter EmailFilterEle
 		MaxBodyValueBytes:  maxBodyValueBytes,
 	}
 
-	cmd, err := request(
+	cmd, err := j.request(session, logger,
 		invocation(CommandEmailQuery, query, "0"),
 		invocation(CommandSearchSnippetGet, snippet, "1"),
 		invocation(CommandEmailGet, mails, "2"),
 	)
 
 	if err != nil {
-		logger.Error().Err(err)
+		logger.Error().Err(err).Send()
 		return EmailQueryWithSnippetsResult{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (EmailQueryWithSnippetsResult, Error) {
 		var queryResponse EmailQueryResponse
-		err = retrieveResponseMatchParameters(body, CommandEmailQuery, "0", &queryResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailQuery, "0", &queryResponse)
 		if err != nil {
-			return EmailQueryWithSnippetsResult{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return EmailQueryWithSnippetsResult{}, err
 		}
 
 		var snippetResponse SearchSnippetGetResponse
-		err = retrieveResponseMatchParameters(body, CommandSearchSnippetGet, "1", &snippetResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandSearchSnippetGet, "1", &snippetResponse)
 		if err != nil {
-			return EmailQueryWithSnippetsResult{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return EmailQueryWithSnippetsResult{}, err
 		}
 
 		var emailsResponse EmailGetResponse
-		err = retrieveResponseMatchParameters(body, CommandEmailGet, "2", &emailsResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "2", &emailsResponse)
 		if err != nil {
-			return EmailQueryWithSnippetsResult{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return EmailQueryWithSnippetsResult{}, err
 		}
 
 		snippetsById := map[string][]SearchSnippet{}
@@ -482,7 +472,7 @@ func (j *Client) ImportEmail(accountId string, session *Session, ctx context.Con
 		Properties: []string{BlobPropertyDigestSha512},
 	}
 
-	cmd, err := request(
+	cmd, err := j.request(session, logger,
 		invocation(CommandBlobUpload, upload, "0"),
 		invocation(CommandBlobGet, getHash, "1"),
 	)
@@ -492,17 +482,16 @@ func (j *Client) ImportEmail(accountId string, session *Session, ctx context.Con
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (UploadedEmail, Error) {
 		var uploadResponse BlobUploadResponse
-		err = retrieveResponseMatchParameters(body, CommandBlobUpload, "0", &uploadResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandBlobUpload, "0", &uploadResponse)
 		if err != nil {
-			logger.Error().Err(err)
-			return UploadedEmail{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return UploadedEmail{}, err
 		}
 
 		var getResponse BlobGetResponse
-		err = retrieveResponseMatchParameters(body, CommandBlobGet, "1", &getResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandBlobGet, "1", &getResponse)
 		if err != nil {
-			logger.Error().Err(err)
-			return UploadedEmail{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			logger.Error().Err(err).Send()
+			return UploadedEmail{}, err
 		}
 
 		if len(uploadResponse.Created) != 1 {
@@ -537,7 +526,7 @@ type CreatedEmail struct {
 }
 
 func (j *Client) CreateEmail(accountId string, email EmailCreate, session *Session, ctx context.Context, logger *log.Logger) (CreatedEmail, SessionState, Error) {
-	cmd, err := request(
+	cmd, err := j.request(session, logger,
 		invocation(CommandEmailSubmissionSet, EmailSetCommand{
 			AccountId: accountId,
 			Create: map[string]EmailCreate{
@@ -546,16 +535,14 @@ func (j *Client) CreateEmail(accountId string, email EmailCreate, session *Sessi
 		}, "0"),
 	)
 	if err != nil {
-		logger.Error().Err(err)
-		return CreatedEmail{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return CreatedEmail{}, "", err
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (CreatedEmail, Error) {
 		var setResponse EmailSetResponse
-		err = retrieveResponseMatchParameters(body, CommandEmailSet, "0", &setResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailSet, "0", &setResponse)
 		if err != nil {
-			logger.Error().Err(err)
-			return CreatedEmail{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return CreatedEmail{}, err
 		}
 
 		if len(setResponse.NotCreated) > 0 {
@@ -571,9 +558,9 @@ func (j *Client) CreateEmail(accountId string, email EmailCreate, session *Sessi
 
 		created, ok := setResponse.Created["c"]
 		if !ok {
-			err = fmt.Errorf("failed to find %s in %s response", string(EmailType), string(CommandEmailSet))
-			logger.Error().Err(err)
-			return CreatedEmail{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			berr := fmt.Errorf("failed to find %s in %s response", string(EmailType), string(CommandEmailSet))
+			logger.Error().Err(berr)
+			return CreatedEmail{}, simpleError(berr, JmapErrorInvalidJmapResponsePayload)
 		}
 
 		return CreatedEmail{
@@ -597,23 +584,21 @@ type UpdatedEmails struct {
 //
 // To delete mails, use the DeleteEmails function instead.
 func (j *Client) UpdateEmails(accountId string, updates map[string]EmailUpdate, session *Session, ctx context.Context, logger *log.Logger) (UpdatedEmails, SessionState, Error) {
-	cmd, err := request(
+	cmd, err := j.request(session, logger,
 		invocation(CommandEmailSet, EmailSetCommand{
 			AccountId: accountId,
 			Update:    updates,
 		}, "0"),
 	)
 	if err != nil {
-		logger.Error().Err(err)
-		return UpdatedEmails{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return UpdatedEmails{}, "", err
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (UpdatedEmails, Error) {
 		var setResponse EmailSetResponse
-		err = retrieveResponseMatchParameters(body, CommandEmailSet, "0", &setResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailSet, "0", &setResponse)
 		if err != nil {
-			logger.Error().Err(err)
-			return UpdatedEmails{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return UpdatedEmails{}, err
 		}
 		if len(setResponse.NotUpdated) != len(updates) {
 			// error occured
@@ -631,23 +616,21 @@ type DeletedEmails struct {
 }
 
 func (j *Client) DeleteEmails(accountId string, destroy []string, session *Session, ctx context.Context, logger *log.Logger) (DeletedEmails, SessionState, Error) {
-	cmd, err := request(
+	cmd, err := j.request(session, logger,
 		invocation(CommandEmailSet, EmailSetCommand{
 			AccountId: accountId,
 			Destroy:   destroy,
 		}, "0"),
 	)
 	if err != nil {
-		logger.Error().Err(err)
-		return DeletedEmails{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return DeletedEmails{}, "", err
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (DeletedEmails, Error) {
 		var setResponse EmailSetResponse
-		err = retrieveResponseMatchParameters(body, CommandEmailSet, "0", &setResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailSet, "0", &setResponse)
 		if err != nil {
-			logger.Error().Err(err)
-			return DeletedEmails{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return DeletedEmails{}, err
 		}
 		if len(setResponse.NotDestroyed) != len(destroy) {
 			// error occured
@@ -707,21 +690,19 @@ func (j *Client) SubmitEmail(accountId string, identityId string, emailId string
 		},
 	}
 
-	cmd, err := request(
+	cmd, err := j.request(session, logger,
 		invocation(CommandEmailSubmissionSet, set, "0"),
 		invocation(CommandEmailSubmissionGet, get, "1"),
 	)
 	if err != nil {
-		logger.Error().Err(err)
-		return SubmittedEmail{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return SubmittedEmail{}, "", err
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (SubmittedEmail, Error) {
 		var submissionResponse EmailSubmissionSetResponse
-		err = retrieveResponseMatchParameters(body, CommandEmailSubmissionSet, "0", &submissionResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailSubmissionSet, "0", &submissionResponse)
 		if err != nil {
-			logger.Error().Err(err)
-			return SubmittedEmail{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return SubmittedEmail{}, err
 		}
 
 		if len(submissionResponse.NotCreated) > 0 {
@@ -735,17 +716,15 @@ func (j *Client) SubmitEmail(accountId string, identityId string, emailId string
 		// The response to this MUST be returned after the EmailSubmission/set response."
 		// from an example in the spec, it has the same tag as the EmailSubmission/set command ("0" in this case)
 		var setResponse EmailSetResponse
-		err = retrieveResponseMatchParameters(body, CommandEmailSet, "0", &setResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailSet, "0", &setResponse)
 		if err != nil {
-			logger.Error().Err(err)
-			return SubmittedEmail{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return SubmittedEmail{}, err
 		}
 
 		var getResponse EmailSubmissionGetResponse
-		err = retrieveResponseMatchParameters(body, CommandEmailSubmissionGet, "1", &getResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailSubmissionGet, "1", &getResponse)
 		if err != nil {
-			logger.Error().Err(err)
-			return SubmittedEmail{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return SubmittedEmail{}, err
 		}
 
 		if len(getResponse.List) != 1 {
@@ -773,7 +752,7 @@ func (j *Client) EmailsInThread(accountId string, threadId string, session *Sess
 		return z.Bool(logFetchBodies, fetchBodies).Str("threadId", log.SafeString(threadId))
 	})
 
-	cmd, err := request(
+	cmd, err := j.request(session, logger,
 		invocation(CommandThreadGet, ThreadGetCommand{
 			AccountId: accountId,
 			Ids:       []string{threadId},
@@ -789,17 +768,15 @@ func (j *Client) EmailsInThread(accountId string, threadId string, session *Sess
 			MaxBodyValueBytes:  maxBodyValueBytes,
 		}, "1"),
 	)
-
 	if err != nil {
-		logger.Error().Err(err)
-		return []Email{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return []Email{}, "", err
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) ([]Email, Error) {
 		var emailsResponse EmailGetResponse
-		err = retrieveResponseMatchParameters(body, CommandEmailGet, "1", &emailsResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "1", &emailsResponse)
 		if err != nil {
-			return []Email{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return []Email{}, err
 		}
 		return emailsResponse.List, nil
 	})
