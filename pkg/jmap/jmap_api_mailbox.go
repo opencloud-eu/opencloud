@@ -19,29 +19,31 @@ func (j *Client) GetMailbox(accountIds []string, session *Session, ctx context.C
 	logger = j.logger("GetMailbox", session, logger)
 
 	uniqueAccountIds := structs.Uniq(accountIds)
-	if len(uniqueAccountIds) < 1 {
+	n := len(uniqueAccountIds)
+	if n < 1 {
 		return map[string]MailboxesResponse{}, "", nil
 	}
 
-	invocations := make([]Invocation, len(uniqueAccountIds))
+	invocations := make([]Invocation, n)
 	for i, accountId := range uniqueAccountIds {
-		invocations[i] = invocation(CommandMailboxGet, MailboxGetCommand{AccountId: accountId, Ids: ids}, accountId)
+		baseId := accountId + ":"
+		invocations[i] = invocation(CommandMailboxGet, MailboxGetCommand{AccountId: accountId, Ids: ids}, baseId+"0")
 	}
 
-	cmd, err := request(invocations...)
+	cmd, err := j.request(session, logger, invocations...)
 	if err != nil {
-		logger.Error().Err(err)
-		return map[string]MailboxesResponse{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return map[string]MailboxesResponse{}, "", err
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (map[string]MailboxesResponse, Error) {
 		resp := map[string]MailboxesResponse{}
 		for _, accountId := range uniqueAccountIds {
+			baseId := accountId + ":"
+
 			var response MailboxGetResponse
-			err = retrieveResponseMatchParameters(body, CommandMailboxGet, "0", &response)
+			err = retrieveResponseMatchParameters(logger, body, CommandMailboxGet, baseId+"0", &response)
 			if err != nil {
-				logger.Error().Err(err)
-				return map[string]MailboxesResponse{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+				return map[string]MailboxesResponse{}, err
 			}
 
 			resp[accountId] = MailboxesResponse{
@@ -97,10 +99,9 @@ func (j *Client) SearchMailboxes(accountIds []string, session *Session, ctx cont
 			IdRef:     &ResultReference{Name: CommandMailboxQuery, Path: "/ids/*", ResultOf: baseId + "0"},
 		}, baseId+"1")
 	}
-	cmd, err := request(invocations...)
+	cmd, err := j.request(session, logger, invocations...)
 	if err != nil {
-		logger.Error().Err(err)
-		return map[string]Mailboxes{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return map[string]Mailboxes{}, "", err
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (map[string]Mailboxes, Error) {
@@ -109,10 +110,9 @@ func (j *Client) SearchMailboxes(accountIds []string, session *Session, ctx cont
 			baseId := accountId + ":"
 
 			var response MailboxGetResponse
-			err = retrieveResponseMatchParameters(body, CommandMailboxGet, baseId+"1", &response)
+			err = retrieveResponseMatchParameters(logger, body, CommandMailboxGet, baseId+"1", &response)
 			if err != nil {
-				logger.Error().Err(err)
-				return map[string]Mailboxes{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+				return map[string]Mailboxes{}, err
 			}
 
 			resp[accountId] = Mailboxes{Mailboxes: response.List, State: response.State}
@@ -161,36 +161,34 @@ func (j *Client) GetMailboxChanges(accountId string, session *Session, ctx conte
 		getUpdated.MaxBodyValueBytes = maxBodyValueBytes
 	}
 
-	cmd, err := request(
+	cmd, err := j.request(session, logger,
 		invocation(CommandMailboxChanges, changes, "0"),
 		invocation(CommandEmailGet, getCreated, "1"),
 		invocation(CommandEmailGet, getUpdated, "2"),
 	)
 	if err != nil {
-		logger.Error().Err(err)
-		return MailboxChanges{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return MailboxChanges{}, "", err
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (MailboxChanges, Error) {
 		var mailboxResponse MailboxChangesResponse
-		err = retrieveResponseMatchParameters(body, CommandMailboxChanges, "0", &mailboxResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandMailboxChanges, "0", &mailboxResponse)
 		if err != nil {
-			logger.Error().Err(err)
-			return MailboxChanges{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return MailboxChanges{}, err
 		}
 
 		var createdResponse EmailGetResponse
-		err = retrieveResponseMatchParameters(body, CommandEmailGet, "1", &createdResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "1", &createdResponse)
 		if err != nil {
-			logger.Error().Err(err)
-			return MailboxChanges{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			logger.Error().Err(err).Send()
+			return MailboxChanges{}, err
 		}
 
 		var updatedResponse EmailGetResponse
-		err = retrieveResponseMatchParameters(body, CommandEmailGet, "2", &updatedResponse)
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "2", &updatedResponse)
 		if err != nil {
-			logger.Error().Err(err)
-			return MailboxChanges{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			logger.Error().Err(err).Send()
+			return MailboxChanges{}, err
 		}
 
 		return MailboxChanges{
@@ -259,10 +257,9 @@ func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, sessi
 		invocations[i*3+2] = invocation(CommandEmailGet, getUpdated, baseId+"2")
 	}
 
-	cmd, err := request(invocations...)
+	cmd, err := j.request(session, logger, invocations...)
 	if err != nil {
-		logger.Error().Err(err)
-		return map[string]MailboxChanges{}, "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return map[string]MailboxChanges{}, "", err
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (map[string]MailboxChanges, Error) {
@@ -271,24 +268,21 @@ func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, sessi
 			baseId := accountId + ":"
 
 			var mailboxResponse MailboxChangesResponse
-			err = retrieveResponseMatchParameters(body, CommandMailboxChanges, baseId+"0", &mailboxResponse)
+			err = retrieveResponseMatchParameters(logger, body, CommandMailboxChanges, baseId+"0", &mailboxResponse)
 			if err != nil {
-				logger.Error().Err(err)
-				return map[string]MailboxChanges{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+				return map[string]MailboxChanges{}, err
 			}
 
 			var createdResponse EmailGetResponse
-			err = retrieveResponseMatchParameters(body, CommandEmailGet, baseId+"1", &createdResponse)
+			err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, baseId+"1", &createdResponse)
 			if err != nil {
-				logger.Error().Err(err)
-				return map[string]MailboxChanges{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+				return map[string]MailboxChanges{}, err
 			}
 
 			var updatedResponse EmailGetResponse
-			err = retrieveResponseMatchParameters(body, CommandEmailGet, baseId+"2", &updatedResponse)
+			err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, baseId+"2", &updatedResponse)
 			if err != nil {
-				logger.Error().Err(err)
-				return map[string]MailboxChanges{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+				return map[string]MailboxChanges{}, err
 			}
 
 			resp[accountId] = MailboxChanges{

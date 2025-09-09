@@ -1909,14 +1909,6 @@ type Request struct {
 	CreatedIds map[string]string `json:"createdIds,omitempty"`
 }
 
-func request(methodCalls ...Invocation) (Request, error) {
-	return Request{
-		Using:       []string{JmapCore, JmapMail},
-		MethodCalls: methodCalls,
-		CreatedIds:  nil,
-	}, nil
-}
-
 type Response struct {
 	// An array of responses, in the same format as the methodCalls on the Request object.
 	// The output of the methods MUST be added to the methodResponses array in the same order that the methods are processed.
@@ -2380,7 +2372,7 @@ type Identity struct {
 	Email string `json:"email,omitempty"`
 
 	// The Reply-To value the client SHOULD set when creating a new Email from this Identity.
-	ReplyTo string `json:"replyTo:omitempty"`
+	ReplyTo string `json:"replyTo,omitempty"`
 
 	// The Bcc value the client SHOULD set when creating a new Email from this Identity.
 	Bcc []EmailAddress `json:"bcc,omitempty"`

@@ -47,6 +47,11 @@ func (t *TestJmapWellKnownClient) GetSession(sessionUrl *url.URL, username strin
 			Quota:            pa,
 			Websocket:        pa,
 		},
+		Capabilities: SessionCapabilities{
+			Core: SessionCoreCapabilities{
+				MaxCallsInRequest: 64,
+			},
+		},
 	}, nil
 }
 
@@ -149,7 +154,17 @@ func TestRequests(t *testing.T) {
 	jmapUrl, err := url.Parse("http://localhost/jmap")
 	require.NoError(err)
 
-	session := Session{Username: "user123", JmapUrl: *jmapUrl}
+	session := Session{
+		Username: "user123",
+		JmapUrl:  *jmapUrl,
+		SessionResponse: SessionResponse{
+			Capabilities: SessionCapabilities{
+				Core: SessionCoreCapabilities{
+					MaxCallsInRequest: 10,
+				},
+			},
+		},
+	}
 
 	foldersByAccountId, sessionState, err := client.GetAllMailboxes([]string{"a"}, &session, ctx, &logger)
 	require.NoError(err)
