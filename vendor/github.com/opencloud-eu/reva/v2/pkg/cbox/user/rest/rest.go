@@ -224,6 +224,9 @@ func (m *manager) parseAndCacheUser(ctx context.Context, userData map[string]int
 }
 
 func (m *manager) GetUser(ctx context.Context, uid *userpb.UserId, skipFetchingGroups bool) (*userpb.User, error) {
+	if uid.GetTenantId() != "" {
+		return nil, errtypes.NotSupported("tenant filter not supported in rest user manager")
+	}
 	u, err := m.fetchCachedUserDetails(uid)
 	if err != nil {
 		return nil, err
@@ -240,7 +243,10 @@ func (m *manager) GetUser(ctx context.Context, uid *userpb.UserId, skipFetchingG
 	return u, nil
 }
 
-func (m *manager) GetUserByClaim(ctx context.Context, claim, value string, skipFetchingGroups bool) (*userpb.User, error) {
+func (m *manager) GetUserByClaim(ctx context.Context, claim, value, tenantID string, skipFetchingGroups bool) (*userpb.User, error) {
+	if tenantID != "" {
+		return nil, errtypes.NotSupported("tenant filter not supported in rest user manager")
+	}
 	u, err := m.fetchCachedUserByParam(claim, value)
 	if err != nil {
 		return nil, err

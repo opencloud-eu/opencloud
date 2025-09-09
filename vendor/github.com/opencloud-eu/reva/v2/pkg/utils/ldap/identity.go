@@ -19,15 +19,20 @@
 package ldap
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	identityUser "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	"github.com/go-ldap/ldap/v3"
 	"github.com/google/uuid"
+	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Identity provides methods to query users and groups from an LDAP server
@@ -35,6 +40,8 @@ type Identity struct {
 	User  userConfig  `mapstructure:",squash"`
 	Group groupConfig `mapstructure:",squash"`
 }
+
+const tracerName = "pkg/utils/ldap"
 
 type userConfig struct {
 	BaseDN              string `mapstructure:"user_base_dn"`
@@ -178,45 +185,40 @@ func (i *Identity) Setup() error {
 
 // GetLDAPUserByID looks up a user by the supplied Id. Returns the corresponding
 // ldap.Entry
-func (i *Identity) GetLDAPUserByID(log *zerolog.Logger, lc ldap.Client, id string) (*ldap.Entry, error) {
+func (i *Identity) GetLDAPUserByID(ctx context.Context, lc ldap.Client, id *identityUser.UserId) (*ldap.Entry, error) {
 	var filter string
 	var err error
 	if filter, err = i.getUserFilter(id); err != nil {
 		return nil, err
 	}
-	return i.GetLDAPUserByFilter(log, lc, filter)
+	return i.GetLDAPUserByFilter(ctx, lc, filter)
 }
 
 // GetLDAPUserByAttribute looks up a single user by attribute (can be "mail",
 // "uid", "gid", "username" or "userid"). Returns the corresponding ldap.Entry
-func (i *Identity) GetLDAPUserByAttribute(log *zerolog.Logger, lc ldap.Client, attribute, value string) (*ldap.Entry, error) {
+func (i *Identity) GetLDAPUserByAttribute(ctx context.Context, lc ldap.Client, attribute, value, tenantID string) (*ldap.Entry, error) {
 	var filter string
 	var err error
-	if filter, err = i.getUserAttributeFilter(attribute, value); err != nil {
+	if filter, err = i.getUserAttributeFilter(attribute, value, tenantID); err != nil {
 		return nil, err
 	}
-	return i.GetLDAPUserByFilter(log, lc, filter)
+	return i.GetLDAPUserByFilter(ctx, lc, filter)
 }
 
 // GetLDAPUserByFilter looks up a single user by the supplied LDAP filter
 // returns the corresponding ldap.Entry
-func (i *Identity) GetLDAPUserByFilter(log *zerolog.Logger, lc ldap.Client, filter string) (*ldap.Entry, error) {
+func (i *Identity) GetLDAPUserByFilter(ctx context.Context, lc ldap.Client, filter string) (*ldap.Entry, error) {
+	log := appctx.GetLogger(ctx)
+	_, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "GetLDAPUserByFilter")
+	defer span.End()
 	searchRequest := ldap.NewSearchRequest(
 		i.User.BaseDN, i.User.scopeVal, ldap.NeverDerefAliases, 1, 0, false,
 		filter,
-		[]string{
-			i.User.Schema.DisplayName,
-			i.User.Schema.ID,
-			i.User.Schema.TenantID,
-			i.User.Schema.Mail,
-			i.User.Schema.Username,
-			i.User.Schema.UIDNumber,
-			i.User.Schema.GIDNumber,
-			i.User.EnabledProperty,
-			i.User.UserTypeProperty,
-		},
+		i.getUserLDAPAttrTypes(),
 		nil,
 	)
+
+	setLDAPSearchSpanAttributes(span, searchRequest)
 	log.Debug().Str("backend", "ldap").Str("basedn", i.User.BaseDN).Str("filter", filter).Int("scope", i.User.scopeVal).Msg("LDAP Search")
 	res, err := lc.Search(searchRequest)
 	if err != nil {
@@ -227,18 +229,25 @@ func (i *Identity) GetLDAPUserByFilter(log *zerolog.Logger, lc ldap.Client, filt
 				errmsg = fmt.Sprintf("too many results searching for user '%s'", filter)
 			}
 		}
+		span.SetAttributes(attribute.String("ldap.error", errmsg))
+		span.SetStatus(codes.Error, errmsg)
 		return nil, errtypes.NotFound(errmsg)
 	}
 	if len(res.Entries) == 0 {
 		return nil, errtypes.NotFound(filter)
 	}
+	span.SetStatus(codes.Ok, "")
 
 	return res.Entries[0], nil
 }
 
 // GetLDAPUserByDN looks up a single user by the supplied LDAP DN
 // returns the corresponding ldap.Entry
-func (i *Identity) GetLDAPUserByDN(log *zerolog.Logger, lc ldap.Client, dn string) (*ldap.Entry, error) {
+func (i *Identity) GetLDAPUserByDN(ctx context.Context, lc ldap.Client, dn string) (*ldap.Entry, error) {
+	log := appctx.GetLogger(ctx)
+	_, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "GetLDAPUserByDN")
+	defer span.End()
+
 	filter := fmt.Sprintf("(objectclass=%s)", i.User.Objectclass)
 	if i.User.Filter != "" {
 		filter = fmt.Sprintf("(&%s%s)", i.User.Filter, filter)
@@ -246,23 +255,19 @@ func (i *Identity) GetLDAPUserByDN(log *zerolog.Logger, lc ldap.Client, dn strin
 	searchRequest := ldap.NewSearchRequest(
 		dn, i.User.scopeVal, ldap.NeverDerefAliases, 1, 0, false,
 		filter,
-		[]string{
-			i.User.Schema.DisplayName,
-			i.User.Schema.ID,
-			i.User.Schema.Mail,
-			i.User.Schema.Username,
-			i.User.Schema.UIDNumber,
-			i.User.Schema.GIDNumber,
-			i.User.EnabledProperty,
-		},
+		i.getUserLDAPAttrTypes(),
 		nil,
 	)
+	setLDAPSearchSpanAttributes(span, searchRequest)
 	log.Debug().Str("backend", "ldap").Str("basedn", dn).Str("filter", filter).Int("scope", i.User.scopeVal).Msg("LDAP Search")
 	res, err := lc.Search(searchRequest)
 	if err != nil {
 		log.Debug().Str("backend", "ldap").Err(err).Str("dn", dn).Msg("Error looking up user by DN")
+		span.SetAttributes(attribute.String("ldap.error", err.Error()))
+		span.SetStatus(codes.Error, "")
 		return nil, errtypes.NotFound(dn)
 	}
+	span.SetStatus(codes.Ok, "")
 	if len(res.Entries) == 0 {
 		return nil, errtypes.NotFound(dn)
 	}
@@ -272,36 +277,42 @@ func (i *Identity) GetLDAPUserByDN(log *zerolog.Logger, lc ldap.Client, dn strin
 
 // GetLDAPUsers searches for users using a prefix-substring match on the user
 // attributes. Returns a slice of matching ldap.Entries
-func (i *Identity) GetLDAPUsers(log *zerolog.Logger, lc ldap.Client, query, tenantID string) ([]*ldap.Entry, error) {
+func (i *Identity) GetLDAPUsers(ctx context.Context, lc ldap.Client, query, tenantID string) ([]*ldap.Entry, error) {
+	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "GetLDAPUsers")
+	defer span.End()
+	log := appctx.GetLogger(ctx)
 	filter := i.getUserFindFilter(query, tenantID)
 	searchRequest := ldap.NewSearchRequest(
 		i.User.BaseDN,
 		i.User.scopeVal, ldap.NeverDerefAliases, 0, 0, false,
 		filter,
-		[]string{
-			i.User.Schema.ID,
-			i.User.Schema.Username,
-			i.User.Schema.Mail,
-			i.User.Schema.DisplayName,
-			i.User.Schema.UIDNumber,
-			i.User.Schema.GIDNumber,
-			i.User.EnabledProperty,
-			i.User.UserTypeProperty,
-		},
+		i.getUserLDAPAttrTypes(),
 		nil,
 	)
-
+	setLDAPSearchSpanAttributes(span, searchRequest)
 	log.Debug().Str("backend", "ldap").Str("basedn", i.User.BaseDN).Str("filter", filter).Int("scope", i.User.scopeVal).Msg("LDAP Search")
 	sr, err := lc.Search(searchRequest)
 	if err != nil {
 		log.Debug().Str("backend", "ldap").Err(err).Str("filter", filter).Msg("Error searching users")
+		span.SetAttributes(attribute.String("ldap.error", err.Error()))
+		span.SetStatus(codes.Error, "")
 		return nil, errtypes.NotFound(query)
 	}
+
+	span.SetAttributes(attribute.Int("ldap.result_count", len(sr.Entries)))
+	span.SetStatus(codes.Ok, "")
+
 	return sr.Entries, nil
 }
 
 // IsLDAPUserInDisabledGroup checkes if the user is in the disabled group.
-func (i *Identity) IsLDAPUserInDisabledGroup(log *zerolog.Logger, lc ldap.Client, userEntry *ldap.Entry) bool {
+func (i *Identity) IsLDAPUserInDisabledGroup(ctx context.Context, lc ldap.Client, userEntry *ldap.Entry) bool {
+	_, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "IsLDAPUserInDisabledGroup")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("identity.config.disable_mechanism", i.User.DisableMechanism))
+	span.SetStatus(codes.Ok, "")
+
 	// Check if we need to do this here because the configuration is local to Identity.
 	if i.User.DisableMechanism != "group" {
 		return false
@@ -316,11 +327,15 @@ func (i *Identity) IsLDAPUserInDisabledGroup(log *zerolog.Logger, lc ldap.Client
 		[]string{i.Group.Schema.ID},
 		nil,
 	)
+	setLDAPSearchSpanAttributes(span, searchRequest)
+
 	log.Debug().Str("backend", "ldap").Str("basedn", i.Group.LocalDisabledDN).Str("filter", filter).Int("scope", i.Group.scopeVal).Msg("LDAP Search")
 	sr, err := lc.Search(searchRequest)
 	if err != nil {
 		log.Error().Str("backend", "ldap").Err(err).Str("filter", filter).Msg("Error looking up error group")
 		// Err on the side of caution.
+		span.SetAttributes(attribute.String("ldap.error", err.Error()))
+		span.SetStatus(codes.Error, "")
 		return true
 	}
 
@@ -329,8 +344,13 @@ func (i *Identity) IsLDAPUserInDisabledGroup(log *zerolog.Logger, lc ldap.Client
 
 // GetLDAPUserGroups looks up the group member ship of the supplied LDAP user entry.
 // Returns a slice of strings with groupids
-func (i *Identity) GetLDAPUserGroups(log *zerolog.Logger, lc ldap.Client, userEntry *ldap.Entry) ([]string, error) {
+func (i *Identity) GetLDAPUserGroups(ctx context.Context, lc ldap.Client, userEntry *ldap.Entry) ([]string, error) {
 	var memberValue string
+
+	log := appctx.GetLogger(ctx)
+
+	_, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "GetLDAPUserGroups")
+	defer span.End()
 
 	if strings.ToLower(i.Group.Objectclass) == "posixgroup" {
 		// posixGroup usually means that the member attribute just contains the username
@@ -350,11 +370,16 @@ func (i *Identity) GetLDAPUserGroups(log *zerolog.Logger, lc ldap.Client, userEn
 	)
 
 	log.Debug().Str("backend", "ldap").Str("basedn", i.Group.BaseDN).Str("filter", filter).Int("scope", i.Group.scopeVal).Msg("LDAP Search")
+	setLDAPSearchSpanAttributes(span, searchRequest)
 	sr, err := lc.Search(searchRequest)
 	if err != nil {
 		log.Debug().Str("backend", "ldap").Err(err).Str("filter", filter).Msg("Error looking up group memberships")
+		span.SetAttributes(attribute.String("ldap.error", err.Error()))
+		span.SetStatus(codes.Error, "")
 		return []string{}, err
 	}
+	span.SetStatus(codes.Ok, "")
+	span.SetAttributes(attribute.Int("ldap.result_count", len(sr.Entries)))
 
 	groups := make([]string, 0, len(sr.Entries))
 	for _, entry := range sr.Entries {
@@ -380,29 +405,32 @@ func (i *Identity) GetLDAPUserGroups(log *zerolog.Logger, lc ldap.Client, userEn
 
 // GetLDAPGroupByID looks up a group by the supplied Id. Returns the corresponding
 // ldap.Entry
-func (i *Identity) GetLDAPGroupByID(log *zerolog.Logger, lc ldap.Client, id string) (*ldap.Entry, error) {
+func (i *Identity) GetLDAPGroupByID(ctx context.Context, lc ldap.Client, id string) (*ldap.Entry, error) {
 	var filter string
 	var err error
 	if filter, err = i.getGroupFilter(id); err != nil {
 		return nil, err
 	}
-	return i.GetLDAPGroupByFilter(log, lc, filter)
+	return i.GetLDAPGroupByFilter(ctx, lc, filter)
 }
 
 // GetLDAPGroupByAttribute looks up a single group by attribute (can be "mail", "gid_number",
 // "display_name", "group_name", "group_id"). Returns the corresponding ldap.Entry
-func (i *Identity) GetLDAPGroupByAttribute(log *zerolog.Logger, lc ldap.Client, attribute, value string) (*ldap.Entry, error) {
+func (i *Identity) GetLDAPGroupByAttribute(ctx context.Context, lc ldap.Client, attribute, value string) (*ldap.Entry, error) {
 	var filter string
 	var err error
 	if filter, err = i.getGroupAttributeFilter(attribute, value); err != nil {
 		return nil, err
 	}
-	return i.GetLDAPGroupByFilter(log, lc, filter)
+	return i.GetLDAPGroupByFilter(ctx, lc, filter)
 }
 
 // GetLDAPGroupByFilter looks up a single group by the supplied LDAP filter
 // returns the corresponding ldap.Entry
-func (i *Identity) GetLDAPGroupByFilter(log *zerolog.Logger, lc ldap.Client, filter string) (*ldap.Entry, error) {
+func (i *Identity) GetLDAPGroupByFilter(ctx context.Context, lc ldap.Client, filter string) (*ldap.Entry, error) {
+	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "GetLDAPGroupByFilter")
+	defer span.End()
+	log := appctx.GetLogger(ctx)
 	searchRequest := ldap.NewSearchRequest(
 		i.Group.BaseDN, i.Group.scopeVal, ldap.NeverDerefAliases, 1, 0, false,
 		filter,
@@ -416,6 +444,7 @@ func (i *Identity) GetLDAPGroupByFilter(log *zerolog.Logger, lc ldap.Client, fil
 		},
 		nil,
 	)
+	setLDAPSearchSpanAttributes(span, searchRequest)
 
 	log.Debug().Str("backend", "ldap").Str("basedn", i.Group.BaseDN).Str("filter", filter).Int("scope", i.Group.scopeVal).Msg("LDAP Search")
 	res, err := lc.Search(searchRequest)
@@ -427,18 +456,23 @@ func (i *Identity) GetLDAPGroupByFilter(log *zerolog.Logger, lc ldap.Client, fil
 				errmsg = fmt.Sprintf("too many results searching for group '%s'", filter)
 			}
 		}
+		span.SetAttributes(attribute.String("ldap.error", errmsg))
+		span.SetStatus(codes.Error, "")
 		return nil, errtypes.NotFound(errmsg)
 	}
 	if len(res.Entries) == 0 {
 		return nil, errtypes.NotFound(filter)
 	}
-
+	span.SetStatus(codes.Ok, "")
 	return res.Entries[0], nil
 }
 
 // GetLDAPGroups searches for groups using a prefix-substring match on the group
 // attributes. Returns a slice of matching ldap.Entries
-func (i *Identity) GetLDAPGroups(log *zerolog.Logger, lc ldap.Client, query string) ([]*ldap.Entry, error) {
+func (i *Identity) GetLDAPGroups(ctx context.Context, lc ldap.Client, query string) ([]*ldap.Entry, error) {
+	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "GetLDAPGroups")
+	defer span.End()
+	log := appctx.GetLogger(ctx)
 	searchRequest := ldap.NewSearchRequest(
 		i.Group.BaseDN,
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
@@ -452,18 +486,22 @@ func (i *Identity) GetLDAPGroups(log *zerolog.Logger, lc ldap.Client, query stri
 		},
 		nil,
 	)
-
+	setLDAPSearchSpanAttributes(span, searchRequest)
 	sr, err := lc.Search(searchRequest)
 	if err != nil {
+		span.SetAttributes(attribute.String("ldap.error", err.Error()))
+		span.SetStatus(codes.Error, "")
 		log.Debug().Str("backend", "ldap").Err(err).Str("query", query).Msg("Error search for groups")
 		return nil, errtypes.NotFound(query)
 	}
+	span.SetStatus(codes.Ok, "")
 	return sr.Entries, nil
 }
 
 // GetLDAPGroupMembers looks up all members of the supplied LDAP group entry and returns the
 // corresponding LDAP user entries
-func (i *Identity) GetLDAPGroupMembers(log *zerolog.Logger, lc ldap.Client, group *ldap.Entry) ([]*ldap.Entry, error) {
+func (i *Identity) GetLDAPGroupMembers(ctx context.Context, lc ldap.Client, group *ldap.Entry) ([]*ldap.Entry, error) {
+	log := appctx.GetLogger(ctx)
 	members := group.GetEqualFoldAttributeValues(i.Group.Schema.Member)
 	log.Debug().Str("dn", group.DN).Interface("member", members).Msg("Get Group members")
 	memberEntries := make([]*ldap.Entry, 0, len(members))
@@ -471,9 +509,9 @@ func (i *Identity) GetLDAPGroupMembers(log *zerolog.Logger, lc ldap.Client, grou
 		var e *ldap.Entry
 		var err error
 		if strings.ToLower(i.Group.Objectclass) == "posixgroup" {
-			e, err = i.GetLDAPUserByAttribute(log, lc, "username", member)
+			e, err = i.GetLDAPUserByAttribute(ctx, lc, "username", member, "")
 		} else {
-			e, err = i.GetLDAPUserByDN(log, lc, member)
+			e, err = i.GetLDAPUserByDN(ctx, lc, member)
 		}
 		if err != nil {
 			log.Warn().Err(err).Interface("member", member).Msg("Failed read user entry for member")
@@ -493,28 +531,28 @@ func filterEscapeBinaryUUID(value uuid.UUID) string {
 	return filtered
 }
 
-func (i *Identity) getUserFilter(uid string) (string, error) {
+func (i *Identity) getUserFilter(uid *identityUser.UserId) (string, error) {
 	var escapedUUID string
 	if i.User.Schema.IDIsOctetString {
-		id, err := uuid.Parse(uid)
+		id, err := uuid.Parse(uid.GetOpaqueId())
 		if err != nil {
 			err := errors.Wrap(err, fmt.Sprintf("error parsing OpaqueID '%s' as UUID", uid))
 			return "", err
 		}
 		escapedUUID = filterEscapeBinaryUUID(id)
 	} else {
-		escapedUUID = ldap.EscapeFilter(uid)
+		escapedUUID = ldap.EscapeFilter(uid.GetOpaqueId())
 	}
-
-	return fmt.Sprintf("(&%s(objectclass=%s)(%s=%s))",
+	return fmt.Sprintf("(&%s(objectclass=%s)%s(%s=%s))",
 		i.User.Filter,
 		i.User.Objectclass,
+		i.tenantFilter(uid.GetTenantId()),
 		i.User.Schema.ID,
 		escapedUUID,
 	), nil
 }
 
-func (i *Identity) getUserAttributeFilter(attribute, value string) (string, error) {
+func (i *Identity) getUserAttributeFilter(attribute, value, tenantID string) (string, error) {
 	switch attribute {
 	case "mail":
 		attribute = i.User.Schema.Mail
@@ -541,15 +579,22 @@ func (i *Identity) getUserAttributeFilter(attribute, value string) (string, erro
 	} else {
 		value = ldap.EscapeFilter(value)
 	}
-	return fmt.Sprintf("(&%s(objectclass=%s)(%s=%s)%s)",
+	return fmt.Sprintf("(&%s(objectclass=%s)(%s=%s)%s%s)",
 		i.User.Filter,
 		i.User.Objectclass,
 		attribute,
 		value,
+		i.tenantFilter(tenantID),
 		i.disabledFilter(),
 	), nil
 }
 
+func (i *Identity) tenantFilter(tenantID string) string {
+	if tenantID != "" && i.User.Schema.TenantID != "" {
+		return fmt.Sprintf("(%s=%s)", i.User.Schema.TenantID, ldap.EscapeFilter(tenantID))
+	}
+	return ""
+}
 func (i *Identity) disabledFilter() string {
 	if i.User.DisableMechanism == "attribute" {
 		return fmt.Sprintf("(!(%s=FALSE))", i.User.EnabledProperty)
@@ -580,14 +625,10 @@ func (i *Identity) getUserFindFilter(query, tenantID string) string {
 	// substring search for UUID is not possible
 	filter = fmt.Sprintf("(|%s(%s=%s))", filter, i.User.Schema.ID, ldap.EscapeFilter(query))
 
-	if tenantID != "" {
-		// If a tenant ID is provided, we AND a filter for the tenant ID
-		filter = fmt.Sprintf("(&%s(%s=%s))", filter, i.User.Schema.TenantID, ldap.EscapeFilter(tenantID))
-	}
-
-	return fmt.Sprintf("(&%s(objectclass=%s)%s)",
+	return fmt.Sprintf("(&%s(objectclass=%s)%s%s)",
 		i.User.Filter,
 		i.User.Objectclass,
+		i.tenantFilter(tenantID),
 		filter,
 	)
 }
@@ -726,4 +767,41 @@ func (i *Identity) GetUserType(userEntry *ldap.Entry) identityUser.UserType {
 	default:
 		return identityUser.UserType_USER_TYPE_PRIMARY
 	}
+}
+
+func (i *Identity) getUserLDAPAttrTypes() []string {
+	// The are the attributes we request unconditionally when looking up users
+	// as they are needed to populate a user object
+	attrs := []string{
+		i.User.Schema.ID,
+		i.User.Schema.Username,
+		i.User.Schema.Mail,
+		i.User.Schema.DisplayName,
+	}
+
+	// Only add optional attributes if they are configured
+	if i.User.Schema.UIDNumber != "" {
+		attrs = append(attrs, i.User.Schema.UIDNumber)
+	}
+	if i.User.Schema.GIDNumber != "" {
+		attrs = append(attrs, i.User.Schema.GIDNumber)
+	}
+	if i.User.Schema.TenantID != "" {
+		attrs = append(attrs, i.User.Schema.TenantID)
+	}
+	if i.User.EnabledProperty != "" {
+		attrs = append(attrs, i.User.EnabledProperty)
+	}
+	if i.User.UserTypeProperty != "" {
+		attrs = append(attrs, i.User.UserTypeProperty)
+	}
+	return attrs
+}
+func setLDAPSearchSpanAttributes(span trace.Span, request *ldap.SearchRequest) {
+	span.SetAttributes(
+		attribute.String("ldap.basedn", request.BaseDN),
+		attribute.String("ldap.filter", request.Filter),
+		attribute.Int("ldap.scope", request.Scope),
+		attribute.Int("ldap.size_limit", request.SizeLimit),
+	)
 }

@@ -89,6 +89,9 @@ type GetUserReply struct {
 
 // GetUser RPCClient GetUser method
 func (m *RPCClient) GetUser(ctx context.Context, uid *userpb.UserId, skipFetchingGroups bool) (*userpb.User, error) {
+	if uid.GetTenantId() != "" {
+		return nil, errtypes.NotSupported("tenant filter not supported in rpc_user user manager")
+	}
 	ctxVal := appctx.GetKeyValuesFromCtx(ctx)
 	args := GetUserArg{Ctx: ctxVal, UID: uid, SkipFetchingGroups: skipFetchingGroups}
 	resp := GetUserReply{}
@@ -114,7 +117,11 @@ type GetUserByClaimReply struct {
 }
 
 // GetUserByClaim RPCClient GetUserByClaim method
-func (m *RPCClient) GetUserByClaim(ctx context.Context, claim, value string, skipFetchingGroups bool) (*userpb.User, error) {
+func (m *RPCClient) GetUserByClaim(ctx context.Context, claim, value, tenantID string, skipFetchingGroups bool) (*userpb.User, error) {
+	if tenantID != "" {
+		return nil, errtypes.NotSupported("tenant filter not supported in rpc_user user manager")
+	}
+
 	ctxVal := appctx.GetKeyValuesFromCtx(ctx)
 	args := GetUserByClaimArg{Ctx: ctxVal, Claim: claim, Value: value, SkipFetchingGroups: skipFetchingGroups}
 	resp := GetUserByClaimReply{}
@@ -200,7 +207,7 @@ func (m *RPCServer) GetUser(args GetUserArg, resp *GetUserReply) error {
 // GetUserByClaim RPCServer GetUserByClaim method
 func (m *RPCServer) GetUserByClaim(args GetUserByClaimArg, resp *GetUserByClaimReply) error {
 	ctx := appctx.PutKeyValuesToCtx(args.Ctx)
-	resp.User, resp.Err = m.Impl.GetUserByClaim(ctx, args.Claim, args.Value, args.SkipFetchingGroups)
+	resp.User, resp.Err = m.Impl.GetUserByClaim(ctx, args.Claim, args.Value, "", args.SkipFetchingGroups)
 	return nil
 }
 

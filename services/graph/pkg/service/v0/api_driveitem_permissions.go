@@ -184,9 +184,9 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 		cTime = createShareResponse.GetShare().GetCtime()
 		expiration = createShareResponse.GetShare().GetExpiration()
 	default:
-		user, err := s.identityCache.GetUser(ctx, objectID)
+		user, err := s.identityCache.GetCS3User(ctx, objectID)
 		if errors.Is(err, identity.ErrNotFound) && s.config.IncludeOCMSharees {
-			user, err = s.identityCache.GetAcceptedUser(ctx, objectID)
+			user, err = s.identityCache.GetAcceptedCS3User(ctx, objectID)
 			if err == nil && IsSpaceRoot(statResponse.GetInfo().GetId()) {
 				return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, "federated user can not become a space member")
 			}
@@ -198,19 +198,16 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 		permission.GrantedToV2 = &libregraph.SharePointIdentitySet{
 			User: &libregraph.Identity{
 				DisplayName:        user.GetDisplayName(),
-				Id:                 conversions.ToPointer(user.GetId()),
-				LibreGraphUserType: conversions.ToPointer(user.GetUserType()),
+				Id:                 conversions.ToPointer(user.GetId().GetOpaqueId()),
+				LibreGraphUserType: conversions.ToPointer(identity.CS3UserTypeToGraph(user.GetId().GetType())),
 			},
 		}
 
-		if user.GetUserType() == identity.UserTypeFederated {
-			if len(user.Identities) < 1 {
-				return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, "user has no federated identity")
-			}
+		if user.GetId().GetType() == userpb.UserType_USER_TYPE_FEDERATED {
 			providerInfoResp, err := gatewayClient.GetInfoByDomain(ctx, &ocmprovider.GetInfoByDomainRequest{
-				Domain: *user.Identities[0].Issuer,
+				Domain: user.GetId().GetIdp(),
 			})
-			if err := errorcode.FromCS3Status(providerInfoResp.GetStatus(), err); err != nil {
+			if err = errorcode.FromCS3Status(providerInfoResp.GetStatus(), err); err != nil {
 				s.logger.Error().Err(err).Msg("getting provider info failed")
 				return libregraph.Permission{}, err
 			}
@@ -220,7 +217,7 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 				createShareRequest.Expiration = utils.TimeToTS(*invite.ExpirationDateTime)
 			}
 			createShareResponse, err := gatewayClient.CreateOCMShare(ctx, createShareRequest)
-			if err := errorcode.FromCS3Status(createShareResponse.GetStatus(), err); err != nil {
+			if err = errorcode.FromCS3Status(createShareResponse.GetStatus(), err); err != nil {
 				s.logger.Error().Err(err).Msg("share creation failed")
 				return libregraph.Permission{}, err
 			}
@@ -233,7 +230,7 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 				createShareRequest.GetGrant().Expiration = utils.TimeToTS(*invite.ExpirationDateTime)
 			}
 			createShareResponse, err := gatewayClient.CreateShare(ctx, createShareRequest)
-			if err := errorcode.FromCS3Status(createShareResponse.GetStatus(), err); err != nil {
+			if err = errorcode.FromCS3Status(createShareResponse.GetStatus(), err); err != nil {
 				s.logger.Error().Err(err).Msg("share creation failed")
 				return libregraph.Permission{}, err
 			}
@@ -293,15 +290,16 @@ func createShareRequestToGroup(group libregraph.Group, info *storageprovider.Res
 		},
 	}
 }
-func createShareRequestToUser(user libregraph.User, info *storageprovider.ResourceInfo, cs3ResourcePermissions *storageprovider.ResourcePermissions) *collaboration.CreateShareRequest {
+
+func createShareRequestToUser(user *userpb.User, info *storageprovider.ResourceInfo, cs3ResourcePermissions *storageprovider.ResourcePermissions) *collaboration.CreateShareRequest {
 	return &collaboration.CreateShareRequest{
 		ResourceInfo: info,
 		Grant: &collaboration.ShareGrant{
 			Grantee: &storageprovider.Grantee{
 				Type: storageprovider.GranteeType_GRANTEE_TYPE_USER,
-				Id: &storageprovider.Grantee_UserId{UserId: &userpb.UserId{
-					OpaqueId: user.GetId(),
-				}},
+				Id: &storageprovider.Grantee_UserId{
+					UserId: user.GetId(),
+				},
 			},
 			Permissions: &collaboration.SharePermissions{
 				Permissions: cs3ResourcePermissions,
@@ -309,16 +307,15 @@ func createShareRequestToUser(user libregraph.User, info *storageprovider.Resour
 		},
 	}
 }
-func createShareRequestToFederatedUser(user libregraph.User, resourceId *storageprovider.ResourceId, providerInfo *ocmprovider.ProviderInfo, cs3ResourcePermissions *storageprovider.ResourcePermissions) *ocm.CreateOCMShareRequest {
+
+func createShareRequestToFederatedUser(user *userpb.User, resourceId *storageprovider.ResourceId, providerInfo *ocmprovider.ProviderInfo, cs3ResourcePermissions *storageprovider.ResourcePermissions) *ocm.CreateOCMShareRequest {
 	return &ocm.CreateOCMShareRequest{
 		ResourceId: resourceId,
 		Grantee: &storageprovider.Grantee{
 			Type: storageprovider.GranteeType_GRANTEE_TYPE_USER,
-			Id: &storageprovider.Grantee_UserId{UserId: &userpb.UserId{
-				Type:     userpb.UserType_USER_TYPE_FEDERATED,
-				OpaqueId: user.GetId(),
-				Idp:      *user.GetIdentities()[0].Issuer, // the domain is persisted in the grant as u:{opaqueid}:{domain}
-			}},
+			Id: &storageprovider.Grantee_UserId{
+				UserId: user.GetId(),
+			},
 		},
 		RecipientMeshProvider: providerInfo,
 		AccessMethods: []*ocm.AccessMethod{

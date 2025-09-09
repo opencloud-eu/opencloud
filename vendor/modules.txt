@@ -227,7 +227,7 @@ github.com/cenkalti/backoff
 # github.com/cenkalti/backoff/v4 v4.3.0
 ## explicit; go 1.18
 github.com/cenkalti/backoff/v4
-# github.com/cenkalti/backoff/v5 v5.0.2
+# github.com/cenkalti/backoff/v5 v5.0.3
 ## explicit; go 1.23
 github.com/cenkalti/backoff/v5
 # github.com/ceph/go-ceph v0.35.0
@@ -1270,7 +1270,7 @@ github.com/open-policy-agent/opa/v1/version
 # github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76
 ## explicit; go 1.18
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v2 v2.37.0
+# github.com/opencloud-eu/reva/v2 v2.37.1-0.20250909074412-f272eeaa2674
 ## explicit; go 1.24.1
 github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v2/cmd/revad/runtime
@@ -2208,11 +2208,11 @@ go.opentelemetry.io/otel/exporters/jaeger/internal/gen-go/agent
 go.opentelemetry.io/otel/exporters/jaeger/internal/gen-go/jaeger
 go.opentelemetry.io/otel/exporters/jaeger/internal/gen-go/zipkincore
 go.opentelemetry.io/otel/exporters/jaeger/internal/third_party/thrift/lib/go/thrift
-# go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.37.0
+# go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.38.0
 ## explicit; go 1.23.0
 go.opentelemetry.io/otel/exporters/otlp/otlptrace
 go.opentelemetry.io/otel/exporters/otlp/otlptrace/internal/tracetransform
-# go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.37.0
+# go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.38.0
 ## explicit; go 1.23.0
 go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc
 go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc/internal
@@ -2239,7 +2239,7 @@ go.opentelemetry.io/otel/trace
 go.opentelemetry.io/otel/trace/embedded
 go.opentelemetry.io/otel/trace/internal/telemetry
 go.opentelemetry.io/otel/trace/noop
-# go.opentelemetry.io/proto/otlp v1.7.0
+# go.opentelemetry.io/proto/otlp v1.7.1
 ## explicit; go 1.23.0
 go.opentelemetry.io/proto/otlp/collector/trace/v1
 go.opentelemetry.io/proto/otlp/common/v1
@@ -2434,7 +2434,7 @@ golang.org/x/xerrors/internal
 # google.golang.org/genproto v0.0.0-20250303144028-a0af3efb3deb
 ## explicit; go 1.23.0
 google.golang.org/genproto/protobuf/field_mask
-# google.golang.org/genproto/googleapis/api v0.0.0-20250818200422-3122310a409c
+# google.golang.org/genproto/googleapis/api v0.0.0-20250825161204-c5933d9347a5
 ## explicit; go 1.23.0
 google.golang.org/genproto/googleapis/api
 google.golang.org/genproto/googleapis/api/annotations

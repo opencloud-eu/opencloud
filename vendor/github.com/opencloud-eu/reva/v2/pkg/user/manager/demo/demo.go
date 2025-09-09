@@ -57,7 +57,7 @@ func (m *manager) Configure(ml map[string]interface{}) error {
 
 func (m *manager) GetUser(ctx context.Context, uid *userpb.UserId, skipFetchingGroups bool) (*userpb.User, error) {
 	if user, ok := m.catalog[uid.OpaqueId]; ok {
-		if uid.Idp == "" || user.Id.Idp == uid.Idp {
+		if user.GetId().GetTenantId() == uid.GetTenantId() && (uid.Idp == "" || user.Id.Idp == uid.Idp) {
 			u := proto.Clone(user).(*userpb.User)
 			if skipFetchingGroups {
 				u.Groups = nil
@@ -68,9 +68,9 @@ func (m *manager) GetUser(ctx context.Context, uid *userpb.UserId, skipFetchingG
 	return nil, errtypes.NotFound(uid.OpaqueId)
 }
 
-func (m *manager) GetUserByClaim(ctx context.Context, claim, value string, skipFetchingGroups bool) (*userpb.User, error) {
+func (m *manager) GetUserByClaim(ctx context.Context, claim, value, tenantID string, skipFetchingGroups bool) (*userpb.User, error) {
 	for _, u := range m.catalog {
-		if userClaim, err := extractClaim(u, claim); err == nil && value == userClaim {
+		if userClaim, err := extractClaim(u, claim); err == nil && value == userClaim && tenantID == u.Id.TenantId {
 			user := proto.Clone(u).(*userpb.User)
 			if skipFetchingGroups {
 				user.Groups = nil

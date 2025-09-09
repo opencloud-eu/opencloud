@@ -14,7 +14,7 @@ objectClass: person
 cn: admin
 sn: admin
 uid: ldapadmin
-departmentNumber: {{ .TenantID }}
+departmentNumber: tenant-1
 
 dn: ou=groups,dc=opencloud,dc=eu
 objectClass: organizationalUnit

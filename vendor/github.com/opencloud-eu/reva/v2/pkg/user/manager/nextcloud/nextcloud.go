@@ -151,6 +151,9 @@ func (um *Manager) Configure(ml map[string]interface{}) error {
 
 // GetUser method as defined in https://github.com/cs3org/reva/blob/v1.13.0/pkg/user/user.go#L29-L35
 func (um *Manager) GetUser(ctx context.Context, uid *userpb.UserId, skipFetchingGroups bool) (*userpb.User, error) {
+	if uid.GetTenantId() != "" {
+		return nil, errtypes.NotSupported("tenant filter not supported in nextcloud user manager")
+	}
 	bodyStr, _ := json.Marshal(uid)
 	_, respBody, err := um.do(ctx, Action{"GetUser", string(bodyStr)}, "unauthenticated")
 	if err != nil {
@@ -165,7 +168,10 @@ func (um *Manager) GetUser(ctx context.Context, uid *userpb.UserId, skipFetching
 }
 
 // GetUserByClaim method as defined in https://github.com/cs3org/reva/blob/v1.13.0/pkg/user/user.go#L29-L35
-func (um *Manager) GetUserByClaim(ctx context.Context, claim, value string, skipFetchingGroups bool) (*userpb.User, error) {
+func (um *Manager) GetUserByClaim(ctx context.Context, claim, value, tenantID string, skipFetchingGroups bool) (*userpb.User, error) {
+	if tenantID != "" {
+		return nil, errtypes.NotSupported("tenant filter not supported in nextcloud user manager")
+	}
 	type paramsObj struct {
 		Claim string `json:"claim"`
 		Value string `json:"value"`

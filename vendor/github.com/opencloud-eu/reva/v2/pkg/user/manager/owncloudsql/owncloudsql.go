@@ -103,6 +103,9 @@ func parseConfig(m map[string]interface{}) (*config, error) {
 }
 
 func (m *manager) GetUser(ctx context.Context, uid *userpb.UserId, skipFetchingGroups bool) (*userpb.User, error) {
+	if uid.GetTenantId() != "" {
+		return nil, errtypes.NotSupported("tenant filter not supported in opencloudsql user manager")
+	}
 	// search via the user_id
 	a, err := m.db.GetAccountByClaim(ctx, "userid", uid.OpaqueId)
 	if err == sql.ErrNoRows {
@@ -111,7 +114,11 @@ func (m *manager) GetUser(ctx context.Context, uid *userpb.UserId, skipFetchingG
 	return m.convertToCS3User(ctx, a, skipFetchingGroups)
 }
 
-func (m *manager) GetUserByClaim(ctx context.Context, claim, value string, skipFetchingGroups bool) (*userpb.User, error) {
+func (m *manager) GetUserByClaim(ctx context.Context, claim, value, tenantID string, skipFetchingGroups bool) (*userpb.User, error) {
+	if tenantID != "" {
+		return nil, errtypes.NotSupported("tenant filter not supported in opencloudsql user manager")
+	}
+
 	a, err := m.db.GetAccountByClaim(ctx, claim, value)
 	if err == sql.ErrNoRows {
 		return nil, errtypes.NotFound(claim + "=" + value)

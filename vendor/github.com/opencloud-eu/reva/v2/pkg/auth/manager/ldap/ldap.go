@@ -108,7 +108,7 @@ func (am *mgr) Authenticate(ctx context.Context, clientID, clientSecret string) 
 
 	filter := am.getLoginFilter(clientID)
 
-	userEntry, err := am.c.LDAPIdentity.GetLDAPUserByFilter(log, am.ldapClient, filter)
+	userEntry, err := am.c.LDAPIdentity.GetLDAPUserByFilter(ctx, am.ldapClient, filter)
 
 	if err != nil {
 		return nil, nil, err

@@ -33,7 +33,7 @@ type Manager interface {
 	// and might involve computational overhead.
 	GetUser(ctx context.Context, uid *userpb.UserId, skipFetchingGroups bool) (*userpb.User, error)
 	// GetUserByClaim returns the user identified by a specific value for a given claim.
-	GetUserByClaim(ctx context.Context, claim, value string, skipFetchingGroups bool) (*userpb.User, error)
+	GetUserByClaim(ctx context.Context, claim, value, tenantID string, skipFetchingGroups bool) (*userpb.User, error)
 	// GetUserGroups returns the groups a user identified by a uid belongs to.
 	GetUserGroups(ctx context.Context, uid *userpb.UserId) ([]string, error)
 	// FindUsers returns all the user objects which match a query parameter.

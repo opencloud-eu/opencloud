@@ -7,6 +7,7 @@ import (
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	cs3Group "github.com/cs3org/go-cs3apis/cs3/identity/group/v1beta1"
 	cs3User "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
+	cs3user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	"github.com/jellydator/ttlcache/v3"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
@@ -17,7 +18,7 @@ import (
 
 // IdentityCache implements a simple ttl based cache for looking up users and groups by ID
 type IdentityCache struct {
-	users           *ttlcache.Cache[string, libregraph.User]
+	users           *ttlcache.Cache[string, *cs3User.User]
 	groups          *ttlcache.Cache[string, libregraph.Group]
 	gatewaySelector pool.Selectable[gateway.GatewayAPIClient]
 }
@@ -67,8 +68,8 @@ func NewIdentityCache(opts ...IdentityCacheOption) IdentityCache {
 	var cache IdentityCache
 
 	cache.users = ttlcache.New(
-		ttlcache.WithTTL[string, libregraph.User](opt.usersTTL),
-		ttlcache.WithDisableTouchOnHit[string, libregraph.User](),
+		ttlcache.WithTTL[string, *cs3user.User](opt.usersTTL),
+		ttlcache.WithDisableTouchOnHit[string, *cs3user.User](),
 	)
 	go cache.users.Start()
 
@@ -85,23 +86,30 @@ func NewIdentityCache(opts ...IdentityCacheOption) IdentityCache {
 
 // GetUser looks up a user by id, if the user is not cached, yet it will do a lookup via the CS3 API
 func (cache IdentityCache) GetUser(ctx context.Context, userid string) (libregraph.User, error) {
-	var user libregraph.User
+	u, err := cache.GetCS3User(ctx, userid)
+	if err != nil {
+		return libregraph.User{}, err
+	}
+	return *CreateUserModelFromCS3(u), nil
+}
+
+func (cache IdentityCache) GetCS3User(ctx context.Context, userid string) (*cs3User.User, error) {
+	var user *cs3User.User
 	if item := cache.users.Get(userid); item == nil {
 		gatewayClient, err := cache.gatewaySelector.Next()
 		if err != nil {
-			return libregraph.User{}, errorcode.New(errorcode.GeneralException, err.Error())
+			return nil, errorcode.New(errorcode.GeneralException, err.Error())
 		}
 		cs3UserID := &cs3User.UserId{
 			OpaqueId: userid,
 		}
-		u, err := revautils.GetUserNoGroups(ctx, cs3UserID, gatewayClient)
+		user, err = revautils.GetUserNoGroups(ctx, cs3UserID, gatewayClient)
 		if err != nil {
 			if revautils.IsErrNotFound(err) {
-				return libregraph.User{}, ErrNotFound
+				return nil, ErrNotFound
 			}
-			return libregraph.User{}, errorcode.New(errorcode.GeneralException, err.Error())
+			return nil, errorcode.New(errorcode.GeneralException, err.Error())
 		}
-		user = *CreateUserModelFromCS3(u)
 		cache.users.Set(userid, user, ttlcache.DefaultTTL)
 
 	} else {
@@ -112,25 +120,31 @@ func (cache IdentityCache) GetUser(ctx context.Context, userid string) (libregra
 
 // GetAcceptedUser looks up a user by id, if the user is not cached, yet it will do a lookup via the CS3 API
 func (cache IdentityCache) GetAcceptedUser(ctx context.Context, userid string) (libregraph.User, error) {
-	var user libregraph.User
+	u, err := cache.GetAcceptedCS3User(ctx, userid)
+	if err != nil {
+		return libregraph.User{}, err
+	}
+	return *CreateUserModelFromCS3(u), nil
+}
+
+func (cache IdentityCache) GetAcceptedCS3User(ctx context.Context, userid string) (*cs3User.User, error) {
+	var user *cs3user.User
 	if item := cache.users.Get(userid); item == nil {
 		gatewayClient, err := cache.gatewaySelector.Next()
 		if err != nil {
-			return libregraph.User{}, errorcode.New(errorcode.GeneralException, err.Error())
+			return nil, errorcode.New(errorcode.GeneralException, err.Error())
 		}
 		cs3UserID := &cs3User.UserId{
 			OpaqueId: userid,
 		}
-		u, err := revautils.GetAcceptedUserWithContext(ctx, cs3UserID, gatewayClient)
+		user, err = revautils.GetAcceptedUserWithContext(ctx, cs3UserID, gatewayClient)
 		if err != nil {
 			if revautils.IsErrNotFound(err) {
-				return libregraph.User{}, ErrNotFound
+				return nil, ErrNotFound
 			}
-			return libregraph.User{}, errorcode.New(errorcode.GeneralException, err.Error())
+			return nil, errorcode.New(errorcode.GeneralException, err.Error())
 		}
-		user = *CreateUserModelFromCS3(u)
 		cache.users.Set(userid, user, ttlcache.DefaultTTL)
-
 	} else {
 		user = item.Value()
 	}

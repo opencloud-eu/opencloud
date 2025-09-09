@@ -84,6 +84,9 @@ func (m *manager) Configure(ml map[string]interface{}) error {
 }
 
 func (m *manager) GetUser(ctx context.Context, uid *userpb.UserId, skipFetchingGroups bool) (*userpb.User, error) {
+	if uid.GetTenantId() != "" {
+		return nil, errtypes.NotSupported("tenant filter not supported in memory user manager")
+	}
 	if user, ok := m.catalog[uid.OpaqueId]; ok {
 		if uid.Idp == "" || user.ID.Idp == uid.Idp {
 			u := *user
@@ -106,7 +109,11 @@ func (m *manager) GetUser(ctx context.Context, uid *userpb.UserId, skipFetchingG
 	return nil, errtypes.NotFound(uid.OpaqueId)
 }
 
-func (m *manager) GetUserByClaim(ctx context.Context, claim, value string, skipFetchingGroups bool) (*userpb.User, error) {
+func (m *manager) GetUserByClaim(ctx context.Context, claim, value, tenantID string, skipFetchingGroups bool) (*userpb.User, error) {
+	if tenantID != "" {
+		return nil, errtypes.NotSupported("tenant filter not supported in memory user manager")
+	}
+
 	for _, u := range m.catalog {
 		if userClaim, err := extractClaim(u, claim); err == nil && value == userClaim {
 			user := &userpb.User{
