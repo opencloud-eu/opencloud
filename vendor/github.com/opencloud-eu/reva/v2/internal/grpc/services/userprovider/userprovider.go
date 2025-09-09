@@ -136,6 +136,11 @@ func (s *service) GetUser(ctx context.Context, req *userpb.GetUserRequest) (*use
 		return res, nil
 	}
 
+	// Only request users from the same tenant as the current user
+	if currentUser, ok := revactx.ContextGetUser(ctx); ok {
+		req.UserId.TenantId = currentUser.GetId().GetTenantId()
+	}
+
 	user, err := s.usermgr.GetUser(ctx, req.UserId, req.SkipFetchingUserGroups)
 	if err != nil {
 		res := &userpb.GetUserResponse{}
@@ -155,7 +160,11 @@ func (s *service) GetUser(ctx context.Context, req *userpb.GetUserRequest) (*use
 }
 
 func (s *service) GetUserByClaim(ctx context.Context, req *userpb.GetUserByClaimRequest) (*userpb.GetUserByClaimResponse, error) {
-	user, err := s.usermgr.GetUserByClaim(ctx, req.Claim, req.Value, req.SkipFetchingUserGroups)
+	tenantID := ""
+	if currentUser, ok := revactx.ContextGetUser(ctx); ok {
+		tenantID = currentUser.GetId().GetTenantId()
+	}
+	user, err := s.usermgr.GetUserByClaim(ctx, req.Claim, req.Value, tenantID, req.SkipFetchingUserGroups)
 	if err != nil {
 		res := &userpb.GetUserByClaimResponse{}
 		if _, ok := err.(errtypes.NotFound); ok {
@@ -176,7 +185,7 @@ func (s *service) GetUserByClaim(ctx context.Context, req *userpb.GetUserByClaim
 func (s *service) FindUsers(ctx context.Context, req *userpb.FindUsersRequest) (*userpb.FindUsersResponse, error) {
 	currentUser := revactx.ContextMustGetUser(ctx)
 
-	users, err := s.usermgr.FindUsers(ctx, req.Filter, currentUser.Id.GetTenantId(), req.SkipFetchingUserGroups)
+	users, err := s.usermgr.FindUsers(ctx, req.Filter, currentUser.GetId().GetTenantId(), req.SkipFetchingUserGroups)
 	if err != nil {
 		res := &userpb.FindUsersResponse{
 			Status: status.NewInternal(ctx, "error finding users"),

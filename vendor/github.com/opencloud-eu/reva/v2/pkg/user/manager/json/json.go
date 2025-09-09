@@ -97,7 +97,7 @@ func (m *manager) Configure(ml map[string]interface{}) error {
 
 func (m *manager) GetUser(ctx context.Context, uid *userpb.UserId, skipFetchingGroups bool) (*userpb.User, error) {
 	for _, u := range m.users {
-		if (u.Id.GetOpaqueId() == uid.OpaqueId || u.Username == uid.OpaqueId) && (uid.Idp == "" || uid.Idp == u.Id.GetIdp()) {
+		if (u.Id.GetOpaqueId() == uid.OpaqueId || u.Username == uid.OpaqueId) && (uid.Idp == "" || uid.Idp == u.Id.GetIdp()) && (uid.GetTenantId() == u.Id.GetTenantId()) {
 			user := proto.Clone(u).(*userpb.User)
 			if skipFetchingGroups {
 				user.Groups = nil
@@ -108,9 +108,9 @@ func (m *manager) GetUser(ctx context.Context, uid *userpb.UserId, skipFetchingG
 	return nil, errtypes.NotFound(uid.OpaqueId)
 }
 
-func (m *manager) GetUserByClaim(ctx context.Context, claim, value string, skipFetchingGroups bool) (*userpb.User, error) {
+func (m *manager) GetUserByClaim(ctx context.Context, claim, value, tenantID string, skipFetchingGroups bool) (*userpb.User, error) {
 	for _, u := range m.users {
-		if userClaim, err := extractClaim(u, claim); err == nil && value == userClaim {
+		if userClaim, err := extractClaim(u, claim); err == nil && value == userClaim && tenantID == u.Id.TenantId {
 			user := proto.Clone(u).(*userpb.User)
 			if skipFetchingGroups {
 				user.Groups = nil

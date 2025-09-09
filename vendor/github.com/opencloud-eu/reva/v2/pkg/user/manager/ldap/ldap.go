@@ -34,11 +34,14 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	ldapIdentity "github.com/opencloud-eu/reva/v2/pkg/utils/ldap"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 func init() {
 	registry.Register("ldap", New)
 }
+
+const tracerName = "pkg/user/manager/ldap"
 
 type manager struct {
 	c          *config
@@ -96,15 +99,22 @@ func (m *manager) Configure(ml map[string]interface{}) error {
 
 // GetUser implements the user.Manager interface. Looks up a user by Id and return the user
 func (m *manager) GetUser(ctx context.Context, uid *userpb.UserId, skipFetchingGroups bool) (*userpb.User, error) {
-	log := appctx.GetLogger(ctx)
+	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "GetUser")
+	defer span.End()
 
+	span.SetAttributes(
+		attribute.Stringer("parameter.userid", uid),
+		attribute.Bool("parameter.skipFetchingGroups", skipFetchingGroups),
+	)
+
+	log := appctx.GetLogger(ctx)
 	log.Debug().Interface("id", uid).Msg("GetUser")
 	// If the Idp value in the uid does not match our config, we can't answer this request
 	if uid.Idp != "" && uid.Idp != m.c.Idp {
 		return nil, errtypes.NotFound("idp mismatch")
 	}
 
-	userEntry, err := m.c.LDAPIdentity.GetLDAPUserByID(log, m.ldapClient, uid.OpaqueId)
+	userEntry, err := m.c.LDAPIdentity.GetLDAPUserByID(ctx, m.ldapClient, uid)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +130,7 @@ func (m *manager) GetUser(ctx context.Context, uid *userpb.UserId, skipFetchingG
 		return u, nil
 	}
 
-	groups, err := m.c.LDAPIdentity.GetLDAPUserGroups(log, m.ldapClient, userEntry)
+	groups, err := m.c.LDAPIdentity.GetLDAPUserGroups(ctx, m.ldapClient, userEntry)
 	if err != nil {
 		return nil, err
 	}
@@ -131,11 +141,18 @@ func (m *manager) GetUser(ctx context.Context, uid *userpb.UserId, skipFetchingG
 
 // GetUserByClaim implements the user.Manager interface. Looks up a user by
 // claim ('mail', 'username', 'userid') and returns the user.
-func (m *manager) GetUserByClaim(ctx context.Context, claim, value string, skipFetchingGroups bool) (*userpb.User, error) {
+func (m *manager) GetUserByClaim(ctx context.Context, claim, value, tenantID string, skipFetchingGroups bool) (*userpb.User, error) {
 	log := appctx.GetLogger(ctx)
+	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "GetUserByClaim")
+	defer span.End()
 
+	span.SetAttributes(
+		attribute.String("parameter.claim", claim),
+		attribute.String("paramter.value", value),
+		attribute.Bool("parameter.skipFetchingGroups", skipFetchingGroups),
+	)
 	log.Debug().Str("claim", claim).Str("value", value).Msg("GetUserByClaim")
-	userEntry, err := m.c.LDAPIdentity.GetLDAPUserByAttribute(log, m.ldapClient, claim, value)
+	userEntry, err := m.c.LDAPIdentity.GetLDAPUserByAttribute(ctx, m.ldapClient, claim, value, tenantID)
 	if err != nil {
 		log.Debug().Err(err).Msg("GetUserByClaim")
 		return nil, err
@@ -148,7 +165,7 @@ func (m *manager) GetUserByClaim(ctx context.Context, claim, value string, skipF
 		return nil, err
 	}
 
-	if m.c.LDAPIdentity.IsLDAPUserInDisabledGroup(log, m.ldapClient, userEntry) {
+	if m.c.LDAPIdentity.IsLDAPUserInDisabledGroup(ctx, m.ldapClient, userEntry) {
 		return nil, errtypes.NotFound("user is locally disabled")
 	}
 
@@ -156,7 +173,7 @@ func (m *manager) GetUserByClaim(ctx context.Context, claim, value string, skipF
 		return u, nil
 	}
 
-	groups, err := m.c.LDAPIdentity.GetLDAPUserGroups(log, m.ldapClient, userEntry)
+	groups, err := m.c.LDAPIdentity.GetLDAPUserGroups(ctx, m.ldapClient, userEntry)
 	if err != nil {
 		return nil, err
 	}
@@ -169,8 +186,15 @@ func (m *manager) GetUserByClaim(ctx context.Context, claim, value string, skipF
 // FindUser implements the user.Manager interface. Searches for users using a prefix-substring search on
 // the user attributes ('mail', 'username', 'displayname', 'userid') and returns the users.
 func (m *manager) FindUsers(ctx context.Context, query, tenantID string, skipFetchingGroups bool) ([]*userpb.User, error) {
-	log := appctx.GetLogger(ctx)
-	entries, err := m.c.LDAPIdentity.GetLDAPUsers(log, m.ldapClient, query, tenantID)
+	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "FindUsers")
+	defer span.End()
+	span.SetAttributes(
+		attribute.String("parameter.query", query),
+		attribute.String("parameter.tenantID", tenantID),
+		attribute.Bool("parameter.skipFetchingGroups", skipFetchingGroups),
+	)
+
+	entries, err := m.c.LDAPIdentity.GetLDAPUsers(ctx, m.ldapClient, query, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +207,7 @@ func (m *manager) FindUsers(ctx context.Context, query, tenantID string, skipFet
 		}
 
 		if !skipFetchingGroups {
-			groups, err := m.c.LDAPIdentity.GetLDAPUserGroups(log, m.ldapClient, entry)
+			groups, err := m.c.LDAPIdentity.GetLDAPUserGroups(ctx, m.ldapClient, entry)
 			if err != nil {
 				return nil, err
 			}
@@ -204,12 +228,12 @@ func (m *manager) GetUserGroups(ctx context.Context, uid *userpb.UserId) ([]stri
 		log.Debug().Str("useridp", uid.Idp).Str("configured idp", m.c.Idp).Msg("IDP mismatch")
 		return nil, errtypes.NotFound("idp mismatch")
 	}
-	userEntry, err := m.c.LDAPIdentity.GetLDAPUserByID(log, m.ldapClient, uid.OpaqueId)
+	userEntry, err := m.c.LDAPIdentity.GetLDAPUserByID(ctx, m.ldapClient, uid)
 	if err != nil {
 		log.Debug().Err(err).Interface("userid", uid).Msg("Failed to lookup user")
 		return []string{}, err
 	}
-	return m.c.LDAPIdentity.GetLDAPUserGroups(log, m.ldapClient, userEntry)
+	return m.c.LDAPIdentity.GetLDAPUserGroups(ctx, m.ldapClient, userEntry)
 }
 
 func (m *manager) ldapEntryToUser(entry *ldap.Entry) (*userpb.User, error) {

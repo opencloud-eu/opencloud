@@ -35,6 +35,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	ldapIdentity "github.com/opencloud-eu/reva/v2/pkg/utils/ldap"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 func init() {
@@ -53,6 +54,8 @@ type config struct {
 	// Nobody specifies the fallback gid number for groups that don't have a gidNumber set in LDAP
 	Nobody int64 `mapstructure:"nobody"`
 }
+
+const tracerName = "pkg/group/manager/ldap"
 
 func parseConfig(m map[string]interface{}) (*config, error) {
 	c := config{
@@ -100,12 +103,20 @@ func (m *manager) Configure(ml map[string]interface{}) error {
 
 // GetGroup implements the group.Manager interface. Looks up a group by Id and return the group
 func (m *manager) GetGroup(ctx context.Context, gid *grouppb.GroupId, skipFetchingMembers bool) (*grouppb.Group, error) {
+	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "GetGroup")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.Stringer("group_id", gid),
+		attribute.Bool("skip_fetching_members", skipFetchingMembers),
+	)
+
 	log := appctx.GetLogger(ctx)
 	if gid.Idp != "" && gid.Idp != m.c.Idp {
 		return nil, errtypes.NotFound("idp mismatch")
 	}
 
-	groupEntry, err := m.c.LDAPIdentity.GetLDAPGroupByID(log, m.ldapClient, gid.OpaqueId)
+	groupEntry, err := m.c.LDAPIdentity.GetLDAPGroupByID(ctx, m.ldapClient, gid.OpaqueId)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +132,7 @@ func (m *manager) GetGroup(ctx context.Context, gid *grouppb.GroupId, skipFetchi
 		return g, nil
 	}
 
-	members, err := m.c.LDAPIdentity.GetLDAPGroupMembers(log, m.ldapClient, groupEntry)
+	members, err := m.c.LDAPIdentity.GetLDAPGroupMembers(ctx, m.ldapClient, groupEntry)
 	if err != nil {
 		return nil, err
 	}
@@ -144,8 +155,17 @@ func (m *manager) GetGroup(ctx context.Context, gid *grouppb.GroupId, skipFetchi
 // GetGroupByClaim implements the group.Manager interface. Looks up a group by
 // claim ('group_name', 'group_id', 'display_name') and returns the group.
 func (m *manager) GetGroupByClaim(ctx context.Context, claim, value string, skipFetchingMembers bool) (*grouppb.Group, error) {
+	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "GetGroupByClaim")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("claim", claim),
+		attribute.String("value", value),
+		attribute.Bool("skip_fetching_members", skipFetchingMembers),
+	)
+
 	log := appctx.GetLogger(ctx)
-	groupEntry, err := m.c.LDAPIdentity.GetLDAPGroupByAttribute(log, m.ldapClient, claim, value)
+	groupEntry, err := m.c.LDAPIdentity.GetLDAPGroupByAttribute(ctx, m.ldapClient, claim, value)
 	if err != nil {
 		log.Debug().Err(err).Msg("GetGroupByClaim")
 		return nil, err
@@ -162,7 +182,7 @@ func (m *manager) GetGroupByClaim(ctx context.Context, claim, value string, skip
 		return g, nil
 	}
 
-	members, err := m.c.LDAPIdentity.GetLDAPGroupMembers(log, m.ldapClient, groupEntry)
+	members, err := m.c.LDAPIdentity.GetLDAPGroupMembers(ctx, m.ldapClient, groupEntry)
 	if err != nil {
 		return nil, err
 	}
@@ -187,8 +207,15 @@ func (m *manager) GetGroupByClaim(ctx context.Context, claim, value string, skip
 // 'display_name', 'group_id') and returns the groups. FindGroups does NOT expand the
 // members of the Groups.
 func (m *manager) FindGroups(ctx context.Context, query string, skipFetchingMembers bool) ([]*grouppb.Group, error) {
-	log := appctx.GetLogger(ctx)
-	entries, err := m.c.LDAPIdentity.GetLDAPGroups(log, m.ldapClient, query)
+	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "FindGroups")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("query", query),
+		attribute.Bool("skip_fetching_members", skipFetchingMembers),
+	)
+
+	entries, err := m.c.LDAPIdentity.GetLDAPGroups(ctx, m.ldapClient, query)
 	if err != nil {
 		return nil, err
 	}
@@ -210,19 +237,25 @@ func (m *manager) FindGroups(ctx context.Context, query string, skipFetchingMemb
 // GetMembers implements the group.Manager interface. It returns all the userids of the members
 // of the group identified by the supplied id.
 func (m *manager) GetMembers(ctx context.Context, gid *grouppb.GroupId) ([]*userpb.UserId, error) {
+	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "GetMembers")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.Stringer("group_id", gid),
+	)
 	log := appctx.GetLogger(ctx)
 	if gid.Idp != "" && gid.Idp != m.c.Idp {
 		return nil, errtypes.NotFound("idp mismatch")
 	}
 
-	groupEntry, err := m.c.LDAPIdentity.GetLDAPGroupByID(log, m.ldapClient, gid.OpaqueId)
+	groupEntry, err := m.c.LDAPIdentity.GetLDAPGroupByID(ctx, m.ldapClient, gid.OpaqueId)
 	if err != nil {
 		return nil, err
 	}
 
 	log.Debug().Interface("entry", groupEntry).Msg("entries")
 
-	members, err := m.c.LDAPIdentity.GetLDAPGroupMembers(log, m.ldapClient, groupEntry)
+	members, err := m.c.LDAPIdentity.GetLDAPGroupMembers(ctx, m.ldapClient, groupEntry)
 	if err != nil {
 		return nil, err
 	}
@@ -243,6 +276,13 @@ func (m *manager) GetMembers(ctx context.Context, gid *grouppb.GroupId) ([]*user
 // HasMember implements the group.Member interface. Checks whether the supplied userid is a member
 // of the supplied groupid.
 func (m *manager) HasMember(ctx context.Context, gid *grouppb.GroupId, uid *userpb.UserId) (bool, error) {
+	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "HasMember")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.Stringer("group_id", gid),
+		attribute.Stringer("user_id", uid),
+	)
 	// It might be possible to do a somewhat more clever LDAP search here. (First lookup the user and then
 	// search for (&(objectclass=<groupoc>)(<groupid>=gid)(member=<username/userdn>)
 	// The GetMembers call used below can be quiet ineffecient for large groups
