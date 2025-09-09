@@ -4,7 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@aduffeck, @individual-it, @prashant-gurung899, @rhafer
+@Svanvith, @aduffeck, @individual-it, @prashant-gurung899, @rhafer
+
+### 📚 Documentation
+
+- remove opencloud_full from the read.me and add opencloud-compose instead [[#1474](https://github.com/opencloud-eu/opencloud/pull/1474)]
 
 ### 🐛 Bug Fixes
 
@@ -23,6 +27,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/prometheus/client_golang from 1.23.0 to 1.23.2 [[#1476](https://github.com/opencloud-eu/opencloud/pull/1476)]
 - build(deps): bump golang.org/x/sync from 0.16.0 to 0.17.0 [[#1477](https://github.com/opencloud-eu/opencloud/pull/1477)]
 - build(deps): bump go.etcd.io/bbolt from 1.4.2 to 1.4.3 [[#1463](https://github.com/opencloud-eu/opencloud/pull/1463)]
 - build(deps): bump github.com/go-chi/chi/v5 from 5.2.2 to 5.2.3 [[#1460](https://github.com/opencloud-eu/opencloud/pull/1460)]
