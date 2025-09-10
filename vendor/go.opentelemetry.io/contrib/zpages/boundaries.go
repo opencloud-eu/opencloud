@@ -4,7 +4,7 @@
 package zpages // import "go.opentelemetry.io/contrib/zpages"
 
 import (
-	"sort"
+	"slices"
 	"time"
 )
 
@@ -31,9 +31,7 @@ type boundaries struct {
 
 // newBoundaries returns a new boundaries.
 func newBoundaries(durations []time.Duration) *boundaries {
-	sort.Slice(durations, func(i, j int) bool {
-		return durations[i] < durations[j]
-	})
+	slices.Sort(durations)
 	return &boundaries{durations: durations}
 }
 

@@ -75,13 +75,13 @@ func (ssm *SpanProcessor) OnEnd(span sdktrace.ReadOnlySpan) {
 }
 
 // Shutdown does nothing.
-func (ssm *SpanProcessor) Shutdown(context.Context) error {
+func (*SpanProcessor) Shutdown(context.Context) error {
 	// Do nothing
 	return nil
 }
 
 // ForceFlush does nothing.
-func (ssm *SpanProcessor) ForceFlush(context.Context) error {
+func (*SpanProcessor) ForceFlush(context.Context) error {
 	// Do nothing
 	return nil
 }
@@ -99,11 +99,11 @@ func (ssm *SpanProcessor) spanStoreForName(name string) *sampleStore {
 // spansPerMethod returns a summary of what spans are being stored for each span name.
 func (ssm *SpanProcessor) spansPerMethod() map[string]*perMethodSummary {
 	out := make(map[string]*perMethodSummary)
-	ssm.spanSampleStores.Range(func(name, s interface{}) bool {
+	ssm.spanSampleStores.Range(func(name, s any) bool {
 		out[name.(string)] = s.(*sampleStore).perMethodSummary()
 		return true
 	})
-	ssm.activeSpansStore.Range(func(_, sp interface{}) bool {
+	ssm.activeSpansStore.Range(func(_, sp any) bool {
 		span := sp.(sdktrace.ReadOnlySpan)
 		if pms, ok := out[span.Name()]; ok {
 			pms.activeSpans++
@@ -118,7 +118,7 @@ func (ssm *SpanProcessor) spansPerMethod() map[string]*perMethodSummary {
 // activeSpans returns the active spans for the given name.
 func (ssm *SpanProcessor) activeSpans(name string) []sdktrace.ReadOnlySpan {
 	var out []sdktrace.ReadOnlySpan
-	ssm.activeSpansStore.Range(func(_, sp interface{}) bool {
+	ssm.activeSpansStore.Range(func(_, sp any) bool {
 		span := sp.(sdktrace.ReadOnlySpan)
 		if span.Name() == name {
 			out = append(out, span)
@@ -160,7 +160,7 @@ type sampleStore struct {
 }
 
 // newSampleStore creates a sampleStore.
-func newSampleStore(latencyBucketSize uint, errorBucketSize uint) *sampleStore {
+func newSampleStore(latencyBucketSize, errorBucketSize uint) *sampleStore {
 	s := &sampleStore{
 		latency: make([]*bucket, defaultBoundaries.numBuckets()),
 		errors:  newBucket(errorBucketSize),
@@ -208,11 +208,8 @@ func (ss *sampleStore) sampleSpan(span sdktrace.ReadOnlySpan) {
 		return
 	}
 
-	latency := span.EndTime().Sub(span.StartTime())
 	// In case of time skew or wrong time, sample as 0 latency.
-	if latency < 0 {
-		latency = 0
-	}
+	latency := max(span.EndTime().Sub(span.StartTime()), 0)
 	ss.latency[defaultBoundaries.getBucketIndex(latency)].add(span)
 }
 
