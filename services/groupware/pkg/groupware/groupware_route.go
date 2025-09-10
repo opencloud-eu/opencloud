@@ -11,7 +11,7 @@ const (
 
 	UriParamAccountId                 = "accountid"
 	UriParamMailboxId                 = "mailbox"
-	UriParamMessageId                 = "messageid"
+	UriParamEmailId                   = "emailid"
 	UriParamBlobId                    = "blobid"
 	UriParamBlobName                  = "blobname"
 	UriParamStreamId                  = "stream"
@@ -61,17 +61,17 @@ func (g *Groupware) Route(r chi.Router) {
 		r.Route("/mailboxes", func(r chi.Router) {
 			r.Get("/", g.GetMailboxes) // ?name=&role=&subcribed=
 			r.Get("/{mailbox}", g.GetMailbox)
-			r.Get("/{mailbox}/messages", g.GetAllMessagesInMailbox)
+			r.Get("/{mailbox}/emails", g.GetAllEmailsInMailbox)
 			r.Get("/{mailbox}/changes", g.GetMailboxChanges)
 		})
-		r.Route("/messages", func(r chi.Router) {
-			r.Get("/", g.GetMessages) // ?fetchemails=true&fetchbodies=true&text=&subject=&body=&keyword=&keyword=&...
-			r.Post("/", g.CreateMessage)
-			r.Get("/{messageid}", g.GetMessagesById)
-			// r.Put("/{messageid}", g.ReplaceMessage) // TODO
-			r.Patch("/{messageid}", g.UpdateMessage)
-			r.Delete("/{messageid}", g.DeleteMessage)
-			Report(r, "/{messageid}", g.RelatedToMessage)
+		r.Route("/emails", func(r chi.Router) {
+			r.Get("/", g.GetEmails) // ?fetchemails=true&fetchbodies=true&text=&subject=&body=&keyword=&keyword=&...
+			r.Post("/", g.CreateEmail)
+			r.Get("/{emailid}", g.GetEmailsById)
+			// r.Put("/{emailid}", g.ReplaceEmail) // TODO
+			r.Patch("/{emailid}", g.UpdateEmail)
+			r.Delete("/{emailid}", g.DeleteEmail)
+			Report(r, "/{emailid}", g.RelatedToEmail)
 		})
 		r.Route("/blobs", func(r chi.Router) {
 			r.Get("/{blobid}", g.GetBlob)

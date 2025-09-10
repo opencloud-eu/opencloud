@@ -14,8 +14,8 @@ tags:
   - name: mailbox
     x-displayName: Mailboxes
     description: APIs that pertain to mailboxes
-  - name: message
-    x-displayName: Messages
+  - name: email
+    x-displayName: Emails
     description: APIs about emails
   - name: vacation
     x-displayName: Vacation Responses
@@ -31,7 +31,7 @@ x-tagGroups:
     tags:
       - identity
       - mailbox
-      - message
+      - email
       - vacation
 components:
   securitySchemes:
