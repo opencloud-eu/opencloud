@@ -38,6 +38,17 @@ func newEventListeners[T any]() *eventListeners[T] {
 	}
 }
 
+// Create an identifier to use as a method call ID, from the specified accountId and additional
+// tag, to make something unique within that API request.
+func mcid(accountId string, tag string) string {
+	// https://jmap.io/spec-core.html#the-invocation-data-type
+	// May be any string of data:
+	// An arbitrary string from the client to be echoed back with the responses emitted by that method
+	// call (a method may return 1 or more responses, as it may make implicit calls to other methods;
+	// all responses initiated by this method call get the same method call id in the response).
+	return accountId + ":" + tag
+}
+
 func command[T any](api ApiClient,
 	logger *log.Logger,
 	ctx context.Context,
