@@ -27,6 +27,28 @@ const (
 	JmapKeywordJunk      = "$junk"
 	JmapKeywordNotJunk   = "$notjunk"
 	JmapKeywordMdnSent   = "$mdnsent"
+
+	// https://www.iana.org/assignments/imap-mailbox-name-attributes/imap-mailbox-name-attributes.xhtml
+	//JmapMailboxRoleAll        = "all"
+	//JmapMailboxRoleArchive    = "archive"
+	JmapMailboxRoleDrafts = "drafts"
+	//JmapMailboxRoleFlagged    = "flagged"
+	//JmapMailboxRoleImportant  = "important"
+	JmapMailboxRoleInbox = "inbox"
+	JmapMailboxRoleJunk  = "junk"
+	JmapMailboxRoleSent  = "sent"
+	//JmapMailboxRoleSubscribed = "subscribed"
+	JmapMailboxRoleTrash = "trash"
+)
+
+var (
+	JmapMailboxRoles = []string{
+		JmapMailboxRoleInbox,
+		JmapMailboxRoleSent,
+		JmapMailboxRoleDrafts,
+		JmapMailboxRoleJunk,
+		JmapMailboxRoleTrash,
+	}
 )
 
 type SessionMailAccountCapabilities struct {
@@ -352,6 +374,52 @@ type SessionResponse struct {
 	State SessionState `json:"state,omitempty"`
 }
 
+// Method level error types.
+const (
+	// Some internal server resource was temporarily unavailable.
+	//
+	// Attempting the same operation later (perhaps after a backoff with a random factor) may succeed.
+	MethodLevelErrorServerUnavailable = "serverUnavailable"
+
+	// An unexpected or unknown error occurred during the processing of the call.
+	//
+	// A description property should provide more details about the error. The method call made no changes
+	// to the server’s state. Attempting the same operation again is expected to fail again.
+	// Contacting the service administrator is likely necessary to resolve this problem if it is persistent.
+	MethodLevelErrorServerFail = "serverFail"
+
+	// Some, but not all, expected changes described by the method occurred.
+	//
+	// The client MUST resynchronise impacted data to determine server state. Use of this error is strongly discouraged.
+	MethodLevelErrorServerPartialFail = "serverPartialFail"
+
+	// The server does not recognise this method name.
+	MethodLevelErrorUnknownMethod = "unknownMethod"
+
+	// One of the arguments is of the wrong type or is otherwise invalid, or a required argument is missing.
+	//
+	// A description property MAY be present to help debug with an explanation of what the problem was.
+	// This is a non-localised string, and it is not intended to be shown directly to end users.
+	MethodLevelErrorInvalidArguments = "invalidArguments"
+
+	// The method used a result reference for one of its arguments, but this failed to resolve.
+	MethodLevelErrorInvalidResultReference = "invalidResultReference"
+
+	// The method and arguments are valid, but executing the method would violate an Access Control List
+	// (ACL) or other permissions policy.
+	MethodLevelErrorForbidden = "forbidden"
+
+	// The accountId does not correspond to a valid account.
+	MethodLevelErrorAccountNotFound = "accountNotFound"
+
+	// The accountId given corresponds to a valid account, but the account does not support this method or data type.
+	MethodLevelErrorAccountNotSupportedByMethod = "accountNotSupportedByMethod"
+
+	// This method modifies state, but the account is read-only (as returned on the corresponding Account object in
+	// the JMAP Session resource).
+	MethodLevelErrorAccountReadOnly = "accountReadOnly"
+)
+
 // SetError type values.
 const (
 	// The create/update/destroy would violate an ACL or other permissions policy.
@@ -648,7 +716,7 @@ type MailboxGetCommand struct {
 
 type MailboxGetRefCommand struct {
 	AccountId string           `json:"accountId"`
-	IdRef     *ResultReference `json:"#ids,omitempty"`
+	IdsRef    *ResultReference `json:"#ids,omitempty"`
 }
 
 type MailboxChangesCommand struct {
@@ -2654,7 +2722,13 @@ type SearchSnippetGetResponse struct {
 	NotFound  []string        `json:"notFound,omitempty"`
 }
 
+type ErrorResponse struct {
+	Type        string `json:"type"`
+	Description string `json:"description,omitempty"`
+}
+
 const (
+	ErrorCommand               Command = "error" // only occurs in responses
 	CommandBlobGet             Command = "Blob/get"
 	CommandBlobUpload          Command = "Blob/upload"
 	CommandEmailGet            Command = "Email/get"
@@ -2675,6 +2749,7 @@ const (
 )
 
 var CommandResponseTypeMap = map[Command]func() any{
+	ErrorCommand:               func() any { return ErrorResponse{} },
 	CommandBlobGet:             func() any { return BlobGetResponse{} },
 	CommandBlobUpload:          func() any { return BlobUploadResponse{} },
 	CommandMailboxQuery:        func() any { return MailboxQueryResponse{} },

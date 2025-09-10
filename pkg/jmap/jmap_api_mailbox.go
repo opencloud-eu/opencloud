@@ -2,6 +2,7 @@ package jmap
 
 import (
 	"context"
+	"slices"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
@@ -15,41 +16,27 @@ type MailboxesResponse struct {
 }
 
 // https://jmap.io/spec-mail.html#mailboxget
-func (j *Client) GetMailbox(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, ids []string) (map[string]MailboxesResponse, SessionState, Error) {
+func (j *Client) GetMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, ids []string) (MailboxesResponse, SessionState, Error) {
 	logger = j.logger("GetMailbox", session, logger)
 
-	uniqueAccountIds := structs.Uniq(accountIds)
-	n := len(uniqueAccountIds)
-	if n < 1 {
-		return map[string]MailboxesResponse{}, "", nil
-	}
-
-	invocations := make([]Invocation, n)
-	for i, accountId := range uniqueAccountIds {
-		invocations[i] = invocation(CommandMailboxGet, MailboxGetCommand{AccountId: accountId, Ids: ids}, mcid(accountId, "0"))
-	}
-
-	cmd, err := j.request(session, logger, invocations...)
+	cmd, err := j.request(session, logger,
+		invocation(CommandMailboxGet, MailboxGetCommand{AccountId: accountId, Ids: ids}, "0"),
+	)
 	if err != nil {
-		return map[string]MailboxesResponse{}, "", err
+		return MailboxesResponse{}, "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (map[string]MailboxesResponse, Error) {
-		resp := map[string]MailboxesResponse{}
-		for _, accountId := range uniqueAccountIds {
-			var response MailboxGetResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandMailboxGet, mcid(accountId, "0"), &response)
-			if err != nil {
-				return map[string]MailboxesResponse{}, err
-			}
-
-			resp[accountId] = MailboxesResponse{
-				Mailboxes: response.List,
-				NotFound:  response.NotFound,
-				State:     response.State,
-			}
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (MailboxesResponse, Error) {
+		var response MailboxGetResponse
+		err = retrieveResponseMatchParameters(logger, body, CommandMailboxGet, "0", &response)
+		if err != nil {
+			return MailboxesResponse{}, err
 		}
-		return resp, nil
+		return MailboxesResponse{
+			Mailboxes: response.List,
+			NotFound:  response.NotFound,
+			State:     response.State,
+		}, nil
 	})
 }
 
@@ -59,20 +46,40 @@ type AllMailboxesResponse struct {
 }
 
 func (j *Client) GetAllMailboxes(accountIds []string, session *Session, ctx context.Context, logger *log.Logger) (map[string]AllMailboxesResponse, SessionState, Error) {
-	resp, sessionState, err := j.GetMailbox(accountIds, session, ctx, logger, nil)
+	logger = j.logger("GetAllMailboxes", session, logger)
+
+	uniqueAccountIds := structs.Uniq(accountIds)
+	n := len(uniqueAccountIds)
+	if n < 1 {
+		return map[string]AllMailboxesResponse{}, "", nil
+	}
+
+	invocations := make([]Invocation, n)
+	for i, accountId := range uniqueAccountIds {
+		invocations[i] = invocation(CommandMailboxGet, MailboxGetCommand{AccountId: accountId}, mcid(accountId, "0"))
+	}
+
+	cmd, err := j.request(session, logger, invocations...)
 	if err != nil {
-		return map[string]AllMailboxesResponse{}, sessionState, err
+		return map[string]AllMailboxesResponse{}, "", err
 	}
 
-	mapped := make(map[string]AllMailboxesResponse, len(resp))
-	for accountId, mailboxesResponse := range resp {
-		mapped[accountId] = AllMailboxesResponse{
-			Mailboxes: mailboxesResponse.Mailboxes,
-			State:     mailboxesResponse.State,
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (map[string]AllMailboxesResponse, Error) {
+		resp := map[string]AllMailboxesResponse{}
+		for _, accountId := range uniqueAccountIds {
+			var response MailboxGetResponse
+			err = retrieveResponseMatchParameters(logger, body, CommandMailboxGet, mcid(accountId, "0"), &response)
+			if err != nil {
+				return map[string]AllMailboxesResponse{}, err
+			}
+
+			resp[accountId] = AllMailboxesResponse{
+				Mailboxes: response.List,
+				State:     response.State,
+			}
 		}
-	}
-
-	return mapped, sessionState, nil
+		return resp, nil
+	})
 }
 
 type Mailboxes struct {
@@ -92,7 +99,11 @@ func (j *Client) SearchMailboxes(accountIds []string, session *Session, ctx cont
 		invocations[i*2+0] = invocation(CommandMailboxQuery, MailboxQueryCommand{AccountId: accountId, Filter: filter}, mcid(accountId, "0"))
 		invocations[i*2+1] = invocation(CommandMailboxGet, MailboxGetRefCommand{
 			AccountId: accountId,
-			IdRef:     &ResultReference{Name: CommandMailboxQuery, Path: "/ids/*", ResultOf: mcid(accountId, "0")},
+			IdsRef: &ResultReference{
+				Name:     CommandMailboxQuery,
+				Path:     "/ids/*",
+				ResultOf: mcid(accountId, "0"),
+			},
 		}, mcid(accountId, "1"))
 	}
 	cmd, err := j.request(session, logger, invocations...)
@@ -285,6 +296,59 @@ func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, sessi
 			}
 		}
 
+		return resp, nil
+	})
+}
+
+func (j *Client) GetMailboxRolesForMultipleAccounts(accountIds []string, session *Session, ctx context.Context, logger *log.Logger) (map[string][]string, SessionState, Error) {
+	logger = j.logger("GetMailboxRolesForMultipleAccounts", session, logger)
+
+	uniqueAccountIds := structs.Uniq(accountIds)
+	n := len(uniqueAccountIds)
+	if n < 1 {
+		return map[string][]string{}, "", nil
+	}
+
+	t := true
+
+	invocations := make([]Invocation, n*2)
+	for i, accountId := range uniqueAccountIds {
+		invocations[i*2+0] = invocation(CommandMailboxQuery, MailboxQueryCommand{
+			AccountId: accountId,
+			Filter: MailboxFilterCondition{
+				HasAnyRole: &t,
+			},
+		}, mcid(accountId, "0"))
+		invocations[i*2+1] = invocation(CommandMailboxGet, MailboxGetRefCommand{
+			AccountId: accountId,
+			IdsRef: &ResultReference{
+				ResultOf: mcid(accountId, "0"),
+				Name:     CommandMailboxQuery,
+				Path:     "/ids",
+			},
+		}, mcid(accountId, "1"))
+	}
+
+	cmd, err := j.request(session, logger, invocations...)
+	if err != nil {
+		return map[string][]string{}, "", err
+	}
+
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (map[string][]string, Error) {
+		resp := make(map[string][]string, n)
+		for _, accountId := range uniqueAccountIds {
+			var getResponse MailboxGetResponse
+			err = retrieveResponseMatchParameters(logger, body, CommandMailboxGet, mcid(accountId, "1"), &getResponse)
+			if err != nil {
+				return map[string][]string{}, err
+			}
+			roles := make([]string, len(getResponse.List))
+			for i, mailbox := range getResponse.List {
+				roles[i] = mailbox.Role
+			}
+			slices.Sort(roles)
+			resp[accountId] = roles
+		}
 		return resp, nil
 	})
 }
