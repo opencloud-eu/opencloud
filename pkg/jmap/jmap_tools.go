@@ -3,9 +3,11 @@ package jmap
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -66,7 +68,7 @@ func command[T any](api ApiClient,
 	var response Response
 	err := json.Unmarshal(responseBody, &response)
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to deserialize body JSON payload")
+		logger.Error().Err(err).Msgf("failed to deserialize body JSON payload into a %T", response)
 		var zero T
 		return zero, "", SimpleError{code: JmapErrorDecodingResponseBody, err: err}
 	}
@@ -80,15 +82,50 @@ func command[T any](api ApiClient,
 	// search for an "error" response
 	// https://jmap.io/spec-core.html#method-level-errors
 	for _, mr := range response.MethodResponses {
-		if mr.Command == "error" {
-			err := fmt.Errorf("found method level error in response '%v'", mr.Tag)
-			if payload, ok := mr.Parameters.(map[string]any); ok {
-				if errorType, ok := payload["type"]; ok {
-					err = fmt.Errorf("found method level error in response '%v', type: '%v'", mr.Tag, errorType)
+		if mr.Command == ErrorCommand {
+			if errorParameters, ok := mr.Parameters.(ErrorResponse); ok {
+				code := JmapErrorServerFail
+				switch errorParameters.Type {
+				case MethodLevelErrorServerUnavailable:
+					code = JmapErrorServerUnavailable
+				case MethodLevelErrorServerFail, MethodLevelErrorServerPartialFail:
+					code = JmapErrorServerFail
+				case MethodLevelErrorUnknownMethod:
+					code = JmapErrorUnknownMethod
+				case MethodLevelErrorInvalidArguments:
+					code = JmapErrorInvalidArguments
+				case MethodLevelErrorInvalidResultReference:
+					code = JmapErrorInvalidResultReference
+				case MethodLevelErrorForbidden:
+					// there's a quirk here: when referencing an account that exists but that this
+					// user has no access to, Stalwart returns the 'forbidden' error, but this might
+					// leak the existence of an account to an attacker -- instead, we deem it safer to
+					// return a "account does not exist" error instead
+					if strings.HasPrefix(errorParameters.Description, "You do not have access to account") {
+						code = JmapErrorAccountNotFound
+					} else {
+						code = JmapErrorForbidden
+					}
+				case MethodLevelErrorAccountNotFound:
+					code = JmapErrorAccountNotFound
+				case MethodLevelErrorAccountNotSupportedByMethod:
+					code = JmapErrorAccountNotSupportedByMethod
+				case MethodLevelErrorAccountReadOnly:
+					code = JmapErrorAccountReadOnly
 				}
+				msg := fmt.Sprintf("found method level error in response '%v', type: '%v', description: '%v'", mr.Tag, errorParameters.Type, errorParameters.Description)
+				err = errors.New(msg)
+				logger.Warn().Int("code", code).Str("type", errorParameters.Type).Msg(msg)
+				var zero T
+				return zero, response.SessionState, SimpleError{code: code, err: err}
+			} else {
+				code := JmapErrorUnspecifiedType
+				msg := fmt.Sprintf("found method level error in response '%v'", mr.Tag)
+				err := errors.New(msg)
+				logger.Warn().Int("code", code).Msg(msg)
+				var zero T
+				return zero, response.SessionState, SimpleError{code: code, err: err}
 			}
-			var zero T
-			return zero, response.SessionState, SimpleError{code: JmapErrorMethodLevel, err: err}
 		}
 	}
 

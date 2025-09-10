@@ -41,13 +41,12 @@ func (g *Groupware) GetMailbox(w http.ResponseWriter, r *http.Request) {
 			return errorResponse(err)
 		}
 
-		mailboxesByAccountId, sessionState, jerr := g.jmap.GetMailbox([]string{accountId}, req.session, req.ctx, req.logger, []string{mailboxId})
+		mailboxes, sessionState, jerr := g.jmap.GetMailbox(accountId, req.session, req.ctx, req.logger, []string{mailboxId})
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
 
-		mailboxes, ok := mailboxesByAccountId[accountId]
-		if ok && len(mailboxes.Mailboxes) == 1 {
+		if len(mailboxes.Mailboxes) == 1 {
 			return etagResponse(mailboxes.Mailboxes[0], sessionState, mailboxes.State)
 		} else {
 			return notFoundResponse(sessionState)
@@ -209,6 +208,27 @@ func (g *Groupware) GetMailboxesForAllAccounts(w http.ResponseWriter, r *http.Re
 	})
 }
 
+func (g *Groupware) GetMailboxByRoleForAllAccounts(w http.ResponseWriter, r *http.Request) {
+	role := chi.URLParam(r, UriParamRole)
+	g.respond(w, r, func(req Request) Response {
+		accountIds := structs.Keys(req.session.Accounts)
+		if len(accountIds) < 1 {
+			return noContentResponse("")
+		}
+		logger := log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(accountIds)).Str("role", role))
+
+		filter := jmap.MailboxFilterCondition{
+			Role: role,
+		}
+
+		mailboxesByAccountId, sessionState, err := g.jmap.SearchMailboxes(accountIds, req.session, req.ctx, logger, filter)
+		if err != nil {
+			return req.errorResponseFromJmap(err)
+		}
+		return response(mailboxesByAccountId, sessionState)
+	})
+}
+
 // When the request succeeds.
 // swagger:response MailboxChangesResponse200
 type SwaggerMailboxChangesResponse200 struct {
@@ -306,5 +326,21 @@ func (g *Groupware) GetMailboxChangesForAllAccounts(w http.ResponseWriter, r *ht
 		}
 
 		return response(changesByAccountId, sessionState)
+	})
+}
+
+func (g *Groupware) GetMailboxRoles(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		l := req.logger.With()
+		allAccountIds := structs.Keys(req.session.Accounts) // TODO(pbleser-oc) do we need a limit for a maximum amount of accounts to query at once?
+		l.Array(logAccountId, log.SafeStringArray(allAccountIds))
+		logger := log.From(l)
+
+		rolesByAccountId, sessionState, jerr := g.jmap.GetMailboxRolesForMultipleAccounts(allAccountIds, req.session, req.ctx, logger)
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
+		}
+
+		return response(rolesByAccountId, sessionState)
 	})
 }

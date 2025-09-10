@@ -18,9 +18,18 @@ const (
 	JmapErrorInvalidSessionResponse
 	JmapErrorInvalidJmapRequestPayload
 	JmapErrorInvalidJmapResponsePayload
-	JmapErrorMethodLevel
 	JmapErrorSetError
 	JmapErrorTooManyMethodCalls
+	JmapErrorUnspecifiedType
+	JmapErrorServerUnavailable
+	JmapErrorServerFail
+	JmapErrorUnknownMethod
+	JmapErrorInvalidArguments
+	JmapErrorInvalidResultReference
+	JmapErrorForbidden
+	JmapErrorAccountNotFound
+	JmapErrorAccountNotSupportedByMethod
+	JmapErrorAccountReadOnly
 )
 
 var (
