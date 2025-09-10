@@ -570,6 +570,20 @@ class CliContext implements Context {
 	}
 
 	/**
+	 * @When the administrator has created the file :file with content :content for user :user on the POSIX filesystem
+	 *
+	 * @param string $file
+	 * @param string $content
+	 * @param string $user
+	 *
+	 * @return void
+	 */
+	public function theAdministratorHasCreatedFile(string $file, string $content, string $user): void {
+		$this->theAdministratorCreatesFile($file, $content, $user);
+		$this->theCommandShouldBeSuccessful();
+	}
+
+	/**
 	 * @When the administrator creates the file :file with size :size for user :user on the POSIX filesystem
 	 *
 	 * @param string $file

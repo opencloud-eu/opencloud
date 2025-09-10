@@ -151,16 +151,16 @@ func (_c *BatchOperator_Move_Call) RunAndReturn(run func(rootID string, parentID
 }
 
 // Purge provides a mock function for the type BatchOperator
-func (_mock *BatchOperator) Purge(id string) error {
-	ret := _mock.Called(id)
+func (_mock *BatchOperator) Purge(id string, onlyDeleted bool) error {
+	ret := _mock.Called(id, onlyDeleted)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Purge")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(string) error); ok {
-		r0 = returnFunc(id)
+	if returnFunc, ok := ret.Get(0).(func(string, bool) error); ok {
+		r0 = returnFunc(id, onlyDeleted)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -174,18 +174,24 @@ type BatchOperator_Purge_Call struct {
 
 // Purge is a helper method to define mock.On call
 //   - id string
-func (_e *BatchOperator_Expecter) Purge(id interface{}) *BatchOperator_Purge_Call {
-	return &BatchOperator_Purge_Call{Call: _e.mock.On("Purge", id)}
+//   - onlyDeleted bool
+func (_e *BatchOperator_Expecter) Purge(id interface{}, onlyDeleted interface{}) *BatchOperator_Purge_Call {
+	return &BatchOperator_Purge_Call{Call: _e.mock.On("Purge", id, onlyDeleted)}
 }
 
-func (_c *BatchOperator_Purge_Call) Run(run func(id string)) *BatchOperator_Purge_Call {
+func (_c *BatchOperator_Purge_Call) Run(run func(id string, onlyDeleted bool)) *BatchOperator_Purge_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 string
 		if args[0] != nil {
 			arg0 = args[0].(string)
 		}
+		var arg1 bool
+		if args[1] != nil {
+			arg1 = args[1].(bool)
+		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
@@ -196,7 +202,7 @@ func (_c *BatchOperator_Purge_Call) Return(err error) *BatchOperator_Purge_Call 
 	return _c
 }
 
-func (_c *BatchOperator_Purge_Call) RunAndReturn(run func(id string) error) *BatchOperator_Purge_Call {
+func (_c *BatchOperator_Purge_Call) RunAndReturn(run func(id string, onlyDeleted bool) error) *BatchOperator_Purge_Call {
 	_c.Call.Return(run)
 	return _c
 }

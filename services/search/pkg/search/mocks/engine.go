@@ -269,16 +269,16 @@ func (_c *Engine_NewBatch_Call) RunAndReturn(run func(batchSize int) (search.Bat
 }
 
 // Purge provides a mock function for the type Engine
-func (_mock *Engine) Purge(id string) error {
-	ret := _mock.Called(id)
+func (_mock *Engine) Purge(id string, onlyDeleted bool) error {
+	ret := _mock.Called(id, onlyDeleted)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Purge")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(string) error); ok {
-		r0 = returnFunc(id)
+	if returnFunc, ok := ret.Get(0).(func(string, bool) error); ok {
+		r0 = returnFunc(id, onlyDeleted)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -292,18 +292,24 @@ type Engine_Purge_Call struct {
 
 // Purge is a helper method to define mock.On call
 //   - id string
-func (_e *Engine_Expecter) Purge(id interface{}) *Engine_Purge_Call {
-	return &Engine_Purge_Call{Call: _e.mock.On("Purge", id)}
+//   - onlyDeleted bool
+func (_e *Engine_Expecter) Purge(id interface{}, onlyDeleted interface{}) *Engine_Purge_Call {
+	return &Engine_Purge_Call{Call: _e.mock.On("Purge", id, onlyDeleted)}
 }
 
-func (_c *Engine_Purge_Call) Run(run func(id string)) *Engine_Purge_Call {
+func (_c *Engine_Purge_Call) Run(run func(id string, onlyDeleted bool)) *Engine_Purge_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 string
 		if args[0] != nil {
 			arg0 = args[0].(string)
 		}
+		var arg1 bool
+		if args[1] != nil {
+			arg1 = args[1].(bool)
+		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
@@ -314,7 +320,7 @@ func (_c *Engine_Purge_Call) Return(err error) *Engine_Purge_Call {
 	return _c
 }
 
-func (_c *Engine_Purge_Call) RunAndReturn(run func(id string) error) *Engine_Purge_Call {
+func (_c *Engine_Purge_Call) RunAndReturn(run func(id string, onlyDeleted bool) error) *Engine_Purge_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -130,6 +130,97 @@ func (_c *Searcher_MoveItem_Call) RunAndReturn(run func(ref *providerv1beta1.Ref
 	return _c
 }
 
+// PurgeDeleted provides a mock function for the type Searcher
+func (_mock *Searcher) PurgeDeleted(spaceID *providerv1beta1.StorageSpaceId) error {
+	ret := _mock.Called(spaceID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PurgeDeleted")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(*providerv1beta1.StorageSpaceId) error); ok {
+		r0 = returnFunc(spaceID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// Searcher_PurgeDeleted_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PurgeDeleted'
+type Searcher_PurgeDeleted_Call struct {
+	*mock.Call
+}
+
+// PurgeDeleted is a helper method to define mock.On call
+//   - spaceID *providerv1beta1.StorageSpaceId
+func (_e *Searcher_Expecter) PurgeDeleted(spaceID interface{}) *Searcher_PurgeDeleted_Call {
+	return &Searcher_PurgeDeleted_Call{Call: _e.mock.On("PurgeDeleted", spaceID)}
+}
+
+func (_c *Searcher_PurgeDeleted_Call) Run(run func(spaceID *providerv1beta1.StorageSpaceId)) *Searcher_PurgeDeleted_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *providerv1beta1.StorageSpaceId
+		if args[0] != nil {
+			arg0 = args[0].(*providerv1beta1.StorageSpaceId)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *Searcher_PurgeDeleted_Call) Return(err error) *Searcher_PurgeDeleted_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *Searcher_PurgeDeleted_Call) RunAndReturn(run func(spaceID *providerv1beta1.StorageSpaceId) error) *Searcher_PurgeDeleted_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// PurgeItem provides a mock function for the type Searcher
+func (_mock *Searcher) PurgeItem(rID *providerv1beta1.Reference) {
+	_mock.Called(rID)
+	return
+}
+
+// Searcher_PurgeItem_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PurgeItem'
+type Searcher_PurgeItem_Call struct {
+	*mock.Call
+}
+
+// PurgeItem is a helper method to define mock.On call
+//   - rID *providerv1beta1.Reference
+func (_e *Searcher_Expecter) PurgeItem(rID interface{}) *Searcher_PurgeItem_Call {
+	return &Searcher_PurgeItem_Call{Call: _e.mock.On("PurgeItem", rID)}
+}
+
+func (_c *Searcher_PurgeItem_Call) Run(run func(rID *providerv1beta1.Reference)) *Searcher_PurgeItem_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *providerv1beta1.Reference
+		if args[0] != nil {
+			arg0 = args[0].(*providerv1beta1.Reference)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *Searcher_PurgeItem_Call) Return() *Searcher_PurgeItem_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *Searcher_PurgeItem_Call) RunAndReturn(run func(rID *providerv1beta1.Reference)) *Searcher_PurgeItem_Call {
+	_c.Run(run)
+	return _c
+}
+
 // RestoreItem provides a mock function for the type Searcher
 func (_mock *Searcher) RestoreItem(ref *providerv1beta1.Reference) {
 	_mock.Called(ref)
