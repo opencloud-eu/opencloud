@@ -15,6 +15,7 @@ const (
 	UriParamBlobId                    = "blobid"
 	UriParamBlobName                  = "blobname"
 	UriParamStreamId                  = "stream"
+	UriParamRole                      = "role"
 	QueryParamMailboxSearchName       = "name"
 	QueryParamMailboxSearchRole       = "role"
 	QueryParamMailboxSearchSubscribed = "subscribed"
@@ -48,8 +49,10 @@ func (g *Groupware) Route(r chi.Router) {
 	r.Get("/accounts", g.GetAccounts)
 	r.Route("/accounts/all", func(r chi.Router) {
 		r.Route("/mailboxes", func(r chi.Router) {
-			r.Get("/", g.GetMailboxesForAllAccounts)
+			r.Get("/", g.GetMailboxesForAllAccounts) // ?role=
 			r.Get("/changes", g.GetMailboxChangesForAllAccounts)
+			r.Get("/roles", g.GetMailboxRoles)                       // ?role=
+			r.Get("/roles/{role}", g.GetMailboxByRoleForAllAccounts) // ?role=
 		})
 	})
 	r.Route("/accounts/{accountid}", func(r chi.Router) {

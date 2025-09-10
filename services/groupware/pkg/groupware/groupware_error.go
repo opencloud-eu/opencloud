@@ -138,6 +138,20 @@ func groupwareErrorFromJmap(j jmap.Error) *GroupwareError {
 		return &ErrorInvalidRequestPayload
 	case jmap.JmapErrorInvalidJmapResponsePayload:
 		return &ErrorInvalidResponsePayload
+	case jmap.JmapErrorUnspecifiedType, jmap.JmapErrorUnknownMethod, jmap.JmapErrorInvalidArguments, jmap.JmapErrorInvalidResultReference:
+		return &ErrorInvalidGroupwareRequest
+	case jmap.JmapErrorServerUnavailable:
+		return &ErrorServerUnavailable
+	case jmap.JmapErrorServerFail:
+		return &ErrorServerFailure
+	case jmap.JmapErrorForbidden:
+		return &ErrorForbiddenOperation
+	case jmap.JmapErrorAccountNotFound:
+		return &ErrorAccountNotFound
+	case jmap.JmapErrorAccountNotSupportedByMethod:
+		return &ErrorAccountNotSupportedByMethod
+	case jmap.JmapErrorAccountReadOnly:
+		return &ErrorAccountReadOnly
 	default:
 		return &ErrorGeneric
 	}
@@ -167,6 +181,13 @@ const (
 	ErrorCodeInvalidUserRequest                = "INVURQ"
 	ErrorCodeUsernameEmailDomainNotGreenListed = "UEDGRE"
 	ErrorCodeUsernameEmailDomainRedListed      = "UEDRED"
+	ErrorCodeInvalidGroupwareRequest           = "GPRERR"
+	ErrorCodeServerUnavailable                 = "SRVUNA"
+	ErrorCodeServerFailure                     = "SRVFLR"
+	ErrorCodeForbiddenOperation                = "FRBOPR"
+	ErrorCodeAccountNotFound                   = "ACCNFD"
+	ErrorCodeAccountNotSupportedByMethod       = "ACCNSM"
+	ErrorCodeAccountReadOnly                   = "ACCRDO"
 )
 
 var (
@@ -307,6 +328,48 @@ var (
 		Code:   ErrorCodeUsernameEmailDomainRedListed,
 		Title:  "Domain is redlisted",
 		Detail: "The username email address domain is redlisted.",
+	}
+	ErrorInvalidGroupwareRequest = GroupwareError{
+		Status: http.StatusInternalServerError,
+		Code:   ErrorCodeInvalidGroupwareRequest,
+		Title:  "Internal Request Error",
+		Detail: "The request constructed by the Groupware is regarded as invalid by the Mail server.",
+	}
+	ErrorServerUnavailable = GroupwareError{
+		Status: http.StatusServiceUnavailable,
+		Code:   ErrorCodeServerUnavailable,
+		Title:  "Mail Server is unavailable",
+		Detail: "The Mail Server is currently unable to process the request.",
+	}
+	ErrorServerFailure = GroupwareError{
+		Status: http.StatusInternalServerError,
+		Code:   ErrorCodeServerFailure,
+		Title:  "Mail Server is unable to process the Request",
+		Detail: "The Mail Server is unable to process the request.",
+	}
+	ErrorForbiddenOperation = GroupwareError{
+		Status: http.StatusForbidden,
+		Code:   ErrorCodeForbiddenOperation,
+		Title:  "The Operation is forbidden by the Mail Server",
+		Detail: "The Mail Server refuses to perform the request.",
+	}
+	ErrorAccountNotFound = GroupwareError{
+		Status: http.StatusNotFound,
+		Code:   ErrorCodeAccountNotFound,
+		Title:  "The referenced Account does not exist",
+		Detail: "The Account that was referenced in the request does not exist.",
+	}
+	ErrorAccountNotSupportedByMethod = GroupwareError{
+		Status: http.StatusForbidden,
+		Code:   ErrorCodeAccountNotSupportedByMethod,
+		Title:  "The referenced Account does not supported the requested method",
+		Detail: "The Account that was referenced in the request does not supported the requested method or data type.",
+	}
+	ErrorAccountReadOnly = GroupwareError{
+		Status: http.StatusForbidden,
+		Code:   ErrorCodeAccountReadOnly,
+		Title:  "The referenced Account is read-only",
+		Detail: "The Account that was referenced in the request only supports read-only operations.",
 	}
 )
 
