@@ -15,8 +15,8 @@ import (
 )
 
 // When the request succeeds without a "since" query parameter.
-// swagger:response GetAllMessagesInMailbox200
-type SwaggerGetAllMessagesInMailbox200 struct {
+// swagger:response GetAllEmailsInMailbox200
+type SwaggerGetAllEmailsInMailbox200 struct {
 	// in: body
 	Body struct {
 		*jmap.Emails
@@ -24,15 +24,15 @@ type SwaggerGetAllMessagesInMailbox200 struct {
 }
 
 // When the request succeeds with a "since" query parameter.
-// swagger:response GetAllMessagesInMailboxSince200
-type SwaggerGetAllMessagesInMailboxSince200 struct {
+// swagger:response GetAllEmailsInMailboxSince200
+type SwaggerGetAllEmailsInMailboxSince200 struct {
 	// in: body
 	Body struct {
 		*jmap.MailboxChanges
 	}
 }
 
-// swagger:route GET /groupware/accounts/{account}/mailboxes/{mailbox}/messages message get_all_messages_in_mailbox
+// swagger:route GET /groupware/accounts/{account}/mailboxes/{mailbox}/emails email get_all_emails_in_mailbox
 // Get all the emails in a mailbox.
 //
 // Retrieve the list of all the emails that are in a given mailbox.
@@ -48,12 +48,12 @@ type SwaggerGetAllMessagesInMailboxSince200 struct {
 //
 // responses:
 //
-//		200: GetAllMessagesInMailbox200
-//	 200: GetAllMessagesInMailboxSince200
+//		200: GetAllEmailsInMailbox200
+//	 200: GetAllEmailsInMailboxSince200
 //		400: ErrorResponse400
 //		404: ErrorResponse404
 //		500: ErrorResponse500
-func (g *Groupware) GetAllMessagesInMailbox(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) GetAllEmailsInMailbox(w http.ResponseWriter, r *http.Request) {
 	mailboxId := chi.URLParam(r, UriParamMailboxId)
 	since := r.Header.Get(HeaderSince)
 
@@ -119,12 +119,12 @@ func (g *Groupware) GetAllMessagesInMailbox(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-func (g *Groupware) GetMessagesById(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, UriParamMessageId)
+func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, UriParamEmailId)
 	g.respond(w, r, func(req Request) Response {
 		ids := strings.Split(id, ",")
 		if len(ids) < 1 {
-			return req.parameterErrorResponse(UriParamMessageId, fmt.Sprintf("Invalid value for path parameter '%v': '%s': %s", UriParamMessageId, log.SafeString(id), "empty list of mail ids"))
+			return req.parameterErrorResponse(UriParamEmailId, fmt.Sprintf("Invalid value for path parameter '%v': '%s': %s", UriParamEmailId, log.SafeString(id), "empty list of mail ids"))
 		}
 
 		accountId, err := req.GetAccountIdForMail()
@@ -132,18 +132,34 @@ func (g *Groupware) GetMessagesById(w http.ResponseWriter, r *http.Request) {
 			return errorResponse(err)
 		}
 
-		logger := log.From(req.logger.With().Str("id", log.SafeString(id)).Str(logAccountId, log.SafeString(accountId)))
-
-		emails, sessionState, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, ids, true, g.maxBodyValueBytes)
-		if jerr != nil {
-			return req.errorResponseFromJmap(jerr)
+		l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
+		if len(ids) == 1 {
+			logger := log.From(l.Str("id", log.SafeString(id)))
+			emails, sessionState, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, ids, true, g.maxBodyValueBytes)
+			if jerr != nil {
+				return req.errorResponseFromJmap(jerr)
+			}
+			if len(emails.Emails) < 1 {
+				return notFoundResponse(sessionState)
+			} else {
+				return etagResponse(emails.Emails[0], sessionState, emails.State)
+			}
+		} else {
+			logger := log.From(l.Array("ids", log.SafeStringArray(ids)))
+			emails, sessionState, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, ids, true, g.maxBodyValueBytes)
+			if jerr != nil {
+				return req.errorResponseFromJmap(jerr)
+			}
+			if len(emails.Emails) < 1 {
+				return notFoundResponse(sessionState)
+			} else {
+				return etagResponse(emails.Emails, sessionState, emails.State)
+			}
 		}
-
-		return etagResponse(emails, sessionState, emails.State)
 	})
 }
 
-func (g *Groupware) getMessagesSince(w http.ResponseWriter, r *http.Request, since string) {
+func (g *Groupware) getEmailsSince(w http.ResponseWriter, r *http.Request, since string) {
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With().Str(QueryParamSince, since)
 		maxChanges, ok, err := req.parseUIntParam(QueryParamMaxChanges, 0)
@@ -171,7 +187,7 @@ func (g *Groupware) getMessagesSince(w http.ResponseWriter, r *http.Request, sin
 	})
 }
 
-type MessageSearchSnippetsResults struct {
+type EmailSearchSnippetsResults struct {
 	Results    []jmap.SearchSnippet `json:"results,omitempty"`
 	Total      uint                 `json:"total,omitzero"`
 	Limit      uint                 `json:"limit,omitzero"`
@@ -188,7 +204,7 @@ type SnippetWithoutEmailId struct {
 	Preview string `json:"preview,omitempty"`
 }
 
-type MessageSearchResults struct {
+type EmailSearchResults struct {
 	Results    []EmailWithSnippets `json:"results"`
 	Total      uint                `json:"total,omitzero"`
 	Limit      uint                `json:"limit,omitzero"`
@@ -325,7 +341,7 @@ func (g *Groupware) buildFilter(req Request) (bool, jmap.EmailFilterElement, uin
 	return true, filter, offset, limit, logger, nil
 }
 
-func (g *Groupware) searchMessages(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) searchEmails(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		ok, filter, offset, limit, logger, err := g.buildFilter(req)
 		if !ok {
@@ -379,7 +395,7 @@ func (g *Groupware) searchMessages(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			return etagResponse(MessageSearchResults{
+			return etagResponse(EmailSearchResults{
 				Results:    flattened,
 				Total:      results.Total,
 				Limit:      results.Limit,
@@ -397,7 +413,7 @@ func (g *Groupware) searchMessages(w http.ResponseWriter, r *http.Request) {
 				return req.errorResponseFromJmap(jerr)
 			}
 
-			return etagResponse(MessageSearchSnippetsResults{
+			return etagResponse(EmailSearchSnippetsResults{
 				Results:    results.Snippets,
 				Total:      results.Total,
 				Limit:      results.Limit,
@@ -407,22 +423,22 @@ func (g *Groupware) searchMessages(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (g *Groupware) GetMessages(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) GetEmails(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	since := q.Get(QueryParamSince)
 	if since == "" {
 		since = r.Header.Get(HeaderSince)
 	}
 	if since != "" {
-		// get messages changes since a given state
-		g.getMessagesSince(w, r, since)
+		// get email changes since a given state
+		g.getEmailsSince(w, r, since)
 	} else {
 		// do a search
-		g.searchMessages(w, r)
+		g.searchEmails(w, r)
 	}
 }
 
-type MessageCreation struct {
+type EmailCreation struct {
 	MailboxIds    []string                       `json:"mailboxIds,omitempty"`
 	Keywords      []string                       `json:"keywords,omitempty"`
 	From          []jmap.EmailAddress            `json:"from,omitempty"`
@@ -433,7 +449,7 @@ type MessageCreation struct {
 	BodyValues    map[string]jmap.EmailBodyValue `json:"bodyValues,omitempty"`
 }
 
-func (g *Groupware) CreateMessage(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) CreateEmail(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		logger := req.logger
 
@@ -443,7 +459,7 @@ func (g *Groupware) CreateMessage(w http.ResponseWriter, r *http.Request) {
 		}
 		logger = log.From(logger.With().Str(logAccountId, accountId))
 
-		var body MessageCreation
+		var body EmailCreation
 		err := req.body(&body)
 		if err != nil {
 			return errorResponse(err)
@@ -479,12 +495,12 @@ func (g *Groupware) CreateMessage(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (g *Groupware) UpdateMessage(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) UpdateEmail(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
-		messageId := chi.URLParam(r, UriParamMessageId)
+		emailId := chi.URLParam(r, UriParamEmailId)
 
 		l := req.logger.With()
-		l.Str(UriParamMessageId, messageId)
+		l.Str(UriParamEmailId, emailId)
 
 		accountId, gwerr := req.GetAccountIdForMail()
 		if gwerr != nil {
@@ -501,7 +517,7 @@ func (g *Groupware) UpdateMessage(w http.ResponseWriter, r *http.Request) {
 		}
 
 		updates := map[string]jmap.EmailUpdate{
-			messageId: body,
+			emailId: body,
 		}
 
 		result, sessionState, jerr := g.jmap.UpdateEmails(accountId, updates, req.session, req.ctx, logger)
@@ -513,7 +529,7 @@ func (g *Groupware) UpdateMessage(w http.ResponseWriter, r *http.Request) {
 			return errorResponse(apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Missing Email Update Response",
 				"An internal API behaved unexpectedly: missing Email update response from JMAP endpoint")))
 		}
-		updatedEmail, ok := result.Updated[messageId]
+		updatedEmail, ok := result.Updated[emailId]
 		if !ok {
 			return errorResponse(apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Wrong Email Update Response ID",
 				"An internal API behaved unexpectedly: wrong Email update ID response from JMAP endpoint")))
@@ -524,12 +540,12 @@ func (g *Groupware) UpdateMessage(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (g *Groupware) DeleteMessage(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) DeleteEmail(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
-		messageId := chi.URLParam(r, UriParamMessageId)
+		emailId := chi.URLParam(r, UriParamEmailId)
 
 		l := req.logger.With()
-		l.Str(UriParamMessageId, messageId)
+		l.Str(UriParamEmailId, emailId)
 
 		accountId, gwerr := req.GetAccountIdForMail()
 		if gwerr != nil {
@@ -539,7 +555,7 @@ func (g *Groupware) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 
 		logger := log.From(l)
 
-		_, sessionState, jerr := g.jmap.DeleteEmails(accountId, []string{messageId}, req.session, req.ctx, logger)
+		_, sessionState, jerr := g.jmap.DeleteEmails(accountId, []string{emailId}, req.session, req.ctx, logger)
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
@@ -548,17 +564,15 @@ func (g *Groupware) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-type AboutMessageEmailsEvent struct {
+type AboutEmailsEvent struct {
 	Id     string       `json:"id"`
 	Source string       `json:"source"`
 	Emails []jmap.Email `json:"emails"`
 }
 
-type AboutMessageResponse struct {
+type AboutEmailResponse struct {
 	Email     jmap.Email `json:"email"`
 	RequestId string     `json:"requestId"`
-	// IV
-	// Key (AES-256)
 }
 
 func relatedEmails(email jmap.Email, beacon time.Time, days uint) jmap.EmailFilterElement {
@@ -598,8 +612,8 @@ func relatedEmails(email jmap.Email, beacon time.Time, days uint) jmap.EmailFilt
 	return filter
 }
 
-func (g *Groupware) RelatedToMessage(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, UriParamMessageId)
+func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, UriParamEmailId)
 
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With().Str(logEmailId, log.SafeString(id))
@@ -665,7 +679,7 @@ func (g *Groupware) RelatedToMessage(w http.ResponseWriter, r *http.Request) {
 				related := filterEmails(results.Emails, email)
 				l.Trace().Msgf("'%v' found %v other emails", RelationTypeSameSender, len(related))
 				if len(related) > 0 {
-					req.push(RelationEntityEmail, AboutMessageEmailsEvent{Id: reqId, Emails: related, Source: RelationTypeSameSender})
+					req.push(RelationEntityEmail, AboutEmailsEvent{Id: reqId, Emails: related, Source: RelationTypeSameSender})
 				}
 			}
 		})
@@ -682,12 +696,12 @@ func (g *Groupware) RelatedToMessage(w http.ResponseWriter, r *http.Request) {
 				related := filterEmails(emails, email)
 				l.Trace().Msgf("'%v' found %v other emails", RelationTypeSameThread, len(related))
 				if len(related) > 0 {
-					req.push(RelationEntityEmail, AboutMessageEmailsEvent{Id: reqId, Emails: related, Source: RelationTypeSameThread})
+					req.push(RelationEntityEmail, AboutEmailsEvent{Id: reqId, Emails: related, Source: RelationTypeSameThread})
 				}
 			}
 		})
 
-		return etagResponse(AboutMessageResponse{
+		return etagResponse(AboutEmailResponse{
 			Email:     email,
 			RequestId: reqId,
 		}, sessionState, emails.State)
