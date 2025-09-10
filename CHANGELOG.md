@@ -1,10 +1,17 @@
 # Changelog
 
-## [3.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.5.0) - 2025-09-09
+## [3.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.5.0) - 2025-09-10
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@Svanvith, @aduffeck, @individual-it, @prashant-gurung899, @rhafer
+@ScharfViktor, @Svanvith, @aduffeck, @individual-it, @prashant-gurung899, @rhafer
+
+### ✅ Tests
+
+- Apitest. file extension change [[#1482](https://github.com/opencloud-eu/opencloud/pull/1482)]
+- [full-ci] run tests with VIPS enabled [[#1420](https://github.com/opencloud-eu/opencloud/pull/1420)]
+- [full-ci] add pipeline to purge go-bin cache [[#1445](https://github.com/opencloud-eu/opencloud/pull/1445)]
+- [full-ci] purge browsers, opencloud web and playwright tracing cache [[#1403](https://github.com/opencloud-eu/opencloud/pull/1403)]
 
 ### 🐛 Bug Fixes
 
@@ -15,12 +22,6 @@
 ### 📚 Documentation
 
 - remove opencloud_full from the read.me and add opencloud-compose instead [[#1474](https://github.com/opencloud-eu/opencloud/pull/1474)]
-
-### ✅ Tests
-
-- [full-ci] run tests with VIPS enabled [[#1420](https://github.com/opencloud-eu/opencloud/pull/1420)]
-- [full-ci] add pipeline to purge go-bin cache [[#1445](https://github.com/opencloud-eu/opencloud/pull/1445)]
-- [full-ci] purge browsers, opencloud web and playwright tracing cache [[#1403](https://github.com/opencloud-eu/opencloud/pull/1403)]
 
 ### 📈 Enhancement
 
