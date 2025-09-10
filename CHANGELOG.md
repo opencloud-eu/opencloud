@@ -29,6 +29,8 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump golang.org/x/text from 0.28.0 to 0.29.0 [[#1484](https://github.com/opencloud-eu/opencloud/pull/1484)]
+- build(deps): bump github.com/spf13/afero from 1.14.0 to 1.15.0 [[#1483](https://github.com/opencloud-eu/opencloud/pull/1483)]
 - build(deps): bump github.com/prometheus/client_golang from 1.23.0 to 1.23.2 [[#1476](https://github.com/opencloud-eu/opencloud/pull/1476)]
 - build(deps): bump golang.org/x/sync from 0.16.0 to 0.17.0 [[#1477](https://github.com/opencloud-eu/opencloud/pull/1477)]
 - build(deps): bump go.etcd.io/bbolt from 1.4.2 to 1.4.3 [[#1463](https://github.com/opencloud-eu/opencloud/pull/1463)]
