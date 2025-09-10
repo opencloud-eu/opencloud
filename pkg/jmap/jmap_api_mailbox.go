@@ -26,8 +26,7 @@ func (j *Client) GetMailbox(accountIds []string, session *Session, ctx context.C
 
 	invocations := make([]Invocation, n)
 	for i, accountId := range uniqueAccountIds {
-		baseId := accountId + ":"
-		invocations[i] = invocation(CommandMailboxGet, MailboxGetCommand{AccountId: accountId, Ids: ids}, baseId+"0")
+		invocations[i] = invocation(CommandMailboxGet, MailboxGetCommand{AccountId: accountId, Ids: ids}, mcid(accountId, "0"))
 	}
 
 	cmd, err := j.request(session, logger, invocations...)
@@ -38,10 +37,8 @@ func (j *Client) GetMailbox(accountIds []string, session *Session, ctx context.C
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (map[string]MailboxesResponse, Error) {
 		resp := map[string]MailboxesResponse{}
 		for _, accountId := range uniqueAccountIds {
-			baseId := accountId + ":"
-
 			var response MailboxGetResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandMailboxGet, baseId+"0", &response)
+			err = retrieveResponseMatchParameters(logger, body, CommandMailboxGet, mcid(accountId, "0"), &response)
 			if err != nil {
 				return map[string]MailboxesResponse{}, err
 			}
@@ -92,12 +89,11 @@ func (j *Client) SearchMailboxes(accountIds []string, session *Session, ctx cont
 
 	invocations := make([]Invocation, len(uniqueAccountIds)*2)
 	for i, accountId := range uniqueAccountIds {
-		baseId := accountId + ":"
-		invocations[i*2+0] = invocation(CommandMailboxQuery, MailboxQueryCommand{AccountId: accountId, Filter: filter}, baseId+"0")
+		invocations[i*2+0] = invocation(CommandMailboxQuery, MailboxQueryCommand{AccountId: accountId, Filter: filter}, mcid(accountId, "0"))
 		invocations[i*2+1] = invocation(CommandMailboxGet, MailboxGetRefCommand{
 			AccountId: accountId,
-			IdRef:     &ResultReference{Name: CommandMailboxQuery, Path: "/ids/*", ResultOf: baseId + "0"},
-		}, baseId+"1")
+			IdRef:     &ResultReference{Name: CommandMailboxQuery, Path: "/ids/*", ResultOf: mcid(accountId, "0")},
+		}, mcid(accountId, "1"))
 	}
 	cmd, err := j.request(session, logger, invocations...)
 	if err != nil {
@@ -107,10 +103,8 @@ func (j *Client) SearchMailboxes(accountIds []string, session *Session, ctx cont
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (map[string]Mailboxes, Error) {
 		resp := map[string]Mailboxes{}
 		for _, accountId := range uniqueAccountIds {
-			baseId := accountId + ":"
-
 			var response MailboxGetResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandMailboxGet, baseId+"1", &response)
+			err = retrieveResponseMatchParameters(logger, body, CommandMailboxGet, mcid(accountId, "1"), &response)
 			if err != nil {
 				return map[string]Mailboxes{}, err
 			}
@@ -233,12 +227,10 @@ func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, sessi
 			changes.MaxChanges = maxChanges
 		}
 
-		baseId := accountId + ":"
-
 		getCreated := EmailGetRefCommand{
 			AccountId:          accountId,
 			FetchAllBodyValues: fetchBodies,
-			IdRef:              &ResultReference{Name: CommandMailboxChanges, Path: "/created", ResultOf: baseId + "0"},
+			IdRef:              &ResultReference{Name: CommandMailboxChanges, Path: "/created", ResultOf: mcid(accountId, "0")},
 		}
 		if maxBodyValueBytes > 0 {
 			getCreated.MaxBodyValueBytes = maxBodyValueBytes
@@ -246,15 +238,15 @@ func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, sessi
 		getUpdated := EmailGetRefCommand{
 			AccountId:          accountId,
 			FetchAllBodyValues: fetchBodies,
-			IdRef:              &ResultReference{Name: CommandMailboxChanges, Path: "/updated", ResultOf: baseId + "0"},
+			IdRef:              &ResultReference{Name: CommandMailboxChanges, Path: "/updated", ResultOf: mcid(accountId, "0")},
 		}
 		if maxBodyValueBytes > 0 {
 			getUpdated.MaxBodyValueBytes = maxBodyValueBytes
 		}
 
-		invocations[i*3+0] = invocation(CommandMailboxChanges, changes, baseId+"0")
-		invocations[i*3+1] = invocation(CommandEmailGet, getCreated, baseId+"1")
-		invocations[i*3+2] = invocation(CommandEmailGet, getUpdated, baseId+"2")
+		invocations[i*3+0] = invocation(CommandMailboxChanges, changes, mcid(accountId, "0"))
+		invocations[i*3+1] = invocation(CommandEmailGet, getCreated, mcid(accountId, "1"))
+		invocations[i*3+2] = invocation(CommandEmailGet, getUpdated, mcid(accountId, "2"))
 	}
 
 	cmd, err := j.request(session, logger, invocations...)
@@ -265,22 +257,20 @@ func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, sessi
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (map[string]MailboxChanges, Error) {
 		resp := make(map[string]MailboxChanges, n)
 		for _, accountId := range uniqueAccountIds {
-			baseId := accountId + ":"
-
 			var mailboxResponse MailboxChangesResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandMailboxChanges, baseId+"0", &mailboxResponse)
+			err = retrieveResponseMatchParameters(logger, body, CommandMailboxChanges, mcid(accountId, "0"), &mailboxResponse)
 			if err != nil {
 				return map[string]MailboxChanges{}, err
 			}
 
 			var createdResponse EmailGetResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, baseId+"1", &createdResponse)
+			err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, mcid(accountId, "1"), &createdResponse)
 			if err != nil {
 				return map[string]MailboxChanges{}, err
 			}
 
 			var updatedResponse EmailGetResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, baseId+"2", &updatedResponse)
+			err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, mcid(accountId, "2"), &updatedResponse)
 			if err != nil {
 				return map[string]MailboxChanges{}, err
 			}
