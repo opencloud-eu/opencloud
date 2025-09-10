@@ -46,16 +46,16 @@ type headerData struct {
 func parseTemplate(name string) *template.Template {
 	f, err := internal.Templates.Open("templates/" + name + ".html")
 	if err != nil {
-		log.Panicf("%v: %v", name, err) // nolint: revive  // Called during initialization.
+		log.Panicf("%v: %v", name, err) //nolint:revive  // Called during initialization.
 	}
 	defer func() {
 		if err = f.Close(); err != nil {
-			log.Panicf("%v: %v", name, err) // nolint: revive  // Called during initialization.
+			log.Panicf("%v: %v", name, err) //nolint:revive  // Called during initialization.
 		}
 	}()
 	text, err := io.ReadAll(f)
 	if err != nil {
-		log.Panicf("%v: %v", name, err) // nolint: revive  // Called during initialization.
+		log.Panicf("%v: %v", name, err) //nolint:revive  // Called during initialization.
 	}
 	return template.Must(template.New(name).Funcs(templateFunctions).Parse(string(text)))
 }
