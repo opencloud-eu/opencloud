@@ -1,22 +1,22 @@
-package search_test
+package event_test
 
 import (
+	"context"
 	"sync/atomic"
 
 	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 	searchMocks "github.com/opencloud-eu/opencloud/services/search/pkg/search/mocks"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/service/event"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/events/raw"
 	rawMocks "github.com/opencloud-eu/reva/v2/pkg/events/raw/mocks"
 	"github.com/stretchr/testify/mock"
 )
 
-var _ = DescribeTable("events",
+var _ = DescribeTable("event",
 	func(mcks []string, e any, asyncUploads bool) {
 		var (
 			s     = &searchMocks.Searcher{}
@@ -27,11 +27,14 @@ var _ = DescribeTable("events",
 		ch := make(chan raw.Event, 1)
 		stream.EXPECT().Consume(mock.Anything, mock.Anything).Return((<-chan raw.Event)(ch), nil)
 
-		search.HandleEvents(s, stream, &config.Config{
-			Events: config.Events{
-				AsyncUploads: asyncUploads,
-			},
-		}, nil, log.NewLogger())
+		event, err := event.New(context.Background(), stream, log.NewLogger(), nil, nil, s, 50, 1, asyncUploads)
+		Expect(err).NotTo(HaveOccurred())
+
+		go func() {
+			err := event.Run()
+			Expect(err).NotTo(HaveOccurred())
+		}()
+		defer event.Close()
 
 		for _, mck := range mcks {
 			s.On(mck, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
