@@ -234,11 +234,8 @@ Once a [Stalwart](https://stalw.art/) container is running (using the Docker Com
 cd ~/src/opencloud/
 git clone git@github.com:opencloud-eu/imap-filler.git
 cd ./imap-filler
-EMPTY=true \
-USERNAME=alan PASSWORD=demo \
-URL=localhost:993 FOLDER=Inbox \
-SENDERS=3 COUNT=20 \
-go run .
+go run . --empty=true --username=alan --password=demo \
+--url=localhost:993 --folder=Inbox --senders=3 --count=20
 ```
 
 # Building
