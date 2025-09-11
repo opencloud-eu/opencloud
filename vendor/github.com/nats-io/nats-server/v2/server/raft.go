@@ -31,6 +31,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/antithesishq/antithesis-sdk-go/assert"
 	"github.com/nats-io/nats-server/v2/internal/fastrand"
 
 	"github.com/minio/highwayhash"
@@ -48,6 +49,7 @@ type RaftNode interface {
 	Size() (entries, bytes uint64)
 	Progress() (index, commit, applied uint64)
 	Leader() bool
+	LeaderSince() *time.Time
 	Quorum() bool
 	Current() bool
 	Healthy() bool
@@ -81,6 +83,7 @@ type RaftNode interface {
 	Delete()
 	RecreateInternalSubs() error
 	IsSystemAccount() bool
+	GetTrafficAccountName() string
 }
 
 type WAL interface {
@@ -145,10 +148,11 @@ type raft struct {
 	bytes uint64      // Total amount of bytes stored in the WAL. (Saves us from needing to call wal.FastState very often)
 	werr  error       // Last write error
 
-	state       atomic.Int32 // RaftState
-	leaderState atomic.Bool  // Is in (complete) leader state.
-	hh          hash.Hash64  // Highwayhash, used for snapshots
-	snapfile    string       // Snapshot filename
+	state       atomic.Int32              // RaftState
+	leaderState atomic.Bool               // Is in (complete) leader state.
+	leaderSince atomic.Pointer[time.Time] // How long since becoming leader.
+	hh          hash.Hash64               // Highwayhash, used for snapshots
+	snapfile    string                    // Snapshot filename
 
 	csz   int             // Cluster size
 	qn    int             // Number of nodes needed to establish quorum
@@ -577,6 +581,13 @@ func (n *raft) checkAccountNRGStatus() bool {
 // Whether we are using the system account or not.
 func (n *raft) IsSystemAccount() bool {
 	return n.isSysAcc.Load()
+}
+
+// GetTrafficAccountName returns the account name of the account used for replication traffic.
+func (n *raft) GetTrafficAccountName() string {
+	n.RLock()
+	defer n.RUnlock()
+	return n.acc.GetName()
 }
 
 func (n *raft) RecreateInternalSubs() error {
@@ -1092,7 +1103,11 @@ func (n *raft) Applied(index uint64) (entries uint64, bytes uint64) {
 		// Quick sanity-check to confirm we're still leader.
 		// In which case we must signal, since switchToLeader would not have done so already.
 		if n.State() == Leader {
-			n.leaderState.Store(true)
+			if !n.leaderState.Swap(true) {
+				// Only update timestamp if leader state actually changed.
+				nowts := time.Now().UTC()
+				n.leaderSince.Store(&nowts)
+			}
 			n.updateLeadChange(true)
 		}
 	}
@@ -1397,6 +1412,15 @@ func (n *raft) Leader() bool {
 		return false
 	}
 	return n.leaderState.Load()
+}
+
+// LeaderSince returns how long we have been leader for,
+// if applicable.
+func (n *raft) LeaderSince() *time.Time {
+	if n == nil {
+		return nil
+	}
+	return n.leaderSince.Load()
 }
 
 // stepdown immediately steps down the Raft node to the
@@ -1813,6 +1837,7 @@ func (n *raft) shutdown() {
 	// to notify the runAs goroutines to stop what they're doing.
 	if n.state.Swap(int32(Closed)) != int32(Closed) {
 		n.leaderState.Store(false)
+		n.leaderSince.Store(nil)
 		close(n.quit)
 	}
 }
@@ -3300,6 +3325,14 @@ func (n *raft) truncateWAL(term, index uint64) {
 			n.debug("Clearing WAL state (no commits)")
 		}
 	}
+	if index < n.commit {
+		assert.Unreachable("WAL truncate lost commits", map[string]any{
+			"term":    term,
+			"index":   index,
+			"commit":  n.commit,
+			"applied": n.applied,
+		})
+	}
 
 	defer func() {
 		// Check to see if we invalidated any snapshots that might have held state
@@ -3388,7 +3421,6 @@ func (n *raft) processAppendEntry(ae *appendEntry, sub *subscription) {
 
 	// Are we receiving from another leader.
 	if n.State() == Leader {
-		// If we are the same we should step down to break the tie.
 		if lterm >= n.term {
 			// If the append entry term is newer than the current term, erase our
 			// vote.
@@ -3396,6 +3428,16 @@ func (n *raft) processAppendEntry(ae *appendEntry, sub *subscription) {
 				n.term = lterm
 				n.vote = noVote
 				n.writeTermVote()
+			} else {
+				assert.Unreachable(
+					"Two leaders using the same term",
+					map[string]any{
+						"Node id":           n.id,
+						"Node term":         n.term,
+						"AppendEntry id":    ae.leader,
+						"AppendEntry term":  ae.term,
+						"AppendEntry lterm": ae.lterm,
+					})
 			}
 			n.debug("Received append entry from another leader, stepping down to %q", ae.leader)
 			n.stepdownLocked(ae.leader)
@@ -3444,22 +3486,50 @@ func (n *raft) processAppendEntry(ae *appendEntry, sub *subscription) {
 		}
 	}
 
-	// If we are/were catching up ignore old catchup subs.
-	// This could happen when we stall or cancel a catchup.
-	if !isNew && sub != nil && (!catchingUp || sub != n.catchup.sub) {
+	// If we are/were catching up ignore old catchup subs, but only if catching up from an older server
+	// that doesn't send the leader term when catching up. We can reject old catchups from newer subs
+	// later, just by checking the append entry is on the correct term.
+	if !isNew && sub != nil && ae.lterm == 0 && (!catchingUp || sub != n.catchup.sub) {
 		n.Unlock()
 		n.debug("AppendEntry ignoring old entry from previous catchup")
 		return
 	}
 
+	// If this term is greater than ours.
+	if lterm > n.term {
+		n.term = lterm
+		n.vote = noVote
+		if isNew {
+			n.writeTermVote()
+		}
+		if n.State() != Follower {
+			n.debug("Term higher than ours and we are not a follower: %v, stepping down to %q", n.State(), ae.leader)
+			n.stepdownLocked(ae.leader)
+		}
+	} else if lterm < n.term && sub != nil && (isNew || ae.lterm != 0) {
+		// Anything that's below our expected highest term needs to be rejected.
+		// Unless we're replaying (sub=nil), in which case we'll always continue.
+		// For backward-compatibility we shouldn't reject if we're being caught up by an old server.
+		if !isNew {
+			n.debug("AppendEntry ignoring old entry from previous catchup")
+			n.Unlock()
+			return
+		}
+		n.debug("Rejected AppendEntry from a leader (%s) with term %d which is less than ours", ae.leader, lterm)
+		ar := newAppendEntryResponse(n.term, n.pindex, n.id, false)
+		n.Unlock()
+		n.sendRPC(ae.reply, _EMPTY_, ar.encode(arbuf))
+		arPool.Put(ar)
+		return
+	}
+
 	// Check state if we are catching up.
-	var resetCatchingUp bool
 	if catchingUp {
 		if cs := n.catchup; cs != nil && n.pterm >= cs.cterm && n.pindex >= cs.cindex {
 			// If we are here we are good, so if we have a catchup pending we can cancel.
 			n.cancelCatchup()
 			// Reset our notion of catching up.
-			resetCatchingUp = true
+			catchingUp = false
 		} else if isNew {
 			var ar *appendEntryResponse
 			var inbox string
@@ -3477,34 +3547,6 @@ func (n *raft) processAppendEntry(ae *appendEntry, sub *subscription) {
 			// Ignore new while catching up or replaying.
 			return
 		}
-	}
-
-	// If this term is greater than ours.
-	if lterm > n.term {
-		n.term = lterm
-		n.vote = noVote
-		if isNew {
-			n.writeTermVote()
-		}
-		if n.State() != Follower {
-			n.debug("Term higher than ours and we are not a follower: %v, stepping down to %q", n.State(), ae.leader)
-			n.stepdownLocked(ae.leader)
-		}
-	} else if lterm < n.term && sub != nil && !(catchingUp && ae.lterm == 0) {
-		// Anything that's below our expected highest term needs to be rejected.
-		// Unless we're replaying (sub=nil), in which case we'll always continue.
-		// For backward-compatibility we shouldn't reject if we're being caught up by an old server.
-		n.debug("Rejected AppendEntry from a leader (%s) with term %d which is less than ours", ae.leader, lterm)
-		ar := newAppendEntryResponse(n.term, n.pindex, n.id, false)
-		n.Unlock()
-		n.sendRPC(ae.reply, _EMPTY_, ar.encode(arbuf))
-		arPool.Put(ar)
-		return
-	}
-
-	// Reset after checking the term is correct, because we use catchingUp in a condition above.
-	if resetCatchingUp {
-		catchingUp = false
 	}
 
 	if isNew && n.leader != ae.leader && n.State() == Follower {
@@ -3647,21 +3689,7 @@ CONTINUE:
 				n.Unlock()
 				return
 			}
-			// Save in memory for faster processing during applyCommit.
-			// Only save so many however to avoid memory bloat.
-			if l := len(n.pae); l <= paeDropThreshold {
-				n.pae[n.pindex], l = ae, l+1
-				if l > paeWarnThreshold && l%paeWarnModulo == 0 {
-					n.warn("%d append entries pending", len(n.pae))
-				}
-			} else {
-				// Invalidate cache entry at this index, we might have
-				// stored it previously with a different value.
-				delete(n.pae, n.pindex)
-				if l%paeWarnModulo == 0 {
-					n.debug("Not saving to append entries pending")
-				}
-			}
+			n.cachePendingEntry(ae)
 		} else {
 			// This is a replay on startup so just take the appendEntry version.
 			n.pterm = ae.term
@@ -3880,16 +3908,26 @@ func (n *raft) sendAppendEntry(entries []*Entry) {
 			return
 		}
 		n.active = time.Now()
-
-		// Save in memory for faster processing during applyCommit.
-		n.pae[n.pindex] = ae
-		if l := len(n.pae); l > paeWarnThreshold && l%paeWarnModulo == 0 {
-			n.warn("%d append entries pending", len(n.pae))
-		}
+		n.cachePendingEntry(ae)
 	}
 	n.sendRPC(n.asubj, n.areply, ae.buf)
 	if !shouldStore {
 		ae.returnToPool()
+	}
+}
+
+// cachePendingEntry saves append entries in memory for faster processing during applyCommit.
+// Only save so many however to avoid memory bloat.
+func (n *raft) cachePendingEntry(ae *appendEntry) {
+	if l := len(n.pae); l < paeDropThreshold {
+		n.pae[n.pindex], l = ae, l+1
+		if l >= paeWarnThreshold && l%paeWarnModulo == 0 {
+			n.warn("%d append entries pending", len(n.pae))
+		}
+	} else {
+		// Invalidate cache entry at this index, we might have
+		// stored it previously with a different value.
+		delete(n.pae, n.pindex)
 	}
 }
 
@@ -4392,6 +4430,7 @@ func (n *raft) switchToFollowerLocked(leader string) {
 
 	n.aflr = 0
 	n.leaderState.Store(false)
+	n.leaderSince.Store(nil)
 	n.lxfer = false
 	// Reset acks, we can't assume acks from a previous term are still valid in another term.
 	if len(n.acks) > 0 {
@@ -4458,7 +4497,11 @@ func (n *raft) switchToLeader() {
 			// We know we have applied all entries in our log and can signal immediately.
 			// For sanity reset applied floor back down to 0, so we aren't able to signal twice.
 			n.aflr = 0
-			n.leaderState.Store(true)
+			if !n.leaderState.Swap(true) {
+				// Only update timestamp if leader state actually changed.
+				nowts := time.Now().UTC()
+				n.leaderSince.Store(&nowts)
+			}
 			n.updateLeadChange(true)
 		}
 	}

@@ -92,6 +92,10 @@ github.com/alexedwards/argon2id
 # github.com/amoghe/go-crypt v0.0.0-20220222110647-20eada5f5964
 ## explicit
 github.com/amoghe/go-crypt
+# github.com/antithesishq/antithesis-sdk-go v0.4.3-default-no-op
+## explicit; go 1.20
+github.com/antithesishq/antithesis-sdk-go/assert
+github.com/antithesishq/antithesis-sdk-go/internal
 # github.com/armon/go-radix v1.0.0
 ## explicit
 github.com/armon/go-radix
@@ -1053,8 +1057,8 @@ github.com/munnerz/goautoneg
 # github.com/nats-io/jwt/v2 v2.7.4
 ## explicit; go 1.23.0
 github.com/nats-io/jwt/v2
-# github.com/nats-io/nats-server/v2 v2.11.8
-## explicit; go 1.23.0
+# github.com/nats-io/nats-server/v2 v2.11.9
+## explicit; go 1.24.0
 github.com/nats-io/nats-server/v2/conf
 github.com/nats-io/nats-server/v2/internal/fastrand
 github.com/nats-io/nats-server/v2/internal/ldap
@@ -1270,7 +1274,7 @@ github.com/open-policy-agent/opa/v1/version
 # github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76
 ## explicit; go 1.18
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v2 v2.37.1-0.20250909074412-f272eeaa2674
+# github.com/opencloud-eu/reva/v2 v2.37.1-0.20250911072739-9e673e021dca
 ## explicit; go 1.24.1
 github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v2/cmd/revad/runtime
@@ -1870,7 +1874,7 @@ github.com/sethvargo/go-diceware/diceware
 # github.com/sethvargo/go-password v0.3.1
 ## explicit; go 1.21
 github.com/sethvargo/go-password/password
-# github.com/shamaton/msgpack/v2 v2.2.3
+# github.com/shamaton/msgpack/v2 v2.3.1
 ## explicit; go 1.20
 github.com/shamaton/msgpack/v2
 github.com/shamaton/msgpack/v2/def
@@ -2358,8 +2362,8 @@ golang.org/x/oauth2/internal
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
 golang.org/x/sync/singleflight
-# golang.org/x/sys v0.35.0
-## explicit; go 1.23.0
+# golang.org/x/sys v0.36.0
+## explicit; go 1.24.0
 golang.org/x/sys/cpu
 golang.org/x/sys/execabs
 golang.org/x/sys/plan9
@@ -2397,8 +2401,8 @@ golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
 golang.org/x/text/width
-# golang.org/x/time v0.12.0
-## explicit; go 1.23.0
+# golang.org/x/time v0.13.0
+## explicit; go 1.24.0
 golang.org/x/time/rate
 # golang.org/x/tools v0.36.0
 ## explicit; go 1.23.0

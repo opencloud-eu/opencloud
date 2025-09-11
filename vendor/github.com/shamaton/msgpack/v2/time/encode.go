@@ -30,12 +30,12 @@ func (s *timeEncoder) CalcByteSize(value reflect.Value) (int, error) {
 	if secs>>34 == 0 {
 		data := uint64(t.Nanosecond())<<34 | secs
 		if data&0xffffffff00000000 == 0 {
-			return def.Byte1 + def.Byte4, nil
+			return def.Byte1 + def.Byte1 + def.Byte4, nil
 		}
-		return def.Byte1 + def.Byte8, nil
+		return def.Byte1 + def.Byte1 + def.Byte8, nil
 	}
 
-	return def.Byte1 + def.Byte1 + def.Byte4 + def.Byte8, nil
+	return def.Byte1 + def.Byte1 + def.Byte1 + def.Byte4 + def.Byte8, nil
 }
 
 func (s *timeEncoder) WriteToBytes(value reflect.Value, offset int, bytes *[]byte) int {

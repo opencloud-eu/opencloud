@@ -7,11 +7,11 @@ import (
 )
 
 func (e *encoder) calcComplex64() int {
-	return def.Byte1 + def.Byte8
+	return def.Byte1 + def.Byte1 + def.Byte8
 }
 
 func (e *encoder) calcComplex128() int {
-	return def.Byte1 + def.Byte16
+	return def.Byte1 + def.Byte1 + def.Byte16
 }
 
 func (e *encoder) writeComplex64(v complex64, offset int) int {

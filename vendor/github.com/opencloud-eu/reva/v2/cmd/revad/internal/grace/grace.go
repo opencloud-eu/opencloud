@@ -297,9 +297,6 @@ func (w *Watcher) TrapSignals() {
 	}
 }
 
-// TODO: Ideally this would call exit() but properly return an error. The
-// exit() is problematic (i.e. racey) especiaily when orchestrating multiple
-// reva services from some external runtime (like in the "opencloud server" case
 func gracefulShutdown(w *Watcher) {
 	defer w.Clean()
 	w.log.Info().Int("Timeout", w.gracefulShutdownTimeout).Msg("preparing for a graceful shutdown with deadline")
@@ -309,7 +306,7 @@ func gracefulShutdown(w *Watcher) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			w.log.Info().Msgf("fd to %s:%s gracefully closed", s.Network(), s.Address())
+			w.log.Info().Str("network.transport", s.Network()).Str("network.local.address", s.Address()).Msg("fd gracefully closed")
 			err := s.GracefulStop()
 			if err != nil {
 				w.log.Error().Err(err).Msg("error stopping server")
@@ -327,7 +324,7 @@ func gracefulShutdown(w *Watcher) {
 	case <-time.After(time.Duration(w.gracefulShutdownTimeout) * time.Second):
 		w.log.Info().Msg("graceful shutdown timeout reached. running hard shutdown")
 		for _, s := range w.ss {
-			w.log.Info().Msgf("fd to %s:%s abruptly closed", s.Network(), s.Address())
+			w.log.Info().Str("network.transport", s.Network()).Str("network.local.address", s.Address()).Msg("fd abruptly closed")
 			err := s.Stop()
 			if err != nil {
 				w.log.Error().Err(err).Msg("error stopping server")
@@ -338,21 +335,6 @@ func gracefulShutdown(w *Watcher) {
 		w.log.Info().Msg("all servers gracefully stopped")
 		return
 	}
-}
-
-// TODO: Ideally this would call exit() but properly return an error. The
-// exit() is problematic (i.e. racey) especiaily when orchestrating multiple
-// reva services from some external runtime (like in the "opencloud server" case
-func hardShutdown(w *Watcher) {
-	w.log.Info().Msg("preparing for hard shutdown, aborting all conns")
-	for _, s := range w.ss {
-		w.log.Info().Msgf("fd to %s:%s abruptly closed", s.Network(), s.Address())
-		err := s.Stop()
-		if err != nil {
-			w.log.Error().Err(err).Msg("error stopping server")
-		}
-	}
-	w.Exit(0)
 }
 
 func getListenerFile(ln net.Listener) (*os.File, error) {
