@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @Svanvith, @aduffeck, @individual-it, @prashant-gurung899, @rhafer
+@ScharfViktor, @Svanvith, @aduffeck, @butonic, @individual-it, @prashant-gurung899, @rhafer
 
 ### ✅ Tests
 
