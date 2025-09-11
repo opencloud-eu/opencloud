@@ -33,12 +33,9 @@ func GenerateConnectionName(service string, ntype NType) string {
 
 // firstNRunes returns the first n runes of a string
 func firstNRunes(s string, n int) string {
-	i := 0
-	for j := range s {
-		if i == n {
-			return s[:j]
-		}
-		i++
+	runes := []rune(s)
+	if n > len(runes) {
+		n = len(runes)
 	}
-	return s
+	return string(runes[:n])
 }
