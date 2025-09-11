@@ -28,7 +28,8 @@ echo 'export PATH="$PATH:$HOME/src/opencloud/bin"' >> ~/.bashrc
 
 Those scripts have the following prerequisites:
 * the [`jq`](https://github.com/jqlang/jq) JSON query command-line tool to extract access tokens,
-* either the [httpie](https://httpie.io/cli) (`pip install httpie`) or [`xh`](https://github.com/ducaale/xh) (`cargo install xh --locked`) command-line HTTP clients, just out of convenience as their output is much nicer than curl's
+* either the [httpie](https://httpie.io/cli) (`pipx install httpie`) or [`xh`](https://github.com/ducaale/xh) (`cargo install xh --locked`) command-line HTTP clients, just out of convenience as their output is much nicer than curl's
+* `curl` as well, to retrieve the access tokens from Keycloak (no need for nice output there)
 
 # Running
 
@@ -167,6 +168,64 @@ If it is not set up correctly, it should give you this instead:
 {"error":"invalid_client","error_description":"Invalid client or Invalid client credentials"}
 ```
 
+## Checking
+
+To check whether the various services are running correctly:
+
+### LDAP
+
+Run the following command on your host (requires the `ldap-tools` package with the `ldapsearch` CLI tool), which should output a list of DNs of demo users:
+```bash
+ldapsearch -h localhost -D 'cn=admin,dc=opencloud,dc=eu' -x -w 'admin' -b 'ou=users,dc=opencloud,dc=eu' -LLL '(objectClass=person)' dn
+```
+
+Sample output:
+```text
+dn: uid=alan,ou=users,dc=opencloud,dc=eu
+
+dn: uid=lynn,ou=users,dc=opencloud,dc=eu
+
+dn: uid=mary,ou=users,dc=opencloud,dc=eu
+
+dn: uid=admin,ou=users,dc=opencloud,dc=eu
+
+dn: uid=dennis,ou=users,dc=opencloud,dc=eu
+
+dn: uid=margaret,ou=users,dc=opencloud,dc=eu
+
+```
+
+### Stalwart
+
+To then test the IMAP authentication with Stalwart, run the following command on your host (requires the `openssl` CLI tool):
+
+```bash
+openssl s_client -crlf -connect localhost:993
+```
+
+When then greeted with the following prompt:
+```text
+* OK [CAPABILITY ...] Stalwart IMAP4rev2 at your service.
+```
+
+enter the following command:
+```text
+A LOGIN alan demo
+```
+
+to which one should receive the following response:
+```text
+A OK [CAPABILITY IMAP4rev2 ...] Authentication successful
+```
+
+### Keycloak
+
+As mentioned previously, use the following command on your host to retrieve an access token from Keycloak:
+
+```bash
+curl -ks -D- -X POST "https://keycloak.opencloud.test/realms/openCloud/protocol/openid-connect/token" -d username=alan -d password=demo -d grant_type=password -d client_id=groupware -d scope=openid
+```
+
 ## Feeding an Inbox
 
 Once a [Stalwart](https://stalw.art/) container is running (using the Docker Compose setup as explained above), use [`imap-filler`](https://github.com/opencloud-eu/imap-filler/) to populate the inbox folder via IMAP APPEND:
@@ -252,5 +311,60 @@ The first thing you might want to test is to query the index, which will ensure 
 
 ```bash
 oc-gw //
+```
+
+# Services
+
+## Stalwart
+
+### Web UI
+
+To access the Stalwart admin UI, open <https://stalwart.opencloud.test/> and use the following credentials to log in:
+* username: `mailadmin`
+* password: `admin`
+
+The usual admin username `admin` had to be changed into `mailadmin` because there is already an `admin` user that ships with the default users in OpenCloud, and Stalwart always checks the LDAP directory before its internal usernames.
+
+Those credentials are configured in `deployments/examples/opencloud_full/config/stalwart/config.toml`:
+```ruby
+authentication.fallback-admin.secret = "$6$4qPYDVhaUHkKcY7s$bB6qhcukb9oFNYRIvaDZgbwxrMa2RvF5dumCjkBFdX19lSNqrgKltf3aPrFMuQQKkZpK2YNuQ83hB1B3NiWzj."
+authentication.fallback-admin.user = "mailadmin"
+```
+
+### Restart from Scratch
+
+To start with a Stalwart container from scratch, removing all the data (including emails):
+
+```bash
+cd deployments/examples/opencloud_full
+docker compose stop stalwart
+docker compose rm stalwart
+docker volume rm opencloud_full_stalwart-data opencloud_full_stalwart-logs
+docker compose up -d stalwart
+```
+
+### Diagnostics
+
+If anything goes wrong, the first thing to check is Stalwart's logs, that are configured on the most verbose level (trace) and should thus provide a lot of insight:
+
+```bash
+docker logs -f opencloud_full-stalwart-1
+```
+
+## OpenLDAP
+
+The `opencloud_full-ldap-server-1` container exports the ports 389 (LDAP) and 636 (LDAPS) on the host.
+
+To access the LDAP tree:
+* Host: `localhost`
+* Port: `389`
+* Bind DN: `cn=admin,dc=opencloud,dc=eu`
+* Password: `admin`
+* Base DN: `dc=opencloud,dc=eu`
+
+As an example, to list all the users, using the `ldap-tools` on your host:
+
+```bash
+ldapsearch -h localhost -D 'cn=admin,dc=opencloud,dc=eu' -x -w 'admin' -b 'ou=users,dc=opencloud,dc=eu' -LLL '(objectClass=person)'
 ```
 
