@@ -20,12 +20,15 @@ git clone --branch groupware git@github.com:opencloud-eu/opencloud.git
 
 Also, you might want to check out these [helper scripts in opencloud-tools](https://github.com/pbleser-oc/opencloud-tools) somewhere and put that directory into your `PATH`, as it contains scripts to test and build the OpenCloud Groupware:
 
-
 ```bash
 cd ~/src/opencloud/
 git clone git@github.com:pbleser-oc/opencloud-tools.git ./bin
 echo 'export PATH="$PATH:$HOME/src/opencloud/bin"' >> ~/.bashrc
 ```
+
+Those scripts have the following prerequisites:
+* the [`jq`](https://github.com/jqlang/jq) JSON query command-line tool to extract access tokens,
+* either the [httpie](https://httpie.io/cli) (`pip install httpie`) or [`xh`](https://github.com/ducaale/xh) (`cargo install xh --locked`) command-line HTTP clients, just out of convenience as their output is much nicer than curl's
 
 # Running
 
@@ -33,9 +36,32 @@ Since we require having a Stalwart container running at the very least, the pref
 
 ## Configuration
 
+### Hosts
+
+Make sure to have the following entries in your `/etc/hosts`:
+
+```text
+127.0.0.1       cloud.opencloud.test
+127.0.0.1       keycloak.opencloud.test
+127.0.0.1       collabora.opencloud.test
+127.0.0.1       wopiserver.opencloud.test
+127.0.0.1       mail.opencloud.test
+127.0.0.1       collabora.opencloud.test
+127.0.0.1       stalwart.opencloud.test
+127.0.0.1       traefik.opencloud.test
+```
+
 ### Compose
 
 It first needs to be tuned a little, and for that, edit `deployments/examples/opencloud_full/.env`, making the following changes:
+
+* change the container image to `opencloudeu/opencloud:dev`:
+```diff
+-OC_DOCKER_IMAGE=opencloudeu/opencloud-rolling
++OC_DOCKER_IMAGE=opencloudeu/opencloud
+-OC_DOCKER_TAG=
++OC_DOCKER_TAG=dev
+```
 
 * add the `groupware` service to `START_ADDITIONAL_SERVICES`:
 ```diff
@@ -83,16 +109,27 @@ It first needs to be tuned a little, and for that, edit `deployments/examples/op
 
 ## Running
 
-Either run everything from the Docker Compose `opencloud_full` setup:
-
+Build the `opencloudeu/opencloud:dev` image first:
 
 ```bash
-cd deployments/examples/opencloud_full/
+cd ~/src/opencloud/opencloud
+make -C opencloud/ clean build dev-docker
+```
+
+If you see obscure JavaScript related errors, do this and then try the `make` command above again:
+
+```bash
+make -C opencloud/services/idp/ generate
+```
+
+And then either run everything from the Docker Compose `opencloud_full` setup:
+
+```bash
+cd ./deployments/examples/opencloud_full/
 docker compose up -d
 ```
 
 or from within VSCode, in which case you should run all the services from the Docker Compose setup as above, but stop the `opencloud` service container (as that one will be running from within your IDE instead):
-
 
 ```bash
 docker stop opencloud_full-opencloud-1
@@ -120,7 +157,7 @@ To do so, use your preferred web browser and
 * click "Save"
 
 To check whether it works correctly:
-```sh
+```bash
 curl -ks -D- -X POST "https://keycloak.opencloud.test/realms/openCloud/protocol/openid-connect/token" -d username=alan -d password=demo -d grant_type=password -d client_id=groupware -d scope=openid
 ```
 should provide you with a JSON response that contains an `access_token`.
@@ -181,4 +218,39 @@ firefox ./api.html
 
 Note that `redocly-cli` does not need to be installed, it will be pulled locally by the `Makefile`, provided that you have [pnpm](https://pnpm.io/) installed as a pre-requisite, which is already necessary for other OpenCloud components.
 
+# Testing
+
+This section assumes that you are using the [helper scripts in opencloud-tools](https://github.com/pbleser-oc/opencloud-tools) as instructed above.
+
+If you are running OpenCloud from within VSCode, then make sure to set the following environment variable first, in the shell from which you will use the scripts, as the OpenCloud process is listening to that address as opposed to <https://cloud.opencloud.test> and going through Traefik as is the case when running it from the Docker Compose `opencloud_full` setup:
+
+```bash
+export baseurl=https://localhost:9200
+```
+
+The scripts default to using the user `alan` (with the password `demo`), which can be changed by setting the following environment variables:
+* `username`
+* `password`
+
+Your main swiss army knife tool will be `oc-gw` (mnemonic for "OpenCloud Groupware"), which
+* always retrieves an access token from Keycloak, using the credentials defined in `username` and `password` (defaulting to `adam`/`demo`), using the "Direct Access Grant" OIDC or "Resource Owner Password Credentials Grant" OAuth2 flow
+* and then use that JWT for Bearer authentication against the OpenCloud Groupware REST API
+
+It will also save you some typing as whenever you use `//` for the URL, it will replace that by the Groupware REST API base URL, e.g.
+
+```bash
+oc-gw //accounts
+```
+
+will be translated into
+
+```bash
+http https://cloud.opencloud.test/groupware/accounts
+```
+
+The first thing you might want to test is to query the index, which will ensure everything is working properly, including the authentication and the communication between the Groupware and Stalwart:
+
+```bash
+oc-gw //
+```
 
