@@ -1,6 +1,7 @@
 package command
 
 import (
+	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/services/notifications/pkg/config"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
@@ -31,7 +32,8 @@ func SendEmail(cfg *config.Config) *cli.Command {
 			if !daily && !weekly {
 				return errors.New("at least one of '--daily' or '--weekly' must be set")
 			}
-			s, err := stream.NatsFromConfig(cfg.Service.Name, false, stream.NatsConfig(cfg.Notifications.Events))
+			connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
+			s, err := stream.NatsFromConfig(connName, false, stream.NatsConfig(cfg.Notifications.Events))
 			if err != nil {
 				return err
 			}

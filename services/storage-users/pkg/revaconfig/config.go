@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
 )
 
@@ -57,7 +58,7 @@ func StorageUsersConfigFromStruct(cfg *config.Config) map[string]interface{} {
 					"tls-insecure":     cfg.Events.TLSInsecure,
 					"tls-root-ca-cert": cfg.Events.TLSRootCaCertPath,
 					"enable-tls":       cfg.Events.EnableTLS,
-					"name":             "storage-users-eventsmiddleware",
+					"name":             generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus),
 					"username":         cfg.Events.AuthUsername,
 					"password":         cfg.Events.AuthPassword,
 				},

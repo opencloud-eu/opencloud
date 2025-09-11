@@ -11,6 +11,7 @@ import (
 	microstore "go-micro.dev/v4/store"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
+	"github.com/opencloud-eu/opencloud/pkg/generators"
 	ogrpc "github.com/opencloud-eu/opencloud/pkg/service/grpc"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/pkg/version"
@@ -55,7 +56,8 @@ func Server(cfg *config.Config) *cli.Command {
 
 			m.BuildInfo.WithLabelValues(version.GetString()).Set(1)
 
-			consumer, err := stream.NatsFromConfig(cfg.Service.Name, false, stream.NatsConfig(cfg.Events))
+			connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
+			consumer, err := stream.NatsFromConfig(connName, false, stream.NatsConfig(cfg.Events))
 			if err != nil {
 				return err
 			}
