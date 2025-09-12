@@ -3,11 +3,14 @@ package groupware
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog"
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -157,6 +160,164 @@ func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	})
+}
+
+type attachmentPicker interface {
+	pick(parts []jmap.EmailBodyPart) *jmap.EmailBodyPart
+}
+
+type partIdAttachmentPicker struct {
+	partId string
+}
+
+var _ attachmentPicker = partIdAttachmentPicker{}
+
+func (p partIdAttachmentPicker) pick(parts []jmap.EmailBodyPart) *jmap.EmailBodyPart {
+	for _, part := range parts {
+		if part.PartId == p.partId {
+			return &part
+		}
+	}
+	return nil
+}
+
+type nameAttachmentPicker struct {
+	name string
+}
+
+var _ attachmentPicker = nameAttachmentPicker{}
+
+func (p nameAttachmentPicker) pick(parts []jmap.EmailBodyPart) *jmap.EmailBodyPart {
+	for _, part := range parts {
+		if part.Name == p.name {
+			return &part
+		}
+	}
+	return nil
+}
+
+type blobIdAttachmentPicker struct {
+	blobId string
+}
+
+var _ attachmentPicker = blobIdAttachmentPicker{}
+
+func (p blobIdAttachmentPicker) pick(parts []jmap.EmailBodyPart) *jmap.EmailBodyPart {
+	for _, part := range parts {
+		if part.BlobId == p.blobId {
+			return &part
+		}
+	}
+	return nil
+}
+
+func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, UriParamEmailId)
+
+	contextAppender := func(l zerolog.Context) zerolog.Context { return l }
+	q := r.URL.Query()
+	var picker attachmentPicker = nil
+	if q.Has(QueryParamPartId) {
+		str := q.Get(QueryParamPartId)
+		picker = partIdAttachmentPicker{partId: str}
+		contextAppender = func(l zerolog.Context) zerolog.Context { return l.Str(QueryParamPartId, log.SafeString(str)) }
+	}
+	if q.Has(QueryParamAttachmentName) {
+		str := q.Get(QueryParamAttachmentName)
+		picker = nameAttachmentPicker{name: str}
+		contextAppender = func(l zerolog.Context) zerolog.Context { return l.Str(QueryParamAttachmentName, log.SafeString(str)) }
+	}
+	if q.Has(QueryParamAttachmentBlobId) {
+		str := q.Get(QueryParamAttachmentBlobId)
+		picker = blobIdAttachmentPicker{blobId: str}
+		contextAppender = func(l zerolog.Context) zerolog.Context { return l.Str(QueryParamAttachmentBlobId, log.SafeString(str)) }
+	}
+
+	if picker == nil {
+		g.respond(w, r, func(req Request) Response {
+			accountId, err := req.GetAccountIdForMail()
+			if err != nil {
+				return errorResponse(err)
+			}
+			l := req.logger.With().Str(logAccountId, accountId)
+			logger := log.From(l)
+			emails, sessionState, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, []string{id}, false, 0)
+			if jerr != nil {
+				return req.errorResponseFromJmap(jerr)
+			}
+			if len(emails.Emails) < 1 {
+				return notFoundResponse(sessionState)
+			}
+			email := emails.Emails[0]
+			return etagResponse(email.Attachments, sessionState, emails.State)
+		})
+	} else {
+		g.stream(w, r, func(req Request, w http.ResponseWriter) *Error {
+			mailAccountId, gwerr := req.GetAccountIdForMail()
+			if gwerr != nil {
+				return gwerr
+			}
+			blobAccountId, gwerr := req.GetAccountIdForBlob()
+			if gwerr != nil {
+				return gwerr
+			}
+
+			l := req.logger.With().Str(logAccountId, mailAccountId).Str(logBlobAccountId, log.SafeString(blobAccountId))
+			l = contextAppender(l)
+			logger := log.From(l)
+
+			emails, _, jerr := g.jmap.GetEmails(mailAccountId, req.session, req.ctx, logger, []string{id}, false, 0)
+			if jerr != nil {
+				return req.apiErrorFromJmap(req.observeJmapError(jerr))
+			}
+			if len(emails.Emails) < 1 {
+				return nil
+			}
+
+			email := emails.Emails[0]
+			attachment := picker.pick(email.Attachments)
+			if attachment == nil {
+				return nil
+			}
+
+			blob, jerr := g.jmap.DownloadBlobStream(blobAccountId, attachment.BlobId, attachment.Name, attachment.Type, req.session, req.ctx, logger)
+			if blob != nil && blob.Body != nil {
+				defer func(Body io.ReadCloser) {
+					err := Body.Close()
+					if err != nil {
+						logger.Error().Err(err).Msg("failed to close response body")
+					}
+				}(blob.Body)
+			}
+			if jerr != nil {
+				return req.apiErrorFromJmap(jerr)
+			}
+			if blob == nil {
+				w.WriteHeader(http.StatusNotFound)
+				return nil
+			}
+
+			if blob.Type != "" {
+				w.Header().Add("Content-Type", blob.Type)
+			}
+			if blob.CacheControl != "" {
+				w.Header().Add("Cache-Control", blob.CacheControl)
+			}
+			if blob.ContentDisposition != "" {
+				w.Header().Add("Content-Disposition", blob.ContentDisposition)
+			}
+			if blob.Size >= 0 {
+				w.Header().Add("Content-Size", strconv.Itoa(blob.Size))
+			}
+
+			_, err := io.Copy(w, blob.Body)
+			if err != nil {
+				return req.observedParameterError(ErrorStreamingResponse)
+			}
+
+			return nil
+		})
+	}
 }
 
 func (g *Groupware) getEmailsSince(w http.ResponseWriter, r *http.Request, since string) {
