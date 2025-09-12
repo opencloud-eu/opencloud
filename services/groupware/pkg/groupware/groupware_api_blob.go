@@ -15,7 +15,7 @@ const (
 	DefaultBlobDownloadType = "application/octet-stream"
 )
 
-func (g *Groupware) GetBlob(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) GetBlobMeta(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		blobId := chi.URLParam(req.r, UriParamBlobId)
 		if blobId == "" {
@@ -28,15 +28,20 @@ func (g *Groupware) GetBlob(w http.ResponseWriter, r *http.Request) {
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
 
-		res, _, jerr := g.jmap.GetBlob(accountId, req.session, req.ctx, logger, blobId)
+		res, sessionState, jerr := g.jmap.GetBlobMetadata(accountId, req.session, req.ctx, logger, blobId)
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
 		blob := res.Blob
 		if blob == nil {
-			return notFoundResponse("")
+			return notFoundResponse(sessionState)
 		}
-		return etagOnlyResponse(res, jmap.State(blob.Digest()))
+		digest := blob.Digest()
+		if digest != "" {
+			return etagResponse(res, sessionState, jmap.State(digest))
+		} else {
+			return response(res, sessionState)
+		}
 	})
 }
 
