@@ -2590,8 +2590,9 @@ type BlobUploadResponse struct {
 const (
 	BlobPropertyDataAsText   = "data:asText"
 	BlobPropertyDataAsBase64 = "data:asBase64"
-	BlobPropertyData         = "data"
-	BlobPropertySize         = "size"
+	// Returns data:asText if the selected octets are valid UTF-8 or data:asBase64.
+	BlobPropertyData = "data"
+	BlobPropertySize = "size"
 	// https://www.iana.org/assignments/http-digest-hash-alg/http-digest-hash-alg.xhtml
 	BlobPropertyDigestSha256 = "digest:sha256"
 	// https://www.iana.org/assignments/http-digest-hash-alg/http-digest-hash-alg.xhtml
@@ -2633,6 +2634,16 @@ type Blob struct {
 	DigestSha512 string `json:"digest:sha512,omitempty"`
 
 	// If an encoding problem occured.
+	//
+	// The data fields contain a representation of the octets within the selected range
+	// that are present in the blob.
+	//
+	// If the octets selected are not valid UTF-8 (including truncating in the middle of a
+	// multi-octet sequence) and data or data:asText was requested, then the key isEncodingProblem
+	// MUST be set to true, and the data:asText response value MUST be null.
+	//
+	// In the case where data was requested and the data is not valid UTF-8, then data:asBase64
+	// MUST be returned.
 	IsEncodingProblem bool `json:"isEncodingProblem,omitzero"`
 
 	// When requesting a range: the isTruncated property in the result MUST be
@@ -2655,10 +2666,33 @@ func (b *Blob) Digest() string {
 }
 
 type BlobGetResponse struct {
+	// The id of the account used for the call.
 	AccountId string `json:"accountId"`
-	State     State  `json:"state,omitempty"`
-	List      []Blob `json:"list,omitempty"`
-	NotFound  []any  `json:"notFound,omitempty"`
+
+	// A string representing the state on the server for all the data of this type in the
+	// account (not just the objects returned in this call).
+	//
+	// If the data changes, this string MUST change. If the Blob data is unchanged, servers
+	// SHOULD return the same state string on subsequent requests for this data type.
+	//
+	// When a client receives a response with a different state string to a previous call,
+	// it MUST either throw away all currently cached objects for the type or call
+	// Blob/changes to get the exact changes.
+	State State `json:"state,omitempty"`
+
+	// An array of the Blob objects requested.
+	//
+	// This is the empty array if no objects were found or if the ids argument passed in
+	// was also an empty array. The results MAY be in a different order to the ids in the
+	// request arguments. If an identical id is included more than once in the request,
+	// the server MUST only include it once in either the list or the notFound argument of the response.
+	List []Blob `json:"list,omitempty"`
+
+	// This array contains the ids passed to the method for records that do not exist.
+	//
+	// The array is empty if all requested ids were found or if the ids argument passed
+	// in was either null or an empty array.
+	NotFound []any `json:"notFound,omitempty"`
 }
 
 type BlobDownload struct {

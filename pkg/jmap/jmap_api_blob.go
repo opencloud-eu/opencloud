@@ -11,15 +11,16 @@ import (
 
 type BlobResponse struct {
 	Blob  *Blob `json:"blob,omitempty"`
-	State State `json:"state"`
+	State State `json:"state,omitempty"`
 }
 
-func (j *Client) GetBlob(accountId string, session *Session, ctx context.Context, logger *log.Logger, id string) (BlobResponse, SessionState, Error) {
+func (j *Client) GetBlobMetadata(accountId string, session *Session, ctx context.Context, logger *log.Logger, id string) (BlobResponse, SessionState, Error) {
 	cmd, jerr := j.request(session, logger,
-		invocation(CommandBlobUpload, BlobGetCommand{
-			AccountId:  accountId,
-			Ids:        []string{id},
-			Properties: []string{BlobPropertyData, BlobPropertyDigestSha512, BlobPropertySize},
+		invocation(CommandBlobGet, BlobGetCommand{
+			AccountId: accountId,
+			Ids:       []string{id},
+			// add BlobPropertyData to retrieve the data
+			Properties: []string{BlobPropertyDigestSha256, BlobPropertyDigestSha512, BlobPropertySize},
 		}, "0"),
 	)
 	if jerr != nil {
