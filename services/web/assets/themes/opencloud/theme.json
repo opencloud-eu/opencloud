@@ -51,43 +51,7 @@
     "web": {
       "defaults": {
         "logo": "themes/opencloud/assets/logo.svg",
-        "favicon": "themes/opencloud/assets/favicon.svg",
-        "designTokens": {
-          "breakpoints": {
-            "xsmall-max": "",
-            "small-default": "",
-            "small-max": "",
-            "medium-default": "",
-            "medium-max": "",
-            "large-default": "",
-            "large-max": "",
-            "xlarge": ""
-          },
-          "fontSizes": {
-            "default": "",
-            "large": "",
-            "medium": ""
-          },
-          "sizes": {
-            "form-check-default": "",
-            "height-small": "",
-            "height-table-row": "",
-            "icon-default": "",
-            "max-height-logo": "",
-            "max-width-logo": "",
-            "width-medium": "",
-            "tiles-default": "",
-            "tiles-resize-step": ""
-          },
-          "spacing": {
-            "xsmall": "",
-            "small": "",
-            "medium": "",
-            "large": "",
-            "xlarge": "",
-            "xxlarge": ""
-          }
-        }
+        "favicon": "themes/opencloud/assets/favicon.svg"
       },
       "themes": [
         {
