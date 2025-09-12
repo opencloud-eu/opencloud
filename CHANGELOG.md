@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.5.0) - 2025-09-11
+## [3.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.5.0) - 2025-09-12
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -8,6 +8,7 @@
 
 ### ✅ Tests
 
+- update behat version in `composer.json` [[#1501](https://github.com/opencloud-eu/opencloud/pull/1501)]
 - Apitest. file extension change [[#1482](https://github.com/opencloud-eu/opencloud/pull/1482)]
 - [full-ci] run tests with VIPS enabled [[#1420](https://github.com/opencloud-eu/opencloud/pull/1420)]
 - [full-ci] add pipeline to purge go-bin cache [[#1445](https://github.com/opencloud-eu/opencloud/pull/1445)]
