@@ -434,8 +434,7 @@ func Start(ctx context.Context, o ...Option) error {
 	}()
 
 	// trapShutdownCtx will block on the context-done channel for interruptions.
-	trapShutdownCtx(s, srv, ctx)
-	return nil
+	return trapShutdownCtx(s, srv, ctx)
 }
 
 // scheduleServiceTokens adds service tokens to the service supervisor.
@@ -502,31 +501,35 @@ func (s *Service) List(_ struct{}, reply *string) error {
 	return nil
 }
 
-func trapShutdownCtx(s *Service, srv *http.Server, ctx context.Context) {
+func trapShutdownCtx(s *Service, srv *http.Server, ctx context.Context) error {
 	<-ctx.Done()
+	s.Log.Info().Msg("starting graceful shutdown")
+	start := time.Now()
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		ctx, cancel := context.WithTimeout(context.Background(), _defaultShutdownTimeoutDuration)
 		defer cancel()
+		s.Log.Debug().Msg("starting runtime listener shutdown")
 		if err := srv.Shutdown(ctx); err != nil {
-			s.Log.Error().Err(err).Msg("could not shutdown tcp listener")
+			s.Log.Error().Err(err).Msg("could not shutdown runtime listener")
 			return
 		}
-		s.Log.Info().Msg("tcp listener shutdown")
+		s.Log.Debug().Msg("runtime listener shutdown done")
 	}()
 
 	for sName := range s.serviceToken {
 		for i := range s.serviceToken[sName] {
 			wg.Add(1)
 			go func() {
-				s.Log.Warn().Msgf("call supervisor RemoveAndWait for %s", sName)
+				s.Log.Debug().Str("service", sName).Msg("starting graceful shutdown for service")
 				defer wg.Done()
 				if err := s.Supervisor.RemoveAndWait(s.serviceToken[sName][i], _defaultShutdownTimeoutDuration); err != nil && !errors.Is(err, suture.ErrSupervisorNotRunning) {
-					s.Log.Error().Err(err).Str("service", sName).Msgf("terminating with signal: %+v", s)
+					s.Log.Error().Err(err).Str("service", sName).Msg("could not shutdown service")
+					return
 				}
-				s.Log.Warn().Msgf("done supervisor RemoveAndWait for %s", sName)
+				s.Log.Debug().Str("service", sName).Msg("graceful shutdown for service done")
 			}()
 		}
 	}
@@ -539,10 +542,12 @@ func trapShutdownCtx(s *Service, srv *http.Server, ctx context.Context) {
 
 	select {
 	case <-time.After(_defaultInterruptTimeoutDuration):
-		s.Log.Fatal().Msg("ocis graceful shutdown timeout reached, terminating")
+		s.Log.Error().Dur("timeoutDuration", _defaultInterruptTimeoutDuration).Msg("graceful shutdown timeout reached, terminating")
+		return errors.New("graceful shutdown timeout reached, terminating")
 	case <-done:
-		s.Log.Info().Msg("all ocis services gracefully stopped")
-		return
+		duration := time.Since(start)
+		s.Log.Info().Dur("duration", duration).Msg("graceful shutdown done")
+		return nil
 	}
 }
 
@@ -574,7 +579,7 @@ func pingGateway(cfg *occfg.Config) error {
 		n := b.NextBackOff()
 		_, err := pool.GetGatewayServiceClient(cfg.Reva.Address)
 		if err != nil && n > time.Second {
-			logger.New().Error().Err(err).Msgf("can't connect to gateway service, retrying in %s", n)
+			logger.New().Error().Err(err).Dur("backoff", n).Msg("can't connect to gateway service, retrying")
 		}
 		return err
 	}
