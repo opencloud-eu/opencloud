@@ -41,6 +41,9 @@ const (
 	QueryParamOffset                  = "offset"
 	QueryParamLimit                   = "limit"
 	QueryParamDays                    = "days"
+	QueryParamPartId                  = "partId"
+	QueryParamAttachmentName          = "name"
+	QueryParamAttachmentBlobId        = "blobId"
 	HeaderSince                       = "if-none-match"
 )
 
@@ -75,9 +78,10 @@ func (g *Groupware) Route(r chi.Router) {
 			r.Patch("/{emailid}", g.UpdateEmail)
 			r.Delete("/{emailid}", g.DeleteEmail)
 			Report(r, "/{emailid}", g.RelatedToEmail)
+			r.Get("/{emailid}/attachments", g.GetEmailAttachments) // ?partId=&name=?&blobId=?
 		})
 		r.Route("/blobs", func(r chi.Router) {
-			r.Get("/{blobid}", g.GetBlob)
+			r.Get("/{blobid}", g.GetBlobMeta)
 			r.Get("/{blobid}/{blobname}", g.DownloadBlob) // ?type=
 		})
 	})

@@ -32,6 +32,7 @@ const (
 	logUserId                = "user-id"
 	logSessionState          = "session-state"
 	logAccountId             = "account-id"
+	logBlobAccountId         = "blob-account-id" // if the blob accountId is needed as well
 	logErrorId               = "error-id"
 	logErrorCode             = "code"
 	logErrorStatus           = "status"
@@ -624,6 +625,8 @@ func (g *Groupware) stream(w http.ResponseWriter, r *http.Request, handler func(
 	decoratedLogger := decorateLogger(logger, session)
 
 	req := Request{
+		g:       g,
+		user:    user,
 		r:       r,
 		ctx:     ctx,
 		logger:  decoratedLogger,
