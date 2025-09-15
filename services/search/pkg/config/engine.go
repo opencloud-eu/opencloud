@@ -44,4 +44,5 @@ type EngineOpenSearchClient struct {
 	DiscoverNodesInterval time.Duration `yaml:"discover_nodes_interval" env:"SEARCH_ENGINE_OPEN_SEARCH_CLIENT_DISCOVER_NODES_INTERVAL" desc:"Interval for discovering nodes." introductionVersion:"%%NEXT%%"`
 	EnableMetrics         bool          `yaml:"enable_metrics" env:"SEARCH_ENGINE_OPEN_SEARCH_CLIENT_ENABLE_METRICS" desc:"Enable metrics collection." introductionVersion:"%%NEXT%%"`
 	EnableDebugLogger     bool          `yaml:"enable_debug_logger" env:"SEARCH_ENGINE_OPEN_SEARCH_CLIENT_ENABLE_DEBUG_LOGGER" desc:"Enable debug logging." introductionVersion:"%%NEXT%%"`
+	Insecure              bool          `yaml:"insecure" env:"SEARCH_ENGINE_OPEN_SEARCH_CLIENT_INSECURE" desc:"Skip TLS certificate verification." introductionVersion:"%%NEXT%%"`
 }
