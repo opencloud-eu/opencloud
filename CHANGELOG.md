@@ -8,6 +8,7 @@
 
 ### 📈 Enhancement
 
+- Insecure opensearch client [[#1509](https://github.com/opencloud-eu/opencloud/pull/1509)]
 - Allow disabling search servers [[#1495](https://github.com/opencloud-eu/opencloud/pull/1495)]
 - Tracing improvements [[#1436](https://github.com/opencloud-eu/opencloud/pull/1436)]
 
