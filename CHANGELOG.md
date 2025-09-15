@@ -6,6 +6,11 @@
 
 @ScharfViktor, @Svanvith, @aduffeck, @butonic, @individual-it, @prashant-gurung899, @rhafer
 
+### 📈 Enhancement
+
+- Allow disabling search servers [[#1495](https://github.com/opencloud-eu/opencloud/pull/1495)]
+- Tracing improvements [[#1436](https://github.com/opencloud-eu/opencloud/pull/1436)]
+
 ### ✅ Tests
 
 - update behat version in `composer.json` [[#1501](https://github.com/opencloud-eu/opencloud/pull/1501)]
@@ -23,10 +28,6 @@
 ### 📚 Documentation
 
 - remove opencloud_full from the read.me and add opencloud-compose instead [[#1474](https://github.com/opencloud-eu/opencloud/pull/1474)]
-
-### 📈 Enhancement
-
-- Tracing improvements [[#1436](https://github.com/opencloud-eu/opencloud/pull/1436)]
 
 ### 📦️ Dependencies
 
