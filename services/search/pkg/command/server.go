@@ -184,6 +184,10 @@ func Server(cfg *config.Config) *cli.Command {
 					MaxAckPending:        cfg.Events.MaxAckPending,
 					AckWait:              cfg.Events.AckWait,
 				})
+				if err != nil {
+					logger.Error().Err(err).Msg("Failed to create event bus client")
+					return err
+				}
 
 				eventSvc, err := svcEvent.New(ctx, bus, logger, traceProvider, mtrcs, ss, cfg.Events.DebounceDuration, cfg.Events.NumConsumers, cfg.Events.AsyncUploads)
 				if err != nil {
