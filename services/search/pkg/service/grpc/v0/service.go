@@ -13,132 +13,35 @@ import (
 	"github.com/jellydator/ttlcache/v2"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
-	"github.com/opencloud-eu/reva/v2/pkg/events/raw"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/token"
 	"github.com/opencloud-eu/reva/v2/pkg/token/manager/jwt"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
-	opensearchgo "github.com/opensearch-project/opensearch-go/v4"
-	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 	merrors "go-micro.dev/v4/errors"
 	"go-micro.dev/v4/metadata"
 	grpcmetadata "google.golang.org/grpc/metadata"
 
-	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/opencloud-eu/opencloud/pkg/registry"
 	v0 "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
-	bleveQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
 // NewHandler returns a service implementation for Service.
-func NewHandler(opts ...Option) (searchsvc.SearchProviderHandler, func(), error) {
-	teardown := func() {}
+func NewHandler(opts ...Option) (searchsvc.SearchProviderHandler, error) {
 	options := newOptions(opts...)
-	logger := options.Logger
 	cfg := options.Config
-
-	// initialize search engine
-	var eng search.Engine
-	switch cfg.Engine.Type {
-	case "bleve":
-		idx, err := bleve.NewIndex(cfg.Engine.Bleve.Datapath)
-		if err != nil {
-			return nil, teardown, err
-		}
-
-		teardown = func() {
-			_ = idx.Close()
-		}
-
-		eng = bleve.NewBackend(idx, bleveQuery.DefaultCreator, logger)
-	case "open-search":
-		client, err := opensearchgoAPI.NewClient(opensearchgoAPI.Config{
-			Client: opensearchgo.Config{
-				Addresses:             cfg.Engine.OpenSearch.Client.Addresses,
-				Username:              cfg.Engine.OpenSearch.Client.Username,
-				Password:              cfg.Engine.OpenSearch.Client.Password,
-				Header:                cfg.Engine.OpenSearch.Client.Header,
-				CACert:                cfg.Engine.OpenSearch.Client.CACert,
-				RetryOnStatus:         cfg.Engine.OpenSearch.Client.RetryOnStatus,
-				DisableRetry:          cfg.Engine.OpenSearch.Client.DisableRetry,
-				EnableRetryOnTimeout:  cfg.Engine.OpenSearch.Client.EnableRetryOnTimeout,
-				MaxRetries:            cfg.Engine.OpenSearch.Client.MaxRetries,
-				CompressRequestBody:   cfg.Engine.OpenSearch.Client.CompressRequestBody,
-				DiscoverNodesOnStart:  cfg.Engine.OpenSearch.Client.DiscoverNodesOnStart,
-				DiscoverNodesInterval: cfg.Engine.OpenSearch.Client.DiscoverNodesInterval,
-				EnableMetrics:         cfg.Engine.OpenSearch.Client.EnableMetrics,
-				EnableDebugLogger:     cfg.Engine.OpenSearch.Client.EnableDebugLogger,
-			},
-		})
-		if err != nil {
-			return nil, teardown, fmt.Errorf("failed to create OpenSearch client: %w", err)
-		}
-
-		openSearchBackend, err := opensearch.NewBackend(cfg.Engine.OpenSearch.ResourceIndex.Name, client)
-		if err != nil {
-			return nil, teardown, fmt.Errorf("failed to create OpenSearch backend: %w", err)
-		}
-
-		eng = openSearchBackend
-	default:
-		return nil, teardown, fmt.Errorf("unknown search engine: %s", cfg.Engine.Type)
+	if options.GatewaySelector == nil {
+		return nil, errors.New("no GatewaySelector provided")
 	}
-
-	// initialize gateway
-	selector, err := pool.GatewaySelector(cfg.Reva.Address, pool.WithRegistry(registry.GetRegistry()), pool.WithTracerProvider(options.TracerProvider))
-	if err != nil {
-		logger.Fatal().Err(err).Msg("could not get reva gateway selector")
-		return nil, teardown, err
-	}
-	// initialize search content extractor
-	var extractor content.Extractor
-	switch cfg.Extractor.Type {
-	case "basic":
-		if extractor, err = content.NewBasicExtractor(logger); err != nil {
-			return nil, teardown, err
-		}
-	case "tika":
-		if extractor, err = content.NewTikaExtractor(selector, logger, cfg); err != nil {
-			return nil, teardown, err
-		}
-	default:
-		return nil, teardown, fmt.Errorf("unknown search extractor: %s", cfg.Extractor.Type)
-	}
-
-	ss := search.NewService(selector, eng, extractor, options.Metrics, logger, cfg)
-
-	// setup event handling
-
-	connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
-	stream, err := raw.FromConfig(context.Background(), connName, raw.Config{
-		Endpoint:             cfg.Events.Endpoint,
-		Cluster:              cfg.Events.Cluster,
-		EnableTLS:            cfg.Events.EnableTLS,
-		TLSInsecure:          cfg.Events.TLSInsecure,
-		TLSRootCACertificate: cfg.Events.TLSRootCACertificate,
-		AuthUsername:         cfg.Events.AuthUsername,
-		AuthPassword:         cfg.Events.AuthPassword,
-		MaxAckPending:        cfg.Events.MaxAckPending,
-		AckWait:              cfg.Events.AckWait,
-	})
-	if err != nil {
-		return nil, teardown, err
-	}
-
-	if err := search.HandleEvents(ss, stream, cfg, options.Metrics, logger); err != nil {
-		return nil, teardown, err
+	if options.Searcher == nil {
+		return nil, errors.New("no Searcher provided")
 	}
 
 	cache := ttlcache.NewCache()
 	if err := cache.SetTTL(time.Second); err != nil {
-		return nil, teardown, err
+		return nil, err
 	}
 
 	tokenManager, err := jwt.New(map[string]interface{}{
@@ -146,24 +49,24 @@ func NewHandler(opts ...Option) (searchsvc.SearchProviderHandler, func(), error)
 		"expires": int64(24 * 60 * 60),
 	})
 	if err != nil {
-		return nil, teardown, err
+		return nil, err
 	}
 
 	return &Service{
 		id:           cfg.GRPC.Namespace + "." + cfg.Service.Name,
-		log:          logger,
-		searcher:     ss,
+		log:          &options.Logger,
+		searcher:     options.Searcher,
 		cache:        cache,
 		tokenManager: tokenManager,
-		gws:          selector,
+		gws:          options.GatewaySelector,
 		cfg:          cfg,
-	}, teardown, nil
+	}, nil
 }
 
 // Service implements the searchServiceHandler interface
 type Service struct {
 	id           string
-	log          log.Logger
+	log          *log.Logger
 	searcher     search.Searcher
 	cache        *ttlcache.Cache
 	tokenManager token.Manager

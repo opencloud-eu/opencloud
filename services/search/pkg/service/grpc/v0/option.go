@@ -1,10 +1,14 @@
 package service
 
 import (
+	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
+	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/metrics"
-	"go.opentelemetry.io/otel/trace"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
 // Option defines a single option function.
@@ -12,11 +16,13 @@ type Option func(o *Options)
 
 // Options defines the available options for this package.
 type Options struct {
-	Logger         log.Logger
-	Config         *config.Config
-	JWTSecret      string
-	TracerProvider trace.TracerProvider
-	Metrics        *metrics.Metrics
+	Logger          log.Logger
+	Config          *config.Config
+	JWTSecret       string
+	TracerProvider  trace.TracerProvider
+	Metrics         *metrics.Metrics
+	GatewaySelector *pool.Selector[gateway.GatewayAPIClient]
+	Searcher        search.Searcher
 }
 
 func newOptions(opts ...Option) Options {
@@ -63,5 +69,19 @@ func Metrics(val *metrics.Metrics) Option {
 		if val != nil {
 			o.Metrics = val
 		}
+	}
+}
+
+// GatewaySelector provides a function to set the GatewaySelector option.
+func GatewaySelector(val *pool.Selector[gateway.GatewayAPIClient]) Option {
+	return func(o *Options) {
+		o.GatewaySelector = val
+	}
+}
+
+// Searcher provides a function to set the Searcher option.
+func Searcher(val search.Searcher) Option {
+	return func(o *Options) {
+		o.Searcher = val
 	}
 }

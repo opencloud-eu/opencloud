@@ -1,4 +1,4 @@
-package search_test
+package event_test
 
 import (
 	"sync/atomic"
@@ -7,13 +7,14 @@ import (
 	sprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/service/event"
 )
 
 var _ = Describe("SpaceDebouncer", func() {
 	var (
-		debouncer *search.SpaceDebouncer
+		debouncer *event.SpaceDebouncer
 
 		callCount atomic.Int32
 
@@ -24,7 +25,7 @@ var _ = Describe("SpaceDebouncer", func() {
 
 	BeforeEach(func() {
 		callCount = atomic.Int32{}
-		debouncer = search.NewSpaceDebouncer(50*time.Millisecond, 10*time.Second, func(id *sprovider.StorageSpaceId) {
+		debouncer = event.NewSpaceDebouncer(50*time.Millisecond, 10*time.Second, func(id *sprovider.StorageSpaceId) {
 			if id.OpaqueId == "spaceid" {
 				callCount.Add(1)
 			}
@@ -55,7 +56,7 @@ var _ = Describe("SpaceDebouncer", func() {
 	})
 
 	It("doesn't trigger twice simultaneously", func() {
-		debouncer = search.NewSpaceDebouncer(50*time.Millisecond, 5*time.Second, func(id *sprovider.StorageSpaceId) {
+		debouncer = event.NewSpaceDebouncer(50*time.Millisecond, 5*time.Second, func(id *sprovider.StorageSpaceId) {
 			if id.OpaqueId == "spaceid" {
 				callCount.Add(1)
 			}
@@ -74,7 +75,7 @@ var _ = Describe("SpaceDebouncer", func() {
 	})
 
 	It("fires at the timeout even when continuously debounced", func() {
-		debouncer = search.NewSpaceDebouncer(100*time.Millisecond, 250*time.Millisecond, func(id *sprovider.StorageSpaceId) {
+		debouncer = event.NewSpaceDebouncer(100*time.Millisecond, 250*time.Millisecond, func(id *sprovider.StorageSpaceId) {
 			if id.OpaqueId == "spaceid" {
 				callCount.Add(1)
 			}
@@ -116,7 +117,7 @@ var _ = Describe("SpaceDebouncer", func() {
 	})
 
 	It("doesn't run the timeout function if the work function has been called", func() {
-		debouncer = search.NewSpaceDebouncer(100*time.Millisecond, 250*time.Millisecond, func(id *sprovider.StorageSpaceId) {
+		debouncer = event.NewSpaceDebouncer(100*time.Millisecond, 250*time.Millisecond, func(id *sprovider.StorageSpaceId) {
 			if id.OpaqueId == "spaceid" {
 				callCount.Add(1)
 			}
