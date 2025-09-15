@@ -7,18 +7,19 @@ import (
 	"fmt"
 	"html/template"
 	"os"
+	"os/signal"
 	"strings"
 
 	"github.com/go-ldap/ldif"
 	"github.com/libregraph/idm/pkg/ldappassword"
 	"github.com/libregraph/idm/pkg/ldbbolt"
 	"github.com/libregraph/idm/server"
-	"github.com/oklog/run"
 	"github.com/urfave/cli/v2"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	pkgcrypto "github.com/opencloud-eu/opencloud/pkg/crypto"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/runner"
 	"github.com/opencloud-eu/opencloud/services/idm"
 	"github.com/opencloud-eu/opencloud/services/idm/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/idm/pkg/config/parser"
@@ -36,14 +37,16 @@ func Server(cfg *config.Config) *cli.Command {
 			return configlog.ReturnFatal(parser.ParseConfig(cfg))
 		},
 		Action: func(c *cli.Context) error {
-			var (
-				gr          = run.Group{}
-				logger      = logging.Configure(cfg.Service.Name, cfg.Log)
-				ctx, cancel = context.WithCancel(c.Context)
-			)
+			var cancel context.CancelFunc
+			if cfg.Context == nil {
+				cfg.Context, cancel = signal.NotifyContext(context.Background(), runner.StopSignals...)
+				defer cancel()
+			}
+			ctx := cfg.Context
 
-			defer cancel()
+			logger := logging.Configure(cfg.Service.Name, cfg.Log)
 
+			gr := runner.NewGroup()
 			{
 				servercfg := server.Config{
 					Logger:          log.LogrusWrap(logger.Logger),
@@ -75,30 +78,16 @@ func Server(cfg *config.Config) *cli.Command {
 					return err
 				}
 
-				gr.Add(func() error {
-					err := make(chan error, 1)
-					select {
-					case <-ctx.Done():
-						return nil
+				// we need an additional context for the idm server in order to
+				// cancel it anytime
+				svcCtx, svcCancel := context.WithCancel(ctx)
+				defer svcCancel()
 
-					case err <- svc.Serve(ctx):
-						return <-err
-					}
-				}, func(err error) {
-					if err == nil {
-						logger.Info().
-							Str("transport", "http").
-							Str("server", cfg.Service.Name).
-							Msg("Shutting down server")
-					} else {
-						logger.Error().Err(err).
-							Str("transport", "http").
-							Str("server", cfg.Service.Name).
-							Msg("Shutting down server")
-					}
-
-					cancel()
-				})
+				gr.Add(runner.New(cfg.Service.Name+".svc", func() error {
+					return svc.Serve(svcCtx)
+				}, func() {
+					svcCancel()
+				}))
 			}
 
 			{
@@ -112,14 +101,18 @@ func Server(cfg *config.Config) *cli.Command {
 					return err
 				}
 
-				gr.Add(debugServer.ListenAndServe, func(_ error) {
-					_ = debugServer.Shutdown(ctx)
-					cancel()
-				})
+				gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", debugServer))
 			}
 
-			return gr.Run()
-			//return start(ctx, logger, cfg)
+			grResults := gr.Run(ctx)
+
+			// return the first non-nil error found in the results
+			for _, grResult := range grResults {
+				if grResult.RunnerError != nil {
+					return grResult.RunnerError
+				}
+			}
+			return nil
 		},
 	}
 }

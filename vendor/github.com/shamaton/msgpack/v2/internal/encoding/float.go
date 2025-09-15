@@ -6,12 +6,12 @@ import (
 	"github.com/shamaton/msgpack/v2/def"
 )
 
-func (e *encoder) calcFloat32(v float64) int {
-	return def.Byte4
+func (e *encoder) calcFloat32(_ float64) int {
+	return def.Byte1 + def.Byte4
 }
 
-func (e *encoder) calcFloat64(v float64) int {
-	return def.Byte8
+func (e *encoder) calcFloat64(_ float64) int {
+	return def.Byte1 + def.Byte8
 }
 
 func (e *encoder) writeFloat32(v float64, offset int) int {

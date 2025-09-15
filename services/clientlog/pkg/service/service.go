@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
+	"sync/atomic"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	group "github.com/cs3org/go-cs3apis/cs3/identity/group/v1beta1"
@@ -33,6 +34,8 @@ type ClientlogService struct {
 	tracer           trace.Tracer
 	publisher        events.Publisher
 	ch               <-chan events.Event
+	stopCh           chan struct{}
+	stopped          atomic.Bool
 }
 
 // NewClientlogService returns a clientlog service
@@ -60,6 +63,7 @@ func NewClientlogService(opts ...Option) (*ClientlogService, error) {
 		tracer:           o.TraceProvider.Tracer("github.com/opencloud-eu/opencloud/services/clientlog/pkg/service"),
 		publisher:        o.Stream,
 		ch:               ch,
+		stopCh:           make(chan struct{}, 1),
 	}
 
 	for _, e := range o.RegisteredEvents {
@@ -72,11 +76,30 @@ func NewClientlogService(opts ...Option) (*ClientlogService, error) {
 
 // Run runs the service
 func (cl *ClientlogService) Run() error {
-	for event := range cl.ch {
-		cl.processEvent(event)
+EventLoop:
+	for {
+		select {
+		case event, ok := <-cl.ch:
+			if !ok {
+				break EventLoop
+			}
+			cl.processEvent(event)
+
+			if cl.stopped.Load() {
+				break EventLoop
+			}
+		case <-cl.stopCh:
+			break EventLoop
+		}
 	}
 
 	return nil
+}
+
+func (cl *ClientlogService) Close() {
+	if cl.stopped.CompareAndSwap(false, true) {
+		close(cl.stopCh)
+	}
 }
 
 func (cl *ClientlogService) processEvent(event events.Event) {

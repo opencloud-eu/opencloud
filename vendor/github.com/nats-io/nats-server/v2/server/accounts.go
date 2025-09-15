@@ -378,6 +378,21 @@ func (a *Account) getClients() []*client {
 	return clients
 }
 
+// Returns a slice of external (non-internal) clients stored in the account, or nil if none is present.
+// Lock is held on entry.
+func (a *Account) getExternalClientsLocked() []*client {
+	if len(a.clients) == 0 {
+		return nil
+	}
+	var clients []*client
+	for c := range a.clients {
+		if !isInternalClient(c.kind) {
+			clients = append(clients, c)
+		}
+	}
+	return clients
+}
+
 // Called to track a remote server and connections and leafnodes it
 // has for this account.
 func (a *Account) updateRemoteServer(m *AccountNumConns) []*client {
@@ -398,8 +413,10 @@ func (a *Account) updateRemoteServer(m *AccountNumConns) []*client {
 	// conservative and bit harsh here. Clients will reconnect if we over compensate.
 	var clients []*client
 	if mtce {
-		clients = a.getClientsLocked()
-		slices.SortFunc(clients, func(i, j *client) int { return -i.start.Compare(j.start) }) // reserve
+		clients = a.getExternalClientsLocked()
+
+		// Sort in reverse chronological.
+		slices.SortFunc(clients, func(i, j *client) int { return -i.start.Compare(j.start) })
 		over := (len(a.clients) - int(a.sysclients) + int(a.nrclients)) - int(a.mconns)
 		if over < len(clients) {
 			clients = clients[:over]
@@ -3769,9 +3786,9 @@ func (s *Server) updateAccountClaimsWithRefresh(a *Account, ac *jwt.AccountClaim
 	ajs := a.js
 	a.mu.Unlock()
 
-	// Sort if we are over the limit.
+	// Sort in chronological order so that most recent connections over the limit are pruned.
 	if a.MaxTotalConnectionsReached() {
-		slices.SortFunc(clients, func(i, j *client) int { return -i.start.Compare(j.start) }) // sort in reverse order
+		slices.SortFunc(clients, func(i, j *client) int { return i.start.Compare(j.start) })
 	}
 
 	// If JetStream is enabled for this server we will call into configJetStream for the account
@@ -3782,6 +3799,11 @@ func (s *Server) updateAccountClaimsWithRefresh(a *Account, ac *jwt.AccountClaim
 			a.mu.Lock()
 			// Absent reload of js server cfg, this is going to be broken until js is disabled
 			a.incomplete = true
+			a.mu.Unlock()
+		} else {
+			a.mu.Lock()
+			// Refresh reference, we've just enabled JetStream, so it would have been nil before.
+			ajs = a.js
 			a.mu.Unlock()
 		}
 	} else if a.jsLimits != nil {
@@ -3811,6 +3833,7 @@ func (s *Server) updateAccountClaimsWithRefresh(a *Account, ac *jwt.AccountClaim
 		}
 	}
 
+	// client list is in chronological order (older cids at the beginning of the list).
 	count := 0
 	for _, c := range clients {
 		a.mu.RLock()

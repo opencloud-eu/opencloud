@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -88,13 +89,18 @@ func NewWatcher(opts ...Option) *Watcher {
 // Exit exits the current process cleaning up
 // existing pid files.
 func (w *Watcher) Exit(errc int) {
+	w.Clean()
+	os.Exit(errc)
+}
+
+// Clean removes the pid file.
+func (w *Watcher) Clean() {
 	err := w.clean()
 	if err != nil {
 		w.log.Warn().Err(err).Msg("error removing pid file")
 	} else {
 		w.log.Info().Msgf("pid file %q got removed", w.pidFile)
 	}
-	os.Exit(errc)
 }
 
 func (w *Watcher) clean() error {
@@ -266,7 +272,7 @@ type Server interface {
 // TrapSignals captures the OS signal.
 func (w *Watcher) TrapSignals() {
 	signalCh := make(chan os.Signal, 1024)
-	signal.Notify(signalCh, syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT)
+	signal.Notify(signalCh, syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
 	for {
 		s := <-signalCh
 		w.log.Info().Msgf("%v signal received", s)
@@ -284,69 +290,51 @@ func (w *Watcher) TrapSignals() {
 				w.log.Info().Msgf("child forked with new pid %d", p.Pid)
 				w.childPIDs = append(w.childPIDs, p.Pid)
 			}
-
-		case syscall.SIGQUIT:
+		case syscall.SIGQUIT, syscall.SIGINT, syscall.SIGTERM:
 			gracefulShutdown(w)
-		case syscall.SIGINT, syscall.SIGTERM:
-			if w.gracefulShutdownTimeout == 0 {
-				hardShutdown(w)
-			}
-			gracefulShutdown(w)
+			return
 		}
 	}
 }
 
-// TODO: Ideally this would call exit() but properly return an error. The
-// exit() is problematic (i.e. racey) especiaily when orchestrating multiple
-// reva services from some external runtime (like in the "opencloud server" case
 func gracefulShutdown(w *Watcher) {
+	defer w.Clean()
 	w.log.Info().Int("Timeout", w.gracefulShutdownTimeout).Msg("preparing for a graceful shutdown with deadline")
+	wg := sync.WaitGroup{}
+
+	for _, s := range w.ss {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			w.log.Info().Str("network.transport", s.Network()).Str("network.local.address", s.Address()).Msg("fd gracefully closed")
+			err := s.GracefulStop()
+			if err != nil {
+				w.log.Error().Err(err).Msg("error stopping server")
+			}
+		}()
+	}
+
+	done := make(chan struct{})
 	go func() {
-		count := w.gracefulShutdownTimeout
-		ticker := time.NewTicker(time.Second)
-		for ; true; <-ticker.C {
-			w.log.Info().Msgf("shutting down in %d seconds", count-1)
-			count--
-			if count <= 0 {
-				w.log.Info().Msg("deadline reached before draining active conns, hard stopping ...")
-				for _, s := range w.ss {
-					err := s.Stop()
-					if err != nil {
-						w.log.Error().Err(err).Msg("error stopping server")
-					}
-					w.log.Info().Msgf("fd to %s:%s abruptly closed", s.Network(), s.Address())
-				}
-				w.Exit(1)
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-time.After(time.Duration(w.gracefulShutdownTimeout) * time.Second):
+		w.log.Info().Msg("graceful shutdown timeout reached. running hard shutdown")
+		for _, s := range w.ss {
+			w.log.Info().Str("network.transport", s.Network()).Str("network.local.address", s.Address()).Msg("fd abruptly closed")
+			err := s.Stop()
+			if err != nil {
+				w.log.Error().Err(err).Msg("error stopping server")
 			}
 		}
-	}()
-	for _, s := range w.ss {
-		w.log.Info().Msgf("fd to %s:%s gracefully closed ", s.Network(), s.Address())
-		err := s.GracefulStop()
-		if err != nil {
-			w.log.Error().Err(err).Msg("error stopping server")
-			w.log.Info().Msg("exit with error code 1")
-
-			w.Exit(1)
-		}
+		return
+	case <-done:
+		w.log.Info().Msg("all servers gracefully stopped")
+		return
 	}
-	w.log.Info().Msg("exit with error code 0")
-	w.Exit(0)
-}
-
-// TODO: Ideally this would call exit() but properly return an error. The
-// exit() is problematic (i.e. racey) especiaily when orchestrating multiple
-// reva services from some external runtime (like in the "opencloud server" case
-func hardShutdown(w *Watcher) {
-	w.log.Info().Msg("preparing for hard shutdown, aborting all conns")
-	for _, s := range w.ss {
-		w.log.Info().Msgf("fd to %s:%s abruptly closed", s.Network(), s.Address())
-		err := s.Stop()
-		if err != nil {
-			w.log.Error().Err(err).Msg("error stopping server")
-		}
-	}
-	w.Exit(0)
 }
 
 func getListenerFile(ln net.Listener) (*os.File, error) {

@@ -2,13 +2,15 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"net/rpc"
-	"os"
+	"os/signal"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -16,6 +18,7 @@ import (
 	"github.com/olekukonko/tablewriter"
 	occfg "github.com/opencloud-eu/opencloud/pkg/config"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/runner"
 	ogrpc "github.com/opencloud-eu/opencloud/pkg/service/grpc"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	activitylog "github.com/opencloud-eu/opencloud/services/activitylog/pkg/command"
@@ -70,6 +73,11 @@ var (
 
 	// wait funcs run after the service group has been started.
 	_waitFuncs = []func(*occfg.Config) error{pingNats, pingGateway, nil, wait(time.Second), nil}
+
+	// Use the runner.DefaultInterruptDuration as defaults for the individual service shutdown timeouts.
+	_defaultShutdownTimeoutDuration = runner.DefaultInterruptDuration
+	// Use the runner.DefaultGroupInterruptDuration as defaults for the server interruption timeout.
+	_defaultInterruptTimeoutDuration = runner.DefaultGroupInterruptDuration
 )
 
 type serviceFuncMap map[string]func(*occfg.Config) suture.Service
@@ -82,8 +90,6 @@ type Service struct {
 	Log        log.Logger
 
 	serviceToken map[string][]suture.ServiceToken
-	context      context.Context
-	cancel       context.CancelFunc
 	cfg          *occfg.Config
 }
 
@@ -105,16 +111,12 @@ func NewService(ctx context.Context, options ...Option) (*Service, error) {
 		log.Level(opts.Config.Log.Level),
 	)
 
-	globalCtx, cancelGlobal := context.WithCancel(ctx)
-
 	s := &Service{
 		Services:   make([]serviceFuncMap, len(_waitFuncs)),
 		Additional: make(serviceFuncMap),
 		Log:        l,
 
 		serviceToken: make(map[string][]suture.ServiceToken),
-		context:      globalCtx,
-		cancel:       cancelGlobal,
 		cfg:          opts.Config,
 	}
 
@@ -358,8 +360,12 @@ func Start(ctx context.Context, o ...Option) error {
 		return err
 	}
 
-	// get a cancel function to stop the service
-	ctx, cancel := context.WithCancel(ctx)
+	// cancel the context when a signal is received.
+	var cancel context.CancelFunc
+	if ctx == nil {
+		ctx, cancel = signal.NotifyContext(context.Background(), runner.StopSignals...)
+		defer cancel()
+	}
 
 	// tolerance controls backoff cycles from the supervisor.
 	tolerance := 5
@@ -397,30 +403,17 @@ func Start(ctx context.Context, o ...Option) error {
 	if err != nil {
 		s.Log.Fatal().Err(err).Msg("could not start listener")
 	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			reason := strings.Builder{}
-			if _, err = net.Dial("tcp", net.JoinHostPort(s.cfg.Runtime.Host, s.cfg.Runtime.Port)); err != nil {
-				reason.WriteString("runtime address already in use")
-			}
-
-			fmt.Println(reason.String())
-		}
-	}()
+	srv := new(http.Server)
 
 	// prepare the set of services to run
 	s.generateRunSet(s.cfg)
 
-	// there are reasons not to do this, but we have race conditions ourselves. Until we resolve them, mind the following disclaimer:
+	// There are reasons not to do this, but we have race conditions ourselves. Until we resolve them, mind the following disclaimer:
 	// Calling ServeBackground will CORRECTLY start the supervisor running in a new goroutine. It is risky to directly run
 	// go supervisor.Serve()
 	// because that will briefly create a race condition as it starts up, if you try to .Add() services immediately afterward.
 	// https://pkg.go.dev/github.com/thejerf/suture/v4@v4.0.0#Supervisor
-	go s.Supervisor.ServeBackground(s.context)
-
-	// trap will block on context done channel for interruptions.
-	go trap(s, ctx)
+	go s.Supervisor.ServeBackground(ctx)
 
 	for i, service := range s.Services {
 		scheduleServiceTokens(s, service)
@@ -434,7 +427,14 @@ func Start(ctx context.Context, o ...Option) error {
 	// schedule services that are optional
 	scheduleServiceTokens(s, s.Additional)
 
-	return http.Serve(l, nil)
+	go func() {
+		if err = srv.Serve(l); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			s.Log.Fatal().Err(err).Msg("could not start rpc server")
+		}
+	}()
+
+	// trapShutdownCtx will block on the context-done channel for interruptions.
+	return trapShutdownCtx(s, srv, ctx)
 }
 
 // scheduleServiceTokens adds service tokens to the service supervisor.
@@ -501,20 +501,54 @@ func (s *Service) List(_ struct{}, reply *string) error {
 	return nil
 }
 
-// trap blocks on halt channel. When the runtime is interrupted it
-// signals the controller to stop any supervised process.
-func trap(s *Service, ctx context.Context) {
+func trapShutdownCtx(s *Service, srv *http.Server, ctx context.Context) error {
 	<-ctx.Done()
+	s.Log.Info().Msg("starting graceful shutdown")
+	start := time.Now()
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ctx, cancel := context.WithTimeout(context.Background(), _defaultShutdownTimeoutDuration)
+		defer cancel()
+		s.Log.Debug().Msg("starting runtime listener shutdown")
+		if err := srv.Shutdown(ctx); err != nil {
+			s.Log.Error().Err(err).Msg("could not shutdown runtime listener")
+			return
+		}
+		s.Log.Debug().Msg("runtime listener shutdown done")
+	}()
+
 	for sName := range s.serviceToken {
 		for i := range s.serviceToken[sName] {
-			if err := s.Supervisor.Remove(s.serviceToken[sName][i]); err != nil {
-				s.Log.Error().Err(err).Str("service", "runtime service").Msgf("terminating with signal: %v", s)
-			}
+			wg.Add(1)
+			go func() {
+				s.Log.Debug().Str("service", sName).Msg("starting graceful shutdown for service")
+				defer wg.Done()
+				if err := s.Supervisor.RemoveAndWait(s.serviceToken[sName][i], _defaultShutdownTimeoutDuration); err != nil && !errors.Is(err, suture.ErrSupervisorNotRunning) {
+					s.Log.Error().Err(err).Str("service", sName).Msg("could not shutdown service")
+					return
+				}
+				s.Log.Debug().Str("service", sName).Msg("graceful shutdown for service done")
+			}()
 		}
 	}
-	s.Log.Debug().Str("service", "runtime service").Msgf("terminating with signal: %v", s)
-	time.Sleep(3 * time.Second) // give the services time to deregister
-	os.Exit(0)                  // FIXME this cause an early exit that prevents services from shitting down properly
+
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-time.After(_defaultInterruptTimeoutDuration):
+		s.Log.Error().Dur("timeoutDuration", _defaultInterruptTimeoutDuration).Msg("graceful shutdown timeout reached, terminating")
+		return errors.New("graceful shutdown timeout reached, terminating")
+	case <-done:
+		duration := time.Since(start)
+		s.Log.Info().Dur("duration", duration).Msg("graceful shutdown done")
+		return nil
+	}
 }
 
 // pingNats will attempt to connect to nats, blocking until a connection is established
@@ -545,7 +579,7 @@ func pingGateway(cfg *occfg.Config) error {
 		n := b.NextBackOff()
 		_, err := pool.GetGatewayServiceClient(cfg.Reva.Address)
 		if err != nil && n > time.Second {
-			logger.New().Error().Err(err).Msgf("can't connect to gateway service, retrying in %s", n)
+			logger.New().Error().Err(err).Dur("backoff", n).Msg("can't connect to gateway service, retrying")
 		}
 		return err
 	}

@@ -279,15 +279,15 @@ func (s *Server) cleanupServices() {
 
 // Stop stops the server.
 func (s *Server) Stop() error {
-	s.cleanupServices()
 	s.s.Stop()
+	s.cleanupServices()
 	return nil
 }
 
 // GracefulStop gracefully stops the server.
 func (s *Server) GracefulStop() error {
-	s.cleanupServices()
 	s.s.GracefulStop()
+	s.cleanupServices()
 	return nil
 }
 

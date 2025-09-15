@@ -5,18 +5,19 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"os/signal"
 	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/justinas/alice"
-	"github.com/oklog/run"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	pkgmiddleware "github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/pkg/oidc"
 	"github.com/opencloud-eu/opencloud/pkg/registry"
+	"github.com/opencloud-eu/opencloud/pkg/runner"
 	"github.com/opencloud-eu/opencloud/pkg/service/grpc"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/pkg/version"
@@ -107,13 +108,13 @@ func Server(cfg *config.Config) *cli.Command {
 				oidc.WithJWKSOptions(cfg.OIDC.JWKS),
 			)
 
+			var cancel context.CancelFunc
+			if cfg.Context == nil {
+				cfg.Context, cancel = signal.NotifyContext(context.Background(), runner.StopSignals...)
+				defer cancel()
+			}
+
 			m := metrics.New()
-
-			gr := run.Group{}
-			ctx, cancel := context.WithCancel(c.Context)
-
-			defer cancel()
-
 			m.BuildInfo.WithLabelValues(version.GetString()).Set(1)
 
 			rp, err := proxy.NewMultiHostReverseProxy(
@@ -183,13 +184,14 @@ func Server(cfg *config.Config) *cli.Command {
 				return fmt.Errorf("failed to initialize reverse proxy: %w", err)
 			}
 
+			gr := runner.NewGroup()
 			{
 				middlewares := loadMiddlewares(logger, cfg, userInfoCache, signingKeyStore, traceProvider, *m, userProvider, publisher, gatewaySelector, serviceSelector)
 
 				server, err := proxyHTTP.Server(
 					proxyHTTP.Handler(lh.Handler()),
 					proxyHTTP.Logger(logger),
-					proxyHTTP.Context(ctx),
+					proxyHTTP.Context(cfg.Context),
 					proxyHTTP.Config(cfg),
 					proxyHTTP.Metrics(metrics.New()),
 					proxyHTTP.Middlewares(middlewares),
@@ -203,29 +205,13 @@ func Server(cfg *config.Config) *cli.Command {
 					return err
 				}
 
-				gr.Add(func() error {
-					return server.Run()
-				}, func(err error) {
-					if err == nil {
-						logger.Info().
-							Str("transport", "http").
-							Str("server", cfg.Service.Name).
-							Msg("Shutting down server")
-					} else {
-						logger.Error().Err(err).
-							Str("transport", "http").
-							Str("server", cfg.Service.Name).
-							Msg("Shutting down server")
-					}
-
-					cancel()
-				})
+				gr.Add(runner.NewGoMicroHttpServerRunner(cfg.Service.Name+".http", server))
 			}
 
 			{
 				debugServer, err := debug.Server(
 					debug.Logger(logger),
-					debug.Context(ctx),
+					debug.Context(cfg.Context),
 					debug.Config(cfg),
 				)
 				if err != nil {
@@ -233,13 +219,18 @@ func Server(cfg *config.Config) *cli.Command {
 					return err
 				}
 
-				gr.Add(debugServer.ListenAndServe, func(_ error) {
-					_ = debugServer.Shutdown(ctx)
-					cancel()
-				})
+				gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", debugServer))
 			}
 
-			return gr.Run()
+			grResults := gr.Run(cfg.Context)
+
+			// return the first non-nil error found in the results
+			for _, grResult := range grResults {
+				if grResult.RunnerError != nil {
+					return grResult.RunnerError
+				}
+			}
+			return nil
 		},
 	}
 }

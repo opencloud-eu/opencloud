@@ -63,65 +63,48 @@ func Encode(v interface{}, asArray bool) (b []byte, err error) {
 //}
 
 func (e *encoder) calcSize(rv reflect.Value) (int, error) {
-	ret := def.Byte1
-
 	switch rv.Kind() {
 	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
 		v := rv.Uint()
-		ret += e.calcUint(v)
+		return e.calcUint(v), nil
 
 	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
 		v := rv.Int()
-		ret += e.calcInt(int64(v))
+		return e.calcInt(int64(v)), nil
 
 	case reflect.Float32:
-		ret += e.calcFloat32(0)
+		return e.calcFloat32(0), nil
 
 	case reflect.Float64:
-		ret += e.calcFloat64(0)
+		return e.calcFloat64(0), nil
 
 	case reflect.String:
-		ret += e.calcString(rv.String())
+		return e.calcString(rv.String()), nil
 
 	case reflect.Bool:
-	// do nothing
+		return def.Byte1, nil
 
 	case reflect.Complex64:
-		ret += e.calcComplex64()
+		return e.calcComplex64(), nil
 
 	case reflect.Complex128:
-		ret += e.calcComplex128()
+		return e.calcComplex128(), nil
 
 	case reflect.Slice:
 		if rv.IsNil() {
-			return ret, nil
+			return def.Byte1, nil
 		}
-		l := rv.Len()
 		// bin format
 		if e.isByteSlice(rv) {
-			r, err := e.calcByteSlice(l)
+			size, err := e.calcByteSlice(rv.Len())
 			if err != nil {
 				return 0, err
 			}
-			ret += r
-			return ret, nil
-		}
-
-		// format size
-		if l <= 0x0f {
-			// format code only
-		} else if l <= math.MaxUint16 {
-			ret += def.Byte2
-		} else if uint(l) <= math.MaxUint32 {
-			ret += def.Byte4
-		} else {
-			// not supported error
-			return 0, fmt.Errorf("%w array length : %d", def.ErrUnsupportedType, l)
+			return size, nil
 		}
 
 		if size, find := e.calcFixedSlice(rv); find {
-			ret += size
-			return ret, nil
+			return size, nil
 		}
 
 		// func
@@ -129,42 +112,34 @@ func (e *encoder) calcSize(rv reflect.Value) (int, error) {
 		var f structCalcFunc
 		if elem.Kind() == reflect.Struct {
 			f = e.getStructCalc(elem)
-			ret += def.Byte1 * l
 		} else {
 			f = e.calcSize
 		}
 
+		l := rv.Len()
+		size, err := e.calcLength(l)
+		if err != nil {
+			return 0, err
+		}
+
 		// objects size
 		for i := 0; i < l; i++ {
-			size, err := f(rv.Index(i))
+			s, err := f(rv.Index(i))
 			if err != nil {
 				return 0, err
 			}
-			ret += size
+			size += s
 		}
+		return size, nil
 
 	case reflect.Array:
-		l := rv.Len()
 		// bin format
 		if e.isByteSlice(rv) {
-			r, err := e.calcByteSlice(l)
+			size, err := e.calcByteSlice(rv.Len())
 			if err != nil {
 				return 0, err
 			}
-			ret += r
-			return ret, nil
-		}
-
-		// format size
-		if l <= 0x0f {
-			// format code only
-		} else if l <= math.MaxUint16 {
-			ret += def.Byte2
-		} else if uint(l) <= math.MaxUint32 {
-			ret += def.Byte4
-		} else {
-			// not supported error
-			return 0, fmt.Errorf("array length %d is %w", l, def.ErrUnsupportedLength)
+			return size, nil
 		}
 
 		// func
@@ -172,41 +147,33 @@ func (e *encoder) calcSize(rv reflect.Value) (int, error) {
 		var f structCalcFunc
 		if elem.Kind() == reflect.Struct {
 			f = e.getStructCalc(elem)
-			ret += def.Byte1 * l
 		} else {
 			f = e.calcSize
 		}
 
+		l := rv.Len()
+		size, err := e.calcLength(l)
+		if err != nil {
+			return 0, err
+		}
+
 		// objects size
 		for i := 0; i < l; i++ {
-			size, err := f(rv.Index(i))
+			s, err := f(rv.Index(i))
 			if err != nil {
 				return 0, err
 			}
-			ret += size
+			size += s
 		}
+		return size, nil
 
 	case reflect.Map:
 		if rv.IsNil() {
-			return ret, nil
-		}
-
-		l := rv.Len()
-		// format
-		if l <= 0x0f {
-			// do nothing
-		} else if l <= math.MaxUint16 {
-			ret += def.Byte2
-		} else if uint(l) <= math.MaxUint32 {
-			ret += def.Byte4
-		} else {
-			// not supported error
-			return 0, fmt.Errorf("map length %d is %w", l, def.ErrUnsupportedLength)
+			return def.Byte1, nil
 		}
 
 		if size, find := e.calcFixedMap(rv); find {
-			ret += size
-			return ret, nil
+			return size, nil
 		}
 
 		if e.mk == nil {
@@ -214,8 +181,13 @@ func (e *encoder) calcSize(rv reflect.Value) (int, error) {
 			e.mv = map[uintptr][]reflect.Value{}
 		}
 
-		// key-value
 		keys := rv.MapKeys()
+		size, err := e.calcLength(len(keys))
+		if err != nil {
+			return 0, err
+		}
+
+		// key-value
 		mv := make([]reflect.Value, len(keys))
 		i := 0
 		for _, k := range keys {
@@ -228,44 +200,56 @@ func (e *encoder) calcSize(rv reflect.Value) (int, error) {
 			if err != nil {
 				return 0, err
 			}
-			ret += keySize + valueSize
+			size += keySize + valueSize
 			mv[i] = value
 			i++
 		}
 		e.mk[rv.Pointer()], e.mv[rv.Pointer()] = keys, mv
+		return size, nil
 
 	case reflect.Struct:
 		size, err := e.calcStruct(rv)
 		if err != nil {
 			return 0, err
 		}
-		ret += size
+		return size, nil
 
 	case reflect.Ptr:
 		if rv.IsNil() {
-			return ret, nil
+			return def.Byte1, nil
 		}
 		size, err := e.calcSize(rv.Elem())
 		if err != nil {
 			return 0, err
 		}
-		ret = size
+		return size, nil
 
 	case reflect.Interface:
 		size, err := e.calcSize(rv.Elem())
 		if err != nil {
 			return 0, err
 		}
-		ret = size
+		return size, nil
 
 	case reflect.Invalid:
 		// do nothing (return nil)
+		return def.Byte1, nil
 
 	default:
 		return 0, fmt.Errorf("%v is %w type", rv.Kind(), def.ErrUnsupportedType)
 	}
+}
 
-	return ret, nil
+func (e *encoder) calcLength(l int) (int, error) {
+	if l <= 0x0f {
+		return def.Byte1, nil
+	} else if l <= math.MaxUint16 {
+		return def.Byte1 + def.Byte2, nil
+	} else if uint(l) <= math.MaxUint32 {
+		return def.Byte1 + def.Byte4, nil
+	}
+	// not supported error
+	return 0, fmt.Errorf("array length %d is %w", l, def.ErrUnsupportedLength)
 }
 
 func (e *encoder) create(rv reflect.Value, offset int) int {
@@ -301,16 +285,13 @@ func (e *encoder) create(rv reflect.Value, offset int) int {
 		if rv.IsNil() {
 			return e.writeNil(offset)
 		}
-		l := rv.Len()
+
 		// bin format
 		if e.isByteSlice(rv) {
-			offset = e.writeByteSliceLength(l, offset)
+			offset = e.writeByteSliceLength(rv.Len(), offset)
 			offset = e.setBytes(rv.Bytes(), offset)
 			return offset
 		}
-
-		// format
-		offset = e.writeSliceLength(l, offset)
 
 		if offset, find := e.writeFixedSlice(rv, offset); find {
 			return offset
@@ -326,6 +307,8 @@ func (e *encoder) create(rv reflect.Value, offset int) int {
 		}
 
 		// objects
+		l := rv.Len()
+		offset = e.writeSliceLength(l, offset)
 		for i := 0; i < l; i++ {
 			offset = f(rv.Index(i), offset)
 		}

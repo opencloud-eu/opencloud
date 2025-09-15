@@ -71,7 +71,7 @@ func (d *decoder) setStructFromArray(rv reflect.Value, offset int, k reflect.Kin
 	if !findCache {
 		scta = &structCacheTypeArray{}
 		for i := 0; i < rv.NumField(); i++ {
-			if ok, _ := d.CheckField(rv.Type().Field(i)); ok {
+			if ok, _, _ := d.CheckField(rv.Type().Field(i)); ok {
 				scta.m = append(scta.m, i)
 			}
 		}
@@ -112,7 +112,7 @@ func (d *decoder) setStructFromMap(rv reflect.Value, offset int, k reflect.Kind)
 	if !cacheFind {
 		sctm = &structCacheTypeMap{}
 		for i := 0; i < rv.NumField(); i++ {
-			if ok, name := d.CheckField(rv.Type().Field(i)); ok {
+			if ok, _, name := d.CheckField(rv.Type().Field(i)); ok {
 				sctm.keys = append(sctm.keys, []byte(name))
 				sctm.indexes = append(sctm.indexes, i)
 			}

@@ -3,9 +3,10 @@ package command
 import (
 	"context"
 	"fmt"
+	"os/signal"
 
-	"github.com/oklog/run"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
+	"github.com/opencloud-eu/opencloud/pkg/runner"
 	ogrpc "github.com/opencloud-eu/opencloud/pkg/service/grpc"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/pkg/version"
@@ -40,12 +41,18 @@ func Server(cfg *config.Config) *cli.Command {
 			if err != nil {
 				return err
 			}
-			gr := run.Group{}
-			ctx, cancel := context.WithCancel(c.Context)
-			defer cancel()
+
+			var cancel context.CancelFunc
+			if cfg.Context == nil {
+				cfg.Context, cancel = signal.NotifyContext(context.Background(), runner.StopSignals...)
+				defer cancel()
+			}
+			ctx := cfg.Context
 
 			mtrcs := metrics.New()
 			mtrcs.BuildInfo.WithLabelValues(version.GetString()).Set(1)
+
+			gr := runner.NewGroup()
 
 			grpcServer, teardown, err := grpc.Server(
 				grpc.Config(cfg),
@@ -62,21 +69,7 @@ func Server(cfg *config.Config) *cli.Command {
 				return err
 			}
 
-			gr.Add(grpcServer.Run, func(_ error) {
-				if err == nil {
-					logger.Info().
-						Str("transport", "grpc").
-						Str("server", cfg.Service.Name).
-						Msg("Shutting down server")
-				} else {
-					logger.Error().Err(err).
-						Str("transport", "grpc").
-						Str("server", cfg.Service.Name).
-						Msg("Shutting down server")
-				}
-
-				cancel()
-			})
+			gr.Add(runner.NewGoMicroGrpcServerRunner(cfg.Service.Name+".grpc", grpcServer))
 
 			debugServer, err := debug.Server(
 				debug.Logger(logger),
@@ -88,12 +81,17 @@ func Server(cfg *config.Config) *cli.Command {
 				return err
 			}
 
-			gr.Add(debugServer.ListenAndServe, func(_ error) {
-				_ = debugServer.Shutdown(ctx)
-				cancel()
-			})
+			gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", debugServer))
 
-			return gr.Run()
+			grResults := gr.Run(ctx)
+
+			// return the first non-nil error found in the results
+			for _, grResult := range grResults {
+				if grResult.RunnerError != nil {
+					return grResult.RunnerError
+				}
+			}
+			return nil
 		},
 	}
 }

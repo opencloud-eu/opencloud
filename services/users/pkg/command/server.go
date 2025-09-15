@@ -3,14 +3,12 @@ package command
 import (
 	"context"
 	"fmt"
-	"os"
-	"path"
+	"os/signal"
 
-	"github.com/gofrs/uuid"
-	"github.com/oklog/run"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/ldap"
 	"github.com/opencloud-eu/opencloud/pkg/registry"
+	"github.com/opencloud-eu/opencloud/pkg/runner"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 	"github.com/opencloud-eu/opencloud/services/users/pkg/config"
@@ -37,10 +35,6 @@ func Server(cfg *config.Config) *cli.Command {
 			if err != nil {
 				return err
 			}
-			gr := run.Group{}
-			ctx, cancel := context.WithCancel(c.Context)
-
-			defer cancel()
 
 			// the reva runtime calls os.Exit in the case of a failure and there is no way for the OpenCloud
 			// runtime to catch it and restart a reva service. Therefore we need to ensure the service has
@@ -54,55 +48,47 @@ func Server(cfg *config.Config) *cli.Command {
 				}
 			}
 
-			// make sure the run group executes all interrupt handlers when the context is canceled
-			gr.Add(func() error {
-				<-ctx.Done()
-				return nil
-			}, func(_ error) {
-			})
+			var cancel context.CancelFunc
+			if cfg.Context == nil {
+				cfg.Context, cancel = signal.NotifyContext(context.Background(), runner.StopSignals...)
+				defer cancel()
+			}
+			ctx := cfg.Context
 
-			gr.Add(func() error {
-				pidFile := path.Join(os.TempDir(), "revad-"+cfg.Service.Name+"-"+uuid.Must(uuid.NewV4()).String()+".pid")
+			gr := runner.NewGroup()
+
+			{
+				// run the appropriate reva servers based on the config
 				rCfg := revaconfig.UsersConfigFromStruct(cfg)
-				reg := registry.GetRegistry()
-
-				runtime.RunWithOptions(rCfg, pidFile,
+				if rServer := runtime.NewDrivenHTTPServerWithOptions(rCfg,
 					runtime.WithLogger(&logger.Logger),
-					runtime.WithRegistry(reg),
+					runtime.WithRegistry(registry.GetRegistry()),
 					runtime.WithTraceProvider(traceProvider),
-				)
-
-				return nil
-			}, func(err error) {
-				if err == nil {
-					logger.Info().
-						Str("transport", "reva").
-						Str("server", cfg.Service.Name).
-						Msg("Shutting down server")
-				} else {
-					logger.Error().Err(err).
-						Str("transport", "reva").
-						Str("server", cfg.Service.Name).
-						Msg("Shutting down server")
+				); rServer != nil {
+					gr.Add(runner.NewRevaServiceRunner(cfg.Service.Name+".rhttp", rServer))
 				}
-
-				cancel()
-			})
-
-			debugServer, err := debug.Server(
-				debug.Logger(logger),
-				debug.Context(ctx),
-				debug.Config(cfg),
-			)
-			if err != nil {
-				logger.Info().Err(err).Str("server", "debug").Msg("Failed to initialize server")
-				return err
+				if rServer := runtime.NewDrivenGRPCServerWithOptions(rCfg,
+					runtime.WithLogger(&logger.Logger),
+					runtime.WithRegistry(registry.GetRegistry()),
+					runtime.WithTraceProvider(traceProvider),
+				); rServer != nil {
+					gr.Add(runner.NewRevaServiceRunner(cfg.Service.Name+".rgrpc", rServer))
+				}
 			}
 
-			gr.Add(debugServer.ListenAndServe, func(_ error) {
-				_ = debugServer.Shutdown(ctx)
-				cancel()
-			})
+			{
+				debugServer, err := debug.Server(
+					debug.Logger(logger),
+					debug.Context(ctx),
+					debug.Config(cfg),
+				)
+				if err != nil {
+					logger.Info().Err(err).Str("server", "debug").Msg("Failed to initialize server")
+					return err
+				}
+
+				gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", debugServer))
+			}
 
 			// FIXME we should defer registering the service until we are sure that reva is running
 			grpcSvc := registry.BuildGRPCService(cfg.GRPC.Namespace+"."+cfg.Service.Name, cfg.GRPC.Protocol, cfg.GRPC.Addr, version.GetString())
@@ -110,7 +96,15 @@ func Server(cfg *config.Config) *cli.Command {
 				logger.Fatal().Err(err).Msg("failed to register the grpc service")
 			}
 
-			return gr.Run()
+			grResults := gr.Run(ctx)
+
+			// return the first non-nil error found in the results
+			for _, grResult := range grResults {
+				if grResult.RunnerError != nil {
+					return grResult.RunnerError
+				}
+			}
+			return nil
 		},
 	}
 }

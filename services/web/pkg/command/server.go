@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/signal"
 
-	"github.com/oklog/run"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
+	"github.com/opencloud-eu/opencloud/pkg/runner"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/config/parser"
@@ -47,14 +48,16 @@ func Server(cfg *config.Config) *cli.Command {
 				}
 			}
 
-			var (
-				gr          = run.Group{}
-				ctx, cancel = context.WithCancel(c.Context)
-				m           = metrics.New()
-			)
+			var cancel context.CancelFunc
+			if cfg.Context == nil {
+				cfg.Context, cancel = signal.NotifyContext(context.Background(), runner.StopSignals...)
+				defer cancel()
+			}
+			ctx := cfg.Context
 
-			defer cancel()
+			m := metrics.New()
 
+			gr := runner.NewGroup()
 			{
 				server, err := http.Server(
 					http.Logger(logger),
@@ -73,30 +76,7 @@ func Server(cfg *config.Config) *cli.Command {
 					return err
 				}
 
-				gr.Add(func() error {
-					err := server.Run()
-					if err != nil {
-						logger.Error().
-							Err(err).
-							Str("transport", "http").
-							Msg("Failed to start server")
-					}
-					return err
-				}, func(err error) {
-					if err == nil {
-						logger.Info().
-							Str("transport", "http").
-							Str("server", cfg.Service.Name).
-							Msg("Shutting down server")
-					} else {
-						logger.Error().Err(err).
-							Str("transport", "http").
-							Str("server", cfg.Service.Name).
-							Msg("Shutting down server")
-					}
-
-					cancel()
-				})
+				gr.Add(runner.NewGoMicroHttpServerRunner(cfg.Service.Name+".http", server))
 			}
 
 			{
@@ -110,13 +90,18 @@ func Server(cfg *config.Config) *cli.Command {
 					return err
 				}
 
-				gr.Add(debugServer.ListenAndServe, func(_ error) {
-					_ = debugServer.Shutdown(ctx)
-					cancel()
-				})
+				gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", debugServer))
 			}
 
-			return gr.Run()
+			grResults := gr.Run(ctx)
+
+			// return the first non-nil error found in the results
+			for _, grResult := range grResults {
+				if grResult.RunnerError != nil {
+					return grResult.RunnerError
+				}
+			}
+			return nil
 		},
 	}
 }

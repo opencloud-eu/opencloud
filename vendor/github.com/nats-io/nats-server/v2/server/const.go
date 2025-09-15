@@ -43,6 +43,14 @@ var (
 	semVerRe = regexp.MustCompile(`^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`)
 )
 
+// formatRevision formats a VCS revision string for display.
+func formatRevision(revision string) string {
+	if len(revision) >= 7 {
+		return revision[:7]
+	}
+	return revision
+}
+
 func init() {
 	// Use build info if present, it would be if building using 'go build .'
 	// or when using a release.
@@ -50,7 +58,7 @@ func init() {
 		for _, setting := range info.Settings {
 			switch setting.Key {
 			case "vcs.revision":
-				gitCommit = setting.Value[:7]
+				gitCommit = formatRevision(setting.Value)
 			}
 		}
 	}
@@ -58,7 +66,7 @@ func init() {
 
 const (
 	// VERSION is the current version for the server.
-	VERSION = "2.11.8"
+	VERSION = "2.11.9"
 
 	// PROTO is the currently supported protocol.
 	// 0 was the original

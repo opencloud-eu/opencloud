@@ -132,10 +132,10 @@ func (s *Server) Start(ln net.Listener) error {
 
 // Stop stops the server.
 func (s *Server) Stop() error {
-	s.closeServices()
 	// TODO(labkode): set ctx deadline to zero
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
+	defer s.closeServices()
 	return s.httpServer.Shutdown(ctx)
 }
 
@@ -164,7 +164,7 @@ func (s *Server) Address() string {
 
 // GracefulStop gracefully stops the server.
 func (s *Server) GracefulStop() error {
-	s.closeServices()
+	defer s.closeServices()
 	return s.httpServer.Shutdown(context.Background())
 }
 

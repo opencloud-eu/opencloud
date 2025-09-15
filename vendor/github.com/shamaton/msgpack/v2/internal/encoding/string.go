@@ -12,13 +12,13 @@ func (e *encoder) calcString(v string) int {
 	strBytes := *(*[]byte)(unsafe.Pointer(&v))
 	l := len(strBytes)
 	if l < 32 {
-		return l
-	} else if l <= math.MaxUint8 {
 		return def.Byte1 + l
+	} else if l <= math.MaxUint8 {
+		return def.Byte1 + def.Byte1 + l
 	} else if l <= math.MaxUint16 {
-		return def.Byte2 + l
+		return def.Byte1 + def.Byte2 + l
 	}
-	return def.Byte4 + l
+	return def.Byte1 + def.Byte4 + l
 	// NOTE : length over uint32
 }
 

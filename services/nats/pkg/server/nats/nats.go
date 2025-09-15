@@ -1,24 +1,19 @@
 package nats
 
 import (
-	"context"
 	"time"
 
 	nserver "github.com/nats-io/nats-server/v2/server"
-	"github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/opencloud-eu/opencloud/services/nats/pkg/logging"
-	"github.com/rs/zerolog"
 )
 
 var NATSListenAndServeLoopTimer = 1 * time.Second
 
 type NATSServer struct {
-	ctx    context.Context
 	server *nserver.Server
 }
 
 // NatsOption configures the new NATSServer instance
-func NewNATSServer(ctx context.Context, logger log.Logger, opts ...NatsOption) (*NATSServer, error) {
+func NewNATSServer(logger nserver.Logger, opts ...NatsOption) (*NATSServer, error) {
 	natsOpts := &nserver.Options{}
 
 	for _, o := range opts {
@@ -35,19 +30,17 @@ func NewNATSServer(ctx context.Context, logger log.Logger, opts ...NatsOption) (
 		return nil, err
 	}
 
-	nLogger := logging.NewLogWrapper(logger)
-	server.SetLoggerV2(nLogger, logger.GetLevel() <= zerolog.DebugLevel, logger.GetLevel() <= zerolog.TraceLevel, false)
+	server.SetLoggerV2(logger, true, true, false)
 
 	return &NATSServer{
-		ctx:    ctx,
 		server: server,
 	}, nil
 }
 
 // ListenAndServe runs the NATSServer in a blocking way until the server is shutdown or an error occurs
 func (n *NATSServer) ListenAndServe() (err error) {
-	go n.server.Start()
-	<-n.ctx.Done()
+	n.server.Start()           // it won't block
+	n.server.WaitForShutdown() // block until the server is fully shutdown
 	return nil
 }
 
