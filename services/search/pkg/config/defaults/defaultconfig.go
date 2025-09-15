@@ -58,6 +58,7 @@ func DefaultConfig() *config.Config {
 			Cluster:          "opencloud-cluster",
 			DebounceDuration: 1000,
 			AsyncUploads:     true,
+			NumConsumers:     1,
 			EnableTLS:        false,
 			MaxAckPending:    1000,
 			AckWait:          1 * time.Minute,

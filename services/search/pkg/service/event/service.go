@@ -95,6 +95,12 @@ func (s Service) Run() error {
 	ctx, cancel := context.WithCancel(s.ctx)
 	defer cancel()
 
+	s.log.Debug().Int("worker.count", s.numConsumers).
+		Str("messaging.consumer.group.name", "search-pull").
+		Str("messaging.system", "nats").
+		Str("messaging.operation.name", "receive").
+		Msg("starting event processing workers")
+
 	// start workers
 	for i := 0; i < s.numConsumers; i++ {
 		wg.Add(1)
@@ -152,7 +158,7 @@ func getSpaceID(ref *provider.Reference) *provider.StorageSpaceId {
 
 func (s Service) processEvent(e raw.Event) error {
 	ctx := e.GetTraceContext(s.ctx)
-	ctx, span := tracer.Start(ctx, "processEvent")
+	_, span := tracer.Start(ctx, "processEvent")
 	defer span.End()
 
 	e.InProgress() // let nats know that we are processing this event
