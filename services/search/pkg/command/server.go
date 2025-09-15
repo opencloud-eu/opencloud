@@ -2,7 +2,9 @@ package command
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"net/http"
 	"os/signal"
 
 	"github.com/opencloud-eu/reva/v2/pkg/events/raw"
@@ -98,6 +100,12 @@ func Server(cfg *config.Config) *cli.Command {
 						DiscoverNodesInterval: cfg.Engine.OpenSearch.Client.DiscoverNodesInterval,
 						EnableMetrics:         cfg.Engine.OpenSearch.Client.EnableMetrics,
 						EnableDebugLogger:     cfg.Engine.OpenSearch.Client.EnableDebugLogger,
+						Transport: &http.Transport{
+							TLSClientConfig: &tls.Config{
+								MinVersion:         tls.VersionTLS12,
+								InsecureSkipVerify: cfg.Engine.OpenSearch.Client.Insecure,
+							},
+						},
 					},
 				})
 				if err != nil {
@@ -176,6 +184,10 @@ func Server(cfg *config.Config) *cli.Command {
 					MaxAckPending:        cfg.Events.MaxAckPending,
 					AckWait:              cfg.Events.AckWait,
 				})
+				if err != nil {
+					logger.Error().Err(err).Msg("Failed to create event bus client")
+					return err
+				}
 
 				eventSvc, err := svcEvent.New(ctx, bus, logger, traceProvider, mtrcs, ss, cfg.Events.DebounceDuration, cfg.Events.NumConsumers, cfg.Events.AsyncUploads)
 				if err != nil {
