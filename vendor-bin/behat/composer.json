@@ -8,7 +8,7 @@
     }
   },
   "require": {
-    "behat/behat": "3.23.0",
+    "behat/behat": "^3.24",
     "behat/gherkin": "^4.9",
     "behat/mink": "1.7.1",
     "friends-of-behat/mink-extension": "^2.7",
