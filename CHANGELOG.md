@@ -6,19 +6,20 @@
 
 @ScharfViktor, @Svanvith, @aduffeck, @butonic, @individual-it, @prashant-gurung899, @rhafer
 
-### 📈 Enhancement
-
-- Insecure opensearch client [[#1509](https://github.com/opencloud-eu/opencloud/pull/1509)]
-- Allow disabling search servers [[#1495](https://github.com/opencloud-eu/opencloud/pull/1495)]
-- Tracing improvements [[#1436](https://github.com/opencloud-eu/opencloud/pull/1436)]
-
 ### ✅ Tests
 
+- [full-ci][tests-only] revert behat version and fix regex on test script [[#1507](https://github.com/opencloud-eu/opencloud/pull/1507)]
 - update behat version in `composer.json` [[#1501](https://github.com/opencloud-eu/opencloud/pull/1501)]
 - Apitest. file extension change [[#1482](https://github.com/opencloud-eu/opencloud/pull/1482)]
 - [full-ci] run tests with VIPS enabled [[#1420](https://github.com/opencloud-eu/opencloud/pull/1420)]
 - [full-ci] add pipeline to purge go-bin cache [[#1445](https://github.com/opencloud-eu/opencloud/pull/1445)]
 - [full-ci] purge browsers, opencloud web and playwright tracing cache [[#1403](https://github.com/opencloud-eu/opencloud/pull/1403)]
+
+### 📈 Enhancement
+
+- Insecure opensearch client [[#1509](https://github.com/opencloud-eu/opencloud/pull/1509)]
+- Allow disabling search servers [[#1495](https://github.com/opencloud-eu/opencloud/pull/1495)]
+- Tracing improvements [[#1436](https://github.com/opencloud-eu/opencloud/pull/1436)]
 
 ### 🐛 Bug Fixes
 
