@@ -49,8 +49,8 @@ Additionally, the following optional settings can be set:
 
 ## Query language
 
-By default, [KQL](https://learn.microsoft.com/en-us/sharepoint/dev/general-development/keyword-query-language-kql-syntax-reference) is used as a query language,
-for an overview of how to write kql queries, please read the [microsoft documentation](https://learn.microsoft.com/en-us/sharepoint/dev/general-development/keyword-query-language-kql-syntax-reference).
+By default, [KQL](https://learn.microsoft.com/en-us/sharepoint/dev/general-development/keyword-query-language-kql-syntax-reference) is used as the query language.
+For an overview of how to write kql queries, please read the [microsoft documentation](https://learn.microsoft.com/en-us/sharepoint/dev/general-development/keyword-query-language-kql-syntax-reference).
 
 Not all parts are supported, the following list gives an overview of parts that are not implemented yet:
 
@@ -65,12 +65,12 @@ In [this ADR](https://github.com/owncloud/ocis/blob/docs/ocis/adr/0020-file-sear
 
 ## Content analysis / Extraction
 
-The search service supports the following content extraction services:
+The search service supports the following content extraction methods:
 
 *   `Basic`: enabled by default, only provides metadata extraction.
 *   `Tika`: needs to be installed and configured separately, provides content extraction for many file types.
 
-Note that files must be downloaded during the process of content extraction,
+Note that the file content has to be transferred to the search service internally for content extraction,
 which is resource-intensive and can lead to delays with larger documents.
 
 ### Basic
