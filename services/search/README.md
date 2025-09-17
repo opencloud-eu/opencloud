@@ -18,7 +18,11 @@ As of now, the search service supports the following backends:
 ### Bleve
 
 Bleve is a lightweight, embedded full-text search engine written in Go and is the default search backend.
-It is easy to set up and requires no additional services to run.
+It is straightforward to set up and requires no additional services to run.
+
+The following optional settings can be set:
+
+*   `SEARCH_ENGINE_BLEVE_DATA_PATH=/path/to/bleve/index` (default: `$OC_BASE_DATA_PATH/search`): Path to store the bleve index.
 
 ### OpenSearch
 
@@ -32,6 +36,7 @@ To enable OpenSearch as a backend, the following settings must be set:
 
 Additionally, the following optional settings can be set:
 
+*   `SEARCH_ENGINE_OPEN_SEARCH_RESOURCE_INDEX_NAME=val` (default: `opencloud-resource`): Name of the OpenSearch index
 *   `SEARCH_ENGINE_OPEN_SEARCH_CLIENT_USERNAME=val`: Username for HTTP Basic Authentication.
 *   `SEARCH_ENGINE_OPEN_SEARCH_CLIENT_PASSWORD=val`: Password for HTTP Basic Authentication.
 *   `SEARCH_ENGINE_OPEN_SEARCH_CLIENT_HEADER=val`: HTTP headers to include in requests.
