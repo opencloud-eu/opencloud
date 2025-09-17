@@ -6,17 +6,19 @@
 package report
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
+	"github.com/open-policy-agent/opa/internal/semver"
 	"github.com/open-policy-agent/opa/v1/keys"
 	"github.com/open-policy-agent/opa/v1/logging"
 	"github.com/open-policy-agent/opa/v1/version"
@@ -25,24 +27,25 @@ import (
 	"github.com/open-policy-agent/opa/v1/util"
 )
 
-// ExternalServiceURL is the base HTTP URL for a telemetry service.
-// If not otherwise specified it will use the hard coded default.
+// ExternalServiceURL is the base HTTP URL for a github instance used
+// to query for more recent version.
+// If not otherwise specified, it will use the hard-coded default, api.github.com.
+// GHRepo is the repository to use, and defaults to "open-policy-agent/opa"
 //
 // Override at build time via:
 //
 //	-ldflags "-X github.com/open-policy-agent/opa/internal/report.ExternalServiceURL=<url>"
+//	-ldflags "-X github.com/open-policy-agent/opa/internal/report.GHRepo=<url>"
 //
-// This will be overridden if the OPA_TELEMETRY_SERVICE_URL environment variable
+// ExternalServiceURL will be overridden if the OPA_TELEMETRY_SERVICE_URL environment variable
 // is provided.
-var ExternalServiceURL = "https://telemetry.openpolicyagent.org"
+var ExternalServiceURL = "https://api.github.com"
+var GHRepo = "open-policy-agent/opa"
 
 // Reporter reports information such as the version, heap usage about the running OPA instance to an external service
-type Reporter struct {
-	body   map[string]any
-	client rest.Client
-
-	gatherers    map[string]Gatherer
-	gatherersMtx sync.Mutex
+type Reporter interface {
+	SendReport(ctx context.Context) (*DataResponse, error)
+	RegisterGatherer(key string, f Gatherer)
 }
 
 // Gatherer represents a mechanism to inject additional data in the telemetry report
@@ -50,7 +53,7 @@ type Gatherer func(ctx context.Context) (any, error)
 
 // DataResponse represents the data returned by the external service
 type DataResponse struct {
-	Latest ReleaseDetails `json:"latest,omitempty"`
+	Latest ReleaseDetails `json:"latest"`
 }
 
 // ReleaseDetails holds information about the latest OPA release
@@ -66,20 +69,21 @@ type Options struct {
 	Logger logging.Logger
 }
 
-// New returns an instance of the Reporter
-func New(id string, opts Options) (*Reporter, error) {
-	r := Reporter{
-		gatherers: map[string]Gatherer{},
-	}
-	r.body = map[string]any{
-		"id":      id,
-		"version": version.Version,
-	}
+type GHVersionCollector struct {
+	client rest.Client
+}
 
-	url := os.Getenv("OPA_TELEMETRY_SERVICE_URL")
-	if url == "" {
-		url = ExternalServiceURL
-	}
+type GHResponse struct {
+	TagName      string `json:"tag_name,omitempty"`   // latest OPA release tag
+	ReleaseNotes string `json:"html_url,omitempty"`   // link to the OPA release notes
+	Download     string `json:"assets_url,omitempty"` // link to download the OPA release
+}
+
+// New returns an instance of the Reporter
+func New(opts Options) (Reporter, error) {
+	r := GHVersionCollector{}
+
+	url := cmp.Or(os.Getenv("OPA_TELEMETRY_SERVICE_URL"), ExternalServiceURL)
 
 	restConfig := fmt.Appendf(nil, `{
 		"url": %q,
@@ -99,21 +103,11 @@ func New(id string, opts Options) (*Reporter, error) {
 
 // SendReport sends the telemetry report which includes information such as the OPA version, current memory usage to
 // the external service
-func (r *Reporter) SendReport(ctx context.Context) (*DataResponse, error) {
+func (r *GHVersionCollector) SendReport(ctx context.Context) (*DataResponse, error) {
 	rCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	r.gatherersMtx.Lock()
-	defer r.gatherersMtx.Unlock()
-	for key, g := range r.gatherers {
-		var err error
-		r.body[key], err = g(rCtx)
-		if err != nil {
-			return nil, fmt.Errorf("gather telemetry error for key %s: %w", key, err)
-		}
-	}
-
-	resp, err := r.client.WithJSON(r.body).Do(rCtx, "POST", "/v1/version")
+	resp, err := r.client.Do(rCtx, "GET", fmt.Sprintf("/repos/%s/releases/latest", GHRepo))
 	if err != nil {
 		return nil, err
 	}
@@ -123,12 +117,12 @@ func (r *Reporter) SendReport(ctx context.Context) (*DataResponse, error) {
 	switch resp.StatusCode {
 	case http.StatusOK:
 		if resp.Body != nil {
-			var result DataResponse
+			var result GHResponse
 			err := json.NewDecoder(resp.Body).Decode(&result)
 			if err != nil {
 				return nil, err
 			}
-			return &result, nil
+			return createDataResponse(result)
 		}
 		return nil, nil
 	default:
@@ -136,10 +130,50 @@ func (r *Reporter) SendReport(ctx context.Context) (*DataResponse, error) {
 	}
 }
 
-func (r *Reporter) RegisterGatherer(key string, f Gatherer) {
-	r.gatherersMtx.Lock()
-	r.gatherers[key] = f
-	r.gatherersMtx.Unlock()
+func createDataResponse(ghResp GHResponse) (*DataResponse, error) {
+	if ghResp.TagName == "" {
+		return nil, errors.New("server response does not contain tag_name")
+	}
+
+	v := strings.TrimPrefix(version.Version, "v")
+	sv, err := semver.NewVersion(v)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse current version %q: %w", v, err)
+	}
+
+	latestV := strings.TrimPrefix(ghResp.TagName, "v")
+	latestSV, err := semver.NewVersion(latestV)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse latest version %q: %w", latestV, err)
+	}
+
+	isLatest := sv.Compare(*latestSV) >= 0
+
+	// Note: alternatively, we could look through the assets in the GH API response to find a matching asset,
+	// and use its URL. However, this is not guaranteed to be more robust, and wouldn't use the 'openpolicyagent.org' domain.
+	downloadLink := fmt.Sprintf("https://openpolicyagent.org/downloads/%v/opa_%v_%v",
+		ghResp.TagName, runtime.GOOS, runtime.GOARCH)
+
+	if runtime.GOARCH == "arm64" {
+		downloadLink = fmt.Sprintf("%v_static", downloadLink)
+	}
+
+	if strings.HasPrefix(runtime.GOOS, "win") {
+		downloadLink = fmt.Sprintf("%v.exe", downloadLink)
+	}
+
+	return &DataResponse{
+		Latest: ReleaseDetails{
+			Download:      downloadLink,
+			ReleaseNotes:  ghResp.ReleaseNotes,
+			LatestRelease: ghResp.TagName,
+			OPAUpToDate:   isLatest,
+		},
+	}, nil
+}
+
+func (*GHVersionCollector) RegisterGatherer(_ string, _ Gatherer) {
+	// no-op for this implementation
 }
 
 // IsSet returns true if dr is populated.
