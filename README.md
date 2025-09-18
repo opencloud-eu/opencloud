@@ -10,17 +10,30 @@
 > [!TIP]
 > For general information about OpenCloud and how to install please visit [OpenCloud on Github](https://github.com/opencloud-eu/) and [OpenCloud GmbH](https://opencloud.eu).
 
-This the main repository of the OpenCloud server. It contains the golang codebase for the backend services.
+This is the main repository of the OpenCloud server.
+It contains the golang codebase for the backend services.
 
 ## Getting Involved
 
-The OpenCloud server is released under [Apache 2.0](https://github.com/opencloud-eu/opencloud/blob/main/LICENSE). The project is very happy to receive contributions in all forms. Start hacking now 😃
+The OpenCloud server is released under [Apache 2.0](https://github.com/opencloud-eu/opencloud/blob/main/LICENSE).
+The project is thrilled to receive contributions in all forms.
+Start hacking now, there are many ways to get involved such as:
 
-### Build OpenCloud
+- Reporting [issues or bugs](https://github.com/opencloud-eu/opencloud/issues)
+- Requesting [features](https://github.com/opencloud-eu/opencloud/issues)
+- [Writing documentation](https://github.com/opencloud-eu/docs)
+- [Writing code or extend our tests](https://github.com/opencloud-eu/opencloud/pulls)
+- [Reviewing code](https://github.com/opencloud-eu/opencloud/pulls)
+- Helping others in the [community](https://app.element.io/#/room/#opencloud:matrix.org)
+
+Every contribution is meaningful and appreciated!
+Please refer to our [Contribution Guidelines](https://github.com/opencloud-eu/opencloud/blob/main/CONTRIBUTING.md) if you want to get started.
+
+## Build OpenCloud
 
 To build the backend, follow these instructions:
 
-Generate the assets needed by e.g. the web UI and the builtin IDP
+Generate the assets needed by e.g., the web UI and the builtin IDP
 
 ``` console
 make generate
@@ -40,10 +53,6 @@ This creates a server configuration (by default in `$HOME/.opencloud`) and start
 
 For more setup- and installation options consult the [Development Documentation](https://docs.opencloud.eu/).
 
-### Contribute
-
-We very much appreciate contributions from the community. Please refer to our [Contribution Guidelines](https://github.com/opencloud-eu/opencloud/blob/main/CONTRIBUTING.md) on how to get started.
-
 ## Technology
 
 Important information for contributors about the technology in use.
@@ -58,4 +67,4 @@ The OpenCloud backend does not use a database. It stores all data in the filesys
 
 ## Security
 
-If you find a security related issue, please contact [security@opencloud.eu](mailto:security@opencloud.eu) immediately.
+If you find a security-related issue, please contact [security@opencloud.eu](mailto:security@opencloud.eu) immediately.
