@@ -1,10 +1,13 @@
 # Search
 
 The search service is responsible for metadata and content extraction,
-the retrieved date is indexed and made searchable.
+the retrieved data is indexed and made searchable.
 
 The search service runs out of the box with the shipped default `basic` configuration.
 No further configuration is needed.
+
+Note that as of now, the search service cannot be scaled.
+Consider using dedicated hardware for this service in case more resources are needed.
 
 ## Search backends
 
