@@ -162,78 +162,31 @@ func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-type attachmentPicker interface {
-	pick(parts []jmap.EmailBodyPart) *jmap.EmailBodyPart
-}
-
-type partIdAttachmentPicker struct {
-	partId string
-}
-
-var _ attachmentPicker = partIdAttachmentPicker{}
-
-func (p partIdAttachmentPicker) pick(parts []jmap.EmailBodyPart) *jmap.EmailBodyPart {
-	for _, part := range parts {
-		if part.PartId == p.partId {
-			return &part
-		}
-	}
-	return nil
-}
-
-type nameAttachmentPicker struct {
-	name string
-}
-
-var _ attachmentPicker = nameAttachmentPicker{}
-
-func (p nameAttachmentPicker) pick(parts []jmap.EmailBodyPart) *jmap.EmailBodyPart {
-	for _, part := range parts {
-		if part.Name == p.name {
-			return &part
-		}
-	}
-	return nil
-}
-
-type blobIdAttachmentPicker struct {
-	blobId string
-}
-
-var _ attachmentPicker = blobIdAttachmentPicker{}
-
-func (p blobIdAttachmentPicker) pick(parts []jmap.EmailBodyPart) *jmap.EmailBodyPart {
-	for _, part := range parts {
-		if part.BlobId == p.blobId {
-			return &part
-		}
-	}
-	return nil
-}
-
 func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, UriParamEmailId)
 
 	contextAppender := func(l zerolog.Context) zerolog.Context { return l }
 	q := r.URL.Query()
-	var picker attachmentPicker = nil
+	var attachmentSelector func(jmap.EmailBodyPart) bool = nil
 	if q.Has(QueryParamPartId) {
-		str := q.Get(QueryParamPartId)
-		picker = partIdAttachmentPicker{partId: str}
-		contextAppender = func(l zerolog.Context) zerolog.Context { return l.Str(QueryParamPartId, log.SafeString(str)) }
+		partId := q.Get(QueryParamPartId)
+		attachmentSelector = func(part jmap.EmailBodyPart) bool { return part.PartId == partId }
+		contextAppender = func(l zerolog.Context) zerolog.Context { return l.Str(QueryParamPartId, log.SafeString(partId)) }
 	}
 	if q.Has(QueryParamAttachmentName) {
-		str := q.Get(QueryParamAttachmentName)
-		picker = nameAttachmentPicker{name: str}
-		contextAppender = func(l zerolog.Context) zerolog.Context { return l.Str(QueryParamAttachmentName, log.SafeString(str)) }
+		name := q.Get(QueryParamAttachmentName)
+		attachmentSelector = func(part jmap.EmailBodyPart) bool { return part.Name == name }
+		contextAppender = func(l zerolog.Context) zerolog.Context { return l.Str(QueryParamAttachmentName, log.SafeString(name)) }
 	}
 	if q.Has(QueryParamAttachmentBlobId) {
-		str := q.Get(QueryParamAttachmentBlobId)
-		picker = blobIdAttachmentPicker{blobId: str}
-		contextAppender = func(l zerolog.Context) zerolog.Context { return l.Str(QueryParamAttachmentBlobId, log.SafeString(str)) }
+		blobId := q.Get(QueryParamAttachmentBlobId)
+		attachmentSelector = func(part jmap.EmailBodyPart) bool { return part.BlobId == blobId }
+		contextAppender = func(l zerolog.Context) zerolog.Context {
+			return l.Str(QueryParamAttachmentBlobId, log.SafeString(blobId))
+		}
 	}
 
-	if picker == nil {
+	if attachmentSelector == nil {
 		g.respond(w, r, func(req Request) Response {
 			accountId, err := req.GetAccountIdForMail()
 			if err != nil {
@@ -275,7 +228,13 @@ func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) 
 			}
 
 			email := emails.Emails[0]
-			attachment := picker.pick(email.Attachments)
+			var attachment *jmap.EmailBodyPart = nil
+			for _, part := range email.Attachments {
+				if attachmentSelector(part) {
+					attachment = &part
+					break
+				}
+			}
 			if attachment == nil {
 				return nil
 			}
