@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.5.0) - 2025-09-18
+## [3.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.5.0) - 2025-09-19
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -8,6 +8,7 @@
 
 ### 📚 Documentation
 
+- enhancement(docs): add branch naming styleguide and clean up the contribution guidelines [[#1520](https://github.com/opencloud-eu/opencloud/pull/1520)]
 - fix(search): readme typos and mention the lack of scalability [[#1516](https://github.com/opencloud-eu/opencloud/pull/1516)]
 - enhancement(search): simplify search docs and document opensearch backend [[#1513](https://github.com/opencloud-eu/opencloud/pull/1513)]
 - remove opencloud_full from the read.me and add opencloud-compose instead [[#1474](https://github.com/opencloud-eu/opencloud/pull/1474)]
