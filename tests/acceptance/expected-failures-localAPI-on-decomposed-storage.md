@@ -189,7 +189,7 @@
 - [apiSharingNg1/propfindShares.feature:149](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSharingNg1/propfindShares.feature#L149)
 
 #### [Readiness check for some services returns 500 status code](https://github.com/owncloud/ocis/issues/10661)
-- [apiServiceAvailability/serviceAvailabilityCheck.feature:116](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiServiceAvailability/serviceAvailabilityCheck.feature#L116)
+
 - [apiServiceAvailability/serviceAvailabilityCheck.feature:125](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiServiceAvailability/serviceAvailabilityCheck.feature#L125)
 
 #### [Skip tests for different languages](https://github.com/opencloud-eu/opencloud/issues/183)

@@ -22,7 +22,7 @@ func Server(opts ...Option) (*http.Server, error) {
 		WithCheck("web reachability", checks.NewHTTPCheck(options.Config.HTTP.Addr))
 
 	readyHandlerConfiguration := healthHandlerConfiguration.
-		WithCheck("nats reachability", checks.NewNatsCheck(options.Config.Events.Cluster))
+		WithCheck("nats reachability", checks.NewNatsCheck(options.Config.Events.Endpoint))
 
 	var configDumpFunc http.HandlerFunc = configDump(options.Config)
 	return debug.NewService(
