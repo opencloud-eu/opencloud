@@ -28,6 +28,7 @@ import (
 	audit "github.com/opencloud-eu/opencloud/services/audit/pkg/command"
 	authapp "github.com/opencloud-eu/opencloud/services/auth-app/pkg/command"
 	authbasic "github.com/opencloud-eu/opencloud/services/auth-basic/pkg/command"
+	authbearer "github.com/opencloud-eu/opencloud/services/auth-bearer/pkg/command"
 	authmachine "github.com/opencloud-eu/opencloud/services/auth-machine/pkg/command"
 	authservice "github.com/opencloud-eu/opencloud/services/auth-service/pkg/command"
 	clientlog "github.com/opencloud-eu/opencloud/services/clientlog/pkg/command"
@@ -328,6 +329,11 @@ func NewService(ctx context.Context, options ...Option) (*Service, error) {
 		cfg.Audit.Context = ctx
 		cfg.Audit.Commons = cfg.Commons
 		return audit.Execute(cfg.Audit)
+	})
+	areg(opts.Config.AuthBearer.Service.Name, func(ctx context.Context, cfg *occfg.Config) error {
+		cfg.AuthBearer.Context = ctx
+		cfg.AuthBearer.Commons = cfg.Commons
+		return authbearer.Execute(cfg.AuthBearer)
 	})
 	areg(opts.Config.Policies.Service.Name, func(ctx context.Context, cfg *occfg.Config) error {
 		cfg.Policies.Context = ctx

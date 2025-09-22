@@ -70,7 +70,7 @@ func Server(cfg *config.Config) *cli.Command {
 					debug.Config(cfg),
 				)
 				if err != nil {
-					logger.Info().Err(err).Str("server", "debug").Msg("Failed to initialize server")
+					logger.Error().Err(err).Str("server", "debug").Msg("Failed to initialize server")
 					return err
 				}
 
