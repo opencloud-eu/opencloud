@@ -37,6 +37,8 @@
 
 ### 📦️ Dependencies
 
+- revaBump-2.38.0 [[#1530](https://github.com/opencloud-eu/opencloud/pull/1530)]
+- chore/bump-web-4.0.0 [[#1531](https://github.com/opencloud-eu/opencloud/pull/1531)]
 - build(deps): bump github.com/onsi/ginkgo/v2 from 2.25.2 to 2.25.3 [[#1515](https://github.com/opencloud-eu/opencloud/pull/1515)]
 - build(deps): bump google.golang.org/protobuf from 1.36.8 to 1.36.9 [[#1491](https://github.com/opencloud-eu/opencloud/pull/1491)]
 - build(deps): bump go.opentelemetry.io/contrib/zpages from 0.62.0 to 0.63.0 [[#1490](https://github.com/opencloud-eu/opencloud/pull/1490)]
