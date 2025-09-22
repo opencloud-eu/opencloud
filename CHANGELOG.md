@@ -8,6 +8,7 @@
 
 ### 📚 Documentation
 
+- enhancement(docs): describe what and why ADRs [[#1518](https://github.com/opencloud-eu/opencloud/pull/1518)]
 - enhancement(docs): add branch naming styleguide and clean up the contribution guidelines [[#1520](https://github.com/opencloud-eu/opencloud/pull/1520)]
 - fix(search): readme typos and mention the lack of scalability [[#1516](https://github.com/opencloud-eu/opencloud/pull/1516)]
 - enhancement(search): simplify search docs and document opensearch backend [[#1513](https://github.com/opencloud-eu/opencloud/pull/1513)]
