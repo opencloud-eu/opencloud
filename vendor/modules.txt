@@ -1274,7 +1274,7 @@ github.com/open-policy-agent/opa/v1/version
 # github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76
 ## explicit; go 1.18
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v2 v2.37.1-0.20250911072739-9e673e021dca
+# github.com/opencloud-eu/reva/v2 v2.38.0
 ## explicit; go 1.24.1
 github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v2/cmd/revad/runtime
@@ -2353,8 +2353,8 @@ golang.org/x/net/netutil
 golang.org/x/net/proxy
 golang.org/x/net/publicsuffix
 golang.org/x/net/trace
-# golang.org/x/oauth2 v0.30.0
-## explicit; go 1.23.0
+# golang.org/x/oauth2 v0.31.0
+## explicit; go 1.24.0
 golang.org/x/oauth2
 golang.org/x/oauth2/internal
 # golang.org/x/sync v0.17.0
@@ -2373,8 +2373,8 @@ golang.org/x/sys/windows/registry
 golang.org/x/sys/windows/svc
 golang.org/x/sys/windows/svc/eventlog
 golang.org/x/sys/windows/svc/mgr
-# golang.org/x/term v0.34.0
-## explicit; go 1.23.0
+# golang.org/x/term v0.35.0
+## explicit; go 1.24.0
 golang.org/x/term
 # golang.org/x/text v0.29.0
 ## explicit; go 1.24.0
