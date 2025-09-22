@@ -205,7 +205,6 @@ func (pps *PostprocessingService) processEvent(e raw.Event) error {
 			ImpersonatingUser: ev.ImpersonatingUser,
 			StartTime:         time.Now(),
 		}
-		pps.metrics.InProgress.Inc()
 		next = pp.Init(ev)
 	case events.PostprocessingStepFinished:
 		if ev.UploadID == "" {
@@ -256,7 +255,6 @@ func (pps *PostprocessingService) processEvent(e raw.Event) error {
 			}
 		})
 	case events.UploadReady:
-		pps.metrics.InProgress.Dec()
 		// the upload failed - let's keep it around for a while - but mark it as finished
 		pp, err = pps.getPP(pps.store, ev.UploadID)
 		if err != nil {
