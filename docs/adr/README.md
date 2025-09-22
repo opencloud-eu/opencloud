@@ -33,7 +33,7 @@ Use an ADR to document decisions which are significant, such as:
 
 - **Location**: Store all ADRs as Markdown files in this folder.
 - **Format**: Use [Markdown](https://commonmark.org/).
-- **Naming**: Use a consistent naming convention, e.g., `0001-descriptive-title.md`.
+- **Naming**: Adhere to the naming convention, e.g., `0001-descriptive-title.md`.
 
 ### ADR Template
 
