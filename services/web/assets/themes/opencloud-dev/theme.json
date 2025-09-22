@@ -5,43 +5,6 @@
     "ios": {},
     "web": {
       "defaults": {
-        "appBanner": {},
-        "designTokens": {
-          "breakpoints": {
-            "large-default": "",
-            "large-max": "",
-            "medium-default": "",
-            "medium-max": "",
-            "small-default": "",
-            "small-max": "",
-            "xlarge": "",
-            "xsmall-max": ""
-          },
-          "fontSizes": {
-            "default": "",
-            "large": "",
-            "medium": ""
-          },
-          "sizes": {
-            "form-check-default": "",
-            "height-small": "",
-            "height-table-row": "",
-            "icon-default": "",
-            "max-height-logo": "",
-            "max-width-logo": "",
-            "tiles-default": "",
-            "tiles-resize-step": "",
-            "width-medium": ""
-          },
-          "spacing": {
-            "large": "",
-            "medium": "",
-            "small": "",
-            "xlarge": "",
-            "xsmall": "",
-            "xxlarge": ""
-          }
-        },
         "logo": "themes/opencloud-dev/assets/logo.svg",
         "favicon": "themes/opencloud-dev/assets/favicon.svg"
       },
