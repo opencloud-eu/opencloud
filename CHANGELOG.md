@@ -36,6 +36,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/onsi/ginkgo/v2 from 2.25.2 to 2.25.3 [[#1515](https://github.com/opencloud-eu/opencloud/pull/1515)]
 - build(deps): bump google.golang.org/protobuf from 1.36.8 to 1.36.9 [[#1491](https://github.com/opencloud-eu/opencloud/pull/1491)]
 - build(deps): bump go.opentelemetry.io/contrib/zpages from 0.62.0 to 0.63.0 [[#1490](https://github.com/opencloud-eu/opencloud/pull/1490)]
 - build(deps): bump golang.org/x/text from 0.28.0 to 0.29.0 [[#1484](https://github.com/opencloud-eu/opencloud/pull/1484)]
