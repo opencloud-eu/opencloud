@@ -50,9 +50,9 @@ type Spaces struct {
 	WebDavBase                      string `yaml:"webdav_base" env:"OC_URL;GRAPH_SPACES_WEBDAV_BASE" desc:"The public facing URL of WebDAV." introductionVersion:"1.0.0"`
 	WebDavPath                      string `yaml:"webdav_path" env:"GRAPH_SPACES_WEBDAV_PATH" desc:"The WebDAV sub-path for spaces." introductionVersion:"1.0.0"`
 	DefaultQuota                    string `yaml:"default_quota" env:"GRAPH_SPACES_DEFAULT_QUOTA" desc:"The default quota in bytes." introductionVersion:"1.0.0"`
-	ExtendedSpacePropertiesCacheTTL int    `yaml:"extended_space_properties_STORE_ttl" env:"GRAPH_SPACES_EXTENDED_SPACE_PROPERTIES_STORE_TTL" desc:"Max TTL in seconds for the spaces property cache." introductionVersion:"1.0.0"`
-	UsersCacheTTL                   int    `yaml:"users_STORE_ttl" env:"GRAPH_SPACES_USERS_STORE_TTL" desc:"Max TTL in seconds for the spaces users cache." introductionVersion:"1.0.0"`
-	GroupsCacheTTL                  int    `yaml:"groups_STORE_ttl" env:"GRAPH_SPACES_GROUPS_STORE_TTL" desc:"Max TTL in seconds for the spaces groups cache." introductionVersion:"1.0.0"`
+	ExtendedSpacePropertiesCacheTTL int    `yaml:"extended_space_properties_cache_ttl" env:"GRAPH_SPACES_EXTENDED_SPACE_PROPERTIES_CACHE_TTL" desc:"Max TTL in seconds for the spaces property cache." introductionVersion:"1.0.0"`
+	UsersCacheTTL                   int    `yaml:"users_cache_ttl" env:"GRAPH_SPACES_USERS_CACHE_TTL" desc:"Max TTL in seconds for the spaces users cache." introductionVersion:"1.0.0"`
+	GroupsCacheTTL                  int    `yaml:"groups_cache_ttl" env:"GRAPH_SPACES_GROUPS_CACHE_TTL" desc:"Max TTL in seconds for the spaces groups cache." introductionVersion:"1.0.0"`
 	StorageUsersAddress             string `yaml:"storage_users_address" env:"GRAPH_SPACES_STORAGE_USERS_ADDRESS" desc:"The address of the storage-users service." introductionVersion:"1.0.0"`
 	DefaultLanguage                 string `yaml:"default_language" env:"OC_DEFAULT_LANGUAGE" desc:"The default language used by services and the WebUI. If not defined, English will be used as default. See the documentation for more details." introductionVersion:"1.0.0"`
 	TranslationPath                 string `yaml:"translation_path" env:"OC_TRANSLATION_PATH;GRAPH_TRANSLATION_PATH" desc:"(optional) Set this to a path with custom translations to overwrite the builtin translations. Note that file and folder naming rules apply, see the documentation for more details." introductionVersion:"1.0.0"`
