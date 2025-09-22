@@ -37,6 +37,7 @@
 
 ### 📦️ Dependencies
 
+- [decomposed] bump-version-v3.5.0 [[#1532](https://github.com/opencloud-eu/opencloud/pull/1532)]
 - revaBump-2.38.0 [[#1530](https://github.com/opencloud-eu/opencloud/pull/1530)]
 - chore/bump-web-4.0.0 [[#1531](https://github.com/opencloud-eu/opencloud/pull/1531)]
 - build(deps): bump github.com/onsi/ginkgo/v2 from 2.25.2 to 2.25.3 [[#1515](https://github.com/opencloud-eu/opencloud/pull/1515)]
