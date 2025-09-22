@@ -1,5 +1,64 @@
 # Changelog
 
+## [3.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.5.0) - 2025-09-22
+
+### ❤️ Thanks to all contributors! ❤️
+
+@JammingBen, @ScharfViktor, @Svanvith, @aduffeck, @butonic, @fschade, @individual-it, @prashant-gurung899, @rhafer
+
+### 📚 Documentation
+
+- enhancement(docs): describe what and why ADRs [[#1518](https://github.com/opencloud-eu/opencloud/pull/1518)]
+- enhancement(docs): add branch naming styleguide and clean up the contribution guidelines [[#1520](https://github.com/opencloud-eu/opencloud/pull/1520)]
+- fix(search): readme typos and mention the lack of scalability [[#1516](https://github.com/opencloud-eu/opencloud/pull/1516)]
+- enhancement(search): simplify search docs and document opensearch backend [[#1513](https://github.com/opencloud-eu/opencloud/pull/1513)]
+- remove opencloud_full from the read.me and add opencloud-compose instead [[#1474](https://github.com/opencloud-eu/opencloud/pull/1474)]
+
+### ✅ Tests
+
+- [full-ci][tests-only] revert behat version and fix regex on test script [[#1507](https://github.com/opencloud-eu/opencloud/pull/1507)]
+- update behat version in `composer.json` [[#1501](https://github.com/opencloud-eu/opencloud/pull/1501)]
+- Apitest. file extension change [[#1482](https://github.com/opencloud-eu/opencloud/pull/1482)]
+- [full-ci] run tests with VIPS enabled [[#1420](https://github.com/opencloud-eu/opencloud/pull/1420)]
+- [full-ci] add pipeline to purge go-bin cache [[#1445](https://github.com/opencloud-eu/opencloud/pull/1445)]
+- [full-ci] purge browsers, opencloud web and playwright tracing cache [[#1403](https://github.com/opencloud-eu/opencloud/pull/1403)]
+
+### 📈 Enhancement
+
+- Insecure opensearch client [[#1509](https://github.com/opencloud-eu/opencloud/pull/1509)]
+- Allow disabling search servers [[#1495](https://github.com/opencloud-eu/opencloud/pull/1495)]
+- Tracing improvements [[#1436](https://github.com/opencloud-eu/opencloud/pull/1436)]
+
+### 🐛 Bug Fixes
+
+- fix(graph): Set the full CS3 user id in the Create Share request [[#1464](https://github.com/opencloud-eu/opencloud/pull/1464)]
+- Remove items from the index when they are purged from the trashbin [[#1347](https://github.com/opencloud-eu/opencloud/pull/1347)]
+- Do not intertwine different batch operations [[#1317](https://github.com/opencloud-eu/opencloud/pull/1317)]
+
+### 📦️ Dependencies
+
+- [decomposed] bump-version-v3.5.0 [[#1532](https://github.com/opencloud-eu/opencloud/pull/1532)]
+- revaBump-2.38.0 [[#1530](https://github.com/opencloud-eu/opencloud/pull/1530)]
+- chore/bump-web-4.0.0 [[#1531](https://github.com/opencloud-eu/opencloud/pull/1531)]
+- build(deps): bump github.com/onsi/ginkgo/v2 from 2.25.2 to 2.25.3 [[#1515](https://github.com/opencloud-eu/opencloud/pull/1515)]
+- build(deps): bump google.golang.org/protobuf from 1.36.8 to 1.36.9 [[#1491](https://github.com/opencloud-eu/opencloud/pull/1491)]
+- build(deps): bump go.opentelemetry.io/contrib/zpages from 0.62.0 to 0.63.0 [[#1490](https://github.com/opencloud-eu/opencloud/pull/1490)]
+- build(deps): bump golang.org/x/text from 0.28.0 to 0.29.0 [[#1484](https://github.com/opencloud-eu/opencloud/pull/1484)]
+- build(deps): bump github.com/spf13/afero from 1.14.0 to 1.15.0 [[#1483](https://github.com/opencloud-eu/opencloud/pull/1483)]
+- build(deps): bump github.com/prometheus/client_golang from 1.23.0 to 1.23.2 [[#1476](https://github.com/opencloud-eu/opencloud/pull/1476)]
+- build(deps): bump golang.org/x/sync from 0.16.0 to 0.17.0 [[#1477](https://github.com/opencloud-eu/opencloud/pull/1477)]
+- build(deps): bump go.etcd.io/bbolt from 1.4.2 to 1.4.3 [[#1463](https://github.com/opencloud-eu/opencloud/pull/1463)]
+- build(deps): bump github.com/go-chi/chi/v5 from 5.2.2 to 5.2.3 [[#1460](https://github.com/opencloud-eu/opencloud/pull/1460)]
+- build(deps): bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.27.1 to 2.27.2 [[#1461](https://github.com/opencloud-eu/opencloud/pull/1461)]
+- build(deps): bump github.com/spf13/cobra from 1.9.1 to 1.10.1 [[#1459](https://github.com/opencloud-eu/opencloud/pull/1459)]
+- build(deps): bump github.com/riandyrn/otelchi from 0.12.1 to 0.12.2 [[#1456](https://github.com/opencloud-eu/opencloud/pull/1456)]
+- build(deps): bump github.com/beevik/etree from 1.5.1 to 1.6.0 [[#1453](https://github.com/opencloud-eu/opencloud/pull/1453)]
+- build(deps): bump github.com/blevesearch/bleve/v2 from 2.5.2 to 2.5.3 [[#1450](https://github.com/opencloud-eu/opencloud/pull/1450)]
+- build(deps): bump go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp from 0.62.0 to 0.63.0 [[#1448](https://github.com/opencloud-eu/opencloud/pull/1448)]
+- build(deps): bump go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc from 0.62.0 to 0.63.0 [[#1446](https://github.com/opencloud-eu/opencloud/pull/1446)]
+- build(deps): bump github.com/nats-io/nats-server/v2 from 2.11.7 to 2.11.8 [[#1410](https://github.com/opencloud-eu/opencloud/pull/1410)]
+- build(deps): bump github.com/gabriel-vasile/mimetype from 1.4.9 to 1.4.10 [[#1413](https://github.com/opencloud-eu/opencloud/pull/1413)]
+
 ## [3.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.4.0) - 2025-09-02
 
 ### ❤️ Thanks to all contributors! ❤️
