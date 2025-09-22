@@ -2,6 +2,14 @@
 
 ## [3.5.1](https://github.com/opencloud-eu/opencloud/releases/tag/v3.5.1) - 2025-09-22
 
+### ❤️ Thanks to all contributors! ❤️
+
+@butonic
+
+### 🐛 Bug Fixes
+
+- use correct endpoint in nats check [[#1533](https://github.com/opencloud-eu/opencloud/pull/1533)]
+
 ### 📦️ Dependencies
 
 - build(deps): bump google.golang.org/grpc from 1.75.0 to 1.75.1 [[#1534](https://github.com/opencloud-eu/opencloud/pull/1534)]
