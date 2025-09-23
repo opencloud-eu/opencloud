@@ -262,8 +262,8 @@ github.com/crewjam/httperr v0.2.0 h1:b2BfXR8U3AlIHwNeFFvZ+BV1LFvKLlzMjzaTnZMybNo
 github.com/crewjam/httperr v0.2.0/go.mod h1:Jlz+Sg/XqBQhyMjdDiC+GNNRzZTD7x39Gu3pglZ5oH4=
 github.com/crewjam/saml v0.4.14 h1:g9FBNx62osKusnFzs3QTN5L9CVA/Egfgm+stJShzw/c=
 github.com/crewjam/saml v0.4.14/go.mod h1:UVSZCf18jJkk6GpWNVqcyQJMD5HsRugBPf4I1nl2mME=
-github.com/cs3org/go-cs3apis v0.0.0-20250725064958-2d9caef4db2a h1:4IvTz3MUno/nlgngdyZhkyxzJR/w7+H+2ZXoZQKidgg=
-github.com/cs3org/go-cs3apis v0.0.0-20250725064958-2d9caef4db2a/go.mod h1:DedpcqXl193qF/08Y04IO0PpxyyMu8+GrkD6kWK2MEQ=
+github.com/cs3org/go-cs3apis v0.0.0-20250908152307-4ca807afe54e h1:fC/BWMVWNFlSbzvSp2xTaH0qpJiq7ScRrOsCzpgi1xI=
+github.com/cs3org/go-cs3apis v0.0.0-20250908152307-4ca807afe54e/go.mod h1:DedpcqXl193qF/08Y04IO0PpxyyMu8+GrkD6kWK2MEQ=
 github.com/cyberdelia/templates v0.0.0-20141128023046-ca7fffd4298c/go.mod h1:GyV+0YP4qX0UQ7r2MoYZ+AvYDp12OF5yg4q8rGnyNh4=
 github.com/cyphar/filepath-securejoin v0.3.6 h1:4d9N5ykBnSp5Xn2JkhocYDkOpURL/18CYMpo6xB9uWM=
 github.com/cyphar/filepath-securejoin v0.3.6/go.mod h1:Sdj7gXlvMcPZsbhwhQ33GguGLDGQL7h7bg04C/+u9jI=
@@ -916,8 +916,8 @@ github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-202505121527
 github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a/go.mod h1:pjcozWijkNPbEtX5SIQaxEW/h8VAVZYTLx+70bmB3LY=
 github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76 h1:vD/EdfDUrv4omSFjrinT8Mvf+8D7f9g4vgQ2oiDrVUI=
 github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76/go.mod h1:pzatilMEHZFT3qV7C/X3MqOa3NlRQuYhlRhZTL+hN6Q=
-github.com/opencloud-eu/reva/v2 v2.38.0 h1:cm2wLg7MvNmsgCc0HVbVIn8hxerMrFbJnPqgHigJh+A=
-github.com/opencloud-eu/reva/v2 v2.38.0/go.mod h1:gmWfwvwvMIcI5gkhwiJJw9F3h6TMCNi9qHU80RLxgg0=
+github.com/opencloud-eu/reva/v2 v2.38.1-0.20250922152322-476bb1f0070a h1:LwqYIxoBH26sWdk2xHzgEdWlqVnQJ2lC8MuwBMjkuC0=
+github.com/opencloud-eu/reva/v2 v2.38.1-0.20250922152322-476bb1f0070a/go.mod h1:jykpTTQ0QWw0EzLop+6neuKCPccE0rj2asOwzls283U=
 github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=
 github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3IKzErnv2BNG4W4MAM=
 github.com/opencontainers/image-spec v1.1.1 h1:y0fUlFfIZhPF1W537XOLg0/fcx6zcHCJwooC2xJA040=

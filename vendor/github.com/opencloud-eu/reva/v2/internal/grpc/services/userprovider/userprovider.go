@@ -185,7 +185,7 @@ func (s *service) GetUserByClaim(ctx context.Context, req *userpb.GetUserByClaim
 func (s *service) FindUsers(ctx context.Context, req *userpb.FindUsersRequest) (*userpb.FindUsersResponse, error) {
 	currentUser := revactx.ContextMustGetUser(ctx)
 
-	users, err := s.usermgr.FindUsers(ctx, req.Filter, currentUser.GetId().GetTenantId(), req.SkipFetchingUserGroups)
+	users, err := s.usermgr.FindUsers(ctx, req.Query, currentUser.GetId().GetTenantId(), req.SkipFetchingUserGroups)
 	if err != nil {
 		res := &userpb.FindUsersResponse{
 			Status: status.NewInternal(ctx, "error finding users"),

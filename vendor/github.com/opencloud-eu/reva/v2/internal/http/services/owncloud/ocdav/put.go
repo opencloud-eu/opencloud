@@ -78,6 +78,7 @@ func handleMacOSFinder(w http.ResponseWriter, r *http.Request) error {
 		w.WriteHeader(http.StatusBadRequest)
 		return err
 	}
+	r.Header.Set(net.HeaderContentLength, expected)
 	r.ContentLength = expectedInt
 	return nil
 }

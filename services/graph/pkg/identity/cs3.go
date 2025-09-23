@@ -111,7 +111,7 @@ func (i *CS3) GetUsers(ctx context.Context, oreq *godata.GoDataRequest) ([]*libr
 	res, err := gatewayClient.FindUsers(ctx, &cs3user.FindUsersRequest{
 		// FIXME presence match is currently not implemented, an empty search currently leads to
 		// Unwilling To Perform": Search Error: error parsing filter: (&(objectclass=posixAccount)(|(cn=*)(displayname=*)(mail=*))), error: Present filter match for cn not implemented
-		Filter: search,
+		Query: search,
 	})
 	switch {
 	case err != nil:

@@ -307,7 +307,7 @@ github.com/crewjam/saml
 github.com/crewjam/saml/logger
 github.com/crewjam/saml/samlsp
 github.com/crewjam/saml/xmlenc
-# github.com/cs3org/go-cs3apis v0.0.0-20250725064958-2d9caef4db2a
+# github.com/cs3org/go-cs3apis v0.0.0-20250908152307-4ca807afe54e
 ## explicit; go 1.21
 github.com/cs3org/go-cs3apis/cs3/app/provider/v1beta1
 github.com/cs3org/go-cs3apis/cs3/app/registry/v1beta1
@@ -1274,7 +1274,7 @@ github.com/open-policy-agent/opa/v1/version
 # github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76
 ## explicit; go 1.18
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v2 v2.38.0
+# github.com/opencloud-eu/reva/v2 v2.38.1-0.20250922152322-476bb1f0070a
 ## explicit; go 1.24.1
 github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v2/cmd/revad/runtime
