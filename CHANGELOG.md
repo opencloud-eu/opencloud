@@ -1,13 +1,14 @@
 # Changelog
 
-## [3.5.1](https://github.com/opencloud-eu/opencloud/releases/tag/v3.5.1) - 2025-09-22
+## [3.5.1](https://github.com/opencloud-eu/opencloud/releases/tag/v3.5.1) - 2025-09-23
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@butonic
+@butonic, @rhafer
 
 ### 🐛 Bug Fixes
 
+- Bump reva and cs3apis [[#1538](https://github.com/opencloud-eu/opencloud/pull/1538)]
 - use correct endpoint in nats check [[#1533](https://github.com/opencloud-eu/opencloud/pull/1533)]
 
 ### 📦️ Dependencies
