@@ -13,6 +13,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/open-policy-agent/opa from 1.6.0 to 1.8.0 [[#1510](https://github.com/opencloud-eu/opencloud/pull/1510)]
 - build(deps): bump google.golang.org/grpc from 1.75.0 to 1.75.1 [[#1534](https://github.com/opencloud-eu/opencloud/pull/1534)]
 
 ## [3.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.5.0) - 2025-09-22
