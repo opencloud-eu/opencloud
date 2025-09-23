@@ -15,10 +15,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/server/http"
-	microstore "go-micro.dev/v4/store"
-
-	"github.com/opencloud-eu/reva/v2/pkg/store"
-
 	"github.com/urfave/cli/v2"
 )
 
@@ -50,18 +46,9 @@ func Server(cfg *config.Config) *cli.Command {
 
 			gr := runner.NewGroup()
 			{
-				persistence := store.Create(
-					store.Store(cfg.Store.Store),
-					microstore.Nodes(cfg.Store.Nodes...),
-					microstore.Database(cfg.Store.Database),
-					microstore.Table(cfg.Store.Table),
-					store.Authentication(cfg.Store.AuthUsername, cfg.Store.AuthPassword),
-				)
-
 				server, err := http.Server(
 					http.Logger(logger),
 					http.Context(ctx),
-					http.Store(persistence),
 					http.Config(cfg),
 					http.Metrics(mtrcs),
 					http.TraceProvider(traceProvider),

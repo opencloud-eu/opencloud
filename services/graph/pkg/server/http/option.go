@@ -7,7 +7,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
 	"github.com/urfave/cli/v2"
-	microstore "go-micro.dev/v4/store"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -23,7 +22,6 @@ type Options struct {
 	Flags         []cli.Flag
 	Namespace     string
 	TraceProvider trace.TracerProvider
-	Store         microstore.Store
 }
 
 // newOptions initializes the available default options.
@@ -76,13 +74,6 @@ func Flags(val []cli.Flag) Option {
 func Namespace(val string) Option {
 	return func(o *Options) {
 		o.Namespace = val
-	}
-}
-
-// Store configures the store to use
-func Store(store microstore.Store) Option {
-	return func(o *Options) {
-		o.Store = store
 	}
 }
 
