@@ -42,6 +42,7 @@ type Notifications struct {
 
 // SMTP combines the smtp configuration options.
 type SMTP struct {
+	Helo           string `yaml:"smtp_helo" env:"NOTIFICATIONS_SMTP_HELO" desc:"The HELO string to use when connecting to the SMTP server." introductionVersion:"2.2.0"`
 	Host           string `yaml:"smtp_host" env:"NOTIFICATIONS_SMTP_HOST" desc:"SMTP host to connect to." introductionVersion:"1.0.0"`
 	Port           int    `yaml:"smtp_port" env:"NOTIFICATIONS_SMTP_PORT" desc:"Port of the SMTP host to connect to." introductionVersion:"1.0.0"`
 	Sender         string `yaml:"smtp_sender" env:"NOTIFICATIONS_SMTP_SENDER" desc:"Sender address of emails that will be sent (e.g. 'OpenCloud <noreply@example.com>'." introductionVersion:"1.0.0"`
