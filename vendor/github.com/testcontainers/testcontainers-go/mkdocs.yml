@@ -80,6 +80,7 @@ nav:
         - modules/couchbase.md
         - modules/databend.md
         - modules/dind.md
+        - modules/dockermcpgateway.md
         - modules/dockermodelrunner.md
         - modules/dolt.md
         - modules/dynamodb.md
@@ -99,10 +100,12 @@ nav:
         - modules/milvus.md
         - modules/minio.md
         - modules/mockserver.md
+        - modules/mongodb-atlaslocal.md
         - modules/mongodb.md
         - modules/mssql.md
         - modules/mysql.md
         - modules/nats.md
+        - modules/nebulagraph.md
         - modules/neo4j.md
         - modules/ollama.md
         - modules/openfga.md
@@ -118,6 +121,7 @@ nav:
         - modules/registry.md
         - modules/scylladb.md
         - modules/socat.md
+        - modules/solace.md
         - modules/surrealdb.md
         - modules/toxiproxy.md
         - modules/valkey.md
@@ -149,4 +153,4 @@ nav:
     - Getting help: getting_help.md
 edit_uri: edit/main/docs/
 extra:
-    latest_version: v0.38.0
+    latest_version: v0.39.0

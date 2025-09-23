@@ -298,12 +298,14 @@ func testcontainersHostFromProperties(_ context.Context) (string, error) {
 	cfg := config.Read()
 	testcontainersHost := cfg.TestcontainersHost
 	if testcontainersHost != "" {
-		parsed, err := parseURL(testcontainersHost)
+		// Validate the URL format
+		_, err := parseURL(testcontainersHost)
 		if err != nil {
 			return "", err
 		}
 
-		return parsed, nil
+		// Return the original URL to preserve schema for Docker client
+		return testcontainersHost, nil
 	}
 
 	return "", ErrTestcontainersHostNotSetInProperties

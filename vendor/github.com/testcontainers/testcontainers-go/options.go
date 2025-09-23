@@ -537,3 +537,12 @@ func WithFiles(files ...ContainerFile) CustomizeRequestOption {
 		return nil
 	}
 }
+
+// WithProvider sets the provider type for a container
+func WithProvider(provider ProviderType) CustomizeRequestOption {
+	return func(req *GenericContainerRequest) error {
+		req.ProviderType = provider
+
+		return nil
+	}
+}
