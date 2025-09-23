@@ -12,7 +12,7 @@ $(GOBIN)/gotestsum:
 	$(call go_install,gotest.tools/gotestsum@latest)
 
 $(GOBIN)/mockery:
-	$(call go_install,github.com/vektra/mockery/v2@v2.45)
+	$(call go_install,github.com/vektra/mockery/v2@v2.53.4)
 
 .PHONY: install
 install: $(GOBIN)/golangci-lint $(GOBIN)/gotestsum $(GOBIN)/mockery
