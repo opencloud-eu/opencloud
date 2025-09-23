@@ -14,6 +14,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/open-policy-agent/opa/internal/semver"
 	"github.com/open-policy-agent/opa/internal/wasm/sdk/opa/capabilities"
@@ -38,14 +39,15 @@ type VersionIndex struct {
 //go:embed version_index.json
 var versionIndexBs []byte
 
-var minVersionIndex = func() VersionIndex {
+// init only on demand, as JSON unmarshalling comes with some cost, and contributes
+// noise to things like pprof stats
+var minVersionIndexOnce = sync.OnceValue(func() VersionIndex {
 	var vi VersionIndex
-	err := json.Unmarshal(versionIndexBs, &vi)
-	if err != nil {
+	if err := json.Unmarshal(versionIndexBs, &vi); err != nil {
 		panic(err)
 	}
 	return vi
-}()
+})
 
 // In the compiler, we used this to check that we're OK working with ref heads.
 // If this isn't present, we'll fail. This is to ensure that older versions of
@@ -56,6 +58,24 @@ const FeatureRefHeads = "rule_head_refs"
 const FeatureRegoV1 = "rego_v1"
 const FeatureRegoV1Import = "rego_v1_import"
 const FeatureKeywordsInRefs = "keywords_in_refs"
+
+// Features carries the default features supported by this version of OPA.
+// Use RegisterFeatures to add to them.
+var Features = []string{
+	FeatureRegoV1,
+	FeatureKeywordsInRefs,
+}
+
+// RegisterFeatures lets applications wrapping OPA register features, to be
+// included in `ast.CapabilitiesForThisVersion()`.
+func RegisterFeatures(fs ...string) {
+	for i := range fs {
+		if slices.Contains(Features, fs[i]) {
+			continue
+		}
+		Features = append(Features, fs[i])
+	}
+}
 
 // Capabilities defines a structure containing data that describes the capabilities
 // or features supported by a particular version of OPA.
@@ -141,10 +161,8 @@ func CapabilitiesForThisVersion(opts ...CapabilitiesOption) *Capabilities {
 			f.FutureKeywords = append(f.FutureKeywords, kw)
 		}
 
-		f.Features = []string{
-			FeatureRegoV1,
-			FeatureKeywordsInRefs,
-		}
+		f.Features = make([]string, len(Features))
+		copy(f.Features, Features)
 	}
 
 	sort.Strings(f.FutureKeywords)
@@ -208,13 +226,14 @@ func LoadCapabilitiesVersions() ([]string, error) {
 // MinimumCompatibleVersion returns the minimum compatible OPA version based on
 // the built-ins, features, and keywords in c.
 func (c *Capabilities) MinimumCompatibleVersion() (string, bool) {
-
 	var maxVersion semver.Version
 
 	// this is the oldest OPA release that includes capabilities
 	if err := maxVersion.Set("0.17.0"); err != nil {
 		panic("unreachable")
 	}
+
+	minVersionIndex := minVersionIndexOnce()
 
 	for _, bi := range c.Builtins {
 		v, ok := minVersionIndex.Builtins[bi.Name]

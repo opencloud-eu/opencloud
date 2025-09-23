@@ -177,7 +177,8 @@ type StatusListener func(status map[string]*Status)
 // Manager implements lifecycle management of plugins and gives plugins access
 // to engine-wide components like storage.
 type Manager struct {
-	Store  storage.Store
+	Store storage.Store
+	// Config values should be accessed from the thread-safe GetConfig method.
 	Config *config.Config
 	Info   *ast.Term
 	ID     string
@@ -215,17 +216,25 @@ type Manager struct {
 	bootstrapConfigLabels        map[string]string
 	hooks                        hooks.Hooks
 	enableTelemetry              bool
-	reporter                     *report.Reporter
+	reporter                     report.Reporter
 	opaReportNotifyCh            chan struct{}
 	stop                         chan chan struct{}
 	parserOptions                ast.ParserOptions
+	extraRoutes                  map[string]ExtraRoute
+	extraMiddlewares             []func(http.Handler) http.Handler
+	extraAuthorizerRoutes        []func(string, []any) bool
+	bundleActivatorPlugin        string
 }
 
-type managerContextKey string
-type managerWasmResolverKey string
+type (
+	managerContextKey      string
+	managerWasmResolverKey string
+)
 
-const managerCompilerContextKey = managerContextKey("compiler")
-const managerWasmResolverContextKey = managerWasmResolverKey("wasmResolvers")
+const (
+	managerCompilerContextKey     = managerContextKey("compiler")
+	managerWasmResolverContextKey = managerWasmResolverKey("wasmResolvers")
+)
 
 // SetCompilerOnContext puts the compiler into the storage context. Calling this
 // function before committing updated policies to storage allows the manager to
@@ -272,7 +281,6 @@ func validateTriggerMode(mode TriggerMode) error {
 
 // ValidateAndInjectDefaultsForTriggerMode validates the trigger mode and injects default values
 func ValidateAndInjectDefaultsForTriggerMode(a, b *TriggerMode) (*TriggerMode, error) {
-
 	if a == nil && b != nil {
 		err := validateTriggerMode(*b)
 		if err != nil {
@@ -425,9 +433,15 @@ func WithTelemetryGatherers(gs map[string]report.Gatherer) func(*Manager) {
 	}
 }
 
+// WithBundleActivatorPlugin sets the name of the activator plugin to load bundles into the store
+func WithBundleActivatorPlugin(bundleActivatorPlugin string) func(*Manager) {
+	return func(m *Manager) {
+		m.bundleActivatorPlugin = bundleActivatorPlugin
+	}
+}
+
 // New creates a new Manager using config.
 func New(raw []byte, id string, store storage.Store, opts ...func(*Manager)) (*Manager, error) {
-
 	parsedConfig, err := config.ParseConfig(raw, id)
 	if err != nil {
 		return nil, err
@@ -442,6 +456,7 @@ func New(raw []byte, id string, store storage.Store, opts ...func(*Manager)) (*M
 		maxErrors:             -1,
 		serverInitialized:     make(chan struct{}),
 		bootstrapConfigLabels: parsedConfig.Labels,
+		extraRoutes:           map[string]ExtraRoute{},
 	}
 
 	for _, f := range opts {
@@ -493,7 +508,7 @@ func New(raw []byte, id string, store storage.Store, opts ...func(*Manager)) (*M
 	}
 
 	if m.enableTelemetry {
-		reporter, err := report.New(id, report.Options{Logger: m.logger})
+		reporter, err := report.New(report.Options{Logger: m.logger})
 		if err != nil {
 			return nil, err
 		}
@@ -519,7 +534,6 @@ func New(raw []byte, id string, store storage.Store, opts ...func(*Manager)) (*M
 // Init returns an error if the manager could not initialize itself. Init() should
 // be called before Start(). Init() is idempotent.
 func (m *Manager) Init(ctx context.Context) error {
-
 	if m.initialized {
 		return nil
 	}
@@ -536,7 +550,6 @@ func (m *Manager) Init(ctx context.Context) error {
 	}
 
 	err := storage.Txn(ctx, m.Store, params, func(txn storage.Transaction) error {
-
 		result, err := initload.InsertAndCompile(ctx, initload.InsertAndCompileOptions{
 			Store:                 m.Store,
 			Txn:                   txn,
@@ -545,8 +558,8 @@ func (m *Manager) Init(ctx context.Context) error {
 			MaxErrors:             m.maxErrors,
 			EnablePrintStatements: m.enablePrintStatements,
 			ParserOptions:         m.parserOptions,
+			BundleActivatorPlugin: m.bundleActivatorPlugin,
 		})
-
 		if err != nil {
 			return err
 		}
@@ -562,7 +575,6 @@ func (m *Manager) Init(ctx context.Context) error {
 		_, err = m.Store.Register(ctx, txn, storage.TriggerConfig{OnCommit: m.onCommit})
 		return err
 	})
-
 	if err != nil {
 		if m.stop != nil {
 			done := make(chan struct{})
@@ -581,14 +593,24 @@ func (m *Manager) Init(ctx context.Context) error {
 func (m *Manager) Labels() map[string]string {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
-	return m.Config.Labels
+
+	return maps.Clone(m.Config.Labels)
 }
 
 // InterQueryBuiltinCacheConfig returns the configuration for the inter-query caches.
 func (m *Manager) InterQueryBuiltinCacheConfig() *cache.Config {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
-	return m.interQueryBuiltinCacheConfig
+
+	return m.interQueryBuiltinCacheConfig.Clone()
+}
+
+// GetConfig returns a deep copy of the manager's configuration.
+func (m *Manager) GetConfig() *config.Config {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
+	return m.Config.Clone()
 }
 
 // Register adds a plugin to the manager. When the manager is started, all of
@@ -653,6 +675,59 @@ func (m *Manager) setCompiler(compiler *ast.Compiler) {
 	m.compiler = compiler
 }
 
+type ExtraRoute struct {
+	PromName    string // name is for prometheus metrics
+	HandlerFunc http.HandlerFunc
+}
+
+func (m *Manager) ExtraRoutes() map[string]ExtraRoute {
+	return m.extraRoutes
+}
+
+func (m *Manager) ExtraMiddlewares() []func(http.Handler) http.Handler {
+	return m.extraMiddlewares
+}
+
+func (m *Manager) ExtraAuthorizerRoutes() []func(string, []any) bool {
+	return m.extraAuthorizerRoutes
+}
+
+// ExtraRoute registers an extra route to be served by the HTTP
+// server later. Using this instead of directly registering routes
+// with GetRouter() lets the server apply its handler wrapping for
+// Prometheus and OpenTelemetry.
+// Caution: This cannot be used to dynamically register and un-
+// register HTTP handlers. It's meant as a late-stage set up helper,
+// to be called from a plugin's init methods.
+func (m *Manager) ExtraRoute(path, name string, hf http.HandlerFunc) {
+	if _, ok := m.extraRoutes[path]; ok {
+		panic("extra route already registered: " + path)
+	}
+	m.extraRoutes[path] = ExtraRoute{
+		PromName:    name,
+		HandlerFunc: hf,
+	}
+}
+
+// ExtraMiddleware registers extra middlewares (`func(http.Handler) http.Handler`)
+// to be injected into the HTTP handler chain in the server later.
+// Caution: This cannot be used to dynamically register and un-
+// register middlewares. It's meant as a late-stage set up helper,
+// to be called from a plugin's init methods.
+func (m *Manager) ExtraMiddleware(mw ...func(http.Handler) http.Handler) {
+	m.extraMiddlewares = append(m.extraMiddlewares, mw...)
+}
+
+// ExtraAuthorizerRoute registers an extra URL path validator function for use
+// in the server authorizer. These functions designate specific methods and URL
+// prefixes or paths where the authorizer should allow request body parsing.
+// Caution: This cannot be used to dynamically register and un-
+// register path validator functions. It's meant as a late-stage
+// set up helper, to be called from a plugin's init methods.
+func (m *Manager) ExtraAuthorizerRoute(validatorFunc func(string, []any) bool) {
+	m.extraAuthorizerRoutes = append(m.extraAuthorizerRoutes, validatorFunc)
+}
+
 // GetRouter returns the managers router if set
 func (m *Manager) GetRouter() *http.ServeMux {
 	m.mtx.Lock()
@@ -683,7 +758,6 @@ func (m *Manager) setWasmResolvers(rs []*wasm.Resolver) {
 
 // Start starts the manager. Init() should be called once before Start().
 func (m *Manager) Start(ctx context.Context) error {
-
 	if m == nil {
 		return nil
 	}
@@ -765,7 +839,9 @@ func (m *Manager) DefaultServiceOpts(config *config.Config) cfg.ServiceOptions {
 }
 
 // Reconfigure updates the configuration on the manager.
-func (m *Manager) Reconfigure(config *config.Config) error {
+func (m *Manager) Reconfigure(newCfg *config.Config) error {
+	config := newCfg.Clone()
+
 	opts := m.DefaultServiceOpts(config)
 
 	keys, err := keys.ParseKeysConfig(config.Keys)
@@ -796,6 +872,7 @@ func (m *Manager) Reconfigure(config *config.Config) error {
 
 	// don't erase persistence directory
 	if config.PersistenceDirectory == nil {
+		// update is ok since we have the lock
 		config.PersistenceDirectory = m.Config.PersistenceDirectory
 	}
 
@@ -846,7 +923,6 @@ func (m *Manager) UnregisterPluginStatusListener(name string) {
 // listeners will be called with a copy of the new state of all
 // plugins.
 func (m *Manager) UpdatePluginStatus(pluginName string, status *Status) {
-
 	var toNotify map[string]StatusListener
 	var statuses map[string]*Status
 
@@ -880,7 +956,6 @@ func (m *Manager) copyPluginStatus() map[string]*Status {
 }
 
 func (m *Manager) onCommit(ctx context.Context, txn storage.Transaction, event storage.TriggerEvent) {
-
 	compiler := GetCompilerOnContext(event.Context)
 
 	// If the context does not contain the compiler fallback to loading the
@@ -908,7 +983,6 @@ func (m *Manager) onCommit(ctx context.Context, txn storage.Transaction, event s
 	resolvers := getWasmResolversOnContext(event.Context)
 	if resolvers != nil {
 		m.setWasmResolvers(resolvers)
-
 	} else if event.DataChanged() {
 		if requiresWasmResolverReload(event) {
 			resolvers, err := bundleUtils.LoadWasmResolversFromStore(ctx, m.Store, txn, nil)
@@ -991,7 +1065,19 @@ func (m *Manager) updateWasmResolversData(ctx context.Context, event storage.Tri
 func (m *Manager) PublicKeys() map[string]*keys.Config {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
-	return m.keys
+
+	if m.keys == nil {
+		return make(map[string]*keys.Config)
+	}
+
+	result := make(map[string]*keys.Config, len(m.keys))
+	for k, v := range m.keys {
+		if v != nil {
+			copied := *v
+			result[k] = &copied
+		}
+	}
+	return result
 }
 
 // Client returns a client for communicating with a remote service.

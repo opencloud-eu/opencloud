@@ -277,22 +277,22 @@ func AstWithOpts(x any, opts Opts) ([]byte, error) {
 		}
 		err := w.writeModule(x)
 		if err != nil {
-			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, err.Error()))
+			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, "%s", err.Error()))
 		}
 	case *ast.Package:
 		_, err := w.writePackage(x, nil)
 		if err != nil {
-			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, err.Error()))
+			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, "%s", err.Error()))
 		}
 	case *ast.Import:
 		_, err := w.writeImports([]*ast.Import{x}, nil)
 		if err != nil {
-			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, err.Error()))
+			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, "%s", err.Error()))
 		}
 	case *ast.Rule:
 		_, err := w.writeRule(x, false /* isElse */, nil)
 		if err != nil {
-			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, err.Error()))
+			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, "%s", err.Error()))
 		}
 	case *ast.Head:
 		_, err := w.writeHead(x,
@@ -300,7 +300,7 @@ func AstWithOpts(x any, opts Opts) ([]byte, error) {
 			false, // isExpandedConst
 			nil)
 		if err != nil {
-			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, err.Error()))
+			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, "%s", err.Error()))
 		}
 	case ast.Body:
 		_, err := w.writeBody(x, nil)
@@ -310,27 +310,27 @@ func AstWithOpts(x any, opts Opts) ([]byte, error) {
 	case *ast.Expr:
 		_, err := w.writeExpr(x, nil)
 		if err != nil {
-			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, err.Error()))
+			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, "%s", err.Error()))
 		}
 	case *ast.With:
 		_, err := w.writeWith(x, nil, false)
 		if err != nil {
-			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, err.Error()))
+			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, "%s", err.Error()))
 		}
 	case *ast.Term:
 		_, err := w.writeTerm(x, nil)
 		if err != nil {
-			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, err.Error()))
+			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, "%s", err.Error()))
 		}
 	case ast.Value:
 		_, err := w.writeTerm(&ast.Term{Value: x, Location: &ast.Location{}}, nil)
 		if err != nil {
-			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, err.Error()))
+			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, "%s", err.Error()))
 		}
 	case *ast.Comment:
 		err := w.writeComments([]*ast.Comment{x})
 		if err != nil {
-			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, err.Error()))
+			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, "%s", err.Error()))
 		}
 	default:
 		return nil, fmt.Errorf("not an ast element: %v", x)
@@ -418,7 +418,7 @@ func (w *writer) writeModule(module *ast.Module) error {
 	sort.Slice(comments, func(i, j int) bool {
 		l, err := locLess(comments[i], comments[j])
 		if err != nil {
-			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, err.Error()))
+			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, "%s", err.Error()))
 		}
 		return l
 	})
@@ -426,7 +426,7 @@ func (w *writer) writeModule(module *ast.Module) error {
 	sort.Slice(others, func(i, j int) bool {
 		l, err := locLess(others[i], others[j])
 		if err != nil {
-			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, err.Error()))
+			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, "%s", err.Error()))
 		}
 		return l
 	})
@@ -524,12 +524,12 @@ func (w *writer) writeRules(rules []*ast.Rule, comments []*ast.Comment) ([]*ast.
 		var err error
 		comments, err = w.insertComments(comments, rule.Location)
 		if err != nil && !errors.As(err, &unexpectedCommentError{}) {
-			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, err.Error()))
+			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, "%s", err.Error()))
 		}
 
 		comments, err = w.writeRule(rule, false, comments)
 		if err != nil && !errors.As(err, &unexpectedCommentError{}) {
-			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, err.Error()))
+			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, "%s", err.Error()))
 		}
 
 		if i < len(rules)-1 && w.groupableOneLiner(rule) {
@@ -874,7 +874,7 @@ func (w *writer) writeBody(body ast.Body, comments []*ast.Comment) ([]*ast.Comme
 
 		comments, err = w.writeExpr(expr, comments)
 		if err != nil && !errors.As(err, &unexpectedCommentError{}) {
-			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, err.Error()))
+			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, "%s", err.Error()))
 		}
 		w.endLine()
 	}
@@ -1563,7 +1563,7 @@ func (w *writer) writeComprehensionBody(openChar, closeChar byte, body ast.Body,
 		defer w.startLine()
 		defer func() {
 			if err := w.down(); err != nil {
-				w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, err.Error()))
+				w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, "%s", err.Error()))
 			}
 		}()
 
@@ -1627,7 +1627,7 @@ func (w *writer) writeImports(imports []*ast.Import, comments []*ast.Comment) ([
 func (w *writer) writeImport(imp *ast.Import) error {
 	path := imp.Path.Value.(ast.Ref)
 
-	buf := []string{"import"}
+	w.write("import ")
 
 	if _, ok := future.WhichFutureKeyword(imp); ok {
 		// We don't want to wrap future.keywords imports in parens, so we create a new writer that doesn't
@@ -1638,15 +1638,17 @@ func (w *writer) writeImport(imp *ast.Import) error {
 		if err != nil {
 			return err
 		}
-		buf = append(buf, w2.buf.String())
+		w.write(w2.buf.String())
 	} else {
-		buf = append(buf, path.String())
+		_, err := w.writeRef(path, nil)
+		if err != nil {
+			return err
+		}
 	}
 
 	if len(imp.Alias) > 0 {
-		buf = append(buf, "as "+imp.Alias.String())
+		w.write(" as " + imp.Alias.String())
 	}
-	w.write(strings.Join(buf, " "))
 
 	return nil
 }
@@ -1798,7 +1800,7 @@ func (w *writer) groupIterable(elements []any, last *ast.Location) ([][]any, err
 	slices.SortFunc(elements, func(i, j any) int {
 		l, err := locCmp(i, j)
 		if err != nil {
-			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, err.Error()))
+			w.errs = append(w.errs, ast.NewError(ast.FormatErr, &ast.Location{}, "%s", err.Error()))
 		}
 		return l
 	})
