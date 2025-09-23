@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -23,7 +24,6 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/store"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"github.com/opencloud-eu/reva/v2/pkg/utils/ldap"
-	"github.com/pkg/errors"
 
 	ocldap "github.com/opencloud-eu/opencloud/pkg/ldap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -171,14 +171,15 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 	kv, err := js.KeyValue(options.Config.Store.Database)
 	if err != nil {
 		if !errors.Is(err, nats.ErrBucketNotFound) {
-			return Graph{}, errors.Wrapf(err, "Failed to get bucket (%s)", options.Config.Store.Database)
+			return Graph{}, fmt.Errorf("Failed to get bucket (%s): %w", options.Config.Store.Database, err)
+
 		}
 
 		kv, err = js.CreateKeyValue(&nats.KeyValueConfig{
 			Bucket: options.Config.Store.Database,
 		})
 		if err != nil {
-			return Graph{}, errors.Wrapf(err, "Failed to create bucket (%s)", options.Config.Store.Database)
+			return Graph{}, fmt.Errorf("Failed to create bucket (%s): %w", options.Config.Store.Database, err)
 		}
 	}
 	if err != nil {
