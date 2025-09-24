@@ -8,6 +8,7 @@
 
 ### ✅ Tests
 
+- apiTest-flaky: sync share before checking [[#1550](https://github.com/opencloud-eu/opencloud/pull/1550)]
 - [decomposed] use Alpine for opencloud starting [[#1547](https://github.com/opencloud-eu/opencloud/pull/1547)]
 
 ### 🐛 Bug Fixes
