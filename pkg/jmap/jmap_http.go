@@ -3,14 +3,17 @@ package jmap
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 
+	"github.com/gorilla/websocket"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 )
@@ -319,4 +322,154 @@ func (h *HttpJmapClient) DownloadBinary(ctx context.Context, logger *log.Logger,
 		ContentDisposition: res.Header.Get("Content-Disposition"),
 		CacheControl:       res.Header.Get("Cache-Control"),
 	}, nil
+}
+
+type WebSocketPushEnable struct {
+	// This MUST be the string "WebSocketPushEnable".
+	Type string `json:"@type"`
+
+	// A list of data type names (e.g., "Mailbox" or "Email") that the client is interested in.
+	//
+	// A StateChange notification will only be sent if the data for one of these types changes.
+	// Other types are omitted from the TypeState object.
+	//
+	// If null, changes will be pushed for all supported data types.
+	DataTypes *[]string `json:"dataTypes"`
+
+	// The last "pushState" token that the client received from the server.
+
+	// Upon receipt of a "pushState" token, the server SHOULD immediately send all changes since that state token.
+	PushState string `json:"pushState,omitempty"`
+}
+
+type WebSocketPushDisable struct {
+	// This MUST be the string "WebSocketPushDisable".
+	Type string `json:"@type"`
+}
+
+type HttpWsClientFactory struct {
+	dialer         *websocket.Dialer
+	masterUser     string
+	masterPassword string
+}
+
+var _ WsClientFactory = &HttpWsClientFactory{}
+
+func NewHttpWsClientFactory(dialer *websocket.Dialer, masterUser string, masterPassword string, logger *log.Logger) (*HttpWsClientFactory, error) {
+	/*
+		d := websocket.Dialer{
+			TLSClientConfig:  &tls.Config{InsecureSkipVerify: true}, // TODO configurable
+			HandshakeTimeout: 5 * time.Second,
+			// RFC 8887: Section 4.2:
+			// Otherwise, the client MUST make an authenticated HTTP request [RFC7235] on the encrypted connection
+			// and MUST include the value "jmap" in the list of protocols for the "Sec-WebSocket-Protocol" header
+			// field.
+			Subprotocols: []string{"jmap"},
+		}
+	*/
+
+	// RFC 8887: Section 4.2:
+	// Otherwise, the client MUST make an authenticated HTTP request [RFC7235] on the encrypted connection
+	// and MUST include the value "jmap" in the list of protocols for the "Sec-WebSocket-Protocol" header
+	// field.
+	dialer.Subprotocols = []string{"jmap"}
+
+	return &HttpWsClientFactory{
+		dialer:         dialer,
+		masterUser:     masterUser,
+		masterPassword: masterPassword,
+	}, nil
+}
+
+func (w *HttpWsClientFactory) auth(username string, h http.Header) error {
+	masterUsername := username + "%" + w.masterUser
+	h.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(masterUsername+":"+w.masterPassword)))
+	return nil
+}
+
+func (w *HttpWsClientFactory) connect(sessionProvider func() (*Session, error)) (*websocket.Conn, string, Error) {
+	session, err := sessionProvider()
+	if err != nil {
+		return nil, "", SimpleError{code: JmapErrorWssFailedToRetrieveSession, err: err}
+	}
+	if session == nil {
+		return nil, "", SimpleError{code: JmapErrorWssFailedToRetrieveSession, err: nil}
+	}
+	username := session.Username
+	u := session.WebsocketUrl
+
+	h := http.Header{}
+	w.auth(username, h)
+	c, resp, err := w.dialer.Dial(u.String(), h)
+	if err != nil {
+		return nil, "", SimpleError{code: JmapErrorFailedToEstablishWssConnection, err: err}
+	}
+
+	// RFC 8887: Section 4.2:
+	// The reply from the server MUST also contain a corresponding "Sec-WebSocket-Protocol" header
+	// field with a value of "jmap" in order for a JMAP subprotocol connection to be established.
+	if !slices.Contains(resp.Header.Values("Sec-WebSocket-Protocol"), "jmap") {
+		return nil, "", SimpleError{code: JmapErrorWssConnectionResponseMissingJmapSubprotocol}
+	}
+
+	return c, username, nil
+}
+
+type HttpWsClient struct {
+	client          *HttpWsClientFactory
+	username        string
+	sessionProvider func() (*Session, error)
+	c               *websocket.Conn
+	WsClient
+}
+
+func (w *HttpWsClientFactory) EnableNotifications(pushState string, sessionProvider func() (*Session, error), listener WsPushListener) (WsClient, Error) {
+	c, username, jerr := w.connect(sessionProvider)
+	if jerr != nil {
+		return nil, jerr
+	}
+
+	err := c.WriteJSON(WebSocketPushEnable{
+		Type:      "WebSocketPushEnable",
+		DataTypes: nil,       // = all datatypes
+		PushState: pushState, // will be omitted if empty string
+	})
+	if err != nil {
+		return nil, SimpleError{code: JmapErrorWssFailedToSendWebSocketPushEnable, err: err}
+	}
+
+	return &HttpWsClient{
+		client:          w,
+		username:        username,
+		sessionProvider: sessionProvider,
+		c:               c,
+	}, nil
+}
+
+func (w *HttpWsClientFactory) Close() error {
+	return nil
+}
+
+func (c *HttpWsClient) DisableNotifications() Error {
+	if c.c == nil {
+		return nil
+	}
+
+	err := c.c.WriteJSON(WebSocketPushDisable{
+		Type: "WebSocketPushDisable",
+	})
+	if err != nil {
+		return SimpleError{code: JmapErrorWssFailedToSendWebSocketPushDisable, err: err}
+	}
+
+	err = c.c.Close()
+	if err != nil {
+		return SimpleError{code: JmapErrorWssFailedToClose, err: err}
+	}
+
+	return nil
+}
+
+func (c *HttpWsClient) Close() error {
+	return c.DisableNotifications()
 }

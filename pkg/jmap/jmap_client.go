@@ -1,6 +1,7 @@
 package jmap
 
 import (
+	"errors"
 	"io"
 	"net/url"
 
@@ -12,22 +13,28 @@ type Client struct {
 	session               SessionClient
 	api                   ApiClient
 	blob                  BlobClient
+	ws                    WsClientFactory
 	sessionEventListeners *eventListeners[SessionEventListener]
+	wsPushListeners       *eventListeners[WsPushListener]
 	io.Closer
+	WsPushListener
 }
 
 var _ io.Closer = &Client{}
+var _ WsPushListener = &Client{}
 
 func (j *Client) Close() error {
-	return j.api.Close()
+	return errors.Join(j.api.Close(), j.session.Close(), j.blob.Close(), j.ws.Close())
 }
 
-func NewClient(session SessionClient, api ApiClient, blob BlobClient) Client {
+func NewClient(session SessionClient, api ApiClient, blob BlobClient, ws WsClientFactory) Client {
 	return Client{
 		session:               session,
 		api:                   api,
 		blob:                  blob,
+		ws:                    ws,
 		sessionEventListeners: newEventListeners[SessionEventListener](),
+		wsPushListeners:       newEventListeners[WsPushListener](),
 	}
 }
 
@@ -38,6 +45,16 @@ func (j *Client) AddSessionEventListener(listener SessionEventListener) {
 func (j *Client) onSessionOutdated(session *Session, newSessionState SessionState) {
 	j.sessionEventListeners.signal(func(listener SessionEventListener) {
 		listener.OnSessionOutdated(session, newSessionState)
+	})
+}
+
+func (j *Client) AddWsPushListener(listener WsPushListener) {
+	j.wsPushListeners.add(listener)
+}
+
+func (j *Client) OnNotification(stateChange StateChange) {
+	j.wsPushListeners.signal(func(listener WsPushListener) {
+		listener.OnNotification(stateChange)
 	})
 }
 

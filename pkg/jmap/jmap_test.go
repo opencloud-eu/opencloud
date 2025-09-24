@@ -100,6 +100,28 @@ func (h *TestJmapBlobClient) DownloadBinary(ctx context.Context, logger *log.Log
 	}, nil
 }
 
+func (t TestJmapBlobClient) Close() error {
+	return nil
+}
+
+type TestWsClientFactory struct {
+	WsClientFactory
+}
+
+var _ WsClientFactory = &TestWsClientFactory{}
+
+func NewTestWsClientFactory(t *testing.T) WsClientFactory {
+	return TestWsClientFactory{}
+}
+
+func (t TestWsClientFactory) EnableNotifications(pushState string, sessionProvider func() (*Session, error), listener WsPushListener) (WsClient, Error) {
+	return nil, nil // TODO
+}
+
+func (t TestWsClientFactory) Close() error {
+	return nil
+}
+
 func serveTestFile(t *testing.T, name string) ([]byte, Error) {
 	cwd, _ := os.Getwd()
 	p := filepath.Join(cwd, "testdata", name)
@@ -147,9 +169,10 @@ func TestRequests(t *testing.T) {
 	apiClient := NewTestJmapApiClient(t)
 	wkClient := NewTestJmapWellKnownClient(t)
 	blobClient := NewTestJmapBlobClient(t)
+	wsClientFactory := NewTestWsClientFactory(t)
 	logger := log.NopLogger()
 	ctx := context.Background()
-	client := NewClient(wkClient, apiClient, blobClient)
+	client := NewClient(wkClient, apiClient, blobClient, wsClientFactory)
 
 	jmapUrl, err := url.Parse("http://localhost/jmap")
 	require.NoError(err)

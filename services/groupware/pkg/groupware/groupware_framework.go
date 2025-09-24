@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
+	"github.com/gorilla/websocket"
 	"github.com/miekg/dns"
 	"github.com/r3labs/sse/v2"
 	"github.com/rs/zerolog"
@@ -177,6 +178,7 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 	sessionCacheMaxCapacity := uint64(max(config.Mail.SessionCache.MaxCapacity, 0))
 	sessionCacheTtl := max(config.Mail.SessionCache.Ttl, 0)
 	sessionFailureCacheTtl := max(config.Mail.SessionCache.FailureTtl, 0)
+	wsHandshakeTimeout := config.Mail.PushHandshakeTimeout
 
 	eventChannelSize := 100 // TODO make channel queue buffering size configurable
 	workerQueueSize := 100  // TODO configuration setting
@@ -195,7 +197,7 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 	httpTransport := http.DefaultTransport.(*http.Transport).Clone()
 	httpTransport.ResponseHeaderTimeout = responseHeaderTimeout
 	if insecureTls {
-		tlsConfig := &tls.Config{InsecureSkipVerify: true} // TODO make configurable
+		tlsConfig := &tls.Config{InsecureSkipVerify: true}
 		httpTransport.TLSClientConfig = tlsConfig
 	}
 	httpClient := *http.DefaultClient
@@ -212,8 +214,21 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 		jmapMetricsAdapter,
 	)
 
+	wsDialer := &websocket.Dialer{
+		HandshakeTimeout: wsHandshakeTimeout,
+	}
+	if insecureTls {
+		wsDialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+
+	wsf, err := jmap.NewHttpWsClientFactory(wsDialer, masterUsername, masterPassword, logger)
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to create websocket client")
+		return nil, GroupwareInitializationError{Message: "failed to create websocket client", Err: err}
+	}
+
 	// api implements all three interfaces:
-	jmapClient := jmap.NewClient(api, api, api)
+	jmapClient := jmap.NewClient(api, api, api, wsf)
 
 	sessionCacheBuilder := newSessionCacheBuilder(
 		sessionUrl,
@@ -426,7 +441,7 @@ func (g *Groupware) ServeSSE(w http.ResponseWriter, r *http.Request) {
 }
 
 // Provide a JMAP Session for the
-func (g *Groupware) session(user user, _ *http.Request, _ context.Context, _ *log.Logger) (jmap.Session, bool, *GroupwareError) {
+func (g *Groupware) session(user user, _ *log.Logger) (jmap.Session, bool, *GroupwareError) {
 	s := g.sessionCache.Get(user.GetUsername())
 	if s != nil {
 		if s.Success() {
@@ -482,6 +497,23 @@ func (g *Groupware) serveError(w http.ResponseWriter, r *http.Request, error *Er
 	render.Render(w, r, errorResponses(*error))
 }
 
+func (g *Groupware) getSession(user user) (*jmap.Session, *GroupwareError) {
+	session, ok, gwerr := g.session(user, g.logger)
+	if gwerr != nil {
+		g.metrics.SessionFailureCounter.Inc()
+		g.logger.Error().Str("code", gwerr.Code).Str("error", gwerr.Title).Str("detail", gwerr.Detail).Msg("failed to determine JMAP session")
+		return nil, gwerr
+	}
+	if !ok {
+		// no session = authentication failed
+		gwerr = &ErrorInvalidAuthentication
+		g.metrics.SessionFailureCounter.Inc()
+		g.logger.Error().Msg("could not authenticate, failed to find Session")
+		return nil, gwerr
+	}
+	return &session, nil
+}
+
 func (g *Groupware) withSession(w http.ResponseWriter, r *http.Request, handler func(r Request) Response) (Response, bool) {
 	ctx := r.Context()
 	sl := g.logger.SubloggerWithRequestID(ctx)
@@ -501,7 +533,7 @@ func (g *Groupware) withSession(w http.ResponseWriter, r *http.Request, handler 
 
 	logger = log.From(logger.With().Str(logUserId, log.SafeString(user.GetId())))
 
-	session, ok, gwerr := g.session(user, r, ctx, logger)
+	session, ok, gwerr := g.session(user, logger)
 	if gwerr != nil {
 		g.metrics.SessionFailureCounter.Inc()
 		errorId := errorId(r, ctx)
@@ -606,7 +638,7 @@ func (g *Groupware) stream(w http.ResponseWriter, r *http.Request, handler func(
 
 	logger = log.From(logger.With().Str(logUserId, log.SafeString(user.GetId())))
 
-	session, ok, gwerr := g.session(user, r, ctx, logger)
+	session, ok, gwerr := g.session(user, logger)
 	if gwerr != nil {
 		errorId := errorId(r, ctx)
 		logger.Error().Str("code", gwerr.Code).Str("error", gwerr.Title).Str("detail", gwerr.Detail).Str(logErrorId, errorId).Msg("failed to determine JMAP session")

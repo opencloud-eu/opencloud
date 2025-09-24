@@ -48,8 +48,9 @@ type Session struct {
 	// An identifier of the DownloadUrlTemplate to use in metrics and tracing
 	DownloadEndpoint string
 
-	WebsocketEndpoint     *url.URL
+	WebsocketUrl          *url.URL
 	SupportsWebsocketPush bool
+	WebsocketEndpoint     string
 
 	SessionResponse
 }
@@ -91,15 +92,17 @@ func newSession(sessionResponse SessionResponse) (Session, Error) {
 	}
 	downloadEndpoint := toEndpoint(downloadUrl)
 
-	var websocketEndpoint *url.URL = nil
+	var websocketUrl *url.URL = nil
+	websocketEndpoint := ""
 	supportsWebsocketPush := false
-	websocketUrl := sessionResponse.Capabilities.Websocket.Url
-	if websocketUrl != "" {
-		websocketEndpoint, err = url.Parse(websocketUrl)
+	websocketUrlStr := sessionResponse.Capabilities.Websocket.Url
+	if websocketUrlStr != "" {
+		websocketUrl, err = url.Parse(websocketUrlStr)
 		if err != nil {
 			return Session{}, invalidSessionResponseErrorInvalidWebsocketUrl
 		}
 		supportsWebsocketPush = sessionResponse.Capabilities.Websocket.SupportsPush
+		websocketEndpoint = endpointOf(websocketUrl)
 	}
 
 	return Session{
@@ -110,8 +113,9 @@ func newSession(sessionResponse SessionResponse) (Session, Error) {
 		UploadEndpoint:        uploadEndpoint,
 		DownloadUrlTemplate:   downloadUrl,
 		DownloadEndpoint:      downloadEndpoint,
-		WebsocketEndpoint:     websocketEndpoint,
+		WebsocketUrl:          websocketUrl,
 		SupportsWebsocketPush: supportsWebsocketPush,
+		WebsocketEndpoint:     websocketEndpoint,
 		SessionResponse:       sessionResponse,
 	}, nil
 }
