@@ -930,8 +930,8 @@ github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-202505121527
 github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a/go.mod h1:pjcozWijkNPbEtX5SIQaxEW/h8VAVZYTLx+70bmB3LY=
 github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76 h1:vD/EdfDUrv4omSFjrinT8Mvf+8D7f9g4vgQ2oiDrVUI=
 github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76/go.mod h1:pzatilMEHZFT3qV7C/X3MqOa3NlRQuYhlRhZTL+hN6Q=
-github.com/opencloud-eu/reva/v2 v2.38.1-0.20250922152322-476bb1f0070a h1:LwqYIxoBH26sWdk2xHzgEdWlqVnQJ2lC8MuwBMjkuC0=
-github.com/opencloud-eu/reva/v2 v2.38.1-0.20250922152322-476bb1f0070a/go.mod h1:jykpTTQ0QWw0EzLop+6neuKCPccE0rj2asOwzls283U=
+github.com/opencloud-eu/reva/v2 v2.38.1-0.20250924125540-eaa2437c36b2 h1:e3B6KbWMjloKpqoTwTwvBLoCETRyyCDkQsqwRQMUdxc=
+github.com/opencloud-eu/reva/v2 v2.38.1-0.20250924125540-eaa2437c36b2/go.mod h1:8mGCM9tLIPsC5aEKS022Z5u89u6jKuOl0znK0gNFReM=
 github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=
 github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3IKzErnv2BNG4W4MAM=
 github.com/opencontainers/image-spec v1.1.1 h1:y0fUlFfIZhPF1W537XOLg0/fcx6zcHCJwooC2xJA040=
