@@ -57,7 +57,7 @@ require (
 	github.com/mna/pigeon v1.3.0
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
 	github.com/nats-io/nats-server/v2 v2.11.9
-	github.com/nats-io/nats.go v1.45.0
+	github.com/nats-io/nats.go v1.46.0
 	github.com/oklog/run v1.2.0
 	github.com/olekukonko/tablewriter v1.0.9
 	github.com/onsi/ginkgo v1.16.5
@@ -65,7 +65,7 @@ require (
 	github.com/onsi/gomega v1.38.2
 	github.com/open-policy-agent/opa v1.8.0
 	github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76
-	github.com/opencloud-eu/reva/v2 v2.38.1-0.20250922152322-476bb1f0070a
+	github.com/opencloud-eu/reva/v2 v2.38.1-0.20250924125540-eaa2437c36b2
 	github.com/opensearch-project/opensearch-go/v4 v4.5.0
 	github.com/orcaman/concurrent-map v1.0.0
 	github.com/pkg/errors v0.9.1

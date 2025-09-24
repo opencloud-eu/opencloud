@@ -21,6 +21,7 @@ package tree
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"io/fs"
@@ -393,6 +394,17 @@ func (t *Tree) findSpaceId(path string) (string, error) {
 	return "", fmt.Errorf("could not find space for path %s", path)
 }
 
+func (t *Tree) generateTempNodeId(path string) string {
+	if len(path) < 240 {
+		return strings.ReplaceAll(strings.TrimPrefix(path, "/"), "/", "-")
+	} else {
+		// Use sha256 if path too long
+		pathHash := fmt.Sprintf("%x", sha256.Sum256([]byte(path)))[:240]
+		t.log.Info().Str("path", path).Msg("path too long, using sha256 as lock: " + pathHash)
+		return pathHash
+	}
+}
+
 func (t *Tree) assimilate(item scanItem) error {
 	t.log.Debug().Str("path", item.Path).Bool("recurse", item.Recurse).Msg("assimilate")
 	var err error
@@ -532,7 +544,8 @@ func (t *Tree) assimilate(item scanItem) error {
 		assimilationNode := &assimilationNode{
 			spaceID: spaceID,
 			// Use the path as the node ID (which is used for calculating the lock file path) since we do not have an ID yet
-			nodeId: strings.ReplaceAll(strings.TrimPrefix(item.Path, "/"), "/", "-"),
+			// In the case path is too long, we do sha256 and extract first 240 characters
+			nodeId: t.generateTempNodeId(item.Path),
 		}
 		unlock, err := t.lookup.MetadataBackend().Lock(assimilationNode)
 		if err != nil {
