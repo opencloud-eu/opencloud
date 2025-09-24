@@ -44,5 +44,6 @@ type Mail struct {
 	DefaultEmailLimit     uint             `yaml:"default_email_limit" env:"GROUPWARE_DEFAULT_EMAIL_LIMIT"`
 	MaxBodyValueBytes     uint             `yaml:"max_body_value_bytes" env:"GROUPWARE_MAX_BODY_VALUE_BYTES"`
 	ResponseHeaderTimeout time.Duration    `yaml:"response_header_timeout" env:"GROUPWARE_RESPONSE_HEADER_TIMEOUT"`
+	PushHandshakeTimeout  time.Duration    `yaml:"push_handshake_timeout" env:"GROUPWARE_PUSH_HANDSHAKE_TIMEOUT"`
 	SessionCache          MailSessionCache `yaml:"session_cache"`
 }

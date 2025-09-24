@@ -152,7 +152,7 @@ func (j *Client) GetMailboxChanges(accountId string, session *Session, ctx conte
 	getCreated := EmailGetRefCommand{
 		AccountId:          accountId,
 		FetchAllBodyValues: fetchBodies,
-		IdRef:              &ResultReference{Name: CommandMailboxChanges, Path: "/created", ResultOf: "0"},
+		IdsRef:             &ResultReference{Name: CommandMailboxChanges, Path: "/created", ResultOf: "0"},
 	}
 	if maxBodyValueBytes > 0 {
 		getCreated.MaxBodyValueBytes = maxBodyValueBytes
@@ -160,7 +160,7 @@ func (j *Client) GetMailboxChanges(accountId string, session *Session, ctx conte
 	getUpdated := EmailGetRefCommand{
 		AccountId:          accountId,
 		FetchAllBodyValues: fetchBodies,
-		IdRef:              &ResultReference{Name: CommandMailboxChanges, Path: "/updated", ResultOf: "0"},
+		IdsRef:             &ResultReference{Name: CommandMailboxChanges, Path: "/updated", ResultOf: "0"},
 	}
 	if maxBodyValueBytes > 0 {
 		getUpdated.MaxBodyValueBytes = maxBodyValueBytes
@@ -241,7 +241,7 @@ func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, sessi
 		getCreated := EmailGetRefCommand{
 			AccountId:          accountId,
 			FetchAllBodyValues: fetchBodies,
-			IdRef:              &ResultReference{Name: CommandMailboxChanges, Path: "/created", ResultOf: mcid(accountId, "0")},
+			IdsRef:             &ResultReference{Name: CommandMailboxChanges, Path: "/created", ResultOf: mcid(accountId, "0")},
 		}
 		if maxBodyValueBytes > 0 {
 			getCreated.MaxBodyValueBytes = maxBodyValueBytes
@@ -249,7 +249,7 @@ func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, sessi
 		getUpdated := EmailGetRefCommand{
 			AccountId:          accountId,
 			FetchAllBodyValues: fetchBodies,
-			IdRef:              &ResultReference{Name: CommandMailboxChanges, Path: "/updated", ResultOf: mcid(accountId, "0")},
+			IdsRef:             &ResultReference{Name: CommandMailboxChanges, Path: "/updated", ResultOf: mcid(accountId, "0")},
 		}
 		if maxBodyValueBytes > 0 {
 			getUpdated.MaxBodyValueBytes = maxBodyValueBytes

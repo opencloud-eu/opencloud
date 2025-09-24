@@ -1,0 +1,69 @@
+examples:
+  refs:
+    accountId: 'a'
+    emailId: 'bmaaaaa2'
+    threadId: 'b'
+    mailboxIds: {"a": true}
+    emailKeywords: ["$seen", "$notjunk"]
+    emailSize: 3794
+    emailReceivedAt: '2025-09-23T10:58:03Z'
+    emailSentAt: '2025-09-23T12:58:03+02:00'
+    blobId: 'cfz7vkmhcfwl1gfln02hga2fb3xwsqirirousda0rs1soeosla2p1aiaahcqjwaf'
+    attachmentName: 'Alloy_Yellow_Scale.pdf'
+    attachmentType: 'application/pdf'
+    attachmentSize: 192128
+    attachmentDisposition: 'attachment'
+    attachmentPartId: '3'
+    attachmentCharset: 'utf-8'
+    attachmentCid: 'c1'
+    emailAddressName: 'Camina Drummer'
+    emailAddressEmail: 'drummer@opa.org'
+    emailSenders:
+      - name: 'Chrisjen Avasarala'
+        email: 'secgen@earth.gov'
+    emailFroms:
+      - name: 'Chrissie'
+        email: 'secgen@earth.gov'      
+    emailTos:
+      - name: 'Camina Drummer'
+        email: 'drummer@opa.org'
+    emailCCs:
+      - name: 'Naomi Nagata'
+        email: 'nagata@opa.org'
+      - name: 'James Holden'
+        email: 'holden@earth.gov'
+    emailBCCs:
+      - name: 'Fred Johnson'
+        email: 'johnson@opa.org'
+    emailSubject: 'Food for thought'
+    emailPreview: >-
+      No one starts a war unless I say then can.
+    emailAttachments:
+      - partId: '2'
+        blobId: 'cfz7vkmhcfwl1gfln02hga2fb3xwsqirirousda0rs1soeosla2p1aiaahcqjwaf'
+        size: 1374
+        type: 'application/pdf'
+        name: 'the_path.pdf'
+        disposition: 'attachment'
+      - partId: '3'
+        blobId: 'cnz7vkmhcfwl1gfln02hga2fb3xwsqirirousda0rs1soeosla2p1aiaahcq0wqo'
+        charset: 'utf-8'
+        size: 728
+        type: 'text/plain'
+        name: 'secrets.txt'
+        disposition: 'attachment'
+      - partId: '4'
+        blobId: 'caqyey2wobo2bzjkkp2qlsn1ctitl02yylscnb77lc79nvubjihliaiadq'
+        size: 787545
+        name: 'molecule-design.png'
+        type: 'image/png'
+        disposition: 'inline'
+        cid: 'c1'
+  inject:
+    Email:
+      size: $emailSize
+    EmailSummary:
+      size: $emailSize
+    EmailBodyPart:
+      size: $attachmentSize
+

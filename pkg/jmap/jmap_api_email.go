@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/rs/zerolog"
 )
 
@@ -77,7 +78,7 @@ func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx c
 	get := EmailGetRefCommand{
 		AccountId:          accountId,
 		FetchAllBodyValues: fetchBodies,
-		IdRef:              &ResultReference{Name: CommandEmailQuery, Path: "/ids/*", ResultOf: "0"},
+		IdsRef:             &ResultReference{Name: CommandEmailQuery, Path: "/ids/*", ResultOf: "0"},
 	}
 	if maxBodyValueBytes > 0 {
 		get.MaxBodyValueBytes = maxBodyValueBytes
@@ -131,7 +132,7 @@ func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.
 	getCreated := EmailGetRefCommand{
 		AccountId:          accountId,
 		FetchAllBodyValues: fetchBodies,
-		IdRef:              &ResultReference{Name: CommandEmailChanges, Path: "/created", ResultOf: "0"},
+		IdsRef:             &ResultReference{Name: CommandEmailChanges, Path: "/created", ResultOf: "0"},
 	}
 	if maxBodyValueBytes > 0 {
 		getCreated.MaxBodyValueBytes = maxBodyValueBytes
@@ -139,7 +140,7 @@ func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.
 	getUpdated := EmailGetRefCommand{
 		AccountId:          accountId,
 		FetchAllBodyValues: fetchBodies,
-		IdRef:              &ResultReference{Name: CommandEmailChanges, Path: "/updated", ResultOf: "0"},
+		IdsRef:             &ResultReference{Name: CommandEmailChanges, Path: "/updated", ResultOf: "0"},
 	}
 	if maxBodyValueBytes > 0 {
 		getUpdated.MaxBodyValueBytes = maxBodyValueBytes
@@ -284,7 +285,7 @@ func (j *Client) QueryEmails(accountId string, filter EmailFilterElement, sessio
 
 	mails := EmailGetRefCommand{
 		AccountId: accountId,
-		IdRef: &ResultReference{
+		IdsRef: &ResultReference{
 			ResultOf: "0",
 			Name:     CommandEmailQuery,
 			Path:     "/ids/*",
@@ -369,7 +370,7 @@ func (j *Client) QueryEmailsWithSnippets(accountId string, filter EmailFilterEle
 
 	mails := EmailGetRefCommand{
 		AccountId: accountId,
-		IdRef: &ResultReference{
+		IdsRef: &ResultReference{
 			ResultOf: "0",
 			Name:     CommandEmailQuery,
 			Path:     "/ids/*",
@@ -759,7 +760,7 @@ func (j *Client) EmailsInThread(accountId string, threadId string, session *Sess
 		}, "0"),
 		invocation(CommandEmailGet, EmailGetRefCommand{
 			AccountId: accountId,
-			IdRef: &ResultReference{
+			IdsRef: &ResultReference{
 				ResultOf: "0",
 				Name:     CommandThreadGet,
 				Path:     "/list/*/emailIds",
@@ -781,4 +782,55 @@ func (j *Client) EmailsInThread(accountId string, threadId string, session *Sess
 		return emailsResponse.List, nil
 	})
 
+}
+
+type EmailsSummary struct {
+	Emails []Email `json:"emails"`
+	State  State   `json:"state"`
+}
+
+func (j *Client) QueryEmailSummaries(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, filter EmailFilterElement, limit uint) (map[string]EmailsSummary, SessionState, Error) {
+	logger = j.logger("QueryEmailSummaries", session, logger)
+
+	uniqueAccountIds := structs.Uniq(accountIds)
+
+	invocations := make([]Invocation, len(uniqueAccountIds)*2)
+	for i, accountId := range uniqueAccountIds {
+		invocations[i*2+0] = invocation(CommandEmailQuery, EmailQueryCommand{
+			AccountId: accountId,
+			Filter:    filter,
+			Sort:      []EmailComparator{EmailComparator{Property: emailSortByReceivedAt, IsAscending: false}},
+			Limit:     limit,
+			//CalculateTotal: false,
+		}, mcid(accountId, "0"))
+		invocations[i*2+1] = invocation(CommandEmailGet, EmailGetRefCommand{
+			AccountId: accountId,
+			IdsRef: &ResultReference{
+				Name:     CommandEmailQuery,
+				Path:     "/ids/*",
+				ResultOf: mcid(accountId, "0"),
+			},
+			Properties: []string{"id", "threadId", "mailboxIds", "keywords", "size", "receivedAt", "sender", "from", "to", "cc", "bcc", "subject", "sentAt", "hasAttachment", "attachments", "preview"},
+		}, mcid(accountId, "1"))
+	}
+	cmd, err := j.request(session, logger, invocations...)
+	if err != nil {
+		return map[string]EmailsSummary{}, "", err
+	}
+
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (map[string]EmailsSummary, Error) {
+		resp := map[string]EmailsSummary{}
+		for _, accountId := range uniqueAccountIds {
+			var response EmailGetResponse
+			err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, mcid(accountId, "1"), &response)
+			if err != nil {
+				return map[string]EmailsSummary{}, err
+			}
+			if len(response.NotFound) > 0 {
+				// TODO what to do when there are not-found emails here? potentially nothing, they could have been deleted between query and get?
+			}
+			resp[accountId] = EmailsSummary{Emails: response.List, State: response.State}
+		}
+		return resp, nil
+	})
 }

@@ -18,6 +18,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/jhillyerd/enmime/v2"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/text/cases"
@@ -322,6 +323,11 @@ func TestWithStalwart(t *testing.T) {
 		jh := *http.DefaultClient
 		jh.Transport = tr
 
+		wsd := &websocket.Dialer{
+			TLSClientConfig:  tlsConfig,
+			HandshakeTimeout: time.Duration(10) * time.Second,
+		}
+
 		jmapPort, err := container.MappedPort(ctx, httpPort)
 		require.NoError(err)
 		jmapBaseUrl := url.URL{
@@ -338,7 +344,10 @@ func TestWithStalwart(t *testing.T) {
 			nullHttpJmapApiClientEventListener{},
 		)
 
-		j = NewClient(api, api, api)
+		wscf, err := NewHttpWsClientFactory(wsd, masterUsername, masterPassword, logger)
+		require.NoError(err)
+
+		j = NewClient(api, api, api, wscf)
 		s, err := j.FetchSession(sessionUrl, username, logger)
 		require.NoError(err)
 		// we have to overwrite the hostname in JMAP URL because the container
