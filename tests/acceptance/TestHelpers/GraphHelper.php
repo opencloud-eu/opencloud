@@ -476,7 +476,7 @@ class GraphHelper {
 	 * @param string $xRequestId
 	 * @param string $byUser
 	 * @param string $userPassword
-	 * @param string|null $user
+	 * @param string|null $userIdOrName User ID or username to get drive information for
 	 *
 	 * @return ResponseInterface
 	 * @throws GuzzleException
@@ -486,9 +486,9 @@ class GraphHelper {
 		string $xRequestId,
 		string $byUser,
 		string $userPassword,
-		?string $user = null
+		?string $userIdOrName = null
 	): ResponseInterface {
-		$url = self::getFullUrl($baseUrl, 'users/' . $user . '?%24select=&%24expand=drive');
+		$url = self::getFullUrl($baseUrl, 'users/' . $userIdOrName . '?%24select=&%24expand=drive');
 		return HttpRequestHelper::get(
 			$url,
 			$xRequestId,

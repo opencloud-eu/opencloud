@@ -516,7 +516,7 @@ Feature: Change data of space
 
   Scenario Outline: user can't upload resource greater than set quota
     Given the administrator has assigned the role "<user-role>" to user "Alice" using the Graph API
-    And user "Admin" has changed the quota of the personal space of "Alice Hansen" space to "15"
+    And user "Admin" has changed the quota of the personal space of user "Alice" space to "15"
     When user "Alice" uploads a file inside space "Alice Hansen" with content "file is more than 15 bytes" to "file.txt" using the WebDAV API
     Then the HTTP status code should be "507"
     And for user "Alice" the space "Personal" should not contain these entries:

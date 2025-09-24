@@ -2991,7 +2991,7 @@ class GraphContext implements Context {
 	 *
 	 * @return void
 	 */
-	public function userListsTheActivitiesOfSpaceUsingTheGraphApi(string $user, string $spaceName): void {
+	public function userListsTheActivitiesOfProjectSpaceUsingTheGraphApi(string $user, string $spaceName): void {
 		$spaceId = ($this->featureContext->spacesContext->getSpaceByName($user, $spaceName))["id"];
 		$response = GraphHelper::getActivities(
 			$this->featureContext->getBaseUrl(),
@@ -2999,6 +2999,25 @@ class GraphContext implements Context {
 			$user,
 			$this->featureContext->getPasswordForUser($user),
 			$spaceId
+		);
+		$this->featureContext->setResponse($response);
+	}
+
+	/**
+	 * @When user :user lists the activities of personal space using the Graph API
+	 *
+	 * @param string $user
+	 *
+	 * @return void
+	 */
+	public function userListsTheActivitiesOfPersonalSpaceUsingTheGraphApi(string $user): void {
+		$space = $this->featureContext->spacesContext->getPersonalSpace($user);
+		$response = GraphHelper::getActivities(
+			$this->featureContext->getBaseUrl(),
+			$this->featureContext->getStepLineRef(),
+			$user,
+			$this->featureContext->getPasswordForUser($user),
+			$space["id"]
 		);
 		$this->featureContext->setResponse($response);
 	}
