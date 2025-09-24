@@ -1,10 +1,7 @@
 services:
   opencloud-server:
-    build:
-      dockerfile: opencloud.Dockerfile
-      context: ./
-      args:
-        OC_IMAGE_TAG: $OC_IMAGE_TAG
+    image: opencloudeu/opencloud:dev
+    entrypoint: [ "/bin/sh", "/usr/bin/serve-opencloud.sh" ]
     user: root
     environment:
       WITH_WRAPPER: $WITH_WRAPPER
@@ -61,3 +58,4 @@ services:
     volumes:
       - ../../../config:/woodpecker/src/github.com/opencloud-eu/opencloud/tests/config
       - ../../../ocwrapper/bin/ocwrapper:/usr/bin/ocwrapper
+      - ./serve-opencloud.sh:/usr/bin/serve-opencloud.sh
