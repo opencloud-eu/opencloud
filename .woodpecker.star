@@ -538,18 +538,6 @@ def main(ctx):
 
     pipelines = test_pipelines + build_release_pipelines + notifyMatrix(ctx)
 
-    # if ctx.build.event == "cron":
-    #     pipelines = \
-    #         pipelines + \
-    #         example_deploys(ctx)
-    # else:
-    #     pipelines = \
-    #         pipelines + \
-    #         pipelinesDependsOn(
-    #             example_deploys(ctx),
-    #             pipelines,
-    #         )
-
     pipelineSanityChecks(pipelines)
     return pipelines
 
@@ -2325,81 +2313,6 @@ def translation_sync(ctx):
             },
         ],
     }]
-
-def example_deploys(ctx):
-    on_merge_deploy = [
-        "opencloud_full/master.yml",
-        "opencloud_full/onlyoffice-master.yml",
-    ]
-    nightly_deploy = [
-        "opencloud_ldap/rolling.yml",
-        "opencloud_keycloak/rolling.yml",
-        "opencloud_full/production.yml",
-        "opencloud_full/rolling.yml",
-        "opencloud_full/onlyoffice-rolling.yml",
-        "opencloud_full/s3-rolling.yml",
-    ]
-
-    # if on master branch:
-    configs = on_merge_deploy
-    rebuild = False
-
-    if ctx.build.event == "tag":
-        configs = nightly_deploy
-        rebuild = False
-
-    if ctx.build.event == "cron":
-        configs = on_merge_deploy + nightly_deploy
-        rebuild = True
-
-    deploys = []
-    for config in configs:
-        deploys.append(deploy(config, rebuild))
-
-    return deploys
-
-def deploy(config, rebuild):
-    return {
-        "name": "deploy_%s" % config,
-        "steps": [
-            {
-                "name": "clone continuous deployment playbook",
-                "image": ALPINE_GIT,
-                "commands": [
-                    "cd deployments/continuous-deployment-config",
-                    "git clone https://github.com/owncloud-devops/continuous-deployment.git",
-                ],
-            },
-            {
-                "name": "deploy",
-                "image": OC_CI_DRONE_ANSIBLE,
-                "failure": "ignore",
-                "environment": {
-                    "CONTINUOUS_DEPLOY_SERVERS_CONFIG": "../%s" % config,
-                    "REBUILD": rebuild,
-                    "HCLOUD_API_TOKEN": {
-                        "from_secret": "hcloud_api_token",
-                    },
-                    "CLOUDFLARE_API_TOKEN": {
-                        "from_secret": "cloudflare_api_token",
-                    },
-                },
-                "settings": {
-                    "playbook": "deployments/continuous-deployment-config/continuous-deployment/playbook-all.yml",
-                    "galaxy": "deployments/continuous-deployment-config/continuous-deployment/requirements.yml",
-                    "requirements": "deployments/continuous-deployment-config/continuous-deployment/py-requirements.txt",
-                    "inventory": "localhost",
-                    "private_key": {
-                        "from_secret": "ssh_private_key",
-                    },
-                },
-            },
-        ],
-        "when": [
-            event["base"],
-            event["tag"],
-        ],
-    }
 
 def checkStarlark(ctx):
     return [{
