@@ -214,6 +214,7 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 									"productversion": version.GetString(),
 									"hostname":       "",
 								},
+								"check_for_updates":   cfg.CheckForUpdates,
 								"support_url_signing": true,
 								"support_sse":         !cfg.DisableSSE,
 							},

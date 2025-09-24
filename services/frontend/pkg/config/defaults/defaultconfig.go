@@ -88,6 +88,7 @@ func DefaultConfig() *config.Config {
 		DefaultLinkPermissions:   1,
 		SearchMinLength:          3,
 		Edition:                  "",
+		CheckForUpdates:          true,
 		Checksums: config.Checksums{
 			SupportedTypes:      []string{"sha1", "md5", "adler32"},
 			PreferredUploadType: "sha1",
