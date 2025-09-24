@@ -44,6 +44,8 @@ const (
 	QueryParamPartId                  = "partId"
 	QueryParamAttachmentName          = "name"
 	QueryParamAttachmentBlobId        = "blobId"
+	QueryParamUnread                  = "unread"
+	QueryParamUndesirable             = "undesirable"
 	HeaderSince                       = "if-none-match"
 )
 
@@ -56,6 +58,9 @@ func (g *Groupware) Route(r chi.Router) {
 			r.Get("/changes", g.GetMailboxChangesForAllAccounts)
 			r.Get("/roles", g.GetMailboxRoles)                       // ?role=
 			r.Get("/roles/{role}", g.GetMailboxByRoleForAllAccounts) // ?role=
+		})
+		r.Route("/emails", func(r chi.Router) {
+			r.Get("/latest/summary", g.GetLatestEmailsSummaryForAllAccounts)
 		})
 	})
 	r.Route("/accounts/{accountid}", func(r chi.Router) {

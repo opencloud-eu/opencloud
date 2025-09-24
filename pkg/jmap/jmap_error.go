@@ -30,6 +30,12 @@ const (
 	JmapErrorAccountNotFound
 	JmapErrorAccountNotSupportedByMethod
 	JmapErrorAccountReadOnly
+	JmapErrorFailedToEstablishWssConnection
+	JmapErrorWssConnectionResponseMissingJmapSubprotocol
+	JmapErrorWssFailedToSendWebSocketPushEnable
+	JmapErrorWssFailedToSendWebSocketPushDisable
+	JmapErrorWssFailedToClose
+	JmapErrorWssFailedToRetrieveSession
 )
 
 var (

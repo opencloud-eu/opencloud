@@ -1182,7 +1182,7 @@ type EmailGetRefCommand struct {
 	//
 	// If null, then all records of the data type are returned, if this is supported for that
 	// data type and the number of records does not exceed the maxObjectsInGet limit.
-	IdRef *ResultReference `json:"#ids,omitempty"`
+	IdsRef *ResultReference `json:"#ids,omitempty"`
 
 	// The id of the account to use.
 	AccountId string `json:"accountId"`
@@ -1262,6 +1262,8 @@ type EmailAddress struct {
 	// SHOULD be used instead. Otherwise, this property is null.
 	//
 	// [RFC5322]: https://www.rfc-editor.org/rfc/rfc5322.html
+	//
+	// example: $emailAddressName
 	Name string `json:"name,omitempty"`
 
 	// The addr-spec of the mailbox [RFC5322].
@@ -1275,6 +1277,8 @@ type EmailAddress struct {
 	//
 	// [RFC2047]: https://www.rfc-editor.org/rfc/rfc2047.html
 	// [RFC5322]: https://www.rfc-editor.org/rfc/rfc5322.html
+	//
+	// example: $emailAddressEmail
 	Email string `json:"email,omitempty"`
 }
 
@@ -1305,36 +1309,42 @@ type EmailHeader struct {
 
 // Email body part.
 //
-// The client may specify a partId OR a blobId, but not both.
-// If a partId is given, this partId MUST be present in the bodyValues property.
+// The client may specify a `partId` OR a `blobId`, but not both.
+// If a `partId` is given, this `partId` MUST be present in the `bodyValues` property.
 //
-// The charset property MUST be omitted if a partId is given (the part’s content is included
-// in bodyValues, and the server may choose any appropriate encoding).
+// The `charset` property MUST be omitted if a `partId` is given (the part’s content is included
+// in `bodyValues`, and the server may choose any appropriate encoding).
 //
-// The size property MUST be omitted if a partId is given. If a blobId is given, it may be
+// The `size` property MUST be omitted if a `partId` is given. If a `blobId` is given, it may be
 // included but is ignored by the server (the size is actually calculated from the blob content
 // itself).
 //
-// A Content-Transfer-Encoding header field MUST NOT be given.
+// A `Content-Transfer-Encoding` header field MUST NOT be given.
 type EmailBodyPart struct {
 	// Identifies this part uniquely within the Email.
 	//
-	// This is scoped to the emailId and has no meaning outside of the JMAP Email object representation.
-	// This is null if, and only if, the part is of type multipart/*.
+	// This is scoped to the `emailId` and has no meaning outside of the JMAP Email object representation.
+	// This is null if, and only if, the part is of type `multipart/*`.
+	//
+	// example: $attachmentPartId
 	PartId string `json:"partId,omitempty"`
 
 	// The id representing the raw octets of the contents of the part, after decoding any known
-	// Content-Transfer-Encoding (as defined in [RFC2045]), or null if, and only if, the part is of type multipart/*.
+	// `Content-Transfer-Encoding` (as defined in [RFC2045]), or null if, and only if, the part is of type `multipart/*`.
 	//
 	// Note that two parts may be transfer-encoded differently but have the same blob id if their decoded octets are identical
 	// and the server is using a secure hash of the data for the blob id.
 	// If the transfer encoding is unknown, it is treated as though it had no transfer encoding.
 	//
 	// [RFC2045]: https://www.rfc-editor.org/rfc/rfc2045.html
+	//
+	// example: $blobId
 	BlobId string `json:"blobId,omitempty"`
 
-	// The size, in octets, of the raw data after content transfer decoding (as referenced by the blobId, i.e.,
+	// The size, in octets, of the raw data after content transfer decoding (as referenced by the `blobId`, i.e.,
 	// the number of octets in the file the user would download).
+	//
+	// example: 31219
 	Size int `json:"size,omitempty"`
 
 	// This is a list of all header fields in the part, in the order they appear in the message.
@@ -1342,64 +1352,81 @@ type EmailBodyPart struct {
 	// The values are in Raw form.
 	Headers []EmailHeader `json:"headers,omitempty"`
 
-	// This is the decoded filename parameter of the Content-Disposition header field per [RFC2231], or
-	// (for compatibility with existing systems).
-	//
-	// If not present, then it’s the decoded name parameter of the Content-Type header field per [RFC2047].
+	// This is the decoded filename parameter of the `Content-Disposition` header field per [RFC2231], or
+	// (for compatibility with existing systems) if not present, then it’s the decoded name parameter of
+	// the `Content-Type` header field per [RFC2047].
 	//
 	// [RFC2231]: https://www.rfc-editor.org/rfc/rfc2231.html
 	// [RFC2047]: https://www.rfc-editor.org/rfc/rfc2047.html
+	//
+	// name: $attachmentName
 	Name string `json:"name,omitempty"`
 
-	// The value of the Content-Type header field of the part, if present; otherwise, the implicit type as per
-	// the MIME standard (text/plain or message/rfc822 if inside a multipart/digest).
+	// The value of the `Content-Type` header field of the part, if present; otherwise, the implicit type as per
+	// the MIME standard (`text/plain` or `message/rfc822` if inside a `multipart/digest`).
 	//
-	// CFWS is removed and any parameters are stripped.
+	// [CFWS] is removed and any parameters are stripped.
+	//
+	// [CFWS]: https://www.rfc-editor.org/rfc/rfc5322#section-3.2.2
+	//
+	// example: $attachmentType
 	Type string `json:"type,omitempty"`
 
-	// The value of the charset parameter of the Content-Type header field, if present, or null if the header
-	// field is present but not of type text/*.
+	// The value of the `charset` parameter of the `Content-Type` header field, if present, or null if the header
+	// field is present but not of type `text/*`.
 	//
-	// If there is no Content-Type header field, or it exists and is of type text/* but has no charset parameter,
-	// this is the implicit charset as per the MIME standard: us-ascii.
+	// If there is no `Content-Type` header field, or it exists and is of type `text/*` but has no `charset` parameter,
+	// this is the implicit charset as per the MIME standard: `us-ascii`.
+	//
+	// example: $attachmentCharset
 	Charset string `json:"charset,omitempty"`
 
-	// The value of the Content-Disposition header field of the part, if present;
+	// The value of the `Content-Disposition` header field of the part, if present;
 	// otherwise, it’s null.
 	//
-	// CFWS is removed and any parameters are stripped.
+	// [CFWS] is removed and any parameters are stripped.
+	//
+	// [CFWS]: https://www.rfc-editor.org/rfc/rfc5322#section-3.2.2
+	//
+	// example: $attachmentDisposition
 	Disposition string `json:"disposition,omitempty"`
 
-	// The value of the Content-Id header field of the part, if present; otherwise it’s null.
+	// The value of the `Content-Id` header field of the part, if present; otherwise it’s null.
 	//
-	// CFWS and surrounding angle brackets (<>) are removed.
-	// This may be used to reference the content from within a text/html body part HTML using the cid: protocol, as defined in [RFC2392].
+	// [CFWS] and surrounding angle brackets (`<>`) are removed.
+	//
+	// This may be used to reference the content from within a `text/html` body part HTML using the `cid:` protocol,
+	// as defined in [RFC2392].
 	//
 	// [RFC2392]: https://www.rfc-editor.org/rfc/rfc2392.html
+	// [CFWS]: https://www.rfc-editor.org/rfc/rfc5322#section-3.2.2
+	//
+	// example: $attachmentCid
 	Cid string `json:"cid,omitempty"`
 
-	// The list of language tags, as defined in [RFC3282], in the Content-Language header field of the part, if present.
+	// The list of language tags, as defined in [RFC3282], in the `Content-Language` header field of the part,
+	// if present.
 	//
 	// [RFC3282]: https://www.rfc-editor.org/rfc/rfc3282.html
 	Language string `json:"language,omitempty"`
 
-	// The URI, as defined in [RFC2557], in the Content-Location header field of the part, if present.
+	// The URI, as defined in [RFC2557], in the `Content-Location` header field of the part, if present.
 	//
 	// [RFC2557]: https://www.rfc-editor.org/rfc/rfc2557.html
 	Location string `json:"location,omitempty"`
 
-	// If the type is multipart/*, this contains the body parts of each child.
+	// If the type is `multipart/*`, this contains the body parts of each child.
 	SubParts []EmailBodyPart `json:"subParts,omitempty"`
 }
 
 type EmailBodyValue struct {
-	// The value of the body part after decoding Content-Transfer-Encoding and the Content-Type charset,
+	// The value of the body part after decoding `Content-Transfer-Encoding` and the `Content-Type` charset,
 	// if both known to the server, and with any CRLF replaced with a single LF.
 	//
 	// The server MAY use heuristics to determine the charset to use for decoding if the charset is unknown,
 	// no charset is given, or it believes the charset given is incorrect.
 	//
-	// Decoding is best effort; the server SHOULD insert the unicode replacement character (U+FFFD) and continue
+	// Decoding is best effort; the server SHOULD insert the unicode replacement character (`U+FFFD`) and continue
 	// when a malformed section is encountered.
 	//
 	// Note that due to the charset decoding and line ending normalisation, the length of this string will
@@ -1424,12 +1451,12 @@ type EmailBodyValue struct {
 type Email struct {
 	// The id of the Email object.
 	//
-	// Note that this is the JMAP object id, NOT the Message-ID header field value of the message [RFC5322].
+	// Note that this is the JMAP object id, NOT the `Message-ID` header field value of the message [RFC5322].
 	//
 	// [RFC5322]: https://www.rfc-editor.org/rfc/rfc5322.html
 	//
 	// required: true
-	// example: eaaaaab
+	// example: $emailId
 	Id string `json:"id,omitempty"`
 
 	// The id representing the raw octets of the message [RFC5322] for this Email.
@@ -1438,12 +1465,12 @@ type Email struct {
 	//
 	// [RFC5322]: https://www.rfc-editor.org/rfc/rfc5322.html
 	//
-	// example: cbbrzak0jw3gmtovgtwd1nd1p7p0czjlxx0ejgqws9oucgpuyr9fsayaae
+	// example: $blobId
 	BlobId string `json:"blobId,omitempty"`
 
 	// The id of the Thread to which this Email belongs.
 	//
-	// example: b
+	// example: $threadId
 	ThreadId string `json:"threadId,omitempty"`
 
 	// The set of Mailbox ids this Email belongs to.
@@ -1940,6 +1967,8 @@ type ObjectType string
 const (
 	VacationResponseType ObjectType = "VacationResponse"
 	EmailType            ObjectType = "Email"
+	EmailDeliveryType    ObjectType = "EmailDelivery"
+	MailboxType          ObjectType = "Mailbox"
 )
 
 type Command string
@@ -2754,6 +2783,33 @@ type SearchSnippetGetResponse struct {
 	AccountId string          `json:"accountId"`
 	List      []SearchSnippet `json:"list,omitempty"`
 	NotFound  []string        `json:"notFound,omitempty"`
+}
+
+type StateChange struct {
+	// This MUST be the string "StateChange".
+	Type string `json:"@type"`
+
+	// A map of an "account id" to an object encoding the state of data types that have
+	// changed for that account since the last StateChange object was pushed, for each
+	// of the accounts to which the user has access and for which something has changed.
+	//
+	// The value is a map.  The keys are the type name "Foo" e.g., "Mailbox" or "Email"),
+	// and the value is the "state" property that would currently be returned by a call to
+	// "Foo/get".
+	//
+	// The client can compare the new state strings with its current values to see whether
+	// it has the current data for these types. If not, the changes can then be efficiently
+	// fetched in a single standard API request (using the /changes type methods).
+	Changed map[string]map[ObjectType]string `json:"changed"`
+
+	// A (preferably short) string that encodes the entire server state visible to the user
+	// (not just the objects returned in this call).
+	//
+	// The purpose of the "pushState" token is to allow a client to immediately get any changes
+	// that occurred while it was disconnected. If the server does not support "pushState" tokens,
+	// the client will have to issue a series of "/changes" requests upon reconnection to update
+	// its state to match that of the server.
+	PushState string `json:"pushState"`
 }
 
 type ErrorResponse struct {

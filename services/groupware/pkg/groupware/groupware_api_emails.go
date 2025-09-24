@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/metrics"
 )
 
@@ -828,6 +830,321 @@ func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+type EmailSummary struct {
+	// The id of the account this Email summary pertains to.
+	// required: true
+	// example: $accountId
+	AccountId string `json:"accountId,omitempty"`
+
+	// The id of the Email object.
+	//
+	// Note that this is the JMAP object id, NOT the Message-ID header field value of the message [RFC5322].
+	//
+	// [RFC5322]: https://www.rfc-editor.org/rfc/rfc5322.html
+	//
+	// required: true
+	// example: $emailId
+	Id string `json:"id,omitempty"`
+
+	// The id of the Thread to which this Email belongs.
+	//
+	// example: $threadId
+	ThreadId string `json:"threadId,omitempty"`
+
+	// The set of Mailbox ids this Email belongs to.
+	//
+	// An Email in the mail store MUST belong to one or more Mailboxes at all times (until it is destroyed).
+	// The set is represented as an object, with each key being a Mailbox id.
+	//
+	// The value for each key in the object MUST be true.
+	//
+	// example: $mailboxIds
+	MailboxIds map[string]bool `json:"mailboxIds,omitempty"`
+
+	// A set of keywords that apply to the Email.
+	//
+	// The set is represented as an object, with the keys being the keywords.
+	//
+	// The value for each key in the object MUST be true.
+	//
+	// Keywords are shared with IMAP.
+	//
+	// The six system keywords from IMAP get special treatment.
+	//
+	// The following four keywords have their first character changed from \ in IMAP to $ in JMAP and have particular semantic meaning:
+	//
+	//   - $draft: The Email is a draft the user is composing.
+	//   - $seen: The Email has been read.
+	//   - $flagged: The Email has been flagged for urgent/special attention.
+	//   - $answered: The Email has been replied to.
+	//
+	// The IMAP \Recent keyword is not exposed via JMAP. The IMAP \Deleted keyword is also not present: IMAP uses a delete+expunge model,
+	// which JMAP does not. Any message with the \Deleted keyword MUST NOT be visible via JMAP (and so are not counted in the
+	// “totalEmails”, “unreadEmails”, “totalThreads”, and “unreadThreads” Mailbox properties).
+	//
+	// Users may add arbitrary keywords to an Email.
+	// For compatibility with IMAP, a keyword is a case-insensitive string of 1–255 characters in the ASCII subset
+	// %x21–%x7e (excludes control chars and space), and it MUST NOT include any of these characters:
+	//
+	//    ( ) { ] % * " \
+	//
+	// Because JSON is case sensitive, servers MUST return keywords in lowercase.
+	//
+	// The [IMAP and JMAP Keywords] registry as established in [RFC5788] assigns semantic meaning to some other
+	// keywords in common use.
+	//
+	// New keywords may be established here in the future. In particular, note:
+	//
+	//   - $forwarded: The Email has been forwarded.
+	//   - $phishing: The Email is highly likely to be phishing.
+	//     Clients SHOULD warn users to take care when viewing this Email and disable links and attachments.
+	//   - $junk: The Email is definitely spam.
+	//     Clients SHOULD set this flag when users report spam to help train automated spam-detection systems.
+	//   - $notjunk: The Email is definitely not spam.
+	//     Clients SHOULD set this flag when users indicate an Email is legitimate, to help train automated spam-detection systems.
+	//
+	// [IMAP and JMAP Keywords]: https://www.iana.org/assignments/imap-jmap-keywords/
+	// [RFC5788]: https://www.rfc-editor.org/rfc/rfc5788.html
+	//
+	// example: $emailKeywords
+	Keywords map[string]bool `json:"keywords,omitempty"`
+
+	// The size, in octets, of the raw data for the message [RFC5322]
+	// (as referenced by the blobId, i.e., the number of octets in the file the user would download).
+	//
+	// [RFC5322]: https://www.rfc-editor.org/rfc/rfc5322.html
+	Size int `json:"size"`
+
+	// The date the Email was received by the message store.
+	//
+	// This is the internal date in IMAP [RFC3501].
+	//
+	// [RFC3501]: https://www.rfc-editor.org/rfc/rfc3501.html
+	//
+	// example: $emailReceivedAt
+	ReceivedAt time.Time `json:"receivedAt,omitzero"`
+
+	// The value is identical to the value of header:Sender:asAddresses.
+	// example: $emailSenders
+	Sender []jmap.EmailAddress `json:"sender,omitempty"`
+
+	// The value is identical to the value of header:From:asAddresses.
+	// example: $emailFroms
+	From []jmap.EmailAddress `json:"from,omitempty"`
+
+	// The value is identical to the value of header:To:asAddresses.
+	// example: $emailTos
+	To []jmap.EmailAddress `json:"to,omitempty"`
+
+	// The value is identical to the value of header:Cc:asAddresses.
+	// example: $emailCCs
+	Cc []jmap.EmailAddress `json:"cc,omitempty"`
+
+	// The value is identical to the value of header:Bcc:asAddresses.
+	// example: $emailBCCs
+	Bcc []jmap.EmailAddress `json:"bcc,omitempty"`
+
+	// The value is identical to the value of header:Subject:asText.
+	// example: $emailSubject
+	Subject string `json:"subject,omitempty"`
+
+	// The value is identical to the value of header:Date:asDate.
+	// example: $emailSentAt
+	SentAt time.Time `json:"sentAt,omitzero"`
+
+	// This is true if there are one or more parts in the message that a client UI should offer as downloadable.
+	//
+	// A server SHOULD set hasAttachment to true if the attachments list contains at least one item that
+	// does not have Content-Disposition: inline.
+	//
+	// The server MAY ignore parts in this list that are processed automatically in some way or are referenced
+	// as embedded images in one of the text/html parts of the message.
+	//
+	// The server MAY set hasAttachment based on implementation-defined or site-configurable heuristics.
+	// example: true
+	HasAttachment bool `json:"hasAttachment,omitempty"`
+
+	// A list, traversing depth-first, of all parts in bodyStructure.
+	//
+	// They must satisfy either of the following conditions:
+	//
+	//   - not of type multipart/* and not included in textBody or htmlBody
+	//   - of type image/*, audio/*, or video/* and not in both textBody and htmlBody
+	//
+	// None of these parts include subParts, including message/* types.
+	//
+	// Attached messages may be fetched using the Email/parse method and the blobId.
+	//
+	// Note that a text/html body part HTML may reference image parts in attachments by using cid:
+	// links to reference the Content-Id, as defined in [RFC2392], or by referencing the Content-Location.
+	//
+	// [RFC2392]: https://www.rfc-editor.org/rfc/rfc2392.html
+	//
+	// example: $emailAttachments
+	Attachments []jmap.EmailBodyPart `json:"attachments,omitempty"`
+
+	// A plaintext fragment of the message body.
+	//
+	// This is intended to be shown as a preview line when listing messages in the mail store and may be truncated
+	// when shown.
+	//
+	// The server may choose which part of the message to include in the preview; skipping quoted sections and
+	// salutations and collapsing white space can result in a more useful preview.
+	//
+	// This MUST NOT be more than 256 characters in length.
+	//
+	// As this is derived from the message content by the server, and the algorithm for doing so could change over
+	// time, fetching this for an Email a second time MAY return a different result.
+	// However, the previous value is not considered incorrect, and the change SHOULD NOT cause the Email object
+	// to be considered as changed by the server.
+	//
+	// example: $emailPreview
+	Preview string `json:"preview,omitempty"`
+}
+
+func summarizeEmail(accountId string, email jmap.Email) EmailSummary {
+	return EmailSummary{
+		AccountId:     accountId,
+		Id:            email.Id,
+		ThreadId:      email.ThreadId,
+		MailboxIds:    email.MailboxIds,
+		Keywords:      email.Keywords,
+		Size:          email.Size,
+		ReceivedAt:    email.ReceivedAt,
+		Sender:        email.Sender,
+		From:          email.From,
+		To:            email.To,
+		Cc:            email.Cc,
+		Bcc:           email.Bcc,
+		Subject:       email.Subject,
+		SentAt:        email.SentAt,
+		HasAttachment: email.HasAttachment,
+		Attachments:   email.Attachments,
+		Preview:       email.Preview,
+	}
+}
+
+type emailWithAccountId struct {
+	accountId string
+	email     jmap.Email
+}
+
+// When the request succeeds.
+// swagger:response GetLatestEmailsSummaryForAllAccounts200
+type SwaggerGetLatestEmailsSummaryForAllAccounts200 struct {
+	// in: body
+	Body []EmailSummary
+}
+
+// swagger:parameters get_latest_emails_summary_for_all_accounts
+type SwaggerGetLatestEmailsSummaryForAllAccountsParams struct {
+	// in: query
+	// example: 10
+	Limit uint `json:"limit"`
+
+	// in: query
+	// example: true
+	Unread bool `json:"unread"`
+
+	// in: query
+	// example: false
+	Undesirable bool `json:"undesirable"`
+}
+
+// swagger:route GET /groupware/accounts/all/emails/latest/summary email get_latest_emails_summary_for_all_accounts
+// Get a summary of the latest emails across all the mailboxes, across all of a user's accounts.
+//
+// Retrieves summaries of the latest emails of a user, in all accounts, across all mailboxes.
+//
+// The number of total summaries to retrieve is specified using the query parameter 'limit'.
+//
+// The following additional query parameters may be specified to further filter the emails to summarize:
+//
+// ! `unread`: when `true`, only unread emails will be summarized (default is to summarize all emails, read or unread)
+// ! `undesirable`: when `true`, emails that are flagged as spam or phishing will also be summarized (default is to ignore those)
+//
+// responses:
+//
+//	200: GetLatestEmailsSummaryForAllAccounts200
+//	400: ErrorResponse400
+//	404: ErrorResponse404
+//	500: ErrorResponse500
+func (g *Groupware) GetLatestEmailsSummaryForAllAccounts(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		l := req.logger.With()
+		limit, ok, err := req.parseUIntParam(QueryParamLimit, 10) // TODO from configuration
+		if err != nil {
+			return errorResponse(err)
+		}
+		if ok {
+			l = l.Uint(QueryParamLimit, limit)
+		}
+
+		unread, ok, err := req.parseBoolParam(QueryParamUnread, false)
+		if err != nil {
+			return errorResponse(err)
+		}
+		if ok {
+			l = l.Bool(QueryParamUnread, unread)
+		}
+
+		undesirable, ok, err := req.parseBoolParam(QueryParamUndesirable, false)
+		if err != nil {
+			return errorResponse(err)
+		}
+		if ok {
+			l = l.Bool(QueryParamUndesirable, undesirable)
+		}
+
+		var filter jmap.EmailFilterElement = nil // all emails, read and unread
+		{
+			notKeywords := []string{}
+			if unread {
+				notKeywords = append(notKeywords, jmap.JmapKeywordSeen)
+			}
+			if undesirable {
+				notKeywords = append(notKeywords, jmap.JmapKeywordJunk, jmap.JmapKeywordPhishing)
+			}
+			filter = filterFromNotKeywords(notKeywords)
+		}
+
+		allAccountIds := structs.Keys(req.session.Accounts) // TODO(pbleser-oc) do we need a limit for a maximum amount of accounts to query at once?
+		l.Array(logAccountId, log.SafeStringArray(allAccountIds))
+
+		logger := log.From(l)
+
+		emailsSummariesByAccount, sessionState, jerr := g.jmap.QueryEmailSummaries(allAccountIds, req.session, req.ctx, logger, filter, limit)
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
+		}
+
+		// sort in memory to respect the overall limit
+		total := uint(0)
+		for _, emails := range emailsSummariesByAccount {
+			total += uint(max(len(emails.Emails), 0))
+		}
+		all := make([]emailWithAccountId, total)
+		i := uint(0)
+		for accountId, emails := range emailsSummariesByAccount {
+			for _, email := range emails.Emails {
+				all[i] = emailWithAccountId{accountId: accountId, email: email}
+				i++
+			}
+		}
+
+		sort.Slice(all, func(i int, j int) bool {
+			return all[i].email.ReceivedAt.Before(all[j].email.ReceivedAt)
+		})
+
+		summaries := make([]EmailSummary, min(limit, total))
+		for i = 0; i < limit && i < total; i++ {
+			summaries[i] = summarizeEmail(all[i].accountId, all[i].email)
+		}
+
+		return response(summaries, sessionState)
+	})
+}
+
 func filterEmails(all []jmap.Email, skip jmap.Email) []jmap.Email {
 	filtered := all[:0]
 	for _, email := range all {
@@ -836,4 +1153,19 @@ func filterEmails(all []jmap.Email, skip jmap.Email) []jmap.Email {
 		}
 	}
 	return filtered
+}
+
+func filterFromNotKeywords(keywords []string) jmap.EmailFilterElement {
+	switch len(keywords) {
+	case 0:
+		return nil
+	case 1:
+		return jmap.EmailFilterCondition{NotKeyword: keywords[0]}
+	default:
+		conditions := make([]jmap.EmailFilterElement, len(keywords))
+		for i, keyword := range keywords {
+			conditions[i] = jmap.EmailFilterCondition{NotKeyword: keyword}
+		}
+		return jmap.EmailFilterOperator{Operator: jmap.And, Conditions: conditions}
+	}
 }
