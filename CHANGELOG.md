@@ -4,7 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@butonic, @rhafer
+@ScharfViktor, @butonic, @rhafer
+
+### ✅ Tests
+
+- [decomposed] use Alpine for opencloud starting [[#1547](https://github.com/opencloud-eu/opencloud/pull/1547)]
 
 ### 🐛 Bug Fixes
 
