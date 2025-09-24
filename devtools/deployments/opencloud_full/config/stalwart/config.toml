@@ -38,7 +38,6 @@ directory.ldap.url = "ldap://ldap-server:1389"
 metrics.prometheus.auth.secret = "secret"
 metrics.prometheus.auth.username = "metrics"
 metrics.prometheus.enable = true
-server.hostname = "stalwart.opencloud.test"
 http.allowed-endpoint = 200
 http.hsts = true
 http.permissive-cors = false

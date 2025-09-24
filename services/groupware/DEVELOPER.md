@@ -15,15 +15,19 @@ Use [the `groupware` branch](https://github.com/opencloud-eu/opencloud/tree/grou
 
 ```bash
 cd ~/src/opencloud/
+OCDIR="$PWD"
 git clone --branch groupware git@github.com:opencloud-eu/opencloud.git
 ```
+
+Note that setting the variable `OCDIR` is merely going to help us with keeping the instructions below as generic as possible, it is not an environment variable that is used by OpenCloud.
+
 
 Also, you might want to check out these [helper scripts in opencloud-tools](https://github.com/pbleser-oc/opencloud-tools) somewhere and put that directory into your `PATH`, as it contains scripts to test and build the OpenCloud Groupware:
 
 ```bash
-cd ~/src/opencloud/
+cd "$OCDIR/"
 git clone git@github.com:pbleser-oc/opencloud-tools.git ./bin
-echo 'export PATH="$PATH:$HOME/src/opencloud/bin"' >> ~/.bashrc
+echo "export PATH=\"\$PATH:$OCDIR/bin\"" >> ~/.bashrc
 ```
 
 Those scripts have the following prerequisites:
@@ -36,6 +40,8 @@ Those scripts have the following prerequisites:
 Since we require having a Stalwart container running at the very least, the preferred way of running OpenCloud and its adjacent services for developing the Groupware component is by using the `opencloud_full` Docker Compose setup.
 
 ## Configuration
+
+The default hostname domain for the containers is `.opencloud.test`
 
 ### Hosts
 
@@ -52,9 +58,15 @@ Make sure to have the following entries in your `/etc/hosts`:
 127.0.0.1       traefik.opencloud.test
 ```
 
+Alternatively, use the following shell snippet to extract it in a more automated fashion:
+
+```bash
+perl -ne 'if (/^([A-Z][A-Z0-9]+)_DOMAIN=(.*)$/) { print length($2) < 1 ? lc($1).".opencloud.test" : $2,"\n"}' <.env|sort|while read n; do grep -w -q "$n" /etc/hosts && echo -e "\e[32;4mexists :\e[0m $n: \e[32m$(grep -w $n /etc/hosts)\e[0m">&2 || { echo -e "\e[33;4mmissing:\e[0m ${n}" >&2; echo -e "127.0.0.1\t${n}";}; done | sudo tee -a /etc/hosts
+```
+
 ### Compose
 
-It first needs to be tuned a little, and for that, edit `deployments/examples/opencloud_full/.env`, making the following changes:
+It first needs to be tuned a little, and for that, edit `$OCDIR/opencloud/deployments/examples/opencloud_full/.env`, making the following changes:
 
 * change the container image to `opencloudeu/opencloud:dev`:
 ```diff
@@ -113,24 +125,25 @@ It first needs to be tuned a little, and for that, edit `deployments/examples/op
 Build the `opencloudeu/opencloud:dev` image first:
 
 ```bash
-cd ~/src/opencloud/opencloud
-make -C opencloud/ clean build dev-docker
+cd "$OCDIR/opencloud/"
+make -C ./opencloud/ clean build dev-docker
 ```
 
 If you see obscure JavaScript related errors, do this and then try the `make` command above again:
 
 ```bash
-make -C opencloud/services/idp/ generate
+make -C ./opencloud/services/idp/ generate
+make -C ./opencloud/ clean build dev-docker
 ```
 
 And then either run everything from the Docker Compose `opencloud_full` setup:
 
 ```bash
-cd ./deployments/examples/opencloud_full/
+cd "$OCDIR/opencloud/deployments/examples/opencloud_full/"
 docker compose up -d
 ```
 
-or from within VSCode, in which case you should run all the services from the Docker Compose setup as above, but stop the `opencloud` service container (as that one will be running from within your IDE instead):
+or, if you plan to make changes to the backend code base, it might be more convenient to do so from within VSCode, in which case you should run all the services from the Docker Compose setup as above, but stop the `opencloud` service container (as that one will be running from within your IDE instead):
 
 ```bash
 docker stop opencloud_full-opencloud-1
@@ -138,37 +151,7 @@ docker stop opencloud_full-opencloud-1
 
 and then use the Launcher `OpenCloud server with external services` in VSCode.
 
-## Keycloak Configuration
-
-Now that Keycloak is running, we also need to add a new `groupware` client to the Keycloak `OpenCloud` realm in order to be able to use our command-line scripts and other test components.
-
-To do so, use your preferred web browser and
-* head over to <https://keycloak.opencloud.test/>
-* authenticate as `admin` with password `admin` (those credentials are defined in the `.env` file mentioned above, see `KEYCLOAK_ADMIN_USER` and `KEYCLOAK_ADMIN_PASSWORD`)
-* select the `OpenCloud` realm in the drop-down list in the top left corner (the realm is defined in the `.env` file, see `KEYCLOAK_REALM`)
-* then select the "Clients" menu item on the left
-* in the "Clients list" tab, push the "Create client" button:
-  * Client type: `OpenID Connect`
-  * Client ID: `groupware`
-* click the "Next" button:
-  * Client authentication: Off
-  * Authorization: Off
-  * Authentication flow: make sure "Direct access grants" is checked
-* click the "Next" button and leave the fields there empty to stick to the defaults
-* click "Save"
-
-To check whether it works correctly:
-```bash
-curl -ks -D- -X POST "https://keycloak.opencloud.test/realms/openCloud/protocol/openid-connect/token" -d username=alan -d password=demo -d grant_type=password -d client_id=groupware -d scope=openid
-```
-should provide you with a JSON response that contains an `access_token`.
-
-If it is not set up correctly, it should give you this instead:
-```json
-{"error":"invalid_client","error_description":"Invalid client or Invalid client credentials"}
-```
-
-## Checking
+## Checking Services
 
 To check whether the various services are running correctly:
 
@@ -195,6 +178,19 @@ dn: uid=margaret,ou=users,dc=opencloud,dc=eu
 
 ```
 
+### Keycloak
+
+To check whether it works correctly:
+```bash
+curl -ks -D- -X POST "https://keycloak.opencloud.test/realms/openCloud/protocol/openid-connect/token" -d username=alan -d password=demo -d grant_type=password -d client_id=groupware -d scope=openid
+```
+should provide you with a JSON response that contains an `access_token`.
+
+If it is not set up correctly, it should give you this instead:
+```json
+{"error":"invalid_client","error_description":"Invalid client or Invalid client credentials"}
+```
+
 ### Stalwart
 
 To then test the IMAP authentication with Stalwart, run the following command on your host (requires the `openssl` CLI tool):
@@ -218,20 +214,12 @@ to which one should receive the following response:
 A OK [CAPABILITY IMAP4rev2 ...] Authentication successful
 ```
 
-### Keycloak
-
-As mentioned previously, use the following command on your host to retrieve an access token from Keycloak:
-
-```bash
-curl -ks -D- -X POST "https://keycloak.opencloud.test/realms/openCloud/protocol/openid-connect/token" -d username=alan -d password=demo -d grant_type=password -d client_id=groupware -d scope=openid
-```
-
 ## Feeding an Inbox
 
 Once a [Stalwart](https://stalw.art/) container is running (using the Docker Compose setup as explained above), use [`imap-filler`](https://github.com/opencloud-eu/imap-filler/) to populate the inbox folder via IMAP APPEND:
 
 ```bash
-cd ~/src/opencloud/
+cd "$OCDIR/"
 git clone git@github.com:opencloud-eu/imap-filler.git
 cd ./imap-filler
 go run . --empty=true --username=alan --password=demo \
@@ -241,7 +229,6 @@ go run . --empty=true --username=alan --password=demo \
 # Building
 
 If you run the `opencloud` service as a container, use the following script to update the container image and restart it:
-
 
 ```bash
 oc-full-update
@@ -253,16 +240,14 @@ If you run it from your IDE, there is obviously no need to do that.
 
 The REST API documentation is extracted from the source code structure and documentation using [`go-swagger`](https://goswagger.io/go-swagger/), which needs to be installed locally as a prerequisite:
 
-
 ```bash
 go install github.com/go-swagger/go-swagger/cmd/swagger@latest
 ```
 
 The build chain is integrated within the `Makefile` in `services/groupware/`:
 
-
 ```bash
-cd services/groupware/
+cd "$OCDIR/opencloud/services/groupware/"
 make apidoc-static
 ```
 
@@ -333,7 +318,7 @@ authentication.fallback-admin.user = "mailadmin"
 To start with a Stalwart container from scratch, removing all the data (including emails):
 
 ```bash
-cd deployments/examples/opencloud_full
+cd "$OCDIR/opencloud/deployments/examples/opencloud_full"
 docker compose stop stalwart
 docker compose rm stalwart
 docker volume rm opencloud_full_stalwart-data opencloud_full_stalwart-logs
