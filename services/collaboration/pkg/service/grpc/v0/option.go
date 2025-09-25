@@ -7,6 +7,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/helpers"
 )
 
 // Option defines a single option function.
@@ -16,7 +17,7 @@ type Option func(o *Options)
 type Options struct {
 	Logger          log.Logger
 	Config          *config.Config
-	AppURLs         map[string]map[string]string
+	AppURLs         *helpers.AppURLs
 	GatewaySelector pool.Selectable[gatewayv1beta1.GatewayAPIClient]
 	Store           microstore.Store
 }
@@ -47,7 +48,7 @@ func Config(val *config.Config) Option {
 }
 
 // AppURLs provides a function to set the AppURLs option.
-func AppURLs(val map[string]map[string]string) Option {
+func AppURLs(val *helpers.AppURLs) Option {
 	return func(o *Options) {
 		o.AppURLs = val
 	}

@@ -12,6 +12,265 @@ import (
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/helpers"
 )
 
+var _ = Describe("AppURLs", func() {
+	var appURLs *helpers.AppURLs
+
+	BeforeEach(func() {
+		appURLs = helpers.NewAppURLs()
+	})
+
+	Describe("NewAppURLs", func() {
+		It("should create a new AppURLs instance with empty map", func() {
+			Expect(appURLs).NotTo(BeNil())
+			Expect(appURLs.GetMimeTypes()).To(BeEmpty())
+			Expect(appURLs.GetAppURLFor("view", ".pdf")).To(BeEmpty())
+		})
+	})
+
+	Describe("Store and GetAppURLFor", func() {
+		It("should store and retrieve app URLs correctly", func() {
+			testURLs := map[string]map[string]string{
+				"view": {
+					".pdf":  "https://example.com/view/pdf",
+					".docx": "https://example.com/view/docx",
+					".xlsx": "https://example.com/view/xlsx",
+				},
+				"edit": {
+					".docx": "https://example.com/edit/docx",
+					".xlsx": "https://example.com/edit/xlsx",
+				},
+			}
+
+			appURLs.Store(testURLs)
+
+			// Test successful lookups
+			Expect(appURLs.GetAppURLFor("view", ".pdf")).To(Equal("https://example.com/view/pdf"))
+			Expect(appURLs.GetAppURLFor("view", ".docx")).To(Equal("https://example.com/view/docx"))
+			Expect(appURLs.GetAppURLFor("edit", ".docx")).To(Equal("https://example.com/edit/docx"))
+		})
+
+		It("should return empty string for non-existent action", func() {
+			testURLs := map[string]map[string]string{
+				"view": {".pdf": "https://example.com/view/pdf"},
+			}
+
+			appURLs.Store(testURLs)
+
+			Expect(appURLs.GetAppURLFor("nonexistent", ".pdf")).To(BeEmpty())
+		})
+
+		It("should return empty string for non-existent extension", func() {
+			testURLs := map[string]map[string]string{
+				"view": {".pdf": "https://example.com/view/pdf"},
+			}
+
+			appURLs.Store(testURLs)
+
+			Expect(appURLs.GetAppURLFor("view", ".nonexistent")).To(BeEmpty())
+		})
+
+		It("should handle empty maps gracefully", func() {
+			emptyURLs := map[string]map[string]string{}
+			appURLs.Store(emptyURLs)
+
+			Expect(appURLs.GetAppURLFor("view", ".pdf")).To(BeEmpty())
+		})
+
+		It("should handle nil action maps gracefully", func() {
+			testURLs := map[string]map[string]string{
+				"view": nil,
+			}
+
+			appURLs.Store(testURLs)
+
+			Expect(appURLs.GetAppURLFor("view", ".pdf")).To(BeEmpty())
+		})
+	})
+
+	Describe("GetMimeTypes", func() {
+		It("should return empty slice for empty AppURLs", func() {
+			mimeTypes := appURLs.GetMimeTypes()
+			Expect(mimeTypes).To(BeEmpty())
+		})
+
+		It("should return correct mime types for known extensions", func() {
+			testURLs := map[string]map[string]string{
+				"view": {
+					".pdf":  "https://example.com/view/pdf",
+					".docx": "https://example.com/view/docx",
+					".xlsx": "https://example.com/view/xlsx",
+					".pptx": "https://example.com/view/pptx",
+				},
+				"edit": {
+					".txt":  "https://example.com/edit/txt",
+					".html": "https://example.com/edit/html",
+				},
+			}
+
+			appURLs.Store(testURLs)
+
+			mimeTypes := appURLs.GetMimeTypes()
+
+			// Should contain expected mime types (order doesn't matter)
+			Expect(mimeTypes).To(ContainElements(
+				"application/pdf",
+				"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+				"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+				"application/vnd.openxmlformats-officedocument.presentationml.presentation",
+				"text/plain",
+				"text/html",
+			))
+
+			// Should not contain application/octet-stream (filtered out)
+			Expect(mimeTypes).NotTo(ContainElement("application/octet-stream"))
+		})
+
+		It("should deduplicate mime types across actions", func() {
+			testURLs := map[string]map[string]string{
+				"view": {
+					".pdf": "https://example.com/view/pdf",
+					".txt": "https://example.com/view/txt",
+				},
+				"edit": {
+					".pdf": "https://example.com/edit/pdf", // Same extension as view
+					".txt": "https://example.com/edit/txt", // Same extension as view
+				},
+			}
+
+			appURLs.Store(testURLs)
+
+			mimeTypes := appURLs.GetMimeTypes()
+
+			// Should only have unique mime types
+			Expect(mimeTypes).To(ContainElements("application/pdf", "text/plain"))
+			Expect(len(mimeTypes)).To(Equal(2)) // No duplicates
+		})
+
+		It("should filter out application/octet-stream mime types", func() {
+			testURLs := map[string]map[string]string{
+				"view": {
+					".pdf":      "https://example.com/view/pdf",
+					".unknown":  "https://example.com/view/unknown", // This might return application/octet-stream
+					".fake-ext": "https://example.com/view/fake",    // This might return application/octet-stream
+				},
+			}
+
+			appURLs.Store(testURLs)
+
+			mimeTypes := appURLs.GetMimeTypes()
+
+			// Should contain PDF but not octet-stream
+			Expect(mimeTypes).To(ContainElement("application/pdf"))
+			Expect(mimeTypes).NotTo(ContainElement("application/octet-stream"))
+		})
+
+		It("should handle empty extension maps", func() {
+			testURLs := map[string]map[string]string{
+				"view": {},
+				"edit": {},
+			}
+
+			appURLs.Store(testURLs)
+
+			mimeTypes := appURLs.GetMimeTypes()
+			Expect(mimeTypes).To(BeEmpty())
+		})
+
+		It("should handle nil extension maps", func() {
+			testURLs := map[string]map[string]string{
+				"view": nil,
+				"edit": nil,
+			}
+
+			appURLs.Store(testURLs)
+
+			mimeTypes := appURLs.GetMimeTypes()
+			Expect(mimeTypes).To(BeEmpty())
+		})
+	})
+
+	Describe("Concurrent Access", func() {
+		It("should handle concurrent reads and writes safely", func() {
+			// This is a basic smoke test for concurrent access
+			// In practice, you'd want more sophisticated race testing
+
+			initialURLs := map[string]map[string]string{
+				"view": {".pdf": "https://example.com/view/pdf"},
+			}
+			appURLs.Store(initialURLs)
+
+			done := make(chan bool, 10)
+
+			// Start multiple readers
+			for i := 0; i < 5; i++ {
+				go func() {
+					defer GinkgoRecover()
+					for j := 0; j < 100; j++ {
+						_ = appURLs.GetAppURLFor("view", ".pdf")
+						_ = appURLs.GetMimeTypes()
+					}
+					done <- true
+				}()
+			}
+
+			// Start multiple writers
+			for i := 0; i < 5; i++ {
+				go func(id int) {
+					defer GinkgoRecover()
+					for j := 0; j < 100; j++ {
+						newURLs := map[string]map[string]string{
+							"view": {".pdf": "https://example.com/updated/pdf"},
+						}
+						appURLs.Store(newURLs)
+					}
+					done <- true
+				}(i)
+			}
+
+			// Wait for all goroutines to complete
+			for i := 0; i < 10; i++ {
+				<-done
+			}
+
+			// Should still be functional after concurrent access
+			Expect(appURLs.GetAppURLFor("view", ".pdf")).NotTo(BeEmpty())
+		})
+	})
+
+	Describe("Real-world scenarios", func() {
+		It("should handle realistic WOPI discovery data", func() {
+			// Based on the test data from the discovery tests
+			realisticURLs := map[string]map[string]string{
+				"view": {
+					".pdf":  "https://cloud.opencloud.test/hosting/wopi/word/view",
+					".djvu": "https://cloud.opencloud.test/hosting/wopi/word/view",
+					".docx": "https://cloud.opencloud.test/hosting/wopi/word/view",
+					".xls":  "https://cloud.opencloud.test/hosting/wopi/cell/view",
+					".xlsb": "https://cloud.opencloud.test/hosting/wopi/cell/view",
+				},
+				"edit": {
+					".docx": "https://cloud.opencloud.test/hosting/wopi/word/edit",
+				},
+			}
+
+			appURLs.Store(realisticURLs)
+
+			// Test specific lookups
+			Expect(appURLs.GetAppURLFor("view", ".pdf")).To(Equal("https://cloud.opencloud.test/hosting/wopi/word/view"))
+			Expect(appURLs.GetAppURLFor("edit", ".docx")).To(Equal("https://cloud.opencloud.test/hosting/wopi/word/edit"))
+			Expect(appURLs.GetAppURLFor("edit", ".pdf")).To(BeEmpty()) // No edit for PDF
+
+			// Test mime types
+			mimeTypes := appURLs.GetMimeTypes()
+			Expect(mimeTypes).To(ContainElements(
+				"application/pdf",
+				"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+				"application/vnd.ms-excel",
+			))
+		})
+	})
+})
+
 var _ = Describe("Discovery", func() {
 	var (
 		discoveryContent1 string

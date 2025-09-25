@@ -42,6 +42,10 @@ func NewHandler(opts ...Option) (*Service, func(), error) {
 		}
 	}
 
+	if options.AppURLs == nil {
+		return nil, teardown, errors.New("AppURLs option is required")
+	}
+
 	return &Service{
 		id:              options.Config.GRPC.Namespace + "." + options.Config.Service.Name + "." + options.Config.App.Name,
 		appURLs:         options.AppURLs,
@@ -55,7 +59,7 @@ func NewHandler(opts ...Option) (*Service, func(), error) {
 // Service implements the OpenInApp interface
 type Service struct {
 	id              string
-	appURLs         map[string]map[string]string
+	appURLs         *helpers.AppURLs
 	logger          log.Logger
 	config          *config.Config
 	gatewaySelector pool.Selectable[gatewayv1beta1.GatewayAPIClient]
@@ -173,18 +177,6 @@ func (s *Service) OpenInApp(
 	}, nil
 }
 
-// getAppUrlFor gets the appURL from the list of appURLs based on the
-// action and file extension provided. If there is no match, an empty
-// string will be returned.
-func (s *Service) getAppUrlFor(action, fileExt string) string {
-	if actionURL, ok := s.appURLs[action]; ok {
-		if actionExtensionURL, ok := actionURL[fileExt]; ok {
-			return actionExtensionURL
-		}
-	}
-	return ""
-}
-
 // getAppUrl will get the appURL that should be used based on the extension
 // and the provided view mode.
 // "view" urls will be chosen first, then if the view mode is "read/write",
@@ -192,17 +184,17 @@ func (s *Service) getAppUrlFor(action, fileExt string) string {
 // "read/write" view mode if no "edit" url is found.
 func (s *Service) getAppUrl(fileExt string, viewMode appproviderv1beta1.ViewMode) string {
 	// prioritize view action if possible
-	appURL := s.getAppUrlFor("view", fileExt)
+	appURL := s.appURLs.GetAppURLFor("view", fileExt)
 
 	if strings.ToLower(s.config.App.Product) == "collabora" {
 		// collabora provides only one action per extension. usual options
 		// are "view" (checked above), "edit" or "view_comment" (this last one
 		// is exclusive of collabora)
 		if appURL == "" {
-			if editURL := s.getAppUrlFor("edit", fileExt); editURL != "" {
+			if editURL := s.appURLs.GetAppURLFor("edit", fileExt); editURL != "" {
 				return editURL
 			}
-			if commentURL := s.getAppUrlFor("view_comment", fileExt); commentURL != "" {
+			if commentURL := s.appURLs.GetAppURLFor("view_comment", fileExt); commentURL != "" {
 				return commentURL
 			}
 		}
@@ -210,7 +202,7 @@ func (s *Service) getAppUrl(fileExt string, viewMode appproviderv1beta1.ViewMode
 		// If not collabora, there might be an edit action for the extension.
 		// If read/write mode has been requested, prioritize edit action.
 		if viewMode == appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE {
-			if editAppURL := s.getAppUrlFor("edit", fileExt); editAppURL != "" {
+			if editAppURL := s.appURLs.GetAppURLFor("edit", fileExt); editAppURL != "" {
 				appURL = editAppURL
 			}
 		}

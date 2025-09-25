@@ -5,6 +5,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/helpers"
 	microstore "go-micro.dev/v4/store"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -14,7 +15,7 @@ type Option func(o *Options)
 
 // Options defines the available options for this package.
 type Options struct {
-	AppURLs       map[string]map[string]string
+	AppURLs       *helpers.AppURLs
 	Name          string
 	Logger        log.Logger
 	Context       context.Context
@@ -35,7 +36,7 @@ func newOptions(opts ...Option) Options {
 }
 
 // AppURLs provides app urls based on mimetypes.
-func AppURLs(val map[string]map[string]string) Option {
+func AppURLs(val *helpers.AppURLs) Option {
 	return func(o *Options) {
 		o.AppURLs = val
 	}

@@ -23,6 +23,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/collaboration/mocks"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/helpers"
 	service "github.com/opencloud-eu/opencloud/services/collaboration/pkg/service/grpc/v0"
 )
 
@@ -80,22 +81,25 @@ var _ = Describe("Discovery", func() {
 		gatewaySelector := mocks.NewSelectable[gatewayv1beta1.GatewayAPIClient](GinkgoT())
 		gatewaySelector.On("Next").Return(gatewayClient, nil)
 
+		appURLs := helpers.NewAppURLs()
+		appURLs.Store(map[string]map[string]string{
+			"view": {
+				".pdf":  "https://cloud.opencloud.test/hosting/wopi/word/view",
+				".djvu": "https://cloud.opencloud.test/hosting/wopi/word/view",
+				".docx": "https://cloud.opencloud.test/hosting/wopi/word/view",
+				".xls":  "https://cloud.opencloud.test/hosting/wopi/cell/view",
+				".xlsb": "https://cloud.opencloud.test/hosting/wopi/cell/view",
+			},
+			"edit": {
+				".docx":    "https://cloud.opencloud.test/hosting/wopi/word/edit",
+				".invalid": "://cloud.opencloud.test/hosting/wopi/cell/edit",
+			},
+		})
+
 		srv, srvTear, _ = service.NewHandler(
 			service.Logger(log.NopLogger()),
 			service.Config(cfg),
-			service.AppURLs(map[string]map[string]string{
-				"view": {
-					".pdf":  "https://cloud.opencloud.test/hosting/wopi/word/view",
-					".djvu": "https://cloud.opencloud.test/hosting/wopi/word/view",
-					".docx": "https://cloud.opencloud.test/hosting/wopi/word/view",
-					".xls":  "https://cloud.opencloud.test/hosting/wopi/cell/view",
-					".xlsb": "https://cloud.opencloud.test/hosting/wopi/cell/view",
-				},
-				"edit": {
-					".docx":    "https://cloud.opencloud.test/hosting/wopi/word/edit",
-					".invalid": "://cloud.opencloud.test/hosting/wopi/cell/edit",
-				},
-			}),
+			service.AppURLs(appURLs),
 			service.GatewaySelector(gatewaySelector),
 		)
 	})

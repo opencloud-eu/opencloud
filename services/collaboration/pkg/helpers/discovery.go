@@ -6,12 +6,74 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 
 	"github.com/beevik/etree"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/config"
+	"github.com/opencloud-eu/reva/v2/pkg/mime"
 	"github.com/pkg/errors"
 )
+
+// AppURLs holds the app urls fetched from the WOPI app discovery endpoint
+// It is a type safe wrapper around an atomic pointer to a map
+type AppURLs struct {
+	urls atomic.Pointer[map[string]map[string]string]
+}
+
+func NewAppURLs() *AppURLs {
+	a := &AppURLs{}
+	a.urls.Store(&map[string]map[string]string{})
+	return a
+}
+
+func (a *AppURLs) Store(urls map[string]map[string]string) {
+	a.urls.Store(&urls)
+}
+
+func (a *AppURLs) GetMimeTypes() []string {
+	currentURLs := a.urls.Load()
+	if currentURLs == nil {
+		return []string{}
+	}
+
+	mimeTypesMap := make(map[string]bool)
+	for _, extensions := range *currentURLs {
+		for ext := range extensions {
+			m := mime.Detect(false, ext)
+			// skip the default
+			if m == "application/octet-stream" {
+				continue
+			}
+			mimeTypesMap[m] = true
+		}
+	}
+
+	// Convert map to slice
+	mimeTypes := make([]string, 0, len(mimeTypesMap))
+	for mimeType := range mimeTypesMap {
+		mimeTypes = append(mimeTypes, mimeType)
+	}
+
+	return mimeTypes
+}
+
+// GetAppURLFor gets the appURL from the list of appURLs based on the
+// action and file extension provided. If there is no match, an empty
+// string will be returned.
+func (a *AppURLs) GetAppURLFor(action, fileExt string) string {
+	currentURLs := a.urls.Load()
+	if currentURLs == nil {
+		return ""
+	}
+
+	if actionURL, ok := (*currentURLs)[action]; ok {
+		if actionExtensionURL, ok := actionURL[fileExt]; ok {
+			return actionExtensionURL
+		}
+	}
+	return ""
+}
 
 // GetAppURLs gets the edit and view urls for different file types from the
 // target WOPI app (onlyoffice, collabora, etc) via their "/hosting/discovery"

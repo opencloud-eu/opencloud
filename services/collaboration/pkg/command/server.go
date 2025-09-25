@@ -69,16 +69,26 @@ func Server(cfg *config.Config) *cli.Command {
 				return err
 			}
 
-			appUrls, err := helpers.GetAppURLs(cfg, logger)
-			if err != nil {
-				return err
-			}
+			// use the AppURLs helper (an atomic pointer) to fetch and store the app URLs
+			// this is required as the app URLs are fetched periodically in the background
+			// and read when handling requests
+			appURLs := helpers.NewAppURLs()
 
 			ticker := time.NewTicker(cfg.CS3Api.APPRegistrationInterval)
 			defer ticker.Stop()
 			go func() {
 				for ; true; <-ticker.C {
-					if err := helpers.RegisterAppProvider(ctx, cfg, logger, gatewaySelector, appUrls); err != nil {
+					// fetch and store the app URLs
+					v, err := helpers.GetAppURLs(cfg, logger)
+					if err != nil {
+						logger.Warn().Err(err).Msg("Failed to get app URLs")
+						// empty map to clear previous URLs
+						v = make(map[string]map[string]string)
+					}
+					appURLs.Store(v)
+
+					// register the app provider
+					if err := helpers.RegisterAppProvider(ctx, cfg, logger, gatewaySelector, appURLs); err != nil {
 						logger.Warn().Err(err).Msg("Failed to register app provider")
 					}
 				}
@@ -97,7 +107,7 @@ func Server(cfg *config.Config) *cli.Command {
 
 			// start GRPC server
 			grpcServer, teardown, err := grpc.Server(
-				grpc.AppURLs(appUrls),
+				grpc.AppURLs(appURLs),
 				grpc.Config(cfg),
 				grpc.Logger(logger),
 				grpc.TraceProvider(traceProvider),

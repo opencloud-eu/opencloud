@@ -7,7 +7,6 @@ import (
 	registryv1beta1 "github.com/cs3org/go-cs3apis/cs3/app/registry/v1beta1"
 	gatewayv1beta1 "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	rpcv1beta1 "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
-	"github.com/opencloud-eu/reva/v2/pkg/mime"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -35,24 +34,9 @@ func RegisterAppProvider(
 	cfg *config.Config,
 	logger log.Logger,
 	gws pool.Selectable[gatewayv1beta1.GatewayAPIClient],
-	appUrls map[string]map[string]string,
+	appUrls *AppURLs,
 ) error {
-	mimeTypesMap := make(map[string]bool)
-	for _, extensions := range appUrls {
-		for ext := range extensions {
-			m := mime.Detect(false, ext)
-			// skip the default
-			if m == "application/octet-stream" {
-				continue
-			}
-			mimeTypesMap[m] = true
-		}
-	}
-
-	mimeTypes := make([]string, 0, len(mimeTypesMap))
-	for m := range mimeTypesMap {
-		mimeTypes = append(mimeTypes, m)
-	}
+	mimeTypes := appUrls.GetMimeTypes()
 
 	logger.Debug().
 		Str("AppName", cfg.App.Name).
