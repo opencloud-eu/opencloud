@@ -353,7 +353,7 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 */
 	public function theUserDeletesAUserUsingTheGraphAPI(string $byUser, string $user): void {
-		$userId = $this->featureContext->getUserIdByUserName($user);
+		$userId = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$this->featureContext->setResponse($this->deleteUserByUserIdUsingTheGraphApi($userId, $byUser));
 	}
 
@@ -2455,7 +2455,7 @@ class GraphContext implements Context {
 	 */
 	public function getAssignedRole(string $user): ResponseInterface {
 		$userId = $this->featureContext->getAttributeOfCreatedUser($user, 'id')
-		?: $this->featureContext->getUserIdByUserName($user);
+		?: $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		return (
 			GraphHelper::getAssignedRole(
 				$this->featureContext->getBAseUrl(),
@@ -2844,7 +2844,7 @@ class GraphContext implements Context {
 	 * @throws JsonException
 	 */
 	public function theUserHasChangedItsOwnUsernameTo(string $byUser, string $userName): void {
-		$userId = $this->featureContext->getUserIdByUserName($byUser);
+		$userId = $this->featureContext->getAttributeOfCreatedUser($byUser, 'id');
 		$response = GraphHelper::editUser(
 			$this->featureContext->getBaseUrl(),
 			$this->featureContext->getStepLineRef(),

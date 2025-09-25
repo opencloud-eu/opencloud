@@ -2333,9 +2333,9 @@ class FeatureContext extends BehatVariablesContext {
 			[
 				"code" => "%user_id%",
 				"function" => [
-					$this, "getUserIdByUserName"
+					$this, "getAttributeOfCreatedUser"
 				],
-					"parameter" => [$userName]
+					"parameter" => [$userName, 'id']
 				],
 			[
 				"code" => "%group_id%",
@@ -2511,8 +2511,8 @@ class FeatureContext extends BehatVariablesContext {
 				[
 				"code" => "%user_id%",
 				"function" =>
-				[$this, "getUserIdByUserName"],
-				"parameter" => [$userName]
+				[$this, "getAttributeOfCreatedUser"],
+				"parameter" => [$userName, 'id']
 				],
 				[
 				"code" => "%group_id%",
@@ -2866,30 +2866,6 @@ class FeatureContext extends BehatVariablesContext {
 			$body = '';
 		}
 		return $body;
-	}
-
-	/**
-	 * The method returns userId
-	 *
-	 * @param string $userName
-	 *
-	 * @return string
-	 * @throws Exception|GuzzleException
-	 */
-	public function getUserIdByUserName(string $userName): string {
-		$response = GraphHelper::getUser(
-			$this->getBaseUrl(),
-			$this->getStepLineRef(),
-			$this->getAdminUsername(),
-			$this->getAdminPassword(),
-			$userName
-		);
-		$data = \json_decode($response->getBody()->getContents(), true, 512, JSON_THROW_ON_ERROR);
-		if (isset($data["id"])) {
-			return $data["id"];
-		} else {
-			throw new Exception(__METHOD__ . " accounts-list is empty");
-		}
 	}
 
 	/**

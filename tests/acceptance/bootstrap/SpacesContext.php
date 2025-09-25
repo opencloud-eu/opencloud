@@ -225,7 +225,7 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws JsonException
 	 */
-	public function getPersonalSpace(string $user): string {
+	public function getPersonalSpace(string $user): array {
 		$resource = GraphHelper::getUserWithDriveInformation(
 			$this->featureContext->getBaseUrl(),
 			$this->featureContext->getStepLineRef(),
@@ -1082,7 +1082,7 @@ class SpacesContext implements Context {
 			"No space with name $spaceName found"
 		);
 		$permissions = $spaceAsArray["root"]["permissions"];
-		$userId = $this->featureContext->getUserIdByUserName($grantedUser);
+		$userId = $this->featureContext->getAttributeOfCreatedUser($grantedUser, 'id');
 
 		$userRole = "";
 		foreach ($permissions as $permission) {
@@ -4679,7 +4679,7 @@ class SpacesContext implements Context {
 			"No space with name $spaceName found"
 		);
 		$recipientType === 'user' ?
-		$recipientId = $this->featureContext->getUserIdByUserName($recipient)
+		$recipientId = $this->featureContext->getAttributeOfCreatedUser($recipient, 'id')
 		: $recipientId = $this->featureContext->getGroupIdByGroupName($recipient);
 		$foundRoleInResponse = false;
 		foreach ($spaceAsArray['root']['permissions'] as $permission) {
