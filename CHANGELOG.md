@@ -1,10 +1,14 @@
 # Changelog
 
-## [3.5.1](https://github.com/opencloud-eu/opencloud/releases/tag/v3.5.1) - 2025-09-24
+## [3.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.6.0) - 2025-09-25
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @butonic, @rhafer
+@AlexAndBear, @ScharfViktor, @butonic, @rhafer
+
+### 📈 Enhancement
+
+- chore: add config for capability CheckForUpdates [[#1556](https://github.com/opencloud-eu/opencloud/pull/1556)]
 
 ### ✅ Tests
 
