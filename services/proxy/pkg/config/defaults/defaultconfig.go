@@ -272,6 +272,12 @@ func DefaultPolicies() []config.Policy {
 					Endpoint: "/auth-app/tokens",
 					Service:  "eu.opencloud.web.auth-app",
 				},
+				{
+					Endpoint:         "/wopi",
+					Service:          "eu.opencloud.web.collaboration.Collabora",
+					Unprotected:      true,
+					SkipXAccessToken: true,
+				},
 			},
 		},
 	}
