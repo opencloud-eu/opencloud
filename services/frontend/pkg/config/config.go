@@ -49,6 +49,7 @@ type Config struct {
 	LDAPServerWriteEnabled   bool        `yaml:"ldap_server_write_enabled" env:"OC_LDAP_SERVER_WRITE_ENABLED;FRONTEND_LDAP_SERVER_WRITE_ENABLED" desc:"Allow creating, modifying and deleting LDAP users via the GRAPH API. This can only be set to 'true' when keeping default settings for the LDAP user and group attribute types (the 'OC_LDAP_USER_SCHEMA_* and 'OC_LDAP_GROUP_SCHEMA_* variables)." introductionVersion:"1.0.0"`
 	EditLoginAllowedDisabled bool        `yaml:"edit_login_allowed_disabled" env:"FRONTEND_EDIT_LOGIN_ALLOWED_DISABLED" desc:"Used to set if login is allowed/forbidden for for User." introductionVersion:"3.4.0"`
 	FullTextSearch           bool        `yaml:"full_text_search" env:"FRONTEND_FULL_TEXT_SEARCH_ENABLED" desc:"Set to true to signal the web client that full-text search is enabled." introductionVersion:"1.0.0"`
+	CheckForUpdates          bool        `yaml:"check_for_updates" env:"FRONTEND_CHECK_FOR_UPDATES" desc:"Enable automatic checking for updates. Defaults to true." introductionVersion:"3.6.0"`
 
 	Middleware Middleware `yaml:"middleware"`
 
