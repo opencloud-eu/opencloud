@@ -8,6 +8,7 @@
 
 ### 📈 Enhancement
 
+- introduce AppURLs helper for atomic backgroud updates [[#1542](https://github.com/opencloud-eu/opencloud/pull/1542)]
 - chore: add config for capability CheckForUpdates [[#1556](https://github.com/opencloud-eu/opencloud/pull/1556)]
 
 ### ✅ Tests
