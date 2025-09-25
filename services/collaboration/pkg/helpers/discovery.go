@@ -92,10 +92,6 @@ func GetAppURLs(cfg *config.Config, logger log.Logger) (map[string]map[string]st
 
 	httpResp, err := httpClient.Get(wopiAppUrl)
 	if err != nil {
-		logger.Error().
-			Err(err).
-			Str("WopiAppUrl", wopiAppUrl).
-			Msg("WopiDiscovery: failed to access wopi app url")
 		return nil, err
 	}
 
