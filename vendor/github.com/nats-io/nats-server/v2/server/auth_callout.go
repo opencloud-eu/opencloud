@@ -33,7 +33,7 @@ const (
 )
 
 // Process a callout on this client's behalf.
-func (s *Server) processClientOrLeafCallout(c *client, opts *Options) (authorized bool, errStr string) {
+func (s *Server) processClientOrLeafCallout(c *client, opts *Options, proxyRequired, trustedProxy bool) (authorized bool, errStr string) {
 	isOperatorMode := len(opts.TrustedKeys) > 0
 
 	// this is the account the user connected in, or the one running the callout
@@ -245,6 +245,16 @@ func (s *Server) processClientOrLeafCallout(c *client, opts *Options) (authorize
 			respCh <- titleCase(err.Error())
 			return
 		}
+		// If the caller had established that the user should go through a proxy,
+		// or if the `arc` JWT requires it, and we don't have a trusted proxy,
+		// reject the connection.
+		if (proxyRequired || arc.ProxyRequired) && !trustedProxy {
+			err = ErrAuthProxyRequired
+			c.setAuthError(err)
+			c.authViolation()
+			respCh <- titleCase(err.Error())
+			return
+		}
 		vr := jwt.CreateValidationResults()
 		arc.Validate(vr)
 		if len(vr.Issues) > 0 {
@@ -369,7 +379,7 @@ func (s *Server) processClientOrLeafCallout(c *client, opts *Options) (authorize
 		conn := c.nc.(*tls.Conn)
 		cs := conn.ConnectionState()
 		ct.Version = tlsVersion(cs.Version)
-		ct.Cipher = tlsCipher(cs.CipherSuite)
+		ct.Cipher = tls.CipherSuiteName(cs.CipherSuite)
 		// Check verified chains.
 		for _, vs := range cs.VerifiedChains {
 			var certs []string

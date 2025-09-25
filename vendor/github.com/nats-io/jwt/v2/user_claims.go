@@ -36,6 +36,7 @@ type UserPermissionLimits struct {
 	Permissions
 	Limits
 	BearerToken            bool       `json:"bearer_token,omitempty"`
+	ProxyRequired          bool       `json:"proxy_required,omitempty"`
 	AllowedConnectionTypes StringList `json:"allowed_connection_types,omitempty"`
 }
 

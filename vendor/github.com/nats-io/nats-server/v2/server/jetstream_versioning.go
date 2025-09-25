@@ -17,7 +17,7 @@ import "strconv"
 
 const (
 	// JSApiLevel is the maximum supported JetStream API level for this server.
-	JSApiLevel int = 1
+	JSApiLevel int = 2
 
 	JSRequiredLevelMetadataKey = "_nats.req.level"
 	JSServerVersionMetadataKey = "_nats.ver"
@@ -60,6 +60,26 @@ func setStaticStreamMetadata(cfg *StreamConfig) {
 	// TTLs were added in v2.11 and require API level 1.
 	if cfg.AllowMsgTTL || cfg.SubjectDeleteMarkerTTL > 0 {
 		requires(1)
+	}
+
+	// Counter CRDTs were added in v2.12 and require API level 2.
+	if cfg.AllowMsgCounter {
+		requires(2)
+	}
+
+	// Atomic batch publishing was added in v2.12 and require API level 2.
+	if cfg.AllowAtomicPublish {
+		requires(2)
+	}
+
+	// Message scheduling was added in v2.12 and require API level 2.
+	if cfg.AllowMsgSchedules {
+		requires(2)
+	}
+
+	// Async persist mode was added in v2.12 and requires API level 2.
+	if cfg.PersistMode == AsyncPersistMode {
+		requires(2)
 	}
 
 	cfg.Metadata[JSRequiredLevelMetadataKey] = strconv.Itoa(requiredApiLevel)
@@ -203,4 +223,14 @@ func setOrDeleteInConsumerMetadata(cfg *ConsumerConfig, prevCfg *ConsumerConfig,
 func deleteDynamicMetadata(metadata map[string]string) {
 	delete(metadata, JSServerVersionMetadataKey)
 	delete(metadata, JSServerLevelMetadataKey)
+}
+
+// errorOnRequiredApiLevel returns whether a request should be rejected based on the JSRequiredApiLevel header.
+func errorOnRequiredApiLevel(hdr []byte) bool {
+	reqApiLevel := sliceHeader(JSRequiredApiLevel, hdr)
+	if len(reqApiLevel) == 0 {
+		return false
+	}
+	minLevel, err := strconv.Atoi(string(reqApiLevel))
+	return err != nil || JSApiLevel < minLevel
 }

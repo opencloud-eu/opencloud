@@ -514,7 +514,7 @@ func (s *Server) startMQTT() {
 	hp := net.JoinHostPort(o.Host, strconv.Itoa(port))
 	s.mu.Lock()
 	s.mqtt.sessmgr.sessions = make(map[string]*mqttAccountSessionManager)
-	hl, err = net.Listen("tcp", hp)
+	hl, err = natsListen("tcp", hp)
 	s.mqtt.listenerErr = err
 	if err != nil {
 		s.mu.Unlock()
@@ -647,7 +647,7 @@ func (s *Server) createMQTTClient(conn net.Conn, ws *websocket) *client {
 	if tlsRequired {
 		c.Debugf("TLS handshake complete")
 		cs := c.nc.(*tls.Conn).ConnectionState()
-		c.Debugf("TLS version %s, cipher suite %s", tlsVersion(cs.Version), tlsCipher(cs.CipherSuite))
+		c.Debugf("TLS version %s, cipher suite %s", tlsVersion(cs.Version), tls.CipherSuiteName(cs.CipherSuite))
 	}
 
 	c.mu.Unlock()
