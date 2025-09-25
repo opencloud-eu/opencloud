@@ -6,6 +6,12 @@
 
 @AlexAndBear, @ScharfViktor, @butonic, @rhafer
 
+### 🐛 Bug Fixes
+
+- let the runtime always create a cancel context [[#1565](https://github.com/opencloud-eu/opencloud/pull/1565)]
+- Bump reva and cs3apis [[#1538](https://github.com/opencloud-eu/opencloud/pull/1538)]
+- use correct endpoint in nats check [[#1533](https://github.com/opencloud-eu/opencloud/pull/1533)]
+
 ### 📈 Enhancement
 
 - introduce AppURLs helper for atomic backgroud updates [[#1542](https://github.com/opencloud-eu/opencloud/pull/1542)]
@@ -15,11 +21,6 @@
 
 - apiTest-flaky: sync share before checking [[#1550](https://github.com/opencloud-eu/opencloud/pull/1550)]
 - [decomposed] use Alpine for opencloud starting [[#1547](https://github.com/opencloud-eu/opencloud/pull/1547)]
-
-### 🐛 Bug Fixes
-
-- Bump reva and cs3apis [[#1538](https://github.com/opencloud-eu/opencloud/pull/1538)]
-- use correct endpoint in nats check [[#1533](https://github.com/opencloud-eu/opencloud/pull/1533)]
 
 ### 📦️ Dependencies
 
