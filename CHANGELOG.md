@@ -24,6 +24,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump golang.org/x/net from 0.43.0 to 0.44.0 [[#1567](https://github.com/opencloud-eu/opencloud/pull/1567)]
 - reva bump. getting #327 [[#1555](https://github.com/opencloud-eu/opencloud/pull/1555)]
 - build(deps): bump golang.org/x/image from 0.30.0 to 0.31.0 [[#1552](https://github.com/opencloud-eu/opencloud/pull/1552)]
 - build(deps): bump github.com/nats-io/nats.go from 1.45.0 to 1.46.0 [[#1551](https://github.com/opencloud-eu/opencloud/pull/1551)]
