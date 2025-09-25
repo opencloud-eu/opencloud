@@ -710,7 +710,9 @@ func (g Graph) DeleteUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, sp := range lspr.GetStorageSpaces() {
-			if !(sp.SpaceType == _spaceTypePersonal && sp.Owner.Id.OpaqueId == user.GetId()) {
+			// if the spacetype equals _spaceTypePersonal and the owner id equals the user id
+			// then we found the personal space of the user to be deleted
+			if !(sp.GetSpaceType() == _spaceTypePersonal && sp.Owner.GetId().GetOpaqueId() == user.GetId()) {
 				continue
 			}
 			// TODO: check if request contains a homespace and if, check if requesting user has the privilege to
@@ -751,7 +753,8 @@ func (g Graph) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if g.config.UserSoftDeleteRetentionTime == 0 || (purgeUser && us.State == userstate.UserStateSoftDeleted) {
+	if (g.config.UserSoftDeleteRetentionTime > 0 && us.State == userstate.UserStateSoftDeleted && purgeUser) ||
+		(g.config.UserSoftDeleteRetentionTime == 0) {
 		logger.Debug().Str("id", user.GetId()).Msg("calling delete user on backend")
 		err = g.identityBackend.DeleteUser(r.Context(), user.GetId())
 		if err != nil {
