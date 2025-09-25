@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"net/rpc"
-	"os/signal"
 	"sort"
 	"strings"
 	"sync"
@@ -360,12 +359,9 @@ func Start(ctx context.Context, o ...Option) error {
 		return err
 	}
 
-	// cancel the context when a signal is received.
-	var cancel context.CancelFunc
-	if ctx == nil {
-		ctx, cancel = signal.NotifyContext(context.Background(), runner.StopSignals...)
-		defer cancel()
-	}
+	// create a context that will be cancelled when too many backoff cycles on one of the services happens
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	// tolerance controls backoff cycles from the supervisor.
 	tolerance := 5
