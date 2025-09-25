@@ -688,15 +688,14 @@ class GraphContext implements Context {
 			$rows["displayName"]
 		);
 
-		// add created user to list except for the user with an empty name
-		// because request /graph/v1.0/users/emptyUserName exits with 200
-		// and we cannot check that the user with empty name doesn't exist
-		if (!empty($rows["userName"])) {
+		$responseData = \json_decode($response->getBody()->getContents(), true, 512, JSON_THROW_ON_ERROR);
+		if ($response->getStatusCode() === 201) {
 			$this->featureContext->addUserToCreatedUsersList(
 				$rows["userName"],
 				$rows["password"],
 				$rows["displayName"],
-				$rows["email"]
+				$rows["email"],
+				$responseData['id']
 			);
 		}
 		$this->featureContext->setResponse($response);
