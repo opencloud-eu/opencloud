@@ -12,6 +12,7 @@ const (
 	JmapSubmission       = "urn:ietf:params:jmap:submission"
 	JmapVacationResponse = "urn:ietf:params:jmap:vacationresponse"
 	JmapCalendars        = "urn:ietf:params:jmap:calendars"
+	JmapContacts         = "urn:ietf:params:jmap:contacts"
 	JmapSieve            = "urn:ietf:params:jmap:sieve"
 	JmapBlob             = "urn:ietf:params:jmap:blob"
 	JmapQuota            = "urn:ietf:params:jmap:quota"
@@ -237,6 +238,17 @@ type SessionBlobAccountCapabilities struct {
 type SessionQuotaAccountCapabilities struct {
 }
 
+type SessionContactsAccountCapabilities struct {
+	// The maximum number of AddressBooks that can be can assigned to a single ContactCard object.
+	//
+	// This MUST be an integer >= 1, or null for no limit (or rather, the limit is always the number of AddressBooks
+	// in the account).
+	MaxAddressBooksPerCard uint `json:"maxAddressBooksPerCard,omitzero"`
+
+	// If true, the user may create an AddressBook in this account.
+	MayCreateAddressBook bool `json:"mayCreateAddressBook"`
+}
+
 type SessionAccountCapabilities struct {
 	Mail             SessionMailAccountCapabilities             `json:"urn:ietf:params:jmap:mail"`
 	Submission       SessionSubmissionAccountCapabilities       `json:"urn:ietf:params:jmap:submission"`
@@ -244,6 +256,7 @@ type SessionAccountCapabilities struct {
 	Sieve            SessionSieveAccountCapabilities            `json:"urn:ietf:params:jmap:sieve"`
 	Blob             SessionBlobAccountCapabilities             `json:"urn:ietf:params:jmap:blob"`
 	Quota            SessionQuotaAccountCapabilities            `json:"urn:ietf:params:jmap:quota"`
+	Contacts         SessionContactsAccountCapabilities         `json:"urn:ietf:params:jmap:contacts"`
 }
 
 type SessionAccount struct {
@@ -310,6 +323,9 @@ type SessionWebsocketCapabilities struct {
 	SupportsPush bool `json:"supportsPush"`
 }
 
+type SessionContactsCapabilities struct {
+}
+
 type SessionCapabilities struct {
 	Core             SessionCoreCapabilities             `json:"urn:ietf:params:jmap:core"`
 	Mail             SessionMailCapabilities             `json:"urn:ietf:params:jmap:mail"`
@@ -319,6 +335,7 @@ type SessionCapabilities struct {
 	Blob             SessionBlobCapabilities             `json:"urn:ietf:params:jmap:blob"`
 	Quota            SessionQuotaCapabilities            `json:"urn:ietf:params:jmap:quota"`
 	Websocket        SessionWebsocketCapabilities        `json:"urn:ietf:params:jmap:websocket"`
+	Contacts         SessionContactsCapabilities         `json:"urn:ietf:params:jmap:contacts"`
 }
 
 type SessionPrimaryAccounts struct {
@@ -2810,6 +2827,85 @@ type StateChange struct {
 	// the client will have to issue a series of "/changes" requests upon reconnection to update
 	// its state to match that of the server.
 	PushState string `json:"pushState"`
+}
+
+type AddressBookRights struct {
+	// The user may fetch the ContactCards in this AddressBook.
+	MayRead bool `json:"mayRead"`
+
+	// The user may create, modify or destroy all ContactCards in this AddressBook, or move them to or from this AddressBook.
+	MayWrite bool `json:"mayWrite"`
+
+	// The user may modify the “shareWith” property for this AddressBook.
+	MayAdmin bool `json:"mayAdmin"`
+
+	// The user may delete the AddressBook itself.
+	MayDelete bool `json:"mayDelete"`
+}
+
+// An AddressBook is a named collection of ContactCards.
+//
+// All ContactCards are associated with one or more AddressBook.
+type AddressBook struct {
+	// The id of the AddressBook (immutable; server-set).
+	Id string `json:"id"`
+
+	// The user-visible name of the AddressBook.
+	//
+	// This may be any UTF-8 string of at least 1 character in length and maximum 255 octets in size.
+	Name string `json:"name"`
+
+	// An optional longer-form description of the AddressBook, to provide context in shared environments
+	// where users need more than just the name.
+	Description string `json:"description,omitempty"`
+
+	// Defines the sort order of AddressBooks when presented in the client’s UI, so it is consistent between devices.
+	//
+	// The number MUST be an integer in the range 0 <= sortOrder < 2^31.
+	//
+	// An AddressBook with a lower order should be displayed before a AddressBook with a higher order in any list
+	// of AddressBooks in the client’s UI.
+	//
+	// AddressBooks with equal order SHOULD be sorted in alphabetical order by name.
+	//
+	// The sorting should take into account locale-specific character order convention.
+	//
+	// Default: 0
+	SortOrder uint `json:"sortOrder,omitzero"`
+
+	// This SHOULD be true for exactly one AddressBook in any account, and MUST NOT be true for more than one
+	// AddressBook within an account.
+	//
+	// The default AddressBook should be used by clients whenever they need to choose an AddressBook for the user
+	// within this account, and they do not have any other information on which to make a choice.
+	//
+	// For example, if the user creates a new contact card, the client may automatically set the card as belonging
+	// to the default AddressBook from the user’s primary account.
+	IsDefault bool `json:"isDefault,omitzero"`
+
+	// True if the user has indicated they wish to see this AddressBook in their client.
+	//
+	// This SHOULD default to false for AddressBooks in shared accounts the user has access to and true for any
+	// new AddressBooks created by the user themself.
+	//
+	// If false, the AddressBook and its contents SHOULD only be displayed when the user explicitly requests it
+	// or to offer it for the user to subscribe to.
+	IsSubscribed bool `json:"isSubscribed"`
+
+	// A map of Principal id to rights for principals this AddressBook is shared with.
+	//
+	// The principal to which this AddressBook belongs MUST NOT be in this set.
+	//
+	// This is null if the AddressBook is not shared with anyone.
+	//
+	// May be modified only if the user has the mayAdmin right.
+	//
+	// The account id for the principals may be found in the urn:ietf:params:jmap:principals:owner capability
+	// of the Account to which the AddressBook belongs.
+	ShareWith map[string]AddressBookRights `json:"shareWith,omitempty"`
+
+	// The set of access rights the user has in relation to this AddressBook (server-set).
+	MyRights AddressBookRights `json:"myRights"`
 }
 
 type ErrorResponse struct {
