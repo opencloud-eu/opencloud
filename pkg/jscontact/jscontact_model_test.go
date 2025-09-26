@@ -8,10 +8,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func jsoneq(t *testing.T, expected string, object any) {
-	str, err := json.MarshalIndent(object, "", "")
+func jsoneq[X any](t *testing.T, expected string, object X) {
+	data, err := json.MarshalIndent(object, "", "")
 	require.NoError(t, err)
-	require.JSONEq(t, expected, string(str))
+	require.JSONEq(t, expected, string(data))
+
+	var rec X
+	err = json.Unmarshal(data, &rec)
+	require.NoError(t, err)
+	require.Equal(t, object, rec)
 }
 
 func TestCalendar(t *testing.T) {
@@ -550,7 +555,7 @@ func TestTimestamp(t *testing.T) {
 	jsoneq(t, `{
 		"@type": "Timestamp",
 		"utc": "2025-09-25T18:26:14.094725532+02:00"
-	}`, Timestamp{
+	}`, &Timestamp{
 		Type: TimestampType,
 		Utc:  ts,
 	})
@@ -569,7 +574,7 @@ func TestAnniversaryWithPartialDate(t *testing.T) {
 	}`, Anniversary{
 		Type: AnniversaryType,
 		Kind: AnniversaryKindBirth,
-		Date: PartialDate{
+		Date: &PartialDate{
 			Type:  PartialDateType,
 			Year:  2025,
 			Month: 9,
@@ -592,7 +597,7 @@ func TestAnniversaryWithTimestamp(t *testing.T) {
 	}`, Anniversary{
 		Type: AnniversaryType,
 		Kind: AnniversaryKindBirth,
-		Date: Timestamp{
+		Date: &Timestamp{
 			Type: TimestampType,
 			Utc:  ts,
 		},
@@ -1201,7 +1206,7 @@ func TestContactCard(t *testing.T) {
 			"birth": {
 				Type: AnniversaryType,
 				Kind: AnniversaryKindBirth,
-				Date: PartialDate{
+				Date: &PartialDate{
 					Type:          PartialDateType,
 					Year:          2025,
 					Month:         9,
@@ -1238,7 +1243,7 @@ func TestContactCard(t *testing.T) {
 		},
 		Localizations: map[string]PatchObject{
 			"fr": {
-				"personalInfo": PatchObject{
+				"personalInfo": map[string]any{
 					"value": "Nuages",
 				},
 			},
