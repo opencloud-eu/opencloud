@@ -14,7 +14,7 @@ func jsoneq(t *testing.T, expected string, object any) {
 	require.JSONEq(t, expected, string(str))
 }
 
-func TestResource(t *testing.T) {
+func TestCalendar(t *testing.T) {
 	jsoneq(t, `{
 		"@type": "Calendar",
 		"kind": "calendar",
@@ -24,23 +24,67 @@ func TestResource(t *testing.T) {
 			"work": true
 		},
 		"label": "test"
-	}`, Resource{
+	}`, Calendar{
 		Type:      CalendarType,
-		Kind:      CalendarResourceKindCalendar,
+		Kind:      CalendarKindCalendar,
 		Uri:       "https://opencloud.eu/calendar/d05779b6-9638-4694-9869-008a61df6025",
 		MediaType: "application/jscontact+json",
-		Contexts: map[string]bool{
-			ResourceContextWork: true,
+		Contexts: map[CalendarContext]bool{
+			CalendarContextWork: true,
 		},
 		Pref:  0,
 		Label: "test",
 	})
 }
 
-func TestDirectoryResource(t *testing.T) {
+func TestLink(t *testing.T) {
 	jsoneq(t, `{
-		"@type": "Calendar",
-		"kind": "calendar",
+		"@type": "Link",
+		"kind": "contact",
+		"uri": "https://opencloud.eu/calendar/d05779b6-9638-4694-9869-008a61df6025",
+		"mediaType": "application/jscontact+json",
+		"contexts": {
+			"work": true
+		},
+		"label": "test"
+	}`, Link{
+		Type:      LinkType,
+		Kind:      LinkKindContact,
+		Uri:       "https://opencloud.eu/calendar/d05779b6-9638-4694-9869-008a61df6025",
+		MediaType: "application/jscontact+json",
+		Contexts: map[LinkContext]bool{
+			LinkContextWork: true,
+		},
+		Pref:  0,
+		Label: "test",
+	})
+}
+
+func TestCryptoKey(t *testing.T) {
+	jsoneq(t, `{
+		"@type": "CryptoKey",
+		"uri": "https://opencloud.eu/calendar/d05779b6-9638-4694-9869-008a61df6025.pgp",
+		"mediaType": "application/pgp-keys",
+		"contexts": {
+			"work": true
+		},
+		"label": "test"
+	}`, CryptoKey{
+		Type:      CryptoKeyType,
+		Uri:       "https://opencloud.eu/calendar/d05779b6-9638-4694-9869-008a61df6025.pgp",
+		MediaType: "application/pgp-keys",
+		Contexts: map[CryptoKeyContext]bool{
+			CryptoKeyContextWork: true,
+		},
+		Pref:  0,
+		Label: "test",
+	})
+}
+
+func TestDirectory(t *testing.T) {
+	jsoneq(t, `{
+		"@type": "Directory",
+		"kind": "entry",
 		"uri": "https://opencloud.eu/calendar/d05779b6-9638-4694-9869-008a61df6025",
 		"mediaType": "application/jscontact+json",
 		"contexts": {
@@ -48,13 +92,13 @@ func TestDirectoryResource(t *testing.T) {
 		},
 		"label": "test",
 		"listAs": 3
-	}`, DirectoryResource{
-		Type:      CalendarType,
-		Kind:      CalendarResourceKindCalendar,
+	}`, Directory{
+		Type:      DirectoryType,
+		Kind:      DirectoryKindEntry,
 		Uri:       "https://opencloud.eu/calendar/d05779b6-9638-4694-9869-008a61df6025",
 		MediaType: "application/jscontact+json",
-		Contexts: map[string]bool{
-			ResourceContextWork: true,
+		Contexts: map[DirectoryContext]bool{
+			DirectoryContextWork: true,
 		},
 		Pref:   0,
 		Label:  "test",
@@ -62,24 +106,24 @@ func TestDirectoryResource(t *testing.T) {
 	})
 }
 
-func TestMediaResource(t *testing.T) {
+func TestMedia(t *testing.T) {
 	jsoneq(t, `{
-		"@type": "Calendar",
-		"kind": "calendar",
-		"uri": "https://opencloud.eu/calendar/d05779b6-9638-4694-9869-008a61df6025",
-		"mediaType": "application/jscontact+json",
+		"@type": "Media",
+		"kind": "logo",
+		"uri": "https://opencloud.eu/opencloud.svg",
+		"mediaType": "image/svg+xml",
 		"contexts": {
 			"work": true
 		},
 		"label": "test",
 		"blobId": "1d92cf97e32b42ceb5538f0804a41891"
-	}`, MediaResource{
-		Type:      CalendarType,
-		Kind:      CalendarResourceKindCalendar,
-		Uri:       "https://opencloud.eu/calendar/d05779b6-9638-4694-9869-008a61df6025",
-		MediaType: "application/jscontact+json",
-		Contexts: map[string]bool{
-			ResourceContextWork: true,
+	}`, Media{
+		Type:      MediaType,
+		Kind:      MediaKindLogo,
+		Uri:       "https://opencloud.eu/opencloud.svg",
+		MediaType: "image/svg+xml",
+		Contexts: map[MediaContext]bool{
+			MediaContextWork: true,
 		},
 		Pref:   0,
 		Label:  "test",
@@ -96,7 +140,7 @@ func TestRelation(t *testing.T) {
 		}
 	}`, Relation{
 		Type: RelationType,
-		Relation: map[string]bool{
+		Relation: map[Relationship]bool{
 			RelationCoWorker: true,
 			RelationFriend:   true,
 		},
@@ -128,7 +172,7 @@ func TestNickname(t *testing.T) {
 	}`, Nickname{
 		Type: NicknameType,
 		Name: "Bob",
-		Contexts: map[string]bool{
+		Contexts: map[NicknameContext]bool{
 			NicknameContextPrivate: true,
 		},
 		Pref: 3,
@@ -179,7 +223,7 @@ func TestOrganization(t *testing.T) {
 				Name: "Cybernics",
 			},
 		},
-		Contexts: map[string]bool{
+		Contexts: map[OrganizationContext]bool{
 			OrganizationContextWork: true,
 		},
 	})
@@ -197,7 +241,7 @@ func TestPronouns(t *testing.T) {
 	}`, Pronouns{
 		Type:     PronounsType,
 		Pronouns: "they/them",
-		Contexts: map[string]bool{
+		Contexts: map[PronounsContext]bool{
 			PronounsContextWork:    true,
 			PronounsContextPrivate: true,
 		},
@@ -246,17 +290,17 @@ func TestSpeakToAs(t *testing.T) {
 		GrammaticalGender: GrammaticalGenderNeuter,
 		Pronouns: map[string]Pronouns{
 			"a": {
-				Type:     JSContactTypePronouns,
+				Type:     PronounsType,
 				Pronouns: "they/them",
-				Contexts: map[string]bool{
+				Contexts: map[PronounsContext]bool{
 					PronounsContextPrivate: true,
 				},
 				Pref: 1,
 			},
 			"b": {
-				Type:     JSContactTypePronouns,
+				Type:     PronounsType,
 				Pronouns: "he/him",
-				Contexts: map[string]bool{
+				Contexts: map[PronounsContext]bool{
 					PronounsContextWork: true,
 				},
 				Pref: 99,
@@ -302,8 +346,8 @@ func TestName(t *testing.T) {
 		DefaultSeparator: " ",
 		Full:             "Diego Rivera Barrientos",
 		SortAs: map[string]string{
-			NameComponentKindSurname: "Rivera Barrientos",
-			NameComponentKindGiven:   "Diego",
+			string(NameComponentKindSurname): "Rivera Barrientos",
+			string(NameComponentKindGiven):   "Diego",
 		},
 	})
 }
@@ -321,7 +365,7 @@ func TestEmailAddress(t *testing.T) {
 	}`, EmailAddress{
 		Type:    EmailAddressType,
 		Address: "camina@opa.org",
-		Contexts: map[string]bool{
+		Contexts: map[EmailAddressContext]bool{
 			EmailAddressContextWork:    true,
 			EmailAddressContextPrivate: true,
 		},
@@ -344,7 +388,7 @@ func TestOnlineService(t *testing.T) {
 	}`, OnlineService{
 		Type:    OnlineServiceType,
 		Service: "OPA Network",
-		Contexts: map[string]bool{
+		Contexts: map[OnlineServiceContext]bool{
 			OnlineServiceContextWork: true,
 		},
 		Uri:   "https://opa.org/cdrummer",
@@ -374,14 +418,14 @@ func TestPhone(t *testing.T) {
 	}`, Phone{
 		Type:   PhoneType,
 		Number: "+15551234567",
-		Features: map[string]bool{
+		Features: map[PhoneFeature]bool{
 			PhoneFeatureText:       true,
 			PhoneFeatureMainNumber: true,
 			PhoneFeatureMobile:     true,
 			PhoneFeatureVideo:      true,
 			PhoneFeatureVoice:      true,
 		},
-		Contexts: map[string]bool{
+		Contexts: map[PhoneContext]bool{
 			PhoneContextWork:    true,
 			PhoneContextPrivate: true,
 		},
@@ -401,7 +445,7 @@ func TestLanguagePref(t *testing.T) {
 	}`, LanguagePref{
 		Type:     LanguagePrefType,
 		Language: "fr-BE",
-		Contexts: map[string]bool{
+		Contexts: map[LanguagePrefContext]bool{
 			LanguagePrefContextPrivate: true,
 		},
 		Pref: 2,
@@ -421,7 +465,7 @@ func TestSchedulingAddress(t *testing.T) {
 		Type:  SchedulingAddressType,
 		Uri:   "mailto:camina@opa.org",
 		Label: "opa",
-		Contexts: map[string]bool{
+		Contexts: map[SchedulingAddressContext]bool{
 			SchedulingAddressContextWork: true,
 		},
 		Pref: 3,
@@ -464,7 +508,7 @@ func TestAddress(t *testing.T) {
 		"isOrdered": true
 	}`, Address{
 		Type: AddressType,
-		Contexts: map[string]bool{
+		Contexts: map[AddressContext]bool{
 			AddressContextDelivery: true,
 			AddressContextWork:     true,
 		},
@@ -842,7 +886,10 @@ func TestContactCard(t *testing.T) {
 			"r1": {
 				"@type": "Link",
 				"kind": "contact",
-				"uri": "mailto:contact@opencloud.eu.example.com"
+				"uri": "mailto:contact@opencloud.eu.example.com",
+				"contexts": {
+					"work": true
+				}
 			}
 		},
 		"media": {
@@ -913,7 +960,7 @@ func TestContactCard(t *testing.T) {
 			"79047052-ae0e-4299-8860-5bff1a139f3d": true,
 			"44eb6105-08c1-458b-895e-4ad1149dfabd": true,
 		},
-		Version:  JSContactVersion,
+		Version:  JSContactVersion_1_0,
 		Created:  created,
 		Language: "fr-BE",
 		Members: map[string]bool{
@@ -925,12 +972,12 @@ func TestContactCard(t *testing.T) {
 		RelatedTo: map[string]Relation{
 			"urn:uid:ca9d2a62-e068-43b6-a470-46506976d505": {
 				Type: RelationType,
-				Relation: map[string]bool{
+				Relation: map[Relationship]bool{
 					RelationContact: true,
 				},
 			},
 			"urn:uid:72183ec2-b218-4983-9c89-ff117eeb7c5e": {
-				Relation: map[string]bool{
+				Relation: map[Relationship]bool{
 					RelationEmergency: true,
 					RelationSpouse:    true,
 				},
@@ -948,7 +995,7 @@ func TestContactCard(t *testing.T) {
 			IsOrdered:        true,
 			DefaultSeparator: ", ",
 			SortAs: map[string]string{
-				NameComponentKindSurname: "OpenCloud Team",
+				string(NameComponentKindSurname): "OpenCloud Team",
 			},
 			Full: "OpenCloud Team",
 		},
@@ -956,7 +1003,7 @@ func TestContactCard(t *testing.T) {
 			"a": {
 				Type: NicknameType,
 				Name: "The Team",
-				Contexts: map[string]bool{
+				Contexts: map[NicknameContext]bool{
 					NicknameContextWork: true,
 				},
 				Pref: 1,
@@ -972,7 +1019,7 @@ func TestContactCard(t *testing.T) {
 					{Name: "Operations", SortAs: "ops"},
 				},
 				SortAs: "opencloud",
-				Contexts: map[string]bool{
+				Contexts: map[OrganizationContext]bool{
 					OrganizationContextWork: true,
 				},
 			},
@@ -984,7 +1031,7 @@ func TestContactCard(t *testing.T) {
 				"p": {
 					Type:     PronounsType,
 					Pronouns: "it",
-					Contexts: map[string]bool{
+					Contexts: map[PronounsContext]bool{
 						PronounsContextWork: true,
 					},
 					Pref: 1,
@@ -1003,7 +1050,7 @@ func TestContactCard(t *testing.T) {
 			"e": {
 				Type:    EmailAddressType,
 				Address: "info@opencloud.eu.example.com",
-				Contexts: map[string]bool{
+				Contexts: map[EmailAddressContext]bool{
 					EmailAddressContextWork: true,
 				},
 				Pref:  1,
@@ -1016,7 +1063,7 @@ func TestContactCard(t *testing.T) {
 				Service: "The Misinformation Game",
 				Uri:     "https://misinfogame.com/91886aa0-3586-4ade-b9bb-ec031464a251",
 				User:    "opencloudeu",
-				Contexts: map[string]bool{
+				Contexts: map[OnlineServiceContext]bool{
 					OnlineServiceContextWork: true,
 				},
 				Pref:  1,
@@ -1027,11 +1074,11 @@ func TestContactCard(t *testing.T) {
 			"p": {
 				Type:   PhoneType,
 				Number: "+1-804-222-1111",
-				Features: map[string]bool{
+				Features: map[PhoneFeature]bool{
 					PhoneFeatureVoice: true,
 					PhoneFeatureText:  true,
 				},
-				Contexts: map[string]bool{
+				Contexts: map[PhoneContext]bool{
 					PhoneContextWork: true,
 				},
 				Pref:  1,
@@ -1042,26 +1089,26 @@ func TestContactCard(t *testing.T) {
 			"wa": {
 				Type:     LanguagePrefType,
 				Language: "wa-BE",
-				Contexts: map[string]bool{
+				Contexts: map[LanguagePrefContext]bool{
 					LanguagePrefContextPrivate: true,
 				},
 				Pref: 1,
 			},
 			"de": {
 				Language: "de-DE",
-				Contexts: map[string]bool{
+				Contexts: map[LanguagePrefContext]bool{
 					LanguagePrefContextWork: true,
 				},
 				Pref: 2,
 			},
 		},
-		Calendars: map[string]Resource{
+		Calendars: map[string]Calendar{
 			"c": {
 				Type:      CalendarType,
-				Kind:      CalendarResourceKindCalendar,
+				Kind:      CalendarKindCalendar,
 				Uri:       "https://opencloud.eu/calendars/521b032b-a2b3-4540-81b9-3f6bccacaab2",
 				MediaType: "application/jscontact+json",
-				Contexts: map[string]bool{
+				Contexts: map[CalendarContext]bool{
 					CalendarContextWork: true,
 				},
 				Pref:  1,
@@ -1072,7 +1119,7 @@ func TestContactCard(t *testing.T) {
 			"s": {
 				Type: SchedulingAddressType,
 				Uri:  "mailto:scheduling@opencloud.eu.example.com",
-				Contexts: map[string]bool{
+				Contexts: map[SchedulingAddressContext]bool{
 					SchedulingAddressContextWork: true,
 				},
 				Pref:  1,
@@ -1099,47 +1146,50 @@ func TestContactCard(t *testing.T) {
 				CountryCode:      "JP",
 				Coordinates:      "geo:35.6796373,139.7616907",
 				TimeZone:         "JST",
-				Contexts: map[string]bool{
+				Contexts: map[AddressContext]bool{
 					AddressContextDelivery: true,
 					AddressContextWork:     true,
 				},
 				Pref: 2,
 			},
 		},
-		CryptoKeys: map[string]Resource{
+		CryptoKeys: map[string]CryptoKey{
 			"k1": {
 				Type:      CryptoKeyType,
 				Uri:       "https://opencloud.eu.example.com/keys/d550f57c-582c-43cc-8d94-822bded9ab36",
 				MediaType: "application/pgp-keys",
-				Contexts: map[string]bool{
+				Contexts: map[CryptoKeyContext]bool{
 					CryptoKeyContextWork: true,
 				},
 				Pref:  1,
 				Label: "keys",
 			},
 		},
-		Directories: map[string]DirectoryResource{
+		Directories: map[string]Directory{
 			"d1": {
 				Type:   DirectoryType,
-				Kind:   DirectoryResourceKindEntry,
+				Kind:   DirectoryKindEntry,
 				Uri:    "https://opencloud.eu.example.com/addressbook/8c2f0363-af0a-4d16-a9d5-8a9cd885d722",
 				ListAs: 1,
 			},
 		},
-		Links: map[string]Resource{
+		Links: map[string]Link{
 			"r1": {
 				Type: LinkType,
-				Kind: LinkResourceKindContact,
-				Uri:  "mailto:contact@opencloud.eu.example.com",
+				Kind: LinkKindContact,
+				Contexts: map[LinkContext]bool{
+					LinkContextWork: true,
+				},
+				Uri: "mailto:contact@opencloud.eu.example.com",
 			},
 		},
-		Media: map[string]MediaResource{
+		Media: map[string]Media{
 			"m": {
 				Type:      MediaType,
-				Kind:      MediaResourceKindLogo,
+				Kind:      MediaKindLogo,
 				Uri:       "https://opencloud.eu.example.com/opencloud.svg",
 				MediaType: "image/svg+xml",
-				Contexts: map[string]bool{
+				Contexts: map[MediaContext]bool{
 					MediaContextWork: true,
 				},
 				Pref:   123,
