@@ -249,7 +249,7 @@ Feature: unlock locked items
 
   Scenario: unlock a file using file-id
     Given using spaces DAV path
-    And user "Alice" has uploaded a file inside space "Alice Hansen" with content "some content" to "textfile.txt"
+    And user "Alice" has uploaded a file inside space "Personal" with content "some content" to "textfile.txt"
     And we save it into "FILEID"
     And user "Alice" has locked file "textfile.txt" using file-id "<<FILEID>>" setting the following properties
       | lockscope | exclusive   |
@@ -278,7 +278,7 @@ Feature: unlock locked items
   Scenario: unlock a file in the shares using file-id
     Given user "Brian" has been created with default attributes
     And using spaces DAV path
-    And user "Alice" has uploaded a file inside space "Alice Hansen" with content "some content" to "textfile.txt"
+    And user "Alice" has uploaded a file inside space "Personal" with content "some content" to "textfile.txt"
     And we save it into "FILEID"
     And user "Alice" has sent the following resource share invitation:
       | resource        | textfile.txt |

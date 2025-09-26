@@ -105,7 +105,7 @@ Feature: State of the quota
 
 
   Scenario Outline: check the relative amount of quota of personal space
-    Given user "Admin" has changed the quota of the personal space of user "Alice" space to "10000"
+    Given user "Admin" has changed the quota of the personal space of user "Alice" to "10000"
     And user "Alice" has uploaded file "<file-upload>" to "/demo.txt"
     When the user "Alice" requests these endpoints with "GET" with basic auth
       | endpoint    |
@@ -138,7 +138,7 @@ Feature: State of the quota
 
 
   Scenario: user can restore a file version even if there is not enough quota to do so
-    Given user "Admin" has changed the quota of the personal space of user "Alice" space to "30"
+    Given user "Admin" has changed the quota of the personal space of user "Alice" to "30"
     And user "Alice" has uploaded file with content "file is less than 30 bytes" to "/file.txt"
     And user "Alice" has uploaded file with content "reduceContent" to "/file.txt"
     And user "Alice" has uploaded file with content "some content" to "newFile.txt"

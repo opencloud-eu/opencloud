@@ -282,8 +282,8 @@ Feature: Search
   @issue-enterprise-6000 @issue-7028 @issue-7092 @issue-10329
   Scenario Outline: sharee cannot find resources that are not shared
     Given using <dav-path-version> DAV path
-    And user "Alice" has created a folder "foo/sharedToBrian" in space "Alice Hansen"
-    And user "Alice" has created a folder "sharedToCarol" in space "Alice Hansen"
+    And user "Alice" has created a folder "foo/sharedToBrian" in space "Personal"
+    And user "Alice" has created a folder "sharedToCarol" in space "Personal"
     And user "Alice" has sent the following resource share invitation:
       | resource        | foo      |
       | space           | Personal |

@@ -411,7 +411,7 @@ Feature: user GDPR (General Data Protection Regulation) report
 
 
   Scenario: generate a GDPR report after the admin updates the quota of personal space
-    Given user "Admin" has changed the quota of the personal space of user "Alice" space to "10000"
+    Given user "Admin" has changed the quota of the personal space of user "Alice" to "10000"
     When user "Alice" exports her GDPR report to "/.personal_data_export.json" using the Graph API
     And user "Alice" downloads the content of GDPR report ".personal_data_export.json"
     Then the HTTP status code of responses on each endpoint should be "202, 200" respectively

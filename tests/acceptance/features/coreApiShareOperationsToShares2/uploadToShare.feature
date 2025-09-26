@@ -167,7 +167,7 @@ Feature: sharing
   Scenario Outline: check quota of owners parent directory of a shared file
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
-    And user "Admin" has changed the quota of the personal space of user "Brian" space to "0"
+    And user "Admin" has changed the quota of the personal space of user "Brian" to "0"
     And user "Alice" has uploaded file "filesForUpload/lorem.txt" to "/myfile.txt"
     And user "Alice" has sent the following resource share invitation:
       | resource        | myfile.txt  |
@@ -204,7 +204,7 @@ Feature: sharing
       | shareType       | user     |
       | permissionsRole | Editor   |
     And user "Brian" has a share "FOLDER" synced
-    And user "Admin" has changed the quota of the personal space of user "Alice" space to "1"
+    And user "Admin" has changed the quota of the personal space of user "Alice" to "1"
     When user "Brian" uploads file "filesForUpload/textfile.txt" to "/Shares/FOLDER/myfile.txt" using the WebDAV API
     Then the HTTP status code should be "507"
     And as "Alice" file "/FOLDER/myfile.txt" should not exist
@@ -228,7 +228,7 @@ Feature: sharing
       | shareType       | group    |
       | permissionsRole | Editor   |
     And user "Brian" has a share "FOLDER" synced
-    And user "Admin" has changed the quota of the personal space of user "Alice" space to "1"
+    And user "Admin" has changed the quota of the personal space of user "Alice" to "1"
     When user "Brian" uploads file "filesForUpload/textfile.txt" to "/Shares/FOLDER/myfile.txt" using the WebDAV API
     Then the HTTP status code should be "507"
     And as "Alice" file "/FOLDER/myfile.txt" should not exist
@@ -250,7 +250,7 @@ Feature: sharing
       | shareType       | user     |
       | permissionsRole | Uploader |
     And user "Brian" has a share "FOLDER" synced
-    And user "Admin" has changed the quota of the personal space of user "Alice" space to "1"
+    And user "Admin" has changed the quota of the personal space of user "Alice" to "1"
     When user "Brian" uploads file "filesForUpload/textfile.txt" to "/Shares/FOLDER/myfile.txt" using the WebDAV API
     Then the HTTP status code should be "507"
     And as "Alice" file "/FOLDER/myfile.txt" should not exist
@@ -274,7 +274,7 @@ Feature: sharing
       | shareType       | group    |
       | permissionsRole | Uploader |
     And user "Brian" has a share "FOLDER" synced
-    And user "Admin" has changed the quota of the personal space of user "Alice" space to "1"
+    And user "Admin" has changed the quota of the personal space of user "Alice" to "1"
     When user "Brian" uploads file "filesForUpload/textfile.txt" to "/Shares/FOLDER/myfile.txt" using the WebDAV API
     Then the HTTP status code should be "507"
     And as "Alice" file "/FOLDER/myfile.txt" should not exist

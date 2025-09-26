@@ -85,7 +85,7 @@ Feature: CORS headers
   @issue-8231
   Scenario Outline: CORS headers should be returned when setting CORS domain sending origin header in the Webdav api
     Given using <dav-path-version> DAV path
-    When user "Alice" sends PROPFIND request to space "Alice Hansen" with headers using the WebDAV API
+    When user "Alice" sends PROPFIND request to space "Personal" with headers using the WebDAV API
       | header | value               |
       | Origin | https://aphno.badal |
     Then the HTTP status code should be "207"

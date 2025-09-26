@@ -53,22 +53,22 @@ Feature: Tag
 
 
   Scenario: user creates tags for resources in the personal space
-    Given user "Alice" has created a folder "folderMain" in space "Alice Hansen"
-    And user "Alice" has uploaded a file inside space "Alice Hansen" with content "some content" to "file.txt"
-    When user "Alice" creates the following tags for folder "folderMain" of space "Alice Hansen":
+    Given user "Alice" has created a folder "folderMain" in space "Personal"
+    And user "Alice" has uploaded a file inside space "Personal" with content "some content" to "file.txt"
+    When user "Alice" creates the following tags for folder "folderMain" of space "Personal":
       | my tag    |
       | important |
     Then the HTTP status code should be "200"
-    When user "Alice" creates the following tags for file "file.txt" of space "Alice Hansen":
+    When user "Alice" creates the following tags for file "file.txt" of space "Personal":
       | fileTag                       |
       | tag with symbol @^$#^%$@%!_+) |
     Then the HTTP status code should be "200"
-    When user "Alice" sends PROPFIND request from the space "Alice Hansen" to the resource "folderMain" with depth "0" using the WebDAV API
+    When user "Alice" sends PROPFIND request from the space "Personal" to the resource "folderMain" with depth "0" using the WebDAV API
     Then the HTTP status code should be "207"
     And as user "Alice" the PROPFIND response should contain a resource "folderMain" with these key and value pairs:
       | key     | value            |
       | oc:tags | my tag,important |
-    When user "Alice" sends PROPFIND request from the space "Alice Hansen" to the resource "file.txt" with depth "0" using the WebDAV API
+    When user "Alice" sends PROPFIND request from the space "Personal" to the resource "file.txt" with depth "0" using the WebDAV API
     Then the HTTP status code should be "207"
     And as user "Alice" the PROPFIND response should contain a resource "file.txt" with these key and value pairs:
       | key     | value                                 |

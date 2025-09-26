@@ -11,11 +11,11 @@ Feature: lock files
 
   Scenario Outline: lock a file
     Given using <dav-path-version> DAV path
-    And user "Alice" has uploaded a file inside space "Alice Hansen" with content "some content" to "textfile.txt"
+    And user "Alice" has uploaded a file inside space "Personal" with content "some content" to "textfile.txt"
     When user "Alice" locks file "textfile.txt" using the WebDAV API setting the following properties
       | lockscope | exclusive |
     Then the HTTP status code should be "200"
-    When user "Alice" sends PROPFIND request from the space "Alice Hansen" to the resource "textfile.txt" with depth "0" using the WebDAV API
+    When user "Alice" sends PROPFIND request from the space "Personal" to the resource "textfile.txt" with depth "0" using the WebDAV API
     Then the HTTP status code should be "207"
     And as user "Alice" the PROPFIND response should contain a resource "textfile.txt" with these key and value pairs:
       | key                                                  | value        |
@@ -32,12 +32,12 @@ Feature: lock files
 
   Scenario Outline: lock a file with a timeout
     Given using <dav-path-version> DAV path
-    And user "Alice" has uploaded a file inside space "Alice Hansen" with content "some content" to "textfile.txt"
+    And user "Alice" has uploaded a file inside space "Personal" with content "some content" to "textfile.txt"
     When user "Alice" locks file "textfile.txt" using the WebDAV API setting the following properties
       | lockscope | exclusive   |
       | timeout   | Second-5000 |
     Then the HTTP status code should be "200"
-    When user "Alice" sends PROPFIND request from the space "Alice Hansen" to the resource "textfile.txt" with depth "0" using the WebDAV API
+    When user "Alice" sends PROPFIND request from the space "Personal" to the resource "textfile.txt" with depth "0" using the WebDAV API
     Then the HTTP status code should be "207"
     And as user "Alice" the PROPFIND response should contain a resource "textfile.txt" with these key and value pairs:
       | key                                                  | value        |
@@ -54,13 +54,13 @@ Feature: lock files
 
   Scenario: lock a file using file-id
     Given using spaces DAV path
-    And user "Alice" has uploaded a file inside space "Alice Hansen" with content "some content" to "textfile.txt"
+    And user "Alice" has uploaded a file inside space "Personal" with content "some content" to "textfile.txt"
     And we save it into "FILEID"
     When user "Alice" locks file "textfile.txt" using file-id "<<FILEID>>" using the WebDAV API setting the following properties
       | lockscope | exclusive   |
       | timeout   | Second-3600 |
     Then the HTTP status code should be "200"
-    When user "Alice" sends PROPFIND request from the space "Alice Hansen" to the resource "textfile.txt" with depth "0" using the WebDAV API
+    When user "Alice" sends PROPFIND request from the space "Personal" to the resource "textfile.txt" with depth "0" using the WebDAV API
     Then the HTTP status code should be "207"
     And as user "Alice" the PROPFIND response should contain a resource "textfile.txt" with these key and value pairs:
       | key                                                  | value        |
@@ -72,7 +72,7 @@ Feature: lock files
 
   Scenario Outline: user cannot lock file twice
     Given using <dav-path-version> DAV path
-    And user "Alice" has uploaded a file inside space "Alice Hansen" with content "some content" to "textfile.txt"
+    And user "Alice" has uploaded a file inside space "Personal" with content "some content" to "textfile.txt"
     And user "Alice" has locked file "textfile.txt" setting the following properties
       | lockscope | exclusive |
     When user "Alice" tries to lock file "textfile.txt" using the WebDAV API setting the following properties
@@ -163,7 +163,7 @@ Feature: lock files
   @issue-7599
   Scenario Outline: lock a file in the shares
     Given using <dav-path-version> DAV path
-    And user "Alice" has uploaded a file inside space "Alice Hansen" with content "some content" to "textfile.txt"
+    And user "Alice" has uploaded a file inside space "Personal" with content "some content" to "textfile.txt"
     And user "Alice" has sent the following resource share invitation:
       | resource        | textfile.txt |
       | space           | Personal     |
@@ -174,7 +174,7 @@ Feature: lock files
     When user "Brian" locks file "/Shares/textfile.txt" using the WebDAV API setting the following properties
       | lockscope | exclusive |
     Then the HTTP status code should be "200"
-    When user "Alice" sends PROPFIND request from the space "Alice Hansen" to the resource "textfile.txt" with depth "0" using the WebDAV API
+    When user "Alice" sends PROPFIND request from the space "Personal" to the resource "textfile.txt" with depth "0" using the WebDAV API
     Then the HTTP status code should be "207"
     And as user "Alice" the PROPFIND response should contain a resource "textfile.txt" with these key and value pairs:
       | key                                                  | value        |
@@ -189,7 +189,7 @@ Feature: lock files
 
   Scenario: lock a file in the shares using file-id
     Given using spaces DAV path
-    And user "Alice" has uploaded a file inside space "Alice Hansen" with content "some content" to "textfile.txt"
+    And user "Alice" has uploaded a file inside space "Personal" with content "some content" to "textfile.txt"
     And we save it into "FILEID"
     And user "Alice" has sent the following resource share invitation:
       | resource        | textfile.txt |
@@ -202,7 +202,7 @@ Feature: lock files
       | lockscope | exclusive   |
       | timeout   | Second-3600 |
     Then the HTTP status code should be "200"
-    When user "Alice" sends PROPFIND request from the space "Alice Hansen" to the resource "textfile.txt" with depth "0" using the WebDAV API
+    When user "Alice" sends PROPFIND request from the space "Personal" to the resource "textfile.txt" with depth "0" using the WebDAV API
     Then the HTTP status code should be "207"
     And as user "Alice" the PROPFIND response should contain a resource "textfile.txt" with these key and value pairs:
       | key                                                  | value        |
@@ -213,7 +213,7 @@ Feature: lock files
   Scenario Outline: viewer cannot lock a file in the shares using file-id
     Given using spaces DAV path
     And the administrator has enabled the permissions role "Secure Viewer"
-    And user "Alice" has uploaded a file inside space "Alice Hansen" with content "some content" to "textfile.txt"
+    And user "Alice" has uploaded a file inside space "Personal" with content "some content" to "textfile.txt"
     And we save it into "FILEID"
     And user "Alice" has sent the following resource share invitation:
       | resource        | textfile.txt       |
@@ -233,7 +233,7 @@ Feature: lock files
 
   Scenario: sharee cannot lock a resource exclusively locked by a sharer
     Given using spaces DAV path
-    And user "Alice" has uploaded a file inside space "Alice Hansen" with content "some content" to "textfile.txt"
+    And user "Alice" has uploaded a file inside space "Personal" with content "some content" to "textfile.txt"
     And we save it into "FILEID"
     And user "Alice" has sent the following resource share invitation:
       | resource        | textfile.txt |
@@ -248,7 +248,7 @@ Feature: lock files
       | lockscope | exclusive   |
       | timeout   | Second-3600 |
     Then the HTTP status code should be "423"
-    When user "Alice" sends PROPFIND request from the space "Alice Hansen" to the resource "textfile.txt" with depth "0" using the WebDAV API
+    When user "Alice" sends PROPFIND request from the space "Personal" to the resource "textfile.txt" with depth "0" using the WebDAV API
     Then the HTTP status code should be "207"
     And as user "Alice" the PROPFIND response should contain a resource "textfile.txt" with these key and value pairs:
       | key                                                  | value        |
@@ -258,7 +258,7 @@ Feature: lock files
 
   Scenario: sharer cannot lock a resource exclusively locked by a sharee
     Given using spaces DAV path
-    And user "Alice" has uploaded a file inside space "Alice Hansen" with content "some content" to "textfile.txt"
+    And user "Alice" has uploaded a file inside space "Personal" with content "some content" to "textfile.txt"
     And we save it into "FILEID"
     And user "Alice" has sent the following resource share invitation:
       | resource        | textfile.txt |
@@ -273,7 +273,7 @@ Feature: lock files
       | lockscope | exclusive   |
       | timeout   | Second-3600 |
     Then the HTTP status code should be "423"
-    When user "Alice" sends PROPFIND request from the space "Alice Hansen" to the resource "textfile.txt" with depth "0" using the WebDAV API
+    When user "Alice" sends PROPFIND request from the space "Personal" to the resource "textfile.txt" with depth "0" using the WebDAV API
     Then the HTTP status code should be "207"
     And as user "Alice" the PROPFIND response should contain a resource "textfile.txt" with these key and value pairs:
       | key                                                  | value        |
