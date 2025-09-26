@@ -4,18 +4,19 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @ScharfViktor, @butonic, @rhafer
+@AlexAndBear, @ScharfViktor, @butonic, @micbar, @rhafer
+
+### 📈 Enhancement
+
+- feat: make it possible to start the collaboration service in the single process [[#1569](https://github.com/opencloud-eu/opencloud/pull/1569)]
+- introduce AppURLs helper for atomic backgroud updates [[#1542](https://github.com/opencloud-eu/opencloud/pull/1542)]
+- chore: add config for capability CheckForUpdates [[#1556](https://github.com/opencloud-eu/opencloud/pull/1556)]
 
 ### 🐛 Bug Fixes
 
 - let the runtime always create a cancel context [[#1565](https://github.com/opencloud-eu/opencloud/pull/1565)]
 - Bump reva and cs3apis [[#1538](https://github.com/opencloud-eu/opencloud/pull/1538)]
 - use correct endpoint in nats check [[#1533](https://github.com/opencloud-eu/opencloud/pull/1533)]
-
-### 📈 Enhancement
-
-- introduce AppURLs helper for atomic backgroud updates [[#1542](https://github.com/opencloud-eu/opencloud/pull/1542)]
-- chore: add config for capability CheckForUpdates [[#1556](https://github.com/opencloud-eu/opencloud/pull/1556)]
 
 ### ✅ Tests
 
