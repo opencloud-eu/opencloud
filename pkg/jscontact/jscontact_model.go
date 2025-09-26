@@ -1,360 +1,311 @@
+// Implementation of the RFC 9553 JSContact data model, with JMAP Contacts additions.
+//
+// https://www.rfc-editor.org/rfc/rfc9553
+//
+// https://jmap.io/spec-contacts.html
 package jscontact
 
 import (
 	"time"
 )
 
+type NameComponentKind string
+type AddressComponentKind string
+type Relationship string
+type MediaContext string
+type NicknameContext string
+type AddressContext string
+type DirectoryContext string
+type EmailAddressContext string
+type OnlineServiceContext string
+type OrganizationContext string
+type PronounsContext string
+type PhoneContext string
+type PhoneFeature string
+type TitleKind string
+type GrammaticalGenderType string
+type AnniversaryKind string
+type LanguagePrefContext string
+type SchedulingAddressContext string
+type PersonalInfoKind string
+type PersonalInfoLevel string
+type ContactCardKind string
+type DirectoryKind string
+type CalendarKind string
+type CryptoKeyKind string
+type LinkKind string
+type MediaKind string
+type CalendarContext string
+type CryptoKeyContext string
+type LinkContext string
+type JSContactVersion string
+
+type TypeOfAddress string
+type TypeOfAddressComponent string
+type TypeOfAnniversary string
+type TypeOfAuthor string
+type TypeOfContactCard string
+type TypeOfCalendar string
+type TypeOfCryptoKey string
+type TypeOfDirectory string
+type TypeOfEmailAddress string
+type TypeOfLanguagePref string
+type TypeOfLink string
+type TypeOfMedia string
+type TypeOfName string
+type TypeOfNameComponent string
+type TypeOfNickname string
+type TypeOfNote string
+type TypeOfOnlineService string
+type TypeOfOrganization string
+type TypeOfOrgUnit string
+type TypeOfPartialDate string
+type TypeOfPersonalInfo string
+type TypeOfPhone string
+type TypeOfPronouns string
+type TypeOfRelation string
+type TypeOfSchedulingAddress string
+type TypeOfSpeakToAs string
+type TypeOfTimestamp string
+type TypeOfTitle string
+
 const (
-	JSContactVersion = "1.0"
+	JSContactVersion_1_0 = JSContactVersion("1.0")
 
-	AddressType           = "Address"
-	AddressComponentType  = "AddressComponent"
-	AnniversaryType       = "Anniversary"
-	AuthorType            = "Author"
-	ContactCardType       = "Card"
-	CalendarType          = "Calendar"
-	CryptoKeyType         = "CryptoKey"
-	DirectoryType         = "Directory"
-	EmailAddressType      = "EmailAddress"
-	LanguagePrefType      = "LanguagePref"
-	LinkType              = "Link"
-	MediaType             = "Media"
-	NameType              = "Name"
-	NameComponentType     = "NameComponent"
-	NicknameType          = "Nickname"
-	NoteType              = "Note"
-	OnlineServiceType     = "OnlineService"
-	OrganizationType      = "Organization"
-	OrgUnitType           = "OrgUnit"
-	PartialDateType       = "PartialDate"
-	PersonalInfoType      = "PersonalInfo"
-	PhoneType             = "Phone"
-	PronounsType          = "Pronouns"
-	RelationType          = "Relation"
-	SchedulingAddressType = "SchedulingAddress"
-	SpeakToAsType         = "SpeakToAs"
-	TimestampType         = "Timestamp"
-	TitleType             = "Title"
+	// Types.
+	AddressType           = TypeOfAddress("Address")
+	AddressComponentType  = TypeOfAddressComponent("AddressComponent")
+	AnniversaryType       = TypeOfAnniversary("Anniversary")
+	AuthorType            = TypeOfAuthor("Author")
+	ContactCardType       = TypeOfContactCard("Card")
+	CalendarType          = TypeOfCalendar("Calendar")
+	CryptoKeyType         = TypeOfCryptoKey("CryptoKey")
+	DirectoryType         = TypeOfDirectory("Directory")
+	EmailAddressType      = TypeOfEmailAddress("EmailAddress")
+	LanguagePrefType      = TypeOfLanguagePref("LanguagePref")
+	LinkType              = TypeOfLink("Link")
+	MediaType             = TypeOfMedia("Media")
+	NameType              = TypeOfName("Name")
+	NameComponentType     = TypeOfNameComponent("NameComponent")
+	NicknameType          = TypeOfNickname("Nickname")
+	NoteType              = TypeOfNote("Note")
+	OnlineServiceType     = TypeOfOnlineService("OnlineService")
+	OrganizationType      = TypeOfOrganization("Organization")
+	OrgUnitType           = TypeOfOrgUnit("OrgUnit")
+	PartialDateType       = TypeOfPartialDate("PartialDate")
+	PersonalInfoType      = TypeOfPersonalInfo("PersonalInfo")
+	PhoneType             = TypeOfPhone("Phone")
+	PronounsType          = TypeOfPronouns("Pronouns")
+	RelationType          = TypeOfRelation("Relation")
+	SchedulingAddressType = TypeOfSchedulingAddress("SchedulingAddress")
+	SpeakToAsType         = TypeOfSpeakToAs("SpeakToAs")
+	TimestampType         = TypeOfTimestamp("Timestamp")
+	TitleType             = TypeOfTitle("Title")
 
-	JSContactTypeAddress           = AddressType
-	JSContactTypeAddressComponent  = AddressComponentType
-	JSContactTypeAnniversary       = AnniversaryType
-	JSContactTypeAuthor            = AuthorType
-	JSContactTypeCard              = ContactCardType
-	JSContactTypeCalendar          = CalendarType
-	JSContactTypeCryptoKey         = CryptoKeyType
-	JSContactTypeDirectory         = DirectoryType
-	JSContactTypeEmailAddress      = EmailAddressType
-	JSContactTypeLanguagePref      = LanguagePrefType
-	JSContactTypeLink              = LinkType
-	JSContactTypeMedia             = MediaType
-	JSContactTypeName              = NameType
-	JSContactTypeNameComponent     = NameComponentType
-	JSContactTypeNickname          = NicknameType
-	JSContactTypeNote              = NoteType
-	JSContactTypeOnlineService     = OnlineServiceType
-	JSContactTypeOrganization      = OrganizationType
-	JSContactTypeOrgUnit           = OrgUnitType
-	JSContactTypePartialDate       = PartialDateType
-	JSContactTypePersonalInfo      = PersonalInfoType
-	JSContactTypePhone             = PhoneType
-	JSContactTypePronouns          = PronounsType
-	JSContactTypeRelation          = RelationType
-	JSContactTypeSchedulingAddress = SchedulingAddressType
-	JSContactTypeSpeakToAs         = SpeakToAsType
-	JSContactTypeTimestamp         = TimestampType
-	JSContactTypeTitle             = TitleType
+	// Kinds.
 
-	ResourceTypeCalendar  = JSContactTypeCalendar
-	ResourceTypeCryptoKey = JSContactTypeCryptoKey
-	ResourceTypeDirectory = JSContactTypeDirectory
-	ResourceTypeLink      = JSContactTypeLink
-	ResourceTypeMedia     = JSContactTypeMedia
+	AddressComponentKindRoom          = AddressComponentKind("room")
+	AddressComponentKindApartment     = AddressComponentKind("apartment")
+	AddressComponentKindFloor         = AddressComponentKind("floor")
+	AddressComponentKindBuilding      = AddressComponentKind("building")
+	AddressComponentKindNumber        = AddressComponentKind("number")
+	AddressComponentKindName          = AddressComponentKind("name")
+	AddressComponentKindBlock         = AddressComponentKind("block")
+	AddressComponentKindSubdistrict   = AddressComponentKind("subdistrict")
+	AddressComponentKindDistrict      = AddressComponentKind("district")
+	AddressComponentKindLocality      = AddressComponentKind("locality")
+	AddressComponentKindRegion        = AddressComponentKind("region")
+	AddressComponentKindPostcode      = AddressComponentKind("postcode")
+	AddressComponentKindCountry       = AddressComponentKind("country")
+	AddressComponentKindDirection     = AddressComponentKind("direction")
+	AddressComponentKindLandmark      = AddressComponentKind("landmark")
+	AddressComponentKindPostOfficeBox = AddressComponentKind("postOfficeBox")
+	AddressComponentKindSeparator     = AddressComponentKind("separator")
 
-	CalendarResourceKindCalendar = "calendar"
-	CalendarResourceKindFreeBusy = "freeBusy"
+	AnniversaryKindBirth   = AnniversaryKind("birth")
+	AnniversaryKindDeath   = AnniversaryKind("death")
+	AnniversaryKindWedding = AnniversaryKind("wedding")
 
-	LinkResourceKindContact = "contact"
+	CalendarKindCalendar = CalendarKind("calendar")
+	CalendarKindFreeBusy = CalendarKind("freeBusy")
 
-	MediaResourceKindPhoto = "photo"
-	MediaResourceKindSound = "sound"
-	MediaResourceKindLogo  = "logo"
+	ContactCardKindIndividual  = ContactCardKind("individual")
+	ContactCardKindGroup       = ContactCardKind("group")
+	ContactCardKindOrg         = ContactCardKind("org")
+	ContactCardKindLocation    = ContactCardKind("location")
+	ContactCardKindDevice      = ContactCardKind("device")
+	ContactCardKindApplication = ContactCardKind("application")
 
-	ResourceKindCalendar = CalendarResourceKindCalendar
-	ResourceKindFreeBusy = CalendarResourceKindFreeBusy
-	ResourceKindContact  = LinkResourceKindContact
-	ResourceKindPhoto    = MediaResourceKindPhoto
-	ResourceKindSound    = MediaResourceKindSound
-	ResourceKindLogo     = MediaResourceKindLogo
+	DirectoryKindDirectory = DirectoryKind("directory")
+	DirectoryKindEntry     = DirectoryKind("entry")
 
-	AddressContextBilling  = "billing"
-	AddressContextDelivery = "delivery"
-	AddressContextPrivate  = "private"
-	AddressContextWork     = "work"
+	LinkKindContact = LinkKind("contact")
 
-	CalendarContextPrivate = "private"
-	CalendarContextWork    = "work"
+	MediaKindPhoto = MediaKind("photo")
+	MediaKindSound = MediaKind("sound")
+	MediaKindLogo  = MediaKind("logo")
 
-	CryptoKeyContextPrivate = "private"
-	CryptoKeyContextWork    = "work"
+	NameComponentKindTitle      = NameComponentKind("title")
+	NameComponentKindGiven      = NameComponentKind("given")
+	NameComponentKindGiven2     = NameComponentKind("given2")
+	NameComponentKindSurname    = NameComponentKind("surname")
+	NameComponentKindSurname2   = NameComponentKind("surname2")
+	NameComponentKindCredential = NameComponentKind("credential")
+	NameComponentKindGeneration = NameComponentKind("generation")
+	NameComponentKindSeparator  = NameComponentKind("separator")
 
-	DirectoryContextPrivate = "private"
-	DirectoryContextWork    = "work"
+	PersonalInfoKindExpertise = PersonalInfoKind("expertise")
+	PersonalInfoKindHobby     = PersonalInfoKind("hobby")
+	PersonalInfoKindInterest  = PersonalInfoKind("interest")
 
-	EmailAddressContextPrivate = "private"
-	EmailAddressContextWork    = "work"
+	TitleKindTitle = TitleKind("title")
+	TitleKindRole  = TitleKind("role")
 
-	LanguagePrefContextPrivate = "private"
-	LanguagePrefContextWork    = "work"
+	// Contexts.
 
-	LinkContextPrivate = "private"
-	LinkContextWork    = "work"
+	AddressContextBilling  = AddressContext("billing")
+	AddressContextDelivery = AddressContext("delivery")
+	AddressContextPrivate  = AddressContext("private")
+	AddressContextWork     = AddressContext("work")
 
-	MediaContextPrivate = "private"
-	MediaContextWork    = "work"
+	CalendarContextPrivate = CalendarContext("private")
+	CalendarContextWork    = CalendarContext("work")
 
-	NicknameContextPrivate = "private"
-	NicknameContextWork    = "work"
+	CryptoKeyContextPrivate = CryptoKeyContext("private")
+	CryptoKeyContextWork    = CryptoKeyContext("work")
 
-	OnlineServiceContextPrivate = "private"
-	OnlineServiceContextWork    = "work"
+	DirectoryContextPrivate = DirectoryContext("private")
+	DirectoryContextWork    = DirectoryContext("work")
 
-	OrganizationContextPrivate = "private"
-	OrganizationContextWork    = "work"
+	EmailAddressContextPrivate = EmailAddressContext("private")
+	EmailAddressContextWork    = EmailAddressContext("work")
 
-	PhoneContextPrivate = "private"
-	PhoneContextWork    = "work"
+	LanguagePrefContextPrivate = LanguagePrefContext("private")
+	LanguagePrefContextWork    = LanguagePrefContext("work")
 
-	PronounsContextPrivate = "private"
-	PronounsContextWork    = "work"
+	LinkContextPrivate = LinkContext("private")
+	LinkContextWork    = LinkContext("work")
 
-	SchedulingAddressContextPrivate = "private"
-	SchedulingAddressContextWork    = "work"
+	MediaContextPrivate = MediaContext("private")
+	MediaContextWork    = MediaContext("work")
 
-	ResourceContextPrivate         = "private"
-	ResourceContextWork            = "work"
-	ResourceContextAddressBilling  = "billing"
-	ResourceContextAddressDelivery = "delivery"
+	NicknameContextPrivate = NicknameContext("private")
+	NicknameContextWork    = NicknameContext("work")
 
-	ContactCardKindIndividual  = "individual"
-	ContactCardKindGroup       = "group"
-	ContactCardKindOrg         = "org"
-	ContactCardKindLocation    = "location"
-	ContactCardKindDevice      = "device"
-	ContactCardKindApplication = "application"
+	OnlineServiceContextPrivate = OnlineServiceContext("private")
+	OnlineServiceContextWork    = OnlineServiceContext("work")
 
-	RelationAcquaintance = "acquaintance"
-	RelationAgent        = "agent"
-	RelationChild        = "child"
-	RelationCoResident   = "co-resident"
-	RelationCoWorker     = "co-worker"
-	RelationColleague    = "colleague"
-	RelationContact      = "contact"
-	RelationCrush        = "crush"
-	RelationDate         = "date"
-	RelationEmergency    = "emergency"
-	RelationFriend       = "friend"
-	RelationKin          = "kin"
-	RelationMe           = "me"
-	RelationMet          = "met"
-	RelationMuse         = "muse"
-	RelationNeighbor     = "neighbor"
-	RelationParent       = "parent"
-	RelationSibling      = "sibling"
-	RelationSpouse       = "spouse"
-	RelationSweetheart   = "sweetheart"
+	OrganizationContextPrivate = OrganizationContext("private")
+	OrganizationContextWork    = OrganizationContext("work")
 
-	GrammaticalGenderAnimate   = "animate"
-	GrammaticalGenderCommon    = "common"
-	GrammaticalGenderFeminine  = "feminine"
-	GrammaticalGenderInanimate = "inanimate"
-	GrammaticalGenderMasculine = "masculine"
-	GrammaticalGenderNeuter    = "neuter"
+	PhoneContextPrivate = PhoneContext("private")
+	PhoneContextWork    = PhoneContext("work")
 
-	DirectoryResourceKindDirectory = "directory"
-	DirectoryResourceKindEntry     = "entry"
+	PronounsContextPrivate = PronounsContext("private")
+	PronounsContextWork    = PronounsContext("work")
 
-	TitleKindTitle = "title"
-	TitleKindRole  = "role"
+	SchedulingAddressContextPrivate = SchedulingAddressContext("private")
+	SchedulingAddressContextWork    = SchedulingAddressContext("work")
 
-	PhoneFeatureMobile     = "mobile"
-	PhoneFeatureVoice      = "voice"
-	PhoneFeatureText       = "text"
-	PhoneFeatureVideo      = "video"
-	PhoneFeatureMainNumber = "main-number"
-	PhoneFeatureTextPhone  = "textphone"
-	PhoneFeatureFax        = "fax"
-	PhoneFeaturePager      = "pager"
+	// Relations.
 
-	AddressComponentKindRoom          = "room"
-	AddressComponentKindApartment     = "apartment"
-	AddressComponentKindFloor         = "floor"
-	AddressComponentKindBuilding      = "building"
-	AddressComponentKindNumber        = "number"
-	AddressComponentKindName          = "name"
-	AddressComponentKindBlock         = "block"
-	AddressComponentKindSubdistrict   = "subdistrict"
-	AddressComponentKindDistrict      = "district"
-	AddressComponentKindLocality      = "locality"
-	AddressComponentKindRegion        = "region"
-	AddressComponentKindPostcode      = "postcode"
-	AddressComponentKindCountry       = "country"
-	AddressComponentKindDirection     = "direction"
-	AddressComponentKindLandmark      = "landmark"
-	AddressComponentKindPostOfficeBox = "postOfficeBox"
-	AddressComponentKindSeparator     = "separator"
+	RelationAcquaintance = Relationship("acquaintance")
+	RelationAgent        = Relationship("agent")
+	RelationChild        = Relationship("child")
+	RelationCoResident   = Relationship("co-resident")
+	RelationCoWorker     = Relationship("co-worker")
+	RelationColleague    = Relationship("colleague")
+	RelationContact      = Relationship("contact")
+	RelationCrush        = Relationship("crush")
+	RelationDate         = Relationship("date")
+	RelationEmergency    = Relationship("emergency")
+	RelationFriend       = Relationship("friend")
+	RelationKin          = Relationship("kin")
+	RelationMe           = Relationship("me")
+	RelationMet          = Relationship("met")
+	RelationMuse         = Relationship("muse")
+	RelationNeighbor     = Relationship("neighbor")
+	RelationParent       = Relationship("parent")
+	RelationSibling      = Relationship("sibling")
+	RelationSpouse       = Relationship("spouse")
+	RelationSweetheart   = Relationship("sweetheart")
 
-	AnniversaryKindBirth   = "birth"
-	AnniversaryKindDeath   = "death"
-	AnniversaryKindWedding = "wedding"
+	// GrammaticalGenders.
 
-	PersonalInfoKindExpertise = "expertise"
-	PersonalInfoKindHobby     = "hobby"
-	PersonalInfoKindInterest  = "interest"
-	PersonalInfoLevelHigh     = "high"
-	PersonalInfoLevelMedium   = "medium"
-	PersonalInfoLevelLow      = "low"
+	GrammaticalGenderAnimate   = GrammaticalGenderType("animate")
+	GrammaticalGenderCommon    = GrammaticalGenderType("common")
+	GrammaticalGenderFeminine  = GrammaticalGenderType("feminine")
+	GrammaticalGenderInanimate = GrammaticalGenderType("inanimate")
+	GrammaticalGenderMasculine = GrammaticalGenderType("masculine")
+	GrammaticalGenderNeuter    = GrammaticalGenderType("neuter")
 
-	NameComponentKindTitle      = "title"
-	NameComponentKindGiven      = "given"
-	NameComponentKindGiven2     = "given2"
-	NameComponentKindSurname    = "surname"
-	NameComponentKindSurname2   = "surname2"
-	NameComponentKindCredential = "credential"
-	NameComponentKindGeneration = "generation"
-	NameComponentKindSeparator  = "separator"
+	// PersonalInfoLevels.
+
+	PersonalInfoLevelHigh   = PersonalInfoLevel("high")
+	PersonalInfoLevelMedium = PersonalInfoLevel("medium")
+	PersonalInfoLevelLow    = PersonalInfoLevel("low")
+
+	// PhoneFeatures.
+
+	PhoneFeatureMobile     = PhoneFeature("mobile")
+	PhoneFeatureVoice      = PhoneFeature("voice")
+	PhoneFeatureText       = PhoneFeature("text")
+	PhoneFeatureVideo      = PhoneFeature("video")
+	PhoneFeatureMainNumber = PhoneFeature("main-number")
+	PhoneFeatureTextPhone  = PhoneFeature("textphone")
+	PhoneFeatureFax        = PhoneFeature("fax")
+	PhoneFeaturePager      = PhoneFeature("pager")
 )
 
 var (
-	JSContactTypes = []string{
-		JSContactTypeAddress,
-		JSContactTypeAddressComponent,
-		JSContactTypeAnniversary,
-		JSContactTypeAuthor,
-		JSContactTypeCard,
-		JSContactTypeCalendar,
-		JSContactTypeCryptoKey,
-		JSContactTypeDirectory,
-		JSContactTypeEmailAddress,
-		JSContactTypeLanguagePref,
-		JSContactTypeLink,
-		JSContactTypeMedia,
-		JSContactTypeName,
-		JSContactTypeNameComponent,
-		JSContactTypeNickname,
-		JSContactTypeNote,
-		JSContactTypeOnlineService,
-		JSContactTypeOrganization,
-		JSContactTypeOrgUnit,
-		JSContactTypePartialDate,
-		JSContactTypePersonalInfo,
-		JSContactTypePhone,
-		JSContactTypePronouns,
-		JSContactTypeRelation,
-		JSContactTypeSchedulingAddress,
-		JSContactTypeSpeakToAs,
-		JSContactTypeTimestamp,
-		JSContactTypeTitle,
+	JSContactVersions = []JSContactVersion{
+		JSContactVersion_1_0,
 	}
-	AddressContexts = []string{
+
+	AddressComponentKinds = []AddressComponentKind{
+		AddressComponentKindRoom,
+		AddressComponentKindApartment,
+		AddressComponentKindFloor,
+		AddressComponentKindBuilding,
+		AddressComponentKindNumber,
+		AddressComponentKindName,
+		AddressComponentKindBlock,
+		AddressComponentKindSubdistrict,
+		AddressComponentKindDistrict,
+		AddressComponentKindLocality,
+		AddressComponentKindRegion,
+		AddressComponentKindPostcode,
+		AddressComponentKindCountry,
+		AddressComponentKindDirection,
+		AddressComponentKindLandmark,
+		AddressComponentKindPostOfficeBox,
+		AddressComponentKindSeparator,
+	}
+
+	AddressContexts = []AddressContext{
 		AddressContextBilling,
 		AddressContextDelivery,
 		AddressContextPrivate,
 		AddressContextWork,
 	}
-	CalendarContexts = []string{
+
+	AnniversaryKinds = []AnniversaryKind{
+		AnniversaryKindBirth,
+		AnniversaryKindDeath,
+		AnniversaryKindWedding,
+	}
+
+	CalendarContexts = []CalendarContext{
 		CalendarContextPrivate,
 		CalendarContextWork,
 	}
 
-	CryptoKeyContexts = []string{
-		CryptoKeyContextPrivate,
-		CryptoKeyContextWork,
+	CalendarResourceKinds = []CalendarKind{
+		CalendarKindCalendar,
+		CalendarKindFreeBusy,
 	}
 
-	DirectoryContexts = []string{
-		DirectoryContextPrivate,
-		DirectoryContextWork,
-	}
-
-	EmailAddressContexts = []string{
-		EmailAddressContextPrivate,
-		EmailAddressContextWork,
-	}
-
-	LanguagePrefContexts = []string{
-		LanguagePrefContextPrivate,
-		LanguagePrefContextWork,
-	}
-
-	LinkContexts = []string{
-		LinkContextPrivate,
-		LinkContextWork,
-	}
-
-	MediaContexts = []string{
-		MediaContextPrivate,
-		MediaContextWork,
-	}
-
-	NicknameContexts = []string{
-		NicknameContextPrivate,
-		NicknameContextWork,
-	}
-
-	OnlineServiceContexts = []string{
-		OnlineServiceContextPrivate,
-		OnlineServiceContextWork,
-	}
-
-	OrganizationContexts = []string{
-		OrganizationContextPrivate,
-		OrganizationContextWork,
-	}
-
-	PhoneContexts = []string{
-		PhoneContextPrivate,
-		PhoneContextWork,
-	}
-
-	PronounsContexts = []string{
-		PronounsContextPrivate,
-		PronounsContextWork,
-	}
-
-	SchedulingAddressContexts = []string{
-		SchedulingAddressContextPrivate,
-		SchedulingAddressContextWork,
-	}
-
-	ResourceTypes = []string{
-		ResourceTypeCalendar,
-		ResourceTypeCryptoKey,
-		ResourceTypeDirectory,
-		ResourceTypeLink,
-		ResourceTypeMedia,
-	}
-
-	CalendarResourceKinds = []string{
-		CalendarResourceKindCalendar,
-		CalendarResourceKindFreeBusy,
-	}
-
-	ResourceKinds = []string{
-		ResourceKindCalendar,
-		ResourceKindFreeBusy,
-		ResourceKindContact,
-		ResourceKindPhoto,
-		ResourceKindSound,
-		ResourceKindLogo,
-	}
-	ResourceContexts = []string{
-		ResourceContextPrivate,
-		ResourceContextWork,
-		ResourceContextAddressBilling,
-		ResourceContextAddressDelivery,
-	}
-	ContactCardKinds = []string{
+	ContactCardKinds = []ContactCardKind{
 		ContactCardKindIndividual,
 		ContactCardKindGroup,
 		ContactCardKindOrg,
@@ -362,7 +313,121 @@ var (
 		ContactCardKindDevice,
 		ContactCardKindApplication,
 	}
-	Relations = []string{
+
+	CryptoKeyContexts = []CryptoKeyContext{
+		CryptoKeyContextPrivate,
+		CryptoKeyContextWork,
+	}
+
+	DirectoryContexts = []DirectoryContext{
+		DirectoryContextPrivate,
+		DirectoryContextWork,
+	}
+
+	DirectoryKinds = []DirectoryKind{
+		DirectoryKindDirectory,
+		DirectoryKindEntry,
+	}
+
+	EmailAddressContexts = []EmailAddressContext{
+		EmailAddressContextPrivate,
+		EmailAddressContextWork,
+	}
+
+	GrammaticalGenders = []GrammaticalGenderType{
+		GrammaticalGenderAnimate,
+		GrammaticalGenderCommon,
+		GrammaticalGenderFeminine,
+		GrammaticalGenderInanimate,
+		GrammaticalGenderMasculine,
+		GrammaticalGenderNeuter,
+	}
+
+	LanguagePrefContexts = []LanguagePrefContext{
+		LanguagePrefContextPrivate,
+		LanguagePrefContextWork,
+	}
+
+	LinkContexts = []LinkContext{
+		LinkContextPrivate,
+		LinkContextWork,
+	}
+
+	LinkKinds = []LinkKind{
+		LinkKindContact,
+	}
+
+	MediaContexts = []MediaContext{
+		MediaContextPrivate,
+		MediaContextWork,
+	}
+
+	MediaKinds = []MediaKind{
+		MediaKindPhoto,
+		MediaKindSound,
+		MediaKindLogo,
+	}
+
+	NameComponentKinds = []NameComponentKind{
+		NameComponentKindTitle,
+		NameComponentKindGiven,
+		NameComponentKindGiven2,
+		NameComponentKindSurname,
+		NameComponentKindSurname2,
+		NameComponentKindCredential,
+		NameComponentKindGeneration,
+		NameComponentKindSeparator,
+	}
+
+	NicknameContexts = []NicknameContext{
+		NicknameContextPrivate,
+		NicknameContextWork,
+	}
+
+	OnlineServiceContexts = []OnlineServiceContext{
+		OnlineServiceContextPrivate,
+		OnlineServiceContextWork,
+	}
+
+	OrganizationContexts = []OrganizationContext{
+		OrganizationContextPrivate,
+		OrganizationContextWork,
+	}
+
+	PersonalInfoKinds = []PersonalInfoKind{
+		PersonalInfoKindExpertise,
+		PersonalInfoKindHobby,
+		PersonalInfoKindInterest,
+	}
+
+	PersonalInfoLevels = []PersonalInfoLevel{
+		PersonalInfoLevelHigh,
+		PersonalInfoLevelMedium,
+		PersonalInfoLevelLow,
+	}
+
+	PhoneContexts = []PhoneContext{
+		PhoneContextPrivate,
+		PhoneContextWork,
+	}
+
+	PhoneFeatures = []PhoneFeature{
+		PhoneFeatureMobile,
+		PhoneFeatureVoice,
+		PhoneFeatureText,
+		PhoneFeatureVideo,
+		PhoneFeatureMainNumber,
+		PhoneFeatureTextPhone,
+		PhoneFeatureFax,
+		PhoneFeaturePager,
+	}
+
+	PronounsContexts = []PronounsContext{
+		PronounsContextPrivate,
+		PronounsContextWork,
+	}
+
+	Relations = []Relationship{
 		RelationAcquaintance,
 		RelationAgent,
 		RelationChild,
@@ -384,83 +449,15 @@ var (
 		RelationSpouse,
 		RelationSweetheart,
 	}
-	GrammaticalGenders = []string{
-		GrammaticalGenderAnimate,
-		GrammaticalGenderCommon,
-		GrammaticalGenderFeminine,
-		GrammaticalGenderInanimate,
-		GrammaticalGenderMasculine,
-		GrammaticalGenderNeuter,
+
+	SchedulingAddressContexts = []SchedulingAddressContext{
+		SchedulingAddressContextPrivate,
+		SchedulingAddressContextWork,
 	}
-	TitleKinds = []string{
+
+	TitleKinds = []TitleKind{
 		TitleKindTitle,
 		TitleKindRole,
-	}
-	PhoneFeatures = []string{
-		PhoneFeatureMobile,
-		PhoneFeatureVoice,
-		PhoneFeatureText,
-		PhoneFeatureVideo,
-		PhoneFeatureMainNumber,
-		PhoneFeatureTextPhone,
-		PhoneFeatureFax,
-		PhoneFeaturePager,
-	}
-	AddressComponentKinds = []string{
-		AddressComponentKindRoom,
-		AddressComponentKindApartment,
-		AddressComponentKindFloor,
-		AddressComponentKindBuilding,
-		AddressComponentKindNumber,
-		AddressComponentKindName,
-		AddressComponentKindBlock,
-		AddressComponentKindSubdistrict,
-		AddressComponentKindDistrict,
-		AddressComponentKindLocality,
-		AddressComponentKindRegion,
-		AddressComponentKindPostcode,
-		AddressComponentKindCountry,
-		AddressComponentKindDirection,
-		AddressComponentKindLandmark,
-		AddressComponentKindPostOfficeBox,
-		AddressComponentKindSeparator,
-	}
-	AnniversaryKinds = []string{
-		AnniversaryKindBirth,
-		AnniversaryKindDeath,
-		AnniversaryKindWedding,
-	}
-	PersonalInfoKinds = []string{
-		PersonalInfoKindExpertise,
-		PersonalInfoKindHobby,
-		PersonalInfoKindInterest,
-	}
-	PersonalInfoLevels = []string{
-		PersonalInfoLevelHigh,
-		PersonalInfoLevelMedium,
-		PersonalInfoLevelLow,
-	}
-	DirectoryResourceKinds = []string{
-		DirectoryResourceKindDirectory,
-		DirectoryResourceKindEntry,
-	}
-	NameComponentKinds = []string{
-		NameComponentKindTitle,
-		NameComponentKindGiven,
-		NameComponentKindGiven2,
-		NameComponentKindSurname,
-		NameComponentKindSurname2,
-		NameComponentKindCredential,
-		NameComponentKindGeneration,
-		NameComponentKindSeparator,
-	}
-	LinkResourceKinds = []string{
-		LinkResourceKindContact,
-	}
-	MediaResourceKinds = []string{
-		MediaResourceKindPhoto,
-		MediaResourceKindSound,
-		MediaResourceKindLogo,
 	}
 )
 
@@ -499,22 +496,11 @@ var (
 // [RFC6901]: https://www.rfc-editor.org/rfc/rfc6901.html
 type PatchObject map[string]any
 
-// The Resource data type defines a resource associated with the entity represented by the Card,
-// identified by a URI [RFC3986].
-//
-// Several property definitions refer to the `Resource` type as the basis for their property-specific
-// value types.
-//
-// The `Resource` type defines the properties that are common to all of them.
-//
-// Property definitions making use of `Resource` MAY define additional properties for their value types.
-type Resource struct {
+type Calendar struct {
 	// The JSContact type of the object.
 	//
-	// The value MUST NOT be "Resource"; instead, the value MUST be the name of a [concrete resource type].
-	//
-	// [concrete resource type]: https://www.rfc-editor.org/rfc/rfc9553.html#resource-properties
-	Type string `json:"@type,omitempty"`
+	// The value MUST be `Calendar`, if set.
+	Type TypeOfCalendar `json:"@type,omitempty"`
 
 	// The kind of the resource.
 	//
@@ -540,13 +526,13 @@ type Resource struct {
 	// will be found and the contacts will reappear.
 	//
 	// [RFC 9553, Section 2.1.8]: https://www.rfc-editor.org/rfc/rfc9553#members
-	Kind string `json:"kind,omitempty"`
+	Kind CalendarKind `json:"kind,omitempty"`
 
 	// The resource value.
 	//
-	// This MUST be a URI as defined in Section 3 of [RFC3986-section3].
+	// This MUST be a URI as defined in [Section 3 of RFC3986].
 	//
-	// [RFC3986-section3]: https://www.rfc-editor.org/rfc/rfc3986.html#section-3
+	// [Section 3 of RFC3986]: https://www.rfc-editor.org/rfc/rfc3986.html#section-3
 	Uri string `json:"uri,omitempty"`
 
 	// The [RFC2046 media type] of the resource identified by the uri property value.
@@ -558,8 +544,8 @@ type Resource struct {
 	//
 	// The contexts in which to use the contact information.
 	//
-	// For example, someone might have distinct phone numbers for work and private contexts and may set the
-	// desired context on the respective phone number in the phones (Section 2.3.3) property.
+	// For example, someone might have distinct phone numbers for `work` and `private` contexts and may set the
+	// desired context on the respective phone number in the `phones` property.
 	//
 	// This section defines common contexts.
 	//
@@ -568,7 +554,7 @@ type Resource struct {
 	// The enumerated common context values are:
 	// !- `private`: the contact information that may be used in a private context.
 	// !- `work`: the contact information that may be used in a professional context.
-	Contexts map[string]bool `json:"contexts,omitempty"`
+	Contexts map[CalendarContext]bool `json:"contexts,omitempty"`
 
 	// The [preference] of the resource in relation to other resources.
 	//
@@ -602,13 +588,11 @@ type Resource struct {
 	Label string `json:"label,omitempty"`
 }
 
-type DirectoryResource struct {
+type CryptoKey struct {
 	// The JSContact type of the object.
 	//
-	// The value MUST NOT be "Resource"; instead, the value MUST be the name of a [concrete resource type].
-	//
-	// [concrete resource type]: https://www.rfc-editor.org/rfc/rfc9553.html#resource-properties
-	Type string `json:"@type,omitempty"`
+	// The value MUST be `CryptoKey`, if set.
+	Type TypeOfCryptoKey `json:"@type,omitempty"`
 
 	// The kind of the resource.
 	//
@@ -634,7 +618,191 @@ type DirectoryResource struct {
 	// will be found and the contacts will reappear.
 	//
 	// [RFC 9553, Section 2.1.8]: https://www.rfc-editor.org/rfc/rfc9553#members
-	Kind string `json:"kind,omitempty"`
+	Kind CryptoKeyKind `json:"kind,omitempty"`
+
+	// The resource value.
+	//
+	// This MUST be a URI as defined in [Section 3 of RFC3986].
+	//
+	// [Section 3 of RFC3986]: https://www.rfc-editor.org/rfc/rfc3986.html#section-3
+	Uri string `json:"uri,omitempty"`
+
+	// The [RFC2046 media type] of the resource identified by the uri property value.
+	//
+	// [RFC2046 media type]: https://www.rfc-editor.org/rfc/rfc2046.html
+	MediaType string `json:"mediaType,omitempty"`
+
+	// The contexts in which to use this resource.
+	//
+	// The contexts in which to use the contact information.
+	//
+	// For example, someone might have distinct phone numbers for `work` and `private` contexts and may set the
+	// desired context on the respective phone number in the `phones` property.
+	//
+	// This section defines common contexts.
+	//
+	// Additional contexts may be defined in the properties or data types that make use of this property.
+	//
+	// The enumerated common context values are:
+	// !- `private`: the contact information that may be used in a private context.
+	// !- `work`: the contact information that may be used in a professional context.
+	Contexts map[CryptoKeyContext]bool `json:"contexts,omitempty"`
+
+	// The [preference] of the resource in relation to other resources.
+	//
+	// A preference order for contact information.
+	//
+	// For example, a person may have two email addresses and prefer to be contacted with one of them.
+	//
+	// The value MUST be in the range of 1 to 100. Lower values correspond to a higher level of preference, with 1
+	// being most preferred.
+	//
+	// If no preference is set, then the contact information MUST be interpreted as being least preferred.
+	//
+	// Note that the preference is only defined in relation to contact information of the same type.
+	//
+	// For example, the preference orders within emails and phone numbers are independent of each other.
+	//
+	// [preference]: https://www.rfc-editor.org/rfc/rfc9553.html#prop-pref
+	Pref uint `json:"pref,omitzero"`
+
+	// A [custom label] for the value.
+	//
+	// The labels associated with the contact data.
+	//
+	// Such labels may be set for phone numbers, email addresses, and other resources.
+	//
+	// Typically, these labels are displayed along with their associated contact data in graphical user interfaces.
+	//
+	// Note that succinct labels are best for proper display on small graphical interfaces and screens.
+	//
+	// [custom label]: https://www.rfc-editor.org/rfc/rfc9553.html#prop-label
+	Label string `json:"label,omitempty"`
+}
+
+type Link struct {
+	// The JSContact type of the object.
+	//
+	// The value MUST be `Link`, if set.
+	Type TypeOfLink `json:"@type,omitempty"`
+
+	// The kind of the resource.
+	//
+	// The allowed values are defined in the property definition that makes use of the Resource type.
+	//
+	// Some property definitions may change this property from being optional to mandatory.
+	//
+	// A contact card with a `kind` property equal to `group` represents a group of contacts.
+	//
+	// Clients often present these separately from other contact cards.
+	//
+	// The `members` property, as defined in [RFC 9553, Section 2.1.6], contains a set of UIDs for other
+	// contacts that are the members of this group.
+	//
+	// Clients should consider the group to contain any `ContactCard` with a matching UID, from
+	// any account they have access to with support for the `urn:ietf:params:jmap:contacts` capability.
+	//
+	// UIDs that cannot be found SHOULD be ignored but preserved.
+	//
+	// For example, suppose a user adds contacts from a shared address book to their private group, then
+	// temporarily loses access to this address book. The UIDs cannot be resolved so the contacts will
+	// disappear from the group. However, if they are given permission to access the data again the UIDs
+	// will be found and the contacts will reappear.
+	//
+	// [RFC 9553, Section 2.1.8]: https://www.rfc-editor.org/rfc/rfc9553#members
+	Kind LinkKind `json:"kind,omitempty"`
+
+	// The resource value.
+	//
+	// This MUST be a URI as defined in [Section 3 of RFC3986].
+	//
+	// [Section 3 of RFC3986]: https://www.rfc-editor.org/rfc/rfc3986.html#section-3
+	Uri string `json:"uri,omitempty"`
+
+	// The [RFC2046 media type] of the resource identified by the uri property value.
+	//
+	// [RFC2046 media type]: https://www.rfc-editor.org/rfc/rfc2046.html
+	MediaType string `json:"mediaType,omitempty"`
+
+	// The contexts in which to use this resource.
+	//
+	// The contexts in which to use the contact information.
+	//
+	// For example, someone might have distinct phone numbers for `work` and `private` contexts and may set the
+	// desired context on the respective phone number in the `phones` property.
+	//
+	// This section defines common contexts.
+	//
+	// Additional contexts may be defined in the properties or data types that make use of this property.
+	//
+	// The enumerated common context values are:
+	// !- `private`: the contact information that may be used in a private context.
+	// !- `work`: the contact information that may be used in a professional context.
+	Contexts map[LinkContext]bool `json:"contexts,omitempty"`
+
+	// The [preference] of the resource in relation to other resources.
+	//
+	// A preference order for contact information.
+	//
+	// For example, a person may have two email addresses and prefer to be contacted with one of them.
+	//
+	// The value MUST be in the range of 1 to 100. Lower values correspond to a higher level of preference, with 1
+	// being most preferred.
+	//
+	// If no preference is set, then the contact information MUST be interpreted as being least preferred.
+	//
+	// Note that the preference is only defined in relation to contact information of the same type.
+	//
+	// For example, the preference orders within emails and phone numbers are independent of each other.
+	//
+	// [preference]: https://www.rfc-editor.org/rfc/rfc9553.html#prop-pref
+	Pref uint `json:"pref,omitzero"`
+
+	// A [custom label] for the value.
+	//
+	// The labels associated with the contact data.
+	//
+	// Such labels may be set for phone numbers, email addresses, and other resources.
+	//
+	// Typically, these labels are displayed along with their associated contact data in graphical user interfaces.
+	//
+	// Note that succinct labels are best for proper display on small graphical interfaces and screens.
+	//
+	// [custom label]: https://www.rfc-editor.org/rfc/rfc9553.html#prop-label
+	Label string `json:"label,omitempty"`
+}
+
+type Directory struct {
+	// The JSContact type of the object.
+	//
+	// The value MUST be `Directory`, if set.
+	Type TypeOfDirectory `json:"@type,omitempty"`
+
+	// The kind of the resource.
+	//
+	// The allowed values are defined in the property definition that makes use of the Resource type.
+	//
+	// Some property definitions may change this property from being optional to mandatory.
+	//
+	// A contact card with a `kind` property equal to `group` represents a group of contacts.
+	//
+	// Clients often present these separately from other contact cards.
+	//
+	// The `members` property, as defined in [RFC 9553, Section 2.1.6], contains a set of UIDs for other
+	// contacts that are the members of this group.
+	//
+	// Clients should consider the group to contain any `ContactCard` with a matching UID, from
+	// any account they have access to with support for the `urn:ietf:params:jmap:contacts` capability.
+	//
+	// UIDs that cannot be found SHOULD be ignored but preserved.
+	//
+	// For example, suppose a user adds contacts from a shared address book to their private group, then
+	// temporarily loses access to this address book. The UIDs cannot be resolved so the contacts will
+	// disappear from the group. However, if they are given permission to access the data again the UIDs
+	// will be found and the contacts will reappear.
+	//
+	// [RFC 9553, Section 2.1.8]: https://www.rfc-editor.org/rfc/rfc9553#members
+	Kind DirectoryKind `json:"kind,omitempty"`
 
 	// The resource value.
 	//
@@ -662,7 +830,7 @@ type DirectoryResource struct {
 	// The enumerated common context values are:
 	// !- `private`: the contact information that may be used in a private context.
 	// !- `work`: the contact information that may be used in a professional context.
-	Contexts map[string]bool `json:"contexts,omitempty"`
+	Contexts map[DirectoryContext]bool `json:"contexts,omitempty"`
 
 	// The [preference] of the resource in relation to other resources.
 	//
@@ -708,13 +876,11 @@ type DirectoryResource struct {
 	ListAs uint `json:"listAs,omitzero"`
 }
 
-type MediaResource struct {
+type Media struct {
 	// The JSContact type of the object.
 	//
-	// The value MUST NOT be "Resource"; instead, the value MUST be the name of a [concrete resource type].
-	//
-	// [concrete resource type]: https://www.rfc-editor.org/rfc/rfc9553.html#resource-properties
-	Type string `json:"@type,omitempty"`
+	// The value MUST be `Media`, if set.
+	Type TypeOfMedia `json:"@type,omitempty"`
 
 	// The kind of the resource.
 	//
@@ -740,7 +906,7 @@ type MediaResource struct {
 	// will be found and the contacts will reappear.
 	//
 	// [RFC 9553, Section 2.1.8]: https://www.rfc-editor.org/rfc/rfc9553#members
-	Kind string `json:"kind,omitempty"`
+	Kind MediaKind `json:"kind,omitempty"`
 
 	// The resource value.
 	//
@@ -768,7 +934,7 @@ type MediaResource struct {
 	// The enumerated common context values are:
 	// !- `private`: the contact information that may be used in a private context.
 	// !- `work`: the contact information that may be used in a professional context.
-	Contexts map[string]bool `json:"contexts,omitempty"`
+	Contexts map[MediaContext]bool `json:"contexts,omitempty"`
 
 	// The [preference] of the resource in relation to other resources.
 	//
@@ -816,8 +982,8 @@ type MediaResource struct {
 }
 
 type Relation struct {
-	// The JSContact type of the object: the value MUST be `Relation``, if set.
-	Type string `json:"@type,omitempty"`
+	// The JSContact type of the object: the value MUST be `Relation`, if set.
+	Type TypeOfRelation `json:"@type,omitempty"`
 
 	// The relationship of the related Card to the Card, defined as a set of relation types.
 	//
@@ -849,12 +1015,12 @@ type Relation struct {
 	// !- `sweetheart`
 	//
 	// [Section 6.6.6 of RFC6350]: https://www.rfc-editor.org/rfc/rfc6350.html#section-6.6.6
-	Relation map[string]bool `json:"relation,omitempty"`
+	Relation map[Relationship]bool `json:"relation,omitempty"`
 }
 
 type NameComponent struct {
 	// The JSContact type of the object: the value MUST be `NameComponent`, if set.
-	Type string `json:"@type,omitempty"`
+	Type TypeOfNameComponent `json:"@type,omitempty"`
 
 	// The value of the name component.
 	//
@@ -871,7 +1037,7 @@ type NameComponent struct {
 	// !- `credential`: a credential, also known as "accreditation qualifier" or "honorific suffix", e.g., `B.A.`, `Esq.`
 	// !- `generation`: a generation marker or qualifier, e.g., `Jr.` or `III`
 	// !- `separator`: a formatting separator between two ordered name non-separator components; the value property of the component includes the verbatim separator, for example, a hyphen character or even an empty string. This value has higher precedence than the defaultSeparator property of the Name. Implementations MUST NOT insert two consecutive separator components; instead, they SHOULD insert a single separator component with the combined value; this component kind MUST NOT be set if the `Name` `isOrdered` property value is `false`
-	Kind string `json:"kind"`
+	Kind NameComponentKind `json:"kind"`
 
 	// The pronunciation of the name component.
 	//
@@ -882,14 +1048,14 @@ type NameComponent struct {
 
 type Nickname struct {
 	// The JSContact type of the object: the value MUST be `Nickname`, if set.
-	Type string `json:"@type,omitempty"`
+	Type TypeOfNickname `json:"@type,omitempty"`
 
 	// The nickname.
 	Name string `json:"name"`
 
 	// The contexts in which to use the nickname.
 	// TODO document https://www.rfc-editor.org/rfc/rfc9553.html#prop-contexts
-	Contexts map[string]bool `json:"contexts,omitempty"`
+	Contexts map[NicknameContext]bool `json:"contexts,omitempty"`
 
 	// The preference of the nickname in relation to other nicknames.
 	//
@@ -909,7 +1075,7 @@ type Nickname struct {
 
 type OrgUnit struct {
 	// The JSContact type of the object: the value MUST be `OrgUnit`, if set.
-	Type string `json:"@type,omitempty"`
+	Type TypeOfOrgUnit `json:"@type,omitempty"`
 
 	// The name of the organizational unit.
 	Name string `json:"name"`
@@ -928,7 +1094,7 @@ type OrgUnit struct {
 
 type Organization struct {
 	// The JSContact type of the object: the value MUST be `Organization`, if set.
-	Type string `json:"@type,omitempty"`
+	Type TypeOfOrganization `json:"@type,omitempty"`
 
 	// The name of the organization.
 	Name string `json:"name,omitempty"`
@@ -952,12 +1118,12 @@ type Organization struct {
 	// For example, membership in a choir may only apply in a private context.
 	//
 	// TODO document https://www.rfc-editor.org/rfc/rfc9553.html#prop-contexts
-	Contexts map[string]bool `json:"contexts,omitempty"`
+	Contexts map[OrganizationContext]bool `json:"contexts,omitempty"`
 }
 
 type Pronouns struct {
 	// The JSContact type of the object: the value MUST be `Pronouns`, if set.
-	Type string `json:"@type,omitempty"`
+	Type TypeOfPronouns `json:"@type,omitempty"`
 
 	// The pronouns.
 	//
@@ -969,7 +1135,7 @@ type Pronouns struct {
 	Pronouns string `json:"pronouns"`
 
 	// The contexts in which to use the pronouns.
-	Contexts map[string]bool `json:"contexts,omitempty"`
+	Contexts map[PronounsContext]bool `json:"contexts,omitempty"`
 
 	// The preference of the pronouns in relation to other pronouns in the same context.
 	//
@@ -989,7 +1155,7 @@ type Pronouns struct {
 
 type Title struct {
 	// The JSContact type of the object: the value MUST be `Title`, if set.
-	Type string `json:"@type,omitempty"`
+	Type TypeOfTitle `json:"@type,omitempty"`
 
 	// The title or role name of the entity represented by the Card.
 	Name string `json:"name"`
@@ -1002,7 +1168,7 @@ type Title struct {
 	// The enumerated values are:
 	// !- `title`
 	// !- `role`
-	Kind string `json:"kind,omitempty"`
+	Kind TitleKind `json:"kind,omitempty"`
 
 	// The identifier of the organization in which this title is held.
 	OrganizationId string `json:"organizationId,omitempty"`
@@ -1010,7 +1176,7 @@ type Title struct {
 
 type SpeakToAs struct {
 	// The JSContact type of the object: the value MUST be `SpeakToAs`, if set.
-	Type string `json:"@type,omitempty"`
+	Type TypeOfSpeakToAs `json:"@type,omitempty"`
 
 	// The grammatical gender to use in salutations and other grammatical constructs.
 	//
@@ -1027,7 +1193,7 @@ type SpeakToAs struct {
 	//
 	// Note that the grammatical gender does not allow inferring the gender identities or assigned
 	// sex of the contact.
-	GrammaticalGender string `json:"grammaticalGender,omitempty"`
+	GrammaticalGender GrammaticalGenderType `json:"grammaticalGender,omitempty"`
 
 	// The pronouns that the contact chooses to use for themselves.
 	Pronouns map[string]Pronouns `json:"pronouns,omitempty"`
@@ -1035,7 +1201,7 @@ type SpeakToAs struct {
 
 type Name struct {
 	// The JSContact type of the object: the value MUST be `Name`, if set.
-	Type string `json:"@type,omitempty"`
+	Type TypeOfName `json:"@type,omitempty"`
 
 	// The components making up this name.
 	//
@@ -1108,7 +1274,7 @@ type Name struct {
 
 type EmailAddress struct {
 	// The JSContact type of the object: the value MUST be `EmailAddress`, if set.
-	Type string `json:"@type,omitempty"`
+	Type TypeOfEmailAddress `json:"@type,omitempty"`
 
 	// The email address.
 	//
@@ -1118,7 +1284,7 @@ type EmailAddress struct {
 	Address string `json:"address"`
 
 	// The contexts in which to use this email address.
-	Contexts map[string]bool `json:"contexts,omitempty"`
+	Contexts map[EmailAddressContext]bool `json:"contexts,omitempty"`
 
 	// The preference of the email address in relation to other email addresses.
 	//
@@ -1147,7 +1313,7 @@ type EmailAddress struct {
 
 type OnlineService struct {
 	// The JSContact type of the object: the value MUST be `OnlineService`, if set.
-	Type string `json:"@type,omitempty"`
+	Type TypeOfOnlineService `json:"@type,omitempty"`
 
 	// The name of the online service or protocol.
 	//
@@ -1166,7 +1332,7 @@ type OnlineService struct {
 	User string `json:"user,omitempty"`
 
 	// The contexts in which to use the service.
-	Contexts map[string]bool `json:"contexts,omitempty"`
+	Contexts map[OnlineServiceContext]bool `json:"contexts,omitempty"`
 
 	// The preference of the service in relation to other services.
 	//
@@ -1195,7 +1361,7 @@ type OnlineService struct {
 
 type Phone struct {
 	// The JSContact type of the object: the value MUST be `Phone`, if set.
-	Type string `json:"@type,omitempty"`
+	Type TypeOfPhone `json:"@type,omitempty"`
 
 	// The phone number as either a URI or free text.
 	//
@@ -1220,10 +1386,10 @@ type Phone struct {
 	// !- `textphone`: this number is for a device for people with hearing or speech difficulties
 	// !- `fax`: this number supports sending faxes
 	// !- `pager`: this number is for a pager or beeper
-	Features map[string]bool `json:"features,omitempty"`
+	Features map[PhoneFeature]bool `json:"features,omitempty"`
 
 	// The contexts in which to use the number.
-	Contexts map[string]bool `json:"contexts,omitempty"`
+	Contexts map[PhoneContext]bool `json:"contexts,omitempty"`
 
 	// The preference of the number in relation to other numbers.
 	//
@@ -1252,7 +1418,7 @@ type Phone struct {
 
 type LanguagePref struct {
 	// The JSContact type of the object: the value MUST be `LanguagePref`, if set.
-	Type string `json:"@type,omitempty"`
+	Type TypeOfLanguagePref `json:"@type,omitempty"`
 
 	// The preferred language.
 	//
@@ -1262,7 +1428,7 @@ type LanguagePref struct {
 	Language string `json:"language"`
 
 	// The contexts in which to use the language.
-	Contexts map[string]bool `json:"contexts,omitempty"`
+	Contexts map[LanguagePrefContext]bool `json:"contexts,omitempty"`
 
 	// The preference of the language in relation to other languages of the same contexts.
 	//
@@ -1282,13 +1448,13 @@ type LanguagePref struct {
 
 type SchedulingAddress struct {
 	// The JSContact type of the object: the value MUST be `SchedulingAddress`, if set.
-	Type string `json:"@type,omitempty"`
+	Type TypeOfSchedulingAddress `json:"@type,omitempty"`
 
 	// The address to use for calendar scheduling with the contact.
 	Uri string `json:"uri,omitempty"`
 
 	// The contexts in which to use the scheduling address.
-	Contexts map[string]bool `json:"contexts,omitempty"`
+	Contexts map[SchedulingAddressContext]bool `json:"contexts,omitempty"`
 
 	// The preference of the scheduling address in relation to other scheduling addresses.
 	//
@@ -1317,7 +1483,7 @@ type SchedulingAddress struct {
 
 type AddressComponent struct {
 	// The JSContact type of the object: the value MUST be `AddressComponent`, if set.
-	Type string `json:"@type,omitempty"`
+	Type TypeOfAddressComponent `json:"@type,omitempty"`
 
 	// The value of the address component.
 	Value string `json:"value"`
@@ -1346,7 +1512,7 @@ type AddressComponent struct {
 	// verbatim separator, for example, a hyphen character or even an empty string; this value has higher precedence than the `defaultSeparator` property
 	// of the `Address`; implementations MUST NOT insert two consecutive separator components; instead, they SHOULD insert a single separator component
 	// with the combined value; this component kind MUST NOT be set if the `Address` `isOrdered` property value is `false`.
-	Kind string `json:"kind"`
+	Kind AddressComponentKind `json:"kind"`
 
 	// The pronunciation of the name component.
 	//
@@ -1357,7 +1523,7 @@ type AddressComponent struct {
 // An Address object has the following properties, of which at least one of components, coordinates, countryCode, full or timeZone MUST be set.
 type Address struct {
 	// The JSContact type of the object: the value MUST be `Address`, if set.
-	Type string `json:"@type,omitempty"`
+	Type TypeOfAddress `json:"@type,omitempty"`
 
 	// The components that make up the address.
 	//
@@ -1405,7 +1571,7 @@ type Address struct {
 	// In addition to the common contexts, allowed key values are:
 	// !- `billing`: an address to be used for billing
 	// !- `delivery`: an address to be used for delivering physical items
-	Contexts map[string]bool `json:"contexts,omitempty"`
+	Contexts map[AddressContext]bool `json:"contexts,omitempty"`
 
 	// The full address, including street, region, or country.
 	//
@@ -1452,7 +1618,7 @@ type AnniversaryDate interface {
 // It represents a complete date, a year, a month in a year, or a day in a month.
 type PartialDate struct {
 	// The JSContact type of the object; the value MUST be `PartialDate`, if set.
-	Type string `json:"@type,omitempty"`
+	Type TypeOfPartialDate `json:"@type,omitempty"`
 
 	// The calendar year.
 	Year uint `json:"year,omitzero"`
@@ -1490,7 +1656,7 @@ var _ AnniversaryDate = &PartialDate{}
 
 type Timestamp struct {
 	// The JSContact type of the object; the value MUST be `Timestamp`, if set.
-	Type string `json:"@type,omitempty"`
+	Type TypeOfTimestamp `json:"@type,omitempty"`
 
 	// The point in time in UTC time (UTCDateTime).
 	Utc time.Time `json:"utc"`
@@ -1503,7 +1669,7 @@ func (_ Timestamp) isAnniversaryDate() {
 
 type Anniversary struct {
 	// The JSContact type of the object: the value MUST be `Anniversary`, if set.
-	Type string `json:"@type,omitempty"`
+	Type TypeOfAnniversary `json:"@type,omitempty"`
 
 	// The kind of anniversary.
 	//
@@ -1511,7 +1677,7 @@ type Anniversary struct {
 	// !- `birth`: a birthday anniversary
 	// !- `death`: a deathday anniversary
 	// !- `wedding`: a wedding day anniversary
-	Kind string `json:"kind"`
+	Kind AnniversaryKind `json:"kind"`
 
 	// The date of the anniversary in the Gregorian calendar.
 	//
@@ -1522,7 +1688,7 @@ type Anniversary struct {
 
 type Author struct {
 	// The JSContact type of the object: the value MUST be `Author`, if set.
-	Type string `json:"@type,omitempty"`
+	Type TypeOfAuthor `json:"@type,omitempty"`
 
 	// The name of this author.
 	Name string `json:"name,omitempty"`
@@ -1533,7 +1699,7 @@ type Author struct {
 
 type Note struct {
 	// The JSContact type of the object: the value MUST be `Note`, if set.
-	Type string `json:"@type,omitempty"`
+	Type TypeOfNote `json:"@type,omitempty"`
 
 	// The free-text value of this note.
 	Note string `json:"note"`
@@ -1547,7 +1713,7 @@ type Note struct {
 
 type PersonalInfo struct {
 	// The JSContact type of the object: the value MUST be `PersonalInfo`, if set.
-	Type string `json:"@type,omitempty"`
+	Type TypeOfPersonalInfo `json:"@type,omitempty"`
 
 	// The kind of personal information.
 	//
@@ -1555,7 +1721,7 @@ type PersonalInfo struct {
 	// !- `expertise`: a field of expertise or a credential
 	// !- `hobby`: a hobby
 	// !- `interest`: an interest
-	Kind string `json:"kind"`
+	Kind PersonalInfoKind `json:"kind"`
 
 	// The actual information.
 	Value string `json:"value"`
@@ -1566,7 +1732,7 @@ type PersonalInfo struct {
 	// !- `high`
 	// !- `medium`
 	// !- `low`
-	Level string `json:"level,omitempty"`
+	Level PersonalInfoLevel `json:"level,omitempty"`
 
 	// The position of the personal information in the list of all `PersonalInfo` objects that
 	// have the same kind property value in the Card.
@@ -1635,14 +1801,14 @@ type ContactCard struct {
 	AddressBookIds map[string]bool `json:"addressBookIds"`
 
 	// The JSContact type of the Card object: the value MUST be "Card".
-	Type string `json:"@type,omitempty"`
+	Type TypeOfContactCard `json:"@type,omitempty"`
 
 	// The JSContact version of this Card.
 	//
 	// The value MUST be one of the IANA-registered JSContact Version values for the version property.
 	//
 	// example: 1.0
-	Version string `json:"version"`
+	Version JSContactVersion `json:"version"`
 
 	// The date and time when the Card was created (UTCDateTime).
 	//
@@ -1660,7 +1826,7 @@ type ContactCard struct {
 	// !- application: a software application
 	//
 	// example: individual
-	Kind string `json:"kind,omitempty"`
+	Kind ContactCardKind `json:"kind,omitempty"`
 
 	// The language tag, as defined in [RFC5646].
 	//
@@ -1730,7 +1896,7 @@ type ContactCard struct {
 	// [RFC9562]: https://www.rfc-editor.org/rfc/rfc9562.html
 	//
 	// example: urn:uuid:f81d4fae-7dec-11d0-a765-00a0c91e6bf6
-	Uid string `json:"uid"`
+	Uid string `json:"uid,omitempty"`
 
 	// The date and time when the data in the Card was last modified (UTCDateTime).
 	//
@@ -1775,7 +1941,7 @@ type ContactCard struct {
 	// !- The `kind` property is mandatory. Its enumerated values are:
 	//   !- `calendar`: The resource is a calendar that contains entries such as calendar events or tasks
 	//   !- `freeBusy`: The resource allows for free-busy lookups, for example, to schedule group events
-	Calendars map[string]Resource `json:"calendars,omitempty"`
+	Calendars map[string]Calendar `json:"calendars,omitempty"`
 
 	// The scheduling addresses by which the entity may receive calendar scheduling invitations.
 	SchedulingAddresses map[string]SchedulingAddress `json:"schedulingAddresses,omitempty"`
@@ -1796,7 +1962,7 @@ type ContactCard struct {
 	//   }
 	// }
 	// ```
-	CryptoKeys map[string]Resource `json:"cryptoKeys,omitempty"`
+	CryptoKeys map[string]CryptoKey `json:"cryptoKeys,omitempty"`
 
 	// The directories containing information about the entity represented by the Card.
 	//
@@ -1808,7 +1974,7 @@ type ContactCard struct {
 	// in a company directory
 	//   !- `entry`: the resource is a directory entry of the entity represented by the Card; in contrast to the `directory`
 	// type, this is the specific URI for the entity within a directory
-	Directories map[string]DirectoryResource `json:"directories,omitempty"`
+	Directories map[string]Directory `json:"directories,omitempty"`
 
 	// The links to resources that do not fit any of the other use-case-specific resource properties.
 	//
@@ -1817,7 +1983,7 @@ type ContactCard struct {
 	// !- The `kind` property is optional; tts enumerated values are:
 	//   !- `contact``: the resource is a URI by which the entity represented by the Card may be contacted;
 	// this includes web forms or other media that require user interaction
-	Links map[string]Resource `json:"links,omitempty"`
+	Links map[string]Link `json:"links,omitempty"`
 
 	// The media resources such as photographs, avatars, or sounds that are associated with the entity represented by the Card.
 	//
@@ -1827,7 +1993,7 @@ type ContactCard struct {
 	//   !- `photo`: the resource is a photograph or avatar
 	//   !- `sound`: the resource is audio media, e.g., to specify the proper pronunciation of the name property contents
 	//   !- `logo`: the resource is a graphic image or logo associated with the entity represented by the Card
-	Media map[string]MediaResource `json:"media,omitempty"`
+	Media map[string]Media `json:"media,omitempty"`
 
 	// The property values localized to languages other than the main `language` of the Card.
 	//
@@ -1852,6 +2018,8 @@ type ContactCard struct {
 	// A patch in the `PatchObject` may contain any value type.
 	//
 	// Its value MUST be a valid value according to the definition of the patched property.
+	//
+	// [RFC5646]: https://www.rfc-editor.org/rfc/rfc5646.html
 	Localizations map[string]PatchObject `json:"localizations,omitempty"`
 
 	// The memorable dates and events for the entity represented by the Card.
