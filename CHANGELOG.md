@@ -6,6 +6,12 @@
 
 @AlexAndBear, @ScharfViktor, @butonic, @micbar, @rhafer
 
+### ✅ Tests
+
+- [full-ci] getting personal space by userId instead of userName [[#1553](https://github.com/opencloud-eu/opencloud/pull/1553)]
+- apiTest-flaky: sync share before checking [[#1550](https://github.com/opencloud-eu/opencloud/pull/1550)]
+- [decomposed] use Alpine for opencloud starting [[#1547](https://github.com/opencloud-eu/opencloud/pull/1547)]
+
 ### 📈 Enhancement
 
 - feat: make it possible to start the collaboration service in the single process [[#1569](https://github.com/opencloud-eu/opencloud/pull/1569)]
@@ -17,11 +23,6 @@
 - let the runtime always create a cancel context [[#1565](https://github.com/opencloud-eu/opencloud/pull/1565)]
 - Bump reva and cs3apis [[#1538](https://github.com/opencloud-eu/opencloud/pull/1538)]
 - use correct endpoint in nats check [[#1533](https://github.com/opencloud-eu/opencloud/pull/1533)]
-
-### ✅ Tests
-
-- apiTest-flaky: sync share before checking [[#1550](https://github.com/opencloud-eu/opencloud/pull/1550)]
-- [decomposed] use Alpine for opencloud starting [[#1547](https://github.com/opencloud-eu/opencloud/pull/1547)]
 
 ### 📦️ Dependencies
 
