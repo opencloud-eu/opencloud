@@ -274,7 +274,7 @@ func DefaultPolicies() []config.Policy {
 				},
 				{
 					Endpoint:         "/wopi",
-					Service:          "eu.opencloud.web.collaboration.Collabora",
+					Service:          "eu.opencloud.web.collaboration",
 					Unprotected:      true,
 					SkipXAccessToken: true,
 				},
