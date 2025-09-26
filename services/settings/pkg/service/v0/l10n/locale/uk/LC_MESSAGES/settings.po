@@ -1,0 +1,146 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# 
+# Translators:
+# LinkinWires <darkinsonic13@gmail.com>, 2025
+# 
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: EMAIL\n"
+"POT-Creation-Date: 2025-09-26 00:01+0000\n"
+"PO-Revision-Date: 2025-01-27 10:17+0000\n"
+"Last-Translator: LinkinWires <darkinsonic13@gmail.com>, 2025\n"
+"Language-Team: Ukrainian (https://app.transifex.com/opencloud-eu/teams/204053/uk/)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: uk\n"
+"Plural-Forms: nplurals=4; plural=(n % 1 == 0 && n % 10 == 1 && n % 100 != 11 ? 0 : n % 1 == 0 && n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 1 : n % 1 == 0 && (n % 10 ==0 || (n % 10 >=5 && n % 10 <=9) || (n % 100 >=11 && n % 100 <=14 )) ? 2: 3);\n"
+
+#. name of the notification option 'Space Shared'
+#: pkg/store/defaults/templates.go:20
+msgid "Added as space member"
+msgstr "Додавання до простору у якості учасника (-ці)"
+
+#. translation for the 'daily' email interval option
+#: pkg/store/defaults/templates.go:50
+msgid "Daily"
+msgstr "Щоденно"
+
+#. name of the notification option 'Email Interval'
+#: pkg/store/defaults/templates.go:44
+msgid "Email sending interval"
+msgstr "Інтервал надсилання електронних листів"
+
+#. name of the notification option 'File Rejected'
+#: pkg/store/defaults/templates.go:40
+msgid "File rejected"
+msgstr "Відхилення файлу"
+
+#. translation for the 'instant' email interval option
+#: pkg/store/defaults/templates.go:48
+msgid "Instant"
+msgstr "Миттєво"
+
+#. translation for the 'never' email interval option
+#: pkg/store/defaults/templates.go:54
+msgid "Never"
+msgstr "Ніколи"
+
+#. description of the notification option 'Space Shared'
+#: pkg/store/defaults/templates.go:22
+msgid "Notify when I have been added as a member to a space"
+msgstr "Сповіщати, коли мене додають як учасника (-цю) до простору"
+
+#. description of the notification option 'Space Unshared'
+#: pkg/store/defaults/templates.go:26
+msgid "Notify when I have been removed as member from a space"
+msgstr "Сповіщати, коли мене видаляють з учасників простору"
+
+#. description of the notification option 'Share Received'
+#: pkg/store/defaults/templates.go:10
+msgid "Notify when I have received a share"
+msgstr "Сповіщати, коли зі мною поділилися файлом або папкою"
+
+#. description of the notification option 'File Rejected'
+#: pkg/store/defaults/templates.go:42
+msgid ""
+"Notify when a file I uploaded was rejected because of a virus infection or "
+"policy violation"
+msgstr ""
+"Сповіщати, коли завантажений мною файл було відхилено через знайдений вірус "
+"або порушення політик"
+
+#. description of the notification option 'Share Removed'
+#: pkg/store/defaults/templates.go:14
+msgid "Notify when a received share has been removed"
+msgstr "Сповіщати, коли зі мною більше не діляться файлом або папкою"
+
+#. description of the notification option 'Share Expired'
+#: pkg/store/defaults/templates.go:18
+msgid "Notify when a received share has expired"
+msgstr "Сповіщати, коли термін доступу до файлу або папки сплинув"
+
+#. description of the notification option 'Space Deleted'
+#: pkg/store/defaults/templates.go:38
+msgid "Notify when a space I am member of has been deleted"
+msgstr "Сповіщати, коли простір, учасником (-цею) якого я є, був видалений"
+
+#. description of the notification option 'Space Disabled'
+#: pkg/store/defaults/templates.go:34
+msgid "Notify when a space I am member of has been disabled"
+msgstr "Сповіщати, коли простір, учасником (-цею) якого я є, був вимкнений"
+
+#. description of the notification option 'Space Membership Expired'
+#: pkg/store/defaults/templates.go:30
+msgid "Notify when a space membership has expired"
+msgstr "Сповіщати, коли термін доступу до простору сплинув"
+
+#. name of the notification option 'Space Unshared'
+#: pkg/store/defaults/templates.go:24
+msgid "Removed as space member"
+msgstr "Видалення з простору"
+
+#. description of the notification option 'Email Interval'
+#: pkg/store/defaults/templates.go:46
+msgid "Selected value:"
+msgstr "Обране значення:"
+
+#. name of the notification option 'Share Expired'
+#: pkg/store/defaults/templates.go:16
+msgid "Share Expired"
+msgstr "Сплинення доступу до файлу / папки"
+
+#. name of the notification option 'Share Received'
+#: pkg/store/defaults/templates.go:8
+msgid "Share Received"
+msgstr "Надання доступу"
+
+#. name of the notification option 'Share Removed'
+#: pkg/store/defaults/templates.go:12
+msgid "Share Removed"
+msgstr "Видалення доступу"
+
+#. name of the notification option 'Space Deleted'
+#: pkg/store/defaults/templates.go:36
+msgid "Space deleted"
+msgstr "Видалення простору"
+
+#. name of the notification option 'Space Disabled'
+#: pkg/store/defaults/templates.go:32
+msgid "Space disabled"
+msgstr "Вимкнення простору"
+
+#. name of the notification option 'Space Membership Expired'
+#: pkg/store/defaults/templates.go:28
+msgid "Space membership expired"
+msgstr "Сплинення доступу до простору"
+
+#. translation for the 'weekly' email interval option
+#: pkg/store/defaults/templates.go:52
+msgid "Weekly"
+msgstr "Щотижнево"
