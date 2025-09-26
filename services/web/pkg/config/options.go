@@ -2,8 +2,7 @@ package config
 
 // Options are the option for the web
 type Options struct {
-	OpenAppsInTab          bool                `json:"openAppsInTab,omitempty" yaml:"openAppsInTab" env:"WEB_OPTION_OPEN_APPS_IN_TAB" desc:"Configures whether apps and extensions should generally open in a new tab. Defaults to false." introductionVersion:"1.0.0"`
-	AccountEditLink        *AccountEditLink    `json:"accountEditLink,omitempty" yaml:"accountEditLink"`
+^	AccountEditLink        *AccountEditLink    `json:"accountEditLink,omitempty" yaml:"accountEditLink"`
 	DisableFeedbackLink    bool                `json:"disableFeedbackLink,omitempty" yaml:"disableFeedbackLink" env:"WEB_OPTION_DISABLE_FEEDBACK_LINK" desc:"Set this option to 'true' to disable the feedback link in the top bar. Keeping it enabled by setting the value to 'false' or with the absence of the option, allows OpenCloud to get feedback from your user base through a dedicated survey website." introductionVersion:"1.0.0"`
 	FeedbackLink           *FeedbackLink       `json:"feedbackLink,omitempty" yaml:"feedbackLink"`
 	RunningOnEOS           bool                `json:"runningOnEos,omitempty" yaml:"runningOnEos" env:"WEB_OPTION_RUNNING_ON_EOS" desc:"Set this option to 'true' if running on an EOS storage backend (https://eos-web.web.cern.ch/eos-web/) to enable its specific features. Defaults to 'false'." introductionVersion:"1.0.0"`
