@@ -2453,8 +2453,7 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 */
 	public function getAssignedRole(string $user): ResponseInterface {
-		$userId = $this->featureContext->getAttributeOfCreatedUser($user, 'id')
-		?: $this->featureContext->getAttributeOfCreatedUser($user, 'id');
+		$userId = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		return (
 			GraphHelper::getAssignedRole(
 				$this->featureContext->getBAseUrl(),
