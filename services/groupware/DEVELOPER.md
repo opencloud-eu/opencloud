@@ -66,7 +66,7 @@ perl -ne 'if (/^([A-Z][A-Z0-9]+)_DOMAIN=(.*)$/) { print length($2) < 1 ? lc($1).
 
 ### Compose
 
-It first needs to be tuned a little, and for that, edit `$OCDIR/opencloud/deployments/examples/opencloud_full/.env`, making the following changes:
+It first needs to be tuned a little, and for that, edit `$OCDIR/opencloud/devtools/deployments/examples/opencloud_full/.env`, making the following changes:
 
 * change the container image to `opencloudeu/opencloud:dev`:
 ```diff
@@ -139,7 +139,7 @@ make -C ./opencloud/ clean build dev-docker
 And then either run everything from the Docker Compose `opencloud_full` setup:
 
 ```bash
-cd "$OCDIR/opencloud/deployments/examples/opencloud_full/"
+cd "$OCDIR/opencloud/devtools/deployments/examples/opencloud_full/"
 docker compose up -d
 ```
 
@@ -307,7 +307,7 @@ To access the Stalwart admin UI, open <https://stalwart.opencloud.test/> and use
 
 The usual admin username `admin` had to be changed into `mailadmin` because there is already an `admin` user that ships with the default users in OpenCloud, and Stalwart always checks the LDAP directory before its internal usernames.
 
-Those credentials are configured in `deployments/examples/opencloud_full/config/stalwart/config.toml`:
+Those credentials are configured in `devtools/deployments/examples/opencloud_full/config/stalwart/config.toml`:
 ```ruby
 authentication.fallback-admin.secret = "$6$4qPYDVhaUHkKcY7s$bB6qhcukb9oFNYRIvaDZgbwxrMa2RvF5dumCjkBFdX19lSNqrgKltf3aPrFMuQQKkZpK2YNuQ83hB1B3NiWzj."
 authentication.fallback-admin.user = "mailadmin"
@@ -318,7 +318,7 @@ authentication.fallback-admin.user = "mailadmin"
 To start with a Stalwart container from scratch, removing all the data (including emails):
 
 ```bash
-cd "$OCDIR/opencloud/deployments/examples/opencloud_full"
+cd "$OCDIR/opencloud/devtools/deployments/examples/opencloud_full"
 docker compose stop stalwart
 docker compose rm stalwart
 docker volume rm opencloud_full_stalwart-data opencloud_full_stalwart-logs
