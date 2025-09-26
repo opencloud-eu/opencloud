@@ -331,7 +331,7 @@ Feature: sharing
       | shareType       | user     |
       | permissionsRole | Editor   |
     And user "Brian" has a share "FOLDER" synced
-    And user "Admin" has changed the quota of the personal space of "Alice Hansen" space to "1"
+    And user "Admin" has changed the quota of the personal space of user "Alice" space to "1"
     When user "Brian" uploads a file inside space "Shares" with content "new description" to "/FOLDER/textfile.txt" using the WebDAV API
     Then the HTTP status code should be "507"
     And as "Alice" file "/FOLDER/textfile.txt" should not exist
@@ -348,7 +348,7 @@ Feature: sharing
       | shareType       | group    |
       | permissionsRole | Editor   |
     And user "Brian" has a share "FOLDER" synced
-    And user "Admin" has changed the quota of the personal space of "Alice Hansen" space to "1"
+    And user "Admin" has changed the quota of the personal space of user "Alice" space to "1"
     When user "Brian" uploads a file inside space "Shares" with content "new description" to "/FOLDER/textfile.txt" using the WebDAV API
     Then the HTTP status code should be "507"
     And as "Alice" file "/FOLDER/textfile.txt" should not exist
@@ -363,7 +363,7 @@ Feature: sharing
       | shareType       | user     |
       | permissionsRole | Uploader |
     And user "Brian" has a share "FOLDER" synced
-    And user "Admin" has changed the quota of the personal space of "Alice Hansen" space to "1"
+    And user "Admin" has changed the quota of the personal space of user "Alice" space to "1"
     When user "Brian" uploads a file inside space "Shares" with content "new description" to "/FOLDER/textfile.txt" using the WebDAV API
     Then the HTTP status code should be "507"
     And as "Alice" file "/FOLDER/textfile.txt" should not exist
@@ -380,7 +380,7 @@ Feature: sharing
       | shareType       | group    |
       | permissionsRole | Uploader |
     And user "Brian" has a share "FOLDER" synced
-    And user "Admin" has changed the quota of the personal space of "Alice Hansen" space to "10"
+    And user "Admin" has changed the quota of the personal space of user "Alice" space to "10"
     When user "Brian" uploads a file inside space "Shares" with content "new descriptionfgshsywhhh" to "/FOLDER/textfile.txt" using the WebDAV API
     Then the HTTP status code should be "507"
     And as "Alice" file "/FOLDER/textfile.txt" should not exist

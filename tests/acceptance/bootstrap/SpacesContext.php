@@ -219,6 +219,31 @@ class SpacesContext implements Context {
 	}
 
 	/**
+	 * @param string $user
+	 *
+	 * @return string
+	 * @throws GuzzleException
+	 * @throws JsonException
+	 */
+	public function getPersonalSpace(string $user): array {
+		$resource = GraphHelper::getUserWithDriveInformation(
+			$this->featureContext->getBaseUrl(),
+			$this->featureContext->getStepLineRef(),
+			$user,
+			$this->featureContext->getPasswordForUser($user),
+			$this->featureContext->getAttributeOfCreatedUser($user, 'id'),
+			$this->featureContext->getStepLineRef()
+		);
+
+		$space = json_decode($resource->getBody()->getContents(), true);
+		Assert::assertIsArray($space);
+		Assert::assertArrayHasKey('drive', $space, "Drive information not found for user '$user'");
+		Assert::assertArrayHasKey('id', $space['drive'], "Drive ID not found for user '$user'");
+
+		return $space["drive"];
+	}
+
+	/**
 	 * The method finds available spaces to the user and returns the spaceId by spaceName
 	 *
 	 * @param string $user
@@ -1057,7 +1082,7 @@ class SpacesContext implements Context {
 			"No space with name $spaceName found"
 		);
 		$permissions = $spaceAsArray["root"]["permissions"];
-		$userId = $this->featureContext->getUserIdByUserName($grantedUser);
+		$userId = $this->featureContext->getAttributeOfCreatedUser($grantedUser, 'id');
 
 		$userRole = "";
 		foreach ($permissions as $permission) {
@@ -1520,6 +1545,32 @@ class SpacesContext implements Context {
 	}
 
 	/**
+	 * @param string $user
+	 * @param string $targetUser
+	 * @param array $bodyData
+	 *
+	 * @return ResponseInterface
+	 * @throws GuzzleException
+	 * @throws JsonException
+	 */
+	public function updatePersonalSpace(
+		string $user,
+		string $targetUser,
+		array $bodyData,
+	): ResponseInterface {
+		$body = json_encode($bodyData, JSON_THROW_ON_ERROR);
+		$space = $this->getPersonalSpace($targetUser);
+		return GraphHelper::updateSpace(
+			$this->featureContext->getBaseUrl(),
+			$user,
+			$this->featureContext->getPasswordForUser($user),
+			$body,
+			$space["id"],
+			$this->featureContext->getStepLineRef()
+		);
+	}
+
+	/**
 	 * @When /^user "([^"]*)" (?:changes|tries to change) the name of the "([^"]*)" space to "([^"]*)"$/
 	 * @When /^user "([^"]*)" (?:changes|tries to change) the name of the "([^"]*)" space to "([^"]*)" owned by user "([^"]*)"$/
 	 *
@@ -1620,11 +1671,10 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has changed the quota of the personal space of "([^"]*)" space to "([^"]*)"$/
-	 * @Given /^user "([^"]*)" has changed the quota of the "([^"]*)" space to "([^"]*)"$/
+	 * @Given /^user "([^"]*)" has changed the quota of the personal space of user "([^"]*)" space to "([^"]*)"$/
 	 *
 	 * @param string $user
-	 * @param string $spaceName
+	 * @param string $targetUser
 	 * @param int $newQuota
 	 *
 	 * @return void
@@ -1633,11 +1683,11 @@ class SpacesContext implements Context {
 	 */
 	public function userHasChangedTheQuotaOfTheSpaceTo(
 		string $user,
-		string $spaceName,
+		string $targetUser,
 		int $newQuota
 	): void {
 		$bodyData = ["quota" => ["total" => $newQuota]];
-		$response = $this->updateSpace($user, $spaceName, $bodyData);
+		$response = $this->updatePersonalSpace($user, $targetUser, $bodyData);
 		$this->featureContext->theHTTPStatusCodeShouldBe(
 			200,
 			"Expected response status code should be 200",
@@ -4629,7 +4679,7 @@ class SpacesContext implements Context {
 			"No space with name $spaceName found"
 		);
 		$recipientType === 'user' ?
-		$recipientId = $this->featureContext->getUserIdByUserName($recipient)
+		$recipientId = $this->featureContext->getAttributeOfCreatedUser($recipient, 'id')
 		: $recipientId = $this->featureContext->getGroupIdByGroupName($recipient);
 		$foundRoleInResponse = false;
 		foreach ($spaceAsArray['root']['permissions'] as $permission) {

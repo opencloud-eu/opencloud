@@ -516,7 +516,7 @@ class CliContext implements Context {
 	 * @return void
 	 */
 	public function theAdministratorCreatesFolder(string $folder, string $user): void {
-		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath();
 		$fullPath = "$storagePath/$userUuid/$folder";
 
@@ -537,7 +537,7 @@ class CliContext implements Context {
 	 * @return void
 	 */
 	public function theAdministratorCheckUsersFolder(string $user): void {
-		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath();
 		$body = [
 		  "command" => "ls -la $storagePath/$userUuid",
@@ -556,7 +556,7 @@ class CliContext implements Context {
 	 * @return void
 	 */
 	public function theAdministratorCreatesFile(string $file, string $content, string $user): void {
-		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath();
 		$fullPath = "$storagePath/$userUuid/$file";
 		$safeContent = escapeshellarg($content);
@@ -593,7 +593,7 @@ class CliContext implements Context {
 	 * @return void
 	 */
 	public function theAdministratorCreatesLargeFileWithSize(string $file, string $size, string $user): void {
-		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath();
 
 		$size = strtolower($size);
@@ -624,7 +624,7 @@ class CliContext implements Context {
 	 * @return void
 	 */
 	public function theAdministratorCreatesFilesSequentially(int $count, string $dir, string $user): void {
-		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath() . "/$userUuid/$dir";
 		$cmd = '';
 		for ($i = 1; $i <= $count; $i++) {
@@ -649,7 +649,7 @@ class CliContext implements Context {
 	 * @return void
 	 */
 	public function theAdministratorCreatesFilesInParallel(int $count, string $dir, string $user): void {
-		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath() . "/$userUuid/$dir";
 		$cmd = "mkdir -p $storagePath; ";
 		for ($i = 1; $i <= $count; $i++) {
@@ -675,7 +675,7 @@ class CliContext implements Context {
 	 * @return void
 	 */
 	public function theAdministratorChangesFileContent(string $content, string $file, string $user): void {
-		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath();
 		$safeContent = escapeshellarg($content);
 		$body = [
@@ -696,7 +696,7 @@ class CliContext implements Context {
 	 * @return void
 	 */
 	public function theAdministratorReadsTheFileContent(string $user, string $file): void {
-		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath();
 		$body = [
 		  "command" => "cat $storagePath/$userUuid/$file",
@@ -715,7 +715,7 @@ class CliContext implements Context {
 	 * @return void
 	 */
 	public function theAdministratorCopiesFileToFolder(string $user, string $file, string $folder): void {
-		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath();
 
 		$source = "$storagePath/$userUuid/$file";
@@ -739,7 +739,7 @@ class CliContext implements Context {
 	 * @return void
 	 */
 	public function theAdministratorRenamesFile(string $user, string $file, string $newName): void {
-		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath();
 
 		$source = "$storagePath/$userUuid/$file";
@@ -763,7 +763,7 @@ class CliContext implements Context {
 	 * @return void
 	 */
 	public function theAdministratorMovesFileToFolder(string $user, string $file, string $folder): void {
-		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath();
 
 		$source = "$storagePath/$userUuid/$file";
@@ -786,7 +786,7 @@ class CliContext implements Context {
 	 * @return void
 	 */
 	public function theAdministratorDeletesFile(string $file, string $user): void {
-		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath();
 
 		$body = [
@@ -806,7 +806,7 @@ class CliContext implements Context {
 	 * @return void
 	 */
 	public function theAdministratorDeletesFolder(string $folder, string $user): void {
-		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath();
 
 		$body = [
@@ -827,7 +827,7 @@ class CliContext implements Context {
 	 * @return void
 	 */
 	public function theAdministratorCopiesFileToSpace(string $user, string $file, string $space): void {
-		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$usersStoragePath = $this->getUsersStoragePath();
 		$projectsStoragePath = $this->getProjectsStoragePath();
 		$spaceId = $this->spacesContext->getSpaceIdByName($this->featureContext->getAdminUsername(), $space);
@@ -874,7 +874,7 @@ class CliContext implements Context {
 	 * @return void
 	 */
 	public function theAdminChecksTheAttributeOfFileForUser(string $attribute, string $file, string $user): void {
-		$userUuid = $this->featureContext->getUserIdByUserName($user);
+		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath();
 		$body = [
 			"command" => "xattr -p -slz " . escapeshellarg($attribute) . " $storagePath/$userUuid/$file",

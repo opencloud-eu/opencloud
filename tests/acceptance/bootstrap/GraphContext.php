@@ -353,7 +353,7 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 */
 	public function theUserDeletesAUserUsingTheGraphAPI(string $byUser, string $user): void {
-		$userId = $this->featureContext->getUserIdByUserName($user);
+		$userId = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$this->featureContext->setResponse($this->deleteUserByUserIdUsingTheGraphApi($userId, $byUser));
 	}
 
@@ -688,15 +688,14 @@ class GraphContext implements Context {
 			$rows["displayName"]
 		);
 
-		// add created user to list except for the user with an empty name
-		// because request /graph/v1.0/users/emptyUserName exits with 200
-		// and we cannot check that the user with empty name doesn't exist
-		if (!empty($rows["userName"])) {
+		$responseData = \json_decode($response->getBody()->getContents(), true, 512, JSON_THROW_ON_ERROR);
+		if ($response->getStatusCode() === 201) {
 			$this->featureContext->addUserToCreatedUsersList(
 				$rows["userName"],
 				$rows["password"],
 				$rows["displayName"],
-				$rows["email"]
+				$rows["email"],
+				$responseData['id']
 			);
 		}
 		$this->featureContext->setResponse($response);
@@ -2454,8 +2453,7 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 */
 	public function getAssignedRole(string $user): ResponseInterface {
-		$userId = $this->featureContext->getAttributeOfCreatedUser($user, 'id')
-		?: $this->featureContext->getUserIdByUserName($user);
+		$userId = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		return (
 			GraphHelper::getAssignedRole(
 				$this->featureContext->getBAseUrl(),
@@ -2844,7 +2842,7 @@ class GraphContext implements Context {
 	 * @throws JsonException
 	 */
 	public function theUserHasChangedItsOwnUsernameTo(string $byUser, string $userName): void {
-		$userId = $this->featureContext->getUserIdByUserName($byUser);
+		$userId = $this->featureContext->getAttributeOfCreatedUser($byUser, 'id');
 		$response = GraphHelper::editUser(
 			$this->featureContext->getBaseUrl(),
 			$this->featureContext->getStepLineRef(),
@@ -2991,7 +2989,7 @@ class GraphContext implements Context {
 	 *
 	 * @return void
 	 */
-	public function userListsTheActivitiesOfSpaceUsingTheGraphApi(string $user, string $spaceName): void {
+	public function userListsTheActivitiesOfProjectSpaceUsingTheGraphApi(string $user, string $spaceName): void {
 		$spaceId = ($this->featureContext->spacesContext->getSpaceByName($user, $spaceName))["id"];
 		$response = GraphHelper::getActivities(
 			$this->featureContext->getBaseUrl(),
@@ -2999,6 +2997,25 @@ class GraphContext implements Context {
 			$user,
 			$this->featureContext->getPasswordForUser($user),
 			$spaceId
+		);
+		$this->featureContext->setResponse($response);
+	}
+
+	/**
+	 * @When user :user lists the activities of personal space using the Graph API
+	 *
+	 * @param string $user
+	 *
+	 * @return void
+	 */
+	public function userListsTheActivitiesOfPersonalSpaceUsingTheGraphApi(string $user): void {
+		$space = $this->featureContext->spacesContext->getPersonalSpace($user);
+		$response = GraphHelper::getActivities(
+			$this->featureContext->getBaseUrl(),
+			$this->featureContext->getStepLineRef(),
+			$user,
+			$this->featureContext->getPasswordForUser($user),
+			$space["id"]
 		);
 		$this->featureContext->setResponse($response);
 	}

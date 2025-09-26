@@ -294,7 +294,7 @@ Feature: check activities
     And user "Alice" has created folder "/FOLDER"
     And user "Alice" has deleted file "textfile.txt"
     And user "Alice" has deleted folder "FOLDER"
-    When user "Alice" lists the activities of space "Personal" using the Graph API
+    When user "Alice" lists the activities of personal space using the Graph API
     Then the HTTP status code should be "200"
     And the JSON data of the response should match
       """
