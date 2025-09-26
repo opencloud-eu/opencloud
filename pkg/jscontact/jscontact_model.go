@@ -6,6 +6,8 @@
 package jscontact
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -255,6 +257,8 @@ const (
 	PhoneFeatureTextPhone  = PhoneFeature("textphone")
 	PhoneFeatureFax        = PhoneFeature("fax")
 	PhoneFeaturePager      = PhoneFeature("pager")
+
+	RscaleIso8601 = "iso8601"
 )
 
 var (
@@ -1611,6 +1615,32 @@ type Address struct {
 
 type AnniversaryDate interface {
 	isAnniversaryDate() // marker
+}
+
+type AnniversaryDateContainer struct {
+	Value AnniversaryDate
+}
+
+func (a *Anniversary) UnmarshalJSON(b []byte) error {
+	var typ struct {
+		Date struct {
+			Type string `json:"@type"`
+		} `json:"date,omitzero"`
+	}
+	if err := json.Unmarshal(b, &typ); err != nil {
+		return err
+	}
+	switch typ.Date.Type {
+	case string(PartialDateType):
+		a.Date = new(PartialDate)
+	case string(TimestampType):
+		a.Date = new(Timestamp)
+	default:
+		return fmt.Errorf("unsupported '%T.date' @type: \"%v\"", a, typ.Date.Type)
+	}
+
+	type tmp Anniversary
+	return json.Unmarshal(b, (*tmp)(a))
 }
 
 // A PartialDate object represents a complete or partial calendar date in the Gregorian calendar.
