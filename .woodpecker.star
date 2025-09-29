@@ -2973,11 +2973,13 @@ def wopiCollaborationService(name):
         environment["COLLABORATION_APP_ADDR"] = "https://collabora:9980"
         environment["COLLABORATION_APP_ICON"] = "https://collabora:9980/favicon.ico"
     elif name == "onlyoffice":
+        environment["COLLABORATION_SERVICE_NAME"] = "collboration-onlyoffice"
         environment["COLLABORATION_APP_NAME"] = "OnlyOffice"
         environment["COLLABORATION_APP_PRODUCT"] = "OnlyOffice"
         environment["COLLABORATION_APP_ADDR"] = "https://onlyoffice"
         environment["COLLABORATION_APP_ICON"] = "https://onlyoffice/web-apps/apps/documenteditor/main/resources/img/favicon.ico"
     elif name == "fakeoffice":
+        environment["COLLABORATION_SERVICE_NAME"] = "collboration-fakeoficce"
         environment["COLLABORATION_APP_NAME"] = "FakeOffice"
         environment["COLLABORATION_APP_PRODUCT"] = "Microsoft"
         environment["COLLABORATION_APP_ADDR"] = "http://fakeoffice:8080"

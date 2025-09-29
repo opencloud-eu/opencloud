@@ -25,7 +25,7 @@ func Server(opts ...Option) (http.Service, error) {
 		http.TLSConfig(options.Config.HTTP.TLS),
 		http.Logger(options.Logger),
 		http.Namespace(options.Config.HTTP.Namespace),
-		http.Name(options.Config.Service.Name+"."+options.Config.App.Name),
+		http.Name(options.Config.Service.Name),
 		http.Version(version.GetString()),
 		http.Address(options.Config.HTTP.Addr),
 		http.Context(options.Context),
@@ -41,7 +41,7 @@ func Server(opts ...Option) (http.Service, error) {
 	middlewares := []func(stdhttp.Handler) stdhttp.Handler{
 		chimiddleware.RequestID,
 		middleware.Version(
-			options.Config.Service.Name+"."+options.Config.App.Name,
+			options.Config.Service.Name,
 			version.GetString(),
 		),
 		colabmiddleware.AccessLog(
@@ -69,7 +69,7 @@ func Server(opts ...Option) (http.Service, error) {
 
 	mux.Use(
 		otelchi.Middleware(
-			options.Config.Service.Name+"."+options.Config.App.Name,
+			options.Config.Service.Name,
 			otelchi.WithChiRoutes(mux),
 			otelchi.WithTracerProvider(options.TracerProvider),
 			otelchi.WithPropagators(tracing.GetPropagator()),

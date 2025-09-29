@@ -25,14 +25,14 @@ func Version(cfg *config.Config) *cli.Command {
 			fmt.Println("")
 
 			reg := registry.GetRegistry()
-			services, err := reg.GetService(cfg.HTTP.Namespace + "." + cfg.Service.Name + "." + cfg.App.Name)
+			services, err := reg.GetService(cfg.HTTP.Namespace + "." + cfg.Service.Name)
 			if err != nil {
-				fmt.Println(fmt.Errorf("could not get %s services from the registry: %v", cfg.Service.Name+"."+cfg.App.Name, err))
+				fmt.Println(fmt.Errorf("could not get %s services from the registry: %v", cfg.Service.Name, err))
 				return err
 			}
 
 			if len(services) == 0 {
-				fmt.Println("No running " + cfg.Service.Name + "." + cfg.App.Name + " service found.")
+				fmt.Println("No running " + cfg.Service.Name + " service found.")
 				return nil
 			}
 
