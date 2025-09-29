@@ -123,7 +123,7 @@
           "isDark": true,
           "label": "Dark Theme",
           "logo": "themes/opencloud/assets/logo-white.svg",
-          "logoMobile": "themes/opencloud/assets/logo-mobile-white.svg",
+          "logoMobile": "themes/opencloud/assets/logo-white-mobile.svg",
           "designTokens": {
             "roles": {
               "primary": "#5cd5fb",
