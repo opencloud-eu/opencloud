@@ -10,9 +10,6 @@ var (
 	SeparatorsNone = Separators{ShowHeader: Off, ShowFooter: Off, BetweenRows: Off, BetweenColumns: Off}
 )
 
-var (
-
-	// PaddingDefault represents standard single-space padding on left/right
-	// Equivalent to Padding{Left: " ", Right: " ", Overwrite: true}
-	PaddingDefault = Padding{Left: " ", Right: " ", Overwrite: true}
-)
+// PaddingDefault represents standard single-space padding on left/right
+// Equivalent to Padding{Left: " ", Right: " ", Overwrite: true}
+var PaddingDefault = Padding{Left: " ", Right: " ", Overwrite: true}

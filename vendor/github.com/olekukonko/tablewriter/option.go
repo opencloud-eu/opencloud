@@ -1,11 +1,12 @@
 package tablewriter
 
 import (
+	"reflect"
+
 	"github.com/mattn/go-runewidth"
 	"github.com/olekukonko/ll"
 	"github.com/olekukonko/tablewriter/pkg/twwidth"
 	"github.com/olekukonko/tablewriter/tw"
-	"reflect"
 )
 
 // Option defines a function type for configuring a Table instance.
@@ -498,6 +499,17 @@ func WithTrimSpace(state tw.State) Option {
 	}
 }
 
+// WithTrimLine sets whether empty visual lines within a cell are trimmed.
+// Logs the change if debugging is enabled.
+func WithTrimLine(state tw.State) Option {
+	return func(target *Table) {
+		target.config.Behavior.TrimLine = state
+		if target.logger != nil {
+			target.logger.Debugf("Option: WithTrimLine applied to Table: %v", state)
+		}
+	}
+}
+
 // WithHeaderAutoFormat enables or disables automatic formatting for header cells.
 // Logs the change if debugging is enabled.
 func WithHeaderAutoFormat(state tw.State) Option {
@@ -607,10 +619,8 @@ func WithRendition(rendition tw.Rendition) Option {
 			if target.logger != nil {
 				target.logger.Debugf("Option: WithRendition: Applied to renderer via Renditioning.SetRendition(): %+v", rendition)
 			}
-		} else {
-			if target.logger != nil {
-				target.logger.Warnf("Option: WithRendition: Current renderer type %T does not implement tw.Renditioning. Rendition may not be applied as expected.", target.renderer)
-			}
+		} else if target.logger != nil {
+			target.logger.Warnf("Option: WithRendition: Current renderer type %T does not implement tw.Renditioning. Rendition may not be applied as expected.", target.renderer)
 		}
 	}
 }
@@ -654,12 +664,35 @@ func WithSymbols(symbols tw.Symbols) Option {
 				if target.logger != nil {
 					target.logger.Debugf("Option: WithRendition: Applied to renderer via Renditioning.SetRendition(): %+v", cfg)
 				}
-			} else {
-				if target.logger != nil {
-					target.logger.Warnf("Option: WithRendition: Current renderer type %T does not implement tw.Renditioning. Rendition may not be applied as expected.", target.renderer)
-				}
+			} else if target.logger != nil {
+				target.logger.Warnf("Option: WithRendition: Current renderer type %T does not implement tw.Renditioning. Rendition may not be applied as expected.", target.renderer)
 			}
 		}
+	}
+}
+
+// WithCounters enables line counting by wrapping the table's writer.
+// If a custom counter (that implements tw.Counter) is provided, it will be used.
+// If the provided counter is nil, a default tw.LineCounter will be used.
+// The final count can be retrieved via the table.Lines() method after Render() is called.
+func WithCounters(counters ...tw.Counter) Option {
+	return func(target *Table) {
+		// Iterate through the provided counters and add any non-nil ones.
+		for _, c := range counters {
+			if c != nil {
+				target.counters = append(target.counters, c)
+			}
+		}
+	}
+}
+
+// WithLineCounter enables the default line counter.
+// A new instance of tw.LineCounter is added to the table's list of counters.
+// The total count can be retrieved via the table.Lines() method after Render() is called.
+func WithLineCounter() Option {
+	return func(target *Table) {
+		// Important: Create a new instance so tables don't share counters.
+		target.counters = append(target.counters, &tw.LineCounter{})
 	}
 }
 
@@ -717,6 +750,7 @@ func defaultConfig() Config {
 		Behavior: tw.Behavior{
 			AutoHide:  tw.Off,
 			TrimSpace: tw.On,
+			TrimLine:  tw.On,
 			Structs: tw.Struct{
 				AutoHeader: tw.Off,
 				Tags:       []string{"json", "db"},

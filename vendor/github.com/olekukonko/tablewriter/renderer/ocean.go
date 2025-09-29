@@ -1,17 +1,18 @@
 package renderer
 
 import (
-	"github.com/olekukonko/tablewriter/pkg/twwidth"
 	"io"
+	"slices"
 	"strings"
+
+	"github.com/olekukonko/tablewriter/pkg/twwidth"
 
 	"github.com/olekukonko/ll"
 	"github.com/olekukonko/tablewriter/tw"
 )
 
 // OceanConfig defines configuration specific to the Ocean renderer.
-type OceanConfig struct {
-}
+type OceanConfig struct{}
 
 // Ocean is a streaming table renderer that writes ASCII tables.
 type Ocean struct {
@@ -327,12 +328,9 @@ func (o *Ocean) renderContentLine(ctx tw.Formatting, lineData []string) {
 					idxInMergeSpan := colIdx + k
 					// Check if idxInMergeSpan is a defined column in fixedWidths
 					foundInFixedWidths := false
-					for _, sortedCIdx_inner := range sortedColIndices {
-						if sortedCIdx_inner == idxInMergeSpan {
-							currentMergeTotalRenderWidth += o.fixedWidths.Get(idxInMergeSpan)
-							foundInFixedWidths = true
-							break
-						}
+					if slices.Contains(sortedColIndices, idxInMergeSpan) {
+						currentMergeTotalRenderWidth += o.fixedWidths.Get(idxInMergeSpan)
+						foundInFixedWidths = true
 					}
 					if !foundInFixedWidths && idxInMergeSpan <= sortedColIndices[len(sortedColIndices)-1] {
 						o.logger.Debugf("Col %d in HMerge span not found in fixedWidths, assuming 0-width contribution.", idxInMergeSpan)
@@ -407,20 +405,14 @@ func (o *Ocean) formatCellContent(content string, cellVisualWidth int, padding t
 	padLeftDisplayWidth := twwidth.Width(padLeftChar)
 	padRightDisplayWidth := twwidth.Width(padRightChar)
 
-	spaceForContentAndAlignment := cellVisualWidth - padLeftDisplayWidth - padRightDisplayWidth
-	if spaceForContentAndAlignment < 0 {
-		spaceForContentAndAlignment = 0
-	}
+	spaceForContentAndAlignment := max(cellVisualWidth-padLeftDisplayWidth-padRightDisplayWidth, 0)
 
 	if contentDisplayWidth > spaceForContentAndAlignment {
 		content = twwidth.Truncate(content, spaceForContentAndAlignment)
 		contentDisplayWidth = twwidth.Width(content)
 	}
 
-	remainingSpace := spaceForContentAndAlignment - contentDisplayWidth
-	if remainingSpace < 0 {
-		remainingSpace = 0
-	}
+	remainingSpace := max(spaceForContentAndAlignment-contentDisplayWidth, 0)
 
 	var PL, PR string
 	switch align {

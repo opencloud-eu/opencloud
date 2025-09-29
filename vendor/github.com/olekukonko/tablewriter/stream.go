@@ -1,10 +1,11 @@
 package tablewriter
 
 import (
+	"math"
+
 	"github.com/olekukonko/errors"
 	"github.com/olekukonko/tablewriter/pkg/twwidth"
 	"github.com/olekukonko/tablewriter/tw"
-	"math"
 )
 
 // Close finalizes the table stream.
@@ -92,8 +93,8 @@ func (t *Table) Start() error {
 		return errors.Newf("renderer does not support streaming")
 	}
 
-	//t.renderer.Start(t.writer)
-	//t.renderer.Logger(t.logger)
+	// t.renderer.Start(t.writer)
+	// t.renderer.Logger(t.logger)
 
 	if t.hasPrinted {
 		// Prevent calling Start() multiple times on the same stream instance.
@@ -119,7 +120,7 @@ func (t *Table) Start() error {
 		t.streamWidths = t.config.Widths.PerColumn.Clone()
 		// Determine numCols from the highest index in PerColumn map
 		maxColIdx := -1
-		t.streamWidths.Each(func(col int, width int) {
+		t.streamWidths.Each(func(col, width int) {
 			if col > maxColIdx {
 				maxColIdx = col
 			}
@@ -331,7 +332,7 @@ func (t *Table) streamAppendRow(row interface{}) error {
 		t.logger.Debug("streamAppendRow: Separator line rendered. Updated lastRenderedPosition to 'separator'.")
 	} else {
 		details := ""
-		if !(shouldDrawHeaderRowSeparator || shouldDrawRowRowSeparator) {
+		if !shouldDrawHeaderRowSeparator && !shouldDrawRowRowSeparator {
 			details = "neither header/row nor row/row separator was flagged true"
 		} else if t.lastRenderedPosition == tw.Position("separator") {
 			details = "lastRenderedPosition is already 'separator'"
@@ -475,7 +476,7 @@ func (t *Table) streamCalculateWidths(sampling []string, config tw.CellConfig) i
 	determinedNumCols := 0
 	if t.config.Widths.PerColumn != nil && t.config.Widths.PerColumn.Len() > 0 {
 		maxColIdx := -1
-		t.config.Widths.PerColumn.Each(func(col int, width int) {
+		t.config.Widths.PerColumn.Each(func(col, width int) {
 			if col > maxColIdx {
 				maxColIdx = col
 			}
@@ -600,7 +601,7 @@ func (t *Table) streamCalculateWidths(sampling []string, config tw.CellConfig) i
 	if t.config.Widths.Global > 0 && t.streamNumCols > 0 {
 		t.logger.Debug("streamCalculateWidths: Applying global stream width constraint %d", t.config.Widths.Global)
 		currentTotalColumnWidthsSum := 0
-		t.streamWidths.Each(func(_ int, w int) {
+		t.streamWidths.Each(func(_, w int) {
 			currentTotalColumnWidthsSum += w
 		})
 
@@ -665,7 +666,7 @@ func (t *Table) streamCalculateWidths(sampling []string, config tw.CellConfig) i
 			// Distribute remainingSpace (positive or negative) among non-zero width columns
 			if remainingSpace != 0 && t.streamNumCols > 0 {
 				colsToAdjust := []int{}
-				t.streamWidths.Each(func(col int, w int) {
+				t.streamWidths.Each(func(col, w int) {
 					if w > 0 { // Only consider columns that currently have width
 						colsToAdjust = append(colsToAdjust, col)
 					}
@@ -689,7 +690,7 @@ func (t *Table) streamCalculateWidths(sampling []string, config tw.CellConfig) i
 	}
 
 	// Final sanitization
-	t.streamWidths.Each(func(col int, width int) {
+	t.streamWidths.Each(func(col, width int) {
 		if width < 0 {
 			t.streamWidths.Set(col, 0)
 		}
@@ -858,7 +859,7 @@ func (t *Table) streamRenderFooter(processedFooterLines [][]string) error {
 		// If this is the last line of the last content block (footer), and no bottom border will be drawn,
 		// its Location should be End.
 		isLastLineOfTableContent := (i == totalFooterLines-1) &&
-			!(cfg.Borders.Bottom.Enabled() && cfg.Settings.Lines.ShowBottom.Enabled())
+			(!cfg.Borders.Bottom.Enabled() || !cfg.Settings.Lines.ShowBottom.Enabled())
 		if isLastLineOfTableContent {
 			resp.location = tw.LocationEnd
 			t.logger.Debug("streamRenderFooter: Setting LocationEnd for last footer line as no bottom border will follow.")

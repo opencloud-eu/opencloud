@@ -3,10 +3,11 @@ package renderer
 import (
 	"errors"
 	"fmt"
-	"github.com/olekukonko/ll"
 	"html"
 	"io"
 	"strings"
+
+	"github.com/olekukonko/ll"
 
 	"github.com/olekukonko/tablewriter/tw"
 )
@@ -82,7 +83,7 @@ func (h *HTML) Config() tw.Rendition {
 }
 
 // debugLog appends a formatted message to the debug trace if debugging is enabled.
-//func (h *HTML) debugLog(format string, a ...interface{}) {
+// func (h *HTML) debugLog(format string, a ...interface{}) {
 //	if h.debug {
 //		msg := fmt.Sprintf(format, a...)
 //		h.trace = append(h.trace, fmt.Sprintf("[HTML] %s", msg))

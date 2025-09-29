@@ -2,13 +2,6 @@ package tablewriter
 
 import (
 	"bytes"
-	"github.com/olekukonko/errors"
-	"github.com/olekukonko/ll"
-	"github.com/olekukonko/ll/lh"
-	"github.com/olekukonko/tablewriter/pkg/twwarp"
-	"github.com/olekukonko/tablewriter/pkg/twwidth"
-	"github.com/olekukonko/tablewriter/renderer"
-	"github.com/olekukonko/tablewriter/tw"
 	"io"
 	"math"
 	"os"
@@ -16,11 +9,20 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+
+	"github.com/olekukonko/errors"
+	"github.com/olekukonko/ll"
+	"github.com/olekukonko/ll/lh"
+	"github.com/olekukonko/tablewriter/pkg/twwarp"
+	"github.com/olekukonko/tablewriter/pkg/twwidth"
+	"github.com/olekukonko/tablewriter/renderer"
+	"github.com/olekukonko/tablewriter/tw"
 )
 
 // Table represents a table instance with content and rendering capabilities.
 type Table struct {
 	writer       io.Writer           // Destination for table output
+	counters     []tw.Counter        // Counters for indices
 	rows         [][][]string        // Row data, supporting multi-line cells
 	headers      [][]string          // Header content
 	footers      [][]string          // Footer content
@@ -410,7 +412,6 @@ func (t *Table) Footer(elements ...any) {
 // Parameter opts is a function that modifies the Table struct.
 // Returns the Table instance for method chaining.
 func (t *Table) Options(opts ...Option) *Table {
-
 	// add logger
 	if t.logger == nil {
 		t.logger = ll.New("table").Handler(lh.NewTextHandler(t.trace))
@@ -423,7 +424,7 @@ func (t *Table) Options(opts ...Option) *Table {
 
 	// force debugging mode if set
 	// This should  be move away form WithDebug
-	if t.config.Debug == true {
+	if t.config.Debug {
 		t.logger.Enable()
 		t.logger.Resume()
 	} else {
@@ -508,6 +509,28 @@ func (t *Table) Reset() {
 // Returns an error if rendering fails.
 func (t *Table) Render() error {
 	return t.render()
+}
+
+// Lines returns the total number of lines rendered.
+// This method is only effective if the WithLineCounter() option was used during
+// table initialization and must be called *after* Render().
+// It actively searches for the default tw.LineCounter among all active counters.
+// It returns -1 if the line counter was not enabled.
+func (t *Table) Lines() int {
+	for _, counter := range t.counters {
+		if lc, ok := counter.(*tw.LineCounter); ok {
+			return lc.Total()
+		}
+	}
+	// use -1 to indicate no line counter is attached
+	return -1
+}
+
+// Counters returns the slice of all active counter instances.
+// This is useful when multiple counters are enabled.
+// It must be called *after* Render().
+func (t *Table) Counters() []tw.Counter {
+	return t.counters
 }
 
 // Trimmer trims whitespace from a string based on the Table’s configuration.
@@ -945,10 +968,7 @@ func (t *Table) prepareContent(cells []string, config tw.CellConfig) [][]string 
 					currentLine := line
 					breakCharWidth := twwidth.Width(tw.CharBreak)
 					for twwidth.Width(currentLine) > effectiveContentMaxWidth {
-						targetWidth := effectiveContentMaxWidth - breakCharWidth
-						if targetWidth < 0 {
-							targetWidth = 0
-						}
+						targetWidth := max(effectiveContentMaxWidth-breakCharWidth, 0)
 						breakPoint := tw.BreakPoint(currentLine, targetWidth)
 						runes := []rune(currentLine)
 						if breakPoint <= 0 || breakPoint > len(runes) {
@@ -1362,23 +1382,40 @@ func (t *Table) prepareWithMerges(content [][]string, config tw.CellConfig, posi
 // No parameters are required.
 // Returns an error if rendering fails in any section.
 func (t *Table) render() error {
-
 	t.ensureInitialized()
+
+	// Save the original writer and schedule its restoration upon function exit.
+	// This guarantees the table's writer is restored even if errors occur.
+	originalWriter := t.writer
+	defer func() {
+		t.writer = originalWriter
+	}()
+
+	// If a counter is active, wrap the writer in a MultiWriter.
+	if len(t.counters) > 0 {
+		// The slice must be of type io.Writer.
+		// Start it with the original destination writer.
+		allWriters := []io.Writer{originalWriter}
+
+		// Append each counter to the slice of writers.
+		for _, c := range t.counters {
+			allWriters = append(allWriters, c)
+		}
+
+		// Create a MultiWriter that broadcasts to the original writer AND all counters.
+		t.writer = io.MultiWriter(allWriters...)
+	}
 
 	if t.config.Stream.Enable {
 		t.logger.Warn("Render() called in streaming mode. Use Start/Append/Close methods instead.")
 		return errors.New("render called in streaming mode; use Start/Append/Close")
 	}
 
-	// Calculate and cache numCols for THIS batch render pass
-	t.batchRenderNumCols = t.maxColumns() // Calculate ONCE
-	t.isBatchRenderNumColsSet = true      // Mark the cache as active for this render pass
-	t.logger.Debugf("Render(): Set batchRenderNumCols to %d and isBatchRenderNumColsSet to true.", t.batchRenderNumCols)
-
+	// Calculate and cache the column count for this specific batch render pass.
+	t.batchRenderNumCols = t.maxColumns()
+	t.isBatchRenderNumColsSet = true
 	defer func() {
 		t.isBatchRenderNumColsSet = false
-		// t.batchRenderNumCols = 0; // Optional: reset to 0, or leave as is.
-		// Since isBatchRenderNumColsSet is false, its value won't be used by getNumColsToUse.
 		t.logger.Debugf("Render(): Cleared isBatchRenderNumColsSet to false (batchRenderNumCols was %d).", t.batchRenderNumCols)
 	}()
 
@@ -1387,9 +1424,10 @@ func (t *Table) render() error {
 		(t.caption.Spot >= tw.SpotTopLeft && t.caption.Spot <= tw.SpotBottomRight)
 
 	var tableStringBuffer *strings.Builder
-	targetWriter := t.writer
-	originalWriter := t.writer // Save original writer for restoration if needed
+	targetWriter := t.writer // Can be the original writer or the MultiWriter.
 
+	// If a caption is present, the main table content must be rendered to an
+	// in-memory buffer first to calculate its final width.
 	if isTopOrBottomCaption {
 		tableStringBuffer = &strings.Builder{}
 		targetWriter = tableStringBuffer
@@ -1398,17 +1436,15 @@ func (t *Table) render() error {
 		t.logger.Debugf("No caption detected. Rendering table core directly to writer.")
 	}
 
-	//Render Table Core
+	// Point the table's writer to the target (either the final destination or the buffer).
 	t.writer = targetWriter
 	ctx, mctx, err := t.prepareContexts()
 	if err != nil {
-		t.writer = originalWriter
 		t.logger.Errorf("prepareContexts failed: %v", err)
 		return errors.Newf("failed to prepare table contexts").Wrap(err)
 	}
 
 	if err := ctx.renderer.Start(t.writer); err != nil {
-		t.writer = originalWriter
 		t.logger.Errorf("Renderer Start() error: %v", err)
 		return errors.Newf("renderer start failed").Wrap(err)
 	}
@@ -1440,18 +1476,21 @@ func (t *Table) render() error {
 		renderError = true
 	}
 
-	t.writer = originalWriter // Restore original writer
+	// Restore the writer to the original for the caption-handling logic.
+	// This is necessary because the caption must be written to the final
+	// destination, not the temporary buffer used for the table body.
+	t.writer = originalWriter
 
 	if renderError {
-		return firstRenderErr // Return error from core rendering if any
+		return firstRenderErr
 	}
 
-	//Caption Handling & Final Output ---
+	// Caption Handling & Final Output
 	if isTopOrBottomCaption {
 		renderedTableContent := tableStringBuffer.String()
 		t.logger.Debugf("[Render] Table core buffer length: %d", len(renderedTableContent))
 
-		// Check if the buffer is empty AND borders are enabled
+		// Handle edge case where table is empty but should have borders.
 		shouldHaveBorders := t.renderer != nil && (t.renderer.Config().Borders.Top.Enabled() || t.renderer.Config().Borders.Bottom.Enabled())
 		if len(renderedTableContent) == 0 && shouldHaveBorders {
 			var sb strings.Builder
@@ -1503,7 +1542,7 @@ func (t *Table) render() error {
 
 	t.hasPrinted = true
 	t.logger.Info("Render() completed.")
-	return nil // Success
+	return nil
 }
 
 // renderFooter renders the table's footer section with borders and padding.
@@ -1677,7 +1716,7 @@ func (t *Table) renderFooter(ctx *renderContext, mctx *mergeContext) error {
 	if hasTopPadding {
 		hctx.rowIdx = 0
 		hctx.lineIdx = -1
-		if !(hasContentAbove && cfg.Settings.Lines.ShowFooterLine.Enabled()) {
+		if !hasContentAbove || !cfg.Settings.Lines.ShowFooterLine.Enabled() {
 			hctx.location = tw.LocationFirst
 		} else {
 			hctx.location = tw.LocationMiddle
@@ -1699,7 +1738,7 @@ func (t *Table) renderFooter(ctx *renderContext, mctx *mergeContext) error {
 		hctx.line = padLine(line, ctx.numCols)
 		isFirstContentLine := i == 0
 		isLastContentLine := i == len(ctx.footerLines)-1
-		if isFirstContentLine && !hasTopPadding && !(hasContentAbove && cfg.Settings.Lines.ShowFooterLine.Enabled()) {
+		if isFirstContentLine && !hasTopPadding && (!hasContentAbove || !cfg.Settings.Lines.ShowFooterLine.Enabled()) {
 			hctx.location = tw.LocationFirst
 		} else if isLastContentLine && !hasBottomPaddingConfig {
 			hctx.location = tw.LocationEnd
@@ -1716,7 +1755,7 @@ func (t *Table) renderFooter(ctx *renderContext, mctx *mergeContext) error {
 	if hasBottomPaddingConfig {
 		paddingLineContentForContext = make([]string, ctx.numCols)
 		formattedPaddingCells := make([]string, ctx.numCols)
-		var representativePadChar string = " "
+		representativePadChar := " "
 		ctx.logger.Debugf("Constructing Footer Bottom Padding line content strings")
 		for j := 0; j < ctx.numCols; j++ {
 			colWd := ctx.widths[tw.Footer].Get(j)
@@ -1741,10 +1780,7 @@ func (t *Table) renderFooter(ctx *renderContext, mctx *mergeContext) error {
 			if j == 0 || representativePadChar == " " {
 				representativePadChar = padChar
 			}
-			padWidth := twwidth.Width(padChar)
-			if padWidth < 1 {
-				padWidth = 1
-			}
+			padWidth := max(twwidth.Width(padChar), 1)
 			repeatCount := 0
 			if colWd > 0 && padWidth > 0 {
 				repeatCount = colWd / padWidth
@@ -2139,19 +2175,21 @@ func (t *Table) renderRow(ctx *renderContext, mctx *mergeContext) error {
 			hctx.lineIdx = j
 			hctx.line = padLine(visualLineData, ctx.numCols)
 
-			if j > 0 {
-				visualLineHasActualContent := false
-				for kCellIdx, cellContentInVisualLine := range hctx.line {
-					if t.Trimmer(cellContentInVisualLine) != "" {
-						visualLineHasActualContent = true
-						ctx.logger.Debug("Visual line [%d][%d] has content in cell %d: '%s'. Not skipping.", i, j, kCellIdx, cellContentInVisualLine)
-						break
+			if t.config.Behavior.TrimLine.Enabled() {
+				if j > 0 {
+					visualLineHasActualContent := false
+					for kCellIdx, cellContentInVisualLine := range hctx.line {
+						if t.Trimmer(cellContentInVisualLine) != "" {
+							visualLineHasActualContent = true
+							ctx.logger.Debug("Visual line [%d][%d] has content in cell %d: '%s'. Not skipping.", i, j, kCellIdx, cellContentInVisualLine)
+							break
+						}
 					}
-				}
 
-				if !visualLineHasActualContent {
-					ctx.logger.Debug("Skipping visual line [%d][%d] as it's entirely blank after trimming. Line: %q", i, j, hctx.line)
-					continue
+					if !visualLineHasActualContent {
+						ctx.logger.Debug("Skipping visual line [%d][%d] as it's entirely blank after trimming. Line: %q", i, j, hctx.line)
+						continue
+					}
 				}
 			}
 
