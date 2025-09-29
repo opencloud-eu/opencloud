@@ -6,6 +6,10 @@
 
 @AlexAndBear, @ScharfViktor, @butonic, @micbar, @rhafer, @schweigisito
 
+### ✨ Features
+
+- feat: add dedicated logo (web) for mobile view to theme followup [[#1581](https://github.com/opencloud-eu/opencloud/pull/1581)]
+
 ### 📈 Enhancement
 
 - feat: add dedicated logo (web) for mobile view to theme [[#1579](https://github.com/opencloud-eu/opencloud/pull/1579)]
