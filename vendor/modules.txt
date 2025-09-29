@@ -891,17 +891,24 @@ github.com/leonelquinteros/gotext/plurals
 # github.com/lestrrat-go/blackmagic v1.0.4
 ## explicit; go 1.23
 github.com/lestrrat-go/blackmagic
+# github.com/lestrrat-go/dsig v1.0.0
+## explicit; go 1.23.0
+github.com/lestrrat-go/dsig
+github.com/lestrrat-go/dsig/internal/ecutil
+# github.com/lestrrat-go/dsig-secp256k1 v1.0.0
+## explicit; go 1.23.0
+github.com/lestrrat-go/dsig-secp256k1
 # github.com/lestrrat-go/httpcc v1.0.1
 ## explicit; go 1.16
 github.com/lestrrat-go/httpcc
-# github.com/lestrrat-go/httprc/v3 v3.0.0
-## explicit; go 1.23
+# github.com/lestrrat-go/httprc/v3 v3.0.1
+## explicit; go 1.23.0
 github.com/lestrrat-go/httprc/v3
 github.com/lestrrat-go/httprc/v3/errsink
 github.com/lestrrat-go/httprc/v3/proxysink
 github.com/lestrrat-go/httprc/v3/tracesink
-# github.com/lestrrat-go/jwx/v3 v3.0.10
-## explicit; go 1.23.0
+# github.com/lestrrat-go/jwx/v3 v3.0.11
+## explicit; go 1.24.4
 github.com/lestrrat-go/jwx/v3
 github.com/lestrrat-go/jwx/v3/cert
 github.com/lestrrat-go/jwx/v3/internal/base64
@@ -1230,7 +1237,7 @@ github.com/onsi/gomega/matchers/support/goraph/edge
 github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
-# github.com/open-policy-agent/opa v1.8.0
+# github.com/open-policy-agent/opa v1.9.0
 ## explicit; go 1.24.6
 github.com/open-policy-agent/opa/ast
 github.com/open-policy-agent/opa/ast/json
@@ -1803,7 +1810,7 @@ github.com/prometheus/common/expfmt
 github.com/prometheus/common/helpers/templates
 github.com/prometheus/common/model
 github.com/prometheus/common/promslog
-# github.com/prometheus/procfs v0.16.1
+# github.com/prometheus/procfs v0.17.0
 ## explicit; go 1.23.0
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
@@ -1816,7 +1823,7 @@ github.com/prometheus/statsd_exporter/pkg/mapper/fsm
 # github.com/r3labs/sse/v2 v2.10.0
 ## explicit; go 1.13
 github.com/r3labs/sse/v2
-# github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0
+# github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9
 ## explicit
 github.com/rcrowley/go-metrics
 # github.com/riandyrn/otelchi v0.12.2
@@ -1956,7 +1963,7 @@ github.com/shurcooL/httpfs/vfsutil
 # github.com/shurcooL/vfsgen v0.0.0-20230704071429-0000e147ea92
 ## explicit; go 1.19
 github.com/shurcooL/vfsgen
-# github.com/sirupsen/logrus v1.9.3
+# github.com/sirupsen/logrus v1.9.4-0.20230606125235-dd1b4c2e81af
 ## explicit; go 1.13
 github.com/sirupsen/logrus
 # github.com/skeema/knownhosts v1.3.0
@@ -1973,7 +1980,7 @@ github.com/spf13/afero/mem
 # github.com/spf13/cobra v1.10.1
 ## explicit; go 1.15
 github.com/spf13/cobra
-# github.com/spf13/pflag v1.0.9
+# github.com/spf13/pflag v1.0.10
 ## explicit; go 1.12
 github.com/spf13/pflag
 # github.com/stretchr/objx v0.5.2
