@@ -51,6 +51,7 @@
     "web": {
       "defaults": {
         "logo": "themes/opencloud/assets/logo.svg",
+        "logoMobile": "themes/opencloud/assets/logo-mobile.svg",
         "favicon": "themes/opencloud/assets/favicon.svg"
       },
       "themes": [
@@ -122,6 +123,7 @@
           "isDark": true,
           "label": "Dark Theme",
           "logo": "themes/opencloud/assets/logo-white.svg",
+          "logoMobile": "themes/opencloud/assets/logo-mobile-white.svg",
           "designTokens": {
             "roles": {
               "primary": "#5cd5fb",
