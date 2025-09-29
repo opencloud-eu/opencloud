@@ -1,10 +1,14 @@
 # Changelog
 
-## [3.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.6.0) - 2025-09-26
+## [3.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.6.0) - 2025-09-29
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @ScharfViktor, @butonic, @micbar, @rhafer
+@AlexAndBear, @ScharfViktor, @butonic, @micbar, @rhafer, @schweigisito
+
+### 📚 Documentation
+
+- fix: remove deprecated web ui feature "OpenAppsInTab" [[#1575](https://github.com/opencloud-eu/opencloud/pull/1575)]
 
 ### ✅ Tests
 
