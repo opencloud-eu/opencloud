@@ -30,6 +30,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"runtime/pprof"
@@ -129,6 +130,10 @@ type Info struct {
 	WSConnectURLs     []string `json:"ws_connect_urls,omitempty"` // Contains URLs a ws client can connect to.
 	LameDuckMode      bool     `json:"ldm,omitempty"`
 	Compression       string   `json:"compression,omitempty"`
+	ConnectInfo       bool     `json:"connect_info,omitempty"`   // When true this is the server INFO response to CONNECT
+	RemoteAccount     string   `json:"remote_account,omitempty"` // Lets the client or leafnode side know the remote account that they bind to.
+	IsSystemAccount   bool     `json:"acc_is_sys,omitempty"`     // Indicates if the account is a system account.
+	JSApiLevel        int      `json:"api_lvl,omitempty"`
 
 	// Route Specific
 	Import        *SubjectPermission `json:"import,omitempty"`
@@ -136,7 +141,6 @@ type Info struct {
 	LNOC          bool               `json:"lnoc,omitempty"`
 	LNOCU         bool               `json:"lnocu,omitempty"`
 	InfoOnConnect bool               `json:"info_on_connect,omitempty"` // When true the server will respond to CONNECT with an INFO
-	ConnectInfo   bool               `json:"connect_info,omitempty"`    // When true this is the server INFO response to CONNECT
 	RoutePoolSize int                `json:"route_pool_size,omitempty"`
 	RoutePoolIdx  int                `json:"route_pool_idx,omitempty"`
 	RouteAccount  string             `json:"route_account,omitempty"`
@@ -153,8 +157,7 @@ type Info struct {
 	GatewayIOM        bool     `json:"gateway_iom,omitempty"`         // Indicate that all accounts will be switched to InterestOnly mode "right away"
 
 	// LeafNode Specific
-	LeafNodeURLs  []string `json:"leafnode_urls,omitempty"`  // LeafNode URLs that the server can reconnect to.
-	RemoteAccount string   `json:"remote_account,omitempty"` // Lets the other side know the remote account that they bind to.
+	LeafNodeURLs []string `json:"leafnode_urls,omitempty"` // LeafNode URLs that the server can reconnect to.
 
 	XKey string `json:"xkey,omitempty"` // Public server's x25519 key.
 }
@@ -167,6 +170,7 @@ type Server struct {
 	pinnedAccFail uint64
 	stats
 	scStats
+	staleStats
 	mu                  sync.RWMutex
 	reloadMu            sync.RWMutex // Write-locked when a config reload is taking place ONLY
 	kp                  nkeys.KeyPair
@@ -258,8 +262,6 @@ type Server struct {
 
 	// Used internally for quick look-ups.
 	clientConnectURLsMap refCountedUrlSet
-
-	lastCURLsUpdate int64
 
 	// For Gateways
 	gatewayListener    net.Listener // Accept listener
@@ -371,6 +373,11 @@ type Server struct {
 	// Controls whether or not the account NRG capability is set in statsz.
 	// Currently used by unit tests to simulate nodes not supporting account NRG.
 	accountNRGAllowed atomic.Bool
+
+	// List of proxies trusted keys in `KeyPair` form so we can do signature
+	// verification when processing incoming proxy connections.
+	proxiesKeyPairs []nkeys.KeyPair
+	proxiedConns    map[string]map[uint64]*client
 }
 
 // For tracking JS nodes.
@@ -390,15 +397,25 @@ type nodeInfo struct {
 }
 
 type stats struct {
-	inMsgs        int64
-	outMsgs       int64
-	inBytes       int64
-	outBytes      int64
-	slowConsumers int64
+	inMsgs           int64
+	outMsgs          int64
+	inBytes          int64
+	outBytes         int64
+	slowConsumers    int64
+	staleConnections int64
+	stalls           int64
 }
 
 // scStats includes the total and per connection counters of Slow Consumers.
 type scStats struct {
+	clients  atomic.Uint64
+	routes   atomic.Uint64
+	leafs    atomic.Uint64
+	gateways atomic.Uint64
+}
+
+// staleStats includes the total and per connection counters of Stale Connections.
+type staleStats struct {
 	clients  atomic.Uint64
 	routes   atomic.Uint64
 	leafs    atomic.Uint64
@@ -625,6 +642,32 @@ func selectS2AutoModeBasedOnRTT(rtt time.Duration, rttThresholds []time.Duration
 	return CompressionS2Best
 }
 
+func compressOptsEqual(c1, c2 *CompressionOpts) bool {
+	if c1 == c2 {
+		return true
+	}
+	if (c1 == nil && c2 != nil) || (c1 != nil && c2 == nil) {
+		return false
+	}
+	if c1.Mode != c2.Mode {
+		return false
+	}
+	// For s2_auto, if one has an empty RTTThresholds, it is equivalent
+	// to the defaultCompressionS2AutoRTTThresholds array, so compare with that.
+	if c1.Mode == CompressionS2Auto {
+		if len(c1.RTTThresholds) == 0 && !reflect.DeepEqual(c2.RTTThresholds, defaultCompressionS2AutoRTTThresholds) {
+			return false
+		}
+		if len(c2.RTTThresholds) == 0 && !reflect.DeepEqual(c1.RTTThresholds, defaultCompressionS2AutoRTTThresholds) {
+			return false
+		}
+		if !reflect.DeepEqual(c1.RTTThresholds, c2.RTTThresholds) {
+			return false
+		}
+	}
+	return true
+}
+
 // Returns an array of s2 WriterOption based on the route compression mode.
 // So far we return a single option, but this way we can call s2.NewWriter()
 // with a nil []s2.WriterOption, but not with a nil s2.WriterOption, so
@@ -706,6 +749,7 @@ func NewServer(opts *Options) (*Server, error) {
 		Headers:      !opts.NoHeaderSupport,
 		Cluster:      opts.Cluster.Name,
 		Domain:       opts.JetStreamDomain,
+		JSApiLevel:   JSApiLevel,
 	}
 
 	if tlsReq && !info.TLSRequired {
@@ -773,6 +817,11 @@ func NewServer(opts *Options) (*Server, error) {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	// If there are proxies trusted public keys in the configuration
+	// this will fill create the corresponding list of nkeys.KeyPair
+	// that we can use for signature verification.
+	s.processProxiesTrustedKeys()
 
 	// Place ourselves in the JetStream nodeInfo if needed.
 	if opts.JetStream {
@@ -1097,6 +1146,10 @@ func validateOptions(o *Options) error {
 	}
 	// Check that authentication is properly configured.
 	if err := validateAuth(o); err != nil {
+		return err
+	}
+	// Check that proxies is properly configured.
+	if err := validateProxies(o); err != nil {
 		return err
 	}
 	// Check that gateway is properly configured. Returns no error
@@ -2352,7 +2405,7 @@ func (s *Server) Start() {
 			StoreDir:     opts.StoreDir,
 			SyncInterval: opts.SyncInterval,
 			SyncAlways:   opts.SyncAlways,
-			Strict:       opts.JetStreamStrict,
+			Strict:       !opts.NoJetStreamStrict,
 			MaxMemory:    opts.JetStreamMaxMemory,
 			MaxStore:     opts.JetStreamMaxStore,
 			Domain:       opts.JetStreamDomain,
@@ -3396,7 +3449,7 @@ func (s *Server) createClientEx(conn net.Conn, inProcess bool) *client {
 	if tlsRequired {
 		c.Debugf("TLS handshake complete")
 		cs := c.nc.(*tls.Conn).ConnectionState()
-		c.Debugf("TLS version %s, cipher suite %s", tlsVersion(cs.Version), tlsCipher(cs.CipherSuite))
+		c.Debugf("TLS version %s, cipher suite %s", tlsVersion(cs.Version), tls.CipherSuiteName(cs.CipherSuite))
 	}
 
 	c.mu.Unlock()
@@ -3501,8 +3554,6 @@ func (s *Server) updateServerINFOAndSendINFOToClients(curls, wsurls []string, ad
 		updateInfo(&s.info.WSConnectURLs, s.websocket.connectURLs, s.websocket.connectURLsMap)
 	}
 	if cliUpdated || wsUpdated {
-		// Update the time of this update
-		s.lastCURLsUpdate = time.Now().UnixNano()
 		// Send to all registered clients that support async INFO protocols.
 		s.sendAsyncInfoToClients(cliUpdated, wsUpdated)
 	}
@@ -3554,15 +3605,6 @@ func tlsVersionFromString(ver string) (uint16, error) {
 	return 0, fmt.Errorf("unknown version: %v", ver)
 }
 
-// We use hex here so we don't need multiple versions
-func tlsCipher(cs uint16) string {
-	name, present := cipherMapByID[cs]
-	if present {
-		return name
-	}
-	return fmt.Sprintf("Unknown [0x%x]", cs)
-}
-
 // Remove a client or route from our internal accounting.
 func (s *Server) removeClient(c *client) {
 	// kind is immutable, so can check without lock
@@ -3574,12 +3616,16 @@ func (s *Server) removeClient(c *client) {
 		if c.kind == CLIENT && c.opts.Protocol >= ClientProtoInfo {
 			updateProtoInfoCount = true
 		}
+		proxyKey := c.proxyKey
 		c.mu.Unlock()
 
 		s.mu.Lock()
 		delete(s.clients, cid)
 		if updateProtoInfoCount {
 			s.cproto--
+		}
+		if proxyKey != _EMPTY_ {
+			s.removeProxiedConn(proxyKey, cid)
 		}
 		s.mu.Unlock()
 	case ROUTER:
@@ -3588,6 +3634,18 @@ func (s *Server) removeClient(c *client) {
 		s.removeRemoteGatewayConnection(c)
 	case LEAF:
 		s.removeLeafNodeConnection(c)
+	}
+}
+
+// Remove the connection with id `cid` from the map of connections
+// under the public key `key` of the trusted proxies.
+//
+// Server lock must be held on entry.
+func (s *Server) removeProxiedConn(key string, cid uint64) {
+	conns := s.proxiedConns[key]
+	delete(conns, cid)
+	if len(conns) == 0 {
+		delete(s.proxiedConns, key)
 	}
 }
 
@@ -3699,6 +3757,11 @@ func (s *Server) NumSlowConsumers() int64 {
 	return atomic.LoadInt64(&s.slowConsumers)
 }
 
+// NumStalledClients will report the total number of times clients have been stalled.
+func (s *Server) NumStalledClients() int64 {
+	return atomic.LoadInt64(&s.stalls)
+}
+
 // NumSlowConsumersClients will report the number of slow consumers clients.
 func (s *Server) NumSlowConsumersClients() uint64 {
 	return s.scStats.clients.Load()
@@ -3717,6 +3780,31 @@ func (s *Server) NumSlowConsumersGateways() uint64 {
 // NumSlowConsumersLeafs will report the number of slow consumers leafs.
 func (s *Server) NumSlowConsumersLeafs() uint64 {
 	return s.scStats.leafs.Load()
+}
+
+// NumStaleConnections will report the number of stale connections.
+func (s *Server) NumStaleConnections() int64 {
+	return atomic.LoadInt64(&s.staleConnections)
+}
+
+// NumStaleConnectionsClients will report the number of stale client connections.
+func (s *Server) NumStaleConnectionsClients() uint64 {
+	return s.staleStats.clients.Load()
+}
+
+// NumStaleConnectionsRoutes will report the number of stale route connections.
+func (s *Server) NumStaleConnectionsRoutes() uint64 {
+	return s.staleStats.routes.Load()
+}
+
+// NumStaleConnectionsGateways will report the number of stale gateway connections.
+func (s *Server) NumStaleConnectionsGateways() uint64 {
+	return s.staleStats.gateways.Load()
+}
+
+// NumStaleConnectionsLeafs will report the number of stale leaf connections.
+func (s *Server) NumStaleConnectionsLeafs() uint64 {
+	return s.staleStats.leafs.Load()
 }
 
 // ConfigTime will report the last time the server configuration was loaded.

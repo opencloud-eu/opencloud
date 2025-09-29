@@ -156,8 +156,8 @@ type jsAccount struct {
 	storeDir  string
 	inflight  sync.Map
 	streams   map[string]*stream
-	templates map[string]*streamTemplate
-	store     TemplateStore
+	templates map[string]*streamTemplate // Deprecated: stream templates are deprecated and will be removed in a future version.
+	store     TemplateStore              // Deprecated: stream templates are deprecated and will be removed in a future version.
 
 	// From server
 	sendq *ipQueue[*pubMsg]
@@ -560,7 +560,7 @@ func (s *Server) restartJetStream() error {
 		MaxMemory:    opts.JetStreamMaxMemory,
 		MaxStore:     opts.JetStreamMaxStore,
 		Domain:       opts.JetStreamDomain,
-		Strict:       opts.JetStreamStrict,
+		Strict:       !opts.NoJetStreamStrict,
 	}
 	s.Noticef("Restarting JetStream")
 	err := s.EnableJetStream(&cfg)
@@ -1449,6 +1449,61 @@ func (a *Account) EnableJetStream(limits map[string]JetStreamAccountLimits) erro
 		}
 		if !cfg.Created.IsZero() {
 			mset.setCreatedTime(cfg.Created)
+		}
+
+		// Might need to recover from a partial batch write, but only if a single replica stream.
+		if cfg.AllowAtomicPublish && cfg.Replicas == 1 {
+			var (
+				ok            bool
+				smv           StoreMsg
+				batchId       string
+				batchSeq      uint64
+				commit        bool
+				batchStoreDir string
+				store         StreamStore
+				state         StreamState
+			)
+			// Check if the last message was part of a batch.
+			sm, err := mset.store.LoadLastMsg(fwcs, &smv)
+			if err != nil || sm == nil {
+				goto SKIP
+			}
+			batchId = getBatchId(sm.hdr)
+			batchSeq, ok = getBatchSequence(sm.hdr)
+			commit = len(sliceHeader(JSBatchCommit, sm.hdr)) != 0
+			if batchId == _EMPTY_ || !ok || commit {
+				goto SKIP
+			}
+			// We've observed a partial batch write. Write the remainder of the batch.
+			batchSeq++
+			_, batchStoreDir = getBatchStoreDir(mset, batchId)
+			if _, err = os.Stat(batchStoreDir); err != nil {
+				s.Errorf("  Failed restoring partial batch write for stream '%s > %s' at sequence %d: %v",
+					mset.accName(), mset.name(), batchSeq, err)
+				goto SKIP
+			}
+			store, err = newBatchStore(mset, batchId)
+			if err != nil {
+				s.Errorf("  Failed restoring partial batch write for stream '%s > %s' at sequence %d: %v",
+					mset.accName(), mset.name(), batchSeq, err)
+				goto SKIP
+			}
+			store.FastState(&state)
+			s.Noticef("  Restoring partial batch write for stream '%s > %s' (seq %d to %d)",
+				mset.accName(), mset.name(), batchSeq, state.LastSeq)
+			// Loop through items that weren't persisted yet.
+			for seq := batchSeq; seq <= state.LastSeq; seq++ {
+				sm, err = store.LoadMsg(seq, &smv)
+				if err != nil || sm == nil {
+					s.Errorf("  Failed restoring partial batch write for stream '%s > %s' at sequence %d: %v",
+						mset.accName(), mset.name(), seq, err)
+					break
+				}
+				mset.processJetStreamMsg(sm.subj, _EMPTY_, sm.hdr, sm.msg, 0, 0, nil, false, true)
+			}
+			store.Delete(true)
+		SKIP:
+			os.RemoveAll(filepath.Join(sdir, fi.Name(), batchesDir))
 		}
 
 		state := mset.state()
@@ -2640,7 +2695,7 @@ func (s *Server) dynJetStreamConfig(storeDir string, maxStore, maxMem int64) *Je
 	opts := s.getOpts()
 
 	// Strict mode.
-	jsc.Strict = opts.JetStreamStrict
+	jsc.Strict = !opts.NoJetStreamStrict
 
 	// Sync options.
 	jsc.SyncInterval = opts.SyncInterval
@@ -2687,6 +2742,7 @@ func (a *Account) checkForJetStream() (*Server, *jsAccount, error) {
 
 // StreamTemplateConfig allows a configuration to auto-create streams based on this template when a message
 // is received that matches. Each new stream will use the config as the template config to create them.
+// Deprecated: stream templates are deprecated and will be removed in a future version.
 type StreamTemplateConfig struct {
 	Name       string        `json:"name"`
 	Config     *StreamConfig `json:"config"`
@@ -2694,12 +2750,14 @@ type StreamTemplateConfig struct {
 }
 
 // StreamTemplateInfo
+// Deprecated: stream templates are deprecated and will be removed in a future version.
 type StreamTemplateInfo struct {
 	Config  *StreamTemplateConfig `json:"config"`
 	Streams []string              `json:"streams"`
 }
 
 // streamTemplate
+// Deprecated: stream templates are deprecated and will be removed in a future version.
 type streamTemplate struct {
 	mu  sync.Mutex
 	tc  *client
@@ -2708,6 +2766,7 @@ type streamTemplate struct {
 	streams []string
 }
 
+// Deprecated: stream templates are deprecated and will be removed in a future version.
 func (t *StreamTemplateConfig) deepCopy() *StreamTemplateConfig {
 	copy := *t
 	cfg := *t.Config
@@ -2716,6 +2775,7 @@ func (t *StreamTemplateConfig) deepCopy() *StreamTemplateConfig {
 }
 
 // addStreamTemplate will add a stream template to this account that allows auto-creation of streams.
+// Deprecated: stream templates are deprecated and will be removed in a future version.
 func (a *Account) addStreamTemplate(tc *StreamTemplateConfig) (*streamTemplate, error) {
 	s, jsa, err := a.checkForJetStream()
 	if err != nil {
@@ -2772,6 +2832,7 @@ func (a *Account) addStreamTemplate(tc *StreamTemplateConfig) (*streamTemplate, 
 	return t, nil
 }
 
+// Deprecated: stream templates are deprecated and will be removed in a future version.
 func (t *streamTemplate) createTemplateSubscriptions() error {
 	if t == nil {
 		return fmt.Errorf("no template")
@@ -2795,6 +2856,7 @@ func (t *streamTemplate) createTemplateSubscriptions() error {
 	return nil
 }
 
+// Deprecated: stream templates are deprecated and will be removed in a future version.
 func (t *streamTemplate) processInboundTemplateMsg(_ *subscription, pc *client, acc *Account, subject, reply string, msg []byte) {
 	if t == nil || t.jsa == nil {
 		return
@@ -2842,6 +2904,7 @@ func (t *streamTemplate) processInboundTemplateMsg(_ *subscription, pc *client, 
 }
 
 // lookupStreamTemplate looks up the names stream template.
+// Deprecated: stream templates are deprecated and will be removed in a future version.
 func (a *Account) lookupStreamTemplate(name string) (*streamTemplate, error) {
 	_, jsa, err := a.checkForJetStream()
 	if err != nil {
@@ -2860,6 +2923,7 @@ func (a *Account) lookupStreamTemplate(name string) (*streamTemplate, error) {
 }
 
 // This function will check all named streams and make sure they are valid.
+// Deprecated: stream templates are deprecated and will be removed in a future version.
 func (a *Account) validateStreams(t *streamTemplate) {
 	t.mu.Lock()
 	var vstreams []string
@@ -2872,6 +2936,7 @@ func (a *Account) validateStreams(t *streamTemplate) {
 	t.mu.Unlock()
 }
 
+// Deprecated: stream templates are deprecated and will be removed in a future version.
 func (t *streamTemplate) delete() error {
 	if t == nil {
 		return fmt.Errorf("nil stream template")
@@ -2930,6 +2995,7 @@ func (t *streamTemplate) delete() error {
 	return lastErr
 }
 
+// Deprecated: stream templates are deprecated and will be removed in a future version.
 func (a *Account) deleteStreamTemplate(name string) error {
 	t, err := a.lookupStreamTemplate(name)
 	if err != nil {
@@ -2938,6 +3004,7 @@ func (a *Account) deleteStreamTemplate(name string) error {
 	return t.delete()
 }
 
+// Deprecated: stream templates are deprecated and will be removed in a future version.
 func (a *Account) templates() []*streamTemplate {
 	var ts []*streamTemplate
 	_, jsa, err := a.checkForJetStream()
@@ -2956,6 +3023,7 @@ func (a *Account) templates() []*streamTemplate {
 }
 
 // Will add a stream to a template, this is for recovery.
+// Deprecated: stream templates are deprecated and will be removed in a future version.
 func (jsa *jsAccount) addStreamNameToTemplate(tname, mname string) error {
 	if jsa.templates == nil {
 		return fmt.Errorf("template not found")
@@ -2973,6 +3041,7 @@ func (jsa *jsAccount) addStreamNameToTemplate(tname, mname string) error {
 
 // This will check if a template owns this stream.
 // jsAccount lock should be held
+// Deprecated: stream templates are deprecated and will be removed in a future version.
 func (jsa *jsAccount) checkTemplateOwnership(tname, sname string) bool {
 	if jsa.templates == nil {
 		return false
@@ -3022,12 +3091,12 @@ func canonicalName(name string) string {
 }
 
 // To throttle the out of resources errors.
-func (s *Server) resourcesExceededError() {
+func (s *Server) resourcesExceededError(storeType StorageType) {
 	var didAlert bool
 
 	s.rerrMu.Lock()
 	if now := time.Now(); now.Sub(s.rerrLast) > 10*time.Second {
-		s.Errorf("JetStream resource limits exceeded for server")
+		s.Errorf("JetStream %s resource limits exceeded for server", strings.ToLower(storeType.String()))
 		s.rerrLast = now
 		didAlert = true
 	}

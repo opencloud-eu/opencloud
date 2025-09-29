@@ -82,6 +82,8 @@ type leaf struct {
 	remoteDomain string
 	// account name of remote server
 	remoteAccName string
+	// Whether or not we want to propagate east-west interest from other LNs.
+	isolated bool
 	// Used to suppress sub and unsub interest. Same as routes but our audience
 	// here is tied to this leaf node. This will hold all subscriptions except this
 	// leaf nodes. This represents all the interest we want to send to the other side.
@@ -128,6 +130,14 @@ func (c *client) isSpokeLeafNode() bool {
 
 func (c *client) isHubLeafNode() bool {
 	return c.kind == LEAF && !c.leaf.isSpoke
+}
+
+func (c *client) isIsolatedLeafNode() bool {
+	// TODO(nat): In future we may want to pass in and consider an isolation
+	// group name here, which the hub and/or leaf could provide, so that we
+	// can isolate away certain LNs but not others on an opt-in basis. For
+	// now we will just isolate all LN interest until then.
+	return c.kind == LEAF && c.leaf.isolated
 }
 
 // This will spin up go routines to solicit the remote leaf node connections.
@@ -177,12 +187,20 @@ func (s *Server) solicitLeafNodeRemotes(remotes []*RemoteLeafOpts) {
 		return remote
 	}
 	for _, r := range remotes {
+		// We need to call this, even if the leaf is disabled. This is so that
+		// the number of internal configuration matches the options' remote leaf
+		// configuration required for configuration reload.
 		remote := addRemote(r, r.LocalAccount == sysAccName)
-		s.startGoRoutine(func() { s.connectToRemoteLeafNode(remote, true) })
+		if !r.Disabled {
+			s.startGoRoutine(func() { s.connectToRemoteLeafNode(remote, true) })
+		}
 	}
 }
 
 func (s *Server) remoteLeafNodeStillValid(remote *leafNodeCfg) bool {
+	if remote.Disabled {
+		return false
+	}
 	for _, ri := range s.getOpts().LeafNode.Remotes {
 		// FIXME(dlc) - What about auth changes?
 		if reflect.DeepEqual(ri.URLs, remote.URLs) {
@@ -748,6 +766,7 @@ func (s *Server) startLeafNodeAcceptLoop() {
 		Domain:        opts.JetStreamDomain,
 		Proto:         s.getServerProto(),
 		InfoOnConnect: true,
+		JSApiLevel:    JSApiLevel,
 	}
 	// If we have selected a random port...
 	if port == 0 {
@@ -811,6 +830,7 @@ func (c *client) sendLeafConnect(clusterName string, headers bool) error {
 		Compression:   c.leaf.compression,
 		RemoteAccount: c.acc.GetName(),
 		Proto:         c.srv.getServerProto(),
+		Isolate:       c.leaf.remote.RequestIsolation,
 	}
 
 	// If a signature callback is specified, this takes precedence over anything else.
@@ -977,6 +997,13 @@ func (s *Server) createLeafNode(conn net.Conn, rURL *url.URL, remote *leafNodeCf
 	// Do not update the smap here, we need to do it in initLeafNodeSmapAndSendSubs
 	c.leaf = &leaf{}
 
+	// If the leafnode subject interest should be isolated, flag it here.
+	s.optsMu.RLock()
+	if c.leaf.isolated = s.opts.LeafNode.IsolateLeafnodeInterest; !c.leaf.isolated && remote != nil {
+		c.leaf.isolated = remote.LocalIsolation
+	}
+	s.optsMu.RUnlock()
+
 	// For accepted LN connections, ws will be != nil if it was accepted
 	// through the Websocket port.
 	c.ws = ws
@@ -1057,6 +1084,8 @@ func (s *Server) createLeafNode(conn net.Conn, rURL *url.URL, remote *leafNodeCf
 		if cm := opts.LeafNode.Compression.Mode; cm != CompressionNotSupported {
 			info.Compression = cm
 		}
+		// We always send a nonce for LEAF connections. Do not change that without
+		// taking into account presence of proxy trusted keys.
 		s.generateNonce(nonce[:])
 		s.mu.Unlock()
 	}
@@ -1794,9 +1823,13 @@ func (s *Server) removeLeafNodeConnection(c *client) {
 			c.leaf.gwSub = nil
 		}
 	}
+	proxyKey := c.proxyKey
 	c.mu.Unlock()
 	s.mu.Lock()
 	delete(s.leafs, cid)
+	if proxyKey != _EMPTY_ {
+		s.removeProxiedConn(proxyKey, cid)
+	}
 	s.mu.Unlock()
 	s.removeFromTempClients(cid)
 }
@@ -1818,6 +1851,7 @@ type leafConnectInfo struct {
 	Headers   bool     `json:"headers,omitempty"`
 	JetStream bool     `json:"jetstream,omitempty"`
 	DenyPub   []string `json:"deny_pub,omitempty"`
+	Isolate   bool     `json:"isolate,omitempty"`
 
 	// There was an existing field called:
 	// >> Comp bool `json:"compression,omitempty"`
@@ -1928,6 +1962,8 @@ func (c *client) processLeafNodeConnect(s *Server, arg []byte, lang string) erro
 	c.leaf.remoteServer = proto.Name
 	// Remember the remote account name
 	c.leaf.remoteAccName = proto.RemoteAccount
+	// Remember if the leafnode requested isolation.
+	c.leaf.isolated = c.leaf.isolated || proto.Isolate
 
 	// If the other side has declared itself a hub, so we will take on the spoke role.
 	if proto.Hub {
@@ -2044,12 +2080,16 @@ func (c *client) remoteCluster() string {
 // its permission settings for local enforcement.
 func (s *Server) sendPermsAndAccountInfo(c *client) {
 	// Copy
+	s.mu.Lock()
 	info := s.copyLeafNodeInfo()
+	s.mu.Unlock()
 	c.mu.Lock()
 	info.CID = c.cid
 	info.Import = c.opts.Import
 	info.Export = c.opts.Export
 	info.RemoteAccount = c.acc.Name
+	// s.SystemAccount() uses an atomic operation and does not get the server lock, so this is safe.
+	info.IsSystemAccount = c.acc == s.SystemAccount()
 	info.ConnectInfo = true
 	c.enqueueProto(generateInfoJSON(info))
 	c.mu.Unlock()
@@ -2157,6 +2197,10 @@ func (s *Server) initLeafNodeSmapAndSendSubs(c *client) {
 		// Check perms regardless of role.
 		if c.perms != nil && !c.canSubscribe(string(sub.subject)) {
 			c.Debugf("Not permitted to subscribe to %q on behalf of %s%s", sub.subject, accName, accNTag)
+			continue
+		}
+		// Don't advertise interest from leafnodes to other isolated leafnodes.
+		if sub.client.kind == LEAF && c.isIsolatedLeafNode() {
 			continue
 		}
 		// We ignore ourselves here.
@@ -2280,6 +2324,11 @@ func (acc *Account) updateLeafNodesEx(sub *subscription, delta int32, hubOnly bo
 			continue
 		}
 		ln.mu.Lock()
+		// Don't advertise interest from leafnodes to other isolated leafnodes.
+		if sub.client.kind == LEAF && ln.isIsolatedLeafNode() {
+			ln.mu.Unlock()
+			continue
+		}
 		// If `hubOnly` is true, it means that we want to update only leafnodes
 		// that connect to this server (so isHubLeafNode() would return `true`).
 		if hubOnly && !ln.isHubLeafNode() {

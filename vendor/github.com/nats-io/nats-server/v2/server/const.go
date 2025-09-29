@@ -66,7 +66,7 @@ func init() {
 
 const (
 	// VERSION is the current version for the server.
-	VERSION = "2.11.9"
+	VERSION = "2.12.0"
 
 	// PROTO is the currently supported protocol.
 	// 0 was the original
@@ -146,7 +146,10 @@ const (
 	// DEFAULT_ROUTE_CONNECT Route solicitation intervals.
 	DEFAULT_ROUTE_CONNECT = 1 * time.Second
 
-	// DEFAULT_ROUTE_RECONNECT Route reconnect intervals.
+	// DEFAULT_ROUTE_CONNECT_MAX Route solicitation intervals (max).
+	DEFAULT_ROUTE_CONNECT_MAX = 30 * time.Second
+
+	// DEFAULT_ROUTE_RECONNECT Route reconnect delay.
 	DEFAULT_ROUTE_RECONNECT = 1 * time.Second
 
 	// DEFAULT_ROUTE_DIAL Route dial timeout.

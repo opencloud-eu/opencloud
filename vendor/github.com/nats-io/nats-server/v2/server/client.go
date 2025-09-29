@@ -35,6 +35,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"slices"
+
 	"github.com/klauspost/compress/s2"
 	"github.com/nats-io/jwt/v2"
 	"github.com/nats-io/nats-server/v2/internal/fastrand"
@@ -222,6 +224,8 @@ const (
 	MinimumVersionRequired
 	ClusterNamesIdentical
 	Kicked
+	ProxyNotTrusted
+	ProxyRequired
 )
 
 // Some flags passed to processMsgResults
@@ -255,6 +259,8 @@ type client struct {
 	pubKey     string
 	nc         net.Conn
 	ncs        atomic.Value
+	ncsAcc     atomic.Value
+	ncsUser    atomic.Value
 	out        outbound
 	user       *NkeyUser
 	host       string
@@ -270,6 +276,7 @@ type client struct {
 	msgb       [msgScratchSize]byte
 	last       time.Time
 	lastIn     time.Time
+	proxyKey   string
 
 	repliesSincePrune uint16
 	lastReplyPrune    time.Time
@@ -298,6 +305,13 @@ type client struct {
 	nameTag string
 
 	tlsTo *time.Timer
+
+	// Authentication error override. This is used because the authentication
+	// stack is simply returning a boolean, and the only authentication error
+	// reported is the generic `ErrAuthentication`. In the authentication code,
+	// if we want to report a different error, we can now set this field
+	// and `authViolation()` will use that one.
+	authErr error
 }
 
 type rrTracking struct {
@@ -494,15 +508,13 @@ func (rcf readCacheFlag) isSet(c readCacheFlag) bool {
 }
 
 const (
-	defaultMaxPerAccountCacheSize   = 8192
-	defaultPrunePerAccountCacheSize = 1024
-	defaultClosedSubsCheckInterval  = 5 * time.Minute
+	defaultMaxPerAccountCacheSize  = 8192
+	defaultClosedSubsCheckInterval = 5 * time.Minute
 )
 
 var (
-	maxPerAccountCacheSize   = defaultMaxPerAccountCacheSize
-	prunePerAccountCacheSize = defaultPrunePerAccountCacheSize
-	closedSubsCheckInterval  = defaultClosedSubsCheckInterval
+	maxPerAccountCacheSize  = defaultMaxPerAccountCacheSize
+	closedSubsCheckInterval = defaultClosedSubsCheckInterval
 )
 
 // perAccountCache is for L1 semantics for inbound messages from a route or gateway to mimic the performance of clients.
@@ -652,6 +664,9 @@ type ClientOpts struct {
 
 	// Leafnodes
 	RemoteAccount string `json:"remote_account,omitempty"`
+
+	// Proxy would include its own nonce signature.
+	ProxySig string `json:"proxy_sig,omitempty"`
 }
 
 var defaultOpts = ClientOpts{Verbose: true, Pedantic: true, Echo: true}
@@ -1854,6 +1869,19 @@ func (c *client) markConnAsClosed(reason ClosedState) {
 	case ReadError, WriteError, SlowConsumerPendingBytes, SlowConsumerWriteDeadline, TLSHandshakeError:
 		c.flags.set(skipFlushOnClose)
 		skipFlush = true
+	case StaleConnection:
+		// Track stale connections statistics.
+		atomic.AddInt64(&c.srv.staleConnections, 1)
+		switch c.kind {
+		case CLIENT:
+			c.srv.staleStats.clients.Add(1)
+		case ROUTER:
+			c.srv.staleStats.routes.Add(1)
+		case GATEWAY:
+			c.srv.staleStats.gateways.Add(1)
+		case LEAF:
+			c.srv.staleStats.leafs.Add(1)
+		}
 	}
 	if c.flags.isSet(connMarkedClosed) {
 		return
@@ -1867,14 +1895,25 @@ func (c *client) markConnAsClosed(reason ClosedState) {
 	// Be consistent with the creation: for routes, gateways and leaf,
 	// we use Noticef on create, so use that too for delete.
 	if c.srv != nil {
-		if c.kind == LEAF {
-			if c.acc != nil {
-				c.Noticef("%s connection closed: %s - Account: %s", c.kindString(), reason, c.acc.traceLabel())
+		if c.kind == LEAF || c.kind == ROUTER || c.kind == GATEWAY {
+			var tags []string
+			var remoteName string
+			switch {
+			case c.kind == LEAF && c.leaf != nil:
+				remoteName = c.leaf.remoteServer
+			case c.kind == ROUTER && c.route != nil:
+				remoteName = c.route.remoteName
+			case c.kind == GATEWAY && c.gw != nil:
+				remoteName = c.gw.remoteName
+			}
+			if remoteName != _EMPTY_ {
+				tags = append(tags, fmt.Sprintf("Remote: %s", remoteName))
+			}
+			if len(tags) > 0 {
+				c.Noticef("%s connection closed: %s - %s", c.kindString(), reason, strings.Join(tags, ", "))
 			} else {
 				c.Noticef("%s connection closed: %s", c.kindString(), reason)
 			}
-		} else if c.kind == ROUTER || c.kind == GATEWAY {
-			c.Noticef("%s connection closed: %s", c.kindString(), reason)
 		} else { // Client, System, Jetstream, and Account connections.
 			c.Debugf("%s connection closed: %s", c.kindString(), reason)
 		}
@@ -1917,7 +1956,7 @@ func (c *client) flushSignal() {
 
 // Traces a message.
 // Will NOT check if tracing is enabled, does NOT need the client lock.
-func (c *client) traceMsg(msg []byte) {
+func (c *client) traceMsgInternal(msg []byte, delivered bool, hdrSize int) {
 	opts := c.srv.getOpts()
 	maxTrace := opts.MaxTracedMsgLen
 	headersOnly := opts.TraceHeaders
@@ -1926,8 +1965,13 @@ func (c *client) traceMsg(msg []byte) {
 	// If TraceHeaders is enabled, extract only the header portion of the msg.
 	// If a header is present, it ends with an additional trailing CRLF.
 	if headersOnly {
-		msg, _ = c.msgParts(msg)
-		suffix += LEN_CR_LF
+		if hdrSize > 0 && len(msg) >= hdrSize {
+			msg = msg[:hdrSize]
+			suffix += LEN_CR_LF
+		} else {
+			// No headers present, so nothing to trace.
+			return
+		}
 	}
 
 	// Do not emit a log line for zero-length payloads.
@@ -1936,12 +1980,30 @@ func (c *client) traceMsg(msg []byte) {
 		return
 	}
 
+	const (
+		traceInPrefix  string = "<<-"
+		traceOutPrefix string = "->>"
+	)
+	var prefix string
+	if delivered {
+		prefix = traceOutPrefix
+	} else {
+		prefix = traceInPrefix
+	}
 	if maxTrace > 0 && l > maxTrace {
 		tm := fmt.Sprintf("%q", msg[:maxTrace])
-		c.Tracef("<<- MSG_PAYLOAD: [\"%s...\"]", tm[1:len(tm)-1])
+		c.Tracef("%s MSG_PAYLOAD: [\"%s...\"]", prefix, tm[1:len(tm)-1])
 	} else {
-		c.Tracef("<<- MSG_PAYLOAD: [%q]", msg[:l])
+		c.Tracef("%s MSG_PAYLOAD: [%q]", prefix, msg[:l])
 	}
+}
+
+func (c *client) traceMsg(msg []byte) {
+	c.traceMsgInternal(msg, false, c.pa.hdr)
+}
+
+func (c *client) traceMsgDelivery(msg []byte, hdrSize int) {
+	c.traceMsgInternal(msg, true, hdrSize)
 }
 
 // Traces an incoming operation.
@@ -2094,6 +2156,7 @@ func (c *client) processConnect(arg []byte) error {
 	}
 	// Indicate that the CONNECT protocol has been received, and that the
 	// server now knows which protocol this client supports.
+	firstConnect := !c.flags.isSet(connectReceived)
 	c.flags.set(connectReceived)
 	// Capture these under lock
 	c.echo = c.opts.Echo
@@ -2102,30 +2165,6 @@ func (c *client) processConnect(arg []byte) error {
 	lang := c.opts.Lang
 	account := c.opts.Account
 	accountNew := c.opts.AccountNew
-
-	if c.kind == CLIENT {
-		var ncs string
-		if c.opts.Version != _EMPTY_ {
-			ncs = fmt.Sprintf("v%s", c.opts.Version)
-		}
-		if c.opts.Lang != _EMPTY_ {
-			if c.opts.Version == _EMPTY_ {
-				ncs = c.opts.Lang
-			} else {
-				ncs = fmt.Sprintf("%s:%s", ncs, c.opts.Lang)
-			}
-		}
-		if c.opts.Name != _EMPTY_ {
-			if c.opts.Version == _EMPTY_ && c.opts.Lang == _EMPTY_ {
-				ncs = c.opts.Name
-			} else {
-				ncs = fmt.Sprintf("%s:%s", ncs, c.opts.Name)
-			}
-		}
-		if ncs != _EMPTY_ {
-			c.ncs.CompareAndSwap(nil, fmt.Sprintf("%s - %q", c, ncs))
-		}
-	}
 
 	// if websocket client, maybe some options through cookies
 	if ws := c.ws; ws != nil {
@@ -2200,6 +2239,55 @@ func (c *client) processConnect(arg []byte) error {
 			// By default register with the global account.
 			c.registerWithAccount(srv.globalAccount())
 		}
+
+		// Initialize user info used in logs.
+		c.mu.Lock()
+		acc := c.acc
+		if c.getRawAuthUser() != _EMPTY_ {
+			c.ncsUser.Store(c.getAuthUserLabel())
+		}
+		c.mu.Unlock()
+		if acc != nil {
+			acc.mu.RLock()
+			c.ncsAcc.Store(acc.traceLabel())
+			acc.mu.RUnlock()
+		}
+
+		// Enable logging connection details and auth info for this client.
+		if c.kind == CLIENT && firstConnect && c.srv != nil {
+			var ncs string
+			if c.opts.Version != _EMPTY_ {
+				ncs = fmt.Sprintf("v%s", c.opts.Version)
+			}
+			if c.opts.Lang != _EMPTY_ {
+				if c.opts.Version == _EMPTY_ {
+					ncs = c.opts.Lang
+				} else {
+					ncs = fmt.Sprintf("%s:%s", ncs, c.opts.Lang)
+				}
+			}
+			if c.opts.Name != _EMPTY_ {
+				if c.opts.Version == _EMPTY_ && c.opts.Lang == _EMPTY_ {
+					ncs = c.opts.Name
+				} else {
+					ncs = fmt.Sprintf("%s:%s", ncs, c.opts.Name)
+				}
+			}
+			var acs string
+			accl := c.ncsAcc.Load()
+			authUser := c.ncsUser.Load()
+			if accl != nil && authUser != nil {
+				acs = fmt.Sprintf("%s/%s", accl, authUser)
+			}
+			switch {
+			case ncs != _EMPTY_ && acs != _EMPTY_:
+				c.ncs.Store(fmt.Sprintf("%s - %q - %q", c, ncs, acs))
+			case ncs != _EMPTY_:
+				c.ncs.Store(fmt.Sprintf("%s - %q", c, ncs))
+			case acs != _EMPTY_:
+				c.ncs.Store(fmt.Sprintf("%s - %q", c, acs))
+			}
+		}
 	}
 
 	switch kind {
@@ -2238,12 +2326,12 @@ func (c *client) processConnect(arg []byte) error {
 
 func (c *client) sendErrAndErr(err string) {
 	c.sendErr(err)
-	c.Errorf(err)
+	c.RateLimitErrorf(err)
 }
 
 func (c *client) sendErrAndDebug(err string) {
 	c.sendErr(err)
-	c.Debugf(err)
+	c.RateLimitDebugf(err)
 }
 
 func (c *client) authTimeout() {
@@ -2262,38 +2350,28 @@ func (c *client) accountAuthExpired() {
 }
 
 func (c *client) authViolation() {
-	var s *Server
-	var hasTrustedNkeys, hasNkeys, hasUsers bool
-	if s = c.srv; s != nil {
-		s.mu.RLock()
-		hasTrustedNkeys = s.trustedKeys != nil
-		hasNkeys = s.nkeys != nil
-		hasUsers = s.users != nil
-		s.mu.RUnlock()
-		defer s.sendAuthErrorEvent(c)
+	authErr := c.getAuthError()
+	if authErr == nil {
+		authErr = ErrAuthentication
 	}
+	reason := getAuthErrClosedState(authErr)
 
-	if hasTrustedNkeys {
-		c.Errorf("%v", ErrAuthentication)
-	} else if hasNkeys {
-		c.Errorf("%s - Nkey %q",
-			ErrAuthentication.Error(),
-			c.opts.Nkey)
-	} else if hasUsers {
-		c.Errorf("%s - User %q",
-			ErrAuthentication.Error(),
-			c.opts.Username)
-	} else {
-		if c.srv != nil {
+	var s *Server
+	if s = c.srv; s != nil {
+		defer s.sendAuthErrorEvent(c, reason.String())
+		if c.getRawAuthUser() != _EMPTY_ {
+			c.Errorf("%v - %s", ErrAuthentication, c.getAuthUser())
+		} else {
 			c.Errorf(ErrAuthentication.Error())
 		}
 	}
 	if c.isMqtt() {
 		c.mqttEnqueueConnAck(mqttConnAckRCNotAuthorized, false)
 	} else {
+		// Send this to client, regardless of the authErr override.
 		c.sendErr("Authorization Violation")
 	}
-	c.closeConnection(AuthenticationViolation)
+	c.closeConnection(reason)
 }
 
 func (c *client) maxAccountConnExceeded() {
@@ -2523,36 +2601,29 @@ func (c *client) processPing() {
 	// If we are here, the CONNECT has been received so we know
 	// if this client supports async INFO or not.
 	var (
-		checkInfoChange bool
+		sendConnectInfo bool
 		srv             = c.srv
 	)
-	// For older clients, just flip the firstPongSent flag if not already
-	// set and we are done.
-	if c.opts.Protocol < ClientProtoInfo || srv == nil {
-		c.flags.setIfNotSet(firstPongSent)
-	} else {
-		// This is a client that supports async INFO protocols.
-		// If this is the first PING (so firstPongSent is not set yet),
-		// we will need to check if there was a change in cluster topology
-		// or we have a different max payload. We will send this first before
-		// pong since most clients do flush after connect call.
-		checkInfoChange = !c.flags.isSet(firstPongSent)
+	// For the first PING (so firstPongSet is false) and for clients
+	// that support async INFO protocols, we will send one with ConnectInfo=true,
+	// the name of the account the client is bound to, and if the
+	// account is the system account.
+	if !c.flags.isSet(firstPongSent) {
+		// Flip the flag.
+		c.flags.set(firstPongSent)
+		// Evaluate if we should send the INFO protocol.
+		sendConnectInfo = srv != nil && c.opts.Protocol >= ClientProtoInfo
 	}
 	c.mu.Unlock()
 
-	if checkInfoChange {
-		opts := srv.getOpts()
+	if sendConnectInfo {
 		srv.mu.Lock()
+		info := srv.copyInfo()
 		c.mu.Lock()
-		// Now that we are under both locks, we can flip the flag.
-		// This prevents sendAsyncInfoToClients() and code here to
-		// send a double INFO protocol.
-		c.flags.set(firstPongSent)
-		// If there was a cluster update since this client was created,
-		// send an updated INFO protocol now.
-		if srv.lastCURLsUpdate >= c.start.UnixNano() || c.mpay != int32(opts.MaxPayload) {
-			c.enqueueProto(c.generateClientInfoJSON(srv.copyInfo()))
-		}
+		info.RemoteAccount = c.acc.Name
+		info.IsSystemAccount = c.acc == srv.SystemAccount()
+		info.ConnectInfo = true
+		c.enqueueProto(c.generateClientInfoJSON(info))
 		c.mu.Unlock()
 		srv.mu.Unlock()
 	}
@@ -3469,6 +3540,12 @@ func (c *client) stalledWait(producer *client) {
 	c.mu.Unlock()
 	defer c.mu.Lock()
 
+	// Track per client and total client stalls.
+	atomic.AddInt64(&c.stalls, 1)
+	if c.srv != nil {
+		atomic.AddInt64(&c.srv.stalls, 1)
+	}
+
 	// Now check if we are close to total allowed.
 	if producer.in.tst+ttl > stallTotalAllowed {
 		ttl = stallTotalAllowed - producer.in.tst
@@ -3621,6 +3698,7 @@ func (c *client) deliverMsg(prodIsMQTT bool, sub *subscription, acc *Account, su
 	// support we need to strip the headers from the payload.
 	// The actual header would have been processed correctly for us, so just
 	// need to update payload.
+	hdrSize := c.pa.hdr
 	if c.pa.hdr > 0 && !sub.client.headers {
 		msg = msg[c.pa.hdr:]
 	}
@@ -3762,6 +3840,7 @@ func (c *client) deliverMsg(prodIsMQTT bool, sub *subscription, acc *Account, su
 
 	if client.trace {
 		client.traceOutOp(bytesToString(mh[:len(mh)-LEN_CR_LF]), nil)
+		client.traceMsgDelivery(msg, hdrSize)
 	}
 
 	client.mu.Unlock()
@@ -4197,7 +4276,8 @@ func (c *client) processInboundClientMsg(msg []byte) (bool, bool) {
 		c.mu.Lock()
 		if c.opts.NoResponders {
 			if sub := c.subForReply(c.pa.reply); sub != nil {
-				proto := fmt.Sprintf("HMSG %s %s 16 16\r\nNATS/1.0 503\r\n\r\n\r\n", c.pa.reply, sub.sid)
+				hdrLen := 32 /* header without the subject */ + len(c.pa.subject)
+				proto := fmt.Sprintf("HMSG %s %s %d %d\r\nNATS/1.0 503\r\nNats-Subject: %s\r\n\r\n\r\n", c.pa.reply, sub.sid, hdrLen, hdrLen, c.pa.subject)
 				c.queueOutbound([]byte(proto))
 				c.addToPCD(c)
 			}
@@ -4257,7 +4337,7 @@ func (c *client) setupResponseServiceImport(acc *Account, si *serviceImport, tra
 
 // Will remove a header if present.
 func removeHeaderIfPresent(hdr []byte, key string) []byte {
-	start := bytes.Index(hdr, []byte(key))
+	start := bytes.Index(hdr, []byte(key+":"))
 	// key can't be first and we want to check that it is preceded by a '\n'
 	if start < 1 || hdr[start-1] != '\n' {
 		return hdr
@@ -4404,6 +4484,27 @@ func sliceHeader(key string, hdr []byte) []byte {
 		index++
 	}
 	return hdr[start:index:index]
+}
+
+func setHeader(key, val string, hdr []byte) []byte {
+	prefix := []byte(key + ": ")
+	start := bytes.Index(hdr, prefix)
+	if start >= 0 {
+		valStart := start + len(prefix)
+		valEnd := bytes.Index(hdr[valStart:], []byte("\r"))
+		if valEnd < 0 {
+			return hdr // malformed headers
+		}
+		valEnd += valStart
+		suffix := slices.Clone(hdr[valEnd:])
+		newHdr := append(hdr[:valStart], val...)
+		return append(newHdr, suffix...)
+	}
+	if len(hdr) > 0 && bytes.HasSuffix(hdr, []byte("\r\n")) {
+		hdr = hdr[:len(hdr)-2]
+		val += "\r\n"
+	}
+	return fmt.Appendf(hdr, "%s: %s\r\n", key, val)
 }
 
 // For bytes.HasPrefix below.
@@ -5272,18 +5373,16 @@ func (c *client) pubPermissionViolation(subject []byte) {
 		mt.setIngressError(errTxt)
 	}
 	c.sendErr(errTxt)
-	c.Errorf("Publish Violation - %s, Subject %q", c.getAuthUser(), subject)
+	c.Errorf("Publish Violation - Subject %q", subject)
 }
 
 func (c *client) subPermissionViolation(sub *subscription) {
 	errTxt := fmt.Sprintf("Permissions Violation for Subscription to %q", sub.subject)
-	logTxt := fmt.Sprintf("Subscription Violation - %s, Subject %q, SID %s",
-		c.getAuthUser(), sub.subject, sub.sid)
+	logTxt := fmt.Sprintf("Subscription Violation - Subject %q, SID %s", sub.subject, sub.sid)
 
 	if sub.queue != nil {
 		errTxt = fmt.Sprintf("Permissions Violation for Subscription to %q using queue %q", sub.subject, sub.queue)
-		logTxt = fmt.Sprintf("Subscription Violation - %s, Subject %q, Queue: %q, SID %s",
-			c.getAuthUser(), sub.subject, sub.queue, sub.sid)
+		logTxt = fmt.Sprintf("Subscription Violation - Subject %q, Queue: %q, SID %s", sub.subject, sub.queue, sub.sid)
 	}
 
 	c.sendErr(errTxt)
@@ -5296,13 +5395,12 @@ func (c *client) replySubjectViolation(reply []byte) {
 		mt.setIngressError(errTxt)
 	}
 	c.sendErr(errTxt)
-	c.Errorf("Publish Violation - %s, Reply %q", c.getAuthUser(), reply)
+	c.Errorf("Publish Violation - Reply %q", reply)
 }
 
 func (c *client) maxTokensViolation(sub *subscription) {
 	errTxt := fmt.Sprintf("Permissions Violation for Subscription to %q, too many tokens", sub.subject)
-	logTxt := fmt.Sprintf("Subscription Violation Too Many Tokens - %s, Subject %q, SID %s",
-		c.getAuthUser(), sub.subject, sub.sid)
+	logTxt := fmt.Sprintf("Subscription Violation Too Many Tokens - Subject %q, SID %s", sub.subject, sub.sid)
 	c.sendErr(errTxt)
 	c.Errorf(logTxt)
 }
@@ -5621,10 +5719,8 @@ func (c *client) processSubsOnConfigReload(awcsti map[string]struct{}) {
 	// Unsubscribe all that need to be removed and report back to client and logs.
 	for _, sub := range removed {
 		c.unsubscribe(acc, sub, true, true)
-		c.sendErr(fmt.Sprintf("Permissions Violation for Subscription to %q (sid %q)",
-			sub.subject, sub.sid))
-		srv.Noticef("Removed sub %q (sid %q) for %s - not authorized",
-			sub.subject, sub.sid, c.getAuthUser())
+		c.sendErr(fmt.Sprintf("Permissions Violation for Subscription to %q (sid %q)", sub.subject, sub.sid))
+		srv.Noticef("Removed sub %q (sid %q) for %s - not authorized", sub.subject, sub.sid, c.getAuthUser())
 	}
 }
 
@@ -5914,7 +6010,7 @@ func (c *client) getAccAndResultFromCache() (*Account, *SublistResult) {
 
 		if genid := atomic.LoadUint64(&sl.genid); genid != pac.genid {
 			ok = false
-			c.in.pacache = make(map[string]*perAccountCache)
+			clear(c.in.pacache)
 		} else {
 			acc = pac.acc
 			r = pac.results
@@ -5937,13 +6033,33 @@ func (c *client) getAccAndResultFromCache() (*Account, *SublistResult) {
 		// Match against the account sublist.
 		r = sl.MatchBytes(c.pa.subject)
 
-		// Check if we need to prune.
+		// Check if we need to prune. This should give us a perAccountCache struct
+		// to reuse instead of having to allocate a new one.
+		// Previously we would have removed multiple entries but now we will only
+		// prune the minimum number required to maintain the cache size, so that
+		// we reduce the amount of GC pressure and maintain cache stability as best
+		// as possible.
 		if len(c.in.pacache) >= maxPerAccountCacheSize {
-			c.prunePerAccountCache()
+			for cacheKey, p := range c.in.pacache {
+				delete(c.in.pacache, cacheKey)
+				pac = p
+				if len(c.in.pacache) < maxPerAccountCacheSize {
+					break
+				}
+			}
 		}
 
+		// If we can reuse the pac from earlier (i.e. we loaded one but it was an
+		// old generation or we pruned the cache) then do so.
+		if pac == nil {
+			pac = &perAccountCache{}
+		}
+		pac.acc = acc
+		pac.results = r
+		pac.genid = atomic.LoadUint64(&sl.genid)
+
 		// Store in our cache,make sure to do so after we prune.
-		c.in.pacache[string(c.pa.pacache)] = &perAccountCache{acc, r, atomic.LoadUint64(&sl.genid)}
+		c.in.pacache[string(c.pa.pacache)] = pac
 	}
 	return acc, r
 }
@@ -5957,17 +6073,6 @@ func (c *client) Account() *Account {
 	acc := c.acc
 	c.mu.Unlock()
 	return acc
-}
-
-// prunePerAccountCache will prune off a random number of cache entries.
-func (c *client) prunePerAccountCache() {
-	n := 0
-	for cacheKey := range c.in.pacache {
-		delete(c.in.pacache, cacheKey)
-		if n++; n > prunePerAccountCacheSize {
-			break
-		}
-	}
 }
 
 // pruneClosedSubFromPerAccountCache remove entries that contain subscriptions
@@ -6225,6 +6330,22 @@ func (c *client) getAuthUser() string {
 	}
 }
 
+// getAuthUserLabel returns a label for the auth user for the client.
+func (c *client) getAuthUserLabel() string {
+	switch {
+	case c.opts.Nkey != _EMPTY_:
+		return fmt.Sprintf("nkey:%s", c.opts.Nkey)
+	case c.opts.Username != _EMPTY_:
+		return fmt.Sprintf("user:%s", c.opts.Username)
+	case c.opts.JWT != _EMPTY_:
+		return fmt.Sprintf("jwt:%s", c.pubKey)
+	case c.opts.Token != _EMPTY_:
+		return "token"
+	default:
+		return ""
+	}
+}
+
 // Given an array of strings, this function converts it to a map as long
 // as all the content (converted to upper-case) matches some constants.
 
@@ -6300,51 +6421,107 @@ func (c *client) isClosed() bool {
 	return c.flags.isSet(closeConnection) || c.flags.isSet(connMarkedClosed) || c.nc == nil
 }
 
+func (c *client) format(format string) string {
+	if s := c.String(); s != _EMPTY_ {
+		return fmt.Sprintf("%s - %s", s, format)
+	} else {
+		return format
+	}
+}
+
+func (c *client) formatNoClientInfo(format string) string {
+	acc := c.ncsAcc.Load()
+	if acc != nil {
+		return fmt.Sprintf("%s - Account:%s", format, acc)
+	} else {
+		return format
+	}
+}
+
+func (c *client) formatClientSuffix() string {
+	user := c.ncsUser.Load()
+	if user == nil || user.(string) == _EMPTY_ {
+		return _EMPTY_
+	}
+	return fmt.Sprintf(" - %s", user)
+}
+
 // Logging functionality scoped to a client or route.
 func (c *client) Error(err error) {
-	c.srv.Errors(c, err)
+	c.srv.Errorf(c.format(err.Error()))
 }
 
 func (c *client) Errorf(format string, v ...any) {
-	format = fmt.Sprintf("%s - %s", c, format)
-	c.srv.Errorf(format, v...)
+	c.srv.Errorf(c.format(format), v...)
 }
 
 func (c *client) Debugf(format string, v ...any) {
-	format = fmt.Sprintf("%s - %s", c, format)
-	c.srv.Debugf(format, v...)
+	c.srv.Debugf(c.format(format), v...)
 }
 
 func (c *client) Noticef(format string, v ...any) {
-	format = fmt.Sprintf("%s - %s", c, format)
-	c.srv.Noticef(format, v...)
+	c.srv.Noticef(c.format(format), v...)
 }
 
 func (c *client) Tracef(format string, v ...any) {
-	format = fmt.Sprintf("%s - %s", c, format)
-	c.srv.Tracef(format, v...)
+	c.srv.Tracef(c.format(format), v...)
 }
 
 func (c *client) Warnf(format string, v ...any) {
-	format = fmt.Sprintf("%s - %s", c, format)
-	c.srv.Warnf(format, v...)
+	c.srv.Warnf(c.format(format), v...)
+}
+
+func (c *client) RateLimitErrorf(format string, v ...any) {
+	// Do the check before adding the client info to the format...
+	statement := fmt.Sprintf(c.formatNoClientInfo(format), v...)
+	if _, loaded := c.srv.rateLimitLogging.LoadOrStore(statement, time.Now()); loaded {
+		return
+	}
+	if s := c.String(); s != _EMPTY_ {
+		c.srv.Errorf("%s - %s%s", c, statement, c.formatClientSuffix())
+	} else {
+		c.srv.Errorf("%s%s", statement, c.formatClientSuffix())
+	}
 }
 
 func (c *client) rateLimitFormatWarnf(format string, v ...any) {
+	// Do the check before adding the client info to the format...
+	format = c.formatNoClientInfo(format)
 	if _, loaded := c.srv.rateLimitLogging.LoadOrStore(format, time.Now()); loaded {
 		return
 	}
 	statement := fmt.Sprintf(format, v...)
-	c.Warnf("%s", statement)
+	if s := c.String(); s != _EMPTY_ {
+		c.srv.Warnf("%s - %s%s", c, statement, c.formatClientSuffix())
+	} else {
+		c.srv.Warnf("%s%s", statement, c.formatClientSuffix())
+	}
 }
 
 func (c *client) RateLimitWarnf(format string, v ...any) {
 	// Do the check before adding the client info to the format...
-	statement := fmt.Sprintf(format, v...)
+	statement := fmt.Sprintf(c.formatNoClientInfo(format), v...)
 	if _, loaded := c.srv.rateLimitLogging.LoadOrStore(statement, time.Now()); loaded {
 		return
 	}
-	c.Warnf("%s", statement)
+	if s := c.String(); s != _EMPTY_ {
+		c.srv.Warnf("%s - %s%s", c, statement, c.formatClientSuffix())
+	} else {
+		c.srv.Warnf("%s%s", statement, c.formatClientSuffix())
+	}
+}
+
+func (c *client) RateLimitDebugf(format string, v ...any) {
+	// Do the check before adding the client info to the format...
+	statement := fmt.Sprintf(c.formatNoClientInfo(format), v...)
+	if _, loaded := c.srv.rateLimitLogging.LoadOrStore(statement, time.Now()); loaded {
+		return
+	}
+	if s := c.String(); s != _EMPTY_ {
+		c.srv.Debugf("%s - %s%s", c, statement, c.formatClientSuffix())
+	} else {
+		c.srv.Debugf("%s%s", statement, c.formatClientSuffix())
+	}
 }
 
 // Set the very first PING to a lower interval to capture the initial RTT.
@@ -6382,4 +6559,19 @@ func (c *client) setFirstPingTimer() {
 		c.ping.tmr.Stop()
 	}
 	c.ping.tmr = time.AfterFunc(d, c.processPingTimer)
+}
+
+// Sets this error as the authentication error. To be used in authViolation()
+// to report an error different of `ErrAuthentication`.
+func (c *client) setAuthError(err error) {
+	c.mu.Lock()
+	c.authErr = err
+	c.mu.Unlock()
+}
+
+// Returns the authentication error set in the connection, possibly nil.
+func (c *client) getAuthError() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.authErr
 }

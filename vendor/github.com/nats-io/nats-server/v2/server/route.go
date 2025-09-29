@@ -143,6 +143,7 @@ const (
 // Can be changed for tests
 var (
 	routeConnectDelay    = DEFAULT_ROUTE_CONNECT
+	routeConnectMaxDelay = DEFAULT_ROUTE_CONNECT_MAX
 	routeMaxPingInterval = defaultRouteMaxPingInterval
 )
 
@@ -2054,7 +2055,7 @@ func (s *Server) createRoute(conn net.Conn, rURL *url.URL, rtype RouteType, goss
 	if tlsRequired {
 		c.Debugf("TLS handshake complete")
 		cs := c.nc.(*tls.Conn).ConnectionState()
-		c.Debugf("TLS version %s, cipher suite %s", tlsVersion(cs.Version), tlsCipher(cs.CipherSuite))
+		c.Debugf("TLS version %s, cipher suite %s", tlsVersion(cs.Version), tls.CipherSuiteName(cs.CipherSuite))
 	}
 
 	// Queue Connect proto if we solicited the connection.
@@ -2893,6 +2894,7 @@ func (s *Server) connectToRoute(rURL *url.URL, rtype RouteType, firstConnect boo
 	excludedAddresses := s.routesToSelf
 	s.mu.RUnlock()
 
+	attemptDelay := routeConnectDelay
 	for attempts := 0; s.isRunning(); {
 		if tryForEver {
 			if !s.routeStillValid(rURL) {
@@ -2935,7 +2937,14 @@ func (s *Server) connectToRoute(rURL *url.URL, rtype RouteType, firstConnect boo
 			select {
 			case <-s.quitCh:
 				return
-			case <-time.After(routeConnectDelay):
+			case <-time.After(attemptDelay):
+				if opts.Cluster.ConnectBackoff {
+					// Use exponential backoff for connection attempts.
+					attemptDelay *= 2
+					if attemptDelay > routeConnectMaxDelay {
+						attemptDelay = routeConnectMaxDelay
+					}
+				}
 				continue
 			}
 		}

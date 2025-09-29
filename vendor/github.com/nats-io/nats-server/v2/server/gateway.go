@@ -35,6 +35,7 @@ import (
 const (
 	defaultSolicitGatewaysDelay         = time.Second
 	defaultGatewayConnectDelay          = time.Second
+	defaultGatewayConnectMaxDelay       = 30 * time.Second
 	defaultGatewayReconnectDelay        = time.Second
 	defaultGatewayRecentSubExpiration   = 2 * time.Second
 	defaultGatewayMaxRUnsubBeforeSwitch = 1000
@@ -59,6 +60,7 @@ const (
 
 var (
 	gatewayConnectDelay          = defaultGatewayConnectDelay
+	gatewayConnectMaxDelay       = defaultGatewayConnectMaxDelay
 	gatewayReconnectDelay        = defaultGatewayReconnectDelay
 	gatewayMaxRUnsubBeforeSwitch = defaultGatewayMaxRUnsubBeforeSwitch
 	gatewaySolicitDelay          = int64(defaultSolicitGatewaysDelay)
@@ -703,10 +705,11 @@ func (s *Server) reconnectGateway(cfg *gatewayCfg) {
 // to the given Gateway. It will return once a connection has been created.
 func (s *Server) solicitGateway(cfg *gatewayCfg, firstConnect bool) {
 	var (
-		opts       = s.getOpts()
-		isImplicit = cfg.isImplicit()
-		attempts   int
-		typeStr    string
+		opts         = s.getOpts()
+		isImplicit   = cfg.isImplicit()
+		attemptDelay = gatewayConnectDelay
+		attempts     int
+		typeStr      string
 	)
 	if isImplicit {
 		typeStr = "implicit"
@@ -769,7 +772,14 @@ func (s *Server) solicitGateway(cfg *gatewayCfg, firstConnect bool) {
 		select {
 		case <-s.quitCh:
 			return
-		case <-time.After(gatewayConnectDelay):
+		case <-time.After(attemptDelay):
+			if opts.Gateway.ConnectBackoff {
+				// Use exponential backoff for connection attempts.
+				attemptDelay *= 2
+				if attemptDelay > gatewayConnectMaxDelay {
+					attemptDelay = gatewayConnectMaxDelay
+				}
+			}
 			continue
 		}
 	}
@@ -923,7 +933,7 @@ func (s *Server) createGateway(cfg *gatewayCfg, url *url.URL, conn net.Conn) {
 	if tlsRequired {
 		c.Debugf("TLS handshake complete")
 		cs := c.nc.(*tls.Conn).ConnectionState()
-		c.Debugf("TLS version %s, cipher suite %s", tlsVersion(cs.Version), tlsCipher(cs.CipherSuite))
+		c.Debugf("TLS version %s, cipher suite %s", tlsVersion(cs.Version), tls.CipherSuiteName(cs.CipherSuite))
 	}
 
 	// For outbound, we can't set the normal ping timer yet since the other

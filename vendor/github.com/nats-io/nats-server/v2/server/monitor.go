@@ -129,6 +129,7 @@ type ConnInfo struct {
 	OutMsgs        int64          `json:"out_msgs"`
 	InBytes        int64          `json:"in_bytes"`
 	OutBytes       int64          `json:"out_bytes"`
+	Stalls         int64          `json:"stalls,omitempty"`
 	NumSubs        uint32         `json:"subscriptions"`
 	Name           string         `json:"name,omitempty"`
 	Lang           string         `json:"lang,omitempty"`
@@ -146,9 +147,15 @@ type ConnInfo struct {
 	NameTag        string         `json:"name_tag,omitempty"`
 	Tags           jwt.TagList    `json:"tags,omitempty"`
 	MQTTClient     string         `json:"mqtt_client,omitempty"` // This is the MQTT client id
+	Proxy          *ProxyInfo     `json:"proxy,omitempty"`
 
 	// Internal
 	rtt int64 // For fast sorting
+}
+
+// ProxyInfo represents the information about this proxied connection.
+type ProxyInfo struct {
+	Key string `json:"key"`
 }
 
 // TLSPeerCert contains basic information about a TLS peer certificate
@@ -571,6 +578,8 @@ func (ci *ConnInfo) fill(client *client, nc net.Conn, now time.Time, auth bool) 
 	// we need to use atomic here.
 	ci.InMsgs = atomic.LoadInt64(&client.inMsgs)
 	ci.InBytes = atomic.LoadInt64(&client.inBytes)
+	ci.Stalls = atomic.LoadInt64(&client.stalls)
+	ci.Proxy = createProxyInfo(client)
 
 	// If the connection is gone, too bad, we won't set TLSVersion and TLSCipher.
 	// Exclude clients that are still doing handshake so we don't block in
@@ -579,7 +588,7 @@ func (ci *ConnInfo) fill(client *client, nc net.Conn, now time.Time, auth bool) 
 		if conn, ok := nc.(*tls.Conn); ok {
 			cs := conn.ConnectionState()
 			ci.TLSVersion = tlsVersion(cs.Version)
-			ci.TLSCipher = tlsCipher(cs.CipherSuite)
+			ci.TLSCipher = tls.CipherSuiteName(cs.CipherSuite)
 			if auth && len(cs.PeerCertificates) > 0 {
 				ci.TLSPeerCerts = makePeerCerts(cs.PeerCertificates)
 			}
@@ -591,6 +600,17 @@ func (ci *ConnInfo) fill(client *client, nc net.Conn, now time.Time, auth bool) 
 		ci.Port = int(client.port)
 		ci.IP = client.host
 	}
+}
+
+// If this client came from a trusted proxy, this will return a ProxyInfo
+// to be used in ConnInfo or LeafInfo.
+//
+// Client lock must be held on entry.
+func createProxyInfo(c *client) *ProxyInfo {
+	if c.proxyKey == _EMPTY_ {
+		return nil
+	}
+	return &ProxyInfo{Key: c.proxyKey}
 }
 
 func makePeerCerts(pc []*x509.Certificate) []*TLSPeerCert {
@@ -808,8 +828,10 @@ type RouteInfo struct {
 
 // Routez returns a Routez struct containing information about routes.
 func (s *Server) Routez(routezOpts *RoutezOptions) (*Routez, error) {
-	rs := &Routez{Routes: []*RouteInfo{}}
-	rs.Now = time.Now().UTC()
+	rs := &Routez{
+		Now:    time.Now().UTC(),
+		Routes: []*RouteInfo{},
+	}
 
 	if routezOpts == nil {
 		routezOpts = &RoutezOptions{}
@@ -826,7 +848,7 @@ func (s *Server) Routez(routezOpts *RoutezOptions) (*Routez, error) {
 		rs.Import = perms.Import
 		rs.Export = perms.Export
 	}
-	rs.Name = s.getOpts().ServerName
+	rs.Name = s.info.Name
 
 	addRoute := func(r *client) {
 		r.mu.Lock()
@@ -1003,7 +1025,15 @@ func (s *Server) Subsz(opts *SubszOptions) (*Subsz, error) {
 	slStats := &SublistStats{}
 
 	// FIXME(dlc) - Make account aware.
-	sz := &Subsz{s.info.ID, time.Now().UTC(), slStats, 0, offset, limit, nil}
+	sz := &Subsz{
+		ID:           s.info.ID,
+		Now:          time.Now().UTC(),
+		SublistStats: slStats,
+		Total:        0,
+		Offset:       offset,
+		Limit:        limit,
+		Subs:         nil,
+	}
 
 	if subdetail {
 		var raw [4096]*subscription
@@ -1100,12 +1130,7 @@ func (s *Server) HandleSubsz(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var b []byte
-
-	if len(st.Subs) == 0 {
-		b, err = json.MarshalIndent(st.SublistStats, "", "  ")
-	} else {
-		b, err = json.MarshalIndent(st, "", "  ")
-	}
+	b, err = json.MarshalIndent(st, "", "  ")
 	if err != nil {
 		s.Errorf("Error marshaling response to /subscriptionsz request: %v", err)
 	}
@@ -1237,6 +1262,8 @@ type Varz struct {
 	InBytes               int64                  `json:"in_bytes"`                          // InBytes is the number of bytes this server received
 	OutBytes              int64                  `json:"out_bytes"`                         // OutMsgs is the number of bytes this server sent
 	SlowConsumers         int64                  `json:"slow_consumers"`                    // SlowConsumers is the total count of clients that were disconnected since start due to being slow consumers
+	StaleConnections      int64                  `json:"stale_connections"`                 // StaleConnections is the total count of stale connections that were detected
+	StalledClients        int64                  `json:"stalled_clients"`                   // StalledClients is the total number of times that clients have been stalled.
 	Subscriptions         uint32                 `json:"subscriptions"`                     // Subscriptions is the count of active subscriptions
 	HTTPReqStats          map[string]uint64      `json:"http_req_stats"`                    // HTTPReqStats is the number of requests each HTTP endpoint received
 	ConfigLoadTime        time.Time              `json:"config_load_time"`                  // ConfigLoadTime is the time the configuration was loaded or reloaded
@@ -1247,8 +1274,10 @@ type Varz struct {
 	TrustedOperatorsClaim []*jwt.OperatorClaims  `json:"trusted_operators_claim,omitempty"` // TrustedOperatorsClaim is the decoded claims for each trusted operator
 	SystemAccount         string                 `json:"system_account,omitempty"`          // SystemAccount is the name of the System account
 	PinnedAccountFail     uint64                 `json:"pinned_account_fails,omitempty"`    // PinnedAccountFail is how often user logon fails due to the issuer account not being pinned.
-	OCSPResponseCache     *OCSPResponseCacheVarz `json:"ocsp_peer_cache,omitempty"`         // OCSPResponseCache is the state of the OCSP cache // OCSPResponseCache holds information about
-	SlowConsumersStats    *SlowConsumersStats    `json:"slow_consumer_stats"`               // SlowConsumersStats is statistics about all detected Slow Consumer
+	OCSPResponseCache     *OCSPResponseCacheVarz `json:"ocsp_peer_cache,omitempty"`         // OCSPResponseCache is the state of the OCSP cache
+	SlowConsumersStats    *SlowConsumersStats    `json:"slow_consumer_stats"`               // SlowConsumersStats are statistics about all detected Slow Consumer
+	StaleConnectionStats  *StaleConnectionStats  `json:"stale_connection_stats,omitempty"`  // StaleConnectionStats are statistics about all detected Stale Connections
+	Proxies               *ProxiesOptsVarz       `json:"proxies,omitempty"`                 // Proxies hold information about network proxy devices
 }
 
 // JetStreamVarz contains basic runtime information about jetstream
@@ -1365,6 +1394,16 @@ type OCSPResponseCacheVarz struct {
 	Unknowns  int64  `json:"cached_unknown_responses,omitempty"` // Unknowns  is how many of the stored cache entries are unknown responses
 }
 
+// ProxiesOptsVarz contains proxies information
+type ProxiesOptsVarz struct {
+	Trusted []*ProxyOptsVarz `json:"trusted,omitempty"` // Trusted holds a list of trusted proxies
+}
+
+// ProxyOptsVarz contains proxy information
+type ProxyOptsVarz struct {
+	Key string `json:"key"` // Key is the public key of the proxy
+}
+
 // VarzOptions are the options passed to Varz().
 // Currently, there are no options defined.
 type VarzOptions struct{}
@@ -1375,6 +1414,14 @@ type SlowConsumersStats struct {
 	Routes   uint64 `json:"routes"`   // Routes is how many Routes were slow consumers
 	Gateways uint64 `json:"gateways"` // Gateways is how many Gateways were slow consumers
 	Leafs    uint64 `json:"leafs"`    // Leafs is how many Leafnodes were slow consumers
+}
+
+// StaleConnectionStats contains information about the stale connections from different type of connections.
+type StaleConnectionStats struct {
+	Clients  uint64 `json:"clients"`  // Clients is how many Client connections became stale connections
+	Routes   uint64 `json:"routes"`   // Routes is how many Route connections became stale connections
+	Gateways uint64 `json:"gateways"` // Gateways is how many Gateway connections became stale connections
+	Leafs    uint64 `json:"leafs"`    // Leafs is how many Leafnode connections became stale connections
 }
 
 func myUptime(d time.Duration) string {
@@ -1615,7 +1662,6 @@ func (s *Server) createVarz(pcpu float64, rss int64) *Varz {
 		MaxSubs:               opts.MaxSubs,
 		Cores:                 runtime.NumCPU(),
 		MaxProcs:              runtime.GOMAXPROCS(0),
-		Tags:                  opts.Tags,
 		TrustedOperatorsJwt:   opts.operatorJWT,
 		TrustedOperatorsClaim: opts.TrustedOperators,
 	}
@@ -1702,6 +1748,8 @@ func (s *Server) updateVarzConfigReloadableFields(v *Varz) {
 	v.WriteDeadline = opts.WriteDeadline
 	v.ConfigLoadTime = s.configTime.UTC()
 	v.ConfigDigest = opts.configDigest
+	v.Tags = opts.Tags
+	v.Metadata = opts.Metadata
 	// Update route URLs if applicable
 	if s.varzUpdateRouteURLs {
 		v.Cluster.URLs = urlsToStrings(opts.Routes)
@@ -1714,6 +1762,19 @@ func (s *Server) updateVarzConfigReloadableFields(v *Varz) {
 	v.Websocket.TLSPinnedCerts = getPinnedCertsAsSlice(opts.Websocket.TLSPinnedCerts)
 
 	v.TLSOCSPPeerVerify = s.ocspPeerVerify && v.TLSRequired && s.opts.tlsConfigOpts != nil && s.opts.tlsConfigOpts.OCSPPeerConfig != nil && s.opts.tlsConfigOpts.OCSPPeerConfig.Verify
+
+	if opts.Proxies != nil {
+		if v.Proxies == nil {
+			v.Proxies = &ProxiesOptsVarz{}
+		}
+		trusted := make([]*ProxyOptsVarz, 0, len(opts.Proxies.Trusted))
+		for _, t := range opts.Proxies.Trusted {
+			trusted = append(trusted, &ProxyOptsVarz{Key: t.Key})
+		}
+		v.Proxies.Trusted = trusted
+	} else {
+		v.Proxies = nil
+	}
 }
 
 func getPinnedCertsAsSlice(certs PinnedCertSet) []string {
@@ -1752,11 +1813,19 @@ func (s *Server) updateVarzRuntimeFields(v *Varz, forceUpdate bool, pcpu float64
 	v.OutMsgs = atomic.LoadInt64(&s.outMsgs)
 	v.OutBytes = atomic.LoadInt64(&s.outBytes)
 	v.SlowConsumers = atomic.LoadInt64(&s.slowConsumers)
+	v.StalledClients = atomic.LoadInt64(&s.stalls)
 	v.SlowConsumersStats = &SlowConsumersStats{
 		Clients:  s.NumSlowConsumersClients(),
 		Routes:   s.NumSlowConsumersRoutes(),
 		Gateways: s.NumSlowConsumersGateways(),
 		Leafs:    s.NumSlowConsumersLeafs(),
+	}
+	v.StaleConnections = atomic.LoadInt64(&s.staleConnections)
+	v.StaleConnectionStats = &StaleConnectionStats{
+		Clients:  s.NumStaleConnectionsClients(),
+		Routes:   s.NumStaleConnectionsRoutes(),
+		Gateways: s.NumStaleConnectionsGateways(),
+		Leafs:    s.NumStaleConnectionsLeafs(),
 	}
 	v.PinnedAccountFail = atomic.LoadUint64(&s.pinnedAccFail)
 
@@ -2248,20 +2317,22 @@ type LeafzOptions struct {
 
 // LeafInfo has detailed information on each remote leafnode connection.
 type LeafInfo struct {
-	ID          uint64   `json:"id"`
-	Name        string   `json:"name"`
-	IsSpoke     bool     `json:"is_spoke"`
-	Account     string   `json:"account"`
-	IP          string   `json:"ip"`
-	Port        int      `json:"port"`
-	RTT         string   `json:"rtt,omitempty"`
-	InMsgs      int64    `json:"in_msgs"`
-	OutMsgs     int64    `json:"out_msgs"`
-	InBytes     int64    `json:"in_bytes"`
-	OutBytes    int64    `json:"out_bytes"`
-	NumSubs     uint32   `json:"subscriptions"`
-	Subs        []string `json:"subscriptions_list,omitempty"`
-	Compression string   `json:"compression,omitempty"`
+	ID          uint64     `json:"id"`
+	Name        string     `json:"name"`
+	IsSpoke     bool       `json:"is_spoke"`
+	IsIsolated  bool       `json:"is_isolated,omitempty"`
+	Account     string     `json:"account"`
+	IP          string     `json:"ip"`
+	Port        int        `json:"port"`
+	RTT         string     `json:"rtt,omitempty"`
+	InMsgs      int64      `json:"in_msgs"`
+	OutMsgs     int64      `json:"out_msgs"`
+	InBytes     int64      `json:"in_bytes"`
+	OutBytes    int64      `json:"out_bytes"`
+	NumSubs     uint32     `json:"subscriptions"`
+	Subs        []string   `json:"subscriptions_list,omitempty"`
+	Compression string     `json:"compression,omitempty"`
+	Proxy       *ProxyInfo `json:"proxy,omitempty"`
 }
 
 // Leafz returns a Leafz structure containing information about leafnodes.
@@ -2294,6 +2365,7 @@ func (s *Server) Leafz(opts *LeafzOptions) (*Leafz, error) {
 				ID:          ln.cid,
 				Name:        ln.leaf.remoteServer,
 				IsSpoke:     ln.isSpokeLeafNode(),
+				IsIsolated:  ln.leaf.isolated,
 				Account:     ln.acc.Name,
 				IP:          ln.host,
 				Port:        int(ln.port),
@@ -2304,6 +2376,7 @@ func (s *Server) Leafz(opts *LeafzOptions) (*Leafz, error) {
 				OutBytes:    ln.outBytes,
 				NumSubs:     uint32(len(ln.subs)),
 				Compression: ln.leaf.compression,
+				Proxy:       createProxyInfo(ln),
 			}
 			if opts != nil && opts.Subscriptions {
 				lni.Subs = make([]string, 0, len(ln.subs))
@@ -2373,7 +2446,7 @@ func (s *Server) AccountStatz(opts *AccountStatzOptions) (*AccountStatz, error) 
 		s.accounts.Range(func(key, a any) bool {
 			acc := a.(*Account)
 			acc.mu.RLock()
-			if opts.IncludeUnused || acc.numLocalConnections() != 0 {
+			if (opts != nil && opts.IncludeUnused) || acc.numLocalConnections() != 0 {
 				stz.Accounts = append(stz.Accounts, acc.statz())
 			}
 			acc.mu.RUnlock()
@@ -2516,6 +2589,10 @@ func (reason ClosedState) String() string {
 		return "Cluster Names Identical"
 	case Kicked:
 		return "Kicked"
+	case ProxyNotTrusted:
+		return "Proxy Not Trusted"
+	case ProxyRequired:
+		return "Proxy Required"
 	}
 
 	return "Unknown State"
