@@ -2828,7 +2828,17 @@ class GraphContext implements Context {
 			__METHOD__ . " cannot create new user '$user' by user '$byUser'.\nResponse:" .
 			json_encode($this->featureContext->getJsonDecodedResponse($response))
 		);
-		$this->featureContext->addUserToCreatedUsersList($user, $this->featureContext->getPasswordForUser($user));
+		$responseBody = (string) $response->getBody();
+		$responseData = \json_decode($responseBody, true, 512, JSON_THROW_ON_ERROR);
+		if ($response->getStatusCode() === 201) {
+			$this->featureContext->addUserToCreatedUsersList(
+				$user,
+				$this->featureContext->getPasswordForUser($user),
+				'',
+				'',
+				$responseData['id']
+			);
+		}
 	}
 
 	/**
