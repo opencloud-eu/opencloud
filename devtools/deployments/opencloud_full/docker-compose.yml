@@ -31,6 +31,7 @@ services:
       - "--accessLog=true"
       - "--accessLog.format=json"
       - "--accessLog.fields.headers.names.X-Request-Id=keep"
+      - "--accessLog.fields.headers.names.Trace-Id=keep"
     ports:
       - "80:80"
       - "443:443"
