@@ -22,7 +22,7 @@ node_modules:
 
 .PHONY: swagger.yml
 swagger.yml:	apidoc.yml tsnode
-	swagger generate spec --include='groupware' --include='jmap' --scan-models --input=$< | NODE_OPTIONS='--no-warnings' pnpm exec ts-node apidoc-process.ts > $@
+	swagger generate spec --include='groupware' --include='jmap' --include='jscalendar' --include='jscontact' --scan-models --input=$< | NODE_OPTIONS='--no-warnings' pnpm exec ts-node apidoc-process.ts > $@
 
 APIDOC_PORT=9999
 
