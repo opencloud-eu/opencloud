@@ -16,6 +16,8 @@ const (
 	UriParamBlobName                  = "blobname"
 	UriParamStreamId                  = "stream"
 	UriParamRole                      = "role"
+	UriParamAddressBookId             = "addressbookid"
+	UriParamCalendarId                = "calendarid"
 	QueryParamMailboxSearchName       = "name"
 	QueryParamMailboxSearchRole       = "role"
 	QueryParamMailboxSearchSubscribed = "subscribed"
@@ -88,6 +90,16 @@ func (g *Groupware) Route(r chi.Router) {
 		r.Route("/blobs", func(r chi.Router) {
 			r.Get("/{blobid}", g.GetBlobMeta)
 			r.Get("/{blobid}/{blobname}", g.DownloadBlob) // ?type=
+		})
+		r.Route("/addressbooks", func(r chi.Router) {
+			r.Get("/", g.GetAddressbooks)
+			r.Get("/{addressbookid}", g.GetAddressbook)
+			r.Get("/{addressbookid}/contacts", g.GetContactsInAddressbook)
+		})
+		r.Route("/calendars", func(r chi.Router) {
+			r.Get("/", g.GetCalendars)
+			r.Get("/{calendarid}", g.GetCalendarById)
+			r.Get("/{calendarid}/events", g.GetEventsInCalendar)
 		})
 	})
 

@@ -5,3 +5,7 @@ params:
     description: The identifier of the Mailbox to perform this operation on
   emailid:
     description: The identifier of the Email to perform this operation on
+  addressbookid:
+    description: The identifier of the AddressBook to perform this operation on
+  calendarid:
+    description: The identifier of the Calendar to perform this operation on

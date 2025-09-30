@@ -1001,7 +1001,7 @@ type RecurrenceRule struct {
 	//
 	// This is the `INTERVAL` part from iCalendar.
 	//
-	// Default: `1`
+	// Default: 1
 	Interval uint `json:"interval,omitzero"`
 
 	// This is the calendar system in which this recurrence rule operates, in lowercase.
@@ -1011,7 +1011,7 @@ type RecurrenceRule struct {
 	//
 	// This is the `RSCALE` part from iCalendar RSCALE [RFC7529], converted to lowercase.
 	//
-	// Default: `gregorian`
+	// Default: gregorian
 	//
 	// [CLDR]: https://github.com/unicode-org/cldr/blob/latest/common/bcp47/calendar.xml
 	// [RFC7529]: https://www.rfc-editor.org/rfc/rfc7529.html
@@ -1028,7 +1028,7 @@ type RecurrenceRule struct {
 	//
 	// This is the `SKIP` part from iCalendar `RSCALE` [RFC7529], converted to lowercase.
 	//
-	// Default: `omit`
+	// Default: omit
 	Skip Skip `json:"skip,omitempty"`
 
 	// This is the day on which the week is considered to start, represented as a lowercase, abbreviated,
@@ -1045,7 +1045,7 @@ type RecurrenceRule struct {
 	//
 	// This is the `WKST` part from iCalendar.
 	//
-	// Default: `mo`
+	// Default: mo
 	FirstDayOfWeek DayOfWeek `json:"firstDayOfWeek,omitempty"`
 
 	// These are days of the week on which to repeat.
@@ -1262,7 +1262,7 @@ type Participant struct {
 	// !- `client`: The calendar client will send the scheduling messages.
 	// !- `none`: No scheduling messages are to be sent to this participant.
 	//
-	// Default: `server`
+	// Default: server
 	ScheduleAgent ScheduleAgent `json:"scheduleAgent,omitempty"`
 
 	// A client may set the property on a participant to true to request that the server send a scheduling
@@ -1369,6 +1369,14 @@ type Participant struct {
 	//
 	// The property value MUST be a positive integer between 0 and 100.
 	PercentComplete uint `json:"percentComplete,omitzero"`
+
+	// This is a URI as defined by [@!RFC3986] or any other IANA-registered form for a URI.
+	//
+	// It is the same as the `CAL-ADDRESS` value of an `ATTENDEE` or `ORGANIZER` in iCalendar ([@!RFC5545]);
+	// it globally identifies a particular participant, even across different events.
+	//
+	// This is a JMAP addition to JSCalendar.
+	ScheduleId string `json:"scheduleId,omitempty"`
 }
 
 type Trigger interface {
@@ -1464,7 +1472,7 @@ type Alert struct {
 	// !- `email`: The alert should trigger an email sent out to the user, notifying them of the alert. This action is
 	// typically only appropriate for server implementations.
 	//
-	// Default: `display`
+	// Default: display
 	Action AlertAction `json:"action,omitempty"`
 }
 
@@ -1656,7 +1664,7 @@ type CommonObject struct {
 	// Descriptions of type text/html MAY contain cid URLs [RFC2392] to reference links in the calendar
 	// object by use of the cid property of the Link object.
 	//
-	// Default: `text/plain`
+	// Default: text/plain
 	DescriptionContentType string `json:"descriptionContentType,omitempty"`
 
 	// This is a map of link ids to `Link` objects, representing external resources associated with the object.
@@ -1789,7 +1797,7 @@ type Object struct {
 	//
 	// Such events are also commonly known as "all-day" events.
 	//
-	// Default: `false`
+	// Default: false
 	ShowWithoutTime bool `json:"showWithoutTime,omitzero"`
 
 	// This is a map of location ids to `Location` objects, representing locations associated with the object.
@@ -2011,7 +2019,7 @@ type Object struct {
 	// If an implementation cannot determine the user's default alerts, or none are set, it MUST process
 	// he alerts property as if `useDefaultAlerts` is set to false.
 	//
-	// Default: `false`
+	// Default: false
 	UseDefaultAlerts bool `json:"useDefaultAlerts,omitzero"`
 
 	// This is a map of alert ids to Alert objects, representing alerts/reminders to display or send
@@ -2052,6 +2060,44 @@ type Object struct {
 	//
 	// If omitted, this MUST be presumed to be `null` (i.e., floating time).
 	TimeZone string `json:"timeZone,omitempty"`
+
+	// If true, any user may add themselves to the event as a participant with the
+	// `attendee` role.
+	//
+	// This property MUST NOT be altered in the `recurrenceOverrides`; it may only be set on the base object.
+	//
+	// This indicates the event will accept "party crasher" RSVPs via iTIP, subject to any
+	// other domain-specific restrictions, and users may add themselves to the event via JMAP as
+	// long as they have the mayRSVP permission for the calendar.
+	//
+	// This is a JMAP addition to JSCalendar.
+	//
+	// default: false
+	MayInviteSelf bool `json:"mayInviteSelf,omitzero"`
+
+	// If true, any current participant with the `attendee` role may add new participants with the
+	// `attendee` role to the event.
+	//
+	// This property MUST NOT be altered in the `recurrenceOverrides`; it may only be set on the base object.
+	//
+	// The `mayRSVP` permission for the calendar is also required in conjunction with this event property
+	// for users to be allowed to make this change via JMAP.
+	//
+	// This is a JMAP addition to JSCalendar.
+	//
+	// default: false
+	MayInviteOthers bool `json:"mayInviteOthers,omitzero"`
+
+	// If true, only the owners of the event may see the full set of participants.
+	//
+	// Other sharees of the event may only see the owners and themselves.
+	//
+	// This property MUST NOT be altered in the `recurrenceOverrides`; it may only be set on the base object.
+	//
+	// This is a JMAP addition to JSCalendar.
+	//
+	// default: false
+	HideAttendees bool `json:"hideAttendees,omitzero"`
 }
 
 type Event struct {

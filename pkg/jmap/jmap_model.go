@@ -3,7 +3,14 @@ package jmap
 import (
 	"io"
 	"time"
+
+	"github.com/opencloud-eu/opencloud/pkg/jscalendar"
 )
+
+// TODO
+type UTCDate struct {
+	time.Time
+}
 
 const (
 	JmapCore             = "urn:ietf:params:jmap:core"
@@ -49,6 +56,30 @@ var (
 		JmapMailboxRoleDrafts,
 		JmapMailboxRoleJunk,
 		JmapMailboxRoleTrash,
+	}
+)
+
+// Should the calendar’s events be used as part of availability calculation?
+//
+// This MUST be one of:
+// !- `all“: all events are considered.
+// !- `attending“: events the user is a confirmed or tentative participant of are considered.
+// !- `none“: all events are ignored (but may be considered if also in another calendar).
+//
+// This should default to “all” for the calendars in the user’s own account, and “none” for calendars shared with the user.
+type IncludeInAvailability string
+
+const (
+	IncludeInAvailabilityAll       = IncludeInAvailability("all")
+	IncludeInAvailabilityAttending = IncludeInAvailability("attending")
+	IncludeInAvailabilityNone      = IncludeInAvailability("none")
+)
+
+var (
+	IncludeInAvailabilities = []IncludeInAvailability{
+		IncludeInAvailabilityAll,
+		IncludeInAvailabilityAttending,
+		IncludeInAvailabilityNone,
 	}
 )
 
@@ -2906,6 +2937,244 @@ type AddressBook struct {
 
 	// The set of access rights the user has in relation to this AddressBook (server-set).
 	MyRights AddressBookRights `json:"myRights"`
+}
+
+type CalendarRights struct {
+	// The user may read the free-busy information for this calendar.
+	MayReadFreeBusy bool `json:"mayReadFreeBusy"`
+
+	// The user may fetch the events in this calendar.
+	MayReadItems bool `json:"mayReadItems"`
+
+	// The user may create, modify or destroy all events in this calendar, or move events
+	// to or from this calendar.
+	//
+	// If this is `true`, the `mayWriteOwn`, `mayUpdatePrivate` and `mayRSVP`
+	// properties MUST all also be `true`.
+	MayWriteAll bool `json:"mayWriteAll"`
+
+	// The user may create, modify or destroy an event on this calendar if either they are
+	// the owner of the event or the event has no owner.
+	//
+	// This means the user may also transfer ownership by updating an event so they are no longer an owner.
+	MayWriteOwn bool `json:"mayWriteOwn"`
+
+	// The user may modify per-user properties on all events in the calendar, even if they would
+	// not otherwise have permission to modify that event.
+	//
+	// These properties MUST all be stored per-user, and changes do not affect any other user of the calendar.
+	//
+	// The user may also modify these properties on a per-occurrence basis for recurring events
+	// (updating the `recurrenceOverrides` property of the event to do so).
+	MayUpdatePrivate bool `json:"mayUpdatePrivate"`
+
+	// The user may modify the following properties of any `Participant` object that corresponds
+	// to one of the user's `ParticipantIdentity` objects in the account, even if they would not
+	// otherwise have permission to modify that event.
+	//
+	// !- `participationStatus`
+	// !- `participationComment`
+	// !- `expectReply`
+	// !- `scheduleAgent`
+	// !- `scheduleSequence`
+	// !- `scheduleUpdated`
+	//
+	// If the event has its `mayInviteSelf` property set to `true`, then the user may also add a
+	// new `Participant` to the event with `scheduleId`/`sendTo` properties that are the same as
+	// the `scheduleId`/`sendTo` properties of one of the user's `ParticipantIdentity` objects in
+	// the account.
+	//
+	// The `roles` property of the participant MUST only contain `attendee`.
+	//
+	// If the event has its `mayInviteOthers` property set to `true` and there is an existing
+	// `Participant` in the event corresponding to one of the user's `ParticipantIdentity` objects
+	// in the account, then the user may also add new participants.
+	//
+	// The `roles` property of any new participant MUST only contain `attendee`.
+	//
+	// The user may also do all of the above on a per-occurrence basis for recurring events
+	// (updating the recurrenceOverrides property of the event to do so).
+	MayRSVP bool `json:"mayRSVP"`
+
+	// The user may modify the `shareWith` property for this calendar.
+	MayAdmin bool `json:"mayAdmin"`
+
+	// The user may delete the calendar itself.
+	MayDelete bool `json:"mayDelete"`
+}
+
+// A Calendar is a named collection of events.
+//
+// All events are associated with at least one calendar.
+//
+// The user is an owner for an event if the `CalendarEvent` object has a `participants`
+// property, and one of the `Participant` objects both:
+// 1. Has the `owner` role.
+// 2. Corresponds to one of the user's `ParticipantIdentity` objects in the account.
+//
+// An event has no owner if its `participants` property is null or omitted, or if none
+// of the `Participant` objects have the `owner` role.
+type Calendar struct {
+	// The id of the calendar (immutable; server-set).
+	Id string `json:"id"`
+
+	// The user-visible name of the calendar.
+	//
+	// This may be any UTF-8 string of at least 1 character in length and maximum 255 octets in size.
+	Name string `json:"name"`
+
+	// An optional longer-form description of the calendar, to provide context in shared environments
+	// where users need more than just the name.
+	Description string `json:"description,omitempty"`
+
+	// A color to be used when displaying events associated with the calendar.
+	//
+	// If not null, the value MUST be a case-insensitive color name taken from the set of names
+	// defined in Section 4.3 of CSS Color Module Level 3 COLORS, or an RGB value in hexadecimal
+	// notation, as defined in Section 4.2.1 of CSS Color Module Level 3.
+	//
+	// The color SHOULD have sufficient contrast to be used as text on a white background.
+	Color string `json:"color,omitempty"`
+
+	// Defines the sort order of calendars when presented in the client’s UI, so it is consistent
+	// between devices.
+	//
+	// The number MUST be an integer in the range 0 <= sortOrder < 2^31.
+	//
+	// A calendar with a lower order should be displayed before a calendar with a higher order in any
+	// list of calendars in the client’s UI.
+	//
+	// Calendars with equal order SHOULD be sorted in alphabetical order by name.
+	//
+	// The sorting should take into account locale-specific character order convention.
+	SortOrder uint `json:"sortOrder,omitzero"`
+
+	// True if the user has indicated they wish to see this Calendar in their client.
+	//
+	// This SHOULD default to `false` for Calendars in shared accounts the user has access to and `true`
+	// for any new Calendars created by the user themself.
+	//
+	// If false, the calendar SHOULD only be displayed when the user explicitly requests it or to offer
+	// it for the user to subscribe to.
+	//
+	// For example, a company may have a large number of shared calendars which all employees have
+	// permission to access, but you would only subscribe to the ones you care about and want to be able
+	// to have normally accessible.
+	IsSubscribed bool `json:"isSubscribed"`
+
+	// Should the calendar’s events be displayed to the user at the moment?
+	//
+	// Clients MUST ignore this property if `isSubscribed` is false.
+	//
+	// If an event is in multiple calendars, it should be displayed if `isVisible` is `true`
+	// for any of those calendars.
+	//
+	// default: true
+	IsVisible bool `json:"isVisible"`
+
+	// This SHOULD be true for exactly one calendar in any account, and MUST NOT be true for more
+	// than one calendar within an account (server-set).
+	//
+	// The default calendar should be used by clients whenever they need to choose a calendar
+	// for the user within this account, and they do not have any other information on which to make
+	// a choice.
+	//
+	// For example, if the user creates a new event, the client may automatically set the event as
+	// belonging to the default calendar from the user’s primary account.
+	IsDefault bool `json:"isDefault,omitzero"`
+
+	// Should the calendar’s events be used as part of availability calculation?
+	//
+	// This MUST be one of:
+	// !- `all``: all events are considered.
+	// !- `attending``: events the user is a confirmed or tentative participant of are considered.
+	// !- `none``: all events are ignored (but may be considered if also in another calendar).
+	//
+	// This should default to “all” for the calendars in the user’s own account, and “none” for calendars shared with the user.
+	IncludeInAvailability IncludeInAvailability `json:"includeInAvailability,omitempty"`
+
+	// A map of alert ids to Alert objects (see [@!RFC8984], Section 4.5.2) to apply for events
+	// where `showWithoutTime` is `false` and `useDefaultAlerts` is `true`.
+	//
+	// Ids MUST be unique across all default alerts in the account, including those in other
+	// calendars; a UUID is recommended.
+
+	// If omitted on creation, the default is server dependent.
+	//
+	// For example, servers may choose to always default to null, or may copy the alerts from the default calendar.
+	DefaultAlertsWithTime map[string]jscalendar.Alert `json:"defaultAlertsWithTime,omitempty"`
+
+	// A map of alert ids to Alert objects (see [@!RFC8984], Section 4.5.2) to apply for events where
+	// `showWithoutTime` is `true` and `useDefaultAlerts` is `true`.
+	//
+	// Ids MUST be unique across all default alerts in the account, including those in other
+	// calendars; a UUID is recommended.
+	//
+	// If omitted on creation, the default is server dependent.
+	//
+	// For example, servers may choose to always default to null, or may copy the alerts from the default calendar.
+	DefaultAlertsWithoutTime map[string]jscalendar.Alert `json:"defaultAlertsWithoutTime,omitempty"`
+
+	// The time zone to use for events without a time zone when the server needs to resolve them into
+	// absolute time, e.g., for alerts or availability calculation.
+	//
+	// The value MUST be a time zone id from the IANA Time Zone Database TZDB.
+	//
+	// If null, the `timeZone` of the account’s associated `Principal` will be used.
+	//
+	// Clients SHOULD use this as the default for new events in this calendar if set.
+	TimeZone string `json:"timeZone,omitempty"`
+
+	// A map of `Principal` id to rights for principals this calendar is shared with.
+	//
+	// The principal to which this calendar belongs MUST NOT be in this set.
+	//
+	// This is null if the calendar is not shared with anyone.
+	//
+	// May be modified only if the user has the `mayAdmin` right.
+	//
+	// The account id for the principals may be found in the `urn:ietf:params:jmap:principals:owner`
+	// capability of the `Account` to which the calendar belongs.
+	ShareWith map[string]CalendarRights `json:"shareWith,omitempty"`
+
+	// The set of access rights the user has in relation to this Calendar.
+	//
+	// If any event is in multiple calendars, the user has the following rights:
+	// !- The user may fetch the event if they have the mayReadItems right on any calendar the event is in.
+	// !- The user may remove an event from a calendar (by modifying the event’s “calendarIds” property) if the user
+	// has the appropriate permission for that calendar.
+	// !- The user may make other changes to the event if they have the right to do so in all calendars to which the
+	// event belongs.
+	MyRights *CalendarRights `json:"myRights,omitempty"`
+}
+
+// A CalendarEvent object contains information about an event, or recurring series of events,
+// that takes place at a particular time.
+//
+// It is a JSCalendar Event object, as defined in [@!RFC8984], with additional properties.
+type CalendarEvent struct {
+
+	// The id of the CalendarEvent (immutable; server-set).
+	//
+	// The id uniquely identifies a JSCalendar Event with a particular `uid` and
+	// `recurrenceId` within a particular account.
+	Id string `json:"id"`
+
+	baseEventId string
+
+	calendarIds map[string]bool
+
+	isDraft bool
+
+	isOrigin bool
+
+	utcStart UTCDate
+
+	utcEnd UTCDate
+
+	// TODO https://jmap.io/spec-calendars.html#calendar-events
+
+	jscalendar.Event
 }
 
 type ErrorResponse struct {
