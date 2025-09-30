@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 
+	"github.com/nats-io/nats.go"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
@@ -22,6 +23,7 @@ type Options struct {
 	Flags         []cli.Flag
 	Namespace     string
 	TraceProvider trace.TracerProvider
+	NatsKeyValue  nats.KeyValue
 }
 
 // newOptions initializes the available default options.
@@ -81,5 +83,12 @@ func Namespace(val string) Option {
 func TraceProvider(val trace.TracerProvider) Option {
 	return func(o *Options) {
 		o.TraceProvider = val
+	}
+}
+
+// NatsKeyValue provides a function to set the NatsKeyValue option.
+func NatsKeyValue(val nats.KeyValue) Option {
+	return func(o *Options) {
+		o.NatsKeyValue = val
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/signal"
 
+	"github.com/nats-io/nats.go"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
@@ -44,6 +45,28 @@ func Server(cfg *config.Config) *cli.Command {
 			mtrcs := metrics.New()
 			mtrcs.BuildInfo.WithLabelValues(version.GetString()).Set(1)
 
+			//Connect to NATS servers
+			natsOptions := nats.Options{
+				Servers: cfg.Store.Nodes,
+			}
+			conn, err := natsOptions.Connect()
+			if err != nil {
+				return err
+			}
+
+			js, err := conn.JetStream()
+			if err != nil {
+				return err
+			}
+
+			kv, err := js.KeyValue(cfg.Store.Database)
+			if err != nil {
+				return err
+			}
+			if err != nil {
+				return err
+			}
+
 			gr := runner.NewGroup()
 			{
 				server, err := http.Server(
@@ -52,6 +75,7 @@ func Server(cfg *config.Config) *cli.Command {
 					http.Config(cfg),
 					http.Metrics(mtrcs),
 					http.TraceProvider(traceProvider),
+					http.NatsKeyValue(kv),
 				)
 				if err != nil {
 					logger.Error().Err(err).Str("transport", "http").Msg("Failed to initialize server")
