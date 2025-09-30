@@ -10,6 +10,13 @@
 
 - feat: add dedicated logo (web) for mobile view to theme followup [[#1581](https://github.com/opencloud-eu/opencloud/pull/1581)]
 
+### ✅ Tests
+
+- [full-ci] Enhance getSpaceByName: check local cache before Graph API calls [[#1574](https://github.com/opencloud-eu/opencloud/pull/1574)]
+- [full-ci] getting personal space by userId instead of userName [[#1553](https://github.com/opencloud-eu/opencloud/pull/1553)]
+- apiTest-flaky: sync share before checking [[#1550](https://github.com/opencloud-eu/opencloud/pull/1550)]
+- [decomposed] use Alpine for opencloud starting [[#1547](https://github.com/opencloud-eu/opencloud/pull/1547)]
+
 ### 🐛 Bug Fixes
 
 - fix: use valid autocomplete values (axe autocomplete-valid) [[#1588](https://github.com/opencloud-eu/opencloud/pull/1588)]
@@ -29,14 +36,9 @@
 
 - fix: remove deprecated web ui feature "OpenAppsInTab" [[#1575](https://github.com/opencloud-eu/opencloud/pull/1575)]
 
-### ✅ Tests
-
-- [full-ci] getting personal space by userId instead of userName [[#1553](https://github.com/opencloud-eu/opencloud/pull/1553)]
-- apiTest-flaky: sync share before checking [[#1550](https://github.com/opencloud-eu/opencloud/pull/1550)]
-- [decomposed] use Alpine for opencloud starting [[#1547](https://github.com/opencloud-eu/opencloud/pull/1547)]
-
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/olekukonko/tablewriter from 1.0.9 to 1.1.0 [[#1584](https://github.com/opencloud-eu/opencloud/pull/1584)]
 - build(deps): bump github.com/open-policy-agent/opa from 1.8.0 to 1.9.0 [[#1576](https://github.com/opencloud-eu/opencloud/pull/1576)]
 - build(deps): bump github.com/nats-io/nats-server/v2 from 2.11.9 to 2.12.0 [[#1568](https://github.com/opencloud-eu/opencloud/pull/1568)]
 - build(deps): bump golang.org/x/net from 0.43.0 to 0.44.0 [[#1567](https://github.com/opencloud-eu/opencloud/pull/1567)]
