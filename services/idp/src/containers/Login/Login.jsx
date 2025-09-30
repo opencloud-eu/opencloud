@@ -147,7 +147,7 @@ function Login(props) {
           spellCheck="false"
           value={username}
           onChange={handleChange("username")}
-          autoComplete="kopano-account username"
+          autoComplete="username"
           placeholder={t("konnect.login.usernameField.label", "Username")}
           label={t("konnect.login.usernameField.label", "Username")}
           id="oc-login-username"
@@ -157,7 +157,7 @@ function Login(props) {
           type="password"
           margin="normal"
           onChange={handleChange("password")}
-          autoComplete="kopano-account current-password"
+          autoComplete="current-password"
           placeholder={t("konnect.login.passwordField.label", "Password")}
           label={t("konnect.login.passwordField.label", "Password")}
           id="oc-login-password"
