@@ -194,7 +194,7 @@ class SpacesContext implements Context {
 		}
 		// If the space is not found in the getCreatedSpace() and it's not personal — call API to list available spaces
 		// Admin: GET /graph/v1.0/drives
-		// Regular user: GET /graph/v1.0/users/{userId}/drives
+		// Regular user: GET /graph/v1.0/me/drives
 		if (strtolower($user) === 'admin') {
 			$listSpacesFn = 'listAllAvailableSpaces';
 		} else {
