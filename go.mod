@@ -18,7 +18,6 @@ require (
 	github.com/davidbyttow/govips/v2 v2.16.0
 	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
 	github.com/dutchcoders/go-clamd v0.0.0-20170520113014-b970184f4d9e
-	github.com/egirna/icap-client v0.1.1
 	github.com/gabriel-vasile/mimetype v1.4.10
 	github.com/ggwhite/go-masker v1.1.0
 	github.com/go-chi/chi/v5 v5.2.3
@@ -64,6 +63,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.25.3
 	github.com/onsi/gomega v1.38.2
 	github.com/open-policy-agent/opa v1.9.0
+	github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89
 	github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76
 	github.com/opencloud-eu/reva/v2 v2.38.1-0.20250924125540-eaa2437c36b2
 	github.com/opensearch-project/opensearch-go/v4 v4.5.0
@@ -389,8 +389,6 @@ require (
 )
 
 replace github.com/studio-b12/gowebdav => github.com/kobergj/gowebdav v0.0.0-20250102091030-aa65266db202
-
-replace github.com/egirna/icap-client => github.com/fschade/icap-client v0.0.0-20240802074440-aade4a234387
 
 replace github.com/unrolled/secure => github.com/DeepDiver1975/secure v0.0.0-20240611112133-abc838fb797c
 

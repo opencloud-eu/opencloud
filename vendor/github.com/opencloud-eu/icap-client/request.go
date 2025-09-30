@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-// Request represents the icap client request data
+// Request represents the icap client request data.
 type Request struct {
 	Method                string
 	URL                   *url.URL
@@ -32,7 +32,6 @@ type Request struct {
 // todo: method iota
 func NewRequest(ctx context.Context, method, urlStr string, httpReq *http.Request, httpResp *http.Response) (Request, error) {
 	u, err := url.Parse(urlStr)
-
 	if err != nil {
 		return Request{}, err
 	}
@@ -128,8 +127,7 @@ func (r *Request) SetPreview(maxBytes int) (err error) {
 	return err
 }
 
-// setDefaultRequestHeaders is called by the client before sending the request
-// to the ICAP server to ensure all required headers are set
+// to the ICAP server to ensure all required headers are set.
 func (r *Request) setDefaultRequestHeaders() {
 	if _, exists := r.Header["Allow"]; !exists {
 		r.Header.Add("Allow", "204") // assigning 204 by default if Allow not provided
@@ -141,10 +139,9 @@ func (r *Request) setDefaultRequestHeaders() {
 	}
 }
 
-// extendHeader extends the current ICAP Request header with a new header
+// extendHeader extends the current ICAP Request header with a new header.
 func (r *Request) extendHeader(hdr http.Header) error {
 	for header, values := range hdr {
-
 		if header == previewHeader && r.previewSet {
 			continue
 		}
@@ -174,7 +171,7 @@ func (r *Request) extendHeader(hdr http.Header) error {
 	return nil
 }
 
-// validate checks if the ICAP request is valid or not
+// validate checks if the ICAP request is valid or not.
 func (r *Request) validate() error {
 	var err error
 

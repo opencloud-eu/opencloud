@@ -97,7 +97,6 @@ func respmodHandler(w icap.ResponseWriter, req *icap.Request) {
 		}
 
 		w.WriteHeader(status, nil, false)
-
 	}
 }
 
@@ -134,7 +133,6 @@ func reqmodHandler(w icap.ResponseWriter, req *icap.Request) {
 		}
 
 		w.WriteHeader(status, nil, false)
-
 	}
 }
 

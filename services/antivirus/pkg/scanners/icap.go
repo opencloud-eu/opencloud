@@ -11,7 +11,7 @@ import (
 
 	"github.com/opencloud-eu/reva/v2/pkg/mime"
 
-	ic "github.com/egirna/icap-client"
+	ic "github.com/opencloud-eu/icap-client"
 )
 
 // Scanner is the interface that wraps the basic Do method

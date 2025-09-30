@@ -345,8 +345,6 @@ github.com/fortytw2/leaktest v1.3.0 h1:u8491cBMTQ8ft8aeV+adlcytMZylmA5nnwwkRZjI8
 github.com/fortytw2/leaktest v1.3.0/go.mod h1:jDsjWgpAGjm2CA7WthBh/CdZYEPF31XHquHwclZch5g=
 github.com/foxcpp/go-mockdns v1.1.0 h1:jI0rD8M0wuYAxL7r/ynTrCQQq0BVqfB99Vgk7DlmewI=
 github.com/foxcpp/go-mockdns v1.1.0/go.mod h1:IhLeSFGed3mJIAXPH2aiRQB+kqz7oqu8ld2qVbOu7Wk=
-github.com/fschade/icap-client v0.0.0-20240802074440-aade4a234387 h1:Y3wZgTr29sLxWSMz4KF91o0x87EaJF6FIPNJFepRIiw=
-github.com/fschade/icap-client v0.0.0-20240802074440-aade4a234387/go.mod h1:HpntrRsQA6RKNXy2Nbr4kVj+NO3OYWpAQUVxeya+3sU=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/fsnotify/fsnotify v1.4.9/go.mod h1:znqG4EE+3YCdAaPaxE2ZRY/06pZUdp0tY4IgpuI1SZQ=
 github.com/fsnotify/fsnotify v1.9.0 h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=
@@ -932,6 +930,8 @@ github.com/open-policy-agent/opa v1.9.0 h1:QWFNwbcc29IRy0xwD3hRrMc/RtSersLY1Z6Ta
 github.com/open-policy-agent/opa v1.9.0/go.mod h1:72+lKmTda0O48m1VKAxxYl7MjP/EWFZu9fxHQK2xihs=
 github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a h1:Sakl76blJAaM6NxylVkgSzktjo2dS504iDotEFJsh3M=
 github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a/go.mod h1:pjcozWijkNPbEtX5SIQaxEW/h8VAVZYTLx+70bmB3LY=
+github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89 h1:W1ms+lP5lUUIzjRGDg93WrQfZJZCaV1ZP3KeyXi8bzY=
+github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89/go.mod h1:vigJkNss1N2QEceCuNw/ullDehncuJNFB6mEnzfq9UI=
 github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76 h1:vD/EdfDUrv4omSFjrinT8Mvf+8D7f9g4vgQ2oiDrVUI=
 github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76/go.mod h1:pzatilMEHZFT3qV7C/X3MqOa3NlRQuYhlRhZTL+hN6Q=
 github.com/opencloud-eu/reva/v2 v2.38.1-0.20250924125540-eaa2437c36b2 h1:e3B6KbWMjloKpqoTwTwvBLoCETRyyCDkQsqwRQMUdxc=

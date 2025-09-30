@@ -8,49 +8,43 @@ import (
 	"strings"
 )
 
-// Client represents the icap client who makes the icap server calls
+// Client represents the ICAP client who makes the ICAP server calls.
 type Client struct {
-	conn Conn
+	config Config // Store config for connection parameters
 }
 
-// NewClient creates a new icap client
+// NewClient creates a new ICAP client (no persistent connection).
 func NewClient(options ...ConfigOption) (Client, error) {
 	config := DefaultConfig()
 	for _, option := range options {
 		option(&config)
 	}
-
-	conn, err := NewICAPConn(config.ICAPConn)
-	if err != nil {
-		return Client{}, err
-	}
-
-	return Client{
-		conn: conn,
-	}, nil
+	return Client{config: config}, nil
 }
 
-// Do is the main function of the client that makes the ICAP request
-func (c *Client) Do(req Request) (res Response, err error) {
-	// establish connection to the icap server
-	err = c.conn.Connect(req.ctx, req.URL.Host)
+// Do make the ICAP request, creating and dropping a connection each time.
+func (c Client) Do(req Request) (res Response, err error) {
+	conn, err := NewICAPConn(c.config.ICAPConn)
 	if err != nil {
 		return Response{}, err
 	}
+
+	if err := conn.Connect(req.ctx, req.URL.Host); err != nil {
+		return Response{}, err
+	}
 	defer func() {
-		err = errors.Join(err, c.conn.Close())
+		err = errors.Join(err, conn.Close())
 	}()
 
 	req.setDefaultRequestHeaders()
 
-	// convert the request to icap message
 	message, err := toICAPRequest(req)
 	if err != nil {
 		return Response{}, err
 	}
 
-	// send the icap message to the server
-	dataRes, err := c.conn.Send(message)
+	// send the ICAP message to the server
+	dataRes, err := conn.Send(message)
 	if err != nil {
 		return Response{}, err
 	}
@@ -60,25 +54,25 @@ func (c *Client) Do(req Request) (res Response, err error) {
 		return Response{}, err
 	}
 
-	// check if the message is fully done scanning or if it needs to be sent another chunk
+	// check if the message is fully done scanning or if it needs to be sent another chunk.
 	done := !(res.StatusCode == http.StatusContinue && !req.bodyFittedInPreview && req.previewSet)
 	if done {
 		return res, nil
 	}
 
-	// get the remaining body bytes
+	// get the remaining body bytes.
 	data := req.remainingPreviewBytes
 	if !bodyIsChunked(string(data)) {
 		data = []byte(addHexBodyByteNotations(string(data)))
 	}
 
-	// hydrate the icap message with closing doubleCRLF suffix
+	// hydrate the ICAP message with closing doubleCRLF suffix.
 	if !bytes.HasSuffix(data, []byte(doubleCRLF)) {
 		data = append(data, []byte(crlf)...)
 	}
 
-	// send the remaining body bytes to the server
-	dataRes, err = c.conn.Send(data)
+	// send the remaining body bytes to the server.
+	dataRes, err = conn.Send(data)
 	if err != nil {
 		return Response{}, err
 	}

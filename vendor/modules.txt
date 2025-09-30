@@ -419,9 +419,6 @@ github.com/ebitengine/purego/internal/strings
 # github.com/egirna/icap v0.0.0-20181108071049-d5ee18bd70bc
 ## explicit
 github.com/egirna/icap
-# github.com/egirna/icap-client v0.1.1 => github.com/fschade/icap-client v0.0.0-20240802074440-aade4a234387
-## explicit; go 1.21
-github.com/egirna/icap-client
 # github.com/emirpasic/gods v1.18.1
 ## explicit; go 1.2
 github.com/emirpasic/gods/containers
@@ -1324,6 +1321,9 @@ github.com/open-policy-agent/opa/v1/types
 github.com/open-policy-agent/opa/v1/util
 github.com/open-policy-agent/opa/v1/util/decoding
 github.com/open-policy-agent/opa/v1/version
+# github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89
+## explicit; go 1.24.6
+github.com/opencloud-eu/icap-client
 # github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76
 ## explicit; go 1.18
 github.com/opencloud-eu/libre-graph-api-go
@@ -2660,7 +2660,6 @@ sigs.k8s.io/yaml
 ## explicit; go 1.13
 stash.kopano.io/kgol/rndm
 # github.com/studio-b12/gowebdav => github.com/kobergj/gowebdav v0.0.0-20250102091030-aa65266db202
-# github.com/egirna/icap-client => github.com/fschade/icap-client v0.0.0-20240802074440-aade4a234387
 # github.com/unrolled/secure => github.com/DeepDiver1975/secure v0.0.0-20240611112133-abc838fb797c
 # go-micro.dev/v4 => github.com/butonic/go-micro/v4 v4.11.1-0.20241115112658-b5d4de5ed9b3
 # github.com/go-micro/plugins/v4/store/nats-js-kv => github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a

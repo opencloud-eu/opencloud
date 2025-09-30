@@ -13,41 +13,44 @@ import (
 	"strings"
 )
 
-// the icap request methods
+// the icap request methods.
 const (
 	MethodOPTIONS = "OPTIONS"
 	MethodRESPMOD = "RESPMOD"
 	MethodREQMOD  = "REQMOD"
 )
 
-// shared errors
+// shared errors.
 var (
-	// ErrNoContext is used when no context is provided
+	// ErrNoContext is used when no context is provided.
 	ErrNoContext = errors.New("no context provided")
 
-	// ErrInvalidScheme is used when the url scheme is not icap://
+	// ErrInvalidScheme is used when the url scheme is not icap://.
 	ErrInvalidScheme = errors.New("the url scheme must be icap://")
 
-	// ErrMethodNotAllowed is used when the method is not allowed
+	// ErrMethodNotAllowed is used when the method is not allowed.
 	ErrMethodNotAllowed = errors.New("the requested method is not registered")
 
-	// ErrInvalidHost is used when the host is invalid
+	// ErrInvalidHost is used when the host is invalid.
 	ErrInvalidHost = errors.New("the requested host is invalid")
 
-	// ErrInvalidTCPMsg is used when the tcp message is invalid
-	ErrInvalidTCPMsg = errors.New("invalid tcp message")
+	// ErrInvalidMsg is used when the tcp message is invalid.
+	ErrInvalidMsg = errors.New("invalid message")
 
-	// ErrREQMODWithoutReq is used when the request is nil for REQMOD method
+	// ErrInvalidConnection is used when the connection is invalid.
+	ErrInvalidConnection = errors.New("invalid connection")
+
+	// ErrREQMODWithoutReq is used when the request is nil for REQMOD method.
 	ErrREQMODWithoutReq = errors.New("http request cannot be nil for method REQMOD")
 
-	// ErrREQMODWithResp is used when the response is not nil for REQMOD method
+	// ErrREQMODWithResp is used when the response is not nil for REQMOD method.
 	ErrREQMODWithResp = errors.New("http response must be nil for method REQMOD")
 
-	// ErrRESPMODWithoutResp is used when the response is nil for RESPMOD method
+	// ErrRESPMODWithoutResp is used when the response is nil for RESPMOD method.
 	ErrRESPMODWithoutResp = errors.New("http response cannot be nil for method RESPMOD")
 )
 
-// general constants required for the package
+// general constants required for the package.
 const (
 	schemeICAP                      = "icap"
 	icapVersion                     = "ICAP/1.0"
@@ -63,20 +66,20 @@ const (
 	icap204NoModsMsg                = "ICAP/1.0 204 Unmodified"
 )
 
-// Common ICAP headers
+// Common ICAP headers.
 const (
 	previewHeader      = "Preview"
 	encapsulatedHeader = "Encapsulated"
 )
 
-// Conn represents the connection to the icap server
+// Conn represents the connection to the icap server.
 type Conn interface {
 	io.Closer
 	Connect(ctx context.Context, address string) error
 	Send(in []byte) ([]byte, error)
 }
 
-// Response represents the icap server response data
+// Response represents the icap server response data.
 type Response struct {
 	StatusCode      int
 	Status          string
@@ -86,10 +89,9 @@ type Response struct {
 	ContentResponse *http.Response
 }
 
-// getStatusWithCode prepares the status code and status text from two given strings
+// getStatusWithCode prepares the status code and status text from two given strings.
 func getStatusWithCode(str1, str2 string) (int, string, error) {
 	statusCode, err := strconv.Atoi(str1)
-
 	if err != nil {
 		return 0, "", err
 	}
@@ -99,7 +101,7 @@ func getStatusWithCode(str1, str2 string) (int, string, error) {
 	return statusCode, status, nil
 }
 
-// getHeaderValue parses the header and its value from a tcp message string
+// getHeaderValue parses the header and its value from a tcp message string.
 func getHeaderValue(str string) (string, string) {
 	headerValues := strings.SplitN(str, ":", 2)
 	header := headerValues[0]
@@ -109,16 +111,15 @@ func getHeaderValue(str string) (string, string) {
 	}
 
 	return header, ""
-
 }
 
-// isRequestLine determines if the tcp message string is a request line, i.e., the first line of the message or not
+// isRequestLine determines if the tcp message string is a request line, i.e., the first line of the message or not.
 func isRequestLine(str string) bool {
 	return strings.Contains(str, icapVersion) || strings.Contains(str, httpVersion)
 }
 
-// setEncapsulatedHeaderValue generates the Encapsulated values and assigns to the ICAP request string
-func setEncapsulatedHeaderValue(icapReqStr string, httpReqStr, httpRespStr string) string {
+// setEncapsulatedHeaderValue generates the Encapsulated values and assigns to the ICAP request string.
+func setEncapsulatedHeaderValue(icapReqStr, httpReqStr, httpRespStr string) string {
 	encVal := " "
 
 	if strings.HasPrefix(icapReqStr, MethodOPTIONS) {
@@ -173,15 +174,14 @@ func setEncapsulatedHeaderValue(icapReqStr string, httpReqStr, httpRespStr strin
 				encVal += fmt.Sprintf(", null-body=%d", reqEndsAt+respIndices[0][1])
 			}
 		}
-
 	}
 
 	// formatting the ICAP request Encapsulated header with the value
 	return fmt.Sprintf(icapReqStr, encVal)
 }
 
-// replaceRequestURIWithActualURL replaces just the escaped portion of the url with the entire URL in the dumped request message
-func replaceRequestURIWithActualURL(str string, uri, url string) string {
+// replaceRequestURIWithActualURL replaces just the escaped portion of the url with the entire URL in the dumped request message.
+func replaceRequestURIWithActualURL(str, uri, url string) string {
 	if uri == "" {
 		uri = "/"
 	}
@@ -189,12 +189,12 @@ func replaceRequestURIWithActualURL(str string, uri, url string) string {
 	return strings.Replace(str, uri, url, 1)
 }
 
-// addFullBodyInPreviewIndicator adds 0; ieof\r\n\r\n which indicates the entire body fitted in the preview
+// addFullBodyInPreviewIndicator adds 0; ieof\r\n\r\n which indicates the entire body fitted in the preview.
 func addFullBodyInPreviewIndicator(str string) string {
 	return strings.TrimSuffix(str, doubleCRLF) + fullBodyEndIndicatorPreviewMode
 }
 
-// splitBodyAndHeader separates header and body from a http message
+// splitBodyAndHeader separates header and body from a http message.
 func splitBodyAndHeader(str string) (string, string, bool) {
 	ss := strings.SplitN(str, doubleCRLF, 2)
 
@@ -208,7 +208,7 @@ func splitBodyAndHeader(str string) (string, string, bool) {
 	return headerStr, bodyStr, true
 }
 
-// bodyIsChunked determines if the http body is already chunked from the origin server or not
+// bodyIsChunked determines if the http body is already chunked from the origin server or not.
 func bodyIsChunked(str string) bool {
 	_, bodyStr, ok := splitBodyAndHeader(str)
 
@@ -219,7 +219,7 @@ func bodyIsChunked(str string) bool {
 	return regexp.MustCompile(`\r\n0(\r\n)+$`).MatchString(bodyStr)
 }
 
-// parsePreviewBodyBytes parses the preview portion of the body and only keeps that in the message
+// parsePreviewBodyBytes parses the preview portion of the body and only keeps that in the message.
 func parsePreviewBodyBytes(str string, pb int) string {
 	headerStr, bodyStr, ok := splitBodyAndHeader(str)
 	if !ok {
@@ -229,21 +229,17 @@ func parsePreviewBodyBytes(str string, pb int) string {
 	return headerStr + doubleCRLF + bodyStr[:pb]
 }
 
-// addHexBodyByteNotations adds the hexadecimal byte notations to the string,
-// for example, Hello World, becomes
-// b
-// Hello World
-// 0
+// 0.
 func addHexBodyByteNotations(str string) string {
 	return fmt.Sprintf("%x%s%s%s", len([]byte(str)), crlf, str, bodyEndIndicator)
 }
 
-// addHeaderAndBody merges the header and body of the http message
+// addHeaderAndBody merges the header and body of the http message.
 func addHeaderAndBody(headerStr, bodyStr string) string {
 	return headerStr + doubleCRLF + bodyStr
 }
 
-// toICAPRequest returns the given request in its ICAP/1.x wire
+// toICAPRequest returns the given request in its ICAP/1.x wire.
 func toICAPRequest(req Request) ([]byte, error) {
 	// Making the ICAP message block
 	reqStr := fmt.Sprintf("%s %s %s%s", req.Method, req.URL.String(), icapVersion, crlf)
@@ -262,7 +258,6 @@ func toICAPRequest(req Request) ([]byte, error) {
 	httpReqStr := ""
 	if req.HTTPRequest != nil {
 		b, err := httputil.DumpRequestOut(req.HTTPRequest, true)
-
 		if err != nil {
 			return nil, err
 		}
@@ -282,7 +277,6 @@ func toICAPRequest(req Request) ([]byte, error) {
 					httpReqStr = addHeaderAndBody(headerStr, bodyStr)
 				}
 			}
-
 		}
 
 		// if the HTTP Request message block doesn't end with a \r\n\r\n,
@@ -292,14 +286,12 @@ func toICAPRequest(req Request) ([]byte, error) {
 				httpReqStr += crlf
 			}
 		}
-
 	}
 
 	// build the HTTP Response message block
 	httpRespStr := ""
 	if req.HTTPResponse != nil {
 		b, err := httputil.DumpResponse(req.HTTPResponse, true)
-
 		if err != nil {
 			return nil, err
 		}
@@ -321,13 +313,12 @@ func toICAPRequest(req Request) ([]byte, error) {
 		if httpRespStr != "" && !strings.HasSuffix(httpRespStr, doubleCRLF) { // if the HTTP Response message block doesn't end with a \r\n\r\n, then going to add one by force for better calculation of byte offsets
 			httpRespStr += crlf
 		}
-
 	}
 
 	if encVal := req.Header.Get(encapsulatedHeader); encVal != "" {
 		reqStr = fmt.Sprintf(reqStr, encVal)
 	} else {
-		//populating the Encapsulated header of the ICAP message portion
+		// populating the Encapsulated header of the ICAP message portion
 		reqStr = setEncapsulatedHeaderValue(reqStr, httpReqStr, httpRespStr)
 	}
 
@@ -345,7 +336,7 @@ func toICAPRequest(req Request) ([]byte, error) {
 	return data, nil
 }
 
-// toClientResponse reads an ICAP message and returns a Response
+// toClientResponse reads an ICAP message and returns a Response.
 func toClientResponse(b *bufio.Reader) (Response, error) {
 	resp := Response{
 		Header: make(map[string][]string),
@@ -354,14 +345,13 @@ func toClientResponse(b *bufio.Reader) (Response, error) {
 	scheme := ""
 	httpMsg := ""
 	for currentMsg, err := b.ReadString('\n'); err == nil || currentMsg != ""; currentMsg, err = b.ReadString('\n') { // keep reading the buffer message which is the http response message
-
 		// if the current message line if the first line of the message portion(request line)
 		if isRequestLine(currentMsg) {
 			ss := strings.Split(currentMsg, " ")
 
 			// must contain 3 words, for example, "ICAP/1.0 200 OK" or "GET /something HTTP/1.1"
 			if len(ss) < 3 {
-				return Response{}, fmt.Errorf("%w: %s", ErrInvalidTCPMsg, currentMsg)
+				return Response{}, fmt.Errorf("%w: %s", ErrInvalidMsg, currentMsg)
 			}
 
 			// preparing the scheme below
@@ -409,7 +399,8 @@ func toClientResponse(b *bufio.Reader) (Response, error) {
 			httpMsg += strings.TrimSpace(currentMsg) + crlf
 			bufferEmpty := b.Buffered() == 0
 
-			// a crlf indicates the end of the HTTP message and the buffer check is just in case the buffer ended with one last message instead of a crlf
+			// a crlf indicates the end of the HTTP message,
+			// and the buffer check is just in case the buffer ended with one last message instead of a crlf
 			if currentMsg == crlf || bufferEmpty {
 				request, err := http.ReadRequest(bufio.NewReader(strings.NewReader(httpMsg)))
 				if err != nil {

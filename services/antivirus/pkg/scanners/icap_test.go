@@ -9,7 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	ic "github.com/egirna/icap-client"
+	ic "github.com/opencloud-eu/icap-client"
+
 	"github.com/opencloud-eu/opencloud/services/antivirus/pkg/scanners"
 	"github.com/opencloud-eu/opencloud/services/antivirus/pkg/scanners/mocks"
 )

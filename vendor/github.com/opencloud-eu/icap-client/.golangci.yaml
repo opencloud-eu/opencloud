@@ -1,0 +1,76 @@
+linters-settings:
+  gofmt:
+    simplify: true
+    rewrite-rules:
+      - pattern: interface{}
+        replacement: any
+  misspell:
+    locale: US
+  gofumpt:
+    extra-rules: true
+  forbidigo:
+    forbid:
+      - context\.WithCancel$
+      - ^print.*$
+      - panic
+      - ^log.Fatal().*$
+  errorlint:
+    errorf-multi: true
+  gci:
+    custom-order: true
+    sections:
+      - standard
+      - default
+      - prefix(github.com/opencloud-eu/woodpecker-ci-config-service)
+  godot:
+    scope: toplevel
+    period: true
+
+linters:
+  disable-all: true
+  enable:
+    - bidichk
+    - errcheck
+    - gofmt
+    - gosimple
+    - goimports
+    - govet
+    - ineffassign
+    - misspell
+    - revive
+    - staticcheck
+    - typecheck
+    - unused
+    - gofumpt
+    - errorlint
+    - forbidigo
+    - zerologlint
+    - asciicheck
+    - dogsled
+    - durationcheck
+    - errchkjson
+    - goheader
+    - gomoddirectives
+    - gomodguard
+    - goprintffuncname
+    - importas
+    - makezero
+    - rowserrcheck
+    - sqlclosecheck
+    - usetesting
+    - unconvert
+    - unparam
+    - wastedassign
+    - whitespace
+    - gocritic
+    - nolintlint
+    - stylecheck
+    - contextcheck
+    - forcetypeassert
+    - gci
+    - godot
+
+run:
+  timeout: 15m
+  build-tags:
+    - test

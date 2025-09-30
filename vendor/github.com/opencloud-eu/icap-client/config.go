@@ -4,12 +4,12 @@ import (
 	"time"
 )
 
-// Config is the shared configuration for the icap client library
+// Config is the shared configuration for the icap client library.
 type Config struct {
 	ICAPConn ICAPConnConfig
 }
 
-// DefaultConfig returns the default configuration for the icap client library
+// DefaultConfig returns the default configuration for the icap client library.
 func DefaultConfig() Config {
 	return Config{
 		ICAPConn: ICAPConnConfig{
@@ -18,10 +18,10 @@ func DefaultConfig() Config {
 	}
 }
 
-// ConfigOption is a function that configures the icap client
+// ConfigOption is a function that configures the icap client.
 type ConfigOption func(*Config)
 
-// WithICAPConnectionTimeout sets the timeout for the connection to the icap server
+// WithICAPConnectionTimeout sets the timeout for the connection to the icap server.
 func WithICAPConnectionTimeout(timeout time.Duration) ConfigOption {
 	return func(cfg *Config) {
 		if timeout <= 0 {

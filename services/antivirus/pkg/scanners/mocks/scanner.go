@@ -5,8 +5,8 @@
 package mocks
 
 import (
-	"github.com/egirna/icap-client"
-	mock "github.com/stretchr/testify/mock"
+	"github.com/opencloud-eu/icap-client"
+	"github.com/stretchr/testify/mock"
 )
 
 // NewScanner creates a new instance of Scanner. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
