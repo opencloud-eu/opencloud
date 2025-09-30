@@ -38,6 +38,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/nats-io/nats.go from 1.46.0 to 1.46.1 [[#1590](https://github.com/opencloud-eu/opencloud/pull/1590)]
 - build(deps): bump github.com/olekukonko/tablewriter from 1.0.9 to 1.1.0 [[#1584](https://github.com/opencloud-eu/opencloud/pull/1584)]
 - build(deps): bump github.com/open-policy-agent/opa from 1.8.0 to 1.9.0 [[#1576](https://github.com/opencloud-eu/opencloud/pull/1576)]
 - build(deps): bump github.com/nats-io/nats-server/v2 from 2.11.9 to 2.12.0 [[#1568](https://github.com/opencloud-eu/opencloud/pull/1568)]
