@@ -10,6 +10,14 @@
 
 - feat: add dedicated logo (web) for mobile view to theme followup [[#1581](https://github.com/opencloud-eu/opencloud/pull/1581)]
 
+### 📈 Enhancement
+
+- change: use 404 as status when thumbnail can not be fetched [[#1582](https://github.com/opencloud-eu/opencloud/pull/1582)]
+- feat: add dedicated logo (web) for mobile view to theme [[#1579](https://github.com/opencloud-eu/opencloud/pull/1579)]
+- feat: make it possible to start the collaboration service in the single process [[#1569](https://github.com/opencloud-eu/opencloud/pull/1569)]
+- introduce AppURLs helper for atomic backgroud updates [[#1542](https://github.com/opencloud-eu/opencloud/pull/1542)]
+- chore: add config for capability CheckForUpdates [[#1556](https://github.com/opencloud-eu/opencloud/pull/1556)]
+
 ### 🐛 Bug Fixes
 
 - fix(antivirus): update icap-client library which fixes tcp socket reuse [[#1589](https://github.com/opencloud-eu/opencloud/pull/1589)]
@@ -25,13 +33,6 @@
 - [full-ci] getting personal space by userId instead of userName [[#1553](https://github.com/opencloud-eu/opencloud/pull/1553)]
 - apiTest-flaky: sync share before checking [[#1550](https://github.com/opencloud-eu/opencloud/pull/1550)]
 - [decomposed] use Alpine for opencloud starting [[#1547](https://github.com/opencloud-eu/opencloud/pull/1547)]
-
-### 📈 Enhancement
-
-- feat: add dedicated logo (web) for mobile view to theme [[#1579](https://github.com/opencloud-eu/opencloud/pull/1579)]
-- feat: make it possible to start the collaboration service in the single process [[#1569](https://github.com/opencloud-eu/opencloud/pull/1569)]
-- introduce AppURLs helper for atomic backgroud updates [[#1542](https://github.com/opencloud-eu/opencloud/pull/1542)]
-- chore: add config for capability CheckForUpdates [[#1556](https://github.com/opencloud-eu/opencloud/pull/1556)]
 
 ### 📚 Documentation
 
