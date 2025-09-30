@@ -170,7 +170,7 @@ func (g Thumbnail) handleCS3Source(ctx context.Context, req *thumbnailssvc.GetTh
 	pp := preprocessor.ForType(sRes.GetInfo().GetMimeType(), ppOpts)
 	img, err := pp.Convert(r)
 	if img == nil || err != nil {
-		return "", merrors.InternalServerError(g.serviceID, "could not get image")
+		return "", merrors.NotFound(g.serviceID, "could not get image")
 	}
 
 	key, err = g.manager.Generate(tr, img)
@@ -262,7 +262,7 @@ func (g Thumbnail) handleWebdavSource(ctx context.Context, req *thumbnailssvc.Ge
 	pp := preprocessor.ForType(sRes.GetInfo().GetMimeType(), ppOpts)
 	img, err := pp.Convert(r)
 	if img == nil || err != nil {
-		return "", merrors.InternalServerError(g.serviceID, "could not get image")
+		return "", merrors.NotFound(g.serviceID, "could not get image")
 	}
 
 	key, err = g.manager.Generate(tr, img)
