@@ -51,7 +51,7 @@ class SpacesContext implements Context {
 	/**
 	 * key is space name and value is the username that created the space
 	 */
-	private array $createdSpaces;
+	private array $createdSpaces = [];
 	private string $ocsApiUrl = '/ocs/v2.php/apps/files_sharing/api/v1/shares';
 
 	/**
@@ -94,6 +94,7 @@ class SpacesContext implements Context {
 		$response = $this->featureContext->getJsonDecodedResponseBodyContent($response);
 		$spaceName = $response->name;
 		$this->createdSpaces[$spaceName] = [];
+		$this->createdSpaces[$spaceName]['name'] = $response->name;
 		$this->createdSpaces[$spaceName]['id'] = $response->id;
 		$this->createdSpaces[$spaceName]['spaceCreator'] = $spaceCreator;
 		$this->createdSpaces[$spaceName]['fileId'] = $response->id . '!' . $response->owner->user->id;
@@ -102,10 +103,10 @@ class SpacesContext implements Context {
 	/**
 	 * @param string $spaceName
 	 *
-	 * @return array
+	 * @return array|null
 	 */
-	public function getCreatedSpace(string $spaceName): array {
-		return $this->createdSpaces[$spaceName];
+	public function getCreatedSpace(string $spaceName): ?array {
+		return $this->createdSpaces[$spaceName] ?? null;
 	}
 
 	private array $availableSpaces = [];
@@ -181,9 +182,19 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 */
 	public function getSpaceByName(string $user, string $spaceName): array {
-		if ($spaceName === "Personal") {
-			$spaceName = $this->featureContext->getUserDisplayName($user);
+		// First, try to find the space in locally saved (previously created) spaces — no API call
+		$space = $this->getCreatedSpace($spaceName);
+		if ($space !== null) {
+			return $space;
 		}
+		// If it's a personal space and not found in the getCreatedSpace() — fetch via Graph API
+		// GET /graph/v1.0/users/{userId}?$select=&$expand=drive
+		if ($spaceName === "Personal" && $user !== 'admin') {
+			return $this->getPersonalSpace($user);
+		}
+		// If the space is not found in the getCreatedSpace() and it's not personal — call API to list available spaces
+		// Admin: GET /graph/v1.0/drives
+		// Regular user: GET /graph/v1.0/me/drives
 		if (strtolower($user) === 'admin') {
 			$listSpacesFn = 'listAllAvailableSpaces';
 		} else {
@@ -221,7 +232,7 @@ class SpacesContext implements Context {
 	/**
 	 * @param string $user
 	 *
-	 * @return string
+	 * @return array
 	 * @throws GuzzleException
 	 * @throws JsonException
 	 */
@@ -699,7 +710,6 @@ class SpacesContext implements Context {
 		$space = $this->getSpaceByName(($ownerUser !== "") ? $ownerUser : $user, $spaceName);
 		Assert::assertIsArray($space);
 		Assert::assertNotEmpty($space["id"]);
-		Assert::assertNotEmpty($space["root"]["webDavUrl"]);
 		$this->featureContext->setResponse(
 			GraphHelper::getSingleSpace(
 				$this->featureContext->getBaseUrl(),
@@ -734,17 +744,9 @@ class SpacesContext implements Context {
 	): void {
 		$space = ["name" => $spaceName, "driveType" => $spaceType, "quota" => ["total" => $quota]];
 		$body = json_encode($space);
-		$response = GraphHelper::createSpace(
-			$this->featureContext->getBaseUrl(),
-			$user,
-			$this->featureContext->getPasswordForUser($user),
-			$body,
-			$this->featureContext->getStepLineRef()
+		$this->featureContext->setResponse(
+			$this->createSpace($user, $space, $body)
 		);
-		$this->featureContext->setResponse($response);
-		if ($response->getStatusCode() === 201) {
-			$this->addCreatedSpace($user, $response);
-		}
 	}
 
 	/**
@@ -1671,7 +1673,29 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has changed the quota of the personal space of user "([^"]*)" space to "([^"]*)"$/
+	 * @When user :user changes the quota of the personal space of user :targetUser to :newQuota using the Graph API
+	 *
+	 * @param string $user
+	 * @param string $targetUser
+	 * @param int $newQuota
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 * @throws Exception
+	 */
+	public function updatePersonalSpaceQuota(
+		string $user,
+		string $targetUser,
+		int $newQuota
+	): void {
+		$bodyData = ["quota" => ["total" => $newQuota]];
+		$this->featureContext->setResponse(
+			$this->updatePersonalSpace($user, $targetUser, $bodyData)
+		);
+	}
+
+	/**
+	 * @Given user :user has changed the quota of the personal space of user :targetUser to :newQuota
 	 *
 	 * @param string $user
 	 * @param string $targetUser
@@ -1806,7 +1830,6 @@ class SpacesContext implements Context {
 	): void {
 		$space = ["name" => $spaceName, "driveType" => $spaceType, "quota" => ["total" => $quota]];
 		$response = $this->createSpace($user, $space);
-		$this->addCreatedSpace($user, $response);
 		$this->featureContext->theHTTPStatusCodeShouldBe(
 			201,
 			"Expected response status code should be 201 (Created)",
@@ -1831,7 +1854,6 @@ class SpacesContext implements Context {
 	): void {
 		$space = ["name" => $spaceName];
 		$response = $this->createSpace($user, $space);
-		$this->addCreatedSpace($user, $response);
 		$this->featureContext->theHTTPStatusCodeShouldBe(
 			201,
 			"Expected response status code should be 201 (Created)",
@@ -1841,7 +1863,8 @@ class SpacesContext implements Context {
 
 	/**
 	 * @param string $user
-	 * @param string $space
+	 * @param array $space
+	 * @param string $body
 	 *
 	 * @return ResponseInterface
 	 * @throws GuzzleException
@@ -1849,16 +1872,21 @@ class SpacesContext implements Context {
 	 */
 	public function createSpace(
 		string $user,
-		array $space
+		array $space,
+		string $body = ''
 	): ResponseInterface {
-		$body = json_encode($space, JSON_THROW_ON_ERROR);
-		return GraphHelper::createSpace(
+		$body = $body !== '' ? $body : json_encode($space, JSON_THROW_ON_ERROR);
+		$response = GraphHelper::createSpace(
 			$this->featureContext->getBaseUrl(),
 			$user,
 			$this->featureContext->getPasswordForUser($user),
 			$body,
 			$this->featureContext->getStepLineRef()
 		);
+		if ($response->getStatusCode() === 201) {
+			$this->addCreatedSpace($user, $response);
+		}
+		return $response;
 	}
 
 	/**

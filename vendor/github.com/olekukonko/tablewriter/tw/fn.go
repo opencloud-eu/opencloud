@@ -3,12 +3,18 @@
 package tw
 
 import (
+	"math"
+	"strconv"
+	"strings"
+	"unicode"
+	"unicode/utf8"
+
 	"github.com/olekukonko/tablewriter/pkg/twwidth"
-	"math"         // For mathematical operations like ceiling
-	"strconv"      // For string-to-number conversions
-	"strings"      // For string manipulation utilities
-	"unicode"      // For Unicode character classification
-	"unicode/utf8" // For UTF-8 rune handling
+	// For mathematical operations like ceiling
+	// For string-to-number conversions
+	// For string manipulation utilities
+	// For Unicode character classification
+	// For UTF-8 rune handling
 )
 
 // Title normalizes and uppercases a label string for use in headers.
@@ -75,7 +81,7 @@ func PadLeft(s, pad string, width int) string {
 
 // Pad aligns a string within a specified width using a padding character.
 // It truncates if the string is wider than the target width.
-func Pad(s string, padChar string, totalWidth int, alignment Align) string {
+func Pad(s, padChar string, totalWidth int, alignment Align) string {
 	sDisplayWidth := twwidth.Width(s)
 	if sDisplayWidth > totalWidth {
 		return twwidth.Truncate(s, totalWidth) // Only truncate if necessary

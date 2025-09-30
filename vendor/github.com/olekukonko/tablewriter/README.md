@@ -28,7 +28,7 @@ go get github.com/olekukonko/tablewriter@v0.0.5
 #### Latest  Version
 The latest stable version
 ```bash
-go get github.com/olekukonko/tablewriter@v1.0.9
+go get github.com/olekukonko/tablewriter@v1.1.0
 ```
 
 **Warning:** Version `v1.0.0` contains missing functionality and should not be used.
@@ -62,7 +62,7 @@ func main() {
 	data := [][]string{
 		{"Package", "Version", "Status"},
 		{"tablewriter", "v0.0.5", "legacy"},
-		{"tablewriter", "v1.0.9", "latest"},
+		{"tablewriter", "v1.1.0", "latest"},
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
@@ -77,7 +77,7 @@ func main() {
 │   PACKAGE   │ VERSION │ STATUS │
 ├─────────────┼─────────┼────────┤
 │ tablewriter │ v0.0.5  │ legacy │
-│ tablewriter │ v1.0.9  │ latest │
+│ tablewriter │ v1.1.0  │ latest │
 └─────────────┴─────────┴────────┘
 ```
 
@@ -1081,6 +1081,8 @@ func (t Time) Format() string {
 
 - `AutoFormat` changes See [#261](https://github.com/olekukonko/tablewriter/issues/261)
 
+## What is new
+- `Counting` changes See [#294](https://github.com/olekukonko/tablewriter/issues/294)
 
 ## Command-Line Tool
 

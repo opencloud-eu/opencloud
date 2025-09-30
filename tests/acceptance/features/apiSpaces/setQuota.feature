@@ -13,7 +13,7 @@ Feature: Set quota
   Scenario Outline: admin sets personal space quota of user with different role
     Given the administrator has assigned the role "Admin" to user "Alice" using the Graph API
     And the administrator has assigned the role "<user-role>" to user "Brian" using the Graph API
-    When user "Alice" changes the quota of the "Brian Murphy" space to "100" owned by user "Brian"
+    When user "Alice" changes the quota of the personal space of user "Brian" to "100" using the Graph API
     Then the HTTP status code should be "200"
     And the JSON data of the response should match
       """
@@ -49,7 +49,7 @@ Feature: Set quota
   Scenario Outline: non-admin user tries to set the personal space quota of other users
     Given the administrator has assigned the role "<user-role-2>" to user "Alice" using the Graph API
     And the administrator has assigned the role "<user-role>" to user "Brian" using the Graph API
-    When user "Alice" changes the quota of the "Brian Murphy" space to "100" owned by user "Brian"
+    When user "Alice" changes the quota of the personal space of user "Brian" to "100" using the Graph API
     Then the HTTP status code should be "403"
     Examples:
       | user-role-2 | user-role   |
@@ -129,8 +129,7 @@ Feature: Set quota
 
 
   Scenario: admin user can set their own personal space quota
-    Given the administrator has assigned the role "Admin" to user "Alice" using the Graph API
-    When user "Alice" changes the quota of the "Alice Hansen" space to "100" owned by user "Alice"
+    When user "Admin" changes the quota of the personal space of user "Alice" to "100" using the Graph API
     Then the HTTP status code should be "200"
     And the JSON data of the response should match
       """
@@ -159,7 +158,7 @@ Feature: Set quota
 
   Scenario Outline: non-admin user tries to set their own personal space quota
     Given the administrator has assigned the role "<user-role>" to user "Alice" using the Graph API
-    When user "Alice" changes the quota of the "Alice Hansen" space to "100" owned by user "Alice"
+    When user "Alice" changes the quota of the personal space of user "Alice" to "100" using the Graph API
     Then the HTTP status code should be "403"
     Examples:
       | user-role   |

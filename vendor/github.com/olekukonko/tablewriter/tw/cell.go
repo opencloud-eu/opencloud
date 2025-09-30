@@ -12,7 +12,6 @@ type CellFormatting struct {
 	// Deprecated: kept for compatibility
 	// will be removed soon
 	Alignment Align // Text alignment within the cell (e.g., Left, Right, Center)
-
 }
 
 // CellPadding defines padding settings for table cells.

@@ -198,16 +198,17 @@ Feature: changing a public link share
 
   @issue-9724 @issue-10331
   Scenario Outline: administrator removes password of a read-only public link
-    Given using OCS API version "<ocs-api-version>"
+    Given the administrator has assigned the role "Admin" to user "Alice" using the Graph API
+    And using OCS API version "<ocs-api-version>"
     And admin has created folder "/PARENT"
-    And user "Admin" has uploaded file "filesForUpload/textfile.txt" to "PARENT/parent.txt"
+    And user "Alice" has uploaded file "filesForUpload/textfile.txt" to "PARENT/parent.txt"
     And using SharingNG
-    And user "Admin" has created the following resource link share:
+    And user "Alice" has created the following resource link share:
       | resource        | PARENT   |
       | space           | Personal |
       | permissionsRole | view     |
       | password        | %public% |
-    When user "Admin" updates the last public link share using the sharing API with
+    When user "Alice" updates the last public link share using the sharing API with
       | path        | /PARENT |
       | permissions | read    |
       | password    |         |
@@ -221,15 +222,16 @@ Feature: changing a public link share
 
 
   Scenario Outline: administrator tries to remove password of a public link share (change/create permission)
-    Given using OCS API version "<ocs-api-version>"
+    Given the administrator has assigned the role "Admin" to user "Alice" using the Graph API
+    And using OCS API version "<ocs-api-version>"
     And admin has created folder "/PARENT"
     And using SharingNG
-    And user "Admin" has created the following resource link share:
+    And user "Alice" has created the following resource link share:
       | resource        | PARENT             |
       | space           | Personal           |
       | permissionsRole | <permissions-role> |
       | password        | %public%           |
-    When user "admin" updates the last public link share using the sharing API with
+    When user "Alice" updates the last public link share using the sharing API with
       | path        | /PARENT       |
       | permissions | <permissions> |
       | password    |               |

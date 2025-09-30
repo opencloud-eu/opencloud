@@ -2,6 +2,7 @@ package renderer
 
 import (
 	"fmt"
+
 	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter/tw"
 )
@@ -82,7 +83,6 @@ func defaultColorized() ColorizedConfig {
 
 // defaultOceanRendererConfig returns a base tw.Rendition for the Ocean renderer.
 func defaultOceanRendererConfig() tw.Rendition {
-
 	return tw.Rendition{
 		Borders: tw.Border{
 			Left: tw.On, Right: tw.On, Top: tw.On, Bottom: tw.On,
@@ -190,7 +190,7 @@ func mergeSettings(defaults, overrides tw.Settings) tw.Settings {
 		defaults.CompactMode = overrides.CompactMode
 	}
 
-	//if overrides.Cushion != tw.Unknown {
+	// if overrides.Cushion != tw.Unknown {
 	//	defaults.Cushion = overrides.Cushion
 	//}
 

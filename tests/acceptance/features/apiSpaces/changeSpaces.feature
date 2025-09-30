@@ -516,8 +516,8 @@ Feature: Change data of space
 
   Scenario Outline: user can't upload resource greater than set quota
     Given the administrator has assigned the role "<user-role>" to user "Alice" using the Graph API
-    And user "Admin" has changed the quota of the personal space of user "Alice" space to "15"
-    When user "Alice" uploads a file inside space "Alice Hansen" with content "file is more than 15 bytes" to "file.txt" using the WebDAV API
+    And user "Admin" has changed the quota of the personal space of user "Alice" to "15"
+    When user "Alice" uploads a file inside space "Personal" with content "file is more than 15 bytes" to "file.txt" using the WebDAV API
     Then the HTTP status code should be "507"
     And for user "Alice" the space "Personal" should not contain these entries:
       | file.txt |
@@ -530,11 +530,11 @@ Feature: Change data of space
 
 
   Scenario Outline: admin user set own quota of a personal space via the Graph API and upload resource
-    When user "Admin" changes the quota of the "Admin" space to "<quota-value>"
+    When user "Admin" changes the quota of the personal space of user "Alice" to "<quota-value>" using the Graph API
     Then the HTTP status code should be "200"
-    When user "Admin" uploads a file inside space "Admin" with content "file is more than 15 bytes" to "file.txt" using the WebDAV API
+    When user "Alice" uploads a file inside space "Personal" with content "file is more than 15 bytes" to "file.txt" using the WebDAV API
     Then the HTTP status code should be <http-status-code>
-    And for user "Admin" the space "Personal" should contain these entries:
+    And for user "Alice" the space "Personal" should contain these entries:
       | file.txt |
     Examples:
       | quota-value | http-status-code        |
@@ -544,9 +544,9 @@ Feature: Change data of space
 
 
   Scenario Outline: admin user set an user personal space quota of via the Graph API and upload resource
-    When user "Admin" changes the quota of the "Brian Murphy" space to "<quota-value>"
+    When user "Admin" changes the quota of the personal space of user "Brian" to "<quota-value>" using the Graph API
     Then the HTTP status code should be "200"
-    When user "Brian" uploads a file inside space "Brian Murphy" with content "file is more than 15 bytes" to "file.txt" using the WebDAV API
+    When user "Brian" uploads a file inside space "Personal" with content "file is more than 15 bytes" to "file.txt" using the WebDAV API
     Then the HTTP status code should be <http-status-code>
     And for user "Brian" the space "Personal" should contain these entries:
       | file.txt |
