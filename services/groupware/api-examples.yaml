@@ -23,7 +23,7 @@ examples:
         email: 'secgen@earth.gov'
     emailFroms:
       - name: 'Chrissie'
-        email: 'secgen@earth.gov'      
+        email: 'secgen@earth.gov'
     emailTos:
       - name: 'Camina Drummer'
         email: 'drummer@opa.org'
@@ -66,4 +66,239 @@ examples:
       size: $emailSize
     EmailBodyPart:
       size: $attachmentSize
+    ContactCardKind: 'individual'
+    ContactCard:
+      '@type': Contact
+      addressBookIds:
+        - aaabc2aa
+        - c329aaze
+      addresses:
+        bu7icohc:
+          '@type': Address
+          components:
+            - '@type': AddressComponent
+              kind: number
+              value: '12'
+            - '@type': AddressComponent
+              kind: separator
+              value: ' '
+            - '@type': AddressComponent
+              kind: name
+              value: 'Gravity Street'
+            - '@type': AddressComponent
+              kind: locality
+              value: 'Medina Station'
+            - '@type': AddressComponent
+              kind: region
+              value: 'Outer Belt'
+            - '@type': AddressComponent
+              kind: separator
+              value: ' '
+            - '@type': AddressComponent
+              kind: postcode
+              value: '618291'
+            - '@type': AddressComponent
+              kind: country
+              value: 'Sol'
+          isOrdered: true
+          defaultSeparator: ', '
+          countryCode: 'CA'
+          coordinates: 'geo:43.6466107,-79.3889872'
+          timeZone: EDT
+          contexts:
+            - delivery: true
+            - work: true
+          full: '12 Gravity Street, Medina Station, Outer Belt 618291, Sol'
+          pref: 1
+      anniversaries:
+        yeex2wiu:
+          '@type': Anniversary
+          kind: birth
+          date:
+            '@type': PartialDate
+            year: 1983
+            month: 7
+            day: 18
+            calendarScale: iso8601
+      calendars:
+        uin5daen:
+          '@type': Calendar
+          kind: calendar
+          uri: 'https://ceres.org/calendars/@cdrummer/c1'
+          mediaType: application/jscontact+json
+          contexts:
+            private: true
+            work: true
+          pref: 1
+          label: main
+      created: '2025-09-30T11:00:12Z'
+      cryptoKeys:
+        iez1thoo:
+          '@type': CryptoKey
+          uri: 'https://opa.org/keys/@cdrummer.gpg'
+          mediaType: application/pgp-keys
+          contexts:
+            private: true
+            work: true
+          pref: 10
+          label: opa
+      directories:
+        cich5tah:
+          '@type': Directory
+          kind: entry
+          uri: https://directory.opa.org/addrbook/cdrummer/Camina%20Drummer.vcf
+          mediaType: text/vcard
+        ju5iemoh:
+          '@type': Directory
+          kind: directory
+          uri: ldap://ldap.opa.org/o=OPA,ou=Bosmangs
+          pref: 1
+      emails:
+        xush7tae:
+          '@type': EmailAddress
+          address: cdrummer@opa.org
+          contexts:
+            work: true
+            private: true
+          pref: 10
+          label: opa
+        ra1ohjah:
+          '@type': EmailAddress
+          address: camina.drummer@ceres.net
+          contexts:
+            private: true
+          pref: 20
+      id: em8ahgha
+      keywords:
+        bosmang: true
+        opa: true
+        tycho: true
+        rebel: true
+      kind: 'individual'
+      language: en-GB
+      links:
+        eech3oib:
+          '@type': Link
+          kind: contact
+          uri: mailto:contact@opa.org
+          pref: 1
+      localizations: {}
+      media:
+        ohchae4a:
+          '@type': Media
+          kind: photo
+          uri: https://static.wikia.nocookie.net/expanse/images/c/c7/Tycho-stn-14.png/revision/latest/scale-to-width-down/1000?cb=20170225140521
+          mediaType: image/png
+      members: {}
+      name:
+        '@type': Name
+        components:
+          - '@type': NameComponent
+            kind: given
+            value: Camina
+          - '@type': NameComponent
+            kind: surname
+            value: Drummer
+        isOrdered: true
+        defaultSeparator: ' '
+        full: 'Camina Drummer'
+      nicknames:
+        aumiez4y:
+          '@type': Nickname
+          name: Bosmang
+          contexts:
+            work: true
+          pref: 1
+      notes:
+        aep1poov:
+          '@type': Note
+          created: '2025-09-30T11:00:12Z'
+          author:
+            '@type': Author
+            name: 'expanse.fandom.com'
+            uri: 'https://expanse.fandom.com/wiki/Camina_Drummer_(TV)'
+          note: 'Cammina Drummer is a strong-willed, pragmatic, and no-nonsense Belter captain. Having a strong connection to her roots and her cultural identity, Drummer is a Belter through and through: She is resilient and adaptable, treats her crew with respect and equality, and is committed to the Belter way of life, which involves hard work, communal life shared with others, and not taking anything for granted.'
+      onlineServices:
+        ohne9oum:
+          '@type': OnlineService
+          service: 'Ring Network'
+          uri: 'https://ring.example.com/contact/@cdrummer'
+          user: '@cdrummer18219'
+          contexts:
+            private: true
+            work: true
+          label: ring
+      organizations:
+        eesa1aiv:
+          '@type': Organization
+          name: 'Outer Planets Alliance'
+          sortAs: OPA
+          contexts:
+            work: true
+      personalInfo:
+        vibi6ine:
+          '@type': PersonalInfo
+          kind: expertise
+          value: loyalty
+          level: high
+      phones:
+        xaecie9e:
+          '@type': Phone
+          number: '+1-999-555-1234'
+          features:
+            main-number: true
+            mobile: true
+            voice: true
+            text: true
+            video: true
+          contexts:
+            private: true
+            work: true
+          pref: 1
+          label: main
+        preferredLanguages:
+          en:
+            '@type': LanguagePref
+            language: en-GB
+            contexts:
+              private: true
+              work: true
+        prodId: 'Mock 0.0'
+        relatedTo:
+          'urn:uuid:f81d4fae-7dec-11d0-a765-00a0c91e6bf6':
+            '@type': Relation
+            relation:
+              friend: true
+          '8cacdfb7d1ffdb59@example.com':
+            '@type': Relation
+            relation: {}
+        schedulingAddresses:
+          xeith5qu:
+            '@type': SchedulingAddress
+            uri: 'https://scheduling.example.com/@cdrummer/c1'
+            contexts:
+              private: true
+              work: true
+            pref: 1
+            label: main
+        speakToAs:
+          '@type': SpeakToAs
+          grammaticalGender: feminine
+          pronouns:
+            taefie5a:
+              '@type': Pronouns
+              pronouns: 'she/her'
+              contexts:
+                privatr: true
+              pref: 1
+        titles:
+          sheetei4:
+            '@type': Title
+            name: Bosmang
+            kind: title
+            organizationId: eesa1aiv
+        uid: '05a6dd3b-f393-438e-a858-9024471fd9fc'
+        updated: '2025-09-30T15:24:01Z'
+        version: '1.0'
+
 

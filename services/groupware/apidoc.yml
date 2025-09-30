@@ -17,6 +17,18 @@ tags:
   - name: email
     x-displayName: Emails
     description: APIs about emails
+  - name: addressbook
+    x-displayName: Address Books
+    description: APIs about address books
+  - name: contact
+    x-displayName: Contacts
+    description: APIs about contacts
+  - name: calendar
+    x-displayName: Calendars
+    description: APIs about calendars
+  - name: event
+    x-displayName: Events
+    description: APIs about calendar events
   - name: vacation
     x-displayName: Vacation Responses
     description: APIs about vacation responses
@@ -33,6 +45,14 @@ x-tagGroups:
       - mailbox
       - email
       - vacation
+  - name: Contacts
+    tags:
+      - addressbook
+      - contact
+  - name: Events
+    tags:
+      - calendar
+      - event
 components:
   securitySchemes:
     api:

@@ -48,6 +48,8 @@ interface Definition {
   title: string
   required: string[]
   properties: {[property:string]:Property}
+  example: string
+  examples: string[]
 }
 
 interface OpenApi {
@@ -81,6 +83,14 @@ process.stdin.on('data', (chunk) => {
 
 const usedExamples = new Set<string>()
 const unresolvedExampleReferences = new Set<string>()
+
+function processDescription(description: string|null|undefined): string|null|undefined {
+  if (description !== null && description !== undefined) {
+    return description.split("\n").map(line => line.replace(/^(\s*)![\*\-]?/, '$1*')).join("\n")
+  } else {
+    return description
+  }
+}
 
 process.stdin.on('end', () => {
   try {
@@ -116,18 +126,21 @@ process.stdin.on('end', () => {
       // do some magic with the formatting of endpoint descriptions:
       for (const verb in pathData) {
         const verbData = pathData[verb]
-        if (verbData.description !== null && verbData.description !== undefined) {
-          verbData.description = verbData.description.split("\n").map((line) => {
-            return line.replace(/^(\s*)!/, '$1*')
-          }).join("\n")
-        }
+        verbData.description = processDescription(verbData.description)
       }
     }
 
     for (const def in data.definitions) {
       const defData = data.definitions[def]
+
+      if (def.startsWith('TypeOf')) {
+        const value = def.substring('TypeOf'.length)
+        defData.title = value
+        defData.example = value
+      }
+
+      const injects = exampleInjects[def] || {}
       if (defData.properties !== null && defData.properties !== undefined) {
-        const injects = exampleInjects[def] || {}
         for (const prop in defData.properties as any) {
           const propData = defData.properties[prop]
 
@@ -148,6 +161,14 @@ process.stdin.on('end', () => {
               }
             }
           }
+
+          propData.description = processDescription(propData.description)
+        }
+      } else {
+        if (typeof(injects) === 'string') {
+          defData.example = injects
+        } else if (Array.isArray(injects)) {
+          defData.examples = injects
         }
       }
     }
@@ -183,5 +204,4 @@ process.stdin.on('end', () => {
       console.error("Unknown error occurred")
     }
   }
-});
-
+})
