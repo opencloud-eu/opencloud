@@ -1,14 +1,15 @@
 # Changelog
 
-## [3.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.6.0) - 2025-09-30
+## [3.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.6.0) - 2025-10-01
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @AlexAndBear, @ScharfViktor, @butonic, @fschade, @micbar, @rhafer, @schweigisito, @tammi-23
 
-### ✨ Features
+### 📚 Documentation
 
-- feat: add dedicated logo (web) for mobile view to theme followup [[#1581](https://github.com/opencloud-eu/opencloud/pull/1581)]
+- adr: use eduation api for multi-tenancy provisioning [[#1548](https://github.com/opencloud-eu/opencloud/pull/1548)]
+- fix: remove deprecated web ui feature "OpenAppsInTab" [[#1575](https://github.com/opencloud-eu/opencloud/pull/1575)]
 
 ### 📈 Enhancement
 
@@ -33,10 +34,6 @@
 - [full-ci] getting personal space by userId instead of userName [[#1553](https://github.com/opencloud-eu/opencloud/pull/1553)]
 - apiTest-flaky: sync share before checking [[#1550](https://github.com/opencloud-eu/opencloud/pull/1550)]
 - [decomposed] use Alpine for opencloud starting [[#1547](https://github.com/opencloud-eu/opencloud/pull/1547)]
-
-### 📚 Documentation
-
-- fix: remove deprecated web ui feature "OpenAppsInTab" [[#1575](https://github.com/opencloud-eu/opencloud/pull/1575)]
 
 ### 📦️ Dependencies
 
