@@ -7,10 +7,63 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/jscalendar"
 )
 
+// https://www.iana.org/assignments/jmap/jmap.xml#jmap-data-types
+type ObjectType string
+
 // TODO
-type UTCDate struct {
+type UTCDateTime struct {
 	time.Time
 }
+
+// TODO
+type LocalDate struct {
+	time.Time
+}
+
+// Should the calendar’s events be used as part of availability calculation?
+//
+// This MUST be one of:
+// !- `all“: all events are considered.
+// !- `attending“: events the user is a confirmed or tentative participant of are considered.
+// !- `none“: all events are ignored (but may be considered if also in another calendar).
+//
+// This should default to “all” for the calendars in the user’s own account, and “none” for calendars shared with the user.
+type IncludeInAvailability string
+
+type TypeOfCalendarAlert string
+
+// `CalendarEventNotification` type.
+//
+// This MUST be one of
+// !- `created`
+// !- `updated`
+// !- `destroyed`
+type CalendarEventNotificationTypeOption string
+
+// `Principal` type.
+//
+// This MUST be one of the following values:
+// !- `individual`: This represents a single person.
+// !- `group`: This represents a group of people.
+// !- `resource`: This represents some resource, e.g. a projector.
+// !- `location`: This represents a location.
+// !- `other`: This represents some other undefined principal.
+type PrincipalTypeOption string
+
+// Algorithms in this list MUST be present in the ["HTTP Digest Algorithm Values" registry]
+// defined by [RFC3230]; however, in JMAP, they must be lowercased, e.g., "md5" rather than
+// "MD5".
+//
+// Clients SHOULD prefer algorithms listed earlier in this list.
+//
+// ["HTTP Digest Algorithm Values" registry]: https://www.iana.org/assignments/http-dig-alg/http-dig-alg.xhtml
+type HttpDigestAlgorithm string
+
+// The ResourceType data type is used to act as a unit of measure for the quota usage.
+type ResourceType string
+
+// The Scope data type is used to represent the entities the quota applies to.
+type Scope string
 
 const (
 	JmapCore             = "urn:ietf:params:jmap:core"
@@ -24,6 +77,30 @@ const (
 	JmapBlob             = "urn:ietf:params:jmap:blob"
 	JmapQuota            = "urn:ietf:params:jmap:quota"
 	JmapWebsocket        = "urn:ietf:params:jmap:websocket"
+	JmapPrincipals       = "urn:ietf:params:jmap:principals"
+	JmapPrincipalsOwner  = "urn:ietf:params:jmap:principals:owner"
+
+	CoreType                      = ObjectType("Core")
+	PushSubscriptionType          = ObjectType("PushSubscription")
+	MailboxType                   = ObjectType("Mailbox")
+	ThreadType                    = ObjectType("Thread")
+	EmailType                     = ObjectType("Email")
+	EmailDeliveryType             = ObjectType("EmailDelivery")
+	SearchSnippetType             = ObjectType("SearchSnippet")
+	IdentityType                  = ObjectType("Identity")
+	EmailSubmissionType           = ObjectType("EmailSubmission")
+	VacationResponseType          = ObjectType("VacationResponse")
+	MDNType                       = ObjectType("MDN")
+	QuotaType                     = ObjectType("Quota")
+	SieveScriptType               = ObjectType("SieveScript")
+	PrincipalType                 = ObjectType("PrincipalType")
+	ShareNotificationType         = ObjectType("ShareNotification")
+	AddressBookType               = ObjectType("AddressBook")
+	ContactCardType               = ObjectType("ContactCard")
+	CalendarType                  = ObjectType("Calendar")
+	CalendarEventType             = ObjectType("CalendarEvent")
+	CalendarEventNotificationType = ObjectType("CalendarEventNotification")
+	ParticipantIdentityType       = ObjectType("ParticipantIdentity")
 
 	JmapKeywordPrefix    = "$"
 	JmapKeywordSeen      = "$seen"
@@ -47,9 +124,71 @@ const (
 	JmapMailboxRoleSent  = "sent"
 	//JmapMailboxRoleSubscribed = "subscribed"
 	JmapMailboxRoleTrash = "trash"
+
+	CalendarAlertType = TypeOfCalendarAlert("CalendarAlert")
+
+	CalendarEventNotificationTypeOptionCreated   = CalendarEventNotificationTypeOption("created")
+	CalendarEventNotificationTypeOptionUpdated   = CalendarEventNotificationTypeOption("updated")
+	CalendarEventNotificationTypeOptionDestroyed = CalendarEventNotificationTypeOption("destroyed")
+
+	PrincipalTypeOptionIndividual = PrincipalTypeOption("individual")
+	PrincipalTypeOptionGroup      = PrincipalTypeOption("group")
+	PrincipalTypeOptionResource   = PrincipalTypeOption("resource")
+	PrincipalTypeOptionLocation   = PrincipalTypeOption("location")
+	PrincipalTypeOptionOther      = PrincipalTypeOption("other")
+
+	HttpDigestAlgorithmAdler32   = HttpDigestAlgorithm("adler32")
+	HttpDigestAlgorithmCrc32c    = HttpDigestAlgorithm("crc32c")
+	HttpDigestAlgorithmMd5       = HttpDigestAlgorithm("md5")
+	HttpDigestAlgorithmSha       = HttpDigestAlgorithm("sha")
+	HttpDigestAlgorithmSha256    = HttpDigestAlgorithm("sha-256")
+	HttpDigestAlgorithmSha512    = HttpDigestAlgorithm("sha-512")
+	HttpDigestAlgorithmUnixSum   = HttpDigestAlgorithm("unixsum")
+	HttpDigestAlgorithmUnixcksum = HttpDigestAlgorithm("unixcksum")
+
+	// The quota is measured in a number of data type objects.
+	//
+	// For example, a quota can have a limit of 50 `Mail` objects.
+	ResourceTypeCount = ResourceType("count")
+
+	// The quota is measured in size (in octets).
+	//
+	// For example, a quota can have a limit of 25000 octets.
+	ResourceTypeOctets = ResourceType("octets")
+
+	// The quota information applies to just the client's account.
+	ScopeAccount = Scope("account")
+	// The quota information applies to all accounts sharing this domain.
+	ScopeDomain = Scope("domain")
+	// The quota information applies to all accounts belonging to the server.
+	ScopeGlobal = Scope("global")
 )
 
 var (
+	ObjectTypes = []ObjectType{
+		CoreType,
+		PushSubscriptionType,
+		MailboxType,
+		ThreadType,
+		EmailType,
+		EmailDeliveryType,
+		SearchSnippetType,
+		IdentityType,
+		EmailSubmissionType,
+		VacationResponseType,
+		MDNType,
+		QuotaType,
+		SieveScriptType,
+		PrincipalType,
+		ShareNotificationType,
+		AddressBookType,
+		ContactCardType,
+		CalendarType,
+		CalendarEventType,
+		CalendarEventNotificationType,
+		ParticipantIdentityType,
+	}
+
 	JmapMailboxRoles = []string{
 		JmapMailboxRoleInbox,
 		JmapMailboxRoleSent,
@@ -57,17 +196,43 @@ var (
 		JmapMailboxRoleJunk,
 		JmapMailboxRoleTrash,
 	}
-)
 
-// Should the calendar’s events be used as part of availability calculation?
-//
-// This MUST be one of:
-// !- `all“: all events are considered.
-// !- `attending“: events the user is a confirmed or tentative participant of are considered.
-// !- `none“: all events are ignored (but may be considered if also in another calendar).
-//
-// This should default to “all” for the calendars in the user’s own account, and “none” for calendars shared with the user.
-type IncludeInAvailability string
+	CalendarEventNotificationOptionTypes = []CalendarEventNotificationTypeOption{
+		CalendarEventNotificationTypeOptionCreated,
+		CalendarEventNotificationTypeOptionUpdated,
+		CalendarEventNotificationTypeOptionDestroyed,
+	}
+
+	PrincipalTypeOptions = []PrincipalTypeOption{
+		PrincipalTypeOptionIndividual,
+		PrincipalTypeOptionGroup,
+		PrincipalTypeOptionResource,
+		PrincipalTypeOptionLocation,
+		PrincipalTypeOptionOther,
+	}
+
+	HttpDigestAlgorithms = []HttpDigestAlgorithm{
+		HttpDigestAlgorithmAdler32,
+		HttpDigestAlgorithmCrc32c,
+		HttpDigestAlgorithmMd5,
+		HttpDigestAlgorithmSha,
+		HttpDigestAlgorithmSha256,
+		HttpDigestAlgorithmSha512,
+		HttpDigestAlgorithmUnixSum,
+		HttpDigestAlgorithmUnixcksum,
+	}
+
+	ResourceTypes = []ResourceType{
+		ResourceTypeCount,
+		ResourceTypeOctets,
+	}
+
+	Scopes = []Scope{
+		ScopeAccount,
+		ScopeDomain,
+		ScopeGlobal,
+	}
+)
 
 const (
 	IncludeInAvailabilityAll       = IncludeInAvailability("all")
@@ -263,7 +428,7 @@ type SessionBlobAccountCapabilities struct {
 	// Clients SHOULD prefer algorithms listed earlier in this list.
 	//
 	// ["HTTP Digest Algorithm Values" registry]: https://www.iana.org/assignments/http-dig-alg/http-dig-alg.xhtml
-	SupportedDigestAlgorithms []string `json:"supportedDigestAlgorithms"`
+	SupportedDigestAlgorithms []HttpDigestAlgorithm `json:"supportedDigestAlgorithms"`
 }
 
 type SessionQuotaAccountCapabilities struct {
@@ -280,6 +445,20 @@ type SessionContactsAccountCapabilities struct {
 	MayCreateAddressBook bool `json:"mayCreateAddressBook"`
 }
 
+type SessionPrincipalsAccountCapabilities struct {
+	// The id of the principal in this account that corresponds to the user fetching this object, if any.
+	CurrentUserPrincipalId string `json:"currentUserPrincipalId,omitempty"`
+}
+
+type SessionPrincipalsOwnerAccountCapabilities struct {
+	// The id of an account with the `urn:ietf:params:jmap:principals` capability that contains the
+	// corresponding `Principal` object.
+	AccountIdForPrincipal string `json:"accountIdForPrincipal,omitempty"`
+
+	// The id of the `Principal` that owns this account.
+	PrincipalId string `json:"principalId,omitempty"`
+}
+
 type SessionAccountCapabilities struct {
 	Mail             SessionMailAccountCapabilities             `json:"urn:ietf:params:jmap:mail"`
 	Submission       SessionSubmissionAccountCapabilities       `json:"urn:ietf:params:jmap:submission"`
@@ -288,9 +467,11 @@ type SessionAccountCapabilities struct {
 	Blob             SessionBlobAccountCapabilities             `json:"urn:ietf:params:jmap:blob"`
 	Quota            SessionQuotaAccountCapabilities            `json:"urn:ietf:params:jmap:quota"`
 	Contacts         SessionContactsAccountCapabilities         `json:"urn:ietf:params:jmap:contacts"`
+	Principals       *SessionPrincipalsAccountCapabilities      `json:"urn:ietf:params:jmap:principals,omitempty"`
+	PrincipalsOwner  *SessionPrincipalsOwnerAccountCapabilities `json:"urn:ietf:params:jmap:principals:owner,omitempty"`
 }
 
-type SessionAccount struct {
+type Account struct {
 	// A user-friendly string to show when presenting content from this account, e.g., the email address representing the owner of the account.
 	Name string `json:"name,omitempty"`
 	// This is true if the account belongs to the authenticated user rather than a group account or a personal account of another user that has been shared with them.
@@ -357,6 +538,9 @@ type SessionWebsocketCapabilities struct {
 type SessionContactsCapabilities struct {
 }
 
+type SessionPrincipalCapabilities struct {
+}
+
 type SessionCapabilities struct {
 	Core             SessionCoreCapabilities             `json:"urn:ietf:params:jmap:core"`
 	Mail             SessionMailCapabilities             `json:"urn:ietf:params:jmap:mail"`
@@ -366,7 +550,8 @@ type SessionCapabilities struct {
 	Blob             SessionBlobCapabilities             `json:"urn:ietf:params:jmap:blob"`
 	Quota            SessionQuotaCapabilities            `json:"urn:ietf:params:jmap:quota"`
 	Websocket        SessionWebsocketCapabilities        `json:"urn:ietf:params:jmap:websocket"`
-	Contacts         SessionContactsCapabilities         `json:"urn:ietf:params:jmap:contacts"`
+	Contacts         *SessionContactsCapabilities        `json:"urn:ietf:params:jmap:contacts"`
+	Principals       *SessionPrincipalCapabilities       `json:"urn:ietf:params:jmap:principals"`
 }
 
 type SessionPrimaryAccounts struct {
@@ -387,7 +572,7 @@ type State string
 type SessionResponse struct {
 	Capabilities SessionCapabilities `json:"capabilities"`
 
-	Accounts map[string]SessionAccount `json:"accounts,omitempty"`
+	Accounts map[string]Account `json:"accounts,omitempty"`
 
 	// A map of capability URIs (as found in accountCapabilities) to the account id that is considered to be the user’s main or default
 	// account for data pertaining to that capability.
@@ -2010,15 +2195,6 @@ type EmailSubmissionSetResponse struct {
 	// TODO(pbleser-oc) add updated and destroyed when they are needed
 }
 
-type ObjectType string
-
-const (
-	VacationResponseType ObjectType = "VacationResponse"
-	EmailType            ObjectType = "Email"
-	EmailDeliveryType    ObjectType = "EmailDelivery"
-	MailboxType          ObjectType = "Mailbox"
-)
-
 type Command string
 
 type Invocation struct {
@@ -3160,21 +3336,345 @@ type CalendarEvent struct {
 	// `recurrenceId` within a particular account.
 	Id string `json:"id"`
 
-	baseEventId string
+	// This is only defined if the `id` property is a synthetic id, generated by the
+	// server to represent a particular instance of a recurring event (immutable; server-set).
+	//
+	// This property gives the id of the "real" `CalendarEvent` this was generated from.
+	BaseEventId string `json:"baseEventId,omitempty"`
 
-	calendarIds map[string]bool
+	// The set of Calendar ids this event belongs to.
+	//
+	// An event MUST belong to one or more Calendars at all times (until it is destroyed).
+	//
+	// The set is represented as an object, with each key being a Calendar id.
+	//
+	// The value for each key in the object MUST be `true`.
+	CalendarIds map[string]bool `json:"calendarIds,omitempty"`
 
-	isDraft bool
+	// If true, this event is to be considered a draft.
+	//
+	// The server will not send any scheduling messages to participants or send push notifications
+	// for alerts.
+	//
+	// This may only be set to `true` upon creation.
+	//
+	// Once set to `false`, the value cannot be updated to `true`.
+	//
+	// This property MUST NOT appear in `recurrenceOverrides`.
+	IsDraft bool `json:"isDraft,omitzero"`
 
-	isOrigin bool
+	// Is this the authoritative source for this event (i.e., does it control scheduling for
+	// this event; the event has not been added as a result of an invitation from another calendar system)?
+	//
+	// This is true if, and only if:
+	// !- the event’s `replyTo` property is null; or
+	// !- the account will receive messages sent to at least one of the methods specified in the `replyTo` property of the event.
+	IsOrigin bool `json:"isOrigin,omitzero"`
 
-	utcStart UTCDate
+	// For simple clients that do not implement time zone support.
+	//
+	// Clients should only use this if also asking the server to expand recurrences, as you cannot accurately
+	// expand a recurrence without the original time zone.
+	//
+	// This property is calculated at fetch time by the server.
+	//
+	// Time zones are political and they can and do change at any time.
+	//
+	// Fetching exactly the same property again may return a different results if the time zone data has been updated on the server.
+	//
+	// Time zone data changes are not considered `updates` to the event.
+	//
+	// If set, the server will convert the UTC date to the event's current time zone and store the local time.
+	//
+	// This property is not included in `CalendarEvent/get` responses by default and must be requested explicitly.
+	//
+	// Floating events (events without a time zone) will be interpreted as per the time zone given as a `CalendarEvent/get` argument.
+	//
+	// Note that it is not possible to accurately calculate the expansion of recurrence rules or recurrence overrides with the
+	// `utcStart` property rather than the local start time. Even simple recurrences such as "repeat weekly" may cross a
+	// daylight-savings boundary and end up at a different UTC time. Clients that wish to use "utcStart" are RECOMMENDED to
+	// request the server expand recurrences.
+	UtcStart UTCDateTime `json:"utcStart,omitzero"`
 
-	utcEnd UTCDate
-
-	// TODO https://jmap.io/spec-calendars.html#calendar-events
+	// The server calculates the end time in UTC from the start/timeZone/duration properties of the event.
+	//
+	// This property is not included by default and must be requested explicitly.
+	//
+	// Like `utcStart`, it is calculated at fetch time if requested and may change due to time zone data changes.
+	//
+	// Floating events will be interpreted as per the time zone given as a `CalendarEvent/get` argument.
+	UtcEnd UTCDateTime `json:"utcEnd,omitzero"`
 
 	jscalendar.Event
+}
+
+// A ParticipantIdentity stores information about a URI that represents the user within that account in an event’s participants.
+type ParticipantIdentity struct {
+	// The id of the ParticipantIdentity (immutable; server-set).
+	Id string `json:"id"`
+
+	// The display name of the participant to use when adding this participant to an event, e.g. "Joe Bloggs".
+	//
+	// default:
+	Name string `json:"name,omitempty"`
+
+	// The URI that represents this participant for scheduling.
+	//
+	// This URI MAY also be the URI for one of the sendTo methods.
+	ScheduleId string `json:"scheduleId"`
+
+	// Represents methods by which the participant may receive invitations and updates to an event.
+	//
+	// The keys in the property value are the available methods and MUST only contain ASCII alphanumeric
+	// characters (`A-Za-z0-9`).
+	//
+	// The value is a URI for the method specified in the key.
+	SendTo map[string]string `json:"sendTo,omitempty"`
+
+	// This SHOULD be true for exactly one participant identity in any account, and MUST NOT be true for more
+	// than one participant identity within an account (server-set).
+	//
+	// The default identity should be used by clients whenever they need to choose an identity for the user
+	// within this account, and they do not have any other information on which to make a choice.
+	//
+	// For example, if creating a scheduled event in this account, the default identity may be automatically
+	// added as an owner. (But the client may ignore this if, for example, it has its own feature to allow
+	// users to choose which identity to use based on the invitees.)
+	IsDefault bool `json:"isDefault,omitzero"`
+}
+
+type CalendarAlert struct {
+	//  This MUST be the string `CalendarAlert`.
+	Type TypeOfCalendarAlert `json:"@type,omitempty"`
+
+	// The account id for the calendar in which the alert triggered.
+	AccountId string `json:"accountId"`
+
+	// The CalendarEvent id for the alert that triggered.
+	//
+	// Note, for a recurring event this is the id of the base event, never a synthetic id for a particular instance.
+	CalendarEventId string `json:"calendarEventId"`
+
+	// The uid property of the CalendarEvent for the alert that triggered.
+	Uid string `json:"uid"`
+
+	// The `recurrenceId` for the instance of the event for which this alert is being
+	// triggered, or null if the event is not recurring.
+	RecurrenceId LocalDate `json:"recurrenceId,omitzero"`
+
+	// The id for the alert that triggered.
+	AlertId string `json:"alertId"`
+}
+
+type Person struct {
+	// The name of the person who made the change.
+	Name string `json:"name"`
+
+	// The email of the person who made the change, or null if no email is available.
+	Email string `json:"email,omitempty"`
+
+	// The id of the `Principal` corresponding to the person who made the change, if any.
+	//
+	// This will be null if the change was due to receving an iTIP message.
+	PrincipalId string `json:"principalId,omitempty"`
+
+	// The `scheduleId` URI of the person who made the change, if any.
+	//
+	// This will normally be set if the change was made due to receving an iTIP message.
+	ScheduleId string `json:"scheduleId,omitempty"`
+}
+
+type CalendarEventNotification struct {
+	// The id of the `CalendarEventNotification`.
+	Id string `json:"id"`
+
+	// The time this notification was created.
+	Created UTCDateTime `json:"created,omitzero"`
+
+	// Who made the change.
+	ChangedBy *Person `json:"person,omitempty"`
+
+	// Comment sent along with the change by the user that made it.
+	//
+	// (e.g. `COMMENT` property in an iTIP message), if any.
+	Comment string `json:"comment,omitempty"`
+
+	// `CalendarEventNotification` type.
+	//
+	// This MUST be one of
+	// !- `created`
+	// !- `updated`
+	// !- `destroyed`
+	Type CalendarEventNotificationTypeOption `json:"type"`
+
+	// The id of the CalendarEvent that this notification is about.
+	//
+	// If the change only affects a single instance of a recurring event, the server MAY set the
+	// `event` and `event`atch properties for just that instance; the `calendarEventId` MUST
+	// still be for the base event.
+	CalendarEventId string `json:"calendarEventId"`
+
+	// Is this event a draft? (created/updated only)
+	IsDraft bool `json:"isDraft,omitzero"`
+
+	// The data before the change (if updated or destroyed),
+	// or the data after creation (if created).
+	Event *jscalendar.Event `json:"event,omitempty"`
+
+	// A patch encoding the change between the data in the event property,
+	// and the data after the update (updated only).
+	EventPatch PatchObject `json:"eventPatch,omitempty"`
+}
+
+// A Principal represents an individual, group, location (e.g. a room), resource (e.g. a projector) or other entity
+// in a collaborative environment.
+//
+// Sharing in JMAP is generally configured by assigning rights to certain data within an account to other principals,
+// for example a user may assign permission to read their calendar to a principal representing another user, or their team.
+//
+// In a shared environment such as a workplace, a user may have access to a large number of principals.
+//
+// In most systems the user will have access to a single `Account` containing `Principal` objects, but they may
+// have access to multiple if, for example, aggregating data from different places.
+type Principal struct {
+	// The id of the principal.
+	Id string `json:"id"`
+
+	// `Principal` type.
+	//
+	// This MUST be one of the following values:
+	// !- `individual`: This represents a single person.
+	// !- `group`: This represents a group of people.
+	// !- `resource`: This represents some resource, e.g. a projector.
+	// !- `location`: This represents a location.
+	// !- `other`: This represents some other undefined principal.
+	Type PrincipalTypeOption `json:"type"`
+
+	// The name of the principal, e.g. `"Jane Doe"`, or `"Room 4B"`.
+	Name string `json:"name"`
+
+	// A longer description of the principal, for example details about the
+	// facilities of a resource, or null if no description available.
+	Description string `json:"description,omitempty"`
+
+	// An email address for the principal, or null if no email is available.
+	Email string `json:"email,omitempty"`
+
+	// The time zone for this principal, if known.
+	//
+	// If not null, the value MUST be a time zone id from the IANA Time Zone Database TZDB.
+	TimeZone string `json:"timeZone,omitempty"`
+
+	// A map of JMAP capability URIs to domain specific information about the principal in relation
+	// to that capability, as defined in the document that registered the capability.
+	Capabilities map[string]any `json:"capabilities,omitempty"`
+
+	// A map of account id to `Account` object for each JMAP Account containing data for
+	// this principal that the user has access to, or null if none.
+	Accounts map[string]Account `json:"accounts,omitempty"`
+}
+
+// TODO https://jmap.io/spec-sharing.html#object-properties
+type ShareNotification struct {
+}
+
+type Shareable struct {
+	// Has the user indicated they wish to see this data?
+	//
+	// The initial value for this when data is shared by another user is implementation dependent,
+	// although data types may give advice on appropriate defaults.
+	IsSubscribed bool `json:"isSubscribed,omitzero"`
+
+	// The set of permissions the user currently has.
+	//
+	// Appropriate permissions are domain specific and must be defined per data type.
+	MyRights map[string]bool `json:"myRights,omitempty"`
+
+	// A map of principal id to rights to give that principal, or null if not shared with anyone.
+	//
+	// The account id for the principal id can be found in the capabilities of the `Account` this object is in.
+	//
+	// Users with appropriate permission may set this property to modify who the data is shared with.
+	//
+	// The principal that owns the account this data is in MUST NOT be in the set of sharees; their rights are implicit.
+	ShareWith map[string]map[string]bool `json:"shareWith,omitempty"`
+}
+
+// The Quota is an object that displays the limit set to an account usage.
+//
+// It then shows as well the current usage in regard to that limit.
+type Quota struct {
+	// The unique identifier for this object.
+	Id string `json:"id"`
+
+	// The resource type of the quota.
+	ResourceType ResourceType `json:"resourceType"`
+
+	// The current usage of the defined quota, using the `resourceType` defined as unit of measure.
+	//
+	// Computation of this value is handled by the server.
+	Used uint `json:"used"`
+
+	// The hard limit set by this quota, using the `resourceType` defined as unit of measure.
+	//
+	// Objects in scope may not be created or updated if this limit is reached.
+	HardLimit uint `json:"hardLimit"`
+
+	// The Scope data type is used to represent the entities the quota applies to.
+	//
+	// It is defined as a "String" with values from the following set:
+	// !- `account`: The quota information applies to just the client's account.
+	// !- `domain`: The quota information applies to all accounts sharing this domain.
+	// !- `global`: The quota information applies to all accounts belonging to the server.
+	Scope Scope `json:"scope"`
+
+	// The name of the quota.
+	//
+	// Useful for managing quotas and using queries for searching.
+	Name string `json:"name"`
+
+	// A list of all the type names as defined in the "JMAP Types Names" registry
+	// (e.g., `Email`, `Calendar`, etc.) to which this quota applies.
+	//
+	// This allows the quotas to be assigned to distinct or shared data types.
+	//
+	// The server MUST filter out any types for which the client did not request the associated capability
+	// in the `using` section of the request.
+	//
+	// Further, the server MUST NOT return Quota objects for which there are no types recognized by the client.
+	Types []ObjectType `json:"types,omitempty"`
+
+	// The warn limit set by this quota, using the `resourceType` defined as unit of measure.
+	//
+	// It can be used to send a warning to an entity about to reach the hard limit soon, but with no
+	// action taken yet.
+	//
+	// If set, it SHOULD be lower than the `softLimit` (if present and different from null) and the `hardLimit`.
+	WarnLimit uint `json:"warnLimit,omitzero"`
+
+	// The soft limit set by this quota, using the `resourceType` defined as unit of measure.
+	//
+	// It can be used to still allow some operations but refuse some others.
+	//
+	// What is allowed or not is up to the server.
+	//
+	// For example, it could be used for blocking outgoing events of an entity (sending emails, creating
+	// calendar events, etc.) while still receiving incoming events (receiving emails, receiving calendars
+	// events, etc.).
+	//
+	// If set, it SHOULD be higher than the `warnLimit` (if present and different from null) but lower
+	// than the `hardLimit`.
+	SoftLimit uint `json:"softLimit,omitzero"`
+
+	// Arbitrary, free, human-readable description of this quota.
+	//
+	// It might be used to explain where the different limits come from and explain the entities and data
+	// types this quota applies to.
+	//
+	// The description MUST be encoded in UTF-8 [RFC3629] as described in [RFC8620], Section 1.5, and
+	// selected based on an `Accept-Language` header in the request (as defined in [RFC9110], Section 12.5.4)
+	// or out-of-band information about the user's language or locale.
+	Description string `json:"description,omitempty"`
 }
 
 type ErrorResponse struct {

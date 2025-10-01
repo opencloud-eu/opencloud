@@ -727,7 +727,6 @@ func TestEvent(t *testing.T) {
 				},
 			},
 			Sequence:        3,
-			Method:          MethodRefresh,
 			ShowWithoutTime: true,
 			Locations: map[string]Location{
 				"loc1": {

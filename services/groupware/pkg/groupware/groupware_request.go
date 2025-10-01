@@ -105,17 +105,17 @@ func (r Request) GetAccountIdForSubmission() (string, *Error) {
 	return r.getAccountId(r.session.PrimaryAccounts.Blob, errNoPrimaryAccountForSubmission)
 }
 
-func (r Request) GetAccountForMail() (jmap.SessionAccount, *Error) {
+func (r Request) GetAccountForMail() (jmap.Account, *Error) {
 	accountId, err := r.GetAccountIdForMail()
 	if err != nil {
-		return jmap.SessionAccount{}, err
+		return jmap.Account{}, err
 	}
 
 	account, ok := r.session.Accounts[accountId]
 	if !ok {
 		r.logger.Debug().Msgf("failed to find account '%v'", accountId)
 		// TODO metric for inexistent accounts
-		return jmap.SessionAccount{}, apiError(r.errorId(), ErrorNonExistingAccount,
+		return jmap.Account{}, apiError(r.errorId(), ErrorNonExistingAccount,
 			withDetail(fmt.Sprintf("The account '%v' does not exist", log.SafeString(accountId))),
 			withSource(&ErrorSource{Parameter: UriParamAccountId}),
 		)
