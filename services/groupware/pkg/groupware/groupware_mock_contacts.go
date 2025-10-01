@@ -7,7 +7,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/jscontact"
 )
 
-func MustParse(text string) time.Time {
+func mustParseTime(text string) time.Time {
 	t, err := time.Parse(time.RFC3339, text)
 	if err != nil {
 		panic(err)
@@ -53,8 +53,8 @@ var CaminaDrummerContact = jscontact.ContactCard{
 		A2.Id: true,
 	},
 	Version:  jscontact.JSContactVersion_1_0,
-	Created:  MustParse("2025-09-30T11:00:12Z").UTC(),
-	Updated:  MustParse("2025-09-30T11:00:12Z").UTC(),
+	Created:  mustParseTime("2025-09-30T11:00:12Z").UTC(),
+	Updated:  mustParseTime("2025-09-30T11:00:12Z").UTC(),
 	Kind:     jscontact.ContactCardKindIndividual,
 	Language: "en-GB",
 	ProdId:   "Mock 0.0",
@@ -330,7 +330,7 @@ var CaminaDrummerContact = jscontact.ContactCard{
 	Notes: map[string]jscontact.Note{
 		"n1": {
 			Type:    jscontact.NoteType,
-			Created: MustParse("2025-09-30T11:00:12Z").UTC(),
+			Created: mustParseTime("2025-09-30T11:00:12Z").UTC(),
 			Author: &jscontact.Author{
 				Type: jscontact.AuthorType,
 				Name: "expanse.fandom.com",
@@ -348,8 +348,8 @@ var AndersonDawesContact = jscontact.ContactCard{
 		A1.Id: true,
 	},
 	Version:  jscontact.JSContactVersion_1_0,
-	Created:  MustParse("2025-09-30T11:00:12Z").UTC(),
-	Updated:  MustParse("2025-09-30T11:00:12Z").UTC(),
+	Created:  mustParseTime("2025-09-30T11:00:12Z").UTC(),
+	Updated:  mustParseTime("2025-09-30T11:00:12Z").UTC(),
 	Kind:     jscontact.ContactCardKindIndividual,
 	Language: "en-GB",
 	ProdId:   "Mock 0.0",
@@ -544,7 +544,7 @@ var AndersonDawesContact = jscontact.ContactCard{
 			Kind: jscontact.AnniversaryKindBirth,
 			Date: jscontact.Timestamp{
 				Type: jscontact.TimestampType,
-				Utc:  MustParse("1961-08-24T00:00:00Z"),
+				Utc:  mustParseTime("1961-08-24T00:00:00Z"),
 			},
 		},
 	},

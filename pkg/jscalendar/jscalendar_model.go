@@ -37,7 +37,6 @@ type SignedDuration string // TODO
 type Relationship string
 type Display string
 type Rel string
-type Method string
 type LocationTypeOption string
 type LocationRelation string
 type VirtualLocationFeature string
@@ -224,17 +223,6 @@ const (
 	RelWebmention             = Rel("webmention")
 	RelWorkingCopy            = Rel("working-copy")
 	RelWorkingCopyOf          = Rel("working-copy-of")
-
-	MethodPublish        = Method("publish")
-	MethodRequest        = Method("request")
-	MethodReply          = Method("reply")
-	MethodAdd            = Method("add")
-	MethodCancel         = Method("cancel")
-	MethodRefresh        = Method("refresh")
-	MethodCounter        = Method("counter")
-	MethodDeclineCounter = Method("declinecounter")
-
-	// mlr --csv --headerless-csv-output cut -f Token ./location-type-registry-1.csv |sort|perl -ne 'chomp; print "LocationTypeOption".ucfirst($_)." = LocationTypeOption(\"".$_."\")\n"'
 
 	LocationTypeOptionAircraft              = LocationTypeOption("aircraft")
 	LocationTypeOptionAirport               = LocationTypeOption("airport")
@@ -535,17 +523,6 @@ var (
 		RelWebmention,
 		RelWorkingCopy,
 		RelWorkingCopyOf,
-	}
-
-	Methods = []Method{
-		MethodPublish,
-		MethodRequest,
-		MethodReply,
-		MethodAdd,
-		MethodCancel,
-		MethodRefresh,
-		MethodCounter,
-		MethodDeclineCounter,
 	}
 
 	LocationTypeOptions = []LocationTypeOption{
@@ -1781,10 +1758,11 @@ type Object struct {
 	// to know which version of the object a scheduling message relates to.
 	Sequence uint `json:"sequence,omitzero"`
 
-	// This is the iTIP [RFC5546] method, in lowercase.
-	//
-	// This MUST only be present if the JSCalendar object represents an iTIP scheduling message.
-	Method Method `json:"method,omitempty"`
+	/*
+		// CalendarEvent objects MUST NOT have a “method” property as this is only used when representing iTIP
+		// [@!RFC5546] scheduling messages, not events in a data store.
+		Method Method `json:"method,omitempty"`
+	*/
 
 	// This indicates that the time is not important to display to the user when rendering this calendar object.
 	//
@@ -2232,3 +2210,5 @@ func (g *Group) UnmarshalJSON(b []byte) error {
 	type tmp Group
 	return json.Unmarshal(b, (*tmp)(g))
 }
+
+// mlr --csv --headerless-csv-output cut -f Token ./location-type-registry-1.csv |sort|perl -ne 'chomp; print "LocationTypeOption".ucfirst($_)." = LocationTypeOption(\"".$_."\")\n"'
