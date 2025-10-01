@@ -20,7 +20,7 @@ var C1 = jmap.Calendar{
 			Type: jscalendar.AlertType,
 			Trigger: jscalendar.AbsoluteTrigger{
 				Type: jscalendar.AbsoluteTriggerType,
-				When: MustParse("2025-09-30T20:34:12Z"),
+				When: mustParseTime("2025-09-30T20:34:12Z"),
 			},
 		},
 	},
@@ -63,17 +63,25 @@ var AllCalendars = []jmap.Calendar{C1}
 
 var E1 = jmap.CalendarEvent{
 	Id: "ovei9oqu",
+	CalendarIds: map[string]bool{
+		C1.Id: true,
+	},
+	BaseEventId: "ahtah9qu",
+	IsDraft:     true,
+	IsOrigin:    true,
+	UtcStart:    jmap.UTCDateTime{Time: mustParseTime("2025-10-01T00:00:00Z")},
+	UtcEnd:      jmap.UTCDateTime{Time: mustParseTime("2025-10-07T00:00:00Z")},
 	Event: jscalendar.Event{
 		Type:     jscalendar.EventType,
-		Start:    jscalendar.LocalDateTime{Time: MustParse("2025-09-30T12:00:00Z")},
+		Start:    jscalendar.LocalDateTime{Time: mustParseTime("2025-09-30T12:00:00Z")},
 		Duration: "PT30M",
 		Status:   jscalendar.StatusConfirmed,
 		Object: jscalendar.Object{
 			CommonObject: jscalendar.CommonObject{
 				Uid:                    "9a7ab91a-edca-4988-886f-25e00743430d",
 				ProdId:                 "Mock 0.0",
-				Created:                MustParse("2025-09-29T16:17:18Z"),
-				Updated:                MustParse("2025-09-29T16:17:18Z"),
+				Created:                mustParseTime("2025-09-29T16:17:18Z"),
+				Updated:                mustParseTime("2025-09-29T16:17:18Z"),
 				Title:                  "Meeting of the Minds",
 				Description:            "Internal meeting about the grand strategy for the future",
 				DescriptionContentType: "text/plain",
@@ -104,7 +112,6 @@ var E1 = jmap.CalendarEvent{
 			},
 			RelatedTo:       map[string]jscalendar.Relation{},
 			Sequence:        0,
-			Method:          jscalendar.MethodAdd,
 			ShowWithoutTime: false,
 			Locations: map[string]jscalendar.Location{
 				"ux1uokie": {
@@ -139,7 +146,111 @@ var E1 = jmap.CalendarEvent{
 					},
 				},
 			},
-			// TODO more properties, a lot more properties
+			RecurrenceRules: []jscalendar.RecurrenceRule{
+				{
+					Type:           jscalendar.RecurrenceRuleType,
+					Frequency:      jscalendar.FrequencyWeekly,
+					Interval:       1,
+					Rscale:         jscalendar.RscaleIso8601,
+					Skip:           jscalendar.SkipOmit,
+					FirstDayOfWeek: jscalendar.DayOfWeekMonday,
+					Count:          4,
+				},
+			},
+			FreeBusyStatus: jscalendar.FreeBusyStatusBusy,
+			Privacy:        jscalendar.PrivacyPublic,
+			ReplyTo: map[jscalendar.ReplyMethod]string{
+				jscalendar.ReplyMethodImip: "mailto:organizer@example.com",
+			},
+			SentBy: "organizer@example.com",
+			Participants: map[string]jscalendar.Participant{
+				"eegh7uph": {
+					Type:        jscalendar.ParticipantType,
+					Name:        "Anderson Dawes",
+					Email:       "adawes@opa.org",
+					Description: "Called the meeting",
+					SendTo: map[jscalendar.SendToMethod]string{
+						jscalendar.SendToMethodImip: "mailto:adawes@opa.org",
+					},
+					Kind: jscalendar.ParticipantKindIndividual,
+					Roles: map[jscalendar.Role]bool{
+						jscalendar.RoleAttendee: true,
+						jscalendar.RoleChair:    true,
+						jscalendar.RoleOwner:    true,
+					},
+					LocationId:           "ux1uokie",
+					Language:             "en-GB",
+					ParticipationStatus:  jscalendar.ParticipationStatusAccepted,
+					ParticipationComment: "I'll be there for sure",
+					ExpectReply:          true,
+					ScheduleAgent:        jscalendar.ScheduleAgentServer,
+					ScheduleSequence:     1,
+					ScheduleStatus:       []string{"1.0"},
+					ScheduleUpdated:      mustParseTime("2025-10-01T11:59:12Z"),
+					SentBy:               "adawes@opa.org",
+					InvitedBy:            "eegh7uph",
+					Links: map[string]jscalendar.Link{
+						"ieni5eiw": {
+							Type:        jscalendar.LinkType,
+							Href:        "https://static.wikia.nocookie.net/expanse/images/1/1e/OPA_leader.png/revision/latest?cb=20250121103410",
+							ContentType: "image/png",
+							Rel:         jscalendar.RelIcon,
+							Size:        192812,
+							Display:     jscalendar.DisplayBadge,
+							Title:       "Anderson Dawes' photo",
+						},
+					},
+					ScheduleId: "mailto:adawes@opa.org",
+				},
+				"xeikie9p": {
+					Type:        jscalendar.ParticipantType,
+					Name:        "Klaes Ashford",
+					Email:       "ashford@opa.org",
+					Description: "As the first officer on the Behemoth",
+					SendTo: map[jscalendar.SendToMethod]string{
+						jscalendar.SendToMethodImip:  "mailto:ashford@opa.org",
+						jscalendar.SendToMethodOther: "https://behemoth.example.com/ping/@ashford",
+					},
+					Kind: jscalendar.ParticipantKindIndividual,
+					Roles: map[jscalendar.Role]bool{
+						jscalendar.RoleAttendee: true,
+					},
+					LocationId:          "em4eal0o",
+					Language:            "en-GB",
+					ParticipationStatus: jscalendar.ParticipationStatusNeedsAction,
+					ExpectReply:         true,
+					ScheduleAgent:       jscalendar.ScheduleAgentServer,
+					ScheduleSequence:    0,
+					SentBy:              "adawes@opa.org",
+					InvitedBy:           "eegh7uph",
+					Links: map[string]jscalendar.Link{
+						"oifooj6g": {
+							Type:        jscalendar.LinkType,
+							Href:        "https://static.wikia.nocookie.net/expanse/images/0/02/Klaes_Ashford_-_Expanse_season_4_promotional_2.png/revision/latest?cb=20191206012007",
+							ContentType: "image/png",
+							Rel:         jscalendar.RelIcon,
+							Size:        201291,
+							Display:     jscalendar.DisplayBadge,
+							Title:       "Ashford on Medina Station",
+						},
+					},
+					ScheduleId: "mailto:ashford@opa.org",
+				},
+			},
+			Alerts: map[string]jscalendar.Alert{
+				"ahqu4xi0": {
+					Type: jscalendar.AlertType,
+					Trigger: jscalendar.OffsetTrigger{
+						Type:       jscalendar.OffsetTriggerType,
+						Offset:     "PT-5M",
+						RelativeTo: jscalendar.RelativeToStart,
+					},
+				},
+			},
+			TimeZone:        "UTC",
+			MayInviteSelf:   true,
+			MayInviteOthers: true,
+			HideAttendees:   false,
 		},
 	},
 }

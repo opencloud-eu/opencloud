@@ -9,7 +9,6 @@ examples:
     emailReceivedAt: '2025-09-23T10:58:03Z'
     emailSentAt: '2025-09-23T12:58:03+02:00'
     blobId: 'cfz7vkmhcfwl1gfln02hga2fb3xwsqirirousda0rs1soeosla2p1aiaahcqjwaf'
-    attachmentName: 'Alloy_Yellow_Scale.pdf'
     attachmentType: 'application/pdf'
     attachmentSize: 192128
     attachmentDisposition: 'attachment'

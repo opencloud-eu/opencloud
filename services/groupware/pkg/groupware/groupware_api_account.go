@@ -13,7 +13,7 @@ import (
 type SwaggerGetAccountResponse struct {
 	// in: body
 	Body struct {
-		*jmap.SessionAccount
+		*jmap.Account
 	}
 }
 
@@ -40,7 +40,7 @@ func (g *Groupware) GetAccount(w http.ResponseWriter, r *http.Request) {
 // swagger:response GetAccountsResponse200
 type SwaggerGetAccountsResponse struct {
 	// in: body
-	Body map[string]jmap.SessionAccount
+	Body map[string]jmap.Account
 }
 
 // swagger:route GET /groupware/accounts account accounts
