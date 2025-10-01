@@ -45,3 +45,9 @@ packages:
       Client:
         config:
           filename: ldapclient.go
+  github.com/nats-io/nats.go:
+    config:
+      dir: mocks
+    interfaces:
+      KeyValue: {}
+      KeyValueEntry: {}

@@ -1154,10 +1154,7 @@ func (g Graph) getUserStateFromNatsKeyValue(ctx context.Context, userID string) 
 	logger := g.logger.SubloggerWithRequestID(ctx)
 	if g.natskv == nil {
 		logger.Debug().Msg("nats connection or user state key value store not configured")
-		return userstate.UserState{
-			UserId: userID,
-			State:  userstate.UserStateUnspecified,
-		}, nil
+		return userstate.UserState{}, errors.New("nats connection or user state key value store not configured")
 	}
 
 	entry, err := g.natskv.Get(userID)
@@ -1170,18 +1167,14 @@ func (g Graph) getUserStateFromNatsKeyValue(ctx context.Context, userID string) 
 			}, nil
 		}
 		logger.Error().Err(err).Str("userid", userID).Msg("error getting user state from nats key value store")
-		return userstate.UserState{
-			State: userstate.UserStateUnspecified,
-		}, err
+		return userstate.UserState{}, err
 	}
 
 	userState := userstate.UserState{}
-	if err := json.Unmarshal(entry.Value(), &userState); err != nil {
+	v := entry.Value()
+	if err := json.Unmarshal(v, &userState); err != nil {
 		logger.Error().Err(err).Str("userid", userID).Msg("error unmarshalling user state from nats key value store")
-		return userstate.UserState{
-			UserId: userID,
-			State:  userstate.UserStateUnspecified,
-		}, err
+		return userstate.UserState{}, err
 	}
 
 	return userState, nil
