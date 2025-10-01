@@ -10,14 +10,63 @@ import (
 // https://www.iana.org/assignments/jmap/jmap.xml#jmap-data-types
 type ObjectType string
 
-// TODO
-type UTCDateTime struct {
+// Where `UTCDate` is given as a type, it means a `Date` where the "time-offset"
+// component MUST be `"Z"` (i.e., it must be in UTC time).
+//
+// For example, `"2014-10-30T06:12:00Z"`.
+type UTCDate struct {
 	time.Time
 }
 
-// TODO
+func (t UTCDate) MarshalJSON() ([]byte, error) {
+	// TODO imperfect, we're going to need something smarter here as the timezone is not actually
+	// fixed to be UTC but, instead, depends on the timezone that is defined in another property
+	// of the object where this LocalDate shows up in; alternatively, we might have to use a string
+	// here and leave the conversion to a usable timestamp up to the client or caller instead
+	return []byte("\"" + t.UTC().Format(time.RFC3339) + "\""), nil
+}
+
+func (t *UTCDate) UnmarshalJSON(b []byte) error {
+	var tt time.Time
+	err := tt.UnmarshalJSON(b)
+	if err != nil {
+		return err
+	}
+	t.Time = tt.UTC()
+	return nil
+}
+
+// Where `LocalDate` is given as a type, it means a string in the same format as `Date`
+// (see [RFC8620, Section 1.4]), but with the time-offset omitted from the end.
+//
+// For example, `2014-10-30T14:12:00`.
+//
+// The interpretation in absolute time depends upon the time zone for the event, which
+// may not be a fixed offset (for example when daylight saving time occurs).
+//
+// [RFC8620, Section 1.4]: https://www.rfc-editor.org/rfc/rfc8620.html#section-1.4
 type LocalDate struct {
 	time.Time
+}
+
+const RFC3339Local = "2006-01-02T15:04:05"
+
+func (t LocalDate) MarshalJSON() ([]byte, error) {
+	// TODO imperfect, we're going to need something smarter here as the timezone is not actually
+	// fixed to be UTC but, instead, depends on the timezone that is defined in another property
+	// of the object where this LocalDate shows up in; alternatively, we might have to use a string
+	// here and leave the conversion to a usable timestamp up to the client or caller instead
+	return []byte("\"" + t.UTC().Format(RFC3339Local) + "\""), nil
+}
+
+func (t *LocalDate) UnmarshalJSON(b []byte) error {
+	var tt time.Time
+	err := tt.UnmarshalJSON(b)
+	if err != nil {
+		return err
+	}
+	t.Time = tt.UTC()
+	return nil
 }
 
 // Should the calendar’s events be used as part of availability calculation?
@@ -64,6 +113,10 @@ type ResourceType string
 
 // The Scope data type is used to represent the entities the quota applies to.
 type Scope string
+
+type ActionMode string
+type SendingMode string
+type DispositionTypeOption string
 
 const (
 	JmapCore             = "urn:ietf:params:jmap:core"
@@ -162,6 +215,21 @@ const (
 	ScopeDomain = Scope("domain")
 	// The quota information applies to all accounts belonging to the server.
 	ScopeGlobal = Scope("global")
+
+	ActionModeManualAction    = ActionMode("manual-action")
+	ActionModeAutomaticAction = ActionMode("automatic-action")
+
+	SendingModeMdnSentManually      = SendingMode("mdn-sent-manually")
+	SendingModeMdnSentAutomatically = SendingMode("mdn-sent-automatically")
+
+	DispositionTypeOptionDeleted    = DispositionTypeOption("deleted")
+	DispositionTypeOptionDispatched = DispositionTypeOption("dispatched")
+	DispositionTypeOptionDisplayed  = DispositionTypeOption("displayed")
+	DispositionTypeOptionProcessed  = DispositionTypeOption("processed")
+
+	IncludeInAvailabilityAll       = IncludeInAvailability("all")
+	IncludeInAvailabilityAttending = IncludeInAvailability("attending")
+	IncludeInAvailabilityNone      = IncludeInAvailability("none")
 )
 
 var (
@@ -232,15 +300,24 @@ var (
 		ScopeDomain,
 		ScopeGlobal,
 	}
-)
 
-const (
-	IncludeInAvailabilityAll       = IncludeInAvailability("all")
-	IncludeInAvailabilityAttending = IncludeInAvailability("attending")
-	IncludeInAvailabilityNone      = IncludeInAvailability("none")
-)
+	ActionModes = []ActionMode{
+		ActionModeManualAction,
+		ActionModeAutomaticAction,
+	}
 
-var (
+	SendingModes = []SendingMode{
+		SendingModeMdnSentManually,
+		SendingModeMdnSentAutomatically,
+	}
+
+	DispositionTypeOptions = []DispositionTypeOption{
+		DispositionTypeOptionDeleted,
+		DispositionTypeOptionDispatched,
+		DispositionTypeOptionDisplayed,
+		DispositionTypeOptionProcessed,
+	}
+
 	IncludeInAvailabilities = []IncludeInAvailability{
 		IncludeInAvailabilityAll,
 		IncludeInAvailabilityAttending,
@@ -459,6 +536,9 @@ type SessionPrincipalsOwnerAccountCapabilities struct {
 	PrincipalId string `json:"principalId,omitempty"`
 }
 
+type SessionMDNAccountCapabilities struct {
+}
+
 type SessionAccountCapabilities struct {
 	Mail             SessionMailAccountCapabilities             `json:"urn:ietf:params:jmap:mail"`
 	Submission       SessionSubmissionAccountCapabilities       `json:"urn:ietf:params:jmap:submission"`
@@ -469,6 +549,7 @@ type SessionAccountCapabilities struct {
 	Contacts         SessionContactsAccountCapabilities         `json:"urn:ietf:params:jmap:contacts"`
 	Principals       *SessionPrincipalsAccountCapabilities      `json:"urn:ietf:params:jmap:principals,omitempty"`
 	PrincipalsOwner  *SessionPrincipalsOwnerAccountCapabilities `json:"urn:ietf:params:jmap:principals:owner,omitempty"`
+	MDN              *SessionMDNAccountCapabilities             `json:"urn:ietf:params:jmap:mdn,omitempty"`
 }
 
 type Account struct {
@@ -541,6 +622,9 @@ type SessionContactsCapabilities struct {
 type SessionPrincipalCapabilities struct {
 }
 
+type SessionMDNCapabilities struct {
+}
+
 type SessionCapabilities struct {
 	Core             SessionCoreCapabilities             `json:"urn:ietf:params:jmap:core"`
 	Mail             SessionMailCapabilities             `json:"urn:ietf:params:jmap:mail"`
@@ -552,6 +636,7 @@ type SessionCapabilities struct {
 	Websocket        SessionWebsocketCapabilities        `json:"urn:ietf:params:jmap:websocket"`
 	Contacts         *SessionContactsCapabilities        `json:"urn:ietf:params:jmap:contacts"`
 	Principals       *SessionPrincipalCapabilities       `json:"urn:ietf:params:jmap:principals"`
+	MDN              *SessionMDNCapabilities             `json:"urn:ietf:params:jmap:mdn,omitempty"`
 }
 
 type SessionPrimaryAccounts struct {
@@ -757,6 +842,9 @@ const (
 	//
 	// A description String property MAY be present on the SetError object to display to the user why they are not permitted.
 	SetErrorForbiddenToSend = "forbiddenToSend"
+
+	// The message has the `$mdnsent` keyword already set.
+	SetErrorMdnAlreadySent = "mdnAlreadySent"
 )
 
 type SetError struct {
@@ -3394,7 +3482,7 @@ type CalendarEvent struct {
 	// `utcStart` property rather than the local start time. Even simple recurrences such as "repeat weekly" may cross a
 	// daylight-savings boundary and end up at a different UTC time. Clients that wish to use "utcStart" are RECOMMENDED to
 	// request the server expand recurrences.
-	UtcStart UTCDateTime `json:"utcStart,omitzero"`
+	UtcStart UTCDate `json:"utcStart,omitzero"`
 
 	// The server calculates the end time in UTC from the start/timeZone/duration properties of the event.
 	//
@@ -3403,7 +3491,7 @@ type CalendarEvent struct {
 	// Like `utcStart`, it is calculated at fetch time if requested and may change due to time zone data changes.
 	//
 	// Floating events will be interpreted as per the time zone given as a `CalendarEvent/get` argument.
-	UtcEnd UTCDateTime `json:"utcEnd,omitzero"`
+	UtcEnd UTCDate `json:"utcEnd,omitzero"`
 
 	jscalendar.Event
 }
@@ -3489,7 +3577,7 @@ type CalendarEventNotification struct {
 	Id string `json:"id"`
 
 	// The time this notification was created.
-	Created UTCDateTime `json:"created,omitzero"`
+	Created UTCDate `json:"created,omitzero"`
 
 	// Who made the change.
 	ChangedBy *Person `json:"person,omitempty"`
@@ -3524,6 +3612,463 @@ type CalendarEventNotification struct {
 	// A patch encoding the change between the data in the event property,
 	// and the data after the update (updated only).
 	EventPatch PatchObject `json:"eventPatch,omitempty"`
+}
+
+// Denotes the task list has a special purpose.
+//
+// This MUST be one of the following:
+// !- `inbox`: This is the principal’s default task list;
+// !- `trash`: This task list holds messages the user has discarded;
+type TaskListRole string
+
+const (
+	// This is the principal’s default task list.
+	TaskListRoleInbox = TaskListRole("inbox")
+	// This task list holds messages the user has discarded.
+	TaskListRoleTrash = TaskListRole("trash")
+)
+
+var (
+	DefaultWorkflowStatuses = []string{
+		"completed",
+		"failed",
+		"in-process",
+		"needs-action",
+		"cancelled",
+		"pending",
+	}
+)
+
+type TaskRights struct {
+	// The user may fetch the tasks in this task list.
+	MayReadItems bool `json:"mayReadItems"`
+
+	// The user may create, modify or destroy all tasks in this task list,
+	// or move tasks to or from this task list.
+	//
+	// If this is `true`, the `mayWriteOwn`, `mayUpdatePrivate` and `mayRSVP` properties
+	// MUST all also be `true`.
+	MayWriteAll bool `json:"mayWriteAll"`
+
+	// The user may create, modify or destroy a task on this task list if either they are
+	// the owner of the task (see below) or the task has no owner.
+	//
+	// This means the user may also transfer ownership by updating a task so they are no longer
+	// an owner.
+	MayWriteOwn bool `json:"mayWriteOwn"`
+
+	// The user may modify the following properties on all tasks in the task list, even
+	// if they would not otherwise have permission to modify that task.
+	//
+	// These properties MUST all be stored per-user, and changes do not affect any other user of the task list.
+	//
+	// The user may also modify the above on a per-occurrence basis for recurring tasks
+	// (updating the `recurrenceOverrides` property of the task to do so).
+	MayUpdatePrivate bool `json:"mayUpdatePrivate"`
+
+	// The user may modify the following properties of any `Participant` object that corresponds
+	// to one of the user’s `ParticipantIdentity` objects in the account, even if they would not
+	// otherwise have permission to modify that task
+	// !- `participationStatus`
+	// !- `participationComment`
+	// !- `expectReply`
+	//
+	// If the task has its `mayInviteSelf` property set to true, then the user may also add a new
+	// `Participant` to the task with a `sendTo` property that is the same as the `sendTo` property
+	// of one of the user’s `ParticipantIdentity` objects in the account.
+	// The `roles` property of the participant MUST only contain `attendee`.
+	//
+	// If the task has its `mayInviteOthers` property set to `true` and there is an existing
+	// `Participant` in the task corresponding to one of the user’s `ParticipantIdentity` objects
+	// in the account, then the user may also add new participants.
+	// The `roles` property of any new participant MUST only contain `attendee`.
+	//
+	// The user may also do all of the above on a per-occurrence basis for recurring tasks
+	// (updating the `recurrenceOverrides` property of the task to do so).
+	MayRSVP bool `json:"mayRSVP"`
+
+	//  The user may modify sharing for this task list.
+	MayAdmin bool `json:"mayAdmin"`
+
+	// The user may delete the task list itself (server-set).
+	//
+	// This property MUST be false if the account to which this task list belongs has the `isReadOnly`
+	// property set to true.
+	MayDelete bool `json:"mayDelete"`
+}
+
+type TaskList struct {
+	// The id of the task list (immutable; server-set).
+	Id string `json:"id,omitempty"`
+
+	// Denotes the task list has a special purpose.
+	//
+	// This MUST be one of the following:
+	// !- `inbox`: This is the principal’s default task list;
+	// !- `trash`: This task list holds messages the user has discarded;
+	Role TaskListRole `json:"role,omitempty"`
+
+	// The user-visible name of the task list.
+	//
+	// This may be any UTF-8 string of at least 1 character in length and maximum 255 octets in size.
+	Name string `json:"name,omitempty"`
+
+	// An optional longer-form description of the task list, to provide context in shared environments
+	// where users need more than just the name.
+	Description string `json:"description,omitempty"`
+
+	// A color to be used when displaying tasks associated with the task list.
+	//
+	// If not null, the value MUST be a case-insensitive color name taken from the set of names defined
+	// in Section 4.3 of CSS Color Module Level 3 COLORS, or an RGB value in hexadecimal notation,
+	// as defined in Section 4.2.1 of CSS Color Module Level 3.
+	//
+	// The color SHOULD have sufficient contrast to be used as text on a white background.
+	Color string `json:"color,omitempty"`
+
+	// A map of keywords to the colors used when displaying the keywords associated to a task.
+	//
+	// The same considerations, as for `color` above, apply.
+	KeywordColors map[string]string `json:"keywordColors,omitempty"`
+
+	// A map of categories to the colors used when displaying the categories associated to a task.
+	//
+	// The same considerations, as for `color` above, apply.
+	CategoryColors map[string]string `json:"categoryColors,omitempty"`
+
+	// Defines the sort order of task lists when presented in the client’s UI, so it is consistent
+	// between devices.
+	//
+	// The number MUST be an integer in the range 0 ≤ sortOrder < 2^31.
+	//
+	// A task list with a lower order should be displayed before a list with a higher order in any list
+	// of task lists in the client’s UI.
+	//
+	// Task lists with equal order SHOULD be sorted in alphabetical order by name.
+	//
+	// The sorting should take into account locale-specific character order convention.
+	SortOrder uint `json:"sortOrder,omitzero"`
+
+	// Has the user indicated they wish to see this task list in their client?
+	//
+	// This SHOULD default to false for task lists in shared accounts the user has access to,
+	// and true for any new task list created by the user themselves.
+	//
+	// If false, the task list should only be displayed when the user explicitly
+	// requests it or to offer it for the user to subscribe to.
+	IsSubscribed bool `json:"isSubscribed,omitzero"`
+
+	// The time zone to use for tasks without a time zone when the server needs to resolve them
+	// into absolute time, e.g., for alerts or availability calculation.
+	//
+	// The value MUST be a time zone id from the IANA Time Zone Database TZDB.
+	//
+	// If null, the timeZone of the account’s associated Principal will be used.
+	//
+	// Clients SHOULD use this as the default for new tasks in this task list, if set.
+	TimeZone string `json:"timeZone,omitempty"`
+
+	// Defines the allowed values for `workflowStatus`.
+	//
+	// The default values are based on the values defined within [@!RFC8984], Section 5.2.5 and `pending`.
+	//
+	// `pending` indicates the task has been created and accepted, but it currently is on-hold.
+	//
+	// As naming and workflows differ between systems, mapping the status correctly to the present values
+	// of the `Task` can be challenging. In the most simple case, a task system may support merely two states - `done`
+	// and `not-done`.
+	//
+	// On the other hand, statuses and their semantic meaning can differ between systems or task lists (e.g. projects).
+	//
+	// In case of uncertainty, here are some recommendations for mapping commonly observed values that can help
+	// during implementation:
+	// !- `completed`: `done` (most simple case), `closed`, `verified`, …
+	// !- `in-process`: `in-progress`, `active`, `assigned`, …
+	// !- `needs-action`: `not-done` (most simple case), `not-started`, `new`, …
+	// !- `pending`: `waiting`, `deferred`, `on-hold`, `paused`, …
+	WorkflowStatuses []string `json:"workflowStatuses,omitempty"`
+
+	// A map of `Principal` id to rights for principals this task list is shared with.
+	//
+	// The principal to which this task list belongs MUST NOT be in this set.
+	//
+	// This is null if the task list is not shared with anyone.
+	//
+	// May be modified only if the user has the `mayAdmin` right.
+	//
+	// The account id for the principals may be found in the `urn:ietf:params:jmap:principals:owner` capability
+	// of the `Account` to which the task list belongs.
+	ShareWith map[string]TaskRights `json:"shareWith,omitempty"`
+
+	// The set of access rights the user has in relation to this `TaskList`.
+	//
+	// The user may fetch the task if they have the `mayReadItems` right on any task list the task is in.
+	//
+	// The user may remove a task from a task list (by modifying the task’s `taskListId` property) if the user has the
+	// appropriate permission for that task list.
+	//
+	// The user may make other changes to the task if they have the right to do so in all task list to which the task belongs.
+	MyRights *TaskRights `json:"myRights,omitempty"`
+
+	// A map of alert ids to `Alert` objects (see [@!RFC8984], Section 4.5.2) to apply for tasks
+	// where `showWithoutTime` is `false` and `useDefaultAlerts` is `true`.
+	//
+	// Ids MUST be unique across all default alerts in the account, including those in other task
+	// lists; a UUID is recommended.
+	//
+	// If omitted on creation, the default is server dependent.
+	//
+	// For example, servers may choose to always default to null, or may copy the alerts from the default task list.
+	DefaultAlertsWithTime map[string]jscalendar.Alert `json:"defaultAlertsWithTime,omitempty"`
+
+	// A map of alert ids to `Alert` objects (see [@!RFC8984], Section 4.5.2) to apply for tasks
+	// where `showWithoutTime` is `true` and `useDefaultAlerts` is `true`.
+	//
+	// Ids MUST be unique across all default alerts in the account, including those in other task
+	// lists; a UUID is recommended.
+	//
+	// If omitted on creation, the default is server dependent. For example, servers may choose to always
+	// default to `null`, or may copy the alerts from the default task list.
+	DefaultAlertsWithoutTime map[string]jscalendar.Alert `json:"defaultAlertsWithoutTime,omitempty"`
+}
+
+type TypeOfChecklist string
+type TypeOfCheckItem string
+type TypeOfTaskPerson string
+type TypeOfComment string
+
+type TaskNotificationTypeOption string
+
+const ChecklistType = TypeOfChecklist("Checklist")
+const CheckItemType = TypeOfCheckItem("CheckItem")
+const TaskPersonType = TypeOfTaskPerson("Person")
+const CommentType = TypeOfComment("Comment")
+const TaskNotificationTypeOptionCreated = TaskNotificationTypeOption("created")
+const TaskNotificationTypeOptionUpdated = TaskNotificationTypeOption("updated")
+const TaskNotificationTypeOptionDestroyed = TaskNotificationTypeOption("destroyed")
+
+// The Person object has the following properties of which either principalId or uri MUST be defined.
+type TaskPerson struct {
+	// Specifies the type of this object, this MUST be `Person`.
+	Type TypeOfTaskPerson `json:"@type,omitempty"`
+
+	// The name of the person.
+	Name string `json:"name,omitempty"`
+
+	// A URI value that identifies the person.
+	//
+	// This SHOULD be the `scheduleId` of the participant that this item was assigned to.
+	Uri string `json:"uri,omitempty"`
+
+	// The id of the Principal corresponding to the person, if any.
+	PrincipalId string `json:"principalId,omitempty"`
+}
+
+type Comment struct {
+	// Specifies the type of this object, this MUST be `Comment`.
+	Type TypeOfComment `json:"@type,omitempty"`
+
+	// The free text value of this comment.
+	Message string `json:"message"`
+
+	// The date and time when this note was created.
+	Created UTCDate `json:"created,omitzero"`
+
+	// The date and time when this note was updated.
+	Updated UTCDate `json:"updated,omitzero"`
+
+	// The author of this comment.
+	Author *TaskPerson `json:"author,omitempty"`
+}
+
+type CheckItem struct {
+	// Specifies the type of this object, this MUST be `CheckItem`.
+	Type TypeOfCheckItem `json:"@type,omitempty"`
+
+	// Title of the item.
+	Title string `json:"title,omitempty"`
+
+	// Defines the sort order of `CheckItem` when presented in the client’s UI.
+	//
+	// The number MUST be an integer in the range 0 <= sortOrder < 2^31.
+	//
+	// An item with a lower order should be displayed before an item with a higher order.
+	//
+	// Items with equal order SHOULD be sorted in alphabetical order by name.
+	//
+	// The sorting should take into account locale-specific character order convention.
+	SortOrder uint `json:"sortOrder,omitzero"`
+
+	// The date and time when this item was updated.
+	Updated UTCDate `json:"updated,omitzero"`
+
+	IsComplete bool `json:"isComplete,omitzero"`
+
+	// The person that this item is assigned to.
+	//
+	// The `Person` object has the following properties of which either `principalId` or `uri`
+	// MUST be defined.
+	Assignee *TaskPerson `json:"assignee,omitempty"`
+
+	// Free-text comments associated with this task.
+	Comments map[string]Comment `json:"comments,omitempty"`
+}
+
+type Checklist struct {
+	// Specifies the type of this object, this MUST be `Checklist`.
+	Type TypeOfChecklist `json:"@type,omitempty"`
+
+	// Title of the list.
+	Title string `json:"title,omitempty"`
+
+	// The items of the check list.
+	CheckItems []CheckItem `json:"checkItems,omitempty"`
+}
+
+// A `Task` object contains information about a task.
+//
+// It is a JSTask object, as defined in [@!RFC8984]. However, as use-cases of task systems vary, this
+// Section defines relevant parts of the JSTask object to implement the core task capability as well
+// as several extensions to it.
+//
+// Only the core capability MUST be implemented by any task system.
+//
+// Implementers can choose the extensions that fit their own use case.
+//
+// For example, the recurrence extension allows having a `Task` object represent a series of recurring `Task`s.
+type Task struct {
+
+	// The id of the Task.
+	//
+	// This property is immutable.
+	//
+	// The id uniquely identifies a JSTask with a particular `uid` and `recurrenceId` within a particular account.
+	Id string `json:"id"`
+
+	// The `TaskList` id this task belongs to.
+	//
+	// A task MUST belong to exactly one `TaskList` at all times (until it is destroyed).
+	TaskListId string `json:"taskListId"`
+
+	// If `true`, this task is to be considered a draft.
+	//
+	// The server will not send any push notifications for alerts.
+	//
+	// This may only be set to true upon creation.
+	//
+	// Once set to `false`, the value cannot be updated to `true`.
+	//
+	// This property MUST NOT appear in `recurrenceOverrides`.
+	IsDraft bool `json:"isDraft,omitzero"`
+
+	UtcStart UTCDate `json:"utcStart,omitzero"`
+
+	UtcDue UTCDate `json:"utcDue,omitzero"`
+
+	SortOrder uint `json:"sortOrder,omitzero"`
+
+	WorkflowStatus string `json:"workflowStatus,omitempty"`
+
+	jscalendar.Task
+
+	// This specifies the estimated amount of work the task takes to complete.
+	//
+	// In Agile software development or Scrum, it is known as complexity or story points.
+	//
+	// The number has no actual unit, but a larger number means more work.
+	EstimatedWork uint `json:"estimatedWork,omitzero"`
+
+	// This specifies the impact or severity of the task, but does not say anything
+	// about the actual prioritization.
+	//
+	// Some examples are: `minor`, `trivial`, `major` or `block`.
+	//
+	// Usually, the priority of a task is based upon its impact and urgency.
+	Impact string `json:"impact,omitempty"`
+
+	// A map of Checklist IDs to Checklist objects, containing checklist items.
+	Checklists map[string]Checklist `json:"checklists,omitempty"`
+
+	// This is only defined if the id property is a synthetic id, generated by the server
+	// to represent a particular instance of a recurring Task (immutable; server-set).
+	//
+	// This property gives the id of the “real” Task this was generated from.
+	BaseTaskId string `json:"baseTaskId,omitempty"`
+
+	// Is this the authoritative source for this task (i.e., does it control scheduling
+	// for this task; the task has not been added as a result of an invitation from another
+	// task management system)?
+	//
+	// This is `true` if, and only if:
+	// !- the task’s “replyTo” property is null; or
+	// !- the account will receive messages sent to at least one of the methods specified in
+	// the `replyTo` property of the task.
+	IsOrigin bool `json:"isOrigin,omitzero"`
+
+	// If true, any user that has access to the task may add themselves to it as a participant
+	// with the `attendee` role.
+	//
+	// This property MUST NOT be altered in the `recurrenceOverrides`; it may only be set on the master object.
+	//
+	// This indicates the task will accept “party crasher” RSVPs via iTIP, subject to any other domain-specific
+	// restrictions, and users may add themselves to the task via JMAP as long as they have the `mayRSVP`
+	// permission for the task list.
+	//
+	// default: false
+	MayInviteSelf bool `json:"mayInviteSelf,omitzero"`
+
+	// If true, any current participant with the `attendee` role may add new participants with
+	// the `attendee` role to the task.
+	//
+	// This property MUST NOT be altered in the `recurrenceOverrides`; it may only be set on the master object.
+	//
+	// default: false
+	MayInviteOthers bool `json:"mayInviteOthers,omitzero"`
+
+	// If true, only the owners of the task may see the full set of participants.
+	//
+	// Other sharees of the task may only see the owners and themselves.
+	//
+	// This property MUST NOT be altered in the `recurrenceOverrides`; it may only be set on the master object.
+	HideAttendees bool `json:"hideAttendees,omitzero"`
+}
+
+// The `TaskNotification` data type records changes made by external entities to tasks in task lists
+// the user is subscribed to.
+//
+// Notifications are stored in the same `Account` as the `Task` that was changed.
+type TaskNotification struct {
+	// The id of the `TaskNotification`.
+	Id string `json:"id"`
+
+	// The time this notification was created.
+	Created UTCDate `json:"created,omitzero"`
+
+	// Who made the change.
+	ChangedBy *TaskPerson `json:"changedBy,omitempty"`
+
+	// Comment sent along with the change by the user that made it.
+	//
+	// (e.g. `COMMENT` property in an iTIP message), if any.
+	Comment string `json:"comment,omitempty"`
+
+	// This MUST be one of
+	// !- `created`
+	// !- `updated`
+	// !- `destroyed`
+	Type TaskNotificationTypeOption `json:"type"`
+
+	// The id of the Task that this notification is about.
+	TaskId string `json:"taskId"`
+
+	// Is this task a draft? (created/updated only)
+	IsDraft bool `json:"isDraft,omitzero"`
+
+	// The data before the change (if updated or destroyed), or the data after creation (if created).
+	Task *jscalendar.Task `json:"task,omitempty"`
+
+	// A patch encoding the change between the data in the task property, and the data after the update updated only).
+	TaskPatch PatchObject `json:"taskPatch,omitempty"`
 }
 
 // A Principal represents an individual, group, location (e.g. a room), resource (e.g. a projector) or other entity
@@ -3675,6 +4220,96 @@ type Quota struct {
 	// selected based on an `Accept-Language` header in the request (as defined in [RFC9110], Section 12.5.4)
 	// or out-of-band information about the user's language or locale.
 	Description string `json:"description,omitempty"`
+}
+
+// See [RFC8098] for the exact meaning of these different fields.
+//
+// These fields are defined as case insensitive in [RFC8098] but are case sensitive in this RFC
+// and MUST be converted to lowercase by "MDN/parse".
+type Disposition struct {
+	ActionMode  ActionMode            `json:"actionMode,omitempty"`
+	SendingMode SendingMode           `json:"sendingMode,omitempty"`
+	Type        DispositionTypeOption `json:"type,omitempty"`
+}
+
+// Message Disposition Notifications (MDNs) are defined in [RFC8098] and are used as "read receipts",
+// "acknowledgements", or "receipt notifications".
+//
+// A client can come across MDNs in different ways:
+// 1. When receiving an email message, an MDN can be sent to the sender. This specification defines an `MDN/send` method to cover this case.
+// 2. When sending an email message, an MDN can be requested. This must be done with the help of a header field, as already specified by [RFC8098];
+// the header field can already be handled by guidance in [RFC8621].
+// 3. When receiving an MDN, the MDN could be related to an existing sent message. This is already covered by [RFC8621] in the
+// `EmailSubmission` object. A client might want to display detailed information about a received MDN.
+// This specification defines an `MDN/parse` method to cover this case.
+type MDN struct {
+	// The `Email` id of the received message to which this MDN is related.
+	//
+	// This property MUST NOT be null for `MDN/send` but MAY be null in the response from the `MDN/parse` method.
+	ForEmailId string `json:"forEmailId,omitempty"`
+
+	// The subject used as `Subject` header field for this MDN.
+	Subject string `json:"subject,omitempty"`
+
+	// The human-readable part of the MDN, as plain text.
+	TextBody string `json:"textBody,omitempty"`
+
+	// If true, the content of the original message will appear in the third component of the `multipart/report` generated
+	// for the MDN.
+	//
+	// See [RFC8098] for details and security considerations.
+	IncludeOriginalMessage bool `json:"includeOriginalMessage,omitzero"`
+
+	// The name of the Mail User Agent (MUA) creating this MDN.
+	//
+	// It is used to build the MDN report part of the MDN.
+	//
+	// Note that a null value may have better privacy properties.
+	ReportingUA string `json:"reportingUA,omitempty"`
+
+	// The object containing the diverse MDN disposition options.
+	Disposition Disposition `json:"disposition"`
+
+	// The name of the gateway or Message Transfer Agent (MTA) that translated a foreign (non-Internet)
+	// message disposition notification into this MDN (server-set).
+	MdnGateway string `json:"mdnGateway,omitempty"`
+
+	// The original recipient address as specified by the sender of the message for which the MDN is being issued (server-set).
+	OriginalRecipient string `json:"originalRecipient,omitempty"`
+
+	// The recipient for which the MDN is being issued.
+	//
+	// If set, it overrides the value that would be calculated by the server from the `Identity` defined
+	// in the `MDN/send` method, unless explicitly set by the client.
+	FinalRecipient string `json:"finalRecipient,omitempty"`
+
+	// The `Message-ID` header field [RFC5322] (not the JMAP id) of the message for which the MDN is being issued.
+	OriginalMessageId string `json:"originalMessageId,omitempty"`
+
+	// Additional information in the form of text messages when the `error` disposition modifier appears.
+	Error []string `json:"error,omitempty"`
+
+	// The object where keys are extension-field names, and values are extension-field values (see [RFC8098], Section 3.3).
+	ExtensionFields map[string]string `json:"extensionFields,omitempty"`
+}
+
+type SendMDN struct {
+	// The id of the account to use.
+	AccountId string `json:"accountId"`
+
+	// The id of the `Identity` to associate with these MDNs.
+	//
+	// The server will use this identity to define the sender of the MDNs and to set the `finalRecipient` field.
+	IdentityId string `json:"identityId"`
+
+	// A map of the creation id (client specified) to MDN objects.
+	Send map[string]MDN `json:"send,omitempty"`
+
+	// A map of the id to an object containing properties to update on the `Email` object referenced by the `MDN/send`
+	// if the sending succeeds.
+	//
+	// This will always be a backward reference to the creation id.
+	OnSuccessUpdateEmail map[string]PatchObject `json:"onSuccessUpdateEmail,omitempty"`
 }
 
 type ErrorResponse struct {

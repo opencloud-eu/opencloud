@@ -69,8 +69,8 @@ var E1 = jmap.CalendarEvent{
 	BaseEventId: "ahtah9qu",
 	IsDraft:     true,
 	IsOrigin:    true,
-	UtcStart:    jmap.UTCDateTime{Time: mustParseTime("2025-10-01T00:00:00Z")},
-	UtcEnd:      jmap.UTCDateTime{Time: mustParseTime("2025-10-07T00:00:00Z")},
+	UtcStart:    jmap.UTCDate{Time: mustParseTime("2025-10-01T00:00:00Z")},
+	UtcEnd:      jmap.UTCDate{Time: mustParseTime("2025-10-07T00:00:00Z")},
 	Event: jscalendar.Event{
 		Type:     jscalendar.EventType,
 		Start:    jscalendar.LocalDateTime{Time: mustParseTime("2025-09-30T12:00:00Z")},

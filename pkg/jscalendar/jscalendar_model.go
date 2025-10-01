@@ -84,6 +84,20 @@ const (
 	RelationshipChild  = Relationship("child")
 	RelationshipParent = Relationship("parent")
 
+	// Only for Task, JMAP extension: this task depends on the referenced task in some manner.
+	//
+	// For example, a task may be blocked waiting on the other, referenced, task.
+	RelationshipDependsOn = Relationship("depends-on")
+
+	// Only for Task, JMAP extension: the referenced task was cloned from this task.
+	RelationshipClone = Relationship("clone")
+
+	// Only for Task, JMAP extension: the referenced task is a duplicate of this task.
+	RelationshipDuplicate = Relationship("duplicate")
+
+	// Only for Task, JMAP extension: the referenced task was the cause for this task.
+	RelationshipCause = Relationship("cause")
+
 	DisplayBadge     = Display("badge")
 	DisplayGraphic   = Display("graphic")
 	DisplayFullsize  = Display("fullsize")
@@ -343,6 +357,9 @@ const (
 	RoleChair         = Role("chair")
 	RoleContact       = Role("contact")
 
+	// JMAP Task extension: the participant is expected to work on the task.
+	RoleAssignee = Role("assignee")
+
 	ParticipationStatusNeedsAction = ParticipationStatus("needs-action")
 	ParticipationStatusAccepted    = ParticipationStatus("accepted")
 	ParticipationStatusDeclined    = ParticipationStatus("declined")
@@ -380,6 +397,10 @@ var (
 		RelationshipNext,
 		RelationshipChild,
 		RelationshipParent,
+		RelationshipDependsOn,
+		RelationshipClone,
+		RelationshipDuplicate,
+		RelationshipCause,
 	}
 
 	Displays = []Display{
@@ -667,6 +688,7 @@ var (
 		RoleInformational,
 		RoleChair,
 		RoleContact,
+		RoleAssignee,
 	}
 
 	ParticipationStatuses = []ParticipationStatus{

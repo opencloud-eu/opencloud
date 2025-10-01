@@ -49,7 +49,7 @@ type SwaggerGetCalendarById200 struct {
 //	500: ErrorResponse500
 func (g *Groupware) GetCalendarById(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
-		calendarId := chi.URLParam(r, UriParamAddressBookId)
+		calendarId := chi.URLParam(r, UriParamCalendarId)
 		// TODO replace with proper implementation
 		for _, calendar := range AllCalendars {
 			if calendar.Id == calendarId {
@@ -78,7 +78,7 @@ type SwaggerGetEventsInCalendar200 struct {
 //	500: ErrorResponse500
 func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
-		calendarId := chi.URLParam(r, UriParamAddressBookId)
+		calendarId := chi.URLParam(r, UriParamCalendarId)
 		// TODO replace with proper implementation
 		events, ok := EventsMapByCalendarId[calendarId]
 		if !ok {
