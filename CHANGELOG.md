@@ -37,6 +37,8 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump google.golang.org/protobuf from 1.36.9 to 1.36.10 [[#1604](https://github.com/opencloud-eu/opencloud/pull/1604)]
+- build(deps): bump github.com/onsi/ginkgo/v2 from 2.25.3 to 2.26.0 [[#1603](https://github.com/opencloud-eu/opencloud/pull/1603)]
 - build(deps): bump github.com/nats-io/nats.go from 1.46.0 to 1.46.1 [[#1590](https://github.com/opencloud-eu/opencloud/pull/1590)]
 - build(deps): bump github.com/olekukonko/tablewriter from 1.0.9 to 1.1.0 [[#1584](https://github.com/opencloud-eu/opencloud/pull/1584)]
 - build(deps): bump github.com/open-policy-agent/opa from 1.8.0 to 1.9.0 [[#1576](https://github.com/opencloud-eu/opencloud/pull/1576)]
