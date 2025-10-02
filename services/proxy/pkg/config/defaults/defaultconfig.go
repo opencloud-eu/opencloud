@@ -283,9 +283,10 @@ func DefaultPolicies() []config.Policy {
 					Service:  "eu.opencloud.web.groupware",
 				},
 				{
-					Endpoint:    "/auth",
-					Service:     "eu.opencloud.web.auth-api",
-					Unprotected: true,
+					Endpoint:         "/auth",
+					Service:          "eu.opencloud.web.auth-api",
+					Unprotected:      true,
+					SkipXAccessToken: true,
 				},
 			},
 		},
