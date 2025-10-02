@@ -16,6 +16,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/server/http"
+	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 )
 
@@ -61,7 +62,16 @@ func Server(cfg *config.Config) *cli.Command {
 
 			kv, err := js.KeyValue(cfg.Store.Database)
 			if err != nil {
-				return err
+				if !errors.Is(err, nats.ErrBucketNotFound) {
+					return errors.Wrapf(err, "Failed to get bucket (%s)", cfg.Store.Database)
+				}
+
+				kv, err = js.CreateKeyValue(&nats.KeyValueConfig{
+					Bucket: cfg.Store.Database,
+				})
+				if err != nil {
+					return errors.Wrapf(err, "Failed to create bucket (%s)", cfg.Store.Database)
+				}
 			}
 			if err != nil {
 				return err
