@@ -39,7 +39,7 @@ type SwaggerGetCalendarById200 struct {
 }
 
 // swagger:route GET /groupware/accounts/{account}/calendars/{calendarid} calendar calendar_by_id
-// Get all calendars of an account.
+// Get a calendar of an account by its identifier.
 //
 // responses:
 //
@@ -68,7 +68,7 @@ type SwaggerGetEventsInCalendar200 struct {
 }
 
 // swagger:route GET /groupware/accounts/{account}/calendars/{calendarid}/events event events_in_addressbook
-// Get all the events in a calendarof an account by its identifier.
+// Get all the events in a calendar of an account by its identifier.
 //
 // responses:
 //
