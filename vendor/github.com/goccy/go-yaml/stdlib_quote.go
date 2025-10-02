@@ -53,8 +53,18 @@ func appendQuotedWith(buf []byte, s string, quote byte) []byte {
 
 func appendEscapedRune(buf []byte, r rune, quote byte) []byte {
 	var runeTmp [utf8.UTFMax]byte
-	if r == rune(quote) || r == '\\' { // always backslashed
-		buf = append(buf, '\\')
+	// goccy/go-yaml patch on top of the standard library's appendEscapedRune function.
+	//
+	// We use this to implement the YAML single-quoted string, where the only escape sequence is '', which represents a single quote.
+	// The below snippet from the standard library is for escaping e.g. \ with \\, which is not what we want for the single-quoted string.
+	//
+	// if r == rune(quote) || r == '\\' { // always backslashed
+	// 	buf = append(buf, '\\')
+	// 	buf = append(buf, byte(r))
+	// 	return buf
+	// }
+	if r == rune(quote) {
+		buf = append(buf, byte(r))
 		buf = append(buf, byte(r))
 		return buf
 	}

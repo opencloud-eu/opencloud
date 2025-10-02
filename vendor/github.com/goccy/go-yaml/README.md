@@ -7,27 +7,71 @@
 
 <img width="300px" src="https://user-images.githubusercontent.com/209884/67159116-64d94b80-f37b-11e9-9b28-f8379636a43c.png"></img>
 
+## This library has **NO** relation to the go-yaml/yaml library
+
+> [!IMPORTANT]
+> This library is developed from scratch to replace [`go-yaml/yaml`](https://github.com/go-yaml/yaml).
+> If you're looking for a better YAML library, this one should be helpful.
+
 # Why a new library?
 
-As of this writing, there already exists a de facto standard library for YAML processing for Go: [https://github.com/go-yaml/yaml](https://github.com/go-yaml/yaml). However we feel that some features are lacking, namely:
+As of this writing, there already exists a de facto standard library for YAML processing for Go: [https://github.com/go-yaml/yaml](https://github.com/go-yaml/yaml). However, we believe that a new YAML library is necessary for the following reasons:
 
-- Pretty format for error notifications
-- Direct manipulation of YAML abstract syntax tree
-- Support for `Anchor` and `Alias` when marshaling
-- Allow referencing elements declared in another file via anchors
+- Not actively maintained
+- `go-yaml/yaml` has ported the libyaml written in C to Go, so the source code is not written in Go style
+- There is a lot of content that cannot be parsed
+- YAML is often used for configuration, and it is common to include validation along with it. However, the errors in `go-yaml/yaml` are not intuitive, and it is difficult to provide meaningful validation errors
+- When creating tools that use YAML, there are cases where reversible transformation of YAML is required. However, to perform reversible transformations of content that includes Comments or Anchors/Aliases, manipulating the AST is the only option
+- Non-intuitive [Marshaler](https://pkg.go.dev/gopkg.in/yaml.v3#Marshaler) / [Unmarshaler](https://pkg.go.dev/gopkg.in/yaml.v3#Unmarshaler)
+
+By the way, libraries such as [ghodss/yaml](https://github.com/ghodss/yaml) and [sigs.k8s.io/yaml](https://github.com/kubernetes-sigs/yaml) also depend on go-yaml/yaml, so if you are using these libraries, the same issues apply: they cannot parse things that go-yaml/yaml cannot parse, and they inherit many of the problems that go-yaml/yaml has.
 
 # Features
 
+- No dependencies
+- A better parser than `go-yaml/yaml`. 
+  - [Support recursive processing](https://github.com/apple/device-management/blob/release/docs/schema.yaml)
+  - Higher coverage in the [YAML Test Suite](https://github.com/yaml/yaml-test-suite?tab=readme-ov-file)
+    - YAML Test Suite consists of 402 cases in total, of which `gopkg.in/yaml.v3` passes `295`. In addition to passing all those test cases, `goccy/go-yaml` successfully passes nearly 60 additional test cases ( 2024/12/15 )
+    - The test code is [here](https://github.com/goccy/go-yaml/blob/master/yaml_test_suite_test.go#L77)
+- Ease and sustainability of maintenance
+  - The main maintainer is [@goccy](https://github.com/goccy), but we are also building a system to develop as a team with trusted developers
+  - Since it is written from scratch, the code is easy to read for Gophers
+- An API structure that allows the use of not only `Encoder`/`Decoder` but also `Tokenizer` and `Parser` functionalities.
+  - [lexer.Tokenize](https://pkg.go.dev/github.com/goccy/go-yaml@v1.15.4/lexer#Tokenize)
+  - [parser.Parse](https://pkg.go.dev/github.com/goccy/go-yaml@v1.15.4/parser#Parse)
+- Filtering, replacing, and merging YAML content using YAML Path
+- Reversible transformation without using the AST for YAML that includes Anchors, Aliases, and Comments
+- Customize the Marshal/Unmarshal behavior for primitive types and third-party library types ([RegisterCustomMarshaler](https://pkg.go.dev/github.com/goccy/go-yaml#RegisterCustomMarshaler), [RegisterCustomUnmarshaler](https://pkg.go.dev/github.com/goccy/go-yaml#RegisterCustomUnmarshaler))
+- Respects `encoding/json` behavior
+  - Accept the `json` tag. Note that not all options from the `json` tag will have significance when parsing YAML documents. If both tags exist, `yaml` tag will take precedence.
+  - [json.Marshaler](https://pkg.go.dev/encoding/json#Marshaler) style [marshaler](https://pkg.go.dev/github.com/goccy/go-yaml#BytesMarshaler)
+  - [json.Unmarshaler](https://pkg.go.dev/encoding/json#Unmarshaler) style [unmarshaler](https://pkg.go.dev/github.com/goccy/go-yaml#BytesUnmarshaler)
+  - Options for using `MarshalJSON` and `UnmarshalJSON` ([UseJSONMarshaler](https://pkg.go.dev/github.com/goccy/go-yaml#UseJSONMarshaler), [UseJSONUnmarshaler](https://pkg.go.dev/github.com/goccy/go-yaml#UseJSONUnmarshaler))
 - Pretty format for error notifications
-- Supports `Scanner` or `Lexer` or `Parser` as public API
-- Supports `Anchor` and `Alias` to Marshaler
+- Smart validation processing combined with [go-playground/validator](https://github.com/go-playground/validator)
+  - [example test code is here](https://github.com/goccy/go-yaml/blob/45889c98b0a0967240eb595a1bd6896e2f575106/testdata/validate_test.go#L12)
 - Allow referencing elements declared in another file via anchors
-- Extract value or AST by YAMLPath ( YAMLPath is like a JSONPath )
+
+# Users
+
+The repositories that use goccy/go-yaml are listed here.
+
+- https://github.com/goccy/go-yaml/wiki/Users
+
+The source data is [here](https://github.com/goccy/go-yaml/network/dependents). 
+It is already being used in many repositories. Now it's your turn 😄
+
+# Playground
+
+The Playground visualizes how go-yaml processes YAML text. Use it to assist with your debugging or issue reporting.
+
+https://goccy.github.io/go-yaml
 
 # Installation
 
 ```sh
-go get -u github.com/goccy/go-yaml
+go get github.com/goccy/go-yaml
 ```
 
 # Synopsis
@@ -148,7 +192,9 @@ fmt.Printf("%+v\n", v) // {A:{B:1 C:hello}}
 
 ### 3.1. Explicitly declared `Anchor` name and `Alias` name
 
-If you want to use `anchor` or `alias`, you can define it as a struct tag.
+If you want to use `anchor`, you can define it as a struct tag.
+If the value specified for an anchor is a pointer type and the same address as the pointer is found, the value is automatically set to alias.
+If an explicit alias name is specified, an error is raised if its value is different from the value specified in the anchor.
 
 ```go
 type T struct {
@@ -178,10 +224,7 @@ d: *x
 
 If you do not explicitly declare the anchor name, the default behavior is to
 use the equivalent of `strings.ToLower($FieldName)` as the name of the anchor.
-
-If you do not explicitly declare the alias name AND the value is a pointer
-to another element, we look up the anchor name by finding out which anchor
-field the value is assigned to by looking up its pointer address.
+If the value specified for an anchor is a pointer type and the same address as the pointer is found, the value is automatically set to alias.
 
 ```go
 type T struct {
@@ -191,8 +234,8 @@ type T struct {
 var v struct {
 	A *T `yaml:"a,anchor"`
 	B *T `yaml:"b,anchor"`
-	C *T `yaml:"c,alias"`
-	D *T `yaml:"d,alias"`
+	C *T `yaml:"c"`
+	D *T `yaml:"d"`
 }
 v.A = &T{I: 1, S: "hello"}
 v.B = &T{I: 2, S: "world"}
@@ -358,8 +401,15 @@ print yaml file with color
 ### Installation
 
 ```sh
-go install github.com/goccy/go-yaml/cmd/ycat@latest
+git clone https://github.com/goccy/go-yaml.git
+cd go-yaml/cmd/ycat && go install .
 ```
+
+
+# For Developers
+
+> [!NOTE]
+> In this project, we manage such test code under the `testdata` directory to avoid adding dependencies  on libraries that are only needed for testing to the top `go.mod` file. Therefore, if you want to add test cases that use 3rd party libraries, please add the test code to the `testdata` directory.
 
 # Looking for Sponsors
 

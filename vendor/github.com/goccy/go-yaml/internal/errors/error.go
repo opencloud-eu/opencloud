@@ -1,225 +1,45 @@
 package errors
 
 import (
-	"bytes"
+	"errors"
 	"fmt"
 	"reflect"
 
+	"github.com/goccy/go-yaml/ast"
 	"github.com/goccy/go-yaml/printer"
 	"github.com/goccy/go-yaml/token"
-	"golang.org/x/xerrors"
-)
-
-const (
-	defaultColorize      = false
-	defaultIncludeSource = true
 )
 
 var (
-	ErrDecodeRequiredPointerType = xerrors.New("required pointer type value")
+	As  = errors.As
+	Is  = errors.Is
+	New = errors.New
 )
 
-// Wrapf wrap error for stack trace
-func Wrapf(err error, msg string, args ...interface{}) error {
-	return &wrapError{
-		baseError: &baseError{},
-		err:       xerrors.Errorf(msg, args...),
-		nextErr:   err,
-		frame:     xerrors.Caller(1),
-	}
+const (
+	defaultFormatColor   = false
+	defaultIncludeSource = true
+)
+
+type Error interface {
+	error
+	GetToken() *token.Token
+	GetMessage() string
+	FormatError(bool, bool) string
 }
 
-// ErrSyntax create syntax error instance with message and token
-func ErrSyntax(msg string, tk *token.Token) *syntaxError {
-	return &syntaxError{
-		baseError: &baseError{},
-		msg:       msg,
-		token:     tk,
-		frame:     xerrors.Caller(1),
-	}
-}
+var (
+	_ Error = new(SyntaxError)
+	_ Error = new(TypeError)
+	_ Error = new(OverflowError)
+	_ Error = new(DuplicateKeyError)
+	_ Error = new(UnknownFieldError)
+	_ Error = new(UnexpectedNodeTypeError)
+)
 
-type baseError struct {
-	state fmt.State
-	verb  rune
-}
-
-func (e *baseError) Error() string {
-	return ""
-}
-
-func (e *baseError) chainStateAndVerb(err error) {
-	wrapErr, ok := err.(*wrapError)
-	if ok {
-		wrapErr.state = e.state
-		wrapErr.verb = e.verb
-	}
-	syntaxErr, ok := err.(*syntaxError)
-	if ok {
-		syntaxErr.state = e.state
-		syntaxErr.verb = e.verb
-	}
-}
-
-type wrapError struct {
-	*baseError
-	err     error
-	nextErr error
-	frame   xerrors.Frame
-}
-
-type FormatErrorPrinter struct {
-	xerrors.Printer
-	Colored    bool
-	InclSource bool
-}
-
-func (e *wrapError) As(target interface{}) bool {
-	err := e.nextErr
-	for {
-		if wrapErr, ok := err.(*wrapError); ok {
-			err = wrapErr.nextErr
-			continue
-		}
-		break
-	}
-	return xerrors.As(err, target)
-}
-
-func (e *wrapError) Unwrap() error {
-	return e.nextErr
-}
-
-func (e *wrapError) PrettyPrint(p xerrors.Printer, colored, inclSource bool) error {
-	return e.FormatError(&FormatErrorPrinter{Printer: p, Colored: colored, InclSource: inclSource})
-}
-
-func (e *wrapError) FormatError(p xerrors.Printer) error {
-	if _, ok := p.(*FormatErrorPrinter); !ok {
-		p = &FormatErrorPrinter{
-			Printer:    p,
-			Colored:    defaultColorize,
-			InclSource: defaultIncludeSource,
-		}
-	}
-	if e.verb == 'v' && e.state.Flag('+') {
-		// print stack trace for debugging
-		p.Print(e.err, "\n")
-		e.frame.Format(p)
-		e.chainStateAndVerb(e.nextErr)
-		return e.nextErr
-	}
-	err := e.nextErr
-	for {
-		if wrapErr, ok := err.(*wrapError); ok {
-			err = wrapErr.nextErr
-			continue
-		}
-		break
-	}
-	e.chainStateAndVerb(err)
-	if fmtErr, ok := err.(xerrors.Formatter); ok {
-		fmtErr.FormatError(p)
-	} else {
-		p.Print(err)
-	}
-	return nil
-}
-
-type wrapState struct {
-	org fmt.State
-}
-
-func (s *wrapState) Write(b []byte) (n int, err error) {
-	return s.org.Write(b)
-}
-
-func (s *wrapState) Width() (wid int, ok bool) {
-	return s.org.Width()
-}
-
-func (s *wrapState) Precision() (prec int, ok bool) {
-	return s.org.Precision()
-}
-
-func (s *wrapState) Flag(c int) bool {
-	// set true to 'printDetail' forced because when p.Detail() is false, xerrors.Printer no output any text
-	if c == '#' {
-		// ignore '#' keyword because xerrors.FormatError doesn't set true to printDetail.
-		// ( see https://github.com/golang/xerrors/blob/master/adaptor.go#L39-L43 )
-		return false
-	}
-	return true
-}
-
-func (e *wrapError) Format(state fmt.State, verb rune) {
-	e.state = state
-	e.verb = verb
-	xerrors.FormatError(e, &wrapState{org: state}, verb)
-}
-
-func (e *wrapError) Error() string {
-	var buf bytes.Buffer
-	e.PrettyPrint(&Sink{&buf}, defaultColorize, defaultIncludeSource)
-	return buf.String()
-}
-
-type syntaxError struct {
-	*baseError
-	msg   string
-	token *token.Token
-	frame xerrors.Frame
-}
-
-func (e *syntaxError) PrettyPrint(p xerrors.Printer, colored, inclSource bool) error {
-	return e.FormatError(&FormatErrorPrinter{Printer: p, Colored: colored, InclSource: inclSource})
-}
-
-func (e *syntaxError) FormatError(p xerrors.Printer) error {
-	var pp printer.Printer
-
-	var colored, inclSource bool
-	if fep, ok := p.(*FormatErrorPrinter); ok {
-		colored = fep.Colored
-		inclSource = fep.InclSource
-	}
-
-	pos := fmt.Sprintf("[%d:%d] ", e.token.Position.Line, e.token.Position.Column)
-	msg := pp.PrintErrorMessage(fmt.Sprintf("%s%s", pos, e.msg), colored)
-	if inclSource {
-		msg += "\n" + pp.PrintErrorToken(e.token, colored)
-	}
-	p.Print(msg)
-
-	if e.verb == 'v' && e.state.Flag('+') {
-		// %+v
-		// print stack trace for debugging
-		e.frame.Format(p)
-	}
-	return nil
-}
-
-type PrettyPrinter interface {
-	PrettyPrint(xerrors.Printer, bool, bool) error
-}
-type Sink struct{ *bytes.Buffer }
-
-func (es *Sink) Print(args ...interface{}) {
-	fmt.Fprint(es.Buffer, args...)
-}
-
-func (es *Sink) Printf(f string, args ...interface{}) {
-	fmt.Fprintf(es.Buffer, f, args...)
-}
-
-func (es *Sink) Detail() bool {
-	return false
-}
-
-func (e *syntaxError) Error() string {
-	var buf bytes.Buffer
-	e.PrettyPrint(&Sink{&buf}, defaultColorize, defaultIncludeSource)
-	return buf.String()
+type SyntaxError struct {
+	Message string
+	Token   *token.Token
 }
 
 type TypeError struct {
@@ -229,32 +49,198 @@ type TypeError struct {
 	Token           *token.Token
 }
 
-func (e *TypeError) Error() string {
+type OverflowError struct {
+	DstType reflect.Type
+	SrcNum  string
+	Token   *token.Token
+}
+
+type DuplicateKeyError struct {
+	Message string
+	Token   *token.Token
+}
+
+type UnknownFieldError struct {
+	Message string
+	Token   *token.Token
+}
+
+type UnexpectedNodeTypeError struct {
+	Actual   ast.NodeType
+	Expected ast.NodeType
+	Token    *token.Token
+}
+
+// ErrSyntax create syntax error instance with message and token
+func ErrSyntax(msg string, tk *token.Token) *SyntaxError {
+	return &SyntaxError{
+		Message: msg,
+		Token:   tk,
+	}
+}
+
+// ErrOverflow creates an overflow error instance with message and a token.
+func ErrOverflow(dstType reflect.Type, num string, tk *token.Token) *OverflowError {
+	return &OverflowError{
+		DstType: dstType,
+		SrcNum:  num,
+		Token:   tk,
+	}
+}
+
+// ErrTypeMismatch cerates an type mismatch error instance with token.
+func ErrTypeMismatch(dstType, srcType reflect.Type, token *token.Token) *TypeError {
+	return &TypeError{
+		DstType: dstType,
+		SrcType: srcType,
+		Token:   token,
+	}
+}
+
+// ErrDuplicateKey creates an duplicate key error instance with token.
+func ErrDuplicateKey(msg string, tk *token.Token) *DuplicateKeyError {
+	return &DuplicateKeyError{
+		Message: msg,
+		Token:   tk,
+	}
+}
+
+// ErrUnknownField creates an unknown field error instance with token.
+func ErrUnknownField(msg string, tk *token.Token) *UnknownFieldError {
+	return &UnknownFieldError{
+		Message: msg,
+		Token:   tk,
+	}
+}
+
+func ErrUnexpectedNodeType(actual, expected ast.NodeType, tk *token.Token) *UnexpectedNodeTypeError {
+	return &UnexpectedNodeTypeError{
+		Actual:   actual,
+		Expected: expected,
+		Token:    tk,
+	}
+}
+
+func (e *SyntaxError) GetMessage() string {
+	return e.Message
+}
+
+func (e *SyntaxError) GetToken() *token.Token {
+	return e.Token
+}
+
+func (e *SyntaxError) Error() string {
+	return e.FormatError(defaultFormatColor, defaultIncludeSource)
+}
+
+func (e *SyntaxError) FormatError(colored, inclSource bool) string {
+	return FormatError(e.Message, e.Token, colored, inclSource)
+}
+
+func (e *OverflowError) GetMessage() string {
+	return e.msg()
+}
+
+func (e *OverflowError) GetToken() *token.Token {
+	return e.Token
+}
+
+func (e *OverflowError) Error() string {
+	return e.FormatError(defaultFormatColor, defaultIncludeSource)
+}
+
+func (e *OverflowError) FormatError(colored, inclSource bool) string {
+	return FormatError(e.msg(), e.Token, colored, inclSource)
+}
+
+func (e *OverflowError) msg() string {
+	return fmt.Sprintf("cannot unmarshal %s into Go value of type %s ( overflow )", e.SrcNum, e.DstType)
+}
+
+func (e *TypeError) msg() string {
 	if e.StructFieldName != nil {
 		return fmt.Sprintf("cannot unmarshal %s into Go struct field %s of type %s", e.SrcType, *e.StructFieldName, e.DstType)
 	}
 	return fmt.Sprintf("cannot unmarshal %s into Go value of type %s", e.SrcType, e.DstType)
 }
 
-func (e *TypeError) PrettyPrint(p xerrors.Printer, colored, inclSource bool) error {
-	return e.FormatError(&FormatErrorPrinter{Printer: p, Colored: colored, InclSource: inclSource})
+func (e *TypeError) GetMessage() string {
+	return e.msg()
 }
 
-func (e *TypeError) FormatError(p xerrors.Printer) error {
+func (e *TypeError) GetToken() *token.Token {
+	return e.Token
+}
+
+func (e *TypeError) Error() string {
+	return e.FormatError(defaultFormatColor, defaultIncludeSource)
+}
+
+func (e *TypeError) FormatError(colored, inclSource bool) string {
+	return FormatError(e.msg(), e.Token, colored, inclSource)
+}
+
+func (e *DuplicateKeyError) GetMessage() string {
+	return e.Message
+}
+
+func (e *DuplicateKeyError) GetToken() *token.Token {
+	return e.Token
+}
+
+func (e *DuplicateKeyError) Error() string {
+	return e.FormatError(defaultFormatColor, defaultIncludeSource)
+}
+
+func (e *DuplicateKeyError) FormatError(colored, inclSource bool) string {
+	return FormatError(e.Message, e.Token, colored, inclSource)
+}
+
+func (e *UnknownFieldError) GetMessage() string {
+	return e.Message
+}
+
+func (e *UnknownFieldError) GetToken() *token.Token {
+	return e.Token
+}
+
+func (e *UnknownFieldError) Error() string {
+	return e.FormatError(defaultFormatColor, defaultIncludeSource)
+}
+
+func (e *UnknownFieldError) FormatError(colored, inclSource bool) string {
+	return FormatError(e.Message, e.Token, colored, inclSource)
+}
+
+func (e *UnexpectedNodeTypeError) GetMessage() string {
+	return e.msg()
+}
+
+func (e *UnexpectedNodeTypeError) GetToken() *token.Token {
+	return e.Token
+}
+
+func (e *UnexpectedNodeTypeError) Error() string {
+	return e.FormatError(defaultFormatColor, defaultIncludeSource)
+}
+
+func (e *UnexpectedNodeTypeError) FormatError(colored, inclSource bool) string {
+	return FormatError(e.msg(), e.Token, colored, inclSource)
+}
+
+func (e *UnexpectedNodeTypeError) msg() string {
+	return fmt.Sprintf("%s was used where %s is expected", e.Actual.YAMLName(), e.Expected.YAMLName())
+}
+
+func FormatError(errMsg string, token *token.Token, colored, inclSource bool) string {
 	var pp printer.Printer
-
-	var colored, inclSource bool
-	if fep, ok := p.(*FormatErrorPrinter); ok {
-		colored = fep.Colored
-		inclSource = fep.InclSource
+	if token == nil {
+		return pp.PrintErrorMessage(errMsg, colored)
 	}
-
-	pos := fmt.Sprintf("[%d:%d] ", e.Token.Position.Line, e.Token.Position.Column)
-	msg := pp.PrintErrorMessage(fmt.Sprintf("%s%s", pos, e.Error()), colored)
+	pos := fmt.Sprintf("[%d:%d] ", token.Position.Line, token.Position.Column)
+	msg := pp.PrintErrorMessage(fmt.Sprintf("%s%s", pos, errMsg), colored)
 	if inclSource {
-		msg += "\n" + pp.PrintErrorToken(e.Token, colored)
+		msg += "\n" + pp.PrintErrorToken(token, colored)
 	}
-	p.Print(msg)
-
-	return nil
+	return msg
 }
