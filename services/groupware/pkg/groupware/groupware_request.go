@@ -57,6 +57,9 @@ var (
 	errNoPrimaryAccountForBlob             = errors.New("no primary account for blob")
 	errNoPrimaryAccountForVacationResponse = errors.New("no primary account for vacation response")
 	errNoPrimaryAccountForSubmission       = errors.New("no primary account for submission")
+	errNoPrimaryAccountForTask             = errors.New("no primary account for task")
+	errNoPrimaryAccountForCalendar         = errors.New("no primary account for calendar")
+	errNoPrimaryAccountForContact          = errors.New("no primary account for contact")
 	// errNoPrimaryAccountForSieve            = errors.New("no primary account for sieve")
 	// errNoPrimaryAccountForQuota            = errors.New("no primary account for quota")
 	// errNoPrimaryAccountForWebsocket        = errors.New("no primary account for websocket")
@@ -103,6 +106,18 @@ func (r Request) GetAccountIdForVacationResponse() (string, *Error) {
 
 func (r Request) GetAccountIdForSubmission() (string, *Error) {
 	return r.getAccountId(r.session.PrimaryAccounts.Blob, errNoPrimaryAccountForSubmission)
+}
+
+func (r Request) GetAccountIdForTask() (string, *Error) {
+	return r.getAccountId(r.session.PrimaryAccounts.Task, errNoPrimaryAccountForTask)
+}
+
+func (r Request) GetAccountIdForCalendar() (string, *Error) {
+	return r.getAccountId(r.session.PrimaryAccounts.Calendar, errNoPrimaryAccountForCalendar)
+}
+
+func (r Request) GetAccountIdForContact() (string, *Error) {
+	return r.getAccountId(r.session.PrimaryAccounts.Contact, errNoPrimaryAccountForContact)
 }
 
 func (r Request) GetAccountForMail() (jmap.Account, *Error) {
@@ -276,4 +291,100 @@ func (r Request) observeJmapError(jerr jmap.Error) jmap.Error {
 		r.g.metrics.JmapErrorCounter.WithLabelValues(r.session.JmapEndpoint, strconv.Itoa(jerr.Code())).Inc()
 	}
 	return jerr
+}
+
+func (r Request) needTask() (bool, Response) {
+	if r.session.Capabilities.Tasks == nil {
+		return false, errorResponseWithSessionState(r.apiError(&ErrorMissingTasksSessionCapability), r.session.State)
+	}
+	return true, Response{}
+}
+
+func (r Request) needTaskForAccount(accountId string) (bool, Response) {
+	if ok, resp := r.needTask(); !ok {
+		return ok, resp
+	}
+	account, ok := r.session.Accounts[accountId]
+	if !ok {
+		return false, errorResponseWithSessionState(r.apiError(&ErrorAccountNotFound), r.session.State)
+	}
+	if account.AccountCapabilities.Tasks == nil {
+		return false, errorResponseWithSessionState(r.apiError(&ErrorMissingTasksAccountCapability), r.session.State)
+	}
+	return true, Response{}
+}
+
+func (r Request) needTaskWithAccount() (bool, string, Response) {
+	accountId, err := r.GetAccountIdForTask()
+	if err != nil {
+		return false, "", errorResponse(err)
+	}
+	if ok, resp := r.needTaskForAccount(accountId); !ok {
+		return false, accountId, resp
+	}
+	return true, accountId, Response{}
+}
+
+func (r Request) needCalendar() (bool, Response) {
+	if r.session.Capabilities.Calendars == nil {
+		return false, errorResponseWithSessionState(r.apiError(&ErrorMissingCalendarsSessionCapability), r.session.State)
+	}
+	return true, Response{}
+}
+
+func (r Request) needCalendarForAccount(accountId string) (bool, Response) {
+	if ok, resp := r.needCalendar(); !ok {
+		return ok, resp
+	}
+	account, ok := r.session.Accounts[accountId]
+	if !ok {
+		return false, errorResponseWithSessionState(r.apiError(&ErrorAccountNotFound), r.session.State)
+	}
+	if account.AccountCapabilities.Calendars == nil {
+		return false, errorResponseWithSessionState(r.apiError(&ErrorMissingCalendarsAccountCapability), r.session.State)
+	}
+	return true, Response{}
+}
+
+func (r Request) needCalendarWithAccount() (bool, string, Response) {
+	accountId, err := r.GetAccountIdForCalendar()
+	if err != nil {
+		return false, "", errorResponse(err)
+	}
+	if ok, resp := r.needCalendarForAccount(accountId); !ok {
+		return false, accountId, resp
+	}
+	return true, accountId, Response{}
+}
+
+func (r Request) needContact() (bool, Response) {
+	if r.session.Capabilities.Contacts == nil {
+		return false, errorResponseWithSessionState(r.apiError(&ErrorMissingContactsSessionCapability), r.session.State)
+	}
+	return true, Response{}
+}
+
+func (r Request) needContactForAccount(accountId string) (bool, Response) {
+	if ok, resp := r.needContact(); !ok {
+		return ok, resp
+	}
+	account, ok := r.session.Accounts[accountId]
+	if !ok {
+		return false, errorResponseWithSessionState(r.apiError(&ErrorAccountNotFound), r.session.State)
+	}
+	if account.AccountCapabilities.Contacts == nil {
+		return false, errorResponseWithSessionState(r.apiError(&ErrorMissingContactsAccountCapability), r.session.State)
+	}
+	return true, Response{}
+}
+
+func (r Request) needContactWithAccount() (bool, string, Response) {
+	accountId, err := r.GetAccountIdForContact()
+	if err != nil {
+		return false, "", errorResponse(err)
+	}
+	if ok, resp := r.needContactForAccount(accountId); !ok {
+		return false, accountId, resp
+	}
+	return true, accountId, Response{}
 }

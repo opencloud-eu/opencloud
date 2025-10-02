@@ -20,6 +20,48 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func jsoneq[X any](t *testing.T, expected string, object X) {
+	data, err := json.MarshalIndent(object, "", "")
+	require.NoError(t, err)
+	require.JSONEq(t, expected, string(data))
+
+	var rec X
+	err = json.Unmarshal(data, &rec)
+	require.NoError(t, err)
+	require.Equal(t, object, rec)
+}
+
+func TestEmptySessionCapabilitiesMarshalling(t *testing.T) {
+	jsoneq(t, `{}`, SessionCapabilities{})
+}
+
+func TestSessionCapabilitiesMarshalling(t *testing.T) {
+	jsoneq(t, `{
+		"urn:ietf:params:jmap:core": {
+			"maxSizeUpload": 123,
+			"maxConcurrentUpload": 4,
+			"maxSizeRequest": 1000,
+			"maxConcurrentRequests": 8,
+			"maxCallsInRequest": 16,
+			"maxObjectsInGet": 32,
+			"maxObjectsInSet": 8
+		},
+		"urn:ietf:params:jmap:tasks": {
+		}
+	}`, SessionCapabilities{
+		Core: &SessionCoreCapabilities{
+			MaxSizeUpload:         123,
+			MaxConcurrentUpload:   4,
+			MaxSizeRequest:        1000,
+			MaxConcurrentRequests: 8,
+			MaxCallsInRequest:     16,
+			MaxObjectsInGet:       32,
+			MaxObjectsInSet:       8,
+		},
+		Tasks: &SessionTasksCapabilities{},
+	})
+}
+
 type TestJmapWellKnownClient struct {
 	t *testing.T
 }
@@ -48,7 +90,7 @@ func (t *TestJmapWellKnownClient) GetSession(sessionUrl *url.URL, username strin
 			Websocket:        pa,
 		},
 		Capabilities: SessionCapabilities{
-			Core: SessionCoreCapabilities{
+			Core: &SessionCoreCapabilities{
 				MaxCallsInRequest: 64,
 			},
 		},
@@ -182,7 +224,7 @@ func TestRequests(t *testing.T) {
 		JmapUrl:  *jmapUrl,
 		SessionResponse: SessionResponse{
 			Capabilities: SessionCapabilities{
-				Core: SessionCoreCapabilities{
+				Core: &SessionCoreCapabilities{
 					MaxCallsInRequest: 10,
 				},
 			},
