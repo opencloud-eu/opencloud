@@ -26,6 +26,12 @@ type SwaggerGetAddressbooks200 struct {
 //	500: ErrorResponse500
 func (g *Groupware) GetAddressbooks(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
+		ok, accountId, resp := req.needContactWithAccount()
+		if !ok {
+			return resp
+		}
+		var _ string = accountId
+
 		// TODO replace with proper implementation
 		return response(AllAddressBooks, req.session.State)
 	})
@@ -51,6 +57,12 @@ type SwaggerGetAddressbookById200 struct {
 //	500: ErrorResponse500
 func (g *Groupware) GetAddressbook(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
+		ok, accountId, resp := req.needContactWithAccount()
+		if !ok {
+			return resp
+		}
+		var _ string = accountId
+
 		addressBookId := chi.URLParam(r, UriParamAddressBookId)
 		// TODO replace with proper implementation
 		for _, ab := range AllAddressBooks {
@@ -80,6 +92,12 @@ type SwaggerGetContactsInAddressbook200 struct {
 //	500: ErrorResponse500
 func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
+		ok, accountId, resp := req.needContactWithAccount()
+		if !ok {
+			return resp
+		}
+		var _ string = accountId
+
 		addressBookId := chi.URLParam(r, UriParamAddressBookId)
 		// TODO replace with proper implementation
 		contactCards, ok := ContactsMapByAddressBookId[addressBookId]

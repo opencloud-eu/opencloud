@@ -188,6 +188,12 @@ const (
 	ErrorCodeAccountNotFound                   = "ACCNFD"
 	ErrorCodeAccountNotSupportedByMethod       = "ACCNSM"
 	ErrorCodeAccountReadOnly                   = "ACCRDO"
+	ErrorCodeMissingCalendarsSessionCapability = "MSCCAL"
+	ErrorCodeMissingCalendarsAccountCapability = "MACCAL"
+	ErrorCodeMissingContactsSessionCapability  = "MSCCON"
+	ErrorCodeMissingContactsAccountCapability  = "MACCON"
+	ErrorCodeMissingTasksSessionCapability     = "MSCTSK"
+	ErrorCodeMissingTaskAccountCapability      = "MACTSK"
 )
 
 var (
@@ -371,6 +377,42 @@ var (
 		Title:  "The referenced Account is read-only",
 		Detail: "The Account that was referenced in the request only supports read-only operations.",
 	}
+	ErrorMissingCalendarsSessionCapability = GroupwareError{
+		Status: http.StatusExpectationFailed,
+		Code:   ErrorCodeMissingCalendarsSessionCapability,
+		Title:  "Session is missing the task capability '" + jmap.JmapCalendars + "'",
+		Detail: "The JMAP Session of the user does not have the required capability '" + jmap.JmapTasks + "'.",
+	}
+	ErrorMissingCalendarsAccountCapability = GroupwareError{
+		Status: http.StatusExpectationFailed,
+		Code:   ErrorCodeMissingCalendarsSessionCapability,
+		Title:  "Account is missing the task capability '" + jmap.JmapCalendars + "'",
+		Detail: "The JMAP Account of the user does not have the required capability '" + jmap.JmapTasks + "'.",
+	}
+	ErrorMissingContactsSessionCapability = GroupwareError{
+		Status: http.StatusExpectationFailed,
+		Code:   ErrorCodeMissingContactsSessionCapability,
+		Title:  "Session is missing the task capability '" + jmap.JmapContacts + "'",
+		Detail: "The JMAP Session of the user does not have the required capability '" + jmap.JmapContacts + "'.",
+	}
+	ErrorMissingContactsAccountCapability = GroupwareError{
+		Status: http.StatusExpectationFailed,
+		Code:   ErrorCodeMissingContactsSessionCapability,
+		Title:  "Account is missing the task capability '" + jmap.JmapContacts + "'",
+		Detail: "The JMAP Account of the user does not have the required capability '" + jmap.JmapContacts + "'.",
+	}
+	ErrorMissingTasksSessionCapability = GroupwareError{
+		Status: http.StatusExpectationFailed,
+		Code:   ErrorCodeMissingTasksSessionCapability,
+		Title:  "Session is missing the task capability '" + jmap.JmapTasks + "'",
+		Detail: "The JMAP Session of the user does not have the required capability '" + jmap.JmapTasks + "'.",
+	}
+	ErrorMissingTasksAccountCapability = GroupwareError{
+		Status: http.StatusExpectationFailed,
+		Code:   ErrorCodeMissingTasksSessionCapability,
+		Title:  "Account is missing the task capability '" + jmap.JmapTasks + "'",
+		Detail: "The JMAP Account of the user does not have the required capability '" + jmap.JmapTasks + "'.",
+	}
 )
 
 type ErrorOpt interface {
@@ -525,6 +567,14 @@ func apiError(id string, gwerr GroupwareError, options ...ErrorOpt) *Error {
 
 func (r Request) observedParameterError(gwerr GroupwareError, options ...ErrorOpt) *Error {
 	return r.observeParameterError(apiError(r.errorId(), gwerr, options...))
+}
+
+func (r Request) apiError(err *GroupwareError) *Error {
+	if err == nil {
+		return nil
+	}
+	errorId := r.errorId()
+	return apiError(errorId, *err)
 }
 
 func (r Request) apiErrorFromJmap(err jmap.Error) *Error {

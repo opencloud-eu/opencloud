@@ -131,20 +131,28 @@ type ActionMode string
 type SendingMode string
 type DispositionTypeOption string
 
+type Duration string
+
 const (
-	JmapCore             = "urn:ietf:params:jmap:core"
-	JmapMail             = "urn:ietf:params:jmap:mail"
-	JmapMDN              = "urn:ietf:params:jmap:mdn" // https://datatracker.ietf.org/doc/rfc9007/
-	JmapSubmission       = "urn:ietf:params:jmap:submission"
-	JmapVacationResponse = "urn:ietf:params:jmap:vacationresponse"
-	JmapCalendars        = "urn:ietf:params:jmap:calendars"
-	JmapContacts         = "urn:ietf:params:jmap:contacts"
-	JmapSieve            = "urn:ietf:params:jmap:sieve"
-	JmapBlob             = "urn:ietf:params:jmap:blob"
-	JmapQuota            = "urn:ietf:params:jmap:quota"
-	JmapWebsocket        = "urn:ietf:params:jmap:websocket"
-	JmapPrincipals       = "urn:ietf:params:jmap:principals"
-	JmapPrincipalsOwner  = "urn:ietf:params:jmap:principals:owner"
+	JmapCore                 = "urn:ietf:params:jmap:core"
+	JmapMail                 = "urn:ietf:params:jmap:mail"
+	JmapMDN                  = "urn:ietf:params:jmap:mdn" // https://datatracker.ietf.org/doc/rfc9007/
+	JmapSubmission           = "urn:ietf:params:jmap:submission"
+	JmapVacationResponse     = "urn:ietf:params:jmap:vacationresponse"
+	JmapCalendars            = "urn:ietf:params:jmap:calendars"
+	JmapContacts             = "urn:ietf:params:jmap:contacts"
+	JmapSieve                = "urn:ietf:params:jmap:sieve"
+	JmapBlob                 = "urn:ietf:params:jmap:blob"
+	JmapQuota                = "urn:ietf:params:jmap:quota"
+	JmapWebsocket            = "urn:ietf:params:jmap:websocket"
+	JmapPrincipals           = "urn:ietf:params:jmap:principals"
+	JmapPrincipalsOwner      = "urn:ietf:params:jmap:principals:owner"
+	JmapTasks                = "urn:ietf:params:jmap:tasks"
+	JmapTasksRecurrences     = "urn:ietf:params:jmap:tasks:recurrences"
+	JmapTasksAssignees       = "urn:ietf:params:jmap:tasks:assignees"
+	JmapTasksAlerts          = "urn:ietf:params:jmap:tasks:alerts"
+	JmapTasksMultilingual    = "urn:ietf:params:jmap:tasks:multilingual"
+	JmapTasksCustomTimezones = "urn:ietf:params:jmap:tasks:customtimezones"
 
 	CoreType                      = ObjectType("Core")
 	PushSubscriptionType          = ObjectType("PushSubscription")
@@ -584,6 +592,42 @@ type SessionContactsAccountCapabilities struct {
 	MayCreateAddressBook bool `json:"mayCreateAddressBook"`
 }
 
+type SessionCalendarsAccountCapabilities struct {
+}
+
+type SessionCalendarsParseAccountCapabilities struct {
+}
+
+type SessionTasksAccountCapabilities struct {
+	// The earliest date-time the server is willing to accept for any date stored in a Task.
+	MinDateTime LocalDate `json:"minDateTime,omitzero"`
+
+	// The latest date-time the server is willing to accept for any date stored in a Task.
+	MaxDateTime LocalDate `json:"maxDateTime,omitzero"`
+
+	// If true, the user may create a task list in this account.
+	MayCreateTaskList bool `json:"mayCreateTaskList"`
+}
+
+type SessionTasksRecurrencesAccountCapabilities struct {
+	// The maximum duration the user may query over when asking the server to expand recurrences.
+	MaxExpandedQueryDuration Duration `json:"maxExpandedQueryDuration"`
+}
+
+type SessionTasksAssigneesAccountCapabilities struct {
+	// The maximum number of participants a single task may have, or null for no limit.
+	MaxParticipantsPerTask *uint `json:"maxParticipantsPerTask,omitzero"`
+}
+
+type SessionTasksAlertsAccountCapabilities struct {
+}
+
+type SessionTasksMultilingualAccountCapabilities struct {
+}
+
+type SessionTasksCustomTimezonesAccountCapabilities struct {
+}
+
 type SessionPrincipalsAccountCapabilities struct {
 	// The id of the principal in this account that corresponds to the user fetching this object, if any.
 	CurrentUserPrincipalId string `json:"currentUserPrincipalId,omitempty"`
@@ -598,20 +642,34 @@ type SessionPrincipalsOwnerAccountCapabilities struct {
 	PrincipalId string `json:"principalId,omitempty"`
 }
 
+type SessionPrincipalAvailabilityAccountCapabilities struct {
+	// The maximum duration over which the server is prepared to calculate availability in a single call.
+	MaxAvailabilityDuration Duration `json:"maxAvailabilityDuration"`
+}
+
 type SessionMDNAccountCapabilities struct {
 }
 
 type SessionAccountCapabilities struct {
-	Mail             *SessionMailAccountCapabilities             `json:"urn:ietf:params:jmap:mail,omitempty"`
-	Submission       *SessionSubmissionAccountCapabilities       `json:"urn:ietf:params:jmap:submission,omitempty"`
-	VacationResponse *SessionVacationResponseAccountCapabilities `json:"urn:ietf:params:jmap:vacationresponse,omitempty"`
-	Sieve            *SessionSieveAccountCapabilities            `json:"urn:ietf:params:jmap:sieve,omitempty"`
-	Blob             *SessionBlobAccountCapabilities             `json:"urn:ietf:params:jmap:blob,omitempty"`
-	Quota            *SessionQuotaAccountCapabilities            `json:"urn:ietf:params:jmap:quota,omitempty"`
-	Contacts         *SessionContactsAccountCapabilities         `json:"urn:ietf:params:jmap:contacts,omitempty"`
-	Principals       *SessionPrincipalsAccountCapabilities       `json:"urn:ietf:params:jmap:principals,omitempty"`
-	PrincipalsOwner  *SessionPrincipalsOwnerAccountCapabilities  `json:"urn:ietf:params:jmap:principals:owner,omitempty"`
-	MDN              *SessionMDNAccountCapabilities              `json:"urn:ietf:params:jmap:mdn,omitempty"`
+	Mail                   *SessionMailAccountCapabilities                  `json:"urn:ietf:params:jmap:mail,omitempty"`
+	Submission             *SessionSubmissionAccountCapabilities            `json:"urn:ietf:params:jmap:submission,omitempty"`
+	VacationResponse       *SessionVacationResponseAccountCapabilities      `json:"urn:ietf:params:jmap:vacationresponse,omitempty"`
+	Sieve                  *SessionSieveAccountCapabilities                 `json:"urn:ietf:params:jmap:sieve,omitempty"`
+	Blob                   *SessionBlobAccountCapabilities                  `json:"urn:ietf:params:jmap:blob,omitempty"`
+	Quota                  *SessionQuotaAccountCapabilities                 `json:"urn:ietf:params:jmap:quota,omitempty"`
+	Contacts               *SessionContactsAccountCapabilities              `json:"urn:ietf:params:jmap:contacts,omitempty"`
+	Calendars              *SessionCalendarsAccountCapabilities             `json:"urn:ietf:params:jmap:calendars,omitempty"`
+	CalendarsParse         *SessionCalendarsParseAccountCapabilities        `json:"urn:ietf:params:jmap:calendars:parse,omitempty"`
+	Tasks                  *SessionTasksAccountCapabilities                 `json:"urn:ietf:params:jmap:tasks,omitempty"`
+	TasksRecurrences       *SessionTasksRecurrencesAccountCapabilities      `json:"urn:ietf:params:jmap:tasks:recurrences,omitempty"`
+	TasksAssignees         *SessionTasksAssigneesAccountCapabilities        `json:"urn:ietf:params:jmap:tasks:assignees,omitempty"`
+	TasksAlerts            *SessionTasksAlertsAccountCapabilities           `json:"urn:ietf:params:jmap:tasks:alerts,omitempty"`
+	TasksMultilingual      *SessionTasksMultilingualAccountCapabilities     `json:"urn:ietf:params:jmap:tasks:multilingual,omitempty"`
+	TasksCustomTimezones   *SessionTasksCustomTimezonesAccountCapabilities  `json:"urn:ietf:params:jmap:tasks:customtimezones,omitempty"`
+	Principals             *SessionPrincipalsAccountCapabilities            `json:"urn:ietf:params:jmap:principals,omitempty"`
+	PrincipalsOwner        *SessionPrincipalsOwnerAccountCapabilities       `json:"urn:ietf:params:jmap:principals:owner,omitempty"`
+	PrincipalsAvailability *SessionPrincipalAvailabilityAccountCapabilities `json:"urn:ietf:params:jmap:principals:availability,omitempty"`
+	MDN                    *SessionMDNAccountCapabilities                   `json:"urn:ietf:params:jmap:mdn,omitempty"`
 }
 
 type Account struct {
@@ -644,7 +702,7 @@ type SessionCoreCapabilities struct {
 	MaxObjectsInSet int `json:"maxObjectsInSet"`
 	// A list of identifiers for algorithms registered in the collation registry, as defined in [@!RFC4790], that the server
 	// supports for sorting when querying records.
-	CollationAlgorithms []string `json:"collationAlgorithms"`
+	CollationAlgorithms []string `json:"collationAlgorithms,omitempty"`
 }
 
 type SessionMailCapabilities struct {
@@ -682,35 +740,125 @@ type SessionWebsocketCapabilities struct {
 type SessionContactsCapabilities struct {
 }
 
+type SessionCalendarsCapabilities struct {
+}
+
+type SessionCalendarsParseCapabilities struct {
+}
+
+type SessionTasksCapabilities struct {
+}
+
+type SessionTasksRecurrencesCapabilities struct {
+}
+
+type SessionTasksAssigneesCapabilities struct {
+}
+
+type SessionTasksAlertsCapabilities struct {
+}
+
+type SessionTasksMultilingualCapabilities struct {
+}
+
+type SessionTasksCustomTimezonesCapabilities struct {
+}
+
 type SessionPrincipalCapabilities struct {
+}
+
+type SessionPrincipalAvailabilityCapabilities struct {
 }
 
 type SessionMDNCapabilities struct {
 }
 
 type SessionCapabilities struct {
-	Core             SessionCoreCapabilities             `json:"urn:ietf:params:jmap:core"`
-	Mail             SessionMailCapabilities             `json:"urn:ietf:params:jmap:mail"`
-	Submission       SessionSubmissionCapabilities       `json:"urn:ietf:params:jmap:submission"`
-	VacationResponse SessionVacationResponseCapabilities `json:"urn:ietf:params:jmap:vacationresponse"`
-	Sieve            SessionSieveCapabilities            `json:"urn:ietf:params:jmap:sieve"`
-	Blob             SessionBlobCapabilities             `json:"urn:ietf:params:jmap:blob"`
-	Quota            SessionQuotaCapabilities            `json:"urn:ietf:params:jmap:quota"`
-	Websocket        SessionWebsocketCapabilities        `json:"urn:ietf:params:jmap:websocket"`
-	Contacts         *SessionContactsCapabilities        `json:"urn:ietf:params:jmap:contacts"`
-	Principals       *SessionPrincipalCapabilities       `json:"urn:ietf:params:jmap:principals"`
-	MDN              *SessionMDNCapabilities             `json:"urn:ietf:params:jmap:mdn,omitempty"`
+	Core             *SessionCoreCapabilities             `json:"urn:ietf:params:jmap:core,omitempty"`
+	Mail             *SessionMailCapabilities             `json:"urn:ietf:params:jmap:mail,omitempty"`
+	Submission       *SessionSubmissionCapabilities       `json:"urn:ietf:params:jmap:submission,omitempty"`
+	VacationResponse *SessionVacationResponseCapabilities `json:"urn:ietf:params:jmap:vacationresponse,omitempty"`
+	Sieve            *SessionSieveCapabilities            `json:"urn:ietf:params:jmap:sieve,omitempty"`
+	Blob             *SessionBlobCapabilities             `json:"urn:ietf:params:jmap:blob,omitempty"`
+	Quota            *SessionQuotaCapabilities            `json:"urn:ietf:params:jmap:quota,omitempty"`
+	Websocket        *SessionWebsocketCapabilities        `json:"urn:ietf:params:jmap:websocket,omitempty"`
+
+	// This represents support for the `AddressBook` and `ContactCard` data types and associated API methods.
+	//
+	// The value of this property in the JMAP Session `capabilities` property is an empty object.
+	Contacts *SessionContactsCapabilities `json:"urn:ietf:params:jmap:contacts,omitempty"`
+
+	// This represents support for the `Calendar`, `CalendarEvent`, `CalendarEventNotification`,
+	// and `ParticipantIdentity` data types and associated API methods, except for `CalendarEvent/parse`.
+	//
+	// The value of this property in the JMAP Session `capabilities` property is an empty object.
+	Calendars *SessionCalendarsCapabilities `json:"urn:ietf:params:jmap:calendars,omitempty"`
+
+	// This represents support for the `CalendarEvent/parse` method.
+	//
+	// The value of this property is an empty object in the JMAP session `capabilities` property.
+	CalendarsParse *SessionCalendarsParseCapabilities `json:"urn:ietf:params:jmap:calendars:parse,omitempty"`
+
+	// This represents support for the core properties and objects of the `TaskList`,
+	// `Task` and `TaskNotification` data types and associated API methods.
+	//
+	// The value of this property in the JMAP Session `capabilities` property is an empty object.
+	Tasks *SessionTasksCapabilities `json:"urn:ietf:params:jmap:tasks,omitempty"`
+
+	// This represents support for the `recurrence` properties and objects of the `TaskList`,
+	// `Task` and `TaskNotification` data types and associated API methods.
+	//
+	// The value of this property in the JMAP Session `capabilities` property is an empty object.
+	TasksRecurrences *SessionTasksRecurrencesCapabilities `json:"urn:ietf:params:jmap:tasks:recurrences,omitempty"`
+
+	// This represents support for the `assignee` properties and objects of the `TaskList`,
+	// `Task` and `TaskNotification` data types and associated API methods.
+	//
+	// The value of this property in the JMAP Session `capabilities` property is an empty object.
+	TasksAssignees *SessionTasksAssigneesCapabilities `json:"urn:ietf:params:jmap:tasks:assignees,omitempty"`
+
+	// This represents support for the `alerts` properties and objects of the `TaskList`,
+	// `Task` and `TaskNotification` data types and associated API methods.
+	//
+	// The value of this property in the JMAP Session `capabilities` property is an empty object.
+	TasksAlerts *SessionTasksAlertsCapabilities `json:"urn:ietf:params:jmap:tasks:alerts,omitempty"`
+
+	// This represents support for the multilingual properties and objects of the `TaskList`,
+	// `Task` and `TaskNotification` data types and associated API methods.
+	//
+	// The value of this property in the JMAP Session `capabilities` property is an empty object.
+	TasksMultilingual *SessionTasksMultilingualCapabilities `json:"urn:ietf:params:jmap:tasks:multilingual,omitempty"`
+
+	// This represents support for the custom time zone properties and objects of the `TaskList`,
+	// `Task` and `TaskNotification` data types and associated API methods.
+	//
+	// The value of this property in the JMAP Session `capabilities` property is an empty object.
+	TasksCustomTimezones *SessionTasksCustomTimezonesCapabilities `json:"urn:ietf:params:jmap:tasks:customtimezones,omitempty"`
+
+	Principals *SessionPrincipalCapabilities `json:"urn:ietf:params:jmap:principals,omitempty"`
+
+	// Represents support for the `Principal/getAvailability` method.
+	//
+	// Any account with this capability MUST also have the `urn:ietf:params:jmap:principals` capability.
+	//
+	// The value of this property in the JMAP Session `capabilities` property is an empty object.
+	PrincipalsAvailability *SessionPrincipalAvailabilityCapabilities `json:"urn:ietf:params:jmap:principals:availability,omitempty"`
+
+	MDN *SessionMDNCapabilities `json:"urn:ietf:params:jmap:mdn,omitempty"`
 }
 
 type SessionPrimaryAccounts struct {
-	Core             string `json:"urn:ietf:params:jmap:core"`
-	Mail             string `json:"urn:ietf:params:jmap:mail"`
-	Submission       string `json:"urn:ietf:params:jmap:submission"`
-	VacationResponse string `json:"urn:ietf:params:jmap:vacationresponse"`
-	Sieve            string `json:"urn:ietf:params:jmap:sieve"`
-	Blob             string `json:"urn:ietf:params:jmap:blob"`
-	Quota            string `json:"urn:ietf:params:jmap:quota"`
-	Websocket        string `json:"urn:ietf:params:jmap:websocket"`
+	Core             string `json:"urn:ietf:params:jmap:core,omitempty"`
+	Mail             string `json:"urn:ietf:params:jmap:mail,omitempty"`
+	Submission       string `json:"urn:ietf:params:jmap:submission,omitempty"`
+	VacationResponse string `json:"urn:ietf:params:jmap:vacationresponse,omitempty"`
+	Sieve            string `json:"urn:ietf:params:jmap:sieve,omitempty"`
+	Blob             string `json:"urn:ietf:params:jmap:blob,omitempty"`
+	Quota            string `json:"urn:ietf:params:jmap:quota,omitempty"`
+	Websocket        string `json:"urn:ietf:params:jmap:websocket,omitempty"`
+	Task             string `json:"urn:ietf:params:jmap:task,omitempty"`
+	Calendar         string `json:"urn:ietf:params:jmap:calendar,omitempty"`
+	Contact          string `json:"urn:ietf:params:jmap:contact,omitempty"`
 }
 
 type SessionState string

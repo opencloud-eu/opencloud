@@ -25,6 +25,12 @@ type SwaggerGetCalendars200 struct {
 //	500: ErrorResponse500
 func (g *Groupware) GetCalendars(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
+		ok, accountId, resp := req.needCalendarWithAccount()
+		if !ok {
+			return resp
+		}
+		var _ string = accountId
+
 		return response(AllCalendars, req.session.State)
 	})
 }
@@ -49,6 +55,12 @@ type SwaggerGetCalendarById200 struct {
 //	500: ErrorResponse500
 func (g *Groupware) GetCalendarById(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
+		ok, accountId, resp := req.needCalendarWithAccount()
+		if !ok {
+			return resp
+		}
+		var _ string = accountId
+
 		calendarId := chi.URLParam(r, UriParamCalendarId)
 		// TODO replace with proper implementation
 		for _, calendar := range AllCalendars {
@@ -78,6 +90,12 @@ type SwaggerGetEventsInCalendar200 struct {
 //	500: ErrorResponse500
 func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
+		ok, accountId, resp := req.needCalendarWithAccount()
+		if !ok {
+			return resp
+		}
+		var _ string = accountId
+
 		calendarId := chi.URLParam(r, UriParamCalendarId)
 		// TODO replace with proper implementation
 		events, ok := EventsMapByCalendarId[calendarId]
