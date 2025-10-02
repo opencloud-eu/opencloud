@@ -497,23 +497,6 @@ func (g *Groupware) serveError(w http.ResponseWriter, r *http.Request, error *Er
 	render.Render(w, r, errorResponses(*error))
 }
 
-func (g *Groupware) getSession(user user) (*jmap.Session, *GroupwareError) {
-	session, ok, gwerr := g.session(user, g.logger)
-	if gwerr != nil {
-		g.metrics.SessionFailureCounter.Inc()
-		g.logger.Error().Str("code", gwerr.Code).Str("error", gwerr.Title).Str("detail", gwerr.Detail).Msg("failed to determine JMAP session")
-		return nil, gwerr
-	}
-	if !ok {
-		// no session = authentication failed
-		gwerr = &ErrorInvalidAuthentication
-		g.metrics.SessionFailureCounter.Inc()
-		g.logger.Error().Msg("could not authenticate, failed to find Session")
-		return nil, gwerr
-	}
-	return &session, nil
-}
-
 func (g *Groupware) withSession(w http.ResponseWriter, r *http.Request, handler func(r Request) Response) (Response, bool) {
 	ctx := r.Context()
 	sl := g.logger.SubloggerWithRequestID(ctx)

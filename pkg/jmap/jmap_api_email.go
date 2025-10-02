@@ -799,7 +799,7 @@ func (j *Client) QueryEmailSummaries(accountIds []string, session *Session, ctx 
 		invocations[i*2+0] = invocation(CommandEmailQuery, EmailQueryCommand{
 			AccountId: accountId,
 			Filter:    filter,
-			Sort:      []EmailComparator{EmailComparator{Property: emailSortByReceivedAt, IsAscending: false}},
+			Sort:      []EmailComparator{{Property: emailSortByReceivedAt, IsAscending: false}},
 			Limit:     limit,
 			//CalculateTotal: false,
 		}, mcid(accountId, "0"))
