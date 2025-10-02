@@ -23,6 +23,15 @@ func errorResponse(err *Error) Response {
 	}
 }
 
+func errorResponseWithSessionState(err *Error, sessionState jmap.SessionState) Response {
+	return Response{
+		body:         nil,
+		err:          err,
+		etag:         "",
+		sessionState: sessionState,
+	}
+}
+
 func response(body any, sessionState jmap.SessionState) Response {
 	return Response{
 		body:         body,

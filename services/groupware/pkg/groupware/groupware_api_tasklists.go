@@ -25,6 +25,12 @@ type SwaggerGetTaskLists200 struct {
 //	500: ErrorResponse500
 func (g *Groupware) GetTaskLists(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
+		ok, accountId, resp := req.needTaskWithAccount()
+		if !ok {
+			return resp
+		}
+		var _ string = accountId
+
 		return response(AllTaskLists, req.session.State)
 	})
 }
@@ -49,6 +55,12 @@ type SwaggerGetTaskListById200 struct {
 //	500: ErrorResponse500
 func (g *Groupware) GetTaskListById(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
+		ok, accountId, resp := req.needTaskWithAccount()
+		if !ok {
+			return resp
+		}
+		var _ string = accountId
+
 		tasklistId := chi.URLParam(r, UriParamTaskListId)
 		// TODO replace with proper implementation
 		for _, tasklist := range AllTaskLists {
@@ -78,6 +90,12 @@ type SwaggerGetTasksInTaskList200 struct {
 //	500: ErrorResponse500
 func (g *Groupware) GetTasksInTaskList(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
+		ok, accountId, resp := req.needTaskWithAccount()
+		if !ok {
+			return resp
+		}
+		var _ string = accountId
+
 		tasklistId := chi.URLParam(r, UriParamTaskListId)
 		// TODO replace with proper implementation
 		tasks, ok := TaskMapByTaskListId[tasklistId]
