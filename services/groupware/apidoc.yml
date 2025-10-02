@@ -29,6 +29,12 @@ tags:
   - name: event
     x-displayName: Events
     description: APIs about calendar events
+  - name: tasklist
+    x-displayName: TaskLists
+    description: APIs about task lists
+  - name: task
+    x-displayName: Tasks
+    description: APIs about tasks
   - name: vacation
     x-displayName: Vacation Responses
     description: APIs about vacation responses
@@ -53,6 +59,10 @@ x-tagGroups:
     tags:
       - calendar
       - event
+  - name: Tasks
+    tags:
+      - tasklist
+      - task
 components:
   securitySchemes:
     api:
