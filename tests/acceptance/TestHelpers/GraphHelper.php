@@ -2030,7 +2030,7 @@ class GraphHelper {
 		string $user,
 		string $password
 	): ResponseInterface {
-		$url = self::getBetaFullUrl($baseUrl, "me/drive/sharedWithMe");
+		$url = self::getBetaFullUrl($baseUrl, "me/drive/sharedWithMe?\$expand=thumbnails");
 		return HttpRequestHelper::get(
 			$url,
 			$xRequestId,

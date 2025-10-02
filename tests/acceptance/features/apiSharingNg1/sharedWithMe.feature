@@ -315,6 +315,79 @@ Feature: an user gets the resources shared to them
       | Viewer           |
 
 
+  Scenario: sharee gets thumbnails when listing shared image file (Personal space)
+    Given user "Alice" has uploaded file "filesForUpload/testavatar.jpg" to "testavatar.jpg"
+    And user "Alice" has sent the following resource share invitation:
+      | resource        | testavatar.jpg     |
+      | space           | Personal           |
+      | sharee          | Brian              |
+      | shareType       | user               |
+      | permissionsRole | Viewer             |
+    When user "Brian" lists the shares shared with him using the Graph API
+    Then the HTTP status code should be "200"
+    And the JSON data of the response should match
+      """
+      {
+      "type": "object",
+      "required": ["value"],
+      "properties": {
+        "value": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["thumbnails"],
+            "properties": {
+              "thumbnails": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["small", "medium", "large"],
+                  "properties": {
+                    "small": {
+                      "type": "object",
+                      "required": ["url"],
+                      "properties": {
+                        "url": {
+                          "type": "string",
+                          "pattern": "^https://.*scalingup=0.*preview=1.*processor=thumbnail.*x=36.*y=36"
+                        }
+                      }
+                    },
+                    "medium": {
+                      "type": "object",
+                      "required": ["url"],
+                      "properties": {
+                        "url": {
+                          "type": "string",
+                          "pattern": "^https://.*scalingup=0.*preview=1.*processor=thumbnail.*x=48.*y=48"
+                        }
+                      }
+                    },
+                    "large": {
+                      "type": "object",
+                      "required": ["url"],
+                      "properties": {
+                        "url": {
+                          "type": "string",
+                          "pattern": "^https://.*scalingup=0.*preview=1.*processor=thumbnail.*x=96.*y=96"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+      """
+
+
   Scenario Outline: sharee lists the folder share (Personal space)
     Given user "Alice" has created folder "folder"
     And user "Alice" has sent the following resource share invitation:
