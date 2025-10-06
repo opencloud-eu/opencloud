@@ -7,11 +7,12 @@ import (
 )
 
 type Response struct {
-	body         any
-	status       int
-	err          *Error
-	etag         jmap.State
-	sessionState jmap.SessionState
+	body            any
+	status          int
+	err             *Error
+	etag            jmap.State
+	sessionState    jmap.SessionState
+	contentLanguage jmap.Language
 }
 
 func errorResponse(err *Error) Response {
@@ -32,30 +33,33 @@ func errorResponseWithSessionState(err *Error, sessionState jmap.SessionState) R
 	}
 }
 
-func response(body any, sessionState jmap.SessionState) Response {
+func response(body any, sessionState jmap.SessionState, contentLanguage jmap.Language) Response {
 	return Response{
-		body:         body,
-		err:          nil,
-		etag:         jmap.State(sessionState),
-		sessionState: sessionState,
+		body:            body,
+		err:             nil,
+		etag:            jmap.State(sessionState),
+		sessionState:    sessionState,
+		contentLanguage: contentLanguage,
 	}
 }
 
-func etagResponse(body any, sessionState jmap.SessionState, etag jmap.State) Response {
+func etagResponse(body any, sessionState jmap.SessionState, etag jmap.State, contentLanguage jmap.Language) Response {
 	return Response{
-		body:         body,
-		err:          nil,
-		etag:         etag,
-		sessionState: sessionState,
+		body:            body,
+		err:             nil,
+		etag:            etag,
+		sessionState:    sessionState,
+		contentLanguage: contentLanguage,
 	}
 }
 
-func etagOnlyResponse(body any, etag jmap.State) Response {
+func etagOnlyResponse(body any, etag jmap.State, contentLanguage jmap.Language) Response {
 	return Response{
-		body:         body,
-		err:          nil,
-		etag:         etag,
-		sessionState: "",
+		body:            body,
+		err:             nil,
+		etag:            etag,
+		sessionState:    "",
+		contentLanguage: contentLanguage,
 	}
 }
 

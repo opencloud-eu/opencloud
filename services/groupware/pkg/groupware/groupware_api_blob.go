@@ -28,7 +28,7 @@ func (g *Groupware) GetBlobMeta(w http.ResponseWriter, r *http.Request) {
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
 
-		res, sessionState, jerr := g.jmap.GetBlobMetadata(accountId, req.session, req.ctx, logger, blobId)
+		res, sessionState, lang, jerr := g.jmap.GetBlobMetadata(accountId, req.session, req.ctx, logger, req.language(), blobId)
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
@@ -38,9 +38,9 @@ func (g *Groupware) GetBlobMeta(w http.ResponseWriter, r *http.Request) {
 		}
 		digest := blob.Digest()
 		if digest != "" {
-			return etagResponse(res, sessionState, jmap.State(digest))
+			return etagResponse(res, sessionState, jmap.State(digest), lang)
 		} else {
-			return response(res, sessionState)
+			return response(res, sessionState, lang)
 		}
 	})
 }
@@ -64,12 +64,12 @@ func (g *Groupware) UploadBlob(w http.ResponseWriter, r *http.Request) {
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
 
-		resp, jerr := g.jmap.UploadBlobStream(accountId, req.session, req.ctx, logger, contentType, body)
+		resp, lang, jerr := g.jmap.UploadBlobStream(accountId, req.session, req.ctx, logger, contentType, req.language(), body)
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
 
-		return etagOnlyResponse(resp, jmap.State(resp.Sha512))
+		return etagOnlyResponse(resp, jmap.State(resp.Sha512), lang)
 	})
 }
 
@@ -89,7 +89,7 @@ func (g *Groupware) DownloadBlob(w http.ResponseWriter, r *http.Request) {
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
 
-		blob, jerr := g.jmap.DownloadBlobStream(accountId, blobId, name, typ, req.session, req.ctx, logger)
+		blob, lang, jerr := g.jmap.DownloadBlobStream(accountId, blobId, name, typ, req.session, req.ctx, logger, req.language())
 		if blob != nil && blob.Body != nil {
 			defer func(Body io.ReadCloser) {
 				err := Body.Close()
@@ -117,6 +117,9 @@ func (g *Groupware) DownloadBlob(w http.ResponseWriter, r *http.Request) {
 		}
 		if blob.Size >= 0 {
 			w.Header().Add("Content-Size", strconv.Itoa(blob.Size))
+		}
+		if lang != "" {
+			w.Header().Add("Content-Language", string(lang))
 		}
 
 		_, err := io.Copy(w, blob.Body)

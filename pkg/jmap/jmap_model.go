@@ -865,6 +865,8 @@ type SessionState string
 
 type State string
 
+type Language string
+
 type SessionResponse struct {
 	Capabilities SessionCapabilities `json:"capabilities"`
 
@@ -4558,6 +4560,18 @@ type SendMDN struct {
 	OnSuccessUpdateEmail map[string]PatchObject `json:"onSuccessUpdateEmail,omitempty"`
 }
 
+type QuotaGetCommand struct {
+	AccountId string   `json:"accountId"`
+	Ids       []string `json:"ids,omitempty"`
+}
+
+type QuotaGetResponse struct {
+	AccountId string   `json:"accountId"`
+	State     State    `json:"state,omitempty"`
+	List      []Quota  `json:"list,omitempty"`
+	NotFound  []string `json:"notFound,omitempty"`
+}
+
 type ErrorResponse struct {
 	Type        string `json:"type"`
 	Description string `json:"description,omitempty"`
@@ -4582,6 +4596,7 @@ const (
 	CommandVacationResponseGet Command = "VacationResponse/get"
 	CommandVacationResponseSet Command = "VacationResponse/set"
 	CommandSearchSnippetGet    Command = "SearchSnippet/get"
+	CommandQuotaGet            Command = "Quota/get"
 )
 
 var CommandResponseTypeMap = map[Command]func() any{
@@ -4601,4 +4616,5 @@ var CommandResponseTypeMap = map[Command]func() any{
 	CommandVacationResponseGet: func() any { return VacationResponseGetResponse{} },
 	CommandVacationResponseSet: func() any { return VacationResponseSetResponse{} },
 	CommandSearchSnippetGet:    func() any { return SearchSnippetGetResponse{} },
+	CommandQuotaGet:            func() any { return QuotaGetResponse{} },
 }

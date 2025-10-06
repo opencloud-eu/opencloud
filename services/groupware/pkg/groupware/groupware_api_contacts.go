@@ -33,7 +33,7 @@ func (g *Groupware) GetAddressbooks(w http.ResponseWriter, r *http.Request) {
 		var _ string = accountId
 
 		// TODO replace with proper implementation
-		return response(AllAddressBooks, req.session.State)
+		return response(AllAddressBooks, req.session.State, "")
 	})
 }
 
@@ -67,7 +67,7 @@ func (g *Groupware) GetAddressbook(w http.ResponseWriter, r *http.Request) {
 		// TODO replace with proper implementation
 		for _, ab := range AllAddressBooks {
 			if ab.Id == addressBookId {
-				return response(ab, req.session.State)
+				return response(ab, req.session.State, "")
 			}
 		}
 		return notFoundResponse(req.session.State)
@@ -104,6 +104,6 @@ func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Requ
 		if !ok {
 			return notFoundResponse(req.session.State)
 		}
-		return response(contactCards, req.session.State)
+		return response(contactCards, req.session.State, "")
 	})
 }

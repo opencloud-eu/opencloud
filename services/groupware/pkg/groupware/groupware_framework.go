@@ -575,6 +575,10 @@ func (g *Groupware) sendResponse(w http.ResponseWriter, r *http.Request, respons
 		w.Header().Add("Session-State", string(sessionState))
 	}
 
+	if response.contentLanguage != "" {
+		w.Header().Add("Content-Language", string(response.contentLanguage))
+	}
+
 	notModified := false
 	if etag != "" {
 		challenge := r.Header.Get("if-none-match")

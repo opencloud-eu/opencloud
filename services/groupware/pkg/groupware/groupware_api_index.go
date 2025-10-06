@@ -152,7 +152,7 @@ func (g *Groupware) Index(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountIds := structs.Keys(req.session.Accounts)
 
-		identitiesResponse, sessionState, err := g.jmap.GetIdentities(accountIds, req.session, req.ctx, req.logger)
+		identitiesResponse, sessionState, lang, err := g.jmap.GetIdentities(accountIds, req.session, req.ctx, req.logger, req.language())
 		if err != nil {
 			return req.errorResponseFromJmap(err)
 		}
@@ -163,7 +163,7 @@ func (g *Groupware) Index(w http.ResponseWriter, r *http.Request) {
 			Limits:          buildIndexLimits(req.session),
 			Accounts:        buildIndexAccount(req.session, identitiesResponse.Identities),
 			PrimaryAccounts: buildIndexPrimaryAccounts(req.session),
-		}, sessionState)
+		}, sessionState, lang)
 	})
 }
 
