@@ -31,7 +31,7 @@ func (g *Groupware) GetCalendars(w http.ResponseWriter, r *http.Request) {
 		}
 		var _ string = accountId
 
-		return response(AllCalendars, req.session.State)
+		return response(AllCalendars, req.session.State, "")
 	})
 }
 
@@ -65,7 +65,7 @@ func (g *Groupware) GetCalendarById(w http.ResponseWriter, r *http.Request) {
 		// TODO replace with proper implementation
 		for _, calendar := range AllCalendars {
 			if calendar.Id == calendarId {
-				return response(calendar, req.session.State)
+				return response(calendar, req.session.State, "")
 			}
 		}
 		return notFoundResponse(req.session.State)
@@ -102,6 +102,6 @@ func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) 
 		if !ok {
 			return notFoundResponse(req.session.State)
 		}
-		return response(events, req.session.State)
+		return response(events, req.session.State, "")
 	})
 }

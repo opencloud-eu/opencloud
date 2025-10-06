@@ -32,7 +32,7 @@ func (g *Groupware) GetAccount(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return errorResponse(err)
 		}
-		return response(account, req.session.State)
+		return response(account, req.session.State, "")
 	})
 }
 
@@ -54,7 +54,7 @@ type SwaggerGetAccountsResponse struct {
 //	500: ErrorResponse500
 func (g *Groupware) GetAccounts(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
-		return response(req.session.Accounts, req.session.State)
+		return response(req.session.Accounts, req.session.State, "")
 	})
 }
 
@@ -107,7 +107,7 @@ func (g *Groupware) GetAccountBootstrap(w http.ResponseWriter, r *http.Request) 
 		logger := log.From(req.logger.With().Str(logAccountId, mailAccountId))
 		accountIds := structs.Keys(req.session.Accounts)
 
-		resp, sessionState, jerr := g.jmap.GetIdentitiesAndMailboxes(mailAccountId, accountIds, req.session, req.ctx, logger)
+		resp, sessionState, lang, jerr := g.jmap.GetIdentitiesAndMailboxes(mailAccountId, accountIds, req.session, req.ctx, logger, req.language())
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
@@ -121,6 +121,6 @@ func (g *Groupware) GetAccountBootstrap(w http.ResponseWriter, r *http.Request) 
 			Mailboxes: map[string][]jmap.Mailbox{
 				mailAccountId: resp.Mailboxes,
 			},
-		}, sessionState)
+		}, sessionState, lang)
 	})
 }

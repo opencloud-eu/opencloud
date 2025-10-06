@@ -32,10 +32,10 @@ func (g *Groupware) GetIdentities(w http.ResponseWriter, r *http.Request) {
 			return errorResponse(err)
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
-		res, sessionState, jerr := g.jmap.GetIdentity(accountId, req.session, req.ctx, logger)
+		res, sessionState, lang, jerr := g.jmap.GetIdentity(accountId, req.session, req.ctx, logger, req.language())
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
-		return etagResponse(res, sessionState, res.State)
+		return etagResponse(res, sessionState, res.State, lang)
 	})
 }

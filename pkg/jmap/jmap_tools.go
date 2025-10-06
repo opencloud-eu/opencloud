@@ -57,12 +57,13 @@ func command[T any](api ApiClient,
 	session *Session,
 	sessionOutdatedHandler func(session *Session, newState SessionState),
 	request Request,
-	mapper func(body *Response) (T, Error)) (T, SessionState, Error) {
+	acceptLanguage string,
+	mapper func(body *Response) (T, Error)) (T, SessionState, Language, Error) {
 
-	responseBody, jmapErr := api.Command(ctx, logger, session, request)
+	responseBody, language, jmapErr := api.Command(ctx, logger, session, request, acceptLanguage)
 	if jmapErr != nil {
 		var zero T
-		return zero, "", jmapErr
+		return zero, "", language, jmapErr
 	}
 
 	var response Response
@@ -70,7 +71,7 @@ func command[T any](api ApiClient,
 	if err != nil {
 		logger.Error().Err(err).Msgf("failed to deserialize body JSON payload into a %T", response)
 		var zero T
-		return zero, "", SimpleError{code: JmapErrorDecodingResponseBody, err: err}
+		return zero, "", language, SimpleError{code: JmapErrorDecodingResponseBody, err: err}
 	}
 
 	if response.SessionState != session.State {
@@ -117,21 +118,21 @@ func command[T any](api ApiClient,
 				err = errors.New(msg)
 				logger.Warn().Int("code", code).Str("type", errorParameters.Type).Msg(msg)
 				var zero T
-				return zero, response.SessionState, SimpleError{code: code, err: err}
+				return zero, response.SessionState, language, SimpleError{code: code, err: err}
 			} else {
 				code := JmapErrorUnspecifiedType
 				msg := fmt.Sprintf("found method level error in response '%v'", mr.Tag)
 				err := errors.New(msg)
 				logger.Warn().Int("code", code).Msg(msg)
 				var zero T
-				return zero, response.SessionState, SimpleError{code: code, err: err}
+				return zero, response.SessionState, language, SimpleError{code: code, err: err}
 			}
 		}
 	}
 
 	result, jerr := mapper(&response)
 	sessionState := response.SessionState
-	return result, sessionState, jerr
+	return result, sessionState, language, jerr
 }
 
 func mapstructStringToTimeHook() mapstructure.DecodeHookFunc {

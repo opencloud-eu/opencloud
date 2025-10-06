@@ -363,7 +363,7 @@ func TestWithStalwart(t *testing.T) {
 	var inboxFolder string
 	var inboxId string
 	{
-		respByAccountId, sessionState, err := j.GetAllMailboxes([]string{accountId}, session, ctx, logger)
+		respByAccountId, sessionState, _, err := j.GetAllMailboxes([]string{accountId}, session, ctx, logger, "")
 		require.NoError(err)
 		require.Equal(session.State, sessionState)
 		require.Len(respByAccountId, 1)
@@ -440,7 +440,7 @@ func TestWithStalwart(t *testing.T) {
 
 	{
 		{
-			resp, sessionState, err := j.GetIdentity(accountId, session, ctx, logger)
+			resp, sessionState, _, err := j.GetIdentity(accountId, session, ctx, logger, "")
 			require.NoError(err)
 			require.Equal(session.State, sessionState)
 			require.Len(resp.Identities, 1)
@@ -449,7 +449,7 @@ func TestWithStalwart(t *testing.T) {
 		}
 
 		{
-			respByAccountId, sessionState, err := j.GetAllMailboxes([]string{accountId}, session, ctx, logger)
+			respByAccountId, sessionState, _, err := j.GetAllMailboxes([]string{accountId}, session, ctx, logger, "")
 			require.NoError(err)
 			require.Equal(session.State, sessionState)
 			require.Len(respByAccountId, 1)
@@ -465,7 +465,7 @@ func TestWithStalwart(t *testing.T) {
 		}
 
 		{
-			resp, sessionState, err := j.GetAllEmailsInMailbox(accountId, session, ctx, logger, inboxId, 0, 0, false, 0)
+			resp, sessionState, _, err := j.GetAllEmailsInMailbox(accountId, session, ctx, logger, "", inboxId, 0, 0, false, 0)
 			require.NoError(err)
 			require.Equal(session.State, sessionState)
 
