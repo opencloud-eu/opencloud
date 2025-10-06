@@ -139,6 +139,68 @@ Feature: resources shared by user
       | Viewer           |
 
 
+  Scenario: sharer gets thumbnails when listing shared image file (Personal space)
+    Given user "Alice" has uploaded file "filesForUpload/testavatar.jpg" to "testavatar.jpg"
+    And user "Alice" has sent the following resource share invitation:
+      | resource        | testavatar.jpg     |
+      | space           | Personal           |
+      | sharee          | Brian              |
+      | shareType       | user               |
+      | permissionsRole | Viewer             |
+    When user "Alice" lists the shares shared by her using the Graph API
+    Then the HTTP status code should be "200"
+    And the JSON data of the response should contain resource "testavatar.jpg" with the following data:
+      """
+        {
+          "type": "object",
+          "required": [ "thumbnails" ],
+          "properties": {
+            "thumbnails": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["small", "medium", "large"],
+                "properties": {
+                  "small": {
+                    "type": "object",
+                    "required": ["url"],
+                    "properties": {
+                      "url": {
+                        "type": "string",
+                        "pattern": "^https://.*scalingup=0.*preview=1.*processor=thumbnail.*x=36.*y=36"
+                      }
+                    }
+                  },
+                  "medium": {
+                    "type": "object",
+                    "required": ["url"],
+                    "properties": {
+                      "url": {
+                        "type": "string",
+                        "pattern": "^https://.*scalingup=0.*preview=1.*processor=thumbnail.*x=48.*y=48"
+                      }
+                    }
+                  },
+                  "large": {
+                    "type": "object",
+                    "required": ["url"],
+                    "properties": {
+                      "url": {
+                        "type": "string",
+                        "pattern": "^https://.*scalingup=0.*preview=1.*processor=thumbnail.*x=96.*y=96"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      """
+
+
   Scenario: sharer lists the file share shared from inside a folder (Personal space)
     Given user "Alice" has created folder "FolderToShare"
     And user "Alice" has uploaded file with content "hello world" to "FolderToShare/textfile.txt"
