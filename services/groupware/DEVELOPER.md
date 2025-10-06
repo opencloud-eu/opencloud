@@ -21,7 +21,6 @@ git clone --branch groupware git@github.com:opencloud-eu/opencloud.git
 
 Note that setting the variable `OCDIR` is merely going to help us with keeping the instructions below as generic as possible, it is not an environment variable that is used by OpenCloud.
 
-
 Also, you might want to check out these [helper scripts in opencloud-tools](https://github.com/pbleser-oc/opencloud-tools) somewhere and put that directory into your `PATH`, as it contains scripts to test and build the OpenCloud Groupware:
 
 ```bash
@@ -61,6 +60,8 @@ Make sure to have the following entries in your `/etc/hosts`:
 Alternatively, use the following shell snippet to extract it in a more automated fashion:
 
 ```bash
+cd "$OCDIR/opencloud/devtools/deployments/examples/opencloud_full/"
+
 perl -ne 'if (/^([A-Z][A-Z0-9]+)_DOMAIN=(.*)$/) { print length($2) < 1 ? lc($1).".opencloud.test" : $2,"\n"}' <.env|sort|while read n; do grep -w -q "$n" /etc/hosts && echo -e "\e[32;4mexists :\e[0m $n: \e[32m$(grep -w $n /etc/hosts)\e[0m">&2 || { echo -e "\e[33;4mmissing:\e[0m ${n}" >&2; echo -e "127.0.0.1\t${n}";}; done | sudo tee -a /etc/hosts
 ```
 
@@ -118,6 +119,20 @@ It first needs to be tuned a little, and for that, edit `$OCDIR/opencloud/devtoo
 +#JSONVIEWER=:web_extensions/jsonviewer.yml
 +#PROGRESSBARS=:web_extensions/progressbars.yml
 +#EXTERNALSITES=:web_extensions/externalsites.yml
+```
+
+All those changes above can be automated with the following script:
+
+```bash
+cd "$OCDIR/opencloud/devtools/deployments/examples/openclouf_full/"
+perl -pi -e '
+  s|^(OC_DOCKER_IMAGE)=.*$|$1=opencloudeu/opencloud|;
+  s|^(OC_DOCKER_TAG)=.*$|$1=dev|;
+  s|^(START_ADDITIONAL_SERVICES=".*)"|$1,groupware"|;
+  s|^([A-Z]+=:web_extensions/.*yml)$|#$1|;
+  s,^(COLLABORA)=(.+)$,#$1=$2,;
+  s,^#(LDAP|KEYCLOAK|STALWART)=(.+)$,$1=$2,;
+' .env
 ```
 
 ## Running
@@ -216,7 +231,7 @@ A OK [CAPABILITY IMAP4rev2 ...] Authentication successful
 
 ## Feeding an Inbox
 
-Once a [Stalwart](https://stalw.art/) container is running (using the Docker Compose setup as explained above), use [`imap-filler`](https://github.com/opencloud-eu/imap-filler/) to populate the inbox folder via IMAP APPEND:
+Once a [Stalwart](https://stalw.art/) container is running (using the Docker Compose setup as explained above), use [`imap-filler`](https://github.com/opencloud-eu/imap-filler/) to populate the inbox folder via [`IMAP APPEND`](https://www.rfc-editor.org/rfc/rfc9051.html#name-append-command):
 
 ```bash
 cd "$OCDIR/"
@@ -225,6 +240,8 @@ cd ./imap-filler
 go run . --empty=true --username=alan --password=demo \
 --url=localhost:993 --folder=Inbox --senders=3 --count=20
 ```
+
+For more details on the usage of that little helper tool, consult its [`README.md`](https://github.com/opencloud-eu/imap-filler/blob/main/README.md), although it is quite self-explanatory.
 
 # Building
 
@@ -321,7 +338,7 @@ To start with a Stalwart container from scratch, removing all the data (includin
 cd "$OCDIR/opencloud/devtools/deployments/examples/opencloud_full"
 docker compose stop stalwart
 docker compose rm stalwart
-docker volume rm opencloud_full_stalwart-data opencloud_full_stalwart-logs
+docker volume rm opencloud_full_stalwart-data
 docker compose up -d stalwart
 ```
 
