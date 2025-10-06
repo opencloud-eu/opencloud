@@ -9,7 +9,7 @@ import (
 
 func TestDeserializeMailboxGetResponse(t *testing.T) {
 	require := require.New(t)
-	jsonBytes, jmapErr := serveTestFile(t, "mailboxes1.json")
+	jsonBytes, _, jmapErr := serveTestFile(t, "mailboxes1.json")
 	require.NoError(jmapErr)
 	var data Response
 	err := json.Unmarshal(jsonBytes, &data)
@@ -66,7 +66,7 @@ func TestDeserializeMailboxGetResponse(t *testing.T) {
 
 func TestDeserializeEmailGetResponse(t *testing.T) {
 	require := require.New(t)
-	jsonBytes, jmapErr := serveTestFile(t, "mails1.json")
+	jsonBytes, _, jmapErr := serveTestFile(t, "mails1.json")
 	require.NoError(jmapErr)
 	var data Response
 	err := json.Unmarshal(jsonBytes, &data)

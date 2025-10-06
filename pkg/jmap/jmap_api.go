@@ -9,7 +9,7 @@ import (
 )
 
 type ApiClient interface {
-	Command(ctx context.Context, logger *log.Logger, session *Session, request Request) ([]byte, Error)
+	Command(ctx context.Context, logger *log.Logger, session *Session, request Request, acceptLanguage string) ([]byte, Language, Error)
 	io.Closer
 }
 
@@ -33,8 +33,8 @@ type SessionClient interface {
 }
 
 type BlobClient interface {
-	UploadBinary(ctx context.Context, logger *log.Logger, session *Session, uploadUrl string, endpoint string, contentType string, content io.Reader) (UploadedBlob, Error)
-	DownloadBinary(ctx context.Context, logger *log.Logger, session *Session, downloadUrl string, endpoint string) (*BlobDownload, Error)
+	UploadBinary(ctx context.Context, logger *log.Logger, session *Session, uploadUrl string, endpoint string, contentType string, acceptLanguage string, content io.Reader) (UploadedBlob, Language, Error)
+	DownloadBinary(ctx context.Context, logger *log.Logger, session *Session, downloadUrl string, endpoint string, acceptLanguage string) (*BlobDownload, Language, Error)
 	io.Closer
 }
 

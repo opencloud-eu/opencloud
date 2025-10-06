@@ -13,13 +13,13 @@ const (
 )
 
 // https://jmap.io/spec-mail.html#vacationresponseget
-func (j *Client) GetVacationResponse(accountId string, session *Session, ctx context.Context, logger *log.Logger) (VacationResponseGetResponse, SessionState, Error) {
+func (j *Client) GetVacationResponse(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (VacationResponseGetResponse, SessionState, Language, Error) {
 	logger = j.logger("GetVacationResponse", session, logger)
 	cmd, err := j.request(session, logger, invocation(CommandVacationResponseGet, VacationResponseGetCommand{AccountId: accountId}, "0"))
 	if err != nil {
-		return VacationResponseGetResponse{}, "", err
+		return VacationResponseGetResponse{}, "", "", err
 	}
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (VacationResponseGetResponse, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (VacationResponseGetResponse, Error) {
 		var response VacationResponseGetResponse
 		err = retrieveResponseMatchParameters(logger, body, CommandVacationResponseGet, "0", &response)
 		if err != nil {
@@ -58,7 +58,7 @@ type VacationResponseChange struct {
 	ResponseState    State            `json:"state"`
 }
 
-func (j *Client) SetVacationResponse(accountId string, vacation VacationResponsePayload, session *Session, ctx context.Context, logger *log.Logger) (VacationResponseChange, SessionState, Error) {
+func (j *Client) SetVacationResponse(accountId string, vacation VacationResponsePayload, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (VacationResponseChange, SessionState, Language, Error) {
 	logger = j.logger("SetVacationResponse", session, logger)
 
 	cmd, err := j.request(session, logger,
@@ -80,9 +80,9 @@ func (j *Client) SetVacationResponse(accountId string, vacation VacationResponse
 		invocation(CommandVacationResponseGet, VacationResponseGetCommand{AccountId: accountId}, "1"),
 	)
 	if err != nil {
-		return VacationResponseChange{}, "", err
+		return VacationResponseChange{}, "", "", err
 	}
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (VacationResponseChange, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (VacationResponseChange, Error) {
 		var setResponse VacationResponseSetResponse
 		err = retrieveResponseMatchParameters(logger, body, CommandVacationResponseSet, "0", &setResponse)
 		if err != nil {

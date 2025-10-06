@@ -65,8 +65,8 @@ var (
 	errNoPrimaryAccountForTask             = errors.New("no primary account for task")
 	errNoPrimaryAccountForCalendar         = errors.New("no primary account for calendar")
 	errNoPrimaryAccountForContact          = errors.New("no primary account for contact")
+	errNoPrimaryAccountForQuota            = errors.New("no primary account for quota")
 	// errNoPrimaryAccountForSieve            = errors.New("no primary account for sieve")
-	// errNoPrimaryAccountForQuota            = errors.New("no primary account for quota")
 	// errNoPrimaryAccountForWebsocket        = errors.New("no primary account for websocket")
 )
 
@@ -107,6 +107,10 @@ func (r Request) GetAccountIdForBlob() (string, *Error) {
 
 func (r Request) GetAccountIdForVacationResponse() (string, *Error) {
 	return r.getAccountId(r.session.PrimaryAccounts.VacationResponse, errNoPrimaryAccountForVacationResponse)
+}
+
+func (r Request) GetAccountIdForQuota() (string, *Error) {
+	return r.getAccountId(r.session.PrimaryAccounts.Quota, errNoPrimaryAccountForQuota)
 }
 
 func (r Request) GetAccountIdForSubmission() (string, *Error) {
@@ -278,6 +282,10 @@ func (r Request) body(target any) *Error {
 		return r.observedParameterError(ErrorInvalidRequestBody, withSource(&ErrorSource{Pointer: "/"})) // we don't get any details here
 	}
 	return nil
+}
+
+func (r Request) language() string {
+	return r.r.Header.Get("Accept-Language")
 }
 
 func (r Request) observe(obs prometheus.Observer, value float64) {

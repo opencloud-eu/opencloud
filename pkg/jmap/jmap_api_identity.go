@@ -14,13 +14,13 @@ type Identities struct {
 }
 
 // https://jmap.io/spec-mail.html#identityget
-func (j *Client) GetIdentity(accountId string, session *Session, ctx context.Context, logger *log.Logger) (Identities, SessionState, Error) {
+func (j *Client) GetIdentity(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (Identities, SessionState, Language, Error) {
 	logger = j.logger("GetIdentity", session, logger)
 	cmd, err := j.request(session, logger, invocation(CommandIdentityGet, IdentityGetCommand{AccountId: accountId}, "0"))
 	if err != nil {
-		return Identities{}, "", err
+		return Identities{}, "", "", err
 	}
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (Identities, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (Identities, Error) {
 		var response IdentityGetResponse
 		err = retrieveResponseMatchParameters(logger, body, CommandIdentityGet, "0", &response)
 		if err != nil {
@@ -39,7 +39,7 @@ type IdentitiesGetResponse struct {
 	State      State                 `json:"state"`
 }
 
-func (j *Client) GetIdentities(accountIds []string, session *Session, ctx context.Context, logger *log.Logger) (IdentitiesGetResponse, SessionState, Error) {
+func (j *Client) GetIdentities(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (IdentitiesGetResponse, SessionState, Language, Error) {
 	uniqueAccountIds := structs.Uniq(accountIds)
 
 	logger = j.logger("GetIdentities", session, logger)
@@ -51,9 +51,9 @@ func (j *Client) GetIdentities(accountIds []string, session *Session, ctx contex
 
 	cmd, err := j.request(session, logger, calls...)
 	if err != nil {
-		return IdentitiesGetResponse{}, "", err
+		return IdentitiesGetResponse{}, "", "", err
 	}
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (IdentitiesGetResponse, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (IdentitiesGetResponse, Error) {
 		identities := make(map[string][]Identity, len(uniqueAccountIds))
 		var lastState State
 		notFound := []string{}
@@ -84,7 +84,7 @@ type IdentitiesAndMailboxesGetResponse struct {
 	Mailboxes  []Mailbox             `json:"mailboxes"`
 }
 
-func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId string, accountIds []string, session *Session, ctx context.Context, logger *log.Logger) (IdentitiesAndMailboxesGetResponse, SessionState, Error) {
+func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId string, accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (IdentitiesAndMailboxesGetResponse, SessionState, Language, Error) {
 	uniqueAccountIds := structs.Uniq(accountIds)
 
 	logger = j.logger("GetIdentitiesAndMailboxes", session, logger)
@@ -97,9 +97,9 @@ func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId string, accountIds [
 
 	cmd, err := j.request(session, logger, calls...)
 	if err != nil {
-		return IdentitiesAndMailboxesGetResponse{}, "", err
+		return IdentitiesAndMailboxesGetResponse{}, "", "", err
 	}
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (IdentitiesAndMailboxesGetResponse, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (IdentitiesAndMailboxesGetResponse, Error) {
 		identities := make(map[string][]Identity, len(uniqueAccountIds))
 		var lastState State
 		notFound := []string{}

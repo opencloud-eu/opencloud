@@ -14,7 +14,7 @@ type BlobResponse struct {
 	State State `json:"state,omitempty"`
 }
 
-func (j *Client) GetBlobMetadata(accountId string, session *Session, ctx context.Context, logger *log.Logger, id string) (BlobResponse, SessionState, Error) {
+func (j *Client) GetBlobMetadata(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, id string) (BlobResponse, SessionState, Language, Error) {
 	cmd, jerr := j.request(session, logger,
 		invocation(CommandBlobGet, BlobGetCommand{
 			AccountId: accountId,
@@ -24,10 +24,10 @@ func (j *Client) GetBlobMetadata(accountId string, session *Session, ctx context
 		}, "0"),
 	)
 	if jerr != nil {
-		return BlobResponse{}, "", jerr
+		return BlobResponse{}, "", "", jerr
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (BlobResponse, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (BlobResponse, Error) {
 		var response BlobGetResponse
 		err := retrieveResponseMatchParameters(logger, body, CommandBlobGet, "0", &response)
 		if err != nil {
@@ -51,14 +51,14 @@ type UploadedBlob struct {
 	State  State  `json:"state"`
 }
 
-func (j *Client) UploadBlobStream(accountId string, session *Session, ctx context.Context, logger *log.Logger, contentType string, body io.Reader) (UploadedBlob, Error) {
+func (j *Client) UploadBlobStream(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, contentType string, body io.Reader) (UploadedBlob, Language, Error) {
 	logger = log.From(logger.With().Str(logEndpoint, session.UploadEndpoint))
 	// TODO(pbleser-oc) use a library for proper URL template parsing
 	uploadUrl := strings.ReplaceAll(session.UploadUrlTemplate, "{accountId}", accountId)
-	return j.blob.UploadBinary(ctx, logger, session, uploadUrl, session.UploadEndpoint, contentType, body)
+	return j.blob.UploadBinary(ctx, logger, session, uploadUrl, session.UploadEndpoint, contentType, acceptLanguage, body)
 }
 
-func (j *Client) DownloadBlobStream(accountId string, blobId string, name string, typ string, session *Session, ctx context.Context, logger *log.Logger) (*BlobDownload, Error) {
+func (j *Client) DownloadBlobStream(accountId string, blobId string, name string, typ string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (*BlobDownload, Language, Error) {
 	logger = log.From(logger.With().Str(logEndpoint, session.DownloadEndpoint))
 	// TODO(pbleser-oc) use a library for proper URL template parsing
 	downloadUrl := session.DownloadUrlTemplate
@@ -67,10 +67,10 @@ func (j *Client) DownloadBlobStream(accountId string, blobId string, name string
 	downloadUrl = strings.ReplaceAll(downloadUrl, "{name}", name)
 	downloadUrl = strings.ReplaceAll(downloadUrl, "{type}", typ)
 	logger = log.From(logger.With().Str(logDownloadUrl, downloadUrl).Str(logBlobId, blobId))
-	return j.blob.DownloadBinary(ctx, logger, session, downloadUrl, session.DownloadEndpoint)
+	return j.blob.DownloadBinary(ctx, logger, session, downloadUrl, session.DownloadEndpoint, acceptLanguage)
 }
 
-func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Context, logger *log.Logger, data []byte, contentType string) (UploadedBlob, SessionState, Error) {
+func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, data []byte, contentType string) (UploadedBlob, SessionState, Language, Error) {
 	encoded := base64.StdEncoding.EncodeToString(data)
 
 	upload := BlobUploadCommand{
@@ -100,10 +100,10 @@ func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Cont
 		invocation(CommandBlobGet, getHash, "1"),
 	)
 	if jerr != nil {
-		return UploadedBlob{}, "", jerr
+		return UploadedBlob{}, "", "", jerr
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (UploadedBlob, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (UploadedBlob, Error) {
 		var uploadResponse BlobUploadResponse
 		err := retrieveResponseMatchParameters(logger, body, CommandBlobUpload, "0", &uploadResponse)
 		if err != nil {

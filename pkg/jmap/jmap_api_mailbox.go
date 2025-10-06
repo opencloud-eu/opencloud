@@ -16,17 +16,17 @@ type MailboxesResponse struct {
 }
 
 // https://jmap.io/spec-mail.html#mailboxget
-func (j *Client) GetMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, ids []string) (MailboxesResponse, SessionState, Error) {
+func (j *Client) GetMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (MailboxesResponse, SessionState, Language, Error) {
 	logger = j.logger("GetMailbox", session, logger)
 
 	cmd, err := j.request(session, logger,
 		invocation(CommandMailboxGet, MailboxGetCommand{AccountId: accountId, Ids: ids}, "0"),
 	)
 	if err != nil {
-		return MailboxesResponse{}, "", err
+		return MailboxesResponse{}, "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (MailboxesResponse, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (MailboxesResponse, Error) {
 		var response MailboxGetResponse
 		err = retrieveResponseMatchParameters(logger, body, CommandMailboxGet, "0", &response)
 		if err != nil {
@@ -45,13 +45,13 @@ type AllMailboxesResponse struct {
 	State     State     `json:"state"`
 }
 
-func (j *Client) GetAllMailboxes(accountIds []string, session *Session, ctx context.Context, logger *log.Logger) (map[string]AllMailboxesResponse, SessionState, Error) {
+func (j *Client) GetAllMailboxes(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]AllMailboxesResponse, SessionState, Language, Error) {
 	logger = j.logger("GetAllMailboxes", session, logger)
 
 	uniqueAccountIds := structs.Uniq(accountIds)
 	n := len(uniqueAccountIds)
 	if n < 1 {
-		return map[string]AllMailboxesResponse{}, "", nil
+		return map[string]AllMailboxesResponse{}, "", "", nil
 	}
 
 	invocations := make([]Invocation, n)
@@ -61,10 +61,10 @@ func (j *Client) GetAllMailboxes(accountIds []string, session *Session, ctx cont
 
 	cmd, err := j.request(session, logger, invocations...)
 	if err != nil {
-		return map[string]AllMailboxesResponse{}, "", err
+		return map[string]AllMailboxesResponse{}, "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (map[string]AllMailboxesResponse, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]AllMailboxesResponse, Error) {
 		resp := map[string]AllMailboxesResponse{}
 		for _, accountId := range uniqueAccountIds {
 			var response MailboxGetResponse
@@ -89,7 +89,7 @@ type Mailboxes struct {
 	State State `json:"state,omitempty"`
 }
 
-func (j *Client) SearchMailboxes(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, filter MailboxFilterElement) (map[string]Mailboxes, SessionState, Error) {
+func (j *Client) SearchMailboxes(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, filter MailboxFilterElement) (map[string]Mailboxes, SessionState, Language, Error) {
 	logger = j.logger("SearchMailboxes", session, logger)
 
 	uniqueAccountIds := structs.Uniq(accountIds)
@@ -108,10 +108,10 @@ func (j *Client) SearchMailboxes(accountIds []string, session *Session, ctx cont
 	}
 	cmd, err := j.request(session, logger, invocations...)
 	if err != nil {
-		return map[string]Mailboxes{}, "", err
+		return map[string]Mailboxes{}, "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (map[string]Mailboxes, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]Mailboxes, Error) {
 		resp := map[string]Mailboxes{}
 		for _, accountId := range uniqueAccountIds {
 			var response MailboxGetResponse
@@ -136,7 +136,7 @@ type MailboxChanges struct {
 }
 
 // Retrieve Email changes in a given Mailbox since a given state.
-func (j *Client) GetMailboxChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger, mailboxId string, sinceState string, fetchBodies bool, maxBodyValueBytes uint, maxChanges uint) (MailboxChanges, SessionState, Error) {
+func (j *Client) GetMailboxChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, mailboxId string, sinceState string, fetchBodies bool, maxBodyValueBytes uint, maxChanges uint) (MailboxChanges, SessionState, Language, Error) {
 	logger = j.loggerParams("GetMailboxChanges", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Str(logSinceState, sinceState)
 	})
@@ -172,10 +172,10 @@ func (j *Client) GetMailboxChanges(accountId string, session *Session, ctx conte
 		invocation(CommandEmailGet, getUpdated, "2"),
 	)
 	if err != nil {
-		return MailboxChanges{}, "", err
+		return MailboxChanges{}, "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (MailboxChanges, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (MailboxChanges, Error) {
 		var mailboxResponse MailboxChangesResponse
 		err = retrieveResponseMatchParameters(logger, body, CommandMailboxChanges, "0", &mailboxResponse)
 		if err != nil {
@@ -208,7 +208,7 @@ func (j *Client) GetMailboxChanges(accountId string, session *Session, ctx conte
 }
 
 // Retrieve Email changes in Mailboxes of multiple Accounts.
-func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, sinceStateMap map[string]string, fetchBodies bool, maxBodyValueBytes uint, maxChanges uint) (map[string]MailboxChanges, SessionState, Error) {
+func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceStateMap map[string]string, fetchBodies bool, maxBodyValueBytes uint, maxChanges uint) (map[string]MailboxChanges, SessionState, Language, Error) {
 	logger = j.loggerParams("GetMailboxChangesForMultipleAccounts", session, logger, func(z zerolog.Context) zerolog.Context {
 		sinceStateLogDict := zerolog.Dict()
 		for k, v := range sinceStateMap {
@@ -220,7 +220,7 @@ func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, sessi
 	uniqueAccountIds := structs.Uniq(accountIds)
 	n := len(uniqueAccountIds)
 	if n < 1 {
-		return map[string]MailboxChanges{}, "", nil
+		return map[string]MailboxChanges{}, "", "", nil
 	}
 
 	invocations := make([]Invocation, n*3)
@@ -262,10 +262,10 @@ func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, sessi
 
 	cmd, err := j.request(session, logger, invocations...)
 	if err != nil {
-		return map[string]MailboxChanges{}, "", err
+		return map[string]MailboxChanges{}, "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (map[string]MailboxChanges, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]MailboxChanges, Error) {
 		resp := make(map[string]MailboxChanges, n)
 		for _, accountId := range uniqueAccountIds {
 			var mailboxResponse MailboxChangesResponse
@@ -300,13 +300,13 @@ func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, sessi
 	})
 }
 
-func (j *Client) GetMailboxRolesForMultipleAccounts(accountIds []string, session *Session, ctx context.Context, logger *log.Logger) (map[string][]string, SessionState, Error) {
+func (j *Client) GetMailboxRolesForMultipleAccounts(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string][]string, SessionState, Language, Error) {
 	logger = j.logger("GetMailboxRolesForMultipleAccounts", session, logger)
 
 	uniqueAccountIds := structs.Uniq(accountIds)
 	n := len(uniqueAccountIds)
 	if n < 1 {
-		return map[string][]string{}, "", nil
+		return map[string][]string{}, "", "", nil
 	}
 
 	t := true
@@ -331,10 +331,10 @@ func (j *Client) GetMailboxRolesForMultipleAccounts(accountIds []string, session
 
 	cmd, err := j.request(session, logger, invocations...)
 	if err != nil {
-		return map[string][]string{}, "", err
+		return map[string][]string{}, "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, func(body *Response) (map[string][]string, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string][]string, Error) {
 		resp := make(map[string][]string, n)
 		for _, accountId := range uniqueAccountIds {
 			var getResponse MailboxGetResponse

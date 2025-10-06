@@ -117,10 +117,10 @@ func NewTestJmapBlobClient(t *testing.T) BlobClient {
 	return &TestJmapBlobClient{t: t}
 }
 
-func (t TestJmapBlobClient) UploadBinary(ctx context.Context, logger *log.Logger, session *Session, uploadUrl string, endpoint string, contentType string, body io.Reader) (UploadedBlob, Error) {
+func (t TestJmapBlobClient) UploadBinary(ctx context.Context, logger *log.Logger, session *Session, uploadUrl string, endpoint string, contentType string, acceptLanguage string, body io.Reader) (UploadedBlob, Language, Error) {
 	bytes, err := io.ReadAll(body)
 	if err != nil {
-		return UploadedBlob{}, SimpleError{code: 0, err: err}
+		return UploadedBlob{}, "", SimpleError{code: 0, err: err}
 	}
 	hasher := sha512.New()
 	hasher.Write(bytes)
@@ -129,17 +129,17 @@ func (t TestJmapBlobClient) UploadBinary(ctx context.Context, logger *log.Logger
 		Size:   len(bytes),
 		Type:   contentType,
 		Sha512: base64.StdEncoding.EncodeToString(hasher.Sum(nil)),
-	}, nil
+	}, "", nil
 }
 
-func (h *TestJmapBlobClient) DownloadBinary(ctx context.Context, logger *log.Logger, session *Session, downloadUrl string, endpoint string) (*BlobDownload, Error) {
+func (h *TestJmapBlobClient) DownloadBinary(ctx context.Context, logger *log.Logger, session *Session, downloadUrl string, endpoint string, acceptLanguage string) (*BlobDownload, Language, Error) {
 	return &BlobDownload{
 		Body:               io.NopCloser(strings.NewReader("")),
 		Size:               -1,
 		Type:               "text/plain",
 		ContentDisposition: "attachment; filename=\"file.txt\"",
 		CacheControl:       "",
-	}, nil
+	}, "", nil
 }
 
 func (t TestJmapBlobClient) Close() error {
@@ -164,24 +164,24 @@ func (t TestWsClientFactory) Close() error {
 	return nil
 }
 
-func serveTestFile(t *testing.T, name string) ([]byte, Error) {
+func serveTestFile(t *testing.T, name string) ([]byte, Language, Error) {
 	cwd, _ := os.Getwd()
 	p := filepath.Join(cwd, "testdata", name)
 	bytes, err := os.ReadFile(p)
 	if err != nil {
-		return bytes, SimpleError{code: 0, err: err}
+		return bytes, "", SimpleError{code: 0, err: err}
 	}
 	// try to parse it first to avoid any deeper issues that are caused by the test tools
 	var target map[string]any
 	err = json.Unmarshal(bytes, &target)
 	if err != nil {
 		t.Errorf("failed to parse JSON test data file '%v': %v", p, err)
-		return nil, SimpleError{code: 0, err: err}
+		return nil, "", SimpleError{code: 0, err: err}
 	}
-	return bytes, nil
+	return bytes, "", nil
 }
 
-func (t *TestJmapApiClient) Command(ctx context.Context, logger *log.Logger, session *Session, request Request) ([]byte, Error) {
+func (t *TestJmapApiClient) Command(ctx context.Context, logger *log.Logger, session *Session, request Request, acceptLanguage string) ([]byte, Language, Error) {
 	command := request.MethodCalls[0].Command
 	switch command {
 	case CommandMailboxGet:
@@ -190,7 +190,7 @@ func (t *TestJmapApiClient) Command(ctx context.Context, logger *log.Logger, ses
 		return serveTestFile(t.t, "mails1.json")
 	default:
 		require.Fail(t.t, "TestJmapApiClient: unsupported jmap command: %v", command)
-		return nil, SimpleError{code: 0, err: fmt.Errorf("TestJmapApiClient: unsupported jmap command: %v", command)}
+		return nil, "", SimpleError{code: 0, err: fmt.Errorf("TestJmapApiClient: unsupported jmap command: %v", command)}
 	}
 }
 
@@ -231,7 +231,7 @@ func TestRequests(t *testing.T) {
 		},
 	}
 
-	foldersByAccountId, sessionState, err := client.GetAllMailboxes([]string{"a"}, &session, ctx, &logger)
+	foldersByAccountId, sessionState, _, err := client.GetAllMailboxes([]string{"a"}, &session, ctx, &logger, "")
 	require.NoError(err)
 	require.Len(foldersByAccountId, 1)
 	require.Contains(foldersByAccountId, "a")
@@ -239,7 +239,7 @@ func TestRequests(t *testing.T) {
 	require.Len(folders.Mailboxes, 5)
 	require.NotEmpty(sessionState)
 
-	emails, sessionState, err := client.GetAllEmailsInMailbox("a", &session, ctx, &logger, "Inbox", 0, 0, true, 0)
+	emails, sessionState, _, err := client.GetAllEmailsInMailbox("a", &session, ctx, &logger, "", "Inbox", 0, 0, true, 0)
 	require.NoError(err)
 	require.Len(emails.Emails, 3)
 	require.NotEmpty(sessionState)

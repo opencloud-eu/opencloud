@@ -35,6 +35,9 @@ tags:
   - name: task
     x-displayName: Tasks
     description: APIs about tasks
+  - name: quota
+    x-displayName: Quota
+    description: APIs about quotas
   - name: vacation
     x-displayName: Vacation Responses
     description: APIs about vacation responses
@@ -63,6 +66,9 @@ x-tagGroups:
     tags:
       - tasklist
       - task
+  - name: Quotas
+    tags:
+      - quota
 components:
   securitySchemes:
     api:
