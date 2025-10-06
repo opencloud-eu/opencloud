@@ -318,6 +318,7 @@ config = {
                 "USE_PREPARED_LDAP_USERS": True,
             },
             "extraServerEnvironment": {
+                "OC_MULTI_TENANT_ENABLED": True,
                 "OC_LDAP_USER_SCHEMA_TENANT_ID": "departmentNumber",
                 "OC_LDAP_URI": "ldaps://ldap-server:1636",
                 "OC_LDAP_INSECURE": True,
@@ -333,6 +334,7 @@ config = {
                 "GRAPH_LDAP_SERVER_UUID": True,
                 "GRAPH_LDAP_GROUP_CREATE_BASE_DN": "ou=custom,ou=groups,dc=opencloud,dc=eu",
                 "GRAPH_LDAP_REFINT_ENABLED": True,
+                "GROUPS_DRIVER": "null",
                 "FRONTEND_READONLY_USER_ATTRIBUTES": "user.onPremisesSamAccountName,user.displayName,user.mail,user.passwordProfile,user.accountEnabled,user.appRoleAssignments",
                 "OC_LDAP_SERVER_WRITE_ENABLED": False,
                 "OC_EXCLUDE_RUN_SERVICES": "idm",

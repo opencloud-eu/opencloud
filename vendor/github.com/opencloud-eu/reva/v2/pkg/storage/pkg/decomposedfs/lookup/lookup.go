@@ -273,6 +273,11 @@ func (lu *Lookup) InternalPath(spaceID, nodeID string) string {
 	return filepath.Join(lu.Options.Root, "spaces", Pathify(spaceID, 1, 2), "nodes", Pathify(nodeID, 4, 2))
 }
 
+// LockfilePaths returns the paths(s) to the lockfile of the node
+func (lu *Lookup) LockfilePaths(spaceID, nodeID string) []string {
+	return []string{lu.InternalPath(spaceID, nodeID) + ".lock"}
+}
+
 // VersionPath returns the internal path for a version of a node
 // Deprecated: use InternalPath instead
 func (lu *Lookup) VersionPath(spaceID, nodeID, version string) string {

@@ -370,6 +370,7 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 			middleware.UserOIDCClaim(cfg.UserOIDCClaim),
 			middleware.UserCS3Claim(cfg.UserCS3Claim),
 			middleware.AutoprovisionAccounts(cfg.AutoprovisionAccounts),
+			middleware.MultiTenantEnabled(cfg.Commons.MultiTenantEnabled),
 			middleware.EventsPublisher(publisher),
 		),
 		middleware.SelectorCookie(

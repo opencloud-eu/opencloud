@@ -42,6 +42,7 @@ type conf struct {
 	GatewaySVC            string        `mapstructure:"gatewaysvc"`
 	DataGateway           string        `mapstructure:"datagateway"`
 	SkipUserGroupsInToken bool          `mapstructure:"skip_user_groups_in_token"`
+	MultiTenantEnabled    bool          `mapstructure:"multi_tenant_enabled"`
 	GRPCClientOptions     ClientOptions `mapstructure:"grpc_client_options"`
 }
 
@@ -105,6 +106,11 @@ func GetDataGateway(val string) string {
 // SkipUserGroupsInToken returns whether to skip encoding user groups in the access tokens.
 func SkipUserGroupsInToken() bool {
 	return sharedConf.SkipUserGroupsInToken
+}
+
+// MultiTenantEnabled returns whether this is a mulit-tenant enabled configuratio
+func MultiTenantEnabled() bool {
+	return sharedConf.MultiTenantEnabled
 }
 
 // GRPCClientOptions returns the global grpc client options

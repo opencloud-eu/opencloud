@@ -32,6 +32,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/group"
 	"github.com/opencloud-eu/reva/v2/pkg/group/manager/registry"
+	"github.com/opencloud-eu/reva/v2/pkg/sharedconf"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	ldapIdentity "github.com/opencloud-eu/reva/v2/pkg/utils/ldap"
 	"github.com/pkg/errors"
@@ -71,6 +72,10 @@ func parseConfig(m map[string]interface{}) (*config, error) {
 
 // New returns a group manager implementation that connects to a LDAP server to provide group metadata.
 func New(m map[string]interface{}) (group.Manager, error) {
+	if sharedconf.MultiTenantEnabled() {
+		return nil, errtypes.NotSupported("ldap group manager does not support multi-tenancy")
+	}
+
 	mgr := &manager{}
 	err := mgr.Configure(m)
 	if err != nil {

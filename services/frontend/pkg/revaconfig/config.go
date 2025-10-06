@@ -93,6 +93,7 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 			"gatewaysvc":                cfg.Reva.Address, // Todo or address?
 			"skip_user_groups_in_token": cfg.SkipUserGroupsInToken,
 			"grpc_client_options":       cfg.Reva.GetGRPCClientConfig(),
+			"multi_tenant_enabled":      cfg.Commons.MultiTenantEnabled,
 		},
 		"http": map[string]interface{}{
 			"network": cfg.HTTP.Protocol,

@@ -9,9 +9,10 @@ import (
 func AppProviderConfigFromStruct(cfg *config.Config) map[string]interface{} {
 	rcfg := map[string]interface{}{
 		"shared": map[string]interface{}{
-			"jwt_secret":          cfg.TokenManager.JWTSecret,
-			"gatewaysvc":          cfg.Reva.Address,
-			"grpc_client_options": cfg.Reva.GetGRPCClientConfig(),
+			"jwt_secret":           cfg.TokenManager.JWTSecret,
+			"gatewaysvc":           cfg.Reva.Address,
+			"grpc_client_options":  cfg.Reva.GetGRPCClientConfig(),
+			"multi_tenant_enabled": cfg.Commons.MultiTenantEnabled,
 		},
 		"grpc": map[string]interface{}{
 			"network": cfg.GRPC.Protocol,

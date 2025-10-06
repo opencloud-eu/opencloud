@@ -70,8 +70,10 @@ type Options struct {
 	// TraceProvider sets the tracing provider.
 	TraceProvider trace.TracerProvider
 	// SkipUserInfo prevents the oidc middleware from querying the userinfo endpoint and read any claims directly from the access token instead
-	SkipUserInfo    bool
-	EventsPublisher events.Publisher
+	SkipUserInfo bool
+	// MultiTenantEnabled causes the account resolve middleware to reject users that don't have a tenant id assigned
+	MultiTenantEnabled bool
+	EventsPublisher    events.Publisher
 }
 
 // newOptions initializes the available default options.
@@ -236,6 +238,13 @@ func TraceProvider(tp trace.TracerProvider) Option {
 func SkipUserInfo(val bool) Option {
 	return func(o *Options) {
 		o.SkipUserInfo = val
+	}
+}
+
+// MultiTenantEnabled sets the MultiTenantEnabled flag.
+func MultiTenantEnabled(val bool) Option {
+	return func(o *Options) {
+		o.MultiTenantEnabled = val
 	}
 }
 

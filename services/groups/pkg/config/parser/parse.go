@@ -2,6 +2,7 @@ package parser
 
 import (
 	"errors"
+	"fmt"
 
 	occfg "github.com/opencloud-eu/opencloud/pkg/config"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
@@ -38,6 +39,9 @@ func Validate(cfg *config.Config) error {
 		return shared.MissingJWTTokenError(cfg.Service.Name)
 	}
 
+	if cfg.Commons.MultiTenantEnabled && cfg.Driver != "null" {
+		return fmt.Errorf("Multi-tenant support is enabled. Only the 'null'-driver is supported by 'groups' service.")
+	}
 	if cfg.Drivers.LDAP.BindPassword == "" && cfg.Driver == "ldap" {
 		return shared.MissingLDAPBindPassword(cfg.Service.Name)
 	}

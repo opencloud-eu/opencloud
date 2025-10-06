@@ -15,9 +15,10 @@ func AuthMachineConfigFromStruct(cfg *config.Config) map[string]interface{} {
 			"tracing_service_name": cfg.Service.Name,
 		},
 		"shared": map[string]interface{}{
-			"jwt_secret":          cfg.TokenManager.JWTSecret,
-			"gatewaysvc":          cfg.Reva.Address,
-			"grpc_client_options": cfg.Reva.GetGRPCClientConfig(),
+			"jwt_secret":           cfg.TokenManager.JWTSecret,
+			"gatewaysvc":           cfg.Reva.Address,
+			"grpc_client_options":  cfg.Reva.GetGRPCClientConfig(),
+			"multi_tenant_enabled": cfg.Commons.MultiTenantEnabled,
 		},
 		"grpc": map[string]interface{}{
 			"network": cfg.GRPC.Protocol,

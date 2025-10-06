@@ -303,6 +303,22 @@ func (lu *Lookup) InternalPath(spaceID, nodeID string) string {
 	return path
 }
 
+// LockfilePaths returns the paths(s) to the lockfile of the node
+func (lu *Lookup) LockfilePaths(spaceID, nodeID string) []string {
+	spaceRoot, _ := lu.IDCache.Get(context.Background(), spaceID, spaceID)
+	if len(spaceRoot) == 0 {
+		return nil
+	}
+	paths := []string{filepath.Join(spaceRoot, MetadataDir, Pathify(nodeID, 4, 2)+".lock")}
+
+	nodepath := lu.InternalPath(spaceID, nodeID)
+	if len(nodepath) > 0 {
+		paths = append(paths, nodepath+".lock")
+	}
+
+	return paths
+}
+
 // VersionPath returns the path to the version of the node
 func (lu *Lookup) VersionPath(spaceID, nodeID, version string) string {
 	spaceRoot, _ := lu.IDCache.Get(context.Background(), spaceID, spaceID)

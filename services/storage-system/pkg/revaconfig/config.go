@@ -16,6 +16,7 @@ func StorageSystemFromStruct(cfg *config.Config) map[string]interface{} {
 			"gatewaysvc":                cfg.Reva.Address,
 			"skip_user_groups_in_token": cfg.SkipUserGroupsInToken,
 			"grpc_client_options":       cfg.Reva.GetGRPCClientConfig(),
+			"multi_tenant_enabled":      cfg.Commons.MultiTenantEnabled,
 		},
 		"grpc": map[string]interface{}{
 			"network": cfg.GRPC.Protocol,
@@ -49,7 +50,7 @@ func StorageSystemFromStruct(cfg *config.Config) map[string]interface{} {
 									"id": map[string]interface{}{
 										"opaqueId": cfg.SystemUserID,
 										"idp":      "internal",
-										"type":     userpb.UserType_USER_TYPE_PRIMARY,
+										"type":     userpb.UserType_USER_TYPE_SERVICE,
 									},
 									"username":     "serviceuser",
 									"display_name": "System User",

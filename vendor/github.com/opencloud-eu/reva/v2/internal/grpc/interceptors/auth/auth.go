@@ -150,7 +150,10 @@ func NewUnary(m map[string]interface{}, unprotected []string, tp trace.TracerPro
 			log.Warn().Err(err).Msg("access token is invalid")
 			return nil, status.Errorf(codes.PermissionDenied, "auth: core access token is invalid")
 		}
-
+		if sharedconf.MultiTenantEnabled() && u.GetId().GetType() != userpb.UserType_USER_TYPE_SERVICE && u.GetId().GetTenantId() == "" {
+			log.Warn().Msg("user has no tenant id, rejecting request")
+			return nil, status.Errorf(codes.PermissionDenied, "auth: user has no tenant id, rejecting request")
+		}
 		// store user and scopes in context
 		ctx = ctxpkg.ContextSetUser(ctx, u)
 		ctx = ctxpkg.ContextSetScopes(ctx, tokenScope)

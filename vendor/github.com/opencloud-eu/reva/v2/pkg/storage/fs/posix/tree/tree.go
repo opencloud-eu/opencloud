@@ -343,8 +343,6 @@ func (t *Tree) CreateDir(ctx context.Context, n *node.Node) (err error) {
 
 // Move replaces the target with the source
 func (t *Tree) Move(ctx context.Context, oldNode *node.Node, newNode *node.Node) (err error) {
-	lockFilePath := oldNode.LockFilePath()
-
 	if oldNode.SpaceID != newNode.SpaceID {
 		// WebDAV RFC https://www.rfc-editor.org/rfc/rfc4918#section-9.9.4 says to use
 		// > 502 (Bad Gateway) - This may occur when the destination is on another
@@ -398,14 +396,6 @@ func (t *Tree) Move(ctx context.Context, oldNode *node.Node, newNode *node.Node)
 	attribs.SetString(prefixes.NameAttr, newNode.Name)
 	if err := newNode.SetXattrsWithContext(ctx, attribs, true); err != nil {
 		return errors.Wrap(err, "posixfs: could not update node attributes")
-	}
-
-	// rename the lock (if it exists)
-	if _, err := os.Stat(lockFilePath); err == nil {
-		err = os.Rename(lockFilePath, newNode.LockFilePath())
-		if err != nil {
-			return errors.Wrap(err, "posixfs: could not move lock")
-		}
 	}
 
 	// update id cache for the moved subtree.
@@ -582,8 +572,11 @@ func (t *Tree) Delete(ctx context.Context, n *node.Node) error {
 	}
 
 	// Remove lock file if it exists
-	if err := os.Remove(n.LockFilePath()); err != nil {
-		t.log.Error().Err(err).Str("path", n.LockFilePath()).Msg("could not remove lock file")
+	paths := n.LockFilePaths()
+	for _, lockFilePath := range paths {
+		if err := os.Remove(lockFilePath); err != nil && !os.IsNotExist(err) {
+			t.log.Error().Err(err).Str("path", lockFilePath).Msg("could not remove lock file")
+		}
 	}
 
 	err := t.trashbin.MoveToTrash(ctx, n, path)
@@ -747,7 +740,7 @@ func (t *Tree) isInternal(path string) bool {
 }
 
 func isLockFile(path string) bool {
-	return strings.HasSuffix(path, ".lock") || strings.HasSuffix(path, ".flock") || strings.HasSuffix(path, ".mlock")
+	return strings.HasSuffix(path, ".flock") || strings.HasSuffix(path, ".mlock")
 }
 
 func isTrash(path string) bool {

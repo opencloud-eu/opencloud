@@ -40,7 +40,7 @@ import (
 func (n *Node) SetLock(ctx context.Context, lock *provider.Lock) error {
 	ctx, span := tracer.Start(ctx, "SetLock")
 	defer span.End()
-	lockFilePath := n.LockFilePath()
+	lockFilePath := n.LockFilePaths()[0]
 
 	// ensure parent path exists
 	if err := os.MkdirAll(filepath.Dir(lockFilePath), 0700); err != nil {
@@ -90,7 +90,7 @@ func (n *Node) SetLock(ctx context.Context, lock *provider.Lock) error {
 }
 
 // ReadLock reads the lock id for a node
-func (n Node) ReadLock(ctx context.Context, skipFileLock bool) (*provider.Lock, error) {
+func (n *Node) ReadLock(ctx context.Context, skipFileLock bool) (*provider.Lock, error) {
 	ctx, span := tracer.Start(ctx, "ReadLock")
 	defer span.End()
 
@@ -124,10 +124,7 @@ func (n Node) ReadLock(ctx context.Context, skipFileLock bool) (*provider.Lock, 
 		}()
 	}
 
-	_, subspan = tracer.Start(ctx, "os.Open")
-	f, err := os.Open(n.LockFilePath())
-	subspan.End()
-
+	f, err := openAndMigrateLockFile(ctx, n, os.O_RDONLY, 0)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, errtypes.NotFound("no lock found")
@@ -182,7 +179,7 @@ func (n *Node) RefreshLock(ctx context.Context, lock *provider.Lock, existingLoc
 		}
 	}()
 
-	f, err := os.OpenFile(n.LockFilePath(), os.O_RDWR, os.ModeExclusive)
+	f, err := openAndMigrateLockFile(ctx, n, os.O_RDWR, os.ModeExclusive)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		return errtypes.PreconditionFailed("lock does not exist")
@@ -190,7 +187,6 @@ func (n *Node) RefreshLock(ctx context.Context, lock *provider.Lock, existingLoc
 		return errors.Wrap(err, "Decomposedfs: could not open lock file")
 	}
 	defer f.Close()
-
 	readLock := &provider.Lock{}
 	if err := json.NewDecoder(f).Decode(readLock); err != nil {
 		return errors.Wrap(err, "Decomposedfs: could not read lock")
@@ -246,7 +242,7 @@ func (n *Node) Unlock(ctx context.Context, lock *provider.Lock) error {
 		}
 	}()
 
-	f, err := os.OpenFile(n.LockFilePath(), os.O_RDONLY, os.ModeExclusive)
+	f, err := openAndMigrateLockFile(ctx, n, os.O_RDONLY, os.ModeExclusive)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		return errtypes.Aborted("lock does not exist")
@@ -323,8 +319,12 @@ func readLocksIntoOpaque(ctx context.Context, n *Node, ri *provider.ResourceInfo
 }
 
 func (n *Node) hasLocks(ctx context.Context) bool {
-	_, err := os.Stat(n.LockFilePath()) // FIXME better error checking
-	return err == nil
+	for _, p := range n.LockFilePaths() {
+		if _, err := os.Stat(p); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func isLockModificationAllowed(ctx context.Context, oldLock *provider.Lock, newLock *provider.Lock) (bool, error) {
@@ -357,4 +357,46 @@ func isLockModificationAllowed(ctx context.Context, oldLock *provider.Lock, newL
 
 	return appNameEquals && lockUserEquals && contextUserEquals, nil
 
+}
+
+// openAndMigrateLockFile opens the lock file for a node, migrating any legacy lock files if found
+// This is needed to support the transition to the new lock file scheme in the posix driver.
+// Once this transition period is over the migration code can be removed again.
+func openAndMigrateLockFile(ctx context.Context, n *Node, flag int, perm os.FileMode) (*os.File, error) {
+	lockfilePaths := n.LockFilePaths()
+
+	// check for legacy lock files and migrate them
+	for i := 1; i < len(lockfilePaths); i++ {
+		fi, err := os.Stat(lockfilePaths[i])
+		if err == nil {
+			if fi.Size() == 0 {
+				// this is not a lock file of ours. ignore
+				continue
+			}
+
+			f, err := os.Open(lockfilePaths[i])
+			if err != nil {
+				continue
+			}
+			defer f.Close()
+			readLock := &provider.Lock{}
+			if err := json.NewDecoder(f).Decode(readLock); err != nil {
+				// this is not a lock file of ours. ignore
+				continue
+			}
+
+			// legacy lock file found, move it to the new location
+			err = os.MkdirAll(filepath.Dir(lockfilePaths[0]), 0700)
+			if err != nil {
+				return nil, errors.Wrap(err, "Decomposedfs: could not create lock file directory")
+			}
+			if err := os.Rename(lockfilePaths[i], lockfilePaths[0]); err != nil {
+				return nil, errors.Wrap(err, "Decomposedfs: could not migrate lock file")
+			}
+		} else if !errors.Is(err, fs.ErrNotExist) {
+			return nil, errors.Wrap(err, "Decomposedfs: could not stat legacy lock file")
+		}
+	}
+
+	return os.OpenFile(lockfilePaths[0], flag, perm)
 }

@@ -501,7 +501,7 @@ func (t *Tree) Delete(ctx context.Context, n *node.Node) (err error) {
 	}
 
 	// Remove lock file if it exists
-	_ = os.Remove(n.LockFilePath())
+	_ = os.Remove(n.LockFilePaths()[0])
 
 	// finally remove the entry from the parent dir
 	if err = os.Remove(path); err != nil {

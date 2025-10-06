@@ -28,6 +28,7 @@ func GatewayConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]i
 			"gatewaysvc":                cfg.Reva.Address,
 			"skip_user_groups_in_token": cfg.SkipUserGroupsInToken,
 			"grpc_client_options":       cfg.Reva.GetGRPCClientConfig(),
+			"multi_tenant_enabled":      cfg.Commons.MultiTenantEnabled,
 		},
 		"grpc": map[string]interface{}{
 			"network": cfg.GRPC.Protocol,

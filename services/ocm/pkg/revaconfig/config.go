@@ -25,9 +25,10 @@ func OCMConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]inter
 
 	return map[string]interface{}{
 		"shared": map[string]interface{}{
-			"jwt_secret":          cfg.TokenManager.JWTSecret,
-			"gatewaysvc":          cfg.Reva.Address, // Todo or address?
-			"grpc_client_options": cfg.Reva.GetGRPCClientConfig(),
+			"jwt_secret":           cfg.TokenManager.JWTSecret,
+			"gatewaysvc":           cfg.Reva.Address, // Todo or address?
+			"grpc_client_options":  cfg.Reva.GetGRPCClientConfig(),
+			"multi_tenant_enabled": cfg.Commons.MultiTenantEnabled,
 		},
 		"http": map[string]interface{}{
 			"network": cfg.HTTP.Protocol,

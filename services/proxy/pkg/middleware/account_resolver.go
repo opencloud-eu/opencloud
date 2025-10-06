@@ -43,6 +43,7 @@ func AccountResolver(optionSetters ...Option) func(next http.Handler) http.Handl
 			userCS3Claim:          options.UserCS3Claim,
 			userRoleAssigner:      options.UserRoleAssigner,
 			autoProvisionAccounts: options.AutoprovisionAccounts,
+			multiTenantEnabled:    options.MultiTenantEnabled,
 			lastGroupSyncCache:    lastGroupSyncCache,
 			eventsPublisher:       options.EventsPublisher,
 		}
@@ -56,6 +57,7 @@ type accountResolver struct {
 	userProvider          backend.UserBackend
 	userRoleAssigner      userroles.UserRoleAssigner
 	autoProvisionAccounts bool
+	multiTenantEnabled    bool
 	userOIDCClaim         string
 	userCS3Claim          string
 	// lastGroupSyncCache is used to keep track of when the last sync of group
@@ -159,6 +161,14 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
+		// if this is a multi-tenant setup, make sure the resolved user has a tenant id set
+		if m.multiTenantEnabled && user.GetId().GetTenantId() == "" {
+			m.logger.Error().Str("userid", user.Id.OpaqueId).Msg("User does not have a tenantId assigned")
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		// update user if needed
 		if m.autoProvisionAccounts {
 			if err = m.userProvider.UpdateUserIfNeeded(req.Context(), user, claims); err != nil {
 				m.logger.Error().Err(err).Str("userid", user.GetId().GetOpaqueId()).Interface("claims", claims).Msg("Failed to update autoprovisioned user")
@@ -201,6 +211,13 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		m.logger.Debug().Interface("claims", claims).Interface("user", user).Msg("associated claims with user")
 	} else if user != nil && !hasToken {
+		// if this is a multi-tenant setup, make sure the resolved user has a tenant id set
+		if m.multiTenantEnabled && user.GetId().GetTenantId() == "" {
+			m.logger.Error().Str("userid", user.Id.OpaqueId).Msg("User does not have a tenantId assigned")
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
 		// If we already have a token (e.g. the app auth middleware adds the token to the context) there is no need
 		// to get yet another one here.
 		var err error

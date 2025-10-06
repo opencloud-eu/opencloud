@@ -158,6 +158,7 @@ type PathLookup interface {
 	InternalRoot() string
 	InternalSpaceRoot(spaceID string) string
 	InternalPath(spaceID, nodeID string) string
+	LockfilePaths(spaceID, nodeID string) []string
 	VersionPath(spaceID, nodeID, version string) string
 	Path(ctx context.Context, n *Node, hasPermission PermissionFunc) (path string, err error)
 	MetadataBackend() metadata.Backend
@@ -635,9 +636,13 @@ func (n *Node) ParentPath() string {
 	return n.lu.InternalPath(n.SpaceID, n.ParentID)
 }
 
-// LockFilePath returns the internal path of the lock file of the node
-func (n *Node) LockFilePath() string {
-	return n.InternalPath() + ".lock"
+// LockfilePaths returns the paths(s) to the lockfile of the node
+// Returning multiple paths allows for supporting legacy lockfiles
+// while migrating to a new lockfile scheme. The first element is always the
+// path to use for new locks.
+// In the future only one path should remain at which point the function can return a single string.
+func (n *Node) LockFilePaths() []string {
+	return n.lu.LockfilePaths(n.SpaceID, n.ID)
 }
 
 // CalculateEtag returns a hash of fileid + tmtime (or mtime)

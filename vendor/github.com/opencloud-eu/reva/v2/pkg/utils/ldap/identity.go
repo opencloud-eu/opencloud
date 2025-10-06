@@ -28,6 +28,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
+	"github.com/opencloud-eu/reva/v2/pkg/sharedconf"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"go.opentelemetry.io/otel/attribute"
@@ -178,6 +179,16 @@ func (i *Identity) Setup() error {
 	case "", "none":
 	default:
 		return fmt.Errorf("invalid disable mechanism setting: %s", i.User.DisableMechanism)
+	}
+
+	if sharedconf.MultiTenantEnabled() {
+		if i.User.Schema.TenantID == "" {
+			return fmt.Errorf("Invalid configuration: a 'tenantId' user schema attribute must be defined for multi-tenant setups")
+		}
+	} else {
+		if i.User.Schema.TenantID != "" {
+			return fmt.Errorf("Invalid configuration: Superfluous 'tenantId' user schema attribute defined for single-tenant setups")
+		}
 	}
 
 	return nil
