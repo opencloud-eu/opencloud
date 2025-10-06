@@ -2702,6 +2702,7 @@ def generateWebPnpmCache(ctx):
 def cacheBrowsers(ctx):
     e2e_trigger = [
         event["base"],
+        event["cron"],
         {
             "event": "pull_request",
             "path": {
@@ -2727,8 +2728,10 @@ def cacheBrowsers(ctx):
     }]
 
     webPnpmCacheSteps = restoreWebPnpmCache(extra_commands = [
+        "cd %s" % dirs["web"],
         ". ./.woodpecker.env",
         "if $BROWSER_CACHE_FOUND; then exit 0; fi",
+        "cd %s" % dirs["base"],
     ])
 
     browser_cache_steps = [
@@ -2739,9 +2742,9 @@ def cacheBrowsers(ctx):
                 "PLAYWRIGHT_BROWSERS_PATH": ".playwright",
             },
             "commands": [
+                "cd %s" % dirs["web"],
                 ". ./.woodpecker.env",
                 "if $BROWSER_CACHE_FOUND; then exit 0; fi",
-                "cd %s" % dirs["web"],
                 "pnpm exec playwright install --with-deps",
                 "pnpm exec playwright install --list",
                 "tar -czf %s .playwright" % dirs["playwrightBrowsersArchive"],
@@ -2752,9 +2755,9 @@ def cacheBrowsers(ctx):
             "image": MINIO_MC,
             "environment": MINIO_MC_ENV,
             "commands": [
+                "cd %s" % dirs["web"],
                 ". ./.woodpecker.env",
                 "if $BROWSER_CACHE_FOUND; then exit 0; fi",
-                "cd %s" % dirs["web"],
                 "playwright_version=$(bash tests/woodpecker/script.sh get_playwright_version)",
                 "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
                 "mc cp -r -a %s s3/$CACHE_BUCKET/web/browsers-cache/$playwright_version/" % dirs["playwrightBrowsersArchive"],
