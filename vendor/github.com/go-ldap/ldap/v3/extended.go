@@ -1,7 +1,9 @@
 package ldap
 
 import (
+	"errors"
 	"fmt"
+
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
@@ -56,6 +58,10 @@ type ExtendedResponse struct {
 // Extended performs an extended request. The resulting
 // ExtendedResponse may return a value in the form of a *ber.Packet
 func (l *Conn) Extended(er *ExtendedRequest) (*ExtendedResponse, error) {
+	if er == nil {
+		return nil, NewError(ErrorNetwork, errors.New("ExtendedRequest cannot be nil"))
+	}
+
 	msgCtx, err := l.doRequest(er)
 	if err != nil {
 		return nil, err
