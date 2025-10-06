@@ -65,6 +65,7 @@ func (g *Groupware) Route(r chi.Router) {
 		r.Route("/emails", func(r chi.Router) {
 			r.Get("/latest/summary", g.GetLatestEmailsSummaryForAllAccounts)
 		})
+		r.Get("/quota", g.GetQuotaForAllAccounts)
 	})
 	r.Route("/accounts/{accountid}", func(r chi.Router) {
 		r.Get("/", g.GetAccount)
