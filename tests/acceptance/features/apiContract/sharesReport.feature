@@ -46,6 +46,7 @@ Feature: REPORT request to Shares space
   Scenario Outline: check the REPORT response of the found file
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "Not all those who wander are lost." to "/folderMain/SubFolder1/subFOLDER2/frodo.txt"
+    And user "Alice" has uploaded file "filesForUpload/testavatar.jpg" to "/folderMain/SubFolder1/subFOLDER2/testavatar.jpg"
     When user "Brian" searches for "frodo.txt" using the WebDAV API
     Then the HTTP status code should be "207"
     And the following headers should match these regular expressions
@@ -60,6 +61,21 @@ Feature: REPORT request to Shares space
       | oc:permissions     | S                         |
       | oc:privatelink     | %base_url%/f/[0-9a-z-$%]+ |
       | d:getcontentlength | 34                        |
+      | oc:remote-item-id  | %file_id_pattern%         |
+    When user "Brian" searches for "testavatar.jpg" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the following headers should match these regular expressions
+      | X-Request-Id | %request_id_pattern% |
+    And as user "Brian" the REPORT response should contain a resource "testavatar.jpg" with these key and value pairs:
+      | key                | value                     |
+      | oc:fileid          | %file_id_pattern%         |
+      | oc:file-parent     | %file_id_pattern%         |
+      | oc:shareroot       | /folderMain               |
+      | oc:name            | testavatar.jpg            |
+      | d:getcontenttype   | image/jpeg                |
+      | oc:permissions     | S                         |
+      | oc:privatelink     | %base_url%/f/[0-9a-z-$%]+ |
+      | oc:has-preview     | 1                         |
       | oc:remote-item-id  | %file_id_pattern%         |
     Examples:
       | dav-path-version |
