@@ -246,38 +246,19 @@ func readTag(f reflect.StructField) (string, bool) {
 //		// ...
 //	}
 func (e *Entry) Unmarshal(i interface{}) (err error) {
-	// Make sure it's a ptr
-	if vo := reflect.ValueOf(i).Kind(); vo != reflect.Ptr {
-		return fmt.Errorf("ldap: cannot use %s, expected pointer to a struct", vo)
-	}
-
-	sv, st := reflect.ValueOf(i).Elem(), reflect.TypeOf(i).Elem()
-	// Make sure it's pointing to a struct
-	if sv.Kind() != reflect.Struct {
-		return fmt.Errorf("ldap: expected pointer to a struct, got %s", sv.Kind())
-	}
-
-	for n := 0; n < st.NumField(); n++ {
-		// Holds struct field value and type
-		fv, ft := sv.Field(n), st.Field(n)
-
-		// skip unexported fields
-		if ft.PkgPath != "" {
-			continue
-		}
-
+	return e.UnmarshalFunc(i, func(entry *Entry, ft reflect.StructField, fv reflect.Value) error {
 		// omitempty can be safely discarded, as it's not needed when unmarshalling
 		fieldTag, _ := readTag(ft)
 
 		// Fill the field with the distinguishedName if the tag key is `dn`
 		if fieldTag == "dn" {
 			fv.SetString(e.DN)
-			continue
+			return nil
 		}
 
 		values := e.GetAttributeValues(fieldTag)
 		if len(values) == 0 {
-			continue
+			return nil
 		}
 
 		switch fv.Interface().(type) {
@@ -320,8 +301,39 @@ func (e *Entry) Unmarshal(i interface{}) (err error) {
 		default:
 			return fmt.Errorf("ldap: expected field to be of type string, *string, []string, int, int64, []byte, *DN, []*DN or time.Time, got %v", ft.Type)
 		}
+		return nil
+	})
+}
+
+// UnmarshalFunc allows you to define a custom unmarshaler to parse an Entry values.
+// A custom unmarshaler can be found in the Unmarshal function or in the test files.
+func (e *Entry) UnmarshalFunc(i interface{},
+	fn func(entry *Entry, fieldType reflect.StructField, fieldValue reflect.Value) error) error {
+	// Make sure it's a ptr
+	if vo := reflect.ValueOf(i).Kind(); vo != reflect.Ptr {
+		return fmt.Errorf("ldap: cannot use %s, expected pointer to a struct", vo)
 	}
-	return
+
+	sv, st := reflect.ValueOf(i).Elem(), reflect.TypeOf(i).Elem()
+	// Make sure it's pointing to a struct
+	if sv.Kind() != reflect.Struct {
+		return fmt.Errorf("ldap: expected pointer to a struct, got %s", sv.Kind())
+	}
+
+	for n := 0; n < st.NumField(); n++ {
+		fv, ft := sv.Field(n), st.Field(n)
+
+		// skip unexported fields
+		if ft.PkgPath != "" {
+			continue
+		}
+
+		if err := fn(e, ft, fv); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // NewEntryAttribute returns a new EntryAttribute with the desired key-value pair

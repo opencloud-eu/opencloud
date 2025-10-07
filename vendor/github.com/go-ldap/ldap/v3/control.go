@@ -29,14 +29,86 @@ const (
 	// ControlTypeServerSideSorting - https://www.ietf.org/rfc/rfc2891.txt
 	ControlTypeServerSideSortingResult = "1.2.840.113556.1.4.474"
 
-	// ControlTypeMicrosoftNotification - https://msdn.microsoft.com/en-us/library/aa366983(v=vs.85).aspx
-	ControlTypeMicrosoftNotification = "1.2.840.113556.1.4.528"
-	// ControlTypeMicrosoftShowDeleted - https://msdn.microsoft.com/en-us/library/aa366989(v=vs.85).aspx
-	ControlTypeMicrosoftShowDeleted = "1.2.840.113556.1.4.417"
-	// ControlTypeMicrosoftServerLinkTTL - https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/f4f523a8-abc0-4b3a-a471-6b2fef135481?redirectedfrom=MSDN
-	ControlTypeMicrosoftServerLinkTTL = "1.2.840.113556.1.4.2309"
-	// ControlTypeDirSync - Active Directory DirSync - https://msdn.microsoft.com/en-us/library/aa366978(v=vs.85).aspx
+	// ControlTypeMicrosoftPagedResults - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftPagedResults = "1.2.840.113556.1.4.319"
+	// ControlTypeMicrosoftCrossDomainMoveTarget - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftCrossDomainMoveTarget = "1.2.840.113556.1.4.521"
+	// ControlTypeDirSync - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
 	ControlTypeDirSync = "1.2.840.113556.1.4.841"
+	// ControlTypeMicrosoftDomainScope - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftDomainScope = "1.2.840.113556.1.4.1339"
+	// ControlTypeMicrosoftExtendedDN - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftExtendedDN = "1.2.840.113556.1.4.529"
+	// ControlTypeMicrosoftGetStats - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftGetStats = "1.2.840.113556.1.4.970"
+	// ControlTypeMicrosoftLazyCommit - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftLazyCommit = "1.2.840.113556.1.4.619"
+	// ControlTypeMicrosoftPermissiveModify - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftPermissiveModify = "1.2.840.113556.1.4.1413"
+	// ControlTypeMicrosoftNotification - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftNotification = "1.2.840.113556.1.4.528"
+	// ControlTypeMicrosoftRespSort - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftRespSort = "1.2.840.113556.1.4.474"
+	// ControlTypeMicrosoftSDFlags - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftSDFlags = "1.2.840.113556.1.4.801"
+	// ControlTypeMicrosoftSearchOptions - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftSearchOptions = "1.2.840.113556.1.4.1340"
+	// ControlTypeMicrosoftSort - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftSort = "1.2.840.113556.1.4.473"
+	// ControlTypeMicrosoftShowDeleted - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftShowDeleted = "1.2.840.113556.1.4.417"
+	// ControlTypeMicrosoftTreeDelete - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftTreeDelete = "1.2.840.113556.1.4.805"
+	// ControlTypeMicrosoftVerifyName - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftVerifyName = "1.2.840.113556.1.4.1338"
+	// ControlTypeVLVRequest - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeVLVRequest = "2.16.840.1.113730.3.4.9"
+	// ControlTypeVLVResponse - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeVLVResponse = "2.16.840.1.113730.3.4.10"
+	// ControlTypeMicrosoftASQ - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftASQ = "1.2.840.113556.1.4.1504"
+	// ControlTypeMicrosoftQuotaControl - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftQuotaControl = "1.2.840.113556.1.4.1852"
+	// ControlTypeMicrosoftRangeOption - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftRangeOption = "1.2.840.113556.1.4.802"
+	// ControlTypeMicrosoftShutdownNotify - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftShutdownNotify = "1.2.840.113556.1.4.1907"
+	// ControlTypeMicrosoftForceUpdate - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftForceUpdate = "1.2.840.113556.1.4.1974"
+	// ControlTypeMicrosoftRangeRetrievalNoErr - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftRangeRetrievalNoErr = "1.2.840.113556.1.4.1948"
+	// ControlTypeMicrosoftRODCDCPromo - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftRODCDCPromo = "1.2.840.113556.1.4.1341"
+	// ControlTypeMicrosoftDNInput - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftDNInput = "1.2.840.113556.1.4.2026"
+	// ControlTypeMicrosoftShowDeactivatedLink - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftShowDeactivatedLink = "1.2.840.113556.1.4.2065"
+	// ControlTypeMicrosoftShowRecycled - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftShowRecycled = "1.2.840.113556.1.4.2064"
+	// ControlTypeMicrosoftPolicyHintsDeprecated - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftPolicyHintsDeprecated = "1.2.840.113556.1.4.2066"
+	// ControlTypeMicrosoftDirSyncEX - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftDirSyncEX = "1.2.840.113556.1.4.2090"
+	// ControlTypeMicrosoftUpdateStats - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftUpdateStats = "1.2.840.113556.1.4.2205"
+	// ControlTypeMicrosoftTreeDeleteEX - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftTreeDeleteEX = "1.2.840.113556.1.4.2204"
+	// ControlTypeMicrosoftSearchHints - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftSearchHints = "1.2.840.113556.1.4.2206"
+	// ControlTypeMicrosoftExpectedEntryCount - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftExpectedEntryCount = "1.2.840.113556.1.4.2211"
+	// ControlTypeMicrosoftPolicyHints - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftPolicyHints = "1.2.840.113556.1.4.2239"
+	// ControlTypeMicrosoftSetOwner - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftSetOwner = "1.2.840.113556.1.4.2255"
+	// ControlTypeMicrosoftBypassQuota - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftBypassQuota = "1.2.840.113556.1.4.2256"
+	// ControlTypeMicrosoftServerLinkTTL - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftServerLinkTTL = "1.2.840.113556.1.4.2309"
+	// ControlTypeMicrosoftSetCorrelationID - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftSetCorrelationID = "1.2.840.113556.1.4.2330"
+	// ControlTypeMicrosoftThreadTraceOverride - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftThreadTraceOverride = "1.2.840.113556.1.4.2354"
 
 	// ControlTypeSyncRequest - https://www.ietf.org/rfc/rfc4533.txt
 	ControlTypeSyncRequest = "1.3.6.1.4.1.4203.1.9.1.1"
@@ -49,29 +121,85 @@ const (
 )
 
 // Flags for DirSync control
+// Source: https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/2213a7f2-0a36-483c-b2a4-8574d53aa1e3
 const (
-	DirSyncIncrementalValues   int64 = 2147483648
-	DirSyncPublicDataOnly      int64 = 8192
-	DirSyncAncestorsFirstOrder int64 = 2048
-	DirSyncObjectSecurity      int64 = 1
+	// Windows Server 2003 and later: If this flag is not present, all of the values,
+	// up to a server-specified limit, in a multivalued attribute are returned when
+	// any value changes. If this flag is present, only the changed values are
+	// returned, provided the attribute is a forward link value.
+	// Windows 2000: Not supported.
+	DirSyncIncrementalValues int64 = 0x80000000
+
+	// Do not return private data in the search results.
+	// Windows Server 2003 and later: This flag can optionally be passed to the DC,
+	// but it has no effect.
+	// Windows 2000: Not supported.
+	DirSyncPublicDataOnly int64 = 0x00002000
+
+	// Return parent objects before child objects, otherwise parent
+	// objects would appear later in the replication stream.
+	DirSyncAncestorsFirstOrder int64 = 0x00000800
+
+	// Windows Server 2003 operating system and later: If this flag is present,
+	// the client can only view objects and attributes that are otherwise accessible
+	// to the client. If this flag is not present, the server checks if the client
+	// has access rights to read the changes in the NC.
+	// Windows 2000 operating system: Not supported.
+	DirSyncObjectSecurity int64 = 0x00000001
 )
 
 // ControlTypeMap maps controls to text descriptions
 var ControlTypeMap = map[string]string{
-	ControlTypePaging:                  "Paging",
-	ControlTypeBeheraPasswordPolicy:    "Password Policy - Behera Draft",
-	ControlTypeManageDsaIT:             "Manage DSA IT",
-	ControlTypeSubtreeDelete:           "Subtree Delete Control",
-	ControlTypeMicrosoftNotification:   "Change Notification - Microsoft",
-	ControlTypeMicrosoftShowDeleted:    "Show Deleted Objects - Microsoft",
-	ControlTypeMicrosoftServerLinkTTL:  "Return TTL-DNs for link values with associated expiry times - Microsoft",
-	ControlTypeServerSideSorting:       "Server Side Sorting Request - LDAP Control Extension for Server Side Sorting of Search Results (RFC2891)",
-	ControlTypeServerSideSortingResult: "Server Side Sorting Results - LDAP Control Extension for Server Side Sorting of Search Results (RFC2891)",
-	ControlTypeDirSync:                 "DirSync",
-	ControlTypeSyncRequest:             "Sync Request",
-	ControlTypeSyncState:               "Sync State",
-	ControlTypeSyncDone:                "Sync Done",
-	ControlTypeSyncInfo:                "Sync Info",
+	ControlTypePaging:                 "Paging",
+	ControlTypeBeheraPasswordPolicy:   "Password Policy - Behera Draft",
+	ControlTypeVChuPasswordMustChange: "Password Must Change - VChu Draft",
+	ControlTypeVChuPasswordWarning:    "Password Warning - VChu Draft",
+	ControlTypeManageDsaIT:            "Manage DSA IT",
+	ControlTypeWhoAmI:                 "Who Am I",
+	ControlTypeSubtreeDelete:          "Subtree Delete Control",
+
+	ControlTypeServerSideSorting:       "Server Side Sorting",
+	ControlTypeServerSideSortingResult: "Server Side Sorting Result",
+
+	ControlTypeMicrosoftCrossDomainMoveTarget: "Cross Domain Move Target - Microsoft",
+	ControlTypeDirSync:                        "DirSync",
+	ControlTypeMicrosoftDomainScope:           "Domain Scope - Microsoft",
+	ControlTypeMicrosoftExtendedDN:            "Extended DN - Microsoft",
+	ControlTypeMicrosoftGetStats:              "Get Stats - Microsoft",
+	ControlTypeMicrosoftLazyCommit:            "Lazy Commit - Microsoft",
+	ControlTypeMicrosoftPermissiveModify:      "Permissive Modify - Microsoft",
+	ControlTypeMicrosoftNotification:          "Change Notification - Microsoft",
+	ControlTypeMicrosoftSDFlags:               "SD Flags - Microsoft",
+	ControlTypeMicrosoftSearchOptions:         "Search Options - Microsoft",
+	ControlTypeMicrosoftShowDeleted:           "Show Deleted Objects - Microsoft",
+	ControlTypeMicrosoftVerifyName:            "Verify Name - Microsoft",
+	ControlTypeMicrosoftASQ:                   "ASQ - Microsoft",
+	ControlTypeMicrosoftQuotaControl:          "Quota Control - Microsoft",
+	ControlTypeMicrosoftRangeOption:           "Range Option - Microsoft",
+	ControlTypeMicrosoftShutdownNotify:        "Shutdown Notify - Microsoft",
+	ControlTypeMicrosoftForceUpdate:           "Force Update - Microsoft",
+	ControlTypeMicrosoftRangeRetrievalNoErr:   "Range Retrieval No Error - Microsoft",
+	ControlTypeMicrosoftRODCDCPromo:           "RODC DC Promo - Microsoft",
+	ControlTypeMicrosoftDNInput:               "DN Input - Microsoft",
+	ControlTypeMicrosoftShowDeactivatedLink:   "Show Deactivated Link - Microsoft",
+	ControlTypeMicrosoftShowRecycled:          "Show Recycled - Microsoft",
+	ControlTypeMicrosoftPolicyHintsDeprecated: "Policy Hints Deprecated - Microsoft",
+	ControlTypeMicrosoftDirSyncEX:             "DirSync EX - Microsoft",
+	ControlTypeMicrosoftUpdateStats:           "Update Stats - Microsoft",
+	ControlTypeMicrosoftTreeDeleteEX:          "Tree Delete EX - Microsoft",
+	ControlTypeMicrosoftSearchHints:           "Search Hints - Microsoft",
+	ControlTypeMicrosoftExpectedEntryCount:    "Expected Entry Count - Microsoft",
+	ControlTypeMicrosoftPolicyHints:           "Policy Hints - Microsoft",
+	ControlTypeMicrosoftSetOwner:              "Set Owner - Microsoft",
+	ControlTypeMicrosoftBypassQuota:           "Bypass Quota - Microsoft",
+	ControlTypeMicrosoftServerLinkTTL:         "Return TTL-DNs for link values with associated expiry times - Microsoft",
+	ControlTypeMicrosoftSetCorrelationID:      "Set Correlation ID - Microsoft",
+	ControlTypeMicrosoftThreadTraceOverride:   "Thread Trace Override - Microsoft",
+
+	ControlTypeSyncRequest: "Sync Request",
+	ControlTypeSyncState:   "Sync State",
+	ControlTypeSyncDone:    "Sync Done",
+	ControlTypeSyncInfo:    "Sync Info",
 }
 
 // Control defines an interface controls provide to encode and describe themselves
@@ -316,6 +444,42 @@ func NewControlMicrosoftNotification() *ControlMicrosoftNotification {
 	return &ControlMicrosoftNotification{}
 }
 
+type ControlMicrosoftSDFlags struct {
+	Criticality  bool
+	ControlValue int32
+}
+
+func (c *ControlMicrosoftSDFlags) GetControlType() string {
+	// Source: https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3888c2b7-35b9-45b7-afeb-b772aa932dd0
+	return ControlTypeMicrosoftSDFlags
+}
+
+func (c *ControlMicrosoftSDFlags) Encode() *ber.Packet {
+	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
+	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypeMicrosoftSDFlags, "Control Type ("+ControlTypeMap[ControlTypeMicrosoftSDFlags]+")"))
+	if c.Criticality {
+		packet.AppendChild(ber.NewBoolean(ber.ClassUniversal, ber.TypePrimitive, ber.TagBoolean, c.Criticality, "Criticality"))
+	}
+	p2 := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, nil, "Control Value(SDFlags)")
+	seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "SDFlags")
+	seq.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, c.ControlValue, "Flags"))
+	p2.AppendChild(seq)
+	packet.AppendChild(p2)
+	return packet
+}
+
+func (c *ControlMicrosoftSDFlags) String() string {
+	return fmt.Sprintf(
+		"Control Type: %s (%q)",
+		ControlTypeMap[ControlTypeMicrosoftSDFlags],
+		ControlTypeMicrosoftSDFlags)
+}
+
+// NewControlMicrosoftSDFlags returns a ControlMicrosoftSDFlags control
+func NewControlMicrosoftSDFlags() *ControlMicrosoftSDFlags {
+	return &ControlMicrosoftSDFlags{}
+}
+
 // ControlMicrosoftShowDeleted implements the control described in https://msdn.microsoft.com/en-us/library/aa366989(v=vs.85).aspx
 type ControlMicrosoftShowDeleted struct{}
 
@@ -509,6 +673,9 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		c := &ControlVChuPasswordMustChange{MustChange: true}
 		return c, nil
 	case ControlTypeVChuPasswordWarning:
+		if value == nil || value.Data == nil {
+			return nil, fmt.Errorf("invalid value for Control Type ControlTypeVChuPasswordWarning: %v", value)
+		}
 		c := &ControlVChuPasswordWarning{Expire: -1}
 		expireStr := ber.DecodeString(value.Data.Bytes())
 

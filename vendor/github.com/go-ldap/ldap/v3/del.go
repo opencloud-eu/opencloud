@@ -1,7 +1,9 @@
 package ldap
 
 import (
+	"errors"
 	"fmt"
+
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
@@ -35,6 +37,10 @@ func NewDelRequest(DN string, Controls []Control) *DelRequest {
 
 // Del executes the given delete request
 func (l *Conn) Del(delRequest *DelRequest) error {
+	if delRequest == nil {
+		return NewError(ErrorNetwork, errors.New("DelRequest cannot be nil"))
+	}
+
 	msgCtx, err := l.doRequest(delRequest)
 	if err != nil {
 		return err
