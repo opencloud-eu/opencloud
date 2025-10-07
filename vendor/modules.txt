@@ -232,6 +232,11 @@ github.com/bluele/gcache
 # github.com/bombsimon/logrusr/v3 v3.1.0
 ## explicit; go 1.17
 github.com/bombsimon/logrusr/v3
+# github.com/brianvoe/gofakeit/v7 v7.7.3
+## explicit; go 1.22
+github.com/brianvoe/gofakeit/v7
+github.com/brianvoe/gofakeit/v7/data
+github.com/brianvoe/gofakeit/v7/source
 # github.com/cenkalti/backoff v2.2.1+incompatible
 ## explicit
 github.com/cenkalti/backoff
@@ -419,7 +424,6 @@ github.com/docker/go-units
 github.com/dustin/go-humanize
 # github.com/dustinkirkland/golang-petname v0.0.0-20240428194347-eebcea082ee0
 ## explicit; go 1.20
-github.com/dustinkirkland/golang-petname
 # github.com/dutchcoders/go-clamd v0.0.0-20170520113014-b970184f4d9e
 ## explicit
 github.com/dutchcoders/go-clamd
@@ -2701,7 +2705,6 @@ google.golang.org/protobuf/types/known/wrapperspb
 gopkg.in/cenkalti/backoff.v1
 # gopkg.in/loremipsum.v1 v1.1.2
 ## explicit; go 1.17
-gopkg.in/loremipsum.v1
 # gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7
 ## explicit
 gopkg.in/tomb.v1

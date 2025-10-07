@@ -41,3 +41,28 @@ func Keys[K comparable, V any](source map[K]V) []K {
 	}
 	return slices.Collect(maps.Keys(source))
 }
+
+func Index[K comparable, V any](source []V, indexer func(V) K) map[K]V {
+	if source == nil {
+		var zero map[K]V
+		return zero
+	}
+	result := map[K]V{}
+	for _, v := range source {
+		k := indexer(v)
+		result[k] = v
+	}
+	return result
+}
+
+func Map[E any, R any](source []E, indexer func(E) R) []R {
+	if source == nil {
+		var zero []R
+		return zero
+	}
+	result := make([]R, len(source))
+	for i, e := range source {
+		result[i] = indexer(e)
+	}
+	return result
+}

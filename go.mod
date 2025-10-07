@@ -161,6 +161,7 @@ require (
 	github.com/blevesearch/zapx/v16 v16.2.6 // indirect
 	github.com/bluele/gcache v0.0.2 // indirect
 	github.com/bombsimon/logrusr/v3 v3.1.0 // indirect
+	github.com/brianvoe/gofakeit/v7 v7.7.3 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/ceph/go-ceph v0.36.0 // indirect
