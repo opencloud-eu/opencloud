@@ -4,8 +4,6 @@ import (
 	"net/http"
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
-	"github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
 // When the request succeeds.
@@ -87,40 +85,4 @@ type SwaggerAccountBootstrapResponse struct {
 	Body struct {
 		*AccountBootstrapResponse
 	}
-}
-
-// swagger:route GET /groupware/accounts/{account}/bootstrap account accountbootstrap
-// Get account bootstrapping.
-//
-// responses:
-//
-//	200: GetAccountBootstrapResponse200
-//	400: ErrorResponse400
-//	404: ErrorResponse404
-//	500: ErrorResponse500
-func (g *Groupware) GetAccountBootstrap(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) Response {
-		mailAccountId, err := req.GetAccountIdForMail()
-		if err != nil {
-			return errorResponse(err)
-		}
-		logger := log.From(req.logger.With().Str(logAccountId, mailAccountId))
-		accountIds := structs.Keys(req.session.Accounts)
-
-		resp, sessionState, lang, jerr := g.jmap.GetIdentitiesAndMailboxes(mailAccountId, accountIds, req.session, req.ctx, logger, req.language())
-		if jerr != nil {
-			return req.errorResponseFromJmap(jerr)
-		}
-
-		return response(AccountBootstrapResponse{
-			Version:         Version,
-			Capabilities:    Capabilities,
-			Limits:          buildIndexLimits(req.session),
-			Accounts:        buildIndexAccount(req.session, resp.Identities),
-			PrimaryAccounts: buildIndexPrimaryAccounts(req.session),
-			Mailboxes: map[string][]jmap.Mailbox{
-				mailAccountId: resp.Mailboxes,
-			},
-		}, sessionState, lang)
-	})
 }

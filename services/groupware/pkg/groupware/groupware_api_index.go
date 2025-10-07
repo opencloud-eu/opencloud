@@ -104,6 +104,9 @@ type IndexAccount struct {
 
 	// The identities associated with this account.
 	Identities []jmap.Identity `json:"identities,omitempty"`
+
+	// The quotas for this account.
+	Quotas []jmap.Quota `json:"quotas,omitempty"`
 }
 
 type IndexPrimaryAccounts struct {
@@ -152,7 +155,7 @@ func (g *Groupware) Index(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountIds := structs.Keys(req.session.Accounts)
 
-		identitiesResponse, sessionState, lang, err := g.jmap.GetIdentities(accountIds, req.session, req.ctx, req.logger, req.language())
+		boot, sessionState, lang, err := g.jmap.GetBootstrap(accountIds, req.session, req.ctx, req.logger, req.language())
 		if err != nil {
 			return req.errorResponseFromJmap(err)
 		}
@@ -161,7 +164,7 @@ func (g *Groupware) Index(w http.ResponseWriter, r *http.Request) {
 			Version:         Version,
 			Capabilities:    Capabilities,
 			Limits:          buildIndexLimits(req.session),
-			Accounts:        buildIndexAccount(req.session, identitiesResponse.Identities),
+			Accounts:        buildIndexAccount(req.session, boot),
 			PrimaryAccounts: buildIndexPrimaryAccounts(req.session),
 		}, sessionState, lang)
 	})
@@ -186,7 +189,7 @@ func buildIndexPrimaryAccounts(session *jmap.Session) IndexPrimaryAccounts {
 	}
 }
 
-func buildIndexAccount(session *jmap.Session, identities map[string][]jmap.Identity) map[string]IndexAccount {
+func buildIndexAccount(session *jmap.Session, boot map[string]jmap.AccountBootstrapResult) map[string]IndexAccount {
 	accounts := make(map[string]IndexAccount, len(session.Accounts))
 	for accountId, account := range session.Accounts {
 		indexAccount := IndexAccount{
@@ -210,8 +213,9 @@ func buildIndexAccount(session *jmap.Session, identities map[string][]jmap.Ident
 				},
 			},
 		}
-		if identity, ok := identities[accountId]; ok {
-			indexAccount.Identities = identity
+		if b, ok := boot[accountId]; ok {
+			indexAccount.Identities = b.Identities
+			indexAccount.Quotas = b.Quotas
 		}
 		accounts[accountId] = indexAccount
 	}
