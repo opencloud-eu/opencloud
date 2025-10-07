@@ -39,6 +39,8 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.27.2 to 2.27.3 [[#1608](https://github.com/opencloud-eu/opencloud/pull/1608)]
+- build(deps): bump github.com/go-ldap/ldap/v3 from 3.4.11 to 3.4.12 [[#1609](https://github.com/opencloud-eu/opencloud/pull/1609)]
 - build(deps): bump google.golang.org/protobuf from 1.36.9 to 1.36.10 [[#1604](https://github.com/opencloud-eu/opencloud/pull/1604)]
 - build(deps): bump github.com/onsi/ginkgo/v2 from 2.25.3 to 2.26.0 [[#1603](https://github.com/opencloud-eu/opencloud/pull/1603)]
 - build(deps): bump github.com/nats-io/nats.go from 1.46.0 to 1.46.1 [[#1590](https://github.com/opencloud-eu/opencloud/pull/1590)]
