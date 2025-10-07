@@ -82,33 +82,36 @@ type IndexAccountSieveCapabilities struct {
 	MaxNumberRedirects int `json:"maxNumberRedirects"`
 }
 
+// Capabilities of the Account.
 type IndexAccountCapabilities struct {
 	Mail  IndexAccountMailCapabilities  `json:"mail"`
 	Sieve IndexAccountSieveCapabilities `json:"sieve"`
 }
 
 type IndexAccount struct {
-	// A user-friendly string to show when presenting content from this account,
+	// A user-friendly string to show when presenting content from this Account,
 	// e.g., the email address representing the owner of the account.
 	Name string `json:"name"`
 
-	// This is true if the account belongs to the authenticated user rather than
-	// a group account or a personal account of another user that has been shared
+	// This is true if the Account belongs to the authenticated user rather than
+	// a group Account or a personal Account of another user that has been shared
 	// with them.
 	IsPersonal bool `json:"isPersonal"`
 
-	// This is true if the entire account is read-only.
+	// This is true if the entire Account is read-only.
 	IsReadOnly bool `json:"isReadOnly"`
 
+	// Capabilities of the Account.
 	Capabilities IndexAccountCapabilities `json:"capabilities"`
 
-	// The identities associated with this account.
+	// The Identities associated with this Account.
 	Identities []jmap.Identity `json:"identities,omitempty"`
 
-	// The quotas for this account.
+	// The quotas for this Account.
 	Quotas []jmap.Quota `json:"quotas,omitempty"`
 }
 
+// Primary account identifiers per API usage type.
 type IndexPrimaryAccounts struct {
 	Mail             string `json:"mail"`
 	Submission       string `json:"submission"`
@@ -129,10 +132,10 @@ type IndexResponse struct {
 
 	// Accounts that are available to the user.
 	//
-	// The key of the mapis the identifier.
+	// The key of the map is the Account identifier.
 	Accounts map[string]IndexAccount `json:"accounts"`
 
-	// Primary accounts for usage types.
+	// Primary account identifiers per API usage type.
 	PrimaryAccounts IndexPrimaryAccounts `json:"primaryAccounts"`
 }
 

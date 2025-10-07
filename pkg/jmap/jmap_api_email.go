@@ -56,7 +56,7 @@ func (j *Client) GetEmails(accountId string, session *Session, ctx context.Conte
 }
 
 // Retrieve all the Emails in a given Mailbox by its id.
-func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, mailboxId string, offset uint, limit uint, fetchBodies bool, maxBodyValueBytes uint) (Emails, SessionState, Language, Error) {
+func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, mailboxId string, offset uint, limit uint, collapseThreads bool, fetchBodies bool, maxBodyValueBytes uint) (Emails, SessionState, Language, Error) {
 	logger = j.loggerParams("GetAllEmailsInMailbox", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Uint(logOffset, offset).Uint(logLimit, limit)
 	})
@@ -65,7 +65,7 @@ func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx c
 		AccountId:       accountId,
 		Filter:          &EmailFilterCondition{InMailbox: mailboxId},
 		Sort:            []EmailComparator{{Property: emailSortByReceivedAt, IsAscending: false}},
-		CollapseThreads: true,
+		CollapseThreads: collapseThreads,
 		CalculateTotal:  true,
 	}
 	if offset > 0 {
