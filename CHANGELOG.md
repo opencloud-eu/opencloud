@@ -8,6 +8,7 @@
 
 ### ✅ Tests
 
+- check thumbnails in the share with me response [[#1605](https://github.com/opencloud-eu/opencloud/pull/1605)]
 - [full-ci][tests-only] fix restore browsers cache workflow [[#1615](https://github.com/opencloud-eu/opencloud/pull/1615)]
 - [full-ci] Enhance getSpaceByName: check local cache before Graph API calls [[#1574](https://github.com/opencloud-eu/opencloud/pull/1574)]
 - [full-ci] getting personal space by userId instead of userName [[#1553](https://github.com/opencloud-eu/opencloud/pull/1553)]
