@@ -239,7 +239,7 @@ func TestRequests(t *testing.T) {
 	require.Len(folders.Mailboxes, 5)
 	require.NotEmpty(sessionState)
 
-	emails, sessionState, _, err := client.GetAllEmailsInMailbox("a", &session, ctx, &logger, "", "Inbox", 0, 0, true, 0)
+	emails, sessionState, _, err := client.GetAllEmailsInMailbox("a", &session, ctx, &logger, "", "Inbox", 0, 0, false, true, 0)
 	require.NoError(err)
 	require.Len(emails.Emails, 3)
 	require.NotEmpty(sessionState)

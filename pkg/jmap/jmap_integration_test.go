@@ -31,11 +31,11 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	petname "github.com/dustinkirkland/golang-petname"
+	"github.com/brianvoe/gofakeit/v7"
 	pw "github.com/sethvargo/go-password/password"
-	"gopkg.in/loremipsum.v1"
 
 	clog "github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/structs"
 
 	"github.com/go-crypt/crypt/algorithm/shacrypt"
 )
@@ -135,6 +135,49 @@ var formats = []func(string, enmime.MailBuilder) enmime.MailBuilder{
 	htmlFormat,
 	textFormat,
 	bothFormat,
+}
+
+type sender struct {
+	first  string
+	last   string
+	from   string
+	sender string
+}
+
+func (s sender) inject(b enmime.MailBuilder) enmime.MailBuilder {
+	return b.From(s.first+" "+s.last, s.from).Header("Sender", s.sender)
+}
+
+type senderGenerator struct {
+	senders []sender
+}
+
+func newSenderGenerator(domain string, numSenders int) senderGenerator {
+	senders := make([]sender, numSenders)
+	for i := range numSenders {
+		person := gofakeit.Person()
+		senders[i] = sender{
+			first:  person.FirstName,
+			last:   person.LastName,
+			from:   person.Contact.Email,
+			sender: person.FirstName + " " + person.LastName + "<" + person.Contact.Email + ">",
+		}
+	}
+	return senderGenerator{
+		senders: senders,
+	}
+}
+
+func (s senderGenerator) nextSender() *sender {
+	if len(s.senders) < 1 {
+		panic("failed to determine a sender to use")
+	} else {
+		return &s.senders[rand.Intn(len(s.senders))]
+	}
+}
+
+func fakeFilename(extension string) string {
+	return strings.ReplaceAll(gofakeit.Product().Name, " ", "_") + extension
 }
 
 func mailboxId(role string, mailboxes []Mailbox) string {
@@ -358,16 +401,36 @@ func newStalwartTest(t *testing.T) (*StalwartTest, error) {
 	}, nil
 }
 
-func (s *StalwartTest) fill(folder string, count int) error {
+type filledAttachment struct {
+	name        string
+	size        int
+	mimeType    string
+	disposition string
+}
+
+type filledMail struct {
+	uid         int
+	attachments []filledAttachment
+	subject     string
+	testId      string
+	messageId   string
+}
+
+func (s *StalwartTest) fill(folder string, count int) ([]filledMail, int, error) {
 	to := fmt.Sprintf("%s <%s>", s.userPersonName, s.userEmail)
 	ccEvery := 2
 	bccEvery := 3
+	attachmentEvery := 2
+	seenEvery := 3
+	senders := max(count/4, 1)
+	maxThreadSize := 6
+	maxAttachments := 4
 
 	tlsConfig := &tls.Config{InsecureSkipVerify: true}
 
 	c, err := imapclient.DialTLS(net.JoinHostPort(s.ip, strconv.Itoa(s.imapPort)), &imapclient.Options{TLSConfig: tlsConfig})
 	if err != nil {
-		return err
+		return nil, 0, err
 	}
 
 	defer func(imap *imapclient.Client) {
@@ -377,85 +440,199 @@ func (s *StalwartTest) fill(folder string, count int) error {
 		}
 	}(c)
 
-	err = c.Login(s.username, s.password).Wait()
-	if err != nil {
-		return err
+	if err = c.Login(s.username, s.password).Wait(); err != nil {
+		return nil, 0, err
 	}
 
-	_, err = c.Select(folder, nil).Wait()
-	if err != nil {
-		return err
+	if _, err = c.Select(folder, &imap.SelectOptions{ReadOnly: false}).Wait(); err != nil {
+		return nil, 0, err
+	}
+
+	if ids, err := c.Search(&imap.SearchCriteria{}, nil).Wait(); err != nil {
+		return nil, 0, err
+	} else {
+		if len(ids.AllSeqNums()) > 0 {
+			storeFlags := imap.StoreFlags{
+				Op:     imap.StoreFlagsAdd,
+				Flags:  []imap.Flag{imap.FlagDeleted},
+				Silent: true,
+			}
+			if err = c.Store(ids.All, &storeFlags, nil).Close(); err != nil {
+				return nil, 0, err
+			}
+			if err = c.Expunge().Close(); err != nil {
+				return nil, 0, err
+			}
+			log.Printf("🗑️ deleted %d messages in %s", len(ids.AllSeqNums()), folder)
+		} else {
+			log.Printf("ℹ️ did not delete any messages, %s is empty", folder)
+		}
 	}
 
 	address, err := mail.ParseAddress(to)
 	if err != nil {
-		return err
+		return nil, 0, err
 	}
 	displayName := address.Name
 
 	addressParts := emailSplitter.FindAllStringSubmatch(address.Address, 3)
 	if len(addressParts) != 1 {
-		return fmt.Errorf("address does not have one part: '%v' -> %v", address.Address, addressParts)
+		return nil, 0, fmt.Errorf("address does not have one part: '%v' -> %v", address.Address, addressParts)
 	}
 	if len(addressParts[0]) != 3 {
-		return fmt.Errorf("first address part does not have a size of 3: '%v'", addressParts[0])
+		return nil, 0, fmt.Errorf("first address part does not have a size of 3: '%v'", addressParts[0])
 	}
 
 	domain := addressParts[0][2]
 
 	toName := displayName
-	toAddress := to
+	toAddress := fmt.Sprintf("%s@%s", s.username, domain)
 	ccName1 := "Team Lead"
 	ccAddress1 := fmt.Sprintf("lead@%s", domain)
 	ccName2 := "Coworker"
 	ccAddress2 := fmt.Sprintf("coworker@%s", domain)
 	bccName := "HR"
 	bccAddress := fmt.Sprintf("corporate@%s", domain)
-	titler := cases.Title(language.English, cases.NoLower)
 
-	loremIpsumGenerator := loremipsum.New()
-	for n := range count {
-		first := petname.Adjective()
-		last := petname.Adverb()
-		messageId := fmt.Sprintf("%d.%d@%s", time.Now().Unix(), 1000000+rand.Intn(8999999), domain)
+	sg := newSenderGenerator(domain, senders)
+	thread := 0
+	mails := make([]filledMail, count)
+	for i := 0; i < count; thread++ {
+		threadMessageId := fmt.Sprintf("%d.%d@%s", time.Now().Unix(), 1000000+rand.Intn(8999999), domain)
+		threadSubject := strings.Trim(gofakeit.SentenceSimple(), ".") // remove the . at the end, looks weird
+		threadSize := 1 + rand.Intn(maxThreadSize)
+		lastMessageId := ""
+		lastSubject := ""
+		for t := 0; i < count && t < threadSize; t++ {
+			sender := sg.nextSender()
 
-		format := formats[n%len(formats)]
+			format := formats[i%len(formats)]
+			text := gofakeit.Paragraph(2+rand.Intn(9), 1+rand.Intn(4), 1+rand.Intn(32), "\n")
 
-		text := loremIpsumGenerator.Paragraphs(2 + rand.Intn(9))
-		from := fmt.Sprintf("%s.%s@%s", strings.ToLower(first), strings.ToLower(last), domain)
-		sender := fmt.Sprintf("%s %s <%s.%s@%s>", titler.String(first), titler.String(last), strings.ToLower(first), strings.ToLower(last), domain)
+			msg := sender.inject(enmime.Builder().To(toName, toAddress))
 
-		msg := enmime.Builder().
-			From(titler.String(first)+" "+titler.String(last), from).
-			Subject(titler.String(loremIpsumGenerator.Words(3+rand.Intn(7)))).
-			Header("Message-ID", messageId).
-			Header("Sender", sender).
-			To(toName, toAddress)
+			messageId := ""
+			if lastMessageId == "" {
+				// start a new thread
+				msg = msg.Header("Message-ID", threadMessageId).Subject(threadSubject)
+				lastMessageId = threadMessageId
+				lastSubject = threadSubject
+				messageId = threadMessageId
+			} else {
+				// we're continuing a thread
+				messageId = fmt.Sprintf("%d.%d@%s", time.Now().Unix(), 1000000+rand.Intn(8999999), domain)
+				inReplyTo := ""
+				subject := ""
+				switch rand.Intn(2) {
+				case 0:
+					// reply to first post in thread
+					subject = "Re: " + threadSubject
+					inReplyTo = threadMessageId
+				default:
+					// reply to last addition to thread
+					subject = "Re: " + lastSubject
+					inReplyTo = lastMessageId
+				}
+				msg = msg.Header("Message-ID", messageId).Header("In-Reply-To", inReplyTo).Subject(subject)
+				lastMessageId = messageId
+				lastSubject = subject
+			}
 
-		if n%ccEvery == 0 {
-			msg = msg.CCAddrs([]mail.Address{{Name: ccName1, Address: ccAddress1}, {Name: ccName2, Address: ccAddress2}})
-		}
-		if n%bccEvery == 0 {
-			msg = msg.BCC(bccName, bccAddress)
-		}
+			if i%ccEvery == 0 {
+				msg = msg.CCAddrs([]mail.Address{{Name: ccName1, Address: ccAddress1}, {Name: ccName2, Address: ccAddress2}})
+			}
+			if i%bccEvery == 0 {
+				msg = msg.BCC(bccName, bccAddress)
+			}
 
-		msg = format(text, msg)
+			numAttachments := 0
+			attachments := []filledAttachment{}
+			if maxAttachments > 0 && i%attachmentEvery == 0 {
+				numAttachments = rand.Intn(maxAttachments)
+				for a := range numAttachments {
+					switch rand.Intn(2) {
+					case 0:
+						filename := fakeFilename(".txt")
+						attachment := gofakeit.Paragraph(2+rand.Intn(4), 1+rand.Intn(4), 1+rand.Intn(32), "\n")
+						data := []byte(attachment)
+						msg = msg.AddAttachment(data, "text/plain", filename)
+						attachments = append(attachments, filledAttachment{
+							name:        filename,
+							size:        len(data),
+							mimeType:    "text/plain",
+							disposition: "attachment",
+						})
+					default:
+						filename := ""
+						mimetype := ""
+						var image []byte = nil
+						switch rand.Intn(2) {
+						case 0:
+							filename = fakeFilename(".png")
+							mimetype = "image/png"
+							image = gofakeit.ImagePng(512, 512)
+						default:
+							filename = fakeFilename(".jpg")
+							mimetype = "image/jpeg"
+							image = gofakeit.ImageJpeg(400, 200)
+						}
+						disposition := ""
+						switch rand.Intn(2) {
+						case 0:
+							msg = msg.AddAttachment(image, mimetype, filename)
+							disposition = "attachment"
+						default:
+							msg = msg.AddInline(image, mimetype, filename, "c"+strconv.Itoa(a))
+							disposition = "inline"
+						}
+						attachments = append(attachments, filledAttachment{
+							name:        filename,
+							size:        len(image),
+							mimeType:    mimetype,
+							disposition: disposition,
+						})
+					}
+				}
+			}
 
-		buf := new(bytes.Buffer)
-		part, _ := msg.Build()
-		part.Encode(buf)
-		mail := buf.String()
+			msg = format(text, msg)
 
-		size := int64(len(mail))
-		appendCmd := c.Append(folder, size, nil)
-		if _, err := appendCmd.Write([]byte(mail)); err != nil {
-			return err
-		}
-		if err = appendCmd.Close(); err != nil {
-			return err
-		}
-		if _, err = appendCmd.Wait(); err != nil {
-			return err
+			buf := new(bytes.Buffer)
+			part, _ := msg.Build()
+			part.Encode(buf)
+			mail := buf.String()
+
+			var flags *imap.AppendOptions = nil
+			if i%seenEvery == 0 {
+				flags = &imap.AppendOptions{Flags: []imap.Flag{imap.FlagSeen}}
+			}
+
+			size := int64(len(mail))
+			appendCmd := c.Append(folder, size, flags)
+			if _, err := appendCmd.Write([]byte(mail)); err != nil {
+				return nil, 0, err
+			}
+			if err := appendCmd.Close(); err != nil {
+				return nil, 0, err
+			}
+			if appendData, err := appendCmd.Wait(); err != nil {
+				return nil, 0, err
+			} else {
+				attachmentStr := ""
+				if numAttachments > 0 {
+					attachmentStr = " " + strings.Repeat("📎", numAttachments)
+				}
+				log.Printf("➕ appended %v/%v [in thread %v] uid=%v%s", i+1, count, thread+1, appendData.UID, attachmentStr)
+
+				mails[i] = filledMail{
+					uid:         int(appendData.UID),
+					attachments: attachments,
+					subject:     msg.GetSubject(),
+					messageId:   messageId,
+				}
+			}
+
+			i++
 		}
 	}
 
@@ -465,7 +642,7 @@ func (s *StalwartTest) fill(folder string, count int) error {
 			NumUnseen:   true,
 		},
 	})
-	countMap := make(map[string]int)
+	countMap := map[string]int{}
 	for {
 		mbox := listCmd.Next()
 		if mbox == nil {
@@ -481,26 +658,25 @@ func (s *StalwartTest) fill(folder string, count int) error {
 			break
 		}
 	}
+	if err = listCmd.Close(); err != nil {
+		return nil, 0, err
+	}
 	if inboxCount == -1 {
-		return fmt.Errorf("failed to find folder '%v' via IMAP", folder)
+		return nil, 0, fmt.Errorf("failed to find folder '%v' via IMAP", folder)
 	}
 	if count != inboxCount {
-		return fmt.Errorf("wrong number of emails in the inbox after filling, expecting %v, has %v", count, inboxCount)
+		return nil, 0, fmt.Errorf("wrong number of emails in the inbox after filling, expecting %v, has %v", count, inboxCount)
 	}
 
-	if err = listCmd.Close(); err != nil {
-		return err
-	}
-
-	return nil
+	return mails, thread, nil
 }
 
-func TestWithStalwart(t *testing.T) {
+func TestEmails(t *testing.T) {
 	if skip(t) {
 		return
 	}
 
-	count := 5
+	count := 25
 
 	require := require.New(t)
 
@@ -538,10 +714,13 @@ func TestWithStalwart(t *testing.T) {
 		require.NotEmpty(inboxFolder)
 	}
 
+	var threads int = 0
+	var mails []filledMail = nil
 	{
-		err := s.fill(inboxFolder, count)
+		mails, threads, err = s.fill(inboxFolder, count)
 		require.NoError(err)
 	}
+	mailsByMessageId := structs.Index(mails, func(mail filledMail) string { return mail.messageId })
 
 	{
 		{
@@ -566,22 +745,69 @@ func TestWithStalwart(t *testing.T) {
 					mailboxesUnreadByRole[m.Role] = m.UnreadEmails
 				}
 			}
-			require.Equal(count, mailboxesUnreadByRole["inbox"])
+			require.LessOrEqual(mailboxesUnreadByRole["inbox"], count)
 		}
 
 		{
-			resp, sessionState, _, err := s.client.GetAllEmailsInMailbox(accountId, s.session, s.ctx, s.logger, "", inboxId, 0, 0, false, 0)
+			resp, sessionState, _, err := s.client.GetAllEmailsInMailbox(accountId, s.session, s.ctx, s.logger, "", inboxId, 0, 0, true, false, 0)
 			require.NoError(err)
 			require.Equal(s.session.State, sessionState)
 
-			require.Len(resp.Emails, count)
+			require.Equalf(threads, len(resp.Emails), "the number of collapsed emails in the inbox is expected to be %v, but is actually %v", threads, len(resp.Emails))
 			for _, e := range resp.Emails {
+				require.Len(e.MessageId, 1)
+				expectation, ok := mailsByMessageId[e.MessageId[0]]
+				require.True(ok)
 				require.Empty(e.BodyValues)
-				require.False(e.HasAttachment)
-				require.NotEmpty(e.Subject)
-				require.NotEmpty(e.MessageId)
+				require.Equal(expectation.subject, e.Subject)
+				matchAttachments(t, e, expectation.attachments)
 				require.NotEmpty(e.Preview)
 			}
 		}
+
+		{
+			resp, sessionState, _, err := s.client.GetAllEmailsInMailbox(accountId, s.session, s.ctx, s.logger, "", inboxId, 0, 0, false, false, 0)
+			require.NoError(err)
+			require.Equal(s.session.State, sessionState)
+
+			require.Equalf(count, len(resp.Emails), "the number of emails in the inbox is expected to be %v, but is actually %v", count, len(resp.Emails))
+			for _, e := range resp.Emails {
+				require.Len(e.MessageId, 1)
+				expectation, ok := mailsByMessageId[e.MessageId[0]]
+				require.True(ok)
+				require.Empty(e.BodyValues)
+				require.Equal(expectation.subject, e.Subject)
+				matchAttachments(t, e, expectation.attachments)
+				require.NotEmpty(e.Preview)
+			}
+		}
+	}
+}
+
+func matchAttachments(t *testing.T, email Email, expected []filledAttachment) {
+	require := require.New(t)
+
+	list := make([]filledAttachment, len(expected))
+	copy(list, expected)
+
+	require.Len(email.Attachments, len(expected))
+	for _, a := range email.Attachments {
+		// find a match in 'expected'
+		found := false
+		for j, e := range list {
+			if a.Name == e.name {
+				found = true
+				// found a match, we are assuming that the filenames are unique
+				require.Equal(e.name, a.Name)
+				require.Equal(e.mimeType, a.Type)
+				require.Equal(e.size, a.Size)
+				require.Equal(e.disposition, a.Disposition)
+
+				list[j] = list[len(list)-1]
+				list = list[:len(list)-1]
+				break
+			}
+		}
+		require.True(found)
 	}
 }
