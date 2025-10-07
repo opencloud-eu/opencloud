@@ -69,7 +69,6 @@ func (g *Groupware) Route(r chi.Router) {
 	})
 	r.Route("/accounts/{accountid}", func(r chi.Router) {
 		r.Get("/", g.GetAccount)
-		r.Get("/bootstrap", g.GetAccountBootstrap)
 		r.Get("/identities", g.GetIdentities)
 		r.Get("/vacation", g.GetVacation)
 		r.Put("/vacation", g.SetVacation)
