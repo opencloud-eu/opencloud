@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"net"
@@ -13,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"text/template"
@@ -54,7 +56,7 @@ var (
 )
 
 const (
-	stalwartImage  = "ghcr.io/stalwartlabs/stalwart:v0.13.2-alpine"
+	stalwartImage  = "ghcr.io/stalwartlabs/stalwart:v0.13.4-alpine"
 	httpPort       = "8080"
 	imapsPort      = "993"
 	configTemplate = `
@@ -135,14 +137,270 @@ var formats = []func(string, enmime.MailBuilder) enmime.MailBuilder{
 	bothFormat,
 }
 
-func fill(require *require.Assertions, i *imapclient.Client, folder string, to string, count int, ccEvery int, bccEvery int) {
+func mailboxId(role string, mailboxes []Mailbox) string {
+	for _, m := range mailboxes {
+		if m.Role == role {
+			return m.Id
+		}
+	}
+	return ""
+}
+
+func skip(t *testing.T) bool {
+	if os.Getenv("CI") == "woodpecker" {
+		t.Skip("Skipping tests because CI==wookpecker")
+		return true
+	}
+	if os.Getenv("CI_SYSTEM_NAME") == "woodpecker" {
+		t.Skip("Skipping tests because CI_SYSTEM_NAME==wookpecker")
+		return true
+	}
+	if os.Getenv("USE_TESTCONTAINERS") == "false" {
+		t.Skip("Skipping tests because USE_TESTCONTAINERS==false")
+		return true
+	}
+	return false
+}
+
+type StalwartTest struct {
+	t              *testing.T
+	ip             string
+	imapPort       int
+	container      *testcontainers.DockerContainer
+	ctx            context.Context
+	cancelCtx      context.CancelFunc
+	client         *Client
+	session        *Session
+	username       string
+	password       string
+	logger         *clog.Logger
+	userPersonName string
+	userEmail      string
+
+	io.Closer
+}
+
+func (s *StalwartTest) Close() error {
+	if s.container != nil {
+		var c testcontainers.Container = s.container
+		testcontainers.CleanupContainer(s.t, c)
+	}
+	if s.cancelCtx != nil {
+		s.cancelCtx()
+	}
+	return nil
+}
+
+func newStalwartTest(t *testing.T) (*StalwartTest, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	var _ context.CancelFunc = cancel // ignore context leak warning: it is passed in the struct and called in Close()
+
+	// A master user name different from "master" does not seem to work as of the current Stalwart version
+	//masterUsernameSuffix, err := pw.Generate(4+rand.Intn(28), 2, 0, false, true)
+	//require.NoError(err)
+	masterUsername := "master" //"master_" + masterUsernameSuffix
+
+	masterPassword, err := pw.Generate(4+rand.Intn(28), 2, 0, false, true)
+	if err != nil {
+		return nil, err
+	}
+	masterPasswordHash := ""
+	{
+		hasher, err := shacrypt.New(shacrypt.WithSHA512(), shacrypt.WithIterations(shacrypt.IterationsDefaultOmitted))
+		if err != nil {
+			return nil, err
+		}
+
+		digest, err := hasher.Hash(masterPassword)
+		if err != nil {
+			return nil, err
+		}
+		masterPasswordHash = digest.Encode()
+	}
+
+	usernameSuffix, err := pw.Generate(8, 2, 0, true, true)
+	if err != nil {
+		return nil, err
+	}
+	username := "user_" + usernameSuffix
+
+	password, err := pw.Generate(4+rand.Intn(28), 2, 0, false, true)
+	if err != nil {
+		return nil, err
+	}
+
+	hostname := "localhost"
+
+	userPersonName := people[rand.Intn(len(people))]
+	var userEmail string
+	{
+		domain := domains[rand.Intn(len(domains))]
+		userEmail = strings.Join(strings.Split(cases.Lower(language.English).String(userPersonName), " "), ".") + "@" + domain
+	}
+
+	configBuf := bytes.NewBufferString("")
+	template.Must(template.New("").Parse(configTemplate)).Execute(configBuf, map[string]any{
+		"hostname":       hostname,
+		"password":       password,
+		"username":       username,
+		"description":    userPersonName,
+		"email":          userEmail,
+		"masterusername": masterUsername,
+		"masterpassword": masterPasswordHash,
+		"httpPort":       httpPort,
+		"imapsPort":      imapsPort,
+	})
+	config := configBuf.String()
+	configReader := strings.NewReader(config)
+
+	container, err := testcontainers.Run(
+		ctx,
+		stalwartImage,
+		testcontainers.WithExposedPorts(httpPort+"/tcp", imapsPort+"/tcp"),
+		testcontainers.WithFiles(testcontainers.ContainerFile{
+			Reader:            configReader,
+			ContainerFilePath: "/opt/stalwart/etc/config.toml",
+			FileMode:          0o700,
+		}),
+		testcontainers.WithWaitStrategyAndDeadline(
+			30*time.Second,
+			wait.ForLog(`Network listener started (network.listen-start) listenerId = "imaptls"`),
+			wait.ForLog(`Network listener started (network.listen-start) listenerId = "http"`),
+		),
+	)
+
+	success := false
+	defer func() {
+		if !success {
+			testcontainers.CleanupContainer(t, container)
+		}
+	}()
+
+	ip, err := container.Host(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	imapPort, err := container.MappedPort(ctx, "993")
+	if err != nil {
+		return nil, err
+	}
+
+	tlsConfig := &tls.Config{InsecureSkipVerify: true}
+
+	loggerImpl := clog.NewLogger()
+	logger := &loggerImpl
+	var j Client
+	var session *Session
+	{
+		tr := http.DefaultTransport.(*http.Transport).Clone()
+		tr.ResponseHeaderTimeout = time.Duration(30 * time.Second)
+		tr.TLSClientConfig = tlsConfig
+		jh := *http.DefaultClient
+		jh.Transport = tr
+
+		wsd := &websocket.Dialer{
+			TLSClientConfig:  tlsConfig,
+			HandshakeTimeout: time.Duration(10) * time.Second,
+		}
+
+		jmapPort, err := container.MappedPort(ctx, httpPort)
+		if err != nil {
+			return nil, err
+		}
+		jmapBaseUrl := url.URL{
+			Scheme: "http",
+			Host:   ip + ":" + jmapPort.Port(),
+		}
+
+		sessionUrl := jmapBaseUrl.JoinPath(".well-known", "jmap")
+
+		api := NewHttpJmapClient(
+			&jh,
+			masterUsername,
+			masterPassword,
+			nullHttpJmapApiClientEventListener{},
+		)
+
+		wscf, err := NewHttpWsClientFactory(wsd, masterUsername, masterPassword, logger)
+		if err != nil {
+			return nil, err
+		}
+
+		j = NewClient(api, api, api, wscf)
+		s, err := j.FetchSession(sessionUrl, username, logger)
+		if err != nil {
+			return nil, err
+		}
+		// we have to overwrite the hostname in JMAP URL because the container
+		// will know its name to be a random Docker container identifier, or
+		// "localhost" as we defined the hostname in the Stalwart configuration,
+		// and we also need to overwrite the port number as its not mapped
+		s.JmapUrl.Host = jmapBaseUrl.Host
+		session = &s
+	}
+
+	success = true
+	return &StalwartTest{
+		t:              t,
+		ip:             ip,
+		imapPort:       imapPort.Int(),
+		container:      container,
+		ctx:            ctx,
+		cancelCtx:      cancel,
+		client:         &j,
+		session:        session,
+		username:       username,
+		password:       password,
+		logger:         logger,
+		userPersonName: userPersonName,
+		userEmail:      userEmail,
+	}, nil
+}
+
+func (s *StalwartTest) fill(folder string, count int) error {
+	to := fmt.Sprintf("%s <%s>", s.userPersonName, s.userEmail)
+	ccEvery := 2
+	bccEvery := 3
+
+	tlsConfig := &tls.Config{InsecureSkipVerify: true}
+
+	c, err := imapclient.DialTLS(net.JoinHostPort(s.ip, strconv.Itoa(s.imapPort)), &imapclient.Options{TLSConfig: tlsConfig})
+	if err != nil {
+		return err
+	}
+
+	defer func(imap *imapclient.Client) {
+		err := imap.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}(c)
+
+	err = c.Login(s.username, s.password).Wait()
+	if err != nil {
+		return err
+	}
+
+	_, err = c.Select(folder, nil).Wait()
+	if err != nil {
+		return err
+	}
+
 	address, err := mail.ParseAddress(to)
-	require.NoError(err)
+	if err != nil {
+		return err
+	}
 	displayName := address.Name
 
 	addressParts := emailSplitter.FindAllStringSubmatch(address.Address, 3)
-	require.Len(addressParts, 1)
-	require.Len(addressParts[0], 3)
+	if len(addressParts) != 1 {
+		return fmt.Errorf("address does not have one part: '%v' -> %v", address.Address, addressParts)
+	}
+	if len(addressParts[0]) != 3 {
+		return fmt.Errorf("first address part does not have a size of 3: '%v'", addressParts[0])
+	}
+
 	domain := addressParts[0][2]
 
 	toName := displayName
@@ -189,183 +447,75 @@ func fill(require *require.Assertions, i *imapclient.Client, folder string, to s
 		mail := buf.String()
 
 		size := int64(len(mail))
-		appendCmd := i.Append(folder, size, nil)
-		_, err := appendCmd.Write([]byte(mail))
-		require.NoError(err)
-		err = appendCmd.Close()
-		require.NoError(err)
-		_, err = appendCmd.Wait()
-		require.NoError(err)
-	}
-}
-
-func mailboxId(role string, mailboxes []Mailbox) string {
-	for _, m := range mailboxes {
-		if m.Role == role {
-			return m.Id
+		appendCmd := c.Append(folder, size, nil)
+		if _, err := appendCmd.Write([]byte(mail)); err != nil {
+			return err
+		}
+		if err = appendCmd.Close(); err != nil {
+			return err
+		}
+		if _, err = appendCmd.Wait(); err != nil {
+			return err
 		}
 	}
-	return ""
-}
 
-func skip(t *testing.T) bool {
-	if os.Getenv("CI") == "woodpecker" {
-		t.Skip("Skipping tests because CI==wookpecker")
-		return true
+	listCmd := c.List("", "%", &imap.ListOptions{
+		ReturnStatus: &imap.StatusOptions{
+			NumMessages: true,
+			NumUnseen:   true,
+		},
+	})
+	countMap := make(map[string]int)
+	for {
+		mbox := listCmd.Next()
+		if mbox == nil {
+			break
+		}
+		countMap[mbox.Mailbox] = int(*mbox.Status.NumMessages)
 	}
-	if os.Getenv("CI_SYSTEM_NAME") == "woodpecker" {
-		t.Skip("Skipping tests because CI_SYSTEM_NAME==wookpecker")
-		return true
+
+	inboxCount := -1
+	for f, i := range countMap {
+		if strings.Compare(strings.ToLower(f), strings.ToLower(folder)) == 0 {
+			inboxCount = i
+			break
+		}
 	}
-	if os.Getenv("USE_TESTCONTAINERS") == "false" {
-		t.Skip("Skipping tests because USE_TESTCONTAINERS==false")
-		return true
+	if inboxCount == -1 {
+		return fmt.Errorf("failed to find folder '%v' via IMAP", folder)
 	}
-	return false
+	if count != inboxCount {
+		return fmt.Errorf("wrong number of emails in the inbox after filling, expecting %v, has %v", count, inboxCount)
+	}
+
+	if err = listCmd.Close(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func TestWithStalwart(t *testing.T) {
 	if skip(t) {
 		return
 	}
-	require := require.New(t)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-
-	// A master user name different from "master" does not seem to work as of the current Stalwart version
-	//masterUsernameSuffix, err := pw.Generate(4+rand.Intn(28), 2, 0, false, true)
-	//require.NoError(err)
-	masterUsername := "master" //"master_" + masterUsernameSuffix
-
-	masterPassword, err := pw.Generate(4+rand.Intn(28), 2, 0, false, true)
-	require.NoError(err)
-	masterPasswordHash := ""
-	{
-		hasher, err := shacrypt.New(shacrypt.WithSHA512(), shacrypt.WithIterations(shacrypt.IterationsDefaultOmitted))
-		require.NoError(err)
-
-		digest, err := hasher.Hash(masterPassword)
-		require.NoError(err)
-		masterPasswordHash = digest.Encode()
-	}
-
-	usernameSuffix, err := pw.Generate(8, 2, 0, true, true)
-	require.NoError(err)
-	username := "user_" + usernameSuffix
-
-	password, err := pw.Generate(4+rand.Intn(28), 2, 0, false, true)
-	require.NoError(err)
-
-	hostname := "localhost"
-
-	userPersonName := people[rand.Intn(len(people))]
-	var userEmail string
-	{
-		domain := domains[rand.Intn(len(domains))]
-		userEmail = strings.Join(strings.Split(cases.Lower(language.English).String(userPersonName), " "), ".") + "@" + domain
-	}
-
-	configBuf := bytes.NewBufferString("")
-	template.Must(template.New("").Parse(configTemplate)).Execute(configBuf, map[string]any{
-		"hostname":       hostname,
-		"password":       password,
-		"username":       username,
-		"description":    userPersonName,
-		"email":          userEmail,
-		"masterusername": masterUsername,
-		"masterpassword": masterPasswordHash,
-		"httpPort":       httpPort,
-		"imapsPort":      imapsPort,
-	})
-	config := configBuf.String()
-	configReader := strings.NewReader(config)
-
-	container, err := testcontainers.Run(
-		ctx,
-		stalwartImage,
-		testcontainers.WithExposedPorts(httpPort+"/tcp", imapsPort+"/tcp"),
-		testcontainers.WithFiles(testcontainers.ContainerFile{
-			Reader:            configReader,
-			ContainerFilePath: "/opt/stalwart/etc/config.toml",
-			FileMode:          0o700,
-		}),
-		testcontainers.WithWaitStrategyAndDeadline(
-			30*time.Second,
-			wait.ForLog(`Network listener started (network.listen-start) listenerId = "imaptls"`),
-			wait.ForLog(`Network listener started (network.listen-start) listenerId = "http"`),
-		),
-	)
-
-	defer func() {
-		testcontainers.CleanupContainer(t, container)
-	}()
-	require.NoError(err)
-
-	ip, err := container.Host(ctx)
-	require.NoError(err)
-
-	port, err := container.MappedPort(ctx, "993")
-	require.NoError(err)
-
-	tlsConfig := &tls.Config{InsecureSkipVerify: true}
 
 	count := 5
 
-	loggerImpl := clog.NewLogger()
-	logger := &loggerImpl
-	var j Client
-	var session *Session
-	{
-		tr := http.DefaultTransport.(*http.Transport).Clone()
-		tr.ResponseHeaderTimeout = time.Duration(30 * time.Second)
-		tr.TLSClientConfig = tlsConfig
-		jh := *http.DefaultClient
-		jh.Transport = tr
+	require := require.New(t)
 
-		wsd := &websocket.Dialer{
-			TLSClientConfig:  tlsConfig,
-			HandshakeTimeout: time.Duration(10) * time.Second,
-		}
+	s, err := newStalwartTest(t)
+	require.NoError(err)
+	defer s.Close()
 
-		jmapPort, err := container.MappedPort(ctx, httpPort)
-		require.NoError(err)
-		jmapBaseUrl := url.URL{
-			Scheme: "http",
-			Host:   ip + ":" + jmapPort.Port(),
-		}
-
-		sessionUrl := jmapBaseUrl.JoinPath(".well-known", "jmap")
-
-		api := NewHttpJmapClient(
-			&jh,
-			masterUsername,
-			masterPassword,
-			nullHttpJmapApiClientEventListener{},
-		)
-
-		wscf, err := NewHttpWsClientFactory(wsd, masterUsername, masterPassword, logger)
-		require.NoError(err)
-
-		j = NewClient(api, api, api, wscf)
-		s, err := j.FetchSession(sessionUrl, username, logger)
-		require.NoError(err)
-		// we have to overwrite the hostname in JMAP URL because the container
-		// will know its name to be a random Docker container identifier, or
-		// "localhost" as we defined the hostname in the Stalwart configuration,
-		// and we also need to overwrite the port number as its not mapped
-		s.JmapUrl.Host = jmapBaseUrl.Host
-		session = &s
-	}
-
-	accountId := session.PrimaryAccounts.Mail
+	accountId := s.session.PrimaryAccounts.Mail
 
 	var inboxFolder string
 	var inboxId string
 	{
-		respByAccountId, sessionState, _, err := j.GetAllMailboxes([]string{accountId}, session, ctx, logger, "")
+		respByAccountId, sessionState, _, err := s.client.GetAllMailboxes([]string{accountId}, s.session, s.ctx, s.logger, "")
 		require.NoError(err)
-		require.Equal(session.State, sessionState)
+		require.Equal(s.session.State, sessionState)
 		require.Len(respByAccountId, 1)
 		require.Contains(respByAccountId, accountId)
 		resp := respByAccountId[accountId]
@@ -389,69 +539,24 @@ func TestWithStalwart(t *testing.T) {
 	}
 
 	{
-		c, err := imapclient.DialTLS(net.JoinHostPort(ip, port.Port()), &imapclient.Options{TLSConfig: tlsConfig})
-		require.NoError(err)
-
-		defer func(imap *imapclient.Client) {
-			err := imap.Close()
-			if err != nil {
-				log.Fatal(err)
-			}
-		}(c)
-
-		err = c.Login(username, password).Wait()
-		require.NoError(err)
-
-		_, err = c.Select(inboxFolder, nil).Wait()
-		require.NoError(err)
-
-		fill(require, c, inboxFolder, fmt.Sprintf("%s <%s>", userPersonName, userEmail), count, 2, 3)
-
-		listCmd := c.List("", "%", &imap.ListOptions{
-			ReturnStatus: &imap.StatusOptions{
-				NumMessages: true,
-				NumUnseen:   true,
-			},
-		})
-		countMap := make(map[string]int)
-		for {
-			mbox := listCmd.Next()
-			if mbox == nil {
-				break
-			}
-			countMap[mbox.Mailbox] = int(*mbox.Status.NumMessages)
-		}
-
-		inboxCount := -1
-		for f, i := range countMap {
-			if strings.Compare(strings.ToLower(f), strings.ToLower(inboxFolder)) == 0 {
-				inboxCount = i
-				break
-			}
-		}
-		if inboxCount == -1 {
-			require.FailNowf("huh", "failed to find folder '%v' via IMAP", inboxFolder)
-		}
-		require.Equal(count, inboxCount)
-
-		err = listCmd.Close()
+		err := s.fill(inboxFolder, count)
 		require.NoError(err)
 	}
 
 	{
 		{
-			resp, sessionState, _, err := j.GetIdentity(accountId, session, ctx, logger, "")
+			resp, sessionState, _, err := s.client.GetIdentity(accountId, s.session, s.ctx, s.logger, "")
 			require.NoError(err)
-			require.Equal(session.State, sessionState)
+			require.Equal(s.session.State, sessionState)
 			require.Len(resp.Identities, 1)
-			require.Equal(userEmail, resp.Identities[0].Email)
-			require.Equal(userPersonName, resp.Identities[0].Name)
+			require.Equal(s.userEmail, resp.Identities[0].Email)
+			require.Equal(s.userPersonName, resp.Identities[0].Name)
 		}
 
 		{
-			respByAccountId, sessionState, _, err := j.GetAllMailboxes([]string{accountId}, session, ctx, logger, "")
+			respByAccountId, sessionState, _, err := s.client.GetAllMailboxes([]string{accountId}, s.session, s.ctx, s.logger, "")
 			require.NoError(err)
-			require.Equal(session.State, sessionState)
+			require.Equal(s.session.State, sessionState)
 			require.Len(respByAccountId, 1)
 			require.Contains(respByAccountId, accountId)
 			resp := respByAccountId[accountId]
@@ -465,9 +570,9 @@ func TestWithStalwart(t *testing.T) {
 		}
 
 		{
-			resp, sessionState, _, err := j.GetAllEmailsInMailbox(accountId, session, ctx, logger, "", inboxId, 0, 0, false, 0)
+			resp, sessionState, _, err := s.client.GetAllEmailsInMailbox(accountId, s.session, s.ctx, s.logger, "", inboxId, 0, 0, false, 0)
 			require.NoError(err)
-			require.Equal(session.State, sessionState)
+			require.Equal(s.session.State, sessionState)
 
 			require.Len(resp.Emails, count)
 			for _, e := range resp.Emails {
