@@ -13,7 +13,7 @@ require (
 	github.com/beevik/etree v1.6.0
 	github.com/blevesearch/bleve/v2 v2.5.3
 	github.com/cenkalti/backoff v2.2.1+incompatible
-	github.com/coreos/go-oidc/v3 v3.15.0
+	github.com/coreos/go-oidc/v3 v3.16.0
 	github.com/cs3org/go-cs3apis v0.0.0-20250908152307-4ca807afe54e
 	github.com/davidbyttow/govips/v2 v2.16.0
 	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
@@ -205,7 +205,7 @@ require (
 	github.com/go-git/go-billy/v5 v5.6.2 // indirect
 	github.com/go-git/go-git/v5 v5.13.2 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
-	github.com/go-jose/go-jose/v4 v4.1.1 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
