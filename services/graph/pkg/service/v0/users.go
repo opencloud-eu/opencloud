@@ -23,8 +23,13 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
-	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
+	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
+	"github.com/opencloud-eu/reva/v2/pkg/events"
+	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
+	"github.com/opencloud-eu/reva/v2/pkg/utils"
+
 	settingsmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
@@ -33,10 +38,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/userstate"
 	ocsettingssvc "github.com/opencloud-eu/opencloud/services/settings/pkg/service/v0"
 	"github.com/opencloud-eu/opencloud/services/settings/pkg/store/defaults"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
 
 // GetMe implements the Service interface.
@@ -1157,9 +1158,9 @@ func (g Graph) getUserStateFromNatsKeyValue(ctx context.Context, userID string) 
 		return userstate.UserState{}, errors.New("nats connection or user state key value store not configured")
 	}
 
-	entry, err := g.natskv.Get(userID)
+	entry, err := g.natskv.Get(ctx, userID)
 	if err != nil {
-		if errors.Is(err, nats.ErrKeyNotFound) {
+		if errors.Is(err, jetstream.ErrKeyNotFound) {
 			logger.Debug().Str("userid", userID).Msg("no user state found in nats key value store")
 			return userstate.UserState{
 				UserId: userID,
@@ -1200,7 +1201,7 @@ func (g Graph) setUserStateToNatsKeyValue(ctx context.Context, userID string, us
 		return err
 	}
 
-	if _, err := g.natskv.Put(userID, data); err != nil {
+	if _, err := g.natskv.Put(ctx, userID, data); err != nil {
 		logger.Error().Err(err).Str("userid", userID).Msg("error putting user state to nats key value store")
 		return err
 	}

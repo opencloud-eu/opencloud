@@ -16,11 +16,10 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/go-chi/chi/v5"
-	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
-	"github.com/opencloud-eu/opencloud/services/graph/pkg/userstate"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -28,6 +27,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"go-micro.dev/v4/client"
 	"google.golang.org/grpc"
+
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/userstate"
 
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	settingsmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
@@ -973,7 +974,7 @@ var _ = Describe("Users", func() {
 				lu.SetId(currentUser.Id.OpaqueId)
 				identityBackend.On("GetUser", mock.Anything, mock.Anything, mock.Anything).Return(&lu, nil)
 
-				natsKeyValueMock.EXPECT().Get(mock.Anything).RunAndReturn(func(key string) (nats.KeyValueEntry, error) {
+				natsKeyValueMock.EXPECT().Get(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, key string) (jetstream.KeyValueEntry, error) {
 					byteRep, _ := json.Marshal(userstate.UserState{
 						UserId:          lu.GetId(),
 						State:           userstate.UserStateSoftDeleted,
@@ -988,7 +989,7 @@ var _ = Describe("Users", func() {
 					return kve, nil
 				}).Once()
 
-				natsKeyValueMock.EXPECT().Put(mock.Anything, mock.Anything).RunAndReturn(func(key string, val []byte) (uint64, error) {
+				natsKeyValueMock.EXPECT().Put(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, key string, val []byte) (uint64, error) {
 					return 1, nil
 				}).Once()
 
@@ -1028,7 +1029,7 @@ var _ = Describe("Users", func() {
 					},
 				}, nil)
 
-				natsKeyValueMock.EXPECT().Get(mock.Anything).RunAndReturn(func(key string) (nats.KeyValueEntry, error) {
+				natsKeyValueMock.EXPECT().Get(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, key string) (jetstream.KeyValueEntry, error) {
 					byteRep, _ := json.Marshal(userstate.UserState{
 						UserId:          lu.GetId(),
 						State:           userstate.UserStateSoftDeleted,
@@ -1043,7 +1044,7 @@ var _ = Describe("Users", func() {
 					return kve, nil
 				}).Once()
 
-				natsKeyValueMock.EXPECT().Put(mock.Anything, mock.Anything).RunAndReturn(func(key string, val []byte) (uint64, error) {
+				natsKeyValueMock.EXPECT().Put(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, key string, val []byte) (uint64, error) {
 					return 1, nil
 				}).Once()
 
@@ -1108,7 +1109,7 @@ var _ = Describe("Users", func() {
 					},
 				}, nil)
 
-				natsKeyValueMock.EXPECT().Get(mock.Anything).RunAndReturn(func(key string) (nats.KeyValueEntry, error) {
+				natsKeyValueMock.EXPECT().Get(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, key string) (jetstream.KeyValueEntry, error) {
 					byteRep, _ := json.Marshal(userstate.UserState{
 						UserId:          lu.GetId(),
 						State:           userstate.UserStateSoftDeleted,
@@ -1123,7 +1124,7 @@ var _ = Describe("Users", func() {
 					return kve, nil
 				}).Once()
 
-				natsKeyValueMock.EXPECT().Put(mock.Anything, mock.Anything).RunAndReturn(func(key string, val []byte) (uint64, error) {
+				natsKeyValueMock.EXPECT().Put(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, key string, val []byte) (uint64, error) {
 					return 1, nil
 				}).Once()
 				r := httptest.NewRequest(http.MethodDelete, "/graph/v1.0/users/{userid}", nil)
@@ -1165,7 +1166,7 @@ var _ = Describe("Users", func() {
 					},
 				}, nil)
 
-				natsKeyValueMock.EXPECT().Get(mock.Anything).RunAndReturn(func(key string) (nats.KeyValueEntry, error) {
+				natsKeyValueMock.EXPECT().Get(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, key string) (jetstream.KeyValueEntry, error) {
 					byteRep, _ := json.Marshal(userstate.UserState{
 						UserId:          lu.GetId(),
 						State:           userstate.UserStateSoftDeleted,
@@ -1180,7 +1181,7 @@ var _ = Describe("Users", func() {
 					return kve, nil
 				}).Once()
 
-				natsKeyValueMock.EXPECT().Put(mock.Anything, mock.Anything).RunAndReturn(func(key string, val []byte) (uint64, error) {
+				natsKeyValueMock.EXPECT().Put(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, key string, val []byte) (uint64, error) {
 					return 1, nil
 				}).Once()
 

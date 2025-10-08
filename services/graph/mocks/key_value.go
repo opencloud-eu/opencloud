@@ -5,7 +5,9 @@
 package mocks
 
 import (
-	"github.com/nats-io/nats.go"
+	"context"
+
+	"github.com/nats-io/nats.go/jetstream"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -81,8 +83,14 @@ func (_c *KeyValue_Bucket_Call) RunAndReturn(run func() string) *KeyValue_Bucket
 }
 
 // Create provides a mock function for the type KeyValue
-func (_mock *KeyValue) Create(key string, value []byte) (uint64, error) {
-	ret := _mock.Called(key, value)
+func (_mock *KeyValue) Create(ctx context.Context, key string, value []byte, opts ...jetstream.KVCreateOpt) (uint64, error) {
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _mock.Called(ctx, key, value, opts)
+	} else {
+		tmpRet = _mock.Called(ctx, key, value)
+	}
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for Create")
@@ -90,16 +98,16 @@ func (_mock *KeyValue) Create(key string, value []byte) (uint64, error) {
 
 	var r0 uint64
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string, []byte) (uint64, error)); ok {
-		return returnFunc(key, value)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, []byte, ...jetstream.KVCreateOpt) (uint64, error)); ok {
+		return returnFunc(ctx, key, value, opts...)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string, []byte) uint64); ok {
-		r0 = returnFunc(key, value)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, []byte, ...jetstream.KVCreateOpt) uint64); ok {
+		r0 = returnFunc(ctx, key, value, opts...)
 	} else {
 		r0 = ret.Get(0).(uint64)
 	}
-	if returnFunc, ok := ret.Get(1).(func(string, []byte) error); ok {
-		r1 = returnFunc(key, value)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, []byte, ...jetstream.KVCreateOpt) error); ok {
+		r1 = returnFunc(ctx, key, value, opts...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -112,47 +120,62 @@ type KeyValue_Create_Call struct {
 }
 
 // Create is a helper method to define mock.On call
+//   - ctx context.Context
 //   - key string
 //   - value []byte
-func (_e *KeyValue_Expecter) Create(key interface{}, value interface{}) *KeyValue_Create_Call {
-	return &KeyValue_Create_Call{Call: _e.mock.On("Create", key, value)}
+//   - opts ...jetstream.KVCreateOpt
+func (_e *KeyValue_Expecter) Create(ctx interface{}, key interface{}, value interface{}, opts ...interface{}) *KeyValue_Create_Call {
+	return &KeyValue_Create_Call{Call: _e.mock.On("Create",
+		append([]interface{}{ctx, key, value}, opts...)...)}
 }
 
-func (_c *KeyValue_Create_Call) Run(run func(key string, value []byte)) *KeyValue_Create_Call {
+func (_c *KeyValue_Create_Call) Run(run func(ctx context.Context, key string, value []byte, opts ...jetstream.KVCreateOpt)) *KeyValue_Create_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(string)
+			arg0 = args[0].(context.Context)
 		}
-		var arg1 []byte
+		var arg1 string
 		if args[1] != nil {
-			arg1 = args[1].([]byte)
+			arg1 = args[1].(string)
 		}
+		var arg2 []byte
+		if args[2] != nil {
+			arg2 = args[2].([]byte)
+		}
+		var arg3 []jetstream.KVCreateOpt
+		var variadicArgs []jetstream.KVCreateOpt
+		if len(args) > 3 {
+			variadicArgs = args[3].([]jetstream.KVCreateOpt)
+		}
+		arg3 = variadicArgs
 		run(
 			arg0,
 			arg1,
+			arg2,
+			arg3...,
 		)
 	})
 	return _c
 }
 
-func (_c *KeyValue_Create_Call) Return(revision uint64, err error) *KeyValue_Create_Call {
-	_c.Call.Return(revision, err)
+func (_c *KeyValue_Create_Call) Return(v uint64, err error) *KeyValue_Create_Call {
+	_c.Call.Return(v, err)
 	return _c
 }
 
-func (_c *KeyValue_Create_Call) RunAndReturn(run func(key string, value []byte) (uint64, error)) *KeyValue_Create_Call {
+func (_c *KeyValue_Create_Call) RunAndReturn(run func(ctx context.Context, key string, value []byte, opts ...jetstream.KVCreateOpt) (uint64, error)) *KeyValue_Create_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Delete provides a mock function for the type KeyValue
-func (_mock *KeyValue) Delete(key string, opts ...nats.DeleteOpt) error {
+func (_mock *KeyValue) Delete(ctx context.Context, key string, opts ...jetstream.KVDeleteOpt) error {
 	var tmpRet mock.Arguments
 	if len(opts) > 0 {
-		tmpRet = _mock.Called(key, opts)
+		tmpRet = _mock.Called(ctx, key, opts)
 	} else {
-		tmpRet = _mock.Called(key)
+		tmpRet = _mock.Called(ctx, key)
 	}
 	ret := tmpRet
 
@@ -161,8 +184,8 @@ func (_mock *KeyValue) Delete(key string, opts ...nats.DeleteOpt) error {
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(string, ...nats.DeleteOpt) error); ok {
-		r0 = returnFunc(key, opts...)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, ...jetstream.KVDeleteOpt) error); ok {
+		r0 = returnFunc(ctx, key, opts...)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -175,28 +198,34 @@ type KeyValue_Delete_Call struct {
 }
 
 // Delete is a helper method to define mock.On call
+//   - ctx context.Context
 //   - key string
-//   - opts ...nats.DeleteOpt
-func (_e *KeyValue_Expecter) Delete(key interface{}, opts ...interface{}) *KeyValue_Delete_Call {
+//   - opts ...jetstream.KVDeleteOpt
+func (_e *KeyValue_Expecter) Delete(ctx interface{}, key interface{}, opts ...interface{}) *KeyValue_Delete_Call {
 	return &KeyValue_Delete_Call{Call: _e.mock.On("Delete",
-		append([]interface{}{key}, opts...)...)}
+		append([]interface{}{ctx, key}, opts...)...)}
 }
 
-func (_c *KeyValue_Delete_Call) Run(run func(key string, opts ...nats.DeleteOpt)) *KeyValue_Delete_Call {
+func (_c *KeyValue_Delete_Call) Run(run func(ctx context.Context, key string, opts ...jetstream.KVDeleteOpt)) *KeyValue_Delete_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(string)
+			arg0 = args[0].(context.Context)
 		}
-		var arg1 []nats.DeleteOpt
-		var variadicArgs []nats.DeleteOpt
-		if len(args) > 1 {
-			variadicArgs = args[1].([]nats.DeleteOpt)
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
 		}
-		arg1 = variadicArgs
+		var arg2 []jetstream.KVDeleteOpt
+		var variadicArgs []jetstream.KVDeleteOpt
+		if len(args) > 2 {
+			variadicArgs = args[2].([]jetstream.KVDeleteOpt)
+		}
+		arg2 = variadicArgs
 		run(
 			arg0,
-			arg1...,
+			arg1,
+			arg2...,
 		)
 	})
 	return _c
@@ -207,33 +236,33 @@ func (_c *KeyValue_Delete_Call) Return(err error) *KeyValue_Delete_Call {
 	return _c
 }
 
-func (_c *KeyValue_Delete_Call) RunAndReturn(run func(key string, opts ...nats.DeleteOpt) error) *KeyValue_Delete_Call {
+func (_c *KeyValue_Delete_Call) RunAndReturn(run func(ctx context.Context, key string, opts ...jetstream.KVDeleteOpt) error) *KeyValue_Delete_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Get provides a mock function for the type KeyValue
-func (_mock *KeyValue) Get(key string) (nats.KeyValueEntry, error) {
-	ret := _mock.Called(key)
+func (_mock *KeyValue) Get(ctx context.Context, key string) (jetstream.KeyValueEntry, error) {
+	ret := _mock.Called(ctx, key)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Get")
 	}
 
-	var r0 nats.KeyValueEntry
+	var r0 jetstream.KeyValueEntry
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string) (nats.KeyValueEntry, error)); ok {
-		return returnFunc(key)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (jetstream.KeyValueEntry, error)); ok {
+		return returnFunc(ctx, key)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string) nats.KeyValueEntry); ok {
-		r0 = returnFunc(key)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) jetstream.KeyValueEntry); ok {
+		r0 = returnFunc(ctx, key)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(nats.KeyValueEntry)
+			r0 = ret.Get(0).(jetstream.KeyValueEntry)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(string) error); ok {
-		r1 = returnFunc(key)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, key)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -246,556 +275,17 @@ type KeyValue_Get_Call struct {
 }
 
 // Get is a helper method to define mock.On call
+//   - ctx context.Context
 //   - key string
-func (_e *KeyValue_Expecter) Get(key interface{}) *KeyValue_Get_Call {
-	return &KeyValue_Get_Call{Call: _e.mock.On("Get", key)}
+func (_e *KeyValue_Expecter) Get(ctx interface{}, key interface{}) *KeyValue_Get_Call {
+	return &KeyValue_Get_Call{Call: _e.mock.On("Get", ctx, key)}
 }
 
-func (_c *KeyValue_Get_Call) Run(run func(key string)) *KeyValue_Get_Call {
+func (_c *KeyValue_Get_Call) Run(run func(ctx context.Context, key string)) *KeyValue_Get_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(string)
-		}
-		run(
-			arg0,
-		)
-	})
-	return _c
-}
-
-func (_c *KeyValue_Get_Call) Return(entry nats.KeyValueEntry, err error) *KeyValue_Get_Call {
-	_c.Call.Return(entry, err)
-	return _c
-}
-
-func (_c *KeyValue_Get_Call) RunAndReturn(run func(key string) (nats.KeyValueEntry, error)) *KeyValue_Get_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// GetRevision provides a mock function for the type KeyValue
-func (_mock *KeyValue) GetRevision(key string, revision uint64) (nats.KeyValueEntry, error) {
-	ret := _mock.Called(key, revision)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetRevision")
-	}
-
-	var r0 nats.KeyValueEntry
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string, uint64) (nats.KeyValueEntry, error)); ok {
-		return returnFunc(key, revision)
-	}
-	if returnFunc, ok := ret.Get(0).(func(string, uint64) nats.KeyValueEntry); ok {
-		r0 = returnFunc(key, revision)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(nats.KeyValueEntry)
-		}
-	}
-	if returnFunc, ok := ret.Get(1).(func(string, uint64) error); ok {
-		r1 = returnFunc(key, revision)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// KeyValue_GetRevision_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetRevision'
-type KeyValue_GetRevision_Call struct {
-	*mock.Call
-}
-
-// GetRevision is a helper method to define mock.On call
-//   - key string
-//   - revision uint64
-func (_e *KeyValue_Expecter) GetRevision(key interface{}, revision interface{}) *KeyValue_GetRevision_Call {
-	return &KeyValue_GetRevision_Call{Call: _e.mock.On("GetRevision", key, revision)}
-}
-
-func (_c *KeyValue_GetRevision_Call) Run(run func(key string, revision uint64)) *KeyValue_GetRevision_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
-		if args[0] != nil {
-			arg0 = args[0].(string)
-		}
-		var arg1 uint64
-		if args[1] != nil {
-			arg1 = args[1].(uint64)
-		}
-		run(
-			arg0,
-			arg1,
-		)
-	})
-	return _c
-}
-
-func (_c *KeyValue_GetRevision_Call) Return(entry nats.KeyValueEntry, err error) *KeyValue_GetRevision_Call {
-	_c.Call.Return(entry, err)
-	return _c
-}
-
-func (_c *KeyValue_GetRevision_Call) RunAndReturn(run func(key string, revision uint64) (nats.KeyValueEntry, error)) *KeyValue_GetRevision_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// History provides a mock function for the type KeyValue
-func (_mock *KeyValue) History(key string, opts ...nats.WatchOpt) ([]nats.KeyValueEntry, error) {
-	var tmpRet mock.Arguments
-	if len(opts) > 0 {
-		tmpRet = _mock.Called(key, opts)
-	} else {
-		tmpRet = _mock.Called(key)
-	}
-	ret := tmpRet
-
-	if len(ret) == 0 {
-		panic("no return value specified for History")
-	}
-
-	var r0 []nats.KeyValueEntry
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string, ...nats.WatchOpt) ([]nats.KeyValueEntry, error)); ok {
-		return returnFunc(key, opts...)
-	}
-	if returnFunc, ok := ret.Get(0).(func(string, ...nats.WatchOpt) []nats.KeyValueEntry); ok {
-		r0 = returnFunc(key, opts...)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]nats.KeyValueEntry)
-		}
-	}
-	if returnFunc, ok := ret.Get(1).(func(string, ...nats.WatchOpt) error); ok {
-		r1 = returnFunc(key, opts...)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// KeyValue_History_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'History'
-type KeyValue_History_Call struct {
-	*mock.Call
-}
-
-// History is a helper method to define mock.On call
-//   - key string
-//   - opts ...nats.WatchOpt
-func (_e *KeyValue_Expecter) History(key interface{}, opts ...interface{}) *KeyValue_History_Call {
-	return &KeyValue_History_Call{Call: _e.mock.On("History",
-		append([]interface{}{key}, opts...)...)}
-}
-
-func (_c *KeyValue_History_Call) Run(run func(key string, opts ...nats.WatchOpt)) *KeyValue_History_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
-		if args[0] != nil {
-			arg0 = args[0].(string)
-		}
-		var arg1 []nats.WatchOpt
-		var variadicArgs []nats.WatchOpt
-		if len(args) > 1 {
-			variadicArgs = args[1].([]nats.WatchOpt)
-		}
-		arg1 = variadicArgs
-		run(
-			arg0,
-			arg1...,
-		)
-	})
-	return _c
-}
-
-func (_c *KeyValue_History_Call) Return(keyValueEntrys []nats.KeyValueEntry, err error) *KeyValue_History_Call {
-	_c.Call.Return(keyValueEntrys, err)
-	return _c
-}
-
-func (_c *KeyValue_History_Call) RunAndReturn(run func(key string, opts ...nats.WatchOpt) ([]nats.KeyValueEntry, error)) *KeyValue_History_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// Keys provides a mock function for the type KeyValue
-func (_mock *KeyValue) Keys(opts ...nats.WatchOpt) ([]string, error) {
-	var tmpRet mock.Arguments
-	if len(opts) > 0 {
-		tmpRet = _mock.Called(opts)
-	} else {
-		tmpRet = _mock.Called()
-	}
-	ret := tmpRet
-
-	if len(ret) == 0 {
-		panic("no return value specified for Keys")
-	}
-
-	var r0 []string
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(...nats.WatchOpt) ([]string, error)); ok {
-		return returnFunc(opts...)
-	}
-	if returnFunc, ok := ret.Get(0).(func(...nats.WatchOpt) []string); ok {
-		r0 = returnFunc(opts...)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]string)
-		}
-	}
-	if returnFunc, ok := ret.Get(1).(func(...nats.WatchOpt) error); ok {
-		r1 = returnFunc(opts...)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// KeyValue_Keys_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Keys'
-type KeyValue_Keys_Call struct {
-	*mock.Call
-}
-
-// Keys is a helper method to define mock.On call
-//   - opts ...nats.WatchOpt
-func (_e *KeyValue_Expecter) Keys(opts ...interface{}) *KeyValue_Keys_Call {
-	return &KeyValue_Keys_Call{Call: _e.mock.On("Keys",
-		append([]interface{}{}, opts...)...)}
-}
-
-func (_c *KeyValue_Keys_Call) Run(run func(opts ...nats.WatchOpt)) *KeyValue_Keys_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 []nats.WatchOpt
-		var variadicArgs []nats.WatchOpt
-		if len(args) > 0 {
-			variadicArgs = args[0].([]nats.WatchOpt)
-		}
-		arg0 = variadicArgs
-		run(
-			arg0...,
-		)
-	})
-	return _c
-}
-
-func (_c *KeyValue_Keys_Call) Return(strings []string, err error) *KeyValue_Keys_Call {
-	_c.Call.Return(strings, err)
-	return _c
-}
-
-func (_c *KeyValue_Keys_Call) RunAndReturn(run func(opts ...nats.WatchOpt) ([]string, error)) *KeyValue_Keys_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// ListKeys provides a mock function for the type KeyValue
-func (_mock *KeyValue) ListKeys(opts ...nats.WatchOpt) (nats.KeyLister, error) {
-	var tmpRet mock.Arguments
-	if len(opts) > 0 {
-		tmpRet = _mock.Called(opts)
-	} else {
-		tmpRet = _mock.Called()
-	}
-	ret := tmpRet
-
-	if len(ret) == 0 {
-		panic("no return value specified for ListKeys")
-	}
-
-	var r0 nats.KeyLister
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(...nats.WatchOpt) (nats.KeyLister, error)); ok {
-		return returnFunc(opts...)
-	}
-	if returnFunc, ok := ret.Get(0).(func(...nats.WatchOpt) nats.KeyLister); ok {
-		r0 = returnFunc(opts...)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(nats.KeyLister)
-		}
-	}
-	if returnFunc, ok := ret.Get(1).(func(...nats.WatchOpt) error); ok {
-		r1 = returnFunc(opts...)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// KeyValue_ListKeys_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListKeys'
-type KeyValue_ListKeys_Call struct {
-	*mock.Call
-}
-
-// ListKeys is a helper method to define mock.On call
-//   - opts ...nats.WatchOpt
-func (_e *KeyValue_Expecter) ListKeys(opts ...interface{}) *KeyValue_ListKeys_Call {
-	return &KeyValue_ListKeys_Call{Call: _e.mock.On("ListKeys",
-		append([]interface{}{}, opts...)...)}
-}
-
-func (_c *KeyValue_ListKeys_Call) Run(run func(opts ...nats.WatchOpt)) *KeyValue_ListKeys_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 []nats.WatchOpt
-		var variadicArgs []nats.WatchOpt
-		if len(args) > 0 {
-			variadicArgs = args[0].([]nats.WatchOpt)
-		}
-		arg0 = variadicArgs
-		run(
-			arg0...,
-		)
-	})
-	return _c
-}
-
-func (_c *KeyValue_ListKeys_Call) Return(keyLister nats.KeyLister, err error) *KeyValue_ListKeys_Call {
-	_c.Call.Return(keyLister, err)
-	return _c
-}
-
-func (_c *KeyValue_ListKeys_Call) RunAndReturn(run func(opts ...nats.WatchOpt) (nats.KeyLister, error)) *KeyValue_ListKeys_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// Purge provides a mock function for the type KeyValue
-func (_mock *KeyValue) Purge(key string, opts ...nats.DeleteOpt) error {
-	var tmpRet mock.Arguments
-	if len(opts) > 0 {
-		tmpRet = _mock.Called(key, opts)
-	} else {
-		tmpRet = _mock.Called(key)
-	}
-	ret := tmpRet
-
-	if len(ret) == 0 {
-		panic("no return value specified for Purge")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(string, ...nats.DeleteOpt) error); ok {
-		r0 = returnFunc(key, opts...)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// KeyValue_Purge_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Purge'
-type KeyValue_Purge_Call struct {
-	*mock.Call
-}
-
-// Purge is a helper method to define mock.On call
-//   - key string
-//   - opts ...nats.DeleteOpt
-func (_e *KeyValue_Expecter) Purge(key interface{}, opts ...interface{}) *KeyValue_Purge_Call {
-	return &KeyValue_Purge_Call{Call: _e.mock.On("Purge",
-		append([]interface{}{key}, opts...)...)}
-}
-
-func (_c *KeyValue_Purge_Call) Run(run func(key string, opts ...nats.DeleteOpt)) *KeyValue_Purge_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
-		if args[0] != nil {
-			arg0 = args[0].(string)
-		}
-		var arg1 []nats.DeleteOpt
-		var variadicArgs []nats.DeleteOpt
-		if len(args) > 1 {
-			variadicArgs = args[1].([]nats.DeleteOpt)
-		}
-		arg1 = variadicArgs
-		run(
-			arg0,
-			arg1...,
-		)
-	})
-	return _c
-}
-
-func (_c *KeyValue_Purge_Call) Return(err error) *KeyValue_Purge_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *KeyValue_Purge_Call) RunAndReturn(run func(key string, opts ...nats.DeleteOpt) error) *KeyValue_Purge_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// PurgeDeletes provides a mock function for the type KeyValue
-func (_mock *KeyValue) PurgeDeletes(opts ...nats.PurgeOpt) error {
-	var tmpRet mock.Arguments
-	if len(opts) > 0 {
-		tmpRet = _mock.Called(opts)
-	} else {
-		tmpRet = _mock.Called()
-	}
-	ret := tmpRet
-
-	if len(ret) == 0 {
-		panic("no return value specified for PurgeDeletes")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(...nats.PurgeOpt) error); ok {
-		r0 = returnFunc(opts...)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// KeyValue_PurgeDeletes_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PurgeDeletes'
-type KeyValue_PurgeDeletes_Call struct {
-	*mock.Call
-}
-
-// PurgeDeletes is a helper method to define mock.On call
-//   - opts ...nats.PurgeOpt
-func (_e *KeyValue_Expecter) PurgeDeletes(opts ...interface{}) *KeyValue_PurgeDeletes_Call {
-	return &KeyValue_PurgeDeletes_Call{Call: _e.mock.On("PurgeDeletes",
-		append([]interface{}{}, opts...)...)}
-}
-
-func (_c *KeyValue_PurgeDeletes_Call) Run(run func(opts ...nats.PurgeOpt)) *KeyValue_PurgeDeletes_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 []nats.PurgeOpt
-		var variadicArgs []nats.PurgeOpt
-		if len(args) > 0 {
-			variadicArgs = args[0].([]nats.PurgeOpt)
-		}
-		arg0 = variadicArgs
-		run(
-			arg0...,
-		)
-	})
-	return _c
-}
-
-func (_c *KeyValue_PurgeDeletes_Call) Return(err error) *KeyValue_PurgeDeletes_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *KeyValue_PurgeDeletes_Call) RunAndReturn(run func(opts ...nats.PurgeOpt) error) *KeyValue_PurgeDeletes_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// Put provides a mock function for the type KeyValue
-func (_mock *KeyValue) Put(key string, value []byte) (uint64, error) {
-	ret := _mock.Called(key, value)
-
-	if len(ret) == 0 {
-		panic("no return value specified for Put")
-	}
-
-	var r0 uint64
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string, []byte) (uint64, error)); ok {
-		return returnFunc(key, value)
-	}
-	if returnFunc, ok := ret.Get(0).(func(string, []byte) uint64); ok {
-		r0 = returnFunc(key, value)
-	} else {
-		r0 = ret.Get(0).(uint64)
-	}
-	if returnFunc, ok := ret.Get(1).(func(string, []byte) error); ok {
-		r1 = returnFunc(key, value)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// KeyValue_Put_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Put'
-type KeyValue_Put_Call struct {
-	*mock.Call
-}
-
-// Put is a helper method to define mock.On call
-//   - key string
-//   - value []byte
-func (_e *KeyValue_Expecter) Put(key interface{}, value interface{}) *KeyValue_Put_Call {
-	return &KeyValue_Put_Call{Call: _e.mock.On("Put", key, value)}
-}
-
-func (_c *KeyValue_Put_Call) Run(run func(key string, value []byte)) *KeyValue_Put_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
-		if args[0] != nil {
-			arg0 = args[0].(string)
-		}
-		var arg1 []byte
-		if args[1] != nil {
-			arg1 = args[1].([]byte)
-		}
-		run(
-			arg0,
-			arg1,
-		)
-	})
-	return _c
-}
-
-func (_c *KeyValue_Put_Call) Return(revision uint64, err error) *KeyValue_Put_Call {
-	_c.Call.Return(revision, err)
-	return _c
-}
-
-func (_c *KeyValue_Put_Call) RunAndReturn(run func(key string, value []byte) (uint64, error)) *KeyValue_Put_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// PutString provides a mock function for the type KeyValue
-func (_mock *KeyValue) PutString(key string, value string) (uint64, error) {
-	ret := _mock.Called(key, value)
-
-	if len(ret) == 0 {
-		panic("no return value specified for PutString")
-	}
-
-	var r0 uint64
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string, string) (uint64, error)); ok {
-		return returnFunc(key, value)
-	}
-	if returnFunc, ok := ret.Get(0).(func(string, string) uint64); ok {
-		r0 = returnFunc(key, value)
-	} else {
-		r0 = ret.Get(0).(uint64)
-	}
-	if returnFunc, ok := ret.Get(1).(func(string, string) error); ok {
-		r1 = returnFunc(key, value)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// KeyValue_PutString_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PutString'
-type KeyValue_PutString_Call struct {
-	*mock.Call
-}
-
-// PutString is a helper method to define mock.On call
-//   - key string
-//   - value string
-func (_e *KeyValue_Expecter) PutString(key interface{}, value interface{}) *KeyValue_PutString_Call {
-	return &KeyValue_PutString_Call{Call: _e.mock.On("PutString", key, value)}
-}
-
-func (_c *KeyValue_PutString_Call) Run(run func(key string, value string)) *KeyValue_PutString_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
-		if args[0] != nil {
-			arg0 = args[0].(string)
+			arg0 = args[0].(context.Context)
 		}
 		var arg1 string
 		if args[1] != nil {
@@ -809,119 +299,66 @@ func (_c *KeyValue_PutString_Call) Run(run func(key string, value string)) *KeyV
 	return _c
 }
 
-func (_c *KeyValue_PutString_Call) Return(revision uint64, err error) *KeyValue_PutString_Call {
-	_c.Call.Return(revision, err)
+func (_c *KeyValue_Get_Call) Return(keyValueEntry jetstream.KeyValueEntry, err error) *KeyValue_Get_Call {
+	_c.Call.Return(keyValueEntry, err)
 	return _c
 }
 
-func (_c *KeyValue_PutString_Call) RunAndReturn(run func(key string, value string) (uint64, error)) *KeyValue_PutString_Call {
+func (_c *KeyValue_Get_Call) RunAndReturn(run func(ctx context.Context, key string) (jetstream.KeyValueEntry, error)) *KeyValue_Get_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// Status provides a mock function for the type KeyValue
-func (_mock *KeyValue) Status() (nats.KeyValueStatus, error) {
-	ret := _mock.Called()
+// GetRevision provides a mock function for the type KeyValue
+func (_mock *KeyValue) GetRevision(ctx context.Context, key string, revision uint64) (jetstream.KeyValueEntry, error) {
+	ret := _mock.Called(ctx, key, revision)
 
 	if len(ret) == 0 {
-		panic("no return value specified for Status")
+		panic("no return value specified for GetRevision")
 	}
 
-	var r0 nats.KeyValueStatus
+	var r0 jetstream.KeyValueEntry
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func() (nats.KeyValueStatus, error)); ok {
-		return returnFunc()
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, uint64) (jetstream.KeyValueEntry, error)); ok {
+		return returnFunc(ctx, key, revision)
 	}
-	if returnFunc, ok := ret.Get(0).(func() nats.KeyValueStatus); ok {
-		r0 = returnFunc()
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, uint64) jetstream.KeyValueEntry); ok {
+		r0 = returnFunc(ctx, key, revision)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(nats.KeyValueStatus)
+			r0 = ret.Get(0).(jetstream.KeyValueEntry)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func() error); ok {
-		r1 = returnFunc()
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, uint64) error); ok {
+		r1 = returnFunc(ctx, key, revision)
 	} else {
 		r1 = ret.Error(1)
 	}
 	return r0, r1
 }
 
-// KeyValue_Status_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Status'
-type KeyValue_Status_Call struct {
+// KeyValue_GetRevision_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetRevision'
+type KeyValue_GetRevision_Call struct {
 	*mock.Call
 }
 
-// Status is a helper method to define mock.On call
-func (_e *KeyValue_Expecter) Status() *KeyValue_Status_Call {
-	return &KeyValue_Status_Call{Call: _e.mock.On("Status")}
-}
-
-func (_c *KeyValue_Status_Call) Run(run func()) *KeyValue_Status_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *KeyValue_Status_Call) Return(keyValueStatus nats.KeyValueStatus, err error) *KeyValue_Status_Call {
-	_c.Call.Return(keyValueStatus, err)
-	return _c
-}
-
-func (_c *KeyValue_Status_Call) RunAndReturn(run func() (nats.KeyValueStatus, error)) *KeyValue_Status_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// Update provides a mock function for the type KeyValue
-func (_mock *KeyValue) Update(key string, value []byte, last uint64) (uint64, error) {
-	ret := _mock.Called(key, value, last)
-
-	if len(ret) == 0 {
-		panic("no return value specified for Update")
-	}
-
-	var r0 uint64
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string, []byte, uint64) (uint64, error)); ok {
-		return returnFunc(key, value, last)
-	}
-	if returnFunc, ok := ret.Get(0).(func(string, []byte, uint64) uint64); ok {
-		r0 = returnFunc(key, value, last)
-	} else {
-		r0 = ret.Get(0).(uint64)
-	}
-	if returnFunc, ok := ret.Get(1).(func(string, []byte, uint64) error); ok {
-		r1 = returnFunc(key, value, last)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// KeyValue_Update_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Update'
-type KeyValue_Update_Call struct {
-	*mock.Call
-}
-
-// Update is a helper method to define mock.On call
+// GetRevision is a helper method to define mock.On call
+//   - ctx context.Context
 //   - key string
-//   - value []byte
-//   - last uint64
-func (_e *KeyValue_Expecter) Update(key interface{}, value interface{}, last interface{}) *KeyValue_Update_Call {
-	return &KeyValue_Update_Call{Call: _e.mock.On("Update", key, value, last)}
+//   - revision uint64
+func (_e *KeyValue_Expecter) GetRevision(ctx interface{}, key interface{}, revision interface{}) *KeyValue_GetRevision_Call {
+	return &KeyValue_GetRevision_Call{Call: _e.mock.On("GetRevision", ctx, key, revision)}
 }
 
-func (_c *KeyValue_Update_Call) Run(run func(key string, value []byte, last uint64)) *KeyValue_Update_Call {
+func (_c *KeyValue_GetRevision_Call) Run(run func(ctx context.Context, key string, revision uint64)) *KeyValue_GetRevision_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(string)
+			arg0 = args[0].(context.Context)
 		}
-		var arg1 []byte
+		var arg1 string
 		if args[1] != nil {
-			arg1 = args[1].([]byte)
+			arg1 = args[1].(string)
 		}
 		var arg2 uint64
 		if args[2] != nil {
@@ -936,23 +373,759 @@ func (_c *KeyValue_Update_Call) Run(run func(key string, value []byte, last uint
 	return _c
 }
 
-func (_c *KeyValue_Update_Call) Return(revision uint64, err error) *KeyValue_Update_Call {
-	_c.Call.Return(revision, err)
+func (_c *KeyValue_GetRevision_Call) Return(keyValueEntry jetstream.KeyValueEntry, err error) *KeyValue_GetRevision_Call {
+	_c.Call.Return(keyValueEntry, err)
 	return _c
 }
 
-func (_c *KeyValue_Update_Call) RunAndReturn(run func(key string, value []byte, last uint64) (uint64, error)) *KeyValue_Update_Call {
+func (_c *KeyValue_GetRevision_Call) RunAndReturn(run func(ctx context.Context, key string, revision uint64) (jetstream.KeyValueEntry, error)) *KeyValue_GetRevision_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// History provides a mock function for the type KeyValue
+func (_mock *KeyValue) History(ctx context.Context, key string, opts ...jetstream.WatchOpt) ([]jetstream.KeyValueEntry, error) {
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _mock.Called(ctx, key, opts)
+	} else {
+		tmpRet = _mock.Called(ctx, key)
+	}
+	ret := tmpRet
+
+	if len(ret) == 0 {
+		panic("no return value specified for History")
+	}
+
+	var r0 []jetstream.KeyValueEntry
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, ...jetstream.WatchOpt) ([]jetstream.KeyValueEntry, error)); ok {
+		return returnFunc(ctx, key, opts...)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, ...jetstream.WatchOpt) []jetstream.KeyValueEntry); ok {
+		r0 = returnFunc(ctx, key, opts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]jetstream.KeyValueEntry)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, ...jetstream.WatchOpt) error); ok {
+		r1 = returnFunc(ctx, key, opts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// KeyValue_History_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'History'
+type KeyValue_History_Call struct {
+	*mock.Call
+}
+
+// History is a helper method to define mock.On call
+//   - ctx context.Context
+//   - key string
+//   - opts ...jetstream.WatchOpt
+func (_e *KeyValue_Expecter) History(ctx interface{}, key interface{}, opts ...interface{}) *KeyValue_History_Call {
+	return &KeyValue_History_Call{Call: _e.mock.On("History",
+		append([]interface{}{ctx, key}, opts...)...)}
+}
+
+func (_c *KeyValue_History_Call) Run(run func(ctx context.Context, key string, opts ...jetstream.WatchOpt)) *KeyValue_History_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 []jetstream.WatchOpt
+		var variadicArgs []jetstream.WatchOpt
+		if len(args) > 2 {
+			variadicArgs = args[2].([]jetstream.WatchOpt)
+		}
+		arg2 = variadicArgs
+		run(
+			arg0,
+			arg1,
+			arg2...,
+		)
+	})
+	return _c
+}
+
+func (_c *KeyValue_History_Call) Return(keyValueEntrys []jetstream.KeyValueEntry, err error) *KeyValue_History_Call {
+	_c.Call.Return(keyValueEntrys, err)
+	return _c
+}
+
+func (_c *KeyValue_History_Call) RunAndReturn(run func(ctx context.Context, key string, opts ...jetstream.WatchOpt) ([]jetstream.KeyValueEntry, error)) *KeyValue_History_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Keys provides a mock function for the type KeyValue
+func (_mock *KeyValue) Keys(ctx context.Context, opts ...jetstream.WatchOpt) ([]string, error) {
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _mock.Called(ctx, opts)
+	} else {
+		tmpRet = _mock.Called(ctx)
+	}
+	ret := tmpRet
+
+	if len(ret) == 0 {
+		panic("no return value specified for Keys")
+	}
+
+	var r0 []string
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ...jetstream.WatchOpt) ([]string, error)); ok {
+		return returnFunc(ctx, opts...)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ...jetstream.WatchOpt) []string); ok {
+		r0 = returnFunc(ctx, opts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]string)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, ...jetstream.WatchOpt) error); ok {
+		r1 = returnFunc(ctx, opts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// KeyValue_Keys_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Keys'
+type KeyValue_Keys_Call struct {
+	*mock.Call
+}
+
+// Keys is a helper method to define mock.On call
+//   - ctx context.Context
+//   - opts ...jetstream.WatchOpt
+func (_e *KeyValue_Expecter) Keys(ctx interface{}, opts ...interface{}) *KeyValue_Keys_Call {
+	return &KeyValue_Keys_Call{Call: _e.mock.On("Keys",
+		append([]interface{}{ctx}, opts...)...)}
+}
+
+func (_c *KeyValue_Keys_Call) Run(run func(ctx context.Context, opts ...jetstream.WatchOpt)) *KeyValue_Keys_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []jetstream.WatchOpt
+		var variadicArgs []jetstream.WatchOpt
+		if len(args) > 1 {
+			variadicArgs = args[1].([]jetstream.WatchOpt)
+		}
+		arg1 = variadicArgs
+		run(
+			arg0,
+			arg1...,
+		)
+	})
+	return _c
+}
+
+func (_c *KeyValue_Keys_Call) Return(strings []string, err error) *KeyValue_Keys_Call {
+	_c.Call.Return(strings, err)
+	return _c
+}
+
+func (_c *KeyValue_Keys_Call) RunAndReturn(run func(ctx context.Context, opts ...jetstream.WatchOpt) ([]string, error)) *KeyValue_Keys_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListKeys provides a mock function for the type KeyValue
+func (_mock *KeyValue) ListKeys(ctx context.Context, opts ...jetstream.WatchOpt) (jetstream.KeyLister, error) {
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _mock.Called(ctx, opts)
+	} else {
+		tmpRet = _mock.Called(ctx)
+	}
+	ret := tmpRet
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListKeys")
+	}
+
+	var r0 jetstream.KeyLister
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ...jetstream.WatchOpt) (jetstream.KeyLister, error)); ok {
+		return returnFunc(ctx, opts...)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ...jetstream.WatchOpt) jetstream.KeyLister); ok {
+		r0 = returnFunc(ctx, opts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(jetstream.KeyLister)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, ...jetstream.WatchOpt) error); ok {
+		r1 = returnFunc(ctx, opts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// KeyValue_ListKeys_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListKeys'
+type KeyValue_ListKeys_Call struct {
+	*mock.Call
+}
+
+// ListKeys is a helper method to define mock.On call
+//   - ctx context.Context
+//   - opts ...jetstream.WatchOpt
+func (_e *KeyValue_Expecter) ListKeys(ctx interface{}, opts ...interface{}) *KeyValue_ListKeys_Call {
+	return &KeyValue_ListKeys_Call{Call: _e.mock.On("ListKeys",
+		append([]interface{}{ctx}, opts...)...)}
+}
+
+func (_c *KeyValue_ListKeys_Call) Run(run func(ctx context.Context, opts ...jetstream.WatchOpt)) *KeyValue_ListKeys_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []jetstream.WatchOpt
+		var variadicArgs []jetstream.WatchOpt
+		if len(args) > 1 {
+			variadicArgs = args[1].([]jetstream.WatchOpt)
+		}
+		arg1 = variadicArgs
+		run(
+			arg0,
+			arg1...,
+		)
+	})
+	return _c
+}
+
+func (_c *KeyValue_ListKeys_Call) Return(keyLister jetstream.KeyLister, err error) *KeyValue_ListKeys_Call {
+	_c.Call.Return(keyLister, err)
+	return _c
+}
+
+func (_c *KeyValue_ListKeys_Call) RunAndReturn(run func(ctx context.Context, opts ...jetstream.WatchOpt) (jetstream.KeyLister, error)) *KeyValue_ListKeys_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListKeysFiltered provides a mock function for the type KeyValue
+func (_mock *KeyValue) ListKeysFiltered(ctx context.Context, filters ...string) (jetstream.KeyLister, error) {
+	var tmpRet mock.Arguments
+	if len(filters) > 0 {
+		tmpRet = _mock.Called(ctx, filters)
+	} else {
+		tmpRet = _mock.Called(ctx)
+	}
+	ret := tmpRet
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListKeysFiltered")
+	}
+
+	var r0 jetstream.KeyLister
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ...string) (jetstream.KeyLister, error)); ok {
+		return returnFunc(ctx, filters...)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ...string) jetstream.KeyLister); ok {
+		r0 = returnFunc(ctx, filters...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(jetstream.KeyLister)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, ...string) error); ok {
+		r1 = returnFunc(ctx, filters...)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// KeyValue_ListKeysFiltered_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListKeysFiltered'
+type KeyValue_ListKeysFiltered_Call struct {
+	*mock.Call
+}
+
+// ListKeysFiltered is a helper method to define mock.On call
+//   - ctx context.Context
+//   - filters ...string
+func (_e *KeyValue_Expecter) ListKeysFiltered(ctx interface{}, filters ...interface{}) *KeyValue_ListKeysFiltered_Call {
+	return &KeyValue_ListKeysFiltered_Call{Call: _e.mock.On("ListKeysFiltered",
+		append([]interface{}{ctx}, filters...)...)}
+}
+
+func (_c *KeyValue_ListKeysFiltered_Call) Run(run func(ctx context.Context, filters ...string)) *KeyValue_ListKeysFiltered_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []string
+		var variadicArgs []string
+		if len(args) > 1 {
+			variadicArgs = args[1].([]string)
+		}
+		arg1 = variadicArgs
+		run(
+			arg0,
+			arg1...,
+		)
+	})
+	return _c
+}
+
+func (_c *KeyValue_ListKeysFiltered_Call) Return(keyLister jetstream.KeyLister, err error) *KeyValue_ListKeysFiltered_Call {
+	_c.Call.Return(keyLister, err)
+	return _c
+}
+
+func (_c *KeyValue_ListKeysFiltered_Call) RunAndReturn(run func(ctx context.Context, filters ...string) (jetstream.KeyLister, error)) *KeyValue_ListKeysFiltered_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Purge provides a mock function for the type KeyValue
+func (_mock *KeyValue) Purge(ctx context.Context, key string, opts ...jetstream.KVDeleteOpt) error {
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _mock.Called(ctx, key, opts)
+	} else {
+		tmpRet = _mock.Called(ctx, key)
+	}
+	ret := tmpRet
+
+	if len(ret) == 0 {
+		panic("no return value specified for Purge")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, ...jetstream.KVDeleteOpt) error); ok {
+		r0 = returnFunc(ctx, key, opts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// KeyValue_Purge_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Purge'
+type KeyValue_Purge_Call struct {
+	*mock.Call
+}
+
+// Purge is a helper method to define mock.On call
+//   - ctx context.Context
+//   - key string
+//   - opts ...jetstream.KVDeleteOpt
+func (_e *KeyValue_Expecter) Purge(ctx interface{}, key interface{}, opts ...interface{}) *KeyValue_Purge_Call {
+	return &KeyValue_Purge_Call{Call: _e.mock.On("Purge",
+		append([]interface{}{ctx, key}, opts...)...)}
+}
+
+func (_c *KeyValue_Purge_Call) Run(run func(ctx context.Context, key string, opts ...jetstream.KVDeleteOpt)) *KeyValue_Purge_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 []jetstream.KVDeleteOpt
+		var variadicArgs []jetstream.KVDeleteOpt
+		if len(args) > 2 {
+			variadicArgs = args[2].([]jetstream.KVDeleteOpt)
+		}
+		arg2 = variadicArgs
+		run(
+			arg0,
+			arg1,
+			arg2...,
+		)
+	})
+	return _c
+}
+
+func (_c *KeyValue_Purge_Call) Return(err error) *KeyValue_Purge_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *KeyValue_Purge_Call) RunAndReturn(run func(ctx context.Context, key string, opts ...jetstream.KVDeleteOpt) error) *KeyValue_Purge_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// PurgeDeletes provides a mock function for the type KeyValue
+func (_mock *KeyValue) PurgeDeletes(ctx context.Context, opts ...jetstream.KVPurgeOpt) error {
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _mock.Called(ctx, opts)
+	} else {
+		tmpRet = _mock.Called(ctx)
+	}
+	ret := tmpRet
+
+	if len(ret) == 0 {
+		panic("no return value specified for PurgeDeletes")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ...jetstream.KVPurgeOpt) error); ok {
+		r0 = returnFunc(ctx, opts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// KeyValue_PurgeDeletes_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PurgeDeletes'
+type KeyValue_PurgeDeletes_Call struct {
+	*mock.Call
+}
+
+// PurgeDeletes is a helper method to define mock.On call
+//   - ctx context.Context
+//   - opts ...jetstream.KVPurgeOpt
+func (_e *KeyValue_Expecter) PurgeDeletes(ctx interface{}, opts ...interface{}) *KeyValue_PurgeDeletes_Call {
+	return &KeyValue_PurgeDeletes_Call{Call: _e.mock.On("PurgeDeletes",
+		append([]interface{}{ctx}, opts...)...)}
+}
+
+func (_c *KeyValue_PurgeDeletes_Call) Run(run func(ctx context.Context, opts ...jetstream.KVPurgeOpt)) *KeyValue_PurgeDeletes_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []jetstream.KVPurgeOpt
+		var variadicArgs []jetstream.KVPurgeOpt
+		if len(args) > 1 {
+			variadicArgs = args[1].([]jetstream.KVPurgeOpt)
+		}
+		arg1 = variadicArgs
+		run(
+			arg0,
+			arg1...,
+		)
+	})
+	return _c
+}
+
+func (_c *KeyValue_PurgeDeletes_Call) Return(err error) *KeyValue_PurgeDeletes_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *KeyValue_PurgeDeletes_Call) RunAndReturn(run func(ctx context.Context, opts ...jetstream.KVPurgeOpt) error) *KeyValue_PurgeDeletes_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Put provides a mock function for the type KeyValue
+func (_mock *KeyValue) Put(ctx context.Context, key string, value []byte) (uint64, error) {
+	ret := _mock.Called(ctx, key, value)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Put")
+	}
+
+	var r0 uint64
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, []byte) (uint64, error)); ok {
+		return returnFunc(ctx, key, value)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, []byte) uint64); ok {
+		r0 = returnFunc(ctx, key, value)
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, []byte) error); ok {
+		r1 = returnFunc(ctx, key, value)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// KeyValue_Put_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Put'
+type KeyValue_Put_Call struct {
+	*mock.Call
+}
+
+// Put is a helper method to define mock.On call
+//   - ctx context.Context
+//   - key string
+//   - value []byte
+func (_e *KeyValue_Expecter) Put(ctx interface{}, key interface{}, value interface{}) *KeyValue_Put_Call {
+	return &KeyValue_Put_Call{Call: _e.mock.On("Put", ctx, key, value)}
+}
+
+func (_c *KeyValue_Put_Call) Run(run func(ctx context.Context, key string, value []byte)) *KeyValue_Put_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 []byte
+		if args[2] != nil {
+			arg2 = args[2].([]byte)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *KeyValue_Put_Call) Return(v uint64, err error) *KeyValue_Put_Call {
+	_c.Call.Return(v, err)
+	return _c
+}
+
+func (_c *KeyValue_Put_Call) RunAndReturn(run func(ctx context.Context, key string, value []byte) (uint64, error)) *KeyValue_Put_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// PutString provides a mock function for the type KeyValue
+func (_mock *KeyValue) PutString(ctx context.Context, key string, value string) (uint64, error) {
+	ret := _mock.Called(ctx, key, value)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PutString")
+	}
+
+	var r0 uint64
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (uint64, error)); ok {
+		return returnFunc(ctx, key, value)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) uint64); ok {
+		r0 = returnFunc(ctx, key, value)
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = returnFunc(ctx, key, value)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// KeyValue_PutString_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PutString'
+type KeyValue_PutString_Call struct {
+	*mock.Call
+}
+
+// PutString is a helper method to define mock.On call
+//   - ctx context.Context
+//   - key string
+//   - value string
+func (_e *KeyValue_Expecter) PutString(ctx interface{}, key interface{}, value interface{}) *KeyValue_PutString_Call {
+	return &KeyValue_PutString_Call{Call: _e.mock.On("PutString", ctx, key, value)}
+}
+
+func (_c *KeyValue_PutString_Call) Run(run func(ctx context.Context, key string, value string)) *KeyValue_PutString_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *KeyValue_PutString_Call) Return(v uint64, err error) *KeyValue_PutString_Call {
+	_c.Call.Return(v, err)
+	return _c
+}
+
+func (_c *KeyValue_PutString_Call) RunAndReturn(run func(ctx context.Context, key string, value string) (uint64, error)) *KeyValue_PutString_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Status provides a mock function for the type KeyValue
+func (_mock *KeyValue) Status(ctx context.Context) (jetstream.KeyValueStatus, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Status")
+	}
+
+	var r0 jetstream.KeyValueStatus
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (jetstream.KeyValueStatus, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) jetstream.KeyValueStatus); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(jetstream.KeyValueStatus)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// KeyValue_Status_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Status'
+type KeyValue_Status_Call struct {
+	*mock.Call
+}
+
+// Status is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *KeyValue_Expecter) Status(ctx interface{}) *KeyValue_Status_Call {
+	return &KeyValue_Status_Call{Call: _e.mock.On("Status", ctx)}
+}
+
+func (_c *KeyValue_Status_Call) Run(run func(ctx context.Context)) *KeyValue_Status_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *KeyValue_Status_Call) Return(keyValueStatus jetstream.KeyValueStatus, err error) *KeyValue_Status_Call {
+	_c.Call.Return(keyValueStatus, err)
+	return _c
+}
+
+func (_c *KeyValue_Status_Call) RunAndReturn(run func(ctx context.Context) (jetstream.KeyValueStatus, error)) *KeyValue_Status_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Update provides a mock function for the type KeyValue
+func (_mock *KeyValue) Update(ctx context.Context, key string, value []byte, revision uint64) (uint64, error) {
+	ret := _mock.Called(ctx, key, value, revision)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Update")
+	}
+
+	var r0 uint64
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, []byte, uint64) (uint64, error)); ok {
+		return returnFunc(ctx, key, value, revision)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, []byte, uint64) uint64); ok {
+		r0 = returnFunc(ctx, key, value, revision)
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, []byte, uint64) error); ok {
+		r1 = returnFunc(ctx, key, value, revision)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// KeyValue_Update_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Update'
+type KeyValue_Update_Call struct {
+	*mock.Call
+}
+
+// Update is a helper method to define mock.On call
+//   - ctx context.Context
+//   - key string
+//   - value []byte
+//   - revision uint64
+func (_e *KeyValue_Expecter) Update(ctx interface{}, key interface{}, value interface{}, revision interface{}) *KeyValue_Update_Call {
+	return &KeyValue_Update_Call{Call: _e.mock.On("Update", ctx, key, value, revision)}
+}
+
+func (_c *KeyValue_Update_Call) Run(run func(ctx context.Context, key string, value []byte, revision uint64)) *KeyValue_Update_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 []byte
+		if args[2] != nil {
+			arg2 = args[2].([]byte)
+		}
+		var arg3 uint64
+		if args[3] != nil {
+			arg3 = args[3].(uint64)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *KeyValue_Update_Call) Return(v uint64, err error) *KeyValue_Update_Call {
+	_c.Call.Return(v, err)
+	return _c
+}
+
+func (_c *KeyValue_Update_Call) RunAndReturn(run func(ctx context.Context, key string, value []byte, revision uint64) (uint64, error)) *KeyValue_Update_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Watch provides a mock function for the type KeyValue
-func (_mock *KeyValue) Watch(keys string, opts ...nats.WatchOpt) (nats.KeyWatcher, error) {
+func (_mock *KeyValue) Watch(ctx context.Context, keys string, opts ...jetstream.WatchOpt) (jetstream.KeyWatcher, error) {
 	var tmpRet mock.Arguments
 	if len(opts) > 0 {
-		tmpRet = _mock.Called(keys, opts)
+		tmpRet = _mock.Called(ctx, keys, opts)
 	} else {
-		tmpRet = _mock.Called(keys)
+		tmpRet = _mock.Called(ctx, keys)
 	}
 	ret := tmpRet
 
@@ -960,20 +1133,20 @@ func (_mock *KeyValue) Watch(keys string, opts ...nats.WatchOpt) (nats.KeyWatche
 		panic("no return value specified for Watch")
 	}
 
-	var r0 nats.KeyWatcher
+	var r0 jetstream.KeyWatcher
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string, ...nats.WatchOpt) (nats.KeyWatcher, error)); ok {
-		return returnFunc(keys, opts...)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, ...jetstream.WatchOpt) (jetstream.KeyWatcher, error)); ok {
+		return returnFunc(ctx, keys, opts...)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string, ...nats.WatchOpt) nats.KeyWatcher); ok {
-		r0 = returnFunc(keys, opts...)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, ...jetstream.WatchOpt) jetstream.KeyWatcher); ok {
+		r0 = returnFunc(ctx, keys, opts...)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(nats.KeyWatcher)
+			r0 = ret.Get(0).(jetstream.KeyWatcher)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(string, ...nats.WatchOpt) error); ok {
-		r1 = returnFunc(keys, opts...)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, ...jetstream.WatchOpt) error); ok {
+		r1 = returnFunc(ctx, keys, opts...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -986,50 +1159,56 @@ type KeyValue_Watch_Call struct {
 }
 
 // Watch is a helper method to define mock.On call
+//   - ctx context.Context
 //   - keys string
-//   - opts ...nats.WatchOpt
-func (_e *KeyValue_Expecter) Watch(keys interface{}, opts ...interface{}) *KeyValue_Watch_Call {
+//   - opts ...jetstream.WatchOpt
+func (_e *KeyValue_Expecter) Watch(ctx interface{}, keys interface{}, opts ...interface{}) *KeyValue_Watch_Call {
 	return &KeyValue_Watch_Call{Call: _e.mock.On("Watch",
-		append([]interface{}{keys}, opts...)...)}
+		append([]interface{}{ctx, keys}, opts...)...)}
 }
 
-func (_c *KeyValue_Watch_Call) Run(run func(keys string, opts ...nats.WatchOpt)) *KeyValue_Watch_Call {
+func (_c *KeyValue_Watch_Call) Run(run func(ctx context.Context, keys string, opts ...jetstream.WatchOpt)) *KeyValue_Watch_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(string)
+			arg0 = args[0].(context.Context)
 		}
-		var arg1 []nats.WatchOpt
-		var variadicArgs []nats.WatchOpt
-		if len(args) > 1 {
-			variadicArgs = args[1].([]nats.WatchOpt)
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
 		}
-		arg1 = variadicArgs
+		var arg2 []jetstream.WatchOpt
+		var variadicArgs []jetstream.WatchOpt
+		if len(args) > 2 {
+			variadicArgs = args[2].([]jetstream.WatchOpt)
+		}
+		arg2 = variadicArgs
 		run(
 			arg0,
-			arg1...,
+			arg1,
+			arg2...,
 		)
 	})
 	return _c
 }
 
-func (_c *KeyValue_Watch_Call) Return(keyWatcher nats.KeyWatcher, err error) *KeyValue_Watch_Call {
+func (_c *KeyValue_Watch_Call) Return(keyWatcher jetstream.KeyWatcher, err error) *KeyValue_Watch_Call {
 	_c.Call.Return(keyWatcher, err)
 	return _c
 }
 
-func (_c *KeyValue_Watch_Call) RunAndReturn(run func(keys string, opts ...nats.WatchOpt) (nats.KeyWatcher, error)) *KeyValue_Watch_Call {
+func (_c *KeyValue_Watch_Call) RunAndReturn(run func(ctx context.Context, keys string, opts ...jetstream.WatchOpt) (jetstream.KeyWatcher, error)) *KeyValue_Watch_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // WatchAll provides a mock function for the type KeyValue
-func (_mock *KeyValue) WatchAll(opts ...nats.WatchOpt) (nats.KeyWatcher, error) {
+func (_mock *KeyValue) WatchAll(ctx context.Context, opts ...jetstream.WatchOpt) (jetstream.KeyWatcher, error) {
 	var tmpRet mock.Arguments
 	if len(opts) > 0 {
-		tmpRet = _mock.Called(opts)
+		tmpRet = _mock.Called(ctx, opts)
 	} else {
-		tmpRet = _mock.Called()
+		tmpRet = _mock.Called(ctx)
 	}
 	ret := tmpRet
 
@@ -1037,20 +1216,20 @@ func (_mock *KeyValue) WatchAll(opts ...nats.WatchOpt) (nats.KeyWatcher, error) 
 		panic("no return value specified for WatchAll")
 	}
 
-	var r0 nats.KeyWatcher
+	var r0 jetstream.KeyWatcher
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(...nats.WatchOpt) (nats.KeyWatcher, error)); ok {
-		return returnFunc(opts...)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ...jetstream.WatchOpt) (jetstream.KeyWatcher, error)); ok {
+		return returnFunc(ctx, opts...)
 	}
-	if returnFunc, ok := ret.Get(0).(func(...nats.WatchOpt) nats.KeyWatcher); ok {
-		r0 = returnFunc(opts...)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ...jetstream.WatchOpt) jetstream.KeyWatcher); ok {
+		r0 = returnFunc(ctx, opts...)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(nats.KeyWatcher)
+			r0 = ret.Get(0).(jetstream.KeyWatcher)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(...nats.WatchOpt) error); ok {
-		r1 = returnFunc(opts...)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, ...jetstream.WatchOpt) error); ok {
+		r1 = returnFunc(ctx, opts...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1063,44 +1242,50 @@ type KeyValue_WatchAll_Call struct {
 }
 
 // WatchAll is a helper method to define mock.On call
-//   - opts ...nats.WatchOpt
-func (_e *KeyValue_Expecter) WatchAll(opts ...interface{}) *KeyValue_WatchAll_Call {
+//   - ctx context.Context
+//   - opts ...jetstream.WatchOpt
+func (_e *KeyValue_Expecter) WatchAll(ctx interface{}, opts ...interface{}) *KeyValue_WatchAll_Call {
 	return &KeyValue_WatchAll_Call{Call: _e.mock.On("WatchAll",
-		append([]interface{}{}, opts...)...)}
+		append([]interface{}{ctx}, opts...)...)}
 }
 
-func (_c *KeyValue_WatchAll_Call) Run(run func(opts ...nats.WatchOpt)) *KeyValue_WatchAll_Call {
+func (_c *KeyValue_WatchAll_Call) Run(run func(ctx context.Context, opts ...jetstream.WatchOpt)) *KeyValue_WatchAll_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 []nats.WatchOpt
-		var variadicArgs []nats.WatchOpt
-		if len(args) > 0 {
-			variadicArgs = args[0].([]nats.WatchOpt)
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
 		}
-		arg0 = variadicArgs
+		var arg1 []jetstream.WatchOpt
+		var variadicArgs []jetstream.WatchOpt
+		if len(args) > 1 {
+			variadicArgs = args[1].([]jetstream.WatchOpt)
+		}
+		arg1 = variadicArgs
 		run(
-			arg0...,
+			arg0,
+			arg1...,
 		)
 	})
 	return _c
 }
 
-func (_c *KeyValue_WatchAll_Call) Return(keyWatcher nats.KeyWatcher, err error) *KeyValue_WatchAll_Call {
+func (_c *KeyValue_WatchAll_Call) Return(keyWatcher jetstream.KeyWatcher, err error) *KeyValue_WatchAll_Call {
 	_c.Call.Return(keyWatcher, err)
 	return _c
 }
 
-func (_c *KeyValue_WatchAll_Call) RunAndReturn(run func(opts ...nats.WatchOpt) (nats.KeyWatcher, error)) *KeyValue_WatchAll_Call {
+func (_c *KeyValue_WatchAll_Call) RunAndReturn(run func(ctx context.Context, opts ...jetstream.WatchOpt) (jetstream.KeyWatcher, error)) *KeyValue_WatchAll_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // WatchFiltered provides a mock function for the type KeyValue
-func (_mock *KeyValue) WatchFiltered(keys []string, opts ...nats.WatchOpt) (nats.KeyWatcher, error) {
+func (_mock *KeyValue) WatchFiltered(ctx context.Context, keys []string, opts ...jetstream.WatchOpt) (jetstream.KeyWatcher, error) {
 	var tmpRet mock.Arguments
 	if len(opts) > 0 {
-		tmpRet = _mock.Called(keys, opts)
+		tmpRet = _mock.Called(ctx, keys, opts)
 	} else {
-		tmpRet = _mock.Called(keys)
+		tmpRet = _mock.Called(ctx, keys)
 	}
 	ret := tmpRet
 
@@ -1108,20 +1293,20 @@ func (_mock *KeyValue) WatchFiltered(keys []string, opts ...nats.WatchOpt) (nats
 		panic("no return value specified for WatchFiltered")
 	}
 
-	var r0 nats.KeyWatcher
+	var r0 jetstream.KeyWatcher
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func([]string, ...nats.WatchOpt) (nats.KeyWatcher, error)); ok {
-		return returnFunc(keys, opts...)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []string, ...jetstream.WatchOpt) (jetstream.KeyWatcher, error)); ok {
+		return returnFunc(ctx, keys, opts...)
 	}
-	if returnFunc, ok := ret.Get(0).(func([]string, ...nats.WatchOpt) nats.KeyWatcher); ok {
-		r0 = returnFunc(keys, opts...)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []string, ...jetstream.WatchOpt) jetstream.KeyWatcher); ok {
+		r0 = returnFunc(ctx, keys, opts...)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(nats.KeyWatcher)
+			r0 = ret.Get(0).(jetstream.KeyWatcher)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func([]string, ...nats.WatchOpt) error); ok {
-		r1 = returnFunc(keys, opts...)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, []string, ...jetstream.WatchOpt) error); ok {
+		r1 = returnFunc(ctx, keys, opts...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1134,39 +1319,45 @@ type KeyValue_WatchFiltered_Call struct {
 }
 
 // WatchFiltered is a helper method to define mock.On call
+//   - ctx context.Context
 //   - keys []string
-//   - opts ...nats.WatchOpt
-func (_e *KeyValue_Expecter) WatchFiltered(keys interface{}, opts ...interface{}) *KeyValue_WatchFiltered_Call {
+//   - opts ...jetstream.WatchOpt
+func (_e *KeyValue_Expecter) WatchFiltered(ctx interface{}, keys interface{}, opts ...interface{}) *KeyValue_WatchFiltered_Call {
 	return &KeyValue_WatchFiltered_Call{Call: _e.mock.On("WatchFiltered",
-		append([]interface{}{keys}, opts...)...)}
+		append([]interface{}{ctx, keys}, opts...)...)}
 }
 
-func (_c *KeyValue_WatchFiltered_Call) Run(run func(keys []string, opts ...nats.WatchOpt)) *KeyValue_WatchFiltered_Call {
+func (_c *KeyValue_WatchFiltered_Call) Run(run func(ctx context.Context, keys []string, opts ...jetstream.WatchOpt)) *KeyValue_WatchFiltered_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 []string
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].([]string)
+			arg0 = args[0].(context.Context)
 		}
-		var arg1 []nats.WatchOpt
-		var variadicArgs []nats.WatchOpt
-		if len(args) > 1 {
-			variadicArgs = args[1].([]nats.WatchOpt)
+		var arg1 []string
+		if args[1] != nil {
+			arg1 = args[1].([]string)
 		}
-		arg1 = variadicArgs
+		var arg2 []jetstream.WatchOpt
+		var variadicArgs []jetstream.WatchOpt
+		if len(args) > 2 {
+			variadicArgs = args[2].([]jetstream.WatchOpt)
+		}
+		arg2 = variadicArgs
 		run(
 			arg0,
-			arg1...,
+			arg1,
+			arg2...,
 		)
 	})
 	return _c
 }
 
-func (_c *KeyValue_WatchFiltered_Call) Return(keyWatcher nats.KeyWatcher, err error) *KeyValue_WatchFiltered_Call {
+func (_c *KeyValue_WatchFiltered_Call) Return(keyWatcher jetstream.KeyWatcher, err error) *KeyValue_WatchFiltered_Call {
 	_c.Call.Return(keyWatcher, err)
 	return _c
 }
 
-func (_c *KeyValue_WatchFiltered_Call) RunAndReturn(run func(keys []string, opts ...nats.WatchOpt) (nats.KeyWatcher, error)) *KeyValue_WatchFiltered_Call {
+func (_c *KeyValue_WatchFiltered_Call) RunAndReturn(run func(ctx context.Context, keys []string, opts ...jetstream.WatchOpt) (jetstream.KeyWatcher, error)) *KeyValue_WatchFiltered_Call {
 	_c.Call.Return(run)
 	return _c
 }

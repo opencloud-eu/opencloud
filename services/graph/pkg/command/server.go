@@ -6,6 +6,10 @@ import (
 	"os/signal"
 
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
+	"github.com/pkg/errors"
+	"github.com/urfave/cli/v2"
+
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
@@ -16,8 +20,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/server/http"
-	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
 )
 
 // Server is the entrypoint for the server command.
@@ -48,29 +50,30 @@ func Server(cfg *config.Config) *cli.Command {
 
 			//Connect to NATS servers
 			natsOptions := nats.Options{
-				Servers: cfg.Store.Nodes,
+				Servers:  cfg.Store.Nodes,
+				User:     cfg.Store.AuthUsername,
+				Password: cfg.Store.AuthPassword,
 			}
 			conn, err := natsOptions.Connect()
 			if err != nil {
 				return err
 			}
 
-			js, err := conn.JetStream()
+			js, err := jetstream.New(conn)
 			if err != nil {
 				return err
 			}
-
-			kv, err := js.KeyValue(cfg.Store.Database)
+			kv, err := js.KeyValue(ctx, cfg.Store.Database)
 			if err != nil {
-				if !errors.Is(err, nats.ErrBucketNotFound) {
-					return errors.Wrapf(err, "Failed to get bucket (%s)", cfg.Store.Database)
+				if !errors.Is(err, jetstream.ErrBucketNotFound) {
+					return fmt.Errorf("failed to get bucket (%s): %w", cfg.Store.Database, err)
 				}
 
-				kv, err = js.CreateKeyValue(&nats.KeyValueConfig{
+				kv, err = js.CreateKeyValue(ctx, jetstream.KeyValueConfig{
 					Bucket: cfg.Store.Database,
 				})
 				if err != nil {
-					return errors.Wrapf(err, "Failed to create bucket (%s)", cfg.Store.Database)
+					return fmt.Errorf("failed to create bucket (%s): %w", cfg.Store.Database, err)
 				}
 			}
 			if err != nil {

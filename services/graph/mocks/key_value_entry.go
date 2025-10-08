@@ -7,7 +7,7 @@ package mocks
 import (
 	"time"
 
-	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -215,18 +215,18 @@ func (_c *KeyValueEntry_Key_Call) RunAndReturn(run func() string) *KeyValueEntry
 }
 
 // Operation provides a mock function for the type KeyValueEntry
-func (_mock *KeyValueEntry) Operation() nats.KeyValueOp {
+func (_mock *KeyValueEntry) Operation() jetstream.KeyValueOp {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for Operation")
 	}
 
-	var r0 nats.KeyValueOp
-	if returnFunc, ok := ret.Get(0).(func() nats.KeyValueOp); ok {
+	var r0 jetstream.KeyValueOp
+	if returnFunc, ok := ret.Get(0).(func() jetstream.KeyValueOp); ok {
 		r0 = returnFunc()
 	} else {
-		r0 = ret.Get(0).(nats.KeyValueOp)
+		r0 = ret.Get(0).(jetstream.KeyValueOp)
 	}
 	return r0
 }
@@ -248,12 +248,12 @@ func (_c *KeyValueEntry_Operation_Call) Run(run func()) *KeyValueEntry_Operation
 	return _c
 }
 
-func (_c *KeyValueEntry_Operation_Call) Return(keyValueOp nats.KeyValueOp) *KeyValueEntry_Operation_Call {
+func (_c *KeyValueEntry_Operation_Call) Return(keyValueOp jetstream.KeyValueOp) *KeyValueEntry_Operation_Call {
 	_c.Call.Return(keyValueOp)
 	return _c
 }
 
-func (_c *KeyValueEntry_Operation_Call) RunAndReturn(run func() nats.KeyValueOp) *KeyValueEntry_Operation_Call {
+func (_c *KeyValueEntry_Operation_Call) RunAndReturn(run func() jetstream.KeyValueOp) *KeyValueEntry_Operation_Call {
 	_c.Call.Return(run)
 	return _c
 }

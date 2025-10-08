@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
-	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"go.opentelemetry.io/otel/trace"
@@ -44,7 +44,7 @@ type Options struct {
 	KeycloakClient           keycloak.Client
 	EventHistoryClient       ehsvc.EventHistoryService
 	TraceProvider            trace.TracerProvider
-	NatsKeyValue             nats.KeyValue
+	NatsKeyValue             jetstream.KeyValue
 }
 
 // newOptions initializes the available default options.
@@ -115,7 +115,7 @@ func WithIdentityEducationBackend(val identity.EducationBackend) Option {
 }
 
 // WithNatsKeyValue provides a function to set the NatsKeyValue option.
-func WithNatsKeyValue(val nats.KeyValue) Option {
+func WithNatsKeyValue(val jetstream.KeyValue) Option {
 	return func(o *Options) {
 		o.NatsKeyValue = val
 	}
