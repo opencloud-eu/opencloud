@@ -33,7 +33,7 @@ type Config struct {
 
 	TokenManager *TokenManager `yaml:"token_manager"`
 
-	SetupDefaultAssignments bool `yaml:"set_default_assignments" env:"SETTINGS_SETUP_DEFAULT_ASSIGNMENTS;IDM_CREATE_DEMO_USERS" desc:"The default role assignments the demo users should be setup." introductionVersion:"1.0.0"`
+	SetupDefaultAssignments bool `yaml:"set_default_assignments" env:"IDM_CREATE_DEMO_USERS;SETTINGS_SETUP_DEFAULT_ASSIGNMENTS" desc:"The default role assignments the demo users should be setup." introductionVersion:"1.0.0"`
 
 	ServiceAccountIDs []string `yaml:"service_account_ids" env:"SETTINGS_SERVICE_ACCOUNT_IDS;OC_SERVICE_ACCOUNT_ID" desc:"The list of all service account IDs. These will be assigned the hidden 'service-account' role. Note: When using 'OC_SERVICE_ACCOUNT_ID' this will contain only one value while 'SETTINGS_SERVICE_ACCOUNT_IDS' can have multiple. See the 'auth-service' service description for more details about service accounts." introductionVersion:"1.0.0"`
 
