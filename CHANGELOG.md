@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.6.0) - 2025-10-07
+## [3.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.6.0) - 2025-10-08
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -39,6 +39,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/coreos/go-oidc/v3 from 3.15.0 to 3.16.0 [[#1627](https://github.com/opencloud-eu/opencloud/pull/1627)]
 - build(deps): bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.27.2 to 2.27.3 [[#1608](https://github.com/opencloud-eu/opencloud/pull/1608)]
 - build(deps): bump github.com/go-ldap/ldap/v3 from 3.4.11 to 3.4.12 [[#1609](https://github.com/opencloud-eu/opencloud/pull/1609)]
 - build(deps): bump google.golang.org/protobuf from 1.36.9 to 1.36.10 [[#1604](https://github.com/opencloud-eu/opencloud/pull/1604)]
