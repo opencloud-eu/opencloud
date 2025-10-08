@@ -3,7 +3,7 @@
 // Documentation for the OpenCloud Groupware API
 //
 //	Schemes: https
-//	BasePath: /groupware
+//	BasePath: /
 //	Version: 1.0.0
 //	Host:
 //
