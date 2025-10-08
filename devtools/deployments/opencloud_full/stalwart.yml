@@ -19,6 +19,8 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - ./config/stalwart:/opt/stalwart/etc
       - stalwart-data:/opt/stalwart/data
+    environment:
+      STALWART_AUTH_DIRECTORY: "${STALWART_AUTH_DIRECTORY:-idmldap}"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.stalwart.entrypoints=https"
