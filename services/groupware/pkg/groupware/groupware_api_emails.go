@@ -1064,8 +1064,8 @@ type SwaggerGetLatestEmailsSummaryForAllAccountsParams struct {
 //
 // The following additional query parameters may be specified to further filter the emails to summarize:
 //
-// ! `unread`: when `true`, only unread emails will be summarized (default is to summarize all emails, read or unread)
-// ! `undesirable`: when `true`, emails that are flagged as spam or phishing will also be summarized (default is to ignore those)
+// !- `unread`: when `true`, only unread emails will be summarized (default is to summarize all emails, read or unread)
+// !- `undesirable`: when `true`, emails that are flagged as spam or phishing will also be summarized (default is to ignore those)
 //
 // responses:
 //
@@ -1084,12 +1084,12 @@ func (g *Groupware) GetLatestEmailsSummaryForAllAccounts(w http.ResponseWriter, 
 			l = l.Uint(QueryParamLimit, limit)
 		}
 
-		unread, ok, err := req.parseBoolParam(QueryParamUnread, false)
+		seen, ok, err := req.parseBoolParam(QueryParamSeen, false)
 		if err != nil {
 			return errorResponse(err)
 		}
 		if ok {
-			l = l.Bool(QueryParamUnread, unread)
+			l = l.Bool(QueryParamSeen, seen)
 		}
 
 		undesirable, ok, err := req.parseBoolParam(QueryParamUndesirable, false)
@@ -1103,7 +1103,7 @@ func (g *Groupware) GetLatestEmailsSummaryForAllAccounts(w http.ResponseWriter, 
 		var filter jmap.EmailFilterElement = nil // all emails, read and unread
 		{
 			notKeywords := []string{}
-			if unread {
+			if !seen {
 				notKeywords = append(notKeywords, jmap.JmapKeywordSeen)
 			}
 			if undesirable {

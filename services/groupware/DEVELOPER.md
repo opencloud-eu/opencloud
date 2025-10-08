@@ -362,7 +362,7 @@ The necessary LDAP parameters are as follows:
 
 * <u>Bind DN:</u> `uid=libregraph,ou=sysusers,o=libregraph-idm`
 * <u>Bind Password:</u> `admin` (or whichever password is set in the `IDM_REVASVC_PASSWORD` environment variable in `opencloud.yml`)
-* <u>Base DN:</u> `o=libregraph-idm` or ``
+* <u>Base DN:</u> `o=libregraph-idm`
 * <u>Host:</u> `localhost`
 * <u>LDAP Port:</u> none, only supports LDAPS
 * <u>LDAPS Port:</u> `9235`
@@ -525,18 +525,36 @@ Note that `redocly-cli` does not need to be installed, it will be pulled locally
 
 This section assumes that you are using the [helper scripts in opencloud-tools](https://github.com/pbleser-oc/opencloud-tools) as instructed above.
 
-If you are running OpenCloud from within VSCode, then make sure to set the following environment variable `baseurl` first, in the shell from which you will use the scripts, as the OpenCloud process is listening to that address as opposed to <https://cloud.opencloud.test> and going through Traefik as is the case when running it from the Docker Compose `opencloud_full` setup:
+Your main swiss army knife tool will be `oc-gw` (mnemonic for "OpenCloud Groupware").
 
-```bash
-export baseurl=https://localhost:9200
-```
+As prerequisites, you should have `curl` and either [`http`(ie)](https://httpie.io/cli) or [`xh`](https://github.com/ducaale/xh) installed, in order to have a modern CLI HTTP client that is more helpful than plain old `curl`.
 
-The scripts default to using the user `alan` (with the password `demo`), which can be changed by setting the following environment variables:
+* `http` can be installed as follows: `pipx install httpie`,
+* while `xh` can be installed as follows: `cargo install xh --locked`
+
+As for credentials, `oc-gw` defaults to using the user `alan` (with the password `demo`), which can be changed by setting the following environment variables:
 
 * `username`
 * `password`
 
-Your main swiss army knife tool will be `oc-gw` (mnemonic for "OpenCloud Groupware"), which
+Example:
+
+```bash
+username=margaret password=demo oc-gw //accounts/all/quotas
+```
+
+To set them more permanently for the lifetime of a shell:
+
+```bash
+export username=lynn
+export password=demo
+
+oc-gw //accounts/all/mailboxes
+
+oc-gw //accounts/all/mailboxes/roles/inbox
+```
+
+The `oc-gw` script does the following regarding authentication:
 
 * checks whether a container named `opencloud_full-opencloud-1` is running locally
   * if so, whether it has basic auth enabled or not
