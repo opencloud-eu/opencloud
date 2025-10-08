@@ -24,6 +24,7 @@ services:
       OC_LDAP_SERVER_WRITE_ENABLED: "false" # assuming the external ldap is not writable
       # OC_RUN_SERVICES specifies to start all services except glauth, idm and accounts. These are replaced by external services
       OC_EXCLUDE_RUN_SERVICES: idm
+      STALWART_AUTH_DIRECTORY: "ldap"
 
   ldap-server:
     image: bitnamilegacy/openldap:2.6
