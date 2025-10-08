@@ -47,7 +47,7 @@ const (
 	QueryParamPartId                  = "partId"
 	QueryParamAttachmentName          = "name"
 	QueryParamAttachmentBlobId        = "blobId"
-	QueryParamUnread                  = "unread"
+	QueryParamSeen                    = "seen"
 	QueryParamUndesirable             = "undesirable"
 	HeaderSince                       = "if-none-match"
 )
@@ -63,7 +63,7 @@ func (g *Groupware) Route(r chi.Router) {
 			r.Get("/roles/{role}", g.GetMailboxByRoleForAllAccounts) // ?role=
 		})
 		r.Route("/emails", func(r chi.Router) {
-			r.Get("/latest/summary", g.GetLatestEmailsSummaryForAllAccounts)
+			r.Get("/latest/summary", g.GetLatestEmailsSummaryForAllAccounts) // ?limit=10&seen=true&undesirable=true
 		})
 		r.Get("/quota", g.GetQuotaForAllAccounts)
 	})
