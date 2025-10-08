@@ -178,6 +178,7 @@ func Server(opts ...Option) (http.Service, error) {
 		svc.KeycloakClient(keyCloakClient),
 		svc.EventHistoryClient(hClient),
 		svc.TraceProvider(options.TraceProvider),
+		svc.WithNatsKeyValue(options.NatsKeyValue),
 	)
 
 	if err != nil {

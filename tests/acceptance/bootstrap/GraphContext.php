@@ -107,10 +107,6 @@ class GraphContext implements Context {
 	): void {
 		$response = $this->editUserUsingTheGraphApi($byUser, $user, $userName);
 		$this->featureContext->setResponse($response);
-		// need to add user to list to delete him after test
-		if (!empty($userName) && $this->featureContext->getAttributeOfCreatedUser($userName, 'id')) {
-			$this->featureContext->addUserToCreatedUsersList($userName, $this->featureContext->getUserPassword($user));
-		}
 	}
 
 	/**
@@ -287,14 +283,18 @@ class GraphContext implements Context {
 	 * @return ResponseInterface
 	 * @throws GuzzleException
 	 */
-	public function adminDeletesUserUsingTheGraphApi(string $user, ?string $byUser = null): ResponseInterface {
+	public function adminDeletesUserUsingTheGraphApi(string $user, ?string $byUser = null): ?ResponseInterface {
 		$credentials = $this->getAdminOrUserCredentials($byUser);
-		return GraphHelper::deleteUser(
+		$userId = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
+		if ($userId === null) {
+			throw new \RuntimeException("Cannot delete user '$user': no userId found");
+		}
+		return GraphHelper::deleteUserByUserId(
 			$this->featureContext->getBaseUrl(),
 			$this->featureContext->getStepLineRef(),
 			$credentials["username"],
 			$credentials["password"],
-			$user
+			$userId
 		);
 	}
 
@@ -2828,7 +2828,17 @@ class GraphContext implements Context {
 			__METHOD__ . " cannot create new user '$user' by user '$byUser'.\nResponse:" .
 			json_encode($this->featureContext->getJsonDecodedResponse($response))
 		);
-		$this->featureContext->addUserToCreatedUsersList($user, $this->featureContext->getPasswordForUser($user));
+		$responseBody = (string) $response->getBody();
+		$responseData = \json_decode($responseBody, true, 512, JSON_THROW_ON_ERROR);
+		if ($response->getStatusCode() === 201) {
+			$this->featureContext->addUserToCreatedUsersList(
+				$user,
+				$this->featureContext->getPasswordForUser($user),
+				'',
+				'',
+				$responseData['id']
+			);
+		}
 	}
 
 	/**

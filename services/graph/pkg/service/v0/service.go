@@ -198,6 +198,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 		historyClient:            options.EventHistoryClient,
 		traceProvider:            options.TraceProvider,
 		valueService:             options.ValueService,
+		natskv:                   options.NatsKeyValue,
 	}
 
 	if err := setIdentityBackends(options, &svc); err != nil {

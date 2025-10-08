@@ -74,7 +74,7 @@ Feature: edit user
     And the user "Alice" has deleted a user "sam"
     When the user "Alice" changes the user name of user "Brian" to "sam" using the Graph API
     Then the HTTP status code should be "200"
-    And the user information of "sam" should match this JSON schema
+    And the user information of "Brian" should match this JSON schema
       """
       {
         "type": "object",

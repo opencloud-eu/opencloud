@@ -42,6 +42,8 @@ type Config struct {
 	Metadata Metadata `yaml:"metadata_config"`
 
 	UserSoftDeleteRetentionTime time.Duration `yaml:"user_soft_delete_retention_time" env:"GRAPH_USER_SOFT_DELETE_RETENTION_TIME" desc:"The time after which a soft-deleted user is permanently deleted. If set to 0 (default), there is no soft delete retention time and users are deleted immediately after being soft-deleted. If set to a positive value, the user will be kept in the system for that duration before being permanently deleted." introductionVersion:"%%NEXT%%"`
+
+	Store Store `yaml:"store"`
 }
 
 type Spaces struct {
@@ -167,4 +169,12 @@ type Metadata struct {
 	SystemUserID     string `yaml:"system_user_id" env:"OC_SYSTEM_USER_ID;GRAPH_SYSTEM_USER_ID" desc:"ID of the OpenCloud STORAGE-SYSTEM system user. Admins need to set the ID for the STORAGE-SYSTEM system user in this config option which is then used to reference the user. Any reasonable long string is possible, preferably this would be an UUIDv4 format." introductionVersion:"%%NEXT%%"`
 	SystemUserIDP    string `yaml:"system_user_idp" env:"OC_SYSTEM_USER_IDP;GRAPH_SYSTEM_USER_IDP" desc:"IDP of the OpenCloud STORAGE-SYSTEM system user." introductionVersion:"%%NEXT%%"`
 	SystemUserAPIKey string `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY" desc:"API key for the STORAGE-SYSTEM system user." introductionVersion:"%%NEXT%%"`
+}
+
+// Store configures the store to use
+type Store struct {
+	Nodes        []string `yaml:"nodes" env:"OC_PERSISTENT_STORE_NODES;GRAPH_STORE_NODES" desc:"A list of nodes to access the configured store. This has no effect when 'memory' store is configured. Note that the behaviour how nodes are used is dependent on the library of the configured store. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
+	Database     string   `yaml:"database" env:"GRAPH_STORE_DATABASE" desc:"The database name the configured store should use." introductionVersion:"1.0.0"`
+	AuthUsername string   `yaml:"username" env:"OC_PERSISTENT_STORE_AUTH_USERNAME;GRAPH_STORE_AUTH_USERNAME" desc:"The username to authenticate with the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
+	AuthPassword string   `yaml:"password" env:"OC_PERSISTENT_STORE_AUTH_PASSWORD;GRAPH_STORE_AUTH_PASSWORD" desc:"The password to authenticate with the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
 }

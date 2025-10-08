@@ -16,6 +16,7 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/go-chi/chi/v5"
+	"github.com/nats-io/nats.go/jetstream"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
@@ -26,6 +27,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"go-micro.dev/v4/client"
 	"google.golang.org/grpc"
+
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/userstate"
 
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	settingsmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
@@ -54,6 +57,7 @@ var _ = Describe("Users", func() {
 		valueService      *settingsmocks.ValueService
 		permissionService *mocks.Permissions
 		identityBackend   *identitymocks.Backend
+		natsKeyValueMock  *mocks.KeyValue
 
 		rr *httptest.ResponseRecorder
 
@@ -79,6 +83,7 @@ var _ = Describe("Users", func() {
 
 		identityBackend = &identitymocks.Backend{}
 		roleService = &mocks.RoleService{}
+		natsKeyValueMock = &mocks.KeyValue{}
 		valueService = &settingsmocks.ValueService{}
 		permissionService = &mocks.Permissions{}
 
@@ -105,6 +110,7 @@ var _ = Describe("Users", func() {
 				service.WithRoleService(roleService),
 				service.WithValueService(valueService),
 				service.PermissionService(permissionService),
+				service.WithNatsKeyValue(natsKeyValueMock),
 			)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -968,6 +974,25 @@ var _ = Describe("Users", func() {
 				lu.SetId(currentUser.Id.OpaqueId)
 				identityBackend.On("GetUser", mock.Anything, mock.Anything, mock.Anything).Return(&lu, nil)
 
+				natsKeyValueMock.EXPECT().Get(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, key string) (jetstream.KeyValueEntry, error) {
+					byteRep, _ := json.Marshal(userstate.UserState{
+						UserId:          lu.GetId(),
+						State:           userstate.UserStateSoftDeleted,
+						TimeStamp:       time.Now().UTC(),
+						RetentionPeriod: 5 * time.Minute,
+						Reason:          "unit test",
+					})
+
+					kve := &mocks.KeyValueEntry{}
+					kve.On("Value").Return(byteRep)
+
+					return kve, nil
+				}).Once()
+
+				natsKeyValueMock.EXPECT().Put(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, key string, val []byte) (uint64, error) {
+					return 1, nil
+				}).Once()
+
 				r := httptest.NewRequest(http.MethodDelete, "/graph/v1.0/users/{userid}", nil)
 				rctx := chi.NewRouteContext()
 				rctx.URLParams.Add("userID", currentUser.Id.OpaqueId)
@@ -1003,6 +1028,25 @@ var _ = Describe("Users", func() {
 						},
 					},
 				}, nil)
+
+				natsKeyValueMock.EXPECT().Get(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, key string) (jetstream.KeyValueEntry, error) {
+					byteRep, _ := json.Marshal(userstate.UserState{
+						UserId:          lu.GetId(),
+						State:           userstate.UserStateSoftDeleted,
+						TimeStamp:       time.Now().UTC(),
+						RetentionPeriod: 5 * time.Minute,
+						Reason:          "unit test",
+					})
+
+					kve := &mocks.KeyValueEntry{}
+					kve.On("Value").Return(byteRep)
+
+					return kve, nil
+				}).Once()
+
+				natsKeyValueMock.EXPECT().Put(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, key string, val []byte) (uint64, error) {
+					return 1, nil
+				}).Once()
 
 				r := httptest.NewRequest(http.MethodDelete, "/graph/v1.0/users/{userid}", nil)
 				rctx := chi.NewRouteContext()
@@ -1047,7 +1091,7 @@ var _ = Describe("Users", func() {
 				lu := libregraph.User{}
 				lu.SetId(otheruser.Id.OpaqueId)
 				identityBackend.On("GetUser", mock.Anything, mock.Anything, mock.Anything).Return(&lu, nil)
-				identityBackend.On("DeleteUser", mock.Anything, mock.Anything).Return(nil)
+				//identityBackend.On("DeleteUser", mock.Anything, mock.Anything).Return(nil)
 				identityBackend.On("UpdateUser", mock.Anything, mock.Anything, mock.Anything).Return(&lu, nil)
 				gatewayClient.On("DeleteStorageSpace", mock.Anything, mock.Anything).Return(&provider.DeleteStorageSpaceResponse{
 					Status: status.NewOK(ctx),
@@ -1065,6 +1109,24 @@ var _ = Describe("Users", func() {
 					},
 				}, nil)
 
+				natsKeyValueMock.EXPECT().Get(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, key string) (jetstream.KeyValueEntry, error) {
+					byteRep, _ := json.Marshal(userstate.UserState{
+						UserId:          lu.GetId(),
+						State:           userstate.UserStateSoftDeleted,
+						TimeStamp:       time.Now().UTC(),
+						RetentionPeriod: 5 * time.Minute,
+						Reason:          "unit test",
+					})
+
+					kve := &mocks.KeyValueEntry{}
+					kve.On("Value").Return(byteRep)
+
+					return kve, nil
+				}).Once()
+
+				natsKeyValueMock.EXPECT().Put(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, key string, val []byte) (uint64, error) {
+					return 1, nil
+				}).Once()
 				r := httptest.NewRequest(http.MethodDelete, "/graph/v1.0/users/{userid}", nil)
 				rctx := chi.NewRouteContext()
 				rctx.URLParams.Add("userID", lu.GetId())
@@ -1103,6 +1165,25 @@ var _ = Describe("Users", func() {
 						},
 					},
 				}, nil)
+
+				natsKeyValueMock.EXPECT().Get(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, key string) (jetstream.KeyValueEntry, error) {
+					byteRep, _ := json.Marshal(userstate.UserState{
+						UserId:          lu.GetId(),
+						State:           userstate.UserStateSoftDeleted,
+						TimeStamp:       time.Now().UTC(),
+						RetentionPeriod: 5 * time.Minute,
+						Reason:          "unit test",
+					})
+
+					kve := &mocks.KeyValueEntry{}
+					kve.On("Value").Return(byteRep)
+
+					return kve, nil
+				}).Once()
+
+				natsKeyValueMock.EXPECT().Put(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, key string, val []byte) (uint64, error) {
+					return 1, nil
+				}).Once()
 
 				r := httptest.NewRequest(http.MethodDelete, "/graph/v1.0/users/{userid}", nil)
 				r.Header.Set("Prefer", "purge") // this header is used to indicate a hard delete

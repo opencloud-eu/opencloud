@@ -3,11 +3,13 @@ package http
 import (
 	"context"
 
+	"github.com/nats-io/nats.go/jetstream"
+	"github.com/urfave/cli/v2"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
-	"github.com/urfave/cli/v2"
-	"go.opentelemetry.io/otel/trace"
 )
 
 // Option defines a single option function.
@@ -22,6 +24,7 @@ type Options struct {
 	Flags         []cli.Flag
 	Namespace     string
 	TraceProvider trace.TracerProvider
+	NatsKeyValue  jetstream.KeyValue
 }
 
 // newOptions initializes the available default options.
@@ -81,5 +84,12 @@ func Namespace(val string) Option {
 func TraceProvider(val trace.TracerProvider) Option {
 	return func(o *Options) {
 		o.TraceProvider = val
+	}
+}
+
+// NatsKeyValue provides a function to set the NatsKeyValue option.
+func NatsKeyValue(val jetstream.KeyValue) Option {
+	return func(o *Options) {
+		o.NatsKeyValue = val
 	}
 }
