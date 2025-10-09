@@ -522,8 +522,8 @@ func (j *Client) ImportEmail(accountId string, session *Session, ctx context.Con
 }
 
 type CreatedEmail struct {
-	Email Email `json:"email"`
-	State State `json:"state"`
+	Email *Email `json:"email"`
+	State State  `json:"state"`
 }
 
 func (j *Client) CreateEmail(accountId string, email EmailCreate, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (CreatedEmail, SessionState, Language, Error) {
@@ -572,8 +572,8 @@ func (j *Client) CreateEmail(accountId string, email EmailCreate, session *Sessi
 }
 
 type UpdatedEmails struct {
-	Updated map[string]Email `json:"email"`
-	State   State            `json:"state"`
+	Updated map[string]*Email `json:"email"`
+	State   State             `json:"state"`
 }
 
 // The Email/set method encompasses:
@@ -613,7 +613,8 @@ func (j *Client) UpdateEmails(accountId string, updates map[string]EmailUpdate, 
 }
 
 type DeletedEmails struct {
-	State State `json:"state"`
+	State        State               `json:"state"`
+	NotDestroyed map[string]SetError `json:"notDestroyed"`
 }
 
 func (j *Client) DeleteEmails(accountId string, destroy []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (DeletedEmails, SessionState, Language, Error) {
@@ -633,11 +634,10 @@ func (j *Client) DeleteEmails(accountId string, destroy []string, session *Sessi
 		if err != nil {
 			return DeletedEmails{}, err
 		}
-		if len(setResponse.NotDestroyed) != len(destroy) {
-			// error occured
-			// TODO(pbleser-oc) handle submission errors
-		}
-		return DeletedEmails{State: setResponse.NewState}, nil
+		return DeletedEmails{
+			State:        setResponse.NewState,
+			NotDestroyed: setResponse.NotDestroyed,
+		}, nil
 	})
 }
 
