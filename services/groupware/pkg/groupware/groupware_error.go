@@ -194,6 +194,7 @@ const (
 	ErrorCodeMissingContactsAccountCapability  = "MACCON"
 	ErrorCodeMissingTasksSessionCapability     = "MSCTSK"
 	ErrorCodeMissingTaskAccountCapability      = "MACTSK"
+	ErrorCodeFailedToDeleteEmail               = "DELEML"
 )
 
 var (
@@ -412,6 +413,12 @@ var (
 		Code:   ErrorCodeMissingTasksSessionCapability,
 		Title:  "Account is missing the task capability '" + jmap.JmapTasks + "'",
 		Detail: "The JMAP Account of the user does not have the required capability '" + jmap.JmapTasks + "'.",
+	}
+	ErrorFailedToDeleteEmail = GroupwareError{
+		Status: http.StatusInternalServerError,
+		Code:   ErrorCodeFailedToDeleteEmail,
+		Title:  "Failed to delete emails",
+		Detail: "One or more emails could not be deleted.",
 	}
 )
 

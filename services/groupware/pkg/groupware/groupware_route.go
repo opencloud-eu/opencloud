@@ -82,9 +82,13 @@ func (g *Groupware) Route(r chi.Router) {
 		r.Route("/emails", func(r chi.Router) {
 			r.Get("/", g.GetEmails) // ?fetchemails=true&fetchbodies=true&text=&subject=&body=&keyword=&keyword=&...
 			r.Post("/", g.CreateEmail)
+			r.Delete("/", g.DeleteEmails)
 			r.Get("/{emailid}", g.GetEmailsById)
 			// r.Put("/{emailid}", g.ReplaceEmail) // TODO
 			r.Patch("/{emailid}", g.UpdateEmail)
+			r.Patch("/{emailid}/keywords", g.UpdateEmailKeywords)
+			r.Post("/{emailid}/keywords", g.AddEmailKeywords)
+			r.Delete("/{emailid}/keywords", g.RemoveEmailKeywords)
 			r.Delete("/{emailid}", g.DeleteEmail)
 			Report(r, "/{emailid}", g.RelatedToEmail)
 			r.Get("/{emailid}/attachments", g.GetEmailAttachments) // ?partId=&name=?&blobId=?
