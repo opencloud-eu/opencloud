@@ -75,7 +75,7 @@ func (g *Groupware) GetAllEmailsInMailbox(w http.ResponseWriter, r *http.Request
 				return errorResponse(err)
 			}
 
-			logger := log.From(req.logger.With().Str(HeaderSince, since).Str(logAccountId, accountId))
+			logger := log.From(req.logger.With().Str(HeaderSince, log.SafeString(since)).Str(logAccountId, log.SafeString(accountId)))
 
 			emails, sessionState, lang, jerr := g.jmap.GetMailboxChanges(accountId, req.session, req.ctx, logger, req.language(), mailboxId, since, true, g.maxBodyValueBytes, maxChanges)
 			if jerr != nil {
@@ -194,7 +194,7 @@ func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) 
 			if err != nil {
 				return errorResponse(err)
 			}
-			l := req.logger.With().Str(logAccountId, accountId)
+			l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
 			logger := log.From(l)
 			emails, sessionState, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), []string{id}, false, 0)
 			if jerr != nil {
@@ -217,7 +217,7 @@ func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) 
 				return gwerr
 			}
 
-			l := req.logger.With().Str(logAccountId, mailAccountId).Str(logBlobAccountId, log.SafeString(blobAccountId))
+			l := req.logger.With().Str(logAccountId, log.SafeString(mailAccountId)).Str(logBlobAccountId, log.SafeString(blobAccountId))
 			l = contextAppender(l)
 			logger := log.From(l)
 
@@ -285,7 +285,7 @@ func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) 
 
 func (g *Groupware) getEmailsSince(w http.ResponseWriter, r *http.Request, since string) {
 	g.respond(w, r, func(req Request) Response {
-		l := req.logger.With().Str(QueryParamSince, since)
+		l := req.logger.With().Str(QueryParamSince, log.SafeString(since))
 		maxChanges, ok, err := req.parseUIntParam(QueryParamMaxChanges, 0)
 		if err != nil {
 			return errorResponse(err)
@@ -497,7 +497,7 @@ func (g *Groupware) searchEmails(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return errorResponse(err)
 			}
-			logger = log.From(logger.With().Str(logAccountId, accountId))
+			logger = log.From(logger.With().Str(logAccountId, log.SafeString(accountId)))
 
 			results, sessionState, lang, jerr := g.jmap.QueryEmailsWithSnippets(accountId, filter, req.session, req.ctx, logger, req.language(), offset, limit, fetchBodies, g.maxBodyValueBytes)
 			if jerr != nil {
@@ -530,7 +530,7 @@ func (g *Groupware) searchEmails(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return errorResponse(err)
 			}
-			logger = log.From(logger.With().Str(logAccountId, accountId))
+			logger = log.From(logger.With().Str(logAccountId, log.SafeString(accountId)))
 
 			results, sessionState, lang, jerr := g.jmap.QueryEmailSnippets(accountId, filter, req.session, req.ctx, logger, req.language(), offset, limit)
 			if jerr != nil {
@@ -581,7 +581,7 @@ func (g *Groupware) CreateEmail(w http.ResponseWriter, r *http.Request) {
 		if gwerr != nil {
 			return errorResponse(gwerr)
 		}
-		logger = log.From(logger.With().Str(logAccountId, accountId))
+		logger = log.From(logger.With().Str(logAccountId, log.SafeString(accountId)))
 
 		var body EmailCreation
 		err := req.body(&body)
@@ -619,12 +619,20 @@ func (g *Groupware) CreateEmail(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// swagger:parameters update_email
+type SwaggerUpdateEmailBody struct {
+	// List of identifiers of emails to delete.
+	// in: body
+	// example: ["caen3iujoo8u", "aec8phaetaiz", "bohna0me"]
+	Body map[string]string
+}
+
 func (g *Groupware) UpdateEmail(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		emailId := chi.URLParam(r, UriParamEmailId)
 
 		l := req.logger.With()
-		l.Str(UriParamEmailId, emailId)
+		l.Str(UriParamEmailId, log.SafeString(emailId))
 
 		accountId, gwerr := req.GetAccountIdForMail()
 		if gwerr != nil {
@@ -661,9 +669,218 @@ func (g *Groupware) UpdateEmail(w http.ResponseWriter, r *http.Request) {
 
 		return response(updatedEmail, sessionState, lang)
 	})
-
 }
 
+type emailKeywordUpdates struct {
+	Add    []string `json:"add,omitempty"`
+	Remove []string `json:"remove,omitempty"`
+}
+
+func (e emailKeywordUpdates) IsEmpty() bool {
+	return len(e.Add) == 0 && len(e.Remove) == 0
+}
+
+func (g *Groupware) UpdateEmailKeywords(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		emailId := chi.URLParam(r, UriParamEmailId)
+
+		l := req.logger.With()
+		l.Str(UriParamEmailId, log.SafeString(emailId))
+
+		accountId, gwerr := req.GetAccountIdForMail()
+		if gwerr != nil {
+			return errorResponse(gwerr)
+		}
+		l.Str(logAccountId, accountId)
+
+		logger := log.From(l)
+
+		var body emailKeywordUpdates
+		err := req.body(&body)
+		if err != nil {
+			return errorResponse(err)
+		}
+
+		if body.IsEmpty() {
+			return noContentResponse(req.session.State)
+		}
+
+		patch := map[string]*bool{}
+		truth := true
+		for _, keyword := range body.Add {
+			patch[keyword] = &truth
+		}
+		for _, keyword := range body.Remove {
+			patch[keyword] = nil
+		}
+		patches := map[string]jmap.EmailUpdate{
+			emailId: {
+				"keywords": patch,
+			},
+		}
+
+		result, sessionState, lang, jerr := g.jmap.UpdateEmails(accountId, patches, req.session, req.ctx, logger, req.language())
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
+		}
+
+		if result.Updated == nil {
+			return errorResponse(apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Missing Email Update Response",
+				"An internal API behaved unexpectedly: missing Email update response from JMAP endpoint")))
+		}
+		updatedEmail, ok := result.Updated[emailId]
+		if !ok {
+			return errorResponse(apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Wrong Email Update Response ID",
+				"An internal API behaved unexpectedly: wrong Email update ID response from JMAP endpoint")))
+		}
+
+		return response(updatedEmail, sessionState, lang)
+	})
+}
+
+// swagger:route POST /groupware/accounts/{account}/emails/{emailid}/keywords email add_email_keywords
+// Add keywords to an email by its unique identifier.
+//
+// responses:
+//
+//	204: Success204
+//	400: ErrorResponse400
+//	404: ErrorResponse404
+//	500: ErrorResponse500
+func (g *Groupware) AddEmailKeywords(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		emailId := chi.URLParam(r, UriParamEmailId)
+
+		l := req.logger.With()
+		l.Str(UriParamEmailId, log.SafeString(emailId))
+
+		accountId, gwerr := req.GetAccountIdForMail()
+		if gwerr != nil {
+			return errorResponse(gwerr)
+		}
+		l.Str(logAccountId, accountId)
+
+		logger := log.From(l)
+
+		var body []string
+		err := req.body(&body)
+		if err != nil {
+			return errorResponse(err)
+		}
+
+		if len(body) < 1 {
+			return noContentResponse(req.session.State)
+		}
+
+		patch := map[string]bool{}
+		for _, keyword := range body {
+			patch[keyword] = true
+		}
+		patches := map[string]jmap.EmailUpdate{
+			emailId: {
+				"keywords": patch,
+			},
+		}
+
+		result, sessionState, lang, jerr := g.jmap.UpdateEmails(accountId, patches, req.session, req.ctx, logger, req.language())
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
+		}
+
+		if result.Updated == nil {
+			return errorResponse(apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Missing Email Update Response",
+				"An internal API behaved unexpectedly: missing Email update response from JMAP endpoint")))
+		}
+		updatedEmail, ok := result.Updated[emailId]
+		if !ok {
+			return errorResponse(apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Wrong Email Update Response ID",
+				"An internal API behaved unexpectedly: wrong Email update ID response from JMAP endpoint")))
+		}
+
+		if updatedEmail == nil {
+			return noContentResponseWithEtag(sessionState, result.State)
+		} else {
+			return response(updatedEmail, sessionState, lang)
+		}
+	})
+}
+
+// swagger:route DELETE /groupware/accounts/{account}/emails/{emailid}/keywords email remove_email_keywords
+// Remove keywords of an email by its unique identifier.
+//
+// responses:
+//
+//	204: Success204
+//	400: ErrorResponse400
+//	404: ErrorResponse404
+//	500: ErrorResponse500
+func (g *Groupware) RemoveEmailKeywords(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		emailId := chi.URLParam(r, UriParamEmailId)
+
+		l := req.logger.With()
+		l.Str(UriParamEmailId, log.SafeString(emailId))
+
+		accountId, gwerr := req.GetAccountIdForMail()
+		if gwerr != nil {
+			return errorResponse(gwerr)
+		}
+		l.Str(logAccountId, accountId)
+
+		logger := log.From(l)
+
+		var body []string
+		err := req.body(&body)
+		if err != nil {
+			return errorResponse(err)
+		}
+
+		if len(body) < 1 {
+			return noContentResponse(req.session.State)
+		}
+
+		patch := map[string]*bool{}
+		for _, keyword := range body {
+			patch[keyword] = nil
+		}
+		patches := map[string]jmap.EmailUpdate{
+			emailId: {
+				"keywords": patch,
+			},
+		}
+
+		result, sessionState, lang, jerr := g.jmap.UpdateEmails(accountId, patches, req.session, req.ctx, logger, req.language())
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
+		}
+
+		if result.Updated == nil {
+			return errorResponse(apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Missing Email Update Response",
+				"An internal API behaved unexpectedly: missing Email update response from JMAP endpoint")))
+		}
+		updatedEmail, ok := result.Updated[emailId]
+		if !ok {
+			return errorResponse(apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Wrong Email Update Response ID",
+				"An internal API behaved unexpectedly: wrong Email update ID response from JMAP endpoint")))
+		}
+
+		if updatedEmail == nil {
+			return noContentResponseWithEtag(sessionState, result.State)
+		} else {
+			return response(updatedEmail, sessionState, lang)
+		}
+	})
+}
+
+// swagger:route DELETE /groupware/accounts/{account}/emails/{emailid} email delete_email
+// Delete an email by its unique identifier.
+//
+// responses:
+//
+//	204: Success204
+//	400: ErrorResponse400
+//	404: ErrorResponse404
+//	500: ErrorResponse500
 func (g *Groupware) DeleteEmail(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		emailId := chi.URLParam(r, UriParamEmailId)
@@ -679,12 +896,86 @@ func (g *Groupware) DeleteEmail(w http.ResponseWriter, r *http.Request) {
 
 		logger := log.From(l)
 
-		_, sessionState, _, jerr := g.jmap.DeleteEmails(accountId, []string{emailId}, req.session, req.ctx, logger, req.language())
+		resp, sessionState, _, jerr := g.jmap.DeleteEmails(accountId, []string{emailId}, req.session, req.ctx, logger, req.language())
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
 
-		return noContentResponse(sessionState)
+		for _, e := range resp.NotDestroyed {
+			desc := e.Description
+			if desc != "" {
+				return errorResponseWithSessionState(apiError(
+					req.errorId(),
+					ErrorFailedToDeleteEmail,
+					withDetail(e.Description),
+				), sessionState)
+			} else {
+				return errorResponseWithSessionState(apiError(
+					req.errorId(),
+					ErrorFailedToDeleteEmail,
+				), sessionState)
+			}
+		}
+		return noContentResponseWithEtag(sessionState, resp.State)
+	})
+}
+
+// swagger:parameters delete_emails
+type SwaggerDeleteEmailsBody struct {
+	// List of identifiers of emails to delete.
+	// in: body
+	// example: ["caen3iujoo8u", "aec8phaetaiz", "bohna0me"]
+	Body []string
+}
+
+// swagger:route DELETE /groupware/accounts/{account}/emails email delete_emails
+// Delete a set of emails by their unique identifiers.
+//
+// The identifiers of the emails to delete are specified as part of the request
+// body, as an array of strings.
+//
+// responses:
+//
+//	204: Success204
+//	400: ErrorResponse400
+//	404: ErrorResponse404
+//	500: ErrorResponse500
+func (g *Groupware) DeleteEmails(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		var emailIds []string
+		err := req.body(&emailIds)
+		if err != nil {
+			return errorResponse(err)
+		}
+
+		l := req.logger.With()
+		l.Array("emailIds", log.SafeStringArray(emailIds))
+
+		accountId, gwerr := req.GetAccountIdForMail()
+		if gwerr != nil {
+			return errorResponse(gwerr)
+		}
+		l.Str(logAccountId, accountId)
+
+		logger := log.From(l)
+
+		resp, sessionState, _, jerr := g.jmap.DeleteEmails(accountId, emailIds, req.session, req.ctx, logger, req.language())
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
+		}
+
+		if len(resp.NotDestroyed) > 0 {
+			meta := make(map[string]any, len(resp.NotDestroyed))
+			for emailId, e := range resp.NotDestroyed {
+				meta[emailId] = e.Description
+			}
+			return errorResponseWithSessionState(apiError(
+				req.errorId(),
+				ErrorFailedToDeleteEmail,
+				withMeta(meta),
+			), sessionState)
+		}
+		return noContentResponseWithEtag(sessionState, resp.State)
 	})
 }
 
@@ -764,7 +1055,7 @@ func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) {
 		if gwerr != nil {
 			return errorResponse(gwerr)
 		}
-		l = l.Str(logAccountId, accountId)
+		l = l.Str(logAccountId, log.SafeString(accountId))
 
 		logger := log.From(l)
 
@@ -1042,16 +1333,22 @@ type SwaggerGetLatestEmailsSummaryForAllAccounts200 struct {
 
 // swagger:parameters get_latest_emails_summary_for_all_accounts
 type SwaggerGetLatestEmailsSummaryForAllAccountsParams struct {
+	// The maximum amount of email summaries to return.
 	// in: query
 	// example: 10
+	// default: 10
 	Limit uint `json:"limit"`
 
+	// Whether to include emails that have already been seen (read) or not.
 	// in: query
 	// example: true
-	Unread bool `json:"unread"`
+	// default: false
+	Seen bool `json:"seen"`
 
+	// Whether to include emails that have been flagged as junk or phishing.
 	// in: query
 	// example: false
+	// default: false
 	Undesirable bool `json:"undesirable"`
 }
 
@@ -1060,11 +1357,11 @@ type SwaggerGetLatestEmailsSummaryForAllAccountsParams struct {
 //
 // Retrieves summaries of the latest emails of a user, in all accounts, across all mailboxes.
 //
-// The number of total summaries to retrieve is specified using the query parameter 'limit'.
+// The number of total summaries to retrieve is specified using the query parameter `limit`.
 //
 // The following additional query parameters may be specified to further filter the emails to summarize:
 //
-// !- `unread`: when `true`, only unread emails will be summarized (default is to summarize all emails, read or unread)
+// !- `seen`: when `true`, emails that have already been seen (read) will be included as well (default is to only include emails that have not been read yet)
 // !- `undesirable`: when `true`, emails that are flagged as spam or phishing will also be summarized (default is to ignore those)
 //
 // responses:
