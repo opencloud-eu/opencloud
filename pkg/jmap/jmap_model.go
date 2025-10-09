@@ -2067,14 +2067,14 @@ type Email struct {
 	// (as referenced by the blobId, i.e., the number of octets in the file the user would download).
 	//
 	// [RFC5322]: https://www.rfc-editor.org/rfc/rfc5322.html
-	Size int `json:"size"`
+	Size int `json:"size,omitzero"`
 
 	// The date the Email was received by the message store.
 	//
 	// This is the internal date in IMAP [RFC3501].
 	//
 	// [RFC3501]: https://www.rfc-editor.org/rfc/rfc3501.html
-	ReceivedAt time.Time `json:"receivedAt,omitempty"`
+	ReceivedAt time.Time `json:"receivedAt,omitzero"`
 
 	// This is a list of all header fields [RFC5322], in the same order they appear in the message.
 	//
@@ -2116,7 +2116,7 @@ type Email struct {
 	Subject string `json:"subject,omitempty"`
 
 	// The value is identical to the value of header:Date:asDate.
-	SentAt time.Time `json:"sentAt,omitempty"`
+	SentAt time.Time `json:"sentAt,omitzero"`
 
 	// This is the full MIME structure of the message body, without recursing into message/rfc822 or message/global parts.
 	//
@@ -2817,10 +2817,56 @@ type EmailCreate struct {
 type EmailUpdate map[string]any
 
 type EmailSetCommand struct {
-	AccountId string                 `json:"accountId"`
-	Create    map[string]EmailCreate `json:"create,omitempty"`
-	Update    map[string]EmailUpdate `json:"update,omitempty"`
-	Destroy   []string               `json:"destroy,omitempty"`
+	// The id of the account to use.
+	AccountId string `json:"accountId"`
+
+	// This is a state string as returned by the `Email/get` method.
+	//
+	// If supplied, the string must match the current state; otherwise, the method will be aborted and a
+	// `stateMismatch` error returned.
+	//
+	// If null, any changes will be applied to the current state.
+	IfInState string `json:"ifInState,omitempty"`
+
+	// A map of a creation id (a temporary id set by the client) to Email objects,
+	// or null if no objects are to be created.
+	//
+	// The Email object type definition may define default values for properties.
+	//
+	// Any such property may be omitted by the client.
+	//
+	// The client MUST omit any properties that may only be set by the server.
+	Create map[string]EmailCreate `json:"create,omitempty"`
+
+	// A map of an id to a `Patch` object to apply to the current Email object with that id,
+	// or null if no objects are to be updated.
+	//
+	// A `PatchObject` is of type `String[*]` and represents an unordered set of patches.
+	//
+	// The keys are a path in JSON Pointer Format [@!RFC6901], with an implicit leading `/` (i.e., prefix each key
+	// with `/` before applying the JSON Pointer evaluation algorithm).
+	//
+	// All paths MUST also conform to the following restrictions; if there is any violation, the update
+	// MUST be rejected with an `invalidPatch` error:
+	// !- The pointer MUST NOT reference inside an array (i.e., you MUST NOT insert/delete from an array; the array MUST be replaced in its entirety instead).
+	// !- All parts prior to the last (i.e., the value after the final slash) MUST already exist on the object being patched.
+	// !- There MUST NOT be two patches in the `PatchObject` where the pointer of one is the prefix of the pointer of the other, e.g., `"alerts/1/offset"` and `"alerts"`.
+	//
+	// The value associated with each pointer determines how to apply that patch:
+	// !- If null, set to the default value if specified for this property; otherwise, remove the property from the patched object. If the key is not present in the parent, this a no-op.
+	// ç- Anything else: The value to set for this property (this may be a replacement or addition to the object being patched).
+	//
+	// Any server-set properties MAY be included in the patch if their value is identical to the current server value
+	// (before applying the patches to the object). Otherwise, the update MUST be rejected with an `invalidProperties` `SetError`.
+	//
+	// This patch definition is designed such that an entire Email object is also a valid `PatchObject`.
+	//
+	// The client may choose to optimise network usage by just sending the diff or may send the whole object; the server
+	// processes it the same either way.
+	Update map[string]EmailUpdate `json:"update,omitempty"`
+
+	// A list of ids for Email objects to permanently delete, or null if no objects are to be destroyed.
+	Destroy []string `json:"destroy,omitempty"`
 }
 
 type EmailSetResponse struct {
@@ -2842,7 +2888,7 @@ type EmailSetResponse struct {
 	// that were omitted by the client and thus set to a default by the server.
 	//
 	// This argument is null if no Email objects were successfully created.
-	Created map[string]Email `json:"created,omitempty"`
+	Created map[string]*Email `json:"created,omitempty"`
 
 	// The keys in this map are the ids of all Emails that were successfully updated.
 	//
@@ -2852,7 +2898,7 @@ type EmailSetResponse struct {
 	// This lets the client know of any changes to server-set or computed properties.
 	//
 	// This argument is null if no Email objects were successfully updated.
-	Updated map[string]Email `json:"updated,omitempty"`
+	Updated map[string]*Email `json:"updated,omitempty"`
 
 	// A list of Email ids for records that were successfully destroyed, or null if none.
 	Destroyed []string `json:"destroyed,omitempty"`
@@ -4609,6 +4655,7 @@ var CommandResponseTypeMap = map[Command]func() any{
 	CommandEmailQuery:          func() any { return EmailQueryResponse{} },
 	CommandEmailChanges:        func() any { return EmailChangesResponse{} },
 	CommandEmailGet:            func() any { return EmailGetResponse{} },
+	CommandEmailSet:            func() any { return EmailSetResponse{} },
 	CommandEmailSubmissionGet:  func() any { return EmailSubmissionGetResponse{} },
 	CommandEmailSubmissionSet:  func() any { return EmailSubmissionSetResponse{} },
 	CommandThreadGet:           func() any { return ThreadGetResponse{} },

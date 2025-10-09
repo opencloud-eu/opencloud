@@ -152,7 +152,7 @@ type senderGenerator struct {
 	senders []sender
 }
 
-func newSenderGenerator(domain string, numSenders int) senderGenerator {
+func newSenderGenerator(numSenders int) senderGenerator {
 	senders := make([]sender, numSenders)
 	for i := range numSenders {
 		person := gofakeit.Person()
@@ -494,7 +494,7 @@ func (s *StalwartTest) fill(folder string, count int) ([]filledMail, int, error)
 	bccName := "HR"
 	bccAddress := fmt.Sprintf("corporate@%s", domain)
 
-	sg := newSenderGenerator(domain, senders)
+	sg := newSenderGenerator(senders)
 	thread := 0
 	mails := make([]filledMail, count)
 	for i := 0; i < count; thread++ {
