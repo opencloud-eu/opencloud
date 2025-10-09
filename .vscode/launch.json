@@ -77,6 +77,71 @@
       }
     },
     {
+      "name": "OpenCloud server with Groupware",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "buildFlags": [
+        // "-tags", "enable_vips"
+      ],
+      "program": "${workspaceFolder}/opencloud/cmd/opencloud",
+      "args": ["server"],
+      "env": {
+        // log settings for human developers
+        "OC_LOG_LEVEL": "info",
+        "OC_LOG_PRETTY": "true",
+        "OC_LOG_COLOR": "true",
+        // set insecure options because we don't have valid certificates in dev environments
+        "OC_INSECURE": "true",
+        // enable basic auth for dev setup so that we can use curl for testing
+        "PROXY_ENABLE_BASIC_AUTH": "true",
+        // demo users
+        "IDM_CREATE_DEMO_USERS": "true",
+        // OC_RUN_SERVICES allows to start a subset of services even in the supervised mode
+        //"OC_RUN_SERVICES": "settings,storage-system,graph,idp,idm,ocs,store,thumbnails,web,webdav,frontend,gateway,users,groups,auth-basic,storage-authmachine,storage-users,storage-shares,storage-publiclink,storage-system,app-provider,sharing,proxy,ocdav",
+
+        /*
+         * Keep secrets and passwords in one block to allow easy uncommenting
+         */
+        // user id of "admin", for user creation and admin role assignement
+        "OC_ADMIN_USER_ID": "some-admin-user-id-0000-000000000000", // FIXME currently must have the length of a UUID, see reva/pkg/storage/utils/decomposedfs/spaces.go:228
+        // admin user default password
+        "IDM_ADMIN_PASSWORD": "admin",
+        // system user
+        "OC_SYSTEM_USER_ID": "some-system-user-id-000-000000000000", // FIXME currently must have the length of a UUID, see reva/pkg/storage/utils/decomposedfs/spaces.go:228
+        "OC_SYSTEM_USER_API_KEY": "some-system-user-machine-auth-api-key",
+        // set some hardcoded secrets
+        "OC_JWT_SECRET": "some-opencloud-jwt-secret",
+        "OC_MACHINE_AUTH_API_KEY": "some-opencloud-machine-auth-api-key",
+        "OC_TRANSFER_SECRET": "some-opencloud-transfer-secret",
+        // collaboration
+        "COLLABORATION_WOPIAPP_SECRET": "some-wopi-secret",
+        // idm ldap
+        "IDM_SVC_PASSWORD": "some-ldap-idm-password",
+        "GRAPH_LDAP_BIND_PASSWORD": "some-ldap-idm-password",
+        // reva ldap
+        "IDM_REVASVC_PASSWORD": "some-ldap-reva-password",
+        "GROUPS_LDAP_BIND_PASSWORD": "some-ldap-reva-password",
+        "USERS_LDAP_BIND_PASSWORD": "some-ldap-reva-password",
+        "AUTH_BASIC_LDAP_BIND_PASSWORD": "some-ldap-reva-password",
+        // idp ldap
+        "IDM_IDPSVC_PASSWORD": "some-ldap-idp-password",
+        "IDP_LDAP_BIND_PASSWORD": "some-ldap-idp-password",
+        // storage users mount ID
+        "GATEWAY_STORAGE_USERS_MOUNT_ID": "storage-users-1",
+        "STORAGE_USERS_MOUNT_ID": "storage-users-1",
+        // graph application ID
+        "GRAPH_APPLICATION_ID": "application-1",
+
+        // service accounts
+        "OC_SERVICE_ACCOUNT_ID": "service-account-id",
+        "OC_SERVICE_ACCOUNT_SECRET": "service-account-secret",
+
+        "OC_ADD_RUN_SERVICES": "groupware",
+        "GROUPWARE_LOG_LEVEL": "trace"
+      }
+    },
+    {
       "name": "OpenCloud server with external services",
       "type": "go",
       "request": "launch",

@@ -299,7 +299,9 @@ cd "$OCDIR/opencloud/devtools/deployments/opencloud_full/"
 docker compose up -d
 ```
 
-or, if you plan to make changes to the backend code base, it might be more convenient to do so from within VSCode, in which case you should run all the services from the Docker Compose setup as above, but stop the `opencloud` service container (as that one will be running from within your IDE instead):
+### From IDE in Production Setup
+
+If you plan to make changes to the backend code base, it might be more convenient to do so from within VSCode, in which case you should run all the services from the Docker Compose setup as above, but stop the `opencloud` service container (as that one will be running from within your IDE instead):
 
 ```bash
 cd "$OCDIR/opencloud/devtools/deployments/opencloud_full/"
@@ -307,6 +309,13 @@ docker compose stop opencloud
 ```
 
 and then use the Launcher `OpenCloud server with external services` in VSCode.
+
+### From IDE in Homelab Setup
+
+Or if you want to do so but using the [&ldquo;homelab&rdquo; setup](#homelab-setup), then the `opencloud` container needs to be kept running, as it also provides LDAP and OIDC services.
+
+In VSCode, use the Launcher `OpenCloud server` instead.
+
 
 ## Checking Services
 
