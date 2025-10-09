@@ -90,6 +90,25 @@ In either case, the Docker Compose configuration in `$OCDIR/opencloud/devtools/d
 
 <a name="prod-setup"></a>
 
+```mermaid
+---
+title: Production Setup
+---
+flowchart LR
+  oc["`opencloud`"]
+  c["client"]
+  kc["`keycloak`"]
+  ol["`ldap-server`"]
+  st["`stalwart`"]
+
+  c -- http --> oc
+  oc -- jmap --> st
+  oc --> ol
+  st --> ol
+  kc --> ol
+  c --> kc
+```
+
 Edit `$OCDIR/opencloud/devtools/deployments/opencloud_full/.env`, making the following changes (make sure to check out [the shell command-line that automates all of that, below](#automate-env-setup-prod)):
 
 * change the container image to `opencloudeu/opencloud:dev`:
@@ -177,6 +196,21 @@ perl -pi -e '
 #### Homelab Setup
 
 <a name="homelab-setup"></a>
+
+```mermaid
+---
+title: Homelab Setup
+---
+flowchart LR
+  oc["`opencloud`"]
+  c["client"]
+  st["`stalwart`"]
+
+  c -- http --> oc
+  oc -- jmap --> st
+  st -- ldap --> oc
+
+```
 
 Edit `$OCDIR/opencloud/devtools/deployments/opencloud_full/.env`, making the following changes (make sure to check out [the shell command-line that automates all of that, below](#automate-env-setup-homelab)):
 
@@ -299,7 +333,7 @@ cd "$OCDIR/opencloud/devtools/deployments/opencloud_full/"
 docker compose up -d
 ```
 
-### From IDE in Production Setup
+### Running in an IDE in Production Setup
 
 If you plan to make changes to the backend code base, it might be more convenient to do so from within VSCode, in which case you should run all the services from the Docker Compose setup as above, but stop the `opencloud` service container (as that one will be running from within your IDE instead):
 
@@ -310,12 +344,11 @@ docker compose stop opencloud
 
 and then use the Launcher `OpenCloud server with external services` in VSCode.
 
-### From IDE in Homelab Setup
+### Running in an IDE in Homelab Setup
 
-Or if you want to do so but using the [&ldquo;homelab&rdquo; setup](#homelab-setup), then the `opencloud` container needs to be kept running, as it also provides LDAP and OIDC services.
+Or if you want to do so but using the [&ldquo;homelab&rdquo; setup](#homelab-setup), then the `opencloud` container needs to be kept running, as it also provides LDAP and OIDC services, as the `stalwart` container cannot access those services on the `opencloud` process that is running on the host (in the IDE.)
 
 In VSCode, use the Launcher `OpenCloud server` instead.
-
 
 ## Checking Services
 
