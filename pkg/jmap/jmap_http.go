@@ -144,7 +144,7 @@ func (h *HttpJmapClient) GetSession(sessionUrl *url.URL, username string, logger
 	}
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		h.listener.OnFailedRequestWithStatus(endpoint, res.StatusCode)
-		logger.Error().Str(logHttpStatus, res.Status).Int(logHttpStatusCode, res.StatusCode).Msg("HTTP response status code is not 200")
+		logger.Error().Str(logHttpStatus, log.SafeString(res.Status)).Int(logHttpStatusCode, res.StatusCode).Msg("HTTP response status code is not 200")
 		return SessionResponse{}, SimpleError{code: JmapErrorServerResponse, err: fmt.Errorf("JMAP API response status is %v", res.Status)}
 	}
 	h.listener.OnSuccessfulRequest(endpoint, res.StatusCode)
@@ -168,7 +168,7 @@ func (h *HttpJmapClient) GetSession(sessionUrl *url.URL, username string, logger
 	var data SessionResponse
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		logger.Error().Str(logHttpUrl, sessionUrlStr).Err(err).Msg("failed to decode JSON payload from .well-known/jmap response")
+		logger.Error().Str(logHttpUrl, log.SafeString(sessionUrlStr)).Err(err).Msg("failed to decode JSON payload from .well-known/jmap response")
 		h.listener.OnResponseBodyUnmarshallingError(endpoint, err)
 		return SessionResponse{}, SimpleError{code: JmapErrorDecodingResponseBody, err: err}
 	}
@@ -212,7 +212,7 @@ func (h *HttpJmapClient) Command(ctx context.Context, logger *log.Logger, sessio
 	language := Language(res.Header.Get("Content-Language"))
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		h.listener.OnFailedRequestWithStatus(endpoint, res.StatusCode)
-		logger.Error().Str(logEndpoint, endpoint).Str(logHttpStatus, res.Status).Msg("HTTP response status code is not 2xx")
+		logger.Error().Str(logEndpoint, endpoint).Str(logHttpStatus, log.SafeString(res.Status)).Msg("HTTP response status code is not 2xx")
 		return nil, language, SimpleError{code: JmapErrorServerResponse, err: err}
 	}
 	if res.Body != nil {
@@ -259,7 +259,7 @@ func (h *HttpJmapClient) UploadBinary(ctx context.Context, logger *log.Logger, s
 	language := Language(res.Header.Get("Content-Language"))
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		h.listener.OnFailedRequestWithStatus(endpoint, res.StatusCode)
-		logger.Error().Str(logHttpStatus, res.Status).Int(logHttpStatusCode, res.StatusCode).Msg("HTTP response status code is not 2xx")
+		logger.Error().Str(logHttpStatus, log.SafeString(res.Status)).Int(logHttpStatusCode, res.StatusCode).Msg("HTTP response status code is not 2xx")
 		return UploadedBlob{}, language, SimpleError{code: JmapErrorServerResponse, err: err}
 	}
 	if res.Body != nil {
@@ -282,7 +282,7 @@ func (h *HttpJmapClient) UploadBinary(ctx context.Context, logger *log.Logger, s
 	var result UploadedBlob
 	err = json.Unmarshal(responseBody, &result)
 	if err != nil {
-		logger.Error().Str(logHttpUrl, uploadUrl).Err(err).Msg("failed to decode JSON payload from the upload response")
+		logger.Error().Str(logHttpUrl, log.SafeString(uploadUrl)).Err(err).Msg("failed to decode JSON payload from the upload response")
 		h.listener.OnResponseBodyUnmarshallingError(endpoint, err)
 		return UploadedBlob{}, language, SimpleError{code: JmapErrorDecodingResponseBody, err: err}
 	}
@@ -316,7 +316,7 @@ func (h *HttpJmapClient) DownloadBinary(ctx context.Context, logger *log.Logger,
 	}
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		h.listener.OnFailedRequestWithStatus(endpoint, res.StatusCode)
-		logger.Error().Str(logHttpStatus, res.Status).Int(logHttpStatusCode, res.StatusCode).Msg("HTTP response status code is not 2xx")
+		logger.Error().Str(logHttpStatus, log.SafeString(res.Status)).Int(logHttpStatusCode, res.StatusCode).Msg("HTTP response status code is not 2xx")
 		return nil, language, SimpleError{code: JmapErrorServerResponse, err: err}
 	}
 	h.listener.OnSuccessfulRequest(endpoint, res.StatusCode)
