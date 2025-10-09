@@ -73,6 +73,16 @@ func noContentResponse(sessionState jmap.SessionState) Response {
 	}
 }
 
+func noContentResponseWithEtag(sessionState jmap.SessionState, etag jmap.State) Response {
+	return Response{
+		body:         nil,
+		status:       http.StatusNoContent,
+		err:          nil,
+		etag:         etag,
+		sessionState: sessionState,
+	}
+}
+
 /*
 func acceptedResponse(sessionState jmap.SessionState) Response {
 	return Response{

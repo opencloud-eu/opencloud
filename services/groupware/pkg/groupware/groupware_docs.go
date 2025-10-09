@@ -41,3 +41,8 @@ type SwaggerErrorResponse500 struct {
 		*ErrorResponse
 	}
 }
+
+// When the request succeeds.
+// swagger:response Success204
+type SwaggerSuccess204 struct {
+}
