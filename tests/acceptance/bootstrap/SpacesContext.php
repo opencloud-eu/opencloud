@@ -2852,39 +2852,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has shared a space "([^"]*)" with settings:$/
-	 *
-	 * @param  string $user
-	 * @param  string $spaceName
-	 * @param  TableNode $tableNode
-	 *
-	 * @return void
-	 * @throws GuzzleException
-	 */
-	public function userHasSharedSpace(
-		string $user,
-		string $spaceName,
-		TableNode $tableNode
-	): void {
-		$rows = $tableNode->getRowsHash();
-		$response = $this->shareSpace($user, $spaceName, $rows);
-		$expectedHTTPStatus = "200";
-		$this->featureContext->theHTTPStatusCodeShouldBe(
-			$expectedHTTPStatus,
-			"Expected response status code should be $expectedHTTPStatus",
-			$response
-		);
-		$expectedOCSStatus = "200";
-		Assert::assertEquals(
-			$expectedOCSStatus,
-			$this->ocsContext->getOCSResponseStatusCode(
-				$response
-			),
-			"Expected OCS response status code $expectedOCSStatus"
-		);
-	}
-
-	/**
 	 * @Given user :user has unshared a space :spaceName shared with :recipient
 	 *
 	 * @param  string $user
