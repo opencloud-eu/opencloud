@@ -15,7 +15,7 @@ type AccountBootstrapResult struct {
 func (j *Client) GetBootstrap(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]AccountBootstrapResult, SessionState, Language, Error) {
 	uniqueAccountIds := structs.Uniq(accountIds)
 
-	logger = j.logger("GetIdentities", session, logger)
+	logger = j.logger("GetBootstrap", session, logger)
 
 	calls := make([]Invocation, len(uniqueAccountIds)*2)
 	for i, accountId := range uniqueAccountIds {
