@@ -1013,60 +1013,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has shared (?:file|folder|entry) "([^"]*)" with user "([^"]*)"(?: with permissions (\d+))?$/
-	 * @Given /^user "([^"]*)" has shared (?:file|folder|entry) "([^"]*)" with user "([^"]*)" with permissions "([^"]*)"$/
-	 *
-	 * @param string $sharer
-	 * @param string $filepath
-	 * @param string $sharee
-	 * @param string|int|string[]|int[] $permissions
-	 *
-	 * @return void
-	 * @throws Exception
-	 */
-	public function userHasSharedFileWithUserUsingTheSharingApi(
-		string $sharer,
-		string $filepath,
-		string $sharee,
-		$permissions = null
-	): void {
-		$response = $this->createAUserShare(
-			$sharer,
-			$filepath,
-			$this->getActualUsername($sharee),
-			$permissions
-		);
-		$this->theHTTPStatusCodeShouldBe(200, "", $response);
-		$this->ocsContext->theOCSStatusCodeShouldBe("100,200", "", $response);
-	}
-
-	/**
-	 * @Given /^user "([^"]*)" has shared (?:file|folder|entry) "([^"]*)" with the administrator(?: with permissions (\d+))?$/
-	 * @Given /^user "([^"]*)" has shared (?:file|folder|entry) "([^"]*)" with the administrator with permissions "([^"]*)"$/
-	 *
-	 * @param string $sharer
-	 * @param string $filepath
-	 * @param string|int|string[]|int[] $permissions
-	 *
-	 * @return void
-	 */
-	public function userHasSharedFileWithTheAdministrator(
-		string $sharer,
-		string $filepath,
-		$permissions = null
-	): void {
-		$admin = $this->getAdminUsername();
-		$response = $this->createAUserShare(
-			$sharer,
-			$filepath,
-			$this->getActualUsername($admin),
-			$permissions
-		);
-		$this->theHTTPStatusCodeShouldBe(200, "", $response);
-		$this->ocsContext->theOCSStatusCodeShouldBe("100,200", "", $response);
-	}
-
-	/**
 	 * @When /^the user shares (?:file|folder|entry) "([^"]*)" with user "([^"]*)"(?: with permissions (\d+))? using the sharing API$/
 	 * @When /^the user shares (?:file|folder|entry) "([^"]*)" with user "([^"]*)" with permissions "([^"]*)" using the sharing API$/
 	 *
@@ -1175,33 +1121,6 @@ trait Sharing {
 			$this->setResponse($response);
 			$this->pushToLastStatusCodesArrays();
 		}
-	}
-
-	/**
-	 * @Given /^user "([^"]*)" has shared (?:file|folder|entry) "([^"]*)" with group "([^"]*)" with permissions "([^"]*)"$/
-	 * @Given /^user "([^"]*)" has shared (?:file|folder|entry) "([^"]*)" with group "([^"]*)"(?: with permissions (\d+))?$/
-	 *
-	 * @param string $user
-	 * @param string $filepath
-	 * @param string $group
-	 * @param string|int|string[]|int[] $permissions
-	 *
-	 * @return void
-	 */
-	public function userHasSharedFileWithGroupUsingTheSharingApi(
-		string $user,
-		string $filepath,
-		string $group,
-		$permissions = null
-	) {
-		$response = $this->createAGroupShare(
-			$user,
-			$filepath,
-			$group,
-			$permissions
-		);
-		$this->theHTTPStatusCodeShouldBe(200, "", $response);
-		$this->ocsContext->theOCSStatusCodeShouldBe("100,200", "", $response);
 	}
 
 	/**
