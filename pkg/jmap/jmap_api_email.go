@@ -253,7 +253,6 @@ func (j *Client) QueryEmailSnippets(accountId string, filter EmailFilterElement,
 			QueryState: queryResponse.QueryState,
 		}, nil
 	})
-
 }
 
 type EmailQueryResult struct {
@@ -323,7 +322,6 @@ func (j *Client) QueryEmails(accountId string, filter EmailFilterElement, sessio
 			QueryState: queryResponse.QueryState,
 		}, nil
 	})
-
 }
 
 type EmailWithSnippets struct {
@@ -438,7 +436,6 @@ func (j *Client) QueryEmailsWithSnippets(accountId string, filter EmailFilterEle
 			QueryState: queryResponse.QueryState,
 		}, nil
 	})
-
 }
 
 type UploadedEmail struct {
