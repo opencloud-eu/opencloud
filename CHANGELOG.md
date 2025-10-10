@@ -1,10 +1,20 @@
 # Changelog
 
-## [3.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.6.0) - 2025-10-09
+## [3.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.6.0) - 2025-10-10
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @AlexAndBear, @ScharfViktor, @butonic, @dragonchaser, @fschade, @micbar, @prashant-gurung899, @rhafer, @schweigisito, @tammi-23
+
+### ✅ Tests
+
+- [full-ci] deleted unused step definitions [[#1639](https://github.com/opencloud-eu/opencloud/pull/1639)]
+- check thumbnails in the share with me response [[#1605](https://github.com/opencloud-eu/opencloud/pull/1605)]
+- [full-ci][tests-only] fix restore browsers cache workflow [[#1615](https://github.com/opencloud-eu/opencloud/pull/1615)]
+- [full-ci] Enhance getSpaceByName: check local cache before Graph API calls [[#1574](https://github.com/opencloud-eu/opencloud/pull/1574)]
+- [full-ci] getting personal space by userId instead of userName [[#1553](https://github.com/opencloud-eu/opencloud/pull/1553)]
+- apiTest-flaky: sync share before checking [[#1550](https://github.com/opencloud-eu/opencloud/pull/1550)]
+- [decomposed] use Alpine for opencloud starting [[#1547](https://github.com/opencloud-eu/opencloud/pull/1547)]
 
 ### 🐛 Bug Fixes
 
@@ -15,15 +25,6 @@
 - let the runtime always create a cancel context [[#1565](https://github.com/opencloud-eu/opencloud/pull/1565)]
 - Bump reva and cs3apis [[#1538](https://github.com/opencloud-eu/opencloud/pull/1538)]
 - use correct endpoint in nats check [[#1533](https://github.com/opencloud-eu/opencloud/pull/1533)]
-
-### ✅ Tests
-
-- check thumbnails in the share with me response [[#1605](https://github.com/opencloud-eu/opencloud/pull/1605)]
-- [full-ci][tests-only] fix restore browsers cache workflow [[#1615](https://github.com/opencloud-eu/opencloud/pull/1615)]
-- [full-ci] Enhance getSpaceByName: check local cache before Graph API calls [[#1574](https://github.com/opencloud-eu/opencloud/pull/1574)]
-- [full-ci] getting personal space by userId instead of userName [[#1553](https://github.com/opencloud-eu/opencloud/pull/1553)]
-- apiTest-flaky: sync share before checking [[#1550](https://github.com/opencloud-eu/opencloud/pull/1550)]
-- [decomposed] use Alpine for opencloud starting [[#1547](https://github.com/opencloud-eu/opencloud/pull/1547)]
 
 ### 📚 Documentation
 
