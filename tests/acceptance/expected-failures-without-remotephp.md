@@ -3,9 +3,9 @@
 #### [REPORT request without remote.php returns empty result (only with dav/spaces path)](https://github.com/owncloud/ocis/issues/10329)
 
 - [apiContract/sharesReport.feature:43](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiContract/sharesReport.feature#L43)
-- [apiContract/sharesReport.feature:68](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiContract/sharesReport.feature#L68)
-- [apiContract/sharesReport.feature:134](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiContract/sharesReport.feature#L134)
-- [apiContract/sharesReport.feature:164](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiContract/sharesReport.feature#L164)
+- [apiContract/sharesReport.feature:84](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiContract/sharesReport.feature#L84)
+- [apiContract/sharesReport.feature:150](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiContract/sharesReport.feature#L150)
+- [apiContract/sharesReport.feature:180](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiContract/sharesReport.feature#L180)
 - [apiContract/spacesReport.feature:16](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiContract/spacesReport.feature#L16)
 - [apiContract/spacesReport.feature:35](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiContract/spacesReport.feature#L35)
 - [apiContract/spacesReport.feature:55](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiContract/spacesReport.feature#L55)
