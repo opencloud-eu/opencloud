@@ -352,3 +352,49 @@ func (j *Client) GetMailboxRolesForMultipleAccounts(accountIds []string, session
 		return resp, nil
 	})
 }
+
+func (j *Client) GetInboxNameForMultipleAccounts(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]string, SessionState, Language, Error) {
+	logger = j.logger("GetInboxNameForMultipleAccounts", session, logger)
+
+	uniqueAccountIds := structs.Uniq(accountIds)
+	n := len(uniqueAccountIds)
+	if n < 1 {
+		return nil, "", "", nil
+	}
+
+	invocations := make([]Invocation, n*2)
+	for i, accountId := range uniqueAccountIds {
+		invocations[i*2+0] = invocation(CommandMailboxQuery, MailboxQueryCommand{
+			AccountId: accountId,
+			Filter: MailboxFilterCondition{
+				Role: JmapMailboxRoleInbox,
+			},
+		}, mcid(accountId, "0"))
+	}
+
+	cmd, err := j.request(session, logger, invocations...)
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]string, Error) {
+		resp := make(map[string]string, n)
+		for _, accountId := range uniqueAccountIds {
+			var r MailboxQueryResponse
+			err = retrieveResponseMatchParameters(logger, body, CommandMailboxGet, mcid(accountId, "0"), &r)
+			if err != nil {
+				return nil, err
+			}
+			switch len(r.Ids) {
+			case 0:
+				// skip: account has no inbox?
+			case 1:
+				resp[accountId] = r.Ids[0]
+			default:
+				logger.Warn().Msgf("multiple ids for mailbox role='%v' for accountId='%v'", JmapMailboxRoleInbox, accountId)
+				resp[accountId] = r.Ids[0]
+			}
+		}
+		return resp, nil
+	})
+}
