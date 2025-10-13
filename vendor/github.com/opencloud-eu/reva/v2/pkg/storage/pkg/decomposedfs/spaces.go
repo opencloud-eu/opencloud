@@ -147,7 +147,11 @@ func (fs *Decomposedfs) CreateStorageSpace(ctx context.Context, req *provider.Cr
 	if req.GetOwner() != nil && req.GetOwner().GetId() != nil {
 		root.SetOwner(req.GetOwner().GetId())
 	} else {
-		root.SetOwner(&userv1beta1.UserId{OpaqueId: spaceID, Type: userv1beta1.UserType_USER_TYPE_SPACE_OWNER})
+		root.SetOwner(&userv1beta1.UserId{
+			OpaqueId: spaceID,
+			TenantId: u.GetId().GetTenantId(),
+			Type:     userv1beta1.UserType_USER_TYPE_SPACE_OWNER,
+		})
 	}
 
 	metadata := node.Attributes{}
@@ -157,6 +161,9 @@ func (fs *Decomposedfs) CreateStorageSpace(ctx context.Context, req *provider.Cr
 	metadata.SetString(prefixes.OwnerIDPAttr, root.Owner().GetIdp())
 	metadata.SetString(prefixes.OwnerTypeAttr, utils.UserTypeToString(root.Owner().GetType()))
 
+	if root.Owner().GetTenantId() != "" {
+		metadata.SetString(prefixes.SpaceTenantIDAttr, root.Owner().GetTenantId())
+	}
 	// always mark the space root node as the end of propagation
 	metadata.SetString(prefixes.PropagationAttr, "1")
 	metadata.SetString(prefixes.NameAttr, req.Name)

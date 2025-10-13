@@ -20,6 +20,7 @@ package ldap
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -29,7 +30,6 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/sharedconf"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -385,6 +385,13 @@ func (i *Identity) GetLDAPUserGroups(ctx context.Context, lc ldap.Client, userEn
 	sr, err := lc.Search(searchRequest)
 	if err != nil {
 		log.Debug().Str("backend", "ldap").Err(err).Str("filter", filter).Msg("Error looking up group memberships")
+		var lerr *ldap.Error
+		if errors.As(err, &lerr) && lerr.ResultCode == ldap.LDAPResultNoSuchObject {
+			// Don't error out if the search base doesn't exist. We are probably just
+			// not having any groups in LDAP
+			return []string{}, nil
+		}
+
 		span.SetAttributes(attribute.String("ldap.error", err.Error()))
 		span.SetStatus(codes.Error, "")
 		return []string{}, err
@@ -547,8 +554,7 @@ func (i *Identity) getUserFilter(uid *identityUser.UserId) (string, error) {
 	if i.User.Schema.IDIsOctetString {
 		id, err := uuid.Parse(uid.GetOpaqueId())
 		if err != nil {
-			err := errors.Wrap(err, fmt.Sprintf("error parsing OpaqueID '%s' as UUID", uid))
-			return "", err
+			return "", fmt.Errorf("error parsing OpaqueID '%s' as UUID: %w", uid, err)
 		}
 		escapedUUID = filterEscapeBinaryUUID(id)
 	} else {
@@ -583,8 +589,7 @@ func (i *Identity) getUserAttributeFilter(attribute, value, tenantID string) (st
 	if attribute == i.User.Schema.ID && i.User.Schema.IDIsOctetString {
 		id, err := uuid.Parse(value)
 		if err != nil {
-			err := errors.Wrap(err, fmt.Sprintf("error parsing OpaqueID '%s' as UUID", value))
-			return "", err
+			return "", fmt.Errorf("error parsing OpaqueID '%s' as UUID: %w", value, err)
 		}
 		value = filterEscapeBinaryUUID(id)
 	} else {
@@ -718,8 +723,7 @@ func (i *Identity) getGroupFilter(id string) (string, error) {
 	if i.Group.Schema.IDIsOctetString {
 		id, err := uuid.Parse(id)
 		if err != nil {
-			err := errors.Wrap(err, fmt.Sprintf("error parsing OpaqueID '%s' as UUID", id))
-			return "", err
+			return "", fmt.Errorf("error parsing OpaqueID '%s' as UUID: %w", id, err)
 		}
 		escapedUUID = filterEscapeBinaryUUID(id)
 	} else {
@@ -752,8 +756,7 @@ func (i *Identity) getGroupAttributeFilter(attribute, value string) (string, err
 	if attribute == i.Group.Schema.ID && i.Group.Schema.IDIsOctetString {
 		id, err := uuid.Parse(value)
 		if err != nil {
-			err := errors.Wrap(err, fmt.Sprintf("error parsing OpaqueID '%s' as UUID", value))
-			return "", err
+			return "", fmt.Errorf("error parsing OpaqueID '%s' as UUID: %w", value, err)
 		}
 		value = filterEscapeBinaryUUID(id)
 	} else {

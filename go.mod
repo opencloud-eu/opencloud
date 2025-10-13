@@ -33,7 +33,8 @@ require (
 	github.com/go-micro/plugins/v4/store/nats-js-kv v0.0.0-20240726082623-6831adfdcdc4
 	github.com/go-micro/plugins/v4/wrapper/monitoring/prometheus v1.2.0
 	github.com/go-micro/plugins/v4/wrapper/trace/opentelemetry v1.2.0
-	github.com/go-playground/validator/v10 v10.27.0
+	github.com/go-playground/validator/v10 v10.28.0
+	github.com/go-resty/resty/v2 v2.7.0
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/golang/protobuf v1.5.4
@@ -217,7 +218,6 @@ require (
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-redis/redis/v8 v8.11.5 // indirect
-	github.com/go-resty/resty/v2 v2.7.0 // indirect
 	github.com/go-sql-driver/mysql v1.9.3 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
@@ -398,3 +398,5 @@ replace go-micro.dev/v4 => github.com/butonic/go-micro/v4 v4.11.1-0.202411151126
 exclude github.com/mattn/go-sqlite3 v2.0.3+incompatible
 
 replace github.com/go-micro/plugins/v4/store/nats-js-kv => github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a
+
+replace github.com/opencloud-eu/reva/v2 => github.com/rhafer/reva/v2 v2.0.0-20251009103825-4190eaf0d908

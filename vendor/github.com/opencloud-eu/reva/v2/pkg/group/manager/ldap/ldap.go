@@ -35,7 +35,6 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/sharedconf"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	ldapIdentity "github.com/opencloud-eu/reva/v2/pkg/utils/ldap"
-	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -63,8 +62,7 @@ func parseConfig(m map[string]interface{}) (*config, error) {
 		LDAPIdentity: ldapIdentity.New(),
 	}
 	if err := mapstructure.Decode(m, &c); err != nil {
-		err = errors.Wrap(err, "error decoding conf")
-		return nil, err
+		return nil, fmt.Errorf("error decoding conf: %w", err)
 	}
 
 	return &c, nil

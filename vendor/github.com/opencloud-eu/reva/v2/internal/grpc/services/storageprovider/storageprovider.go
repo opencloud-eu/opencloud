@@ -1115,10 +1115,24 @@ func (s *Service) AddGrant(ctx context.Context, req *provider.AddGrantRequest) (
 		ctx = WithSpaceType(ctx, utils.ReadPlainFromOpaque(req.Opaque, "spacetype"))
 	}
 
+	// error out if no permissions are set
+	if req.GetGrant().GetPermissions() == nil {
+		return &provider.AddGrantResponse{
+			Status: status.NewInvalid(ctx, "permissions are invalid"),
+		}, nil
+	}
+
 	// check grantee type is valid
 	if req.Grant.Grantee.Type == provider.GranteeType_GRANTEE_TYPE_INVALID {
 		return &provider.AddGrantResponse{
 			Status: status.NewInvalid(ctx, "grantee type is invalid"),
+		}, nil
+	}
+
+	// check if grantee has an id
+	if req.GetGrant().GetGrantee().GetId() == nil {
+		return &provider.AddGrantResponse{
+			Status: status.NewInvalid(ctx, "grantee id is invalid"),
 		}, nil
 	}
 
