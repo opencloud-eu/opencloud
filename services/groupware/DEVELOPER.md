@@ -431,6 +431,9 @@ LDAPTLS_REQCERT=never ldapsearch -H ldaps://opencloud:9235 \
 '(objectClass=person)' dn
 ```
 
+> [!NOTE]
+> The `LDAPTLS_REQCERT` environment variable is set to `never` to prevent the `ldapsearch` application to validate the TLS certificate of the LDAP server, since we are using self-signed certificates for all those services in the devtools setups.
+
 Sample output:
 
 ```ldif
