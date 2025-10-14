@@ -17,7 +17,7 @@ services:
       - "127.0.0.1:1465:465"
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ./config/stalwart:/opt/stalwart/etc
+      - "./config/stalwart/${STALWART_AUTH_DIRECTORY:-idmldap}.toml:/opt/stalwart/etc/config.toml"
       - stalwart-data:/opt/stalwart/data
     environment:
       STALWART_AUTH_DIRECTORY: "${STALWART_AUTH_DIRECTORY:-idmldap}"
