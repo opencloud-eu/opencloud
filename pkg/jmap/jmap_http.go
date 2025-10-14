@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"slices"
 	"strconv"
@@ -201,6 +202,13 @@ func (h *HttpJmapClient) Command(ctx context.Context, logger *log.Logger, sessio
 
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("User-Agent", h.userAgent)
+
+	if logger.Trace().Enabled() {
+		requestBytes, err := httputil.DumpRequestOut(req, true)
+		if err == nil {
+			logger.Trace().Str(logEndpoint, endpoint).Msg(string(requestBytes))
+		}
+	}
 	h.auth(session.Username, logger, req)
 
 	res, err := h.client.Do(req)
