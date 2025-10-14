@@ -6,9 +6,11 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-const (
-	defaultAccountId = "_"
+var (
+	defaultAccountIds = []string{"_", "*"}
+)
 
+const (
 	UriParamAccountId                 = "accountid"
 	UriParamMailboxId                 = "mailbox"
 	UriParamEmailId                   = "emailid"
@@ -56,6 +58,7 @@ func (g *Groupware) Route(r chi.Router) {
 	r.Get("/", g.Index)
 	r.Get("/accounts", g.GetAccounts)
 	r.Route("/accounts/all", func(r chi.Router) {
+		r.Get("/", g.GetAccounts)
 		r.Route("/mailboxes", func(r chi.Router) {
 			r.Get("/", g.GetMailboxesForAllAccounts) // ?role=
 			r.Get("/changes", g.GetMailboxChangesForAllAccounts)
