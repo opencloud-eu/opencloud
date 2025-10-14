@@ -346,7 +346,7 @@ func (j *Client) QueryEmailsWithSnippets(accountId string, filter EmailFilterEle
 		AccountId:       accountId,
 		Filter:          filter,
 		Sort:            []EmailComparator{{Property: emailSortByReceivedAt, IsAscending: false}},
-		CollapseThreads: true,
+		CollapseThreads: false,
 		CalculateTotal:  true,
 	}
 	if offset > 0 {
