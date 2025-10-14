@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -38,6 +39,10 @@ type Request struct {
 	ctx     context.Context
 	logger  *log.Logger
 	session *jmap.Session
+}
+
+func isDefaultAccountid(accountId string) bool {
+	return slices.Contains(defaultAccountIds, accountId)
 }
 
 func (r Request) push(typ string, event any) {
@@ -72,7 +77,7 @@ var (
 
 func (r Request) GetAccountIdWithoutFallback() (string, *Error) {
 	accountId := chi.URLParam(r.r, UriParamAccountId)
-	if accountId == "" || accountId == defaultAccountId {
+	if accountId == "" || isDefaultAccountid(accountId) {
 		r.logger.Error().Err(errNoPrimaryAccountFallback).Msg("failed to determine the accountId")
 		return "", apiError(r.errorId(), ErrorNonExistingAccount,
 			withDetail("Failed to determine the account to use"),
@@ -84,7 +89,7 @@ func (r Request) GetAccountIdWithoutFallback() (string, *Error) {
 
 func (r Request) getAccountId(fallback string, err error) (string, *Error) {
 	accountId := chi.URLParam(r.r, UriParamAccountId)
-	if accountId == "" || accountId == defaultAccountId {
+	if accountId == "" || isDefaultAccountid(accountId) {
 		accountId = fallback
 	}
 	if accountId == "" {
