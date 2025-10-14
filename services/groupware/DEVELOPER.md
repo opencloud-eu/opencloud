@@ -448,6 +448,13 @@ dn: uid=dennis,ou=users,o=libregraph-idm
 
 ```
 
+Alternatively, as a one-liner using an Alpine Docker image:
+
+```bash
+docker run --network 'opencloud_full_opencloud-net' --rm -ti alpine:3 \
+/bin/sh -c "apk update && apk add openldap-clients && exec /bin/sh -il"
+```
+
 ### Testing Keycloak
 
 > [!NOTE]
@@ -520,6 +527,33 @@ For more details on the usage of that little helper tool, consult its [`README.m
 
 > [!NOTE]
 > This only needs to be done once, since the emails are stored in a volume used by the Stalwart container.
+
+## Setting Quota in Stalwart
+
+Use the [Stalwart Management API](https://stalw.art/docs/category/management-api) to set the quota for a user if you want to test quota-related Groupware APIs.
+
+Note that users that exist in OpenCloud (specifically in the LDAP, be it OpenLDAP or the built-in IDM) are only visible in Stalwart after they have been authenticated successfully once, e.g. by retrieving a [JMAP Session](https://jmap.io/spec-core.html#the-jmap-session-resource), which can be performed using the helper script `oc-st-session` (which uses the environment variable `username` to determine the username), or using `curl` directly as follows:
+
+```bash
+curl -L -k -s -u alan:demo https://stalwart.opencloud.test/.well-known/jmap
+```
+
+The following examples perform operations on the user `alan`.
+
+### Display current Quota
+
+```bash
+curl -k -s -u mailadmin:admin https://stalwart.opencloud.test/api/principal/alan | jq
+```
+
+### Modify current Quota
+
+We will change the quota to 256 MB, and since the value is in bytes:
+
+```bash
+value=$(( 256 * 1024 * 1024 ))
+curl -k -s -u mailadmin:admin -X PATCH https://stalwart.opencloud.test/api/principal/alan -d '[{"action":"set", "field":"quota", "value":'${value}'}]'
+```
 
 ## Building after Changes
 
