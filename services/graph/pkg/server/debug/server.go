@@ -18,13 +18,23 @@ func Server(opts ...Option) (*http.Server, error) {
 		WithLogger(options.Logger).
 		WithCheck("web reachability", checks.NewHTTPCheck(options.Config.HTTP.Addr))
 
-	u, err := url.Parse(options.Config.Identity.LDAP.URI)
-	if err != nil {
-		return nil, err
+	readyHandlerConfiguration := healthHandlerConfiguration
+
+	// Check for LDAP reachability, when we're using the LDAP backend
+	if options.Config.Identity.Backend == "ldap" {
+		u, err := url.Parse(options.Config.Identity.LDAP.URI)
+		if err != nil {
+			return nil, err
+		}
+		readyHandlerConfiguration = readyHandlerConfiguration.
+			WithCheck("ldap reachability", checks.NewTCPCheck(u.Host))
 	}
-	readyHandlerConfiguration := healthHandlerConfiguration.
-		WithCheck("nats reachability", checks.NewNatsCheck(options.Config.Events.Endpoint)).
-		WithCheck("ldap reachability", checks.NewTCPCheck(u.Host))
+
+	// only check nats if really needed
+	if options.Config.Events.Endpoint != "" {
+		readyHandlerConfiguration = readyHandlerConfiguration.
+			WithCheck("nats reachability", checks.NewNatsCheck(options.Config.Events.Endpoint))
+	}
 
 	return debug.NewService(
 		debug.Logger(options.Logger),

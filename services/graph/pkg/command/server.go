@@ -48,36 +48,37 @@ func Server(cfg *config.Config) *cli.Command {
 			mtrcs := metrics.New()
 			mtrcs.BuildInfo.WithLabelValues(version.GetString()).Set(1)
 
-			//Connect to NATS servers
-			natsOptions := nats.Options{
-				Servers:  cfg.Store.Nodes,
-				User:     cfg.Store.AuthUsername,
-				Password: cfg.Store.AuthPassword,
-			}
-			conn, err := natsOptions.Connect()
-			if err != nil {
-				return err
-			}
-
-			js, err := jetstream.New(conn)
-			if err != nil {
-				return err
-			}
-			kv, err := js.KeyValue(ctx, cfg.Store.Database)
-			if err != nil {
-				if !errors.Is(err, jetstream.ErrBucketNotFound) {
-					return fmt.Errorf("failed to get bucket (%s): %w", cfg.Store.Database, err)
+			var kv jetstream.KeyValue
+			// Allow to run without a NATS store (e.g. for the standalone Education provisioning service)
+			if len(cfg.Store.Nodes) > 0 {
+				//Connect to NATS servers
+				natsOptions := nats.Options{
+					Servers:  cfg.Store.Nodes,
+					User:     cfg.Store.AuthUsername,
+					Password: cfg.Store.AuthPassword,
 				}
-
-				kv, err = js.CreateKeyValue(ctx, jetstream.KeyValueConfig{
-					Bucket: cfg.Store.Database,
-				})
+				conn, err := natsOptions.Connect()
 				if err != nil {
-					return fmt.Errorf("failed to create bucket (%s): %w", cfg.Store.Database, err)
+					return err
 				}
-			}
-			if err != nil {
-				return err
+
+				js, err := jetstream.New(conn)
+				if err != nil {
+					return err
+				}
+				kv, err = js.KeyValue(ctx, cfg.Store.Database)
+				if err != nil {
+					if !errors.Is(err, jetstream.ErrBucketNotFound) {
+						return fmt.Errorf("failed to get bucket (%s): %w", cfg.Store.Database, err)
+					}
+
+					kv, err = js.CreateKeyValue(ctx, jetstream.KeyValueConfig{
+						Bucket: cfg.Store.Database,
+					})
+					if err != nil {
+						return fmt.Errorf("failed to create bucket (%s): %w", cfg.Store.Database, err)
+					}
+				}
 			}
 
 			gr := runner.NewGroup()
