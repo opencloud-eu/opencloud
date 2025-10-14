@@ -139,6 +139,9 @@ func DefaultConfig() *config.Config {
 			MinDigits:              1,
 			MinSpecialCharacters:   1,
 		},
+		Groupware: config.Groupware{
+			Enabled: false,
+		},
 	}
 }
 

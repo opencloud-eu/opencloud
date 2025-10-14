@@ -62,6 +62,8 @@ type Config struct {
 
 	ConfigurableNotifications bool `yaml:"configurable_notifications" env:"FRONTEND_CONFIGURABLE_NOTIFICATIONS" desc:"Allow configuring notifications via web client." introductionVersion:"1.0.0"`
 
+	Groupware Groupware `yaml:"groupware"`
+
 	Context context.Context `yaml:"-"`
 }
 
@@ -194,4 +196,8 @@ type PasswordPolicy struct {
 	MinDigits              int    `yaml:"min_digits" env:"OC_PASSWORD_POLICY_MIN_DIGITS;FRONTEND_PASSWORD_POLICY_MIN_DIGITS" desc:"Define the minimum number of digits. Defaults to 1 if not set." introductionVersion:"1.0.0"`
 	MinSpecialCharacters   int    `yaml:"min_special_characters" env:"OC_PASSWORD_POLICY_MIN_SPECIAL_CHARACTERS;FRONTEND_PASSWORD_POLICY_MIN_SPECIAL_CHARACTERS" desc:"Define the minimum number of characters from the special characters list to be present. Defaults to 1 if not set." introductionVersion:"1.0.0"`
 	BannedPasswordsList    string `yaml:"banned_passwords_list" env:"OC_PASSWORD_POLICY_BANNED_PASSWORDS_LIST;FRONTEND_PASSWORD_POLICY_BANNED_PASSWORDS_LIST" desc:"Path to the 'banned passwords list' file. This only impacts public link password validation. See the documentation for more details." introductionVersion:"1.0.0"`
+}
+
+type Groupware struct {
+	Enabled bool `yaml:"enabled" env:"FRONTEND_GROUPWARE_ENABLED" desc:"Enable groupware features. Defaults to false." introductionVersion:"3.7.0"`
 }
