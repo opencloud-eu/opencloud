@@ -59,7 +59,9 @@ services:
       # enable to allow using the banned passwords list
       OC_PASSWORD_POLICY_BANNED_PASSWORDS_LIST: banned-password-list.txt
       IDM_REVASVC_PASSWORD: "admin"
-      OC_LDAP_BIND_PASSWORD: "admin"
+      AUTH_BASIC_LDAP_BIND_PASSWORD: "admin"
+      USERS_LDAP_BIND_PASSWORD: "admin"
+      GROUPS_LDAP_BIND_PASSWORD: "admin"
       IDM_LDAPS_ADDR: 0.0.0.0:9235
     volumes:
       - ./config/opencloud/app-registry.yaml:/etc/opencloud/app-registry.yaml
