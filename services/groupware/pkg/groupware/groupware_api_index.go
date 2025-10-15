@@ -174,12 +174,14 @@ func (g *Groupware) Index(w http.ResponseWriter, r *http.Request) {
 }
 
 func buildIndexLimits(session *jmap.Session) IndexLimits {
-	return IndexLimits{
-		MaxSizeUpload:         session.Capabilities.Core.MaxSizeUpload,
-		MaxConcurrentUpload:   session.Capabilities.Core.MaxConcurrentUpload,
-		MaxSizeRequest:        session.Capabilities.Core.MaxSizeRequest,
-		MaxConcurrentRequests: session.Capabilities.Core.MaxConcurrentRequests,
+	result := IndexLimits{}
+	if core := session.Capabilities.Core; core != nil {
+		result.MaxSizeUpload = core.MaxSizeUpload
+		result.MaxConcurrentUpload = core.MaxConcurrentUpload
+		result.MaxSizeRequest = core.MaxSizeRequest
+		result.MaxConcurrentRequests = core.MaxConcurrentRequests
 	}
+	return result
 }
 
 func buildIndexPrimaryAccounts(session *jmap.Session) IndexPrimaryAccounts {
@@ -200,20 +202,8 @@ func buildIndexAccount(session *jmap.Session, boot map[string]jmap.AccountBootst
 			IsPersonal: account.IsPersonal,
 			IsReadOnly: account.IsReadOnly,
 			Capabilities: IndexAccountCapabilities{
-				Mail: IndexAccountMailCapabilities{
-					MaxMailboxDepth:            account.AccountCapabilities.Mail.MaxMailboxDepth,
-					MaxSizeMailboxName:         account.AccountCapabilities.Mail.MaxSizeMailboxName,
-					MaxMailboxesPerEmail:       account.AccountCapabilities.Mail.MaxMailboxesPerEmail,
-					MaxSizeAttachmentsPerEmail: account.AccountCapabilities.Mail.MaxSizeAttachmentsPerEmail,
-					MayCreateTopLevelMailbox:   account.AccountCapabilities.Mail.MayCreateTopLevelMailbox,
-					MaxDelayedSend:             account.AccountCapabilities.Submission.MaxDelayedSend,
-				},
-				Sieve: IndexAccountSieveCapabilities{
-					MaxSizeScriptName:  account.AccountCapabilities.Sieve.MaxSizeScript,
-					MaxSizeScript:      account.AccountCapabilities.Sieve.MaxSizeScript,
-					MaxNumberScripts:   account.AccountCapabilities.Sieve.MaxNumberScripts,
-					MaxNumberRedirects: account.AccountCapabilities.Sieve.MaxNumberRedirects,
-				},
+				Mail:  buildIndexAccountMailCapabilities(account),
+				Sieve: buildIndexAccountSieveCapabilities(account),
 			},
 		}
 		if b, ok := boot[accountId]; ok {
@@ -223,4 +213,30 @@ func buildIndexAccount(session *jmap.Session, boot map[string]jmap.AccountBootst
 		accounts[accountId] = indexAccount
 	}
 	return accounts
+}
+
+func buildIndexAccountMailCapabilities(account jmap.Account) IndexAccountMailCapabilities {
+	result := IndexAccountMailCapabilities{}
+	if mail := account.AccountCapabilities.Mail; mail != nil {
+		result.MaxMailboxDepth = mail.MaxMailboxDepth
+		result.MaxSizeMailboxName = mail.MaxSizeMailboxName
+		result.MaxMailboxesPerEmail = mail.MaxMailboxesPerEmail
+		result.MaxSizeAttachmentsPerEmail = mail.MaxSizeAttachmentsPerEmail
+		result.MayCreateTopLevelMailbox = mail.MayCreateTopLevelMailbox
+	}
+	if subm := account.AccountCapabilities.Submission; subm != nil {
+		result.MaxDelayedSend = subm.MaxDelayedSend
+	}
+	return result
+}
+
+func buildIndexAccountSieveCapabilities(account jmap.Account) IndexAccountSieveCapabilities {
+	result := IndexAccountSieveCapabilities{}
+	if sieve := account.AccountCapabilities.Sieve; sieve != nil {
+		result.MaxSizeScriptName = sieve.MaxSizeScriptName
+		result.MaxSizeScript = sieve.MaxSizeScript
+		result.MaxNumberScripts = sieve.MaxNumberScripts
+		result.MaxNumberRedirects = sieve.MaxNumberRedirects
+	}
+	return result
 }
