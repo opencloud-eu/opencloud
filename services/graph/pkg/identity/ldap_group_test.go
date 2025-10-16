@@ -305,7 +305,7 @@ func TestGetGroupsSearch(t *testing.T) {
 	// only match if the filter contains the search term unquoted
 	lm.On("Search", mock.MatchedBy(
 		func(req *ldap.SearchRequest) bool {
-			return req.Filter == "(&(objectClass=groupOfNames)(|(cn=*term*)(entryUUID=*term*)))"
+			return req.Filter == "(&(objectClass=groupOfNames)(cn=*term*))"
 		})).
 		Return(&ldap.SearchResult{}, nil)
 	b, _ := getMockedBackend(lm, lconfig, &logger)

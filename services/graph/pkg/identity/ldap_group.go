@@ -83,9 +83,8 @@ func (i *LDAP) GetGroups(ctx context.Context, oreq *godata.GoDataRequest) ([]*li
 	if search != "" {
 		search = ldap.EscapeFilter(search)
 		groupFilter = fmt.Sprintf(
-			"(|(%s=*%s*)(%s=*%s*))",
+			"(%s=*%s*)",
 			i.groupAttributeMap.name, search,
-			i.groupAttributeMap.id, search,
 		)
 	}
 	groupFilter = fmt.Sprintf("(&%s(objectClass=%s)%s)", i.groupFilter, i.groupObjectClass, groupFilter)
