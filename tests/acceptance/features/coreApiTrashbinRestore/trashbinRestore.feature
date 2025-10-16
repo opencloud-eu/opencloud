@@ -578,10 +578,14 @@ Feature: restore deleted files/folders
     And user "Alice" has uploaded file with content "new content" to "new/new-file.txt"
     When user "Alice" restores the folder with original path "/new" to "/new (1)" using the trashbin API
     Then the HTTP status code should be "201"
-    And as "Alice" folder "new (1)" should exist
-    And as "Alice" file "new (1)/test.txt" should exist
-    And as "Alice" folder "new" should exist
-    And as "Alice" file "new/new-file.txt" should exist
+    And as "Alice" the following folders should exist
+      | path          |
+      | /new     |
+      | /new (1) |
+    And as "Alice" the following files should exist
+      | path               |
+      | /new/new-file.txt   |
+      | /new (1)/test.txt  |
     Examples:
       | dav-path-version |
       | spaces           |
@@ -600,10 +604,14 @@ Feature: restore deleted files/folders
     Then the HTTP status code should be "201"
     When user "Alice" restores the folder with original path "/folder-a" to "/folder-a (1)" using the trashbin API
     Then the HTTP status code should be "201"
-    And as "Alice" folder "folder-a" should exist
-    And as "Alice" file "folder-a/b.txt" should exist
-    And as "Alice" folder "folder-a (1)" should exist
-    And as "Alice" file "folder-a (1)/c.txt" should exist
+    And as "Alice" the following folders should exist
+      | path          |
+      | /folder-a     |
+      | /folder-a (1) |
+    And as "Alice" the following files should exist
+      | path               |
+      | /folder-a/b.txt    |
+      | /folder-a (1)/c.txt |
     Examples:
       | dav-path-version |
       | spaces           |
