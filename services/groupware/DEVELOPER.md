@@ -531,6 +531,25 @@ For more details on the usage of that little helper tool, consult its [`README.m
 > [!NOTE]
 > This only needs to be done once, since the emails are stored in a volume used by the Stalwart container.
 
+## Setting up Stalwart Principals
+
+To make things more interesting, we might want to create some resources that are currently not captured by our LDAP structure and/or not part of our demo users, such as by
+
+ * adding quota to users, to have quota limits show up in the JMAP payloads;
+ * add groups, to have them listed as additional accounts for the users that are members of those groups;
+ * add mailing-lists
+
+Those things can either be done using the Stalwart administration web UI, manually, or by using its [Management API](https://stalw.art/docs/api/management/endpoints/).
+
+For the latter, we have another helper tool that has the ability, among a few other things, to take a file with a desired state and apply the necessary changes accordingly to the current state.
+
+```bash
+cd "$OCDIR/"
+git clone git@github.com:opencloud-eu/stalwart-admin.git
+cd ./stalwart-admin/
+go run . principal import --log-level=info --activate -f "$OCDIR/opencloud/services/groupware/demo-principals.yaml"
+```
+
 ## Setting Quota in Stalwart
 
 Use the [Stalwart Management API](https://stalw.art/docs/category/management-api) to set the quota for a user if you want to test quota-related Groupware APIs.

@@ -1,0 +1,24 @@
+alan:
+  quota: 20GB
+lynn:
+  quota: 5GB
+mary:
+  quota: 500MB
+scientists:
+  type: group
+  description: "Science folks"
+  emails:
+    - science@example.org
+  members:
+    - alan
+    - lynn
+    - mary
+news:
+  type: list
+  description: "Get your daily science news"
+  members:
+    - alan
+    - lynn
+  emails:
+    - news@example.org
+
