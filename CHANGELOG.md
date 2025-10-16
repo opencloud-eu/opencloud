@@ -1,10 +1,10 @@
 # Changelog
 
-## [3.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.6.0) - 2025-10-15
+## [3.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.6.0) - 2025-10-16
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @ScharfViktor, @butonic, @dragonchaser, @fschade, @micbar, @prashant-gurung899, @rhafer, @tammi-23
+@AlexAndBear, @ScharfViktor, @butonic, @dragonchaser, @fschade, @micbar, @prashant-gurung899, @rhafer, @schweigisito, @tammi-23
 
 ### ✅ Tests
 
@@ -29,11 +29,13 @@
 ### 📚 Documentation
 
 - adr: use eduation api for multi-tenancy provisioning [[#1548](https://github.com/opencloud-eu/opencloud/pull/1548)]
+- fix: remove deprecated web ui feature "OpenAppsInTab" [[#1575](https://github.com/opencloud-eu/opencloud/pull/1575)]
 
 ### 📈 Enhancement
 
 - change: use 404 as status when thumbnail can not be fetched [[#1582](https://github.com/opencloud-eu/opencloud/pull/1582)]
 - feat: add dedicated logo (web) for mobile view to theme [[#1579](https://github.com/opencloud-eu/opencloud/pull/1579)]
+- feat: make it possible to start the collaboration service in the single process [[#1569](https://github.com/opencloud-eu/opencloud/pull/1569)]
 - introduce AppURLs helper for atomic backgroud updates [[#1542](https://github.com/opencloud-eu/opencloud/pull/1542)]
 - chore: add config for capability CheckForUpdates [[#1556](https://github.com/opencloud-eu/opencloud/pull/1556)]
 
@@ -49,6 +51,9 @@
 - build(deps): bump github.com/nats-io/nats.go from 1.46.0 to 1.46.1 [[#1590](https://github.com/opencloud-eu/opencloud/pull/1590)]
 - build(deps): bump github.com/olekukonko/tablewriter from 1.0.9 to 1.1.0 [[#1584](https://github.com/opencloud-eu/opencloud/pull/1584)]
 - build(deps): bump github.com/open-policy-agent/opa from 1.8.0 to 1.9.0 [[#1576](https://github.com/opencloud-eu/opencloud/pull/1576)]
+- build(deps): bump github.com/nats-io/nats-server/v2 from 2.11.9 to 2.12.0 [[#1568](https://github.com/opencloud-eu/opencloud/pull/1568)]
+- build(deps): bump golang.org/x/net from 0.43.0 to 0.44.0 [[#1567](https://github.com/opencloud-eu/opencloud/pull/1567)]
+- reva bump. getting #327 [[#1555](https://github.com/opencloud-eu/opencloud/pull/1555)]
 - build(deps): bump golang.org/x/image from 0.30.0 to 0.31.0 [[#1552](https://github.com/opencloud-eu/opencloud/pull/1552)]
 - build(deps): bump github.com/nats-io/nats.go from 1.45.0 to 1.46.0 [[#1551](https://github.com/opencloud-eu/opencloud/pull/1551)]
 - build(deps): bump golang.org/x/crypto from 0.41.0 to 0.42.0 [[#1545](https://github.com/opencloud-eu/opencloud/pull/1545)]
