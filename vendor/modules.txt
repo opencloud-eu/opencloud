@@ -109,6 +109,10 @@ github.com/armon/go-radix
 # github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
 ## explicit; go 1.13
 github.com/asaskevich/govalidator
+# github.com/aymerick/douceur v0.2.0
+## explicit
+github.com/aymerick/douceur/css
+github.com/aymerick/douceur/parser
 # github.com/bbalet/stopwords v1.0.0
 ## explicit
 github.com/bbalet/stopwords
@@ -407,8 +411,6 @@ github.com/docker/go-units
 # github.com/dustin/go-humanize v1.0.1
 ## explicit; go 1.16
 github.com/dustin/go-humanize
-# github.com/dustinkirkland/golang-petname v0.0.0-20240428194347-eebcea082ee0
-## explicit; go 1.20
 # github.com/dutchcoders/go-clamd v0.0.0-20170520113014-b970184f4d9e
 ## explicit
 github.com/dutchcoders/go-clamd
@@ -808,6 +810,9 @@ github.com/gookit/goutil/x/encodes
 github.com/gookit/goutil/x/goinfo
 github.com/gookit/goutil/x/stdio
 github.com/gookit/goutil/x/termenv
+# github.com/gorilla/css v1.0.1
+## explicit; go 1.20
+github.com/gorilla/css/scanner
 # github.com/gorilla/handlers v1.5.1
 ## explicit; go 1.14
 github.com/gorilla/handlers
@@ -1089,6 +1094,10 @@ github.com/maxymania/go-system/syscall_x
 # github.com/mendsley/gojwk v0.0.0-20141217222730-4d5ec6e58103
 ## explicit
 github.com/mendsley/gojwk
+# github.com/microcosm-cc/bluemonday v1.0.27
+## explicit; go 1.19
+github.com/microcosm-cc/bluemonday
+github.com/microcosm-cc/bluemonday/css
 # github.com/miekg/dns v1.1.68
 ## explicit; go 1.23.0
 github.com/miekg/dns
@@ -2764,8 +2773,6 @@ google.golang.org/protobuf/types/known/wrapperspb
 # gopkg.in/cenkalti/backoff.v1 v1.1.0
 ## explicit
 gopkg.in/cenkalti/backoff.v1
-# gopkg.in/loremipsum.v1 v1.1.2
-## explicit; go 1.17
 # gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7
 ## explicit
 gopkg.in/tomb.v1

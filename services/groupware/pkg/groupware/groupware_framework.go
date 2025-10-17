@@ -90,6 +90,7 @@ type Groupware struct {
 	logger            *log.Logger
 	defaultEmailLimit uint
 	maxBodyValueBytes uint
+	sanitize          bool
 	// Caches successful and failed Sessions by the username.
 	sessionCache sessionCache
 	jmap         *jmap.Client
@@ -191,6 +192,8 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 	useDnsForSessionResolution := false // TODO configuration setting, although still experimental, needs proper unit tests first
 
 	insecureTls := true // TODO make configurable
+
+	sanitize := true // TODO make configurable
 
 	m := metrics.New(prometheusRegistry, logger)
 
@@ -339,6 +342,7 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 		jmap:              &jmapClient,
 		defaultEmailLimit: defaultEmailLimit,
 		maxBodyValueBytes: maxBodyValueBytes,
+		sanitize:          sanitize,
 		eventChannel:      eventChannel,
 		jobsChannel:       jobsChannel,
 		jobCounter:        atomic.Uint64{},
