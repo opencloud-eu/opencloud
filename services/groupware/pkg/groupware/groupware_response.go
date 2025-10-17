@@ -116,3 +116,11 @@ func notFoundResponse(sessionState jmap.SessionState) Response {
 		sessionState: sessionState,
 	}
 }
+
+func notImplementesResponse() Response {
+	return Response{
+		body:   nil,
+		status: http.StatusNotImplemented,
+		err:    nil,
+	}
+}

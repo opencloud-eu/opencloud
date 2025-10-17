@@ -187,71 +187,125 @@ func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.
 	})
 }
 
-type EmailSnippetQueryResult struct {
-	Snippets   []SearchSnippet `json:"snippets,omitempty"`
-	Total      uint            `json:"total"`
-	Limit      uint            `json:"limit,omitzero"`
-	Position   uint            `json:"position,omitzero"`
-	QueryState State           `json:"queryState"`
+type SearchSnippetWithMeta struct {
+	ReceivedAt time.Time `json:"receivedAt,omitzero"`
+	EmailId    string    `json:"emailId,omitempty"`
+	SearchSnippet
 }
 
-func (j *Client) QueryEmailSnippets(accountId string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, offset uint, limit uint) (EmailSnippetQueryResult, SessionState, Language, Error) {
-	logger = j.loggerParams("QueryEmails", session, logger, func(z zerolog.Context) zerolog.Context {
+type EmailSnippetQueryResult struct {
+	Snippets   []SearchSnippetWithMeta `json:"snippets,omitempty"`
+	Total      uint                    `json:"total"`
+	Limit      uint                    `json:"limit,omitzero"`
+	Position   uint                    `json:"position,omitzero"`
+	QueryState State                   `json:"queryState"`
+}
+
+func (j *Client) QueryEmailSnippets(accountIds []string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, offset uint, limit uint) (map[string]EmailSnippetQueryResult, SessionState, Language, Error) {
+	logger = j.loggerParams("QueryEmailSnippets", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Uint(logLimit, limit).Uint(logOffset, offset)
 	})
 
-	query := EmailQueryCommand{
-		AccountId:       accountId,
-		Filter:          filter,
-		Sort:            []EmailComparator{{Property: emailSortByReceivedAt, IsAscending: false}},
-		CollapseThreads: true,
-		CalculateTotal:  true,
-	}
-	if offset > 0 {
-		query.Position = offset
-	}
-	if limit > 0 {
-		query.Limit = limit
+	uniqueAccountIds := structs.Uniq(accountIds)
+	invocations := make([]Invocation, len(uniqueAccountIds)*3)
+	for i, accountId := range uniqueAccountIds {
+		query := EmailQueryCommand{
+			AccountId:       accountId,
+			Filter:          filter,
+			Sort:            []EmailComparator{{Property: emailSortByReceivedAt, IsAscending: false}},
+			CollapseThreads: true,
+			CalculateTotal:  true,
+		}
+		if offset > 0 {
+			query.Position = offset
+		}
+		if limit > 0 {
+			query.Limit = limit
+		}
+
+		mails := EmailGetRefCommand{
+			AccountId: accountId,
+			IdsRef: &ResultReference{
+				ResultOf: mcid(accountId, "0"),
+				Name:     CommandEmailQuery,
+				Path:     "/ids/*",
+			},
+			FetchAllBodyValues: false,
+			MaxBodyValueBytes:  0,
+			Properties:         []string{"id", "receivedAt", "sentAt"},
+		}
+
+		snippet := SearchSnippetGetRefCommand{
+			AccountId: accountId,
+			Filter:    filter,
+			EmailIdRef: &ResultReference{
+				ResultOf: mcid(accountId, "0"),
+				Name:     CommandEmailQuery,
+				Path:     "/ids/*",
+			},
+		}
+
+		invocations[i*3+0] = invocation(CommandEmailQuery, query, mcid(accountId, "0"))
+		invocations[i*3+1] = invocation(CommandEmailGet, mails, mcid(accountId, "1"))
+		invocations[i*3+2] = invocation(CommandSearchSnippetGet, snippet, mcid(accountId, "2"))
 	}
 
-	snippet := SearchSnippetGetRefCommand{
-		AccountId: accountId,
-		Filter:    filter,
-		EmailIdRef: &ResultReference{
-			ResultOf: "0",
-			Name:     CommandEmailQuery,
-			Path:     "/ids/*",
-		},
-	}
-
-	cmd, err := j.request(session, logger,
-		invocation(CommandEmailQuery, query, "0"),
-		invocation(CommandSearchSnippetGet, snippet, "1"),
-	)
+	cmd, err := j.request(session, logger, invocations...)
 	if err != nil {
-		return EmailSnippetQueryResult{}, "", "", err
+		return nil, "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (EmailSnippetQueryResult, Error) {
-		var queryResponse EmailQueryResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailQuery, "0", &queryResponse)
-		if err != nil {
-			return EmailSnippetQueryResult{}, err
-		}
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]EmailSnippetQueryResult, Error) {
+		results := make(map[string]EmailSnippetQueryResult, len(uniqueAccountIds))
+		for _, accountId := range uniqueAccountIds {
+			var queryResponse EmailQueryResponse
+			err = retrieveResponseMatchParameters(logger, body, CommandEmailQuery, mcid(accountId, "0"), &queryResponse)
+			if err != nil {
+				return nil, err
+			}
 
-		var snippetResponse SearchSnippetGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandSearchSnippetGet, "1", &snippetResponse)
-		if err != nil {
-			return EmailSnippetQueryResult{}, err
-		}
+			var mailResponse EmailGetResponse
+			err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, mcid(accountId, "1"), &mailResponse)
+			if err != nil {
+				return nil, err
+			}
 
-		return EmailSnippetQueryResult{
-			Snippets:   snippetResponse.List,
-			Total:      queryResponse.Total,
-			Limit:      queryResponse.Limit,
-			Position:   queryResponse.Position,
-			QueryState: queryResponse.QueryState,
-		}, nil
+			var snippetResponse SearchSnippetGetResponse
+			err = retrieveResponseMatchParameters(logger, body, CommandSearchSnippetGet, mcid(accountId, "2"), &snippetResponse)
+			if err != nil {
+				return nil, err
+			}
+
+			mailResponseById := structs.Index(mailResponse.List, func(e Email) string { return e.Id })
+
+			snippets := make([]SearchSnippetWithMeta, len(queryResponse.Ids))
+			if len(queryResponse.Ids) > len(snippetResponse.List) {
+				// TODO how do we handle this, if there are more email IDs than snippets?
+			}
+
+			i := 0
+			for _, id := range queryResponse.Ids {
+				if mail, ok := mailResponseById[id]; ok {
+					snippets[i] = SearchSnippetWithMeta{
+						EmailId:       id,
+						ReceivedAt:    mail.ReceivedAt,
+						SearchSnippet: snippetResponse.List[i],
+					}
+				} else {
+					// TODO how do we handle this, if there is no email result for that id?
+				}
+				i++
+			}
+
+			results[accountId] = EmailSnippetQueryResult{
+				Snippets:   snippets,
+				Total:      queryResponse.Total,
+				Limit:      queryResponse.Limit,
+				Position:   queryResponse.Position,
+				QueryState: queryResponse.QueryState,
+			}
+		}
+		return results, nil
 	})
 }
 
@@ -263,64 +317,72 @@ type EmailQueryResult struct {
 	QueryState State   `json:"queryState"`
 }
 
-func (j *Client) QueryEmails(accountId string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, offset uint, limit uint, fetchBodies bool, maxBodyValueBytes uint) (EmailQueryResult, SessionState, Language, Error) {
+func (j *Client) QueryEmails(accountIds []string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, offset uint, limit uint, fetchBodies bool, maxBodyValueBytes uint) (map[string]EmailQueryResult, SessionState, Language, Error) {
 	logger = j.loggerParams("QueryEmails", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies)
 	})
 
-	query := EmailQueryCommand{
-		AccountId:       accountId,
-		Filter:          filter,
-		Sort:            []EmailComparator{{Property: emailSortByReceivedAt, IsAscending: false}},
-		CollapseThreads: true,
-		CalculateTotal:  true,
-	}
-	if offset > 0 {
-		query.Position = offset
-	}
-	if limit > 0 {
-		query.Limit = limit
+	uniqueAccountIds := structs.Uniq(accountIds)
+	invocations := make([]Invocation, len(uniqueAccountIds)*2)
+	for i, accountId := range uniqueAccountIds {
+		query := EmailQueryCommand{
+			AccountId:       accountId,
+			Filter:          filter,
+			Sort:            []EmailComparator{{Property: emailSortByReceivedAt, IsAscending: false}},
+			CollapseThreads: true,
+			CalculateTotal:  true,
+		}
+		if offset > 0 {
+			query.Position = offset
+		}
+		if limit > 0 {
+			query.Limit = limit
+		}
+
+		mails := EmailGetRefCommand{
+			AccountId: accountId,
+			IdsRef: &ResultReference{
+				ResultOf: mcid(accountId, "0"),
+				Name:     CommandEmailQuery,
+				Path:     "/ids/*",
+			},
+			FetchAllBodyValues: fetchBodies,
+			MaxBodyValueBytes:  maxBodyValueBytes,
+		}
+
+		invocations[i*2+0] = invocation(CommandEmailQuery, query, mcid(accountId, "0"))
+		invocations[i*2+1] = invocation(CommandEmailGet, mails, mcid(accountId, "1"))
 	}
 
-	mails := EmailGetRefCommand{
-		AccountId: accountId,
-		IdsRef: &ResultReference{
-			ResultOf: "0",
-			Name:     CommandEmailQuery,
-			Path:     "/ids/*",
-		},
-		FetchAllBodyValues: fetchBodies,
-		MaxBodyValueBytes:  maxBodyValueBytes,
-	}
-
-	cmd, err := j.request(session, logger,
-		invocation(CommandEmailQuery, query, "0"),
-		invocation(CommandEmailGet, mails, "1"),
-	)
+	cmd, err := j.request(session, logger, invocations...)
 	if err != nil {
-		return EmailQueryResult{}, "", "", err
+		return nil, "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (EmailQueryResult, Error) {
-		var queryResponse EmailQueryResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailQuery, "0", &queryResponse)
-		if err != nil {
-			return EmailQueryResult{}, err
-		}
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]EmailQueryResult, Error) {
+		results := make(map[string]EmailQueryResult, len(uniqueAccountIds))
+		for _, accountId := range uniqueAccountIds {
+			var queryResponse EmailQueryResponse
+			err = retrieveResponseMatchParameters(logger, body, CommandEmailQuery, mcid(accountId, "0"), &queryResponse)
+			if err != nil {
+				return nil, err
+			}
 
-		var emailsResponse EmailGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "1", &emailsResponse)
-		if err != nil {
-			return EmailQueryResult{}, err
-		}
+			var emailsResponse EmailGetResponse
+			err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, mcid(accountId, "1"), &emailsResponse)
+			if err != nil {
+				return nil, err
+			}
 
-		return EmailQueryResult{
-			Emails:     emailsResponse.List,
-			Total:      queryResponse.Total,
-			Limit:      queryResponse.Limit,
-			Position:   queryResponse.Position,
-			QueryState: queryResponse.QueryState,
-		}, nil
+			results[accountId] = EmailQueryResult{
+				Emails:     emailsResponse.List,
+				Total:      queryResponse.Total,
+				Limit:      queryResponse.Limit,
+				Position:   queryResponse.Position,
+				QueryState: queryResponse.QueryState,
+			}
+		}
+		return results, nil
 	})
 }
 
@@ -337,104 +399,110 @@ type EmailQueryWithSnippetsResult struct {
 	QueryState State               `json:"queryState"`
 }
 
-func (j *Client) QueryEmailsWithSnippets(accountId string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, offset uint, limit uint, fetchBodies bool, maxBodyValueBytes uint) (EmailQueryWithSnippetsResult, SessionState, Language, Error) {
+func (j *Client) QueryEmailsWithSnippets(accountIds []string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, offset uint, limit uint, fetchBodies bool, maxBodyValueBytes uint) (map[string]EmailQueryWithSnippetsResult, SessionState, Language, Error) {
 	logger = j.loggerParams("QueryEmailsWithSnippets", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies)
 	})
 
-	query := EmailQueryCommand{
-		AccountId:       accountId,
-		Filter:          filter,
-		Sort:            []EmailComparator{{Property: emailSortByReceivedAt, IsAscending: false}},
-		CollapseThreads: false,
-		CalculateTotal:  true,
-	}
-	if offset > 0 {
-		query.Position = offset
-	}
-	if limit > 0 {
-		query.Limit = limit
+	uniqueAccountIds := structs.Uniq(accountIds)
+	invocations := make([]Invocation, len(uniqueAccountIds)*3)
+	for i, accountId := range uniqueAccountIds {
+		query := EmailQueryCommand{
+			AccountId:       accountId,
+			Filter:          filter,
+			Sort:            []EmailComparator{{Property: emailSortByReceivedAt, IsAscending: false}},
+			CollapseThreads: false,
+			CalculateTotal:  true,
+		}
+		if offset > 0 {
+			query.Position = offset
+		}
+		if limit > 0 {
+			query.Limit = limit
+		}
+
+		snippet := SearchSnippetGetRefCommand{
+			AccountId: accountId,
+			Filter:    filter,
+			EmailIdRef: &ResultReference{
+				ResultOf: mcid(accountId, "0"),
+				Name:     CommandEmailQuery,
+				Path:     "/ids/*",
+			},
+		}
+
+		mails := EmailGetRefCommand{
+			AccountId: accountId,
+			IdsRef: &ResultReference{
+				ResultOf: mcid(accountId, "0"),
+				Name:     CommandEmailQuery,
+				Path:     "/ids/*",
+			},
+			FetchAllBodyValues: fetchBodies,
+			MaxBodyValueBytes:  maxBodyValueBytes,
+		}
+		invocations[i*3+0] = invocation(CommandEmailQuery, query, mcid(accountId, "0"))
+		invocations[i*3+1] = invocation(CommandSearchSnippetGet, snippet, mcid(accountId, "1"))
+		invocations[i*3+2] = invocation(CommandEmailGet, mails, mcid(accountId, "2"))
 	}
 
-	snippet := SearchSnippetGetRefCommand{
-		AccountId: accountId,
-		Filter:    filter,
-		EmailIdRef: &ResultReference{
-			ResultOf: "0",
-			Name:     CommandEmailQuery,
-			Path:     "/ids/*",
-		},
-	}
-
-	mails := EmailGetRefCommand{
-		AccountId: accountId,
-		IdsRef: &ResultReference{
-			ResultOf: "0",
-			Name:     CommandEmailQuery,
-			Path:     "/ids/*",
-		},
-		FetchAllBodyValues: fetchBodies,
-		MaxBodyValueBytes:  maxBodyValueBytes,
-	}
-
-	cmd, err := j.request(session, logger,
-		invocation(CommandEmailQuery, query, "0"),
-		invocation(CommandSearchSnippetGet, snippet, "1"),
-		invocation(CommandEmailGet, mails, "2"),
-	)
-
+	cmd, err := j.request(session, logger, invocations...)
 	if err != nil {
 		logger.Error().Err(err).Send()
-		return EmailQueryWithSnippetsResult{}, "", "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return nil, "", "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (EmailQueryWithSnippetsResult, Error) {
-		var queryResponse EmailQueryResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailQuery, "0", &queryResponse)
-		if err != nil {
-			return EmailQueryWithSnippetsResult{}, err
-		}
-
-		var snippetResponse SearchSnippetGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandSearchSnippetGet, "1", &snippetResponse)
-		if err != nil {
-			return EmailQueryWithSnippetsResult{}, err
-		}
-
-		var emailsResponse EmailGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "2", &emailsResponse)
-		if err != nil {
-			return EmailQueryWithSnippetsResult{}, err
-		}
-
-		snippetsById := map[string][]SearchSnippet{}
-		for _, snippet := range snippetResponse.List {
-			list, ok := snippetsById[snippet.EmailId]
-			if !ok {
-				list = []SearchSnippet{}
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]EmailQueryWithSnippetsResult, Error) {
+		result := make(map[string]EmailQueryWithSnippetsResult, len(uniqueAccountIds))
+		for _, accountId := range uniqueAccountIds {
+			var queryResponse EmailQueryResponse
+			err = retrieveResponseMatchParameters(logger, body, CommandEmailQuery, mcid(accountId, "0"), &queryResponse)
+			if err != nil {
+				return nil, err
 			}
-			snippetsById[snippet.EmailId] = append(list, snippet)
-		}
 
-		results := []EmailWithSnippets{}
-		for _, email := range emailsResponse.List {
-			snippets, ok := snippetsById[email.Id]
-			if !ok {
-				snippets = []SearchSnippet{}
+			var snippetResponse SearchSnippetGetResponse
+			err = retrieveResponseMatchParameters(logger, body, CommandSearchSnippetGet, mcid(accountId, "1"), &snippetResponse)
+			if err != nil {
+				return nil, err
 			}
-			results = append(results, EmailWithSnippets{
-				Email:    email,
-				Snippets: snippets,
-			})
-		}
 
-		return EmailQueryWithSnippetsResult{
-			Results:    results,
-			Total:      queryResponse.Total,
-			Limit:      queryResponse.Limit,
-			Position:   queryResponse.Position,
-			QueryState: queryResponse.QueryState,
-		}, nil
+			var emailsResponse EmailGetResponse
+			err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, mcid(accountId, "2"), &emailsResponse)
+			if err != nil {
+				return nil, err
+			}
+
+			snippetsById := map[string][]SearchSnippet{}
+			for _, snippet := range snippetResponse.List {
+				list, ok := snippetsById[snippet.EmailId]
+				if !ok {
+					list = []SearchSnippet{}
+				}
+				snippetsById[snippet.EmailId] = append(list, snippet)
+			}
+
+			results := []EmailWithSnippets{}
+			for _, email := range emailsResponse.List {
+				snippets, ok := snippetsById[email.Id]
+				if !ok {
+					snippets = []SearchSnippet{}
+				}
+				results = append(results, EmailWithSnippets{
+					Email:    email,
+					Snippets: snippets,
+				})
+			}
+
+			result[accountId] = EmailQueryWithSnippetsResult{
+				Results:    results,
+				Total:      queryResponse.Total,
+				Limit:      queryResponse.Limit,
+				Position:   queryResponse.Position,
+				QueryState: queryResponse.QueryState,
+			}
+		}
+		return result, nil
 	})
 }
 

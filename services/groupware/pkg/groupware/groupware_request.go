@@ -123,15 +123,21 @@ func (r Request) GetAccountIdForSubmission() (string, *Error) {
 }
 
 func (r Request) GetAccountIdForTask() (string, *Error) {
-	return r.getAccountId(r.session.PrimaryAccounts.Task, errNoPrimaryAccountForTask)
+	// TODO we don't have these yet, not implemented in Stalwart
+	// return r.getAccountId(r.session.PrimaryAccounts.Task, errNoPrimaryAccountForTask)
+	return r.GetAccountIdForMail()
 }
 
 func (r Request) GetAccountIdForCalendar() (string, *Error) {
-	return r.getAccountId(r.session.PrimaryAccounts.Calendar, errNoPrimaryAccountForCalendar)
+	// TODO we don't have these yet, not implemented in Stalwart
+	// return r.getAccountId(r.session.PrimaryAccounts.Calendar, errNoPrimaryAccountForCalendar)
+	return r.GetAccountIdForMail()
 }
 
 func (r Request) GetAccountIdForContact() (string, *Error) {
-	return r.getAccountId(r.session.PrimaryAccounts.Contact, errNoPrimaryAccountForContact)
+	// TODO we don't have these yet, not implemented in Stalwart
+	// return r.getAccountId(r.session.PrimaryAccounts.Contact, errNoPrimaryAccountForContact)
+	return r.GetAccountIdForMail()
 }
 
 func (r Request) GetAccountForMail() (jmap.Account, *Error) {

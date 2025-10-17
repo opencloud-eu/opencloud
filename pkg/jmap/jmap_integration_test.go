@@ -724,7 +724,7 @@ func TestEmails(t *testing.T) {
 
 	{
 		{
-			resp, sessionState, _, err := s.client.GetIdentity(accountId, s.session, s.ctx, s.logger, "")
+			resp, sessionState, _, err := s.client.GetAllIdentities(accountId, s.session, s.ctx, s.logger, "")
 			require.NoError(err)
 			require.Equal(s.session.State, sessionState)
 			require.Len(resp.Identities, 1)
