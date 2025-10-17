@@ -195,6 +195,7 @@ const (
 	ErrorCodeMissingTasksSessionCapability     = "MSCTSK"
 	ErrorCodeMissingTaskAccountCapability      = "MACTSK"
 	ErrorCodeFailedToDeleteEmail               = "DELEML"
+	ErrorCodeFailedToDeleteSomeIdentities      = "DELSID"
 )
 
 var (
@@ -420,6 +421,12 @@ var (
 		Title:  "Failed to delete emails",
 		Detail: "One or more emails could not be deleted.",
 	}
+	ErrorFailedToDeleteSomeIdentities = GroupwareError{
+		Status: http.StatusInternalServerError,
+		Code:   ErrorCodeFailedToDeleteSomeIdentities,
+		Title:  "Failed to delete some Identities",
+		Detail: "Failed to delete some or all of the identities.",
+	}
 )
 
 type ErrorOpt interface {
@@ -576,12 +583,12 @@ func (r Request) observedParameterError(gwerr GroupwareError, options ...ErrorOp
 	return r.observeParameterError(apiError(r.errorId(), gwerr, options...))
 }
 
-func (r Request) apiError(err *GroupwareError) *Error {
+func (r Request) apiError(err *GroupwareError, options ...ErrorOpt) *Error {
 	if err == nil {
 		return nil
 	}
 	errorId := r.errorId()
-	return apiError(errorId, *err)
+	return apiError(errorId, *err, options...)
 }
 
 func (r Request) apiErrorFromJmap(err jmap.Error) *Error {

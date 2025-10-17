@@ -67,6 +67,26 @@ func Map[E any, R any](source []E, indexer func(E) R) []R {
 	return result
 }
 
+func ToBoolMap[E comparable](source []E) map[E]bool {
+	m := make(map[E]bool, len(source))
+	for _, v := range source {
+		m[v] = true
+	}
+	return m
+}
+
+func ToIntMap[E comparable](source []E) map[E]int {
+	m := make(map[E]int, len(source))
+	for _, v := range source {
+		if e, ok := m[v]; ok {
+			m[v] = e + 1
+		} else {
+			m[v] = 1
+		}
+	}
+	return m
+}
+
 func MapN[E any, R any](source []E, indexer func(E) *R) []R {
 	if source == nil {
 		var zero []R
@@ -80,4 +100,40 @@ func MapN[E any, R any](source []E, indexer func(E) *R) []R {
 		}
 	}
 	return result
+}
+
+// Check whether two slices contain the same elements, ignoring order.
+func SameSlices[E comparable](x, y []E) bool {
+	// https://stackoverflow.com/a/36000696
+	if len(x) != len(y) {
+		return false
+	}
+	// create a map of string -> int
+	diff := make(map[E]int, len(x))
+	for _, _x := range x {
+		// 0 value for int is 0, so just increment a counter for the string
+		diff[_x]++
+	}
+	for _, _y := range y {
+		// If the string _y is not in diff bail out early
+		if _, ok := diff[_y]; !ok {
+			return false
+		}
+		diff[_y]--
+		if diff[_y] == 0 {
+			delete(diff, _y)
+		}
+	}
+	return len(diff) == 0
+}
+
+func Missing[E comparable](expected, actual []E) []E {
+	missing := []E{}
+	actualIndex := ToBoolMap(actual)
+	for _, e := range expected {
+		if _, ok := actualIndex[e]; !ok {
+			missing = append(missing, e)
+		}
+	}
+	return missing
 }
