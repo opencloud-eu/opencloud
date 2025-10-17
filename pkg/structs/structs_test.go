@@ -2,6 +2,7 @@ package structs
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -96,6 +97,27 @@ func TestKeys(t *testing.T) {
 		t.Run(fmt.Sprintf("%d: testing %v", i+1, tt.input), func(t *testing.T) {
 			result := Keys(tt.input)
 			assert.ElementsMatch(t, tt.expected, result)
+		})
+	}
+}
+
+func TestMissing(t *testing.T) {
+	tests := []struct {
+		source   []string
+		input    []string
+		expected []string
+	}{
+		{[]string{"a", "b", "c"}, []string{"c", "b", "a"}, []string{}},
+		{[]string{"a", "b", "c"}, []string{"c", "b"}, []string{"a"}},
+		{[]string{"a", "b", "c"}, []string{"c", "b", "a", "d"}, []string{}},
+		{[]string{}, []string{"c", "b"}, []string{}},
+		{[]string{"a", "b", "c"}, []string{}, []string{"a", "b", "c"}},
+		{[]string{"a", "b", "b", "c"}, []string{"a", "b"}, []string{"c"}},
+	}
+	for i, tt := range tests {
+		t.Run(fmt.Sprintf("%d: testing [%v] <-> [%v] == [%v]", i+1, strings.Join(tt.source, ", "), strings.Join(tt.input, ", "), strings.Join(tt.expected, ", ")), func(t *testing.T) {
+			result := Missing(tt.source, tt.input)
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }

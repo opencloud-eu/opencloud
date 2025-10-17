@@ -79,6 +79,7 @@ func (g *Groupware) Route(r chi.Router) {
 			r.Get("/{identityid}", g.GetIdentityById)
 			r.Post("/", g.AddIdentity)
 			r.Patch("/{identityid}", g.ModifyIdentity)
+			r.Delete("/{identityid}", g.DeleteIdentity)
 		})
 		r.Get("/vacation", g.GetVacation)
 		r.Put("/vacation", g.SetVacation)
