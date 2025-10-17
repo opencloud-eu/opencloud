@@ -11,12 +11,14 @@ use Behat\Behat\Hook\Scope\BeforeScenarioScope;
 use Behat\Gherkin\Node\PyStringNode;
 use Behat\Gherkin\Node\TableNode;
 use GuzzleHttp\Exception\GuzzleException;
+use PhpCsFixer\Doctrine\Annotation\Token;
 use PHPUnit\Framework\Assert;
 use Psr\Http\Message\ResponseInterface;
 use TestHelpers\GraphHelper;
 use TestHelpers\WebDavHelper;
 use TestHelpers\HttpRequestHelper;
 use TestHelpers\BehatHelper;
+use TestHelpers\TokenHelper;
 
 require_once 'bootstrap.php';
 
@@ -2864,6 +2866,7 @@ class GraphContext implements Context {
 		);
 		$this->featureContext->theHTTPStatusCodeShouldBe(200, '', $response);
 		$this->featureContext->updateUsernameInCreatedUserList($byUser, $userName);
+		TokenHelper::clearUserTokens($byUser, $this->featureContext->getBaseUrl());
 	}
 
 	/**

@@ -74,6 +74,7 @@ class HttpRequestHelper {
 	 *                     than download it all up-front.
 	 * @param int|null $timeout
 	 * @param Client|null $client
+	 * @param string|null $bearerToken
 	 *
 	 * @return ResponseInterface
 	 * @throws GuzzleException
@@ -90,7 +91,8 @@ class HttpRequestHelper {
 		?CookieJar $cookies = null,
 		bool $stream = false,
 		?int $timeout = 0,
-		?Client $client =  null
+		?Client $client =  null,
+		?string $bearerToken = null
 	): ResponseInterface {
 		if ($client === null) {
 			$client = self::createClient(
@@ -99,7 +101,8 @@ class HttpRequestHelper {
 				$config,
 				$cookies,
 				$stream,
-				$timeout
+				$timeout,
+				$bearerToken
 			);
 		}
 
@@ -200,6 +203,13 @@ class HttpRequestHelper {
 		} else {
 			$debugResponses = false;
 		}
+		// use basic auth for 'public' user or no user
+		if ($user === 'public' || $user === null || $user === '') {
+			$bearerToken = null;
+		} else {
+			$useBearerToken = TokenHelper::useBearerToken();
+			$bearerToken = $useBearerToken ? TokenHelper::getTokens($user, $password, $url)['access_token'] : null;
+		}
 
 		$sendRetryLimit = self::numRetriesOnHttpTooEarly();
 		$sendCount = 0;
@@ -217,7 +227,8 @@ class HttpRequestHelper {
 				$cookies,
 				$stream,
 				$timeout,
-				$client
+				$client,
+				$bearerToken,
 			);
 
 			if ($response->getStatusCode() >= 400
@@ -348,6 +359,7 @@ class HttpRequestHelper {
 	 * @param bool $stream Set to true to stream a response rather
 	 *                     than download it all up-front.
 	 * @param int|null $timeout
+	 * @param string|null $bearerToken
 	 *
 	 * @return Client
 	 */
@@ -357,10 +369,13 @@ class HttpRequestHelper {
 		?array $config = null,
 		?CookieJar $cookies = null,
 		?bool $stream = false,
-		?int $timeout = 0
+		?int $timeout = 0,
+		?string $bearerToken = null
 	): Client {
 		$options = [];
-		if ($user !== null) {
+		if ($bearerToken !== null) {
+			$options['headers']['Authorization'] = 'Bearer ' . $bearerToken;
+		} elseif ($user !== null) {
 			$options['auth'] = [$user, $password];
 		}
 		if ($config !== null) {

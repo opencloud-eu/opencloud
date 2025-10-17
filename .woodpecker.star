@@ -338,6 +338,7 @@ config = {
                 "FRONTEND_READONLY_USER_ATTRIBUTES": "user.onPremisesSamAccountName,user.displayName,user.mail,user.passwordProfile,user.accountEnabled,user.appRoleAssignments",
                 "OC_LDAP_SERVER_WRITE_ENABLED": False,
                 "OC_EXCLUDE_RUN_SERVICES": "idm",
+                "OC_LDAP_USER_ENABLED_ATTRIBUTE": "",
             },
         },
     },
@@ -1076,6 +1077,7 @@ def localApiTests(name, suites, storage = "decomposed", extra_environment = {}, 
         "WITH_REMOTE_PHP": with_remote_php,
         "COLLABORATION_SERVICE_URL": "http://wopi-fakeoffice:9300",
         "OC_STORAGE_PATH": "$HOME/.opencloud/storage/users",
+        "USE_BEARER_TOKEN": True,
     }
 
     for item in extra_environment:
