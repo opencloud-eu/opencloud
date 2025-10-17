@@ -13,10 +13,28 @@ type Identities struct {
 	State      State      `json:"state"`
 }
 
-// https://jmap.io/spec-mail.html#identityget
-func (j *Client) GetIdentity(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (Identities, SessionState, Language, Error) {
-	logger = j.logger("GetIdentity", session, logger)
+func (j *Client) GetAllIdentities(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (Identities, SessionState, Language, Error) {
+	logger = j.logger("GetAllIdentities", session, logger)
 	cmd, err := j.request(session, logger, invocation(CommandIdentityGet, IdentityGetCommand{AccountId: accountId}, "0"))
+	if err != nil {
+		return Identities{}, "", "", err
+	}
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (Identities, Error) {
+		var response IdentityGetResponse
+		err = retrieveResponseMatchParameters(logger, body, CommandIdentityGet, "0", &response)
+		if err != nil {
+			return Identities{}, err
+		}
+		return Identities{
+			Identities: response.List,
+			State:      response.State,
+		}, nil
+	})
+}
+
+func (j *Client) GetIdentities(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, identityIds []string) (Identities, SessionState, Language, Error) {
+	logger = j.logger("GetIdentities", session, logger)
+	cmd, err := j.request(session, logger, invocation(CommandIdentityGet, IdentityGetCommand{AccountId: accountId, Ids: identityIds}, "0"))
 	if err != nil {
 		return Identities{}, "", "", err
 	}
@@ -39,10 +57,10 @@ type IdentitiesGetResponse struct {
 	State      State                 `json:"state"`
 }
 
-func (j *Client) GetIdentities(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (IdentitiesGetResponse, SessionState, Language, Error) {
+func (j *Client) GetIdentitiesForAllAccounts(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (IdentitiesGetResponse, SessionState, Language, Error) {
 	uniqueAccountIds := structs.Uniq(accountIds)
 
-	logger = j.logger("GetIdentities", session, logger)
+	logger = j.logger("GetIdentitiesForAllAccounts", session, logger)
 
 	calls := make([]Invocation, len(uniqueAccountIds))
 	for i, accountId := range uniqueAccountIds {
@@ -127,5 +145,57 @@ func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId string, accountIds [
 			State:      lastState,
 			Mailboxes:  mailboxResponse.List,
 		}, nil
+	})
+}
+
+func (j *Client) CreateIdentity(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, identity Identity) (State, SessionState, Language, Error) {
+	logger = j.logger("CreateIdentity", session, logger)
+	cmd, err := j.request(session, logger, invocation(CommandIdentitySet, IdentitySetCommand{
+		AccountId: accountId,
+		Create: map[string]Identity{
+			"c": identity,
+		},
+	}, "0"))
+	if err != nil {
+		return "", "", "", err
+	}
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (State, Error) {
+		var response IdentitySetResponse
+		err = retrieveResponseMatchParameters(logger, body, CommandIdentitySet, "0", &response)
+		if err != nil {
+			return response.NewState, err
+		}
+		setErr, notok := response.NotCreated["c"]
+		if notok {
+			logger.Error().Msgf("%T.NotCreated returned an error %v", response, setErr)
+			return "", setErrorError(setErr, IdentityType)
+		}
+		return response.NewState, nil
+	})
+}
+
+func (j *Client) UpdateIdentity(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, identity Identity) (State, SessionState, Language, Error) {
+	logger = j.logger("UpdateIdentity", session, logger)
+	cmd, err := j.request(session, logger, invocation(CommandIdentitySet, IdentitySetCommand{
+		AccountId: accountId,
+		Update: map[string]PatchObject{
+			"c": identity.AsPatch(),
+		},
+	}, "0"))
+	if err != nil {
+		return "", "", "", err
+	}
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (State, Error) {
+		var response IdentitySetResponse
+		err = retrieveResponseMatchParameters(logger, body, CommandIdentitySet, "0", &response)
+		if err != nil {
+			return response.NewState, err
+		}
+		setErr, notok := response.NotCreated["c"]
+		if notok {
+			logger.Error().Msgf("%T.NotCreated returned an error %v", response, setErr)
+			return "", setErrorError(setErr, IdentityType)
+		}
+		return response.NewState, nil
 	})
 }

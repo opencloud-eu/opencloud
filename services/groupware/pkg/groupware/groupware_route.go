@@ -14,6 +14,7 @@ const (
 	UriParamAccountId                 = "accountid"
 	UriParamMailboxId                 = "mailbox"
 	UriParamEmailId                   = "emailid"
+	UriParamIdentityId                = "identityid"
 	UriParamBlobId                    = "blobid"
 	UriParamBlobName                  = "blobname"
 	UriParamStreamId                  = "stream"
@@ -66,13 +67,19 @@ func (g *Groupware) Route(r chi.Router) {
 			r.Get("/roles/{role}", g.GetMailboxByRoleForAllAccounts) // ?role=
 		})
 		r.Route("/emails", func(r chi.Router) {
+			r.Get("/", g.GetEmailsForAllAccounts)
 			r.Get("/latest/summary", g.GetLatestEmailsSummaryForAllAccounts) // ?limit=10&seen=true&undesirable=true
 		})
 		r.Get("/quota", g.GetQuotaForAllAccounts)
 	})
 	r.Route("/accounts/{accountid}", func(r chi.Router) {
 		r.Get("/", g.GetAccount)
-		r.Get("/identities", g.GetIdentities)
+		r.Route("/identities", func(r chi.Router) {
+			r.Get("/", g.GetIdentities)
+			r.Get("/{identityid}", g.GetIdentityById)
+			r.Post("/", g.AddIdentity)
+			r.Patch("/{identityid}", g.ModifyIdentity)
+		})
 		r.Get("/vacation", g.GetVacation)
 		r.Put("/vacation", g.SetVacation)
 		r.Get("/quota", g.GetQuota)
