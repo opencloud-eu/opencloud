@@ -3025,9 +3025,29 @@ type IdentityGetCommand struct {
 	Ids       []string `json:"ids,omitempty"`
 }
 
+type IdentitySetCommand struct {
+	AccountId string                 `json:"accountId"`
+	IfInState string                 `json:"ifInState,omitempty"`
+	Create    map[string]Identity    `json:"create,omitempty"`
+	Update    map[string]PatchObject `json:"update,omitempty"`
+	Destroy   []string               `json:"destroy,omitempty"`
+}
+
+type IdentitySetResponse struct {
+	AccountId    string              `json:"accountId"`
+	OldState     State               `json:"oldState,omitempty"`
+	NewState     State               `json:"newState,omitempty"`
+	Created      map[string]Identity `json:"created,omitempty"`
+	Updated      map[string]Identity `json:"updated,omitempty"`
+	Destroyed    []string            `json:"destroyed,omitempty"`
+	NotCreated   map[string]SetError `json:"notCreated,omitempty"`
+	NotUpdated   map[string]SetError `json:"notUpdated,omitempty"`
+	NotDestroyed map[string]SetError `json:"notDestroyed,omitempty"`
+}
+
 type Identity struct {
 	// The id of the Identity.
-	Id string `json:"id"`
+	Id string `json:"id,omitempty"`
 
 	// The “From” name the client SHOULD use when creating a new Email from this Identity.
 	Name string `json:"name,omitempty"`
@@ -3043,13 +3063,13 @@ type Identity struct {
 	ReplyTo string `json:"replyTo,omitempty"`
 
 	// The Bcc value the client SHOULD set when creating a new Email from this Identity.
-	Bcc []EmailAddress `json:"bcc,omitempty"`
+	Bcc *[]EmailAddress `json:"bcc,omitempty"`
 
 	// A signature the client SHOULD insert into new plaintext messages that will be sent from
 	// this Identity.
 	//
 	// Clients MAY ignore this and/or combine this with a client-specific signature preference.
-	TextSignature string `json:"textSignature,omitempty"`
+	TextSignature *string `json:"textSignature,omitempty"`
 
 	// A signature the client SHOULD insert into new HTML messages that will be sent from this
 	// Identity.
@@ -3057,7 +3077,7 @@ type Identity struct {
 	// This text MUST be an HTML snippet to be inserted into the <body></body> section of the HTML.
 	//
 	// Clients MAY ignore this and/or combine this with a client-specific signature preference.
-	HtmlSignature string `json:"htmlSignature,omitempty"`
+	HtmlSignature *string `json:"htmlSignature,omitempty"`
 
 	// Is the user allowed to delete this Identity?
 	//
@@ -3065,7 +3085,30 @@ type Identity struct {
 	//
 	// Attempts to destroy an Identity with mayDelete: false will be rejected with a standard
 	// forbidden SetError.
-	MayDelete bool `json:"mayDelete"`
+	MayDelete bool `json:"mayDelete,omitzero"`
+}
+
+func (i Identity) AsPatch() PatchObject {
+	p := PatchObject{}
+	if i.Name != "" {
+		p["name"] = i.Name
+	}
+	if i.Email != "" {
+		p["email"] = i.Email
+	}
+	if i.ReplyTo != "" {
+		p["replyTo"] = i.ReplyTo
+	}
+	if i.Bcc != nil {
+		p["bcc"] = i.Bcc
+	}
+	if i.TextSignature != nil {
+		p["textSignature"] = i.TextSignature
+	}
+	if i.HtmlSignature != nil {
+		p["htmlSignature"] = i.HtmlSignature
+	}
+	return p
 }
 
 type IdentityGetResponse struct {
@@ -4639,6 +4682,7 @@ const (
 	CommandMailboxQuery        Command = "Mailbox/query"
 	CommandMailboxChanges      Command = "Mailbox/changes"
 	CommandIdentityGet         Command = "Identity/get"
+	CommandIdentitySet         Command = "Identity/set"
 	CommandVacationResponseGet Command = "VacationResponse/get"
 	CommandVacationResponseSet Command = "VacationResponse/set"
 	CommandSearchSnippetGet    Command = "SearchSnippet/get"
@@ -4660,6 +4704,7 @@ var CommandResponseTypeMap = map[Command]func() any{
 	CommandEmailSubmissionSet:  func() any { return EmailSubmissionSetResponse{} },
 	CommandThreadGet:           func() any { return ThreadGetResponse{} },
 	CommandIdentityGet:         func() any { return IdentityGetResponse{} },
+	CommandIdentitySet:         func() any { return IdentitySetResponse{} },
 	CommandVacationResponseGet: func() any { return VacationResponseGetResponse{} },
 	CommandVacationResponseSet: func() any { return VacationResponseSetResponse{} },
 	CommandSearchSnippetGet:    func() any { return SearchSnippetGetResponse{} },

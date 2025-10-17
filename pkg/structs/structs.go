@@ -66,3 +66,18 @@ func Map[E any, R any](source []E, indexer func(E) R) []R {
 	}
 	return result
 }
+
+func MapN[E any, R any](source []E, indexer func(E) *R) []R {
+	if source == nil {
+		var zero []R
+		return zero
+	}
+	result := []R{}
+	for _, e := range source {
+		opt := indexer(e)
+		if opt != nil {
+			result = append(result, *opt)
+		}
+	}
+	return result
+}

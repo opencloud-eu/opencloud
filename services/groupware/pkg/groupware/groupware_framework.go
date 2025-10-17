@@ -43,6 +43,7 @@ const (
 	logInvalidQueryParameter = "error-query-param"
 	logInvalidPathParameter  = "error-path-param"
 	logFolderId              = "folder-id"
+	logIdentityId            = "identity-id"
 	logQuery                 = "query"
 	logEmailId               = "email-id"
 	logJobDescription        = "job"
