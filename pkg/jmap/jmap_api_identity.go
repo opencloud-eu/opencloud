@@ -199,3 +199,32 @@ func (j *Client) UpdateIdentity(accountId string, session *Session, ctx context.
 		return response.NewState, nil
 	})
 }
+
+type IdentityDeletion struct {
+	Destroyed []string `json:"destroyed"`
+	NewState  State    `json:"newState,omitempty"`
+}
+
+func (j *Client) DeleteIdentity(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (IdentityDeletion, SessionState, Language, Error) {
+	logger = j.logger("DeleteIdentity", session, logger)
+	cmd, err := j.request(session, logger, invocation(CommandIdentitySet, IdentitySetCommand{
+		AccountId: accountId,
+		Destroy:   ids,
+	}, "0"))
+	if err != nil {
+		return IdentityDeletion{}, "", "", err
+	}
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (IdentityDeletion, Error) {
+		var response IdentitySetResponse
+		err = retrieveResponseMatchParameters(logger, body, CommandIdentitySet, "0", &response)
+		if err != nil {
+			return IdentityDeletion{}, err
+		}
+		for _, setErr := range response.NotDestroyed {
+			// TODO only returning the first error here, we should probably aggregate them instead
+			logger.Error().Msgf("%T.NotCreated returned an error %v", response, setErr)
+			return IdentityDeletion{}, setErrorError(setErr, IdentityType)
+		}
+		return IdentityDeletion{Destroyed: response.Destroyed, NewState: response.NewState}, nil
+	})
+}
