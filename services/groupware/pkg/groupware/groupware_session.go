@@ -38,12 +38,16 @@ type cachedSession interface {
 	Error() *GroupwareError
 	// The timestamp of when this cached session information was obtained, regardless of success or failure.
 	Since() time.Time
+	// The timestamp of when this cached session information will be invalidated, regardless of success or failure.
+	Until() time.Time
 }
 
 // An implementation of a cachedSession that succeeded.
 type succeededSession struct {
 	// Timestamp of when this succeededSession was created.
 	since time.Time
+	// Until when the session will be cached
+	until time.Time
 	// The JMAP Session itself.
 	session jmap.Session
 }
@@ -62,11 +66,16 @@ func (s succeededSession) Error() *GroupwareError {
 func (s succeededSession) Since() time.Time {
 	return s.since
 }
+func (s succeededSession) Until() time.Time {
+	return s.until
+}
 
 // An implementation of a cachedSession that failed.
 type failedSession struct {
 	// Timestamp of when this failedSession was created.
 	since time.Time
+	// Until when the failure will be cached, without re-attempting to retrieve the Session.
+	until time.Time
 	// The error that caused the Session acquisition to fail.
 	err *GroupwareError
 }
@@ -84,6 +93,9 @@ func (s failedSession) Error() *GroupwareError {
 }
 func (s failedSession) Since() time.Time {
 	return s.since
+}
+func (s failedSession) Until() time.Time {
+	return s.until
 }
 
 // Implements the ttlcache.Loader interface, by loading JMAP Sessions for users
@@ -104,15 +116,21 @@ func (l *sessionCacheLoader) Load(c *ttlcache.Cache[sessionCacheKey, cachedSessi
 	sessionUrl, gwerr := l.sessionUrlProvider(username)
 	if gwerr != nil {
 		l.logger.Warn().Str("username", username).Str("code", gwerr.Code).Msgf("failed to determine session URL for '%v'", key)
-		return c.Set(key, failedSession{since: time.Now(), err: gwerr}, l.errorTtl)
+		now := time.Now()
+		until := now.Add(l.errorTtl)
+		return c.Set(key, failedSession{since: now, until: until, err: gwerr}, l.errorTtl)
 	}
 	session, jerr := l.sessionSupplier(sessionUrl, username, l.logger)
 	if jerr != nil {
 		l.logger.Warn().Str("username", username).Err(jerr).Msgf("failed to create session for '%v'", key)
-		return c.Set(key, failedSession{since: time.Now(), err: groupwareErrorFromJmap(jerr)}, l.errorTtl)
+		now := time.Now()
+		until := now.Add(l.errorTtl)
+		return c.Set(key, failedSession{since: now, until: until, err: groupwareErrorFromJmap(jerr)}, l.errorTtl)
 	} else {
 		l.logger.Debug().Str("username", username).Msgf("successfully created session for '%v'", key)
-		return c.Set(key, succeededSession{since: time.Now(), session: session}, ttlcache.DefaultTTL) // use the TTL configured on the Cache
+		now := time.Now()
+		until := now.Add(ttlcache.DefaultTTL)
+		return c.Set(key, succeededSession{since: now, until: until, session: session}, ttlcache.DefaultTTL) // use the TTL configured on the Cache
 	}
 }
 

@@ -446,16 +446,17 @@ func (g *Groupware) ServeSSE(w http.ResponseWriter, r *http.Request) {
 }
 
 // Provide a JMAP Session for the
-func (g *Groupware) session(user user, _ *log.Logger) (jmap.Session, bool, *GroupwareError) {
+func (g *Groupware) session(user user, _ *log.Logger) (jmap.Session, bool, *GroupwareError, time.Time) {
 	s := g.sessionCache.Get(user.GetUsername())
 	if s != nil {
 		if s.Success() {
-			return s.Get(), true, nil
+			return s.Get(), true, nil, s.Until()
 		} else {
-			return jmap.Session{}, false, s.Error()
+			return jmap.Session{}, false, s.Error(), s.Until()
 		}
 	}
-	return jmap.Session{}, false, nil
+	// not sure this should happen:
+	return jmap.Session{}, false, nil, time.Time{}
 }
 
 func (g *Groupware) log(error *Error) {
@@ -491,18 +492,25 @@ func (g *Groupware) log(error *Error) {
 	l.Msg(error.Title)
 }
 
-func (g *Groupware) serveError(w http.ResponseWriter, r *http.Request, error *Error) {
+func (g *Groupware) serveError(w http.ResponseWriter, r *http.Request, error *Error, retryAfter time.Time) {
 	if error == nil {
 		return
 	}
 	g.log(error)
 	w.Header().Add("Content-Type", ContentTypeJsonApi)
+	if !retryAfter.IsZero() {
+		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Retry-After
+		// either as an absolute timestamp:
+		// w.Header().Add("Retry-After", retryAfter.UTC().Format(time.RFC1123))
+		// or as a delay in seconds:
+		w.Header().Add("Retry-After", fmt.Sprintf("%.0f", time.Until(retryAfter).Seconds()))
+	}
 	render.Status(r, error.NumStatus)
 	w.WriteHeader(error.NumStatus)
 	render.Render(w, r, errorResponses(*error))
 }
 
-func (g *Groupware) withSession(w http.ResponseWriter, r *http.Request, handler func(r Request) Response) (Response, bool) {
+func (g *Groupware) withSession(w http.ResponseWriter, r *http.Request, handler func(r Request) Response) (Response, time.Time, bool) {
 	ctx := r.Context()
 	sl := g.logger.SubloggerWithRequestID(ctx)
 	logger := &sl
@@ -510,24 +518,24 @@ func (g *Groupware) withSession(w http.ResponseWriter, r *http.Request, handler 
 	user, err := g.userProvider.GetUser(r, ctx, logger)
 	if err != nil {
 		g.metrics.AuthenticationFailureCounter.Inc()
-		g.serveError(w, r, apiError(errorId(r, ctx), ErrorInvalidAuthentication))
-		return Response{}, false
+		g.serveError(w, r, apiError(errorId(r, ctx), ErrorInvalidAuthentication), time.Time{})
+		return Response{}, time.Time{}, false
 	}
 	if user == nil {
 		g.metrics.AuthenticationFailureCounter.Inc()
-		g.serveError(w, r, apiError(errorId(r, ctx), ErrorMissingAuthentication))
-		return Response{}, false
+		g.serveError(w, r, apiError(errorId(r, ctx), ErrorMissingAuthentication), time.Time{})
+		return Response{}, time.Time{}, false
 	}
 
 	logger = log.From(logger.With().Str(logUserId, log.SafeString(user.GetId())))
 
-	session, ok, gwerr := g.session(user, logger)
+	session, ok, gwerr, retryAfter := g.session(user, logger)
 	if gwerr != nil {
 		g.metrics.SessionFailureCounter.Inc()
 		errorId := errorId(r, ctx)
 		logger.Error().Str("code", gwerr.Code).Str("error", gwerr.Title).Str("detail", gwerr.Detail).Str(logErrorId, errorId).Msg("failed to determine JMAP session")
-		g.serveError(w, r, apiError(errorId, *gwerr))
-		return Response{}, false
+		g.serveError(w, r, apiError(errorId, *gwerr), retryAfter)
+		return Response{}, retryAfter, false
 	}
 	if !ok {
 		// no session = authentication failed
@@ -535,8 +543,8 @@ func (g *Groupware) withSession(w http.ResponseWriter, r *http.Request, handler 
 		errorId := errorId(r, ctx)
 		logger.Error().Str(logErrorId, errorId).Msg("could not authenticate, failed to find Session")
 		gwerr = &ErrorInvalidAuthentication
-		g.serveError(w, r, apiError(errorId, *gwerr))
-		return Response{}, false
+		g.serveError(w, r, apiError(errorId, *gwerr), retryAfter)
+		return Response{}, retryAfter, false
 	}
 	decoratedLogger := decorateLogger(logger, session)
 
@@ -550,7 +558,7 @@ func (g *Groupware) withSession(w http.ResponseWriter, r *http.Request, handler 
 	}
 
 	response := handler(req)
-	return response, true
+	return response, time.Time{}, true
 }
 
 func (g *Groupware) sendResponse(w http.ResponseWriter, r *http.Request, response Response) {
@@ -606,7 +614,7 @@ func (g *Groupware) sendResponse(w http.ResponseWriter, r *http.Request, respons
 }
 
 func (g *Groupware) respond(w http.ResponseWriter, r *http.Request, handler func(r Request) Response) {
-	response, ok := g.withSession(w, r, handler)
+	response, _, ok := g.withSession(w, r, handler)
 	if !ok {
 		return
 	}
@@ -620,21 +628,21 @@ func (g *Groupware) stream(w http.ResponseWriter, r *http.Request, handler func(
 
 	user, err := g.userProvider.GetUser(r, ctx, logger)
 	if err != nil {
-		g.serveError(w, r, apiError(errorId(r, ctx), ErrorInvalidAuthentication))
+		g.serveError(w, r, apiError(errorId(r, ctx), ErrorInvalidAuthentication), time.Time{})
 		return
 	}
 	if user == nil {
-		g.serveError(w, r, apiError(errorId(r, ctx), ErrorMissingAuthentication))
+		g.serveError(w, r, apiError(errorId(r, ctx), ErrorMissingAuthentication), time.Time{})
 		return
 	}
 
 	logger = log.From(logger.With().Str(logUserId, log.SafeString(user.GetId())))
 
-	session, ok, gwerr := g.session(user, logger)
+	session, ok, gwerr, retryAfter := g.session(user, logger)
 	if gwerr != nil {
 		errorId := errorId(r, ctx)
 		logger.Error().Str("code", gwerr.Code).Str("error", gwerr.Title).Str("detail", gwerr.Detail).Str(logErrorId, errorId).Msg("failed to determine JMAP session")
-		g.serveError(w, r, apiError(errorId, *gwerr))
+		g.serveError(w, r, apiError(errorId, *gwerr), retryAfter)
 		return
 	}
 	if !ok {
@@ -642,7 +650,7 @@ func (g *Groupware) stream(w http.ResponseWriter, r *http.Request, handler func(
 		errorId := errorId(r, ctx)
 		logger.Error().Str(logErrorId, errorId).Msg("could not authenticate, failed to find Session")
 		gwerr = &ErrorInvalidAuthentication
-		g.serveError(w, r, apiError(errorId, *gwerr))
+		g.serveError(w, r, apiError(errorId, *gwerr), retryAfter)
 		return
 	}
 
