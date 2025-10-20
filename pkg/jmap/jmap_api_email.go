@@ -55,6 +55,29 @@ func (j *Client) GetEmails(accountId string, session *Session, ctx context.Conte
 	})
 }
 
+func (j *Client) GetEmailBlobId(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, id string) (string, SessionState, Language, Error) {
+	logger = j.logger("GetEmailBlobId", session, logger)
+
+	get := EmailGetCommand{AccountId: accountId, Ids: []string{id}, FetchAllBodyValues: false, Properties: []string{"blobId"}}
+	cmd, err := j.request(session, logger, invocation(CommandEmailGet, get, "0"))
+	if err != nil {
+		logger.Error().Err(err).Send()
+		return "", "", "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+	}
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (string, Error) {
+		var response EmailGetResponse
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "0", &response)
+		if err != nil {
+			return "", err
+		}
+		if len(response.List) != 1 {
+			return "", nil
+		}
+		email := response.List[0]
+		return email.BlobId, nil
+	})
+}
+
 // Retrieve all the Emails in a given Mailbox by its id.
 func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, mailboxId string, offset uint, limit uint, collapseThreads bool, fetchBodies bool, maxBodyValueBytes uint) (Emails, SessionState, Language, Error) {
 	logger = j.loggerParams("GetAllEmailsInMailbox", session, logger, func(z zerolog.Context) zerolog.Context {

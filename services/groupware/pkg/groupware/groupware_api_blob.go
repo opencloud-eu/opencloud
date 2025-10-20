@@ -79,9 +79,6 @@ func (g *Groupware) DownloadBlob(w http.ResponseWriter, r *http.Request) {
 		name := chi.URLParam(req.r, UriParamBlobName)
 		q := req.r.URL.Query()
 		typ := q.Get(QueryParamBlobType)
-		if typ == "" {
-			typ = DefaultBlobDownloadType
-		}
 
 		accountId, gwerr := req.GetAccountIdForBlob()
 		if gwerr != nil {
@@ -89,44 +86,51 @@ func (g *Groupware) DownloadBlob(w http.ResponseWriter, r *http.Request) {
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
 
-		blob, lang, jerr := g.jmap.DownloadBlobStream(accountId, blobId, name, typ, req.session, req.ctx, logger, req.language())
-		if blob != nil && blob.Body != nil {
-			defer func(Body io.ReadCloser) {
-				err := Body.Close()
-				if err != nil {
-					logger.Error().Err(err).Msg("failed to close response body")
-				}
-			}(blob.Body)
-		}
-		if jerr != nil {
-			return req.apiErrorFromJmap(jerr)
-		}
-		if blob == nil {
-			w.WriteHeader(http.StatusNotFound)
-			return nil
-		}
-
-		if blob.Type != "" {
-			w.Header().Add("Content-Type", blob.Type)
-		}
-		if blob.CacheControl != "" {
-			w.Header().Add("Cache-Control", blob.CacheControl)
-		}
-		if blob.ContentDisposition != "" {
-			w.Header().Add("Content-Disposition", blob.ContentDisposition)
-		}
-		if blob.Size >= 0 {
-			w.Header().Add("Content-Size", strconv.Itoa(blob.Size))
-		}
-		if lang != "" {
-			w.Header().Add("Content-Language", string(lang))
-		}
-
-		_, err := io.Copy(w, blob.Body)
-		if err != nil {
-			return req.observedParameterError(ErrorStreamingResponse)
-		}
-
-		return nil
+		return req.serveBlob(blobId, name, typ, logger, accountId, w)
 	})
+}
+
+func (r *Request) serveBlob(blobId string, name string, typ string, logger *log.Logger, accountId string, w http.ResponseWriter) *Error {
+	if typ == "" {
+		typ = DefaultBlobDownloadType
+	}
+	blob, lang, jerr := r.g.jmap.DownloadBlobStream(accountId, blobId, name, typ, r.session, r.ctx, logger, r.language())
+	if blob != nil && blob.Body != nil {
+		defer func(Body io.ReadCloser) {
+			err := Body.Close()
+			if err != nil {
+				logger.Error().Err(err).Msg("failed to close response body")
+			}
+		}(blob.Body)
+	}
+	if jerr != nil {
+		return r.apiErrorFromJmap(jerr)
+	}
+	if blob == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return nil
+	}
+
+	if blob.Type != "" {
+		w.Header().Add("Content-Type", blob.Type)
+	}
+	if blob.CacheControl != "" {
+		w.Header().Add("Cache-Control", blob.CacheControl)
+	}
+	if blob.ContentDisposition != "" {
+		w.Header().Add("Content-Disposition", blob.ContentDisposition)
+	}
+	if blob.Size >= 0 {
+		w.Header().Add("Content-Size", strconv.Itoa(blob.Size))
+	}
+	if lang != "" {
+		w.Header().Add("Content-Language", string(lang))
+	}
+
+	_, err := io.Copy(w, blob.Body)
+	if err != nil {
+		return r.observedParameterError(ErrorStreamingResponse)
+	}
+
+	return nil
 }
