@@ -61,6 +61,7 @@ type Capabilities struct {
 	Search         *CapabilitiesSearch         `json:"search,omitempty" xml:"search,omitempty" mapstructure:"search"`
 	Theme          *CapabilitiesTheme          `json:"theme,omitempty" xml:"theme,omitempty" mapstructure:"theme"`
 	Notifications  *CapabilitiesNotifications  `json:"notifications,omitempty" xml:"notifications,omitempty"`
+	Groupware      *CapabilitiesGroupware      `json:"groupware,omitempty" xml:"groupware,omitempty" mapstructure:"groupware"`
 }
 
 // CapabilitiesSearch holds the search capabilities
@@ -303,6 +304,11 @@ type CapabilitiesTheme struct {
 type CapabilitiesThemeLogo struct {
 	// xml marshal, unmarshal does not support map[string]string, needs a custom type with MarshalXML and UnmarshalXML implementations
 	PermittedFileTypes map[string]string `json:"permitted_file_types" xml:"-" mapstructure:"permitted_file_types"`
+}
+
+// CapabilitiesGroupware holds groupware capabilities
+type CapabilitiesGroupware struct {
+	Enabled bool `json:"enabled,omitempty" xml:"enabled,omitempty" mapstructure:"groupware"`
 }
 
 // Version holds version information
