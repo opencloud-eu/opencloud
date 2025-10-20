@@ -135,42 +135,77 @@ func (g *Groupware) GetAllEmailsInMailbox(w http.ResponseWriter, r *http.Request
 
 func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, UriParamEmailId)
-	g.respond(w, r, func(req Request) Response {
-		ids := strings.Split(id, ",")
-		if len(ids) < 1 {
-			return req.parameterErrorResponse(UriParamEmailId, fmt.Sprintf("Invalid value for path parameter '%v': '%s': %s", UriParamEmailId, log.SafeString(id), "empty list of mail ids"))
-		}
+	ids := strings.Split(id, ",")
 
-		accountId, err := req.GetAccountIdForMail()
-		if err != nil {
-			return errorResponse(err)
-		}
+	accept := r.Header.Get("Accept")
+	if accept == "message/rfc822" {
+		g.stream(w, r, func(req Request, w http.ResponseWriter) *Error {
+			if len(ids) != 1 {
+				return req.parameterError(UriParamEmailId, fmt.Sprintf("when the Accept header is set to '%s', the API only supports serving a single email id", accept))
+			}
 
-		l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
-		if len(ids) == 1 {
-			logger := log.From(l.Str("id", log.SafeString(id)))
-			emails, sessionState, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), ids, true, g.maxBodyValueBytes)
+			accountId, err := req.GetAccountIdForMail()
+			if err != nil {
+				return err
+			}
+
+			logger := log.From(req.logger.With().Str(logAccountId, log.SafeString(accountId)).Str("id", log.SafeString(id)).Str("accept", log.SafeString(accept)))
+
+			blobId, _, _, jerr := g.jmap.GetEmailBlobId(accountId, req.session, req.ctx, logger, req.language(), id)
 			if jerr != nil {
-				return req.errorResponseFromJmap(jerr)
+				return req.apiErrorFromJmap(req.observeJmapError(jerr))
 			}
-			if len(emails.Emails) < 1 {
-				return notFoundResponse(sessionState)
+			if blobId == "" {
+				return nil
 			} else {
-				return etagResponse(g.sanitizeEmail(emails.Emails[0]), sessionState, emails.State, lang)
+				name := blobId + ".eml"
+				typ := accept
+				accountId, gwerr := req.GetAccountIdForBlob()
+				if gwerr != nil {
+					return gwerr
+				}
+				return req.serveBlob(blobId, name, typ, logger, accountId, w)
 			}
-		} else {
-			logger := log.From(l.Array("ids", log.SafeStringArray(ids)))
-			emails, sessionState, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), ids, true, g.maxBodyValueBytes)
-			if jerr != nil {
-				return req.errorResponseFromJmap(jerr)
+		})
+	} else {
+		g.respond(w, r, func(req Request) Response {
+			if len(ids) < 1 {
+				return req.parameterErrorResponse(UriParamEmailId, fmt.Sprintf("Invalid value for path parameter '%v': '%s': %s", UriParamEmailId, log.SafeString(id), "empty list of mail ids"))
 			}
-			if len(emails.Emails) < 1 {
-				return notFoundResponse(sessionState)
+
+			accountId, err := req.GetAccountIdForMail()
+			if err != nil {
+				return errorResponse(err)
+			}
+			l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
+			if len(ids) == 1 {
+				l = l.Str("id", log.SafeString(id))
+				logger := log.From(l)
+
+				emails, sessionState, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), ids, true, g.maxBodyValueBytes)
+				if jerr != nil {
+					return req.errorResponseFromJmap(jerr)
+				}
+				if len(emails.Emails) < 1 {
+					return notFoundResponse(sessionState)
+				} else {
+					return etagResponse(g.sanitizeEmail(emails.Emails[0]), sessionState, emails.State, lang)
+				}
 			} else {
-				return etagResponse(g.sanitizeEmails(emails.Emails), sessionState, emails.State, lang)
+				logger := log.From(l.Array("ids", log.SafeStringArray(ids)))
+
+				emails, sessionState, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), ids, true, g.maxBodyValueBytes)
+				if jerr != nil {
+					return req.errorResponseFromJmap(jerr)
+				}
+				if len(emails.Emails) < 1 {
+					return notFoundResponse(sessionState)
+				} else {
+					return etagResponse(g.sanitizeEmails(emails.Emails), sessionState, emails.State, lang)
+				}
 			}
-		}
-	})
+		})
+	}
 }
 
 func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) {
@@ -369,6 +404,7 @@ func (g *Groupware) buildFilter(req Request) (bool, jmap.EmailFilterElement, boo
 	subject := q.Get(QueryParamSearchSubject)
 	body := q.Get(QueryParamSearchBody)
 	keywords := q[QueryParamSearchKeyword]
+	messageId := q.Get(QueryParamSearchMessageId)
 
 	snippets := false
 
@@ -433,6 +469,9 @@ func (g *Groupware) buildFilter(req Request) (bool, jmap.EmailFilterElement, boo
 	if body != "" {
 		l = l.Str(QueryParamSearchBody, log.SafeString(body))
 	}
+	if messageId != "" {
+		l = l.Str(QueryParamSearchMessageId, log.SafeString(messageId))
+	}
 
 	minSize, ok, err := req.parseIntParam(QueryParamSearchMinSize, 0)
 	if err != nil {
@@ -468,6 +507,14 @@ func (g *Groupware) buildFilter(req Request) (bool, jmap.EmailFilterElement, boo
 		After:              after,
 		MinSize:            minSize,
 		MaxSize:            maxSize,
+		Header:             []string{},
+	}
+	if messageId != "" {
+		// The array MUST contain either one or two elements.
+		// The first element is the name of the header field to match against.
+		// The second (optional) element is the text to look for in the header field value.
+		// If not supplied, the message matches simply if it has a header field of the given name.
+		firstFilter.Header = []string{"Message-ID", messageId}
 	}
 	filter = &firstFilter
 
