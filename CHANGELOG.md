@@ -41,6 +41,7 @@
 
 ### 📦️ Dependencies
 
+- revaUpdate: adding groupware capabilities [[#1659](https://github.com/opencloud-eu/opencloud/pull/1659)]
 - chore/bump-web-4.1.0 [[#1652](https://github.com/opencloud-eu/opencloud/pull/1652)]
 - build(deps): bump google.golang.org/grpc from 1.75.1 to 1.76.0 [[#1628](https://github.com/opencloud-eu/opencloud/pull/1628)]
 - build(deps): bump github.com/coreos/go-oidc/v3 from 3.15.0 to 3.16.0 [[#1627](https://github.com/opencloud-eu/opencloud/pull/1627)]
