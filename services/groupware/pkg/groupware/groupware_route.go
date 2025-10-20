@@ -42,6 +42,7 @@ const (
 	QueryParamSearchMinSize           = "minsize"
 	QueryParamSearchMaxSize           = "maxsize"
 	QueryParamSearchKeyword           = "keyword"
+	QueryParamSearchMessageId         = "messageId"
 	QueryParamSearchFetchBodies       = "fetchbodies"
 	QueryParamSearchFetchEmails       = "fetchemails"
 	QueryParamOffset                  = "offset"
@@ -94,7 +95,7 @@ func (g *Groupware) Route(r chi.Router) {
 			r.Get("/", g.GetEmails) // ?fetchemails=true&fetchbodies=true&text=&subject=&body=&keyword=&keyword=&...
 			r.Post("/", g.CreateEmail)
 			r.Delete("/", g.DeleteEmails)
-			r.Get("/{emailid}", g.GetEmailsById)
+			r.Get("/{emailid}", g.GetEmailsById) // Accept:message/rfc822
 			// r.Put("/{emailid}", g.ReplaceEmail) // TODO
 			r.Patch("/{emailid}", g.UpdateEmail)
 			r.Patch("/{emailid}/keywords", g.UpdateEmailKeywords)
@@ -102,6 +103,7 @@ func (g *Groupware) Route(r chi.Router) {
 			r.Delete("/{emailid}/keywords", g.RemoveEmailKeywords)
 			r.Delete("/{emailid}", g.DeleteEmail)
 			Report(r, "/{emailid}", g.RelatedToEmail)
+			r.Get("/{emailid}/related", g.RelatedToEmail)
 			r.Get("/{emailid}/attachments", g.GetEmailAttachments) // ?partId=&name=?&blobId=?
 		})
 		r.Route("/blobs", func(r chi.Router) {

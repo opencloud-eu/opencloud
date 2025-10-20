@@ -12,14 +12,22 @@ func TestSanitizeEmail(t *testing.T) {
 		Subject: "test",
 		BodyValues: map[string]jmap.EmailBodyValue{
 			"koze92I1": {
-				Value: `<a onblur="alert(secret)" href="http://www.google.com">Google</a>`,
+				Value: `<a onblur="alert(secret)" href="http://www.cyberdyne.com">Cyberdyne</a>`,
+			},
+			"zee7urae": {
+				Value: `Hello. <a onblur="hack()" href="file:///download.exe">Click here</a> for AI slop.`,
 			},
 		},
 		HtmlBody: []jmap.EmailBodyPart{
 			{
 				PartId: "koze92I1",
 				Type:   "text/html",
-				Size:   65,
+				Size:   71,
+			},
+			{
+				PartId: "zee7urae",
+				Type:   "text/html",
+				Size:   81,
 			},
 		},
 	}
@@ -29,6 +37,8 @@ func TestSanitizeEmail(t *testing.T) {
 	safe := g.sanitizeEmail(email)
 
 	require := require.New(t)
-	require.Equal(`<a href="http://www.google.com" rel="nofollow">Google</a>`, safe.BodyValues["koze92I1"].Value)
-	require.Equal(57, safe.HtmlBody[0].Size)
+	require.Equal(`<a href="http://www.cyberdyne.com" rel="nofollow">Cyberdyne</a>`, safe.BodyValues["koze92I1"].Value)
+	require.Equal(63, safe.HtmlBody[0].Size)
+	require.Equal(`Hello. Click here for AI slop.`, safe.BodyValues["zee7urae"].Value)
+	require.Equal(30, safe.HtmlBody[1].Size)
 }
