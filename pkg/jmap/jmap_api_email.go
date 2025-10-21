@@ -43,12 +43,9 @@ func (j *Client) GetEmails(accountId string, session *Session, ctx context.Conte
 
 	methodCalls := []Invocation{invokeGet}
 	if markAsSeen {
-		patch := map[string]bool{
-			JmapKeywordSeen: true,
-		}
 		updates := make(map[string]EmailUpdate, len(ids))
 		for _, id := range ids {
-			updates[id] = EmailUpdate{"keywords": patch}
+			updates[id] = EmailUpdate{"keywords/" + JmapKeywordSeen: true}
 		}
 		mark := EmailSetCommand{AccountId: accountId, Update: updates}
 		methodCalls = []Invocation{invocation(CommandEmailSet, mark, "0"), invokeGet}
