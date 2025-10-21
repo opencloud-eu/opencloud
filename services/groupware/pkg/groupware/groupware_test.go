@@ -33,10 +33,12 @@ func TestSanitizeEmail(t *testing.T) {
 	}
 
 	g := &Groupware{sanitize: true}
+	req := Request{g: g}
 
-	safe := g.sanitizeEmail(email)
+	safe, err := req.sanitizeEmail(email)
 
 	require := require.New(t)
+	require.Nil(err)
 	require.Equal(`<a href="http://www.cyberdyne.com" rel="nofollow">Cyberdyne</a>`, safe.BodyValues["koze92I1"].Value)
 	require.Equal(63, safe.HtmlBody[0].Size)
 	require.Equal(`Hello. Click here for AI slop.`, safe.BodyValues["zee7urae"].Value)
