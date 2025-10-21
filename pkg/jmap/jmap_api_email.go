@@ -902,6 +902,16 @@ type EmailsSummary struct {
 	State  State   `json:"state"`
 }
 
+type EmailWithThread struct {
+	Email
+	ThreadSize int `json:"threadSize,omitzero"`
+}
+
+type EmailsWithThreadSummary struct {
+	Emails []EmailWithThread `json:"emails"`
+	State  State             `json:"state"`
+}
+
 func (j *Client) QueryEmailSummaries(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, filter EmailFilterElement, limit uint) (map[string]EmailsSummary, SessionState, Language, Error) {
 	logger = j.logger("QueryEmailSummaries", session, logger)
 
@@ -943,6 +953,85 @@ func (j *Client) QueryEmailSummaries(accountIds []string, session *Session, ctx 
 				// TODO what to do when there are not-found emails here? potentially nothing, they could have been deleted between query and get?
 			}
 			resp[accountId] = EmailsSummary{Emails: response.List, State: response.State}
+		}
+		return resp, nil
+	})
+}
+
+func (j *Client) QueryEmailSummariesWithThreadCount(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, filter EmailFilterElement, limit uint) (map[string]EmailsWithThreadSummary, SessionState, Language, Error) {
+	logger = j.logger("QueryEmailSummariesWithThreadCount", session, logger)
+
+	uniqueAccountIds := structs.Uniq(accountIds)
+
+	invocations := make([]Invocation, len(uniqueAccountIds)*3)
+	for i, accountId := range uniqueAccountIds {
+		invocations[i*3+0] = invocation(CommandEmailQuery, EmailQueryCommand{
+			AccountId: accountId,
+			Filter:    filter,
+			Sort:      []EmailComparator{{Property: emailSortByReceivedAt, IsAscending: false}},
+			Limit:     limit,
+			//CalculateTotal: false,
+		}, mcid(accountId, "0"))
+		invocations[i*3+1] = invocation(CommandEmailGet, EmailGetRefCommand{
+			AccountId: accountId,
+			IdsRef: &ResultReference{
+				Name:     CommandEmailQuery,
+				Path:     "/ids/*",
+				ResultOf: mcid(accountId, "0"),
+			},
+			Properties: []string{"id", "threadId", "mailboxIds", "keywords", "size", "receivedAt", "sender", "from", "to", "cc", "bcc", "subject", "sentAt", "hasAttachment", "attachments", "preview"},
+		}, mcid(accountId, "1"))
+		invocations[i*3+2] = invocation(CommandThreadGet, ThreadGetRefCommand{
+			AccountId: accountId,
+			IdsRef: &ResultReference{
+				Name:     CommandEmailGet,
+				Path:     "/list/*/threadId",
+				ResultOf: mcid(accountId, "1"),
+			},
+		}, mcid(accountId, "2"))
+	}
+	cmd, err := j.request(session, logger, invocations...)
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]EmailsWithThreadSummary, Error) {
+		resp := map[string]EmailsWithThreadSummary{}
+		for _, accountId := range uniqueAccountIds {
+			var response EmailGetResponse
+			err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, mcid(accountId, "1"), &response)
+			if err != nil {
+				return nil, err
+			}
+
+			var thread ThreadGetResponse
+			err = retrieveResponseMatchParameters(logger, body, CommandThreadGet, mcid(accountId, "2"), &thread)
+			if err != nil {
+				return nil, err
+			}
+
+			threadSizeById := make(map[string]int, len(thread.List))
+			for _, thread := range thread.List {
+				threadSizeById[thread.Id] = len(thread.EmailIds)
+			}
+
+			if len(response.NotFound) > 0 {
+				// TODO what to do when there are not-found emails here? potentially nothing, they could have been deleted between query and get?
+			}
+
+			list := make([]EmailWithThread, len(response.List))
+			for i, email := range response.List {
+				ts, ok := threadSizeById[email.ThreadId]
+				if !ok {
+					ts = 1
+				}
+				list[i] = EmailWithThread{
+					Email:      email,
+					ThreadSize: ts,
+				}
+			}
+
+			resp[accountId] = EmailsWithThreadSummary{Emails: list, State: response.State}
 		}
 		return resp, nil
 	})
