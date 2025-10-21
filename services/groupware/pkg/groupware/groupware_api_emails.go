@@ -1012,19 +1012,15 @@ func (g *Groupware) UpdateEmailKeywords(w http.ResponseWriter, r *http.Request) 
 			return noContentResponse(req.session.State)
 		}
 
-		// TODO FIXME use "keywords/$seen" instead, see https://datatracker.ietf.org/doc/html/rfc8620#section-5.7
-		patch := map[string]*bool{}
-		truth := true
+		patch := jmap.EmailUpdate{}
 		for _, keyword := range body.Add {
-			patch[keyword] = &truth
+			patch["keywords/"+keyword] = true
 		}
 		for _, keyword := range body.Remove {
-			patch[keyword] = nil
+			patch["keywords/"+keyword] = nil
 		}
 		patches := map[string]jmap.EmailUpdate{
-			emailId: {
-				"keywords": patch,
-			},
+			emailId: patch,
 		}
 
 		result, sessionState, lang, jerr := g.jmap.UpdateEmails(accountId, patches, req.session, req.ctx, logger, req.language())
@@ -1080,14 +1076,12 @@ func (g *Groupware) AddEmailKeywords(w http.ResponseWriter, r *http.Request) {
 			return noContentResponse(req.session.State)
 		}
 
-		patch := map[string]bool{}
+		patch := jmap.EmailUpdate{}
 		for _, keyword := range body {
-			patch[keyword] = true
+			patch["keywords/"+keyword] = true
 		}
 		patches := map[string]jmap.EmailUpdate{
-			emailId: {
-				"keywords": patch,
-			},
+			emailId: patch,
 		}
 
 		result, sessionState, lang, jerr := g.jmap.UpdateEmails(accountId, patches, req.session, req.ctx, logger, req.language())
@@ -1147,14 +1141,12 @@ func (g *Groupware) RemoveEmailKeywords(w http.ResponseWriter, r *http.Request) 
 			return noContentResponse(req.session.State)
 		}
 
-		patch := map[string]*bool{}
+		patch := jmap.EmailUpdate{}
 		for _, keyword := range body {
-			patch[keyword] = nil
+			patch["keywords/"+keyword] = nil
 		}
 		patches := map[string]jmap.EmailUpdate{
-			emailId: {
-				"keywords": patch,
-			},
+			emailId: patch,
 		}
 
 		result, sessionState, lang, jerr := g.jmap.UpdateEmails(accountId, patches, req.session, req.ctx, logger, req.language())
