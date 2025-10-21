@@ -682,6 +682,7 @@ func (g *Groupware) NotFound(w http.ResponseWriter, r *http.Request) {
 		method := log.SafeString(r.Method)
 		level.Str(logPath, path).Str(logMethod, method).Int(logErrorStatus, http.StatusNotFound).Msgf("unmatched path: '%v'", path)
 	}
+	w.Header().Add("Unmatched-Path", r.URL.Path) // TODO possibly remove this in production for security reasons?
 	w.WriteHeader(http.StatusNotFound)
 }
 
@@ -692,5 +693,6 @@ func (g *Groupware) MethodNotAllowed(w http.ResponseWriter, r *http.Request) {
 		method := log.SafeString(r.Method)
 		level.Str(logPath, path).Str(logMethod, method).Int(logErrorStatus, http.StatusNotFound).Msgf("method not allowed: '%v'", method)
 	}
+	w.Header().Add("Unsupported-Method", r.Method) // TODO possibly remove this in production for security reasons?
 	w.WriteHeader(http.StatusNotFound)
 }
