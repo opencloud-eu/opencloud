@@ -149,6 +149,14 @@ func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) {
 				return err
 			}
 
+			_, ok, err := req.parseBoolParam(QueryParamMarkAsSeen, false)
+			if err != nil {
+				return err
+			}
+			if ok {
+				return req.parameterError(QueryParamMarkAsSeen, fmt.Sprintf("when the Accept header is set to '%s', the API does not support setting %s", accept, QueryParamMarkAsSeen))
+			}
+
 			logger := log.From(req.logger.With().Str(logAccountId, log.SafeString(accountId)).Str("id", log.SafeString(id)).Str("accept", log.SafeString(accept)))
 
 			blobId, _, _, jerr := g.jmap.GetEmailBlobId(accountId, req.session, req.ctx, logger, req.language(), id)
@@ -178,11 +186,19 @@ func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) {
 				return errorResponse(err)
 			}
 			l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
-			if len(ids) == 1 {
-				l = l.Str("id", log.SafeString(id))
-				logger := log.From(l)
 
-				emails, sessionState, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), ids, true, g.maxBodyValueBytes)
+			markAsSeen, ok, err := req.parseBoolParam(QueryParamMarkAsSeen, false)
+			if err != nil {
+				return errorResponse(err)
+			}
+			if ok {
+				l = l.Bool(QueryParamMarkAsSeen, markAsSeen)
+			}
+
+			if len(ids) == 1 {
+				logger := log.From(l.Str("id", log.SafeString(id)))
+
+				emails, sessionState, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), ids, true, g.maxBodyValueBytes, markAsSeen)
 				if jerr != nil {
 					return req.errorResponseFromJmap(jerr)
 				}
@@ -194,7 +210,7 @@ func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) {
 			} else {
 				logger := log.From(l.Array("ids", log.SafeStringArray(ids)))
 
-				emails, sessionState, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), ids, true, g.maxBodyValueBytes)
+				emails, sessionState, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), ids, true, g.maxBodyValueBytes, markAsSeen)
 				if jerr != nil {
 					return req.errorResponseFromJmap(jerr)
 				}
@@ -240,7 +256,7 @@ func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) 
 			}
 			l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
 			logger := log.From(l)
-			emails, sessionState, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), []string{id}, false, 0)
+			emails, sessionState, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), []string{id}, false, 0, false)
 			if jerr != nil {
 				return req.errorResponseFromJmap(jerr)
 			}
@@ -265,7 +281,7 @@ func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) 
 			l = contextAppender(l)
 			logger := log.From(l)
 
-			emails, _, lang, jerr := g.jmap.GetEmails(mailAccountId, req.session, req.ctx, logger, req.language(), []string{id}, false, 0)
+			emails, _, lang, jerr := g.jmap.GetEmails(mailAccountId, req.session, req.ctx, logger, req.language(), []string{id}, false, 0, false)
 			if jerr != nil {
 				return req.apiErrorFromJmap(req.observeJmapError(jerr))
 			}
@@ -1319,7 +1335,7 @@ func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) {
 
 		reqId := req.GetRequestId()
 		getEmailsBefore := time.Now()
-		emails, sessionState, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), []string{id}, true, g.maxBodyValueBytes)
+		emails, sessionState, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), []string{id}, true, g.maxBodyValueBytes, false)
 		getEmailsDuration := time.Since(getEmailsBefore)
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
