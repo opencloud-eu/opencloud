@@ -1463,6 +1463,9 @@ type EmailSummary struct {
 	// example: $threadId
 	ThreadId string `json:"threadId,omitempty"`
 
+	// The number of emails in the thread, including this one.
+	ThreadSize int `json:"threadSize,omitzero"`
+
 	// The set of Mailbox ids this Email belongs to.
 	//
 	// An Email in the mail store MUST belong to one or more Mailboxes at all times (until it is destroyed).
@@ -1614,11 +1617,12 @@ type EmailSummary struct {
 	Preview string `json:"preview,omitempty"`
 }
 
-func summarizeEmail(accountId string, email jmap.Email) EmailSummary {
+func summarizeEmail(accountId string, email jmap.EmailWithThread) EmailSummary {
 	return EmailSummary{
 		AccountId:     accountId,
 		Id:            email.Id,
 		ThreadId:      email.ThreadId,
+		ThreadSize:    email.ThreadSize,
 		MailboxIds:    email.MailboxIds,
 		Keywords:      email.Keywords,
 		Size:          email.Size,
@@ -1638,7 +1642,7 @@ func summarizeEmail(accountId string, email jmap.Email) EmailSummary {
 
 type emailWithAccountId struct {
 	accountId string
-	email     jmap.Email
+	email     jmap.EmailWithThread
 }
 
 // When the request succeeds.
@@ -1731,7 +1735,8 @@ func (g *Groupware) GetLatestEmailsSummaryForAllAccounts(w http.ResponseWriter, 
 
 		logger := log.From(l)
 
-		emailsSummariesByAccount, sessionState, lang, jerr := g.jmap.QueryEmailSummaries(allAccountIds, req.session, req.ctx, logger, req.language(), filter, limit)
+		// emailsSummariesByAccount, sessionState, lang, jerr := g.jmap.QueryEmailSummaries(allAccountIds, req.session, req.ctx, logger, req.language(), filter, limit)
+		emailsSummariesByAccount, sessionState, lang, jerr := g.jmap.QueryEmailSummariesWithThreadCount(allAccountIds, req.session, req.ctx, logger, req.language(), filter, limit)
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
