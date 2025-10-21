@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"slices"
 	"strconv"
@@ -120,8 +121,13 @@ func (g *Groupware) GetAllEmailsInMailbox(w http.ResponseWriter, r *http.Request
 				return req.errorResponseFromJmap(jerr)
 			}
 
+			sanitized, err := req.sanitizeEmails(emails.Emails)
+			if err != nil {
+				return errorResponseWithSessionState(err, sessionState)
+			}
+
 			safe := jmap.Emails{
-				Emails: g.sanitizeEmails(emails.Emails),
+				Emails: sanitized,
 				Total:  emails.Total,
 				Limit:  emails.Limit,
 				Offset: emails.Offset,
@@ -205,7 +211,11 @@ func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) {
 				if len(emails.Emails) < 1 {
 					return notFoundResponse(sessionState)
 				} else {
-					return etagResponse(g.sanitizeEmail(emails.Emails[0]), sessionState, emails.State, lang)
+					sanitized, err := req.sanitizeEmail(emails.Emails[0])
+					if err != nil {
+						return errorResponseWithSessionState(err, sessionState)
+					}
+					return etagResponse(sanitized, sessionState, emails.State, lang)
 				}
 			} else {
 				logger := log.From(l.Array("ids", log.SafeStringArray(ids)))
@@ -217,7 +227,11 @@ func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) {
 				if len(emails.Emails) < 1 {
 					return notFoundResponse(sessionState)
 				} else {
-					return etagResponse(g.sanitizeEmails(emails.Emails), sessionState, emails.State, lang)
+					sanitized, err := req.sanitizeEmails(emails.Emails)
+					if err != nil {
+						return errorResponseWithSessionState(err, sessionState)
+					}
+					return etagResponse(sanitized, sessionState, emails.State, lang)
 				}
 			}
 		})
@@ -263,7 +277,10 @@ func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) 
 			if len(emails.Emails) < 1 {
 				return notFoundResponse(sessionState)
 			}
-			email := g.sanitizeEmail(emails.Emails[0])
+			email, err := req.sanitizeEmail(emails.Emails[0])
+			if err != nil {
+				return errorResponseWithSessionState(err, sessionState)
+			}
 			return etagResponse(email.Attachments, sessionState, emails.State, lang)
 		})
 	} else {
@@ -289,7 +306,10 @@ func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) 
 				return nil
 			}
 
-			email := g.sanitizeEmail(emails.Emails[0])
+			email, err := req.sanitizeEmail(emails.Emails[0])
+			if err != nil {
+				return err
+			}
 			var attachment *jmap.EmailBodyPart = nil
 			for _, part := range email.Attachments {
 				if attachmentSelector(part) {
@@ -333,8 +353,8 @@ func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) 
 			if lang != "" {
 				w.Header().Add("Content-Language", string(lang))
 			}
-			_, err := io.Copy(w, blob.Body)
-			if err != nil {
+			_, cerr := io.Copy(w, blob.Body)
+			if cerr != nil {
 				return req.observedParameterError(ErrorStreamingResponse)
 			}
 
@@ -610,9 +630,13 @@ func (g *Groupware) searchEmails(w http.ResponseWriter, r *http.Request) {
 					} else {
 						snippets = nil
 					}
+					sanitized, err := req.sanitizeEmail(result.Email)
+					if err != nil {
+						return errorResponseWithSessionState(err, sessionState)
+					}
 					flattened[i] = EmailWithSnippets{
 						// AccountId: accountId,
-						Email:    g.sanitizeEmail(result.Email),
+						Email:    sanitized,
 						Snippets: snippets,
 					}
 				}
@@ -721,9 +745,14 @@ func (g *Groupware) GetEmailsForAllAccounts(w http.ResponseWriter, r *http.Reque
 								return nil
 							}
 						})
+
+						sanitized, err := req.sanitizeEmail(result.Email)
+						if err != nil {
+							return errorResponseWithSessionState(err, sessionState)
+						}
 						flattened[i] = EmailWithSnippets{
 							AccountId: accountId,
-							Email:     g.sanitizeEmail(result.Email),
+							Email:     sanitized,
 							Snippets:  snippets,
 						}
 					}
@@ -771,7 +800,11 @@ func (g *Groupware) GetEmailsForAllAccounts(w http.ResponseWriter, r *http.Reque
 					i := 0
 					for _, list := range resultsByAccountId {
 						for _, e := range list.Emails {
-							flattened[i] = g.sanitizeEmail(e)
+							sanitized, err := req.sanitizeEmail(e)
+							if err != nil {
+								return errorResponseWithSessionState(err, sessionState)
+							}
+							flattened[i] = sanitized
 							i++
 						}
 					}
@@ -1368,10 +1401,12 @@ func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) {
 					l.Error().Err(jerr).Msgf("failed to query %v emails", RelationTypeSameSender)
 				} else {
 					req.observe(g.metrics.EmailSameSenderDuration.WithLabelValues(req.session.JmapEndpoint), duration.Seconds())
-					related := g.sanitizeEmails(filterEmails(results.Emails, email))
-					l.Trace().Msgf("'%v' found %v other emails", RelationTypeSameSender, len(related))
-					if len(related) > 0 {
-						req.push(RelationEntityEmail, AboutEmailsEvent{Id: reqId, Emails: related, Source: RelationTypeSameSender, Language: lang})
+					related, err := req.sanitizeEmails(filterEmails(results.Emails, email))
+					if err == nil {
+						l.Trace().Msgf("'%v' found %v other emails", RelationTypeSameSender, len(related))
+						if len(related) > 0 {
+							req.push(RelationEntityEmail, AboutEmailsEvent{Id: reqId, Emails: related, Source: RelationTypeSameSender, Language: lang})
+						}
 					}
 				}
 			}
@@ -1386,16 +1421,22 @@ func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) {
 				l.Error().Err(jerr).Msgf("failed to list %v emails", RelationTypeSameThread)
 			} else {
 				req.observe(g.metrics.EmailSameThreadDuration.WithLabelValues(req.session.JmapEndpoint), duration.Seconds())
-				related := g.sanitizeEmails(filterEmails(emails, email))
-				l.Trace().Msgf("'%v' found %v other emails", RelationTypeSameThread, len(related))
-				if len(related) > 0 {
-					req.push(RelationEntityEmail, AboutEmailsEvent{Id: reqId, Emails: related, Source: RelationTypeSameThread, Language: lang})
+				related, err := req.sanitizeEmails(filterEmails(emails, email))
+				if err == nil {
+					l.Trace().Msgf("'%v' found %v other emails", RelationTypeSameThread, len(related))
+					if len(related) > 0 {
+						req.push(RelationEntityEmail, AboutEmailsEvent{Id: reqId, Emails: related, Source: RelationTypeSameThread, Language: lang})
+					}
 				}
 			}
 		})
 
+		sanitized, err := req.sanitizeEmail(email)
+		if err != nil {
+			return errorResponseWithSessionState(err, sessionState)
+		}
 		return etagResponse(AboutEmailResponse{
-			Email:     g.sanitizeEmail(email),
+			Email:     sanitized,
 			RequestId: reqId,
 		}, sessionState, emails.State, lang)
 	})
@@ -1776,15 +1817,26 @@ func squashQueryState[V any](all map[string]V, mapper func(V) jmap.State) jmap.S
 
 var sanitizationPolicy *bluemonday.Policy = bluemonday.UGCPolicy()
 
-func (g *Groupware) sanitizeEmail(source jmap.Email) jmap.Email {
-	if !g.sanitize {
-		return source
+var sanitizableMediaTypes = []string{
+	"text/html",
+	"text/xhtml",
+}
+
+func (req *Request) sanitizeEmail(source jmap.Email) (jmap.Email, *Error) {
+	if !req.g.sanitize {
+		return source, nil
 	}
 	memory := map[string]int{}
 	for _, ref := range []*[]jmap.EmailBodyPart{&source.HtmlBody, &source.TextBody} {
 		newBody := make([]jmap.EmailBodyPart, len(*ref))
 		for i, p := range *ref {
-			if p.Type == "text/html" {
+			t, _, err := mime.ParseMediaType(p.Type)
+			if err != nil {
+				msg := fmt.Sprintf("failed to parse the mime type '%s'", p.Type)
+				req.logger.Error().Str("type", log.SafeString(p.Type)).Msg(msg)
+				return source, req.apiError(&ErrorFailedToSanitizeEmail, withDetail(msg))
+			}
+			if slices.Contains(sanitizableMediaTypes, t) {
 				if already, done := memory[p.PartId]; !done {
 					if part, ok := source.BodyValues[p.PartId]; ok {
 						safe := sanitizationPolicy.Sanitize(part.Value)
@@ -1802,16 +1854,33 @@ func (g *Groupware) sanitizeEmail(source jmap.Email) jmap.Email {
 		}
 		*ref = newBody
 	}
-	return source
+
+	// we could post-process attachments as well:
+	/*
+		for _, part := range source.Attachments {
+			if part.Type == "" {
+				part.Type = "application/octet-stream"
+			}
+			if part.Name == "" {
+				part.Name = "unknown"
+			}
+		}
+	*/
+
+	return source, nil
 }
 
-func (g *Groupware) sanitizeEmails(source []jmap.Email) []jmap.Email {
-	if !g.sanitize {
-		return source
+func (req *Request) sanitizeEmails(source []jmap.Email) ([]jmap.Email, *Error) {
+	if !req.g.sanitize {
+		return source, nil
 	}
 	result := make([]jmap.Email, len(source))
 	for i, email := range source {
-		result[i] = g.sanitizeEmail(email)
+		sanitized, gwerr := req.sanitizeEmail(email)
+		if gwerr != nil {
+			return nil, gwerr
+		}
+		result[i] = sanitized
 	}
-	return result
+	return result, nil
 }

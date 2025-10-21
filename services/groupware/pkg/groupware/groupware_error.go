@@ -196,6 +196,7 @@ const (
 	ErrorCodeMissingTaskAccountCapability      = "MACTSK"
 	ErrorCodeFailedToDeleteEmail               = "DELEML"
 	ErrorCodeFailedToDeleteSomeIdentities      = "DELSID"
+	ErrorCodeFailedToSanitizeEmail             = "FSANEM"
 )
 
 var (
@@ -426,6 +427,12 @@ var (
 		Code:   ErrorCodeFailedToDeleteSomeIdentities,
 		Title:  "Failed to delete some Identities",
 		Detail: "Failed to delete some or all of the identities.",
+	}
+	ErrorFailedToSanitizeEmail = GroupwareError{
+		Status: http.StatusInternalServerError,
+		Code:   ErrorCodeFailedToSanitizeEmail,
+		Title:  "Failed to sanitize an email",
+		Detail: "Email content sanitization failed.",
 	}
 )
 
