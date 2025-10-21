@@ -2854,7 +2854,7 @@ type EmailSetCommand struct {
 	//
 	// The value associated with each pointer determines how to apply that patch:
 	// !- If null, set to the default value if specified for this property; otherwise, remove the property from the patched object. If the key is not present in the parent, this a no-op.
-	// ç- Anything else: The value to set for this property (this may be a replacement or addition to the object being patched).
+	// !- Anything else: The value to set for this property (this may be a replacement or addition to the object being patched).
 	//
 	// Any server-set properties MAY be included in the patch if their value is identical to the current server value
 	// (before applying the patches to the object). Otherwise, the update MUST be rejected with an `invalidProperties` `SetError`.
