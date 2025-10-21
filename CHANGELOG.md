@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.6.0) - 2025-10-20
+## [3.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.6.0) - 2025-10-21
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -41,6 +41,7 @@
 
 ### 📦️ Dependencies
 
+- revaBumb: add groupware capabilities [[#1689](https://github.com/opencloud-eu/opencloud/pull/1689)]
 - revaUpdate: adding groupware capabilities [[#1659](https://github.com/opencloud-eu/opencloud/pull/1659)]
 - chore/bump-web-4.1.0 [[#1652](https://github.com/opencloud-eu/opencloud/pull/1652)]
 - build(deps): bump google.golang.org/grpc from 1.75.1 to 1.76.0 [[#1628](https://github.com/opencloud-eu/opencloud/pull/1628)]
