@@ -1012,6 +1012,7 @@ func (g *Groupware) UpdateEmailKeywords(w http.ResponseWriter, r *http.Request) 
 			return noContentResponse(req.session.State)
 		}
 
+		// TODO FIXME use "keywords/$seen" instead, see https://datatracker.ietf.org/doc/html/rfc8620#section-5.7
 		patch := map[string]*bool{}
 		truth := true
 		for _, keyword := range body.Add {
