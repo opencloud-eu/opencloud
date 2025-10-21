@@ -3013,6 +3013,11 @@ type ThreadGetCommand struct {
 	Ids       []string `json:"ids,omitempty"`
 }
 
+type ThreadGetRefCommand struct {
+	AccountId string           `json:"accountId"`
+	IdsRef    *ResultReference `json:"#ids,omitempty"`
+}
+
 type ThreadGetResponse struct {
 	AccountId string
 	State     State
