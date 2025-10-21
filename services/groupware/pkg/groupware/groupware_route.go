@@ -53,6 +53,7 @@ const (
 	QueryParamAttachmentBlobId        = "blobId"
 	QueryParamSeen                    = "seen"
 	QueryParamUndesirable             = "undesirable"
+	QueryParamMarkAsSeen              = "markAsSeen"
 	HeaderSince                       = "if-none-match"
 )
 

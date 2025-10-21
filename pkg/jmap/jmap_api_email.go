@@ -32,22 +32,47 @@ type Emails struct {
 }
 
 // Retrieve specific Emails by their id.
-func (j *Client) GetEmails(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string, fetchBodies bool, maxBodyValueBytes uint) (Emails, SessionState, Language, Error) {
+func (j *Client) GetEmails(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string, fetchBodies bool, maxBodyValueBytes uint, markAsSeen bool) (Emails, SessionState, Language, Error) {
 	logger = j.logger("GetEmails", session, logger)
 
 	get := EmailGetCommand{AccountId: accountId, Ids: ids, FetchAllBodyValues: fetchBodies}
 	if maxBodyValueBytes > 0 {
 		get.MaxBodyValueBytes = maxBodyValueBytes
 	}
+	invokeGet := invocation(CommandEmailGet, get, "1")
 
-	cmd, err := j.request(session, logger, invocation(CommandEmailGet, get, "0"))
+	methodCalls := []Invocation{invokeGet}
+	if markAsSeen {
+		patch := map[string]bool{
+			JmapKeywordSeen: true,
+		}
+		updates := make(map[string]EmailUpdate, len(ids))
+		for _, id := range ids {
+			updates[id] = EmailUpdate{"keywords": patch}
+		}
+		mark := EmailSetCommand{AccountId: accountId, Update: updates}
+		methodCalls = []Invocation{invocation(CommandEmailSet, mark, "0"), invokeGet}
+	}
+
+	cmd, err := j.request(session, logger, methodCalls...)
 	if err != nil {
 		logger.Error().Err(err).Send()
 		return Emails{}, "", "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (Emails, Error) {
+		if markAsSeen {
+			var markResponse EmailSetResponse
+			err = retrieveResponseMatchParameters(logger, body, CommandEmailSet, "0", &markResponse)
+			if err != nil {
+				return Emails{}, err
+			}
+			for _, seterr := range markResponse.NotUpdated {
+				// TODO we don't have a way to compose multiple set errors yet
+				return Emails{}, setErrorError(seterr, EmailType)
+			}
+		}
 		var response EmailGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "0", &response)
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "1", &response)
 		if err != nil {
 			return Emails{}, err
 		}
