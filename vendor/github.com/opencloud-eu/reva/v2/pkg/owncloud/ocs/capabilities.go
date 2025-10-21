@@ -308,7 +308,7 @@ type CapabilitiesThemeLogo struct {
 
 // CapabilitiesGroupware holds groupware capabilities
 type CapabilitiesGroupware struct {
-	Enabled bool `json:"enabled,omitempty" xml:"enabled,omitempty" mapstructure:"groupware"`
+	Enabled bool `json:"enabled,omitempty" xml:"enabled,omitempty" mapstructure:"enabled"`
 }
 
 // Version holds version information
