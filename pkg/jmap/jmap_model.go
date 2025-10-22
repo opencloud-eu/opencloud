@@ -2065,6 +2065,10 @@ type Email struct {
 	// example: $threadId
 	ThreadId string `json:"threadId,omitempty"`
 
+	// The number of emails (this one included) that are in the thread this email is in.
+	// Note that this is not part of the JMAP specification, and is only calculated when requested.
+	ThreadSize int `json:"threadSize,omitzero"`
+
 	// The set of Mailbox ids this Email belongs to.
 	//
 	// An Email in the mail store MUST belong to one or more Mailboxes at all times (until it is destroyed).
@@ -2179,7 +2183,7 @@ type Email struct {
 	// This is the full MIME structure of the message body, without recursing into message/rfc822 or message/global parts.
 	//
 	// Note that EmailBodyParts may have subParts if they are of type multipart/*.
-	BodyStructure EmailBodyPart `json:"bodyStructure,omitzero"`
+	BodyStructure *EmailBodyPart `json:"bodyStructure,omitzero"`
 
 	// This is a map of partId to an EmailBodyValue object for none, some, or all text/* parts.
 	//
@@ -2812,12 +2816,6 @@ type MailboxQueryResponse struct {
 	Limit int `json:"limit,omitzero"`
 }
 
-type EmailBodyStructure struct {
-	Type   string         `json:"type"`
-	PartId string         `json:"partId"`
-	Other  map[string]any `mapstructure:",remain"`
-}
-
 type EmailCreate struct {
 	// The set of Mailbox ids this Email belongs to.
 	//
@@ -2866,7 +2864,7 @@ type EmailCreate struct {
 	// This is the full MIME structure of the message body, without recursing into message/rfc822 or message/global parts.
 	//
 	// Note that EmailBodyParts may have subParts if they are of type multipart/*.
-	BodyStructure EmailBodyStructure `json:"bodyStructure"`
+	BodyStructure *EmailBodyPart `json:"bodyStructure,omitempty"`
 
 	// This is a map of partId to an EmailBodyValue object for none, some, or all text/* parts.
 	BodyValues map[string]EmailBodyValue `json:"bodyValues,omitempty"`

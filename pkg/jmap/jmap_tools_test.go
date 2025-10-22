@@ -88,53 +88,6 @@ func TestDeserializeEmailGetResponse(t *testing.T) {
 	require.Equal("cbejozsk1fgcviw7thwzsvtgmf1ep0a3izjoimj02jmtsunpeuwmsaya1yma", email.BlobId)
 }
 
-func TestUnmarshallingUnknown(t *testing.T) {
-	require := require.New(t)
-
-	const text = `{
-	"subject": "aaa",
-	"bodyStructure": {
-	  "type": "a",
-	  "partId": "b",
-	  "header:x": "yz",
-	  "header:a": "bc"
-	}
-	}`
-
-	var target EmailCreate
-	err := json.Unmarshal([]byte(text), &target)
-
-	require.NoError(err)
-	require.Equal("aaa", target.Subject)
-	bs := target.BodyStructure
-	require.Equal("a", bs.Type)
-	require.Equal("b", bs.PartId)
-	require.Contains(bs.Other, "header:x")
-	require.Equal(bs.Other["header:x"], "yz")
-	require.Contains(bs.Other, "header:a")
-	require.Equal(bs.Other["header:a"], "bc")
-}
-
-func TestMarshallingUnknown(t *testing.T) {
-	require := require.New(t)
-
-	source := EmailCreate{
-		Subject: "aaa",
-		BodyStructure: EmailBodyStructure{
-			Type:   "a",
-			PartId: "b",
-			Other: map[string]any{
-				"header:x": "yz",
-				"header:a": "bc",
-			},
-		},
-	}
-
-	result, err := json.Marshal(source)
-	require.NoError(err)
-	require.Equal(`{"subject":"aaa","bodyStructure":{"header:a":"bc","header:x":"yz","partId":"b","type":"a"}}`, string(result))
-}
-
 func TestUnmarshallingError(t *testing.T) {
 	require := require.New(t)
 

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"reflect"
 	"strings"
 	"sync"
@@ -205,23 +204,6 @@ func retrieveResponseMatchParameters[T any](logger *log.Logger, data *Response, 
 	}
 	*target = typedParams
 	return nil
-}
-
-func (e EmailBodyStructure) MarshalJSON() ([]byte, error) {
-	m := map[string]any{}
-	maps.Copy(m, e.Other) // do this first to avoid overwriting type and partId
-	m["type"] = e.Type
-	m["partId"] = e.PartId
-	return json.Marshal(m)
-}
-
-func (e *EmailBodyStructure) UnmarshalJSON(bs []byte) error {
-	m := map[string]any{}
-	err := json.Unmarshal(bs, &m)
-	if err != nil {
-		return err
-	}
-	return decodeMap(m, e)
 }
 
 func (i *Invocation) MarshalJSON() ([]byte, error) {

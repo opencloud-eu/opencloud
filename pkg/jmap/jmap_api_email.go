@@ -32,7 +32,7 @@ type Emails struct {
 }
 
 // Retrieve specific Emails by their id.
-func (j *Client) GetEmails(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string, fetchBodies bool, maxBodyValueBytes uint, markAsSeen bool) (Emails, SessionState, Language, Error) {
+func (j *Client) GetEmails(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string, fetchBodies bool, maxBodyValueBytes uint, markAsSeen bool, withThreads bool) (Emails, SessionState, Language, Error) {
 	logger = j.logger("GetEmails", session, logger)
 
 	get := EmailGetCommand{AccountId: accountId, Ids: ids, FetchAllBodyValues: fetchBodies}
@@ -49,6 +49,17 @@ func (j *Client) GetEmails(accountId string, session *Session, ctx context.Conte
 		}
 		mark := EmailSetCommand{AccountId: accountId, Update: updates}
 		methodCalls = []Invocation{invocation(CommandEmailSet, mark, "0"), invokeGet}
+	}
+	if withThreads {
+		threads := ThreadGetRefCommand{
+			AccountId: accountId,
+			IdsRef: &ResultReference{
+				ResultOf: "1",
+				Name:     CommandEmailGet,
+				Path:     "/list/*/" + EmailPropertyThreadId,
+			},
+		}
+		methodCalls = append(methodCalls, invocation(CommandThreadGet, threads, "2"))
 	}
 
 	cmd, err := j.request(session, logger, methodCalls...)
@@ -72,6 +83,14 @@ func (j *Client) GetEmails(accountId string, session *Session, ctx context.Conte
 		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "1", &response)
 		if err != nil {
 			return Emails{}, err
+		}
+		if withThreads {
+			var threads ThreadGetResponse
+			err = retrieveResponseMatchParameters(logger, body, CommandThreadGet, "2", &threads)
+			if err != nil {
+				return Emails{}, err
+			}
+			setThreadSize(&threads, response.List)
 		}
 		return Emails{Emails: response.List, State: response.State}, nil
 	})
@@ -636,14 +655,19 @@ type CreatedEmail struct {
 	State State  `json:"state"`
 }
 
-func (j *Client) CreateEmail(accountId string, email EmailCreate, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (CreatedEmail, SessionState, Language, Error) {
+func (j *Client) CreateEmail(accountId string, email EmailCreate, replaceId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (CreatedEmail, SessionState, Language, Error) {
+	set := EmailSetCommand{
+		AccountId: accountId,
+		Create: map[string]EmailCreate{
+			"c": email,
+		},
+	}
+	if replaceId != "" {
+		set.Destroy = []string{replaceId}
+	}
+
 	cmd, err := j.request(session, logger,
-		invocation(CommandEmailSubmissionSet, EmailSetCommand{
-			AccountId: accountId,
-			Create: map[string]EmailCreate{
-				"c": email,
-			},
-		}, "0"),
+		invocation(CommandEmailSet, set, "0"),
 	)
 	if err != nil {
 		return CreatedEmail{}, "", "", err
@@ -899,16 +923,6 @@ type EmailsSummary struct {
 	State  State   `json:"state"`
 }
 
-type EmailWithThread struct {
-	Email
-	ThreadSize int `json:"threadSize,omitzero"`
-}
-
-type EmailsWithThreadSummary struct {
-	Emails []EmailWithThread `json:"emails"`
-	State  State             `json:"state"`
-}
-
 var EmailSummaryProperties = []string{
 	EmailPropertyId,
 	EmailPropertyThreadId,
@@ -928,21 +942,26 @@ var EmailSummaryProperties = []string{
 	EmailPropertyPreview,
 }
 
-func (j *Client) QueryEmailSummaries(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, filter EmailFilterElement, limit uint) (map[string]EmailsSummary, SessionState, Language, Error) {
+func (j *Client) QueryEmailSummaries(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, filter EmailFilterElement, limit uint, withThreads bool) (map[string]EmailsSummary, SessionState, Language, Error) {
 	logger = j.logger("QueryEmailSummaries", session, logger)
 
 	uniqueAccountIds := structs.Uniq(accountIds)
 
-	invocations := make([]Invocation, len(uniqueAccountIds)*2)
+	factor := 2
+	if withThreads {
+		factor++
+	}
+
+	invocations := make([]Invocation, len(uniqueAccountIds)*factor)
 	for i, accountId := range uniqueAccountIds {
-		invocations[i*2+0] = invocation(CommandEmailQuery, EmailQueryCommand{
+		invocations[i*factor+0] = invocation(CommandEmailQuery, EmailQueryCommand{
 			AccountId: accountId,
 			Filter:    filter,
 			Sort:      []EmailComparator{{Property: emailSortByReceivedAt, IsAscending: false}},
 			Limit:     limit,
 			//CalculateTotal: false,
 		}, mcid(accountId, "0"))
-		invocations[i*2+1] = invocation(CommandEmailGet, EmailGetRefCommand{
+		invocations[i*factor+1] = invocation(CommandEmailGet, EmailGetRefCommand{
 			AccountId: accountId,
 			IdsRef: &ResultReference{
 				Name:     CommandEmailQuery,
@@ -951,6 +970,16 @@ func (j *Client) QueryEmailSummaries(accountIds []string, session *Session, ctx 
 			},
 			Properties: EmailSummaryProperties,
 		}, mcid(accountId, "1"))
+		if withThreads {
+			invocations[i*factor+2] = invocation(CommandThreadGet, ThreadGetRefCommand{
+				AccountId: accountId,
+				IdsRef: &ResultReference{
+					Name:     CommandEmailGet,
+					Path:     "/list/*/" + EmailPropertyThreadId,
+					ResultOf: mcid(accountId, "1"),
+				},
+			}, mcid(accountId, "2"))
+		}
 	}
 	cmd, err := j.request(session, logger, invocations...)
 	if err != nil {
@@ -968,87 +997,31 @@ func (j *Client) QueryEmailSummaries(accountIds []string, session *Session, ctx 
 			if len(response.NotFound) > 0 {
 				// TODO what to do when there are not-found emails here? potentially nothing, they could have been deleted between query and get?
 			}
+			if withThreads {
+				var thread ThreadGetResponse
+				err = retrieveResponseMatchParameters(logger, body, CommandThreadGet, mcid(accountId, "2"), &thread)
+				if err != nil {
+					return nil, err
+				}
+				setThreadSize(&thread, response.List)
+			}
+
 			resp[accountId] = EmailsSummary{Emails: response.List, State: response.State}
 		}
 		return resp, nil
 	})
 }
 
-func (j *Client) QueryEmailSummariesWithThreadCount(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, filter EmailFilterElement, limit uint) (map[string]EmailsWithThreadSummary, SessionState, Language, Error) {
-	logger = j.logger("QueryEmailSummariesWithThreadCount", session, logger)
-
-	uniqueAccountIds := structs.Uniq(accountIds)
-
-	invocations := make([]Invocation, len(uniqueAccountIds)*3)
-	for i, accountId := range uniqueAccountIds {
-		invocations[i*3+0] = invocation(CommandEmailQuery, EmailQueryCommand{
-			AccountId: accountId,
-			Filter:    filter,
-			Sort:      []EmailComparator{{Property: emailSortByReceivedAt, IsAscending: false}},
-			Limit:     limit,
-			//CalculateTotal: false,
-		}, mcid(accountId, "0"))
-		invocations[i*3+1] = invocation(CommandEmailGet, EmailGetRefCommand{
-			AccountId: accountId,
-			IdsRef: &ResultReference{
-				Name:     CommandEmailQuery,
-				Path:     "/ids/*",
-				ResultOf: mcid(accountId, "0"),
-			},
-			Properties: EmailSummaryProperties,
-		}, mcid(accountId, "1"))
-		invocations[i*3+2] = invocation(CommandThreadGet, ThreadGetRefCommand{
-			AccountId: accountId,
-			IdsRef: &ResultReference{
-				Name:     CommandEmailGet,
-				Path:     "/list/*/" + EmailPropertyThreadId,
-				ResultOf: mcid(accountId, "1"),
-			},
-		}, mcid(accountId, "2"))
+func setThreadSize(threads *ThreadGetResponse, emails []Email) {
+	threadSizeById := make(map[string]int, len(threads.List))
+	for _, thread := range threads.List {
+		threadSizeById[thread.Id] = len(thread.EmailIds)
 	}
-	cmd, err := j.request(session, logger, invocations...)
-	if err != nil {
-		return nil, "", "", err
-	}
-
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]EmailsWithThreadSummary, Error) {
-		resp := map[string]EmailsWithThreadSummary{}
-		for _, accountId := range uniqueAccountIds {
-			var response EmailGetResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, mcid(accountId, "1"), &response)
-			if err != nil {
-				return nil, err
-			}
-
-			var thread ThreadGetResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandThreadGet, mcid(accountId, "2"), &thread)
-			if err != nil {
-				return nil, err
-			}
-
-			threadSizeById := make(map[string]int, len(thread.List))
-			for _, thread := range thread.List {
-				threadSizeById[thread.Id] = len(thread.EmailIds)
-			}
-
-			if len(response.NotFound) > 0 {
-				// TODO what to do when there are not-found emails here? potentially nothing, they could have been deleted between query and get?
-			}
-
-			list := make([]EmailWithThread, len(response.List))
-			for i, email := range response.List {
-				ts, ok := threadSizeById[email.ThreadId]
-				if !ok {
-					ts = 1
-				}
-				list[i] = EmailWithThread{
-					Email:      email,
-					ThreadSize: ts,
-				}
-			}
-
-			resp[accountId] = EmailsWithThreadSummary{Emails: list, State: response.State}
+	for i := range len(emails) {
+		ts, ok := threadSizeById[emails[i].ThreadId]
+		if !ok {
+			ts = 1
 		}
-		return resp, nil
-	})
+		emails[i].ThreadSize = ts
+	}
 }
