@@ -290,6 +290,7 @@ func (r Request) body(target any) *Error {
 
 	err := json.NewDecoder(body).Decode(target)
 	if err != nil {
+		r.logger.Warn().Msgf("failed to deserialize the request body: %s", err.Error())
 		return r.observedParameterError(ErrorInvalidRequestBody, withSource(&ErrorSource{Pointer: "/"})) // we don't get any details here
 	}
 	return nil

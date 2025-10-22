@@ -97,7 +97,7 @@ func (g *Groupware) Route(r chi.Router) {
 			r.Post("/", g.CreateEmail)
 			r.Delete("/", g.DeleteEmails)
 			r.Get("/{emailid}", g.GetEmailsById) // Accept:message/rfc822
-			// r.Put("/{emailid}", g.ReplaceEmail) // TODO
+			r.Put("/{emailid}", g.ReplaceEmail)
 			r.Patch("/{emailid}", g.UpdateEmail)
 			r.Patch("/{emailid}/keywords", g.UpdateEmailKeywords)
 			r.Post("/{emailid}/keywords", g.AddEmailKeywords)
