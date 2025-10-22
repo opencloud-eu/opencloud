@@ -1979,6 +1979,64 @@ type EmailBodyValue struct {
 	IsTruncated bool `json:"isTruncated,omitzero"`
 }
 
+const (
+	EmailPropertyId            = "id"
+	EmailPropertyBlodId        = "blobId"
+	EmailPropertyThreadId      = "threadId"
+	EmailPropertyMailboxIds    = "mailboxIds"
+	EmailPropertyKeywords      = "keywords"
+	EmailPropertySize          = "size"
+	EmailPropertyReceivedAt    = "receivedAt"
+	EmailPropertyHeaders       = "headers"
+	EmailPropertyMessageId     = "messageId"
+	EmailPropertyInReplyTo     = "inReplyTo"
+	EmailPropertyReferences    = "references"
+	EmailPropertySender        = "sender"
+	EmailPropertyFrom          = "from"
+	EmailPropertyTo            = "to"
+	EmailPropertyCc            = "cc"
+	EmailPropertyBcc           = "bcc"
+	EmailPropertyReplyTo       = "replyTo"
+	EmailPropertySubject       = "subject"
+	EmailPropertySentAt        = "sentAt"
+	EmailPropertyBodyStructure = "bodyStructure"
+	EmailPropertyBodyValues    = "bodyValues"
+	EmailPropertyTextBody      = "textBody"
+	EmailPropertyHtmlBody      = "htmlBody"
+	EmailPropertyAttachments   = "attachments"
+	EmailPropertyHasAttachment = "hasAttachment"
+	EmailPropertyPreview       = "preview"
+)
+
+var EmailProperties = []string{
+	EmailPropertyId,
+	EmailPropertyBlodId,
+	EmailPropertyThreadId,
+	EmailPropertyMailboxIds,
+	EmailPropertyKeywords,
+	EmailPropertySize,
+	EmailPropertyReceivedAt,
+	EmailPropertyHeaders,
+	EmailPropertyMessageId,
+	EmailPropertyInReplyTo,
+	EmailPropertyReferences,
+	EmailPropertySender,
+	EmailPropertyFrom,
+	EmailPropertyTo,
+	EmailPropertyCc,
+	EmailPropertyBcc,
+	EmailPropertyReplyTo,
+	EmailPropertySubject,
+	EmailPropertySentAt,
+	EmailPropertyBodyStructure,
+	EmailPropertyBodyValues,
+	EmailPropertyTextBody,
+	EmailPropertyHtmlBody,
+	EmailPropertyAttachments,
+	EmailPropertyHasAttachment,
+	EmailPropertyPreview,
+}
+
 // An Email.
 //
 // swagger:model

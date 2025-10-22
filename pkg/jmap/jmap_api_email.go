@@ -45,7 +45,7 @@ func (j *Client) GetEmails(accountId string, session *Session, ctx context.Conte
 	if markAsSeen {
 		updates := make(map[string]EmailUpdate, len(ids))
 		for _, id := range ids {
-			updates[id] = EmailUpdate{"keywords/" + JmapKeywordSeen: true}
+			updates[id] = EmailUpdate{EmailPropertyKeywords + "/" + JmapKeywordSeen: true}
 		}
 		mark := EmailSetCommand{AccountId: accountId, Update: updates}
 		methodCalls = []Invocation{invocation(CommandEmailSet, mark, "0"), invokeGet}
@@ -277,7 +277,7 @@ func (j *Client) QueryEmailSnippets(accountIds []string, filter EmailFilterEleme
 			},
 			FetchAllBodyValues: false,
 			MaxBodyValueBytes:  0,
-			Properties:         []string{"id", "receivedAt", "sentAt"},
+			Properties:         []string{EmailPropertyId, EmailPropertyReceivedAt, EmailPropertySentAt},
 		}
 
 		snippet := SearchSnippetGetRefCommand{
@@ -757,7 +757,7 @@ type SubmittedEmail struct {
 	SendAt     time.Time                 `json:"sendAt,omitzero"`
 	ThreadId   string                    `json:"threadId,omitempty"`
 	UndoStatus EmailSubmissionUndoStatus `json:"undoStatus,omitempty"`
-	Envelope   Envelope                  `json:"envelope,omitempty"`
+	Envelope   *Envelope                 `json:"envelope,omitempty"`
 
 	// A list of blob ids for DSNs [RFC3464] received for this submission,
 	// in order of receipt, oldest first.
@@ -787,7 +787,7 @@ func (j *Client) SubmitEmail(accountId string, identityId string, emailId string
 		},
 		OnSuccessUpdateEmail: map[string]PatchObject{
 			"#s0": {
-				"keywords/" + JmapKeywordDraft: nil,
+				EmailPropertyKeywords + "/" + JmapKeywordDraft: nil,
 			},
 		},
 	}
@@ -797,7 +797,7 @@ func (j *Client) SubmitEmail(accountId string, identityId string, emailId string
 		IdRef: &ResultReference{
 			ResultOf: "0",
 			Name:     CommandEmailSubmissionSet,
-			Path:     "/created/s0/id",
+			Path:     "/created/s0/" + EmailPropertyId,
 		},
 	}
 
@@ -851,7 +851,7 @@ func (j *Client) SubmitEmail(accountId string, identityId string, emailId string
 			SendAt:     submission.SendAt,
 			ThreadId:   submission.ThreadId,
 			UndoStatus: submission.UndoStatus,
-			Envelope:   *submission.Envelope,
+			Envelope:   submission.Envelope,
 			DsnBlobIds: submission.DsnBlobIds,
 			MdnBlobIds: submission.MdnBlobIds,
 		}, nil
@@ -909,6 +909,25 @@ type EmailsWithThreadSummary struct {
 	State  State             `json:"state"`
 }
 
+var EmailSummaryProperties = []string{
+	EmailPropertyId,
+	EmailPropertyThreadId,
+	EmailPropertyMailboxIds,
+	EmailPropertyKeywords,
+	EmailPropertySize,
+	EmailPropertyReceivedAt,
+	EmailPropertySender,
+	EmailPropertyFrom,
+	EmailPropertyTo,
+	EmailPropertyCc,
+	EmailPropertyBcc,
+	EmailPropertySubject,
+	EmailPropertySentAt,
+	EmailPropertyHasAttachment,
+	EmailPropertyAttachments,
+	EmailPropertyPreview,
+}
+
 func (j *Client) QueryEmailSummaries(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, filter EmailFilterElement, limit uint) (map[string]EmailsSummary, SessionState, Language, Error) {
 	logger = j.logger("QueryEmailSummaries", session, logger)
 
@@ -930,7 +949,7 @@ func (j *Client) QueryEmailSummaries(accountIds []string, session *Session, ctx 
 				Path:     "/ids/*",
 				ResultOf: mcid(accountId, "0"),
 			},
-			Properties: []string{"id", "threadId", "mailboxIds", "keywords", "size", "receivedAt", "sender", "from", "to", "cc", "bcc", "subject", "sentAt", "hasAttachment", "attachments", "preview"},
+			Properties: EmailSummaryProperties,
 		}, mcid(accountId, "1"))
 	}
 	cmd, err := j.request(session, logger, invocations...)
@@ -976,13 +995,13 @@ func (j *Client) QueryEmailSummariesWithThreadCount(accountIds []string, session
 				Path:     "/ids/*",
 				ResultOf: mcid(accountId, "0"),
 			},
-			Properties: []string{"id", "threadId", "mailboxIds", "keywords", "size", "receivedAt", "sender", "from", "to", "cc", "bcc", "subject", "sentAt", "hasAttachment", "attachments", "preview"},
+			Properties: EmailSummaryProperties,
 		}, mcid(accountId, "1"))
 		invocations[i*3+2] = invocation(CommandThreadGet, ThreadGetRefCommand{
 			AccountId: accountId,
 			IdsRef: &ResultReference{
 				Name:     CommandEmailGet,
-				Path:     "/list/*/threadId",
+				Path:     "/list/*/" + EmailPropertyThreadId,
 				ResultOf: mcid(accountId, "1"),
 			},
 		}, mcid(accountId, "2"))
