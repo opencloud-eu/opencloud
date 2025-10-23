@@ -197,6 +197,7 @@ const (
 	ErrorCodeFailedToDeleteEmail               = "DELEML"
 	ErrorCodeFailedToDeleteSomeIdentities      = "DELSID"
 	ErrorCodeFailedToSanitizeEmail             = "FSANEM"
+	ErrorCodeFailedToDeleteContact             = "DELCNT"
 )
 
 var (
@@ -433,6 +434,12 @@ var (
 		Code:   ErrorCodeFailedToSanitizeEmail,
 		Title:  "Failed to sanitize an email",
 		Detail: "Email content sanitization failed.",
+	}
+	ErrorFailedToDeleteContact = GroupwareError{
+		Status: http.StatusInternalServerError,
+		Code:   ErrorCodeFailedToDeleteContact,
+		Title:  "Failed to delete contacts",
+		Detail: "One or more contacts could not be deleted.",
 	}
 )
 

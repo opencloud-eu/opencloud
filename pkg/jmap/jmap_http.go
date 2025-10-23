@@ -206,7 +206,7 @@ func (h *HttpJmapClient) Command(ctx context.Context, logger *log.Logger, sessio
 	if logger.Trace().Enabled() {
 		requestBytes, err := httputil.DumpRequestOut(req, true)
 		if err == nil {
-			logger.Trace().Str(logEndpoint, endpoint).Msg(string(requestBytes))
+			logger.Trace().Str(logEndpoint, endpoint).Str("proto", "jmap").Str("type", "request").Msg(string(requestBytes))
 		}
 	}
 	h.auth(session.Username, logger, req)
@@ -217,6 +217,14 @@ func (h *HttpJmapClient) Command(ctx context.Context, logger *log.Logger, sessio
 		logger.Error().Err(err).Msgf("failed to perform POST %v", jmapUrl)
 		return nil, "", SimpleError{code: JmapErrorSendingRequest, err: err}
 	}
+
+	if logger.Trace().Enabled() {
+		requestBytes, err := httputil.DumpResponse(res, true)
+		if err == nil {
+			logger.Trace().Str(logEndpoint, endpoint).Str("proto", "jmap").Str("type", "response").Msg(string(requestBytes))
+		}
+	}
+
 	language := Language(res.Header.Get("Content-Language"))
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		h.listener.OnFailedRequestWithStatus(endpoint, res.StatusCode)

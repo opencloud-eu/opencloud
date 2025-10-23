@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/jscalendar"
+	"github.com/opencloud-eu/opencloud/pkg/jscontact"
 )
 
 // https://www.iana.org/assignments/jmap/jmap.xml#jmap-data-types
@@ -4722,6 +4723,483 @@ type QuotaGetResponse struct {
 	NotFound  []string `json:"notFound,omitempty"`
 }
 
+type AddressBookGetCommand struct {
+	AccountId string   `json:"accountId"`
+	Ids       []string `json:"ids,omitempty"`
+}
+
+type AddressBookGetResponse struct {
+	AccountId string        `json:"accountId"`
+	State     State         `json:"state,omitempty"`
+	List      []AddressBook `json:"list,omitempty"`
+	NotFound  []string      `json:"notFound,omitempty"`
+}
+
+type ContacCardGetResponse struct {
+	AccountId string        `json:"accountId"`
+	State     State         `json:"state,omitempty"`
+	List      []AddressBook `json:"list,omitempty"`
+	NotFound  []string      `json:"notFound,omitempty"`
+}
+
+type ContactCardComparator struct {
+	// The name of the property on the objects to compare.
+	Property string `json:"property,omitempty"`
+
+	// If true, sort in ascending order.
+	//
+	// Optional; default value: true.
+	//
+	// If false, reverse the comparator’s results to sort in descending order.
+	IsAscending bool `json:"isAscending,omitempty"`
+
+	// The identifier, as registered in the collation registry defined in [RFC4790],
+	// for the algorithm to use when comparing the order of strings.
+	//
+	// Optional; default is server dependent.
+	//
+	// The algorithms the server supports are advertised in the capabilities object returned
+	// with the Session object.
+	//
+	// [RFC4790]: https://www.rfc-editor.org/rfc/rfc4790.html
+	Collation string `json:"collation,omitempty"`
+
+	// ContactCard-specific: The “created” date on the ContactCard.
+	Created time.Time `json:"created,omitzero"`
+
+	// ContactCard-specific: The "updated” date on the ContactCard.
+	Updated time.Time `json:"updated,omitzero"`
+}
+
+type ContactCardFilterElement interface {
+	_isAContactCardFilterElement() // marker method
+	IsNotEmpty() bool
+}
+
+type ContactCardFilterCondition struct {
+	// An AddressBook id.
+	//
+	// A card must be in this address book to match the condition.
+	InAddressBook string `json:"inAddressBook,omitempty"`
+
+	// A card must have this string exactly as its uid to match.
+	Uid string `json:"uid,omitempty"`
+
+	// A card must have a “members” property that contains this string as one of the uids in the set to match.
+	HasMember string `json:"hasMember,omitempty"`
+
+	// A card must have a type property that equals this string exactly to match.
+	Kind string `json:"kind,omitempty"`
+
+	// The “created” date-time of the ContactCard must be before this date-time to match the condition.
+	CreatedBefore UTCDate `json:"createdBefore,omitzero"`
+
+	// The “created” date-time of the ContactCard must be the same or after this date-time to match the condition.
+	CreatedAfter UTCDate `json:"createdAfter,omitzero"`
+
+	// The “updated” date-time of the ContactCard must be before this date-time to match the condition.
+	UpdatedBefore UTCDate `json:"updatedBefore,omitzero"`
+
+	// The “updated” date-time of the ContactCard must be the same or after this date-time to match the condition.
+	UpdatedAfter UTCDate `json:"updatedAfter,omitzero"`
+
+	// A card matches this condition if the text matches with text in the card.
+	Text string `json:"text,omitempty"`
+
+	// A card matches this condition if the value of any NameComponent in the “name” property, or the
+	// “full” property in the “name” property of the card matches the value.
+	Name string `json:"name,omitempty"`
+
+	// A card matches this condition if the value of a NameComponent with kind “given” inside the “name” property of
+	// the card matches the value.
+	NameGiven string `json:"name/given,omitempty"`
+
+	// A card matches this condition if the value of a NameComponent with kind “surname” inside the “name” property
+	// of the card matches the value.
+	NameSurname string `json:"name/surname,omitempty"`
+
+	// A card matches this condition if the value of a NameComponent with kind “surname2” inside the “name” property
+	// of the card matches the value.
+	NameSurname2 string `json:"name/surname2,omitempty"`
+
+	// A card matches this condition if the “name” of any NickName in the “nickNames” property of the card matches the value.
+	NickName string `json:"nickName,omitempty"`
+
+	// A card matches this condition if the “name” of any Organization in the “organizations” property of the card
+	// matches the value.
+	Organization string `json:"organization,omitempty"`
+
+	//  A card matches this condition if the “address” or “label” of any EmailAddress in the “emails” property of the
+	// card matches the value.
+	Email string `json:"email,omitempty"`
+
+	//  A card matches this condition if the “number” or “label” of any Phone in the “phones” property of the card
+	// matches the value.
+	Phone string `json:"phone,omitempty"`
+
+	// A card matches this condition if the “service”, “uri”, “user”, or “label” of any OnlineService in the
+	// “onlineServices” property of the card matches the value.
+	OnlineService string `json:"onlineService,omitempty"`
+
+	// A card matches this condition if the value of any StreetComponent in the “street” property, or the “locality”,
+	// “region”, “country”, or “postcode” property in any Address in the “addresses” property of the card matches the value.
+	Address string `json:"address,omitempty"`
+
+	// A card matches this condition if the “note” of any Note in the “notes” property of the card matches the value.
+	Note string `json:"note,omitempty"`
+}
+
+func (f ContactCardFilterCondition) _isAContactCardFilterElement() {
+}
+
+func (f ContactCardFilterCondition) IsNotEmpty() bool {
+	if len(f.InAddressBook) != 0 {
+		return true
+	}
+	if f.Uid != "" {
+		return true
+	}
+	if f.HasMember != "" {
+		return true
+	}
+	if f.Kind != "" {
+		return true
+	}
+	if !f.CreatedBefore.IsZero() {
+		return true
+	}
+	if !f.CreatedAfter.IsZero() {
+		return true
+	}
+	if !f.UpdatedBefore.IsZero() {
+		return true
+	}
+	if !f.UpdatedAfter.IsZero() {
+		return true
+	}
+	if f.Text != "" {
+		return true
+	}
+	if f.Name != "" {
+		return true
+	}
+	if f.NameGiven != "" {
+		return true
+	}
+	if f.NameSurname != "" {
+		return true
+	}
+	if f.NameSurname2 != "" {
+		return true
+	}
+	if f.NickName != "" {
+		return true
+	}
+	if f.Organization != "" {
+		return true
+	}
+	if f.Email != "" {
+		return true
+	}
+	if f.Phone != "" {
+		return true
+	}
+	if f.OnlineService != "" {
+		return true
+	}
+	if f.Address != "" {
+		return true
+	}
+	if f.Note != "" {
+		return true
+	}
+	return false
+}
+
+var _ ContactCardFilterElement = &ContactCardFilterCondition{}
+
+type ContactCardFilterOperator struct {
+	Operator   FilterOperatorTerm         `json:"operator"`
+	Conditions []ContactCardFilterElement `json:"conditions,omitempty"`
+}
+
+func (o ContactCardFilterOperator) _isAContactCardFilterElement() {
+}
+
+func (o ContactCardFilterOperator) IsNotEmpty() bool {
+	return len(o.Conditions) > 0
+}
+
+var _ ContactCardFilterElement = &ContactCardFilterOperator{}
+
+type ContactCardQueryCommand struct {
+	AccountId string `json:"accountId"`
+
+	Filter ContactCardFilterElement `json:"filter,omitempty"`
+
+	Sort []ContactCardComparator `json:"sort,omitempty"`
+
+	// The zero-based index of the first id in the full list of results to return.
+	//
+	// If a negative value is given, it is an offset from the end of the list.
+	// Specifically, the negative value MUST be added to the total number of results given
+	// the filter, and if still negative, it’s clamped to 0. This is now the zero-based
+	// index of the first id to return.
+	//
+	// If the index is greater than or equal to the total number of objects in the results
+	// list, then the ids array in the response will be empty, but this is not an error.
+	Position uint `json:"position,omitempty"`
+
+	// An Email id.
+	//
+	// If supplied, the position argument is ignored.
+	// The index of this id in the results will be used in combination with the anchorOffset
+	// argument to determine the index of the first result to return.
+	Anchor string `json:"anchor,omitempty"`
+
+	// The index of the first result to return relative to the index of the anchor,
+	// if an anchor is given.
+	//
+	// Default: 0.
+	//
+	// This MAY be negative.
+	//
+	// For example, -1 means the Email immediately preceding the anchor is the first result in
+	// the list returned.
+	AnchorOffset int `json:"anchorOffset,omitzero"`
+
+	// The maximum number of results to return.
+	//
+	// If null, no limit presumed.
+	// The server MAY choose to enforce a maximum limit argument.
+	// In this case, if a greater value is given (or if it is null), the limit is clamped
+	// to the maximum; the new limit is returned with the response so the client is aware.
+	//
+	// If a negative value is given, the call MUST be rejected with an invalidArguments error.
+	Limit uint `json:"limit,omitempty"`
+
+	// Does the client wish to know the total number of results in the query?
+	//
+	// This may be slow and expensive for servers to calculate, particularly with complex filters,
+	// so clients should take care to only request the total when needed.
+	CalculateTotal bool `json:"calculateTotal,omitempty"`
+}
+
+type ContactCardQueryResponse struct {
+	// The id of the account used for the call.
+	AccountId string `json:"accountId"`
+
+	// A string encoding the current state of the query on the server.
+	//
+	// This string MUST change if the results of the query (i.e., the matching ids and their sort order) have changed.
+	// The queryState string MAY change if something has changed on the server, which means the results may have changed
+	// but the server doesn’t know for sure.
+	//
+	// The queryState string only represents the ordered list of ids that match the particular query (including its sort/filter).
+	// There is no requirement for it to change if a property on an object matching the query changes but the query results are unaffected
+	// (indeed, it is more efficient if the queryState string does not change in this case).
+	//
+	// The queryState string only has meaning when compared to future responses to a query with the same type/sort/filter or when used with
+	// /queryChanges to fetch changes.
+	//
+	// Should a client receive back a response with a different queryState string to a previous call, it MUST either throw away the currently
+	// cached query and fetch it again (note, this does not require fetching the records again, just the list of ids) or call
+	// Email/queryChanges to get the difference.
+	QueryState State `json:"queryState"`
+
+	// This is true if the server supports calling ContactCard/queryChanges with these filter/sort parameters.
+	//
+	// Note, this does not guarantee that the ContactCard/queryChanges call will succeed, as it may only be possible for a limited time
+	// afterwards due to server internal implementation details.
+	CanCalculateChanges bool `json:"canCalculateChanges"`
+
+	// The zero-based index of the first result in the ids array within the complete list of query results.
+	Position uint `json:"position"`
+
+	// The list of ids for each ContactCard in the query results, starting at the index given by the position argument of this
+	// response and continuing until it hits the end of the results or reaches the limit number of ids.
+	//
+	// If position is >= total, this MUST be the empty list.
+	Ids []string `json:"ids"`
+
+	// The total number of ContactCards in the results (given the filter).
+	//
+	// Only if requested.
+	//
+	// This argument MUST be omitted if the calculateTotal request argument is not true.
+	Total uint `json:"total,omitempty,omitzero"`
+
+	// The limit enforced by the server on the maximum number of results to return (if set by the server).
+	//
+	// This is only returned if the server set a limit or used a different limit than that given in the request.
+	Limit uint `json:"limit,omitempty,omitzero"`
+}
+
+type ContactCardGetCommand struct {
+	// The ids of the ContactCard objects to return.
+	//
+	// If null, then all records of the data type are returned, if this is supported for that
+	// data type and the number of records does not exceed the maxObjectsInGet limit.
+	Ids []string `json:"ids,omitempty"`
+
+	// The id of the account to use.
+	AccountId string `json:"accountId"`
+
+	// If supplied, only the properties listed in the array are returned for each ContactCard object.
+	//
+	// The id property of the object is always returned, even if not explicitly requested.
+	//
+	// If an invalid property is requested, the call MUST be rejected with an invalidArguments error.
+	Properties []string `json:"properties,omitempty"`
+}
+
+type ContactCardGetRefCommand struct {
+	// The ids of the ContactCard objects to return.
+	//
+	// If null, then all records of the data type are returned, if this is supported for that
+	// data type and the number of records does not exceed the maxObjectsInGet limit.
+	IdsRef *ResultReference `json:"#ids,omitempty"`
+
+	// The id of the account to use.
+	AccountId string `json:"accountId"`
+
+	// If supplied, only the properties listed in the array are returned for each ContactCard object.
+	//
+	// The id property of the object is always returned, even if not explicitly requested.
+	//
+	// If an invalid property is requested, the call MUST be rejected with an invalidArguments error.
+	Properties []string `json:"properties,omitempty"`
+}
+
+type ContactCardGetResponse struct {
+	// The id of the account used for the call.
+	AccountId string `json:"accountId"`
+
+	// A (preferably short) string representing the state on the server for all the data of this type
+	// in the account (not just the objects returned in this call).
+	//
+	// If the data changes, this string MUST change.
+	// If the Email data is unchanged, servers SHOULD return the same state string on subsequent requests for this data type.
+	State State `json:"state"`
+
+	// An array of the ContactCard objects requested.
+	//
+	// This is the empty array if no objects were found or if the ids argument passed in was also an empty array.
+	//
+	// The results MAY be in a different order to the ids in the request arguments.
+	//
+	// If an identical id is included more than once in the request, the server MUST only include it once in either
+	// the list or the notFound argument of the response.
+	List []jscontact.ContactCard `json:"list"`
+
+	// This array contains the ids passed to the method for records that do not exist.
+	//
+	// The array is empty if all requested ids were found or if the ids argument passed in was either null or an empty array.
+	NotFound []any `json:"notFound"`
+}
+
+type ContactCardUpdate map[string]any
+
+type ContactCardSetCommand struct {
+	// The id of the account to use.
+	AccountId string `json:"accountId"`
+
+	// This is a state string as returned by the `ContactCard/get` method.
+	//
+	// If supplied, the string must match the current state; otherwise, the method will be aborted and a
+	// `stateMismatch` error returned.
+	//
+	// If null, any changes will be applied to the current state.
+	IfInState string `json:"ifInState,omitempty"`
+
+	// A map of a creation id (a temporary id set by the client) to ContactCard objects,
+	// or null if no objects are to be created.
+	//
+	// The ContactCard object type definition may define default values for properties.
+	//
+	// Any such property may be omitted by the client.
+	//
+	// The client MUST omit any properties that may only be set by the server.
+	Create map[string]jscontact.ContactCard `json:"create,omitempty"`
+
+	// A map of an id to a `Patch` object to apply to the current Email object with that id,
+	// or null if no objects are to be updated.
+	//
+	// A `PatchObject` is of type `String[*]` and represents an unordered set of patches.
+	//
+	// The keys are a path in JSON Pointer Format [@!RFC6901], with an implicit leading `/` (i.e., prefix each key
+	// with `/` before applying the JSON Pointer evaluation algorithm).
+	//
+	// All paths MUST also conform to the following restrictions; if there is any violation, the update
+	// MUST be rejected with an `invalidPatch` error:
+	// !- The pointer MUST NOT reference inside an array (i.e., you MUST NOT insert/delete from an array; the array MUST be replaced in its entirety instead).
+	// !- All parts prior to the last (i.e., the value after the final slash) MUST already exist on the object being patched.
+	// !- There MUST NOT be two patches in the `PatchObject` where the pointer of one is the prefix of the pointer of the other, e.g., `"alerts/1/offset"` and `"alerts"`.
+	//
+	// The value associated with each pointer determines how to apply that patch:
+	// !- If null, set to the default value if specified for this property; otherwise, remove the property from the patched object. If the key is not present in the parent, this a no-op.
+	// !- Anything else: The value to set for this property (this may be a replacement or addition to the object being patched).
+	//
+	// Any server-set properties MAY be included in the patch if their value is identical to the current server value
+	// (before applying the patches to the object). Otherwise, the update MUST be rejected with an `invalidProperties` `SetError`.
+	//
+	// This patch definition is designed such that an entire Email object is also a valid `PatchObject`.
+	//
+	// The client may choose to optimise network usage by just sending the diff or may send the whole object; the server
+	// processes it the same either way.
+	Update map[string]ContactCardUpdate `json:"update,omitempty"`
+
+	// A list of ids for ContactCard objects to permanently delete, or null if no objects are to be destroyed.
+	Destroy []string `json:"destroy,omitempty"`
+}
+
+type ContactCardSetResponse struct {
+	// The id of the account used for the call.
+	AccountId string `json:"accountId"`
+
+	// The state string that would have been returned by ContactCard/get before making the
+	// requested changes, or null if the server doesn’t know what the previous state
+	// string was.
+	OldState State `json:"oldState,omitempty"`
+
+	// The state string that will now be returned by Email/get.
+	NewState State `json:"newState"`
+
+	// A map of the creation id to an object containing any properties of the created Email object
+	// that were not sent by the client.
+	//
+	// This includes all server-set properties (such as the id in most object types) and any properties
+	// that were omitted by the client and thus set to a default by the server.
+	//
+	// This argument is null if no ContactCard objects were successfully created.
+	Created map[string]*jscontact.ContactCard `json:"created,omitempty"`
+
+	// The keys in this map are the ids of all Emails that were successfully updated.
+	//
+	// The value for each id is an ContactCard object containing any property that changed in a way not
+	// explicitly requested by the PatchObject sent to the server, or null if none.
+	//
+	// This lets the client know of any changes to server-set or computed properties.
+	//
+	// This argument is null if no ContactCard objects were successfully updated.
+	Updated map[string]*jscontact.ContactCard `json:"updated,omitempty"`
+
+	// A list of ContactCard ids for records that were successfully destroyed, or null if none.
+	Destroyed []string `json:"destroyed,omitempty"`
+
+	// A map of the creation id to a SetError object for each record that failed to be created,
+	// or null if all successful.
+	NotCreated map[string]SetError `json:"notCreated,omitempty"`
+
+	// A map of the ContactCard id to a SetError object for each record that failed to be updated,
+	// or null if all successful.
+	NotUpdated map[string]SetError `json:"notUpdated,omitempty"`
+
+	// A map of the ContactCard id to a SetError object for each record that failed to be destroyed,
+	// or null if all successful.
+	NotDestroyed map[string]SetError `json:"notDestroyed,omitempty"`
+}
+
 type ErrorResponse struct {
 	Type        string `json:"type"`
 	Description string `json:"description,omitempty"`
@@ -4748,6 +5226,10 @@ const (
 	CommandVacationResponseSet Command = "VacationResponse/set"
 	CommandSearchSnippetGet    Command = "SearchSnippet/get"
 	CommandQuotaGet            Command = "Quota/get"
+	CommandAddressBookGet      Command = "AddressBook/get"
+	CommandContactCardQuery    Command = "ContactCard/query"
+	CommandContactCardGet      Command = "ContactCard/get"
+	CommandContactCardSet      Command = "ContactCard/set"
 )
 
 var CommandResponseTypeMap = map[Command]func() any{
@@ -4770,4 +5252,8 @@ var CommandResponseTypeMap = map[Command]func() any{
 	CommandVacationResponseSet: func() any { return VacationResponseSetResponse{} },
 	CommandSearchSnippetGet:    func() any { return SearchSnippetGetResponse{} },
 	CommandQuotaGet:            func() any { return QuotaGetResponse{} },
+	CommandAddressBookGet:      func() any { return AddressBookGetResponse{} },
+	CommandContactCardQuery:    func() any { return ContactCardQueryResponse{} },
+	CommandContactCardGet:      func() any { return ContactCardGetResponse{} },
+	CommandContactCardSet:      func() any { return ContactCardSetResponse{} },
 }

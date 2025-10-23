@@ -33,6 +33,7 @@ func DefaultConfig() *config.Config {
 			Timeout:               30 * time.Second,
 			DefaultEmailLimit:     uint(0),
 			MaxBodyValueBytes:     uint(0),
+			DefaultContactLimit:   uint(0),
 			ResponseHeaderTimeout: 10 * time.Second,
 			PushHandshakeTimeout:  10 * time.Second,
 			SessionCache: config.MailSessionCache{

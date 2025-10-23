@@ -86,11 +86,12 @@ type Groupware struct {
 	// unfortunately, the sse implementation does not provide such a function.
 	// Key: the stream ID, which is the username
 	// Value: the timestamp of the creation of the stream
-	streams           cmap.ConcurrentMap
-	logger            *log.Logger
-	defaultEmailLimit uint
-	maxBodyValueBytes uint
-	sanitize          bool
+	streams             cmap.ConcurrentMap
+	logger              *log.Logger
+	defaultEmailLimit   uint
+	defaultContactLimit uint
+	maxBodyValueBytes   uint
+	sanitize            bool
 	// Caches successful and failed Sessions by the username.
 	sessionCache sessionCache
 	jmap         *jmap.Client
@@ -176,6 +177,7 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 
 	defaultEmailLimit := max(config.Mail.DefaultEmailLimit, 0)
 	maxBodyValueBytes := max(config.Mail.MaxBodyValueBytes, 0)
+	defaultContactLimit := max(config.Mail.DefaultContactLimit, 0)
 	responseHeaderTimeout := max(config.Mail.ResponseHeaderTimeout, 0)
 	sessionCacheMaxCapacity := uint64(max(config.Mail.SessionCache.MaxCapacity, 0))
 	sessionCacheTtl := max(config.Mail.SessionCache.Ttl, 0)
@@ -332,20 +334,21 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 	}
 
 	g := &Groupware{
-		mux:               mux,
-		metrics:           m,
-		sseServer:         sseServer,
-		streams:           cmap.New(),
-		logger:            logger,
-		sessionCache:      sessionCache,
-		userProvider:      userProvider,
-		jmap:              &jmapClient,
-		defaultEmailLimit: defaultEmailLimit,
-		maxBodyValueBytes: maxBodyValueBytes,
-		sanitize:          sanitize,
-		eventChannel:      eventChannel,
-		jobsChannel:       jobsChannel,
-		jobCounter:        atomic.Uint64{},
+		mux:                 mux,
+		metrics:             m,
+		sseServer:           sseServer,
+		streams:             cmap.New(),
+		logger:              logger,
+		sessionCache:        sessionCache,
+		userProvider:        userProvider,
+		jmap:                &jmapClient,
+		defaultEmailLimit:   defaultEmailLimit,
+		defaultContactLimit: defaultContactLimit,
+		maxBodyValueBytes:   maxBodyValueBytes,
+		sanitize:            sanitize,
+		eventChannel:        eventChannel,
+		jobsChannel:         jobsChannel,
+		jobCounter:          atomic.Uint64{},
 	}
 
 	for w := 1; w <= workerPoolSize; w++ {
