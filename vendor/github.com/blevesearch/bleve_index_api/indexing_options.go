@@ -26,7 +26,7 @@ const (
 
 const (
 	BM25Scoring  = "bm25"
-	TFIDFScoring = "tfidf"
+	TFIDFScoring = "tf-idf"
 )
 
 // Scoring model indicates the algorithm used to rank documents fetched

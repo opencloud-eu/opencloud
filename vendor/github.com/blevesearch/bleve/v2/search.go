@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/blevesearch/bleve/v2/analysis"
@@ -46,6 +47,15 @@ func init() {
 var cache = registry.NewCache()
 
 const defaultDateTimeParser = optional.Name
+
+const (
+	ScoreDefault = ""
+	ScoreNone    = "none"
+	ScoreRRF     = "rrf"
+	ScoreRSF     = "rsf"
+)
+
+var AllowedFusionSort = search.SortOrder{&search.SortScore{Desc: true}}
 
 type dateTimeRange struct {
 	Name           string    `json:"name,omitempty"`
@@ -311,11 +321,69 @@ func (r *SearchRequest) Validate() error {
 		}
 	}
 
-	err := validateKNN(r)
+	err := r.validatePagination()
+	if err != nil {
+		return err
+	}
+
+	if IsScoreFusionRequested(r) {
+		if r.SearchAfter != nil || r.SearchBefore != nil {
+			return fmt.Errorf("cannot use search after or search before with score fusion")
+		}
+
+		if r.Sort != nil {
+			if !reflect.DeepEqual(r.Sort, AllowedFusionSort) {
+				return fmt.Errorf("sort must be empty or descending order of score for score fusion")
+			}
+		}
+	}
+
+	err = validateKNN(r)
 	if err != nil {
 		return err
 	}
 	return r.Facets.Validate()
+}
+
+// Validates SearchAfter/SearchBefore
+func (r *SearchRequest) validatePagination() error {
+	var pagination []string
+	var afterOrBefore string
+
+	if r.SearchAfter != nil {
+		pagination = r.SearchAfter
+		afterOrBefore = "search after"
+	} else if r.SearchBefore != nil {
+		pagination = r.SearchBefore
+		afterOrBefore = "search before"
+	} else {
+		return nil
+	}
+
+	for i := range pagination {
+		switch ss := r.Sort[i].(type) {
+		case *search.SortGeoDistance:
+			_, err := strconv.ParseFloat(pagination[i], 64)
+			if err != nil {
+				return fmt.Errorf("invalid %s value for sort field '%s': '%s'. %s", afterOrBefore, ss.Field, pagination[i], err)
+			}
+		case *search.SortField:
+			switch ss.Type {
+			case search.SortFieldAsNumber:
+				_, err := strconv.ParseFloat(pagination[i], 64)
+				if err != nil {
+					return fmt.Errorf("invalid %s value for sort field '%s': '%s'. %s", afterOrBefore, ss.Field, pagination[i], err)
+				}
+			case search.SortFieldAsDate:
+				_, err := time.Parse(time.RFC3339Nano, pagination[i])
+				if err != nil {
+					return fmt.Errorf("invalid %s value for sort field '%s': '%s'. %s", afterOrBefore, ss.Field, pagination[i], err)
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 // AddFacet adds a FacetRequest to this SearchRequest
@@ -353,6 +421,11 @@ func (r *SearchRequest) SetSearchBefore(before []string) {
 	r.SearchBefore = before
 }
 
+// AddParams adds a RequestParams field to the search request
+func (r *SearchRequest) AddParams(params RequestParams) {
+	r.Params = &params
+}
+
 // NewSearchRequest creates a new SearchRequest
 // for the Query, using default values for all
 // other search parameters.
@@ -377,7 +450,7 @@ func NewSearchRequestOptions(q query.Query, size, from int, explain bool) *Searc
 // IndexErrMap tracks errors with the name of the index where it occurred
 type IndexErrMap map[string]error
 
-// MarshalJSON seralizes the error into a string for JSON consumption
+// MarshalJSON serializes the error into a string for JSON consumption
 func (iem IndexErrMap) MarshalJSON() ([]byte, error) {
 	tmp := make(map[string]string, len(iem))
 	for k, v := range iem {
@@ -398,7 +471,7 @@ func (iem IndexErrMap) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// SearchStatus is a secion in the SearchResult reporting how many
+// SearchStatus is a section in the SearchResult reporting how many
 // underlying indexes were queried, how many were successful/failed
 // and a map of any errors that were encountered
 type SearchStatus struct {
@@ -433,7 +506,7 @@ func (ss *SearchStatus) Merge(other *SearchStatus) {
 // scores, score explanation, location info and so on.
 // Total - The total number of documents that matched the query.
 // Cost - indicates how expensive was the query with respect to bytes read
-// from the mmaped index files.
+// from the mapped index files.
 // MaxScore - The maximum score seen across all document hits seen for this query.
 // Took - The time taken to execute the search.
 // Facets - The facet results for the search.
@@ -607,3 +680,79 @@ func isMatchAllQuery(q query.Query) bool {
 	_, ok := q.(*query.MatchAllQuery)
 	return ok
 }
+
+// Checks if the request is hybrid search. Currently supports: RRF, RSF.
+func IsScoreFusionRequested(req *SearchRequest) bool {
+	switch req.Score {
+	case ScoreRRF, ScoreRSF:
+		return true
+	default:
+		return false
+	}
+}
+
+// Additional parameters in the search request. Currently only being
+// used for score fusion parameters.
+type RequestParams struct {
+	ScoreRankConstant int `json:"score_rank_constant,omitempty"`
+	ScoreWindowSize   int `json:"score_window_size,omitempty"`
+}
+
+func NewDefaultParams(from, size int) *RequestParams {
+	return &RequestParams{
+		ScoreRankConstant: DefaultScoreRankConstant,
+		ScoreWindowSize:   from + size,
+	}
+}
+
+func (p *RequestParams) UnmarshalJSON(input []byte) error {
+	var temp struct {
+		ScoreRankConstant *int `json:"score_rank_constant,omitempty"`
+		ScoreWindowSize   *int `json:"score_window_size,omitempty"`
+	}
+
+	if err := util.UnmarshalJSON(input, &temp); err != nil {
+		return err
+	}
+
+	if temp.ScoreRankConstant != nil {
+		p.ScoreRankConstant = *temp.ScoreRankConstant
+	}
+
+	if temp.ScoreWindowSize != nil {
+		p.ScoreWindowSize = *temp.ScoreWindowSize
+	}
+
+	return nil
+}
+
+func (p *RequestParams) Validate(size int) error {
+	if p.ScoreWindowSize < 1 {
+		return fmt.Errorf("score window size must be greater than 0")
+	} else if p.ScoreWindowSize < size {
+		return fmt.Errorf("score window size must be greater than or equal to Size (%d)", size)
+	}
+
+	return nil
+}
+
+func ParseParams(r *SearchRequest, input []byte) (*RequestParams, error) {
+	params := NewDefaultParams(r.From, r.Size)
+	if len(input) == 0 {
+		return params, nil
+	}
+
+	err := util.UnmarshalJSON(input, params)
+	if err != nil {
+		return nil, err
+	}
+
+	// validate params
+	err = params.Validate(r.Size)
+	if err != nil {
+		return nil, err
+	}
+
+	return params, nil
+}
+

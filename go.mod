@@ -11,7 +11,7 @@ require (
 	github.com/Nerzal/gocloak/v13 v13.9.0
 	github.com/bbalet/stopwords v1.0.0
 	github.com/beevik/etree v1.6.0
-	github.com/blevesearch/bleve/v2 v2.5.3
+	github.com/blevesearch/bleve/v2 v2.5.4
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/coreos/go-oidc/v3 v3.16.0
 	github.com/cs3org/go-cs3apis v0.0.0-20250908152307-4ca807afe54e
@@ -48,7 +48,7 @@ require (
 	github.com/jellydator/ttlcache/v3 v3.4.0
 	github.com/jinzhu/now v1.1.5
 	github.com/justinas/alice v1.2.0
-	github.com/kovidgoyal/imaging v1.6.4
+	github.com/kovidgoyal/imaging v1.7.2
 	github.com/leonelquinteros/gotext v1.7.2
 	github.com/libregraph/idm v0.5.0
 	github.com/libregraph/lico v0.66.0
@@ -104,7 +104,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.38.0
 	golang.org/x/crypto v0.43.0
 	golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac
-	golang.org/x/image v0.31.0
+	golang.org/x/image v0.32.0
 	golang.org/x/net v0.46.0
 	golang.org/x/oauth2 v0.32.0
 	golang.org/x/sync v0.17.0
@@ -140,13 +140,13 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bitly/go-simplejson v0.5.0 // indirect
 	github.com/bits-and-blooms/bitset v1.22.0 // indirect
-	github.com/blevesearch/bleve_index_api v1.2.8 // indirect
+	github.com/blevesearch/bleve_index_api v1.2.10 // indirect
 	github.com/blevesearch/geo v0.2.4 // indirect
 	github.com/blevesearch/go-faiss v1.0.25 // indirect
 	github.com/blevesearch/go-porterstemmer v1.0.3 // indirect
 	github.com/blevesearch/gtreap v0.1.1 // indirect
 	github.com/blevesearch/mmap-go v1.0.4 // indirect
-	github.com/blevesearch/scorch_segment_api/v2 v2.3.10 // indirect
+	github.com/blevesearch/scorch_segment_api/v2 v2.3.12 // indirect
 	github.com/blevesearch/segment v0.9.1 // indirect
 	github.com/blevesearch/snowballstem v0.9.0 // indirect
 	github.com/blevesearch/upsidedown_store_api v1.0.2 // indirect
@@ -156,7 +156,7 @@ require (
 	github.com/blevesearch/zapx/v13 v13.4.2 // indirect
 	github.com/blevesearch/zapx/v14 v14.4.2 // indirect
 	github.com/blevesearch/zapx/v15 v15.4.2 // indirect
-	github.com/blevesearch/zapx/v16 v16.2.4 // indirect
+	github.com/blevesearch/zapx/v16 v16.2.6 // indirect
 	github.com/bluele/gcache v0.0.2 // indirect
 	github.com/bombsimon/logrusr/v3 v3.1.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
@@ -257,6 +257,7 @@ require (
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.11 // indirect
+	github.com/kovidgoyal/go-parallel v1.0.1 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.4 // indirect
 	github.com/lestrrat-go/dsig v1.0.0 // indirect
@@ -327,6 +328,7 @@ require (
 	github.com/rs/xid v1.6.0 // indirect
 	github.com/russellhaering/goxmldsig v1.5.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
+	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/segmentio/kafka-go v0.4.49 // indirect
 	github.com/segmentio/ksuid v1.0.4 // indirect

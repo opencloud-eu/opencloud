@@ -19,12 +19,12 @@ func Histogram(img image.Image) [256]float64 {
 		return histogram
 	}
 
-	parallel(0, src.h, func(ys <-chan int) {
+	if err := run_in_parallel_over_range(0, func(start, limit int) {
 		var tmpHistogram [256]float64
 		var tmpTotal float64
 		scanLine := make([]uint8, src.w*4)
-		for y := range ys {
-			src.scan(0, y, src.w, y+1, scanLine)
+		for y := start; y < limit; y++ {
+			src.Scan(0, y, src.w, y+1, scanLine)
 			i := 0
 			for x := 0; x < src.w; x++ {
 				s := scanLine[i : i+3 : i+3]
@@ -38,14 +38,16 @@ func Histogram(img image.Image) [256]float64 {
 			}
 		}
 		mu.Lock()
-		for i := 0; i < 256; i++ {
+		for i := range 256 {
 			histogram[i] += tmpHistogram[i]
 		}
 		total += tmpTotal
 		mu.Unlock()
-	})
+	}, 0, src.h); err != nil {
+		panic(err)
+	}
 
-	for i := 0; i < 256; i++ {
+	for i := range 256 {
 		histogram[i] = histogram[i] / total
 	}
 	return histogram

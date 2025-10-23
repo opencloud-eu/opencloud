@@ -21,6 +21,7 @@ import (
 	"math"
 	"os"
 
+	index "github.com/blevesearch/bleve_index_api"
 	"github.com/blevesearch/vellum"
 )
 
@@ -169,6 +170,7 @@ func InitSegmentBase(mem []byte, memCRC uint32, chunkMode uint32, numDocs uint64
 		sectionsIndexOffset: sectionsIndexOffset,
 		fieldDvReaders:      make([]map[uint16]*docValueReader, len(segmentSections)),
 		docValueOffset:      0, // docValueOffsets identified automatically by the section
+		updatedFields:       make(map[string]*index.UpdateFieldInfo),
 		fieldFSTs:           make(map[uint16]*vellum.FST),
 		vecIndexCache:       newVectorIndexCache(),
 		synIndexCache:       newSynonymIndexCache(),
