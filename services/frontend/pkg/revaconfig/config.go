@@ -339,6 +339,9 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 								"endpoints":    []string{"list", "get", "delete"},
 								"configurable": cfg.ConfigurableNotifications,
 							},
+							"groupware": map[string]interface{}{
+								"enabled": cfg.Groupware.Enabled,
+							},
 						},
 						"version": map[string]interface{}{
 							"product":        "OpenCloud",
