@@ -2070,6 +2070,10 @@ type Email struct {
 	// Note that this is not part of the JMAP specification, and is only calculated when requested.
 	ThreadSize int `json:"threadSize,omitzero"`
 
+	// The account ID this email belongs to.
+	// Note that this is not part of the JMAP specification, and is only contained in all-account operations.
+	AccountId string `json:"accountId,omitempty"`
+
 	// The set of Mailbox ids this Email belongs to.
 	//
 	// An Email in the mail store MUST belong to one or more Mailboxes at all times (until it is destroyed).
