@@ -110,13 +110,9 @@ func (j *Client) CreateContactCard(accountId string, session *Session, ctx conte
 				"c": create,
 			},
 		}, "0"),
-		invocation(CommandContactCardGet, ContactCardGetRefCommand{
+		invocation(CommandContactCardGet, ContactCardGetCommand{
 			AccountId: accountId,
-			IdsRef: &ResultReference{
-				ResultOf: "0",
-				Name:     CommandContactCardSet,
-				Path:     "/created/c/id",
-			},
+			Ids:       []string{"#c"},
 		}, "1"),
 	)
 	if err != nil {
@@ -136,7 +132,7 @@ func (j *Client) CreateContactCard(accountId string, session *Session, ctx conte
 			return CreatedContactCard{}, setErrorError(setErr, EmailType)
 		}
 
-		if created, ok := setResponse.Created["c"]; !ok || created != nil {
+		if created, ok := setResponse.Created["c"]; !ok || created == nil {
 			berr := fmt.Errorf("failed to find %s in %s response", string(ContactCardType), string(CommandContactCardSet))
 			logger.Error().Err(berr)
 			return CreatedContactCard{}, simpleError(berr, JmapErrorInvalidJmapResponsePayload)
