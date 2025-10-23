@@ -22,6 +22,7 @@ const (
 	UriParamAddressBookId             = "addressbookid"
 	UriParamCalendarId                = "calendarid"
 	UriParamTaskListId                = "tasklistid"
+	UriParamContactId                 = "contactid"
 	QueryParamMailboxSearchName       = "name"
 	QueryParamMailboxSearchRole       = "role"
 	QueryParamMailboxSearchSubscribed = "subscribed"
@@ -115,6 +116,10 @@ func (g *Groupware) Route(r chi.Router) {
 			r.Get("/", g.GetAddressbooks)
 			r.Get("/{addressbookid}", g.GetAddressbook)
 			r.Get("/{addressbookid}/contacts", g.GetContactsInAddressbook)
+			r.Route("/contacts", func(r chi.Router) {
+				r.Post("/", g.CreateContact)
+				r.Delete("/{contactid}", g.DeleteContact)
+			})
 		})
 		r.Route("/calendars", func(r chi.Router) {
 			r.Get("/", g.GetCalendars)

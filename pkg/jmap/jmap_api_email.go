@@ -11,18 +11,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-const (
-	emailSortByReceivedAt              = "receivedAt"
-	emailSortBySize                    = "size"
-	emailSortByFrom                    = "from"
-	emailSortByTo                      = "to"
-	emailSortBySubject                 = "subject"
-	emailSortBySentAt                  = "sentAt"
-	emailSortByHasKeyword              = "hasKeyword"
-	emailSortByAllInThreadHaveKeyword  = "allInThreadHaveKeyword"
-	emailSortBySomeInThreadHaveKeyword = "someInThreadHaveKeyword"
-)
-
 type Emails struct {
 	Emails []Email `json:"emails,omitempty"`
 	Total  uint    `json:"total,omitzero"`
@@ -128,7 +116,7 @@ func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx c
 	query := EmailQueryCommand{
 		AccountId:       accountId,
 		Filter:          &EmailFilterCondition{InMailbox: mailboxId},
-		Sort:            []EmailComparator{{Property: emailSortByReceivedAt, IsAscending: false}},
+		Sort:            []EmailComparator{{Property: EmailPropertyReceivedAt, IsAscending: false}},
 		CollapseThreads: collapseThreads,
 		CalculateTotal:  true,
 	}
@@ -276,7 +264,7 @@ func (j *Client) QueryEmailSnippets(accountIds []string, filter EmailFilterEleme
 		query := EmailQueryCommand{
 			AccountId:       accountId,
 			Filter:          filter,
-			Sort:            []EmailComparator{{Property: emailSortByReceivedAt, IsAscending: false}},
+			Sort:            []EmailComparator{{Property: EmailPropertyReceivedAt, IsAscending: false}},
 			CollapseThreads: true,
 			CalculateTotal:  true,
 		}
@@ -392,7 +380,7 @@ func (j *Client) QueryEmails(accountIds []string, filter EmailFilterElement, ses
 		query := EmailQueryCommand{
 			AccountId:       accountId,
 			Filter:          filter,
-			Sort:            []EmailComparator{{Property: emailSortByReceivedAt, IsAscending: false}},
+			Sort:            []EmailComparator{{Property: EmailPropertyReceivedAt, IsAscending: false}},
 			CollapseThreads: true,
 			CalculateTotal:  true,
 		}
@@ -474,7 +462,7 @@ func (j *Client) QueryEmailsWithSnippets(accountIds []string, filter EmailFilter
 		query := EmailQueryCommand{
 			AccountId:       accountId,
 			Filter:          filter,
-			Sort:            []EmailComparator{{Property: emailSortByReceivedAt, IsAscending: false}},
+			Sort:            []EmailComparator{{Property: EmailPropertyReceivedAt, IsAscending: false}},
 			CollapseThreads: false,
 			CalculateTotal:  true,
 		}
@@ -915,7 +903,6 @@ func (j *Client) EmailsInThread(accountId string, threadId string, session *Sess
 		}
 		return emailsResponse.List, nil
 	})
-
 }
 
 type EmailsSummary struct {
@@ -957,7 +944,7 @@ func (j *Client) QueryEmailSummaries(accountIds []string, session *Session, ctx 
 		invocations[i*factor+0] = invocation(CommandEmailQuery, EmailQueryCommand{
 			AccountId: accountId,
 			Filter:    filter,
-			Sort:      []EmailComparator{{Property: emailSortByReceivedAt, IsAscending: false}},
+			Sort:      []EmailComparator{{Property: EmailPropertyReceivedAt, IsAscending: false}},
 			Limit:     limit,
 			//CalculateTotal: false,
 		}, mcid(accountId, "0"))

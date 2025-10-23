@@ -2129,7 +2129,7 @@ type ContactCard struct {
 	// This is a JMAP extension and not part of [RFC9553].
 	//
 	// [RFC9553]: https://www.rfc-editor.org/rfc/rfc9553.html
-	Id string `json:"id"`
+	Id string `json:"id,omitempty"`
 
 	// The set of AddressBook ids this Card belongs to.
 	//
@@ -2142,7 +2142,7 @@ type ContactCard struct {
 	// This is a JMAP extension and not part of [RFC9553].
 	//
 	// [RFC9553]: https://www.rfc-editor.org/rfc/rfc9553.html
-	AddressBookIds map[string]bool `json:"addressBookIds"`
+	AddressBookIds map[string]bool `json:"addressBookIds,omitempty"`
 
 	// The JSContact type of the Card object: the value MUST be "Card".
 	Type TypeOfContactCard `json:"@type,omitempty"`
@@ -2375,4 +2375,76 @@ type ContactCard struct {
 
 	// The personal information of the entity represented by the Card.
 	PersonalInfo map[string]PersonalInfo `json:"personalInfo,omitempty"`
+}
+
+const (
+	ContactCardPropertyId                  = "id"
+	ContactCardPropertyAddressBookIds      = "addressBookIds"
+	ContactCardPropertyType                = "@type"
+	ContactCardPropertyVersion             = "version"
+	ContactCardPropertyCreated             = "created"
+	ContactCardPropertyKind                = "kind"
+	ContactCardPropertyLanguage            = "language"
+	ContactCardPropertyMembers             = "members"
+	ContactCardPropertyProdId              = "prodId"
+	ContactCardPropertyRelatedTo           = "relatedTo"
+	ContactCardPropertyUid                 = "uid"
+	ContactCardPropertyUpdated             = "updated"
+	ContactCardPropertyName                = "name"
+	ContactCardPropertyNicknames           = "nicknames"
+	ContactCardPropertyOrganizations       = "organizations"
+	ContactCardPropertySpeakToAs           = "speakToAs"
+	ContactCardPropertyTitles              = "titles"
+	ContactCardPropertyEmails              = "emails"
+	ContactCardPropertyOnlineServices      = "onlineServices"
+	ContactCardPropertyPhones              = "phones"
+	ContactCardPropertyPreferredLanguages  = "preferredLanguages"
+	ContactCardPropertyCalendars           = "calendars"
+	ContactCardPropertySchedulingAddresses = "schedulingAddresses"
+	ContactCardPropertyAddresses           = "addresses"
+	ContactCardPropertyCryptoKeys          = "cryptoKeys"
+	ContactCardPropertyDirectories         = "directories"
+	ContactCardPropertyLinks               = "links"
+	ContactCardPropertyMedia               = "media"
+	ContactCardPropertyLocalizations       = "localizations"
+	ContactCardPropertyAnniversaries       = "anniversaries"
+	ContactCardPropertyKeywords            = "keywords"
+	ContactCardPropertyNotes               = "notes"
+	ContactCardPropertyPersonalInfo        = "personalInfo"
+)
+
+var ContactCardProperties = []string{
+	ContactCardPropertyId,
+	ContactCardPropertyAddressBookIds,
+	ContactCardPropertyType,
+	ContactCardPropertyVersion,
+	ContactCardPropertyCreated,
+	ContactCardPropertyKind,
+	ContactCardPropertyLanguage,
+	ContactCardPropertyMembers,
+	ContactCardPropertyProdId,
+	ContactCardPropertyRelatedTo,
+	ContactCardPropertyUid,
+	ContactCardPropertyUpdated,
+	ContactCardPropertyName,
+	ContactCardPropertyNicknames,
+	ContactCardPropertyOrganizations,
+	ContactCardPropertySpeakToAs,
+	ContactCardPropertyTitles,
+	ContactCardPropertyEmails,
+	ContactCardPropertyOnlineServices,
+	ContactCardPropertyPhones,
+	ContactCardPropertyPreferredLanguages,
+	ContactCardPropertyCalendars,
+	ContactCardPropertySchedulingAddresses,
+	ContactCardPropertyAddresses,
+	ContactCardPropertyCryptoKeys,
+	ContactCardPropertyDirectories,
+	ContactCardPropertyLinks,
+	ContactCardPropertyMedia,
+	ContactCardPropertyLocalizations,
+	ContactCardPropertyAnniversaries,
+	ContactCardPropertyKeywords,
+	ContactCardPropertyNotes,
+	ContactCardPropertyPersonalInfo,
 }
