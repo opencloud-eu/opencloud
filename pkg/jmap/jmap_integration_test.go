@@ -749,7 +749,7 @@ func TestEmails(t *testing.T) {
 		}
 
 		{
-			resp, sessionState, _, err := s.client.GetAllEmailsInMailbox(accountId, s.session, s.ctx, s.logger, "", inboxId, 0, 0, true, false, 0)
+			resp, sessionState, _, err := s.client.GetAllEmailsInMailbox(accountId, s.session, s.ctx, s.logger, "", inboxId, 0, 0, true, false, 0, true)
 			require.NoError(err)
 			require.Equal(s.session.State, sessionState)
 
@@ -766,7 +766,7 @@ func TestEmails(t *testing.T) {
 		}
 
 		{
-			resp, sessionState, _, err := s.client.GetAllEmailsInMailbox(accountId, s.session, s.ctx, s.logger, "", inboxId, 0, 0, false, false, 0)
+			resp, sessionState, _, err := s.client.GetAllEmailsInMailbox(accountId, s.session, s.ctx, s.logger, "", inboxId, 0, 0, false, false, 0, true)
 			require.NoError(err)
 			require.Equal(s.session.State, sessionState)
 
