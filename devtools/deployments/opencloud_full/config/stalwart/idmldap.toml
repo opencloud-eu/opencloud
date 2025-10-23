@@ -6,7 +6,7 @@ directory.idmldap.attributes.class = "objectClass"
 directory.idmldap.attributes.description = "displayName"
 directory.idmldap.attributes.email = "mail"
 directory.idmldap.attributes.groups = "memberOf"
-directory.idmldap.attributes.name = "uid"
+directory.idmldap.attributes.name = "cn"
 directory.idmldap.attributes.secret = "userPassword"
 directory.idmldap.base-dn = "o=libregraph-idm"
 directory.idmldap.bind.auth.method = "default"
@@ -16,7 +16,7 @@ directory.idmldap.cache.size = 1048576
 directory.idmldap.cache.ttl.negative = "10m"
 directory.idmldap.cache.ttl.positive = "1h"
 directory.idmldap.filter.email = "(&(|(objectClass=person)(objectClass=groupOfNames))(mail=?))"
-directory.idmldap.filter.name = "(&(|(objectClass=person)(objectClass=groupOfNames))(uid=?))"
+directory.idmldap.filter.name = "(&(|(objectClass=person)(objectClass=groupOfNames))(cn=?))"
 directory.idmldap.timeout = "15s"
 directory.idmldap.tls.allow-invalid-certs = true
 directory.idmldap.tls.enable = true
