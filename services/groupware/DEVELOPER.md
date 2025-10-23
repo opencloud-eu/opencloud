@@ -422,6 +422,19 @@ In that container, install the necessary packages to have the LDAP command-line 
 apt-get update -y && apt-get install -y ca-certificates ldap-utils
 ```
 
+Alternatively, the same can be achieved with an Alpine container:
+
+```bash
+docker run --network 'opencloud_full_opencloud-net' --rm \
+--name "alpine-${RANDOM}" -ti 'alpine'
+```
+
+And running this command instead to install the LDAP command-line tools:
+
+```bash
+apk update && apk install openldap-clients
+```
+
 Run the following command in that container, which should output a list of DNs of demo users:
 
 ```bash
