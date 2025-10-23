@@ -32,6 +32,7 @@ import (
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
+
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/lookup"
@@ -338,10 +339,12 @@ func (tb *Trashbin) RestoreRecycleItem(ctx context.Context, spaceID string, key,
 		return nil, fmt.Errorf("trashbin: parent id not found for %s", restorePath)
 	}
 
-	trashNode := &trashNode{spaceID: spaceID, id: id, path: trashPath}
-	err = tb.lu.MetadataBackend().Set(ctx, trashNode, prefixes.ParentidAttr, []byte(parentID))
-	if err != nil {
-		return nil, err
+	trashedNode := &trashNode{spaceID: spaceID, id: id, path: trashPath}
+	if err = tb.lu.MetadataBackend().SetMultiple(ctx, trashedNode, map[string][]byte{
+		prefixes.NameAttr:     []byte(filepath.Base(restorePath)),
+		prefixes.ParentidAttr: []byte(parentID),
+	}, true); err != nil {
+		return nil, fmt.Errorf("posixfs: failed to update trashed node metadata: %w", err)
 	}
 
 	// restore the item
