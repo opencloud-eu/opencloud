@@ -82,7 +82,8 @@ func (i *invertedTextIndexSection) AddrForField(opaque map[int]resetable, fieldI
 func mergeAndPersistInvertedSection(segments []*SegmentBase, dropsIn []*roaring.Bitmap,
 	fieldsInv []string, fieldsMap map[string]uint16, fieldsSame bool,
 	newDocNumsIn [][]uint64, newSegDocCount uint64, chunkMode uint32,
-	w *CountHashWriter, closeCh chan struct{}) (map[int]int, uint64, error) {
+	updatedFields map[string]*index.UpdateFieldInfo, w *CountHashWriter,
+	closeCh chan struct{}) (map[int]int, uint64, error) {
 	var bufMaxVarintLen64 []byte = make([]byte, binary.MaxVarintLen64)
 	var bufLoc []uint64
 
@@ -124,6 +125,10 @@ func mergeAndPersistInvertedSection(segments []*SegmentBase, dropsIn []*roaring.
 			// check for the closure in meantime
 			if isClosed(closeCh) {
 				return nil, 0, seg.ErrClosed
+			}
+			// early exit if index data is supposed to be deleted
+			if info, ok := updatedFields[fieldName]; ok && info.Index {
+				continue
 			}
 
 			dict, err2 := segment.dictionary(fieldName)
@@ -244,7 +249,8 @@ func mergeAndPersistInvertedSection(segments []*SegmentBase, dropsIn []*roaring.
 
 			postItr = postings.iterator(true, true, true, postItr)
 
-			if fieldsSame {
+			// can only safely copy data if no field data has been deleted
+			if fieldsSame && len(updatedFields) == 0 {
 				// can optimize by copying freq/norm/loc bytes directly
 				lastDocNum, lastFreq, lastNorm, err = mergeTermFreqNormLocsByCopying(
 					term, postItr, newDocNums[itrI], newRoaring,
@@ -317,7 +323,10 @@ func mergeAndPersistInvertedSection(segments []*SegmentBase, dropsIn []*roaring.
 			if isClosed(closeCh) {
 				return nil, 0, seg.ErrClosed
 			}
-
+			// early exit if docvalues data is supposed to be deleted
+			if info, ok := updatedFields[fieldName]; ok && info.DocValues {
+				continue
+			}
 			fieldIDPlus1 := uint16(segment.fieldsMap[fieldName])
 			if dvIter, exists := segment.fieldDvReaders[SectionInvertedTextIndex][fieldIDPlus1-1]; exists &&
 				dvIter != nil {
@@ -398,7 +407,7 @@ func (i *invertedTextIndexSection) Merge(opaque map[int]resetable, segments []*S
 	w *CountHashWriter, closeCh chan struct{}) error {
 	io := i.getInvertedIndexOpaque(opaque)
 	fieldAddrs, _, err := mergeAndPersistInvertedSection(segments, drops, fieldsInv,
-		io.FieldsMap, io.fieldsSame, newDocNumsIn, io.numDocs, io.chunkMode, w, closeCh)
+		io.FieldsMap, io.fieldsSame, newDocNumsIn, io.numDocs, io.chunkMode, io.updatedFields, w, closeCh)
 	if err != nil {
 		return err
 	}
@@ -925,7 +934,8 @@ func (i *invertedIndexOpaque) getOrDefineField(fieldName string) int {
 
 func (i *invertedTextIndexSection) InitOpaque(args map[string]interface{}) resetable {
 	rv := &invertedIndexOpaque{
-		fieldAddrs: map[int]int{},
+		fieldAddrs:    map[int]int{},
+		updatedFields: make(map[string]*index.UpdateFieldInfo),
 	}
 	for k, v := range args {
 		rv.Set(k, v)
@@ -994,6 +1004,8 @@ type invertedIndexOpaque struct {
 
 	fieldAddrs map[int]int
 
+	updatedFields map[string]*index.UpdateFieldInfo
+
 	fieldsSame bool
 	numDocs    uint64
 }
@@ -1061,5 +1073,7 @@ func (i *invertedIndexOpaque) Set(key string, val interface{}) {
 		i.FieldsMap = val.(map[string]uint16)
 	case "numDocs":
 		i.numDocs = val.(uint64)
+	case "updatedFields":
+		i.updatedFields = val.(map[string]*index.UpdateFieldInfo)
 	}
 }

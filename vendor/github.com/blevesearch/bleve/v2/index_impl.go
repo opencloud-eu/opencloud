@@ -133,7 +133,7 @@ func newIndexUsing(path string, mapping mapping.IndexMapping, indexType string, 
 	if err != nil {
 		return nil, err
 	}
-	err = rv.i.SetInternal(mappingInternalKey, mappingBytes)
+	err = rv.i.SetInternal(util.MappingInternalKey, mappingBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -163,6 +163,9 @@ func openIndexUsing(path string, runtimeConfig map[string]interface{}) (rv *inde
 		rv.meta.IndexType = upsidedown.Name
 	}
 
+	var um *mapping.IndexMappingImpl
+	var umBytes []byte
+
 	storeConfig := rv.meta.Config
 	if storeConfig == nil {
 		storeConfig = map[string]interface{}{}
@@ -173,6 +176,21 @@ func openIndexUsing(path string, runtimeConfig map[string]interface{}) (rv *inde
 	storeConfig["error_if_exists"] = false
 	for rck, rcv := range runtimeConfig {
 		storeConfig[rck] = rcv
+		if rck == "updated_mapping" {
+			if val, ok := rcv.(string); ok {
+				if len(val) == 0 {
+					return nil, fmt.Errorf("updated_mapping is empty")
+				}
+				umBytes = []byte(val)
+
+				err = util.UnmarshalJSON(umBytes, &um)
+				if err != nil {
+					return nil, fmt.Errorf("error parsing updated_mapping into JSON: %v\nmapping contents:\n%v", err, rck)
+				}
+			} else {
+				return nil, fmt.Errorf("updated_mapping not of type string")
+			}
+		}
 	}
 
 	// open the index
@@ -185,15 +203,32 @@ func openIndexUsing(path string, runtimeConfig map[string]interface{}) (rv *inde
 	if err != nil {
 		return nil, err
 	}
-	err = rv.i.Open()
-	if err != nil {
-		return nil, err
-	}
-	defer func(rv *indexImpl) {
-		if !rv.open {
-			rv.i.Close()
+
+	var ui index.UpdateIndex
+	if um != nil {
+		var ok bool
+		ui, ok = rv.i.(index.UpdateIndex)
+		if !ok {
+			return nil, fmt.Errorf("updated mapping present for unupdatable index")
 		}
-	}(rv)
+
+		// Load the meta data from bolt so that we can read the current index
+		// mapping to compare with
+		err = ui.OpenMeta()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		err = rv.i.Open()
+		if err != nil {
+			return nil, err
+		}
+		defer func(rv *indexImpl) {
+			if !rv.open {
+				rv.i.Close()
+			}
+		}(rv)
+	}
 
 	// now load the mapping
 	indexReader, err := rv.i.Reader()
@@ -206,7 +241,7 @@ func openIndexUsing(path string, runtimeConfig map[string]interface{}) (rv *inde
 		}
 	}()
 
-	mappingBytes, err := indexReader.GetInternal(mappingInternalKey)
+	mappingBytes, err := indexReader.GetInternal(util.MappingInternalKey)
 	if err != nil {
 		return nil, err
 	}
@@ -217,18 +252,47 @@ func openIndexUsing(path string, runtimeConfig map[string]interface{}) (rv *inde
 		return nil, fmt.Errorf("error parsing mapping JSON: %v\nmapping contents:\n%s", err, string(mappingBytes))
 	}
 
+	// validate the mapping
+	err = im.Validate()
+	if err != nil {
+		// no longer return usable index on error because there
+		// is a chance the index is not open at this stage
+		return nil, err
+	}
+
+	// Validate and update the index with the new mapping
+	if um != nil && ui != nil {
+		err = um.Validate()
+		if err != nil {
+			return nil, err
+		}
+
+		fieldInfo, err := DeletedFields(im, um)
+		if err != nil {
+			return nil, err
+		}
+
+		err = ui.UpdateFields(fieldInfo, umBytes)
+		if err != nil {
+			return nil, err
+		}
+		im = um
+
+		err = rv.i.Open()
+		if err != nil {
+			return nil, err
+		}
+		defer func(rv *indexImpl) {
+			if !rv.open {
+				rv.i.Close()
+			}
+		}(rv)
+	}
+
 	// mark the index as open
 	rv.mutex.Lock()
 	defer rv.mutex.Unlock()
 	rv.open = true
-
-	// validate the mapping
-	err = im.Validate()
-	if err != nil {
-		// note even if the mapping is invalid
-		// we still return an open usable index
-		return rv, err
-	}
 
 	rv.m = im
 	indexStats.Register(rv)
@@ -562,6 +626,21 @@ func (i *indexImpl) SearchInContext(ctx context.Context, req *SearchRequest) (sr
 		}
 	}()
 
+	// rescorer will be set if score fusion is supposed to happen
+	// at this alias (root alias), else will be nil
+	var rescorer *rescorer
+	if _, ok := ctx.Value(search.ScoreFusionKey).(bool); !ok {
+		// new context will be used in internal functions to collect data
+		// as suitable for hybrid search. Rescorer is used for rescoring
+		// using fusion algorithms.
+		if IsScoreFusionRequested(req) {
+			ctx = context.WithValue(ctx, search.ScoreFusionKey, true)
+			rescorer = newRescorer(req)
+			rescorer.prepareSearchRequest()
+			defer rescorer.restoreSearchRequest()
+		}
+	}
+
 	if _, ok := ctx.Value(search.PreSearchKey).(bool); ok {
 		preSearchResult, err := i.preSearch(ctx, req, indexReader)
 		if err != nil {
@@ -632,10 +711,21 @@ func (i *indexImpl) SearchInContext(ctx context.Context, req *SearchRequest) (sr
 			}
 		}
 	}
-	if !skipKNNCollector && requestHasKNN(req) {
-		knnHits, err = i.runKnnCollector(ctx, req, indexReader, false)
-		if err != nil {
-			return nil, err
+
+	_, contextScoreFusionKeyExists := ctx.Value(search.ScoreFusionKey).(bool)
+
+	if !contextScoreFusionKeyExists {
+		// if no score fusion, default behaviour
+		if !skipKNNCollector && requestHasKNN(req) {
+			knnHits, err = i.runKnnCollector(ctx, req, indexReader, false)
+			if err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		// if score fusion, run collect if rescorer is defined
+		if rescorer != nil && requestHasKNN(req) {
+			knnHits, err = i.runKnnCollector(ctx, req, indexReader, false)
 		}
 	}
 
@@ -650,7 +740,12 @@ func (i *indexImpl) SearchInContext(ctx context.Context, req *SearchRequest) (sr
 		}
 	}
 
-	setKnnHitsInCollector(knnHits, req, coll)
+	// if score fusion, no faceting for knn hits is done
+	// hence we can skip setting the knn hits in the collector
+	if !contextScoreFusionKeyExists {
+		setKnnHitsInCollector(knnHits, req, coll)
+	}
+	
 
 	if fts != nil {
 		if is, ok := indexReader.(*scorch.IndexSnapshot); ok {
@@ -857,6 +952,13 @@ func (i *indexImpl) SearchInContext(ctx context.Context, req *SearchRequest) (sr
 		MaxScore: coll.MaxScore(),
 		Took:     searchDuration,
 		Facets:   coll.FacetResults(),
+	}
+
+	// rescore if fusion flag is set
+	if rescorer != nil {
+		rv.Hits, rv.Total, rv.MaxScore = rescorer.rescore(rv.Hits, knnHits)
+		rescorer.restoreSearchRequest()
+		rv.Hits = hitsInCurrentPage(req, rv.Hits)
 	}
 
 	if req.Explain {

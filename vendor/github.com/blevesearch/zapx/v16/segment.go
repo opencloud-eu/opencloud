@@ -25,6 +25,7 @@ import (
 	"unsafe"
 
 	"github.com/RoaringBitmap/roaring/v2"
+	index "github.com/blevesearch/bleve_index_api"
 	mmap "github.com/blevesearch/mmap-go"
 	segment "github.com/blevesearch/scorch_segment_api/v2"
 	"github.com/blevesearch/vellum"
@@ -108,6 +109,8 @@ type SegmentBase struct {
 	fieldDvReaders      []map[uint16]*docValueReader // naive chunk cache per field; section->field->reader
 	fieldDvNames        []string                     // field names cached in fieldDvReaders
 	size                uint64
+
+	updatedFields map[string]*index.UpdateFieldInfo
 
 	m         sync.Mutex
 	fieldFSTs map[uint16]*vellum.FST
@@ -951,4 +954,14 @@ func (sb *SegmentBase) loadDvReaders() error {
 	}
 
 	return nil
+}
+
+// Getter method to retrieve updateFieldInfo within segment base
+func (s *SegmentBase) GetUpdatedFields() map[string]*index.UpdateFieldInfo {
+	return s.updatedFields
+}
+
+// Setter method to store updateFieldInfo within segment base
+func (s *SegmentBase) SetUpdatedFields(updatedFields map[string]*index.UpdateFieldInfo) {
+	s.updatedFields = updatedFields
 }

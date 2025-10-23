@@ -162,6 +162,51 @@ In case of inverted text index, the dictionary is encoded in [Vellum](https://gi
 
          ITI - Inverted Text Index
 
+## Vector Index Section
+
+In a vector index, each vector in a document is given a unique Id. This vector Id is to be used within the [Faiss](https://github.com/blevesearch/faiss) index. The mapping between the document Id and the vector Id is stored along with a serialized vector index. Doc Values are not applicable to this section.
+
+        |================================================================+- Inverted Text Index Section
+        |                                                                |
+        |================================================================+- Vector Index Section
+        |                                                                |
+        |   +~~~~~~~~~~+~~~~~~~+~~~~~+~~~~~~+                            |
+    +-------> DV Start | DVEnd | VIO | NVEC |                            |
+    |   |   +~~~~~~~~~~+~~~~~~~+~~~~~+~~~~~~+                            |
+    |   |                                                                |
+    |   |   +~~~~~~~~~~~~+~~~~~~~~~~~~+                                  |
+    |   |   | VectorID_0 |   DocID_0  |                                  |
+    |   |   +~~~~~~~~~~~~+~~~~~~~~~~~~+                                  |
+    |   |   | VectorID_1 |   DocID_1  |                                  |
+    |   |   +~~~~~~~~~~~~+~~~~~~~~~~~~+                                  |
+    |   |   |    ...     |    ...     |                                  |
+    |   |   +~~~~~~~~~~~~+~~~~~~~~~~~~+                                  |
+    |   |   | VectorID_N |   DocID_N  |                                  |
+    |   |   +~~~~~~~~~~~~+~~~~~~~~~~~~+                                  |
+    |   |                                                                |
+    |   |   +~~~~~~~~~~~~~+                                              |
+    |   |   |  FAISS LEN  |                                              |
+    |   |   +~~~~~~~~~~~~~+                                              |
+    |   |                                                                |
+    |   |   +---------------------------+...+------------------------+   |
+    |   |   |                  SERIALIZED FAISS INDEX                |   |
+    |   |   +---------------------------+...+------------------------+   |
+    |   |                                                                |
+    |   |================================================================+- Synonym Index Section
+    |   |                                                                |
+    |   |================================================================+- Sections Info
+    +-----------------------------+                                      |
+        |                         |                                      |
+        |     +-------+-----+-----+------+~~~~~~~~+~~~~~~~~+--+...+--+   |
+        |     |  ...  | VI  | VI ADDR    |   NS   | Length |    Name |   |
+        |     +-------+-----+------------+~~~~~~~~+~~~~~~~~+--+...+--+   |
+        +================================================================+
+
+         VI   - Vector Index
+         VIO  - Vector Index Optimized for
+         NVEC - Number of vectors
+         FAISS LEN - Length of serialized FAISS index
+
 ## Synonym Index Section
 
 In a synonyms index, the relationship between a term and its synonyms is represented using a Thesaurus. The Thesaurus is encoded in the [Vellum](https://github.com/couchbase/vellum) format and consists of pairs in the form `(term, offset)`. Here, the offset specifies the position of the postings list containing the synonyms for the given term. The postings list is stored as a Roaring64 bitmap, with each entry representing an encoded synonym for the term.
