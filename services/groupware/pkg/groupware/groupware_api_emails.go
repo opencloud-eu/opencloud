@@ -131,7 +131,6 @@ func (g *Groupware) GetAllEmailsInMailbox(w http.ResponseWriter, r *http.Request
 				Total:  emails.Total,
 				Limit:  emails.Limit,
 				Offset: emails.Offset,
-				State:  emails.State,
 			}
 
 			return etagResponse(safe, sessionState, emails.State, lang)

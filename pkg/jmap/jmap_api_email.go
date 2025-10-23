@@ -185,7 +185,6 @@ func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx c
 			Total:  queryResponse.Total,
 			Limit:  queryResponse.Limit,
 			Offset: queryResponse.Position,
-			State:  getResponse.State,
 		}, nil
 	})
 }
@@ -930,6 +929,9 @@ func (j *Client) EmailsInThread(accountId string, threadId string, session *Sess
 
 type EmailsSummary struct {
 	Emails []Email `json:"emails"`
+	Total  int     `json:"total"`
+	Limit  int     `json:"limit"`
+	Offset int     `json:"offset"`
 	State  State   `json:"state"`
 }
 
@@ -993,16 +995,22 @@ func (j *Client) QueryEmailSummaries(accountIds []string, session *Session, ctx 
 	}
 	cmd, err := j.request(session, logger, invocations...)
 	if err != nil {
-		return map[string]EmailsSummary{}, "", "", err
+		return nil, "", "", err
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]EmailsSummary, Error) {
 		resp := map[string]EmailsSummary{}
 		for _, accountId := range uniqueAccountIds {
+			var queryResponse EmailQueryResponse
+			err = retrieveResponseMatchParameters(logger, body, CommandEmailQuery, mcid(accountId, "0"), &queryResponse)
+			if err != nil {
+				return nil, err
+			}
+
 			var response EmailGetResponse
 			err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, mcid(accountId, "1"), &response)
 			if err != nil {
-				return map[string]EmailsSummary{}, err
+				return nil, err
 			}
 			if len(response.NotFound) > 0 {
 				// TODO what to do when there are not-found emails here? potentially nothing, they could have been deleted between query and get?
@@ -1016,7 +1024,13 @@ func (j *Client) QueryEmailSummaries(accountIds []string, session *Session, ctx 
 				setThreadSize(&thread, response.List)
 			}
 
-			resp[accountId] = EmailsSummary{Emails: response.List, State: response.State}
+			resp[accountId] = EmailsSummary{
+				Emails: response.List,
+				Total:  int(queryResponse.Total),
+				Limit:  int(queryResponse.Limit),
+				Offset: int(queryResponse.Position),
+				State:  response.State,
+			}
 		}
 		return resp, nil
 	})
