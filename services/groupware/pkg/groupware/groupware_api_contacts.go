@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/jscontact"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
 // When the request succeeds.
@@ -30,10 +31,13 @@ func (g *Groupware) GetAddressbooks(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return resp
 		}
-		var _ string = accountId
 
-		// TODO replace with proper implementation
-		return response(AllAddressBooks, req.session.State, "")
+		addressbooks, sessionState, lang, jerr := g.jmap.GetAddressbooks(accountId, req.session, req.ctx, req.logger, req.language(), nil)
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
+		}
+
+		return response(addressbooks, sessionState, lang)
 	})
 }
 
@@ -61,16 +65,23 @@ func (g *Groupware) GetAddressbook(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return resp
 		}
-		var _ string = accountId
+
+		l := req.logger.With()
 
 		addressBookId := chi.URLParam(r, UriParamAddressBookId)
-		// TODO replace with proper implementation
-		for _, ab := range AllAddressBooks {
-			if ab.Id == addressBookId {
-				return response(ab, req.session.State, "")
-			}
+		l = l.Str(UriParamAddressBookId, log.SafeString(addressBookId))
+
+		logger := log.From(l)
+		addressbooks, sessionState, lang, jerr := g.jmap.GetAddressbooks(accountId, req.session, req.ctx, logger, req.language(), []string{addressBookId})
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
 		}
-		return notFoundResponse(req.session.State)
+
+		if len(addressbooks.NotFound) > 0 {
+			return notFoundResponse(sessionState)
+		} else {
+			return response(addressbooks, sessionState, lang)
+		}
 	})
 }
 
@@ -96,14 +107,107 @@ func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Requ
 		if !ok {
 			return resp
 		}
-		var _ string = accountId
+
+		l := req.logger.With()
 
 		addressBookId := chi.URLParam(r, UriParamAddressBookId)
-		// TODO replace with proper implementation
-		contactCards, ok := ContactsMapByAddressBookId[addressBookId]
-		if !ok {
-			return notFoundResponse(req.session.State)
+		l = l.Str(UriParamAddressBookId, log.SafeString(addressBookId))
+
+		offset, ok, err := req.parseUIntParam(QueryParamOffset, 0)
+		if err != nil {
+			return errorResponse(err)
 		}
-		return response(contactCards, req.session.State, "")
+		if ok {
+			l = l.Uint(QueryParamOffset, offset)
+		}
+
+		limit, ok, err := req.parseUIntParam(QueryParamLimit, g.defaultContactLimit)
+		if err != nil {
+			return errorResponse(err)
+		}
+		if ok {
+			l = l.Uint(QueryParamLimit, limit)
+		}
+
+		filter := jmap.ContactCardFilterCondition{
+			InAddressBook: addressBookId,
+		}
+		sortBy := []jmap.ContactCardComparator{{Property: jscontact.ContactCardPropertyUpdated, IsAscending: false}}
+
+		logger := log.From(l)
+		contactsByAccountId, sessionState, lang, jerr := g.jmap.QueryContactCards([]string{accountId}, req.session, req.ctx, logger, req.language(), filter, sortBy, offset, limit)
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
+		}
+
+		if contacts, ok := contactsByAccountId[accountId]; ok {
+			return response(contacts, req.session.State, lang)
+		} else {
+			return notFoundResponse(sessionState)
+		}
+	})
+}
+
+func (g *Groupware) CreateContact(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		ok, accountId, resp := req.needContactWithAccount()
+		if !ok {
+			return resp
+		}
+
+		l := req.logger.With()
+
+		addressBookId := chi.URLParam(r, UriParamAddressBookId)
+		l = l.Str(UriParamAddressBookId, log.SafeString(addressBookId))
+
+		var create jscontact.ContactCard
+		err := req.body(&create)
+		if err != nil {
+			return errorResponse(err)
+		}
+
+		logger := log.From(l)
+		created, sessionState, lang, jerr := g.jmap.CreateContactCard(accountId, req.session, req.ctx, logger, req.language(), create)
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
+		}
+		return etagResponse(created.ContactCard, sessionState, created.State, lang)
+	})
+}
+
+func (g *Groupware) DeleteContact(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		ok, accountId, resp := req.needContactWithAccount()
+		if !ok {
+			return resp
+		}
+		l := req.logger.With().Str(accountId, log.SafeString(accountId))
+
+		contactId := chi.URLParam(r, UriParamContactId)
+		l.Str(UriParamContactId, log.SafeString(contactId))
+
+		logger := log.From(l)
+
+		deleted, sessionState, _, jerr := g.jmap.DeleteContactCard(accountId, []string{contactId}, req.session, req.ctx, logger, req.language())
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
+		}
+
+		for _, e := range deleted.NotDestroyed {
+			desc := e.Description
+			if desc != "" {
+				return errorResponseWithSessionState(apiError(
+					req.errorId(),
+					ErrorFailedToDeleteContact,
+					withDetail(e.Description),
+				), sessionState)
+			} else {
+				return errorResponseWithSessionState(apiError(
+					req.errorId(),
+					ErrorFailedToDeleteContact,
+				), sessionState)
+			}
+		}
+		return noContentResponseWithEtag(sessionState, deleted.State)
 	})
 }

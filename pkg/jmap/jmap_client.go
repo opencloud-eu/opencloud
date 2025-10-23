@@ -100,7 +100,7 @@ func (j *Client) request(session *Session, logger *log.Logger, methodCalls ...In
 		return Request{}, err
 	}
 	return Request{
-		Using:       []string{JmapCore, JmapMail},
+		Using:       []string{JmapCore, JmapMail, JmapContacts},
 		MethodCalls: methodCalls,
 		CreatedIds:  nil,
 	}, nil
