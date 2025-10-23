@@ -41,6 +41,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump golang.org/x/net from 0.44.0 to 0.46.0 [[#1638](https://github.com/opencloud-eu/opencloud/pull/1638)]
 - revaBumb: add groupware capabilities [[#1689](https://github.com/opencloud-eu/opencloud/pull/1689)]
 - revaUpdate: adding groupware capabilities [[#1659](https://github.com/opencloud-eu/opencloud/pull/1659)]
 - chore/bump-web-4.1.0 [[#1652](https://github.com/opencloud-eu/opencloud/pull/1652)]
