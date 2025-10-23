@@ -1696,6 +1696,14 @@ type SwaggerGetLatestEmailsSummaryForAllAccountsParams struct {
 	Undesirable bool `json:"undesirable"`
 }
 
+type EmailSummaries struct {
+	Emails []EmailSummary `json:"emails,omitempty"`
+	Total  uint           `json:"total,omitzero"`
+	Limit  uint           `json:"limit,omitzero"`
+	Offset uint           `json:"offset,omitzero"`
+	State  jmap.State     `json:"state,omitempty"`
+}
+
 // swagger:route GET /groupware/accounts/all/emails/latest/summary email get_latest_emails_summary_for_all_accounts
 // Get a summary of the latest emails across all the mailboxes, across all of a user's accounts.
 //
@@ -1723,6 +1731,17 @@ func (g *Groupware) GetLatestEmailsSummaryForAllAccounts(w http.ResponseWriter, 
 		}
 		if ok {
 			l = l.Uint(QueryParamLimit, limit)
+		}
+
+		offset, ok, err := req.parseUIntParam(QueryParamOffset, 0)
+		if err != nil {
+			return errorResponse(err)
+		}
+		if offset > 0 {
+			return notImplementesResponse()
+		}
+		if ok {
+			l = l.Uint(QueryParamOffset, limit)
 		}
 
 		seen, ok, err := req.parseBoolParam(QueryParamSeen, false)
@@ -1784,7 +1803,12 @@ func (g *Groupware) GetLatestEmailsSummaryForAllAccounts(w http.ResponseWriter, 
 			summaries[i] = summarizeEmail(all[i].accountId, all[i].email)
 		}
 
-		return response(summaries, sessionState, lang)
+		return response(EmailSummaries{
+			Emails: summaries,
+			Total:  total,
+			Limit:  limit,
+			Offset: offset,
+		}, sessionState, lang)
 	})
 }
 
