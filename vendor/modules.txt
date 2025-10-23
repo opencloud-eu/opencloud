@@ -875,9 +875,19 @@ github.com/klauspost/compress/zstd/internal/xxhash
 # github.com/klauspost/cpuid/v2 v2.2.11
 ## explicit; go 1.22
 github.com/klauspost/cpuid/v2
-# github.com/kovidgoyal/imaging v1.6.4
-## explicit; go 1.21
+# github.com/kovidgoyal/go-parallel v1.0.1
+## explicit; go 1.23
+github.com/kovidgoyal/go-parallel
+# github.com/kovidgoyal/imaging v1.7.2
+## explicit; go 1.24.0
 github.com/kovidgoyal/imaging
+github.com/kovidgoyal/imaging/prism/meta
+github.com/kovidgoyal/imaging/prism/meta/autometa
+github.com/kovidgoyal/imaging/prism/meta/icc
+github.com/kovidgoyal/imaging/prism/meta/jpegmeta
+github.com/kovidgoyal/imaging/prism/meta/pngmeta
+github.com/kovidgoyal/imaging/prism/meta/webpmeta
+github.com/kovidgoyal/imaging/streams
 # github.com/leodido/go-urn v1.4.0
 ## explicit; go 1.18
 github.com/leodido/go-urn
@@ -1864,6 +1874,10 @@ github.com/russellhaering/goxmldsig/types
 # github.com/russross/blackfriday/v2 v2.1.0
 ## explicit
 github.com/russross/blackfriday/v2
+# github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
+## explicit
+github.com/rwcarlsen/goexif/exif
+github.com/rwcarlsen/goexif/tiff
 # github.com/segmentio/asm v1.2.0
 ## explicit; go 1.18
 github.com/segmentio/asm/base64
@@ -2382,7 +2396,7 @@ golang.org/x/exp/slices
 golang.org/x/exp/slog
 golang.org/x/exp/slog/internal
 golang.org/x/exp/slog/internal/buffer
-# golang.org/x/image v0.31.0
+# golang.org/x/image v0.32.0
 ## explicit; go 1.24.0
 golang.org/x/image/bmp
 golang.org/x/image/ccitt

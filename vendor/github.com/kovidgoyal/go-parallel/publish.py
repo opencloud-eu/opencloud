@@ -5,7 +5,7 @@ import os
 import subprocess
 
 
-VERSION = "1.7.2"
+VERSION = '1.0.1'
 
 
 def run(*args: str):
@@ -15,15 +15,14 @@ def run(*args: str):
 
 
 def main():
-    version = VERSION
     try:
-        ans = input(f'Publish version \033[91m{version}\033[m (y/n): ')
+        ans = input(f'Publish version \033[91m{VERSION}\033[m (y/n): ')
     except KeyboardInterrupt:
         ans = 'n'
     if ans.lower() != 'y':
         return
     os.environ['GITHUB_TOKEN'] = open(os.path.join(os.environ['PENV'], 'github-token')).read().strip().partition(':')[2]
-    run('git', 'tag', '-a', 'v' + version, '-m', f'version {version}')
+    run('git', 'tag', '-a', 'v' + VERSION, '-m', f'version {VERSION}')
     run('git', 'push')
     run('goreleaser', 'release', '--clean')
 

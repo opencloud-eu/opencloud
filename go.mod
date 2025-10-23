@@ -48,7 +48,7 @@ require (
 	github.com/jellydator/ttlcache/v3 v3.4.0
 	github.com/jinzhu/now v1.1.5
 	github.com/justinas/alice v1.2.0
-	github.com/kovidgoyal/imaging v1.6.4
+	github.com/kovidgoyal/imaging v1.7.2
 	github.com/leonelquinteros/gotext v1.7.2
 	github.com/libregraph/idm v0.5.0
 	github.com/libregraph/lico v0.66.0
@@ -104,7 +104,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.38.0
 	golang.org/x/crypto v0.43.0
 	golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac
-	golang.org/x/image v0.31.0
+	golang.org/x/image v0.32.0
 	golang.org/x/net v0.46.0
 	golang.org/x/oauth2 v0.32.0
 	golang.org/x/sync v0.17.0
@@ -257,6 +257,7 @@ require (
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.11 // indirect
+	github.com/kovidgoyal/go-parallel v1.0.1 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.4 // indirect
 	github.com/lestrrat-go/dsig v1.0.0 // indirect
@@ -327,6 +328,7 @@ require (
 	github.com/rs/xid v1.6.0 // indirect
 	github.com/russellhaering/goxmldsig v1.5.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
+	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/segmentio/kafka-go v0.4.49 // indirect
 	github.com/segmentio/ksuid v1.0.4 // indirect

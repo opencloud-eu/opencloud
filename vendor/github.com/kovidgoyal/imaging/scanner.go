@@ -11,6 +11,10 @@ type scanner struct {
 	palette []color.NRGBA
 }
 
+func (s scanner) Bytes_per_channel() int  { return 1 }
+func (s scanner) Num_of_channels() int    { return 4 }
+func (s scanner) Bounds() image.Rectangle { return s.image.Bounds() }
+
 func newScanner(img image.Image) *scanner {
 	s := &scanner{
 		image: img,
@@ -27,8 +31,32 @@ func newScanner(img image.Image) *scanner {
 }
 
 // scan scans the given rectangular region of the image into dst.
-func (s *scanner) scan(x1, y1, x2, y2 int, dst []uint8) {
+func (s *scanner) Scan(x1, y1, x2, y2 int, dst []uint8) {
 	switch img := s.image.(type) {
+	case *NRGB:
+		j := 0
+		if x2 == x1+1 {
+			i := y1*img.Stride + x1*3
+			for y := y1; y < y2; y++ {
+				d := dst[j : j+4 : j+4]
+				s := img.Pix[i : i+3 : i+3]
+				d[0] = s[0]
+				d[1] = s[1]
+				d[2] = s[2]
+				d[3] = 255
+				j += 4
+				i += img.Stride
+			}
+		} else {
+			d := dst
+			for y := y1; y < y2; y++ {
+				s := img.Pix[y*img.Stride+x1*3:]
+				for range x2 - x1 {
+					d[0], d[1], d[2], d[3] = s[0], s[1], s[2], 255
+					d, s = d[4:], s[3:]
+				}
+			}
+		}
 	case *image.NRGBA:
 		size := (x2 - x1) * 4
 		j := 0
@@ -282,4 +310,15 @@ func (s *scanner) scan(x1, y1, x2, y2 int, dst []uint8) {
 			}
 		}
 	}
+}
+
+type Scanner interface {
+	Scan(x1, y1, x2, y2 int, dst []uint8)
+	Bytes_per_channel() int
+	Num_of_channels() int
+	Bounds() image.Rectangle
+}
+
+func NewNRGBAScanner(source_image image.Image) Scanner {
+	return newScanner(source_image)
 }

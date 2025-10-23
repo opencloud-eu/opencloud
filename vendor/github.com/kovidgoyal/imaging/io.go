@@ -1,7 +1,7 @@
 package imaging
 
 import (
-	"encoding/binary"
+	"bytes"
 	"errors"
 	"image"
 	"image/draw"
@@ -9,10 +9,13 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+
+	"github.com/kovidgoyal/imaging/prism/meta/autometa"
+	"github.com/rwcarlsen/goexif/exif"
 
 	"golang.org/x/image/bmp"
 	"golang.org/x/image/tiff"
@@ -35,7 +38,7 @@ type decodeConfig struct {
 }
 
 var defaultDecodeConfig = decodeConfig{
-	autoOrientation: false,
+	autoOrientation: true,
 }
 
 // DecodeOption sets an optional parameter for the Decode and Open functions.
@@ -43,7 +46,7 @@ type DecodeOption func(*decodeConfig)
 
 // AutoOrientation returns a DecodeOption that sets the auto-orientation mode.
 // If auto-orientation is enabled, the image will be transformed after decoding
-// according to the EXIF orientation tag (if present). By default it's disabled.
+// according to the EXIF orientation tag (if present). By default it's enabled.
 func AutoOrientation(enabled bool) DecodeOption {
 	return func(c *decodeConfig) {
 		c.autoOrientation = enabled
@@ -53,6 +56,7 @@ func AutoOrientation(enabled bool) DecodeOption {
 // Decode reads an image from r.
 func Decode(r io.Reader, opts ...DecodeOption) (image.Image, error) {
 	cfg := defaultDecodeConfig
+
 	for _, option := range opts {
 		option(&cfg)
 	}
@@ -61,25 +65,27 @@ func Decode(r io.Reader, opts ...DecodeOption) (image.Image, error) {
 		img, _, err := image.Decode(r)
 		return img, err
 	}
-
-	var orient orientation
-	pr, pw := io.Pipe()
-	r = io.TeeReader(r, pw)
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		orient = readOrientation(pr)
-		io.Copy(ioutil.Discard, pr)
-	}()
+	md, r, err := autometa.Load(r)
+	var oval orientation = orientationUnspecified
+	if err == nil && md != nil && len(md.ExifData) > 6 {
+		exif_data, err := exif.Decode(bytes.NewReader(md.ExifData))
+		if err == nil {
+			orient, err := exif_data.Get(exif.Orientation)
+			if err == nil && orient != nil {
+				x, err := strconv.ParseUint(orient.String(), 10, 0)
+				if err == nil && x > 0 && x < 9 {
+					oval = orientation(int(x))
+				}
+			}
+		}
+	}
 
 	img, _, err := image.Decode(r)
-	pw.Close()
-	<-done
 	if err != nil {
 		return nil, err
 	}
 
-	return fixOrientation(img, orient), nil
+	return fixOrientation(img, oval), nil
 }
 
 // Open loads an image from file.
@@ -91,7 +97,6 @@ func Decode(r io.Reader, opts ...DecodeOption) (image.Image, error) {
 //
 //	// Load an image and transform it depending on the EXIF orientation tag (if present).
 //	img, err := imaging.Open("test.jpg", imaging.AutoOrientation(true))
-//
 func Open(filename string, opts ...DecodeOption) (image.Image, error) {
 	file, err := fs.Open(filename)
 	if err != nil {
@@ -99,6 +104,15 @@ func Open(filename string, opts ...DecodeOption) (image.Image, error) {
 	}
 	defer file.Close()
 	return Decode(file, opts...)
+}
+
+func OpenConfig(filename string) (ans image.Config, format_name string, err error) {
+	file, err := fs.Open(filename)
+	if err != nil {
+		return ans, "", err
+	}
+	defer file.Close()
+	return image.DecodeConfig(file)
 }
 
 // Format is an image file format.
@@ -111,6 +125,10 @@ const (
 	GIF
 	TIFF
 	BMP
+	PBM
+	PGM
+	PPM
+	PAM
 )
 
 var formatExts = map[string]Format{
@@ -121,6 +139,10 @@ var formatExts = map[string]Format{
 	"tif":  TIFF,
 	"tiff": TIFF,
 	"bmp":  BMP,
+	"pbm":  PBM,
+	"pgm":  PGM,
+	"ppm":  PPM,
+	"pam":  PAM,
 }
 
 var formatNames = map[Format]string{
@@ -129,6 +151,9 @@ var formatNames = map[Format]string{
 	GIF:  "GIF",
 	TIFF: "TIFF",
 	BMP:  "BMP",
+	PBM:  "PBM",
+	PGM:  "PGM",
+	PAM:  "PAM",
 }
 
 func (f Format) String() string {
@@ -264,7 +289,6 @@ func Encode(w io.Writer, img image.Image, format Format, opts ...EncodeOption) e
 //
 //	// Save the image as JPEG with optional quality parameter set to 80.
 //	err := imaging.Save(img, "out.jpg", imaging.JPEGQuality(80))
-//
 func Save(img image.Image, filename string, opts ...EncodeOption) (err error) {
 	f, err := FormatFromFilename(filename)
 	if err != nil {
@@ -297,129 +321,6 @@ const (
 	orientationTransverse  = 7
 	orientationRotate90    = 8
 )
-
-// readOrientation tries to read the orientation EXIF flag from image data in r.
-// If the EXIF data block is not found or the orientation flag is not found
-// or any other error occures while reading the data, it returns the
-// orientationUnspecified (0) value.
-func readOrientation(r io.Reader) orientation {
-	const (
-		markerSOI      = 0xffd8
-		markerAPP1     = 0xffe1
-		exifHeader     = 0x45786966
-		byteOrderBE    = 0x4d4d
-		byteOrderLE    = 0x4949
-		orientationTag = 0x0112
-	)
-
-	// Check if JPEG SOI marker is present.
-	var soi uint16
-	if err := binary.Read(r, binary.BigEndian, &soi); err != nil {
-		return orientationUnspecified
-	}
-	if soi != markerSOI {
-		return orientationUnspecified // Missing JPEG SOI marker.
-	}
-
-	// Find JPEG APP1 marker.
-	for {
-		var marker, size uint16
-		if err := binary.Read(r, binary.BigEndian, &marker); err != nil {
-			return orientationUnspecified
-		}
-		if err := binary.Read(r, binary.BigEndian, &size); err != nil {
-			return orientationUnspecified
-		}
-		if marker>>8 != 0xff {
-			return orientationUnspecified // Invalid JPEG marker.
-		}
-		if marker == markerAPP1 {
-			break
-		}
-		if size < 2 {
-			return orientationUnspecified // Invalid block size.
-		}
-		if _, err := io.CopyN(ioutil.Discard, r, int64(size-2)); err != nil {
-			return orientationUnspecified
-		}
-	}
-
-	// Check if EXIF header is present.
-	var header uint32
-	if err := binary.Read(r, binary.BigEndian, &header); err != nil {
-		return orientationUnspecified
-	}
-	if header != exifHeader {
-		return orientationUnspecified
-	}
-	if _, err := io.CopyN(ioutil.Discard, r, 2); err != nil {
-		return orientationUnspecified
-	}
-
-	// Read byte order information.
-	var (
-		byteOrderTag uint16
-		byteOrder    binary.ByteOrder
-	)
-	if err := binary.Read(r, binary.BigEndian, &byteOrderTag); err != nil {
-		return orientationUnspecified
-	}
-	switch byteOrderTag {
-	case byteOrderBE:
-		byteOrder = binary.BigEndian
-	case byteOrderLE:
-		byteOrder = binary.LittleEndian
-	default:
-		return orientationUnspecified // Invalid byte order flag.
-	}
-	if _, err := io.CopyN(ioutil.Discard, r, 2); err != nil {
-		return orientationUnspecified
-	}
-
-	// Skip the EXIF offset.
-	var offset uint32
-	if err := binary.Read(r, byteOrder, &offset); err != nil {
-		return orientationUnspecified
-	}
-	if offset < 8 {
-		return orientationUnspecified // Invalid offset value.
-	}
-	if _, err := io.CopyN(ioutil.Discard, r, int64(offset-8)); err != nil {
-		return orientationUnspecified
-	}
-
-	// Read the number of tags.
-	var numTags uint16
-	if err := binary.Read(r, byteOrder, &numTags); err != nil {
-		return orientationUnspecified
-	}
-
-	// Find the orientation tag.
-	for i := 0; i < int(numTags); i++ {
-		var tag uint16
-		if err := binary.Read(r, byteOrder, &tag); err != nil {
-			return orientationUnspecified
-		}
-		if tag != orientationTag {
-			if _, err := io.CopyN(ioutil.Discard, r, 10); err != nil {
-				return orientationUnspecified
-			}
-			continue
-		}
-		if _, err := io.CopyN(ioutil.Discard, r, 6); err != nil {
-			return orientationUnspecified
-		}
-		var val uint16
-		if err := binary.Read(r, byteOrder, &val); err != nil {
-			return orientationUnspecified
-		}
-		if val < 1 || val > 8 {
-			return orientationUnspecified // Invalid tag value.
-		}
-		return orientation(val)
-	}
-	return orientationUnspecified // Missing orientation tag.
-}
 
 // fixOrientation applies a transform to img corresponding to the given orientation flag.
 func fixOrientation(img image.Image, o orientation) image.Image {

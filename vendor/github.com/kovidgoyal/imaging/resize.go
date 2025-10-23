@@ -61,7 +61,6 @@ func precomputeWeights(dstSize, srcSize int, filter ResampleFilter) [][]indexWei
 // Example:
 //
 //	dstImage := imaging.Resize(srcImage, 800, 600, imaging.Lanczos)
-//
 func Resize(img image.Image, width, height int, filter ResampleFilter) *image.NRGBA {
 	dstW, dstH := width, height
 	if dstW < 0 || dstH < 0 {
@@ -110,10 +109,10 @@ func resizeHorizontal(img image.Image, width int, filter ResampleFilter) *image.
 	src := newScanner(img)
 	dst := image.NewNRGBA(image.Rect(0, 0, width, src.h))
 	weights := precomputeWeights(width, src.w, filter)
-	parallel(0, src.h, func(ys <-chan int) {
+	if err := run_in_parallel_over_range(0, func(start, limit int) {
 		scanLine := make([]uint8, src.w*4)
-		for y := range ys {
-			src.scan(0, y, src.w, y+1, scanLine)
+		for y := start; y < limit; y++ {
+			src.Scan(0, y, src.w, y+1, scanLine)
 			j0 := y * dst.Stride
 			for x := range weights {
 				var r, g, b, a float64
@@ -137,7 +136,9 @@ func resizeHorizontal(img image.Image, width int, filter ResampleFilter) *image.
 				}
 			}
 		}
-	})
+	}, 0, src.h); err != nil {
+		panic(err)
+	}
 	return dst
 }
 
@@ -145,10 +146,10 @@ func resizeVertical(img image.Image, height int, filter ResampleFilter) *image.N
 	src := newScanner(img)
 	dst := image.NewNRGBA(image.Rect(0, 0, src.w, height))
 	weights := precomputeWeights(height, src.h, filter)
-	parallel(0, src.w, func(xs <-chan int) {
+	if err := run_in_parallel_over_range(0, func(start, limit int) {
 		scanLine := make([]uint8, src.h*4)
-		for x := range xs {
-			src.scan(x, 0, x+1, src.h, scanLine)
+		for x := start; x < limit; x++ {
+			src.Scan(x, 0, x+1, src.h, scanLine)
 			for y := range weights {
 				var r, g, b, a float64
 				for _, w := range weights[y] {
@@ -171,7 +172,9 @@ func resizeVertical(img image.Image, height int, filter ResampleFilter) *image.N
 				}
 			}
 		}
-	})
+	}, 0, src.w); err != nil {
+		panic(err)
+	}
 	return dst
 }
 
@@ -183,34 +186,37 @@ func resizeNearest(img image.Image, width, height int) *image.NRGBA {
 
 	if dx > 1 && dy > 1 {
 		src := newScanner(img)
-		parallel(0, height, func(ys <-chan int) {
-			for y := range ys {
+		if err := run_in_parallel_over_range(0, func(start, limit int) {
+			for y := start; y < limit; y++ {
 				srcY := int((float64(y) + 0.5) * dy)
 				dstOff := y * dst.Stride
-				for x := 0; x < width; x++ {
+				for x := range width {
 					srcX := int((float64(x) + 0.5) * dx)
-					src.scan(srcX, srcY, srcX+1, srcY+1, dst.Pix[dstOff:dstOff+4])
+					src.Scan(srcX, srcY, srcX+1, srcY+1, dst.Pix[dstOff:dstOff+4])
 					dstOff += 4
 				}
 			}
-		})
+		}, 0, height); err != nil {
+			panic(err)
+		}
 	} else {
 		src := toNRGBA(img)
-		parallel(0, height, func(ys <-chan int) {
-			for y := range ys {
+		if err := run_in_parallel_over_range(0, func(start, limit int) {
+			for y := start; y < limit; y++ {
 				srcY := int((float64(y) + 0.5) * dy)
 				srcOff0 := srcY * src.Stride
 				dstOff := y * dst.Stride
-				for x := 0; x < width; x++ {
+				for x := range width {
 					srcX := int((float64(x) + 0.5) * dx)
 					srcOff := srcOff0 + srcX*4
 					copy(dst.Pix[dstOff:dstOff+4], src.Pix[srcOff:srcOff+4])
 					dstOff += 4
 				}
 			}
-		})
+		}, 0, height); err != nil {
+			panic(err)
+		}
 	}
-
 	return dst
 }
 
@@ -220,7 +226,6 @@ func resizeNearest(img image.Image, width, height int) *image.NRGBA {
 // Example:
 //
 //	dstImage := imaging.Fit(srcImage, 800, 600, imaging.Lanczos)
-//
 func Fit(img image.Image, width, height int, filter ResampleFilter) *image.NRGBA {
 	maxW, maxH := width, height
 
@@ -261,7 +266,6 @@ func Fit(img image.Image, width, height int, filter ResampleFilter) *image.NRGBA
 // Example:
 //
 //	dstImage := imaging.Fill(srcImage, 800, 600, imaging.Center, imaging.Lanczos)
-//
 func Fill(img image.Image, width, height int, anchor Anchor, filter ResampleFilter) *image.NRGBA {
 	dstW, dstH := width, height
 
@@ -340,7 +344,6 @@ func resizeAndCrop(img image.Image, width, height int, anchor Anchor, filter Res
 // Example:
 //
 //	dstImage := imaging.Thumbnail(srcImage, 100, 100, imaging.Lanczos)
-//
 func Thumbnail(img image.Image, width, height int, filter ResampleFilter) *image.NRGBA {
 	return Fill(img, width, height, Center, filter)
 }
@@ -367,7 +370,6 @@ func Thumbnail(img image.Image, width, height int, filter ResampleFilter) *image
 //
 //	- NearestNeighbor
 //		Fastest resampling filter, no antialiasing.
-//
 type ResampleFilter struct {
 	Support float64
 	Kernel  func(float64) float64
