@@ -116,7 +116,7 @@ func (g *Groupware) GetAllEmailsInMailbox(w http.ResponseWriter, r *http.Request
 
 			logger := log.From(l)
 
-			emails, sessionState, lang, jerr := g.jmap.GetAllEmailsInMailbox(accountId, req.session, req.ctx, logger, req.language(), mailboxId, offset, limit, false, true, g.maxBodyValueBytes)
+			emails, sessionState, lang, jerr := g.jmap.GetAllEmailsInMailbox(accountId, req.session, req.ctx, logger, req.language(), mailboxId, offset, limit, false, true, g.maxBodyValueBytes, true)
 			if jerr != nil {
 				return req.errorResponseFromJmap(jerr)
 			}

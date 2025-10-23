@@ -108,7 +108,7 @@ func (j *Client) GetEmailBlobId(accountId string, session *Session, ctx context.
 }
 
 // Retrieve all the Emails in a given Mailbox by its id.
-func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, mailboxId string, offset uint, limit uint, collapseThreads bool, fetchBodies bool, maxBodyValueBytes uint) (Emails, SessionState, Language, Error) {
+func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, mailboxId string, offset uint, limit uint, collapseThreads bool, fetchBodies bool, maxBodyValueBytes uint, withThreads bool) (Emails, SessionState, Language, Error) {
 	logger = j.loggerParams("GetAllEmailsInMailbox", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Uint(logOffset, offset).Uint(logLimit, limit)
 	})
@@ -117,7 +117,7 @@ func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx c
 		AccountId:       accountId,
 		Filter:          &EmailFilterCondition{InMailbox: mailboxId},
 		Sort:            []EmailComparator{{Property: EmailPropertyReceivedAt, IsAscending: false}},
-		CollapseThreads: collapseThreads,
+		CollapseThreads: false,
 		CalculateTotal:  true,
 	}
 	if offset > 0 {
@@ -136,10 +136,24 @@ func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx c
 		get.MaxBodyValueBytes = maxBodyValueBytes
 	}
 
-	cmd, err := j.request(session, logger,
+	invocations := []Invocation{
 		invocation(CommandEmailQuery, query, "0"),
 		invocation(CommandEmailGet, get, "1"),
-	)
+	}
+
+	if withThreads {
+		threads := ThreadGetRefCommand{
+			AccountId: accountId,
+			IdsRef: &ResultReference{
+				ResultOf: "1",
+				Name:     CommandEmailGet,
+				Path:     "/list/*/" + EmailPropertyThreadId,
+			},
+		}
+		invocations = append(invocations, invocation(CommandThreadGet, threads, "2"))
+	}
+
+	cmd, err := j.request(session, logger, invocations...)
 	if err != nil {
 		return Emails{}, "", "", err
 	}
@@ -155,6 +169,15 @@ func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx c
 		if err != nil {
 			logger.Error().Err(err).Send()
 			return Emails{}, err
+		}
+
+		if withThreads {
+			var thread ThreadGetResponse
+			err = retrieveResponseMatchParameters(logger, body, CommandThreadGet, "2", &thread)
+			if err != nil {
+				return Emails{}, err
+			}
+			setThreadSize(&thread, getResponse.List)
 		}
 
 		return Emails{
