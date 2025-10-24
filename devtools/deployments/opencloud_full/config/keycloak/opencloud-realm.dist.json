@@ -663,6 +663,7 @@
         "profile",
         "roles",
         "groups",
+        "OpenCloudUnique_ID",
         "basic",
         "email"
       ],
@@ -2308,7 +2309,7 @@
             "always"
           ],
           "usePasswordModifyExtendedOp": [
-            "false"
+            "true"
           ],
           "trustEmail": [
             "false"
