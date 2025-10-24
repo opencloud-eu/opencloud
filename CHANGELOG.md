@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.6.0) - 2025-10-23
+## [3.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.6.0) - 2025-10-24
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -8,6 +8,7 @@
 
 ### ✅ Tests
 
+- apiTest-coverage for #1523 [[#1660](https://github.com/opencloud-eu/opencloud/pull/1660)]
 - [full-ci] deleted unused step definitions [[#1639](https://github.com/opencloud-eu/opencloud/pull/1639)]
 - check thumbnails in the share with me response [[#1605](https://github.com/opencloud-eu/opencloud/pull/1605)]
 - [full-ci][tests-only] fix restore browsers cache workflow [[#1615](https://github.com/opencloud-eu/opencloud/pull/1615)]
