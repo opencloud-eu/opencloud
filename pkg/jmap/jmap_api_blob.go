@@ -44,7 +44,7 @@ func (j *Client) GetBlobMetadata(accountId string, session *Session, ctx context
 }
 
 type UploadedBlob struct {
-	Id     string `json:"id"`
+	BlobId string `json:"blobId"`
 	Size   int    `json:"size"`
 	Type   string `json:"type"`
 	Sha512 string `json:"sha:512"`
@@ -133,7 +133,7 @@ func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Cont
 		get := getResponse.List[0]
 
 		return UploadedBlob{
-			Id:     upload.Id,
+			BlobId: upload.Id,
 			Size:   upload.Size,
 			Type:   upload.Type,
 			Sha512: get.DigestSha512,

@@ -125,7 +125,7 @@ func (t TestJmapBlobClient) UploadBinary(ctx context.Context, logger *log.Logger
 	hasher := sha512.New()
 	hasher.Write(bytes)
 	return UploadedBlob{
-		Id:     uuid.NewString(),
+		BlobId: uuid.NewString(),
 		Size:   len(bytes),
 		Type:   contentType,
 		Sha512: base64.StdEncoding.EncodeToString(hasher.Sum(nil)),
