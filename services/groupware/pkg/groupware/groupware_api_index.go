@@ -2,6 +2,8 @@ package groupware
 
 import (
 	"net/http"
+	"slices"
+	"strings"
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
@@ -89,6 +91,8 @@ type IndexAccountCapabilities struct {
 }
 
 type IndexAccount struct {
+	AccountId string `json:"accountId"`
+
 	// A user-friendly string to show when presenting content from this Account,
 	// e.g., the email address representing the owner of the account.
 	Name string `json:"name"`
@@ -133,7 +137,7 @@ type IndexResponse struct {
 	// Accounts that are available to the user.
 	//
 	// The key of the map is the Account identifier.
-	Accounts map[string]IndexAccount `json:"accounts"`
+	Accounts []IndexAccount `json:"accounts"`
 
 	// Primary account identifiers per API usage type.
 	PrimaryAccounts IndexPrimaryAccounts `json:"primaryAccounts"`
@@ -167,7 +171,7 @@ func (g *Groupware) Index(w http.ResponseWriter, r *http.Request) {
 			Version:         Version,
 			Capabilities:    Capabilities,
 			Limits:          buildIndexLimits(req.session),
-			Accounts:        buildIndexAccount(req.session, boot),
+			Accounts:        buildIndexAccounts(req.session, boot),
 			PrimaryAccounts: buildIndexPrimaryAccounts(req.session),
 		}, sessionState, lang)
 	})
@@ -194,10 +198,12 @@ func buildIndexPrimaryAccounts(session *jmap.Session) IndexPrimaryAccounts {
 	}
 }
 
-func buildIndexAccount(session *jmap.Session, boot map[string]jmap.AccountBootstrapResult) map[string]IndexAccount {
-	accounts := make(map[string]IndexAccount, len(session.Accounts))
+func buildIndexAccounts(session *jmap.Session, boot map[string]jmap.AccountBootstrapResult) []IndexAccount {
+	accounts := make([]IndexAccount, len(session.Accounts))
+	i := 0
 	for accountId, account := range session.Accounts {
 		indexAccount := IndexAccount{
+			AccountId:  accountId,
 			Name:       account.Name,
 			IsPersonal: account.IsPersonal,
 			IsReadOnly: account.IsReadOnly,
@@ -210,8 +216,10 @@ func buildIndexAccount(session *jmap.Session, boot map[string]jmap.AccountBootst
 			indexAccount.Identities = b.Identities
 			indexAccount.Quotas = b.Quotas
 		}
-		accounts[accountId] = indexAccount
+		accounts[i] = indexAccount
+		i++
 	}
+	slices.SortFunc(accounts, func(a, b IndexAccount) int { return strings.Compare(a.AccountId, b.AccountId) })
 	return accounts
 }
 
