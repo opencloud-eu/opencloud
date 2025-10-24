@@ -2,6 +2,8 @@ package groupware
 
 import (
 	"net/http"
+	"slices"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog"
@@ -128,9 +130,8 @@ func (g *Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) {
 				return req.errorResponseFromJmap(err)
 			}
 
-			mailboxes, ok := mailboxesByAccountId[accountId]
-			if ok {
-				return etagResponse(mailboxes.Mailboxes, sessionState, mailboxes.State, lang)
+			if mailboxes, ok := mailboxesByAccountId[accountId]; ok {
+				return etagResponse(sortMailboxSlice(mailboxes.Mailboxes), sessionState, mailboxes.State, lang)
 			} else {
 				return notFoundResponse(sessionState)
 			}
@@ -139,9 +140,8 @@ func (g *Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return req.errorResponseFromJmap(err)
 			}
-			mailboxes, ok := mailboxesByAccountId[accountId]
-			if ok {
-				return etagResponse(mailboxes.Mailboxes, sessionState, mailboxes.State, lang)
+			if mailboxes, ok := mailboxesByAccountId[accountId]; ok {
+				return etagResponse(sortMailboxSlice(mailboxes.Mailboxes), sessionState, mailboxes.State, lang)
 			} else {
 				return notFoundResponse(sessionState)
 			}
@@ -197,13 +197,13 @@ func (g *Groupware) GetMailboxesForAllAccounts(w http.ResponseWriter, r *http.Re
 			if err != nil {
 				return req.errorResponseFromJmap(err)
 			}
-			return response(mailboxesByAccountId, sessionState, lang)
+			return response(sortMailboxesMap(mailboxesByAccountId), sessionState, lang)
 		} else {
 			mailboxesByAccountId, sessionState, lang, err := g.jmap.GetAllMailboxes(accountIds, req.session, req.ctx, logger, req.language())
 			if err != nil {
 				return req.errorResponseFromJmap(err)
 			}
-			return response(mailboxesByAccountId, sessionState, lang)
+			return response(sortMailboxesMap(mailboxesByAccountId), sessionState, lang)
 		}
 	})
 }
@@ -225,7 +225,7 @@ func (g *Groupware) GetMailboxByRoleForAllAccounts(w http.ResponseWriter, r *htt
 		if err != nil {
 			return req.errorResponseFromJmap(err)
 		}
-		return response(mailboxesByAccountId, sessionState, lang)
+		return response(sortMailboxesMap(mailboxesByAccountId), sessionState, lang)
 	})
 }
 
@@ -343,4 +343,73 @@ func (g *Groupware) GetMailboxRoles(w http.ResponseWriter, r *http.Request) {
 
 		return response(rolesByAccountId, sessionState, lang)
 	})
+}
+
+var mailboxRoleSortOrderScore = map[string]int{
+	jmap.JmapMailboxRoleInbox:  100,
+	jmap.JmapMailboxRoleDrafts: 200,
+	jmap.JmapMailboxRoleSent:   300,
+	jmap.JmapMailboxRoleJunk:   400,
+	jmap.JmapMailboxRoleTrash:  500,
+}
+
+func scoreMailbox(m jmap.Mailbox) int {
+	if score, ok := mailboxRoleSortOrderScore[m.Role]; ok {
+		return score
+	}
+	return 1000
+}
+
+func sortMailboxesMap[K comparable](mailboxesByAccountId map[K]jmap.Mailboxes) map[K]jmap.Mailboxes {
+	sortedByAccountId := make(map[K]jmap.Mailboxes, len(mailboxesByAccountId))
+	for accountId, unsorted := range mailboxesByAccountId {
+		mailboxes := make([]jmap.Mailbox, len(unsorted.Mailboxes))
+		copy(mailboxes, unsorted.Mailboxes)
+		slices.SortFunc(mailboxes, compareMailboxes)
+		sortedByAccountId[accountId] = jmap.Mailboxes{Mailboxes: mailboxes, State: unsorted.State}
+	}
+	return sortedByAccountId
+}
+
+func sortMailboxSlice(s []jmap.Mailbox) []jmap.Mailbox {
+	r := make([]jmap.Mailbox, len(s))
+	copy(r, s)
+	slices.SortFunc(r, compareMailboxes)
+	return r
+}
+
+func compareMailboxes(a, b jmap.Mailbox) int {
+	// first, use the defined order:
+	// Defines the sort order of Mailboxes when presented in the client’s UI, so it is consistent between devices.
+	// Default value: 0
+	// The number MUST be an integer in the range 0 <= sortOrder < 2^31.
+	// A Mailbox with a lower order should be displayed before a Mailbox with a higher order
+	// (that has the same parent) in any Mailbox listing in the client’s UI.
+	sa := a.SortOrder
+	sb := b.SortOrder
+	r := sa - sb
+	if r != 0 {
+		return r
+	}
+
+	// the JMAP specification says this:
+	// > Mailboxes with equal order SHOULD be sorted in alphabetical order by name.
+	// > The sorting should take into account locale-specific character order convention.
+	// but we feel like users would rather expect standard folders to come first,
+	// in an order that is common across MUAs:
+	// - inbox
+	// - drafts
+	// - sent
+	// - junk
+	// - trash
+	// - *everything else*
+	sa = scoreMailbox(a)
+	sb = scoreMailbox(b)
+	r = sa - sb
+	if r != 0 {
+		return r
+	}
+
+	// now we have "everything else", let's use alphabetical order here:
+	return strings.Compare(a.Name, b.Name)
 }
