@@ -6,6 +6,17 @@
 
 @AlexAndBear, @ScharfViktor, @butonic, @dragonchaser, @fschade, @micbar, @prashant-gurung899, @rhafer, @schweigisito, @tammi-23
 
+### 🐛 Bug Fixes
+
+- fix: apply changes from other fixes in compose repo [[#1707](https://github.com/opencloud-eu/opencloud/pull/1707)]
+- fix(settings): env var precedence [[#1625](https://github.com/opencloud-eu/opencloud/pull/1625)]
+- fix(antivirus): update icap-client library which fixes tcp socket reuse [[#1589](https://github.com/opencloud-eu/opencloud/pull/1589)]
+- fix: use valid autocomplete values (axe autocomplete-valid) [[#1588](https://github.com/opencloud-eu/opencloud/pull/1588)]
+- Fix collaboration service name [[#1577](https://github.com/opencloud-eu/opencloud/pull/1577)]
+- let the runtime always create a cancel context [[#1565](https://github.com/opencloud-eu/opencloud/pull/1565)]
+- Bump reva and cs3apis [[#1538](https://github.com/opencloud-eu/opencloud/pull/1538)]
+- use correct endpoint in nats check [[#1533](https://github.com/opencloud-eu/opencloud/pull/1533)]
+
 ### ✅ Tests
 
 - apiTest-coverage for #1523 [[#1660](https://github.com/opencloud-eu/opencloud/pull/1660)]
@@ -16,16 +27,6 @@
 - [full-ci] getting personal space by userId instead of userName [[#1553](https://github.com/opencloud-eu/opencloud/pull/1553)]
 - apiTest-flaky: sync share before checking [[#1550](https://github.com/opencloud-eu/opencloud/pull/1550)]
 - [decomposed] use Alpine for opencloud starting [[#1547](https://github.com/opencloud-eu/opencloud/pull/1547)]
-
-### 🐛 Bug Fixes
-
-- fix(settings): env var precedence [[#1625](https://github.com/opencloud-eu/opencloud/pull/1625)]
-- fix(antivirus): update icap-client library which fixes tcp socket reuse [[#1589](https://github.com/opencloud-eu/opencloud/pull/1589)]
-- fix: use valid autocomplete values (axe autocomplete-valid) [[#1588](https://github.com/opencloud-eu/opencloud/pull/1588)]
-- Fix collaboration service name [[#1577](https://github.com/opencloud-eu/opencloud/pull/1577)]
-- let the runtime always create a cancel context [[#1565](https://github.com/opencloud-eu/opencloud/pull/1565)]
-- Bump reva and cs3apis [[#1538](https://github.com/opencloud-eu/opencloud/pull/1538)]
-- use correct endpoint in nats check [[#1533](https://github.com/opencloud-eu/opencloud/pull/1533)]
 
 ### 📚 Documentation
 
