@@ -2,6 +2,8 @@ package groupware
 
 import (
 	"net/http"
+	"slices"
+	"strings"
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 )
@@ -52,8 +54,24 @@ type SwaggerGetAccountsResponse struct {
 //	500: ErrorResponse500
 func (g *Groupware) GetAccounts(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
-		return response(req.session.Accounts, req.session.State, "")
+		list := make([]AccountWithId, len(req.session.Accounts))
+		i := 0
+		for accountId, account := range req.session.Accounts {
+			list[i] = AccountWithId{
+				AccountId: accountId,
+				Account:   account,
+			}
+			i++
+		}
+		// sort on accountId to have a stable order that remains the same with every query
+		slices.SortFunc(list, func(a, b AccountWithId) int { return strings.Compare(a.AccountId, b.AccountId) })
+		return response(list, req.session.State, "")
 	})
+}
+
+type AccountWithId struct {
+	AccountId string `json:"accountId,omitempty"`
+	jmap.Account
 }
 
 type AccountBootstrapResponse struct {
