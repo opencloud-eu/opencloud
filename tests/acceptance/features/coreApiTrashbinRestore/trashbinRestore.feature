@@ -567,3 +567,52 @@ Feature: restore deleted files/folders
       | dav-path-version |
       | spaces           |
       | new              |
+
+  @issue-1523
+  Scenario Outline: restore deleted folder when folder with same name exists
+    Given using <dav-path-version> DAV path
+    And user "Alice" has created folder "new"
+    And user "Alice" has uploaded file with content "content" to "new/test.txt"
+    And user "Alice" has deleted folder "new"
+    And user "Alice" has created folder "new"
+    And user "Alice" has uploaded file with content "new content" to "new/new-file.txt"
+    When user "Alice" restores the folder with original path "/new" to "/new (1)" using the trashbin API
+    Then the HTTP status code should be "201"
+    And as "Alice" the following folders should exist
+      | path          |
+      | /new     |
+      | /new (1) |
+    And as "Alice" the following files should exist
+      | path               |
+      | /new/new-file.txt   |
+      | /new (1)/test.txt  |
+    Examples:
+      | dav-path-version |
+      | spaces           |
+      | new              |
+
+  @issue-1523
+  Scenario Outline: restore deleted folder with files when folder with same name exists
+    Given using <dav-path-version> DAV path
+    And user "Alice" has created folder "folder-a"
+    And user "Alice" has uploaded file with content "content b" to "folder-a/b.txt"
+    And user "Alice" has uploaded file with content "content c" to "folder-a/c.txt"
+    And user "Alice" has deleted file "folder-a/b.txt"
+    And user "Alice" has deleted folder "folder-a"
+    And user "Alice" has created folder "folder-a"
+    When user "Alice" restores the file with original path "folder-a/b.txt" using the trashbin API
+    Then the HTTP status code should be "201"
+    When user "Alice" restores the folder with original path "/folder-a" to "/folder-a (1)" using the trashbin API
+    Then the HTTP status code should be "201"
+    And as "Alice" the following folders should exist
+      | path          |
+      | /folder-a     |
+      | /folder-a (1) |
+    And as "Alice" the following files should exist
+      | path               |
+      | /folder-a/b.txt    |
+      | /folder-a (1)/c.txt |
+    Examples:
+      | dav-path-version |
+      | spaces           |
+      | new              |

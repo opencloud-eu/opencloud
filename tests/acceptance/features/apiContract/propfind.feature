@@ -120,3 +120,26 @@ Feature: Propfind test
       | Manager      | RDNVWZP       |
       | Space Editor | DNVW          |
       | Space Viewer |               |
+
+  @issue-1523
+  Scenario: propfind response contains a restored folder with correct name
+    Given user "Alice" has created a folder "folderMain" in space "Personal"
+    And user "Alice" has deleted folder "folderMain"
+    And user "Alice" has created a folder "folderMain" in space "Personal"
+    When user "Alice" restores the folder with original path "/folderMain" to "/folderMain (1)" using the trashbin API
+    And user "Alice" sends PROPFIND request to space "Personal" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And as user "Alice" the PROPFIND response should contain a resource "folderMain" with these key and value pairs:
+      | key            | value             |
+      | oc:fileid      | %file_id_pattern% |
+      | oc:file-parent | %file_id_pattern% |
+      | oc:name        | folderMain        |
+      | oc:permissions | RDNVCKZP          |
+      | oc:size        | 0                 |
+    And as user "Alice" the PROPFIND response should contain a resource "folderMain (1)" with these key and value pairs:
+      | key            | value             |
+      | oc:fileid      | %file_id_pattern% |
+      | oc:file-parent | %file_id_pattern% |
+      | oc:name        | folderMain (1)    |
+      | oc:permissions | RDNVCKZP          |
+      | oc:size        | 0                 |

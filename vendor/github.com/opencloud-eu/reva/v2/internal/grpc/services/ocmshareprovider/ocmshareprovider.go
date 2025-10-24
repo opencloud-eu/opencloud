@@ -186,7 +186,7 @@ func (s *service) getWebdavProtocol(ctx context.Context, share *ocm.Share, m *oc
 
 	return &ocmd.WebDAV{
 		Permissions:  perms,
-		URL:          s.webdavURL(ctx, share),
+		URI:          s.webdavURL(ctx, share),
 		SharedSecret: share.Token,
 	}
 }
