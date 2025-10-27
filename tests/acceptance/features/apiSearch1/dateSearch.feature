@@ -5,7 +5,7 @@ Feature: date search
   Background:
     Given user "Alice" has been created with default attributes
 
-  @issue-7060 @issue-10329
+  @owncloud-issue-7060 @owncloud-issue-10329
   Scenario Outline: search resources using different dav path
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "uploadFolder"
@@ -18,7 +18,7 @@ Feature: date search
       | new              |
       | spaces           |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: search resources using different search patterns (KQL feature) in the personal space
     Given user "Alice" uploads a file "filesForUpload/textfile.txt" to "/today.txt" with mtime "today" via TUS inside of the space "Personal" using the WebDAV API
     And user "Alice" uploads a file "filesForUpload/textfile.txt" to "/yesterday.txt" with mtime "yesterday" via TUS inside of the space "Personal" using the WebDAV API
@@ -49,7 +49,7 @@ Feature: date search
       # Mtime<$today. "<" has to be escaped
       | Mtime&lt;$today    | yesterday.txt   | lastYear.txt    | today.txt       |                 |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario: search resources using different search patterns (KQL feature) in the shares folder
     Given user "Brian" has been created with default attributes
     And using spaces DAV path

@@ -6,7 +6,7 @@ Feature: upload file
   Background:
     Given user "Alice" has been created with default attributes
 
-  @issue-10346
+  @owncloud-issue-10346
   Scenario Outline: upload a file and check download content
     Given using <dav-path-version> DAV path
     When user "Alice" uploads file with content "uploaded content" to "<file-name>" using the TUS protocol on the WebDAV API
@@ -35,7 +35,7 @@ Feature: upload file
       | spaces           | /?fi=le&%#2 . txt |
       | spaces           | /# %ab ab?=ed     |
 
-  @issue-10346
+  @owncloud-issue-10346
   Scenario Outline: upload a file into a folder and check download content
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "<folder-name>"
@@ -65,7 +65,7 @@ Feature: upload file
       | spaces           | /folder ?2.txt                   | file ?2.txt                   |
       | spaces           | /?fi=le&%#2 . txt                | # %ab ab?=ed                  |
 
-  @issue-10346
+  @owncloud-issue-10346
   Scenario Outline: upload chunked file with TUS
     Given using <dav-path-version> DAV path
     When user "Alice" uploads file with content "uploaded content" in 3 chunks to "/myChunkedFile.txt" using the TUS protocol on the WebDAV API
@@ -76,7 +76,7 @@ Feature: upload file
       | new              |
       | spaces           |
 
-  @issue-10346
+  @owncloud-issue-10346
   Scenario Outline: upload 1 byte chunks with TUS
     Given using <dav-path-version> DAV path
     When user "Alice" uploads file with content "0123456789" in 10 chunks to "/myChunkedFile.txt" using the TUS protocol on the WebDAV API
@@ -87,7 +87,7 @@ Feature: upload file
       | new              |
       | spaces           |
 
-  @issue-10346
+  @owncloud-issue-10346
   Scenario Outline: upload to overwriting a file
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "original content" to "textfile.txt"
@@ -99,7 +99,7 @@ Feature: upload file
       | new              |
       | spaces           |
 
-  @issue-10346
+  @owncloud-issue-10346
   Scenario Outline: upload a file and no version is available
     Given using <dav-path-version> DAV path
     When user "Alice" uploads file with content "uploaded content" to "/upload.txt" using the TUS protocol on the WebDAV API
@@ -110,7 +110,7 @@ Feature: upload file
       | new              |
       | spaces           |
 
-  @issue-10346
+  @owncloud-issue-10346
   Scenario Outline: upload a file twice and versions are available
     Given using <dav-path-version> DAV path
     When user "Alice" uploads file with content "uploaded content" to "/upload.txt" using the TUS protocol on the WebDAV API
@@ -123,7 +123,7 @@ Feature: upload file
       | new              |
       | spaces           |
 
-  @issue-10346
+  @owncloud-issue-10346
   Scenario Outline: upload a file in chunks with TUS and no version is available
     Given using <dav-path-version> DAV path
     When user "Alice" uploads file with content "0123456789" in 10 chunks to "/myChunkedFile.txt" using the TUS protocol on the WebDAV API
@@ -134,7 +134,7 @@ Feature: upload file
       | new              |
       | spaces           |
 
-  @issue-10346
+  @owncloud-issue-10346
   Scenario Outline: upload a twice file in chunks with TUS and versions are available
     Given using <dav-path-version> DAV path
     When user "Alice" uploads file with content "0123456789" in 10 chunks to "/myChunkedFile.txt" using the TUS protocol on the WebDAV API
@@ -147,7 +147,7 @@ Feature: upload file
       | new              |
       | spaces           |
 
-  @issue-10334
+  @owncloud-issue-10334
   Scenario Outline: upload a file with invalid-name
     Given using <dav-path-version> DAV path
     When user "Alice" creates a new TUS resource on the WebDAV API with these headers:
@@ -177,7 +177,7 @@ Feature: upload file
       | spaces           | "my\\file"              | bXkMaWxl                     |
       | spaces           | ".."                    | Li4=                         |
 
-  @issue-10346
+  @owncloud-issue-10346
   Scenario Outline: upload a zero-byte file
     Given using <dav-path-version> DAV path
     When user "Alice" uploads file "filesForUpload/zerobyte.txt" to "textfile.txt" using the TUS protocol on the WebDAV API
@@ -188,7 +188,7 @@ Feature: upload file
       | new              |
       | spaces           |
 
-  @issue-8003 @issue-10346
+  @owncloud-issue-8003 @owncloud-issue-10346
   Scenario Outline: replace a file with zero-byte file
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "This is TUS upload" to "textfile.txt"
@@ -200,7 +200,7 @@ Feature: upload file
       | new              |
       | spaces           |
 
-  @issue-8003 @issue-10346
+  @owncloud-issue-8003 @owncloud-issue-10346
   Scenario Outline: replace a file inside a folder with zero-byte file
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "testFolder"
@@ -213,7 +213,7 @@ Feature: upload file
       | new              |
       | spaces           |
 
-  @issue-8804
+  @owncloud-issue-8804
   Scenario Outline: multiple upload locations of the same file
     Given using <dav-path-version> DAV path
     And user "Alice" has created a new TUS resource on the WebDAV API with these headers:

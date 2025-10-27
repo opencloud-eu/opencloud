@@ -112,7 +112,7 @@ Feature: service health check
       | http://%base_url_hostname%:9129/readyz | policies    |
     Then the HTTP status code of responses on all endpoints should be "200"
 
-  @issue-10661
+  @owncloud-issue-10661
   Scenario: check default services readiness
     When a user requests these URLs with "GET" and no authentication
       | endpoint                               | service |
@@ -121,7 +121,7 @@ Feature: service health check
       | http://%base_url_hostname%:9205/readyz | proxy   |
     Then the HTTP status code of responses on all endpoints should be "200"
 
-  @env-config @issue-10661
+  @env-config @owncloud-issue-10661
   Scenario: check extra services readiness
     Given the following configs have been set:
       | config                 | value        |

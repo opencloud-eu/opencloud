@@ -28,7 +28,7 @@ Feature: tests of the creation extension see https://tus.io/protocols/resumable-
       | new              |
       | spaces           |
 
-  @issue-10346
+  @owncloud-issue-10346
   Scenario Outline: creating a new resource and upload data in multiple bytes using creation with upload extension
     Given using <dav-path-version> DAV path
     When user "Alice" creates file "textFile.txt" and uploads content "12345" in the same request using the TUS protocol on the WebDAV API

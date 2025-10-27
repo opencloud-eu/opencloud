@@ -36,7 +36,7 @@ Feature: OPTIONS request
       | Tus-Extension          | creation,creation-with-upload,checksum,expiration |
       | Tus-Checksum-Algorithm | md5,sha1,crc32                                    |
 
-  @issue-1012
+  @owncloud-issue-1012
   Scenario: send OPTIONS request to webDav endpoints using the TUS protocol with valid username and wrong password
     When user "Alice" requests these endpoints with "OPTIONS" including body "doesnotmatter" using password "invalid" about user "Alice"
       | endpoint               |
@@ -51,7 +51,7 @@ Feature: OPTIONS request
       | Tus-Extension          | creation,creation-with-upload,checksum,expiration |
       | Tus-Checksum-Algorithm | md5,sha1,crc32                                    |
 
-  @issue-1012
+  @owncloud-issue-1012
   Scenario: send OPTIONS requests to webDav endpoints using valid password and username of different user
     Given user "Brian" has been created with default attributes
     When user "Brian" requests these endpoints with "OPTIONS" including body "doesnotmatter" using the password of user "Alice"

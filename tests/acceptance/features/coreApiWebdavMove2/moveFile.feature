@@ -87,7 +87,7 @@ Feature: move (rename) file
       | new              |
       | spaces           |
 
-  @issue-1976
+  @owncloud-issue-1976
   Scenario Outline: try to move a file into same folder with same name
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "OpenCloud test text file" to "testfile.txt"
@@ -130,7 +130,7 @@ Feature: move (rename) file
       | new              |
       | spaces           |
 
-  @issue-1295 @issue-2177 @issue-3099
+  @owncloud-issue-1295 @owncloud-issue-2177 @owncloud-issue-3099
   Scenario Outline: rename a file into an invalid filename
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/textfile.txt" to "fileToRename.txt"
@@ -159,7 +159,7 @@ Feature: move (rename) file
       | new              |
       | spaces           |
 
-  @issue-1295 @issue-2177
+  @owncloud-issue-1295 @owncloud-issue-2177
   Scenario Outline: renaming a file to a path with extension .part should not be possible
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/textfile.txt" to "fileToRename.txt"
@@ -199,7 +199,7 @@ Feature: move (rename) file
       | new              |
       | spaces           |
 
-  @issue-1259
+  @owncloud-issue-1259
   #after fixing the issues merge this Scenario into the one above
   Scenario Outline: renaming to a file with question mark in its name
     Given using <dav-path-version> DAV path

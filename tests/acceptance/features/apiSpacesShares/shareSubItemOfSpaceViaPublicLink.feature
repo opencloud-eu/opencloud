@@ -28,7 +28,7 @@ Feature: Share a file or folder that is inside a space via public link
     And user "Alice" has created a folder "folder" in space "share sub-item"
     And user "Alice" has uploaded a file inside space "share sub-item" with content "some content" to "folder/file.txt"
 
-  @issue-5139
+  @owncloud-issue-5139
   Scenario Outline: manager of the space can share an entity inside project space via public link
     When user "Alice" creates a public link share inside of space "share sub-item" with settings:
       | path        | <resource>    |
@@ -62,7 +62,7 @@ Feature: Share a file or folder that is inside a space via public link
       | folder/file.txt | /file.txt   | 1           | %public% | link      | 2042-03-25T23:59:59+0100 | file          | text/plain           |
       | folder/file.txt | /file.txt   | 3           | %public% | link      | 2042-03-25T23:59:59+0100 | file          | text/plain           |
 
-  @issue-5139
+  @owncloud-issue-5139
   Scenario Outline: user participant of the project space with space manager role can share an entity inside project space via public link
     Given user "Alice" has sent the following space share invitation:
       | space           | share sub-item |
@@ -118,7 +118,7 @@ Feature: Share a file or folder that is inside a space via public link
       | folder/file.txt | Space Editor |
       | folder/file.txt | Space Viewer |
 
-  @issue-9724 @issue-10331
+  @owncloud-issue-9724 @owncloud-issue-10331
   Scenario Outline: user creates a new public link share of a file inside the personal space with edit permissions
     Given using OCS API version "<ocs-api-version>"
     And user "Alice" has uploaded file with content "Random data" to "/file.txt"
@@ -146,7 +146,7 @@ Feature: Share a file or folder that is inside a space via public link
       | 1               | 100             |
       | 2               | 200             |
 
-  @issue-5139
+  @owncloud-issue-5139
   Scenario Outline: user participant of the project space can see the created public resources link
     Given user "Alice" has sent the following space share invitation:
       | space           | share sub-item |

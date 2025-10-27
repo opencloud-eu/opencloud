@@ -21,7 +21,7 @@ Feature: accessing a public link share
     When the public accesses the preview of file "testavatar.jpg" from the last shared public link using the sharing API
     Then the HTTP status code should be "404"
 
-  @env-config @issue-10341
+  @env-config @owncloud-issue-10341
   Scenario: access to the preview of public shared file without password
     Given the config "OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD" has been set to "false"
     And user "Alice" has uploaded file "filesForUpload/testavatar.jpg" to "testavatar.jpg"
@@ -50,7 +50,7 @@ Feature: accessing a public link share
       | textfile0.txt  |
     Then the HTTP status code of responses on all endpoints should be "404"
 
-  @env-config @issue-10341
+  @env-config @owncloud-issue-10341
   Scenario: access to the preview of public shared file inside a folder without password
     Given the config "OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD" has been set to "false"
     And user "Alice" has created folder "FOLDER"

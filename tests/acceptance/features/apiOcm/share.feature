@@ -8,7 +8,7 @@ Feature: an user shares resources using ScienceMesh application
     And using server "REMOTE"
     And user "Brian" has been created with default attributes
 
-  @issue-9534
+  @owncloud-issue-9534
   Scenario: local user shares a folder to federation user
     Given using server "LOCAL"
     And "Alice" has created the federation share invitation
@@ -183,7 +183,7 @@ Feature: an user shares resources using ScienceMesh application
       }
       """
 
-  @issue-9534
+  @owncloud-issue-9534
   Scenario: local user shares a file to federation user
     Given using server "LOCAL"
     And "Alice" has created the federation share invitation
@@ -548,7 +548,7 @@ Feature: an user shares resources using ScienceMesh application
       }
       """
 
-  @issue-10051
+  @owncloud-issue-10051
   Scenario Outline: try to add federated user as a member of a project space (permissions endpoint)
     Given using server "LOCAL"
     And "Alice" has created the federation share invitation
@@ -604,7 +604,7 @@ Feature: an user shares resources using ScienceMesh application
       | Space Editor     |
       | Manager          |
 
-  @issue-10051
+  @owncloud-issue-10051
   Scenario Outline: try to add federated user as a member of a project space (root endpoint)
     Given using server "LOCAL"
     And using spaces DAV path
@@ -660,7 +660,7 @@ Feature: an user shares resources using ScienceMesh application
       | Space Editor     |
       | Manager          |
 
-  @issue-9908
+  @owncloud-issue-9908
   Scenario: sharer lists the shares shared to a federated user
     Given using server "LOCAL"
     And user "Alice" has uploaded file with content "ocm test" to "/textfile.txt"
@@ -796,7 +796,7 @@ Feature: an user shares resources using ScienceMesh application
       }
       """
 
-  @issue-10222 @issue-10495
+  @owncloud-issue-10222 @owncloud-issue-10495
   Scenario: local user lists multiple federation shares
     Given using server "LOCAL"
     And "Alice" has created the federation share invitation
@@ -915,7 +915,7 @@ Feature: an user shares resources using ScienceMesh application
       }
       """
 
-  @issue-10285 @issue-10536 @issue-10305
+  @owncloud-issue-10285 @owncloud-issue-10536 @owncloud-issue-10305
   Scenario: federation user uploads file to a federated shared folder via TUS
     Given using spaces DAV path
     And using server "LOCAL"
@@ -934,7 +934,7 @@ Feature: an user shares resources using ScienceMesh application
     And user "Brian" uploads a file with content "lorem" to "file.txt" inside federated share "FOLDER" via TUS using the WebDAV API
     Then for user "Brian" the content of file "file.txt" of federated share "FOLDER" should be "lorem"
 
-  @issue-10285 @issue-10536
+  @owncloud-issue-10285 @owncloud-issue-10536
   Scenario: local user uploads file to a federated shared folder via TUS
     Given using spaces DAV path
     And using server "LOCAL"
@@ -952,7 +952,7 @@ Feature: an user shares resources using ScienceMesh application
     And user "Alice" uploads a file with content "lorem" to "file.txt" inside federated share "FOLDER" via TUS using the WebDAV API
     Then for user "Alice" the content of file "file.txt" of federated share "FOLDER" should be "lorem"
 
-  @issue-10495
+  @owncloud-issue-10495
   Scenario: local user downloads thumbnail preview of a federated shared image
     Given using spaces DAV path
     And using server "LOCAL"
@@ -972,7 +972,7 @@ Feature: an user shares resources using ScienceMesh application
     And the downloaded image should be "32" pixels wide and "32" pixels high
     And the downloaded preview content should match with "thumbnail.png" fixtures preview content
 
-  @issue-10358
+  @owncloud-issue-10358
   Scenario: user edits content of a federated share file
     Given using spaces DAV path
     And using server "LOCAL"
@@ -995,7 +995,7 @@ Feature: an user shares resources using ScienceMesh application
     And using server "LOCAL"
     And for user "Alice" the content of the file "textfile.txt" of the space "Personal" should be "this is a new content"
 
-  @issue-10488
+  @owncloud-issue-10488
   Scenario: local user shares a folder copied from an already shared folder to federation user
     Given using server "REMOTE"
     And "Brian" has created the federation share invitation
@@ -1114,7 +1114,7 @@ Feature: an user shares resources using ScienceMesh application
       }
       """
 
-  @issue-9926
+  @owncloud-issue-9926
   Scenario: federated user tries to update a shared file after local user updates role
     Given using spaces DAV path
     And using server "LOCAL"
@@ -1140,7 +1140,7 @@ Feature: an user shares resources using ScienceMesh application
     And using server "LOCAL"
     And the content of file "textfile.txt" for user "Alice" should be "ocm test"
 
-  @issue-10689
+  @owncloud-issue-10689
   Scenario: federation user lists all the spaces
     Given using server "REMOTE"
     And "Brian" has created the federation share invitation
@@ -1158,7 +1158,7 @@ Feature: an user shares resources using ScienceMesh application
     Then the HTTP status code should be "200"
     And the json response should not contain a space with name "folderToShare"
 
-  @issue-10213
+  @owncloud-issue-10213
   Scenario Outline: local user removes access of federated user from a resource
     Given using spaces DAV path
     And using server "REMOTE"
@@ -1182,7 +1182,7 @@ Feature: an user shares resources using ScienceMesh application
       | Uploader        |
       | Editor          |
 
-  @issue-10272
+  @owncloud-issue-10272
   Scenario: federated user downloads shared resources as an archive
     Given using spaces DAV path
     And using server "REMOTE"

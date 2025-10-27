@@ -57,7 +57,7 @@ Feature: moving/renaming file using file id
     But for user "Alice" folder "folder/sub-folder" of the space "Personal" should not contain these files:
       | textfile.txt |
 
-  @issue-1976
+  @owncloud-issue-1976
   Scenario: try to move a file into same folder with same name
     And user "Alice" has uploaded file with content "some data" to "textfile.txt"
     And we save it into "FILEID"
@@ -91,7 +91,7 @@ Feature: moving/renaming file using file id
       | Editor      |
       | Viewer      |
 
-  @issue-7618
+  @owncloud-issue-7618
   Scenario Outline: move a file from personal to project space
     Given user "Brian" has been created with default attributes
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -115,7 +115,7 @@ Feature: moving/renaming file using file id
       | Space Editor | 502              |
       | Space Viewer | 403              |
 
-  @issue-7618
+  @owncloud-issue-7618
   Scenario: move a file to different name from personal space to project space
     Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "project-space" with the default quota using the Graph API
@@ -153,7 +153,7 @@ Feature: moving/renaming file using file id
       | Manager      |
       | Space Editor |
 
-  @issue-1976
+  @owncloud-issue-1976
   Scenario Outline: try to move a file within a project space into a folder with same name
     Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Brian" has been created with default attributes
@@ -237,7 +237,7 @@ Feature: moving/renaming file using file id
     But for user "Alice" folder "folder/sub-folder" of the space "project-space" should not contain these files:
       | textfile.txt |
 
-  @issue-8116
+  @owncloud-issue-8116
   Scenario Outline: move a file between two project spaces
     Given user "Brian" has been created with default attributes
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -273,7 +273,7 @@ Feature: moving/renaming file using file id
       | Space Viewer    | Space Editor  | 403              |
       | Space Viewer    | Space Viewer  | 403              |
 
-  @issue-8116
+  @owncloud-issue-8116
   Scenario: move a file to different name between project spaces
     Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "first-project-space" with the default quota using the Graph API
@@ -326,7 +326,7 @@ Feature: moving/renaming file using file id
       | Space Editor | Viewer      |
       | Space Viewer | Viewer      |
 
-  @issue-7618
+  @owncloud-issue-7618
   Scenario Outline: move a file from project to personal space
     Given user "Brian" has been created with default attributes
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -350,7 +350,7 @@ Feature: moving/renaming file using file id
       | Space Editor | 502              |
       | Space Viewer | 403              |
 
-  @issue-7618
+  @owncloud-issue-7618
   Scenario: move a file to different name from project space to personal space
     Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "project-space" with the default quota using the Graph API
@@ -364,7 +364,7 @@ Feature: moving/renaming file using file id
     But for user "Alice" folder "/" of the space "Personal" should not contain these files:
       | renamed.txt |
 
-  @issue-7617
+  @owncloud-issue-7617
   Scenario: move a file into a folder within a shared folder (edit permissions)
     Given user "Brian" has been created with default attributes
     And user "Alice" has created folder "folder"
@@ -389,7 +389,7 @@ Feature: moving/renaming file using file id
     And for user "Alice" folder "folder" of the space "Personal" should not contain these files:
       | test.txt |
 
-  @issue-1976
+  @owncloud-issue-1976
   Scenario: sharee tries to move a file into same shared folder with same name
     Given user "Brian" has been created with default attributes
     And user "Alice" has created folder "folder"
@@ -467,7 +467,7 @@ Feature: moving/renaming file using file id
       | Viewer           | Editor         |
       | Viewer           | Viewer         |
 
-  @issue-8124
+  @owncloud-issue-8124
   Scenario Outline: move a file from share to personal space
     Given user "Brian" has been created with default attributes
     And user "Alice" has created folder "/folder"
@@ -491,7 +491,7 @@ Feature: moving/renaming file using file id
       | Editor      | 502              |
       | Viewer      | 403              |
 
-  @issue-8125
+  @owncloud-issue-8125
   Scenario Outline: move a file from shares to project space
     Given user "Brian" has been created with default attributes
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -587,7 +587,7 @@ Feature: moving/renaming file using file id
     But for user "Alice" folder "folder/sub-folder" of the space "Personal" should not contain these files:
       | textfile.txt |
 
-  @issue-7617
+  @owncloud-issue-7617
   Scenario: move a file to a different name into a sub-folder inside share space (editor permissions)
     Given user "Brian" has been created with default attributes
     And user "Alice" has created folder "/folder"
@@ -629,7 +629,7 @@ Feature: moving/renaming file using file id
     But for user "Brian" folder "folder/sub-folder" of the space "Shares" should not contain these files:
       | renamed.txt |
 
-  @issue-6739
+  @owncloud-issue-6739
   Scenario Outline: try to move personal file to other spaces using its id as the destination
     Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "myspace" with the default quota using the Graph API
@@ -644,7 +644,7 @@ Feature: moving/renaming file using file id
       | myspace    | 400              |
       | Shares     | 404              |
 
-  @issue-6739
+  @owncloud-issue-6739
   Scenario Outline: try to move project file to other spaces using its id as the destination
     Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "myspace" with the default quota using the Graph API
@@ -659,7 +659,7 @@ Feature: moving/renaming file using file id
       | myspace    | 409              |
       | Shares     | 404              |
 
-  @issue-6739
+  @owncloud-issue-6739
   Scenario: move a file to folder using its id as the destination (Personal space)
     Given user "Alice" has uploaded file with content "some data" to "textfile.txt"
     And user "Alice" has created folder "docs"
@@ -670,7 +670,7 @@ Feature: moving/renaming file using file id
     And as "Alice" folder "docs" should not exist
     And as "Alice" folder "docs" should exist in the trashbin of the space "Personal"
 
-  @issue-6739
+  @owncloud-issue-6739
   Scenario: move a file to folder using its id as the destination (Project space)
     Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "myspace" with the default quota using the Graph API

@@ -80,7 +80,7 @@ Feature: settings api
       }
       """
 
-  @issue-5032
+  @owncloud-issue-5032
   Scenario: user lists assignments
     Given the administrator has assigned the role "Admin" to user "Alice" using the Graph API
     When user "Alice" tries to get list of assignment using the settings API
@@ -174,7 +174,7 @@ Feature: settings api
       }
       """
 
-  @issue-5079
+  @owncloud-issue-5079
   Scenario Outline: user lists existing roles
     Given the administrator has assigned the role "<user-role>" to user "Alice" using the Graph API
     When user "Alice" tries to get all existing roles using the settings API

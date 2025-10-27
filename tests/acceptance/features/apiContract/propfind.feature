@@ -121,7 +121,7 @@ Feature: Propfind test
       | Space Editor | DNVW          |
       | Space Viewer |               |
 
-  @issue-1523
+  @owncloud-issue-1523
   Scenario: propfind response contains a restored folder with correct name
     Given user "Alice" has created a folder "folderMain" in space "Personal"
     And user "Alice" has deleted folder "folderMain"

@@ -42,7 +42,7 @@ Feature: LOCK file/folder
       | /dav/spaces/%spaceid%/PARENT/parent.txt |
     Then the HTTP status code of responses on all endpoints should be "401"
 
-  @issue-1347 @issue-2176
+  @owncloud-issue-1347 @owncloud-issue-2176
   Scenario: send LOCK requests to another user's webDav endpoints as normal user
     When user "Brian" requests these endpoints with "LOCK" to get property "d:shared" about user "Alice"
       | endpoint                            |
@@ -54,7 +54,7 @@ Feature: LOCK file/folder
       | /dav/files/%username%/PARENT/parent.txt |
     Then the HTTP status code of responses on all endpoints should be "409"
 
-  @issue-1347 @issue-2176
+  @owncloud-issue-1347 @owncloud-issue-2176
   Scenario: send LOCK requests to another user's webDav endpoints as normal user using the spaces WebDAV API
     When user "Brian" requests these endpoints with "LOCK" to get property "d:shared" about user "Alice"
       | endpoint                            |

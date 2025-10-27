@@ -12,7 +12,7 @@ Feature: resources shared with the same name are received with unique names
       | Brian    |
       | Carol    |
 
-  @smokeTest @issue-2131
+  @smokeTest @owncloud-issue-2131
   Scenario: unique target names for incoming shares
     Given user "Alice" has created folder "/foo"
     And user "Brian" has created folder "/foo"
@@ -24,7 +24,7 @@ Feature: resources shared with the same name are received with unique names
       | Shares/foo      |
       | /Shares/foo (1) |
 
-  @smokeTest @issue-2131
+  @smokeTest @owncloud-issue-2131
   Scenario: unique target names for incoming shares when auto-accepting is disabled
     Given user "Brian" has disabled auto-accepting
     And user "Alice" has created folder "/foo"

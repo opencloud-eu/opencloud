@@ -6,7 +6,7 @@ Feature: create user
   Background:
     Given user "Alice" has been created with default attributes
 
-  @issue-3516
+  @owncloud-issue-3516
   Scenario Outline: admin creates a user
     Given the administrator has assigned the role "Admin" to user "Alice" using the Graph API
     When the user "Alice" creates a new user with the following attributes using the Graph API:

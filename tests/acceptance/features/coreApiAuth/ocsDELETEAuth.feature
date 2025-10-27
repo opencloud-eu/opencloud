@@ -3,7 +3,7 @@ Feature: auth
   I want to send delete request with wrong password
   So that I can make sure it doesn't work
 
-  @smokeTest @issue-1337 @issue-1319
+  @smokeTest @owncloud-issue-1337 @owncloud-issue-1319
   Scenario: send DELETE requests to OCS endpoints as admin with wrong password
     When user "admin" requests these endpoints with "DELETE" using password "invalid" about user "Alice"
       | endpoint                                                        |

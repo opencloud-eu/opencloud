@@ -1,4 +1,4 @@
-@skipOnReva @issue-1328 @issues-1289
+@skipOnReva @owncloud-issue-1328 @owncloud-issues-1289
 Feature: sharing
 
   Background:

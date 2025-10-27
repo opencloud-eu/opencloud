@@ -92,7 +92,7 @@ Feature: antivirus
       | new              |
       | spaces           |
 
-  @issue-10331 @env-config
+  @owncloud-issue-10331 @env-config
   Scenario Outline: public uploads a file with the virus to a public share
     Given using <dav-path-version> DAV path
     And the config "OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD" has been set to "false"
@@ -118,7 +118,7 @@ Feature: antivirus
       | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Eicar-Signature      |
       | spaces           | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
 
-  @issue-10331
+  @owncloud-issue-10331
   Scenario Outline: public uploads a file with the virus to a password-protected public share
     Given using <dav-path-version> DAV path
     And using SharingNG
@@ -252,7 +252,7 @@ Feature: antivirus
       | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Eicar-Signature      |
       | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
 
-  @env-config  @issue-6494
+  @env-config  @owncloud-issue-6494
   Scenario Outline: upload a file with virus by setting antivirus infected file handling config to continue
     Given the config "ANTIVIRUS_INFECTED_FILE_HANDLING" has been set to "continue"
     And using <dav-path-version> DAV path
@@ -294,7 +294,7 @@ Feature: antivirus
       | new              |
       | spaces           |
 
-  @issue-enterprise-5706 @issue-183 @issue-369
+  @owncloud-issue-enterprise-5706 @issue-183 @issue-369
   Scenario Outline: upload a file with virus and get notification in different languages
     Given user "Alice" has switched the system language to "<language>" using the Graph API
     And using <dav-path-version> DAV path
@@ -313,7 +313,7 @@ Feature: antivirus
       | new              | de       | Virus gefunden   | In aFileWithVirus.txt wurde potenziell schädlicher Code gefunden. Das Hochladen wurde abgebrochen. Grund: Eicar-Signature |
       | spaces           | de       | Virus gefunden   | In aFileWithVirus.txt wurde potenziell schädlicher Code gefunden. Das Hochladen wurde abgebrochen. Grund: Eicar-Signature |
 
-  @issue-enterprise-5709
+  @owncloud-issue-enterprise-5709
   Scenario Outline: try to create a version of file by uploading virus content
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "hello world" to "test.txt"
@@ -335,7 +335,7 @@ Feature: antivirus
       | new              |
       | spaces           |
 
-  @env-config @issue-10331
+  @env-config @owncloud-issue-10331
   Scenario Outline: try to overwrite a file with the virus content in a public link share
     Given the config "OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD" has been set to "false"
     And using <dav-path-version> DAV path

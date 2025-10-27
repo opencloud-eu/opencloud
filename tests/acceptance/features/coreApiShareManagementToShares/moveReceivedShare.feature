@@ -1,4 +1,4 @@
-@skipOnReva @issue-1289 @issue-1328
+@skipOnReva @owncloud-issue-1289 @owncloud-issue-1328
 Feature: sharing
 
   Background:
@@ -9,7 +9,7 @@ Feature: sharing
       | Brian    |
       | Carol    |
 
-  @issue-8242 @issue-10334
+  @owncloud-issue-8242 @owncloud-issue-10334
   Scenario Outline: sharer renames the shared item (old/new webdav)
     Given user "Alice" has uploaded file with content "foo" to "sharefile.txt"
     And using <dav-path-version> DAV path
@@ -49,7 +49,7 @@ Feature: sharing
       | old              | /webdav               |
       | new              | /dav/files/%username% |
 
-  @issue-8242
+  @owncloud-issue-8242
   Scenario Outline: sharer renames the shared item (spaces webdav)
     Given user "Alice" has uploaded file with content "foo" to "sharefile.txt"
     And user "Alice" has sent the following resource share invitation:
@@ -88,7 +88,7 @@ Feature: sharing
       | dav-path                                 | dav-path-personal     |
       | /dav/spaces/%shares_drive_id%            | /dav/spaces/%spaceid% |
 
-  @issue-8242 @issue-10334 @env-config
+  @owncloud-issue-8242 @owncloud-issue-10334 @env-config
   Scenario Outline: share receiver renames the shared item (old/new webdav)
     Given user "Alice" has uploaded file with content "foo" to "/sharefile.txt"
     And the administrator has enabled the permissions role "Secure Viewer"
@@ -131,7 +131,7 @@ Feature: sharing
       | new              | /dav/files/%username% | Viewer           |
       | new              | /dav/files/%username% | Secure Viewer    |
 
-  @issue-8242 @env-config
+  @owncloud-issue-8242 @env-config
   Scenario Outline: share receiver renames the shared item (spaces webdav)
     Given user "Alice" has uploaded file with content "foo" to "/sharefile.txt"
     And the administrator has enabled the permissions role "Secure Viewer"
@@ -438,7 +438,7 @@ Feature: sharing
       | new              |
       | spaces           |
 
-  @issue-2141
+  @owncloud-issue-2141
   Scenario Outline: receiver renames a received folder share to name with special characters in group sharing
     Given using <dav-path-version> DAV path
     And group "grp1" has been created
@@ -470,7 +470,7 @@ Feature: sharing
       | ?abc=oc #     | ?abc=oc g%rp#   | # oc?test=oc&a  | spaces           |
       | @a#8a=b?c=d   | @a#8a=b?c=d grp | ?a#8 a=b?c=d    | spaces           |
 
-  @issue-2141
+  @owncloud-issue-2141
   Scenario Outline: receiver renames a received file share to name with special characters with read, change permissions in group sharing
     Given using <dav-path-version> DAV path
     And group "grp1" has been created

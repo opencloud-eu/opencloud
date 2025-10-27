@@ -108,7 +108,7 @@ Feature: list files
       | new              |
       | spaces           |
 
-  @env-config @issue-10071 @issue-10331
+  @env-config @owncloud-issue-10071 @owncloud-issue-10331
   Scenario: get the list of resources in a folder shared through public link with depth 0
     Given using new DAV path
     And the config "OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD" has been set to "false"
@@ -136,7 +136,7 @@ Feature: list files
       | /simple-folder1/simple-folder2/simple-folder3                |
       | /simple-folder1/simple-folder2/simple-folder3/simple-folder4 |
 
-  @env-config @issue-10071 @issue-10331
+  @env-config @owncloud-issue-10071 @owncloud-issue-10331
   Scenario: get the list of resources in a folder shared through public link with depth 1
     Given using new DAV path
     And the config "OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD" has been set to "false"

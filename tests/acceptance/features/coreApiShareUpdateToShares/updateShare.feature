@@ -8,7 +8,7 @@ Feature: sharing
     Given using OCS API version "1"
     And user "Alice" has been created with default attributes
 
-  @issue-1289 @issue-7555
+  @owncloud-issue-1289 @owncloud-issue-7555
   Scenario Outline: keep group permissions in sync when the share is renamed by the receiver and then the permissions are updated by sharer
     Given using OCS API version "<ocs-api-version>"
     And user "Brian" has been created with default attributes
@@ -68,7 +68,7 @@ Feature: sharing
       | 1               | 200              |
       | 2               | 400              |
 
-  @issue-2173
+  @owncloud-issue-2173
   Scenario Outline: cannot update a share of a file with a user to have only create and/or delete permission
     Given using OCS API version "<ocs-api-version>"
     And user "Brian" has been created with default attributes
@@ -96,7 +96,7 @@ Feature: sharing
       | 1               | 200              | create,delete |
       | 2               | 400              | create,delete |
 
-  @issue-2173
+  @owncloud-issue-2173
   Scenario Outline: cannot update a share of a file with a group to have only create and/or delete permission
     Given using OCS API version "<ocs-api-version>"
     And user "Brian" has been created with default attributes
@@ -126,7 +126,7 @@ Feature: sharing
       | 1               | 200              | create,delete |
       | 2               | 400              | create,delete |
 
-  @issue-2442
+  @owncloud-issue-2442
   Scenario Outline: share ownership change after moving a shared file to another share
     Given using <dav-path-version> DAV path
     And these users have been created with default attributes:
@@ -158,7 +158,7 @@ Feature: sharing
       | new              |
       | spaces           |
 
-  @issue-1253 @issue-1224 @issue-1225
+  @owncloud-issue-1253 @owncloud-issue-1224 @owncloud-issue-1225
   Scenario Outline: change the permission of the share and check the API response
     Given using OCS API version "<ocs-api-version>"
     And user "Brian" has been created with default attributes

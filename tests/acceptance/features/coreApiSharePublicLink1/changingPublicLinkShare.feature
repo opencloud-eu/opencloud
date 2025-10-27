@@ -1,4 +1,4 @@
-@skipOnReva @issue-1276 @issue-1269
+@skipOnReva @owncloud-issue-1276 @owncloud-issue-1269
 Feature: changing a public link share
   As a user
   I want to set the permissions of a public link share
@@ -11,7 +11,7 @@ Feature: changing a public link share
     And user "Alice" has created folder "PARENT"
     And user "Alice" has uploaded file "filesForUpload/textfile.txt" to "PARENT/parent.txt"
 
-  @issue-10331
+  @owncloud-issue-10331
   Scenario Outline: public can or cannot delete file through publicly shared link depending on having delete permissions using the public WebDAV API
     Given using SharingNG
     And user "Alice" has created the following resource link share:
@@ -29,7 +29,7 @@ Feature: changing a public link share
       | createOnly       | 403              | should        |
       | edit             | 204              | should not    |
 
-  @issue-10331
+  @owncloud-issue-10331
   Scenario: public link share permissions work correctly for renaming and share permissions edit using the public WebDAV API
     Given using SharingNG
     And user "Alice" has created the following resource link share:
@@ -42,7 +42,7 @@ Feature: changing a public link share
     And as "Alice" file "/PARENT/parent.txt" should not exist
     And as "Alice" file "/PARENT/newparent.txt" should exist
 
-  @issue-10331
+  @owncloud-issue-10331
   Scenario: public link share permissions work correctly for upload with share permissions edit with the public WebDAV API
     Given using SharingNG
     And user "Alice" has created the following resource link share:
@@ -66,7 +66,7 @@ Feature: changing a public link share
     Then the HTTP status code should be "401"
     And as "Alice" file "PARENT/parent.txt" should exist
 
-  @issue-10331
+  @owncloud-issue-10331
   Scenario: public can delete file through publicly shared link with password using the valid password with the public WebDAV API
     Given using SharingNG
     And user "Alice" has created the following resource link share:
@@ -91,7 +91,7 @@ Feature: changing a public link share
     And as "Alice" file "/PARENT/newparent.txt" should not exist
     And as "Alice" file "/PARENT/parent.txt" should exist
 
-  @issue-10331
+  @owncloud-issue-10331
   Scenario: public tries to rename a file in a password protected share using the valid password with the public WebDAV API
     Given using SharingNG
     And user "Alice" has created the following resource link share:
@@ -116,7 +116,7 @@ Feature: changing a public link share
     Then the HTTP status code should be "401"
     And as "Alice" file "/PARENT/lorem.txt" should not exist
 
-  @issue-10331
+  @owncloud-issue-10331
   Scenario: public tries to upload to a password protected public share using the valid password with the public WebDAV API
     Given using SharingNG
     And user "Alice" has created the following resource link share:
@@ -128,7 +128,7 @@ Feature: changing a public link share
     Then the HTTP status code should be "201"
     And as "Alice" file "/PARENT/lorem.txt" should exist
 
-  @issue-10331
+  @owncloud-issue-10331
   Scenario: public cannot rename a file in upload-write-only public link share with the public WebDAV API
     Given using SharingNG
     And user "Alice" has created the following resource link share:
@@ -141,7 +141,7 @@ Feature: changing a public link share
     And as "Alice" file "/PARENT/parent.txt" should exist
     And as "Alice" file "/PARENT/newparent.txt" should not exist
 
-  @issue-10331
+  @owncloud-issue-10331
   Scenario: public cannot delete a file in upload-write-only public link share with the public WebDAV API
     Given using SharingNG
     And user "Alice" has created the following resource link share:
@@ -176,7 +176,7 @@ Feature: changing a public link share
       | 1               | create      | createOnly       | 200              |
       | 2               | create      | createOnly       | 400              |
 
-  @issue-7821
+  @owncloud-issue-7821
   Scenario Outline: normal user tries to remove password of a public link (update without sending permissions)
     Given using OCS API version "<ocs-api-version>"
     And using SharingNG
@@ -196,7 +196,7 @@ Feature: changing a public link share
       | 1               | 200              |
       | 2               | 403              |
 
-  @issue-9724 @issue-10331
+  @owncloud-issue-9724 @owncloud-issue-10331
   Scenario Outline: administrator removes password of a read-only public link
     Given the administrator has assigned the role "Admin" to user "Alice" using the Graph API
     And using OCS API version "<ocs-api-version>"
@@ -245,7 +245,7 @@ Feature: changing a public link share
       | 1               | create      | createOnly       | 200              |
       | 2               | create      | createOnly       | 400              |
 
-  @issue-web-10473
+  @owncloud-issue-web-10473
   Scenario: user tries to download public link file using own basic auth
     Given user "Alice" has created folder "FOLDER"
     And user "Alice" has uploaded file "filesForUpload/textfile.txt" to "FOLDER/textfile.txt"

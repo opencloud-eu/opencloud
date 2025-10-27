@@ -249,7 +249,7 @@ Feature: List a sharing permissions
       }
       """
 
-  @issues-8352
+  @owncloud-issues-8352
   Scenario Outline: sharer lists permissions of a shared project space
     Given using spaces DAV path
     And user "Brian" has been created with default attributes
@@ -526,7 +526,7 @@ Feature: List a sharing permissions
       | Space Editor     |
       | Manager          |
 
-  @issues-8331
+  @owncloud-issues-8331
   Scenario: user lists permissions of a file in personal space
     Given user "Alice" has uploaded file with content "hello world" to "/textfile0.txt"
     When user "Alice" gets permissions list for file "textfile0.txt" of the space "Personal" using the Graph API
@@ -623,7 +623,7 @@ Feature: List a sharing permissions
       }
       """
 
-  @issues-8331
+  @owncloud-issues-8331
   Scenario: user lists permissions of a folder in project space
     Given using spaces DAV path
     And the administrator has assigned the role "Admin" to user "Alice" using the Graph API
@@ -746,7 +746,7 @@ Feature: List a sharing permissions
       }
       """
 
-  @issues-8331
+  @owncloud-issues-8331
   Scenario: user lists permissions of a file in project space
     Given using spaces DAV path
     And the administrator has assigned the role "Admin" to user "Alice" using the Graph API
@@ -846,7 +846,7 @@ Feature: List a sharing permissions
       }
       """
 
-  @issues-8331
+  @owncloud-issues-8331
   Scenario: user sends share invitation with all allowed roles for a file
     Given user "Alice" has uploaded file with content "hello text" to "textfile.txt"
     And user "Brian" has been created with default attributes
@@ -858,7 +858,7 @@ Feature: List a sharing permissions
       | sharee       | Brian        |
       | shareType    | user         |
 
-  @issues-8331
+  @owncloud-issues-8331
   Scenario: user sends share invitation with all allowed roles for a folder
     Given user "Alice" has created folder "folder"
     And user "Brian" has been created with default attributes
@@ -870,7 +870,7 @@ Feature: List a sharing permissions
       | sharee       | Brian    |
       | shareType    | user     |
 
-  @issues-8351
+  @owncloud-issues-8351
   Scenario: user lists permissions of a project space using root endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -1208,7 +1208,7 @@ Feature: List a sharing permissions
       }
       """
 
-  @issues-8331
+  @owncloud-issues-8331
   Scenario: user sends share invitation with all allowed roles for a folder in project space
     Given using spaces DAV path
     And the administrator has assigned the role "Admin" to user "Alice" using the Graph API
@@ -1553,7 +1553,7 @@ Feature: List a sharing permissions
       | sharee    | Brian     |
       | shareType | user      |
 
-  @issue-9151
+  @owncloud-issue-9151
   Scenario: non-member user tries to list the permissions of a project space using root endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -1594,7 +1594,7 @@ Feature: List a sharing permissions
       }
       """
 
-  @issue-8922
+  @owncloud-issue-8922
   Scenario: user lists the permissions of Shares drive using permissions endpoint
     When user "Alice" lists the permissions of space "Shares" using permissions endpoint of the Graph API
     Then the HTTP status code should be "200"
@@ -1615,7 +1615,7 @@ Feature: List a sharing permissions
       }
       """
 
-  @issue-8922
+  @owncloud-issue-8922
   Scenario: list the permissions of a Personal drive using permissions endpoint
     When user "Alice" lists the permissions of space "Personal" using permissions endpoint of the Graph API
     Then the HTTP status code should be "200"
@@ -1734,7 +1734,7 @@ Feature: List a sharing permissions
       }
       """
 
-  @issues-8428
+  @owncloud-issues-8428
   Scenario: user lists permissions of a shared folder in personal space
     Given user "Brian" has been created with default attributes
     And user "Alice" has created folder "folder"
@@ -1839,7 +1839,7 @@ Feature: List a sharing permissions
       }
       """
 
-  @issues-8428
+  @owncloud-issues-8428
   Scenario: user lists permissions of a shared file in personal space
     Given user "Brian" has been created with default attributes
     And user "Alice" has uploaded file with content "hello world" to "/textfile0.txt"
@@ -1940,7 +1940,7 @@ Feature: List a sharing permissions
       }
       """
 
-  @issues-8428
+  @owncloud-issues-8428
   Scenario: user lists permissions of a shared folder in project space
     Given using spaces DAV path
     And user "Brian" has been created with default attributes
@@ -2048,7 +2048,7 @@ Feature: List a sharing permissions
       }
       """
 
-  @issues-8428
+  @owncloud-issues-8428
   Scenario: user lists permissions of a shared file in project space
     Given using spaces DAV path
     And user "Brian" has been created with default attributes
@@ -2536,7 +2536,7 @@ Feature: List a sharing permissions
       }
       """
 
-  @issue-9764
+  @owncloud-issue-9764
   Scenario: user tries to list permissions of a disabled project space using root endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API

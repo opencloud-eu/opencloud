@@ -118,7 +118,7 @@ Feature: add users to group
       | Alice    | priv/subadmins/1 |
       | Alice    | var/../etc       |
 
-  @issue-5938
+  @owncloud-issue-5938
   Scenario Outline: user other than the admin tries to add herself to a group
     Given the administrator has assigned the role "<user-role>" to user "Alice" using the Graph API
     And group "groupA" has been created
@@ -153,7 +153,7 @@ Feature: add users to group
       | User        |
       | User Light  |
 
-  @issue-5938
+  @owncloud-issue-5938
   Scenario Outline: user other than the admin tries to add other user to a group
     Given user "Brian" has been created with default attributes
     And the administrator has assigned the role "<user-role>" to user "Brian" using the Graph API
@@ -194,7 +194,7 @@ Feature: add users to group
     When the administrator tries to add user "Alice" to a nonexistent group using the Graph API
     Then the HTTP status code should be "404"
 
-  @issue-5939
+  @owncloud-issue-5939
   Scenario Outline: user other than the admin tries to add user to a nonexistent group
     Given user "Brian" has been created with default attributes
     And the administrator has assigned the role "<user-role>" to user "Alice" using the Graph API
@@ -291,7 +291,7 @@ Feature: add users to group
       | username | groupname |
       | Alice    | sales     |
 
-  @issue-5702
+  @owncloud-issue-5702
   Scenario: try to add users to a group twice
     Given the administrator has assigned the role "Admin" to user "Alice" using the Graph API
     And these users have been created with default attributes:
@@ -313,7 +313,7 @@ Feature: add users to group
       | Brian    | grp1      |
       | Carol    | grp1      |
 
-  @issue-5793
+  @owncloud-issue-5793
   Scenario: try to add a group to another group with PATCH request
     Given the administrator has assigned the role "Admin" to user "Alice" using the Graph API
     And these users have been created with default attributes:
@@ -327,7 +327,7 @@ Feature: add users to group
     When the administrator "Alice" tries to add a group "music" to another group "student" with PATCH request using the Graph API
     Then the HTTP status code should be "400"
 
-  @issue-5793
+  @owncloud-issue-5793
   Scenario: try to add a group to another group with POST request
     Given the administrator has assigned the role "Admin" to user "Alice" using the Graph API
     And these users have been created with default attributes:
@@ -375,7 +375,7 @@ Feature: add users to group
       | {'members@odata.bind'- ['https://localhost:9200/graph/v1.0/users/%user_id%','https://localhost:9200/graph/v1.0/users/%user_id%']}  |
       | {'members@odata.bind': ['https://localhost:9200/graph/v1.0/users/%user_id%'.'https://localhost:9200/graph/v1.0/users/%user_id%']}  |
 
-  @issue-5871
+  @owncloud-issue-5871
   Scenario: admin tries to add multiple users with wrong host
     Given the administrator has assigned the role "Admin" to user "Alice" using the Graph API
     And these users have been created with default attributes:
@@ -389,7 +389,7 @@ Feature: add users to group
       | Carol    |
     Then the HTTP status code should be "400"
 
-  @issue-5871
+  @owncloud-issue-5871
   Scenario: admin tries to add single user with wrong host
     Given the administrator has assigned the role "Admin" to user "Alice" using the Graph API
     And these users have been created with default attributes:
@@ -426,7 +426,7 @@ Feature: add users to group
       | b1f74ec4-dd7e-11ef-a543-03775734d0f71 | adding an extra character at end of valid UUID pattern |
       | 4c510adac8-6b-4815-882042cdf-82c3d51  | invalid UUID pattern                                   |
 
-  @issue-5855
+  @owncloud-issue-5855
   Scenario: add same user twice to a group at once
     Given the administrator has assigned the role "Admin" to user "Alice" using the Graph API
     And these users have been created with default attributes:

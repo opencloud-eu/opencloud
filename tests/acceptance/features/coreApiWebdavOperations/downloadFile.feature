@@ -20,7 +20,7 @@ Feature: download file
       | new              |
       | spaces           |
 
-  @issue-1346
+  @owncloud-issue-1346
   Scenario Outline: download a file with range
     Given using <dav-path-version> DAV path
     When user "Alice" downloads file "/welcome.txt" with range "bytes=24-50" using the WebDAV API
@@ -60,7 +60,7 @@ Feature: download file
       | new              |
       | spaces           |
 
-  @issue-1316
+  @owncloud-issue-1316
   Scenario Outline: get the content-length response header of a pdf file
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/simple.pdf" to "/simple.pdf"
@@ -75,7 +75,7 @@ Feature: download file
       | new              |
       | spaces           |
 
-  @issue-1316
+  @owncloud-issue-1316
   Scenario Outline: get the content-length response header of an image file
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/testavatar.png" to "/testavatar.png"
@@ -210,7 +210,7 @@ Feature: download file
       | new              |
       | spaces           |
 
-  @smokeTest @issue-8361 @skipOnReva
+  @smokeTest @owncloud-issue-8361 @skipOnReva
   Scenario Outline: downloading a file should serve security headers
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "test file" to "/<file-name>"
@@ -238,7 +238,7 @@ Feature: download file
       | spaces           | comma,.txt         | comma%2C.txt             |
       | spaces           | 'quote'single'.txt | %27quote%27single%27.txt |
 
-  @smokeTest @issue-8361 @skipOnReva
+  @smokeTest @owncloud-issue-8361 @skipOnReva
   Scenario Outline: downloading a file should serve security headers (file with double quotes)
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "test file" to '/"quote"double".txt'

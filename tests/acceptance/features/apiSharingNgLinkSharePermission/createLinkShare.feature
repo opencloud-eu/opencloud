@@ -6,7 +6,7 @@ Feature: Create a link share for a resource
       | username |
       | Alice    |
 
-  @issue-7879
+  @owncloud-issue-7879
   Scenario Outline: create a link share of a folder using permissions endpoint
     Given user "Alice" has created folder "folder"
     When user "Alice" creates the following resource link share using the Graph API:
@@ -70,7 +70,7 @@ Feature: Create a link share for a resource
       | upload           |
       | createOnly       |
 
-  @issue-8619
+  @owncloud-issue-8619
   Scenario: create an internal link share of a folder using permissions endpoint
     Given user "Alice" has created folder "folder"
     When user "Alice" creates the following resource link share using the Graph API:
@@ -127,7 +127,7 @@ Feature: Create a link share for a resource
       }
       """
 
-  @issue-8619
+  @owncloud-issue-8619
   Scenario: try to create an internal link share of a folder with password using permissions endpoint
     Given user "Alice" has created folder "folder"
     When user "Alice" creates the following resource link share using the Graph API:
@@ -137,7 +137,7 @@ Feature: Create a link share for a resource
       | password        | %public% |
     Then the HTTP status code should be "400"
 
-  @issue-7879
+  @owncloud-issue-7879
   Scenario Outline: create a link share of a file using permissions endpoint
     Given user "Alice" has uploaded file with content "other data" to "textfile1.txt"
     When user "Alice" creates the following resource link share using the Graph API:
@@ -199,7 +199,7 @@ Feature: Create a link share for a resource
       | view             |
       | edit             |
 
-  @issue-8619
+  @owncloud-issue-8619
   Scenario: create an internal link share of a file using permissions endpoint
     Given user "Alice" has uploaded file with content "other data" to "textfile1.txt"
     When user "Alice" creates the following resource link share using the Graph API:
@@ -256,7 +256,7 @@ Feature: Create a link share for a resource
       }
       """
 
-  @issue-8619
+  @owncloud-issue-8619
   Scenario: try to create an internal link share of a file with password using permissions endpoint
     Given user "Alice" has uploaded file with content "other data" to "textfile1.txt"
     When user "Alice" creates the following resource link share using the Graph API:
@@ -266,7 +266,7 @@ Feature: Create a link share for a resource
       | password        | %public%      |
     Then the HTTP status code should be "400"
 
-  @issue-7879
+  @owncloud-issue-7879
   Scenario Outline: create a link share of a folder with display name and expiry date using permissions endpoint
     Given user "Alice" has created folder "folder"
     When user "Alice" creates the following resource link share using the Graph API:
@@ -336,7 +336,7 @@ Feature: Create a link share for a resource
       | upload           |
       | createOnly       |
 
-  @issue-7879
+  @owncloud-issue-7879
   Scenario Outline: create a link share of a file with display name and expiry date using permissions endpoint
     Given user "Alice" has uploaded file with content "other data" to "textfile1.txt"
     When user "Alice" creates the following resource link share using the Graph API:
@@ -404,7 +404,7 @@ Feature: Create a link share for a resource
       | view             |
       | edit             |
 
-  @env-config @issue-7879
+  @env-config @owncloud-issue-7879
   Scenario Outline: create a link share of a file without password using permissions endpoint
     Given the following configs have been set:
       | config                                       | value |
@@ -469,7 +469,7 @@ Feature: Create a link share for a resource
       | edit             |
       | internal         |
 
-  @env-config @issue-9724 @issue-10331
+  @env-config @owncloud-issue-9724 @owncloud-issue-10331
   Scenario: set password on a file's link share using permissions endpoint
     Given the following configs have been set:
       | config                                       | value |
@@ -543,7 +543,7 @@ Feature: Create a link share for a resource
       | password        |
       | OpenCloud        |
 
-  @issue-7879
+  @owncloud-issue-7879
   Scenario Outline: create a link share of a folder inside project-space using permissions endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -669,7 +669,7 @@ Feature: Create a link share for a resource
       }
       """
 
-  @issue-8619
+  @owncloud-issue-8619
   Scenario: try to create an internal link share of a folder inside project-space with password using permissions endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -682,7 +682,7 @@ Feature: Create a link share for a resource
       | password        | %public%      |
     Then the HTTP status code should be "400"
 
-  @issue-7879
+  @owncloud-issue-7879
   Scenario Outline: create a link share of a folder inside project-space with display name and expiry date using permissions endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -810,7 +810,7 @@ Feature: Create a link share for a resource
       | password        | createOnly       |
       | OpenCloud       | createOnly       |
 
-  @env-config @issue-7879
+  @env-config @owncloud-issue-7879
   Scenario Outline: create a link share of a file inside project-space without password using permissions endpoint
     Given the following configs have been set:
       | config                                       | value |
@@ -879,7 +879,7 @@ Feature: Create a link share for a resource
       | upload           |
       | createOnly       |
 
-  @issue-7879
+  @owncloud-issue-7879
   Scenario Outline: create a link share of a file inside project-space using permissions endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -944,7 +944,7 @@ Feature: Create a link share for a resource
       | view             |
       | edit             |
 
-  @issue-8619
+  @owncloud-issue-8619
   Scenario: create an internal link share of a file inside project-space using permissions endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -1004,7 +1004,7 @@ Feature: Create a link share for a resource
       }
       """
 
-  @issue-8619
+  @owncloud-issue-8619
   Scenario: try to create an internal link share of a file inside project-space with password from project-space using permissions endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -1017,7 +1017,7 @@ Feature: Create a link share for a resource
       | password        | %public%     |
     Then the HTTP status code should be "400"
 
-  @issue-7879
+  @owncloud-issue-7879
   Scenario Outline: create a link share of a file inside project-space with display name and expiry date using permissions endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -1087,7 +1087,7 @@ Feature: Create a link share for a resource
       | view             |
       | edit             |
 
-  @env-config @issue-7879
+  @env-config @owncloud-issue-7879
   Scenario Outline: create a link share of a file inside project-space without password using permissions endpoint
     Given the following configs have been set:
       | config                                       | value |
@@ -1204,7 +1204,7 @@ Feature: Create a link share for a resource
       | password        | edit             |
       | OpenCloud       | edit             |
 
-  @env-config @issue-9724 @issue-10331
+  @env-config @owncloud-issue-9724 @owncloud-issue-10331
   Scenario: set password on a existing link share of a file inside project-space using permissions endpoint
     Given the following configs have been set:
       | config                                       | value |
@@ -1238,7 +1238,7 @@ Feature: Create a link share for a resource
       """
     And the public should be able to download file "textfile.txt" from the last link share with password "%public%" and the content should be "to share"
 
-  @issue-7879
+  @owncloud-issue-7879
   Scenario Outline: try to create a link share of a Personal and Shares drives using permissions endpoint
     When user "Alice" tries to create the following space link share using permissions endpoint of the Graph API:
       | space           | <drive>            |
@@ -1288,7 +1288,7 @@ Feature: Create a link share for a resource
       | upload           | Personal | cannot create link on personal space root |
       | createOnly       | Personal | cannot create link on personal space root |
 
-  @issue-7879
+  @owncloud-issue-7879
   Scenario Outline: create a link share of a project-space drive using permissions endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -2168,7 +2168,7 @@ Feature: Create a link share for a resource
       | view             |
       | edit             |
 
-  @issue-8619
+  @owncloud-issue-8619
   Scenario: create an internal quick link share of a file inside project-space using permissions endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -2353,7 +2353,7 @@ Feature: Create a link share for a resource
       }
       """
 
-  @issue-8960
+  @owncloud-issue-8960
   Scenario Outline: create an internal link share by a member of a project space drive using root endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -2422,7 +2422,7 @@ Feature: Create a link share for a resource
       | Space Editor     |
       | Manager          |
 
-  @issue-8960
+  @owncloud-issue-8960
   Scenario Outline: create an internal link share by a member of a project space drive using permissions endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -2491,7 +2491,7 @@ Feature: Create a link share for a resource
       | Space Editor     |
       | Manager          |
 
-  @issue-8960
+  @owncloud-issue-8960
   Scenario Outline: create an internal quick link share by a member of a project space drive using root endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -2562,7 +2562,7 @@ Feature: Create a link share for a resource
       | Space Editor     |
       | Manager          |
 
-  @issue-8960
+  @owncloud-issue-8960
   Scenario Outline: create an internal quick link share by a member of a project space drive using permissions endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -2633,7 +2633,7 @@ Feature: Create a link share for a resource
       | Space Editor     |
       | Manager          |
 
-  @issue-8960
+  @owncloud-issue-8960
   Scenario Outline: try to create an internal link share by a member of a project space drive with password using root endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -2684,7 +2684,7 @@ Feature: Create a link share for a resource
       | Space Editor     |
       | Manager          |
 
-  @issue-8960
+  @owncloud-issue-8960
   Scenario Outline: try to create an internal link share by a member of a project space drive with password using permissions endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API

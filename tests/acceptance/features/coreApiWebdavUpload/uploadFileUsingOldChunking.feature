@@ -1,4 +1,4 @@
-@issue-1343
+@owncloud-issue-1343
 Feature: upload file using old chunking
   As a user
   I want to be able to upload "large" files in chunks

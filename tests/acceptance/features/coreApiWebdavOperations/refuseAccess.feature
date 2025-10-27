@@ -6,7 +6,7 @@ Feature: refuse access
   Background:
     Given using OCS API version "1"
 
-  @smokeTest @issue-2285
+  @smokeTest @owncloud-issue-2285
   Scenario Outline: unauthenticated call
     # cannot perform with spaces WebDAV due to the absence of user
     Given using <dav-path-version> DAV path
@@ -21,7 +21,7 @@ Feature: refuse access
       | old              |
       | new              |
 
-  @issue-2285
+  @owncloud-issue-2285
   Scenario Outline: disabled user cannot use webdav
     Given using <dav-path-version> DAV path
     And user "Alice" has been created with default attributes

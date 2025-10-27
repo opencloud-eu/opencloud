@@ -17,7 +17,7 @@ Feature: checksums
       | new              |
       | spaces           |
 
-  @smokeTest @issue-1291
+  @smokeTest @owncloud-issue-1291
   Scenario Outline: uploading a file with checksum should return the checksum in the propfind
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/textfile.txt" to "/myChecksumFile.txt" with checksum "MD5:d70b40f177b14b470d1756a3c12b963a"
@@ -29,7 +29,7 @@ Feature: checksums
       | new              |
       | spaces           |
 
-  @smokeTest @issue-1316
+  @smokeTest @owncloud-issue-1316
   Scenario Outline: uploading a file with checksum should return the checksum in the download header
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/textfile.txt" to "/myChecksumFile.txt" with checksum "MD5:d70b40f177b14b470d1756a3c12b963a"
@@ -42,7 +42,7 @@ Feature: checksums
       | new              |
       | spaces           |
 
-  @issue-1291
+  @owncloud-issue-1291
   Scenario Outline: moving a file with checksum should return the checksum in the propfind
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/textfile.txt" to "/myChecksumFile.txt" with checksum "MD5:d70b40f177b14b470d1756a3c12b963a"
@@ -55,7 +55,7 @@ Feature: checksums
       | new              |
       | spaces           |
 
-  @issue-1316
+  @owncloud-issue-1316
   Scenario Outline: downloading a file with checksum should return the checksum in the download header
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/textfile.txt" to "/myChecksumFile.txt" with checksum "MD5:d70b40f177b14b470d1756a3c12b963a"
@@ -69,7 +69,7 @@ Feature: checksums
       | new              |
       | spaces           |
 
-  @issue-1291
+  @owncloud-issue-1291
   Scenario Outline: uploading a chunked file with checksum should return the checksum in the propfind
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded chunk file "1" of "3" with "AAAAA" to "/myChecksumFile.txt" with checksum "MD5:45a72715acdd5019c5be30bdbb75233e"
@@ -84,7 +84,7 @@ Feature: checksums
       | new              |
       | spaces           |
 
-  @issue-1343
+  @owncloud-issue-1343
   Scenario Outline: uploading a chunked file with checksum should return the checksum in the download header
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded chunk file "1" of "3" with "AAAAA" to "/myChecksumFile.txt" with checksum "MD5:45a72715acdd5019c5be30bdbb75233e"
@@ -113,7 +113,7 @@ Feature: checksums
       | new              |
       | spaces           |
 
-  @issue-1291
+  @owncloud-issue-1291
   Scenario Outline: copying a file with checksum should return the checksum in the propfind
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/textfile.txt" to "/myChecksumFile.txt" with checksum "MD5:d70b40f177b14b470d1756a3c12b963a"
@@ -126,7 +126,7 @@ Feature: checksums
       | new              |
       | spaces           |
 
-  @issue-1316
+  @owncloud-issue-1316
   Scenario Outline: copying file with checksum should return the checksum in the download header
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/textfile.txt" to "/myChecksumFile.txt" with checksum "MD5:d70b40f177b14b470d1756a3c12b963a"
@@ -139,7 +139,7 @@ Feature: checksums
       | new              |
       | spaces           |
 
-  @issue-1291 @skipOnReva
+  @owncloud-issue-1291 @skipOnReva
   Scenario Outline: sharing a file with checksum should return the checksum in the propfind using new DAV path
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -160,7 +160,7 @@ Feature: checksums
       | new              |
       | spaces           |
 
-  @issue-1291 @skipOnReva
+  @owncloud-issue-1291 @skipOnReva
   Scenario Outline: modifying a shared file should return correct checksum in the propfind using new DAV path
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -181,7 +181,7 @@ Feature: checksums
       | new              |
       | spaces           |
 
-  @issue-1315
+  @owncloud-issue-1315
   Scenario Outline: upload a file where checksum does not match
     Given using <dav-path-version> DAV path
     When user "Alice" uploads file with checksum "SHA1:f005ba11" and content "Some Text" to "/chksumtst.txt" using the WebDAV API
@@ -205,7 +205,7 @@ Feature: checksums
       | new              |
       | spaces           |
 
-  @issue-1315
+  @owncloud-issue-1315
   Scenario Outline: uploaded file should have the same checksum when downloaded
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with checksum "SHA1:ce5582148c6f0c1282335b87df5ed4be4b781399" and content "Some Text" to "/chksumtst.txt"
@@ -221,7 +221,7 @@ Feature: checksums
       | spaces           |
 
   ## Validation Plugin or Old Endpoint Specific
-  @issue-1343 @issue-2323
+  @owncloud-issue-1343 @owncloud-issue-2323
   Scenario Outline: uploading an old method chunked file with checksum should fail using new DAV path
     Given using <dav-path-version> DAV path
     When user "Alice" uploads chunk file "1" of "3" with "AAAAA" to "/myChecksumFile.txt" with checksum "MD5:45a72715acdd5019c5be30bdbb75233e" using the WebDAV API
@@ -235,7 +235,7 @@ Feature: checksums
       | spaces           |
 
   ## upload overwriting
-  @issue-1291
+  @owncloud-issue-1291
   Scenario Outline: uploading a file with MD5 checksum overwriting an existing file
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "some data" to "textfile0.txt"
@@ -254,7 +254,7 @@ Feature: checksums
       | new              |
       | spaces           |
 
-  @issue-1291
+  @owncloud-issue-1291
   Scenario Outline: uploading a file with SHA1 checksum overwriting an existing file
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "some data" to "textfile0.txt"
@@ -273,7 +273,7 @@ Feature: checksums
       | new              |
       | spaces           |
 
-  @skipOnStorage:ceph @skipOnStorage:scality @issue-1291
+  @skipOnStorage:ceph @skipOnStorage:scality @owncloud-issue-1291
   Scenario Outline: uploading a file with invalid SHA1 checksum overwriting an existing file
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "OpenCloud test text file 0" to "/textfile0.txt"
@@ -287,7 +287,7 @@ Feature: checksums
       | new              |
       | spaces           |
 
-  @issue-1296
+  @owncloud-issue-1296
   Scenario Outline: uploading a file with checksum should work for file with special characters
     Given using <dav-path-version> DAV path
     When user "Alice" uploads file "filesForUpload/textfile.txt" to <renamed-file> with checksum "MD5:d70b40f177b14b470d1756a3c12b963a" using the WebDAV API

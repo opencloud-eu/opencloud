@@ -1,4 +1,4 @@
-@issue-1324
+@owncloud-issue-1324
 Feature: files and folders exist in the trashbin after being deleted
   As a user
   I want deleted files and folders to be available in the trashbin
@@ -141,7 +141,7 @@ Feature: files and folders exist in the trashbin after being deleted
       | new              |
       | spaces           |
 
-  @issue-3561
+  @owncloud-issue-3561
   Scenario Outline: listing other user's trashbin is prohibited
     Given using <dav-path-version> DAV path
     And user "testtrashbin100" has been created with default attributes
@@ -158,7 +158,7 @@ Feature: files and folders exist in the trashbin after being deleted
       | new              |
       | spaces           |
 
-  @issue-3561 @smokeTest
+  @owncloud-issue-3561 @smokeTest
   Scenario Outline: listing other user's trashbin is prohibited with multiple files on trashbin
     Given using <dav-path-version> DAV path
     And user "testtrashbin101" has been created with default attributes
@@ -178,7 +178,7 @@ Feature: files and folders exist in the trashbin after being deleted
       | new              |
       | spaces           |
 
-  @issue-3561 @skipOnReva
+  @owncloud-issue-3561 @skipOnReva
   Scenario Outline: listing other user's trashbin is prohibited for newly recreated user with same name
     Given using <dav-path-version> DAV path
     And user "testtrashbin102" has been created with default attributes
@@ -203,7 +203,7 @@ Feature: files and folders exist in the trashbin after being deleted
       | new              |
       | spaces           |
 
-  @issue-3561
+  @owncloud-issue-3561
   Scenario Outline: listing other user's empty unused trashbin is prohibited
     Given using <dav-path-version> DAV path
     And user "testtrashbinempty" has been created with default attributes
@@ -215,7 +215,7 @@ Feature: files and folders exist in the trashbin after being deleted
       | new              |
       | spaces           |
 
-  @issue-3561
+  @owncloud-issue-3561
   Scenario Outline: listing non-existent user's trashbin is prohibited
     Given using <dav-path-version> DAV path
     When user "Alice" tries to list the trashbin content for user "nonexistent"
@@ -302,7 +302,7 @@ Feature: files and folders exist in the trashbin after being deleted
       | new              |
       | spaces           |
 
-  @issue-541
+  @owncloud-issue-541
   Scenario Outline: deleted file has appropriate deletion time information
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/textfile.txt" to "file.txt" with mtime "Thu, 08 Aug 2018 04:18:13 GMT"
@@ -315,7 +315,7 @@ Feature: files and folders exist in the trashbin after being deleted
       | new              |
       | spaces           |
 
-  @issue-1547
+  @owncloud-issue-1547
   Scenario Outline: deleting files with special characters moves it to trashbin
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded the following files with content "special character file"
@@ -372,7 +372,7 @@ Feature: files and folders exist in the trashbin after being deleted
       | new              |
       | spaces           |
 
-  @issue-1547
+  @owncloud-issue-1547
   Scenario Outline: deleting folders with special characters moves it to trashbin
     Given using <dav-path-version> DAV path
     And user "Alice" has created the following folders

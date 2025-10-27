@@ -15,7 +15,7 @@ Feature: assign role
       | Space Admin | 201              |
       | User        | 201              |
 
-  @issue-5032
+  @owncloud-issue-5032
   Scenario Outline: only admin user can see assignments list
     Given user "Alice" has been created with default attributes
     And the administrator has given "Alice" the role "<user-role>" using the settings api

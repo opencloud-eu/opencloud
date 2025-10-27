@@ -6,7 +6,7 @@ Feature: propagation of etags when creating folders
   Background:
     Given user "Alice" has been created with default attributes
 
-  @issue-4251
+  @owncloud-issue-4251
   Scenario Outline: creating a folder inside a folder changes its etag
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/folder"
@@ -45,7 +45,7 @@ Feature: propagation of etags when creating folders
       | new              |
       | spaces           |
 
-  @issue-4251 @skipOnReva
+  @owncloud-issue-4251 @skipOnReva
   Scenario Outline: sharee creating a folder inside a folder received as a share changes its etag for all collaborators
     Given user "Brian" has been created with default attributes
     And using <dav-path-version> DAV path
@@ -76,7 +76,7 @@ Feature: propagation of etags when creating folders
       | old              |
       | new              |
 
-  @issue-4251 @skipOnReva
+  @owncloud-issue-4251 @skipOnReva
   Scenario Outline: sharer creating a folder inside a shared folder changes etag for all collaborators
     Given user "Brian" has been created with default attributes
     And using <dav-path-version> DAV path
@@ -107,7 +107,7 @@ Feature: propagation of etags when creating folders
       | old              |
       | new              |
 
-  @env-config @issue-4251 @issue-10331
+  @env-config @owncloud-issue-4251 @owncloud-issue-10331
   Scenario: creating a folder in a publicly shared folder changes its etag for the sharer
     Given the config "OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD" has been set to "false"
     And user "Alice" has created folder "/folder"

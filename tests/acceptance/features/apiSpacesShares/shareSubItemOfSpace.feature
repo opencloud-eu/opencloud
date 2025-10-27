@@ -152,7 +152,7 @@ Feature: Share a file or folder that is inside a space
     And as user "Brian" the last share should include the following properties:
       | expiration |  |
 
-  @issue-8747
+  @owncloud-issue-8747
   Scenario: user cannot delete share role
     Given using OCS API version "<ocs_api_version>"
     And using SharingNG
@@ -181,7 +181,7 @@ Feature: Share a file or folder that is inside a space
     Then the HTTP status code should be "200"
     And as "Brian" folder "Shares/folder" should not exist
 
-  @issue-5823
+  @owncloud-issue-5823
   Scenario: check the end of expiration date in group share
     Given group "sales" has been created
     And using SharingNG

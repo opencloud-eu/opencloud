@@ -303,7 +303,7 @@ Feature: edit/search user including email
       | User        |
       | User Light  |
 
-  @issue-7990
+  @owncloud-issue-7990
   Scenario: non-admin user searches other users by e-mail
     When user "Brian" searches for user "%22alice@example.org%22" using Graph API
     Then the HTTP status code should be "200"

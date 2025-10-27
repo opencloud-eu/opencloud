@@ -7,7 +7,7 @@ Feature: delete a public link share
   Background:
     Given user "Alice" has been created with default attributes
 
-  @issue-1275
+  @owncloud-issue-1275
   Scenario Outline: deleting a public link of a file
     Given using OCS API version "<ocs-api-version>"
     And user "Alice" has uploaded file with content "This is a test file" to "test-file.txt"
@@ -26,7 +26,7 @@ Feature: delete a public link share
       | 1               | 100             |
       | 2               | 200             |
 
-  @issue-1275
+  @owncloud-issue-1275
   Scenario Outline: deleting a public link after renaming a file
     Given using OCS API version "<ocs-api-version>"
     And user "Alice" has uploaded file with content "This is a test file" to "test-file.txt"
@@ -46,7 +46,7 @@ Feature: delete a public link share
       | 1               | 100             |
       | 2               | 200             |
 
-  @issue-1275
+  @owncloud-issue-1275
   Scenario Outline: deleting a public link of a folder
     Given using OCS API version "<ocs-api-version>"
     And user "Alice" has created folder "test-folder"
@@ -65,7 +65,7 @@ Feature: delete a public link share
       | 1               | 100             |
       | 2               | 200             |
 
-  @issue-1275
+  @owncloud-issue-1275
   Scenario Outline: deleting a public link of a file in a folder
     Given using OCS API version "<ocs-api-version>"
     And user "Alice" has created folder "test-folder"

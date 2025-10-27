@@ -1,4 +1,4 @@
-@issue-4251
+@owncloud-issue-4251
 Feature: propagation of etags when restoring a version of a file
   As a client app
   I want metadata (etags) of parent folders to change when a file version is restored

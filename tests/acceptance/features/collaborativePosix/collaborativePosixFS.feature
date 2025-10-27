@@ -180,7 +180,7 @@ Feature: create a resources using collaborative posixfs
     And for user "Brian" the content of the file "textfile.txt" of the space "Shares" should be "contentnew"
     And the public should be able to download file "textfile.txt" from the last link share with password "%public%" and the content should be "contentnew"
 
-  @issue-1100
+  @owncloud-issue-1100
   Scenario: upload and rename file
     When the administrator creates the file "test.txt" with content "content" for user "Alice" on the POSIX filesystem
     And the administrator renames the file "test.txt" to "renamed.txt" for user "Alice" on the POSIX filesystem

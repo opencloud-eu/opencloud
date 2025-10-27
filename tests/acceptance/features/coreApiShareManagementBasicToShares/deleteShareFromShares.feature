@@ -11,7 +11,7 @@ Feature: sharing
       | Brian    |
     And user "Alice" has uploaded file with content "example test text file 0" to "/textfile0.txt"
 
-  @issue-7555
+  @owncloud-issue-7555
   Scenario Outline: delete all group shares
     Given using OCS API version "<ocs-api-version>"
     And using SharingNG
@@ -274,7 +274,7 @@ Feature: sharing
       | /shared                 | Editor          | 1               | 200              | /Shares/shared          |
       | /shared                 | Editor          | 2               | 500              | /Shares/shared          |
 
-  @issue-720
+  @owncloud-issue-720
   Scenario Outline: request PROPFIND after sharer deletes the collaborator
     Given using OCS API version "<ocs-api-version>"
     And using SharingNG
@@ -294,7 +294,7 @@ Feature: sharing
       | 1               | 100             |
       | 2               | 200             |
 
-  @issue-1229
+  @owncloud-issue-1229
   Scenario Outline: delete a share with wrong authentication
     Given using OCS API version "<ocs-api-version>"
     And using SharingNG

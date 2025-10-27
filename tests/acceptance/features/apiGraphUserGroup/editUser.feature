@@ -12,7 +12,7 @@ Feature: edit user
       | email       | brian@example.com |
       | password    | 1234              |
 
-  @issue-7044
+  @owncloud-issue-7044
   Scenario Outline: admin user can edit another user's name
     Given user "Carol" has been created with default attributes
     When the user "Alice" changes the user name of user "Carol" to "<user>" using the Graph API

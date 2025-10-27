@@ -12,7 +12,7 @@ Feature: Public can download folders from project space public link
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "new-space" with the default quota using the Graph API
 
-  @env-config @issue-9724 @issue-10331
+  @env-config @owncloud-issue-9724 @owncloud-issue-10331
   Scenario: download a folder from public link of a space
     Given the config "OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD" has been set to "false"
     And using SharingNG
@@ -28,7 +28,7 @@ Feature: Public can download folders from project space public link
       | name               | content      |
       | NewFolder/test.txt | some content |
 
-  @env-config @issue-5229 @issue-9724 @issue-10331
+  @env-config @owncloud-issue-5229 @owncloud-issue-9724 @owncloud-issue-10331
   Scenario: download a folder from public link of a folder inside a space
     Given the config "OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD" has been set to "false"
     And using SharingNG

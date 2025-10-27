@@ -624,7 +624,7 @@ Feature: check file info with different wopi apps
       | FakeOffice    |
       | OnlyOffice    |
 
-  @issue-10097
+  @owncloud-issue-10097
   Scenario Outline: try to get file info of deleted file with office suites
     Given user "Alice" has uploaded file with content "hello world" to "/textfile0.txt"
     And user "Alice" has sent the following app-open request:
@@ -1856,7 +1856,7 @@ Feature: check file info with different wopi apps
       | FakeOffice    |
       | OnlyOffice    |
 
-  @issue-10086
+  @owncloud-issue-10086
   Scenario: check that '/app/list' doesn't contain 'application/octet-stream' MIME type
     When user "Alice" sends HTTP method "GET" to URL "/app/list"
     Then the HTTP status code should be "200"

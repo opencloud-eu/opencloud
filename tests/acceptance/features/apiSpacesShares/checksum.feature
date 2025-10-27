@@ -8,7 +8,7 @@ Feature: checksums
     And using spaces DAV path
     And user "Brian" has been created with default attributes
 
-  @issue-1291
+  @owncloud-issue-1291
   Scenario: sharing a file with checksum should return the checksum in the propfind using new DAV path
     Given user "Alice" has uploaded file "filesForUpload/textfile.txt" to "/myChecksumFile.txt" with checksum "MD5:d70b40f177b14b470d1756a3c12b963a"
     And user "Alice" has sent the following resource share invitation:
@@ -22,7 +22,7 @@ Feature: checksums
     Then the HTTP status code should be "207"
     And the webdav checksum should match "SHA1:3ee962b839762adb0ad8ba6023a4690be478de6f MD5:d70b40f177b14b470d1756a3c12b963a ADLER32:8ae90960"
 
-  @issue-1291
+  @owncloud-issue-1291
   Scenario: modifying a shared file should return correct checksum in the propfind using new DAV path
     Given user "Alice" has uploaded file "filesForUpload/textfile.txt" to "/myChecksumFile.txt" with checksum "MD5:d70b40f177b14b470d1756a3c12b963a"
     And user "Alice" has sent the following resource share invitation:

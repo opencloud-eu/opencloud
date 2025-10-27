@@ -6,7 +6,7 @@ Feature: check activities
   Background:
     Given user "Alice" has been created with default attributes
 
-  @issue-9712
+  @owncloud-issue-9712
   Scenario: check activities after uploading a file and a folder
     Given user "Alice" has uploaded file with content "OpenCloud test text file 0" to "/textfile.txt"
     And user "Alice" has created folder "/FOLDER"
@@ -183,7 +183,7 @@ Feature: check activities
       }
       """
 
-  @issue-10001
+  @owncloud-issue-10001
   Scenario: check edit activity of a file
     Given user "Alice" has uploaded file with content "OpenCloud test text file" to "/textfile.txt"
     And user "Alice" has uploaded file with content "edited OpenCloud test text file" to "/textfile.txt"
@@ -288,7 +288,7 @@ Feature: check activities
       }
       """
 
-  @issue-9712
+  @owncloud-issue-9712
   Scenario: check activities after deleting a file and a folder
     Given user "Alice" has uploaded file with content "OpenCloud test text file 0" to "/textfile.txt"
     And user "Alice" has created folder "/FOLDER"
@@ -516,7 +516,7 @@ Feature: check activities
       }
       """
 
-  @issue-9712
+  @owncloud-issue-9712
   Scenario: check move activity for a folder
     Given user "Alice" has created folder "/FOLDER"
     And user "Alice" has created folder "/New Folder"
@@ -1610,7 +1610,7 @@ Feature: check activities
       }
       """
 
-  @issue-9712
+  @owncloud-issue-9712
   Scenario: check rename activity for a file and a folder
     Given user "Alice" has uploaded file with content "OpenCloud test text file 0" to "/textfile.txt"
     And user "Alice" has created folder "/FOLDER"
@@ -1835,7 +1835,7 @@ Feature: check activities
       }
       """
 
-  @issue-9712
+  @owncloud-issue-9712
   Scenario: check activities of a folder
     Given user "Alice" has created folder "/New Folder"
     And user "Alice" has created folder "/New Folder/Folder"
@@ -2366,7 +2366,7 @@ Feature: check activities
       }
       """
 
-  @issue-10210
+  @owncloud-issue-10210
   Scenario: check activities of a folder after renaming
     Given user "Alice" has created folder "FOLDER"
     And user "Alice" has uploaded file with content "OpenCloud test text file" to "FOLDER/textfile.txt"
@@ -2594,7 +2594,7 @@ Feature: check activities
       }
       """
 
-  @issue-9856 @issue-10127 @issue-369
+  @owncloud-issue-9856 @owncloud-issue-10127 @issue-369
   Scenario: check activity message with different language
     Given user "Alice" has uploaded file with content "OpenCloud test text file" to "textfile.txt"
     And user "Alice" has switched the system language to "de" using the Graph API
@@ -2689,7 +2689,7 @@ Feature: check activities
       }
       """
 
-  @issue-9850
+  @owncloud-issue-9850
   Scenario: check activity with -1 depth filter
     Given user "Alice" has created folder "/New Folder"
     And user "Alice" has created folder "/New Folder/Sub Folder"
@@ -2884,7 +2884,7 @@ Feature: check activities
       }
       """
 
-  @issue-9850
+  @owncloud-issue-9850
   Scenario: check activity with depth filter
     Given user "Alice" has created folder "/New Folder"
     And user "Alice" has created folder "/New Folder/Sub Folder"
@@ -3023,7 +3023,7 @@ Feature: check activities
       }
       """
 
-  @issue-9880
+  @owncloud-issue-9880
   Scenario: check activity with limit filter
     Given user "Alice" has created folder "/New Folder"
     And user "Alice" has created folder "/New Folder/Sub Folder"
@@ -3182,7 +3182,7 @@ Feature: check activities
       | textfile.txt | {user} added {resource} to {folder}   |
       | New Folder   | {user} added {resource} to {folder}   |
 
-  @issue-10150
+  @owncloud-issue-10150
   Scenario: check activities with limit and sort filters (asc/desc)
     Given user "Alice" has created folder "/New Folder"
     And user "Alice" has created folder "/New Folder/Sub Folder"
@@ -3201,7 +3201,7 @@ Feature: check activities
       | textfile.txt | {user} updated {resource} in {folder} |
       | textfile.txt | {user} added {resource} to {folder}   |
 
-  @issue-9860
+  @owncloud-issue-9860
   Scenario: user tries to check activities of another user's file
     Given user "Brian" has been created with default attributes
     And user "Alice" has uploaded file with content "OpenCloud test text file" to "textfile.txt"
@@ -3931,7 +3931,7 @@ Feature: check activities
       }
       """
 
-  @issue-9536
+  @owncloud-issue-9536
   Scenario: check activities after moving a file inside a subfolder in a project space
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API

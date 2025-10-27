@@ -13,7 +13,7 @@ Feature: Share spaces via link
     And user "Alice" has created a space "share space" with the default quota using the Graph API
     And user "Alice" has uploaded a file inside space "share space" with content "some content" to "test.txt"
 
-  @issue-9724 @issue-10331
+  @owncloud-issue-9724 @owncloud-issue-10331
   Scenario Outline: manager can share a space to public via link with different permissions
     When user "Alice" creates a public link share of the space "share space" with settings:
       | permissions | <permissions> |
@@ -54,7 +54,7 @@ Feature: Share spaces via link
       | permissions | 0           |
       | share_type  | public_link |
 
-  @issue-10331
+  @owncloud-issue-10331
   Scenario: uploader should be able to upload a file
     When user "Alice" creates a public link share of the space "share space" with settings:
       | permissions | 4                        |

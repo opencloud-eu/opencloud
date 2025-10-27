@@ -97,7 +97,7 @@ Feature: collaboration (wopi)
       }
       """
 
-  @issue-9928
+  @owncloud-issue-9928
   Scenario: user tries to open text file without app name in url query (MIME type not registered in app-registry)
     Given user "Alice" has uploaded file "filesForUpload/lorem.txt" to "lorem.txt"
     And we save it into "FILEID"
@@ -225,7 +225,7 @@ Feature: collaboration (wopi)
       | /app/open?file_id=<<FILEID>>&app_name=FakeOffice |
       | /app/open?file_id=<<FILEID>>                     |
 
-  @issue-9928
+  @owncloud-issue-9928
   Scenario Outline: user tries to open unsupported file format
     Given user "Alice" has uploaded file "filesForUpload/simple.pdf" to "simple.pdf"
     And we save it into "FILEID"
@@ -331,7 +331,7 @@ Feature: collaboration (wopi)
       | /app/open?file_id=<<FILEID>>&app_name=FakeOffice&view_mode=read  |
       | /app/open?file_id=<<FILEID>>&app_name=FakeOffice&view_mode=write |
 
-  @issue-9495
+  @owncloud-issue-9495
   Scenario Outline: open file with .odt extension (open-with-web)
     Given user "Alice" has uploaded file "filesForUpload/simple.odt" to "simple.odt"
     And we save it into "FILEID"
@@ -379,7 +379,7 @@ Feature: collaboration (wopi)
       }
       """
 
-  @issue-9928
+  @owncloud-issue-9928
   Scenario: user tries to open text file using open-with-web without app name in url query (MIME type not registered in app-registry)
     Given user "Alice" has uploaded file "filesForUpload/lorem.txt" to "lorem.txt"
     And we save it into "FILEID"
@@ -494,7 +494,7 @@ Feature: collaboration (wopi)
       | /app/open-with-web?file_id=<<FILEID>>&app_name=FakeOffice&view_mode=read  |
       | /app/open-with-web?file_id=<<FILEID>>&app_name=FakeOffice&view_mode=write |
 
-  @issue-9928
+  @owncloud-issue-9928
   Scenario Outline: user tries to open unsupported file format (open-with-web)
     Given user "Alice" has uploaded file "filesForUpload/simple.pdf" to "simple.pdf"
     And we save it into "FILEID"
@@ -608,7 +608,7 @@ Feature: collaboration (wopi)
       | Editor           |
       | Uploader         |
 
-  @issue-10126
+  @owncloud-issue-10126
   Scenario: sharee with permission Viewer tries to create text file inside shared folder
     Given user "Alice" has created folder "testFolder"
     And user "Alice" has sent the following resource share invitation:
@@ -703,7 +703,7 @@ Feature: collaboration (wopi)
       | Space Editor     |
       | Manager          |
 
-  @issue-10126
+  @owncloud-issue-10126
   Scenario: user with Viewer role tries to create a text file inside shared project space using wopi endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -824,7 +824,7 @@ Feature: collaboration (wopi)
       | Space Editor     |
       | Manager          |
 
-  @issue-10126
+  @owncloud-issue-10126
   Scenario: user with Viewer role tries to create a odt file inside shared project space using wopi endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -893,7 +893,7 @@ Feature: collaboration (wopi)
       | Editor           |
       | Uploader         |
 
-  @issue-10126
+  @owncloud-issue-10126
   Scenario: sharee with permission Viewer tries to create odt file inside shared folder using wopi endpoint
     Given user "Alice" has created folder "testFolder"
     And user "Alice" has sent the following resource share invitation:
@@ -925,7 +925,7 @@ Feature: collaboration (wopi)
     And as "Alice" file "testFolder/simple.odt" should not exist
     And as "Brian" file "Shares/testFolder/simple.odt" should not exist
 
-  @issue-10331
+  @owncloud-issue-10331
   Scenario Outline: public user with permission edit/upload/createOnly creates odt file inside public folder using wopi endpoint
     Given user "Alice" has created folder "publicFolder"
     And user "Alice" has created the following resource link share:
@@ -957,7 +957,7 @@ Feature: collaboration (wopi)
       | upload           |
       | createOnly       |
 
-  @issue-10126 @issue-10331
+  @owncloud-issue-10126 @owncloud-issue-10331
   Scenario: public user with permission view tries to creates odt file inside public folder using wopi endpoint
     Given user "Alice" has created folder "publicFolder"
     And user "Alice" has created the following resource link share:
@@ -1013,7 +1013,7 @@ Feature: collaboration (wopi)
       }
       """
 
-  @issue-8691 @issue-10331
+  @owncloud-issue-8691 @owncloud-issue-10331
   Scenario Outline: public user with permission edit/upload/createOnly creates odt file inside folder of public space using wopi endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -1048,7 +1048,7 @@ Feature: collaboration (wopi)
       | upload           |
       | createOnly       |
 
-  @issue-8691 @issue-10126 @issue-10331
+  @owncloud-issue-8691 @owncloud-issue-10126 @owncloud-issue-10331
   Scenario: public user with permission view tries to create odt file inside folder of public space using wopi endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API

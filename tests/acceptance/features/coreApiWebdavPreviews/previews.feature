@@ -214,7 +214,7 @@ Feature: previews of files downloaded through the webdav API
       | new              |
       | spaces           |
 
-  @issue-2538
+  @owncloud-issue-2538
   Scenario Outline: when owner updates a shared file, previews for sharee are also updated (to shared folder)
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -236,7 +236,7 @@ Feature: previews of files downloaded through the webdav API
       | new              |
       | spaces           |
 
-  @need-build-with-VIPS @issue-1451
+  @need-build-with-VIPS @owncloud-issue-1451
   Scenario Outline: it should update the preview content if the file content is updated (content with UTF chars)
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/lorem.txt" to "/lorem.txt"
@@ -250,7 +250,7 @@ Feature: previews of files downloaded through the webdav API
       | new              |
       | spaces           |
 
-  @need-build-with-VIPS @issue-1452
+  @need-build-with-VIPS @owncloud-issue-1452
   Scenario Outline: download preview of the text file
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/lorem.txt" to "/lorem.txt"
@@ -399,7 +399,7 @@ Feature: previews of files downloaded through the webdav API
       | new              |
       | spaces           |
 
-  @issue-10589 @env-config
+  @owncloud-issue-10589 @env-config
   Scenario Outline: try to download a file preview when the maximum thumbnail input value in the environment is set to a small value
     Given the following configs have been set:
       | config                               | value |

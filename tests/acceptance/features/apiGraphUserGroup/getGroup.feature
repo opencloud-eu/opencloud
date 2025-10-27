@@ -19,7 +19,7 @@ Feature: get groups and their members
       | coffee-lover |
       | h2o-lover    |
 
-  @issue-5938
+  @owncloud-issue-5938
   Scenario Outline: user other than the admin shouldn't get the groups list
     Given user "Brian" has been created with default attributes
     And the administrator has assigned the role "<user-role>" to user "Brian" using the Graph API
@@ -72,7 +72,7 @@ Feature: get groups and their members
       | Brian |
       | Carol |
 
-  @issue-5938
+  @owncloud-issue-5938
   Scenario Outline: user other than the admin shouldn't get users of a group
     Given user "Brian" has been created with default attributes
     And the administrator has assigned the role "<user-role>" to user "Brian" using the Graph API
@@ -240,7 +240,7 @@ Feature: get groups and their members
       }
       """
 
-  @issue-5938
+  @owncloud-issue-5938
   Scenario Outline: user other than the admin shouldn't get all groups along with its member's information
     Given user "Brian" has been created with default attributes
     And the administrator has assigned the role "<user-role>" to user "Brian" using the Graph API
@@ -362,7 +362,7 @@ Feature: get groups and their members
       }
       """
 
-  @issue-5604
+  @owncloud-issue-5604
   Scenario Outline: user other than the admin gets a group along with its member's information
     Given user "Brian" has been created with default attributes
     And the administrator has assigned the role "<user-role>" to user "Brian" using the Graph API
@@ -426,7 +426,7 @@ Feature: get groups and their members
       }
       """
 
-  @issue-5604
+  @owncloud-issue-5604
   Scenario Outline: non-admin user tries to get details of a group
     Given group "tea-lover" has been created
     And the administrator has assigned the role "<user-role>" to user "Alice" using the Graph API
@@ -498,7 +498,7 @@ Feature: get groups and their members
     When user "Alice" gets details of the group "non-existing" using the Graph API
     Then the HTTP status code should be "404"
 
-  @issue-5604
+  @owncloud-issue-5604
   Scenario Outline: non-admin user tries to get group information of non-existing group
     Given the administrator has assigned the role "<user-role>" to user "Alice" using the Graph API
     When user "Alice" gets details of the group "non-existing" using the Graph API
@@ -591,7 +591,7 @@ Feature: get groups and their members
       }
       """
 
-  @issue-7990
+  @owncloud-issue-7990
   Scenario Outline: user tries to search for groups with invalid characters/token (search term without quotation)
     Given these users have been created with default attributes:
       | username |
@@ -627,7 +627,7 @@ Feature: get groups and their members
       | tea-lovers | -lovers |
       | tea@lovers | @lovers |
 
-  @issue-7990
+  @owncloud-issue-7990
   Scenario Outline: user searches for groups with special characters (search term with quotation)
     Given these users have been created with default attributes:
       | username |

@@ -28,7 +28,7 @@ Feature: propagation of etags when deleting a file or folder
       | new              |
       | spaces           |
 
-  @issue-4251
+  @owncloud-issue-4251
   Scenario Outline: deleting a folder changes the etags of all parents
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/upload/sub"
@@ -143,7 +143,7 @@ Feature: propagation of etags when deleting a file or folder
       | old              |
       | new              |
 
-  @issue-4251 @skipOnReva
+  @owncloud-issue-4251 @skipOnReva
   Scenario Outline: sharee deleting a folder changes the etags of all parents for all collaborators
     Given user "Brian" has been created with default attributes
     And using <dav-path-version> DAV path
@@ -179,7 +179,7 @@ Feature: propagation of etags when deleting a file or folder
       | old              |
       | new              |
 
-  @issue-4251 @skipOnReva
+  @owncloud-issue-4251 @skipOnReva
   Scenario Outline: sharer deleting a folder changes the etags of all parents for all collaborators
     Given user "Brian" has been created with default attributes
     And using <dav-path-version> DAV path
@@ -215,7 +215,7 @@ Feature: propagation of etags when deleting a file or folder
       | old              |
       | new              |
 
-  @issue-4251 @skipOnReva @issue-10331
+  @owncloud-issue-4251 @skipOnReva @owncloud-issue-10331
   Scenario Outline: deleting a file in a publicly shared folder changes its etag for the sharer
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "uploaded content" to "/upload/file.txt"
@@ -239,7 +239,7 @@ Feature: propagation of etags when deleting a file or folder
       | new              |
       | spaces           |
 
-  @issue-4251 @skipOnReva @issue-10331
+  @owncloud-issue-4251 @skipOnReva @owncloud-issue-10331
   Scenario Outline: deleting a folder in a publicly shared folder changes its etag for the sharer
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/upload/sub"

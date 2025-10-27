@@ -167,7 +167,7 @@ Feature: remove a user from a group
       | User        |
       | User Light  |
 
-  @issue-5938
+  @owncloud-issue-5938
   Scenario Outline: user other than the admin can't remove a user from their group
     Given user "Brian" has been created with default attributes
     And the administrator has assigned the role "<user-role>" to user "Brian" using the Graph API

@@ -7,7 +7,7 @@ Feature: propagation of etags when uploading data
     Given user "Alice" has been created with default attributes
     And user "Alice" has created folder "/upload"
 
-  @issue-4251
+  @owncloud-issue-4251
   Scenario Outline: uploading a file inside a folder changes its etag
     Given using <dav-path-version> DAV path
     And user "Alice" has stored etag of element "/"
@@ -44,7 +44,7 @@ Feature: propagation of etags when uploading data
       | new              |
       | spaces           |
 
-  @issue-4251 @skipOnReva
+  @owncloud-issue-4251 @skipOnReva
   Scenario Outline: sharee uploading a file inside a received shared folder should update etags for all collaborators
     Given user "Brian" has been created with default attributes
     And using <dav-path-version> DAV path
@@ -74,7 +74,7 @@ Feature: propagation of etags when uploading data
       | old              |
       | new              |
 
-  @issue-4251 @skipOnReva
+  @owncloud-issue-4251 @skipOnReva
   Scenario Outline: sharer uploading a file inside a shared folder should update etags for all collaborators
     Given user "Brian" has been created with default attributes
     And using <dav-path-version> DAV path
@@ -166,7 +166,7 @@ Feature: propagation of etags when uploading data
       | old              |
       | new              |
 
-  @issue-4251 @skipOnReva @issue-10331
+  @owncloud-issue-4251 @skipOnReva @owncloud-issue-10331
   Scenario Outline: uploading a file into a publicly shared folder changes its etag for the sharer
     Given using <dav-path-version> DAV path
     And using SharingNG

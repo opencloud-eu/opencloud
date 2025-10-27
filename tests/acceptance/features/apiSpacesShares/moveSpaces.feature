@@ -50,7 +50,7 @@ Feature: move (rename) file
     But for user "Alice" the space "Project" should contain these entries:
       | insideSpace.txt |
 
-  @issue-1976
+  @owncloud-issue-1976
   Scenario Outline: try to move a file within a project space into a folder with same name
     Given the administrator has assigned the role "Space Admin" to user "Brian" using the Graph API
     And user "Brian" has created a space "Project" with the default quota using the Graph API
@@ -70,7 +70,7 @@ Feature: move (rename) file
       | Space Editor |
       | Space Viewer |
 
-  @issue-8116
+  @owncloud-issue-8116
   Scenario Outline: user moves a file from a space project with different a role to a space project with different role
     Given the administrator has assigned the role "Space Admin" to user "Brian" using the Graph API
     And user "Brian" has created a space "Project1" with the default quota using the Graph API
@@ -104,7 +104,7 @@ Feature: move (rename) file
       | Space Viewer    | Space Editor  | 403              |
       | Space Viewer    | Space Viewer  | 403              |
 
-  @issue-7618
+  @owncloud-issue-7618
   Scenario Outline: user moves a file from a space project with different role to a space personal
     Given the administrator has assigned the role "Space Admin" to user "Brian" using the Graph API
     And user "Brian" has created a space "Project" with the default quota using the Graph API
@@ -162,7 +162,7 @@ Feature: move (rename) file
       | Space Editor | Viewer           |
       | Space Viewer | Viewer           |
 
-  @issue-7618
+  @owncloud-issue-7618
   Scenario Outline: user moves a file from space personal to space project with different role
     Given the administrator has assigned the role "Space Admin" to user "Brian" using the Graph API
     And user "Brian" has created a space "Project" with the default quota using the Graph API
@@ -395,7 +395,7 @@ Feature: move (rename) file
     But for user "Alice" folder "testshare" of the space "Shares" should contain these entries:
       | testfile.txt |
 
-  @issue-1976
+  @owncloud-issue-1976
   Scenario Outline: sharee tries to move a file into same shared folder with same name
     Given user "Brian" has created folder "testshare"
     And user "Brian" has uploaded file with content "test file content" to "testshare/testfile.txt"

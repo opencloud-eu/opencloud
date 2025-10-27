@@ -8,7 +8,7 @@ Feature: using trashbin together with sharing
     Given user "Alice" has been created with default attributes
     And user "Alice" has uploaded file with content "file to delete" to "/textfile0.txt"
 
-  @smokeTest @issue-7555
+  @smokeTest @owncloud-issue-7555
   Scenario Outline: deleting a received folder doesn't move it to trashbin
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -31,7 +31,7 @@ Feature: using trashbin together with sharing
       | new              |
       | spaces           |
 
-  @issue-1124 @issue-7555
+  @owncloud-issue-1124 @owncloud-issue-7555
   Scenario Outline: sharee deleting a file in a received folder after renaming the shared folder moves it to trashbin of both users
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -55,7 +55,7 @@ Feature: using trashbin together with sharing
       | new              |
       | spaces           |
 
-  @issue-1124
+  @owncloud-issue-1124
   Scenario Outline: sharee deleting a file in a group-shared folder moves it to the trashbin of sharee and sharer only
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -113,7 +113,7 @@ Feature: using trashbin together with sharing
       | new              |
       | spaces           |
 
-  @issue-1124
+  @owncloud-issue-1124
   Scenario Outline: sharee deleting a folder in a group-shared folder moves it to the trashbin of sharee and sharer only
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -173,7 +173,7 @@ Feature: using trashbin together with sharing
       | new              |
       | spaces           |
 
-  @issue-1124 @issue-7555
+  @owncloud-issue-1124 @owncloud-issue-7555
   Scenario Outline: deleting a file in a received folder when restored it comes back to the original path
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -252,7 +252,7 @@ Feature: using trashbin together with sharing
       | new              | 403              |
       | spaces           | 400              |
 
-  @issue-10356
+  @owncloud-issue-10356
   Scenario Outline: try to restore personal file to a shared folder as an editor
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes

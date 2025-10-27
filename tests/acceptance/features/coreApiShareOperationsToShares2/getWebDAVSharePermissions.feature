@@ -72,7 +72,7 @@ Feature: sharing
       | new              |
       | spaces           |
 
-  @skipOnReva @issue-2213
+  @skipOnReva @owncloud-issue-2213
   Scenario Outline: check webdav share-permissions for received file without edit permissions
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "foo" to "/tmp.txt"
@@ -155,7 +155,7 @@ Feature: sharing
       | new              |
       | spaces           |
 
-  @skipOnReva @issue-2213
+  @skipOnReva @owncloud-issue-2213
   Scenario: check webdav share-permissions for received folder with all permissions but edit
     Given user "Alice" has created folder "/tmp"
     And user "Alice" has sent the following resource share invitation:

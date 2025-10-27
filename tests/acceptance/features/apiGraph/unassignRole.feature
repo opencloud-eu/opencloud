@@ -23,7 +23,7 @@ Feature: unassign user role
       | User        |
       | User Light  |
 
-  @issue-6035
+  @owncloud-issue-6035
   Scenario: admin user tries to unassign his/her own role
     Given the administrator has assigned the role "Admin" to user "Alice" using the Graph API
     When user "Alice" tries to unassign the role of user "Alice" using the Graph API

@@ -1,4 +1,4 @@
-@issue-1324
+@owncloud-issue-1324
 Feature: files and folders can be deleted from the trashbin
   As a user
   I want to delete files and folders from the trashbin
@@ -72,7 +72,7 @@ Feature: files and folders can be deleted from the trashbin
       | new              |
       | spaces           |
 
-  @issue-3544 @issue-9791
+  @owncloud-issue-3544 @owncloud-issue-9791
   Scenario Outline: user tries to delete another user's trashbin
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes

@@ -51,7 +51,7 @@ Feature: enforce password on public link
       | 1               | 100             |
       | 2               | 200             |
 
-  @issue-9724 @issue-10331
+  @owncloud-issue-9724 @owncloud-issue-10331
   Scenario Outline: updates a public link to edit permission with a password
     Given the following configs have been set:
       | config                                                 | value |
@@ -79,7 +79,7 @@ Feature: enforce password on public link
       | 1               | 100             |
       | 2               | 200             |
 
-  @issue-9724 @issue-10331
+  @owncloud-issue-9724 @owncloud-issue-10331
   Scenario Outline: create a public link with a password in accordance with the password policy
     Given the following configs have been set:
       | config                                                 | value |
@@ -138,7 +138,7 @@ Feature: enforce password on public link
       | 1               | 200              |
       | 2               | 400              |
 
-  @issue-9724 @issue-10331
+  @owncloud-issue-9724 @owncloud-issue-10331
   Scenario Outline: update a public link with a password in accordance with the password policy
     Given the following configs have been set:
       | config                                                 | value |
@@ -208,7 +208,7 @@ Feature: enforce password on public link
       | 1               | 200              |
       | 2               | 400              |
 
-  @issue-9724 @issue-10331
+  @owncloud-issue-9724 @owncloud-issue-10331
   Scenario Outline: create a public link with a password in accordance with the password policy (valid cases)
     Given the config "<config>" has been set to "<config-value>"
     And using OCS API version "2"

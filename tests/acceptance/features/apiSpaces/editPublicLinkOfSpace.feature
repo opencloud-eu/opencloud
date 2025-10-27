@@ -21,7 +21,7 @@ Feature: A manager of the space can edit public link
     And user "Alice" has uploaded a file inside space "edit space" with content "some content" to "test.txt"
     And using SharingNG
 
-  @issue-9724 @issue-10331
+  @owncloud-issue-9724 @owncloud-issue-10331
   Scenario Outline: manager of the space can edit public link.
     Given using OCS API version "2"
     When user "Alice" updates the last public link share using the sharing API with

@@ -6,7 +6,7 @@ Feature: Create a link share for a resource
       | username |
       | Alice    |
 
-  @issue-7879
+  @owncloud-issue-7879
   Scenario Outline: try to create a link share of a Personal and Share drive using root endpoint
     When user "Alice" tries to create the following space link share using root endpoint of the Graph API:
       | space           | <drive>            |
@@ -143,7 +143,7 @@ Feature: Create a link share for a resource
       | Personal |
       | Shares   |
 
-  @issue-7879
+  @owncloud-issue-7879
   Scenario Outline: create a link share of a project-space drive with different permissions using root endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -276,7 +276,7 @@ Feature: Create a link share for a resource
       | password        | %public%      |
     Then the HTTP status code should be "400"
 
-  @issue-7879
+  @owncloud-issue-7879
   Scenario Outline: create a link share of a project-space drive with display name and expiry date using root endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -347,7 +347,7 @@ Feature: Create a link share for a resource
       | upload           |
       | createOnly       |
 
-  @issue-7879 @skip-local-run
+  @owncloud-issue-7879 @skip-local-run
   Scenario Outline: try to create a link share of a project-space drive with a password that is listed in the Banned-Password-List using root endpoint
     Given the config "OC_PASSWORD_POLICY_BANNED_PASSWORDS_LIST" has been set to path "config/woodpecker/banned-password-list.txt"
     And using spaces DAV path
@@ -400,7 +400,7 @@ Feature: Create a link share for a resource
       | password        | createOnly       |
       | OpenCloud       | createOnly       |
 
-  @env-config @issue-7879
+  @env-config @owncloud-issue-7879
   Scenario Outline: create a link share of a project-space drive without password using root endpoint
     Given the following configs have been set:
       | config                                     | value |
@@ -467,7 +467,7 @@ Feature: Create a link share for a resource
       | upload           |
       | createOnly       |
 
-  @issue-7879
+  @owncloud-issue-7879
   Scenario Outline: create a link share of a project-space drive with display name using root endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -533,7 +533,7 @@ Feature: Create a link share for a resource
       | upload           |
       | createOnly       |
 
-  @issue-7879
+  @owncloud-issue-7879
   Scenario Outline: create a link share of a project-space drive with expiry date using root endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API

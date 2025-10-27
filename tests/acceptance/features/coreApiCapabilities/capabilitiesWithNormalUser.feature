@@ -9,7 +9,7 @@ Feature: default capabilities for normal user
 
   # adjust this scenario after fixing tagged issues as its just created to show difference
   # in the response items in different environment (core & opencloud-reva)
-  @issue-1285 @issue-1286
+  @owncloud-issue-1285 @owncloud-issue-1286
   Scenario: getting default capabilities with normal user
     When user "Alice" retrieves the capabilities using the capabilities API
     Then the OCS status code should be "100"

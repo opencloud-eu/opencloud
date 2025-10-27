@@ -21,7 +21,7 @@ Feature: unlock locked items
       | new              |
       | spaces           |
 
-  @issue-7761 @issue-10331
+  @owncloud-issue-7761 @owncloud-issue-10331
   Scenario Outline: public tries to unlock a file in a share that was locked by the file owner
     Given using <dav-path-version> DAV path
     And using SharingNG
@@ -46,7 +46,7 @@ Feature: unlock locked items
       | spaces           | shared     |
       | spaces           | exclusive  |
 
-  @issue-7599
+  @owncloud-issue-7599
   Scenario Outline: unlock one of multiple locks set by the user itself
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/textfile.txt" to "textfile0.txt"
@@ -63,7 +63,7 @@ Feature: unlock locked items
       | new              |
       | spaces           |
 
-  @issue-7638
+  @owncloud-issue-7638
   Scenario Outline: unlocking a file with the same name as another file in another part of the file system
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/textfile.txt" to "textfile0.txt"
@@ -91,7 +91,7 @@ Feature: unlock locked items
       | spaces           | shared     |
       | spaces           | exclusive  |
 
-  @issue-7767
+  @owncloud-issue-7767
   Scenario Outline: trying to unlock a shared file that has been locked by the file owner
     Given user "Brian" has been created with default attributes
     And using <dav-path-version> DAV path
@@ -119,7 +119,7 @@ Feature: unlock locked items
       | spaces           | shared     |
       | spaces           | exclusive  |
 
-  @issue-7767
+  @owncloud-issue-7767
   Scenario Outline: trying to unlock a file inside the shared folder that has been locked by the file owner
     Given user "Brian" has been created with default attributes
     And using <dav-path-version> DAV path
@@ -147,7 +147,7 @@ Feature: unlock locked items
       | spaces           | shared     |
       | spaces           | exclusive  |
 
-  @issue-7599
+  @owncloud-issue-7599
   Scenario Outline: sharee unlocks a shared file
     Given user "Brian" has been created with default attributes
     And using <dav-path-version> DAV path
@@ -175,7 +175,7 @@ Feature: unlock locked items
       | spaces           | shared     |
       | spaces           | exclusive  |
 
-  @issue-7599
+  @owncloud-issue-7599
   Scenario Outline: try to unlock a shared file locked by the receiver
     Given user "Brian" has been created with default attributes
     And using <dav-path-version> DAV path
@@ -203,7 +203,7 @@ Feature: unlock locked items
       | spaces           | shared     |
       | spaces           | exclusive  |
 
-  @issue-7599
+  @owncloud-issue-7599
   Scenario Outline: try to unlock a file in a shared folder, which was locked by the sharee as the owner
     Given user "Brian" has been created with default attributes
     And using <dav-path-version> DAV path
@@ -231,7 +231,7 @@ Feature: unlock locked items
       | spaces           | shared     |
       | spaces           | exclusive  |
 
-  @issue-7696
+  @owncloud-issue-7696
   Scenario Outline: unlock a locked file in project space
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -298,7 +298,7 @@ Feature: unlock locked items
     And using new DAV path
     And user "Brian" should be able to upload file "filesForUpload/lorem.txt" to "Shares/textfile.txt"
 
-  @issue-10331
+  @owncloud-issue-10331
   Scenario Outline: unlock a file as an anonymous user
     Given using <dav-path-version> DAV path
     And using SharingNG

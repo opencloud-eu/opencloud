@@ -12,7 +12,7 @@ Feature: search federation users
     And using server "REMOTE"
     And user "Brian" has been created with default attributes
 
-  @issue-9813
+  @owncloud-issue-9813
   Scenario: users search for federation users by display name
     Given using server "LOCAL"
     And "Alice" has created the federation share invitation
@@ -142,7 +142,7 @@ Feature: search federation users
       }
       """
 
-  @issue-9813
+  @owncloud-issue-9813
   Scenario: user search for federation users by email
     Given using server "LOCAL"
     And "Alice" has created the federation share invitation
@@ -425,7 +425,7 @@ Feature: search federation users
       }
       """
 
-  @issue-9829
+  @owncloud-issue-9829
   Scenario: admin gets federated users
     Given using server "LOCAL"
     And "Alice" has created the federation share invitation
@@ -597,7 +597,7 @@ Feature: search federation users
       }
       """
 
-  @issue-9829
+  @owncloud-issue-9829
   Scenario: admin gets federated and local users
     Given using server "LOCAL"
     And "Alice" has created the federation share invitation

@@ -29,7 +29,7 @@ Feature: get file properties
       | spaces           | /नेपाली.txt       |
       | spaces           | s,a,m,p,l,e.txt   |
 
-  @issue-1296
+  @owncloud-issue-1296
   Scenario Outline: user sends a PROPFIND request on various file with '?, #, &, +' in its name
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "uploaded content" to "<file-name>"
@@ -52,7 +52,7 @@ Feature: get file properties
       | spaces           | /file ?2.txt  | dav/spaces/%spaceid%/file ?2.txt  |
       | spaces           | /file &2.txt  | dav/spaces/%spaceid%/file &2.txt  |
 
-  @issue-1296
+  @owncloud-issue-1296
   Scenario Outline: user sends a PROPFIND request on various folder names
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "<folder-name>"
@@ -113,7 +113,7 @@ Feature: get file properties
       | spaces           | /नेपाली                          | नेपाली                        |
       | spaces           | /folder #2.txt                   | file #2.txt                   |
 
-  @issue-1259
+  @owncloud-issue-1259
   #after fixing all issues delete this Scenario and merge with the one above
   Scenario Outline: user sends a PROPFIND request on various files inside various folders with '?' character in its name
     Given using <dav-path-version> DAV path
@@ -263,7 +263,7 @@ Feature: get file properties
       | new              | textfile.txt |
       | spaces           | textfile.txt |
 
-  @smokeTest @issue-2809
+  @smokeTest @owncloud-issue-2809
   Scenario Outline: retrieving a private link
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/textfile.txt" to "/somefile.txt"
@@ -292,7 +292,7 @@ Feature: get file properties
       | /dav/spaces/%spaceid%/does-not-exist | Resource not found     |                    |
       | /dav/spaces/%spaceid%/file1.txt      | Resource not found     |                    |
 
-  @issue-1297
+  @owncloud-issue-1297
   Scenario Outline: add, receive multiple custom meta properties to a file
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/TestFolder"
@@ -317,7 +317,7 @@ Feature: get file properties
       | old              |
       | spaces           |
 
-  @issue-1297
+  @owncloud-issue-1297
   Scenario Outline: add multiple properties to files inside a folder and do a propfind of the parent folder
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/TestFolder"

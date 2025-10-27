@@ -233,7 +233,7 @@ Feature: Email notification
       Zum Ansehen hier klicken: %base_url%/files/shares/with-me
       """
 
-  @issue-9530
+  @owncloud-issue-9530
   Scenario: user gets an email notification when someone with comma in display name shares a file
     Given the administrator has assigned the role "Admin" to user "Brian" using the Graph API
     And the user "Brian" has created a new user with the following attributes:

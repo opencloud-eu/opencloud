@@ -91,7 +91,7 @@ Feature: Upload files into a space
       | foo/bar     |
       | foo/bar/baz |
 
-  @issue-10331 @issue-10469
+  @owncloud-issue-10331 @owncloud-issue-10469
   Scenario: public uploads a zero byte file to a public share folder
     Given using SharingNG
     And user "Alice" has created folder "/uploadFolder"
@@ -108,7 +108,7 @@ Feature: Upload files into a space
       | textfile (1).txt |
       | textfile (2).txt |
 
-  @issue-10331 @issue-10469
+  @owncloud-issue-10331 @owncloud-issue-10469
   Scenario: public uploads a zero byte file to a public share folder inside project space
     Given using SharingNG
     And user "Alice" has created a folder "/uploadFolder" in space "Project Ceres"
@@ -125,7 +125,7 @@ Feature: Upload files into a space
       | textfile (1).txt |
       | textfile (2).txt |
 
-  @issue-10331 @issue-10469
+  @owncloud-issue-10331 @owncloud-issue-10469
   Scenario: public uploads a zero byte file to a public share project space
     Given using SharingNG
     And user "Alice" has created the following space link share:

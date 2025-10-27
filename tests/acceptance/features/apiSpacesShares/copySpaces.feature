@@ -268,7 +268,7 @@ Feature: copy file
       | Editor           |
       | Viewer           |
 
-  @issue-9482 @env-config
+  @owncloud-issue-9482 @env-config
   Scenario: user copies a file from share space with secure viewer role to personal space
     Given the administrator has assigned the role "Space Admin" to user "Brian" using the Graph API
     And the administrator has enabled the permissions role "Secure Viewer"
@@ -316,7 +316,7 @@ Feature: copy file
       | Space Editor | Editor           |
       | Space Editor | Viewer           |
 
-  @issue-9482 @env-config
+  @owncloud-issue-9482 @env-config
   Scenario Outline: user copies a file from share space with secure viewer role to project space with different role
     Given the administrator has assigned the role "Space Admin" to user "Brian" using the Graph API
     And the administrator has enabled the permissions role "Secure Viewer"
@@ -402,7 +402,7 @@ Feature: copy file
       | Editor           |
       | Viewer           |
 
-  @issue-9482 @env-config
+  @owncloud-issue-9482 @env-config
   Scenario Outline: user copies a file from share space with different role to share space with role viewer or Secure Viewer
     Given user "Brian" has created folder "/testshare1"
     And user "Brian" has created folder "/testshare2"
@@ -696,7 +696,7 @@ Feature: copy file
     Then the HTTP status code should be "403"
     And for user "Alice" the content of the file "/testshare/overwritethis.txt" of the space "Shares" should be "OpenCloud test text file 1"
 
-  @issue-7208
+  @owncloud-issue-7208
   Scenario: copy a file over the top of an existing folder received as a user share
     Given using spaces DAV path
     And user "Alice" has uploaded file with content "OpenCloud test text file 1" to "/textfile1.txt"
@@ -717,7 +717,7 @@ Feature: copy file
     And as "Alice" file "Shares/textfile1.txt" should not exist
     And user "Alice" should have a share "BRIAN-Folder" shared by user "Brian" from space "Personal"
 
-  @issue-7208
+  @owncloud-issue-7208
   Scenario: copy a folder over the top of an existing file received as a user share
     Given using spaces DAV path
     And user "Alice" has created folder "/FOLDER"
@@ -980,7 +980,7 @@ Feature: copy file
       | insideSpace (1).txt |
     And for user "Alice" the content of the file "/newfolder/insideSpace (1).txt" of the space "Project" should be "new content"
 
-  @issue-4797
+  @owncloud-issue-4797
   Scenario: copying a file with an option "replace" inside of the project space
     Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "Project" with the default quota using the Graph API

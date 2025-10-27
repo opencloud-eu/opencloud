@@ -44,7 +44,7 @@ Feature: share resources where the sharee receives the share in multiple ways
       | 1               | 100             |
       | 2               | 200             |
 
-  @issue-1289
+  @owncloud-issue-1289
   Scenario Outline: share of folder and sub-folder to same user
     Given using OCS API version "<ocs-api-version>"
     And group "grp4" has been created
@@ -67,7 +67,7 @@ Feature: share resources where the sharee receives the share in multiple ways
       | 1               | 100             |
       | 2               | 200             |
 
-  @issue-2021
+  @owncloud-issue-2021
   Scenario Outline: sharing subfolder when parent already shared
     Given using OCS API version "<ocs-api-version>"
     And group "grp1" has been created
@@ -88,7 +88,7 @@ Feature: share resources where the sharee receives the share in multiple ways
       | 1               | 100             |
       | 2               | 200             |
 
-  @issue-2021
+  @owncloud-issue-2021
   Scenario Outline: sharing subfolder when parent already shared with group of sharer
     Given using OCS API version "<ocs-api-version>"
     And group "grp0" has been created
@@ -110,7 +110,7 @@ Feature: share resources where the sharee receives the share in multiple ways
       | 1               | 100             |
       | 2               | 200             |
 
-  @issue-2131
+  @owncloud-issue-2131
   Scenario Outline: multiple users share a file with the same name but different permissions to a user
     Given using OCS API version "<ocs-api-version>"
     And user "Carol" has been created with default attributes
@@ -141,7 +141,7 @@ Feature: share resources where the sharee receives the share in multiple ways
       | 1               | 100             |
       | 2               | 200             |
 
-  @issue-2131
+  @owncloud-issue-2131
   Scenario Outline: multiple users share a folder with the same name to a user
     Given using OCS API version "<ocs-api-version>"
     And user "Carol" has been created with default attributes
@@ -203,7 +203,7 @@ Feature: share resources where the sharee receives the share in multiple ways
       | 1               |
       | 2               |
 
-  @issue-2440
+  @owncloud-issue-2440
   Scenario: sharing parent folder to user with all permissions and its child folder to group with read permission then check create operation
     Given group "grp1" has been created
     And user "Carol" has been created with default attributes
@@ -233,7 +233,7 @@ Feature: share resources where the sharee receives the share in multiple ways
     And user "Brian" should be able to create folder "/Shares/parent/child1/fo2"
     And user "Alice" should not be able to create folder "/Shares/child1/fo3"
 
-  @issue-2440
+  @owncloud-issue-2440
   Scenario: sharing parent folder to user with all permissions and its child folder to group with read permission then check rename operation
     Given group "grp1" has been created
     And user "Carol" has been created with default attributes
@@ -264,7 +264,7 @@ Feature: share resources where the sharee receives the share in multiple ways
     And user "Brian" should be able to rename file "/Shares/child1/child2/rename.txt" to "/Shares/child1/child2/rename2.txt"
     And user "Alice" should not be able to rename file "/Shares/child1/child2/rename2.txt" to "/Shares/child1/child2/rename3.txt"
 
-  @issue-2440
+  @owncloud-issue-2440
   Scenario: sharing parent folder to user with all permissions and its child folder to group with read permission then check delete operation
     Given group "grp1" has been created
     And user "Carol" has been created with default attributes
@@ -328,7 +328,7 @@ Feature: share resources where the sharee receives the share in multiple ways
     And user "Brian" should not be able to create folder "/Shares/parent/fo3"
     And user "Alice" should not be able to create folder "/Shares/parent/fo3"
 
-  @issue-2440
+  @owncloud-issue-2440
   Scenario: sharing parent folder to group with read permission and its child folder to user with all permissions then check rename operation
     Given group "grp1" has been created
     And user "Carol" has been created with default attributes
@@ -359,7 +359,7 @@ Feature: share resources where the sharee receives the share in multiple ways
     And user "Brian" should be able to rename file "/Shares/parent/child1/child2/rename.txt" to "/Shares/parent/child1/child2/rename2.txt"
     And user "Alice" should not be able to rename file "/Shares/parent/child1/child2/rename2.txt" to "/Shares/parent/child1/child2/rename3.txt"
 
-  @issue-2440
+  @owncloud-issue-2440
   Scenario: sharing parent folder to group with read permission and its child folder to user with all permissions then check delete operation
     Given group "grp1" has been created
     And user "Carol" has been created with default attributes
@@ -457,7 +457,7 @@ Feature: share resources where the sharee receives the share in multiple ways
     And as "Brian" folder "Shares/sharedParent" should exist
     And as "Brian" file "Shares/sharedParent/child/lorem.txt" should exist
 
-  @issue-7555
+  @owncloud-issue-7555
   Scenario Outline: share receiver renames a group share and receives same resource through user share with additional permissions
     Given using OCS API version "<ocs-api-version>"
     And group "grp" has been created

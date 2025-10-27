@@ -62,7 +62,7 @@ Feature: checking file versions using file id
     When user "Brian" tries to get the number of versions of file "/text.txt" using file-id "<<FILEID>>"
     Then the HTTP status code should be "403"
 
-  @issue-7738
+  @owncloud-issue-7738
   Scenario Outline: check the versions of a file after moving to a shared folder inside a project space as editor/viewer
     Given user "Alice" has created a folder "testFolder" in space "Project1"
     And user "Alice" has sent the following resource share invitation:
@@ -83,7 +83,7 @@ Feature: checking file versions using file id
       | File Editor |
       | Viewer      |
 
-  @issue-7738
+  @owncloud-issue-7738
   Scenario: check the versions of a file after moving it to a shared folder inside a project space as manager
     Given user "Alice" has created a folder "testFolder" in space "Project1"
     And user "Alice" has sent the following resource share invitation:
@@ -103,7 +103,7 @@ Feature: checking file versions using file id
     Then the HTTP status code should be "207"
     And the number of versions should be "1"
 
-  @issue-777
+  @owncloud-issue-777
   Scenario Outline: check file versions after moving to-and-from folder in personal space
     Given user "Alice" has created folder "folder"
     And user "Alice" has uploaded file with content "some data" to "<source>textfile.txt"
@@ -118,7 +118,7 @@ Feature: checking file versions using file id
       | /       | folder/     |
       | folder/ | /           |
 
-  @issue-777
+  @owncloud-issue-777
   Scenario Outline: check file versions after moving to-and-from folder in personal space (MOVE using file-id)
     Given user "Alice" has created folder "folder"
     And user "Alice" has uploaded file with content "some data" to "<source>textfile.txt"
@@ -135,7 +135,7 @@ Feature: checking file versions using file id
       | /       | folder/     |
       | folder/ | /           |
 
-  @issue-777
+  @owncloud-issue-777
   Scenario Outline: check file versions after moving to-and-from folder in project space
     Given user "Alice" has created a folder "folder" in space "Project1"
     And user "Alice" has uploaded a file inside space "Project1" with content "some data" to "<source>textfile.txt"
@@ -150,7 +150,7 @@ Feature: checking file versions using file id
       | /       | folder/     |
       | folder/ | /           |
 
-  @issue-777
+  @owncloud-issue-777
   Scenario Outline: check file versions after moving to-and-from folder in project space (MOVE using file-id)
     And user "Alice" has created a folder "folder" in space "Project1"
     And user "Alice" has uploaded a file inside space "Project1" with content "some data" to "<source>textfile.txt"

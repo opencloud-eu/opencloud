@@ -7,7 +7,7 @@ Feature: edit group name
     Given user "Alice" has been created with default attributes
     And the administrator has assigned the role "Admin" to user "Alice" using the Graph API
 
-  @issue-5977
+  @owncloud-issue-5977
   Scenario Outline: admin user renames a group
     Given group "<group>" has been created
     When user "Alice" renames group "<group>" to "<new-group>" using the Graph API
@@ -23,7 +23,7 @@ Feature: edit group name
       | grp1  | staff?group   |
       | grp1  | 50%pass       |
 
-  @issue-5938
+  @owncloud-issue-5938
   Scenario Outline: user other than the admin can't rename a group
     Given the administrator has assigned the role "<user-role>" to user "Alice" using the Graph API
     And group "grp1" has been created

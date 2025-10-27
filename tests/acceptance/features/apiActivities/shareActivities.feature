@@ -498,7 +498,7 @@ Feature: check share activity
       }
       """
 
-  @issue-9712
+  @owncloud-issue-9712
   Scenario: sharer checks sharee's activities
     Given user "Alice" has created folder "FOLDER"
     And user "Alice" has sent the following resource share invitation:
@@ -1061,7 +1061,7 @@ Feature: check share activity
       }
       """
 
-  @issue-10012
+  @owncloud-issue-10012
   Scenario: check link share activities of a project space
     Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "new-space" with the default quota using the Graph API
@@ -1347,7 +1347,7 @@ Feature: check share activity
       }
       """
 
-  @issue-10011 @issue-10228
+  @owncloud-issue-10011 @owncloud-issue-10228
   Scenario: check share update activities of a folder from a project space
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -1534,7 +1534,7 @@ Feature: check share activity
       }
       """
 
-  @issue-10012
+  @owncloud-issue-10012
   Scenario: check link share activities of a file from a project space
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -1843,7 +1843,7 @@ Feature: check share activity
       }
       """
 
-  @issue-10012
+  @owncloud-issue-10012
   Scenario: public tries to check link share activities of a project space
     Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "new-space" with the default quota using the Graph API
@@ -1862,7 +1862,7 @@ Feature: check share activity
     When the public tries to check the activities of space "new-space" owned by user "Alice" with password "%public%" using the Graph API
     Then the HTTP status code should be "401"
 
-  @issue-10012
+  @owncloud-issue-10012
   Scenario: public tries to check link share activities of a project space file
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -1885,7 +1885,7 @@ Feature: check share activity
     When the public tries to check the activities of file "textfile.txt" from space "new-space" owned by user "Alice" with password "%public%" using the Graph API
     Then the HTTP status code should be "401"
 
-  @issue-10012
+  @owncloud-issue-10012
   Scenario: public tries to check link share activities of a project space folder
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -1924,7 +1924,7 @@ Feature: check share activity
     When user "Brian" tries to list the activities of folder "FOLDER" with share mount-point id using the Graph API
     Then the HTTP status code should be "403"
 
-  @issue-9849
+  @owncloud-issue-9849
   Scenario: sharee tries to check the activities of a shared folder using file-id
     Given user "Alice" has created folder "/FOLDER"
     And user "Alice" has uploaded file with content "some data" to "FOLDER/newfile.txt"
@@ -1940,7 +1940,7 @@ Feature: check share activity
     When user "Brian" lists the activities of folder "FOLDER" from space "Shares" using the Graph API
     Then the HTTP status code should be "403"
 
-  @issue-9860
+  @owncloud-issue-9860
   Scenario: sharee tries to check the activities of unshared file
     Given user "Alice" has uploaded file with content "another OpenCloud test text file" to "anotherTextfile.txt"
     And user "Alice" has sent the following resource share invitation:
@@ -1952,7 +1952,7 @@ Feature: check share activity
     When user "Brian" tries to list the activities of file "anotherTextfile.txt" from space "Personal" owned by user "Alice" using the Graph API
     Then the HTTP status code should be "403"
 
-  @issue-9676 @issue-10331
+  @owcnloud-issue-9676 @owncloud-issue-10331
   Scenario: user checks public activities of a link shared file
     Given using SharingNG
     And user "Alice" has created the following resource link share:
@@ -2091,7 +2091,7 @@ Feature: check share activity
       }
       """
 
-  @issue-9676 @issue-10331
+  @owncloud-issue-9676 @owncloud-issue-10331
   Scenario: user checks public activities of a link shared folder
     Given using SharingNG
     And user "Alice" has created folder "/FOLDER"

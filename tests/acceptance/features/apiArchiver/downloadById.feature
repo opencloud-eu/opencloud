@@ -121,7 +121,7 @@ Feature: download multiple resources bundled into an archive
       | my_data/textfile2.txt       | some data  |
       | more_data/an_other_file.txt | more data  |
 
-  @issue-4636
+  @owncloud-issue-4636
   Scenario Outline: download the Shares folder as share receiver
     Given user "Brian" has been created with default attributes
     And user "Alice" has uploaded file with content "some data" to "/textfile0.txt"

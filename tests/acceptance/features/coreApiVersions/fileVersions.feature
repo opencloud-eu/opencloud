@@ -520,7 +520,7 @@ Feature: dav-versions
     Then the HTTP status code should be "403"
     And the value of the item "//s:exception" in the response about user "Alice" should be "Sabre\DAV\Exception\Forbidden"
 
-  @issue-enterprise-6249
+  @owncloud-issue-enterprise-6249
   Scenario: upload empty content file and check versions after multiple restores
     Given user "Alice" has uploaded file with content "" to "textfile.txt"
     And user "Alice" has uploaded file with content "test content" to "textfile.txt"

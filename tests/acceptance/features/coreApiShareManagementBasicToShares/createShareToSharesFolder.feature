@@ -34,7 +34,7 @@ Feature: sharing
       | 1               | 100             |
       | 2               | 200             |
 
-  @smokeTest @issue-2133
+  @smokeTest @owncloud-issue-2133
   Scenario Outline: creating a share of a file containing commas in the filename, with a user, the default permissions are read(1)+update(2)+can-share(16)
     Given using OCS API version "<ocs-api-version>"
     And user "Brian" has been created with default attributes
@@ -60,7 +60,7 @@ Feature: sharing
       | 1               | 100             |
       | 2               | 200             |
 
-  @issue-2133 @issue-1270 @issue-1271
+  @owncloud-issue-2133 @owncloud-issue-1270 @owncloud-issue-1271
   Scenario Outline: creating a share of a file with a user and asking for various permission combinations
     Given using OCS API version "<ocs-api-version>"
     And user "Brian" has been created with default attributes
@@ -127,7 +127,7 @@ Feature: sharing
       | 1               | 200              |
       | 2               | 400              |
 
-  @issue-2133
+  @owncloud-issue-2133
   Scenario Outline: creating a share of a folder with a user, the default permissions are all permissions(15)
     Given using OCS API version "<ocs-api-version>"
     And user "Brian" has been created with default attributes
@@ -266,7 +266,7 @@ Feature: sharing
     When user "Brian" shares file "/randomfile.txt" with group "grp1" using the sharing API
     And as "Alice" file "/Shares/randomfile.txt" should exist
 
-  @issue-2201
+  @owncloud-issue-2201
   Scenario Outline: sharing subfolder of already shared folder, GET result is correct
     Given using OCS API version "<ocs-api-version>"
     And these users have been created with default attributes:
@@ -464,7 +464,7 @@ Feature: sharing
       | 2               | 200             |
 
   # deleting an LDAP group is not relevant or possible using the provisioning API
-  @issue-2441
+  @owncloud-issue-2441
   Scenario Outline: shares shared to deleted group should not be available
     Given using OCS API version "<ocs-api-version>"
     And these users have been created with default attributes:
@@ -504,7 +504,7 @@ Feature: sharing
       | 1               | 100             |
       | 2               | 200             |
 
-  @issue-764 @issue-7555
+  @owncloud-issue-764 @owncloud-issue-7555
   Scenario Outline: share a file by multiple channels and download from sub-folder and direct file share
     Given using <dav-path-version> DAV path
     And these users have been created with default attributes:
@@ -575,7 +575,7 @@ Feature: sharing
       | 1               | 100             |
       | 2               | 200             |
 
-  @issue-903
+  @owncloud-issue-903
   Scenario Outline: shares to a deleted user should not be listed as shares for the sharer
     Given using OCS API version "<ocs-api-version>"
     And these users have been created with default attributes:
@@ -606,7 +606,7 @@ Feature: sharing
       | 1               | 100             |
       | 2               | 200             |
 
-  @issue-719
+  @owncloud-issue-719
   Scenario Outline: creating a share of a renamed file when another share exists
     Given using OCS API version "<ocs-api-version>"
     And user "Brian" has been created with default attributes
@@ -640,7 +640,7 @@ Feature: sharing
       | 1               | 100             |
       | 2               | 200             |
 
-  @issue-1710
+  @owncloud-issue-1710
   Scenario Outline: sharing a same file twice to the same group is not possible
     Given using OCS API version "<ocs-api-version>"
     And group "grp1" has been created

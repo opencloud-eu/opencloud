@@ -86,7 +86,7 @@ Feature: Restoring space
       | User       |
       | User Light |
 
-  @issue-5872
+  @owncloud-issue-5872
   Scenario Outline: admin and space admin can restore other space
     Given the administrator has assigned the role "<user-role>" to user "Brian" using the Graph API
     And user "Alice" has disabled a space "restore a space"

@@ -6,7 +6,7 @@ Feature: create space
   Background:
     Given user "Alice" has been created with default attributes
 
-  @issue-5938
+  @owncloud-issue-5938
   Scenario Outline: user with role user and user light can't create space via Graph API
     Given the administrator has assigned the role "<user-role>" to user "Alice" using the Graph API
     When user "Alice" tries to create a space "Project Mars" of type "project" with the default quota using the Graph API

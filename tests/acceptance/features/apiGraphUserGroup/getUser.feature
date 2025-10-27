@@ -50,7 +50,7 @@ Feature: get users
       }
       """
 
-  @issue-5125
+  @owncloud-issue-5125
   Scenario Outline: non-admin user tries to get the information of a user
     Given the administrator has assigned the role "<user-role-2>" to user "Alice" using the Graph API
     And the administrator has assigned the role "<user-role>" to user "Brian" using the Graph API
@@ -592,7 +592,7 @@ Feature: get users
       }
       """
 
-  @issue-5125
+  @owncloud-issue-5125
   Scenario Outline: non-admin user tries to get the group information of a user
     Given the administrator has assigned the role "<user-role>" to user "Alice" using the Graph API
     And the administrator has assigned the role "<user-role-2>" to user "Brian" using the Graph API
@@ -635,7 +635,7 @@ Feature: get users
     When user "Alice" tries to get information of user "nonexistent" using Graph API
     Then the HTTP status code should be "404"
 
-  @issue-5125
+  @owncloud-issue-5125
   Scenario Outline: non-admin user tries to get the information of nonexistent user
     Given the administrator has assigned the role "<user-role>" to user "Alice" using the Graph API
     When user "Alice" tries to get information of user "nonexistent" using Graph API
@@ -1080,7 +1080,7 @@ Feature: get users
       | User Light  | User Light  |
       | User Light  | Admin       |
 
-  @issue-6017
+  @owncloud-issue-6017
   Scenario Outline: admin user gets the drive information of a user with different user role
     Given the administrator has assigned the role "<user-role>" to user "Alice" using the Graph API
     And the administrator has assigned the role "<user-role-2>" to user "Brian" using the Graph API
@@ -1401,7 +1401,7 @@ Feature: get users
       }
       """
 
-  @issue-7990
+  @owncloud-issue-7990
   Scenario Outline: user tries to search other users with invalid characters/token (search term without quotation)
     Given user "<user>" has been created with default attributes
     When user "Brian" tries to search for user "<user>" using Graph API
@@ -1434,7 +1434,7 @@ Feature: get users
       | Alice-From-Wonderland | -From-Wonderland |
       | Alice@From@Wonderland | @From@Wonderland |
 
-  @issue-7990
+  @owncloud-issue-7990
   Scenario: non-admin user searches other users by e-mail (search term with quotation)
     When user "Brian" searches for user "%22alice@example.org%22" using Graph API
     Then the HTTP status code should be "200"
@@ -1621,7 +1621,7 @@ Feature: get users
       }
       """
 
-  @issue-7990
+  @owncloud-issue-7990
   Scenario Outline: user searches for other users having special characters in displayname (search term with quotation)
     Given the user "Admin" has created a new user with the following attributes:
       | userName    | specail-user                 |

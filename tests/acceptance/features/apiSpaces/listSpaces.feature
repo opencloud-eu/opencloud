@@ -438,7 +438,7 @@ Feature: List and create spaces
       | User       |
       | User Light |
 
-  @issue-7160
+  @owncloud-issue-7160
   Scenario Outline: get share jail space information of the user when user has a pending share
     Given user "Brian" has been created with default attributes
     And user "Alice" has disabled auto-accepting

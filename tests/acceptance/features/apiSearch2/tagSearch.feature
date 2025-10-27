@@ -6,7 +6,7 @@ Feature: tag search
   Background:
     Given user "Alice" has been created with default attributes
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: search files by tag
     Given using <dav-path-version> DAV path
     And user "Alice" has created the following folders
@@ -35,7 +35,7 @@ Feature: tag search
       | new              |
       | spaces           |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: search project space files by tag
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -63,7 +63,7 @@ Feature: tag search
       | new              |
       | spaces           |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: search folders using a tag
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "uploadFolder1"
@@ -84,7 +84,7 @@ Feature: tag search
       | new              |
       | spaces           |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: search project space folders by tag
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -107,7 +107,7 @@ Feature: tag search
       | new              |
       | spaces           |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: sharee searches shared files using a tag
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -137,7 +137,7 @@ Feature: tag search
       | new              |
       | spaces           |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: sharee searches shared project space files using a tag
     Given using spaces DAV path
     And user "Brian" has been created with default attributes
@@ -188,7 +188,7 @@ Feature: tag search
       | new              |
       | spaces           |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: search restored files using a tag
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "hello world" to "file1.txt"
@@ -206,7 +206,7 @@ Feature: tag search
       | new              |
       | spaces           |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: search restored version of a file using a tag
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "version one file" to "file.txt"
@@ -225,7 +225,7 @@ Feature: tag search
       | new              |
       | spaces           |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: search resources using different search patterns (KQL feature)
     Given using spaces DAV path
     And user "Alice" has created the following folders

@@ -23,14 +23,14 @@ Feature: create group
       | Finance (NP)    |
       | slash\Middle    |
 
-  @issue-3516
+  @owncloud-issue-3516
   Scenario: admin user tries to create a group that already exists
     Given group "mygroup" has been created
     When user "Alice" tries to create a group "mygroup" using the Graph API
     Then the HTTP status code should be "409"
     And group "mygroup" should exist
 
-  @issue-5938
+  @owncloud-issue-5938
   Scenario Outline: user other than the admin can't create a group
     Given user "Brian" has been created with default attributes
     And the administrator has assigned the role "<user-role>" to user "Brian" using the Graph API
@@ -43,7 +43,7 @@ Feature: create group
       | User        |
       | User Light  |
 
-  @issue-5050
+  @owncloud-issue-5050
   Scenario: admin user tries to create a group that is the empty string
     When user "Alice" tries to create a group "" using the Graph API
     Then the HTTP status code should be "400"

@@ -9,7 +9,7 @@ Feature: CORS headers
     Given user "Alice" has been created with default attributes
     And the config "OC_CORS_ALLOW_ORIGINS" has been set to "https://aphno.badal"
 
-  @issue-5195
+  @owncloud-issue-5195
   Scenario Outline: CORS headers should be returned when setting CORS domain sending origin header
     Given using OCS API version "<ocs-api-version>"
     When user "Alice" sends HTTP method "GET" to OCS API endpoint "<endpoint>" with headers
@@ -49,7 +49,7 @@ Feature: CORS headers
       | 1               | /apps/files_sharing/api/v1/shares | 100             | 200              |
       | 2               | /apps/files_sharing/api/v1/shares | 200             | 200              |
 
-  @issue-5194
+  @owncloud-issue-5194
   # The Access-Control-Request-Headers need to be in lower-case and alphabetically order to comply with the rs/cors
   # package see: https://github.com/rs/cors/commit/4c32059b2756926619f6bf70281b91be7b5dddb2#diff-bf80d8fbedf172fab9ba2604da7f7be972e48b2f78a8d0cd21619d5f93665895R367
   Scenario Outline: CORS headers should be returned when an preflight request is sent
@@ -82,7 +82,7 @@ Feature: CORS headers
       | header                      | value               |
       | Access-Control-Allow-Origin | https://aphno.badal |
 
-  @issue-8231
+  @owncloud-issue-8231
   Scenario Outline: CORS headers should be returned when setting CORS domain sending origin header in the Webdav api
     Given using <dav-path-version> DAV path
     When user "Alice" sends PROPFIND request to space "Personal" with headers using the WebDAV API
@@ -108,7 +108,7 @@ Feature: CORS headers
       | header                      | value               |
       | Access-Control-Allow-Origin | https://aphno.badal |
 
-  @issue-8380
+  @owncloud-issue-8380
   Scenario: CORS headers should be returned when uploading file using Tus and when CORS domain sending origin header in the Webdav api
     Given user "Alice" has created a new TUS resource in the space "Personal" with the following headers:
       | Upload-Length   | 5                         |
@@ -126,7 +126,7 @@ Feature: CORS headers
       | Access-Control-Allow-Origin | https://aphno.badal |
     And for user "Alice" the content of the file "/textFile.txt" of the space "Personal" should be "01234"
 
-  @issue-8380
+  @owncloud-issue-8380
   Scenario: uploading file using Tus using different CORS headers
     Given user "Alice" has created a new TUS resource in the space "Personal" with the following headers:
       | Upload-Length   | 5                         |
@@ -140,7 +140,7 @@ Feature: CORS headers
       | Upload-Offset   | 0                                    |
     Then the HTTP status code should be "403"
 
-  @issue-8380
+  @owncloud-issue-8380
   # The Access-Control-Request-Headers need to be in lower-case and alphabetically order to comply with the rs/cors
   # package see: https://github.com/rs/cors/commit/4c32059b2756926619f6bf70281b91be7b5dddb2#diff-bf80d8fbedf172fab9ba2604da7f7be972e48b2f78a8d0cd21619d5f93665895R367
   Scenario Outline: CORS headers should be returned when an preflight request is sent to Tus upload

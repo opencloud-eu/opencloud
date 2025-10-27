@@ -6,7 +6,7 @@ Feature: move folders
   Background:
     Given user "Alice" has been created with default attributes
 
-  @issue-10346
+  @owncloud-issue-10346
   Scenario Outline: uploading file into a moved folder
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/test"

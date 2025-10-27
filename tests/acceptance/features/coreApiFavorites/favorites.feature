@@ -15,7 +15,7 @@ Feature: favorite
     And user "Alice" has created folder "/PARENT"
     And user "Alice" has uploaded file with content "some data" to "/PARENT/parent.txt"
 
-  @issue-1263
+  @owncloud-issue-1263
   Scenario Outline: favorite a folder
     Given using <dav-path-version> DAV path
     When user "Alice" favorites element "/FOLDER" using the WebDAV API
@@ -32,7 +32,7 @@ Feature: favorite
       | new              |
       | spaces           |
 
-  @issue-1263
+  @owncloud-issue-1263
   Scenario Outline: unfavorite a folder
     Given using <dav-path-version> DAV path
     And user "Alice" has favorited element "/FOLDER"
@@ -50,7 +50,7 @@ Feature: favorite
       | new              |
       | spaces           |
 
-  @smokeTest @issue-1263
+  @smokeTest @owncloud-issue-1263
   Scenario Outline: favorite a file
     Given using <dav-path-version> DAV path
     When user "Alice" favorites element "/textfile0.txt" using the WebDAV API
@@ -67,7 +67,7 @@ Feature: favorite
       | new              |
       | spaces           |
 
-  @smokeTest @issue-1263
+  @smokeTest @owncloud-issue-1263
   Scenario Outline: unfavorite a file
     Given using <dav-path-version> DAV path
     And user "Alice" has favorited element "/textfile0.txt"
@@ -85,7 +85,7 @@ Feature: favorite
       | new              |
       | spaces           |
 
-  @smokeTest @issue-1228
+  @smokeTest @owncloud-issue-1228
   Scenario Outline: get favorited elements of a folder
     Given using <dav-path-version> DAV path
     When user "Alice" favorites element "/FOLDER" using the WebDAV API
@@ -102,7 +102,7 @@ Feature: favorite
       | new              |
       | spaces           |
 
-  @issue-1228
+  @owncloud-issue-1228
   Scenario Outline: get favorited elements of a subfolder
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/subfolder"
@@ -125,7 +125,7 @@ Feature: favorite
       | new              |
       | spaces           |
 
-  @issue-1228
+  @owncloud-issue-1228
   Scenario Outline: get favorited elements and limit count of entries
     Given using <dav-path-version> DAV path
     And user "Alice" has favorited element "/textfile0.txt"
@@ -146,7 +146,7 @@ Feature: favorite
       | new              |
       | spaces           |
 
-  @issue-1228
+  @owncloud-issue-1228
   Scenario Outline: get favorited elements paginated in subfolder
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/subfolder"
@@ -175,7 +175,7 @@ Feature: favorite
       | new              |
       | spaces           |
 
-  @issue-1228
+  @owncloud-issue-1228
   Scenario Outline: favoriting a folder does not change the favorite state of elements inside the folder
     Given using <dav-path-version> DAV path
     When user "Alice" favorites element "/PARENT/parent.txt" using the WebDAV API

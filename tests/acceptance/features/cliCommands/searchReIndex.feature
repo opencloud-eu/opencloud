@@ -11,7 +11,7 @@ Feature: reindex space via CLI command
     And user "Alice" has created a space "new-space" with the default quota using the Graph API
     And user "Alice" has uploaded a file inside space "new-space" with content "some data" to "textfile.txt"
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario: reindex all spaces
     When the administrator reindexes all spaces using the CLI
     Then the command should be successful

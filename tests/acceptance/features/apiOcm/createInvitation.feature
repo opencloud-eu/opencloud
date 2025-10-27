@@ -32,7 +32,7 @@ Feature: create invitation
       }
       """
 
-  @issue-9591
+  @owncloud-issue-9591
   Scenario: user creates invitation with valid email and description
     Given using server "LOCAL"
     When "Alice" creates the federation share invitation with email "brian@example.com" and description "a share invitation from Alice"
@@ -76,7 +76,7 @@ Feature: create invitation
       | @domain.com                       | 400  |
       | user@domain..com                  | 400  |
 
-  @email @issue-10059
+  @email @owncloud-issue-10059
   Scenario: federated user gets an email notification if their email was specified when creating the federation share invitation
     Given using server "REMOTE"
     And user "David" has been created with default attributes
@@ -142,7 +142,7 @@ Feature: create invitation
       }
       """
 
-  @issue-9591
+  @owncloud-issue-9591
   Scenario: user lists invitation created with valid email and description
     Given using server "LOCAL"
     And "Alice" has created the federation share invitation with email "brian@example.com" and description "a share invitation from Alice"

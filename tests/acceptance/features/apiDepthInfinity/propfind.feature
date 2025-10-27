@@ -70,7 +70,7 @@ Feature: PROPFIND with depth:infinity
       | new              |
       | spaces           |
 
-  @issue-10331
+  @owncloud-issue-10331
   Scenario: get the list of resources in a folder shared through public link with depth infinity
     Given using SharingNG
     And the following configs have been set:
@@ -120,7 +120,7 @@ Feature: PROPFIND with depth:infinity
       | new              |
       | spaces           |
 
-  @issue-10331
+  @owncloud-issue-10331
   Scenario: get the list of resources in a folder shared through public link with depth infinity when depth infinity is not allowed
     Given the following configs have been set:
       | config                                       | value |

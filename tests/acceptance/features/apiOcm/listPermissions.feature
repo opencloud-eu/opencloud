@@ -7,7 +7,7 @@ Feature: List a federated sharing permissions
   Background:
     Given user "Alice" has been created with default attributes
 
-  @issue-9898
+  @owncloud-issue-9898
   Scenario: user lists permissions of a resource shared to a federated user
     Given using server "LOCAL"
     And "Alice" has created the federation share invitation
@@ -121,7 +121,7 @@ Feature: List a federated sharing permissions
       }
       """
 
-  @issue-9745 @env-config
+  @owncloud-issue-9745 @env-config
   Scenario: user lists allowed file permissions for federated user
     Given using server "LOCAL"
     And the administrator has enabled the permissions role "Secure Viewer"
@@ -196,7 +196,7 @@ Feature: List a federated sharing permissions
       }
       """
 
-  @issue-9745
+  @owncloud-issue-9745
   Scenario: user lists allowed folder permissions for federated user
     Given using server "LOCAL"
     And the administrator has enabled the permissions role "Secure Viewer"

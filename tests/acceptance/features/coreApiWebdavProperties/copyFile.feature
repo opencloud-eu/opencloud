@@ -96,7 +96,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @issue-1345 @issue-2177
+  @owncloud-issue-1345 @owncloud-issue-2177
   Scenario Outline: copying file to a path with extension .part should not be possible
     Given using <dav-path-version> DAV path
     When user "Alice" copies file "/textfile1.txt" to "/textfile1.part" using the WebDAV API
@@ -110,7 +110,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @issue-1239
+  @owncloud-issue-1239
   Scenario Outline: copy a file over the top of an existing folder
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "FOLDER/sample-folder"
@@ -125,7 +125,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @issue-1239
+  @owncloud-issue-1239
   Scenario Outline: copy a folder over the top of an existing file
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "FOLDER/sample-folder"
@@ -139,7 +139,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @issue-1239
+  @owncloud-issue-1239
   Scenario Outline: copy a folder into another folder at different level
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "FOLDER/second-level-folder"
@@ -157,7 +157,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @issue-1239
+  @owncloud-issue-1239
   Scenario Outline: copy a file into a folder at different level
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "FOLDER/second-level-folder"
@@ -177,7 +177,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @issue-1239
+  @owncloud-issue-1239
   Scenario Outline: copy a file into a file at different level
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "file at second level" to "FOLDER/second-level-file.txt"
@@ -196,7 +196,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @issue-1239
+  @owncloud-issue-1239
   Scenario Outline: copy a folder into a file at different level
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "FOLDER/second-level-folder"
@@ -216,7 +216,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @issue-1239 @issue-3874 @issue-9753 @skipOnReva
+  @owncloud-issue-1239 @owncloud-issue-3874 @owncloud-issue-9753 @skipOnReva
   Scenario Outline: copy a file over the top of an existing folder received as a user share
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -241,7 +241,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @skipOnReva @issue-9753
+  @skipOnReva @owncloud-issue-9753
   Scenario Outline: copy a file over the top of an existing file received as a share
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "file to copy" to "copy.txt"
@@ -265,7 +265,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @issue-1239 @issue-6999 @issue-9753 @skipOnReva
+  @owncloud-issue-1239 @owncloud-issue-6999 @owncloud-issue-9753 @skipOnReva
   Scenario Outline: copy a folder over the top of an existing file received as a user share
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -290,7 +290,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @issue-6999 @issue-9753 @skipOnReva
+  @owncloud-issue-6999 @owncloud-issue-9753 @skipOnReva
   Scenario Outline: copy a folder over the top of an existing folder received as a share
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -316,7 +316,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @issue-1239 @skipOnReva
+  @owncloud-issue-1239 @skipOnReva
   Scenario Outline: copy a folder into another folder at different level which is received as a user share
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -346,7 +346,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @issue-1239 @skipOnReva
+  @owncloud-issue-1239 @skipOnReva
   Scenario Outline: copy a file into a folder at different level received as a user share
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -378,7 +378,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @issue-1239 @skipOnReva
+  @owncloud-issue-1239 @skipOnReva
   Scenario Outline: copy a file into a file at different level received as a user share
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -409,7 +409,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @issue-1239 @skipOnReva
+  @owncloud-issue-1239 @skipOnReva
   Scenario Outline: copy a folder into a file at different level received as a user share
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -440,7 +440,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @issue-1239 @issue-9753 @skipOnReva
+  @owncloud-issue-1239 @owncloud-issue-9753 @skipOnReva
   Scenario Outline: copy a file over the top of an existing folder received as a group share
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -468,7 +468,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @issue-1239 @issue-6999 @issue-9753 @skipOnReva
+  @owncloud-issue-1239 @owncloud-issue-6999 @owncloud-issue-9753 @skipOnReva
   Scenario Outline: copy a folder over the top of an existing file received as a group share
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -496,7 +496,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @issue-1239 @skipOnReva
+  @owncloud-issue-1239 @skipOnReva
   Scenario Outline: copy a folder into another folder at different level which is received as a group share
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -529,7 +529,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @issue-1239 @skipOnReva
+  @owncloud-issue-1239 @skipOnReva
   Scenario Outline: copy a file into a folder at different level received as a group share
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -564,7 +564,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @issue-1239 @skipOnReva
+  @owncloud-issue-1239 @skipOnReva
   Scenario Outline: copy a file into a file at different level received as a group share
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -598,7 +598,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @issue-1239 @skipOnReva
+  @owncloud-issue-1239 @skipOnReva
   Scenario Outline: copy a folder into a file at different level received as a group share
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -1011,7 +1011,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @issue-3023
+  @owncloud-issue-3023
   Scenario Outline: copying a folder into a sub-folder of itself
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/PARENT"
@@ -1067,7 +1067,7 @@ Feature: copy file
       | spaces           | "question?" | "folder-question?" | "folder-question?/question?" |
       | spaces           | "&and#hash" | "folder-&and#hash" | "folder-&and#hash/&and#hash" |
 
-  @issue-8711
+  @owncloud-issue-8711
   Scenario Outline: copying a file to itself
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "lorem epsum" to "textfile.txt"
@@ -1080,7 +1080,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @issue-8711
+  @owncloud-issue-8711
   Scenario Outline: copying a folder to itself
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "FOLDER1"

@@ -1,4 +1,4 @@
-@skipOnReva @issue-1289 @issue-1328
+@skipOnReva @owncloud-issue-1289 @owncloud-issue-1328
 Feature: accept/decline shares coming from internal users
   As a user
   I want to have control of which received shares I accept
@@ -24,7 +24,7 @@ Feature: accept/decline shares coming from internal users
     And user "Brian" has uploaded file "filesForUpload/textfile.txt" to "textfile0.txt"
     And user "Brian" has uploaded file "filesForUpload/textfile.txt" to "PARENT/parent.txt"
 
-  @smokeTest  @issue-2540
+  @smokeTest  @owncloud-issue-2540
   Scenario: share a file & folder with another internal group when auto accept is disabled
     Given user "Brian" has disabled auto-accepting
     And user "Carol" has disabled auto-accepting
@@ -60,7 +60,7 @@ Feature: accept/decline shares coming from internal users
       | /PARENT/       |
       | /textfile0.txt |
 
-  @issue-2540
+  @owncloud-issue-2540
   Scenario: share a file & folder with another internal user when auto accept is disabled
     Given user "Brian" has disabled auto-accepting
     When user "Alice" shares folder "/PARENT" with user "Brian" using the sharing API
@@ -80,7 +80,7 @@ Feature: accept/decline shares coming from internal users
       | /PARENT/       |
       | /textfile0.txt |
 
-  @smokeTest @issue-2131
+  @smokeTest @owncloud-issue-2131
   Scenario: accept a pending share
     Given user "Brian" has disabled auto-accepting
     And user "Alice" has sent the following resource share invitation:
@@ -150,7 +150,7 @@ Feature: accept/decline shares coming from internal users
       | path            |
       | /Shares/shared/ |
 
-  @smokeTest  @issue-2540
+  @smokeTest  @owncloud-issue-2540
   Scenario: declines a pending share
     Given user "Brian" has disabled auto-accepting
     And user "Alice" has sent the following resource share invitation:
@@ -182,7 +182,7 @@ Feature: accept/decline shares coming from internal users
       | /PARENT/       |
       | /textfile0.txt |
 
-  @smokeTest @issue-2128 @issue-2540
+  @smokeTest @owncloud-issue-2128 @owncloud-issue-2540
   Scenario: decline an accepted share
     Given user "Brian" has disabled auto-accepting
     And user "Alice" has sent the following resource share invitation:
@@ -238,7 +238,7 @@ Feature: accept/decline shares coming from internal users
       | new              |
       | spaces           |
 
-  @issue-2540
+  @owncloud-issue-2540
   Scenario: only one user in a group accepts a share
     Given user "Brian" has disabled auto-accepting
     And user "Carol" has disabled auto-accepting
@@ -275,7 +275,7 @@ Feature: accept/decline shares coming from internal users
       | /Shares/PARENT/       |
       | /Shares/textfile0.txt |
 
-  @issue-2131
+  @owncloud-issue-2131
   Scenario: receive two shares with identical names from different users, accept one by one
     Given user "Carol" has disabled auto-accepting
     And user "Alice" has created folder "/shared"
@@ -306,7 +306,7 @@ Feature: accept/decline shares coming from internal users
       | /Shares/shared/     |
       | /Shares/shared (1)/ |
 
-  @issue-2540
+  @owncloud-issue-2540
   Scenario: share with a group that you are part of yourself
     Given user "Brian" has disabled auto-accepting
     When user "Alice" shares folder "/PARENT" with group "grp1" using the sharing API
@@ -538,7 +538,7 @@ Feature: accept/decline shares coming from internal users
       | /PARENT (2) |
     And the content of file "/Shares/PARENT/abc.txt" for user "David" should be "uploaded content"
 
-  @issue-1123 @issue-2540
+  @owncloud-issue-1123 @owncloud-issue-2540
   Scenario Outline: deleting a share accepted file and folder
     Given using <dav-path-version> DAV path
     And user "Brian" has disabled auto-accepting
@@ -559,7 +559,7 @@ Feature: accept/decline shares coming from internal users
       | old              |
       | new              |
 
-  @issue-765 @issue-2131
+  @owncloud-issue-765 @owncloud-issue-2131
   Scenario Outline: shares exist after restoring already shared file to a previous version
     Given using <dav-path-version> DAV path
     And user "Brian" has disabled auto-accepting
@@ -582,7 +582,7 @@ Feature: accept/decline shares coming from internal users
       | new              |
       | spaces           |
 
-  @issue-2131
+  @owncloud-issue-2131
   Scenario: user receives multiple group shares for matching file and folder name
     Given user "Brian" has disabled auto-accepting
     And group "grp2" has been created
@@ -648,7 +648,7 @@ Feature: accept/decline shares coming from internal users
     And the content of file "/Shares/PARENT (1).txt" for user "Brian" should be "from carol to grp1"
     And the content of file "/Shares/parent.txt" for user "Brian" should be "from carol to grp1"
 
-  @issue-2131
+  @owncloud-issue-2131
   Scenario: group receives multiple shares from non-member for matching file and folder name
     Given user "Carol" has disabled auto-accepting
     And user "Brian" has been removed from group "grp1"

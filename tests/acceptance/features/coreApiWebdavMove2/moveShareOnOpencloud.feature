@@ -309,7 +309,7 @@ Feature: move (rename) file
       | new              |
       | spaces           |
 
-  @issue-1976
+  @owncloud-issue-1976
   Scenario Outline: sharee tries to move a file into same shared folder with same name
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes

@@ -1,4 +1,4 @@
-@issue-1276 @skipOnReva
+@owncloud-issue-1276 @skipOnReva
 
 Feature: upload to a public link share
   As a user
@@ -9,7 +9,7 @@ Feature: upload to a public link share
     Given user "Alice" has been created with default attributes
     And user "Alice" has created folder "FOLDER"
 
-  @issue-10331
+  @owncloud-issue-10331
   Scenario Outline: uploading file to a public upload-only share using public API that was deleted does not work
     Given using <dav-path-version> DAV path
     And using SharingNG
@@ -22,14 +22,14 @@ Feature: upload to a public link share
     When the public uploads file "test.txt" with password "%public%" and content "test-file" using the public WebDAV API
     And the HTTP status code should be "404"
 
-    @issue-1268
+    @owncloud-issue-1268
     Examples:
       | dav-path-version |
       | old              |
       | new              |
       | spaces           |
 
-  @issue-1269 @issue-10331
+  @owncloud-issue-1269 @owncloud-issue-10331
   Scenario: uploading file to a public read-only share folder with public API does not work
     Given using SharingNG
     And user "Alice" has created the following resource link share:
@@ -40,7 +40,7 @@ Feature: upload to a public link share
     When the public uploads file "test.txt" with password "%public%" and content "test-file" using the public WebDAV API
     And the HTTP status code should be "403"
 
-  @issue-10331
+  @owncloud-issue-10331
   Scenario: uploading to a public upload-only share with public API
     Given using SharingNG
     And user "Alice" has created the following resource link share:
@@ -54,7 +54,7 @@ Feature: upload to a public link share
     And the following headers should match these regular expressions
       | ETag | /^"[a-f0-9:\.]{1,32}"$/ |
 
-  @issue-10331
+  @owncloud-issue-10331
   Scenario: uploading to a public upload-only share with password with public API
     Given using SharingNG
     And user "Alice" has created the following resource link share:
@@ -66,7 +66,7 @@ Feature: upload to a public link share
     Then the HTTP status code should be "201"
     And the content of file "/FOLDER/test.txt" for user "Alice" should be "test-file"
 
-  @issue-10331
+  @owncloud-issue-10331
   Scenario: uploading to a public read/write share with password with public API
     Given using SharingNG
     And user "Alice" has created the following resource link share:
@@ -78,7 +78,7 @@ Feature: upload to a public link share
     Then the HTTP status code should be "201"
     And the content of file "/FOLDER/test.txt" for user "Alice" should be "test-file"
 
-  @skipOnReva @issue-10331
+  @skipOnReva @owncloud-issue-10331
   Scenario: uploading file to a public shared folder with read/write permission when the sharer has insufficient quota does not work with public API
     Given using SharingNG
     And user "Alice" has created the following resource link share:
@@ -90,7 +90,7 @@ Feature: upload to a public link share
     When the public uploads file "test.txt" with password "%public%" and content "test2" using the public WebDAV API
     Then the HTTP status code should be "507"
 
-  @skipOnReva @issue-10331
+  @skipOnReva @owncloud-issue-10331
   Scenario: uploading file to a public shared folder with upload-only permission when the sharer has insufficient quota does not work with public API
     Given using SharingNG
     And user "Alice" has created the following resource link share:
@@ -102,7 +102,7 @@ Feature: upload to a public link share
     When the public uploads file "test.txt" with password "%public%" and content "test2" using the public WebDAV API
     Then the HTTP status code should be "507"
 
-  @smokeTest @issue-10331
+  @smokeTest @owncloud-issue-10331
   Scenario: uploading to a public upload-write and no edit and no overwrite share with public API
     Given using SharingNG
     And user "Alice" has created the following resource link share:
@@ -114,7 +114,7 @@ Feature: upload to a public link share
     Then the HTTP status code should be "201"
     And the content of file "/FOLDER/test.txt" for user "Alice" should be "test2"
 
-  @smokeTest @issue-1267 @issue-10331
+  @smokeTest @owncloud-issue-1267 @owncloud-issue-10331
   Scenario: uploading same file to a public upload-write and no edit and no overwrite share multiple times with new public API
     Given using SharingNG
     And user "Alice" has created the following resource link share:

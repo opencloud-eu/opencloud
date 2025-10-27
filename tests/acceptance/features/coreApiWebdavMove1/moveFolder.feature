@@ -21,7 +21,7 @@ Feature: move (rename) folder
       | new              |
       | spaces           |
 
-  @issue-3099
+  @owncloud-issue-3099
   Scenario Outline: renaming a folder to a backslash should return an error
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/testshare"
@@ -35,7 +35,7 @@ Feature: move (rename) folder
       | new              |
       | spaces           |
 
-  @issue-3099
+  @owncloud-issue-3099
   Scenario Outline: renaming a folder beginning with a backslash should return an error
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/testshare"
@@ -49,7 +49,7 @@ Feature: move (rename) folder
       | new              |
       | spaces           |
 
-  @issue-3099
+  @owncloud-issue-3099
   Scenario Outline: renaming a folder including a backslash encoded should return an error
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/testshare"
@@ -120,7 +120,7 @@ Feature: move (rename) folder
       | spaces           | /...          |
       | spaces           | /..upload     |
 
-  @issue-3023
+  @owncloud-issue-3023
   Scenario Outline: moving a folder into a sub-folder of itself
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "PARENT"
@@ -205,7 +205,7 @@ Feature: move (rename) folder
       | new              |
       | spaces           |
 
-  @issue-1976
+  @owncloud-issue-1976
   Scenario Outline: try to rename folder to same name
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "testFolder"

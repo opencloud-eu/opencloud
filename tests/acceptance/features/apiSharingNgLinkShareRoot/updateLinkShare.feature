@@ -6,7 +6,7 @@ Feature: Update a link share for a resource
       | username |
       | Alice    |
 
-  @env-config @issue-9724 @issue-10331
+  @env-config @owncloud-issue-9724 @owncloud-issue-10331
   Scenario: set password on a existing link share of a project-space drive using root endpoint
     Given the following configs have been set:
       | config                                       | value |
@@ -38,7 +38,7 @@ Feature: Update a link share for a resource
       """
     And the public should be able to download file "textfile.txt" from the last link share with password "%public%" and the content should be "to share"
 
-  @issue-9724 @issue-10331
+  @owncloud-issue-9724 @owncloud-issue-10331
   Scenario: update password on a existing link share of a project-space drive using root endpoint
     And using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API

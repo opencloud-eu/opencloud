@@ -2489,7 +2489,7 @@ Feature: an user gets the resources shared to them
       }
       """
 
-  @issue-8471
+  @owncloud-issue-8471
   Scenario: sharee lists the same name file and folder shares received from different users (Personal space)
     Given using spaces DAV path
     And user "Carol" has been created with default attributes
@@ -2579,7 +2579,7 @@ Feature: an user gets the resources shared to them
       }
       """
 
-  @issue-8027 @issue-8314
+  @owncloud-issue-8027 @owncloud-issue-8314
   Scenario Outline: sharee lists the file share (Project space)
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -2811,7 +2811,7 @@ Feature: an user gets the resources shared to them
       | File Editor      |
       | Viewer           |
 
-  @issue-8027 @issue-8314
+  @owncloud-issue-8027 @owncloud-issue-8314
   Scenario Outline: sharee lists the folder share (Project space)
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -3996,7 +3996,7 @@ Feature: an user gets the resources shared to them
       }
       """
 
-  @issue-8471
+  @owncloud-issue-8471
   Scenario: sharee lists the same name file and folder shares received from different projects (Project space)
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -4321,7 +4321,7 @@ Feature: an user gets the resources shared to them
       }
       """
 
-  @env-config @issue-8314
+  @env-config @owncloud-issue-8314
   Scenario: sharee lists the folder share after sharer is deleted (Project space)
     Given the config "GRAPH_SPACES_USERS_CACHE_TTL" has been set to "1"
     And using spaces DAV path
@@ -4532,7 +4532,7 @@ Feature: an user gets the resources shared to them
       }
       """
 
-  @env-config @issue-8314
+  @env-config @owncloud-issue-8314
   Scenario: sharee lists the file share with after sharer is deleted (Project space)
     Given the config "GRAPH_SPACES_USERS_CACHE_TTL" has been set to "1"
     And using spaces DAV path
@@ -5197,7 +5197,7 @@ Feature: an user gets the resources shared to them
       | testfile.txt  |
       | FolderToShare |
 
-  @issue-9642
+  @owncloud-issue-9642
   Scenario: list multiple shares (> 10 shares)
     Given using spaces DAV path
     And user "Alice" has created the following folders

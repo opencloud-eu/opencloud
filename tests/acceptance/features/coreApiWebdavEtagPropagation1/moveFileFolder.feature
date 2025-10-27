@@ -25,7 +25,7 @@ Feature: propagation of etags when moving files or folders
       | new              |
       | spaces           |
 
-  @issue-4251
+  @owncloud-issue-4251
   Scenario Outline: moving a file from one folder to an other changes the etags of both folders
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/src"
@@ -47,7 +47,7 @@ Feature: propagation of etags when moving files or folders
       | new              |
       | spaces           |
 
-  @issue-4251
+  @owncloud-issue-4251
   Scenario Outline: moving a file into a subfolder changes the etags of all parents
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/upload"
@@ -88,7 +88,7 @@ Feature: propagation of etags when moving files or folders
       | new              |
       | spaces           |
 
-  @issue-4251
+  @owncloud-issue-4251
   Scenario Outline: moving a folder from one folder to an other changes the etags of both folders
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/src"
@@ -110,7 +110,7 @@ Feature: propagation of etags when moving files or folders
       | new              |
       | spaces           |
 
-  @issue-4251
+  @owncloud-issue-4251
   Scenario Outline: moving a folder into a subfolder changes the etags of all parents
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/upload"
@@ -196,7 +196,7 @@ Feature: propagation of etags when moving files or folders
       | old              |
       | new              |
 
-  @issue-4251 @skipOnReva
+  @owncloud-issue-4251 @skipOnReva
   Scenario Outline: sharer moving a file from one folder to an other changes the etags of both folders for all collaborators
     Given user "Brian" has been created with default attributes
     And using <dav-path-version> DAV path
@@ -240,7 +240,7 @@ Feature: propagation of etags when moving files or folders
       | old              |
       | new              |
 
-  @issue-4251 @skipOnReva
+  @owncloud-issue-4251 @skipOnReva
   Scenario Outline: sharer moving a folder from one folder to an other changes the etags of both folders for all collaborators
     Given user "Brian" has been created with default attributes
     And using <dav-path-version> DAV path
@@ -284,7 +284,7 @@ Feature: propagation of etags when moving files or folders
       | old              |
       | new              |
 
-  @skipOnReva @issue-10331
+  @skipOnReva @owncloud-issue-10331
   Scenario Outline: renaming a file in a publicly shared folder changes its etag for the sharer
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/upload"
@@ -309,7 +309,7 @@ Feature: propagation of etags when moving files or folders
       | new              |
       | spaces           |
 
-  @skipOnReva @issue-10331
+  @skipOnReva @owncloud-issue-10331
   Scenario Outline: renaming a folder in a publicly shared folder changes its etag for the sharer
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/upload"

@@ -10,7 +10,7 @@ Feature: sharing
       | Alice    |
       | Brian    |
 
-  @smokeTest @issue-1258
+  @smokeTest @owncloud-issue-1258
   Scenario Outline: getting all shares from a user
     Given using OCS API version "<ocs-api-version>"
     And user "Alice" has uploaded file with content "some data" to "/file_to_share.txt"
@@ -29,7 +29,7 @@ Feature: sharing
       | 1               | 100             |
       | 2               | 200             |
 
-  @issue-1319
+  @owncloud-issue-1319
   Scenario Outline: getting all shares of a user using another user
     Given using OCS API version "<ocs-api-version>"
     And user "Alice" has uploaded file with content "some data" to "/textfile0.txt"
@@ -79,7 +79,7 @@ Feature: sharing
       | 1               | 100             |
       | 2               | 200             |
 
-  @smokeTest @issue-1226 @issue-1270 @issue-1271
+  @smokeTest @owncloud-issue-1226 @owncloud-issue-1270 @owncloud-issue-1271
   Scenario Outline: getting share info of a share
     Given using OCS API version "<ocs-api-version>"
     And user "Alice" has uploaded file with content "some data" to "/file_to_share.txt"
@@ -115,7 +115,7 @@ Feature: sharing
       | 1               | 100             |
       | 2               | 200             |
 
-  @issue-1233
+  @owncloud-issue-1233
   Scenario Outline: get a share with a user that didn't receive the share
     Given using OCS API version "<ocs-api-version>"
     And user "Carol" has been created with default attributes
@@ -136,7 +136,7 @@ Feature: sharing
       | 1               | 200              |
       | 2               | 404              |
 
-  @issue-1289
+  @owncloud-issue-1289
   Scenario: share a folder to a group, and remove user from that group
     Given using OCS API version "1"
     And user "Carol" has been created with default attributes
@@ -160,7 +160,7 @@ Feature: sharing
       | /Shares/PARENT            |
       | /Shares/PARENT/parent.txt |
 
-  @smokeTest @issue-1226 @issue-1270 @issue-1271 @issue-1231
+  @smokeTest @owncloud-issue-1226 @owncloud-issue-1270 @owncloud-issue-1271 @owncloud-issue-1231
   Scenario Outline: getting share info of a share shared from inside folder
     Given using OCS API version "<ocs-api-version>"
     And user "Alice" has created folder "/PARENT"

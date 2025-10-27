@@ -216,7 +216,7 @@ Feature: multi-link sharing
       | new              |
       | spaces           |
 
-  @issue-1251
+  @owncloud-issue-1251
   Scenario Outline: renaming a folder doesn't remove its public shares
     Given using OCS API version "1"
     And using <dav-path-version> DAV path

@@ -17,7 +17,7 @@ Feature: delete federated connections
     When user "Brian" deletes federated connection with user "Alice" using the Graph API
     Then the HTTP status code should be "200"
 
-  @issue-10216
+  @owncloud-issue-10216
   Scenario: users should not be able to find federated user after federated user has deleted connection
     Given using server "LOCAL"
     And "Alice" has created the federation share invitation
@@ -63,7 +63,7 @@ Feature: delete federated connections
       }
       """
 
-  @issue-10216
+  @owncloud-issue-10216
   Scenario: federated user should not be able to find federated share after federated user has deleted connection
     Given using server "LOCAL"
     And "Alice" has created the federation share invitation
@@ -98,7 +98,7 @@ Feature: delete federated connections
       }
       """
 
-  @issue-10213
+  @owncloud-issue-10213
   Scenario: federated user should not be able to find federated share after local user has deleted connection
     Given using server "LOCAL"
     And "Alice" has created the federation share invitation

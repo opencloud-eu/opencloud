@@ -6,7 +6,7 @@ Feature: capabilities
   Background:
     Given using OCS API version "1"
 
-  @smokeTest @issue-1285
+  @smokeTest @owncloud-issue-1285
   Scenario: getting default capabilities with admin user
     When the administrator retrieves the capabilities using the capabilities API
     Then the OCS status code should be "100"
@@ -129,7 +129,7 @@ Feature: capabilities
       }
       """
 
-  @issue-1285
+  @owncloud-issue-1285
   Scenario: getting default_permissions capability with admin user
     When the administrator retrieves the capabilities using the capabilities API
     Then the OCS status code should be "100"

@@ -1,4 +1,4 @@
-@issue-1313 @skipOnReva
+@owncloud-issue-1313 @skipOnReva
 Feature: get quota
   As a user
   I want to be able to find out my available storage quota
@@ -32,7 +32,7 @@ Feature: get quota
       | new              |
       | spaces           |
 
-  @issue-8197
+  @owncloud-issue-8197
   Scenario Outline: retrieving folder quota of shared folder with quota when no quota is set for recipient
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -58,7 +58,7 @@ Feature: get quota
       | new              | /Shares/testquota |
       | spaces           | /testquota        |
 
-  @issue-8197
+  @owncloud-issue-8197
   Scenario Outline: retrieving folder quota when quota is set and a file was uploaded
     Given using <dav-path-version> DAV path
     And user "Admin" has changed the quota of the personal space of user "Alice" to "10000"

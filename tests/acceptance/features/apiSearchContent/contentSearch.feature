@@ -7,7 +7,7 @@ Feature: content search
   Background:
     Given user "Alice" has been created with default attributes
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: search files by content
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "hello world from nepal" to "keywordAtStart.txt"
@@ -26,7 +26,7 @@ Feature: content search
       | new              |
       | spaces           |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: search files by different content types
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "Using k6, you can test the reliability and performance of your systems" to "wordWithNumber.md"
@@ -64,7 +64,7 @@ Feature: content search
       | new              |
       | spaces           |
 
-  @env-config @issue-10329
+  @env-config @owncloud-issue-10329
   Scenario Outline: search files by stop words when clean_stop_words is disabled
     Given using <dav-path-version> DAV path
     And the config "SEARCH_EXTRACTOR_TIKA_CLEAN_STOP_WORDS" has been set to "false"
@@ -83,7 +83,7 @@ Feature: content search
       | new              |
       | spaces           |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: sharee searches files by content
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -111,7 +111,7 @@ Feature: content search
       | new              |
       | spaces           |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: search deleted files by content
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "uploadFolder"
@@ -130,7 +130,7 @@ Feature: content search
       | new              |
       | spaces           |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: search restored files by content
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "uploadFolder"
@@ -146,7 +146,7 @@ Feature: content search
       | new              |
       | spaces           |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: search restored version of a file by content
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "hello world" to "test.txt"
@@ -162,7 +162,7 @@ Feature: content search
       | new              |
       | spaces           |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: search project space files by content
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -185,7 +185,7 @@ Feature: content search
       | new              |
       | spaces           |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: sharee searches shared project space files by content
     Given using spaces DAV path
     And user "Brian" has been created with default attributes
@@ -214,7 +214,7 @@ Feature: content search
       | new              |
       | spaces           |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: search resources using different search patterns (KQL feature)
     Given using spaces DAV path
     And user "Alice" has uploaded file with content "hello world, let start to test" to "technical task.txt"
@@ -237,7 +237,7 @@ Feature: content search
       | content:hel* AND tag:test                   | 1            | technical task.txt |                   |
       | (name:*task* AND content:hel*) NOT tag:test | 1            | task comments.txt  |                   |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: search across files with different format with search text highlight
     Given using <dav-path-version> DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API

@@ -40,7 +40,7 @@ Feature: upload resources using TUS protocol
       | test.txt   |
       | upload.txt |
 
-  @issue-10346
+  @owncloud-issue-10346
   Scenario Outline: upload a zero-byte file inside a shared folder
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -84,7 +84,7 @@ Feature: upload resources using TUS protocol
     When user "Alice" uploads a file from "filesForUpload/zerobyte.txt" to "textfile.txt" via TUS inside of the space "new-space" using the WebDAV API
     Then for user "Alice" the content of the file "textfile.txt" of the space "new-space" should be ""
 
-  @issue-8003 @issue-10346
+  @owncloud-issue-8003 @owncloud-issue-10346
   Scenario Outline: replace a shared file with zero-byte file
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -104,7 +104,7 @@ Feature: upload resources using TUS protocol
       | old              |
       | new              |
 
-  @issue-8003
+  @owncloud-issue-8003
   Scenario: replace a shared file with zero-byte file (spaces dav path)
     Given using spaces DAV path
     And user "Brian" has been created with default attributes
@@ -120,7 +120,7 @@ Feature: upload resources using TUS protocol
     Then for user "Brian" the content of the file "textfile.txt" of the space "Shares" should be ""
     And for user "Alice" the content of the file "textfile.txt" of the space "Personal" should be ""
 
-  @issue-8003
+  @owncloud-issue-8003
   Scenario: replace a file inside a project space with zero-byte file
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -129,7 +129,7 @@ Feature: upload resources using TUS protocol
     When user "Alice" uploads a file from "filesForUpload/zerobyte.txt" to "textfile.txt" via TUS inside of the space "new-space" using the WebDAV API
     Then for user "Alice" the content of the file "textfile.txt" of the space "new-space" should be ""
 
-  @issue-8003
+  @owncloud-issue-8003
   Scenario: replace a file inside a shared project space with zero-byte file
     Given using spaces DAV path
     And user "Brian" has been created with default attributes

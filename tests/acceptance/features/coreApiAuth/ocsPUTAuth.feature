@@ -3,7 +3,7 @@ Feature: auth
   I want to send PUT request to various endpoints
   So that I can make sure the endpoints need proper authentication
 
-  @issue-1337 @smokeTest
+  @owncloud-issue-1337 @smokeTest
   Scenario: send PUT request to OCS endpoints as admin with wrong password
     When user "admin" requests these endpoints with "PUT" including body "doesnotmatter" using password "invalid" about user "Alice"
       | endpoint                                         |

@@ -19,7 +19,7 @@ Feature: assign role
       | User        |
       | User Light  |
 
-  @issue-5032
+  @owncloud-issue-5032
   Scenario Outline: get assigned role of a user via setting api
     Given the administrator has assigned the role "<user-role>" to user "Alice" using the Graph API
     When user "Alice" tries to get list of assignment using the settings API

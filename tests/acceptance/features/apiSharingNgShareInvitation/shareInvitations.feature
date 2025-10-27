@@ -1,4 +1,4 @@
-@issue-10739
+@owncloud-issue-10739
 Feature: Send a sharing invitations
   As the owner of a resource
   I want to be able to send invitations to other users
@@ -752,7 +752,7 @@ Feature: Send a sharing invitations
       | Editor           | FolderToShare  |
       | Uploader         | FolderToShare  |
 
-  @issue-7962
+  @owncloud-issue-7962
   Scenario Outline: send share invitation to disabled user
     Given user "Alice" has uploaded file with content "to share" to "/textfile1.txt"
     And user "Alice" has created folder "FolderToShare"
@@ -2166,7 +2166,7 @@ Feature: Send a sharing invitations
       | Editor           | FolderToShare |
       | Uploader         | FolderToShare |
 
-  @issue-8494
+  @owncloud-issue-8494
   Scenario Outline: try to send share invitation for personal space to user with different roles (permissions endpoint)
     When user "Alice" sends the following space share invitation using permissions endpoint of the Graph API:
       | space           | Personal           |
@@ -2212,7 +2212,7 @@ Feature: Send a sharing invitations
       | Space Editor     |
       | Manager          |
 
-  @issue-8495
+  @owncloud-issue-8495
   Scenario Outline: try to share Shares space with a user (permissions endpoint)
     When user "Alice" sends the following space share invitation using permissions endpoint of the Graph API:
       | space           | Shares             |

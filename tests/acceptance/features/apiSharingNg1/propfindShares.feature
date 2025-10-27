@@ -10,7 +10,7 @@ Feature: propfind a shares
       | Brian    |
       | Carol    |
 
-  @issue-4421 @issue-9933
+  @owncloud-issue-4421 @owncloud-issue-9933
   Scenario Outline: sharee PROPFIND same name shares shared by multiple users
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "to share" to "textfile.txt"
@@ -54,7 +54,7 @@ Feature: propfind a shares
       | new              | textfile.txt  | textfile (1).txt  |
       | new              | folderToShare | folderToShare (1) |
 
-  @issue-4421 @issue-9933
+  @owncloud-issue-4421 @owncloud-issue-9933
   Scenario: sharee PROPFIND a share having bracket in the name
     Given using spaces DAV path
     And user "Alice" has created folder "folderToShare"
@@ -88,7 +88,7 @@ Feature: propfind a shares
       | oc:name        | textfile.txt      |
       | oc:permissions |                   |
 
-  @issue-8420
+  @owncloud-issue-8420
   Scenario Outline: check file-id from PROPFIND with shared-with-me drive-item-id
     Given using spaces DAV path
     And user "Alice" has uploaded file with content "to share" to "/textfile1.txt"
@@ -108,7 +108,7 @@ Feature: propfind a shares
       | textfile1.txt |
       | folderToShare |
 
-  @issue-9933
+  @owncloud-issue-9933
   Scenario Outline: check file-id of different PROPFIND requests to shared items
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "folderToShare"

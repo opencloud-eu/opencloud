@@ -380,7 +380,7 @@ Feature: Update permission of a share
       | Uploader         | Viewer               | FolderToShare |
       | Uploader         | Editor               | FolderToShare |
 
-  @issue-8905
+  @owncloud-issue-8905
   Scenario Outline: update role of a shared project space to group with different roles using root endpoint
     Given using spaces DAV path
     And group "grp1" has been created
@@ -460,7 +460,7 @@ Feature: Update permission of a share
       | Manager          | Space Viewer         |
       | Manager          | Space Editor         |
 
-  @issue-8905
+  @owncloud-issue-8905
   Scenario Outline: remove expiration date of a shared project space to group using root endpoint
     Given using spaces DAV path
     And group "grp1" has been created
@@ -540,7 +540,7 @@ Feature: Update permission of a share
       | Manager          |
       | Manager          |
 
-  @issue-8905
+  @owncloud-issue-8905
   Scenario Outline: update expiration date of a shared project space to group with different roles using root endpoint
     Given using spaces DAV path
     And group "grp1" has been created
@@ -789,7 +789,7 @@ Feature: Update permission of a share
       | Manager          | Space Viewer         |
       | Manager          | Space Editor         |
 
-  @issue-8905
+  @owncloud-issue-8905
   Scenario Outline: update role of a shared project space to user with different roles using root endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -865,7 +865,7 @@ Feature: Update permission of a share
       | Manager          | Space Viewer         |
       | Manager          | Space Editor         |
 
-  @issue-8905
+  @owncloud-issue-8905
   Scenario Outline: remove expiration date of a shared project space to user using root endpoint
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -1182,7 +1182,7 @@ Feature: Update permission of a share
       | Manager          | Space Viewer         |
       | Manager          | Space Editor         |
 
-  @issue-10768
+  @owncloud-issue-10768
   Scenario Outline: sharer updates share permissions role of a resource to Secure Viewer without enabling it
     Given user "Alice" has created folder "folderToShare"
     And user "Alice" has uploaded file with content "hello world" to "textfile.txt"
@@ -1271,7 +1271,7 @@ Feature: Update permission of a share
       | textfile.txt  | File Editor      |
       | textfile.txt  | Viewer           |
 
-  @issue-10768
+  @owncloud-issue-10768
   Scenario Outline: sharer updates share permissions role of a resource to Denied without enabling it
     Given user "Alice" has created folder "folderToShare"
     And user "Alice" has sent the following resource share invitation:
@@ -1353,7 +1353,7 @@ Feature: Update permission of a share
       | Editor           |
       | Viewer           |
 
-  @issue-10768
+  @owncloud-issue-10768
   Scenario Outline: sharer updates share permissions role of space to Space Editor Without Versions without enabling it
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API

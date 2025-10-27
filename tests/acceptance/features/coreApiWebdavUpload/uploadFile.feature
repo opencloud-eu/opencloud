@@ -45,7 +45,7 @@ Feature: upload file
       | spaces           | "C++ file.cpp" |
       | spaces           | "file #2.txt"  |
 
-  @issue-1259
+  @owncloud-issue-1259
   #after fixing all issues delete this Scenario and merge with the one above
   Scenario Outline: upload a file with character '?' in its name and check download content
     Given using <dav-path-version> DAV path
@@ -107,7 +107,7 @@ Feature: upload file
       | spaces           | /नेपाली                          | नेपाली                        |
       | spaces           | /folder #2.txt                   | file #2.txt                   |
 
-  @issue-1259
+  @owncloud-issue-1259
     #after fixing all issues delete this Scenario and merge with the one above
   Scenario Outline: upload a file into a folder with character '?' in its name and check download content
     Given using <dav-path-version> DAV path
@@ -137,7 +137,7 @@ Feature: upload file
       | new              |
       | spaces           |
 
-  @issue-1345 @issue-2177
+  @owncloud-issue-1345 @owncloud-issue-2177
   Scenario Outline: uploading file to path with extension .part should not be possible
     Given using <dav-path-version> DAV path
     When user "Alice" uploads file "filesForUpload/textfile.txt" to "/textfile.part" using the WebDAV API
@@ -190,7 +190,7 @@ Feature: upload file
       | new              |
       | spaces           |
 
-  @issue-1248
+  @owncloud-issue-1248
   Scenario Outline: upload an empty file with mtime
     Given using <dav_version> DAV path
     When user "Alice" uploads file "filesForUpload/zerobyte.txt" to "file.txt" with mtime "Thu, 08 Aug 2019 04:18:13 GMT" using the WebDAV API
@@ -217,7 +217,7 @@ Feature: upload file
       | new              |
       | spaces           |
 
-  @issue-1248
+  @owncloud-issue-1248
   Scenario Outline: upload an empty file with mtime in a folder
     Given using <dav_version> DAV path
     And user "Alice" has created folder "testFolder"
@@ -296,7 +296,7 @@ Feature: upload file
       | new              |
       | spaces           |
 
-  @issue-7257
+  @owncloud-issue-7257
   Scenario Outline: user updates a file with empty content
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "file with content" to "/textfile.txt"
@@ -309,7 +309,7 @@ Feature: upload file
       | new              |
       | spaces           |
 
-  @issue-7257
+  @owncloud-issue-7257
   Scenario Outline: user updates a file inside a folder with empty content
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "testFolder"
@@ -323,7 +323,7 @@ Feature: upload file
       | new              |
       | spaces           |
 
-  @skipOnReva @issue-7257
+  @skipOnReva @owncloud-issue-7257
   Scenario Outline: user updates a shared file with empty content
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -345,7 +345,7 @@ Feature: upload file
       | new              |
       | spaces           |
 
-  @skipOnReva @issue-7257
+  @skipOnReva @owncloud-issue-7257
   Scenario: user updates a file inside a project space with empty content
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -355,7 +355,7 @@ Feature: upload file
     Then the HTTP status code should be "204"
     And for user "Alice" the content of the file "/textfile.txt" of the space "new-space" should be ""
 
-  @skipOnReva @issue-7257
+  @skipOnReva @owncloud-issue-7257
   Scenario: user updates a file inside a shared space with empty content
     Given using spaces DAV path
     And user "Brian" has been created with default attributes
@@ -372,7 +372,7 @@ Feature: upload file
     And for user "Brian" the content of the file "/textfile.txt" of the space "new-space" should be ""
     And for user "Alice" the content of the file "/textfile.txt" of the space "new-space" should be ""
 
-  @skipOnReva @issue-8699 @issue-10331
+  @skipOnReva @owncloud-issue-8699 @owncloud-issue-10331
   Scenario: user updates a file inside a link shared space with empty content
     Given using SharingNG
     And user "Brian" has been created with default attributes

@@ -6,7 +6,7 @@ Feature: auth
   Background:
     Given user "Alice" has been created with default attributes
 
-  @issue-1337 @smokeTest
+  @owncloud-issue-1337 @smokeTest
   Scenario: send POST requests to OCS endpoints as normal user with wrong password
     When user "Alice" requests these endpoints with "POST" including body "doesnotmatter" using password "invalid" about user "Alice"
       | endpoint                                                        |

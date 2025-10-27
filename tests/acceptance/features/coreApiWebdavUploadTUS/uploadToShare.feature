@@ -10,7 +10,7 @@ Feature: upload file to shared folder
       | Alice    |
       | Brian    |
 
-  @issue-10346
+  @owncloud-issue-10346
   Scenario Outline: uploading file to a received share folder
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/FOLDER"
@@ -29,7 +29,7 @@ Feature: upload file to shared folder
       | old              |
       | new              |
 
-  @issue-10346
+  @owncloud-issue-10346
   Scenario Outline: uploading file to a user read/write share folder works
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/FOLDER"
@@ -48,7 +48,7 @@ Feature: upload file to shared folder
       | old              |
       | new              |
 
-  @issue-10346
+  @owncloud-issue-10346
   Scenario Outline: uploading a file into a group share as share receiver
     Given using <dav-path-version> DAV path
     And group "grp1" has been created
@@ -69,7 +69,7 @@ Feature: upload file to shared folder
       | old              |
       | new              |
 
-  @issue-10346
+  @owncloud-issue-10346
   Scenario Outline: overwrite file to a received share folder
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/FOLDER"
@@ -89,7 +89,7 @@ Feature: upload file to shared folder
       | old              |
       | new              |
 
-  @issue-10346
+  @owncloud-issue-10346
   Scenario Outline: attempt to upload a file into a folder within correctly received read only share
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/FOLDER"
@@ -231,7 +231,7 @@ Feature: upload file to shared folder
       | old              |
       | new              |
 
-  @issue-1755
+  @owncloud-issue-1755
   Scenario Outline: sharee uploads a file to a received share folder with wrong checksum should not work
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/FOLDER"
@@ -255,7 +255,7 @@ Feature: upload file to shared folder
       | old              |
       | new              |
 
-  @issue-1755
+  @owncloud-issue-1755
   Scenario Outline: sharer uploads a file to shared folder with wrong checksum should not work
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/FOLDER"
@@ -349,7 +349,7 @@ Feature: upload file to shared folder
       | old              |
       | new              |
 
-  @issue-1755
+  @owncloud-issue-1755
   Scenario Outline: sharer uploads a file with checksum and as a sharee overwrites the shared file with new data and invalid checksum
     Given using <dav-path-version> DAV path
     And user "Alice" has created a new TUS resource on the WebDAV API with these headers:

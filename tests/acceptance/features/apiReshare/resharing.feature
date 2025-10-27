@@ -105,7 +105,7 @@ Feature: re-share resources
       | 1               | 403             | 200              |
       | 2               | 403             | 403              |
 
-  @issue-enterprise-6423
+  @owncloud-issue-enterprise-6423
   Scenario Outline: user cannot share items in the project space with share permission
     Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And using spaces DAV path
@@ -134,7 +134,7 @@ Feature: re-share resources
       | 29          | share + view + create + delete        |
       | 31          | share + view + create + edit + delete |
 
-  @issue-enterprise-6423
+  @owncloud-issue-enterprise-6423
   Scenario Outline: user cannot share items in the personal space with share permission
     Given user "Alice" has uploaded file with content "some content" to "/file.txt"
     When user "Alice" creates a share inside of space "Alice Hansen" with settings:

@@ -10,7 +10,7 @@ Feature: change shared resource
       | Alice    |
       | Brian    |
 
-  @issue-4421
+  @owncloud-issue-4421
   Scenario: move files between shares by different users
     Given user "Carol" has been created with default attributes
     And user "Alice" has uploaded file with content "some data" to "/textfile0.txt"

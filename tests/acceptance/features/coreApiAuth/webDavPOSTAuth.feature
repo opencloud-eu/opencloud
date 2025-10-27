@@ -42,7 +42,7 @@ Feature: POST file/folder
       | /dav/spaces/%spaceid%/PARENT/parent.txt |
     Then the HTTP status code of responses on all endpoints should be "401"
 
-  @issue-1287
+  @owncloud-issue-1287
   Scenario: send POST requests to another user's webDav endpoints as normal user
     When user "Brian" requests these endpoints with "POST" including body "doesnotmatter" about user "Alice"
       | endpoint                                |
@@ -51,7 +51,7 @@ Feature: POST file/folder
       | /dav/files/%username%/PARENT/parent.txt |
     Then the HTTP status code of responses on all endpoints should be "412"
 
-  @issue-1287
+  @owncloud-issue-1287
   Scenario: send POST requests to another user's webDav endpoints as normal user using the spaces WebDAV API
     When user "Brian" requests these endpoints with "POST" including body "doesnotmatter" about user "Alice"
       | endpoint                                |

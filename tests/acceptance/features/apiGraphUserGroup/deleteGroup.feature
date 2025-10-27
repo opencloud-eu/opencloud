@@ -37,7 +37,7 @@ Feature: delete groups
       | priv/subadmins/1    | Subadmins mentioned not at the end    |
       | var/../etc          | using slash-dot-dot                   |
 
-  @issue-5083
+  @owncloud-issue-5083
   Scenario Outline: admin user deletes a group having % (as only special char) in its name
     Given group "<group>" has been created
     When user "Alice" deletes group "<group>" using the Graph API
@@ -54,7 +54,7 @@ Feature: delete groups
     When user "Alice" tries to delete group "nonexistent" using the Graph API
     Then the HTTP status code should be "404"
 
-  @issue-5938
+  @owncloud-issue-5938
   Scenario Outline: user other than the admin can't delete a group
     Given user "Brian" has been created with default attributes
     And the administrator has assigned the role "<user-role>" to user "Brian" using the Graph API
@@ -79,7 +79,7 @@ Feature: delete groups
       | User        |
       | User Light  |
 
-  @issue-903
+  @owncloud-issue-903
   Scenario: deleted group should not be listed in the sharees list
     Given group "grp1" has been created
     And group "grp2" has been created

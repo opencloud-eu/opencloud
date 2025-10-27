@@ -648,7 +648,7 @@ Feature:  enable or disable sync of incoming shares
       }
       """
 
-  @issue-9001
+  @owncloud-issue-9001
   Scenario: try to disable share sync of a non-existent resource
     When user "Brian" tries to disable share sync of a resource "nonexistent" using the Graph API
     Then the HTTP status code should be "404"
@@ -761,7 +761,7 @@ Feature:  enable or disable sync of incoming shares
       }
       """
 
-  @issue-8876
+  @owncloud-issue-8876
   Scenario Outline: try to enable sync of already synced share
     Given user "Alice" has uploaded file with content "hello world" to "/textfile0.txt"
     And user "Alice" has created folder "folder"
@@ -811,7 +811,7 @@ Feature:  enable or disable sync of incoming shares
       | textfile0.txt |
       | folder        |
 
-  @issue-8876
+  @owncloud-issue-8876
   Scenario Outline: try to disable sync of already unsynced share
     Given user "Alice" has uploaded file with content "hello world" to "/textfile0.txt"
     And user "Alice" has created folder "folder"
@@ -862,7 +862,7 @@ Feature:  enable or disable sync of incoming shares
       | textfile0.txt |
       | folder        |
 
-  @issue-8876
+  @owncloud-issue-8876
   Scenario Outline: try to enable sync of already synced share shared from Project space
     Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "NewSpace" with the default quota using the Graph API
@@ -914,7 +914,7 @@ Feature:  enable or disable sync of incoming shares
       | textfile0.txt |
       | FolderToShare |
 
-  @issue-8876
+  @owncloud-issue-8876
   Scenario Outline: try to disable sync of already unsynced share shared from Project space
     Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "NewSpace" with the default quota using the Graph API

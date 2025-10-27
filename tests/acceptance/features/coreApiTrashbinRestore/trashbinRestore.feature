@@ -1,4 +1,4 @@
-@issue-1324
+@owncloud-issue-1324
 Feature: restore deleted files/folders
   As a user
   I would like to restore files/folders
@@ -568,7 +568,7 @@ Feature: restore deleted files/folders
       | spaces           |
       | new              |
 
-  @issue-1523
+  @owncloud-issue-1523
   Scenario Outline: restore deleted folder when folder with same name exists
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "new"
@@ -591,7 +591,7 @@ Feature: restore deleted files/folders
       | spaces           |
       | new              |
 
-  @issue-1523
+  @owncloud-issue-1523
   Scenario Outline: restore deleted folder with files when folder with same name exists
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "folder-a"

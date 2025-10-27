@@ -27,7 +27,7 @@ Feature: Remove access to a drive
       | Space Editor     |
       | Manager          |
 
-  @issue-8768
+  @owncloud-issue-8768
   Scenario Outline: user removes group from project space using root endpoint
     Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "NewSpace" with the default quota using the Graph API
@@ -92,7 +92,7 @@ Feature: Remove access to a drive
       | Space Editor     | 403         | should      |
       | Manager          | 204         | should not  |
 
-  @issue-8819
+  @owncloud-issue-8819
   Scenario Outline: user removes himself from the project space using root endpoint
     Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "NewSpace" with the default quota using the Graph API
@@ -110,7 +110,7 @@ Feature: Remove access to a drive
       | Space Editor     | 403         | should      |
       | Manager          | 204         | should not  |
 
-  @issue-8819
+  @owncloud-issue-8819
   Scenario Outline: user removes another user from project space using permissions endpoint
     Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "NewSpace" with the default quota using the Graph API
@@ -157,7 +157,7 @@ Feature: Remove access to a drive
     Then the HTTP status code should be "403"
     And the user "Brian" should have a space called "NewSpace"
 
-  @issue-7879
+  @owncloud-issue-7879
   Scenario Outline: user removes link share from project space using root endpoint
     Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "NewSpace" with the default quota using the Graph API
@@ -186,7 +186,7 @@ Feature: Remove access to a drive
     Then the HTTP status code should be "204"
     And user "Alice" should not have any "link" permissions on space "NewSpace"
 
-  @issue-7879
+  @owncloud-issue-7879
   Scenario Outline: user tries to remove link share of project space owned by next user using root endpoint
     Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "NewSpace" with the default quota using the Graph API

@@ -336,7 +336,7 @@ Feature: check activities
       }
       """
 
-  @issue-9744
+  @owncloud-issue-9744
   Scenario: check rename activity
     Given user "Alice" has uploaded file with content "OpenCloud test text file" to "textfile.txt"
     And we save it into "FILEID"

@@ -8,7 +8,7 @@ Feature: delay post-processing of uploaded files
     Given user "Alice" has been created with default attributes
     And async upload has been enabled with post-processing delayed to "30" seconds
 
-  @issue-5326
+  @owncloud-issue-5326
   Scenario Outline: user sends GET request to the file while it's still being processed
     Given user "Alice" has uploaded file with content "uploaded content" to "/file.txt"
     When user "Alice" requests "<dav-path>" with "GET" without retrying

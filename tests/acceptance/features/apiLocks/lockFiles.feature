@@ -160,7 +160,7 @@ Feature: lock files
       | lockscope | exclusive |
     Then the HTTP status code should be "403"
 
-  @issue-7599
+  @owncloud-issue-7599
   Scenario Outline: lock a file in the shares
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded a file inside space "Personal" with content "some content" to "textfile.txt"
@@ -280,7 +280,7 @@ Feature: lock files
       | d:lockdiscovery/d:activelock/d:lockscope/d:exclusive |              |
       | d:lockdiscovery/d:activelock/oc:ownername            | Brian Murphy |
 
-  @issue-7599
+  @owncloud-issue-7599
   Scenario Outline: two users having both a shared lock can use the resource
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "some data" to "textfile0.txt"
@@ -310,7 +310,7 @@ Feature: lock files
       | new              |
       | spaces           |
 
-  @issue-7638
+  @owncloud-issue-7638
   Scenario Outline: locking a file does not lock other items with the same name in other parts of the file system
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "locked"
@@ -332,7 +332,7 @@ Feature: lock files
       | spaces           | shared     |
       | spaces           | exclusive  |
 
-  @issue-7638 @issue-7599
+  @owncloud-issue-7638 @owncloud-issue-7599
   Scenario Outline: locking a file in a received share does not lock other items with the same name in other received shares (shares from different users)
     Given using <dav-path-version> DAV path
     And user "Carol" has been created with default attributes
@@ -368,7 +368,7 @@ Feature: lock files
       | spaces           | shared     |
       | spaces           | exclusive  |
 
-  @issue-7638 @issue-7599
+  @owncloud-issue-7638 @owncloud-issue-7599
   Scenario Outline: locking a file in a received share does not lock other items with the same name in other received shares (shares from same user)
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "locked/"
@@ -403,7 +403,7 @@ Feature: lock files
       | spaces           | shared     |
       | spaces           | exclusive  |
 
-  @issue-7641
+  @owncloud-issue-7641
   Scenario Outline: try to lock a folder
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "locked/"
@@ -421,7 +421,7 @@ Feature: lock files
       | spaces           | shared     |
       | spaces           | exclusive  |
 
-  @issue-7641 @issue-10331
+  @owncloud-issue-7641 @owncloud-issue-10331
   Scenario Outline: try to lock a folder as anonymous user
     Given using <dav-path-version> DAV path
     And using SharingNG
@@ -466,7 +466,7 @@ Feature: lock files
       | spaces           | shared     |
       | spaces           | exclusive  |
 
-  @issue-10331
+  @owncloud-issue-10331
   Scenario Outline: lock a file inside a folder shared by a link as anonymous user with edit permission
     Given using <dav-path-version> DAV path
     And using SharingNG
@@ -489,7 +489,7 @@ Feature: lock files
       | spaces           | shared     |
       | spaces           | exclusive  |
 
-  @issue-10331
+  @owncloud-issue-10331
   Scenario Outline: try to lock a file inside a folder shared by a link as anonymous user with read permission
     Given using <dav-path-version> DAV path
     And using SharingNG
@@ -512,7 +512,7 @@ Feature: lock files
       | spaces           | shared     |
       | spaces           | exclusive  |
 
-  @issue-7790 @issue-10331
+  @owncloud-issue-7790 @owncloud-issue-10331
   Scenario Outline: lock a file shared by a link as anonymous user with edit permission
     Given using <dav-path-version> DAV path
     And using SharingNG
@@ -534,7 +534,7 @@ Feature: lock files
       | spaces           | shared     |
       | spaces           | exclusive  |
 
-  @issue-7790 @issue-10331
+  @owncloud-issue-7790 @owncloud-issue-10331
   Scenario Outline: try to lock a file shared by a link as anonymous user with read permission
     Given using <dav-path-version> DAV path
     And using SharingNG

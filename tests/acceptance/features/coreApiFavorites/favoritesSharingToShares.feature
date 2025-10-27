@@ -70,7 +70,7 @@ Feature: favorite
       | new              |
       | spaces           |
 
-  @issue-1228
+  @owncloud-issue-1228
   Scenario Outline: moving a favorite file out of a share keeps favorite state
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes

@@ -10,7 +10,7 @@ Feature: media type search
       | Brian    |
     And using spaces DAV path
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: search for files using media type
     Given user "Alice" has uploaded file "filesForUpload/lorem.txt" to "/lorem.txt"
     And user "Alice" has uploaded file "filesForUpload/simple.pdf" to "/simple.pdf"
@@ -38,7 +38,7 @@ Feature: media type search
       | *rar*   | data.rar       |
       | *bzip2* | data.tar.bz2   |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: search for files inside sub folders using media type
     Given user "Alice" has created folder "/uploadFolder"
     And user "Alice" has uploaded file "filesForUpload/lorem.txt" to "/uploadFolder/lorem.txt"
@@ -67,7 +67,7 @@ Feature: media type search
       | *rar*   | data.rar       |
       | *bzip2* | data.tar.bz2   |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: search for file inside project space using media type
     Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "project101" with the default quota using the Graph API
@@ -97,7 +97,7 @@ Feature: media type search
       | *rar*   | data.rar       |
       | *bzip2* | data.tar.bz2   |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: sharee searches for shared files using media type
     Given user "Alice" has created folder "/uploadFolder"
     And user "Alice" has uploaded file "filesForUpload/lorem.txt" to "/uploadFolder/lorem.txt"
@@ -133,7 +133,7 @@ Feature: media type search
       | *rar*   | data.rar       |
       | *bzip2* | data.tar.bz2   |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario Outline: space viewer searches for files using mediatype filter
     Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "project101" with the default quota using the Graph API
@@ -168,7 +168,7 @@ Feature: media type search
       | *rar*   | data.rar       |
       | *bzip2* | data.tar.bz2   |
 
-  @issue-10329
+  @owncloud-issue-10329
   Scenario: search files with different mediatype filter
     Given user "Alice" has created folder "testFolder"
     And user "Alice" has uploaded file "filesForUpload/lorem.txt" to "lorem.txt"
