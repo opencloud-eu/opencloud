@@ -6,6 +6,15 @@
 
 @AlexAndBear, @ScharfViktor, @butonic, @dragonchaser, @fschade, @micbar, @prashant-gurung899, @rhafer, @schweigisito, @tammi-23
 
+### 📈 Enhancement
+
+- allow specifying a shutdown order [[#1622](https://github.com/opencloud-eu/opencloud/pull/1622)]
+- change: use 404 as status when thumbnail can not be fetched [[#1582](https://github.com/opencloud-eu/opencloud/pull/1582)]
+- feat: add dedicated logo (web) for mobile view to theme [[#1579](https://github.com/opencloud-eu/opencloud/pull/1579)]
+- feat: make it possible to start the collaboration service in the single process [[#1569](https://github.com/opencloud-eu/opencloud/pull/1569)]
+- introduce AppURLs helper for atomic backgroud updates [[#1542](https://github.com/opencloud-eu/opencloud/pull/1542)]
+- chore: add config for capability CheckForUpdates [[#1556](https://github.com/opencloud-eu/opencloud/pull/1556)]
+
 ### ✅ Tests
 
 - [full-ci] feat: implement OIDC authentication option [[#1676](https://github.com/opencloud-eu/opencloud/pull/1676)]
@@ -33,14 +42,6 @@
 
 - adr: use eduation api for multi-tenancy provisioning [[#1548](https://github.com/opencloud-eu/opencloud/pull/1548)]
 - fix: remove deprecated web ui feature "OpenAppsInTab" [[#1575](https://github.com/opencloud-eu/opencloud/pull/1575)]
-
-### 📈 Enhancement
-
-- change: use 404 as status when thumbnail can not be fetched [[#1582](https://github.com/opencloud-eu/opencloud/pull/1582)]
-- feat: add dedicated logo (web) for mobile view to theme [[#1579](https://github.com/opencloud-eu/opencloud/pull/1579)]
-- feat: make it possible to start the collaboration service in the single process [[#1569](https://github.com/opencloud-eu/opencloud/pull/1569)]
-- introduce AppURLs helper for atomic backgroud updates [[#1542](https://github.com/opencloud-eu/opencloud/pull/1542)]
-- chore: add config for capability CheckForUpdates [[#1556](https://github.com/opencloud-eu/opencloud/pull/1556)]
 
 ### 📦️ Dependencies
 
