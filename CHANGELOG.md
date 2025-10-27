@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.7.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.7.0) - 2025-10-27
+
+### ❤️ Thanks to all contributors! ❤️
+
+@schweigisito
+
+### 📈 Enhancement
+
+- fix: fix #1698 - Notification email doesn't contain Message-Id header [[#1708](https://github.com/opencloud-eu/opencloud/pull/1708)]
+
 ## [3.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.6.0) - 2025-10-27
 
 ### ❤️ Thanks to all contributors! ❤️
