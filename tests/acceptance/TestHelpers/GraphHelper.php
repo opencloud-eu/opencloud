@@ -200,34 +200,6 @@ class GraphHelper {
 	/**
 	 * @param string $baseUrl
 	 * @param string $xRequestId
-	 * @param string $method
-	 * @param string $path
-	 * @param string|null $body
-	 * @param array|null $headers
-	 *
-	 * @return RequestInterface
-	 */
-	public static function createRequest(
-		string $baseUrl,
-		string $xRequestId,
-		string $method,
-		string $path,
-		?string $body = null,
-		?array $headers = []
-	): RequestInterface {
-		$fullUrl = self::getFullUrl($baseUrl, $path);
-		return HttpRequestHelper::createRequest(
-			$fullUrl,
-			$xRequestId,
-			$method,
-			$headers,
-			$body
-		);
-	}
-
-	/**
-	 * @param string $baseUrl
-	 * @param string $xRequestId
 	 * @param string $adminUser
 	 * @param string $adminPassword
 	 * @param string $userName
@@ -1908,7 +1880,7 @@ class GraphHelper {
 		string $permissionsId
 	): ResponseInterface {
 		$url = self::getBetaFullUrl($baseUrl, "drives/$spaceId/items/$itemId/permissions/$permissionsId");
-		return HttpRequestHelper::sendRequestOnce(
+		return HttpRequestHelper::sendRequest(
 			$url,
 			$xRequestId,
 			'PATCH',
@@ -2264,7 +2236,7 @@ class GraphHelper {
 	): ResponseInterface {
 		$url = self::getBetaFullUrl($baseUrl, "drives/$spaceId/root/permissions/$permissionsId");
 
-		return HttpRequestHelper::sendRequestOnce(
+		return HttpRequestHelper::sendRequest(
 			$url,
 			$xRequestId,
 			'PATCH',

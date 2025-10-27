@@ -17,6 +17,7 @@ use TestHelpers\GraphHelper;
 use TestHelpers\WebDavHelper;
 use TestHelpers\HttpRequestHelper;
 use TestHelpers\BehatHelper;
+use TestHelpers\TokenHelper;
 
 require_once 'bootstrap.php';
 
@@ -2864,6 +2865,7 @@ class GraphContext implements Context {
 		);
 		$this->featureContext->theHTTPStatusCodeShouldBe(200, '', $response);
 		$this->featureContext->updateUsernameInCreatedUserList($byUser, $userName);
+		TokenHelper::clearUserTokens($byUser, $this->featureContext->getBaseUrl());
 	}
 
 	/**

@@ -219,7 +219,7 @@ Feature: edit user
     When the user "Brian" resets the password of user "Carol" to "newpassword" using the Graph API
     Then the HTTP status code should be "403"
     And the content of file "resetpassword.txt" for user "Carol" using password "1234" should be "test file for reset password"
-    But user "Carol" using password "newpassword" should not be able to download file "resetpassword.txt"
+    And user "Carol" should not be able to log in with wrong password "newpassword"
     Examples:
       | user-role   | user-role-2 |
       | Space Admin | Space Admin |

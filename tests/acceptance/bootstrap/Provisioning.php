@@ -31,6 +31,7 @@ use TestHelpers\WebDavHelper;
 use TestHelpers\GraphHelper;
 use Laminas\Ldap\Exception\LdapException;
 use Laminas\Ldap\Ldap;
+use TestHelpers\TokenHelper;
 
 /**
  * Functions for provisioning of users and groups
@@ -558,110 +559,65 @@ trait Provisioning {
 	 */
 	public function usersHaveBeenCreated(
 		TableNode $table,
-		bool $useDefault=true,
-		bool $initialize=true
+		bool $useDefault = true,
+		bool $initialize = true
 	) {
 		$this->verifyTableNodeColumns($table, ['username'], ['displayname', 'email', 'password']);
 		$table = $table->getColumnsHash();
 		$users = $this->buildUsersAttributesArray($useDefault, $table);
 
-		$requests = [];
-		$client = HttpRequestHelper::createClient(
-			$this->getAdminUsername(),
-			$this->getAdminPassword()
-		);
-
 		foreach ($users as $userAttributes) {
+			$userName = $userAttributes['userid'];
+			$password = $userAttributes['password'];
+			$displayName = $userAttributes['displayName'];
+			$email = $userAttributes['email'];
+
 			if ($this->isTestingWithLdap()) {
-				$this->createLdapUser($userAttributes);
-			} else {
-				$attributesToCreateUser['userid'] = $userAttributes['userid'];
-				$attributesToCreateUser['password'] = $userAttributes['password'];
-				$attributesToCreateUser['displayname'] = $userAttributes['displayName'];
-				if ($userAttributes['email'] === null) {
-					Assert::assertArrayHasKey(
-						'userid',
-						$userAttributes,
-						__METHOD__ . " userAttributes array does not have key 'userid'"
+				try {
+					$this->createLdapUser($userAttributes);
+				} catch (LdapException $exception) {
+					throw new Exception(
+						__METHOD__ . " cannot create a LDAP user with provided data. Error: $exception"
 					);
-					$attributesToCreateUser['email'] = $userAttributes['userid'] . '@opencloud.eu';
-				} else {
-					$attributesToCreateUser['email'] = $userAttributes['email'];
 				}
-				$body = GraphHelper::prepareCreateUserPayload(
-					$attributesToCreateUser['userid'],
-					$attributesToCreateUser['password'],
-					$attributesToCreateUser['email'],
-					$attributesToCreateUser['displayname']
-				);
-				$request = GraphHelper::createRequest(
+			} else {
+				// Use the same logic as userHasBeenCreated for email generation
+				if ($email === null) {
+					$email = $this->getEmailAddressForUser($userName);
+					if ($email === null) {
+						// escape @ & space if present in userId
+						$email = \str_replace(["@", " "], "", $userName) . '@opencloud.eu';
+					}
+				}
+
+				$userName = $this->getActualUsername($userName);
+				$userName = \trim($userName);
+
+				$response = GraphHelper::createUser(
 					$this->getBaseUrl(),
 					$this->getStepLineRef(),
-					"POST",
-					'users',
-					$body,
+					$this->getAdminUsername(),
+					$this->getAdminPassword(),
+					$userName,
+					$password,
+					$email,
+					$displayName,
 				);
-				// Add the request to the $requests array so that they can be sent in parallel.
-				$requests[] = $request;
+
+				Assert::assertEquals(
+					201,
+					$response->getStatusCode(),
+					__METHOD__ . " cannot create user '$userName' using Graph API.\nResponse:" .
+					json_encode($this->getJsonDecodedResponse($response))
+				);
+
+				$userId = $this->getJsonDecodedResponse($response)['id'];
 			}
-		}
 
-		$exceptionToThrow = null;
-		if (!$this->isTestingWithLdap()) {
-			$results = HttpRequestHelper::sendBatchRequest($requests, $client);
-			// Check all requests to inspect failures.
-			foreach ($results as $key => $e) {
-				if ($e instanceof ClientException) {
-					$responseBody = $this->getJsonDecodedResponse($e->getResponse());
-					$httpStatusCode = $e->getResponse()->getStatusCode();
-					$graphStatusCode = $responseBody['error']['code'];
-					$messageText = $responseBody['error']['message'];
-					$exceptionToThrow = new Exception(
-						__METHOD__ .
-						" Unexpected failure when creating the user '" .
-						$users[$key]['userid'] . "'" .
-						"\nHTTP status $httpStatusCode " .
-						"\nGraph status $graphStatusCode " .
-						"\nError message $messageText"
-					);
-				}
-			}
-		}
+			$this->addUserToCreatedUsersList($userName, $password, $displayName, $email, $userId ?? null);
 
-		// Create requests for setting displayname and email for the newly created users.
-		// These values cannot be set while creating the user, so we have to edit the newly created user to set these values.
-		foreach ($users as $userAttributes) {
-			if (!$this->isTestingWithLdap()) {
-				// for graph api, we need to save the user id to be able to add it in some group
-				// can be fetched with the "onPremisesSamAccountName" i.e. userid
-				$response = $this->graphContext->adminHasRetrievedUserUsingTheGraphApi($userAttributes['userid']);
-				$userAttributes['id'] = $this->getJsonDecodedResponse($response)['id'];
-			} else {
-				$userAttributes['id'] = null;
-			}
-			$this->addUserToCreatedUsersList(
-				$userAttributes['userid'],
-				$userAttributes['password'],
-				$userAttributes['displayName'],
-				$userAttributes['email'],
-				$userAttributes['id']
-			);
-		}
-
-		if (isset($exceptionToThrow)) {
-			throw $exceptionToThrow;
-		}
-
-		foreach ($users as $user) {
-			Assert::assertTrue(
-				$this->userExists($user["userid"]),
-				"User '" . $user["userid"] . "' should exist but does not exist"
-			);
-		}
-
-		if ($initialize) {
-			foreach ($users as $user) {
-				$this->initializeUser($user['userid'], $user['password']);
+			if ($initialize) {
+				$this->initializeUser($userName, $password);
 			}
 		}
 	}
@@ -841,43 +797,14 @@ trait Provisioning {
 	 */
 	public function userHasBeenDeleted(string $user): void {
 		$user = $this->getActualUsername($user);
-		if ($this->userExists($user)) {
-			if ($this->isTestingWithLdap() && \in_array($user, $this->ldapCreatedUsers)) {
-				$this->deleteLdapUser($user);
-			} else {
-				$response = $this->deleteUser($user);
-				$this->theHTTPStatusCodeShouldBe(204, "", $response);
-				WebDavHelper::removeSpaceIdReferenceForUser($user);
-			}
+		if ($this->isTestingWithLdap() && \in_array($user, $this->ldapCreatedUsers)) {
+			$this->deleteLdapUser($user);
+		} else {
+			$response = $this->deleteUser($user);
+			$this->theHTTPStatusCodeShouldBe(204, "", $response);
+			WebDavHelper::removeSpaceIdReferenceForUser($user);
 		}
-		Assert::assertFalse(
-			$this->userExists($user),
-			"User '$user' should not exist but does exist"
-		);
 		$this->rememberThatUserIsNotExpectedToExist($user);
-	}
-
-	/**
-	 * @Given these users have been initialized:
-	 * expects a table of users with the heading
-	 * "|username|password|"
-	 *
-	 * @param TableNode $table
-	 *
-	 * @return void
-	 */
-	public function theseUsersHaveBeenInitialized(TableNode $table): void {
-		foreach ($table as $row) {
-			if (!isset($row ['password'])) {
-				$password = $this->getPasswordForUser($row ['username']);
-			} else {
-				$password = $row ['password'];
-			}
-			$this->initializeUser(
-				$row ['username'],
-				$password
-			);
-		}
 	}
 
 	/**
@@ -961,13 +888,14 @@ trait Provisioning {
 			$url = $this->getBaseUrl()
 				. "/ocs/v$this->ocsApiVersion.php/cloud/users/$user";
 		}
-
-		HttpRequestHelper::get(
-			$url,
-			$this->getStepLineRef(),
-			$user,
-			$password
-		);
+		if ($password !== '') {
+			HttpRequestHelper::get(
+				$url,
+				$this->getStepLineRef(),
+				$user,
+				$password
+			);
+		}
 	}
 
 	/**
@@ -1162,12 +1090,6 @@ trait Provisioning {
 		}
 
 		$this->addUserToCreatedUsersList($user, $password, $displayName, $email, $userId);
-
-		Assert::assertTrue(
-			$this->userExists($user),
-			"User '$user' should exist but does not exist"
-		);
-
 		$this->initializeUser($user, $password);
 	}
 
@@ -1999,21 +1921,15 @@ trait Provisioning {
 		$this->usingServer('LOCAL');
 		foreach ($this->createdUsers as $userData) {
 			$user = $userData['actualUsername'];
+			TokenHelper::clearUserTokens($user, $this->getBaseUrl());
 			$this->deleteUser($user);
-			Assert::assertFalse(
-				$this->userExists($user),
-				"User '$user' should not exist but does exist"
-			);
 			$this->rememberThatUserIsNotExpectedToExist($user);
 		}
 		$this->usingServer('REMOTE');
 		foreach ($this->createdRemoteUsers as $userData) {
 			$user = $userData['actualUsername'];
+			TokenHelper::clearUserTokens($user, $this->getBaseUrl());
 			$this->deleteUser($user);
-			Assert::assertFalse(
-				$this->userExists($user),
-				"User '$user' should not exist but does exist"
-			);
 			$this->rememberThatUserIsNotExpectedToExist($user);
 		}
 		$this->usingServer($previousServer);

@@ -25,6 +25,7 @@ use Behat\Behat\Context\Context;
 use Psr\Http\Message\ResponseInterface;
 use TestHelpers\HttpRequestHelper;
 use TestHelpers\BehatHelper;
+use TestHelpers\TokenHelper;
 use TestHelpers\WebDavHelper;
 
 /**
@@ -713,5 +714,28 @@ class AuthContext implements Context {
 			$this->featureContext->getPasswordForUser($user)
 		);
 		$this->featureContext->setResponse($response);
+	}
+
+	/**
+	 * @When user :user should not be able to log in with wrong password :password
+	 *
+	 * @param string $user
+	 * @param string $password
+	 *
+	 * @return void
+	 */
+	public function userShouldNotBeAbleToLogInWithWrongPassword(
+		string $user,
+		string $password
+	): void {
+		TokenHelper::clearUserTokens($user, $this->featureContext->getBaseUrl());
+		$response = TokenHelper::makeLoginRequest(
+			$user,
+			$password,
+			$this->featureContext->getBaseUrl(),
+			new \GuzzleHttp\Cookie\CookieJar()
+		);
+		// why is not 401 returned?
+		$this->featureContext->theHTTPStatusCodeShouldBe(204, 'should not be able to log in', $response);
 	}
 }

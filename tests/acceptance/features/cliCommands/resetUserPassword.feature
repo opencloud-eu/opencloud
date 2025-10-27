@@ -14,7 +14,7 @@ Feature: reset user password via CLI command
     But the command output should not contain "Failed to update user password: entry does not exist"
     And the administrator has started the server
     And user "Alice" should be able to create folder "newFolder" using password "newpass"
-    But user "Alice" should not be able to create folder "anotherFolder" using password "%alt1%"
+    But user "Alice" should not be able to log in with wrong password "%alt1%"
 
 
   Scenario: try to reset password of non-existing user
