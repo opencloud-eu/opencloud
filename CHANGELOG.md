@@ -45,6 +45,7 @@
 
 ### 📦️ Dependencies
 
+- [decomposed] bump-version-v3.6.0 [[#1719](https://github.com/opencloud-eu/opencloud/pull/1719)]
 - revaBump-2.39.1 [[#1718](https://github.com/opencloud-eu/opencloud/pull/1718)]
 - chore: bump reva [[#1701](https://github.com/opencloud-eu/opencloud/pull/1701)]
 - build(deps): bump github.com/kovidgoyal/imaging from 1.6.4 to 1.7.2 [[#1696](https://github.com/opencloud-eu/opencloud/pull/1696)]
