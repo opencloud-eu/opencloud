@@ -742,6 +742,17 @@ trait WebDav {
 	}
 
 	/**
+	 * @When the user waits for :time seconds for postprocessing to finish
+	 *
+	 * @param int $time
+	 *
+	 * @return void
+	 */
+	public function waitForCertainSeconds(int $time): void {
+		\sleep($time);
+	}
+
+	/**
 	 * @Then /^user "([^"]*)" using password "([^"]*)" should not be able to download file "([^"]*)"$/
 	 *
 	 * @param string $user

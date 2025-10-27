@@ -292,6 +292,17 @@ func (session *DecomposedFsSession) Finalize(ctx context.Context) (err error) {
 	revisionNode := node.New(session.SpaceID(), session.NodeID(), "", "", session.Size(), session.ID(),
 		provider.ResourceType_RESOURCE_TYPE_FILE, session.SpaceOwner(), session.store.lu)
 
+	switch spaceRoot, err := session.store.lu.NodeFromSpaceID(ctx, session.SpaceID()); {
+	case err != nil:
+		return fmt.Errorf("failed to get space root for space id %s: %v", session.SpaceID(), err)
+	case spaceRoot == nil:
+		return fmt.Errorf("space root for space id %s not found", session.SpaceID())
+	case spaceRoot.InternalPath() == "":
+		return fmt.Errorf("space root for space id %s has no valid internal path", session.SpaceID())
+	default:
+		revisionNode.SpaceRoot = spaceRoot
+	}
+
 	// lock the node before writing the blob
 	unlock, err := session.store.lu.MetadataBackend().Lock(revisionNode)
 	if err != nil {

@@ -50,6 +50,7 @@ Feature: low level tests for upload of chunks
       | Upload-Metadata | filename ZmlsZS50eHQ= |
     When user "Alice" sends a chunk to the last created TUS Location with offset "0" and data "123" using the WebDAV API
     And user "Alice" sends a chunk to the last created TUS Location with offset "3" and data "4567890" using the WebDAV API
+    And the user waits for "2" seconds for postprocessing to finish
     And user "Alice" sends a chunk to the last created TUS Location with offset "3" and data "0000000" using the WebDAV API
     Then the HTTP status code should be "404"
     And the content of file "/file.txt" for user "Alice" should be "1234567890"

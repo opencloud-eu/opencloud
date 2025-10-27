@@ -65,7 +65,7 @@ require (
 	github.com/open-policy-agent/opa v1.9.0
 	github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89
 	github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76
-	github.com/opencloud-eu/reva/v2 v2.39.1-0.20251023125727-bf6471473de6
+	github.com/opencloud-eu/reva/v2 v2.39.1-0.20251027101010-5f317aacd03b
 	github.com/opensearch-project/opensearch-go/v4 v4.5.0
 	github.com/orcaman/concurrent-map v1.0.0
 	github.com/pkg/errors v0.9.1
@@ -380,7 +380,6 @@ require (
 	golang.org/x/sys v0.37.0 // indirect
 	golang.org/x/time v0.13.0 // indirect
 	golang.org/x/tools v0.37.0 // indirect
-	golang.org/x/tools/godoc v0.1.0-deprecated // indirect
 	google.golang.org/genproto v0.0.0-20250303144028-a0af3efb3deb // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250929231259-57b25ae835d4 // indirect
 	gopkg.in/cenkalti/backoff.v1 v1.1.0 // indirect
