@@ -39,9 +39,11 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/blobstore"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/lookup"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/trashbin"
@@ -724,6 +726,10 @@ func (t *Tree) isIndex(path string) bool {
 	return strings.HasPrefix(path, filepath.Join(t.options.Root, "indexes"))
 }
 
+func (t *Tree) isTemporary(path string) bool {
+	return path == blobstore.TMPDir
+}
+
 func (t *Tree) isRootPath(path string) bool {
 	return path == t.options.Root ||
 		path == t.personalSpacesRoot ||
@@ -736,7 +742,7 @@ func (t *Tree) isSpaceRoot(path string) bool {
 }
 
 func (t *Tree) isInternal(path string) bool {
-	return t.isIndex(path) || strings.Contains(path, lookup.MetadataDir)
+	return t.isIndex(path) || strings.Contains(path, lookup.MetadataDir) || t.isTemporary(path)
 }
 
 func isLockFile(path string) bool {
