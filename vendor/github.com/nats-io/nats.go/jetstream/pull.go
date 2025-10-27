@@ -33,12 +33,11 @@ type (
 	// MessagesContext supports iterating over a messages on a stream.
 	// It is returned by [Consumer.Messages] method.
 	MessagesContext interface {
-		// Next retrieves next message on a stream. It will block until the next
-		// message is available. If the context is canceled, Next will return
-		// ErrMsgIteratorClosed error. An optional timeout or context can be
-		// provided using NextOpt options. If none are provided, Next will block
-		// indefinitely until a message is available, iterator is closed or a
-		// heartbeat error occurs.
+		// Next retrieves next message on a stream. If MessagesContext is closed
+		// (either stopped or drained), Next will return ErrMsgIteratorClosed
+		// error. An optional timeout or context can be provided using NextOpt
+		// options. If none are provided, Next will block indefinitely until a
+		// message is available, iterator is closed or a heartbeat error occurs.
 		Next(opts ...NextOpt) (Msg, error)
 
 		// Stop unsubscribes from the stream and cancels subscription. Calling
@@ -137,6 +136,7 @@ type (
 		consumer          *pullConsumer
 		subscription      *nats.Subscription
 		msgs              chan *nats.Msg
+		msgsClosed        atomic.Uint32
 		errs              chan error
 		pending           pendingMsgs
 		hbMonitor         *hbMonitor
@@ -552,7 +552,7 @@ func (p *pullConsumer) Messages(opts ...PullMessagesOpt) (MessagesContext, error
 				// in Next
 				p.subs.Delete(sid)
 			}
-			close(msgs)
+			sub.closeMsgs()
 		}
 	}(sub.id))
 
@@ -588,9 +588,11 @@ var (
 	errDisconnected = errors.New("disconnected")
 )
 
-// Next retrieves next message on a stream. It will block until the next
-// message is available. If the context is canceled, Next will return
-// ErrMsgIteratorClosed error.
+// Next retrieves next message on a stream. If MessagesContext is closed
+// (either stopped or drained), Next will return ErrMsgIteratorClosed
+// error. An optional timeout or context can be provided using NextOpt
+// options. If none are provided, Next will block indefinitely until a
+// message is available, iterator is closed or a heartbeat error occurs.
 func (s *pullSubscription) Next(opts ...NextOpt) (Msg, error) {
 	var nextOpts nextOpts
 	for _, opt := range opts {
@@ -1054,6 +1056,12 @@ func (s *pullSubscription) pullMessages(subject string) {
 			s.cleanup()
 			return
 		}
+	}
+}
+
+func (s *pullSubscription) closeMsgs() {
+	if s.msgsClosed.CompareAndSwap(0, 1) {
+		close(s.msgs)
 	}
 }
 

@@ -48,7 +48,7 @@ import (
 
 // Default Constants
 const (
-	Version                   = "1.46.1"
+	Version                   = "1.47.0"
 	DefaultURL                = "nats://127.0.0.1:4222"
 	DefaultPort               = 4222
 	DefaultMaxReconnect       = 60
@@ -151,6 +151,7 @@ var (
 	ErrMaxAccountConnectionsExceeded = errors.New("nats: maximum account active connections exceeded")
 	ErrConnectionNotTLS              = errors.New("nats: connection is not tls")
 	ErrMaxSubscriptionsExceeded      = errors.New("nats: server maximum subscriptions exceeded")
+	ErrWebSocketHeadersAlreadySet    = errors.New("nats: websocket connection headers already set")
 )
 
 // GetDefaultOptions returns default configuration options for the client.
@@ -249,6 +250,9 @@ type UserInfoCB func() (string, string)
 // again. Note that this is invoked after the library tried the
 // whole list of URLs and failed to reconnect.
 type ReconnectDelayHandler func(attempts int) time.Duration
+
+// WebSocketHeadersHandler is an optional callback handler for generating token used for WebSocket connections.
+type WebSocketHeadersHandler func() (http.Header, error)
 
 // asyncCB is used to preserve order for async callbacks.
 type asyncCB struct {
@@ -524,6 +528,12 @@ type Options struct {
 	// from SubscribeSync if the server returns a permissions error for a subscription.
 	// Defaults to false.
 	PermissionErrOnSubscribe bool
+
+	// WebSocketConnectionHeaders is an optional http request headers to be sent with the WebSocket request.
+	WebSocketConnectionHeaders http.Header
+
+	// WebSocketConnectionHeadersHandler is an optional callback handler for generating token  used for WebSocket connections.
+	WebSocketConnectionHeadersHandler WebSocketHeadersHandler
 }
 
 const (
@@ -1472,6 +1482,36 @@ func TLSHandshakeFirst() Option {
 	}
 }
 
+// WebSocketConnectionHeaders sets a fixed set of HTTP headers that will be
+// sent during the WebSocket connection handshake.
+// This option is mutually exclusive with WebSocketConnectionHeadersHandler;
+// if a headers handler has already been configured, it returns
+// ErrWebSocketHeadersAlreadySet.
+func WebSocketConnectionHeaders(headers http.Header) Option {
+	return func(o *Options) error {
+		if o.WebSocketConnectionHeadersHandler != nil {
+			return ErrWebSocketHeadersAlreadySet
+		}
+		o.WebSocketConnectionHeaders = headers
+		return nil
+	}
+}
+
+// WebSocketConnectionHeadersHandler registers a callback used to supply HTTP
+// headers for the WebSocket connection handshake.
+// This option is mutually exclusive with WebSocketConnectionHeaders; if
+// non-empty static headers have already been configured, it returns
+// ErrWebSocketHeadersAlreadySet.
+func WebSocketConnectionHeadersHandler(cb WebSocketHeadersHandler) Option {
+	return func(o *Options) error {
+		if len(o.WebSocketConnectionHeaders) != 0 {
+			return ErrWebSocketHeadersAlreadySet
+		}
+		o.WebSocketConnectionHeadersHandler = cb
+		return nil
+	}
+}
+
 // Handler processing
 
 // SetDisconnectHandler will set the disconnect event handler.
@@ -1671,8 +1711,10 @@ func (o Options) Connect() (*Conn, error) {
 		return nil, err
 	}
 
-	if connectionEstablished && nc.Opts.ConnectedCB != nil {
-		nc.ach.push(func() { nc.Opts.ConnectedCB(nc) })
+	if connectionEstablished {
+		if connectedCB := nc.Opts.ConnectedCB; connectedCB != nil {
+			nc.ach.push(func() { connectedCB(nc) })
+		}
 	}
 
 	return nc, nil
@@ -2747,8 +2789,10 @@ func (nc *Conn) sendConnect() error {
 	// Construct the CONNECT protocol string
 	cProto, err := nc.connectProto()
 	if err != nil {
-		if !nc.initc && nc.Opts.AsyncErrorCB != nil {
-			nc.ach.push(func() { nc.Opts.AsyncErrorCB(nc, nil, err) })
+		if !nc.initc {
+			if asyncErrorCB := nc.Opts.AsyncErrorCB; asyncErrorCB != nil {
+				nc.ach.push(func() { asyncErrorCB(nc, nil, err) })
+			}
 		}
 		return err
 	}
@@ -2764,8 +2808,10 @@ func (nc *Conn) sendConnect() error {
 	// reading byte-by-byte here is ok.
 	proto, err := nc.readProto()
 	if err != nil {
-		if !nc.initc && nc.Opts.AsyncErrorCB != nil {
-			nc.ach.push(func() { nc.Opts.AsyncErrorCB(nc, nil, err) })
+		if !nc.initc {
+			if asyncErrorCB := nc.Opts.AsyncErrorCB; asyncErrorCB != nil {
+				nc.ach.push(func() { asyncErrorCB(nc, nil, err) })
+			}
 		}
 		return err
 	}
@@ -2775,8 +2821,10 @@ func (nc *Conn) sendConnect() error {
 		// Read the rest now...
 		proto, err = nc.readProto()
 		if err != nil {
-			if !nc.initc && nc.Opts.AsyncErrorCB != nil {
-				nc.ach.push(func() { nc.Opts.AsyncErrorCB(nc, nil, err) })
+			if !nc.initc {
+				if asyncErrorCB := nc.Opts.AsyncErrorCB; asyncErrorCB != nil {
+					nc.ach.push(func() { asyncErrorCB(nc, nil, err) })
+				}
 			}
 			return err
 		}
@@ -2884,10 +2932,10 @@ func (nc *Conn) doReconnect(err error, forceReconnect bool) {
 	// Perform appropriate callback if needed for a disconnect.
 	// DisconnectedErrCB has priority over deprecated DisconnectedCB
 	if !nc.initc {
-		if nc.Opts.DisconnectedErrCB != nil {
-			nc.ach.push(func() { nc.Opts.DisconnectedErrCB(nc, err) })
-		} else if nc.Opts.DisconnectedCB != nil {
-			nc.ach.push(func() { nc.Opts.DisconnectedCB(nc) })
+		if disconnectedErrCB := nc.Opts.DisconnectedErrCB; disconnectedErrCB != nil {
+			nc.ach.push(func() { disconnectedErrCB(nc, err) })
+		} else if disconnectedCB := nc.Opts.DisconnectedCB; disconnectedCB != nil {
+			nc.ach.push(func() { disconnectedCB(nc) })
 		}
 	} else if nc.Opts.RetryOnFailedConnect && nc.initc && err != nil {
 		// For initial connection failure with RetryOnFailedConnect,
@@ -2996,8 +3044,8 @@ func (nc *Conn) doReconnect(err error, forceReconnect bool) {
 		// Continue to hold the lock
 		if err != nil {
 			// Perform appropriate callback for a failed connection attempt.
-			if nc.Opts.ReconnectErrCB != nil {
-				nc.ach.push(func() { nc.Opts.ReconnectErrCB(nc, err) })
+			if reconnectErrCB := nc.Opts.ReconnectErrCB; reconnectErrCB != nil {
+				nc.ach.push(func() { reconnectErrCB(nc, err) })
 			}
 			nc.err = nil
 			continue
@@ -3047,10 +3095,10 @@ func (nc *Conn) doReconnect(err error, forceReconnect bool) {
 		// Queue up the correct callback. If we are in initial connect state
 		// (using retry on failed connect), we will call the ConnectedCB,
 		// otherwise the ReconnectedCB.
-		if nc.Opts.ReconnectedCB != nil && !nc.initc {
-			nc.ach.push(func() { nc.Opts.ReconnectedCB(nc) })
-		} else if nc.Opts.ConnectedCB != nil && nc.initc {
-			nc.ach.push(func() { nc.Opts.ConnectedCB(nc) })
+		if reconnectedCB := nc.Opts.ReconnectedCB; reconnectedCB != nil && !nc.initc {
+			nc.ach.push(func() { reconnectedCB(nc) })
+		} else if connectedCB := nc.Opts.ConnectedCB; connectedCB != nil && nc.initc {
+			nc.ach.push(func() { connectedCB(nc) })
 		}
 
 		// If we are here with a retry on failed connect, indicate that the
@@ -3364,8 +3412,8 @@ func (nc *Conn) processMsg(data []byte) {
 			// We will pass the message through but send async error.
 			nc.mu.Lock()
 			nc.err = ErrBadHeaderMsg
-			if nc.Opts.AsyncErrorCB != nil {
-				nc.ach.push(func() { nc.Opts.AsyncErrorCB(nc, sub, ErrBadHeaderMsg) })
+			if asyncErrorCB := nc.Opts.AsyncErrorCB; asyncErrorCB != nil {
+				nc.ach.push(func() { asyncErrorCB(nc, sub, ErrBadHeaderMsg) })
 			}
 			nc.mu.Unlock()
 		}
@@ -3542,8 +3590,8 @@ slowConsumer:
 		// is already experiencing client-side slow consumer situation.
 		nc.mu.Lock()
 		nc.err = ErrSlowConsumer
-		if nc.Opts.AsyncErrorCB != nil {
-			nc.ach.push(func() { nc.Opts.AsyncErrorCB(nc, sub, ErrSlowConsumer) })
+		if asyncErrorCB := nc.Opts.AsyncErrorCB; asyncErrorCB != nil {
+			nc.ach.push(func() { asyncErrorCB(nc, sub, ErrSlowConsumer) })
 		}
 		nc.mu.Unlock()
 	} else {
@@ -3586,8 +3634,8 @@ func (nc *Conn) processTransientError(err error) {
 			}
 		}
 	}
-	if nc.Opts.AsyncErrorCB != nil {
-		nc.ach.push(func() { nc.Opts.AsyncErrorCB(nc, nil, err) })
+	if asyncErrorCB := nc.Opts.AsyncErrorCB; asyncErrorCB != nil {
+		nc.ach.push(func() { asyncErrorCB(nc, nil, err) })
 	}
 	nc.mu.Unlock()
 }
@@ -3599,8 +3647,10 @@ func (nc *Conn) processTransientError(err error) {
 // Connection lock is held on entry
 func (nc *Conn) processAuthError(err error) bool {
 	nc.err = err
-	if !nc.initc && nc.Opts.AsyncErrorCB != nil {
-		nc.ach.push(func() { nc.Opts.AsyncErrorCB(nc, nil, err) })
+	if !nc.initc {
+		if asyncErrorCB := nc.Opts.AsyncErrorCB; asyncErrorCB != nil {
+			nc.ach.push(func() { asyncErrorCB(nc, nil, err) })
+		}
 	}
 	// We should give up if we tried twice on this server and got the
 	// same error. This behavior can be modified using IgnoreAuthErrorAbort.
@@ -3645,8 +3695,8 @@ func (nc *Conn) flusher() {
 				if nc.err == nil {
 					nc.err = err
 				}
-				if nc.Opts.AsyncErrorCB != nil {
-					nc.ach.push(func() { nc.Opts.AsyncErrorCB(nc, nil, err) })
+				if asyncErrorCB := nc.Opts.AsyncErrorCB; asyncErrorCB != nil {
+					nc.ach.push(func() { asyncErrorCB(nc, nil, err) })
 				}
 			}
 		}
@@ -3760,12 +3810,16 @@ func (nc *Conn) processInfo(info string) error {
 		if !nc.Opts.NoRandomize {
 			nc.shufflePool(1)
 		}
-		if !nc.initc && nc.Opts.DiscoveredServersCB != nil {
-			nc.ach.push(func() { nc.Opts.DiscoveredServersCB(nc) })
+		if !nc.initc {
+			if discoveredServersCB := nc.Opts.DiscoveredServersCB; discoveredServersCB != nil {
+				nc.ach.push(func() { discoveredServersCB(nc) })
+			}
 		}
 	}
-	if !nc.initc && ncInfo.LameDuckMode && nc.Opts.LameDuckModeHandler != nil {
-		nc.ach.push(func() { nc.Opts.LameDuckModeHandler(nc) })
+	if !nc.initc && ncInfo.LameDuckMode {
+		if lameDuckModeHandler := nc.Opts.LameDuckModeHandler; lameDuckModeHandler != nil {
+			nc.ach.push(func() { lameDuckModeHandler(nc) })
+		}
 	}
 	return nil
 }
@@ -5607,8 +5661,8 @@ func (nc *Conn) close(status Status, doCBs bool, err error) {
 				nc.ach.push(func() { disconnectedCB(nc) })
 			}
 		}
-		if nc.Opts.ClosedCB != nil {
-			nc.ach.push(func() { nc.Opts.ClosedCB(nc) })
+		if closedCB := nc.Opts.ClosedCB; closedCB != nil {
+			nc.ach.push(func() { closedCB(nc) })
 		}
 	}
 	// If this is terminal, then we have to notify the asyncCB handler that
