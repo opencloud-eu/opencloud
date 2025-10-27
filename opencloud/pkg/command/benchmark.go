@@ -2,6 +2,7 @@ package command
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/base64"
 	"errors"
@@ -10,8 +11,10 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/olekukonko/tablewriter"
@@ -38,7 +41,7 @@ func BenchmarkCommand(cfg *config.Config) *cobra.Command {
 func BenchmarkClientCommand(cfg *config.Config) *cobra.Command {
 	benchClientCmd := &cobra.Command{
 		Use:   "client",
-		Short: "Start a client that continuously makes web requests and prints stats. The options mimic curl, but URL must be at the end.",
+		Short: "Start a client that continuously makes web requests and prints stats. The options mimic curl, but we default to PROPFIND requests.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jobs, err := cmd.Flags().GetInt("jobs")
 			if err != nil {
@@ -46,18 +49,89 @@ func BenchmarkClientCommand(cfg *config.Config) *cobra.Command {
 			}
 			insecure, _ := cmd.Flags().GetBool("insecure")
 			opt := clientOptions{
-				request:  cmd.Flag("request").Value.String(),
 				url:      args[0],
 				insecure: insecure,
 				jobs:     jobs,
 				headers:  make(map[string]string),
-				data:     []byte(cmd.Flag("data").Value.String()),
 			}
+
+			if d, _ := cmd.Flags().GetString("data-raw"); d != "" {
+				opt.request = "POST"
+				opt.headers["Content-Type"] = "application/x-www-form-urlencoded"
+				opt.data = []byte(d)
+			}
+
+			if d, _ := cmd.Flags().GetString("data"); d != "" {
+				opt.request = "POST"
+				opt.headers["Content-Type"] = "application/x-www-form-urlencoded"
+				if strings.HasPrefix(d, "@") {
+					filePath := strings.TrimPrefix(d, "@")
+					var data []byte
+					var err error
+
+					// read from file or stdin and trim trailing newlines
+					if filePath == "-" {
+						data, err = os.ReadFile("/dev/stdin")
+					} else {
+						data, err = os.ReadFile(filePath)
+					}
+					if err != nil {
+						log.Fatal(errors.New("could not read data from file '" + filePath + "': " + err.Error()))
+					}
+
+					// clean byte array similar to curl's --data parameter
+					// It removes leading/trailing whitespace and converts line breaks to spaces
+
+					// Trim leading and trailing whitespace
+					data = bytes.TrimSpace(data)
+
+					// Replace newlines and carriage returns with spaces
+					data = bytes.ReplaceAll(data, []byte("\r\n"), []byte(" "))
+					data = bytes.ReplaceAll(data, []byte("\n"), []byte(" "))
+					data = bytes.ReplaceAll(data, []byte("\r"), []byte(" "))
+
+					// Replace multiple spaces with single space
+					for bytes.Contains(data, []byte("  ")) {
+						data = bytes.ReplaceAll(data, []byte("  "), []byte(" "))
+					}
+
+					opt.data = data
+				} else {
+					opt.data = []byte(d)
+				}
+			}
+
+			if d, _ := cmd.Flags().GetString("data-binary"); d != "" {
+				opt.request = "POST"
+				opt.headers["Content-Type"] = "application/x-www-form-urlencoded"
+				if strings.HasPrefix(d, "@") {
+					filePath := strings.TrimPrefix(d, "@")
+					var data []byte
+					var err error
+					if filePath == "-" {
+						data, err = os.ReadFile("/dev/stdin")
+					} else {
+						data, err = os.ReadFile(filePath)
+					}
+					if err != nil {
+						log.Fatal(errors.New("could not read data from file '" + filePath + "': " + err.Error()))
+					}
+					opt.data = data
+				} else {
+					opt.data = []byte(d)
+				}
+			}
+
+			// override method if specified
+			if request, _ := cmd.Flags().GetString("request"); request != "" {
+				opt.request = request
+			}
+
 			if opt.url == "" {
 				log.Fatal(errors.New("no URL specified"))
 			}
 
-			headersSlice, err := cmd.Flags().GetStringSlice("headers")
+			headersSlice, err := cmd.Flags().GetStringSlice("header")
 			if err != nil {
 				return err
 			}
@@ -124,17 +198,29 @@ func BenchmarkClientCommand(cfg *config.Config) *cobra.Command {
 				defer opt.ticker.Stop()
 			}
 
-			return client(opt)
+			// Set up signal handling for Ctrl+C
+			ctx, cancel := context.WithCancel(cmd.Context())
+			defer cancel()
+
+			sigChan := make(chan os.Signal, 1)
+			signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+			go func() {
+				<-sigChan
+				fmt.Println("\nReceived interrupt signal, shutting down...")
+				cancel()
+			}()
+			return client(ctx, opt)
 
 		},
 	}
 
-	// TODO with v3 'flag.Persistent: true' can be set to make the order of flags no longer relevant \o/
 	// flags mimicing curl
 	benchClientCmd.Flags().StringP("request", "X", "PROPFIND", "Specifies a custom request method to use when communicating with the HTTP server.")
 	benchClientCmd.Flags().StringP("user", "u", "admin:admin", "Specify the user name and password to use for server authentication.")
 	benchClientCmd.Flags().BoolP("insecure", "k", false, "Skip the TLS verification step and proceed without checking.")
-	benchClientCmd.Flags().StringP("data", "d", "", "Sends the specified data in a request to the HTTP server.")
+	benchClientCmd.Flags().StringP("data", "d", "", "Sends the specified data in a POST request to the HTTP server, in the same way that a browser does when a user has filled in an HTML form and presses the submit button. If you start the data with the letter @, the rest should be a file name to read the data from, or - if you want to read the data from stdin. When -d, --data is told to read from a file like that, carriage returns and newlines are stripped out. If you do not want the @ character to have a special interpretation use --data-raw instead.")
+	benchClientCmd.Flags().StringP("data-raw", "", "", "Sends the specified data in a request to the HTTP server.")
+	benchClientCmd.Flags().StringP("data-binary", "", "", "This posts data exactly as specified with no extra processing whatsoever. If you start the data with the letter @, the rest should be a file name to read the data from, or - if you want to read the data from stdin.")
 	benchClientCmd.Flags().StringSliceP("headers", "H", []string{}, "Extra header to include in information sent.")
 	benchClientCmd.Flags().String("rate", "", "Specify the maximum transfer frequency you allow a client to use - in number of transfer starts per time unit (sometimes called request rate). The request rate is provided as \"N/U\" where N is an integer number and U is a time unit. Supported units are 's' (second), 'm' (minute), 'h' (hour) and 'd' /(day, as in a 24 hour unit). The default time unit, if no \"/U\" is provided, is number of transfers per hour.")
 
@@ -158,8 +244,7 @@ type clientOptions struct {
 	jobs      int
 }
 
-func client(o clientOptions) error {
-
+func client(ctx context.Context, o clientOptions) error {
 	type stat struct {
 		job      int
 		duration time.Duration
@@ -178,6 +263,13 @@ func client(o clientOptions) error {
 
 			cookies := map[string]*http.Cookie{}
 			for {
+				// Check if context is cancelled
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
+
 				req, err := http.NewRequest(o.request, o.url, bytes.NewReader(o.data))
 				if err != nil {
 					log.Printf("client %d: could not create request: %s\n", i, err)
@@ -195,20 +287,35 @@ func client(o clientOptions) error {
 				res, err := client.Do(req)
 				duration := -time.Until(start)
 				if err != nil {
+					// Check if error is due to context cancellation
+					if ctx.Err() != nil {
+						return
+					}
 					log.Printf("client %d: could not create request: %s\n", i, err)
 					time.Sleep(time.Second)
 				} else {
 					res.Body.Close()
-					stats <- stat{
+					select {
+					case stats <- stat{
 						job:      i,
 						duration: duration,
 						status:   res.StatusCode,
+					}:
+					case <-ctx.Done():
+						return
 					}
 					for _, c := range res.Cookies() {
 						cookies[c.Name] = c
 					}
 				}
-				time.Sleep(o.rateDelay - duration)
+				// Sleep with context awareness
+				if o.rateDelay > duration {
+					select {
+					case <-time.After(o.rateDelay - duration):
+					case <-ctx.Done():
+						return
+					}
+				}
 			}
 		}(i)
 	}
@@ -217,9 +324,14 @@ func client(o clientOptions) error {
 	if o.ticker == nil {
 		// no ticker, just write every request
 		for {
-			stat := <-stats
-			numRequests++
-			fmt.Printf("req %d took %v and returned status %d\n", numRequests, stat.duration, stat.status)
+			select {
+			case stat := <-stats:
+				numRequests++
+				fmt.Printf("req %d took %v and returned status %d\n", numRequests, stat.duration, stat.status)
+			case <-ctx.Done():
+				fmt.Println("\nShutting down...")
+				return nil
+			}
 		}
 	}
 
@@ -235,6 +347,12 @@ func client(o clientOptions) error {
 				numRequests = 0
 				duration = 0
 			}
+		case <-ctx.Done():
+			if numRequests > 0 {
+				fmt.Printf("\n%d req at %v/req\n", numRequests, duration/time.Duration(numRequests))
+			}
+			fmt.Println("Shutting down...")
+			return nil
 		}
 	}
 
