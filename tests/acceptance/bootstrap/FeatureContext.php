@@ -52,7 +52,6 @@ use Swaggest\JsonSchema\Exception\NumericException;
 use Swaggest\JsonSchema\Exception\ObjectException;
 use Swaggest\JsonSchema\Exception\StringException;
 use Swaggest\JsonSchema\Exception\TypeException;
-use TestHelpers\TokenHelper;
 
 require_once 'bootstrap.php';
 
