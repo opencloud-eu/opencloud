@@ -45,6 +45,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/onsi/ginkgo/v2 from 2.26.0 to 2.27.1 [[#1705](https://github.com/opencloud-eu/opencloud/pull/1705)]
 - [decomposed] bump-version-v3.6.0 [[#1719](https://github.com/opencloud-eu/opencloud/pull/1719)]
 - revaBump-2.39.1 [[#1718](https://github.com/opencloud-eu/opencloud/pull/1718)]
 - chore: bump reva [[#1701](https://github.com/opencloud-eu/opencloud/pull/1701)]
