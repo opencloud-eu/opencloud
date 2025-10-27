@@ -44,6 +44,7 @@
 
 ### 📦️ Dependencies
 
+- chore: bump reva [[#1701](https://github.com/opencloud-eu/opencloud/pull/1701)]
 - build(deps): bump github.com/kovidgoyal/imaging from 1.6.4 to 1.7.2 [[#1696](https://github.com/opencloud-eu/opencloud/pull/1696)]
 - build(deps): bump github.com/blevesearch/bleve/v2 from 2.5.3 to 2.5.4 [[#1697](https://github.com/opencloud-eu/opencloud/pull/1697)]
 - build(deps): bump golang.org/x/oauth2 from 0.31.0 to 0.32.0 [[#1634](https://github.com/opencloud-eu/opencloud/pull/1634)]
