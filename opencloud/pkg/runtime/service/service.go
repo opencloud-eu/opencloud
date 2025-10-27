@@ -521,6 +521,24 @@ func trapShutdownCtx(s *Service, srv *http.Server, ctx context.Context) error {
 		s.Log.Debug().Msg("runtime listener shutdown done")
 	}()
 
+	// shutdown services in the order defined in the config
+	// any services not listed will be shutdown in parallel afterwards
+	for _, sName := range s.cfg.Runtime.ShutdownOrder {
+		if _, ok := s.serviceToken[sName]; !ok {
+			s.Log.Warn().Str("service", sName).Msg("unknown service for ordered shutdown, skipping")
+			continue
+		}
+		for i := range s.serviceToken[sName] {
+			if err := s.Supervisor.RemoveAndWait(s.serviceToken[sName][i], _defaultShutdownTimeoutDuration); err != nil && !errors.Is(err, suture.ErrSupervisorNotRunning) {
+				s.Log.Error().Err(err).Str("service", sName).Msg("could not shutdown service in order, skipping to next")
+				// continue shutting down other services
+				continue
+			}
+			s.Log.Debug().Str("service", sName).Msg("graceful ordered shutdown for service done")
+		}
+		delete(s.serviceToken, sName)
+	}
+
 	for sName := range s.serviceToken {
 		for i := range s.serviceToken[sName] {
 			wg.Add(1)

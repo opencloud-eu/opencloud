@@ -50,8 +50,9 @@ func DefaultConfig() *Config {
 	return &Config{
 		OpenCloudURL: "https://localhost:9200",
 		Runtime: Runtime{
-			Port: "9250",
-			Host: "localhost",
+			Port:          "9250",
+			Host:          "localhost",
+			ShutdownOrder: []string{"proxy"},
 		},
 		Reva: &shared.Reva{
 			Address: "eu.opencloud.api.gateway",

@@ -50,11 +50,12 @@ type Mode int
 
 // Runtime configures the OpenCloud runtime when running in supervised mode.
 type Runtime struct {
-	Port       string   `yaml:"port" env:"OC_RUNTIME_PORT" desc:"The TCP port at which OpenCloud will be available" introductionVersion:"1.0.0"`
-	Host       string   `yaml:"host" env:"OC_RUNTIME_HOST" desc:"The host at which OpenCloud will be available" introductionVersion:"1.0.0"`
-	Services   []string `yaml:"services" env:"OC_RUN_EXTENSIONS;OC_RUN_SERVICES" desc:"A comma-separated list of service names. Will start only the listed services." introductionVersion:"1.0.0"`
-	Disabled   []string `yaml:"disabled_services" env:"OC_EXCLUDE_RUN_SERVICES" desc:"A comma-separated list of service names. Will start all default services except of the ones listed. Has no effect when OC_RUN_SERVICES is set." introductionVersion:"1.0.0"`
-	Additional []string `yaml:"add_services" env:"OC_ADD_RUN_SERVICES" desc:"A comma-separated list of service names. Will add the listed services to the default configuration. Has no effect when OC_RUN_SERVICES is set. Note that one can add services not started by the default list and exclude services from the default list by using both envvars at the same time." introductionVersion:"1.0.0"`
+	Port          string   `yaml:"port" env:"OC_RUNTIME_PORT" desc:"The TCP port at which OpenCloud will be available" introductionVersion:"1.0.0"`
+	Host          string   `yaml:"host" env:"OC_RUNTIME_HOST" desc:"The host at which OpenCloud will be available" introductionVersion:"1.0.0"`
+	Services      []string `yaml:"services" env:"OC_RUN_EXTENSIONS;OC_RUN_SERVICES" desc:"A comma-separated list of service names. Will start only the listed services." introductionVersion:"1.0.0"`
+	Disabled      []string `yaml:"disabled_services" env:"OC_EXCLUDE_RUN_SERVICES" desc:"A comma-separated list of service names. Will start all default services except of the ones listed. Has no effect when OC_RUN_SERVICES is set." introductionVersion:"1.0.0"`
+	Additional    []string `yaml:"add_services" env:"OC_ADD_RUN_SERVICES" desc:"A comma-separated list of service names. Will add the listed services to the default configuration. Has no effect when OC_RUN_SERVICES is set. Note that one can add services not started by the default list and exclude services from the default list by using both envvars at the same time." introductionVersion:"1.0.0"`
+	ShutdownOrder []string `yaml:"shutdown_order" env:"OC_SHUTDOWN_ORDER" desc:"A comma-separated list of service names defining the order in which services are shut down. Services not listed will be stopped after the listed ones in random order." introductionVersion:"%%NEXT%%"`
 }
 
 // Config combines all available configuration parts.
