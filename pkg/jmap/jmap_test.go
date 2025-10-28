@@ -231,15 +231,15 @@ func TestRequests(t *testing.T) {
 		},
 	}
 
-	foldersByAccountId, sessionState, _, err := client.GetAllMailboxes([]string{"a"}, &session, ctx, &logger, "")
+	foldersByAccountId, sessionState, _, _, err := client.GetAllMailboxes([]string{"a"}, &session, ctx, &logger, "")
 	require.NoError(err)
 	require.Len(foldersByAccountId, 1)
 	require.Contains(foldersByAccountId, "a")
 	folders := foldersByAccountId["a"]
-	require.Len(folders.Mailboxes, 5)
+	require.Len(folders, 5)
 	require.NotEmpty(sessionState)
 
-	emails, sessionState, _, err := client.GetAllEmailsInMailbox("a", &session, ctx, &logger, "", "Inbox", 0, 0, false, true, 0, true)
+	emails, sessionState, _, _, err := client.GetAllEmailsInMailbox("a", &session, ctx, &logger, "", "Inbox", 0, 0, false, true, 0, true)
 	require.NoError(err)
 	require.Len(emails.Emails, 3)
 	require.NotEmpty(sessionState)

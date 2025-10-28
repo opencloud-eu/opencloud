@@ -162,18 +162,18 @@ func (g *Groupware) Index(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountIds := structs.Keys(req.session.Accounts)
 
-		boot, sessionState, lang, err := g.jmap.GetBootstrap(accountIds, req.session, req.ctx, req.logger, req.language())
+		boot, sessionState, state, lang, err := g.jmap.GetBootstrap(accountIds, req.session, req.ctx, req.logger, req.language())
 		if err != nil {
 			return req.errorResponseFromJmap(err)
 		}
 
-		return response(IndexResponse{
+		return etagResponse(IndexResponse{
 			Version:         Version,
 			Capabilities:    Capabilities,
 			Limits:          buildIndexLimits(req.session),
 			Accounts:        buildIndexAccounts(req.session, boot),
 			PrimaryAccounts: buildIndexPrimaryAccounts(req.session),
-		}, sessionState, lang)
+		}, sessionState, state, lang)
 	})
 }
 

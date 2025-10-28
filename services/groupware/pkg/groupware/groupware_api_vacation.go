@@ -37,11 +37,11 @@ func (g *Groupware) GetVacation(w http.ResponseWriter, r *http.Request) {
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
 
-		res, sessionState, lang, jerr := g.jmap.GetVacationResponse(accountId, req.session, req.ctx, logger, req.language())
+		res, sessionState, state, lang, jerr := g.jmap.GetVacationResponse(accountId, req.session, req.ctx, logger, req.language())
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
-		return etagResponse(res, sessionState, res.State, lang)
+		return etagResponse(res, sessionState, state, lang)
 	})
 }
 
@@ -50,7 +50,7 @@ func (g *Groupware) GetVacation(w http.ResponseWriter, r *http.Request) {
 type SwaggerSetVacationResponse200 struct {
 	// in: body
 	Body struct {
-		*jmap.VacationResponseChange
+		*jmap.VacationResponse
 	}
 }
 
@@ -79,11 +79,11 @@ func (g *Groupware) SetVacation(w http.ResponseWriter, r *http.Request) {
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
 
-		res, sessionState, lang, jerr := g.jmap.SetVacationResponse(accountId, body, req.session, req.ctx, logger, req.language())
+		res, sessionState, state, lang, jerr := g.jmap.SetVacationResponse(accountId, body, req.session, req.ctx, logger, req.language())
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
 
-		return etagResponse(res, sessionState, res.ResponseState, lang)
+		return etagResponse(res, sessionState, state, lang)
 	})
 }

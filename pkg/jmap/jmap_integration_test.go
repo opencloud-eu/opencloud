@@ -689,7 +689,7 @@ func TestEmails(t *testing.T) {
 	var inboxFolder string
 	var inboxId string
 	{
-		respByAccountId, sessionState, _, err := s.client.GetAllMailboxes([]string{accountId}, s.session, s.ctx, s.logger, "")
+		respByAccountId, sessionState, _, _, err := s.client.GetAllMailboxes([]string{accountId}, s.session, s.ctx, s.logger, "")
 		require.NoError(err)
 		require.Equal(s.session.State, sessionState)
 		require.Len(respByAccountId, 1)
@@ -698,7 +698,7 @@ func TestEmails(t *testing.T) {
 
 		mailboxesNameByRole := map[string]string{}
 		mailboxesUnreadByRole := map[string]int{}
-		for _, m := range resp.Mailboxes {
+		for _, m := range resp {
 			if m.Role != "" {
 				mailboxesNameByRole[m.Role] = m.Name
 				mailboxesUnreadByRole[m.Role] = m.UnreadEmails
@@ -708,7 +708,7 @@ func TestEmails(t *testing.T) {
 		require.Contains(mailboxesUnreadByRole, "inbox")
 		require.Zero(mailboxesUnreadByRole["inbox"])
 
-		inboxId = mailboxId("inbox", resp.Mailboxes)
+		inboxId = mailboxId("inbox", resp)
 		require.NotEmpty(inboxId)
 		inboxFolder = mailboxesNameByRole["inbox"]
 		require.NotEmpty(inboxFolder)
@@ -724,23 +724,23 @@ func TestEmails(t *testing.T) {
 
 	{
 		{
-			resp, sessionState, _, err := s.client.GetAllIdentities(accountId, s.session, s.ctx, s.logger, "")
+			resp, sessionState, _, _, err := s.client.GetAllIdentities(accountId, s.session, s.ctx, s.logger, "")
 			require.NoError(err)
 			require.Equal(s.session.State, sessionState)
-			require.Len(resp.Identities, 1)
-			require.Equal(s.userEmail, resp.Identities[0].Email)
-			require.Equal(s.userPersonName, resp.Identities[0].Name)
+			require.Len(resp, 1)
+			require.Equal(s.userEmail, resp[0].Email)
+			require.Equal(s.userPersonName, resp[0].Name)
 		}
 
 		{
-			respByAccountId, sessionState, _, err := s.client.GetAllMailboxes([]string{accountId}, s.session, s.ctx, s.logger, "")
+			respByAccountId, sessionState, _, _, err := s.client.GetAllMailboxes([]string{accountId}, s.session, s.ctx, s.logger, "")
 			require.NoError(err)
 			require.Equal(s.session.State, sessionState)
 			require.Len(respByAccountId, 1)
 			require.Contains(respByAccountId, accountId)
 			resp := respByAccountId[accountId]
 			mailboxesUnreadByRole := map[string]int{}
-			for _, m := range resp.Mailboxes {
+			for _, m := range resp {
 				if m.Role != "" {
 					mailboxesUnreadByRole[m.Role] = m.UnreadEmails
 				}
@@ -749,7 +749,7 @@ func TestEmails(t *testing.T) {
 		}
 
 		{
-			resp, sessionState, _, err := s.client.GetAllEmailsInMailbox(accountId, s.session, s.ctx, s.logger, "", inboxId, 0, 0, true, false, 0, true)
+			resp, sessionState, _, _, err := s.client.GetAllEmailsInMailbox(accountId, s.session, s.ctx, s.logger, "", inboxId, 0, 0, true, false, 0, true)
 			require.NoError(err)
 			require.Equal(s.session.State, sessionState)
 
@@ -766,7 +766,7 @@ func TestEmails(t *testing.T) {
 		}
 
 		{
-			resp, sessionState, _, err := s.client.GetAllEmailsInMailbox(accountId, s.session, s.ctx, s.logger, "", inboxId, 0, 0, false, false, 0, true)
+			resp, sessionState, _, _, err := s.client.GetAllEmailsInMailbox(accountId, s.session, s.ctx, s.logger, "", inboxId, 0, 0, false, false, 0, true)
 			require.NoError(err)
 			require.Equal(s.session.State, sessionState)
 

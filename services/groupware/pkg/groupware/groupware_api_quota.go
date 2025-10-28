@@ -31,12 +31,12 @@ func (g *Groupware) GetQuota(w http.ResponseWriter, r *http.Request) {
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
 
-		res, sessionState, lang, jerr := g.jmap.GetQuotas([]string{accountId}, req.session, req.ctx, logger, req.language())
+		res, sessionState, state, lang, jerr := g.jmap.GetQuotas([]string{accountId}, req.session, req.ctx, logger, req.language())
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
 		for _, v := range res {
-			return etagResponse(v.List, sessionState, v.State, lang)
+			return etagResponse(v.List, sessionState, state, lang)
 		}
 		return notFoundResponse(sessionState)
 	})
@@ -70,7 +70,7 @@ func (g *Groupware) GetQuotaForAllAccounts(w http.ResponseWriter, r *http.Reques
 		}
 		logger := log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(accountIds)))
 
-		res, sessionState, lang, jerr := g.jmap.GetQuotas(accountIds, req.session, req.ctx, logger, req.language())
+		res, sessionState, state, lang, jerr := g.jmap.GetQuotas(accountIds, req.session, req.ctx, logger, req.language())
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
@@ -82,6 +82,6 @@ func (g *Groupware) GetQuotaForAllAccounts(w http.ResponseWriter, r *http.Reques
 				Quotas: accountQuotas.List,
 			}
 		}
-		return response(result, sessionState, lang)
+		return etagResponse(result, sessionState, state, lang)
 	})
 }
