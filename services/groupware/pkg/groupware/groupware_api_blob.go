@@ -28,20 +28,15 @@ func (g *Groupware) GetBlobMeta(w http.ResponseWriter, r *http.Request) {
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
 
-		res, sessionState, lang, jerr := g.jmap.GetBlobMetadata(accountId, req.session, req.ctx, logger, req.language(), blobId)
+		res, sessionState, state, lang, jerr := g.jmap.GetBlobMetadata(accountId, req.session, req.ctx, logger, req.language(), blobId)
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
-		blob := res.Blob
+		blob := res
 		if blob == nil {
 			return notFoundResponse(sessionState)
 		}
-		digest := blob.Digest()
-		if digest != "" {
-			return etagResponse(res, sessionState, jmap.State(digest), lang)
-		} else {
-			return response(res, sessionState, lang)
-		}
+		return etagResponse(res, sessionState, state, lang)
 	})
 }
 

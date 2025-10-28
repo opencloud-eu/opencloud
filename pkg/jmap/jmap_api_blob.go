@@ -9,12 +9,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
-type BlobResponse struct {
-	Blob  *Blob `json:"blob,omitempty"`
-	State State `json:"state,omitempty"`
-}
-
-func (j *Client) GetBlobMetadata(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, id string) (BlobResponse, SessionState, Language, Error) {
+func (j *Client) GetBlobMetadata(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, id string) (*Blob, SessionState, State, Language, Error) {
 	cmd, jerr := j.request(session, logger,
 		invocation(CommandBlobGet, BlobGetCommand{
 			AccountId: accountId,
@@ -24,22 +19,22 @@ func (j *Client) GetBlobMetadata(accountId string, session *Session, ctx context
 		}, "0"),
 	)
 	if jerr != nil {
-		return BlobResponse{}, "", "", jerr
+		return nil, "", "", "", jerr
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (BlobResponse, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (*Blob, State, Error) {
 		var response BlobGetResponse
 		err := retrieveResponseMatchParameters(logger, body, CommandBlobGet, "0", &response)
 		if err != nil {
-			return BlobResponse{}, err
+			return nil, "", err
 		}
 
 		if len(response.List) != 1 {
 			logger.Error().Msgf("%T.List has %v entries instead of 1", response, len(response.List))
-			return BlobResponse{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return nil, "", simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 		get := response.List[0]
-		return BlobResponse{Blob: &get, State: response.State}, nil
+		return &get, response.State, nil
 	})
 }
 
@@ -48,7 +43,6 @@ type UploadedBlob struct {
 	Size   int    `json:"size"`
 	Type   string `json:"type"`
 	Sha512 string `json:"sha:512"`
-	State  State  `json:"state"`
 }
 
 func (j *Client) UploadBlobStream(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, contentType string, body io.Reader) (UploadedBlob, Language, Error) {
@@ -70,7 +64,7 @@ func (j *Client) DownloadBlobStream(accountId string, blobId string, name string
 	return j.blob.DownloadBinary(ctx, logger, session, downloadUrl, session.DownloadEndpoint, acceptLanguage)
 }
 
-func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, data []byte, contentType string) (UploadedBlob, SessionState, Language, Error) {
+func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, data []byte, contentType string) (UploadedBlob, SessionState, State, Language, Error) {
 	encoded := base64.StdEncoding.EncodeToString(data)
 
 	upload := BlobUploadCommand{
@@ -100,35 +94,35 @@ func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Cont
 		invocation(CommandBlobGet, getHash, "1"),
 	)
 	if jerr != nil {
-		return UploadedBlob{}, "", "", jerr
+		return UploadedBlob{}, "", "", "", jerr
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (UploadedBlob, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (UploadedBlob, State, Error) {
 		var uploadResponse BlobUploadResponse
 		err := retrieveResponseMatchParameters(logger, body, CommandBlobUpload, "0", &uploadResponse)
 		if err != nil {
-			return UploadedBlob{}, err
+			return UploadedBlob{}, "", err
 		}
 
 		var getResponse BlobGetResponse
 		err = retrieveResponseMatchParameters(logger, body, CommandBlobGet, "1", &getResponse)
 		if err != nil {
-			return UploadedBlob{}, err
+			return UploadedBlob{}, "", err
 		}
 
 		if len(uploadResponse.Created) != 1 {
 			logger.Error().Msgf("%T.Created has %v entries instead of 1", uploadResponse, len(uploadResponse.Created))
-			return UploadedBlob{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return UploadedBlob{}, "", simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 		upload, ok := uploadResponse.Created["0"]
 		if !ok {
 			logger.Error().Msgf("%T.Created has no item '0'", uploadResponse)
-			return UploadedBlob{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return UploadedBlob{}, "", simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 
 		if len(getResponse.List) != 1 {
 			logger.Error().Msgf("%T.List has %v entries instead of 1", getResponse, len(getResponse.List))
-			return UploadedBlob{}, simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return UploadedBlob{}, "", simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 		get := getResponse.List[0]
 
@@ -137,8 +131,7 @@ func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Cont
 			Size:   upload.Size,
 			Type:   upload.Type,
 			Sha512: get.DigestSha512,
-			State:  getResponse.State,
-		}, nil
+		}, getResponse.State, nil
 	})
 
 }

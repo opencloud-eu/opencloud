@@ -36,6 +36,7 @@ const (
 	JmapErrorWssFailedToSendWebSocketPushDisable
 	JmapErrorWssFailedToClose
 	JmapErrorWssFailedToRetrieveSession
+	JmapErrorMissingCreatedObject
 )
 
 var (

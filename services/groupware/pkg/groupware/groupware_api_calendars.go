@@ -121,10 +121,10 @@ func (g *Groupware) ParseIcalBlob(w http.ResponseWriter, r *http.Request) {
 		l := req.logger.With().Array(UriParamBlobId, log.SafeStringArray(blobIds))
 		logger := log.From(l)
 
-		resp, sessionState, lang, jerr := g.jmap.ParseICalendarBlob(accountId, req.session, req.ctx, logger, req.language(), blobIds)
+		resp, sessionState, state, lang, jerr := g.jmap.ParseICalendarBlob(accountId, req.session, req.ctx, logger, req.language(), blobIds)
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
-		return response(resp, sessionState, lang)
+		return etagResponse(resp, sessionState, state, lang)
 	})
 }

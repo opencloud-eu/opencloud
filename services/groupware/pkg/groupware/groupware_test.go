@@ -48,13 +48,14 @@ func TestSanitizeEmail(t *testing.T) {
 }
 
 func TestSortMailboxes(t *testing.T) {
+	o := -10
 	mailboxes := []jmap.Mailbox{
 		{Id: "a", Name: "Other"},
 		{Id: "b", Role: jmap.JmapMailboxRoleSent, Name: "Sent"},
 		{Id: "c", Name: "Zebras"},
 		{Id: "d", Role: jmap.JmapMailboxRoleInbox, Name: "Inbox"},
 		{Id: "e", Name: "Appraisal"},
-		{Id: "f", Name: "Zealots", SortOrder: -10},
+		{Id: "f", Name: "Zealots", SortOrder: &o},
 	}
 	slices.SortFunc(mailboxes, compareMailboxes)
 	names := structs.Map(mailboxes, func(m jmap.Mailbox) string { return m.Name })

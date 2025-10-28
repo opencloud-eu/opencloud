@@ -7,7 +7,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
-func (j *Client) GetQuotas(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]QuotaGetResponse, SessionState, Language, Error) {
+func (j *Client) GetQuotas(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]QuotaGetResponse, SessionState, State, Language, Error) {
 	logger = j.logger("GetQuotas", session, logger)
 
 	uniqueAccountIds := structs.Uniq(accountIds)
@@ -18,18 +18,18 @@ func (j *Client) GetQuotas(accountIds []string, session *Session, ctx context.Co
 	}
 	cmd, err := j.request(session, logger, invocations...)
 	if err != nil {
-		return nil, "", "", err
+		return nil, "", "", "", err
 	}
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]QuotaGetResponse, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]QuotaGetResponse, State, Error) {
 		result := map[string]QuotaGetResponse{}
 		for _, accountId := range uniqueAccountIds {
 			var response QuotaGetResponse
 			err = retrieveResponseMatchParameters(logger, body, CommandQuotaGet, mcid(accountId, "0"), &response)
 			if err != nil {
-				return nil, err
+				return nil, "", err
 			}
 			result[accountId] = response
 		}
-		return result, nil
+		return result, squashStateFunc(result, func(q QuotaGetResponse) State { return q.State }), nil
 	})
 }

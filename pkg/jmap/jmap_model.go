@@ -1201,7 +1201,7 @@ type Mailbox struct {
 	// (that has the same parent) in any Mailbox listing in the client’s UI.
 	// Mailboxes with equal order SHOULD be sorted in alphabetical order by name.
 	// The sorting should take into account locale-specific character order convention.
-	SortOrder int `json:"sortOrder,omitzero"`
+	SortOrder *int `json:"sortOrder,omitempty"`
 
 	// The number of Emails in this Mailbox.
 	TotalEmails int `json:"totalEmails"`
@@ -1220,7 +1220,7 @@ type Mailbox struct {
 	// These are backwards compatible with IMAP ACLs, as defined in [RFC4314].
 	//
 	// [RFC4314]: https://www.rfc-editor.org/rfc/rfc4314.html
-	MyRights MailboxRights `json:"myRights,omitempty"`
+	MyRights *MailboxRights `json:"myRights,omitempty"`
 
 	// Has the user indicated they wish to see this Mailbox in their client?
 	//
@@ -1241,7 +1241,96 @@ type Mailbox struct {
 	// This property corresponds to IMAP [RFC3501] Mailbox subscriptions.
 	//
 	// [RFC3501]: https://www.rfc-editor.org/rfc/rfc3501.html
-	IsSubscribed bool `json:"isSubscribed"`
+	IsSubscribed *bool `json:"isSubscribed,omitempty"`
+}
+
+type MailboxChange struct {
+	// User-visible name for the Mailbox, e.g., “Inbox”.
+	//
+	// This MUST be a Net-Unicode string [@!RFC5198] of at least 1 character in length, subject to the maximum size
+	// given in the capability object.
+	//
+	// There MUST NOT be two sibling Mailboxes with both the same parent and the same name.
+	//
+	// Servers MAY reject names that violate server policy (e.g., names containing a slash (/) or control characters).
+	Name string `json:"name,omitempty"`
+
+	// The Mailbox id for the parent of this Mailbox, or null if this Mailbox is at the top level.
+	//
+	// Mailboxes form acyclic graphs (forests) directed by the child-to-parent relationship. There MUST NOT be a loop.
+	ParentId string `json:"parentId,omitempty"`
+
+	// Identifies Mailboxes that have a particular common purpose (e.g., the “inbox”), regardless of the name property
+	// (which may be localised).
+	//
+	// This value is shared with IMAP (exposed in IMAP via the SPECIAL-USE extension [RFC6154]).
+	// However, unlike in IMAP, a Mailbox MUST only have a single role, and there MUST NOT be two Mailboxes in the same
+	// account with the same role.
+	//
+	// Servers providing IMAP access to the same data are encouraged to enforce these extra restrictions in IMAP as well.
+	// Otherwise, modifying the IMAP attributes to ensure compliance when exposing the data over JMAP is implementation dependent.
+	//
+	// The value MUST be one of the Mailbox attribute names listed in the IANA IMAP Mailbox Name Attributes registry,
+	// as established in [RFC8457], converted to lowercase. New roles may be established here in the future.
+	//
+	// An account is not required to have Mailboxes with any particular roles.
+	//
+	// [RFC6154]: https://www.rfc-editor.org/rfc/rfc6154.html
+	// [RFC8457]: https://www.rfc-editor.org/rfc/rfc8457.html
+	Role string `json:"role,omitempty"`
+
+	// Defines the sort order of Mailboxes when presented in the client’s UI, so it is consistent between devices.
+	//
+	// Default value: 0
+	//
+	// The number MUST be an integer in the range 0 <= sortOrder < 2^31.
+	//
+	// A Mailbox with a lower order should be displayed before a Mailbox with a higher order
+	// (that has the same parent) in any Mailbox listing in the client’s UI.
+	// Mailboxes with equal order SHOULD be sorted in alphabetical order by name.
+	// The sorting should take into account locale-specific character order convention.
+	SortOrder *int `json:"sortOrder,omitempty"`
+
+	// Has the user indicated they wish to see this Mailbox in their client?
+	//
+	// This SHOULD default to false for Mailboxes in shared accounts the user has access to and true
+	// for any new Mailboxes created by the user themself.
+	//
+	// This MUST be stored separately per user where multiple users have access to a shared Mailbox.
+	//
+	// A user may have permission to access a large number of shared accounts, or a shared account with a very
+	// large set of Mailboxes, but only be interested in the contents of a few of these.
+	//
+	// Clients may choose to only display Mailboxes where the isSubscribed property is set to true, and offer
+	// a separate UI to allow the user to see and subscribe/unsubscribe from the full set of Mailboxes.
+	//
+	// However, clients MAY choose to ignore this property, either entirely for ease of implementation or just
+	// for an account where isPersonal is true (indicating it is the user’s own rather than a shared account).
+	//
+	// This property corresponds to IMAP [RFC3501] Mailbox subscriptions.
+	//
+	// [RFC3501]: https://www.rfc-editor.org/rfc/rfc3501.html
+	IsSubscribed *bool `json:"isSubscribed,omitempty"`
+}
+
+func (m MailboxChange) AsPatch() PatchObject {
+	p := PatchObject{}
+	if m.Name != "" {
+		p["name"] = m.Name
+	}
+	if m.ParentId != "" {
+		p["parentId"] = m.ParentId
+	}
+	if m.Role != "" {
+		p["role"] = m.Role
+	}
+	if m.SortOrder != nil {
+		p["sortOrder"] = m.SortOrder
+	}
+	if m.IsSubscribed != nil {
+		p["isSubscribed"] = m.IsSubscribed
+	}
+	return p
 }
 
 type MailboxGetCommand struct {
@@ -1252,6 +1341,26 @@ type MailboxGetCommand struct {
 type MailboxGetRefCommand struct {
 	AccountId string           `json:"accountId"`
 	IdsRef    *ResultReference `json:"#ids,omitempty"`
+}
+
+type MailboxSetCommand struct {
+	AccountId string                   `json:"accountId"`
+	IfInState string                   `json:"ifInState,omitempty"`
+	Create    map[string]MailboxChange `json:"create,omitempty"`
+	Update    map[string]PatchObject   `json:"update,omitempty"`
+	Destroy   []string                 `json:"destroy,omitempty"`
+}
+
+type MailboxSetResponse struct {
+	AccountId    string              `json:"accountId"`
+	OldState     State               `json:"oldState,omitempty"`
+	NewState     State               `json:"newState,omitempty"`
+	Created      map[string]Mailbox  `json:"created,omitempty"`
+	Updated      map[string]Mailbox  `json:"updated,omitempty"`
+	Destroyed    []string            `json:"destroyed,omitempty"`
+	NotCreated   map[string]SetError `json:"notCreated,omitempty"`
+	NotUpdated   map[string]SetError `json:"notUpdated,omitempty"`
+	NotDestroyed map[string]SetError `json:"notDestroyed,omitempty"`
 }
 
 type MailboxChangesCommand struct {
@@ -5251,6 +5360,7 @@ const (
 	CommandEmailSubmissionSet  Command = "EmailSubmission/set"
 	CommandThreadGet           Command = "Thread/get"
 	CommandMailboxGet          Command = "Mailbox/get"
+	CommandMailboxSet          Command = "Mailbox/set"
 	CommandMailboxQuery        Command = "Mailbox/query"
 	CommandMailboxChanges      Command = "Mailbox/changes"
 	CommandIdentityGet         Command = "Identity/get"
@@ -5272,6 +5382,7 @@ var CommandResponseTypeMap = map[Command]func() any{
 	CommandBlobUpload:          func() any { return BlobUploadResponse{} },
 	CommandMailboxQuery:        func() any { return MailboxQueryResponse{} },
 	CommandMailboxGet:          func() any { return MailboxGetResponse{} },
+	CommandMailboxSet:          func() any { return MailboxSetResponse{} },
 	CommandMailboxChanges:      func() any { return MailboxChangesResponse{} },
 	CommandEmailQuery:          func() any { return EmailQueryResponse{} },
 	CommandEmailChanges:        func() any { return EmailChangesResponse{} },
