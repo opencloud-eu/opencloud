@@ -2,9 +2,11 @@ package groupware
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
 // When the request succeeds.
@@ -103,5 +105,26 @@ func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) 
 			return notFoundResponse(req.session.State)
 		}
 		return response(events, req.session.State, "")
+	})
+}
+
+func (g *Groupware) ParseIcalBlob(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		accountId, err := req.GetAccountIdForBlob()
+		if err != nil {
+			return errorResponse(err)
+		}
+
+		blobId := chi.URLParam(r, UriParamBlobId)
+
+		blobIds := strings.Split(blobId, ",")
+		l := req.logger.With().Array(UriParamBlobId, log.SafeStringArray(blobIds))
+		logger := log.From(l)
+
+		resp, sessionState, lang, jerr := g.jmap.ParseICalendarBlob(accountId, req.session, req.ctx, logger, req.language(), blobIds)
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
+		}
+		return response(resp, sessionState, lang)
 	})
 }
