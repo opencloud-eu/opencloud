@@ -12,7 +12,7 @@ var (
 
 const (
 	UriParamAccountId                 = "accountid"
-	UriParamMailboxId                 = "mailbox"
+	UriParamMailboxId                 = "mailboxid"
 	UriParamEmailId                   = "emailid"
 	UriParamIdentityId                = "identityid"
 	UriParamBlobId                    = "blobid"
@@ -90,9 +90,12 @@ func (g *Groupware) Route(r chi.Router) {
 			r.Get("/quota", g.GetQuota)
 			r.Route("/mailboxes", func(r chi.Router) {
 				r.Get("/", g.GetMailboxes) // ?name=&role=&subcribed=
-				r.Get("/{mailbox}", g.GetMailbox)
-				r.Get("/{mailbox}/emails", g.GetAllEmailsInMailbox)
-				r.Get("/{mailbox}/changes", g.GetMailboxChanges)
+				r.Get("/{mailboxid}", g.GetMailbox)
+				r.Get("/{mailboxid}/emails", g.GetAllEmailsInMailbox)
+				r.Get("/{mailboxid}/changes", g.GetMailboxChanges)
+				r.Post("/", g.CreateMailbox)
+				r.Patch("/{mailboxid}", g.UpdateMailbox)
+				r.Delete("/{mailboxid}", g.DeleteMailbox)
 			})
 			r.Route("/emails", func(r chi.Router) {
 				r.Get("/", g.GetEmails) // ?fetchemails=true&fetchbodies=true&text=&subject=&body=&keyword=&keyword=&...

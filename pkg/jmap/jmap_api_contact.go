@@ -12,36 +12,34 @@ import (
 type AddressBooksResponse struct {
 	AddressBooks []AddressBook `json:"addressbooks"`
 	NotFound     []string      `json:"notFound,omitempty"`
-	State        State         `json:"state"`
 }
 
-func (j *Client) GetAddressbooks(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (AddressBooksResponse, SessionState, Language, Error) {
+func (j *Client) GetAddressbooks(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (AddressBooksResponse, SessionState, State, Language, Error) {
 	logger = j.logger("GetAddressbooks", session, logger)
 
 	cmd, err := j.request(session, logger,
 		invocation(CommandAddressBookGet, AddressBookGetCommand{AccountId: accountId, Ids: ids}, "0"),
 	)
 	if err != nil {
-		return AddressBooksResponse{}, "", "", err
+		return AddressBooksResponse{}, "", "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (AddressBooksResponse, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (AddressBooksResponse, State, Error) {
 		var response AddressBookGetResponse
 		err = retrieveResponseMatchParameters(logger, body, CommandAddressBookGet, "0", &response)
 		if err != nil {
-			return AddressBooksResponse{}, err
+			return AddressBooksResponse{}, response.State, err
 		}
 		return AddressBooksResponse{
 			AddressBooks: response.List,
 			NotFound:     response.NotFound,
-			State:        response.State,
-		}, nil
+		}, response.State, nil
 	})
 }
 
 func (j *Client) QueryContactCards(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string,
 	filter ContactCardFilterElement, sortBy []ContactCardComparator,
-	position uint, limit uint) (map[string][]jscontact.ContactCard, SessionState, Language, Error) {
+	position uint, limit uint) (map[string][]jscontact.ContactCard, SessionState, State, Language, Error) {
 	logger = j.logger("QueryContactCards", session, logger)
 
 	uniqueAccountIds := structs.Uniq(accountIds)
@@ -75,32 +73,29 @@ func (j *Client) QueryContactCards(accountIds []string, session *Session, ctx co
 	}
 	cmd, err := j.request(session, logger, invocations...)
 	if err != nil {
-		return nil, "", "", err
+		return nil, "", "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string][]jscontact.ContactCard, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string][]jscontact.ContactCard, State, Error) {
 		resp := map[string][]jscontact.ContactCard{}
+		stateByAccountId := map[string]State{}
 		for _, accountId := range uniqueAccountIds {
 			var response ContactCardGetResponse
 			err = retrieveResponseMatchParameters(logger, body, CommandContactCardGet, mcid(accountId, "1"), &response)
 			if err != nil {
-				return nil, err
+				return nil, "", err
 			}
 			if len(response.NotFound) > 0 {
 				// TODO what to do when there are not-found emails here? potentially nothing, they could have been deleted between query and get?
 			}
 			resp[accountId] = response.List
+			stateByAccountId[accountId] = response.State
 		}
-		return resp, nil
+		return resp, squashState(stateByAccountId), nil
 	})
 }
 
-type CreatedContactCard struct {
-	ContactCard *jscontact.ContactCard `json:"contactCard"`
-	State       State                  `json:"state"`
-}
-
-func (j *Client) CreateContactCard(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, create jscontact.ContactCard) (CreatedContactCard, SessionState, Language, Error) {
+func (j *Client) CreateContactCard(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, create jscontact.ContactCard) (*jscontact.ContactCard, SessionState, State, Language, Error) {
 	logger = j.logger("CreateContactCard", session, logger)
 
 	cmd, err := j.request(session, logger,
@@ -116,53 +111,45 @@ func (j *Client) CreateContactCard(accountId string, session *Session, ctx conte
 		}, "1"),
 	)
 	if err != nil {
-		return CreatedContactCard{}, "", "", err
+		return nil, "", "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (CreatedContactCard, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (*jscontact.ContactCard, State, Error) {
 		var setResponse ContactCardSetResponse
 		err = retrieveResponseMatchParameters(logger, body, CommandContactCardSet, "0", &setResponse)
 		if err != nil {
-			return CreatedContactCard{}, err
+			return nil, "", err
 		}
 
 		setErr, notok := setResponse.NotCreated["c"]
 		if notok {
 			logger.Error().Msgf("%T.NotCreated returned an error %v", setResponse, setErr)
-			return CreatedContactCard{}, setErrorError(setErr, EmailType)
+			return nil, "", setErrorError(setErr, EmailType)
 		}
 
 		if created, ok := setResponse.Created["c"]; !ok || created == nil {
 			berr := fmt.Errorf("failed to find %s in %s response", string(ContactCardType), string(CommandContactCardSet))
 			logger.Error().Err(berr)
-			return CreatedContactCard{}, simpleError(berr, JmapErrorInvalidJmapResponsePayload)
+			return nil, "", simpleError(berr, JmapErrorInvalidJmapResponsePayload)
 		}
 
 		var getResponse ContactCardGetResponse
 		err = retrieveResponseMatchParameters(logger, body, CommandContactCardGet, "1", &getResponse)
 		if err != nil {
-			return CreatedContactCard{}, err
+			return nil, "", err
 		}
 
 		if len(getResponse.List) < 1 {
 			berr := fmt.Errorf("failed to find %s in %s response", string(ContactCardType), string(CommandContactCardSet))
 			logger.Error().Err(berr)
-			return CreatedContactCard{}, simpleError(berr, JmapErrorInvalidJmapResponsePayload)
+			return nil, "", simpleError(berr, JmapErrorInvalidJmapResponsePayload)
 		}
 
-		return CreatedContactCard{
-			ContactCard: &getResponse.List[0],
-			State:       setResponse.NewState,
-		}, nil
+		return &getResponse.List[0], setResponse.NewState, nil
 	})
 }
 
-type DeletedContactCards struct {
-	State        State               `json:"state"`
-	NotDestroyed map[string]SetError `json:"notDestroyed"`
-}
-
-func (j *Client) DeleteContactCard(accountId string, destroy []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (DeletedContactCards, SessionState, Language, Error) {
+func (j *Client) DeleteContactCard(accountId string, destroy []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]SetError, SessionState, State, Language, Error) {
 	logger = j.logger("DeleteContactCard", session, logger)
 
 	cmd, err := j.request(session, logger,
@@ -172,18 +159,15 @@ func (j *Client) DeleteContactCard(accountId string, destroy []string, session *
 		}, "0"),
 	)
 	if err != nil {
-		return DeletedContactCards{}, "", "", err
+		return nil, "", "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (DeletedContactCards, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]SetError, State, Error) {
 		var setResponse ContactCardSetResponse
 		err = retrieveResponseMatchParameters(logger, body, CommandContactCardSet, "0", &setResponse)
 		if err != nil {
-			return DeletedContactCards{}, err
+			return nil, "", err
 		}
-		return DeletedContactCards{
-			State:        setResponse.NewState,
-			NotDestroyed: setResponse.NotDestroyed,
-		}, nil
+		return setResponse.NotDestroyed, setResponse.NewState, nil
 	})
 }

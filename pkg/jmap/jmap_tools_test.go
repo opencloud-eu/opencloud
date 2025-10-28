@@ -50,7 +50,7 @@ func TestDeserializeMailboxGetResponse(t *testing.T) {
 		require.Equal(expected.unread, folder.UnreadThreads)
 		require.Empty(folder.ParentId)
 		require.Zero(folder.SortOrder)
-		require.True(folder.IsSubscribed)
+		require.Nil(folder.IsSubscribed)
 
 		require.True(folder.MyRights.MayReadItems)
 		require.True(folder.MyRights.MayAddItems)

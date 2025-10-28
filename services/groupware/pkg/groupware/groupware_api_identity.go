@@ -15,9 +15,7 @@ import (
 // swagger:response GetIdentitiesResponse
 type SwaggerGetIdentitiesResponse struct {
 	// in: body
-	Body struct {
-		*jmap.Identities
-	}
+	Body []jmap.Identity
 }
 
 // swagger:route GET /groupware/accounts/{account}/identities identity identities
@@ -36,11 +34,11 @@ func (g *Groupware) GetIdentities(w http.ResponseWriter, r *http.Request) {
 			return errorResponse(err)
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
-		res, sessionState, lang, jerr := g.jmap.GetAllIdentities(accountId, req.session, req.ctx, logger, req.language())
+		res, sessionState, state, lang, jerr := g.jmap.GetAllIdentities(accountId, req.session, req.ctx, logger, req.language())
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
-		return etagResponse(res, sessionState, res.State, lang)
+		return etagResponse(res, sessionState, state, lang)
 	})
 }
 
@@ -52,14 +50,14 @@ func (g *Groupware) GetIdentityById(w http.ResponseWriter, r *http.Request) {
 		}
 		id := chi.URLParam(r, UriParamIdentityId)
 		logger := log.From(req.logger.With().Str(logAccountId, accountId).Str(logIdentityId, id))
-		res, sessionState, lang, jerr := g.jmap.GetIdentities(accountId, req.session, req.ctx, logger, req.language(), []string{id})
+		res, sessionState, state, lang, jerr := g.jmap.GetIdentities(accountId, req.session, req.ctx, logger, req.language(), []string{id})
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
-		if len(res.Identities) < 1 {
+		if len(res) < 1 {
 			return notFoundResponse(sessionState)
 		}
-		return etagResponse(res.Identities[0], sessionState, res.State, lang)
+		return etagResponse(res[0], sessionState, state, lang)
 	})
 }
 
@@ -77,11 +75,11 @@ func (g *Groupware) AddIdentity(w http.ResponseWriter, r *http.Request) {
 			return errorResponse(err)
 		}
 
-		newState, sessionState, _, jerr := g.jmap.CreateIdentity(accountId, req.session, req.ctx, logger, req.language(), identity)
+		created, sessionState, state, lang, jerr := g.jmap.CreateIdentity(accountId, req.session, req.ctx, logger, req.language(), identity)
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
-		return noContentResponseWithEtag(sessionState, newState)
+		return etagResponse(created, sessionState, state, lang)
 	})
 }
 
@@ -99,11 +97,11 @@ func (g *Groupware) ModifyIdentity(w http.ResponseWriter, r *http.Request) {
 			return errorResponse(err)
 		}
 
-		newState, sessionState, _, jerr := g.jmap.UpdateIdentity(accountId, req.session, req.ctx, logger, req.language(), identity)
+		updated, sessionState, state, lang, jerr := g.jmap.UpdateIdentity(accountId, req.session, req.ctx, logger, req.language(), identity)
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
-		return noContentResponseWithEtag(sessionState, newState)
+		return etagResponse(updated, sessionState, state, lang)
 	})
 }
 
@@ -121,14 +119,14 @@ func (g *Groupware) DeleteIdentity(w http.ResponseWriter, r *http.Request) {
 			return req.parameterErrorResponse(UriParamEmailId, fmt.Sprintf("Invalid value for path parameter '%v': '%s': %s", UriParamIdentityId, log.SafeString(id), "empty list of identity ids"))
 		}
 
-		deletion, sessionState, _, jerr := g.jmap.DeleteIdentity(accountId, req.session, req.ctx, logger, req.language(), ids)
+		deletion, sessionState, state, _, jerr := g.jmap.DeleteIdentity(accountId, req.session, req.ctx, logger, req.language(), ids)
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
 
-		notDeletedIds := structs.Missing(ids, deletion.Destroyed)
+		notDeletedIds := structs.Missing(ids, deletion)
 		if len(notDeletedIds) == 0 {
-			return noContentResponseWithEtag(sessionState, deletion.NewState)
+			return noContentResponseWithEtag(sessionState, state)
 		} else {
 			logger.Error().Array("not-deleted", log.SafeStringArray(notDeletedIds)).Msgf("failed to delete %d identities", len(notDeletedIds))
 			return errorResponseWithSessionState(req.apiError(&ErrorFailedToDeleteSomeIdentities,

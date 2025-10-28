@@ -13,19 +13,19 @@ const (
 )
 
 // https://jmap.io/spec-mail.html#vacationresponseget
-func (j *Client) GetVacationResponse(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (VacationResponseGetResponse, SessionState, Language, Error) {
+func (j *Client) GetVacationResponse(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (VacationResponseGetResponse, SessionState, State, Language, Error) {
 	logger = j.logger("GetVacationResponse", session, logger)
 	cmd, err := j.request(session, logger, invocation(CommandVacationResponseGet, VacationResponseGetCommand{AccountId: accountId}, "0"))
 	if err != nil {
-		return VacationResponseGetResponse{}, "", "", err
+		return VacationResponseGetResponse{}, "", "", "", err
 	}
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (VacationResponseGetResponse, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (VacationResponseGetResponse, State, Error) {
 		var response VacationResponseGetResponse
 		err = retrieveResponseMatchParameters(logger, body, CommandVacationResponseGet, "0", &response)
 		if err != nil {
-			return VacationResponseGetResponse{}, err
+			return VacationResponseGetResponse{}, "", err
 		}
-		return response, nil
+		return response, response.State, nil
 	})
 }
 
@@ -53,12 +53,7 @@ type VacationResponsePayload struct {
 	HtmlBody string `json:"htmlBody,omitempty"`
 }
 
-type VacationResponseChange struct {
-	VacationResponse VacationResponse `json:"vacationResponse"`
-	ResponseState    State            `json:"state"`
-}
-
-func (j *Client) SetVacationResponse(accountId string, vacation VacationResponsePayload, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (VacationResponseChange, SessionState, Language, Error) {
+func (j *Client) SetVacationResponse(accountId string, vacation VacationResponsePayload, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (VacationResponse, SessionState, State, Language, Error) {
 	logger = j.logger("SetVacationResponse", session, logger)
 
 	cmd, err := j.request(session, logger,
@@ -80,37 +75,34 @@ func (j *Client) SetVacationResponse(accountId string, vacation VacationResponse
 		invocation(CommandVacationResponseGet, VacationResponseGetCommand{AccountId: accountId}, "1"),
 	)
 	if err != nil {
-		return VacationResponseChange{}, "", "", err
+		return VacationResponse{}, "", "", "", err
 	}
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (VacationResponseChange, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (VacationResponse, State, Error) {
 		var setResponse VacationResponseSetResponse
 		err = retrieveResponseMatchParameters(logger, body, CommandVacationResponseSet, "0", &setResponse)
 		if err != nil {
-			return VacationResponseChange{}, err
+			return VacationResponse{}, "", err
 		}
 
 		setErr, notok := setResponse.NotCreated[vacationResponseId]
 		if notok {
 			// this means that the VacationResponse was not updated
 			logger.Error().Msgf("%T.NotCreated contains an error: %v", setResponse, setErr)
-			return VacationResponseChange{}, setErrorError(setErr, VacationResponseType)
+			return VacationResponse{}, "", setErrorError(setErr, VacationResponseType)
 		}
 
 		var getResponse VacationResponseGetResponse
 		err = retrieveResponseMatchParameters(logger, body, CommandVacationResponseGet, "1", &getResponse)
 		if err != nil {
-			return VacationResponseChange{}, err
+			return VacationResponse{}, "", err
 		}
 
 		if len(getResponse.List) != 1 {
 			berr := fmt.Errorf("failed to find %s in %s response", string(VacationResponseType), string(CommandVacationResponseGet))
 			logger.Error().Msg(berr.Error())
-			return VacationResponseChange{}, simpleError(berr, JmapErrorInvalidJmapResponsePayload)
+			return VacationResponse{}, "", simpleError(berr, JmapErrorInvalidJmapResponsePayload)
 		}
 
-		return VacationResponseChange{
-			VacationResponse: getResponse.List[0],
-			ResponseState:    setResponse.NewState,
-		}, nil
+		return getResponse.List[0], setResponse.NewState, nil
 	})
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -57,12 +58,12 @@ func command[T any](api ApiClient,
 	sessionOutdatedHandler func(session *Session, newState SessionState),
 	request Request,
 	acceptLanguage string,
-	mapper func(body *Response) (T, Error)) (T, SessionState, Language, Error) {
+	mapper func(body *Response) (T, State, Error)) (T, SessionState, State, Language, Error) {
 
 	responseBody, language, jmapErr := api.Command(ctx, logger, session, request, acceptLanguage)
 	if jmapErr != nil {
 		var zero T
-		return zero, "", language, jmapErr
+		return zero, "", "", language, jmapErr
 	}
 
 	var response Response
@@ -70,7 +71,7 @@ func command[T any](api ApiClient,
 	if err != nil {
 		logger.Error().Err(err).Msgf("failed to deserialize body JSON payload into a %T", response)
 		var zero T
-		return zero, "", language, SimpleError{code: JmapErrorDecodingResponseBody, err: err}
+		return zero, "", "", language, SimpleError{code: JmapErrorDecodingResponseBody, err: err}
 	}
 
 	if response.SessionState != session.State {
@@ -117,21 +118,21 @@ func command[T any](api ApiClient,
 				err = errors.New(msg)
 				logger.Warn().Int("code", code).Str("type", errorParameters.Type).Msg(msg)
 				var zero T
-				return zero, response.SessionState, language, SimpleError{code: code, err: err}
+				return zero, response.SessionState, "", language, SimpleError{code: code, err: err}
 			} else {
 				code := JmapErrorUnspecifiedType
 				msg := fmt.Sprintf("found method level error in response '%v'", mr.Tag)
 				err := errors.New(msg)
 				logger.Warn().Int("code", code).Msg(msg)
 				var zero T
-				return zero, response.SessionState, language, SimpleError{code: code, err: err}
+				return zero, response.SessionState, "", language, SimpleError{code: code, err: err}
 			}
 		}
 	}
 
-	result, jerr := mapper(&response)
+	result, state, jerr := mapper(&response)
 	sessionState := response.SessionState
-	return result, sessionState, language, jerr
+	return result, sessionState, state, language, jerr
 }
 
 func mapstructStringToTimeHook() mapstructure.DecodeHookFunc {
@@ -255,4 +256,75 @@ func (i *Invocation) UnmarshalJSON(bs []byte) error {
 	}
 	i.Parameters = params
 	return nil
+}
+
+func squashState(all map[string]State) State {
+	return squashStateFunc(all, func(s State) State { return s })
+}
+
+func squashStateFunc[V any](all map[string]V, mapper func(V) State) State {
+	n := len(all)
+	if n == 0 {
+		return State("")
+	}
+	if n == 1 {
+		for _, v := range all {
+			return mapper(v)
+		}
+	}
+
+	parts := make([]string, n)
+	sortedKeys := make([]string, n)
+	i := 0
+	for k := range all {
+		sortedKeys[i] = k
+		i++
+	}
+	slices.Sort(sortedKeys)
+	for i, k := range sortedKeys {
+		if v, ok := all[k]; ok {
+			parts[i] = k + ":" + string(mapper(v))
+		} else {
+			parts[i] = k + ":"
+		}
+	}
+	return State(strings.Join(parts, ","))
+}
+
+func squashStateMaps(first map[string]State, second map[string]State) State {
+	return squashStateFunc(mapPairs(first, second), func(p pair[State, State]) State {
+		if p.left != nil {
+			if p.right != nil {
+				return *p.left + ";" + *p.right
+			} else {
+				return *p.left + ";"
+			}
+		} else if p.right != nil {
+			return ";" + *p.right
+		} else {
+			return ";"
+		}
+	})
+}
+
+type pair[L any, R any] struct {
+	left  *L
+	right *R
+}
+
+func mapPairs[K comparable, L, R any](left map[K]L, right map[K]R) map[K]pair[L, R] {
+	result := map[K]pair[L, R]{}
+	for k, l := range left {
+		if r, ok := right[k]; ok {
+			result[k] = pair[L, R]{left: &l, right: &r}
+		} else {
+			result[k] = pair[L, R]{left: &l, right: nil}
+		}
+	}
+	for k, r := range right {
+		if _, ok := left[k]; !ok {
+			result[k] = pair[L, R]{left: nil, right: &r}
+		}
+	}
+	return result
 }

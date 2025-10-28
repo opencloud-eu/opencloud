@@ -12,7 +12,7 @@ type AccountBootstrapResult struct {
 	Quotas     []Quota    `json:"quotas,omitempty"`
 }
 
-func (j *Client) GetBootstrap(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]AccountBootstrapResult, SessionState, Language, Error) {
+func (j *Client) GetBootstrap(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]AccountBootstrapResult, SessionState, State, Language, Error) {
 	uniqueAccountIds := structs.Uniq(accountIds)
 
 	logger = j.logger("GetBootstrap", session, logger)
@@ -25,26 +25,30 @@ func (j *Client) GetBootstrap(accountIds []string, session *Session, ctx context
 
 	cmd, err := j.request(session, logger, calls...)
 	if err != nil {
-		return nil, "", "", err
+		return nil, "", "", "", err
 	}
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]AccountBootstrapResult, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]AccountBootstrapResult, State, Error) {
 		identityPerAccount := map[string][]Identity{}
 		quotaPerAccount := map[string][]Quota{}
+		identityStatesPerAccount := map[string]State{}
+		quotaStatesPerAccount := map[string]State{}
 		for _, accountId := range uniqueAccountIds {
 			var identityResponse IdentityGetResponse
 			err = retrieveResponseMatchParameters(logger, body, CommandIdentityGet, mcid(accountId, "I"), &identityResponse)
 			if err != nil {
-				return nil, err
+				return nil, "", err
 			} else {
 				identityPerAccount[accountId] = identityResponse.List
+				identityStatesPerAccount[accountId] = identityResponse.State
 			}
 
 			var quotaResponse QuotaGetResponse
 			err = retrieveResponseMatchParameters(logger, body, CommandQuotaGet, mcid(accountId, "Q"), &quotaResponse)
 			if err != nil {
-				return nil, err
+				return nil, "", err
 			} else {
 				quotaPerAccount[accountId] = quotaResponse.List
+				quotaStatesPerAccount[accountId] = quotaResponse.State
 			}
 		}
 
@@ -65,6 +69,7 @@ func (j *Client) GetBootstrap(accountIds []string, session *Session, ctx context
 			r.Quotas = value
 			result[accountId] = r
 		}
-		return result, nil
+
+		return result, squashStateMaps(identityStatesPerAccount, quotaStatesPerAccount), nil
 	})
 }
