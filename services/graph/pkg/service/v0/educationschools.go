@@ -74,12 +74,6 @@ func (g Graph) PostEducationSchool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, ok := school.GetSchoolNumberOk(); !ok {
-		logger.Debug().Interface("school", school).Msg("could not create school: missing required attribute")
-		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "Missing Required Attribute")
-		return
-	}
-
 	// validate terminationDate attribute, needs to be "far enough" in the future, terminationDate can be nil (means
 	// termination date is to be deleted
 	if terminationDate, ok := school.GetTerminationDateOk(); ok && terminationDate != nil {

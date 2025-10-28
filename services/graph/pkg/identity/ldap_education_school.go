@@ -8,10 +8,10 @@ import (
 
 	"github.com/go-ldap/ldap/v3"
 	"github.com/gofrs/uuid"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
-	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 )
 
 type educationConfig struct {
@@ -119,16 +119,18 @@ func (i *LDAP) CreateEducationSchool(ctx context.Context, school libregraph.Educ
 	}
 
 	// Check that the school number is not already used
-	_, err := i.getSchoolByNumber(school.GetSchoolNumber())
-	switch err {
-	case nil:
-		logger.Debug().Err(errSchoolNumberExists).Str("schoolNumber", school.GetSchoolNumber()).Msg("duplicate school number")
-		return nil, errSchoolNumberExists
-	case ErrNotFound:
-		break
-	default:
-		logger.Error().Err(err).Str("schoolNumber", school.GetSchoolNumber()).Msg("error looking up school by number")
-		return nil, errorcode.New(errorcode.GeneralException, "error looking up school by number")
+	if school.HasSchoolNumber() {
+		_, err := i.getSchoolByNumber(school.GetSchoolNumber())
+		switch err {
+		case nil:
+			logger.Debug().Err(errSchoolNumberExists).Str("schoolNumber", school.GetSchoolNumber()).Msg("duplicate school number")
+			return nil, errSchoolNumberExists
+		case ErrNotFound:
+			break
+		default:
+			logger.Error().Err(err).Str("schoolNumber", school.GetSchoolNumber()).Msg("error looking up school by number")
+			return nil, errorcode.New(errorcode.GeneralException, "error looking up school by number")
+		}
 	}
 
 	attributeTypeAndValue := ldap.AttributeTypeAndValue{
@@ -142,7 +144,9 @@ func (i *LDAP) CreateEducationSchool(ctx context.Context, school libregraph.Educ
 	)
 	ar := ldap.NewAddRequest(dn, nil)
 	ar.Attribute(i.educationConfig.schoolAttributeMap.displayName, []string{school.GetDisplayName()})
-	ar.Attribute(i.educationConfig.schoolAttributeMap.schoolNumber, []string{school.GetSchoolNumber()})
+	if school.HasSchoolNumber() {
+		ar.Attribute(i.educationConfig.schoolAttributeMap.schoolNumber, []string{school.GetSchoolNumber()})
+	}
 	if !i.useServerUUID {
 		ar.Attribute(i.educationConfig.schoolAttributeMap.id, []string{uuid.Must(uuid.NewV4()).String()})
 	}
@@ -723,18 +727,22 @@ func (i *LDAP) createSchoolModelFromLDAP(e *ldap.Entry) *libregraph.EducationSch
 	if err != nil && !errors.Is(err, errNotSet) {
 		i.logger.Error().Err(err).Str("dn", e.DN).Msg("Error reading termination date for LDAP entry")
 	}
-	if id != "" && displayName != "" && schoolNumber != "" {
-		school := libregraph.NewEducationSchool()
-		school.SetDisplayName(displayName)
-		school.SetSchoolNumber(schoolNumber)
-		school.SetId(id)
-		if t != nil {
-			school.SetTerminationDate(*t)
-		}
-		return school
+
+	if id == "" || displayName == "" {
+		i.logger.Warn().Str("dn", e.DN).Str("id", id).Str("displayName", displayName).Msg("Invalid School. Missing required attribute")
+		return nil
 	}
-	i.logger.Warn().Str("dn", e.DN).Str("id", id).Str("displayName", displayName).Str("schoolNumber", schoolNumber).Msg("Invalid School. Missing required attribute")
-	return nil
+
+	school := libregraph.NewEducationSchool()
+	school.SetDisplayName(displayName)
+	school.SetId(id)
+	if schoolNumber != "" {
+		school.SetSchoolNumber(schoolNumber)
+	}
+	if t != nil {
+		school.SetTerminationDate(*t)
+	}
+	return school
 }
 
 func (i *LDAP) getSchoolNumber(e *ldap.Entry) string {

@@ -76,18 +76,7 @@ func (g Graph) PostEducationUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	identities, ok := u.GetIdentitiesOk()
-	if !ok {
-		logger.Debug().Err(err).Interface("user", u).Msg("could not create education user: missing required Collection: 'identities'")
-		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "missing required Attribute: 'identities'")
-		return
-	}
-	if len(identities) < 1 {
-		logger.Debug().Err(err).Interface("user", u).Msg("could not create education user: missing entry in Collection: 'identities'")
-		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "missing required Collection: 'identities'")
-		return
-	}
-	for i, identity := range identities {
+	for i, identity := range u.GetIdentities() {
 		if _, ok := identity.GetIssuerOk(); !ok {
 			logger.Debug().Err(err).Interface("user", u).Msgf("could not create education user: missing Attribute in 'identities' Collection Entry %d: 'issuer'", i)
 			errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, fmt.Sprintf("missing Attribute in 'identities' Collection Entry %d: 'issuer'", i))
@@ -128,12 +117,6 @@ func (g Graph) PostEducationUser(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		u.SetUserType("Member")
-	}
-
-	if _, ok := u.GetPrimaryRoleOk(); !ok {
-		logger.Debug().Err(err).Interface("user", u).Msg("could not create education user: missing required Attribute: 'primaryRole'")
-		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "missing required Attribute: 'primaryRole'")
-		return
 	}
 
 	logger.Debug().Interface("user", u).Msg("calling create education user on backend")

@@ -232,18 +232,6 @@ var _ = Describe("Schools", func() {
 			Expect(rr.Code).To(Equal(http.StatusBadRequest))
 		})
 
-		It("handles missing school number", func() {
-			newSchool = libregraph.NewEducationSchool()
-			newSchool.SetDisplayName("New School")
-			newSchoolJson, err := json.Marshal(newSchool)
-			Expect(err).ToNot(HaveOccurred())
-
-			r := httptest.NewRequest(http.MethodPost, "/graph/v1.0/education/schools/", bytes.NewBuffer(newSchoolJson))
-
-			svc.PostEducationSchool(rr, r)
-			Expect(rr.Code).To(Equal(http.StatusBadRequest))
-		})
-
 		It("disallows school create ids", func() {
 			newSchool = libregraph.NewEducationSchool()
 			newSchool.SetId("disallowed")
