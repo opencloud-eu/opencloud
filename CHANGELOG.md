@@ -1,10 +1,14 @@
 # Changelog
 
-## [3.7.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.7.0) - 2025-10-27
+## [3.7.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.7.0) - 2025-10-28
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@schweigisito
+@schweigisito, @sdwilsh
+
+### 🐛 Bug Fixes
+
+- fix: only search LDAP group by name [[#1724](https://github.com/opencloud-eu/opencloud/pull/1724)]
 
 ### 📈 Enhancement
 
