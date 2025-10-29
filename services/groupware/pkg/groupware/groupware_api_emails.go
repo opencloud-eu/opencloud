@@ -887,24 +887,13 @@ func (g *Groupware) CreateEmail(w http.ResponseWriter, r *http.Request) {
 		}
 		logger = log.From(logger.With().Str(logAccountId, log.SafeString(accountId)))
 
-		var body jmap.Email
+		var body jmap.EmailCreate
 		err := req.body(&body)
 		if err != nil {
 			return errorResponse(err)
 		}
 
-		create := jmap.EmailCreate{
-			MailboxIds:    body.MailboxIds,
-			Keywords:      body.Keywords,
-			From:          body.From,
-			Subject:       body.Subject,
-			ReceivedAt:    body.ReceivedAt,
-			SentAt:        body.SentAt,
-			BodyStructure: body.BodyStructure,
-			BodyValues:    body.BodyValues,
-		}
-
-		created, sessionState, state, lang, jerr := g.jmap.CreateEmail(accountId, create, "", req.session, req.ctx, logger, req.language())
+		created, sessionState, state, lang, jerr := g.jmap.CreateEmail(accountId, body, "", req.session, req.ctx, logger, req.language())
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
@@ -926,24 +915,13 @@ func (g *Groupware) ReplaceEmail(w http.ResponseWriter, r *http.Request) {
 
 		logger = log.From(logger.With().Str(logAccountId, log.SafeString(accountId)))
 
-		var body jmap.Email
+		var body jmap.EmailCreate
 		err := req.body(&body)
 		if err != nil {
 			return errorResponse(err)
 		}
 
-		create := jmap.EmailCreate{
-			MailboxIds:    body.MailboxIds,
-			Keywords:      body.Keywords,
-			From:          body.From,
-			Subject:       body.Subject,
-			ReceivedAt:    body.ReceivedAt,
-			SentAt:        body.SentAt,
-			BodyStructure: body.BodyStructure,
-			BodyValues:    body.BodyValues,
-		}
-
-		created, sessionState, state, lang, jerr := g.jmap.CreateEmail(accountId, create, replaceId, req.session, req.ctx, logger, req.language())
+		created, sessionState, state, lang, jerr := g.jmap.CreateEmail(accountId, body, replaceId, req.session, req.ctx, logger, req.language())
 		if jerr != nil {
 			return req.errorResponseFromJmap(jerr)
 		}
@@ -1302,6 +1280,58 @@ func (g *Groupware) DeleteEmails(w http.ResponseWriter, r *http.Request) {
 			), sessionState)
 		}
 		return noContentResponseWithEtag(sessionState, state)
+	})
+}
+
+func (g *Groupware) SendEmail(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		emailId := chi.URLParam(r, UriParamEmailId)
+
+		l := req.logger.With()
+		l.Str(UriParamEmailId, log.SafeString(emailId))
+
+		identityId, err := req.getMandatoryStringParam(QueryParamIdentityId)
+		if err != nil {
+			return errorResponse(err)
+		}
+		l.Str(QueryParamIdentityId, log.SafeString(identityId))
+
+		var move *jmap.MoveMail = nil
+		{
+			moveFromMailboxId, _ := req.getStringParam(QueryParamMoveFromMailboxId, "")
+			moveToMailboxId, _ := req.getStringParam(QueryParamMoveToMailboxId, "")
+			if moveFromMailboxId != "" && moveToMailboxId != "" {
+				move = &jmap.MoveMail{FromMailboxId: moveFromMailboxId, ToMailboxId: moveToMailboxId}
+				l.Str(QueryParamMoveFromMailboxId, log.SafeString(moveFromMailboxId)).Str(QueryParamMoveToMailboxId, log.SafeString(moveFromMailboxId))
+			} else if moveFromMailboxId == "" && moveToMailboxId == "" {
+				// nothing to change
+			} else {
+				missing := moveFromMailboxId
+				if moveFromMailboxId == "" {
+					missing = moveFromMailboxId
+				}
+				// only one is set
+				msg := fmt.Sprintf("Missing required value for query parameter '%v'", missing)
+				return errorResponse(req.observedParameterError(ErrorMissingMandatoryRequestParameter,
+					withDetail(msg),
+					withSource(&ErrorSource{Parameter: missing})))
+			}
+		}
+
+		accountId, gwerr := req.GetAccountIdForMail()
+		if gwerr != nil {
+			return errorResponse(gwerr)
+		}
+		l.Str(logAccountId, accountId)
+
+		logger := log.From(l)
+
+		resp, sessionState, state, lang, jerr := g.jmap.SubmitEmail(accountId, identityId, emailId, move, req.session, req.ctx, logger, req.language())
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
+		}
+
+		return etagResponse(resp, sessionState, state, lang)
 	})
 }
 
@@ -1831,35 +1861,6 @@ func filterFromNotKeywords(keywords []string) jmap.EmailFilterElement {
 		}
 		return jmap.EmailFilterOperator{Operator: jmap.And, Conditions: conditions}
 	}
-}
-
-func squashQueryState[V any](all map[string]V, mapper func(V) jmap.State) jmap.State {
-	n := len(all)
-	if n == 0 {
-		return jmap.State("")
-	}
-	if n == 1 {
-		for _, v := range all {
-			return mapper(v)
-		}
-	}
-
-	parts := make([]string, n)
-	sortedKeys := make([]string, n)
-	i := 0
-	for k := range all {
-		sortedKeys[i] = k
-		i++
-	}
-	slices.Sort(sortedKeys)
-	for i, k := range sortedKeys {
-		if v, ok := all[k]; ok {
-			parts[i] = k + ":" + string(mapper(v))
-		} else {
-			parts[i] = k + ":"
-		}
-	}
-	return jmap.State(strings.Join(parts, ","))
 }
 
 var sanitizationPolicy *bluemonday.Policy = bluemonday.UGCPolicy()

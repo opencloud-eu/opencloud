@@ -168,6 +168,34 @@ func (r Request) parameterErrorResponse(param string, detail string) Response {
 	return errorResponse(r.parameterError(param, detail))
 }
 
+func (r Request) getStringParam(param string, defaultValue string) (string, bool) {
+	q := r.r.URL.Query()
+	if !q.Has(param) {
+		return defaultValue, false
+	}
+	str := q.Get(param)
+	if str == "" {
+		return defaultValue, false
+	}
+	return str, true
+}
+
+func (r Request) getMandatoryStringParam(param string) (string, *Error) {
+	str := ""
+	q := r.r.URL.Query()
+	if q.Has(param) {
+		str = q.Get(param)
+	}
+	if str == "" {
+		msg := fmt.Sprintf("Missing required value for query parameter '%v'", param)
+		return "", r.observedParameterError(ErrorMissingMandatoryRequestParameter,
+			withDetail(msg),
+			withSource(&ErrorSource{Parameter: param}),
+		)
+	}
+	return str, nil
+}
+
 func (r Request) parseIntParam(param string, defaultValue int) (int, bool, *Error) {
 	q := r.r.URL.Query()
 	if !q.Has(param) {
