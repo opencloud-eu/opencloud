@@ -2540,6 +2540,24 @@ type EmailSubmission struct {
 	MdnBlobIds []string `json:"mdnBlobIds,omitempty"`
 }
 
+type EmailSubmissionGetCommand struct {
+	// The id of the account to use.
+	AccountId string `json:"accountId"`
+
+	// The ids of the EmailSubmission objects to return.
+	//
+	// If null, then all records of the data type are returned, if this is supported for that data
+	// type and the number of records does not exceed the maxObjectsInGet limit.
+	Ids []string `json:"ids,omitempty"`
+
+	// If supplied, only the properties listed in the array are returned for each EmailSubmission object.
+	//
+	// If null, all properties of the object are returned. The id property of the object is always returned,
+	// even if not explicitly requested. If an invalid property is requested, the call MUST be rejected
+	// with an invalidArguments error.
+	Properties []string `json:"properties,omitempty"`
+}
+
 type EmailSubmissionGetRefCommand struct {
 	// The id of the account to use.
 	AccountId string `json:"accountId"`
@@ -2952,6 +2970,18 @@ type EmailCreate struct {
 	// ["From:" field]: https://www.rfc-editor.org/rfc/rfc5322.html#section-3.6.2
 	From []EmailAddress `json:"from,omitempty"`
 
+	// The value is identical to the value of header:To:asAddresses.
+	To []EmailAddress `json:"to,omitempty"`
+
+	// The value is identical to the value of header:Cc:asAddresses.
+	Cc []EmailAddress `json:"cc,omitempty"`
+
+	// The value is identical to the value of header:Bcc:asAddresses.
+	Bcc []EmailAddress `json:"bcc,omitempty"`
+
+	// The value is identical to the value of header:Reply-To:asAddresses.
+	ReplyTo []EmailAddress `json:"replyTo,omitempty"`
+
 	// The "Subject:" field contains a short string identifying the topic of the message.
 	Subject string `json:"subject,omitempty"`
 
@@ -2982,6 +3012,31 @@ type EmailCreate struct {
 
 	// This is a map of partId to an EmailBodyValue object for none, some, or all text/* parts.
 	BodyValues map[string]EmailBodyValue `json:"bodyValues,omitempty"`
+
+	// A list of text/plain, text/html, image/*, audio/*, and/or video/* parts to display (sequentially) as the
+	// message body, with a preference for text/plain when alternative versions are available.
+	TextBody []EmailBodyPart `json:"textBody,omitempty"`
+
+	// A list of text/plain, text/html, image/*, audio/*, and/or video/* parts to display (sequentially) as the
+	// message body, with a preference for text/html when alternative versions are available.
+	HtmlBody []EmailBodyPart `json:"htmlBody,omitempty"`
+
+	// A list, traversing depth-first, of all parts in bodyStructure.
+	//
+	// They must satisfy either of the following conditions:
+	//
+	//   - not of type multipart/* and not included in textBody or htmlBody
+	//   - of type image/*, audio/*, or video/* and not in both textBody and htmlBody
+	//
+	// None of these parts include subParts, including message/* types.
+	//
+	// Attached messages may be fetched using the Email/parse method and the blobId.
+	//
+	// Note that a text/html body part HTML may reference image parts in attachments by using cid:
+	// links to reference the Content-Id, as defined in [RFC2392], or by referencing the Content-Location.
+	//
+	// [RFC2392]: https://www.rfc-editor.org/rfc/rfc2392.html
+	Attachments []EmailBodyPart `json:"attachments,omitempty"`
 }
 
 type EmailUpdate map[string]any
