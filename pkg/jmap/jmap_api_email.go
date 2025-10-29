@@ -730,9 +730,11 @@ func (j *Client) UpdateEmails(accountId string, updates map[string]EmailUpdate, 
 		if err != nil {
 			return nil, "", err
 		}
-		if len(setResponse.NotUpdated) != len(updates) {
-			// error occured
-			// TODO(pbleser-oc) handle submission errors
+		if len(setResponse.NotUpdated) > 0 {
+			// TODO we don't have composite errors
+			for _, notUpdated := range setResponse.NotUpdated {
+				return nil, "", setErrorError(notUpdated, EmailType)
+			}
 		}
 		return setResponse.Updated, setResponse.NewState, nil
 	})
@@ -783,29 +785,49 @@ type SubmittedEmail struct {
 	MdnBlobIds []string `json:"mdnBlobIds,omitempty"`
 }
 
-func (j *Client) SubmitEmail(accountId string, identityId string, emailId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, data []byte) (SubmittedEmail, SessionState, State, Language, Error) {
+type MoveMail struct {
+	FromMailboxId string
+	ToMailboxId   string
+}
+
+func (j *Client) SubmitEmail(accountId string, identityId string, emailId string, move *MoveMail, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (EmailSubmission, SessionState, State, Language, Error) {
+	logger = j.logger("SubmitEmail", session, logger)
+
+	update := map[string]any{
+		EmailPropertyKeywords + "/" + JmapKeywordDraft: nil,  // unmark as draft
+		EmailPropertyKeywords + "/" + JmapKeywordSeen:  true, // mark as seen (read)
+	}
+	if move != nil && move.FromMailboxId != "" && move.ToMailboxId != "" && move.FromMailboxId != move.ToMailboxId {
+		update[EmailPropertyMailboxIds+"/"+move.FromMailboxId] = nil
+		update[EmailPropertyMailboxIds+"/"+move.ToMailboxId] = true
+	}
+
+	id := "s0"
+
 	set := EmailSubmissionSetCommand{
 		AccountId: accountId,
 		Create: map[string]EmailSubmissionCreate{
-			"s0": {
+			id: {
 				IdentityId: identityId,
 				EmailId:    emailId,
+				// leaving Envelope empty
 			},
 		},
 		OnSuccessUpdateEmail: map[string]PatchObject{
-			"#s0": {
-				EmailPropertyKeywords + "/" + JmapKeywordDraft: nil,
-			},
+			"#" + id: update,
 		},
 	}
 
-	get := EmailSubmissionGetRefCommand{
+	get := EmailSubmissionGetCommand{
 		AccountId: accountId,
-		IdRef: &ResultReference{
-			ResultOf: "0",
-			Name:     CommandEmailSubmissionSet,
-			Path:     "/created/s0/" + EmailPropertyId,
-		},
+		Ids:       []string{"#" + id},
+		/*
+			IdRef: &ResultReference{
+				ResultOf: "0",
+				Name:     CommandEmailSubmissionSet,
+				Path:     ["#"]"/created/" + "#" + id + "/" + EmailPropertyId,
+			},
+		*/
 	}
 
 	cmd, err := j.request(session, logger,
@@ -813,14 +835,14 @@ func (j *Client) SubmitEmail(accountId string, identityId string, emailId string
 		invocation(CommandEmailSubmissionGet, get, "1"),
 	)
 	if err != nil {
-		return SubmittedEmail{}, "", "", "", err
+		return EmailSubmission{}, "", "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (SubmittedEmail, State, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (EmailSubmission, State, Error) {
 		var submissionResponse EmailSubmissionSetResponse
 		err = retrieveResponseMatchParameters(logger, body, CommandEmailSubmissionSet, "0", &submissionResponse)
 		if err != nil {
-			return SubmittedEmail{}, "", err
+			return EmailSubmission{}, "", err
 		}
 
 		if len(submissionResponse.NotCreated) > 0 {
@@ -836,31 +858,28 @@ func (j *Client) SubmitEmail(accountId string, identityId string, emailId string
 		var setResponse EmailSetResponse
 		err = retrieveResponseMatchParameters(logger, body, CommandEmailSet, "0", &setResponse)
 		if err != nil {
-			return SubmittedEmail{}, "", err
+			return EmailSubmission{}, "", err
 		}
 
-		var getResponse EmailSubmissionGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailSubmissionGet, "1", &getResponse)
-		if err != nil {
-			return SubmittedEmail{}, "", err
+		if emailId := structs.FirstKey(setResponse.Updated); emailId != nil && len(setResponse.Updated) == 1 {
+			var getResponse EmailSubmissionGetResponse
+			err = retrieveResponseMatchParameters(logger, body, CommandEmailSubmissionGet, "1", &getResponse)
+			if err != nil {
+				return EmailSubmission{}, "", err
+			}
+
+			if len(getResponse.List) != 1 {
+				// for some reason (error?)...
+				// TODO(pbleser-oc) handle absence of emailsubmission
+			}
+
+			submission := getResponse.List[0]
+
+			return submission, setResponse.NewState, nil
+		} else {
+			err = simpleError(fmt.Errorf("failed to submit email: updated is empty"), 0) // TODO proper error handling
+			return EmailSubmission{}, "", err
 		}
-
-		if len(getResponse.List) != 1 {
-			// for some reason (error?)...
-			// TODO(pbleser-oc) handle absence of emailsubmission
-		}
-
-		submission := getResponse.List[0]
-
-		return SubmittedEmail{
-			Id:         submission.Id,
-			SendAt:     submission.SendAt,
-			ThreadId:   submission.ThreadId,
-			UndoStatus: submission.UndoStatus,
-			Envelope:   submission.Envelope,
-			DsnBlobIds: submission.DsnBlobIds,
-			MdnBlobIds: submission.MdnBlobIds,
-		}, setResponse.NewState, nil
 	})
 }
 

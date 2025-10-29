@@ -174,6 +174,7 @@ const (
 	ErrorCodeInvalidRequestPayload             = "INVRQP"
 	ErrorCodeInvalidResponsePayload            = "INVRSP"
 	ErrorCodeInvalidRequestParameter           = "INVPAR"
+	ErrorCodeMissingMandatoryRequestParameter  = "MISMPA"
 	ErrorCodeInvalidRequestBody                = "INVBDY"
 	ErrorCodeNonExistingAccount                = "INVACC"
 	ErrorCodeIndeterminateAccount              = "INDACC"
@@ -296,6 +297,12 @@ var (
 		Code:   ErrorCodeInvalidRequestParameter,
 		Title:  "Invalid Request Parameter",
 		Detail: "At least one of the parameters in the request is invalid.",
+	}
+	ErrorMissingMandatoryRequestParameter = GroupwareError{
+		Status: http.StatusBadRequest,
+		Code:   ErrorCodeMissingMandatoryRequestParameter,
+		Title:  "Missing Mandatory Request Parameter",
+		Detail: "A mandatory request parameter is missing.",
 	}
 	ErrorInvalidRequestBody = GroupwareError{
 		Status: http.StatusBadRequest,
