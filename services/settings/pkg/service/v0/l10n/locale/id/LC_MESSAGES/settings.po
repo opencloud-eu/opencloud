@@ -1,0 +1,150 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# 
+# Translators:
+# idoet <idoet@protonmail.ch>, 2025
+# 
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: EMAIL\n"
+"POT-Creation-Date: 2025-10-29 00:02+0000\n"
+"PO-Revision-Date: 2025-01-27 10:17+0000\n"
+"Last-Translator: idoet <idoet@protonmail.ch>, 2025\n"
+"Language-Team: Indonesian (https://app.transifex.com/opencloud-eu/teams/204053/id/)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: id\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#. name of the notification option 'Space Shared'
+#: pkg/store/defaults/templates.go:20
+msgid "Added as space member"
+msgstr "Ditambahkan menjadi anggota ruang penyimpanan"
+
+#. translation for the 'daily' email interval option
+#: pkg/store/defaults/templates.go:50
+msgid "Daily"
+msgstr "Harian"
+
+#. name of the notification option 'Email Interval'
+#: pkg/store/defaults/templates.go:44
+msgid "Email sending interval"
+msgstr "Interval pengiriman email"
+
+#. name of the notification option 'File Rejected'
+#: pkg/store/defaults/templates.go:40
+msgid "File rejected"
+msgstr "Berkas ditolak"
+
+#. translation for the 'instant' email interval option
+#: pkg/store/defaults/templates.go:48
+msgid "Instant"
+msgstr "Instan"
+
+#. translation for the 'never' email interval option
+#: pkg/store/defaults/templates.go:54
+msgid "Never"
+msgstr "Tidak pernah"
+
+#. description of the notification option 'Space Shared'
+#: pkg/store/defaults/templates.go:22
+msgid "Notify when I have been added as a member to a space"
+msgstr ""
+"Beri tahu ketika saya telah ditambahkan menjadi anggota dari suatu ruang "
+"penyimpanan"
+
+#. description of the notification option 'Space Unshared'
+#: pkg/store/defaults/templates.go:26
+msgid "Notify when I have been removed as member from a space"
+msgstr ""
+"Beri tahu ketika saya telah dihapus dari keanggotaan suatu ruang penyimpanan"
+
+#. description of the notification option 'Share Received'
+#: pkg/store/defaults/templates.go:10
+msgid "Notify when I have received a share"
+msgstr "Beri tahu ketika saya telah menerima berbagi"
+
+#. description of the notification option 'File Rejected'
+#: pkg/store/defaults/templates.go:42
+msgid ""
+"Notify when a file I uploaded was rejected because of a virus infection or "
+"policy violation"
+msgstr ""
+"Beri tahu jika file yang saya unggah ditolak karena infeksi virus atau "
+"pelanggaran kebijakan"
+
+#. description of the notification option 'Share Removed'
+#: pkg/store/defaults/templates.go:14
+msgid "Notify when a received share has been removed"
+msgstr "Beri tahu saat berbagi yang diterima telah dihapus"
+
+#. description of the notification option 'Share Expired'
+#: pkg/store/defaults/templates.go:18
+msgid "Notify when a received share has expired"
+msgstr "Beri tahu ketika berbagi yang diterima telah berakhir"
+
+#. description of the notification option 'Space Deleted'
+#: pkg/store/defaults/templates.go:38
+msgid "Notify when a space I am member of has been deleted"
+msgstr "Beri tahu ketika ruang penyimpanan yang saya ikuti telah dihapus"
+
+#. description of the notification option 'Space Disabled'
+#: pkg/store/defaults/templates.go:34
+msgid "Notify when a space I am member of has been disabled"
+msgstr ""
+"Beri tahu ketika ruang penyimpanan yang saya ikuti telah dinonaktifkan"
+
+#. description of the notification option 'Space Membership Expired'
+#: pkg/store/defaults/templates.go:30
+msgid "Notify when a space membership has expired"
+msgstr "Beri tahu saat keanggotaan ruang penyimpanan telah berakhir"
+
+#. name of the notification option 'Space Unshared'
+#: pkg/store/defaults/templates.go:24
+msgid "Removed as space member"
+msgstr "Dihapus dari anggota ruang penyimpanan"
+
+#. description of the notification option 'Email Interval'
+#: pkg/store/defaults/templates.go:46
+msgid "Selected value:"
+msgstr "Yang dipilih:"
+
+#. name of the notification option 'Share Expired'
+#: pkg/store/defaults/templates.go:16
+msgid "Share Expired"
+msgstr "Berbagi Berakhir"
+
+#. name of the notification option 'Share Received'
+#: pkg/store/defaults/templates.go:8
+msgid "Share Received"
+msgstr "Berbagi Diterima"
+
+#. name of the notification option 'Share Removed'
+#: pkg/store/defaults/templates.go:12
+msgid "Share Removed"
+msgstr "Berbagi Dihapus"
+
+#. name of the notification option 'Space Deleted'
+#: pkg/store/defaults/templates.go:36
+msgid "Space deleted"
+msgstr "Ruang penyimpanan dihapus"
+
+#. name of the notification option 'Space Disabled'
+#: pkg/store/defaults/templates.go:32
+msgid "Space disabled"
+msgstr "Ruang penyimpanan dinonaktifkan"
+
+#. name of the notification option 'Space Membership Expired'
+#: pkg/store/defaults/templates.go:28
+msgid "Space membership expired"
+msgstr "Keanggotaan ruang penyimpanan telah berakhir"
+
+#. translation for the 'weekly' email interval option
+#: pkg/store/defaults/templates.go:52
+msgid "Weekly"
+msgstr "Mingguan"
