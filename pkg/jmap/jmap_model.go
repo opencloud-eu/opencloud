@@ -1,7 +1,10 @@
 package jmap
 
 import (
+	"encoding/json"
 	"io"
+	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/jscalendar"
@@ -24,16 +27,34 @@ func (t UTCDate) MarshalJSON() ([]byte, error) {
 	// fixed to be UTC but, instead, depends on the timezone that is defined in another property
 	// of the object where this LocalDate shows up in; alternatively, we might have to use a string
 	// here and leave the conversion to a usable timestamp up to the client or caller instead
-	return []byte("\"" + t.UTC().Format(time.RFC3339) + "\""), nil
+	return []byte("\"" + t.UTC().Format(time.RFC3339Nano) + "\""), nil
 }
+
+var longDateRegexp = regexp.MustCompile(`^"(\d+?)(\d\d\d\d-.*)$`)
 
 func (t *UTCDate) UnmarshalJSON(b []byte) error {
 	var tt time.Time
-	err := tt.UnmarshalJSON(b)
-	if err != nil {
-		return err
+
+	str := string(b)
+	m := longDateRegexp.FindAllStringSubmatch(str, 2)
+	if m != nil {
+		p, err := strconv.Atoi(m[0][1])
+		if err != nil {
+			return err
+		}
+		ndate := "\"" + m[0][2]
+		err = json.Unmarshal([]byte(ndate), &tt)
+		if err != nil {
+			return err
+		}
+		t.Time = tt.AddDate(p*10000, 0, 0).UTC()
+	} else {
+		err := tt.UnmarshalJSON(b)
+		if err != nil {
+			return err
+		}
+		t.Time = tt.UTC()
 	}
-	t.Time = tt.UTC()
 	return nil
 }
 
@@ -594,6 +615,26 @@ type SessionContactsAccountCapabilities struct {
 }
 
 type SessionCalendarsAccountCapabilities struct {
+	// The maximum number of Calendars that can be assigned to a single CalendarEvent object.
+	//
+	// This MUST be an integer >= 1, or null for no limit (or rather, the limit is always the
+	// number of Calendars in the account).
+	MaxCalendarsPerEvent *uint `json:"maxCalendarsPerEvent,omitempty"`
+
+	// The earliest date-time value the server is willing to accept for any date stored in a CalendarEvent.
+	MinDateTime *UTCDate `json:"minDateTime,omitempty"`
+
+	// The latest date-time value the server is willing to accept for any date stored in a CalendarEvent.
+	MaxDateTime *UTCDate `json:"maxDateTime,omitempty"`
+
+	// The maximum duration the user may query over when asking the server to expand recurrences.
+	MaxExpandedQueryDuration Duration `json:"maxExpandedQueryDuration,omitzero"`
+
+	// The maximum number of participants a single event may have, or null for no limit.
+	MaxParticipantsPerEvent *uint `json:"maxParticipantsPerEvent,omitzero"`
+
+	// If true, the user may create a calendar in this account.
+	MayCreateCalendar *bool `json:"mayCreateCalendar,omitempty"`
 }
 
 type SessionCalendarsParseAccountCapabilities struct {
@@ -766,6 +807,25 @@ type SessionTasksCustomTimezonesCapabilities struct {
 }
 
 type SessionPrincipalCapabilities struct {
+	// Id of Account with the urn:ietf:params:jmap:calendars capability that contains the calendar data
+	// for this Principal, or null if either (a) there is none (e.g. the Principal is a group just used
+	// for permissions management), or (b) the user does not have access to any data in the account
+	// (with the exception of free/busy, which is governed by the "mayGetAvailability" property).
+	//
+	// The corresponding Account object can be found in the Principal's "accounts" property, as
+	// per Section 2 of [RFC9670].
+	AccountId string `json:"accountId,omitempty"`
+
+	// If true, the user may call the "Principal/getAvailability" method with this Principal.
+	MayGetAvailability *bool `json:"mayGetAvailability,omitzero"`
+
+	// If true, the user may add this Principal as a calendar share target (by adding them to the
+	// "shareWith" property of a calendar, see Section 4).
+	MayShareWith *bool `json:"mayShareWith,omitzero"`
+
+	// If this Principal may be added as a participant to an event, this is the calendarAddress to
+	// use to receive iTIP scheduling messages.
+	CalendarAddress string `json:"calendarAddress,omitempty"`
 }
 
 type SessionPrincipalAvailabilityCapabilities struct {
@@ -3894,7 +3954,10 @@ type Calendar struct {
 	//
 	// Ids MUST be unique across all default alerts in the account, including those in other
 	// calendars; a UUID is recommended.
-
+	//
+	// The "trigger" MUST NOT be an `AbsoluteTrigger`, as this would fire for every event at the same
+	// time and so does not make sense for a default alert.
+	//
 	// If omitted on creation, the default is server dependent.
 	//
 	// For example, servers may choose to always default to null, or may copy the alerts from the default calendar.
@@ -3905,6 +3968,9 @@ type Calendar struct {
 	//
 	// Ids MUST be unique across all default alerts in the account, including those in other
 	// calendars; a UUID is recommended.
+	//
+	// The "trigger" MUST NOT be an `AbsoluteTrigger`, as this would fire for every event at the
+	// same time and so does not make sense for a default alert.
 	//
 	// If omitted on creation, the default is server dependent.
 	//
@@ -4026,6 +4092,110 @@ type CalendarEvent struct {
 	UtcEnd UTCDate `json:"utcEnd,omitzero"`
 
 	jscalendar.Event
+}
+
+const (
+	CalendarEventPropertyId                      = "id"
+	CalendarEventPropertyBaseEventId             = "baseEventId"
+	CalendarEventPropertyCalendarIds             = "calendarIds"
+	CalendarEventPropertyIsDraft                 = "isDraft"
+	CalendarEventPropertyIsOrigin                = "isOrigin"
+	CalendarEventPropertyUtcStart                = "utcStart"
+	CalendarEventPropertyUtcEnd                  = "utcEnd"
+	CalendarEventPropertyType                    = "type"
+	CalendarEventPropertyStart                   = "start"
+	CalendarEventPropertyDuration                = "duration"
+	CalendarEventPropertyStatus                  = "status"
+	CalendarEventPropertyRelatedTo               = "relatedTo"
+	CalendarEventPropertySequence                = "sequence"
+	CalendarEventPropertyShowWithoutTime         = "showWithoutTime"
+	CalendarEventPropertyLocations               = "locations"
+	CalendarEventPropertyVirtualLocations        = "virtualLocations"
+	CalendarEventPropertyRecurrenceId            = "recurrenceId"
+	CalendarEventPropertyRecurrenceIdTimeZone    = "recurrenceIdTimeZone"
+	CalendarEventPropertyRecurrenceRules         = "recurrenceRules"
+	CalendarEventPropertyExcludedRecurrenceRules = "excludedRecurrenceRules"
+	CalendarEventPropertyRecurrenceOverrides     = "recurrenceOverrides"
+	CalendarEventPropertyExcluded                = "excluded"
+	CalendarEventPropertyPriority                = "priority"
+	CalendarEventPropertyFreeBusyStatus          = "freeBusyStatus"
+	CalendarEventPropertyPrivacy                 = "privacy"
+	CalendarEventPropertyReplyTo                 = "replyTo"
+	CalendarEventPropertySentBy                  = "sentBy"
+	CalendarEventPropertyParticipants            = "participants"
+	CalendarEventPropertyRequestStatus           = "requestStatus"
+	CalendarEventPropertyUseDefaultAlerts        = "useDefaultAlerts"
+	CalendarEventPropertyAlerts                  = "alerts"
+	CalendarEventPropertyLocalizations           = "localizations"
+	CalendarEventPropertyTimeZone                = "timeZone"
+	CalendarEventPropertyMayInviteSelf           = "mayInviteSelf"
+	CalendarEventPropertyMayInviteOthers         = "mayInviteOthers"
+	CalendarEventPropertyHideAttendees           = "hideAttendees"
+	CalendarEventPropertyUid                     = "uid"
+	CalendarEventPropertyProdId                  = "prodId"
+	CalendarEventPropertyCreated                 = "created"
+	CalendarEventPropertyUpdated                 = "updated"
+	CalendarEventPropertyTitle                   = "title"
+	CalendarEventPropertyDescription             = "description"
+	CalendarEventPropertyDescriptionContentType  = "descriptionContentType"
+	CalendarEventPropertyLinks                   = "links"
+	CalendarEventPropertyLocale                  = "locale"
+	CalendarEventPropertyKeywords                = "keywords"
+	CalendarEventPropertyCategories              = "categories"
+	CalendarEventPropertyColor                   = "color"
+	CalendarEventPropertyTimeZones               = "timeZones"
+)
+
+var CalendarEventProperties = []string{
+	CalendarEventPropertyId,
+	CalendarEventPropertyBaseEventId,
+	CalendarEventPropertyCalendarIds,
+	CalendarEventPropertyIsDraft,
+	CalendarEventPropertyIsOrigin,
+	CalendarEventPropertyUtcStart,
+	CalendarEventPropertyUtcEnd,
+	CalendarEventPropertyType,
+	CalendarEventPropertyStart,
+	CalendarEventPropertyDuration,
+	CalendarEventPropertyStatus,
+	CalendarEventPropertyRelatedTo,
+	CalendarEventPropertySequence,
+	CalendarEventPropertyShowWithoutTime,
+	CalendarEventPropertyLocations,
+	CalendarEventPropertyVirtualLocations,
+	CalendarEventPropertyRecurrenceId,
+	CalendarEventPropertyRecurrenceIdTimeZone,
+	CalendarEventPropertyRecurrenceRules,
+	CalendarEventPropertyExcludedRecurrenceRules,
+	CalendarEventPropertyRecurrenceOverrides,
+	CalendarEventPropertyExcluded,
+	CalendarEventPropertyPriority,
+	CalendarEventPropertyFreeBusyStatus,
+	CalendarEventPropertyPrivacy,
+	CalendarEventPropertyReplyTo,
+	CalendarEventPropertySentBy,
+	CalendarEventPropertyParticipants,
+	CalendarEventPropertyRequestStatus,
+	CalendarEventPropertyUseDefaultAlerts,
+	CalendarEventPropertyAlerts,
+	CalendarEventPropertyLocalizations,
+	CalendarEventPropertyTimeZone,
+	CalendarEventPropertyMayInviteSelf,
+	CalendarEventPropertyMayInviteOthers,
+	CalendarEventPropertyHideAttendees,
+	CalendarEventPropertyUid,
+	CalendarEventPropertyProdId,
+	CalendarEventPropertyCreated,
+	CalendarEventPropertyUpdated,
+	CalendarEventPropertyTitle,
+	CalendarEventPropertyDescription,
+	CalendarEventPropertyDescriptionContentType,
+	CalendarEventPropertyLinks,
+	CalendarEventPropertyLocale,
+	CalendarEventPropertyKeywords,
+	CalendarEventPropertyCategories,
+	CalendarEventPropertyColor,
+	CalendarEventPropertyTimeZones,
 }
 
 // A ParticipantIdentity stores information about a URI that represents the user within that account in an event’s participants.
@@ -4903,13 +5073,6 @@ type AddressBookGetResponse struct {
 	NotFound  []string      `json:"notFound,omitempty"`
 }
 
-type ContacCardGetResponse struct {
-	AccountId string        `json:"accountId"`
-	State     State         `json:"state,omitempty"`
-	List      []AddressBook `json:"list,omitempty"`
-	NotFound  []string      `json:"notFound,omitempty"`
-}
-
 type ContactCardComparator struct {
 	// The name of the property on the objects to compare.
 	Property string `json:"property,omitempty"`
@@ -5373,7 +5536,7 @@ type CalendarEventParseCommand struct {
 	AccountId string `json:"accountId"`
 
 	// The ids of the blobs to parse
-	BlobIDs []string `json:"blobIds,omitempty"`
+	BlobIds []string `json:"blobIds,omitempty"`
 
 	// If supplied, only the properties listed in the array are returned for each CalendarEvent object.
 	//
@@ -5395,6 +5558,428 @@ type CalendarEventParseResponse struct {
 	// A list of blob ids given that corresponded to blobs that could not be parsed as
 	// CalendarEvents, or null if none.
 	NotParsable []string `json:"notParsable,omitempty"`
+}
+
+type CalendarGetCommand struct {
+	AccountId string   `json:"accountId"`
+	Ids       []string `json:"ids,omitempty"`
+}
+
+type CalendarGetResponse struct {
+	AccountId string     `json:"accountId"`
+	State     State      `json:"state,omitempty"`
+	List      []Calendar `json:"list,omitempty"`
+	NotFound  []string   `json:"notFound,omitempty"`
+}
+
+type CalendarEventComparator struct {
+	// The name of the property on the objects to compare.
+	Property string `json:"property,omitempty"`
+
+	// If true, sort in ascending order.
+	//
+	// Optional; default value: true.
+	//
+	// If false, reverse the comparator’s results to sort in descending order.
+	IsAscending bool `json:"isAscending,omitempty"`
+
+	// The identifier, as registered in the collation registry defined in [RFC4790],
+	// for the algorithm to use when comparing the order of strings.
+	//
+	// Optional; default is server dependent.
+	//
+	// The algorithms the server supports are advertised in the capabilities object returned
+	// with the Session object.
+	//
+	// [RFC4790]: https://www.rfc-editor.org/rfc/rfc4790.html
+	Collation string `json:"collation,omitempty"`
+
+	// CalendarEvent-specific: If true, the server will expand any recurring event.
+	//
+	// If true, the filter MUST be just a FilterCondition (not a FilterOperator) and MUST include both
+	// a “before” and “after” property. This ensures the server is not asked to return an infinite number of results.
+	// default: false
+	ExpandRecurrences bool `json:"expandRecurrences,omitzero"`
+
+	// CalendarEvent-specific: The time zone for before/after filter conditions.
+	// default: “Etc/UTC”
+	TimeZone string `json:"timeZone,omitempty"`
+}
+
+type CalendarEventFilterElement interface {
+	_isACalendarEventFilterElement() // marker method
+	IsNotEmpty() bool
+}
+
+type CalendarEventFilterCondition struct {
+	// A calendar id.
+	// An event must be in this calendar to match the condition.
+	InCalendar string `json:"inCalendar,omitempty"`
+
+	// The end of the event, or any recurrence of the event, in the time zone given as
+	// the timeZone argument, must be after this date to match the condition.
+	After LocalDate `json:"after,omitzero"`
+
+	// The start of the event, or any recurrence of the event, in the time zone given
+	// as the timeZone argument, must be before this date to match the condition.
+	Before LocalDate `json:"before,omitzero"`
+
+	// Looks for the text in the title, description, locations (matching name/description),
+	// participants (matching name/email) and any other textual properties of the event
+	// or any recurrence of the event.
+	Text string `json:"text,omitempty"`
+
+	// Looks for the text in the title property of the event, or the overridden title
+	// property of a recurrence.
+	Title string `json:"title,omitempty"`
+
+	// Looks for the text in the description property of the event, or the overridden
+	// description property of a recurrence.
+	Description string `json:"description,omitempty"`
+
+	// Looks for the text in the locations property of the event (matching name/description
+	// of a location), or the overridden locations property of a recurrence.
+	Location string `json:"location,omitempty"`
+
+	// Looks for the text in the name or email fields of a participant in the participants
+	// property of the event, or the overridden participants property of a recurrence,
+	// where the participant has a role of “owner”.
+	Owner string `json:"owner,omitempty"`
+
+	// Looks for the text in the name or email fields of a participant in the participants
+	// property of the event, or the overridden participants property of a recurrence,
+	// where the participant has a role of “attendee”.
+	Attendee string `json:"attendee,omitempty"`
+
+	// Must match. If owner/attendee condition, status must be of that participant. Otherwise any.
+	ParticipationStatus string `json:"participationStatus,omitempty"`
+
+	// The uid of the event is exactly the given string.
+	Uid string `json:"uid,omitempty"`
+}
+
+func (f CalendarEventFilterCondition) _isACalendarEventFilterElement() {
+}
+
+func (f CalendarEventFilterCondition) IsNotEmpty() bool {
+	if f.InCalendar != "" {
+		return true
+	}
+	if !f.After.IsZero() {
+		return true
+	}
+	if !f.Before.IsZero() {
+		return true
+	}
+	if f.Text != "" {
+		return true
+	}
+	if f.Title != "" {
+		return true
+	}
+	if f.Description != "" {
+		return true
+	}
+	if f.Location != "" {
+		return true
+	}
+	if f.Owner != "" {
+		return true
+	}
+	if f.Attendee != "" {
+		return true
+	}
+	if f.ParticipationStatus != "" {
+		return true
+	}
+	if f.Uid != "" {
+		return true
+	}
+	return false
+}
+
+var _ CalendarEventFilterElement = &CalendarEventFilterCondition{}
+
+type CalendarEventFilterOperator struct {
+	Operator   FilterOperatorTerm           `json:"operator"`
+	Conditions []CalendarEventFilterElement `json:"conditions,omitempty"`
+}
+
+func (o CalendarEventFilterOperator) _isACalendarEventFilterElement() {
+}
+
+func (o CalendarEventFilterOperator) IsNotEmpty() bool {
+	return len(o.Conditions) > 0
+}
+
+var _ CalendarEventFilterElement = &CalendarEventFilterOperator{}
+
+type CalendarEventQueryCommand struct {
+	AccountId string `json:"accountId"`
+
+	Filter CalendarEventFilterElement `json:"filter,omitempty"`
+
+	Sort []CalendarEventComparator `json:"sort,omitempty"`
+
+	// The zero-based index of the first id in the full list of results to return.
+	//
+	// If a negative value is given, it is an offset from the end of the list.
+	// Specifically, the negative value MUST be added to the total number of results given
+	// the filter, and if still negative, it’s clamped to 0. This is now the zero-based
+	// index of the first id to return.
+	//
+	// If the index is greater than or equal to the total number of objects in the results
+	// list, then the ids array in the response will be empty, but this is not an error.
+	Position uint `json:"position,omitempty"`
+
+	// An Email id.
+	//
+	// If supplied, the position argument is ignored.
+	// The index of this id in the results will be used in combination with the anchorOffset
+	// argument to determine the index of the first result to return.
+	Anchor string `json:"anchor,omitempty"`
+
+	// The index of the first result to return relative to the index of the anchor,
+	// if an anchor is given.
+	//
+	// Default: 0.
+	//
+	// This MAY be negative.
+	//
+	// For example, -1 means the Email immediately preceding the anchor is the first result in
+	// the list returned.
+	AnchorOffset int `json:"anchorOffset,omitzero"`
+
+	// The maximum number of results to return.
+	//
+	// If null, no limit presumed.
+	// The server MAY choose to enforce a maximum limit argument.
+	// In this case, if a greater value is given (or if it is null), the limit is clamped
+	// to the maximum; the new limit is returned with the response so the client is aware.
+	//
+	// If a negative value is given, the call MUST be rejected with an invalidArguments error.
+	Limit uint `json:"limit,omitempty"`
+
+	// Does the client wish to know the total number of results in the query?
+	//
+	// This may be slow and expensive for servers to calculate, particularly with complex filters,
+	// so clients should take care to only request the total when needed.
+	CalculateTotal bool `json:"calculateTotal,omitempty"`
+}
+
+type CalendarEventQueryResponse struct {
+	// The id of the account used for the call.
+	AccountId string `json:"accountId"`
+
+	// A string encoding the current state of the query on the server.
+	//
+	// This string MUST change if the results of the query (i.e., the matching ids and their sort order) have changed.
+	// The queryState string MAY change if something has changed on the server, which means the results may have changed
+	// but the server doesn’t know for sure.
+	//
+	// The queryState string only represents the ordered list of ids that match the particular query (including its sort/filter).
+	// There is no requirement for it to change if a property on an object matching the query changes but the query results are unaffected
+	// (indeed, it is more efficient if the queryState string does not change in this case).
+	//
+	// The queryState string only has meaning when compared to future responses to a query with the same type/sort/filter or when used with
+	// /queryChanges to fetch changes.
+	//
+	// Should a client receive back a response with a different queryState string to a previous call, it MUST either throw away the currently
+	// cached query and fetch it again (note, this does not require fetching the records again, just the list of ids) or call
+	// CalendarEvent/queryChanges to get the difference.
+	QueryState State `json:"queryState"`
+
+	// This is true if the server supports calling CalendarEvent/queryChanges with these filter/sort parameters.
+	//
+	// Note, this does not guarantee that the CalendarEvent/queryChanges call will succeed, as it may only be possible for a limited time
+	// afterwards due to server internal implementation details.
+	CanCalculateChanges bool `json:"canCalculateChanges"`
+
+	// The zero-based index of the first result in the ids array within the complete list of query results.
+	Position uint `json:"position"`
+
+	// The list of ids for each ContactCard in the query results, starting at the index given by the position argument of this
+	// response and continuing until it hits the end of the results or reaches the limit number of ids.
+	//
+	// If position is >= total, this MUST be the empty list.
+	Ids []string `json:"ids"`
+
+	// The total number of CalendarEvents in the results (given the filter).
+	//
+	// Only if requested.
+	//
+	// This argument MUST be omitted if the calculateTotal request argument is not true.
+	Total uint `json:"total,omitempty,omitzero"`
+
+	// The limit enforced by the server on the maximum number of results to return (if set by the server).
+	//
+	// This is only returned if the server set a limit or used a different limit than that given in the request.
+	Limit uint `json:"limit,omitempty,omitzero"`
+}
+
+type CalendarEventGetCommand struct {
+	// The ids of the CalendarEvent objects to return.
+	//
+	// If null, then all records of the data type are returned, if this is supported for that
+	// data type and the number of records does not exceed the maxObjectsInGet limit.
+	Ids []string `json:"ids,omitempty"`
+
+	// The id of the account to use.
+	AccountId string `json:"accountId"`
+
+	// If supplied, only the properties listed in the array are returned for each CalendarEvent object.
+	//
+	// The id property of the object is always returned, even if not explicitly requested.
+	//
+	// If an invalid property is requested, the call MUST be rejected with an invalidArguments error.
+	Properties []string `json:"properties,omitempty"`
+}
+
+type CalendarEventGetRefCommand struct {
+	// The ids of the CalendarEvent objects to return.
+	//
+	// If null, then all records of the data type are returned, if this is supported for that
+	// data type and the number of records does not exceed the maxObjectsInGet limit.
+	IdsRef *ResultReference `json:"#ids,omitempty"`
+
+	// The id of the account to use.
+	AccountId string `json:"accountId"`
+
+	// If supplied, only the properties listed in the array are returned for each CalendarEvent object.
+	//
+	// The id property of the object is always returned, even if not explicitly requested.
+	//
+	// If an invalid property is requested, the call MUST be rejected with an invalidArguments error.
+	Properties []string `json:"properties,omitempty"`
+}
+
+type CalendarEventGetResponse struct {
+	// The id of the account used for the call.
+	AccountId string `json:"accountId"`
+
+	// A (preferably short) string representing the state on the server for all the data of this type
+	// in the account (not just the objects returned in this call).
+	//
+	// If the data changes, this string MUST change.
+	// If the Email data is unchanged, servers SHOULD return the same state string on subsequent requests for this data type.
+	State State `json:"state"`
+
+	// An array of the CalendarEvent objects requested.
+	//
+	// This is the empty array if no objects were found or if the ids argument passed in was also an empty array.
+	//
+	// The results MAY be in a different order to the ids in the request arguments.
+	//
+	// If an identical id is included more than once in the request, the server MUST only include it once in either
+	// the list or the notFound argument of the response.
+	List []CalendarEvent `json:"list"`
+
+	// This array contains the ids passed to the method for records that do not exist.
+	//
+	// The array is empty if all requested ids were found or if the ids argument passed in was either null or an empty array.
+	NotFound []any `json:"notFound"`
+}
+
+type CalendarEventUpdate map[string]any
+
+type CalendarEventSetCommand struct {
+	// The id of the account to use.
+	AccountId string `json:"accountId"`
+
+	// This is a state string as returned by the `CalendarEvent/get` method.
+	//
+	// If supplied, the string must match the current state; otherwise, the method will be aborted and a
+	// `stateMismatch` error returned.
+	//
+	// If null, any changes will be applied to the current state.
+	IfInState string `json:"ifInState,omitempty"`
+
+	// A map of a creation id (a temporary id set by the client) to CalendarEvent objects,
+	// or null if no objects are to be created.
+	//
+	// The CalendarEvent object type definition may define default values for properties.
+	//
+	// Any such property may be omitted by the client.
+	//
+	// The client MUST omit any properties that may only be set by the server.
+	Create map[string]CalendarEvent `json:"create,omitempty"`
+
+	// A map of an id to a `Patch` object to apply to the current Email object with that id,
+	// or null if no objects are to be updated.
+	//
+	// A `PatchObject` is of type `String[*]` and represents an unordered set of patches.
+	//
+	// The keys are a path in JSON Pointer Format [@!RFC6901], with an implicit leading `/` (i.e., prefix each key
+	// with `/` before applying the JSON Pointer evaluation algorithm).
+	//
+	// All paths MUST also conform to the following restrictions; if there is any violation, the update
+	// MUST be rejected with an `invalidPatch` error:
+	// !- The pointer MUST NOT reference inside an array (i.e., you MUST NOT insert/delete from an array; the array MUST be replaced in its entirety instead).
+	// !- All parts prior to the last (i.e., the value after the final slash) MUST already exist on the object being patched.
+	// !- There MUST NOT be two patches in the `PatchObject` where the pointer of one is the prefix of the pointer of the other, e.g., `"alerts/1/offset"` and `"alerts"`.
+	//
+	// The value associated with each pointer determines how to apply that patch:
+	// !- If null, set to the default value if specified for this property; otherwise, remove the property from the patched object. If the key is not present in the parent, this a no-op.
+	// !- Anything else: The value to set for this property (this may be a replacement or addition to the object being patched).
+	//
+	// Any server-set properties MAY be included in the patch if their value is identical to the current server value
+	// (before applying the patches to the object). Otherwise, the update MUST be rejected with an `invalidProperties` `SetError`.
+	//
+	// This patch definition is designed such that an entire Email object is also a valid `PatchObject`.
+	//
+	// The client may choose to optimise network usage by just sending the diff or may send the whole object; the server
+	// processes it the same either way.
+	Update map[string]CalendarEventUpdate `json:"update,omitempty"`
+
+	// A list of ids for CalendarEvent objects to permanently delete, or null if no objects are to be destroyed.
+	Destroy []string `json:"destroy,omitempty"`
+}
+
+type CalendarEventSetResponse struct {
+	// The id of the account used for the call.
+	AccountId string `json:"accountId"`
+
+	// The state string that would have been returned by CalendarEvent/get before making the
+	// requested changes, or null if the server doesn’t know what the previous state
+	// string was.
+	OldState State `json:"oldState,omitempty"`
+
+	// The state string that will now be returned by Email/get.
+	NewState State `json:"newState"`
+
+	// A map of the creation id to an object containing any properties of the created Email object
+	// that were not sent by the client.
+	//
+	// This includes all server-set properties (such as the id in most object types) and any properties
+	// that were omitted by the client and thus set to a default by the server.
+	//
+	// This argument is null if no CalendarEvent objects were successfully created.
+	Created map[string]*CalendarEvent `json:"created,omitempty"`
+
+	// The keys in this map are the ids of all CalendarEvents that were successfully updated.
+	//
+	// The value for each id is an CalendarEvent object containing any property that changed in a way not
+	// explicitly requested by the PatchObject sent to the server, or null if none.
+	//
+	// This lets the client know of any changes to server-set or computed properties.
+	//
+	// This argument is null if no CalendarEvent objects were successfully updated.
+	Updated map[string]*CalendarEvent `json:"updated,omitempty"`
+
+	// A list of CalendarEvent ids for records that were successfully destroyed, or null if none.
+	Destroyed []string `json:"destroyed,omitempty"`
+
+	// A map of the creation id to a SetError object for each record that failed to be created,
+	// or null if all successful.
+	NotCreated map[string]SetError `json:"notCreated,omitempty"`
+
+	// A map of the ContactCard id to a SetError object for each record that failed to be updated,
+	// or null if all successful.
+	NotUpdated map[string]SetError `json:"notUpdated,omitempty"`
+
+	// A map of the CalendarEvent id to a SetError object for each record that failed to be destroyed,
+	// or null if all successful.
+	NotDestroyed map[string]SetError `json:"notDestroyed,omitempty"`
 }
 
 type ErrorResponse struct {
@@ -5429,6 +6014,10 @@ const (
 	CommandContactCardGet      Command = "ContactCard/get"
 	CommandContactCardSet      Command = "ContactCard/set"
 	CommandCalendarEventParse  Command = "CalendarEvent/parse"
+	CommandCalendarGet         Command = "Calendar/get"
+	CommandCalendarEventQuery  Command = "CalendarEvent/query"
+	CommandCalendarEventGet    Command = "CalendarEvent/get"
+	CommandCalendarEventSet    Command = "CalendarEvent/set"
 )
 
 var CommandResponseTypeMap = map[Command]func() any{
@@ -5457,4 +6046,8 @@ var CommandResponseTypeMap = map[Command]func() any{
 	CommandContactCardGet:      func() any { return ContactCardGetResponse{} },
 	CommandContactCardSet:      func() any { return ContactCardSetResponse{} },
 	CommandCalendarEventParse:  func() any { return CalendarEventParseResponse{} },
+	CommandCalendarGet:         func() any { return CalendarGetResponse{} },
+	CommandCalendarEventQuery:  func() any { return CalendarEventQueryResponse{} },
+	CommandCalendarEventGet:    func() any { return CalendarEventGetResponse{} },
+	CommandCalendarEventSet:    func() any { return CalendarEventSetResponse{} },
 }

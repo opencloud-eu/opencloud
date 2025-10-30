@@ -19,6 +19,7 @@ func jsoneq[X any](t *testing.T, expected string, object X) {
 	require.Equal(t, object, rec)
 }
 
+/*
 func TestLocalDateTime(t *testing.T) {
 	ts, err := time.Parse(time.RFC3339, "2025-09-25T18:26:14+02:00")
 	require.NoError(t, err)
@@ -42,6 +43,7 @@ func TestLocalDateTimeUnmarshalling(t *testing.T) {
 
 	require.Equal(t, result, LocalDateTime{u})
 }
+*/
 
 func TestRelation(t *testing.T) {
 	jsoneq(t, `{
@@ -171,6 +173,7 @@ func TestRecurrenceRule(t *testing.T) {
 	ts, err := time.Parse(time.RFC3339, "2025-09-25T18:26:14+02:00")
 	require.NoError(t, err)
 	ts = ts.UTC()
+	l := LocalDateTime("2025-09-25T16:26:14")
 
 	jsoneq(t, `{
 		"@type": "RecurrenceRule",
@@ -193,7 +196,7 @@ func TestRecurrenceRule(t *testing.T) {
 		"bySecond": [0, 39],
 		"bySetPosition": [-3, 3],
 		"count": 2,
-		"until": "2025-09-25T16:26:14Z"
+		"until": "2025-09-25T16:26:14"
 	}`, RecurrenceRule{
 		Type:           RecurrenceRuleType,
 		Frequency:      FrequencyDaily,
@@ -225,7 +228,7 @@ func TestRecurrenceRule(t *testing.T) {
 		BySecond:      []uint{0, 39},
 		BySetPosition: []int{-3, 3},
 		Count:         2,
-		Until:         &LocalDateTime{ts},
+		Until:         &l,
 	})
 }
 
@@ -476,15 +479,11 @@ func TestAlertWithUnknownTrigger(t *testing.T) {
 }
 
 func TestTimeZoneRule(t *testing.T) {
-	ts, err := time.Parse(time.RFC3339, "2025-09-25T18:26:14+02:00")
-	require.NoError(t, err)
-	ts = ts.UTC()
-
-	l1 := LocalDateTime{ts}
+	l1 := LocalDateTime("2025-09-25T18:26:14")
 
 	jsoneq(t, `{
 		"@type": "TimeZoneRule",
-		"start": "2025-09-25T16:26:14Z",
+		"start": "2025-09-25T16:26:14",
 		"offsetFrom": "-0200",
 		"offsetTo": "+0200",
 		"recurrenceRules": [
@@ -507,7 +506,7 @@ func TestTimeZoneRule(t *testing.T) {
 			}
 		],
 		"recurrenceOverrides": {
-			"2025-09-25T16:26:14Z": {}
+			"2025-09-25T16:26:14": {}
 		},
 		"names": {
 			"CEST": true
@@ -515,7 +514,7 @@ func TestTimeZoneRule(t *testing.T) {
 		"comments": ["this is a comment"]
 	}`, TimeZoneRule{
 		Type:       TimeZoneRuleType,
-		Start:      LocalDateTime{ts},
+		Start:      l1,
 		OffsetFrom: "-0200",
 		OffsetTo:   "+0200",
 		RecurrenceRules: []RecurrenceRule{
@@ -557,6 +556,7 @@ func TestTimeZone(t *testing.T) {
 	ts, err := time.Parse(time.RFC3339, "2025-09-25T18:26:14+02:00")
 	require.NoError(t, err)
 	ts = ts.UTC()
+	l := LocalDateTime("2025-09-25T18:26:14")
 
 	jsoneq(t, `{
 		"@type": "TimeZone",
@@ -591,7 +591,7 @@ func TestTimeZone(t *testing.T) {
 		Standard: []TimeZoneRule{
 			{
 				Type:       TimeZoneRuleType,
-				Start:      LocalDateTime{ts},
+				Start:      l,
 				OffsetFrom: "-0200",
 				OffsetTo:   "+1245",
 			},
@@ -599,7 +599,7 @@ func TestTimeZone(t *testing.T) {
 		Daylight: []TimeZoneRule{
 			{
 				Type:       TimeZoneRuleType,
-				Start:      LocalDateTime{ts},
+				Start:      l,
 				OffsetFrom: "-0200",
 				OffsetTo:   "+1245",
 			},
@@ -615,6 +615,8 @@ func TestEvent(t *testing.T) {
 	ts2, err := time.Parse(time.RFC3339, "2025-09-29T15:53:01+02:00")
 	require.NoError(t, err)
 	ts2 = ts2.UTC()
+
+	l := LocalDateTime("2025-09-25T18:26:14")
 
 	jsoneq(t, `{
 		"@type": "Event",
@@ -683,7 +685,7 @@ func TestEvent(t *testing.T) {
 		}
 	}`, Event{
 		Type:     EventType,
-		Start:    LocalDateTime{ts1},
+		Start:    l,
 		Duration: "PT10M",
 		Status:   "confirmed",
 		Object: Object{

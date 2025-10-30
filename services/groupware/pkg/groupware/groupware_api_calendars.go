@@ -31,9 +31,13 @@ func (g *Groupware) GetCalendars(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return resp
 		}
-		var _ string = accountId
 
-		return response(AllCalendars, req.session.State, "")
+		calendars, sessionState, state, lang, jerr := g.jmap.GetCalendars(accountId, req.session, req.ctx, req.logger, req.language(), nil)
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
+		}
+
+		return etagResponse(calendars, sessionState, state, lang)
 	})
 }
 
@@ -61,16 +65,23 @@ func (g *Groupware) GetCalendarById(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return resp
 		}
-		var _ string = accountId
+
+		l := req.logger.With()
 
 		calendarId := chi.URLParam(r, UriParamCalendarId)
-		// TODO replace with proper implementation
-		for _, calendar := range AllCalendars {
-			if calendar.Id == calendarId {
-				return response(calendar, req.session.State, "")
-			}
+		l = l.Str(UriParamCalendarId, log.SafeString(calendarId))
+
+		logger := log.From(l)
+		calendars, sessionState, state, lang, jerr := g.jmap.GetCalendars(accountId, req.session, req.ctx, logger, req.language(), []string{calendarId})
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
 		}
-		return notFoundResponse(req.session.State)
+
+		if len(calendars.NotFound) > 0 {
+			return notFoundResponse(sessionState)
+		} else {
+			return etagResponse(calendars.Calendars[0], sessionState, state, lang)
+		}
 	})
 }
 
@@ -96,15 +107,109 @@ func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) 
 		if !ok {
 			return resp
 		}
-		var _ string = accountId
+
+		l := req.logger.With()
 
 		calendarId := chi.URLParam(r, UriParamCalendarId)
-		// TODO replace with proper implementation
-		events, ok := EventsMapByCalendarId[calendarId]
-		if !ok {
-			return notFoundResponse(req.session.State)
+		l = l.Str(UriParamCalendarId, log.SafeString(calendarId))
+
+		offset, ok, err := req.parseUIntParam(QueryParamOffset, 0)
+		if err != nil {
+			return errorResponse(err)
 		}
-		return response(events, req.session.State, "")
+		if ok {
+			l = l.Uint(QueryParamOffset, offset)
+		}
+
+		limit, ok, err := req.parseUIntParam(QueryParamLimit, g.defaultContactLimit)
+		if err != nil {
+			return errorResponse(err)
+		}
+		if ok {
+			l = l.Uint(QueryParamLimit, limit)
+		}
+
+		filter := jmap.CalendarEventFilterCondition{
+			InCalendar: calendarId,
+		}
+		sortBy := []jmap.CalendarEventComparator{{Property: jmap.CalendarEventPropertyUpdated, IsAscending: false}}
+
+		logger := log.From(l)
+		eventsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryCalendarEvents([]string{accountId}, req.session, req.ctx, logger, req.language(), filter, sortBy, offset, limit)
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
+		}
+
+		if events, ok := eventsByAccountId[accountId]; ok {
+			return etagResponse(events, sessionState, state, lang)
+		} else {
+			return notFoundResponse(sessionState)
+		}
+	})
+}
+
+func (g *Groupware) CreateCalendarEvent(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		ok, accountId, resp := req.needCalendarWithAccount()
+		if !ok {
+			return resp
+		}
+
+		l := req.logger.With()
+
+		calendarId := chi.URLParam(r, UriParamCalendarId)
+		l = l.Str(UriParamCalendarId, log.SafeString(calendarId))
+
+		var create jmap.CalendarEvent
+		err := req.body(&create)
+		if err != nil {
+			return errorResponse(err)
+		}
+
+		logger := log.From(l)
+		created, sessionState, state, lang, jerr := g.jmap.CreateCalendarEvent(accountId, req.session, req.ctx, logger, req.language(), create)
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
+		}
+		return etagResponse(created, sessionState, state, lang)
+	})
+}
+
+func (g *Groupware) DeleteCalendarEvent(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		ok, accountId, resp := req.needCalendarWithAccount()
+		if !ok {
+			return resp
+		}
+		l := req.logger.With().Str(accountId, log.SafeString(accountId))
+
+		calendarId := chi.URLParam(r, UriParamCalendarId)
+		eventId := chi.URLParam(r, UriParamEventId)
+		l.Str(UriParamCalendarId, log.SafeString(calendarId)).Str(UriParamEventId, log.SafeString(eventId))
+
+		logger := log.From(l)
+
+		deleted, sessionState, state, _, jerr := g.jmap.DeleteCalendarEvent(accountId, []string{eventId}, req.session, req.ctx, logger, req.language())
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
+		}
+
+		for _, e := range deleted {
+			desc := e.Description
+			if desc != "" {
+				return errorResponseWithSessionState(apiError(
+					req.errorId(),
+					ErrorFailedToDeleteContact,
+					withDetail(e.Description),
+				), sessionState)
+			} else {
+				return errorResponseWithSessionState(apiError(
+					req.errorId(),
+					ErrorFailedToDeleteContact,
+				), sessionState)
+			}
+		}
+		return noContentResponseWithEtag(sessionState, state)
 	})
 }
 
