@@ -73,7 +73,7 @@ var E1 = jmap.CalendarEvent{
 	UtcEnd:      jmap.UTCDate{Time: mustParseTime("2025-10-07T00:00:00Z")},
 	Event: jscalendar.Event{
 		Type:     jscalendar.EventType,
-		Start:    jscalendar.LocalDateTime{Time: mustParseTime("2025-09-30T12:00:00Z")},
+		Start:    jscalendar.LocalDateTime("2025-09-30T12:00:00"),
 		Duration: "PT30M",
 		Status:   jscalendar.StatusConfirmed,
 		Object: jscalendar.Object{
@@ -146,16 +146,14 @@ var E1 = jmap.CalendarEvent{
 					},
 				},
 			},
-			RecurrenceRules: []jscalendar.RecurrenceRule{
-				{
-					Type:           jscalendar.RecurrenceRuleType,
-					Frequency:      jscalendar.FrequencyWeekly,
-					Interval:       1,
-					Rscale:         jscalendar.RscaleIso8601,
-					Skip:           jscalendar.SkipOmit,
-					FirstDayOfWeek: jscalendar.DayOfWeekMonday,
-					Count:          4,
-				},
+			RecurrenceRule: &jscalendar.RecurrenceRule{
+				Type:           jscalendar.RecurrenceRuleType,
+				Frequency:      jscalendar.FrequencyWeekly,
+				Interval:       1,
+				Rscale:         jscalendar.RscaleIso8601,
+				Skip:           jscalendar.SkipOmit,
+				FirstDayOfWeek: jscalendar.DayOfWeekMonday,
+				Count:          4,
 			},
 			FreeBusyStatus: jscalendar.FreeBusyStatusBusy,
 			Privacy:        jscalendar.PrivacyPublic,
