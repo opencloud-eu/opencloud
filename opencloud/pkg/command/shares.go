@@ -311,8 +311,10 @@ func revaShareConfig(cfg *sharing.Config) map[string]any {
 //     │       └── a9/a5/4c/e7/-de30-4d27-94f8-10e4612c66c2.mpk  (Phase 3: parent node for ancestry lookup)
 //     │           {"user.oc.name": "einstein", "user.oc.id": "a9a54ce7-...", "user.oc.parentid": "...users-node-id..."}
 //     └── uploads/                                   (rootMetadataUploads)
-//         └── d702d7e1-37b0-4d41-b8dc-4b90c1d1f907   (Phase 1: read <spaceID>.json blob for Shares data; blobUploadsPath = filepath.Join(rootMetadataUploads, blobID))
-//                 {"Shares": {"215fee7a-...:480049db-...:84652da9-...": {resource_id: {...}, grantee: {...}, creator: {...}}}}
+//         ├── d702d7e1-37b0-4d41-b8dc-4b90c1d1f907   (Phase 1: read <spaceID>.json blob for Shares data; blobUploadsPath = filepath.Join(rootMetadataUploads, blobID))
+//         │       {"Shares": {"215fee7a-...:480049db-...:84652da9-...": {resource_id: {...}, grantee: {...}, creator: {...}}}}
+//         └── 1c93b82b-d22d-41e0-8038-5a706e9b409e.info
+//                 {"MetaData": {"dir": "/users/4c510ada-c86b-4815-8820-42cdf82c3d51", "filename": "received.json", ...}, "Storage": {"NodeName": "received.json", "SpaceRoot": "jsoncs3-share-manager-metadata", ...}}
 
 func moveStuckUploadBlobsCmd(cfg *config.Config) *cobra.Command {
 	moveCmd := &cobra.Command{
@@ -438,11 +440,11 @@ func restoreFromUploads(rootMetadataUploads string, missing map[string]string, d
 			continue
 		}
 
+		// Check if the blob exists in the uploads folder and move it to the share manager metadata blobs/ folder
 		if _, err := os.Stat(blobUploadsPath); err != nil {
 			fmt.Printf("    Blob %s: not found in %s\n", blobID, blobUploadsPath)
 			continue
 		}
-
 		fmt.Printf("    Move %s to %s\n", blobUploadsPath, blobPathAbs)
 		if err := os.MkdirAll(filepath.Dir(blobPathAbs), 0755); err != nil {
 			fmt.Printf("    Warning: Failed to create dir: %v\n", err)
@@ -450,6 +452,17 @@ func restoreFromUploads(rootMetadataUploads string, missing map[string]string, d
 		}
 		if err := os.Rename(blobUploadsPath, blobPathAbs); err != nil {
 			fmt.Printf("    Warning: Failed to move blob: %v\n", err)
+			continue
+		}
+
+		// Remove the info file after the blob is moved
+		infoPath := blobUploadsPath + ".info"
+		if _, err := os.Stat(infoPath); err != nil {
+			fmt.Printf("    Info file %s: not found\n", infoPath)
+			continue
+		}
+		if err := os.Remove(infoPath); err != nil {
+			fmt.Printf("    Warning: Failed to remove info file: %v\n", err)
 			continue
 		}
 
