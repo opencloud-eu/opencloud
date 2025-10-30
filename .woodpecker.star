@@ -1481,7 +1481,7 @@ def multiServiceE2ePipeline(ctx, watch_fs_enabled = False):
     }
 
     if watch_fs_enabled:
-        extra_server_environment["STORAGE_USES_POSIX_WATCH_FS"] = True
+        extra_server_environment["STORAGE_USERS_POSIX_WATCH_FS"] = True
 
     storage_users_environment = {
         "OC_CORS_ALLOW_ORIGINS": "%s,https://%s:9201" % (OC_URL, OC_SERVER_NAME),
@@ -2110,7 +2110,7 @@ def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, depend
         environment["SEARCH_EXTRACTOR_CS3SOURCE_INSECURE"] = True
 
     if watch_fs_enabled:
-        environment["STORAGE_USES_POSIX_WATCH_FS"] = True
+        environment["STORAGE_USERS_POSIX_WATCH_FS"] = True
 
     # Pass in "default" accounts_hash_difficulty to not set this environment variable.
     # That will allow OpenCloud to use whatever its built-in default is.
