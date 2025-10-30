@@ -115,7 +115,7 @@ func (am *mgr) Authenticate(ctx context.Context, clientID, clientSecret string) 
 	}
 
 	// Bind as the user to verify their password
-	la, err := utils.GetLDAPClientForAuth(&am.c.LDAPConn)
+	la, err := utils.GetLDAPClientForAuth(ctx, &am.c.LDAPConn)
 	if err != nil {
 		return nil, nil, err
 	}

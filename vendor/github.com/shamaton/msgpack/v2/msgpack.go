@@ -10,6 +10,7 @@ import (
 	"github.com/shamaton/msgpack/v2/internal/encoding"
 	streamdecoding "github.com/shamaton/msgpack/v2/internal/stream/decoding"
 	streamencoding "github.com/shamaton/msgpack/v2/internal/stream/encoding"
+	"github.com/shamaton/msgpack/v2/time"
 )
 
 // StructAsArray is encoding option.
@@ -81,4 +82,14 @@ func RemoveExtStreamCoder(e ext.StreamEncoder, d ext.StreamDecoder) error {
 // SetComplexTypeCode sets def.complexTypeCode
 func SetComplexTypeCode(code int8) {
 	def.SetComplexTypeCode(code)
+}
+
+// SetDecodedTimeAsUTC sets decoded time.Time values to UTC timezone.
+func SetDecodedTimeAsUTC() {
+	time.SetDecodedAsLocal(false)
+}
+
+// SetDecodedTimeAsLocal sets decoded time.Time values to local timezone.
+func SetDecodedTimeAsLocal() {
+	time.SetDecodedAsLocal(true)
 }

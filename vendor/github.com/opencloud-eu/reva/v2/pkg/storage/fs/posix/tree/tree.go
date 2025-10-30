@@ -727,7 +727,7 @@ func (t *Tree) isIndex(path string) bool {
 }
 
 func (t *Tree) isTemporary(path string) bool {
-	return path == blobstore.TMPDir
+	return path == blobstore.TMPDir || filepath.Dir(path) == blobstore.TMPDir
 }
 
 func (t *Tree) isRootPath(path string) bool {

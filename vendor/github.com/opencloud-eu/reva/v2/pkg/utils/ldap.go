@@ -19,11 +19,13 @@
 package utils
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"os"
 
 	"github.com/go-ldap/ldap/v3"
+	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/logger"
 	ldapReconnect "github.com/opencloud-eu/reva/v2/pkg/utils/ldap"
 	"github.com/pkg/errors"
@@ -77,10 +79,10 @@ func GetLDAPClientWithReconnect(c *LDAPConn) (ldap.Client, error) {
 // GetLDAPClientForAuth initializes an LDAP connection. The connection is not authenticated
 // when returned. The main purpose for GetLDAPClientForAuth is to get and LDAP connection that
 // can be used to issue a single bind request to authenticate a user.
-func GetLDAPClientForAuth(c *LDAPConn) (ldap.Client, error) {
+func GetLDAPClientForAuth(ctx context.Context, c *LDAPConn) (ldap.Client, error) {
 	var tlsConf *tls.Config
 	if c.Insecure {
-		logger.New().Warn().Msg("SSL Certificate verification is disabled. Is is strongly discouraged for production environments.")
+		appctx.GetLogger(ctx).Warn().Msg("SSL Certificate verification is disabled. Is is strongly discouraged for production environments.")
 		tlsConf = &tls.Config{
 			//nolint:gosec // We need the ability to run with "insecure" (dev/testing)
 			InsecureSkipVerify: true,
