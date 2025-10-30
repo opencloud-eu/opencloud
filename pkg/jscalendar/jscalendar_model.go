@@ -11,9 +11,12 @@ import (
 // It is otherwise in the same format as `UTCDateTime`, including fractional seconds.
 //
 // For example, `2006-01-02T15:04:05` and `2006-01-02T15:04:05.003` are both valid.
+/*
 type LocalDateTime struct {
 	time.Time
 }
+*/
+type LocalDateTime string
 
 type TypeOfRelation string
 type TypeOfLink string
@@ -730,6 +733,7 @@ var (
 	}
 )
 
+/*
 const RFC3339Local = "2006-01-02T15:04:05"
 
 func (t LocalDateTime) MarshalJSON() ([]byte, error) {
@@ -737,14 +741,19 @@ func (t LocalDateTime) MarshalJSON() ([]byte, error) {
 }
 
 func (t *LocalDateTime) UnmarshalJSON(b []byte) error {
+	str := string(b)
+	if strings.HasPrefix(str, "\"") && !strings.HasSuffix(str, "Z\"") {
+		str = str[0:len(str)-1] + "Z\""
+	}
 	var tt time.Time
-	err := tt.UnmarshalJSON(b)
+	err := tt.UnmarshalJSON([]byte(str))
 	if err != nil {
 		return err
 	}
 	t.Time = tt.UTC()
 	return nil
 }
+*/
 
 // A `PatchObject` is of type `String[*]` and represents an unordered set of patches on a JSON object.
 //
@@ -1834,7 +1843,9 @@ type Object struct {
 	//
 	// If multiple recurrence rules are given, each rule is to be applied, and then the union of the results are used,
 	// ignoring any duplicates.
-	RecurrenceRules []RecurrenceRule `json:"recurrenceRules,omitempty"`
+	//
+	// TODO UPDATE RFC
+	RecurrenceRule *RecurrenceRule `json:"recurrenceRule,omitempty"`
 
 	// This defines a set of recurrence rules (repeating patterns) for date-times on which the object will not occur.
 	//

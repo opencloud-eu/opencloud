@@ -165,6 +165,7 @@ func decodeMap(input map[string]any, target any) error {
 		ErrorUnused:          false,
 		ErrorUnset:           false,
 		IgnoreUntaggedFields: false,
+		Squash:               true,
 	})
 	if err != nil {
 		return err

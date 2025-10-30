@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/opencloud-eu/opencloud/pkg/jscalendar"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/stretchr/testify/require"
 )
@@ -319,4 +320,408 @@ func TestEmailFilterSerialization(t *testing.T) {
 	require.NoError(err)
 	json := string(b)
 	require.Equal(strings.TrimSpace(expectedFilterJson), json)
+}
+
+func TestUtcDateUnmarshalling(t *testing.T) {
+	require := require.New(t)
+	r := struct {
+		Ts UTCDate `json:"ts"`
+	}{}
+	err := json.Unmarshal([]byte(`{"ts":"2025-10-30T14:15:16.987Z"}`), &r)
+	require.NoError(err)
+	require.Equal(2025, r.Ts.Year())
+	require.Equal(time.Month(10), r.Ts.Month())
+	require.Equal(30, r.Ts.Day())
+	require.Equal(14, r.Ts.Hour())
+	require.Equal(15, r.Ts.Minute())
+	require.Equal(16, r.Ts.Second())
+	require.Equal(987000000, r.Ts.Nanosecond())
+}
+
+func TestUtcDateMarshalling(t *testing.T) {
+	require := require.New(t)
+	r := struct {
+		Ts UTCDate `json:"ts"`
+	}{}
+	ts, err := time.Parse(time.RFC3339, "2025-10-30T14:15:16.987Z")
+	require.NoError(err)
+	r.Ts = UTCDate{ts}
+
+	jsoneq(t, `{"ts":"2025-10-30T14:15:16.987Z"}`, r)
+}
+
+func TestUtcDateUnmarshallingWithWeirdDate(t *testing.T) {
+	require := require.New(t)
+	r := struct {
+		Ts UTCDate `json:"ts"`
+	}{}
+	err := json.Unmarshal([]byte(`{"ts":"65534-12-31T23:59:59Z"}`), &r)
+	require.NoError(err)
+	require.Equal(65534, r.Ts.Year())
+	require.Equal(time.Month(12), r.Ts.Month())
+	require.Equal(31, r.Ts.Day())
+	require.Equal(23, r.Ts.Hour())
+	require.Equal(59, r.Ts.Minute())
+	require.Equal(59, r.Ts.Second())
+	require.Equal(0, r.Ts.Nanosecond())
+}
+
+func TestUnmarshallingCalendarEvent(t *testing.T) {
+	payload := `
+{
+   "locale" : "en-US",
+   "description" : "Internal meeting about the grand strategy for the future",
+   "locations" : {
+      "ux1uokie" : {
+         "links" : {
+            "eefe2pax" : {
+               "@type" : "Link",
+               "href" : "https://example.com/office"
+            }
+         },
+         "iCalComponent" : {
+            "name" : "vlocation"
+         },
+         "@type" : "Location",
+         "description" : "Office meeting room upstairs",
+         "name" : "Office",
+         "locationTypes" : {
+            "office" : true
+         },
+         "coordinates" : "geo:52.5334956,13.4079872",
+         "relativeTo" : "start",
+         "timeZone" : "CEST"
+      }
+   },
+   "replyTo" : {
+      "imip" : "mailto:organizer@example.com"
+   },
+   "links" : {
+      "cai0thoh" : {
+         "href" : "https://example.com/9a7ab91a-edca-4988-886f-25e00743430d",
+         "rel" : "about",
+         "contentType" : "text/html",
+         "@type" : "Link"
+      }
+   },
+   "prodId" : "Mock 0.0",
+   "@type" : "Event",
+   "keywords" : {
+      "secret" : true,
+      "meeting" : true
+   },
+   "status" : "confirmed",
+   "freeBusyStatus" : "busy",
+   "categories" : {
+      "internal" : true,
+      "secret" : true
+   },
+   "duration" : "PT30M",
+   "calendarIds" : {
+      "b" : true
+   },
+   "alerts" : {
+      "ahqu4xi0" : {
+         "@type" : "Alert"
+      }
+   },
+   "start" : "2025-09-30T12:00:00",
+   "privacy" : "public",
+   "isDraft" : false,
+   "id" : "c",
+   "isOrigin" : true,
+   "sentBy" : "organizer@example.com",
+   "descriptionContentType" : "text/plain",
+   "updated" : "2025-09-29T16:17:18Z",
+   "created" : "2025-09-29T16:17:18Z",
+   "color" : "purple",
+   "recurrenceRule" : {
+      "skip" : "omit",
+      "count" : 4,
+      "firstDayOfWeek" : "monday",
+      "rscale" : "iso8601",
+      "interval" : 1,
+      "frequency" : "weekly"
+   },
+   "timeZone" : "Etc/UTC",
+   "title" : "Meeting of the Minds",
+   "participants" : {
+      "xeikie9p" : {
+         "name" : "Klaes Ashford",
+         "locationId" : "em4eal0o",
+         "language" : "en-GB",
+         "description" : "As the first officer on the Behemoth",
+         "invitedBy" : "eegh7uph",
+         "@type" : "Participant",
+         "links" : {
+            "oifooj6g" : {
+               "@type" : "Link",
+               "contentType" : "image/png",
+               "display" : "badge",
+               "href" : "https://static.wikia.nocookie.net/expanse/images/0/02/Klaes_Ashford_-_Expanse_season_4_promotional_2.png/revision/latest?cb=20191206012007",
+               "rel" : "icon",
+               "title" : "Ashford on Medina Station"
+            }
+         },
+         "iCalComponent" : {
+            "name" : "participant"
+         },
+         "scheduleAgent" : "server",
+         "scheduleId" : "mailto:ashford@opa.org"
+      },
+      "eegh7uph" : {
+         "description" : "Called the meeting",
+         "language" : "en-GB",
+         "locationId" : "ux1uokie",
+         "name" : "Anderson Dawes",
+         "scheduleAgent" : "server",
+         "scheduleUpdated" : "2025-10-01T11:59:12Z",
+         "links" : {
+            "ieni5eiw" : {
+               "href" : "https://static.wikia.nocookie.net/expanse/images/1/1e/OPA_leader.png/revision/latest?cb=20250121103410",
+               "display" : "badge",
+               "rel" : "icon",
+               "title" : "Anderson Dawes",
+               "contentType" : "image/png",
+               "@type" : "Link"
+            }
+         },
+         "iCalComponent" : {
+            "name" : "participant"
+         },
+         "@type" : "Participant",
+         "invitedBy" : "eegh7uph",
+         "scheduleSequence" : 1,
+         "sendTo" : {
+            "imip" : "mailto:adawes@opa.org"
+         },
+         "scheduleStatus" : [
+            "1.0"
+         ],
+         "scheduleId" : "mailto:adawes@opa.org"
+      }
+   },
+   "uid" : "9a7ab91a-edca-4988-886f-25e00743430d",
+   "virtualLocations" : {
+      "em4eal0o" : {
+         "@type" : "VirtualLocation",
+         "description" : "The opentalk Conference Room",
+         "uri" : "https://meet.opentalk.eu",
+         "features" : {
+            "audio" : true,
+            "screen" : true,
+            "chat" : true,
+            "video" : true
+         },
+         "name" : "opentalk"
+      }
+   }
+}
+   `
+	require := require.New(t)
+	var result CalendarEvent
+	err := json.Unmarshal([]byte(payload), &result)
+	require.NoError(err)
+
+	require.Len(result.VirtualLocations, 1)
+	require.Len(result.Locations, 1)
+	require.Equal("9a7ab91a-edca-4988-886f-25e00743430d", result.Uid)
+	require.Equal(jscalendar.PrivacyPublic, result.Privacy)
+}
+
+func TestUnmarshallingCalendarEventGetResponse(t *testing.T) {
+	payload := `
+{
+   "sessionState" : "7d3cae5b",
+   "methodResponses" : [
+      [
+         "CalendarEvent/query",
+         {
+            "position" : 0,
+            "queryState" : "s2yba",
+            "accountId" : "b",
+            "canCalculateChanges" : true,
+            "ids" : [
+               "c"
+            ]
+         },
+         "b:0"
+      ],
+      [
+         "CalendarEvent/get",
+         {
+            "state" : "s2yba",
+            "list" : [
+               {
+                  "links" : {
+                     "cai0thoh" : {
+                        "contentType" : "text/html",
+                        "href" : "https://example.com/9a7ab91a-edca-4988-886f-25e00743430d",
+                        "@type" : "Link",
+                        "rel" : "about"
+                     }
+                  },
+                  "freeBusyStatus" : "busy",
+                  "color" : "purple",
+                  "isDraft" : false,
+                  "calendarIds" : {
+                     "b" : true
+                  },
+                  "updated" : "2025-09-29T16:17:18Z",
+                  "locations" : {
+                     "ux1uokie" : {
+                        "relativeTo" : "start",
+                        "description" : "Office meeting room upstairs",
+                        "coordinates" : "geo:52.5334956,13.4079872",
+                        "name" : "Office",
+                        "locationTypes" : {
+                           "office" : true
+                        },
+                        "links" : {
+                           "eefe2pax" : {
+                              "href" : "https://example.com/office",
+                              "@type" : "Link"
+                           }
+                        },
+                        "iCalComponent" : {
+                           "name" : "vlocation"
+                        },
+                        "@type" : "Location",
+                        "timeZone" : "CEST"
+                     }
+                  },
+                  "virtualLocations" : {
+                     "em4eal0o" : {
+                        "name" : "opentalk",
+                        "@type" : "VirtualLocation",
+                        "features" : {
+                           "screen" : true,
+                           "chat" : true,
+                           "audio" : true,
+                           "video" : true
+                        },
+                        "uri" : "https://meet.opentalk.eu",
+                        "description" : "The opentalk Conference Room"
+                     }
+                  },
+                  "uid" : "9a7ab91a-edca-4988-886f-25e00743430d",
+                  "categories" : {
+                     "secret" : true,
+                     "internal" : true
+                  },
+                  "keywords" : {
+                     "secret" : true,
+                     "meeting" : true
+                  },
+                  "replyTo" : {
+                     "imip" : "mailto:organizer@example.com"
+                  },
+                  "duration" : "PT30M",
+                  "created" : "2025-09-29T16:17:18Z",
+                  "start" : "2025-09-30T12:00:00",
+                  "id" : "c",
+                  "sentBy" : "organizer@example.com",
+                  "timeZone" : "Etc/UTC",
+                  "@type" : "Event",
+                  "title" : "Meeting of the Minds",
+                  "alerts" : {
+                     "ahqu4xi0" : {
+                        "@type" : "Alert"
+                     }
+                  },
+                  "participants" : {
+                     "xeikie9p" : {
+                        "@type" : "Participant",
+                        "scheduleId" : "mailto:ashford@opa.org",
+                        "invitedBy" : "eegh7uph",
+                        "language" : "en-GB",
+                        "links" : {
+                           "oifooj6g" : {
+                              "contentType" : "image/png",
+                              "display" : "badge",
+                              "title" : "Ashford on Medina Station",
+                              "@type" : "Link",
+                              "href" : "https://static.wikia.nocookie.net/expanse/images/0/02/Klaes_Ashford_-_Expanse_season_4_promotional_2.png/revision/latest?cb=20191206012007",
+                              "rel" : "icon"
+                           }
+                        },
+                        "iCalComponent" : {
+                           "name" : "participant"
+                        },
+                        "scheduleAgent" : "server",
+                        "name" : "Klaes Ashford",
+                        "locationId" : "em4eal0o",
+                        "description" : "As the first officer on the Behemoth"
+                     },
+                     "eegh7uph" : {
+                        "description" : "Called the meeting",
+                        "locationId" : "ux1uokie",
+                        "scheduleUpdated" : "2025-10-01T11:59:12Z",
+                        "sendTo" : {
+                           "imip" : "mailto:adawes@opa.org"
+                        },
+                        "scheduleAgent" : "server",
+                        "scheduleStatus" : [
+                           "1.0"
+                        ],
+                        "name" : "Anderson Dawes",
+                        "invitedBy" : "eegh7uph",
+                        "language" : "en-GB",
+                        "links" : {
+                           "ieni5eiw" : {
+                              "rel" : "icon",
+                              "display" : "badge",
+                              "@type" : "Link",
+                              "title" : "Anderson Dawes",
+                              "href" : "https://static.wikia.nocookie.net/expanse/images/1/1e/OPA_leader.png/revision/latest?cb=20250121103410",
+                              "contentType" : "image/png"
+                           }
+                        },
+                        "iCalComponent" : {
+                           "name" : "participant"
+                        },
+                        "scheduleSequence" : 1,
+                        "scheduleId" : "mailto:adawes@opa.org",
+                        "@type" : "Participant"
+                     }
+                  },
+                  "status" : "confirmed",
+                  "description" : "Internal meeting about the grand strategy for the future",
+                  "locale" : "en-US",
+                  "recurrenceRule" : {
+                     "count" : 4,
+                     "rscale" : "iso8601",
+                     "frequency" : "weekly",
+                     "interval" : 1,
+                     "firstDayOfWeek" : "monday",
+                     "skip" : "omit"
+                  },
+                  "descriptionContentType" : "text/plain",
+                  "isOrigin" : true,
+                  "prodId" : "Mock 0.0",
+                  "privacy" : "public"
+               }
+            ],
+            "accountId" : "b",
+            "notFound" : []
+         },
+         "b:1"
+      ]
+   ]
+}
+	`
+
+	require := require.New(t)
+	var response Response
+	err := json.Unmarshal([]byte(payload), &response)
+	require.NoError(err)
+	r1 := response.MethodResponses[1]
+	require.Equal(CommandCalendarEventGet, r1.Command)
+	get := r1.Parameters.(CalendarEventGetResponse)
+	require.Len(get.List, 1)
+	result := get.List[0]
+	require.Len(result.VirtualLocations, 1)
+	require.Len(result.Locations, 1)
+	require.Equal("9a7ab91a-edca-4988-886f-25e00743430d", result.Uid)
+	require.Equal(jscalendar.PrivacyPublic, result.Privacy)
 }
