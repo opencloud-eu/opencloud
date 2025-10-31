@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
+	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
 // When the request succeeds.
@@ -69,9 +70,43 @@ func (g *Groupware) GetAccounts(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (g *Groupware) GetAccountsWithTheirIdentities(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		uniqueAccountIds := structs.Uniq(structs.Keys(req.session.Accounts))
+		resp, sessionState, state, lang, err := g.jmap.GetIdentitiesForAllAccounts(uniqueAccountIds, req.session, req.ctx, req.logger, req.language())
+		if err != nil {
+			return req.errorResponseFromJmap(err)
+		}
+		list := make([]AccountWithIdAndIdentities, len(req.session.Accounts))
+		i := 0
+		for accountId, account := range req.session.Accounts {
+			identities, ok := resp.Identities[accountId]
+			if !ok {
+				identities = []jmap.Identity{}
+			}
+			slices.SortFunc(identities, func(a, b jmap.Identity) int { return strings.Compare(a.Id, b.Id) })
+			list[i] = AccountWithIdAndIdentities{
+				AccountId:  accountId,
+				Account:    account,
+				Identities: identities,
+			}
+			i++
+		}
+		// sort on accountId to have a stable order that remains the same with every query
+		slices.SortFunc(list, func(a, b AccountWithIdAndIdentities) int { return strings.Compare(a.AccountId, b.AccountId) })
+		return etagResponse(list, sessionState, state, lang)
+	})
+}
+
 type AccountWithId struct {
 	AccountId string `json:"accountId,omitempty"`
 	jmap.Account
+}
+
+type AccountWithIdAndIdentities struct {
+	AccountId string `json:"accountId,omitempty"`
+	jmap.Account
+	Identities []jmap.Identity `json:"identities,omitempty"`
 }
 
 type AccountBootstrapResponse struct {
