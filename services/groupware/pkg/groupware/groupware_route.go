@@ -144,10 +144,10 @@ func (g *Groupware) Route(r chi.Router) {
 					r.Get("/", g.GetAddressbook)
 					r.Get("/contacts", g.GetContactsInAddressbook)
 				})
-				r.Route("/contacts", func(r chi.Router) {
-					r.Post("/", g.CreateContact)
-					r.Delete("/{contactid}", g.DeleteContact)
-				})
+			})
+			r.Route("/contacts", func(r chi.Router) {
+				r.Post("/", g.CreateContact)
+				r.Delete("/{contactid}", g.DeleteContact)
 			})
 			r.Route("/calendars", func(r chi.Router) {
 				r.Get("/", g.GetCalendars)
@@ -155,10 +155,10 @@ func (g *Groupware) Route(r chi.Router) {
 					r.Get("/", g.GetCalendarById)
 					r.Get("/events", g.GetEventsInCalendar)
 				})
-				r.Route("/events", func(r chi.Router) {
-					r.Post("/", g.CreateCalendarEvent)
-					r.Delete("/{eventid}", g.DeleteCalendarEvent)
-				})
+			})
+			r.Route("/events", func(r chi.Router) {
+				r.Post("/", g.CreateCalendarEvent)
+				r.Delete("/{eventid}", g.DeleteCalendarEvent)
 			})
 			r.Route("/tasklists", func(r chi.Router) {
 				r.Get("/", g.GetTaskLists)
