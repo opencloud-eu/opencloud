@@ -65,7 +65,7 @@ const (
 func (g *Groupware) Route(r chi.Router) {
 	r.Get("/", g.Index)
 	r.Route("/accounts", func(r chi.Router) {
-		r.Get("/", g.GetAccounts)
+		r.Get("/", g.GetAccountsWithTheirIdentities)
 		r.Route("/all", func(r chi.Router) {
 			r.Get("/", g.GetAccounts)
 			r.Route("/mailboxes", func(r chi.Router) {
