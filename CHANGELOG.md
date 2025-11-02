@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.7.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.7.0) - 2025-11-01
+## [3.7.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.7.0) - 2025-11-02
 
 ### ❤️ Thanks to all contributors! ❤️
 
