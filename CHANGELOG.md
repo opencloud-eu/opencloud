@@ -4,7 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@kulmann, @rhafer, @schweigisito, @sdwilsh
+@individual-it, @kulmann, @rhafer, @schweigisito, @sdwilsh
+
+### ✅ Tests
+
+- check status of postprocessing before accesing the file [[#1762](https://github.com/opencloud-eu/opencloud/pull/1762)]
 
 ### 📈 Enhancement
 
