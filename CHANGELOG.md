@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@individual-it, @kulmann, @rhafer, @schweigisito, @sdwilsh
+@ScharfViktor, @individual-it, @kulmann, @rhafer, @schweigisito, @sdwilsh
 
 ### ✅ Tests
 
@@ -18,6 +18,10 @@
 ### 🐛 Bug Fixes
 
 - fix: only search LDAP group by name [[#1724](https://github.com/opencloud-eu/opencloud/pull/1724)]
+
+### 📦️ Dependencies
+
+- [full-ci] bump web 4.2.0 and opencloud 3.7.0 version [[#1765](https://github.com/opencloud-eu/opencloud/pull/1765)]
 
 ## [3.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v3.6.0) - 2025-10-27
 
