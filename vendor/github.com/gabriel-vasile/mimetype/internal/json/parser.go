@@ -257,8 +257,11 @@ out:
 	return 0
 }
 
+// openArray is used instead of an inline []byte{'['} to avoid mem alllocs.
+var openArray = []byte{'['}
+
 func (p *parserState) consumeArray(b []byte, qs []query, lvl int) (n int) {
-	p.appendPath([]byte{'['}, qs)
+	p.appendPath(openArray, qs)
 	if len(b) == 0 {
 		return 0
 	}

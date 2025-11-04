@@ -6,32 +6,65 @@ import (
 	"github.com/gabriel-vasile/mimetype/internal/scan"
 )
 
-var (
-	// Odt matches an OpenDocument Text file.
-	Odt = offset([]byte("mimetypeapplication/vnd.oasis.opendocument.text"), 30)
-	// Ott matches an OpenDocument Text Template file.
-	Ott = offset([]byte("mimetypeapplication/vnd.oasis.opendocument.text-template"), 30)
-	// Ods matches an OpenDocument Spreadsheet file.
-	Ods = offset([]byte("mimetypeapplication/vnd.oasis.opendocument.spreadsheet"), 30)
-	// Ots matches an OpenDocument Spreadsheet Template file.
-	Ots = offset([]byte("mimetypeapplication/vnd.oasis.opendocument.spreadsheet-template"), 30)
-	// Odp matches an OpenDocument Presentation file.
-	Odp = offset([]byte("mimetypeapplication/vnd.oasis.opendocument.presentation"), 30)
-	// Otp matches an OpenDocument Presentation Template file.
-	Otp = offset([]byte("mimetypeapplication/vnd.oasis.opendocument.presentation-template"), 30)
-	// Odg matches an OpenDocument Drawing file.
-	Odg = offset([]byte("mimetypeapplication/vnd.oasis.opendocument.graphics"), 30)
-	// Otg matches an OpenDocument Drawing Template file.
-	Otg = offset([]byte("mimetypeapplication/vnd.oasis.opendocument.graphics-template"), 30)
-	// Odf matches an OpenDocument Formula file.
-	Odf = offset([]byte("mimetypeapplication/vnd.oasis.opendocument.formula"), 30)
-	// Odc matches an OpenDocument Chart file.
-	Odc = offset([]byte("mimetypeapplication/vnd.oasis.opendocument.chart"), 30)
-	// Epub matches an EPUB file.
-	Epub = offset([]byte("mimetypeapplication/epub+zip"), 30)
-	// Sxc matches an OpenOffice Spreadsheet file.
-	Sxc = offset([]byte("mimetypeapplication/vnd.sun.xml.calc"), 30)
-)
+// Odt matches an OpenDocument Text file.
+func Odt(raw []byte, _ uint32) bool {
+	return offset(raw, []byte("mimetypeapplication/vnd.oasis.opendocument.text"), 30)
+}
+
+// Ott matches an OpenDocument Text Template file.
+func Ott(raw []byte, _ uint32) bool {
+	return offset(raw, []byte("mimetypeapplication/vnd.oasis.opendocument.text-template"), 30)
+}
+
+// Ods matches an OpenDocument Spreadsheet file.
+func Ods(raw []byte, _ uint32) bool {
+	return offset(raw, []byte("mimetypeapplication/vnd.oasis.opendocument.spreadsheet"), 30)
+}
+
+// Ots matches an OpenDocument Spreadsheet Template file.
+func Ots(raw []byte, _ uint32) bool {
+	return offset(raw, []byte("mimetypeapplication/vnd.oasis.opendocument.spreadsheet-template"), 30)
+}
+
+// Odp matches an OpenDocument Presentation file.
+func Odp(raw []byte, _ uint32) bool {
+	return offset(raw, []byte("mimetypeapplication/vnd.oasis.opendocument.presentation"), 30)
+}
+
+// Otp matches an OpenDocument Presentation Template file.
+func Otp(raw []byte, _ uint32) bool {
+	return offset(raw, []byte("mimetypeapplication/vnd.oasis.opendocument.presentation-template"), 30)
+}
+
+// Odg matches an OpenDocument Drawing file.
+func Odg(raw []byte, _ uint32) bool {
+	return offset(raw, []byte("mimetypeapplication/vnd.oasis.opendocument.graphics"), 30)
+}
+
+// Otg matches an OpenDocument Drawing Template file.
+func Otg(raw []byte, _ uint32) bool {
+	return offset(raw, []byte("mimetypeapplication/vnd.oasis.opendocument.graphics-template"), 30)
+}
+
+// Odf matches an OpenDocument Formula file.
+func Odf(raw []byte, _ uint32) bool {
+	return offset(raw, []byte("mimetypeapplication/vnd.oasis.opendocument.formula"), 30)
+}
+
+// Odc matches an OpenDocument Chart file.
+func Odc(raw []byte, _ uint32) bool {
+	return offset(raw, []byte("mimetypeapplication/vnd.oasis.opendocument.chart"), 30)
+}
+
+// Epub matches an EPUB file.
+func Epub(raw []byte, _ uint32) bool {
+	return offset(raw, []byte("mimetypeapplication/epub+zip"), 30)
+}
+
+// Sxc matches an OpenOffice Spreadsheet file.
+func Sxc(raw []byte, _ uint32) bool {
+	return offset(raw, []byte("mimetypeapplication/vnd.sun.xml.calc"), 30)
+}
 
 // Zip matches a zip archive.
 func Zip(raw []byte, limit uint32) bool {
@@ -134,11 +167,11 @@ func msoxml(raw scan.Bytes, searchFor zipEntries, stopAfter int) bool {
 		// If the first is not one of the next usually expected entries,
 		// then abort this check.
 		if i == 0 {
-			if !bytes.Equal(f, []byte("[Content_Types].xml")) &&
-				!bytes.Equal(f, []byte("_rels/.rels")) &&
-				!bytes.Equal(f, []byte("docProps")) &&
-				!bytes.Equal(f, []byte("customXml")) &&
-				!bytes.Equal(f, []byte("[trash]")) {
+			if !bytes.Equal(f, []byte("[Content_Types].xml")) && // this is a file
+				!bytes.HasPrefix(f, []byte("_rels/")) && // these are directories
+				!bytes.HasPrefix(f, []byte("docProps/")) &&
+				!bytes.HasPrefix(f, []byte("customXml/")) &&
+				!bytes.HasPrefix(f, []byte("[trash]/")) {
 				return false
 			}
 		}

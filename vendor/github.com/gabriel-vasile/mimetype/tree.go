@@ -24,7 +24,7 @@ var root = newMIME("application/octet-stream", "",
 	woff2, otf, ttc, eot, wasm, shx, dbf, dcm, rar, djvu, mobi, lit, bpg, cbor,
 	sqlite3, dwg, nes, lnk, macho, qcp, icns, hdr, mrc, mdb, accdb, zstd, cab,
 	rpm, xz, lzip, torrent, cpio, tzif, xcf, pat, gbr, glb, cabIS, jxr, parquet,
-	oneNote, chm,
+	oneNote, chm, wpd, dxf,
 	// Keep text last because it is the slowest check.
 	text,
 )
@@ -65,10 +65,9 @@ var (
 	jar   = newMIME("application/java-archive", ".jar", magic.Jar).
 		alias("application/jar", "application/jar-archive", "application/x-java-archive")
 	apk = newMIME("application/vnd.android.package-archive", ".apk", magic.APK)
-	ole = newMIME("application/x-ole-storage", "", magic.Ole, msi, aaf, msg, xls, pub, ppt, doc)
+	ole = newMIME("application/x-ole-storage", "", magic.Ole, msi, msg, xls, pub, ppt, doc)
 	msi = newMIME("application/x-ms-installer", ".msi", magic.Msi).
 		alias("application/x-windows-installer", "application/x-msi")
-	aaf = newMIME("application/octet-stream", ".aaf", magic.Aaf)
 	doc = newMIME("application/msword", ".doc", magic.Doc).
 		alias("application/vnd.ms-word")
 	ppt = newMIME("application/vnd.ms-powerpoint", ".ppt", magic.Ppt).
@@ -286,4 +285,6 @@ var (
 	cbor    = newMIME("application/cbor", ".cbor", magic.CBOR)
 	oneNote = newMIME("application/onenote", ".one", magic.One)
 	chm     = newMIME("application/vnd.ms-htmlhelp", ".chm", magic.CHM)
+	wpd     = newMIME("application/vnd.wordperfect", ".wpd", magic.WPD)
+	dxf     = newMIME("image/vnd.dxf", ".dxf", magic.DXF)
 )
