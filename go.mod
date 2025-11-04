@@ -60,7 +60,7 @@ require (
 	github.com/oklog/run v1.2.0
 	github.com/olekukonko/tablewriter v1.1.0
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/ginkgo/v2 v2.27.1
+	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/onsi/gomega v1.38.2
 	github.com/open-policy-agent/opa v1.9.0
 	github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89
@@ -371,7 +371,6 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.38.0 // indirect
 	go.opentelemetry.io/otel/metric v1.38.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.7.1 // indirect
-	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
