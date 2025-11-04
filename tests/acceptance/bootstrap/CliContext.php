@@ -743,6 +743,10 @@ class CliContext implements Context {
 	 * @return void
 	 */
 	public function theAdministratorRenamesFile(string $user, string $file, string $newName): void {
+		// this downloads the file using WebDAV and by that checks if it's still in
+		// postprocessing. So its effectively a check for finished postprocessing
+		$this->featureContext->userDownloadsFileUsingTheAPI($user, $file);
+
 		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath();
 
@@ -767,6 +771,10 @@ class CliContext implements Context {
 	 * @return void
 	 */
 	public function theAdministratorMovesFileToFolder(string $user, string $file, string $folder): void {
+		// this downloads the file using WebDAV and by that checks if it's still in
+		// postprocessing. So its effectively a check for finished postprocessing
+		$this->featureContext->userDownloadsFileUsingTheAPI($user, $file);
+
 		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath();
 
