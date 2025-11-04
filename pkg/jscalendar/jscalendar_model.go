@@ -17,6 +17,7 @@ type LocalDateTime struct {
 }
 */
 type LocalDateTime string
+type UTCDateTime string
 
 type TypeOfRelation string
 type TypeOfLink string
@@ -41,7 +42,6 @@ type Relationship string
 type Display string
 type Rel string
 type LocationTypeOption string
-type LocationRelation string
 type VirtualLocationFeature string
 type Frequency string
 type Skip string
@@ -300,9 +300,6 @@ const (
 	LocationTypeOptionWatercraft            = LocationTypeOption("watercraft")
 	LocationTypeOptionWaterFacility         = LocationTypeOption("water-facility")
 	LocationTypeOptionYouthCamp             = LocationTypeOption("youth-camp")
-
-	LocationRelationStart = LocationRelation("start")
-	LocationRelationEnd   = LocationRelation("end")
 
 	VirtualLocationFeatureAudio     = VirtualLocationFeature("audio")
 	VirtualLocationFeatureChat      = VirtualLocationFeature("chat")
@@ -611,11 +608,6 @@ var (
 		LocationTypeOptionYouthCamp,
 	}
 
-	LocationRelations = []LocationRelation{
-		LocationRelationStart,
-		LocationRelationEnd,
-	}
-
 	Frequencies = []Frequency{
 		FrequencyYearly,
 		FrequencyMonthly,
@@ -645,7 +637,6 @@ var (
 		"relatedTo",
 		"replyTo",
 		"sentBy",
-		"timeZones",
 		"uid",
 	}
 
@@ -836,13 +827,6 @@ type Link struct {
 	// server to avoid embedding arbitrarily large data in JSCalendar object instances.
 	Href string `json:"href"`
 
-	// This MUST be a valid content-id value according to the definition of Section 2 of [RFC2392].
-	//
-	// The value MUST be unique within this `Link` object but has no meaning beyond that.
-	//
-	// It MAY be different from the link id for this `Link` object.
-	Cid string `json:"cid,omitempty"`
-
 	// This is the media type [RFC6838] of the resource, if known.
 	ContentType string `json:"contentType,omitempty"`
 
@@ -896,21 +880,6 @@ type Location struct {
 	//
 	// The value for each key in the map MUST be `true`.
 	LocationTypes map[LocationTypeOption]bool `json:"locationTypes,omitempty"`
-
-	// This specifies the relation between this location and the time of the JSCalendar object.
-	//
-	// This is primarily to allow events representing travel to specify the location of departure (at the
-	// start of the event) and location of arrival (at the end); this is particularly important if these
-	// locations are in different time zones, as a client may wish to highlight this information for the user.
-	//
-	// This MUST be one of the following values; any value the client or server doesn't understand
-	// should be treated the same as if this property is omitted:
-	// !- `start`: The event/task described by this JSCalendar object occurs at this location at the time the event/task starts.
-	// !- `end`: The event/task described by this JSCalendar object occurs at this location at the time the event/task ends.
-	RelativeTo LocationRelation `json:"relativeTo,omitempty"`
-
-	// This is a time zone for this location.
-	TimeZone string `json:"timeZone,omitempty"`
 
 	// This is a geo: URI [RFC5870] for the location.
 	Coordinates string `json:"coordinates,omitempty"`
@@ -1645,15 +1614,11 @@ type CommonObject struct {
 	ProdId string `json:"prodId,omitempty"`
 
 	// This is the date and time this object was initially created.
-	//
-	// TODO serialize as UTCDateTime
-	Created time.Time `json:"created,omitzero"`
+	Created UTCDateTime `json:"created,omitzero"`
 
 	// This is the date and time the data in this object was last modified (or its creation date/time
 	// if not modified since).
-	//
-	// TODO serialize as UTCDateTime
-	Updated time.Time `json:"updated,omitzero"`
+	Updated UTCDateTime `json:"updated,omitzero"`
 
 	// This is a short summary of the object.
 	Title string `json:"title,omitempty"`
@@ -1719,35 +1684,6 @@ type CommonObject struct {
 	// [Section 4.3 of CSS Color Module Level 3]: https://www.w3.org/TR/css-color-3/#svg-color
 	// [Section 4.2.1 of CSS Color Module Level 3]: https://www.w3.org/TR/css-color-3/#rgb-color
 	Color string `json:"color,omitempty"`
-
-	// This maps identifiers of custom time zones to their time zone definitions.
-	//
-	// The following restrictions apply for each key in the map:
-	// !- To avoid conflict with names in the IANA Time Zone Database [TZDB], it MUST start with the `/` character.
-	// !- It MUST be a valid `paramtext` value, as specified in Section 3.1 of [RFC5545].
-	// !- At least one other property in the same JSCalendar object MUST reference a time zone using this identifier (i.e.,
-	// orphaned time zones are not allowed).
-	//
-	// An identifier need only be unique to this JSCalendar object.
-	//
-	// It MAY differ from the tzId property value of the TimeZone object it maps to.
-	//
-	// A JSCalendar object may be part of a hierarchy of other JSCalendar objects (say, an `Event` is an entry in a `Group`).
-	//
-	// In this case, the set of time zones is the sum of the time zone definitions of this object and its parent objects.
-	//
-	// If multiple time zones with the same identifier exist, then the definition closest to the calendar object in relation
-	// to its parents MUST be used.
-	//
-	// (In context of `Event`, a time zone definition in its `timeZones` property has precedence over a definition of the
-	// same id in the `Group`).
-	//
-	// Time zone definitions in any children of the calendar object MUST be ignored.
-	//
-	// A `TimeZone` object maps a `VTIMEZONE` component from iCalendar, and the semantics are as defined in [RFC5545].
-	//
-	// A valid time zone MUST define at least one transition rule in the `standard` or `daylight` property.
-	TimeZones map[string]TimeZone `json:"timeZones,omitempty"`
 }
 
 // TODO
@@ -2127,6 +2063,14 @@ type Event struct {
 	// (e.g., a transcontinental flight). This can be expressed using the `relativeTo` and `timeZone` properties of
 	// the `Event`'s Location objects (see Section 4.2.5).
 	Duration Duration `json:"duration,omitempty"`
+
+	// This identifies the time zone in which this event ends, for cases where the start and time zones of the event differ
+	// (e.g., a transcontinental flight).
+	//
+	// If this property is not set, then the event starts and ends in the same time zone.
+	//
+	// This property MUST NOT be set if the timeZone property value is null or not set.
+	EndTimeZone string `json:"endTimeZone,omitempty"`
 
 	// This is the scheduling status (Section 4.4) of an Event.
 	//

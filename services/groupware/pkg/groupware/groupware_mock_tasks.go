@@ -82,8 +82,8 @@ var T1 = jmap.Task{
 			CommonObject: jscalendar.CommonObject{
 				Uid:                    "7da0d4a2-385c-430f-9022-61db302734d9",
 				ProdId:                 "Mock 0.0",
-				Created:                mustParseTime("2025-10-01T17:31:49Z"),
-				Updated:                mustParseTime("2025-10-01T17:35:12Z"),
+				Created:                "2025-10-01T17:31:49",
+				Updated:                "2025-10-01T17:35:12",
 				Title:                  "Crossing the Ring",
 				Description:            "We need to cross the Ring the protomolecule opened.",
 				DescriptionContentType: "text/plain",
@@ -117,8 +117,6 @@ var T1 = jmap.Task{
 					LocationTypes: map[jscalendar.LocationTypeOption]bool{
 						jscalendar.LocationTypeOptionLandmarkAddress: true,
 					},
-					RelativeTo:  jscalendar.LocationRelationStart,
-					TimeZone:    "UTC",
 					Coordinates: "geo:40.4165583,-3.7063595",
 					Links: map[string]jscalendar.Link{
 						"jeeshei5": {

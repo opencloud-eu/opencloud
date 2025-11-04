@@ -80,8 +80,8 @@ var E1 = jmap.CalendarEvent{
 			CommonObject: jscalendar.CommonObject{
 				Uid:                    "9a7ab91a-edca-4988-886f-25e00743430d",
 				ProdId:                 "Mock 0.0",
-				Created:                mustParseTime("2025-09-29T16:17:18Z"),
-				Updated:                mustParseTime("2025-09-29T16:17:18Z"),
+				Created:                "2025-09-29T16:17:18",
+				Updated:                "2025-09-29T16:17:18",
 				Title:                  "Meeting of the Minds",
 				Description:            "Internal meeting about the grand strategy for the future",
 				DescriptionContentType: "text/plain",
@@ -103,12 +103,6 @@ var E1 = jmap.CalendarEvent{
 					"internal": true,
 				},
 				Color: "purple",
-				TimeZones: map[string]jscalendar.TimeZone{
-					"airee8ai": {
-						Type: jscalendar.TimeZoneType,
-						TzId: "CEST",
-					},
-				},
 			},
 			RelatedTo:       map[string]jscalendar.Relation{},
 			Sequence:        0,
@@ -121,8 +115,6 @@ var E1 = jmap.CalendarEvent{
 					LocationTypes: map[jscalendar.LocationTypeOption]bool{
 						jscalendar.LocationTypeOptionOffice: true,
 					},
-					RelativeTo:  jscalendar.LocationRelationStart,
-					TimeZone:    "CEST",
 					Coordinates: "geo:52.5334956,13.4079872",
 					Links: map[string]jscalendar.Link{
 						"eefe2pax": {

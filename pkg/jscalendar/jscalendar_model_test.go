@@ -74,7 +74,6 @@ func TestLink(t *testing.T) {
 	}`, Link{
 		Type:        LinkType,
 		Href:        "https://opencloud.eu.example.com/f72ae875-40be-48a4-84ff-aea9aed3e085.png",
-		Cid:         "c1",
 		ContentType: "image/png",
 		Size:        128912,
 		Rel:         RelIcon,
@@ -115,14 +114,11 @@ func TestLocation(t *testing.T) {
 			LocationTypeOptionLandmarkAddress: true,
 			LocationTypeOptionIndustrial:      true,
 		},
-		RelativeTo:  LocationRelationStart,
-		TimeZone:    "Europe/Paris",
 		Coordinates: "geo:48.8559324,2.2932441",
 		Links: map[string]Link{
 			"l1": {
 				Type:        LinkType,
 				Href:        "https://upload.wikimedia.org/wikipedia/commons/f/fd/Eiffel_blue.PNG",
-				Cid:         "cl1",
 				ContentType: "image/png",
 				Size:        12345,
 				Rel:         RelIcon,
@@ -340,7 +336,6 @@ func TestParticipant(t *testing.T) {
 			"l1": {
 				Type:        LinkType,
 				Href:        "https://opa.org/opa.png",
-				Cid:         "c1",
 				ContentType: "image/png",
 				Size:        182912,
 				Rel:         RelIcon,
@@ -608,11 +603,13 @@ func TestTimeZone(t *testing.T) {
 }
 
 func TestEvent(t *testing.T) {
-	ts1, err := time.Parse(time.RFC3339, "2025-09-25T18:26:14+02:00")
+	local1 := "2025-09-25T18:26:14"
+	ts1, err := time.Parse(time.RFC3339, local1+"+02:00")
 	require.NoError(t, err)
 	ts1 = ts1.UTC()
 
-	ts2, err := time.Parse(time.RFC3339, "2025-09-29T15:53:01+02:00")
+	local2 := "2025-09-29T15:53:01"
+	ts2, err := time.Parse(time.RFC3339, local2+"+02:00")
 	require.NoError(t, err)
 	ts2 = ts2.UTC()
 
@@ -692,8 +689,8 @@ func TestEvent(t *testing.T) {
 			CommonObject: CommonObject{
 				Uid:                    "b422cfec-f7b4-4e04-8ec6-b794007f63f1",
 				ProdId:                 "OpenCloud 1.0",
-				Created:                ts1,
-				Updated:                ts2,
+				Created:                UTCDateTime(local1),
+				Updated:                UTCDateTime(local2),
 				Title:                  "End of year party",
 				Description:            "It's the party at the end of the year.",
 				DescriptionContentType: "text/plain",
@@ -713,12 +710,6 @@ func TestEvent(t *testing.T) {
 					"cat": true,
 				},
 				Color: "oil",
-				TimeZones: map[string]TimeZone{
-					"cest": {
-						Type: TimeZoneType,
-						TzId: "cest",
-					},
-				},
 			},
 			RelatedTo: map[string]Relation{
 				"a": {
@@ -738,8 +729,6 @@ func TestEvent(t *testing.T) {
 					LocationTypes: map[LocationTypeOption]bool{
 						LocationTypeOptionBar: true,
 					},
-					RelativeTo:  LocationRelationStart,
-					TimeZone:    "cest",
 					Coordinates: "geo:16.7685657,-4.8629852",
 					Links: map[string]Link{
 						"l1": {
