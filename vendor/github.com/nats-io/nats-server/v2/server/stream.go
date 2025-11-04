@@ -3143,6 +3143,7 @@ func (mset *stream) setupMirrorConsumer() error {
 	}
 
 	mirror := mset.mirror
+	mirrorWg := &mirror.wg
 
 	// We want to throttle here in terms of how fast we request new consumers,
 	// or if the previous is still in progress.
@@ -3301,7 +3302,7 @@ func (mset *stream) setupMirrorConsumer() error {
 
 		// Wait for previous processMirrorMsgs go routine to be completely done.
 		// If none is running, this will not block.
-		mirror.wg.Wait()
+		mirrorWg.Wait()
 
 		select {
 		case ccr := <-respCh:
@@ -5934,7 +5935,7 @@ func (mset *stream) processJetStreamMsg(subject, reply string, hdr, msg []byte, 
 
 	// Skip msg here.
 	if noInterest {
-		mset.lseq = store.SkipMsg()
+		mset.lseq, _ = store.SkipMsg(0)
 		mset.lmsgId = msgId
 		// If we have a msgId make sure to save.
 		if msgId != _EMPTY_ {
@@ -6264,7 +6265,6 @@ func (mset *stream) processJetStreamBatchMsg(batchId, subject, reply string, hdr
 		}
 		return err
 	}
-	commit := len(sliceHeader(JSBatchCommit, hdr)) != 0
 
 	mset.mu.Lock()
 	if mset.batches == nil {
@@ -6337,6 +6337,37 @@ func (mset *stream) processJetStreamBatchMsg(batchId, subject, reply string, hdr
 			return respondIncompleteBatch()
 		}
 		batches.group[batchId] = b
+	}
+
+	var commit bool
+	if c := sliceHeader(JSBatchCommit, hdr); c != nil {
+		// Reject the batch if the commit is not recognized.
+		if !bytes.Equal(c, []byte("1")) {
+			b.cleanupLocked(batchId, batches)
+			batches.mu.Unlock()
+			err := NewJSAtomicPublishInvalidBatchCommitError()
+			if canRespond {
+				b, _ := json.Marshal(&JSPubAckResponse{PubAck: &PubAck{Stream: name}, Error: err})
+				outq.send(newJSPubMsg(reply, _EMPTY_, _EMPTY_, nil, b, nil, 0))
+			}
+			return err
+		}
+		commit = true
+	}
+
+	// The required API level can have the batch be rejected. But the header is always removed.
+	if len(sliceHeader(JSRequiredApiLevel, hdr)) != 0 {
+		if errorOnRequiredApiLevel(hdr) {
+			b.cleanupLocked(batchId, batches)
+			batches.mu.Unlock()
+			err := NewJSRequiredApiLevelError()
+			if canRespond {
+				b, _ := json.Marshal(&JSPubAckResponse{PubAck: &PubAck{Stream: name}, Error: err})
+				outq.send(newJSPubMsg(reply, _EMPTY_, _EMPTY_, nil, b, nil, 0))
+			}
+			return err
+		}
+		hdr = removeHeaderIfPresent(hdr, JSRequiredApiLevel)
 	}
 
 	// Detect gaps.
@@ -6431,7 +6462,8 @@ func (mset *stream) processJetStreamBatchMsg(batchId, subject, reply string, hdr
 
 	rollback := func(seq uint64) {
 		if isClustered {
-			// TODO(mvv): reset in-memory expected header maps
+			// Only need to move the clustered sequence back if the batch fails to commit.
+			// Other changes were staged but not applied, so this is the only thing we need to do.
 			mset.clseq -= seq - 1
 		}
 		mset.clMu.Unlock()
@@ -6475,14 +6507,11 @@ func (mset *stream) processJetStreamBatchMsg(batchId, subject, reply string, hdr
 		}
 
 		// Reject unsupported headers.
-		if msgId := getMsgId(bhdr); msgId != _EMPTY_ {
-			return errorOnUnsupported(seq, JSMsgId)
-		}
 		if getExpectedLastMsgId(hdr) != _EMPTY_ {
 			return errorOnUnsupported(seq, JSExpectedLastMsgId)
 		}
 
-		if bhdr, bmsg, _, apiErr, err = checkMsgHeadersPreClusteredProposal(diff, mset, subject, bhdr, bmsg, false, name, jsa, allowRollup, denyPurge, allowTTL, allowMsgCounter, allowMsgSchedules, discard, discardNewPer, maxMsgSize, maxMsgs, maxMsgsPer, maxBytes); err != nil {
+		if bhdr, bmsg, _, apiErr, err = checkMsgHeadersPreClusteredProposal(diff, mset, bsubj, bhdr, bmsg, false, name, jsa, allowRollup, denyPurge, allowTTL, allowMsgCounter, allowMsgSchedules, discard, discardNewPer, maxMsgSize, maxMsgs, maxMsgsPer, maxBytes); err != nil {
 			rollback(seq)
 			b.cleanupLocked(batchId, batches)
 			batches.mu.Unlock()
@@ -6537,12 +6566,9 @@ func (mset *stream) processJetStreamBatchMsg(batchId, subject, reply string, hdr
 		// Do a single multi proposal. This ensures we get to push all entries to the proposal queue in-order
 		// and not interleaved with other proposals.
 		diff.commit(mset)
-		if err := node.ProposeMulti(entries); err == nil {
-			mset.trackReplicationTraffic(node, sz, r)
-		} else {
-			// TODO(mvv): reset in-memory expected header maps
-			mset.clseq -= batchSeq
-		}
+		_ = node.ProposeMulti(entries)
+		// The proposal can fail, but we always account for trying.
+		mset.trackReplicationTraffic(node, sz, r)
 
 		// Check to see if we are being overrun.
 		// TODO(dlc) - Make this a limit where we drop messages to protect ourselves, but allow to be configured.

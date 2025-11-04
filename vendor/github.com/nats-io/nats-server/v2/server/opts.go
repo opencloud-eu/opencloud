@@ -15,6 +15,7 @@ package server
 
 import (
 	"context"
+	"crypto/fips140"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -83,6 +84,7 @@ type ClusterOpts struct {
 	Compression       CompressionOpts   `json:"-"`
 	PingInterval      time.Duration     `json:"-"`
 	MaxPingsOut       int               `json:"-"`
+	WriteDeadline     time.Duration     `json:"-"`
 
 	// Not exported (used in tests)
 	resolver netResolver
@@ -125,6 +127,7 @@ type GatewayOpts struct {
 	ConnectBackoff    bool                 `json:"connect_backoff,omitempty"`
 	Gateways          []*RemoteGatewayOpts `json:"gateways,omitempty"`
 	RejectUnknown     bool                 `json:"reject_unknown,omitempty"` // config got renamed to reject_unknown_cluster
+	WriteDeadline     time.Duration        `json:"-"`
 
 	// Not exported, for tests.
 	resolver         netResolver
@@ -175,6 +178,7 @@ type LeafNodeOpts struct {
 	Advertise                 string        `json:"-"`
 	NoAdvertise               bool          `json:"-"`
 	ReconnectInterval         time.Duration `json:"-"`
+	WriteDeadline             time.Duration `json:"-"`
 
 	// Compression options
 	Compression CompressionOpts `json:"-"`
@@ -239,6 +243,18 @@ type RemoteLeafOpts struct {
 	Websocket struct {
 		Compression bool `json:"-"`
 		NoMasking   bool `json:"-"`
+	}
+
+	// HTTP Proxy configuration for WebSocket connections
+	Proxy struct {
+		// URL of the HTTP proxy server (e.g., "http://proxy.example.com:8080")
+		URL string `json:"-"`
+		// Username for proxy authentication
+		Username string `json:"-"`
+		// Password for proxy authentication
+		Password string `json:"-"`
+		// Timeout for proxy connection
+		Timeout time.Duration `json:"-"`
 	}
 
 	tlsConfigOpts *TLSConfigOpts
@@ -1986,6 +2002,8 @@ func parseCluster(v any, opts *Options, errors *[]error, warnings *[]error) erro
 			}
 		case "ping_max":
 			opts.Cluster.MaxPingsOut = int(mv.(int64))
+		case "write_deadline":
+			opts.Cluster.WriteDeadline = parseDuration("write_deadline", tk, mv, errors, warnings)
 		default:
 			if !tk.IsUsedVariable() {
 				err := &unknownConfigFieldErr{
@@ -2174,6 +2192,8 @@ func parseGateway(v any, o *Options, errors *[]error, warnings *[]error) error {
 			o.Gateway.Gateways = gateways
 		case "reject_unknown", "reject_unknown_cluster":
 			o.Gateway.RejectUnknown = mv.(bool)
+		case "write_deadline":
+			o.Gateway.WriteDeadline = parseDuration("write_deadline", tk, mv, errors, warnings)
 		default:
 			if !tk.IsUsedVariable() {
 				err := &unknownConfigFieldErr{
@@ -2465,6 +2485,9 @@ func parseJetStreamTPM(v interface{}, opts *Options, errors *[]error) error {
 func setJetStreamEkCipher(opts *Options, mv interface{}, tk token) error {
 	switch strings.ToLower(mv.(string)) {
 	case "chacha", "chachapoly":
+		if fips140.Enabled() {
+			return &configErr{tk, fmt.Sprintf("Cipher type %q cannot be used in FIPS-140 mode", mv)}
+		}
 		opts.JetStreamCipher = ChaCha
 	case "aes":
 		opts.JetStreamCipher = AES
@@ -2694,6 +2717,8 @@ func parseLeafNodes(v any, opts *Options, errors *[]error, warnings *[]error) er
 			}
 		case "isolate_leafnode_interest", "isolate":
 			opts.LeafNode.IsolateLeafnodeInterest = mv.(bool)
+		case "write_deadline":
+			opts.LeafNode.WriteDeadline = parseDuration("write_deadline", tk, mv, errors, warnings)
 		default:
 			if !tk.IsUsedVariable() {
 				err := &unknownConfigFieldErr{
@@ -2990,6 +3015,48 @@ func parseRemoteLeafNodes(v any, errors *[]error, warnings *[]error) ([]*RemoteL
 				remote.FirstInfoTimeout = parseDuration(k, tk, v, errors, warnings)
 			case "disabled":
 				remote.Disabled = v.(bool)
+			case "proxy":
+				proxyMap, ok := v.(map[string]any)
+				if !ok {
+					*errors = append(*errors, &configErr{tk, fmt.Sprintf("Expected proxy to be a map, got %T", v)})
+					continue
+				}
+				// Capture the token for the "proxy" field itself, before the map iteration
+				proxyToken := tk
+				for pk, pv := range proxyMap {
+					tk, pv = unwrapValue(pv, &lt)
+					switch strings.ToLower(pk) {
+					case "url":
+						remote.Proxy.URL = pv.(string)
+					case "username":
+						remote.Proxy.Username = pv.(string)
+					case "password":
+						remote.Proxy.Password = pv.(string)
+					case "timeout":
+						remote.Proxy.Timeout = parseDuration("proxy timeout", tk, pv, errors, warnings)
+					default:
+						if !tk.IsUsedVariable() {
+							err := &unknownConfigFieldErr{
+								field: pk,
+								configErr: configErr{
+									token: tk,
+								},
+							}
+							*errors = append(*errors, err)
+							continue
+						}
+					}
+				}
+				// Use the saved proxy token for validation errors, not the last field token
+				if warns, err := validateLeafNodeProxyOptions(remote); err != nil {
+					*errors = append(*errors, &configErr{proxyToken, err.Error()})
+					continue
+				} else {
+					// Add any warnings about proxy configuration
+					for _, warn := range warns {
+						*warnings = append(*warnings, &configErr{proxyToken, warn})
+					}
+				}
 			default:
 				if !tk.IsUsedVariable() {
 					err := &unknownConfigFieldErr{
@@ -4315,6 +4382,10 @@ func parseAuthorization(v any, errors, warnings *[]error) (*authorization, error
 			}
 			auth.defaultPermissions = permissions
 		case "auth_callout", "auth_hook":
+			if fips140.Enabled() {
+				*errors = append(*errors, fmt.Errorf("'auth_callout' cannot be configured in FIPS-140 mode"))
+				continue
+			}
 			ac, err := parseAuthCallout(tk, errors)
 			if err != nil {
 				*errors = append(*errors, err)

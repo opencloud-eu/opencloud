@@ -8,11 +8,17 @@ const (
 	// JSAccountResourcesExceededErr resource limits exceeded for account
 	JSAccountResourcesExceededErr ErrorIdentifier = 10002
 
+	// JSAtomicPublishContainsDuplicateMessageErr atomic publish batch contains duplicate message id
+	JSAtomicPublishContainsDuplicateMessageErr ErrorIdentifier = 10201
+
 	// JSAtomicPublishDisabledErr atomic publish is disabled
 	JSAtomicPublishDisabledErr ErrorIdentifier = 10174
 
 	// JSAtomicPublishIncompleteBatchErr atomic publish batch is incomplete
 	JSAtomicPublishIncompleteBatchErr ErrorIdentifier = 10176
+
+	// JSAtomicPublishInvalidBatchCommitErr atomic publish batch commit is invalid
+	JSAtomicPublishInvalidBatchCommitErr ErrorIdentifier = 10200
 
 	// JSAtomicPublishInvalidBatchIDErr atomic publish batch ID is invalid
 	JSAtomicPublishInvalidBatchIDErr ErrorIdentifier = 10179
@@ -603,8 +609,10 @@ const (
 var (
 	ApiErrors = map[ErrorIdentifier]*ApiError{
 		JSAccountResourcesExceededErr:                {Code: 400, ErrCode: 10002, Description: "resource limits exceeded for account"},
+		JSAtomicPublishContainsDuplicateMessageErr:   {Code: 400, ErrCode: 10201, Description: "atomic publish batch contains duplicate message id"},
 		JSAtomicPublishDisabledErr:                   {Code: 400, ErrCode: 10174, Description: "atomic publish is disabled"},
 		JSAtomicPublishIncompleteBatchErr:            {Code: 400, ErrCode: 10176, Description: "atomic publish batch is incomplete"},
+		JSAtomicPublishInvalidBatchCommitErr:         {Code: 400, ErrCode: 10200, Description: "atomic publish batch commit is invalid"},
 		JSAtomicPublishInvalidBatchIDErr:             {Code: 400, ErrCode: 10179, Description: "atomic publish batch ID is invalid"},
 		JSAtomicPublishMissingSeqErr:                 {Code: 400, ErrCode: 10175, Description: "atomic publish sequence is missing"},
 		JSAtomicPublishTooLargeBatchErrF:             {Code: 400, ErrCode: 10199, Description: "atomic publish batch is too large: {size}"},
@@ -835,6 +843,16 @@ func NewJSAccountResourcesExceededError(opts ...ErrorOption) *ApiError {
 	return ApiErrors[JSAccountResourcesExceededErr]
 }
 
+// NewJSAtomicPublishContainsDuplicateMessageError creates a new JSAtomicPublishContainsDuplicateMessageErr error: "atomic publish batch contains duplicate message id"
+func NewJSAtomicPublishContainsDuplicateMessageError(opts ...ErrorOption) *ApiError {
+	eopts := parseOpts(opts)
+	if ae, ok := eopts.err.(*ApiError); ok {
+		return ae
+	}
+
+	return ApiErrors[JSAtomicPublishContainsDuplicateMessageErr]
+}
+
 // NewJSAtomicPublishDisabledError creates a new JSAtomicPublishDisabledErr error: "atomic publish is disabled"
 func NewJSAtomicPublishDisabledError(opts ...ErrorOption) *ApiError {
 	eopts := parseOpts(opts)
@@ -853,6 +871,16 @@ func NewJSAtomicPublishIncompleteBatchError(opts ...ErrorOption) *ApiError {
 	}
 
 	return ApiErrors[JSAtomicPublishIncompleteBatchErr]
+}
+
+// NewJSAtomicPublishInvalidBatchCommitError creates a new JSAtomicPublishInvalidBatchCommitErr error: "atomic publish batch commit is invalid"
+func NewJSAtomicPublishInvalidBatchCommitError(opts ...ErrorOption) *ApiError {
+	eopts := parseOpts(opts)
+	if ae, ok := eopts.err.(*ApiError); ok {
+		return ae
+	}
+
+	return ApiErrors[JSAtomicPublishInvalidBatchCommitErr]
 }
 
 // NewJSAtomicPublishInvalidBatchIDError creates a new JSAtomicPublishInvalidBatchIDErr error: "atomic publish batch ID is invalid"

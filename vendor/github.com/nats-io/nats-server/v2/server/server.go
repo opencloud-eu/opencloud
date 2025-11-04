@@ -16,6 +16,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"crypto/fips140"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -697,6 +698,15 @@ func New(opts *Options) *Server {
 	return s
 }
 
+func NewServerFromConfig(opts *Options) (*Server, error) {
+	if opts.ConfigFile != _EMPTY_ && opts.configDigest == "" {
+		if err := opts.ProcessConfigFile(opts.ConfigFile); err != nil {
+			return nil, err
+		}
+	}
+	return NewServer(opts)
+}
+
 // NewServer will setup a new server struct after parsing the options.
 // Could return an error if options can not be validated.
 // The provided Options type should not be re-used afterwards.
@@ -713,8 +723,12 @@ func NewServer(opts *Options) (*Server, error) {
 	pub, _ := kp.PublicKey()
 
 	// Create an xkey for encrypting messages from this server.
-	xkp, _ := nkeys.CreateCurveKeys()
-	xpub, _ := xkp.PublicKey()
+	var xkp nkeys.KeyPair
+	var xpub string
+	if !fips140.Enabled() {
+		xkp, _ = nkeys.CreateCurveKeys()
+		xpub, _ = xkp.PublicKey()
+	}
 
 	serverName := pub
 	if opts.ServerName != _EMPTY_ {
