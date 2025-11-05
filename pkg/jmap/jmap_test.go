@@ -725,3 +725,51 @@ func TestUnmarshallingCalendarEventGetResponse(t *testing.T) {
 	require.Equal("9a7ab91a-edca-4988-886f-25e00743430d", result.Uid)
 	require.Equal(jscalendar.PrivacyPublic, result.Privacy)
 }
+
+func TestAlertWithOffsetTriggerInResponse(t *testing.T) {
+	require := require.New(t)
+
+	text := `{
+	"methodResponses":[
+		["CalendarEvent/get",{
+			"accountId":"b",
+			"state":"ssecq",
+			"list":[{
+				"@type": "Event",
+				"start":"2025-11-01T14:30:00",
+				"alerts": {
+					"M87fT82": {
+						"@type": "Alert",
+						"trigger": {
+							"@type": "OffsetTrigger",
+							"offset": "-PT15M",
+							"relativeTo": "start"
+						}
+					}
+				}
+			}],
+			"notFound":[]
+		},"1"]
+	],"sessionState":"7d3cae5b"
+}`
+
+	var response Response
+	err := json.Unmarshal([]byte(text), &response)
+	require.NoError(err)
+
+	resp := response.MethodResponses[0]
+	require.Equal(CommandCalendarEventGet, resp.Command)
+	require.IsType(CalendarEventGetResponse{}, resp.Parameters)
+	params := resp.Parameters.(CalendarEventGetResponse)
+	require.Len(params.List, 1)
+	event := params.List[0]
+	require.Contains(event.Alerts, "M87fT82")
+	alert := event.Alerts["M87fT82"]
+	require.NotNil(alert)
+	trigger := alert.Trigger
+	require.NotNil(trigger)
+	require.IsType(jscalendar.OffsetTrigger{}, trigger)
+	offsetTrigger := trigger.(jscalendar.OffsetTrigger)
+	require.Equal(jscalendar.SignedDuration("-PT15M"), offsetTrigger.Offset)
+	require.Equal(jscalendar.RelativeToStart, offsetTrigger.RelativeTo)
+}

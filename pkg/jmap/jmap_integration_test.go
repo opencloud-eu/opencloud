@@ -387,7 +387,7 @@ func newStalwartTest(t *testing.T) (*StalwartTest, error) {
 	return &StalwartTest{
 		t:              t,
 		ip:             ip,
-		imapPort:       imapPort.Int(),
+		imapPort:       int(imapPort.Num()),
 		container:      container,
 		ctx:            ctx,
 		cancelCtx:      cancel,
