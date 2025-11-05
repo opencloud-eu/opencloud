@@ -1,6 +1,8 @@
 package groupware
 
 import (
+	"time"
+
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/jscalendar"
 )
@@ -202,4 +204,12 @@ var TaskMapByTaskListId = map[string][]jmap.Task{
 	TL1.Id: {
 		T1,
 	},
+}
+
+func mustParseTime(text string) time.Time {
+	t, err := time.Parse(time.RFC3339, text)
+	if err != nil {
+		panic(err)
+	}
+	return t
 }
