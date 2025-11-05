@@ -35,6 +35,18 @@ func DefaultConfig() *config.Config {
 			TLSCert:   path.Join(defaults.BaseDataPath(), "proxy", "server.crt"),
 			TLSKey:    path.Join(defaults.BaseDataPath(), "proxy", "server.key"),
 			TLS:       true,
+			Timeout: config.HTTPTimeout{
+				Upload: config.HTTPTimeoutUpload{
+					// Set a relatively high number here to give large uploads time to breathe.
+					// The timeout does not apply to the total request lifespan,
+					// it gets refreshed after each sequential body read.
+					//
+					// the default value is 2 * nginx default proxy_read_timeout
+					//
+					// - 0 or -1 means no timeout at all;
+					Read: 120 * time.Second,
+				},
+			},
 		},
 		Service: config.Service{
 			Name: "proxy",

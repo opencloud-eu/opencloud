@@ -6,11 +6,23 @@ import (
 	"fmt"
 	"net/http"
 	"os/signal"
+	"slices"
 	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/justinas/alice"
+	"github.com/opencloud-eu/reva/v2/pkg/events"
+	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
+	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v2/pkg/signedurl"
+	"github.com/opencloud-eu/reva/v2/pkg/store"
+	"github.com/urfave/cli/v2"
+	"go-micro.dev/v4/selector"
+	microstore "go-micro.dev/v4/store"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -35,16 +47,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/opencloud-eu/reva/v2/pkg/signedurl"
-	"github.com/opencloud-eu/reva/v2/pkg/store"
-	"github.com/urfave/cli/v2"
-	"go-micro.dev/v4/selector"
-	microstore "go-micro.dev/v4/store"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.opentelemetry.io/otel/trace"
 )
 
 // Server is the entrypoint for the server command.
@@ -332,6 +334,35 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 	}
 
 	return alice.New(
+		middleware.FilterChain(func(_ http.ResponseWriter, r *http.Request) ([]middleware.Constructor, error) {
+			isTUSUpload := slices.Contains([]string{http.MethodPatch, http.MethodPost}, r.Method) && r.Header.Get("tus-resumable") != ""
+
+			// fixMe:
+			// reva decomposedFs finalizeUpload > node > CalculateChecksums sha1h, md5h, and adler32h calculation is slow.
+			// The hashing duration after the final chunk is uploaded, may take longer than the configured read upload deadline,
+			// especially for larger files (>10GB) or on slow machines.
+			//
+			// If the hashing takes longer than the configured upload timeout the upload gets invalidated.
+			//
+			// Ideas:
+			//   - Calculate checksums asynchronously to avoid blocking
+			//   - Detect the final chunk upload and skip ReadDeadline for that request,
+			//     upload-offset + chunk size == total bytes uploaded,
+			//     but how to get the expected total size without having any state?
+			//
+			// Currently isFinalUpload is hardcoded to false, so the ReadDeadline applies to ALL TUS uploads.
+			// Decrease the high cfg.HTTP.Timeout.Upload.Read default value once this is solved.
+			isFinalUpload := false
+
+			var chain []middleware.Constructor
+
+			//noinspection GoBoolExpressions
+			if isTUSUpload && !isFinalUpload {
+				chain = append(chain, middleware.ReadDeadline(cfg.HTTP.Timeout.Upload.Read, logger))
+			}
+
+			return chain, nil
+		}, logger),
 		chimiddleware.RealIP,
 		chimiddleware.RequestID,
 		// first make sure we log all requests and redirect to https if necessary
