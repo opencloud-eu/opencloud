@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/mitchellh/mapstructure"
+	"github.com/opencloud-eu/opencloud/pkg/jscalendar"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
@@ -139,8 +140,9 @@ func mapstructStringToTimeHook() mapstructure.DecodeHookFunc {
 	// mapstruct isn't able to properly map RFC3339 date strings into Time
 	// objects, which is why we require this custom hook,
 	// see https://github.com/mitchellh/mapstructure/issues/41
+	wanted := reflect.TypeOf(time.Time{})
 	return func(from reflect.Type, to reflect.Type, data any) (any, error) {
-		if to != reflect.TypeOf(time.Time{}) {
+		if to != wanted {
 			return data, nil
 		}
 		switch from.Kind() {
@@ -159,8 +161,11 @@ func mapstructStringToTimeHook() mapstructure.DecodeHookFunc {
 func decodeMap(input map[string]any, target any) error {
 	// https://github.com/mitchellh/mapstructure/issues/41
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		Metadata:             nil,
-		DecodeHook:           mapstructure.ComposeDecodeHookFunc(mapstructStringToTimeHook()),
+		Metadata: nil,
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			mapstructStringToTimeHook(),
+			jscalendar.MapstructTriggerHook(),
+		),
 		Result:               &target,
 		ErrorUnused:          false,
 		ErrorUnset:           false,

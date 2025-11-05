@@ -3,7 +3,11 @@ package jscalendar
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"slices"
 	"time"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 // This is a date-time string with no time zone/offset information.
@@ -1406,6 +1410,74 @@ type UnknownTrigger map[string]any
 var _ Trigger = UnknownTrigger{}
 
 func (o UnknownTrigger) trigger() {}
+
+func MapstructTriggerHook() mapstructure.DecodeHookFunc {
+	fn := func(Trigger) {}
+	wanted := reflect.TypeOf(fn).In(0)
+	return func(from reflect.Type, to reflect.Type, data any) (any, error) {
+		if to != wanted {
+			return data, nil
+		}
+		m := data.(map[string]any)
+		if typ, ok := m["@type"]; ok {
+			switch typ {
+			case string(OffsetTriggerType):
+				return mapOffsetTrigger(m)
+			case string(AbsoluteTriggerType):
+				return mapAbsoluteTrigger(m)
+			default:
+				return UnknownTrigger(m), nil
+			}
+		} else {
+			if _, ok := m["offset"]; ok {
+				return mapOffsetTrigger(m)
+			}
+			if _, ok := m["when"]; ok {
+				return mapAbsoluteTrigger(m)
+			} else {
+				return UnknownTrigger(m), nil
+			}
+		}
+	}
+}
+
+func mapOffsetTrigger(m map[string]any) (OffsetTrigger, error) {
+	trigger := OffsetTrigger{
+		Type: OffsetTriggerType,
+	}
+	if value, ok := m["offset"]; ok {
+		if str, ok := value.(string); ok {
+			trigger.Offset = SignedDuration(str)
+		}
+	}
+	if value, ok := m["relativeTo"]; ok {
+		if str, ok := value.(string); ok {
+			t := RelativeTo(str)
+			if slices.Contains(RelativeTos, t) {
+				trigger.RelativeTo = t
+			} else {
+				return trigger, fmt.Errorf("unsupported Trigger.relativeTo value: '%v'", value)
+			}
+		}
+	}
+	return trigger, nil
+}
+
+func mapAbsoluteTrigger(m map[string]any) (AbsoluteTrigger, error) {
+	trigger := AbsoluteTrigger{
+		Type: AbsoluteTriggerType,
+	}
+	if value, ok := m["when"]; ok {
+		if str, ok := value.(string); ok {
+			if w, err := time.Parse(time.RFC3339, str); err != nil {
+				trigger.When = w
+			} else {
+				return trigger, err
+			}
+		}
+	}
+	return trigger, nil
+}
 
 type Alert struct {
 	// This specifies the type of this object. This MUST be `Alert`.
