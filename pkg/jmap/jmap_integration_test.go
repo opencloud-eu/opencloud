@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"maps"
 	"math/rand"
 	"net"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -22,7 +24,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/jhillyerd/enmime/v2"
-	"github.com/stretchr/testify/require"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
@@ -35,7 +36,6 @@ import (
 	pw "github.com/sethvargo/go-password/password"
 
 	clog "github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/opencloud-eu/opencloud/pkg/structs"
 
 	"github.com/go-crypt/crypt/algorithm/shacrypt"
 )
@@ -414,6 +414,65 @@ type filledMail struct {
 	subject     string
 	testId      string
 	messageId   string
+	keywords    []string
+}
+
+var allKeywords = map[string]imap.Flag{
+	JmapKeywordAnswered:  imap.FlagAnswered,
+	JmapKeywordDraft:     imap.FlagDraft,
+	JmapKeywordFlagged:   imap.FlagFlagged,
+	JmapKeywordForwarded: imap.FlagForwarded,
+	JmapKeywordJunk:      imap.FlagJunk,
+	JmapKeywordMdnSent:   imap.FlagMDNSent,
+	JmapKeywordNotJunk:   imap.FlagNotJunk,
+	JmapKeywordPhishing:  imap.FlagPhishing,
+	JmapKeywordSeen:      imap.FlagSeen,
+}
+
+/*
+func pickOneRandomlyFromMap[K comparable, V any](m map[K]V) (K, V) {
+	l := rand.Intn(len(m))
+	i := 0
+	for k, v := range m {
+		if i == l {
+			return k, v
+		}
+		i++
+	}
+	panic("map is empty")
+}
+*/
+
+func pickRandomlyFromMap[K comparable, V any](m map[K]V, min int, max int) map[K]V {
+	if min < 0 || max < 0 {
+		panic("min and max must be >= 0")
+	}
+	l := len(m)
+	if min > l || max > l {
+		panic(fmt.Sprintf("min and max must be <= %d", l))
+	}
+	n := min + rand.Intn(max-min+1)
+	if n == l {
+		return m
+	}
+	// let's use a deep copy so we can remove elements as we pick them
+	c := make(map[K]V, l)
+	maps.Copy(c, m)
+	// r will hold the results
+	r := make(map[K]V, n)
+	for range n {
+		pick := rand.Intn(len(c))
+		j := 0
+		for k, v := range m {
+			if j == pick {
+				delete(c, k)
+				r[k] = v
+				break
+			}
+			j++
+		}
+	}
+	return r
 }
 
 func (s *StalwartTest) fill(folder string, count int) ([]filledMail, int, error) {
@@ -421,7 +480,6 @@ func (s *StalwartTest) fill(folder string, count int) ([]filledMail, int, error)
 	ccEvery := 2
 	bccEvery := 3
 	attachmentEvery := 2
-	seenEvery := 3
 	senders := max(count/4, 1)
 	maxThreadSize := 6
 	maxAttachments := 4
@@ -597,18 +655,24 @@ func (s *StalwartTest) fill(folder string, count int) ([]filledMail, int, error)
 
 			msg = format(text, msg)
 
+			flags := []imap.Flag{}
+			keywords := pickRandomlyFromMap(allKeywords, 0, len(allKeywords))
+			for _, f := range keywords {
+				flags = append(flags, f)
+			}
+
 			buf := new(bytes.Buffer)
 			part, _ := msg.Build()
 			part.Encode(buf)
 			mail := buf.String()
 
-			var flags *imap.AppendOptions = nil
-			if i%seenEvery == 0 {
-				flags = &imap.AppendOptions{Flags: []imap.Flag{imap.FlagSeen}}
+			var options *imap.AppendOptions = nil
+			if len(flags) > 0 {
+				options = &imap.AppendOptions{Flags: flags}
 			}
 
 			size := int64(len(mail))
-			appendCmd := c.Append(folder, size, flags)
+			appendCmd := c.Append(folder, size, options)
 			if _, err := appendCmd.Write([]byte(mail)); err != nil {
 				return nil, 0, err
 			}
@@ -629,6 +693,7 @@ func (s *StalwartTest) fill(folder string, count int) ([]filledMail, int, error)
 					attachments: attachments,
 					subject:     msg.GetSubject(),
 					messageId:   messageId,
+					keywords:    slices.Collect(maps.Keys(keywords)),
 				}
 			}
 
@@ -669,145 +734,4 @@ func (s *StalwartTest) fill(folder string, count int) ([]filledMail, int, error)
 	}
 
 	return mails, thread, nil
-}
-
-func TestEmails(t *testing.T) {
-	if skip(t) {
-		return
-	}
-
-	count := 25
-
-	require := require.New(t)
-
-	s, err := newStalwartTest(t)
-	require.NoError(err)
-	defer s.Close()
-
-	accountId := s.session.PrimaryAccounts.Mail
-
-	var inboxFolder string
-	var inboxId string
-	{
-		respByAccountId, sessionState, _, _, err := s.client.GetAllMailboxes([]string{accountId}, s.session, s.ctx, s.logger, "")
-		require.NoError(err)
-		require.Equal(s.session.State, sessionState)
-		require.Len(respByAccountId, 1)
-		require.Contains(respByAccountId, accountId)
-		resp := respByAccountId[accountId]
-
-		mailboxesNameByRole := map[string]string{}
-		mailboxesUnreadByRole := map[string]int{}
-		for _, m := range resp {
-			if m.Role != "" {
-				mailboxesNameByRole[m.Role] = m.Name
-				mailboxesUnreadByRole[m.Role] = m.UnreadEmails
-			}
-		}
-		require.Contains(mailboxesNameByRole, "inbox")
-		require.Contains(mailboxesUnreadByRole, "inbox")
-		require.Zero(mailboxesUnreadByRole["inbox"])
-
-		inboxId = mailboxId("inbox", resp)
-		require.NotEmpty(inboxId)
-		inboxFolder = mailboxesNameByRole["inbox"]
-		require.NotEmpty(inboxFolder)
-	}
-
-	var threads int = 0
-	var mails []filledMail = nil
-	{
-		mails, threads, err = s.fill(inboxFolder, count)
-		require.NoError(err)
-	}
-	mailsByMessageId := structs.Index(mails, func(mail filledMail) string { return mail.messageId })
-
-	{
-		{
-			resp, sessionState, _, _, err := s.client.GetAllIdentities(accountId, s.session, s.ctx, s.logger, "")
-			require.NoError(err)
-			require.Equal(s.session.State, sessionState)
-			require.Len(resp, 1)
-			require.Equal(s.userEmail, resp[0].Email)
-			require.Equal(s.userPersonName, resp[0].Name)
-		}
-
-		{
-			respByAccountId, sessionState, _, _, err := s.client.GetAllMailboxes([]string{accountId}, s.session, s.ctx, s.logger, "")
-			require.NoError(err)
-			require.Equal(s.session.State, sessionState)
-			require.Len(respByAccountId, 1)
-			require.Contains(respByAccountId, accountId)
-			resp := respByAccountId[accountId]
-			mailboxesUnreadByRole := map[string]int{}
-			for _, m := range resp {
-				if m.Role != "" {
-					mailboxesUnreadByRole[m.Role] = m.UnreadEmails
-				}
-			}
-			require.LessOrEqual(mailboxesUnreadByRole["inbox"], count)
-		}
-
-		{
-			resp, sessionState, _, _, err := s.client.GetAllEmailsInMailbox(accountId, s.session, s.ctx, s.logger, "", inboxId, 0, 0, true, false, 0, true)
-			require.NoError(err)
-			require.Equal(s.session.State, sessionState)
-
-			require.Equalf(threads, len(resp.Emails), "the number of collapsed emails in the inbox is expected to be %v, but is actually %v", threads, len(resp.Emails))
-			for _, e := range resp.Emails {
-				require.Len(e.MessageId, 1)
-				expectation, ok := mailsByMessageId[e.MessageId[0]]
-				require.True(ok)
-				require.Empty(e.BodyValues)
-				require.Equal(expectation.subject, e.Subject)
-				matchAttachments(t, e, expectation.attachments)
-				require.NotEmpty(e.Preview)
-			}
-		}
-
-		{
-			resp, sessionState, _, _, err := s.client.GetAllEmailsInMailbox(accountId, s.session, s.ctx, s.logger, "", inboxId, 0, 0, false, false, 0, true)
-			require.NoError(err)
-			require.Equal(s.session.State, sessionState)
-
-			require.Equalf(count, len(resp.Emails), "the number of emails in the inbox is expected to be %v, but is actually %v", count, len(resp.Emails))
-			for _, e := range resp.Emails {
-				require.Len(e.MessageId, 1)
-				expectation, ok := mailsByMessageId[e.MessageId[0]]
-				require.True(ok)
-				require.Empty(e.BodyValues)
-				require.Equal(expectation.subject, e.Subject)
-				matchAttachments(t, e, expectation.attachments)
-				require.NotEmpty(e.Preview)
-			}
-		}
-	}
-}
-
-func matchAttachments(t *testing.T, email Email, expected []filledAttachment) {
-	require := require.New(t)
-
-	list := make([]filledAttachment, len(expected))
-	copy(list, expected)
-
-	require.Len(email.Attachments, len(expected))
-	for _, a := range email.Attachments {
-		// find a match in 'expected'
-		found := false
-		for j, e := range list {
-			if a.Name == e.name {
-				found = true
-				// found a match, we are assuming that the filenames are unique
-				require.Equal(e.name, a.Name)
-				require.Equal(e.mimeType, a.Type)
-				require.Equal(e.size, a.Size)
-				require.Equal(e.disposition, a.Disposition)
-
-				list[j] = list[len(list)-1]
-				list = list[:len(list)-1]
-				break
-			}
-		}
-		require.True(found)
-	}
 }

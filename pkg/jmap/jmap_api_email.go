@@ -116,7 +116,7 @@ func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx c
 		AccountId:       accountId,
 		Filter:          &EmailFilterCondition{InMailbox: mailboxId},
 		Sort:            []EmailComparator{{Property: EmailPropertyReceivedAt, IsAscending: false}},
-		CollapseThreads: false,
+		CollapseThreads: collapseThreads,
 		CalculateTotal:  true,
 	}
 	if offset > 0 {
