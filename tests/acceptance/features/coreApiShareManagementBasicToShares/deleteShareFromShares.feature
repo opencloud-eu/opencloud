@@ -23,6 +23,7 @@ Feature: sharing
       | sharee          | grp1          |
       | shareType       | group         |
       | permissionsRole | File Editor   |
+    And user "Brian" has a share "textfile0.txt" synced
     And user "Brian" has moved file "/Shares/textfile0.txt" to "/Shares/anotherName.txt"
     When user "Alice" deletes the last share using the sharing API
     Then the OCS status code should be "<ocs-status-code>"
@@ -89,6 +90,7 @@ Feature: sharing
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
+    And user "Brian" has a share "shared" synced
     When user "Brian" deletes file "/Shares/shared/shared_file.txt" using the WebDAV API
     Then the HTTP status code should be "204"
     And as "Brian" file "/Shares/shared/shared_file.txt" should not exist
@@ -114,6 +116,7 @@ Feature: sharing
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
+    And user "Brian" has a share "shared" synced
     When user "Brian" deletes folder "/Shares/shared/sub" using the WebDAV API
     Then the HTTP status code should be "204"
     And as "Brian" folder "/Shares/shared/sub" should not exist
@@ -165,6 +168,7 @@ Feature: sharing
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Viewer   |
+    And user "Brian" has a share "shared" synced
     When user "Brian" deletes file "/Shares/shared/shared_file.txt" using the WebDAV API
     Then the HTTP status code should be "403"
     And as "Alice" file "/shared/shared_file.txt" should exist
@@ -187,6 +191,7 @@ Feature: sharing
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Uploader |
+    And user "Brian" has a share "shared" synced
     When user "Brian" deletes file "/Shares/shared/shared_file.txt" using the WebDAV API
     Then the HTTP status code should be "403"
     And as "Alice" file "/shared/shared_file.txt" should exist
@@ -208,6 +213,7 @@ Feature: sharing
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Uploader |
+    And user "Brian" has a share "shared" synced
     And user "Brian" has uploaded file "filesForUpload/textfile.txt" to "/Shares/shared/textfile.txt"
     When user "Brian" deletes file "/Shares/shared/textfile.txt" using the WebDAV API
     Then the HTTP status code should be "403"
@@ -220,7 +226,7 @@ Feature: sharing
       | spaces           |
 
 
-  Scenario Outline: group share recipient tries to delete the share
+Scenario Outline: group share recipient tries to delete the share
     Given using OCS API version "<ocs-api-version>"
     And group "grp1" has been created
     And these users have been created with default attributes:
@@ -237,6 +243,7 @@ Feature: sharing
       | sharee          | grp1              |
       | shareType       | group             |
       | permissionsRole | <permission-role> |
+    And user "Brian" has a share "<sync-entry>" synced
     When user "Brian" deletes the last share of user "Alice" using the sharing API
     Then the OCS status code should be "996"
     And the HTTP status code should be "<http-status-code>"
@@ -244,11 +251,11 @@ Feature: sharing
     And as "Brian" entry "<received-entry>" should exist
     And as "Carol" entry "<received-entry>" should exist
     Examples:
-      | entry-to-share          | permission-role | ocs-api-version | http-status-code | received-entry          |
-      | /shared/shared_file.txt | File Editor     | 1               | 200              | /Shares/shared_file.txt |
-      | /shared/shared_file.txt | File Editor     | 2               | 500              | /Shares/shared_file.txt |
-      | /shared                 | Editor          | 1               | 200              | /Shares/shared          |
-      | /shared                 | Editor          | 2               | 500              | /Shares/shared          |
+      | entry-to-share          | permission-role | ocs-api-version | http-status-code | received-entry          | sync-entry      |
+      | /shared/shared_file.txt | File Editor     | 1               | 200              | /Shares/shared_file.txt | shared_file.txt |
+      | /shared/shared_file.txt | File Editor     | 2               | 500              | /Shares/shared_file.txt | shared_file.txt |
+      | /shared                 | Editor          | 1               | 200              | /Shares/shared          | shared          |
+      | /shared                 | Editor          | 2               | 500              | /Shares/shared          | shared          |
 
 
   Scenario Outline: individual share recipient tries to delete the share
@@ -262,17 +269,18 @@ Feature: sharing
       | sharee          | Brian             |
       | shareType       | user              |
       | permissionsRole | <permission-role> |
+    And user "Brian" has a share "<sync-entry>" synced
     When user "Brian" deletes the last share of user "Alice" using the sharing API
     Then the OCS status code should be "996"
     And the HTTP status code should be "<http-status-code>"
     And as "Alice" entry "<entry-to-share>" should exist
     And as "Brian" entry "<received-entry>" should exist
     Examples:
-      | entry-to-share          | permission-role | ocs-api-version | http-status-code | received-entry          |
-      | /shared/shared_file.txt | File Editor     | 1               | 200              | /Shares/shared_file.txt |
-      | /shared/shared_file.txt | File Editor     | 2               | 500              | /Shares/shared_file.txt |
-      | /shared                 | Editor          | 1               | 200              | /Shares/shared          |
-      | /shared                 | Editor          | 2               | 500              | /Shares/shared          |
+      | entry-to-share          | permission-role | ocs-api-version | http-status-code | received-entry          | sync-entry      |
+      | /shared/shared_file.txt | File Editor     | 1               | 200              | /Shares/shared_file.txt | shared_file.txt |
+      | /shared/shared_file.txt | File Editor     | 2               | 500              | /Shares/shared_file.txt | shared_file.txt |
+      | /shared                 | Editor          | 1               | 200              | /Shares/shared          | shared          |
+      | /shared                 | Editor          | 2               | 500              | /Shares/shared          | shared          |
 
   @issue-720
   Scenario Outline: request PROPFIND after sharer deletes the collaborator
@@ -284,6 +292,7 @@ Feature: sharing
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | File Editor   |
+    And user "Brian" has a share "textfile0.txt" synced
     When user "Alice" deletes the last share using the sharing API
     Then the OCS status code should be "<ocs-status-code>"
     And the HTTP status code should be "200"
@@ -304,6 +313,7 @@ Feature: sharing
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | File Editor   |
+    And user "Brian" has a share "textfile0.txt" synced
     When user "Brian" tries to delete the last share of user "Alice" using the sharing API
     Then the HTTP status code should be "<http-status-code>"
     And the OCS status code should be "996"

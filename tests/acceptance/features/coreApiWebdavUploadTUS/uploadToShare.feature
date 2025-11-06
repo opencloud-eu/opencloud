@@ -290,6 +290,7 @@ Feature: upload file to shared folder
     And user "Alice" sends a chunk to the last created TUS Location with offset "5" and data "56789" with checksum "MD5 099ebea48ea9666a7da2177267983138" using the TUS protocol on the WebDAV API
     And user "Alice" shares file "textFile.txt" with user "Brian" using the sharing API
     Then the HTTP status code should be "200"
+    And user "Brian" has a share "textFile.txt" synced
     And the content of file "/Shares/textFile.txt" for user "Brian" should be "0123456789"
     Examples:
       | dav-path-version |

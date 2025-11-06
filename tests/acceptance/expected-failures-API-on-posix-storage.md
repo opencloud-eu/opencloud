@@ -116,8 +116,8 @@ _ocdav: api compatibility, return correct status code_
 - [coreApiWebdavUploadTUS/uploadToShare.feature:256](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavUploadTUS/uploadToShare.feature#L256)
 - [coreApiWebdavUploadTUS/uploadToShare.feature:279](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavUploadTUS/uploadToShare.feature#L279)
 - [coreApiWebdavUploadTUS/uploadToShare.feature:280](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavUploadTUS/uploadToShare.feature#L280)
-- [coreApiWebdavUploadTUS/uploadToShare.feature:375](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavUploadTUS/uploadToShare.feature#L375)
 - [coreApiWebdavUploadTUS/uploadToShare.feature:376](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavUploadTUS/uploadToShare.feature#L376)
+- [coreApiWebdavUploadTUS/uploadToShare.feature:377](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavUploadTUS/uploadToShare.feature#L377)
 
 #### [Renaming resource to banned name is allowed in spaces webdav](https://github.com/owncloud/ocis/issues/3099)
 
