@@ -204,7 +204,7 @@ const (
 	JmapKeywordFlagged   = "$flagged"
 	JmapKeywordAnswered  = "$answered"
 	JmapKeywordForwarded = "$forwarded"
-	JmapKeywordPhishing  = "$phising"
+	JmapKeywordPhishing  = "$phishing"
 	JmapKeywordJunk      = "$junk"
 	JmapKeywordNotJunk   = "$notjunk"
 	JmapKeywordMdnSent   = "$mdnsent"
