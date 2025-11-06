@@ -719,7 +719,7 @@ github.com/golang/protobuf/ptypes/empty
 # github.com/golang/snappy v0.0.4
 ## explicit
 github.com/golang/snappy
-# github.com/gomodule/redigo v1.9.2
+# github.com/gomodule/redigo v1.9.3
 ## explicit; go 1.17
 github.com/gomodule/redigo/redis
 # github.com/google/go-cmp v0.7.0
@@ -1341,7 +1341,7 @@ github.com/opencloud-eu/icap-client
 # github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76
 ## explicit; go 1.18
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v2 v2.39.2-0.20251030154544-cac8a0257da6
+# github.com/opencloud-eu/reva/v2 v2.39.2-0.20251030154544-cac8a0257da6 => /home/ralf/work/src/reva/
 ## explicit; go 1.24.1
 github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v2/cmd/revad/runtime
@@ -2672,3 +2672,4 @@ stash.kopano.io/kgol/rndm
 # github.com/unrolled/secure => github.com/DeepDiver1975/secure v0.0.0-20240611112133-abc838fb797c
 # go-micro.dev/v4 => github.com/butonic/go-micro/v4 v4.11.1-0.20241115112658-b5d4de5ed9b3
 # github.com/go-micro/plugins/v4/store/nats-js-kv => github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a
+# github.com/opencloud-eu/reva/v2 => /home/ralf/work/src/reva/

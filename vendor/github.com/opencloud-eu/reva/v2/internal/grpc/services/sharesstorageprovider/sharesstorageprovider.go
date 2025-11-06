@@ -581,6 +581,7 @@ func (s *service) Delete(ctx context.Context, req *provider.DeleteRequest) (*pro
 	appctx.GetLogger(ctx).Debug().
 		Interface("ref", req.Ref).
 		Interface("received_share", receivedShare).
+		Interface("status", rpcStatus).
 		Err(err).
 		Msg("sharesstorageprovider: Got Delete request")
 	if err != nil {
@@ -1036,6 +1037,7 @@ func (s *service) GetQuota(ctx context.Context, req *provider.GetQuotaRequest) (
 }
 
 func (s *service) resolveAcceptedShare(ctx context.Context, ref *provider.Reference) (*collaboration.ReceivedShare, *rpc.Status, error) {
+	logger := appctx.GetLogger(ctx)
 	// treat absolute id based references as relative ones
 	if ref.Path == "" {
 		ref.Path = "."
@@ -1070,9 +1072,17 @@ func (s *service) resolveAcceptedShare(ctx context.Context, ref *provider.Refere
 			return nil, nil, errors.Wrap(err, "sharesstorageprovider: error calling GetReceivedShare")
 		}
 		if lsRes.Status.Code != rpc.Code_CODE_OK {
+			logger.Debug().
+				Interface("ref", ref).
+				Interface("status", lsRes.Status).
+				Msg("sharesstorageprovider: GetReceivedShare returned non-OK status")
 			return nil, lsRes.Status, nil
 		}
 		if lsRes.Share.State != collaboration.ShareState_SHARE_STATE_ACCEPTED {
+			logger.Debug().
+				Interface("ref", ref).
+				Interface("Share State", lsRes.Share).
+				Msg("sharesstorageprovider: GetReceivedShare returned non-accepted share")
 			return nil, status.NewNotFound(ctx, "sharesstorageprovider: not found "+ref.String()), nil
 		}
 		return lsRes.Share, lsRes.Status, nil
@@ -1098,9 +1108,17 @@ func (s *service) resolveAcceptedShare(ctx context.Context, ref *provider.Refere
 			return nil, nil, errors.Wrap(err, "sharesstorageprovider: error calling GetReceivedShare")
 		}
 		if lsRes.Status.Code != rpc.Code_CODE_OK {
+			logger.Debug().
+				Interface("ref", ref).
+				Interface("status", lsRes.Status).
+				Msg("sharesstorageprovider: ListReceivedSharesRequest returned non-OK status")
 			return nil, lsRes.Status, nil
 		}
 		for _, receivedShare := range lsRes.Shares {
+			logger.Debug().
+				Interface("ref", ref).
+				Interface("share", receivedShare).
+				Msg("sharesstorageprovider: ListReceivedSharesRequest returned OK status")
 			if isMountPointForPath(receivedShare.MountPoint.Path, ref.Path) {
 				// Only return this share if the resource still exists.
 				gatewayClient, err := s.gatewaySelector.Next()
