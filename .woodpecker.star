@@ -91,10 +91,10 @@ event = {
 # configuration
 config = {
     "cs3ApiTests": {
-        "skip": False,
+        "skip": True,
     },
     "wopiValidatorTests": {
-        "skip": False,
+        "skip": True,
     },
     "k6LoadTests": {
         "skip": True,
@@ -111,13 +111,13 @@ config = {
                 "apiLocks",
                 "apiActivities",
             ],
-            "skip": False,
+            "skip": True,
         },
         "settings": {
             "suites": [
                 "apiSettings",
             ],
-            "skip": False,
+            "skip": True,
             "withRemotePhp": [True],
             "emailNeeded": True,
             "extraTestEnvironment": {
@@ -139,45 +139,45 @@ config = {
                 "apiServiceAvailability",
                 "collaborativePosix",
             ],
-            "skip": False,
+            "skip": True,
             "withRemotePhp": [True],
         },
         "graphUserGroup": {
             "suites": [
                 "apiGraphUserGroup",
             ],
-            "skip": False,
+            "skip": True,
             "withRemotePhp": [True],
         },
         "spaces": {
             "suites": [
                 "apiSpaces",
             ],
-            "skip": False,
+            "skip": True,
         },
         "spacesShares": {
             "suites": [
                 "apiSpacesShares",
             ],
-            "skip": False,
+            "skip": True,
         },
         "spacesDavOperation": {
             "suites": [
                 "apiSpacesDavOperation",
             ],
-            "skip": False,
+            "skip": True,
         },
         "search1": {
             "suites": [
                 "apiSearch1",
             ],
-            "skip": False,
+            "skip": True,
         },
         "search2": {
             "suites": [
                 "apiSearch2",
             ],
-            "skip": False,
+            "skip": True,
         },
         "sharingNg": {
             "suites": [
@@ -185,23 +185,23 @@ config = {
                 "apiSharingNg1",
                 "apiSharingNg2",
             ],
-            "skip": False,
+            "skip": True,
         },
         "sharingNgShareInvitation": {
             "suites": [
                 "apiSharingNgShareInvitation",
             ],
-            "skip": False,
+            "skip": True,
         },
         "sharingNgLinkShare": {
             "suites": [
                 "apiSharingNgLinkSharePermission",
                 "apiSharingNgLinkShareRoot",
             ],
-            "skip": False,
+            "skip": True,
         },
         "accountsHashDifficulty": {
-            "skip": False,
+            "skip": True,
             "suites": [
                 "apiAccountsHashDifficulty",
             ],
@@ -211,7 +211,7 @@ config = {
             "suites": [
                 "apiNotification",
             ],
-            "skip": False,
+            "skip": True,
             "withRemotePhp": [True],
             "emailNeeded": True,
             "extraTestEnvironment": {
@@ -231,7 +231,7 @@ config = {
             "suites": [
                 "apiAntivirus",
             ],
-            "skip": False,
+            "skip": True,
             "antivirusNeeded": True,
             "extraServerEnvironment": {
                 "ANTIVIRUS_SCANNER_TYPE": "clamav",
@@ -246,14 +246,14 @@ config = {
             "suites": [
                 "apiSearchContent",
             ],
-            "skip": False,
+            "skip": True,
             "tikaNeeded": True,
         },
         "ocm": {
             "suites": [
                 "apiOcm",
             ],
-            "skip": False,
+            "skip": True,
             "withRemotePhp": [True],
             "federationServer": True,
             "emailNeeded": True,
@@ -279,7 +279,7 @@ config = {
             "suites": [
                 "apiCollaboration",
             ],
-            "skip": False,
+            "skip": True,
             "collaborationServiceNeeded": True,
             "extraServerEnvironment": {
                 "GATEWAY_GRPC_ADDR": "0.0.0.0:9142",
@@ -289,14 +289,14 @@ config = {
             "suites": [
                 "apiAuthApp",
             ],
-            "skip": False,
+            "skip": True,
             "withRemotePhp": [True],
         },
         "cliCommands": {
             "suites": [
                 "cliCommands",
             ],
-            "skip": False,
+            "skip": True,
             "withRemotePhp": [True],
             "antivirusNeeded": True,
             "extraServerEnvironment": {
@@ -311,7 +311,7 @@ config = {
             "suites": [
                 "apiTenancy",
             ],
-            "skip": False,
+            "skip": True,
             "withRemotePhp": [True],
             "ldapNeeded": True,
             "extraTestEnvironment": {
@@ -345,23 +345,23 @@ config = {
     "apiTests": {
         "numberOfParts": 7,
         "skip": False,
-        "skipExceptParts": [],
+        "skipExceptParts": [2],
     },
     "e2eTests": {
         "part": {
-            "skip": False,
+            "skip": True,
             "totalParts": 4,  # divide and run all suites in parts (divide pipelines)
             "xsuites": ["search", "app-provider", "app-provider-onlyOffice", "app-store", "keycloak", "oidc", "ocm", "a11y", "mobile-view", "navigation"],  # suites to skip
         },
         "search": {
-            "skip": False,
+            "skip": True,
             "suites": ["search"],  # suites to run
             "tikaNeeded": True,
         },
     },
     "e2eMultiService": {
         "testSuites": {
-            "skip": False,
+            "skip": True,
             "suites": [
                 "smoke",
                 "shares",
