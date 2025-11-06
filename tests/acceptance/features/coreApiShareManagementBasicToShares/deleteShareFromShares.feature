@@ -226,7 +226,7 @@ Feature: sharing
       | spaces           |
 
 
-Scenario Outline: group share recipient tries to delete the share
+  Scenario Outline: group share recipient tries to delete the share
     Given using OCS API version "<ocs-api-version>"
     And group "grp1" has been created
     And these users have been created with default attributes:
