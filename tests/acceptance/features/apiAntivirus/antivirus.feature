@@ -37,11 +37,11 @@ Feature: antivirus
     And as "Alice" file "<new-file-name>" should not exist
     Examples:
       | dav-path-version | file-name     | new-file-name  | message                                                                         |
-      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Eicar-Signature      |
+      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
       | old              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Eicar-Signature      |
+      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
       | new              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Eicar-Signature      |
+      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
       | spaces           | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
 
 
@@ -65,11 +65,11 @@ Feature: antivirus
       """
     Examples:
       | dav-path-version | file-name     | new-file-name  | message                                                                         |
-      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Eicar-Signature      |
+      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
       | old              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Eicar-Signature      |
+      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
       | new              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Eicar-Signature      |
+      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
       | spaces           | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
 
 
@@ -111,11 +111,11 @@ Feature: antivirus
     And as "Alice" file "/uploadFolder/<new-file-name>" should not exist
     Examples:
       | dav-path-version | file-name     | new-file-name  | message                                                                         |
-      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Eicar-Signature      |
+      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
       | old              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Eicar-Signature      |
+      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
       | new              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Eicar-Signature      |
+      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
       | spaces           | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
 
   @issue-10331
@@ -137,11 +137,11 @@ Feature: antivirus
     And as "Alice" file "/uploadFolder/<new-file-name>" should not exist
     Examples:
       | dav-path-version | file-name     | new-file-name  | message                                                                         |
-      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Eicar-Signature      |
+      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
       | old              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Eicar-Signature      |
+      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
       | new              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Eicar-Signature      |
+      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
       | spaces           | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
 
 
@@ -165,11 +165,11 @@ Feature: antivirus
     And as "Alice" file "/uploadFolder/<new-file-name>" should not exist
     Examples:
       | dav-path-version | file-name     | new-file-name  | message                                                                         |
-      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Eicar-Signature      |
+      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
       | old              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Eicar-Signature      |
+      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
       | new              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Eicar-Signature      |
+      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
       | spaces           | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
 
 
@@ -195,11 +195,11 @@ Feature: antivirus
     And as "Alice" file "/uploadFolder/<new-file-name>" should not exist
     Examples:
       | dav-path-version | file-name     | new-file-name  | message                                                                         |
-      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Eicar-Signature      |
+      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
       | old              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Eicar-Signature      |
+      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
       | new              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Eicar-Signature      |
+      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
       | spaces           | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
 
 
@@ -224,7 +224,7 @@ Feature: antivirus
       | /<new-file-name> |
     Examples:
       | file-name     | new-file-name  | message                                                                         |
-      | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Eicar-Signature      |
+      | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
       | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
 
 
@@ -249,7 +249,7 @@ Feature: antivirus
       | /<new-file-name> |
     Examples:
       | file-name     | new-file-name  | message                                                                         |
-      | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Eicar-Signature      |
+      | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
       | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
 
   @env-config  @issue-6494
@@ -273,7 +273,7 @@ Feature: antivirus
     Then the HTTP status code should be "201"
     And user "Alice" should get a notification with subject "Virus found" and message:
       | message                                                                             |
-      | Virus found in aFileWithVirus.txt. Upload not possible. Virus: Eicar-Signature |
+      | Virus found in aFileWithVirus.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
     And as "Alice" file "/aFileWithVirus.txt" should not exist
     Examples:
       | dav-path-version |
@@ -305,13 +305,13 @@ Feature: antivirus
       | <message> |
     And as "Alice" file "/aFileWithVirus.txt" should not exist
     Examples:
-      | dav-path-version | language | subject          | message                                                                                                                   |
-      | old              | es       | Virus encontrado | Virus encontrado en aFileWithVirus.txt. La subida no ha sido posible. Virus: Eicar-Signature                              |
-      | new              | es       | Virus encontrado | Virus encontrado en aFileWithVirus.txt. La subida no ha sido posible. Virus: Eicar-Signature                              |
-      | spaces           | es       | Virus encontrado | Virus encontrado en aFileWithVirus.txt. La subida no ha sido posible. Virus: Eicar-Signature                                     |
-      | old              | de       | Virus gefunden   | In aFileWithVirus.txt wurde potenziell schädlicher Code gefunden. Das Hochladen wurde abgebrochen. Grund: Eicar-Signature |
-      | new              | de       | Virus gefunden   | In aFileWithVirus.txt wurde potenziell schädlicher Code gefunden. Das Hochladen wurde abgebrochen. Grund: Eicar-Signature |
-      | spaces           | de       | Virus gefunden   | In aFileWithVirus.txt wurde potenziell schädlicher Code gefunden. Das Hochladen wurde abgebrochen. Grund: Eicar-Signature |
+      | dav-path-version | language | subject          | message                                                                                                                        |
+      | old              | es       | Virus encontrado | Virus encontrado en aFileWithVirus.txt. La subida no ha sido posible. Virus: Win.Test.EICAR_HDB-1                              |
+      | new              | es       | Virus encontrado | Virus encontrado en aFileWithVirus.txt. La subida no ha sido posible. Virus: Win.Test.EICAR_HDB-1                              |
+      | spaces           | es       | Virus encontrado | Virus encontrado en aFileWithVirus.txt. La subida no ha sido posible. Virus: Win.Test.EICAR_HDB-1                              |
+      | old              | de       | Virus gefunden   | In aFileWithVirus.txt wurde potenziell schädlicher Code gefunden. Das Hochladen wurde abgebrochen. Grund: Win.Test.EICAR_HDB-1 |
+      | new              | de       | Virus gefunden   | In aFileWithVirus.txt wurde potenziell schädlicher Code gefunden. Das Hochladen wurde abgebrochen. Grund: Win.Test.EICAR_HDB-1 |
+      | spaces           | de       | Virus gefunden   | In aFileWithVirus.txt wurde potenziell schädlicher Code gefunden. Das Hochladen wurde abgebrochen. Grund: Win.Test.EICAR_HDB-1 |
 
   @issue-enterprise-5709
   Scenario Outline: try to create a version of file by uploading virus content
@@ -477,7 +477,7 @@ Feature: antivirus
     When user "Brian" uploads a file "filesForUpload/filesWithVirus/eicar.com" to "text.txt" in space "new-space" using the WebDAV API
     Then the HTTP status code should be "204"
     And user "Brian" should get a notification with subject "Virus found" and message:
-      | message                                                              |
-      | Virus found in text.txt. Upload not possible. Virus: Eicar-Signature |
+      | message                                                                   |
+      | Virus found in text.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
     And for user "Brian" the content of the file "/text.txt" of the space "new-space" should be "hello world"
     And for user "Alice" the content of the file "/text.txt" of the space "new-space" should be "hello world"
