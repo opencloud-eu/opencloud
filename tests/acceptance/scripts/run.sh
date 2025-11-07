@@ -11,7 +11,7 @@ echo 'Script path: '${SCRIPT_PATH}
 # This gives flexibility for callers that have installed their own behat
 if [ -z "${BEHAT_BIN}" ]
 then
-	BEHAT=${SCRIPT_PATH}/../../vendor-bin/behat/vendor/bin/behat
+	BEHAT=${SCRIPT_PATH}/../../../vendor-bin/behat/vendor/bin/behat
 else
 	BEHAT=${BEHAT_BIN}
 fi

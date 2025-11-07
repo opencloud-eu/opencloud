@@ -38,6 +38,7 @@ vendor-php
 # API acceptance tests - auto-generated files
 .php-cs-fixer.cache
 suite-logs
+tests/acceptance/filesForUpload/filesWithVirus/
 
 # QA activity reports
 tests/qa-activity-report/reports/

@@ -124,7 +124,7 @@ BEHAT_BIN=vendor-bin/behat/vendor/bin/behat
 
 .PHONY: test-acceptance-api
 test-acceptance-api: vendor-bin/behat/vendor
-	BEHAT_BIN=$(BEHAT_BIN) tests/acceptance/run.sh
+	BEHAT_BIN=$(BEHAT_BIN) tests/acceptance/scripts/run.sh
 
 vendor/bamarni/composer-bin-plugin: composer.lock
 	composer install
