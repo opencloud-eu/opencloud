@@ -15,5 +15,5 @@ cd "$TARGET_DIR"
 echo "Downloading eicar.com..."
 curl -s -o eicar.com https://secure.eicar.org/eicar.com
 
-echo "Creating eicar_com.zip..."
-zip -q eicar_com.zip eicar.com
+echo "Downloading eicar_com.zip..."
+curl -s -o eicar_com.zip https://secure.eicar.org/eicar_com.zip
