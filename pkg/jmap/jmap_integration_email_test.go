@@ -58,7 +58,7 @@ func TestEmails(t *testing.T) {
 	var threads int = 0
 	var mails []filledMail = nil
 	{
-		mails, threads, err = s.fill(inboxFolder, count)
+		mails, threads, err = s.fillEmailsWithImap(inboxFolder, count)
 		require.NoError(err)
 	}
 	mailsByMessageId := structs.Index(mails, func(mail filledMail) string { return mail.messageId })
@@ -119,11 +119,11 @@ func TestEmails(t *testing.T) {
 	}
 }
 
-func matchEmail(t *testing.T, actual Email, e filledMail, hasBodies bool) {
+func matchEmail(t *testing.T, actual Email, expected filledMail, hasBodies bool) {
 	require := require.New(t)
 	require.Len(actual.MessageId, 1)
-	require.Equal(e.messageId, actual.MessageId[0])
-	require.Equal(e.subject, actual.Subject)
+	require.Equal(expected.messageId, actual.MessageId[0])
+	require.Equal(expected.subject, actual.Subject)
 	require.NotEmpty(actual.Preview)
 	if hasBodies {
 		require.Len(actual.TextBody, 1)
@@ -135,7 +135,7 @@ func matchEmail(t *testing.T, actual Email, e filledMail, hasBodies bool) {
 	} else {
 		require.Empty(actual.BodyValues)
 	}
-	require.ElementsMatch(slices.Collect(maps.Keys(actual.Keywords)), e.keywords)
+	require.ElementsMatch(slices.Collect(maps.Keys(actual.Keywords)), expected.keywords)
 
 	{
 		list := make([]filledAttachment, len(actual.Attachments))
@@ -150,6 +150,6 @@ func matchEmail(t *testing.T, actual Email, e filledMail, hasBodies bool) {
 			require.NotEmpty(a.PartId)
 		}
 
-		require.ElementsMatch(list, e.attachments)
+		require.ElementsMatch(list, expected.attachments)
 	}
 }
