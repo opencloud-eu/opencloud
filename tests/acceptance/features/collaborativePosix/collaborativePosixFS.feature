@@ -78,6 +78,21 @@ Feature: create a resources using collaborative posixfs
     And the content of file "/new-name.txt" for user "Alice" should be "content"
 
 
+  Scenario: check propfind after rename file
+    Given user "Alice" has uploaded file with content "content" to "test.txt"
+    When the administrator renames the file "test.txt" to "new-name.txt" for user "Alice" on the POSIX filesystem
+    Then the command should be successful
+    When user "Alice" sends PROPFIND request to space "Personal" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And as user "Alice" the PROPFIND response should contain a resource "new-name.txt" with these key and value pairs:
+      | key            | value                     |
+      | oc:fileid      | %file_id_pattern%         |
+      | oc:name        | new-name.txt              |
+      | oc:permissions | RDNVWZP                   |
+      | oc:privatelink | %base_url%/f/[0-9a-z-$%]+ |
+      | oc:size        | 7                         |
+
+
   Scenario: rename a created file
     Given the administrator has created the file "test.txt" with content "content" for user "Alice" on the POSIX filesystem
     When the administrator renames the file "test.txt" to "test.md" for user "Alice" on the POSIX filesystem
