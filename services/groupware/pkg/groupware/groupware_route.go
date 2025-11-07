@@ -148,6 +148,7 @@ func (g *Groupware) Route(r chi.Router) {
 			r.Route("/contacts", func(r chi.Router) {
 				r.Post("/", g.CreateContact)
 				r.Delete("/{contactid}", g.DeleteContact)
+				r.Get("/{contactid}", g.GetContactById)
 			})
 			r.Route("/calendars", func(r chi.Router) {
 				r.Get("/", g.GetCalendars)

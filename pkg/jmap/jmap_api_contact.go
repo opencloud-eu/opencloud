@@ -37,6 +37,32 @@ func (j *Client) GetAddressbooks(accountId string, session *Session, ctx context
 	})
 }
 
+func (j *Client) GetContactCardsById(accountId string, session *Session, ctx context.Context, logger *log.Logger,
+	acceptLanguage string, contactIds []string) (map[string]jscontact.ContactCard, SessionState, State, Language, Error) {
+	logger = j.logger("GetContactCardsById", session, logger)
+
+	cmd, err := j.request(session, logger, invocation(CommandContactCardGet, ContactCardGetCommand{
+		Ids:       contactIds,
+		AccountId: accountId,
+	}, "0"))
+	if err != nil {
+		return nil, "", "", "", err
+	}
+
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]jscontact.ContactCard, State, Error) {
+		var response ContactCardGetResponse
+		err = retrieveResponseMatchParameters(logger, body, CommandContactCardGet, "0", &response)
+		if err != nil {
+			return nil, "", err
+		}
+		m := map[string]jscontact.ContactCard{}
+		for _, contact := range response.List {
+			m[contact.Id] = contact
+		}
+		return m, response.State, nil
+	})
+}
+
 func (j *Client) QueryContactCards(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string,
 	filter ContactCardFilterElement, sortBy []ContactCardComparator,
 	position uint, limit uint) (map[string][]jscontact.ContactCard, SessionState, State, Language, Error) {

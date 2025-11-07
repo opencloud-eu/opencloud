@@ -148,6 +148,32 @@ func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Requ
 	})
 }
 
+func (g *Groupware) GetContactById(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		ok, accountId, resp := req.needContactWithAccount()
+		if !ok {
+			return resp
+		}
+
+		l := req.logger.With()
+
+		contactId := chi.URLParam(r, UriParamContactId)
+		l = l.Str(UriParamContactId, log.SafeString(contactId))
+
+		logger := log.From(l)
+		contactsById, sessionState, state, lang, jerr := g.jmap.GetContactCardsById(accountId, req.session, req.ctx, logger, req.language(), []string{contactId})
+		if jerr != nil {
+			return req.errorResponseFromJmap(jerr)
+		}
+
+		if contact, ok := contactsById[contactId]; ok {
+			return etagResponse(contact, sessionState, state, lang)
+		} else {
+			return notFoundResponse(sessionState)
+		}
+	})
+}
+
 func (g *Groupware) CreateContact(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := req.needContactWithAccount()
