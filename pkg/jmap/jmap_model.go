@@ -918,8 +918,10 @@ type SessionPrimaryAccounts struct {
 	Quota            string `json:"urn:ietf:params:jmap:quota,omitempty"`
 	Websocket        string `json:"urn:ietf:params:jmap:websocket,omitempty"`
 	Task             string `json:"urn:ietf:params:jmap:task,omitempty"`
-	Calendar         string `json:"urn:ietf:params:jmap:calendar,omitempty"`
-	Contact          string `json:"urn:ietf:params:jmap:contact,omitempty"`
+	Calendars        string `json:"urn:ietf:params:jmap:calendars,omitempty"`
+	CalendarsParse   string `json:"urn:ietf:params:jmap:calendars:parse,omitempty"`
+	Contacts         string `json:"urn:ietf:params:jmap:contacts,omitempty"`
+	ContactsParse    string `json:"urn:ietf:params:jmap:contacts:parse,omitempty"`
 }
 
 type SessionState string

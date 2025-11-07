@@ -55,16 +55,48 @@ func Index[K comparable, V any](source []V, indexer func(V) K) map[K]V {
 	return result
 }
 
-func Map[E any, R any](source []E, indexer func(E) R) []R {
+func Map[E any, R any](source []E, mapper func(E) R) []R {
 	if source == nil {
 		var zero []R
 		return zero
 	}
 	result := make([]R, len(source))
 	for i, e := range source {
-		result[i] = indexer(e)
+		result[i] = mapper(e)
 	}
 	return result
+}
+
+func MapValues[K comparable, S any, T any](m map[K]S, mapper func(S) T) map[K]T {
+	r := make(map[K]T, len(m))
+	for k, s := range m {
+		r[k] = mapper(s)
+	}
+	return r
+}
+
+func MapValues2[K comparable, S any, T any](m map[K]S, mapper func(K, S) T) map[K]T {
+	r := make(map[K]T, len(m))
+	for k, s := range m {
+		r[k] = mapper(k, s)
+	}
+	return r
+}
+
+func MapKeys[S comparable, T comparable, V any](m map[S]V, mapper func(S) T) map[T]V {
+	r := make(map[T]V, len(m))
+	for s, v := range m {
+		r[mapper(s)] = v
+	}
+	return r
+}
+
+func MapKeys2[S comparable, T comparable, V any](m map[S]V, mapper func(S, V) T) map[T]V {
+	r := make(map[T]V, len(m))
+	for s, v := range m {
+		r[mapper(s, v)] = v
+	}
+	return r
 }
 
 func ToBoolMap[E comparable](source []E) map[E]bool {
