@@ -38,7 +38,7 @@ For the time being, the configuration which user related events are of interest 
 
 ## Retrieving
 
-The `userlog` service provides an API to retrieve configured events. For now, this API is mostly following the [oc10 notification GET API](https://docs.opencloud.eu/server/next/developer_manual/core/apis/ocs-notification-endpoint-v1.html#get-user-notifications).
+The `userlog` service provides an API to retrieve configured events. For now, this API is mostly following the [oc10 notification GET API](https://doc.owncloud.com/server/next/developer_manual/core/apis/ocs-notification-endpoint-v1.html#get-user-notifications).
 
 ## Posting
 

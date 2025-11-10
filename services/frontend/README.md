@@ -42,7 +42,7 @@ While the frontend service does not persist any data, it does cache information 
 
 A lot of user management is made via the standardized libregraph API. Depending on how the system is configured, there might be some user attributes that an OpenCloud instance admin can't change because of properties coming from an external LDAP server, or similar. This can be the case when the OpenCloud admin is not the LDAP admin. To ease life for admins, there are hints as capabilites telling the frontend which attributes are read-only to enable a different optical representation like being grayed out. To configure these hints, use the environment variable `FRONTEND_READONLY_USER_ATTRIBUTES`, which takes a comma separated list of attributes, see the envvar for supported values.
 
-You can find more details regarding available attributes at the [libre-graph-api openapi-spec](https://github.com/owncloud/libre-graph-api/blob/main/api/openapi-spec/v1.0.yaml) and on [docs.opencloud.eu](https://docs.opencloud.eu/libre-graph-api/).
+You can find more details regarding available attributes at the [libre-graph-api openapi-spec](https://github.com/opencloud-eu/libre-graph-api/blob/main/api/openapi-spec/v1.0.yaml) and on [docs.opencloud.eu](https://docs.opencloud.eu/swagger/libre-graph-api/).
 
 ## Caching
 
