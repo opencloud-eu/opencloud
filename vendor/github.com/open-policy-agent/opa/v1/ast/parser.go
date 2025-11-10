@@ -1056,7 +1056,7 @@ func (p *Parser) parseHead(defaultRule bool) (*Head, bool) {
 		return nil, false
 	}
 
-	ref := p.parseTermFinish(term, true)
+	ref := p.parseHeadFinish(term, true)
 	if ref == nil {
 		p.illegal("expected rule head name")
 		return nil, false
@@ -1778,6 +1778,35 @@ func (p *Parser) parseTermFinish(head *Term, skipws bool) *Term {
 	}
 }
 
+func (p *Parser) parseHeadFinish(head *Term, skipws bool) *Term {
+	if head == nil {
+		return nil
+	}
+	offset := p.s.loc.Offset
+	p.doScan(false)
+
+	switch p.s.tok {
+	case tokens.Add, tokens.Sub, tokens.Mul, tokens.Quo, tokens.Rem,
+		tokens.And, tokens.Or,
+		tokens.Equal, tokens.Neq, tokens.Gt, tokens.Gte, tokens.Lt, tokens.Lte:
+		p.illegalToken()
+	case tokens.Whitespace:
+		p.doScan(skipws)
+	}
+
+	switch p.s.tok {
+	case tokens.LParen, tokens.Dot, tokens.LBrack:
+		return p.parseRef(head, offset)
+	case tokens.Whitespace:
+		p.scan()
+	}
+
+	if _, ok := head.Value.(Var); ok && RootDocumentNames.Contains(head) {
+		return RefTerm(head).SetLocation(head.Location)
+	}
+	return head
+}
+
 func (p *Parser) parseNumber() *Term {
 	var prefix string
 	loc := p.s.Loc()
@@ -1853,13 +1882,11 @@ func (p *Parser) parseString() *Term {
 		}
 
 		var s string
-		err := json.Unmarshal([]byte(p.s.lit), &s)
-		if err != nil {
+		if err := json.Unmarshal([]byte(p.s.lit), &s); err != nil {
 			p.errorf(p.s.Loc(), "illegal string literal: %s", p.s.lit)
 			return nil
 		}
-		term := StringTerm(s).SetLocation(p.s.Loc())
-		return term
+		return StringTerm(s).SetLocation(p.s.Loc())
 	}
 	return p.parseRawString()
 }
@@ -1868,8 +1895,7 @@ func (p *Parser) parseRawString() *Term {
 	if len(p.s.lit) < 2 {
 		return nil
 	}
-	term := StringTerm(p.s.lit[1 : len(p.s.lit)-1]).SetLocation(p.s.Loc())
-	return term
+	return StringTerm(p.s.lit[1 : len(p.s.lit)-1]).SetLocation(p.s.Loc())
 }
 
 // this is the name to use for instantiating an empty set, e.g., `set()`.
