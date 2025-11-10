@@ -103,8 +103,8 @@ func getMemoryLimitV2(chs []cgroupHierarchy, mis []mountInfo) (uint64, error) {
 		return 0, err
 	}
 
-	// retrieve the memory limit from the memory.max file
-	return readMemoryLimitV2FromPath(filepath.Join(cgroupPath, "memory.max"))
+	// retrieve the memory limit from the memory.max recursively.
+	return walkCgroupV2Hierarchy(cgroupPath, mountPoint)
 }
 
 // readMemoryLimitV2FromPath reads the memory limit for cgroup v2 from the given path.
@@ -129,6 +129,39 @@ func readMemoryLimitV2FromPath(path string) (uint64, error) {
 	}
 
 	return limit, nil
+}
+
+// walkCgroupV2Hierarchy walks up the cgroup v2 hierarchy to find the most restrictive memory limit.
+func walkCgroupV2Hierarchy(cgroupPath, mountPoint string) (uint64, error) {
+	var (
+		found              = false
+		minLimit    uint64 = math.MaxUint64
+		currentPath        = cgroupPath
+	)
+	for {
+		limit, err := readMemoryLimitV2FromPath(filepath.Join(currentPath, "memory.max"))
+		if err != nil && !errors.Is(err, ErrNoLimit) {
+			return 0, err
+		} else if err == nil {
+			found = true
+			minLimit = min(minLimit, limit)
+		}
+
+		if currentPath == mountPoint {
+			break
+		}
+
+		parent := filepath.Dir(currentPath)
+		if parent == currentPath {
+			break
+		}
+		currentPath = parent
+	}
+	if !found {
+		return 0, ErrNoLimit
+	}
+
+	return minLimit, nil
 }
 
 // getMemoryLimitV1 retrieves the memory limit from the cgroup v1 controller.
