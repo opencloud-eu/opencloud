@@ -189,7 +189,7 @@ func (p SyncPropagator) propagateItem(ctx context.Context, n *node.Node, sTime t
 			// a negative new treesize. Something must have gone wrong with the accounting.
 			// Reset the current treesize to 0.
 			log.Error().Uint64("treeSize", treeSize).Int64("sizeDiff", sizeDiff).
-				Msg("Error when updating treesize of parent node. Updated treesize < 0. Resetting to 0")
+				Msg("Error when updating treesize of parent node. Updated treesize < 0. Reestting to 0")
 			newSize = 0
 		default:
 			newSize = treeSize - uint64(-sizeDiff)
