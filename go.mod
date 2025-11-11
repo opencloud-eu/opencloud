@@ -34,7 +34,6 @@ require (
 	github.com/go-micro/plugins/v4/wrapper/monitoring/prometheus v1.2.0
 	github.com/go-micro/plugins/v4/wrapper/trace/opentelemetry v1.2.0
 	github.com/go-playground/validator/v10 v10.28.0
-	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/golang/protobuf v1.5.4
 	github.com/google/go-cmp v0.7.0
@@ -230,6 +229,7 @@ require (
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/goccy/go-yaml v1.18.0 // indirect
 	github.com/gofrs/flock v0.13.0 // indirect
+	github.com/gofrs/uuid v4.4.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect

@@ -3,7 +3,7 @@ package store
 import (
 	"testing"
 
-	"github.com/gofrs/uuid"
+	"github.com/google/uuid"
 	settingsmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
 	"github.com/stretchr/testify/require"
 )
@@ -102,7 +102,7 @@ var bundleScenarios = []struct {
 }
 
 var (
-	appendTestBundleID = uuid.Must(uuid.NewV4()).String()
+	appendTestBundleID = uuid.NewString()
 
 	appendTestSetting1 = &settingsmsg.Setting{
 		Id:          "append-test-setting-1",

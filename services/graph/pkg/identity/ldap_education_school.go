@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-ldap/ldap/v3"
-	"github.com/gofrs/uuid"
+	"github.com/google/uuid"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
@@ -148,7 +148,7 @@ func (i *LDAP) CreateEducationSchool(ctx context.Context, school libregraph.Educ
 		ar.Attribute(i.educationConfig.schoolAttributeMap.schoolNumber, []string{school.GetSchoolNumber()})
 	}
 	if !i.useServerUUID {
-		ar.Attribute(i.educationConfig.schoolAttributeMap.id, []string{uuid.Must(uuid.NewV4()).String()})
+		ar.Attribute(i.educationConfig.schoolAttributeMap.id, []string{uuid.NewString()})
 	}
 	objectClasses := []string{"organizationalUnit", i.educationConfig.schoolObjectClass, "top"}
 	ar.Attribute("objectClass", objectClasses)

@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/gofrs/uuid"
+	"github.com/google/uuid"
 	settingsmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/settings/pkg/settings"
 	"github.com/opencloud-eu/opencloud/services/settings/pkg/store/defaults"
@@ -20,7 +20,7 @@ func (s *Store) ListRoleAssignments(accountUUID string) ([]*settingsmsg.UserRole
 		if accountUUID == serviceAccountID {
 			return []*settingsmsg.UserRoleAssignment{
 				{
-					Id:          uuid.Must(uuid.NewV4()).String(), // should we hardcode this id too?
+					Id:          uuid.NewString(), // should we hardcode this id too?
 					AccountUuid: accountUUID,
 					RoleId:      defaults.BundleUUIDServiceAccount,
 				},
@@ -136,7 +136,7 @@ func (s *Store) WriteRoleAssignment(accountUUID, roleID string) (*settingsmsg.Us
 	}
 
 	ass := &settingsmsg.UserRoleAssignment{
-		Id:          uuid.Must(uuid.NewV4()).String(),
+		Id:          uuid.NewString(),
 		AccountUuid: accountUUID,
 		RoleId:      roleID,
 	}

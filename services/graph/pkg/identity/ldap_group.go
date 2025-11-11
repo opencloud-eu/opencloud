@@ -10,7 +10,7 @@ import (
 
 	"github.com/CiscoM31/godata"
 	"github.com/go-ldap/ldap/v3"
-	"github.com/gofrs/uuid"
+	"github.com/google/uuid"
 	"github.com/libregraph/idm/pkg/ldapdn"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 
@@ -448,7 +448,7 @@ func (i *LDAP) groupToLDAPAttrValues(group libregraph.Group) (map[string][]strin
 	}
 
 	if !i.useServerUUID {
-		attrs["openCloudUUID"] = []string{uuid.Must(uuid.NewV4()).String()}
+		attrs["openCloudUUID"] = []string{uuid.NewString()}
 		attrs["objectClass"] = append(attrs["objectClass"], "openCloudObject")
 	}
 	return attrs, nil

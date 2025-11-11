@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/gofrs/uuid"
+	"github.com/google/uuid"
 	settingsmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/settings/pkg/settings"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
@@ -127,7 +127,7 @@ func (s *Store) WriteValue(value *settingsmsg.Value) (*settingsmsg.Value, error)
 	ctx := context.TODO()
 
 	if value.Id == "" {
-		value.Id = uuid.Must(uuid.NewV4()).String()
+		value.Id = uuid.NewString()
 	}
 	b, err := json.Marshal(value)
 	if err != nil {
