@@ -67,13 +67,13 @@ The `auth-app` service provides an API to create (POST), list (GET) and delete (
   ```
   [
     {
-      "token": "$2a$11$EyudDGAJ18bBf5NG6PL9Ru9gygZAu0oPyLawdieNjGozcbXyyuUhG",
+      "token": "$2a$10$XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
       "expiration_date": "2024-08-08T13:44:31.025199075+02:00",
       "created_date": "2024-08-07T13:44:31+02:00",
       "label": "Generated via Impersonation API"
     },
     {
-      "token": "$2a$11$dfRBQrxRMPg8fvyvkFwaX.IPoIUiokvhzK.YNI/pCafk0us3MyPzy",
+      "token": "$2a$10$XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
       "expiration_date": "2024-08-08T13:46:41.936052281+02:00",
       "created_date": "2024-08-07T13:46:42+02:00",
       "label": "Generated via Impersonation API"
