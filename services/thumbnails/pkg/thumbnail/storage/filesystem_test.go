@@ -2,6 +2,7 @@ package storage_test
 
 import (
 	"image"
+	"path/filepath"
 	"testing"
 
 	tAssert "github.com/stretchr/testify/assert"
@@ -58,7 +59,9 @@ func TestFileSystem_BuildKey(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run("", func(t *testing.T) {
-			assert.Equal(s.BuildKey(tt.r), tt.want)
+			// normalize expected path to OS-specific separators
+			want := filepath.FromSlash(tt.want)
+			assert.Equal(want, s.BuildKey(tt.r))
 		})
 	}
 

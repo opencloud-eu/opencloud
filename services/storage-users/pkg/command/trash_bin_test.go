@@ -1,6 +1,7 @@
 package command
 
 import (
+	"path/filepath"
 	"testing"
 )
 
@@ -57,8 +58,10 @@ func Test_modifyFilename(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := modifyFilename(tt.args.filename, tt.args.mod); got != tt.want {
-				t.Errorf("modifyFilename() = %v, want %v", got, tt.want)
+			got := modifyFilename(tt.args.filename, tt.args.mod)
+			want := filepath.FromSlash(tt.want)
+			if got != want {
+				t.Errorf("modifyFilename() = %v, want %v", got, want)
 			}
 		})
 	}
