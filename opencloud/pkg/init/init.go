@@ -5,7 +5,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/gofrs/uuid"
+	"github.com/google/uuid"
 	"gopkg.in/yaml.v2"
 
 	"github.com/opencloud-eu/opencloud/pkg/generators"
@@ -103,11 +103,11 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 			}
 		}
 	} else {
-		systemUserID = uuid.Must(uuid.NewV4()).String()
-		adminUserID = uuid.Must(uuid.NewV4()).String()
-		graphApplicationID = uuid.Must(uuid.NewV4()).String()
-		storageUsersMountID = uuid.Must(uuid.NewV4()).String()
-		serviceAccountID = uuid.Must(uuid.NewV4()).String()
+		systemUserID = uuid.NewString()
+		adminUserID = uuid.NewString()
+		graphApplicationID = uuid.NewString()
+		storageUsersMountID = uuid.NewString()
+		serviceAccountID = uuid.NewString()
 
 		idmServicePassword, err = generators.GenerateRandomPassword(passwordLength)
 		if err != nil {

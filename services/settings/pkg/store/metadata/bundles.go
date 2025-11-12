@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/gofrs/uuid"
+	"github.com/google/uuid"
 	settingsmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/settings/pkg/settings"
 	"github.com/opencloud-eu/opencloud/services/settings/pkg/store/defaults"
@@ -146,7 +146,7 @@ func (s *Store) AddSettingToBundle(bundleID string, setting *settingsmsg.Setting
 	}
 
 	if setting.Id == "" {
-		setting.Id = uuid.Must(uuid.NewV4()).String()
+		setting.Id = uuid.NewString()
 	}
 
 	b.Settings = append(b.Settings, setting)

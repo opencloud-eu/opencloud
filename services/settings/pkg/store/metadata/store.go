@@ -7,7 +7,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/gofrs/uuid"
+	"github.com/google/uuid"
 	olog "github.com/opencloud-eu/opencloud/pkg/log"
 	settingsmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/settings/pkg/config"
@@ -21,7 +21,7 @@ var (
 	// Name is the default name for the settings store
 	Name                   = "opencloud-settings"
 	managerName            = "metadata"
-	settingsSpaceID        = "f1bdd61a-da7c-49fc-8203-0558109d1b4f" // uuid.Must(uuid.NewV4()).String()
+	settingsSpaceID        = "f1bdd61a-da7c-49fc-8203-0558109d1b4f" // uuid.NewString()
 	rootFolderLocation     = "settings"
 	bundleFolderLocation   = "settings/bundles"
 	accountsFolderLocation = "settings/accounts"
@@ -156,7 +156,7 @@ func (s *Store) initMetadataClient(mdc MetadataClient) error {
 		}
 
 		ass := &settingsmsg.UserRoleAssignment{
-			Id:          uuid.Must(uuid.NewV4()).String(),
+			Id:          uuid.NewString(),
 			AccountUuid: accountUUID,
 			RoleId:      roleID,
 		}
@@ -220,7 +220,7 @@ func (s *Store) userMustHaveAdminRole(accountUUID string, assIDs []string, mdc M
 		}
 
 		ass := &settingsmsg.UserRoleAssignment{
-			Id:          uuid.Must(uuid.NewV4()).String(),
+			Id:          uuid.NewString(),
 			AccountUuid: accountUUID,
 			RoleId:      defaults.BundleUUIDRoleAdmin,
 		}

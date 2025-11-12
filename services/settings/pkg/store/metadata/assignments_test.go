@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/gofrs/uuid"
+	"github.com/google/uuid"
 	olog "github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	settingsmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
@@ -95,7 +95,7 @@ func initStore() *Store {
 		cfg:    defaults.DefaultConfig(),
 	}
 	s.cfg.Commons = &shared.Commons{
-		AdminUserID: uuid.Must(uuid.NewV4()).String(),
+		AdminUserID: uuid.NewString(),
 	}
 
 	_ = NewMDC(s)
