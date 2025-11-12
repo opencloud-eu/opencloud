@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @individual-it, @mikelolasagasti, @pbleser-oc, @rhafer, @schweigisito
+@ScharfViktor, @butonic, @individual-it, @mikelolasagasti, @pbleser-oc, @rhafer, @schweigisito
 
 ### 💥 Breaking changes
 
@@ -12,6 +12,7 @@
 
 ### 🐛 Bug Fixes
 
+- update launch.json [[#1843](https://github.com/opencloud-eu/opencloud/pull/1843)]
 - docs: Fix auth-app examples in README [[#1844](https://github.com/opencloud-eu/opencloud/pull/1844)]
 - fix: fix typo in treesize logging [[#1826](https://github.com/opencloud-eu/opencloud/pull/1826)]
 - fix: set global signing secret fallback correctly [[#1781](https://github.com/opencloud-eu/opencloud/pull/1781)]
