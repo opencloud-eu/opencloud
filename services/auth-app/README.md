@@ -60,20 +60,20 @@ The `auth-app` service provides an API to create (POST), list (GET) and delete (
   ```
 
   Note that the `token` value in the response to the "List Tokens` request is not the actual
-  app token, but a hashed value of the token. So this value cannot be used for authenticating
+  app token, but the UUID of the token. So this value cannot be used for authenticating
   with the token.
 
   Example output:
   ```
   [
     {
-      "token": "$2a$11$EyudDGAJ18bBf5NG6PL9Ru9gygZAu0oPyLawdieNjGozcbXyyuUhG",
+      "token": "155f402e-1c5c-411c-92d4-92f3b612cd99"
       "expiration_date": "2024-08-08T13:44:31.025199075+02:00",
       "created_date": "2024-08-07T13:44:31+02:00",
       "label": "Generated via Impersonation API"
     },
     {
-      "token": "$2a$11$dfRBQrxRMPg8fvyvkFwaX.IPoIUiokvhzK.YNI/pCafk0us3MyPzy",
+      "token": "8c606bdb-e22e-4094-9304-732fd4702bc9"
       "expiration_date": "2024-08-08T13:46:41.936052281+02:00",
       "created_date": "2024-08-07T13:46:42+02:00",
       "label": "Generated via Impersonation API"
@@ -84,7 +84,7 @@ The `auth-app` service provides an API to create (POST), list (GET) and delete (
 * **Delete a token**\
   The DELETE request requires:
   * A `token` key/value pair in the form of `token=<token_issued>`. The value needs to be the hashed value as returned by the `List Tokens` respone.\
-    Example: `token=$2$Z3s2K7816M4vuSpd5`
+    Example: `token=8c606bdb-e22e-4094-9304-732fd4702bc9`
   ```bash
   curl --request DELETE 'https://<your host:9200>/auth-app/tokens?token={value}' \
        --header 'accept: application/json'
