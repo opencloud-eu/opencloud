@@ -155,6 +155,7 @@ Feature: create a resources using collaborative posixfs
       | sharee          | Brian        |
       | shareType       | user         |
       | permissionsRole | Viewer       |
+    And user "Brian" has a share "textfile.txt" synced
     When the administrator renames the file "textfile.txt" to "new-name.txt" for user "Alice" on the POSIX filesystem
     Then the command should be successful
     And user "Brian" should have a share "textfile.txt" shared by user "Alice" from space "Personal"
