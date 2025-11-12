@@ -1,6 +1,7 @@
 package filepathx_test
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/opencloud-eu/opencloud/pkg/x/path/filepathx"
@@ -57,8 +58,11 @@ func TestJailJoin(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := filepathx.JailJoin(tt.args.jail, tt.args.elem...); got != tt.want {
-				t.Errorf("JailJoin() = %v, want %v", got, tt.want)
+			got := filepathx.JailJoin(tt.args.jail, tt.args.elem...)
+			// Make expectation OS-agnostic: convert unix-style expectation to OS-specific path
+			want := filepath.FromSlash(tt.want)
+			if got != want {
+				t.Errorf("JailJoin() = %v, want %v", got, want)
 			}
 		})
 	}
