@@ -1,4 +1,4 @@
-package identity
+package cache
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"github.com/jellydator/ttlcache/v3"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	revautils "github.com/opencloud-eu/reva/v2/pkg/utils"
 )
@@ -85,33 +86,38 @@ func NewIdentityCache(opts ...IdentityCacheOption) IdentityCache {
 }
 
 // GetUser looks up a user by id, if the user is not cached, yet it will do a lookup via the CS3 API
-func (cache IdentityCache) GetUser(ctx context.Context, userid string) (libregraph.User, error) {
-	u, err := cache.GetCS3User(ctx, userid)
+func (cache IdentityCache) GetUser(ctx context.Context, tenantId, userid string) (libregraph.User, error) {
+	// can we get the tenant from the context or do we have to pass it?
+	u, err := cache.GetCS3User(ctx, tenantId, userid)
 	if err != nil {
 		return libregraph.User{}, err
 	}
-	return *CreateUserModelFromCS3(u), nil
+	if tenantId != u.GetId().GetTenantId() {
+		return libregraph.User{}, identity.ErrNotFound
+	}
+	return *identity.CreateUserModelFromCS3(u), nil
 }
 
-func (cache IdentityCache) GetCS3User(ctx context.Context, userid string) (*cs3User.User, error) {
+func (cache IdentityCache) GetCS3User(ctx context.Context, tenantId, userid string) (*cs3User.User, error) {
 	var user *cs3User.User
-	if item := cache.users.Get(userid); item == nil {
+	if item := cache.users.Get(tenantId + "|" + userid); item == nil {
 		gatewayClient, err := cache.gatewaySelector.Next()
 		if err != nil {
 			return nil, errorcode.New(errorcode.GeneralException, err.Error())
 		}
 		cs3UserID := &cs3User.UserId{
 			OpaqueId: userid,
+			TenantId: tenantId,
 		}
 		user, err = revautils.GetUserNoGroups(ctx, cs3UserID, gatewayClient)
 		if err != nil {
 			if revautils.IsErrNotFound(err) {
-				return nil, ErrNotFound
+				return nil, identity.ErrNotFound
 			}
 			return nil, errorcode.New(errorcode.GeneralException, err.Error())
 		}
-		cache.users.Set(userid, user, ttlcache.DefaultTTL)
 
+		cache.users.Set(tenantId+"|"+userid, user, ttlcache.DefaultTTL)
 	} else {
 		user = item.Value()
 	}
@@ -124,7 +130,7 @@ func (cache IdentityCache) GetAcceptedUser(ctx context.Context, userid string) (
 	if err != nil {
 		return libregraph.User{}, err
 	}
-	return *CreateUserModelFromCS3(u), nil
+	return *identity.CreateUserModelFromCS3(u), nil
 }
 
 func (cache IdentityCache) GetAcceptedCS3User(ctx context.Context, userid string) (*cs3User.User, error) {
@@ -140,7 +146,7 @@ func (cache IdentityCache) GetAcceptedCS3User(ctx context.Context, userid string
 		user, err = revautils.GetAcceptedUserWithContext(ctx, cs3UserID, gatewayClient)
 		if err != nil {
 			if revautils.IsErrNotFound(err) {
-				return nil, ErrNotFound
+				return nil, identity.ErrNotFound
 			}
 			return nil, errorcode.New(errorcode.GeneralException, err.Error())
 		}
@@ -173,10 +179,10 @@ func (cache IdentityCache) GetGroup(ctx context.Context, groupID string) (libreg
 		switch res.Status.Code {
 		case rpc.Code_CODE_OK:
 			g := res.GetGroup()
-			group = *CreateGroupModelFromCS3(g)
+			group = *identity.CreateGroupModelFromCS3(g)
 			cache.groups.Set(groupID, group, ttlcache.DefaultTTL)
 		case rpc.Code_CODE_NOT_FOUND:
-			return group, ErrNotFound
+			return group, identity.ErrNotFound
 		default:
 			return group, errorcode.New(errorcode.GeneralException, res.Status.Message)
 		}

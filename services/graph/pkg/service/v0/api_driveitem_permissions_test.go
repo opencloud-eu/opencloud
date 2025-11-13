@@ -37,7 +37,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/mocks"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
-	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
+	identitycache "github.com/opencloud-eu/opencloud/services/graph/pkg/identity/cache"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/linktype"
 	svc "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
@@ -56,7 +56,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				OpaqueId: "user",
 			},
 		}
-		cache        identity.IdentityCache
+		cache        identitycache.IdentityCache
 		statResponse *provider.StatResponse
 		driveItemId  *provider.ResourceId
 		ctx          context.Context
@@ -70,7 +70,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		gatewaySelector = mocks.NewSelectable[gateway.GatewayAPIClient](GinkgoT())
 		gatewaySelector.On("Next").Return(gatewayClient, nil)
 
-		cache = identity.NewIdentityCache(identity.IdentityCacheWithGatewaySelector(gatewaySelector))
+		cache = identitycache.NewIdentityCache(identitycache.IdentityCacheWithGatewaySelector(gatewaySelector))
 
 		cfg = defaults.FullDefaultConfig()
 		service, err := svc.NewDriveItemPermissionsService(logger, gatewaySelector, cache, cfg)
@@ -139,7 +139,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				Expiration: utils.TimeToTS(*driveItemInvite.ExpirationDateTime),
 			}
 
-			permission, err := driveItemPermissionsService.Invite(context.Background(), driveItemId, driveItemInvite)
+			permission, err := driveItemPermissionsService.Invite(ctx, driveItemId, driveItemInvite)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(permission.GetId()).To(Equal("123"))
 			Expect(permission.GetExpirationDateTime().Equal(*driveItemInvite.ExpirationDateTime)).To(BeTrue())
@@ -149,6 +149,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 
 		It("creates group shares as expected (happy path)", func() {
 			gatewayClient.On("GetGroup", mock.Anything, mock.Anything).Return(getGroupResponse, nil)
+			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(getUserResponse, nil)
 			gatewayClient.On("CreateShare", mock.Anything, mock.Anything).Return(createShareResponse, nil)
 			driveItemInvite.Recipients = []libregraph.DriveRecipient{
 				{ObjectId: libregraph.PtrString("2"), LibreGraphRecipientType: libregraph.PtrString("group")},
@@ -159,7 +160,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				Expiration: utils.TimeToTS(*driveItemInvite.ExpirationDateTime),
 			}
 
-			permission, err := driveItemPermissionsService.Invite(context.Background(), driveItemId, driveItemInvite)
+			permission, err := driveItemPermissionsService.Invite(ctx, driveItemId, driveItemInvite)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(permission.GetId()).To(Equal("123"))
 			Expect(permission.GetExpirationDateTime().Equal(*driveItemInvite.ExpirationDateTime)).To(BeTrue())
@@ -175,7 +176,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			}
 			driveItemInvite.Roles = []string{unifiedrole.UnifiedRoleViewerID}
 
-			permission, err := driveItemPermissionsService.Invite(context.Background(), driveItemId, driveItemInvite)
+			permission, err := driveItemPermissionsService.Invite(ctx, driveItemId, driveItemInvite)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(permission.GetRoles()).To(HaveLen(1))
@@ -191,7 +192,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			}
 			driveItemInvite.Roles = []string{unifiedrole.UnifiedRoleEditorID}
 
-			permission, err := driveItemPermissionsService.Invite(context.Background(), driveItemId, driveItemInvite)
+			permission, err := driveItemPermissionsService.Invite(ctx, driveItemId, driveItemInvite)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(permission.GetRoles()).To(HaveLen(1))
@@ -203,7 +204,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				{ObjectId: libregraph.PtrString("1"), LibreGraphRecipientType: libregraph.PtrString("user")},
 			}
 			driveItemInvite.Roles = []string{unifiedrole.UnifiedRoleManagerID}
-			permission, err := driveItemPermissionsService.Invite(context.Background(), driveItemId, driveItemInvite)
+			permission, err := driveItemPermissionsService.Invite(ctx, driveItemId, driveItemInvite)
 
 			Expect(err).To(MatchError(errorcode.New(errorcode.InvalidRequest, "role not applicable to this resource")))
 			Expect(permission).To(BeZero())
@@ -214,7 +215,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				{ObjectId: libregraph.PtrString("1"), LibreGraphRecipientType: libregraph.PtrString("user")},
 			}
 			driveItemInvite.Roles = []string{unifiedrole.UnifiedRoleEditorID}
-			permission, err := driveItemPermissionsService.Invite(context.Background(), driveItemId, driveItemInvite)
+			permission, err := driveItemPermissionsService.Invite(ctx, driveItemId, driveItemInvite)
 
 			Expect(err).To(MatchError(errorcode.New(errorcode.InvalidRequest, "role not applicable to this resource")))
 			Expect(permission).To(BeZero())
@@ -226,7 +227,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				{ObjectId: libregraph.PtrString("1"), LibreGraphRecipientType: libregraph.PtrString("user")},
 			}
 			driveItemInvite.Roles = []string{unifiedrole.UnifiedRoleFileEditorID}
-			permission, err := driveItemPermissionsService.Invite(context.Background(), driveItemId, driveItemInvite)
+			permission, err := driveItemPermissionsService.Invite(ctx, driveItemId, driveItemInvite)
 
 			Expect(err).To(MatchError(errorcode.New(errorcode.InvalidRequest, "role not applicable to this resource")))
 			Expect(permission).To(BeZero())
@@ -241,7 +242,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			driveItemInvite.Roles = nil
 			driveItemInvite.LibreGraphPermissionsActions = []string{unifiedrole.DriveItemContentRead}
 
-			permission, err := driveItemPermissionsService.Invite(context.Background(), driveItemId, driveItemInvite)
+			permission, err := driveItemPermissionsService.Invite(ctx, driveItemId, driveItemInvite)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(permission).NotTo(BeZero())
@@ -252,7 +253,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 
 		It("fails with a missing driveritem", func() {
 			statResponse.Status = status.NewNotFound(context.Background(), "not found")
-			permission, err := driveItemPermissionsService.Invite(context.Background(), driveItemId, driveItemInvite)
+			permission, err := driveItemPermissionsService.Invite(ctx, driveItemId, driveItemInvite)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(errorcode.New(errorcode.ItemNotFound, "not found").WithOrigin(errorcode.ErrorOriginCS3)))
 			Expect(permission).To(BeZero())
@@ -268,7 +269,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			driveItemInvite.Roles = []string{unifiedrole.UnifiedRoleViewerID, unifiedrole.UnifiedRoleSecureViewerID}
-			_, err = service.Invite(context.Background(), driveItemId, driveItemInvite)
+			_, err = service.Invite(ctx, driveItemId, driveItemInvite)
 			Expect(err).To(MatchError(unifiedrole.ErrUnknownRole))
 		})
 	})
@@ -336,7 +337,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				Expiration: utils.TimeToTS(*driveItemInvite.ExpirationDateTime),
 			}
 
-			permission, err := driveItemPermissionsService.SpaceRootInvite(context.Background(), driveId, driveItemInvite)
+			permission, err := driveItemPermissionsService.SpaceRootInvite(ctx, driveId, driveItemInvite)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(permission.GetId()).To(Equal("123"))
 			Expect(permission.GetExpirationDateTime().Equal(*driveItemInvite.ExpirationDateTime)).To(BeTrue())
@@ -354,7 +355,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				Expiration: utils.TimeToTS(*driveItemInvite.ExpirationDateTime),
 			}
 
-			permission, err := driveItemPermissionsService.SpaceRootInvite(context.Background(), driveId, driveItemInvite)
+			permission, err := driveItemPermissionsService.SpaceRootInvite(ctx, driveId, driveItemInvite)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(errorcode.New(errorcode.InvalidRequest, "unsupported space type")))
 			Expect(permission).To(BeZero())
@@ -1061,7 +1062,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				SpaceId:   "2",
 				OpaqueId:  "2",
 			}
-			res, err := driveItemPermissionsService.UpdatePermission(context.Background(), spaceId, "u:userid", driveItemPermission)
+			res, err := driveItemPermissionsService.UpdatePermission(ctx, spaceId, "u:userid", driveItemPermission)
 			Expect(err).To(MatchError(errorcode.New(errorcode.InvalidRequest, "role not applicable to this resource")))
 			Expect(res).To(BeZero())
 		})

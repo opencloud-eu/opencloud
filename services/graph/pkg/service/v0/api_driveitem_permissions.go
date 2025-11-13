@@ -38,6 +38,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity/cache"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/validate"
 )
@@ -89,7 +90,7 @@ type ListPermissionsQueryOptions struct {
 }
 
 // NewDriveItemPermissionsService creates a new DriveItemPermissionsService
-func NewDriveItemPermissionsService(logger log.Logger, gatewaySelector pool.Selectable[gateway.GatewayAPIClient], identityCache identity.IdentityCache, config *config.Config) (DriveItemPermissionsService, error) {
+func NewDriveItemPermissionsService(logger log.Logger, gatewaySelector pool.Selectable[gateway.GatewayAPIClient], identityCache cache.IdentityCache, config *config.Config) (DriveItemPermissionsService, error) {
 	return DriveItemPermissionsService{
 		BaseGraphService: BaseGraphService{
 			logger:          &log.Logger{Logger: logger.With().Str("graph api", "DrivesDriveItemService").Logger()},
@@ -103,6 +104,7 @@ func NewDriveItemPermissionsService(logger log.Logger, gatewaySelector pool.Sele
 
 // Invite invites a user to a drive item.
 func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *storageprovider.ResourceId, invite libregraph.DriveItemInvite) (libregraph.Permission, error) {
+	tenantId := revactx.ContextMustGetUser(ctx).GetId().GetTenantId()
 	gatewayClient, err := s.gatewaySelector.Next()
 	if err != nil {
 		return libregraph.Permission{}, err
@@ -184,7 +186,7 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 		cTime = createShareResponse.GetShare().GetCtime()
 		expiration = createShareResponse.GetShare().GetExpiration()
 	default:
-		user, err := s.identityCache.GetCS3User(ctx, objectID)
+		user, err := s.identityCache.GetCS3User(ctx, tenantId, objectID)
 		if errors.Is(err, identity.ErrNotFound) && s.config.IncludeOCMSharees {
 			user, err = s.identityCache.GetAcceptedCS3User(ctx, objectID)
 			if err == nil && IsSpaceRoot(statResponse.GetInfo().GetId()) {
@@ -259,14 +261,14 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 	}
 
 	if user, ok := revactx.ContextGetUser(ctx); ok {
-		identity, err := userIdToIdentity(ctx, s.identityCache, user.GetId().GetOpaqueId())
+		userIdentity, err := userIdToIdentity(ctx, s.identityCache, tenantId, user.GetId().GetOpaqueId())
 		if err != nil {
 			s.logger.Error().Err(err).Msg("identity lookup failed")
 			return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, err.Error())
 		}
 		permission.SetInvitation(libregraph.SharingInvitation{
 			InvitedBy: &libregraph.IdentitySet{
-				User: &identity,
+				User: &userIdentity,
 			},
 		})
 	}

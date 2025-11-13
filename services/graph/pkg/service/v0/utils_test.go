@@ -9,9 +9,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	rConversions "github.com/opencloud-eu/reva/v2/pkg/conversions"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
-	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
@@ -19,7 +19,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity/cache"
 	service "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
 )
@@ -116,7 +116,7 @@ var _ = Describe("Utils", func() {
 			permission, err := service.CS3ReceivedShareToLibreGraphPermissions(
 				context.Background(),
 				nil,
-				identity.IdentityCache{},
+				cache.IdentityCache{},
 				&collaboration.ReceivedShare{
 					Share: &collaboration.Share{
 						Permissions: &collaboration.SharePermissions{

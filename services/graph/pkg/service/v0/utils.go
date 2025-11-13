@@ -20,7 +20,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
-	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity/cache"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
 )
 
@@ -92,11 +92,11 @@ func IsShareJail(id *storageprovider.ResourceId) bool {
 
 // userIdToIdentity looks the user for the supplied id using the cache and returns it
 // as a libregraph.Identity
-func userIdToIdentity(ctx context.Context, cache identity.IdentityCache, userID string) (libregraph.Identity, error) {
+func userIdToIdentity(ctx context.Context, cache cache.IdentityCache, tennantId, userID string) (libregraph.Identity, error) {
 	identity := libregraph.Identity{
 		Id: libregraph.PtrString(userID),
 	}
-	user, err := cache.GetUser(ctx, userID)
+	user, err := cache.GetUser(ctx, tennantId, userID)
 	if err == nil {
 		identity.SetDisplayName(user.GetDisplayName())
 		identity.SetLibreGraphUserType(user.GetUserType())
@@ -106,7 +106,7 @@ func userIdToIdentity(ctx context.Context, cache identity.IdentityCache, userID 
 
 // federatedIdToIdentity looks the user for the supplied id using the cache and returns it
 // as a libregraph.Identity
-func federatedIdToIdentity(ctx context.Context, cache identity.IdentityCache, userID string) (libregraph.Identity, error) {
+func federatedIdToIdentity(ctx context.Context, cache cache.IdentityCache, userID string) (libregraph.Identity, error) {
 	identity := libregraph.Identity{
 		Id:                 libregraph.PtrString(userID),
 		LibreGraphUserType: libregraph.PtrString("Federated"),
@@ -121,19 +121,19 @@ func federatedIdToIdentity(ctx context.Context, cache identity.IdentityCache, us
 
 // cs3UserIdToIdentity looks up the user for the supplied cs3 userid using the cache and returns it
 // as a libregraph.Identity. Skips the user lookup if the id type is USER_TYPE_SPACE_OWNER
-func cs3UserIdToIdentity(ctx context.Context, cache identity.IdentityCache, cs3UserID *cs3User.UserId) (libregraph.Identity, error) {
+func cs3UserIdToIdentity(ctx context.Context, cache cache.IdentityCache, cs3UserID *cs3User.UserId) (libregraph.Identity, error) {
 	if cs3UserID.GetType() == cs3User.UserType_USER_TYPE_FEDERATED {
 		return federatedIdToIdentity(ctx, cache, cs3UserID.GetOpaqueId())
 	}
 	if cs3UserID.GetType() != cs3User.UserType_USER_TYPE_SPACE_OWNER {
-		return userIdToIdentity(ctx, cache, cs3UserID.GetOpaqueId())
+		return userIdToIdentity(ctx, cache, cs3UserID.GetTenantId(), cs3UserID.GetOpaqueId())
 	}
 	return libregraph.Identity{Id: libregraph.PtrString(cs3UserID.GetOpaqueId())}, nil
 }
 
 // groupIdToIdentity looks up the group for the supplied cs3 groupid using the cache and returns it
 // as a libregraph.Identity.
-func groupIdToIdentity(ctx context.Context, cache identity.IdentityCache, groupID string) (libregraph.Identity, error) {
+func groupIdToIdentity(ctx context.Context, cache cache.IdentityCache, groupID string) (libregraph.Identity, error) {
 	identity := libregraph.Identity{
 		Id: libregraph.PtrString(groupID),
 	}
@@ -162,7 +162,7 @@ func identitySetToSpacePermissionID(identitySet libregraph.SharePointIdentitySet
 func cs3ReceivedSharesToDriveItems(ctx context.Context,
 	logger *log.Logger,
 	gatewayClient gateway.GatewayAPIClient,
-	identityCache identity.IdentityCache,
+	identityCache cache.IdentityCache,
 	receivedShares []*collaboration.ReceivedShare,
 	availableRoles []*libregraph.UnifiedRoleDefinition,
 ) ([]libregraph.DriveItem, error) {
@@ -341,7 +341,7 @@ func cs3ReceivedSharesToDriveItems(ctx context.Context,
 }
 
 func fillDriveItemPropertiesFromReceivedShare(ctx context.Context, logger *log.Logger,
-	identityCache identity.IdentityCache, receivedShares []*collaboration.ReceivedShare,
+	identityCache cache.IdentityCache, receivedShares []*collaboration.ReceivedShare,
 	resourceInfo *storageprovider.ResourceInfo, availableRoles []*libregraph.UnifiedRoleDefinition) (*libregraph.DriveItem, error) {
 
 	driveItem := libregraph.NewDriveItem()
@@ -416,7 +416,7 @@ func fillDriveItemPropertiesFromReceivedShare(ctx context.Context, logger *log.L
 }
 
 func cs3ReceivedShareToLibreGraphPermissions(ctx context.Context, logger *log.Logger,
-	identityCache identity.IdentityCache, receivedShare *collaboration.ReceivedShare,
+	identityCache cache.IdentityCache, receivedShare *collaboration.ReceivedShare,
 	resourceInfo *storageprovider.ResourceInfo, availableRoles []*libregraph.UnifiedRoleDefinition) (*libregraph.Permission, error) {
 	permission := libregraph.NewPermission()
 	if id := receivedShare.GetShare().GetId().GetOpaqueId(); id != "" {
@@ -510,7 +510,7 @@ func ExtractShareIdFromResourceId(rid *storageprovider.ResourceId) *collaboratio
 func cs3ReceivedOCMSharesToDriveItems(ctx context.Context,
 	logger *log.Logger,
 	gatewayClient gateway.GatewayAPIClient,
-	identityCache identity.IdentityCache,
+	identityCache cache.IdentityCache,
 	receivedShares []*ocm.ReceivedShare, availableRoles []*libregraph.UnifiedRoleDefinition) ([]libregraph.DriveItem, error) {
 
 	group := new(errgroup.Group)
@@ -696,7 +696,7 @@ func cs3ReceivedOCMSharesToDriveItems(ctx context.Context,
 }
 
 func fillDriveItemPropertiesFromReceivedOCMShare(ctx context.Context, logger *log.Logger,
-	identityCache identity.IdentityCache, receivedShares []*ocm.ReceivedShare,
+	identityCache cache.IdentityCache, receivedShares []*ocm.ReceivedShare,
 	resourceInfo *storageprovider.ResourceInfo, availableRoles []*libregraph.UnifiedRoleDefinition) (*libregraph.DriveItem, error) {
 
 	driveItem := libregraph.NewDriveItem()
@@ -775,7 +775,7 @@ func fillDriveItemPropertiesFromReceivedOCMShare(ctx context.Context, logger *lo
 }
 
 func cs3ReceivedOCMShareToLibreGraphPermissions(ctx context.Context, logger *log.Logger,
-	identityCache identity.IdentityCache, receivedShare *ocm.ReceivedShare,
+	identityCache cache.IdentityCache, receivedShare *ocm.ReceivedShare,
 	resourceInfo *storageprovider.ResourceInfo, availableRoles []*libregraph.UnifiedRoleDefinition) (*libregraph.Permission, error) {
 	permission := libregraph.NewPermission()
 	if id := receivedShare.GetId().GetOpaqueId(); id != "" {

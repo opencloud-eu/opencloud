@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	ldapv3 "github.com/go-ldap/ldap/v3"
 	"github.com/jellydator/ttlcache/v3"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity/cache"
 	"github.com/riandyrn/otelchi"
 	microstore "go-micro.dev/v4/store"
 
@@ -147,10 +148,10 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 	)
 	go spacePropertiesCache.Start()
 
-	identityCache := identity.NewIdentityCache(
-		identity.IdentityCacheWithGatewaySelector(options.GatewaySelector),
-		identity.IdentityCacheWithUsersTTL(time.Duration(options.Config.Spaces.UsersCacheTTL)),
-		identity.IdentityCacheWithGroupsTTL(time.Duration(options.Config.Spaces.GroupsCacheTTL)),
+	identityCache := cache.NewIdentityCache(
+		cache.IdentityCacheWithGatewaySelector(options.GatewaySelector),
+		cache.IdentityCacheWithUsersTTL(time.Duration(options.Config.Spaces.UsersCacheTTL)),
+		cache.IdentityCacheWithGroupsTTL(time.Duration(options.Config.Spaces.GroupsCacheTTL)),
 	)
 
 	baseGraphService := BaseGraphService{
