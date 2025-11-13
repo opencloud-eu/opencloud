@@ -1,6 +1,6 @@
 # Changelog
 
-## [4.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.0) - 2025-11-12
+## [4.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.0) - 2025-11-13
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -12,6 +12,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix: sanitise markdow code to make docusaurus happy [[#1851](https://github.com/opencloud-eu/opencloud/pull/1851)]
 - update launch.json [[#1843](https://github.com/opencloud-eu/opencloud/pull/1843)]
 - docs: Fix auth-app examples in README [[#1844](https://github.com/opencloud-eu/opencloud/pull/1844)]
 - fix: fix typo in treesize logging [[#1826](https://github.com/opencloud-eu/opencloud/pull/1826)]
