@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @butonic, @individual-it, @mikelolasagasti, @pbleser-oc, @rhafer, @schweigisito
+@ScharfViktor, @butonic, @dragonchaser, @individual-it, @mikelolasagasti, @pbleser-oc, @rhafer, @schweigisito
 
 ### 💥 Breaking changes
 
@@ -12,6 +12,7 @@
 
 ### 🐛 Bug Fixes
 
+- make user cache tenant aware [[#1732](https://github.com/opencloud-eu/opencloud/pull/1732)]
 - fix: sanitise markdow code to make docusaurus happy [[#1851](https://github.com/opencloud-eu/opencloud/pull/1851)]
 - update launch.json [[#1843](https://github.com/opencloud-eu/opencloud/pull/1843)]
 - docs: Fix auth-app examples in README [[#1844](https://github.com/opencloud-eu/opencloud/pull/1844)]
