@@ -77,7 +77,7 @@ In OpenCloud, the password policy is always enabled because the max-length restr
 
 With the password policy, mandatory criteria for the password can be defined via the environment variables listed below.
 
-Generally, a password can contain any UTF-8 characters, however some characters are regarded as special since they are not used in ordinary texts. Which characters should be treated as special is defined by "The OWASP® Foundation" [password-special-characters](https://owasp.org/www-community/password-special-characters) (between double quotes): " !"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"
+Generally, a password can contain any UTF-8 characters, however some characters are regarded as special since they are not used in ordinary texts. Which characters should be treated as special is defined by "The OWASP® Foundation" [password-special-characters](https://owasp.org/www-community/password-special-characters) (between double quotes): ```" !"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"```
 
 The validation against the banned passwords list can be configured via a text file with words separated by new lines. If a user tries to set a password listed in the banned passwords list, the password can not be used (is invalid) even if the other mandatory criteria are passed. The admin can define the path of the banned passwords list file. If the file doesn't exist in a location, OpenCloud tries to load a file from the `OC_CONFIG_DIR/OC_PASSWORD_POLICY_BANNED_PASSWORDS_LIST`. An option will be enabled when the file has been loaded successfully.
 

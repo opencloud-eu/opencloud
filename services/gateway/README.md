@@ -40,9 +40,9 @@ The scheme for this setup is the following. Note that there is, except storage, 
 
 | **envvar** | **default** | **alternative** |
 |------|------|------|
-| OC_GRPC_PROTOCOL or <br> `<service>`_GRPC_PROTOCOL | tcp | unix |
+| OC_GRPC_PROTOCOL or <br /> `<service>`_GRPC_PROTOCOL | tcp | unix |
 | `<service>`_GRPC_ADDR | 127.0.0.1:`<port>` | /var/run/opencloud/`<service>`.sock |
-| GATEWAY_`<service>`_ENDPOINT | eu.opencloud.api.`<service>` | unix:/var/run/opencloud/`<service>`.sock <br> dns: ... <br> kubernetes: ... |
+| GATEWAY_`<service>`_ENDPOINT | eu.opencloud.api.`<service>` | unix:/var/run/opencloud/`<service>`.sock <br /> dns: ... <br /> kubernetes: ... |
 
 ```console
 USERS_GRPC_PROTOCOL=unix"
