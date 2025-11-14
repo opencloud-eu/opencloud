@@ -100,7 +100,8 @@ func (b XattrsBackend) list(ctx context.Context, n MetadataNode, acquireLock boo
 		if err != nil {
 			return nil, err
 		}
-		defer cleanupLockfile(ctx, f)
+		// Warning: do not remove the lockfile or we may lock the same file more than once, https://github.com/opencloud-eu/opencloud/issues/1793
+		defer f.Close()
 
 	}
 	return xattr.List(filePath)
@@ -177,7 +178,8 @@ func (b XattrsBackend) SetMultiple(ctx context.Context, n MetadataNode, attribs 
 		if err != nil {
 			return err
 		}
-		defer cleanupLockfile(ctx, lockedFile)
+		// Warning: do not remove the lockfile or we may lock the same file more than once, https://github.com/opencloud-eu/opencloud/issues/1793
+		defer lockedFile.Close()
 	}
 
 	// error handling: Count if there are errors while setting the attribs.
@@ -211,7 +213,8 @@ func (b XattrsBackend) Remove(ctx context.Context, n MetadataNode, key string, a
 		if err != nil {
 			return err
 		}
-		defer cleanupLockfile(ctx, lockedFile)
+		// Warning: do not remove the lockfile or we may lock the same file more than once, https://github.com/opencloud-eu/opencloud/issues/1793
+		defer lockedFile.Close()
 	}
 
 	err := xattr.Remove(path, key)
@@ -278,17 +281,9 @@ func (b XattrsBackend) Lock(n MetadataNode) (UnlockFunc, error) {
 		return nil, err
 	}
 	return func() error {
-		err := mlock.Close()
-		if err != nil {
-			return err
-		}
-		return os.Remove(metaLockPath)
+		// Warning: do not remove the lockfile or we may lock the same file more than once, https://github.com/opencloud-eu/opencloud/issues/1793
+		return mlock.Close()
 	}, nil
-}
-
-func cleanupLockfile(_ context.Context, f *lockedfile.File) {
-	_ = f.Close()
-	_ = os.Remove(f.Name())
 }
 
 // AllWithLockedSource reads all extended attributes from the given reader.

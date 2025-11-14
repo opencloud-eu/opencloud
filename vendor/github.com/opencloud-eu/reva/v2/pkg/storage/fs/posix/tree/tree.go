@@ -581,6 +581,9 @@ func (t *Tree) Delete(ctx context.Context, n *node.Node) error {
 		}
 	}
 
+	// Remove metadata mlock file if it exists
+	_ = os.Remove(t.lookup.MetadataBackend().LockfilePath(n))
+
 	err := t.trashbin.MoveToTrash(ctx, n, path)
 	if err != nil {
 		return err

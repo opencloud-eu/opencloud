@@ -204,7 +204,7 @@ func (fs *Decomposedfs) CreateStorageSpace(ctx context.Context, req *provider.Cr
 	err = fs.updateIndexes(ctx, &provider.Grantee{
 		Type: provider.GranteeType_GRANTEE_TYPE_USER,
 		Id:   &provider.Grantee_UserId{UserId: req.GetOwner().GetId()},
-	}, req.Type, root.ID, root.ID)
+	}, req.Type, root.GetID(), root.GetID())
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +221,7 @@ func (fs *Decomposedfs) CreateStorageSpace(ctx context.Context, req *provider.Cr
 			Grantee: &provider.Grantee{
 				Type: provider.GranteeType_GRANTEE_TYPE_USER,
 				Id: &provider.Grantee_UserId{
-					UserId: u.Id,
+					UserId: u.GetId(),
 				},
 			},
 			Permissions: ocsconv.NewManagerRole().CS3ResourcePermissions(),
@@ -295,7 +295,8 @@ func (fs *Decomposedfs) ListStorageSpaces(ctx context.Context, filter []*provide
 		spaceTypes[spaceTypeAny] = struct{}{}
 	}
 
-	authenticatedUserID := ctxpkg.ContextMustGetUser(ctx).GetId().GetOpaqueId()
+	authenticatedUser := ctxpkg.ContextMustGetUser(ctx)
+	authenticatedUserID := authenticatedUser.GetId().GetOpaqueId()
 
 	if !fs.p.ListSpacesOfUser(ctx, requestedUserID) {
 		return nil, errtypes.PermissionDenied(fmt.Sprintf("user %s is not allowed to list spaces of other users", authenticatedUserID))
@@ -500,10 +501,14 @@ func (fs *Decomposedfs) ListStorageSpaces(ctx context.Context, filter []*provide
 	}()
 
 	for r := range results {
+		if authenticatedUser.GetId().GetTenantId() != r.GetOwner().GetId().GetTenantId() {
+			appctx.GetLogger(ctx).Warn().Str("id", r.GetId().GetOpaqueId()).Msg("space belongs to a different tenant")
+			continue
+		}
 		r.HasTrashedItems = true
 		resourceID, err := storagespace.ParseID(r.GetId().GetOpaqueId())
 		if err != nil {
-			appctx.GetLogger(ctx).Error().Err(err).Str("id", r.Id.GetOpaqueId()).Msg("could not parse space id")
+			appctx.GetLogger(ctx).Error().Err(err).Str("id", r.GetId().GetOpaqueId()).Msg("could not parse space id")
 			r.HasTrashedItems = false
 			continue
 		}
@@ -577,7 +582,7 @@ func (fs *Decomposedfs) UpdateStorageSpace(ctx context.Context, req *provider.Up
 	}
 
 	space := req.StorageSpace
-	_, spaceID, _, _ := storagespace.SplitID(space.Id.OpaqueId)
+	_, spaceID, _, _ := storagespace.SplitID(space.GetId().GetOpaqueId())
 
 	metadata := make(node.Attributes, 5)
 	if space.Name != "" {
@@ -723,7 +728,7 @@ func (fs *Decomposedfs) DeleteStorageSpace(ctx context.Context, req *provider.De
 		_, purge = opaque.Map["purge"]
 	}
 
-	_, spaceID, _, err := storagespace.SplitID(req.Id.GetOpaqueId())
+	_, spaceID, _, err := storagespace.SplitID(req.GetId().GetOpaqueId())
 	if err != nil {
 		return err
 	}
@@ -735,7 +740,7 @@ func (fs *Decomposedfs) DeleteStorageSpace(ctx context.Context, req *provider.De
 
 	st, err := n.SpaceRoot.XattrString(ctx, prefixes.SpaceTypeAttr)
 	if err != nil {
-		return errtypes.InternalError(fmt.Sprintf("space %s does not have a spacetype, possible corrupt decompsedfs", n.ID))
+		return errtypes.InternalError(fmt.Sprintf("space %s does not have a spacetype, possible corrupt decompsedfs", n.GetID()))
 	}
 
 	if err := canDeleteSpace(ctx, spaceID, st, purge, n, fs.p); err != nil {
@@ -877,18 +882,18 @@ func (fs *Decomposedfs) StorageSpaceFromNode(ctx context.Context, n *node.Node, 
 		case err != nil:
 			return nil, err
 		case !rp.Stat:
-			return nil, errtypes.NotFound(fmt.Sprintf("space %s not found", n.ID))
+			return nil, errtypes.NotFound(fmt.Sprintf("space %s not found", n.GetID()))
 		}
 
 		if n.SpaceRoot.IsDisabled(ctx) {
 			rp, err := fs.p.AssemblePermissions(ctx, n)
 			if err != nil || !permissions.IsManager(rp) {
-				return nil, errtypes.PermissionDenied(fmt.Sprintf("user %s is not allowed to list deleted spaces %s", user.Username, n.ID))
+				return nil, errtypes.PermissionDenied(fmt.Sprintf("user %s is not allowed to list deleted spaces %s", user.Username, n.GetID()))
 			}
 		}
 	}
 
-	sublog := appctx.GetLogger(ctx).With().Str("spaceid", n.SpaceID).Logger()
+	sublog := appctx.GetLogger(ctx).With().Str("spaceid", n.GetSpaceID()).Logger()
 
 	var err error
 	// TODO apply more filters
@@ -939,13 +944,13 @@ func (fs *Decomposedfs) StorageSpaceFromNode(ctx context.Context, n *node.Node, 
 					switch {
 					case g.Grantee.Type == provider.GranteeType_GRANTEE_TYPE_USER:
 						// remove from user index
-						if err := fs.userSpaceIndex.Remove(g.Grantee.GetUserId().GetOpaqueId(), n.SpaceID); err != nil {
+						if err := fs.userSpaceIndex.Remove(g.Grantee.GetUserId().GetOpaqueId(), n.GetSpaceID()); err != nil {
 							sublog.Error().Err(err).Str("grantee", id).
 								Msg("failed to delete expired user space index")
 						}
 					case g.Grantee.Type == provider.GranteeType_GRANTEE_TYPE_GROUP:
 						// remove from group index
-						if err := fs.groupSpaceIndex.Remove(g.Grantee.GetGroupId().GetOpaqueId(), n.SpaceID); err != nil {
+						if err := fs.groupSpaceIndex.Remove(g.Grantee.GetGroupId().GetOpaqueId(), n.GetSpaceID()); err != nil {
 							sublog.Error().Err(err).Str("grantee", id).
 								Msg("failed to delete expired group space index")
 						}
@@ -977,8 +982,8 @@ func (fs *Decomposedfs) StorageSpaceFromNode(ctx context.Context, n *node.Node, 
 	ssID, err := storagespace.FormatReference(
 		&provider.Reference{
 			ResourceId: &provider.ResourceId{
-				SpaceId:  n.SpaceRoot.SpaceID,
-				OpaqueId: n.SpaceRoot.ID},
+				SpaceId:  n.SpaceRoot.GetSpaceID(),
+				OpaqueId: n.SpaceRoot.GetID()},
 		},
 	)
 	if err != nil {
@@ -1003,8 +1008,8 @@ func (fs *Decomposedfs) StorageSpaceFromNode(ctx context.Context, n *node.Node, 
 		},
 		Id: &provider.StorageSpaceId{OpaqueId: ssID},
 		Root: &provider.ResourceId{
-			SpaceId:  n.SpaceRoot.SpaceID,
-			OpaqueId: n.SpaceRoot.ID,
+			SpaceId:  n.SpaceRoot.GetSpaceID(),
+			OpaqueId: n.SpaceRoot.GetID(),
 		},
 		Name: sname,
 		// SpaceType is read from xattr below
@@ -1046,7 +1051,7 @@ func (fs *Decomposedfs) StorageSpaceFromNode(ctx context.Context, n *node.Node, 
 		}
 	}
 
-	etag, err := node.CalculateEtag(n.ID, tmtime)
+	etag, err := node.CalculateEtag(n.GetID(), tmtime)
 	if err != nil {
 		return nil, err
 	}
@@ -1075,7 +1080,7 @@ func (fs *Decomposedfs) StorageSpaceFromNode(ctx context.Context, n *node.Node, 
 	}
 	if si := spaceAttributes.String(prefixes.SpaceImageAttr); si != "" {
 		space.Opaque = utils.AppendPlainToOpaque(space.Opaque, "image", storagespace.FormatResourceID(
-			&provider.ResourceId{StorageId: space.Root.StorageId, SpaceId: space.Root.SpaceId, OpaqueId: si},
+			&provider.ResourceId{StorageId: space.Root.StorageId, SpaceId: space.GetRoot().GetSpaceId(), OpaqueId: si},
 		))
 	}
 	if sd := spaceAttributes.String(prefixes.SpaceDescriptionAttr); sd != "" {
@@ -1083,7 +1088,7 @@ func (fs *Decomposedfs) StorageSpaceFromNode(ctx context.Context, n *node.Node, 
 	}
 	if sr := spaceAttributes.String(prefixes.SpaceReadmeAttr); sr != "" {
 		space.Opaque = utils.AppendPlainToOpaque(space.Opaque, "readme", storagespace.FormatResourceID(
-			&provider.ResourceId{StorageId: space.Root.StorageId, SpaceId: space.Root.SpaceId, OpaqueId: sr},
+			&provider.ResourceId{StorageId: space.Root.StorageId, SpaceId: space.GetRoot().GetSpaceId(), OpaqueId: sr},
 		))
 	}
 	if sa := spaceAttributes.String(prefixes.SpaceAliasAttr); sa != "" {
@@ -1157,5 +1162,5 @@ func canDeleteSpace(ctx context.Context, spaceID string, typ string, purge bool,
 		return nil
 	}
 
-	return errtypes.PermissionDenied(fmt.Sprintf("user is not allowed to delete space %s", n.ID))
+	return errtypes.PermissionDenied(fmt.Sprintf("user is not allowed to delete space %s", n.GetID()))
 }

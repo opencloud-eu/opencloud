@@ -11,7 +11,7 @@ Feature: remove file versions via CLI command
     And user "Alice" has uploaded file with content "This is version 3" to "textfile.txt"
     When the administrator removes all the file versions using the CLI
     Then the command should be successful
-    And the command output should contain "✅ Deleted 2 revisions (4 files / 2 blobs)"
+    And the command output should contain "✅ Deleted 2 revisions (6 files / 2 blobs)"
     When user "Alice" gets the number of versions of file "textfile.txt"
     Then the HTTP status code should be "207"
     And the number of versions should be "0"
@@ -26,7 +26,7 @@ Feature: remove file versions via CLI command
     And user "Alice" has uploaded file with content "This is version 3" to "anotherFile.txt"
     When the administrator removes the versions of file "randomFile.txt" of user "Alice" from space "Personal" using the CLI
     Then the command should be successful
-    And the command output should contain "✅ Deleted 2 revisions (4 files / 2 blobs)"
+    And the command output should contain "✅ Deleted 2 revisions (6 files / 2 blobs)"
     When user "Alice" gets the number of versions of file "randomFile.txt"
     Then the HTTP status code should be "207"
     And the number of versions should be "0"
@@ -52,7 +52,7 @@ Feature: remove file versions via CLI command
     And we save it into "EPSUM_FILEID"
     When the administrator removes the file versions of space "projectSpace" using the CLI
     Then the command should be successful
-    And the command output should contain "✅ Deleted 4 revisions (8 files / 4 blobs)"
+    And the command output should contain "✅ Deleted 4 revisions (12 files / 4 blobs)"
     When user "Alice" gets the number of versions of file "file.txt"
     Then the HTTP status code should be "207"
     And the number of versions should be "2"

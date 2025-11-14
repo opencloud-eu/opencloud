@@ -516,7 +516,7 @@ func (s *Service) CreateStorageSpace(ctx context.Context, req *provider.CreateSt
 			st = status.NewPermissionDenied(ctx, err, "permission denied")
 		case errtypes.NotSupported:
 			// if trying to create a user home fall back to CreateHome
-			if u, ok := ctxpkg.ContextGetUser(ctx); ok && req.Type == "personal" && utils.UserEqual(req.GetOwner().Id, u.Id) {
+			if u, ok := ctxpkg.ContextGetUser(ctx); ok && req.Type == "personal" && utils.UserEqual(req.GetOwner().GetId(), u.GetId()) {
 				if err := s.Storage.CreateHome(ctx); err != nil {
 					st = status.NewInternal(ctx, "error creating home")
 				} else {
@@ -583,7 +583,7 @@ func (s *Service) ListStorageSpaces(ctx context.Context, req *provider.ListStora
 	}
 
 	for _, sp := range spaces {
-		if sp.Id == nil || sp.Id.OpaqueId == "" {
+		if sp.GetId() == nil || sp.GetId().GetOpaqueId() == "" {
 			log.Error().Str("service", "storageprovider").Str("driver", s.conf.Driver).Interface("space", sp).Msg("space is missing space id and root id")
 			continue
 		}
@@ -614,7 +614,7 @@ func (s *Service) UpdateStorageSpace(ctx context.Context, req *provider.UpdateSt
 func (s *Service) DeleteStorageSpace(ctx context.Context, req *provider.DeleteStorageSpaceRequest) (*provider.DeleteStorageSpaceResponse, error) {
 	// we need to get the space before so we can return critical information
 	// FIXME: why is this string parsing necessary?
-	idraw, _ := storagespace.ParseID(req.Id.GetOpaqueId())
+	idraw, _ := storagespace.ParseID(req.GetId().GetOpaqueId())
 	idraw.OpaqueId = idraw.GetSpaceId()
 	id := &provider.StorageSpaceId{OpaqueId: storagespace.FormatResourceID(&idraw)}
 
@@ -629,7 +629,7 @@ func (s *Service) DeleteStorageSpace(ctx context.Context, req *provider.DeleteSt
 		case errtypes.BadRequest:
 			st = status.NewInvalid(ctx, err.Error())
 		default:
-			st = status.NewInternal(ctx, "error deleting space: "+req.Id.String())
+			st = status.NewInternal(ctx, "error deleting space: "+req.GetId().String())
 		}
 		return &provider.DeleteStorageSpaceResponse{
 			Status: st,
@@ -650,13 +650,13 @@ func (s *Service) DeleteStorageSpace(ctx context.Context, req *provider.DeleteSt
 		case errtypes.BadRequest:
 			st = status.NewInvalid(ctx, err.Error())
 		default:
-			st = status.NewInternal(ctx, "error deleting space: "+req.Id.String())
+			st = status.NewInternal(ctx, "error deleting space: "+req.GetId().String())
 		}
 		appctx.GetLogger(ctx).
 			Error().
 			Err(err).
 			Interface("status", st).
-			Interface("storage_space_id", req.Id).
+			Interface("storage_space_id", req.GetId()).
 			Msg("failed to delete storage space")
 		return &provider.DeleteStorageSpaceResponse{
 			Status: st,
@@ -751,7 +751,7 @@ func (s *Service) Delete(ctx context.Context, req *provider.DeleteRequest) (*pro
 		Status: status.NewStatusFromErrType(ctx, "delete", err),
 		Opaque: &typesv1beta1.Opaque{
 			Map: map[string]*typesv1beta1.OpaqueEntry{
-				"opaque_id": {Decoder: "plain", Value: []byte(md.Id.OpaqueId)},
+				"opaque_id": {Decoder: "plain", Value: []byte(md.GetId().GetOpaqueId())},
 			},
 		},
 	}, nil

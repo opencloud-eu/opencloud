@@ -21,9 +21,11 @@ package trashbin
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -165,7 +167,7 @@ func (tb *Trashbin) MoveToTrash(ctx context.Context, n *node.Node, path string) 
 		return err
 	}
 
-	// 1. "Forget" the node
+	// 1. "Forget" the node and its children
 	if err = tb.lu.IDCache.DeleteByPath(ctx, path); err != nil {
 		return err
 	}
@@ -327,7 +329,6 @@ func (tb *Trashbin) RestoreRecycleItem(ctx context.Context, spaceID string, key,
 	}
 	if id == "" {
 		return nil, errtypes.NotFound("trashbin: item not found")
-
 	}
 
 	// update parent id in case it was restored to a different location
@@ -370,35 +371,211 @@ func (tb *Trashbin) RestoreRecycleItem(ctx context.Context, spaceID string, key,
 
 }
 
-// PurgeRecycleItem purges the specified item, all its children and all their revisions
+// PurgeRecycleItem purges the specified item, all its children and all their revisions.
 func (tb *Trashbin) PurgeRecycleItem(ctx context.Context, spaceID, key, relativePath string) error {
 	_, span := tracer.Start(ctx, "PurgeRecycleItem")
 	defer span.End()
 
 	trashRoot := filepath.Join(tb.lu.InternalPath(spaceID, spaceID), ".Trash")
-	err := os.RemoveAll(filepath.Clean(filepath.Join(trashRoot, "files", key+".trashitem", relativePath)))
-	if err != nil {
+	trashPath := filepath.Clean(filepath.Join(trashRoot, "files", key+".trashitem", relativePath))
+
+	type item struct {
+		path  string
+		isDir bool
+	}
+
+	itemChan := make(chan item, 256) // small buffer to smooth bursts
+	var dirs []string
+
+	// Start walking the directory tree in a separate goroutine
+	walkErrChan := make(chan error, 1)
+	go func() {
+		defer close(itemChan)
+		defer close(walkErrChan)
+
+		err := filepath.WalkDir(trashPath, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+
+			it := item{path: path, isDir: d.IsDir()}
+
+			// Directories are collected for later filesystem removal
+			if d.IsDir() {
+				dirs = append(dirs, path)
+			}
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case itemChan <- it:
+				return nil
+			}
+		})
+
+		if err != nil && !os.IsNotExist(err) {
+			walkErrChan <- err
+			return
+		}
+		walkErrChan <- nil
+	}()
+
+	// Start worker pool for metadata purge
+	wg := sync.WaitGroup{}
+	for i := 0; i < tb.o.MaxConcurrency; i++ {
+		wg.Add(1)
+		go func(ch <-chan item) {
+			defer wg.Done()
+			for {
+				select {
+				case <-ctx.Done():
+					tb.log.Info().Msg("context cancelled during purge")
+					return
+				case it, ok := <-ch:
+					if !ok {
+						return
+					}
+
+					_, id, _, _, err := tb.lu.MetadataBackend().IdentifyPath(ctx, it.path)
+					if err == nil && id != "" {
+						trashedNode := &trashNode{spaceID: spaceID, id: id, path: it.path}
+						if err := tb.lu.MetadataBackend().Purge(ctx, trashedNode); err != nil {
+							tb.log.Error().Err(err).Str("path", it.path).Str("id", id).Msg("Failed to purge metadata")
+						}
+					}
+
+					// Delete only files here (directories are deleted later)
+					if !it.isDir {
+						if err := os.Remove(it.path); err != nil && !os.IsNotExist(err) {
+							tb.log.Error().Err(err).Str("path", it.path).Msg("Failed to delete file")
+						}
+
+						// delete revisions
+						globPattern := tb.lu.InternalPath(spaceID, id+node.RevisionIDDelimiter) + "*"
+						revs, err := filepath.Glob(globPattern)
+						if err != nil {
+							tb.log.Error().Err(err).Str("path", globPattern).Msg("glob failed badly")
+						}
+						for _, rev := range revs {
+							if tb.lu.MetadataBackend().IsMetaFile(rev) {
+								continue
+							}
+
+							if err := os.Remove(rev); err != nil {
+								tb.log.Error().Err(err).Str("revision", rev).Msg("error removing revision file")
+							}
+
+							// delete the metadata mlock file
+							parts := strings.SplitN(filepath.Base(rev), node.RevisionIDDelimiter, 2)
+							if len(parts) != 2 {
+								tb.log.Error().Str("path", rev).Msg("could not split revision")
+								continue
+							}
+							revId := id + node.RevisionIDDelimiter + parts[1]
+							mlockFile := tb.lu.MetadataBackend().LockfilePath(&trashNode{spaceID: spaceID, id: revId})
+							if err := os.Remove(mlockFile); err != nil {
+								tb.log.Error().Err(err).Str("path", mlockFile).Msg("error removing metadata mlock file")
+							}
+
+						}
+
+					}
+				}
+			}
+		}(itemChan)
+	}
+
+	// Wait for all workers and walker to finish
+	wg.Wait()
+	if err := <-walkErrChan; err != nil {
 		return err
 	}
 
+	// Delete directories in reverse order (leafs first)
+	for i := len(dirs) - 1; i >= 0; i-- {
+		if err := os.Remove(dirs[i]); err != nil && !os.IsNotExist(err) {
+			tb.log.Error().Err(err).Str("path", dirs[i]).Msg("Failed to delete directory")
+		}
+	}
+
+	// Delete trashinfo if purging the root item
 	cleanPath := filepath.Clean(relativePath)
 	if cleanPath == "." || cleanPath == "/" {
-		return os.Remove(filepath.Join(trashRoot, "info", key+".trashinfo"))
+		infoPath := filepath.Join(trashRoot, "info", key+".trashinfo")
+		if err := os.Remove(infoPath); err != nil && !os.IsNotExist(err) {
+			tb.log.Error().Err(err).Str("path", infoPath).Msg("Failed to delete trashinfo")
+		}
 	}
+
 	return nil
 }
 
-// EmptyRecycle empties the trash
+// EmptyRecycle empties the trash for a given space.
 func (tb *Trashbin) EmptyRecycle(ctx context.Context, spaceID string) error {
 	_, span := tracer.Start(ctx, "EmptyRecycle")
 	defer span.End()
 
 	trashRoot := filepath.Join(tb.lu.InternalPath(spaceID, spaceID), ".Trash")
-	err := os.RemoveAll(filepath.Clean(filepath.Join(trashRoot, "files")))
+	filesRoot := filepath.Join(trashRoot, "files")
+
+	entries, err := os.ReadDir(filesRoot)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
 		return err
 	}
-	return os.RemoveAll(filepath.Clean(filepath.Join(trashRoot, "info")))
+
+	type job struct {
+		key string
+	}
+
+	jobCh := make(chan job, len(entries))
+
+	// Enqueue all trash items
+	for _, entry := range entries {
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".trashitem") {
+			continue
+		}
+
+		key := strings.TrimSuffix(name, ".trashitem")
+		jobCh <- job{key: key}
+	}
+	close(jobCh)
+
+	// Start worker pool
+	wg := sync.WaitGroup{}
+	for i := 0; i < tb.o.MaxConcurrency; i++ {
+		wg.Add(1)
+		go func(ch <-chan job) {
+			defer wg.Done()
+			for {
+				select {
+				case <-ctx.Done():
+					tb.log.Info().Msg("context cancelled during EmptyRecycle")
+					return
+				case j, ok := <-ch:
+					if !ok {
+						return
+					}
+
+					if err := tb.PurgeRecycleItem(ctx, spaceID, j.key, "."); err != nil {
+						tb.log.Error().Err(err).Str("key", j.key).Msg("Failed to purge trash item")
+					}
+				}
+			}
+		}(jobCh)
+	}
+
+	wg.Wait()
+	return nil
 }
 
 func (tb *Trashbin) IsEmpty(ctx context.Context, spaceID string) bool {

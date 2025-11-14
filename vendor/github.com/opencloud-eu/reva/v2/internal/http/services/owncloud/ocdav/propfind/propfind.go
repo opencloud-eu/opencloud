@@ -1733,16 +1733,23 @@ func hasPreview(md *provider.ResourceInfo, appendToOK func(p ...prop.PropertyXML
 }
 
 func downloadURL(ctx context.Context, log zerolog.Logger, isPublic bool, path string, ls *link.PublicShare, publicURL string, baseURI string, urlSigner signedurl.Signer) string {
+	parts := strings.Split(path, "/")
+	encodedPath, err := url.JoinPath("/", parts...)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to encode the path for the download URL")
+		return ""
+	}
+
 	switch {
 	case isPublic:
 		var queryString string
 		if !ls.PasswordProtected {
-			queryString = path
+			queryString = encodedPath
 		} else {
 			expiration := time.Unix(int64(ls.Signature.SignatureExpiration.Seconds), int64(ls.Signature.SignatureExpiration.Nanos))
 			var sb strings.Builder
 
-			sb.WriteString(path)
+			sb.WriteString(encodedPath)
 			sb.WriteString("?signature=")
 			sb.WriteString(ls.Signature.Signature)
 			sb.WriteString("&expiration=")
@@ -1757,7 +1764,7 @@ func downloadURL(ctx context.Context, log zerolog.Logger, isPublic bool, path st
 			log.Error().Msg("could not get user from context for download URL signing")
 			return ""
 		}
-		signedURL, err := urlSigner.Sign(publicURL+baseURI+path, u.Id.OpaqueId, 30*time.Minute)
+		signedURL, err := urlSigner.Sign(publicURL+baseURI+encodedPath, u.Id.OpaqueId, 30*time.Minute)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to sign download URL")
 			return ""

@@ -18,6 +18,7 @@ Feature: sharing
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Viewer   |
+    And user "Brian" has a share "FOLDER" synced
     When user "Brian" uploads file "filesForUpload/textfile.txt" to "/Shares/FOLDER/textfile.txt" using the WebDAV API
     Then the HTTP status code should be "403"
     And as "Alice" file "/FOLDER/textfile.txt" should not exist

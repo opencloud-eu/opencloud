@@ -503,6 +503,9 @@ func (t *Tree) Delete(ctx context.Context, n *node.Node) (err error) {
 	// Remove lock file if it exists
 	_ = os.Remove(n.LockFilePaths()[0])
 
+	// Remove metadata mlock file if it exists
+	_ = os.Remove(t.lookup.MetadataBackend().LockfilePath(n))
+
 	// finally remove the entry from the parent dir
 	if err = os.Remove(path); err != nil {
 		// To roll back changes
@@ -704,7 +707,7 @@ func (t *Tree) InitNewNode(ctx context.Context, n *node.Node, fsize uint64) (met
 
 func (t *Tree) removeNode(ctx context.Context, n *node.Node) error {
 	path := n.InternalPath()
-	logger := appctx.GetLogger(ctx)
+	logger := appctx.GetLogger(ctx).With().Str("spaceid", n.SpaceID).Str("nodeid", n.ID).Logger()
 
 	if n.IsDir(ctx) {
 		item, err := t.ListFolder(ctx, n)
@@ -719,12 +722,7 @@ func (t *Tree) removeNode(ctx context.Context, n *node.Node) error {
 		}
 	}
 
-	// delete the actual node
-	if err := utils.RemoveItem(path); err != nil {
-		logger.Error().Err(err).Str("path", path).Msg("error purging node")
-		return err
-	}
-
+	// delete any metadata from disk and cache
 	if err := t.lookup.MetadataBackend().Purge(ctx, n); err != nil {
 		logger.Error().Err(err).Str("path", t.lookup.MetadataBackend().MetadataPath(n)).Msg("error purging node metadata")
 		return err
@@ -733,7 +731,7 @@ func (t *Tree) removeNode(ctx context.Context, n *node.Node) error {
 	// delete blob from blobstore
 	if n.BlobID != "" {
 		if err := t.DeleteBlob(n); err != nil {
-			logger.Error().Err(err).Str("blobID", n.BlobID).Msg("error purging nodes blob")
+			logger.Error().Err(err).Str("blobID", n.BlobID).Msg("error purging node blob")
 			return err
 		}
 	}
@@ -760,7 +758,7 @@ func (t *Tree) removeNode(ctx context.Context, n *node.Node) error {
 			return err
 		}
 
-		if err := utils.RemoveItem(rev); err != nil {
+		if err := os.Remove(rev); err != nil {
 			logger.Error().Err(err).Str("revision", rev).Msg("error removing revision node")
 			return err
 		}
@@ -775,6 +773,12 @@ func (t *Tree) removeNode(ctx context.Context, n *node.Node) error {
 			}
 		}
 
+	}
+
+	// delete the actual node and empty parent dirs
+	if err := utils.RemoveItem(path); err != nil {
+		logger.Error().Err(err).Str("path", path).Msg("error purging node")
+		return err
 	}
 
 	return nil
