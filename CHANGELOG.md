@@ -1,6 +1,6 @@
 # Changelog
 
-## [4.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.0) - 2025-11-13
+## [4.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.0) - 2025-11-14
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -33,6 +33,7 @@
 
 ### 📦️ Dependencies
 
+- reva-bump-2.39.2. update opencloud 4.0.0-rc.1 [[#1849](https://github.com/opencloud-eu/opencloud/pull/1849)]
 - build(deps): bump golang.org/x/sync from 0.17.0 to 0.18.0 [[#1836](https://github.com/opencloud-eu/opencloud/pull/1836)]
 - build(deps): bump golang.org/x/oauth2 from 0.32.0 to 0.33.0 [[#1828](https://github.com/opencloud-eu/opencloud/pull/1828)]
 - build(deps): bump github.com/KimMachineGun/automemlimit from 0.7.4 to 0.7.5 [[#1787](https://github.com/opencloud-eu/opencloud/pull/1787)]
