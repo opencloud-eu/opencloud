@@ -4,11 +4,15 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @butonic, @dragonchaser, @individual-it, @mikelolasagasti, @pbleser-oc, @rhafer, @schweigisito
+@ScharfViktor, @butonic, @dragonchaser, @individual-it, @micbar, @mikelolasagasti, @pbleser-oc, @rhafer, @schweigisito
 
 ### 💥 Breaking changes
 
 - collaboration: Enable `InsertRemoteImage` option [[#1692](https://github.com/opencloud-eu/opencloud/pull/1692)]
+
+### 📚 Documentation
+
+- Fix README.md files which contain broken or missing links [[#1854](https://github.com/opencloud-eu/opencloud/pull/1854)]
 
 ### 🐛 Bug Fixes
 
