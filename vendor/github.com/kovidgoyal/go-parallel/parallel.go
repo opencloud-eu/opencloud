@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 var _ = fmt.Print
@@ -99,16 +100,17 @@ func Run_in_parallel_over_range(num_procs int, f func(int, int), start, limit in
 		f(start, limit)
 		return
 	}
+	err_once := sync.Once{}
 	chunk_sz := max(1, num_items/num_procs)
 	var wg sync.WaitGroup
-	echan := make(chan error, num_items/chunk_sz+1)
 	for start < limit {
 		end := min(start+chunk_sz, limit)
 		wg.Add(1)
 		go func(start, end int) {
 			defer func() {
 				if r := recover(); r != nil {
-					echan <- Format_stacktrace_on_panic(r, 1)
+					perr := Format_stacktrace_on_panic(r, 1)
+					err_once.Do(func() { err = perr })
 				}
 				wg.Done()
 			}()
@@ -117,10 +119,6 @@ func Run_in_parallel_over_range(num_procs int, f func(int, int), start, limit in
 		start = end
 	}
 	wg.Wait()
-	close(echan)
-	for qerr := range echan {
-		return qerr
-	}
 	return
 }
 
@@ -145,27 +143,77 @@ func Run_in_parallel_over_range_with_error(num_procs int, f func(int, int) error
 	}
 	chunk_sz := max(1, num_items/num_procs)
 	var wg sync.WaitGroup
-	echan := make(chan error, num_items/chunk_sz+1)
+	err_once := sync.Once{}
 	for start < limit {
 		end := min(start+chunk_sz, limit)
 		wg.Add(1)
 		go func(start, end int) {
 			defer func() {
 				if r := recover(); r != nil {
-					echan <- Format_stacktrace_on_panic(r, 1)
+					perr := Format_stacktrace_on_panic(r, 1)
+					err_once.Do(func() { err = perr })
 				}
 				wg.Done()
 			}()
 			if cerr := f(start, end); cerr != nil {
-				echan <- cerr
+				err_once.Do(func() { err = cerr })
 			}
 		}(start, end)
 		start = end
 	}
 	wg.Wait()
-	close(echan)
-	for qerr := range echan {
-		return qerr
+	return
+}
+
+// Run the specified function in parallel until one of them returns true.
+// The functions are passed a keep_going variable that they should periodically check and return false if it is false.
+// If any of the functions panic, the panic is turned into a regular error and returned.
+func Run_in_parallel_to_first_result(num_procs int, f func(start, limit int, keep_going *atomic.Bool) bool, start, limit int) (err error) {
+	var keep_going atomic.Bool
+	keep_going.Store(true)
+	num_items := limit - start
+	if num_procs <= 0 {
+		num_procs = runtime.GOMAXPROCS(0)
 	}
+	num_procs = max(1, min(num_procs, num_items))
+	if num_procs < 2 {
+		defer func() {
+			if r := recover(); r != nil {
+				err = Format_stacktrace_on_panic(r, 1)
+			}
+		}()
+		f(start, limit, &keep_going)
+		return
+	}
+	chunk_sz := max(1, num_items/num_procs)
+	var wg sync.WaitGroup
+	var err_once sync.Once
+	ch := make(chan bool, num_items/chunk_sz+1)
+	for start < limit {
+		end := min(start+chunk_sz, limit)
+		wg.Add(1)
+		go func(start, end int) {
+			defer func() {
+				if r := recover(); r != nil {
+					perr := Format_stacktrace_on_panic(r, 1)
+					err_once.Do(func() { err = perr })
+				}
+				wg.Done()
+			}()
+			ch <- f(start, end, &keep_going)
+		}(start, end)
+		start = end
+	}
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+	for x := range ch {
+		if x {
+			break
+		}
+	}
+	keep_going.Store(false)
+	wg.Wait()
 	return
 }

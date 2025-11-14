@@ -4,57 +4,112 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 )
 
-// CLUTTag represents a color lookup table tag (TagColorLookupTable)
-type CLUTTag struct {
-	GridPoints     []uint8 // e.g., [17,17,17] for 3D CLUT
-	InputChannels  int
-	OutputChannels int
-	Values         []float64 // flattened [in1, in2, ..., out1, out2, ...]
+// TrilinearInterpolate represents a color lookup table tag (TagColorLookupTable)
+type TrilinearInterpolate struct {
+	d      *interpolation_data
+	legacy bool
 }
 
-var _ ChannelTransformer = (*CLUTTag)(nil)
+type TetrahedralInterpolate struct {
+	d      *interpolation_data
+	legacy bool
+}
+
+type CLUT interface {
+	ChannelTransformer
+	Samples() []unit_float
+}
+
+func (c *TrilinearInterpolate) Samples() []unit_float   { return c.d.samples }
+func (c *TetrahedralInterpolate) Samples() []unit_float { return c.d.samples }
+
+func (c TetrahedralInterpolate) String() string {
+	return fmt.Sprintf("TetrahedralInterpolate{ inp:%v outp:%v grid:%v values[:9]:%v }", c.d.num_inputs, c.d.num_outputs, c.d.grid_points, c.d.samples[:min(9, len(c.d.samples))])
+}
+
+func (c TrilinearInterpolate) String() string {
+	return fmt.Sprintf("TrilinearInterpolate{ inp:%v outp:%v grid:%v values[:9]:%v }", c.d.num_inputs, c.d.num_outputs, c.d.grid_points, c.d.samples[:min(9, len(c.d.samples))])
+}
+
+var _ CLUT = (*TrilinearInterpolate)(nil)
+var _ CLUT = (*TetrahedralInterpolate)(nil)
+
+func decode_clut_table8(raw []byte, ans []unit_float) {
+	for i, x := range raw {
+		ans[i] = unit_float(x) / math.MaxUint8
+	}
+}
+
+func decode_clut_table16(raw []byte, ans []unit_float) {
+	raw = raw[:2*len(ans)]
+	const inv = 1. / math.MaxUint16
+	for i := range ans {
+		val := binary.BigEndian.Uint16(raw)
+		ans[i] = unit_float(val) * inv
+		raw = raw[2:]
+	}
+}
+
+func decode_clut_table(raw []byte, bytes_per_channel, OutputChannels int, grid_points []int, output_colorspace ColorSpace) (ans []unit_float, consumed int, err error) {
+	expected_num_of_output_channels := 3
+	switch output_colorspace {
+	case ColorSpaceCMYK:
+		expected_num_of_output_channels = 4
+	}
+	if expected_num_of_output_channels != OutputChannels {
+		return nil, 0, fmt.Errorf("CLUT table number of output channels %d inappropriate for output_colorspace: %s", OutputChannels, output_colorspace)
+	}
+	expected_num_of_values := expectedValues(grid_points, OutputChannels)
+	consumed = bytes_per_channel * expected_num_of_values
+	if len(raw) < consumed {
+		return nil, 0, fmt.Errorf("CLUT table too short %d < %d", len(raw), bytes_per_channel*expected_num_of_values)
+	}
+	ans = make([]unit_float, expected_num_of_values)
+	if bytes_per_channel == 1 {
+		decode_clut_table8(raw[:consumed], ans)
+	} else {
+		decode_clut_table16(raw[:consumed], ans)
+	}
+	return
+}
+
+func make_clut(grid_points []int, num_inputs, num_outputs int, samples []unit_float, legacy, prefer_trilinear bool) CLUT {
+	if num_inputs >= 3 && !prefer_trilinear {
+		return &TetrahedralInterpolate{make_interpolation_data(num_inputs, num_outputs, grid_points, samples), legacy}
+	}
+	return &TrilinearInterpolate{make_interpolation_data(num_inputs, num_outputs, grid_points, samples), legacy}
+}
 
 // section 10.12.3 (CLUT) in ICC.1-2202-05.pdf
-func embeddedClutDecoder(raw []byte, InputChannels, OutputChannels int) (any, error) {
+func embeddedClutDecoder(raw []byte, InputChannels, OutputChannels int, output_colorspace ColorSpace, prefer_trilinear bool) (any, error) {
 	if len(raw) < 20 {
 		return nil, errors.New("clut tag too short")
 	}
-	gridPoints := make([]uint8, InputChannels)
-	copy(gridPoints, raw[:InputChannels])
+	if InputChannels > 4 {
+		return nil, fmt.Errorf("clut supports at most 4 input channels not: %d", InputChannels)
+	}
+	gridPoints := make([]int, InputChannels)
+	for i, b := range raw[:InputChannels] {
+		gridPoints[i] = int(b)
+	}
+	for i, nPoints := range gridPoints {
+		if nPoints < 2 {
+			return nil, fmt.Errorf("CLUT input channel %d has invalid grid points: %d", i, nPoints)
+		}
+	}
 	bytes_per_channel := raw[16]
 	raw = raw[20:]
-	// expected size: (product of grid points) * output channels * bytes_per_channel
-	expected_num_of_values := expectedValues(gridPoints, OutputChannels)
-	values := make([]float64, expected_num_of_values)
-	if len(values)*int(bytes_per_channel) > len(raw) {
-		return nil, fmt.Errorf("CLUT unexpected body length: expected %d, got %d", expected_num_of_values*int(bytes_per_channel), len(raw))
+	values, _, err := decode_clut_table(raw, int(bytes_per_channel), OutputChannels, gridPoints, output_colorspace)
+	if err != nil {
+		return nil, err
 	}
-
-	switch bytes_per_channel {
-	case 1:
-		for i, b := range raw[:len(values)] {
-			values[i] = float64(b) / 255
-		}
-	case 2:
-		for i := range len(values) {
-			values[i] = float64(binary.BigEndian.Uint16(raw[i*2:i*2+2])) / 65535
-		}
-	}
-	ans := &CLUTTag{
-		GridPoints:     gridPoints,
-		InputChannels:  InputChannels,
-		OutputChannels: OutputChannels,
-		Values:         values,
-	}
-	if ans.InputChannels > 6 {
-		return nil, fmt.Errorf("unsupported num of CLUT input channels: %d", ans.InputChannels)
-	}
-	return ans, nil
+	return make_clut(gridPoints, InputChannels, OutputChannels, values, false, prefer_trilinear), nil
 }
 
-func expectedValues(gridPoints []uint8, outputChannels int) int {
+func expectedValues(gridPoints []int, outputChannels int) int {
 	expectedPoints := 1
 	for _, g := range gridPoints {
 		expectedPoints *= int(g)
@@ -62,79 +117,39 @@ func expectedValues(gridPoints []uint8, outputChannels int) int {
 	return expectedPoints * outputChannels
 }
 
-func (c *CLUTTag) WorkspaceSize() int { return 16 }
+func (c *TrilinearInterpolate) IOSig() (int, int)                      { return c.d.num_inputs, c.d.num_outputs }
+func (c *TetrahedralInterpolate) IOSig() (int, int)                    { return c.d.num_inputs, c.d.num_outputs }
+func (c *TrilinearInterpolate) Iter(f func(ChannelTransformer) bool)   { f(c) }
+func (c *TetrahedralInterpolate) Iter(f func(ChannelTransformer) bool) { f(c) }
 
-func (c *CLUTTag) IsSuitableFor(num_input_channels, num_output_channels int) bool {
-	return num_input_channels == int(c.InputChannels) && num_output_channels == c.OutputChannels
+func (c *TrilinearInterpolate) Transform(r, g, b unit_float) (unit_float, unit_float, unit_float) {
+	var obuf [3]unit_float
+	var ibuf = [3]unit_float{r, g, b}
+	c.d.trilinear_interpolate(ibuf[:], obuf[:])
+	return obuf[0], obuf[1], obuf[2]
+}
+func (m *TrilinearInterpolate) TransformGeneral(o, i []unit_float) {
+	o = o[0:m.d.num_outputs:m.d.num_outputs]
+	for i := range o {
+		o[i] = 0
+	}
+	m.d.trilinear_interpolate(i[0:m.d.num_inputs:m.d.num_inputs], o)
 }
 
-func (c *CLUTTag) Transform(output, workspace []float64, inputs ...float64) error {
-	return c.Lookup(output, workspace, inputs)
+func (c *TetrahedralInterpolate) Tetrahedral_interpolate(r, g, b unit_float) (unit_float, unit_float, unit_float) {
+	var obuf [3]unit_float
+	c.d.tetrahedral_interpolation(r, g, b, obuf[:])
+	return obuf[0], obuf[1], obuf[2]
 }
 
-func (c *CLUTTag) Lookup(output, workspace, inputs []float64) error {
-	// clamp input values to 0-1...
-	clamped := workspace[:len(inputs)]
-	for i, v := range inputs {
-		clamped[i] = clamp01(v)
-	}
-	// find the grid positions and interpolation factors...
-	gridFrac := workspace[len(clamped) : 2*len(clamped)]
-	var buf [4]int
-	gridPos := buf[:]
-	for i, v := range clamped {
-		nPoints := int(c.GridPoints[i])
-		if nPoints < 2 {
-			return fmt.Errorf("CLUT input channel %d has invalid grid points: %d", i, nPoints)
-		}
-		pos := v * float64(nPoints-1)
-		gridPos[i] = int(pos)
-		if gridPos[i] >= nPoints-1 {
-			gridPos[i] = nPoints - 2 // clamp
-			gridFrac[i] = 1.0
-		} else {
-			gridFrac[i] = pos - float64(gridPos[i])
-		}
-	}
-	// perform multi-dimensional interpolation (recursive)...
-	return c.triLinearInterpolate(output[:c.OutputChannels], gridPos, gridFrac)
+func (c *TetrahedralInterpolate) Transform(r, g, b unit_float) (unit_float, unit_float, unit_float) {
+	return c.Tetrahedral_interpolate(r, g, b)
 }
 
-func (c *CLUTTag) triLinearInterpolate(out []float64, gridPos []int, gridFrac []float64) error {
-	numCorners := 1 << c.InputChannels // 2^inputs
-	for o := range c.OutputChannels {
-		out[o] = 0
-	}
-	// walk all corners of the hypercube
-	for corner := range numCorners {
-		weight := 1.0
-		idx := 0
-		stride := 1
-		for dim := c.InputChannels - 1; dim >= 0; dim-- {
-			bit := (corner >> dim) & 1
-			pos := gridPos[dim] + bit
-			if pos >= int(c.GridPoints[dim]) {
-				return fmt.Errorf("CLUT corner position out of bounds at dimension %d", dim)
-			}
-			idx += pos * stride
-			stride *= int(c.GridPoints[dim])
-			if bit == 0 {
-				weight *= 1 - gridFrac[dim]
-			} else {
-				weight *= gridFrac[dim]
-			}
-		}
-		base := idx * c.OutputChannels
-		if base+c.OutputChannels > len(c.Values) {
-			return errors.New("CLUT value index out of bounds")
-		}
-		for o := range c.OutputChannels {
-			out[o] += weight * c.Values[base+o]
-		}
-	}
-	return nil
+func (m *TetrahedralInterpolate) TransformGeneral(o, i []unit_float) {
+	m.d.tetrahedral_interpolation4(i[0], i[1], i[2], i[3], o[:m.d.num_outputs:m.d.num_outputs])
 }
 
-func clamp01(v float64) float64 {
+func clamp01(v unit_float) unit_float {
 	return max(0, min(v, 1))
 }

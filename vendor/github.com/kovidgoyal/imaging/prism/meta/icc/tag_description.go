@@ -147,7 +147,7 @@ func mlucDecoder(raw []byte) (any, error) {
 		return nil, fmt.Errorf("mluc tag too small for %d records", count)
 	}
 	tag := &MultiLocalizedTag{Strings: make([]LocalizedString, 0, count)}
-	for i := 0; i < count; i++ {
+	for i := range count {
 		base := 16 + i*recordSize
 		langCode := string(raw[base : base+2])
 		countryCode := string(raw[base+2 : base+4])

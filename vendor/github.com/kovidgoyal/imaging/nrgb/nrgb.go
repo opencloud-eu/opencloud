@@ -1,26 +1,24 @@
-package imaging
+package nrgb
 
 import (
 	"fmt"
 	"image"
 	"image/color"
+
+	"github.com/kovidgoyal/imaging/types"
 )
 
 var _ = fmt.Print
 
-type NRGBColor struct {
+type Color struct {
 	R, G, B uint8
 }
 
-func (c NRGBColor) AsSharp() string {
+func (c Color) AsSharp() string {
 	return fmt.Sprintf("#%02X%02X%02X", c.R, c.G, c.B)
 }
 
-func (c NRGBColor) String() string {
-	return fmt.Sprintf("NRGBColor{%02X %02X %02X}", c.R, c.G, c.B)
-}
-
-func (c NRGBColor) RGBA() (r, g, b, a uint32) {
+func (c Color) RGBA() (r, g, b, a uint32) {
 	r = uint32(c.R)
 	r |= r << 8
 	g = uint32(c.G)
@@ -31,8 +29,8 @@ func (c NRGBColor) RGBA() (r, g, b, a uint32) {
 	return
 }
 
-// NRGB is an in-memory image whose At method returns NRGBColor values.
-type NRGB struct {
+// Image is an in-memory image whose At method returns Color values.
+type Image struct {
 	// Pix holds the image's pixels, in R, G, B order. The pixel at
 	// (x, y) starts at Pix[(y-Rect.Min.Y)*Stride + (x-Rect.Min.X)*3].
 	Pix []uint8
@@ -43,62 +41,65 @@ type NRGB struct {
 }
 
 func nrgbModel(c color.Color) color.Color {
-	if _, ok := c.(NRGBColor); ok {
+	switch q := c.(type) {
+	case Color:
 		return c
+	case color.NRGBA:
+		return Color{q.R, q.G, q.B}
+	case color.NRGBA64:
+		return Color{uint8(q.R >> 8), uint8(q.G >> 8), uint8(q.B >> 8)}
 	}
 	r, g, b, a := c.RGBA()
 	switch a {
 	case 0xffff:
-		return NRGBColor{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8)}
+		return Color{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8)}
 	case 0:
-		return NRGBColor{0, 0, 0}
+		return Color{0, 0, 0}
 	default:
 		// Since Color.RGBA returns an alpha-premultiplied color, we should have r <= a && g <= a && b <= a.
 		r = (r * 0xffff) / a
 		g = (g * 0xffff) / a
 		b = (b * 0xffff) / a
-		return NRGBColor{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8)}
+		return Color{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8)}
 	}
 }
 
-var NRGBModel color.Model = color.ModelFunc(nrgbModel)
+var Model color.Model = color.ModelFunc(nrgbModel)
 
-func (p *NRGB) ColorModel() color.Model { return NRGBModel }
+func (p *Image) ColorModel() color.Model { return Model }
 
-func (p *NRGB) Bounds() image.Rectangle { return p.Rect }
+func (p *Image) Bounds() image.Rectangle { return p.Rect }
 
-func (p *NRGB) At(x, y int) color.Color {
+func (p *Image) At(x, y int) color.Color {
 	return p.NRGBAt(x, y)
 }
 
-func (p *NRGB) NRGBAt(x, y int) NRGBColor {
+func (p *Image) NRGBAt(x, y int) Color {
 	if !(image.Point{x, y}.In(p.Rect)) {
-		return NRGBColor{}
+		return Color{}
 	}
 	i := p.PixOffset(x, y)
 	s := p.Pix[i : i+3 : i+3] // Small cap improves performance, see https://golang.org/issue/27857
-	return NRGBColor{s[0], s[1], s[2]}
+	return Color{s[0], s[1], s[2]}
 }
 
 // PixOffset returns the index of the first element of Pix that corresponds to
 // the pixel at (x, y).
-func (p *NRGB) PixOffset(x, y int) int {
+func (p *Image) PixOffset(x, y int) int {
 	return (y-p.Rect.Min.Y)*p.Stride + (x-p.Rect.Min.X)*3
 }
 
-func (p *NRGB) Set(x, y int, c color.Color) {
+func (p *Image) Set(x, y int, c color.Color) {
 	if !(image.Point{x, y}.In(p.Rect)) {
 		return
 	}
 	i := p.PixOffset(x, y)
-	c1 := NRGBModel.Convert(c).(NRGBColor)
 	s := p.Pix[i : i+3 : i+3] // Small cap improves performance, see https://golang.org/issue/27857
-	s[0] = c1.R
-	s[1] = c1.G
-	s[2] = c1.B
+	q := nrgbModel(c).(Color)
+	s[0], s[1], s[2] = q.R, q.G, q.B
 }
 
-func (p *NRGB) SetRGBA64(x, y int, c color.RGBA64) {
+func (p *Image) SetRGBA64(x, y int, c color.RGBA64) {
 	if !(image.Point{x, y}.In(p.Rect)) {
 		return
 	}
@@ -115,7 +116,7 @@ func (p *NRGB) SetRGBA64(x, y int, c color.RGBA64) {
 	s[2] = uint8(b >> 8)
 }
 
-func (p *NRGB) SetNRGBA(x, y int, c color.NRGBA) {
+func (p *Image) SetNRGBA(x, y int, c color.NRGBA) {
 	if !(image.Point{x, y}.In(p.Rect)) {
 		return
 	}
@@ -128,16 +129,16 @@ func (p *NRGB) SetNRGBA(x, y int, c color.NRGBA) {
 
 // SubImage returns an image representing the portion of the image p visible
 // through r. The returned value shares pixels with the original image.
-func (p *NRGB) SubImage(r image.Rectangle) image.Image {
+func (p *Image) SubImage(r image.Rectangle) image.Image {
 	r = r.Intersect(p.Rect)
 	// If r1 and r2 are Rectangles, r1.Intersect(r2) is not guaranteed to be inside
 	// either r1 or r2 if the intersection is empty. Without explicitly checking for
 	// this, the Pix[i:] expression below can panic.
 	if r.Empty() {
-		return &NRGB{}
+		return &Image{}
 	}
 	i := p.PixOffset(r.Min.X, r.Min.Y)
-	return &NRGB{
+	return &Image{
 		Pix:    p.Pix[i:],
 		Stride: p.Stride,
 		Rect:   r,
@@ -145,19 +146,20 @@ func (p *NRGB) SubImage(r image.Rectangle) image.Image {
 }
 
 // Opaque scans the entire image and reports whether it is fully opaque.
-func (p *NRGB) Opaque() bool { return true }
+func (p *Image) Opaque() bool { return true }
 
 type scanner_rgb struct {
 	image            image.Image
 	w, h             int
-	palette          []NRGBColor
+	palette          []Color
 	opaque_base      []float64
 	opaque_base_uint []uint8
 }
 
-func (s scanner_rgb) Bytes_per_channel() int  { return 1 }
-func (s scanner_rgb) Num_of_channels() int    { return 3 }
-func (s scanner_rgb) Bounds() image.Rectangle { return s.image.Bounds() }
+func (s scanner_rgb) Bytes_per_channel() int                 { return 1 }
+func (s scanner_rgb) Num_of_channels() int                   { return 3 }
+func (s scanner_rgb) Bounds() image.Rectangle                { return s.image.Bounds() }
+func (s scanner_rgb) NewImage(r image.Rectangle) image.Image { return NewNRGB(r) }
 
 func blend(dest []uint8, base []float64, r, g, b, a uint8) {
 	alpha := float64(a) / 255.0
@@ -166,14 +168,45 @@ func blend(dest []uint8, base []float64, r, g, b, a uint8) {
 	dest[2] = uint8(alpha*float64(b) + (1.0-alpha)*base[2])
 }
 
-func newScannerRGB(img image.Image, opaque_base NRGBColor) *scanner_rgb {
+func reverse3(pix []uint8) {
+	if len(pix) <= 3 {
+		return
+	}
+	i := 0
+	j := len(pix) - 3
+	for i < j {
+		pi := pix[i : i+3 : i+3]
+		pj := pix[j : j+3 : j+3]
+		pi[0], pj[0] = pj[0], pi[0]
+		pi[1], pj[1] = pj[1], pi[1]
+		pi[2], pj[2] = pj[2], pi[2]
+		i += 3
+		j -= 3
+	}
+}
+
+func (s *scanner_rgb) ReverseRow(img image.Image, row int) {
+	d := img.(*Image)
+	pos := row * d.Stride
+	r := d.Pix[pos : pos+d.Stride : pos+d.Stride]
+	reverse3(r)
+}
+
+func (s *scanner_rgb) ScanRow(x1, y1, x2, y2 int, img image.Image, row int) {
+	d := img.(*Image)
+	pos := row * d.Stride
+	r := d.Pix[pos : pos+d.Stride : pos+d.Stride]
+	s.Scan(x1, y1, x2, y2, r)
+}
+
+func newScannerRGB(img image.Image, opaque_base Color) *scanner_rgb {
 	s := &scanner_rgb{
 		image: img, w: img.Bounds().Dx(), h: img.Bounds().Dy(),
 		opaque_base:      []float64{float64(opaque_base.R), float64(opaque_base.G), float64(opaque_base.B)}[0:3:3],
 		opaque_base_uint: []uint8{opaque_base.R, opaque_base.G, opaque_base.B}[0:3:3],
 	}
 	if img, ok := img.(*image.Paletted); ok {
-		s.palette = make([]NRGBColor, max(256, len(img.Palette)))
+		s.palette = make([]Color, max(256, len(img.Palette)))
 		d := [3]uint8{0, 0, 0}
 		ds := d[:]
 		for i := 0; i < len(img.Palette); i++ {
@@ -182,10 +215,10 @@ func newScannerRGB(img image.Image, opaque_base NRGBColor) *scanner_rgb {
 			case 0:
 				s.palette[i] = opaque_base
 			case 0xffff:
-				s.palette[i] = NRGBColor{R: uint8(r >> 8), G: uint8(g >> 8), B: uint8(b >> 8)}
+				s.palette[i] = Color{R: uint8(r >> 8), G: uint8(g >> 8), B: uint8(b >> 8)}
 			default:
 				blend(ds, s.opaque_base, uint8((r*0xffff/a)>>8), uint8((g*0xffff/a)>>8), uint8((b*0xffff/a)>>8), uint8(a>>8))
-				s.palette[i] = NRGBColor{R: d[0], G: d[1], B: d[2]}
+				s.palette[i] = Color{R: d[0], G: d[1], B: d[2]}
 			}
 		}
 	}
@@ -335,37 +368,8 @@ func (s *scanner_rgb) Scan(x1, y1, x2, y2 int, dst []uint8) {
 				default:
 					ic = img.COffset(x, y)
 				}
-
-				yy1 := int32(img.Y[iy]) * 0x10101
-				cb1 := int32(img.Cb[ic]) - 128
-				cr1 := int32(img.Cr[ic]) - 128
-
-				r := yy1 + 91881*cr1
-				if uint32(r)&0xff000000 == 0 {
-					r >>= 16
-				} else {
-					r = ^(r >> 31)
-				}
-
-				g := yy1 - 22554*cb1 - 46802*cr1
-				if uint32(g)&0xff000000 == 0 {
-					g >>= 16
-				} else {
-					g = ^(g >> 31)
-				}
-
-				b := yy1 + 116130*cb1
-				if uint32(b)&0xff000000 == 0 {
-					b >>= 16
-				} else {
-					b = ^(b >> 31)
-				}
-
 				d := dst[j : j+3 : j+3]
-				d[0] = uint8(r)
-				d[1] = uint8(g)
-				d[2] = uint8(b)
-
+				d[0], d[1], d[2] = color.YCbCrToRGB(img.Y[iy], img.Cb[ic], img.Cr[ic])
 				iy++
 				j += 3
 			}
@@ -415,26 +419,26 @@ func (s *scanner_rgb) Scan(x1, y1, x2, y2 int, dst []uint8) {
 	}
 }
 
-func NewNRGB(r image.Rectangle) *NRGB {
-	return &NRGB{
+func NewNRGB(r image.Rectangle) *Image {
+	return &Image{
 		Pix:    make([]uint8, 3*r.Dx()*r.Dy()),
 		Stride: 3 * r.Dx(),
 		Rect:   r,
 	}
 }
 
-func NewNRGBWithContiguousRGBPixels(p []byte, left, top, width, height int) (*NRGB, error) {
+func NewNRGBWithContiguousRGBPixels(p []byte, left, top, width, height int) (*Image, error) {
 	const bpp = 3
 	if expected := bpp * width * height; expected != len(p) {
 		return nil, fmt.Errorf("the image width and height dont match the size of the specified pixel data: width=%d height=%d sz=%d != %d", width, height, len(p), expected)
 	}
-	return &NRGB{
+	return &Image{
 		Pix:    p,
 		Stride: bpp * width,
 		Rect:   image.Rectangle{image.Point{left, top}, image.Point{left + width, top + height}},
 	}, nil
 }
 
-func NewNRGBScanner(source_image image.Image, opaque_base NRGBColor) Scanner {
+func NewNRGBScanner(source_image image.Image, opaque_base Color) types.Scanner {
 	return newScannerRGB(source_image, opaque_base)
 }
