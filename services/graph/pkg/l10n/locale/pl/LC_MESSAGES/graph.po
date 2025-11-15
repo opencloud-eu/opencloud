@@ -4,7 +4,10 @@
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 # 
 # Translators:
-# Stephan Paternotte <stephan@paternottes.net>, 2025
+# skrzat <skrzacikus@gmail.com>, 2025
+# Maksymilian Styżej, 2025
+# Xiaomi Box, 2025
+# Radoslaw Posim, 2025
 # 
 #, fuzzy
 msgid ""
@@ -13,13 +16,13 @@ msgstr ""
 "Report-Msgid-Bugs-To: EMAIL\n"
 "POT-Creation-Date: 2025-11-15 00:02+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
-"Last-Translator: Stephan Paternotte <stephan@paternottes.net>, 2025\n"
-"Language-Team: Dutch (https://app.transifex.com/opencloud-eu/teams/204053/nl/)\n"
+"Last-Translator: Radoslaw Posim, 2025\n"
+"Language-Team: Polish (https://app.transifex.com/opencloud-eu/teams/204053/pl/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: nl\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Language: pl\n"
+"Plural-Forms: nplurals=4; plural=(n==1 ? 0 : (n%10>=2 && n%10<=4) && (n%100<12 || n%100>14) ? 1 : n!=1 && (n%10>=0 && n%10<=1) || (n%10>=5 && n%10<=9) || (n%100>=12 && n%100<=14) ? 2 : 3);\n"
 
 #. UnifiedRole Editor, Role DisplayName (resolves directly)
 #. UnifiedRole EditorListGrants, Role DisplayName (resolves directly)
@@ -30,23 +33,23 @@ msgstr ""
 #: pkg/unifiedrole/roles.go:128 pkg/unifiedrole/roles.go:140
 #: pkg/unifiedrole/roles.go:146
 msgid "Can edit"
-msgstr "Kan bewerken"
+msgstr "Może edytować"
 
 #. UnifiedRole SpaseEditorWithoutVersions, Role DisplayName (resolves
 #. directly)
 #: pkg/unifiedrole/roles.go:134
 msgid "Can edit without versions"
-msgstr "Kan bewerken zonder versies"
+msgstr ""
 
 #. UnifiedRole Manager, Role DisplayName (resolves directly)
 #: pkg/unifiedrole/roles.go:158
 msgid "Can manage"
-msgstr "Kan beheren"
+msgstr "Może zarządzać"
 
 #. UnifiedRole EditorLite, Role DisplayName (resolves directly)
 #: pkg/unifiedrole/roles.go:152
 msgid "Can upload"
-msgstr "Kan uploaden"
+msgstr "Może przesyłać pliki"
 
 #. UnifiedRole Viewer, Role DisplayName (resolves directly)
 #. UnifiedRole Viewer, Role DisplayName (resolves directly)
@@ -54,85 +57,83 @@ msgstr "Kan uploaden"
 #: pkg/unifiedrole/roles.go:98 pkg/unifiedrole/roles.go:104
 #: pkg/unifiedrole/roles.go:110
 msgid "Can view"
-msgstr "Kan weergeven"
+msgstr "Może oglądać"
 
 #. UnifiedRole SecureViewer, Role DisplayName (resolves directly)
 #: pkg/unifiedrole/roles.go:164
 msgid "Can view (secure)"
-msgstr "Kan weergeven (beveiligd)"
+msgstr "Mogę zobaczyć ( źródło) "
 
 #. UnifiedRole FullDenial, Role DisplayName (resolves directly)
 #: pkg/unifiedrole/roles.go:170
 msgid "Cannot access"
-msgstr "Heeft geen toegang"
+msgstr "Nie ma dostępu"
 
 #. UnifiedRole FullDenial, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:167
 msgid "Deny all access."
-msgstr "Alle toegang weigeren."
+msgstr "Odmów dostępu wszystkim."
 
 #. default description for new spaces
 #: pkg/service/v0/spacetemplates.go:32
 msgid "Here you can add a description for this Space."
-msgstr "Hier kun je een beschrijving voor deze ruimte toevoegen."
+msgstr "Tutaj możesz dodać opis dla tej Przestrzeni"
 
 #. UnifiedRole Viewer, Role Description (resolves directly)
 #. UnifiedRole SpaceViewer, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:95 pkg/unifiedrole/roles.go:107
 msgid "View and download."
-msgstr "Weergeven en downloaden."
+msgstr "Zobacz i pobierz"
 
 #. UnifiedRole SecureViewer, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:161
 msgid "View only documents, images and PDFs. Watermarks will be applied."
 msgstr ""
-"Alleen documenten, afbeeldingen en PDF's weergeven. Met toepassing van "
-"watermerken."
 
 #. UnifiedRole FileEditor, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:137
 msgid "View, download and edit."
-msgstr "Weergeven, downloaden en bewerken."
+msgstr "Wyświetl , Pobierz i edytuj "
 
 #. UnifiedRole ViewerListGrants, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:101
 msgid "View, download and show all invited people."
-msgstr "Weergeven, downloaden en alle genodigde personen zien."
+msgstr ""
 
 #. UnifiedRole EditorLite, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:149
 msgid "View, download and upload."
-msgstr "Weergeven, downloaden en uploaden."
+msgstr "Wyświetlanie, pobieranie i przesyłanie."
 
 #. UnifiedRole FileEditorListGrants, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:143
 msgid "View, download, edit and show all invited people."
-msgstr "Weergeven, downloaden, bewerken en alle genodigde personen zien."
+msgstr ""
 
 #. UnifiedRole Editor, Role Description (resolves directly)
 #. UnifiedRole SpaseEditorWithoutVersions, Role Description (resolves
 #. directly)
 #: pkg/unifiedrole/roles.go:113 pkg/unifiedrole/roles.go:131
 msgid "View, download, upload, edit, add and delete."
-msgstr "Weergeven, downloaden, uploaden, bewerken, toevoegen en verwijderen."
+msgstr "Wyświetlanie, pobieranie,  przesyłanie, edycja, dodawanie i usuwanie."
 
 #. UnifiedRole Manager, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:155
 msgid "View, download, upload, edit, add, delete and manage members."
 msgstr ""
-"Weergeven, downloaden, uploaden, bewerken, toevoegen, verwijderen en leden "
-"beheren."
+"Wyświetlanie, pobieranie, przesyłanie, edycja, dodawanie, usuwanie i "
+"zarządzanie członkami."
 
 #. UnifiedRoleListGrants Editor, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:119
 msgid "View, download, upload, edit, add, delete and show all invited people."
 msgstr ""
-"Weergeven, downloaden, uploaden, bewerken, toevoegen, verwijderen en alle "
-"genodigde personen zien."
+"Wyświetlanie, pobieranie, przesyłanie, edycja, dodawanie, usuwanie i "
+"wyświetlanie wszystkich zaproszonych osób."
 
 #. UnifiedRole SpaseEditor, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:125
 msgid "View, download, upload, edit, add, delete including the history."
 msgstr ""
-"Weergeven, downloaden, uploaden, bewerken, toevoegen, verwijderen, incl. "
-"geschiedenis."
+"Wyświetlanie, pobieranie, przesyłanie, edycja, dodawanie, usuwanie włącznie "
+"z historią."

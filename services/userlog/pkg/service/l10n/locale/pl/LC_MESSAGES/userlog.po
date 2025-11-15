@@ -4,7 +4,9 @@
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 # 
 # Translators:
-# Stephan Paternotte <stephan@paternottes.net>, 2025
+# skrzat <skrzacikus@gmail.com>, 2025
+# Maksymilian Styżej, 2025
+# Radoslaw Posim, 2025
 # 
 #, fuzzy
 msgid ""
@@ -13,21 +15,21 @@ msgstr ""
 "Report-Msgid-Bugs-To: EMAIL\n"
 "POT-Creation-Date: 2025-11-15 00:02+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
-"Last-Translator: Stephan Paternotte <stephan@paternottes.net>, 2025\n"
-"Language-Team: Dutch (https://app.transifex.com/opencloud-eu/teams/204053/nl/)\n"
+"Last-Translator: Radoslaw Posim, 2025\n"
+"Language-Team: Polish (https://app.transifex.com/opencloud-eu/teams/204053/pl/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: nl\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Language: pl\n"
+"Plural-Forms: nplurals=4; plural=(n==1 ? 0 : (n%10>=2 && n%10<=4) && (n%100<12 || n%100>14) ? 1 : n!=1 && (n%10>=0 && n%10<=1) || (n%10>=5 && n%10<=9) || (n%100>=12 && n%100<=14) ? 2 : 3);\n"
 
 #: pkg/service/templates.go:39
 msgid "Access to Space {space} lost"
-msgstr "Toegang tot ruimte {space} kwijtgeraakt"
+msgstr "Dostęp do Przestrzeni {space} utracony"
 
 #: pkg/service/templates.go:54
 msgid "Access to {resource} expired"
-msgstr "Toegang tot {resource} verlopen"
+msgstr "Dostęp do {resource} wygasł"
 
 #: pkg/service/templates.go:59
 msgid ""
@@ -35,84 +37,84 @@ msgid ""
 "Download all your data before that date as no access past that date is "
 "possible."
 msgstr ""
-"Let op! De instantie wordt op {date} afgesloten en afgeschakeld. Download "
-"voor deze datum al je gegevens, aangezien erna geen toegang meer mogelijk "
-"is."
+"Uwaga! Ta instancja zostanie wyłączona i usunięta w dniu {date}. Pobierz "
+"wszystkie swoje dane przed tym terminem, ponieważ po upływie tej daty dostęp"
+" nie będzie możliwy."
 
 #: pkg/service/templates.go:14
 msgid "File {resource} was deleted because it violates the policies"
 msgstr ""
-"Bestand {resource} is verwijderd vanwege scheding van de beleidsregels"
+"Plik {resource} został usunięty ponieważ narusza obowiązujące polityki"
 
 #: pkg/service/templates.go:58
 msgid "Instance will be shut down and deprovisioned"
-msgstr "De instantie zal worden afgesloten en afgeschakeld"
+msgstr "Instancja zostanie wyłączona i usunięta."
 
 #: pkg/service/templates.go:38
 msgid "Membership expired"
-msgstr "Lidmaatschap verlopen"
+msgstr "Członkostwo wygasło"
 
 #: pkg/service/templates.go:13
 msgid "Policies enforced"
-msgstr "Beleid afgedwongen"
+msgstr "Zastosowano obowiązujące polityki"
 
 #: pkg/service/templates.go:23
 msgid "Removed from Space"
-msgstr "Verwijderd uit ruimte"
+msgstr "Usunięto z Przestrzeni"
 
 #: pkg/service/templates.go:43
 msgid "Resource shared"
-msgstr "Hulpbron gedeeld"
+msgstr "Zasób udostępniony"
 
 #: pkg/service/templates.go:48
 msgid "Resource unshared"
-msgstr "Hulpbron niet gedeeld"
+msgstr "Udostępnianie zasobu zostało zakończone"
 
 #: pkg/service/templates.go:53
 msgid "Share expired"
-msgstr "Share verlopen"
+msgstr "Udostępnienie wygasło"
 
 #: pkg/service/templates.go:33
 msgid "Space deleted"
-msgstr "Ruimte verwijderd"
+msgstr "Przestrzeń usunięta"
 
 #: pkg/service/templates.go:28
 msgid "Space disabled"
-msgstr "Ruimte uitgeschakeld"
+msgstr "Przestrzeń wyłączona"
 
 #: pkg/service/templates.go:18
 msgid "Space shared"
-msgstr "Ruimte gedeeld"
+msgstr "Przestrzeń udostępniona"
 
 #: pkg/service/templates.go:8
 msgid "Virus found"
-msgstr "Virus aangetroffen"
+msgstr "Znaleziono wirusa"
 
 #: pkg/service/templates.go:9
 msgid "Virus found in {resource}. Upload not possible. Virus: {virus}"
 msgstr ""
-"Virus aangetroffen in {resource}. Uploaden niet mogelijk. Virus: {virus}"
+"Znaleziono wirusa w {resource}. Przesłanie jest niemożliwe. Wirus: {virus}"
 
 #: pkg/service/templates.go:19
 msgid "{user} added you to Space {space}"
-msgstr "{user} heeft jou toegevoegd aan ruimte {space}"
+msgstr "{user} dodał Ciebie do Przestrzeni {space}"
 
 #: pkg/service/templates.go:34
 msgid "{user} deleted Space {space}"
-msgstr "{user} heeft ruimte {space} verwijderd"
+msgstr "{user} usunął Przestrzeń {space}"
 
 #: pkg/service/templates.go:29
 msgid "{user} disabled Space {space}"
-msgstr "{user} heeft ruimte {space} uitgeschakeld"
+msgstr "{user} wyłączył Przestrzeń {space}"
 
 #: pkg/service/templates.go:24
 msgid "{user} removed you from Space {space}"
-msgstr "{user} heeft jou verwijderd uit ruimte {space}"
+msgstr "{user} usunął Ciebie z Przestrzeni {space}"
 
 #: pkg/service/templates.go:44
 msgid "{user} shared {resource} with you"
-msgstr "{user} heeft {resource} met jou gedeeld"
+msgstr "{user} udostępnił Ci zasób {resource}"
 
 #: pkg/service/templates.go:49
 msgid "{user} unshared {resource} with you"
-msgstr "{user} heeft het delen van {resource} met jou beëindigd"
+msgstr "{user} wyłączył udostępnianie zasobu {resource} dla Ciebie"
