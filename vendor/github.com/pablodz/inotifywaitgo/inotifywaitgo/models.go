@@ -1,5 +1,7 @@
 package inotifywaitgo
 
+import "log/slog"
+
 type Settings struct {
 	// Directory to watch
 	Dir string
@@ -13,6 +15,8 @@ type Settings struct {
 	KillOthers bool
 	// verbose
 	Verbose bool
+	// Logger
+	Log *slog.Logger
 }
 
 type Options struct {

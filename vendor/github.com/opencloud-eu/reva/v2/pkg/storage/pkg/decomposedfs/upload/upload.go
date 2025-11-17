@@ -292,7 +292,10 @@ func (session *DecomposedFsSession) Finalize(ctx context.Context) (err error) {
 	revisionNode := node.New(session.SpaceID(), session.NodeID(), "", "", session.Size(), session.ID(),
 		provider.ResourceType_RESOURCE_TYPE_FILE, session.SpaceOwner(), session.store.lu)
 
-	switch spaceRoot, err := session.store.lu.NodeFromSpaceID(ctx, session.SpaceID()); {
+	var (
+		spaceRoot *node.Node
+	)
+	switch spaceRoot, err = session.store.lu.NodeFromSpaceID(ctx, session.SpaceID()); {
 	case err != nil:
 		return fmt.Errorf("failed to get space root for space id %s: %v", session.SpaceID(), err)
 	case spaceRoot == nil:
@@ -309,6 +312,31 @@ func (session *DecomposedFsSession) Finalize(ctx context.Context) (err error) {
 		return err
 	}
 	defer func() { _ = unlock() }()
+
+	isProcessing := revisionNode.IsProcessing(ctx)
+	var procssingID string
+	if isProcessing {
+		procssingID, _ = revisionNode.ProcessingID(ctx)
+	}
+
+	// another upload on this node is in progress or has finished since we started
+	if !isProcessing || procssingID != session.ID() {
+		versionID := revisionNode.ID + node.RevisionIDDelimiter + session.MTime().UTC().Format(time.RFC3339Nano)
+		revisionNode, err = node.ReadNode(ctx, session.store.lu, session.SpaceID(), versionID, false, spaceRoot, false)
+		if err != nil {
+			return fmt.Errorf("failed to read revision node %s for upload finalization: %w", versionID, err)
+		}
+		if !revisionNode.Exists {
+			return fmt.Errorf("revision node %s for upload finalization does not exist", versionID)
+		}
+		// lock this node as well, before writing the blob
+		revisionNodeUnlock, err := session.store.lu.MetadataBackend().Lock(revisionNode)
+		if err != nil {
+			return err
+		}
+		appctx.GetLogger(ctx).Debug().Str("new nodepath", revisionNode.InternalPath()).Msg("uploading to revision node, that was created for us by another upload")
+		defer func() { _ = revisionNodeUnlock() }()
+	}
 
 	// upload the data to the blobstore
 	_, subspan := tracer.Start(ctx, "WriteBlob")

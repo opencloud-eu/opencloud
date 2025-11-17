@@ -19,7 +19,6 @@ import (
 
 	"github.com/opencloud-eu/reva/v2/pkg/storage/cache"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/filelocks"
 )
 
 var _metadataOffloadedAttr = prefixes.OcPrefix + "metadata_offloaded"
@@ -121,12 +120,11 @@ func (b HybridBackend) list(ctx context.Context, n MetadataNode, acquireLock boo
 
 	// listing xattrs failed, try again, either with lock or without
 	if acquireLock {
-		f, err := lockedfile.OpenFile(filePath+filelocks.LockFileSuffix, os.O_CREATE|os.O_WRONLY, 0600)
+		unlock, err := b.Lock(n)
 		if err != nil {
 			return nil, err
 		}
-		// Warning: do not remove the lockfile or we may lock the same file more than once, https://github.com/opencloud-eu/opencloud/issues/1793
-		defer f.Close()
+		defer func() { _ = unlock() }()
 
 	}
 	return xattr.List(filePath)
@@ -375,12 +373,11 @@ func (b HybridBackend) offloadMetadata(ctx context.Context, n MetadataNode) erro
 func (b HybridBackend) Remove(ctx context.Context, n MetadataNode, key string, acquireLock bool) error {
 	path := n.InternalPath()
 	if acquireLock {
-		lockedFile, err := lockedfile.OpenFile(path+filelocks.LockFileSuffix, os.O_CREATE|os.O_WRONLY, 0600)
+		unlock, err := b.Lock(n)
 		if err != nil {
 			return err
 		}
-		// Warning: do not remove the lockfile or we may lock the same file more than once, https://github.com/opencloud-eu/opencloud/issues/1793
-		defer lockedFile.Close()
+		defer func() { _ = unlock() }()
 	}
 
 	if isOffloadingAttribute(key) {
