@@ -1,0 +1,102 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# 
+# Translators:
+# Mário Machado, 2025
+# 
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: EMAIL\n"
+"POT-Creation-Date: 2025-11-17 00:02+0000\n"
+"PO-Revision-Date: 2025-01-27 10:17+0000\n"
+"Last-Translator: Mário Machado, 2025\n"
+"Language-Team: Portuguese (https://app.transifex.com/opencloud-eu/teams/204053/pt/)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: pt\n"
+"Plural-Forms: nplurals=3; plural=(n == 0 || n == 1) ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;\n"
+
+#: pkg/service/response.go:44
+msgid "description"
+msgstr "descrição"
+
+#: pkg/service/response.go:43
+msgid "display name"
+msgstr "nome de exibição"
+
+#: pkg/service/response.go:42
+msgid "expiration date"
+msgstr "data de expiração"
+
+#: pkg/service/response.go:41
+msgid "password"
+msgstr "palavra-passe"
+
+#: pkg/service/response.go:40
+msgid "permission"
+msgstr "permissão"
+
+#: pkg/service/response.go:39
+msgid "some field"
+msgstr "algum campo"
+
+#: pkg/service/response.go:26
+msgid "{resource} was downloaded via public link {token}"
+msgstr "{resource} foi descarregado através da ligação pública {token}"
+
+#: pkg/service/response.go:24
+msgid "{user} added {resource} to {folder}"
+msgstr "{user} adicionou {resource} a {folder}"
+
+#: pkg/service/response.go:36
+msgid "{user} added {sharee} as member of {space}"
+msgstr "{user} adicionou {sharee} como membro de {space}"
+
+#: pkg/service/response.go:27
+msgid "{user} deleted {resource} from {folder}"
+msgstr "{user} eliminou {resource} de {folder}"
+
+#: pkg/service/response.go:28
+msgid "{user} moved {resource} to {folder}"
+msgstr "{user} moveu {resource} para {folder}"
+
+#: pkg/service/response.go:35
+msgid "{user} removed link to {resource}"
+msgstr "{user} removeu a ligação para {resource}"
+
+#: pkg/service/response.go:32
+msgid "{user} removed {sharee} from {resource}"
+msgstr "{user} removeu {sharee} de {resource}"
+
+#: pkg/service/response.go:37
+msgid "{user} removed {sharee} from {space}"
+msgstr "{user} removeu {sharee} de {space}"
+
+#: pkg/service/response.go:29
+msgid "{user} renamed {oldResource} to {resource}"
+msgstr "{user} renomeou {oldResource} para {resource}"
+
+#: pkg/service/response.go:33
+msgid "{user} shared {resource} via link"
+msgstr "{user} partilhou {resource} via ligação"
+
+#: pkg/service/response.go:30
+msgid "{user} shared {resource} with {sharee}"
+msgstr "{user} partilhou {resource} com {sharee}"
+
+#: pkg/service/response.go:34
+msgid "{user} updated {field} for a link {token} on {resource}"
+msgstr "{user} atualizou {field} para a ligação {token} em {resource}"
+
+#: pkg/service/response.go:31
+msgid "{user} updated {field} for the {resource}"
+msgstr "{user} atualizou {field} para o {resource}"
+
+#: pkg/service/response.go:25
+msgid "{user} updated {resource} in {folder}"
+msgstr "{user} atualizou {resource} em {folder}"

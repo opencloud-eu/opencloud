@@ -1,0 +1,117 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# 
+# Translators:
+# Mário Machado, 2025
+# 
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: EMAIL\n"
+"POT-Creation-Date: 2025-11-17 00:02+0000\n"
+"PO-Revision-Date: 2025-01-27 10:17+0000\n"
+"Last-Translator: Mário Machado, 2025\n"
+"Language-Team: Portuguese (https://app.transifex.com/opencloud-eu/teams/204053/pt/)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: pt\n"
+"Plural-Forms: nplurals=3; plural=(n == 0 || n == 1) ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;\n"
+
+#: pkg/service/templates.go:39
+msgid "Access to Space {space} lost"
+msgstr "Acesso ao Espaço {space} perdido"
+
+#: pkg/service/templates.go:54
+msgid "Access to {resource} expired"
+msgstr "Acesso a {resource} expirou"
+
+#: pkg/service/templates.go:59
+msgid ""
+"Attention! The instance will be shut down and deprovisioned on {date}. "
+"Download all your data before that date as no access past that date is "
+"possible."
+msgstr ""
+"Atenção! A instância será encerrada e desprovisionada a {date}. Descarregue "
+"todos os seus dados antes dessa data, pois o acesso não será possível depois"
+" desse prazo."
+
+#: pkg/service/templates.go:14
+msgid "File {resource} was deleted because it violates the policies"
+msgstr "O ficheiro {resource} foi eliminado porque viola as políticas"
+
+#: pkg/service/templates.go:58
+msgid "Instance will be shut down and deprovisioned"
+msgstr "A instância será encerrada e desprovisionada"
+
+#: pkg/service/templates.go:38
+msgid "Membership expired"
+msgstr "Subscrição expirada"
+
+#: pkg/service/templates.go:13
+msgid "Policies enforced"
+msgstr "Políticas aplicadas"
+
+#: pkg/service/templates.go:23
+msgid "Removed from Space"
+msgstr "Removido do Espaço"
+
+#: pkg/service/templates.go:43
+msgid "Resource shared"
+msgstr "Recurso partilhado"
+
+#: pkg/service/templates.go:48
+msgid "Resource unshared"
+msgstr "Recurso cuja partilha foi removida"
+
+#: pkg/service/templates.go:53
+msgid "Share expired"
+msgstr "Partilha expirada"
+
+#: pkg/service/templates.go:33
+msgid "Space deleted"
+msgstr "Espaço eliminado"
+
+#: pkg/service/templates.go:28
+msgid "Space disabled"
+msgstr "Espaço desativado"
+
+#: pkg/service/templates.go:18
+msgid "Space shared"
+msgstr "Espaço partilhado"
+
+#: pkg/service/templates.go:8
+msgid "Virus found"
+msgstr "Vírus encontrado"
+
+#: pkg/service/templates.go:9
+msgid "Virus found in {resource}. Upload not possible. Virus: {virus}"
+msgstr ""
+"Vírus encontrado em {resource}. Carregamento não é possível. Vírus: {virus}"
+
+#: pkg/service/templates.go:19
+msgid "{user} added you to Space {space}"
+msgstr "{user} adicionou-o(a) ao Espaço {space}"
+
+#: pkg/service/templates.go:34
+msgid "{user} deleted Space {space}"
+msgstr "{user} eliminou o Espaço {space}"
+
+#: pkg/service/templates.go:29
+msgid "{user} disabled Space {space}"
+msgstr "{user} desativou o Espaço {space}"
+
+#: pkg/service/templates.go:24
+msgid "{user} removed you from Space {space}"
+msgstr "{user} removeu-o(a) do Espaço {space}"
+
+#: pkg/service/templates.go:44
+msgid "{user} shared {resource} with you"
+msgstr "{user} partilhou {resource} consigo"
+
+#: pkg/service/templates.go:49
+msgid "{user} unshared {resource} with you"
+msgstr "{user} removeu a partilha de {resource} consigo"
