@@ -219,9 +219,9 @@ func (h *HttpJmapClient) Command(ctx context.Context, logger *log.Logger, sessio
 	}
 
 	if logger.Trace().Enabled() {
-		requestBytes, err := httputil.DumpResponse(res, true)
+		responseBytes, err := httputil.DumpResponse(res, true)
 		if err == nil {
-			logger.Trace().Str(logEndpoint, endpoint).Str("proto", "jmap").Str("type", "response").Msg(string(requestBytes))
+			logger.Trace().Str(logEndpoint, endpoint).Str("proto", "jmap").Str("type", "response").Msg(string(responseBytes))
 		}
 	}
 
@@ -261,10 +261,17 @@ func (h *HttpJmapClient) UploadBinary(ctx context.Context, logger *log.Logger, s
 	}
 	req.Header.Add("Content-Type", contentType)
 	req.Header.Add("User-Agent", h.userAgent)
-	h.auth(session.Username, logger, req)
 	if acceptLanguage != "" {
 		req.Header.Add("Accept-Language", acceptLanguage)
 	}
+	if logger.Trace().Enabled() {
+		requestBytes, err := httputil.DumpRequestOut(req, false)
+		if err == nil {
+			logger.Trace().Str(logEndpoint, endpoint).Str("proto", "jmap").Str("type", "request").Msg(string(requestBytes))
+		}
+	}
+
+	h.auth(session.Username, logger, req)
 
 	res, err := h.client.Do(req)
 	if err != nil {
@@ -272,6 +279,13 @@ func (h *HttpJmapClient) UploadBinary(ctx context.Context, logger *log.Logger, s
 		logger.Error().Err(err).Msgf("failed to perform POST %v", uploadUrl)
 		return UploadedBlob{}, "", SimpleError{code: JmapErrorSendingRequest, err: err}
 	}
+	if logger.Trace().Enabled() {
+		responseBytes, err := httputil.DumpResponse(res, true)
+		if err == nil {
+			logger.Trace().Str(logEndpoint, endpoint).Str("proto", "jmap").Str("type", "response").Msg(string(responseBytes))
+		}
+	}
+
 	language := Language(res.Header.Get("Content-Language"))
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		h.listener.OnFailedRequestWithStatus(endpoint, res.StatusCode)
@@ -295,6 +309,8 @@ func (h *HttpJmapClient) UploadBinary(ctx context.Context, logger *log.Logger, s
 		return UploadedBlob{}, language, SimpleError{code: JmapErrorServerResponse, err: err}
 	}
 
+	logger.Trace()
+
 	var result UploadedBlob
 	err = json.Unmarshal(responseBody, &result)
 	if err != nil {
@@ -315,16 +331,28 @@ func (h *HttpJmapClient) DownloadBinary(ctx context.Context, logger *log.Logger,
 		return nil, "", SimpleError{code: JmapErrorCreatingRequest, err: err}
 	}
 	req.Header.Add("User-Agent", h.userAgent)
-	h.auth(session.Username, logger, req)
 	if acceptLanguage != "" {
 		req.Header.Add("Accept-Language", acceptLanguage)
 	}
+	if logger.Trace().Enabled() {
+		requestBytes, err := httputil.DumpRequestOut(req, true)
+		if err == nil {
+			logger.Trace().Str(logEndpoint, endpoint).Str("proto", "jmap").Str("type", "request").Msg(string(requestBytes))
+		}
+	}
+	h.auth(session.Username, logger, req)
 
 	res, err := h.client.Do(req)
 	if err != nil {
 		h.listener.OnFailedRequest(endpoint, err)
 		logger.Error().Err(err).Msgf("failed to perform GET %v", downloadUrl)
 		return nil, "", SimpleError{code: JmapErrorSendingRequest, err: err}
+	}
+	if logger.Trace().Enabled() {
+		responseBytes, err := httputil.DumpResponse(res, false)
+		if err == nil {
+			logger.Trace().Str(logEndpoint, endpoint).Str("proto", "jmap").Str("type", "response").Msg(string(responseBytes))
+		}
 	}
 	language := Language(res.Header.Get("Content-Language"))
 	if res.StatusCode == http.StatusNotFound {

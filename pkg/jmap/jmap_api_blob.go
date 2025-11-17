@@ -40,9 +40,8 @@ func (j *Client) GetBlobMetadata(accountId string, session *Session, ctx context
 
 type UploadedBlob struct {
 	BlobId string `json:"blobId"`
-	Size   int    `json:"size"`
-	Type   string `json:"type"`
-	Sha512 string `json:"sha:512"`
+	Size   int    `json:"size,omitzero"`
+	Type   string `json:"type,omitempty"`
 }
 
 func (j *Client) UploadBlobStream(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, contentType string, body io.Reader) (UploadedBlob, Language, Error) {
