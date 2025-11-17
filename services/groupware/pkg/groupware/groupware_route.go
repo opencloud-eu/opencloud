@@ -134,6 +134,7 @@ func (g *Groupware) Route(r chi.Router) {
 			r.Route("/blobs", func(r chi.Router) {
 				r.Get("/{blobid}", g.GetBlobMeta)
 				r.Get("/{blobid}/{blobname}", g.DownloadBlob) // ?type=
+				r.Post("/", g.UploadBlob)
 			})
 			r.Route("/ical", func(r chi.Router) {
 				r.Get("/{blobid}", g.ParseIcalBlob)
