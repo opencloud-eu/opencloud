@@ -42,6 +42,7 @@ type UploadedBlob struct {
 	BlobId string `json:"blobId"`
 	Size   int    `json:"size,omitzero"`
 	Type   string `json:"type,omitempty"`
+	Sha512 string `json:"sha512,omitempty"`
 }
 
 func (j *Client) UploadBlobStream(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, contentType string, body io.Reader) (UploadedBlob, Language, Error) {
