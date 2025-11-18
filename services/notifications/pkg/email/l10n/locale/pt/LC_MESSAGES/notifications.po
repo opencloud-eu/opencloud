@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2025-11-17 00:02+0000\n"
+"POT-Creation-Date: 2025-11-18 00:02+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Mário Machado, 2025\n"
 "Language-Team: Portuguese (https://app.transifex.com/opencloud-eu/teams/204053/pt/)\n"
@@ -66,7 +66,7 @@ msgstr "Olá,"
 #. MembershipExpired email template, Subject field (resolves directly)
 #: pkg/email/templates.go:72
 msgid "Membership of '{SpaceName}' expired at {ExpiredAt}"
-msgstr "A subscrição de '{SpaceName}' expirou em {ExpiredAt}"
+msgstr "A subscrição em «{SpaceName}» expirou em {ExpiredAt}"
 
 #. Grouped email template, Subject field (resolves directly)
 #: pkg/email/templates.go:116
@@ -84,7 +84,7 @@ msgstr "ScienceMesh: {InitiatorName} quer colaborar consigo"
 #. ShareExpired email template, Subject field (resolves directly)
 #: pkg/email/templates.go:30
 msgid "Share to '{ShareFolder}' expired at {ExpiredAt}"
-msgstr "A partilha para '{ShareFolder}' expirou em {ExpiredAt}"
+msgstr "A partilha para «{ShareFolder}» expirou em {ExpiredAt}"
 
 #. MembershipExpired email template, resolves via {{ .MessageBody }}
 #: pkg/email/templates.go:76
@@ -93,9 +93,9 @@ msgid ""
 "\n"
 "Even though this membership has expired you still might have access through other shares and/or space memberships"
 msgstr ""
-"A sua subscrição do espaço {SpaceName} expirou em {ExpiredAt}\n"
+"A sua subscrição no espaço {SpaceName} expirou em {ExpiredAt}\n"
 "\n"
-"Embora esta subscrição tenha expirado, ainda poderá ter acesso através de outras partilhas e/ou subscrições de espaço"
+"Ainda que esta subscrição tenha expirado, poderá continuar a ter acesso através de outras partilhas e/ou subscrições de espaço"
 
 #. ShareExpired email template, resolves via {{ .MessageBody }}
 #: pkg/email/templates.go:34
@@ -106,7 +106,7 @@ msgid ""
 msgstr ""
 "A sua partilha para {ShareFolder} expirou em {ExpiredAt}\n"
 "\n"
-"Embora esta partilha tenha sido revogada, ainda poderá ter acesso através de outras partilhas e/ou subscrições de espaço."
+"Ainda que esta partilha tenha sido revogada, poderá continuar a ter acesso através de outras partilhas e/ou subscrições de espaço."
 
 #. ScienceMeshInviteTokenGeneratedWithoutShareLink email template, resolves
 #. via {{ .MessageBody }}
@@ -117,6 +117,10 @@ msgid ""
 "  Token: {Token}\n"
 "  ProviderDomain: {ProviderDomain}"
 msgstr ""
+"{ShareSharer} ({ShareSharerMail}) quer iniciar a partilha de recursos de colaboração consigo.\n"
+"Por favor, visite as definições de federação e utilize os seguintes dados:\n"
+"Token: {Token} \n"
+"Podevor de Dominio: {ProviderDomain}"
 
 #. ScienceMeshInviteTokenGenerated email template, resolves via {{
 #. .MessageBody }}
@@ -130,21 +134,26 @@ msgid ""
 "  Token: {Token}\n"
 "  ProviderDomain: {ProviderDomain}"
 msgstr ""
+"{ShareSharer} ({ShareSharerMail}) quer iniciar a partilha de recursos de colaboração consigo.\n"
+"Para aceitar o convite, visite a seguinte URL: {ShareLink}\n"
+"\n"
+"Em alternativa, pode visitar as definições de federação e utilizar os seguintes dados:\n"
+"Token: {Token} Provedor de Dominio: {ProviderDomain}"
 
 #. ShareCreated email template, resolves via {{ .MessageBody }}
 #: pkg/email/templates.go:21
 msgid "{ShareSharer} has shared \"{ShareFolder}\" with you."
-msgstr ""
+msgstr "{ShareSharer} partilhou «{ShareFolder}» consigo."
 
 #. ShareCreated email template, Subject field (resolves directly)
 #: pkg/email/templates.go:17
 msgid "{ShareSharer} shared '{ShareFolder}' with you"
-msgstr "{ShareSharer} partilhou '{ShareFolder}' consigo"
+msgstr "{ShareSharer} partilhou «{ShareFolder}» consigo"
 
 #. SharedSpace email template, resolves via {{ .MessageBody }}
 #: pkg/email/templates.go:48
 msgid "{SpaceSharer} has invited you to join \"{SpaceName}\"."
-msgstr ""
+msgstr "{SpaceSharer} convidou-o/a a juntar-se a «{SpaceName}»."
 
 #. UnsharedSpace email template, resolves via {{ .MessageBody }}
 #: pkg/email/templates.go:61
@@ -153,6 +162,9 @@ msgid ""
 "\n"
 "You might still have access through your other groups or direct membership."
 msgstr ""
+"{SpaceSharer} removeu-o/a de «{SpaceName}».\n"
+"\n"
+"Poderá ainda ter acesso através dos seus outros grupos ou subscrição direta."
 
 #. SharedSpace email template, Subject field (resolves directly)
 #: pkg/email/templates.go:44
