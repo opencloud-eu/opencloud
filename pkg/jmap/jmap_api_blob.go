@@ -38,10 +38,11 @@ func (j *Client) GetBlobMetadata(accountId string, session *Session, ctx context
 	})
 }
 
-type UploadedBlob struct {
+type UploadedBlobWithHash struct {
 	BlobId string `json:"blobId"`
 	Size   int    `json:"size,omitzero"`
 	Type   string `json:"type,omitempty"`
+	Sha512 string `json:"sha:512,omitempty"`
 }
 
 func (j *Client) UploadBlobStream(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, contentType string, body io.Reader) (UploadedBlob, Language, Error) {
@@ -63,7 +64,7 @@ func (j *Client) DownloadBlobStream(accountId string, blobId string, name string
 	return j.blob.DownloadBinary(ctx, logger, session, downloadUrl, session.DownloadEndpoint, acceptLanguage)
 }
 
-func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, data []byte, contentType string) (UploadedBlob, SessionState, State, Language, Error) {
+func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, data []byte, contentType string) (UploadedBlobWithHash, SessionState, State, Language, Error) {
 	encoded := base64.StdEncoding.EncodeToString(data)
 
 	upload := BlobUploadCommand{
@@ -93,39 +94,39 @@ func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Cont
 		invocation(CommandBlobGet, getHash, "1"),
 	)
 	if jerr != nil {
-		return UploadedBlob{}, "", "", "", jerr
+		return UploadedBlobWithHash{}, "", "", "", jerr
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (UploadedBlob, State, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (UploadedBlobWithHash, State, Error) {
 		var uploadResponse BlobUploadResponse
 		err := retrieveResponseMatchParameters(logger, body, CommandBlobUpload, "0", &uploadResponse)
 		if err != nil {
-			return UploadedBlob{}, "", err
+			return UploadedBlobWithHash{}, "", err
 		}
 
 		var getResponse BlobGetResponse
 		err = retrieveResponseMatchParameters(logger, body, CommandBlobGet, "1", &getResponse)
 		if err != nil {
-			return UploadedBlob{}, "", err
+			return UploadedBlobWithHash{}, "", err
 		}
 
 		if len(uploadResponse.Created) != 1 {
 			logger.Error().Msgf("%T.Created has %v entries instead of 1", uploadResponse, len(uploadResponse.Created))
-			return UploadedBlob{}, "", simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return UploadedBlobWithHash{}, "", simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 		upload, ok := uploadResponse.Created["0"]
 		if !ok {
 			logger.Error().Msgf("%T.Created has no item '0'", uploadResponse)
-			return UploadedBlob{}, "", simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return UploadedBlobWithHash{}, "", simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 
 		if len(getResponse.List) != 1 {
 			logger.Error().Msgf("%T.List has %v entries instead of 1", getResponse, len(getResponse.List))
-			return UploadedBlob{}, "", simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return UploadedBlobWithHash{}, "", simpleError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 		get := getResponse.List[0]
 
-		return UploadedBlob{
+		return UploadedBlobWithHash{
 			BlobId: upload.Id,
 			Size:   upload.Size,
 			Type:   upload.Type,
