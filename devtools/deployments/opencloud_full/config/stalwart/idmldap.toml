@@ -108,3 +108,4 @@ tracer.console.level = "trace"
 tracer.console.lossy = false
 tracer.console.multiline = false
 tracer.console.type = "stdout"
+sharing.allow-directory-query = false
