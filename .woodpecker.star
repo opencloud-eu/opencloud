@@ -8,7 +8,7 @@ docker_repo_slug = "opencloudeu/opencloud"
 
 # images
 ALPINE_GIT = "alpine/git:latest"
-APACHE_TIKA = "apache/tika:2.8.0.0"
+APACHE_TIKA = "apache/tika:3.2.3.0-full"
 CHKO_DOCKER_PUSHRM = "chko/docker-pushrm:1"
 COLLABORA_CODE = "collabora/code:24.04.5.1.1"
 OPEN_SEARCH = "opensearchproject/opensearch:2"

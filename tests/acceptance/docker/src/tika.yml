@@ -5,4 +5,4 @@ services:
       - tika
     command: tika:9998
   tika:
-    image: apache/tika:2.8.0.0
+    image: apache/tika:3.2.3.0-full
