@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
@@ -64,7 +63,7 @@ func (g *Groupware) UploadBlob(w http.ResponseWriter, r *http.Request) {
 			return req.errorResponseFromJmap(jerr)
 		}
 
-		return etagOnlyResponse(resp, jmap.State(resp.Sha512), lang)
+		return response(resp, req.session.State, lang)
 	})
 }
 

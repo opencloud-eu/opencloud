@@ -2,8 +2,6 @@ package jmap
 
 import (
 	"context"
-	"crypto/sha512"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -123,13 +121,10 @@ func (t TestJmapBlobClient) UploadBinary(ctx context.Context, logger *log.Logger
 	if err != nil {
 		return UploadedBlob{}, "", SimpleError{code: 0, err: err}
 	}
-	hasher := sha512.New()
-	hasher.Write(bytes)
 	return UploadedBlob{
 		BlobId: uuid.NewString(),
 		Size:   len(bytes),
 		Type:   contentType,
-		Sha512: base64.StdEncoding.EncodeToString(hasher.Sum(nil)),
 	}, "", nil
 }
 

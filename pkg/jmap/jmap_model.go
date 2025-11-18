@@ -3638,6 +3638,12 @@ type BlobDownload struct {
 	CacheControl       string
 }
 
+type UploadedBlob struct {
+	BlobId string `json:"blobId"`
+	Size   int    `json:"size,omitzero"`
+	Type   string `json:"type,omitempty"`
+}
+
 // When doing a search on a String property, the client may wish to show the relevant
 // section of the body that matches the search as a preview and to highlight any
 // matching terms in both this and the subject of the Email.
