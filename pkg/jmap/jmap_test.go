@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/opencloud-eu/opencloud/pkg/jscalendar"
+	"github.com/opencloud-eu/opencloud/pkg/jscontact"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/stretchr/testify/require"
 )
@@ -767,4 +768,49 @@ func TestAlertWithOffsetTriggerInResponse(t *testing.T) {
 	offsetTrigger := trigger.(jscalendar.OffsetTrigger)
 	require.Equal(jscalendar.SignedDuration("-PT15M"), offsetTrigger.Offset)
 	require.Equal(jscalendar.RelativeToStart, offsetTrigger.RelativeTo)
+}
+
+func TestParseContactCardMedia(t *testing.T) {
+	require := require.New(t)
+
+	text := `{
+	"methodResponses":[
+		["ContactCard/get",{
+			"accountId":"b",
+			"state":"ssecq",
+			"list":[{
+            	"prodId": "jmaptest",
+            	"@type": "Card",
+            	"kind": "individual",
+				"media": {
+					"aT8afd59": {
+						"uri": "https://picsum.photos/id/96/128/128",
+						"kind": "photo",
+						"@type": "Media",
+						"contexts": {
+							"work": true
+						}
+					}
+				}
+			}],
+			"notFound":[]
+		},"1"]
+	],"sessionState":"7d3cae5b"
+}`
+
+	var response Response
+	err := json.Unmarshal([]byte(text), &response)
+	require.NoError(err)
+
+	resp := response.MethodResponses[0]
+	require.Equal(CommandContactCardGet, resp.Command)
+	require.IsType(ContactCardGetResponse{}, resp.Parameters)
+	params := resp.Parameters.(ContactCardGetResponse)
+	require.Len(params.List, 1)
+	contact := params.List[0]
+	require.Contains(contact.Media, "aT8afd59")
+	media := contact.Media["aT8afd59"]
+	require.NotNil(media)
+	require.Equal("https://picsum.photos/id/96/128/128", media.Uri)
+	require.Equal(jscontact.MediaKindPhoto, media.Kind)
 }

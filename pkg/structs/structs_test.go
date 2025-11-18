@@ -121,3 +121,46 @@ func TestMissing(t *testing.T) {
 		})
 	}
 }
+
+func TestAny(t *testing.T) {
+	always := func(s string) bool { return true }
+	never := func(s string) bool { return false }
+	assert.True(t, Any([]string{"a", "b", "c"}, always))
+	assert.False(t, Any([]string{}, always))
+	assert.False(t, Any(nil, always))
+	assert.False(t, Any([]string{"a", "b", "c"}, never))
+	assert.False(t, Any(nil, never))
+}
+
+func TestAnyKey(t *testing.T) {
+	always := func(s string) bool { return true }
+	never := func(s string) bool { return false }
+
+	assert.True(t, AnyKey(map[string]bool{"a": true, "b": false}, always))
+	assert.False(t, AnyKey(map[string]bool{}, always))
+	assert.False(t, AnyKey[string, bool](nil, always))
+	assert.False(t, AnyKey(map[string]bool{"a": true, "b": false}, never))
+	assert.False(t, AnyKey[string, bool](nil, never))
+}
+
+func TestAnyValue(t *testing.T) {
+	always := func(b bool) bool { return true }
+	never := func(b bool) bool { return false }
+
+	assert.True(t, AnyValue(map[string]bool{"a": true, "b": false}, always))
+	assert.False(t, AnyValue(map[string]bool{}, always))
+	assert.False(t, AnyValue[string, bool](nil, always))
+	assert.False(t, AnyValue(map[string]bool{"a": true, "b": false}, never))
+	assert.False(t, AnyValue[string, bool](nil, never))
+}
+
+func TestAnyItem(t *testing.T) {
+	always := func(s string, b bool) bool { return true }
+	never := func(s string, b bool) bool { return false }
+
+	assert.True(t, AnyItem(map[string]bool{"a": true, "b": false}, always))
+	assert.False(t, AnyItem(map[string]bool{}, always))
+	assert.False(t, AnyItem[string, bool](nil, always))
+	assert.False(t, AnyItem(map[string]bool{"a": true, "b": false}, never))
+	assert.False(t, AnyItem[string, bool](nil, never))
+}

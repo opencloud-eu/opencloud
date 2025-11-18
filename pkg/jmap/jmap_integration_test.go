@@ -342,7 +342,7 @@ func newStalwartTest(t *testing.T) (*StalwartTest, error) {
 
 	tlsConfig := &tls.Config{InsecureSkipVerify: true}
 
-	loggerImpl := clog.NewLogger()
+	loggerImpl := clog.NewLogger(clog.Level("trace"))
 	logger := &loggerImpl
 	var j Client
 	var session *Session
@@ -774,14 +774,31 @@ func (s *StalwartTest) fillEmailsWithImap(folder string, count int) ([]filledMai
 
 var productName = "jmaptest"
 
+type ContactsBoxes struct {
+	nicknames            bool
+	secondaryEmails      bool
+	secondaryAddress     bool
+	phones               bool
+	onlineService        bool
+	preferredLanguage    bool
+	mediaWithBlobId      bool
+	mediaWithDataUri     bool
+	mediaWithExternalUri bool
+	organization         bool
+	cryptoKey            bool
+	link                 bool
+}
+
 func (s *StalwartTest) fillContacts(
 	t *testing.T,
 	count uint,
-) (string, string, map[string]jscontact.ContactCard, error) {
+) (string, string, map[string]jscontact.ContactCard, map[string]map[string]any, ContactsBoxes, error) {
 	require := require.New(t)
 	c, err := NewTestJmapClient(s.session, s.username, s.password, true, true)
 	require.NoError(err)
 	defer c.Close()
+
+	boxes := ContactsBoxes{}
 
 	printer := func(s string) { log.Println(s) }
 
@@ -805,6 +822,7 @@ func (s *StalwartTest) fillContacts(
 	require.NotEmpty(addressbookId)
 
 	filled := map[string]jscontact.ContactCard{}
+	sent := map[string]map[string]any{}
 	for i := range count {
 		person := gofakeit.Person()
 		nameMap, nameObj := createName(person)
@@ -827,11 +845,12 @@ func (s *StalwartTest) fillContacts(
 			Name:           &nameObj,
 		}
 
-		if rand.Intn(3) < 1 {
+		if i%3 == 0 {
 			nicknameMap, nicknameObj := createNickName(person)
 			id := id()
 			contact["nicknames"] = map[string]map[string]any{id: nicknameMap}
 			card.Nicknames = map[string]jscontact.Nickname{id: nicknameObj}
+			boxes.nicknames = true
 		}
 
 		{
@@ -847,75 +866,62 @@ func (s *StalwartTest) fillContacts(
 				m, o := createSecondaryEmail(gofakeit.Email(), i*100)
 				emailMaps[id] = m
 				emailObjs[id] = o
+				boxes.secondaryEmails = true
 			}
 			if len(emailMaps) > 0 {
 				contact["emails"] = emailMaps
 				card.Emails = emailObjs
 			}
 		}
-		if err := propmap(contact, "phones", &card.Phones, 0, 2, func(i int, id string) (map[string]any, jscontact.Phone, error) {
+		if err := propmap(i%2 == 0, 1, 2, contact, "phones", &card.Phones, func(i int, id string) (map[string]any, jscontact.Phone, error) {
+			boxes.phones = true
 			num := person.Contact.Phone
 			if i > 0 {
 				num = gofakeit.Phone()
 			}
-			var mapFeatures map[string]bool = nil
-			var objFeatures map[jscontact.PhoneFeature]bool = nil
+			var features map[jscontact.PhoneFeature]bool = nil
 			if rand.Intn(3) < 2 {
-				mapFeatures = toBoolMapS("mobile", "voice", "video", "text")
-				objFeatures = toBoolMapS(jscontact.PhoneFeatureMobile, jscontact.PhoneFeatureVoice, jscontact.PhoneFeatureVideo, jscontact.PhoneFeatureText)
+				features = toBoolMapS(jscontact.PhoneFeatureMobile, jscontact.PhoneFeatureVoice, jscontact.PhoneFeatureVideo, jscontact.PhoneFeatureText)
 			} else {
-				mapFeatures = toBoolMapS("voice", "main-number")
-				objFeatures = toBoolMapS(jscontact.PhoneFeatureVoice, jscontact.PhoneFeatureMainNumber)
+				features = toBoolMapS(jscontact.PhoneFeatureVoice, jscontact.PhoneFeatureMainNumber)
 			}
-			mapContexts := map[string]bool{}
-			objContexts := map[jscontact.PhoneContext]bool{}
-			mapContexts["work"] = true
-			objContexts[jscontact.PhoneContextWork] = true
+
+			contexts := map[jscontact.PhoneContext]bool{jscontact.PhoneContextWork: true}
 			if rand.Intn(2) < 1 {
-				mapContexts["private"] = true
-				objContexts[jscontact.PhoneContextPrivate] = true
+				contexts[jscontact.PhoneContextPrivate] = true
 			}
 			tel := "tel:" + "+1" + num
 			return map[string]any{
 					"@type":    "Phone",
 					"number":   tel,
-					"features": mapFeatures,
-					"contexts": mapContexts,
+					"features": structs.MapKeys(features, func(f jscontact.PhoneFeature) string { return string(f) }),
+					"contexts": structs.MapKeys(contexts, func(c jscontact.PhoneContext) string { return string(c) }),
 				}, jscontact.Phone{
 					//Type:     jscontact.PhoneType,
 					Number:   tel,
-					Features: objFeatures,
-					Contexts: objContexts,
+					Features: features,
+					Contexts: contexts,
 				}, nil
 		}); err != nil {
-			return "", "", nil, err
+			return "", "", nil, nil, boxes, err
 		}
-		if err := propmap(contact, "addresses", &card.Addresses, 1, 2, func(i int, id string) (map[string]any, jscontact.Address, error) {
+		if err := propmap(i%5 < 4, 1, 2, contact, "addresses", &card.Addresses, func(i int, id string) (map[string]any, jscontact.Address, error) {
 			var source *gofakeit.AddressInfo
 			if i == 0 {
 				source = person.Address
 			} else {
 				source = gofakeit.Address()
+				boxes.secondaryAddress = true
 			}
-			mComps := []map[string]string{}
-			oComps := []jscontact.AddressComponent{}
+			components := []jscontact.AddressComponent{}
 			m := streetNumberRegex.FindAllStringSubmatch(source.Street, -1)
 			if m != nil {
-				mComps = append(mComps, map[string]string{"kind": "name", "value": m[0][2]})
-				mComps = append(mComps, map[string]string{"kind": "number", "value": m[0][1]})
-				oComps = append(oComps, jscontact.AddressComponent{ /*Type: jscontact.AddressComponentType,*/ Kind: jscontact.AddressComponentKindName, Value: m[0][2]})
-				oComps = append(oComps, jscontact.AddressComponent{ /*Type: jscontact.AddressComponentType,*/ Kind: jscontact.AddressComponentKindNumber, Value: m[0][1]})
+				components = append(components, jscontact.AddressComponent{ /*Type: jscontact.AddressComponentType,*/ Kind: jscontact.AddressComponentKindName, Value: m[0][2]})
+				components = append(components, jscontact.AddressComponent{ /*Type: jscontact.AddressComponentType,*/ Kind: jscontact.AddressComponentKindNumber, Value: m[0][1]})
 			} else {
-				mComps = append(mComps, map[string]string{"kind": "name", "value": source.Street})
-				oComps = append(oComps, jscontact.AddressComponent{ /*Type: jscontact.AddressComponentType,*/ Kind: jscontact.AddressComponentKindName, Value: source.Street})
+				components = append(components, jscontact.AddressComponent{ /*Type: jscontact.AddressComponentType,*/ Kind: jscontact.AddressComponentKindName, Value: source.Street})
 			}
-			mComps = append(mComps,
-				map[string]string{"kind": "locality", "value": source.City},
-				map[string]string{"kind": "country", "value": source.Country},
-				map[string]string{"kind": "region", "value": source.State},
-				map[string]string{"kind": "postcode", "value": source.Zip},
-			)
-			oComps = append(oComps,
+			components = append(components,
 				jscontact.AddressComponent{ /*Type: jscontact.AddressComponentType,*/ Kind: jscontact.AddressComponentKindLocality, Value: source.City},
 				jscontact.AddressComponent{ /*Type: jscontact.AddressComponentType,*/ Kind: jscontact.AddressComponentKindCountry, Value: source.Country},
 				jscontact.AddressComponent{ /*Type: jscontact.AddressComponentType,*/ Kind: jscontact.AddressComponentKindRegion, Value: source.State},
@@ -923,22 +929,25 @@ func (s *StalwartTest) fillContacts(
 			)
 			tz := pickRandom(timezones...)
 			return map[string]any{
-					"@type":            "Address",
-					"components":       mComps,
+					"@type": "Address",
+					"components": structs.Map(components, func(c jscontact.AddressComponent) map[string]string {
+						return map[string]string{"kind": string(c.Kind), "value": c.Value}
+					}),
 					"defaultSeparator": ", ",
 					"isOrdered":        true,
 					"timeZone":         tz,
 				}, jscontact.Address{
 					//Type:             jscontact.AddressType,
-					Components:       oComps,
+					Components:       components,
 					DefaultSeparator: ", ",
 					IsOrdered:        true,
 					TimeZone:         tz,
 				}, nil
 		}); err != nil {
-			return "", "", nil, err
+			return "", "", nil, nil, boxes, err
 		}
-		if err := propmap(contact, "onlineServices", &card.OnlineServices, 0, 2, func(i int, id string) (map[string]any, jscontact.OnlineService, error) {
+		if err := propmap(i%2 == 0, 1, 2, contact, "onlineServices", &card.OnlineServices, func(i int, id string) (map[string]any, jscontact.OnlineService, error) {
+			boxes.onlineService = true
 			switch rand.Intn(3) {
 			case 0:
 				return map[string]any{
@@ -974,10 +983,11 @@ func (s *StalwartTest) fillContacts(
 					}, nil
 			}
 		}); err != nil {
-			return "", "", nil, err
+			return "", "", nil, nil, boxes, err
 		}
 
-		if err := propmap(contact, "preferredLanguages", &card.PreferredLanguages, 0, 2, func(i int, id string) (map[string]any, jscontact.LanguagePref, error) {
+		if err := propmap(i%3 == 0, 1, 2, contact, "preferredLanguages", &card.PreferredLanguages, func(i int, id string) (map[string]any, jscontact.LanguagePref, error) {
+			boxes.preferredLanguage = true
 			lang := pickRandom("en", "fr", "de", "es", "it")
 			contexts := pickRandoms1("work", "private")
 			return map[string]any{
@@ -992,15 +1002,16 @@ func (s *StalwartTest) fillContacts(
 					Pref:     uint(i + 1),
 				}, nil
 		}); err != nil {
-			return "", "", nil, err
+			return "", "", nil, nil, boxes, err
 		}
 
-		{
+		if i%2 == 0 {
 			organizationMaps := map[string]map[string]any{}
 			organizationObjs := map[string]jscontact.Organization{}
 			titleMaps := map[string]map[string]any{}
 			titleObjs := map[string]jscontact.Title{}
-			for range rand.Intn(2) {
+			for range 1 + rand.Intn(2) {
+				boxes.organization = true
 				orgId := id()
 				titleId := id()
 				organizationMaps[orgId] = map[string]any{
@@ -1026,15 +1037,14 @@ func (s *StalwartTest) fillContacts(
 					OrganizationId: orgId,
 				}
 			}
-			if len(organizationMaps) > 0 {
-				contact["organizations"] = organizationMaps
-				contact["titles"] = titleMaps
-				card.Organizations = organizationObjs
-				card.Titles = titleObjs
-			}
+			contact["organizations"] = organizationMaps
+			contact["titles"] = titleMaps
+			card.Organizations = organizationObjs
+			card.Titles = titleObjs
 		}
 
-		if err := propmap(contact, "cryptoKeys", &card.CryptoKeys, 0, 1, func(i int, id string) (map[string]any, jscontact.CryptoKey, error) {
+		if err := propmap(i%2 == 0, 1, 1, contact, "cryptoKeys", &card.CryptoKeys, func(i int, id string) (map[string]any, jscontact.CryptoKey, error) {
+			boxes.cryptoKey = true
 			entity, err := openpgp.NewEntity(person.FirstName+" "+person.LastName, "test", person.Contact.Email, nil)
 			if err != nil {
 				return nil, jscontact.CryptoKey{}, err
@@ -1053,47 +1063,85 @@ func (s *StalwartTest) fillContacts(
 					Uri: "data:application/pgp-keys;base64," + encoded,
 				}, nil
 		}); err != nil {
-			return "", "", nil, err
+			return "", "", nil, nil, boxes, err
 		}
 
-		if err := propmap(contact, "media", &card.Media, 0, 1, func(i int, id string) (map[string]any, jscontact.Media, error) {
-			if rand.Intn(2) < 1 {
-				img := gofakeit.ImageJpeg(128, 128)
+		if err := propmap(i%2 == 0, 1, 2, contact, "media", &card.Media, func(i int, id string) (map[string]any, jscontact.Media, error) {
+			label := fmt.Sprintf("photo-%d", 1000+rand.Intn(9000))
+			switch rand.Intn(3) {
+			case 0:
+				boxes.mediaWithDataUri = true
+				// use data uri
+				//size := 16 + rand.Intn(512-16+1) // <- let's not do that right now, makes debugging errors very difficult due to the ASCII wall noise
+				size := pickRandom(16, 24, 32, 48, 64)
+				img := gofakeit.ImagePng(size, size)
+				mime := "image/png"
+				uri := "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(img)
+				contexts := toBoolMapS(jscontact.MediaContextPrivate)
+				return map[string]any{
+						"@type":     "Media",
+						"kind":      string(jscontact.MediaKindPhoto),
+						"uri":       uri,
+						"mediaType": mime,
+						"contexts":  structs.MapKeys(contexts, func(c jscontact.MediaContext) string { return string(c) }),
+						"label":     label,
+					}, jscontact.Media{
+						// Type: jscontact.MediaType,
+						Kind:      jscontact.MediaKindPhoto,
+						Uri:       uri,
+						MediaType: mime,
+						Contexts:  contexts,
+						Label:     label,
+					}, nil
+			// currently does not work, reported as https://github.com/stalwartlabs/stalwart/issues/2431
+			case 99: // change this to 1 to enable it again
+				boxes.mediaWithBlobId = true
+				size := pickRandom(16, 24, 32, 48, 64)
+				img := gofakeit.ImageJpeg(size, size)
 				blob, err := c.uploadBlob(accountId, img, "image/jpeg")
 				if err != nil {
 					return nil, jscontact.Media{}, err
 				}
+				contexts := toBoolMapS(jscontact.MediaContextPrivate)
 				return map[string]any{
 						"@type":    "Media",
-						"kind":     "photo",
+						"kind":     string(jscontact.MediaKindPhoto),
 						"blobId":   blob.BlobId,
-						"contexts": toBoolMapS("private"),
+						"contexts": structs.MapKeys(contexts, func(c jscontact.MediaContext) string { return string(c) }),
+						"label":    label,
 					}, jscontact.Media{
 						// Type: jscontact.MediaType,
 						Kind:      jscontact.MediaKindPhoto,
 						BlobId:    blob.BlobId,
 						MediaType: blob.Type,
-						Contexts:  toBoolMapS(jscontact.MediaContextPrivate),
+						Contexts:  contexts,
+						Label:     label,
 					}, nil
 
-			} else {
+			default:
+				boxes.mediaWithExternalUri = true
+				// use external uri
 				uri := picsum(128, 128)
+				contexts := toBoolMapS(jscontact.MediaContextWork)
 				return map[string]any{
 						"@type":    "Media",
-						"kind":     "photo",
+						"kind":     string(jscontact.MediaKindPhoto),
 						"uri":      uri,
-						"contexts": toBoolMapS("work"),
+						"contexts": structs.MapKeys(contexts, func(c jscontact.MediaContext) string { return string(c) }),
+						"label":    label,
 					}, jscontact.Media{
 						// Type: jscontact.MediaType,
 						Kind:     jscontact.MediaKindPhoto,
 						Uri:      uri,
-						Contexts: toBoolMapS(jscontact.MediaContextWork),
+						Contexts: contexts,
+						Label:    label,
 					}, nil
 			}
 		}); err != nil {
-			return "", "", nil, err
+			return "", "", nil, nil, boxes, err
 		}
-		if err := propmap(contact, "links", &card.Links, 0, 1, func(i int, id string) (map[string]any, jscontact.Link, error) {
+		if err := propmap(i%2 == 0, 1, 1, contact, "links", &card.Links, func(i int, id string) (map[string]any, jscontact.Link, error) {
+			boxes.link = true
 			return map[string]any{
 					"@type": "Link",
 					"kind":  "contact",
@@ -1106,17 +1154,19 @@ func (s *StalwartTest) fillContacts(
 					Pref: uint((i + 1) * 10),
 				}, nil
 		}); err != nil {
-			return "", "", nil, err
+			return "", "", nil, nil, boxes, err
 		}
 
-		uid, err := s.CreateContact(c, accountId, contact)
+		id, err := s.CreateContact(c, accountId, contact)
 		if err != nil {
-			return "", "", nil, err
+			return "", "", nil, nil, boxes, err
 		}
-		filled[uid] = card
-		printer(fmt.Sprintf("🧑🏻 created %*s/%v uid=%v", int(math.Log10(float64(count))+1), strconv.Itoa(int(i+1)), count, uid))
+		card.Id = id
+		filled[id] = card
+		sent[id] = contact
+		printer(fmt.Sprintf("🧑🏻 created %*s/%v uid=%v", int(math.Log10(float64(count))+1), strconv.Itoa(int(i+1)), count, id))
 	}
-	return accountId, addressbookId, filled, nil
+	return accountId, addressbookId, filled, sent, boxes, nil
 }
 
 func (s *StalwartTest) CreateContact(j *TestJmapClient, accountId string, contact map[string]any) (string, error) {
@@ -1639,11 +1689,11 @@ func categories() map[string]bool {
 	return toBoolMap(pickRandoms(Categories...))
 }
 
-func propmap[T any](container map[string]any, name string, cardProperty *map[string]T, min int, max int, generator func(int, string) (map[string]any, T, error)) error {
-	n := min + rand.Intn(max-min+1)
-	if n < 1 {
+func propmap[T any](enabled bool, min int, max int, container map[string]any, name string, cardProperty *map[string]T, generator func(int, string) (map[string]any, T, error)) error {
+	if !enabled {
 		return nil
 	}
+	n := min + rand.Intn(max-min+1)
 
 	m := make(map[string]map[string]any, n)
 	o := make(map[string]T, n)
