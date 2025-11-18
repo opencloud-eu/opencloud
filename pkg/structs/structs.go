@@ -176,3 +176,51 @@ func FirstKey[K comparable, V any](m map[K]V) *K {
 	}
 	return nil
 }
+
+func Any[E any](s []E, predicate func(E) bool) bool {
+	if len(s) < 1 {
+		return false
+	}
+	for _, e := range s {
+		if predicate(e) {
+			return true
+		}
+	}
+	return false
+}
+
+func AnyKey[K comparable, V any](m map[K]V, predicate func(K) bool) bool {
+	if len(m) < 1 {
+		return false
+	}
+	for k := range m {
+		if predicate(k) {
+			return true
+		}
+	}
+	return false
+}
+
+func AnyValue[K comparable, V any](m map[K]V, predicate func(V) bool) bool {
+	if len(m) < 1 {
+		return false
+	}
+	for _, v := range m {
+		if predicate(v) {
+			return true
+		}
+	}
+	return false
+}
+
+func AnyItem[K comparable, V any](m map[K]V, predicate func(K, V) bool) bool {
+	if len(m) < 1 {
+		return false
+	}
+	for k, v := range m {
+		if predicate(k, v) {
+			return true
+		}
+	}
+	return false
+}

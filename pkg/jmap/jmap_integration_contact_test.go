@@ -1,13 +1,16 @@
 package jmap
 
 import (
+	"fmt"
 	"math/rand"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/opencloud-eu/opencloud/pkg/jscontact"
+	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
 func TestContacts(t *testing.T) {
@@ -15,7 +18,7 @@ func TestContacts(t *testing.T) {
 		return
 	}
 
-	count := uint(15 + rand.Intn(20))
+	count := uint(20 + rand.Intn(30))
 
 	require := require.New(t)
 
@@ -23,10 +26,12 @@ func TestContacts(t *testing.T) {
 	require.NoError(err)
 	defer s.Close()
 
-	accountId, addressbookId, cardsById, err := s.fillContacts(t, count)
+	accountId, addressbookId, cardsById, sentById, boxes, err := s.fillContacts(t, count)
 	require.NoError(err)
 	require.NotEmpty(accountId)
 	require.NotEmpty(addressbookId)
+
+	allTrue(t, boxes, "mediaWithBlobId")
 
 	filter := ContactCardFilterCondition{
 		InAddressBook: addressbookId,
@@ -46,40 +51,48 @@ func TestContacts(t *testing.T) {
 	for _, actual := range contacts {
 		expected, ok := cardsById[actual.Id]
 		require.True(ok, "failed to find created contact by its id")
-		expected.Id = actual.Id
-		matchContact(t, actual, expected)
+		sent := sentById[actual.Id]
+		matchContact(t, actual, expected, sent, func() (jscontact.ContactCard, error) {
+			cards, _, _, _, err := s.client.GetContactCardsById(accountId, s.session, t.Context(), s.logger, "", []string{actual.Id})
+			if err != nil {
+				return jscontact.ContactCard{}, err
+			}
+			require.Contains(cards, actual.Id)
+			return cards[actual.Id], nil
+		})
 	}
 }
 
-func matchContact(t *testing.T, actual jscontact.ContactCard, expected jscontact.ContactCard) {
-	require := require.New(t)
+func allTrue[S any](t *testing.T, s S, exceptions ...string) {
+	v := reflect.ValueOf(s)
+	typ := v.Type()
+	for i := range v.NumField() {
+		name := typ.Field(i).Name
+		if slices.Contains(exceptions, name) {
+			continue
+		}
+		value := v.Field(i).Bool()
+		require.True(t, value, "should be true: %v", name)
+	}
+}
 
-	//a := actual
-	//unType(t, &a)
+func matchContact(t *testing.T, actual jscontact.ContactCard, expected jscontact.ContactCard, sent map[string]any, fetcher func() (jscontact.ContactCard, error)) {
+	require := require.New(t)
+	if structs.AnyValue(expected.Media, func(media jscontact.Media) bool { return media.BlobId != "" }) {
+		fmt.Printf("\x1b[33;1m----------------------------------------------------------\x1b[0m\n")
+		fmt.Printf("\x1b[45;1m expected media: \x1b[0m\n%v\n\n", expected.Media)
+		fmt.Printf("\x1b[46;1m actual media: \x1b[0m\n%v\n\n", actual.Media)
+		fmt.Printf("\x1b[43;1m sent: \x1b[0m\n%v\n\n", sent)
+		fmt.Printf("\x1b[44;1m pulling: \x1b[0m\n")
+		_, err := fetcher()
+		require.NoError(err)
+		fmt.Printf("\x1b[44;1m pulled. \x1b[0m\n")
+	}
+
+	require.Equal(expected.Name, actual.Name)
+	require.Equal(expected.Emails, actual.Emails)
+	require.Equal(expected.Organizations, actual.Organizations)
+	require.Equal(expected.Media, actual.Media)
 
 	require.Equal(expected, actual)
-}
-
-func unType(t *testing.T, s any) {
-	ty := reflect.TypeOf(s)
-
-	switch ty.Kind() {
-	case reflect.Map, reflect.Array, reflect.Pointer, reflect.Slice:
-		ty = ty.Elem()
-	}
-
-	switch ty.Kind() {
-	case reflect.Struct:
-		for i := range ty.NumField() {
-			f := ty.Field(i)
-			n := f.Name
-			if n == "Type" {
-				v := reflect.ValueOf(s).Field(i)
-				require.True(t, v.Elem().CanSet(), "cannot set the Type field")
-				v.SetString("")
-			} else {
-				//unType(t, f)
-			}
-		}
-	}
 }
