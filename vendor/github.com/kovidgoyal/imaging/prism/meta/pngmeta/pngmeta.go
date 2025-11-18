@@ -7,13 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"unsafe"
 
 	"github.com/kovidgoyal/imaging/prism/meta"
 	"github.com/kovidgoyal/imaging/streams"
+	"github.com/kovidgoyal/imaging/types"
 )
-
-// Format specifies the image format handled by this package
-var Format = meta.ImageFormat("PNG")
 
 var pngSignature = [8]byte{0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A}
 
@@ -49,7 +48,7 @@ func skip_chunk(r io.Reader, length uint32) (err error) {
 // Same as Load() except that no new stream is provided
 func ExtractMetadata(r io.Reader) (md *meta.Data, err error) {
 	metadataExtracted := false
-	md = &meta.Data{Format: Format}
+	md = &meta.Data{Format: types.PNG}
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -59,10 +58,10 @@ func ExtractMetadata(r io.Reader) (md *meta.Data, err error) {
 			err = fmt.Errorf("panic while extracting image metadata: %v", r)
 		}
 	}()
-
+	found_exif := false
 	allMetadataExtracted := func() bool {
 		iccData, iccErr := md.ICCProfileData()
-		return metadataExtracted && (iccData != nil || iccErr != nil)
+		return metadataExtracted && md.HasFrames && found_exif && (iccData != nil || iccErr != nil) && md.CICP.IsSet
 	}
 
 	pngSig := [8]byte{}
@@ -70,7 +69,7 @@ func ExtractMetadata(r io.Reader) (md *meta.Data, err error) {
 		return nil, err
 	}
 	if pngSig != pngSignature {
-		return nil, fmt.Errorf("invalid PNG signature")
+		return nil, nil
 	}
 	var chunk []byte
 
@@ -93,7 +92,7 @@ parseChunks:
 			return nil, err
 		}
 
-		switch ch.ChunkType {
+		switch unsafe.String(unsafe.SliceData(ch.ChunkType[:]), 4) {
 
 		case chunkTypeIHDR:
 			if chunk, err = read_chunk(r, ch.Length); err != nil {
@@ -107,6 +106,43 @@ parseChunks:
 			}
 			md.BitsPerComponent = uint32(chunk[0])
 			metadataExtracted = true
+			if allMetadataExtracted() {
+				break parseChunks
+			}
+
+		case chunkTypeeXIf:
+			if chunk, err = read_chunk(r, ch.Length); err != nil {
+				return nil, err
+			}
+			found_exif = true
+			md.SetExifData(chunk)
+			if allMetadataExtracted() {
+				break parseChunks
+			}
+
+		case chunkTypecICP:
+			if chunk, err = read_chunk(r, ch.Length); err != nil {
+				return nil, err
+			}
+			md.CICP.ColorPrimaries, md.CICP.TransferCharacteristics = chunk[0], chunk[1]
+			md.CICP.MatrixCoefficients, md.CICP.VideoFullRange = chunk[2], chunk[3]
+			md.CICP.IsSet = true
+			if allMetadataExtracted() {
+				break parseChunks
+			}
+		case chunkTypeacTL:
+			if chunk, err = read_chunk(r, ch.Length); err != nil {
+				return nil, err
+			}
+			md.HasFrames = true
+			var num_frames, num_plays uint32
+			if err = decode(&num_frames); err != nil {
+				return nil, err
+			}
+			if err = decode(&num_plays); err != nil {
+				return nil, err
+			}
+			md.NumFrames, md.NumPlays = int(num_frames), int(num_plays)
 			if allMetadataExtracted() {
 				break parseChunks
 			}

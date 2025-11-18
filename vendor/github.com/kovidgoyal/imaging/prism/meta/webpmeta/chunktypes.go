@@ -7,4 +7,5 @@ var (
 	chunkTypeVP8L = [4]byte{'V', 'P', '8', 'L'}
 	chunkTypeVP8X = [4]byte{'V', 'P', '8', 'X'}
 	chunkTypeICCP = [4]byte{'I', 'C', 'C', 'P'}
+	chunkTypeEXIF = [4]byte{'E', 'X', 'I', 'F'}
 )

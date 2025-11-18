@@ -16,11 +16,11 @@ func (ri RenderingIntent) String() string {
 	case PerceptualRenderingIntent:
 		return "Perceptual"
 	case RelativeColorimetricRenderingIntent:
-		return "Relative colorimetric"
+		return "Relative"
 	case SaturationRenderingIntent:
 		return "Saturation"
 	case AbsoluteColorimetricRenderingIntent:
-		return "Absolute colorimetric"
+		return "Absolute"
 	default:
 		return fmt.Sprintf("Unknown (%d)", ri)
 	}

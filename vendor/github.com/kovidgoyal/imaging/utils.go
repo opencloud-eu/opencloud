@@ -49,24 +49,6 @@ func clamp(x float64) uint8 {
 	return 0
 }
 
-func reverse(pix []uint8) {
-	if len(pix) <= 4 {
-		return
-	}
-	i := 0
-	j := len(pix) - 4
-	for i < j {
-		pi := pix[i : i+4 : i+4]
-		pj := pix[j : j+4 : j+4]
-		pi[0], pj[0] = pj[0], pi[0]
-		pi[1], pj[1] = pj[1], pi[1]
-		pi[2], pj[2] = pj[2], pi[2]
-		pi[3], pj[3] = pj[3], pi[3]
-		i += 4
-		j -= 4
-	}
-}
-
 func toNRGBA(img image.Image) *image.NRGBA {
 	if img, ok := img.(*image.NRGBA); ok {
 		return &image.NRGBA{
