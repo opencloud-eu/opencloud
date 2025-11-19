@@ -92,9 +92,10 @@ func DefaultConfig() *config.Config {
 			DisplayName: "name",
 			Groups:      "groups",
 		},
-		EnableBasicAuth:       false,
-		InsecureBackends:      false,
-		CSPConfigFileLocation: "",
+		EnableBasicAuth:               false,
+		InsecureBackends:              false,
+		CSPConfigFileLocation:         "",
+		CSPConfigFileOverrideLocation: "",
 		Events: config.Events{
 			Endpoint:  "127.0.0.1:9233",
 			Cluster:   "opencloud-cluster",

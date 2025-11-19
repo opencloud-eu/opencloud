@@ -4,11 +4,12 @@ import (
 	"testing"
 
 	"gotest.tools/v3/assert"
+	"gotest.tools/v3/assert/cmp"
 )
 
 func TestLoadCSPConfig(t *testing.T) {
 	// setup test env
-	yaml := `
+	presetYaml := `
 directives:
   frame-src:
     - '''self'''
@@ -17,12 +18,23 @@ directives:
     - 'https://${COLLABORA_DOMAIN|collabora.opencloud.test}/'
 `
 
-	config, err := loadCSPConfig([]byte(yaml))
+	customYaml := `
+directives:
+  img-src:
+    - '''self'''
+    - 'data:'
+  frame-src:
+    - 'https://some.custom.domain/'
+`
+	config, err := loadCSPConfig([]byte(presetYaml), []byte(customYaml))
 	if err != nil {
 		t.Error(err)
 	}
-	assert.Equal(t, config.Directives["frame-src"][0], "'self'")
-	assert.Equal(t, config.Directives["frame-src"][1], "https://embed.diagrams.net/")
-	assert.Equal(t, config.Directives["frame-src"][2], "https://onlyoffice.opencloud.test/")
-	assert.Equal(t, config.Directives["frame-src"][3], "https://collabora.opencloud.test/")
+	assert.Assert(t, cmp.Contains(config.Directives["frame-src"], "'self'"))
+	assert.Assert(t, cmp.Contains(config.Directives["frame-src"], "https://embed.diagrams.net/"))
+	assert.Assert(t, cmp.Contains(config.Directives["frame-src"], "https://onlyoffice.opencloud.test/"))
+	assert.Assert(t, cmp.Contains(config.Directives["frame-src"], "https://collabora.opencloud.test/"))
+
+	assert.Assert(t, cmp.Contains(config.Directives["img-src"], "'self'"))
+	assert.Assert(t, cmp.Contains(config.Directives["img-src"], "data:"))
 }
