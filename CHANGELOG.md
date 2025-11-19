@@ -1,6 +1,6 @@
 # Changelog
 
-## [4.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.0) - 2025-11-18
+## [4.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.0) - 2025-11-19
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -9,6 +9,16 @@
 ### 💥 Breaking changes
 
 - collaboration: Enable `InsertRemoteImage` option [[#1692](https://github.com/opencloud-eu/opencloud/pull/1692)]
+
+### 🐛 Bug Fixes
+
+- load two yaml configs [[#1617](https://github.com/opencloud-eu/opencloud/pull/1617)]
+- make user cache tenant aware [[#1732](https://github.com/opencloud-eu/opencloud/pull/1732)]
+- fix: sanitise markdow code to make docusaurus happy [[#1851](https://github.com/opencloud-eu/opencloud/pull/1851)]
+- update launch.json [[#1843](https://github.com/opencloud-eu/opencloud/pull/1843)]
+- docs: Fix auth-app examples in README [[#1844](https://github.com/opencloud-eu/opencloud/pull/1844)]
+- fix: fix typo in treesize logging [[#1826](https://github.com/opencloud-eu/opencloud/pull/1826)]
+- fix: set global signing secret fallback correctly [[#1781](https://github.com/opencloud-eu/opencloud/pull/1781)]
 
 ### ✅ Tests
 
@@ -22,15 +32,6 @@
 ### 📚 Documentation
 
 - Fix README.md files which contain broken or missing links [[#1854](https://github.com/opencloud-eu/opencloud/pull/1854)]
-
-### 🐛 Bug Fixes
-
-- make user cache tenant aware [[#1732](https://github.com/opencloud-eu/opencloud/pull/1732)]
-- fix: sanitise markdow code to make docusaurus happy [[#1851](https://github.com/opencloud-eu/opencloud/pull/1851)]
-- update launch.json [[#1843](https://github.com/opencloud-eu/opencloud/pull/1843)]
-- docs: Fix auth-app examples in README [[#1844](https://github.com/opencloud-eu/opencloud/pull/1844)]
-- fix: fix typo in treesize logging [[#1826](https://github.com/opencloud-eu/opencloud/pull/1826)]
-- fix: set global signing secret fallback correctly [[#1781](https://github.com/opencloud-eu/opencloud/pull/1781)]
 
 ### 📈 Enhancement
 
