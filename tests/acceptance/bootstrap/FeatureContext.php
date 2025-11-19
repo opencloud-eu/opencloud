@@ -2713,6 +2713,15 @@ class FeatureContext extends BehatVariablesContext {
 			return;
 		}
 		$this->spacesContext->deleteAllProjectSpaces();
+
+		if (OcHelper::isTestingOnReva()) {
+			OcHelper::deleteRevaUserData($this->getCreatedUsers());
+		}
+		if ($this->isTestingWithLdap()) {
+			$this->deleteLdapUsersAndGroups();
+		}
+		$this->cleanupDatabaseUsers();
+		$this->cleanupDatabaseGroups();
 	}
 
 	/**
