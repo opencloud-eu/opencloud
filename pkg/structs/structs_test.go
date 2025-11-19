@@ -149,9 +149,9 @@ func TestAnyValue(t *testing.T) {
 
 	assert.True(t, AnyValue(map[string]bool{"a": true, "b": false}, always))
 	assert.False(t, AnyValue(map[string]bool{}, always))
-	assert.False(t, AnyValue[string, bool](nil, always))
+	assert.False(t, AnyValue[string](nil, always))
 	assert.False(t, AnyValue(map[string]bool{"a": true, "b": false}, never))
-	assert.False(t, AnyValue[string, bool](nil, never))
+	assert.False(t, AnyValue[string](nil, never))
 }
 
 func TestAnyItem(t *testing.T) {
@@ -160,7 +160,7 @@ func TestAnyItem(t *testing.T) {
 
 	assert.True(t, AnyItem(map[string]bool{"a": true, "b": false}, always))
 	assert.False(t, AnyItem(map[string]bool{}, always))
-	assert.False(t, AnyItem[string, bool](nil, always))
+	assert.False(t, AnyItem(nil, always))
 	assert.False(t, AnyItem(map[string]bool{"a": true, "b": false}, never))
-	assert.False(t, AnyItem[string, bool](nil, never))
+	assert.False(t, AnyItem(nil, never))
 }
