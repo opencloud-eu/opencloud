@@ -4,52 +4,42 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"maps"
-	"math"
 	"math/rand"
-	"net"
 	"net/http"
 	"net/http/httputil"
-	"net/mail"
 	"net/url"
 	"os"
 	"reflect"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 	"testing"
 	"text/template"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/gorilla/websocket"
-	"github.com/jhillyerd/enmime/v2"
-	"github.com/test-go/testify/require"
 	"github.com/tidwall/pretty"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"github.com/emersion/go-imap/v2"
-	"github.com/emersion/go-imap/v2/imapclient"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/brianvoe/gofakeit/v7"
 	pw "github.com/sethvargo/go-password/password"
 
-	"github.com/opencloud-eu/opencloud/pkg/jscalendar"
 	"github.com/opencloud-eu/opencloud/pkg/jscontact"
 	clog "github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 
 	"github.com/go-crypt/crypt/algorithm/shacrypt"
-
-	"github.com/ProtonMail/go-crypto/openpgp"
 )
 
 var (
@@ -117,89 +107,6 @@ tracer.log.multiline = false
 tracer.log.type = "stdout"
 `
 )
-
-func htmlJoin(parts []string) []string {
-	var result []string
-	for i := range parts {
-		result = append(result, fmt.Sprintf("<p>%v</p>", parts[i]))
-	}
-	return result
-}
-
-var paraSplitter = regexp.MustCompile("[\r\n]+")
-var emailSplitter = regexp.MustCompile("(.+)@(.+)$")
-
-func htmlFormat(body string, msg enmime.MailBuilder) enmime.MailBuilder {
-	return msg.HTML([]byte(strings.Join(htmlJoin(paraSplitter.Split(body, -1)), "\n")))
-}
-
-func textFormat(body string, msg enmime.MailBuilder) enmime.MailBuilder {
-	return msg.Text([]byte(body))
-}
-
-func bothFormat(body string, msg enmime.MailBuilder) enmime.MailBuilder {
-	msg = htmlFormat(body, msg)
-	msg = textFormat(body, msg)
-	return msg
-}
-
-var formats = []func(string, enmime.MailBuilder) enmime.MailBuilder{
-	htmlFormat,
-	textFormat,
-	bothFormat,
-}
-
-type sender struct {
-	first  string
-	last   string
-	from   string
-	sender string
-}
-
-func (s sender) inject(b enmime.MailBuilder) enmime.MailBuilder {
-	return b.From(s.first+" "+s.last, s.from).Header("Sender", s.sender)
-}
-
-type senderGenerator struct {
-	senders []sender
-}
-
-func newSenderGenerator(numSenders int) senderGenerator {
-	senders := make([]sender, numSenders)
-	for i := range numSenders {
-		person := gofakeit.Person()
-		senders[i] = sender{
-			first:  person.FirstName,
-			last:   person.LastName,
-			from:   person.Contact.Email,
-			sender: person.FirstName + " " + person.LastName + "<" + person.Contact.Email + ">",
-		}
-	}
-	return senderGenerator{
-		senders: senders,
-	}
-}
-
-func (s senderGenerator) nextSender() *sender {
-	if len(s.senders) < 1 {
-		panic("failed to determine a sender to use")
-	} else {
-		return &s.senders[rand.Intn(len(s.senders))]
-	}
-}
-
-func fakeFilename(extension string) string {
-	return strings.ReplaceAll(gofakeit.Product().Name, " ", "_") + extension
-}
-
-func mailboxId(role string, mailboxes []Mailbox) string {
-	for _, m := range mailboxes {
-		if m.Role == role {
-			return m.Id
-		}
-	}
-	return ""
-}
 
 func skip(t *testing.T) bool {
 	if os.Getenv("CI") == "woodpecker" {
@@ -438,34 +345,6 @@ func replaceHost(u string, host string) (string, error) {
 	}
 }
 
-type filledAttachment struct {
-	name        string
-	size        int
-	mimeType    string
-	disposition string
-}
-
-type filledMail struct {
-	uid         int
-	attachments []filledAttachment
-	subject     string
-	testId      string
-	messageId   string
-	keywords    []string
-}
-
-var allKeywords = map[string]imap.Flag{
-	JmapKeywordAnswered:  imap.FlagAnswered,
-	JmapKeywordDraft:     imap.FlagDraft,
-	JmapKeywordFlagged:   imap.FlagFlagged,
-	JmapKeywordForwarded: imap.FlagForwarded,
-	JmapKeywordJunk:      imap.FlagJunk,
-	JmapKeywordMdnSent:   imap.FlagMDNSent,
-	JmapKeywordNotJunk:   imap.FlagNotJunk,
-	JmapKeywordPhishing:  imap.FlagPhishing,
-	JmapKeywordSeen:      imap.FlagSeen,
-}
-
 /*
 func pickOneRandomlyFromMap[K comparable, V any](m map[K]V) (K, V) {
 	l := rand.Intn(len(m))
@@ -512,663 +391,7 @@ func pickRandomlyFromMap[K comparable, V any](m map[K]V, min int, max int) map[K
 	return r
 }
 
-func (s *StalwartTest) fillEmailsWithImap(folder string, count int) ([]filledMail, int, error) {
-	to := fmt.Sprintf("%s <%s>", s.userPersonName, s.userEmail)
-	ccEvery := 2
-	bccEvery := 3
-	attachmentEvery := 2
-	senders := max(count/4, 1)
-	maxThreadSize := 6
-	maxAttachments := 4
-
-	tlsConfig := &tls.Config{InsecureSkipVerify: true}
-
-	c, err := imapclient.DialTLS(net.JoinHostPort(s.ip, strconv.Itoa(s.imapPort)), &imapclient.Options{TLSConfig: tlsConfig})
-	if err != nil {
-		return nil, 0, err
-	}
-
-	defer func(imap *imapclient.Client) {
-		err := imap.Close()
-		if err != nil {
-			log.Fatal(err)
-		}
-	}(c)
-
-	if err = c.Login(s.username, s.password).Wait(); err != nil {
-		return nil, 0, err
-	}
-
-	if _, err = c.Select(folder, &imap.SelectOptions{ReadOnly: false}).Wait(); err != nil {
-		return nil, 0, err
-	}
-
-	if ids, err := c.Search(&imap.SearchCriteria{}, nil).Wait(); err != nil {
-		return nil, 0, err
-	} else {
-		if len(ids.AllSeqNums()) > 0 {
-			storeFlags := imap.StoreFlags{
-				Op:     imap.StoreFlagsAdd,
-				Flags:  []imap.Flag{imap.FlagDeleted},
-				Silent: true,
-			}
-			if err = c.Store(ids.All, &storeFlags, nil).Close(); err != nil {
-				return nil, 0, err
-			}
-			if err = c.Expunge().Close(); err != nil {
-				return nil, 0, err
-			}
-			log.Printf("🗑️ deleted %d messages in %s", len(ids.AllSeqNums()), folder)
-		} else {
-			log.Printf("ℹ️ did not delete any messages, %s is empty", folder)
-		}
-	}
-
-	address, err := mail.ParseAddress(to)
-	if err != nil {
-		return nil, 0, err
-	}
-	displayName := address.Name
-
-	addressParts := emailSplitter.FindAllStringSubmatch(address.Address, 3)
-	if len(addressParts) != 1 {
-		return nil, 0, fmt.Errorf("address does not have one part: '%v' -> %v", address.Address, addressParts)
-	}
-	if len(addressParts[0]) != 3 {
-		return nil, 0, fmt.Errorf("first address part does not have a size of 3: '%v'", addressParts[0])
-	}
-
-	domain := addressParts[0][2]
-
-	toName := displayName
-	toAddress := fmt.Sprintf("%s@%s", s.username, domain)
-	ccName1 := "Team Lead"
-	ccAddress1 := fmt.Sprintf("lead@%s", domain)
-	ccName2 := "Coworker"
-	ccAddress2 := fmt.Sprintf("coworker@%s", domain)
-	bccName := "HR"
-	bccAddress := fmt.Sprintf("corporate@%s", domain)
-
-	sg := newSenderGenerator(senders)
-	thread := 0
-	mails := make([]filledMail, count)
-	for i := 0; i < count; thread++ {
-		threadMessageId := fmt.Sprintf("%d.%d@%s", time.Now().Unix(), 1000000+rand.Intn(8999999), domain)
-		threadSubject := strings.Trim(gofakeit.SentenceSimple(), ".") // remove the . at the end, looks weird
-		threadSize := 1 + rand.Intn(maxThreadSize)
-		lastMessageId := ""
-		lastSubject := ""
-		for t := 0; i < count && t < threadSize; t++ {
-			sender := sg.nextSender()
-
-			format := formats[i%len(formats)]
-			text := gofakeit.Paragraph(2+rand.Intn(9), 1+rand.Intn(4), 1+rand.Intn(32), "\n")
-
-			msg := sender.inject(enmime.Builder().To(toName, toAddress))
-
-			messageId := ""
-			if lastMessageId == "" {
-				// start a new thread
-				msg = msg.Header("Message-ID", threadMessageId).Subject(threadSubject)
-				lastMessageId = threadMessageId
-				lastSubject = threadSubject
-				messageId = threadMessageId
-			} else {
-				// we're continuing a thread
-				messageId = fmt.Sprintf("%d.%d@%s", time.Now().Unix(), 1000000+rand.Intn(8999999), domain)
-				inReplyTo := ""
-				subject := ""
-				switch rand.Intn(2) {
-				case 0:
-					// reply to first post in thread
-					subject = "Re: " + threadSubject
-					inReplyTo = threadMessageId
-				default:
-					// reply to last addition to thread
-					subject = "Re: " + lastSubject
-					inReplyTo = lastMessageId
-				}
-				msg = msg.Header("Message-ID", messageId).Header("In-Reply-To", inReplyTo).Subject(subject)
-				lastMessageId = messageId
-				lastSubject = subject
-			}
-
-			if i%ccEvery == 0 {
-				msg = msg.CCAddrs([]mail.Address{{Name: ccName1, Address: ccAddress1}, {Name: ccName2, Address: ccAddress2}})
-			}
-			if i%bccEvery == 0 {
-				msg = msg.BCC(bccName, bccAddress)
-			}
-
-			numAttachments := 0
-			attachments := []filledAttachment{}
-			if maxAttachments > 0 && i%attachmentEvery == 0 {
-				numAttachments = rand.Intn(maxAttachments)
-				for a := range numAttachments {
-					switch rand.Intn(2) {
-					case 0:
-						filename := fakeFilename(".txt")
-						attachment := gofakeit.Paragraph(2+rand.Intn(4), 1+rand.Intn(4), 1+rand.Intn(32), "\n")
-						data := []byte(attachment)
-						msg = msg.AddAttachment(data, "text/plain", filename)
-						attachments = append(attachments, filledAttachment{
-							name:        filename,
-							size:        len(data),
-							mimeType:    "text/plain",
-							disposition: "attachment",
-						})
-					default:
-						filename := ""
-						mimetype := ""
-						var image []byte = nil
-						switch rand.Intn(2) {
-						case 0:
-							filename = fakeFilename(".png")
-							mimetype = "image/png"
-							image = gofakeit.ImagePng(512, 512)
-						default:
-							filename = fakeFilename(".jpg")
-							mimetype = "image/jpeg"
-							image = gofakeit.ImageJpeg(400, 200)
-						}
-						disposition := ""
-						switch rand.Intn(2) {
-						case 0:
-							msg = msg.AddAttachment(image, mimetype, filename)
-							disposition = "attachment"
-						default:
-							msg = msg.AddInline(image, mimetype, filename, "c"+strconv.Itoa(a))
-							disposition = "inline"
-						}
-						attachments = append(attachments, filledAttachment{
-							name:        filename,
-							size:        len(image),
-							mimeType:    mimetype,
-							disposition: disposition,
-						})
-					}
-				}
-			}
-
-			msg = format(text, msg)
-
-			flags := []imap.Flag{}
-			keywords := pickRandomlyFromMap(allKeywords, 0, len(allKeywords))
-			for _, f := range keywords {
-				flags = append(flags, f)
-			}
-
-			buf := new(bytes.Buffer)
-			part, _ := msg.Build()
-			part.Encode(buf)
-			mail := buf.String()
-
-			var options *imap.AppendOptions = nil
-			if len(flags) > 0 {
-				options = &imap.AppendOptions{Flags: flags}
-			}
-
-			size := int64(len(mail))
-			appendCmd := c.Append(folder, size, options)
-			if _, err := appendCmd.Write([]byte(mail)); err != nil {
-				return nil, 0, err
-			}
-			if err := appendCmd.Close(); err != nil {
-				return nil, 0, err
-			}
-			if appendData, err := appendCmd.Wait(); err != nil {
-				return nil, 0, err
-			} else {
-				attachmentStr := ""
-				if numAttachments > 0 {
-					attachmentStr = " " + strings.Repeat("📎", numAttachments)
-				}
-				log.Printf("➕ appended %v/%v [in thread %v] uid=%v%s", i+1, count, thread+1, appendData.UID, attachmentStr)
-
-				mails[i] = filledMail{
-					uid:         int(appendData.UID),
-					attachments: attachments,
-					subject:     msg.GetSubject(),
-					messageId:   messageId,
-					keywords:    slices.Collect(maps.Keys(keywords)),
-				}
-			}
-
-			i++
-		}
-	}
-
-	listCmd := c.List("", "%", &imap.ListOptions{
-		ReturnStatus: &imap.StatusOptions{
-			NumMessages: true,
-			NumUnseen:   true,
-		},
-	})
-	countMap := map[string]int{}
-	for {
-		mbox := listCmd.Next()
-		if mbox == nil {
-			break
-		}
-		countMap[mbox.Mailbox] = int(*mbox.Status.NumMessages)
-	}
-
-	inboxCount := -1
-	for f, i := range countMap {
-		if strings.Compare(strings.ToLower(f), strings.ToLower(folder)) == 0 {
-			inboxCount = i
-			break
-		}
-	}
-	if err = listCmd.Close(); err != nil {
-		return nil, 0, err
-	}
-	if inboxCount == -1 {
-		return nil, 0, fmt.Errorf("failed to find folder '%v' via IMAP", folder)
-	}
-	if count != inboxCount {
-		return nil, 0, fmt.Errorf("wrong number of emails in the inbox after filling, expecting %v, has %v", count, inboxCount)
-	}
-
-	return mails, thread, nil
-}
-
 var productName = "jmaptest"
-
-type ContactsBoxes struct {
-	nicknames            bool
-	secondaryEmails      bool
-	secondaryAddress     bool
-	phones               bool
-	onlineService        bool
-	preferredLanguage    bool
-	mediaWithBlobId      bool
-	mediaWithDataUri     bool
-	mediaWithExternalUri bool
-	organization         bool
-	cryptoKey            bool
-	link                 bool
-}
-
-func (s *StalwartTest) fillContacts(
-	t *testing.T,
-	count uint,
-) (string, string, map[string]jscontact.ContactCard, ContactsBoxes, error) {
-	require := require.New(t)
-	c, err := NewTestJmapClient(s.session, s.username, s.password, true, true)
-	require.NoError(err)
-	defer c.Close()
-
-	boxes := ContactsBoxes{}
-
-	printer := func(s string) { log.Println(s) }
-
-	accountId := c.session.PrimaryAccounts.Contacts
-	require.NotEmpty(accountId, "no primary account for contacts in session")
-
-	addressbookId := ""
-	{
-		addressBooksById, err := testObjectsById(c, accountId, AddressBookType, JmapContacts)
-		require.NoError(err)
-
-		for id, addressbook := range addressBooksById {
-			if isDefault, ok := addressbook["isDefault"]; ok {
-				if isDefault.(bool) {
-					addressbookId = id
-					break
-				}
-			}
-		}
-	}
-	require.NotEmpty(addressbookId)
-
-	u := true
-
-	filled := map[string]jscontact.ContactCard{}
-	for i := range count {
-		person := gofakeit.Person()
-		nameMap, nameObj := createName(person)
-		contact := map[string]any{
-			"@type":          "Card",
-			"version":        "1.0",
-			"addressBookIds": toBoolMap([]string{addressbookId}),
-			"prodId":         productName,
-			"language":       pickLanguage(),
-			"kind":           "individual",
-			"name":           nameMap,
-		}
-		card := jscontact.ContactCard{
-			//Type:           jscontact.ContactCardType,
-			Version:        "1.0",
-			AddressBookIds: toBoolMap([]string{addressbookId}),
-			ProdId:         productName,
-			Language:       contact["language"].(string),
-			Kind:           jscontact.ContactCardKindIndividual,
-			Name:           &nameObj,
-		}
-
-		if i%3 == 0 {
-			nicknameMap, nicknameObj := createNickName(person)
-			id := id()
-			contact["nicknames"] = map[string]map[string]any{id: nicknameMap}
-			card.Nicknames = map[string]jscontact.Nickname{id: nicknameObj}
-			boxes.nicknames = true
-		}
-
-		{
-			emailMaps := map[string]map[string]any{}
-			emailObjs := map[string]jscontact.EmailAddress{}
-			emailId := id()
-			emailMap, emailObj := createEmail(person, 10)
-			emailMaps[emailId] = emailMap
-			emailObjs[emailId] = emailObj
-
-			for i := range rand.Intn(3) {
-				id := id()
-				m, o := createSecondaryEmail(gofakeit.Email(), i*100)
-				emailMaps[id] = m
-				emailObjs[id] = o
-				boxes.secondaryEmails = true
-			}
-			if len(emailMaps) > 0 {
-				contact["emails"] = emailMaps
-				card.Emails = emailObjs
-			}
-		}
-		if err := propmap(i%2 == 0, 1, 2, contact, "phones", &card.Phones, func(i int, id string) (map[string]any, jscontact.Phone, error) {
-			boxes.phones = true
-			num := person.Contact.Phone
-			if i > 0 {
-				num = gofakeit.Phone()
-			}
-			var features map[jscontact.PhoneFeature]bool = nil
-			if rand.Intn(3) < 2 {
-				features = toBoolMapS(jscontact.PhoneFeatureMobile, jscontact.PhoneFeatureVoice, jscontact.PhoneFeatureVideo, jscontact.PhoneFeatureText)
-			} else {
-				features = toBoolMapS(jscontact.PhoneFeatureVoice, jscontact.PhoneFeatureMainNumber)
-			}
-
-			contexts := map[jscontact.PhoneContext]bool{jscontact.PhoneContextWork: true}
-			if rand.Intn(2) < 1 {
-				contexts[jscontact.PhoneContextPrivate] = true
-			}
-			tel := "tel:" + "+1" + num
-			return map[string]any{
-					"@type":    "Phone",
-					"number":   tel,
-					"features": structs.MapKeys(features, func(f jscontact.PhoneFeature) string { return string(f) }),
-					"contexts": structs.MapKeys(contexts, func(c jscontact.PhoneContext) string { return string(c) }),
-				}, untype(jscontact.Phone{
-					Type:     jscontact.PhoneType,
-					Number:   tel,
-					Features: features,
-					Contexts: contexts,
-				}, u), nil
-		}); err != nil {
-			return "", "", nil, boxes, err
-		}
-		if err := propmap(i%5 < 4, 1, 2, contact, "addresses", &card.Addresses, func(i int, id string) (map[string]any, jscontact.Address, error) {
-			var source *gofakeit.AddressInfo
-			if i == 0 {
-				source = person.Address
-			} else {
-				source = gofakeit.Address()
-				boxes.secondaryAddress = true
-			}
-			components := []jscontact.AddressComponent{}
-			m := streetNumberRegex.FindAllStringSubmatch(source.Street, -1)
-			if m != nil {
-				components = append(components, jscontact.AddressComponent{ /*Type: jscontact.AddressComponentType,*/ Kind: jscontact.AddressComponentKindName, Value: m[0][2]})
-				components = append(components, jscontact.AddressComponent{ /*Type: jscontact.AddressComponentType,*/ Kind: jscontact.AddressComponentKindNumber, Value: m[0][1]})
-			} else {
-				components = append(components, jscontact.AddressComponent{ /*Type: jscontact.AddressComponentType,*/ Kind: jscontact.AddressComponentKindName, Value: source.Street})
-			}
-			components = append(components,
-				jscontact.AddressComponent{ /*Type: jscontact.AddressComponentType,*/ Kind: jscontact.AddressComponentKindLocality, Value: source.City},
-				jscontact.AddressComponent{ /*Type: jscontact.AddressComponentType,*/ Kind: jscontact.AddressComponentKindCountry, Value: source.Country},
-				jscontact.AddressComponent{ /*Type: jscontact.AddressComponentType,*/ Kind: jscontact.AddressComponentKindRegion, Value: source.State},
-				jscontact.AddressComponent{ /*Type: jscontact.AddressComponentType,*/ Kind: jscontact.AddressComponentKindPostcode, Value: source.Zip},
-			)
-			tz := pickRandom(timezones...)
-			return map[string]any{
-					"@type": "Address",
-					"components": structs.Map(components, func(c jscontact.AddressComponent) map[string]string {
-						return map[string]string{"kind": string(c.Kind), "value": c.Value}
-					}),
-					"defaultSeparator": ", ",
-					"isOrdered":        true,
-					"timeZone":         tz,
-				}, untype(jscontact.Address{
-					Type:             jscontact.AddressType,
-					Components:       components,
-					DefaultSeparator: ", ",
-					IsOrdered:        true,
-					TimeZone:         tz,
-				}, u), nil
-		}); err != nil {
-			return "", "", nil, boxes, err
-		}
-		if err := propmap(i%2 == 0, 1, 2, contact, "onlineServices", &card.OnlineServices, func(i int, id string) (map[string]any, jscontact.OnlineService, error) {
-			boxes.onlineService = true
-			switch rand.Intn(3) {
-			case 0:
-				return map[string]any{
-						"@type":   "OnlineService",
-						"service": "Mastodon",
-						"user":    "@" + person.Contact.Email,
-						"uri":     "https://mastodon.example.com/@" + strings.ToLower(person.FirstName),
-					}, untype(jscontact.OnlineService{
-						Type:    jscontact.OnlineServiceType,
-						Service: "Mastodon",
-						User:    "@" + person.Contact.Email,
-						Uri:     "https://mastodon.example.com/@" + strings.ToLower(person.FirstName),
-					}, u), nil
-			case 1:
-				return map[string]any{
-						"@type": "OnlineService",
-						"uri":   "xmpp:" + person.Contact.Email,
-					}, untype(jscontact.OnlineService{
-						Type: jscontact.OnlineServiceType,
-						Uri:  "xmpp:" + person.Contact.Email,
-					}, u), nil
-			default:
-				return map[string]any{
-						"@type":   "OnlineService",
-						"service": "Discord",
-						"user":    person.Contact.Email,
-						"uri":     "https://discord.example.com/user/" + person.Contact.Email,
-					}, untype(jscontact.OnlineService{
-						Type:    jscontact.OnlineServiceType,
-						Service: "Discord",
-						User:    person.Contact.Email,
-						Uri:     "https://discord.example.com/user/" + person.Contact.Email,
-					}, u), nil
-			}
-		}); err != nil {
-			return "", "", nil, boxes, err
-		}
-
-		if err := propmap(i%3 == 0, 1, 2, contact, "preferredLanguages", &card.PreferredLanguages, func(i int, id string) (map[string]any, jscontact.LanguagePref, error) {
-			boxes.preferredLanguage = true
-			lang := pickRandom("en", "fr", "de", "es", "it")
-			contexts := pickRandoms1("work", "private")
-			return map[string]any{
-					"@type":    "LanguagePref",
-					"language": lang,
-					"contexts": toBoolMap(contexts),
-					"pref":     i + 1,
-				}, untype(jscontact.LanguagePref{
-					Type:     jscontact.LanguagePrefType,
-					Language: lang,
-					Contexts: toBoolMap(structs.Map(contexts, func(s string) jscontact.LanguagePrefContext { return jscontact.LanguagePrefContext(s) })),
-					Pref:     uint(i + 1),
-				}, u), nil
-		}); err != nil {
-			return "", "", nil, boxes, err
-		}
-
-		if i%2 == 0 {
-			organizationMaps := map[string]map[string]any{}
-			organizationObjs := map[string]jscontact.Organization{}
-			titleMaps := map[string]map[string]any{}
-			titleObjs := map[string]jscontact.Title{}
-			for range 1 + rand.Intn(2) {
-				boxes.organization = true
-				orgId := id()
-				titleId := id()
-				organizationMaps[orgId] = map[string]any{
-					"@type":    "Organization",
-					"name":     person.Job.Company,
-					"contexts": toBoolMapS("work"),
-				}
-				organizationObjs[orgId] = untype(jscontact.Organization{
-					Type:     jscontact.OrganizationType,
-					Name:     person.Job.Company,
-					Contexts: toBoolMapS(jscontact.OrganizationContextWork),
-				}, u)
-				titleMaps[titleId] = map[string]any{
-					"@type":          "Title",
-					"kind":           "title",
-					"name":           person.Job.Title,
-					"organizationId": orgId,
-				}
-				titleObjs[titleId] = untype(jscontact.Title{
-					Type:           jscontact.TitleType,
-					Kind:           jscontact.TitleKindTitle,
-					Name:           person.Job.Title,
-					OrganizationId: orgId,
-				}, u)
-			}
-			contact["organizations"] = organizationMaps
-			contact["titles"] = titleMaps
-			card.Organizations = organizationObjs
-			card.Titles = titleObjs
-		}
-
-		if err := propmap(i%2 == 0, 1, 1, contact, "cryptoKeys", &card.CryptoKeys, func(i int, id string) (map[string]any, jscontact.CryptoKey, error) {
-			boxes.cryptoKey = true
-			entity, err := openpgp.NewEntity(person.FirstName+" "+person.LastName, "test", person.Contact.Email, nil)
-			if err != nil {
-				return nil, jscontact.CryptoKey{}, err
-			}
-			var b bytes.Buffer
-			err = entity.PrimaryKey.Serialize(&b)
-			if err != nil {
-				return nil, jscontact.CryptoKey{}, err
-			}
-			encoded := base64.RawStdEncoding.EncodeToString(b.Bytes())
-			return map[string]any{
-					"@type": "CryptoKey",
-					"uri":   "data:application/pgp-keys;base64," + encoded,
-				}, untype(jscontact.CryptoKey{
-					Type: jscontact.CryptoKeyType,
-					Uri:  "data:application/pgp-keys;base64," + encoded,
-				}, u), nil
-		}); err != nil {
-			return "", "", nil, boxes, err
-		}
-
-		if err := propmap(i%2 == 0, 1, 2, contact, "media", &card.Media, func(i int, id string) (map[string]any, jscontact.Media, error) {
-			label := fmt.Sprintf("photo-%d", 1000+rand.Intn(9000))
-			switch rand.Intn(3) {
-			case 0:
-				boxes.mediaWithDataUri = true
-				// use data uri
-				//size := 16 + rand.Intn(512-16+1) // <- let's not do that right now, makes debugging errors very difficult due to the ASCII wall noise
-				size := pickRandom(16, 24, 32, 48, 64)
-				img := gofakeit.ImagePng(size, size)
-				mime := "image/png"
-				uri := "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(img)
-				contexts := toBoolMapS(jscontact.MediaContextPrivate)
-				return map[string]any{
-						"@type":     "Media",
-						"kind":      string(jscontact.MediaKindPhoto),
-						"uri":       uri,
-						"mediaType": mime,
-						"contexts":  structs.MapKeys(contexts, func(c jscontact.MediaContext) string { return string(c) }),
-						"label":     label,
-					}, untype(jscontact.Media{
-						Type:      jscontact.MediaType,
-						Kind:      jscontact.MediaKindPhoto,
-						Uri:       uri,
-						MediaType: mime,
-						Contexts:  contexts,
-						Label:     label,
-					}, u), nil
-			// currently not supported, reported as https://github.com/stalwartlabs/stalwart/issues/2431
-			case -1: // change this to 1 to enable it again
-				boxes.mediaWithBlobId = true
-				size := pickRandom(16, 24, 32, 48, 64)
-				img := gofakeit.ImageJpeg(size, size)
-				blob, err := c.uploadBlob(accountId, img, "image/jpeg")
-				if err != nil {
-					return nil, jscontact.Media{}, err
-				}
-				contexts := toBoolMapS(jscontact.MediaContextPrivate)
-				return map[string]any{
-						"@type":    "Media",
-						"kind":     string(jscontact.MediaKindPhoto),
-						"blobId":   blob.BlobId,
-						"contexts": structs.MapKeys(contexts, func(c jscontact.MediaContext) string { return string(c) }),
-						"label":    label,
-					}, untype(jscontact.Media{
-						Type:      jscontact.MediaType,
-						Kind:      jscontact.MediaKindPhoto,
-						BlobId:    blob.BlobId,
-						MediaType: blob.Type,
-						Contexts:  contexts,
-						Label:     label,
-					}, u), nil
-
-			default:
-				boxes.mediaWithExternalUri = true
-				// use external uri
-				uri := picsum(128, 128)
-				contexts := toBoolMapS(jscontact.MediaContextWork)
-				return map[string]any{
-						"@type":    "Media",
-						"kind":     string(jscontact.MediaKindPhoto),
-						"uri":      uri,
-						"contexts": structs.MapKeys(contexts, func(c jscontact.MediaContext) string { return string(c) }),
-						"label":    label,
-					}, untype(jscontact.Media{
-						Type:     jscontact.MediaType,
-						Kind:     jscontact.MediaKindPhoto,
-						Uri:      uri,
-						Contexts: contexts,
-						Label:    label,
-					}, u), nil
-			}
-		}); err != nil {
-			return "", "", nil, boxes, err
-		}
-		if err := propmap(i%2 == 0, 1, 1, contact, "links", &card.Links, func(i int, id string) (map[string]any, jscontact.Link, error) {
-			boxes.link = true
-			return map[string]any{
-					"@type": "Link",
-					"kind":  "contact",
-					"uri":   "mailto:" + person.Contact.Email,
-					"pref":  (i + 1) * 10,
-				}, untype(jscontact.Link{
-					Type: jscontact.LinkType,
-					Kind: jscontact.LinkKindContact,
-					Uri:  "mailto:" + person.Contact.Email,
-					Pref: uint((i + 1) * 10),
-				}, u), nil
-		}); err != nil {
-			return "", "", nil, boxes, err
-		}
-
-		id, err := s.CreateContact(c, accountId, contact)
-		if err != nil {
-			return "", "", nil, boxes, err
-		}
-		card.Id = id
-		filled[id] = card
-		printer(fmt.Sprintf("🧑🏻 created %*s/%v uid=%v", int(math.Log10(float64(count))+1), strconv.Itoa(int(i+1)), count, id))
-	}
-	return accountId, addressbookId, filled, boxes, nil
-}
 
 func untype[S any](s S, t bool) S {
 	if t {
@@ -1176,27 +399,6 @@ func untype[S any](s S, t bool) S {
 	}
 	return s
 }
-
-func (s *StalwartTest) CreateContact(j *TestJmapClient, accountId string, contact map[string]any) (string, error) {
-	body := map[string]any{
-		"using": []string{JmapCore, JmapContacts},
-		"methodCalls": []any{
-			[]any{
-				ContactCardType + "/set",
-				map[string]any{
-					"accountId": accountId,
-					"create": map[string]any{
-						"c": contact,
-					},
-				},
-				"0",
-			},
-		},
-	}
-	return testCreate(j, "c", ContactCardType, body)
-}
-
-var streetNumberRegex = regexp.MustCompile(`^(\d+)\s+(.+)$`)
 
 type TestJmapClient struct {
 	h        *http.Client
@@ -1288,16 +490,14 @@ func (j *TestJmapClient) uploadBlob(accountId string, data []byte, mimetype stri
 	return result, nil
 }
 
-func testCommand[T any](j *TestJmapClient, body map[string]any, closure func([]any) (T, error)) (T, error) {
-	var zero T
-
+func (j *TestJmapClient) command(body map[string]any) ([]any, error) {
 	payload, err := json.Marshal(body)
 	if err != nil {
-		return zero, err
+		return nil, err
 	}
 	req, err := http.NewRequest(http.MethodPost, j.u.String(), bytes.NewReader(payload))
 	if err != nil {
-		return zero, err
+		return nil, err
 	}
 
 	if j.trace {
@@ -1313,7 +513,7 @@ func testCommand[T any](j *TestJmapClient, body map[string]any, closure func([]a
 	req.SetBasicAuth(j.username, j.password)
 	resp, err := j.h.Do(req)
 	if err != nil {
-		return zero, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	var response []byte = nil
@@ -1321,7 +521,7 @@ func testCommand[T any](j *TestJmapClient, body map[string]any, closure func([]a
 		if b, err := httputil.DumpResponse(resp, false); err == nil {
 			response, err = io.ReadAll(resp.Body)
 			if err != nil {
-				return zero, err
+				return nil, err
 			}
 			p := pretty.Pretty(response)
 			if j.color {
@@ -1331,27 +531,44 @@ func testCommand[T any](j *TestJmapClient, body map[string]any, closure func([]a
 		}
 	}
 	if resp.StatusCode >= 300 {
-		return zero, fmt.Errorf("JMAP command HTTP response status is %s", resp.Status)
+		return nil, fmt.Errorf("JMAP command HTTP response status is %s", resp.Status)
 	}
 	if response == nil {
 		response, err = io.ReadAll(resp.Body)
 		if err != nil {
-			return zero, err
+			return nil, err
 		}
 	}
 
 	r := map[string]any{}
 	err = json.Unmarshal(response, &r)
 	if err != nil {
-		return zero, err
+		return nil, err
 	}
 
-	methodResponses := r["methodResponses"].([]any)
-	return closure(methodResponses)
+	return r["methodResponses"].([]any), nil
 }
 
-func testCreate(j *TestJmapClient, id string, objectType ObjectType, body map[string]any) (string, error) {
-	return testCommand(j, body, func(methodResponses []any) (string, error) {
+type Commander[T any] struct {
+	j       *TestJmapClient
+	closure func([]any) (T, error)
+}
+
+func newCommander[T any](j *TestJmapClient, closure func([]any) (T, error)) Commander[T] {
+	return Commander[T]{j: j, closure: closure}
+}
+
+func (c Commander[T]) command(body map[string]any) (T, error) {
+	var zero T
+	methodResponses, err := c.j.command(body)
+	if err != nil {
+		return zero, err
+	}
+	return c.closure(methodResponses)
+}
+
+func (j *TestJmapClient) create(id string, objectType ObjectType, body map[string]any) (string, error) {
+	return newCommander(j, func(methodResponses []any) (string, error) {
 		z := methodResponses[0].([]any)
 		f := z[1].(map[string]any)
 		if x, ok := f["created"]; ok {
@@ -1370,10 +587,10 @@ func testCreate(j *TestJmapClient, id string, objectType ObjectType, body map[st
 				return "", fmt.Errorf("failed to create %v", objectType)
 			}
 		}
-	})
+	}).command(body)
 }
 
-func testObjectsById(j *TestJmapClient, accountId string, objectType ObjectType, scope string) (map[string]map[string]any, error) {
+func (j *TestJmapClient) objectsById(accountId string, objectType ObjectType, scope string) (map[string]map[string]any, error) {
 	m := map[string]map[string]any{}
 	{
 		body := map[string]any{
@@ -1388,7 +605,7 @@ func testObjectsById(j *TestJmapClient, accountId string, objectType ObjectType,
 				},
 			},
 		}
-		result, err := testCommand(j, body, func(methodResponses []any) ([]any, error) {
+		result, err := newCommander(j, func(methodResponses []any) ([]any, error) {
 			z := methodResponses[0].([]any)
 			f := z[1].(map[string]any)
 			if list, ok := f["list"]; ok {
@@ -1396,7 +613,7 @@ func testObjectsById(j *TestJmapClient, accountId string, objectType ObjectType,
 			} else {
 				return nil, fmt.Errorf("methodResponse[1] has no 'list' attribute: %v", f)
 			}
-		})
+		}).command(body)
 		if err != nil {
 			return nil, err
 		}
@@ -1409,9 +626,9 @@ func testObjectsById(j *TestJmapClient, accountId string, objectType ObjectType,
 	return m, nil
 }
 
-func createName(person *gofakeit.PersonInfo) (map[string]any, jscontact.Name) {
+func createName(person *gofakeit.PersonInfo, u bool) (map[string]any, jscontact.Name) {
 	o := jscontact.Name{
-		// Type: jscontact.NameType,
+		Type: jscontact.NameType,
 	}
 	m := map[string]any{
 		"@type": "Name",
@@ -1422,20 +639,20 @@ func createName(person *gofakeit.PersonInfo) (map[string]any, jscontact.Name) {
 		"kind":  "given",
 		"value": person.FirstName,
 	}
-	oComps[0] = jscontact.NameComponent{
-		// Type:  jscontact.NameComponentType,
+	oComps[0] = untype(jscontact.NameComponent{
+		Type:  jscontact.NameComponentType,
 		Kind:  jscontact.NameComponentKindGiven,
 		Value: person.FirstName,
-	}
+	}, u)
 	mComps[1] = map[string]string{
 		"kind":  "surname",
 		"value": person.LastName,
 	}
-	oComps[1] = jscontact.NameComponent{
-		// Type:  jscontact.NameComponentType,
+	oComps[1] = untype(jscontact.NameComponent{
+		Type:  jscontact.NameComponentType,
 		Kind:  jscontact.NameComponentKindSurname,
 		Value: person.LastName,
-	}
+	}, u)
 	m["components"] = mComps
 	o.Components = oComps
 	m["isOrdered"] = true
@@ -1445,24 +662,24 @@ func createName(person *gofakeit.PersonInfo) (map[string]any, jscontact.Name) {
 	full := fmt.Sprintf("%s %s", person.FirstName, person.LastName)
 	m["full"] = full
 	o.Full = full
-	return m, o
+	return m, untype(o, u)
 }
 
-func createNickName(_ *gofakeit.PersonInfo) (map[string]any, jscontact.Nickname) {
+func createNickName(_ *gofakeit.PersonInfo, u bool) (map[string]any, jscontact.Nickname) {
 	name := gofakeit.PetName()
 	contexts := pickRandoms(jscontact.NicknameContextPrivate, jscontact.NicknameContextWork)
 	return map[string]any{
 			"@type":    "Nickname",
 			"name":     name,
 			"contexts": toBoolMap(structs.Map(contexts, func(s jscontact.NicknameContext) string { return string(s) })),
-		}, jscontact.Nickname{
-			// Type:     jscontact.NicknameType,
+		}, untype(jscontact.Nickname{
+			Type:     jscontact.NicknameType,
 			Name:     name,
 			Contexts: orNilMap(toBoolMap(contexts)),
-		}
+		}, u)
 }
 
-func createEmail(person *gofakeit.PersonInfo, pref int) (map[string]any, jscontact.EmailAddress) {
+func createEmail(person *gofakeit.PersonInfo, pref int, u bool) (map[string]any, jscontact.EmailAddress) {
 	email := person.Contact.Email
 	contexts := pickRandoms1(jscontact.EmailAddressContextWork, jscontact.EmailAddressContextPrivate)
 	label := strings.ToLower(person.FirstName)
@@ -1472,28 +689,28 @@ func createEmail(person *gofakeit.PersonInfo, pref int) (map[string]any, jsconta
 			"contexts": toBoolMap(structs.Map(contexts, func(s jscontact.EmailAddressContext) string { return string(s) })),
 			"label":    label,
 			"pref":     pref,
-		}, jscontact.EmailAddress{
-			// Type:     jscontact.EmailAddressType,
+		}, untype(jscontact.EmailAddress{
+			Type:     jscontact.EmailAddressType,
 			Address:  email,
 			Contexts: orNilMap(toBoolMap(contexts)),
 			Label:    label,
 			Pref:     uint(pref),
-		}
+		}, u)
 }
 
-func createSecondaryEmail(email string, pref int) (map[string]any, jscontact.EmailAddress) {
+func createSecondaryEmail(email string, pref int, u bool) (map[string]any, jscontact.EmailAddress) {
 	contexts := pickRandoms(jscontact.EmailAddressContextWork, jscontact.EmailAddressContextPrivate)
 	return map[string]any{
 			"@type":    "EmailAddress",
 			"address":  email,
 			"contexts": toBoolMap(structs.Map(contexts, func(s jscontact.EmailAddressContext) string { return string(s) })),
 			"pref":     pref,
-		}, jscontact.EmailAddress{
-			// Type:     jscontact.EmailAddressType,
+		}, untype(jscontact.EmailAddress{
+			Type:     jscontact.EmailAddressType,
 			Address:  email,
 			Contexts: orNilMap(toBoolMap(contexts)),
 			Pref:     uint(pref),
-		}
+		}, u)
 }
 
 var idFirstLetters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -1519,182 +736,6 @@ var timezones = []string{
 	"America/Kentucky/Louisville",
 	"America/Los_Angeles",
 	"America/New_York",
-}
-
-var rooms = []jscalendar.Location{
-	{
-		Type:          "Location",
-		Name:          "office-upstairs",
-		Description:   "Office meeting room upstairs",
-		LocationTypes: toBoolMapS(jscalendar.LocationTypeOptionOffice),
-		Coordinates:   "geo:52.5335389,13.4103296",
-		Links: map[string]jscalendar.Link{
-			id(): {Href: "https://www.heinlein-support.de/"},
-		},
-	},
-	{
-		Type:          "Location",
-		Name:          "office-nue",
-		Description:   "",
-		LocationTypes: toBoolMapS(jscalendar.LocationTypeOptionOffice),
-		Coordinates:   "geo:49.4723337,11.1042282",
-		Links: map[string]jscalendar.Link{
-			id(): {Href: "https://www.workandpepper.de/"},
-		},
-	},
-	{
-		Type:          "Location",
-		Name:          "Meetingraum Prenzlauer Berg",
-		Description:   "This is a Hero Space with great reviews, fast response-time and good quality service",
-		LocationTypes: toBoolMapS(jscalendar.LocationTypeOptionOffice, jscalendar.LocationTypeOptionPublic),
-		Coordinates:   "geo:52.554222,13.4142387",
-		Links: map[string]jscalendar.Link{
-			id(): {Href: "https://www.spacebase.com/en/venue/meeting-room-prenzlauer-be-11499/"},
-		},
-	},
-	{
-		Type:          "Location",
-		Name:          "Meetingraum LIANE 1",
-		Description:   "Ecofriendly Bright Urban Jungle",
-		LocationTypes: toBoolMapS(jscalendar.LocationTypeOptionOffice, jscalendar.LocationTypeOptionLibrary),
-		Coordinates:   "geo:52.4854301,13.4224763",
-		Links: map[string]jscalendar.Link{
-			id(): {Href: "https://www.spacebase.com/en/venue/rent-a-jungle-8372/"},
-		},
-	},
-	{
-		Type:          "Location",
-		Name:          "Dark Horse",
-		Description:   "Collaboration and event spaces from the authors of the Workspace and Digital Innovation Playbooks.",
-		LocationTypes: toBoolMapS(jscalendar.LocationTypeOptionOffice),
-		Coordinates:   "geo:52.4942254,13.4346015",
-		Links: map[string]jscalendar.Link{
-			id(): {Href: "https://www.spacebase.com/en/event-venue/workshop-white-space-2667/"},
-		},
-	},
-}
-
-var virtualRooms = []jscalendar.VirtualLocation{
-	{
-		Type:        "VirtualLocation",
-		Name:        "opentalk",
-		Description: "the main room in our opentalk instance",
-		Uri:         "https://meet.opentalk.eu/fake/room/" + gofakeit.UUID(),
-		Features: toBoolMapS(
-			jscalendar.VirtualLocationFeatureAudio,
-			jscalendar.VirtualLocationFeatureChat,
-			jscalendar.VirtualLocationFeatureVideo,
-			jscalendar.VirtualLocationFeatureScreen,
-		),
-	},
-}
-
-func createLocation() (string, jscalendar.Location) {
-	locationId := id()
-	room := rooms[rand.Intn(len(rooms))]
-	return locationId, room
-}
-
-func createVirtualLocation() (string, jscalendar.VirtualLocation) {
-	locationId := id()
-	return locationId, virtualRooms[rand.Intn(len(virtualRooms))]
-}
-
-var ChairRoles = toBoolMapS("attendee", "chair", "owner")
-var RegularRoles = toBoolMapS("attendee")
-
-func createParticipants(locationId string, virtualLocationid string) (map[string]map[string]any, string) {
-	n := 1 + rand.Intn(4)
-	participants := map[string]map[string]any{}
-	organizerId, organizerEmail, organizer := createParticipant(0, pickRandom(locationId, virtualLocationid), "", "")
-	participants[organizerId] = organizer
-	for i := 1; i < n; i++ {
-		id, _, participant := createParticipant(i, pickRandom(locationId, virtualLocationid), organizerId, organizerEmail)
-		participants[id] = participant
-	}
-	return participants, organizerEmail
-}
-
-func createParticipant(i int, locationId string, organizerEmail string, organizerId string) (string, string, map[string]any) {
-	participantId := id()
-	person := gofakeit.Person()
-	roles := RegularRoles
-	if i == 0 {
-		roles = ChairRoles
-	}
-	status := "accepted"
-	if i != 0 {
-		status = pickRandom("needs-action", "accepted", "declined", "tentative") //, delegated + set "delegatedTo"
-	}
-	statusComment := ""
-	if rand.Intn(5) >= 3 {
-		statusComment = gofakeit.HipsterSentence(1 + rand.Intn(5))
-	}
-	if i == 0 {
-		organizerEmail = person.Contact.Email
-		organizerId = participantId
-	}
-	m := map[string]any{
-		"@type":       "Participant",
-		"name":        person.FirstName + " " + person.LastName,
-		"email":       person.Contact.Email,
-		"description": person.Job.Title,
-		"sendTo": map[string]string{
-			"imip": "mailto:" + person.Contact.Email,
-		},
-		"kind":                 "individual",
-		"roles":                roles,
-		"locationId":           locationId,
-		"language":             pickLanguage(),
-		"participationStatus":  status,
-		"participationComment": statusComment,
-		"expectReply":          true,
-		"scheduleAgent":        "server",
-		"scheduleSequence":     1,
-		"scheduleStatus":       []string{"1.0"},
-		"scheduleUpdated":      "2025-10-01T1:59:12Z",
-		"sentBy":               organizerEmail,
-		"invitedBy":            organizerId,
-		"scheduleId":           "mailto:" + person.Contact.Email,
-	}
-
-	links := map[string]map[string]any{}
-	for range rand.Intn(3) {
-		links[id()] = map[string]any{
-			"@type":       "Link",
-			"href":        "https://picsum.photos/id/" + strconv.Itoa(1+rand.Intn(200)) + "/200/300",
-			"contentType": "image/jpeg",
-			"rel":         "icon",
-			"display":     "badge",
-			"title":       person.FirstName + "'s Cake Day pick",
-		}
-	}
-	if len(links) > 0 {
-		m["links"] = links
-	}
-
-	return participantId, person.Contact.Email, m
-}
-
-var Keywords = []string{
-	"office",
-	"important",
-	"sales",
-	"coordination",
-	"decision",
-}
-
-func keywords() map[string]bool {
-	return toBoolMap(pickRandoms(Keywords...))
-}
-
-var Categories = []string{
-	"secret",
-	"internal",
-}
-
-func categories() map[string]bool {
-	return toBoolMap(pickRandoms(Categories...))
 }
 
 func propmap[T any](enabled bool, min int, max int, container map[string]any, name string, cardProperty *map[string]T, generator func(int, string) (map[string]any, T, error)) error {
@@ -1792,4 +833,17 @@ func pickRandoms1[T any](s ...T) []T {
 
 func pickLanguage() string {
 	return pickRandom("en-US", "en-GB", "en-AU")
+}
+
+func allTrue[S any](t *testing.T, s S, exceptions ...string) {
+	v := reflect.ValueOf(s)
+	typ := v.Type()
+	for i := range v.NumField() {
+		name := typ.Field(i).Name
+		if slices.Contains(exceptions, name) {
+			continue
+		}
+		value := v.Field(i).Bool()
+		require.True(t, value, "should be true: %v", name)
+	}
 }
