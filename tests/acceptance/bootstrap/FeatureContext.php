@@ -2702,6 +2702,20 @@ class FeatureContext extends BehatVariablesContext {
 	}
 
 	/**
+	 * @AfterScenario
+	 *
+	 * @return void
+	 *
+	 * @throws Exception|GuzzleException
+	 */
+	public function cleanDataAfterTests(): void {
+		if (OcHelper::isTestingOnReva() || OcHelper::isUsingPreparedLdapUsers()) {
+			return;
+		}
+		$this->spacesContext->deleteAllProjectSpaces();
+	}
+
+	/**
 	 * @BeforeScenario @temporary_storage_on_server
 	 *
 	 * @return void

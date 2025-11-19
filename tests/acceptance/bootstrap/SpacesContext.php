@@ -479,20 +479,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @AfterScenario
-	 *
-	 * @return void
-	 *
-	 * @throws Exception|GuzzleException
-	 */
-	public function cleanDataAfterTests(): void {
-		if (OcHelper::isTestingOnReva() || OcHelper::isUsingPreparedLdapUsers()) {
-			return;
-		}
-		$this->deleteAllProjectSpaces();
-	}
-
-	/**
 	 * the admin user first disables and then deletes spaces
 	 *
 	 * @return void

@@ -2089,6 +2089,8 @@ def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, depend
         "WEBDAV_DEBUG_ADDR": "0.0.0.0:9119",
         "WEBFINGER_DEBUG_ADDR": "0.0.0.0:9279",
         "STORAGE_USERS_POSIX_SCAN_DEBOUNCE_DELAY": 0,
+        "PROXY_LOG_LEVEL": "debug",
+        "STORAGE_USERS_LOG_LEVEL": "debug",
     }
 
     if storage == "posix":
