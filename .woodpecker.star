@@ -1654,6 +1654,16 @@ def dockerRelease(ctx, repo, build_type):
         "VERSION": "%s" % (ctx.build.ref.replace("refs/tags/", "") if ctx.build.event == "tag" else "daily"),
     }
 
+    # if no additional tag is given, the build-plugin adds latest
+    hard_tag = "daily"
+    if ctx.build.event == "tag":
+        tag_version = ctx.build.ref.replace("refs/tags/", "")
+        tag_parts = tag_version.split("-")
+
+        # if a tag has something appended with "-" i.e. alpha, beta, rc1...
+        # set the entire string as tag, else leave empty to autotag with latest
+        hard_tag = tag_version if len(tag_parts) > 1 else ""
+
     depends_on = getPipelineNames(getGoBinForTesting(ctx))
 
     if ctx.build.event == "tag":
@@ -1672,7 +1682,7 @@ def dockerRelease(ctx, repo, build_type):
                     "platforms": "linux/amd64",  # do dry run only on the native platform
                     "repo": "%s,quay.io/%s" % (repo, repo),
                     "auto_tag": False if build_type == "daily" else True,
-                    "tag": "daily" if build_type == "daily" else "",
+                    "tag": hard_tag,
                     "default_tag": "daily",
                     "dockerfile": "opencloud/docker/Dockerfile.multiarch",
                     "build_args": build_args,
