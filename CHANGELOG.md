@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @butonic, @dragonchaser, @individual-it, @micbar, @mikelolasagasti, @pbleser-oc, @rhafer, @schweigisito
+@ScharfViktor, @butonic, @dragonchaser, @flimmy, @individual-it, @micbar, @mikelolasagasti, @pbleser-oc, @rhafer, @schweigisito
 
 ### 💥 Breaking changes
 
