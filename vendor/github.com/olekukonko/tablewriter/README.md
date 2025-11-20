@@ -28,7 +28,7 @@ go get github.com/olekukonko/tablewriter@v0.0.5
 #### Latest  Version
 The latest stable version
 ```bash
-go get github.com/olekukonko/tablewriter@v1.1.0
+go get github.com/olekukonko/tablewriter@v1.1.1
 ```
 
 **Warning:** Version `v1.0.0` contains missing functionality and should not be used.
@@ -62,7 +62,7 @@ func main() {
 	data := [][]string{
 		{"Package", "Version", "Status"},
 		{"tablewriter", "v0.0.5", "legacy"},
-		{"tablewriter", "v1.1.0", "latest"},
+		{"tablewriter", "v1.1.1", "latest"},
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
@@ -77,7 +77,7 @@ func main() {
 │   PACKAGE   │ VERSION │ STATUS │
 ├─────────────┼─────────┼────────┤
 │ tablewriter │ v0.0.5  │ legacy │
-│ tablewriter │ v1.1.0  │ latest │
+│ tablewriter │ v1.1.1  │ latest │
 └─────────────┴─────────┴────────┘
 ```
 
@@ -520,7 +520,7 @@ func main() {
 		tablewriter.WithConfig(tablewriter.Config{
 			Header: tw.CellConfig{Alignment: tw.CellAlignment{Global: tw.AlignCenter}},
 			Row: tw.CellConfig{
-				Formatting: tw.CellFormatting{MergeMode: tw.MergeHierarchical},
+				Merging: tw.CellMerging{Mode: tw.MergeHierarchical},
 				Alignment:  tw.CellAlignment{Global: tw.AlignLeft},
 			},
 		}),
@@ -579,8 +579,8 @@ func main() {
 		})),
 		tablewriter.WithConfig(tablewriter.Config{
 			Row: tw.CellConfig{
-				Formatting: tw.CellFormatting{MergeMode: tw.MergeBoth},
-				Alignment:  tw.CellAlignment{PerColumn: []tw.Align{tw.Skip, tw.Skip, tw.AlignRight, tw.AlignLeft}},
+				Merging:   tw.CellMerging{Mode: tw.MergeBoth},
+				Alignment: tw.CellAlignment{PerColumn: []tw.Align{tw.Skip, tw.Skip, tw.AlignRight, tw.AlignLeft}},
 			},
 
 			Footer: tw.CellConfig{
@@ -806,12 +806,12 @@ func main() {
 		tablewriter.WithRenderer(renderer.NewHTML(htmlCfg)),
 		tablewriter.WithConfig(tablewriter.Config{
 			Header: tw.CellConfig{
-				Formatting: tw.CellFormatting{MergeMode: tw.MergeHorizontal}, // Merge identical header cells
-				Alignment:  tw.CellAlignment{Global: tw.AlignCenter},
+				Merging:   tw.CellMerging{Mode: tw.MergeHorizontal}, // Merge identical header cells
+				Alignment: tw.CellAlignment{Global: tw.AlignCenter},
 			},
 			Row: tw.CellConfig{
-				Formatting: tw.CellFormatting{MergeMode: tw.MergeHorizontal}, // Merge identical row cells
-				Alignment:  tw.CellAlignment{Global: tw.AlignLeft},
+				Merging:   tw.CellMerging{Mode: tw.MergeHorizontal}, // Merge identical row cells
+				Alignment: tw.CellAlignment{Global: tw.AlignLeft},
 			},
 			Footer: tw.CellConfig{Alignment: tw.CellAlignment{Global: tw.AlignRight}},
 		}),

@@ -2,16 +2,31 @@ package tw
 
 // CellFormatting holds formatting options for table cells.
 type CellFormatting struct {
-	AutoWrap  int // Wrapping behavior (e.g., WrapTruncate, WrapNormal)
-	MergeMode int // Bitmask for merge behavior (e.g., MergeHorizontal, MergeVertical)
-
-	// Changed form bool to State
-	// See https://github.com/olekukonko/tablewriter/issues/261
+	AutoWrap   int   // Wrapping behavior (e.g., WrapTruncate, WrapNormal)
 	AutoFormat State // Enables automatic formatting (e.g., title case for headers)
 
-	// Deprecated: kept for compatibility
-	// will be removed soon
-	Alignment Align // Text alignment within the cell (e.g., Left, Right, Center)
+	// Deprecated: Kept for backward compatibility. Use CellConfig.CellMerging.Mode instead.
+	// This will be removed in a future version.
+	MergeMode int
+
+	// Deprecated: Kept for backward compatibility. Use CellConfig.Alignment instead.
+	// This will be removed in a future version.
+	Alignment Align
+}
+
+// CellMerging holds the configuration for how cells should be merged.
+// This new struct replaces the deprecated MergeMode.
+type CellMerging struct {
+	// Mode is a bitmask specifying the type of merge (e.g., MergeHorizontal, MergeVertical).
+	Mode int
+
+	// ByColumnIndex specifies which column indices should be considered for merging.
+	// If the mapper is nil or empty, merging applies to all columns (if Mode is set).
+	// Otherwise, only columns with an index present as a key will be merged.
+	ByColumnIndex Mapper[int, bool]
+
+	// ByRowIndex is reserved for future features to specify merging on specific rows.
+	ByRowIndex Mapper[int, bool]
 }
 
 // CellPadding defines padding settings for table cells.
@@ -47,6 +62,7 @@ type CellConfig struct {
 	Filter       CellFilter     // Function to filter cell content (renamed from Filter Filter)
 	Alignment    CellAlignment  // Alignment configuration for cells
 	ColMaxWidths CellWidth      // Per-column maximum width overrides
+	Merging      CellMerging    // Merging holds all configuration related to cell merging.
 
 	// Deprecated: use Alignment.PerColumn instead. Will be removed in a future version.
 	// will be removed soon

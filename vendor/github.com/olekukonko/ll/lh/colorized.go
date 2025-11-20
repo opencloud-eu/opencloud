@@ -2,12 +2,14 @@ package lh
 
 import (
 	"fmt"
-	"github.com/olekukonko/ll/lx"
 	"io"
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/olekukonko/ll/lx"
 )
 
 // Palette defines ANSI color codes for various log components.
@@ -81,6 +83,7 @@ type ColorizedHandler struct {
 	palette    Palette   // Color scheme for formatting
 	showTime   bool      // Whether to display timestamps
 	timeFormat string    // Format for timestamps (defaults to time.RFC3339)
+	mu         sync.Mutex
 }
 
 // ColorOption defines a configuration function for ColorizedHandler.
@@ -130,6 +133,10 @@ func NewColorizedHandler(w io.Writer, opts ...ColorOption) *ColorizedHandler {
 //
 //	handler.Handle(&lx.Entry{Message: "test", Level: lx.LevelInfo}) // Writes colored output
 func (h *ColorizedHandler) Handle(e *lx.Entry) error {
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	switch e.Class {
 	case lx.ClassDump:
 		// Handle hex dump entries

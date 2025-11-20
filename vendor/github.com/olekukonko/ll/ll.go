@@ -5,8 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"github.com/olekukonko/ll/lh"
-	"github.com/olekukonko/ll/lx"
 	"io"
 	"math"
 	"os"
@@ -16,6 +14,10 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/olekukonko/cat"
+	"github.com/olekukonko/ll/lh"
+	"github.com/olekukonko/ll/lx"
 )
 
 // Logger manages logging configuration and behavior, encapsulating state such as enablement,
@@ -24,7 +26,7 @@ import (
 type Logger struct {
 	mu              sync.RWMutex           // Guards concurrent access to fields
 	enabled         bool                   // Determines if logging is enabled
-	suspend         bool                   // uses suspend path for most actions eg. skipping namespace checks
+	suspend         atomic.Bool            // uses suspend path for most actions eg. skipping namespace checks
 	level           lx.LevelType           // Minimum log level (e.g., Debug, Info, Warn, Error)
 	namespaces      *lx.Namespace          // Manages namespace enable/disable states
 	currentPath     string                 // Current namespace path (e.g., "parent/child")
@@ -97,7 +99,11 @@ func (l *Logger) AddContext(key string, value interface{}) *Logger {
 //	logger.Benchmark(start) // Output: [app] INFO: benchmark [start=... end=... duration=...]
 func (l *Logger) Benchmark(start time.Time) time.Duration {
 	duration := time.Since(start)
-	l.Fields("start", start, "end", time.Now(), "duration", duration).Infof("benchmark")
+	l.Fields(
+		"duration_ms", duration.Milliseconds(),
+		"duration", duration.String(),
+	).Infof("benchmark completed")
+
 	return duration
 }
 
@@ -220,7 +226,7 @@ func (l *Logger) Dbg(values ...interface{}) {
 //	logger.Debug("Debugging") // Output: [app] DEBUG: Debugging
 func (l *Logger) Debug(args ...any) {
 	// check if suspended
-	if l.suspend {
+	if l.suspend.Load() {
 		return
 	}
 
@@ -229,7 +235,7 @@ func (l *Logger) Debug(args ...any) {
 		return
 	}
 
-	l.log(lx.LevelDebug, lx.ClassText, concatSpaced(args...), nil, false)
+	l.log(lx.LevelDebug, lx.ClassText, cat.Space(args...), nil, false)
 }
 
 // Debugf logs a formatted message at Debug level, delegating to Debug. It is thread-safe.
@@ -239,7 +245,7 @@ func (l *Logger) Debug(args ...any) {
 //	logger.Debugf("Debug %s", "message") // Output: [app] DEBUG: Debug message
 func (l *Logger) Debugf(format string, args ...any) {
 	// check if suspended
-	if l.suspend {
+	if l.suspend.Load() {
 		return
 	}
 
@@ -344,6 +350,21 @@ func (l *Logger) Dump(values ...interface{}) {
 	}
 }
 
+// Output logs data in a human-readable JSON format at Info level, including caller file and line information.
+// It is similar to Dbg but formats the output as JSON for better readability. It is thread-safe and respects
+// the logger's configuration (e.g., enabled, level, suspend, handler, middleware).
+// Example:
+//
+//	logger := New("app").Enable()
+//	x := map[string]int{"key": 42}
+//	logger.Output(x) // Output: [app] INFO: [file.go:123] JSON: {"key": 42}
+//
+// Logger method to provide access to Output functionality
+func (l *Logger) Output(values ...interface{}) {
+	o := NewInspector(l)
+	o.Log(2, values...)
+}
+
 // Enable activates logging, allowing logs to be emitted if other conditions (e.g., level,
 // namespace) are met. It is thread-safe using a write lock and returns the logger for chaining.
 // Example:
@@ -432,7 +453,7 @@ func (l *Logger) Err(errs ...error) {
 //	logger.Error("Error occurred") // Output: [app] ERROR: Error occurred
 func (l *Logger) Error(args ...any) {
 	// check if suspended
-	if l.suspend {
+	if l.suspend.Load() {
 		return
 	}
 
@@ -440,7 +461,7 @@ func (l *Logger) Error(args ...any) {
 	if !l.shouldLog(lx.LevelError) {
 		return
 	}
-	l.log(lx.LevelError, lx.ClassText, concatSpaced(args...), nil, false)
+	l.log(lx.LevelError, lx.ClassText, cat.Space(args...), nil, false)
 }
 
 // Errorf logs a formatted message at Error level, delegating to Error. It is thread-safe.
@@ -450,7 +471,7 @@ func (l *Logger) Error(args ...any) {
 //	logger.Errorf("Error %s", "occurred") // Output: [app] ERROR: Error occurred
 func (l *Logger) Errorf(format string, args ...any) {
 	// check if suspended
-	if l.suspend {
+	if l.suspend.Load() {
 		return
 	}
 
@@ -465,7 +486,7 @@ func (l *Logger) Errorf(format string, args ...any) {
 //	logger.Fatal("Fatal error") // Output: [app] ERROR: Fatal error [stack=...], then exits
 func (l *Logger) Fatal(args ...any) {
 	// check if suspended
-	if l.suspend {
+	if l.suspend.Load() {
 		return
 	}
 
@@ -474,7 +495,7 @@ func (l *Logger) Fatal(args ...any) {
 		os.Exit(1)
 	}
 
-	l.log(lx.LevelError, lx.ClassText, concatSpaced(args...), nil, true)
+	l.log(lx.LevelError, lx.ClassText, cat.Space(args...), nil, false)
 	os.Exit(1)
 }
 
@@ -486,7 +507,7 @@ func (l *Logger) Fatal(args ...any) {
 //	logger.Fatalf("Fatal %s", "error") // Output: [app] ERROR: Fatal error [stack=...], then exits
 func (l *Logger) Fatalf(format string, args ...any) {
 	// check if suspended
-	if l.suspend {
+	if l.suspend.Load() {
 		return
 	}
 
@@ -503,7 +524,7 @@ func (l *Logger) Field(fields map[string]interface{}) *FieldBuilder {
 	fb := &FieldBuilder{logger: l, fields: make(map[string]interface{})}
 
 	// check if suspended
-	if l.suspend {
+	if l.suspend.Load() {
 		return fb
 	}
 
@@ -524,7 +545,7 @@ func (l *Logger) Field(fields map[string]interface{}) *FieldBuilder {
 func (l *Logger) Fields(pairs ...any) *FieldBuilder {
 	fb := &FieldBuilder{logger: l, fields: make(map[string]interface{})}
 
-	if l.suspend {
+	if l.suspend.Load() {
 		return fb
 	}
 
@@ -650,7 +671,7 @@ func (l *Logger) Indent(depth int) *Logger {
 //	logger := New("app").Enable().Style(lx.NestedPath)
 //	logger.Info("Started") // Output: [app]: INFO: Started
 func (l *Logger) Info(args ...any) {
-	if l.suspend {
+	if l.suspend.Load() {
 		return
 	}
 
@@ -658,7 +679,7 @@ func (l *Logger) Info(args ...any) {
 		return
 	}
 
-	l.log(lx.LevelInfo, lx.ClassText, concatSpaced(args...), nil, false)
+	l.log(lx.LevelInfo, lx.ClassText, cat.Space(args...), nil, false)
 }
 
 // Infof logs a formatted message at Info level, delegating to Info. It is thread-safe.
@@ -667,7 +688,7 @@ func (l *Logger) Info(args ...any) {
 //	logger := New("app").Enable().Style(lx.NestedPath)
 //	logger.Infof("Started %s", "now") // Output: [app]: INFO: Started now
 func (l *Logger) Infof(format string, args ...any) {
-	if l.suspend {
+	if l.suspend.Load() {
 		return
 	}
 
@@ -771,12 +792,20 @@ func (l *Logger) mark(skip int, names ...string) {
 //	// Output: [app] INFO: function executed [duration=~1ms]
 func (l *Logger) Measure(fns ...func()) time.Duration {
 	start := time.Now()
-	// Execute all provided functions
+
 	for _, fn := range fns {
-		fn()
+		if fn != nil {
+			fn()
+		}
 	}
+
 	duration := time.Since(start)
-	l.Fields("duration", duration).Infof("function executed")
+	l.Fields(
+		"duration_ns", duration.Nanoseconds(),
+		"duration", duration.String(),
+		"duration_ms", fmt.Sprintf("%.3fms", float64(duration.Nanoseconds())/1e6),
+	).Infof("execution completed")
+
 	return duration
 }
 
@@ -789,7 +818,7 @@ func (l *Logger) Measure(fns ...func()) time.Duration {
 //	child := parent.Namespace("child")
 //	child.Info("Child log") // Output: [parent/child] INFO: Child log
 func (l *Logger) Namespace(name string) *Logger {
-	if l.suspend {
+	if l.suspend.Load() {
 		return l
 	}
 
@@ -897,9 +926,9 @@ func (l *Logger) NamespaceEnabled(relativePath string) bool {
 //	logger.Panic("Panic error") // Output: [app] ERROR: Panic error [stack=...], then panics
 func (l *Logger) Panic(args ...any) {
 	// Build message by concatenating arguments with spaces
-	msg := concatSpaced(args...)
+	msg := cat.Space(args...)
 
-	if l.suspend {
+	if l.suspend.Load() {
 		panic(msg)
 	}
 
@@ -942,7 +971,7 @@ func (l *Logger) Prefix(prefix string) *Logger {
 //	logger := New("app").Enable()
 //	logger.Print("message", "value") // Output: [app] INFO: message value
 func (l *Logger) Print(args ...any) {
-	if l.suspend {
+	if l.suspend.Load() {
 		return
 	}
 
@@ -950,7 +979,7 @@ func (l *Logger) Print(args ...any) {
 	if !l.shouldLog(lx.LevelInfo) {
 		return
 	}
-	l.log(lx.LevelNone, lx.ClassRaw, concatSpaced(args...), nil, false)
+	l.log(lx.LevelNone, lx.ClassRaw, cat.Space(args...), nil, false)
 }
 
 // Println logs a message at Info level without format specifiers, minimizing allocations
@@ -960,7 +989,7 @@ func (l *Logger) Print(args ...any) {
 //	logger := New("app").Enable()
 //	logger.Println("message", "value") // Output: [app] INFO: message value
 func (l *Logger) Println(args ...any) {
-	if l.suspend {
+	if l.suspend.Load() {
 		return
 	}
 
@@ -968,7 +997,7 @@ func (l *Logger) Println(args ...any) {
 	if !l.shouldLog(lx.LevelInfo) {
 		return
 	}
-	l.log(lx.LevelNone, lx.ClassRaw, concatenate(lx.Space, nil, []any{lx.Newline}, args...), nil, false)
+	l.log(lx.LevelNone, lx.ClassRaw, cat.SuffixWith(lx.Space, lx.Newline, args...), nil, false)
 }
 
 // Printf logs a formatted message at Info level, delegating to Print. It is thread-safe.
@@ -977,7 +1006,7 @@ func (l *Logger) Println(args ...any) {
 //	logger := New("app").Enable()
 //	logger.Printf("Message %s", "value") // Output: [app] INFO: Message value
 func (l *Logger) Printf(format string, args ...any) {
-	if l.suspend {
+	if l.suspend.Load() {
 		return
 	}
 
@@ -1004,9 +1033,7 @@ func (l *Logger) Remove(m *Middleware) {
 //	logger.Resume()
 //	logger.Info("Resumed") // Output: [app] INFO: Resumed
 func (l *Logger) Resume() *Logger {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.suspend = false // Clear suspend flag to resume logging
+	l.suspend.Store(false)
 	return l
 }
 
@@ -1032,9 +1059,7 @@ func (l *Logger) Separator(separator string) *Logger {
 //	logger.Suspend()
 //	logger.Info("Ignored") // No output
 func (l *Logger) Suspend() *Logger {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.suspend = true // Set suspend flag to pause logging
+	l.suspend.Store(true)
 	return l
 }
 
@@ -1047,9 +1072,7 @@ func (l *Logger) Suspend() *Logger {
 //	    fmt.Println("Logging is suspended") // Prints message
 //	}
 func (l *Logger) Suspended() bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.suspend // Return current suspend state
+	return l.suspend.Load()
 }
 
 // Stack logs messages at Error level with a stack trace for each provided argument.
@@ -1059,7 +1082,7 @@ func (l *Logger) Suspended() bool {
 //	logger := New("app").Enable()
 //	logger.Stack("Critical error") // Output: [app] ERROR: Critical error [stack=...]
 func (l *Logger) Stack(args ...any) {
-	if l.suspend {
+	if l.suspend.Load() {
 		return
 	}
 
@@ -1069,7 +1092,7 @@ func (l *Logger) Stack(args ...any) {
 	}
 
 	for _, arg := range args {
-		l.log(lx.LevelError, lx.ClassText, concat(arg), nil, true)
+		l.log(lx.LevelError, lx.ClassText, cat.Concat(arg), nil, true)
 	}
 }
 
@@ -1080,7 +1103,7 @@ func (l *Logger) Stack(args ...any) {
 //	logger := New("app").Enable()
 //	logger.Stackf("Critical %s", "error") // Output: [app] ERROR: Critical error [stack=...]
 func (l *Logger) Stackf(format string, args ...any) {
-	if l.suspend {
+	if l.suspend.Load() {
 		return
 	}
 
@@ -1171,7 +1194,7 @@ func (l *Logger) Use(fn lx.Handler) *Middleware {
 //	logger := New("app").Enable()
 //	logger.Warn("Warning") // Output: [app] WARN: Warning
 func (l *Logger) Warn(args ...any) {
-	if l.suspend {
+	if l.suspend.Load() {
 		return
 	}
 
@@ -1180,7 +1203,7 @@ func (l *Logger) Warn(args ...any) {
 		return
 	}
 
-	l.log(lx.LevelWarn, lx.ClassText, concatSpaced(args...), nil, false)
+	l.log(lx.LevelWarn, lx.ClassText, cat.Space(args...), nil, false)
 }
 
 // Warnf logs a formatted message at Warn level, delegating to Warn. It is thread-safe.
@@ -1189,7 +1212,7 @@ func (l *Logger) Warn(args ...any) {
 //	logger := New("app").Enable()
 //	logger.Warnf("Warning %s", "issued") // Output: [app] WARN: Warning issued
 func (l *Logger) Warnf(format string, args ...any) {
-	if l.suspend {
+	if l.suspend.Load() {
 		return
 	}
 
@@ -1363,7 +1386,7 @@ func (l *Logger) shouldLog(level lx.LevelType) bool {
 	}
 
 	//  check for suspend mode
-	if l.suspend {
+	if l.suspend.Load() {
 		return false
 	}
 

@@ -12,8 +12,8 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/clipperhouse/uax29/v2/graphemes"
 	"github.com/olekukonko/tablewriter/pkg/twwidth" // IMPORT YOUR NEW PACKAGE
-	"github.com/rivo/uniseg"
 	// "github.com/mattn/go-runewidth" // This can be removed if all direct uses are gone
 )
 
@@ -153,9 +153,9 @@ func stringToDisplayWidth(s string, targetWidth int) (substring string, actualWi
 	var currentWidth int
 	var endIndex int // Tracks the byte index in the original string
 
-	g := uniseg.NewGraphemes(s)
+	g := graphemes.FromString(s)
 	for g.Next() {
-		grapheme := g.Str()
+		grapheme := g.Value()
 		// graphemeWidth := runewidth.StringWidth(grapheme) // OLD
 		graphemeWidth := twwidth.Width(grapheme) // NEW: Use twdw.Width
 
@@ -164,8 +164,7 @@ func stringToDisplayWidth(s string, targetWidth int) (substring string, actualWi
 		}
 
 		currentWidth += graphemeWidth
-		_, e := g.Positions()
-		endIndex = e
+		endIndex = g.End()
 	}
 	return s[:endIndex], currentWidth
 }

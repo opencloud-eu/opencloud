@@ -1,6 +1,7 @@
 package lx
 
 import (
+	"strings"
 	"time"
 )
 
@@ -31,11 +32,28 @@ const (
 // These constants define the severity levels for log messages, used to filter logs based
 // on the logger’s minimum level. They are ordered to allow comparison (e.g., LevelDebug < LevelWarn).
 const (
-	LevelNone  LevelType = iota // Debug level for detailed diagnostic information
-	LevelInfo                   // Info level for general operational messages
-	LevelWarn                   // Warn level for warning conditions
-	LevelError                  // Error level for error conditions requiring attention
-	LevelDebug                  // None level for logs without a specific severity (e.g., raw output)
+	LevelNone    LevelType = iota // Debug level for detailed diagnostic information
+	LevelInfo                     // Info level for general operational messages
+	LevelWarn                     // Warn level for warning conditions
+	LevelError                    // Error level for error conditions requiring attention
+	LevelDebug                    // None level for logs without a specific severity (e.g., raw output)
+	LevelUnknown                  // None level for logs without a specific severity (e.g., raw output)
+)
+
+// String constants for each level
+const (
+	DebugString   = "DEBUG"
+	InfoString    = "INFO"
+	WarnString    = "WARN"
+	ErrorString   = "ERROR"
+	NoneString    = "NONE"
+	UnknownString = "UNKNOWN"
+
+	TextString    = "TEXT"
+	JSONString    = "JSON"
+	DumpString    = "DUMP"
+	SpecialString = "SPECIAL"
+	RawString     = "RAW"
 )
 
 // Log class constants, defining the type of log entry.
@@ -47,6 +65,7 @@ const (
 	ClassDump                     // Dump entries for hex/ASCII dumps
 	ClassSpecial                  // Special entries for custom or non-standard logs
 	ClassRaw                      // Raw entries for unformatted output
+	ClassUnknown                  // Raw entries for unformatted output
 )
 
 // Namespace style constants.
@@ -72,17 +91,37 @@ type LevelType int
 func (l LevelType) String() string {
 	switch l {
 	case LevelDebug:
-		return "DEBUG"
+		return DebugString
 	case LevelInfo:
-		return "INFO"
+		return InfoString
 	case LevelWarn:
-		return "WARN"
+		return WarnString
 	case LevelError:
-		return "ERROR"
+		return ErrorString
 	case LevelNone:
-		return "NONE"
+		return NoneString
 	default:
-		return "UNKNOWN"
+		return UnknownString
+	}
+}
+
+// LevelParse converts a string to its corresponding LevelType.
+// It parses a string (case-insensitive) and returns the corresponding LevelType, defaulting to
+// LevelUnknown for unrecognized strings. Supports "WARNING" as an alias for "WARN".
+func LevelParse(s string) LevelType {
+	switch strings.ToUpper(s) {
+	case DebugString:
+		return LevelDebug
+	case InfoString:
+		return LevelInfo
+	case WarnString, "WARNING": // Allow both "WARN" and "WARNING"
+		return LevelWarn
+	case ErrorString:
+		return LevelError
+	case NoneString:
+		return LevelNone
+	default:
+		return LevelUnknown
 	}
 }
 
@@ -149,16 +188,36 @@ type ClassType int
 func (t ClassType) String() string {
 	switch t {
 	case ClassText:
-		return "TEST" // Note: Likely a typo, should be "TEXT"
+		return TextString
 	case ClassJSON:
-		return "JSON"
+		return JSONString
 	case ClassDump:
-		return "DUMP"
+		return DumpString
 	case ClassSpecial:
-		return "SPECIAL"
+		return SpecialString
 	case ClassRaw:
-		return "RAW"
+		return RawString
 	default:
-		return "UNKNOWN"
+		return UnknownString
+	}
+}
+
+// ParseClass converts a string to its corresponding ClassType.
+// It parses a string (case-insensitive) and returns the corresponding ClassType, defaulting to
+// ClassUnknown for unrecognized strings.
+func ParseClass(s string) ClassType {
+	switch strings.ToUpper(s) {
+	case TextString:
+		return ClassText
+	case JSONString:
+		return ClassJSON
+	case DumpString:
+		return ClassDump
+	case SpecialString:
+		return ClassSpecial
+	case RawString:
+		return ClassRaw
+	default:
+		return ClassUnknown
 	}
 }

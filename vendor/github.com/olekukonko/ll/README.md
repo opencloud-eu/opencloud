@@ -222,6 +222,13 @@ logger.Info("Slog log") // Output: level=INFO msg="Slog log" namespace=app class
    ll.Stack("Critical error") // Output: [app] ERROR: Critical error [stack=...] (see example/stack.png)
    ```
 
+4**General Output**
+   Logs a output in structured way for inspection of public & private values.
+   ```go
+   ll.Handler(lh.NewColorizedHandler(os.Stdout))
+   ll.Output(&SomeStructWithPrivateValues{}) 
+   ```
+   
 #### Performance Tracking
 Measure execution time for performance analysis.
 ```go
