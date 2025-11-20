@@ -2,6 +2,7 @@ package ll
 
 import (
 	"fmt"
+	"github.com/olekukonko/cat"
 	"github.com/olekukonko/ll/lx"
 	"os"
 	"strings"
@@ -50,7 +51,7 @@ func (fb *FieldBuilder) Info(args ...any) {
 		return
 	}
 	// Log at Info level with the builder’s fields, no stack trace
-	fb.logger.log(lx.LevelInfo, lx.ClassText, concatSpaced(args...), fb.fields, false)
+	fb.logger.log(lx.LevelInfo, lx.ClassText, cat.Space(args...), fb.fields, false)
 }
 
 // Infof logs a message at Info level with the builder’s fields.
@@ -85,7 +86,7 @@ func (fb *FieldBuilder) Debug(args ...any) {
 		return
 	}
 	// Log at Debug level with the builder’s fields, no stack trace
-	fb.logger.log(lx.LevelDebug, lx.ClassText, concatSpaced(args...), fb.fields, false)
+	fb.logger.log(lx.LevelDebug, lx.ClassText, cat.Space(args...), fb.fields, false)
 }
 
 // Debugf logs a message at Debug level with the builder’s fields.
@@ -120,7 +121,7 @@ func (fb *FieldBuilder) Warn(args ...any) {
 		return
 	}
 	// Log at Warn level with the builder’s fields, no stack trace
-	fb.logger.log(lx.LevelWarn, lx.ClassText, concatSpaced(args...), fb.fields, false)
+	fb.logger.log(lx.LevelWarn, lx.ClassText, cat.Space(args...), fb.fields, false)
 }
 
 // Warnf logs a message at Warn level with the builder’s fields.
@@ -154,7 +155,7 @@ func (fb *FieldBuilder) Error(args ...any) {
 		return
 	}
 	// Log at Error level with the builder’s fields, no stack trace
-	fb.logger.log(lx.LevelError, lx.ClassText, concatSpaced(args...), fb.fields, false)
+	fb.logger.log(lx.LevelError, lx.ClassText, cat.Space(args...), fb.fields, false)
 }
 
 // Errorf logs a message at Error level with the builder’s fields.
@@ -188,7 +189,7 @@ func (fb *FieldBuilder) Stack(args ...any) {
 		return
 	}
 	// Log at Error level with the builder’s fields and a stack trace
-	fb.logger.log(lx.LevelError, lx.ClassText, concatSpaced(args...), fb.fields, true)
+	fb.logger.log(lx.LevelError, lx.ClassText, cat.Space(args...), fb.fields, true)
 }
 
 // Stackf logs a message at Error level with a stack trace and the builder’s fields.

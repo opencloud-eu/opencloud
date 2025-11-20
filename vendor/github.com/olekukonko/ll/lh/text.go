@@ -2,11 +2,13 @@ package lh
 
 import (
 	"fmt"
-	"github.com/olekukonko/ll/lx"
 	"io"
 	"sort"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/olekukonko/ll/lx"
 )
 
 // TextHandler is a handler that outputs log entries as plain text.
@@ -17,6 +19,7 @@ type TextHandler struct {
 	w          io.Writer // Destination for formatted log output
 	showTime   bool      // Whether to display timestamps
 	timeFormat string    // Format for timestamps (defaults to time.RFC3339)
+	mu         sync.Mutex
 }
 
 // NewTextHandler creates a new TextHandler writing to the specified writer.
@@ -55,6 +58,9 @@ func (h *TextHandler) Timestamped(enable bool, format ...string) {
 //
 //	handler.Handle(&lx.Entry{Message: "test", Level: lx.LevelInfo}) // Writes "INFO: test"
 func (h *TextHandler) Handle(e *lx.Entry) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	// Special handling for dump output
 	if e.Class == lx.ClassDump {
 		return h.handleDumpOutput(e)

@@ -206,51 +206,51 @@ func main() {
 
 The `defaultConfig()` function (`config.go:defaultConfig`) establishes baseline settings for new tables, ensuring predictable behavior unless overridden. Below is a detailed table of default parameters, organized by configuration section, to help you understand the starting point for table behavior and appearance.
 
-| Section       | Parameter                     | Default Value                     | Description                                                                 |
-|---------------|-------------------------------|-----------------------------------|-----------------------------------------------------------------------------|
-| **Header**    | `Alignment.Global`            | `tw.AlignCenter`                  | Centers header text globally unless overridden by `PerColumn`.               |
-| Header        | `Alignment.PerColumn`         | `[]tw.Align{}`                    | Empty; falls back to `Global` unless specified.                             |
-| Header        | `Formatting.AutoFormat`       | `tw.On`                           | Applies title case (e.g., "col_one" → "COL ONE") to header content.          |
-| Header        | `Formatting.AutoWrap`         | `tw.WrapTruncate`                 | Truncates long header text with "…" based on width constraints.              |
-| Header        | `Formatting.MergeMode`        | `tw.MergeNone`                    | Disables cell merging in headers by default.                                |
-| Header        | `Padding.Global`              | `tw.PaddingDefault` (`" "`)       | Adds one space on left and right of header cells.                           |
-| Header        | `Padding.PerColumn`           | `[]tw.Padding{}`                  | Empty; falls back to `Global` unless specified.                             |
-| Header        | `ColMaxWidths.Global`         | `0` (unlimited)                   | No maximum content width for header cells unless set.                       |
-| Header        | `ColMaxWidths.PerColumn`      | `tw.NewMapper[int, int]()`        | Empty map; no per-column content width limits unless specified.             |
-| Header        | `Filter.Global`               | `nil`                             | No global content transformation for header cells.                          |
-| Header        | `Filter.PerColumn`            | `[]func(string) string{}`         | No per-column content transformations unless specified.                     |
-| **Row**       | `Alignment.Global`            | `tw.AlignLeft`                    | Left-aligns row text globally unless overridden by `PerColumn`.             |
-| Row           | `Alignment.PerColumn`         | `[]tw.Align{}`                    | Empty; falls back to `Global`.                                              |
-| Row           | `Formatting.AutoFormat`       | `tw.Off`                          | Disables auto-formatting (e.g., title case) for row content.                |
-| Row           | `Formatting.AutoWrap`         | `tw.WrapNormal`                   | Wraps long row text naturally at word boundaries based on width constraints.|
-| Row           | `Formatting.MergeMode`        | `tw.MergeNone`                    | Disables cell merging in rows by default.                                   |
-| Row           | `Padding.Global`              | `tw.PaddingDefault` (`" "`)       | Adds one space on left and right of row cells.                              |
-| Row           | `Padding.PerColumn`           | `[]tw.Padding{}`                  | Empty; falls back to `Global`.                                              |
-| Row           | `ColMaxWidths.Global`         | `0` (unlimited)                   | No maximum content width for row cells.                                     |
-| Row           | `ColMaxWidths.PerColumn`      | `tw.NewMapper[int, int]()`        | Empty map; no per-column content width limits.                              |
-| Row           | `Filter.Global`               | `nil`                             | No global content transformation for row cells.                             |
-| Row           | `Filter.PerColumn`            | `[]func(string) string{}`         | No per-column content transformations.                                      |
-| **Footer**    | `Alignment.Global`            | `tw.AlignRight`                   | Right-aligns footer text globally unless overridden by `PerColumn`.         |
-| Footer        | `Alignment.PerColumn`         | `[]tw.Align{}`                    | Empty; falls back to `Global`.                                              |
-| Footer        | `Formatting.AutoFormat`       | `tw.Off`                          | Disables auto-formatting for footer content.                                |
-| Footer        | `Formatting.AutoWrap`         | `tw.WrapNormal`                   | Wraps long footer text naturally.                                           |
-| Footer        | `Formatting.MergeMode`        | `tw.MergeNone`                    | Disables cell merging in footers.                                           |
-| Footer        | `Padding.Global`              | `tw.PaddingDefault` (`" "`)       | Adds one space on left and right of footer cells.                           |
-| Footer        | `Padding.PerColumn`           | `[]tw.Padding{}`                  | Empty; falls back to `Global`.                                              |
-| Footer        | `ColMaxWidths.Global`         | `0` (unlimited)                   | No maximum content width for footer cells.                                  |
-| Footer        | `ColMaxWidths.PerColumn`      | `tw.NewMapper[int, int]()`        | Empty map; no per-column content width limits.                              |
-| Footer        | `Filter.Global`               | `nil`                             | No global content transformation for footer cells.                          |
-| Footer        | `Filter.PerColumn`            | `[]func(string) string{}`         | No per-column content transformations.                                      |
-| **Global**    | `MaxWidth`                    | `0` (unlimited)                   | No overall table width limit.                                               |
-| Global        | `Behavior.AutoHide`           | `tw.Off`                          | Displays empty columns (ignored in streaming).                              |
-| Global        | `Behavior.TrimSpace`          | `tw.On`                           | Trims leading/trailing spaces from cell content.                            |
-| Global        | `Behavior.Header`             | `tw.Control{Hide: tw.Off}`        | Shows header if content is provided.                                        |
-| Global        | `Behavior.Footer`             | `tw.Control{Hide: tw.Off}`        | Shows footer if content is provided.                                        |
-| Global        | `Behavior.Compact`            | `tw.Compact{Merge: tw.Off}`       | No compact width optimization for merged cells.                             |
-| Global        | `Debug`                       | `false`                           | Disables debug logging.                                                     |
-| Global        | `Stream.Enable`               | `false`                           | Disables streaming mode by default.                                         |
-| Global        | `Widths.Global`               | `0` (unlimited)                   | No fixed column width unless specified.                                     |
-| Global        | `Widths.PerColumn`            | `tw.NewMapper[int, int]()`        | Empty map; no per-column fixed widths unless specified.                     |
+| Section       | Parameter                | Default Value                     | Description                                                                 |
+|---------------|--------------------------|-----------------------------------|-----------------------------------------------------------------------------|
+| **Header**    | `Alignment.Global`       | `tw.AlignCenter`                  | Centers header text globally unless overridden by `PerColumn`.               |
+| Header        | `Alignment.PerColumn`    | `[]tw.Align{}`                    | Empty; falls back to `Global` unless specified.                             |
+| Header        | `Formatting.AutoFormat`  | `tw.On`                           | Applies title case (e.g., "col_one" → "COL ONE") to header content.          |
+| Header        | `Formatting.AutoWrap`    | `tw.WrapTruncate`                 | Truncates long header text with "…" based on width constraints.              |
+| Header        | `Merging.Mode`           | `tw.MergeNone`                    | Disables cell merging in headers by default.                                |
+| Header        | `Padding.Global`         | `tw.PaddingDefault` (`" "`)       | Adds one space on left and right of header cells.                           |
+| Header        | `Padding.PerColumn`      | `[]tw.Padding{}`                  | Empty; falls back to `Global` unless specified.                             |
+| Header        | `ColMaxWidths.Global`    | `0` (unlimited)                   | No maximum content width for header cells unless set.                       |
+| Header        | `ColMaxWidths.PerColumn` | `tw.NewMapper[int, int]()`        | Empty map; no per-column content width limits unless specified.             |
+| Header        | `Filter.Global`          | `nil`                             | No global content transformation for header cells.                          |
+| Header        | `Filter.PerColumn`       | `[]func(string) string{}`         | No per-column content transformations unless specified.                     |
+| **Row**       | `Alignment.Global`       | `tw.AlignLeft`                    | Left-aligns row text globally unless overridden by `PerColumn`.             |
+| Row           | `Alignment.PerColumn`    | `[]tw.Align{}`                    | Empty; falls back to `Global`.                                              |
+| Row           | `Formatting.AutoFormat`  | `tw.Off`                          | Disables auto-formatting (e.g., title case) for row content.                |
+| Row           | `Formatting.AutoWrap`    | `tw.WrapNormal`                   | Wraps long row text naturally at word boundaries based on width constraints.|
+| Row           | `Merging.Mode`           | `tw.MergeNone`                    | Disables cell merging in rows by default.                                   |
+| Row           | `Padding.Global`         | `tw.PaddingDefault` (`" "`)       | Adds one space on left and right of row cells.                              |
+| Row           | `Padding.PerColumn`      | `[]tw.Padding{}`                  | Empty; falls back to `Global`.                                              |
+| Row           | `ColMaxWidths.Global`    | `0` (unlimited)                   | No maximum content width for row cells.                                     |
+| Row           | `ColMaxWidths.PerColumn` | `tw.NewMapper[int, int]()`        | Empty map; no per-column content width limits.                              |
+| Row           | `Filter.Global`          | `nil`                             | No global content transformation for row cells.                             |
+| Row           | `Filter.PerColumn`       | `[]func(string) string{}`         | No per-column content transformations.                                      |
+| **Footer**    | `Alignment.Global`       | `tw.AlignRight`                   | Right-aligns footer text globally unless overridden by `PerColumn`.         |
+| Footer        | `Alignment.PerColumn`    | `[]tw.Align{}`                    | Empty; falls back to `Global`.                                              |
+| Footer        | `Formatting.AutoFormat`  | `tw.Off`                          | Disables auto-formatting for footer content.                                |
+| Footer        | `Formatting.AutoWrap`    | `tw.WrapNormal`                   | Wraps long footer text naturally.                                           |
+| Footer        | `Formatting.MergeMode`   | `tw.MergeNone`                    | Disables cell merging in footers.                                           |
+| Footer        | `Padding.Global`         | `tw.PaddingDefault` (`" "`)       | Adds one space on left and right of footer cells.                           |
+| Footer        | `Padding.PerColumn`      | `[]tw.Padding{}`                  | Empty; falls back to `Global`.                                              |
+| Footer        | `ColMaxWidths.Global`    | `0` (unlimited)                   | No maximum content width for footer cells.                                  |
+| Footer        | `ColMaxWidths.PerColumn` | `tw.NewMapper[int, int]()`        | Empty map; no per-column content width limits.                              |
+| Footer        | `Filter.Global`          | `nil`                             | No global content transformation for footer cells.                          |
+| Footer        | `Filter.PerColumn`       | `[]func(string) string{}`         | No per-column content transformations.                                      |
+| **Global**    | `MaxWidth`               | `0` (unlimited)                   | No overall table width limit.                                               |
+| Global        | `Behavior.AutoHide`      | `tw.Off`                          | Displays empty columns (ignored in streaming).                              |
+| Global        | `Behavior.TrimSpace`     | `tw.On`                           | Trims leading/trailing spaces from cell content.                            |
+| Global        | `Behavior.Header`        | `tw.Control{Hide: tw.Off}`        | Shows header if content is provided.                                        |
+| Global        | `Behavior.Footer`        | `tw.Control{Hide: tw.Off}`        | Shows footer if content is provided.                                        |
+| Global        | `Behavior.Compact`       | `tw.Compact{Merge: tw.Off}`       | No compact width optimization for merged cells.                             |
+| Global        | `Debug`                  | `false`                           | Disables debug logging.                                                     |
+| Global        | `Stream.Enable`          | `false`                           | Disables streaming mode by default.                                         |
+| Global        | `Widths.Global`          | `0` (unlimited)                   | No fixed column width unless specified.                                     |
+| Global        | `Widths.PerColumn`       | `tw.NewMapper[int, int]()`        | Empty map; no per-column fixed widths unless specified.                     |
 
 **Notes**:
 - Defaults can be overridden using any configuration method.
@@ -2210,7 +2210,7 @@ import (
 func main() {
 	// Horizontal Merging (Similar to v0.0.5)
 	tableH := tablewriter.NewTable(os.Stdout,
-		tablewriter.WithConfig(tablewriter.Config{Row: tw.CellConfig{Formatting: tw.CellFormatting{MergeMode: tw.MergeHorizontal}}}),
+		tablewriter.WithConfig(tablewriter.Config{Row: tw.CellConfig{Merging: tw.CellMerging{Mode: tw.MergeHorizontal}}}),
 		tablewriter.WithRenderer(renderer.NewBlueprint(tw.Rendition{Symbols: tw.NewSymbols(tw.StyleASCII)})), // Specify renderer for symbols
 	)
 	tableH.Header("Category", "Item", "Item", "Notes") // Note: Two "Item" headers for demo
@@ -2219,7 +2219,7 @@ func main() {
 
 	// Vertical Merging
 	tableV := tablewriter.NewTable(os.Stdout,
-		tablewriter.WithConfig(tablewriter.Config{Row: tw.CellConfig{Formatting: tw.CellFormatting{MergeMode: tw.MergeVertical}}}),
+		tablewriter.WithConfig(tablewriter.Config{Row: tw.CellConfig{Merging: tw.CellMerging{Mode: tw.MergeVertical}}}),
 		tablewriter.WithRenderer(renderer.NewBlueprint(tw.Rendition{Symbols: tw.NewSymbols(tw.StyleASCII)})),
 	)
 	tableV.Header("User", "Permission")
@@ -2230,7 +2230,7 @@ func main() {
 
 	// Hierarchical Merging
 	tableHier := tablewriter.NewTable(os.Stdout,
-		tablewriter.WithConfig(tablewriter.Config{Row: tw.CellConfig{Formatting: tw.CellFormatting{MergeMode: tw.MergeHierarchical}}}),
+		tablewriter.WithConfig(tablewriter.Config{Row: tw.CellConfig{Merging: tw.CellMerging{Mode: tw.MergeHierarchical}}}),
 		tablewriter.WithRenderer(renderer.NewBlueprint(tw.Rendition{Symbols: tw.NewSymbols(tw.StyleASCII)})),
 	)
 	tableHier.Header("Group", "SubGroup", "Item")

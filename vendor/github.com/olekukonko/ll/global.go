@@ -1,11 +1,12 @@
 package ll
 
 import (
-	"github.com/olekukonko/ll/lh"
-	"github.com/olekukonko/ll/lx"
 	"os"
 	"sync/atomic"
 	"time"
+
+	"github.com/olekukonko/ll/lh"
+	"github.com/olekukonko/ll/lx"
 )
 
 // defaultLogger is the global logger instance for package-level logging functions.
@@ -468,13 +469,7 @@ func Len() int64 {
 //	duration := ll.Measure(func() { time.Sleep(time.Millisecond) })
 //	// Output: [] INFO: function executed [duration=~1ms]
 func Measure(fns ...func()) time.Duration {
-	start := time.Now()
-	for _, fn := range fns {
-		fn()
-	}
-	duration := time.Since(start)
-	defaultLogger.Fields("duration", duration).Infof("function executed")
-	return duration
+	return defaultLogger.Measure(fns...)
 }
 
 // Benchmark logs the duration since a start time at Info level using the default logger.
@@ -486,7 +481,7 @@ func Measure(fns ...func()) time.Duration {
 //	time.Sleep(time.Millisecond)
 //	ll.Benchmark(start) // Output: [] INFO: benchmark [start=... end=... duration=...]
 func Benchmark(start time.Time) {
-	defaultLogger.Fields("start", start, "end", time.Now(), "duration", time.Now().Sub(start)).Infof("benchmark")
+	defaultLogger.Benchmark(start)
 }
 
 // Clone returns a new logger with the same configuration as the default logger.
@@ -656,4 +651,12 @@ func Indent(depth int) *Logger {
 func Mark(names ...string) {
 	defaultLogger.mark(2, names...)
 
+}
+
+// Output logs data in a human-readable JSON format at Info level, including caller file and line information.
+// It is similar to Dbg but formats the output as JSON for better readability. It is thread-safe and respects
+// the logger’s configuration (e.g., enabled, level, suspend, handler, middleware).
+func Output(values ...interface{}) {
+	o := NewInspector(defaultLogger)
+	o.Log(2, values...)
 }

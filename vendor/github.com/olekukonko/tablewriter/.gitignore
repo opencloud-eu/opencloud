@@ -8,3 +8,4 @@
 dev.sh
 *csv2table
 _test/
+*.test

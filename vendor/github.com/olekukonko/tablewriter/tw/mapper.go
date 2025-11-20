@@ -210,3 +210,36 @@ func (m Mapper[K, V]) SortedKeys() []K {
 
 	return keys
 }
+
+func NewBoolMapper[K comparable](keys ...K) Mapper[K, bool] {
+	if len(keys) == 0 {
+		return nil
+	}
+	mapper := NewMapper[K, bool]()
+	for _, key := range keys {
+		mapper.Set(key, true)
+	}
+	return mapper
+}
+
+func NewIntMapper[K comparable](keys ...K) Mapper[K, int] {
+	if len(keys) == 0 {
+		return nil
+	}
+	mapper := NewMapper[K, int]()
+	for _, key := range keys {
+		mapper.Set(key, 0)
+	}
+	return mapper
+}
+
+func NewIdentityMapper[K comparable](keys ...K) Mapper[K, K] {
+	if len(keys) == 0 {
+		return nil
+	}
+	mapper := NewMapper[K, K]()
+	for _, key := range keys {
+		mapper.Set(key, key)
+	}
+	return mapper
+}
