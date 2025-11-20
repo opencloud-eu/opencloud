@@ -14,6 +14,7 @@ import "C"
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"unsafe"
 )
 
@@ -63,6 +64,10 @@ type Index interface {
 	// of proximity to query 'x' and their distance from 'x'
 	ObtainClustersWithDistancesFromIVFIndex(x []float32, centroidIDs []int64) (
 		[]int64, []float32, error)
+
+	// Applicable only to IVF indexes: Returns the top k centroid cardinalities and
+	// their vectors in chosen order (descending or ascending)
+	ObtainKCentroidCardinalitiesFromIVFIndex(limit int, descending bool) ([]uint64, [][]float32, error)
 
 	// Search queries the index with the vectors in x.
 	// Returns the IDs of the k nearest neighbors for each query vector and the
@@ -212,6 +217,72 @@ func (idx *faissIndex) ObtainClustersWithDistancesFromIVFIndex(x []float32, cent
 	}
 
 	return centroids, centroidDistances, nil
+}
+
+func (idx *faissIndex) ObtainKCentroidCardinalitiesFromIVFIndex(limit int, descending bool) (
+	[]uint64, [][]float32, error) {
+	if limit <= 0 {
+		return nil, nil, nil
+	}
+
+	nlist := int(C.faiss_IndexIVF_nlist(idx.idx))
+	if nlist == 0 {
+		return nil, nil, nil
+	}
+
+	centroidCardinalities := make([]C.size_t, nlist)
+
+	// Allocate a flat buffer for all centroids, then slice it per centroid
+	d := idx.D()
+	flatCentroids := make([]float32, nlist*d)
+
+	// Call the C function to fill centroid vectors and cardinalities
+	c := C.faiss_IndexIVF_get_centroids_and_cardinality(
+		idx.idx,
+		(*C.float)(&flatCentroids[0]),
+		(*C.size_t)(&centroidCardinalities[0]),
+		nil,
+	)
+	if c != 0 {
+		return nil, nil, getLastError()
+	}
+
+	topIndices := getIndicesOfKCentroidCardinalities(
+		centroidCardinalities,
+		min(limit, nlist),
+		descending)
+
+	rvCardinalities := make([]uint64, len(topIndices))
+	rvCentroids := make([][]float32, len(topIndices))
+
+	for i, idx := range topIndices {
+		rvCardinalities[i] = uint64(centroidCardinalities[idx])
+		rvCentroids[i] = flatCentroids[idx*d : (idx+1)*d]
+	}
+
+	return rvCardinalities, rvCentroids, nil
+
+}
+
+func getIndicesOfKCentroidCardinalities(cardinalities []C.size_t, k int, descending bool) []int {
+	n := len(cardinalities)
+	indices := make([]int, n)
+	for i := range indices {
+		indices[i] = i
+	}
+
+	// Sort only the indices based on cardinality values
+	sort.Slice(indices, func(i, j int) bool {
+		if descending {
+			return cardinalities[indices[i]] > cardinalities[indices[j]]
+		}
+		return cardinalities[indices[i]] < cardinalities[indices[j]]
+	})
+	if k >= n {
+		return indices
+	}
+
+	return indices[:k]
 }
 
 func (idx *faissIndex) SearchClustersFromIVFIndex(selector Selector,

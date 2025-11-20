@@ -26,6 +26,7 @@ import (
 	"github.com/RoaringBitmap/roaring/v2"
 	"github.com/RoaringBitmap/roaring/v2/roaring64"
 	"github.com/bits-and-blooms/bitset"
+	index "github.com/blevesearch/bleve_index_api"
 	faiss "github.com/blevesearch/go-faiss"
 	segment "github.com/blevesearch/scorch_segment_api/v2"
 )
@@ -279,6 +280,9 @@ type vectorIndexWrapper struct {
 		params json.RawMessage) (segment.VecPostingsList, error)
 	close func()
 	size  func() uint64
+
+	obtainKCentroidCardinalitiesFromIVFIndex func(limit int, descending bool) (
+		[]index.CentroidCardinality, error)
 }
 
 func (i *vectorIndexWrapper) Search(qVector []float32, k int64,
@@ -299,6 +303,11 @@ func (i *vectorIndexWrapper) Close() {
 
 func (i *vectorIndexWrapper) Size() uint64 {
 	return i.size()
+}
+
+func (i *vectorIndexWrapper) ObtainKCentroidCardinalitiesFromIVFIndex(limit int, descending bool) (
+	[]index.CentroidCardinality, error) {
+	return i.obtainKCentroidCardinalitiesFromIVFIndex(limit, descending)
 }
 
 // InterpretVectorIndex returns a construct of closures (vectorIndexWrapper)
@@ -519,6 +528,24 @@ func (sb *SegmentBase) InterpretVectorIndex(field string, requiresFiltering bool
 			},
 			size: func() uint64 {
 				return vecIndexSize
+			},
+			obtainKCentroidCardinalitiesFromIVFIndex: func(limit int, descending bool) ([]index.CentroidCardinality, error) {
+				if vecIndex == nil || !vecIndex.IsIVFIndex() {
+					return nil, nil
+				}
+
+				cardinalities, centroids, err := vecIndex.ObtainKCentroidCardinalitiesFromIVFIndex(limit, descending)
+				if err != nil {
+					return nil, err
+				}
+				centroidCardinalities := make([]index.CentroidCardinality, len(cardinalities))
+				for i, cardinality := range cardinalities {
+					centroidCardinalities[i] = index.CentroidCardinality{
+						Centroid:    centroids[i],
+						Cardinality: cardinality,
+					}
+				}
+				return centroidCardinalities, nil
 			},
 		}
 

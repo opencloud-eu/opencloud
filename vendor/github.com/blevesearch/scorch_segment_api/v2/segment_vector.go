@@ -20,6 +20,7 @@ package segment
 import (
 	"encoding/json"
 
+	index "github.com/blevesearch/bleve_index_api"
 	"github.com/RoaringBitmap/roaring/v2"
 )
 
@@ -64,6 +65,8 @@ type VectorIndex interface {
 		params json.RawMessage) (VecPostingsList, error)
 	Close()
 	Size() uint64
+
+	ObtainKCentroidCardinalitiesFromIVFIndex(limit int, descending bool) ([]index.CentroidCardinality, error)
 }
 
 type VectorSegment interface {
