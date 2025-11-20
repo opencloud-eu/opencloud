@@ -590,6 +590,25 @@ func (j *TestJmapClient) create(id string, objectType ObjectType, body map[strin
 	}).command(body)
 }
 
+func (j *TestJmapClient) create1(accountId string, objectType ObjectType, ns string, obj map[string]any) (string, error) {
+	body := map[string]any{
+		"using": []string{JmapCore, ns},
+		"methodCalls": []any{
+			[]any{
+				objectType + "/set",
+				map[string]any{
+					"accountId": accountId,
+					"create": map[string]any{
+						"c": obj,
+					},
+				},
+				"0",
+			},
+		},
+	}
+	return j.create("c", objectType, body)
+}
+
 func (j *TestJmapClient) objectsById(accountId string, objectType ObjectType, scope string) (map[string]map[string]any, error) {
 	m := map[string]map[string]any{}
 	{
@@ -726,6 +745,20 @@ func id() string {
 	return string(b)
 }
 
+func toHtml(text string) string {
+	return "<!DOCTYPE html>\n<html>\n<body>\n" + strings.Join(htmlJoin(paraSplitter.Split(text, -1)), "\n") + "</body>\n</html>"
+}
+
+func htmlJoin(parts []string) []string {
+	var result []string
+	for i := range parts {
+		result = append(result, fmt.Sprintf("<p>%v</p>", parts[i]))
+	}
+	return result
+}
+
+var paraSplitter = regexp.MustCompile("[\r\n]+")
+
 var timezones = []string{
 	"America/Adak",
 	"America/Anchorage",
@@ -736,6 +769,180 @@ var timezones = []string{
 	"America/Kentucky/Louisville",
 	"America/Los_Angeles",
 	"America/New_York",
+	"Europe/Brussels",
+	"Europe/Berlin",
+	"Europe/Paris",
+}
+
+// https://www.w3.org/TR/css-color-3/#html4
+var basicColors = []string{
+	"black",
+	"silver",
+	"gray",
+	"white",
+	"maroon",
+	"red",
+	"purple",
+	"fuchsia",
+	"green",
+	"lime",
+	"olive",
+	"yellow",
+	"navy",
+	"blue",
+	"teal",
+	"aqua",
+}
+
+// https://www.w3.org/TR/SVG11/types.html#ColorKeywords
+var extendedColors = []string{
+	"aliceblue",
+	"antiquewhite",
+	"aqua",
+	"aquamarine",
+	"azure",
+	"beige",
+	"bisque",
+	"black",
+	"blanchedalmond",
+	"blue",
+	"blueviolet",
+	"brown",
+	"burlywood",
+	"cadetblue",
+	"chartreuse",
+	"chocolate",
+	"coral",
+	"cornflowerblue",
+	"cornsilk",
+	"crimson",
+	"cyan",
+	"darkblue",
+	"darkcyan",
+	"darkgoldenrod",
+	"darkgray",
+	"darkgreen",
+	"darkgrey",
+	"darkkhaki",
+	"darkmagenta",
+	"darkolivegreen",
+	"darkorange",
+	"darkorchid",
+	"darkred",
+	"darksalmon",
+	"darkseagreen",
+	"darkslateblue",
+	"darkslategray",
+	"darkslategrey",
+	"darkturquoise",
+	"darkviolet",
+	"deeppink",
+	"deepskyblue",
+	"dimgray",
+	"dimgrey",
+	"dodgerblue",
+	"firebrick",
+	"floralwhite",
+	"forestgreen",
+	"fuchsia",
+	"gainsboro",
+	"ghostwhite",
+	"gold",
+	"goldenrod",
+	"gray",
+	"grey",
+	"green",
+	"greenyellow",
+	"honeydew",
+	"hotpink",
+	"indianred",
+	"indigo",
+	"ivory",
+	"khaki",
+	"lavender",
+	"lavenderblush",
+	"lawngreen",
+	"lemonchiffon",
+	"lightblue",
+	"lightcoral",
+	"lightcyan",
+	"lightgoldenrodyellow",
+	"lightgray",
+	"lightgreen",
+	"lightgrey",
+	"lightpink",
+	"lightsalmon",
+	"lightseagreen",
+	"lightskyblue",
+	"lightslategray",
+	"lightslategrey",
+	"lightsteelblue",
+	"lightyellow",
+	"lime",
+	"limegreen",
+	"linen",
+	"magenta",
+	"maroon",
+	"mediumaquamarine",
+	"mediumblue",
+	"mediumorchid",
+	"mediumpurple",
+	"mediumseagreen",
+	"mediumslateblue",
+	"mediumspringgreen",
+	"mediumturquoise",
+	"mediumvioletred",
+	"midnightblue",
+	"mintcream",
+	"mistyrose",
+	"moccasin",
+	"navajowhite",
+	"navy",
+	"oldlace",
+	"olive",
+	"olivedrab",
+	"orange",
+	"orangered",
+	"orchid",
+	"palegoldenrod",
+	"palegreen",
+	"paleturquoise",
+	"palevioletred",
+	"papayawhip",
+	"peachpuff",
+	"peru",
+	"pink",
+	"plum",
+	"powderblue",
+	"purple",
+	"red",
+	"rosybrown",
+	"royalblue",
+	"saddlebrown",
+	"salmon",
+	"sandybrown",
+	"seagreen",
+	"seashell",
+	"sienna",
+	"silver",
+	"skyblue",
+	"slateblue",
+	"slategray",
+	"slategrey",
+	"snow",
+	"springgreen",
+	"steelblue",
+	"tan",
+	"teal",
+	"thistle",
+	"tomato",
+	"turquoise",
+	"violet",
+	"wheat",
+	"white",
+	"whitesmoke",
+	"yellow",
+	"yellowgreen",
 }
 
 func propmap[T any](enabled bool, min int, max int, container map[string]any, name string, cardProperty *map[string]T, generator func(int, string) (map[string]any, T, error)) error {
@@ -833,6 +1040,10 @@ func pickRandoms1[T any](s ...T) []T {
 
 func pickLanguage() string {
 	return pickRandom("en-US", "en-GB", "en-AU")
+}
+
+func pickLocale() string {
+	return pickRandom("en", "fr", "de")
 }
 
 func allTrue[S any](t *testing.T, s S, exceptions ...string) {

@@ -167,19 +167,10 @@ func matchEmail(t *testing.T, actual Email, expected filledMail, hasBodies bool)
 	}
 }
 
-func htmlJoin(parts []string) []string {
-	var result []string
-	for i := range parts {
-		result = append(result, fmt.Sprintf("<p>%v</p>", parts[i]))
-	}
-	return result
-}
-
-var paraSplitter = regexp.MustCompile("[\r\n]+")
 var emailSplitter = regexp.MustCompile("(.+)@(.+)$")
 
 func htmlFormat(body string, msg enmime.MailBuilder) enmime.MailBuilder {
-	return msg.HTML([]byte(strings.Join(htmlJoin(paraSplitter.Split(body, -1)), "\n")))
+	return msg.HTML([]byte(toHtml(body)))
 }
 
 func textFormat(body string, msg enmime.MailBuilder) enmime.MailBuilder {

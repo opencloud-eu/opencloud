@@ -355,11 +355,10 @@ const (
 	ParticipantKindResource   = ParticipantKind("resource")
 
 	RoleOwner         = Role("owner")
-	RoleAttendee      = Role("attendee")
 	RoleOptional      = Role("optional")
 	RoleInformational = Role("informational")
 	RoleChair         = Role("chair")
-	RoleContact       = Role("contact")
+	RoleRequired      = Role("required")
 
 	// JMAP Task extension: the participant is expected to work on the task.
 	RoleAssignee = Role("assignee")
@@ -681,11 +680,10 @@ var (
 
 	Roles = []Role{
 		RoleOwner,
-		RoleAttendee,
 		RoleOptional,
 		RoleInformational,
 		RoleChair,
-		RoleContact,
+		RoleRequired,
 		RoleAssignee,
 	}
 
@@ -871,11 +869,6 @@ type Location struct {
 	// This is the human-readable name of the location.
 	Name string `json:"name,omitempty"`
 
-	// This is the human-readable, plain-text instructions for accessing this location.
-	//
-	// This may be an address, set of directions, door access code, etc.
-	Description string `json:"description,omitempty"`
-
 	// This is a set of one or more location types that describe this location.
 	//
 	// All types MUST be from the "Location Types Registry" [LOCATIONTYPES], as defined in [RFC4589].
@@ -901,11 +894,6 @@ type VirtualLocation struct {
 
 	// This is the human-readable name of the virtual location.
 	Name string `json:"name,omitempty"`
-
-	// These are human-readable plain-text instructions for accessing this virtual location.
-	//
-	// This may be a conference access code, etc.
-	Description string `json:"description,omitempty"`
 
 	// Mandatory: this is a URI [RFC3986] that represents how to connect to this virtual location.
 	//
@@ -1159,22 +1147,21 @@ type Participant struct {
 	// For example, this may include more information about their role in the event or how best to contact them.
 	Description string `json:"description,omitempty"`
 
-	// This represents methods by which the participant may receive the invitation and updates to the calendar object.
+	// This describes the media type of the contents of the description property.
 	//
-	// The keys in the property value are the available methods and MUST only contain ASCII alphanumeric characters (`A-Za-z0-9`).
+	// If this property is set, then the description property MUST be set.
+	DescriptionContentType string `json:"descriptionContentType,omitempty"`
+
+	// This is a URI as defined by [RFC3986] or any other IANA-registered form for a URI.
 	//
-	// The value is a URI for the method specified in the key. Future methods may be defined in future specifications and
-	// registered with IANA; a calendar client MUST ignore any method it does not understand but MUST preserve the method key and URI.
-	//
-	// This property MUST be omitted if no method is defined (rather than being specified as an empty object).
-	//
-	// The following methods are defined:
-	// !- `imip`: The participant accepts an iMIP [RFC6047] request at this email address. The value MUST be a `mailto:` URI.
-	// It MAY be different from the value of the participant's email property.
-	// !- `other``: The participant is identified by this URI, but the method for submitting the invitation is undefined.
-	SendTo map[SendToMethod]string `json:"sendTo,omitempty"`
+	// It is the same as the CAL-ADDRESS value of an iCalendar ATTENDEE property [RFC5545] (Section 3.8.4.1)
+	// or ORGANIZER property [RFC5545] (Section 3.8.4.3) — it globally identifies a particular participant,
+	// even across different calendaring objects.
+	CalendarAddress string `json:"calendarAddress,omitempty"`
 
 	// This is what kind of entity this participant is, if known.
+	//
+	// If this property is set, then the calendarAddress property MUST be set.
 	//
 	// This MUST be one of the following values, another value registered in the IANA "JSCalendar Enum Values" registry,
 	// or a vendor-specific value (see Section 3.3).
@@ -1187,6 +1174,8 @@ type Participant struct {
 	Kind ParticipantKind `json:"kind,omitempty"`
 
 	// This is a set of roles that this participant fulfills.
+	//
+	// If this property is set, then the calendarAddress property MUST be set.
 	//
 	// At least one role MUST be specified for the participant.
 	//
@@ -1233,6 +1222,8 @@ type Participant struct {
 	ParticipationComment string `json:"participationComment,omitempty"`
 
 	// If true, the organizer is expecting the participant to notify them of their participation status.
+	//
+	// If this property is set, then the calendarAddress property MUST be set.
 	ExpectReply bool `json:"expectReply,omitzero"`
 
 	// This is who is responsible for sending scheduling messages with this calendar object to the participant.
@@ -1819,6 +1810,17 @@ type Object struct {
 
 	// This is a map of location ids to `Location` objects, representing locations associated with the object.
 	Locations map[string]Location `json:"locations,omitempty"`
+
+	// This indicates which of the multiple entries in the locations property can be considered the main location
+	// for the event or task.
+	//
+	// A client implementation MAY choose to display this location more prominently.
+	//
+	// The main location is undefined if this property is not set.
+	//
+	// If this property is set, then its value MUST match a key in the locations property and the name property
+	// of that main Location object MUST be set.
+	MainLocationId string `json:"mainLocationId,omitempty"`
 
 	// This is a map of virtual location ids to VirtualLocation objects, representing virtual locations, such as
 	// video conferences or chat rooms, associated with the object.

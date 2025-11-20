@@ -459,26 +459,11 @@ func (s *StalwartTest) fillContacts(
 		}
 		card.Id = id
 		filled[id] = card
-		printer(fmt.Sprintf("🧑🏻 created %*s/%v uid=%v", int(math.Log10(float64(count))+1), strconv.Itoa(int(i+1)), count, id))
+		printer(fmt.Sprintf("🧑🏻 created %*s/%v id=%v", int(math.Log10(float64(count))+1), strconv.Itoa(int(i+1)), count, id))
 	}
 	return accountId, addressbookId, filled, boxes, nil
 }
 
 func (s *StalwartTest) CreateContact(j *TestJmapClient, accountId string, contact map[string]any) (string, error) {
-	body := map[string]any{
-		"using": []string{JmapCore, JmapContacts},
-		"methodCalls": []any{
-			[]any{
-				ContactCardType + "/set",
-				map[string]any{
-					"accountId": accountId,
-					"create": map[string]any{
-						"c": contact,
-					},
-				},
-				"0",
-			},
-		},
-	}
-	return j.create("c", ContactCardType, body)
+	return j.create1(accountId, ContactCardType, JmapContacts, contact)
 }

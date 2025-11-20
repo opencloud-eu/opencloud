@@ -164,3 +164,10 @@ func TestAnyItem(t *testing.T) {
 	assert.False(t, AnyItem(map[string]bool{"a": true, "b": false}, never))
 	assert.False(t, AnyItem(nil, never))
 }
+
+func TestConcat(t *testing.T) {
+	assert.Equal(t, []string{"a", "b", "c", "d", "e", "f"}, Concat([]string{"a", "b"}, []string{"c"}, []string{"d", "e", "f"}))
+	assert.Equal(t, []string{"a"}, Concat([]string{"a"}))
+	assert.Equal(t, []string{"a"}, Concat([]string{}, nil, []string{"a"}))
+	assert.Equal(t, []string{}, Concat[string]())
+}

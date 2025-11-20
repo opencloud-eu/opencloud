@@ -78,6 +78,7 @@ func (j *Client) QueryCalendarEvents(accountIds []string, session *Session, ctx 
 				Path:     "/ids/*",
 				ResultOf: mcid(accountId, "0"),
 			},
+			// Properties: CalendarEventProperties, // to also retrieve UTCStart and UTCEnd
 		}, mcid(accountId, "1"))
 	}
 	cmd, err := j.request(session, logger, invocations...)
