@@ -1894,24 +1894,6 @@ trait Provisioning {
 	}
 
 	/**
-	 * @AfterScenario
-	 *
-	 * @return void
-	 * @throws Exception
-	 */
-	public function afterScenario(): void {
-		if (OcHelper::isTestingOnReva()) {
-			OcHelper::deleteRevaUserData($this->getCreatedUsers());
-		}
-
-		if ($this->isTestingWithLdap()) {
-			$this->deleteLdapUsersAndGroups();
-		}
-		$this->cleanupDatabaseUsers();
-		$this->cleanupDatabaseGroups();
-	}
-
-	/**
 	 *
 	 * @return void
 	 * @throws Exception
