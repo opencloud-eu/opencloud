@@ -2709,10 +2709,9 @@ class FeatureContext extends BehatVariablesContext {
 	 * @throws Exception|GuzzleException
 	 */
 	public function cleanDataAfterTests(): void {
-		if (OcHelper::isTestingOnReva() || OcHelper::isUsingPreparedLdapUsers()) {
-			return;
+		if (!OcHelper::isTestingOnReva() && !OcHelper::isUsingPreparedLdapUsers()) {
+			$this->spacesContext->deleteAllProjectSpaces();
 		}
-		$this->spacesContext->deleteAllProjectSpaces();
 
 		if (OcHelper::isTestingOnReva()) {
 			OcHelper::deleteRevaUserData($this->getCreatedUsers());
