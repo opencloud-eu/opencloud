@@ -41,6 +41,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/olekukonko/tablewriter from 1.1.0 to 1.1.1 [[#1869](https://github.com/opencloud-eu/opencloud/pull/1869)]
 - build(deps): bump golang.org/x/term from 0.36.0 to 0.37.0 [[#1845](https://github.com/opencloud-eu/opencloud/pull/1845)]
 - reva-bump-2.39.2. update opencloud 4.0.0-rc.1 [[#1849](https://github.com/opencloud-eu/opencloud/pull/1849)]
 - build(deps): bump golang.org/x/sync from 0.17.0 to 0.18.0 [[#1836](https://github.com/opencloud-eu/opencloud/pull/1836)]
