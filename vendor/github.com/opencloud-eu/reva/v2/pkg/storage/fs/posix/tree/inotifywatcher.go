@@ -22,6 +22,7 @@ package tree
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -31,6 +32,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options"
 	"github.com/pablodz/inotifywaitgo/inotifywaitgo"
 	"github.com/rs/zerolog"
+	slogzerolog "github.com/samber/slog-zerolog/v2"
 )
 
 type InotifyWatcher struct {
@@ -56,6 +58,10 @@ func (iw *InotifyWatcher) Watch(path string) {
 			}
 		}()
 	}
+
+	// create a slog logger to be passed to the settings of inotifywatcher to log into
+	logger := slog.New(slogzerolog.Option{Level: slog.LevelDebug, Logger: iw.log}.NewZerologHandler())
+
 	events := make(chan inotifywaitgo.FileEvent)
 	errors := make(chan error)
 
@@ -76,6 +82,7 @@ func (iw *InotifyWatcher) Watch(path string) {
 			Monitor: true,
 		},
 		Verbose: false,
+		Log:     logger,
 	})
 
 	for {

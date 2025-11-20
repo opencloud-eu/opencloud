@@ -64,7 +64,7 @@ require (
 	github.com/open-policy-agent/opa v1.10.1
 	github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89
 	github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76
-	github.com/opencloud-eu/reva/v2 v2.39.3-0.20251113164418-9fd6b6864c10
+	github.com/opencloud-eu/reva/v2 v2.39.3-0.20251120114614-1b573c55f789
 	github.com/opensearch-project/opensearch-go/v4 v4.5.0
 	github.com/orcaman/concurrent-map v1.0.0
 	github.com/pkg/errors v0.9.1
@@ -101,14 +101,14 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.38.0
 	go.opentelemetry.io/otel/sdk v1.38.0
 	go.opentelemetry.io/otel/trace v1.38.0
-	golang.org/x/crypto v0.43.0
+	golang.org/x/crypto v0.44.0
 	golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac
 	golang.org/x/image v0.32.0
 	golang.org/x/net v0.46.0
 	golang.org/x/oauth2 v0.33.0
 	golang.org/x/sync v0.18.0
 	golang.org/x/term v0.37.0
-	golang.org/x/text v0.30.0
+	golang.org/x/text v0.31.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20250929231259-57b25ae835d4
 	google.golang.org/grpc v1.76.0
 	google.golang.org/protobuf v1.36.10
@@ -242,7 +242,7 @@ require (
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/go-tpm v0.9.6 // indirect
 	github.com/google/pprof v0.0.0-20250403155104-27863c87afa6 // indirect
-	github.com/google/renameio/v2 v2.0.0 // indirect
+	github.com/google/renameio/v2 v2.0.1 // indirect
 	github.com/gookit/goutil v0.7.1 // indirect
 	github.com/gorilla/handlers v1.5.1 // indirect
 	github.com/gorilla/schema v1.4.1 // indirect
@@ -334,6 +334,9 @@ require (
 	github.com/russellhaering/goxmldsig v1.5.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd // indirect
+	github.com/samber/lo v1.51.0 // indirect
+	github.com/samber/slog-common v0.19.0 // indirect
+	github.com/samber/slog-zerolog/v2 v2.9.0 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/segmentio/kafka-go v0.4.49 // indirect
 	github.com/segmentio/ksuid v1.0.4 // indirect
@@ -403,3 +406,6 @@ replace go-micro.dev/v4 => github.com/butonic/go-micro/v4 v4.11.1-0.202411151126
 exclude github.com/mattn/go-sqlite3 v2.0.3+incompatible
 
 replace github.com/go-micro/plugins/v4/store/nats-js-kv => github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a
+
+// to get the logger injection (https://github.com/pablodz/inotifywaitgo/pull/11)
+replace github.com/pablodz/inotifywaitgo v0.0.9 => github.com/opencloud-eu/inotifywaitgo v0.0.0-20251111171128-a390bae3c5e9

@@ -58,7 +58,7 @@ import (
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
-	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
@@ -243,7 +243,7 @@ func (p *Handler) HandlePathPropfind(w http.ResponseWriter, r *http.Request, ns 
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "Invalid Depth header value")
-		span.SetAttributes(semconv.HTTPStatusCodeKey.Int(http.StatusBadRequest))
+		span.SetAttributes(semconv.HTTPResponseStatusCodeKey.Int(http.StatusBadRequest))
 		sublog.Debug().Str("depth", dh).Msg(err.Error())
 		w.WriteHeader(http.StatusBadRequest)
 		m := fmt.Sprintf("Invalid Depth header value: %v", dh)
@@ -255,7 +255,7 @@ func (p *Handler) HandlePathPropfind(w http.ResponseWriter, r *http.Request, ns 
 	if depth == net.DepthInfinity && !p.c.AllowPropfindDepthInfinitiy {
 		span.RecordError(errors.ErrInvalidDepth)
 		span.SetStatus(codes.Error, "DEPTH: infinity is not supported")
-		span.SetAttributes(semconv.HTTPStatusCodeKey.Int(http.StatusBadRequest))
+		span.SetAttributes(semconv.HTTPResponseStatusCodeKey.Int(http.StatusBadRequest))
 		sublog.Debug().Str("depth", dh).Msg(errors.ErrInvalidDepth.Error())
 		w.WriteHeader(http.StatusBadRequest)
 		m := fmt.Sprintf("Invalid Depth header value: %v", dh)
@@ -312,7 +312,7 @@ func (p *Handler) HandleSpacesPropfind(w http.ResponseWriter, r *http.Request, s
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "Invalid Depth header value")
-		span.SetAttributes(semconv.HTTPStatusCodeKey.Int(http.StatusBadRequest))
+		span.SetAttributes(semconv.HTTPResponseStatusCodeKey.Int(http.StatusBadRequest))
 		sublog.Debug().Str("depth", dh).Msg(err.Error())
 		w.WriteHeader(http.StatusBadRequest)
 		m := fmt.Sprintf("Invalid Depth header value: %v", dh)
@@ -324,7 +324,7 @@ func (p *Handler) HandleSpacesPropfind(w http.ResponseWriter, r *http.Request, s
 	if depth == net.DepthInfinity && !p.c.AllowPropfindDepthInfinitiy {
 		span.RecordError(errors.ErrInvalidDepth)
 		span.SetStatus(codes.Error, "DEPTH: infinity is not supported")
-		span.SetAttributes(semconv.HTTPStatusCodeKey.Int(http.StatusBadRequest))
+		span.SetAttributes(semconv.HTTPResponseStatusCodeKey.Int(http.StatusBadRequest))
 		sublog.Debug().Str("depth", dh).Msg(errors.ErrInvalidDepth.Error())
 		w.WriteHeader(http.StatusBadRequest)
 		m := fmt.Sprintf("Invalid Depth header value: %v", dh)

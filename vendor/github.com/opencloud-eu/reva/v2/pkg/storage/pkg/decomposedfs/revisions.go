@@ -131,7 +131,7 @@ func (fs *Decomposedfs) RestoreRevision(ctx context.Context, ref *provider.Refer
 
 	// restore revision
 	restoredRevisionPath := fs.lu.InternalPath(spaceID, revisionKey)
-	if err := fs.tp.RestoreRevision(ctx, revisionNode, n); err != nil {
+	if err := fs.tp.RestoreRevision(ctx, revisionNode, n, time.Now()); err != nil {
 		return err
 	}
 

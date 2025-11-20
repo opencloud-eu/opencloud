@@ -37,7 +37,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel"
-	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -127,8 +127,8 @@ func (s *svc) setHandler() {
 		ctx, span := tracer.Start(ctx, "HandlerFunc")
 		defer span.End()
 		span.SetAttributes(
-			semconv.HTTPMethodKey.String(r.Method),
-			semconv.HTTPURLKey.String(r.URL.String()),
+			semconv.HTTPRequestMethodKey.String(r.Method),
+			semconv.URLFullKey.String(r.URL.String()),
 		)
 		r = r.WithContext(ctx)
 		s.doRequest(w, r)

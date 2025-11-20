@@ -67,7 +67,7 @@ func (bs *Blobstore) Upload(n *node.Node, source, copyTarget string) error {
 		_ = sourceFile.Close()
 	}()
 
-	tempFile, err := os.OpenFile(tempName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0700)
+	tempFile, err := os.OpenFile(tempName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
 		return fmt.Errorf("unable to create temp file '%s': %v", tempName, err)
 	}

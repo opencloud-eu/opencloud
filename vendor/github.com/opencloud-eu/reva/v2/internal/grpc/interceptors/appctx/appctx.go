@@ -24,7 +24,7 @@ import (
 
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/rs/zerolog"
-	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 )
@@ -42,7 +42,7 @@ func NewUnary(log zerolog.Logger, tp trace.TracerProvider) grpc.UnaryServerInter
 		}
 		_, file, _, ok := runtime.Caller(1)
 		if ok {
-			span.SetAttributes(semconv.CodeFilepathKey.String(file))
+			span.SetAttributes(semconv.CodeFilePathKey.String(file))
 		}
 
 		sub := log.With().Str("traceid", span.SpanContext().TraceID().String()).Logger()
@@ -67,7 +67,7 @@ func NewStream(log zerolog.Logger, tp trace.TracerProvider) grpc.StreamServerInt
 		}
 		_, file, _, ok := runtime.Caller(1)
 		if ok {
-			span.SetAttributes(semconv.CodeFilepathKey.String(file))
+			span.SetAttributes(semconv.CodeFilePathKey.String(file))
 		}
 
 		sub := log.With().Str("traceid", span.SpanContext().TraceID().String()).Logger()

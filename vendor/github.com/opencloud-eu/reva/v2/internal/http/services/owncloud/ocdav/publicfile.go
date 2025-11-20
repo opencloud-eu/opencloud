@@ -32,7 +32,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rhttp/router"
 	"go.opentelemetry.io/otel/codes"
-	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 )
 
 // PublicFileHandler handles requests on a shared file. it needs to be wrapped in a collection
@@ -100,7 +100,7 @@ func (s *svc) handlePropfindOnToken(w http.ResponseWriter, r *http.Request, ns s
 	if !ok {
 		span.RecordError(ocdaverrors.ErrTokenStatInfoMissing)
 		span.SetStatus(codes.Error, ocdaverrors.ErrTokenStatInfoMissing.Error())
-		span.SetAttributes(semconv.HTTPStatusCodeKey.Int(http.StatusInternalServerError))
+		span.SetAttributes(semconv.HTTPResponseStatusCodeKey.Int(http.StatusInternalServerError))
 		w.WriteHeader(http.StatusInternalServerError)
 		b, err := ocdaverrors.Marshal(http.StatusInternalServerError, ocdaverrors.ErrTokenStatInfoMissing.Error(), "", "")
 		ocdaverrors.HandleWebdavError(appctx.GetLogger(ctx), w, b, err)
@@ -114,7 +114,7 @@ func (s *svc) handlePropfindOnToken(w http.ResponseWriter, r *http.Request, ns s
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "Invalid Depth header value")
-		span.SetAttributes(semconv.HTTPStatusCodeKey.Int(http.StatusBadRequest))
+		span.SetAttributes(semconv.HTTPResponseStatusCodeKey.Int(http.StatusBadRequest))
 		sublog.Debug().Str("depth", dh).Msg(err.Error())
 		w.WriteHeader(http.StatusBadRequest)
 		m := fmt.Sprintf("Invalid Depth header value: %v", dh)
@@ -126,7 +126,7 @@ func (s *svc) handlePropfindOnToken(w http.ResponseWriter, r *http.Request, ns s
 	if depth == net.DepthInfinity && !s.c.AllowPropfindDepthInfinitiy {
 		span.RecordError(ocdaverrors.ErrInvalidDepth)
 		span.SetStatus(codes.Error, "DEPTH: infinity is not supported")
-		span.SetAttributes(semconv.HTTPStatusCodeKey.Int(http.StatusBadRequest))
+		span.SetAttributes(semconv.HTTPResponseStatusCodeKey.Int(http.StatusBadRequest))
 		sublog.Debug().Str("depth", dh).Msg(ocdaverrors.ErrInvalidDepth.Error())
 		w.WriteHeader(http.StatusBadRequest)
 		m := fmt.Sprintf("Invalid Depth header value: %v", dh)

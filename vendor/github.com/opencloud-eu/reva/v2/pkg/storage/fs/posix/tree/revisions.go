@@ -272,7 +272,7 @@ func (tp *Tree) DownloadRevision(ctx context.Context, ref *provider.Reference, r
 	return ri, reader, nil
 }
 
-func (tp *Tree) RestoreRevision(ctx context.Context, srcNode, targetNode metadata.MetadataNode) error {
+func (tp *Tree) RestoreRevision(ctx context.Context, srcNode, targetNode metadata.MetadataNode, mtime time.Time) error {
 	source := srcNode.InternalPath()
 	target := targetNode.InternalPath()
 	rf, err := os.Open(source)
@@ -305,8 +305,10 @@ func (tp *Tree) RestoreRevision(ctx context.Context, srcNode, targetNode metadat
 		return errtypes.InternalError("failed to copy blob xattrs to old revision to node: " + err.Error())
 	}
 
-	// always set the node mtime to the current time
-	mtime := time.Now()
+	// set the node mtime to the current time if no mtime was provided
+	if mtime.IsZero() {
+		mtime = time.Now()
+	}
 	err = os.Chtimes(target, mtime, mtime)
 	if err != nil {
 		return errtypes.InternalError("failed to update times:" + err.Error())

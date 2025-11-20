@@ -129,7 +129,7 @@ type Tree interface {
 	Delete(ctx context.Context, node *Node) (err error)
 
 	InitNewNode(ctx context.Context, n *Node, fsize uint64) (metadata.UnlockFunc, error)
-	RestoreRevision(ctx context.Context, source, target metadata.MetadataNode) (err error)
+	RestoreRevision(ctx context.Context, source, target metadata.MetadataNode, mtime time.Time) (err error)
 
 	WriteBlob(node *Node, source string) error
 	ReadBlob(node *Node) (io.ReadCloser, error)

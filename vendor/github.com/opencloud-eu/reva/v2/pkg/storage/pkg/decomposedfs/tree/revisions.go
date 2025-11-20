@@ -330,7 +330,7 @@ func (tp *Tree) getRevisionNode(ctx context.Context, ref *provider.Reference, re
 	return n, nil
 }
 
-func (tp *Tree) RestoreRevision(ctx context.Context, sourceNode, targetNode metadata.MetadataNode) error {
+func (tp *Tree) RestoreRevision(ctx context.Context, sourceNode, targetNode metadata.MetadataNode, mtime time.Time) error {
 	err := tp.lookup.CopyMetadata(ctx, sourceNode, targetNode, func(attributeName string, value []byte) (newValue []byte, copy bool) {
 		return value, strings.HasPrefix(attributeName, prefixes.ChecksumPrefix) ||
 			attributeName == prefixes.TypeAttr ||
@@ -340,10 +340,13 @@ func (tp *Tree) RestoreRevision(ctx context.Context, sourceNode, targetNode meta
 	if err != nil {
 		return errtypes.InternalError("failed to copy blob xattrs to old revision to node: " + err.Error())
 	}
-	// always set the node mtime to the current time
+	// set the node mtime to the current time if no mtime was provided
+	if mtime.IsZero() {
+		mtime = time.Now()
+	}
 	err = tp.lookup.MetadataBackend().SetMultiple(ctx, targetNode,
 		map[string][]byte{
-			prefixes.MTimeAttr: []byte(time.Now().UTC().Format(time.RFC3339Nano)),
+			prefixes.MTimeAttr: []byte(mtime.UTC().Format(time.RFC3339Nano)),
 		},
 		false)
 	if err != nil {

@@ -754,7 +754,7 @@ github.com/google/go-tpm/tpmutil/tbs
 # github.com/google/pprof v0.0.0-20250403155104-27863c87afa6
 ## explicit; go 1.23
 github.com/google/pprof/profile
-# github.com/google/renameio/v2 v2.0.0
+# github.com/google/renameio/v2 v2.0.1
 ## explicit; go 1.13
 github.com/google/renameio/v2
 # github.com/google/uuid v1.6.0
@@ -1355,7 +1355,7 @@ github.com/opencloud-eu/icap-client
 # github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76
 ## explicit; go 1.18
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v2 v2.39.3-0.20251113164418-9fd6b6864c10
+# github.com/opencloud-eu/reva/v2 v2.39.3-0.20251120114614-1b573c55f789
 ## explicit; go 1.24.1
 github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v2/cmd/revad/runtime
@@ -1772,8 +1772,8 @@ github.com/orcaman/concurrent-map
 # github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c
 ## explicit; go 1.12
 github.com/oxtoacart/bpool
-# github.com/pablodz/inotifywaitgo v0.0.9
-## explicit; go 1.23.1
+# github.com/pablodz/inotifywaitgo v0.0.9 => github.com/opencloud-eu/inotifywaitgo v0.0.0-20251111171128-a390bae3c5e9
+## explicit; go 1.24.1
 github.com/pablodz/inotifywaitgo/inotifywaitgo
 # github.com/patrickmn/go-cache v2.1.0+incompatible
 ## explicit
@@ -1891,6 +1891,18 @@ github.com/russross/blackfriday/v2
 ## explicit
 github.com/rwcarlsen/goexif/exif
 github.com/rwcarlsen/goexif/tiff
+# github.com/samber/lo v1.51.0
+## explicit; go 1.18
+github.com/samber/lo
+github.com/samber/lo/internal/constraints
+github.com/samber/lo/internal/rand
+github.com/samber/lo/mutable
+# github.com/samber/slog-common v0.19.0
+## explicit; go 1.21
+github.com/samber/slog-common
+# github.com/samber/slog-zerolog/v2 v2.9.0
+## explicit; go 1.21
+github.com/samber/slog-zerolog/v2
 # github.com/segmentio/asm v1.2.0
 ## explicit; go 1.18
 github.com/segmentio/asm/base64
@@ -2292,7 +2304,6 @@ go.opentelemetry.io/otel/internal/global
 go.opentelemetry.io/otel/propagation
 go.opentelemetry.io/otel/semconv/internal
 go.opentelemetry.io/otel/semconv/internal/v4
-go.opentelemetry.io/otel/semconv/v1.10.0
 go.opentelemetry.io/otel/semconv/v1.20.0
 go.opentelemetry.io/otel/semconv/v1.20.0/httpconv
 go.opentelemetry.io/otel/semconv/v1.21.0
@@ -2366,7 +2377,7 @@ go.yaml.in/yaml/v2
 # go.yaml.in/yaml/v3 v3.0.4
 ## explicit; go 1.16
 go.yaml.in/yaml/v3
-# golang.org/x/crypto v0.43.0
+# golang.org/x/crypto v0.44.0
 ## explicit; go 1.24.0
 golang.org/x/crypto/argon2
 golang.org/x/crypto/bcrypt
@@ -2466,7 +2477,7 @@ golang.org/x/sys/windows/svc/mgr
 # golang.org/x/term v0.37.0
 ## explicit; go 1.24.0
 golang.org/x/term
-# golang.org/x/text v0.30.0
+# golang.org/x/text v0.31.0
 ## explicit; go 1.24.0
 golang.org/x/text/cases
 golang.org/x/text/encoding

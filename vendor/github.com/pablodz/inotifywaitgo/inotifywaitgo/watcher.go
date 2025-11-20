@@ -3,8 +3,9 @@ package inotifywaitgo
 import (
 	"bufio"
 	"encoding/csv"
+	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"os/exec"
 	"strings"
@@ -14,13 +15,13 @@ import (
 func WatchPath(s *Settings) {
 	// Check if inotifywait is installed
 	if ok, err := checkDependencies(); !ok || err != nil {
-		s.ErrorChan <- fmt.Errorf(NOT_INSTALLED)
+		s.ErrorChan <- errors.New(NOT_INSTALLED)
 		return
 	}
 
 	// Check if the directory exists
 	if _, err := os.Stat(s.Dir); os.IsNotExist(err) {
-		s.ErrorChan <- fmt.Errorf(DIR_NOT_EXISTS)
+		s.ErrorChan <- errors.New(DIR_NOT_EXISTS)
 		return
 	}
 
@@ -49,15 +50,20 @@ func WatchPath(s *Settings) {
 		return
 	}
 
+	logger := s.Log
+	if logger == nil {
+		logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
+	}
+
 	// Read the output of inotifywait and split it into lines
 	scanner := bufio.NewScanner(stdout)
 	for scanner.Scan() {
 		line := scanner.Text()
-		log.Println(line)
+		logger.Debug(line)
 
 		parts, err := parseLine(line)
 		if err != nil || len(parts) < 2 {
-			s.ErrorChan <- fmt.Errorf(INVALID_OUTPUT)
+			s.ErrorChan <- errors.New(INVALID_OUTPUT)
 			continue
 		}
 
@@ -66,7 +72,7 @@ func WatchPath(s *Settings) {
 
 		if s.Verbose {
 			for _, eventStr := range eventStrs {
-				log.Printf("eventStr: <%s>, <%s>", eventStr, line)
+				logger.Debug("eventStr: <%s>, <%s>", eventStr, line)
 			}
 		}
 
