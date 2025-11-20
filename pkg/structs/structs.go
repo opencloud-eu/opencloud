@@ -224,3 +224,19 @@ func AnyItem[K comparable, V any](m map[K]V, predicate func(K, V) bool) bool {
 	}
 	return false
 }
+
+func Concat[E any](arys ...[]E) []E {
+	l := 0
+	for _, ary := range arys {
+		l += len(ary)
+	}
+	r := make([]E, l)
+
+	i := 0
+	for _, ary := range arys {
+		if ary != nil {
+			i += copy(r[i:], ary)
+		}
+	}
+	return r
+}

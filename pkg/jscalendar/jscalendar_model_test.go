@@ -107,9 +107,8 @@ func TestLocation(t *testing.T) {
 			}
 		}
 	}`, Location{
-		Type:        LocationType,
-		Name:        "The Eiffel Tower",
-		Description: "The big iron tower in the middle of Paris, can't miss it.",
+		Type: LocationType,
+		Name: "The Eiffel Tower",
 		LocationTypes: map[LocationTypeOption]bool{
 			LocationTypeOptionLandmarkAddress: true,
 			LocationTypeOptionIndustrial:      true,
@@ -141,10 +140,9 @@ func TestVirtualLocation(t *testing.T) {
 			"audio": true
 		}
 	}`, VirtualLocation{
-		Type:        VirtualLocationType,
-		Name:        "OpenTalk",
-		Description: "The best videoconferencing.",
-		Uri:         "https://opentalk.eu",
+		Type: VirtualLocationType,
+		Name: "OpenTalk",
+		Uri:  "https://opentalk.eu",
 		Features: map[VirtualLocationFeature]bool{
 			VirtualLocationFeatureVideo:  true,
 			VirtualLocationFeatureScreen: true,
@@ -293,19 +291,15 @@ func TestParticipant(t *testing.T) {
 		"progressUpdated": "2025-09-29T12:32:19Z",
 		"percentComplete": 42
 	}`, Participant{
-		Type:        ParticipantType,
-		Name:        "Camina Drummer",
-		Email:       "camina@opa.org",
-		Description: "Camina Drummer is a Belter serving as the current President of the Transport Union.",
-		SendTo: map[SendToMethod]string{
-			SendToMethodImip:  "mailto:cdrummer@opa.org",
-			SendToMethodOther: "https://opa.org/ping/camina",
-		},
-		Kind: ParticipantKindIndividual,
+		Type:            ParticipantType,
+		Name:            "Camina Drummer",
+		Email:           "camina@opa.org",
+		Description:     "Camina Drummer is a Belter serving as the current President of the Transport Union.",
+		CalendarAddress: "cdrummer@itip.opa.org",
+		Kind:            ParticipantKindIndividual,
 		Roles: map[Role]bool{
-			RoleAttendee: true,
-			RoleOwner:    true,
-			RoleChair:    true,
+			RoleOwner: true,
+			RoleChair: true,
 		},
 		LocationId:           "98faaa01-b6db-4ddb-9574-e28ab83104e6",
 		Language:             "en-JM",
@@ -723,9 +717,8 @@ func TestEvent(t *testing.T) {
 			ShowWithoutTime: true,
 			Locations: map[string]Location{
 				"loc1": {
-					Type:        LocationType,
-					Name:        "Steel Cactus Mexican Grill",
-					Description: "The Steel Cactus Mexican Grill used to be on the Hecate Navy Base. The place closed down and is now a take-out restaurant that sells to-go cups of Thai food",
+					Type: LocationType,
+					Name: "Steel Cactus Mexican Grill",
 					LocationTypes: map[LocationTypeOption]bool{
 						LocationTypeOptionBar: true,
 					},

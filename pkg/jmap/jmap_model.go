@@ -1,10 +1,7 @@
 package jmap
 
 import (
-	"encoding/json"
 	"io"
-	"regexp"
-	"strconv"
 	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/jscalendar"
@@ -18,45 +15,7 @@ type ObjectType string
 // component MUST be `"Z"` (i.e., it must be in UTC time).
 //
 // For example, `"2014-10-30T06:12:00Z"`.
-type UTCDate struct {
-	time.Time
-}
-
-func (t UTCDate) MarshalJSON() ([]byte, error) {
-	// TODO imperfect, we're going to need something smarter here as the timezone is not actually
-	// fixed to be UTC but, instead, depends on the timezone that is defined in another property
-	// of the object where this LocalDate shows up in; alternatively, we might have to use a string
-	// here and leave the conversion to a usable timestamp up to the client or caller instead
-	return []byte("\"" + t.UTC().Format(time.RFC3339Nano) + "\""), nil
-}
-
-var longDateRegexp = regexp.MustCompile(`^"(\d+?)(\d\d\d\d-.*)$`)
-
-func (t *UTCDate) UnmarshalJSON(b []byte) error {
-	var tt time.Time
-
-	str := string(b)
-	m := longDateRegexp.FindAllStringSubmatch(str, 2)
-	if m != nil {
-		p, err := strconv.Atoi(m[0][1])
-		if err != nil {
-			return err
-		}
-		ndate := "\"" + m[0][2]
-		err = json.Unmarshal([]byte(ndate), &tt)
-		if err != nil {
-			return err
-		}
-		t.Time = tt.AddDate(p*10000, 0, 0).UTC()
-	} else {
-		err := tt.UnmarshalJSON(b)
-		if err != nil {
-			return err
-		}
-		t.Time = tt.UTC()
-	}
-	return nil
-}
+type UTCDate string
 
 // Where `LocalDate` is given as a type, it means a string in the same format as `Date`
 // (see [RFC8620, Section 1.4]), but with the time-offset omitted from the end.
@@ -67,29 +26,7 @@ func (t *UTCDate) UnmarshalJSON(b []byte) error {
 // may not be a fixed offset (for example when daylight saving time occurs).
 //
 // [RFC8620, Section 1.4]: https://www.rfc-editor.org/rfc/rfc8620.html#section-1.4
-type LocalDate struct {
-	time.Time
-}
-
-const RFC3339Local = "2006-01-02T15:04:05"
-
-func (t LocalDate) MarshalJSON() ([]byte, error) {
-	// TODO imperfect, we're going to need something smarter here as the timezone is not actually
-	// fixed to be UTC but, instead, depends on the timezone that is defined in another property
-	// of the object where this LocalDate shows up in; alternatively, we might have to use a string
-	// here and leave the conversion to a usable timestamp up to the client or caller instead
-	return []byte("\"" + t.UTC().Format(RFC3339Local) + "\""), nil
-}
-
-func (t *LocalDate) UnmarshalJSON(b []byte) error {
-	var tt time.Time
-	err := tt.UnmarshalJSON(b)
-	if err != nil {
-		return err
-	}
-	t.Time = tt.UTC()
-	return nil
-}
+type LocalDate string
 
 // Should the calendar’s events be used as part of availability calculation?
 //
@@ -5204,16 +5141,16 @@ func (f ContactCardFilterCondition) IsNotEmpty() bool {
 	if f.Kind != "" {
 		return true
 	}
-	if !f.CreatedBefore.IsZero() {
+	if f.CreatedBefore != "" {
 		return true
 	}
-	if !f.CreatedAfter.IsZero() {
+	if f.CreatedAfter != "" {
 		return true
 	}
-	if !f.UpdatedBefore.IsZero() {
+	if f.UpdatedBefore != "" {
 		return true
 	}
-	if !f.UpdatedAfter.IsZero() {
+	if f.UpdatedAfter != "" {
 		return true
 	}
 	if f.Text != "" {
@@ -5673,10 +5610,10 @@ func (f CalendarEventFilterCondition) IsNotEmpty() bool {
 	if f.InCalendar != "" {
 		return true
 	}
-	if !f.After.IsZero() {
+	if f.After != "" {
 		return true
 	}
-	if !f.Before.IsZero() {
+	if f.Before != "" {
 		return true
 	}
 	if f.Text != "" {

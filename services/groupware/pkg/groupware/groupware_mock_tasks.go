@@ -74,8 +74,8 @@ var T1 = jmap.Task{
 	Id:             "laoj0ahk",
 	TaskListId:     TL1.Id,
 	IsDraft:        false,
-	UtcStart:       jmap.UTCDate{Time: mustParseTime("2025-10-02T10:00:00Z")},
-	UtcDue:         jmap.UTCDate{Time: mustParseTime("2025-10-12T18:00:00Z")},
+	UtcStart:       jmap.UTCDate("2025-10-02T10:00:00Z"),
+	UtcDue:         jmap.UTCDate("2025-10-12T18:00:00Z"),
 	SortOrder:      1,
 	WorkflowStatus: "new",
 	Task: jscalendar.Task{
@@ -171,7 +171,7 @@ var T1 = jmap.Task{
 					Title:      "Control Medina Station",
 					SortOrder:  1,
 					IsComplete: true,
-					Updated:    jmap.UTCDate{Time: mustParseTime("2025-04-01T09:32:10Z")},
+					Updated:    jmap.UTCDate("2025-04-01T09:32:10Z"),
 					Assignee: &jmap.TaskPerson{
 						Type:        jmap.TaskPersonType,
 						Name:        "Fred Johnson",
@@ -182,8 +182,8 @@ var T1 = jmap.Task{
 						"ooze1iet": {
 							Type:    jmap.CommentType,
 							Message: "We first need to control Medina Station before we can get through the Sol Gate",
-							Created: jmap.UTCDate{Time: mustParseTime("2025-04-01T12:11:10Z")},
-							Updated: jmap.UTCDate{Time: mustParseTime("2025-04-01T12:29:19Z")},
+							Created: jmap.UTCDate("2025-04-01T12:11:10Z"),
+							Updated: jmap.UTCDate("2025-04-01T12:29:19Z"),
 							Author: &jmap.TaskPerson{
 								Type:        jmap.TaskPersonType,
 								Name:        "Anderson Dawes",

@@ -318,50 +318,6 @@ func TestEmailFilterSerialization(t *testing.T) {
 	require.Equal(strings.TrimSpace(expectedFilterJson), json)
 }
 
-func TestUtcDateUnmarshalling(t *testing.T) {
-	require := require.New(t)
-	r := struct {
-		Ts UTCDate `json:"ts"`
-	}{}
-	err := json.Unmarshal([]byte(`{"ts":"2025-10-30T14:15:16.987Z"}`), &r)
-	require.NoError(err)
-	require.Equal(2025, r.Ts.Year())
-	require.Equal(time.Month(10), r.Ts.Month())
-	require.Equal(30, r.Ts.Day())
-	require.Equal(14, r.Ts.Hour())
-	require.Equal(15, r.Ts.Minute())
-	require.Equal(16, r.Ts.Second())
-	require.Equal(987000000, r.Ts.Nanosecond())
-}
-
-func TestUtcDateMarshalling(t *testing.T) {
-	require := require.New(t)
-	r := struct {
-		Ts UTCDate `json:"ts"`
-	}{}
-	ts, err := time.Parse(time.RFC3339, "2025-10-30T14:15:16.987Z")
-	require.NoError(err)
-	r.Ts = UTCDate{ts}
-
-	jsoneq(t, `{"ts":"2025-10-30T14:15:16.987Z"}`, r)
-}
-
-func TestUtcDateUnmarshallingWithWeirdDate(t *testing.T) {
-	require := require.New(t)
-	r := struct {
-		Ts UTCDate `json:"ts"`
-	}{}
-	err := json.Unmarshal([]byte(`{"ts":"65534-12-31T23:59:59Z"}`), &r)
-	require.NoError(err)
-	require.Equal(65534, r.Ts.Year())
-	require.Equal(time.Month(12), r.Ts.Month())
-	require.Equal(31, r.Ts.Day())
-	require.Equal(23, r.Ts.Hour())
-	require.Equal(59, r.Ts.Minute())
-	require.Equal(59, r.Ts.Second())
-	require.Equal(0, r.Ts.Nanosecond())
-}
-
 func TestUnmarshallingCalendarEvent(t *testing.T) {
 	payload := `
 {
