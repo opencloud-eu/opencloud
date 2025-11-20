@@ -10,6 +10,17 @@
 
 - collaboration: Enable `InsertRemoteImage` option [[#1692](https://github.com/opencloud-eu/opencloud/pull/1692)]
 
+### 🐛 Bug Fixes
+
+- Bump reva [[#1882](https://github.com/opencloud-eu/opencloud/pull/1882)]
+- load two yaml configs [[#1617](https://github.com/opencloud-eu/opencloud/pull/1617)]
+- make user cache tenant aware [[#1732](https://github.com/opencloud-eu/opencloud/pull/1732)]
+- fix: sanitise markdow code to make docusaurus happy [[#1851](https://github.com/opencloud-eu/opencloud/pull/1851)]
+- update launch.json [[#1843](https://github.com/opencloud-eu/opencloud/pull/1843)]
+- docs: Fix auth-app examples in README [[#1844](https://github.com/opencloud-eu/opencloud/pull/1844)]
+- fix: fix typo in treesize logging [[#1826](https://github.com/opencloud-eu/opencloud/pull/1826)]
+- fix: set global signing secret fallback correctly [[#1781](https://github.com/opencloud-eu/opencloud/pull/1781)]
+
 ### ✅ Tests
 
 - api-tests: delete spaces before users [[#1877](https://github.com/opencloud-eu/opencloud/pull/1877)]
@@ -24,16 +35,6 @@
 
 - fix: add missing service README.md files with basic description [[#1859](https://github.com/opencloud-eu/opencloud/pull/1859)]
 - Fix README.md files which contain broken or missing links [[#1854](https://github.com/opencloud-eu/opencloud/pull/1854)]
-
-### 🐛 Bug Fixes
-
-- load two yaml configs [[#1617](https://github.com/opencloud-eu/opencloud/pull/1617)]
-- make user cache tenant aware [[#1732](https://github.com/opencloud-eu/opencloud/pull/1732)]
-- fix: sanitise markdow code to make docusaurus happy [[#1851](https://github.com/opencloud-eu/opencloud/pull/1851)]
-- update launch.json [[#1843](https://github.com/opencloud-eu/opencloud/pull/1843)]
-- docs: Fix auth-app examples in README [[#1844](https://github.com/opencloud-eu/opencloud/pull/1844)]
-- fix: fix typo in treesize logging [[#1826](https://github.com/opencloud-eu/opencloud/pull/1826)]
-- fix: set global signing secret fallback correctly [[#1781](https://github.com/opencloud-eu/opencloud/pull/1781)]
 
 ### 📈 Enhancement
 
