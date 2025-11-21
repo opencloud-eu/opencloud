@@ -12,6 +12,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix opensearch client certificate [[#1890](https://github.com/opencloud-eu/opencloud/pull/1890)]
 - Bump reva [[#1882](https://github.com/opencloud-eu/opencloud/pull/1882)]
 - load two yaml configs [[#1617](https://github.com/opencloud-eu/opencloud/pull/1617)]
 - make user cache tenant aware [[#1732](https://github.com/opencloud-eu/opencloud/pull/1732)]
