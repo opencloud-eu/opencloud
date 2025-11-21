@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @butonic, @dragonchaser, @flimmy, @individual-it, @micbar, @mikelolasagasti, @pbleser-oc, @rhafer, @schweigisito
+@AlexAndBear, @ScharfViktor, @butonic, @dragonchaser, @flimmy, @individual-it, @micbar, @mikelolasagasti, @pbleser-oc, @rhafer, @schweigisito
 
 ### 💥 Breaking changes
 
@@ -12,6 +12,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix: add missing capability flag support-radicale [[#1891](https://github.com/opencloud-eu/opencloud/pull/1891)]
 - fix opensearch client certificate [[#1890](https://github.com/opencloud-eu/opencloud/pull/1890)]
 - Bump reva [[#1882](https://github.com/opencloud-eu/opencloud/pull/1882)]
 - load two yaml configs [[#1617](https://github.com/opencloud-eu/opencloud/pull/1617)]
