@@ -13,7 +13,7 @@ require (
 	github.com/beevik/etree v1.6.0
 	github.com/blevesearch/bleve/v2 v2.5.5
 	github.com/cenkalti/backoff v2.2.1+incompatible
-	github.com/coreos/go-oidc/v3 v3.16.0
+	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/cs3org/go-cs3apis v0.0.0-20250908152307-4ca807afe54e
 	github.com/davidbyttow/govips/v2 v2.16.0
 	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
