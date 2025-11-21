@@ -218,6 +218,7 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 								"check_for_updates":   cfg.CheckForUpdates,
 								"support_url_signing": true,
 								"support_sse":         !cfg.DisableSSE,
+								"support_radicale":    !cfg.DisableRadicale,
 							},
 							"graph": map[string]interface{}{
 								"personal_data_export": true,
