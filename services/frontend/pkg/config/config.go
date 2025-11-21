@@ -36,6 +36,7 @@ type Config struct {
 	SearchMinLength                int    `yaml:"search_min_length" env:"FRONTEND_SEARCH_MIN_LENGTH" desc:"Minimum number of characters to enter before a client should start a search for Share receivers. This setting can be used to customize the user experience if e.g too many results are displayed." introductionVersion:"1.0.0"`
 	Edition                        string `yaml:"edition" env:"OC_EDITION;FRONTEND_EDITION" desc:"Edition of OpenCloud. Used for branding purposes." introductionVersion:"1.0.0"`
 	DisableSSE                     bool   `yaml:"disable_sse" env:"OC_DISABLE_SSE;FRONTEND_DISABLE_SSE" desc:"When set to true, clients are informed that the Server-Sent Events endpoint is not accessible." introductionVersion:"1.0.0"`
+	DisableRadicale                bool   `yaml:"disable_radicale" env:"FRONTEND_DISABLE_RADICALE" desc:"When set to true, clients are informed that the Radicale (CalDAV/CardDAV) is not accessible." introductionVersion:"4.0.0"`
 	DefaultLinkPermissions         int    `yaml:"default_link_permissions" env:"FRONTEND_DEFAULT_LINK_PERMISSIONS" desc:"Defines the default permissions a link is being created with. Possible values are 0 (= internal link, for instance members only) and 1 (= public link with viewer permissions). Defaults to 1." introductionVersion:"1.0.0"`
 
 	PublicURL                string      `yaml:"public_url" env:"OC_URL;FRONTEND_PUBLIC_URL" desc:"The public facing URL of the OpenCloud frontend." introductionVersion:"1.0.0"`
