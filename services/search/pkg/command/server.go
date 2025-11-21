@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"os"
 	"os/signal"
 
 	"github.com/opencloud-eu/reva/v2/pkg/events/raw"
@@ -84,30 +85,37 @@ func Server(cfg *config.Config) *cli.Command {
 
 				eng = bleve.NewBackend(idx, bleveQuery.DefaultCreator, logger)
 			case "open-search":
-				client, err := opensearchgoAPI.NewClient(opensearchgoAPI.Config{
-					Client: opensearchgo.Config{
-						Addresses:             cfg.Engine.OpenSearch.Client.Addresses,
-						Username:              cfg.Engine.OpenSearch.Client.Username,
-						Password:              cfg.Engine.OpenSearch.Client.Password,
-						Header:                cfg.Engine.OpenSearch.Client.Header,
-						CACert:                cfg.Engine.OpenSearch.Client.CACert,
-						RetryOnStatus:         cfg.Engine.OpenSearch.Client.RetryOnStatus,
-						DisableRetry:          cfg.Engine.OpenSearch.Client.DisableRetry,
-						EnableRetryOnTimeout:  cfg.Engine.OpenSearch.Client.EnableRetryOnTimeout,
-						MaxRetries:            cfg.Engine.OpenSearch.Client.MaxRetries,
-						CompressRequestBody:   cfg.Engine.OpenSearch.Client.CompressRequestBody,
-						DiscoverNodesOnStart:  cfg.Engine.OpenSearch.Client.DiscoverNodesOnStart,
-						DiscoverNodesInterval: cfg.Engine.OpenSearch.Client.DiscoverNodesInterval,
-						EnableMetrics:         cfg.Engine.OpenSearch.Client.EnableMetrics,
-						EnableDebugLogger:     cfg.Engine.OpenSearch.Client.EnableDebugLogger,
-						Transport: &http.Transport{
-							TLSClientConfig: &tls.Config{
-								MinVersion:         tls.VersionTLS12,
-								InsecureSkipVerify: cfg.Engine.OpenSearch.Client.Insecure,
-							},
+				clientConfig := opensearchgo.Config{
+					Addresses:             cfg.Engine.OpenSearch.Client.Addresses,
+					Username:              cfg.Engine.OpenSearch.Client.Username,
+					Password:              cfg.Engine.OpenSearch.Client.Password,
+					Header:                cfg.Engine.OpenSearch.Client.Header,
+					RetryOnStatus:         cfg.Engine.OpenSearch.Client.RetryOnStatus,
+					DisableRetry:          cfg.Engine.OpenSearch.Client.DisableRetry,
+					EnableRetryOnTimeout:  cfg.Engine.OpenSearch.Client.EnableRetryOnTimeout,
+					MaxRetries:            cfg.Engine.OpenSearch.Client.MaxRetries,
+					CompressRequestBody:   cfg.Engine.OpenSearch.Client.CompressRequestBody,
+					DiscoverNodesOnStart:  cfg.Engine.OpenSearch.Client.DiscoverNodesOnStart,
+					DiscoverNodesInterval: cfg.Engine.OpenSearch.Client.DiscoverNodesInterval,
+					EnableMetrics:         cfg.Engine.OpenSearch.Client.EnableMetrics,
+					EnableDebugLogger:     cfg.Engine.OpenSearch.Client.EnableDebugLogger,
+					Transport: &http.Transport{
+						TLSClientConfig: &tls.Config{
+							MinVersion:         tls.VersionTLS12,
+							InsecureSkipVerify: cfg.Engine.OpenSearch.Client.Insecure,
 						},
 					},
-				})
+				}
+
+				if cfg.Engine.OpenSearch.Client.CACert != "" {
+					certBytes, err := os.ReadFile(cfg.Engine.OpenSearch.Client.CACert)
+					if err != nil {
+						return fmt.Errorf("failed to read CA cert: %w", err)
+					}
+					clientConfig.CACert = certBytes
+				}
+
+				client, err := opensearchgoAPI.NewClient(opensearchgoAPI.Config{Client: clientConfig})
 				if err != nil {
 					return fmt.Errorf("failed to create OpenSearch client: %w", err)
 				}

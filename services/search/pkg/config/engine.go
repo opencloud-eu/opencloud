@@ -34,7 +34,7 @@ type EngineOpenSearchClient struct {
 	Username              string        `yaml:"username" env:"SEARCH_ENGINE_OPEN_SEARCH_CLIENT_USERNAME" desc:"Username for HTTP Basic Authentication." introductionVersion:"%%NEXT%%"`
 	Password              string        `yaml:"password" env:"SEARCH_ENGINE_OPEN_SEARCH_CLIENT_PASSWORD" desc:"Password for HTTP Basic Authentication." introductionVersion:"%%NEXT%%"`
 	Header                http.Header   `yaml:"header" env:"SEARCH_ENGINE_OPEN_SEARCH_CLIENT_HEADER" desc:"HTTP headers to include in requests." introductionVersion:"%%NEXT%%"`
-	CACert                []byte        `yaml:"ca_cert" env:"SEARCH_ENGINE_OPEN_SEARCH_CLIENT_CA_CERT" desc:"CA certificate for TLS connections." introductionVersion:"%%NEXT%%"`
+	CACert                string        `yaml:"ca_cert" env:"SEARCH_ENGINE_OPEN_SEARCH_CLIENT_CA_CERT" desc:"Path/File name for the root CA certificate (in PEM format) used to validate TLS server certificates of the opensearch server." introductionVersion:"%%NEXT%%"`
 	RetryOnStatus         []int         `yaml:"retry_on_status" env:"SEARCH_ENGINE_OPEN_SEARCH_CLIENT_RETRY_ON_STATUS" desc:"HTTP status codes that trigger a retry." introductionVersion:"%%NEXT%%"`
 	DisableRetry          bool          `yaml:"disable_retry" env:"SEARCH_ENGINE_OPEN_SEARCH_CLIENT_DISABLE_RETRY" desc:"Disable retries on errors." introductionVersion:"%%NEXT%%"`
 	EnableRetryOnTimeout  bool          `yaml:"enable_retry_on_timeout" env:"SEARCH_ENGINE_OPEN_SEARCH_CLIENT_ENABLE_RETRY_ON_TIMEOUT" desc:"Enable retries on timeout." introductionVersion:"%%NEXT%%"`
