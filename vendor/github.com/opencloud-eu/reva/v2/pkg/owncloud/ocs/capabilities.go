@@ -110,6 +110,7 @@ type CapabilitiesCore struct {
 	CheckForUpdates   ocsBool `json:"check-for-updates" xml:"check-for-updates" mapstructure:"check_for_updates"`
 	SupportURLSigning ocsBool `json:"support-url-signing" xml:"support-url-signing" mapstructure:"support_url_signing"`
 	SupportSSE        ocsBool `json:"support-sse" xml:"support-sse" mapstructure:"support_sse"`
+	SupportRadicale   ocsBool `json:"support-radicale" xml:"support-radicale" mapstructure:"support_radicale"`
 }
 
 // CapabilitiesGraph holds the graph capabilities
