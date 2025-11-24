@@ -21,6 +21,11 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
+const (
+	// currently not supported, reported as https://github.com/stalwartlabs/stalwart/issues/2431
+	EnableMediaWithBlobId = false
+)
+
 func TestContacts(t *testing.T) {
 	if skip(t) {
 		return
@@ -38,8 +43,6 @@ func TestContacts(t *testing.T) {
 	require.NoError(err)
 	require.NotEmpty(accountId)
 	require.NotEmpty(addressbookId)
-
-	allTrue(t, boxes, "mediaWithBlobId")
 
 	filter := ContactCardFilterCondition{
 		InAddressBook: addressbookId,
@@ -61,10 +64,17 @@ func TestContacts(t *testing.T) {
 		require.True(ok, "failed to find created contact by its id")
 		matchContact(t, actual, expected)
 	}
+
+	exceptions := []string{}
+	if !EnableMediaWithBlobId {
+		exceptions = append(exceptions, "mediaWithBlobId")
+	}
+	allBoxesAreTicked(t, boxes, exceptions...)
 }
 
 func matchContact(t *testing.T, actual jscontact.ContactCard, expected jscontact.ContactCard) {
-	require.Equal(t, expected, actual)
+	// require.Equal(t, expected, actual)
+	deepEqual(t, expected, actual)
 }
 
 type ContactsBoxes struct {
@@ -116,33 +126,32 @@ func (s *StalwartTest) fillContacts(
 	}
 	require.NotEmpty(addressbookId)
 
-	u := true
-
 	filled := map[string]jscontact.ContactCard{}
 	for i := range count {
 		person := gofakeit.Person()
-		nameMap, nameObj := createName(person, u)
+		nameMap, nameObj := createName(person)
+		language := pickLanguage()
 		contact := map[string]any{
 			"@type":          "Card",
 			"version":        "1.0",
 			"addressBookIds": toBoolMap([]string{addressbookId}),
 			"prodId":         productName,
-			"language":       pickLanguage(),
+			"language":       language,
 			"kind":           "individual",
 			"name":           nameMap,
 		}
 		card := jscontact.ContactCard{
-			//Type:           jscontact.ContactCardType,
+			Type:           jscontact.ContactCardType,
 			Version:        "1.0",
 			AddressBookIds: toBoolMap([]string{addressbookId}),
 			ProdId:         productName,
-			Language:       contact["language"].(string),
+			Language:       language,
 			Kind:           jscontact.ContactCardKindIndividual,
 			Name:           &nameObj,
 		}
 
 		if i%3 == 0 {
-			nicknameMap, nicknameObj := createNickName(person, u)
+			nicknameMap, nicknameObj := createNickName(person)
 			id := id()
 			contact["nicknames"] = map[string]map[string]any{id: nicknameMap}
 			card.Nicknames = map[string]jscontact.Nickname{id: nicknameObj}
@@ -153,13 +162,13 @@ func (s *StalwartTest) fillContacts(
 			emailMaps := map[string]map[string]any{}
 			emailObjs := map[string]jscontact.EmailAddress{}
 			emailId := id()
-			emailMap, emailObj := createEmail(person, 10, u)
+			emailMap, emailObj := createEmail(person, 10)
 			emailMaps[emailId] = emailMap
 			emailObjs[emailId] = emailObj
 
 			for i := range rand.Intn(3) {
 				id := id()
-				m, o := createSecondaryEmail(gofakeit.Email(), i*100, u)
+				m, o := createSecondaryEmail(gofakeit.Email(), i*100)
 				emailMaps[id] = m
 				emailObjs[id] = o
 				boxes.secondaryEmails = true
@@ -192,12 +201,12 @@ func (s *StalwartTest) fillContacts(
 					"number":   tel,
 					"features": structs.MapKeys(features, func(f jscontact.PhoneFeature) string { return string(f) }),
 					"contexts": structs.MapKeys(contexts, func(c jscontact.PhoneContext) string { return string(c) }),
-				}, untype(jscontact.Phone{
+				}, jscontact.Phone{
 					Type:     jscontact.PhoneType,
 					Number:   tel,
 					Features: features,
 					Contexts: contexts,
-				}, u), nil
+				}, nil
 		}); err != nil {
 			return "", "", nil, boxes, err
 		}
@@ -212,16 +221,16 @@ func (s *StalwartTest) fillContacts(
 			components := []jscontact.AddressComponent{}
 			m := streetNumberRegex.FindAllStringSubmatch(source.Street, -1)
 			if m != nil {
-				components = append(components, jscontact.AddressComponent{ /*Type: jscontact.AddressComponentType,*/ Kind: jscontact.AddressComponentKindName, Value: m[0][2]})
-				components = append(components, jscontact.AddressComponent{ /*Type: jscontact.AddressComponentType,*/ Kind: jscontact.AddressComponentKindNumber, Value: m[0][1]})
+				components = append(components, jscontact.AddressComponent{Type: jscontact.AddressComponentType, Kind: jscontact.AddressComponentKindName, Value: m[0][2]})
+				components = append(components, jscontact.AddressComponent{Type: jscontact.AddressComponentType, Kind: jscontact.AddressComponentKindNumber, Value: m[0][1]})
 			} else {
-				components = append(components, jscontact.AddressComponent{ /*Type: jscontact.AddressComponentType,*/ Kind: jscontact.AddressComponentKindName, Value: source.Street})
+				components = append(components, jscontact.AddressComponent{Type: jscontact.AddressComponentType, Kind: jscontact.AddressComponentKindName, Value: source.Street})
 			}
 			components = append(components,
-				jscontact.AddressComponent{ /*Type: jscontact.AddressComponentType,*/ Kind: jscontact.AddressComponentKindLocality, Value: source.City},
-				jscontact.AddressComponent{ /*Type: jscontact.AddressComponentType,*/ Kind: jscontact.AddressComponentKindCountry, Value: source.Country},
-				jscontact.AddressComponent{ /*Type: jscontact.AddressComponentType,*/ Kind: jscontact.AddressComponentKindRegion, Value: source.State},
-				jscontact.AddressComponent{ /*Type: jscontact.AddressComponentType,*/ Kind: jscontact.AddressComponentKindPostcode, Value: source.Zip},
+				jscontact.AddressComponent{Type: jscontact.AddressComponentType, Kind: jscontact.AddressComponentKindLocality, Value: source.City},
+				jscontact.AddressComponent{Type: jscontact.AddressComponentType, Kind: jscontact.AddressComponentKindCountry, Value: source.Country},
+				jscontact.AddressComponent{Type: jscontact.AddressComponentType, Kind: jscontact.AddressComponentKindRegion, Value: source.State},
+				jscontact.AddressComponent{Type: jscontact.AddressComponentType, Kind: jscontact.AddressComponentKindPostcode, Value: source.Zip},
 			)
 			tz := pickRandom(timezones...)
 			return map[string]any{
@@ -232,13 +241,13 @@ func (s *StalwartTest) fillContacts(
 					"defaultSeparator": ", ",
 					"isOrdered":        true,
 					"timeZone":         tz,
-				}, untype(jscontact.Address{
+				}, jscontact.Address{
 					Type:             jscontact.AddressType,
 					Components:       components,
 					DefaultSeparator: ", ",
 					IsOrdered:        true,
 					TimeZone:         tz,
-				}, u), nil
+				}, nil
 		}); err != nil {
 			return "", "", nil, boxes, err
 		}
@@ -251,32 +260,32 @@ func (s *StalwartTest) fillContacts(
 						"service": "Mastodon",
 						"user":    "@" + person.Contact.Email,
 						"uri":     "https://mastodon.example.com/@" + strings.ToLower(person.FirstName),
-					}, untype(jscontact.OnlineService{
+					}, jscontact.OnlineService{
 						Type:    jscontact.OnlineServiceType,
 						Service: "Mastodon",
 						User:    "@" + person.Contact.Email,
 						Uri:     "https://mastodon.example.com/@" + strings.ToLower(person.FirstName),
-					}, u), nil
+					}, nil
 			case 1:
 				return map[string]any{
 						"@type": "OnlineService",
 						"uri":   "xmpp:" + person.Contact.Email,
-					}, untype(jscontact.OnlineService{
+					}, jscontact.OnlineService{
 						Type: jscontact.OnlineServiceType,
 						Uri:  "xmpp:" + person.Contact.Email,
-					}, u), nil
+					}, nil
 			default:
 				return map[string]any{
 						"@type":   "OnlineService",
 						"service": "Discord",
 						"user":    person.Contact.Email,
 						"uri":     "https://discord.example.com/user/" + person.Contact.Email,
-					}, untype(jscontact.OnlineService{
+					}, jscontact.OnlineService{
 						Type:    jscontact.OnlineServiceType,
 						Service: "Discord",
 						User:    person.Contact.Email,
 						Uri:     "https://discord.example.com/user/" + person.Contact.Email,
-					}, u), nil
+					}, nil
 			}
 		}); err != nil {
 			return "", "", nil, boxes, err
@@ -291,12 +300,12 @@ func (s *StalwartTest) fillContacts(
 					"language": lang,
 					"contexts": toBoolMap(contexts),
 					"pref":     i + 1,
-				}, untype(jscontact.LanguagePref{
+				}, jscontact.LanguagePref{
 					Type:     jscontact.LanguagePrefType,
 					Language: lang,
 					Contexts: toBoolMap(structs.Map(contexts, func(s string) jscontact.LanguagePrefContext { return jscontact.LanguagePrefContext(s) })),
 					Pref:     uint(i + 1),
-				}, u), nil
+				}, nil
 		}); err != nil {
 			return "", "", nil, boxes, err
 		}
@@ -315,23 +324,23 @@ func (s *StalwartTest) fillContacts(
 					"name":     person.Job.Company,
 					"contexts": toBoolMapS("work"),
 				}
-				organizationObjs[orgId] = untype(jscontact.Organization{
+				organizationObjs[orgId] = jscontact.Organization{
 					Type:     jscontact.OrganizationType,
 					Name:     person.Job.Company,
 					Contexts: toBoolMapS(jscontact.OrganizationContextWork),
-				}, u)
+				}
 				titleMaps[titleId] = map[string]any{
 					"@type":          "Title",
 					"kind":           "title",
 					"name":           person.Job.Title,
 					"organizationId": orgId,
 				}
-				titleObjs[titleId] = untype(jscontact.Title{
+				titleObjs[titleId] = jscontact.Title{
 					Type:           jscontact.TitleType,
 					Kind:           jscontact.TitleKindTitle,
 					Name:           person.Job.Title,
 					OrganizationId: orgId,
-				}, u)
+				}
 			}
 			contact["organizations"] = organizationMaps
 			contact["titles"] = titleMaps
@@ -352,19 +361,29 @@ func (s *StalwartTest) fillContacts(
 			}
 			encoded := base64.RawStdEncoding.EncodeToString(b.Bytes())
 			return map[string]any{
-					"@type": "CryptoKey",
-					"uri":   "data:application/pgp-keys;base64," + encoded,
-				}, untype(jscontact.CryptoKey{
-					Type: jscontact.CryptoKeyType,
-					Uri:  "data:application/pgp-keys;base64," + encoded,
-				}, u), nil
+					"@type":     "CryptoKey",
+					"uri":       "data:application/pgp-keys;base64," + encoded,
+					"mediaType": "application/pgp-keys",
+				}, jscontact.CryptoKey{
+					Type:      jscontact.CryptoKeyType,
+					Uri:       "data:application/pgp-keys;base64," + encoded,
+					MediaType: "application/pgp-keys",
+				}, nil
 		}); err != nil {
 			return "", "", nil, boxes, err
 		}
 
 		if err := propmap(i%2 == 0, 1, 2, contact, "media", &card.Media, func(i int, id string) (map[string]any, jscontact.Media, error) {
 			label := fmt.Sprintf("photo-%d", 1000+rand.Intn(9000))
-			switch rand.Intn(3) {
+
+			r := 0
+			if EnableMediaWithBlobId {
+				r = rand.Intn(3)
+			} else {
+				r = rand.Intn(2)
+			}
+
+			switch r {
 			case 0:
 				boxes.mediaWithDataUri = true
 				// use data uri
@@ -381,16 +400,35 @@ func (s *StalwartTest) fillContacts(
 						"mediaType": mime,
 						"contexts":  structs.MapKeys(contexts, func(c jscontact.MediaContext) string { return string(c) }),
 						"label":     label,
-					}, untype(jscontact.Media{
+					}, jscontact.Media{
 						Type:      jscontact.MediaType,
 						Kind:      jscontact.MediaKindPhoto,
 						Uri:       uri,
 						MediaType: mime,
 						Contexts:  contexts,
 						Label:     label,
-					}, u), nil
-			// currently not supported, reported as https://github.com/stalwartlabs/stalwart/issues/2431
-			case -1: // change this to 1 to enable it again
+					}, nil
+
+			case 1:
+				boxes.mediaWithExternalUri = true
+				// use external uri
+				uri := externalImageUri()
+				contexts := toBoolMapS(jscontact.MediaContextWork)
+				return map[string]any{
+						"@type":    "Media",
+						"kind":     string(jscontact.MediaKindPhoto),
+						"uri":      uri,
+						"contexts": structs.MapKeys(contexts, func(c jscontact.MediaContext) string { return string(c) }),
+						"label":    label,
+					}, jscontact.Media{
+						Type:     jscontact.MediaType,
+						Kind:     jscontact.MediaKindPhoto,
+						Uri:      uri,
+						Contexts: contexts,
+						Label:    label,
+					}, nil
+
+			default:
 				boxes.mediaWithBlobId = true
 				size := pickRandom(16, 24, 32, 48, 64)
 				img := gofakeit.ImageJpeg(size, size)
@@ -405,33 +443,15 @@ func (s *StalwartTest) fillContacts(
 						"blobId":   blob.BlobId,
 						"contexts": structs.MapKeys(contexts, func(c jscontact.MediaContext) string { return string(c) }),
 						"label":    label,
-					}, untype(jscontact.Media{
+					}, jscontact.Media{
 						Type:      jscontact.MediaType,
 						Kind:      jscontact.MediaKindPhoto,
 						BlobId:    blob.BlobId,
 						MediaType: blob.Type,
 						Contexts:  contexts,
 						Label:     label,
-					}, u), nil
+					}, nil
 
-			default:
-				boxes.mediaWithExternalUri = true
-				// use external uri
-				uri := picsum(128, 128)
-				contexts := toBoolMapS(jscontact.MediaContextWork)
-				return map[string]any{
-						"@type":    "Media",
-						"kind":     string(jscontact.MediaKindPhoto),
-						"uri":      uri,
-						"contexts": structs.MapKeys(contexts, func(c jscontact.MediaContext) string { return string(c) }),
-						"label":    label,
-					}, untype(jscontact.Media{
-						Type:     jscontact.MediaType,
-						Kind:     jscontact.MediaKindPhoto,
-						Uri:      uri,
-						Contexts: contexts,
-						Label:    label,
-					}, u), nil
 			}
 		}); err != nil {
 			return "", "", nil, boxes, err
@@ -443,12 +463,12 @@ func (s *StalwartTest) fillContacts(
 					"kind":  "contact",
 					"uri":   "mailto:" + person.Contact.Email,
 					"pref":  (i + 1) * 10,
-				}, untype(jscontact.Link{
+				}, jscontact.Link{
 					Type: jscontact.LinkType,
 					Kind: jscontact.LinkKindContact,
 					Uri:  "mailto:" + person.Contact.Email,
 					Pref: uint((i + 1) * 10),
-				}, u), nil
+				}, nil
 		}); err != nil {
 			return "", "", nil, boxes, err
 		}

@@ -22,6 +22,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
 	"github.com/gorilla/websocket"
@@ -42,6 +43,10 @@ import (
 	"github.com/go-crypt/crypt/algorithm/shacrypt"
 )
 
+const (
+	EnableTypes = false
+)
+
 var (
 	domains = [...]string{"earth.gov", "mars.mil", "opa.org", "acme.com"}
 	people  = [...]string{
@@ -58,7 +63,7 @@ var (
 )
 
 const (
-	stalwartImage  = "ghcr.io/stalwartlabs/stalwart:v0.14.0-alpine"
+	stalwartImage  = "ghcr.io/stalwartlabs/stalwart:v0.14.1-alpine"
 	httpPort       = "8080"
 	imapsPort      = "993"
 	configTemplate = `
@@ -105,6 +110,7 @@ tracer.log.level = "trace"
 tracer.log.lossy = false
 tracer.log.multiline = false
 tracer.log.type = "stdout"
+sharing.allow-directory-query = false
 `
 )
 
@@ -393,13 +399,6 @@ func pickRandomlyFromMap[K comparable, V any](m map[K]V, min int, max int) map[K
 
 var productName = "jmaptest"
 
-func untype[S any](s S, t bool) S {
-	if t {
-		reflect.ValueOf(&s).Elem().FieldByName("Type").SetString("")
-	}
-	return s
-}
-
 type TestJmapClient struct {
 	h        *http.Client
 	username string
@@ -645,7 +644,7 @@ func (j *TestJmapClient) objectsById(accountId string, objectType ObjectType, sc
 	return m, nil
 }
 
-func createName(person *gofakeit.PersonInfo, u bool) (map[string]any, jscontact.Name) {
+func createName(person *gofakeit.PersonInfo) (map[string]any, jscontact.Name) {
 	o := jscontact.Name{
 		Type: jscontact.NameType,
 	}
@@ -658,20 +657,20 @@ func createName(person *gofakeit.PersonInfo, u bool) (map[string]any, jscontact.
 		"kind":  "given",
 		"value": person.FirstName,
 	}
-	oComps[0] = untype(jscontact.NameComponent{
+	oComps[0] = jscontact.NameComponent{
 		Type:  jscontact.NameComponentType,
 		Kind:  jscontact.NameComponentKindGiven,
 		Value: person.FirstName,
-	}, u)
+	}
 	mComps[1] = map[string]string{
 		"kind":  "surname",
 		"value": person.LastName,
 	}
-	oComps[1] = untype(jscontact.NameComponent{
+	oComps[1] = jscontact.NameComponent{
 		Type:  jscontact.NameComponentType,
 		Kind:  jscontact.NameComponentKindSurname,
 		Value: person.LastName,
-	}, u)
+	}
 	m["components"] = mComps
 	o.Components = oComps
 	m["isOrdered"] = true
@@ -681,24 +680,24 @@ func createName(person *gofakeit.PersonInfo, u bool) (map[string]any, jscontact.
 	full := fmt.Sprintf("%s %s", person.FirstName, person.LastName)
 	m["full"] = full
 	o.Full = full
-	return m, untype(o, u)
+	return m, o
 }
 
-func createNickName(_ *gofakeit.PersonInfo, u bool) (map[string]any, jscontact.Nickname) {
+func createNickName(_ *gofakeit.PersonInfo) (map[string]any, jscontact.Nickname) {
 	name := gofakeit.PetName()
 	contexts := pickRandoms(jscontact.NicknameContextPrivate, jscontact.NicknameContextWork)
 	return map[string]any{
 			"@type":    "Nickname",
 			"name":     name,
 			"contexts": toBoolMap(structs.Map(contexts, func(s jscontact.NicknameContext) string { return string(s) })),
-		}, untype(jscontact.Nickname{
+		}, jscontact.Nickname{
 			Type:     jscontact.NicknameType,
 			Name:     name,
 			Contexts: orNilMap(toBoolMap(contexts)),
-		}, u)
+		}
 }
 
-func createEmail(person *gofakeit.PersonInfo, pref int, u bool) (map[string]any, jscontact.EmailAddress) {
+func createEmail(person *gofakeit.PersonInfo, pref int) (map[string]any, jscontact.EmailAddress) {
 	email := person.Contact.Email
 	contexts := pickRandoms1(jscontact.EmailAddressContextWork, jscontact.EmailAddressContextPrivate)
 	label := strings.ToLower(person.FirstName)
@@ -708,28 +707,28 @@ func createEmail(person *gofakeit.PersonInfo, pref int, u bool) (map[string]any,
 			"contexts": toBoolMap(structs.Map(contexts, func(s jscontact.EmailAddressContext) string { return string(s) })),
 			"label":    label,
 			"pref":     pref,
-		}, untype(jscontact.EmailAddress{
+		}, jscontact.EmailAddress{
 			Type:     jscontact.EmailAddressType,
 			Address:  email,
 			Contexts: orNilMap(toBoolMap(contexts)),
 			Label:    label,
 			Pref:     uint(pref),
-		}, u)
+		}
 }
 
-func createSecondaryEmail(email string, pref int, u bool) (map[string]any, jscontact.EmailAddress) {
+func createSecondaryEmail(email string, pref int) (map[string]any, jscontact.EmailAddress) {
 	contexts := pickRandoms(jscontact.EmailAddressContextWork, jscontact.EmailAddressContextPrivate)
 	return map[string]any{
 			"@type":    "EmailAddress",
 			"address":  email,
 			"contexts": toBoolMap(structs.Map(contexts, func(s jscontact.EmailAddressContext) string { return string(s) })),
 			"pref":     pref,
-		}, untype(jscontact.EmailAddress{
+		}, jscontact.EmailAddress{
 			Type:     jscontact.EmailAddressType,
 			Address:  email,
 			Contexts: orNilMap(toBoolMap(contexts)),
 			Pref:     uint(pref),
-		}, u)
+		}
 }
 
 var idFirstLetters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -971,8 +970,8 @@ func propmap[T any](enabled bool, min int, max int, container map[string]any, na
 	return nil
 }
 
-func picsum(w, h int) string {
-	return fmt.Sprintf("https://picsum.photos/id/%d/%d/%d", 1+rand.Intn(200), h, w)
+func externalImageUri() string {
+	return fmt.Sprintf("https://picsum.photos/id/%d/%d/%d", 1+rand.Intn(200), 200, 300)
 }
 
 func orNilMap[K comparable, V any](m map[K]V) map[K]V {
@@ -980,14 +979,6 @@ func orNilMap[K comparable, V any](m map[K]V) map[K]V {
 		return nil
 	} else {
 		return m
-	}
-}
-
-func orNilSlice[E any](s []E) []E {
-	if len(s) < 1 {
-		return nil
-	} else {
-		return s
 	}
 }
 
@@ -1046,15 +1037,37 @@ func pickLocale() string {
 	return pickRandom("en", "fr", "de")
 }
 
-func allTrue[S any](t *testing.T, s S, exceptions ...string) {
+func allBoxesAreTicked[S any](t *testing.T, s S, exceptions ...string) {
 	v := reflect.ValueOf(s)
 	typ := v.Type()
 	for i := range v.NumField() {
 		name := typ.Field(i).Name
 		if slices.Contains(exceptions, name) {
+			log.Printf("(/) %s\n", name)
 			continue
 		}
 		value := v.Field(i).Bool()
+		if value {
+			log.Printf("(X) %s\n", name)
+		} else {
+			log.Printf("( ) %s\n", name)
+		}
 		require.True(t, value, "should be true: %v", name)
 	}
+}
+
+func deepEqual[T any](t *testing.T, expected, actual T) {
+	diff := ""
+	if EnableTypes {
+		diff = cmp.Diff(expected, actual)
+	} else {
+		diff = cmp.Diff(expected, actual, cmp.FilterPath(func(p cmp.Path) bool {
+			switch sf := p.Last().(type) {
+			case cmp.StructField:
+				return sf.String() == ".Type"
+			}
+			return false
+		}, cmp.Ignore()))
+	}
+	require.Empty(t, diff)
 }
