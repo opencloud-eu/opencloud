@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2025-11-07 00:02+0000\n"
+"POT-Creation-Date: 2025-11-24 00:02+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Jiri Grönroos <jiri.gronroos@iki.fi>, 2025\n"
 "Language-Team: Finnish (https://app.transifex.com/opencloud-eu/teams/204053/fi/)\n"
@@ -103,7 +103,7 @@ msgstr "Ilmoita, kun avaruuden jäsenyys on vanhentunut"
 #. name of the notification option 'Space Unshared'
 #: pkg/store/defaults/templates.go:24
 msgid "Removed as space member"
-msgstr ""
+msgstr "Poistettu avaruuden jäsenyydestä"
 
 #. description of the notification option 'Email Interval'
 #: pkg/store/defaults/templates.go:46
