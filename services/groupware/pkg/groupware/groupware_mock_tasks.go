@@ -113,9 +113,8 @@ var T1 = jmap.Task{
 			ShowWithoutTime: false,
 			Locations: map[string]jscalendar.Location{
 				"ruoth5uu": {
-					Type:        jscalendar.LocationType,
-					Name:        "Sol Gate",
-					Description: "We meet at the Sol gate",
+					Type: jscalendar.LocationType,
+					Name: "Sol Gate",
 					LocationTypes: map[jscalendar.LocationTypeOption]bool{
 						jscalendar.LocationTypeOptionLandmarkAddress: true,
 					},

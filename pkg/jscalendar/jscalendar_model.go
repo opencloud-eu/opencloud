@@ -1410,8 +1410,8 @@ func MapstructTriggerHook() mapstructure.DecodeHookFunc {
 			return data, nil
 		}
 		m := data.(map[string]any)
-		if typ, ok := m["@type"]; ok {
-			switch typ {
+		if t, ok := m["@type"]; ok {
+			switch t {
 			case string(OffsetTriggerType):
 				return mapOffsetTrigger(m)
 			case string(AbsoluteTriggerType):
@@ -1517,25 +1517,37 @@ type Alert struct {
 }
 
 func (a *Alert) UnmarshalJSON(b []byte) error {
-	var typ struct {
+	// use a simplified Trigger structure to only deserialize some of
+	// its fields, only in order to detect which Trigger type it actually
+	// is (Offset, Absolute, or Unknown)
+	var peekAlert struct {
 		Trigger struct {
-			Type string `json:"@type"`
+			Type   string `json:"@type"`
+			Offset string `json:"offset"`
+			When   string `json:"when"`
 		} `json:"trigger"`
 	}
-	if err := json.Unmarshal(b, &typ); err != nil {
+	if err := json.Unmarshal(b, &peekAlert); err != nil {
 		return err
 	}
-	switch typ.Trigger.Type {
+	switch peekAlert.Trigger.Type {
 	case string(OffsetTriggerType):
 		a.Trigger = new(OffsetTrigger)
 	case string(AbsoluteTriggerType):
 		a.Trigger = new(AbsoluteTrigger)
 	default:
-		a.Trigger = new(UnknownTrigger)
+		// it could still be a Trigger without its optional @type field
+		if peekAlert.Trigger.Offset != "" { // if "offset" is set, it's an OffsetTrigger
+			a.Trigger = new(OffsetTrigger)
+		} else if peekAlert.Trigger.When != "" { // if "when" is set, it's an AbsoluteTrigger
+			a.Trigger = new(AbsoluteTrigger)
+		} else { // it's neither -> UnknownTrigger
+			a.Trigger = new(UnknownTrigger)
+		}
 	}
 
-	type tmp Alert
-	return json.Unmarshal(b, (*tmp)(a))
+	type tmpAlert Alert // alias Alert to avoid infinite recursion into this func
+	return json.Unmarshal(b, (*tmpAlert)(a))
 }
 
 // A `TimeZoneRule` object maps a `STANDARD` or `DAYLIGHT` sub-component from iCalendar,

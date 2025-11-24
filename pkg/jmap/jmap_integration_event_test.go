@@ -19,6 +19,12 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
+// fields that are currently unsupported in Stalwart
+const (
+	EnableEventMayInviteFields              = false
+	EnableEventParticipantDescriptionFields = false
+)
+
 func TestEvents(t *testing.T) {
 	if skip(t) {
 		return
@@ -36,8 +42,6 @@ func TestEvents(t *testing.T) {
 	require.NoError(err)
 	require.NotEmpty(accountId)
 	require.NotEmpty(calendarId)
-
-	allTrue(t, boxes)
 
 	filter := CalendarEventFilterCondition{
 		InCalendar: calendarId,
@@ -59,13 +63,23 @@ func TestEvents(t *testing.T) {
 		require.True(ok, "failed to find created contact by its id")
 		matchEvent(t, actual, expected)
 	}
+
+	exceptions := []string{}
+	if !EnableEventMayInviteFields {
+		exceptions = append(exceptions, "mayInvite")
+	}
+	allBoxesAreTicked(t, boxes, exceptions...)
 }
 
 func matchEvent(t *testing.T, actual CalendarEvent, expected CalendarEvent) {
-	require.Equal(t, expected, actual)
+	//require.Equal(t, expected, actual)
+	deepEqual(t, expected, actual)
 }
 
 type EventsBoxes struct {
+	categories bool
+	keywords   bool
+	mayInvite  bool
 }
 
 func (s *StalwartTest) fillEvents(
@@ -100,8 +114,6 @@ func (s *StalwartTest) fillEvents(
 	}
 	require.NotEmpty(calendarId)
 
-	u := true
-
 	filled := map[string]CalendarEvent{}
 	for i := range count {
 		uid := gofakeit.UUID()
@@ -119,7 +131,7 @@ func (s *StalwartTest) fillEvents(
 			for range n {
 				locationId, locationMap, locationObj := pickLocation()
 				locationMaps[locationId] = locationMap
-				locationObjs[locationId] = untype(locationObj, u)
+				locationObjs[locationId] = locationObj
 				locationIds = append(locationIds, locationId)
 				if n > 0 && mainLocationId == "" {
 					mainLocationId = locationId
@@ -127,7 +139,7 @@ func (s *StalwartTest) fillEvents(
 			}
 		}
 		virtualLocationId, virtualLocationMap, virtualLocationObj := pickVirtualLocation()
-		participantMaps, participantObjs, organizerEmail := createParticipants(uid, locationIds, []string{virtualLocationId}, u)
+		participantMaps, participantObjs, organizerEmail := createParticipants(uid, locationIds, []string{virtualLocationId})
 		duration := pickRandom("PT30M", "PT45M", "PT1H", "PT90M")
 		tz := pickRandom(timezones...)
 		daysDiff := rand.Intn(31) - 15
@@ -148,9 +160,9 @@ func (s *StalwartTest) fillEvents(
 		privacy := pickRandom(jscalendar.Privacies...)
 		color := pickRandom(basicColors...)
 		locale := pickLocale()
-		keywords := keywords()
-		categories := categories()
-		var _ = categories // currently not used because it's unsupported in Stalwart
+		keywords := pickKeywords()
+		categories := pickCategories()
+
 		sequence := 0
 
 		alertId := id()
@@ -169,18 +181,15 @@ func (s *StalwartTest) fillEvents(
 			"description":            description,
 			"descriptionContentType": descriptionFormat,
 			"locale":                 locale,
-			// "categories":             categories, // currently unsupported in Stalwart
-			"color":           color,
-			"sequence":        sequence,
-			"showWithoutTime": false,
-			"freeBusyStatus":  string(freeBusy),
-			"privacy":         string(privacy),
-			"sentBy":          organizerEmail,
-			"participants":    participantMaps,
-			"timeZone":        tz,
-			// "mayInviteSelf":   true, // currently unsupported in Stalwart
-			// "mayInviteOthers": true, // currently unsupported in Stalwart
-			"hideAttendees": false,
+			"color":                  color,
+			"sequence":               sequence,
+			"showWithoutTime":        false,
+			"freeBusyStatus":         string(freeBusy),
+			"privacy":                string(privacy),
+			"sentBy":                 organizerEmail,
+			"participants":           participantMaps,
+			"timeZone":               tz,
+			"hideAttendees":          false,
 			"replyTo": map[string]string{
 				"imip": "mailto:" + organizerEmail,
 			},
@@ -199,12 +208,13 @@ func (s *StalwartTest) fillEvents(
 				},
 			},
 		}
+
 		obj := CalendarEvent{
 			Id:          "",
 			CalendarIds: toBoolMapS(calendarId),
 			IsDraft:     isDraft,
 			IsOrigin:    true,
-			Event: untype(jscalendar.Event{
+			Event: jscalendar.Event{
 				Type:     jscalendar.EventType,
 				Start:    jscalendar.LocalDateTime(start),
 				Duration: jscalendar.Duration(duration),
@@ -217,8 +227,7 @@ func (s *StalwartTest) fillEvents(
 						Description:            description,
 						DescriptionContentType: descriptionFormat,
 						Locale:                 locale,
-						// Categories:             categories, // currently unsupported in Stalwart
-						Color: color,
+						Color:                  color,
 					},
 					Sequence:        uint(sequence),
 					ShowWithoutTime: false,
@@ -227,33 +236,46 @@ func (s *StalwartTest) fillEvents(
 					SentBy:          organizerEmail,
 					Participants:    participantObjs,
 					TimeZone:        tz,
-					// MayInviteSelf:   true, // currently unsupported in Stalwart
-					// MayInviteOthers: true, // currently unsupported in Stalwart
-					HideAttendees: false,
+					HideAttendees:   false,
 					ReplyTo: map[jscalendar.ReplyMethod]string{
 						jscalendar.ReplyMethodImip: "mailto:" + organizerEmail,
 					},
 					Locations: locationObjs,
 					VirtualLocations: map[string]jscalendar.VirtualLocation{
-						virtualLocationId: untype(virtualLocationObj, u),
+						virtualLocationId: virtualLocationObj,
 					},
 					Alerts: map[string]jscalendar.Alert{
-						alertId: untype(jscalendar.Alert{
+						alertId: jscalendar.Alert{
 							Type: jscalendar.AlertType,
 							Trigger: jscalendar.OffsetTrigger{
 								Type:       jscalendar.OffsetTriggerType,
 								Offset:     jscalendar.SignedDuration(alertOffset),
 								RelativeTo: jscalendar.RelativeToStart,
 							},
-						}, u),
+						},
 					},
 				},
-			}, u),
+			},
+		}
+
+		if EnableEventMayInviteFields {
+			event["mayInviteSelf"] = true
+			event["mayInviteOthers"] = true
+			obj.MayInviteSelf = true
+			obj.MayInviteOthers = true
+			boxes.mayInvite = true
 		}
 
 		if len(keywords) > 0 {
 			event["keywords"] = keywords
 			obj.Keywords = keywords
+			boxes.keywords = true
+		}
+
+		if len(categories) > 0 {
+			event["categories"] = categories
+			obj.Categories = categories
+			boxes.categories = true
 		}
 
 		if mainLocationId != "" {
@@ -273,19 +295,19 @@ func (s *StalwartTest) fillEvents(
 				uri = "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(img)
 			default:
 				mime = "image/jpeg"
-				uri = "https://picsum.photos/id/" + strconv.Itoa(1+rand.Intn(200)) + "/200/300"
+				uri = externalImageUri()
 			}
 			return map[string]any{
 					"@type":       "Link",
 					"href":        uri,
 					"contentType": mime,
 					"rel":         string(rel),
-				}, untype(jscalendar.Link{
+				}, jscalendar.Link{
 					Type:        jscalendar.LinkType,
 					Href:        uri,
 					ContentType: mime,
 					Rel:         rel,
-				}, u), nil
+				}, nil
 		})
 
 		if rand.Intn(10) > 7 {
@@ -306,7 +328,7 @@ func (s *StalwartTest) fillEvents(
 				"firstDayOfWeek": string(jscalendar.DayOfWeekMonday),
 				"count":          count,
 			}
-			rr := untype(jscalendar.RecurrenceRule{
+			rr := jscalendar.RecurrenceRule{
 				Type:           jscalendar.RecurrenceRuleType,
 				Frequency:      frequency,
 				Interval:       uint(interval),
@@ -314,7 +336,7 @@ func (s *StalwartTest) fillEvents(
 				Skip:           jscalendar.SkipOmit,
 				FirstDayOfWeek: jscalendar.DayOfWeekMonday,
 				Count:          uint(count),
-			}, u)
+			}
 			obj.RecurrenceRule = &rr
 		}
 
@@ -400,7 +422,6 @@ var virtualRooms = []jscalendar.VirtualLocation{
 func pickLocation() (string, map[string]any, jscalendar.Location) {
 	locationId := id()
 	room := rooms[rand.Intn(len(rooms))]
-	room.Links = nil // currently unsupported in Stalwart
 	b, err := json.Marshal(room)
 	if err != nil {
 		panic(err)
@@ -431,23 +452,23 @@ func pickVirtualLocation() (string, map[string]any, jscalendar.VirtualLocation) 
 var ChairRoles = toBoolMapS(jscalendar.RoleChair, jscalendar.RoleOwner)
 var RegularRoles = toBoolMapS(jscalendar.RoleOptional)
 
-func createParticipants(uid string, locationIds []string, virtualLocationIds []string, u bool) (map[string]map[string]any, map[string]jscalendar.Participant, string) {
+func createParticipants(uid string, locationIds []string, virtualLocationIds []string) (map[string]map[string]any, map[string]jscalendar.Participant, string) {
 	options := structs.Concat(locationIds, virtualLocationIds)
 	n := 1 + rand.Intn(4)
 	maps := map[string]map[string]any{}
 	objs := map[string]jscalendar.Participant{}
-	organizerId, organizerEmail, organizerMap, organizerObj := createParticipant(0, uid, pickRandom(options...), "", "", u)
+	organizerId, organizerEmail, organizerMap, organizerObj := createParticipant(0, uid, pickRandom(options...), "", "")
 	maps[organizerId] = organizerMap
 	objs[organizerId] = organizerObj
 	for i := 1; i < n; i++ {
-		id, _, participantMap, participantObj := createParticipant(i, uid, pickRandom(options...), organizerId, organizerEmail, u)
+		id, _, participantMap, participantObj := createParticipant(i, uid, pickRandom(options...), organizerId, organizerEmail)
 		maps[id] = participantMap
 		objs[id] = participantObj
 	}
 	return maps, objs, organizerEmail
 }
 
-func createParticipant(i int, uid string, locationId string, organizerEmail string, organizerId string, u bool) (string, string, map[string]any, jscalendar.Participant) {
+func createParticipant(i int, uid string, locationId string, organizerEmail string, organizerId string) (string, string, map[string]any, jscalendar.Participant) {
 	participantId := id()
 	person := gofakeit.Person()
 	roles := RegularRoles
@@ -500,11 +521,9 @@ func createParticipant(i int, uid string, locationId string, organizerEmail stri
 	}
 
 	m := map[string]any{
-		"@type": "Participant",
-		"name":  name,
-		"email": email,
-		// "description":            description, // currently not supported in Stalwart
-		// "descriptionContentType": descriptionContentType, // currently not supported in Stalwart
+		"@type":                "Participant",
+		"name":                 name,
+		"email":                email,
 		"calendarAddress":      calendarAddress,
 		"kind":                 "individual",
 		"roles":                structs.MapKeys(roles, func(r jscalendar.Role) string { return string(r) }),
@@ -522,11 +541,9 @@ func createParticipant(i int, uid string, locationId string, organizerEmail stri
 		"scheduleId":           "mailto:" + email,
 	}
 	o := jscalendar.Participant{
-		Type:  jscalendar.ParticipantType,
-		Name:  name,
-		Email: email,
-		// Description:            description, // currently not supported in Stalwart
-		// DescriptionContentType: descriptionContentType, // currently not supported in Stalwart
+		Type:                 jscalendar.ParticipantType,
+		Name:                 name,
+		Email:                email,
 		Kind:                 jscalendar.ParticipantKindIndividual,
 		CalendarAddress:      calendarAddress,
 		Roles:                roles,
@@ -544,8 +561,15 @@ func createParticipant(i int, uid string, locationId string, organizerEmail stri
 		ScheduleId:           "mailto:" + email,
 	}
 
+	if EnableEventParticipantDescriptionFields {
+		m["description"] = description
+		m["descriptionContentType"] = descriptionContentType
+		o.Description = description
+		o.DescriptionContentType = descriptionContentType
+	}
+
 	err = propmap(i%2 == 0, 1, 2, m, "links", &o.Links, func(int, string) (map[string]any, jscalendar.Link, error) {
-		href := "https://picsum.photos/id/" + strconv.Itoa(1+rand.Intn(200)) + "/200/300"
+		href := externalImageUri()
 		title := person.FirstName + "'s Cake Day pick"
 		return map[string]any{
 				"@type":       "Link",
@@ -554,20 +578,20 @@ func createParticipant(i int, uid string, locationId string, organizerEmail stri
 				"rel":         "icon",
 				"display":     "badge",
 				"title":       title,
-			}, untype(jscalendar.Link{
+			}, jscalendar.Link{
 				Type:        jscalendar.LinkType,
 				Href:        href,
 				ContentType: "image/jpeg",
 				Rel:         jscalendar.RelIcon,
 				Display:     jscalendar.DisplayBadge,
 				Title:       title,
-			}, u), nil
+			}, nil
 	})
 	if err != nil {
 		panic(err)
 	}
 
-	return participantId, person.Contact.Email, m, untype(o, u)
+	return participantId, person.Contact.Email, m, o
 }
 
 var Keywords = []string{
@@ -578,7 +602,7 @@ var Keywords = []string{
 	"decision",
 }
 
-func keywords() map[string]bool {
+func pickKeywords() map[string]bool {
 	return toBoolMap(pickRandoms(Keywords...))
 }
 
@@ -587,6 +611,6 @@ var Categories = []string{
 	"http://opencloud.eu/categories/internal",
 }
 
-func categories() map[string]bool {
+func pickCategories() map[string]bool {
 	return toBoolMap(pickRandoms(Categories...))
 }
