@@ -1,4 +1,4 @@
-FROM golang:alpine3.21 AS build
+FROM golang:alpine3.22 AS build
 ARG TARGETOS
 ARG TARGETARCH
 ARG VERSION
@@ -13,7 +13,7 @@ RUN --mount=type=bind,target=/build,rw \
     GOOS="${TARGETOS:-linux}" GOARCH="${TARGETARCH:-amd64}" ; \
     make -C opencloud/opencloud release-linux-docker-${TARGETARCH} ENABLE_VIPS=true DIST=/dist
 
-FROM alpine:3.21
+FROM alpine:3.22
 ARG VERSION
 ARG REVISION
 ARG TARGETOS
