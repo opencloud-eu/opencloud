@@ -2,16 +2,16 @@ package tracing
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"net/url"
 	"reflect"
 	"strings"
-	"time"
 
 	rtrace "github.com/opencloud-eu/reva/v2/pkg/trace"
+	zlog "github.com/rs/zerolog/log"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -58,115 +58,112 @@ func GetPropagator() propagation.TextMapPropagator {
 
 // GetTraceProvider returns a configured open-telemetry trace provider.
 func GetTraceProvider(endpoint, collector, serviceName, traceType string) (*sdktrace.TracerProvider, error) {
-	switch t := traceType; t {
-	case "", "jaeger":
-		var (
-			exp *jaeger.Exporter
-			err error
-		)
+	normalizedType := strings.TrimSpace(strings.ToLower(traceType))
 
-		if endpoint != "" {
-			var agentHost string
-			var agentPort string
-
-			agentHost, agentPort, err = parseAgentConfig(endpoint)
-			if err != nil {
-				return nil, err
-			}
-
-			exp, err = jaeger.New(
-				jaeger.WithAgentEndpoint(
-					jaeger.WithAgentHost(agentHost),
-					jaeger.WithAgentPort(agentPort),
-				),
-			)
-		} else if collector != "" {
-			exp, err = jaeger.New(
-				jaeger.WithCollectorEndpoint(
-					jaeger.WithEndpoint(collector),
-				),
-			)
-		} else {
-			return sdktrace.NewTracerProvider(sdktrace.WithSampler(sdktrace.NeverSample())), nil
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		tp := sdktrace.NewTracerProvider(
-			sdktrace.WithBatcher(exp),
-			sdktrace.WithResource(resource.NewWithAttributes(
-				semconv.SchemaURL,
-				semconv.ServiceNameKey.String(serviceName)),
-			),
-		)
-		rtrace.SetDefaultTracerProvider(tp)
-		return tp, nil
+	switch normalizedType {
+	case "":
+		return getAutoTraceProvider(endpoint, collector, serviceName)
 	case "otlp":
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		conn, err := grpc.DialContext(ctx, endpoint,
-			// Note the use of insecure transport here. TLS is recommended in production.
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithBlock(),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create gRPC connection to collector: %w", err)
+		if endpoint == "" {
+			return nil, errors.New("tracing endpoint is required when trace type is 'otlp'")
 		}
-		exporter, err := otlptracegrpc.New(
-			context.Background(),
-			otlptracegrpc.WithGRPCConn(conn),
-		)
-		if err != nil {
-			return nil, err
+		return newOTLPGRPCProvider(endpoint, serviceName)
+	case "otlp_grpc":
+		if endpoint == "" {
+			return nil, errors.New("tracing endpoint is required when trace type is 'otlp_grpc'")
 		}
-		resources, err := resource.New(
-			context.Background(),
-			resource.WithAttributes(
-				attribute.String("service.name", serviceName),
-				attribute.String("library.language", "go"),
-			),
-		)
-		if err != nil {
-			return nil, err
+		return newOTLPGRPCProvider(endpoint, serviceName)
+	case "otlp_http":
+		if collector == "" {
+			return nil, errors.New("tracing collector is required when trace type is 'otlp_http'")
 		}
-
-		tp := sdktrace.NewTracerProvider(
-			sdktrace.WithSampler(sdktrace.AlwaysSample()),
-			sdktrace.WithBatcher(exporter),
-			sdktrace.WithResource(resources),
-		)
-		rtrace.SetDefaultTracerProvider(tp)
-		return tp, nil
-	case "agent":
-		fallthrough
-	case "zipkin":
-		fallthrough
+		return newOTLPHTTPProvider(collector, serviceName)
 	default:
 		return nil, fmt.Errorf("unknown trace type %s", traceType)
 	}
 }
 
-func parseAgentConfig(ae string) (string, string, error) {
-	u, err := url.Parse(ae)
-	// as per url.go:
-	// [...] Trying to parse a hostname and path
-	// without a scheme is invalid but may not necessarily return an
-	// error, due to parsing ambiguities.
-	if err == nil && u.Hostname() != "" && u.Port() != "" {
-		return u.Hostname(), u.Port(), nil
-	}
-
-	p := strings.Split(ae, ":")
-	if len(p) != 2 {
-		return "", "", fmt.Errorf("invalid agent endpoint `%s`. expected format: `hostname:port`", ae)
-	}
-
+func getAutoTraceProvider(endpoint, collector, serviceName string) (*sdktrace.TracerProvider, error) {
 	switch {
-	case p[0] == "" && p[1] == "": // case ae = ":"
-		return "", "", fmt.Errorf("invalid agent endpoint `%s`. expected format: `hostname:port`", ae)
-	case p[0] == "":
-		return "", "", fmt.Errorf("invalid agent endpoint `%s`. expected format: `hostname:port`", ae)
+	case endpoint != "":
+		return newOTLPGRPCProvider(endpoint, serviceName)
+	case collector != "":
+		return newOTLPHTTPProvider(collector, serviceName)
+	default:
+		tp := sdktrace.NewTracerProvider(
+			sdktrace.WithSampler(sdktrace.NeverSample()),
+		)
+		rtrace.SetDefaultTracerProvider(tp)
+		zlog.Warn().Msg("Tracing disabled: no OTLP endpoint or collector configured")
+		return tp, nil
 	}
-	return p[0], p[1], nil
+}
+
+func newOTLPGRPCProvider(endpoint, serviceName string) (*sdktrace.TracerProvider, error) {
+	options := []otlptracegrpc.Option{
+		otlptracegrpc.WithDialOption(grpc.WithTransportCredentials(insecure.NewCredentials())),
+	}
+
+	if strings.Contains(endpoint, "://") {
+		options = append(options, otlptracegrpc.WithEndpointURL(endpoint))
+	} else {
+		options = append(options, otlptracegrpc.WithEndpoint(endpoint))
+	}
+
+	exporter, err := otlptracegrpc.New(context.Background(), options...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create OTLP gRPC exporter: %w", err)
+	}
+
+	resources, err := buildResource(serviceName)
+	if err != nil {
+		return nil, err
+	}
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		sdktrace.WithBatcher(exporter),
+		sdktrace.WithResource(resources),
+	)
+	rtrace.SetDefaultTracerProvider(tp)
+	return tp, nil
+}
+
+func newOTLPHTTPProvider(endpoint, serviceName string) (*sdktrace.TracerProvider, error) {
+	options := make([]otlptracehttp.Option, 0, 2)
+
+	if strings.Contains(endpoint, "://") {
+		options = append(options, otlptracehttp.WithEndpointURL(endpoint))
+	} else {
+		options = append(options, otlptracehttp.WithEndpoint(endpoint), otlptracehttp.WithInsecure())
+	}
+
+	exporter, err := otlptracehttp.New(context.Background(), options...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create OTLP HTTP exporter: %w", err)
+	}
+
+	resources, err := buildResource(serviceName)
+	if err != nil {
+		return nil, err
+	}
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		sdktrace.WithBatcher(exporter),
+		sdktrace.WithResource(resources),
+	)
+	rtrace.SetDefaultTracerProvider(tp)
+	return tp, nil
+}
+
+func buildResource(serviceName string) (*resource.Resource, error) {
+	return resource.New(
+		context.Background(),
+		resource.WithSchemaURL(semconv.SchemaURL),
+		resource.WithAttributes(
+			semconv.ServiceNameKey.String(serviceName),
+			attribute.String("library.language", "go"),
+		),
+	)
 }
