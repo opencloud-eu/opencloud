@@ -7,8 +7,9 @@ type ConfigConverter interface {
 
 // Tracing defines the available tracing configuration.
 type Config struct {
-	Enabled   bool   `yaml:"enabled" env:"OC_TRACING_ENABLED" desc:"Activates tracing." introductionVersion:"1.0.0"`
-	Type      string `yaml:"type" env:"OC_TRACING_TYPE" desc:"The type of tracing. Defaults to \"\", which is the same as \"jaeger\". Allowed tracing types are \"jaeger\" and \"\" as of now." introductionVersion:"1.0.0"`
-	Endpoint  string `yaml:"endpoint" env:"OC_TRACING_ENDPOINT" desc:"The endpoint of the tracing agent." introductionVersion:"1.0.0"`
-	Collector string `yaml:"collector" env:"OC_TRACING_COLLECTOR" desc:"The HTTP endpoint for sending spans directly to a collector, i.e. http://jaeger-collector:14268/api/traces. Only used if the tracing endpoint is unset." introductionVersion:"1.0.0"`
+	Exporter  string `yaml:"exporter" env:"OC_TRACES_EXPORTER;OC_TRACING_EXPORTER;OTEL_TRACES_EXPORTER" desc:"Tracing exporter to use. Supported values are 'none', 'console' and 'otlp'." introductionVersion:"1.0.0"`
+	Enabled   bool   `yaml:"enabled" env:"OC_TRACING_ENABLED" desc:"Deprecated: use exporter 'none' to disable tracing." introductionVersion:"1.0.0" deprecationVersion:"2.0.0" deprecationInfo:"Set OC_TRACES_EXPORTER (or OTEL_TRACES_EXPORTER) to 'none'."`
+	Type      string `yaml:"type" env:"OC_TRACING_TYPE" desc:"Deprecated: legacy tracing type. Jaeger is no longer supported." introductionVersion:"1.0.0" deprecationVersion:"2.0.0" deprecationInfo:"Use OC_TRACES_EXPORTER or OTEL_TRACES_EXPORTER instead."`
+	Endpoint  string `yaml:"endpoint" env:"OC_TRACING_ENDPOINT" desc:"Deprecated: legacy OTLP/Jaeger endpoint." introductionVersion:"1.0.0" deprecationVersion:"2.0.0" deprecationInfo:"Set OTEL_EXPORTER_OTLP_ENDPOINT (and related OTEL_* variables) instead."`
+	Collector string `yaml:"collector" env:"OC_TRACING_COLLECTOR" desc:"Deprecated: legacy Jaeger collector endpoint." introductionVersion:"1.0.0" deprecationVersion:"2.0.0" deprecationInfo:"Set OTEL_EXPORTER_OTLP_ENDPOINT / OTEL_EXPORTER_OTLP_PROTOCOL instead."`
 }

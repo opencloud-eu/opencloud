@@ -62,6 +62,7 @@ func EnsureDefaults(cfg *config.Config) {
 
 	if cfg.Tracing == nil && cfg.Commons != nil && cfg.Commons.Tracing != nil {
 		cfg.Tracing = &config.Tracing{
+			Exporter:  cfg.Commons.Tracing.Exporter,
 			Enabled:   cfg.Commons.Tracing.Enabled,
 			Type:      cfg.Commons.Tracing.Type,
 			Endpoint:  cfg.Commons.Tracing.Endpoint,

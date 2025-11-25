@@ -1,77 +1,107 @@
 package tracing
 
-import "testing"
+import (
+	"os"
+	"testing"
+)
 
-func Test_parseAgentConfig(t *testing.T) {
-	type args struct {
-		ae string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    string
-		want1   string
-		wantErr bool
+func TestResolveConfig(t *testing.T) {
+	tests := map[string]struct {
+		cfg              Config
+		exporter         exporterKind
+		legacyEnv        map[string]string
+		wantWarningCount int
 	}{
-		{
-			name: "docker-style config",
-			args: args{
-				ae: "docker-jaeger:6666",
-			},
-			want:    "docker-jaeger",
-			want1:   "6666",
-			wantErr: false,
+		"defaults to none": {
+			cfg:       Config{},
+			exporter:  exporterNone,
+			legacyEnv: map[string]string{},
 		},
-		{
-			name: "agent in an url config",
-			args: args{
-				ae: "https://example-agent.com:6666",
-			},
-			want:    "example-agent.com",
-			want1:   "6666",
-			wantErr: false,
+		"legacy enabled picks otlp": {
+			cfg:              Config{Enabled: true},
+			exporter:         exporterOTLP,
+			legacyEnv:        map[string]string{},
+			wantWarningCount: 1,
 		},
-		{
-			name: "agent as ipv4",
-			args: args{
-				ae: "127.0.0.1:6666",
-			},
-			want:    "127.0.0.1",
-			want1:   "6666",
-			wantErr: false,
+		"explicit console exporter": {
+			cfg:       Config{Exporter: "console"},
+			exporter:  exporterConsole,
+			legacyEnv: map[string]string{},
 		},
-		{
-			name: "no hostname config should error",
-			args: args{
-				ae: ":6666",
+		"legacy endpoint populates env": {
+			cfg:      Config{Enabled: true, Endpoint: "collector:4317"},
+			exporter: exporterOTLP,
+			legacyEnv: map[string]string{
+				"OTEL_EXPORTER_OTLP_ENDPOINT": "collector:4317",
+				"OTEL_EXPORTER_OTLP_INSECURE": "true",
 			},
-			want:    "",
-			want1:   "",
-			wantErr: true,
+			wantWarningCount: 2,
 		},
-		{
-			name: "no hostname nor port but separator should error",
-			args: args{
-				ae: ":",
-			},
-			want:    "",
-			want1:   "",
-			wantErr: true,
+		"legacy jaeger maps to otlp": {
+			cfg:              Config{Type: "jaeger"},
+			exporter:         exporterOTLP,
+			legacyEnv:        map[string]string{},
+			wantWarningCount: 3,
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, got1, err := parseAgentConfig(tt.args.ae)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("parseAgentConfig() error = %v, wantErr %v", err, tt.wantErr)
-				return
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			resolved, err := resolveConfig(tt.cfg)
+			if err != nil {
+				t.Fatalf("resolveConfig returned error: %v", err)
 			}
-			if got != tt.want {
-				t.Errorf("parseAgentConfig() got = %v, want %v", got, tt.want)
+			if resolved.exporter != tt.exporter {
+				t.Fatalf("unexpected exporter: got %q want %q", resolved.exporter, tt.exporter)
 			}
-			if got1 != tt.want1 {
-				t.Errorf("parseAgentConfig() got1 = %v, want %v", got1, tt.want1)
+			if len(resolved.warnings) != tt.wantWarningCount {
+				t.Fatalf("unexpected warning count: got %d want %d", len(resolved.warnings), tt.wantWarningCount)
+			}
+			if len(resolved.legacyEnv) != len(tt.legacyEnv) {
+				t.Fatalf("unexpected legacy env len: got %d want %d", len(resolved.legacyEnv), len(tt.legacyEnv))
+			}
+			for key, value := range tt.legacyEnv {
+				if resolved.legacyEnv[key] != value {
+					t.Fatalf("legacy env %s mismatch: got %q want %q", key, resolved.legacyEnv[key], value)
+				}
 			}
 		})
 	}
+}
+
+func TestApplyLegacyEnv(t *testing.T) {
+	const envKey = "OTEL_EXPORTER_OTLP_ENDPOINT"
+	t.Setenv(envKey, "existing")
+
+	applyLegacyEnv(map[string]string{
+		envKey: "legacy",
+	})
+
+	if got := os.Getenv(envKey); got != "existing" {
+		t.Fatalf("expected existing env to be preserved, got %q", got)
+	}
+}
+
+func TestNewOTLPClientFromEnv(t *testing.T) {
+	t.Run("defaults to grpc", func(t *testing.T) {
+		t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "")
+		client, err := newOTLPClientFromEnv()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if client == nil {
+			t.Fatalf("expected client instance")
+		}
+	})
+
+	t.Run("http protocol", func(t *testing.T) {
+		t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf")
+		client, err := newOTLPClientFromEnv()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if client == nil {
+			t.Fatalf("expected client instance")
+		}
+	})
 }

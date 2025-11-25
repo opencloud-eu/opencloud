@@ -6,10 +6,15 @@ import (
 
 // AuthMachineConfigFromStruct will adapt an OpenCloud config struct into a reva mapstructure to start a reva service.
 func AuthMachineConfigFromStruct(cfg *config.Config) map[string]interface{} {
+	exporter := cfg.Tracing.Exporter
+	if exporter == "" {
+		exporter = cfg.Tracing.Type
+	}
+
 	return map[string]interface{}{
 		"core": map[string]interface{}{
 			"tracing_enabled":      cfg.Tracing.Enabled,
-			"tracing_exporter":     cfg.Tracing.Type,
+			"tracing_exporter":     exporter,
 			"tracing_endpoint":     cfg.Tracing.Endpoint,
 			"tracing_collector":    cfg.Tracing.Collector,
 			"tracing_service_name": cfg.Service.Name,
