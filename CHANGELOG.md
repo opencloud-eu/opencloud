@@ -10,6 +10,17 @@
 
 - collaboration: Enable `InsertRemoteImage` option [[#1692](https://github.com/opencloud-eu/opencloud/pull/1692)]
 
+### ✅ Tests
+
+- [full-ci] disable running ci with watch fs when full-ci [[#1902](https://github.com/opencloud-eu/opencloud/pull/1902)]
+- api-tests: delete spaces before users [[#1877](https://github.com/opencloud-eu/opencloud/pull/1877)]
+- update tika version [[#1872](https://github.com/opencloud-eu/opencloud/pull/1872)]
+- add share sync to collaborativePosix suite [[#1806](https://github.com/opencloud-eu/opencloud/pull/1806)]
+- removed test virus files from repo [[#1812](https://github.com/opencloud-eu/opencloud/pull/1812)]
+- increase timeouts waiting for notification & search [[#1802](https://github.com/opencloud-eu/opencloud/pull/1802)]
+- Sync share before action [[#1795](https://github.com/opencloud-eu/opencloud/pull/1795)]
+- correct STORAGE_USERS_POSIX_WATCH_FS env typo in CI [[#1746](https://github.com/opencloud-eu/opencloud/pull/1746)]
+
 ### 🐛 Bug Fixes
 
 - handle objectguid endianess [[#1901](https://github.com/opencloud-eu/opencloud/pull/1901)]
@@ -24,16 +35,6 @@
 - docs: Fix auth-app examples in README [[#1844](https://github.com/opencloud-eu/opencloud/pull/1844)]
 - fix: fix typo in treesize logging [[#1826](https://github.com/opencloud-eu/opencloud/pull/1826)]
 - fix: set global signing secret fallback correctly [[#1781](https://github.com/opencloud-eu/opencloud/pull/1781)]
-
-### ✅ Tests
-
-- api-tests: delete spaces before users [[#1877](https://github.com/opencloud-eu/opencloud/pull/1877)]
-- update tika version [[#1872](https://github.com/opencloud-eu/opencloud/pull/1872)]
-- add share sync to collaborativePosix suite [[#1806](https://github.com/opencloud-eu/opencloud/pull/1806)]
-- removed test virus files from repo [[#1812](https://github.com/opencloud-eu/opencloud/pull/1812)]
-- increase timeouts waiting for notification & search [[#1802](https://github.com/opencloud-eu/opencloud/pull/1802)]
-- Sync share before action [[#1795](https://github.com/opencloud-eu/opencloud/pull/1795)]
-- correct STORAGE_USERS_POSIX_WATCH_FS env typo in CI [[#1746](https://github.com/opencloud-eu/opencloud/pull/1746)]
 
 ### 📚 Documentation
 
