@@ -1,6 +1,6 @@
 # Changelog
 
-## [4.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.0) - 2025-11-24
+## [4.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.0) - 2025-11-25
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -12,6 +12,7 @@
 
 ### 🐛 Bug Fixes
 
+- handle objectguid endianess [[#1901](https://github.com/opencloud-eu/opencloud/pull/1901)]
 - fix: add update server to default csp rules [[#1875](https://github.com/opencloud-eu/opencloud/pull/1875)]
 - fix: add missing capability flag support-radicale [[#1891](https://github.com/opencloud-eu/opencloud/pull/1891)]
 - fix opensearch client certificate [[#1890](https://github.com/opencloud-eu/opencloud/pull/1890)]
