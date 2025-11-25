@@ -912,7 +912,7 @@ func (i *LDAP) createUserModelFromLDAP(e *ldap.Entry) *libregraph.User {
 		}
 		return user
 	}
-	i.logger.Warn().Str("dn", e.DN).Msg("Invalid User. Missing username or id attribute")
+	i.logger.Warn().Str("dn", e.DN).Str("id", id).Str("username", opsan).Msg("Invalid User. Missing username or id attribute")
 	return nil
 }
 
