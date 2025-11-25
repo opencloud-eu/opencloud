@@ -1,157 +1,174 @@
 package imaging
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"math"
+
+	"github.com/kovidgoyal/imaging/nrgb"
+	"github.com/kovidgoyal/imaging/nrgba"
+	"github.com/kovidgoyal/imaging/types"
 )
 
-// FlipH flips the image horizontally (from left to right) and returns the transformed image.
-func FlipH(img image.Image) *image.NRGBA {
-	src := newScanner(img)
-	dstW := src.w
-	dstH := src.h
-	rowSize := dstW * 4
-	dst := image.NewNRGBA(image.Rect(0, 0, dstW, dstH))
-	if err := run_in_parallel_over_range(0, func(start, limit int) {
-		for dstY := start; dstY < limit; dstY++ {
-			i := dstY * dst.Stride
-			srcY := dstY
-			src.Scan(0, srcY, src.w, srcY+1, dst.Pix[i:i+rowSize])
-			reverse(dst.Pix[i : i+rowSize])
+var _ = fmt.Println
+
+type Scanner = types.Scanner
+type NRGB = nrgb.Image
+type NRGBColor = nrgb.Color
+
+func ScannerForImage(img image.Image) Scanner {
+	switch img := img.(type) {
+	case *NRGB, *image.CMYK, *image.YCbCr, *image.Gray:
+		return nrgb.NewNRGBScanner(img, NRGBColor{})
+	case *image.Paletted:
+		for _, x := range img.Palette {
+			_, _, _, a := x.RGBA()
+			if a < 0xffff {
+				return nrgba.NewNRGBAScanner(img)
+			}
 		}
-	}, 0, dstH); err != nil {
+		return nrgb.NewNRGBScanner(img, NRGBColor{})
+	}
+	return nrgba.NewNRGBAScanner(img)
+}
+
+// FlipH flips the image horizontally (from left to right) and returns the transformed image.
+func FlipH(img image.Image) (ans image.Image) {
+	sc := ScannerForImage(img)
+	b := img.Bounds()
+	w, h := b.Dx(), b.Dy()
+	ans = sc.NewImage(b)
+	if err := run_in_parallel_over_range(0, func(start, limit int) {
+		for y := start; y < limit; y++ {
+			sc.ScanRow(0, y, w, y+1, ans, y)
+			sc.ReverseRow(ans, y)
+		}
+	}, 0, h); err != nil {
 		panic(err)
 	}
-	return dst
+	return
 }
 
 // FlipV flips the image vertically (from top to bottom) and returns the transformed image.
-func FlipV(img image.Image) *image.NRGBA {
-	src := newScanner(img)
-	dstW := src.w
-	dstH := src.h
-	rowSize := dstW * 4
-	dst := image.NewNRGBA(image.Rect(0, 0, dstW, dstH))
+func FlipV(img image.Image) (ans image.Image) {
+	sc := ScannerForImage(img)
+	b := img.Bounds()
+	w, h := b.Dx(), b.Dy()
+	ans = sc.NewImage(b)
 	if err := run_in_parallel_over_range(0, func(start, limit int) {
-		for dstY := start; dstY < limit; dstY++ {
-			i := dstY * dst.Stride
-			srcY := dstH - dstY - 1
-			src.Scan(0, srcY, src.w, srcY+1, dst.Pix[i:i+rowSize])
+		for y := start; y < limit; y++ {
+			srcY := h - y - 1
+			sc.ScanRow(0, srcY, w, srcY+1, ans, y)
 		}
-	}, 0, dstH); err != nil {
+	}, 0, h); err != nil {
 		panic(err)
 	}
-	return dst
+	return
+}
+
+func swap_width_height(r image.Rectangle) image.Rectangle {
+	return image.Rectangle{r.Min, image.Point{r.Min.X + r.Dy(), r.Min.Y + r.Dx()}}
 }
 
 // Transpose flips the image horizontally and rotates 90 degrees counter-clockwise.
-func Transpose(img image.Image) *image.NRGBA {
-	src := newScanner(img)
-	dstW := src.h
-	dstH := src.w
-	rowSize := dstW * 4
-	dst := image.NewNRGBA(image.Rect(0, 0, dstW, dstH))
+func Transpose(img image.Image) (ans image.Image) {
+	sc := ScannerForImage(img)
+	b := img.Bounds()
+	w, h := b.Dx(), b.Dy()
+	ans = sc.NewImage(swap_width_height(b))
 	if err := run_in_parallel_over_range(0, func(start, limit int) {
-		for dstY := start; dstY < limit; dstY++ {
-			i := dstY * dst.Stride
-			srcX := dstY
-			src.Scan(srcX, 0, srcX+1, src.h, dst.Pix[i:i+rowSize])
+		for y := start; y < limit; y++ {
+			// scan yth column from src into yth row in dest
+			sc.ScanRow(y, 0, y+1, h, ans, y)
 		}
-	}, 0, dstH); err != nil {
+	}, 0, w); err != nil {
 		panic(err)
 	}
-	return dst
+	return
 }
 
 // Transverse flips the image vertically and rotates 90 degrees counter-clockwise.
-func Transverse(img image.Image) *image.NRGBA {
-	src := newScanner(img)
-	dstW := src.h
-	dstH := src.w
-	rowSize := dstW * 4
-	dst := image.NewNRGBA(image.Rect(0, 0, dstW, dstH))
+func Transverse(img image.Image) (ans image.Image) {
+	sc := ScannerForImage(img)
+	b := img.Bounds()
+	w, h := b.Dx(), b.Dy()
+	ans = sc.NewImage(swap_width_height(b))
 	if err := run_in_parallel_over_range(0, func(start, limit int) {
-		for dstY := start; dstY < limit; dstY++ {
-			i := dstY * dst.Stride
-			srcX := dstH - dstY - 1
-			src.Scan(srcX, 0, srcX+1, src.h, dst.Pix[i:i+rowSize])
-			reverse(dst.Pix[i : i+rowSize])
+		for y := start; y < limit; y++ {
+			// scan width-yth column from src into yth row in dest
+			x := w - y - 1
+			sc.ScanRow(x, 0, x+1, h, ans, y)
+			sc.ReverseRow(ans, y)
 		}
-	}, 0, dstH); err != nil {
+	}, 0, w); err != nil {
 		panic(err)
 	}
-	return dst
+	return
 }
 
 // Rotate90 rotates the image 90 degrees counter-clockwise and returns the transformed image.
-func Rotate90(img image.Image) *image.NRGBA {
-	src := newScanner(img)
-	dstW := src.h
-	dstH := src.w
-	rowSize := dstW * 4
-	dst := image.NewNRGBA(image.Rect(0, 0, dstW, dstH))
+func Rotate90(img image.Image) (ans image.Image) {
+	sc := ScannerForImage(img)
+	b := img.Bounds()
+	w, h := b.Dx(), b.Dy()
+	ans = sc.NewImage(swap_width_height(b))
 	if err := run_in_parallel_over_range(0, func(start, limit int) {
-		for dstY := start; dstY < limit; dstY++ {
-			i := dstY * dst.Stride
-			srcX := dstH - dstY - 1
-			src.Scan(srcX, 0, srcX+1, src.h, dst.Pix[i:i+rowSize])
+		for y := start; y < limit; y++ {
+			// scan width-yth column from src into yth row in dest
+			x := w - y - 1
+			sc.ScanRow(x, 0, x+1, h, ans, y)
 		}
-	}, 0, dstH); err != nil {
+	}, 0, w); err != nil {
 		panic(err)
 	}
-	return dst
+	return
 }
 
 // Rotate180 rotates the image 180 degrees counter-clockwise and returns the transformed image.
-func Rotate180(img image.Image) *image.NRGBA {
-	src := newScanner(img)
-	dstW := src.w
-	dstH := src.h
-	rowSize := dstW * 4
-	dst := image.NewNRGBA(image.Rect(0, 0, dstW, dstH))
+func Rotate180(img image.Image) (ans image.Image) {
+	sc := ScannerForImage(img)
+	b := img.Bounds()
+	w, h := b.Dx(), b.Dy()
+	ans = sc.NewImage(b)
 	if err := run_in_parallel_over_range(0, func(start, limit int) {
-		for dstY := start; dstY < limit; dstY++ {
-			i := dstY * dst.Stride
-			srcY := dstH - dstY - 1
-			src.Scan(0, srcY, src.w, srcY+1, dst.Pix[i:i+rowSize])
-			reverse(dst.Pix[i : i+rowSize])
+		for y := start; y < limit; y++ {
+			srcY := h - y - 1
+			sc.ScanRow(0, srcY, w, srcY+1, ans, y)
+			sc.ReverseRow(ans, y)
 		}
-	}, 0, dstH); err != nil {
+	}, 0, h); err != nil {
 		panic(err)
 	}
-	return dst
+	return
 }
 
 // Rotate270 rotates the image 270 degrees counter-clockwise and returns the transformed image.
-func Rotate270(img image.Image) *image.NRGBA {
-	src := newScanner(img)
-	dstW := src.h
-	dstH := src.w
-	rowSize := dstW * 4
-	dst := image.NewNRGBA(image.Rect(0, 0, dstW, dstH))
+func Rotate270(img image.Image) (ans image.Image) {
+	sc := ScannerForImage(img)
+	b := img.Bounds()
+	w, h := b.Dx(), b.Dy()
+	ans = sc.NewImage(swap_width_height(b))
 	if err := run_in_parallel_over_range(0, func(start, limit int) {
-		for dstY := start; dstY < limit; dstY++ {
-			i := dstY * dst.Stride
-			srcX := dstY
-			src.Scan(srcX, 0, srcX+1, src.h, dst.Pix[i:i+rowSize])
-			reverse(dst.Pix[i : i+rowSize])
+		for y := start; y < limit; y++ {
+			sc.ScanRow(y, 0, y+1, h, ans, y)
+			sc.ReverseRow(ans, y)
 		}
-	}, 0, dstH); err != nil {
+	}, 0, w); err != nil {
 		panic(err)
 	}
-	return dst
+	return
 }
 
 // Rotate rotates an image by the given angle counter-clockwise .
 // The angle parameter is the rotation angle in degrees.
 // The bgColor parameter specifies the color of the uncovered zone after the rotation.
-func Rotate(img image.Image, angle float64, bgColor color.Color) *image.NRGBA {
+func Rotate(img image.Image, angle float64, bgColor color.Color) image.Image {
 	angle = angle - math.Floor(angle/360)*360
 
 	switch angle {
 	case 0:
-		return Clone(img)
+		return ClonePreservingType(img)
 	case 90:
 		return Rotate90(img)
 	case 180:

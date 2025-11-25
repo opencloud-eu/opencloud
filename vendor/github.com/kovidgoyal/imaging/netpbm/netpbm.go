@@ -1,4 +1,4 @@
-package imaging
+package netpbm
 
 import (
 	"bufio"
@@ -9,6 +9,10 @@ import (
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/kovidgoyal/go-parallel"
+	"github.com/kovidgoyal/imaging/nrgb"
+	"github.com/kovidgoyal/imaging/types"
 )
 
 var _ = fmt.Print
@@ -88,6 +92,9 @@ func read_ppm_header(br *bufio.Reader, magic string) (ans header, err error) {
 	ans.width = fields[0]
 	ans.height = fields[1]
 	if required_num_fields > 2 {
+		if fields[2] > 65535 {
+			return ans, fmt.Errorf("header specifies a maximum value %d larger than 65535", ans.maxval)
+		}
 		ans.maxval = uint32(fields[2])
 	}
 	if ans.maxval > 65535 {
@@ -243,15 +250,15 @@ func decode_rgb_ascii(br *bufio.Reader, h header) (ans []byte, err error) {
 	return
 }
 
-func DecodeNetPBMConfig(r io.Reader) (cfg image.Config, err error) {
+func DecodeConfigAndFormat(r io.Reader) (cfg image.Config, fmt types.Format, err error) {
 	br := bufio.NewReader(r)
 	h, err := read_header(br)
 	if err != nil {
-		return cfg, err
+		return cfg, types.UNKNOWN, err
 	}
 	cfg.Width = int(h.width)
 	cfg.Height = int(h.height)
-	cfg.ColorModel = NRGBModel
+	cfg.ColorModel = nrgb.Model
 	switch h.data_type {
 	case blackwhite, grayscale:
 		if h.has_alpha {
@@ -278,10 +285,25 @@ func DecodeNetPBMConfig(r io.Reader) (cfg image.Config, err error) {
 			if h.maxval > 255 {
 				cfg.ColorModel = color.NRGBA64Model
 			} else {
-				cfg.ColorModel = NRGBModel
+				cfg.ColorModel = nrgb.Model
 			}
 		}
 	}
+	switch h.format {
+	case "P7":
+		fmt = types.PAM
+	case "P1", "P4":
+		fmt = types.PBM
+	case "P2", "P5":
+		fmt = types.PGM
+	case "P3", "P6":
+		fmt = types.PPM
+	}
+	return
+}
+
+func DecodeConfig(r io.Reader) (cfg image.Config, err error) {
+	cfg, _, err = DecodeConfigAndFormat(r)
 	return
 }
 
@@ -337,7 +359,7 @@ func rescale(v uint32, num, den uint32) uint32 {
 }
 
 func rescale_binary_data(b []uint8, num, den uint32) error {
-	return run_in_parallel_over_range(0, func(start, end int) {
+	return parallel.Run_in_parallel_over_range(0, func(start, end int) {
 		for i := start; i < end; i++ {
 			b[i] = uint8(rescale(uint32(b[i]), num, den))
 		}
@@ -348,7 +370,7 @@ func rescale_binary_data16(b []uint8, num, den uint32) error {
 	if len(b)&1 != 0 {
 		return fmt.Errorf("pixel data is not a multiple of two but uses 16 bits per channel")
 	}
-	return run_in_parallel_over_range(0, func(start, end int) {
+	return parallel.Run_in_parallel_over_range(0, func(start, end int) {
 		start *= 2
 		end *= 2
 		for i := start; i < end; i += 2 {
@@ -394,7 +416,7 @@ func decode_binary_data(br *bufio.Reader, h header) (ans image.Image, err error)
 		if h.maxval > 255 {
 			g := image.NewNRGBA64(r)
 			b := g.Pix
-			if err = run_in_parallel_over_range(0, func(start, end int) {
+			if err = parallel.Run_in_parallel_over_range(0, func(start, end int) {
 				for i := start; i < end; i++ {
 					src := binary_data[i*4 : i*4+4]
 					dest := b[i*8 : i*8+8]
@@ -408,7 +430,7 @@ func decode_binary_data(br *bufio.Reader, h header) (ans image.Image, err error)
 		}
 		g := image.NewNRGBA(r)
 		b := g.Pix
-		if err = run_in_parallel_over_range(0, func(start, end int) {
+		if err = parallel.Run_in_parallel_over_range(0, func(start, end int) {
 			for i := start; i < end; i++ {
 				src := binary_data[i*2 : i*2+2]
 				dest := b[i*4 : i*4+4]
@@ -423,7 +445,7 @@ func decode_binary_data(br *bufio.Reader, h header) (ans image.Image, err error)
 		if h.maxval > 255 {
 			g := image.NewNRGBA64(r)
 			b := g.Pix
-			if err = run_in_parallel_over_range(0, func(start, end int) {
+			if err = parallel.Run_in_parallel_over_range(0, func(start, end int) {
 				for i := start; i < end; i++ {
 					src := binary_data[i*6 : i*6+6]
 					dest := b[i*8 : i*8+8]
@@ -435,7 +457,7 @@ func decode_binary_data(br *bufio.Reader, h header) (ans image.Image, err error)
 			}
 			return g, nil
 		}
-		return NewNRGBWithContiguousRGBPixels(binary_data, 0, 0, r.Dx(), r.Dy())
+		return nrgb.NewNRGBWithContiguousRGBPixels(binary_data, 0, 0, r.Dx(), r.Dy())
 	case 4:
 		// RGB with alpha
 		if h.maxval <= 255 {
@@ -449,7 +471,7 @@ func decode_binary_data(br *bufio.Reader, h header) (ans image.Image, err error)
 
 // Decode decodes a PPM image from r and returns it as an image.Image.
 // Supports both P3 (ASCII) and P6 (binary) variants.
-func DecodeNetPBM(r io.Reader) (img image.Image, err error) {
+func Decode(r io.Reader) (img image.Image, err error) {
 	br := bufio.NewReader(r)
 	h, err := read_header(br)
 	if err != nil {
@@ -467,7 +489,7 @@ func DecodeNetPBM(r io.Reader) (img image.Image, err error) {
 			return nil, err
 		}
 		if h.maxval <= 255 {
-			return NewNRGBWithContiguousRGBPixels(vals, 0, 0, int(h.width), int(h.height))
+			return nrgb.NewNRGBWithContiguousRGBPixels(vals, 0, 0, int(h.width), int(h.height))
 		}
 		return &image.NRGBA64{Pix: vals, Stride: int(h.width) * 8, Rect: image.Rect(0, 0, int(h.width), int(h.height))}, nil
 	case "P4":
@@ -500,11 +522,11 @@ func DecodeNetPBM(r io.Reader) (img image.Image, err error) {
 
 // Register this decoder with Go's image package
 func init() {
-	image.RegisterFormat("pbm", "P1", DecodeNetPBM, DecodeNetPBMConfig)
-	image.RegisterFormat("pgm", "P2", DecodeNetPBM, DecodeNetPBMConfig)
-	image.RegisterFormat("ppm", "P3", DecodeNetPBM, DecodeNetPBMConfig)
-	image.RegisterFormat("pbm", "P4", DecodeNetPBM, DecodeNetPBMConfig)
-	image.RegisterFormat("pgm", "P5", DecodeNetPBM, DecodeNetPBMConfig)
-	image.RegisterFormat("ppm", "P6", DecodeNetPBM, DecodeNetPBMConfig)
-	image.RegisterFormat("pam", "P7", DecodeNetPBM, DecodeNetPBMConfig)
+	image.RegisterFormat("pbm", "P1", Decode, DecodeConfig)
+	image.RegisterFormat("pgm", "P2", Decode, DecodeConfig)
+	image.RegisterFormat("ppm", "P3", Decode, DecodeConfig)
+	image.RegisterFormat("pbm", "P4", Decode, DecodeConfig)
+	image.RegisterFormat("pgm", "P5", Decode, DecodeConfig)
+	image.RegisterFormat("ppm", "P6", Decode, DecodeConfig)
+	image.RegisterFormat("pam", "P7", Decode, DecodeConfig)
 }

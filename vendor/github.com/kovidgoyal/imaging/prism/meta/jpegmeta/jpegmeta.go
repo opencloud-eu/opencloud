@@ -4,14 +4,13 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/kovidgoyal/go-parallel"
 	"github.com/kovidgoyal/imaging/prism/meta"
 	"github.com/kovidgoyal/imaging/streams"
+	"github.com/kovidgoyal/imaging/types"
 )
-
-// Format specifies the image format handled by this package
-var Format = meta.ImageFormat("JPEG")
 
 const exifSignature = "Exif\x00\x00"
 
@@ -24,9 +23,6 @@ var iccProfileIdentifier = []byte("ICC_PROFILE\x00")
 // reading from it will produce the same results as fully reading the input
 // stream. This provides a convenient way to load the full image after loading
 // the metadata.
-//
-// An error is returned if basic metadata could not be extracted. The returned
-// stream still provides the full image data.
 func Load(r io.Reader) (md *meta.Data, imgStream io.Reader, err error) {
 	imgStream, err = streams.CallbackWithSeekable(r, func(r io.Reader) (err error) {
 		md, err = ExtractMetadata(r)
@@ -38,7 +34,7 @@ func Load(r io.Reader) (md *meta.Data, imgStream io.Reader, err error) {
 // Same as Load() except that no new stream is provided
 func ExtractMetadata(r io.Reader) (md *meta.Data, err error) {
 	metadataExtracted := false
-	md = &meta.Data{Format: Format}
+	md = &meta.Data{Format: types.JPEG}
 	segReader := NewSegmentReader(r)
 
 	defer func() {
@@ -63,10 +59,13 @@ func ExtractMetadata(r io.Reader) (md *meta.Data, err error) {
 
 	soiSegment, err := segReader.ReadSegment()
 	if err != nil {
+		if strings.Contains(err.Error(), "invalid marker identifier") {
+			err = nil
+		}
 		return nil, err
 	}
 	if soiSegment.Marker.Type != markerTypeStartOfImage {
-		return nil, fmt.Errorf("stream does not begin with start-of-image")
+		return nil, nil
 	}
 
 parseSegments:
@@ -145,7 +144,7 @@ parseSegments:
 	if !metadataExtracted {
 		return nil, fmt.Errorf("no metadata found")
 	}
-	md.ExifData = exif
+	md.SetExifData(exif)
 
 	// Incomplete or missing ICC profile
 	if len(iccProfileChunks) != iccProfileChunksExtracted {

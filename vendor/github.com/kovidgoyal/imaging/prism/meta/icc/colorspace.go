@@ -32,6 +32,20 @@ const (
 	ColorSpace15Color ColorSpace = 0x46434C52 // 'FCLR'
 )
 
+func (cs ColorSpace) BlackPoint() []unit_float {
+	switch cs {
+	case ColorSpaceLab, ColorSpaceRGB, ColorSpaceXYZ:
+		return []unit_float{0, 0, 0}
+	case ColorSpaceGray:
+		return []unit_float{0}
+	case ColorSpaceCMYK:
+		return []unit_float{1, 1, 1, 1}
+	case ColorSpaceCMY:
+		return []unit_float{1, 1, 1}
+	}
+	return nil
+}
+
 func (cs ColorSpace) String() string {
 	switch cs {
 	case ColorSpaceXYZ:

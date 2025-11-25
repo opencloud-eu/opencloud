@@ -72,7 +72,7 @@ func convolve(img image.Image, kernel []float64, options *ConvolveOptions) *imag
 
 	if err := run_in_parallel_over_range(0, func(start, limit int) {
 		for y := start; y < limit; y++ {
-			for x := 0; x < w; x++ {
+			for x := range w {
 				var r, g, b float64
 				for _, c := range coefs {
 					ix := x + c.x

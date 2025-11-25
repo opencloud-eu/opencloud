@@ -1,8 +1,11 @@
-package imaging
+package nrgba
 
 import (
 	"image"
 	"image/color"
+
+	"github.com/kovidgoyal/imaging/nrgb"
+	"github.com/kovidgoyal/imaging/types"
 )
 
 type scanner struct {
@@ -14,6 +17,9 @@ type scanner struct {
 func (s scanner) Bytes_per_channel() int  { return 1 }
 func (s scanner) Num_of_channels() int    { return 4 }
 func (s scanner) Bounds() image.Rectangle { return s.image.Bounds() }
+func (s scanner) NewImage(r image.Rectangle) image.Image {
+	return image.NewNRGBA(r)
+}
 
 func newScanner(img image.Image) *scanner {
 	s := &scanner{
@@ -30,12 +36,45 @@ func newScanner(img image.Image) *scanner {
 	return s
 }
 
+func reverse4(pix []uint8) {
+	if len(pix) <= 4 {
+		return
+	}
+	i := 0
+	j := len(pix) - 4
+	for i < j {
+		pi := pix[i : i+4 : i+4]
+		pj := pix[j : j+4 : j+4]
+		pi[0], pj[0] = pj[0], pi[0]
+		pi[1], pj[1] = pj[1], pi[1]
+		pi[2], pj[2] = pj[2], pi[2]
+		pi[3], pj[3] = pj[3], pi[3]
+		i += 4
+		j -= 4
+	}
+}
+
+func (s *scanner) ReverseRow(img image.Image, row int) {
+	d := img.(*image.NRGBA)
+	pos := row * d.Stride
+	r := d.Pix[pos : pos+d.Stride : pos+d.Stride]
+	reverse4(r)
+}
+
+func (s *scanner) ScanRow(x1, y1, x2, y2 int, img image.Image, row int) {
+	d := img.(*image.NRGBA)
+	pos := row * d.Stride
+	r := d.Pix[pos : pos+d.Stride : pos+d.Stride]
+	s.Scan(x1, y1, x2, y2, r)
+}
+
 // scan scans the given rectangular region of the image into dst.
 func (s *scanner) Scan(x1, y1, x2, y2 int, dst []uint8) {
+	_ = dst[4*(x2-x1)*(y2-y1)-1]
 	switch img := s.image.(type) {
-	case *NRGB:
-		j := 0
+	case *nrgb.Image:
 		if x2 == x1+1 {
+			j := 0
 			i := y1*img.Stride + x1*3
 			for y := y1; y < y2; y++ {
 				d := dst[j : j+4 : j+4]
@@ -196,69 +235,115 @@ func (s *scanner) Scan(x1, y1, x2, y2 int, dst []uint8) {
 		}
 
 	case *image.YCbCr:
-		j := 0
-		x1 += img.Rect.Min.X
-		x2 += img.Rect.Min.X
-		y1 += img.Rect.Min.Y
-		y2 += img.Rect.Min.Y
-
-		hy := img.Rect.Min.Y / 2
-		hx := img.Rect.Min.X / 2
-		for y := y1; y < y2; y++ {
-			iy := (y-img.Rect.Min.Y)*img.YStride + (x1 - img.Rect.Min.X)
-
-			var yBase int
-			switch img.SubsampleRatio {
-			case image.YCbCrSubsampleRatio444, image.YCbCrSubsampleRatio422:
-				yBase = (y - img.Rect.Min.Y) * img.CStride
-			case image.YCbCrSubsampleRatio420, image.YCbCrSubsampleRatio440:
-				yBase = (y/2 - hy) * img.CStride
+		if img.SubsampleRatio == image.YCbCrSubsampleRatio444 {
+			Y := img.Y[y1*img.YStride:]
+			Cb := img.Cb[y1*img.CStride:]
+			Cr := img.Cr[y1*img.CStride:]
+			for range y2 - y1 {
+				for x := x1; x < x2; x++ {
+					d := dst[0:4:4]
+					d[0], d[1], d[2] = color.YCbCrToRGB(Y[x], Cb[x], Cr[x])
+					d[3] = 255
+					dst = dst[4:]
+				}
+				Y, Cb, Cr = Y[img.YStride:], Cb[img.CStride:], Cr[img.CStride:]
 			}
+		} else {
 
-			for x := x1; x < x2; x++ {
-				var ic int
+			j := 0
+			x1 += img.Rect.Min.X
+			x2 += img.Rect.Min.X
+			y1 += img.Rect.Min.Y
+			y2 += img.Rect.Min.Y
+
+			hy := img.Rect.Min.Y / 2
+			hx := img.Rect.Min.X / 2
+			for y := y1; y < y2; y++ {
+				iy := (y-img.Rect.Min.Y)*img.YStride + (x1 - img.Rect.Min.X)
+
+				var yBase int
 				switch img.SubsampleRatio {
-				case image.YCbCrSubsampleRatio444, image.YCbCrSubsampleRatio440:
-					ic = yBase + (x - img.Rect.Min.X)
-				case image.YCbCrSubsampleRatio422, image.YCbCrSubsampleRatio420:
-					ic = yBase + (x/2 - hx)
-				default:
-					ic = img.COffset(x, y)
+				case image.YCbCrSubsampleRatio422:
+					yBase = (y - img.Rect.Min.Y) * img.CStride
+				case image.YCbCrSubsampleRatio420, image.YCbCrSubsampleRatio440:
+					yBase = (y/2 - hy) * img.CStride
 				}
 
-				yy1 := int32(img.Y[iy]) * 0x10101
-				cb1 := int32(img.Cb[ic]) - 128
-				cr1 := int32(img.Cr[ic]) - 128
+				for x := x1; x < x2; x++ {
+					var ic int
+					switch img.SubsampleRatio {
+					case image.YCbCrSubsampleRatio440:
+						ic = yBase + (x - img.Rect.Min.X)
+					case image.YCbCrSubsampleRatio422, image.YCbCrSubsampleRatio420:
+						ic = yBase + (x/2 - hx)
+					default:
+						ic = img.COffset(x, y)
+					}
 
-				r := yy1 + 91881*cr1
-				if uint32(r)&0xff000000 == 0 {
-					r >>= 16
-				} else {
-					r = ^(r >> 31)
+					d := dst[j : j+4 : j+4]
+					d[0], d[1], d[2] = color.YCbCrToRGB(img.Y[iy], img.Cb[ic], img.Cr[ic])
+					d[3] = 0xff
+
+					iy++
+					j += 4
+				}
+			}
+		}
+	case *image.NYCbCrA:
+		if img.SubsampleRatio == image.YCbCrSubsampleRatio444 {
+			Y := img.Y[y1*img.YStride:]
+			A := img.A[y1*img.AStride:]
+			Cb := img.Cb[y1*img.CStride:]
+			Cr := img.Cr[y1*img.CStride:]
+			for range y2 - y1 {
+				for x := x1; x < x2; x++ {
+					d := dst[0:4:4]
+					d[0], d[1], d[2] = color.YCbCrToRGB(Y[x], Cb[x], Cr[x])
+					d[3] = A[x]
+					dst = dst[4:]
+				}
+				Y, Cb, Cr = Y[img.YStride:], Cb[img.CStride:], Cr[img.CStride:]
+				A = A[img.AStride:]
+			}
+		} else {
+			j := 0
+			x1 += img.Rect.Min.X
+			x2 += img.Rect.Min.X
+			y1 += img.Rect.Min.Y
+			y2 += img.Rect.Min.Y
+
+			hy := img.Rect.Min.Y / 2
+			hx := img.Rect.Min.X / 2
+			for y := y1; y < y2; y++ {
+				iy := (y-img.Rect.Min.Y)*img.YStride + (x1 - img.Rect.Min.X)
+				ia := (y-img.Rect.Min.Y)*img.AStride + (x1 - img.Rect.Min.X)
+
+				var yBase int
+				switch img.SubsampleRatio {
+				case image.YCbCrSubsampleRatio422:
+					yBase = (y - img.Rect.Min.Y) * img.CStride
+				case image.YCbCrSubsampleRatio420, image.YCbCrSubsampleRatio440:
+					yBase = (y/2 - hy) * img.CStride
 				}
 
-				g := yy1 - 22554*cb1 - 46802*cr1
-				if uint32(g)&0xff000000 == 0 {
-					g >>= 16
-				} else {
-					g = ^(g >> 31)
+				for x := x1; x < x2; x++ {
+					var ic int
+					switch img.SubsampleRatio {
+					case image.YCbCrSubsampleRatio440:
+						ic = yBase + (x - img.Rect.Min.X)
+					case image.YCbCrSubsampleRatio422, image.YCbCrSubsampleRatio420:
+						ic = yBase + (x/2 - hx)
+					default:
+						ic = img.COffset(x, y)
+					}
+
+					d := dst[j : j+4 : j+4]
+					d[0], d[1], d[2] = color.YCbCrToRGB(img.Y[iy], img.Cb[ic], img.Cr[ic])
+					d[3] = img.A[ia]
+
+					iy++
+					j += 4
 				}
-
-				b := yy1 + 116130*cb1
-				if uint32(b)&0xff000000 == 0 {
-					b >>= 16
-				} else {
-					b = ^(b >> 31)
-				}
-
-				d := dst[j : j+4 : j+4]
-				d[0] = uint8(r)
-				d[1] = uint8(g)
-				d[2] = uint8(b)
-				d[3] = 0xff
-
-				iy++
-				j += 4
 			}
 		}
 
@@ -312,13 +397,6 @@ func (s *scanner) Scan(x1, y1, x2, y2 int, dst []uint8) {
 	}
 }
 
-type Scanner interface {
-	Scan(x1, y1, x2, y2 int, dst []uint8)
-	Bytes_per_channel() int
-	Num_of_channels() int
-	Bounds() image.Rectangle
-}
-
-func NewNRGBAScanner(source_image image.Image) Scanner {
+func NewNRGBAScanner(source_image image.Image) types.Scanner {
 	return newScanner(source_image)
 }
