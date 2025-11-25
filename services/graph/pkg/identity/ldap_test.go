@@ -2,6 +2,7 @@ package identity
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/url"
@@ -9,10 +10,10 @@ import (
 
 	"github.com/CiscoM31/godata"
 	"github.com/go-ldap/ldap/v3"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity/mocks"
-	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -62,6 +63,33 @@ var userEntry = ldap.NewEntry("uid=user",
 		"userenabledattribute": {"TRUE"},
 		"usertypeattribute":    {"Member"},
 	})
+
+var lconfigAD = config.LDAP{
+	UserBaseDN:               "ou=users,dc=test",
+	UserObjectClass:          "user",
+	UserSearchScope:          "sub",
+	UserFilter:               "",
+	UserDisplayNameAttribute: "displayname",
+	UserIDAttribute:          "objectGUID",
+	UserIDIsOctetString:      true,
+	UserEmailAttribute:       "mail",
+	UserNameAttribute:        "uid",
+	UserEnabledAttribute:     "userEnabledAttribute",
+	UserTypeAttribute:        "userTypeAttribute",
+	LdapDisabledUsersGroupDN: disableUsersGroup,
+	DisableUserMechanism:     "attribute",
+
+	GroupBaseDN:          "ou=groups,dc=test",
+	GroupObjectClass:     "group",
+	GroupSearchScope:     "sub",
+	GroupFilter:          "",
+	GroupNameAttribute:   "cn",
+	GroupMemberAttribute: "member",
+	GroupIDAttribute:     "objectGUID",
+	GroupIDIsOctetString: true,
+
+	WriteEnabled: true,
+}
 
 var invalidUserEntry = ldap.NewEntry("uid=user",
 	map[string][]string{
@@ -258,6 +286,50 @@ func TestGetUser(t *testing.T) {
 	b, _ = getMockedBackend(lm, lconfig, &logger)
 	_, err = b.GetUser(context.Background(), "invalid", nil)
 	assert.ErrorContains(t, err, "itemNotFound:")
+}
+
+func TestGetUserAD(t *testing.T) {
+
+	// we have to simulate ldap / AD returning a binary encoded objectguid
+	byteID, err := base64.StdEncoding.DecodeString("js8n0m6YBUqIYK8ZMFYnig==")
+	if err != nil {
+		t.Error(err)
+	}
+	userEntryAD := ldap.NewEntry("uid=user",
+		map[string][]string{
+			"uid":                  {"user"},
+			"displayname":          {"DisplayName"},
+			"mail":                 {"user@example"},
+			"objectguid":           {string(byteID)}, // ugly but works
+			"sn":                   {"surname"},
+			"givenname":            {"givenName"},
+			"userenabledattribute": {"TRUE"},
+			"usertypeattribute":    {"Member"},
+		})
+
+	// Mock a valid Search Result
+	lm := &mocks.Client{}
+	lm.On("Search", mock.Anything).
+		Return(
+			&ldap.SearchResult{
+				Entries: []*ldap.Entry{userEntryAD},
+			},
+			nil)
+
+	odataReqDefault, err := godata.ParseRequest(context.Background(), "",
+		url.Values{})
+	if err != nil {
+		t.Errorf("Expected success got '%s'", err.Error())
+	}
+
+	b, _ := getMockedBackend(lm, lconfigAD, &logger)
+	u, err := b.GetUser(context.Background(), "user", odataReqDefault)
+	if err != nil {
+		t.Errorf("Expected GetUser to succeed. Got %s", err.Error())
+	} else if *u.Id != "d227cf8e-986e-4a05-8860-af193056278a" { // this checks if we decoded the objectguid correctly
+		t.Errorf("Expected GetUser to return a valid user")
+	}
+
 }
 
 func TestGetUsers(t *testing.T) {

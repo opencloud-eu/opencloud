@@ -455,7 +455,7 @@ func (i *LDAP) groupToLDAPAttrValues(group libregraph.Group) (map[string][]strin
 }
 
 func (i *LDAP) getLDAPGroupByID(id string, requestMembers bool) (*ldap.Entry, error) {
-	idString, err := filterEscapeUUID(i.groupIDisOctetString, id)
+	idString, err := filterEscapeAttribute(i.groupAttributeMap.id, i.groupIDisOctetString, id)
 	if err != nil {
 		return nil, fmt.Errorf("invalid group id: %w", err)
 	}
@@ -464,7 +464,7 @@ func (i *LDAP) getLDAPGroupByID(id string, requestMembers bool) (*ldap.Entry, er
 }
 
 func (i *LDAP) getLDAPGroupByNameOrID(nameOrID string, requestMembers bool) (*ldap.Entry, error) {
-	idString, err := filterEscapeUUID(i.groupIDisOctetString, nameOrID)
+	idString, err := filterEscapeAttribute(i.groupAttributeMap.id, i.groupIDisOctetString, nameOrID)
 	// err != nil just means that this is not an uuid, so we can skip the uuid filter part
 	// and just filter by name
 	filter := ""

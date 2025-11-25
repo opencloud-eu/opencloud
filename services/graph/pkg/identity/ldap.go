@@ -497,7 +497,7 @@ func (i *LDAP) searchLDAPEntryByFilter(basedn string, attrs []string, filter str
 	return res.Entries[0], nil
 }
 
-func filterEscapeUUID(binary bool, id string) (string, error) {
+func filterEscapeAttribute(attribute string, binary bool, id string) (string, error) {
 	var escaped string
 	if binary {
 		pid, err := uuid.Parse(id)
@@ -505,17 +505,44 @@ func filterEscapeUUID(binary bool, id string) (string, error) {
 			err := fmt.Errorf("error parsing id '%s' as UUID: %w", id, err)
 			return "", err
 		}
-		for _, b := range pid {
-			escaped = fmt.Sprintf("%s\\%02x", escaped, b)
-		}
+		escaped = filterEscapeBinaryUUID(attribute, pid)
 	} else {
 		escaped = ldap.EscapeFilter(id)
 	}
 	return escaped, nil
 }
 
+// swapObjectGUIDBytes converts between AD's mixed-endian objectGUID format and standard UUID byte order
+func swapObjectGUIDBytes(value []byte) []byte {
+	if len(value) != 16 {
+		return value
+	}
+	return []byte{
+		value[3], value[2], value[1], value[0], // First component (4 bytes) - reverse
+		value[5], value[4], // Second component (2 bytes) - reverse
+		value[7], value[6], // Third component (2 bytes) - reverse
+		value[8], value[9], value[10], value[11], value[12], value[13], value[14], value[15], // Last 8 bytes - keep as-is
+	}
+}
+
+func filterEscapeBinaryUUID(attribute string, value uuid.UUID) string {
+	bytes := value[:]
+
+	// AD stores objectGUID with mixed endianness 🤪 - swap first 3 components
+	if strings.EqualFold(attribute, "objectguid") {
+		bytes = swapObjectGUIDBytes(bytes)
+	}
+
+	var filtered strings.Builder
+	filtered.Grow(len(bytes) * 3) // Pre-allocate: each byte becomes "\xx"
+	for _, b := range bytes {
+		fmt.Fprintf(&filtered, "\\%02x", b)
+	}
+	return filtered.String()
+}
+
 func (i *LDAP) getLDAPUserByID(id string) (*ldap.Entry, error) {
-	idString, err := filterEscapeUUID(i.userIDisOctetString, id)
+	idString, err := filterEscapeAttribute(i.userAttributeMap.id, i.userIDisOctetString, id)
 	if err != nil {
 		return nil, fmt.Errorf("invalid User id: %w", err)
 	}
@@ -524,7 +551,7 @@ func (i *LDAP) getLDAPUserByID(id string) (*ldap.Entry, error) {
 }
 
 func (i *LDAP) getLDAPUserByNameOrID(nameOrID string) (*ldap.Entry, error) {
-	idString, err := filterEscapeUUID(i.userIDisOctetString, nameOrID)
+	idString, err := filterEscapeAttribute(i.userAttributeMap.id, i.userIDisOctetString, nameOrID)
 	// err != nil just means that this is not an uuid, so we can skip the uuid filter part
 	// and just filter by name
 	var filter string
@@ -812,16 +839,25 @@ func (i *LDAP) updateUserPassword(ctx context.Context, dn, password string) erro
 	return err
 }
 
-func (i *LDAP) ldapUUIDtoString(e *ldap.Entry, attrType string, binary bool) (string, error) {
+func (i *LDAP) ldapUUIDtoString(e *ldap.Entry, attribute string, binary bool) (string, error) {
 	if binary {
-		rawValue := e.GetEqualFoldRawAttributeValue(attrType)
-		value, err := uuid.FromBytes(rawValue)
-		if err == nil {
-			return value.String(), nil
+		value := e.GetEqualFoldRawAttributeValue(attribute)
+
+		if len(value) != 16 {
+			return "", fmt.Errorf("invalid UUID in '%s' attribute (got %d bytes)", attribute, len(value))
 		}
-		return "", err
+
+		// AD stores objectGUID with mixed endianness 🤪 - swap first 3 components
+		if strings.EqualFold(attribute, "objectguid") {
+			value = swapObjectGUIDBytes(value)
+		}
+		id, err := uuid.FromBytes(value)
+		if err != nil {
+			return "", fmt.Errorf("error parsing UUID from '%s' attribute bytes: %w", attribute, err)
+		}
+		return id.String(), nil
 	}
-	return e.GetEqualFoldAttributeValue(attrType), nil
+	return e.GetEqualFoldAttributeValue(attribute), nil
 }
 
 func (i *LDAP) createUserModelFromLDAP(e *ldap.Entry) *libregraph.User {
