@@ -19,6 +19,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/structs"
 
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/metrics"
 	groupwaremiddleware "github.com/opencloud-eu/opencloud/services/groupware/pkg/middleware"
@@ -74,6 +75,11 @@ var (
 	// errNoPrimaryAccountForSieve            = errors.New("no primary account for sieve")
 	// errNoPrimaryAccountForWebsocket        = errors.New("no primary account for websocket")
 )
+
+func (r Request) AllAccountIds() []string {
+	// TODO potentially filter on "subscribed" accounts?
+	return structs.Uniq(structs.Keys(r.session.Accounts))
+}
 
 func (r Request) GetAccountIdWithoutFallback() (string, *Error) {
 	accountId := chi.URLParam(r.r, UriParamAccountId)
@@ -140,22 +146,22 @@ func (r Request) GetAccountIdForContact() (string, *Error) {
 	return r.GetAccountIdForMail()
 }
 
-func (r Request) GetAccountForMail() (jmap.Account, *Error) {
+func (r Request) GetAccountForMail() (string, jmap.Account, *Error) {
 	accountId, err := r.GetAccountIdForMail()
 	if err != nil {
-		return jmap.Account{}, err
+		return "", jmap.Account{}, err
 	}
 
 	account, ok := r.session.Accounts[accountId]
 	if !ok {
 		r.logger.Debug().Msgf("failed to find account '%v'", accountId)
 		// TODO metric for inexistent accounts
-		return jmap.Account{}, apiError(r.errorId(), ErrorNonExistingAccount,
+		return accountId, jmap.Account{}, apiError(r.errorId(), ErrorNonExistingAccount,
 			withDetail(fmt.Sprintf("The account '%v' does not exist", log.SafeString(accountId))),
 			withSource(&ErrorSource{Parameter: UriParamAccountId}),
 		)
 	}
-	return account, nil
+	return accountId, account, nil
 }
 
 func (r Request) parameterError(param string, detail string) *Error {
@@ -164,8 +170,8 @@ func (r Request) parameterError(param string, detail string) *Error {
 		withSource(&ErrorSource{Parameter: param}))
 }
 
-func (r Request) parameterErrorResponse(param string, detail string) Response {
-	return errorResponse(r.parameterError(param, detail))
+func (r Request) parameterErrorResponse(accountId string, param string, detail string) Response {
+	return errorResponse(accountId, r.parameterError(param, detail))
 }
 
 func (r Request) getStringParam(param string, defaultValue string) (string, bool) {
@@ -346,26 +352,26 @@ func (r Request) observeJmapError(jerr jmap.Error) jmap.Error {
 	return jerr
 }
 
-func (r Request) needTask() (bool, Response) {
+func (r Request) needTask(accountId string) (bool, Response) {
 	if !IgnoreSessionCapabilityChecks {
 		if r.session.Capabilities.Tasks == nil {
-			return false, errorResponseWithSessionState(r.apiError(&ErrorMissingTasksSessionCapability), r.session.State)
+			return false, errorResponseWithSessionState(accountId, r.apiError(&ErrorMissingTasksSessionCapability), r.session.State)
 		}
 	}
 	return true, Response{}
 }
 
 func (r Request) needTaskForAccount(accountId string) (bool, Response) {
-	if ok, resp := r.needTask(); !ok {
+	if ok, resp := r.needTask(accountId); !ok {
 		return ok, resp
 	}
 	account, ok := r.session.Accounts[accountId]
 	if !ok {
-		return false, errorResponseWithSessionState(r.apiError(&ErrorAccountNotFound), r.session.State)
+		return false, errorResponseWithSessionState(accountId, r.apiError(&ErrorAccountNotFound), r.session.State)
 	}
 	if !IgnoreSessionCapabilityChecks {
 		if account.AccountCapabilities.Tasks == nil {
-			return false, errorResponseWithSessionState(r.apiError(&ErrorMissingTasksAccountCapability), r.session.State)
+			return false, errorResponseWithSessionState(accountId, r.apiError(&ErrorMissingTasksAccountCapability), r.session.State)
 		}
 	}
 	return true, Response{}
@@ -374,7 +380,7 @@ func (r Request) needTaskForAccount(accountId string) (bool, Response) {
 func (r Request) needTaskWithAccount() (bool, string, Response) {
 	accountId, err := r.GetAccountIdForTask()
 	if err != nil {
-		return false, "", errorResponse(err)
+		return false, "", errorResponse(accountId, err)
 	}
 	if !IgnoreSessionCapabilityChecks {
 		if ok, resp := r.needTaskForAccount(accountId); !ok {
@@ -384,26 +390,26 @@ func (r Request) needTaskWithAccount() (bool, string, Response) {
 	return true, accountId, Response{}
 }
 
-func (r Request) needCalendar() (bool, Response) {
+func (r Request) needCalendar(accountId string) (bool, Response) {
 	if !IgnoreSessionCapabilityChecks {
 		if r.session.Capabilities.Calendars == nil {
-			return false, errorResponseWithSessionState(r.apiError(&ErrorMissingCalendarsSessionCapability), r.session.State)
+			return false, errorResponseWithSessionState(accountId, r.apiError(&ErrorMissingCalendarsSessionCapability), r.session.State)
 		}
 	}
 	return true, Response{}
 }
 
 func (r Request) needCalendarForAccount(accountId string) (bool, Response) {
-	if ok, resp := r.needCalendar(); !ok {
+	if ok, resp := r.needCalendar(accountId); !ok {
 		return ok, resp
 	}
 	account, ok := r.session.Accounts[accountId]
 	if !ok {
-		return false, errorResponseWithSessionState(r.apiError(&ErrorAccountNotFound), r.session.State)
+		return false, errorResponseWithSessionState(accountId, r.apiError(&ErrorAccountNotFound), r.session.State)
 	}
 	if !IgnoreSessionCapabilityChecks {
 		if account.AccountCapabilities.Calendars == nil {
-			return false, errorResponseWithSessionState(r.apiError(&ErrorMissingCalendarsAccountCapability), r.session.State)
+			return false, errorResponseWithSessionState(accountId, r.apiError(&ErrorMissingCalendarsAccountCapability), r.session.State)
 		}
 	}
 	return true, Response{}
@@ -412,7 +418,7 @@ func (r Request) needCalendarForAccount(accountId string) (bool, Response) {
 func (r Request) needCalendarWithAccount() (bool, string, Response) {
 	accountId, err := r.GetAccountIdForCalendar()
 	if err != nil {
-		return false, "", errorResponse(err)
+		return false, "", errorResponse(accountId, err)
 	}
 	if !IgnoreSessionCapabilityChecks {
 		if ok, resp := r.needCalendarForAccount(accountId); !ok {
@@ -422,23 +428,23 @@ func (r Request) needCalendarWithAccount() (bool, string, Response) {
 	return true, accountId, Response{}
 }
 
-func (r Request) needContact() (bool, Response) {
+func (r Request) needContact(accountId string) (bool, Response) {
 	if r.session.Capabilities.Contacts == nil {
-		return false, errorResponseWithSessionState(r.apiError(&ErrorMissingContactsSessionCapability), r.session.State)
+		return false, errorResponseWithSessionState(accountId, r.apiError(&ErrorMissingContactsSessionCapability), r.session.State)
 	}
 	return true, Response{}
 }
 
 func (r Request) needContactForAccount(accountId string) (bool, Response) {
-	if ok, resp := r.needContact(); !ok {
+	if ok, resp := r.needContact(accountId); !ok {
 		return ok, resp
 	}
 	account, ok := r.session.Accounts[accountId]
 	if !ok {
-		return false, errorResponseWithSessionState(r.apiError(&ErrorAccountNotFound), r.session.State)
+		return false, errorResponseWithSessionState(accountId, r.apiError(&ErrorAccountNotFound), r.session.State)
 	}
 	if account.AccountCapabilities.Contacts == nil {
-		return false, errorResponseWithSessionState(r.apiError(&ErrorMissingContactsAccountCapability), r.session.State)
+		return false, errorResponseWithSessionState(accountId, r.apiError(&ErrorMissingContactsAccountCapability), r.session.State)
 	}
 	return true, Response{}
 }
@@ -446,7 +452,7 @@ func (r Request) needContactForAccount(accountId string) (bool, Response) {
 func (r Request) needContactWithAccount() (bool, string, Response) {
 	accountId, err := r.GetAccountIdForContact()
 	if err != nil {
-		return false, "", errorResponse(err)
+		return false, "", errorResponse(accountId, err)
 	}
 	if ok, resp := r.needContactForAccount(accountId); !ok {
 		return false, accountId, resp

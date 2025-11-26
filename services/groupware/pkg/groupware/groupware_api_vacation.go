@@ -33,15 +33,15 @@ func (g *Groupware) GetVacation(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountId, err := req.GetAccountIdForVacationResponse()
 		if err != nil {
-			return errorResponse(err)
+			return errorResponse(accountId, err)
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
 
 		res, sessionState, state, lang, jerr := g.jmap.GetVacationResponse(accountId, req.session, req.ctx, logger, req.language())
 		if jerr != nil {
-			return req.errorResponseFromJmap(jerr)
+			return req.errorResponseFromJmap(accountId, jerr)
 		}
-		return etagResponse(res, sessionState, state, lang)
+		return etagResponse(accountId, res, sessionState, VacationResponseResponseObjectType, state, lang)
 	})
 }
 
@@ -67,23 +67,23 @@ type SwaggerSetVacationResponse200 struct {
 //	500: ErrorResponse500
 func (g *Groupware) SetVacation(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
-		var body jmap.VacationResponsePayload
-		err := req.body(&body)
-		if err != nil {
-			return errorResponse(err)
-		}
-
 		accountId, err := req.GetAccountIdForVacationResponse()
 		if err != nil {
-			return errorResponse(err)
+			return errorResponse(accountId, err)
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
 
-		res, sessionState, state, lang, jerr := g.jmap.SetVacationResponse(accountId, body, req.session, req.ctx, logger, req.language())
-		if jerr != nil {
-			return req.errorResponseFromJmap(jerr)
+		var body jmap.VacationResponsePayload
+		err = req.body(&body)
+		if err != nil {
+			return errorResponse(accountId, err)
 		}
 
-		return etagResponse(res, sessionState, state, lang)
+		res, sessionState, state, lang, jerr := g.jmap.SetVacationResponse(accountId, body, req.session, req.ctx, logger, req.language())
+		if jerr != nil {
+			return req.errorResponseFromJmap(accountId, jerr)
+		}
+
+		return etagResponse(accountId, res, sessionState, VacationResponseResponseObjectType, state, lang)
 	})
 }

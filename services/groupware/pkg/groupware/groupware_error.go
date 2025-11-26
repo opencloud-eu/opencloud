@@ -629,6 +629,6 @@ func errorResponses(errors ...Error) ErrorResponse {
 	return ErrorResponse{Errors: errors}
 }
 
-func (r Request) errorResponseFromJmap(err jmap.Error) Response {
-	return errorResponse(r.apiErrorFromJmap(r.observeJmapError(err)))
+func (r Request) errorResponseFromJmap(accountId string, err jmap.Error) Response {
+	return errorResponse(accountId, r.apiErrorFromJmap(r.observeJmapError(err)))
 }
