@@ -199,11 +199,15 @@ var T1 = jmap.Task{
 
 var AllTaskLists = []jmap.TaskList{TL1}
 
+var TaskListsState = jmap.State("mock")
+
 var TaskMapByTaskListId = map[string][]jmap.Task{
 	TL1.Id: {
 		T1,
 	},
 }
+
+var TaskState = jmap.State("mock")
 
 func mustParseTime(text string) time.Time {
 	t, err := time.Parse(time.RFC3339, text)

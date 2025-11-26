@@ -5,7 +5,6 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
 // When the request succeeds.
@@ -27,18 +26,18 @@ func (g *Groupware) GetQuota(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountId, err := req.GetAccountIdForQuota()
 		if err != nil {
-			return errorResponse(err)
+			return errorResponse(accountId, err)
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
 
 		res, sessionState, state, lang, jerr := g.jmap.GetQuotas([]string{accountId}, req.session, req.ctx, logger, req.language())
 		if jerr != nil {
-			return req.errorResponseFromJmap(jerr)
+			return req.errorResponseFromJmap(accountId, jerr)
 		}
 		for _, v := range res {
-			return etagResponse(v.List, sessionState, state, lang)
+			return etagResponse(accountId, v.List, sessionState, QuotaResponseObjectType, state, lang)
 		}
-		return notFoundResponse(sessionState)
+		return notFoundResponse(accountId, sessionState)
 	})
 }
 
@@ -64,15 +63,15 @@ type SwaggerGetQuotaForAllAccountsResponse200 struct {
 //	500: ErrorResponse500
 func (g *Groupware) GetQuotaForAllAccounts(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
-		accountIds := structs.Keys(req.session.Accounts)
+		accountIds := req.AllAccountIds()
 		if len(accountIds) < 1 {
-			return noContentResponse("")
+			return noContentResponse(joinAccountIds(accountIds), "")
 		}
 		logger := log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(accountIds)))
 
 		res, sessionState, state, lang, jerr := g.jmap.GetQuotas(accountIds, req.session, req.ctx, logger, req.language())
 		if jerr != nil {
-			return req.errorResponseFromJmap(jerr)
+			return req.errorResponseFromJmap(joinAccountIds(accountIds), jerr)
 		}
 
 		result := make(map[string]AccountQuota, len(res))
@@ -82,6 +81,6 @@ func (g *Groupware) GetQuotaForAllAccounts(w http.ResponseWriter, r *http.Reques
 				Quotas: accountQuotas.List,
 			}
 		}
-		return etagResponse(result, sessionState, state, lang)
+		return etagResponse(joinAccountIds(accountIds), result, sessionState, QuotaResponseObjectType, state, lang)
 	})
 }

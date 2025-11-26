@@ -31,7 +31,7 @@ func (g *Groupware) GetTaskLists(w http.ResponseWriter, r *http.Request) {
 		}
 		var _ string = accountId
 
-		return response(AllTaskLists, req.session.State, "")
+		return etagResponse(accountId, AllTaskLists, req.session.State, TaskListResponseObjectType, TaskListsState, "")
 	})
 }
 
@@ -65,10 +65,10 @@ func (g *Groupware) GetTaskListById(w http.ResponseWriter, r *http.Request) {
 		// TODO replace with proper implementation
 		for _, tasklist := range AllTaskLists {
 			if tasklist.Id == tasklistId {
-				return response(tasklist, req.session.State, "")
+				return response(accountId, tasklist, req.session.State, "")
 			}
 		}
-		return notFoundResponse(req.session.State)
+		return etagNotFoundResponse(accountId, req.session.State, TaskListResponseObjectType, TaskListsState, "")
 	})
 }
 
@@ -100,8 +100,8 @@ func (g *Groupware) GetTasksInTaskList(w http.ResponseWriter, r *http.Request) {
 		// TODO replace with proper implementation
 		tasks, ok := TaskMapByTaskListId[tasklistId]
 		if !ok {
-			return notFoundResponse(req.session.State)
+			return notFoundResponse(accountId, req.session.State)
 		}
-		return response(tasks, req.session.State, "")
+		return etagResponse(accountId, tasks, req.session.State, TaskResponseObjectType, TaskState, "")
 	})
 }

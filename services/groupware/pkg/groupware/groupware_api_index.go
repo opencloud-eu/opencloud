@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
-	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
 type IndexLimits struct {
@@ -160,20 +159,20 @@ type SwaggerIndexResponse struct {
 //	200: IndexResponse
 func (g *Groupware) Index(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
-		accountIds := structs.Keys(req.session.Accounts)
+		accountIds := req.AllAccountIds()
 
 		boot, sessionState, state, lang, err := g.jmap.GetBootstrap(accountIds, req.session, req.ctx, req.logger, req.language())
 		if err != nil {
-			return req.errorResponseFromJmap(err)
+			return req.errorResponseFromJmap(joinAccountIds(accountIds), err)
 		}
 
-		return etagResponse(IndexResponse{
+		return etagResponse(joinAccountIds(accountIds), IndexResponse{
 			Version:         Version,
 			Capabilities:    Capabilities,
 			Limits:          buildIndexLimits(req.session),
 			Accounts:        buildIndexAccounts(req.session, boot),
 			PrimaryAccounts: buildIndexPrimaryAccounts(req.session),
-		}, sessionState, state, lang)
+		}, sessionState, IndexResponseObjectType, state, lang)
 	})
 }
 

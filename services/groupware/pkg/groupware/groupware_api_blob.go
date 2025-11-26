@@ -16,26 +16,29 @@ const (
 
 func (g *Groupware) GetBlobMeta(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
-		blobId := chi.URLParam(req.r, UriParamBlobId)
-		if blobId == "" {
-			return req.parameterErrorResponse(UriParamBlobId, fmt.Sprintf("Invalid value for path parameter '%v': empty", UriParamBlobId))
-		}
-
 		accountId, err := req.GetAccountIdForBlob()
 		if err != nil {
-			return errorResponse(err)
+			return errorResponse(accountId, err)
 		}
-		logger := log.From(req.logger.With().Str(logAccountId, accountId))
+		l := req.logger.With().Str(logAccountId, accountId)
+
+		blobId := chi.URLParam(req.r, UriParamBlobId)
+		if blobId == "" {
+			return req.parameterErrorResponse(accountId, UriParamBlobId, fmt.Sprintf("Invalid value for path parameter '%v': empty", UriParamBlobId))
+		}
+		l = l.Str(UriParamBlobId, blobId)
+
+		logger := log.From(l)
 
 		res, sessionState, state, lang, jerr := g.jmap.GetBlobMetadata(accountId, req.session, req.ctx, logger, req.language(), blobId)
 		if jerr != nil {
-			return req.errorResponseFromJmap(jerr)
+			return req.errorResponseFromJmap(accountId, jerr)
 		}
 		blob := res
 		if blob == nil {
-			return notFoundResponse(sessionState)
+			return notFoundResponse(accountId, sessionState)
 		}
-		return etagResponse(res, sessionState, state, lang)
+		return etagResponse(accountId, res, sessionState, BlobResponseObjectType, state, lang)
 	})
 }
 
@@ -54,16 +57,16 @@ func (g *Groupware) UploadBlob(w http.ResponseWriter, r *http.Request) {
 
 		accountId, err := req.GetAccountIdForBlob()
 		if err != nil {
-			return errorResponse(err)
+			return errorResponse(accountId, err)
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
 
 		resp, lang, jerr := g.jmap.UploadBlobStream(accountId, req.session, req.ctx, logger, req.language(), contentType, body)
 		if jerr != nil {
-			return req.errorResponseFromJmap(jerr)
+			return req.errorResponseFromJmap(accountId, jerr)
 		}
 
-		return response(resp, req.session.State, lang)
+		return response(accountId, resp, req.session.State, lang)
 	})
 }
 
@@ -78,7 +81,7 @@ func (g *Groupware) DownloadBlob(w http.ResponseWriter, r *http.Request) {
 		if gwerr != nil {
 			return gwerr
 		}
-		logger := log.From(req.logger.With().Str(logAccountId, accountId))
+		logger := log.From(req.logger.With().Str(logAccountId, accountId).Str(UriParamBlobId, blobId))
 
 		return req.serveBlob(blobId, name, typ, logger, accountId, w)
 	})

@@ -29,11 +29,11 @@ type SwaggerGetAccountResponse struct {
 //	500: ErrorResponse500
 func (g *Groupware) GetAccount(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
-		account, err := req.GetAccountForMail()
+		accountId, account, err := req.GetAccountForMail()
 		if err != nil {
-			return errorResponse(err)
+			return errorResponse(accountId, err)
 		}
-		return response(account, req.session.State, "")
+		return etagResponse(accountId, account, req.session.State, AccountResponseObjectType, jmap.State(req.session.State), "")
 	})
 }
 
@@ -66,16 +66,16 @@ func (g *Groupware) GetAccounts(w http.ResponseWriter, r *http.Request) {
 		}
 		// sort on accountId to have a stable order that remains the same with every query
 		slices.SortFunc(list, func(a, b AccountWithId) int { return strings.Compare(a.AccountId, b.AccountId) })
-		return response(list, req.session.State, "")
+		return etagResponse(joinAccountIds(structs.Map(list, func(a AccountWithId) string { return a.AccountId })), list, req.session.State, AccountResponseObjectType, jmap.State(req.session.State), "")
 	})
 }
 
 func (g *Groupware) GetAccountsWithTheirIdentities(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
-		uniqueAccountIds := structs.Uniq(structs.Keys(req.session.Accounts))
-		resp, sessionState, state, lang, err := g.jmap.GetIdentitiesForAllAccounts(uniqueAccountIds, req.session, req.ctx, req.logger, req.language())
+		allAccountIds := req.AllAccountIds()
+		resp, sessionState, state, lang, err := g.jmap.GetIdentitiesForAllAccounts(allAccountIds, req.session, req.ctx, req.logger, req.language())
 		if err != nil {
-			return req.errorResponseFromJmap(err)
+			return req.errorResponseFromJmap(joinAccountIds(allAccountIds), err)
 		}
 		list := make([]AccountWithIdAndIdentities, len(req.session.Accounts))
 		i := 0
@@ -94,7 +94,7 @@ func (g *Groupware) GetAccountsWithTheirIdentities(w http.ResponseWriter, r *htt
 		}
 		// sort on accountId to have a stable order that remains the same with every query
 		slices.SortFunc(list, func(a, b AccountWithIdAndIdentities) int { return strings.Compare(a.AccountId, b.AccountId) })
-		return etagResponse(list, sessionState, state, lang)
+		return etagResponse(joinAccountIds(structs.Map(list, func(a AccountWithIdAndIdentities) string { return a.AccountId })), list, sessionState, AccountResponseObjectType, state, lang)
 	})
 }
 

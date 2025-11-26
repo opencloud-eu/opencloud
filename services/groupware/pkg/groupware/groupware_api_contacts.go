@@ -34,10 +34,10 @@ func (g *Groupware) GetAddressbooks(w http.ResponseWriter, r *http.Request) {
 
 		addressbooks, sessionState, state, lang, jerr := g.jmap.GetAddressbooks(accountId, req.session, req.ctx, req.logger, req.language(), nil)
 		if jerr != nil {
-			return req.errorResponseFromJmap(jerr)
+			return req.errorResponseFromJmap(accountId, jerr)
 		}
 
-		return etagResponse(addressbooks, sessionState, state, lang)
+		return etagResponse(accountId, addressbooks, sessionState, AddressBookResponseObjectType, state, lang)
 	})
 }
 
@@ -74,13 +74,13 @@ func (g *Groupware) GetAddressbook(w http.ResponseWriter, r *http.Request) {
 		logger := log.From(l)
 		addressbooks, sessionState, state, lang, jerr := g.jmap.GetAddressbooks(accountId, req.session, req.ctx, logger, req.language(), []string{addressBookId})
 		if jerr != nil {
-			return req.errorResponseFromJmap(jerr)
+			return req.errorResponseFromJmap(accountId, jerr)
 		}
 
 		if len(addressbooks.NotFound) > 0 {
-			return notFoundResponse(sessionState)
+			return notFoundResponse(accountId, sessionState)
 		} else {
-			return etagResponse(addressbooks, sessionState, state, lang)
+			return etagResponse(accountId, addressbooks, sessionState, AddressBookResponseObjectType, state, lang)
 		}
 	})
 }
@@ -115,7 +115,7 @@ func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Requ
 
 		offset, ok, err := req.parseUIntParam(QueryParamOffset, 0)
 		if err != nil {
-			return errorResponse(err)
+			return errorResponse(accountId, err)
 		}
 		if ok {
 			l = l.Uint(QueryParamOffset, offset)
@@ -123,7 +123,7 @@ func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Requ
 
 		limit, ok, err := req.parseUIntParam(QueryParamLimit, g.defaultContactLimit)
 		if err != nil {
-			return errorResponse(err)
+			return errorResponse(accountId, err)
 		}
 		if ok {
 			l = l.Uint(QueryParamLimit, limit)
@@ -137,13 +137,13 @@ func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Requ
 		logger := log.From(l)
 		contactsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryContactCards([]string{accountId}, req.session, req.ctx, logger, req.language(), filter, sortBy, offset, limit)
 		if jerr != nil {
-			return req.errorResponseFromJmap(jerr)
+			return req.errorResponseFromJmap(accountId, jerr)
 		}
 
 		if contacts, ok := contactsByAccountId[accountId]; ok {
-			return etagResponse(contacts, sessionState, state, lang)
+			return etagResponse(accountId, contacts, sessionState, ContactResponseObjectType, state, lang)
 		} else {
-			return notFoundResponse(sessionState)
+			return etagNotFoundResponse(accountId, sessionState, ContactResponseObjectType, state, lang)
 		}
 	})
 }
@@ -163,13 +163,13 @@ func (g *Groupware) GetContactById(w http.ResponseWriter, r *http.Request) {
 		logger := log.From(l)
 		contactsById, sessionState, state, lang, jerr := g.jmap.GetContactCardsById(accountId, req.session, req.ctx, logger, req.language(), []string{contactId})
 		if jerr != nil {
-			return req.errorResponseFromJmap(jerr)
+			return req.errorResponseFromJmap(accountId, jerr)
 		}
 
 		if contact, ok := contactsById[contactId]; ok {
-			return etagResponse(contact, sessionState, state, lang)
+			return etagResponse(accountId, contact, sessionState, ContactResponseObjectType, state, lang)
 		} else {
-			return notFoundResponse(sessionState)
+			return etagNotFoundResponse(accountId, sessionState, ContactResponseObjectType, state, lang)
 		}
 	})
 }
@@ -189,15 +189,15 @@ func (g *Groupware) CreateContact(w http.ResponseWriter, r *http.Request) {
 		var create jscontact.ContactCard
 		err := req.body(&create)
 		if err != nil {
-			return errorResponse(err)
+			return errorResponse(accountId, err)
 		}
 
 		logger := log.From(l)
 		created, sessionState, state, lang, jerr := g.jmap.CreateContactCard(accountId, req.session, req.ctx, logger, req.language(), create)
 		if jerr != nil {
-			return req.errorResponseFromJmap(jerr)
+			return req.errorResponseFromJmap(accountId, jerr)
 		}
-		return etagResponse(created, sessionState, state, lang)
+		return etagResponse(accountId, created, sessionState, ContactResponseObjectType, state, lang)
 	})
 }
 
@@ -216,24 +216,24 @@ func (g *Groupware) DeleteContact(w http.ResponseWriter, r *http.Request) {
 
 		deleted, sessionState, state, _, jerr := g.jmap.DeleteContactCard(accountId, []string{contactId}, req.session, req.ctx, logger, req.language())
 		if jerr != nil {
-			return req.errorResponseFromJmap(jerr)
+			return req.errorResponseFromJmap(accountId, jerr)
 		}
 
 		for _, e := range deleted {
 			desc := e.Description
 			if desc != "" {
-				return errorResponseWithSessionState(apiError(
+				return errorResponseWithSessionState(accountId, apiError(
 					req.errorId(),
 					ErrorFailedToDeleteContact,
 					withDetail(e.Description),
 				), sessionState)
 			} else {
-				return errorResponseWithSessionState(apiError(
+				return errorResponseWithSessionState(accountId, apiError(
 					req.errorId(),
 					ErrorFailedToDeleteContact,
 				), sessionState)
 			}
 		}
-		return noContentResponseWithEtag(sessionState, state)
+		return noContentResponseWithEtag(accountId, sessionState, ContactResponseObjectType, state)
 	})
 }

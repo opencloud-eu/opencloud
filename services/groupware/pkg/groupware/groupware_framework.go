@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -564,6 +566,13 @@ func (g *Groupware) withSession(w http.ResponseWriter, r *http.Request, handler 
 	return response, time.Time{}, true
 }
 
+const (
+	SessionStateResponseHeader = "Session-State"
+	StateResponseHeader        = "State"
+	ObjectTypeResponseHeader   = "Object-Type"
+	AccountIdResponseHeader    = "Account-Id"
+)
+
 func (g *Groupware) sendResponse(w http.ResponseWriter, r *http.Request, response Response) {
 	if response.err != nil {
 		g.log(response.err)
@@ -573,22 +582,8 @@ func (g *Groupware) sendResponse(w http.ResponseWriter, r *http.Request, respons
 		return
 	}
 
-	etag := ""
-	sessionState := ""
-
-	if response.etag != "" {
-		etag = string(response.etag)
-	}
-
 	if response.sessionState != "" {
-		sessionState = string(response.sessionState)
-		if etag == "" {
-			etag = sessionState
-		}
-	}
-
-	if sessionState != "" {
-		w.Header().Add("Session-State", string(sessionState))
+		w.Header().Add(SessionStateResponseHeader, string(response.sessionState))
 	}
 
 	if response.contentLanguage != "" {
@@ -596,11 +591,24 @@ func (g *Groupware) sendResponse(w http.ResponseWriter, r *http.Request, respons
 	}
 
 	notModified := false
-	if etag != "" {
-		challenge := r.Header.Get("if-none-match")
-		quotedEtag := "\"" + etag + "\""
-		notModified = challenge != "" && (challenge == etag || challenge == quotedEtag)
-		w.Header().Add("ETag", quotedEtag)
+	{
+		etag := string(response.etag)
+		if etag != "" {
+			challenge := r.Header.Get("if-none-match")
+			quotedEtag := "\"" + etag + "\""
+			notModified = challenge != "" && (challenge == etag || challenge == quotedEtag)
+			w.Header().Add("ETag", quotedEtag)
+			w.Header().Add(StateResponseHeader, etag)
+		}
+	}
+	{
+		ot := string(response.objectType)
+		if ot != "" {
+			w.Header().Add(ObjectTypeResponseHeader, ot)
+		}
+	}
+	if response.accountId != "" {
+		w.Header().Add(AccountIdResponseHeader, response.accountId)
 	}
 
 	if notModified {
@@ -698,4 +706,18 @@ func (g *Groupware) MethodNotAllowed(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Add("Unsupported-Method", r.Method) // TODO possibly remove this in production for security reasons?
 	w.WriteHeader(http.StatusNotFound)
+}
+
+func joinAccountIds(accountIds []string) string {
+	switch len(accountIds) {
+	case 0:
+		return ""
+	case 1:
+		return accountIds[0]
+	default:
+		c := make([]string, len(accountIds))
+		copy(c, accountIds)
+		slices.Sort(c)
+		return strings.Join(c, ",")
+	}
 }
