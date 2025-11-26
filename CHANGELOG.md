@@ -10,6 +10,11 @@
 
 - collaboration: Enable `InsertRemoteImage` option [[#1692](https://github.com/opencloud-eu/opencloud/pull/1692)]
 
+### 📈 Enhancement
+
+- log missing name or id attributes [[#1914](https://github.com/opencloud-eu/opencloud/pull/1914)]
+- collabora: Set IsAdminUser and IsAnonymousUser in CheckFileInfo [[#1745](https://github.com/opencloud-eu/opencloud/pull/1745)]
+
 ### ✅ Tests
 
 - [full-ci] disable running ci with watch fs when full-ci [[#1902](https://github.com/opencloud-eu/opencloud/pull/1902)]
@@ -40,10 +45,6 @@
 
 - fix: add missing service README.md files with basic description [[#1859](https://github.com/opencloud-eu/opencloud/pull/1859)]
 - Fix README.md files which contain broken or missing links [[#1854](https://github.com/opencloud-eu/opencloud/pull/1854)]
-
-### 📈 Enhancement
-
-- collabora: Set IsAdminUser and IsAnonymousUser in CheckFileInfo [[#1745](https://github.com/opencloud-eu/opencloud/pull/1745)]
 
 ### 📦️ Dependencies
 
