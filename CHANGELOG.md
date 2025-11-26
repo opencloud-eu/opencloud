@@ -12,6 +12,7 @@
 
 ### 🐛 Bug Fixes
 
+- kill unused env vars [[#1888](https://github.com/opencloud-eu/opencloud/pull/1888)]
 - rc-handling was only active for the dryrun, not the real build-and-push [[#1919](https://github.com/opencloud-eu/opencloud/pull/1919)]
 - handle objectguid endianess [[#1901](https://github.com/opencloud-eu/opencloud/pull/1901)]
 - fix: add update server to default csp rules [[#1875](https://github.com/opencloud-eu/opencloud/pull/1875)]
