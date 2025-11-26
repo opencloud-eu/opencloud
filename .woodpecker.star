@@ -1704,7 +1704,7 @@ def dockerRelease(ctx, repo, build_type):
                     "repo": "%s,quay.io/%s" % (repo, repo),
                     "platforms": "linux/amd64,linux/arm64",  # we can add remote builders
                     "auto_tag": False if build_type == "daily" else True,
-                    "tag": "daily" if build_type == "daily" else "",
+                    "tag": hard_tag,
                     "default_tag": "daily",
                     "dockerfile": "opencloud/docker/Dockerfile.multiarch",
                     "build_args": build_args,
