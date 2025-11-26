@@ -541,24 +541,47 @@ func (i *Identity) GetLDAPGroupMembers(ctx context.Context, lc ldap.Client, grou
 	return memberEntries, nil
 }
 
-func filterEscapeBinaryUUID(value uuid.UUID) string {
-	filtered := ""
-	for _, b := range value {
-		filtered = fmt.Sprintf("%s\\%02x", filtered, b)
+func filterEscapeAttribute(attribute string, binary bool, id string) (string, error) {
+	var escaped string
+	if binary {
+		pid, err := uuid.Parse(id)
+		if err != nil {
+			err := fmt.Errorf("error parsing id '%s' as UUID: %w", id, err)
+			return "", err
+		}
+		escaped = filterEscapeBinaryUUID(attribute, pid)
+	} else {
+		escaped = ldap.EscapeFilter(id)
 	}
-	return filtered
+	return escaped, nil
+}
+
+func filterEscapeBinaryUUID(attribute string, value uuid.UUID) string {
+	bytes := value[:]
+
+	// AD stores objectGUID with mixed endianness 🤪 - swap first 3 components
+	if strings.EqualFold(attribute, "objectguid") {
+		bytes = []byte{
+			value[3], value[2], value[1], value[0], // First component (4 bytes) - reverse
+			value[5], value[4], // Second component (2 bytes) - reverse
+			value[7], value[6], // Third component (2 bytes) - reverse
+			value[8], value[9], value[10], value[11], value[12], value[13], value[14], value[15], // Last 8 bytes - keep as-is
+		}
+	}
+
+	var filtered strings.Builder
+	filtered.Grow(len(bytes) * 3) // Pre-allocate: each byte becomes "\xx"
+	for _, b := range bytes {
+		fmt.Fprintf(&filtered, "\\%02x", b)
+	}
+	return filtered.String()
 }
 
 func (i *Identity) getUserFilter(uid *identityUser.UserId) (string, error) {
 	var escapedUUID string
-	if i.User.Schema.IDIsOctetString {
-		id, err := uuid.Parse(uid.GetOpaqueId())
-		if err != nil {
-			return "", fmt.Errorf("error parsing OpaqueID '%s' as UUID: %w", uid, err)
-		}
-		escapedUUID = filterEscapeBinaryUUID(id)
-	} else {
-		escapedUUID = ldap.EscapeFilter(uid.GetOpaqueId())
+	escapedUUID, err := filterEscapeAttribute(i.User.Schema.ID, i.User.Schema.IDIsOctetString, uid.GetOpaqueId())
+	if err != nil {
+		return "", fmt.Errorf("error parsing OpaqueID '%s' as UUID: %w", uid, err)
 	}
 	return fmt.Sprintf("(&%s(objectclass=%s)%s(%s=%s))",
 		i.User.Filter,
@@ -586,14 +609,9 @@ func (i *Identity) getUserAttributeFilter(attribute, value, tenantID string) (st
 	default:
 		return "", errors.New("ldap: invalid field " + attribute)
 	}
-	if attribute == i.User.Schema.ID && i.User.Schema.IDIsOctetString {
-		id, err := uuid.Parse(value)
-		if err != nil {
-			return "", fmt.Errorf("error parsing OpaqueID '%s' as UUID: %w", value, err)
-		}
-		value = filterEscapeBinaryUUID(id)
-	} else {
-		value = ldap.EscapeFilter(value)
+	value, err := filterEscapeAttribute(i.User.Schema.ID, i.User.Schema.IDIsOctetString, value)
+	if err != nil {
+		return "", fmt.Errorf("error parsing attribute '%s' value '%s' as UUID: %w", attribute, value, err)
 	}
 	return fmt.Sprintf("(&%s(objectclass=%s)(%s=%s)%s%s)",
 		i.User.Filter,
@@ -719,15 +737,9 @@ func (i *Identity) getGroupMemberFilter(memberName string) string {
 }
 
 func (i *Identity) getGroupFilter(id string) (string, error) {
-	var escapedUUID string
-	if i.Group.Schema.IDIsOctetString {
-		id, err := uuid.Parse(id)
-		if err != nil {
-			return "", fmt.Errorf("error parsing OpaqueID '%s' as UUID: %w", id, err)
-		}
-		escapedUUID = filterEscapeBinaryUUID(id)
-	} else {
-		escapedUUID = ldap.EscapeFilter(id)
+	escapedUUID, err := filterEscapeAttribute(i.Group.Schema.ID, i.Group.Schema.IDIsOctetString, id)
+	if err != nil {
+		return "", fmt.Errorf("error parsing attribute '%s' value '%s' as UUID: %w", i.Group.Schema.ID, id, err)
 	}
 
 	return fmt.Sprintf("(&%s(objectclass=%s)(%s=%s))",
@@ -753,14 +765,9 @@ func (i *Identity) getGroupAttributeFilter(attribute, value string) (string, err
 	default:
 		return "", errors.New("ldap: invalid field " + attribute)
 	}
-	if attribute == i.Group.Schema.ID && i.Group.Schema.IDIsOctetString {
-		id, err := uuid.Parse(value)
-		if err != nil {
-			return "", fmt.Errorf("error parsing OpaqueID '%s' as UUID: %w", value, err)
-		}
-		value = filterEscapeBinaryUUID(id)
-	} else {
-		value = ldap.EscapeFilter(value)
+	value, err := filterEscapeAttribute(i.Group.Schema.ID, i.Group.Schema.IDIsOctetString, value)
+	if err != nil {
+		return "", fmt.Errorf("error parsing attribute '%s' value '%s' as UUID: %w", attribute, value, err)
 	}
 	return fmt.Sprintf("(&%s(objectclass=%s)(%s=%s))",
 		i.Group.Filter,

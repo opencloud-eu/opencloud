@@ -25,11 +25,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/pkg/xattr"
 
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 )
 
@@ -91,11 +93,15 @@ func (bs *Blobstore) Upload(n *node.Node, source, copyTarget string) error {
 
 	var mtime *time.Time
 	for k, v := range nodeAttributes {
+		if !strings.HasPrefix(k, prefixes.OcPrefix) {
+			continue
+		}
+
 		if err := xattr.Set(tempName, k, v); err != nil {
 			return fmt.Errorf("failed to set xattr '%s' on temp file '%s' - %v", k, tempName, err)
 		}
 
-		if k == "user.oc.mtime" {
+		if k == prefixes.MTimeAttr {
 			tv, err := time.Parse(time.RFC3339Nano, string(v))
 			if err == nil {
 				mtime = &tv
