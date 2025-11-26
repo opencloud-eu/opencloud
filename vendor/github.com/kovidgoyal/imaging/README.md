@@ -1,9 +1,26 @@
 # Imaging
 
-Package imaging provides basic image processing functions (resize, rotate, crop, brightness/contrast adjustments, etc.).
+This is pure Go code that makes working with images actually
+useable on top of the Go stdlib. In addition to the usual PNG/JPEG/WebP/TIFF/BMP/GIF
+formats that have been supported forever, this package adds support for 
+animated PNG, animated WebP, Google's new "jpegli" JPEG variant
+and all the netPBM image formats.
 
-All the image processing functions provided by the package accept any image type that implements `image.Image` interface
-as an input, and return a new image of `*image.NRGBA` type (32bit RGBA colors, non-premultiplied alpha).
+Additionally, this package support color management via ICC profiles and CICP
+metadata. Opening non-sRGB images automatically converts them to sRGB, so you
+don't have to think about it. It has full support for ICC v2 and v4 profiles
+embedded in all the image formats and is extensively tested against the
+little-cms library. 
+
+It also supports loading image metadata in EXIF format and automatically
+supports the EXIF orientation flag -- on image load the image is transformed
+based on that tag automatically.
+
+It automatically falls back to ImageMagick when available, for image formats
+it does not support.
+
+Finally, it provides basic image processing functions
+(resize, rotate, crop, brightness/contrast adjustments, etc.).
 
 ## Installation
 
@@ -13,24 +30,21 @@ as an input, and return a new image of `*image.NRGBA` type (32bit RGBA colors, n
 
 https://pkg.go.dev/github.com/kovidgoyal/imaging
 
-## Usage examples
-
-A few usage examples can be found below. See the documentation for the full list of supported functions.
-
-### Image resizing
+## Quickstart
 
 ```go
-// Resize srcImage to size = 128x128px using the Lanczos filter.
-dstImage128 := imaging.Resize(srcImage, 128, 128, imaging.Lanczos)
+img, metadata, err := imaging.OpenAll(path, options...)
+img.Resize(128, 128, imaging.Lanczos)
+img.SaveAsPNG(path, mode)
+```
 
-// Resize srcImage to width = 800px preserving the aspect ratio.
-dstImage800 := imaging.Resize(srcImage, 800, 0, imaging.Lanczos)
+There are also convenience scripts that demonstrate this library in action,
+note that these are mainly for development and as such they only use the pure
+Go code and do not fallback to ImageMagick:
 
-// Scale down srcImage to fit the 800x600px bounding box.
-dstImageFit := imaging.Fit(srcImage, 800, 600, imaging.Lanczos)
-
-// Resize and crop the srcImage to fill the 100x100px area.
-dstImageFill := imaging.Fill(srcImage, 100, 100, imaging.Center, imaging.Lanczos)
+```sh
+./to-png some-image.whatever some-image.png
+./to-frames some-animated-image.whatever some-animated-image.apng
 ```
 
 Imaging supports image resizing using various resampling filters. The most notable ones:
@@ -134,98 +148,9 @@ Original image                     | Hue = 60                                   
 -----------------------------------|----------------------------------------------|---------------------------------------------
 ![srcImage](testdata/flowers_small.png) | ![dstImage](testdata/out_hue_p60.png) | ![dstImage](testdata/out_hue_m60.png)
 
-## FAQ
 
-### Incorrect image orientation after processing (e.g. an image appears rotated after resizing)
+## Acknowledgements
 
-Most probably, the given image contains the EXIF orientation tag.
-The standard `image/*` packages do not support loading and saving
-this kind of information. To fix the issue, try opening images with
-the `AutoOrientation` decode option. If this option is set to `true`,
-the image orientation is changed after decoding, according to the
-orientation tag (if present). Here's the example:
-
-```go
-img, err := imaging.Open("test.jpg", imaging.AutoOrientation(true))
-```
-
-### What's the difference between `imaging` and `gift` packages?
-
-[imaging](https://github.com/kovidgoyal/imaging)
-is designed to be a lightweight and simple image manipulation package.
-It provides basic image processing functions and a few helper functions
-such as `Open` and `Save`. It consistently returns *image.NRGBA image 
-type (8 bits per channel, RGBA).
-
-[gift](https://github.com/disintegration/gift)
-supports more advanced image processing, for example, sRGB/Linear color
-space conversions. It also supports different output image types
-(e.g. 16 bits per channel) and provides easy-to-use API for chaining
-multiple processing steps together.
-
-## Example code
-
-```go
-package main
-
-import (
-	"image"
-	"image/color"
-	"log"
-
-	"github.com/kovidgoyal/imaging"
-)
-
-func main() {
-	// Open a test image.
-	src, err := imaging.Open("testdata/flowers.png")
-	if err != nil {
-		log.Fatalf("failed to open image: %v", err)
-	}
-
-	// Crop the original image to 300x300px size using the center anchor.
-	src = imaging.CropAnchor(src, 300, 300, imaging.Center)
-
-	// Resize the cropped image to width = 200px preserving the aspect ratio.
-	src = imaging.Resize(src, 200, 0, imaging.Lanczos)
-
-	// Create a blurred version of the image.
-	img1 := imaging.Blur(src, 5)
-
-	// Create a grayscale version of the image with higher contrast and sharpness.
-	img2 := imaging.Grayscale(src)
-	img2 = imaging.AdjustContrast(img2, 20)
-	img2 = imaging.Sharpen(img2, 2)
-
-	// Create an inverted version of the image.
-	img3 := imaging.Invert(src)
-
-	// Create an embossed version of the image using a convolution filter.
-	img4 := imaging.Convolve3x3(
-		src,
-		[9]float64{
-			-1, -1, 0,
-			-1, 1, 1,
-			0, 1, 1,
-		},
-		nil,
-	)
-
-	// Create a new image and paste the four produced images into it.
-	dst := imaging.New(400, 400, color.NRGBA{0, 0, 0, 0})
-	dst = imaging.Paste(dst, img1, image.Pt(0, 0))
-	dst = imaging.Paste(dst, img2, image.Pt(0, 200))
-	dst = imaging.Paste(dst, img3, image.Pt(200, 0))
-	dst = imaging.Paste(dst, img4, image.Pt(200, 200))
-
-	// Save the resulting image as JPEG.
-	err = imaging.Save(dst, "testdata/out_example.jpg")
-	if err != nil {
-		log.Fatalf("failed to save image: %v", err)
-	}
-}
-```
-
-Output:
-
-![dstImage](testdata/out_example.jpg)
+This is a fork of the un-maintained distraction/imaging project. The color
+management code was started out from mandykoh/prism and used some code from
+go-andiamo/iccarus but it was almost completely re-written from scratch.

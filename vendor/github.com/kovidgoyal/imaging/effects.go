@@ -3,6 +3,8 @@ package imaging
 import (
 	"image"
 	"math"
+
+	"github.com/kovidgoyal/imaging/nrgba"
 )
 
 func gaussianBlurKernel(x, sigma float64) float64 {
@@ -31,21 +33,22 @@ func Blur(img image.Image, sigma float64) *image.NRGBA {
 }
 
 func blurHorizontal(img image.Image, kernel []float64) *image.NRGBA {
-	src := newScanner(img)
-	dst := image.NewNRGBA(image.Rect(0, 0, src.w, src.h))
+	w, h := img.Bounds().Dx(), img.Bounds().Dy()
+	src := nrgba.NewNRGBAScanner(img)
+	dst := image.NewNRGBA(image.Rect(0, 0, w, h))
 	radius := len(kernel) - 1
 
 	if err := run_in_parallel_over_range(0, func(start, limit int) {
-		scanLine := make([]uint8, src.w*4)
+		scanLine := make([]uint8, w*4)
 		scanLineF := make([]float64, len(scanLine))
 		for y := start; y < limit; y++ {
-			src.Scan(0, y, src.w, y+1, scanLine)
+			src.Scan(0, y, w, y+1, scanLine)
 			for i, v := range scanLine {
 				scanLineF[i] = float64(v)
 			}
-			for x := 0; x < src.w; x++ {
+			for x := range w {
 				minv := max(0, x-radius)
-				maxv := min(x+radius, src.w-1)
+				maxv := min(x+radius, w-1)
 				var r, g, b, a, wsum float64
 				for ix := minv; ix <= maxv; ix++ {
 					i := ix * 4
@@ -69,7 +72,7 @@ func blurHorizontal(img image.Image, kernel []float64) *image.NRGBA {
 				}
 			}
 		}
-	}, 0, src.h); err != nil {
+	}, 0, h); err != nil {
 		panic(err)
 	}
 
@@ -77,21 +80,22 @@ func blurHorizontal(img image.Image, kernel []float64) *image.NRGBA {
 }
 
 func blurVertical(img image.Image, kernel []float64) *image.NRGBA {
-	src := newScanner(img)
-	dst := image.NewNRGBA(image.Rect(0, 0, src.w, src.h))
+	w, h := img.Bounds().Dx(), img.Bounds().Dy()
+	src := nrgba.NewNRGBAScanner(img)
+	dst := image.NewNRGBA(image.Rect(0, 0, w, h))
 	radius := len(kernel) - 1
 
 	if err := run_in_parallel_over_range(0, func(start, limit int) {
-		scanLine := make([]uint8, src.h*4)
+		scanLine := make([]uint8, h*4)
 		scanLineF := make([]float64, len(scanLine))
 		for x := start; x < limit; x++ {
-			src.Scan(x, 0, x+1, src.h, scanLine)
+			src.Scan(x, 0, x+1, h, scanLine)
 			for i, v := range scanLine {
 				scanLineF[i] = float64(v)
 			}
-			for y := 0; y < src.h; y++ {
+			for y := range h {
 				minv := max(0, y-radius)
-				maxv := min(y+radius, src.h-1)
+				maxv := min(y+radius, h-1)
 				var r, g, b, a, wsum float64
 				for iy := minv; iy <= maxv; iy++ {
 					i := iy * 4
@@ -115,7 +119,7 @@ func blurVertical(img image.Image, kernel []float64) *image.NRGBA {
 				}
 			}
 		}
-	}, 0, src.w); err != nil {
+	}, 0, w); err != nil {
 		panic(err)
 	}
 
@@ -133,16 +137,17 @@ func Sharpen(img image.Image, sigma float64) *image.NRGBA {
 		return Clone(img)
 	}
 
-	src := newScanner(img)
-	dst := image.NewNRGBA(image.Rect(0, 0, src.w, src.h))
+	w, h := img.Bounds().Dx(), img.Bounds().Dy()
+	src := nrgba.NewNRGBAScanner(img)
+	dst := image.NewNRGBA(image.Rect(0, 0, w, h))
 	blurred := Blur(img, sigma)
 
 	if err := run_in_parallel_over_range(0, func(start, limit int) {
-		scanLine := make([]uint8, src.w*4)
+		scanLine := make([]uint8, w*4)
 		for y := start; y < limit; y++ {
-			src.Scan(0, y, src.w, y+1, scanLine)
+			src.Scan(0, y, w, y+1, scanLine)
 			j := y * dst.Stride
-			for i := 0; i < src.w*4; i++ {
+			for i := 0; i < w*4; i++ {
 				val := int(scanLine[i])<<1 - int(blurred.Pix[j])
 				if val < 0 {
 					val = 0
@@ -153,7 +158,7 @@ func Sharpen(img image.Image, sigma float64) *image.NRGBA {
 				j++
 			}
 		}
-	}, 0, src.h); err != nil {
+	}, 0, h); err != nil {
 		panic(err)
 	}
 

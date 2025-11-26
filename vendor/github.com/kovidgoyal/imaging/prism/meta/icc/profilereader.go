@@ -30,6 +30,7 @@ func (pr *ProfileReader) ReadProfile() (p *Profile, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to reader header from ICC profile: %w", err)
 	}
+	profile.PCSIlluminant = profile.Header.ParsedPCSIlluminant()
 
 	err = pr.readTagTable(&profile.TagTable)
 	if err != nil {
@@ -51,6 +52,12 @@ func (pr *ProfileReader) readHeader(header *Header) (err error) {
 			if n != len(data) {
 				return fmt.Errorf("decoding header consumed %d instead of %d bytes", n, len(data))
 			}
+			if header.ProfileConnectionSpace != ColorSpaceXYZ && header.ProfileConnectionSpace != ColorSpaceLab {
+				return fmt.Errorf("unsupported profile connection space colorspace: %s", header.ProfileConnectionSpace)
+			}
+			if header.DataColorSpace != ColorSpaceRGB && header.DataColorSpace != ColorSpaceCMYK {
+				return fmt.Errorf("unsupported device colorspace: %s", header.DataColorSpace)
+			}
 		}
 	}
 	return
@@ -62,7 +69,7 @@ func (pr *ProfileReader) readTagTable(tagTable *TagTable) (err error) {
 		return
 	}
 	type tagIndexEntry struct {
-		Sig    uint32
+		Sig    Signature
 		Offset uint32
 		Size   uint32
 	}
@@ -83,7 +90,7 @@ func (pr *ProfileReader) readTagTable(tagTable *TagTable) (err error) {
 		for _, t := range tag_indices {
 			startOffset := t.Offset - tagDataOffset
 			endOffset := startOffset + t.Size
-			tagTable.add(Signature(t.Sig), tagData[startOffset:endOffset])
+			tagTable.add(t.Sig, int(startOffset), tagData[startOffset:endOffset])
 		}
 	}
 
