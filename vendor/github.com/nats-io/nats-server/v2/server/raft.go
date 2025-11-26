@@ -19,7 +19,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"hash"
 	"math"
 	"math/rand"
 	"net"
@@ -153,7 +152,7 @@ type raft struct {
 	state       atomic.Int32              // RaftState
 	leaderState atomic.Bool               // Is in (complete) leader state.
 	leaderSince atomic.Pointer[time.Time] // How long since becoming leader.
-	hh          hash.Hash64               // Highwayhash, used for snapshots
+	hh          *highwayhash.Digest64     // Highwayhash, used for snapshots
 	snapfile    string                    // Snapshot filename
 
 	csz   int             // Cluster size
@@ -447,7 +446,7 @@ func (s *Server) initRaftNode(accName string, cfg *RaftConfig, labels pprofLabel
 
 	// Set up the highwayhash for the snapshots.
 	key := sha256.Sum256([]byte(n.group))
-	n.hh, _ = highwayhash.New64(key[:])
+	n.hh, _ = highwayhash.NewDigest64(key[:])
 
 	// If we have a term and vote file (tav.idx on the filesystem) then read in
 	// what we think the term and vote was. It's possible these are out of date
@@ -1118,11 +1117,11 @@ func (n *raft) ResumeApply() {
 func (n *raft) DrainAndReplaySnapshot() bool {
 	n.Lock()
 	defer n.Unlock()
-	n.warn("Draining and replaying snapshot")
 	snap, err := n.loadLastSnapshot()
 	if err != nil {
 		return false
 	}
+	n.warn("Draining and replaying snapshot")
 	n.pauseApplyLocked()
 	n.apply.drain()
 	n.commit = snap.lastIndex
@@ -1225,7 +1224,8 @@ func (n *raft) encodeSnapshot(snap *snapshot) []byte {
 	// Now do the hash for the end.
 	n.hh.Reset()
 	n.hh.Write(buf[:wi])
-	checksum := n.hh.Sum(nil)
+	var hb [highwayhash.Size64]byte
+	checksum := n.hh.Sum(hb[:0])
 	copy(buf[wi:], checksum)
 	wi += len(checksum)
 	return buf[:wi]
@@ -1450,7 +1450,8 @@ func (n *raft) loadLastSnapshot() (*snapshot, error) {
 	lchk := buf[hoff:]
 	n.hh.Reset()
 	n.hh.Write(buf[:hoff])
-	if !bytes.Equal(lchk[:], n.hh.Sum(nil)) {
+	var hb [highwayhash.Size64]byte
+	if !bytes.Equal(lchk[:], n.hh.Sum(hb[:0])) {
 		n.warn("Snapshot corrupt, checksums did not match")
 		os.Remove(n.snapfile)
 		n.snapfile = _EMPTY_
@@ -2652,9 +2653,6 @@ func (n *raft) runAsLeader() {
 		n.unsubscribe(rpsub)
 		n.Unlock()
 	}()
-
-	// To send out our initial peer state.
-	n.sendPeerState()
 	n.Unlock()
 
 	hb := time.NewTicker(hbInterval)
@@ -3072,6 +3070,15 @@ func (n *raft) applyCommit(index uint64) error {
 			committed = append(committed, newEntry(EntrySnapshot, e.Data))
 		case EntrySnapshot:
 			committed = append(committed, e)
+			// If we have no snapshot, install the leader's snapshot as our own.
+			if len(ae.entries) == 1 && n.snapfile == _EMPTY_ && ae.commit > 0 {
+				n.installSnapshot(&snapshot{
+					lastTerm:  ae.pterm,
+					lastIndex: ae.commit,
+					peerstate: encodePeerState(&peerState{n.peerNames(), n.csz, n.extSt}),
+					data:      e.Data,
+				})
+			}
 		case EntryPeerState:
 			if n.State() != Leader {
 				if ps, err := decodePeerState(e.Data); err == nil {
@@ -3477,6 +3484,7 @@ func (n *raft) resetWAL() {
 
 // Lock should be held
 func (n *raft) updateLeader(newLeader string) {
+	wasLeader := n.leader == n.id
 	n.leader = newLeader
 	n.hasleader.Store(newLeader != _EMPTY_)
 	if !n.pleader.Load() && newLeader != noLeader {
@@ -3493,9 +3501,9 @@ func (n *raft) updateLeader(newLeader string) {
 		}
 	}
 	// Reset last seen timestamps.
-	// If we're the leader we track everyone, and don't reset.
+	// If we are (or were) the leader we track(ed) everyone, and don't reset.
 	// But if we're a follower we only track the leader, and reset all others.
-	if newLeader != n.id {
+	if newLeader != n.id && !wasLeader {
 		for peer, ps := range n.peers {
 			if peer == newLeader {
 				continue
@@ -4627,37 +4635,19 @@ func (n *raft) switchToLeader() {
 	}
 
 	n.Lock()
+	defer n.Unlock()
 
 	n.debug("Switching to leader")
 
-	// Check if we have items pending as we are taking over.
-	sendHB := n.pindex > n.commit
-
 	n.lxfer = false
 	n.updateLeader(n.id)
-	leadChange := n.switchState(Leader)
+	n.switchState(Leader)
 
-	if leadChange {
-		// Wait for messages to be applied if we've stored more, otherwise signal immediately.
-		// It's important to wait signaling we're leader if we're not up-to-date yet, as that
-		// would mean we're in a consistent state compared with the previous leader.
-		if n.pindex > n.applied {
-			n.aflr = n.pindex
-		} else {
-			// We know we have applied all entries in our log and can signal immediately.
-			// For sanity reset applied floor back down to 0, so we aren't able to signal twice.
-			n.aflr = 0
-			if !n.leaderState.Swap(true) {
-				// Only update timestamp if leader state actually changed.
-				nowts := time.Now().UTC()
-				n.leaderSince.Store(&nowts)
-			}
-			n.updateLeadChange(true)
-		}
-	}
-	n.Unlock()
-
-	if sendHB {
-		n.sendHeartbeat()
-	}
+	// To send out our initial peer state.
+	// In our implementation this is equivalent to sending a NOOP-entry upon becoming leader.
+	// Wait for this message (and potentially more) to be applied.
+	// It's important to wait signaling we're leader if we're not up-to-date yet, as that
+	// would mean we're in a consistent state compared with the previous leader.
+	n.sendPeerState()
+	n.aflr = n.pindex
 }

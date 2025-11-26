@@ -25,39 +25,64 @@ const (
 	Size64 = 8
 )
 
+// These will error at compile time if the interface is not conformant.
+var _ hash.Hash = &Digest{}
+var _ hash.Hash = &Digest64{}
+
 var errKeySize = errors.New("highwayhash: invalid key size")
 
 // New returns a hash.Hash computing the HighwayHash-256 checksum.
 // It returns a non-nil error if the key is not 32 bytes long.
 func New(key []byte) (hash.Hash, error) {
-	if len(key) != Size {
-		return nil, errKeySize
-	}
-	h := &digest{size: Size}
-	copy(h.key[:], key)
-	h.Reset()
-	return h, nil
+	return NewDigest(key)
 }
 
 // New128 returns a hash.Hash computing the HighwayHash-128 checksum.
 // It returns a non-nil error if the key is not 32 bytes long.
 func New128(key []byte) (hash.Hash, error) {
+	return NewDigest128(key)
+}
+
+// New64 returns a hash.Hash64 computing the HighwayHash-64 checksum.
+// It returns a non-nil error if the key is not 32 bytes long.
+func New64(key []byte) (hash.Hash64, error) {
+	return NewDigest64(key)
+}
+
+// NewDigest returns a *Digest that conforms to hash.Hash computing
+// the HighwayHash-256 checksum.
+// It returns a non-nil error if the key is not 32 bytes long.
+func NewDigest(key []byte) (*Digest, error) {
 	if len(key) != Size {
 		return nil, errKeySize
 	}
-	h := &digest{size: Size128}
+	h := &Digest{size: Size}
 	copy(h.key[:], key)
 	h.Reset()
 	return h, nil
 }
 
-// New64 returns a hash.Hash computing the HighwayHash-64 checksum.
+// NewDigest128 returns a *Digest that conforms to hash.Hash computing
+// the HighwayHash-128 checksum.
 // It returns a non-nil error if the key is not 32 bytes long.
-func New64(key []byte) (hash.Hash64, error) {
+func NewDigest128(key []byte) (*Digest, error) {
 	if len(key) != Size {
 		return nil, errKeySize
 	}
-	h := new(digest64)
+	h := &Digest{size: Size128}
+	copy(h.key[:], key)
+	h.Reset()
+	return h, nil
+}
+
+// NewDigest64 returns a *Digest that conforms to hash.Hash computing
+// the HighwayHash-64 checksum.
+// It returns a non-nil error if the key is not 32 bytes long.
+func NewDigest64(key []byte) (*Digest64, error) {
+	if len(key) != Size {
+		return nil, errKeySize
+	}
+	h := new(Digest64)
 	h.size = Size64
 	copy(h.key[:], key)
 	h.Reset()
@@ -130,9 +155,9 @@ func Sum64(data, key []byte) uint64 {
 	return binary.LittleEndian.Uint64(hash[:])
 }
 
-type digest64 struct{ digest }
+type Digest64 struct{ Digest }
 
-func (d *digest64) Sum64() uint64 {
+func (d *Digest64) Sum64() uint64 {
 	state := d.state
 	if d.offset > 0 {
 		hashBuffer(&state, &d.buffer, d.offset)
@@ -142,7 +167,7 @@ func (d *digest64) Sum64() uint64 {
 	return binary.LittleEndian.Uint64(hash[:])
 }
 
-type digest struct {
+type Digest struct {
 	state [16]uint64 // v0 | v1 | mul0 | mul1
 
 	key, buffer [Size]byte
@@ -151,16 +176,16 @@ type digest struct {
 	size int
 }
 
-func (d *digest) Size() int { return d.size }
+func (d *Digest) Size() int { return d.size }
 
-func (d *digest) BlockSize() int { return Size }
+func (d *Digest) BlockSize() int { return Size }
 
-func (d *digest) Reset() {
+func (d *Digest) Reset() {
 	initialize(&d.state, d.key[:])
 	d.offset = 0
 }
 
-func (d *digest) Write(p []byte) (n int, err error) {
+func (d *Digest) Write(p []byte) (n int, err error) {
 	n = len(p)
 	if d.offset > 0 {
 		remaining := Size - d.offset
@@ -183,7 +208,7 @@ func (d *digest) Write(p []byte) (n int, err error) {
 	return
 }
 
-func (d *digest) Sum(b []byte) []byte {
+func (d *Digest) Sum(b []byte) []byte {
 	state := d.state
 	if d.offset > 0 {
 		hashBuffer(&state, &d.buffer, d.offset)

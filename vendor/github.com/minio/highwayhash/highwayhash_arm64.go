@@ -24,7 +24,7 @@ func init() {
 	if useSVE {
 		if vl, _ := getVectorLength(); vl != 256 {
 			//
-			// Since HighwahHash is designed for AVX2,
+			// Since HighwayHash is designed for AVX2,
 			// SVE/SVE2 instructions only run correctly
 			// for vector length of 256
 			//
