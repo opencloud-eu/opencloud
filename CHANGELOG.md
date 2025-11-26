@@ -48,6 +48,7 @@
 
 ### 📦️ Dependencies
 
+- [decomposed]Update version 4.0.0 rc.2 [[#1917](https://github.com/opencloud-eu/opencloud/pull/1917)]
 - chore: bump web to v4.2.1-rc.1 [[#1900](https://github.com/opencloud-eu/opencloud/pull/1900)]
 - revaBump-getting#428 [[#1887](https://github.com/opencloud-eu/opencloud/pull/1887)]
 - build(deps): bump github.com/blevesearch/bleve/v2 from 2.5.4 to 2.5.5 [[#1884](https://github.com/opencloud-eu/opencloud/pull/1884)]
