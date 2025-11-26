@@ -118,7 +118,11 @@ func (g *Groupware) GetAllEmailsInMailbox(w http.ResponseWriter, r *http.Request
 
 			logger := log.From(l)
 
-			emails, sessionState, state, lang, jerr := g.jmap.GetAllEmailsInMailbox(accountId, req.session, req.ctx, logger, req.language(), mailboxId, offset, limit, false, true, g.maxBodyValueBytes, true)
+			collapseThreads := false
+			fetchBodies := false
+			withThreads := true
+
+			emails, sessionState, state, lang, jerr := g.jmap.GetAllEmailsInMailbox(accountId, req.session, req.ctx, logger, req.language(), mailboxId, offset, limit, collapseThreads, fetchBodies, g.maxBodyValueBytes, withThreads)
 			if jerr != nil {
 				return req.errorResponseFromJmap(accountId, jerr)
 			}
@@ -637,7 +641,6 @@ func (g *Groupware) searchEmails(w http.ResponseWriter, r *http.Request) {
 						return errorResponseWithSessionState(accountId, err, sessionState)
 					}
 					flattened[i] = EmailWithSnippets{
-						// AccountId: accountId,
 						Email:    sanitized,
 						Snippets: snippets,
 					}
