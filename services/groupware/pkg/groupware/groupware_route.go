@@ -48,8 +48,6 @@ const (
 	QueryParamSearchMaxSize           = "maxsize"
 	QueryParamSearchKeyword           = "keyword"
 	QueryParamSearchMessageId         = "messageId"
-	QueryParamSearchFetchBodies       = "fetchbodies"
-	QueryParamSearchFetchEmails       = "fetchemails"
 	QueryParamOffset                  = "offset"
 	QueryParamLimit                   = "limit"
 	QueryParamDays                    = "days"

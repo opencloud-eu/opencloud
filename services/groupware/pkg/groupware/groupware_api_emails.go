@@ -17,7 +17,6 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/metrics"
 )
 
@@ -100,12 +99,12 @@ func (g *Groupware) GetAllEmailsInMailbox(w http.ResponseWriter, r *http.Request
 				return req.parameterErrorResponse(accountId, UriParamMailboxId, fmt.Sprintf("Missing required mailbox ID path parameter '%v'", UriParamMailboxId))
 			}
 
-			offset, ok, err := req.parseUIntParam(QueryParamOffset, 0)
+			offset, ok, err := req.parseIntParam(QueryParamOffset, 0)
 			if err != nil {
 				return errorResponse(accountId, err)
 			}
 			if ok {
-				l = l.Uint(QueryParamOffset, offset)
+				l = l.Int(QueryParamOffset, offset)
 			}
 
 			limit, ok, err := req.parseUIntParam(QueryParamLimit, g.defaultEmailLimit)
@@ -434,7 +433,7 @@ type EmailSearchResults struct {
 	QueryState jmap.State   `json:"queryState,omitempty"`
 }
 
-func (g *Groupware) buildFilter(req Request) (bool, jmap.EmailFilterElement, bool, uint, uint, *log.Logger, *Error) {
+func (g *Groupware) buildFilter(req Request) (bool, jmap.EmailFilterElement, bool, int, uint, *log.Logger, *Error) {
 	q := req.r.URL.Query()
 	mailboxId := q.Get(QueryParamMailboxId)
 	notInMailboxIds := q[QueryParamNotInMailboxId]
@@ -452,12 +451,12 @@ func (g *Groupware) buildFilter(req Request) (bool, jmap.EmailFilterElement, boo
 
 	l := req.logger.With()
 
-	offset, ok, err := req.parseUIntParam(QueryParamOffset, 0)
+	offset, ok, err := req.parseIntParam(QueryParamOffset, 0)
 	if err != nil {
 		return false, nil, snippets, 0, 0, nil, err
 	}
 	if ok {
-		l = l.Uint(QueryParamOffset, offset)
+		l = l.Int(QueryParamOffset, offset)
 	}
 
 	limit, ok, err := req.parseUIntParam(QueryParamLimit, g.defaultEmailLimit)
@@ -582,39 +581,34 @@ func (g *Groupware) buildFilter(req Request) (bool, jmap.EmailFilterElement, boo
 	return true, filter, snippets, offset, limit, logger, nil
 }
 
-func (g *Groupware) searchEmails(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) Response {
-		accountId, err := req.GetAccountIdForMail()
-		if err != nil {
-			return errorResponse(accountId, err)
-		}
-
-		ok, filter, makesSnippets, offset, limit, logger, err := g.buildFilter(req)
-		if !ok {
-			return errorResponse(accountId, err)
-		}
-		logger = log.From(req.logger.With().Str(logAccountId, log.SafeString(accountId)))
-
-		if !filter.IsNotEmpty() {
-			filter = nil
-		}
-
-		fetchEmails, ok, err := req.parseBoolParam(QueryParamSearchFetchEmails, false)
-		if err != nil {
-			return errorResponse(accountId, err)
-		}
-		if ok {
-			logger = log.From(logger.With().Bool(QueryParamSearchFetchEmails, fetchEmails))
-		}
-
-		if fetchEmails {
-			fetchBodies, ok, err := req.parseBoolParam(QueryParamSearchFetchBodies, false)
+func (g *Groupware) GetEmails(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	since := q.Get(QueryParamSince)
+	if since == "" {
+		since = r.Header.Get(HeaderSince)
+	}
+	if since != "" {
+		// get email changes since a given state
+		g.getEmailsSince(w, r, since)
+	} else {
+		// do a search
+		g.respond(w, r, func(req Request) Response {
+			accountId, err := req.GetAccountIdForMail()
 			if err != nil {
 				return errorResponse(accountId, err)
 			}
-			if ok {
-				logger = log.From(logger.With().Bool(QueryParamSearchFetchBodies, fetchBodies))
+
+			ok, filter, makesSnippets, offset, limit, logger, err := g.buildFilter(req)
+			if !ok {
+				return errorResponse(accountId, err)
 			}
+			logger = log.From(req.logger.With().Str(logAccountId, log.SafeString(accountId)))
+
+			if !filter.IsNotEmpty() {
+				filter = nil
+			}
+
+			fetchBodies := false
 
 			resultsByAccount, sessionState, state, lang, jerr := g.jmap.QueryEmailsWithSnippets([]string{accountId}, filter, req.session, req.ctx, logger, req.language(), offset, limit, fetchBodies, g.maxBodyValueBytes)
 			if jerr != nil {
@@ -655,38 +649,7 @@ func (g *Groupware) searchEmails(w http.ResponseWriter, r *http.Request) {
 			} else {
 				return notFoundResponse(accountId, sessionState)
 			}
-		} else {
-			resultsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryEmailSnippets([]string{accountId}, filter, req.session, req.ctx, logger, req.language(), offset, limit)
-			if jerr != nil {
-				return req.errorResponseFromJmap(accountId, jerr)
-			}
-
-			if results, ok := resultsByAccountId[accountId]; ok {
-				return etagResponse(accountId, EmailSearchSnippetsResults{
-					Results:    structs.Map(results.Snippets, func(s jmap.SearchSnippetWithMeta) Snippet { return Snippet{SearchSnippetWithMeta: s} }),
-					Total:      results.Total,
-					Limit:      results.Limit,
-					QueryState: results.QueryState,
-				}, sessionState, EmailResponseObjectType, state, lang)
-			} else {
-				return notFoundResponse(accountId, sessionState)
-			}
-		}
-	})
-}
-
-func (g *Groupware) GetEmails(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	since := q.Get(QueryParamSince)
-	if since == "" {
-		since = r.Header.Get(HeaderSince)
-	}
-	if since != "" {
-		// get email changes since a given state
-		g.getEmailsSince(w, r, since)
-	} else {
-		// do a search
-		g.searchEmails(w, r)
+		})
 	}
 }
 
@@ -704,162 +667,79 @@ func (g *Groupware) GetEmailsForAllAccounts(w http.ResponseWriter, r *http.Reque
 			filter = nil
 		}
 
-		fetchEmails, ok, err := req.parseBoolParam(QueryParamSearchFetchEmails, false)
-		if err != nil {
-			return errorResponse(joinAccountIds(allAccountIds), err)
-		}
-		if ok {
-			logger = log.From(logger.With().Bool(QueryParamSearchFetchEmails, fetchEmails))
-		}
-
-		if fetchEmails {
-			fetchBodies, ok, err := req.parseBoolParam(QueryParamSearchFetchBodies, false)
-			if err != nil {
-				return errorResponse(joinAccountIds(allAccountIds), err)
-			}
-			if ok {
-				logger = log.From(logger.With().Bool(QueryParamSearchFetchBodies, fetchBodies))
+		if makesSnippets {
+			resultsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryEmailSnippets(allAccountIds, filter, req.session, req.ctx, logger, req.language(), offset, limit)
+			if jerr != nil {
+				return req.errorResponseFromJmap(joinAccountIds(allAccountIds), jerr)
 			}
 
-			if makesSnippets {
-				resultsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryEmailsWithSnippets(allAccountIds, filter, req.session, req.ctx, logger, req.language(), offset, limit, fetchBodies, g.maxBodyValueBytes)
-				if jerr != nil {
-					return req.errorResponseFromJmap(joinAccountIds(allAccountIds), jerr)
-				}
+			var totalOverAllAccounts uint = 0
+			total := 0
+			for _, results := range resultsByAccountId {
+				totalOverAllAccounts += results.Total
+				total += len(results.Snippets)
+			}
 
-				flattenedByAccountId := make(map[string][]EmailWithSnippets, len(resultsByAccountId))
-				total := 0
-				var totalOverAllAccounts uint = 0
+			flattened := make([]Snippet, total)
+			{
+				i := 0
 				for accountId, results := range resultsByAccountId {
-					totalOverAllAccounts += results.Total
-					flattened := make([]EmailWithSnippets, len(results.Results))
-					for i, result := range results.Results {
-						snippets := structs.MapN(result.Snippets, func(s jmap.SearchSnippet) *SnippetWithoutEmailId {
-							if s.Subject != "" || s.Preview != "" {
-								return &SnippetWithoutEmailId{
-									Subject: s.Subject,
-									Preview: s.Preview,
-								}
-							} else {
-								return nil
-							}
-						})
-
-						sanitized, err := req.sanitizeEmail(result.Email)
-						if err != nil {
-							return errorResponseWithSessionState(accountId, err, sessionState)
-						}
-						flattened[i] = EmailWithSnippets{
-							AccountId: accountId,
-							Email:     sanitized,
-							Snippets:  snippets,
-						}
-					}
-					flattenedByAccountId[accountId] = flattened
-					total += len(flattened)
-				}
-
-				flattened := make([]EmailWithSnippets, total)
-				{
-					i := 0
-					for _, list := range flattenedByAccountId {
-						for _, e := range list {
-							flattened[i] = e
-							i++
+					for _, result := range results.Snippets {
+						flattened[i] = Snippet{
+							AccountId:             accountId,
+							SearchSnippetWithMeta: result,
 						}
 					}
 				}
-
-				slices.SortFunc(flattened, func(a, b EmailWithSnippets) int { return a.ReceivedAt.Compare(b.ReceivedAt) })
-
-				// TODO offset and limit over the aggregated results by account
-
-				return etagResponse(joinAccountIds(allAccountIds), EmailWithSnippetsSearchResults{
-					Results:    flattened,
-					Total:      totalOverAllAccounts,
-					Limit:      limit,
-					QueryState: state,
-				}, sessionState, EmailResponseObjectType, state, lang)
-			} else {
-				resultsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryEmails(allAccountIds, filter, req.session, req.ctx, logger, req.language(), offset, limit, fetchBodies, g.maxBodyValueBytes)
-				if jerr != nil {
-					return req.errorResponseFromJmap(joinAccountIds(allAccountIds), jerr)
-				}
-
-				total := 0
-				var totalOverAllAccounts uint = 0
-				for _, results := range resultsByAccountId {
-					totalOverAllAccounts += results.Total
-					total += len(results.Emails)
-				}
-
-				flattened := make([]jmap.Email, total)
-				{
-					i := 0
-					for _, list := range resultsByAccountId {
-						for _, e := range list.Emails {
-							sanitized, err := req.sanitizeEmail(e)
-							if err != nil {
-								return errorResponseWithSessionState(joinAccountIds(allAccountIds), err, sessionState)
-							}
-							flattened[i] = sanitized
-							i++
-						}
-					}
-				}
-
-				slices.SortFunc(flattened, func(a, b jmap.Email) int { return a.ReceivedAt.Compare(b.ReceivedAt) })
-
-				// TODO offset and limit over the aggregated results by account
-
-				return etagResponse(joinAccountIds(allAccountIds), EmailSearchResults{
-					Results:    flattened,
-					Total:      totalOverAllAccounts,
-					Limit:      limit,
-					QueryState: state,
-				}, sessionState, EmailResponseObjectType, state, lang)
 			}
+
+			slices.SortFunc(flattened, func(a, b Snippet) int { return a.ReceivedAt.Compare(b.ReceivedAt) })
+
+			// TODO offset and limit over the aggregated results by account
+
+			return etagResponse(joinAccountIds(allAccountIds), EmailSearchSnippetsResults{
+				Results:    flattened,
+				Total:      totalOverAllAccounts,
+				Limit:      limit,
+				QueryState: state,
+			}, sessionState, EmailResponseObjectType, state, lang)
 		} else {
-			if makesSnippets {
-				resultsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryEmailSnippets(allAccountIds, filter, req.session, req.ctx, logger, req.language(), offset, limit)
-				if jerr != nil {
-					return req.errorResponseFromJmap(joinAccountIds(allAccountIds), jerr)
-				}
+			withThreads := true
 
-				var totalOverAllAccounts uint = 0
-				total := 0
-				for _, results := range resultsByAccountId {
-					totalOverAllAccounts += results.Total
-					total += len(results.Snippets)
-				}
+			resultsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryEmailSummaries(allAccountIds, req.session, req.ctx, logger, req.language(), filter, limit, withThreads)
+			if jerr != nil {
+				return req.errorResponseFromJmap(joinAccountIds(allAccountIds), jerr)
+			}
 
-				flattened := make([]Snippet, total)
-				{
-					i := 0
-					for accountId, results := range resultsByAccountId {
-						for _, result := range results.Snippets {
-							flattened[i] = Snippet{
-								AccountId:             accountId,
-								SearchSnippetWithMeta: result,
-							}
-						}
+			var totalAcrossAllAccounts uint = 0
+			total := 0
+			for _, results := range resultsByAccountId {
+				totalAcrossAllAccounts += results.Total
+				total += len(results.Emails)
+			}
+
+			flattened := make([]jmap.Email, total)
+			{
+				i := 0
+				for accountId, results := range resultsByAccountId {
+					for _, result := range results.Emails {
+						result.AccountId = accountId
+						flattened[i] = result
+						i++
 					}
 				}
-
-				slices.SortFunc(flattened, func(a, b Snippet) int { return a.ReceivedAt.Compare(b.ReceivedAt) })
-
-				// TODO offset and limit over the aggregated results by account
-
-				return etagResponse(joinAccountIds(allAccountIds), EmailSearchSnippetsResults{
-					Results:    flattened,
-					Total:      totalOverAllAccounts,
-					Limit:      limit,
-					QueryState: state,
-				}, sessionState, EmailResponseObjectType, state, lang)
-			} else {
-				// TODO implement search without email bodies (only retrieve a few chosen properties?) + without snippets
-				return notImplementesResponse()
 			}
+
+			slices.SortFunc(flattened, func(a, b jmap.Email) int { return a.ReceivedAt.Compare(b.ReceivedAt) })
+
+			// TODO offset and limit over the aggregated results by account
+
+			return etagResponse(joinAccountIds(allAccountIds), EmailSearchResults{
+				Results:    flattened,
+				Total:      totalAcrossAllAccounts,
+				Limit:      limit,
+				QueryState: state,
+			}, sessionState, EmailResponseObjectType, state, lang)
 		}
 	})
 }

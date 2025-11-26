@@ -1677,7 +1677,7 @@ type EmailQueryCommand struct {
 	//
 	// If the index is greater than or equal to the total number of objects in the results
 	// list, then the ids array in the response will be empty, but this is not an error.
-	Position uint `json:"position,omitempty"`
+	Position int `json:"position,omitempty"`
 
 	// An Email id.
 	//
@@ -1705,7 +1705,7 @@ type EmailQueryCommand struct {
 	// to the maximum; the new limit is returned with the response so the client is aware.
 	//
 	// If a negative value is given, the call MUST be rejected with an invalidArguments error.
-	Limit uint `json:"limit,omitempty"`
+	Limit *uint `json:"limit,omitempty"`
 
 	// Does the client wish to know the total number of results in the query?
 	//
