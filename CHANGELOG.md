@@ -50,6 +50,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump golang.org/x/crypto from 0.44.0 to 0.45.0 [[#1911](https://github.com/opencloud-eu/opencloud/pull/1911)]
 - [decomposed]Update version 4.0.0 rc.2 [[#1917](https://github.com/opencloud-eu/opencloud/pull/1917)]
 - chore: bump web to v4.2.1-rc.1 [[#1900](https://github.com/opencloud-eu/opencloud/pull/1900)]
 - revaBump-getting#428 [[#1887](https://github.com/opencloud-eu/opencloud/pull/1887)]
