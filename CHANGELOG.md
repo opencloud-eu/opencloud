@@ -10,6 +10,22 @@
 
 - collaboration: Enable `InsertRemoteImage` option [[#1692](https://github.com/opencloud-eu/opencloud/pull/1692)]
 
+### 🐛 Bug Fixes
+
+- rc-handling was only active for the dryrun, not the real build-and-push [[#1919](https://github.com/opencloud-eu/opencloud/pull/1919)]
+- handle objectguid endianess [[#1901](https://github.com/opencloud-eu/opencloud/pull/1901)]
+- fix: add update server to default csp rules [[#1875](https://github.com/opencloud-eu/opencloud/pull/1875)]
+- fix: add missing capability flag support-radicale [[#1891](https://github.com/opencloud-eu/opencloud/pull/1891)]
+- fix opensearch client certificate [[#1890](https://github.com/opencloud-eu/opencloud/pull/1890)]
+- Bump reva [[#1882](https://github.com/opencloud-eu/opencloud/pull/1882)]
+- load two yaml configs [[#1617](https://github.com/opencloud-eu/opencloud/pull/1617)]
+- make user cache tenant aware [[#1732](https://github.com/opencloud-eu/opencloud/pull/1732)]
+- fix: sanitise markdow code to make docusaurus happy [[#1851](https://github.com/opencloud-eu/opencloud/pull/1851)]
+- update launch.json [[#1843](https://github.com/opencloud-eu/opencloud/pull/1843)]
+- docs: Fix auth-app examples in README [[#1844](https://github.com/opencloud-eu/opencloud/pull/1844)]
+- fix: fix typo in treesize logging [[#1826](https://github.com/opencloud-eu/opencloud/pull/1826)]
+- fix: set global signing secret fallback correctly [[#1781](https://github.com/opencloud-eu/opencloud/pull/1781)]
+
 ### 📈 Enhancement
 
 - log missing name or id attributes [[#1914](https://github.com/opencloud-eu/opencloud/pull/1914)]
@@ -25,21 +41,6 @@
 - increase timeouts waiting for notification & search [[#1802](https://github.com/opencloud-eu/opencloud/pull/1802)]
 - Sync share before action [[#1795](https://github.com/opencloud-eu/opencloud/pull/1795)]
 - correct STORAGE_USERS_POSIX_WATCH_FS env typo in CI [[#1746](https://github.com/opencloud-eu/opencloud/pull/1746)]
-
-### 🐛 Bug Fixes
-
-- handle objectguid endianess [[#1901](https://github.com/opencloud-eu/opencloud/pull/1901)]
-- fix: add update server to default csp rules [[#1875](https://github.com/opencloud-eu/opencloud/pull/1875)]
-- fix: add missing capability flag support-radicale [[#1891](https://github.com/opencloud-eu/opencloud/pull/1891)]
-- fix opensearch client certificate [[#1890](https://github.com/opencloud-eu/opencloud/pull/1890)]
-- Bump reva [[#1882](https://github.com/opencloud-eu/opencloud/pull/1882)]
-- load two yaml configs [[#1617](https://github.com/opencloud-eu/opencloud/pull/1617)]
-- make user cache tenant aware [[#1732](https://github.com/opencloud-eu/opencloud/pull/1732)]
-- fix: sanitise markdow code to make docusaurus happy [[#1851](https://github.com/opencloud-eu/opencloud/pull/1851)]
-- update launch.json [[#1843](https://github.com/opencloud-eu/opencloud/pull/1843)]
-- docs: Fix auth-app examples in README [[#1844](https://github.com/opencloud-eu/opencloud/pull/1844)]
-- fix: fix typo in treesize logging [[#1826](https://github.com/opencloud-eu/opencloud/pull/1826)]
-- fix: set global signing secret fallback correctly [[#1781](https://github.com/opencloud-eu/opencloud/pull/1781)]
 
 ### 📚 Documentation
 
