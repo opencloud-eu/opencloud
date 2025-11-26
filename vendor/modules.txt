@@ -868,8 +868,8 @@ github.com/justinas/alice
 # github.com/kevinburke/ssh_config v1.2.0
 ## explicit
 github.com/kevinburke/ssh_config
-# github.com/klauspost/compress v1.18.0
-## explicit; go 1.22
+# github.com/klauspost/compress v1.18.1
+## explicit; go 1.23
 github.com/klauspost/compress
 github.com/klauspost/compress/flate
 github.com/klauspost/compress/fse
@@ -1068,7 +1068,7 @@ github.com/mileusna/useragent
 # github.com/minio/crc64nvme v1.1.0
 ## explicit; go 1.22
 github.com/minio/crc64nvme
-# github.com/minio/highwayhash v1.0.3
+# github.com/minio/highwayhash v1.0.4-0.20251030100505-070ab1a87a76
 ## explicit; go 1.15
 github.com/minio/highwayhash
 # github.com/minio/md5-simd v1.1.2
@@ -1150,7 +1150,7 @@ github.com/munnerz/goautoneg
 # github.com/nats-io/jwt/v2 v2.8.0
 ## explicit; go 1.23.0
 github.com/nats-io/jwt/v2
-# github.com/nats-io/nats-server/v2 v2.12.1
+# github.com/nats-io/nats-server/v2 v2.12.2
 ## explicit; go 1.24.0
 github.com/nats-io/nats-server/v2/conf
 github.com/nats-io/nats-server/v2/internal/fastrand

@@ -62,29 +62,30 @@ type PinnedCertSet map[string]struct{}
 // NOTE: This structure is no longer used for monitoring endpoints
 // and json tags are deprecated and may be removed in the future.
 type ClusterOpts struct {
-	Name              string            `json:"-"`
-	Host              string            `json:"addr,omitempty"`
-	Port              int               `json:"cluster_port,omitempty"`
-	Username          string            `json:"-"`
-	Password          string            `json:"-"`
-	AuthTimeout       float64           `json:"auth_timeout,omitempty"`
-	Permissions       *RoutePermissions `json:"-"`
-	TLSTimeout        float64           `json:"-"`
-	TLSConfig         *tls.Config       `json:"-"`
-	TLSMap            bool              `json:"-"`
-	TLSCheckKnownURLs bool              `json:"-"`
-	TLSPinnedCerts    PinnedCertSet     `json:"-"`
-	ListenStr         string            `json:"-"`
-	Advertise         string            `json:"-"`
-	NoAdvertise       bool              `json:"-"`
-	ConnectRetries    int               `json:"-"`
-	ConnectBackoff    bool              `json:"-"`
-	PoolSize          int               `json:"-"`
-	PinnedAccounts    []string          `json:"-"`
-	Compression       CompressionOpts   `json:"-"`
-	PingInterval      time.Duration     `json:"-"`
-	MaxPingsOut       int               `json:"-"`
-	WriteDeadline     time.Duration     `json:"-"`
+	Name              string             `json:"-"`
+	Host              string             `json:"addr,omitempty"`
+	Port              int                `json:"cluster_port,omitempty"`
+	Username          string             `json:"-"`
+	Password          string             `json:"-"`
+	AuthTimeout       float64            `json:"auth_timeout,omitempty"`
+	Permissions       *RoutePermissions  `json:"-"`
+	TLSTimeout        float64            `json:"-"`
+	TLSConfig         *tls.Config        `json:"-"`
+	TLSMap            bool               `json:"-"`
+	TLSCheckKnownURLs bool               `json:"-"`
+	TLSPinnedCerts    PinnedCertSet      `json:"-"`
+	ListenStr         string             `json:"-"`
+	Advertise         string             `json:"-"`
+	NoAdvertise       bool               `json:"-"`
+	ConnectRetries    int                `json:"-"`
+	ConnectBackoff    bool               `json:"-"`
+	PoolSize          int                `json:"-"`
+	PinnedAccounts    []string           `json:"-"`
+	Compression       CompressionOpts    `json:"-"`
+	PingInterval      time.Duration      `json:"-"`
+	MaxPingsOut       int                `json:"-"`
+	WriteDeadline     time.Duration      `json:"-"`
+	WriteTimeout      WriteTimeoutPolicy `json:"-"`
 
 	// Not exported (used in tests)
 	resolver netResolver
@@ -128,6 +129,7 @@ type GatewayOpts struct {
 	Gateways          []*RemoteGatewayOpts `json:"gateways,omitempty"`
 	RejectUnknown     bool                 `json:"reject_unknown,omitempty"` // config got renamed to reject_unknown_cluster
 	WriteDeadline     time.Duration        `json:"-"`
+	WriteTimeout      WriteTimeoutPolicy   `json:"-"`
 
 	// Not exported, for tests.
 	resolver         netResolver
@@ -174,11 +176,12 @@ type LeafNodeOpts struct {
 	// to start before falling back to previous behavior of sending the
 	// INFO protocol first. It allows for a mix of newer remote leafnodes
 	// that can require a TLS handshake first, and older that can't.
-	TLSHandshakeFirstFallback time.Duration `json:"-"`
-	Advertise                 string        `json:"-"`
-	NoAdvertise               bool          `json:"-"`
-	ReconnectInterval         time.Duration `json:"-"`
-	WriteDeadline             time.Duration `json:"-"`
+	TLSHandshakeFirstFallback time.Duration      `json:"-"`
+	Advertise                 string             `json:"-"`
+	NoAdvertise               bool               `json:"-"`
+	ReconnectInterval         time.Duration      `json:"-"`
+	WriteDeadline             time.Duration      `json:"-"`
+	WriteTimeout              WriteTimeoutPolicy `json:"-"`
 
 	// Compression options
 	Compression CompressionOpts `json:"-"`
@@ -353,6 +356,7 @@ type Options struct {
 	Username                   string        `json:"-"`
 	Password                   string        `json:"-"`
 	ProxyRequired              bool          `json:"-"`
+	ProxyProtocol              bool          `json:"-"`
 	Authorization              string        `json:"-"`
 	AuthCallout                *AuthCallout  `json:"-"`
 	PingInterval               time.Duration `json:"ping_interval"`
@@ -383,6 +387,8 @@ type Options struct {
 	JetStreamTpm               JSTpmOpts
 	JetStreamMaxCatchup        int64
 	JetStreamRequestQueueLimit int64
+	JetStreamMetaCompact       uint64
+	JetStreamMetaCompactSize   uint64
 	StreamMaxBufferedMsgs      int               `json:"-"`
 	StreamMaxBufferedSize      int64             `json:"-"`
 	StoreDir                   string            `json:"-"`
@@ -423,12 +429,13 @@ type Options struct {
 	// to start before falling back to previous behavior of sending the
 	// INFO protocol first. It allows for a mix of newer clients that can
 	// require a TLS handshake first, and older clients that can't.
-	TLSHandshakeFirstFallback time.Duration `json:"-"`
-	AllowNonTLS               bool          `json:"-"`
-	WriteDeadline             time.Duration `json:"-"`
-	MaxClosedClients          int           `json:"-"`
-	LameDuckDuration          time.Duration `json:"-"`
-	LameDuckGracePeriod       time.Duration `json:"-"`
+	TLSHandshakeFirstFallback time.Duration      `json:"-"`
+	AllowNonTLS               bool               `json:"-"`
+	WriteDeadline             time.Duration      `json:"-"`
+	WriteTimeout              WriteTimeoutPolicy `json:"-"`
+	MaxClosedClients          int                `json:"-"`
+	LameDuckDuration          time.Duration      `json:"-"`
+	LameDuckGracePeriod       time.Duration      `json:"-"`
 
 	// MaxTracedMsgLen is the maximum printable length for traced messages.
 	MaxTracedMsgLen int `json:"-"`
@@ -1253,6 +1260,8 @@ func (o *Options) processConfigFileLine(k string, v any, errors *[]error, warnin
 		o.MaxPayload = int32(v.(int64))
 	case "max_pending":
 		o.MaxPending = v.(int64)
+	case "proxy_protocol":
+		o.ProxyProtocol = v.(bool)
 	case "max_connections", "max_conn":
 		o.MaxConn = int(v.(int64))
 	case "max_traced_msg_len":
@@ -1347,6 +1356,8 @@ func (o *Options) processConfigFileLine(k string, v any, errors *[]error, warnin
 		o.AllowNonTLS = v.(bool)
 	case "write_deadline":
 		o.WriteDeadline = parseDuration("write_deadline", tk, v, errors, warnings)
+	case "write_timeout":
+		o.WriteTimeout = parseWriteDeadlinePolicy(tk, v.(string), errors)
 	case "lame_duck_duration":
 		dur, err := time.ParseDuration(v.(string))
 		if err != nil {
@@ -1828,6 +1839,21 @@ func parseDuration(field string, tk token, v any, errors *[]error, warnings *[]e
 	}
 }
 
+func parseWriteDeadlinePolicy(tk token, v string, errors *[]error) WriteTimeoutPolicy {
+	switch v {
+	case "default":
+		return WriteTimeoutPolicyDefault
+	case "close":
+		return WriteTimeoutPolicyClose
+	case "retry":
+		return WriteTimeoutPolicyRetry
+	default:
+		err := &configErr{tk, "write_timeout must be 'default', 'close' or 'retry'"}
+		*errors = append(*errors, err)
+		return WriteTimeoutPolicyDefault
+	}
+}
+
 func trackExplicitVal(pm *map[string]bool, name string, val bool) {
 	m := *pm
 	if m == nil {
@@ -2004,6 +2030,8 @@ func parseCluster(v any, opts *Options, errors *[]error, warnings *[]error) erro
 			opts.Cluster.MaxPingsOut = int(mv.(int64))
 		case "write_deadline":
 			opts.Cluster.WriteDeadline = parseDuration("write_deadline", tk, mv, errors, warnings)
+		case "write_timeout":
+			opts.Cluster.WriteTimeout = parseWriteDeadlinePolicy(tk, mv.(string), errors)
 		default:
 			if !tk.IsUsedVariable() {
 				err := &unknownConfigFieldErr{
@@ -2194,6 +2222,8 @@ func parseGateway(v any, o *Options, errors *[]error, warnings *[]error) error {
 			o.Gateway.RejectUnknown = mv.(bool)
 		case "write_deadline":
 			o.Gateway.WriteDeadline = parseDuration("write_deadline", tk, mv, errors, warnings)
+		case "write_timeout":
+			o.Gateway.WriteTimeout = parseWriteDeadlinePolicy(tk, mv.(string), errors)
 		default:
 			if !tk.IsUsedVariable() {
 				err := &unknownConfigFieldErr{
@@ -2603,6 +2633,21 @@ func parseJetStream(v any, opts *Options, errors *[]error, warnings *[]error) er
 					return &configErr{tk, fmt.Sprintf("Expected a parseable size for %q, got %v", mk, mv)}
 				}
 				opts.JetStreamRequestQueueLimit = lim
+			case "meta_compact":
+				thres, ok := mv.(int64)
+				if !ok || thres < 0 {
+					return &configErr{tk, fmt.Sprintf("Expected an absolute size for %q, got %v", mk, mv)}
+				}
+				opts.JetStreamMetaCompact = uint64(thres)
+			case "meta_compact_size":
+				s, err := getStorageSize(mv)
+				if err != nil {
+					return &configErr{tk, fmt.Sprintf("%s %s", strings.ToLower(mk), err)}
+				}
+				if s < 0 {
+					return &configErr{tk, fmt.Sprintf("Expected an absolute size for %q, got %v", mk, mv)}
+				}
+				opts.JetStreamMetaCompactSize = uint64(s)
 			default:
 				if !tk.IsUsedVariable() {
 					err := &unknownConfigFieldErr{
@@ -2719,6 +2764,8 @@ func parseLeafNodes(v any, opts *Options, errors *[]error, warnings *[]error) er
 			opts.LeafNode.IsolateLeafnodeInterest = mv.(bool)
 		case "write_deadline":
 			opts.LeafNode.WriteDeadline = parseDuration("write_deadline", tk, mv, errors, warnings)
+		case "write_timeout":
+			opts.LeafNode.WriteTimeout = parseWriteDeadlinePolicy(tk, mv.(string), errors)
 		default:
 			if !tk.IsUsedVariable() {
 				err := &unknownConfigFieldErr{
@@ -2889,6 +2936,7 @@ func parseRemoteLeafNodes(v any, errors *[]error, warnings *[]error) ([]*RemoteL
 			continue
 		}
 		remote := &RemoteLeafOpts{}
+		var proxyToken token
 		for k, v := range rm {
 			tk, v = unwrapValue(v, &lt)
 			switch strings.ToLower(k) {
@@ -3022,7 +3070,7 @@ func parseRemoteLeafNodes(v any, errors *[]error, warnings *[]error) ([]*RemoteL
 					continue
 				}
 				// Capture the token for the "proxy" field itself, before the map iteration
-				proxyToken := tk
+				proxyToken = tk
 				for pk, pv := range proxyMap {
 					tk, pv = unwrapValue(pv, &lt)
 					switch strings.ToLower(pk) {
@@ -3047,16 +3095,6 @@ func parseRemoteLeafNodes(v any, errors *[]error, warnings *[]error) ([]*RemoteL
 						}
 					}
 				}
-				// Use the saved proxy token for validation errors, not the last field token
-				if warns, err := validateLeafNodeProxyOptions(remote); err != nil {
-					*errors = append(*errors, &configErr{proxyToken, err.Error()})
-					continue
-				} else {
-					// Add any warnings about proxy configuration
-					for _, warn := range warns {
-						*warnings = append(*warnings, &configErr{proxyToken, warn})
-					}
-				}
 			default:
 				if !tk.IsUsedVariable() {
 					err := &unknownConfigFieldErr{
@@ -3068,6 +3106,16 @@ func parseRemoteLeafNodes(v any, errors *[]error, warnings *[]error) ([]*RemoteL
 					*errors = append(*errors, err)
 					continue
 				}
+			}
+		}
+		// Use the saved proxy token for validation errors, not the last field token
+		if warns, err := validateLeafNodeProxyOptions(remote); err != nil {
+			*errors = append(*errors, &configErr{proxyToken, err.Error()})
+			continue
+		} else {
+			// Add any warnings about proxy configuration
+			for _, warn := range warns {
+				*warnings = append(*warnings, &configErr{proxyToken, warn})
 			}
 		}
 		remotes = append(remotes, remote)

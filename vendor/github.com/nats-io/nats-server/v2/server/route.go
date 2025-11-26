@@ -1031,7 +1031,7 @@ func (s *Server) sendAsyncInfoToClients(regCli, wsCli bool) {
 			c.flags.isSet(firstPongSent) {
 			// sendInfo takes care of checking if the connection is still
 			// valid or not, so don't duplicate tests here.
-			c.enqueueProto(c.generateClientInfoJSON(info))
+			c.enqueueProto(c.generateClientInfoJSON(info, true))
 		}
 		c.mu.Unlock()
 	}
@@ -2346,8 +2346,20 @@ func (s *Server) addRoute(c *client, didSolicit, sendDelayedInfo bool, gossipMod
 		if doOnce {
 			// check to be consistent and future proof. but will be same domain
 			if s.sameDomain(info.Domain) {
-				s.nodeToInfo.Store(rHash,
-					nodeInfo{rn, s.info.Version, s.info.Cluster, info.Domain, id, nil, nil, nil, false, info.JetStream, false, false})
+				s.nodeToInfo.Store(rHash, nodeInfo{
+					name:            rn,
+					version:         s.info.Version,
+					cluster:         s.info.Cluster,
+					domain:          info.Domain,
+					id:              id,
+					tags:            nil,
+					cfg:             nil,
+					stats:           nil,
+					offline:         false,
+					js:              info.JetStream,
+					binarySnapshots: true, // Updated default to true. Versions 2.10.0+ support it.
+					accountNRG:      false,
+				})
 			}
 		}
 
