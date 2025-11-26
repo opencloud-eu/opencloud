@@ -50,6 +50,8 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump google.golang.org/grpc from 1.76.0 to 1.77.0 [[#1923](https://github.com/opencloud-eu/opencloud/pull/1923)]
+- build(deps): bump github.com/nats-io/nats-server/v2 from 2.12.1 to 2.12.2 [[#1922](https://github.com/opencloud-eu/opencloud/pull/1922)]
 - build(deps): bump github.com/kovidgoyal/imaging from 1.7.2 to 1.8.17 [[#1912](https://github.com/opencloud-eu/opencloud/pull/1912)]
 - build(deps): bump golang.org/x/crypto from 0.44.0 to 0.45.0 [[#1911](https://github.com/opencloud-eu/opencloud/pull/1911)]
 - [decomposed]Update version 4.0.0 rc.2 [[#1917](https://github.com/opencloud-eu/opencloud/pull/1917)]
