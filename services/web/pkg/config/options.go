@@ -17,7 +17,7 @@ type Options struct {
 	Embed                  *Embed              `json:"embed,omitempty" yaml:"embed"`
 	UserListRequiresFilter bool                `json:"userListRequiresFilter,omitempty" yaml:"userListRequiresFilter" env:"WEB_OPTION_USER_LIST_REQUIRES_FILTER" desc:"Defines whether one or more filters must be set in order to list users in the Web admin settings. Set this option to 'true' if running in an environment with a lot of users and listing all users could slow down performance. Defaults to 'false'." introductionVersion:"1.0.0"`
 	ConcurrentRequests     *ConcurrentRequests `json:"concurrentRequests,omitempty" yaml:"concurrentRequests"`
-	DefaultAppID           string              `json:"defaultAppId,omitempty" yaml:"defaultAppId" env:"WEB_OPTION_DEFAULT_APP_ID" desc:"Defines the entrypoint for the web ui." introductionVersion:"%%NEXT%%"`
+	DefaultAppID           string              `json:"defaultAppId,omitempty" yaml:"defaultAppId" env:"WEB_OPTION_DEFAULT_APP_ID" desc:"Defines the entrypoint for the web ui." introductionVersion:"4.0.0"`
 }
 
 // AccountEditLink are the AccountEditLink options

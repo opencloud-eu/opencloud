@@ -675,6 +675,9 @@ class CliContext implements Context {
 	 * @return void
 	 */
 	public function theAdministratorChangesFileContent(string $content, string $file, string $user): void {
+		// this downloads the file using WebDAV and by that checks if it's still in
+		// postprocessing. So its effectively a check for finished postprocessing
+		$this->featureContext->userDownloadsFileUsingTheAPI($user, $file);
 		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath();
 		$safeContent = escapeshellarg($content);

@@ -28,7 +28,7 @@ type Config struct {
 
 	AllowImpersonation bool `yaml:"allow_impersonation" env:"AUTH_APP_ENABLE_IMPERSONATION" desc:"Allows admins to create app tokens for other users. Used for migration. Do NOT use in productive deployments." introductionVersion:"1.0.0"`
 
-	StorageDriver  string         `yaml:"storage_driver" env:"AUTH_APP_STORAGE_DRIVER" desc:"Driver to be used to persist the app tokes . Supported values are 'jsoncs3', 'json'." introductionVersion:"%%NEXT%%"`
+	StorageDriver  string         `yaml:"storage_driver" env:"AUTH_APP_STORAGE_DRIVER" desc:"Driver to be used to persist the app tokes . Supported values are 'jsoncs3', 'json'." introductionVersion:"4.0.0"`
 	StorageDrivers StorageDrivers `yaml:"storage_drivers"`
 
 	Context context.Context `yaml:"-"`
@@ -39,11 +39,11 @@ type StorageDrivers struct {
 }
 
 type JSONCS3Driver struct {
-	ProviderAddr             string                   `yaml:"provider_addr" env:"AUTH_APP_JSONCS3_PROVIDER_ADDR" desc:"GRPC address of the STORAGE-SYSTEM service." introductionVersion:"%%NEXT%%"`
-	SystemUserID             string                   `yaml:"system_user_id" env:"OC_SYSTEM_USER_ID;AUTH_APP_JSONCS3_SYSTEM_USER_ID" desc:"ID of the OpenCloud STORAGE-SYSTEM system user. Admins need to set the ID for the STORAGE-SYSTEM system user in this config option which is then used to reference the user. Any reasonable long string is possible, preferably this would be an UUIDv4 format." introductionVersion:"%%NEXT%%"`
-	SystemUserIDP            string                   `yaml:"system_user_idp" env:"OC_SYSTEM_USER_IDP;AUTH_APP_JSONCS3_SYSTEM_USER_IDP" desc:"IDP of the OpenCloud STORAGE-SYSTEM system user." introductionVersion:"%%NEXT%%"`
-	SystemUserAPIKey         string                   `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY;AUTH_APP_JSONCS3_SYSTEM_USER_API_KEY" desc:"API key for the STORAGE-SYSTEM system user." introductionVersion:"%%NEXT%%"`
-	PasswordGenerator        string                   `yaml:"password_generator" env:"AUTH_APP_JSONCS3_PASSWORD_GENERATOR" desc:"The password generator that should be used for generating app tokens. Supported values are: 'diceware' and 'random'." introductionVersion:"%%NEXT%%"`
+	ProviderAddr             string                   `yaml:"provider_addr" env:"AUTH_APP_JSONCS3_PROVIDER_ADDR" desc:"GRPC address of the STORAGE-SYSTEM service." introductionVersion:"4.0.0"`
+	SystemUserID             string                   `yaml:"system_user_id" env:"OC_SYSTEM_USER_ID;AUTH_APP_JSONCS3_SYSTEM_USER_ID" desc:"ID of the OpenCloud STORAGE-SYSTEM system user. Admins need to set the ID for the STORAGE-SYSTEM system user in this config option which is then used to reference the user. Any reasonable long string is possible, preferably this would be an UUIDv4 format." introductionVersion:"4.0.0"`
+	SystemUserIDP            string                   `yaml:"system_user_idp" env:"OC_SYSTEM_USER_IDP;AUTH_APP_JSONCS3_SYSTEM_USER_IDP" desc:"IDP of the OpenCloud STORAGE-SYSTEM system user." introductionVersion:"4.0.0"`
+	SystemUserAPIKey         string                   `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY;AUTH_APP_JSONCS3_SYSTEM_USER_API_KEY" desc:"API key for the STORAGE-SYSTEM system user." introductionVersion:"4.0.0"`
+	PasswordGenerator        string                   `yaml:"password_generator" env:"AUTH_APP_JSONCS3_PASSWORD_GENERATOR" desc:"The password generator that should be used for generating app tokens. Supported values are: 'diceware' and 'random'." introductionVersion:"4.0.0"`
 	PasswordGeneratorOptions PasswordGeneratorOptions `yaml:"password_generator_options"`
 }
 
@@ -54,12 +54,12 @@ type PasswordGeneratorOptions struct {
 
 // DicewareOptions defines the config options for the "diceware" password generator
 type DicewareOptions struct {
-	NumberOfWords int `yaml:"number_of_words" env:"AUTH_APP_JSONCS3_DICEWARE_NUMBER_OF_WORDS" desc:"The number of words the generated passphrase will have." introductionVersion:"%%NEXT%%"`
+	NumberOfWords int `yaml:"number_of_words" env:"AUTH_APP_JSONCS3_DICEWARE_NUMBER_OF_WORDS" desc:"The number of words the generated passphrase will have." introductionVersion:"4.0.0"`
 }
 
 // RandPWOpts defines the config options for the "random" password generator
 type RandPWOpts struct {
-	PasswordLength int `yaml:"password_length" env:"AUTH_APP_JSONCS3_RANDOM_PASSWORD_LENGTH" desc:"The number of charactors the generated passwords will have." introductionVersion:"%%NEXT%%"`
+	PasswordLength int `yaml:"password_length" env:"AUTH_APP_JSONCS3_RANDOM_PASSWORD_LENGTH" desc:"The number of charactors the generated passwords will have." introductionVersion:"4.0.0"`
 }
 
 // Log defines the loging configuration

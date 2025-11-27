@@ -44,7 +44,7 @@ type Config struct {
 	AuthMiddleware                AuthMiddleware      `yaml:"auth_middleware"`
 	PoliciesMiddleware            PoliciesMiddleware  `yaml:"policies_middleware"`
 	CSPConfigFileLocation         string              `yaml:"csp_config_file_location" env:"PROXY_CSP_CONFIG_FILE_LOCATION" desc:"The location of the CSP configuration file." introductionVersion:"1.0.0"`
-	CSPConfigFileOverrideLocation string              `yaml:"csp_config_file_override_location" env:"PROXY_CSP_CONFIG_FILE_OVERRIDE_LOCATION" desc:"The location of the CSP configuration file override." introductionVersion:"%%NEXT%%"`
+	CSPConfigFileOverrideLocation string              `yaml:"csp_config_file_override_location" env:"PROXY_CSP_CONFIG_FILE_OVERRIDE_LOCATION" desc:"The location of the CSP configuration file override." introductionVersion:"4.0.0"`
 	Events                        Events              `yaml:"events"`
 
 	Context context.Context `json:"-" yaml:"-"`

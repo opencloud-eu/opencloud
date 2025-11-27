@@ -101,7 +101,7 @@ type Settings struct {
 	IdentifierScopesConf              string `yaml:"-"` // unused
 	IdentifierDefaultBannerLogo       string
 	IdentifierDefaultSignInPageText   string `yaml:"default_sign_in_page_text" env:"IDP_DEFAULT_SIGNIN_PAGE_TEXT" desc:"" introductionVersion:"2.0.0"`
-	IdentifierDefaultLogoTargetURI    string `yaml:"default_logo_target_uri" env:"IDP_DEFAULT_LOGO_TARGET_URI" desc:"Default logo target URI." introductionVersion:"%%NEXT%%"`
+	IdentifierDefaultLogoTargetURI    string `yaml:"default_logo_target_uri" env:"IDP_DEFAULT_LOGO_TARGET_URI" desc:"Default logo target URI." introductionVersion:"4.0.0"`
 	IdentifierDefaultUsernameHintText string
 	IdentifierUILocales               []string
 
