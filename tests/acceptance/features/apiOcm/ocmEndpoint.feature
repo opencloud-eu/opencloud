@@ -26,7 +26,7 @@ Feature: ocm well-known URI
             "const": true
           },
           "apiVersion": {
-            "const": "1.1.0"
+            "const": "1.2.0"
           },
           "endPoint": {
             "pattern": "^%base_url%/ocm"
@@ -73,10 +73,24 @@ Feature: ocm well-known URI
           },
           "capabilities": {
             "type": "array",
-            "minItems": 1,
-            "maxItems": 1,
+            "minItems": 4,
+            "maxItems": 4,
+            "uniqueItems": true,
             "items": {
-              "const": "/invite-accepted"
+              "oneOf": [
+                {
+                  "const": "invites"
+                },
+                {
+                  "const": "webdav-uri"
+                },
+                {
+                  "const": "protocol-object"
+                },
+                {
+                  "const": "invite-wayf"
+                }
+              ]
             }
           }
         }

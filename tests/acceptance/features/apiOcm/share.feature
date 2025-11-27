@@ -748,7 +748,7 @@ Feature: an user shares resources using ScienceMesh application
                         },
                         "id": {
                           "type": "string",
-                          "pattern": "^%federated_user_id_pattern%$"
+                          "pattern": "^%user_id_pattern%$"
                         },
                         "displayName": {
                           "const": "Brian Murphy"
