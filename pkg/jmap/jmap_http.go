@@ -40,6 +40,13 @@ const (
 	logHttpStatus     = "status"
 	logHttpStatusCode = "status-code"
 	logHttpUrl        = "url"
+	logProto          = "proto"
+	logProtoJmap      = "jmap"
+	logProtoJmapWs    = "jmapws"
+	logType           = "type"
+	logTypeRequest    = "request"
+	logTypeResponse   = "response"
+	logTypePush       = "push"
 )
 
 /*
@@ -55,6 +62,8 @@ type HttpJmapApiClientEventListener interface {
 	OnFailedRequestWithStatus(endpoint string, status int)
 	OnResponseBodyReadingError(endpoint string, err error)
 	OnResponseBodyUnmarshallingError(endpoint string, err error)
+	OnSuccessfulWsRequest(endpoint string, status int)
+	OnFailedWsHandshakeRequestWithStatus(endpoint string, status int)
 }
 
 type nullHttpJmapApiClientEventListener struct {
@@ -69,6 +78,10 @@ func (l nullHttpJmapApiClientEventListener) OnFailedRequestWithStatus(endpoint s
 func (l nullHttpJmapApiClientEventListener) OnResponseBodyReadingError(endpoint string, err error) {
 }
 func (l nullHttpJmapApiClientEventListener) OnResponseBodyUnmarshallingError(endpoint string, err error) {
+}
+func (l nullHttpJmapApiClientEventListener) OnSuccessfulWsRequest(endpoint string, status int) {
+}
+func (l nullHttpJmapApiClientEventListener) OnFailedWsHandshakeRequestWithStatus(endpoint string, status int) {
 }
 
 var _ HttpJmapApiClientEventListener = nullHttpJmapApiClientEventListener{}
@@ -206,7 +219,7 @@ func (h *HttpJmapClient) Command(ctx context.Context, logger *log.Logger, sessio
 	if logger.Trace().Enabled() {
 		requestBytes, err := httputil.DumpRequestOut(req, true)
 		if err == nil {
-			logger.Trace().Str(logEndpoint, endpoint).Str("proto", "jmap").Str("type", "request").Msg(string(requestBytes))
+			logger.Trace().Str(logEndpoint, endpoint).Str(logProto, logProtoJmap).Str(logType, logTypeRequest).Msg(string(requestBytes))
 		}
 	}
 	h.auth(session.Username, logger, req)
@@ -221,7 +234,9 @@ func (h *HttpJmapClient) Command(ctx context.Context, logger *log.Logger, sessio
 	if logger.Trace().Enabled() {
 		responseBytes, err := httputil.DumpResponse(res, true)
 		if err == nil {
-			logger.Trace().Str(logEndpoint, endpoint).Str("proto", "jmap").Str("type", "response").Msg(string(responseBytes))
+			logger.Trace().Str(logEndpoint, endpoint).Str(logProto, logProtoJmap).Str(logType, logTypeResponse).
+				Str(logHttpStatus, log.SafeString(res.Status)).Int(logHttpStatusCode, res.StatusCode).
+				Msg(string(responseBytes))
 		}
 	}
 
@@ -267,7 +282,7 @@ func (h *HttpJmapClient) UploadBinary(ctx context.Context, logger *log.Logger, s
 	if logger.Trace().Enabled() {
 		requestBytes, err := httputil.DumpRequestOut(req, false)
 		if err == nil {
-			logger.Trace().Str(logEndpoint, endpoint).Str("proto", "jmap").Str("type", "request").Msg(string(requestBytes))
+			logger.Trace().Str(logEndpoint, endpoint).Str(logProto, logProtoJmap).Str(logType, logTypeRequest).Msg(string(requestBytes))
 		}
 	}
 
@@ -282,7 +297,9 @@ func (h *HttpJmapClient) UploadBinary(ctx context.Context, logger *log.Logger, s
 	if logger.Trace().Enabled() {
 		responseBytes, err := httputil.DumpResponse(res, true)
 		if err == nil {
-			logger.Trace().Str(logEndpoint, endpoint).Str("proto", "jmap").Str("type", "response").Msg(string(responseBytes))
+			logger.Trace().Str(logEndpoint, endpoint).Str(logProto, logProtoJmap).Str(logType, logTypeResponse).
+				Str(logHttpStatus, log.SafeString(res.Status)).Int(logHttpStatusCode, res.StatusCode).
+				Msg(string(responseBytes))
 		}
 	}
 
@@ -337,7 +354,7 @@ func (h *HttpJmapClient) DownloadBinary(ctx context.Context, logger *log.Logger,
 	if logger.Trace().Enabled() {
 		requestBytes, err := httputil.DumpRequestOut(req, true)
 		if err == nil {
-			logger.Trace().Str(logEndpoint, endpoint).Str("proto", "jmap").Str("type", "request").Msg(string(requestBytes))
+			logger.Trace().Str(logEndpoint, endpoint).Str(logProto, logProtoJmap).Str(logType, logTypeRequest).Msg(string(requestBytes))
 		}
 	}
 	h.auth(session.Username, logger, req)
@@ -351,7 +368,9 @@ func (h *HttpJmapClient) DownloadBinary(ctx context.Context, logger *log.Logger,
 	if logger.Trace().Enabled() {
 		responseBytes, err := httputil.DumpResponse(res, false)
 		if err == nil {
-			logger.Trace().Str(logEndpoint, endpoint).Str("proto", "jmap").Str("type", "response").Msg(string(responseBytes))
+			logger.Trace().Str(logEndpoint, endpoint).Str(logProto, logProtoJmap).Str(logType, logTypeResponse).
+				Str(logHttpStatus, log.SafeString(res.Status)).Int(logHttpStatusCode, res.StatusCode).
+				Msg(string(responseBytes))
 		}
 	}
 	language := Language(res.Header.Get("Content-Language"))
@@ -384,9 +403,17 @@ func (h *HttpJmapClient) DownloadBinary(ctx context.Context, logger *log.Logger,
 	}, language, nil
 }
 
+type WebSocketPushEnableType string
+type WebSocketPushDisableType string
+
+const (
+	WebSocketPushTypeEnable  = WebSocketPushEnableType("WebSocketPushEnable")
+	WebSocketPushTypeDisable = WebSocketPushDisableType("WebSocketPushDisable")
+)
+
 type WebSocketPushEnable struct {
 	// This MUST be the string "WebSocketPushEnable".
-	Type string `json:"@type"`
+	Type WebSocketPushEnableType `json:"@type"`
 
 	// A list of data type names (e.g., "Mailbox" or "Email") that the client is interested in.
 	//
@@ -404,30 +431,21 @@ type WebSocketPushEnable struct {
 
 type WebSocketPushDisable struct {
 	// This MUST be the string "WebSocketPushDisable".
-	Type string `json:"@type"`
+	Type WebSocketPushDisableType `json:"@type"`
 }
 
 type HttpWsClientFactory struct {
 	dialer         *websocket.Dialer
 	masterUser     string
 	masterPassword string
+	logger         *log.Logger
+	eventListener  HttpJmapApiClientEventListener
 }
 
 var _ WsClientFactory = &HttpWsClientFactory{}
 
-func NewHttpWsClientFactory(dialer *websocket.Dialer, masterUser string, masterPassword string, logger *log.Logger) (*HttpWsClientFactory, error) {
-	/*
-		d := websocket.Dialer{
-			TLSClientConfig:  &tls.Config{InsecureSkipVerify: true}, // TODO configurable
-			HandshakeTimeout: 5 * time.Second,
-			// RFC 8887: Section 4.2:
-			// Otherwise, the client MUST make an authenticated HTTP request [RFC7235] on the encrypted connection
-			// and MUST include the value "jmap" in the list of protocols for the "Sec-WebSocket-Protocol" header
-			// field.
-			Subprotocols: []string{"jmap"},
-		}
-	*/
-
+func NewHttpWsClientFactory(dialer *websocket.Dialer, masterUser string, masterPassword string, logger *log.Logger,
+	eventListener HttpJmapApiClientEventListener) (*HttpWsClientFactory, error) {
 	// RFC 8887: Section 4.2:
 	// Otherwise, the client MUST make an authenticated HTTP request [RFC7235] on the encrypted connection
 	// and MUST include the value "jmap" in the list of protocols for the "Sec-WebSocket-Protocol" header
@@ -438,6 +456,8 @@ func NewHttpWsClientFactory(dialer *websocket.Dialer, masterUser string, masterP
 		dialer:         dialer,
 		masterUser:     masterUser,
 		masterPassword: masterPassword,
+		logger:         logger,
+		eventListener:  eventListener,
 	}, nil
 }
 
@@ -447,32 +467,59 @@ func (w *HttpWsClientFactory) auth(username string, h http.Header) error {
 	return nil
 }
 
-func (w *HttpWsClientFactory) connect(sessionProvider func() (*Session, error)) (*websocket.Conn, string, Error) {
+func (w *HttpWsClientFactory) connect(sessionProvider func() (*Session, error)) (*websocket.Conn, string, string, Error) {
+	logger := w.logger
+
 	session, err := sessionProvider()
 	if err != nil {
-		return nil, "", SimpleError{code: JmapErrorWssFailedToRetrieveSession, err: err}
+		return nil, "", "", SimpleError{code: JmapErrorWssFailedToRetrieveSession, err: err}
 	}
 	if session == nil {
-		return nil, "", SimpleError{code: JmapErrorWssFailedToRetrieveSession, err: nil}
+		return nil, "", "", SimpleError{code: JmapErrorWssFailedToRetrieveSession, err: nil}
 	}
+
+	if !session.SupportsWebsocketPush {
+		return nil, "", "", SimpleError{code: JmapErrorSocketPushUnsupported, err: nil}
+	}
+
 	username := session.Username
 	u := session.WebsocketUrl
+	endpoint := session.WebsocketEndpoint
+
+	ctx := context.Background() // TODO WS connection context with a timeout?
 
 	h := http.Header{}
 	w.auth(username, h)
-	c, resp, err := w.dialer.Dial(u.String(), h)
+	c, res, err := w.dialer.DialContext(ctx, u.String(), h)
 	if err != nil {
-		return nil, "", SimpleError{code: JmapErrorFailedToEstablishWssConnection, err: err}
+		return nil, "", endpoint, SimpleError{code: JmapErrorFailedToEstablishWssConnection, err: err}
+	}
+
+	if w.logger.Trace().Enabled() {
+		responseBytes, err := httputil.DumpResponse(res, true)
+		if err == nil {
+			logger.Trace().Str(logEndpoint, endpoint).Str(logProto, logProtoJmapWs).Str(logType, logTypeResponse).
+				Str(logHttpStatus, log.SafeString(res.Status)).Int(logHttpStatusCode, res.StatusCode).
+				Msg(string(responseBytes))
+		}
+	}
+
+	if res.StatusCode != 101 {
+		w.eventListener.OnFailedRequestWithStatus(endpoint, res.StatusCode)
+		logger.Error().Str(logHttpStatus, log.SafeString(res.Status)).Int(logHttpStatusCode, res.StatusCode).Msg("HTTP response status code is not 101")
+		return nil, "", endpoint, SimpleError{code: JmapErrorServerResponse, err: fmt.Errorf("JMAP WS API response status is %v", res.Status)}
+	} else {
+		w.eventListener.OnSuccessfulWsRequest(endpoint, res.StatusCode)
 	}
 
 	// RFC 8887: Section 4.2:
 	// The reply from the server MUST also contain a corresponding "Sec-WebSocket-Protocol" header
 	// field with a value of "jmap" in order for a JMAP subprotocol connection to be established.
-	if !slices.Contains(resp.Header.Values("Sec-WebSocket-Protocol"), "jmap") {
-		return nil, "", SimpleError{code: JmapErrorWssConnectionResponseMissingJmapSubprotocol}
+	if !slices.Contains(res.Header.Values("Sec-WebSocket-Protocol"), "jmap") {
+		return nil, "", endpoint, SimpleError{code: JmapErrorWssConnectionResponseMissingJmapSubprotocol}
 	}
 
-	return c, username, nil
+	return c, username, endpoint, nil
 }
 
 type HttpWsClient struct {
@@ -480,30 +527,96 @@ type HttpWsClient struct {
 	username        string
 	sessionProvider func() (*Session, error)
 	c               *websocket.Conn
+	logger          *log.Logger
+	endpoint        string
+	listener        WsPushListener
 	WsClient
 }
 
+func (w *HttpWsClient) readPump() {
+	defer func() {
+		w.c.Close()
+	}()
+	//w.c.SetReadLimit(maxMessageSize)
+	//c.conn.SetReadDeadline(time.Now().Add(pongWait))
+	//c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+
+	for {
+		if _, message, err := w.c.ReadMessage(); err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				w.logger.Error().Err(err).Msg("unexpected close")
+			}
+			break
+		} else {
+			if w.logger.Trace().Enabled() {
+				w.logger.Trace().Str(logEndpoint, w.endpoint).Str(logProto, logProtoJmapWs).Str(logType, logTypePush).Msg(string(message))
+			}
+
+			var peek struct {
+				Type string `json:"@type"`
+			}
+			if err := json.Unmarshal(message, &peek); err != nil {
+				w.logger.Error().Err(err).Msg("failed to deserialized pushed WS message")
+				continue
+			}
+			switch peek.Type {
+			case string(TypeOfStateChange):
+				var stateChange StateChange
+				if err := json.Unmarshal(message, &stateChange); err != nil {
+					w.logger.Error().Err(err).Msgf("failed to deserialized pushed WS message into a %T", stateChange)
+					continue
+				} else {
+					if w.listener != nil {
+						w.listener.OnNotification(stateChange)
+					} else {
+						w.logger.Warn().Msgf("no listener to be notified of %v", stateChange)
+					}
+				}
+			default:
+				w.logger.Warn().Msgf("unsupported pushed WS message JMAP @type: '%s'", peek.Type)
+				continue
+			}
+		}
+	}
+}
+
 func (w *HttpWsClientFactory) EnableNotifications(pushState string, sessionProvider func() (*Session, error), listener WsPushListener) (WsClient, Error) {
-	c, username, jerr := w.connect(sessionProvider)
+	c, username, endpoint, jerr := w.connect(sessionProvider)
 	if jerr != nil {
 		return nil, jerr
 	}
 
-	err := c.WriteJSON(WebSocketPushEnable{
-		Type:      "WebSocketPushEnable",
+	msg := WebSocketPushEnable{
+		Type:      WebSocketPushTypeEnable,
 		DataTypes: nil,       // = all datatypes
 		PushState: pushState, // will be omitted if empty string
-	})
+	}
+
+	data, err := json.Marshal(msg)
 	if err != nil {
 		return nil, SimpleError{code: JmapErrorWssFailedToSendWebSocketPushEnable, err: err}
 	}
 
-	return &HttpWsClient{
+	if w.logger.Trace().Enabled() {
+		w.logger.Trace().Str(logEndpoint, endpoint).Str(logProto, logProtoJmapWs).Str(logType, logTypeRequest).Msg(string(data))
+	}
+	if err := c.WriteMessage(websocket.TextMessage, data); err != nil {
+		return nil, SimpleError{code: JmapErrorWssFailedToSendWebSocketPushEnable, err: err}
+	}
+
+	wsc := &HttpWsClient{
 		client:          w,
 		username:        username,
 		sessionProvider: sessionProvider,
 		c:               c,
-	}, nil
+		logger:          w.logger,
+		endpoint:        endpoint,
+		listener:        listener,
+	}
+
+	go wsc.readPump()
+
+	return wsc, nil
 }
 
 func (w *HttpWsClientFactory) Close() error {
@@ -516,7 +629,7 @@ func (c *HttpWsClient) DisableNotifications() Error {
 	}
 
 	err := c.c.WriteJSON(WebSocketPushDisable{
-		Type: "WebSocketPushDisable",
+		Type: WebSocketPushTypeDisable,
 	})
 	if err != nil {
 		return SimpleError{code: JmapErrorWssFailedToSendWebSocketPushDisable, err: err}

@@ -25,6 +25,34 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func (s *StalwartTest) findInbox(t *testing.T, accountId string) (string, string) {
+	require := require.New(t)
+	respByAccountId, sessionState, _, _, err := s.client.GetAllMailboxes([]string{accountId}, s.session, s.ctx, s.logger, "")
+	require.NoError(err)
+	require.Equal(s.session.State, sessionState)
+	require.Len(respByAccountId, 1)
+	require.Contains(respByAccountId, accountId)
+	resp := respByAccountId[accountId]
+
+	mailboxesNameByRole := map[string]string{}
+	mailboxesUnreadByRole := map[string]int{}
+	for _, m := range resp {
+		if m.Role != "" {
+			mailboxesNameByRole[m.Role] = m.Name
+			mailboxesUnreadByRole[m.Role] = m.UnreadEmails
+		}
+	}
+	require.Contains(mailboxesNameByRole, "inbox")
+	require.Contains(mailboxesUnreadByRole, "inbox")
+	require.Zero(mailboxesUnreadByRole["inbox"])
+
+	inboxId := mailboxId("inbox", resp)
+	require.NotEmpty(inboxId)
+	inboxFolder := mailboxesNameByRole["inbox"]
+	require.NotEmpty(inboxFolder)
+	return inboxId, inboxFolder
+}
+
 func TestEmails(t *testing.T) {
 	if skip(t) {
 		return
@@ -40,33 +68,7 @@ func TestEmails(t *testing.T) {
 
 	accountId := s.session.PrimaryAccounts.Mail
 
-	var inboxFolder string
-	var inboxId string
-	{
-		respByAccountId, sessionState, _, _, err := s.client.GetAllMailboxes([]string{accountId}, s.session, s.ctx, s.logger, "")
-		require.NoError(err)
-		require.Equal(s.session.State, sessionState)
-		require.Len(respByAccountId, 1)
-		require.Contains(respByAccountId, accountId)
-		resp := respByAccountId[accountId]
-
-		mailboxesNameByRole := map[string]string{}
-		mailboxesUnreadByRole := map[string]int{}
-		for _, m := range resp {
-			if m.Role != "" {
-				mailboxesNameByRole[m.Role] = m.Name
-				mailboxesUnreadByRole[m.Role] = m.UnreadEmails
-			}
-		}
-		require.Contains(mailboxesNameByRole, "inbox")
-		require.Contains(mailboxesUnreadByRole, "inbox")
-		require.Zero(mailboxesUnreadByRole["inbox"])
-
-		inboxId = mailboxId("inbox", resp)
-		require.NotEmpty(inboxId)
-		inboxFolder = mailboxesNameByRole["inbox"]
-		require.NotEmpty(inboxFolder)
-	}
+	inboxId, inboxFolder := s.findInbox(t, accountId)
 
 	var threads int = 0
 	var mails []filledMail = nil
