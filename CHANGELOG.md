@@ -1,10 +1,10 @@
 # Changelog
 
-## [4.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.0) - 2025-11-26
+## [4.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.0) - 2025-11-27
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @ScharfViktor, @butonic, @dragonchaser, @flimmy, @individual-it, @kulmann, @micbar, @mikelolasagasti, @pbleser-oc, @rhafer, @schweigisito
+@AlexAndBear, @ScharfViktor, @butonic, @dragonchaser, @flimmy, @fschade, @individual-it, @kulmann, @micbar, @mikelolasagasti, @pbleser-oc, @rhafer, @schweigisito
 
 ### 💥 Breaking changes
 
