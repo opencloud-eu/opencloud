@@ -12,8 +12,7 @@ type Config struct {
 	Commons *shared.Commons `yaml:"-"` // don't use this directly as configuration for a service
 	Log     *Log
 
-	Debug   Debug    `mask:"struct" yaml:"debug"`
-	Tracing *Tracing `yaml:"tracing"`
+	Debug Debug `mask:"struct" yaml:"debug"`
 
 	Service           Service       `yaml:"-"`
 	KeepAliveInterval time.Duration `yaml:"keepalive_interval" env:"SSE_KEEPALIVE_INTERVAL" desc:"To prevent intermediate proxies from closing the SSE connection, send periodic SSE comments to keep it open." introductionVersion:"1.0.0"`

@@ -12,9 +12,8 @@ type Config struct {
 
 	Service Service `yaml:"-"`
 
-	Tracing *Tracing `yaml:"tracing"`
-	Log     *Log     `yaml:"log"`
-	Debug   Debug    `yaml:"debug"`
+	Log   *Log  `yaml:"log"`
+	Debug Debug `yaml:"debug"`
 
 	GRPCClientTLS *shared.GRPCClientTLS `yaml:"grpc_client_tls"`
 

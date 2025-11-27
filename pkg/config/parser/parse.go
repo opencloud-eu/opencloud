@@ -40,9 +40,6 @@ func ParseConfig(cfg *config.Config, skipValidate bool) error {
 // EnsureDefaults ensures that all pointers in the
 // OpenCloud config (not the services configs) are initialized
 func EnsureDefaults(cfg *config.Config) {
-	if cfg.Tracing == nil {
-		cfg.Tracing = &shared.Tracing{}
-	}
 	if cfg.Log == nil {
 		cfg.Log = &shared.Log{}
 	}
@@ -71,7 +68,6 @@ func EnsureCommons(cfg *config.Config) {
 	}
 
 	cfg.Commons.Log = structs.CopyOrZeroValue(cfg.Log)
-	cfg.Commons.Tracing = structs.CopyOrZeroValue(cfg.Tracing)
 	cfg.Commons.Cache = structs.CopyOrZeroValue(cfg.Cache)
 
 	if cfg.GRPCClientTLS != nil {

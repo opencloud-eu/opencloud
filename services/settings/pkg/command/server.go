@@ -32,7 +32,7 @@ func Server(cfg *config.Config) *cli.Command {
 		},
 		Action: func(c *cli.Context) error {
 			logger := logging.Configure(cfg.Service.Name, cfg.Log)
-			traceProvider, err := tracing.GetServiceTraceProvider(cfg.Tracing, cfg.Service.Name)
+			traceProvider, err := tracing.GetTraceProvider(c.Context, cfg.Commons.TracesExporter, cfg.Service.Name)
 			if err != nil {
 				return err
 			}

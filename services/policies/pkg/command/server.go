@@ -49,7 +49,7 @@ func Server(cfg *config.Config) *cli.Command {
 				log.File(cfg.Log.File),
 			).SubloggerWithRequestID(ctx)
 
-			traceProvider, err := tracing.GetServiceTraceProvider(cfg.Tracing, cfg.Service.Name)
+			traceProvider, err := tracing.GetTraceProvider(c.Context, cfg.Commons.TracesExporter, cfg.Service.Name)
 			if err != nil {
 				return err
 			}

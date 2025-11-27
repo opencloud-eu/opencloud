@@ -172,6 +172,18 @@ func DefaultPolicies() []config.Policy {
 					Service:     "eu.opencloud.web.frontend",
 					Unprotected: true,
 				},
+				// OCM WAYF public endpoints
+				{
+					Endpoint:    "/sciencemesh/federations",
+					Service:     "eu.opencloud.web.ocm",
+					Unprotected: true,
+				},
+				{
+					Endpoint:    "/sciencemesh/discover",
+					Service:     "eu.opencloud.web.ocm",
+					Unprotected: true,
+				},
+				// General sciencemesh endpoints
 				{
 					Endpoint: "/sciencemesh/",
 					Service:  "eu.opencloud.web.ocm",
@@ -296,17 +308,6 @@ func EnsureDefaults(cfg *config.Config) {
 		}
 	} else if cfg.Log == nil {
 		cfg.Log = &config.Log{}
-	}
-	// provide with defaults for shared tracing, since we need a valid destination address for "envdecode".
-	if cfg.Tracing == nil && cfg.Commons != nil && cfg.Commons.Tracing != nil {
-		cfg.Tracing = &config.Tracing{
-			Enabled:   cfg.Commons.Tracing.Enabled,
-			Type:      cfg.Commons.Tracing.Type,
-			Endpoint:  cfg.Commons.Tracing.Endpoint,
-			Collector: cfg.Commons.Tracing.Collector,
-		}
-	} else if cfg.Tracing == nil {
-		cfg.Tracing = &config.Tracing{}
 	}
 
 	if cfg.OIDC.UserinfoCache == nil && cfg.Commons != nil && cfg.Commons.Cache != nil {

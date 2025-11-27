@@ -62,7 +62,6 @@ type Runtime struct {
 type Config struct {
 	*shared.Commons `yaml:"shared"`
 
-	Tracing        *shared.Tracing        `yaml:"tracing"`
 	Log            *shared.Log            `yaml:"log"`
 	Cache          *shared.Cache          `yaml:"cache"`
 	GRPCClientTLS  *shared.GRPCClientTLS  `yaml:"grpc_client_tls"`

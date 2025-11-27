@@ -3,6 +3,8 @@ package config
 import (
 	"context"
 	"time"
+
+	"github.com/opencloud-eu/opencloud/pkg/shared"
 )
 
 // ScannerType gives info which scanner is used
@@ -27,14 +29,13 @@ const (
 
 // Config combines all available configuration parts.
 type Config struct {
-	File string
-	Log  *Log
+	Commons *shared.Commons `yaml:"-"` // don't use this directly as configuration for a service
+	File    string
+	Log     *Log
 
 	Debug Debug `yaml:"debug" mask:"struct"`
 
 	Service Service `yaml:"-"`
-
-	Tracing *Tracing `yaml:"tracing"`
 
 	InfectedFileHandling string `yaml:"infected-file-handling" env:"ANTIVIRUS_INFECTED_FILE_HANDLING" desc:"Defines the behaviour when a virus has been found. Supported options are: 'delete', 'continue' and 'abort '. Delete will delete the file. Continue will mark the file as infected but continues further processing. Abort will keep the file in the uploads folder for further admin inspection and will not move it to its final destination." introductionVersion:"1.0.0"`
 	Events               Events

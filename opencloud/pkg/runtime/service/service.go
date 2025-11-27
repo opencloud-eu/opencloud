@@ -320,7 +320,7 @@ func NewService(ctx context.Context, options ...Option) (*Service, error) {
 	}
 	areg(opts.Config.Antivirus.Service.Name, func(ctx context.Context, cfg *occfg.Config) error {
 		cfg.Antivirus.Context = ctx
-		// cfg.Antivirus.Commons = cfg.Commons // antivirus holds no Commons atm
+		cfg.Antivirus.Commons = cfg.Commons
 		return antivirus.Execute(cfg.Antivirus)
 	})
 	areg(opts.Config.Audit.Service.Name, func(ctx context.Context, cfg *occfg.Config) error {

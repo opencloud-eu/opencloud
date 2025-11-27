@@ -12,9 +12,8 @@ type Config struct {
 
 	Service Service `yaml:"-"`
 
-	Tracing *Tracing `yaml:"tracing"`
-	Log     *Log     `yaml:"log"`
-	Debug   Debug    `yaml:"debug"`
+	Log   *Log  `yaml:"log"`
+	Debug Debug `yaml:"debug"`
 
 	IDM                Settings `yaml:"idm"`
 	CreateDemoUsers    bool     `yaml:"create_demo_users" env:"IDM_CREATE_DEMO_USERS" desc:"Flag to enable or disable the creation of the demo users." introductionVersion:"1.0.0"`

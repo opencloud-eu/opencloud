@@ -13,10 +13,9 @@ type Config struct {
 
 	Service Service `yaml:"-"`
 
-	Tracing *Tracing `yaml:"tracing"`
-	Log     *Log     `yaml:"log"`
-	Cache   *Cache   `yaml:"cache"`
-	Debug   Debug    `yaml:"debug"`
+	Log   *Log   `yaml:"log"`
+	Cache *Cache `yaml:"cache"`
+	Debug Debug  `yaml:"debug"`
 
 	HTTP HTTP `yaml:"http"`
 

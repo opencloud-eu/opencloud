@@ -43,7 +43,7 @@ func Server(cfg *config.Config) *cli.Command {
 			}
 			ctx := cfg.Context
 
-			traceProvider, err := tracing.GetServiceTraceProvider(cfg.Tracing, cfg.Service.Name)
+			traceProvider, err := tracing.GetTraceProvider(c.Context, cfg.Commons.TracesExporter, cfg.Service.Name)
 			if err != nil {
 				return err
 			}

@@ -53,7 +53,7 @@ func ListenForEvents(ctx context.Context, cfg *config.Config, l log.Logger) erro
 		return err
 	}
 
-	traceProvider, err := tracing.GetServiceTraceProvider(cfg.Tracing, cfg.Service.Name)
+	traceProvider, err := tracing.GetTraceProvider(ctx, cfg.Commons.TracesExporter, cfg.Service.Name)
 	if err != nil {
 		l.Error().Err(err).Msg("cannot initialize tracing")
 		return err

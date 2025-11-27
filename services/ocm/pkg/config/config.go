@@ -15,9 +15,8 @@ type Config struct {
 
 	Service Service `yaml:"-"`
 
-	Tracing *Tracing `yaml:"tracing"`
-	Log     *Log     `yaml:"log"`
-	Debug   Debug    `yaml:"debug"`
+	Log   *Log  `yaml:"log"`
+	Debug Debug `yaml:"debug"`
 
 	HTTP           HTTPConfig            `yaml:"http"`
 	Middleware     Middleware            `yaml:"middleware"`
@@ -83,8 +82,10 @@ type GRPCConfig struct {
 }
 
 type ScienceMesh struct {
-	Prefix           string `yaml:"prefix" env:"OCM_SCIENCEMESH_PREFIX" desc:"URL path prefix for the ScienceMesh service. Note that the string must not start with '/'." introductionVersion:"1.0.0"`
-	MeshDirectoryURL string `yaml:"science_mesh_directory_url" env:"OCM_MESH_DIRECTORY_URL" desc:"URL of the mesh directory service." introductionVersion:"1.0.0"`
+	Prefix               string `yaml:"prefix" env:"OCM_SCIENCEMESH_PREFIX" desc:"URL path prefix for the ScienceMesh service. Note that the string must not start with '/'." introductionVersion:"1.0.0"`
+	MeshDirectoryURL     string `yaml:"science_mesh_directory_url" env:"OCM_MESH_DIRECTORY_URL" desc:"URL of the mesh directory service." introductionVersion:"1.0.0"`
+	DirectoryServiceURLs string `yaml:"directory_service_urls" env:"OCM_DIRECTORY_SERVICE_URLS" desc:"Space delimited URLs of the directory services." introductionVersion:"3.5.0"`
+	InviteAcceptDialog   string `yaml:"invite_accept_dialog" env:"OCM_INVITE_ACCEPT_DIALOG" desc:"/open-cloud-mesh/accept-invite;The frontend URL where to land when receiving an invitation" introductionVersion:"3.5.0"`
 }
 
 type OCMD struct {

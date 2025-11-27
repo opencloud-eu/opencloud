@@ -74,17 +74,6 @@ func EnsureDefaults(cfg *config.Config) {
 	} else if cfg.Log == nil {
 		cfg.Log = &config.Log{}
 	}
-	// provide with defaults for shared tracing, since we need a valid destination address for "envdecode".
-	if cfg.Tracing == nil && cfg.Commons != nil && cfg.Commons.Tracing != nil {
-		cfg.Tracing = &config.Tracing{
-			Enabled:   cfg.Commons.Tracing.Enabled,
-			Type:      cfg.Commons.Tracing.Type,
-			Endpoint:  cfg.Commons.Tracing.Endpoint,
-			Collector: cfg.Commons.Tracing.Collector,
-		}
-	} else if cfg.Tracing == nil {
-		cfg.Tracing = &config.Tracing{}
-	}
 
 	if cfg.GRPCClientTLS == nil && cfg.Commons != nil {
 		cfg.GRPCClientTLS = structs.CopyOrZeroValue(cfg.Commons.GRPCClientTLS)

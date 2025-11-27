@@ -14,9 +14,8 @@ type Config struct {
 
 	Service Service `yaml:"-"`
 
-	Tracing *Tracing `yaml:"tracing"`
-	Log     *Log     `yaml:"log"`
-	Debug   Debug    `yaml:"debug"`
+	Log   *Log  `yaml:"log"`
+	Debug Debug `yaml:"debug"`
 
 	WebUIURL string `yaml:"opencloud_url" env:"OC_URL;NOTIFICATIONS_WEB_UI_URL" desc:"The public facing URL of the OpenCloud Web UI, used e.g. when sending notification eMails" introductionVersion:"1.0.0"`
 

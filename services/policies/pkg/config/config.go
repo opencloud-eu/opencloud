@@ -19,7 +19,6 @@ type Config struct {
 	Log            *Log                  `yaml:"log"`
 	Engine         Engine                `yaml:"engine"`
 	Postprocessing Postprocessing        `yaml:"postprocessing"`
-	Tracing        *Tracing              `yaml:"tracing"`
 }
 
 // Service defines the available service configuration.

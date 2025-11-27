@@ -32,7 +32,7 @@ func Server(cfg *config.Config) *cli.Command {
 		},
 		Action: func(c *cli.Context) error {
 			logger := logging.Configure(cfg.Service.Name, cfg.Log)
-			traceProvider, err := tracing.GetServiceTraceProvider(cfg.Tracing, cfg.Service.Name)
+			traceProvider, err := tracing.GetTraceProvider(c.Context, cfg.Commons.TracesExporter, cfg.Service.Name)
 			if err != nil {
 				return err
 			}
@@ -91,7 +91,6 @@ func Server(cfg *config.Config) *cli.Command {
 				// ocdav.TLSConfig() // tls config for the http server
 				ocdav.MetricsEnabled(true),
 				ocdav.MetricsNamespace("ocis"),
-				ocdav.Tracing("Adding these strings is a workaround for ->", "https://github.com/cs3org/reva/issues/4131"),
 				ocdav.WithTraceProvider(traceProvider),
 				ocdav.RegisterTTL(registry.GetRegisterTTL()),
 				ocdav.RegisterInterval(registry.GetRegisterInterval()),

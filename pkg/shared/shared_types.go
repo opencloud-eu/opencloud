@@ -18,14 +18,6 @@ type Log struct {
 	File   string `yaml:"file" env:"OC_LOG_FILE" desc:"The path to the log file. Activates logging to this file if set." introductionVersion:"1.0.0"`
 }
 
-// Tracing defines the available tracing configuration.
-type Tracing struct {
-	Enabled   bool   `yaml:"enabled" env:"OC_TRACING_ENABLED" desc:"Activates tracing." introductionVersion:"1.0.0"`
-	Type      string `yaml:"type" env:"OC_TRACING_TYPE" desc:"The type of tracing. Defaults to '', which is the same as 'jaeger'. Allowed tracing types are 'jaeger' and '' as of now." introductionVersion:"1.0.0"`
-	Endpoint  string `yaml:"endpoint" env:"OC_TRACING_ENDPOINT" desc:"The endpoint of the tracing agent." introductionVersion:"1.0.0"`
-	Collector string `yaml:"collector" env:"OC_TRACING_COLLECTOR" desc:"The HTTP endpoint for sending spans directly to a collector, i.e. http://jaeger-collector:14268/api/traces. Only used if the tracing endpoint is unset." introductionVersion:"1.0.0"`
-}
-
 // TokenManager is the config for using the reva token manager
 type TokenManager struct {
 	JWTSecret string `mask:"password" yaml:"jwt_secret" env:"OC_JWT_SECRET" desc:"The secret to mint and validate jwt tokens." introductionVersion:"1.0.0"`
@@ -69,8 +61,8 @@ type Cache struct {
 // Commons holds configuration that are common to all extensions. Each extension can then decide whether
 // to overwrite its values.
 type Commons struct {
+	TracesExporter     string          `yaml:"traces_exporter" env:"OTEL_TRACES_EXPORTER" desc:"The exporter used for traces. Supports 'otlp', 'console' and 'none' (default)." introductionVersion:"%%NEXT%%"`
 	Log                *Log            `yaml:"log"`
-	Tracing            *Tracing        `yaml:"tracing"`
 	Cache              *Cache          `yaml:"cache"`
 	GRPCClientTLS      *GRPCClientTLS  `yaml:"grpc_client_tls"`
 	GRPCServiceTLS     *GRPCServiceTLS `yaml:"grpc_service_tls"`
