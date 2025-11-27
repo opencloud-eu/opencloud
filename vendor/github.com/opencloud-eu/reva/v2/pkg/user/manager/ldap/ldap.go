@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	"github.com/go-ldap/ldap/v3"
@@ -270,7 +271,11 @@ func (m *manager) ldapEntryToUser(entry *ldap.Entry) (*userpb.User, error) {
 func (m *manager) ldapEntryToUserID(entry *ldap.Entry) (*userpb.UserId, error) {
 	var uid string
 	if m.c.LDAPIdentity.User.Schema.IDIsOctetString {
-		rawValue := entry.GetEqualFoldRawAttributeValue(m.c.LDAPIdentity.User.Schema.ID)
+		attribute := m.c.LDAPIdentity.User.Schema.ID
+		rawValue := entry.GetEqualFoldRawAttributeValue(attribute)
+		if strings.EqualFold(attribute, "objectguid") {
+			rawValue = ldapIdentity.SwapObjectGUIDBytes(rawValue)
+		}
 		if value, err := uuid.FromBytes(rawValue); err == nil {
 			uid = value.String()
 		} else {
