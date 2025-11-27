@@ -31,7 +31,6 @@ import (
 	"github.com/rs/zerolog"
 	"go-micro.dev/v4/broker"
 	"go.opentelemetry.io/otel/trace"
-	"google.golang.org/grpc/credentials"
 )
 
 // Option defines a single option function.
@@ -52,10 +51,7 @@ type Options struct {
 	FavoriteManager favorite.Manager
 	GatewaySelector pool.Selectable[gateway.GatewayAPIClient]
 
-	TracingEnabled              bool
-	TracingInsecure             bool
-	TracingEndpoint             string
-	TracingTransportCredentials credentials.TransportCredentials
+	TracesExporter string
 
 	TraceProvider trace.TracerProvider
 
@@ -233,33 +229,10 @@ func LockSystem(val ocdav.LockSystem) Option {
 	}
 }
 
-// Tracing enables tracing
-// Deprecated: use WithTracingEndpoint and WithTracingEnabled, Collector is unused
-func Tracing(endpoint, collector string) Option {
+// WithTracesExporter option
+func WithTracesExporter(exporter string) Option {
 	return func(o *Options) {
-		o.TracingEnabled = true
-		o.TracingEndpoint = endpoint
-	}
-}
-
-// WithTracingEnabled option
-func WithTracingEnabled(enabled bool) Option {
-	return func(o *Options) {
-		o.TracingEnabled = enabled
-	}
-}
-
-// WithTracingEndpoint option
-func WithTracingEndpoint(endpoint string) Option {
-	return func(o *Options) {
-		o.TracingEndpoint = endpoint
-	}
-}
-
-// WithTracingInsecure option
-func WithTracingInsecure() Option {
-	return func(o *Options) {
-		o.TracingInsecure = true
+		o.TracesExporter = exporter
 	}
 }
 
@@ -267,13 +240,6 @@ func WithTracingInsecure() Option {
 // Deprecated: unused
 func WithTracingExporter(exporter string) Option {
 	return func(o *Options) {}
-}
-
-// WithTracingTransportCredentials option
-func WithTracingTransportCredentials(v credentials.TransportCredentials) Option {
-	return func(o *Options) {
-		o.TracingTransportCredentials = v
-	}
 }
 
 // WithTraceProvider option

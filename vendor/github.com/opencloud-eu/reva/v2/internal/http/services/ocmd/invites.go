@@ -60,7 +60,7 @@ type acceptInviteRequest struct {
 	Email             string `json:"email"`
 }
 
-// AcceptInvite informs avout an accepted invitation so that the users
+// AcceptInvite informs about an accepted invitation so that the users
 // can initiate the OCM share creation.
 func (h *invitesHandler) AcceptInvite(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -73,7 +73,7 @@ func (h *invitesHandler) AcceptInvite(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Token == "" || req.UserID == "" || req.RecipientProvider == "" {
-		reqres.WriteError(w, r, reqres.APIErrorInvalidParameter, "token, userID and recipiendProvider must not be null", nil)
+		reqres.WriteError(w, r, reqres.APIErrorInvalidParameter, "token, userID and recipientProvider must not be null", nil)
 		return
 	}
 
@@ -146,7 +146,7 @@ func (h *invitesHandler) AcceptInvite(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewEncoder(w).Encode(&user{
-		UserID: ocmuser.FederatedID(acceptInviteResponse.UserId, "").GetOpaqueId(),
+		UserID: ocmuser.LocalUserFederatedID(acceptInviteResponse.UserId, "").GetOpaqueId(),
 		Email:  acceptInviteResponse.Email,
 		Name:   acceptInviteResponse.DisplayName,
 	}); err != nil {

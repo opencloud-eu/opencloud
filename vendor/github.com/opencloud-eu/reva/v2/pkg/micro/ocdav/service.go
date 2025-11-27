@@ -91,20 +91,7 @@ func Service(opts ...Option) (micro.Service, error) {
 	tp := sopts.TraceProvider
 
 	if tp == nil {
-		topts := []rtrace.Option{
-			rtrace.WithEndpoint(sopts.TracingEndpoint),
-			rtrace.WithServiceName(sopts.Name),
-		}
-		if sopts.TracingEnabled {
-			topts = append(topts, rtrace.WithEnabled())
-		}
-		if sopts.TracingInsecure {
-			topts = append(topts, rtrace.WithInsecure())
-		}
-		if sopts.TracingTransportCredentials != nil {
-			topts = append(topts, rtrace.WithTransportCredentials(sopts.TracingTransportCredentials))
-		}
-		tp = rtrace.NewTracerProvider(topts...)
+		tp = rtrace.NewTracerProvider(sopts.Name, sopts.TracesExporter)
 	}
 	if err := useMiddlewares(r, &sopts, revaService, tp); err != nil {
 		return nil, err
@@ -189,10 +176,7 @@ func useMiddlewares(r *chi.Mux, sopts *Options, svc global.Service, tp trace.Tra
 	}
 
 	// tracing
-	tm := func(h http.Handler) http.Handler { return h }
-	if sopts.TracingEnabled {
-		tm = traceHandler(tp, "ocdav")
-	}
+	tm := traceHandler(tp, "ocdav")
 
 	// metrics
 	pm := func(h http.Handler) http.Handler { return h }

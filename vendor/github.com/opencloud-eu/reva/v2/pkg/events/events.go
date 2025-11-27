@@ -85,7 +85,19 @@ type (
 // group defines the service type: One group will get exactly one copy of a event that is emitted
 // NOTE: uses reflect on initialization
 func Consume(s Consumer, group string, evs ...Unmarshaller) (<-chan Event, error) {
-	c, err := s.Consume(MainQueueName, events.WithGroup(group))
+	return ConsumeWithOptions(s, ConsumeOptions{Group: group}, evs...)
+}
+
+// ConsumeWithOptions returns a channel that will get all events that match the given evs
+// opts defines the options for the consumer
+func ConsumeWithOptions(s Consumer, opts ConsumeOptions, evs ...Unmarshaller) (<-chan Event, error) {
+	o := []events.ConsumeOption{
+		events.WithGroup(opts.Group),
+	}
+	if !opts.AutoAck {
+		o = append(o, events.WithAutoAck(false, opts.AckWait))
+	}
+	c, err := s.Consume(MainQueueName, o...)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +138,18 @@ func Consume(s Consumer, group string, evs ...Unmarshaller) (<-chan Event, error
 
 // ConsumeAll allows consuming all events. Note that unmarshalling must be done manually in this case, therefore Event.Event will always be of type []byte
 func ConsumeAll(s Consumer, group string) (<-chan Event, error) {
-	c, err := s.Consume(MainQueueName, events.WithGroup(group))
+	return ConsumeAllWithOptions(s, ConsumeOptions{Group: group})
+}
+
+// ConsumeAllWithOptions allows consuming all events. Note that unmarshalling must be done manually in this case, therefore Event.Event will always be of type []byte
+func ConsumeAllWithOptions(s Consumer, opts ConsumeOptions) (<-chan Event, error) {
+	o := []events.ConsumeOption{
+		events.WithGroup(opts.Group),
+	}
+	if !opts.AutoAck {
+		o = append(o, events.WithAutoAck(false, opts.AckWait))
+	}
+	c, err := s.Consume(MainQueueName, o...)
 	if err != nil {
 		return nil, err
 	}
