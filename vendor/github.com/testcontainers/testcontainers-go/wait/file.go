@@ -61,6 +61,14 @@ func (ws *FileStrategy) Timeout() *time.Duration {
 	return ws.timeout
 }
 
+// String returns a human-readable description of the wait strategy.
+func (ws *FileStrategy) String() string {
+	if ws.matcher != nil {
+		return fmt.Sprintf("file %q to exist and match condition", ws.file)
+	}
+	return fmt.Sprintf("file %q to exist", ws.file)
+}
+
 // WaitUntilReady waits until the file exists in the container and copies it to the target.
 func (ws *FileStrategy) WaitUntilReady(ctx context.Context, target StrategyTarget) error {
 	timeout := defaultStartupTimeout()

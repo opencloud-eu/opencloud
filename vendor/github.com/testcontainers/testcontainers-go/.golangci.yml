@@ -12,10 +12,12 @@ linters:
   enable:
     - errorlint
     - gocritic
+    - govet
     - misspell
     - nakedret
     - nolintlint
     - perfsprint
+    - prealloc
     - revive
     - testifylint
     - thelper
@@ -32,6 +34,11 @@ linters:
       comparison: true
       errorf: true
       errorf-multi: true
+    govet:
+      disable:
+        - fieldalignment
+        - shadow
+      enable-all: true
     revive:
       rules:
         - name: blank-imports
@@ -85,5 +92,6 @@ output:
   formats:
     text:
       path: stdout
-  path-prefix: .
+run:
+  relative-path-mode: gitroot
 version: "2"

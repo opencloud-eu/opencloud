@@ -61,6 +61,21 @@ func (w *waitForSQL) Timeout() *time.Duration {
 	return w.timeout
 }
 
+// String returns a human-readable description of the wait strategy.
+func (w *waitForSQL) String() string {
+	port := "default"
+	if w.Port != "" {
+		port = w.Port.Port()
+	}
+
+	query := ""
+	if w.query != defaultForSQLQuery {
+		query = fmt.Sprintf(" with query %q", w.query)
+	}
+
+	return fmt.Sprintf("SQL database on port %s using driver %q%s", port, w.Driver, query)
+}
+
 // WaitUntilReady repeatedly tries to run "SELECT 1" or user defined query on the given port using sql and driver.
 //
 // If it doesn't succeed until the timeout value which defaults to 60 seconds, it will return an error.

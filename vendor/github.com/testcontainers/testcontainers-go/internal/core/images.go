@@ -39,7 +39,6 @@ func ExtractImagesFromDockerfile(dockerfile string, buildArgs map[string]*string
 
 // ExtractImagesFromReader extracts images from the Dockerfile sourced from r.
 func ExtractImagesFromReader(r io.Reader, buildArgs map[string]*string) ([]string, error) {
-	var images []string
 	var lines []string
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
@@ -48,6 +47,8 @@ func ExtractImagesFromReader(r io.Reader, buildArgs map[string]*string) ([]strin
 	if scanner.Err() != nil {
 		return nil, scanner.Err()
 	}
+
+	images := make([]string, 0, len(lines))
 
 	// extract images from dockerfile
 	for _, line := range lines {

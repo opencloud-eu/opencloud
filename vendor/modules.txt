@@ -379,7 +379,7 @@ github.com/distribution/reference
 ## explicit
 github.com/dlclark/regexp2
 github.com/dlclark/regexp2/syntax
-# github.com/docker/docker v28.3.3+incompatible
+# github.com/docker/docker v28.5.1+incompatible
 ## explicit
 github.com/docker/docker/api
 github.com/docker/docker/api/types
@@ -403,8 +403,6 @@ github.com/docker/docker/api/types/time
 github.com/docker/docker/api/types/versions
 github.com/docker/docker/api/types/volume
 github.com/docker/docker/client
-github.com/docker/docker/internal/lazyregexp
-github.com/docker/docker/internal/multierror
 github.com/docker/docker/pkg/jsonmessage
 github.com/docker/docker/pkg/stdcopy
 # github.com/docker/go-connections v0.6.0
@@ -2059,7 +2057,7 @@ github.com/tchap/go-patricia/v2/patricia
 ## explicit
 github.com/test-go/testify/mock
 github.com/test-go/testify/require
-# github.com/testcontainers/testcontainers-go v0.39.0
+# github.com/testcontainers/testcontainers-go v0.40.0
 ## explicit; go 1.24.0
 github.com/testcontainers/testcontainers-go
 github.com/testcontainers/testcontainers-go/exec
