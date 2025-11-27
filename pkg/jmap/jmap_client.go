@@ -38,6 +38,10 @@ func NewClient(session SessionClient, api ApiClient, blob BlobClient, ws WsClien
 	}
 }
 
+func (j *Client) EnableNotifications(pushState string, sessionProvider func() (*Session, error)) (WsClient, error) {
+	return j.ws.EnableNotifications(pushState, sessionProvider, j)
+}
+
 func (j *Client) AddSessionEventListener(listener SessionEventListener) {
 	j.sessionEventListeners.add(listener)
 }

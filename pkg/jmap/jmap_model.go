@@ -3634,9 +3634,13 @@ type SearchSnippetGetResponse struct {
 	NotFound  []string        `json:"notFound,omitempty"`
 }
 
+type StateChangeType string
+
+const TypeOfStateChange = StateChangeType("StateChange")
+
 type StateChange struct {
 	// This MUST be the string "StateChange".
-	Type string `json:"@type"`
+	Type StateChangeType `json:"@type"`
 
 	// A map of an "account id" to an object encoding the state of data types that have
 	// changed for that account since the last StateChange object was pushed, for each

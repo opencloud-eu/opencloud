@@ -156,6 +156,12 @@ func (r groupwareHttpJmapApiClientMetricsRecorder) OnResponseBodyReadingError(en
 func (r groupwareHttpJmapApiClientMetricsRecorder) OnResponseBodyUnmarshallingError(endpoint string, err error) {
 	r.m.ResponseBodyUnmarshallingErrorPerEndpointCounter.With(metrics.Endpoint(endpoint)).Inc()
 }
+func (r groupwareHttpJmapApiClientMetricsRecorder) OnSuccessfulWsRequest(endpoint string, status int) {
+	// TODO metrics for WSS
+}
+func (r groupwareHttpJmapApiClientMetricsRecorder) OnFailedWsHandshakeRequestWithStatus(endpoint string, status int) {
+	// TODO metrics for WSS
+}
 
 func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prometheusRegistry prometheus.Registerer) (*Groupware, error) {
 	baseUrl, err := url.Parse(config.Mail.BaseUrl)
@@ -229,7 +235,7 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 		wsDialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
-	wsf, err := jmap.NewHttpWsClientFactory(wsDialer, masterUsername, masterPassword, logger)
+	wsf, err := jmap.NewHttpWsClientFactory(wsDialer, masterUsername, masterPassword, logger, jmapMetricsAdapter)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to create websocket client")
 		return nil, GroupwareInitializationError{Message: "failed to create websocket client", Err: err}

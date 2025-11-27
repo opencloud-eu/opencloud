@@ -45,6 +45,9 @@ import (
 
 const (
 	EnableTypes = false
+
+	// Wireshark = "/usr/bin/wireshark"
+	Wireshark = ""
 )
 
 var (
@@ -282,16 +285,34 @@ func newStalwartTest(t *testing.T) (*StalwartTest, error) {
 			Path:   "/",
 		}
 
+		if Wireshark != "" {
+			fmt.Printf("\x1b[45;37;1m Starting Wireshark on port %v \x1b[0m\n", jmapPort)
+			attr := os.ProcAttr{
+				Dir:   ".",
+				Env:   os.Environ(),
+				Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
+			}
+			cmd := []string{Wireshark, "-pkSl", "-i", "lo", "-f", fmt.Sprintf("port %d", jmapPort.Int()), "-Y", "http||websocket"}
+			process, err := os.StartProcess(Wireshark, cmd, &attr)
+			require.NoError(t, err)
+			err = process.Release()
+			require.NoError(t, err)
+
+			time.Sleep(10 * time.Second)
+		}
+
 		sessionUrl := jmapBaseUrl.JoinPath(".well-known", "jmap")
+
+		eventListener := nullHttpJmapApiClientEventListener{}
 
 		api := NewHttpJmapClient(
 			&jh,
 			masterUsername,
 			masterPassword,
-			nullHttpJmapApiClientEventListener{},
+			eventListener,
 		)
 
-		wscf, err := NewHttpWsClientFactory(wsd, masterUsername, masterPassword, logger)
+		wscf, err := NewHttpWsClientFactory(wsd, masterUsername, masterPassword, logger, eventListener)
 		if err != nil {
 			return nil, err
 		}

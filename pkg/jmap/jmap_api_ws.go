@@ -5,9 +5,9 @@ import (
 )
 
 func (j *Client) EnablePush(pushState string, session *Session, _ *log.Logger) Error {
-	return nil // TODO
+	panic("not implemented") // TODO implement push
 }
 
 func (j *Client) DisablePush(_ *Session, _ *log.Logger) Error {
-	return nil // TODO
+	panic("not implemented") // TODO implement push
 }
