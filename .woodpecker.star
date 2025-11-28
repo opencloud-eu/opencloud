@@ -27,6 +27,7 @@ OC_LITMUS = "owncloudci/litmus:latest"
 OC_UBUNTU = "owncloud/ubuntu:20.04"
 ONLYOFFICE_DOCUMENT_SERVER = "onlyoffice/documentserver:7.5.1"
 PLUGINS_DOCKER_BUILDX = "woodpeckerci/plugin-docker-buildx:latest"
+PLUGINS_NOTATION = "registry.heinlein.group/opencloud/notation-wp-plugin:latest"
 PLUGINS_GITHUB_RELEASE = "woodpeckerci/plugin-release"
 PLUGINS_GIT_ACTION = "quay.io/thegeeklab/wp-git-action"
 PLUGINS_S3 = "plugins/s3:1"
@@ -1661,8 +1662,8 @@ def dockerRelease(ctx, repo, build_type):
         tag_parts = tag_version.split("-")
 
         # if a tag has something appended with "-" i.e. alpha, beta, rc1...
-        # set the entire string as tag, else leave empty to autotag with latest
-        hard_tag = tag_version if len(tag_parts) > 1 else ""
+        # set the entire string as tag, else tag with latest (same as empty with current plugin)
+        hard_tag = tag_version if len(tag_parts) > 1 else "latest"
 
     depends_on = getPipelineNames(getGoBinForTesting(ctx))
 
@@ -1734,6 +1735,36 @@ def dockerRelease(ctx, repo, build_type):
                                 "from_secret": "quay_password",
                             },
                         },
+                        {
+                            "registry": "https://registry.heinlein.group",
+                            "username": {
+                                "from_secret": "harbor_opencloudeu_user",
+                            },
+                            "password": {
+                                "from_secret": "harbor_opencloudeu_password",
+                            },
+                        },
+                    ],
+                },
+                "when": [
+                    event["cron"],
+                    event["base"],
+                    event["tag"],
+                ],
+            },
+            {
+                "name": "notation-signing",
+                "image": PLUGINS_NOTATION,
+                "settings": {
+                    "key": {
+                        "from_secret": "notation_key",
+                    },
+                    "crt": {
+                        "from_secret": "notation_cert",
+                    },
+                    "target": "registry.heinlein.group/%s:%s" % (repo, hard_tag),
+                    "pull_image": True,
+                    "logins": [
                         {
                             "registry": "https://registry.heinlein.group",
                             "username": {

@@ -36,13 +36,13 @@ Several factors can make it necessary to limit the maximum filesize the antiviru
 Use the `ANTIVIRUS_MAX_SCAN_SIZE` environment variable to scan only a given number of bytes,
 or to skip the whole resource.
 
-Even if it's recommended to scan the whole file, several factors like scanner type and version,
+Even if it is recommended to scan the whole file, several factors like scanner type and version,
 bandwidth, performance issues, etc. might make a limit necessary.
 
-In such cases, the antivirus the max scan size mode can be handy, the following modes are available:
+In such cases, the antivirus max scan size mode can be handy, the following modes are available:
 
-  -   `partial`: The file is scanned up to the given size. The rest of the file is not scanned. This is the default mode `ANTIVIRUS_MAX_SCAN_SIZE=partial`
-  -   `skip`: The file is skipped and not scanned. `ANTIVIRUS_MAX_SCAN_SIZE=skip`
+  -   `partial`: The file is scanned up to the given size. The rest of the file is not scanned. This is the default mode `ANTIVIRUS_MAX_SCAN_SIZE_MODE=partial`
+  -   `skip`: The file is skipped and not scanned. `ANTIVIRUS_MAX_SCAN_SIZE_MODE=skip`
 
 **IMPORTANT**
 > Streaming of files to the virus scan service still [needs to be implemented](https://github.com/owncloud/ocis/issues/6803).
