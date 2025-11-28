@@ -130,7 +130,7 @@ Feature: search federation users
                       },
                       "issuerAssignedId": {
                         "type": "string",
-                        "pattern": "^%uuidv4_pattern%$"
+                        "pattern": "^%federated_user_id_pattern%$"
                       }
                     }
                   }
