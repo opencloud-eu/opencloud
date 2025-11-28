@@ -46,7 +46,7 @@ Feature: search federation users
                 },
                 "id": {
                   "type": "string",
-                  "pattern": "^%user_id_pattern%$"
+                  "pattern": "^%federated_user_id_pattern%$"
                 },
                 "userType": {
                   "type": "string",
@@ -68,7 +68,7 @@ Feature: search federation users
                       },
                       "issuerAssignedId": {
                         "type": "string",
-                        "pattern": "^%uuidv4_pattern%$"
+                        "pattern": "^%federated_user_id_pattern%$"
                       }
                     }
                   }
@@ -108,7 +108,7 @@ Feature: search federation users
                 },
                 "id": {
                   "type": "string",
-                  "pattern": "^%user_id_pattern%$"
+                  "pattern": "^%federated_user_id_pattern%$"
                 },
                 "userType": {
                   "type": "string",
@@ -176,7 +176,7 @@ Feature: search federation users
                 },
                 "id": {
                   "type": "string",
-                  "pattern": "^%user_id_pattern%$"
+                  "pattern": "^%federated_user_id_pattern%$"
                 },
                 "userType": {
                   "type": "string",
@@ -198,7 +198,7 @@ Feature: search federation users
                       },
                       "issuerAssignedId": {
                         "type": "string",
-                        "pattern": "^%uuidv4_pattern%$"
+                        "pattern": "^%federated_user_id_pattern%$"
                       }
                     }
                   }
@@ -238,7 +238,7 @@ Feature: search federation users
                 },
                 "id": {
                   "type": "string",
-                  "pattern": "^%user_id_pattern%$"
+                  "pattern": "^%federated_user_id_pattern%$"
                 },
                 "userType": {
                   "type": "string",
@@ -260,7 +260,7 @@ Feature: search federation users
                       },
                       "issuerAssignedId": {
                         "type": "string",
-                        "pattern": "^%uuidv4_pattern%$"
+                        "pattern": "^%federated_user_id_pattern%$"
                       }
                     }
                   }
@@ -354,7 +354,7 @@ Feature: search federation users
             },
             "user_id": {
               "type": "string",
-              "pattern": "^%user_id_pattern%$"
+              "pattern": "^%federated_user_id_pattern%$"
             }
           }
         }
@@ -392,7 +392,7 @@ Feature: search federation users
                 },
                 "user_id": {
                   "type": "string",
-                  "pattern": "^%user_id_pattern%$"
+                  "pattern": "^%federated_user_id_pattern%$"
                 }
               }
             },
@@ -416,7 +416,7 @@ Feature: search federation users
                 },
                 "user_id": {
                   "type": "string",
-                  "pattern": "^%user_id_pattern%$"
+                  "pattern": "^%federated_user_id_pattern%$"
                 }
               }
             }
