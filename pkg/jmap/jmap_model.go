@@ -1884,7 +1884,7 @@ type EmailChangesCommand struct {
 	//
 	// This is the string that was returned as the state argument in the Email/get response.
 	// The server will return the changes that have occurred since this state.
-	SinceState string `json:"sinceState,omitzero,omitempty"`
+	SinceState State `json:"sinceState,omitzero,omitempty"`
 
 	// The maximum number of ids to return in the response.
 	//
@@ -2705,6 +2705,10 @@ func invocation(command Command, parameters any, tag string) Invocation {
 	}
 }
 
+type TypeOfRequest string
+
+const RequestType = TypeOfRequest("Request")
+
 type Request struct {
 	// The set of capabilities the client wishes to use.
 	//
@@ -2722,7 +2726,18 @@ type Request struct {
 
 	// A map of a (client-specified) creation id to the id the server assigned when a record was successfully created (optional).
 	CreatedIds map[string]string `json:"createdIds,omitempty"`
+
+	// This MUST be the string "Request".
+	// The specification extends the Response object with two additional arguments when used over a WebSocket.
+	Type TypeOfRequest `json:"@type,omitempty"`
+
+	// A client-specified identifier for the request to be echoed back in the response to this request (optional).
+	Id string `json:"id,omitempty"`
 }
+
+type TypeOfResponse string
+
+const ResponseType = TypeOfResponse("Response")
 
 type Response struct {
 	// An array of responses, in the same format as the methodCalls on the Request object.
@@ -2742,6 +2757,13 @@ type Response struct {
 	//
 	// [Section 2]: https://jmap.io/spec-core.html#the-jmap-session-resource
 	SessionState SessionState `json:"sessionState"`
+
+	// This MUST be the string "Response".
+	// The specification extends the Response object with two additional arguments when used over a WebSocket.
+	Type TypeOfResponse `json:"@type,omitempty"`
+
+	// MUST be returned if an identifier is included in the request (optional).
+	RequestId string `json:"requestId,omitempty"`
 }
 
 type EmailQueryResponse struct {
@@ -3662,7 +3684,7 @@ type StateChange struct {
 	// that occurred while it was disconnected. If the server does not support "pushState" tokens,
 	// the client will have to issue a series of "/changes" requests upon reconnection to update
 	// its state to match that of the server.
-	PushState string `json:"pushState"`
+	PushState State `json:"pushState"`
 }
 
 type AddressBookRights struct {

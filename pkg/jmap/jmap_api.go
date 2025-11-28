@@ -14,7 +14,7 @@ type ApiClient interface {
 }
 
 type WsPushListener interface {
-	OnNotification(stateChange StateChange)
+	OnNotification(username string, stateChange StateChange)
 }
 
 type WsClient interface {
@@ -23,7 +23,7 @@ type WsClient interface {
 }
 
 type WsClientFactory interface {
-	EnableNotifications(pushState string, sessionProvider func() (*Session, error), listener WsPushListener) (WsClient, Error)
+	EnableNotifications(pushState State, sessionProvider func() (*Session, error), listener WsPushListener) (WsClient, Error)
 	io.Closer
 }
 

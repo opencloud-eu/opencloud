@@ -1,13 +1,9 @@
 package jmap
 
-import (
-	"github.com/opencloud-eu/opencloud/pkg/log"
-)
-
-func (j *Client) EnablePush(pushState string, session *Session, _ *log.Logger) Error {
-	panic("not implemented") // TODO implement push
+func (j *Client) EnablePushNotifications(pushState State, sessionProvider func() (*Session, error)) (WsClient, error) {
+	return j.ws.EnableNotifications(pushState, sessionProvider, j)
 }
 
-func (j *Client) DisablePush(_ *Session, _ *log.Logger) Error {
-	panic("not implemented") // TODO implement push
+func (j *Client) AddWsPushListener(listener WsPushListener) {
+	j.wsPushListeners.add(listener)
 }

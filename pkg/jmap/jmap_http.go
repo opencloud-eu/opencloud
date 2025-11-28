@@ -426,7 +426,7 @@ type WebSocketPushEnable struct {
 	// The last "pushState" token that the client received from the server.
 
 	// Upon receipt of a "pushState" token, the server SHOULD immediately send all changes since that state token.
-	PushState string `json:"pushState,omitempty"`
+	PushState State `json:"pushState,omitempty"`
 }
 
 type WebSocketPushDisable struct {
@@ -541,46 +541,48 @@ func (w *HttpWsClient) readPump() {
 	//c.conn.SetReadDeadline(time.Now().Add(pongWait))
 	//c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 
+	logger := log.From(w.logger.With().Str("username", w.username))
+
 	for {
 		if _, message, err := w.c.ReadMessage(); err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				w.logger.Error().Err(err).Msg("unexpected close")
+				logger.Error().Err(err).Msg("unexpected close")
 			}
 			break
 		} else {
-			if w.logger.Trace().Enabled() {
-				w.logger.Trace().Str(logEndpoint, w.endpoint).Str(logProto, logProtoJmapWs).Str(logType, logTypePush).Msg(string(message))
+			if logger.Trace().Enabled() {
+				logger.Trace().Str(logEndpoint, w.endpoint).Str(logProto, logProtoJmapWs).Str(logType, logTypePush).Msg(string(message))
 			}
 
 			var peek struct {
 				Type string `json:"@type"`
 			}
 			if err := json.Unmarshal(message, &peek); err != nil {
-				w.logger.Error().Err(err).Msg("failed to deserialized pushed WS message")
+				logger.Error().Err(err).Msg("failed to deserialized pushed WS message")
 				continue
 			}
 			switch peek.Type {
 			case string(TypeOfStateChange):
 				var stateChange StateChange
 				if err := json.Unmarshal(message, &stateChange); err != nil {
-					w.logger.Error().Err(err).Msgf("failed to deserialized pushed WS message into a %T", stateChange)
+					logger.Error().Err(err).Msgf("failed to deserialized pushed WS message into a %T", stateChange)
 					continue
 				} else {
 					if w.listener != nil {
-						w.listener.OnNotification(stateChange)
+						w.listener.OnNotification(w.username, stateChange)
 					} else {
-						w.logger.Warn().Msgf("no listener to be notified of %v", stateChange)
+						logger.Warn().Msgf("no listener to be notified of %v", stateChange)
 					}
 				}
 			default:
-				w.logger.Warn().Msgf("unsupported pushed WS message JMAP @type: '%s'", peek.Type)
+				logger.Warn().Msgf("unsupported pushed WS message JMAP @type: '%s'", peek.Type)
 				continue
 			}
 		}
 	}
 }
 
-func (w *HttpWsClientFactory) EnableNotifications(pushState string, sessionProvider func() (*Session, error), listener WsPushListener) (WsClient, Error) {
+func (w *HttpWsClientFactory) EnableNotifications(pushState State, sessionProvider func() (*Session, error), listener WsPushListener) (WsClient, Error) {
 	c, username, endpoint, jerr := w.connect(sessionProvider)
 	if jerr != nil {
 		return nil, jerr
@@ -628,18 +630,19 @@ func (c *HttpWsClient) DisableNotifications() Error {
 		return nil
 	}
 
-	err := c.c.WriteJSON(WebSocketPushDisable{
-		Type: WebSocketPushTypeDisable,
-	})
-	if err != nil {
-		return SimpleError{code: JmapErrorWssFailedToSendWebSocketPushDisable, err: err}
-	}
+	werr := c.c.WriteJSON(WebSocketPushDisable{Type: WebSocketPushTypeDisable})
+	merr := c.c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+	cerr := c.c.Close()
 
-	err = c.c.Close()
-	if err != nil {
-		return SimpleError{code: JmapErrorWssFailedToClose, err: err}
+	if werr != nil {
+		return SimpleError{code: JmapErrorWssFailedToClose, err: werr}
 	}
-
+	if merr != nil {
+		return SimpleError{code: JmapErrorWssFailedToClose, err: merr}
+	}
+	if cerr != nil {
+		return SimpleError{code: JmapErrorWssFailedToClose, err: cerr}
+	}
 	return nil
 }
 

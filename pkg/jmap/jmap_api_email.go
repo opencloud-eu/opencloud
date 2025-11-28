@@ -188,10 +188,39 @@ func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx c
 	})
 }
 
+func (j *Client) GetEmailChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceState State, maxChanges uint) (EmailChangesResponse, SessionState, State, Language, Error) {
+	logger = j.loggerParams("GetEmailChanges", session, logger, func(z zerolog.Context) zerolog.Context {
+		return z.Str(logSinceState, string(sinceState))
+	})
+
+	changes := EmailChangesCommand{
+		AccountId:  accountId,
+		SinceState: sinceState,
+	}
+	if maxChanges > 0 {
+		changes.MaxChanges = maxChanges
+	}
+
+	cmd, err := j.request(session, logger, invocation(CommandEmailChanges, changes, "0"))
+	if err != nil {
+		return EmailChangesResponse{}, "", "", "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+	}
+
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (EmailChangesResponse, State, Error) {
+		var changesResponse EmailChangesResponse
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailChanges, "0", &changesResponse)
+		if err != nil {
+			return EmailChangesResponse{}, "", err
+		}
+
+		return changesResponse, changesResponse.NewState, nil
+	})
+}
+
 // Get all the Emails that have been created, updated or deleted since a given state.
-func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceState string, fetchBodies bool, maxBodyValueBytes uint, maxChanges uint) (MailboxChanges, SessionState, State, Language, Error) {
+func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceState State, fetchBodies bool, maxBodyValueBytes uint, maxChanges uint) (MailboxChanges, SessionState, State, Language, Error) {
 	logger = j.loggerParams("GetEmailsSince", session, logger, func(z zerolog.Context) zerolog.Context {
-		return z.Bool(logFetchBodies, fetchBodies).Str(logSinceState, sinceState)
+		return z.Bool(logFetchBodies, fetchBodies).Str(logSinceState, string(sinceState))
 	})
 
 	changes := EmailChangesCommand{
@@ -254,7 +283,7 @@ func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.
 			HasMoreChanges: changesResponse.HasMoreChanges,
 			NewState:       changesResponse.NewState,
 			Created:        createdResponse.List,
-			Updated:        createdResponse.List,
+			Updated:        updatedResponse.List,
 		}, updatedResponse.State, nil
 	})
 }
