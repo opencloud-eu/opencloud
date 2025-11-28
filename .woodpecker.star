@@ -388,7 +388,7 @@ config = {
         "architectures": ["arm64", "amd64"],
         "production": {
             # NOTE: need to be updated if new production releases are determined
-            "tags": ["2.0"],
+            "tags": ["2.0", "4.0"],
             "repo": docker_repo_slug,
             "build_type": "production",
         },
