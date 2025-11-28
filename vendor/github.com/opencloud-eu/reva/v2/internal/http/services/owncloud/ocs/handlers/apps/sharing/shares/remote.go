@@ -244,13 +244,30 @@ func (h *Handler) mapUserIdsFederatedShare(ctx context.Context, gw gatewayv1beta
 	}
 }
 
+func getIDAndMeshProvider(user string) (id, provider string, err error) {
+	last := strings.LastIndex(user, "@")
+	if last == -1 {
+		return "", "", errors.New("not in the form <id>@<provider>")
+	}
+	if len(user[:last]) == 0 {
+		return "", "", errors.New("empty id")
+	}
+	if len(user[last+1:]) == 0 {
+		return "", "", errors.New("empty provider")
+	}
+	return user[:last], user[last+1:], nil
+}
+
 func (h *Handler) mustGetRemoteUser(ctx context.Context, gw gatewayv1beta1.GatewayAPIClient, id string) *userIdentifiers {
-	s := strings.SplitN(id, "@", 2)
-	opaqueID, idp := s[0], s[1]
+	id, provider, err := getIDAndMeshProvider(id)
+	if err != nil {
+		return &userIdentifiers{}
+	}
 	userRes, err := gw.GetAcceptedUser(ctx, &invitepb.GetAcceptedUserRequest{
 		RemoteUserId: &userpb.UserId{
-			Idp:      idp,
-			OpaqueId: opaqueID,
+			Type:     userpb.UserType_USER_TYPE_FEDERATED,
+			Idp:      provider,
+			OpaqueId: id,
 		},
 	})
 	if err != nil {
