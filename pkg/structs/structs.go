@@ -240,3 +240,13 @@ func Concat[E any](arys ...[]E) []E {
 	}
 	return r
 }
+
+func Filter[E any](s []E, predicate func(E) bool) []E {
+	r := []E{}
+	for _, e := range s {
+		if predicate(e) {
+			r = append(r, e)
+		}
+	}
+	return r
+}

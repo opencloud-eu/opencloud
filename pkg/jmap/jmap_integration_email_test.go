@@ -73,7 +73,7 @@ func TestEmails(t *testing.T) {
 	var threads int = 0
 	var mails []filledMail = nil
 	{
-		mails, threads, err = s.fillEmailsWithImap(inboxFolder, count)
+		mails, threads, err = s.fillEmailsWithImap(inboxFolder, count, false)
 		require.NoError(err)
 	}
 	mailsByMessageId := structs.Index(mails, func(mail filledMail) string { return mail.messageId })
@@ -271,7 +271,7 @@ var allKeywords = map[string]imap.Flag{
 	JmapKeywordSeen:      imap.FlagSeen,
 }
 
-func (s *StalwartTest) fillEmailsWithImap(folder string, count int) ([]filledMail, int, error) {
+func (s *StalwartTest) fillEmailsWithImap(folder string, count int, empty bool) ([]filledMail, int, error) {
 	to := fmt.Sprintf("%s <%s>", s.userPersonName, s.userEmail)
 	ccEvery := 2
 	bccEvery := 3
@@ -302,24 +302,26 @@ func (s *StalwartTest) fillEmailsWithImap(folder string, count int) ([]filledMai
 		return nil, 0, err
 	}
 
-	if ids, err := c.Search(&imap.SearchCriteria{}, nil).Wait(); err != nil {
-		return nil, 0, err
-	} else {
-		if len(ids.AllSeqNums()) > 0 {
-			storeFlags := imap.StoreFlags{
-				Op:     imap.StoreFlagsAdd,
-				Flags:  []imap.Flag{imap.FlagDeleted},
-				Silent: true,
-			}
-			if err = c.Store(ids.All, &storeFlags, nil).Close(); err != nil {
-				return nil, 0, err
-			}
-			if err = c.Expunge().Close(); err != nil {
-				return nil, 0, err
-			}
-			log.Printf("🗑️ deleted %d messages in %s", len(ids.AllSeqNums()), folder)
+	if empty {
+		if ids, err := c.Search(&imap.SearchCriteria{}, nil).Wait(); err != nil {
+			return nil, 0, err
 		} else {
-			log.Printf("ℹ️ did not delete any messages, %s is empty", folder)
+			if len(ids.AllSeqNums()) > 0 {
+				storeFlags := imap.StoreFlags{
+					Op:     imap.StoreFlagsAdd,
+					Flags:  []imap.Flag{imap.FlagDeleted},
+					Silent: true,
+				}
+				if err = c.Store(ids.All, &storeFlags, nil).Close(); err != nil {
+					return nil, 0, err
+				}
+				if err = c.Expunge().Close(); err != nil {
+					return nil, 0, err
+				}
+				log.Printf("🗑️ deleted %d messages in %s", len(ids.AllSeqNums()), folder)
+			} else {
+				log.Printf("ℹ️ did not delete any messages, %s is empty", folder)
+			}
 		}
 	}
 
@@ -525,7 +527,7 @@ func (s *StalwartTest) fillEmailsWithImap(folder string, count int) ([]filledMai
 	if inboxCount == -1 {
 		return nil, 0, fmt.Errorf("failed to find folder '%v' via IMAP", folder)
 	}
-	if count != inboxCount {
+	if empty && count != inboxCount {
 		return nil, 0, fmt.Errorf("wrong number of emails in the inbox after filling, expecting %v, has %v", count, inboxCount)
 	}
 

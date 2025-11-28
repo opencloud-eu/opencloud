@@ -38,10 +38,6 @@ func NewClient(session SessionClient, api ApiClient, blob BlobClient, ws WsClien
 	}
 }
 
-func (j *Client) EnableNotifications(pushState string, sessionProvider func() (*Session, error)) (WsClient, error) {
-	return j.ws.EnableNotifications(pushState, sessionProvider, j)
-}
-
 func (j *Client) AddSessionEventListener(listener SessionEventListener) {
 	j.sessionEventListeners.add(listener)
 }
@@ -52,13 +48,9 @@ func (j *Client) onSessionOutdated(session *Session, newSessionState SessionStat
 	})
 }
 
-func (j *Client) AddWsPushListener(listener WsPushListener) {
-	j.wsPushListeners.add(listener)
-}
-
-func (j *Client) OnNotification(stateChange StateChange) {
+func (j *Client) OnNotification(username string, stateChange StateChange) {
 	j.wsPushListeners.signal(func(listener WsPushListener) {
-		listener.OnNotification(stateChange)
+		listener.OnNotification(username, stateChange)
 	})
 }
 
