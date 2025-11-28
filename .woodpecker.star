@@ -1680,7 +1680,7 @@ def dockerRelease(ctx, repo, build_type):
                     "context": "..",
                     "dry_run": True,
                     "platforms": "linux/amd64",  # do dry run only on the native platform
-                    "repo": "%s,quay.io/%s" % (repo, repo),
+                    "repo": "%s,quay.io/%s,registry.heinlein.group/%s" % (repo, repo, repo),
                     "auto_tag": False if build_type == "daily" else True,
                     "tag": hard_tag,
                     "default_tag": "daily",
@@ -1701,7 +1701,7 @@ def dockerRelease(ctx, repo, build_type):
                 "image": PLUGINS_DOCKER_BUILDX,
                 "settings": {
                     "context": "..",
-                    "repo": "%s,quay.io/%s" % (repo, repo),
+                    "repo": "%s,quay.io/%s,registry.heinlein.group/%s" % (repo, repo, repo),
                     "platforms": "linux/amd64,linux/arm64",  # we can add remote builders
                     "auto_tag": False if build_type == "daily" else True,
                     "tag": hard_tag,
@@ -1732,6 +1732,15 @@ def dockerRelease(ctx, repo, build_type):
                             },
                             "password": {
                                 "from_secret": "quay_password",
+                            },
+                        },
+                        {
+                            "registry": "https://registry.heinlein.group",
+                            "username": {
+                                "from_secret": "harbor_opencloudeu_user",
+                            },
+                            "password": {
+                                "from_secret": "harbor_opencloudeu_password",
                             },
                         },
                     ],
