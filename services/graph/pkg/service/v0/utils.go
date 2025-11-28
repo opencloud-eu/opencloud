@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"reflect"
@@ -106,7 +107,8 @@ func userIdToIdentity(ctx context.Context, cache cache.IdentityCache, tennantId,
 
 // federatedIdToIdentity looks the user for the supplied id using the cache and returns it
 // as a libregraph.Identity
-func federatedIdToIdentity(ctx context.Context, cache cache.IdentityCache, userID string) (libregraph.Identity, error) {
+func federatedIdToIdentity(ctx context.Context, cache cache.IdentityCache, cs3UserID *cs3User.UserId) (libregraph.Identity, error) {
+	userID := fmt.Sprintf("%s@%s", cs3UserID.GetOpaqueId(), cs3UserID.GetIdp())
 	identity := libregraph.Identity{
 		Id:                 libregraph.PtrString(userID),
 		LibreGraphUserType: libregraph.PtrString("Federated"),
@@ -123,7 +125,7 @@ func federatedIdToIdentity(ctx context.Context, cache cache.IdentityCache, userI
 // as a libregraph.Identity. Skips the user lookup if the id type is USER_TYPE_SPACE_OWNER
 func cs3UserIdToIdentity(ctx context.Context, cache cache.IdentityCache, cs3UserID *cs3User.UserId) (libregraph.Identity, error) {
 	if cs3UserID.GetType() == cs3User.UserType_USER_TYPE_FEDERATED {
-		return federatedIdToIdentity(ctx, cache, cs3UserID.GetOpaqueId())
+		return federatedIdToIdentity(ctx, cache, cs3UserID)
 	}
 	if cs3UserID.GetType() != cs3User.UserType_USER_TYPE_SPACE_OWNER {
 		return userIdToIdentity(ctx, cache, cs3UserID.GetTenantId(), cs3UserID.GetOpaqueId())

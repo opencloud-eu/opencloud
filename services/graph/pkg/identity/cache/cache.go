@@ -2,6 +2,8 @@ package cache
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -133,6 +135,20 @@ func (cache IdentityCache) GetAcceptedUser(ctx context.Context, userid string) (
 	return *identity.CreateUserModelFromCS3(u), nil
 }
 
+func getIDAndMeshProvider(user string) (id, provider string, err error) {
+	last := strings.LastIndex(user, "@")
+	if last == -1 {
+		return "", "", errors.New("not in the form <id>@<provider>")
+	}
+	if len(user[:last]) == 0 {
+		return "", "", errors.New("empty id")
+	}
+	if len(user[last+1:]) == 0 {
+		return "", "", errors.New("empty provider")
+	}
+	return user[:last], user[last+1:], nil
+}
+
 func (cache IdentityCache) GetAcceptedCS3User(ctx context.Context, userid string) (*cs3User.User, error) {
 	var user *cs3user.User
 	if item := cache.users.Get(userid); item == nil {
@@ -140,8 +156,14 @@ func (cache IdentityCache) GetAcceptedCS3User(ctx context.Context, userid string
 		if err != nil {
 			return nil, errorcode.New(errorcode.GeneralException, err.Error())
 		}
+		id, provider, err := getIDAndMeshProvider(userid)
+		if err != nil {
+			return nil, errorcode.New(errorcode.InvalidRequest, err.Error())
+		}
 		cs3UserID := &cs3User.UserId{
-			OpaqueId: userid,
+			Idp:      provider,
+			OpaqueId: id,
+			Type:     cs3User.UserType_USER_TYPE_FEDERATED,
 		}
 		user, err = revautils.GetAcceptedUserWithContext(ctx, cs3UserID, gatewayClient)
 		if err != nil {
