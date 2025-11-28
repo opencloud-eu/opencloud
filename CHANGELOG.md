@@ -10,14 +10,9 @@
 
 - collaboration: Enable `InsertRemoteImage` option [[#1692](https://github.com/opencloud-eu/opencloud/pull/1692)]
 
-### 📈 Enhancement
-
-- feat(ocm): add WAYF configuration for reva OCM service [[#1714](https://github.com/opencloud-eu/opencloud/pull/1714)]
-- log missing name or id attributes [[#1914](https://github.com/opencloud-eu/opencloud/pull/1914)]
-- collabora: Set IsAdminUser and IsAnonymousUser in CheckFileInfo [[#1745](https://github.com/opencloud-eu/opencloud/pull/1745)]
-
 ### 🐛 Bug Fixes
 
+- introduce OC_EVENTS_TLS_INSECURE [[#1936](https://github.com/opencloud-eu/opencloud/pull/1936)]
 - kill unused env vars [[#1888](https://github.com/opencloud-eu/opencloud/pull/1888)]
 - rc-handling was only active for the dryrun, not the real build-and-push [[#1919](https://github.com/opencloud-eu/opencloud/pull/1919)]
 - handle objectguid endianess [[#1901](https://github.com/opencloud-eu/opencloud/pull/1901)]
@@ -32,6 +27,12 @@
 - docs: Fix auth-app examples in README [[#1844](https://github.com/opencloud-eu/opencloud/pull/1844)]
 - fix: fix typo in treesize logging [[#1826](https://github.com/opencloud-eu/opencloud/pull/1826)]
 - fix: set global signing secret fallback correctly [[#1781](https://github.com/opencloud-eu/opencloud/pull/1781)]
+
+### 📈 Enhancement
+
+- feat(ocm): add WAYF configuration for reva OCM service [[#1714](https://github.com/opencloud-eu/opencloud/pull/1714)]
+- log missing name or id attributes [[#1914](https://github.com/opencloud-eu/opencloud/pull/1914)]
+- collabora: Set IsAdminUser and IsAnonymousUser in CheckFileInfo [[#1745](https://github.com/opencloud-eu/opencloud/pull/1745)]
 
 ### ✅ Tests
 
