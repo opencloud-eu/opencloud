@@ -1354,6 +1354,7 @@ var _ = Describe("Users", func() {
 							Username: "federated",
 							Id: &userv1beta1.UserId{
 								OpaqueId: "federated",
+								Idp:      "provider",
 								Type:     userv1beta1.UserType_USER_TYPE_FEDERATED,
 							},
 						},
@@ -1377,7 +1378,7 @@ var _ = Describe("Users", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(res.Value)).To(Equal(1))
-				Expect(res.Value[0].GetId()).To(Equal("federated"))
+				Expect(res.Value[0].GetId()).To(Equal("federated@provider"))
 				Expect(res.Value[0].GetUserType()).To(Equal("Federated"))
 			})
 			It("does not list federated users when filtering for 'Member' users", func() {
