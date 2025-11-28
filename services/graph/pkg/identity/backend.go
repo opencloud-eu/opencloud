@@ -133,6 +133,10 @@ func CreateUserModelFromCS3(u *cs3user.User) *libregraph.User {
 		OnPremisesSamAccountName: u.GetUsername(),
 		Id:                       &u.GetId().OpaqueId,
 	}
+	if u.GetId().GetType() == cs3user.UserType_USER_TYPE_FEDERATED {
+		ocmUserId := u.GetId().GetOpaqueId() + "@" + u.GetId().GetIdp()
+		user.Id = &ocmUserId
+	}
 	return user
 }
 

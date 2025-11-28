@@ -328,6 +328,10 @@ func (t *Tree) HandleFileDelete(path string, sendSSE bool) error {
 		t.log.Error().Err(err).Str("path", path).Msg("could not purge metadata")
 	}
 
+	if err = t.setDirty(filepath.Dir(path), true); err != nil {
+		t.log.Error().Err(err).Str("path", path).Msg("could not set dirty flag")
+	}
+
 	if !sendSSE {
 		return nil
 	}
@@ -705,6 +709,16 @@ assimilate:
 		attributes.SetInt64(prefixes.BlobsizeAttr, fi.Size())
 		attributes.SetInt64(prefixes.TypeAttr, int64(provider.ResourceType_RESOURCE_TYPE_FILE))
 		n = node.New(spaceID, id, parentID, filepath.Base(path), fi.Size(), blobID, provider.ResourceType_RESOURCE_TYPE_FILE, nil, t.lookup)
+		n.SpaceRoot = &node.Node{BaseNode: node.BaseNode{SpaceID: spaceID, ID: spaceID}}
+
+		prevBlobSize, err := previousAttribs.Int64(prefixes.BlobsizeAttr)
+		if err == nil && prevBlobSize != fi.Size() {
+			// file size changed, trigger propagation of tree size changes
+			err = t.Propagate(context.Background(), n, fi.Size()-prevBlobSize)
+			if err != nil {
+				t.log.Error().Err(err).Str("path", path).Msg("could not propagate tree size changes")
+			}
+		}
 	}
 	attributes.SetTime(prefixes.MTimeAttr, fi.ModTime())
 
@@ -772,6 +786,15 @@ assimilate:
 		return nil, nil, errors.Wrap(err, "failed to set attributes")
 	}
 
+	// clear the status attribute if it was set before, if there was any upload to this file in progress
+	// it needs notice that this file was changes meanwhile.
+	if _, ok := previousAttribs[prefixes.StatusPrefix]; ok {
+		err = t.lookup.MetadataBackend().Remove(context.Background(), bn, prefixes.StatusPrefix, false)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "failed to clear status attribute")
+		}
+
+	}
 	if err := t.lookup.CacheID(context.Background(), spaceID, id, path); err != nil {
 		t.log.Error().Err(err).Str("spaceID", spaceID).Str("id", id).Str("path", path).Msg("could not cache id")
 	}

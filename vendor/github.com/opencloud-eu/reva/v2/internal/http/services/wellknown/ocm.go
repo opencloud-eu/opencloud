@@ -27,25 +27,27 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 )
 
-const OCMAPIVersion = "1.1.0"
+const OCMAPIVersion = "1.2.0"
 
 type OcmProviderConfig struct {
-	OCMPrefix    string `docs:"ocm;The prefix URL where the OCM API is served."                                   mapstructure:"ocm_prefix"`
-	Endpoint     string `docs:"This host's full URL. If it's not configured, it is assumed OCM is not available." mapstructure:"endpoint"`
-	Provider     string `docs:"reva;A friendly name that defines this service."                                   mapstructure:"provider"`
-	WebdavRoot   string `docs:"/remote.php/dav/ocm;The root URL of the WebDAV endpoint to serve OCM shares."      mapstructure:"webdav_root"`
-	WebappRoot   string `docs:"/external/sciencemesh;The root URL to serve Web apps via OCM."                     mapstructure:"webapp_root"`
-	EnableWebapp bool   `docs:"false;Whether web apps are enabled in OCM shares."                                 mapstructure:"enable_webapp"`
-	EnableDatatx bool   `docs:"false;Whether data transfers are enabled in OCM shares."                           mapstructure:"enable_datatx"`
+	OCMPrefix          string `docs:"ocm;The prefix URL where the OCM API is served."                                            mapstructure:"ocm_prefix"`
+	Endpoint           string `docs:"This host's full URL. If it's not configured, it is assumed OCM is not available."          mapstructure:"endpoint"`
+	Provider           string `docs:"reva;A friendly name that defines this service."                                            mapstructure:"provider"`
+	WebdavRoot         string `docs:"/remote.php/dav/ocm;The root URL of the WebDAV endpoint to serve OCM shares."               mapstructure:"webdav_root"`
+	WebappRoot         string `docs:"/external/sciencemesh;The root URL to serve Web apps via OCM."                              mapstructure:"webapp_root"`
+	InviteAcceptDialog string `docs:"/open-cloud-mesh/accept-invite;The frontend URL where to land when receiving an invitation" mapstructure:"invite_accept_dialog"`
+	EnableWebapp       bool   `docs:"false;Whether web apps are enabled in OCM shares."                                          mapstructure:"enable_webapp"`
+	EnableDatatx       bool   `docs:"false;Whether data transfers are enabled in OCM shares."                                    mapstructure:"enable_datatx"`
 }
 
 type OcmDiscoveryData struct {
-	Enabled       bool            `json:"enabled"       xml:"enabled"`
-	APIVersion    string          `json:"apiVersion"    xml:"apiVersion"`
-	Endpoint      string          `json:"endPoint"      xml:"endPoint"`
-	Provider      string          `json:"provider"      xml:"provider"`
-	ResourceTypes []resourceTypes `json:"resourceTypes" xml:"resourceTypes"`
-	Capabilities  []string        `json:"capabilities"  xml:"capabilities"`
+	Enabled            bool            `json:"enabled"            xml:"enabled"`
+	APIVersion         string          `json:"apiVersion"         xml:"apiVersion"`
+	Endpoint           string          `json:"endPoint"           xml:"endPoint"`
+	Provider           string          `json:"provider"           xml:"provider"`
+	ResourceTypes      []resourceTypes `json:"resourceTypes"      xml:"resourceTypes"`
+	Capabilities       []string        `json:"capabilities"       xml:"capabilities"`
+	InviteAcceptDialog string          `json:"inviteAcceptDialog" xml:"inviteAcceptDialog"`
 }
 
 type resourceTypes struct {
@@ -76,6 +78,9 @@ func (c *OcmProviderConfig) ApplyDefaults() {
 	}
 	if c.WebappRoot[len(c.WebappRoot)-1:] != "/" {
 		c.WebappRoot += "/"
+	}
+	if c.InviteAcceptDialog == "" {
+		c.InviteAcceptDialog = "/open-cloud-mesh/accept-invite"
 	}
 }
 
@@ -123,12 +128,13 @@ func (h *wkocmHandler) init(c *OcmProviderConfig) {
 		ShareTypes: []string{"user"}, // so far we only support `user`
 		Protocols:  rtProtos,         // expose the protocols as per configuration
 	}}
-	// for now we hardcode the capabilities, as this is currently only advisory
-	d.Capabilities = []string{"/invite-accepted"}
+	// for now, we hardcoded the capabilities, as this is currently only advisory
+	d.Capabilities = []string{"invites", "webdav-uri", "protocol-object", "invite-wayf"}
+	d.InviteAcceptDialog, _ = url.JoinPath(c.Endpoint, c.InviteAcceptDialog)
 	h.data = d
 }
 
-// This handler implements the OCM discovery endpoint specified in
+// Ocm handles the OCM discovery endpoint specified in
 // https://cs3org.github.io/OCM-API/docs.html?repo=OCM-API&user=cs3org#/paths/~1ocm-provider/get
 func (h *wkocmHandler) Ocm(w http.ResponseWriter, r *http.Request) {
 	log := appctx.GetLogger(r.Context())

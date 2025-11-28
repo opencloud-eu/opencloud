@@ -327,12 +327,11 @@ class SharingNgContext implements Context {
 				if ($shareType === "user") {
 					$shareeId = $this->featureContext->getAttributeOfCreatedUser($sharee, 'id');
 					if ($federatedShare) {
-						$shareeId = (
-							$this->featureContext->ocmContext->getAcceptedUserByName(
-								$user,
-								$sharee
-							)
-						)['user_id'];
+						$federatedUser = $this->featureContext->ocmContext->getAcceptedUserByName(
+							$user,
+							$sharee
+						);
+						$shareeId = $federatedUser['user_id'] . "@" . $federatedUser['idp'];
 					}
 				} elseif ($shareType === "group") {
 					$shareeId = $this->featureContext->getAttributeOfCreatedGroup($sharee, 'id');
@@ -403,7 +402,11 @@ class SharingNgContext implements Context {
 			if ($shareType === "user") {
 				$shareeId = $this->featureContext->getAttributeOfCreatedUser($sharee, 'id');
 				if ($federatedShare) {
-					$shareeId = ($this->featureContext->ocmContext->getAcceptedUserByName($user, $sharee))['user_id'];
+					$federatedUser = $this->featureContext->ocmContext->getAcceptedUserByName(
+						$user,
+						$sharee
+					);
+					$shareeId = $federatedUser['user_id'] . "@" . $federatedUser['idp'];
 				}
 			} elseif ($shareType === "group") {
 				$shareeId = $this->featureContext->getAttributeOfCreatedGroup($sharee, 'id');

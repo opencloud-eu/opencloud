@@ -405,15 +405,19 @@ func (i *Identity) GetLDAPUserGroups(ctx context.Context, lc ldap.Client, userEn
 		// FIXME 1. use the memberof or members attribute of a user to get the groups
 		// FIXME 2. ook up the id for each group
 		var groupID string
+		attribute := i.Group.Schema.ID
 		if i.Group.Schema.IDIsOctetString {
-			raw := entry.GetEqualFoldRawAttributeValue(i.Group.Schema.ID)
-			value, err := uuid.FromBytes(raw)
+			rawValue := entry.GetEqualFoldRawAttributeValue(attribute)
+			if strings.EqualFold(attribute, "objectguid") {
+				rawValue = SwapObjectGUIDBytes(rawValue)
+			}
+			value, err := uuid.FromBytes(rawValue)
 			if err != nil {
 				return nil, err
 			}
 			groupID = value.String()
 		} else {
-			groupID = entry.GetEqualFoldAttributeValue(i.Group.Schema.ID)
+			groupID = entry.GetEqualFoldAttributeValue(attribute)
 		}
 
 		groups = append(groups, groupID)
@@ -556,17 +560,26 @@ func filterEscapeAttribute(attribute string, binary bool, id string) (string, er
 	return escaped, nil
 }
 
+// swapObjectGUIDBytes converts between AD's mixed-endian objectGUID format and standard UUID byte order
+// AD stores objectGUID with mixed endianness 🤪 - swap first 3 components
+func SwapObjectGUIDBytes(value []byte) []byte {
+	if len(value) != 16 {
+		return value
+	}
+	return []byte{
+		value[3], value[2], value[1], value[0], // First component (4 bytes) - reverse
+		value[5], value[4], // Second component (2 bytes) - reverse
+		value[7], value[6], // Third component (2 bytes) - reverse
+		value[8], value[9], value[10], value[11], value[12], value[13], value[14], value[15], // Last 8 bytes - keep as-is
+	}
+}
+
 func filterEscapeBinaryUUID(attribute string, value uuid.UUID) string {
 	bytes := value[:]
 
 	// AD stores objectGUID with mixed endianness 🤪 - swap first 3 components
 	if strings.EqualFold(attribute, "objectguid") {
-		bytes = []byte{
-			value[3], value[2], value[1], value[0], // First component (4 bytes) - reverse
-			value[5], value[4], // Second component (2 bytes) - reverse
-			value[7], value[6], // Third component (2 bytes) - reverse
-			value[8], value[9], value[10], value[11], value[12], value[13], value[14], value[15], // Last 8 bytes - keep as-is
-		}
+		bytes = SwapObjectGUIDBytes(bytes)
 	}
 
 	var filtered strings.Builder
@@ -656,10 +669,18 @@ func (i *Identity) getUserFindFilter(query, tenantID string) string {
 	for _, attr := range searchAttrs {
 		filter = fmt.Sprintf("%s(%s=%s)", filter, attr, squery)
 	}
-	// substring search for UUID is not possible
-	filter = fmt.Sprintf("(|%s(%s=%s))", filter, i.User.Schema.ID, ldap.EscapeFilter(query))
+	if i.Group.Schema.IDIsOctetString {
+		// try parsing query as uuid
+		idFilter, err := filterEscapeAttribute(i.User.Schema.ID, i.User.Schema.IDIsOctetString, query)
+		if err == nil {
+			filter = fmt.Sprintf("%s(%s=%s)", filter, i.User.Schema.ID, idFilter)
+		}
+	} else {
+		// substring search for UUID is not possible
+		filter = fmt.Sprintf("%s(%s=%s)", filter, i.User.Schema.ID, ldap.EscapeFilter(query))
+	}
 
-	return fmt.Sprintf("(&%s(objectclass=%s)%s%s)",
+	return fmt.Sprintf("(&%s(objectclass=%s)%s(|%s))",
 		i.User.Filter,
 		i.User.Objectclass,
 		i.tenantFilter(tenantID),
@@ -687,8 +708,16 @@ func (i *Identity) getGroupFindFilter(query string) string {
 	for _, attr := range searchAttrs {
 		filter = fmt.Sprintf("%s(%s=%s)", filter, attr, squery)
 	}
-	// substring search for UUID is not possible
-	filter = fmt.Sprintf("%s(%s=%s)", filter, i.Group.Schema.ID, ldap.EscapeFilter(query))
+	if i.Group.Schema.IDIsOctetString {
+		// try parsing query as uuid
+		idFilter, err := filterEscapeAttribute(i.Group.Schema.ID, i.Group.Schema.IDIsOctetString, query)
+		if err == nil {
+			filter = fmt.Sprintf("%s(%s=%s)", filter, i.Group.Schema.ID, idFilter)
+		}
+	} else {
+		// substring search for UUID is not possible
+		filter = fmt.Sprintf("%s(%s=%s)", filter, i.Group.Schema.ID, ldap.EscapeFilter(query))
+	}
 
 	return fmt.Sprintf("(&%s(objectclass=%s)(|%s))",
 		i.Group.Filter,

@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	grouppb "github.com/cs3org/go-cs3apis/cs3/identity/group/v1beta1"
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
@@ -331,7 +332,11 @@ func (m *manager) ldapEntryToGroup(entry *ldap.Entry) (*grouppb.Group, error) {
 func (m *manager) ldapEntryToGroupID(entry *ldap.Entry) (*grouppb.GroupId, error) {
 	var id string
 	if m.c.LDAPIdentity.Group.Schema.IDIsOctetString {
-		rawValue := entry.GetEqualFoldRawAttributeValue(m.c.LDAPIdentity.Group.Schema.ID)
+		attribute := m.c.LDAPIdentity.Group.Schema.ID
+		rawValue := entry.GetEqualFoldRawAttributeValue(attribute)
+		if strings.EqualFold(attribute, "objectguid") {
+			rawValue = ldapIdentity.SwapObjectGUIDBytes(rawValue)
+		}
 		if value, err := uuid.FromBytes(rawValue); err == nil {
 			id = value.String()
 		} else {
@@ -350,13 +355,16 @@ func (m *manager) ldapEntryToGroupID(entry *ldap.Entry) (*grouppb.GroupId, error
 func (m *manager) ldapEntryToUserID(entry *ldap.Entry) (*userpb.UserId, error) {
 	var uid string
 	if m.c.LDAPIdentity.User.Schema.IDIsOctetString {
-		rawValue := entry.GetEqualFoldRawAttributeValue(m.c.LDAPIdentity.User.Schema.ID)
-		var value uuid.UUID
-		var err error
-		if value, err = uuid.FromBytes(rawValue); err != nil {
+		attribute := m.c.LDAPIdentity.User.Schema.ID
+		rawValue := entry.GetEqualFoldRawAttributeValue(attribute)
+		if strings.EqualFold(attribute, "objectguid") {
+			rawValue = ldapIdentity.SwapObjectGUIDBytes(rawValue)
+		}
+		if value, err := uuid.FromBytes(rawValue); err == nil {
+			uid = value.String()
+		} else {
 			return nil, err
 		}
-		uid = value.String()
 	} else {
 		uid = entry.GetEqualFoldAttributeValue(m.c.LDAPIdentity.User.Schema.ID)
 	}

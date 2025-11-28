@@ -120,13 +120,12 @@ class GraphHelper {
 	}
 
 	/**
-	 * Federated users have a base64 encoded string of {remoteid}@{provider} as their id
-	 * This regex matches only non empty base64 encoded strings
+	 * Federated users have a string of {userid}@{provider} as their id
 	 *
 	 * @return string
 	 */
 	public static function getFederatedUserRegex(): string {
-		return '(?=(.{4})*$)[A-Za-z0-9+/]*={0,2}$';
+		return '^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}@https?://.+$';
 	}
 
 	/**

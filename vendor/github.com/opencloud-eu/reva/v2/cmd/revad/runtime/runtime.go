@@ -62,15 +62,8 @@ func RunWithOptions(mainConf map[string]interface{}, pidFile string, opts ...Opt
 
 type coreConf struct {
 	MaxCPUs            string `mapstructure:"max_cpus"`
-	TracingEnabled     bool   `mapstructure:"tracing_enabled"`
-	TracingInsecure    bool   `mapstructure:"tracing_insecure"`
-	TracingExporter    string `mapstructure:"tracing_exporter"`
-	TracingEndpoint    string `mapstructure:"tracing_endpoint"`
-	TracingCollector   string `mapstructure:"tracing_collector"`
+	TracesExporter     string `mapstructure:"traces_exporter"`
 	TracingServiceName string `mapstructure:"tracing_service_name"`
-
-	// TracingService specifies the service. i.e OpenCensus, OpenTelemetry, OpenTracing...
-	TracingService string `mapstructure:"tracing_service"`
 
 	GracefulShutdownTimeout int `mapstructure:"graceful_shutdown_timeout"`
 }
@@ -149,20 +142,8 @@ func initServers(mainConf map[string]interface{}, log *zerolog.Logger, tp trace.
 }
 
 func initTracing(conf *coreConf) trace.TracerProvider {
-	if conf.TracingEnabled {
-		opts := []rtrace.Option{
-			rtrace.WithExporter(conf.TracingExporter),
-			rtrace.WithEndpoint(conf.TracingEndpoint),
-			rtrace.WithCollector(conf.TracingCollector),
-			rtrace.WithServiceName(conf.TracingServiceName),
-		}
-		if conf.TracingEnabled {
-			opts = append(opts, rtrace.WithEnabled())
-		}
-		if conf.TracingInsecure {
-			opts = append(opts, rtrace.WithInsecure())
-		}
-		tp := rtrace.NewTracerProvider(opts...)
+	if conf.TracesExporter != "none" && conf.TracesExporter != "" {
+		tp := rtrace.NewTracerProvider(conf.TracingServiceName, conf.TracesExporter)
 		rtrace.SetDefaultTracerProvider(tp)
 		return tp
 	}
@@ -281,11 +262,9 @@ func parseCoreConfOrDie(v interface{}) *coreConf {
 
 	// tracing defaults to enabled if not explicitly configured
 	if v == nil {
-		c.TracingEnabled = true
-		c.TracingEndpoint = "localhost:6831"
-	} else if _, ok := v.(map[string]interface{})["tracing_enabled"]; !ok {
-		c.TracingEnabled = true
-		c.TracingEndpoint = "localhost:6831"
+		c.TracesExporter = "console"
+	} else if _, ok := v.(map[string]interface{})["traces_exporter"]; !ok {
+		c.TracesExporter = "console"
 	}
 
 	return c
