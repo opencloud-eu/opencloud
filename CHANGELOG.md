@@ -53,6 +53,7 @@
 
 ### 📦️ Dependencies
 
+- [full-ci] revaBump-v2.40.1 [[#1927](https://github.com/opencloud-eu/opencloud/pull/1927)]
 - [full-ci] chore: bump web to v4.2.1 [[#1938](https://github.com/opencloud-eu/opencloud/pull/1938)]
 - build(deps): bump google.golang.org/grpc from 1.76.0 to 1.77.0 [[#1923](https://github.com/opencloud-eu/opencloud/pull/1923)]
 - build(deps): bump github.com/nats-io/nats-server/v2 from 2.12.1 to 2.12.2 [[#1922](https://github.com/opencloud-eu/opencloud/pull/1922)]
