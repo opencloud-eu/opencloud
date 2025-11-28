@@ -4,11 +4,17 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @MahdiBaghbani, @ScharfViktor, @butonic, @dragonchaser, @flimmy, @fschade, @individual-it, @kulmann, @micbar, @mikelolasagasti, @pbleser-oc, @rhafer, @schweigisito
+@AlexAndBear, @MahdiBaghbani, @ScharfViktor, @butonic, @dragonchaser, @flimmy, @fschade, @individual-it, @jnweiger, @kulmann, @micbar, @mikelolasagasti, @pbleser-oc, @rhafer, @schweigisito
 
 ### 💥 Breaking changes
 
 - collaboration: Enable `InsertRemoteImage` option [[#1692](https://github.com/opencloud-eu/opencloud/pull/1692)]
+
+### 📚 Documentation
+
+- Fix typos in antivirus README documentation [[#1940](https://github.com/opencloud-eu/opencloud/pull/1940)]
+- fix: add missing service README.md files with basic description [[#1859](https://github.com/opencloud-eu/opencloud/pull/1859)]
+- Fix README.md files which contain broken or missing links [[#1854](https://github.com/opencloud-eu/opencloud/pull/1854)]
 
 ### 🐛 Bug Fixes
 
@@ -44,11 +50,6 @@
 - increase timeouts waiting for notification & search [[#1802](https://github.com/opencloud-eu/opencloud/pull/1802)]
 - Sync share before action [[#1795](https://github.com/opencloud-eu/opencloud/pull/1795)]
 - correct STORAGE_USERS_POSIX_WATCH_FS env typo in CI [[#1746](https://github.com/opencloud-eu/opencloud/pull/1746)]
-
-### 📚 Documentation
-
-- fix: add missing service README.md files with basic description [[#1859](https://github.com/opencloud-eu/opencloud/pull/1859)]
-- Fix README.md files which contain broken or missing links [[#1854](https://github.com/opencloud-eu/opencloud/pull/1854)]
 
 ### 📦️ Dependencies
 
