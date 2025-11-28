@@ -176,7 +176,7 @@ func (s *service) ForwardInvite(ctx context.Context, req *invitepb.ForwardInvite
 		RecipientProvider: s.conf.ProviderDomain,
 		// The UserID is only a string here. To not lose the IDP information we use the LocalUserFederatedID encoding
 		// i.e. UserID@IDP
-		UserID: ocmuser.LocalUserFederatedID(user.GetId(), "").GetOpaqueId(),
+		UserID: ocmuser.FormatOCMUser(user.GetId()),
 		Email:  user.GetMail(),
 		Name:   user.GetDisplayName(),
 	})

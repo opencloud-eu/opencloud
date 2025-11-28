@@ -146,7 +146,7 @@ func (h *invitesHandler) AcceptInvite(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewEncoder(w).Encode(&user{
-		UserID: ocmuser.LocalUserFederatedID(acceptInviteResponse.UserId, "").GetOpaqueId(),
+		UserID: ocmuser.FormatOCMUser(acceptInviteResponse.UserId),
 		Email:  acceptInviteResponse.Email,
 		Name:   acceptInviteResponse.DisplayName,
 	}); err != nil {
