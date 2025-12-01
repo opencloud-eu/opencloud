@@ -1658,7 +1658,7 @@ def dockerRelease(ctx, repo, build_type):
     # if no additional tag is given, the build-plugin adds latest
     hard_tag = "daily"
     if ctx.build.event == "tag":
-        tag_version = ctx.build.ref.replace("refs/tags/", "")
+        tag_version = ctx.build.ref.replace("refs/tags/v", "")
         tag_parts = tag_version.split("-")
 
         # if a tag has something appended with "-" i.e. alpha, beta, rc1...
