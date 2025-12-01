@@ -105,9 +105,19 @@ func createResource(ctx context.Context, serviceName string) (*resource.Resource
 	return resource.New(ctx,
 		// Reads OTEL_RESOURCE_ATTRIBUTES and OTEL_SERVICE_NAME
 		resource.WithFromEnv(),
-		// Host and process information
+		// Host Information
 		resource.WithHost(),
-		resource.WithProcess(),
+		// Process Information
+		// Resource WithProcessOwner is deliberately omitted because
+		// inside containers where process might run as an arbitrary
+		// uid without a username associated this would fail.
+		resource.WithProcessPID(),
+		resource.WithProcessCommandArgs(),
+		resource.WithProcessExecutableName(),
+		resource.WithProcessExecutablePath(),
+		resource.WithProcessRuntimeDescription(),
+		resource.WithProcessRuntimeName(),
+		resource.WithProcessRuntimeVersion(),
 		// Service attributes
 		resource.WithAttributes(
 			semconv.ServiceName(serviceName),
