@@ -1,5 +1,15 @@
 # Changelog
 
+## [4.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.1) - 2025-12-02
+
+### ❤️ Thanks to all contributors! ❤️
+
+@individual-it
+
+### 📚 Documentation
+
+- fix the link in quickstart script for itself [[#1956](https://github.com/opencloud-eu/opencloud/pull/1956)]
+
 ## [4.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.0) - 2025-12-01
 
 ### ❤️ Thanks to all contributors! ❤️
