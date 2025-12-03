@@ -367,9 +367,9 @@ func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-func (g *Groupware) getEmailsSince(w http.ResponseWriter, r *http.Request, since string) {
+func (g *Groupware) getEmailsSince(w http.ResponseWriter, r *http.Request, since jmap.State) {
 	g.respond(w, r, func(req Request) Response {
-		l := req.logger.With().Str(QueryParamSince, log.SafeString(since))
+		l := req.logger.With().Str(QueryParamSince, log.SafeString(string(since)))
 
 		accountId, err := req.GetAccountIdForMail()
 		if err != nil {
@@ -589,7 +589,7 @@ func (g *Groupware) GetEmails(w http.ResponseWriter, r *http.Request) {
 	}
 	if since != "" {
 		// get email changes since a given state
-		g.getEmailsSince(w, r, since)
+		g.getEmailsSince(w, r, jmap.State(since))
 	} else {
 		// do a search
 		g.respond(w, r, func(req Request) Response {
