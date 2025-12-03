@@ -18,7 +18,7 @@ OC_CI_ALPINE = "owncloudci/alpine:latest"
 OC_CI_BAZEL_BUILDIFIER = "owncloudci/bazel-buildifier:latest"
 OC_CI_CLAMAVD = "owncloudci/clamavd"
 OC_CI_DRONE_ANSIBLE = "owncloudci/drone-ansible:latest"
-OC_CI_GOLANG = "docker.io/golang:1.24"
+OC_CI_GOLANG = "registry.heinlein.group/opencloud/golang-ci:1.25"
 OC_CI_NODEJS = "owncloudci/nodejs:%s"
 OC_CI_PHP = "owncloudci/php:%s"
 OC_CI_WAIT_FOR = "owncloudci/wait-for:latest"
@@ -41,7 +41,6 @@ DEFAULT_PHP_VERSION = "8.2"
 DEFAULT_NODEJS_VERSION = "20"
 
 CACHE_S3_SERVER = "https://s3.ci.opencloud.eu"
-INSTALL_LIBVIPS_COMMAND = "apt-get update; apt-get install libvips42 -y"
 
 dirs = {
     "base": "/woodpecker/src/github.com/opencloud-eu/opencloud",
@@ -706,7 +705,7 @@ def restoreGoBinCache():
             "name": "extract-go-bin-cache",
             "image": OC_UBUNTU,
             "commands": [
-                "tar -xmf %s -C /" % dirs["gobinTarPath"],
+                "tar -xvmf %s -C /" % dirs["gobinTarPath"],
             ],
         },
     ]
@@ -2225,9 +2224,6 @@ def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, depend
             },
         },
         "commands": [
-            "apt-get update",
-            "apt-get install -y inotify-tools xattr",
-            INSTALL_LIBVIPS_COMMAND,
             "%s init --insecure true" % dirs["opencloudBin"],
             "cat $OC_CONFIG_DIR/opencloud.yaml",
             "cp tests/config/woodpecker/app-registry.yaml $OC_CONFIG_DIR/app-registry.yaml",
@@ -2271,7 +2267,6 @@ def startOpenCloudService(service = None, name = None, environment = {}):
             "detach": True,
             "environment": environment,
             "commands": [
-                INSTALL_LIBVIPS_COMMAND,
                 "%s %s server" % (dirs["opencloudBin"], service),
             ],
         },
@@ -2297,7 +2292,6 @@ def build():
             "name": "build",
             "image": OC_CI_GOLANG,
             "commands": [
-                "apt-get update; apt-get install libvips-dev -y",
                 "for i in $(seq 3); do make -C opencloud build ENABLE_VIPS=1 && break || sleep 1; done",
             ],
             "environment": CI_HTTP_PROXY_ENV,
