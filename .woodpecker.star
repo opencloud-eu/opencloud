@@ -2061,7 +2061,9 @@ def notifyMatrix(ctx):
                     },
                     "QA_REPO": "https://github.com/opencloud-eu/qa.git",
                     "QA_REPO_BRANCH": "main",
-                    "CI_WOODPECKER_URL": "https://ci.opencloud.eu/",
+                    "CI_WOODPECKER_URL": {
+                        "from_secret": "oc_ci_url",
+                    },
                     "CI_REPO_ID": "3",
                     "CI_WOODPECKER_TOKEN": "no-auth-needed-on-this-repo",
                 },
