@@ -6,7 +6,6 @@ import (
 
 	"github.com/oklog/run"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
-	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 	"github.com/opencloud-eu/opencloud/services/auth-api/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/auth-api/pkg/config/parser"
@@ -28,11 +27,6 @@ func Server(cfg *config.Config) *cli.Command {
 		},
 		Action: func(c *cli.Context) error {
 			logger := logging.Configure(cfg.Service.Name, cfg.Log)
-
-			traceProvider, err := tracing.GetServiceTraceProvider(cfg.Tracing, cfg.Service.Name)
-			if err != nil {
-				return err
-			}
 
 			var (
 				gr          = run.Group{}
@@ -65,7 +59,6 @@ func Server(cfg *config.Config) *cli.Command {
 				http.Config(cfg),
 				http.Metrics(m),
 				http.Namespace(cfg.HTTP.Namespace),
-				http.TraceProvider(traceProvider),
 			)
 			if err != nil {
 				logger.Info().
