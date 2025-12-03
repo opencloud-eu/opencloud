@@ -108,6 +108,7 @@ func exposeHostPorts(ctx context.Context, req *ContainerRequest, ports ...int) (
 	}
 
 	// TODO: remove once we have docker context support via #2810
+	//nolint:staticcheck // SA1019: IPAddress is deprecated, but we need it for compatibility until v29
 	sshdIP := inspect.NetworkSettings.IPAddress
 	if sshdIP == "" {
 		single := len(inspect.NetworkSettings.Networks) == 1
@@ -176,30 +177,22 @@ func exposeHostPorts(ctx context.Context, req *ContainerRequest, ports ...int) (
 
 // newSshdContainer creates a new SSHD container with the provided options.
 func newSshdContainer(ctx context.Context, opts ...ContainerCustomizer) (*sshdContainer, error) {
-	req := GenericContainerRequest{
-		ContainerRequest: ContainerRequest{
-			Image:        sshdImage,
-			ExposedPorts: []string{sshPort},
-			Env:          map[string]string{"PASSWORD": sshPassword},
-			WaitingFor:   wait.ForListeningPort(sshPort),
-		},
-		Started: true,
+	moduleOpts := []ContainerCustomizer{
+		WithExposedPorts(sshPort),
+		WithEnv(map[string]string{"PASSWORD": sshPassword}),
+		WithWaitStrategy(wait.ForListeningPort(sshPort)),
 	}
 
-	for _, opt := range opts {
-		if err := opt.Customize(&req); err != nil {
-			return nil, err
-		}
-	}
+	moduleOpts = append(moduleOpts, opts...)
 
-	c, err := GenericContainer(ctx, req)
+	c, err := Run(ctx, sshdImage, moduleOpts...)
 	var sshd *sshdContainer
 	if c != nil {
 		sshd = &sshdContainer{Container: c}
 	}
 
 	if err != nil {
-		return sshd, fmt.Errorf("generic container: %w", err)
+		return sshd, fmt.Errorf("run sshd container: %w", err)
 	}
 
 	if err = sshd.clientConfig(ctx); err != nil {

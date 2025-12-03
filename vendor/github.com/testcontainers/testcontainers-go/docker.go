@@ -311,6 +311,10 @@ func (c *DockerContainer) Stop(ctx context.Context, timeout *time.Duration) erro
 //
 // Default: timeout is 10 seconds.
 func (c *DockerContainer) Terminate(ctx context.Context, opts ...TerminateOption) error {
+	if c == nil {
+		return nil
+	}
+
 	options := NewTerminateOptions(ctx, opts...)
 	err := c.Stop(options.Context(), options.StopTimeout())
 	if err != nil && !isCleanupSafe(err) {
@@ -493,6 +497,7 @@ func (c *DockerContainer) ContainerIP(ctx context.Context) (string, error) {
 		return "", err
 	}
 
+	//nolint:staticcheck // SA1019: IPAddress is deprecated, but we need it for compatibility until v29
 	ip := inspect.NetworkSettings.IPAddress
 	if ip == "" {
 		// use IP from "Networks" if only single network defined
@@ -509,14 +514,13 @@ func (c *DockerContainer) ContainerIP(ctx context.Context) (string, error) {
 
 // ContainerIPs gets the IP addresses of all the networks within the container.
 func (c *DockerContainer) ContainerIPs(ctx context.Context) ([]string, error) {
-	ips := make([]string, 0)
-
 	inspect, err := c.Inspect(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	networks := inspect.NetworkSettings.Networks
+	ips := make([]string, 0, len(networks))
 	for _, nw := range networks {
 		ips = append(ips, nw.IPAddress)
 	}
