@@ -34,6 +34,3 @@ services:
 
 volumes:
   stalwart-data:
-
-networks:
-  opencloud-net:
