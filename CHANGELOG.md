@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@individual-it
+@JammingBen, @individual-it
 
 ### 📚 Documentation
 
