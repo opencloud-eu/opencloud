@@ -31,9 +31,9 @@ func (g *Groupware) GetAccount(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountId, account, err := req.GetAccountForMail()
 		if err != nil {
-			return errorResponse(accountId, err)
+			return errorResponse(single(accountId), err)
 		}
-		return etagResponse(accountId, account, req.session.State, AccountResponseObjectType, jmap.State(req.session.State), "")
+		return etagResponse(single(accountId), account, req.session.State, AccountResponseObjectType, jmap.State(req.session.State), "")
 	})
 }
 
@@ -66,7 +66,7 @@ func (g *Groupware) GetAccounts(w http.ResponseWriter, r *http.Request) {
 		}
 		// sort on accountId to have a stable order that remains the same with every query
 		slices.SortFunc(list, func(a, b AccountWithId) int { return strings.Compare(a.AccountId, b.AccountId) })
-		return etagResponse(joinAccountIds(structs.Map(list, func(a AccountWithId) string { return a.AccountId })), list, req.session.State, AccountResponseObjectType, jmap.State(req.session.State), "")
+		return etagResponse(structs.Map(list, func(a AccountWithId) string { return a.AccountId }), list, req.session.State, AccountResponseObjectType, jmap.State(req.session.State), "")
 	})
 }
 
@@ -75,7 +75,7 @@ func (g *Groupware) GetAccountsWithTheirIdentities(w http.ResponseWriter, r *htt
 		allAccountIds := req.AllAccountIds()
 		resp, sessionState, state, lang, err := g.jmap.GetIdentitiesForAllAccounts(allAccountIds, req.session, req.ctx, req.logger, req.language())
 		if err != nil {
-			return req.errorResponseFromJmap(joinAccountIds(allAccountIds), err)
+			return req.errorResponseFromJmap(allAccountIds, err)
 		}
 		list := make([]AccountWithIdAndIdentities, len(req.session.Accounts))
 		i := 0
@@ -94,7 +94,7 @@ func (g *Groupware) GetAccountsWithTheirIdentities(w http.ResponseWriter, r *htt
 		}
 		// sort on accountId to have a stable order that remains the same with every query
 		slices.SortFunc(list, func(a, b AccountWithIdAndIdentities) int { return strings.Compare(a.AccountId, b.AccountId) })
-		return etagResponse(joinAccountIds(structs.Map(list, func(a AccountWithIdAndIdentities) string { return a.AccountId })), list, sessionState, AccountResponseObjectType, state, lang)
+		return etagResponse(structs.Map(list, func(a AccountWithIdAndIdentities) string { return a.AccountId }), list, sessionState, AccountResponseObjectType, state, lang)
 	})
 }
 

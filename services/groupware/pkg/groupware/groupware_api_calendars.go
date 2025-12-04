@@ -34,10 +34,10 @@ func (g *Groupware) GetCalendars(w http.ResponseWriter, r *http.Request) {
 
 		calendars, sessionState, state, lang, jerr := g.jmap.GetCalendars(accountId, req.session, req.ctx, req.logger, req.language(), nil)
 		if jerr != nil {
-			return req.errorResponseFromJmap(accountId, jerr)
+			return req.errorResponseFromJmap(single(accountId), jerr)
 		}
 
-		return etagResponse(accountId, calendars, sessionState, CalendarResponseObjectType, state, lang)
+		return etagResponse(single(accountId), calendars, sessionState, CalendarResponseObjectType, state, lang)
 	})
 }
 
@@ -74,13 +74,13 @@ func (g *Groupware) GetCalendarById(w http.ResponseWriter, r *http.Request) {
 		logger := log.From(l)
 		calendars, sessionState, state, lang, jerr := g.jmap.GetCalendars(accountId, req.session, req.ctx, logger, req.language(), []string{calendarId})
 		if jerr != nil {
-			return req.errorResponseFromJmap(accountId, jerr)
+			return req.errorResponseFromJmap(single(accountId), jerr)
 		}
 
 		if len(calendars.NotFound) > 0 {
-			return notFoundResponse(accountId, sessionState)
+			return notFoundResponse(single(accountId), sessionState)
 		} else {
-			return etagResponse(accountId, calendars.Calendars[0], sessionState, CalendarResponseObjectType, state, lang)
+			return etagResponse(single(accountId), calendars.Calendars[0], sessionState, CalendarResponseObjectType, state, lang)
 		}
 	})
 }
@@ -115,7 +115,7 @@ func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) 
 
 		offset, ok, err := req.parseUIntParam(QueryParamOffset, 0)
 		if err != nil {
-			return errorResponse(accountId, err)
+			return errorResponse(single(accountId), err)
 		}
 		if ok {
 			l = l.Uint(QueryParamOffset, offset)
@@ -123,7 +123,7 @@ func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) 
 
 		limit, ok, err := req.parseUIntParam(QueryParamLimit, g.defaultContactLimit)
 		if err != nil {
-			return errorResponse(accountId, err)
+			return errorResponse(single(accountId), err)
 		}
 		if ok {
 			l = l.Uint(QueryParamLimit, limit)
@@ -135,15 +135,15 @@ func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) 
 		sortBy := []jmap.CalendarEventComparator{{Property: jmap.CalendarEventPropertyUpdated, IsAscending: false}}
 
 		logger := log.From(l)
-		eventsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryCalendarEvents([]string{accountId}, req.session, req.ctx, logger, req.language(), filter, sortBy, offset, limit)
+		eventsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryCalendarEvents(single(accountId), req.session, req.ctx, logger, req.language(), filter, sortBy, offset, limit)
 		if jerr != nil {
-			return req.errorResponseFromJmap(accountId, jerr)
+			return req.errorResponseFromJmap(single(accountId), jerr)
 		}
 
 		if events, ok := eventsByAccountId[accountId]; ok {
-			return etagResponse(accountId, events, sessionState, EventResponseObjectType, state, lang)
+			return etagResponse(single(accountId), events, sessionState, EventResponseObjectType, state, lang)
 		} else {
-			return notFoundResponse(accountId, sessionState)
+			return notFoundResponse(single(accountId), sessionState)
 		}
 	})
 }
@@ -163,15 +163,15 @@ func (g *Groupware) CreateCalendarEvent(w http.ResponseWriter, r *http.Request) 
 		var create jmap.CalendarEvent
 		err := req.body(&create)
 		if err != nil {
-			return errorResponse(accountId, err)
+			return errorResponse(single(accountId), err)
 		}
 
 		logger := log.From(l)
 		created, sessionState, state, lang, jerr := g.jmap.CreateCalendarEvent(accountId, req.session, req.ctx, logger, req.language(), create)
 		if jerr != nil {
-			return req.errorResponseFromJmap(accountId, jerr)
+			return req.errorResponseFromJmap(single(accountId), jerr)
 		}
-		return etagResponse(accountId, created, sessionState, EventResponseObjectType, state, lang)
+		return etagResponse(single(accountId), created, sessionState, EventResponseObjectType, state, lang)
 	})
 }
 
@@ -191,25 +191,25 @@ func (g *Groupware) DeleteCalendarEvent(w http.ResponseWriter, r *http.Request) 
 
 		deleted, sessionState, state, _, jerr := g.jmap.DeleteCalendarEvent(accountId, []string{eventId}, req.session, req.ctx, logger, req.language())
 		if jerr != nil {
-			return req.errorResponseFromJmap(accountId, jerr)
+			return req.errorResponseFromJmap(single(accountId), jerr)
 		}
 
 		for _, e := range deleted {
 			desc := e.Description
 			if desc != "" {
-				return errorResponseWithSessionState(accountId, apiError(
+				return errorResponseWithSessionState(single(accountId), apiError(
 					req.errorId(),
 					ErrorFailedToDeleteContact,
 					withDetail(e.Description),
 				), sessionState)
 			} else {
-				return errorResponseWithSessionState(accountId, apiError(
+				return errorResponseWithSessionState(single(accountId), apiError(
 					req.errorId(),
 					ErrorFailedToDeleteContact,
 				), sessionState)
 			}
 		}
-		return noContentResponseWithEtag(accountId, sessionState, EventResponseObjectType, state)
+		return noContentResponseWithEtag(single(accountId), sessionState, EventResponseObjectType, state)
 	})
 }
 
@@ -217,7 +217,7 @@ func (g *Groupware) ParseIcalBlob(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountId, err := req.GetAccountIdForBlob()
 		if err != nil {
-			return errorResponse(accountId, err)
+			return errorResponse(single(accountId), err)
 		}
 
 		blobId := chi.URLParam(r, UriParamBlobId)
@@ -228,8 +228,8 @@ func (g *Groupware) ParseIcalBlob(w http.ResponseWriter, r *http.Request) {
 
 		resp, sessionState, state, lang, jerr := g.jmap.ParseICalendarBlob(accountId, req.session, req.ctx, logger, req.language(), blobIds)
 		if jerr != nil {
-			return req.errorResponseFromJmap(accountId, jerr)
+			return req.errorResponseFromJmap(single(accountId), jerr)
 		}
-		return etagResponse(accountId, resp, sessionState, EventResponseObjectType, state, lang)
+		return etagResponse(single(accountId), resp, sessionState, EventResponseObjectType, state, lang)
 	})
 }

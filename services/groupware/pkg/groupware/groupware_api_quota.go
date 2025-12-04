@@ -26,18 +26,18 @@ func (g *Groupware) GetQuota(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountId, err := req.GetAccountIdForQuota()
 		if err != nil {
-			return errorResponse(accountId, err)
+			return errorResponse(single(accountId), err)
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
 
-		res, sessionState, state, lang, jerr := g.jmap.GetQuotas([]string{accountId}, req.session, req.ctx, logger, req.language())
+		res, sessionState, state, lang, jerr := g.jmap.GetQuotas(single(accountId), req.session, req.ctx, logger, req.language())
 		if jerr != nil {
-			return req.errorResponseFromJmap(accountId, jerr)
+			return req.errorResponseFromJmap(single(accountId), jerr)
 		}
 		for _, v := range res {
-			return etagResponse(accountId, v.List, sessionState, QuotaResponseObjectType, state, lang)
+			return etagResponse(single(accountId), v.List, sessionState, QuotaResponseObjectType, state, lang)
 		}
-		return notFoundResponse(accountId, sessionState)
+		return notFoundResponse(single(accountId), sessionState)
 	})
 }
 
@@ -65,13 +65,13 @@ func (g *Groupware) GetQuotaForAllAccounts(w http.ResponseWriter, r *http.Reques
 	g.respond(w, r, func(req Request) Response {
 		accountIds := req.AllAccountIds()
 		if len(accountIds) < 1 {
-			return noContentResponse(joinAccountIds(accountIds), "")
+			return noContentResponse(accountIds, "")
 		}
 		logger := log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(accountIds)))
 
 		res, sessionState, state, lang, jerr := g.jmap.GetQuotas(accountIds, req.session, req.ctx, logger, req.language())
 		if jerr != nil {
-			return req.errorResponseFromJmap(joinAccountIds(accountIds), jerr)
+			return req.errorResponseFromJmap(accountIds, jerr)
 		}
 
 		result := make(map[string]AccountQuota, len(res))
@@ -81,6 +81,6 @@ func (g *Groupware) GetQuotaForAllAccounts(w http.ResponseWriter, r *http.Reques
 				Quotas: accountQuotas.List,
 			}
 		}
-		return etagResponse(joinAccountIds(accountIds), result, sessionState, QuotaResponseObjectType, state, lang)
+		return etagResponse(accountIds, result, sessionState, QuotaResponseObjectType, state, lang)
 	})
 }

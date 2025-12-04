@@ -207,42 +207,54 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 
 	m := metrics.New(prometheusRegistry, logger)
 
-	// TODO add timeouts and other meaningful configuration settings for the HTTP client
-	httpTransport := http.DefaultTransport.(*http.Transport).Clone()
-	httpTransport.ResponseHeaderTimeout = responseHeaderTimeout
-	if insecureTls {
-		tlsConfig := &tls.Config{InsecureSkipVerify: true}
-		httpTransport.TLSClientConfig = tlsConfig
-	}
-	httpClient := *http.DefaultClient
-	httpClient.Transport = httpTransport
-
 	userProvider := newRevaContextUsernameProvider()
 
 	jmapMetricsAdapter := groupwareHttpJmapApiClientMetricsRecorder{m: m}
 
-	api := jmap.NewHttpJmapClient(
-		&httpClient,
-		masterUsername,
-		masterPassword,
-		jmapMetricsAdapter,
-	)
+	var jmapClient jmap.Client
+	{
+		var api *jmap.HttpJmapClient
+		{
+			// TODO add timeouts and other meaningful configuration settings for the HTTP client
+			var httpClient http.Client
+			{
+				httpTransport := http.DefaultTransport.(*http.Transport).Clone()
+				httpTransport.ResponseHeaderTimeout = responseHeaderTimeout
+				if insecureTls {
+					tlsConfig := &tls.Config{InsecureSkipVerify: true}
+					httpTransport.TLSClientConfig = tlsConfig
+				}
+				httpClient = *http.DefaultClient
+				httpClient.Transport = httpTransport
+			}
 
-	wsDialer := &websocket.Dialer{
-		HandshakeTimeout: wsHandshakeTimeout,
-	}
-	if insecureTls {
-		wsDialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	}
+			api = jmap.NewHttpJmapClient(
+				&httpClient,
+				masterUsername,
+				masterPassword,
+				jmapMetricsAdapter,
+			)
+		}
 
-	wsf, err := jmap.NewHttpWsClientFactory(wsDialer, masterUsername, masterPassword, logger, jmapMetricsAdapter)
-	if err != nil {
-		logger.Error().Err(err).Msg("failed to create websocket client")
-		return nil, GroupwareInitializationError{Message: "failed to create websocket client", Err: err}
-	}
+		var wsf *jmap.HttpWsClientFactory
+		{
+			wsDialer := &websocket.Dialer{
+				HandshakeTimeout: wsHandshakeTimeout,
+			}
+			if insecureTls {
+				wsDialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+			}
 
-	// api implements all three interfaces:
-	jmapClient := jmap.NewClient(api, api, api, wsf)
+			wsf, err = jmap.NewHttpWsClientFactory(wsDialer, masterUsername, masterPassword, logger, jmapMetricsAdapter)
+			if err != nil {
+				logger.Error().Err(err).Msg("failed to create websocket client")
+				return nil, GroupwareInitializationError{Message: "failed to create websocket client", Err: err}
+			}
+		}
+
+		// api implements all three interfaces:
+		jmapClient = jmap.NewClient(api, api, api, wsf)
+	}
 
 	sessionCacheBuilder := newSessionCacheBuilder(
 		sessionUrl,
@@ -456,9 +468,20 @@ func (g *Groupware) ServeSSE(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Provide a JMAP Session for the
-func (g *Groupware) session(user user, _ *log.Logger) (jmap.Session, bool, *GroupwareError, time.Time) {
-	s := g.sessionCache.Get(user.GetUsername())
+// Provide a JMAP Session for the given user
+func (g *Groupware) session(user user, logger *log.Logger) (jmap.Session, bool, *GroupwareError, time.Time) {
+	if user == nil {
+		logger.Warn().Msg("user is nil")
+		return jmap.Session{}, false, nil, time.Time{}
+	}
+	name := user.GetUsername()
+	if name == "" {
+		logger.Warn().Msg("user has an empty username")
+		return jmap.Session{}, false, nil, time.Time{}
+	}
+
+	// first look into the session cache
+	s := g.sessionCache.Get(name)
 	if s != nil {
 		if s.Success() {
 			return s.Get(), true, nil, s.Until()
@@ -466,7 +489,8 @@ func (g *Groupware) session(user user, _ *log.Logger) (jmap.Session, bool, *Grou
 			return jmap.Session{}, false, s.Error(), s.Until()
 		}
 	}
-	// not sure this should happen:
+	// not sure this should/could happen:
+	logger.Warn().Msg("session cache returned nil")
 	return jmap.Session{}, false, nil, time.Time{}
 }
 
@@ -521,44 +545,63 @@ func (g *Groupware) serveError(w http.ResponseWriter, r *http.Request, error *Er
 	render.Render(w, r, errorResponses(*error))
 }
 
+// Execute a closure with a JMAP Session.
+//
+// Returns
+// - a Response object
+// - if an error occurs, after which timestamp a retry is allowed
+// - whether the request was sent to the server or not
 func (g *Groupware) withSession(w http.ResponseWriter, r *http.Request, handler func(r Request) Response) (Response, time.Time, bool) {
 	ctx := r.Context()
 	sl := g.logger.SubloggerWithRequestID(ctx)
 	logger := &sl
 
-	user, err := g.userProvider.GetUser(r, ctx, logger)
-	if err != nil {
-		g.metrics.AuthenticationFailureCounter.Inc()
-		g.serveError(w, r, apiError(errorId(r, ctx), ErrorInvalidAuthentication), time.Time{})
-		return Response{}, time.Time{}, false
-	}
-	if user == nil {
-		g.metrics.AuthenticationFailureCounter.Inc()
-		g.serveError(w, r, apiError(errorId(r, ctx), ErrorMissingAuthentication), time.Time{})
-		return Response{}, time.Time{}, false
+	// retrieve the current user from the inbound request
+	var user user
+	{
+		var err error
+		user, err = g.userProvider.GetUser(r, ctx, logger)
+		if err != nil {
+			g.metrics.AuthenticationFailureCounter.Inc()
+			g.serveError(w, r, apiError(errorId(r, ctx), ErrorInvalidAuthentication), time.Time{})
+			return Response{}, time.Time{}, false
+		}
+		if user == nil {
+			g.metrics.AuthenticationFailureCounter.Inc()
+			g.serveError(w, r, apiError(errorId(r, ctx), ErrorMissingAuthentication), time.Time{})
+			return Response{}, time.Time{}, false
+		}
+
+		logger = log.From(logger.With().Str(logUserId, log.SafeString(user.GetId())))
 	}
 
-	logger = log.From(logger.With().Str(logUserId, log.SafeString(user.GetId())))
+	// retrieve a JMAP Session for that user
+	var session jmap.Session
+	{
+		s, ok, gwerr, retryAfter := g.session(user, logger)
+		if gwerr != nil {
+			g.metrics.SessionFailureCounter.Inc()
+			errorId := errorId(r, ctx)
+			logger.Error().Str("code", gwerr.Code).Str("error", gwerr.Title).Str("detail", gwerr.Detail).Str(logErrorId, errorId).Msg("failed to determine JMAP session")
+			g.serveError(w, r, apiError(errorId, *gwerr), retryAfter)
+			return Response{}, retryAfter, false
+		}
+		if ok {
+			session = s
+		} else {
+			// no session = authentication failed
+			g.metrics.SessionFailureCounter.Inc()
+			errorId := errorId(r, ctx)
+			logger.Error().Str(logErrorId, errorId).Msg("could not authenticate, failed to find Session")
+			gwerr = &ErrorInvalidAuthentication
+			g.serveError(w, r, apiError(errorId, *gwerr), retryAfter)
+			return Response{}, retryAfter, false
+		}
+	}
 
-	session, ok, gwerr, retryAfter := g.session(user, logger)
-	if gwerr != nil {
-		g.metrics.SessionFailureCounter.Inc()
-		errorId := errorId(r, ctx)
-		logger.Error().Str("code", gwerr.Code).Str("error", gwerr.Title).Str("detail", gwerr.Detail).Str(logErrorId, errorId).Msg("failed to determine JMAP session")
-		g.serveError(w, r, apiError(errorId, *gwerr), retryAfter)
-		return Response{}, retryAfter, false
-	}
-	if !ok {
-		// no session = authentication failed
-		g.metrics.SessionFailureCounter.Inc()
-		errorId := errorId(r, ctx)
-		logger.Error().Str(logErrorId, errorId).Msg("could not authenticate, failed to find Session")
-		gwerr = &ErrorInvalidAuthentication
-		g.serveError(w, r, apiError(errorId, *gwerr), retryAfter)
-		return Response{}, retryAfter, false
-	}
 	decoratedLogger := decorateLogger(logger, session)
 
+	// build the Request object
 	req := Request{
 		g:       g,
 		user:    user,
@@ -568,7 +611,10 @@ func (g *Groupware) withSession(w http.ResponseWriter, r *http.Request, handler 
 		session: &session,
 	}
 
+	// perform the actual request using the closure that was passed in
 	response := handler(req)
+
+	// return the result of that closure execution
 	return response, time.Time{}, true
 }
 
@@ -577,8 +623,10 @@ const (
 	StateResponseHeader        = "State"
 	ObjectTypeResponseHeader   = "Object-Type"
 	AccountIdResponseHeader    = "Account-Id"
+	AccountIdsResponseHeader   = "Account-Ids"
 )
 
+// Send the Response object as an HTTP response.
 func (g *Groupware) sendResponse(w http.ResponseWriter, r *http.Request, response Response) {
 	if response.err != nil {
 		g.log(response.err)
@@ -600,9 +648,9 @@ func (g *Groupware) sendResponse(w http.ResponseWriter, r *http.Request, respons
 	{
 		etag := string(response.etag)
 		if etag != "" {
-			challenge := r.Header.Get("if-none-match")
-			quotedEtag := "\"" + etag + "\""
-			notModified = challenge != "" && (challenge == etag || challenge == quotedEtag)
+			challenge := r.Header.Get("if-none-match")                                      // https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-None-Match
+			quotedEtag := "\"" + etag + "\""                                                // https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/ETag#etag_value
+			notModified = challenge != "" && (challenge == etag || challenge == quotedEtag) // be a bit flexible/permissive here with the quoting
 			w.Header().Add("ETag", quotedEtag)
 			w.Header().Add(StateResponseHeader, etag)
 		}
@@ -613,8 +661,17 @@ func (g *Groupware) sendResponse(w http.ResponseWriter, r *http.Request, respons
 			w.Header().Add(ObjectTypeResponseHeader, ot)
 		}
 	}
-	if response.accountId != "" {
-		w.Header().Add(AccountIdResponseHeader, response.accountId)
+	switch len(response.accountIds) {
+	case 0:
+		break
+	case 1:
+		w.Header().Add(AccountIdResponseHeader, response.accountIds[0])
+	default:
+		c := make([]string, len(response.accountIds))
+		copy(c, response.accountIds)
+		slices.Sort(c)
+		value := strings.Join(c, ",")
+		w.Header().Add(AccountIdsResponseHeader, value)
 	}
 
 	if notModified {
@@ -714,16 +771,6 @@ func (g *Groupware) MethodNotAllowed(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 }
 
-func joinAccountIds(accountIds []string) string {
-	switch len(accountIds) {
-	case 0:
-		return ""
-	case 1:
-		return accountIds[0]
-	default:
-		c := make([]string, len(accountIds))
-		copy(c, accountIds)
-		slices.Sort(c)
-		return strings.Join(c, ",")
-	}
+func single[S any](s S) []S {
+	return []S{s}
 }

@@ -33,15 +33,15 @@ func (g *Groupware) GetVacation(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountId, err := req.GetAccountIdForVacationResponse()
 		if err != nil {
-			return errorResponse(accountId, err)
+			return errorResponse(single(accountId), err)
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
 
 		res, sessionState, state, lang, jerr := g.jmap.GetVacationResponse(accountId, req.session, req.ctx, logger, req.language())
 		if jerr != nil {
-			return req.errorResponseFromJmap(accountId, jerr)
+			return req.errorResponseFromJmap(single(accountId), jerr)
 		}
-		return etagResponse(accountId, res, sessionState, VacationResponseResponseObjectType, state, lang)
+		return etagResponse(single(accountId), res, sessionState, VacationResponseResponseObjectType, state, lang)
 	})
 }
 
@@ -69,21 +69,21 @@ func (g *Groupware) SetVacation(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountId, err := req.GetAccountIdForVacationResponse()
 		if err != nil {
-			return errorResponse(accountId, err)
+			return errorResponse(single(accountId), err)
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
 
 		var body jmap.VacationResponsePayload
 		err = req.body(&body)
 		if err != nil {
-			return errorResponse(accountId, err)
+			return errorResponse(single(accountId), err)
 		}
 
 		res, sessionState, state, lang, jerr := g.jmap.SetVacationResponse(accountId, body, req.session, req.ctx, logger, req.language())
 		if jerr != nil {
-			return req.errorResponseFromJmap(accountId, jerr)
+			return req.errorResponseFromJmap(single(accountId), jerr)
 		}
 
-		return etagResponse(accountId, res, sessionState, VacationResponseResponseObjectType, state, lang)
+		return etagResponse(single(accountId), res, sessionState, VacationResponseResponseObjectType, state, lang)
 	})
 }

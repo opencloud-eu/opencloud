@@ -163,10 +163,10 @@ func (g *Groupware) Index(w http.ResponseWriter, r *http.Request) {
 
 		boot, sessionState, state, lang, err := g.jmap.GetBootstrap(accountIds, req.session, req.ctx, req.logger, req.language())
 		if err != nil {
-			return req.errorResponseFromJmap(joinAccountIds(accountIds), err)
+			return req.errorResponseFromJmap(accountIds, err)
 		}
 
-		return etagResponse(joinAccountIds(accountIds), IndexResponse{
+		return etagResponse(accountIds, IndexResponse{
 			Version:         Version,
 			Capabilities:    Capabilities,
 			Limits:          buildIndexLimits(req.session),
