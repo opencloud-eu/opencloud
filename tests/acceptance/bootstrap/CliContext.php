@@ -904,7 +904,7 @@ class CliContext implements Context {
 		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath();
 		$body = [
-			"command" => "xattr -p -slz " . escapeshellarg($attribute) . " $storagePath/$userUuid/$file",
+			"command" => "getfattr -n " . escapeshellarg($attribute) . " --only-values $storagePath/$userUuid/$file",
 			"raw" => true
 		];
 		$this->featureContext->setResponse(CliHelper::runCommand($body));
