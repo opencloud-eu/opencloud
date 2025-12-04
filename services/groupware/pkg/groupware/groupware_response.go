@@ -31,14 +31,14 @@ type Response struct {
 	err             *Error
 	etag            jmap.State
 	objectType      ResponseObjectType
-	accountId       string
+	accountIds      []string
 	sessionState    jmap.SessionState
 	contentLanguage jmap.Language
 }
 
-func errorResponse(accountId string, err *Error) Response {
+func errorResponse(accountIds []string, err *Error) Response {
 	return Response{
-		accountId:    accountId,
+		accountIds:   accountIds,
 		body:         nil,
 		err:          err,
 		etag:         "",
@@ -46,9 +46,9 @@ func errorResponse(accountId string, err *Error) Response {
 	}
 }
 
-func errorResponseWithSessionState(accountId string, err *Error, sessionState jmap.SessionState) Response {
+func errorResponseWithSessionState(accountIds []string, err *Error, sessionState jmap.SessionState) Response {
 	return Response{
-		accountId:    accountId,
+		accountIds:   accountIds,
 		body:         nil,
 		err:          err,
 		etag:         "",
@@ -56,9 +56,9 @@ func errorResponseWithSessionState(accountId string, err *Error, sessionState jm
 	}
 }
 
-func response(accountId string, body any, sessionState jmap.SessionState, contentLanguage jmap.Language) Response {
+func response(accountIds []string, body any, sessionState jmap.SessionState, contentLanguage jmap.Language) Response {
 	return Response{
-		accountId:       accountId,
+		accountIds:      accountIds,
 		body:            body,
 		err:             nil,
 		etag:            jmap.State(sessionState),
@@ -67,9 +67,9 @@ func response(accountId string, body any, sessionState jmap.SessionState, conten
 	}
 }
 
-func etagResponse(accountId string, body any, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State, contentLanguage jmap.Language) Response {
+func etagResponse(accountIds []string, body any, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State, contentLanguage jmap.Language) Response {
 	return Response{
-		accountId:       accountId,
+		accountIds:      accountIds,
 		body:            body,
 		err:             nil,
 		etag:            etag,
@@ -92,9 +92,9 @@ func etagOnlyResponse(body any, etag jmap.State, objectType ResponseObjectType, 
 }
 */
 
-func noContentResponse(accountId string, sessionState jmap.SessionState) Response {
+func noContentResponse(accountIds []string, sessionState jmap.SessionState) Response {
 	return Response{
-		accountId:    accountId,
+		accountIds:   accountIds,
 		body:         nil,
 		status:       http.StatusNoContent,
 		err:          nil,
@@ -103,9 +103,9 @@ func noContentResponse(accountId string, sessionState jmap.SessionState) Respons
 	}
 }
 
-func noContentResponseWithEtag(accountId string, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State) Response {
+func noContentResponseWithEtag(accountIds []string, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State) Response {
 	return Response{
-		accountId:    accountId,
+		accountIds:   accountIds,
 		body:         nil,
 		status:       http.StatusNoContent,
 		err:          nil,
@@ -139,9 +139,9 @@ func timeoutResponse(sessionState jmap.SessionState) Response {
 }
 */
 
-func notFoundResponse(accountId string, sessionState jmap.SessionState) Response {
+func notFoundResponse(accountIds []string, sessionState jmap.SessionState) Response {
 	return Response{
-		accountId:    accountId,
+		accountIds:   accountIds,
 		body:         nil,
 		status:       http.StatusNotFound,
 		err:          nil,
@@ -150,9 +150,9 @@ func notFoundResponse(accountId string, sessionState jmap.SessionState) Response
 	}
 }
 
-func etagNotFoundResponse(accountId string, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State, contentLanguage jmap.Language) Response {
+func etagNotFoundResponse(accountIds []string, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State, contentLanguage jmap.Language) Response {
 	return Response{
-		accountId:       accountId,
+		accountIds:      accountIds,
 		body:            nil,
 		status:          http.StatusNotFound,
 		err:             nil,

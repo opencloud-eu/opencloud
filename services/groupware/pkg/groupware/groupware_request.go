@@ -170,8 +170,8 @@ func (r Request) parameterError(param string, detail string) *Error {
 		withSource(&ErrorSource{Parameter: param}))
 }
 
-func (r Request) parameterErrorResponse(accountId string, param string, detail string) Response {
-	return errorResponse(accountId, r.parameterError(param, detail))
+func (r Request) parameterErrorResponse(accountIds []string, param string, detail string) Response {
+	return errorResponse(accountIds, r.parameterError(param, detail))
 }
 
 func (r Request) getStringParam(param string, defaultValue string) (string, bool) {
@@ -355,7 +355,7 @@ func (r Request) observeJmapError(jerr jmap.Error) jmap.Error {
 func (r Request) needTask(accountId string) (bool, Response) {
 	if !IgnoreSessionCapabilityChecks {
 		if r.session.Capabilities.Tasks == nil {
-			return false, errorResponseWithSessionState(accountId, r.apiError(&ErrorMissingTasksSessionCapability), r.session.State)
+			return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorMissingTasksSessionCapability), r.session.State)
 		}
 	}
 	return true, Response{}
@@ -367,11 +367,11 @@ func (r Request) needTaskForAccount(accountId string) (bool, Response) {
 	}
 	account, ok := r.session.Accounts[accountId]
 	if !ok {
-		return false, errorResponseWithSessionState(accountId, r.apiError(&ErrorAccountNotFound), r.session.State)
+		return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorAccountNotFound), r.session.State)
 	}
 	if !IgnoreSessionCapabilityChecks {
 		if account.AccountCapabilities.Tasks == nil {
-			return false, errorResponseWithSessionState(accountId, r.apiError(&ErrorMissingTasksAccountCapability), r.session.State)
+			return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorMissingTasksAccountCapability), r.session.State)
 		}
 	}
 	return true, Response{}
@@ -380,7 +380,7 @@ func (r Request) needTaskForAccount(accountId string) (bool, Response) {
 func (r Request) needTaskWithAccount() (bool, string, Response) {
 	accountId, err := r.GetAccountIdForTask()
 	if err != nil {
-		return false, "", errorResponse(accountId, err)
+		return false, "", errorResponse(single(accountId), err)
 	}
 	if !IgnoreSessionCapabilityChecks {
 		if ok, resp := r.needTaskForAccount(accountId); !ok {
@@ -393,7 +393,7 @@ func (r Request) needTaskWithAccount() (bool, string, Response) {
 func (r Request) needCalendar(accountId string) (bool, Response) {
 	if !IgnoreSessionCapabilityChecks {
 		if r.session.Capabilities.Calendars == nil {
-			return false, errorResponseWithSessionState(accountId, r.apiError(&ErrorMissingCalendarsSessionCapability), r.session.State)
+			return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorMissingCalendarsSessionCapability), r.session.State)
 		}
 	}
 	return true, Response{}
@@ -405,11 +405,11 @@ func (r Request) needCalendarForAccount(accountId string) (bool, Response) {
 	}
 	account, ok := r.session.Accounts[accountId]
 	if !ok {
-		return false, errorResponseWithSessionState(accountId, r.apiError(&ErrorAccountNotFound), r.session.State)
+		return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorAccountNotFound), r.session.State)
 	}
 	if !IgnoreSessionCapabilityChecks {
 		if account.AccountCapabilities.Calendars == nil {
-			return false, errorResponseWithSessionState(accountId, r.apiError(&ErrorMissingCalendarsAccountCapability), r.session.State)
+			return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorMissingCalendarsAccountCapability), r.session.State)
 		}
 	}
 	return true, Response{}
@@ -418,7 +418,7 @@ func (r Request) needCalendarForAccount(accountId string) (bool, Response) {
 func (r Request) needCalendarWithAccount() (bool, string, Response) {
 	accountId, err := r.GetAccountIdForCalendar()
 	if err != nil {
-		return false, "", errorResponse(accountId, err)
+		return false, "", errorResponse(single(accountId), err)
 	}
 	if !IgnoreSessionCapabilityChecks {
 		if ok, resp := r.needCalendarForAccount(accountId); !ok {
@@ -430,7 +430,7 @@ func (r Request) needCalendarWithAccount() (bool, string, Response) {
 
 func (r Request) needContact(accountId string) (bool, Response) {
 	if r.session.Capabilities.Contacts == nil {
-		return false, errorResponseWithSessionState(accountId, r.apiError(&ErrorMissingContactsSessionCapability), r.session.State)
+		return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorMissingContactsSessionCapability), r.session.State)
 	}
 	return true, Response{}
 }
@@ -441,10 +441,10 @@ func (r Request) needContactForAccount(accountId string) (bool, Response) {
 	}
 	account, ok := r.session.Accounts[accountId]
 	if !ok {
-		return false, errorResponseWithSessionState(accountId, r.apiError(&ErrorAccountNotFound), r.session.State)
+		return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorAccountNotFound), r.session.State)
 	}
 	if account.AccountCapabilities.Contacts == nil {
-		return false, errorResponseWithSessionState(accountId, r.apiError(&ErrorMissingContactsAccountCapability), r.session.State)
+		return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorMissingContactsAccountCapability), r.session.State)
 	}
 	return true, Response{}
 }
@@ -452,7 +452,7 @@ func (r Request) needContactForAccount(accountId string) (bool, Response) {
 func (r Request) needContactWithAccount() (bool, string, Response) {
 	accountId, err := r.GetAccountIdForContact()
 	if err != nil {
-		return false, "", errorResponse(accountId, err)
+		return false, "", errorResponse(single(accountId), err)
 	}
 	if ok, resp := r.needContactForAccount(accountId); !ok {
 		return false, accountId, resp

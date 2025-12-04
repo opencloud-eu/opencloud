@@ -18,13 +18,13 @@ func (g *Groupware) GetBlobMeta(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountId, err := req.GetAccountIdForBlob()
 		if err != nil {
-			return errorResponse(accountId, err)
+			return errorResponse(single(accountId), err)
 		}
 		l := req.logger.With().Str(logAccountId, accountId)
 
 		blobId := chi.URLParam(req.r, UriParamBlobId)
 		if blobId == "" {
-			return req.parameterErrorResponse(accountId, UriParamBlobId, fmt.Sprintf("Invalid value for path parameter '%v': empty", UriParamBlobId))
+			return req.parameterErrorResponse(single(accountId), UriParamBlobId, fmt.Sprintf("Invalid value for path parameter '%v': empty", UriParamBlobId))
 		}
 		l = l.Str(UriParamBlobId, blobId)
 
@@ -32,13 +32,13 @@ func (g *Groupware) GetBlobMeta(w http.ResponseWriter, r *http.Request) {
 
 		res, sessionState, state, lang, jerr := g.jmap.GetBlobMetadata(accountId, req.session, req.ctx, logger, req.language(), blobId)
 		if jerr != nil {
-			return req.errorResponseFromJmap(accountId, jerr)
+			return req.errorResponseFromJmap(single(accountId), jerr)
 		}
 		blob := res
 		if blob == nil {
-			return notFoundResponse(accountId, sessionState)
+			return notFoundResponse(single(accountId), sessionState)
 		}
-		return etagResponse(accountId, res, sessionState, BlobResponseObjectType, state, lang)
+		return etagResponse(single(accountId), res, sessionState, BlobResponseObjectType, state, lang)
 	})
 }
 
@@ -57,16 +57,16 @@ func (g *Groupware) UploadBlob(w http.ResponseWriter, r *http.Request) {
 
 		accountId, err := req.GetAccountIdForBlob()
 		if err != nil {
-			return errorResponse(accountId, err)
+			return errorResponse(single(accountId), err)
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
 
 		resp, lang, jerr := g.jmap.UploadBlobStream(accountId, req.session, req.ctx, logger, req.language(), contentType, body)
 		if jerr != nil {
-			return req.errorResponseFromJmap(accountId, jerr)
+			return req.errorResponseFromJmap(single(accountId), jerr)
 		}
 
-		return response(accountId, resp, req.session.State, lang)
+		return response(single(accountId), resp, req.session.State, lang)
 	})
 }
 
