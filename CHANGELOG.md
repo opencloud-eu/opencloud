@@ -1,10 +1,14 @@
 # Changelog
 
-## [4.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.1) - 2025-12-03
+## [4.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.1) - 2025-12-04
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @JammingBen, @ScharfViktor, @individual-it
+
+### ✅ Tests
+
+- fix-get-attribute-test [[#1974](https://github.com/opencloud-eu/opencloud/pull/1974)]
 
 ### 📚 Documentation
 
