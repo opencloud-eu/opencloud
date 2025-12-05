@@ -18,8 +18,13 @@ type Emails struct {
 	Offset uint    `json:"offset,omitzero"`
 }
 
+type getEmailsResult struct {
+	emails   []Email
+	notFound []string
+}
+
 // Retrieve specific Emails by their id.
-func (j *Client) GetEmails(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string, fetchBodies bool, maxBodyValueBytes uint, markAsSeen bool, withThreads bool) ([]Email, SessionState, State, Language, Error) {
+func (j *Client) GetEmails(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string, fetchBodies bool, maxBodyValueBytes uint, markAsSeen bool, withThreads bool) ([]Email, []string, SessionState, State, Language, Error) {
 	logger = j.logger("GetEmails", session, logger)
 
 	get := EmailGetCommand{AccountId: accountId, Ids: ids, FetchAllBodyValues: fetchBodies}
@@ -52,35 +57,36 @@ func (j *Client) GetEmails(accountId string, session *Session, ctx context.Conte
 	cmd, err := j.request(session, logger, methodCalls...)
 	if err != nil {
 		logger.Error().Err(err).Send()
-		return nil, "", "", "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return nil, nil, "", "", "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) ([]Email, State, Error) {
+	result, sessionState, state, language, gwerr := command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (getEmailsResult, State, Error) {
 		if markAsSeen {
 			var markResponse EmailSetResponse
 			err = retrieveResponseMatchParameters(logger, body, CommandEmailSet, "0", &markResponse)
 			if err != nil {
-				return nil, "", err
+				return getEmailsResult{}, "", err
 			}
 			for _, seterr := range markResponse.NotUpdated {
 				// TODO we don't have a way to compose multiple set errors yet
-				return nil, "", setErrorError(seterr, EmailType)
+				return getEmailsResult{}, "", setErrorError(seterr, EmailType)
 			}
 		}
 		var response EmailGetResponse
 		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "1", &response)
 		if err != nil {
-			return nil, "", err
+			return getEmailsResult{}, "", err
 		}
 		if withThreads {
 			var threads ThreadGetResponse
 			err = retrieveResponseMatchParameters(logger, body, CommandThreadGet, "2", &threads)
 			if err != nil {
-				return nil, "", err
+				return getEmailsResult{}, "", err
 			}
 			setThreadSize(&threads, response.List)
 		}
-		return response.List, response.State, nil
+		return getEmailsResult{emails: response.List, notFound: response.NotFound}, response.State, nil
 	})
+	return result.emails, result.notFound, sessionState, state, language, gwerr
 }
 
 func (j *Client) GetEmailBlobId(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, id string) (string, SessionState, State, Language, Error) {
@@ -890,7 +896,7 @@ func (j *Client) SubmitEmail(accountId string, identityId string, emailId string
 			return EmailSubmission{}, "", err
 		}
 
-		if emailId := structs.FirstKey(setResponse.Updated); emailId != nil && len(setResponse.Updated) == 1 {
+		if len(setResponse.Updated) == 1 {
 			var getResponse EmailSubmissionGetResponse
 			err = retrieveResponseMatchParameters(logger, body, CommandEmailSubmissionGet, "1", &getResponse)
 			if err != nil {

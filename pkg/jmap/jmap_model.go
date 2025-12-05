@@ -1390,7 +1390,6 @@ type MailboxFilterElement interface {
 }
 
 type MailboxFilterCondition struct {
-	MailboxFilterElement
 	ParentId     string `json:"parentId,omitempty"`
 	Name         string `json:"name,omitempty"`
 	Role         string `json:"role,omitempty"`
@@ -1398,13 +1397,16 @@ type MailboxFilterCondition struct {
 	IsSubscribed *bool  `json:"isSubscribed,omitempty"`
 }
 
+func (c MailboxFilterCondition) _isAMailboxFilterElement() {}
+
 var _ MailboxFilterElement = &MailboxFilterCondition{}
 
 type MailboxFilterOperator struct {
-	MailboxFilterElement
 	Operator   FilterOperatorTerm     `json:"operator"`
 	Conditions []MailboxFilterElement `json:"conditions,omitempty"`
 }
+
+func (c MailboxFilterOperator) _isAMailboxFilterElement() {}
 
 var _ MailboxFilterElement = &MailboxFilterOperator{}
 
@@ -2840,7 +2842,7 @@ type EmailGetResponse struct {
 	// This array contains the ids passed to the method for records that do not exist.
 	//
 	// The array is empty if all requested ids were found or if the ids argument passed in was either null or an empty array.
-	NotFound []any `json:"notFound"`
+	NotFound []string `json:"notFound"`
 }
 
 type EmailChangesResponse struct {

@@ -134,6 +134,106 @@ func TestEmails(t *testing.T) {
 	}
 }
 
+func TestSendingEmails(t *testing.T) {
+	if skip(t) {
+		return
+	}
+
+	require := require.New(t)
+
+	s, err := newStalwartTest(t)
+	require.NoError(err)
+	defer s.Close()
+
+	accountId := s.session.PrimaryAccounts.Mail
+
+	var mailboxPerRole map[string]Mailbox
+	{
+		mailboxes, _, _, _, err := s.client.GetAllMailboxes([]string{accountId}, s.session, s.ctx, s.logger, "")
+		require.NoError(err)
+		mailboxPerRole = structs.Index(mailboxes[accountId], func(m Mailbox) string { return m.Role })
+		require.Contains(mailboxPerRole, JmapMailboxRoleInbox)
+		require.Contains(mailboxPerRole, JmapMailboxRoleDrafts)
+		require.Contains(mailboxPerRole, JmapMailboxRoleSent)
+		require.Contains(mailboxPerRole, JmapMailboxRoleTrash)
+	}
+	{
+		roles := []string{JmapMailboxRoleDrafts, JmapMailboxRoleSent, JmapMailboxRoleInbox}
+		m, _, _, _, err := s.client.SearchMailboxIdsPerRole([]string{accountId}, s.session, s.ctx, s.logger, "", roles)
+		require.NoError(err)
+		require.Contains(m, accountId)
+		a := m[accountId]
+		for _, role := range roles {
+			require.Contains(a, role)
+		}
+	}
+
+	{
+		var identity Identity
+		{
+			identities, _, _, _, err := s.client.GetAllIdentities(accountId, s.session, s.ctx, s.logger, "")
+			require.NoError(err)
+			require.NotEmpty(identities)
+			identity = identities[0]
+		}
+
+		create := EmailCreate{
+			Keywords:   toBoolMapS("test"),
+			Subject:    "testing 123",
+			MailboxIds: toBoolMapS(mailboxPerRole[JmapMailboxRoleDrafts].Id),
+		}
+		created, _, _, _, err := s.client.CreateEmail(accountId, create, "", s.session, s.ctx, s.logger, "")
+		require.NoError(err)
+		require.NotEmpty(created.Id)
+
+		{
+			emails, notFound, _, _, _, err := s.client.GetEmails(accountId, s.session, s.ctx, s.logger, "", []string{created.Id}, true, 0, false, false)
+			require.NoError(err)
+			require.Len(emails, 1)
+			require.Empty(notFound)
+			email := emails[0]
+			require.Equal(created.Id, email.Id)
+			require.Len(email.MailboxIds, 1)
+			require.Contains(email.MailboxIds, mailboxPerRole[JmapMailboxRoleDrafts].Id)
+		}
+
+		update := EmailCreate{
+			To:         []EmailAddress{{Name: identity.Name, Email: identity.Email}},
+			Keywords:   toBoolMapS("test"),
+			Subject:    "testing 1234",
+			MailboxIds: toBoolMapS(mailboxPerRole[JmapMailboxRoleDrafts].Id),
+		}
+		updated, _, _, _, err := s.client.CreateEmail(accountId, update, created.Id, s.session, s.ctx, s.logger, "")
+		require.NoError(err)
+		require.NotEmpty(updated.Id)
+		require.NotEqual(created.Id, updated.Id)
+
+		var updatedMailboxId string
+		{
+			emails, notFound, _, _, _, err := s.client.GetEmails(accountId, s.session, s.ctx, s.logger, "", []string{created.Id, updated.Id}, true, 0, false, false)
+			require.NoError(err)
+			require.Len(emails, 1)
+			require.Len(notFound, 1)
+			email := emails[0]
+			require.Equal(updated.Id, email.Id)
+			require.Len(email.MailboxIds, 1)
+			require.Contains(email.MailboxIds, mailboxPerRole[JmapMailboxRoleDrafts].Id)
+			require.Equal(notFound[0], created.Id)
+			var ok bool
+			updatedMailboxId, ok = structs.FirstKey(email.MailboxIds)
+			require.True(ok)
+		}
+
+		move := MoveMail{
+			FromMailboxId: updatedMailboxId,
+			ToMailboxId:   mailboxPerRole[JmapMailboxRoleSent].Id,
+		}
+
+		sub, _, _, _, err := s.client.SubmitEmail(accountId, identity.Id, updated.Id, &move, s.session, s.ctx, s.logger, "")
+		fmt.Printf("sub: %v\n", sub)
+	}
+}
+
 func matchEmail(t *testing.T, actual Email, expected filledMail, hasBodies bool) {
 	require := require.New(t)
 	require.Len(actual.MessageId, 1)

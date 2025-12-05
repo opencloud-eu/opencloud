@@ -114,6 +114,46 @@ func (j *Client) SearchMailboxes(accountIds []string, session *Session, ctx cont
 	})
 }
 
+func (j *Client) SearchMailboxIdsPerRole(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, roles []string) (map[string]map[string]string, SessionState, State, Language, Error) {
+	logger = j.logger("SearchMailboxIdsPerRole", session, logger)
+
+	uniqueAccountIds := structs.Uniq(accountIds)
+
+	invocations := make([]Invocation, len(uniqueAccountIds)*len(roles))
+	for i, accountId := range uniqueAccountIds {
+		for j, role := range roles {
+			invocations[i*len(roles)+j] = invocation(CommandMailboxQuery, MailboxQueryCommand{AccountId: accountId, Filter: MailboxFilterCondition{Role: role}}, mcid(accountId, role))
+		}
+	}
+	cmd, err := j.request(session, logger, invocations...)
+	if err != nil {
+		return nil, "", "", "", err
+	}
+
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]map[string]string, State, Error) {
+		resp := map[string]map[string]string{}
+		stateByAccountid := map[string]State{}
+		for _, accountId := range uniqueAccountIds {
+			mailboxIdsByRole := map[string]string{}
+			for _, role := range roles {
+				var response MailboxQueryResponse
+				err = retrieveResponseMatchParameters(logger, body, CommandMailboxQuery, mcid(accountId, role), &response)
+				if err != nil {
+					return nil, "", err
+				}
+				if len(response.Ids) == 1 {
+					mailboxIdsByRole[role] = response.Ids[0]
+				}
+				if _, ok := stateByAccountid[accountId]; !ok {
+					stateByAccountid[accountId] = response.QueryState
+				}
+			}
+			resp[accountId] = mailboxIdsByRole
+		}
+		return resp, squashState(stateByAccountid), nil
+	})
+}
+
 type MailboxChanges struct {
 	Destroyed      []string `json:"destroyed,omitzero"`
 	HasMoreChanges bool     `json:"hasMoreChanges,omitzero"`
