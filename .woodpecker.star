@@ -74,11 +74,11 @@ OC_FED_DOMAIN = "%s:10200" % FED_OC_SERVER_NAME
 event = {
     "base": {
         "event": ["push", "manual"],
-        "branch": "main",
+        "branch": "stable-*",
     },
     "cron": {
         "event": "cron",
-        "branch": "main",
+        "branch": "stable-*",
     },
     "pull_request": {
         "event": "pull_request",
