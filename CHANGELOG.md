@@ -4,7 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@JammingBen, @ScharfViktor, @individual-it
+@JammingBen, @ScharfViktor, @individual-it, @micbar
+
+### 🐛 Bug Fixes
+
+- fix: enhance resource creation with detailed process information [[#1978](https://github.com/opencloud-eu/opencloud/pull/1978)]
 
 ### ✅ Tests
 
