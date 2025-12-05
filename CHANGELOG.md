@@ -1,6 +1,6 @@
 # Changelog
 
-## [4.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.1) - 2025-12-04
+## [4.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.1) - 2025-12-05
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -8,6 +8,7 @@
 
 ### ✅ Tests
 
+- check propfing after renaming data in file system [[#1809](https://github.com/opencloud-eu/opencloud/pull/1809)]
 - fix-get-attribute-test [[#1974](https://github.com/opencloud-eu/opencloud/pull/1974)]
 
 ### 📚 Documentation
