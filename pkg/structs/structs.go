@@ -170,11 +170,12 @@ func Missing[E comparable](expected, actual []E) []E {
 	return missing
 }
 
-func FirstKey[K comparable, V any](m map[K]V) *K {
+func FirstKey[K comparable, V any](m map[K]V) (K, bool) {
 	for k := range m {
-		return &k
+		return k, true
 	}
-	return nil
+	var zero K
+	return zero, false
 }
 
 func Any[E any](s []E, predicate func(E) bool) bool {

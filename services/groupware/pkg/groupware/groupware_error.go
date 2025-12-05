@@ -199,6 +199,8 @@ const (
 	ErrorCodeFailedToDeleteSomeIdentities      = "DELSID"
 	ErrorCodeFailedToSanitizeEmail             = "FSANEM"
 	ErrorCodeFailedToDeleteContact             = "DELCNT"
+	ErrorCodeNoMailboxWithDraftRole            = "NMBXDR"
+	ErrorCodeNoMailboxWithSentRole             = "NMBXSE"
 )
 
 var (
@@ -447,6 +449,18 @@ var (
 		Code:   ErrorCodeFailedToDeleteContact,
 		Title:  "Failed to delete contacts",
 		Detail: "One or more contacts could not be deleted.",
+	}
+	ErrorNoMailboxWithDraftRole = GroupwareError{
+		Status: http.StatusExpectationFailed,
+		Code:   ErrorCodeNoMailboxWithDraftRole,
+		Title:  "Failed to find a Mailbox with the drafts role",
+		Detail: "We could not find a Mailbox that has the drafts role to store a draft email in.",
+	}
+	ErrorNoMailboxWithSentRole = GroupwareError{
+		Status: http.StatusExpectationFailed,
+		Code:   ErrorCodeNoMailboxWithSentRole,
+		Title:  "Failed to find a Mailbox with the sent role",
+		Detail: "We could not find a Mailbox that has the sent role to store a sent email in.",
 	}
 )
 

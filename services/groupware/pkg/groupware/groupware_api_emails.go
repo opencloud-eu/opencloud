@@ -17,6 +17,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/metrics"
 )
 
@@ -208,7 +209,7 @@ func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) {
 			if len(ids) == 1 {
 				logger := log.From(l.Str("id", log.SafeString(id)))
 
-				emails, sessionState, state, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), ids, true, g.maxBodyValueBytes, markAsSeen, true)
+				emails, _, sessionState, state, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), ids, true, g.maxBodyValueBytes, markAsSeen, true)
 				if jerr != nil {
 					return req.errorResponseFromJmap(single(accountId), jerr)
 				}
@@ -224,7 +225,7 @@ func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) {
 			} else {
 				logger := log.From(l.Array("ids", log.SafeStringArray(ids)))
 
-				emails, sessionState, state, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), ids, true, g.maxBodyValueBytes, markAsSeen, false)
+				emails, _, sessionState, state, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), ids, true, g.maxBodyValueBytes, markAsSeen, false)
 				if jerr != nil {
 					return req.errorResponseFromJmap(single(accountId), jerr)
 				}
@@ -274,7 +275,7 @@ func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) 
 			}
 			l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
 			logger := log.From(l)
-			emails, sessionState, state, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), []string{id}, false, 0, false, false)
+			emails, _, sessionState, state, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), []string{id}, false, 0, false, false)
 			if jerr != nil {
 				return req.errorResponseFromJmap(single(accountId), jerr)
 			}
@@ -302,7 +303,7 @@ func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) 
 			l = contextAppender(l)
 			logger := log.From(l)
 
-			emails, _, _, lang, jerr := g.jmap.GetEmails(mailAccountId, req.session, req.ctx, logger, req.language(), []string{id}, false, 0, false, false)
+			emails, _, _, _, lang, jerr := g.jmap.GetEmails(mailAccountId, req.session, req.ctx, logger, req.language(), []string{id}, false, 0, false, false)
 			if jerr != nil {
 				return req.apiErrorFromJmap(req.observeJmapError(jerr))
 			}
@@ -744,6 +745,63 @@ func (g *Groupware) GetEmailsForAllAccounts(w http.ResponseWriter, r *http.Reque
 	})
 }
 
+var draftEmailAutoMailboxRolePrecedence = []string{
+	jmap.JmapMailboxRoleDrafts, // we want draft emails to be created in the Mailbox with the drafts role
+	jmap.JmapMailboxRoleInbox,  // but if there is none, we will use the Mailbox with the inbox role instead
+}
+
+func findDraftsMailboxId(j *jmap.Client, accountId string, req Request, logger *log.Logger) (string, Response) {
+	mailboxIdsPerAccountIds, _, _, _, jerr := j.SearchMailboxIdsPerRole(single(accountId), req.session, req.ctx, logger, req.language(), draftEmailAutoMailboxRolePrecedence)
+	if jerr != nil {
+		return "", req.errorResponseFromJmap(single(accountId), jerr)
+	} else {
+		for _, role := range draftEmailAutoMailboxRolePrecedence {
+			if mailboxId, ok := mailboxIdsPerAccountIds[accountId][role]; ok {
+				return mailboxId, Response{}
+			}
+		}
+		// couldn't find a Mailbox with the drafts role for that account,
+		// we have to return an error... ?
+		return "", errorResponse(single(accountId), apiError(req.errorId(), ErrorNoMailboxWithDraftRole))
+	}
+}
+
+var sentEmailAutoMailboxRolePrecedence = []string{
+	jmap.JmapMailboxRoleSent,  // we want sent emails to be created in the Mailbox with the sent role
+	jmap.JmapMailboxRoleInbox, // but if there is none, we will use the Mailbox with the inbox role instead
+}
+
+var draftAndSentMailboxRoles = structs.Uniq(structs.Concat(draftEmailAutoMailboxRolePrecedence, sentEmailAutoMailboxRolePrecedence))
+
+func findSentMailboxId(j *jmap.Client, accountId string, req Request, logger *log.Logger) (string, string, Response) {
+	mailboxIdsPerAccountIds, _, _, _, jerr := j.SearchMailboxIdsPerRole(single(accountId), req.session, req.ctx, logger, req.language(), draftAndSentMailboxRoles)
+	if jerr != nil {
+		return "", "", req.errorResponseFromJmap(single(accountId), jerr)
+	} else {
+		sentMailboxId := ""
+		for _, role := range sentEmailAutoMailboxRolePrecedence {
+			if mailboxId, ok := mailboxIdsPerAccountIds[accountId][role]; ok {
+				sentMailboxId = mailboxId
+				break
+			}
+		}
+		if sentMailboxId == "" {
+			return "", "", errorResponse(single(accountId), apiError(req.errorId(), ErrorNoMailboxWithSentRole))
+		}
+		draftsMailboxId := ""
+		for _, role := range draftEmailAutoMailboxRolePrecedence {
+			if mailboxId, ok := mailboxIdsPerAccountIds[accountId][role]; ok {
+				draftsMailboxId = mailboxId
+				break
+			}
+		}
+		if draftsMailboxId == "" {
+			return "", "", errorResponse(single(accountId), apiError(req.errorId(), ErrorNoMailboxWithDraftRole))
+		}
+		return draftsMailboxId, sentMailboxId, Response{}
+	}
+}
+
 func (g *Groupware) CreateEmail(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		logger := req.logger
@@ -758,6 +816,15 @@ func (g *Groupware) CreateEmail(w http.ResponseWriter, r *http.Request) {
 		err := req.body(&body)
 		if err != nil {
 			return errorResponse(single(accountId), err)
+		}
+
+		if len(body.MailboxIds) < 1 {
+			mailboxId, resp := findDraftsMailboxId(g.jmap, accountId, req, logger)
+			if mailboxId != "" {
+				body.MailboxIds[mailboxId] = true
+			} else {
+				return resp
+			}
 		}
 
 		created, sessionState, state, lang, jerr := g.jmap.CreateEmail(accountId, body, "", req.session, req.ctx, logger, req.language())
@@ -786,6 +853,15 @@ func (g *Groupware) ReplaceEmail(w http.ResponseWriter, r *http.Request) {
 		err := req.body(&body)
 		if err != nil {
 			return errorResponse(single(accountId), err)
+		}
+
+		if len(body.MailboxIds) < 1 {
+			mailboxId, resp := findDraftsMailboxId(g.jmap, accountId, req, logger)
+			if mailboxId != "" {
+				body.MailboxIds[mailboxId] = true
+			} else {
+				return resp
+			}
 		}
 
 		created, sessionState, state, lang, jerr := g.jmap.CreateEmail(accountId, body, replaceId, req.session, req.ctx, logger, req.language())
@@ -1174,22 +1250,25 @@ func (g *Groupware) SendEmail(w http.ResponseWriter, r *http.Request) {
 		{
 			moveFromMailboxId, _ := req.getStringParam(QueryParamMoveFromMailboxId, "")
 			moveToMailboxId, _ := req.getStringParam(QueryParamMoveToMailboxId, "")
-			if moveFromMailboxId != "" && moveToMailboxId != "" {
-				move = &jmap.MoveMail{FromMailboxId: moveFromMailboxId, ToMailboxId: moveToMailboxId}
-				l.Str(QueryParamMoveFromMailboxId, log.SafeString(moveFromMailboxId)).Str(QueryParamMoveToMailboxId, log.SafeString(moveFromMailboxId))
-			} else if moveFromMailboxId == "" && moveToMailboxId == "" {
-				// nothing to change
-			} else {
-				missing := moveFromMailboxId
-				if moveFromMailboxId == "" {
-					missing = moveFromMailboxId
+
+			if moveFromMailboxId == "" || moveToMailboxId == "" {
+				draftsMailboxId, sentMailboxId, resp := findSentMailboxId(g.jmap, accountId, req, req.logger)
+				if draftsMailboxId != "" && sentMailboxId != "" {
+					if moveFromMailboxId == "" {
+						moveFromMailboxId = draftsMailboxId
+					}
+					if moveToMailboxId == "" {
+						moveToMailboxId = sentMailboxId
+					}
+				} else {
+					return resp
 				}
-				// only one is set
-				msg := fmt.Sprintf("Missing required value for query parameter '%v'", missing)
-				return errorResponse(single(accountId), req.observedParameterError(ErrorMissingMandatoryRequestParameter,
-					withDetail(msg),
-					withSource(&ErrorSource{Parameter: missing})))
 			}
+
+			// TODO some parameter to prevent moving the sent email from one Mailbox to another?
+
+			move = &jmap.MoveMail{FromMailboxId: moveFromMailboxId, ToMailboxId: moveToMailboxId}
+			l.Str(QueryParamMoveFromMailboxId, log.SafeString(moveFromMailboxId)).Str(QueryParamMoveToMailboxId, log.SafeString(moveFromMailboxId))
 		}
 
 		logger := log.From(l)
@@ -1285,7 +1364,7 @@ func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) {
 
 		reqId := req.GetRequestId()
 		getEmailsBefore := time.Now()
-		emails, sessionState, state, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), []string{id}, true, g.maxBodyValueBytes, false, false)
+		emails, _, sessionState, state, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), []string{id}, true, g.maxBodyValueBytes, false, false)
 		getEmailsDuration := time.Since(getEmailsBefore)
 		if jerr != nil {
 			return req.errorResponseFromJmap(single(accountId), jerr)
