@@ -27,8 +27,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/pretty"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -50,18 +48,33 @@ const (
 	Wireshark = ""
 )
 
+type User struct {
+	name        string
+	description string
+	email       string
+	password    string
+}
+
+func userpassword() string {
+	password, err := pw.Generate(4+rand.Intn(28), 2, 0, false, true)
+	if err != nil {
+		panic(err)
+	}
+	return password
+}
+
 var (
-	domains = [...]string{"earth.gov", "mars.mil", "opa.org", "acme.com"}
-	people  = [...]string{
-		"Camina Drummer",
-		"Amos Burton",
-		"James Holden",
-		"Anderson Dawes",
-		"Naomi Nagata",
-		"Klaes Ashford",
-		"Fred Johnson",
-		"Chrisjen Avasarala",
-		"Bobby Draper",
+	domains = [...]string{"earth.gov", "mars.mil", "opa.org"}
+	users   = [...]User{
+		{"cdrummer", "Camina Drummer", "camina.drummer@opa.org", userpassword()},
+		{"aburton", "Amos Burton", "amos.burton@earth.gov", userpassword()},
+		{"jholden", "James Holden", "james.holden@earth.gov", userpassword()},
+		{"adawes", "Anderson Dawes", "anderson.dawes@opa.org", userpassword()},
+		{"nnagata", "Naomi Nagata", "naomi.nagata@opa.org", userpassword()},
+		{"kashford", "Klaes Ashford", "klaes.ashford@opa.org", userpassword()},
+		{"fjohnson", "Fred Johnson", "fred.johnson@opa.org", userpassword()},
+		{"cavasarala", "Chrisjen Avasarala}", "chrissy@earth.gov", userpassword()},
+		{"bdraper", "Roberta Draper", "bobby@mars.mil", userpassword()},
 	}
 )
 
@@ -70,22 +83,16 @@ const (
 	httpPort       = "8080"
 	imapsPort      = "993"
 	configTemplate = `
-authentication.fallback-admin.secret = "$6$4qPYDVhaUHkKcY7s$bB6qhcukb9oFNYRIvaDZgbwxrMa2RvF5dumCjkBFdX19lSNqrgKltf3aPrFMuQQKkZpK2YNuQ83hB1B3NiWzj."
+authentication.fallback-admin.secret = "secret"
 authentication.fallback-admin.user = "mailadmin"
 authentication.master.secret = "{{.masterpassword}}"
 authentication.master.user = "{{.masterusername}}"
-directory.memory.principals.0000.class = "admin"
-directory.memory.principals.0000.description = "Superuser"
-directory.memory.principals.0000.email.0000 = "admin@example.org"
-directory.memory.principals.0000.name = "admin"
-directory.memory.principals.0000.secret = "secret"
-directory.memory.principals.0001.class = "individual"
-directory.memory.principals.0001.description = "{{.description}}"
-directory.memory.principals.0001.email.0000 = "{{.email}}"
-directory.memory.principals.0001.name = "{{.username}}"
-directory.memory.principals.0001.secret = "{{.password}}"
-directory.memory.principals.0001.storage.directory = "memory"
-directory.memory.type = "memory"
+directory.test.bind.auth.method = "default"
+directory.test.cache.size = 1048576
+directory.test.cache.ttl.negative = "10m"
+directory.test.cache.ttl.positive = "1h"
+directory.test.store = "rocksdb"
+directory.test.type = "internal"
 metrics.prometheus.enable = false
 server.listener.http.bind = "[::]:{{.httpPort}}"
 server.listener.http.protocol = "http"
@@ -100,7 +107,7 @@ server.socket.reuse-addr = true
 server.socket.reuse-port = true
 storage.blob = "rocksdb"
 storage.data = "rocksdb"
-storage.directory = "memory"
+storage.directory = "test"
 storage.fts = "rocksdb"
 storage.lookup = "rocksdb"
 store.rocksdb.compression = "lz4"
@@ -114,6 +121,14 @@ tracer.log.lossy = false
 tracer.log.multiline = false
 tracer.log.type = "stdout"
 sharing.allow-directory-query = false
+auth.dkim.sign = false
+auth.dkim.verify = "disable"
+auth.spf.verify.ehlo = "disable"
+auth.spf.verify.mail-from = "disable"
+auth.arc.verify = "disable"
+auth.arc.seal = false
+auth.dmarc.verify = "disable"
+auth.iprev.verify = "disable"
 `
 )
 
@@ -134,19 +149,16 @@ func skip(t *testing.T) bool {
 }
 
 type StalwartTest struct {
-	t              *testing.T
-	ip             string
-	imapPort       int
-	container      *testcontainers.DockerContainer
-	ctx            context.Context
-	cancelCtx      context.CancelFunc
-	client         *Client
-	session        *Session
-	username       string
-	password       string
-	logger         *clog.Logger
-	userPersonName string
-	userEmail      string
+	t           *testing.T
+	ip          string
+	imapPort    int
+	container   *testcontainers.DockerContainer
+	ctx         context.Context
+	cancelCtx   context.CancelFunc
+	client      *Client
+	logger      *clog.Logger
+	jmapBaseUrl *url.URL
+	sessionUrl  *url.URL
 
 	io.Closer
 }
@@ -160,6 +172,38 @@ func (s *StalwartTest) Close() error {
 		s.cancelCtx()
 	}
 	return nil
+}
+
+func (s *StalwartTest) Session(username string) *Session {
+	session, jerr := s.client.FetchSession(s.sessionUrl, username, s.logger)
+	require.NoError(s.t, jerr)
+	require.NotNil(s.t, session.Capabilities.Mail)
+	require.NotNil(s.t, session.Capabilities.Calendars)
+	require.NotNil(s.t, session.Capabilities.Contacts)
+
+	// we have to overwrite the hostname in JMAP URL because the container
+	// will know its name to be a random Docker container identifier, or
+	// "localhost" as we defined the hostname in the Stalwart configuration,
+	// and we also need to overwrite the port number as its not mapped
+	session.JmapUrl.Host = s.jmapBaseUrl.Host
+	session.WebsocketUrl.Host = s.jmapBaseUrl.Host
+	var err error
+	session.ApiUrl, err = replaceHost(session.ApiUrl, s.jmapBaseUrl.Host)
+	require.NoError(s.t, err)
+	session.DownloadUrl, err = replaceHost(session.DownloadUrl, s.jmapBaseUrl.Host)
+	require.NoError(s.t, err)
+	session.UploadUrl, err = replaceHost(session.UploadUrl, s.jmapBaseUrl.Host)
+	require.NoError(s.t, err)
+	session.EventSourceUrl, err = replaceHost(session.EventSourceUrl, s.jmapBaseUrl.Host)
+	require.NoError(s.t, err)
+
+	return &session
+}
+
+type stalwartTestLogConsumer struct{}
+
+func (lc *stalwartTestLogConsumer) Accept(l testcontainers.Log) {
+	fmt.Print("STALWART: " + string(l.Content))
 }
 
 func newStalwartTest(t *testing.T) (*StalwartTest, error) {
@@ -189,33 +233,11 @@ func newStalwartTest(t *testing.T) (*StalwartTest, error) {
 		masterPasswordHash = digest.Encode()
 	}
 
-	usernameSuffix, err := pw.Generate(8, 2, 0, true, true)
-	if err != nil {
-		return nil, err
-	}
-	username := "user_" + usernameSuffix
-
-	password, err := pw.Generate(4+rand.Intn(28), 2, 0, false, true)
-	if err != nil {
-		return nil, err
-	}
-
 	hostname := "localhost"
-
-	userPersonName := people[rand.Intn(len(people))]
-	var userEmail string
-	{
-		domain := domains[rand.Intn(len(domains))]
-		userEmail = strings.Join(strings.Split(cases.Lower(language.English).String(userPersonName), " "), ".") + "@" + domain
-	}
 
 	configBuf := bytes.NewBufferString("")
 	template.Must(template.New("").Parse(configTemplate)).Execute(configBuf, map[string]any{
 		"hostname":       hostname,
-		"password":       password,
-		"username":       username,
-		"description":    userPersonName,
-		"email":          userEmail,
 		"masterusername": masterUsername,
 		"masterpassword": masterPasswordHash,
 		"httpPort":       httpPort,
@@ -227,6 +249,7 @@ func newStalwartTest(t *testing.T) (*StalwartTest, error) {
 	container, err := testcontainers.Run(
 		ctx,
 		stalwartImage,
+		testcontainers.WithLogConsumers(&stalwartTestLogConsumer{}),
 		testcontainers.WithExposedPorts(httpPort+"/tcp", imapsPort+"/tcp"),
 		testcontainers.WithFiles(testcontainers.ContainerFile{
 			Reader:            configReader,
@@ -262,7 +285,8 @@ func newStalwartTest(t *testing.T) (*StalwartTest, error) {
 	loggerImpl := clog.NewLogger(clog.Level("trace"))
 	logger := &loggerImpl
 	var j Client
-	var session *Session
+	var jmapBaseUrl *url.URL
+	var sessionUrl *url.URL
 	{
 		tr := http.DefaultTransport.(*http.Transport).Clone()
 		tr.ResponseHeaderTimeout = time.Duration(30 * time.Second)
@@ -279,11 +303,12 @@ func newStalwartTest(t *testing.T) (*StalwartTest, error) {
 		if err != nil {
 			return nil, err
 		}
-		jmapBaseUrl := url.URL{
+		jmapBaseUrl = &url.URL{
 			Scheme: "http",
 			Host:   ip + ":" + jmapPort.Port(),
 			Path:   "/",
 		}
+		sessionUrl = jmapBaseUrl.JoinPath(".well-known", "jmap")
 
 		if Wireshark != "" {
 			fmt.Printf("\x1b[45;37;1m Starting Wireshark on port %v \x1b[0m\n", jmapPort)
@@ -301,8 +326,6 @@ func newStalwartTest(t *testing.T) (*StalwartTest, error) {
 			time.Sleep(10 * time.Second)
 		}
 
-		sessionUrl := jmapBaseUrl.JoinPath(".well-known", "jmap")
-
 		eventListener := nullHttpJmapApiClientEventListener{}
 
 		api := NewHttpJmapClient(
@@ -318,47 +341,139 @@ func newStalwartTest(t *testing.T) (*StalwartTest, error) {
 		}
 
 		j = NewClient(api, api, api, wscf)
-		s, err := j.FetchSession(sessionUrl, username, logger)
-		if err != nil {
-			return nil, err
-		}
-		// we have to overwrite the hostname in JMAP URL because the container
-		// will know its name to be a random Docker container identifier, or
-		// "localhost" as we defined the hostname in the Stalwart configuration,
-		// and we also need to overwrite the port number as its not mapped
-		s.JmapUrl.Host = jmapBaseUrl.Host
-		s.WebsocketUrl.Host = jmapBaseUrl.Host
-		//s.JmapEndpoint = jmapBaseUrl.Host
-		s.ApiUrl, err = replaceHost(s.ApiUrl, jmapBaseUrl.Host)
-		require.NoError(t, err)
-		s.DownloadUrl, err = replaceHost(s.DownloadUrl, jmapBaseUrl.Host)
-		require.NoError(t, err)
-		s.UploadUrl, err = replaceHost(s.UploadUrl, jmapBaseUrl.Host)
-		require.NoError(t, err)
-		s.EventSourceUrl, err = replaceHost(s.EventSourceUrl, jmapBaseUrl.Host)
-		require.NoError(t, err)
-		session = &s
 	}
 
-	require.NotNil(t, session.Capabilities.Mail)
-	require.NotNil(t, session.Capabilities.Calendars)
-	require.NotNil(t, session.Capabilities.Contacts)
+	// provision some things using Stalwart's Management API
+	{
+		var h http.Client
+		{
+			tr := http.DefaultTransport.(*http.Transport).Clone()
+			tr.ResponseHeaderTimeout = time.Duration(30 * time.Second)
+			tr.TLSClientConfig = tlsConfig
+			h = *http.DefaultClient
+			h.Transport = tr
+		}
+
+		apiPort, err := container.MappedPort(ctx, httpPort)
+		require.NoError(t, err)
+
+		url := fmt.Sprintf("http://%s:%d/api/principal", ip, apiPort.Int())
+
+		for _, domain := range domains {
+			fmt.Printf("Creating domain '%v'\n", domain)
+			bb, err := json.Marshal(map[string]any{
+				"type":        "domain",
+				"name":        domain,
+				"description": domain,
+			})
+			require.NoError(t, err)
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(bb))
+			require.NoError(t, err)
+			req.SetBasicAuth("mailadmin", "secret")
+			resp, err := h.Do(req)
+			require.NoError(t, err)
+			require.Equal(t, "200 OK", resp.Status)
+		}
+
+		for _, user := range users {
+			fmt.Printf("Creating individual '%v'\n", user.name)
+			bb, err := json.Marshal(map[string]any{
+				"type":        "individual",
+				"name":        user.name,
+				"description": user.description,
+				"emails":      user.email,
+				"roles":       []string{"user"},
+				"secrets":     user.password,
+				"quota":       20000000000,
+			})
+			require.NoError(t, err)
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(bb))
+			require.NoError(t, err)
+			req.SetBasicAuth("mailadmin", "secret")
+			resp, err := h.Do(req)
+			require.NoError(t, err)
+			require.Equal(t, "200 OK", resp.Status)
+
+			// fetch the user once with the superadmin credentials to "activate" it,
+			// it is unclear why that is needed, but without that, we get errors back
+			// that we are not allowed to access that resource
+			{
+				req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+				require.NoError(t, err)
+				req.SetBasicAuth("mailadmin", "secret")
+				resp, err := h.Do(req)
+				require.NoError(t, err)
+				require.Equal(t, "200 OK", resp.Status)
+			}
+		}
+
+		{
+			require.NoError(t, err)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+			require.NoError(t, err)
+			req.SetBasicAuth("mailadmin", "secret")
+			resp, err := h.Do(req)
+			require.NoError(t, err)
+			require.Equal(t, "200 OK", resp.Status)
+			var list struct {
+				Data struct {
+					Total int `json:"total"`
+					Items []struct {
+						Type   string   `json:"type"`
+						Id     int      `json:"id"`
+						Name   string   `json:"name"`
+						Emails []string `json:"emails"`
+						Roles  []string `json:"roles"`
+					} `json:"items"`
+				} `json:"data"`
+			}
+			bb, err := io.ReadAll(resp.Body)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+			err = json.Unmarshal(bb, &list)
+			require.NoError(t, err)
+			individuals := []struct {
+				Id     int
+				Name   string
+				Emails []string
+				Roles  []string
+			}{}
+			for _, p := range list.Data.Items {
+				if p.Type == "individual" {
+					individuals = append(individuals, struct {
+						Id     int
+						Name   string
+						Emails []string
+						Roles  []string
+					}{p.Id, p.Name, p.Emails, p.Roles})
+				}
+			}
+
+			require.Equal(t, len(users), len(individuals))
+		}
+
+		{
+			// check whether we can fetch a session for the provisioned users
+			for _, user := range users {
+				session, err := j.FetchSession(sessionUrl, user.name, logger)
+				require.NoError(t, err, "failed to retrieve JMAP session for newly created principal '%s'", user.name)
+				require.Equal(t, user.name, session.Username)
+			}
+		}
+	}
 
 	success = true
 	return &StalwartTest{
-		t:              t,
-		ip:             ip,
-		imapPort:       int(imapPort.Num()),
-		container:      container,
-		ctx:            ctx,
-		cancelCtx:      cancel,
-		client:         &j,
-		session:        session,
-		username:       username,
-		password:       password,
-		logger:         logger,
-		userPersonName: userPersonName,
-		userEmail:      userEmail,
+		t:           t,
+		ip:          ip,
+		imapPort:    int(imapPort.Num()),
+		container:   container,
+		ctx:         ctx,
+		cancelCtx:   cancel,
+		client:      &j,
+		logger:      logger,
+		jmapBaseUrl: jmapBaseUrl,
+		sessionUrl:  sessionUrl,
 	}, nil
 }
 
@@ -371,20 +486,6 @@ func replaceHost(u string, host string) (string, error) {
 		return "", fmt.Errorf("'%v' does not match '%v'", u, urlHostRegex)
 	}
 }
-
-/*
-func pickOneRandomlyFromMap[K comparable, V any](m map[K]V) (K, V) {
-	l := rand.Intn(len(m))
-	i := 0
-	for k, v := range m {
-		if i == l {
-			return k, v
-		}
-		i++
-	}
-	panic("map is empty")
-}
-*/
 
 func pickRandomlyFromMap[K comparable, V any](m map[K]V, min int, max int) map[K]V {
 	if min < 0 || max < 0 {
@@ -1021,6 +1122,10 @@ func toBoolMapS[K comparable](s ...K) map[K]bool {
 
 func pickRandom[T any](s ...T) T {
 	return s[rand.Intn(len(s))]
+}
+
+func pickUser() User {
+	return users[rand.Intn(len(users))]
 }
 
 func pickRandoms[T any](s ...T) []T {

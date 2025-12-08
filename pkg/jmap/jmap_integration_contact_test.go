@@ -39,7 +39,10 @@ func TestContacts(t *testing.T) {
 	require.NoError(err)
 	defer s.Close()
 
-	accountId, addressbookId, expectedContactCardsById, boxes, err := s.fillContacts(t, count)
+	user := pickUser()
+	session := s.Session(user.name)
+
+	accountId, addressbookId, expectedContactCardsById, boxes, err := s.fillContacts(t, count, session, user)
 	require.NoError(err)
 	require.NotEmpty(accountId)
 	require.NotEmpty(addressbookId)
@@ -51,7 +54,7 @@ func TestContacts(t *testing.T) {
 		{Property: jscontact.ContactCardPropertyCreated, IsAscending: true},
 	}
 
-	contactsByAccount, _, _, _, err := s.client.QueryContactCards([]string{accountId}, s.session, t.Context(), s.logger, "", filter, sortBy, 0, 0)
+	contactsByAccount, _, _, _, err := s.client.QueryContactCards([]string{accountId}, session, t.Context(), s.logger, "", filter, sortBy, 0, 0)
 	require.NoError(err)
 
 	require.Len(contactsByAccount, 1)
@@ -97,9 +100,11 @@ var streetNumberRegex = regexp.MustCompile(`^(\d+)\s+(.+)$`)
 func (s *StalwartTest) fillContacts(
 	t *testing.T,
 	count uint,
+	session *Session,
+	user User,
 ) (string, string, map[string]jscontact.ContactCard, ContactsBoxes, error) {
 	require := require.New(t)
-	c, err := NewTestJmapClient(s.session, s.username, s.password, true, true)
+	c, err := NewTestJmapClient(session, user.name, user.password, true, true)
 	require.NoError(err)
 	defer c.Close()
 

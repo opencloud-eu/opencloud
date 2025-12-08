@@ -38,7 +38,10 @@ func TestEvents(t *testing.T) {
 	require.NoError(err)
 	defer s.Close()
 
-	accountId, calendarId, expectedEventsById, boxes, err := s.fillEvents(t, count)
+	user := pickUser()
+	session := s.Session(user.name)
+
+	accountId, calendarId, expectedEventsById, boxes, err := s.fillEvents(t, count, session, user)
 	require.NoError(err)
 	require.NotEmpty(accountId)
 	require.NotEmpty(calendarId)
@@ -50,7 +53,7 @@ func TestEvents(t *testing.T) {
 		{Property: CalendarEventPropertyCreated, IsAscending: true},
 	}
 
-	contactsByAccount, _, _, _, err := s.client.QueryCalendarEvents([]string{accountId}, s.session, t.Context(), s.logger, "", filter, sortBy, 0, 0)
+	contactsByAccount, _, _, _, err := s.client.QueryCalendarEvents([]string{accountId}, session, t.Context(), s.logger, "", filter, sortBy, 0, 0)
 	require.NoError(err)
 
 	require.Len(contactsByAccount, 1)
@@ -85,9 +88,11 @@ type EventsBoxes struct {
 func (s *StalwartTest) fillEvents(
 	t *testing.T,
 	count uint,
+	session *Session,
+	user User,
 ) (string, string, map[string]CalendarEvent, EventsBoxes, error) {
 	require := require.New(t)
-	c, err := NewTestJmapClient(s.session, s.username, s.password, true, true)
+	c, err := NewTestJmapClient(session, user.name, user.password, true, true)
 	require.NoError(err)
 	defer c.Close()
 
@@ -245,7 +250,7 @@ func (s *StalwartTest) fillEvents(
 						virtualLocationId: virtualLocationObj,
 					},
 					Alerts: map[string]jscalendar.Alert{
-						alertId: jscalendar.Alert{
+						alertId: {
 							Type: jscalendar.AlertType,
 							Trigger: jscalendar.OffsetTrigger{
 								Type:       jscalendar.OffsetTriggerType,

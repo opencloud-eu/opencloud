@@ -845,7 +845,7 @@ func (j *Client) SubmitEmail(accountId string, identityId string, emailId string
 			id: {
 				IdentityId: identityId,
 				EmailId:    emailId,
-				// leaving Envelope empty
+				Envelope:   nil,
 			},
 		},
 		OnSuccessUpdateEmail: map[string]PatchObject{
@@ -856,13 +856,6 @@ func (j *Client) SubmitEmail(accountId string, identityId string, emailId string
 	get := EmailSubmissionGetCommand{
 		AccountId: accountId,
 		Ids:       []string{"#" + id},
-		/*
-			IdRef: &ResultReference{
-				ResultOf: "0",
-				Name:     CommandEmailSubmissionSet,
-				Path:     ["#"]"/created/" + "#" + id + "/" + EmailPropertyId,
-			},
-		*/
 	}
 
 	cmd, err := j.request(session, logger,
@@ -916,6 +909,38 @@ func (j *Client) SubmitEmail(accountId string, identityId string, emailId string
 			return EmailSubmission{}, "", err
 		}
 	})
+}
+
+type emailSubmissionResult struct {
+	submissions map[string]EmailSubmission
+	notFound    []string
+}
+
+func (j *Client) GetEmailSubmissionStatus(accountId string, submissionIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]EmailSubmission, []string, SessionState, State, Language, Error) {
+	logger = j.logger("GetEmailSubmissionStatus", session, logger)
+
+	cmd, err := j.request(session, logger, invocation(CommandEmailSubmissionGet, EmailSubmissionGetCommand{
+		AccountId: accountId,
+		Ids:       submissionIds,
+	}, "0"))
+	if err != nil {
+		return nil, nil, "", "", "", err
+	}
+
+	result, sessionState, state, lang, err := command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (emailSubmissionResult, State, Error) {
+		var response EmailSubmissionGetResponse
+		err = retrieveResponseMatchParameters(logger, body, CommandEmailSubmissionGet, "0", &response)
+		if err != nil {
+			return emailSubmissionResult{}, "", err
+		}
+		m := make(map[string]EmailSubmission, len(response.List))
+		for _, s := range response.List {
+			m[s.Id] = s
+		}
+		return emailSubmissionResult{submissions: m, notFound: response.NotFound}, response.State, nil
+	})
+
+	return result.submissions, result.notFound, sessionState, state, lang, err
 }
 
 func (j *Client) EmailsInThread(accountId string, threadId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, fetchBodies bool, maxBodyValueBytes uint) ([]Email, SessionState, State, Language, Error) {
