@@ -2358,6 +2358,11 @@ type Email struct {
 	Preview string `json:"preview,omitempty"`
 }
 
+type AddressParameters struct {
+	HoldUntil      time.Time `json:"HOLDUNTIL,omitzero"`
+	HoldForSeconds uint      `json:"HOLDFOR,omitzero"`
+}
+
 type Address struct {
 	// The email address being represented by the object.
 	//
@@ -2373,7 +2378,7 @@ type Address struct {
 	// or null if the parameter does not take a value.
 	//
 	// [RFC5321]: https://datatracker.ietf.org/doc/html/rfc5321
-	Parameters map[string]any `json:"parameters,omitempty"` // TODO RFC5321
+	Parameters *AddressParameters `json:"parameters,omitempty"`
 }
 
 // Information for use when sending via SMTP.
@@ -2986,6 +2991,20 @@ type EmailCreate struct {
 	// The set is represented as an object, with the keys being the keywords.
 	// The value for each key in the object MUST be true.
 	Keywords map[string]bool `json:"keywords,omitempty"`
+
+	// This is a list of all header fields [RFC5322], in the same order they appear in the message.
+	//
+	// [RFC5322]: https://www.rfc-editor.org/rfc/rfc5322.html
+	Headers []EmailHeader `json:"headers,omitempty"`
+
+	// The value is identical to the value of header:In-Reply-To:asMessageIds.
+	InReplyTo []string `json:"inReplyTo,omitempty"`
+
+	// The value is identical to the value of header:References:asMessageIds.
+	References []string `json:"references,omitempty"`
+
+	// The value is identical to the value of header:Sender:asAddresses.
+	Sender []EmailAddress `json:"sender,omitempty"`
 
 	// The ["From:" field] specifies the author(s) of the message, that is, the mailbox(es)
 	// of the person(s) or system(s) responsible for the writing of the message
