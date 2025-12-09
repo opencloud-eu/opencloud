@@ -410,7 +410,7 @@ func TestPhone(t *testing.T) {
 		"features": {
 			"text": true,
 			"main-number": true,
-			"mobile": true,
+			"cell": true,
 			"video": true,
 			"voice": true
 		},
