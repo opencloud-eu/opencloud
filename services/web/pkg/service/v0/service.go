@@ -136,6 +136,9 @@ func (p Web) getPayload() (payload []byte, err error) {
 		p.config.Web.Config.Apps = make([]string, 0)
 	}
 
+	// ensure that the server url has a trailing slash
+	p.config.Web.Config.Server = strings.TrimRight(p.config.Web.Config.Server, "/") + "/"
+
 	return json.Marshal(p.config.Web.Config)
 }
 
