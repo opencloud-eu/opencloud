@@ -217,6 +217,44 @@ class TUSContext implements Context {
 	}
 
 	/**
+	 * @When user :user sends a chunk to the last created TUS Location with offset :offset and data :data with retry on offset mismatch using the WebDAV API
+	 *
+	 * @param string $user
+	 * @param string $offset
+	 * @param string $data
+	 *
+	 * @return void
+	 *
+	 * @throws GuzzleException
+	 * @throws JsonException
+	 */
+	public function userSendsAChunkToTUSLocationWithOffsetAndDataWithRetryOnOffsetMismatch(
+		string $user,
+		string $offset,
+		string $data,
+	): void {
+		$resourceLocation = $this->getLastTusResourceLocation();
+
+		$retried = 0;
+		do {
+			$tryAgain = false;
+			$response = $this->uploadChunkToTUSLocation($user, $resourceLocation, $offset, $data);
+			// retry on 409 Conflict (Offset mismatch during TUS upload)
+			if ($response->getStatusCode() === 409) {
+				$tryAgain = true;
+			}
+			$tryAgain = $tryAgain && $retried < HttpRequestHelper::numRetriesOnHttpTooEarly();
+			if ($tryAgain) {
+				$retried += 1;
+				echo "Offset mismatch during TUS upload, retrying ($retried)...\n";
+				// wait 1s and try again
+				\sleep(1);
+			}
+		} while ($tryAgain);
+		$this->featureContext->setResponse($response);
+	}
+
+	/**
 	 * @When user :user sends a chunk to the last created TUS Location with offset :offset and data :data using the WebDAV API
 	 *
 	 * @param string $user
