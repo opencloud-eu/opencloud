@@ -4,7 +4,12 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@JammingBen, @ScharfViktor, @butonic, @individual-it, @micbar, @saw-jan
+@JammingBen, @ScharfViktor, @butonic, @individual-it, @kulmann, @micbar, @saw-jan
+
+### 🐛 Bug Fixes
+
+- fix: enforce trailing slash for server url [[#1995](https://github.com/opencloud-eu/opencloud/pull/1995)]
+- fix: enhance resource creation with detailed process information [[#1978](https://github.com/opencloud-eu/opencloud/pull/1978)]
 
 ### ✅ Tests
 
@@ -17,10 +22,6 @@
 
 - [docs] update policies link [[#1996](https://github.com/opencloud-eu/opencloud/pull/1996)]
 - fix the link in quickstart script for itself [[#1956](https://github.com/opencloud-eu/opencloud/pull/1956)]
-
-### 🐛 Bug Fixes
-
-- fix: enhance resource creation with detailed process information [[#1978](https://github.com/opencloud-eu/opencloud/pull/1978)]
 
 ### 📦️ Dependencies
 
