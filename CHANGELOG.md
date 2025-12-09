@@ -4,7 +4,12 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@JammingBen, @ScharfViktor, @individual-it, @micbar, @saw-jan
+@JammingBen, @ScharfViktor, @butonic, @individual-it, @micbar, @saw-jan
+
+### 📚 Documentation
+
+- [docs] update policies link [[#1996](https://github.com/opencloud-eu/opencloud/pull/1996)]
+- fix the link in quickstart script for itself [[#1956](https://github.com/opencloud-eu/opencloud/pull/1956)]
 
 ### ✅ Tests
 
@@ -15,10 +20,6 @@
 ### 🐛 Bug Fixes
 
 - fix: enhance resource creation with detailed process information [[#1978](https://github.com/opencloud-eu/opencloud/pull/1978)]
-
-### 📚 Documentation
-
-- fix the link in quickstart script for itself [[#1956](https://github.com/opencloud-eu/opencloud/pull/1956)]
 
 ### 📦️ Dependencies
 
