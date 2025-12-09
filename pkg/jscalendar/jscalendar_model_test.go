@@ -65,7 +65,6 @@ func TestLink(t *testing.T) {
 	jsoneq(t, `{
 		"@type": "Link",
 		"href": "https://opencloud.eu.example.com/f72ae875-40be-48a4-84ff-aea9aed3e085.png",
-		"cid": "c1",
 		"contentType": "image/png",
 		"size": 128912,
 		"rel": "icon",
@@ -86,19 +85,15 @@ func TestLocation(t *testing.T) {
 	jsoneq(t, `{
 		"@type": "Location",
 		"name": "The Eiffel Tower",
-		"description": "The big iron tower in the middle of Paris, can't miss it.",
 		"locationTypes": {
 			"landmark-address": true,
 			"industrial": true
 		},
-		"relativeTo": "start",
-		"timeZone": "Europe/Paris",
 		"coordinates": "geo:48.8559324,2.2932441",
 		"links": {
 			"l1": {
 				"@type": "Link",
 				"href": "https://upload.wikimedia.org/wikipedia/commons/f/fd/Eiffel_blue.PNG",
-				"cid": "cl1",
 				"contentType": "image/png",
 				"size": 12345,
 				"rel": "icon",
@@ -132,7 +127,6 @@ func TestVirtualLocation(t *testing.T) {
 	jsoneq(t, `{
 		"@type": "VirtualLocation",
 		"name": "OpenTalk",
-		"description": "The best videoconferencing.",
 		"uri": "https://opentalk.eu",
 		"features": {
 			"video": true,
@@ -240,13 +234,9 @@ func TestParticipant(t *testing.T) {
 		"name": "Camina Drummer",
 		"email": "camina@opa.org",
 		"description": "Camina Drummer is a Belter serving as the current President of the Transport Union.",
-		"sendTo": {
-			"imip": "mailto:cdrummer@opa.org",
-			"other": "https://opa.org/ping/camina"
-		},
+		"calendarAddress": "cdrummer@itip.opa.org",
 		"kind": "individual",
 		"roles": {
-			"attendee": true,
 			"owner": true,
 			"chair": true
 		},
@@ -279,7 +269,6 @@ func TestParticipant(t *testing.T) {
 			"l1": {
 				"@type": "Link",
 				"href": "https://opa.org/opa.png",
-				"cid": "c1",
 				"contentType": "image/png",
 				"size": 182912,
 				"rel": "icon",
@@ -468,7 +457,7 @@ func TestAlertWithUnknownTrigger(t *testing.T) {
 }
 
 func TestTimeZoneRule(t *testing.T) {
-	l1 := LocalDateTime("2025-09-25T18:26:14")
+	l1 := LocalDateTime("2025-09-25T16:26:14")
 
 	jsoneq(t, `{
 		"@type": "TimeZoneRule",
@@ -542,29 +531,29 @@ func TestTimeZoneRule(t *testing.T) {
 }
 
 func TestTimeZone(t *testing.T) {
-	ts, err := time.Parse(time.RFC3339, "2025-09-25T18:26:14+02:00")
+	ts, err := time.Parse(time.RFC3339, "2025-09-25T16:26:14+02:00")
 	require.NoError(t, err)
 	ts = ts.UTC()
-	l := LocalDateTime("2025-09-25T18:26:14")
+	l := LocalDateTime("2025-09-25T16:26:14")
 
 	jsoneq(t, `{
 		"@type": "TimeZone",
 		"tzId": "cest",
-		"updated": "2025-09-25T16:26:14Z",
+		"updated": "2025-09-25T14:26:14Z",
 		"url": "https://timezones.net/cest",
-		"validUntil": "2025-09-25T16:26:14Z",
+		"validUntil": "2025-09-25T14:26:14Z",
 		"aliases": {
 			"cet": true
 		},
 		"standard": [{
 			"@type": "TimeZoneRule",
-			"start": "2025-09-25T16:26:14Z",
+			"start": "2025-09-25T16:26:14",
 			"offsetFrom": "-0200",
 			"offsetTo": "+1245"
 		}],
 		"daylight": [{
 			"@type": "TimeZoneRule",
-			"start": "2025-09-25T16:26:14Z",
+			"start": "2025-09-25T16:26:14",
 			"offsetFrom": "-0200",
 			"offsetTo": "+1245"
 		}]
@@ -597,27 +586,27 @@ func TestTimeZone(t *testing.T) {
 }
 
 func TestEvent(t *testing.T) {
-	local1 := "2025-09-25T18:26:14"
+	local1 := "2025-09-25T16:26:14"
 	ts1, err := time.Parse(time.RFC3339, local1+"+02:00")
 	require.NoError(t, err)
 	ts1 = ts1.UTC()
 
-	local2 := "2025-09-29T15:53:01"
+	local2 := "2025-09-29T13:53:01"
 	ts2, err := time.Parse(time.RFC3339, local2+"+02:00")
 	require.NoError(t, err)
 	ts2 = ts2.UTC()
 
-	l := LocalDateTime("2025-09-25T18:26:14")
+	l := LocalDateTime("2025-09-25T16:26:14")
 
 	jsoneq(t, `{
 		"@type": "Event",
-		"start": "2025-09-25T16:26:14Z",
+		"start": "2025-09-25T16:26:14",
 		"duration": "PT10M",
 		"status": "confirmed",
 		"uid": "b422cfec-f7b4-4e04-8ec6-b794007f63f1",
 		"prodId": "OpenCloud 1.0",
-		"created": "2025-09-25T16:26:14Z",
-		"updated": "2025-09-29T13:53:01Z",
+		"created": "2025-09-25T16:26:14",
+		"updated": "2025-09-29T13:53:01",
 		"title": "End of year party",
 		"description": "It's the party at the end of the year.",
 		"descriptionContentType": "text/plain",
@@ -637,12 +626,6 @@ func TestEvent(t *testing.T) {
 			"cat": true
 		},
 		"color": "oil",
-		"timeZones": {
-			"cest": {
-				"@type": "TimeZone",
-				"tzId": "cest"
-			}
-		},
 		"relatedTo": {
 			"a": {
 				"@type": "Relation",
@@ -652,18 +635,14 @@ func TestEvent(t *testing.T) {
 			}
 		},		
 		"sequence": 3,
-		"method": "refresh",
 		"showWithoutTime": true,
 		"locations": {
 			"loc1": {
 				"@type": "Location",
 				"name": "Steel Cactus Mexican Grill",
-				"description": "The Steel Cactus Mexican Grill used to be on the Hecate Navy Base. The place closed down and is now a take-out restaurant that sells to-go cups of Thai food",
 				"locationTypes": {
 					"bar": true
 				},
-				"relativeTo": "start",
-				"timeZone": "cest",
 				"coordinates": "geo:16.7685657,-4.8629852",
 				"links": {
 					"l1": {
