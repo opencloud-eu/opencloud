@@ -1,19 +1,20 @@
 # Changelog
 
-## [4.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.1) - 2025-12-06
+## [4.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.1) - 2025-12-09
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@JammingBen, @ScharfViktor, @individual-it, @micbar
+@JammingBen, @ScharfViktor, @individual-it, @micbar, @saw-jan
+
+### ✅ Tests
+
+- [full-ci][tests-only] test: proper resource existence check [[#1990](https://github.com/opencloud-eu/opencloud/pull/1990)]
+- check propfing after renaming data in file system [[#1809](https://github.com/opencloud-eu/opencloud/pull/1809)]
+- fix-get-attribute-test [[#1974](https://github.com/opencloud-eu/opencloud/pull/1974)]
 
 ### 🐛 Bug Fixes
 
 - fix: enhance resource creation with detailed process information [[#1978](https://github.com/opencloud-eu/opencloud/pull/1978)]
-
-### ✅ Tests
-
-- check propfing after renaming data in file system [[#1809](https://github.com/opencloud-eu/opencloud/pull/1809)]
-- fix-get-attribute-test [[#1974](https://github.com/opencloud-eu/opencloud/pull/1974)]
 
 ### 📚 Documentation
 
