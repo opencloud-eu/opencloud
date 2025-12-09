@@ -121,7 +121,7 @@ func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) 
 			l = l.Uint(QueryParamOffset, offset)
 		}
 
-		limit, ok, err := req.parseUIntParam(QueryParamLimit, g.defaultContactLimit)
+		limit, ok, err := req.parseUIntParam(QueryParamLimit, g.defaults.contactLimit)
 		if err != nil {
 			return errorResponse(single(accountId), err)
 		}
