@@ -34,7 +34,7 @@ func TestSanitizeEmail(t *testing.T) {
 		},
 	}
 
-	g := &Groupware{sanitize: true}
+	g := &Groupware{config: groupwareConfig{sanitize: true}}
 	req := Request{g: g}
 
 	safe, err := req.sanitizeEmail(email)

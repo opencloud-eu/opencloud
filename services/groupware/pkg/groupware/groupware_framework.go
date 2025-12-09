@@ -30,29 +30,26 @@ import (
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/metrics"
 )
 
+// Logging property keys.
 const (
-	logUsername              = "username"
-	logUserId                = "user-id"
-	logSessionState          = "session-state"
-	logAccountId             = "account-id"
-	logBlobAccountId         = "blob-account-id" // if the blob accountId is needed as well
-	logErrorId               = "error-id"
-	logErrorCode             = "code"
-	logErrorStatus           = "status"
-	logErrorSourceHeader     = "source-header"
-	logErrorSourceParameter  = "source-parameter"
-	logErrorSourcePointer    = "source-pointer"
-	logInvalidQueryParameter = "error-query-param"
-	logInvalidPathParameter  = "error-path-param"
-	logFolderId              = "folder-id"
-	logIdentityId            = "identity-id"
-	logQuery                 = "query"
-	logEmailId               = "email-id"
-	logJobDescription        = "job"
-	logJobId                 = "job-id"
-	logStreamId              = "stream-id"
-	logPath                  = "path"
-	logMethod                = "method"
+	logUsername             = "username"
+	logUserId               = "user-id"
+	logSessionState         = "session-state"
+	logAccountId            = "account-id"
+	logBlobAccountId        = "blob-account-id"
+	logErrorId              = "error-id"
+	logErrorCode            = "code"
+	logErrorStatus          = "status"
+	logErrorSourceHeader    = "source-header"
+	logErrorSourceParameter = "source-parameter"
+	logErrorSourcePointer   = "source-pointer"
+	logIdentityId           = "identity-id"
+	logEmailId              = "email-id"
+	logJobDescription       = "job"
+	logJobId                = "job-id"
+	logStreamId             = "stream-id"
+	logPath                 = "path"
+	logMethod               = "method"
 )
 
 // Minimalistic representation of a user, containing only the attributes that are
@@ -80,6 +77,16 @@ type Job struct {
 	job func(uint64, *log.Logger)
 }
 
+type groupwareConfig struct {
+	maxBodyValueBytes uint
+	sanitize          bool
+}
+
+type groupwareDefaults struct {
+	emailLimit   uint
+	contactLimit uint
+}
+
 type Groupware struct {
 	mux       *chi.Mux
 	metrics   *metrics.Metrics
@@ -88,12 +95,10 @@ type Groupware struct {
 	// unfortunately, the sse implementation does not provide such a function.
 	// Key: the stream ID, which is the username
 	// Value: the timestamp of the creation of the stream
-	streams             cmap.ConcurrentMap
-	logger              *log.Logger
-	defaultEmailLimit   uint
-	defaultContactLimit uint
-	maxBodyValueBytes   uint
-	sanitize            bool
+	streams  cmap.ConcurrentMap
+	logger   *log.Logger
+	defaults groupwareDefaults
+	config   groupwareConfig
 	// Caches successful and failed Sessions by the username.
 	sessionCache sessionCache
 	jmap         *jmap.Client
@@ -354,21 +359,25 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 	}
 
 	g := &Groupware{
-		mux:                 mux,
-		metrics:             m,
-		sseServer:           sseServer,
-		streams:             cmap.New(),
-		logger:              logger,
-		sessionCache:        sessionCache,
-		userProvider:        userProvider,
-		jmap:                &jmapClient,
-		defaultEmailLimit:   defaultEmailLimit,
-		defaultContactLimit: defaultContactLimit,
-		maxBodyValueBytes:   maxBodyValueBytes,
-		sanitize:            sanitize,
-		eventChannel:        eventChannel,
-		jobsChannel:         jobsChannel,
-		jobCounter:          atomic.Uint64{},
+		mux:          mux,
+		metrics:      m,
+		sseServer:    sseServer,
+		streams:      cmap.New(),
+		logger:       logger,
+		sessionCache: sessionCache,
+		userProvider: userProvider,
+		jmap:         &jmapClient,
+		defaults: groupwareDefaults{
+			emailLimit:   defaultEmailLimit,
+			contactLimit: defaultContactLimit,
+		},
+		config: groupwareConfig{
+			maxBodyValueBytes: maxBodyValueBytes,
+			sanitize:          sanitize,
+		},
+		eventChannel: eventChannel,
+		jobsChannel:  jobsChannel,
+		jobCounter:   atomic.Uint64{},
 	}
 
 	for w := 1; w <= workerPoolSize; w++ {

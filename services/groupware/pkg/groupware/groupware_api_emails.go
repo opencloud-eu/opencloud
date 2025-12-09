@@ -79,7 +79,7 @@ func (g *Groupware) GetAllEmailsInMailbox(w http.ResponseWriter, r *http.Request
 
 			logger := log.From(req.logger.With().Str(HeaderSince, log.SafeString(since)).Str(logAccountId, log.SafeString(accountId)))
 
-			changes, sessionState, state, lang, jerr := g.jmap.GetMailboxChanges(accountId, req.session, req.ctx, logger, req.language(), mailboxId, since, true, g.maxBodyValueBytes, maxChanges)
+			changes, sessionState, state, lang, jerr := g.jmap.GetMailboxChanges(accountId, req.session, req.ctx, logger, req.language(), mailboxId, since, true, g.config.maxBodyValueBytes, maxChanges)
 			if jerr != nil {
 				return req.errorResponseFromJmap(single(accountId), jerr)
 			}
@@ -108,7 +108,7 @@ func (g *Groupware) GetAllEmailsInMailbox(w http.ResponseWriter, r *http.Request
 				l = l.Int(QueryParamOffset, offset)
 			}
 
-			limit, ok, err := req.parseUIntParam(QueryParamLimit, g.defaultEmailLimit)
+			limit, ok, err := req.parseUIntParam(QueryParamLimit, g.defaults.emailLimit)
 			if err != nil {
 				return errorResponse(single(accountId), err)
 			}
@@ -122,7 +122,7 @@ func (g *Groupware) GetAllEmailsInMailbox(w http.ResponseWriter, r *http.Request
 			fetchBodies := false
 			withThreads := true
 
-			emails, sessionState, state, lang, jerr := g.jmap.GetAllEmailsInMailbox(accountId, req.session, req.ctx, logger, req.language(), mailboxId, offset, limit, collapseThreads, fetchBodies, g.maxBodyValueBytes, withThreads)
+			emails, sessionState, state, lang, jerr := g.jmap.GetAllEmailsInMailbox(accountId, req.session, req.ctx, logger, req.language(), mailboxId, offset, limit, collapseThreads, fetchBodies, g.config.maxBodyValueBytes, withThreads)
 			if jerr != nil {
 				return req.errorResponseFromJmap(single(accountId), jerr)
 			}
@@ -209,7 +209,7 @@ func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) {
 			if len(ids) == 1 {
 				logger := log.From(l.Str("id", log.SafeString(id)))
 
-				emails, _, sessionState, state, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), ids, true, g.maxBodyValueBytes, markAsSeen, true)
+				emails, _, sessionState, state, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), ids, true, g.config.maxBodyValueBytes, markAsSeen, true)
 				if jerr != nil {
 					return req.errorResponseFromJmap(single(accountId), jerr)
 				}
@@ -225,7 +225,7 @@ func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) {
 			} else {
 				logger := log.From(l.Array("ids", log.SafeStringArray(ids)))
 
-				emails, _, sessionState, state, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), ids, true, g.maxBodyValueBytes, markAsSeen, false)
+				emails, _, sessionState, state, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), ids, true, g.config.maxBodyValueBytes, markAsSeen, false)
 				if jerr != nil {
 					return req.errorResponseFromJmap(single(accountId), jerr)
 				}
@@ -388,7 +388,7 @@ func (g *Groupware) getEmailsSince(w http.ResponseWriter, r *http.Request, since
 
 		logger := log.From(l)
 
-		changes, sessionState, state, lang, jerr := g.jmap.GetEmailsSince(accountId, req.session, req.ctx, logger, req.language(), since, true, g.maxBodyValueBytes, maxChanges)
+		changes, sessionState, state, lang, jerr := g.jmap.GetEmailsSince(accountId, req.session, req.ctx, logger, req.language(), since, true, g.config.maxBodyValueBytes, maxChanges)
 		if jerr != nil {
 			return req.errorResponseFromJmap(single(accountId), jerr)
 		}
@@ -460,7 +460,7 @@ func (g *Groupware) buildFilter(req Request) (bool, jmap.EmailFilterElement, boo
 		l = l.Int(QueryParamOffset, offset)
 	}
 
-	limit, ok, err := req.parseUIntParam(QueryParamLimit, g.defaultEmailLimit)
+	limit, ok, err := req.parseUIntParam(QueryParamLimit, g.defaults.emailLimit)
 	if err != nil {
 		return false, nil, snippets, 0, 0, nil, err
 	}
@@ -611,7 +611,7 @@ func (g *Groupware) GetEmails(w http.ResponseWriter, r *http.Request) {
 
 			fetchBodies := false
 
-			resultsByAccount, sessionState, state, lang, jerr := g.jmap.QueryEmailsWithSnippets(single(accountId), filter, req.session, req.ctx, logger, req.language(), offset, limit, fetchBodies, g.maxBodyValueBytes)
+			resultsByAccount, sessionState, state, lang, jerr := g.jmap.QueryEmailsWithSnippets(single(accountId), filter, req.session, req.ctx, logger, req.language(), offset, limit, fetchBodies, g.config.maxBodyValueBytes)
 			if jerr != nil {
 				return req.errorResponseFromJmap(single(accountId), jerr)
 			}
@@ -1364,7 +1364,7 @@ func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) {
 
 		reqId := req.GetRequestId()
 		getEmailsBefore := time.Now()
-		emails, _, sessionState, state, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), []string{id}, true, g.maxBodyValueBytes, false, false)
+		emails, _, sessionState, state, lang, jerr := g.jmap.GetEmails(accountId, req.session, req.ctx, logger, req.language(), []string{id}, true, g.config.maxBodyValueBytes, false, false)
 		getEmailsDuration := time.Since(getEmailsBefore)
 		if jerr != nil {
 			return req.errorResponseFromJmap(single(accountId), jerr)
@@ -1389,7 +1389,7 @@ func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) {
 
 		g.job(logger, RelationTypeSameSender, func(jobId uint64, l *log.Logger) {
 			before := time.Now()
-			resultsByAccountId, _, _, lang, jerr := g.jmap.QueryEmails(single(accountId), filter, req.session, bgctx, l, req.language(), 0, limit, false, g.maxBodyValueBytes)
+			resultsByAccountId, _, _, lang, jerr := g.jmap.QueryEmails(single(accountId), filter, req.session, bgctx, l, req.language(), 0, limit, false, g.config.maxBodyValueBytes)
 			if results, ok := resultsByAccountId[accountId]; ok {
 				duration := time.Since(before)
 				if jerr != nil {
@@ -1410,7 +1410,7 @@ func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) {
 
 		g.job(logger, RelationTypeSameThread, func(jobId uint64, l *log.Logger) {
 			before := time.Now()
-			emails, _, _, _, jerr := g.jmap.EmailsInThread(accountId, email.ThreadId, req.session, bgctx, l, req.language(), false, g.maxBodyValueBytes)
+			emails, _, _, _, jerr := g.jmap.EmailsInThread(accountId, email.ThreadId, req.session, bgctx, l, req.language(), false, g.config.maxBodyValueBytes)
 			duration := time.Since(before)
 			if jerr != nil {
 				req.observeJmapError(jerr)
@@ -1819,7 +1819,7 @@ var sanitizableMediaTypes = []string{
 }
 
 func (req *Request) sanitizeEmail(source jmap.Email) (jmap.Email, *Error) {
-	if !req.g.sanitize {
+	if !req.g.config.sanitize {
 		return source, nil
 	}
 	memory := map[string]int{}
@@ -1867,7 +1867,7 @@ func (req *Request) sanitizeEmail(source jmap.Email) (jmap.Email, *Error) {
 }
 
 func (req *Request) sanitizeEmails(source []jmap.Email) ([]jmap.Email, *Error) {
-	if !req.g.sanitize {
+	if !req.g.config.sanitize {
 		return source, nil
 	}
 	result := make([]jmap.Email, len(source))
