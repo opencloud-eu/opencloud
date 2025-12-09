@@ -1264,20 +1264,18 @@ trait WebDav {
 			$type
 		);
 		$statusCode = $response->getStatusCode();
-		if ($statusCode < 400 || $statusCode > 499) {
-			try {
-				$responseXmlObject = HttpRequestHelper::getResponseXml(
-					$response,
-					__METHOD__
-				);
-			} catch (Exception $e) {
-				Assert::fail(
-					"$entry '$path' should not exist. But API returned $statusCode without XML in the body"
-				);
-			}
+		// when checking path with '..' it may return 405 Method Not Allowed
+		if ($statusCode === 404 || $statusCode === 405) {
+			return;
+		}
+		if ($statusCode === 207) {
+			$responseXmlObject = HttpRequestHelper::getResponseXml(
+				$response,
+				__METHOD__
+			);
 			Assert::assertTrue(
 				$this->isEtagValid($this->getEtagFromResponseXmlObject($responseXmlObject)),
-				"$entry '$path' should not exist. But API returned $statusCode without an etag in the body"
+				"$entry '$path' should not exist but found with invalid etag."
 			);
 			$isCollection = $responseXmlObject->xpath("//d:prop/d:resourcetype/d:collection");
 			if (\count($isCollection) === 0) {
@@ -1291,7 +1289,11 @@ trait WebDav {
 					"$entry '$path' should not exist. But it does."
 				);
 			}
+			return;
 		}
+		Assert::fail(
+			"$entry '$path' should not exist. But API returned $statusCode without XML in the body"
+		);
 	}
 
 	/**
