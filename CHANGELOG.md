@@ -6,16 +6,17 @@
 
 @JammingBen, @ScharfViktor, @butonic, @individual-it, @micbar, @saw-jan
 
+### ✅ Tests
+
+- [full-ci][tests-only] test: add test to check mismatch offset during TUS upload [[#1993](https://github.com/opencloud-eu/opencloud/pull/1993)]
+- [full-ci][tests-only] test: proper resource existence check [[#1990](https://github.com/opencloud-eu/opencloud/pull/1990)]
+- check propfing after renaming data in file system [[#1809](https://github.com/opencloud-eu/opencloud/pull/1809)]
+- fix-get-attribute-test [[#1974](https://github.com/opencloud-eu/opencloud/pull/1974)]
+
 ### 📚 Documentation
 
 - [docs] update policies link [[#1996](https://github.com/opencloud-eu/opencloud/pull/1996)]
 - fix the link in quickstart script for itself [[#1956](https://github.com/opencloud-eu/opencloud/pull/1956)]
-
-### ✅ Tests
-
-- [full-ci][tests-only] test: proper resource existence check [[#1990](https://github.com/opencloud-eu/opencloud/pull/1990)]
-- check propfing after renaming data in file system [[#1809](https://github.com/opencloud-eu/opencloud/pull/1809)]
-- fix-get-attribute-test [[#1974](https://github.com/opencloud-eu/opencloud/pull/1974)]
 
 ### 🐛 Bug Fixes
 
