@@ -2628,6 +2628,7 @@ class FeatureContext extends BehatVariablesContext {
 		$this->ocmContext = BehatHelper::getContext($scope, $environment, 'OcmContext');
 		$this->graphContext = BehatHelper::getContext($scope, $environment, 'GraphContext');
 		$this->spacesContext = BehatHelper::getContext($scope, $environment, 'SpacesContext');
+		$this->ocConfigContext = BehatHelper::getContext($scope, $environment, 'OcConfigContext');
 
 		$scenarioLine = $scope->getScenario()->getLine();
 		$featureFile = $scope->getFeature()->getFile();

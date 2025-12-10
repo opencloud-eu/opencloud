@@ -256,7 +256,8 @@ class HttpRequestHelper {
 				// we need to repeat the send request, because we got HTTP_TOO_EARLY or HTTP_CONFLICT
 				// wait 1 second before sending again, to give the server some time
 				// to finish whatever post-processing it might be doing.
-				self::debugResponse($response);
+				echo "[INFO] Received '" . $response->getStatusCode() .
+					"' status code, retrying request ($sendCount)...\n";
 				\sleep(1);
 			}
 		} while ($loopAgain);

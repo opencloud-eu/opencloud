@@ -30,6 +30,7 @@ use PHPUnit\Framework\Assert;
  */
 class OcConfigContext implements Context {
 	private array $enabledPermissionsRoles = [];
+	private int $postProcessingDelay = 0;
 
 	/**
 	 * @return array
@@ -45,6 +46,24 @@ class OcConfigContext implements Context {
 	 */
 	public function setEnabledPermissionsRoles(array $enabledPermissionsRoles): void {
 		$this->enabledPermissionsRoles = $enabledPermissionsRoles;
+	}
+
+	/**
+	 * @return int
+	 */
+	public function getPostProcessingDelay(): int {
+		return $this->postProcessingDelay;
+	}
+
+	/**
+	 * @param string $postProcessingDelay
+	 *
+	 * @return void
+	 */
+	public function setPostProcessingDelay(string $postProcessingDelay): void {
+		// extract number from string
+		$delay = (int) filter_var($postProcessingDelay, FILTER_SANITIZE_NUMBER_INT);
+		$this->postProcessingDelay = $delay;
 	}
 
 	/**
@@ -68,6 +87,7 @@ class OcConfigContext implements Context {
 			$response->getStatusCode(),
 			"Failed to set async upload with delayed post processing"
 		);
+		$this->setPostProcessingDelay($delayTime);
 	}
 
 	/**
@@ -90,6 +110,9 @@ class OcConfigContext implements Context {
 			$response->getStatusCode(),
 			"Failed to set config $configVariable=$configValue"
 		);
+		if ($configVariable === "POSTPROCESSING_DELAY") {
+			$this->setPostProcessingDelay($configValue);
+		}
 	}
 
 	/**
@@ -184,6 +207,9 @@ class OcConfigContext implements Context {
 		$envs = [];
 		foreach ($table->getHash() as $row) {
 			$envs[$row['config']] = $row['value'];
+			if ($row['config'] === "POSTPROCESSING_DELAY") {
+				$this->setPostProcessingDelay($row['value']);
+			}
 		}
 
 		$response =  OcConfigHelper::reConfigureOc($envs);
