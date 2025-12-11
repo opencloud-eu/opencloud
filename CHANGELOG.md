@@ -1,12 +1,14 @@
 # Changelog
 
-## [4.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.1) - 2025-12-05
+## [4.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.1) - 2025-12-11
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor
+@ScharfViktor, @micbar
 
+### 🐛 Bug Fixes
 
+- [stable-4.0] fix: enhance resource creation with detailed process information (#1978) [[#2000](https://github.com/opencloud-eu/opencloud/pull/2000)]
 
 ## [4.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.0) - 2025-12-01
 
