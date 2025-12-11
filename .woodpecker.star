@@ -2353,11 +2353,12 @@ def translation_sync(ctx):
                 "image": OC_CI_GOLANG,
                 "commands": [
                     "make l10n-read",
+                    "mkdir tx && cd tx",
                     "curl -o- https://raw.githubusercontent.com/transifex/cli/master/install.sh | bash",
-                    ". ~/.profile",
+                    "export PATH=$PATH:$(pwd) && cd ..",
                     "make l10n-push",
                     "make l10n-pull",
-                    "rm tx",
+                    "rm -rf tx",
                     "make l10n-clean",
                 ],
                 "environment": {
