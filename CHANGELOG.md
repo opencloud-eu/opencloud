@@ -4,10 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @micbar
+@ScharfViktor, @kulmann, @micbar
 
 ### 🐛 Bug Fixes
 
+- [stable-4.0] fix: enforce trailing slash for server url [[#2002](https://github.com/opencloud-eu/opencloud/pull/2002)]
 - [stable-4.0] fix: enhance resource creation with detailed process information (#1978) [[#2000](https://github.com/opencloud-eu/opencloud/pull/2000)]
 
 ## [4.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.0) - 2025-12-01
