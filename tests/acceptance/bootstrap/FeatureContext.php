@@ -2026,8 +2026,12 @@ class FeatureContext extends BehatVariablesContext {
 		if ($response === null) {
 			$response = $this->getResponse();
 		}
+		$body = (string)$response->getBody();
+		if (!$body) {
+			return [];
+		}
 		return \json_decode(
-			(string)$response->getBody(),
+			$body,
 			true
 		);
 	}
