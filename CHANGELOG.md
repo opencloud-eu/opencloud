@@ -1,10 +1,10 @@
 # Changelog
 
-## [4.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.1) - 2025-12-09
+## [4.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.1) - 2025-12-11
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@JammingBen, @ScharfViktor, @butonic, @individual-it, @kulmann, @micbar, @saw-jan
+@JammingBen, @ScharfViktor, @butonic, @flimmy, @fschade, @individual-it, @kulmann, @micbar, @saw-jan
 
 ### 🐛 Bug Fixes
 
