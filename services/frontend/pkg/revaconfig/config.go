@@ -346,7 +346,7 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 						},
 						"version": map[string]interface{}{
 							"product":        "OpenCloud",
-							"edition":        "",
+							"edition":        version.Edition,
 							"major":          version.ParsedLegacy().Major(),
 							"minor":          version.ParsedLegacy().Minor(),
 							"micro":          version.ParsedLegacy().Patch(),

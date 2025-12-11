@@ -3,6 +3,7 @@ ARG TARGETOS
 ARG TARGETARCH
 ARG VERSION
 ARG STRING
+ARG EDITION
 
 RUN apk add bash make git curl gcc musl-dev libc-dev binutils-gold inotify-tools vips-dev
 
