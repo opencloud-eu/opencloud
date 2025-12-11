@@ -481,6 +481,10 @@ def main(ctx):
     if ctx.build.event == "cron" and ctx.build.sender == "translation-sync":
         return translation_sync(ctx)
 
+    is_release_pr = (ctx.build.event == "pull_request" and ctx.build.sender == "openclouders" and "🎉 release" in ctx.build.title.lower())
+    if is_release_pr:
+        return [licenseCheck(ctx)]
+
     build_release_helpers = \
         readyReleaseGo()
 
