@@ -5,6 +5,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
+	"github.com/opencloud-eu/opencloud/pkg/version"
 	"github.com/opencloud-eu/opencloud/services/frontend/pkg/config"
 )
 
@@ -87,7 +88,7 @@ func DefaultConfig() *config.Config {
 		DefaultUploadProtocol:    "tus",
 		DefaultLinkPermissions:   1,
 		SearchMinLength:          3,
-		Edition:                  "",
+		Edition:                  version.Edition,
 		CheckForUpdates:          true,
 		Checksums: config.Checksums{
 			SupportedTypes:      []string{"sha1", "md5", "adler32"},

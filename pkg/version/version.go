@@ -1,9 +1,27 @@
 package version
 
 import (
+	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/Masterminds/semver"
+	"github.com/opencloud-eu/reva/v2/pkg/logger"
+)
+
+const (
+
+	// Dev is used as a placeholder.
+	Dev = "dev"
+	// EditionDev indicates the development build channel was used to build the binary.
+	EditionDev = Dev
+	// EditionRolling indicates the rolling release build channel was used to build the binary.
+	EditionRolling = "rolling"
+	// EditionStable indicates the stable release build channel was used to build the binary.
+	EditionStable = "stable"
+	// EditionLTS indicates the lts release build channel was used to build the binary.
+	EditionLTS = "lts"
 )
 
 var (
@@ -21,17 +39,56 @@ var (
 	// Date indicates the build date.
 	// This has been removed, it looks like you can only replace static strings with recent go versions
 	//Date = time.Now().Format("20060102")
-	Date = "dev"
+	Date = Dev
 
 	// Legacy defines the old long 4 number OpenCloud version needed for some clients
 	Legacy = "0.1.0.0"
 	// LegacyString defines the old OpenCloud version needed for some clients
 	LegacyString = "0.1.0"
+
+	// Edition describes the build channel (stable, rolling, nightly, daily, dev)
+	Edition = Dev // default for self-compiled builds
 )
+
+func init() { //nolint:gochecknoinits
+	if err := initEdition(); err != nil {
+		logger.New().Error().Err(err).Msg("falling back to dev")
+	}
+}
+
+func initEdition() error {
+	regularEditions := []string{EditionDev, EditionRolling, EditionStable}
+	versionedEditions := []string{EditionLTS}
+	if !slices.ContainsFunc(slices.Concat(regularEditions, versionedEditions), func(s string) bool {
+		isRegularEdition := slices.Contains(regularEditions, Edition)
+		if isRegularEdition && s == Edition {
+			return true
+		}
+
+		// handle editions with a version
+		editionParts := strings.Split(Edition, "-")
+		if len(editionParts) != 2 { // a versioned edition channel must consist of exactly 2 parts.
+			return false
+		}
+
+		isVersionedEdition := slices.Contains(versionedEditions, editionParts[0])
+		if !isVersionedEdition { // not all channels can contain version information
+			return false
+		}
+
+		_, err := semver.NewVersion(editionParts[1])
+		return err == nil
+	}) {
+		Edition = Dev
+		return fmt.Errorf(`unknown edition channel "%s"`, Edition)
+	}
+
+	return nil
+}
 
 // Compiled returns the compile time of this service.
 func Compiled() time.Time {
-	if Date == "dev" {
+	if Date == Dev {
 		return time.Now()
 	}
 	t, _ := time.Parse("20060102", Date)

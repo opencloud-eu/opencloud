@@ -36,8 +36,18 @@ ifndef DATE
 	DATE := $(shell date -u '+%Y%m%d')
 endif
 
-LDFLAGS += -X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn -s -w -X "$(OC_REPO)/pkg/version.String=$(STRING)" -X "$(OC_REPO)/pkg/version.Tag=$(VERSION)" -X "$(OC_REPO)/pkg/version.Date=$(DATE)"
-DEBUG_LDFLAGS += -X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn -X "$(OC_REPO)/pkg/version.String=$(STRING)" -X "$(OC_REPO)/pkg/version.Tag=$(VERSION)" -X "$(OC_REPO)/pkg/version.Date=$(DATE)"
+LDFLAGS += -X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn -s -w \
+	-X "$(OC_REPO)/pkg/version.Edition=$(EDITION)" \
+	-X "$(OC_REPO)/pkg/version.String=$(STRING)" \
+	-X "$(OC_REPO)/pkg/version.Tag=$(VERSION)" \
+	-X "$(OC_REPO)/pkg/version.Date=$(DATE)"
+
+DEBUG_LDFLAGS += -X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn \
+	-X "$(OC_REPO)/pkg/version.Edition=$(EDITION)" \
+	-X "$(OC_REPO)/pkg/version.String=$(STRING)" \
+	-X "$(OC_REPO)/pkg/version.Tag=$(VERSION)" \
+	-X "$(OC_REPO)/pkg/version.Date=$(DATE)"
+
 DOCKER_LDFLAGS += -X "$(OC_REPO)/pkg/config/defaults.BaseDataPathType=path" -X "$(OC_REPO)/pkg/config/defaults.BaseDataPathValue=/var/lib/opencloud"
 DOCKER_LDFLAGS += -X "$(OC_REPO)/pkg/config/defaults.BaseConfigPathType=path" -X "$(OC_REPO)/pkg/config/defaults.BaseConfigPathValue=/etc/opencloud"
 
