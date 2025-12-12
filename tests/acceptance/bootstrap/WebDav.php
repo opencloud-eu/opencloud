@@ -25,6 +25,7 @@ use GuzzleHttp\Exception\GuzzleException;
 use PHPUnit\Framework\Assert;
 use Psr\Http\Message\ResponseInterface;
 use GuzzleHttp\Stream\StreamInterface;
+use TestHelpers\OcConfigHelper;
 use TestHelpers\OcHelper;
 use TestHelpers\UploadHelper;
 use TestHelpers\WebDavHelper;
@@ -2329,7 +2330,7 @@ trait WebDav {
 		);
 
 		// check uploaded content only if post-processing delay is not configured
-		if ($this->ocConfigContext->getPostProcessingDelay() === 0) {
+		if (OcConfigHelper::getPostProcessingDelay() === 0) {
 			$this->checkFileContentWithRetry($user, $destination, $content);
 		}
 		return $response->getHeader('oc-fileid');

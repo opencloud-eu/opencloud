@@ -33,6 +33,7 @@ use SimpleXMLElement;
 use Sabre\Xml\LibXMLException;
 use Sabre\Xml\Reader;
 use GuzzleHttp\Pool;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Helper for HTTP requests
@@ -160,6 +161,24 @@ class HttpRequestHelper {
 		}
 
 		HttpLogger::logResponse($response);
+
+		// wait for post-processing to finish if applicable
+		if (WebdavHelper::isDAVRequest($url)
+			&& \str_starts_with($url, OcHelper::getServerUrl())
+			&& \in_array($method, ["PUT", "MOVE", "COPY"])
+			&& \in_array($response->getStatusCode(), [Response::HTTP_CREATED, Response::HTTP_NO_CONTENT])
+			&& OcConfigHelper::getPostProcessingDelay() === 0
+		) {
+			if (\in_array($method, ["MOVE", "COPY"])) {
+				$url = $headers['Destination'];
+			}
+			WebDavHelper::waitForPostProcessingToFinish(
+				$url,
+				$user,
+				$password,
+				$headers,
+			);
+		}
 		return $response;
 	}
 

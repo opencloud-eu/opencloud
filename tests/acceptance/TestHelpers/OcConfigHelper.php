@@ -30,6 +30,26 @@ use Psr\Http\Message\ResponseInterface;
  * A helper class for configuring OpenCloud server
  */
 class OcConfigHelper {
+	public static $postProcessingDelay = 0;
+
+	/**
+	 * @return int
+	 */
+	public static function getPostProcessingDelay(): int {
+		return self::$postProcessingDelay;
+	}
+
+	/**
+	 * @param string $postProcessingDelay
+	 *
+	 * @return void
+	 */
+	public static function setPostProcessingDelay(string $postProcessingDelay): void {
+		// extract number from string
+		$delay = (int) filter_var($postProcessingDelay, FILTER_SANITIZE_NUMBER_INT);
+		self::$postProcessingDelay = $delay;
+	}
+
 	/**
 	 * @param string $url
 	 * @param string $method
