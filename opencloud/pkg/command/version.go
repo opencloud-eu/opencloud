@@ -33,6 +33,7 @@ func VersionCommand(cfg *config.Config) *cli.Command {
 		Category: "info",
 		Action: func(c *cli.Context) error {
 			fmt.Println("Version: " + version.GetString())
+			fmt.Printf("Edition: %s\n", version.Edition)
 			fmt.Printf("Compiled: %s\n", version.Compiled())
 
 			if c.Bool(_skipServiceListingFlagName) {
