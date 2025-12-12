@@ -4,19 +4,20 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@JammingBen, @ScharfViktor, @butonic, @flimmy, @fschade, @individual-it, @kulmann, @micbar, @saw-jan
+@JammingBen, @ScharfViktor, @butonic, @flimmy, @fschade, @individual-it, @kulmann, @micbar, @prashant-gurung899, @saw-jan
+
+### ✅ Tests
+
+- [tests-only] Skip test related pipelines for ready-release-go PRs [[#2011](https://github.com/opencloud-eu/opencloud/pull/2011)]
+- [full-ci][tests-only] test: add test to check mismatch offset during TUS upload [[#1993](https://github.com/opencloud-eu/opencloud/pull/1993)]
+- [full-ci][tests-only] test: proper resource existence check [[#1990](https://github.com/opencloud-eu/opencloud/pull/1990)]
+- check propfing after renaming data in file system [[#1809](https://github.com/opencloud-eu/opencloud/pull/1809)]
+- fix-get-attribute-test [[#1974](https://github.com/opencloud-eu/opencloud/pull/1974)]
 
 ### 🐛 Bug Fixes
 
 - fix: enforce trailing slash for server url [[#1995](https://github.com/opencloud-eu/opencloud/pull/1995)]
 - fix: enhance resource creation with detailed process information [[#1978](https://github.com/opencloud-eu/opencloud/pull/1978)]
-
-### ✅ Tests
-
-- [full-ci][tests-only] test: add test to check mismatch offset during TUS upload [[#1993](https://github.com/opencloud-eu/opencloud/pull/1993)]
-- [full-ci][tests-only] test: proper resource existence check [[#1990](https://github.com/opencloud-eu/opencloud/pull/1990)]
-- check propfing after renaming data in file system [[#1809](https://github.com/opencloud-eu/opencloud/pull/1809)]
-- fix-get-attribute-test [[#1974](https://github.com/opencloud-eu/opencloud/pull/1974)]
 
 ### 📚 Documentation
 
