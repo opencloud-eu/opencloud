@@ -1,10 +1,14 @@
 # Changelog
 
-## [4.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.1) - 2025-12-12
+## [4.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.1.0) - 2025-12-12
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @JammingBen, @ScharfViktor, @butonic, @flimmy, @fschade, @individual-it, @kulmann, @micbar, @prashant-gurung899, @saw-jan
+
+### 📈 Enhancement
+
+- Show edition in opencloud version command [[#2019](https://github.com/opencloud-eu/opencloud/pull/2019)]
 
 ### ✅ Tests
 
