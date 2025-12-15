@@ -744,6 +744,7 @@ trait WebDav {
 
 	/**
 	 * @When the user waits for :time seconds for postprocessing to finish
+	 * @When the user waits for :time seconds
 	 *
 	 * @param int $time
 	 *
