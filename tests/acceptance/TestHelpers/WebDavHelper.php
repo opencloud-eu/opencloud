@@ -923,4 +923,45 @@ class WebDavHelper {
 		$mtime = new DateTime($xmlPart[0]->__toString());
 		return $mtime->format('U');
 	}
+
+	/**
+	 * wait until the reqeust doesn't return 425 anymore
+	 *
+	 * @param string $url
+	 * @param ?string $user
+	 * @param ?string $password
+	 * @param ?array $headers
+	 *
+	 * @return void
+	 */
+	public static function waitForPostProcessingToFinish(
+		string $url,
+		?string $user = null,
+		?string $password = null,
+		?array $headers = [],
+	): void {
+		$retried = 0;
+		do {
+			$response = HttpRequestHelper::sendRequest(
+				$url,
+				'check-425-status',
+				'GET',
+				$user,
+				$password,
+				$headers,
+			);
+			$statusCode = $response->getStatusCode();
+			if ($statusCode !== 425) {
+				return;
+			}
+			$tryAgain = $retried < HttpRequestHelper::numRetriesOnHttpTooEarly();
+			if ($tryAgain) {
+				$retried += 1;
+				echo "[INFO] Waiting for post processing to finish, attempt ($retried)...\n";
+				// wait 1s and try again
+				\sleep(1);
+			}
+		} while ($tryAgain);
+		echo "[ERROR] 10 seconds timeout! Post processing did not finish in time.\n";
+	}
 }

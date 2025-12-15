@@ -68,6 +68,7 @@ class OcConfigContext implements Context {
 			$response->getStatusCode(),
 			"Failed to set async upload with delayed post processing"
 		);
+		OcConfigHelper::setPostProcessingDelay($delayTime);
 	}
 
 	/**
@@ -90,6 +91,9 @@ class OcConfigContext implements Context {
 			$response->getStatusCode(),
 			"Failed to set config $configVariable=$configValue"
 		);
+		if ($configVariable === "POSTPROCESSING_DELAY") {
+			OcConfigHelper::setPostProcessingDelay($configValue);
+		}
 	}
 
 	/**
@@ -184,6 +188,9 @@ class OcConfigContext implements Context {
 		$envs = [];
 		foreach ($table->getHash() as $row) {
 			$envs[$row['config']] = $row['value'];
+			if ($row['config'] === "POSTPROCESSING_DELAY") {
+				OcConfigHelper::setPostProcessingDelay($row['value']);
+			}
 		}
 
 		$response =  OcConfigHelper::reConfigureOc($envs);
@@ -200,6 +207,7 @@ class OcConfigContext implements Context {
 	 * @return void
 	 */
 	public function rollbackOc(): void {
+		OcConfigHelper::setPostProcessingDelay('0');
 		$response = OcConfigHelper::rollbackOc();
 		Assert::assertEquals(
 			200,

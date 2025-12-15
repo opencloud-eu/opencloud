@@ -84,7 +84,9 @@ class TokenHelper {
 			$tokenData = [
 				'access_token' => $refreshedToken['access_token'],
 				'refresh_token' => $refreshedToken['refresh_token'],
-				'expires_at' => time() + 300 // 5 minutes
+				// set expiry to 240 (4 minutes) seconds to allow for some buffer
+				// token actually expires in 300 seconds (5 minutes)
+				'expires_at' => time() + 240
 			];
 			self::$tokenCache[$cacheKey] = $tokenData;
 			return $tokenData;
@@ -100,7 +102,9 @@ class TokenHelper {
 		$tokenData = [
 			'access_token' => $tokens['access_token'],
 			'refresh_token' => $tokens['refresh_token'],
-			'expires_at' => time() + 290 // set expiry to 290 seconds to allow for some buffer
+			// set expiry to 240 (4 minutes) seconds to allow for some buffer
+			// token actually expires in 300 seconds (5 minutes)
+			'expires_at' => time() + 240
 		];
 
 		// Save to cache

@@ -29,7 +29,7 @@ Feature: create a resources using collaborative posixfs
   Scenario: create file
     When the administrator creates the file "test.txt" with content "content" for user "Alice" on the POSIX filesystem
     Then the command should be successful
-    And the content of file "/test.txt" for user "Alice" should be "content"
+    And as "Alice" the final content of file "test.txt" should be "content"
 
 
   Scenario: create large file
@@ -41,21 +41,22 @@ Feature: create a resources using collaborative posixfs
   Scenario: creates files sequentially in a folder
     When the administrator creates 50 files sequentially in the directory "firstFolder" for user "Alice" on the POSIX filesystem
     Then the command should be successful
-    And the content of file "/firstFolder/file_1.txt" for user "Alice" should be "file 1 content"
-    And the content of file "/firstFolder/file_50.txt" for user "Alice" should be "file 50 content"
+    And as "Alice" the final content of file "/firstFolder/file_1.txt" should be "file 1 content"
+    And as "Alice" the final content of file "/firstFolder/file_50.txt" should be "file 50 content"
 
 
   Scenario: creates files in parallel in a folder
     When the administrator creates 100 files in parallel in the directory "firstFolder" for user "Alice" on the POSIX filesystem
     Then the command should be successful
-    And the content of file "/firstFolder/parallel_1.txt" for user "Alice" should be "parallel file 1 content"
-    And the content of file "/firstFolder/parallel_100.txt" for user "Alice" should be "parallel file 100 content"
+    And as "Alice" the final content of file "/firstFolder/parallel_1.txt" should be "parallel file 1 content"
+    And as "Alice" the final content of file "/firstFolder/parallel_100.txt" should be "parallel file 100 content"
 
 
   Scenario: edit file
     Given user "Alice" has uploaded file with content "content" to "test.txt"
     When the administrator puts the content "new" into the file "test.txt" in the POSIX storage folder of user "Alice"
-    Then the content of file "/test.txt" for user "Alice" should be "contentnew"
+    Then the command should be successful
+    And as "Alice" the final content of file "test.txt" should be "contentnew"
 
 
   Scenario: read file content
@@ -68,14 +69,14 @@ Feature: create a resources using collaborative posixfs
     Given user "Alice" has uploaded file with content "content" to "test.txt"
     When the administrator copies the file "test.txt" to the folder "firstFolder" for user "Alice" on the POSIX filesystem
     Then the command should be successful
-    And the content of file "/firstFolder/test.txt" for user "Alice" should be "content"
+    And as "Alice" the final content of file "/firstFolder/test.txt" should be "content"
 
 
   Scenario: rename file
     Given user "Alice" has uploaded file with content "content" to "test.txt"
     When the administrator renames the file "test.txt" to "new-name.txt" for user "Alice" on the POSIX filesystem
     Then the command should be successful
-    And the content of file "/new-name.txt" for user "Alice" should be "content"
+    And as "Alice" the final content of file "/new-name.txt" should be "content"
 
 
   Scenario: check propfind after rename file
@@ -97,14 +98,14 @@ Feature: create a resources using collaborative posixfs
     Given the administrator has created the file "test.txt" with content "content" for user "Alice" on the POSIX filesystem
     When the administrator renames the file "test.txt" to "test.md" for user "Alice" on the POSIX filesystem
     Then the command should be successful
-    And the content of file "/test.md" for user "Alice" should be "content"
+    And as "Alice" the final content of file "/test.md" should be "content"
 
 
   Scenario: move file to folder
     Given user "Alice" has uploaded file with content "content" to "test.txt"
     When the administrator moves the file "test.txt" to the folder "firstFolder" for user "Alice" on the POSIX filesystem
     Then the command should be successful
-    And the content of file "/firstFolder/test.txt" for user "Alice" should be "content"
+    And as "Alice" the final content of file "/firstFolder/test.txt" should be "content"
     And as "Alice" file "/test.txt" should not exist
 
 
@@ -202,4 +203,4 @@ Feature: create a resources using collaborative posixfs
     And the administrator renames the file "test.txt" to "renamed.txt" for user "Alice" on the POSIX filesystem
     And the administrator checks the attribute "user.oc.name" of file "renamed.txt" for user "Alice" on the POSIX filesystem
     Then the command output should contain "renamed.txt"
-    And the content of file "/renamed.txt" for user "Alice" should be "content"
+    And as "Alice" the final content of file "/renamed.txt" should be "content"
