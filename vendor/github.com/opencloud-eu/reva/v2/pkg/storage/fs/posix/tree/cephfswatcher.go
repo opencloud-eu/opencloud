@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 
+	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	kafka "github.com/segmentio/kafka-go"
@@ -97,17 +98,17 @@ func (w *CephFSWatcher) Watch(topic string) {
 		go func() {
 			switch {
 			case mask&CEPH_MDS_NOTIFY_DELETE > 0:
-				err = w.tree.Scan(path, ActionDelete, isDir)
+				err = w.tree.Scan(path, watcher.ActionDelete, isDir)
 			case mask&CEPH_MDS_NOTIFY_MOVED_TO > 0:
 				if ev.SrcMask > 0 {
 					// This is a move, clean up the old path
-					err = w.tree.Scan(filepath.Join(w.tree.options.WatchRoot, ev.SrcPath), ActionMoveFrom, isDir)
+					err = w.tree.Scan(filepath.Join(w.tree.options.WatchRoot, ev.SrcPath), watcher.ActionMoveFrom, isDir)
 				}
-				err = w.tree.Scan(path, ActionMove, isDir)
+				err = w.tree.Scan(path, watcher.ActionMove, isDir)
 			case mask&CEPH_MDS_NOTIFY_CREATE > 0:
-				err = w.tree.Scan(path, ActionCreate, isDir)
+				err = w.tree.Scan(path, watcher.ActionCreate, isDir)
 			case mask&CEPH_MDS_NOTIFY_CLOSE_WRITE > 0:
-				err = w.tree.Scan(path, ActionUpdate, isDir)
+				err = w.tree.Scan(path, watcher.ActionUpdate, isDir)
 			case mask&CEPH_MDS_NOTIFY_CLOSE > 0:
 				// ignore, already handled by CLOSE_WRITE
 			default:

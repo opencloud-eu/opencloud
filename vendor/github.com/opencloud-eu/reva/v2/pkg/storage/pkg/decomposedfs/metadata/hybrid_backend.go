@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -292,17 +293,19 @@ func (b HybridBackend) SetMultiple(ctx context.Context, n MetadataNode, attribs 
 		}
 	}
 	xerrs := 0
+	total := 0
 	var xerr error
 	// error handling: Count if there are errors while setting the attribs.
 	// if there were any, return an error.
 	for key, val := range attribs {
+		total++
 		if xerr = xattr.Set(path, key, val); xerr != nil {
 			// log
 			xerrs++
 		}
 	}
 	if xerrs > 0 {
-		return errors.Wrap(xerr, "Failed to set all xattrs")
+		return fmt.Errorf("failed to set %d/%d xattrs: %w", xerrs, total, xerr)
 	}
 
 	attribs, err = b.getAll(ctx, n, true, false, false)
