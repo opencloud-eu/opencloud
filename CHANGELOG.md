@@ -1,22 +1,23 @@
 # Changelog
 
-## [4.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.1.0) - 2025-12-14
+## [4.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.1.0) - 2025-12-15
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @JammingBen, @ScharfViktor, @butonic, @flimmy, @fschade, @individual-it, @kulmann, @micbar, @prashant-gurung899, @saw-jan
 
-### 📈 Enhancement
-
-- Show edition in opencloud version command [[#2019](https://github.com/opencloud-eu/opencloud/pull/2019)]
-
 ### ✅ Tests
 
+- [full-ci][tests-only] test: fix some test flakiness [[#2003](https://github.com/opencloud-eu/opencloud/pull/2003)]
 - [tests-only] Skip test related pipelines for ready-release-go PRs [[#2011](https://github.com/opencloud-eu/opencloud/pull/2011)]
 - [full-ci][tests-only] test: add test to check mismatch offset during TUS upload [[#1993](https://github.com/opencloud-eu/opencloud/pull/1993)]
 - [full-ci][tests-only] test: proper resource existence check [[#1990](https://github.com/opencloud-eu/opencloud/pull/1990)]
 - check propfing after renaming data in file system [[#1809](https://github.com/opencloud-eu/opencloud/pull/1809)]
 - fix-get-attribute-test [[#1974](https://github.com/opencloud-eu/opencloud/pull/1974)]
+
+### 📈 Enhancement
+
+- Show edition in opencloud version command [[#2019](https://github.com/opencloud-eu/opencloud/pull/2019)]
 
 ### 🐛 Bug Fixes
 
