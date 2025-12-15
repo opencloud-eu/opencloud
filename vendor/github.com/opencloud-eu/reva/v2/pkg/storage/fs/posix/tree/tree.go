@@ -47,6 +47,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/lookup"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/trashbin"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher/natswatcher"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
@@ -144,6 +145,11 @@ func New(lu node.PathLookup, bs node.Blobstore, um usermapper.Mapper, trashbin *
 			}
 		case "cephfs":
 			t.watcher, err = NewCephfsWatcher(t, strings.Split(o.WatchNotificationBrokers, ","), log)
+			if err != nil {
+				return nil, err
+			}
+		case "natswatcher":
+			t.watcher, err = natswatcher.New(context.TODO(), t, o.NatsWatcher, o.WatchRoot, log)
 			if err != nil {
 				return nil, err
 			}
@@ -499,8 +505,18 @@ func (t *Tree) ListFolder(ctx context.Context, n *node.Node) ([]*node.Node, erro
 
 				_, nodeID, err := t.lookup.IDsForPath(ctx, path)
 				if err != nil {
-					t.log.Error().Err(err).Str("path", path).Msg("failed to get ids for entry")
-					continue
+					// we don't know about this node yet for some reason, assimilate it on the fly
+					t.log.Info().Err(err).Str("path", path).Msg("encountered unknown entity while listing the directory. Assimilate.")
+					err = t.assimilate(scanItem{Path: path})
+					if err != nil {
+						t.log.Error().Err(err).Str("path", path).Msg("failed to assimilate node")
+						continue
+					}
+					_, nodeID, err = t.lookup.IDsForPath(ctx, path)
+					if err != nil || nodeID == "" {
+						t.log.Error().Err(err).Str("path", path).Msg("still could not resolve node after assimilation")
+						continue
+					}
 				}
 
 				child, err := node.ReadNode(ctx, t.lookup, n.SpaceID, nodeID, false, n.SpaceRoot, true)
@@ -708,9 +724,23 @@ func (t *Tree) createDirNode(ctx context.Context, n *node.Node) (err error) {
 		t.log.Error().Err(err).Str("spaceID", n.SpaceID).Str("id", n.ID).Str("path", path).Msg("could not cache id")
 	}
 
+	// Write mtime from filesystem to metadata to preven re-assimilation
+	d, err := os.Open(path)
+	if err != nil {
+
+		return err
+	}
+	fi, err := d.Stat()
+	if err != nil {
+		return err
+	}
+	mtime := fi.ModTime()
+
 	attributes := n.NodeMetadata(ctx)
+	attributes[prefixes.MTimeAttr] = []byte(mtime.UTC().Format(time.RFC3339Nano))
 	attributes[prefixes.IDAttr] = []byte(n.ID)
 	attributes[prefixes.TreesizeAttr] = []byte("0") // initialize as empty, TODO why bother? if it is not set we could treat it as 0?
+
 	if t.options.TreeTimeAccounting || t.options.TreeSizeAccounting {
 		attributes[prefixes.PropagationAttr] = []byte("1") // mark the node for propagation
 	}

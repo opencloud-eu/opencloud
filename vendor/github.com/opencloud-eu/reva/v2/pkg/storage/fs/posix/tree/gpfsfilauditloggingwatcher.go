@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher"
 	"github.com/rs/zerolog"
 )
 
@@ -88,15 +89,15 @@ start:
 			go func() {
 				switch ev.Event {
 				case "CREATE":
-					err = w.tree.Scan(ev.Path, ActionCreate, false)
+					err = w.tree.Scan(ev.Path, watcher.ActionCreate, false)
 				case "CLOSE":
 					var bytesWritten int
 					bytesWritten, err = strconv.Atoi(ev.BytesWritten)
 					if err == nil && bytesWritten > 0 {
-						err = w.tree.Scan(ev.Path, ActionUpdate, false)
+						err = w.tree.Scan(ev.Path, watcher.ActionUpdate, false)
 					}
 				case "RENAME":
-					err = w.tree.Scan(ev.Path, ActionMove, false)
+					err = w.tree.Scan(ev.Path, watcher.ActionMove, false)
 					if warmupErr := w.tree.WarmupIDCache(ev.Path, false, false); warmupErr != nil {
 						w.log.Error().Err(warmupErr).Str("path", ev.Path).Msg("error warming up id cache")
 					}

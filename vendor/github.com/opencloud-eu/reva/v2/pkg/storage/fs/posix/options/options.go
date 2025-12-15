@@ -46,8 +46,25 @@ type Options struct {
 	WatchRoot                string `mapstructure:"watch_root"` // base directory for the watch. events will be considered relative to this path
 	WatchNotificationBrokers string `mapstructure:"watch_notification_brokers"`
 
+	NatsWatcher NatsWatcherConfig `mapstructure:"natswatcher"`
+
 	// InotifyWatcher specific options
 	InotifyStatsFrequency time.Duration `mapstructure:"inotify_stats_frequency"`
+}
+
+// NatsWatcherConfig is the configuration needed for a NATS watcher event stream.
+type NatsWatcherConfig struct {
+	Endpoint             string        `mapstructure:"address"`
+	Cluster              string        `mapstructure:"clusterID"`
+	Stream               string        `mapstructure:"stream"`
+	Durable              string        `mapstructure:"durable-name"`
+	TLSInsecure          bool          `mapstructure:"tls-insecure"`
+	TLSRootCACertificate string        `mapstructure:"tls-root-ca-cert"`
+	EnableTLS            bool          `mapstructure:"enable-tls"`
+	AuthUsername         string        `mapstructure:"username"`
+	AuthPassword         string        `mapstructure:"password"`
+	MaxAckPending        int           `mapstructure:"max-ack-pending"`
+	AckWait              time.Duration `mapstructure:"ack-wait"`
 }
 
 // New returns a new Options instance for the given configuration

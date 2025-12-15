@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher"
 	"github.com/rs/zerolog"
 	kafka "github.com/segmentio/kafka-go"
 )
@@ -77,21 +78,21 @@ func (w *GpfsWatchFolderWatcher) Watch(topic string) {
 			var err error
 			switch {
 			case strings.Contains(lwev.Event, "IN_DELETE"):
-				err = w.tree.Scan(path, ActionDelete, isDir)
+				err = w.tree.Scan(path, watcher.ActionDelete, isDir)
 
 			case strings.Contains(lwev.Event, "IN_MOVE_FROM"):
-				err = w.tree.Scan(path, ActionMoveFrom, isDir)
+				err = w.tree.Scan(path, watcher.ActionMoveFrom, isDir)
 
 			case strings.Contains(lwev.Event, "IN_CREATE"):
-				err = w.tree.Scan(path, ActionCreate, isDir)
+				err = w.tree.Scan(path, watcher.ActionCreate, isDir)
 
 			case strings.Contains(lwev.Event, "IN_CLOSE_WRITE"):
 				bytesWritten, convErr := strconv.Atoi(lwev.BytesWritten)
 				if convErr == nil && bytesWritten > 0 {
-					err = w.tree.Scan(path, ActionUpdate, isDir)
+					err = w.tree.Scan(path, watcher.ActionUpdate, isDir)
 				}
 			case strings.Contains(lwev.Event, "IN_MOVED_TO"):
-				err = w.tree.Scan(path, ActionMove, isDir)
+				err = w.tree.Scan(path, watcher.ActionMove, isDir)
 			}
 			if err != nil {
 				w.log.Error().Err(err).Str("path", path).Msg("error scanning path")

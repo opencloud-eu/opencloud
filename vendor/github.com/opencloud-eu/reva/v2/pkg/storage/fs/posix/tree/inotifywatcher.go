@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher"
 	"github.com/pablodz/inotifywaitgo/inotifywaitgo"
 	"github.com/rs/zerolog"
 	slogzerolog "github.com/samber/slog-zerolog/v2"
@@ -96,15 +97,15 @@ func (iw *InotifyWatcher) Watch(path string) {
 					var err error
 					switch e {
 					case inotifywaitgo.DELETE:
-						err = iw.tree.Scan(event.Filename, ActionDelete, event.IsDir)
+						err = iw.tree.Scan(event.Filename, watcher.ActionDelete, event.IsDir)
 					case inotifywaitgo.MOVED_FROM:
-						err = iw.tree.Scan(event.Filename, ActionMoveFrom, event.IsDir)
+						err = iw.tree.Scan(event.Filename, watcher.ActionMoveFrom, event.IsDir)
 					case inotifywaitgo.MOVED_TO:
-						err = iw.tree.Scan(event.Filename, ActionMove, event.IsDir)
+						err = iw.tree.Scan(event.Filename, watcher.ActionMove, event.IsDir)
 					case inotifywaitgo.CREATE:
-						err = iw.tree.Scan(event.Filename, ActionCreate, event.IsDir)
+						err = iw.tree.Scan(event.Filename, watcher.ActionCreate, event.IsDir)
 					case inotifywaitgo.CLOSE_WRITE:
-						err = iw.tree.Scan(event.Filename, ActionUpdate, event.IsDir)
+						err = iw.tree.Scan(event.Filename, watcher.ActionUpdate, event.IsDir)
 					case inotifywaitgo.CLOSE:
 						// ignore, already handled by CLOSE_WRITE
 					default:

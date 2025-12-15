@@ -21,6 +21,7 @@ package trashbin
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -589,6 +590,10 @@ func (tb *Trashbin) IsEmpty(ctx context.Context, spaceID string) bool {
 	}
 	dirItems, err := trash.ReadDir(1)
 	if err != nil {
+		if err == io.EOF {
+			// empty trash
+			return true
+		}
 		// if we cannot read the trash, we assume there are no trashed items
 		tb.log.Error().Err(err).Str("spaceID", spaceID).Msg("trashbin: error reading trash directory")
 		return true

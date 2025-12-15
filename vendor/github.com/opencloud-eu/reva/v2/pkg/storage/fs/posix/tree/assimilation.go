@@ -39,6 +39,7 @@ import (
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
@@ -53,16 +54,6 @@ type ScanDebouncer struct {
 
 	mutex sync.Mutex
 }
-
-type EventAction int
-
-const (
-	ActionCreate EventAction = iota
-	ActionUpdate
-	ActionMove
-	ActionDelete
-	ActionMoveFrom
-)
 
 type queueItem struct {
 	item  scanItem
@@ -190,10 +181,10 @@ func (t *Tree) workScanQueue() {
 }
 
 // Scan scans the given path and updates the id chache
-func (t *Tree) Scan(path string, action EventAction, isDir bool) error {
+func (t *Tree) Scan(path string, action watcher.EventAction, isDir bool) error {
 	// cases:
 	switch action {
-	case ActionCreate:
+	case watcher.ActionCreate:
 		t.log.Debug().Str("path", path).Bool("isDir", isDir).Msg("scanning path (ActionCreate)")
 		if !isDir {
 			// 1. New file (could be emitted as part of a new directory)
@@ -225,7 +216,7 @@ func (t *Tree) Scan(path string, action EventAction, isDir bool) error {
 			})
 		}
 
-	case ActionUpdate:
+	case watcher.ActionUpdate:
 		t.log.Debug().Str("path", path).Bool("isDir", isDir).Msg("scanning path (ActionUpdate)")
 		// 3. Updated file
 		//   -> update file unless parent directory is being rescanned
@@ -241,7 +232,7 @@ func (t *Tree) Scan(path string, action EventAction, isDir bool) error {
 			AssimilationCounter.WithLabelValues(_labelDir, _labelUpdated).Inc()
 		}
 
-	case ActionMove:
+	case watcher.ActionMove:
 		t.log.Debug().Str("path", path).Bool("isDir", isDir).Msg("scanning path (ActionMove)")
 		// 4. Moved file
 		//   -> update file
@@ -258,7 +249,7 @@ func (t *Tree) Scan(path string, action EventAction, isDir bool) error {
 			AssimilationCounter.WithLabelValues(_labelDir, _labelMoved).Inc()
 		}
 
-	case ActionMoveFrom:
+	case watcher.ActionMoveFrom:
 		t.log.Debug().Str("path", path).Bool("isDir", isDir).Msg("scanning path (ActionMoveFrom)")
 		// 6. file/directory moved out of the watched directory
 		//   -> remove from caches
@@ -279,7 +270,7 @@ func (t *Tree) Scan(path string, action EventAction, isDir bool) error {
 
 		// We do not do metrics here because this has been handled in `ActionMove`
 
-	case ActionDelete:
+	case watcher.ActionDelete:
 		t.log.Debug().Str("path", path).Bool("isDir", isDir).Msg("handling deleted item")
 
 		// 7. Deleted file or directory
@@ -426,6 +417,15 @@ func (t *Tree) assimilate(item scanItem) error {
 		}
 	}
 
+	fi, err := os.Lstat(item.Path)
+	if err != nil {
+		return err
+	}
+	if !fi.IsDir() && !fi.Mode().IsRegular() {
+		t.log.Trace().Str("path", item.Path).Msg("skipping non-regular file")
+		return nil
+	}
+
 	if id != "" {
 		// the file has an id set, we already know it from the past
 
@@ -451,17 +451,7 @@ func (t *Tree) assimilate(item scanItem) error {
 
 		// compare metadata mtime with actual mtime. if it matches AND the path hasn't changed (move operation)
 		// we can skip the assimilation because the file was handled by us
-		fi, err := os.Lstat(item.Path)
-		if err != nil {
-			return err
-		}
-
 		if previousPath == item.Path && mtime.Equal(fi.ModTime()) {
-			return nil
-		}
-
-		if !fi.IsDir() && !fi.Mode().IsRegular() {
-			t.log.Trace().Str("path", item.Path).Msg("skipping non-regular file")
 			return nil
 		}
 
@@ -675,6 +665,7 @@ assimilate:
 	}
 
 	var n *node.Node
+	sizeDiff := int64(0)
 	if fi.IsDir() {
 		// The Space's name attribute might not match the directory name. Use the name as
 		// it was set before. Also the space root doesn't have a 'type' attribute
@@ -712,44 +703,46 @@ assimilate:
 		n.SpaceRoot = &node.Node{BaseNode: node.BaseNode{SpaceID: spaceID, ID: spaceID}}
 
 		prevBlobSize, err := previousAttribs.Int64(prefixes.BlobsizeAttr)
-		if err == nil && prevBlobSize != fi.Size() {
-			// file size changed, trigger propagation of tree size changes
-			err = t.Propagate(context.Background(), n, fi.Size()-prevBlobSize)
-			if err != nil {
-				t.log.Error().Err(err).Str("path", path).Msg("could not propagate tree size changes")
-			}
+		if err != nil || prevBlobSize < 0 {
+			prevBlobSize = 0
+		}
+		if prevBlobSize != fi.Size() {
+			sizeDiff = fi.Size() - prevBlobSize
 		}
 	}
 	attributes.SetTime(prefixes.MTimeAttr, fi.ModTime())
 
 	n.SpaceRoot = &node.Node{BaseNode: node.BaseNode{SpaceID: spaceID, ID: spaceID}}
 
-	if t.options.EnableFSRevisions {
+	if !fi.IsDir() && t.options.EnableFSRevisions {
 		go func() {
 			// Copy the previous current version to a revision
 			currentNode := node.NewBaseNode(n.SpaceID, n.ID+node.CurrentIDDelimiter, t.lookup)
 			currentPath := currentNode.InternalPath()
 			stat, err := os.Stat(currentPath)
-			if err != nil {
-				t.log.Error().Err(err).Str("path", path).Str("currentPath", currentPath).Msg("could not stat current path")
-				return
-			}
-			revisionPath := t.lookup.VersionPath(n.SpaceID, n.ID, stat.ModTime().UTC().Format(time.RFC3339Nano))
+			if err == nil {
+				revisionPath := t.lookup.VersionPath(n.SpaceID, n.ID, stat.ModTime().UTC().Format(time.RFC3339Nano))
 
-			err = os.Rename(currentPath, revisionPath)
-			if err != nil {
-				t.log.Error().Err(err).Str("path", path).Str("revisionPath", revisionPath).Msg("could not create revision")
-				return
+				err = os.Rename(currentPath, revisionPath)
+				if err != nil {
+					t.log.Error().Err(err).Str("path", path).Str("revisionPath", revisionPath).Msg("could not create revision")
+					return
+				}
 			}
 
 			// Copy the new version to the current version
+			if err := os.MkdirAll(filepath.Dir(currentPath), 0700); err != nil {
+				t.log.Error().Err(err).Str("path", path).Str("currentPath", currentPath).Msg("could not create base path for current file")
+				return
+			}
+
 			w, err := os.OpenFile(currentPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 			if err != nil {
 				t.log.Error().Err(err).Str("path", path).Str("currentPath", currentPath).Msg("could not open current path for writing")
 				return
 			}
 			defer w.Close()
-			r, err := os.OpenFile(n.InternalPath(), os.O_RDONLY, 0600)
+			r, err := os.OpenFile(path, os.O_RDONLY, 0600)
 			if err != nil {
 				t.log.Error().Err(err).Str("path", path).Msg("could not open file for reading")
 				return
@@ -775,7 +768,7 @@ assimilate:
 		}()
 	}
 
-	err = t.Propagate(context.Background(), n, 0)
+	err = t.Propagate(context.Background(), n, sizeDiff)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to propagate")
 	}

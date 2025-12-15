@@ -1368,7 +1368,7 @@ github.com/opencloud-eu/icap-client
 # github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76
 ## explicit; go 1.18
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v2 v2.40.1
+# github.com/opencloud-eu/reva/v2 v2.41.0
 ## explicit; go 1.24.1
 github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v2/cmd/revad/runtime
@@ -1682,6 +1682,8 @@ github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/timemanager
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/trashbin
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/tree
+github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher
+github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher/natswatcher
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/registry
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/s3ng
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/s3ng/blobstore
