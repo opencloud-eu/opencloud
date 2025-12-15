@@ -32,6 +32,7 @@
 
 ### 📦️ Dependencies
 
+- reva-bump-2.41.0 [[#2032](https://github.com/opencloud-eu/opencloud/pull/2032)]
 - build(deps): bump github.com/testcontainers/testcontainers-go from 0.39.0 to 0.40.0 [[#1931](https://github.com/opencloud-eu/opencloud/pull/1931)]
 
 ## [4.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.0) - 2025-12-01
