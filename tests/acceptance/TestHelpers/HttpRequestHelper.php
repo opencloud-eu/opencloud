@@ -33,6 +33,7 @@ use SimpleXMLElement;
 use Sabre\Xml\LibXMLException;
 use Sabre\Xml\Reader;
 use GuzzleHttp\Pool;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Helper for HTTP requests
@@ -74,7 +75,6 @@ class HttpRequestHelper {
 	 *                     than download it all up-front.
 	 * @param int|null $timeout
 	 * @param Client|null $client
-	 * @param string|null $bearerToken
 	 *
 	 * @return ResponseInterface
 	 * @throws GuzzleException
@@ -92,8 +92,42 @@ class HttpRequestHelper {
 		bool $stream = false,
 		?int $timeout = 0,
 		?Client $client =  null,
-		?string $bearerToken = null
 	): ResponseInterface {
+		$bearerToken = null;
+		if (TokenHelper::useBearerToken() && $user && $user !== 'public') {
+			$bearerToken = TokenHelper::getTokens($user, $password, $url)['access_token'];
+			// check token is still valid
+			$parsedUrl = parse_url($url);
+			$baseUrl = $parsedUrl['scheme'] . '://' . $parsedUrl['host'];
+			$baseUrl .= isset($parsedUrl['port']) ? ':' . $parsedUrl['port'] : '';
+			$testUrl = $baseUrl . "/graph/v1.0/use/$user";
+			if (OcHelper::isTestingOnReva()) {
+				$url = $baseUrl . "/ocs/v2.php/cloud/users/$user";
+			}
+			// check token validity with a GET request
+			$c = self::createClient(
+				$user,
+				$password,
+				$config,
+				$cookies,
+				$stream,
+				$timeout,
+				$bearerToken
+			);
+			$testReq = self::createRequest($testUrl, $xRequestId, 'GET');
+			try {
+				$testRes = $c->send($testReq);
+			} catch (RequestException $ex) {
+				$testRes = $ex->getResponse();
+				if ($testRes && $testRes->getStatusCode() === Response::HTTP_UNAUTHORIZED) {
+					// token is invalid or expired, get a new one
+					echo "[INFO] Bearer token expired or invalid, getting a new one...\n";
+					TokenHelper::clearAllTokens();
+					$bearerToken = TokenHelper::getTokens($user, $password, $url)['access_token'];
+				}
+			}
+		}
+
 		if ($client === null) {
 			$client = self::createClient(
 				$user,
@@ -160,6 +194,24 @@ class HttpRequestHelper {
 		}
 
 		HttpLogger::logResponse($response);
+
+		// wait for post-processing to finish if applicable
+		if (WebdavHelper::isDAVRequest($url)
+			&& \str_starts_with($url, OcHelper::getServerUrl())
+			&& \in_array($method, ["PUT", "MOVE", "COPY"])
+			&& \in_array($response->getStatusCode(), [Response::HTTP_CREATED, Response::HTTP_NO_CONTENT])
+			&& OcConfigHelper::getPostProcessingDelay() === 0
+		) {
+			if (\in_array($method, ["MOVE", "COPY"])) {
+				$url = $headers['Destination'];
+			}
+			WebDavHelper::waitForPostProcessingToFinish(
+				$url,
+				$user,
+				$password,
+				$headers,
+			);
+		}
 		return $response;
 	}
 
@@ -203,13 +255,6 @@ class HttpRequestHelper {
 		} else {
 			$debugResponses = false;
 		}
-		// use basic auth for 'public' user or no user
-		if ($user === 'public' || $user === null || $user === '') {
-			$bearerToken = null;
-		} else {
-			$useBearerToken = TokenHelper::useBearerToken();
-			$bearerToken = $useBearerToken ? TokenHelper::getTokens($user, $password, $url)['access_token'] : null;
-		}
 
 		$sendRetryLimit = self::numRetriesOnHttpTooEarly();
 		$sendCount = 0;
@@ -228,7 +273,6 @@ class HttpRequestHelper {
 				$stream,
 				$timeout,
 				$client,
-				$bearerToken,
 			);
 
 			if ($response->getStatusCode() >= 400
@@ -256,7 +300,8 @@ class HttpRequestHelper {
 				// we need to repeat the send request, because we got HTTP_TOO_EARLY or HTTP_CONFLICT
 				// wait 1 second before sending again, to give the server some time
 				// to finish whatever post-processing it might be doing.
-				self::debugResponse($response);
+				echo "[INFO] Received '" . $response->getStatusCode() .
+					"' status code, retrying request ($sendCount)...\n";
 				\sleep(1);
 			}
 		} while ($loopAgain);

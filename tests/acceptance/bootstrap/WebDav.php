@@ -25,6 +25,7 @@ use GuzzleHttp\Exception\GuzzleException;
 use PHPUnit\Framework\Assert;
 use Psr\Http\Message\ResponseInterface;
 use GuzzleHttp\Stream\StreamInterface;
+use TestHelpers\OcConfigHelper;
 use TestHelpers\OcHelper;
 use TestHelpers\UploadHelper;
 use TestHelpers\WebDavHelper;
@@ -743,6 +744,7 @@ trait WebDav {
 
 	/**
 	 * @When the user waits for :time seconds for postprocessing to finish
+	 * @When the user waits for :time seconds
 	 *
 	 * @param int $time
 	 *
@@ -971,6 +973,61 @@ trait WebDav {
 			);
 		}
 		$this->checkDownloadedContentMatches($content, '', $response);
+	}
+
+	/**
+	 * check file content with retry
+	 *
+	 * @param string $user
+	 * @param string $fileName
+	 * @param string $content
+	 *
+	 * @return void
+	 * @throws Exception
+	 */
+	public function checkFileContentWithRetry(string $user, string $fileName, string $content): void {
+		$retried = 0;
+		do {
+			$tryAgain = false;
+			$response = $this->downloadFileAsUserUsingPassword($this->getActualUsername($user), $fileName);
+			$status = $response->getStatusCode();
+			$downloadedContent = $response->getBody()->getContents();
+			if ($status !== 200) {
+				$tryAgain = true;
+				$message = "Expected '200' but got '$status'";
+			} elseif ($downloadedContent !== $content) {
+				$tryAgain = true;
+				$message = "Expected content '$content' but got '$downloadedContent'";
+			}
+			$tryAgain = $tryAgain && $retried < HttpRequestHelper::numRetriesOnHttpTooEarly();
+			if ($tryAgain) {
+				$retried += 1;
+				echo "[INFO] File content mismatch. $message, checking content again ($retried)...\n";
+
+				// break the loop if status is 425 as the request will already be retried
+				if ($status === HttpRequestHelper::HTTP_TOO_EARLY) {
+					break;
+				}
+
+				// wait 1s and try again
+				\sleep(1);
+			}
+		} while ($tryAgain);
+		$this->theHTTPStatusCodeShouldBe(200, '', $response);
+		$this->checkDownloadedContentMatches($content, '', $response);
+	}
+
+	/**
+	 * @Then as :user the final content of file :fileName should be :content
+	 *
+	 * @param string $user
+	 * @param string $fileName
+	 * @param string $content
+	 *
+	 * @return void
+	 */
+	public function asUserFinalContentOfFileShouldBe(string $user, string $fileName, string $content): void {
+		$this->checkFileContentWithRetry($user, $fileName, $content);
 	}
 
 	/**
@@ -2272,6 +2329,11 @@ trait WebDav {
 			"HTTP status code was not 201 or 204 while trying to upload file '$destination' for user '$user'",
 			$response
 		);
+
+		// check uploaded content only if post-processing delay is not configured
+		if (OcConfigHelper::getPostProcessingDelay() === 0) {
+			$this->checkFileContentWithRetry($user, $destination, $content);
+		}
 		return $response->getHeader('oc-fileid');
 	}
 

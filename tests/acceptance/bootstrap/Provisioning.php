@@ -607,7 +607,7 @@ trait Provisioning {
 				Assert::assertEquals(
 					201,
 					$response->getStatusCode(),
-					__METHOD__ . " cannot create user '$userName' using Graph API.\nResponse:" .
+					__METHOD__ . " cannot create user '$userName'.\nResponse:" .
 					json_encode($this->getJsonDecodedResponse($response))
 				);
 
@@ -1083,7 +1083,7 @@ trait Provisioning {
 			Assert::assertEquals(
 				201,
 				$response->getStatusCode(),
-				__METHOD__ . " cannot create user '$user' using Graph API.\nResponse:" .
+				__METHOD__ . " cannot create user '$user'.\nResponse:" .
 				json_encode($this->getJsonDecodedResponse($response))
 			);
 			$userId = $this->getJsonDecodedResponse($response)['id'];

@@ -750,6 +750,9 @@ class SpacesContext implements Context {
 		} else {
 			$rawBody =  $this->featureContext->getResponse()->getBody()->getContents();
 		}
+		if (!$rawBody) {
+			throw new Exception(__METHOD__ . " - Response body is empty");
+		}
 		$drives = json_decode($rawBody, true, 512, JSON_THROW_ON_ERROR);
 		if (isset($drives["value"])) {
 			$drives = $drives["value"];
