@@ -65,7 +65,7 @@ if (!\defined('EMAIL_WAIT_TIMEOUT_MILLISEC')) {
 
 // Default number of times to retry where retries are useful
 if (!\defined('STANDARD_RETRY_COUNT')) {
-	\define('STANDARD_RETRY_COUNT', 5);
+	\define('STANDARD_RETRY_COUNT', 10);
 }
 // Minimum number of times to retry where retries are useful
 if (!\defined('MINIMUM_RETRY_COUNT')) {

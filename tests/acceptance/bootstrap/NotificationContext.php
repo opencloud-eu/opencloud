@@ -589,36 +589,68 @@ class NotificationContext implements Context {
 	): void {
 		$address = $this->featureContext->getEmailAddressForUser($user);
 		$this->featureContext->pushEmailRecipientAsMailBox($address);
-		$actualEmailBodyContent = EmailHelper::getBodyOfLastEmail($address, $this->featureContext->getStepLineRef());
-		if ($ignoreWhiteSpace) {
-			$expectedEmailBodyContent = preg_replace('/\s+/', '', $expectedEmailBodyContent);
-			$actualEmailBodyContent = preg_replace('/\s+/', '', $actualEmailBodyContent);
-		}
+
+		// assert with retries as email delivery might be delayed
+		$retried = 0;
+		do {
+			$actualEmailBodyContent = EmailHelper::getBodyOfLastEmail(
+				$address,
+				$this->featureContext->getStepLineRef()
+			);
+			if ($ignoreWhiteSpace) {
+				$expectedEmailBodyContent = preg_replace('/\s+/', '', $expectedEmailBodyContent);
+				$actualEmailBodyContent = preg_replace('/\s+/', '', $actualEmailBodyContent);
+			}
+			$tryAgain = !\str_contains($actualEmailBodyContent, $expectedEmailBodyContent)
+				&& $retried <= STANDARD_RETRY_COUNT;
+			$retried++;
+			if ($tryAgain) {
+				$mailBox = EmailHelper::getMailBoxFromEmail($address);
+				echo "[INFO] Checking last email content for '$mailBox'. (Retry $retried)\n";
+				// wait for 1 second before trying again
+				sleep(1);
+			}
+		} while ($tryAgain);
 		Assert::assertStringContainsString(
 			$expectedEmailBodyContent,
 			$actualEmailBodyContent,
 			"The email address '$address' should have received an"
-			. "email with the body containing $expectedEmailBodyContent
-			but the received email is $actualEmailBodyContent"
+			. " email with the body containing '$expectedEmailBodyContent'"
+			. " but the received email is '$actualEmailBodyContent'"
 		);
 	}
 
 	/**
-	 * Delete all the inbucket emails
+	 * Delete all emails from the mailboxes
 	 *
 	 * @AfterScenario @email
 	 *
 	 * @return void
 	 */
-	public function clearInbucketMessages(): void {
+	public function clearMailboxes(): void {
+		$users = \array_keys($this->featureContext->getCreatedUsers());
 		try {
-			if (!empty($this->featureContext->emailRecipients)) {
-				foreach ($this->featureContext->emailRecipients as $emailRecipient) {
-					EmailHelper::deleteAllEmailsForAMailbox(
-						EmailHelper::getLocalEmailUrl(),
-						$this->featureContext->getStepLineRef(),
-						$emailRecipient
-					);
+			if (!empty($users)) {
+				foreach ($users as $emailRecipient) {
+					$retried = 0;
+					do {
+						$res = EmailHelper::deleteAllEmails(
+							EmailHelper::getLocalEmailUrl(),
+							$emailRecipient,
+							$this->featureContext->getStepLineRef(),
+						);
+						$deleteStatus = $res->getStatusCode();
+						$mailBox = EmailHelper::getMailboxInformation($emailRecipient);
+						$tryAgain = ($deleteStatus !== 200 || !empty($mailBox)) && $retried <= STANDARD_RETRY_COUNT;
+						$retried++;
+						if ($tryAgain) {
+							echo "[INFO] Clearing mailbox '$emailRecipient'."
+							. " Status: $deleteStatus. Emails: " . \count($mailBox) . "."
+							. " (Retry $retried)\n";
+							// wait for 1 second before trying again
+							sleep(1);
+						}
+					} while ($tryAgain);
 				}
 			}
 		} catch (Exception $e) {
