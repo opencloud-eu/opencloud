@@ -19,6 +19,11 @@ services:
       - "--entryPoints.http.http.redirections.entryPoint.to=https"
       - "--entryPoints.http.http.redirections.entryPoint.scheme=https"
       - "--entryPoints.https.address=:443"
+      # http2 optimizations
+      - "--entryPoints.https.http2.maxConcurrentStreams=512"
+      - "--serversTransport.maxIdleConnsPerHost=100"
+      # allow self signed certificate from OpenCloud
+      - "--serversTransport.insecureSkipVerify=true"
       # change default timeouts for long-running requests
       # this is needed for webdav clients that do not support the TUS protocol
       - "--entryPoints.https.transport.respondingTimeouts.readTimeout=12h"

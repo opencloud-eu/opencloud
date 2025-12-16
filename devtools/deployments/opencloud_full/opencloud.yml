@@ -25,7 +25,7 @@ services:
       OC_LOG_COLOR: "${LOG_PRETTY:-false}"
       OC_LOG_PRETTY: "${LOG_PRETTY:-false}"
       # do not use SSL between Traefik and OpenCloud
-      PROXY_TLS: "false"
+      PROXY_TLS: "true"
       # make the REVA gateway accessible to the app drivers
       GATEWAY_GRPC_ADDR: 0.0.0.0:9142
       # INSECURE: needed if OpenCloud / Traefik is using self generated certificates
@@ -72,6 +72,7 @@ services:
       - "traefik.http.routers.opencloud.tls.certresolver=http"
       - "traefik.http.routers.opencloud.service=opencloud"
       - "traefik.http.services.opencloud.loadbalancer.server.port=9200"
+      - "traefik.http.services.opencloud.loadbalancer.server.scheme=https"
     logging:
       driver: ${LOG_DRIVER:-local}
     restart: always

@@ -1231,7 +1231,7 @@ def wopiValidatorTests(ctx, storage, wopiServerType, accounts_hash_difficulty = 
                          "commands": [
                              "curl -v -X PUT '%s/remote.php/webdav/test.wopitest' -k --fail --retry-connrefused --retry 7 --retry-all-errors -u admin:admin -D headers.txt" % OC_URL,
                              "cat headers.txt",
-                             "export FILE_ID=$(cat headers.txt | sed -n -e 's/^.*Oc-Fileid: //p')",
+                             "export FILE_ID=$(cat headers.txt | sed -n -e 's/^.*oc-fileid: //Ip')",
                              "export URL=\"%s/app/open?app_name=FakeOffice&file_id=$FILE_ID\"" % OC_URL,
                              "export URL=$(echo $URL | tr -d '[:cntrl:]')",
                              "curl -v -X POST \"$URL\" -k --fail --retry-connrefused --retry 7 --retry-all-errors -u admin:admin > open.json",

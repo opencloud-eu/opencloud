@@ -49,6 +49,8 @@ func NewService(opts ...Option) (Service, error) {
 		}
 		tlsConfig := &tls.Config{
 			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
+			NextProtos:   []string{"h2", "http/1.1"},
 		}
 		mServer = mhttps.NewServer(server.TLSConfig(tlsConfig))
 	} else {
