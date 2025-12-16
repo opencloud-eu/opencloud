@@ -1,5 +1,15 @@
 # Changelog
 
+## [4.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.2.0) - 2025-12-16
+
+### ❤️ Thanks to all contributors! ❤️
+
+@dragonchaser
+
+### 📈 Enhancement
+
+- migrate from urfave/cli to spf13/cobra [[#1954](https://github.com/opencloud-eu/opencloud/pull/1954)]
+
 ## [4.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.1.0) - 2025-12-15
 
 ### ❤️ Thanks to all contributors! ❤️
