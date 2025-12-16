@@ -4,7 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@dragonchaser
+@ScharfViktor, @dragonchaser
+
+### ✅ Tests
+
+- skip collaborativePosix tests in CI [[#2039](https://github.com/opencloud-eu/opencloud/pull/2039)]
 
 ### 📈 Enhancement
 
