@@ -127,13 +127,10 @@ class EmailHelper {
 	}
 
 	/**
-	 * Returns the body of the last received email for the provided receiver according to the provided email address and the serial number
-	 * For email number, 1 means the latest one
+	 * Returns the body of the last received email for the provided receiver
 	 *
 	 * @param string $emailAddress
-	 * @param string|null $xRequestId
-	 * @param int|null $emailNumber For email number, 1 means the latest one
-	 * @param int|null $waitTimeSec Time to wait for the email if the email has been delivered
+	 * @param string $xRequestId
 	 *
 	 * @return string
 	 * @throws GuzzleException
@@ -142,48 +139,40 @@ class EmailHelper {
 	public static function getBodyOfLastEmail(
 		string $emailAddress,
 		string $xRequestId,
-		?int $emailNumber = 1,
-		?int $waitTimeSec = EMAIL_WAIT_TIMEOUT_SEC
 	): string {
-		$currentTime = \time();
-		$endTime = $currentTime + $waitTimeSec;
 		$mailBox = self::getMailBoxFromEmail($emailAddress);
-		while ($currentTime <= $endTime) {
-			$mailboxResponse = self::getMailboxInformation($mailBox, $xRequestId);
-			if (!empty($mailboxResponse) && \sizeof($mailboxResponse) >= $emailNumber) {
-				$mailboxId = $mailboxResponse[\sizeof($mailboxResponse) - $emailNumber]->id;
-				$response = self::getBodyOfAnEmailById($mailBox, $mailboxId, $xRequestId);
-				$body = \str_replace(
-					"\r\n",
-					"\n",
-					\quoted_printable_decode($response->body->text . "\n" . $response->body->html)
-				);
-				return $body;
-			}
-			\usleep(STANDARD_SLEEP_TIME_MICROSEC * 50);
-			$currentTime = \time();
+		$emails = self::getMailboxInformation($mailBox, $xRequestId);
+		if (!empty($emails)) {
+			$emailId = \array_pop($emails)->id;
+			$response = self::getBodyOfAnEmailById($mailBox, $emailId, $xRequestId);
+			$body = \str_replace(
+				"\r\n",
+				"\n",
+				\quoted_printable_decode($response->body->text . "\n" . $response->body->html)
+			);
+			return $body;
 		}
-		throw new Exception("Could not find the email to the address: " . $emailAddress);
+		return "";
 	}
 
 	/**
 	 * Deletes all the emails for the provided mailbox
 	 *
-	 * @param string $localInbucketUrl
-	 * @param string|null $xRequestId
+	 * @param string $url
 	 * @param string $mailBox
+	 * @param string $xRequestId
 	 *
 	 * @return ResponseInterface
 	 * @throws GuzzleException
 	 */
-	public static function deleteAllEmailsForAMailbox(
-		string $localInbucketUrl,
-		?string $xRequestId,
-		string $mailBox
+	public static function deleteAllEmails(
+		string $url,
+		string $mailBox,
+		string $xRequestId,
 	): ResponseInterface {
 		return HttpRequestHelper::delete(
-			$localInbucketUrl . "/api/v1/mailbox/" . $mailBox,
-			$xRequestId
+			$url . "/api/v1/mailbox/" . $mailBox,
+			$xRequestId,
 		);
 	}
 }

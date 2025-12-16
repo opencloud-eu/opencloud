@@ -27,49 +27,18 @@ $classLoader->addPsr4("TestHelpers\\", __DIR__ . "/../TestHelpers", true);
 
 $classLoader->register();
 
-// Sleep for 10 milliseconds
-if (!\defined('STANDARD_SLEEP_TIME_MILLISEC')) {
-	\define('STANDARD_SLEEP_TIME_MILLISEC', 10);
-}
-
-if (!\defined('STANDARD_SLEEP_TIME_MICROSEC')) {
-	\define('STANDARD_SLEEP_TIME_MICROSEC', STANDARD_SLEEP_TIME_MILLISEC * 1000);
-}
-
-// Long timeout for use in code that needs to wait for known slow UI
-if (!\defined('LONG_UI_WAIT_TIMEOUT_MILLISEC')) {
-	\define('LONG_UI_WAIT_TIMEOUT_MILLISEC', 60000);
-}
-
-// Default timeout for use in code that needs to wait for the UI
-if (!\defined('STANDARD_UI_WAIT_TIMEOUT_MILLISEC')) {
-	\define('STANDARD_UI_WAIT_TIMEOUT_MILLISEC', 10000);
-}
-
-// Minimum timeout for use in code that needs to wait for the UI
-if (!\defined('MINIMUM_UI_WAIT_TIMEOUT_MILLISEC')) {
-	\define('MINIMUM_UI_WAIT_TIMEOUT_MILLISEC', 500);
-}
-
-if (!\defined('MINIMUM_UI_WAIT_TIMEOUT_MICROSEC')) {
-	\define('MINIMUM_UI_WAIT_TIMEOUT_MICROSEC', MINIMUM_UI_WAIT_TIMEOUT_MILLISEC * 1000);
-}
-
-// Minimum timeout for emails
-if (!\defined('EMAIL_WAIT_TIMEOUT_SEC')) {
-	\define('EMAIL_WAIT_TIMEOUT_SEC', 10);
-}
-if (!\defined('EMAIL_WAIT_TIMEOUT_MILLISEC')) {
-	\define('EMAIL_WAIT_TIMEOUT_MILLISEC', EMAIL_WAIT_TIMEOUT_SEC * 1000);
-}
-
 // Default number of times to retry where retries are useful
 if (!\defined('STANDARD_RETRY_COUNT')) {
-	\define('STANDARD_RETRY_COUNT', 5);
+	\define('STANDARD_RETRY_COUNT', 10);
 }
 // Minimum number of times to retry where retries are useful
 if (!\defined('MINIMUM_RETRY_COUNT')) {
 	\define('MINIMUM_RETRY_COUNT', 2);
+}
+
+// Minimum number of times to retry where retries are useful
+if (!\defined('HTTP_REQUEST_TIMEOUT')) {
+	\define('HTTP_REQUEST_TIMEOUT', 60);
 }
 
 // The remote server-under-test might or might not happen to have this directory.

@@ -57,7 +57,7 @@ class HttpRequestHelper {
 	public static function numRetriesOnHttpTooEarly(): int {
 		// Currently reva and OpenCloud may return HTTP_TOO_EARLY
 		// So try up to 10 times before giving up.
-		return 10;
+		return STANDARD_RETRY_COUNT;
 	}
 
 	/**
@@ -732,7 +732,7 @@ class HttpRequestHelper {
 	 */
 	public static function getRequestTimeout(): int {
 		$timeout = \getenv("REQUEST_TIMEOUT");
-		return (int)$timeout ?: 60;
+		return (int)$timeout ?: HTTP_REQUEST_TIMEOUT;
 	}
 
 	/**
