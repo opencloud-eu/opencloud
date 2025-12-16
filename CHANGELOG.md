@@ -4,10 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @dragonchaser, @rhafer
+@ScharfViktor, @dragonchaser, @rhafer, @saw-jan
 
 ### ✅ Tests
 
+- [full-ci][tests-only] test: check last email content with retries as emails can be delayed [[#2038](https://github.com/opencloud-eu/opencloud/pull/2038)]
 - skip collaborativePosix tests in CI [[#2039](https://github.com/opencloud-eu/opencloud/pull/2039)]
 
 ### 📈 Enhancement
