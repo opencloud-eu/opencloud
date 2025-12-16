@@ -3,7 +3,7 @@
 
 # Repository
 
-repo_slug = "opencloud-eu/opencloud"
+repo_slug = "${CI_REPO}"
 docker_repo_slug = "opencloudeu/opencloud"
 
 # images
@@ -43,19 +43,19 @@ DEFAULT_NODEJS_VERSION = "20"
 CACHE_S3_SERVER = "https://s3.ci.opencloud.eu"
 
 dirs = {
-    "base": "/woodpecker/src/github.com/opencloud-eu/opencloud",
-    "web": "/woodpecker/src/github.com/opencloud-eu/opencloud/webTestRunner",
-    "zip": "/woodpecker/src/github.com/opencloud-eu/opencloud/zip",
-    "webZip": "/woodpecker/src/github.com/opencloud-eu/opencloud/zip/web.tar.gz",
-    "webPnpmZip": "/woodpecker/src/github.com/opencloud-eu/opencloud/zip/web-pnpm.tar.gz",
-    "playwrightBrowsersArchive": "/woodpecker/src/github.com/opencloud-eu/opencloud/zip/playwright-browsers.tar.gz",
-    "baseGo": "/go/src/github.com/opencloud-eu/opencloud",
+    "base": "/woodpecker/src/github.com/%s" % repo_slug,
+    "web": "/woodpecker/src/github.com/%s/webTestRunner" % repo_slug,
+    "zip": "/woodpecker/src/github.com/%s/zip" % repo_slug,
+    "webZip": "/woodpecker/src/github.com/%s/zip/web.tar.gz" % repo_slug,
+    "webPnpmZip": "/woodpecker/src/github.com/%s/zip/web-pnpm.tar.gz" % repo_slug,
+    "playwrightBrowsersArchive": "/woodpecker/src/github.com/%s/zip/playwright-browsers.tar.gz" % repo_slug,
+    "baseGo": "/go/src/github.com/%s" % repo_slug,
     "gobinTar": "go-bin.tar.gz",
-    "gobinTarPath": "/go/src/github.com/opencloud-eu/opencloud/go-bin.tar.gz",
+    "gobinTarPath": "/go/src/github.com/%s/go-bin.tar.gz" % repo_slug,
     "opencloudConfig": "tests/config/woodpecker/opencloud-config.json",
-    "opencloudRevaDataRoot": "/woodpecker/src/github.com/opencloud-eu/opencloud/srv/app/tmp/ocis/owncloud/data",
-    "multiServiceOcBaseDataPath": "/woodpecker/src/github.com/opencloud-eu/opencloud/multiServiceData",
-    "ocWrapper": "/woodpecker/src/github.com/opencloud-eu/opencloud/tests/ocwrapper",
+    "opencloudRevaDataRoot": "/woodpecker/src/github.com/%s/srv/app/tmp/ocis/owncloud/data" % repo_slug,
+    "multiServiceOcBaseDataPath": "/woodpecker/src/github.com/%s/multiServiceData" % repo_slug,
+    "ocWrapper": "/woodpecker/src/github.com/%s/tests/ocwrapper" % repo_slug,
     "bannedPasswordList": "tests/config/woodpecker/banned-password-list.txt",
     "ocmProviders": "tests/config/woodpecker/providers.json",
     "opencloudBinPath": "opencloud/bin",
@@ -414,7 +414,7 @@ GRAPH_AVAILABLE_ROLES = "b1e2218d-eef8-4d4c-b82d-0f1a1b48f3b5,a8d5fe5e-96e3-418d
 workspace = \
     {
         "base": "/go",
-        "path": "src/github.com/opencloud-eu/opencloud/",
+        "path": "src/github.com/%s/" % repo_slug,
     }
 
 # minio mc environment variables
@@ -556,7 +556,6 @@ def main(ctx):
 def cachePipeline(ctx, name, steps):
     return {
         "name": "build-%s-cache" % name,
-        "skip_clone": True,
         "steps": steps,
         "when": [
             {
@@ -2500,7 +2499,7 @@ def genericBuildArtifactCache(ctx, name, action, path):
         return genericCache(name, action, [path], cache_path)
 
     if action == "purge":
-        return purgeCache("purge_opencloud_build_artifact_cache", "cache/opencloud-eu/opencloud", 1)
+        return purgeCache("purge_opencloud_build_artifact_cache", "cache/%s" % repo_slug, 1)
     return []
 
 def restoreBuildArtifactCache(ctx, name, path):
@@ -2706,15 +2705,13 @@ def setupForLitmus():
     }]
 
 def getWoodpeckerEnvAndCheckScript(ctx):
-    opencloud_git_base_url = "https://raw.githubusercontent.com/opencloud-eu/opencloud"
-    path_to_woodpecker_env = "%s/%s/.woodpecker.env" % (opencloud_git_base_url, ctx.build.commit)
-    path_to_check_script = "%s/%s/tests/config/woodpecker/check_web_cache.sh" % (opencloud_git_base_url, ctx.build.commit)
+    path_to_woodpecker_env = "%s/.woodpecker.env" % dirs["base"]
+    path_to_check_script = "%s/tests/config/woodpecker/check_web_cache.sh" % dirs["base"]
     return {
         "name": "get-woodpecker-env-and-check-script",
         "image": OC_UBUNTU,
         "commands": [
-            "curl -s -o .woodpecker.env %s" % path_to_woodpecker_env,
-            "curl -s -o check_web_cache.sh %s" % path_to_check_script,
+            "cp %s check_web_cache.sh" % path_to_check_script,
         ],
     }
 
@@ -2948,7 +2945,7 @@ def restoreBrowsersCache():
             "name": "unzip-browsers-cache",
             "image": OC_UBUNTU,
             "commands": [
-                "tar -xf /woodpecker/src/github.com/opencloud-eu/opencloud/webTestRunner/playwright-browsers.tar.gz -C .",
+                "tar -xf /woodpecker/src/github.com/%s/webTestRunner/playwright-browsers.tar.gz -C ." % repo_slug,
             ],
         },
     ]
@@ -3136,7 +3133,7 @@ def k6LoadTests(ctx):
     if "skip" in config["k6LoadTests"] and config["k6LoadTests"]["skip"]:
         return []
 
-    opencloud_git_base_url = "https://raw.githubusercontent.com/opencloud-eu/opencloud"
+    opencloud_git_base_url = "https://raw.githubusercontent.com/%s" % repo_slug
     script_link = "%s/%s/tests/config/woodpecker/run_k6_tests.sh" % (opencloud_git_base_url, ctx.build.commit)
 
     event_array = ["cron"]
