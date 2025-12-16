@@ -4,16 +4,17 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @dragonchaser, @rhafer, @saw-jan
+@ScharfViktor, @butonic, @dragonchaser, @rhafer, @saw-jan
+
+### 📈 Enhancement
+
+- allow http2 connections to proxy [[#2040](https://github.com/opencloud-eu/opencloud/pull/2040)]
+- migrate from urfave/cli to spf13/cobra [[#1954](https://github.com/opencloud-eu/opencloud/pull/1954)]
 
 ### ✅ Tests
 
 - [full-ci][tests-only] test: check last email content with retries as emails can be delayed [[#2038](https://github.com/opencloud-eu/opencloud/pull/2038)]
 - skip collaborativePosix tests in CI [[#2039](https://github.com/opencloud-eu/opencloud/pull/2039)]
-
-### 📈 Enhancement
-
-- migrate from urfave/cli to spf13/cobra [[#1954](https://github.com/opencloud-eu/opencloud/pull/1954)]
 
 ## [4.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.1.0) - 2025-12-15
 
