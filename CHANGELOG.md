@@ -1,5 +1,15 @@
 # Changelog
 
+## [4.0.2](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.2) - 2025-12-16
+
+### ❤️ Thanks to all contributors! ❤️
+
+@saw-jan
+
+### ✅ Tests
+
+- [full-ci][tests-only] port test fixes [[#2017](https://github.com/opencloud-eu/opencloud/pull/2017)]
+
 ## [4.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.1) - 2025-12-15
 
 ### ❤️ Thanks to all contributors! ❤️
