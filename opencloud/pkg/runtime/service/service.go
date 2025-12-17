@@ -124,7 +124,7 @@ func NewService(ctx context.Context, options ...Option) (*Service, error) {
 		if s.Services[priority] == nil {
 			s.Services[priority] = make(serviceFuncMap)
 		}
-		s.Services[priority][name] = NewSutureServiceBuilder(exec)
+		s.Services[priority][name] = NewSutureServiceBuilder(name, exec)
 	}
 
 	// nats is in priority group 0. It needs to start before all other services
@@ -316,7 +316,7 @@ func NewService(ctx context.Context, options ...Option) (*Service, error) {
 
 	// populate optional services
 	areg := func(name string, exec func(context.Context, *occfg.Config) error) {
-		s.Additional[name] = NewSutureServiceBuilder(exec)
+		s.Additional[name] = NewSutureServiceBuilder(name, exec)
 	}
 	areg(opts.Config.Antivirus.Service.Name, func(ctx context.Context, cfg *occfg.Config) error {
 		cfg.Antivirus.Context = ctx
