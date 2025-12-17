@@ -12,19 +12,20 @@ Feature: enforce password on public link
   | OC_PASSWORD_POLICY_MIN_DIGITS               | 1    |
   | OC_PASSWORD_POLICY_MIN_SPECIAL_CHARACTERS   | 1    |
 
+  Background:
+    And user "Alice" has been created with default attributes
+    And user "Alice" has uploaded file with content "test file" to "/testfile.txt"
+
 
   Scenario Outline: create a public link without a password when enforce-password for writable share is enabled
     Given the following configs have been set:
       | config                                               | value |
       | OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD           | false |
       | OC_SHARING_PUBLIC_WRITEABLE_SHARE_MUST_HAVE_PASSWORD | true  |
-    And user "Alice" has been created with default attributes
-    And user "Alice" has uploaded file with content "test file" to "/testfile.txt"
     When user "Alice" creates the following resource link share using the Graph API:
       | resource        | testfile.txt       |
       | space           | Personal           |
       | permissionsRole | <permissions-role> |
-      | password        | %public%           |
     Then the HTTP status code should be "<status-code>"
     Examples:
       | permissions-role | status-code |
@@ -37,8 +38,6 @@ Feature: enforce password on public link
       | config                                               | value |
       | OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD           | false |
       | OC_SHARING_PUBLIC_WRITEABLE_SHARE_MUST_HAVE_PASSWORD | true  |
-    And user "Alice" has been created with default attributes
-    And user "Alice" has uploaded file with content "test file" to "/testfile.txt"
     And user "Alice" has created the following resource link share:
       | resource        | testfile.txt |
       | space           | Personal     |
@@ -82,8 +81,6 @@ Feature: enforce password on public link
       | config                                               | value |
       | OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD           | false |
       | OC_SHARING_PUBLIC_WRITEABLE_SHARE_MUST_HAVE_PASSWORD | true  |
-    And user "Alice" has been created with default attributes
-    And user "Alice" has uploaded file with content "test file" to "/testfile.txt"
     And user "Alice" has created the following resource link share:
       | resource        | testfile.txt |
       | space           | Personal     |
@@ -131,8 +128,6 @@ Feature: enforce password on public link
       | OC_PASSWORD_POLICY_MIN_UPPERCASE_CHARACTERS          | 2     |
       | OC_PASSWORD_POLICY_MIN_DIGITS                        | 2     |
       | OC_PASSWORD_POLICY_MIN_SPECIAL_CHARACTERS            | 2     |
-    And user "Alice" has been created with default attributes
-    And user "Alice" has uploaded file with content "test file" to "/testfile.txt"
     When user "Alice" creates the following resource link share using the Graph API:
       | resource        | testfile.txt  |
       | space           | Personal      |
@@ -176,8 +171,6 @@ Feature: enforce password on public link
       | OC_PASSWORD_POLICY_MIN_UPPERCASE_CHARACTERS | 2     |
       | OC_PASSWORD_POLICY_MIN_DIGITS               | 2     |
       | OC_PASSWORD_POLICY_MIN_SPECIAL_CHARACTERS   | 2     |
-    And user "Alice" has been created with default attributes
-    And user "Alice" has uploaded file with content "test file" to "/testfile.txt"
     When user "Alice" tries to create the following resource link share using the Graph API:
       | space           | Personal     |
       | resource        | testfile.txt |
@@ -227,8 +220,6 @@ Feature: enforce password on public link
       | OC_PASSWORD_POLICY_MIN_UPPERCASE_CHARACTERS          | 2     |
       | OC_PASSWORD_POLICY_MIN_DIGITS                        | 1     |
       | OC_PASSWORD_POLICY_MIN_SPECIAL_CHARACTERS            | 2     |
-    And user "Alice" has been created with default attributes
-    And user "Alice" has uploaded file with content "test file" to "/testfile.txt"
     And user "Alice" has created the following resource link share:
       | resource        | testfile.txt |
       | space           | Personal     |
@@ -260,8 +251,6 @@ Feature: enforce password on public link
       | OC_PASSWORD_POLICY_MIN_UPPERCASE_CHARACTERS          | 2     |
       | OC_PASSWORD_POLICY_MIN_DIGITS                        | 1     |
       | OC_PASSWORD_POLICY_MIN_SPECIAL_CHARACTERS            | 2     |
-    And user "Alice" has been created with default attributes
-    And user "Alice" has uploaded file with content "test file" to "/testfile.txt"
     And using OCS API version "<ocs-api-version>"
     And using SharingNG
     And user "Alice" has created the following resource link share:
@@ -299,9 +288,6 @@ Feature: enforce password on public link
   @issue-9724 @issue-10331
   Scenario Outline: create a public link with a password in accordance with the password policy (valid cases)
     Given the config "<config>" has been set to "<config-value>"
-    And using OCS API version "2"
-    And user "Alice" has been created with default attributes
-    And user "Alice" has uploaded file with content "test file" to "/testfile.txt"
     When user "Alice" creates the following resource link share using the Graph API:
       | space           | Personal     |
       | resource        | testfile.txt |
@@ -321,9 +307,6 @@ Feature: enforce password on public link
 
 
   Scenario Outline: try to create a public link with a password that does not comply with the password policy (invalid cases)
-    Given using OCS API version "2"
-    And user "Alice" has been created with default attributes
-    And user "Alice" has uploaded file with content "test file" to "/testfile.txt"
     When user "Alice" tries to create the following resource link share using the Graph API:
       | space           | Personal     |
       | resource        | testfile.txt |
@@ -358,31 +341,41 @@ Feature: enforce password on public link
 
   Scenario Outline: update a public link with a password that is listed in the Banned-Password-List
     Given the config "OC_PASSWORD_POLICY_BANNED_PASSWORDS_LIST" has been set to path "config/woodpecker/banned-password-list.txt"
-    And using OCS API version "2"
-    And user "Alice" has been created with default attributes
-    And user "Alice" has uploaded file with content "test file" to "/testfile.txt"
-    And using SharingNG
     And user "Alice" has created the following resource link share:
       | resource        | testfile.txt |
       | space           | Personal     |
-      | permissionsRole | internal     |
-    When user "Alice" updates the last public link share using the sharing API with
-      | permissions | 3          |
-      | password    | <password> |
-    Then the HTTP status code should be "<http-status-code>"
-    And the OCS status code should be "<ocs-status-code>"
-    And the OCS status message should be "<message>"
+      | permissionsRole | view         |
+      | password        | %public%     |
+    And user "Alice" tries to set the following password for the last link share using the Graph API:
+      | resource | testfile.txt |
+      | space    | Personal     |
+      | password | <password>   |
+    Then the HTTP status code should be "400"
+    And the JSON data of the response should match
+      """
+      {
+        "type": "object",
+        "required": [ "error" ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [ "message" ],
+            "properties": {
+               "message": { "const": "<message>" }
+            }
+          }
+        }
+      }
+      """
     Examples:
-      | password  | http-status-code | ocs-status-code | message                                                                                               |
-      | 123       | 400              | 400             | Unfortunately, your password is commonly used. please pick a harder-to-guess password for your safety |
-      | password  | 400              | 400             | Unfortunately, your password is commonly used. please pick a harder-to-guess password for your safety |
-      | OpenCloud | 400              | 400             | Unfortunately, your password is commonly used. please pick a harder-to-guess password for your safety |
+      | password  | message                                                                                               |
+      | 123       | unfortunately, your password is commonly used. please pick a harder-to-guess password for your safety |
+      | password  | unfortunately, your password is commonly used. please pick a harder-to-guess password for your safety |
+      | OpenCloud | unfortunately, your password is commonly used. please pick a harder-to-guess password for your safety |
 
 
   Scenario Outline: create  a public link with a password that is listed in the Banned-Password-List
     Given the config "OC_PASSWORD_POLICY_BANNED_PASSWORDS_LIST" has been set to path "config/woodpecker/banned-password-list.txt"
-    And user "Alice" has been created with default attributes
-    And user "Alice" has uploaded file with content "test file" to "/testfile.txt"
     When user "Alice" tries to create the following resource link share using the Graph API:
       | space           | Personal     |
       | resource        | testfile.txt |
@@ -407,6 +400,6 @@ Feature: enforce password on public link
       """
     Examples:
       | password  | message                                                                                               |
-      | 123       | Unfortunately, your password is commonly used. please pick a harder-to-guess password for your safety |
-      | password  | Unfortunately, your password is commonly used. please pick a harder-to-guess password for your safety |
-      | OpenCloud | Unfortunately, your password is commonly used. please pick a harder-to-guess password for your safety |
+      | 123       | unfortunately, your password is commonly used. please pick a harder-to-guess password for your safety |
+      | password  | unfortunately, your password is commonly used. please pick a harder-to-guess password for your safety |
+      | OpenCloud | unfortunately, your password is commonly used. please pick a harder-to-guess password for your safety |
