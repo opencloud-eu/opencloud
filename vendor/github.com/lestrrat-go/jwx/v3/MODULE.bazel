@@ -9,9 +9,9 @@ bazel_dep(name = "rules_go", version = "0.55.1")
 bazel_dep(name = "gazelle", version = "0.44.0")
 bazel_dep(name = "aspect_bazel_lib", version = "2.11.0")
 
-# Go SDK setup - using Go 1.24.4 to match the toolchain in go.mod
+# Go SDK setup from go.mod
 go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
-go_sdk.download(version = "1.24.4")
+go_sdk.from_file(go_mod = "//:go.mod")
 
 # Go dependencies from go.mod
 go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")

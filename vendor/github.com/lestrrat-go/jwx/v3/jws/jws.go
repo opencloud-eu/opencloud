@@ -586,11 +586,14 @@ func AlgorithmsForKey(key any) ([]jwa.SignatureAlgorithm, error) {
 	return algs, nil
 }
 
+// Settings allows you to set global settings for this JWS operations.
+//
+// Currently, the only setting available is `jws.WithLegacySigners()`,
+// which for various reason is now a no-op.
 func Settings(options ...GlobalOption) {
 	for _, option := range options {
 		switch option.Ident() {
 		case identLegacySigners{}:
-			enableLegacySigners()
 		}
 	}
 }

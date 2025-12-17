@@ -270,7 +270,7 @@ func (cs *cachedSet) cached() (Set, error) {
 	return cs.r.Resource(), nil
 }
 
-// Add is a no-op for `jwk.CachedSet`, as the `jwk.Set` should be treated read-only
+// AddKey is a no-op for `jwk.CachedSet`, as the `jwk.Set` should be treated read-only
 func (*cachedSet) AddKey(_ Key) error {
 	return fmt.Errorf(`(jwk.Cachedset).AddKey: jwk.CachedSet is immutable`)
 }

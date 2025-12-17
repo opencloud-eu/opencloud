@@ -106,6 +106,9 @@ linters:
           - revive
         path: jwt/internal/types/
         text: "var-naming: avoid meaningless package names"
+      - linters:
+          - godoclint
+        path: (^|/)internal/
     paths:
       - third_party$
       - builtin$

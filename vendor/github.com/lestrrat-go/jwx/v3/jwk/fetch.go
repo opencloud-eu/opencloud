@@ -40,7 +40,7 @@ type CachedFetcher struct {
 	cache *Cache
 }
 
-// Creates a new `jwk.CachedFetcher` object.
+// NewCachedFetcher creates a new `jwk.CachedFetcher` object.
 func NewCachedFetcher(cache *Cache) *CachedFetcher {
 	return &CachedFetcher{cache}
 }

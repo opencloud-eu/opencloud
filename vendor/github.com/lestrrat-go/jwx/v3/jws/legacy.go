@@ -2,10 +2,13 @@ package jws
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/lestrrat-go/jwx/v3/jwa"
 	"github.com/lestrrat-go/jwx/v3/jws/legacy"
 )
+
+var enableLegacySignersOnce = &sync.Once{}
 
 func enableLegacySigners() {
 	for _, alg := range []jwa.SignatureAlgorithm{jwa.HS256(), jwa.HS384(), jwa.HS512()} {
@@ -74,7 +77,7 @@ func legacySignerFor(alg jwa.SignatureAlgorithm) (Signer, error) {
 	muSigner.Lock()
 	s, ok := signers[alg]
 	if !ok {
-		v, err := NewSigner(alg)
+		v, err := newLegacySigner(alg)
 		if err != nil {
 			muSigner.Unlock()
 			return nil, fmt.Errorf(`failed to create payload signer: %w`, err)

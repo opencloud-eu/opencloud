@@ -356,11 +356,7 @@ func WithKeyUsed(v any) VerifyOption {
 	return &verifyOption{option.New(identKeyUsed{}, v)}
 }
 
-// WithLegacySigners specifies whether the JWS package should use legacy
-// signers for signing JWS messages.
-//
-// Usually there's no need to use this option, as the new signers and
-// verifiers are loaded by default.
+// WithLegacySigners is a no-op option that exists only for backwards compatibility.
 func WithLegacySigners() GlobalOption {
 	return &globalOption{option.New(identLegacySigners{}, true)}
 }

@@ -38,7 +38,7 @@ type withKey struct {
 	public    Headers
 }
 
-// This exists as an escape hatch to modify the header values after the fact
+// Protected exists as an escape hatch to modify the header values after the fact
 func (w *withKey) Protected(v Headers) Headers {
 	if w.protected == nil && v != nil {
 		w.protected = v
@@ -221,7 +221,7 @@ type withInsecureNoSignature struct {
 	protected Headers
 }
 
-// This exists as an escape hatch to modify the header values after the fact
+// Protected exists as an escape hatch to modify the header values after the fact
 func (w *withInsecureNoSignature) Protected(v Headers) Headers {
 	if w.protected == nil && v != nil {
 		w.protected = v

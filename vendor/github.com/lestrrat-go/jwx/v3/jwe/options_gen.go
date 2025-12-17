@@ -147,6 +147,7 @@ type identFS struct{}
 type identKey struct{}
 type identKeyProvider struct{}
 type identKeyUsed struct{}
+type identLegacyHeaderMerging struct{}
 type identMaxDecompressBufferSize struct{}
 type identMaxPBES2Count struct{}
 type identMergeProtectedHeaders struct{}
@@ -191,6 +192,10 @@ func (identKeyProvider) String() string {
 
 func (identKeyUsed) String() string {
 	return "WithKeyUsed"
+}
+
+func (identLegacyHeaderMerging) String() string {
+	return "WithLegacyHeaderMerging"
 }
 
 func (identMaxDecompressBufferSize) String() string {
@@ -290,6 +295,43 @@ func WithKeyProvider(v KeyProvider) DecryptOption {
 // jwx API allows users to specify a raw key such as *rsa.PublicKey)
 func WithKeyUsed(v any) DecryptOption {
 	return &decryptOption{option.New(identKeyUsed{}, v)}
+}
+
+// WithLegacyHeaderMerging specifies whether to perform legacy header merging
+// when encrypting a JWE message in JSON serialization, when there is a single recipient.
+// This behavior is enabled by default for backwards compatibility.
+//
+// When a JWE message is encrypted in JSON serialization, and there is only
+// one recipient, this library automatically serializes the message in
+// flattened JSON serialization format. In older versions of this library,
+// the protected headers and the per-recipient headers were merged together
+// before computing the AAD (Additional Authenticated Data), but the per-recipient
+// headers were kept as-is in the `header` field of the recipient object.
+//
+// This behavior is not compliant with the JWE specification, which states that
+// the headers must be disjoint.
+//
+// Passing this option with a value of `false` disables this legacy behavior,
+// and while the per-recipient headers and protected headers are still merged
+// for the purpose of computing AAD, the per-recipient headers are cleared
+// after merging, so that the resulting JWE message is compliant with the
+// specification.
+//
+// This option has no effect when there are multiple recipients, or when
+// the serialization format is compact serialization. For multiple recipients
+// (i.e. full JSON serialization), the protected headers and per-recipient
+// headers are never merged, and it is the caller's responsibility to ensure
+// that the headers are disjoint. In compact serialization, there are no per-recipient
+// headers; in fact, the protected headers are the only headers that exist,
+// and therefore there is no possibility of header collision after merging
+// (note: while per-recipient headers do not make sense in compact serialization,
+// this library does not prevent you from setting them -- they are all just
+// merged into the protected headers).
+//
+// In future versions, the new behavior will be the default. New users are
+// encouraged to set this option to `false` now to avoid future issues.
+func WithLegacyHeaderMerging(v bool) EncryptOption {
+	return &encryptOption{option.New(identLegacyHeaderMerging{}, v)}
 }
 
 // WithMaxDecompressBufferSize specifies the maximum buffer size for used when

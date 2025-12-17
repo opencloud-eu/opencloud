@@ -66,7 +66,7 @@ func (o *TokenOptionSet) Enable(flag TokenOption) {
 	*o = TokenOptionSet(o.Value() | uint64(flag))
 }
 
-// Enable sets the appropriate value to disable the option in the
+// Disable sets the appropriate value to disable the option in the
 // option set
 func (o *TokenOptionSet) Disable(flag TokenOption) {
 	*o = TokenOptionSet(o.Value() & ^uint64(flag))
