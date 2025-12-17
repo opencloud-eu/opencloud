@@ -1,0 +1,102 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# 
+# Translators:
+# Quan Tran, 2025
+# 
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: EMAIL\n"
+"POT-Creation-Date: 2025-12-17 00:03+0000\n"
+"PO-Revision-Date: 2025-01-27 10:17+0000\n"
+"Last-Translator: Quan Tran, 2025\n"
+"Language-Team: Vietnamese (https://app.transifex.com/opencloud-eu/teams/204053/vi/)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: vi\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: pkg/service/response.go:44
+msgid "description"
+msgstr "mô tả"
+
+#: pkg/service/response.go:43
+msgid "display name"
+msgstr "tên hiển thị"
+
+#: pkg/service/response.go:42
+msgid "expiration date"
+msgstr "ngày hết hạn"
+
+#: pkg/service/response.go:41
+msgid "password"
+msgstr "mật khẩu"
+
+#: pkg/service/response.go:40
+msgid "permission"
+msgstr "quyền"
+
+#: pkg/service/response.go:39
+msgid "some field"
+msgstr "một số trường"
+
+#: pkg/service/response.go:26
+msgid "{resource} was downloaded via public link {token}"
+msgstr "{resource} được tải xuống qua đường dẫn công khai {token}"
+
+#: pkg/service/response.go:24
+msgid "{user} added {resource} to {folder}"
+msgstr "{user} thêm {resource} vào {folder}"
+
+#: pkg/service/response.go:36
+msgid "{user} added {sharee} as member of {space}"
+msgstr "{user} thêm {sharee} vào {space}"
+
+#: pkg/service/response.go:27
+msgid "{user} deleted {resource} from {folder}"
+msgstr "{user} xóa {resource} khỏi {folder}"
+
+#: pkg/service/response.go:28
+msgid "{user} moved {resource} to {folder}"
+msgstr "{user} chuyển{resource} đến {folder}"
+
+#: pkg/service/response.go:35
+msgid "{user} removed link to {resource}"
+msgstr "{user} xóa đường liên kết tới {resource}"
+
+#: pkg/service/response.go:32
+msgid "{user} removed {sharee} from {resource}"
+msgstr "{user} xóa {sharee} khỏi {resource}"
+
+#: pkg/service/response.go:37
+msgid "{user} removed {sharee} from {space}"
+msgstr "{user} xóa {sharee} khỏi {space}"
+
+#: pkg/service/response.go:29
+msgid "{user} renamed {oldResource} to {resource}"
+msgstr "{user} đổi tên {oldResource} thành {resource}"
+
+#: pkg/service/response.go:33
+msgid "{user} shared {resource} via link"
+msgstr "{user} chia sẻ {resource} qua đường liên kết"
+
+#: pkg/service/response.go:30
+msgid "{user} shared {resource} with {sharee}"
+msgstr "{user} chia sẻ {resource} với {sharee}"
+
+#: pkg/service/response.go:34
+msgid "{user} updated {field} for a link {token} on {resource}"
+msgstr "{user} cập nhật {field}  của đường liên kết {token} đến {resource}"
+
+#: pkg/service/response.go:31
+msgid "{user} updated {field} for the {resource}"
+msgstr "{user} cập nhật {field} của {resource}"
+
+#: pkg/service/response.go:25
+msgid "{user} updated {resource} in {folder}"
+msgstr "{user} cập nhật {resource} trong {folder}"
