@@ -54,7 +54,7 @@ func (j *Client) QueryCalendarEvents(accountIds []string, session *Session, ctx 
 	uniqueAccountIds := structs.Uniq(accountIds)
 
 	if sortBy == nil {
-		sortBy = []CalendarEventComparator{{Property: CalendarEventPropertyUpdated, IsAscending: false}}
+		sortBy = []CalendarEventComparator{{Property: CalendarEventPropertyStart, IsAscending: false}}
 	}
 
 	invocations := make([]Invocation, len(uniqueAccountIds)*2)

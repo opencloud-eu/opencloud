@@ -50,7 +50,7 @@ func TestEvents(t *testing.T) {
 		InCalendar: calendarId,
 	}
 	sortBy := []CalendarEventComparator{
-		{Property: CalendarEventPropertyCreated, IsAscending: true},
+		{Property: CalendarEventPropertyStart, IsAscending: true},
 	}
 
 	contactsByAccount, _, _, _, err := s.client.QueryCalendarEvents([]string{accountId}, session, t.Context(), s.logger, "", filter, sortBy, 0, 0)

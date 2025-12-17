@@ -587,7 +587,7 @@ const (
 
 	// PhoneFeatures.
 
-	PhoneFeatureMobile     = PhoneFeature("cell") // TODO the spec says 'mobile', but Stalwart only supports 'cell'
+	PhoneFeatureMobile     = PhoneFeature("mobile")
 	PhoneFeatureVoice      = PhoneFeature("voice")
 	PhoneFeatureText       = PhoneFeature("text")
 	PhoneFeatureVideo      = PhoneFeature("video")
