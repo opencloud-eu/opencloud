@@ -23,6 +23,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump golang.org/x/net from 0.47.0 to 0.48.0 [[#2061](https://github.com/opencloud-eu/opencloud/pull/2061)]
 - build(deps): bump github.com/open-policy-agent/opa from 1.10.1 to 1.11.0 [[#1930](https://github.com/opencloud-eu/opencloud/pull/1930)]
 
 ## [4.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.1.0) - 2025-12-15
