@@ -265,14 +265,23 @@ func (m *Message) MarshalJSON() ([]byte, error) {
 	if recipients := m.Recipients(); len(recipients) > 0 {
 		if len(recipients) == 1 { // Use flattened format
 			if hdrs := recipients[0].Headers(); hdrs != nil {
-				buf.Reset()
-				if err := enc.Encode(hdrs); err != nil {
-					return nil, fmt.Errorf(`failed to encode %s field: %w`, HeadersKey, err)
+				var skipHeaders bool
+				if zeroer, ok := hdrs.(isZeroer); ok {
+					if zeroer.isZero() {
+						skipHeaders = true
+					}
 				}
-				fields = append(fields, jsonKV{
-					Key:   HeadersKey,
-					Value: strings.TrimSpace(buf.String()),
-				})
+
+				if !skipHeaders {
+					buf.Reset()
+					if err := enc.Encode(hdrs); err != nil {
+						return nil, fmt.Errorf(`failed to encode %s field: %w`, HeadersKey, err)
+					}
+					fields = append(fields, jsonKV{
+						Key:   HeadersKey,
+						Value: strings.TrimSpace(buf.String()),
+					})
+				}
 			}
 
 			if ek := recipients[0].EncryptedKey(); len(ek) > 0 {
@@ -369,13 +378,18 @@ func (m *Message) UnmarshalJSON(buf []byte) error {
 	// field. TODO: do both of these conditions need to meet, or just one?
 	if proxy.Headers != nil || len(proxy.EncryptedKey) > 0 {
 		recipient := NewRecipient()
-		hdrs := NewHeaders()
-		if err := json.Unmarshal(proxy.Headers, hdrs); err != nil {
-			return fmt.Errorf(`failed to decode headers field: %w`, err)
-		}
 
-		if err := recipient.SetHeaders(hdrs); err != nil {
-			return fmt.Errorf(`failed to set new headers: %w`, err)
+		// `"heders"` could be empty. If that's the case, just skip the
+		// following unmarshaling step
+		if proxy.Headers != nil {
+			hdrs := NewHeaders()
+			if err := json.Unmarshal(proxy.Headers, hdrs); err != nil {
+				return fmt.Errorf(`failed to decode headers field: %w`, err)
+			}
+
+			if err := recipient.SetHeaders(hdrs); err != nil {
+				return fmt.Errorf(`failed to set new headers: %w`, err)
+			}
 		}
 
 		if v := proxy.EncryptedKey; len(v) > 0 {

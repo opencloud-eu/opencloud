@@ -6,8 +6,9 @@ import (
 	"github.com/lestrrat-go/option/v2"
 )
 
-// Specify contents of the protected header. Some fields such as
-// "enc" and "zip" will be overwritten when encryption is performed.
+// WithProtectedHeaders is used to specify contents of the protected header.
+// Some fields such as "enc" and "zip" will be overwritten when encryption is
+// performed.
 //
 // There is no equivalent for unprotected headers in this implementation
 func WithProtectedHeaders(h Headers) EncryptOption {

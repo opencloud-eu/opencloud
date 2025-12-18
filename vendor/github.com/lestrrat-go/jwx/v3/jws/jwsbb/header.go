@@ -26,7 +26,7 @@ func (e headerNotFoundError) Is(target error) bool {
 	}
 }
 
-// ErrHeaderdNotFound returns an error that can be passed to `errors.Is` to check if the error is
+// ErrHeaderNotFound returns an error that can be passed to `errors.Is` to check if the error is
 // the result of the field not being found
 func ErrHeaderNotFound() error {
 	return headerNotFoundError{}

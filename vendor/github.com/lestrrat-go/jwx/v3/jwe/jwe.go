@@ -99,15 +99,20 @@ func (b *recipientBuilder) Build(r Recipient, cek []byte, calg jwa.ContentEncryp
 		rawKey = raw
 	}
 
-	// Extract ECDH-ES specific parameters if needed
+	// Extract ECDH-ES specific parameters if needed.
 	var apu, apv []byte
-	if b.headers != nil {
-		if val, ok := b.headers.AgreementPartyUInfo(); ok {
-			apu = val
-		}
-		if val, ok := b.headers.AgreementPartyVInfo(); ok {
-			apv = val
-		}
+
+	hdr := b.headers
+	if hdr == nil {
+		hdr = NewHeaders()
+	}
+
+	if val, ok := hdr.AgreementPartyUInfo(); ok {
+		apu = val
+	}
+
+	if val, ok := hdr.AgreementPartyVInfo(); ok {
+		apv = val
 	}
 
 	// Create the encrypter using the new jwebb pattern
@@ -116,20 +121,20 @@ func (b *recipientBuilder) Build(r Recipient, cek []byte, calg jwa.ContentEncryp
 		return nil, fmt.Errorf(`jwe.Encrypt: recipientBuilder: failed to create encrypter: %w`, err)
 	}
 
-	if hdrs := b.headers; hdrs != nil {
-		_ = r.SetHeaders(hdrs)
-	}
+	_ = r.SetHeaders(hdr)
 
-	if err := r.Headers().Set(AlgorithmKey, b.alg); err != nil {
+	// Populate headers with stuff that we automatically set
+	if err := hdr.Set(AlgorithmKey, b.alg); err != nil {
 		return nil, fmt.Errorf(`failed to set header: %w`, err)
 	}
 
 	if keyID != "" {
-		if err := r.Headers().Set(KeyIDKey, keyID); err != nil {
+		if err := hdr.Set(KeyIDKey, keyID); err != nil {
 			return nil, fmt.Errorf(`failed to set header: %w`, err)
 		}
 	}
 
+	// Handle the encrypted key
 	var rawCEK []byte
 	enckey, err := enc.EncryptKey(cek)
 	if err != nil {
@@ -143,8 +148,9 @@ func (b *recipientBuilder) Build(r Recipient, cek []byte, calg jwa.ContentEncryp
 		}
 	}
 
+	// finally, anything specific should go here
 	if hp, ok := enckey.(populater); ok {
-		if err := hp.Populate(r.Headers()); err != nil {
+		if err := hp.Populate(hdr); err != nil {
 			return nil, fmt.Errorf(`failed to populate: %w`, err)
 		}
 	}
@@ -154,7 +160,9 @@ func (b *recipientBuilder) Build(r Recipient, cek []byte, calg jwa.ContentEncryp
 
 // Encrypt generates a JWE message for the given payload and returns
 // it in serialized form, which can be in either compact or
-// JSON format. Default is compact.
+// JSON format. Default is compact. When JSON format is specified and
+// there is only one recipient, the resulting serialization is
+// automatically converted to flattened JSON serialization format.
 //
 // You must pass at least one key to `jwe.Encrypt()` by using `jwe.WithKey()`
 // option.
@@ -172,6 +180,10 @@ func (b *recipientBuilder) Build(r Recipient, cek []byte, calg jwa.ContentEncryp
 //
 // Look for options that return `jwe.EncryptOption` or `jws.EncryptDecryptOption`
 // for a complete list of options that can be passed to this function.
+//
+// As of v3.0.12, users can specify `jwe.WithLegacyHeaderMerging()` to
+// disable header merging behavior that was the default prior to v3.0.12.
+// Read the documentation for `jwe.WithLegacyHeaderMerging()` for more information.
 func Encrypt(payload []byte, options ...EncryptOption) ([]byte, error) {
 	ec := encryptContextPool.Get()
 	defer encryptContextPool.Put(ec)
@@ -410,9 +422,25 @@ func (dc *decryptContext) decryptContent(msg *Message, alg jwa.KeyEncryptionAlgo
 		Tag(msg.tag).
 		CEK(dc.cek)
 
-	if v, ok := recipient.Headers().Algorithm(); !ok || v != alg {
-		// algorithms don't match
+	// The "alg" header can be in either protected/unprotected headers.
+	// prefer per-recipient headers (as it might be the case that the algorithm differs
+	// by each recipient), then look at protected headers.
+	var algMatched bool
+	for _, hdr := range []Headers{recipient.Headers(), protectedHeaders} {
+		v, ok := hdr.Algorithm()
+		if !ok {
+			continue
+		}
+
+		if v == alg {
+			algMatched = true
+			break
+		}
+		// if we found something but didn't match, it's a failure
 		return nil, fmt.Errorf(`jwe.Decrypt: key (%q) and recipient (%q) algorithms do not match`, alg, v)
+	}
+	if !algMatched {
+		return nil, fmt.Errorf(`jwe.Decrypt: failed to find "alg" header in either protected or per-recipient headers`)
 	}
 
 	h2, err := protectedHeaders.Clone()
@@ -534,11 +562,12 @@ func (dc *decryptContext) decryptContent(msg *Message, alg jwa.KeyEncryptionAlgo
 
 // encryptContext holds the state during JWE encryption, similar to JWS signContext
 type encryptContext struct {
-	calg        jwa.ContentEncryptionAlgorithm
-	compression jwa.CompressionAlgorithm
-	format      int
-	builders    []*recipientBuilder
-	protected   Headers
+	calg                jwa.ContentEncryptionAlgorithm
+	compression         jwa.CompressionAlgorithm
+	format              int
+	builders            []*recipientBuilder
+	protected           Headers
+	legacyHeaderMerging bool
 }
 
 var encryptContextPool = pool.New(allocEncryptContext, freeEncryptContext)
@@ -561,6 +590,7 @@ func freeEncryptContext(ec *encryptContext) *encryptContext {
 }
 
 func (ec *encryptContext) ProcessOptions(options []EncryptOption) error {
+	ec.legacyHeaderMerging = true
 	var mergeProtected bool
 	var useRawCEK bool
 	for _, option := range options {
@@ -577,7 +607,11 @@ func (ec *encryptContext) ProcessOptions(options []EncryptOption) error {
 			if v == jwa.DIRECT() || v == jwa.ECDH_ES() {
 				useRawCEK = true
 			}
-			ec.builders = append(ec.builders, &recipientBuilder{alg: v, key: wk.key, headers: wk.headers})
+			ec.builders = append(ec.builders, &recipientBuilder{
+				alg:     v,
+				key:     wk.key,
+				headers: wk.headers,
+			})
 		case identContentEncryptionAlgorithm{}:
 			var c jwa.ContentEncryptionAlgorithm
 			if err := option.Value(&c); err != nil {
@@ -616,6 +650,12 @@ func (ec *encryptContext) ProcessOptions(options []EncryptOption) error {
 				return err
 			}
 			ec.format = fmtOpt
+		case identLegacyHeaderMerging{}:
+			var v bool
+			if err := option.Value(&v); err != nil {
+				return err
+			}
+			ec.legacyHeaderMerging = v
 		}
 	}
 
@@ -732,7 +772,8 @@ func (ec *encryptContext) EncryptMessage(payload []byte, cek []byte) ([]byte, er
 		}
 	}
 
-	recipients := recipientSlicePool.GetCapacity(len(ec.builders))
+	lbuilders := len(ec.builders)
+	recipients := recipientSlicePool.GetCapacity(lbuilders)
 	defer recipientSlicePool.Put(recipients)
 
 	for i, builder := range ec.builders {
@@ -767,14 +808,55 @@ func (ec *encryptContext) EncryptMessage(payload []byte, cek []byte) ([]byte, er
 		}
 	}
 
-	// If there's only one recipient, you want to include that in the
-	// protected header
-	if len(recipients) == 1 {
+	// fmtCompact does not have per-recipient headers, nor a "header" field.
+	// In this mode, we're going to have to merge everything to the protected
+	// header.
+	if ec.format == fmtCompact {
+		// We have already established that the number of builders is 1 in
+		// ec.ProcessOptions(). But we're going to be pedantic
+		if lbuilders != 1 {
+			return nil, fmt.Errorf(`internal error: expected exactly one recipient builder (got %d)`, lbuilders)
+		}
+
+		// when we're using compact format, we can safely merge per-recipient
+		// headers into the protected header, if any
 		h, err := protected.Merge(recipients[0].Headers())
 		if err != nil {
-			return nil, fmt.Errorf(`failed to merge protected headers: %w`, err)
+			return nil, fmt.Errorf(`failed to merge protected headers for compact serialization: %w`, err)
 		}
 		protected = h
+		// per-recipient headers, if any, will be ignored in compact format
+	} else {
+		// If it got here, it's JSON (could be pretty mode, too).
+		if lbuilders == 1 {
+			// If it got here, then we're doing flattened JSON serialization.
+			// In this mode, we should merge per-recipient headers into the protected header,
+			// but we also need to make sure that the "header" field is reset so that
+			// it does not contain the same fields as the protected header.
+			//
+			// However, old behavior was to merge per-recipient headers into the
+			// protected header when there was only one recipient, AND leave the
+			// original "header" field as is, so we need to support that for backwards compatibility.
+			//
+			// The legacy merging only takes effect when there is exactly one recipient.
+			//
+			// This behavior can be disabled by passing jwe.WithLegacyHeaderMerging(false)
+			// If the user has explicitly asked for merging, do it
+			h, err := protected.Merge(recipients[0].Headers())
+			if err != nil {
+				return nil, fmt.Errorf(`failed to merge protected headers for flattenend JSON format: %w`, err)
+			}
+			protected = h
+
+			if !ec.legacyHeaderMerging {
+				// Clear per-recipient headers, since they have been merged.
+				// But we only do it when legacy merging is disabled.
+				// Note: we should probably introduce a Reset() method in v4
+				if err := recipients[0].SetHeaders(NewHeaders()); err != nil {
+					return nil, fmt.Errorf(`failed to clear per-recipient headers after merging: %w`, err)
+				}
+			}
+		}
 	}
 
 	aad, err := protected.Encode()

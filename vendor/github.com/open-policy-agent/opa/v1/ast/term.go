@@ -2,7 +2,6 @@
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
-// nolint: deadcode // Public API.
 package ast
 
 import (
@@ -824,7 +823,7 @@ type Var string
 
 // VarTerm creates a new Term with a Variable value.
 func VarTerm(v string) *Term {
-	return &Term{Value: Var(v)}
+	return &Term{Value: InternedVarValue(v)}
 }
 
 // Equal returns true if the other Value is a Variable and has the same value
@@ -881,7 +880,7 @@ func (v Var) String() string {
 	// illegal variable name character (WildcardPrefix) to avoid conflicts. When
 	// we serialize the variable here, we need to make sure it's parseable.
 	if v.IsWildcard() {
-		return Wildcard.String()
+		return WildcardString
 	}
 	return string(v)
 }
@@ -1154,12 +1153,6 @@ func IsVarCompatibleString(s string) bool {
 	return varRegexp.MatchString(s)
 }
 
-var bbPool = &sync.Pool{
-	New: func() any {
-		return new(bytes.Buffer)
-	},
-}
-
 func (ref Ref) String() string {
 	// Note(anderseknert):
 	// Options tried in the order of cheapness, where after some effort,
@@ -1181,7 +1174,7 @@ func (ref Ref) String() string {
 
 	_var := ref[0].Value.String()
 
-	bb := bbPool.Get().(*bytes.Buffer)
+	bb := bbPool.Get()
 	bb.Reset()
 
 	defer bbPool.Put(bb)

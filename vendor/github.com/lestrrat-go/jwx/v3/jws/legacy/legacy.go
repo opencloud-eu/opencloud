@@ -23,7 +23,7 @@ type Signer interface {
 	Algorithm() jwa.SignatureAlgorithm
 }
 
-// This is for legacy support only.
+// Verifier is for legacy support only.
 type Verifier interface {
 	// Verify checks whether the payload and signature are valid for
 	// the given key.

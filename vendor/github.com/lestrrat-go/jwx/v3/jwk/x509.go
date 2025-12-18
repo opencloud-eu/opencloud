@@ -118,7 +118,7 @@ func NewPEMDecoder() PEMDecoder {
 
 type pemDecoder struct{}
 
-// DecodePEM decodes a key in PEM encoded ASN.1 DER format.
+// Decode decodes a key in PEM encoded ASN.1 DER format.
 // and returns a raw key.
 func (pemDecoder) Decode(src []byte) (any, []byte, error) {
 	block, rest := pem.Decode(src)

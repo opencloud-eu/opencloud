@@ -17,9 +17,9 @@ const _TokenOption_name = "FlattenAudienceMaxPerTokenOption"
 var _TokenOption_index = [...]uint8{0, 15, 32}
 
 func (i TokenOption) String() string {
-	i -= 1
-	if i >= TokenOption(len(_TokenOption_index)-1) {
-		return "TokenOption(" + strconv.FormatInt(int64(i+1), 10) + ")"
+	idx := int(i) - 1
+	if i < 1 || idx >= len(_TokenOption_index)-1 {
+		return "TokenOption(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _TokenOption_name[_TokenOption_index[i]:_TokenOption_index[i+1]]
+	return _TokenOption_name[_TokenOption_index[idx]:_TokenOption_index[idx+1]]
 }
