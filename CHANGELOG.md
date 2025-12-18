@@ -20,6 +20,10 @@
 - [full-ci][tests-only] test: check last email content with retries as emails can be delayed [[#2038](https://github.com/opencloud-eu/opencloud/pull/2038)]
 - skip collaborativePosix tests in CI [[#2039](https://github.com/opencloud-eu/opencloud/pull/2039)]
 
+### 📦️ Dependencies
+
+- build(deps): bump github.com/open-policy-agent/opa from 1.10.1 to 1.11.0 [[#1930](https://github.com/opencloud-eu/opencloud/pull/1930)]
+
 ## [4.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.1.0) - 2025-12-15
 
 ### ❤️ Thanks to all contributors! ❤️
