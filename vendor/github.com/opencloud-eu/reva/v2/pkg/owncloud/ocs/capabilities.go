@@ -151,6 +151,7 @@ type Status struct {
 	Product        string  `json:"product" xml:"product"`
 	ProductVersion string  `json:"productversion" xml:"productversion"`
 	Hostname       string  `json:"hostname,omitempty" xml:"hostname,omitempty"`
+	Channel        string  `json:"channel" xml:"channel"`
 }
 
 // CapabilitiesChecksums holds available hashes
@@ -321,4 +322,5 @@ type Version struct {
 	Edition        string `json:"edition" xml:"edition"`
 	Product        string `json:"product" xml:"product"`
 	ProductVersion string `json:"productversion" xml:"productversion"`
+	Channel        string `json:"channel" xml:"channel"`
 }

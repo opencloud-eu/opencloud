@@ -223,6 +223,7 @@ func (h *Handler) Init(c *config.Config) {
 			Edition:        "",
 			Product:        "reva",
 			ProductVersion: "",
+			Channel:        "",
 		}
 	}
 
