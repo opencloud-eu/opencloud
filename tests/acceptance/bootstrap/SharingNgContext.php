@@ -731,6 +731,7 @@ class SharingNgContext implements Context {
 
 	/**
 	 * @When /^user "([^"]*)" creates the following resource link share using the Graph API:$/
+	 * @When /^user "([^"]*)" tries to create the following resource link share using the Graph API:$/
 	 *
 	 * @param string $user
 	 * @param TableNode $body
@@ -821,6 +822,7 @@ class SharingNgContext implements Context {
 
 	/**
 	 * @When user :user updates the last public link share using the permissions endpoint of the Graph API:
+	 * @When user :user tries to update the last public link share using the permissions endpoint of the Graph API:
 	 *
 	 * @param string $user
 	 * @param TableNode $body
@@ -944,6 +946,7 @@ class SharingNgContext implements Context {
 
 	/**
 	 * @When user :user sets the following password for the last link share using the Graph API:
+	 * @When user :user tries to set the following password for the last link share using the Graph API:
 	 *
 	 * @param string $user
 	 * @param TableNode $body
