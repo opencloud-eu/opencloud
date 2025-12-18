@@ -6,6 +6,10 @@
 
 @ScharfViktor, @butonic, @dragonchaser, @rhafer, @saw-jan
 
+### 🐛 Bug Fixes
+
+- fix service name in suture logs [[#2052](https://github.com/opencloud-eu/opencloud/pull/2052)]
+
 ### 📈 Enhancement
 
 - allow http2 connections to proxy [[#2040](https://github.com/opencloud-eu/opencloud/pull/2040)]
