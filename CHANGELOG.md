@@ -6,6 +6,12 @@
 
 @ScharfViktor, @butonic, @dragonchaser, @rhafer, @saw-jan
 
+### ✅ Tests
+
+- [full-ci] use graph api in the enforcePasswordPublicLink.feature [[#2050](https://github.com/opencloud-eu/opencloud/pull/2050)]
+- [full-ci][tests-only] test: check last email content with retries as emails can be delayed [[#2038](https://github.com/opencloud-eu/opencloud/pull/2038)]
+- skip collaborativePosix tests in CI [[#2039](https://github.com/opencloud-eu/opencloud/pull/2039)]
+
 ### 🐛 Bug Fixes
 
 - fix service name in suture logs [[#2052](https://github.com/opencloud-eu/opencloud/pull/2052)]
@@ -14,11 +20,6 @@
 
 - allow http2 connections to proxy [[#2040](https://github.com/opencloud-eu/opencloud/pull/2040)]
 - migrate from urfave/cli to spf13/cobra [[#1954](https://github.com/opencloud-eu/opencloud/pull/1954)]
-
-### ✅ Tests
-
-- [full-ci][tests-only] test: check last email content with retries as emails can be delayed [[#2038](https://github.com/opencloud-eu/opencloud/pull/2038)]
-- skip collaborativePosix tests in CI [[#2039](https://github.com/opencloud-eu/opencloud/pull/2039)]
 
 ### 📦️ Dependencies
 
