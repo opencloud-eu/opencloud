@@ -23,6 +23,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/testcontainers/testcontainers-go/modules/opensearch from 0.39.0 to 0.40.0 [[#1967](https://github.com/opencloud-eu/opencloud/pull/1967)]
 - build(deps): bump golang.org/x/net from 0.47.0 to 0.48.0 [[#2061](https://github.com/opencloud-eu/opencloud/pull/2061)]
 - build(deps): bump github.com/open-policy-agent/opa from 1.10.1 to 1.11.0 [[#1930](https://github.com/opencloud-eu/opencloud/pull/1930)]
 
