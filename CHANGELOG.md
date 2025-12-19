@@ -4,17 +4,18 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @butonic, @dragonchaser, @rhafer, @saw-jan
+@ScharfViktor, @butonic, @dragonchaser, @fschade, @rhafer, @saw-jan
+
+### 🐛 Bug Fixes
+
+- fix: cobra viper flags and env [[#2047](https://github.com/opencloud-eu/opencloud/pull/2047)]
+- fix service name in suture logs [[#2052](https://github.com/opencloud-eu/opencloud/pull/2052)]
 
 ### ✅ Tests
 
 - [full-ci] use graph api in the enforcePasswordPublicLink.feature [[#2050](https://github.com/opencloud-eu/opencloud/pull/2050)]
 - [full-ci][tests-only] test: check last email content with retries as emails can be delayed [[#2038](https://github.com/opencloud-eu/opencloud/pull/2038)]
 - skip collaborativePosix tests in CI [[#2039](https://github.com/opencloud-eu/opencloud/pull/2039)]
-
-### 🐛 Bug Fixes
-
-- fix service name in suture logs [[#2052](https://github.com/opencloud-eu/opencloud/pull/2052)]
 
 ### 📈 Enhancement
 
