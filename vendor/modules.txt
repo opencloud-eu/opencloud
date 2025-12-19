@@ -2099,7 +2099,7 @@ github.com/testcontainers/testcontainers-go/internal/core
 github.com/testcontainers/testcontainers-go/internal/core/network
 github.com/testcontainers/testcontainers-go/log
 github.com/testcontainers/testcontainers-go/wait
-# github.com/testcontainers/testcontainers-go/modules/opensearch v0.39.0
+# github.com/testcontainers/testcontainers-go/modules/opensearch v0.40.0
 ## explicit; go 1.24.0
 github.com/testcontainers/testcontainers-go/modules/opensearch
 # github.com/theckman/yacspin v0.13.12
