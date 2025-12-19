@@ -4,7 +4,7 @@
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 # 
 # Translators:
-# Daniel Nylander <po@danielnylander.se>, 2025
+# ii kaka, 2025
 # 
 #, fuzzy
 msgid ""
@@ -13,21 +13,21 @@ msgstr ""
 "Report-Msgid-Bugs-To: EMAIL\n"
 "POT-Creation-Date: 2025-12-19 00:05+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
-"Last-Translator: Daniel Nylander <po@danielnylander.se>, 2025\n"
-"Language-Team: Swedish (https://app.transifex.com/opencloud-eu/teams/204053/sv/)\n"
+"Last-Translator: ii kaka, 2025\n"
+"Language-Team: Japanese (https://app.transifex.com/opencloud-eu/teams/204053/ja/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: sv\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Language: ja\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 
 #: pkg/service/templates.go:39
 msgid "Access to Space {space} lost"
-msgstr "Tillgång till arbetsytan {space} förlorades"
+msgstr "スペース {space} へのアクセス権が失われました"
 
 #: pkg/service/templates.go:54
 msgid "Access to {resource} expired"
-msgstr "Åtkomst till {resource} har gått ut"
+msgstr "{resource} へのアクセス期限が切れました"
 
 #: pkg/service/templates.go:59
 msgid ""
@@ -35,82 +35,81 @@ msgid ""
 "Download all your data before that date as no access past that date is "
 "possible."
 msgstr ""
-"Observera! Instansen kommer att stängas ned och avprovisioneras den {date}. "
-"Ladda ner alla dina data före det datumet, eftersom det inte går att komma "
-"åt dem efter det datumet."
+"【重要】このインスタンスは {date} "
+"に停止および削除されます。その日以降はアクセスできなくなるため、期日までにすべてのデータをダウンロードしてください。"
 
 #: pkg/service/templates.go:14
 msgid "File {resource} was deleted because it violates the policies"
-msgstr "Filen {resource} har raderats eftersom den bryter mot riktlinjerna"
+msgstr "ファイル {resource} はポリシーに違反しているため削除されました"
 
 #: pkg/service/templates.go:58
 msgid "Instance will be shut down and deprovisioned"
-msgstr "Instansen kommer att stängas av och avprovisioneras"
+msgstr "インスタンスは停止および削除されます"
 
 #: pkg/service/templates.go:38
 msgid "Membership expired"
-msgstr "Medlemskapet har gått ut"
+msgstr "メンバーシップの期限が切れました"
 
 #: pkg/service/templates.go:13
 msgid "Policies enforced"
-msgstr "Genomdrivna riktlinjer"
+msgstr " ポリシーが適用されました"
 
 #: pkg/service/templates.go:23
 msgid "Removed from Space"
-msgstr "Togs bort från arbetsytan"
+msgstr "スペースから削除されました"
 
 #: pkg/service/templates.go:43
 msgid "Resource shared"
-msgstr "Resurs delad"
+msgstr "リソースが共有されました"
 
 #: pkg/service/templates.go:48
 msgid "Resource unshared"
-msgstr "Resursen delas inte"
+msgstr "リソースの共有が解除されました"
 
 #: pkg/service/templates.go:53
 msgid "Share expired"
-msgstr "Delning har löpt ut"
+msgstr "共有期限が切れました"
 
 #: pkg/service/templates.go:33
 msgid "Space deleted"
-msgstr "Arbetsytan togs bort"
+msgstr "スペースが削除されました"
 
 #: pkg/service/templates.go:28
 msgid "Space disabled"
-msgstr "Arbetsytan inaktiverad"
+msgstr "スペースが無効化されました"
 
 #: pkg/service/templates.go:18
 msgid "Space shared"
-msgstr "Arbetsytan delad"
+msgstr "スペースが共有されました"
 
 #: pkg/service/templates.go:8
 msgid "Virus found"
-msgstr "Virus hittades"
+msgstr " ウイルスが検出されました"
 
 #: pkg/service/templates.go:9
 msgid "Virus found in {resource}. Upload not possible. Virus: {virus}"
-msgstr "Virus hittades i {resource}. Uppladdning omöjlig. Virus: {virus}"
+msgstr "{resource} 内にウイルスが検出されました。アップロードできません。ウイルス名: {virus}"
 
 #: pkg/service/templates.go:19
 msgid "{user} added you to Space {space}"
-msgstr "{user} har lagt till dig i arbetsytan {space}"
+msgstr "{user} があなたをスペース「{space}」に追加しました"
 
 #: pkg/service/templates.go:34
 msgid "{user} deleted Space {space}"
-msgstr "{user} tog bort arbetsytan {space}"
+msgstr "{user} がスペース「{space}」を削除しました"
 
 #: pkg/service/templates.go:29
 msgid "{user} disabled Space {space}"
-msgstr "{user} inaktiverade arbetsytan {space}"
+msgstr "{user} がスペース「{space}」を無効にしました"
 
 #: pkg/service/templates.go:24
 msgid "{user} removed you from Space {space}"
-msgstr "{user} har tagit bort dig från arbetsytan {space}"
+msgstr "{user} があなたをスペース「{space}」から削除しました"
 
 #: pkg/service/templates.go:44
 msgid "{user} shared {resource} with you"
-msgstr "{user} delade {resource} med dig"
+msgstr "{user} が {resource} をあなたと共有しました"
 
 #: pkg/service/templates.go:49
 msgid "{user} unshared {resource} with you"
-msgstr "{user} tog bort delning av {resource} med dig"
+msgstr "{user} が {resource} の共有を解除しました"
