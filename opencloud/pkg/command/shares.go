@@ -3,6 +3,8 @@ package command
 import (
 	"errors"
 
+	"github.com/spf13/viper"
+
 	"github.com/opencloud-eu/opencloud/opencloud/pkg/register"
 	"github.com/opencloud-eu/opencloud/pkg/config"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
@@ -15,7 +17,6 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/share/manager/jsoncs3"
 	"github.com/opencloud-eu/reva/v2/pkg/share/manager/registry"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
-	"github.com/spf13/viper"
 
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
@@ -77,7 +78,7 @@ func cleanupCmd(cfg *config.Config) *cobra.Command {
 	return cleanCmd
 }
 
-func cleanup(cmd *cobra.Command, cfg *config.Config) error {
+func cleanup(_ *cobra.Command, cfg *config.Config) error {
 	driver := cfg.Sharing.UserSharingDriver
 	// cleanup is only implemented for the jsoncs3 share manager
 	if driver != "jsoncs3" {
@@ -108,8 +109,8 @@ func cleanup(cmd *cobra.Command, cfg *config.Config) error {
 		return configlog.ReturnError(err)
 	}
 
-	serviceAccountIDFlag, _ := cmd.Flags().GetString("service-account-id")
-	serviceAccountSecretFlag, _ := cmd.Flags().GetString("service-account-secret")
+	serviceAccountIDFlag := viper.GetString("service-account-id")
+	serviceAccountSecretFlag := viper.GetString("service-account-secret")
 	serviceUserCtx, err := utils.GetServiceUserContext(serviceAccountIDFlag, client, serviceAccountSecretFlag)
 	if err != nil {
 		return configlog.ReturnError(err)
@@ -163,39 +164,6 @@ func revaShareConfig(cfg *sharing.Config) map[string]interface{} {
 			"service_user_id":     cfg.UserSharingDrivers.JSONCS3.SystemUserID,
 			"service_user_idp":    cfg.UserSharingDrivers.JSONCS3.SystemUserIDP,
 			"machine_auth_apikey": cfg.UserSharingDrivers.JSONCS3.SystemUserAPIKey,
-		},
-	}
-}
-
-func revaPublicShareConfig(cfg *sharing.Config) map[string]interface{} {
-	return map[string]interface{}{
-		"json": map[string]interface{}{
-			"file":         cfg.PublicSharingDrivers.JSON.File,
-			"gateway_addr": cfg.Reva.Address,
-		},
-		"jsoncs3": map[string]interface{}{
-			"gateway_addr":        cfg.Reva.Address,
-			"provider_addr":       cfg.PublicSharingDrivers.JSONCS3.ProviderAddr,
-			"service_user_id":     cfg.PublicSharingDrivers.JSONCS3.SystemUserID,
-			"service_user_idp":    cfg.PublicSharingDrivers.JSONCS3.SystemUserIDP,
-			"machine_auth_apikey": cfg.PublicSharingDrivers.JSONCS3.SystemUserAPIKey,
-		},
-		"sql": map[string]interface{}{
-			"db_username":                   cfg.PublicSharingDrivers.SQL.DBUsername,
-			"db_password":                   cfg.PublicSharingDrivers.SQL.DBPassword,
-			"db_host":                       cfg.PublicSharingDrivers.SQL.DBHost,
-			"db_port":                       cfg.PublicSharingDrivers.SQL.DBPort,
-			"db_name":                       cfg.PublicSharingDrivers.SQL.DBName,
-			"password_hash_cost":            cfg.PublicSharingDrivers.SQL.PasswordHashCost,
-			"enable_expired_shares_cleanup": cfg.PublicSharingDrivers.SQL.EnableExpiredSharesCleanup,
-			"janitor_run_interval":          cfg.PublicSharingDrivers.SQL.JanitorRunInterval,
-		},
-		"cs3": map[string]interface{}{
-			"gateway_addr":        cfg.PublicSharingDrivers.CS3.ProviderAddr,
-			"provider_addr":       cfg.PublicSharingDrivers.CS3.ProviderAddr,
-			"service_user_id":     cfg.PublicSharingDrivers.CS3.SystemUserID,
-			"service_user_idp":    cfg.PublicSharingDrivers.CS3.SystemUserIDP,
-			"machine_auth_apikey": cfg.PublicSharingDrivers.CS3.SystemUserAPIKey,
 		},
 	}
 }

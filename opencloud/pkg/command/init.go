@@ -23,7 +23,7 @@ func InitCommand(_ *config.Config) *cobra.Command {
 		Short:   "initialise an OpenCloud config",
 		GroupID: CommandGroupServer,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			insecureFlag, _ := cmd.Flags().GetString("insecure")
+			insecureFlag := viper.GetString("insecure")
 			insecure := false
 			if insecureFlag == "ask" {
 				answer := strings.ToLower(stringPrompt("Do you want to configure OpenCloud with certificate checking disabled?\n This is not recommended for public instances! [yes | no = default]"))
@@ -33,10 +33,10 @@ func InitCommand(_ *config.Config) *cobra.Command {
 			} else if insecureFlag == strings.ToLower("true") || insecureFlag == strings.ToLower("yes") || insecureFlag == strings.ToLower("y") {
 				insecure = true
 			}
-			forceOverwriteFlag, _ := cmd.Flags().GetBool("force-overwrite")
-			diffFlag, _ := cmd.Flags().GetBool("force-overwrite")
-			configPathFlag, _ := cmd.Flags().GetString("config-path")
-			adminPasswordFlag, _ := cmd.Flags().GetString("admin-password")
+			forceOverwriteFlag := viper.GetBool("force-overwrite")
+			diffFlag, _ := cmd.Flags().GetBool("diff")
+			configPathFlag := viper.GetString("config-path")
+			adminPasswordFlag := viper.GetString("admin-password")
 			err := ocinit.CreateConfig(insecure, forceOverwriteFlag, diffFlag, configPathFlag, adminPasswordFlag)
 			if err != nil {
 				log.Fatalf("Could not create config: %s", err)
@@ -74,7 +74,7 @@ func stringPrompt(label string) string {
 	input := ""
 	reader := bufio.NewReader(os.Stdin)
 	for {
-		fmt.Fprint(os.Stderr, label+" ")
+		_, _ = fmt.Fprint(os.Stderr, label+" ")
 		input, _ = reader.ReadString('\n')
 		if input != "" {
 			break
