@@ -124,7 +124,12 @@ func getRelationProviders(cfg *config.Config) (map[string]service.RelationProvid
 		case relations.OpenIDConnectDesktopRel:
 			// Handled below - can also be auto-enabled via DesktopIDP config
 			if cfg.DesktopIDP != "" {
-				rels[relationURI] = relations.OpenIDDiscoveryDesktop(cfg.DesktopIDP)
+				rels[relationURI] = relations.OpenIDDiscoveryDesktop(cfg.DesktopIDP, cfg.DesktopClientID)
+			}
+		case relations.OpenIDConnectMobileRel:
+			// Handled below - can also be auto-enabled via MobileIDP config
+			if cfg.MobileIDP != "" {
+				rels[relationURI] = relations.OpenIDDiscoveryMobile(cfg.MobileIDP, cfg.MobileClientID)
 			}
 		case relations.OpenCloudInstanceRel:
 			var err error
@@ -143,7 +148,14 @@ func getRelationProviders(cfg *config.Config) (map[string]service.RelationProvid
 	// See: https://github.com/opencloud-eu/desktop/issues/246
 	if cfg.DesktopIDP != "" {
 		if _, exists := rels[relations.OpenIDConnectDesktopRel]; !exists {
-			rels[relations.OpenIDConnectDesktopRel] = relations.OpenIDDiscoveryDesktop(cfg.DesktopIDP)
+			rels[relations.OpenIDConnectDesktopRel] = relations.OpenIDDiscoveryDesktop(cfg.DesktopIDP, cfg.DesktopClientID)
+		}
+	}
+
+	// Auto-enable mobile OIDC issuer when MobileIDP is configured
+	if cfg.MobileIDP != "" {
+		if _, exists := rels[relations.OpenIDConnectMobileRel]; !exists {
+			rels[relations.OpenIDConnectMobileRel] = relations.OpenIDDiscoveryMobile(cfg.MobileIDP, cfg.MobileClientID)
 		}
 	}
 
