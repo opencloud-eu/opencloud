@@ -20,6 +20,7 @@ import (
 	"golang.org/x/image/math/fixed"
 
 	"github.com/dhowden/tag"
+
 	thumbnailerErrors "github.com/opencloud-eu/opencloud/services/thumbnails/pkg/errors"
 )
 
@@ -156,15 +157,18 @@ Scan: // Label for the scanner loop, so we can break it easily
 				if canvas.Dot.Y > maxY {
 					break Scan
 				}
-				drawWord(canvas, textResult.Text[initialByte:sRangeSpace], minX, maxX, height, maxY, true)
+
+				drawWord(canvas, textResult.Text[initialByte:sRangeSpace], minX, maxX, height, maxY)
 				initialByte = sRangeSpace
 			}
+
 			if initialByte <= sRange.High {
 				// some bytes left to be written
 				if canvas.Dot.Y > maxY {
 					break Scan
 				}
-				drawWord(canvas, textResult.Text[initialByte:sRange.High+1], minX, maxX, height, maxY, len(sRange.Spaces) > 0)
+
+				drawWord(canvas, textResult.Text[initialByte:sRange.High+1], minX, maxX, height, maxY)
 			}
 		}
 
@@ -235,42 +239,57 @@ func extractBase64ImageFromGGP(ggp *GGPStruct) (string, error) {
 // need to draw the word in a new line
 //
 // Note that the word will likely start with a white space char
-func drawWord(canvas *font.Drawer, word string, minX, maxX, incY, maxY fixed.Int26_6, goToNewLine bool) {
-	bbox, _ := canvas.BoundString(word)
-	if bbox.Max.X <= maxX {
-		// word fits in the current line
-		canvas.DrawString(word)
-	} else {
-		// word doesn't fit -> retry in a new line
-		trimmedWord := strings.TrimSpace(word)
-		oldDot := canvas.Dot
+func drawWord(canvas *font.Drawer, word string, minX, maxX, incY, maxY fixed.Int26_6) {
+	// calculate the actual measurement of the string at a given X position
+	measure := func(s string, dotX fixed.Int26_6) (min, max fixed.Int26_6) {
+		bbox, _ := canvas.BoundString(s)
+		return dotX + bbox.Min.X, dotX + bbox.Max.X
+	}
 
-		canvas.Dot.X = minX
-		canvas.Dot.Y += incY
-		bbox2, _ := canvas.BoundString(trimmedWord)
-		if goToNewLine && bbox2.Max.X <= maxX {
-			if canvas.Dot.Y > maxY {
-				// Don't draw if we're over the Y limit
-				return
-			}
-			canvas.DrawString(trimmedWord)
-		} else {
-			// word doesn't fit in a new line -> draw as many chars as possible
-			canvas.Dot = oldDot
-			for _, char := range trimmedWord {
-				charBytes := []byte(string(char))
-				bbox3, _ := canvas.BoundBytes(charBytes)
-				if bbox3.Max.X > maxX {
-					canvas.Dot.X = minX
-					canvas.Dot.Y += incY
-					if canvas.Dot.Y > maxY {
-						// Don't draw if we're over the Y limit
-						return
-					}
-				}
-				canvas.DrawBytes(charBytes)
-			}
+	// first try to draw the whole word
+	absMin, absMax := measure(word, canvas.Dot.X)
+	if absMin >= minX && absMax <= maxX {
+		canvas.DrawString(word)
+		return
+	}
+
+	// try to draw the trimmed word in a new line
+	trimmed := strings.TrimSpace(word)
+	oldDot := canvas.Dot
+	canvas.Dot.X = minX
+	canvas.Dot.Y += incY
+
+	if canvas.Dot.Y <= maxY {
+		tMin, tMax := measure(trimmed, canvas.Dot.X)
+		if tMin >= minX && tMax <= maxX {
+			canvas.DrawString(trimmed)
+			return
 		}
+	}
+
+	// if the trimmed word is still too big, draw it char by char
+	canvas.Dot = oldDot
+	for _, char := range trimmed {
+		s := string(char)
+		_, cMax := measure(s, canvas.Dot.X)
+
+		if cMax > maxX {
+			canvas.Dot.X = minX
+			canvas.Dot.Y += incY
+		}
+
+		// stop drawing if we exceed maxY
+		if canvas.Dot.Y > maxY {
+			return
+		}
+
+		// ensure that we don't start drawing before minX
+		cMin, _ := measure(s, canvas.Dot.X)
+		if cMin < minX {
+			canvas.Dot.X += minX - cMin
+		}
+
+		canvas.DrawString(s)
 	}
 }
 

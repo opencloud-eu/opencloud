@@ -79,8 +79,11 @@ func initEdition() error {
 		_, err := semver.NewVersion(editionParts[1])
 		return err == nil
 	}) {
-		Edition = Dev
-		return fmt.Errorf(`unknown edition channel "%s"`, Edition)
+		defer func() {
+			Edition = Dev
+		}()
+
+		return fmt.Errorf(`unknown edition channel '%s'`, Edition)
 	}
 
 	return nil

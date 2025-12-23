@@ -2,6 +2,7 @@ package version_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/opencloud-eu/opencloud/pkg/version"
@@ -59,6 +60,8 @@ func TestChannel(t *testing.T) {
 				fallthrough
 			case test.valid != (err == nil):
 				t.Fatalf("invalid edition: %s", version.Edition)
+			case !test.valid && !strings.Contains(err.Error(), "'"+test.got+"'"):
+				t.Fatalf("no mention of invalid edition '%s' in error: %s", test.got, err.Error())
 			}
 		})
 	}
