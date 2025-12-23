@@ -8,6 +8,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix(thumbnailer): respect image boundaries and text wrappings [[#2062](https://github.com/opencloud-eu/opencloud/pull/2062)]
 - fix: cobra viper flags and env [[#2047](https://github.com/opencloud-eu/opencloud/pull/2047)]
 - fix service name in suture logs [[#2052](https://github.com/opencloud-eu/opencloud/pull/2052)]
 
