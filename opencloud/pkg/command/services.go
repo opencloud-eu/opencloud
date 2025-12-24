@@ -61,7 +61,7 @@ var serviceCommands = []register.Command{
 	},
 	func(cfg *config.Config) *cobra.Command {
 		return ServiceCommand(cfg, cfg.Antivirus.Service.Name, antivirus.GetCommands(cfg.Antivirus), func(c *config.Config) {
-			// cfg.Antivirus.Commons = cfg.Commons // antivirus needs no commons atm
+			cfg.Antivirus.Commons = cfg.Commons
 		})
 	},
 	func(cfg *config.Config) *cobra.Command {
