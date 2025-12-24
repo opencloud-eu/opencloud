@@ -1,6 +1,6 @@
 # Changelog
 
-## [4.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.2.0) - 2025-12-23
+## [4.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.2.0) - 2025-12-24
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -8,6 +8,7 @@
 
 ### 🐛 Bug Fixes
 
+- Remove sub-service binary entrypoints and fix antivirus only server cmd [[#2043](https://github.com/opencloud-eu/opencloud/pull/2043)]
 - fix(thumbnailer): respect image boundaries and text wrappings [[#2062](https://github.com/opencloud-eu/opencloud/pull/2062)]
 - fix: cobra viper flags and env [[#2047](https://github.com/opencloud-eu/opencloud/pull/2047)]
 - fix service name in suture logs [[#2052](https://github.com/opencloud-eu/opencloud/pull/2052)]
