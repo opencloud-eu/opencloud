@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2025-12-18 00:04+0000\n"
+"POT-Creation-Date: 2025-12-25 00:05+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: ii kaka, 2025\n"
 "Language-Team: Japanese (https://app.transifex.com/opencloud-eu/teams/204053/ja/)\n"
@@ -44,7 +44,7 @@ msgstr "ファイルの拒否"
 #. translation for the 'instant' email interval option
 #: pkg/store/defaults/templates.go:48
 msgid "Instant"
-msgstr "即時 "
+msgstr "即時"
 
 #. translation for the 'never' email interval option
 #: pkg/store/defaults/templates.go:54
@@ -111,7 +111,7 @@ msgstr "選択された値:"
 #. name of the notification option 'Share Expired'
 #: pkg/store/defaults/templates.go:16
 msgid "Share Expired"
-msgstr " 共有期限切れ"
+msgstr "共有期限切れ"
 
 #. name of the notification option 'Share Received'
 #: pkg/store/defaults/templates.go:8

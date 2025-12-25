@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2025-12-19 00:05+0000\n"
+"POT-Creation-Date: 2025-12-25 00:05+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: ii kaka, 2025\n"
 "Language-Team: Japanese (https://app.transifex.com/opencloud-eu/teams/204053/ja/)\n"
@@ -52,7 +52,7 @@ msgstr "メンバーシップの期限が切れました"
 
 #: pkg/service/templates.go:13
 msgid "Policies enforced"
-msgstr " ポリシーが適用されました"
+msgstr "ポリシーが適用されました"
 
 #: pkg/service/templates.go:23
 msgid "Removed from Space"
@@ -84,7 +84,7 @@ msgstr "スペースが共有されました"
 
 #: pkg/service/templates.go:8
 msgid "Virus found"
-msgstr " ウイルスが検出されました"
+msgstr "ウイルスが検出されました"
 
 #: pkg/service/templates.go:9
 msgid "Virus found in {resource}. Upload not possible. Virus: {virus}"
