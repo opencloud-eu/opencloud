@@ -98,7 +98,7 @@ func DefaultConfig() *config.Config {
 					ResponseType: "code",
 					Scope:        "openid profile email",
 				},
-				Apps: []string{"files", "search", "text-editor", "pdf-viewer", "external", "admin-settings", "epub-reader", "preview", "app-store"},
+				Apps: []string{"files", "search", "text-editor", "pdf-viewer", "external", "admin-settings", "epub-reader", "preview", "app-store", "activities"},
 				Options: config.Options{
 					ContextHelpersReadMore: true,
 					AccountEditLink:        &config.AccountEditLink{},
