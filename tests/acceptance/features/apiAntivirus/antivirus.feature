@@ -36,13 +36,13 @@ Feature: antivirus
       | <message> |
     And as "Alice" file "<new-file-name>" should not exist
     Examples:
-      | dav-path-version | file-name     | new-file-name  | message                                                                         |
-      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | old              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | new              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | spaces           | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
+      | dav-path-version | file-name     | new-file-name  | message                                                    |
+      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: |
+      | old              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: |
+      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: |
+      | new              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: |
+      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: |
+      | spaces           | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: |
 
 
   Scenario Outline: upload a file with virus and a file without virus
@@ -64,13 +64,13 @@ Feature: antivirus
       Cheers.
       """
     Examples:
-      | dav-path-version | file-name     | new-file-name  | message                                                                         |
-      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | old              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | new              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | spaces           | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
+      | dav-path-version | file-name     | new-file-name  | message                                                    |
+      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: |
+      | old              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: |
+      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: |
+      | new              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: |
+      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: |
+      | spaces           | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: |
 
 
   Scenario Outline: upload a file with virus in chunks
@@ -83,8 +83,8 @@ Feature: antivirus
     # antivirus service can scan files during post-processing. on demand scanning is currently not available
     Then the HTTP status code should be "201"
     And user "Alice" should get a notification with subject "Virus found" and message:
-      | message                                                                            |
-      | Virus found in myChunkedFile.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
+      | message                                                       |
+      | Virus found in myChunkedFile.txt. Upload not possible. Virus: |
     And as "Alice" file "/myChunkedFile.txt" should not exist
     Examples:
       | dav-path-version |
@@ -110,13 +110,13 @@ Feature: antivirus
       | <message> |
     And as "Alice" file "/uploadFolder/<new-file-name>" should not exist
     Examples:
-      | dav-path-version | file-name     | new-file-name  | message                                                                         |
-      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | old              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | new              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | spaces           | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
+      | dav-path-version | file-name     | new-file-name  | message                                                    |
+      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: |
+      | old              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: |
+      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: |
+      | new              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: |
+      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: |
+      | spaces           | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: |
 
   @issue-10331
   Scenario Outline: public uploads a file with the virus to a password-protected public share
@@ -136,13 +136,13 @@ Feature: antivirus
       | <message> |
     And as "Alice" file "/uploadFolder/<new-file-name>" should not exist
     Examples:
-      | dav-path-version | file-name     | new-file-name  | message                                                                         |
-      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | old              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | new              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | spaces           | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
+      | dav-path-version | file-name     | new-file-name  | message                                                    |
+      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: |
+      | old              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: |
+      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: |
+      | new              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: |
+      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: |
+      | spaces           | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: |
 
 
   Scenario Outline: upload a file with virus to a user share
@@ -164,13 +164,13 @@ Feature: antivirus
     And as "Brian" file "/Shares/uploadFolder/<new-file-name>" should not exist
     And as "Alice" file "/uploadFolder/<new-file-name>" should not exist
     Examples:
-      | dav-path-version | file-name     | new-file-name  | message                                                                         |
-      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | old              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | new              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | spaces           | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
+      | dav-path-version | file-name     | new-file-name  | message                                                    |
+      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: |
+      | old              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: |
+      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: |
+      | new              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: |
+      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: |
+      | spaces           | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: |
 
 
   Scenario Outline: upload a file with virus to a group share
@@ -195,13 +195,13 @@ Feature: antivirus
     And as "Brian" file "/Shares/uploadFolder/<new-file-name>" should not exist
     And as "Alice" file "/uploadFolder/<new-file-name>" should not exist
     Examples:
-      | dav-path-version | file-name     | new-file-name  | message                                                                         |
-      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | old              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | new              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | spaces           | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
+      | dav-path-version | file-name     | new-file-name  | message                                                    |
+      | old              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: |
+      | old              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: |
+      | new              | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: |
+      | new              | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: |
+      | spaces           | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: |
+      | spaces           | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: |
 
 
   Scenario Outline: upload a file with virus to a project space
@@ -224,9 +224,9 @@ Feature: antivirus
     And for user "Alice" the space "new-space" should not contain these entries:
       | /<new-file-name> |
     Examples:
-      | file-name     | new-file-name  | message                                                                         |
-      | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
+      | file-name     | new-file-name  | message                                                    |
+      | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: |
+      | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: |
 
 
   Scenario Outline: upload a file with virus to a shared project space
@@ -249,9 +249,9 @@ Feature: antivirus
     And for user "Alice" the space "new-space" should not contain these entries:
       | /<new-file-name> |
     Examples:
-      | file-name     | new-file-name  | message                                                                         |
-      | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
-      | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
+      | file-name     | new-file-name  | message                                                    |
+      | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: |
+      | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: |
 
   @env-config  @issue-6494
   Scenario Outline: upload a file with virus by setting antivirus infected file handling config to continue
@@ -273,8 +273,8 @@ Feature: antivirus
     When user "Alice" uploads file "filesForUpload/filesWithVirus/eicar.com" to "/aFileWithVirus.txt" using the WebDAV API
     Then the HTTP status code should be "201"
     And user "Alice" should get a notification with subject "Virus found" and message:
-      | message                                                                             |
-      | Virus found in aFileWithVirus.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
+      | message                                                        |
+      | Virus found in aFileWithVirus.txt. Upload not possible. Virus: |
     And as "Alice" file "/aFileWithVirus.txt" should not exist
     Examples:
       | dav-path-version |
@@ -307,12 +307,12 @@ Feature: antivirus
     And as "Alice" file "/aFileWithVirus.txt" should not exist
     Examples:
       | dav-path-version | language | subject          | message                                                                                                                        |
-      | old              | es       | Virus encontrado | Virus encontrado en aFileWithVirus.txt. La subida no ha sido posible. Virus: Win.Test.EICAR_HDB-1                              |
-      | new              | es       | Virus encontrado | Virus encontrado en aFileWithVirus.txt. La subida no ha sido posible. Virus: Win.Test.EICAR_HDB-1                              |
-      | spaces           | es       | Virus encontrado | Virus encontrado en aFileWithVirus.txt. La subida no ha sido posible. Virus: Win.Test.EICAR_HDB-1                              |
-      | old              | de       | Virus gefunden   | In aFileWithVirus.txt wurde potenziell schädlicher Code gefunden. Das Hochladen wurde abgebrochen. Grund: Win.Test.EICAR_HDB-1 |
-      | new              | de       | Virus gefunden   | In aFileWithVirus.txt wurde potenziell schädlicher Code gefunden. Das Hochladen wurde abgebrochen. Grund: Win.Test.EICAR_HDB-1 |
-      | spaces           | de       | Virus gefunden   | In aFileWithVirus.txt wurde potenziell schädlicher Code gefunden. Das Hochladen wurde abgebrochen. Grund: Win.Test.EICAR_HDB-1 |
+      | old              | es       | Virus encontrado | Virus encontrado en aFileWithVirus.txt. La subida no ha sido posible. Virus:                              |
+      | new              | es       | Virus encontrado | Virus encontrado en aFileWithVirus.txt. La subida no ha sido posible. Virus:                              |
+      | spaces           | es       | Virus encontrado | Virus encontrado en aFileWithVirus.txt. La subida no ha sido posible. Virus:                              |
+      | old              | de       | Virus gefunden   | In aFileWithVirus.txt wurde potenziell schädlicher Code gefunden. Das Hochladen wurde abgebrochen. Grund: |
+      | new              | de       | Virus gefunden   | In aFileWithVirus.txt wurde potenziell schädlicher Code gefunden. Das Hochladen wurde abgebrochen. Grund: |
+      | spaces           | de       | Virus gefunden   | In aFileWithVirus.txt wurde potenziell schädlicher Code gefunden. Das Hochladen wurde abgebrochen. Grund: |
 
   @issue-enterprise-5709
   Scenario Outline: try to create a version of file by uploading virus content
@@ -322,8 +322,8 @@ Feature: antivirus
     When user "Alice" uploads file with content "X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*" to "test.txt" using the WebDAV API
     Then the HTTP status code should be "204"
     And user "Alice" should get a notification with subject "Virus found" and message:
-      | message                                                                   |
-      | Virus found in test.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
+      | message                                              |
+      | Virus found in test.txt. Upload not possible. Virus: |
     And as "Alice" file "/test.txt" should exist
     And the version folder of file "/test.txt" for user "Alice" should contain "1" element
     And the content of file "/test.txt" for user "Alice" should be "hello nepal"
@@ -349,8 +349,8 @@ Feature: antivirus
     When the public overwrites file "test.txt" with content "X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*" using the public WebDAV API
     Then the HTTP status code should be "204"
     And user "Alice" should get a notification with subject "Virus found" and message:
-      | message                                                                   |
-      | Virus found in test.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
+      | message                                              |
+      | Virus found in test.txt. Upload not possible. Virus: |
     And the content of file "/test.txt" for user "Alice" should be "hello"
     Examples:
       | dav-path-version |
@@ -376,8 +376,8 @@ Feature: antivirus
     When user "Brian" uploads file with content "X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*" to "Shares/test.txt" using the WebDAV API
     Then the HTTP status code should be "204"
     And user "Brian" should get a notification with subject "Virus found" and message:
-      | message                                                                   |
-      | Virus found in test.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
+      | message                                              |
+      | Virus found in test.txt. Upload not possible. Virus: |
     And the content of file "/test.txt" for user "Alice" should be "hello"
     And the content of file "Shares/test.txt" for user "Brian" should be "hello"
     Examples:
@@ -410,15 +410,15 @@ Feature: antivirus
     When user "Brian" uploads file with content "X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*" to "Shares/uploadFolder/test.txt" using the WebDAV API
     Then the HTTP status code should be "204"
     And user "Brian" should get a notification for resource "test.txt" with subject "Virus found" and message:
-      | message                                                                   |
-      | Virus found in test.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
+      | message                                              |
+      | Virus found in test.txt. Upload not possible. Virus: |
     And the content of file "Shares/uploadFolder/test.txt" for user "Brian" should be "this is a test file."
     And the content of file "uploadFolder/test.txt" for user "Alice" should be "this is a test file."
     When user "Brian" uploads file with content "X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*" to "Shares/test.txt" using the WebDAV API
     Then the HTTP status code should be "204"
     And user "Brian" should get a notification for resource "test.txt" with subject "Virus found" and message:
-      | message                                                                   |
-      | Virus found in test.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
+      | message                                              |
+      | Virus found in test.txt. Upload not possible. Virus: |
     And the content of file "Shares/test.txt" for user "Brian" should be "this is a test file."
     And the content of file "/test.txt" for user "Alice" should be "this is a test file."
     Examples:
@@ -437,8 +437,8 @@ Feature: antivirus
     When user "Alice" uploads a file inside space "new-space" with content "X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*" to ".space/readme.md" using the WebDAV API
     Then the HTTP status code should be "204"
     And user "Alice" should get a notification with subject "Virus found" and message:
-      | message                                                                    |
-      | Virus found in readme.md. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
+      | message                                               |
+      | Virus found in readme.md. Upload not possible. Virus: |
     And for user "Alice" the content of the file ".space/readme.md" of the space "new-space" should be "Here you can add a description for this Space."
 
 
@@ -458,8 +458,8 @@ Feature: antivirus
     When user "Brian" uploads a file inside space "new-space" with content "X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*" to ".space/readme.md" using the WebDAV API
     Then the HTTP status code should be "204"
     And user "Brian" should get a notification with subject "Virus found" and message:
-      | message                                                                    |
-      | Virus found in readme.md. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
+      | message                                               |
+      | Virus found in readme.md. Upload not possible. Virus: |
     And for user "Brian" the content of the file ".space/readme.md" of the space "new-space" should be "Here you can add a description for this Space."
     And for user "Alice" the content of the file ".space/readme.md" of the space "new-space" should be "Here you can add a description for this Space."
 
@@ -478,7 +478,7 @@ Feature: antivirus
     When user "Brian" uploads a file "filesForUpload/filesWithVirus/eicar.com" to "text.txt" in space "new-space" using the WebDAV API
     Then the HTTP status code should be "204"
     And user "Brian" should get a notification with subject "Virus found" and message:
-      | message                                                                   |
-      | Virus found in text.txt. Upload not possible. Virus: Win.Test.EICAR_HDB-1 |
+      | message                                              |
+      | Virus found in text.txt. Upload not possible. Virus: |
     And for user "Brian" the content of the file "/text.txt" of the space "new-space" should be "hello world"
     And for user "Alice" the content of the file "/text.txt" of the space "new-space" should be "hello world"
