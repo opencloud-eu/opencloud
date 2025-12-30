@@ -8,6 +8,7 @@
 
 ### ✅ Tests
 
+- [tests-only] test: wait post-processing to finish for MKCOL requests [[#2092](https://github.com/opencloud-eu/opencloud/pull/2092)]
 - [tests-only] test: fix API tests [[#2087](https://github.com/opencloud-eu/opencloud/pull/2087)]
 - [full-ci] use graph api in the enforcePasswordPublicLink.feature [[#2050](https://github.com/opencloud-eu/opencloud/pull/2050)]
 - [full-ci][tests-only] test: check last email content with retries as emails can be delayed [[#2038](https://github.com/opencloud-eu/opencloud/pull/2038)]
