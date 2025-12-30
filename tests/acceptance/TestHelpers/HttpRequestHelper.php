@@ -198,7 +198,7 @@ class HttpRequestHelper {
 		// wait for post-processing to finish if applicable
 		if (WebdavHelper::isDAVRequest($url)
 			&& \str_starts_with($url, OcHelper::getServerUrl())
-			&& \in_array($method, ["PUT", "MOVE", "COPY"])
+			&& \in_array($method, ["PUT", "MOVE", "COPY", "MKCOL"])
 			&& \in_array($response->getStatusCode(), [Response::HTTP_CREATED, Response::HTTP_NO_CONTENT])
 			&& OcConfigHelper::getPostProcessingDelay() === 0
 		) {
