@@ -1,10 +1,17 @@
 # Changelog
 
-## [4.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.2.0) - 2025-12-25
+## [4.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.2.0) - 2025-12-30
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @ScharfViktor, @butonic, @dragonchaser, @fschade, @rhafer, @saw-jan
+
+### ✅ Tests
+
+- [tests-only] test: fix API tests [[#2087](https://github.com/opencloud-eu/opencloud/pull/2087)]
+- [full-ci] use graph api in the enforcePasswordPublicLink.feature [[#2050](https://github.com/opencloud-eu/opencloud/pull/2050)]
+- [full-ci][tests-only] test: check last email content with retries as emails can be delayed [[#2038](https://github.com/opencloud-eu/opencloud/pull/2038)]
+- skip collaborativePosix tests in CI [[#2039](https://github.com/opencloud-eu/opencloud/pull/2039)]
 
 ### 🐛 Bug Fixes
 
@@ -12,12 +19,6 @@
 - fix(thumbnailer): respect image boundaries and text wrappings [[#2062](https://github.com/opencloud-eu/opencloud/pull/2062)]
 - fix: cobra viper flags and env [[#2047](https://github.com/opencloud-eu/opencloud/pull/2047)]
 - fix service name in suture logs [[#2052](https://github.com/opencloud-eu/opencloud/pull/2052)]
-
-### ✅ Tests
-
-- [full-ci] use graph api in the enforcePasswordPublicLink.feature [[#2050](https://github.com/opencloud-eu/opencloud/pull/2050)]
-- [full-ci][tests-only] test: check last email content with retries as emails can be delayed [[#2038](https://github.com/opencloud-eu/opencloud/pull/2038)]
-- skip collaborativePosix tests in CI [[#2039](https://github.com/opencloud-eu/opencloud/pull/2039)]
 
 ### 📈 Enhancement
 
