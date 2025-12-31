@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @butonic, @dragonchaser, @fschade, @rhafer, @saw-jan
+@ScharfViktor, @butonic, @dragonchaser, @fschade, @micbar, @rhafer, @saw-jan
 
 ### ✅ Tests
 
