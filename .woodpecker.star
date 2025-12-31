@@ -355,7 +355,19 @@ config = {
         "part": {
             "skip": False,
             "totalParts": 4,  # divide and run all suites in parts (divide pipelines)
-            "xsuites": ["search", "app-provider", "app-provider-onlyOffice", "app-store", "keycloak", "oidc", "ocm", "a11y", "mobile-view", "navigation"],  # suites to skip
+            # suites to skip
+            "xsuites": [
+                "search",
+                "app-provider",
+                "app-provider-onlyOffice",
+                "app-store",
+                "keycloak",
+                "oidc",
+                "ocm",
+                "a11y",
+                "mobile-view",
+                "navigation"
+            ],
         },
         "search": {
             "skip": False,
@@ -611,13 +623,8 @@ def testPipelines(ctx):
 
     pipelines += localApiTestPipeline(ctx)
     pipelines += coreApiTestPipeline(ctx)
-
-    enable_watch_fs = [False]
-    if ctx.build.event == "cron":
-        enable_watch_fs.append(True)
-
-    for run_with_watch_fs_enabled in enable_watch_fs:
-        pipelines += e2eTestPipeline(ctx, run_with_watch_fs_enabled) + multiServiceE2ePipeline(ctx, run_with_watch_fs_enabled)
+    pipelines += e2eTestPipeline(ctx)
+    pipelines += multiServiceE2ePipeline(ctx)
 
     if ("skip" not in config["k6LoadTests"] or not config["k6LoadTests"]["skip"]) and ("k6-test" in ctx.build.title.lower() or ctx.build.event == "cron"):
         pipelines += k6LoadTests(ctx)
@@ -1200,7 +1207,14 @@ def localApiTestPipeline(ctx):
                                          (waitForEmailService() if params["emailNeeded"] else []) +
                                          (ldapService() if params["ldapNeeded"] else []) +
                                          (waitForLdapService() if params["ldapNeeded"] else []) +
-                                         opencloudServer(storage, params["accounts_hash_difficulty"], extra_server_environment = params["extraServerEnvironment"], with_wrapper = True, tika_enabled = params["tikaNeeded"], watch_fs_enabled = run_with_watch_fs_enabled) +
+                                         opencloudServer(
+                                            storage,
+                                            params["accounts_hash_difficulty"],
+                                            extra_server_environment = params["extraServerEnvironment"],
+                                            with_wrapper = True,
+                                            tika_enabled = params["tikaNeeded"],
+                                            watch_fs_enabled = run_with_watch_fs_enabled
+                                         ) +
                                          (opencloudServer(storage, params["accounts_hash_difficulty"], deploy_type = "federation", extra_server_environment = params["extraServerEnvironment"], watch_fs_enabled = run_with_watch_fs_enabled) if params["federationServer"] else []) +
                                          ((wopiCollaborationService("fakeoffice") + wopiCollaborationService("collabora") + wopiCollaborationService("onlyoffice")) if params["collaborationServiceNeeded"] else []) +
                                          (openCloudHealthCheck("wopi", ["wopi-collabora:9304", "wopi-onlyoffice:9304", "wopi-fakeoffice:9304"]) if params["collaborationServiceNeeded"] else []) +
@@ -1378,7 +1392,7 @@ def coreApiTest(
         ],
     }]
 
-def e2eTestPipeline(ctx, watch_fs_enabled = False):
+def e2eTestPipeline(ctx):
     defaults = {
         "skip": False,
         "suites": [],
@@ -1386,6 +1400,8 @@ def e2eTestPipeline(ctx, watch_fs_enabled = False):
         "totalParts": 0,
         "tikaNeeded": False,
         "reportTracing": False,
+        "enableWatchFs": [False],
+        "storages": ["posix"],
     }
 
     extra_server_environment = {
@@ -1418,10 +1434,6 @@ def e2eTestPipeline(ctx, watch_fs_enabled = False):
     if ctx.build.event == "tag":
         return pipelines
 
-    storage = "posix"
-    if "[decomposed]" in ctx.build.title.lower():
-        storage = "decomposed"
-
     for name, suite in config["e2eTests"].items():
         if "skip" in suite and suite["skip"]:
             continue
@@ -1429,6 +1441,12 @@ def e2eTestPipeline(ctx, watch_fs_enabled = False):
         params = {}
         for item in defaults:
             params[item] = suite[item] if item in suite else defaults[item]
+
+        if ctx.build.event == "cron":
+            params["enableWatchFs"] = [False, True]
+
+        if "[decomposed]" in ctx.build.title.lower():
+            params["storages"] = ["decomposed"]
 
         e2e_args = ""
         if params["totalParts"] > 0:
@@ -1443,61 +1461,67 @@ def e2eTestPipeline(ctx, watch_fs_enabled = False):
         if "with-tracing" in ctx.build.title.lower():
             params["reportTracing"] = True
 
-        steps_before = \
-            restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBin"]) + \
-            restoreWebCache() + \
-            restoreWebPnpmCache() + \
-            restoreBrowsersCache() + \
-            (tikaService() if params["tikaNeeded"] else []) + \
-            opencloudServer(storage, extra_server_environment = extra_server_environment, tika_enabled = params["tikaNeeded"], watch_fs_enabled = watch_fs_enabled)
+        for storage in params["storages"]:
+            for watch_fs_enabled in params["enableWatchFs"]:
+                steps_before = \
+                    restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBin"]) + \
+                    restoreWebCache() + \
+                    restoreWebPnpmCache() + \
+                    restoreBrowsersCache() + \
+                    (tikaService() if params["tikaNeeded"] else []) + \
+                    opencloudServer(
+                        storage,
+                        extra_server_environment = extra_server_environment,
+                        tika_enabled = params["tikaNeeded"],
+                        watch_fs_enabled = watch_fs_enabled
+                    )
 
-        step_e2e = {
-            "name": "e2e-tests",
-            "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
-            "environment": {
-                "OC_BASE_URL": OC_DOMAIN,
-                "HEADLESS": True,
-                "RETRY": "1",
-                "WEB_UI_CONFIG_FILE": "%s/%s" % (dirs["base"], dirs["opencloudConfig"]),
-                "LOCAL_UPLOAD_DIR": "/uploads",
-                "PLAYWRIGHT_BROWSERS_PATH": "%s/%s" % (dirs["base"], ".playwright"),
-                "BROWSER": "chromium",
-                "REPORT_TRACING": params["reportTracing"],
-            },
-            "commands": [
-                "cd %s/tests/e2e" % dirs["web"],
-            ],
-        }
+                step_e2e = {
+                    "name": "e2e-tests",
+                    "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+                    "environment": {
+                        "OC_BASE_URL": OC_DOMAIN,
+                        "HEADLESS": True,
+                        "RETRY": "1",
+                        "WEB_UI_CONFIG_FILE": "%s/%s" % (dirs["base"], dirs["opencloudConfig"]),
+                        "LOCAL_UPLOAD_DIR": "/uploads",
+                        "PLAYWRIGHT_BROWSERS_PATH": "%s/%s" % (dirs["base"], ".playwright"),
+                        "BROWSER": "chromium",
+                        "REPORT_TRACING": params["reportTracing"],
+                    },
+                    "commands": [
+                        "cd %s/tests/e2e" % dirs["web"],
+                    ],
+                }
 
-        steps_after = uploadTracingResult(ctx)
+                steps_after = uploadTracingResult(ctx)
 
-        if params["totalParts"]:
-            for index in range(params["totalParts"]):
-                run_part = index + 1
-                run_e2e = {}
-                run_e2e.update(step_e2e)
-                run_e2e["commands"] = [
-                    "cd %s/tests/e2e" % dirs["web"],
-                    "bash run-e2e.sh %s --run-part %d" % (e2e_args, run_part),
-                ]
-                pipelines.append({
-                    "name": "e2e-tests-%s-%s-%s%s" % (name, run_part, storage, "-watchfs" if watch_fs_enabled else ""),
-                    "steps": steps_before + [run_e2e] + steps_after,
-                    "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
-                    "when": e2e_trigger,
-                })
-        else:
-            step_e2e["commands"].append("bash run-e2e.sh %s" % e2e_args)
-            pipelines.append({
-                "name": "e2e-tests-%s-%s%s" % (name, storage, "-watchfs" if watch_fs_enabled else ""),
-                "steps": steps_before + [step_e2e] + steps_after,
-                "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
-                "when": e2e_trigger,
-            })
-
+                if params["totalParts"]:
+                    for index in range(params["totalParts"]):
+                        run_part = index + 1
+                        run_e2e = {}
+                        run_e2e.update(step_e2e)
+                        run_e2e["commands"] = [
+                            "cd %s/tests/e2e" % dirs["web"],
+                            "bash run-e2e.sh %s --run-part %d" % (e2e_args, run_part),
+                        ]
+                        pipelines.append({
+                            "name": "e2e-tests-%s-%s-%s%s" % (name, run_part, storage, "-watchfs" if watch_fs_enabled else ""),
+                            "steps": steps_before + [run_e2e] + steps_after,
+                            "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
+                            "when": e2e_trigger,
+                        })
+                else:
+                    step_e2e["commands"].append("bash run-e2e.sh %s" % e2e_args)
+                    pipelines.append({
+                        "name": "e2e-tests-%s-%s%s" % (name, storage, "-watchfs" if watch_fs_enabled else ""),
+                        "steps": steps_before + [step_e2e] + steps_after,
+                        "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
+                        "when": e2e_trigger,
+                    })
     return pipelines
 
-def multiServiceE2ePipeline(ctx, watch_fs_enabled = False):
+def multiServiceE2ePipeline(ctx):
     pipelines = []
 
     defaults = {
@@ -1506,6 +1530,8 @@ def multiServiceE2ePipeline(ctx, watch_fs_enabled = False):
         "xsuites": [],
         "tikaNeeded": False,
         "reportTracing": False,
+        "enableWatchFs": [False],
+        "storages": ["posix"],
     }
 
     e2e_trigger = [
@@ -1526,10 +1552,6 @@ def multiServiceE2ePipeline(ctx, watch_fs_enabled = False):
     if not "full-ci" in ctx.build.title.lower() and ctx.build.event != "cron":
         return pipelines
 
-    storage = "posix"
-    if "[decomposed]" in ctx.build.title.lower():
-        storage = "decomposed"
-
     extra_server_environment = {
         "OC_PASSWORD_POLICY_BANNED_PASSWORDS_LIST": "%s" % dirs["bannedPasswordList"],
         "OC_JWT_SECRET": "some-opencloud-jwt-secret",
@@ -1543,9 +1565,6 @@ def multiServiceE2ePipeline(ctx, watch_fs_enabled = False):
         # Needed for enabling all roles
         "GRAPH_AVAILABLE_ROLES": "%s" % GRAPH_AVAILABLE_ROLES,
     }
-
-    if watch_fs_enabled:
-        extra_server_environment["STORAGE_USERS_POSIX_WATCH_FS"] = True
 
     storage_users_environment = {
         "OC_CORS_ALLOW_ORIGINS": "%s,https://%s:9201" % (OC_URL, OC_SERVER_NAME),
@@ -1591,6 +1610,12 @@ def multiServiceE2ePipeline(ctx, watch_fs_enabled = False):
         for item in defaults:
             params[item] = suite[item] if item in suite else defaults[item]
 
+        if ctx.build.event == "cron":
+            params["enableWatchFs"] = [False, True]
+
+        if "[decomposed]" in ctx.build.title.lower():
+            params["storages"] = ["decomposed"]
+
         e2e_args = ""
         if params["suites"]:
             e2e_args = "--suites %s" % ",".join(params["suites"])
@@ -1602,38 +1627,43 @@ def multiServiceE2ePipeline(ctx, watch_fs_enabled = False):
         if "with-tracing" in ctx.build.title.lower():
             params["reportTracing"] = True
 
-        steps = \
-            restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBin"]) + \
-            restoreWebCache() + \
-            restoreWebPnpmCache() + \
-            restoreBrowsersCache() + \
-            tikaService() + \
-            opencloudServer(storage, extra_server_environment = extra_server_environment, tika_enabled = params["tikaNeeded"]) + \
-            storage_users_services + \
-            [{
-                "name": "e2e-tests",
-                "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
-                "environment": {
-                    "OC_BASE_URL": OC_DOMAIN,
-                    "HEADLESS": True,
-                    "RETRY": "1",
-                    "REPORT_TRACING": params["reportTracing"],
-                    "PLAYWRIGHT_BROWSERS_PATH": "%s/%s" % (dirs["base"], ".playwright"),
-                    "BROWSER": "chromium",
-                },
-                "commands": [
-                    "cd %s/tests/e2e" % dirs["web"],
-                    "bash run-e2e.sh %s" % e2e_args,
-                ],
-            }] + \
-            uploadTracingResult(ctx)
+        for storage in params["storages"]:
+            for watch_fs_enabled in params["enableWatchFs"]:
+                if watch_fs_enabled:
+                    extra_server_environment["STORAGE_USERS_POSIX_WATCH_FS"] = True
 
-        pipelines.append({
-            "name": "e2e-tests-multi-service%s" % ("-watchfs" if watch_fs_enabled else ""),
-            "steps": steps,
-            "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
-            "when": e2e_trigger,
-        })
+                steps = \
+                    restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBin"]) + \
+                    restoreWebCache() + \
+                    restoreWebPnpmCache() + \
+                    restoreBrowsersCache() + \
+                    tikaService() + \
+                    opencloudServer(storage, extra_server_environment = extra_server_environment, tika_enabled = params["tikaNeeded"]) + \
+                    storage_users_services + \
+                    [{
+                        "name": "e2e-tests",
+                        "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+                        "environment": {
+                            "OC_BASE_URL": OC_DOMAIN,
+                            "HEADLESS": True,
+                            "RETRY": "1",
+                            "REPORT_TRACING": params["reportTracing"],
+                            "PLAYWRIGHT_BROWSERS_PATH": "%s/%s" % (dirs["base"], ".playwright"),
+                            "BROWSER": "chromium",
+                        },
+                        "commands": [
+                            "cd %s/tests/e2e" % dirs["web"],
+                            "bash run-e2e.sh %s" % e2e_args,
+                        ],
+                    }] + \
+                    uploadTracingResult(ctx)
+
+                pipelines.append({
+                    "name": "e2e-tests-multi-service%s" % ("-watchfs" if watch_fs_enabled else ""),
+                    "steps": steps,
+                    "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
+                    "when": e2e_trigger,
+                })
     return pipelines
 
 def uploadTracingResult(ctx):
