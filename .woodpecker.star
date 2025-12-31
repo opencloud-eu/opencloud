@@ -366,7 +366,7 @@ config = {
                 "ocm",
                 "a11y",
                 "mobile-view",
-                "navigation"
+                "navigation",
             ],
         },
         "search": {
@@ -1208,12 +1208,12 @@ def localApiTestPipeline(ctx):
                                          (ldapService() if params["ldapNeeded"] else []) +
                                          (waitForLdapService() if params["ldapNeeded"] else []) +
                                          opencloudServer(
-                                            storage,
-                                            params["accounts_hash_difficulty"],
-                                            extra_server_environment = params["extraServerEnvironment"],
-                                            with_wrapper = True,
-                                            tika_enabled = params["tikaNeeded"],
-                                            watch_fs_enabled = run_with_watch_fs_enabled
+                                             storage,
+                                             params["accounts_hash_difficulty"],
+                                             extra_server_environment = params["extraServerEnvironment"],
+                                             with_wrapper = True,
+                                             tika_enabled = params["tikaNeeded"],
+                                             watch_fs_enabled = run_with_watch_fs_enabled,
                                          ) +
                                          (opencloudServer(storage, params["accounts_hash_difficulty"], deploy_type = "federation", extra_server_environment = params["extraServerEnvironment"], watch_fs_enabled = run_with_watch_fs_enabled) if params["federationServer"] else []) +
                                          ((wopiCollaborationService("fakeoffice") + wopiCollaborationService("collabora") + wopiCollaborationService("onlyoffice")) if params["collaborationServiceNeeded"] else []) +
@@ -1330,16 +1330,16 @@ def coreApiTestPipeline(ctx):
                                 "name": pipeline_name,
                                 "steps": restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
                                          opencloudServer(
-                                            storage,
-                                            params["accounts_hash_difficulty"],
-                                            with_wrapper = True,
-                                            watch_fs_enabled = run_with_watch_fs_enabled
-                                        ) +
+                                             storage,
+                                             params["accounts_hash_difficulty"],
+                                             with_wrapper = True,
+                                             watch_fs_enabled = run_with_watch_fs_enabled,
+                                         ) +
                                          coreApiTest(
-                                            runPart,
-                                            params["numberOfParts"],
-                                            run_with_remote_php,
-                                            storage
+                                             runPart,
+                                             params["numberOfParts"],
+                                             run_with_remote_php,
+                                             storage,
                                          ) +
                                          logRequests(),
                                 "services": redisForOCStorage(storage),
@@ -1358,12 +1358,7 @@ def coreApiTestPipeline(ctx):
                             pipelines.append(pipeline)
     return pipelines
 
-def coreApiTest(
-    part_number = 1,
-    number_of_parts = 1,
-    with_remote_php = False,
-    storage = "posix"
-):
+def coreApiTest(part_number = 1, number_of_parts = 1, with_remote_php = False, storage = "posix"):
     filterTags = "~@skipOnOpencloud-%s-Storage" % storage
     test_dir = "%s/tests/acceptance" % dirs["base"]
     expected_failures_file = "%s/expected-failures-API-on-%s-storage.md" % (test_dir, storage)
@@ -1473,7 +1468,7 @@ def e2eTestPipeline(ctx):
                         storage,
                         extra_server_environment = extra_server_environment,
                         tika_enabled = params["tikaNeeded"],
-                        watch_fs_enabled = watch_fs_enabled
+                        watch_fs_enabled = watch_fs_enabled,
                     )
 
                 step_e2e = {
