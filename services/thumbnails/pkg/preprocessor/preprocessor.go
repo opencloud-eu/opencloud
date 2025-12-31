@@ -143,7 +143,11 @@ Scan: // Label for the scanner loop, so we can break it easily
 		textResult.MergeCommon(DefaultMergeMap)
 
 		for _, sRange := range textResult.ScriptRanges {
-			targetFontFace, _ := t.fontLoader.LoadFaceForScript(sRange.TargetScript)
+			targetFontFace, err := t.fontLoader.LoadFaceForScript(sRange.TargetScript)
+			if err != nil {
+				return nil, err
+			}
+
 			// if the target script is "_unknown" it's expected that the loaded face
 			// uses the default font
 			faceHeight := targetFontFace.Face.Metrics().Height
