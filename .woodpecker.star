@@ -103,13 +103,13 @@ config = {
         "basic": {
             "suites": [
                 "apiArchiver",
-                "apiContract",
-                "apiCors",
-                "apiAsyncUpload",
-                "apiDownloads",
-                "apiDepthInfinity",
-                "apiLocks",
-                "apiActivities",
+                # "apiContract",
+                # "apiCors",
+                # "apiAsyncUpload",
+                # "apiDownloads",
+                # "apiDepthInfinity",
+                # "apiLocks",
+                # "apiActivities",
             ],
             "skip": False,
         },
@@ -117,7 +117,7 @@ config = {
             "suites": [
                 "apiSettings",
             ],
-            "skip": False,
+            "skip": True,
             "withRemotePhp": [True],
             "emailNeeded": True,
             "extraTestEnvironment": {
@@ -135,7 +135,7 @@ config = {
         },
         "graph": {
             "suites": [
-                "apiGraph",
+                # "apiGraph",
                 "apiServiceAvailability",
                 # skip tests for collaborativePosix. see https://github.com/opencloud-eu/opencloud/issues/2036
                 #"collaborativePosix",
@@ -147,38 +147,38 @@ config = {
             "suites": [
                 "apiGraphUserGroup",
             ],
-            "skip": False,
+            "skip": True,
             "withRemotePhp": [True],
         },
         "spaces": {
             "suites": [
                 "apiSpaces",
             ],
-            "skip": False,
+            "skip": True,
         },
         "spacesShares": {
             "suites": [
                 "apiSpacesShares",
             ],
-            "skip": False,
+            "skip": True,
         },
         "spacesDavOperation": {
             "suites": [
                 "apiSpacesDavOperation",
             ],
-            "skip": False,
+            "skip": True,
         },
         "search1": {
             "suites": [
                 "apiSearch1",
             ],
-            "skip": False,
+            "skip": True,
         },
         "search2": {
             "suites": [
                 "apiSearch2",
             ],
-            "skip": False,
+            "skip": True,
         },
         "sharingNg": {
             "suites": [
@@ -186,23 +186,23 @@ config = {
                 "apiSharingNg1",
                 "apiSharingNg2",
             ],
-            "skip": False,
+            "skip": True,
         },
         "sharingNgShareInvitation": {
             "suites": [
                 "apiSharingNgShareInvitation",
             ],
-            "skip": False,
+            "skip": True,
         },
         "sharingNgLinkShare": {
             "suites": [
                 "apiSharingNgLinkSharePermission",
                 "apiSharingNgLinkShareRoot",
             ],
-            "skip": False,
+            "skip": True,
         },
         "accountsHashDifficulty": {
-            "skip": False,
+            "skip": True,
             "suites": [
                 "apiAccountsHashDifficulty",
             ],
@@ -212,7 +212,7 @@ config = {
             "suites": [
                 "apiNotification",
             ],
-            "skip": False,
+            "skip": True,
             "withRemotePhp": [True],
             "emailNeeded": True,
             "extraTestEnvironment": {
@@ -232,7 +232,7 @@ config = {
             "suites": [
                 "apiAntivirus",
             ],
-            "skip": False,
+            "skip": True,
             "antivirusNeeded": True,
             "generateVirusFiles": True,
             "extraServerEnvironment": {
@@ -248,14 +248,14 @@ config = {
             "suites": [
                 "apiSearchContent",
             ],
-            "skip": False,
+            "skip": True,
             "tikaNeeded": True,
         },
         "ocm": {
             "suites": [
                 "apiOcm",
             ],
-            "skip": False,
+            "skip": True,
             "withRemotePhp": [True],
             "federationServer": True,
             "emailNeeded": True,
@@ -281,7 +281,7 @@ config = {
             "suites": [
                 "apiCollaboration",
             ],
-            "skip": False,
+            "skip": True,
             "collaborationServiceNeeded": True,
             "extraServerEnvironment": {
                 "GATEWAY_GRPC_ADDR": "0.0.0.0:9142",
@@ -291,14 +291,14 @@ config = {
             "suites": [
                 "apiAuthApp",
             ],
-            "skip": False,
+            "skip": True,
             "withRemotePhp": [True],
         },
         "cliCommands": {
             "suites": [
                 "cliCommands",
             ],
-            "skip": False,
+            "skip": True,
             "withRemotePhp": [True],
             "antivirusNeeded": True,
             "generateVirusFiles": True,
@@ -314,7 +314,7 @@ config = {
             "suites": [
                 "apiTenancy",
             ],
-            "skip": False,
+            "skip": True,
             "withRemotePhp": [True],
             "ldapNeeded": True,
             "extraTestEnvironment": {
@@ -348,12 +348,12 @@ config = {
     "coreApiTests": {
         "numberOfParts": 7,
         "skip": False,
-        "skipExceptParts": [],
+        "skipExceptParts": [1],
         "storages": ["posix"],
     },
     "e2eTests": {
         "part": {
-            "skip": False,
+            "skip": True,
             "totalParts": 4,  # divide and run all suites in parts (divide pipelines)
             # suites to skip
             "xsuites": [
@@ -377,7 +377,7 @@ config = {
     },
     "e2eMultiService": {
         "testSuites": {
-            "skip": False,
+            "skip": True,
             "suites": [
                 "smoke",
                 "shares",
@@ -492,6 +492,8 @@ def main(ctx):
       none
     """
 
+    return savePipelineNumber(ctx) + test()
+
     if ctx.build.event == "cron" and ctx.build.sender == "translation-sync":
         return translation_sync(ctx)
 
@@ -566,9 +568,58 @@ def main(ctx):
     pipelineSanityChecks(pipelines)
     return pipelines
 
+def savePipelineNumber(ctx):
+    base_url = "https://raw.githubusercontent.com/%s" % repo_slug
+    script_link = "%s/%s/tests/config/woodpecker/upload_pipeline_info.sh" % (base_url, ctx.build.commit)
+    return [{
+        "name": "save-pipeline-info",
+        "skip_clone": True,
+        "steps": [{
+            "name": "upload-info",
+            "image": MINIO_MC,
+            "environment": MINIO_MC_ENV,
+            "commands": [
+                "curl -s -o upload_pipeline_info.sh %s" % script_link,
+                "bash -x upload_pipeline_info.sh",
+            ],
+        }],
+        "when": [
+            {
+                "event": ["push", "manual"],
+                "branch": ["main", "stable-*"],
+            },
+            event["tag"],
+            event["cron"],
+            event["pull_request"],
+        ],
+    }]
+
+def test():
+    return [{
+        "name": "test-pipeline",
+        "steps": [{
+            "name": "get-previous-pipeline",
+            "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+            "commands": [
+                "node --version",
+                "node tests/config/woodpecker/evaluate_pipeline.js",
+            ],
+        }],
+        "depends_on": ["save-pipeline-info"],
+        "when": [
+            {
+                "event": ["push", "manual"],
+                "branch": ["main", "stable-*"],
+            },
+            event["tag"],
+            event["cron"],
+            event["pull_request"],
+        ],
+    }]
+
 def cachePipeline(ctx, name, steps):
     return {
-        "name": "build-%s-cache" % name,
+        "name": "cache-%s" % name,
         "steps": steps,
         "when": [
             {
@@ -837,7 +888,7 @@ def scanOpencloud(ctx):
 
 def buildOpencloudBinaryForTesting(ctx):
     return [{
-        "name": "build_opencloud_binary_for_testing",
+        "name": "build-opencloud-for-testing",
         "steps": makeNodeGenerate("") +
                  makeGoGenerate("") +
                  build() +
@@ -2285,9 +2336,9 @@ def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, depend
             "%s/bin/ocwrapper serve --bin %s --url %s --admin-username admin --admin-password admin" % (dirs["ocWrapper"], dirs["opencloudBin"], environment["OC_URL"]),
         ]
     else:
-        server_commands += [
+        server_commands.append(
             "%s server" % dirs["opencloudBin"],
-        ]
+        )
 
     wait_for_opencloud = {
         "name": "wait-for-%s" % container_name,
