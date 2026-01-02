@@ -1,4 +1,5 @@
-// const INFO_URL="https://s3.ci.opencloud.eu/public/$CI_REPO_NAME/pipelines/$CI_COMMIT_SHA/pipeline_info.json"
+const fs = require("fs");
+
 const CI_REPO_NAME = process.env.CI_REPO_NAME;
 const CI_COMMIT_SHA = process.env.CI_COMMIT_SHA;
 const CI_WORKFLOW_NAME = process.env.CI_WORKFLOW_NAME;
@@ -6,13 +7,7 @@ const CI_WORKFLOW_NAME = process.env.CI_WORKFLOW_NAME;
 const opencloudBuildWorkflow = "build-opencloud-for-testing";
 const webCacheWorkflows = ["cache-web", "cache-web-pnpm", "cache-browsers"];
 
-console.log("[INFO] skip...");
-process.exit(78);
-
-// const INFO_URL = `https://s3.ci.opencloud.eu/public/${CI_REPO_NAME}/pipelines/${CI_COMMIT_SHA}/pipeline_info.json`;
-
-const INFO_URL =
-  "https://s3.ci.opencloud.eu/public/opencloud/pipelines/fcbcb3d9cc73fcd1cab49774632a92b531718a76/pipeline_info.json";
+const INFO_URL = `https://s3.ci.opencloud.eu/public/${CI_REPO_NAME}/pipelines/${CI_COMMIT_SHA}/pipeline_info.json`;
 
 function getFailedWorkflows(workflows) {
   const failedWorkflows = [];
@@ -44,7 +39,6 @@ function hasFailingE2eTestWorkflow(failedWorkflows) {
 
 async function main() {
   const infoResponse = await fetch(INFO_URL);
-  console.log(infoResponse);
   if (infoResponse.status === 404) {
     console.log("[INFO] No matching previous pipeline found. Continue...");
     process.exit(0);
@@ -56,32 +50,38 @@ async function main() {
     process.exit(1);
   }
   const info = await infoResponse.json();
+  console.log(info);
 
   if (info.status === "success") {
+    console.log(
+      "[INFO] All workflows passed in previous pipeline. Full restart. Continue..."
+    );
     process.exit(0);
   }
 
   const failedWorkflows = getFailedWorkflows(info.workflows);
 
-  // run the build workflow if any test workflow has failed
-  if (
-    CI_WORKFLOW_NAME === opencloudBuildWorkflow &&
-    hasFailingTestWorkflow(failedWorkflows)
-  ) {
-    process.exit(0);
-  }
+  // NOTE: implement for test pipelines only for now
+  // // run the build workflow if any test workflow has failed
+  // if (
+  //   CI_WORKFLOW_NAME === opencloudBuildWorkflow &&
+  //   hasFailingTestWorkflow(failedWorkflows)
+  // ) {
+  //   process.exit(0);
+  // }
 
-  // run the web cache workflows if any e2e test workflow has failed
-  if (
-    webCacheWorkflows.includes(CI_WORKFLOW_NAME) &&
-    hasFailingE2eTestWorkflow(failedWorkflows)
-  ) {
-    process.exit(0);
-  }
+  // // run the web cache workflows if any e2e test workflow has failed
+  // if (
+  //   webCacheWorkflows.includes(CI_WORKFLOW_NAME) &&
+  //   hasFailingE2eTestWorkflow(failedWorkflows)
+  // ) {
+  //   process.exit(0);
+  // }
 
   if (!failedWorkflows.includes(CI_WORKFLOW_NAME)) {
     console.log("[INFO] Workflow passed in previous pipeline. Skip...");
-    process.exit(78);
+    fs.appendFileSync(".woodpecker.env", "SKIP_WORKFLOW=true\n");
+    process.exit(0);
   }
   console.log("[INFO] Restarting previously failed workflow. Continue...");
 }

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -e
-CI_COMMIT_SHA=fcbcb3d9cc73fcd1cab49774632a92b531718a76
+
 mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY
 
 # check previous pipeline
