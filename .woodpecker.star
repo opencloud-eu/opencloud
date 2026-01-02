@@ -841,7 +841,7 @@ def testOpencloud(ctx):
     ]
 
     return {
-        "name": "linting_and_unitTests",
+        "name": "test-lint-unit",
         "steps": steps,
         "when": [
             event["base"],
@@ -1054,7 +1054,7 @@ def codestyle(ctx):
 
 def cs3ApiTests(ctx, storage, accounts_hash_difficulty = 4):
     return {
-        "name": "cs3ApiTests-%s" % storage,
+        "name": "test-cs3-API-%s" % storage,
         "steps": restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
                  opencloudServer(storage, accounts_hash_difficulty, deploy_type = "cs3api_validator") +
                  [
@@ -1155,7 +1155,7 @@ def wopiValidatorTests(ctx, storage, wopiServerType, accounts_hash_difficulty = 
             })
 
     return {
-        "name": "wopiValidatorTests-%s-%s" % (wopiServerType, storage),
+        "name": "test-wopi-validator-%s-%s" % (wopiServerType, storage),
         "services": fakeOffice(),
         "steps": restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
                  waitForServices("fake-office", ["fakeoffice:8080"]) +
@@ -1239,9 +1239,9 @@ def localApiTestPipeline(ctx):
                 for storage in params["storages"]:
                     for run_with_remote_php in params["withRemotePhp"]:
                         for run_with_watch_fs_enabled in params["enableWatchFs"]:
-                            pipeline_name = "API"
+                            pipeline_name = "test-API"
                             if name.startswith("cli"):
-                                pipeline_name = "CLI"
+                                pipeline_name = "test-CLI"
                             pipeline_name += "-%s" % name
                             if not run_with_remote_php:
                                 pipeline_name += "-withoutRemotePhp"
@@ -1370,7 +1370,7 @@ def coreApiTestPipeline(ctx):
                 for run_with_remote_php in params["withRemotePhp"]:
                     for run_with_watch_fs_enabled in params["enableWatchFs"]:
                         if not debugPartsEnabled or (debugPartsEnabled and runPart in debugParts):
-                            pipeline_name = "Core-API-%s" % runPart
+                            pipeline_name = "test-Core-API-%s" % runPart
                             if not run_with_remote_php:
                                 pipeline_name += "-withoutRemotePhp"
                             pipeline_name += "-%s" % storage
@@ -1552,7 +1552,7 @@ def e2eTestPipeline(ctx):
                             "bash run-e2e.sh %s --run-part %d" % (e2e_args, run_part),
                         ]
                         pipelines.append({
-                            "name": "e2e-tests-%s-%s-%s%s" % (name, run_part, storage, "-watchfs" if watch_fs_enabled else ""),
+                            "name": "test-e2e-%s-%s-%s%s" % (name, run_part, storage, "-watchfs" if watch_fs_enabled else ""),
                             "steps": steps_before + [run_e2e] + steps_after,
                             "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
                             "when": e2e_trigger,
@@ -1560,7 +1560,7 @@ def e2eTestPipeline(ctx):
                 else:
                     step_e2e["commands"].append("bash run-e2e.sh %s" % e2e_args)
                     pipelines.append({
-                        "name": "e2e-tests-%s-%s%s" % (name, storage, "-watchfs" if watch_fs_enabled else ""),
+                        "name": "test-e2e-%s-%s%s" % (name, storage, "-watchfs" if watch_fs_enabled else ""),
                         "steps": steps_before + [step_e2e] + steps_after,
                         "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
                         "when": e2e_trigger,
@@ -2725,7 +2725,7 @@ def litmus(ctx, storage):
     litmusCommand = "/usr/local/bin/litmus-wrapper"
 
     result = {
-        "name": "litmus",
+        "name": "test-litmus",
         "steps": restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
                  opencloudServer(storage) +
                  setupForLitmus() +
