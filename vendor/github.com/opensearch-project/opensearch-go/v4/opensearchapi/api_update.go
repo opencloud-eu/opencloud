@@ -61,13 +61,14 @@ type UpdateResp struct {
 		Successful int `json:"successful"`
 		Failed     int `json:"failed"`
 	} `json:"_shards"`
-	SeqNo       int    `json:"_seq_no"`
-	PrimaryTerm int    `json:"_primary_term"`
-	Type        string `json:"_type"` // Deprecated field
+	SeqNo       int              `json:"_seq_no"`
+	PrimaryTerm int              `json:"_primary_term"`
+	Type        string           `json:"_type"` // Deprecated field
+	Get         *DocumentGetResp `json:"get,omitempty"`
 	response    *opensearch.Response
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r UpdateResp) Inspect() Inspect {
 	return Inspect{Response: r.response}
 }

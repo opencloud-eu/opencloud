@@ -72,6 +72,7 @@ type SearchShardsResp struct {
 	Shards  [][]struct {
 		State                    string  `json:"state"`
 		Primary                  bool    `json:"primary"`
+		SearchOnly               bool    `json:"searchOnly"`
 		Node                     string  `json:"node"`
 		RelocatingNode           *string `json:"relocating_node"`
 		Shard                    int     `json:"shard"`
@@ -93,7 +94,7 @@ type SearchShardsResp struct {
 	response *opensearch.Response
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r SearchShardsResp) Inspect() Inspect {
 	return Inspect{Response: r.response}
 }

@@ -64,35 +64,36 @@ type NodesInfoResp struct {
 	response    *opensearch.Response
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r NodesInfoResp) Inspect() Inspect {
 	return Inspect{Response: r.response}
 }
 
 // NodesInfo is a sub type of NodesInfoResp containing information about nodes and their stats
 type NodesInfo struct {
-	Name                string                         `json:"name"`
-	TransportAddress    string                         `json:"transport_address"`
-	Host                string                         `json:"host"`
-	IP                  string                         `json:"ip"`
-	Version             string                         `json:"version"`
-	BuildType           string                         `json:"build_type"`
-	BuildHash           string                         `json:"build_hash"`
-	TotalIndexingBuffer int64                          `json:"total_indexing_buffer"`
-	Roles               []string                       `json:"roles"`
-	Attributes          map[string]string              `json:"attributes"`
-	Settings            json.RawMessage                `json:"settings"` // Won't parse as it may contain fields that we can't know
-	OS                  NodesInfoOS                    `json:"os"`
-	Process             NodesInfoProcess               `json:"process"`
-	JVM                 NodesInfoJVM                   `json:"jvm"`
-	ThreadPool          map[string]NodesInfoThreadPool `json:"thread_pool"`
-	Transport           NodesInfoTransport             `json:"transport"`
-	HTTP                NodesInfoHTTP                  `json:"http"`
-	Plugins             []NodesInfoPlugin              `json:"plugins"`
-	Modules             []NodesInfoPlugin              `json:"modules"`
-	Ingest              NodesInfoIngest                `json:"ingest"`
-	Aggregations        map[string]NodesInfoAgg        `json:"aggregations"`
-	SearchPipelines     NodesInfoSearchPipelines       `json:"search_pipelines"`
+	Name                       string                         `json:"name"`
+	TransportAddress           string                         `json:"transport_address"`
+	Host                       string                         `json:"host"`
+	IP                         string                         `json:"ip"`
+	Version                    string                         `json:"version"`
+	BuildType                  string                         `json:"build_type"`
+	BuildHash                  string                         `json:"build_hash"`
+	TotalIndexingBuffer        int64                          `json:"total_indexing_buffer"`
+	TotalIndexingBufferInBytes int64                          `json:"total_indexing_buffer_in_bytes"`
+	Roles                      []string                       `json:"roles"`
+	Attributes                 map[string]string              `json:"attributes"`
+	Settings                   json.RawMessage                `json:"settings"` // Won't parse as it may contain fields that we can't know
+	OS                         NodesInfoOS                    `json:"os"`
+	Process                    NodesInfoProcess               `json:"process"`
+	JVM                        NodesInfoJVM                   `json:"jvm"`
+	ThreadPool                 map[string]NodesInfoThreadPool `json:"thread_pool"`
+	Transport                  NodesInfoTransport             `json:"transport"`
+	HTTP                       NodesInfoHTTP                  `json:"http"`
+	Plugins                    []NodesInfoPlugin              `json:"plugins"`
+	Modules                    []NodesInfoPlugin              `json:"modules"`
+	Ingest                     NodesInfoIngest                `json:"ingest"`
+	Aggregations               map[string]NodesInfoAgg        `json:"aggregations"`
+	SearchPipelines            NodesInfoSearchPipelines       `json:"search_pipelines"`
 }
 
 // NodesInfoOS is a sub type of NodesInfo containing information about the Operating System

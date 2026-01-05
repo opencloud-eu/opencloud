@@ -83,7 +83,7 @@ type ClusterStateResp struct {
 	} `json:"restore"`
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r ClusterStateResp) Inspect() Inspect {
 	return Inspect{Response: r.response}
 }
@@ -194,6 +194,7 @@ type ClusterStateMetaDataStream struct {
 type ClusterStateRoutingIndex struct {
 	State                    string  `json:"state"`
 	Primary                  bool    `json:"primary"`
+	SearchOnly               bool    `json:"searchOnly"`
 	Node                     *string `json:"node"`
 	RelocatingNode           *string `json:"relocating_node"`
 	Shard                    int     `json:"shard"`

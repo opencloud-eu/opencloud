@@ -70,7 +70,7 @@ type CatThreadPoolItemResp struct {
 	TotalWaitTime   string  `json:"total_wait_time"`
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r CatThreadPoolResp) Inspect() Inspect {
 	return Inspect{
 		Response: r.response,

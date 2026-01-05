@@ -75,8 +75,24 @@ type Err struct {
 	RootCause []RootCause `json:"root_cause"`
 	Type      string      `json:"type"`
 	Reason    string      `json:"reason"`
+	CausedBy  *CausedBy   `json:"caused_by,omitempty"`
 	Index     string      `json:"index,omitempty"`
 	IndexUUID string      `json:"index_uuid,omitempty"`
+}
+
+// CausedBy represents the optional caused_by of an API error response. Causes can be nested
+type CausedBy struct {
+	Type     string    `json:"type"`
+	Reason   string    `json:"reason"`
+	CausedBy *CausedBy `json:"caused_by,omitempty"`
+}
+
+// String returns a string representation of CausedBy, handling nested structures
+func (c *CausedBy) String() string {
+	if c.CausedBy == nil {
+		return fmt.Sprintf("{type: %s, reason: %s}", c.Type, c.Reason)
+	}
+	return fmt.Sprintf("{type: %s, reason: %s, caused_by: %s}", c.Type, c.Reason, c.CausedBy)
 }
 
 // RootCause represents the root_cause of an API error response
@@ -89,7 +105,13 @@ type RootCause struct {
 
 // Error returns a string
 func (e StructError) Error() string {
-	return fmt.Sprintf("status: %d, type: %s, reason: %s, root_cause: %s", e.Status, e.Err.Type, e.Err.Reason, e.Err.RootCause)
+	result := fmt.Sprintf("status: %d, type: %s, reason: %s, root_cause: %s", e.Status, e.Err.Type, e.Err.Reason, e.Err.RootCause)
+
+	if e.Err.CausedBy != nil {
+		result += fmt.Sprintf(", caused_by: %s", e.Err.CausedBy)
+	}
+
+	return result
 }
 
 // UnmarshalJSON is a custom unmarshal function for StructError returning custom errors in special cases

@@ -1770,8 +1770,8 @@ github.com/opencontainers/go-digest
 ## explicit; go 1.18
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/opensearch-project/opensearch-go/v4 v4.5.0
-## explicit; go 1.22
+# github.com/opensearch-project/opensearch-go/v4 v4.6.0
+## explicit; go 1.24
 github.com/opensearch-project/opensearch-go/v4
 github.com/opensearch-project/opensearch-go/v4/internal/version
 github.com/opensearch-project/opensearch-go/v4/opensearchapi

@@ -129,7 +129,7 @@ type CatShardResp struct {
 	DocsDeleted                    *int    `json:"docs.deleted,string"`
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r CatShardsResp) Inspect() Inspect {
 	return Inspect{
 		Response: r.response,

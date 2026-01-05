@@ -17,6 +17,7 @@ type templateClient struct {
 }
 
 // Create executes a creade template request with the required TemplateCreateReq
+//
 // Deprecated: uses legacy API (/_template), correct API is /_index_template, use IndexTemplate.Create instread
 func (c templateClient) Create(ctx context.Context, req TemplateCreateReq) (*TemplateCreateResp, error) {
 	var (
@@ -31,6 +32,7 @@ func (c templateClient) Create(ctx context.Context, req TemplateCreateReq) (*Tem
 }
 
 // Delete executes a delete template request with the required TemplateDeleteReq
+//
 // Deprecated: uses legacy API (/_template), correct API is /_index_template, use IndexTemplate.Delete instread
 func (c templateClient) Delete(ctx context.Context, req TemplateDeleteReq) (*TemplateDeleteResp, error) {
 	var (
@@ -45,6 +47,7 @@ func (c templateClient) Delete(ctx context.Context, req TemplateDeleteReq) (*Tem
 }
 
 // Get executes a get template request with the optional TemplateGetReq
+//
 // Deprecated: uses legacy API (/_template), correct API is /_index_template, use IndexTemplate.Get instread
 func (c templateClient) Get(ctx context.Context, req *TemplateGetReq) (*TemplateGetResp, error) {
 	if req == nil {
@@ -63,6 +66,7 @@ func (c templateClient) Get(ctx context.Context, req *TemplateGetReq) (*Template
 }
 
 // Exists executes a exists template request with the required TemplatExistsReq
+//
 // Deprecated: uses legacy API (/_template), correct API is /_index_template, use IndexTemplate.Exists instread
 func (c templateClient) Exists(ctx context.Context, req TemplateExistsReq) (*opensearch.Response, error) {
 	return c.apiClient.do(ctx, req, nil)

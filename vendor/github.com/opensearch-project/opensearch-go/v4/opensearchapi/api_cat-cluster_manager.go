@@ -43,7 +43,7 @@ type CatClusterManagerResp struct {
 	Node string `json:"node"`
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r CatClusterManagersResp) Inspect() Inspect {
 	return Inspect{
 		Response: r.response,

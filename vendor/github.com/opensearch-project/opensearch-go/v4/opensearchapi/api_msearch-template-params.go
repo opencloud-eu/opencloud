@@ -33,7 +33,10 @@ import (
 
 // MSearchTemplateParams represents possible parameters for the MSearchTemplateReq
 type MSearchTemplateParams struct {
+	AllowNoIndices        *bool
 	CcsMinimizeRoundtrips *bool
+	ExpandWildcards       string
+	IgnoreUnavailable     *bool
 	MaxConcurrentSearches *int
 	RestTotalHitsAsInt    *bool
 	SearchType            string
@@ -48,8 +51,20 @@ type MSearchTemplateParams struct {
 func (r MSearchTemplateParams) get() map[string]string {
 	params := make(map[string]string)
 
+	if r.AllowNoIndices != nil {
+		params["allow_no_indices"] = strconv.FormatBool(*r.AllowNoIndices)
+	}
+
 	if r.CcsMinimizeRoundtrips != nil {
 		params["ccs_minimize_roundtrips"] = strconv.FormatBool(*r.CcsMinimizeRoundtrips)
+	}
+
+	if r.ExpandWildcards != "" {
+		params["expand_wildcards"] = r.ExpandWildcards
+	}
+
+	if r.IgnoreUnavailable != nil {
+		params["ignore_unavailable"] = strconv.FormatBool(*r.IgnoreUnavailable)
 	}
 
 	if r.MaxConcurrentSearches != nil {

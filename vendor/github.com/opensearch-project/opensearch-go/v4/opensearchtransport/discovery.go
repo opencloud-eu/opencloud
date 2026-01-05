@@ -46,14 +46,14 @@ type Discoverable interface {
 
 // nodeInfo represents the information about node in a cluster.
 type nodeInfo struct {
-	ID         string
-	Name       string
-	URL        *url.URL
-	Roles      []string `json:"roles"`
-	Attributes map[string]interface{}
+	ID         string                 `json:"id"`
+	Name       string                 `json:"name"`
+	URL        *url.URL               `json:"url"`
+	Roles      []string               `json:"roles"`
+	Attributes map[string]interface{} `json:"attributes"`
 	HTTP       struct {
 		PublishAddress string `json:"publish_address"`
-	}
+	} `json:"http"`
 }
 
 // DiscoverNodes reloads the client connections by fetching information from the cluster.

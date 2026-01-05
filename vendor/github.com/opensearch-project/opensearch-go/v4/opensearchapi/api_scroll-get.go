@@ -43,7 +43,7 @@ type ScrollGetResp struct {
 			Value    int    `json:"value"`
 			Relation string `json:"relation"`
 		} `json:"total"`
-		MaxScore float32     `json:"max_score"`
+		MaxScore *float32    `json:"max_score"`
 		Hits     []SearchHit `json:"hits"`
 	} `json:"hits"`
 	ScrollID        *string  `json:"_scroll_id,omitempty"`
@@ -52,7 +52,7 @@ type ScrollGetResp struct {
 	response        *opensearch.Response
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r ScrollGetResp) Inspect() Inspect {
 	return Inspect{Response: r.response}
 }

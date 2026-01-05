@@ -39,7 +39,7 @@ type ClusterGetSettingsResp struct {
 	response   *opensearch.Response
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r ClusterGetSettingsResp) Inspect() Inspect {
 	return Inspect{Response: r.response}
 }
@@ -70,7 +70,7 @@ type ClusterPutSettingsResp struct {
 	response     *opensearch.Response
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r ClusterPutSettingsResp) Inspect() Inspect {
 	return Inspect{Response: r.response}
 }

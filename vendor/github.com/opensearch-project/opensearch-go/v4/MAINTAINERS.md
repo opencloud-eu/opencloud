@@ -6,7 +6,6 @@ This document contains a list of maintainers in this repo. See [opensearch-proje
 
 | Maintainer              | GitHub ID                                 | Affiliation         |
 | ----------------------- | ----------------------------------------- | ------------------- |
-| Daniel Doubrovkine      | [dblock](https://github.com/dblock)       | Independent         |
 | Jakob Hahn              | [Jakob3xD](https://github.com/Jakob3xD)   | Hetzner Online GmbH |
 | Vacha Shah              | [VachaShah](https://github.com/VachaShah) | Amazon              |
 | Vijayan Balasubramanian | [VijayanB](https://github.com/VijayanB)   | Amazon              |
@@ -15,6 +14,7 @@ This document contains a list of maintainers in this repo. See [opensearch-proje
 
 | Maintainer             | GitHub ID                                   | Affiliation |
 | ---------------------- | ------------------------------------------- | ----------- |
+| Daniel Doubrovkine     | [dblock](https://github.com/dblock)         | Independent |
 | Jack Mazanec           | [jmazanec15](https://github.com/jmazanec15) | Amazon      |
 | Rob Cowart             | [robcowart](https://github.com/robcowart)   | ElastiFlow  |
 | Sven Cowart            | [svencowart](https://github.com/svencowart) |             |
