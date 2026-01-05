@@ -52,7 +52,7 @@ type CatCountResp struct {
 	Count     int    `json:"count,string"`
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r CatCountsResp) Inspect() Inspect {
 	return Inspect{
 		Response: r.response,

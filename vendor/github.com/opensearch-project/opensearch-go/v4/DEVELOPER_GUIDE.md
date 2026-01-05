@@ -2,7 +2,7 @@
   - [Getting Started](#getting-started)
     - [Git Clone OpenSearch Go Client Repository](#git-clone-opensearch-go-client-repository)
     - [Install Prerequisites](#install-prerequisites)
-      - [Go 1.21](#go-121)
+      - [Go 1.24](#go-124)
       - [Docker](#docker)
       - [Windows](#windows)
     - [Unit Testing](#unit-testing)
@@ -29,9 +29,9 @@ Fork [opensearch-project/opensearch-go](https://github.com/opensearch-project/op
 
 ### Install Prerequisites
 
-#### Go 1.21
+#### Go 1.24
 
-OpenSearch Go Client builds using [Go](https://go.dev/doc/install) 1.21 at a minimum.
+OpenSearch Go Client builds using [Go](https://go.dev/doc/install) 1.24 at a minimum.
 
 #### Docker
 

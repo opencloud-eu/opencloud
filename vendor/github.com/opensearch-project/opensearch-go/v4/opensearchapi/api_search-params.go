@@ -79,6 +79,7 @@ type SearchParams struct {
 	TrackTotalHits             interface{}
 	TypedKeys                  *bool
 	Version                    *bool
+	PhaseTook                  bool
 
 	Pretty     bool
 	Human      bool
@@ -288,6 +289,10 @@ func (r SearchParams) get() map[string]string {
 
 	if len(r.FilterPath) > 0 {
 		params["filter_path"] = strings.Join(r.FilterPath, ",")
+	}
+
+	if r.PhaseTook {
+		params["phase_took"] = "true"
 	}
 
 	return params

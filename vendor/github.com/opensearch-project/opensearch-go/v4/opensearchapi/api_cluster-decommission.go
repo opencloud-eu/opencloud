@@ -46,7 +46,7 @@ type ClusterPutDecommissionResp struct {
 	response     *opensearch.Response
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r ClusterPutDecommissionResp) Inspect() Inspect {
 	return Inspect{Response: r.response}
 }
@@ -74,7 +74,7 @@ type ClusterDeleteDecommissionResp struct {
 	response     *opensearch.Response
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r ClusterDeleteDecommissionResp) Inspect() Inspect {
 	return Inspect{Response: r.response}
 }
@@ -110,7 +110,7 @@ type ClusterGetDecommissionResp struct {
 	response *opensearch.Response
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r ClusterGetDecommissionResp) Inspect() Inspect {
 	return Inspect{Response: r.response}
 }

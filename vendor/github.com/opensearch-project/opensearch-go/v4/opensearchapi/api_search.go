@@ -64,6 +64,7 @@ func (r SearchReq) GetRequest() (*http.Request, error) {
 // SearchResp represents the returned struct of the /_search response
 type SearchResp struct {
 	Took         int                  `json:"took"`
+	PhaseTook    *PhaseTook           `json:"phase_took,omitempty"`
 	Timeout      bool                 `json:"timed_out"`
 	Shards       ResponseShards       `json:"_shards"`
 	Hits         SearchHits           `json:"hits"`
@@ -85,7 +86,7 @@ type SearchHits struct {
 		Value    int    `json:"value"`
 		Relation string `json:"relation"`
 	} `json:"total"`
-	MaxScore float32     `json:"max_score"`
+	MaxScore *float32    `json:"max_score"`
 	Hits     []SearchHit `json:"hits"`
 }
 
@@ -111,14 +112,33 @@ type SearchHit struct {
 
 // Suggest is a sub type of SearchResp containing information of the suggest field
 type Suggest struct {
-	Text    string `json:"text"`
-	Offset  int    `json:"offset"`
-	Length  int    `json:"length"`
-	Options []struct {
-		Text         string  `json:"text"`
-		Score        float32 `json:"score"`
-		Freq         int     `json:"freq"`
-		Highlighted  string  `json:"highlighted"`
-		CollateMatch bool    `json:"collate_match"`
-	} `json:"options"`
+	Text    string           `json:"text"`
+	Offset  int              `json:"offset"`
+	Length  int              `json:"length"`
+	Options []SuggestOptions `json:"options"`
+}
+
+// SuggestOptions is a sub type of Suggest field containing information about suggest options
+type SuggestOptions struct {
+	Text            string              `json:"text"`
+	Index           string              `json:"_index"`
+	Type            string              `json:"_type"`
+	ID              string              `json:"_id"`
+	Score           float64             `json:"score"`  // term suggesters uses "score"
+	ScoreUnderscore float64             `json:"_score"` // completion and context suggesters uses "_score"
+	Freq            int                 `json:"freq"`
+	Highlighted     string              `json:"highlighted"`
+	CollateMatch    bool                `json:"collate_match"`
+	Source          json.RawMessage     `json:"_source"`
+	Contexts        map[string][]string `json:"contexts,omitempty"`
+}
+
+// PhaseTook is the phase-level took time values in milliseconds
+type PhaseTook struct {
+	DFSPreQuery int `json:"dfs_pre_query"`
+	Query       int `json:"query"`
+	Fetch       int `json:"fetch"`
+	DFSQuery    int `json:"dfs_query"`
+	Expand      int `json:"expand"`
+	CanMatch    int `json:"can_match"`
 }

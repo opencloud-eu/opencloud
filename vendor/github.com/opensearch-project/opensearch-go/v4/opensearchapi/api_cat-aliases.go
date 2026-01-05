@@ -55,7 +55,7 @@ type CatAliasResp struct {
 	IsWriteIndex  string `json:"is_write_index"`
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r CatAliasesResp) Inspect() Inspect {
 	return Inspect{
 		Response: r.response,

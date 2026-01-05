@@ -98,7 +98,7 @@ type AliasDeleteResp struct {
 	response     *opensearch.Response
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r AliasDeleteResp) Inspect() Inspect {
 	return Inspect{Response: r.response}
 }
@@ -140,7 +140,7 @@ type AliasGetResp struct {
 	response *opensearch.Response
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r AliasGetResp) Inspect() Inspect {
 	return Inspect{Response: r.response}
 }
@@ -179,7 +179,7 @@ type AliasPutResp struct {
 	response     *opensearch.Response
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r AliasPutResp) Inspect() Inspect {
 	return Inspect{Response: r.response}
 }

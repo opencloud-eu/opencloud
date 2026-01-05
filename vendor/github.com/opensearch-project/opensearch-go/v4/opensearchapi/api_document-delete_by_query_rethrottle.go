@@ -91,7 +91,7 @@ type DocumentDeleteByQueryRethrottleResourceInfo struct {
 	MemoryInBytes  int `json:"memory_in_bytes"`
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r DocumentDeleteByQueryRethrottleResp) Inspect() Inspect {
 	return Inspect{Response: r.response}
 }
