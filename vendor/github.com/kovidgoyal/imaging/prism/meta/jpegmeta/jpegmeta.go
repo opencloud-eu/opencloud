@@ -59,7 +59,7 @@ func ExtractMetadata(r io.Reader) (md *meta.Data, err error) {
 
 	soiSegment, err := segReader.ReadSegment()
 	if err != nil {
-		if strings.Contains(err.Error(), "invalid marker identifier") {
+		if q := err.Error(); strings.Contains(q, "invalid marker identifier") || strings.Contains(q, "unrecognised marker type") {
 			err = nil
 		}
 		return nil, err
