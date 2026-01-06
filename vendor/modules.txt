@@ -893,7 +893,7 @@ github.com/kovidgoyal/go-parallel
 # github.com/kovidgoyal/go-shm v1.0.0
 ## explicit; go 1.24.0
 github.com/kovidgoyal/go-shm
-# github.com/kovidgoyal/imaging v1.8.17
+# github.com/kovidgoyal/imaging v1.8.18
 ## explicit; go 1.24.0
 github.com/kovidgoyal/imaging
 github.com/kovidgoyal/imaging/apng
@@ -2455,7 +2455,7 @@ golang.org/x/exp/slices
 golang.org/x/exp/slog
 golang.org/x/exp/slog/internal
 golang.org/x/exp/slog/internal/buffer
-# golang.org/x/image v0.33.0
+# golang.org/x/image v0.34.0
 ## explicit; go 1.24.0
 golang.org/x/image/bmp
 golang.org/x/image/ccitt
