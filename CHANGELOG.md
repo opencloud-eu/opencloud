@@ -29,6 +29,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump google.golang.org/grpc from 1.77.0 to 1.78.0 [[#2106](https://github.com/opencloud-eu/opencloud/pull/2106)]
 - build(deps): bump go.opentelemetry.io/otel/sdk from 1.38.0 to 1.39.0 [[#2069](https://github.com/opencloud-eu/opencloud/pull/2069)]
 - build(deps): bump github.com/opensearch-project/opensearch-go/v4 from 4.5.0 to 4.6.0 [[#2068](https://github.com/opencloud-eu/opencloud/pull/2068)]
 - build(deps): bump github.com/testcontainers/testcontainers-go/modules/opensearch from 0.39.0 to 0.40.0 [[#1967](https://github.com/opencloud-eu/opencloud/pull/1967)]
