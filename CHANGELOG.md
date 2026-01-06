@@ -6,6 +6,12 @@
 
 @ScharfViktor, @butonic, @dragonchaser, @fschade, @micbar, @rhafer, @saw-jan
 
+### 📈 Enhancement
+
+- benchmark client enhancements [[#1856](https://github.com/opencloud-eu/opencloud/pull/1856)]
+- allow http2 connections to proxy [[#2040](https://github.com/opencloud-eu/opencloud/pull/2040)]
+- migrate from urfave/cli to spf13/cobra [[#1954](https://github.com/opencloud-eu/opencloud/pull/1954)]
+
 ### 🐛 Bug Fixes
 
 - fix(thumbnailer): missing font panic [[#2097](https://github.com/opencloud-eu/opencloud/pull/2097)]
@@ -22,13 +28,9 @@
 - [full-ci][tests-only] test: check last email content with retries as emails can be delayed [[#2038](https://github.com/opencloud-eu/opencloud/pull/2038)]
 - skip collaborativePosix tests in CI [[#2039](https://github.com/opencloud-eu/opencloud/pull/2039)]
 
-### 📈 Enhancement
-
-- allow http2 connections to proxy [[#2040](https://github.com/opencloud-eu/opencloud/pull/2040)]
-- migrate from urfave/cli to spf13/cobra [[#1954](https://github.com/opencloud-eu/opencloud/pull/1954)]
-
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/kovidgoyal/imaging from 1.8.17 to 1.8.18 [[#2107](https://github.com/opencloud-eu/opencloud/pull/2107)]
 - build(deps): bump google.golang.org/grpc from 1.77.0 to 1.78.0 [[#2106](https://github.com/opencloud-eu/opencloud/pull/2106)]
 - build(deps): bump go.opentelemetry.io/otel/sdk from 1.38.0 to 1.39.0 [[#2069](https://github.com/opencloud-eu/opencloud/pull/2069)]
 - build(deps): bump github.com/opensearch-project/opensearch-go/v4 from 4.5.0 to 4.6.0 [[#2068](https://github.com/opencloud-eu/opencloud/pull/2068)]
