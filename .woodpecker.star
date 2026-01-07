@@ -570,6 +570,13 @@ def main(ctx):
         ),
     )
 
+    test_pipelines.append(
+        pipelineDependsOn(
+            purgePipelineInfoCache(),
+            testPipelines(ctx),
+        ),
+    )
+
     pipelines = test_pipelines + build_release_pipelines + notifyMatrix(ctx)
 
     pipelineSanityChecks(pipelines)
@@ -2680,6 +2687,9 @@ def purgeOpencloudWebBuildCache(ctx):
 
 def purgeGoBinCache(ctx):
     return purgeCache("purge_go_bin_cache", "dev/opencloud/go-bin", 14)
+
+def purgePipelineInfoCache():
+    return purgeCache("purge_pipeline_info_cache", "public/opencloud/pipelines", 14)
 
 def pipelineSanityChecks(pipelines):
     """pipelineSanityChecks helps the CI developers to find errors before running it
