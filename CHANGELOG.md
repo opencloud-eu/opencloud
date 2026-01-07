@@ -1,10 +1,14 @@
 # Changelog
 
-## [4.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v4.2.0) - 2026-01-07
+## [5.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.0.0) - 2026-01-07
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @ScharfViktor, @butonic, @dragonchaser, @fschade, @micbar, @rhafer, @saw-jan
+
+### 💥 Breaking changes
+
+- merge ocdav into frontend [[#1958](https://github.com/opencloud-eu/opencloud/pull/1958)]
 
 ### 🐛 Bug Fixes
 
