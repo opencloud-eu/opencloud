@@ -5,7 +5,6 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
-	"github.com/opencloud-eu/opencloud/pkg/version"
 	"github.com/opencloud-eu/opencloud/services/frontend/pkg/config"
 )
 
@@ -88,7 +87,6 @@ func DefaultConfig() *config.Config {
 		DefaultUploadProtocol:    "tus",
 		DefaultLinkPermissions:   1,
 		SearchMinLength:          3,
-		Edition:                  version.Edition,
 		CheckForUpdates:          true,
 		Checksums: config.Checksums{
 			SupportedTypes:      []string{"sha1", "md5", "adler32"},
@@ -119,6 +117,24 @@ func DefaultConfig() *config.Config {
 			ListOCMShares:               true,
 			PublicShareMustHavePassword: true,
 			IncludeOCMSharees:           false,
+		},
+		OCDav: config.OCDav{
+			Prefix:                "",
+			SkipUserGroupsInToken: false,
+
+			WebdavNamespace:            "/users/{{.Id.OpaqueId}}",
+			FilesNamespace:             "/users/{{.Id.OpaqueId}}",
+			SharesNamespace:            "/Shares",
+			OCMNamespace:               "/public",
+			PublicURL:                  "https://localhost:9200",
+			Insecure:                   false,
+			EnableHTTPTPC:              false,
+			Timeout:                    84300,
+			AllowPropfindDepthInfinity: false,
+			NameValidation: config.NameValidation{
+				InvalidChars: []string{"\f", "\r", "\n", "\\"},
+				MaxLength:    255,
+			},
 		},
 		Middleware: config.Middleware{
 			Auth: config.Auth{

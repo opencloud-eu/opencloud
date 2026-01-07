@@ -36,7 +36,7 @@
         // demo users
         "IDM_CREATE_DEMO_USERS": "true",
         // OC_RUN_SERVICES allows to start a subset of services even in the supervised mode
-        //"OC_RUN_SERVICES": "settings,storage-system,graph,idp,idm,ocs,store,thumbnails,web,webdav,frontend,gateway,users,groups,auth-basic,storage-authmachine,storage-users,storage-shares,storage-publiclink,storage-system,app-provider,sharing,proxy,ocdav",
+        //"OC_RUN_SERVICES": "settings,storage-system,graph,idp,idm,ocs,store,thumbnails,web,webdav,frontend,gateway,users,groups,auth-basic,storage-authmachine,storage-users,storage-shares,storage-publiclink,storage-system,app-provider,sharing,proxy",
 
         /*
          * Keep secrets and passwords in one block to allow easy uncommenting
@@ -129,8 +129,6 @@
         "IDP_HTTP_ADDR": "127.0.0.1:10130",
         "NATS_DEBUG_ADDR": "127.0.0.1:10234",
         "NATS_NATS_PORT": "10233",
-        "OCDAV_HTTP_ADDR": "127.0.0.1:10350",
-        "OCDAV_DEBUG_ADDR": "127.0.0.1:10163",
         "OCM_DEBUG_ADDR": "127.0.0.1:10281",
         "OCM_HTTP_ADDR": "127.0.0.1:10280",
         "OCM_GRPC_ADDR": "127.0.0.1:10282",

@@ -29,7 +29,6 @@ import (
 	invitations "github.com/opencloud-eu/opencloud/services/invitations/pkg/command"
 	nats "github.com/opencloud-eu/opencloud/services/nats/pkg/command"
 	notifications "github.com/opencloud-eu/opencloud/services/notifications/pkg/command"
-	ocdav "github.com/opencloud-eu/opencloud/services/ocdav/pkg/command"
 	ocm "github.com/opencloud-eu/opencloud/services/ocm/pkg/command"
 	ocs "github.com/opencloud-eu/opencloud/services/ocs/pkg/command"
 	policies "github.com/opencloud-eu/opencloud/services/policies/pkg/command"
@@ -162,11 +161,6 @@ var serviceCommands = []register.Command{
 	func(cfg *config.Config) *cobra.Command {
 		return ServiceCommand(cfg, cfg.Notifications.Service.Name, notifications.GetCommands(cfg.Notifications), func(c *config.Config) {
 			cfg.Notifications.Commons = cfg.Commons
-		})
-	},
-	func(cfg *config.Config) *cobra.Command {
-		return ServiceCommand(cfg, cfg.OCDav.Service.Name, ocdav.GetCommands(cfg.OCDav), func(c *config.Config) {
-			cfg.OCDav.Commons = cfg.Commons
 		})
 	},
 	func(cfg *config.Config) *cobra.Command {

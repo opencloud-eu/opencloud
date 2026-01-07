@@ -32,7 +32,6 @@ type OpenCloudConfig struct {
 	AuthBearer        AuthbearerService     `yaml:"auth_bearer"`
 	Users             UsersAndGroupsService `yaml:"users"`
 	Groups            UsersAndGroupsService `yaml:"groups"`
-	Ocdav             InsecureService       `yaml:"ocdav"`
 	Ocm               OcmService            `yaml:"ocm"`
 	Thumbnails        ThumbnailService      `yaml:"thumbnails"`
 	Search            Search                `yaml:"search"`
@@ -105,6 +104,7 @@ type FrontendService struct {
 	AppHandler     InsecureService `yaml:"app_handler"`
 	Archiver       InsecureService
 	ServiceAccount ServiceAccount `yaml:"service_account"`
+	OCDav          InsecureService
 }
 
 // Gateway is the configuration for the gateway

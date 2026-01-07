@@ -44,7 +44,6 @@ OC_MODULES = \
 	services/invitations \
 	services/nats \
 	services/notifications \
-	services/ocdav \
 	services/ocm \
 	services/ocs \
 	services/policies \

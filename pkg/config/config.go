@@ -24,7 +24,6 @@ import (
 	invitations "github.com/opencloud-eu/opencloud/services/invitations/pkg/config"
 	nats "github.com/opencloud-eu/opencloud/services/nats/pkg/config"
 	notifications "github.com/opencloud-eu/opencloud/services/notifications/pkg/config"
-	ocdav "github.com/opencloud-eu/opencloud/services/ocdav/pkg/config"
 	ocm "github.com/opencloud-eu/opencloud/services/ocm/pkg/config"
 	ocs "github.com/opencloud-eu/opencloud/services/ocs/pkg/config"
 	policies "github.com/opencloud-eu/opencloud/services/policies/pkg/config"
@@ -105,7 +104,6 @@ type Config struct {
 	Invitations       *invitations.Config    `yaml:"invitations"`
 	Nats              *nats.Config           `yaml:"nats"`
 	Notifications     *notifications.Config  `yaml:"notifications"`
-	OCDav             *ocdav.Config          `yaml:"ocdav"`
 	OCM               *ocm.Config            `yaml:"ocm"`
 	OCS               *ocs.Config            `yaml:"ocs"`
 	Postprocessing    *postprocessing.Config `yaml:"postprocessing"`

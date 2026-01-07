@@ -281,6 +281,7 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 		cfg.Collaboration.App.Insecure = true
 		cfg.Frontend.AppHandler = _insecureService
 		cfg.Frontend.Archiver = _insecureService
+		cfg.Frontend.OCDav = _insecureService
 		cfg.Graph.Spaces = _insecureService
 		cfg.Graph.Events = _insecureEvents
 		cfg.Notifications.Notifications.Events = _insecureEvents
@@ -289,7 +290,6 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 		cfg.Sharing.Events = _insecureEvents
 		cfg.StorageUsers.Events = _insecureEvents
 		cfg.Nats.Nats.TLSSkipVerifyClientCert = true
-		cfg.Ocdav = _insecureService
 		cfg.Proxy = ProxyService{
 			InsecureBackends: true,
 			OIDC: InsecureProxyOIDC{

@@ -24,7 +24,6 @@ import (
 	invitations "github.com/opencloud-eu/opencloud/services/invitations/pkg/config/defaults"
 	nats "github.com/opencloud-eu/opencloud/services/nats/pkg/config/defaults"
 	notifications "github.com/opencloud-eu/opencloud/services/notifications/pkg/config/defaults"
-	ocdav "github.com/opencloud-eu/opencloud/services/ocdav/pkg/config/defaults"
 	ocm "github.com/opencloud-eu/opencloud/services/ocm/pkg/config/defaults"
 	ocs "github.com/opencloud-eu/opencloud/services/ocs/pkg/config/defaults"
 	policies "github.com/opencloud-eu/opencloud/services/policies/pkg/config/defaults"
@@ -80,7 +79,6 @@ func DefaultConfig() *Config {
 		Invitations:       invitations.DefaultConfig(),
 		Nats:              nats.DefaultConfig(),
 		Notifications:     notifications.DefaultConfig(),
-		OCDav:             ocdav.DefaultConfig(),
 		OCM:               ocm.DefaultConfig(),
 		OCS:               ocs.DefaultConfig(),
 		Postprocessing:    postprocessing.DefaultConfig(),

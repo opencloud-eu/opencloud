@@ -2302,7 +2302,6 @@ def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, depend
         "IDP_DEBUG_ADDR": "0.0.0.0:9134",
         "INVITATIONS_DEBUG_ADDR": "0.0.0.0:9269",
         "NATS_DEBUG_ADDR": "0.0.0.0:9234",
-        "OCDAV_DEBUG_ADDR": "0.0.0.0:9163",
         "OCM_DEBUG_ADDR": "0.0.0.0:9281",
         "OCS_DEBUG_ADDR": "0.0.0.0:9114",
         "POSTPROCESSING_DEBUG_ADDR": "0.0.0.0:9255",

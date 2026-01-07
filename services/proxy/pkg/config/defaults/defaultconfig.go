@@ -223,33 +223,33 @@ func DefaultPolicies() []config.Policy {
 				},
 				{
 					Endpoint: "/remote.php/",
-					Service:  "eu.opencloud.web.ocdav",
+					Service:  "eu.opencloud.web.frontend",
 				},
 				{
 					Endpoint: "/dav/",
-					Service:  "eu.opencloud.web.ocdav",
+					Service:  "eu.opencloud.web.frontend",
 				},
 				{
 					Endpoint: "/webdav/",
-					Service:  "eu.opencloud.web.ocdav",
+					Service:  "eu.opencloud.web.frontend",
 				},
 				{
 					Endpoint:    "/status",
-					Service:     "eu.opencloud.web.ocdav",
+					Service:     "eu.opencloud.web.frontend",
 					Unprotected: true,
 				},
 				{
 					Endpoint:    "/status.php",
-					Service:     "eu.opencloud.web.ocdav",
+					Service:     "eu.opencloud.web.frontend",
 					Unprotected: true,
 				},
 				{
 					Endpoint: "/index.php/",
-					Service:  "eu.opencloud.web.ocdav",
+					Service:  "eu.opencloud.web.frontend",
 				},
 				{
 					Endpoint: "/apps/",
-					Service:  "eu.opencloud.web.ocdav",
+					Service:  "eu.opencloud.web.frontend",
 				},
 				{
 					Endpoint:    "/data",
@@ -262,7 +262,7 @@ func DefaultPolicies() []config.Policy {
 					Unprotected: true,
 				},
 				{
-					Endpoint: "/app/", // /app or /apps? ocdav only handles /apps
+					Endpoint: "/app/", // /app or /apps? frontend only handles /apps
 					Service:  "eu.opencloud.web.frontend",
 				},
 				{

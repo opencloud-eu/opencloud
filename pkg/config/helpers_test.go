@@ -1,9 +1,10 @@
 package config
 
 import (
-	"gotest.tools/v3/assert"
 	"testing"
 	"testing/fstest"
+
+	"gotest.tools/v3/assert"
 )
 
 type TestConfig struct {
@@ -98,6 +99,8 @@ frontend:
   service_account:
     service_account_id: c05389b2-d94c-4d01-a9b5-a2f97952cc14
     service_account_secret: GW5.x1vDM&+NPRi++eV@.P7Tms4vj!=s
+  ocdav:
+    insecure: true
 auth_basic:
   auth_providers:
     ldap:
@@ -114,8 +117,6 @@ groups:
   drivers:
     ldap:
       bind_password: c68JL=V$c@0GHs!%eSb8r&Ps3rgzKnXJ
-ocdav:
-  insecure: true
 ocm:
   service_account:
     service_account_id: c05389b2-d94c-4d01-a9b5-a2f97952cc14
