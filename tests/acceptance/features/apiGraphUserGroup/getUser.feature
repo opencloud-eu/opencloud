@@ -1351,6 +1351,7 @@ Feature: get users
               "required": [
                 "displayName",
                 "id",
+                "onPremisesSamAccountName",
                 "userType"
               ],
               "properties": {
@@ -1361,6 +1362,10 @@ Feature: get users
                 "id": {
                   "type": "string",
                   "pattern": "^%user_id_pattern%$"
+                },
+                "onPremisesSamAccountName": {
+                  "type": "string",
+                  "const": "Alice"
                 },
                 "userType": {
                   "type": "string",
@@ -1456,6 +1461,7 @@ Feature: get users
               "required": [
                 "displayName",
                 "id",
+                "onPremisesSamAccountName",
                 "userType"
               ],
               "properties": {
@@ -1466,6 +1472,10 @@ Feature: get users
                 "id": {
                   "type": "string",
                   "pattern": "^%user_id_pattern%$"
+                },
+                "onPremisesSamAccountName": {
+                  "type": "string",
+                  "const": "Alice"
                 },
                 "userType": {
                   "type": "string",
@@ -1501,6 +1511,7 @@ Feature: get users
               "required": [
                 "displayName",
                 "id",
+                "onPremisesSamAccountName",
                 "userType"
               ],
               "properties": {
@@ -1511,6 +1522,10 @@ Feature: get users
                 "id": {
                   "type": "string",
                   "pattern": "^%user_id_pattern%$"
+                },
+                "onPremisesSamAccountName": {
+                  "type": "string",
+                  "const": "Alice"
                 },
                 "userType": {
                   "type": "string",
@@ -1530,7 +1545,6 @@ Feature: get users
       | displayName | Alice Hansen                 |
       | email       | another-alice@example.org    |
       | password    | containsCharacters(*:!;_+-&) |
-    And the administrator has assigned the role "Admin" to user "Alice" using the Graph API
     When user "Brian" searches for user "alice" using Graph API
     Then the HTTP status code should be "200"
     And the JSON data of the search response should not contain users email
@@ -1554,6 +1568,7 @@ Feature: get users
                   "required": [
                     "displayName",
                     "id",
+                    "onPremisesSamAccountName",
                     "userType"
                   ],
                   "properties": {
@@ -1564,6 +1579,10 @@ Feature: get users
                     "id": {
                       "type": "string",
                       "pattern": "^%user_id_pattern%$"
+                    },
+                    "onPremisesSamAccountName": {
+                      "type": "string",
+                      "const": "Alice"
                     },
                     "userType": {
                       "type": "string",
@@ -1576,6 +1595,7 @@ Feature: get users
                   "required": [
                     "displayName",
                     "id",
+                    "onPremisesSamAccountName",
                     "userType"
                   ],
                   "properties": {
@@ -1587,11 +1607,13 @@ Feature: get users
                       "type": "string",
                       "pattern": "^%user_id_pattern%$"
                     },
+                    "onPremisesSamAccountName": {
+                      "type": "string",
+                      "const": "another-alice"
+                    },
                     "userType": {
                       "type": "string",
-                      "const": [
-                        "Admin"
-                      ]
+                      "const": "Member"
                     }
                   }
                 }
