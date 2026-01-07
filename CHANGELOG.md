@@ -6,6 +6,15 @@
 
 @ScharfViktor, @butonic, @dragonchaser, @fschade, @micbar, @rhafer, @saw-jan
 
+### 🐛 Bug Fixes
+
+- fix: Show username in unprivileged search results [[#2104](https://github.com/opencloud-eu/opencloud/pull/2104)]
+- fix(thumbnailer): missing font panic [[#2097](https://github.com/opencloud-eu/opencloud/pull/2097)]
+- Remove sub-service binary entrypoints and fix antivirus only server cmd [[#2043](https://github.com/opencloud-eu/opencloud/pull/2043)]
+- fix(thumbnailer): respect image boundaries and text wrappings [[#2062](https://github.com/opencloud-eu/opencloud/pull/2062)]
+- fix: cobra viper flags and env [[#2047](https://github.com/opencloud-eu/opencloud/pull/2047)]
+- fix service name in suture logs [[#2052](https://github.com/opencloud-eu/opencloud/pull/2052)]
+
 ### ✅ Tests
 
 - [POC] ci: skip previously passed workflows on pipeline restart [[#2099](https://github.com/opencloud-eu/opencloud/pull/2099)]
@@ -20,14 +29,6 @@
 - benchmark client enhancements [[#1856](https://github.com/opencloud-eu/opencloud/pull/1856)]
 - allow http2 connections to proxy [[#2040](https://github.com/opencloud-eu/opencloud/pull/2040)]
 - migrate from urfave/cli to spf13/cobra [[#1954](https://github.com/opencloud-eu/opencloud/pull/1954)]
-
-### 🐛 Bug Fixes
-
-- fix(thumbnailer): missing font panic [[#2097](https://github.com/opencloud-eu/opencloud/pull/2097)]
-- Remove sub-service binary entrypoints and fix antivirus only server cmd [[#2043](https://github.com/opencloud-eu/opencloud/pull/2043)]
-- fix(thumbnailer): respect image boundaries and text wrappings [[#2062](https://github.com/opencloud-eu/opencloud/pull/2062)]
-- fix: cobra viper flags and env [[#2047](https://github.com/opencloud-eu/opencloud/pull/2047)]
-- fix service name in suture logs [[#2052](https://github.com/opencloud-eu/opencloud/pull/2052)]
 
 ### 📦️ Dependencies
 
