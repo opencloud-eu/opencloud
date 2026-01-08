@@ -859,6 +859,7 @@ def testOpencloud(ctx):
 
     prefixStepCommands(pipeline, [
         ". ./.woodpecker.env",
+        "mkdir -p cache",
         '[ "$SKIP_WORKFLOW" = "true" ] && exit 0',
     ])
     return [pipeline]
