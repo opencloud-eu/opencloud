@@ -3,11 +3,20 @@ const fs = require("fs");
 const CI_REPO_NAME = process.env.CI_REPO_NAME;
 const CI_COMMIT_SHA = process.env.CI_COMMIT_SHA;
 const CI_WORKFLOW_NAME = process.env.CI_WORKFLOW_NAME;
+const CI_PIPELINE_EVENT = process.env.CI_PIPELINE_EVENT;
 
 const opencloudBuildWorkflow = "build-opencloud-for-testing";
 const webCacheWorkflows = ["cache-web", "cache-web-pnpm", "cache-browsers"];
 
-const INFO_URL = `https://s3.ci.opencloud.eu/public/${CI_REPO_NAME}/pipelines/${CI_COMMIT_SHA}/pipeline_info.json`;
+const INFO_URL = `https://s3.ci.opencloud.eu/public/${CI_REPO_NAME}/pipelines/${CI_COMMIT_SHA}-${CI_PIPELINE_EVENT}/pipeline_info.json`;
+
+function getWorkflowNames(workflows) {
+  const allWorkflows = [];
+  for (const workflow of workflows) {
+    allWorkflows.push(workflow.name);
+  }
+  return allWorkflows;
+}
 
 function getFailedWorkflows(workflows) {
   const failedWorkflows = [];
@@ -59,6 +68,7 @@ async function main() {
     process.exit(0);
   }
 
+  const allWorkflows = getWorkflowNames(info.workflows);
   const failedWorkflows = getFailedWorkflows(info.workflows);
 
   // NOTE: implement for test pipelines only for now
@@ -78,6 +88,9 @@ async function main() {
   //   process.exit(0);
   // }
 
+  if (!allWorkflows.includes(CI_WORKFLOW_NAME)) {
+    process.exit(0);
+  }
   if (!failedWorkflows.includes(CI_WORKFLOW_NAME)) {
     console.log("[INFO] Workflow passed in previous pipeline. Skip...");
     fs.appendFileSync(".woodpecker.env", "SKIP_WORKFLOW=true\n");
