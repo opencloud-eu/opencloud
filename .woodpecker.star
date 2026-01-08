@@ -1744,7 +1744,7 @@ def multiServiceE2ePipeline(ctx):
                     uploadTracingResult(ctx)
 
                 pipeline = {
-                    "name": "e2e-tests-multi-service%s" % ("-watchfs" if watch_fs_enabled else ""),
+                    "name": "test-e2e-multi-service%s" % ("-watchfs" if watch_fs_enabled else ""),
                     "steps": steps,
                     "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
                     "when": e2e_trigger,
