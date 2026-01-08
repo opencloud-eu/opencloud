@@ -3,11 +3,12 @@ const fs = require("fs");
 const CI_REPO_NAME = process.env.CI_REPO_NAME;
 const CI_COMMIT_SHA = process.env.CI_COMMIT_SHA;
 const CI_WORKFLOW_NAME = process.env.CI_WORKFLOW_NAME;
+const CI_PIPELINE_EVENT = process.env.CI_PIPELINE_EVENT;
 
 const opencloudBuildWorkflow = "build-opencloud-for-testing";
 const webCacheWorkflows = ["cache-web", "cache-web-pnpm", "cache-browsers"];
 
-const INFO_URL = `https://s3.ci.opencloud.eu/public/${CI_REPO_NAME}/pipelines/${CI_COMMIT_SHA}/pipeline_info.json`;
+const INFO_URL = `https://s3.ci.opencloud.eu/public/${CI_REPO_NAME}/pipelines/${CI_COMMIT_SHA}-${CI_PIPELINE_EVENT}/pipeline_info.json`;
 
 function getWorkflowNames(workflows) {
   const allWorkflows = [];
