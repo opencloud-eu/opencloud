@@ -59,7 +59,12 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
 
-var tracer trace.Tracer
+var (
+	tracer trace.Tracer
+
+	// ErrRootReached is returned when the root of the tree is reached
+	ErrRootReached = errors.New("root of the tree reached")
+)
 
 func init() {
 	tracer = otel.Tracer("github.com/cs3org/reva/pkg/storage/pkg/decomposedfs/tree")
@@ -244,7 +249,7 @@ func (t *Tree) Setup() error {
 }
 
 // GetMD returns the metadata of a node in the tree
-func (t *Tree) GetMD(ctx context.Context, n *node.Node) (os.FileInfo, error) {
+func (t *Tree) GetMD(_ context.Context, n *node.Node) (os.FileInfo, error) {
 	md, err := os.Stat(n.InternalPath())
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -295,6 +300,9 @@ func (t *Tree) TouchFile(ctx context.Context, n *node.Node, markprocessing bool,
 	if err != nil {
 		return errors.Wrap(err, "posixfs: error creating node")
 	}
+	defer func() {
+		_ = f.Close()
+	}()
 
 	attributes := n.NodeMetadata(ctx)
 	attributes[prefixes.IDAttr] = []byte(n.ID)
@@ -452,7 +460,9 @@ func (t *Tree) ListFolder(ctx context.Context, n *node.Node) ([]*node.Node, erro
 		}
 		return nil, errors.Wrap(err, "tree: error listing "+dir)
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 
 	_, subspan = tracer.Start(ctx, "f.Readdirnames")
 	names, err := f.Readdirnames(0)
@@ -685,7 +695,7 @@ func (t *Tree) InitNewNode(ctx context.Context, n *node.Node, fsize uint64) (met
 		}
 		return unlock, err
 	}
-	h.Close()
+	_ = h.Close()
 
 	if _, err := node.CheckQuota(ctx, n.SpaceRoot, false, 0, fsize); err != nil {
 		return unlock, err
@@ -727,9 +737,12 @@ func (t *Tree) createDirNode(ctx context.Context, n *node.Node) (err error) {
 	// Write mtime from filesystem to metadata to preven re-assimilation
 	d, err := os.Open(path)
 	if err != nil {
-
 		return err
 	}
+	defer func() {
+		_ = d.Close()
+	}()
+
 	fi, err := d.Stat()
 	if err != nil {
 		return err

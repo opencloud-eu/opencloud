@@ -861,17 +861,17 @@ func (ms *memStore) subjectsTotalsLocked(filterSubject string) map[string]uint64
 }
 
 // NumPending will return the number of pending messages matching the filter subject starting at sequence.
-func (ms *memStore) NumPending(sseq uint64, filter string, lastPerSubject bool) (total, validThrough uint64) {
+func (ms *memStore) NumPending(sseq uint64, filter string, lastPerSubject bool) (total, validThrough uint64, err error) {
 	// This needs to be a write lock, as filteredStateLocked can mutate the per-subject state.
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 
 	ss := ms.filteredStateLocked(sseq, filter, lastPerSubject)
-	return ss.Msgs, ms.state.LastSeq
+	return ss.Msgs, ms.state.LastSeq, nil
 }
 
 // NumPending will return the number of pending messages matching any subject in the sublist starting at sequence.
-func (ms *memStore) NumPendingMulti(sseq uint64, sl *gsl.SimpleSublist, lastPerSubject bool) (total, validThrough uint64) {
+func (ms *memStore) NumPendingMulti(sseq uint64, sl *gsl.SimpleSublist, lastPerSubject bool) (total, validThrough uint64, err error) {
 	if sl == nil {
 		return ms.NumPending(sseq, fwcs, lastPerSubject)
 	}
@@ -886,7 +886,7 @@ func (ms *memStore) NumPendingMulti(sseq uint64, sl *gsl.SimpleSublist, lastPerS
 	}
 	// If past the end no results.
 	if sseq > ms.state.LastSeq {
-		return 0, ms.state.LastSeq
+		return 0, ms.state.LastSeq, nil
 	}
 
 	update := func(fss *SimpleState) {
@@ -924,7 +924,7 @@ func (ms *memStore) NumPendingMulti(sseq uint64, sl *gsl.SimpleSublist, lastPerS
 
 	// If we did not encounter any partials we can return here.
 	if !havePartial {
-		return ss.Msgs, ms.state.LastSeq
+		return ss.Msgs, ms.state.LastSeq, nil
 	}
 
 	// If we are here we need to scan the msgs.
@@ -1015,7 +1015,7 @@ func (ms *memStore) NumPendingMulti(sseq uint64, sl *gsl.SimpleSublist, lastPerS
 		ss.Msgs -= adjust
 	}
 
-	return ss.Msgs, ms.state.LastSeq
+	return ss.Msgs, ms.state.LastSeq, nil
 }
 
 // Will check the msg limit for this tracked subject.
@@ -1828,6 +1828,40 @@ func (ms *memStore) LoadPrevMsg(start uint64, smp *StoreMsg) (sm *StoreMsg, err 
 	return nil, ErrStoreEOF
 }
 
+// LoadPrevMsgMulti will find the previous message matching any entry in the sublist.
+func (ms *memStore) LoadPrevMsgMulti(sl *gsl.SimpleSublist, start uint64, smp *StoreMsg) (sm *StoreMsg, skip uint64, err error) {
+	// TODO(dlc) - for now simple linear walk to get started.
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+
+	if start > ms.state.LastSeq {
+		start = ms.state.LastSeq
+	}
+
+	// If past the start no results.
+	if start < ms.state.FirstSeq || ms.state.Msgs == 0 {
+		return nil, ms.state.FirstSeq, ErrStoreEOF
+	}
+
+	// Initial setup.
+	fseq, lseq := start, ms.state.FirstSeq
+
+	for nseq := fseq; nseq >= lseq; nseq-- {
+		sm, ok := ms.msgs[nseq]
+		if !ok {
+			continue
+		}
+		if sl.HasInterest(sm.subj) {
+			if smp == nil {
+				smp = new(StoreMsg)
+			}
+			sm.copy(smp)
+			return smp, nseq, nil
+		}
+	}
+	return nil, ms.state.LastSeq, ErrStoreEOF
+}
+
 // RemoveMsg will remove the message from this store.
 // Will return the number of bytes removed.
 func (ms *memStore) RemoveMsg(seq uint64) (bool, error) {
@@ -2129,7 +2163,7 @@ type consumerMemStore struct {
 	closed bool
 }
 
-func (ms *memStore) ConsumerStore(name string, cfg *ConsumerConfig) (ConsumerStore, error) {
+func (ms *memStore) ConsumerStore(name string, _ time.Time, cfg *ConsumerConfig) (ConsumerStore, error) {
 	if ms == nil {
 		return nil, fmt.Errorf("memstore is nil")
 	}

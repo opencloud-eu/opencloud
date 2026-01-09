@@ -169,6 +169,9 @@ func NewDefault(m map[string]interface{}, bs node.Blobstore, es events.Stream, l
 		microstore.Table(o.IDCache.Table),
 		store.DisablePersistence(o.IDCache.DisablePersistence),
 		store.Authentication(o.IDCache.AuthUsername, o.IDCache.AuthPassword),
+		store.TLSEnabled(o.IDCache.TLSEnabled),
+		store.TLSInsecure(o.IDCache.TLSInsecure),
+		store.TLSRootCA(o.IDCache.TLSRootCACertificate),
 	), log)
 
 	aspects := aspects.Aspects{

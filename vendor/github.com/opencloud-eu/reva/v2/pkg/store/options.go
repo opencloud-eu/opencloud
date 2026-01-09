@@ -103,3 +103,42 @@ func Authentication(username, password string) store.Option {
 		o.Context = context.WithValue(o.Context, authenticationContextKey{}, []string{username, password})
 	}
 }
+
+type tlsEnabledContextKey struct{}
+
+// TLSEnabled configures whether to use TLS or not. Only supported by the `natsjs` and `natsjskv` implementations.
+func TLSEnabled(enabled bool) store.Option {
+	return func(o *store.Options) {
+		if o.Context == nil {
+			o.Context = context.Background()
+		}
+
+		o.Context = context.WithValue(o.Context, tlsEnabledContextKey{}, enabled)
+	}
+}
+
+type tlsInsecureContextKey struct{}
+
+// TLSInsecure configures whether to skip TLS certificate verification. Only supported by the `natsjs` and `natsjskv` implementations.
+func TLSInsecure(insecure bool) store.Option {
+	return func(o *store.Options) {
+		if o.Context == nil {
+			o.Context = context.Background()
+		}
+
+		o.Context = context.WithValue(o.Context, tlsInsecureContextKey{}, insecure)
+	}
+}
+
+type tlsRootCAContextKey struct{}
+
+// TLSRootCA configures the root CA certificate to use for TLS verification. Only supported by the `natsjs` and `natsjskv` implementations.
+func TLSRootCA(rootCA string) store.Option {
+	return func(o *store.Options) {
+		if o.Context == nil {
+			o.Context = context.Background()
+		}
+
+		o.Context = context.WithValue(o.Context, tlsRootCAContextKey{}, rootCA)
+	}
+}

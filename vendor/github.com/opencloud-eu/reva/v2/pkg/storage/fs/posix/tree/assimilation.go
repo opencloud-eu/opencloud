@@ -38,6 +38,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata"
@@ -60,7 +61,7 @@ type queueItem struct {
 	timer *time.Timer
 }
 
-const dirtyFlag = "user.oc.dirty"
+const dirtyFlag = prefixes.OcPrefix + "dirty"
 
 type assimilationNode struct {
 	path    string
@@ -366,6 +367,11 @@ func (t *Tree) findSpaceId(path string) (string, error) {
 	// find the space id, scope by the according user
 	spaceCandidate := path
 	for strings.HasPrefix(spaceCandidate, t.options.Root) {
+		// jail at root
+		if t.isRootPath(spaceCandidate) {
+			return "", ErrRootReached
+		}
+
 		spaceID, _, err := t.lookup.IDsForPath(context.Background(), spaceCandidate)
 		if err == nil && len(spaceID) > 0 {
 			if t.options.UseSpaceGroups {
@@ -412,7 +418,11 @@ func (t *Tree) assimilate(item scanItem) error {
 	if spaceID == "" {
 		// node didn't have a space ID attached. try to find it by walking up the path on disk
 		spaceID, err = t.findSpaceId(filepath.Dir(item.Path))
-		if err != nil {
+		switch {
+		// ignore if we reached the root without finding a space
+		case errors.Is(err, ErrRootReached):
+			return nil
+		case err != nil:
 			return err
 		}
 	}
@@ -741,13 +751,17 @@ assimilate:
 				t.log.Error().Err(err).Str("path", path).Str("currentPath", currentPath).Msg("could not open current path for writing")
 				return
 			}
-			defer w.Close()
+			defer func() {
+				_ = w.Close()
+			}()
 			r, err := os.OpenFile(path, os.O_RDONLY, 0600)
 			if err != nil {
 				t.log.Error().Err(err).Str("path", path).Msg("could not open file for reading")
 				return
 			}
-			defer r.Close()
+			defer func() {
+				_ = r.Close()
+			}()
 
 			_, err = io.Copy(w, r)
 			if err != nil {
