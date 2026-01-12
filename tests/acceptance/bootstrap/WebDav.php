@@ -1644,7 +1644,7 @@ trait WebDav {
 		string $user,
 		string $source,
 		string $destination,
-		string $spaceId = null,
+		?string $spaceId = null,
 		?bool $isGivenStep = false
 	): ResponseInterface {
 		$user = $this->getActualUsername($user);
@@ -4054,7 +4054,7 @@ trait WebDav {
 	 *
 	 * @return string|null
 	 */
-	public function getFileIdForPath(string $user, string $path, string $spaceId = null): ?string {
+	public function getFileIdForPath(string $user, string $path, ?string $spaceId = null): ?string {
 		$user = $this->getActualUsername($user);
 		try {
 			return WebDavHelper::getFileIdForPath(

@@ -1577,7 +1577,7 @@ class FeatureContext extends BehatVariablesContext {
 	 *
 	 * @return mixed
 	 */
-	public function getJsonDecodedResponseBodyContent(ResponseInterface $response = null): mixed {
+	public function getJsonDecodedResponseBodyContent(?ResponseInterface $response = null): mixed {
 		$response = $response ?? $this->response;
 		$response->getBody()->rewind();
 		return HttpRequestHelper::getJsonDecodedResponseBodyContent($response);

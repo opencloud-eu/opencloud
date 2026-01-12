@@ -437,18 +437,10 @@ Start ClamAV daemon
 
 #### 2. Setup clamAV With Docker
 
-##### Linux OS user
-
 Run `clamAV` through docker
 
 ```bash
-docker run -d -p 3310:3310 owncloudci/clamavd
-```
-
-##### Mac OS user
-
-```bash
-docker run -d -p 3310:3310 -v /your/local/filesystem/path/to/clamav/:/var/lib/clamav mkodockx/docker-clamav:alpine
+docker run -d -p 3310:3310 opencloudeu/clamav-ci:latest
 ```
 
 ### Run OpenCloud

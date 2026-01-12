@@ -15,16 +15,16 @@ OPEN_SEARCH = "opensearchproject/opensearch:2"
 INBUCKET_INBUCKET = "inbucket/inbucket"
 MINIO_MC = "minio/mc:RELEASE.2021-10-07T04-19-58Z"
 OC_CI_ALPINE = "owncloudci/alpine:latest"
-OC_CI_BAZEL_BUILDIFIER = "owncloudci/bazel-buildifier:latest"
-OC_CI_CLAMAVD = "owncloudci/clamavd"
+OC_CI_BAZEL_BUILDIFIER = "quay.io/opencloudeu/bazel-buildifier-ci:latest"
+OC_CI_CLAMAVD = "quay.io/opencloudeu/clamav-ci:latest"
 OC_CI_DRONE_ANSIBLE = "owncloudci/drone-ansible:latest"
-OC_CI_GOLANG = "registry.heinlein.group/opencloud/golang-ci:1.25"
-OC_CI_NODEJS = "owncloudci/nodejs:%s"
-OC_CI_PHP = "owncloudci/php:%s"
-OC_CI_WAIT_FOR = "owncloudci/wait-for:latest"
+OC_CI_GOLANG = "quay.io/opencloudeu/golang-ci:1.25"
+OC_CI_NODEJS = "quay.io/opencloudeu/nodejs-ci:24"
+OC_CI_NODEJS_ALPINE = "quay.io/opencloudeu/nodejs-alpine-ci:24"
+OC_CI_PHP = "quay.io/opencloudeu/php-alpine-ci:%s"
+OC_CI_WAIT_FOR = "quay.io/opencloudeu/wait-for-ci:latest"
 OC_CS3_API_VALIDATOR = "opencloudeu/cs3api-validator:latest"
 OC_LITMUS = "owncloudci/litmus:latest"
-OC_UBUNTU = "owncloud/ubuntu:20.04"
 ONLYOFFICE_DOCUMENT_SERVER = "onlyoffice/documentserver:7.5.1"
 PLUGINS_DOCKER_BUILDX = "woodpeckerci/plugin-docker-buildx:latest"
 PLUGINS_NOTATION = "registry.heinlein.group/opencloud/notation-wp-plugin:latest"
@@ -37,8 +37,7 @@ REDIS = "redis:6-alpine"
 READY_RELEASE_GO = "woodpeckerci/plugin-ready-release-go:latest"
 OPENLDAP = "bitnamilegacy/openldap:2.6"
 
-DEFAULT_PHP_VERSION = "8.2"
-DEFAULT_NODEJS_VERSION = "20"
+DEFAULT_PHP_VERSION = "8.4"
 
 CACHE_S3_SERVER = "https://s3.ci.opencloud.eu"
 
@@ -611,7 +610,7 @@ def savePipelineNumber(ctx):
 def evaluateWorkflowStep():
     return [{
         "name": "evaluate-previous-run",
-        "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+        "image": OC_CI_NODEJS_ALPINE,
         "commands": [
             "node tests/config/woodpecker/evaluate_pipeline.js",
         ],
@@ -728,7 +727,7 @@ def cacheGoBin():
         },
         {
             "name": "archive-go-bin",
-            "image": OC_UBUNTU,
+            "image": OC_CI_NODEJS,
             "commands": [
                 ". ./.env",
                 "if $BIN_CACHE_FOUND; then exit 0; fi",
@@ -766,7 +765,7 @@ def restoreGoBinCache():
         },
         {
             "name": "extract-go-bin-cache",
-            "image": OC_UBUNTU,
+            "image": OC_CI_NODEJS,
             "commands": [
                 "tar -xvmf %s -C /" % dirs["gobinTarPath"],
             ],
@@ -967,7 +966,7 @@ def checkGherkinLint(ctx):
         "steps": [
             {
                 "name": "lint-feature-files",
-                "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+                "image": OC_CI_NODEJS_ALPINE,
                 "commands": [
                     "npm install -g @gherlint/gherlint@1.1.0",
                     "make test-gherkin-lint",
@@ -1553,7 +1552,7 @@ def e2eTestPipeline(ctx):
 
                 step_e2e = {
                     "name": "e2e-tests",
-                    "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+                    "image": OC_CI_NODEJS,
                     "environment": {
                         "OC_BASE_URL": OC_DOMAIN,
                         "HEADLESS": True,
@@ -1728,7 +1727,7 @@ def multiServiceE2ePipeline(ctx):
                     storage_users_services + \
                     [{
                         "name": "e2e-tests",
-                        "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+                        "image": OC_CI_NODEJS,
                         "environment": {
                             "OC_BASE_URL": OC_DOMAIN,
                             "HEADLESS": True,
@@ -2060,14 +2059,14 @@ def licenseCheck(ctx):
         "steps": restoreGoBinCache() + [
             {
                 "name": "node-check-licenses",
-                "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+                "image": OC_CI_NODEJS_ALPINE,
                 "commands": [
                     "make ci-node-check-licenses",
                 ],
             },
             {
                 "name": "node-save-licenses",
-                "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+                "image": OC_CI_NODEJS_ALPINE,
                 "commands": [
                     "make ci-node-save-licenses",
                 ],
@@ -2187,7 +2186,7 @@ def makeNodeGenerate(module):
     return [
         {
             "name": "generate nodejs",
-            "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+            "image": OC_CI_NODEJS,
             "environment": {
                 "CHROMEDRIVER_SKIP_DOWNLOAD": True,  # install fails on arm and chromedriver is a test only dependency
             },
@@ -2864,7 +2863,7 @@ def litmus(ctx, storage):
 def setupForLitmus():
     return [{
         "name": "setup-for-litmus",
-        "image": OC_UBUNTU,
+        "image": OC_CI_NODEJS,
         "environment": {
             "TEST_SERVER_URL": OC_URL,
         },
@@ -2879,7 +2878,7 @@ def getWoodpeckerEnvAndCheckScript(ctx):
     path_to_check_script = "%s/tests/config/woodpecker/check_web_cache.sh" % dirs["base"]
     return {
         "name": "get-woodpecker-env-and-check-script",
-        "image": OC_UBUNTU,
+        "image": OC_CI_NODEJS,
         "commands": [
             "cp %s check_web_cache.sh" % path_to_check_script,
         ],
@@ -2898,7 +2897,7 @@ def checkForWebCache(name):
 def cloneWeb():
     return {
         "name": "clone-web",
-        "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+        "image": OC_CI_NODEJS_ALPINE,
         "commands": [
             ". ./.woodpecker.env",
             "if $WEB_CACHE_FOUND; then exit 0; fi",
@@ -2915,7 +2914,7 @@ def generateWebPnpmCache(ctx):
         cloneWeb(),
         {
             "name": "install-pnpm",
-            "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+            "image": OC_CI_NODEJS,
             "commands": [
                 ". ./.woodpecker.env",
                 "if $WEB_CACHE_FOUND; then exit 0; fi",
@@ -2927,7 +2926,7 @@ def generateWebPnpmCache(ctx):
         },
         {
             "name": "zip-pnpm",
-            "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+            "image": OC_CI_NODEJS,
             "commands": [
                 ". ./.woodpecker.env",
                 "if $WEB_CACHE_FOUND; then exit 0; fi",
@@ -2989,7 +2988,7 @@ def cacheBrowsers(ctx):
     browser_cache_steps = [
         {
             "name": "install-browsers",
-            "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+            "image": OC_CI_NODEJS,
             "environment": {
                 "PLAYWRIGHT_BROWSERS_PATH": ".playwright",
             },
@@ -2997,7 +2996,7 @@ def cacheBrowsers(ctx):
                 "cd %s" % dirs["web"],
                 ". ./.woodpecker.env",
                 "if $BROWSER_CACHE_FOUND; then exit 0; fi",
-                "pnpm exec playwright install --with-deps",
+                "pnpm exec playwright install",
                 "pnpm exec playwright install --list",
                 "tar -czf %s .playwright" % dirs["playwrightBrowsersArchive"],
             ],
@@ -3032,7 +3031,7 @@ def generateWebCache(ctx):
         cloneWeb(),
         {
             "name": "zip-web",
-            "image": OC_UBUNTU,
+            "image": OC_CI_NODEJS,
             "commands": [
                 ". ./.woodpecker.env",
                 "if $WEB_CACHE_FOUND; then exit 0; fi",
@@ -3068,7 +3067,7 @@ def restoreWebCache():
         ],
     }, {
         "name": "unzip-web-cache",
-        "image": OC_UBUNTU,
+        "image": OC_CI_NODEJS,
         "commands": [
             "tar -xf %s -C ." % dirs["webZip"],
         ],
@@ -3087,7 +3086,7 @@ def restoreWebPnpmCache(extra_commands = []):
     }, {
         # we need to install again because the node_modules are not cached
         "name": "unzip-and-install-pnpm",
-        "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+        "image": OC_CI_NODEJS,
         "commands": extra_commands + [
             "cd %s" % dirs["web"],
             "rm -rf .pnpm-store",
@@ -3113,7 +3112,7 @@ def restoreBrowsersCache():
         },
         {
             "name": "unzip-browsers-cache",
-            "image": OC_UBUNTU,
+            "image": OC_CI_NODEJS,
             "commands": [
                 "tar -xf /woodpecker/src/github.com/%s/webTestRunner/playwright-browsers.tar.gz -C ." % repo_slug,
             ],
@@ -3131,7 +3130,7 @@ def waitForEmailService():
         "name": "wait-for-email",
         "image": OC_CI_WAIT_FOR,
         "commands": [
-            "wait-for -it email:9000 -t 600",
+            "wait-for -host email -port 9000 -timeout 600",
         ],
     }]
 
@@ -3146,7 +3145,7 @@ def waitForClamavService():
         "name": "wait-for-clamav",
         "image": OC_CI_WAIT_FOR,
         "commands": [
-            "wait-for -it clamav:3310 -t 600",
+            "wait-for -host clamav -port 3310 -timeout 600",
         ],
     }]
 
@@ -3189,7 +3188,7 @@ def waitForLdapService():
         "name": "wait-for-ldap",
         "image": OC_CI_WAIT_FOR,
         "commands": [
-            "wait-for -it ldap-server:1636 -t 600",
+            "wait-for -host ldap-server -port 1636 -timeout 600",
         ],
     }]
 
@@ -3252,7 +3251,7 @@ def tikaService():
         "name": "wait-for-tika-service",
         "image": OC_CI_WAIT_FOR,
         "commands": [
-            "wait-for -it tika:9998 -t 300",
+            "wait-for -host tika -port 9998 -timeout 300",
         ],
     }]
 
@@ -3367,13 +3366,18 @@ def k6LoadTests(ctx):
     return [pipeline]
 
 def waitForServices(name, services = []):
-    services = ",".join(services)
+    commands = []
+
+    for service in services:
+        host, port = service.split(":", 1)
+        commands.append(
+            "wait-for -host %s -port %s -timeout 300" % (host, port),
+        )
+
     return [{
         "name": "wait-for-%s" % name,
         "image": OC_CI_WAIT_FOR,
-        "commands": [
-            "wait-for -it %s -t 300" % services,
-        ],
+        "commands": commands,
     }]
 
 def openCloudHealthCheck(name, services = []):

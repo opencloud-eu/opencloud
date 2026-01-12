@@ -1,6 +1,6 @@
 services:
   acceptance-tests:
-    image: owncloudci/php:8.2
+    image: opencloudeu/php-alpine-ci:8.4
     working_dir: /woodpecker/src/github.com/opencloud-eu/opencloud
     command: /bin/bash /test/run-tests.sh
     environment:

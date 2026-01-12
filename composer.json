@@ -1,8 +1,8 @@
 {
   "name": "opencloud-eu/opencloud",
-  "config" : {
+  "config": {
     "platform": {
-      "php": "8.2"
+      "php": "8.3"
     },
     "vendor-dir": "./vendor-php",
     "allow-plugins": {
