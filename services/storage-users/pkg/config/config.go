@@ -9,10 +9,10 @@ import (
 
 // Config is the configuration for the storage-users service
 type Config struct {
-	Commons *shared.Commons `yaml:"-"` // don't use this directly as configuration for a service
-	Service Service         `yaml:"-"`
-	Log     *Log            `yaml:"log"`
-	Debug   Debug           `yaml:"debug"`
+	Commons  *shared.Commons `yaml:"-"` // don't use this directly as configuration for a service
+	Service  Service         `yaml:"-"`
+	LogLevel string          `yaml:"loglevel" env:"OC_LOG_LEVEL;STORAGE_USERS_LOG_LEVEL" desc:"The log level. Valid values are: 'panic', 'fatal', 'error', 'warn', 'info', 'debug', 'trace'." introductionVersion:"1.0.0"`
+	Debug    Debug           `yaml:"debug"`
 
 	GRPC GRPCConfig `yaml:"grpc"`
 	HTTP HTTPConfig `yaml:"http"`
@@ -45,14 +45,6 @@ type Config struct {
 	CliMaxAttemptsRenameFile int    `yaml:"max_attempts_rename_file" env:"STORAGE_USERS_CLI_MAX_ATTEMPTS_RENAME_FILE" desc:"The maximum number of attempts to rename a file when a user restores a file to an existing destination with the same name. The minimum value is 100." introductionVersion:"1.0.0"`
 
 	Context context.Context `yaml:"-"`
-}
-
-// Log configures the logging
-type Log struct {
-	Level  string `yaml:"level" env:"OC_LOG_LEVEL;STORAGE_USERS_LOG_LEVEL" desc:"The log level. Valid values are: 'panic', 'fatal', 'error', 'warn', 'info', 'debug', 'trace'." introductionVersion:"1.0.0"`
-	Pretty bool   `yaml:"pretty" env:"OC_LOG_PRETTY;STORAGE_USERS_LOG_PRETTY" desc:"Activates pretty log output." introductionVersion:"1.0.0"`
-	Color  bool   `yaml:"color" env:"OC_LOG_COLOR;STORAGE_USERS_LOG_COLOR" desc:"Activates colorized log output." introductionVersion:"1.0.0"`
-	File   string `yaml:"file" env:"OC_LOG_FILE;STORAGE_USERS_LOG_FILE" desc:"The path to the log file. Activates logging to this file if set." introductionVersion:"1.0.0"`
 }
 
 // Service holds general service configuration

@@ -1556,7 +1556,6 @@ github.com/opencloud-eu/reva/v2/pkg/metrics/driver/loader
 github.com/opencloud-eu/reva/v2/pkg/metrics/driver/registry
 github.com/opencloud-eu/reva/v2/pkg/metrics/driver/xcloud
 github.com/opencloud-eu/reva/v2/pkg/metrics/reader
-github.com/opencloud-eu/reva/v2/pkg/micro/ocdav
 github.com/opencloud-eu/reva/v2/pkg/mime
 github.com/opencloud-eu/reva/v2/pkg/ocm/client
 github.com/opencloud-eu/reva/v2/pkg/ocm/invite
@@ -2329,8 +2328,8 @@ go.opentelemetry.io/auto/sdk/internal/telemetry
 ## explicit; go 1.24.0
 go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc
 go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc/internal
-# go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0
-## explicit; go 1.23.0
+# go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.64.0
+## explicit; go 1.24.0
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp/internal/request
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp/internal/semconv

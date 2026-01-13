@@ -6,11 +6,11 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/config/parser"
-	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/logging"
 	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/service"
 	"github.com/opencloud-eu/reva/v2/pkg/store"
@@ -33,7 +33,7 @@ func Server(cfg *config.Config) *cobra.Command {
 			return err
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger := logging.Configure(cfg.Service.Name, cfg.Log)
+			logger := log.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel)
 
 			var cancel context.CancelFunc
 			if cfg.Context == nil {

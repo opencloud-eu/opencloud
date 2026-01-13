@@ -24,7 +24,6 @@ import (
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config/parser"
-	"github.com/opencloud-eu/opencloud/services/proxy/pkg/logging"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/proxy"
@@ -76,7 +75,7 @@ func Server(cfg *config.Config) *cobra.Command {
 				store.Authentication(cfg.PreSignedURL.SigningKeys.AuthUsername, cfg.PreSignedURL.SigningKeys.AuthPassword),
 			)
 
-			logger := logging.Configure(cfg.Service.Name, cfg.Log)
+			logger := log.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel)
 			traceProvider, err := tracing.GetTraceProvider(cmd.Context(), cfg.Commons.TracesExporter, cfg.Service.Name)
 			if err != nil {
 				return err

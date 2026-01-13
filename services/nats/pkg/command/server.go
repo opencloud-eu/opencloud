@@ -8,6 +8,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	pkgcrypto "github.com/opencloud-eu/opencloud/pkg/crypto"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
 	"github.com/opencloud-eu/opencloud/services/nats/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/nats/pkg/config/parser"
@@ -27,7 +28,7 @@ func Server(cfg *config.Config) *cobra.Command {
 			return configlog.ReturnFatal(parser.ParseConfig(cfg))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger := logging.Configure(cfg.Service.Name, cfg.Log)
+			logger := log.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel)
 
 			var cancel context.CancelFunc
 			if cfg.Context == nil {

@@ -7,12 +7,11 @@ import (
 	"strings"
 
 	occfg "github.com/opencloud-eu/opencloud/pkg/config"
+	"github.com/opencloud-eu/opencloud/pkg/config/envdecode"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/services/notifications/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/notifications/pkg/config/defaults"
-	"github.com/opencloud-eu/opencloud/services/notifications/pkg/logging"
-
-	"github.com/opencloud-eu/opencloud/pkg/config/envdecode"
 )
 
 // ParseConfig loads configuration from known paths.
@@ -38,7 +37,7 @@ func ParseConfig(cfg *config.Config) error {
 }
 
 func Validate(cfg *config.Config) error {
-	logger := logging.Configure(cfg.Service.Name, cfg.Log)
+	logger := log.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel)
 
 	if cfg.Notifications.SMTP.Host != "" {
 		switch cfg.Notifications.SMTP.Encryption {

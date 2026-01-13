@@ -21,13 +21,7 @@ func Health(cfg *config.Config) *cobra.Command {
 			return configlog.ReturnError(parser.ParseConfig(cfg))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger := log.NewLogger(
-				log.Name(cfg.Service.Name),
-				log.Level(cfg.Log.Level),
-				log.Pretty(cfg.Log.Pretty),
-				log.Color(cfg.Log.Color),
-				log.File(cfg.Log.File),
-			)
+			logger := log.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel)
 
 			resp, err := http.Get(
 				fmt.Sprintf(

@@ -41,13 +41,7 @@ func Server(cfg *config.Config) *cobra.Command {
 			}
 			ctx := cfg.Context
 
-			logger := log.NewLogger(
-				log.Name(cfg.Service.Name),
-				log.Level(cfg.Log.Level),
-				log.Pretty(cfg.Log.Pretty),
-				log.Color(cfg.Log.Color),
-				log.File(cfg.Log.File),
-			)
+			logger := log.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel)
 
 			tracerProvider, err := tracing.GetTraceProvider(cmd.Context(), cfg.Commons.TracesExporter, cfg.Service.Name)
 			if err != nil {

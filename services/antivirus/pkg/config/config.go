@@ -29,11 +29,10 @@ const (
 
 // Config combines all available configuration parts.
 type Config struct {
-	Commons *shared.Commons `yaml:"-"` // don't use this directly as configuration for a service
-	File    string
-	Log     *Log
-
-	Debug Debug `yaml:"debug" mask:"struct"`
+	Commons  *shared.Commons `yaml:"-"` // don't use this directly as configuration for a service
+	File     string
+	LogLevel string `yaml:"loglevel" env:"OC_LOG_LEVEL;ANTIVIRUS_LOG_LEVEL" desc:"The log level. Valid values are: 'panic', 'fatal', 'error', 'warn', 'info', 'debug', 'trace'." introductionVersion:"1.0.0"`
+	Debug    Debug  `yaml:"debug" mask:"struct"`
 
 	Service Service `yaml:"-"`
 
@@ -53,14 +52,6 @@ type Config struct {
 // Service defines the available service configuration.
 type Service struct {
 	Name string `yaml:"-"`
-}
-
-// Log defines the available log configuration.
-type Log struct {
-	Level  string `mapstructure:"level" env:"OC_LOG_LEVEL;ANTIVIRUS_LOG_LEVEL" desc:"The log level. Valid values are: 'panic', 'fatal', 'error', 'warn', 'info', 'debug', 'trace'." introductionVersion:"1.0.0"`
-	Pretty bool   `mapstructure:"pretty" env:"OC_LOG_PRETTY;ANTIVIRUS_LOG_PRETTY" desc:"Activates pretty log output." introductionVersion:"1.0.0"`
-	Color  bool   `mapstructure:"color" env:"OC_LOG_COLOR;ANTIVIRUS_LOG_COLOR" desc:"Activates colorized log output." introductionVersion:"1.0.0"`
-	File   string `mapstructure:"file" env:"OC_LOG_FILE;ANTIVIRUS_LOG_FILE" desc:"The path to the log file. Activates logging to this file if set." introductionVersion:"1.0.0"`
 }
 
 // Debug defines the available debug configuration.

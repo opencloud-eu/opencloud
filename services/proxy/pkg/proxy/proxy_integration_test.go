@@ -221,7 +221,6 @@ func (tc *testCase) expectProxyTo(strURL string) testCase {
 
 func testConfig(policy []config.Policy) *config.Config {
 	return &config.Config{
-		Log:            &config.Log{},
 		Debug:          config.Debug{},
 		HTTP:           config.HTTP{},
 		Policies:       policy,

@@ -12,8 +12,8 @@ type Config struct {
 
 	Service Service `yaml:"-"`
 
-	Log   *Log  `yaml:"log"`
-	Debug Debug `yaml:"debug"`
+	LogLevel string `yaml:"loglevel" env:"OC_LOG_LEVEL;WEB_LOG_LEVEL" desc:"The log level. Valid values are: 'panic', 'fatal', 'error', 'warn', 'info', 'debug', 'trace'." introductionVersion:"1.0.0"`
+	Debug    Debug  `yaml:"debug"`
 
 	HTTP HTTP `yaml:"http"`
 

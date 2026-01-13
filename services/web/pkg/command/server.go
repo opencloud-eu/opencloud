@@ -8,11 +8,11 @@ import (
 	"os/signal"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/config/parser"
-	"github.com/opencloud-eu/opencloud/services/web/pkg/logging"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/server/http"
@@ -29,7 +29,7 @@ func Server(cfg *config.Config) *cobra.Command {
 			return configlog.ReturnFatal(parser.ParseConfig(cfg))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger := logging.Configure(cfg.Service.Name, cfg.Log)
+			logger := log.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel)
 			traceProvider, err := tracing.GetTraceProvider(cmd.Context(), cfg.Commons.TracesExporter, cfg.Service.Name)
 			if err != nil {
 				return err

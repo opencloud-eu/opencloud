@@ -16,7 +16,7 @@ type Config struct {
 	Events         Events                `yaml:"events"`
 	GRPCClientTLS  *shared.GRPCClientTLS `yaml:"grpc_client_tls"`
 	Context        context.Context       `yaml:"-"`
-	Log            *Log                  `yaml:"log"`
+	LogLevel       string                `yaml:"loglevel" env:"OC_LOG_LEVEL;POLICIES_LOG_LEVEL" desc:"The log level. Valid values are: 'panic', 'fatal', 'error', 'warn', 'info', 'debug', 'trace'." introductionVersion:"1.0.0"`
 	Engine         Engine                `yaml:"engine"`
 	Postprocessing Postprocessing        `yaml:"postprocessing"`
 }
@@ -55,14 +55,6 @@ type Events struct {
 	EnableTLS            bool   `yaml:"enable_tls" env:"OC_EVENTS_ENABLE_TLS;POLICIES_EVENTS_ENABLE_TLS" desc:"Enable TLS for the connection to the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
 	AuthUsername         string `yaml:"username" env:"OC_EVENTS_AUTH_USERNAME;POLICIES_EVENTS_AUTH_USERNAME" desc:"The username to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
 	AuthPassword         string `yaml:"password" env:"OC_EVENTS_AUTH_PASSWORD;POLICIES_EVENTS_AUTH_PASSWORD" desc:"The password to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
-}
-
-// Log defines the available log configuration.
-type Log struct {
-	Level  string `mapstructure:"level" env:"OC_LOG_LEVEL;POLICIES_LOG_LEVEL" desc:"The log level. Valid values are: 'panic', 'fatal', 'error', 'warn', 'info', 'debug', 'trace'." introductionVersion:"1.0.0"`
-	Pretty bool   `mapstructure:"pretty" env:"OC_LOG_PRETTY;POLICIES_LOG_PRETTY" desc:"Activates pretty log output." introductionVersion:"1.0.0"`
-	Color  bool   `mapstructure:"color" env:"OC_LOG_COLOR;POLICIES_LOG_COLOR" desc:"Activates colorized log output." introductionVersion:"1.0.0"`
-	File   string `mapstructure:"file" env:"OC_LOG_FILE;POLICIES_LOG_FILE" desc:"The path to the log file. Activates logging to this file if set." introductionVersion:"1.0.0"`
 }
 
 // Debug defines the available debug configuration.

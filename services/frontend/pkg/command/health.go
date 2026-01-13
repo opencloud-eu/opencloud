@@ -6,9 +6,9 @@ import (
 	"net/http"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/frontend/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/frontend/pkg/config/parser"
-	"github.com/opencloud-eu/opencloud/services/frontend/pkg/logging"
 
 	"github.com/spf13/cobra"
 )
@@ -22,7 +22,7 @@ func Health(cfg *config.Config) *cobra.Command {
 			return configlog.ReturnError(parser.ParseConfig(cfg))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger := logging.Configure(cfg.Service.Name, cfg.Log)
+			logger := log.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel)
 
 			resp, err := http.Get(
 				fmt.Sprintf(

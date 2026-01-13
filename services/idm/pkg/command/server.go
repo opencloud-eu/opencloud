@@ -17,7 +17,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/idm"
 	"github.com/opencloud-eu/opencloud/services/idm/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/idm/pkg/config/parser"
-	"github.com/opencloud-eu/opencloud/services/idm/pkg/logging"
 	"github.com/opencloud-eu/opencloud/services/idm/pkg/server/debug"
 
 	"github.com/go-ldap/ldif"
@@ -43,7 +42,7 @@ func Server(cfg *config.Config) *cobra.Command {
 			}
 			ctx := cfg.Context
 
-			logger := logging.Configure(cfg.Service.Name, cfg.Log)
+			logger := log.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel)
 
 			gr := runner.NewGroup()
 			{

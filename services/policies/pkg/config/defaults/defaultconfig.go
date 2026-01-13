@@ -43,15 +43,8 @@ func DefaultConfig() *config.Config {
 }
 
 func EnsureDefaults(cfg *config.Config) {
-	if cfg.Log == nil && cfg.Commons != nil && cfg.Commons.Log != nil {
-		cfg.Log = &config.Log{
-			Level:  cfg.Commons.Log.Level,
-			Pretty: cfg.Commons.Log.Pretty,
-			Color:  cfg.Commons.Log.Color,
-			File:   cfg.Commons.Log.File,
-		}
-	} else if cfg.Log == nil {
-		cfg.Log = &config.Log{}
+	if cfg.LogLevel == "" {
+		cfg.LogLevel = "error"
 	}
 
 	if cfg.GRPCClientTLS == nil && cfg.Commons != nil {

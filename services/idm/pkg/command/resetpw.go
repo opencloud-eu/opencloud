@@ -12,7 +12,6 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/idm/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/idm/pkg/config/parser"
-	"github.com/opencloud-eu/opencloud/services/idm/pkg/logging"
 
 	"github.com/go-ldap/ldap/v3"
 	"github.com/libregraph/idm/pkg/ldbbolt"
@@ -31,7 +30,7 @@ func ResetPassword(cfg *config.Config) *cobra.Command {
 			return configlog.ReturnFatal(parser.ParseConfig(cfg))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger := logging.Configure(cfg.Service.Name, cfg.Log)
+			logger := log.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel)
 			ctx, cancel := context.WithCancel(cmd.Context())
 
 			defer cancel()
