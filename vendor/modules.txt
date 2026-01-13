@@ -1263,7 +1263,7 @@ github.com/onsi/ginkgo/v2/internal/reporters
 github.com/onsi/ginkgo/v2/internal/testingtproxy
 github.com/onsi/ginkgo/v2/reporters
 github.com/onsi/ginkgo/v2/types
-# github.com/onsi/gomega v1.38.2
+# github.com/onsi/gomega v1.39.0
 ## explicit; go 1.23.0
 github.com/onsi/gomega
 github.com/onsi/gomega/format
@@ -1556,7 +1556,6 @@ github.com/opencloud-eu/reva/v2/pkg/metrics/driver/loader
 github.com/opencloud-eu/reva/v2/pkg/metrics/driver/registry
 github.com/opencloud-eu/reva/v2/pkg/metrics/driver/xcloud
 github.com/opencloud-eu/reva/v2/pkg/metrics/reader
-github.com/opencloud-eu/reva/v2/pkg/micro/ocdav
 github.com/opencloud-eu/reva/v2/pkg/mime
 github.com/opencloud-eu/reva/v2/pkg/ocm/client
 github.com/opencloud-eu/reva/v2/pkg/ocm/invite
