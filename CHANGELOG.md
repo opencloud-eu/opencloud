@@ -1,6 +1,6 @@
 # Changelog
 
-## [5.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.0.0) - 2026-01-12
+## [5.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.0.0) - 2026-01-13
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -37,6 +37,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp from 0.63.0 to 0.64.0 [[#2109](https://github.com/opencloud-eu/opencloud/pull/2109)]
 - build(deps): bump github.com/kovidgoyal/imaging from 1.8.17 to 1.8.18 [[#2107](https://github.com/opencloud-eu/opencloud/pull/2107)]
 - build(deps): bump google.golang.org/grpc from 1.77.0 to 1.78.0 [[#2106](https://github.com/opencloud-eu/opencloud/pull/2106)]
 - build(deps): bump go.opentelemetry.io/otel/sdk from 1.38.0 to 1.39.0 [[#2069](https://github.com/opencloud-eu/opencloud/pull/2069)]
