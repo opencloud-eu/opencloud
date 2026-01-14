@@ -10,6 +10,10 @@
 
 - merge ocdav into frontend [[#1958](https://github.com/opencloud-eu/opencloud/pull/1958)]
 
+### 📚 Documentation
+
+- fix: markdown links formatting [[#2143](https://github.com/opencloud-eu/opencloud/pull/2143)]
+
 ### ✅ Tests
 
 - ci: fix unwanted workflow skip in the cron pipelines [[#2117](https://github.com/opencloud-eu/opencloud/pull/2117)]
