@@ -37,6 +37,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump golang.org/x/net from 0.48.0 to 0.49.0 [[#2140](https://github.com/opencloud-eu/opencloud/pull/2140)]
 - build(deps): bump github.com/onsi/gomega from 1.38.2 to 1.39.0 [[#2133](https://github.com/opencloud-eu/opencloud/pull/2133)]
 - build(deps): bump golang.org/x/crypto from 0.46.0 to 0.47.0 [[#2132](https://github.com/opencloud-eu/opencloud/pull/2132)]
 - build(deps): bump go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp from 0.63.0 to 0.64.0 [[#2109](https://github.com/opencloud-eu/opencloud/pull/2109)]
