@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 )
 
@@ -77,7 +78,7 @@ func (md MD) WriteToc(w io.Writer) (int64, error) {
 			// main title not in toc
 			continue
 		}
-		link := fmt.Sprintf("#%s", strings.ToLower(strings.Replace(h.Header, " ", "-", -1)))
+		link := fmt.Sprintf("#%s", toAnchor(h.Header))
 		s := fmt.Sprintf("%s* [%s](%s)\n", strings.Repeat("  ", h.Level-2), h.Header, link)
 		n, err := w.Write([]byte(s))
 		if err != nil {
@@ -136,4 +137,13 @@ func headingFromString(s string) Heading {
 		Level:  len(levs),
 		Header: strings.TrimPrefix(con, " "),
 	}
+}
+
+func toAnchor(header string) string {
+	// Remove everything except letters, numbers, and spaces
+	reg := regexp.MustCompile(`[^a-zA-Z0-9 ]+`)
+	anchor := reg.ReplaceAllString(header, "")
+	// Replace spaces with hyphens and convert to lowercase
+	anchor = strings.ReplaceAll(anchor, " ", "-")
+	return strings.ToLower(anchor)
 }
