@@ -1,6 +1,8 @@
 package tablewriter
 
 import (
+	"github.com/mattn/go-runewidth"
+	"github.com/olekukonko/tablewriter/pkg/twwidth"
 	"github.com/olekukonko/tablewriter/tw"
 )
 
@@ -216,5 +218,18 @@ func WithTableMax(width int) Option {
 		if target.logger != nil {
 			target.logger.Debugf("Option: WithTableMax applied to Table: %v", width)
 		}
+	}
+}
+
+// Deprecated: use WithEastAsian instead.
+// WithCondition provides a way to set a custom global runewidth.Condition
+// that will be used for all subsequent display width calculations by the twwidth (twdw) package.
+//
+// The runewidth.Condition object allows for more fine-grained control over how rune widths
+// are determined, beyond just toggling EastAsianWidth. This could include settings for
+// ambiguous width characters or other future properties of runewidth.Condition.
+func WithCondition(cond *runewidth.Condition) Option {
+	return func(target *Table) {
+		twwidth.SetCondition(cond)
 	}
 }

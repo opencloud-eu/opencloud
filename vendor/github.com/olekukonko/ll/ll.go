@@ -350,17 +350,58 @@ func (l *Logger) Dump(values ...interface{}) {
 	}
 }
 
-// Output logs data in a human-readable JSON format at Info level, including caller file and line information.
-// It is similar to Dbg but formats the output as JSON for better readability. It is thread-safe and respects
-// the logger's configuration (e.g., enabled, level, suspend, handler, middleware).
-// Example:
-//
-//	logger := New("app").Enable()
-//	x := map[string]int{"key": 42}
-//	logger.Output(x) // Output: [app] INFO: [file.go:123] JSON: {"key": 42}
-//
-// Logger method to provide access to Output functionality
+// Output logs each value as pretty-printed JSON for REST debugging.
+// Each value is logged on its own line with [file:line] and a blank line after the header.
+// Ideal for inspecting outgoing/incoming REST payloads.
 func (l *Logger) Output(values ...interface{}) {
+	l.output(2, values...)
+}
+
+func (l *Logger) output(skip int, values ...interface{}) {
+	if !l.shouldLog(lx.LevelInfo) {
+		return
+	}
+
+	_, file, line, ok := runtime.Caller(skip)
+	if !ok {
+		return
+	}
+	shortFile := file
+	if idx := strings.LastIndex(file, "/"); idx >= 0 {
+		shortFile = file[idx+1:]
+	}
+
+	header := fmt.Sprintf("[%s:%d] JSON:\n", shortFile, line)
+
+	for _, v := range values {
+		// Always pretty-print with indent
+		b, err := json.MarshalIndent(v, "  ", "  ")
+		if err != nil {
+			b, _ = json.MarshalIndent(map[string]any{
+				"value": fmt.Sprintf("%+v", v),
+				"error": err.Error(),
+			}, "  ", "  ")
+		}
+		l.log(lx.LevelInfo, lx.ClassText, header+string(b), nil, false)
+	}
+}
+
+// Inspect logs one or more values in a **developer-friendly, deeply introspective format** at Info level.
+// It includes the caller file and line number, and reveals **all fields** — including:
+//
+//   - Private (unexported) fields → prefixed with `(field)`
+//   - Embedded structs (inlined)
+//   - Pointers and nil values → shown as `*(field)` or `nil`
+//   - Full struct nesting and type information
+//
+// This method uses `NewInspector` under the hood, which performs **full reflection-based traversal**.
+// It is **not** meant for production logging or REST APIs — use `Output` for that.
+//
+// Ideal for:
+//   - Debugging complex internal state
+//   - Inspecting structs with private fields
+//   - Understanding struct embedding and pointer behavior
+func (l *Logger) Inspect(values ...interface{}) {
 	o := NewInspector(l)
 	o.Log(2, values...)
 }

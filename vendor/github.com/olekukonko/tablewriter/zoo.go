@@ -1064,23 +1064,22 @@ func (t *Table) convertToStringer(input interface{}) ([]string, error) {
 	t.logger.Debugf("convertToString attempt %v using %v", input, t.stringer)
 
 	inputType := reflect.TypeOf(input)
-	stringerFuncVal := reflect.ValueOf(t.stringer)
-	stringerFuncType := stringerFuncVal.Type()
 
-	// Cache lookup (simplified, actual cache logic can be more complex)
-	if t.stringerCacheEnabled {
-		t.stringerCacheMu.RLock()
-		cachedFunc, ok := t.stringerCache[inputType]
-		t.stringerCacheMu.RUnlock()
-		if ok {
-			// Add proper type checking for cachedFunc against input here if necessary
+	// Cache lookup using twcache.LRU
+	// This assumes t.stringerCache is *twcache.LRU[reflect.Type, reflect.Value]
+	if t.stringerCache != nil {
+		if cachedFunc, ok := t.stringerCache.Get(inputType); ok {
 			t.logger.Debugf("convertToStringer: Cache hit for type %v", inputType)
+			// We can proceed to call it immediately because it's already been validated/cached
 			results := cachedFunc.Call([]reflect.Value{reflect.ValueOf(input)})
 			if len(results) == 1 && results[0].Type() == reflect.TypeOf([]string{}) {
 				return results[0].Interface().([]string), nil
 			}
 		}
 	}
+
+	stringerFuncVal := reflect.ValueOf(t.stringer)
+	stringerFuncType := stringerFuncVal.Type()
 
 	// Robust type checking for the stringer function
 	validSignature := stringerFuncVal.Kind() == reflect.Func &&
@@ -1105,10 +1104,6 @@ func (t *Table) convertToStringer(input interface{}) ([]string, error) {
 		}
 	} else if paramType.Kind() == reflect.Interface || (paramType.Kind() == reflect.Ptr && paramType.Elem().Kind() != reflect.Interface) {
 		// If input is nil, it can be assigned if stringer expects an interface or a pointer type
-		// (but not a pointer to an interface, which is rare for stringers).
-		// A nil value for a concrete type parameter would cause a panic on Call.
-		// So, if paramType is not an interface/pointer, and input is nil, it's an issue.
-		// This needs careful handling. For now, assume assignable if interface/pointer.
 		assignable = true
 	}
 
@@ -1120,7 +1115,6 @@ func (t *Table) convertToStringer(input interface{}) ([]string, error) {
 	if input == nil {
 		// If input is nil, we must pass a zero value of the stringer's parameter type
 		// if that type is a pointer or interface.
-		// Passing reflect.ValueOf(nil) directly will cause issues if paramType is concrete.
 		callArgs = []reflect.Value{reflect.Zero(paramType)}
 	} else {
 		callArgs = []reflect.Value{reflect.ValueOf(input)}
@@ -1128,10 +1122,9 @@ func (t *Table) convertToStringer(input interface{}) ([]string, error) {
 
 	resultValues := stringerFuncVal.Call(callArgs)
 
-	if t.stringerCacheEnabled && inputType != nil { // Only cache if inputType is valid
-		t.stringerCacheMu.Lock()
-		t.stringerCache[inputType] = stringerFuncVal
-		t.stringerCacheMu.Unlock()
+	// Add to cache if enabled (not nil) and input type is valid
+	if t.stringerCache != nil && inputType != nil {
+		t.stringerCache.Add(inputType, stringerFuncVal)
 	}
 
 	return resultValues[0].Interface().([]string), nil
