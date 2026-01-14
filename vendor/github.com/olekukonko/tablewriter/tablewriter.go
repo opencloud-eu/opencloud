@@ -8,11 +8,11 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
-	"sync"
 
 	"github.com/olekukonko/errors"
 	"github.com/olekukonko/ll"
 	"github.com/olekukonko/ll/lh"
+	"github.com/olekukonko/tablewriter/pkg/twcache"
 	"github.com/olekukonko/tablewriter/pkg/twwarp"
 	"github.com/olekukonko/tablewriter/pkg/twwidth"
 	"github.com/olekukonko/tablewriter/renderer"
@@ -52,9 +52,7 @@ type Table struct {
 	streamRowCounter        int                           // Counter for rows rendered in streaming mode (0-indexed logical rows)
 
 	// cache
-	stringerCache        map[reflect.Type]reflect.Value // Cache for stringer reflection
-	stringerCacheMu      sync.RWMutex                   // Mutex for thread-safe cache access
-	stringerCacheEnabled bool                           // Flag to enable/disable caching
+	stringerCache twcache.Cache[reflect.Type, reflect.Value] // Cache for stringer reflection
 
 	batchRenderNumCols      int
 	isBatchRenderNumColsSet bool
@@ -126,8 +124,7 @@ func NewTable(w io.Writer, opts ...Option) *Table {
 		streamRowCounter:       0,
 
 		//  Cache
-		stringerCache:        make(map[reflect.Type]reflect.Value),
-		stringerCacheEnabled: false, // Disabled by default
+		stringerCache: twcache.NewLRU[reflect.Type, reflect.Value](tw.DefaultCacheStringCapacity),
 	}
 
 	// set Options
@@ -483,10 +480,11 @@ func (t *Table) Reset() {
 	t.streamRowCounter = 0
 
 	// The stringer and its cache are part of the table's configuration,
-	if t.stringerCacheEnabled {
-		t.stringerCacheMu.Lock()
-		t.stringerCache = make(map[reflect.Type]reflect.Value)
-		t.stringerCacheMu.Unlock()
+	if t.stringerCache == nil {
+		t.stringerCache = twcache.NewLRU[reflect.Type, reflect.Value](tw.DefaultCacheStringCapacity)
+		t.logger.Debug("Reset(): Stringer cache reset to default capacity.")
+	} else {
+		t.stringerCache.Purge()
 		t.logger.Debug("Reset(): Stringer cache cleared.")
 	}
 

@@ -657,6 +657,13 @@ func Mark(names ...string) {
 // It is similar to Dbg but formats the output as JSON for better readability. It is thread-safe and respects
 // the logger’s configuration (e.g., enabled, level, suspend, handler, middleware).
 func Output(values ...interface{}) {
+	defaultLogger.output(2, values...)
+
+}
+
+// Inspect logs one or more values in a **developer-friendly, deeply introspective format** at Info level.
+// It includes the caller file and line number, and reveals **all fields** — including:
+func Inspect(values ...interface{}) {
 	o := NewInspector(defaultLogger)
 	o.Log(2, values...)
 }
