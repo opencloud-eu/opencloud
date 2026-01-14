@@ -41,6 +41,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/olekukonko/tablewriter from 1.1.1 to 1.1.2 [[#2144](https://github.com/opencloud-eu/opencloud/pull/2144)]
 - build(deps): bump github.com/spf13/cobra from 1.10.1 to 1.10.2 [[#2141](https://github.com/opencloud-eu/opencloud/pull/2141)]
 - build(deps): bump golang.org/x/net from 0.48.0 to 0.49.0 [[#2140](https://github.com/opencloud-eu/opencloud/pull/2140)]
 - build(deps): bump github.com/onsi/gomega from 1.38.2 to 1.39.0 [[#2133](https://github.com/opencloud-eu/opencloud/pull/2133)]
