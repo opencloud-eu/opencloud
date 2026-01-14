@@ -576,7 +576,7 @@ def main(ctx):
         ),
     )
 
-    pipelines = test_pipelines + build_release_pipelines + notifyMatrix(ctx)
+    pipelines = test_pipelines + build_release_pipelines + genDocsPr(ctx) + notifyMatrix(ctx)
 
     pipelineSanityChecks(pipelines)
     return savePipelineNumber(ctx) + pipelines
@@ -2212,6 +2212,60 @@ def makeGoGenerate(module):
             "environment": CI_HTTP_PROXY_ENV,
         },
     ]
+
+def genDocsPr(ctx):
+    return [{
+        "name": "gen-docs-pr",
+        "skip_clone": True,
+        "workspace": {
+            "base": "/woodpecker",
+            "path": "docs_gen_pr",
+        },
+        "steps": [
+            {
+                "name": "make-docs-pr",
+                "image": "quay.io/opencloudeu/golang-ci",
+                "pull": True,
+                "environment": {
+                    "GH_TOKEN": {
+                        "from_secret": "github_token",
+                    },
+                    "CI_SSH_KEY": {
+                        "from_secret": "markdown-docs-generator-push-key",
+                    },
+                    "CI_SSH_KEY_DOCS": {
+                        "from_secret": "gh-docs-push-key",
+                    },
+                    "GIT_SSH_COMMAND": "ssh -o StrictHostKeyChecking=no -i /root/id_rsa",
+                    "OC_GIT_BRANCH": "${CI_COMMIT_BRANCH}",
+                    "MY_TARGET_BRANCH": "${CI_COMMIT_BRANCH}",
+                },
+                "commands": [
+                    'export DOC_GIT_TARGET_FOLDER="$$(if [ \"$$MY_TARGET_BRANCH\" = \"main\" ]; then echo \"tmpdocs/docs/dev/_static/env-vars/\"; else echo \"tmpdocs/versioned_docs/version-$${MY_TARGET_BRANCH}/dev/_static/env-vars/\"; fi)"',
+                    'echo "$${CI_SSH_KEY}" > /root/id_rsa && chmod 600 /root/id_rsa',
+                    'git config --global user.email "devops@opencloud.eu"',
+                    'git config --global user.name "openclouders"',
+                    "git clone git@github.com:opencloud-eu/markdown-docs-generator.git /woodpecker/docs_gen_pr",
+                    'echo "$${CI_SSH_KEY_DOCS}" > /root/id_rsa && chmod 600 /root/id_rsa',
+                    "make git-clone",
+                    "make all",
+                    "make create-docs-pullrequest",
+                ]
+            },
+        ],
+        "when": [
+            {
+                "event": "push",
+                "path": "services/*/pkg/config/**/*.go",
+                "branch": "[main, stable-*]",
+            },
+            {
+                "event": "cron",
+                "branch": "[main]",
+                "cron": "nightly (@daily)",
+            },
+        ],
+    }]
 
 def notifyMatrix(ctx):
     result = [{
