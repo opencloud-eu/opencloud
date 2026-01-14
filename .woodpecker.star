@@ -2250,7 +2250,7 @@ def genDocsPr(ctx):
                     "make git-clone",
                     "make all",
                     "make create-docs-pullrequest",
-                ]
+                ],
             },
         ],
         "when": [
