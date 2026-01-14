@@ -585,3 +585,34 @@ By default, the system uses `posix` storage. However, you can override this by s
 ```bash
 STORAGE_DRIVER=posix ./tests/acceptance/run_api_tests.sh 
 ```
+
+## Running WOPI Validator Tests
+
+### Available Test Groups
+
+```text
+  BaseWopiViewing
+  CheckFileInfoSchema
+  EditFlows
+  Locks
+  AccessTokens
+  GetLock
+  ExtendedLockLength
+  FileVersion
+  Features
+  PutRelativeFile
+  RenameFileIfCreateChildFileIsNotSupported
+```
+
+### Run Test
+
+```bash
+TEST_GROUP=BaseWopiViewing docker compose -f tests/acceptance/docker/src/wopi-validator-test.yml up -d
+```
+
+### for macOS use arm image
+```bash
+WOPI_VALIDATOR_IMAGE=scharfvi/wopi-validator \
+TEST_GROUP=BaseWopiViewing \
+docker compose -f tests/acceptance/docker/src/wopi-validator-test.yml up -d
+```
