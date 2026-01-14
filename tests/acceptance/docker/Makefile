@@ -225,31 +225,25 @@ $(targets):
 
 .PHONY: testSuite
 testSuite: $(OC_WRAPPER) build-dev-image clean-docker-container
-	@COMPOSE_FILE_VAR="$(COMPOSE_FILE)"; \
-	\
-	if [ "${STORAGE_DRIVER}" = "decomposeds3" ]; then \
-		COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) \
-		docker compose -f src/ceph.yml run start_ceph; \
-	fi; \
-	if [ "${START_EMAIL}" = "true" ]; then \
-		COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) \
-		docker compose -f src/email.yml run start_email; \
-	fi; \
-	if [ "${START_ANTIVIRUS}" = "true" ]; then \
-		COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) \
-		docker compose -f src/antivirus.yml run start_antivirus; \
-	fi; \
-	if [ "${START_TIKA}" = "true" ]; then \
-		COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) \
-		docker compose -f src/tika.yml run tika-service; \
-	fi; \
-	if [ "${ENABLE_WOPI}" = "true" ]; then \
-		COMPOSE_FILE_VAR="$${COMPOSE_FILE_VAR}:src/wopi.yml"; \
-	fi; \
-	\
-	
-	COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) \
-	COMPOSE_FILE=$${COMPOSE_FILE_VAR} \
+	@export COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME)
+	COMPOSE_FILE=$(COMPOSE_FILE)
+	if [ "${STORAGE_DRIVER}" = "decomposeds3" ]; then
+		docker compose -f src/ceph.yml run start_ceph
+	fi
+	if [ "${START_EMAIL}" = "true" ]; then
+		docker compose -f src/email.yml run start_email
+	fi
+	if [ "${START_ANTIVIRUS}" = "true" ]; then
+		docker compose -f src/antivirus.yml run start_antivirus
+	fi
+	if [ "${START_TIKA}" = "true" ]; then
+		docker compose -f src/tika.yml run tika-service
+	fi
+	if [ "${ENABLE_WOPI}" = "true" ]; then
+		COMPOSE_FILE=${COMPOSE_FILE}:src/wopi.yml
+	fi
+
+	COMPOSE_FILE=$$COMPOSE_FILE \
 	STORAGE_DRIVER=$(STORAGE_DRIVER) \
 	TEST_SOURCE=$(TEST_SOURCE) \
 	WITH_WRAPPER=$(WITH_WRAPPER) \
@@ -316,6 +310,9 @@ clean-docker-volumes: ## clean docker volumes created during acceptance tests
 .PHONY: clean-files
 clean-files:
 	@$(MAKE) --no-print-directory -C ../../../. clean-tests
+
+.PHONY: clean
+clean-compose: clean-docker-container clean-docker-volumes clean-files
 
 .PHONY: clean
 clean: clean-docker-container clean-docker-volumes clean-dev-docker-image clean-files ## clean all
