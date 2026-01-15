@@ -24,6 +24,7 @@ OC_CI_NODEJS_ALPINE = "quay.io/opencloudeu/nodejs-alpine-ci:24"
 OC_CI_PHP = "quay.io/opencloudeu/php-alpine-ci:%s"
 OC_CI_WAIT_FOR = "quay.io/opencloudeu/wait-for-ci:latest"
 OC_CS3_API_VALIDATOR = "opencloudeu/cs3api-validator:latest"
+OC_CI_WOPI_VALIDATOR = "quay.io/opencloudeu/wopi-validator-ci:latest"
 OC_LITMUS = "owncloudci/litmus:latest"
 ONLYOFFICE_DOCUMENT_SERVER = "onlyoffice/documentserver:7.5.1"
 PLUGINS_DOCKER_BUILDX = "woodpeckerci/plugin-docker-buildx:latest"
@@ -1137,7 +1138,7 @@ def wopiValidatorTests(ctx, storage, wopiServerType, accounts_hash_difficulty = 
     for testgroup in testgroups:
         validatorTests.append({
             "name": "wopiValidatorTests-%s" % testgroup,
-            "image": "owncloudci/wopi-validator",
+            "image": OC_CI_WOPI_VALIDATOR,
             "commands": [
                 "export WOPI_TOKEN=$(cat accesstoken)",
                 "echo $WOPI_TOKEN",
@@ -1153,7 +1154,7 @@ def wopiValidatorTests(ctx, storage, wopiServerType, accounts_hash_difficulty = 
         for builtinOnlyGroup in builtinOnlyTestGroups:
             validatorTests.append({
                 "name": "wopiValidatorTests-%s" % builtinOnlyGroup,
-                "image": "owncloudci/wopi-validator",
+                "image": OC_CI_WOPI_VALIDATOR,
                 "commands": [
                     "export WOPI_TOKEN=$(cat accesstoken)",
                     "echo $WOPI_TOKEN",
