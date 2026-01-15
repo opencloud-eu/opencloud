@@ -43,6 +43,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/sirupsen/logrus from 1.9.4-0.20230606125235-dd1b4c2e81af to 1.9.4 [[#2163](https://github.com/opencloud-eu/opencloud/pull/2163)]
 - build(deps): bump github.com/go-chi/chi/v5 from 5.2.3 to 5.2.4 [[#2162](https://github.com/opencloud-eu/opencloud/pull/2162)]
 - build(deps): bump go.opentelemetry.io/contrib/zpages from 0.63.0 to 0.64.0 [[#2158](https://github.com/opencloud-eu/opencloud/pull/2158)]
 - build(deps): bump github.com/blevesearch/bleve/v2 from 2.5.5 to 2.5.7 [[#2157](https://github.com/opencloud-eu/opencloud/pull/2157)]
