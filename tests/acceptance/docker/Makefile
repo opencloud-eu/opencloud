@@ -312,9 +312,6 @@ clean-files:
 	@$(MAKE) --no-print-directory -C ../../../. clean-tests
 
 .PHONY: clean
-clean-compose: clean-docker-container clean-docker-volumes clean-files
-
-.PHONY: clean
 clean: clean-docker-container clean-docker-volumes clean-dev-docker-image clean-files ## clean all
 
 .PHONY: start-server
