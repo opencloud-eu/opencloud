@@ -20,6 +20,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -859,6 +860,26 @@ func (i *indexImpl) SearchInContext(ctx context.Context, req *SearchRequest) (sr
 			} else {
 				// build terms facet
 				facetBuilder := facet.NewTermsFacetBuilder(facetRequest.Field, facetRequest.Size)
+
+				// Set prefix filter if provided
+				if facetRequest.TermPrefix != "" {
+					facetBuilder.SetPrefixFilter(facetRequest.TermPrefix)
+				}
+
+				// Set regex filter if provided
+				if facetRequest.TermPattern != "" {
+					// Use cached compiled pattern if available, otherwise compile it now
+					if facetRequest.compiledPattern != nil {
+						facetBuilder.SetRegexFilter(facetRequest.compiledPattern)
+					} else {
+						regex, err := regexp.Compile(facetRequest.TermPattern)
+						if err != nil {
+							return nil, fmt.Errorf("error compiling regex pattern for facet '%s': %v", facetName, err)
+						}
+						facetBuilder.SetRegexFilter(regex)
+					}
+				}
+
 				facetsBuilder.Add(facetName, facetBuilder)
 			}
 		}
@@ -1304,6 +1325,9 @@ func (f *indexImplFieldDict) Cardinality() int {
 
 // helper function to remove duplicate entries from slice of strings
 func deDuplicate(fields []string) []string {
+	if len(fields) == 0 {
+		return fields
+	}
 	entries := make(map[string]struct{})
 	ret := []string{}
 	for _, entry := range fields {
