@@ -10,12 +10,9 @@
 
 - merge ocdav into frontend [[#1958](https://github.com/opencloud-eu/opencloud/pull/1958)]
 
-### 📚 Documentation
-
-- fix: markdown links formatting [[#2143](https://github.com/opencloud-eu/opencloud/pull/2143)]
-
 ### ✅ Tests
 
+- Run wopi validator tests localy [[#2151](https://github.com/opencloud-eu/opencloud/pull/2151)]
 - ci: fix unwanted workflow skip in the cron pipelines [[#2117](https://github.com/opencloud-eu/opencloud/pull/2117)]
 - [POC] ci: skip previously passed workflows on pipeline restart [[#2099](https://github.com/opencloud-eu/opencloud/pull/2099)]
 - [tests-only] test: wait post-processing to finish for MKCOL requests [[#2092](https://github.com/opencloud-eu/opencloud/pull/2092)]
@@ -23,6 +20,10 @@
 - [full-ci] use graph api in the enforcePasswordPublicLink.feature [[#2050](https://github.com/opencloud-eu/opencloud/pull/2050)]
 - [full-ci][tests-only] test: check last email content with retries as emails can be delayed [[#2038](https://github.com/opencloud-eu/opencloud/pull/2038)]
 - skip collaborativePosix tests in CI [[#2039](https://github.com/opencloud-eu/opencloud/pull/2039)]
+
+### 📚 Documentation
+
+- fix: markdown links formatting [[#2143](https://github.com/opencloud-eu/opencloud/pull/2143)]
 
 ### 🐛 Bug Fixes
 
