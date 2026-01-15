@@ -12,6 +12,7 @@
 
 ### ✅ Tests
 
+- fix flaky #2145 [[#2161](https://github.com/opencloud-eu/opencloud/pull/2161)]
 - Run wopi validator tests localy [[#2151](https://github.com/opencloud-eu/opencloud/pull/2151)]
 - ci: fix unwanted workflow skip in the cron pipelines [[#2117](https://github.com/opencloud-eu/opencloud/pull/2117)]
 - [POC] ci: skip previously passed workflows on pipeline restart [[#2099](https://github.com/opencloud-eu/opencloud/pull/2099)]
