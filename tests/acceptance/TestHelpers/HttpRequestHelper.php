@@ -100,7 +100,7 @@ class HttpRequestHelper {
 			$parsedUrl = parse_url($url);
 			$baseUrl = $parsedUrl['scheme'] . '://' . $parsedUrl['host'];
 			$baseUrl .= isset($parsedUrl['port']) ? ':' . $parsedUrl['port'] : '';
-			$testUrl = $baseUrl . "/graph/v1.0/use/$user";
+			$testUrl = $baseUrl . "/graph/v1.0/user/$user";
 			if (OcHelper::isTestingOnReva()) {
 				$url = $baseUrl . "/ocs/v2.php/cloud/users/$user";
 			}
