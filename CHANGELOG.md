@@ -42,6 +42,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump go.opentelemetry.io/contrib/zpages from 0.63.0 to 0.64.0 [[#2158](https://github.com/opencloud-eu/opencloud/pull/2158)]
 - build(deps): bump github.com/blevesearch/bleve/v2 from 2.5.5 to 2.5.7 [[#2157](https://github.com/opencloud-eu/opencloud/pull/2157)]
 - build(deps): bump go.opentelemetry.io/otel/exporters/stdout/stdouttrace from 1.38.0 to 1.39.0 [[#2154](https://github.com/opencloud-eu/opencloud/pull/2154)]
 - build(deps): bump golang.org/x/image from 0.34.0 to 0.35.0 [[#2153](https://github.com/opencloud-eu/opencloud/pull/2153)]
