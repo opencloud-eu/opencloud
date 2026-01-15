@@ -48,7 +48,7 @@ import (
 
 // Default Constants
 const (
-	Version                   = "1.47.0"
+	Version                   = "1.48.0"
 	DefaultURL                = "nats://127.0.0.1:4222"
 	DefaultPort               = 4222
 	DefaultMaxReconnect       = 60
@@ -534,6 +534,11 @@ type Options struct {
 
 	// WebSocketConnectionHeadersHandler is an optional callback handler for generating token  used for WebSocket connections.
 	WebSocketConnectionHeadersHandler WebSocketHeadersHandler
+
+	// SkipSubjectValidation will disable publish subject validation.
+	// NOTE: This is not recommended in general, as the performance gain is minimal
+	// and may lead to breaking protocol.
+	SkipSubjectValidation bool
 }
 
 const (
@@ -1508,6 +1513,20 @@ func WebSocketConnectionHeadersHandler(cb WebSocketHeadersHandler) Option {
 			return ErrWebSocketHeadersAlreadySet
 		}
 		o.WebSocketConnectionHeadersHandler = cb
+		return nil
+	}
+}
+
+// SkipSubjectValidation is an Option to skip subject validation when
+// publishing messages.
+// By default, subject validation is performed to ensure that subjects
+// are valid according to NATS subject syntax (no spaces newlines and tabs).
+// NOTE: It is not recommended to use this option as the performance gain
+// is minimal and disabling subject validation can lead breaking protocol
+// rules.
+func SkipSubjectValidation() Option {
+	return func(o *Options) error {
+		o.SkipSubjectValidation = true
 		return nil
 	}
 }
@@ -3916,7 +3935,7 @@ func (nc *Conn) kickFlusher() {
 // argument is left untouched and needs to be correctly interpreted on
 // the receiver.
 func (nc *Conn) Publish(subj string, data []byte) error {
-	return nc.publish(subj, _EMPTY_, nil, data)
+	return nc.publish(subj, _EMPTY_, false, nil, data)
 }
 
 // Header represents the optional Header for a NATS message,
@@ -4059,27 +4078,71 @@ func (nc *Conn) PublishMsg(m *Msg) error {
 	if err != nil {
 		return err
 	}
-	return nc.publish(m.Subject, m.Reply, hdr, m.Data)
+	validateReply := m.Reply != _EMPTY_
+	return nc.publish(m.Subject, m.Reply, validateReply, hdr, m.Data)
 }
 
 // PublishRequest will perform a Publish() expecting a response on the
 // reply subject. Use Request() for automatically waiting for a response
 // inline.
 func (nc *Conn) PublishRequest(subj, reply string, data []byte) error {
-	return nc.publish(subj, reply, nil, data)
+	return nc.publish(subj, reply, true, nil, data)
 }
 
 // Used for handrolled Itoa
 const digits = "0123456789"
 
+// validateSubject checks if the subject contains characters that break the NATS protocol.
+// Uses an adaptive algorithm: manual loop for short subjects (< 16 chars) and
+// SIMD-optimized strings.IndexByte for longer subjects.
+func validateSubject(subj string) error {
+	if subj == "" {
+		return ErrBadSubject
+	}
+
+	// Adaptive threshold based on benchmark data showing crossover at ~15-20 characters.
+	const lengthThreshold = 16
+
+	if len(subj) < lengthThreshold {
+		// Fast path for short subjects (< 16 chars)
+		// Short-circuit on non-control characters.
+		for i := range len(subj) {
+			c := subj[i]
+			if c <= ' ' && (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
+				return ErrBadSubject
+			}
+		}
+		return nil
+	}
+
+	// Optimized path for long subjects (>= 16 chars)
+	// Uses SIMD-optimized strings.IndexByte (processes 16+ bytes per instruction)
+	if strings.IndexByte(subj, ' ') >= 0 ||
+		strings.IndexByte(subj, '\t') >= 0 ||
+		strings.IndexByte(subj, '\r') >= 0 ||
+		strings.IndexByte(subj, '\n') >= 0 {
+		return ErrBadSubject
+	}
+	return nil
+}
+
 // publish is the internal function to publish messages to a nats-server.
 // Sends a protocol data message by queuing into the bufio writer
 // and kicking the flush go routine. These writes should be protected.
-func (nc *Conn) publish(subj, reply string, hdr, data []byte) error {
+func (nc *Conn) publish(subj, reply string, validateReply bool, hdr, data []byte) error {
 	if nc == nil {
 		return ErrInvalidConnection
 	}
-	if subj == "" {
+	if !nc.Opts.SkipSubjectValidation {
+		if err := validateSubject(subj); err != nil {
+			return err
+		}
+		if validateReply {
+			if err := validateSubject(reply); err != nil {
+				return ErrBadSubject
+			}
+		}
+	} else if subj == _EMPTY_ {
 		return ErrBadSubject
 	}
 	nc.mu.Lock()
@@ -4245,7 +4308,7 @@ func (nc *Conn) createNewRequestAndSend(subj string, hdr, data []byte) (chan *Ms
 	}
 	nc.mu.Unlock()
 
-	if err := nc.publish(subj, respInbox, hdr, data); err != nil {
+	if err := nc.publish(subj, respInbox, false, hdr, data); err != nil {
 		return nil, token, err
 	}
 
@@ -4341,7 +4404,7 @@ func (nc *Conn) oldRequest(subj string, hdr, data []byte, timeout time.Duration)
 	s.AutoUnsubscribe(1)
 	defer s.Unsubscribe()
 
-	err = nc.publish(subj, inbox, hdr, data)
+	err = nc.publish(subj, inbox, false, hdr, data)
 	if err != nil {
 		return nil, err
 	}
