@@ -41,6 +41,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump go.opentelemetry.io/otel/exporters/stdout/stdouttrace from 1.38.0 to 1.39.0 [[#2154](https://github.com/opencloud-eu/opencloud/pull/2154)]
 - build(deps): bump golang.org/x/image from 0.34.0 to 0.35.0 [[#2153](https://github.com/opencloud-eu/opencloud/pull/2153)]
 - build(deps): bump github.com/nats-io/nats.go from 1.47.0 to 1.48.0 [[#2147](https://github.com/opencloud-eu/opencloud/pull/2147)]
 - build(deps): bump github.com/onsi/ginkgo/v2 from 2.27.2 to 2.27.5 [[#2148](https://github.com/opencloud-eu/opencloud/pull/2148)]
