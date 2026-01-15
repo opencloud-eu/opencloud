@@ -117,7 +117,7 @@ github.com/bitly/go-simplejson
 # github.com/bits-and-blooms/bitset v1.22.0
 ## explicit; go 1.16
 github.com/bits-and-blooms/bitset
-# github.com/blevesearch/bleve/v2 v2.5.5
+# github.com/blevesearch/bleve/v2 v2.5.7
 ## explicit; go 1.23
 github.com/blevesearch/bleve/v2
 github.com/blevesearch/bleve/v2/analysis
@@ -217,7 +217,7 @@ github.com/blevesearch/zapx/v14
 # github.com/blevesearch/zapx/v15 v15.4.2
 ## explicit; go 1.21
 github.com/blevesearch/zapx/v15
-# github.com/blevesearch/zapx/v16 v16.2.7
+# github.com/blevesearch/zapx/v16 v16.2.8
 ## explicit; go 1.23
 github.com/blevesearch/zapx/v16
 # github.com/bluele/gcache v0.0.2
