@@ -41,6 +41,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/nats-io/nats.go from 1.47.0 to 1.48.0 [[#2147](https://github.com/opencloud-eu/opencloud/pull/2147)]
 - build(deps): bump github.com/onsi/ginkgo/v2 from 2.27.2 to 2.27.5 [[#2148](https://github.com/opencloud-eu/opencloud/pull/2148)]
 - build(deps): bump github.com/olekukonko/tablewriter from 1.1.1 to 1.1.2 [[#2144](https://github.com/opencloud-eu/opencloud/pull/2144)]
 - build(deps): bump github.com/spf13/cobra from 1.10.1 to 1.10.2 [[#2141](https://github.com/opencloud-eu/opencloud/pull/2141)]
