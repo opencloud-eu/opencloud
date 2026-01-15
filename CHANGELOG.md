@@ -1,6 +1,6 @@
 # Changelog
 
-## [5.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.0.0) - 2026-01-14
+## [5.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.0.0) - 2026-01-15
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -41,6 +41,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/onsi/ginkgo/v2 from 2.27.2 to 2.27.5 [[#2148](https://github.com/opencloud-eu/opencloud/pull/2148)]
 - build(deps): bump github.com/olekukonko/tablewriter from 1.1.1 to 1.1.2 [[#2144](https://github.com/opencloud-eu/opencloud/pull/2144)]
 - build(deps): bump github.com/spf13/cobra from 1.10.1 to 1.10.2 [[#2141](https://github.com/opencloud-eu/opencloud/pull/2141)]
 - build(deps): bump golang.org/x/net from 0.48.0 to 0.49.0 [[#2140](https://github.com/opencloud-eu/opencloud/pull/2140)]
