@@ -225,8 +225,9 @@ $(targets):
 
 .PHONY: testSuite
 testSuite: $(OC_WRAPPER) build-dev-image clean-docker-container
-	@export COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME)
-	COMPOSE_FILE=$(COMPOSE_FILE)
+	@export COMPOSE_PROJECT_NAME="$(COMPOSE_PROJECT_NAME)"
+	export COMPOSE_FILE="$(COMPOSE_FILE)"
+
 	if [ "${STORAGE_DRIVER}" = "decomposeds3" ]; then
 		docker compose -f src/ceph.yml run start_ceph
 	fi
@@ -243,7 +244,6 @@ testSuite: $(OC_WRAPPER) build-dev-image clean-docker-container
 		COMPOSE_FILE=${COMPOSE_FILE}:src/wopi.yml
 	fi
 
-	COMPOSE_FILE=$$COMPOSE_FILE \
 	STORAGE_DRIVER=$(STORAGE_DRIVER) \
 	TEST_SOURCE=$(TEST_SOURCE) \
 	WITH_WRAPPER=$(WITH_WRAPPER) \
