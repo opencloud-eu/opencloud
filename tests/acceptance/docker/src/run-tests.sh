@@ -29,21 +29,11 @@ if [ -n "$BEHAT_FEATURE" ]; then
     # allow running without filters if its a feature
     unset BEHAT_FILTER_TAGS
     unset BEHAT_SUITE
-    unset DIVIDE_INTO_NUM_PARTS
-    unset RUN_PART
     unset EXPECTED_FAILURES_FILE
 elif [ -n "$BEHAT_SUITE" ]; then
     export BEHAT_SUITE
     echo "[INFO] Running suite: $BEHAT_SUITE"
     unset BEHAT_FEATURE
-    unset DIVIDE_INTO_NUM_PARTS
-    unset RUN_PART
-elif [ -n "$DIVIDE_INTO_NUM_PARTS" ] && [ -n "$RUN_PART" ]; then
-    export DIVIDE_INTO_NUM_PARTS
-    export RUN_PART
-    echo "[INFO] Dividing tests into $DIVIDE_INTO_NUM_PARTS parts, running part $RUN_PART"
-    unset BEHAT_FEATURE
-    unset BEHAT_SUITE
 fi
 
 ## RUN TEST

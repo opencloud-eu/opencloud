@@ -18,7 +18,7 @@ else
 fi
 
 # Start server
-make -C tests/acceptance/docker start-server
+make -C tests/acceptance/docker start-services
 
 # Wait until the server responds with HTTP 200
 echo "Waiting for server to start..."

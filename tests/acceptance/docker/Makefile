@@ -13,7 +13,7 @@ WHITE        := $(shell tput -Txterm setaf 7)
 
 RESET := $(shell tput -Txterm sgr0)
 
-COMPOSE_FILE := src/redis.yml:src/opencloud-base.yml
+COMPOSE_FILE := src/opencloud-base.yml
 
 # run tests with ocwrapper by default
 WITH_WRAPPER ?= true
@@ -30,12 +30,13 @@ endif
 # enable email server
 ifeq ($(START_EMAIL),true)
 	COMPOSE_FILE := src/email.yml:$(COMPOSE_FILE)
+	export OC_ADD_RUN_SERVICES := notifications
 endif
 
 # enable antivirus
 ifeq ($(START_ANTIVIRUS),true)
 	COMPOSE_FILE := src/antivirus.yml:$(COMPOSE_FILE)
-	export OC_ADD_RUN_SERVICES := antivirus
+	export OC_ADD_RUN_SERVICES := $(OC_ADD_RUN_SERVICES) antivirus
 	export POSTPROCESSING_STEPS := virusscan
 endif
 
@@ -53,11 +54,6 @@ else ifeq ($(STORAGE_DRIVER),decomposeds3)
 	COMPOSE_FILE := src/ceph.yml:$(COMPOSE_FILE)
 endif
 
-# static
-DIVIDE_INTO_NUM_PARTS := 10
-PARTS = 1 2 3 4 5 6 7 8 9 10
-LOCAL_API_SUITES = $(shell ls ../features | grep ^api*)
-
 COMPOSE_PROJECT_NAME := opencloud-acceptance-tests
 
 # Export variables for sub-make calls
@@ -70,8 +66,6 @@ export STORAGE_DRIVER
 export WITH_WRAPPER
 export BEHAT_SUITE
 export BEHAT_FEATURE
-export DIVIDE_INTO_NUM_PARTS
-export RUN_PART
 
 ## make definition
 .PHONY: help
@@ -150,141 +144,15 @@ run-api-tests: $(OC_WRAPPER) build-dev-image clean-docker-container
 	@echo "[INFO] Compose project: $(COMPOSE_PROJECT_NAME)"
 	@echo "[INFO] Compose file: $(COMPOSE_FILE)"
 	@echo "[INFO] Using storage driver: $(STORAGE_DRIVER)"
-	docker compose up -d --build --force-recreate
+	$(MAKE) --no-print-directory start-services
 	$(MAKE) --no-print-directory run-test-only
 
-.PHONY: test-opencloud-feature-decomposed-storage
-test-opencloud-feature-decomposed-storage: ## test a OpenCloud feature with decomposed storage, usage: make ... BEHAT_FEATURE='tests/acceptance/features/apiAccountsHashDifficulty/addUser.feature:10'
-	@TEST_SOURCE=opencloud \
-	STORAGE_DRIVER=decomposed \
-	BEHAT_FEATURE=$(BEHAT_FEATURE) \
-	$(MAKE) --no-print-directory testSuite
-
-.PHONY: test-opencloud-feature-decomposeds3-storage
-test-opencloud-feature-decomposeds3-storage: ## test a OpenCloud feature with decomposeds3 storage, usage: make ... BEHAT_FEATURE='tests/acceptance/features/apiAccountsHashDifficulty/addUser.feature:10'
-	@TEST_SOURCE=opencloud \
-	STORAGE_DRIVER=decomposeds3 \
-	BEHAT_FEATURE=$(BEHAT_FEATURE) \
-	START_CEPH=1 \
-	$(MAKE) --no-print-directory testSuite
-
-.PHONY: test-opencloud-feature-posix-storage
-test-opencloud-feature-posix-storage: ## test a OpenCloud feature with posix storage, usage: make ... BEHAT_FEATURE='tests/acceptance/features/apiAccountsHashDifficulty/addUser.feature:10'
-	@TEST_SOURCE=opencloud \
-	STORAGE_DRIVER=posix \
-	BEHAT_FEATURE=$(BEHAT_FEATURE) \
-	$(MAKE) --no-print-directory testSuite
-
-.PHONY: test-core-feature-decomposed-storage
-test-core-feature-decomposed-storage: ## test a core feature with decomposed storage, usage: make ... BEHAT_FEATURE='tests/acceptance/features/coreApiAuth/webDavAuth.feature'
-	@TEST_SOURCE=core \
-	STORAGE_DRIVER=decomposed \
-	BEHAT_FEATURE=$(BEHAT_FEATURE) \
-	$(MAKE) --no-print-directory testSuite
-
-.PHONY: test-core-feature-decomposeds3-storage
-test-core-feature-decomposeds3-storage: ## test a core feature with decomposeds3 storage, usage: make ... BEHAT_FEATURE='tests/acceptance/features/coreApiAuth/webDavAuth.feature'
-	@TEST_SOURCE=core \
-	STORAGE_DRIVER=decomposeds3 \
-	BEHAT_FEATURE=$(BEHAT_FEATURE) \
-	START_CEPH=1 \
-	$(MAKE) --no-print-directory testSuite
-
-.PHONY: test-opencloud-feature-posix-storage
-test-core-opencloud-feature-posix-storage: ## test a core feature with posix storage, usage: make ... BEHAT_FEATURE='tests/acceptance/features/apiAccountsHashDifficulty/addUser.feature:10'
-	@TEST_SOURCE=core \
-	STORAGE_DRIVER=posix \
-	BEHAT_FEATURE=$(BEHAT_FEATURE) \
-	$(MAKE) --no-print-directory testSuite
-
-localSuiteOpencloud = $(addprefix localApiTests-, $(addsuffix -decomposed,${LOCAL_API_SUITES}))
-.PHONY: $(localSuiteOpencloud)
-$(localSuiteOpencloud): ## run local api test suite with decomposed storage
-	@$(eval BEHAT_SUITE=$(shell echo "$@" | cut -d'-' -f2))
-	@TEST_SOURCE=opencloud \
-	STORAGE_DRIVER=decomposed \
-	BEHAT_SUITE=$(BEHAT_SUITE) \
-	$(MAKE) --no-print-directory testSuite
-
-localSuiteDecomposedS3 = $(addprefix localApiTests-, $(addsuffix -decomposeds3,${LOCAL_API_SUITES}))
-.PHONY: $(localSuiteDecomposedS3)
-$(localSuiteDecomposedS3): ## run local api test suite with s3 storage
-	@$(eval BEHAT_SUITE=$(shell echo "$@" | cut -d'-' -f2))
-	@TEST_SOURCE=opencloud \
-	STORAGE_DRIVER=decomposeds3 \
-	BEHAT_SUITE=$(BEHAT_SUITE) \
-	$(MAKE) --no-print-directory testSuite
-
-localSuitePosix = $(addprefix localApiTests-, $(addsuffix -posix,${LOCAL_API_SUITES}))
-.PHONY: $(localSuitePosix)
-$(localSuitePosix): ## run local api test suite with posix storage
-	@$(eval BEHAT_SUITE=$(shell echo "$@" | cut -d'-' -f2))
-	@TEST_SOURCE=opencloud \
-	STORAGE_DRIVER=posix \
-	BEHAT_SUITE=$(BEHAT_SUITE) \
-	$(MAKE) --no-print-directory testSuite
-
-targetsOC = $(addprefix Core-API-Tests-decomposed-storage-,$(PARTS))
-.PHONY: $(targetsOC)
-$(targetsOC):
-	@$(eval RUN_PART=$(shell echo "$@" | tr -dc '0-9'))
-	@TEST_SOURCE=core \
-	STORAGE_DRIVER=decomposed \
-	RUN_PART=$(RUN_PART) \
-	$(MAKE) --no-print-directory testSuite
-
-targetsDecomposedS3 = $(addprefix Core-API-Tests-decomposeds3-storage-,$(PARTS))
-.PHONY: $(targetsDecomposedS3)
-$(targets):
-	@$(eval RUN_PART=$(shell echo "$@" | tr -dc '0-9'))
-	@TEST_SOURCE=core \
-	STORAGE_DRIVER=decomposeds3 \
-	RUN_PART=$(RUN_PART) \
-	$(MAKE) --no-print-directory testSuite
-
-.PHONY: testSuite
-testSuite: $(OC_WRAPPER) build-dev-image clean-docker-container
-	@export COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME)
-	COMPOSE_FILE=$(COMPOSE_FILE)
-	if [ "${STORAGE_DRIVER}" = "decomposeds3" ]; then
-		docker compose -f src/ceph.yml run start_ceph
-	fi
-	if [ "${START_EMAIL}" = "true" ]; then
-		docker compose -f src/email.yml run start_email
-	fi
-	if [ "${START_ANTIVIRUS}" = "true" ]; then
-		docker compose -f src/antivirus.yml run start_antivirus
-	fi
-	if [ "${START_TIKA}" = "true" ]; then
-		docker compose -f src/tika.yml run tika-service
-	fi
-	if [ "${ENABLE_WOPI}" = "true" ]; then
-		COMPOSE_FILE=${COMPOSE_FILE}:src/wopi.yml
-	fi
-
-	COMPOSE_FILE=$$COMPOSE_FILE \
-	STORAGE_DRIVER=$(STORAGE_DRIVER) \
-	TEST_SOURCE=$(TEST_SOURCE) \
-	WITH_WRAPPER=$(WITH_WRAPPER) \
-	OC_ASYNC_UPLOADS=$(OC_ASYNC_UPLOADS) \
-	OC_ADD_RUN_SERVICES=$(OC_ADD_RUN_SERVICES) \
-	POSTPROCESSING_STEPS=$(POSTPROCESSING_STEPS) \
-	SEARCH_EXTRACTOR_TYPE=$(SEARCH_EXTRACTOR_TYPE) \
-	OC_IMAGE_TAG=$(OC_IMAGE_TAG) \
-	BEHAT_SUITE=$(BEHAT_SUITE) \
-	BEHAT_FEATURE=$(BEHAT_FEATURE) \
-	DIVIDE_INTO_NUM_PARTS=$(DIVIDE_INTO_NUM_PARTS) \
-	RUN_PART=$(RUN_PART) \
-	docker compose up -d --build --force-recreate
-
 .PHONY: show-test-logs
-show-test-logs: ## show logs of test
-	@COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) \
+show-test-logs: ## show test logs
 	docker compose logs --no-log-prefix -f acceptance-tests | less
 
 .PHONY: ps
-ps: ## show docker status
-	@COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) \
+ps: ## show running containers
 	docker compose ps
 
 $(OC_WRAPPER):
@@ -298,32 +166,12 @@ build-dev-image:
 		$(MAKE) --no-print-directory -C ../../../opencloud dev-docker \
 	; fi;
 
-.PHONY: clean-dev-docker-image
-clean-dev-docker-image: ## clean docker image built during acceptance tests
+.PHONY: clean-dev-image
+clean-dev-image: ## clean docker image built during acceptance tests
 	@docker image rm opencloudeu/opencloud:dev || true
 
-.PHONY: clean-docker-container
-clean-docker-container: ## clean docker containers created during acceptance tests
-	@COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) \
-	COMPOSE_FILE=$(COMPOSE_FILE) \
-	BEHAT_SUITE="" \
-	DIVIDE_INTO_NUM_PARTS="" \
-	OC_IMAGE_TAG="" \
-	RUN_PART="" \
-	STORAGE_DRIVER="" \
-	TEST_SOURCE="" \
-	docker compose down --remove-orphans
-
-.PHONY: clean-docker-volumes
-clean-docker-volumes: ## clean docker volumes created during acceptance tests
-	@COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) \
-	COMPOSE_FILE=$(COMPOSE_FILE) \
-	BEHAT_SUITE="" \
-	DIVIDE_INTO_NUM_PARTS="" \
-	OC_IMAGE_TAG="" \
-	RUN_PART="" \
-	STORAGE_DRIVER="" \
-	TEST_SOURCE="" \
+.PHONY: clean-containers
+clean-containers: ## clean docker containers created during acceptance tests
 	docker compose down --remove-orphans -v
 
 .PHONY: clean-files
@@ -331,20 +179,10 @@ clean-files:
 	@$(MAKE) --no-print-directory -C ../../../. clean-tests
 
 .PHONY: clean
-clean: clean-docker-container clean-docker-volumes clean-dev-docker-image clean-files ## clean all
+clean-all: clean-containers clean-dev-image clean-files ## clean all
 
-.PHONY: start-server
-start-server: $(OC_WRAPPER) ## build and start server
-	@echo "Build and start server..."
-	COMPOSE_FILE=$(COMPOSE_FILE) \
-	COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) \
-	OC_IMAGE_TAG=dev \
-	WITH_WRAPPER=$(WITH_WRAPPER) \
-	TEST_SOURCE=opencloud \
-	STORAGE_DRIVER=$(STORAGE_DRIVER) \
-	OC_ASYNC_UPLOADS=true \
-	SEARCH_EXTRACTOR_TYPE=$(SEARCH_EXTRACTOR_TYPE) \
-	OC_ADD_RUN_SERVICES=notifications \
+.PHONY: start-services
+start-services: $(OC_WRAPPER) ## start services
 	docker compose up -d --build --force-recreate
 
 .PHONY: run-test-only
