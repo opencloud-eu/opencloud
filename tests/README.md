@@ -161,7 +161,7 @@ Running collaboration API tests requires extra services. You can enable the requ
 ```bash
 ENABLE_WOPI=true \
 BEHAT_FEATURE='tests/acceptance/features/apiCollaboration/checkFileInfo.feature' \
-make -C tests/acceptance/docker test-opencloud-feature-decomposed-storage
+make -C tests/acceptance/docker test-opencloud-feature-posix-storage
 ```
 
 If the tests fail due to the servers not being ready, you can re-run the tests using the following command:
@@ -628,6 +628,7 @@ TEST_GROUP=BaseWopiViewing docker compose -f tests/acceptance/docker/src/wopi-va
 ```
 
 ### for macOS use arm image
+
 ```bash
 WOPI_VALIDATOR_IMAGE=scharfvi/wopi-validator \
 TEST_GROUP=BaseWopiViewing \
