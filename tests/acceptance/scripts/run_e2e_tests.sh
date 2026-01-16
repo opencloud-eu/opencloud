@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Set required environment variables
-export LOCAL_TEST=true
+export START_TIKA=true
 export WITH_WRAPPER=false
 
 TEST_SERVER_URL="https://opencloud-server:9200"

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Set required environment variables
-export LOCAL_TEST=true
+export START_TIKA=true
 export START_EMAIL=true
 export WITH_WRAPPER=true
 export STORAGE_DRIVER=${STORAGE_DRIVER:-posix}

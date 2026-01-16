@@ -13,40 +13,35 @@ WHITE        := $(shell tput -Txterm setaf 7)
 
 RESET := $(shell tput -Txterm sgr0)
 
-## default values only for sub-make calls
-ifeq ($(LOCAL_TEST),true)
-	COMPOSE_FILE ?= src/opencloud-base.yml:src/tika.yml
-	ifeq ($(START_EMAIL),true)
-		COMPOSE_FILE := $(COMPOSE_FILE):src/email.yml
-	endif
-else 
-	COMPOSE_FILE ?= src/redis.yml:src/opencloud-base.yml:src/acceptance.yml
-endif
-
-## user input
-BEHAT_FEATURE ?=
-TEST_SOURCE ?= opencloud
-
-ifdef OC_IMAGE_TAG
-	BUILD_DEV_IMAGE := 0
-else
-	BUILD_DEV_IMAGE := 1
-endif
-OC_IMAGE_TAG ?= dev
+COMPOSE_FILE := src/redis.yml:src/opencloud-base.yml
 
 # run tests with ocwrapper by default
 WITH_WRAPPER ?= true
 OC_WRAPPER := ../../ocwrapper/bin/ocwrapper
 
-ifdef START_TIKA
-	ifeq ($(START_TIKA),true)
-		COMPOSE_FILE := $(COMPOSE_FILE):src/tika.yml
-		SEARCH_EXTRACTOR_TYPE := tika
-	else
-		SEARCH_EXTRACTOR_TYPE := basic
-	endif
+# enable tika for full text extraction
+ifeq ($(START_TIKA),true)
+	COMPOSE_FILE := src/tika.yml:$(COMPOSE_FILE)
+	export SEARCH_EXTRACTOR_TYPE := tika
 else
-	SEARCH_EXTRACTOR_TYPE := basic
+	export SEARCH_EXTRACTOR_TYPE := basic
+endif
+
+# enable email server
+ifeq ($(START_EMAIL),true)
+	COMPOSE_FILE := src/email.yml:$(COMPOSE_FILE)
+endif
+
+# enable antivirus
+ifeq ($(START_ANTIVIRUS),true)
+	COMPOSE_FILE := src/antivirus.yml:$(COMPOSE_FILE)
+	export OC_ADD_RUN_SERVICES := antivirus
+	export POSTPROCESSING_STEPS := virusscan
+endif
+
+# enable wopi services
+ifeq ($(ENABLE_WOPI),true)
+	COMPOSE_FILE := $(COMPOSE_FILE):src/wopi.yml
 endif
 
 # default to posix
@@ -54,6 +49,8 @@ STORAGE_DRIVER ?= posix
 ifeq ($(STORAGE_DRIVER),posix)
 	# posix requires a additional driver config
 	COMPOSE_FILE := $(COMPOSE_FILE):src/posix.yml
+else ifeq ($(STORAGE_DRIVER),decomposeds3)
+	COMPOSE_FILE := src/ceph.yml:$(COMPOSE_FILE)
 endif
 
 # static
@@ -62,6 +59,19 @@ PARTS = 1 2 3 4 5 6 7 8 9 10
 LOCAL_API_SUITES = $(shell ls ../features | grep ^api*)
 
 COMPOSE_PROJECT_NAME := opencloud-acceptance-tests
+
+# Export variables for sub-make calls
+export COMPOSE_PROJECT_NAME
+export COMPOSE_FILE
+
+export OC_IMAGE_TAG
+
+export STORAGE_DRIVER
+export WITH_WRAPPER
+export BEHAT_SUITE
+export BEHAT_FEATURE
+export DIVIDE_INTO_NUM_PARTS
+export RUN_PART
 
 ## make definition
 .PHONY: help
@@ -134,6 +144,15 @@ help:
 	@echo -e "\tmake clean-docker-container\t\t${BLUE}stops and removes used docker containers${RESET}"
 	@echo -e "\tmake clean-docker-volumes\t\t${BLUE}removes used docker volumes (used for caching)${RESET}"
 	@echo
+
+.PHONY: run-api-tests
+run-api-tests: $(OC_WRAPPER) build-dev-image clean-docker-container
+	@echo "[INFO] Compose project: $(COMPOSE_PROJECT_NAME)"
+	@echo "[INFO] Compose file: $(COMPOSE_FILE)"
+	@echo "[INFO] Using storage driver: $(STORAGE_DRIVER)"
+	docker compose up -d --build --force-recreate
+	$(MAKE) --no-print-directory run-test-only
+
 .PHONY: test-opencloud-feature-decomposed-storage
 test-opencloud-feature-decomposed-storage: ## test a OpenCloud feature with decomposed storage, usage: make ... BEHAT_FEATURE='tests/acceptance/features/apiAccountsHashDifficulty/addUser.feature:10'
 	@TEST_SOURCE=opencloud \
@@ -275,7 +294,7 @@ $(OC_WRAPPER):
 
 .PHONY: build-dev-image
 build-dev-image:
-	@if [ $(BUILD_DEV_IMAGE) -eq 1 ]; then \
+	@if [ -z "$(OC_IMAGE_TAG)" ]; then \
 		$(MAKE) --no-print-directory -C ../../../opencloud dev-docker \
 	; fi;
 
@@ -328,13 +347,6 @@ start-server: $(OC_WRAPPER) ## build and start server
 	OC_ADD_RUN_SERVICES=notifications \
 	docker compose up -d --build --force-recreate
 
-.PHONY: run-test
-run-test:
-	COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) \
-	STORAGE_DRIVER=$(STORAGE_DRIVER) \
-	TEST_SOURCE=$(TEST_SOURCE) \
-	BEHAT_SUITE=$(BEHAT_SUITE) \
-	BEHAT_FEATURE=$(BEHAT_FEATURE) \
-	DIVIDE_INTO_NUM_PARTS=$(DIVIDE_INTO_NUM_PARTS) \
-	RUN_PART=$(RUN_PART) \
+.PHONY: run-test-only
+run-test-only:
 	docker compose -f src/acceptance.yml up

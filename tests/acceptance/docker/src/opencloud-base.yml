@@ -1,6 +1,6 @@
 services:
   opencloud-server:
-    image: opencloudeu/opencloud:dev
+    image: opencloudeu/opencloud:${OC_IMAGE_TAG:-dev}
     entrypoint: ["/bin/sh", "/usr/bin/serve-opencloud.sh"]
     user: root
     environment:
