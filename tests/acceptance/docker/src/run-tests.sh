@@ -11,13 +11,13 @@ EXPECTED_FAILURES_FILE=''
 
 if [ "$STORAGE_DRIVER" = "posix" ]; then
     BEHAT_FILTER_TAGS+='&&~@skipOnOpencloud-posix-Storage'
-    EXPECTED_FAILURES_FILE='/drone/src/tests/acceptance/expected-failures-on-posix-storage.md'
+    EXPECTED_FAILURES_FILE='/drone/src/tests/acceptance/expected-failures-posix-storage.md'
 elif [ "$STORAGE_DRIVER" = "decomposed" ]; then
     BEHAT_FILTER_TAGS+='&&~@skipOnOpencloud-decomposed-Storage'
-    EXPECTED_FAILURES_FILE='/drone/src/tests/acceptance/expected-failures-on-decomposed-storage.md'
+    EXPECTED_FAILURES_FILE='/drone/src/tests/acceptance/expected-failures-decomposed-storage.md'
 elif [ "$STORAGE_DRIVER" = "decomposeds3" ]; then
     BEHAT_FILTER_TAGS+='&&~@skipOnOpencloud-decomposeds3-Storage'
-    # EXPECTED_FAILURES_FILE='/drone/src/tests/acceptance/expected-failures-on-decomposeds3-storage.md'
+    # EXPECTED_FAILURES_FILE='/drone/src/tests/acceptance/expected-failures-decomposeds3-storage.md'
 fi
 
 export BEHAT_FILTER_TAGS

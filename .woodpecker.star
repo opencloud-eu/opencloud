@@ -1314,7 +1314,7 @@ def localApiTestPipeline(ctx):
 
 def localApiTest(suites, storage = "decomposed", extra_environment = {}, with_remote_php = False, generate_virus_files = False):
     test_dir = "%s/tests/acceptance" % dirs["base"]
-    expected_failures_file = "%s/expected-failures-localAPI-on-%s-storage.md" % (test_dir, storage)
+    expected_failures_file = "%s/expected-failures-%s-storage.md" % (test_dir, storage)
 
     environment = {
         "TEST_SERVER_URL": OC_URL,
@@ -1440,7 +1440,7 @@ def coreApiTestPipeline(ctx):
 def coreApiTest(part_number = 1, number_of_parts = 1, with_remote_php = False, storage = "posix"):
     filter_tags = "~@skipOnOpencloud-%s-Storage" % storage
     test_dir = "%s/tests/acceptance" % dirs["base"]
-    expected_failures_file = "%s/expected-failures-API-on-%s-storage.md" % (test_dir, storage)
+    expected_failures_file = "%s/expected-failures-%s-storage.md" % (test_dir, storage)
 
     return [{
         "name": "api-tests",

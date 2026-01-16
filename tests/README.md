@@ -262,7 +262,7 @@ A specific scenario from a feature can be run by adding `:<line-number>` at the 
 ### Use Existing Tests for BDD
 
 As a lot of scenarios are written for core, we can use those tests for Behaviour driven development in OpenCloud.
-Every scenario that does not work in OpenCloud with `decomposed` storage, is listed in `tests/acceptance/expected-failures-API-on-decomposed-storage.md` with a link to the related issue.
+Every scenario that does not work in OpenCloud with `decomposed` storage, is listed in `tests/acceptance/expected-failures-decomposed-storage.md` with a link to the related issue.
 
 Those scenarios are run in the ordinary acceptance test pipeline in CI. The scenarios that fail are checked against the
 expected failures. If there are any differences then the CI pipeline fails.
