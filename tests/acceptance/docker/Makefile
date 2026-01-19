@@ -1,3 +1,4 @@
+.ONESHELL:
 SHELL := bash
 
 # define standard colors
@@ -24,7 +25,7 @@ endif
 
 ## user input
 BEHAT_FEATURE ?=
-
+TEST_SOURCE ?= opencloud
 
 ifdef OC_IMAGE_TAG
 	BUILD_DEV_IMAGE := 0
@@ -224,28 +225,31 @@ $(targets):
 
 .PHONY: testSuite
 testSuite: $(OC_WRAPPER) build-dev-image clean-docker-container
-	@if [ -n "${START_CEPH}" ]; then \
-			COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) \
-			COMPOSE_FILE=src/ceph.yml \
-			docker compose run start_ceph; \
+	@COMPOSE_FILE_VAR="$(COMPOSE_FILE)"; \
+	\
+	if [ "${STORAGE_DRIVER}" = "decomposeds3" ]; then \
+		COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) \
+		docker compose -f src/ceph.yml run start_ceph; \
 	fi; \
-	if [ "${START_EMAIL}" == "true" ]; then \
-			COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) \
-			COMPOSE_FILE=src/email.yml \
-			docker compose run start_email; \
+	if [ "${START_EMAIL}" = "true" ]; then \
+		COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) \
+		docker compose -f src/email.yml run start_email; \
 	fi; \
-	if [ "${START_ANTIVIRUS}" == "true" ]; then \
-    		COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) \
-    		COMPOSE_FILE=src/antivirus.yml \
-    		docker compose run start_antivirus; \
-    fi; \
-    if [ "${START_TIKA}" == "true" ]; then \
-			COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) \
-			COMPOSE_FILE=src/tika.yml \
-			docker compose run tika-service; \
-    fi; \
+	if [ "${START_ANTIVIRUS}" = "true" ]; then \
+		COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) \
+		docker compose -f src/antivirus.yml run start_antivirus; \
+	fi; \
+	if [ "${START_TIKA}" = "true" ]; then \
+		COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) \
+		docker compose -f src/tika.yml run tika-service; \
+	fi; \
+	if [ "${ENABLE_WOPI}" = "true" ]; then \
+		COMPOSE_FILE_VAR="$${COMPOSE_FILE_VAR}:src/wopi.yml"; \
+	fi; \
+	\
+	
 	COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) \
-	COMPOSE_FILE=$(COMPOSE_FILE) \
+	COMPOSE_FILE=$${COMPOSE_FILE_VAR} \
 	STORAGE_DRIVER=$(STORAGE_DRIVER) \
 	TEST_SOURCE=$(TEST_SOURCE) \
 	WITH_WRAPPER=$(WITH_WRAPPER) \
@@ -263,13 +267,11 @@ testSuite: $(OC_WRAPPER) build-dev-image clean-docker-container
 .PHONY: show-test-logs
 show-test-logs: ## show logs of test
 	@COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) \
-	COMPOSE_FILE=$(COMPOSE_FILE) \
 	docker compose logs --no-log-prefix -f acceptance-tests | less
 
 .PHONY: ps
 ps: ## show docker status
 	@COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) \
-	COMPOSE_FILE=$(COMPOSE_FILE) \
 	docker compose ps
 
 $(OC_WRAPPER):
@@ -285,7 +287,7 @@ build-dev-image:
 
 .PHONY: clean-dev-docker-image
 clean-dev-docker-image: ## clean docker image built during acceptance tests
-	@docker image rm opencloud-eu/opencloud:dev || true
+	@docker image rm opencloudeu/opencloud:dev || true
 
 .PHONY: clean-docker-container
 clean-docker-container: ## clean docker containers created during acceptance tests
@@ -328,6 +330,17 @@ start-server: $(OC_WRAPPER) ## build and start server
 	TEST_SOURCE=opencloud \
 	STORAGE_DRIVER=$(STORAGE_DRIVER) \
 	OC_ASYNC_UPLOADS=true \
-	SEARCH_EXTRACTOR_TYPE=tika \
+	SEARCH_EXTRACTOR_TYPE=$(SEARCH_EXTRACTOR_TYPE) \
 	OC_ADD_RUN_SERVICES=notifications \
 	docker compose up -d --build --force-recreate
+
+.PHONY: run-test
+run-test:
+	COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) \
+	STORAGE_DRIVER=$(STORAGE_DRIVER) \
+	TEST_SOURCE=$(TEST_SOURCE) \
+	BEHAT_SUITE=$(BEHAT_SUITE) \
+	BEHAT_FEATURE=$(BEHAT_FEATURE) \
+	DIVIDE_INTO_NUM_PARTS=$(DIVIDE_INTO_NUM_PARTS) \
+	RUN_PART=$(RUN_PART) \
+	docker compose -f src/acceptance.yml up

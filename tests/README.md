@@ -19,7 +19,7 @@ Basically we have two sources for feature tests and test suites:
 
 At the moment, both can be applied to OpenCloud.
 
-As a storage backend, we support the OpenCloud native storage, also called `decomposed`. This stores files directly on disk. Along with that we also provide `decomposeds3`, `posix`  storage drivers.
+As a storage backend, we support the OpenCloud native storage, also called `decomposed`. This stores files directly on disk. Along with that we also provide `decomposeds3`, `posix` storage drivers.
 
 You can invoke two types of test suite runs:
 
@@ -153,6 +153,23 @@ make -C tests/acceptance/docker test-core-feature-decomposed-storage
 
 Note:
 The test suites transferred from core have `coreApi` prefixed
+
+### Running Collaboration API Tests Locally
+
+Running collaboration API tests requires extra services. You can enable the required services by providing the environment variable `ENABLE_WOPI=true` while running the tests.
+
+```bash
+ENABLE_WOPI=true \
+BEHAT_FEATURE='tests/acceptance/features/apiCollaboration/checkFileInfo.feature' \
+make -C tests/acceptance/docker test-opencloud-feature-posix-storage
+```
+
+If the tests fail due to the servers not being ready, you can re-run the tests using the following command:
+
+```bash
+BEHAT_FEATURE='tests/acceptance/features/apiCollaboration/checkFileInfo.feature' \
+make -C tests/acceptance/docker run-test
+```
 
 ### OpenCloud Image to Be Tested (Skip Local Image Build)
 
@@ -573,17 +590,17 @@ The sample `fontsMap.json` file is located in `tests/config/drone/fontsMap.json`
 ### Build dev docker
 
 ```bash
-make -C opencloud dev-docker 
+make -C opencloud dev-docker
 ```
 
 ### Choose STORAGE_DRIVER
+
 By default, the system uses `posix` storage. However, you can override this by setting the `STORAGE_DRIVER` environment variable.
 
-
-### Run a script that starts the openCloud server in the docker and runs the API tests locally (for debugging purposes) 
+### Run a script that starts the openCloud server in the docker and runs the API tests locally (for debugging purposes)
 
 ```bash
-STORAGE_DRIVER=posix ./tests/acceptance/run_api_tests.sh 
+STORAGE_DRIVER=posix ./tests/acceptance/run_api_tests.sh
 ```
 
 ## Running WOPI Validator Tests
@@ -611,6 +628,7 @@ TEST_GROUP=BaseWopiViewing docker compose -f tests/acceptance/docker/src/wopi-va
 ```
 
 ### for macOS use arm image
+
 ```bash
 WOPI_VALIDATOR_IMAGE=scharfvi/wopi-validator \
 TEST_GROUP=BaseWopiViewing \

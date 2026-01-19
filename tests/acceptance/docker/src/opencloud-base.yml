@@ -1,7 +1,7 @@
 services:
   opencloud-server:
     image: opencloudeu/opencloud:dev
-    entrypoint: [ "/bin/sh", "/usr/bin/serve-opencloud.sh" ]
+    entrypoint: ["/bin/sh", "/usr/bin/serve-opencloud.sh"]
     user: root
     environment:
       WITH_WRAPPER: $WITH_WRAPPER
@@ -22,7 +22,6 @@ services:
       OC_ASYNC_UPLOADS: $OC_ASYNC_UPLOADS
       OC_ADD_RUN_SERVICES: $OC_ADD_RUN_SERVICES
       PROXY_HTTP_ADDR: "0.0.0.0:9200"
-      OC_JWT_SECRET: "some-random-jwt-secret"
 
       # decomposeds3 specific settings
       STORAGE_USERS_DECOMPOSEDS3_ENDPOINT: http://ceph:8080
@@ -52,9 +51,9 @@ services:
       # fonts map for txt thumbnails (including unicode support)
       THUMBNAILS_TXT_FONTMAP_FILE: "/woodpecker/src/github.com/opencloud-eu/opencloud/tests/config/drone/fontsMap.json"
     ports:
-      - '9200:9200'
-      - '5200:5200' ## ocwrapper
-      - '9174:9174' ## notifications debug
+      - "9200:9200"
+      - "5200:5200" ## ocwrapper
+      - "9174:9174" ## notifications debug
     volumes:
       - ../../../config:/woodpecker/src/github.com/opencloud-eu/opencloud/tests/config
       - ../../../ocwrapper/bin/ocwrapper:/usr/bin/ocwrapper
