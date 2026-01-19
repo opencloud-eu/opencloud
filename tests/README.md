@@ -7,11 +7,12 @@ Both ways to run tests with the test suites are described here.
 ## Table of Contents
 
 - [Running Test Suite in Docker](#running-test-suite-in-docker)
-  - [Different Command Examples](#different-command-examples)
-    - [Running Tests](#running-tests)
+  - [Running API Tests](#running-api-tests)
+    - [Run Tests](#run-tests)
     - [Skip Local Image Build While Running Tests](#skip-local-image-build-while-running-tests)
     - [Check Test Logs](#check-test-logs)
     - [Cleanup the Setup](#cleanup-the-setup)
+  - [Running WOPI Validator Tests](#running-wopi-validator-tests)
 - [Running Test Suite in Local Environment](#running-test-suite-in-local-environment)
   - [Running Tests With And Without `remote.php`](#running-tests-with-and-without-remotephp)
   - [Running ENV Config Tests (@env-Config)](#running-env-config-tests-env-config)
@@ -21,7 +22,6 @@ Both ways to run tests with the test suites are described here.
   - [Running Test Suite With Federated Sharing (@ocm)](#running-test-suite-with-federated-sharing-ocm)
   - [Running Text Preview Tests Containing Unicode Characters](#running-text-preview-tests-containing-unicode-characters)
 - [Running All API Tests Locally](#running-all-api-tests-locally)
-- [Running WOPI Validator Tests](#running-wopi-validator-tests)
 
 ## Running Test Suite in Docker
 
@@ -31,9 +31,9 @@ Check the available commands and environment variables with:
 make -C tests/acceptance/docker help
 ```
 
-### Different Command Examples
+### Running API Tests
 
-#### Running Tests
+#### Run Tests
 
 We can run a single feature or a single test suite with different storage drivers.
 
@@ -61,7 +61,7 @@ We can run a single feature or a single test suite with different storage driver
 3. Run with different storage driver (default is `posix`):
 
    ```bash
-   STORAGE_DRIVER='decomposed' \
+   STORAGE_DRIVER='posix' \
    BEHAT_SUITE='apiGraphUserGroup' \
    make -C tests/acceptance/docker run-api-tests
    ```
@@ -133,6 +133,40 @@ Run the following command to clean all the resources created while running the t
 
 ```bash
 make -C tests/acceptance/docker clean-all
+```
+
+### Running WOPI Validator Tests
+
+#### Available Test Groups
+
+```text
+  BaseWopiViewing
+  CheckFileInfoSchema
+  EditFlows
+  Locks
+  AccessTokens
+  GetLock
+  ExtendedLockLength
+  FileVersion
+  Features
+  PutRelativeFile
+  RenameFileIfCreateChildFileIsNotSupported
+```
+
+#### Run Test
+
+```bash
+TEST_GROUP=BaseWopiViewing docker compose -f tests/acceptance/docker/src/wopi-validator-test.yml up -d
+```
+
+#### Run Test (macOS)
+
+Use the arm image for macOS to run the validator tests.
+
+```bash
+WOPI_VALIDATOR_IMAGE=scharfvi/wopi-validator \
+TEST_GROUP=BaseWopiViewing \
+docker compose -f tests/acceptance/docker/src/wopi-validator-test.yml up -d
 ```
 
 ## Running Test Suite in Local Environment
@@ -537,38 +571,4 @@ By default, the system uses `posix` storage. However, you can override this by s
 
 ```bash
 STORAGE_DRIVER=posix ./tests/acceptance/run_api_tests.sh
-```
-
-## Running WOPI Validator Tests
-
-### Available Test Groups
-
-```text
-  BaseWopiViewing
-  CheckFileInfoSchema
-  EditFlows
-  Locks
-  AccessTokens
-  GetLock
-  ExtendedLockLength
-  FileVersion
-  Features
-  PutRelativeFile
-  RenameFileIfCreateChildFileIsNotSupported
-```
-
-### Run Test
-
-```bash
-TEST_GROUP=BaseWopiViewing docker compose -f tests/acceptance/docker/src/wopi-validator-test.yml up -d
-```
-
-### Run Test (macOS)
-
-Use the arm image for macOS to run the validator tests.
-
-```bash
-WOPI_VALIDATOR_IMAGE=scharfvi/wopi-validator \
-TEST_GROUP=BaseWopiViewing \
-docker compose -f tests/acceptance/docker/src/wopi-validator-test.yml up -d
 ```
