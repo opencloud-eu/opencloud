@@ -15,8 +15,8 @@ else
 	TC_RESET="\033[0m"
 fi
 
-function log_success(){
-	printf "${TC_GREEN}[SUCCESS] %s\n${TC_RESET}" "$1"
+function log_failed(){
+	printf "${TC_RED}[FAILED] %s\n${TC_RESET}" "$1"
 }
 
 function log_info(){
@@ -589,10 +589,6 @@ for i in "${!BEHAT_SUITES[@]}"
 			done
 done
 
-TOTAL_SCENARIOS=$((SCENARIOS_THAT_PASSED + SCENARIOS_THAT_FAILED))
-
-echo "runsh: Total ${TOTAL_SCENARIOS} scenarios (${SCENARIOS_THAT_PASSED} passed, ${SCENARIOS_THAT_FAILED} failed)"
-
 # 3 types of things can have gone wrong:
 #   - some scenario failed (and it was not expected to fail)
 #   - some scenario passed (but it was expected to fail)
@@ -669,18 +665,20 @@ fi
 
 if [ "${UNEXPECTED_FAILURE}" = true ]
 then
-	log_error "Total unexpected failed scenarios throughout the test run:"
-	printf "${TC_RED}%s\n${TC_RESET}" "${UNEXPECTED_FAILED_SCENARIOS[@]}"
+	log_failed "Total unexpected failed scenarios:"
+	printf "${TC_RED}- %s\n${TC_RESET}" "${UNEXPECTED_FAILED_SCENARIOS[@]}"
+	echo ""
 else
-	log_success "There were no unexpected failures."
+	log_info "There were no unexpected failures."
 fi
 
 if [ "${UNEXPECTED_SUCCESS}" = true ]
 then
-	log_error "Total unexpected passed scenarios throughout the test run:"
-	printf "${TC_RED}%s\n${TC_RESET}" "${ACTUAL_UNEXPECTED_PASS[@]}"
+	log_error "Total unexpected passed scenarios:"
+	printf "${TC_GREEN}- %s\n${TC_RESET}" "${ACTUAL_UNEXPECTED_PASS[@]}"
+	echo ""
 else
-	log_success "There were no unexpected success."
+	log_info "There were no unexpected success."
 fi
 
 if [ "${UNEXPECTED_BEHAT_EXIT_STATUS}" = true ]
@@ -689,12 +687,15 @@ then
 	printf "${TC_RED}%s\n${TC_RESET}" "${UNEXPECTED_BEHAT_EXIT_STATUSES[@]}"
 fi
 
+TOTAL_SCENARIOS=$((SCENARIOS_THAT_PASSED + SCENARIOS_THAT_FAILED))
+printf "Summary: %s scenarios (${TC_GREEN}%s passed${TC_RESET}, ${TC_RED}%s failed${TC_RESET})" "${TOTAL_SCENARIOS}" "${SCENARIOS_THAT_PASSED}" "${SCENARIOS_THAT_FAILED}"
+echo ""
+
 # # sync the file-system so all output will be flushed to storage.
-# # In drone we sometimes see that the last lines of output are missing from the
-# # drone log.
+# # In CI, we sometimes see that the last lines of output are missing.
 # sync
 
-# # If we are running in drone CI, then sleep for a bit to (hopefully) let the
+# # If we are running in CI, then sleep for a bit to (hopefully) let the
 # # drone agent send all the output to the drone server.
 # if [ -n "${CI_REPO}" ]
 # then
