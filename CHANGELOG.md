@@ -1,6 +1,6 @@
 # Changelog
 
-## [5.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.0.0) - 2026-01-15
+## [5.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.0.0) - 2026-01-19
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -12,6 +12,7 @@
 
 ### ✅ Tests
 
+- [tests-only] test: setup for running wopi API tests locally [[#2139](https://github.com/opencloud-eu/opencloud/pull/2139)]
 - fix flaky #2145 [[#2161](https://github.com/opencloud-eu/opencloud/pull/2161)]
 - Run wopi validator tests localy [[#2151](https://github.com/opencloud-eu/opencloud/pull/2151)]
 - ci: fix unwanted workflow skip in the cron pipelines [[#2117](https://github.com/opencloud-eu/opencloud/pull/2117)]
