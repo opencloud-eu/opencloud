@@ -1,7 +1,9 @@
 #!/bin/bash
 
-#mkdir -p /drone/src/vendor-bin/behat
-#cp /tmp/vendor-bin/behat/composer.json /drone/src/vendor-bin/behat/composer.json
+mkdir -p "${OC_ROOT}/vendor-bin/behat"
+if [ ! -f "${OC_ROOT}/vendor-bin/behat/composer.json" ]; then
+    cp /tmp/vendor-bin/behat/composer.json "${OC_ROOT}/vendor-bin/behat/composer.json"
+fi
 
 git config --global advice.detachedHead false
 
@@ -11,13 +13,10 @@ EXPECTED_FAILURES_FILE=''
 
 if [ "$STORAGE_DRIVER" = "posix" ]; then
     BEHAT_FILTER_TAGS+='&&~@skipOnOpencloud-posix-Storage'
-    EXPECTED_FAILURES_FILE='/drone/src/tests/acceptance/expected-failures-posix-storage.md'
+    EXPECTED_FAILURES_FILE="${OC_ROOT}/tests/acceptance/expected-failures-posix-storage.md"
 elif [ "$STORAGE_DRIVER" = "decomposed" ]; then
     BEHAT_FILTER_TAGS+='&&~@skipOnOpencloud-decomposed-Storage'
-    EXPECTED_FAILURES_FILE='/drone/src/tests/acceptance/expected-failures-decomposed-storage.md'
-elif [ "$STORAGE_DRIVER" = "decomposeds3" ]; then
-    BEHAT_FILTER_TAGS+='&&~@skipOnOpencloud-decomposeds3-Storage'
-    # EXPECTED_FAILURES_FILE='/drone/src/tests/acceptance/expected-failures-decomposeds3-storage.md'
+    EXPECTED_FAILURES_FILE="${OC_ROOT}/tests/acceptance/expected-failures-decomposed-storage.md"
 fi
 
 export BEHAT_FILTER_TAGS
@@ -40,4 +39,4 @@ fi
 sleep 10
 make -C "$OC_ROOT" test-acceptance-api
 
-chmod -R 777 vendor-bin/**/vendor vendor-bin/**/composer.lock tests/acceptance/output
+chmod -R 777 "${OC_ROOT}/vendor-bin/"*"/vendor" "${OC_ROOT}/vendor-bin/"*"/composer.lock" "${OC_ROOT}/tests/acceptance/output" 2>/dev/null || true
