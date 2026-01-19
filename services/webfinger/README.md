@@ -1,6 +1,11 @@
 # Webfinger
 
-The webfinger service provides an RFC7033 WebFinger lookup of OpenCloud instances relevant for a given user account via endpoints a the /.well-known/webfinger implementation.
+The webfinger service provides an RFC7033 WebFinger lookup of OpenCloud resources, relevant for a given user account at the /.well-known/webfinger enpoint.
+
+1. An [OpenID Connect Discovery](#openid-connect-discovery) for the IdP, based on the OpenCloud URL.
+2. An [Authenticated Instance Discovery](#authenticated-instance-discovery), based on the user account.
+
+These two request are only needed for discovery.
 
 ## OpenID Connect Discovery
 
@@ -18,7 +23,7 @@ Clients can make an unauthenticated `GET https://drive.opencloud.test/.well-know
 }
 ```
 
-Here, the `resource` takes the instance domain URI, but an `acct:` URI works as well. 
+Here, the `resource` takes the instance domain URI, but an `acct:` URI works as well.
 
 ## Authenticated Instance Discovery
 
@@ -58,14 +63,14 @@ webfinger:
   -  claim: email
      regex: alan@example\.org
      href: "https://{{.preferred_username}}.cloud.opencloud.test"
-     title: 
+     title:
        "en": "OpenCloud Instance for Alan"
        "de": "OpenCloud Instanz für Alan"
      break: true
   -  claim: "email"
      regex: mary@example\.org
      href: "https://{{.preferred_username}}.cloud.opencloud.test"
-     title: 
+     title:
        "en": "OpenCloud Instance for Mary"
        "de": "OpenCloud Instanz für Mary"
      break: false
