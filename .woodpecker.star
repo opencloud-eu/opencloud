@@ -227,7 +227,6 @@ config = {
             ],
             "skip": False,
             "antivirusNeeded": True,
-            "generateVirusFiles": True,
             "extraServerEnvironment": {
                 "ANTIVIRUS_SCANNER_TYPE": "clamav",
                 "ANTIVIRUS_CLAMAV_SOCKET": "tcp://clamav:3310",
@@ -294,7 +293,6 @@ config = {
             "skip": False,
             "withRemotePhp": [True],
             "antivirusNeeded": True,
-            "generateVirusFiles": True,
             "extraServerEnvironment": {
                 "ANTIVIRUS_SCANNER_TYPE": "clamav",
                 "ANTIVIRUS_CLAMAV_SOCKET": "tcp://clamav:3310",
@@ -1217,7 +1215,6 @@ def localApiTestPipeline(ctx):
         "withRemotePhp": [True],
         "enableWatchFs": [False],
         "ldapNeeded": False,
-        "generateVirusFiles": False,
     }
 
     if "localApiTests" in config:
@@ -1273,7 +1270,7 @@ def localApiTestPipeline(ctx):
                                          (opencloudServer(storage, deploy_type = "federation", extra_server_environment = params["extraServerEnvironment"], watch_fs_enabled = run_with_watch_fs_enabled) if params["federationServer"] else []) +
                                          ((wopiCollaborationService("fakeoffice") + wopiCollaborationService("collabora") + wopiCollaborationService("onlyoffice")) if params["collaborationServiceNeeded"] else []) +
                                          (openCloudHealthCheck("wopi", ["wopi-collabora:9304", "wopi-onlyoffice:9304", "wopi-fakeoffice:9304"]) if params["collaborationServiceNeeded"] else []) +
-                                         localApiTest(params["suites"], storage, params["extraTestEnvironment"], run_with_remote_php, params["generateVirusFiles"]) +
+                                         localApiTest(params["suites"], storage, params["extraTestEnvironment"], run_with_remote_php) +
                                          logRequests(),
                                 "services": (emailService() if params["emailNeeded"] else []) +
                                             (clamavService() if params["antivirusNeeded"] else []) +
@@ -1297,7 +1294,7 @@ def localApiTestPipeline(ctx):
                             pipelines.append(pipeline)
     return pipelines
 
-def localApiTest(suites, storage = "decomposed", extra_environment = {}, with_remote_php = False, generate_virus_files = False):
+def localApiTest(suites, storage = "decomposed", extra_environment = {}, with_remote_php = False):
     test_dir = "%s/tests/acceptance" % dirs["base"]
     expected_failures_file = "%s/expected-failures-%s-storage.md" % (test_dir, storage)
 
@@ -1321,11 +1318,6 @@ def localApiTest(suites, storage = "decomposed", extra_environment = {}, with_re
         environment[item] = extra_environment[item]
 
     commands = []
-
-    # Generate EICAR virus test files if needed
-    if generate_virus_files:
-        commands.append("chmod +x %s/tests/acceptance/scripts/generate-virus-files.sh" % dirs["base"])
-        commands.append("bash %s/tests/acceptance/scripts/generate-virus-files.sh" % dirs["base"])
 
     # Merge expected failures
     if not with_remote_php:

@@ -25,6 +25,7 @@ use PHPUnit\Framework\Assert;
 use Psr\Http\Message\ResponseInterface;
 use TestHelpers\WebDavHelper;
 use TestHelpers\BehatHelper;
+use TestHelpers\UploadHelper;
 
 require_once 'bootstrap.php';
 
@@ -49,7 +50,7 @@ class ChecksumContext implements Context {
 		string  $checksum
 	): ResponseInterface {
 		$file = \file_get_contents(
-			$this->featureContext->acceptanceTestsDirLocation() . $source
+			UploadHelper::getAcceptanceTestsDir() . $source
 		);
 		return $this->featureContext->makeDavRequest(
 			$user,

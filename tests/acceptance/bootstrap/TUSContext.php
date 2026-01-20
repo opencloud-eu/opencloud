@@ -32,6 +32,7 @@ use Psr\Http\Message\ResponseInterface;
 use TestHelpers\HttpRequestHelper;
 use TestHelpers\WebDavHelper;
 use TestHelpers\BehatHelper;
+use TestHelpers\UploadHelper;
 
 require_once 'bootstrap.php';
 
@@ -364,7 +365,7 @@ class TUSContext implements Context {
 		$client->setChecksumAlgorithm('sha1');
 		$client->setApiPath(WebDavHelper::getDavPath($davPathVersion, $suffixPath));
 		$client->setMetadata($uploadMetadata);
-		$sourceFile = $this->featureContext->acceptanceTestsDirLocation() . $source;
+		$sourceFile = UploadHelper::getAcceptanceTestsDir() . $source;
 		$client->setKey((string)rand())->file($sourceFile, $destination);
 		$this->featureContext->pauseUploadDelete();
 
@@ -518,7 +519,7 @@ class TUSContext implements Context {
 	 */
 	public function writeDataToTempFile(string $content): string {
 		$temporaryFileName = \tempnam(
-			$this->featureContext->acceptanceTestsDirLocation(),
+			UploadHelper::getAcceptanceTestsDir(),
 			"tus-upload-test-"
 		);
 		if ($temporaryFileName === false) {

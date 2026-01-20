@@ -43,6 +43,7 @@ use TestHelpers\WebDavHelper;
 use TestHelpers\SettingsHelper;
 use TestHelpers\OcConfigHelper;
 use TestHelpers\BehatHelper;
+use TestHelpers\UploadHelper;
 use Swaggest\JsonSchema\InvalidValue as JsonSchemaException;
 use Swaggest\JsonSchema\Exception\ArrayException;
 use Swaggest\JsonSchema\Exception\ConstException;
@@ -559,6 +560,38 @@ class FeatureContext extends BehatVariablesContext {
 	public static function setupLogDir(BeforeSuiteScope $scope): void {
 		if (!\file_exists(HttpLogger::getLogDir())) {
 			\mkdir(HttpLogger::getLogDir(), 0777, true);
+		}
+	}
+
+	/**
+	 * @BeforeScenario @antivirus
+	 *
+	 * @return void
+	 * @throws Exception
+	 */
+	public function createTestVirusFiles(): void {
+		$uploadDir = UploadHelper::getFilesForUploadDir() . 'filesWithVirus/';
+		$virusFile = $uploadDir . 'eicar.com';
+		$virusZipFile = $uploadDir . 'eicar_com.zip';
+
+		if (file_exists($virusFile) && file_exists($virusZipFile)) {
+			return;
+		}
+
+		if (!is_dir($uploadDir)) {
+			mkdir($uploadDir, 0755);
+		}
+
+		$res1 = HttpRequestHelper::sendRequestOnce('https://secure.eicar.org/eicar.com');
+		if ($res1->getStatusCode() !== 200) {
+			throw new Exception("Could not download eicar.com test virus file");
+		}
+		file_put_contents($virusFile, $res1->getBody()->getContents());
+
+		$res2 = HttpRequestHelper::sendRequestOnce('https://secure.eicar.org/eicar_com.zip');
+		file_put_contents($virusZipFile, $res2->getBody()->getContents());
+		if ($res2->getStatusCode() !== 200) {
+			throw new Exception("Could not download eicar_com.zip test virus file");
 		}
 	}
 
@@ -2599,15 +2632,8 @@ class FeatureContext extends BehatVariablesContext {
 	/**
 	 * @return string
 	 */
-	public function acceptanceTestsDirLocation(): string {
-		return \dirname(__FILE__) . "/../";
-	}
-
-	/**
-	 * @return string
-	 */
 	public function workStorageDirLocation(): string {
-		return $this->acceptanceTestsDirLocation() . $this->temporaryStorageSubfolderName() . "/";
+		return UploadHelper::getAcceptanceTestsDir() . $this->temporaryStorageSubfolderName() . "/";
 	}
 
 	/**
