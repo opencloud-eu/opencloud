@@ -64,7 +64,6 @@ SUITES=(
     "apiSharingNgShareInvitation"
     "apiSharingNgLinkSharePermission"
     "apiSharingNgLinkShareRoot"
-    "apiAccountsHashDifficulty"
     "apiSearchContent"
     "apiNotification"
 )

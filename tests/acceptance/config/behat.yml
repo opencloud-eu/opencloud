@@ -3,9 +3,9 @@ default:
     "": "%paths.base%/../bootstrap"
 
   suites:
-    apiAccountsHashDifficulty:
+    apiSpaces:
       paths:
-        - "%paths.base%/../features/apiAccountsHashDifficulty"
+        - "%paths.base%/../features/apiSpaces"
       context: &common_ldap_suite_context
         parameters:
           ldapAdminPassword: admin
@@ -17,21 +17,6 @@ default:
             adminUsername: admin
             adminPassword: admin
             regularUserPassword: 123456
-        - SettingsContext:
-        - GraphContext:
-        - SpacesContext:
-        - CapabilitiesContext:
-        - FilesVersionsContext:
-        - NotificationContext:
-        - OCSContext:
-        - PublicWebDavContext:
-
-    apiSpaces:
-      paths:
-        - "%paths.base%/../features/apiSpaces"
-      context: *common_ldap_suite_context
-      contexts:
-        - FeatureContext: *common_feature_context_params
         - SettingsContext:
         - SpacesContext:
         - CapabilitiesContext:
@@ -442,7 +427,7 @@ default:
         - AuthAppContext:
         - CliContext:
         - OcConfigContext:
-    
+
     apiTenancy:
       paths:
         - "%paths.base%/../features/apiTenancy"

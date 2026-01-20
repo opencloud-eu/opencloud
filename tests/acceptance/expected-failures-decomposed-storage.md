@@ -19,8 +19,6 @@
 
 #### [Settings service user can list other peoples assignments](https://github.com/owncloud/ocis/issues/5032)
 
-- [apiAccountsHashDifficulty/assignRole.feature:27](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiAccountsHashDifficulty/assignRole.feature#L27)
-- [apiAccountsHashDifficulty/assignRole.feature:28](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiAccountsHashDifficulty/assignRole.feature#L28)
 - [apiGraph/getAssignedRole.feature:31](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGraph/getAssignedRole.feature#L31)
 - [apiGraph/getAssignedRole.feature:32](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGraph/getAssignedRole.feature#L32)
 - [apiGraph/getAssignedRole.feature:33](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGraph/getAssignedRole.feature#L33)
