@@ -14,7 +14,6 @@ services:
       SHARING_USER_JSON_FILE: /srv/app/tmp/opencloud/shares.json
       PROXY_ENABLE_BASIC_AUTH: "true"
       WEB_UI_CONFIG_FILE: /woodpecker/src/github.com/opencloud-eu/opencloud/tests/config/woodpecker/opencloud-config.json
-      ACCOUNTS_HASH_DIFFICULTY: 4
       OC_INSECURE: "true"
       IDM_CREATE_DEMO_USERS: "true"
       IDM_ADMIN_PASSWORD: "admin"
