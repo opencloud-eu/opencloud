@@ -224,6 +224,22 @@ func (g Graph) contextUserHasFullAccountPerms(reqctx context.Context) bool {
 	return true
 }
 
+func (g Graph) contextUserHasExternalSharePermission(reqctx context.Context) bool {
+	// mostly copied from the canCreateSpace method
+	pr, err := g.permissionsService.GetPermissionByID(reqctx, &settingssvc.GetPermissionByIDRequest{
+		PermissionId: defaults.CreateExternalSharePermission(0).Id,
+	})
+	if err != nil || pr.Permission == nil {
+		return false
+	}
+
+	if pr.Permission.Constraint != defaults.All {
+		return false
+	}
+
+	return true
+}
+
 // GetUsers implements the Service interface.
 func (g Graph) GetUsers(w http.ResponseWriter, r *http.Request) {
 	logger := g.logger.SubloggerWithRequestID(r.Context())

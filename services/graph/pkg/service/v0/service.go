@@ -173,16 +173,6 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 		return Graph{}, err
 	}
 
-	driveItemPermissionsService, err := NewDriveItemPermissionsService(options.Logger, options.GatewaySelector, identityCache, options.Config, options.TraceProvider)
-	if err != nil {
-		return Graph{}, err
-	}
-
-	driveItemPermissionsApi, err := NewDriveItemPermissionsApi(driveItemPermissionsService, options.Logger, options.Config)
-	if err != nil {
-		return Graph{}, err
-	}
-
 	usersUserProfilePhotoApi, err := NewUsersUserProfilePhotoApi(options.UserProfilePhotoService, options.Logger)
 	if err != nil {
 		return Graph{}, err
@@ -249,6 +239,16 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 		requireAdmin = graphm.RequireAdmin(roleManager, options.Logger)
 	} else {
 		requireAdmin = options.RequireAdminMiddleware
+	}
+
+	driveItemPermissionsService, err := NewDriveItemPermissionsService(options.Logger, options.GatewaySelector, identityCache, options.Config, options.TraceProvider, svc.contextUserHasExternalSharePermission)
+	if err != nil {
+		return Graph{}, err
+	}
+
+	driveItemPermissionsApi, err := NewDriveItemPermissionsApi(driveItemPermissionsService, options.Logger, options.Config)
+	if err != nil {
+		return Graph{}, err
 	}
 
 	m.Route(options.Config.HTTP.Root, func(r chi.Router) {

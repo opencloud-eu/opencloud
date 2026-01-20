@@ -97,7 +97,8 @@ type DriveItemPermissionsProvider interface {
 // DriveItemPermissionsService contains the production business logic for everything that relates to permissions on drive items.
 type DriveItemPermissionsService struct {
 	BaseGraphService
-	tp trace.TracerProvider
+	tp                         trace.TracerProvider
+	hasExternalSharePermission externalSharePermissionChecker
 }
 
 type permissionType int
@@ -118,8 +119,11 @@ type ListPermissionsQueryOptions struct {
 	SelectedAttrs        []string
 }
 
+// supposed to return true if the user can share to users from other instances (multi-instance only)
+type externalSharePermissionChecker func(context.Context) bool
+
 // NewDriveItemPermissionsService creates a new DriveItemPermissionsService
-func NewDriveItemPermissionsService(logger log.Logger, gatewaySelector pool.Selectable[gateway.GatewayAPIClient], identityCache cache.IdentityCache, config *config.Config, tp trace.TracerProvider) (DriveItemPermissionsService, error) {
+func NewDriveItemPermissionsService(logger log.Logger, gatewaySelector pool.Selectable[gateway.GatewayAPIClient], identityCache cache.IdentityCache, config *config.Config, tp trace.TracerProvider, espc externalSharePermissionChecker) (DriveItemPermissionsService, error) {
 	publicBaseURL, err := url.Parse(config.Spaces.WebDavBase)
 	if err != nil {
 		return DriveItemPermissionsService{}, fmt.Errorf("could not parse graph.spaces.webdav_base: %w", err)
@@ -127,6 +131,11 @@ func NewDriveItemPermissionsService(logger log.Logger, gatewaySelector pool.Sele
 	if tp == nil {
 		tp = noop.NewTracerProvider()
 	}
+	f := func(context.Context) bool { return false }
+	if espc != nil {
+		f = espc
+	}
+
 	return DriveItemPermissionsService{
 		BaseGraphService: BaseGraphService{
 			logger:          &log.Logger{Logger: logger.With().Str("graph api", "DrivesDriveItemService").Logger()},
@@ -136,7 +145,8 @@ func NewDriveItemPermissionsService(logger log.Logger, gatewaySelector pool.Sele
 			availableRoles:  unifiedrole.GetRoles(unifiedrole.RoleFilterIDs(config.UnifiedRoles.AvailableRoles...)),
 			publicBaseURL:   publicBaseURL,
 		},
-		tp: tp,
+		tp:                         tp,
+		hasExternalSharePermission: f,
 	}, nil
 }
 

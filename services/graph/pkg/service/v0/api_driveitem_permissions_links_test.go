@@ -54,7 +54,7 @@ var _ = Describe("createLinkTests", func() {
 		cache := cache.NewIdentityCache(cache.IdentityCacheWithGatewaySelector(gatewaySelector))
 
 		cfg := defaults.FullDefaultConfig()
-		svc, err = service.NewDriveItemPermissionsService(logger, gatewaySelector, cache, cfg, nil)
+		svc, err = service.NewDriveItemPermissionsService(logger, gatewaySelector, cache, cfg, nil, nil)
 		Expect(err).ToNot(HaveOccurred())
 		driveItemId = &provider.ResourceId{
 			StorageId: "1",
