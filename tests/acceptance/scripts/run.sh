@@ -547,7 +547,6 @@ fi
 
 export IPV4_URL
 export IPV6_URL
-export FILES_FOR_UPLOAD="${SCRIPT_PATH}/filesForUpload/"
 
 TEST_LOG_FILE=$(mktemp)
 SCENARIOS_THAT_PASSED=0

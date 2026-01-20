@@ -62,7 +62,7 @@ class HttpRequestHelper {
 
 	/**
 	 *
-	 * @param string|null $url
+	 * @param string $url
 	 * @param string|null $xRequestId
 	 * @param string|null $method
 	 * @param string|null $user
@@ -80,8 +80,8 @@ class HttpRequestHelper {
 	 * @throws GuzzleException
 	 */
 	public static function sendRequestOnce(
-		?string $url,
-		?string $xRequestId,
+		string $url,
+		?string $xRequestId = null,
 		?string $method = 'GET',
 		?string $user = null,
 		?string $password = null,

@@ -195,13 +195,20 @@ class UploadHelper extends Assert {
 	}
 
 	/**
-	 * get the path of a file from FilesForUpload directory
-	 *
-	 * @param string|null $name name of the file to upload
+	 * get the path of the acceptance tests directory
 	 *
 	 * @return string
 	 */
-	public static function getUploadFilesDir(?string $name): string {
-		return \getenv("FILES_FOR_UPLOAD") . $name;
+	public static function getAcceptanceTestsDir(): string {
+		return \dirname(__FILE__) . "/../";
+	}
+
+	/**
+	 * get the path of the filesForUpload directory
+	 *
+	 * @return string
+	 */
+	public static function getFilesForUploadDir(): string {
+		return \dirname(__FILE__) . "/../filesForUpload/";
 	}
 }
