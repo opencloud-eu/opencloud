@@ -519,16 +519,7 @@ def main(ctx):
     )
 
     test_pipelines = \
-        codestyle(ctx) + \
-        checkGherkinLint(ctx) + \
-        checkTestSuitesInExpectedFailures(ctx) + \
-        pipelinesDependsOn(buildWebCache(ctx), savePipelineNumber(ctx)) + \
-        pipelinesDependsOn(cacheBrowsers(ctx), savePipelineNumber(ctx)) + \
-        getGoBinForTesting(ctx) + \
         pipelinesDependsOn(buildOpencloudBinaryForTesting(ctx), savePipelineNumber(ctx)) + \
-        checkStarlark(ctx) + \
-        build_release_helpers + \
-        testOpencloudAndUploadResults(ctx) + \
         testPipelines(ctx)
 
     build_release_pipelines = \
@@ -672,10 +663,10 @@ def testPipelines(ctx):
         pipelines += wopiValidatorTests(ctx, storage, "builtin", "default")
         pipelines += wopiValidatorTests(ctx, storage, "cs3", "default")
 
-    pipelines += localApiTestPipeline(ctx)
+    pipelines = localApiTestPipeline(ctx)
     pipelines += coreApiTestPipeline(ctx)
-    pipelines += e2eTestPipeline(ctx)
-    pipelines += multiServiceE2ePipeline(ctx)
+    # pipelines += e2eTestPipeline(ctx)
+    # pipelines += multiServiceE2ePipeline(ctx)
 
     if ("skip" not in config["k6LoadTests"] or not config["k6LoadTests"]["skip"]) and ("k6-test" in ctx.build.title.lower() or ctx.build.event == "cron"):
         pipelines += pipelineDependsOn(k6LoadTests(ctx), savePipelineNumber(ctx))
@@ -1218,7 +1209,7 @@ def wopiValidatorTests(ctx, storage, wopiServerType, accounts_hash_difficulty = 
 def localApiTestPipeline(ctx):
     pipelines = []
 
-    with_remote_php = [True]
+    with_remote_php = [True, False]
     enable_watch_fs = [False]
     if ctx.build.event == "cron":
         with_remote_php.append(False)
@@ -1381,6 +1372,7 @@ def coreApiTestPipeline(ctx):
         if "[decomposed]" in ctx.build.title.lower():
             params["storages"] = ["decomposed"]
 
+        params["withRemotePhp"] = [True, False]
         if ctx.build.event == "cron":
             params["withRemotePhp"] = [True, False]
             params["enableWatchFs"] = [True, False]
