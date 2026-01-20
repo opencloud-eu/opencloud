@@ -27,13 +27,12 @@ func checkRootDocumentOverrides(node any) Errors {
 	errors := Errors{}
 
 	WalkRules(node, func(rule *Rule) bool {
-		var name string
+		name := rule.Head.Name
 		if len(rule.Head.Reference) > 0 {
-			name = rule.Head.Reference[0].Value.(Var).String()
-		} else {
-			name = rule.Head.Name.String()
+			name = rule.Head.Reference[0].Value.(Var)
 		}
-		if RootDocumentRefs.Contains(RefTerm(VarTerm(name))) {
+
+		if ReservedVars.Contains(name) {
 			errors = append(errors, NewError(CompileErr, rule.Location, "rules must not shadow %v (use a different rule name)", name))
 		}
 
@@ -52,8 +51,8 @@ func checkRootDocumentOverrides(node any) Errors {
 		if expr.IsAssignment() {
 			// assign() can be called directly, so we need to assert its given first operand exists before checking its name.
 			if nameOp := expr.Operand(0); nameOp != nil {
-				name := nameOp.String()
-				if RootDocumentRefs.Contains(RefTerm(VarTerm(name))) {
+				name := Var(nameOp.String())
+				if ReservedVars.Contains(name) {
 					errors = append(errors, NewError(CompileErr, expr.Location, "variables must not shadow %v (use a different variable name)", name))
 				}
 			}
@@ -65,26 +64,24 @@ func checkRootDocumentOverrides(node any) Errors {
 }
 
 func walkCalls(node any, f func(any) bool) {
-	vis := &GenericVisitor{func(x any) bool {
-		switch x := x.(type) {
+	vis := NewGenericVisitor(func(x any) bool {
+		switch y := x.(type) {
 		case Call:
 			return f(x)
 		case *Expr:
-			if x.IsCall() {
+			if y.IsCall() {
 				return f(x)
 			}
 		case *Head:
 			// GenericVisitor doesn't walk the rule head ref
-			walkCalls(x.Reference, f)
+			walkCalls(y.Reference, f)
 		}
 		return false
-	}}
+	})
 	vis.Walk(node)
 }
 
-func checkDeprecatedBuiltins(deprecatedBuiltinsMap map[string]struct{}, node any) Errors {
-	errs := make(Errors, 0)
-
+func checkDeprecatedBuiltins(deprecatedBuiltinsMap map[string]struct{}, node any) (errs Errors) {
 	walkCalls(node, func(x any) bool {
 		var operator string
 		var loc *Location
