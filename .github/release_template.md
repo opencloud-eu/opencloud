@@ -11,7 +11,6 @@
 
 ### QA Phase
 
-* [ ] QA: Confirmatory testing (if needed)
 * [ ] QA: Compatibility test with posix fs
 * [ ] QA: Compatibility test with decomposed fs
 * [ ] DEV/QA: Performance test
@@ -57,17 +56,16 @@
 * [ ] QA: Run CI
 * [ ] DEV/QA: create final tag
 * [ ] QA: observe CI Run on tag
-* [ ] DEV/QA: Create a new `stable-` branch
-  * [ ] opencloud repository
-  * [ ] web repository
-  * [ ] reva repository
-  * [ ] opencloud-compose repository
+* [ ] DEV/QA: Create a new `stable-*` branch
+  * [ ] (opencloud)[https://github.com/opencloud-eu/opencloud/branches]
+  * [ ] (web)[https://github.com/opencloud-eu/web/branches]
+  * [ ] (reva)[https://github.com/opencloud-eu/reva/branches]
+  * [ ] (opencloud-compose)[https://github.com/opencloud-eu/opencloud-compose/branches]
 * [ ] DEV/QA:: publish release notes to the docs
-* [ ] DEV/QA:: update demo.opencloud.eu
+* [ ] DEV/QA:: update (demo.opencloud.eu)[https://demo.opencloud.eu/]
 
 ### After QA Phase ( Marketing / Product / Sales related )
 
-### Post-release communication
 * [ ] notify marketing that the release is ready @tbsbdr
 * [ ] announce in the public channel (matrix channel)[https://matrix.to/#/#opencloud:matrix.org]
 * [ ] press information @AnneGo137
