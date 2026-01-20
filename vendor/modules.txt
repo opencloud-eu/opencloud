@@ -894,7 +894,7 @@ github.com/kovidgoyal/go-parallel
 # github.com/kovidgoyal/go-shm v1.0.0
 ## explicit; go 1.24.0
 github.com/kovidgoyal/go-shm
-# github.com/kovidgoyal/imaging v1.8.18
+# github.com/kovidgoyal/imaging v1.8.19
 ## explicit; go 1.24.0
 github.com/kovidgoyal/imaging
 github.com/kovidgoyal/imaging/apng
