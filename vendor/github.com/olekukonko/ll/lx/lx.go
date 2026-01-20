@@ -36,6 +36,7 @@ const (
 	LevelInfo                     // Info level for general operational messages
 	LevelWarn                     // Warn level for warning conditions
 	LevelError                    // Error level for error conditions requiring attention
+	LevelFatal                    // Fatal level for critical error conditions
 	LevelDebug                    // None level for logs without a specific severity (e.g., raw output)
 	LevelUnknown                  // None level for logs without a specific severity (e.g., raw output)
 )
@@ -45,7 +46,9 @@ const (
 	DebugString   = "DEBUG"
 	InfoString    = "INFO"
 	WarnString    = "WARN"
+	WarningString = "WARNING"
 	ErrorString   = "ERROR"
+	FatalString   = "FATAL"
 	NoneString    = "NONE"
 	UnknownString = "UNKNOWN"
 
@@ -98,6 +101,8 @@ func (l LevelType) String() string {
 		return WarnString
 	case LevelError:
 		return ErrorString
+	case LevelFatal:
+		return FatalString
 	case LevelNone:
 		return NoneString
 	default:
@@ -114,7 +119,7 @@ func LevelParse(s string) LevelType {
 		return LevelDebug
 	case InfoString:
 		return LevelInfo
-	case WarnString, "WARNING": // Allow both "WARN" and "WARNING"
+	case WarnString, WarningString: // Allow both "WARN" and "WARNING"
 		return LevelWarn
 	case ErrorString:
 		return LevelError

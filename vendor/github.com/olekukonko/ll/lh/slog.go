@@ -2,8 +2,9 @@ package lh
 
 import (
 	"context"
-	"github.com/olekukonko/ll/lx"
 	"log/slog"
+
+	"github.com/olekukonko/ll/lx"
 )
 
 // SlogHandler adapts a slog.Handler to implement lx.Handler.
@@ -81,7 +82,7 @@ func toSlogLevel(level lx.LevelType) slog.Level {
 		return slog.LevelInfo
 	case lx.LevelWarn:
 		return slog.LevelWarn
-	case lx.LevelError:
+	case lx.LevelError, lx.LevelFatal:
 		return slog.LevelError
 	default:
 		return slog.LevelInfo // Default for unknown levels

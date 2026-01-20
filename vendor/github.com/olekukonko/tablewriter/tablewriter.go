@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io"
 	"math"
-	"os"
 	"reflect"
 	"runtime"
 	"strings"
@@ -419,7 +418,6 @@ func (t *Table) Options(opts ...Option) *Table {
 	}
 
 	// force debugging mode if set
-	// This should  be move away form WithDebug
 	if t.config.Debug {
 		t.logger.Enable()
 		t.logger.Resume()
@@ -434,11 +432,28 @@ func (t *Table) Options(opts ...Option) *Table {
 	goArch := runtime.GOARCH
 	numCPU := runtime.NumCPU()
 
-	t.logger.Infof("Environment: LC_CTYPE=%s, LANG=%s, TERM=%s", os.Getenv("LC_CTYPE"), os.Getenv("LANG"), os.Getenv("TERM"))
-	t.logger.Infof("Go Runtime: Version=%s, OS=%s, Arch=%s, CPUs=%d", goVersion, goOS, goArch, numCPU)
+	// Use the new struct-based info.
+	// No type assertions or magic strings needed.
+	info := twwidth.Debugging()
+
+	t.logger.Infof("Go Runtime: Version=%s, OS=%s, Arch=%s, CPUs=%d",
+		goVersion, goOS, goArch, numCPU)
+
+	t.logger.Infof("Environment: LC_CTYPE=%s, LANG=%s, TERM=%s, TERM_PROGRAM=%s",
+		info.Raw.LC_CTYPE,
+		info.Raw.LANG,
+		info.Raw.TERM,
+		info.Raw.TERM_PROGRAM,
+	)
+
+	t.logger.Infof("East Asian Detection: Auto=%v, Mode=%s, ModernEnv=%v, CJKLocale=%v",
+		info.AutoUseEastAsian,
+		info.DetectionMode,
+		info.Derived.IsModernEnv,
+		info.Derived.IsCJKLocale,
+	)
 
 	// send logger to renderer
-	// this will overwrite the default logger
 	t.renderer.Logger(t.logger)
 	return t
 }

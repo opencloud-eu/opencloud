@@ -991,7 +991,7 @@ func (t *Table) calculateContentMaxWidth(colIdx int, config tw.CellConfig, padLe
 		constraintTotalCellWidth := 0
 		hasConstraint := false
 
-		// 1. Check new Widths.PerColumn (highest priority)
+		// Check new Widths.PerColumn (highest priority)
 		if t.config.Widths.Constrained() {
 
 			if colWidth, ok := t.config.Widths.PerColumn.OK(colIdx); ok && colWidth > 0 {
@@ -1001,7 +1001,7 @@ func (t *Table) calculateContentMaxWidth(colIdx int, config tw.CellConfig, padLe
 					colIdx, constraintTotalCellWidth)
 			}
 
-			// 2. Check new Widths.Global
+			// Check new Widths.Global
 			if !hasConstraint && t.config.Widths.Global > 0 {
 				constraintTotalCellWidth = t.config.Widths.Global
 				hasConstraint = true
@@ -1009,7 +1009,7 @@ func (t *Table) calculateContentMaxWidth(colIdx int, config tw.CellConfig, padLe
 			}
 		}
 
-		// 3. Fall back to legacy ColMaxWidths.PerColumn (backward compatibility)
+		// Fall back to legacy ColMaxWidths.PerColumn (backward compatibility)
 		if !hasConstraint && config.ColMaxWidths.PerColumn != nil {
 			if colMax, ok := config.ColMaxWidths.PerColumn.OK(colIdx); ok && colMax > 0 {
 				constraintTotalCellWidth = colMax
@@ -1019,7 +1019,7 @@ func (t *Table) calculateContentMaxWidth(colIdx int, config tw.CellConfig, padLe
 			}
 		}
 
-		// 4. Fall back to legacy ColMaxWidths.Global
+		// Fall back to legacy ColMaxWidths.Global
 		if !hasConstraint && config.ColMaxWidths.Global > 0 {
 			constraintTotalCellWidth = config.ColMaxWidths.Global
 			hasConstraint = true
@@ -1027,7 +1027,7 @@ func (t *Table) calculateContentMaxWidth(colIdx int, config tw.CellConfig, padLe
 				constraintTotalCellWidth)
 		}
 
-		// 5. Fall back to table MaxWidth if auto-wrapping
+		// Fall back to table MaxWidth if auto-wrapping
 		if !hasConstraint && t.config.MaxWidth > 0 && config.Formatting.AutoWrap != tw.WrapNone {
 			constraintTotalCellWidth = t.config.MaxWidth
 			hasConstraint = true
@@ -1217,14 +1217,10 @@ func (t *Table) convertToString(value interface{}) string {
 // convertItemToCells is responsible for converting a single input item (which could be
 // a struct, a basic type, or an item implementing Stringer/Formatter) into a slice
 // of strings, where each string represents a cell for the table row.
-// zoo.go
-
-// convertItemToCells is responsible for converting a single input item into a slice of strings.
-// It now uses the unified struct parser for structs.
 func (t *Table) convertItemToCells(item interface{}) ([]string, error) {
 	t.logger.Debugf("convertItemToCells: Converting item of type %T", item)
 
-	// 1. User-defined table-wide stringer (t.stringer) takes highest precedence.
+	// User-defined table-wide stringer (t.stringer) takes highest precedence.
 	if t.stringer != nil {
 		res, err := t.convertToStringer(item)
 		if err == nil {
@@ -1234,13 +1230,13 @@ func (t *Table) convertItemToCells(item interface{}) ([]string, error) {
 		t.logger.Warnf("convertItemToCells: Custom table stringer was set but incompatible for type %T: %v. Will attempt other methods.", item, err)
 	}
 
-	// 2. Handle untyped nil directly.
+	// Handle untyped nil directly.
 	if item == nil {
 		t.logger.Debugf("convertItemToCells: Item is untyped nil. Returning single empty cell.")
 		return []string{""}, nil
 	}
 
-	// 3. Use the new unified struct parser. It handles pointers and embedding.
+	// Use the new unified struct parser. It handles pointers and embedding.
 	// We only care about the values it returns.
 	_, values := t.extractFieldsAndValuesFromStruct(item)
 	if values != nil {
@@ -1248,7 +1244,7 @@ func (t *Table) convertItemToCells(item interface{}) ([]string, error) {
 		return values, nil
 	}
 
-	// 4. Fallback for any other single item (e.g., basic types, or types that implement Stringer/Formatter).
+	// Fallback for any other single item (e.g., basic types, or types that implement Stringer/Formatter).
 	// This code path is now for non-struct types.
 	if formatter, ok := item.(tw.Formatter); ok {
 		t.logger.Debugf("convertItemToCells: Item (non-struct, type %T) is tw.Formatter. Using Format().", item)
