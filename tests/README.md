@@ -8,7 +8,8 @@ Both ways to run tests with the test suites are described here.
 
 - [Running Test Suite in Docker](#running-test-suite-in-docker)
   - [Running API Tests](#running-api-tests)
-    - [Run Tests](#run-tests)
+    - [Run Tests With Required Services](#run-tests-with-required-services)
+    - [Run Tests Only](#run-tests-only)
     - [Skip Local Image Build While Running Tests](#skip-local-image-build-while-running-tests)
     - [Check Test Logs](#check-test-logs)
     - [Cleanup the Setup](#cleanup-the-setup)
@@ -33,7 +34,7 @@ make -C tests/acceptance/docker help
 
 ### Running API Tests
 
-#### Run Tests
+#### Run Tests With Required Services
 
 We can run a single feature or a single test suite with different storage drivers.
 
@@ -97,13 +98,22 @@ We can run a single feature or a single test suite with different storage driver
    make -C tests/acceptance/docker run-api-tests
    ```
 
-If the tests fail due to the servers not being ready or any other reasons, you can re-run the tests using the following command:
+#### Run Tests Only
 
-> Here, you can utilize `BEHAT_FEATURE` and `BEHAT_SUITE` environment variables to specify the feature file or test suite you want to run again.
+If you want to re-run the tests because of some failures or any other reason, you can use the following command to run only the tests without starting the services again.
+Also, this command can be used to run the tests against the already hosted OpenCloud server by providing the `TEST_SERVER_URL` and `USE_BEARER_TOKEN` environment variables.
+
+> [!NOTE]
+> You can utilize the following environment variables:
+>
+> - `BEHAT_FEATURE`
+> - `BEHAT_SUITE`
+> - `USE_BEARER_TOKEN`
+> - `TEST_SERVER_URL`
 
 ```bash
 BEHAT_FEATURE='tests/acceptance/features/apiGraphUserGroup/createUser.feature:24' \
-make -C tests/acceptance/docker run-api-tests
+make -C tests/acceptance/docker run-test-only
 ```
 
 #### Skip Local Image Build While Running Tests
