@@ -37,6 +37,7 @@ use TestHelpers\SetupHelper;
 use TestHelpers\HttpRequestHelper;
 use TestHelpers\HttpLogger;
 use TestHelpers\OcHelper;
+use TestHelpers\StorageDriver;
 use TestHelpers\GraphHelper;
 use TestHelpers\WebDavHelper;
 use TestHelpers\SettingsHelper;
@@ -2967,10 +2968,10 @@ class FeatureContext extends BehatVariablesContext {
 	public static function isExpectedToFail(string $scenarioLine): bool {
 		$expectedFailFile = \getenv('EXPECTED_FAILURES_FILE');
 		if (!$expectedFailFile) {
-			$expectedFailFile = __DIR__ . '/../expected-failures-localAPI-on-decomposed-storage.md';
-			if (\strpos($scenarioLine, "coreApi") === 0) {
-				$expectedFailFile = __DIR__ . '/../expected-failures-API-on-decomposed-storage.md';
+			if (OcHelper::getStorageDriver() === StorageDriver::POSIX) {
+				$expectedFailFile = __DIR__ . '/../expected-failures-posix-storage.md';
 			}
+			$expectedFailFile = __DIR__ . '/../expected-failures-decomposed-storage.md';
 		}
 
 		$reader = \fopen($expectedFailFile, 'r');

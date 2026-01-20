@@ -18,7 +18,7 @@ log_success() {
 
 SCRIPT_PATH=$(dirname "$0")
 PATH_TO_SUITES="${SCRIPT_PATH}/features"
-EXPECTED_FAILURE_FILES=("expected-failures-localAPI-on-decomposed-storage.md" "expected-failures-API-on-decomposed-storage.md" "expected-failures-without-remotephp.md")
+EXPECTED_FAILURE_FILES=("expected-failures-decomposed-storage.md" "expected-failures-posix-storage.md" "expected-failures-without-remotephp.md")
 # contains all the suites names inside tests/acceptance/features
 AVAILABLE_SUITES=($(ls -l "$PATH_TO_SUITES" | grep '^d' | awk '{print $NF}'))
 

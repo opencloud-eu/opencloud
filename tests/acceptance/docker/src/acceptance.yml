@@ -5,14 +5,12 @@ services:
     command: /bin/bash /test/run-tests.sh
     environment:
       OC_ROOT: /woodpecker/src/github.com/opencloud-eu/opencloud
-      TEST_SERVER_URL: https://opencloud-server:9200
+      TEST_SERVER_URL: ${TEST_SERVER_URL:-https://opencloud-server:9200}
       OC_WRAPPER_URL: http://opencloud-server:5200
-      STORAGE_DRIVER: $STORAGE_DRIVER
-      TEST_SOURCE: $TEST_SOURCE
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-posix}
       BEHAT_SUITE: ${BEHAT_SUITE:-}
       BEHAT_FEATURE: ${BEHAT_FEATURE:-}
-      DIVIDE_INTO_NUM_PARTS: $DIVIDE_INTO_NUM_PARTS
-      RUN_PART: $RUN_PART
+      USE_BEARER_TOKEN: ${USE_BEARER_TOKEN:-false}
       # email
       EMAIL_HOST: email
       EMAIL_PORT: 9000

@@ -1,12 +1,12 @@
 services:
   opencloud-server:
-    image: opencloudeu/opencloud:dev
+    image: ${OC_IMAGE:-opencloudeu/opencloud}:${OC_IMAGE_TAG:-dev}
     entrypoint: ["/bin/sh", "/usr/bin/serve-opencloud.sh"]
     user: root
     environment:
-      WITH_WRAPPER: $WITH_WRAPPER
+      WITH_WRAPPER: ${WITH_WRAPPER:-true}
       OC_URL: "https://opencloud-server:9200"
-      STORAGE_USERS_DRIVER: $STORAGE_DRIVER
+      STORAGE_USERS_DRIVER: ${STORAGE_DRIVER:-posix}
       STORAGE_USERS_POSIX_WATCH_FS: "true"
       STORAGE_USERS_DRIVER_LOCAL_ROOT: /srv/app/tmp/opencloud/local/root
       STORAGE_USERS_DRIVER_OC_ROOT: /srv/app/tmp/opencloud/storage/users
@@ -19,8 +19,7 @@ services:
       IDM_CREATE_DEMO_USERS: "true"
       IDM_ADMIN_PASSWORD: "admin"
       FRONTEND_SEARCH_MIN_LENGTH: "2"
-      OC_ASYNC_UPLOADS: $OC_ASYNC_UPLOADS
-      OC_ADD_RUN_SERVICES: $OC_ADD_RUN_SERVICES
+      OC_ADD_RUN_SERVICES: ${OC_ADD_RUN_SERVICES:-}
       PROXY_HTTP_ADDR: "0.0.0.0:9200"
 
       # decomposeds3 specific settings
@@ -41,10 +40,10 @@ services:
       ANTIVIRUS_CLAMAV_SOCKET: tcp://clamav:3310
 
       # postprocessing step
-      POSTPROCESSING_STEPS: $POSTPROCESSING_STEPS
+      POSTPROCESSING_STEPS: ${POSTPROCESSING_STEPS:-}
 
       # tika
-      SEARCH_EXTRACTOR_TYPE: $SEARCH_EXTRACTOR_TYPE
+      SEARCH_EXTRACTOR_TYPE: ${SEARCH_EXTRACTOR_TYPE:-basic}
       SEARCH_EXTRACTOR_TIKA_TIKA_URL: "http://tika:9998"
       SEARCH_EXTRACTOR_CS3SOURCE_INSECURE: "true"
 

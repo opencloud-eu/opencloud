@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Set required environment variables
-export LOCAL_TEST=true
+export START_TIKA=true
 export START_EMAIL=true
 export WITH_WRAPPER=true
 export STORAGE_DRIVER=${STORAGE_DRIVER:-posix}
@@ -10,11 +10,15 @@ export TEST_ROOT_PATH="/drone/src/tests"
 # LOCAL TEST WITHOUT EXTRA ENVS
 TEST_SERVER_URL="https://opencloud-server:9200"
 OC_WRAPPER_URL="http://opencloud-server:5200"
-EXPECTED_FAILURES_FILE="tests/acceptance/expected-failures-localAPI-on-decomposed-storage.md"
-EXPECTED_FAILURES_FILE_FROM_CORE="tests/acceptance/expected-failures-API-on-decomposed-storage.md"
+
+if [ "$STORAGE_DRIVER" = "posix" ]; then
+    EXPECTED_FAILURES_FILE="tests/acceptance/expected-failures-posix-storage.md"
+else
+    EXPECTED_FAILURES_FILE="tests/acceptance/expected-failures-decomposed-storage.md"
+fi
 
 # Start server
-make -C tests/acceptance/docker start-server
+make -C tests/acceptance/docker start-services
 
 # Wait until the server responds with HTTP 200
 echo "Waiting for server to start..."
@@ -139,7 +143,7 @@ for SUITE in "${CORE_SUITES[@]}"; do
     LOG_FILE="$LOG_DIR/${SUITE}.log"
 
     # Run suite
-    make test-acceptance-api TEST_SERVER_URL=$TEST_SERVER_URL EXPECTED_FAILURES_FILE=$EXPECTED_FAILURES_FILE_FROM_CORE BEHAT_SUITE=$SUITE SEND_SCENARIO_LINE_REFERENCES=true > "$LOG_FILE" 2>&1
+    make test-acceptance-api TEST_SERVER_URL=$TEST_SERVER_URL EXPECTED_FAILURES_FILE=$EXPECTED_FAILURES_FILE BEHAT_SUITE=$SUITE SEND_SCENARIO_LINE_REFERENCES=true > "$LOG_FILE" 2>&1
     
     # Check if suite was successful
     if [ $? -eq 0 ]; then

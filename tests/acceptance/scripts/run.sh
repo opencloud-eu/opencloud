@@ -1,4 +1,32 @@
 #!/usr/bin/env bash
+
+# Terminal colors
+if [ -n "${PLAIN_OUTPUT}" ]; then
+	# No colors
+	TC_GREEN=""
+	TC_RED=""
+	TC_CYAN=""
+	TC_RESET=""
+else
+	# Colors
+	TC_GREEN="\033[32m"
+	TC_RED="\033[31m"
+	TC_CYAN="\033[36m"
+	TC_RESET="\033[0m"
+fi
+
+function log_failed(){
+	printf "${TC_RED}[FAILED] %s\n${TC_RESET}" "$1"
+}
+
+function log_info(){
+	printf "${TC_CYAN}[INFO] %s\n${TC_RESET}" "$1"
+}
+
+function log_error(){
+	printf "${TC_RED}[ERROR] %s\n${TC_RESET}" "$1"
+}
+
 [[ "${DEBUG}" == "true" ]] && set -x
 
 # from http://stackoverflow.com/a/630387
@@ -31,15 +59,8 @@ if [ -n "${PLAIN_OUTPUT}" ]
 then
 	# explicitly tell Behat to not do colored output
 	COLORS_OPTION="--no-colors"
-	# Use the Bash "null" command to do nothing, rather than use tput to set a color
-	RED_COLOR=":"
-	GREEN_COLOR=":"
-	YELLOW_COLOR=":"
 else
 	COLORS_OPTION="--colors"
-	RED_COLOR="tput setaf 1"
-	GREEN_COLOR="tput setaf 2"
-	YELLOW_COLOR="tput setaf 3"
 fi
 
 # The following environment variables can be specified:
@@ -61,7 +82,7 @@ then
 	LINT_STATUS=$?
 	if [ ${LINT_STATUS} -ne 0 ]
 	then
-		echo "Error: expected failures file ${EXPECTED_FAILURES_FILE} is invalid"
+		log_error "Expected failures file ${EXPECTED_FAILURES_FILE} is invalid"
 		exit ${LINT_STATUS}
 	fi
 fi
@@ -224,7 +245,7 @@ function run_behat_tests() {
 		# So exit the tests and do not lint expected failures when undefined steps exist.
 		if [[ ${SCENARIO_RESULTS} == *"undefined"* ]]
 		then
-			${RED_COLOR}; echo -e "Undefined steps: There were some undefined steps found."
+			log_error "Undefined steps: There were some undefined steps found."
 			exit 1
 		fi
 		# If there were no scenarios in the requested suite or feature that match
@@ -237,7 +258,7 @@ function run_behat_tests() {
 		MATCHING_COUNT=`grep -ca '^No scenarios$' ${TEST_LOG_FILE}`
 		if [ ${MATCHING_COUNT} -eq 1 ]
 		then
-			echo "Information: no matching scenarios were found."
+			log_info "No matching scenarios were found."
 			BEHAT_EXIT_STATUS=0
 		else
 			# Find the count of scenarios that passed and failed
@@ -280,9 +301,9 @@ function run_behat_tests() {
 	then
 		if [ -n "${BEHAT_SUITE_TO_RUN}" ]
 		then
-			echo "Checking expected failures for suite ${BEHAT_SUITE_TO_RUN}"
+			log_info "Checking expected failures for suite: ${BEHAT_SUITE_TO_RUN}"
 		else
-			echo "Checking expected failures"
+			log_info "Checking expected failures..."
 		fi
 
 		# Check that every failed scenario is in the list of expected failures
@@ -295,7 +316,7 @@ function run_behat_tests() {
 				grep "\[${SUITE_SCENARIO}\]" "${EXPECTED_FAILURES_FILE}" > /dev/null
 				if [ $? -ne 0 ]
 				then
-					echo "Error: Scenario ${SUITE_SCENARIO} failed but was not expected to fail."
+					log_error "Scenario ${SUITE_SCENARIO} failed but was not expected to fail."
 					UNEXPECTED_FAILED_SCENARIOS+=("${SUITE_SCENARIO}")
 				fi
 			done
@@ -336,7 +357,7 @@ function run_behat_tests() {
 				echo "${FAILED_SCENARIO_PATHS}" | grep ${SUITE_SCENARIO}$ > /dev/null
 				if [ $? -ne 0 ]
 				then
-					echo "Info: Scenario ${SUITE_SCENARIO} was expected to fail but did not fail."
+					log_error "Scenario ${SUITE_SCENARIO} was expected to fail but did not fail."
 					UNEXPECTED_PASSED_SCENARIOS+=("${SUITE_SCENARIO}")
 				fi
 			done < ${EXPECTED_FAILURES_FILE}
@@ -373,7 +394,7 @@ function run_behat_tests() {
 			:
 		else
 			echo ""
-			echo "The following tests were skipped because they are tagged @skip:"
+			log_info "The following tests were skipped because they are tagged @skip:"
 			cat "${DRY_RUN_FILE}" | tee -a ${TEST_LOG_FILE}
 		fi
 		rm -f "${DRY_RUN_FILE}"
@@ -568,10 +589,6 @@ for i in "${!BEHAT_SUITES[@]}"
 			done
 done
 
-TOTAL_SCENARIOS=$((SCENARIOS_THAT_PASSED + SCENARIOS_THAT_FAILED))
-
-echo "runsh: Total ${TOTAL_SCENARIOS} scenarios (${SCENARIOS_THAT_PASSED} passed, ${SCENARIOS_THAT_FAILED} failed)"
-
 # 3 types of things can have gone wrong:
 #   - some scenario failed (and it was not expected to fail)
 #   - some scenario passed (but it was expected to fail)
@@ -643,37 +660,42 @@ fi
 
 if [ -n "${EXPECTED_FAILURES_FILE}" ]
 then
-	echo "runsh: Exit code after checking expected failures: ${FINAL_EXIT_STATUS}"
+	log_info "Exit code after checking expected failures: ${FINAL_EXIT_STATUS}"
 fi
 
 if [ "${UNEXPECTED_FAILURE}" = true ]
 then
-	${YELLOW_COLOR}; echo "runsh: Total unexpected failed scenarios throughout the test run:"
-	${RED_COLOR}; printf "%s\n" "${UNEXPECTED_FAILED_SCENARIOS[@]}"
+	log_failed "Total unexpected failed scenarios:"
+	printf "${TC_RED}- %s\n${TC_RESET}" "${UNEXPECTED_FAILED_SCENARIOS[@]}"
+	echo ""
 else
-	${GREEN_COLOR}; echo "runsh: There were no unexpected failures."
+	log_info "There were no unexpected failures."
 fi
 
 if [ "${UNEXPECTED_SUCCESS}" = true ]
 then
-	${YELLOW_COLOR}; echo "runsh: Total unexpected passed scenarios throughout the test run:"
-	${RED_COLOR}; printf "%s\n" "${ACTUAL_UNEXPECTED_PASS[@]}"
+	log_error "Total unexpected passed scenarios:"
+	printf "${TC_GREEN}- %s\n${TC_RESET}" "${ACTUAL_UNEXPECTED_PASS[@]}"
+	echo ""
 else
-	${GREEN_COLOR}; echo "runsh: There were no unexpected success."
+	log_info "There were no unexpected success."
 fi
 
 if [ "${UNEXPECTED_BEHAT_EXIT_STATUS}" = true ]
 then
-	${YELLOW_COLOR}; echo "runsh: The following Behat test runs exited with non-zero status:"
-	${RED_COLOR}; printf "%s\n" "${UNEXPECTED_BEHAT_EXIT_STATUSES[@]}"
+	log_error "The following Behat test runs exited with non-zero status:"
+	printf "${TC_RED}%s\n${TC_RESET}" "${UNEXPECTED_BEHAT_EXIT_STATUSES[@]}"
 fi
 
+TOTAL_SCENARIOS=$((SCENARIOS_THAT_PASSED + SCENARIOS_THAT_FAILED))
+printf "Summary: %s scenarios (${TC_GREEN}%s passed${TC_RESET}, ${TC_RED}%s failed${TC_RESET})" "${TOTAL_SCENARIOS}" "${SCENARIOS_THAT_PASSED}" "${SCENARIOS_THAT_FAILED}"
+echo ""
+
 # # sync the file-system so all output will be flushed to storage.
-# # In drone we sometimes see that the last lines of output are missing from the
-# # drone log.
+# # In CI, we sometimes see that the last lines of output are missing.
 # sync
 
-# # If we are running in drone CI, then sleep for a bit to (hopefully) let the
+# # If we are running in CI, then sleep for a bit to (hopefully) let the
 # # drone agent send all the output to the drone server.
 # if [ -n "${CI_REPO}" ]
 # then
