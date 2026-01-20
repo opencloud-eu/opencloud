@@ -47,6 +47,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/open-policy-agent/opa from 1.11.1 to 1.12.3 [[#2166](https://github.com/opencloud-eu/opencloud/pull/2166)]
 - build(deps): bump github.com/kovidgoyal/imaging from 1.8.18 to 1.8.19 [[#2167](https://github.com/opencloud-eu/opencloud/pull/2167)]
 - build(deps): bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.27.3 to 2.27.4 [[#2164](https://github.com/opencloud-eu/opencloud/pull/2164)]
 - build(deps): bump github.com/sirupsen/logrus from 1.9.4-0.20230606125235-dd1b4c2e81af to 1.9.4 [[#2163](https://github.com/opencloud-eu/opencloud/pull/2163)]
