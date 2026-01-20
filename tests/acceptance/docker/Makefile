@@ -54,18 +54,29 @@ else ifeq ($(STORAGE_DRIVER),decomposeds3)
 	COMPOSE_FILE := src/ceph.yml:$(COMPOSE_FILE)
 endif
 
+# use latest as default tag if OC_IMAGE is provided but no tag is set
+ifneq ($(strip $(OC_IMAGE)),)
+	ifeq ($(strip $(OC_IMAGE_TAG)),)
+		OC_IMAGE_TAG := latest
+	endif
+endif
+
 COMPOSE_PROJECT_NAME := opencloud-acceptance-tests
 
 # Export variables for sub-make calls
 export COMPOSE_PROJECT_NAME
 export COMPOSE_FILE
 
+export OC_IMAGE
 export OC_IMAGE_TAG
 
+# test configurations
 export STORAGE_DRIVER
 export WITH_WRAPPER
 export BEHAT_SUITE
 export BEHAT_FEATURE
+export TEST_SERVER_URL
+export USE_BEARER_TOKEN
 
 ## make definition
 .PHONY: help
@@ -86,15 +97,18 @@ help:
 	@echo -e "  ${YELLOW}clean-all\t\t${RESET}Clean all resources: images, containers, volumes, test files."
 	@echo
 	@echo "Available environment variables:"
-	@echo -e "  ${PURPLE}OC_IMAGE_TAG\t\t${RESET}${CYAN}[image_tag]${RESET} Opencloud image tag to use. If provided, the dev image build is skipped."
-	@echo -e "  ${PURPLE}WITH_WRAPPER\t\t${RESET}${CYAN}[true|false]${RESET} Start opencloud server using ocwrapper. Default: ${YELLOW}true${RESET}"
+	@echo -e "  ${PURPLE}OC_IMAGE\t\t${RESET}${CYAN}[image_repo]${RESET} OpenCloud image to use. If provided, the dev image build is skipped."
+	@echo -e "  ${PURPLE}OC_IMAGE_TAG\t\t${RESET}${CYAN}[image_tag]${RESET} OpenCloud image tag to use. If provided, the dev image build is skipped."
+	@echo -e "  ${PURPLE}WITH_WRAPPER\t\t${RESET}${CYAN}[true|false]${RESET} Start OpenCloud server using ocwrapper. Default: ${YELLOW}true${RESET}"
 	@echo -e "  ${PURPLE}STORAGE_DRIVER\t${RESET}${CYAN}[posix|decomposed|decomposeds3]${RESET} Storage driver to use. Default: ${YELLOW}posix${RESET}"
 	@echo -e "  ${PURPLE}BEHAT_FEATURE\t\t${RESET}${RESET}${CYAN}[path]${RESET} Path to a feature file. Example: ${YELLOW}tests/acceptance/features/apiGraph/changeRole.feature${RESET}"
 	@echo -e "  ${PURPLE}BEHAT_SUITE\t\t${RESET}${RESET}${CYAN}[suite_name]${RESET} Test suite to run. Example: ${YELLOW}apiGraph${RESET}"
+	@echo -e "  ${PURPLE}TEST_SERVER_URL\t${RESET}${CYAN}[url]${RESET} URL of the OpenCloud server to test against."
+	@echo -e "  ${PURPLE}USE_BEARER_TOKEN\t${RESET}${CYAN}[true|false]${RESET} Use a bearer token for authentication. Default: ${YELLOW}false${RESET}"
 	@echo
 	@echo -e "Example usage:"
 	@echo -e "  ${PURPLE}WITH_WRAPPER${RESET}=${YELLOW}false${RESET} \\"
-	@echo -e "  ${PURPLE}STORAGE_DRIVER${RESET}=${YELLOW}decomposed${RESET} \\"
+	@echo -e "  ${PURPLE}STORAGE_DRIVER${RESET}=${YELLOW}posix${RESET} \\"
 	@echo -e "  ${PURPLE}BEHAT_FEATURE${RESET}=${YELLOW}tests/acceptance/features/apiGraph/changeRole.feature${RESET} \\"
 	@echo -e "  make ${GREEN}run-api-tests${RESET}"
 
@@ -103,6 +117,8 @@ run-api-tests: $(OC_WRAPPER) build-dev-image clean-containers
 	@echo "${BLUE}[INFO]${RESET} Compose project: ${YELLOW}$(COMPOSE_PROJECT_NAME)${RESET}"
 	@echo "${BLUE}[INFO]${RESET} Compose file: ${YELLOW}$(COMPOSE_FILE)${RESET}"
 	@echo "${BLUE}[INFO]${RESET} Using storage driver: ${YELLOW}$(STORAGE_DRIVER)${RESET}"
+	# force use local server when using this command
+	export TEST_SERVER_URL=https://opencloud-server:9200
 	$(MAKE) --no-print-directory start-services
 	$(MAKE) --no-print-directory run-test-only
 
@@ -129,7 +145,7 @@ $(OC_WRAPPER):
 
 .PHONY: build-dev-image
 build-dev-image:
-	@if [ -z "$(OC_IMAGE_TAG)" ]; then \
+	@if [ -z "$(OC_IMAGE)" ] && [ -z "$(OC_IMAGE_TAG)" ]; then \
 		$(MAKE) --no-print-directory -C ../../../opencloud dev-docker \
 	; fi;
 
