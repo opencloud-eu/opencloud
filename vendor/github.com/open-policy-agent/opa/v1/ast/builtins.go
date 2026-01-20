@@ -151,6 +151,7 @@ var DefaultBuiltins = [...]*Builtin{
 	Sprintf,
 	StringReverse,
 	RenderTemplate,
+	InternalTemplateString,
 
 	// Numbers
 	NumbersRange,
@@ -1109,7 +1110,7 @@ var Concat = &Builtin{
 		types.Named("output", types.S).Description("the joined string"),
 	),
 	Categories:  stringsCat,
-	CanSkipBctx: true,
+	CanSkipBctx: false,
 }
 
 var FormatInt = &Builtin{
@@ -1277,7 +1278,7 @@ var Replace = &Builtin{
 		types.Named("y", types.S).Description("string with replaced substrings"),
 	),
 	Categories:  stringsCat,
-	CanSkipBctx: true,
+	CanSkipBctx: false,
 }
 
 var ReplaceN = &Builtin{
@@ -1297,7 +1298,7 @@ The old string comparisons are done in argument order.`,
 		),
 		types.Named("output", types.S).Description("string with replaced substrings"),
 	),
-	CanSkipBctx: true,
+	CanSkipBctx: false,
 }
 
 var RegexReplace = &Builtin{
@@ -3386,6 +3387,11 @@ var InternalPrint = &Builtin{
 var InternalTestCase = &Builtin{
 	Name: "internal.test_case",
 	Decl: types.NewFunction([]types.Type{types.NewArray(nil, types.A)}, nil),
+}
+
+var InternalTemplateString = &Builtin{
+	Name: "internal.template_string",
+	Decl: types.NewFunction([]types.Type{types.NewArray(nil, types.A)}, types.S),
 }
 
 /**
