@@ -163,15 +163,20 @@ func (self *Image) populate_from_gif(g *gif.GIF) {
 			Delay: gifmeta.CalculateFrameDelay(g.Delay[i], min_gap),
 		}
 		switch prev_disposal {
-		case gif.DisposalNone, 0:
+		case gif.DisposalNone, 0: // 1
 			frame.ComposeOnto = frame.Number - 1
-		case gif.DisposalPrevious:
+		case gif.DisposalPrevious: // 3
 			frame.ComposeOnto = prev_compose_onto
-		case gif.DisposalBackground:
-			// this is in contravention of the GIF spec but browsers and
-			// gif2apng both do this, so follow them. Test image for this
-			// is apple.gif
-			frame.ComposeOnto = frame.Number - 1
+		case gif.DisposalBackground: // 2
+			if i > 0 && g.Delay[i-1] == 0 {
+				// this is in contravention of the GIF spec but browsers and
+				// gif2apng both do this, so follow them. Test images for this
+				// are apple.gif and disposal-background-with-delay.gif
+				frame.ComposeOnto = frame.Number - 1
+			} else {
+				// delay present, frame visible, so clear to background as the spec requires
+				frame.ComposeOnto = 0
+			}
 		}
 		prev_disposal, prev_compose_onto = g.Disposal[i], frame.ComposeOnto
 		self.Frames = append(self.Frames, &frame)
