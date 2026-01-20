@@ -1240,6 +1240,7 @@ def localApiTestPipeline(ctx):
                 if "[decomposed]" in ctx.build.title.lower() or name.startswith("cli"):
                     params["storages"] = ["decomposed"]
 
+                params["withRemotePhp"] = [True, False]
                 if ctx.build.event == "cron":
                     params["withRemotePhp"] = [True, False]
                     params["enableWatchFs"] = [True, False]
