@@ -1,6 +1,6 @@
 # Changelog
 
-## [5.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.0.0) - 2026-01-20
+## [5.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.0.0) - 2026-01-21
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -10,14 +10,9 @@
 
 - merge ocdav into frontend [[#1958](https://github.com/opencloud-eu/opencloud/pull/1958)]
 
-### 📚 Documentation
-
-- Update release template [[#2182](https://github.com/opencloud-eu/opencloud/pull/2182)]
-- Clarify what the two requests are used for [[#2179](https://github.com/opencloud-eu/opencloud/pull/2179)]
-- fix: markdown links formatting [[#2143](https://github.com/opencloud-eu/opencloud/pull/2143)]
-
 ### ✅ Tests
 
+- test(api): update without-remotephp expected-failures list [[#2184](https://github.com/opencloud-eu/opencloud/pull/2184)]
 - [full-ci] test: use single command to run the containers and the API tests [[#2169](https://github.com/opencloud-eu/opencloud/pull/2169)]
 - [tests-only] test: setup for running wopi API tests locally [[#2139](https://github.com/opencloud-eu/opencloud/pull/2139)]
 - fix flaky #2145 [[#2161](https://github.com/opencloud-eu/opencloud/pull/2161)]
@@ -29,6 +24,12 @@
 - [full-ci] use graph api in the enforcePasswordPublicLink.feature [[#2050](https://github.com/opencloud-eu/opencloud/pull/2050)]
 - [full-ci][tests-only] test: check last email content with retries as emails can be delayed [[#2038](https://github.com/opencloud-eu/opencloud/pull/2038)]
 - skip collaborativePosix tests in CI [[#2039](https://github.com/opencloud-eu/opencloud/pull/2039)]
+
+### 📚 Documentation
+
+- Update release template [[#2182](https://github.com/opencloud-eu/opencloud/pull/2182)]
+- Clarify what the two requests are used for [[#2179](https://github.com/opencloud-eu/opencloud/pull/2179)]
+- fix: markdown links formatting [[#2143](https://github.com/opencloud-eu/opencloud/pull/2143)]
 
 ### 🐛 Bug Fixes
 
