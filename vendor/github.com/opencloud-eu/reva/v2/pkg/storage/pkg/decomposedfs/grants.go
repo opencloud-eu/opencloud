@@ -28,7 +28,6 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
-	"github.com/opencloud-eu/reva/v2/pkg/sharedconf"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
@@ -119,7 +118,7 @@ func (fs *Decomposedfs) AddGrant(ctx context.Context, ref *provider.Reference, g
 		}
 	}
 
-	if sharedconf.MultiTenantEnabled() {
+	if fs.o.MultiTenantEnabled {
 		spaceTenant, err := grantNode.SpaceRoot.XattrString(ctx, prefixes.SpaceTenantIDAttr)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to read tenant id of space")

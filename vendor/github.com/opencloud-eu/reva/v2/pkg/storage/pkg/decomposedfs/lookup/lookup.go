@@ -151,7 +151,7 @@ func (lu *Lookup) NodeFromID(ctx context.Context, id *provider.ResourceId) (n *n
 		// The Resource references the root of a space
 		return lu.NodeFromSpaceID(ctx, id.SpaceId)
 	}
-	return node.ReadNode(ctx, lu, id.SpaceId, id.OpaqueId, false, nil, false)
+	return node.ReadNode(ctx, lu, id.SpaceId, id.OpaqueId, "", false, nil, false)
 }
 
 // Pathify segments the beginning of a string into depth segments of width length
@@ -172,7 +172,7 @@ func Pathify(id string, depth, width int) string {
 
 // NodeFromSpaceID converts a resource id into a Node
 func (lu *Lookup) NodeFromSpaceID(ctx context.Context, spaceID string) (n *node.Node, err error) {
-	node, err := node.ReadNode(ctx, lu, spaceID, spaceID, false, nil, false)
+	node, err := node.ReadNode(ctx, lu, spaceID, spaceID, "", false, nil, false)
 	if err != nil {
 		return nil, err
 	}
@@ -274,8 +274,8 @@ func (lu *Lookup) InternalPath(spaceID, nodeID string) string {
 }
 
 // LockfilePaths returns the paths(s) to the lockfile of the node
-func (lu *Lookup) LockfilePaths(spaceID, nodeID string) []string {
-	return []string{lu.InternalPath(spaceID, nodeID) + ".lock"}
+func (lu *Lookup) LockfilePaths(n *node.Node) []string {
+	return []string{n.InternalPath() + ".lock"}
 }
 
 // VersionPath returns the internal path for a version of a node

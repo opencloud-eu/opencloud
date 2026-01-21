@@ -15,7 +15,7 @@ github.com/Azure/go-ansiterm/winterm
 # github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358
 ## explicit
 github.com/Azure/go-ntlmssp
-# github.com/BurntSushi/toml v1.5.0
+# github.com/BurntSushi/toml v1.6.0
 ## explicit; go 1.18
 github.com/BurntSushi/toml
 github.com/BurntSushi/toml/internal
@@ -821,6 +821,11 @@ github.com/hashicorp/go-plugin/internal/cmdrunner
 github.com/hashicorp/go-plugin/internal/grpcmux
 github.com/hashicorp/go-plugin/internal/plugin
 github.com/hashicorp/go-plugin/runner
+# github.com/hashicorp/golang-lru/v2 v2.0.7
+## explicit; go 1.18
+github.com/hashicorp/golang-lru/v2
+github.com/hashicorp/golang-lru/v2/internal
+github.com/hashicorp/golang-lru/v2/simplelru
 # github.com/hashicorp/yamux v0.1.2
 ## explicit; go 1.20
 github.com/hashicorp/yamux
@@ -1064,7 +1069,7 @@ github.com/miekg/dns
 # github.com/mileusna/useragent v1.3.5
 ## explicit; go 1.14
 github.com/mileusna/useragent
-# github.com/minio/crc64nvme v1.1.0
+# github.com/minio/crc64nvme v1.1.1
 ## explicit; go 1.22
 github.com/minio/crc64nvme
 # github.com/minio/highwayhash v1.0.4-0.20251030100505-070ab1a87a76
@@ -1073,8 +1078,8 @@ github.com/minio/highwayhash
 # github.com/minio/md5-simd v1.1.2
 ## explicit; go 1.14
 github.com/minio/md5-simd
-# github.com/minio/minio-go/v7 v7.0.97
-## explicit; go 1.23.0
+# github.com/minio/minio-go/v7 v7.0.98
+## explicit; go 1.24.0
 github.com/minio/minio-go/v7
 github.com/minio/minio-go/v7/pkg/cors
 github.com/minio/minio-go/v7/pkg/credentials
@@ -1370,7 +1375,7 @@ github.com/opencloud-eu/icap-client
 # github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76
 ## explicit; go 1.18
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v2 v2.41.1-0.20260107152322-93760b632993
+# github.com/opencloud-eu/reva/v2 v2.41.1-0.20260120144836-2769c3c07a19
 ## explicit; go 1.24.1
 github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v2/cmd/revad/runtime
@@ -1835,7 +1840,7 @@ github.com/power-devops/perfstat
 ## explicit; go 1.16
 github.com/pquerna/cachecontrol
 github.com/pquerna/cachecontrol/cacheobject
-# github.com/prometheus/alertmanager v0.30.0
+# github.com/prometheus/alertmanager v0.30.1
 ## explicit; go 1.24.0
 github.com/prometheus/alertmanager/asset
 github.com/prometheus/alertmanager/featurecontrol
@@ -1938,7 +1943,7 @@ github.com/segmentio/asm/cpu/arm64
 github.com/segmentio/asm/cpu/cpuid
 github.com/segmentio/asm/cpu/x86
 github.com/segmentio/asm/internal/unsafebytes
-# github.com/segmentio/kafka-go v0.4.49
+# github.com/segmentio/kafka-go v0.4.50
 ## explicit; go 1.23
 github.com/segmentio/kafka-go
 github.com/segmentio/kafka-go/compress
@@ -2121,9 +2126,10 @@ github.com/tidwall/pretty
 # github.com/tidwall/sjson v1.2.5
 ## explicit; go 1.14
 github.com/tidwall/sjson
-# github.com/tinylib/msgp v1.3.0
-## explicit; go 1.20
+# github.com/tinylib/msgp v1.6.1
+## explicit; go 1.24
 github.com/tinylib/msgp/msgp
+github.com/tinylib/msgp/msgp/setof
 # github.com/tklauser/go-sysconf v0.3.14
 ## explicit; go 1.18
 github.com/tklauser/go-sysconf
