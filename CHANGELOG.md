@@ -12,6 +12,8 @@
 
 ### ✅ Tests
 
+- test(api): auto-generate test virus files before test run [[#2191](https://github.com/opencloud-eu/opencloud/pull/2191)]
+- test(api): remove accountsHashDifficulty test suite [[#2190](https://github.com/opencloud-eu/opencloud/pull/2190)]
 - test(api): update without-remotephp expected-failures list [[#2184](https://github.com/opencloud-eu/opencloud/pull/2184)]
 - [full-ci] test: use single command to run the containers and the API tests [[#2169](https://github.com/opencloud-eu/opencloud/pull/2169)]
 - [tests-only] test: setup for running wopi API tests locally [[#2139](https://github.com/opencloud-eu/opencloud/pull/2139)]
