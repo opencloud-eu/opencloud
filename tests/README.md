@@ -466,15 +466,6 @@ For antivirus running localy on Linux OS, use `ANTIVIRUS_CLAMAV_SOCKET= "/var/ru
 For antivirus running localy on Mac OS, use `ANTIVIRUS_CLAMAV_SOCKET= "/tmp/clamd.sock"`.
 For antivirus running with docker, use `ANTIVIRUS_CLAMAV_SOCKET= "tcp://host.docker.internal:3310"`
 
-#### Create Virus Files
-
-The antivirus tests require EICAR test files which are not stored in the repository
-They are generated dynamically when needed for testing.
-
-```bash
-tests/acceptance/scripts/generate-virus-files.sh
-```
-
 #### Run the Acceptance Test
 
 Run the acceptance test with the following command:

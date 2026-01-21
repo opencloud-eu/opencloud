@@ -26,6 +26,7 @@ use Psr\Http\Message\ResponseInterface;
 use TestHelpers\HttpRequestHelper;
 use TestHelpers\WebDavHelper;
 use TestHelpers\BehatHelper;
+use TestHelpers\UploadHelper;
 
 require_once 'bootstrap.php';
 
@@ -862,7 +863,7 @@ class PublicWebDavContext implements Context {
 		string $destination,
 	): void {
 		$content = \file_get_contents(
-			$this->featureContext->acceptanceTestsDirLocation() . $source
+			UploadHelper::getAcceptanceTestsDir() . $source
 		);
 		$response = $this->publicUploadContent(
 			$destination,
@@ -888,7 +889,7 @@ class PublicWebDavContext implements Context {
 		string $password
 	): void {
 		$content = \file_get_contents(
-			$this->featureContext->acceptanceTestsDirLocation() . $source
+			UploadHelper::getAcceptanceTestsDir() . $source
 		);
 		$response = $this->publicUploadContent(
 			$destination,

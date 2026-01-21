@@ -201,13 +201,6 @@ config = {
             ],
             "skip": False,
         },
-        "accountsHashDifficulty": {
-            "skip": False,
-            "suites": [
-                "apiAccountsHashDifficulty",
-            ],
-            "accounts_hash_difficulty": "default",
-        },
         "notification": {
             "suites": [
                 "apiNotification",
@@ -234,7 +227,6 @@ config = {
             ],
             "skip": False,
             "antivirusNeeded": True,
-            "generateVirusFiles": True,
             "extraServerEnvironment": {
                 "ANTIVIRUS_SCANNER_TYPE": "clamav",
                 "ANTIVIRUS_CLAMAV_SOCKET": "tcp://clamav:3310",
@@ -301,7 +293,6 @@ config = {
             "skip": False,
             "withRemotePhp": [True],
             "antivirusNeeded": True,
-            "generateVirusFiles": True,
             "extraServerEnvironment": {
                 "ANTIVIRUS_SCANNER_TYPE": "clamav",
                 "ANTIVIRUS_CLAMAV_SOCKET": "tcp://clamav:3310",
@@ -667,10 +658,10 @@ def testPipelines(ctx):
         storage = "decomposed"
 
     if "skip" not in config["cs3ApiTests"] or not config["cs3ApiTests"]["skip"]:
-        pipelines += cs3ApiTests(ctx, storage, "default")
+        pipelines += cs3ApiTests(ctx, storage)
     if "skip" not in config["wopiValidatorTests"] or not config["wopiValidatorTests"]["skip"]:
-        pipelines += wopiValidatorTests(ctx, storage, "builtin", "default")
-        pipelines += wopiValidatorTests(ctx, storage, "cs3", "default")
+        pipelines += wopiValidatorTests(ctx, storage, "builtin")
+        pipelines += wopiValidatorTests(ctx, storage, "cs3")
 
     pipelines += localApiTestPipeline(ctx)
     pipelines += coreApiTestPipeline(ctx)
@@ -1059,12 +1050,12 @@ def codestyle(ctx):
 
     return pipelines
 
-def cs3ApiTests(ctx, storage, accounts_hash_difficulty = 4):
+def cs3ApiTests(ctx, storage):
     pipeline = {
         "name": "test-cs3-API-%s" % storage,
         "steps": evaluateWorkflowStep() +
                  restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
-                 opencloudServer(storage, accounts_hash_difficulty, deploy_type = "cs3api_validator") +
+                 opencloudServer(storage, deploy_type = "cs3api_validator") +
                  [
                      {
                          "name": "cs3ApiTests",
@@ -1095,7 +1086,7 @@ def cs3ApiTests(ctx, storage, accounts_hash_difficulty = 4):
     ])
     return [pipeline]
 
-def wopiValidatorTests(ctx, storage, wopiServerType, accounts_hash_difficulty = 4):
+def wopiValidatorTests(ctx, storage, wopiServerType):
     testgroups = [
         "BaseWopiViewing",
         "CheckFileInfoSchema",
@@ -1173,7 +1164,7 @@ def wopiValidatorTests(ctx, storage, wopiServerType, accounts_hash_difficulty = 
         "steps": evaluateWorkflowStep() +
                  restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
                  waitForServices("fake-office", ["fakeoffice:8080"]) +
-                 opencloudServer(storage, accounts_hash_difficulty, deploy_type = "wopi_validator", extra_server_environment = extra_server_environment) +
+                 opencloudServer(storage, deploy_type = "wopi_validator", extra_server_environment = extra_server_environment) +
                  wopiServer +
                  waitForServices("wopi-fakeoffice", ["wopi-fakeoffice:9300"]) +
                  [
@@ -1224,7 +1215,6 @@ def localApiTestPipeline(ctx):
         "extraTestEnvironment": {},
         "extraServerEnvironment": {},
         "storages": ["posix"],
-        "accounts_hash_difficulty": 4,
         "emailNeeded": False,
         "antivirusNeeded": False,
         "tikaNeeded": False,
@@ -1234,7 +1224,6 @@ def localApiTestPipeline(ctx):
         "withRemotePhp": [True],
         "enableWatchFs": [False],
         "ldapNeeded": False,
-        "generateVirusFiles": False,
     }
 
     if "localApiTests" in config:
@@ -1281,16 +1270,15 @@ def localApiTestPipeline(ctx):
                                          (waitForLdapService() if params["ldapNeeded"] else []) +
                                          opencloudServer(
                                              storage,
-                                             params["accounts_hash_difficulty"],
                                              extra_server_environment = params["extraServerEnvironment"],
                                              with_wrapper = True,
                                              tika_enabled = params["tikaNeeded"],
                                              watch_fs_enabled = run_with_watch_fs_enabled,
                                          ) +
-                                         (opencloudServer(storage, params["accounts_hash_difficulty"], deploy_type = "federation", extra_server_environment = params["extraServerEnvironment"], watch_fs_enabled = run_with_watch_fs_enabled) if params["federationServer"] else []) +
+                                         (opencloudServer(storage, deploy_type = "federation", extra_server_environment = params["extraServerEnvironment"], watch_fs_enabled = run_with_watch_fs_enabled) if params["federationServer"] else []) +
                                          ((wopiCollaborationService("fakeoffice") + wopiCollaborationService("collabora") + wopiCollaborationService("onlyoffice")) if params["collaborationServiceNeeded"] else []) +
                                          (openCloudHealthCheck("wopi", ["wopi-collabora:9304", "wopi-onlyoffice:9304", "wopi-fakeoffice:9304"]) if params["collaborationServiceNeeded"] else []) +
-                                         localApiTest(params["suites"], storage, params["extraTestEnvironment"], run_with_remote_php, params["generateVirusFiles"]) +
+                                         localApiTest(params["suites"], storage, params["extraTestEnvironment"], run_with_remote_php) +
                                          logRequests(),
                                 "services": (emailService() if params["emailNeeded"] else []) +
                                             (clamavService() if params["antivirusNeeded"] else []) +
@@ -1314,7 +1302,7 @@ def localApiTestPipeline(ctx):
                             pipelines.append(pipeline)
     return pipelines
 
-def localApiTest(suites, storage = "decomposed", extra_environment = {}, with_remote_php = False, generate_virus_files = False):
+def localApiTest(suites, storage = "decomposed", extra_environment = {}, with_remote_php = False):
     test_dir = "%s/tests/acceptance" % dirs["base"]
     expected_failures_file = "%s/expected-failures-%s-storage.md" % (test_dir, storage)
 
@@ -1339,11 +1327,6 @@ def localApiTest(suites, storage = "decomposed", extra_environment = {}, with_re
 
     commands = []
 
-    # Generate EICAR virus test files if needed
-    if generate_virus_files:
-        commands.append("chmod +x %s/tests/acceptance/scripts/generate-virus-files.sh" % dirs["base"])
-        commands.append("bash %s/tests/acceptance/scripts/generate-virus-files.sh" % dirs["base"])
-
     # Merge expected failures
     if not with_remote_php:
         commands.append("cat %s/expected-failures-without-remotephp.md >> %s" % (test_dir, expected_failures_file))
@@ -1366,7 +1349,6 @@ def coreApiTestPipeline(ctx):
         "numberOfParts": 7,
         "skipExceptParts": [],
         "skip": False,
-        "accounts_hash_difficulty": 4,
     }
 
     pipelines = []
@@ -1412,7 +1394,6 @@ def coreApiTestPipeline(ctx):
                                          restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
                                          opencloudServer(
                                              storage,
-                                             params["accounts_hash_difficulty"],
                                              with_wrapper = True,
                                              watch_fs_enabled = run_with_watch_fs_enabled,
                                          ) +
@@ -2330,7 +2311,7 @@ def notifyMatrix(ctx):
 
     return result
 
-def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, depends_on = [], deploy_type = "", extra_server_environment = {}, with_wrapper = False, tika_enabled = False, watch_fs_enabled = False):
+def opencloudServer(storage = "decomposed", depends_on = [], deploy_type = "", extra_server_environment = {}, with_wrapper = False, tika_enabled = False, watch_fs_enabled = False):
     user = "0:0"
     container_name = OC_SERVER_NAME
     environment = {
@@ -2425,13 +2406,6 @@ def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, depend
 
     if watch_fs_enabled:
         environment["STORAGE_USERS_POSIX_WATCH_FS"] = True
-
-    # Pass in "default" accounts_hash_difficulty to not set this environment variable.
-    # That will allow OpenCloud to use whatever its built-in default is.
-    # Otherwise pass in a value from 4 to about 11 or 12 (default 4, for making regular tests fast)
-    # The high values cause lots of CPU to be used when hashing passwords, and really slow down the tests.
-    if accounts_hash_difficulty != "default":
-        environment["ACCOUNTS_HASH_DIFFICULTY"] = accounts_hash_difficulty
 
     for item in extra_server_environment:
         environment[item] = extra_server_environment[item]
