@@ -1,13 +1,14 @@
 # Changelog
 
-## [4.0.2](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.2) - 2025-12-16
+## [4.0.2](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.2) - 2026-01-21
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@saw-jan
+@ScharfViktor, @saw-jan
 
 ### ✅ Tests
 
+- [tests-only] port tests to stable #2087 #2039 [[#2185](https://github.com/opencloud-eu/opencloud/pull/2185)]
 - [full-ci][tests-only] port test fixes [[#2017](https://github.com/opencloud-eu/opencloud/pull/2017)]
 
 ## [4.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.1) - 2025-12-15
