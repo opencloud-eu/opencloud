@@ -202,7 +202,7 @@ Feature: capabilities
                     "properties": {
                       "edition": {
                         "type": "string",
-                        "enum": ["dev"]
+                        "enum": ["%edition%"]
                       },
                       "product": {
                         "type": "string",
@@ -240,7 +240,7 @@ Feature: capabilities
               },
               "edition": {
                 "type": "string",
-                "enum": ["dev"]
+                "enum": ["%edition%"]
               },
               "product": {
                 "type": "string",

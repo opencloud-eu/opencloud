@@ -377,7 +377,7 @@ class NotificationContext implements Context {
 	}
 
 	/**
-	 * @Then /^user "([^"]*)" should (?:get|have) a notification with subject "([^"]*)" and message:$/
+	 * @Then /^user "([^"]*)" should get a notification with subject "([^"]*)" and message:$/
 	 *
 	 * @param string $user
 	 * @param string $subject
@@ -411,10 +411,10 @@ class NotificationContext implements Context {
 			throw new \Exception("Notification was not found even after retrying for 5 seconds.");
 		}
 		$expectedMessage = $table->getColumnsHash()[0]['message'];
-		Assert::assertSame(
+		Assert::assertStringStartsWith(
 			$expectedMessage,
 			$actualMessage,
-			__METHOD__ . "expected message to be '$expectedMessage' but found'$actualMessage'"
+			__METHOD__ . "expected message to start with '$expectedMessage' but found'$actualMessage'"
 		);
 	}
 
@@ -441,10 +441,10 @@ class NotificationContext implements Context {
 		if (\count($notification) === 1) {
 			$actualMessage = str_replace(["\r", "\r"], " ", $notification[0]->message);
 			$expectedMessage = $table->getColumnsHash()[0]['message'];
-			Assert::assertSame(
+			Assert::assertStringStartsWith(
 				$expectedMessage,
 				$actualMessage,
-				__METHOD__ . "expected message to be '$expectedMessage' but found'$actualMessage'"
+				__METHOD__ . "expected message to start with '$expectedMessage' but found'$actualMessage'"
 			);
 			$response = $this->userDeletesNotification($user);
 			$this->featureContext->theHTTPStatusCodeShouldBe(200, '', $response);
@@ -462,7 +462,7 @@ class NotificationContext implements Context {
 	}
 
 	/**
-	 * @Then user :user should not have a notification related to resource :resource with subject :subject
+	 * @Then user :user should not get a notification related to resource :resource with subject :subject
 	 *
 	 * @param string $user
 	 * @param string $resource

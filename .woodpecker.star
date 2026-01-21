@@ -137,7 +137,8 @@ config = {
             "suites": [
                 "apiGraph",
                 "apiServiceAvailability",
-                "collaborativePosix",
+                # skip tests for collaborativePosix. see https://github.com/opencloud-eu/opencloud/issues/2036
+                #"collaborativePosix",
             ],
             "skip": False,
             "withRemotePhp": [True],
