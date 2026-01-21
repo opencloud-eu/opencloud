@@ -1218,12 +1218,6 @@ def wopiValidatorTests(ctx, storage, wopiServerType, accounts_hash_difficulty = 
 def localApiTestPipeline(ctx):
     pipelines = []
 
-    with_remote_php = [True]
-    enable_watch_fs = [False]
-    if ctx.build.event == "cron":
-        with_remote_php.append(False)
-        enable_watch_fs.append(True)
-
     defaults = {
         "suites": {},
         "skip": False,
@@ -1237,8 +1231,8 @@ def localApiTestPipeline(ctx):
         "federationServer": False,
         "collaborationServiceNeeded": False,
         "extraCollaborationEnvironment": {},
-        "withRemotePhp": with_remote_php,
-        "enableWatchFs": enable_watch_fs,
+        "withRemotePhp": [True],
+        "enableWatchFs": [False],
         "ldapNeeded": False,
         "generateVirusFiles": False,
     }
@@ -1254,6 +1248,14 @@ def localApiTestPipeline(ctx):
                 # run CLI tests only with decomposed storage
                 if "[decomposed]" in ctx.build.title.lower() or name.startswith("cli"):
                     params["storages"] = ["decomposed"]
+
+                if ctx.build.event == "cron":
+                    params["withRemotePhp"] = [True, False]
+                    params["enableWatchFs"] = [True, False]
+
+                # override withRemotePhp if specified in the suite config
+                if "withRemotePhp" in matrix:
+                    params["withRemotePhp"] = matrix["withRemotePhp"]
 
                 for storage in params["storages"]:
                     for run_with_remote_php in params["withRemotePhp"]:
@@ -1384,6 +1386,10 @@ def coreApiTestPipeline(ctx):
         if ctx.build.event == "cron":
             params["withRemotePhp"] = [True, False]
             params["enableWatchFs"] = [True, False]
+
+        # override withRemotePhp if specified in the suite config
+        if "withRemotePhp" in matrix:
+            params["withRemotePhp"] = matrix["withRemotePhp"]
 
         debugParts = params["skipExceptParts"]
         debugPartsEnabled = (len(debugParts) != 0)
