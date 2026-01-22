@@ -5,23 +5,30 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/clihelper"
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/config"
-	"github.com/urfave/cli/v2"
+
+	"github.com/spf13/cobra"
 )
 
 // GetCommands provides all commands for this service
-func GetCommands(cfg *config.Config) cli.Commands {
-	return []*cli.Command{
+func GetCommands(cfg *config.Config) []*cobra.Command {
+	return []*cobra.Command{
+		// start this service
 		Server(cfg),
+
+		// infos about this service
+		// Health(cfg),
 		Version(cfg),
 	}
 }
 
+// Execute is the entry point for the opencloud group command.
 func Execute(cfg *config.Config) error {
-	app := clihelper.DefaultApp(&cli.App{
-		Name:     "groupware",
-		Usage:    "Groupware service for OpenCloud",
-		Commands: GetCommands(cfg),
+	app := clihelper.DefaultApp(&cobra.Command{
+		Use:   "groupware",
+		Short: "Groupware service for OpenCloud",
 	})
+	app.AddCommand(GetCommands(cfg)...)
+	app.SetArgs(os.Args[1:])
 
-	return app.RunContext(cfg.Context, os.Args)
+	return app.ExecuteContext(cfg.Context)
 }
