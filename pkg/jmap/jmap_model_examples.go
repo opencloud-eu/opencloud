@@ -8,594 +8,8 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"time"
 )
-
-type Exampler struct {
-	AccountId                  string
-	SharedAccountId            string
-	IdentityId                 string
-	IdentityName               string
-	EmailAddress               string
-	BccName                    string
-	BccAddress                 string
-	OtherIdentityId            string
-	OtherIdentityName          string
-	OtherIdentityEmailAddress  string
-	SharedIdentityId           string
-	SharedIdentityName         string
-	SharedIdentityEmailAddress string
-	ThreadId                   string
-	EmailId                    string
-	EmailIds                   []string
-	QuotaId                    string
-	SharedQuotaId              string
-	Username                   string
-	SharedAccountName          string
-	TextSignature              string
-	MailboxInboxId             string
-	MailboxDraftsId            string
-	MailboxSentId              string
-	MailboxJunkId              string
-	MailboxDeletedId           string
-	MailboxProjectId           string
-	SenderEmailAddress         string
-	SenderName                 string
-}
-
-var ExamplerInstance = Exampler{
-	AccountId:                  "b",
-	Username:                   "cdrummer",
-	IdentityId:                 "aemua9ai",
-	IdentityName:               "Camina Drummer",
-	EmailAddress:               "cdrummer@opa.example.com",
-	BccName:                    "OPA Secretary",
-	BccAddress:                 "secretary@opa.example.com",
-	OtherIdentityId:            "reogh7ia",
-	OtherIdentityName:          "Transport Union President",
-	OtherIdentityEmailAddress:  "pres@tu.example.com",
-	SharedAccountId:            "s",
-	SharedAccountName:          "OPA Leadership",
-	SharedIdentityId:           "eeyie4qu",
-	SharedIdentityName:         "OPA",
-	SharedIdentityEmailAddress: "bosmangs@opa.example.com",
-	ThreadId:                   "soh0aixi",
-	EmailId:                    "oot8eev2",
-	EmailIds:                   []string{"oot8eev2", "phah6ang", "fo7raidi", "kahsha6p"},
-	QuotaId:                    "iezuu7ah",
-	SharedQuotaId:              "voos4oht",
-	TextSignature:              strings.Join([]string{"Camina Drummer", "President of the Transport Union"}, "\n"),
-	MailboxInboxId:             "a",
-	MailboxDraftsId:            "d",
-	MailboxSentId:              "e",
-	MailboxJunkId:              "c",
-	MailboxDeletedId:           "b",
-	MailboxProjectId:           "i",
-	SenderEmailAddress:         "klaes@opa.example.com",
-	SenderName:                 "Klaes Ashford",
-}
-
-func (e Exampler) SessionMailAccountCapabilities() SessionMailAccountCapabilities {
-	return SessionMailAccountCapabilities{
-		MaxMailboxesPerEmail:       0,
-		MaxMailboxDepth:            10,
-		MaxSizeMailboxName:         255,
-		MaxSizeAttachmentsPerEmail: 50000000,
-		EmailQuerySortOptions: []string{
-			EmailPropertyReceivedAt,
-			EmailPropertySize,
-			EmailPropertyFrom,
-			EmailPropertyTo,
-			EmailPropertySubject,
-			EmailPropertySentAt,
-			EmailPropertyHasAttachment,
-			EmailSortPropertyAllInThreadHaveKeyword,
-			EmailSortPropertySomeInThreadHaveKeyword,
-		},
-		MayCreateTopLevelMailbox: true,
-	}
-}
-
-func (e Exampler) SessionSubmissionAccountCapabilities() SessionSubmissionAccountCapabilities {
-	return SessionSubmissionAccountCapabilities{
-		MaxDelayedSend: 2592000,
-		SubmissionExtensions: map[string][]string{
-			"DELIVERYBY":    {},
-			"DSN":           {},
-			"FUTURERELEASE": {},
-			"MT-PRIORITY":   {"MIXER"},
-			"REQUIRETLS":    {},
-			"SIZE":          {},
-		},
-	}
-}
-
-func (e Exampler) SessionVacationResponseAccountCapabilities() SessionVacationResponseAccountCapabilities {
-	return SessionVacationResponseAccountCapabilities{}
-}
-
-func (e Exampler) SessionSieveAccountCapabilities() SessionSieveAccountCapabilities {
-	return SessionSieveAccountCapabilities{
-		MaxSizeScriptName:  512,
-		MaxSizeScript:      1048576,
-		MaxNumberScripts:   100,
-		MaxNumberRedirects: 1,
-		SieveExtensions: []string{
-			"body",
-			"comparator-elbonia",
-			"comparator-i;ascii-casemap",
-			"comparator-i;ascii-numeric",
-			"comparator-i;octet",
-			"convert",
-			"copy",
-			"date",
-			"duplicate",
-			"editheader",
-			"enclose",
-			"encoded-character",
-			"enotify",
-			"envelope",
-			"envelope-deliverby",
-			"envelope-dsn",
-			"environment",
-			"ereject",
-			"extlists",
-			"extracttext",
-			"fcc",
-			"fileinto",
-			"foreverypart",
-			"ihave",
-			"imap4flags",
-			"imapsieve",
-			"include",
-			"index",
-			"mailbox",
-			"mailboxid",
-			"mboxmetadata",
-			"mime",
-			"redirect-deliverby",
-			"redirect-dsn",
-			"regex",
-			"reject",
-			"relational",
-			"replace",
-			"servermetadata",
-			"spamtest",
-			"spamtestplus",
-			"special-use",
-			"subaddress",
-			"vacation",
-			"vacation-seconds",
-			"variables",
-			"virustest",
-		},
-		NotificationMethods: []string{"mailto"},
-		ExternalLists:       nil,
-	}
-}
-
-func (e Exampler) SessionBlobAccountCapabilities() SessionBlobAccountCapabilities {
-	return SessionBlobAccountCapabilities{
-		MaxSizeBlobSet:     7499488,
-		MaxDataSources:     16,
-		SupportedTypeNames: []string{"Email", "Thread", "SieveScript"},
-		SupportedDigestAlgorithms: []HttpDigestAlgorithm{
-			HttpDigestAlgorithmSha,
-			HttpDigestAlgorithmSha256,
-			HttpDigestAlgorithmSha512,
-		},
-	}
-}
-
-func (e Exampler) SessionQuotaAccountCapabilities() SessionQuotaAccountCapabilities {
-	return SessionQuotaAccountCapabilities{}
-}
-
-func (e Exampler) SessionContactsAccountCapabilities() SessionContactsAccountCapabilities {
-	return SessionContactsAccountCapabilities{
-		MaxAddressBooksPerCard: 128,
-		MayCreateAddressBook:   true,
-	}
-}
-
-func (e Exampler) SessionCalendarsAccountCapabilities() SessionCalendarsAccountCapabilities {
-	var maxCals uint = 128
-	var maxParticipants uint = 20
-	minDate := UTCDate("0001-01-01T00:00:00Z")
-	maxDate := UTCDate("65534-12-31T23:59:59Z")
-	maxExp := Duration("P52W1D")
-	create := true
-	return SessionCalendarsAccountCapabilities{
-		MaxCalendarsPerEvent:     &maxCals,
-		MinDateTime:              &minDate,
-		MaxDateTime:              &maxDate,
-		MaxExpandedQueryDuration: maxExp,
-		MaxParticipantsPerEvent:  &maxParticipants,
-		MayCreateCalendar:        &create,
-	}
-}
-
-func (e Exampler) SessionCalendarsParseAccountCapabilities() SessionCalendarsParseAccountCapabilities {
-	return SessionCalendarsParseAccountCapabilities{}
-}
-
-func (e Exampler) sessionPrincipalsAccountCapabilities(accountId string) SessionPrincipalsAccountCapabilities {
-	return SessionPrincipalsAccountCapabilities{
-		CurrentUserPrincipalId: accountId,
-	}
-}
-
-func (e Exampler) SessionPrincipalsAccountCapabilities() SessionPrincipalsAccountCapabilities {
-	return e.sessionPrincipalsAccountCapabilities(e.AccountId)
-}
-
-func (e Exampler) SessionPrincipalAvailabilityAccountCapabilities() SessionPrincipalAvailabilityAccountCapabilities {
-	return SessionPrincipalAvailabilityAccountCapabilities{
-		MaxAvailabilityDuration: Duration("P52W1D"),
-	}
-}
-
-func (e Exampler) SessionTasksAccountCapabilities() SessionTasksAccountCapabilities {
-	return SessionTasksAccountCapabilities{
-		MinDateTime:       LocalDate("0001-01-01T00:00:00Z"),
-		MaxDateTime:       LocalDate("65534-12-31T23:59:59Z"),
-		MayCreateTaskList: true,
-	}
-}
-
-func (e Exampler) SessionTasksAlertsAccountCapabilities() SessionTasksAlertsAccountCapabilities {
-	return SessionTasksAlertsAccountCapabilities{}
-}
-
-func (e Exampler) SessionTasksAssigneesAccountCapabilities() SessionTasksAssigneesAccountCapabilities {
-	return SessionTasksAssigneesAccountCapabilities{}
-}
-
-func (e Exampler) SessionTasksRecurrencesAccountCapabilities() SessionTasksRecurrencesAccountCapabilities {
-	return SessionTasksRecurrencesAccountCapabilities{
-		MaxExpandedQueryDuration: Duration("P260W1D"),
-	}
-}
-
-func (e Exampler) SessionTasksMultilingualAccountCapabilities() SessionTasksMultilingualAccountCapabilities {
-	return SessionTasksMultilingualAccountCapabilities{}
-}
-
-func (e Exampler) SessionTasksCustomTimezonesAccountCapabilities() SessionTasksCustomTimezonesAccountCapabilities {
-	return SessionTasksCustomTimezonesAccountCapabilities{}
-}
-
-func (e Exampler) SessionPrincipalsOwnerAccountCapabilities() SessionPrincipalsOwnerAccountCapabilities {
-	return SessionPrincipalsOwnerAccountCapabilities{
-		AccountIdForPrincipal: e.AccountId,
-		PrincipalId:           e.AccountId,
-	}
-}
-
-func (e Exampler) SessionMDNAccountCapabilities() SessionMDNAccountCapabilities {
-	return SessionMDNAccountCapabilities{}
-}
-
-func (e Exampler) SessionAccountCapabilities() SessionAccountCapabilities {
-	return e.sessionAccountCapabilities(e.AccountId)
-}
-
-func (e Exampler) sessionAccountCapabilities(accountId string) SessionAccountCapabilities {
-	mail := e.SessionMailAccountCapabilities()
-	submission := e.SessionSubmissionAccountCapabilities()
-	vacationResponse := e.SessionVacationResponseAccountCapabilities()
-	sieve := e.SessionSieveAccountCapabilities()
-	blob := e.SessionBlobAccountCapabilities()
-	quota := e.SessionQuotaAccountCapabilities()
-	contacts := e.SessionContactsAccountCapabilities()
-	calendars := e.SessionCalendarsAccountCapabilities()
-	calendarsParse := e.SessionCalendarsParseAccountCapabilities()
-	principals := e.sessionPrincipalsAccountCapabilities(accountId)
-	principalsAvailability := e.SessionPrincipalAvailabilityAccountCapabilities()
-	tasks := e.SessionTasksAccountCapabilities()
-	tasksAlerts := e.SessionTasksAlertsAccountCapabilities()
-	tasksAssignees := e.SessionTasksAssigneesAccountCapabilities()
-	tasksRecurrences := e.SessionTasksRecurrencesAccountCapabilities()
-	tasksMultilingual := e.SessionTasksMultilingualAccountCapabilities()
-	tasksCustomTimezones := e.SessionTasksCustomTimezonesAccountCapabilities()
-	principalsOwner := e.SessionPrincipalsOwnerAccountCapabilities()
-	mdn := e.SessionMDNAccountCapabilities()
-	return SessionAccountCapabilities{
-		Mail:                   &mail,
-		Submission:             &submission,
-		VacationResponse:       &vacationResponse,
-		Sieve:                  &sieve,
-		Blob:                   &blob,
-		Quota:                  &quota,
-		Contacts:               &contacts,
-		Calendars:              &calendars,
-		CalendarsParse:         &calendarsParse,
-		Principals:             &principals,
-		PrincipalsAvailability: &principalsAvailability,
-		Tasks:                  &tasks,
-		TasksAlerts:            &tasksAlerts,
-		TasksAssignees:         &tasksAssignees,
-		TasksRecurrences:       &tasksRecurrences,
-		TasksMultilingual:      &tasksMultilingual,
-		TasksCustomTimezones:   &tasksCustomTimezones,
-		PrincipalsOwner:        &principalsOwner,
-		MDN:                    &mdn,
-	}
-}
-
-func (e Exampler) Account() (Account, string) {
-	return Account{
-		Name:                e.Username,
-		IsPersonal:          true,
-		IsReadOnly:          false,
-		AccountCapabilities: e.SessionAccountCapabilities(),
-	}, "A personal account"
-}
-
-func (e Exampler) SharedAccount() (Account, string, string) {
-	return Account{
-		Name:                e.SharedAccountId,
-		IsPersonal:          false,
-		IsReadOnly:          true,
-		AccountCapabilities: e.sessionAccountCapabilities(e.SharedAccountId),
-	}, "A read-only shared account", "shared"
-}
-
-func (e Exampler) Accounts() []Account {
-	a, _ := e.Account()
-	s, _, _ := e.SharedAccount()
-	return []Account{a, s}
-}
-
-func (e Exampler) Quota() Quota {
-	return Quota{
-		Id:           e.QuotaId,
-		ResourceType: "octets",
-		Scope:        "account",
-		Used:         11696865,
-		HardLimit:    20000000000,
-		Name:         e.Username,
-		Types: []ObjectType{
-			EmailType,
-			SieveScriptType,
-			FileNodeType,
-			CalendarEventType,
-			ContactCardType,
-		},
-		Description: e.IdentityName,
-		SoftLimit:   19000000000,
-		WarnLimit:   10000000000,
-	}
-}
-
-func (e Exampler) Quotas() []Quota {
-	return []Quota{
-		e.Quota(),
-		{
-			Id:           e.SharedQuotaId,
-			ResourceType: "octets",
-			Scope:        "account",
-			Used:         29102918,
-			HardLimit:    50000000000,
-			Name:         e.SharedAccountId,
-			Types: []ObjectType{
-				EmailType,
-				SieveScriptType,
-				FileNodeType,
-				CalendarEventType,
-				ContactCardType,
-			},
-			Description: e.SharedAccountName,
-			SoftLimit:   90000000000,
-			WarnLimit:   100000000000,
-		},
-	}
-}
-
-func (e Exampler) Identity() Identity {
-	return Identity{
-		Id:    e.IdentityId,
-		Name:  e.IdentityName,
-		Email: e.EmailAddress,
-		Bcc: &[]EmailAddress{
-			{Name: e.BccName, Email: e.BccAddress},
-		},
-		MayDelete:     true,
-		TextSignature: &e.TextSignature,
-	}
-}
-
-func (e Exampler) OtherIdentity() (Identity, string, string) {
-	return Identity{
-		Id:        e.OtherIdentityId,
-		Name:      e.OtherIdentityName,
-		Email:     e.OtherIdentityEmailAddress,
-		MayDelete: false,
-	}, "Another Identity", "other"
-}
-
-func (e Exampler) Identities() []Identity {
-	a := e.Identity()
-	b, _, _ := e.OtherIdentity()
-	return []Identity{a, b}
-}
-
-func (e Exampler) Identity_req() Identity {
-	return Identity{
-		Name:  e.IdentityName,
-		Email: e.EmailAddress,
-		Bcc: &[]EmailAddress{
-			{Name: e.BccName, Email: e.BccAddress},
-		},
-		TextSignature: &e.TextSignature,
-	}
-}
-
-func (e Exampler) Thread() Thread {
-	return Thread{
-		Id:       e.ThreadId,
-		EmailIds: e.EmailIds,
-	}
-}
-
-func (e Exampler) MailboxInbox() (Mailbox, string, string) {
-	return Mailbox{
-		Id:            e.MailboxInboxId,
-		Name:          "Inbox",
-		Role:          JmapMailboxRoleInbox,
-		SortOrder:     intPtr(0),
-		TotalEmails:   1291,
-		UnreadEmails:  82,
-		TotalThreads:  891,
-		UnreadThreads: 55,
-		MyRights: &MailboxRights{
-			MayReadItems:   true,
-			MayAddItems:    true,
-			MayRemoveItems: true,
-			MaySetSeen:     true,
-			MaySetKeywords: true,
-			MayCreateChild: true,
-			MayRename:      true,
-			MayDelete:      true,
-			MaySubmit:      true,
-		},
-		IsSubscribed: boolPtr(true),
-	}, "An Inbox Mailbox", "inbox"
-}
-
-func (e Exampler) MailboxInboxProjects() (Mailbox, string, string) {
-	return Mailbox{
-		Id:            e.MailboxProjectId,
-		ParentId:      e.MailboxInboxId,
-		Name:          "Projects",
-		SortOrder:     intPtr(0),
-		TotalEmails:   112,
-		UnreadEmails:  3,
-		TotalThreads:  85,
-		UnreadThreads: 2,
-		MyRights: &MailboxRights{
-			MayReadItems:   true,
-			MayAddItems:    true,
-			MayRemoveItems: true,
-			MaySetSeen:     true,
-			MaySetKeywords: true,
-			MayCreateChild: true,
-			MayRename:      true,
-			MayDelete:      true,
-			MaySubmit:      true,
-		},
-		IsSubscribed: boolPtr(true),
-	}, "A Projects Mailbox under the Inbox", "projects"
-}
-
-func (e Exampler) MailboxDrafts() (Mailbox, string, string) {
-	return Mailbox{
-		Id:            e.MailboxDraftsId,
-		Name:          "Drafts",
-		Role:          JmapMailboxRoleDrafts,
-		SortOrder:     intPtr(0),
-		TotalEmails:   12,
-		UnreadEmails:  1,
-		TotalThreads:  12,
-		UnreadThreads: 1,
-		MyRights: &MailboxRights{
-			MayReadItems:   true,
-			MayAddItems:    true,
-			MayRemoveItems: true,
-			MaySetSeen:     true,
-			MaySetKeywords: true,
-			MayCreateChild: true,
-			MayRename:      true,
-			MayDelete:      true,
-			MaySubmit:      true,
-		},
-		IsSubscribed: boolPtr(true),
-	}, "A Drafts Mailbox", "drafts"
-}
-
-func (e Exampler) MailboxSent() (Mailbox, string, string) {
-	return Mailbox{
-		Id:            e.MailboxSentId,
-		Name:          "Sent Items",
-		Role:          JmapMailboxRoleSent,
-		SortOrder:     intPtr(0),
-		TotalEmails:   1621,
-		UnreadEmails:  0,
-		TotalThreads:  1621,
-		UnreadThreads: 0,
-		MyRights: &MailboxRights{
-			MayReadItems:   true,
-			MayAddItems:    true,
-			MayRemoveItems: true,
-			MaySetSeen:     true,
-			MaySetKeywords: true,
-			MayCreateChild: true,
-			MayRename:      true,
-			MayDelete:      true,
-			MaySubmit:      true,
-		},
-		IsSubscribed: boolPtr(true),
-	}, "A Sent Mailbox", "sent"
-}
-
-func (e Exampler) MailboxJunk() (Mailbox, string, string) {
-	return Mailbox{
-		Id:            e.MailboxJunkId,
-		Name:          "Junk Mail",
-		Role:          JmapMailboxRoleJunk,
-		SortOrder:     intPtr(0),
-		TotalEmails:   251,
-		UnreadEmails:  0,
-		TotalThreads:  251,
-		UnreadThreads: 0,
-		MyRights: &MailboxRights{
-			MayReadItems:   true,
-			MayAddItems:    true,
-			MayRemoveItems: true,
-			MaySetSeen:     true,
-			MaySetKeywords: true,
-			MayCreateChild: true,
-			MayRename:      true,
-			MayDelete:      true,
-			MaySubmit:      true,
-		},
-		IsSubscribed: boolPtr(true),
-	}, "A Junk Mailbox", "junk"
-}
-
-func (e Exampler) MailboxDeleted() (Mailbox, string, string) {
-	return Mailbox{
-		Id:            e.MailboxDeletedId,
-		Name:          "Deleted Items",
-		Role:          JmapMailboxRoleTrash,
-		SortOrder:     intPtr(0),
-		TotalEmails:   99,
-		UnreadEmails:  0,
-		TotalThreads:  91,
-		UnreadThreads: 0,
-		MyRights: &MailboxRights{
-			MayReadItems:   true,
-			MayAddItems:    true,
-			MayRemoveItems: true,
-			MaySetSeen:     true,
-			MaySetKeywords: true,
-			MayCreateChild: true,
-			MayRename:      true,
-			MayDelete:      true,
-			MaySubmit:      true,
-		},
-		IsSubscribed: boolPtr(true),
-	}, "A Trash Mailbox", "deleted"
-}
-
-func (e Exampler) Mailboxes() []Mailbox {
-	a, _, _ := e.MailboxInbox()
-	b, _, _ := e.MailboxDrafts()
-	c, _, _ := e.MailboxSent()
-	d, _, _ := e.MailboxJunk()
-	f, _, _ := e.MailboxDeleted()
-	g, _, _ := e.MailboxInboxProjects()
-	return []Mailbox{a, b, c, d, f, g}
-}
 
 func SerializeExamples(e any) {
 	type example struct {
@@ -690,5 +104,703 @@ func SerializeExamples(e any) {
 		if err := os.WriteFile(filename, b, 0644); err != nil {
 			panic(fmt.Errorf("failed to write the serialized JSON output to the file '%s': %w", filename, err))
 		}
+	}
+}
+
+type Exemplar struct {
+	AccountId                  string
+	SharedAccountId            string
+	IdentityId                 string
+	IdentityName               string
+	EmailAddress               string
+	BccName                    string
+	BccAddress                 string
+	OtherIdentityId            string
+	OtherIdentityName          string
+	OtherIdentityEmailAddress  string
+	SharedIdentityId           string
+	SharedIdentityName         string
+	SharedIdentityEmailAddress string
+	ThreadId                   string
+	EmailId                    string
+	EmailIds                   []string
+	QuotaId                    string
+	SharedQuotaId              string
+	Username                   string
+	SharedAccountName          string
+	TextSignature              string
+	MailboxInboxId             string
+	MailboxDraftsId            string
+	MailboxSentId              string
+	MailboxJunkId              string
+	MailboxDeletedId           string
+	MailboxProjectId           string
+	SenderEmailAddress         string
+	SenderName                 string
+}
+
+var ExemplarInstance = Exemplar{
+	AccountId:                  "b",
+	Username:                   "cdrummer",
+	IdentityId:                 "aemua9ai",
+	IdentityName:               "Camina Drummer",
+	EmailAddress:               "cdrummer@opa.example.com",
+	BccName:                    "OPA Secretary",
+	BccAddress:                 "secretary@opa.example.com",
+	OtherIdentityId:            "reogh7ia",
+	OtherIdentityName:          "Transport Union President",
+	OtherIdentityEmailAddress:  "pres@tu.example.com",
+	SharedAccountId:            "s",
+	SharedAccountName:          "OPA Leadership",
+	SharedIdentityId:           "eeyie4qu",
+	SharedIdentityName:         "OPA",
+	SharedIdentityEmailAddress: "bosmangs@opa.example.com",
+	ThreadId:                   "soh0aixi",
+	EmailId:                    "oot8eev2",
+	EmailIds:                   []string{"oot8eev2", "phah6ang", "fo7raidi", "kahsha6p"},
+	QuotaId:                    "iezuu7ah",
+	SharedQuotaId:              "voos4oht",
+	TextSignature:              strings.Join([]string{"Camina Drummer", "President of the Transport Union"}, "\n"),
+	MailboxInboxId:             "a",
+	MailboxDraftsId:            "d",
+	MailboxSentId:              "e",
+	MailboxJunkId:              "c",
+	MailboxDeletedId:           "b",
+	MailboxProjectId:           "i",
+	SenderEmailAddress:         "klaes@opa.example.com",
+	SenderName:                 "Klaes Ashford",
+}
+
+func (e Exemplar) SessionMailAccountCapabilities() SessionMailAccountCapabilities {
+	return SessionMailAccountCapabilities{
+		MaxMailboxesPerEmail:       0,
+		MaxMailboxDepth:            10,
+		MaxSizeMailboxName:         255,
+		MaxSizeAttachmentsPerEmail: 50000000,
+		EmailQuerySortOptions: []string{
+			EmailPropertyReceivedAt,
+			EmailPropertySize,
+			EmailPropertyFrom,
+			EmailPropertyTo,
+			EmailPropertySubject,
+			EmailPropertySentAt,
+			EmailPropertyHasAttachment,
+			EmailSortPropertyAllInThreadHaveKeyword,
+			EmailSortPropertySomeInThreadHaveKeyword,
+		},
+		MayCreateTopLevelMailbox: true,
+	}
+}
+
+func (e Exemplar) SessionSubmissionAccountCapabilities() SessionSubmissionAccountCapabilities {
+	return SessionSubmissionAccountCapabilities{
+		MaxDelayedSend: 2592000,
+		SubmissionExtensions: map[string][]string{
+			"DELIVERYBY":    {},
+			"DSN":           {},
+			"FUTURERELEASE": {},
+			"MT-PRIORITY":   {"MIXER"},
+			"REQUIRETLS":    {},
+			"SIZE":          {},
+		},
+	}
+}
+
+func (e Exemplar) SessionVacationResponseAccountCapabilities() SessionVacationResponseAccountCapabilities {
+	return SessionVacationResponseAccountCapabilities{}
+}
+
+func (e Exemplar) SessionSieveAccountCapabilities() SessionSieveAccountCapabilities {
+	return SessionSieveAccountCapabilities{
+		MaxSizeScriptName:  512,
+		MaxSizeScript:      1048576,
+		MaxNumberScripts:   100,
+		MaxNumberRedirects: 1,
+		SieveExtensions: []string{
+			"body",
+			"comparator-elbonia",
+			"comparator-i;ascii-casemap",
+			"comparator-i;ascii-numeric",
+			"comparator-i;octet",
+			"convert",
+			"copy",
+			"date",
+			"duplicate",
+			"editheader",
+			"enclose",
+			"encoded-character",
+			"enotify",
+			"envelope",
+			"envelope-deliverby",
+			"envelope-dsn",
+			"environment",
+			"ereject",
+			"extlists",
+			"extracttext",
+			"fcc",
+			"fileinto",
+			"foreverypart",
+			"ihave",
+			"imap4flags",
+			"imapsieve",
+			"include",
+			"index",
+			"mailbox",
+			"mailboxid",
+			"mboxmetadata",
+			"mime",
+			"redirect-deliverby",
+			"redirect-dsn",
+			"regex",
+			"reject",
+			"relational",
+			"replace",
+			"servermetadata",
+			"spamtest",
+			"spamtestplus",
+			"special-use",
+			"subaddress",
+			"vacation",
+			"vacation-seconds",
+			"variables",
+			"virustest",
+		},
+		NotificationMethods: []string{"mailto"},
+		ExternalLists:       nil,
+	}
+}
+
+func (e Exemplar) SessionBlobAccountCapabilities() SessionBlobAccountCapabilities {
+	return SessionBlobAccountCapabilities{
+		MaxSizeBlobSet:     7499488,
+		MaxDataSources:     16,
+		SupportedTypeNames: []string{"Email", "Thread", "SieveScript"},
+		SupportedDigestAlgorithms: []HttpDigestAlgorithm{
+			HttpDigestAlgorithmSha,
+			HttpDigestAlgorithmSha256,
+			HttpDigestAlgorithmSha512,
+		},
+	}
+}
+
+func (e Exemplar) SessionQuotaAccountCapabilities() SessionQuotaAccountCapabilities {
+	return SessionQuotaAccountCapabilities{}
+}
+
+func (e Exemplar) SessionContactsAccountCapabilities() SessionContactsAccountCapabilities {
+	return SessionContactsAccountCapabilities{
+		MaxAddressBooksPerCard: 128,
+		MayCreateAddressBook:   true,
+	}
+}
+
+func (e Exemplar) SessionCalendarsAccountCapabilities() SessionCalendarsAccountCapabilities {
+	var maxCals uint = 128
+	var maxParticipants uint = 20
+	minDate := UTCDate("0001-01-01T00:00:00Z")
+	maxDate := UTCDate("65534-12-31T23:59:59Z")
+	maxExp := Duration("P52W1D")
+	create := true
+	return SessionCalendarsAccountCapabilities{
+		MaxCalendarsPerEvent:     &maxCals,
+		MinDateTime:              &minDate,
+		MaxDateTime:              &maxDate,
+		MaxExpandedQueryDuration: maxExp,
+		MaxParticipantsPerEvent:  &maxParticipants,
+		MayCreateCalendar:        &create,
+	}
+}
+
+func (e Exemplar) SessionCalendarsParseAccountCapabilities() SessionCalendarsParseAccountCapabilities {
+	return SessionCalendarsParseAccountCapabilities{}
+}
+
+func (e Exemplar) sessionPrincipalsAccountCapabilities(accountId string) SessionPrincipalsAccountCapabilities {
+	return SessionPrincipalsAccountCapabilities{
+		CurrentUserPrincipalId: accountId,
+	}
+}
+
+func (e Exemplar) SessionPrincipalsAccountCapabilities() SessionPrincipalsAccountCapabilities {
+	return e.sessionPrincipalsAccountCapabilities(e.AccountId)
+}
+
+func (e Exemplar) SessionPrincipalAvailabilityAccountCapabilities() SessionPrincipalAvailabilityAccountCapabilities {
+	return SessionPrincipalAvailabilityAccountCapabilities{
+		MaxAvailabilityDuration: Duration("P52W1D"),
+	}
+}
+
+func (e Exemplar) SessionTasksAccountCapabilities() SessionTasksAccountCapabilities {
+	return SessionTasksAccountCapabilities{
+		MinDateTime:       LocalDate("0001-01-01T00:00:00Z"),
+		MaxDateTime:       LocalDate("65534-12-31T23:59:59Z"),
+		MayCreateTaskList: true,
+	}
+}
+
+func (e Exemplar) SessionTasksAlertsAccountCapabilities() SessionTasksAlertsAccountCapabilities {
+	return SessionTasksAlertsAccountCapabilities{}
+}
+
+func (e Exemplar) SessionTasksAssigneesAccountCapabilities() SessionTasksAssigneesAccountCapabilities {
+	return SessionTasksAssigneesAccountCapabilities{}
+}
+
+func (e Exemplar) SessionTasksRecurrencesAccountCapabilities() SessionTasksRecurrencesAccountCapabilities {
+	return SessionTasksRecurrencesAccountCapabilities{
+		MaxExpandedQueryDuration: Duration("P260W1D"),
+	}
+}
+
+func (e Exemplar) SessionTasksMultilingualAccountCapabilities() SessionTasksMultilingualAccountCapabilities {
+	return SessionTasksMultilingualAccountCapabilities{}
+}
+
+func (e Exemplar) SessionTasksCustomTimezonesAccountCapabilities() SessionTasksCustomTimezonesAccountCapabilities {
+	return SessionTasksCustomTimezonesAccountCapabilities{}
+}
+
+func (e Exemplar) SessionPrincipalsOwnerAccountCapabilities() SessionPrincipalsOwnerAccountCapabilities {
+	return SessionPrincipalsOwnerAccountCapabilities{
+		AccountIdForPrincipal: e.AccountId,
+		PrincipalId:           e.AccountId,
+	}
+}
+
+func (e Exemplar) SessionMDNAccountCapabilities() SessionMDNAccountCapabilities {
+	return SessionMDNAccountCapabilities{}
+}
+
+func (e Exemplar) SessionAccountCapabilities() SessionAccountCapabilities {
+	return e.sessionAccountCapabilities(e.AccountId)
+}
+
+func (e Exemplar) sessionAccountCapabilities(accountId string) SessionAccountCapabilities {
+	mail := e.SessionMailAccountCapabilities()
+	submission := e.SessionSubmissionAccountCapabilities()
+	vacationResponse := e.SessionVacationResponseAccountCapabilities()
+	sieve := e.SessionSieveAccountCapabilities()
+	blob := e.SessionBlobAccountCapabilities()
+	quota := e.SessionQuotaAccountCapabilities()
+	contacts := e.SessionContactsAccountCapabilities()
+	calendars := e.SessionCalendarsAccountCapabilities()
+	calendarsParse := e.SessionCalendarsParseAccountCapabilities()
+	principals := e.sessionPrincipalsAccountCapabilities(accountId)
+	principalsAvailability := e.SessionPrincipalAvailabilityAccountCapabilities()
+	tasks := e.SessionTasksAccountCapabilities()
+	tasksAlerts := e.SessionTasksAlertsAccountCapabilities()
+	tasksAssignees := e.SessionTasksAssigneesAccountCapabilities()
+	tasksRecurrences := e.SessionTasksRecurrencesAccountCapabilities()
+	tasksMultilingual := e.SessionTasksMultilingualAccountCapabilities()
+	tasksCustomTimezones := e.SessionTasksCustomTimezonesAccountCapabilities()
+	principalsOwner := e.SessionPrincipalsOwnerAccountCapabilities()
+	mdn := e.SessionMDNAccountCapabilities()
+	return SessionAccountCapabilities{
+		Mail:                   &mail,
+		Submission:             &submission,
+		VacationResponse:       &vacationResponse,
+		Sieve:                  &sieve,
+		Blob:                   &blob,
+		Quota:                  &quota,
+		Contacts:               &contacts,
+		Calendars:              &calendars,
+		CalendarsParse:         &calendarsParse,
+		Principals:             &principals,
+		PrincipalsAvailability: &principalsAvailability,
+		Tasks:                  &tasks,
+		TasksAlerts:            &tasksAlerts,
+		TasksAssignees:         &tasksAssignees,
+		TasksRecurrences:       &tasksRecurrences,
+		TasksMultilingual:      &tasksMultilingual,
+		TasksCustomTimezones:   &tasksCustomTimezones,
+		PrincipalsOwner:        &principalsOwner,
+		MDN:                    &mdn,
+	}
+}
+
+func (e Exemplar) Account() (Account, string) {
+	return Account{
+		Name:                e.Username,
+		IsPersonal:          true,
+		IsReadOnly:          false,
+		AccountCapabilities: e.SessionAccountCapabilities(),
+	}, "A personal account"
+}
+
+func (e Exemplar) SharedAccount() (Account, string, string) {
+	return Account{
+		Name:                e.SharedAccountId,
+		IsPersonal:          false,
+		IsReadOnly:          true,
+		AccountCapabilities: e.sessionAccountCapabilities(e.SharedAccountId),
+	}, "A read-only shared account", "shared"
+}
+
+func (e Exemplar) Accounts() []Account {
+	a, _ := e.Account()
+	s, _, _ := e.SharedAccount()
+	return []Account{a, s}
+}
+
+func (e Exemplar) Quota() Quota {
+	return Quota{
+		Id:           e.QuotaId,
+		ResourceType: "octets",
+		Scope:        "account",
+		Used:         11696865,
+		HardLimit:    20000000000,
+		Name:         e.Username,
+		Types: []ObjectType{
+			EmailType,
+			SieveScriptType,
+			FileNodeType,
+			CalendarEventType,
+			ContactCardType,
+		},
+		Description: e.IdentityName,
+		SoftLimit:   19000000000,
+		WarnLimit:   10000000000,
+	}
+}
+
+func (e Exemplar) Quotas() []Quota {
+	return []Quota{
+		e.Quota(),
+		{
+			Id:           e.SharedQuotaId,
+			ResourceType: "octets",
+			Scope:        "account",
+			Used:         29102918,
+			HardLimit:    50000000000,
+			Name:         e.SharedAccountId,
+			Types: []ObjectType{
+				EmailType,
+				SieveScriptType,
+				FileNodeType,
+				CalendarEventType,
+				ContactCardType,
+			},
+			Description: e.SharedAccountName,
+			SoftLimit:   90000000000,
+			WarnLimit:   100000000000,
+		},
+	}
+}
+
+func (e Exemplar) Identity() Identity {
+	return Identity{
+		Id:    e.IdentityId,
+		Name:  e.IdentityName,
+		Email: e.EmailAddress,
+		Bcc: &[]EmailAddress{
+			{Name: e.BccName, Email: e.BccAddress},
+		},
+		MayDelete:     true,
+		TextSignature: &e.TextSignature,
+	}
+}
+
+func (e Exemplar) OtherIdentity() (Identity, string, string) {
+	return Identity{
+		Id:        e.OtherIdentityId,
+		Name:      e.OtherIdentityName,
+		Email:     e.OtherIdentityEmailAddress,
+		MayDelete: false,
+	}, "Another Identity", "other"
+}
+
+func (e Exemplar) Identities() []Identity {
+	a := e.Identity()
+	b, _, _ := e.OtherIdentity()
+	return []Identity{a, b}
+}
+
+func (e Exemplar) Identity_req() Identity {
+	return Identity{
+		Name:  e.IdentityName,
+		Email: e.EmailAddress,
+		Bcc: &[]EmailAddress{
+			{Name: e.BccName, Email: e.BccAddress},
+		},
+		TextSignature: &e.TextSignature,
+	}
+}
+
+func (e Exemplar) Thread() Thread {
+	return Thread{
+		Id:       e.ThreadId,
+		EmailIds: e.EmailIds,
+	}
+}
+
+func (e Exemplar) MailboxInbox() (Mailbox, string, string) {
+	return Mailbox{
+		Id:            e.MailboxInboxId,
+		Name:          "Inbox",
+		Role:          JmapMailboxRoleInbox,
+		SortOrder:     intPtr(0),
+		TotalEmails:   1291,
+		UnreadEmails:  82,
+		TotalThreads:  891,
+		UnreadThreads: 55,
+		MyRights: &MailboxRights{
+			MayReadItems:   true,
+			MayAddItems:    true,
+			MayRemoveItems: true,
+			MaySetSeen:     true,
+			MaySetKeywords: true,
+			MayCreateChild: true,
+			MayRename:      true,
+			MayDelete:      true,
+			MaySubmit:      true,
+		},
+		IsSubscribed: boolPtr(true),
+	}, "An Inbox Mailbox", "inbox"
+}
+
+func (e Exemplar) MailboxInboxProjects() (Mailbox, string, string) {
+	return Mailbox{
+		Id:            e.MailboxProjectId,
+		ParentId:      e.MailboxInboxId,
+		Name:          "Projects",
+		SortOrder:     intPtr(0),
+		TotalEmails:   112,
+		UnreadEmails:  3,
+		TotalThreads:  85,
+		UnreadThreads: 2,
+		MyRights: &MailboxRights{
+			MayReadItems:   true,
+			MayAddItems:    true,
+			MayRemoveItems: true,
+			MaySetSeen:     true,
+			MaySetKeywords: true,
+			MayCreateChild: true,
+			MayRename:      true,
+			MayDelete:      true,
+			MaySubmit:      true,
+		},
+		IsSubscribed: boolPtr(true),
+	}, "A Projects Mailbox under the Inbox", "projects"
+}
+
+func (e Exemplar) MailboxDrafts() (Mailbox, string, string) {
+	return Mailbox{
+		Id:            e.MailboxDraftsId,
+		Name:          "Drafts",
+		Role:          JmapMailboxRoleDrafts,
+		SortOrder:     intPtr(0),
+		TotalEmails:   12,
+		UnreadEmails:  1,
+		TotalThreads:  12,
+		UnreadThreads: 1,
+		MyRights: &MailboxRights{
+			MayReadItems:   true,
+			MayAddItems:    true,
+			MayRemoveItems: true,
+			MaySetSeen:     true,
+			MaySetKeywords: true,
+			MayCreateChild: true,
+			MayRename:      true,
+			MayDelete:      true,
+			MaySubmit:      true,
+		},
+		IsSubscribed: boolPtr(true),
+	}, "A Drafts Mailbox", "drafts"
+}
+
+func (e Exemplar) MailboxSent() (Mailbox, string, string) {
+	return Mailbox{
+		Id:            e.MailboxSentId,
+		Name:          "Sent Items",
+		Role:          JmapMailboxRoleSent,
+		SortOrder:     intPtr(0),
+		TotalEmails:   1621,
+		UnreadEmails:  0,
+		TotalThreads:  1621,
+		UnreadThreads: 0,
+		MyRights: &MailboxRights{
+			MayReadItems:   true,
+			MayAddItems:    true,
+			MayRemoveItems: true,
+			MaySetSeen:     true,
+			MaySetKeywords: true,
+			MayCreateChild: true,
+			MayRename:      true,
+			MayDelete:      true,
+			MaySubmit:      true,
+		},
+		IsSubscribed: boolPtr(true),
+	}, "A Sent Mailbox", "sent"
+}
+
+func (e Exemplar) MailboxJunk() (Mailbox, string, string) {
+	return Mailbox{
+		Id:            e.MailboxJunkId,
+		Name:          "Junk Mail",
+		Role:          JmapMailboxRoleJunk,
+		SortOrder:     intPtr(0),
+		TotalEmails:   251,
+		UnreadEmails:  0,
+		TotalThreads:  251,
+		UnreadThreads: 0,
+		MyRights: &MailboxRights{
+			MayReadItems:   true,
+			MayAddItems:    true,
+			MayRemoveItems: true,
+			MaySetSeen:     true,
+			MaySetKeywords: true,
+			MayCreateChild: true,
+			MayRename:      true,
+			MayDelete:      true,
+			MaySubmit:      true,
+		},
+		IsSubscribed: boolPtr(true),
+	}, "A Junk Mailbox", "junk"
+}
+
+func (e Exemplar) MailboxDeleted() (Mailbox, string, string) {
+	return Mailbox{
+		Id:            e.MailboxDeletedId,
+		Name:          "Deleted Items",
+		Role:          JmapMailboxRoleTrash,
+		SortOrder:     intPtr(0),
+		TotalEmails:   99,
+		UnreadEmails:  0,
+		TotalThreads:  91,
+		UnreadThreads: 0,
+		MyRights: &MailboxRights{
+			MayReadItems:   true,
+			MayAddItems:    true,
+			MayRemoveItems: true,
+			MaySetSeen:     true,
+			MaySetKeywords: true,
+			MayCreateChild: true,
+			MayRename:      true,
+			MayDelete:      true,
+			MaySubmit:      true,
+		},
+		IsSubscribed: boolPtr(true),
+	}, "A Trash Mailbox", "deleted"
+}
+
+func (e Exemplar) Mailboxes() []Mailbox {
+	a, _, _ := e.MailboxInbox()
+	b, _, _ := e.MailboxDrafts()
+	c, _, _ := e.MailboxSent()
+	d, _, _ := e.MailboxJunk()
+	f, _, _ := e.MailboxDeleted()
+	g, _, _ := e.MailboxInboxProjects()
+	return []Mailbox{a, b, c, d, f, g}
+}
+
+func (e Exemplar) MailboxChanges() MailboxChanges {
+	return MailboxChanges{
+		NewState:  "aesh2ahj",
+		Created:   []Email{e.Email()},
+		Destroyed: []string{"baingow4"},
+	}
+}
+
+func (e Exemplar) UploadedBlob() UploadedBlob {
+	return UploadedBlob{
+		BlobId: "eisoochohl9iekohf5ramaiqu4oucaegheith7otae0xeeg7zuexia4ohjut",
+		Size:   12762,
+		Type:   "image/png",
+	}
+}
+
+func (e Exemplar) Blob() Blob {
+	return Blob{
+		Id:                "eisoochohl9iekohf5ramaiqu4oucaegheith7otae0xeeg7zuexia4ohjut",
+		IsTruncated:       false,
+		IsEncodingProblem: false,
+		DigestSha512:      "4c33d477254ad056e6919ddecf1df8fffa76ef1e6556e99af9ad43c1cd301fd2c06a35d7d101ec1abbe1c0479276e9cd8cb9046822c6345abf65e453e8ce012d",
+		DataAsBase64:      "iVBORw0KGgoAAAANSUhEUgAAAqgAAAC+CAYAAAD5qP3zAAACKWlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4KPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNi4wLjAiPgogPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4KICA8",
+		Size:              12762,
+	}
+}
+
+func (e Exemplar) Email() Email {
+	sent, _ := time.Parse(time.RFC3339, "2026-01-12T21:46:01Z")
+	received, _ := time.Parse(time.RFC3339, "2026-01-12T21:47:21Z")
+	return Email{
+		Id:         "ov7ienge",
+		BlobId:     "ccyxndo0fxob1jnm3z2lroex131oj7eo2ezo1djhlfgtsu7jgucfeaiasiba",
+		ThreadId:   "is",
+		MailboxIds: map[string]bool{e.MailboxInboxId: true},
+		Keywords:   map[string]bool{JmapKeywordAnswered: true},
+		Size:       1084,
+		ReceivedAt: received,
+		MessageId:  []string{"1768845021.1753110@example.com"},
+		Sender: []EmailAddress{
+			{Name: e.SenderName, Email: e.SenderEmailAddress},
+		},
+		From: []EmailAddress{
+			{Name: e.SenderName, Email: e.SenderEmailAddress},
+		},
+		To: []EmailAddress{
+			{Name: e.IdentityName, Email: e.EmailAddress},
+		},
+		Subject: "Remember the Cant",
+		SentAt:  sent,
+		BodyValues: map[string]EmailBodyValue{
+			"1": EmailBodyValue{
+				Value: "The demise of the Scopuli and Canterbury was an event where Protogen using its Stealth ship Anubis to capture the crew of the Scopuli to lure the ice-hauler Canterbury into a trap. This event increased tensions amongst Belters, and the two major powers within the Sol system, the Martian Congressional Republic and United Nations.",
+			},
+			"2": EmailBodyValue{
+				Value: "<p>The demise of the <i>Scopuli</i> and <i>Canterbury</i> was an event where Protogen using its Stealth ship <i>Anubis</i> to capture the crew of the <i>Scopuli</i> to lure the ice-hauler <i>Canterbury</i> into a trap.</p><p>This event increased tensions amongst Belters, and the two major powers within the Sol system, the Martian Congressional Republic and United Nations.</p>",
+			},
+		},
+		TextBody: []EmailBodyPart{
+			{PartId: "1", BlobId: "ckyxndo0fxob1jnm3z2lroex131oj7eo2ezo1djhlfgtsu7jgucfeaiasibnebdw", Size: 115, Type: "text/plain", Charset: "utf-8"},
+		},
+		HtmlBody: []EmailBodyPart{
+			{PartId: "2", BlobId: "ckyxndo0fxob1jnm3z2lroex131oj7eo2ezo1djhlfgtsu7jgucfeaiasibnsbvjae", Size: 163, Type: "text/html", Charset: "utf-8"},
+		},
+		Preview: "The Canterbury was destroyed while investigating a false distress call from the Scopuli.",
+	}
+
+}
+
+func (e Exemplar) EmailBodyPart() EmailBodyPart {
+	return EmailBodyPart{
+		PartId:  "1",
+		BlobId:  "ckyxndo0fxob1jnm3z2lroex131oj7eo2ezo1djhlfgtsu7jgucfeaiasibnebdw",
+		Size:    115,
+		Type:    "text/plain",
+		Charset: "utf-8",
+	}
+}
+
+func (e Exemplar) Emails() Emails {
+	return Emails{
+		Emails: []Email{e.Email()},
+		Total:  132,
+		Limit:  1,
+		Offset: 5,
+	}
+}
+
+func (e Exemplar) VacationResponse() VacationResponse {
+	from, _ := time.Parse(time.RFC3339, "20260101T00:00:00.000Z")
+	to, _ := time.Parse(time.RFC3339, "20260114T23:59:59.999Z")
+	return VacationResponse{
+		Id:        "aefee7ae",
+		IsEnabled: true,
+		FromDate:  from,
+		ToDate:    to,
+		Subject:   "On PTO",
+		TextBody:  "I am currently on PTO, please contact info@example.com for any urgent matters.",
+	}
+}
+
+func (e Exemplar) VacationResponseGetResponse() VacationResponseGetResponse {
+	return VacationResponseGetResponse{
+		AccountId: e.AccountId,
+		State:     "quain7ku",
+		List: []VacationResponse{
+			e.VacationResponse(),
+		},
 	}
 }

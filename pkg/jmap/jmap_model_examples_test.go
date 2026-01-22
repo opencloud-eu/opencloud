@@ -3,6 +3,6 @@
 package jmap
 
 func Example() {
-	SerializeExamples(ExamplerInstance)
+	SerializeExamples(ExemplarInstance)
 	//Output:
 }
