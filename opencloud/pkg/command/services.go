@@ -265,7 +265,7 @@ var serviceCommands = []register.Command{
 			cfg.Webfinger.Commons = cfg.Commons
 		})
 	},
-	func(cfg *config.Config) *cli.Command {
+	func(cfg *config.Config) *cobra.Command {
 		return ServiceCommand(cfg, cfg.AuthApi.Service.Name, authapi.GetCommands(cfg.AuthApi), func(c *config.Config) {
 			cfg.AuthApi.Commons = cfg.Commons
 		})
