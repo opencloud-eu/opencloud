@@ -637,9 +637,10 @@ github.com/go-redis/redis/v8/internal/pool
 github.com/go-redis/redis/v8/internal/proto
 github.com/go-redis/redis/v8/internal/rand
 github.com/go-redis/redis/v8/internal/util
-# github.com/go-resty/resty/v2 v2.7.0
-## explicit; go 1.11
+# github.com/go-resty/resty/v2 v2.17.1
+## explicit; go 1.23.0
 github.com/go-resty/resty/v2
+github.com/go-resty/resty/v2/shellescape
 # github.com/go-sql-driver/mysql v1.9.3
 ## explicit; go 1.21.0
 github.com/go-sql-driver/mysql
