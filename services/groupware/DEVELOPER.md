@@ -611,10 +611,14 @@ If you run it from your IDE, there is obviously no need to do that.
 
 ## API Docs
 
-The REST API documentation is extracted from the source code structure and documentation using [`go-swagger`](https://goswagger.io/go-swagger/), which needs to be installed locally as a prerequisite:
+The REST API documentation is extracted from the source code structure and documentation the home-grown [`groupware-apidocs`](https://github.com/opencloud-eu/groupware-apidocs) tool, which needs to be installed locally as a prerequisite:
 
 ```bash
-go install github.com/go-swagger/go-swagger/cmd/swagger@latest
+cd "$OCDIR/"
+git clone https://github.com/opencloud-eu/groupware-apidocs
+cd ./groupware-apidocs/
+go build .
+ln -s "$PWD/groupware-apidocs" ~/.local/bin/
 ```
 
 The build chain is integrated within the `Makefile` in `services/groupware/`:
