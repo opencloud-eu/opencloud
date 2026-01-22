@@ -1,7 +1,11 @@
+openapi: 3.0.4
 servers:
   - url: https://localhost:9200/
     description: Local Development Server
 tags:
+  - name: untagged
+    x-displayName: Uncategorized
+    description: APIs that are not categorized yet
   - name: bootstrap
     x-displayName: Bootstrapping
     description: Initialization APIs
@@ -37,7 +41,14 @@ tags:
     description: APIs about tasks
   - name: quota
     x-displayName: Quota
-    description: APIs about quotas
+    description: |-
+      Quotas are objects that display the limits set to an account usage.
+
+      They also indicate the current usage in regard to those limits.
+
+      JMAP Quotas are defined in [RFC9524](https://www.rfc-editor.org/rfc/rfc9425.html).
+
+      This sectiong roups the APIs that pertain to retrieving and modifying quotas.
   - name: vacation
     x-displayName: Vacation Responses
     description: APIs about vacation responses
@@ -69,6 +80,9 @@ x-tagGroups:
   - name: Quotas
     tags:
       - quota
+  - name: Uncategorized
+    tags:
+      - untagged
 components:
   securitySchemes:
     api:

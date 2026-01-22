@@ -334,3 +334,11 @@ func mapPairs[K comparable, L, R any](left map[K]L, right map[K]R) map[K]pair[L,
 	}
 	return result
 }
+
+func intPtr(i int) *int {
+	return &i
+}
+
+func boolPtr(b bool) *bool {
+	return &b
+}

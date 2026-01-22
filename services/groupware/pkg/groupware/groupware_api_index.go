@@ -153,6 +153,7 @@ type SwaggerIndexResponse struct {
 
 // swagger:route GET /groupware bootstrap index
 // Get initial bootstrapping information for a user.
+// @api:tag bootstrap
 //
 // responses:
 //
@@ -166,13 +167,14 @@ func (g *Groupware) Index(w http.ResponseWriter, r *http.Request) {
 			return req.errorResponseFromJmap(accountIds, err)
 		}
 
-		return etagResponse(accountIds, IndexResponse{
+		var RBODY IndexResponse = IndexResponse{
 			Version:         Version,
 			Capabilities:    Capabilities,
 			Limits:          buildIndexLimits(req.session),
 			Accounts:        buildIndexAccounts(req.session, boot),
 			PrimaryAccounts: buildIndexPrimaryAccounts(req.session),
-		}, sessionState, IndexResponseObjectType, state, lang)
+		}
+		return etagResponse(accountIds, RBODY, sessionState, IndexResponseObjectType, state, lang)
 	})
 }
 

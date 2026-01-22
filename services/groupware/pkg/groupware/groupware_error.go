@@ -194,7 +194,7 @@ const (
 	ErrorCodeMissingContactsSessionCapability  = "MSCCON"
 	ErrorCodeMissingContactsAccountCapability  = "MACCON"
 	ErrorCodeMissingTasksSessionCapability     = "MSCTSK"
-	ErrorCodeMissingTaskAccountCapability      = "MACTSK"
+	ErrorCodeMissingTasksAccountCapability     = "MACTSK"
 	ErrorCodeFailedToDeleteEmail               = "DELEML"
 	ErrorCodeFailedToDeleteSomeIdentities      = "DELSID"
 	ErrorCodeFailedToSanitizeEmail             = "FSANEM"
@@ -318,12 +318,6 @@ var (
 		Title:  "Invalid Request",
 		Detail: "The request is invalid.",
 	}
-	ErrorIndeterminateAccount = GroupwareError{
-		Status: http.StatusBadRequest,
-		Code:   ErrorCodeNonExistingAccount,
-		Title:  "Invalid Account Parameter",
-		Detail: "The account the request is for does not exist.",
-	}
 	ErrorNonExistingAccount = GroupwareError{
 		Status: http.StatusBadRequest,
 		Code:   ErrorCodeIndeterminateAccount,
@@ -392,39 +386,39 @@ var (
 	}
 	ErrorMissingCalendarsSessionCapability = GroupwareError{
 		Status: http.StatusExpectationFailed,
-		Code:   ErrorCodeMissingCalendarsSessionCapability,
-		Title:  "Session is missing the task capability '" + jmap.JmapCalendars + "'",
-		Detail: "The JMAP Session of the user does not have the required capability '" + jmap.JmapTasks + "'.",
+		Code:   ErrorCodeMissingCalendarsAccountCapability,
+		Title:  "Session is missing the calendars session capability",
+		Detail: "The JMAP Session of the user does not have the required capability for calendars.",
 	}
 	ErrorMissingCalendarsAccountCapability = GroupwareError{
 		Status: http.StatusExpectationFailed,
 		Code:   ErrorCodeMissingCalendarsSessionCapability,
-		Title:  "Account is missing the task capability '" + jmap.JmapCalendars + "'",
-		Detail: "The JMAP Account of the user does not have the required capability '" + jmap.JmapTasks + "'.",
+		Title:  "Account is missing the calendars capability",
+		Detail: "The JMAP Account of the user does not have the required capability for calendars.",
 	}
 	ErrorMissingContactsSessionCapability = GroupwareError{
 		Status: http.StatusExpectationFailed,
-		Code:   ErrorCodeMissingContactsSessionCapability,
-		Title:  "Session is missing the task capability '" + jmap.JmapContacts + "'",
-		Detail: "The JMAP Session of the user does not have the required capability '" + jmap.JmapContacts + "'.",
+		Code:   ErrorCodeMissingContactsAccountCapability,
+		Title:  "Session is missing the contacts capability",
+		Detail: "The JMAP Session of the user does not have the required capability for accounts.",
 	}
 	ErrorMissingContactsAccountCapability = GroupwareError{
 		Status: http.StatusExpectationFailed,
-		Code:   ErrorCodeMissingContactsSessionCapability,
-		Title:  "Account is missing the task capability '" + jmap.JmapContacts + "'",
-		Detail: "The JMAP Account of the user does not have the required capability '" + jmap.JmapContacts + "'.",
+		Code:   ErrorCodeMissingContactsAccountCapability,
+		Title:  "Account is missing the contacts capability",
+		Detail: "The JMAP Account of the user does not have the required capability for accounts.",
 	}
 	ErrorMissingTasksSessionCapability = GroupwareError{
 		Status: http.StatusExpectationFailed,
 		Code:   ErrorCodeMissingTasksSessionCapability,
-		Title:  "Session is missing the task capability '" + jmap.JmapTasks + "'",
-		Detail: "The JMAP Session of the user does not have the required capability '" + jmap.JmapTasks + "'.",
+		Title:  "Session is missing the tasks capability",
+		Detail: "The JMAP Session of the user does not have the required capability for tasks.",
 	}
 	ErrorMissingTasksAccountCapability = GroupwareError{
 		Status: http.StatusExpectationFailed,
-		Code:   ErrorCodeMissingTasksSessionCapability,
-		Title:  "Account is missing the task capability '" + jmap.JmapTasks + "'",
-		Detail: "The JMAP Account of the user does not have the required capability '" + jmap.JmapTasks + "'.",
+		Code:   ErrorCodeMissingTasksAccountCapability,
+		Title:  "Account is missing the tasks capability",
+		Detail: "The JMAP Account of the user does not have the required capability for tasks",
 	}
 	ErrorFailedToDeleteEmail = GroupwareError{
 		Status: http.StatusInternalServerError,

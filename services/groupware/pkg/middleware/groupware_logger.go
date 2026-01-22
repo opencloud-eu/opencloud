@@ -8,6 +8,10 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
+var (
+	LogTraceID = "traceId"
+)
+
 func GroupwareLogger(logger log.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -37,12 +41,10 @@ func GroupwareLogger(logger log.Logger) func(http.Handler) http.Handler {
 			ctx := r.Context()
 
 			requestID := middleware.GetReqID(ctx)
+			level = level.Str(log.RequestIDString, log.SafeString(requestID))
 			traceID := GetTraceID(ctx)
-
-			level.Str(log.RequestIDString, requestID)
-
 			if traceID != "" {
-				level.Str("traceId", traceID)
+				level = level.Str(LogTraceID, log.SafeString(traceID))
 			}
 
 			level.

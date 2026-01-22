@@ -5,7 +5,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog"
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
@@ -35,9 +34,13 @@ type SwaggerGetMailboxById200 struct {
 //	404: ErrorResponse404
 //	500: ErrorResponse500
 func (g *Groupware) GetMailbox(w http.ResponseWriter, r *http.Request) {
-	mailboxId := chi.URLParam(r, UriParamMailboxId)
 	g.respond(w, r, func(req Request) Response {
 		accountId, err := req.GetAccountIdForMail()
+		if err != nil {
+			return errorResponse(single(accountId), err)
+		}
+
+		mailboxId, err := req.PathParam(UriParamMailboxId)
 		if err != nil {
 			return errorResponse(single(accountId), err)
 		}
@@ -92,22 +95,21 @@ type SwaggerMailboxesResponse200 struct {
 //	400: ErrorResponse400
 //	500: ErrorResponse500
 func (g *Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	var filter jmap.MailboxFilterCondition
-
-	hasCriteria := false
-	name := q.Get(QueryParamMailboxSearchName)
-	if name != "" {
-		filter.Name = name
-		hasCriteria = true
-	}
-	role := q.Get(QueryParamMailboxSearchRole)
-	if role != "" {
-		filter.Role = role
-		hasCriteria = true
-	}
-
 	g.respond(w, r, func(req Request) Response {
+		var filter jmap.MailboxFilterCondition
+
+		hasCriteria := false
+		name, ok := req.getStringParam(QueryParamMailboxSearchName, "") // the mailbox name to filter on
+		if ok && name != "" {
+			filter.Name = name
+			hasCriteria = true
+		}
+		role, ok := req.getStringParam(QueryParamMailboxSearchRole, "") // the mailbox role to filter on
+		if role != "" {
+			filter.Role = role
+			hasCriteria = true
+		}
+
 		accountId, err := req.GetAccountIdForMail()
 		if err != nil {
 			return errorResponse(single(accountId), err)
@@ -157,8 +159,7 @@ type SwaggerMailboxesForAllAccountsResponse200 struct {
 }
 
 // swagger:route GET /groupware/accounts/all/mailboxes mailboxesforallaccounts mailbox
-// Get the list of all the mailboxes of all accounts of a user, potentially filtering on the
-// role of the mailboxes.
+// Get the list of all the mailboxes of all accounts of a user, potentially filtering on the role of the mailboxes.
 //
 // responses:
 //
@@ -166,28 +167,24 @@ type SwaggerMailboxesForAllAccountsResponse200 struct {
 //	400: ErrorResponse400
 //	500: ErrorResponse500
 func (g *Groupware) GetMailboxesForAllAccounts(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	var filter jmap.MailboxFilterCondition
-
-	hasCriteria := false
-	role := q.Get(QueryParamMailboxSearchRole)
-	if role != "" {
-		filter.Role = role
-		hasCriteria = true
-	}
-
 	g.respond(w, r, func(req Request) Response {
 		accountIds := req.AllAccountIds()
 		if len(accountIds) < 1 {
-			return noContentResponse(nil, "")
+			return noContentResponse(nil, "") // when the user has no accounts
 		}
 		logger := log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(accountIds)))
 
-		subscribed, set, err := req.parseBoolParam(QueryParamMailboxSearchSubscribed, false)
-		if err != nil {
-			return errorResponse(accountIds, err)
+		var filter jmap.MailboxFilterCondition
+		hasCriteria := false
+
+		if role, set := req.getStringParam(QueryParamMailboxSearchRole, ""); set {
+			filter.Role = role
+			hasCriteria = true
 		}
-		if set {
+
+		if subscribed, set, err := req.parseBoolParam(QueryParamMailboxSearchSubscribed, false); err != nil {
+			return errorResponse(accountIds, err)
+		} else if set {
 			filter.IsSubscribed = &subscribed
 			hasCriteria = true
 		}
@@ -208,22 +205,28 @@ func (g *Groupware) GetMailboxesForAllAccounts(w http.ResponseWriter, r *http.Re
 	})
 }
 
+// Retrieve Mailboxes by their role for all accounts.
 func (g *Groupware) GetMailboxByRoleForAllAccounts(w http.ResponseWriter, r *http.Request) {
-	role := chi.URLParam(r, UriParamRole)
 	g.respond(w, r, func(req Request) Response {
 		accountIds := req.AllAccountIds()
 		if len(accountIds) < 1 {
-			return noContentResponse(nil, "")
+			return noContentResponse(nil, "") // when the user has no accounts
 		}
+
+		role, err := req.PathParamDoc(UriParamRole, "Role of the mailboxes to retrieve across all accounts")
+		if err != nil {
+			return errorResponse(accountIds, err)
+		}
+
 		logger := log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(accountIds)).Str("role", role))
 
 		filter := jmap.MailboxFilterCondition{
 			Role: role,
 		}
 
-		mailboxesByAccountId, sessionState, state, lang, err := g.jmap.SearchMailboxes(accountIds, req.session, req.ctx, logger, req.language(), filter)
-		if err != nil {
-			return req.errorResponseFromJmap(accountIds, err)
+		mailboxesByAccountId, sessionState, state, lang, jerr := g.jmap.SearchMailboxes(accountIds, req.session, req.ctx, logger, req.language(), filter)
+		if jerr != nil {
+			return req.errorResponseFromJmap(accountIds, jerr)
 		}
 		return etagResponse(accountIds, sortMailboxesMap(mailboxesByAccountId), sessionState, MailboxResponseObjectType, state, lang)
 	})
@@ -245,17 +248,19 @@ type SwaggerMailboxChangesResponse200 struct {
 //	400: ErrorResponse400
 //	500: ErrorResponse500
 func (g *Groupware) GetMailboxChanges(w http.ResponseWriter, r *http.Request) {
-	mailboxId := chi.URLParam(r, UriParamMailboxId)
-	sinceState := r.Header.Get(HeaderSince)
-
 	g.respond(w, r, func(req Request) Response {
-		l := req.logger.With().Str(HeaderSince, sinceState)
+		l := req.logger.With()
 
 		accountId, err := req.GetAccountIdForMail()
 		if err != nil {
 			return errorResponse(single(accountId), err)
 		}
 		l = l.Str(logAccountId, accountId)
+
+		mailboxId, err := req.PathParam(UriParamMailboxId)
+		if err != nil {
+			return errorResponse(single(accountId), err)
+		}
 
 		maxChanges, ok, err := req.parseUIntParam(QueryParamMaxChanges, 0)
 		if err != nil {
@@ -264,6 +269,12 @@ func (g *Groupware) GetMailboxChanges(w http.ResponseWriter, r *http.Request) {
 		if ok {
 			l = l.Uint(QueryParamMaxChanges, maxChanges)
 		}
+
+		sinceState, err := req.HeaderParamDoc(HeaderParamSince, "Specifies the state identifier from which on to list mailbox changes")
+		if err != nil {
+			return errorResponse(single(accountId), err)
+		}
+		l = l.Str(HeaderParamSince, log.SafeString(sinceState))
 
 		logger := log.From(l)
 
@@ -329,6 +340,8 @@ func (g *Groupware) GetMailboxChangesForAllAccounts(w http.ResponseWriter, r *ht
 	})
 }
 
+// Retrieve the roles of all the Mailboxes of all Accounts.
+// @api:example mailboxrolesbyaccount
 func (g *Groupware) GetMailboxRoles(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()
@@ -346,16 +359,20 @@ func (g *Groupware) GetMailboxRoles(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *Groupware) UpdateMailbox(w http.ResponseWriter, r *http.Request) {
-	mailboxId := chi.URLParam(r, UriParamMailboxId)
-
 	g.respond(w, r, func(req Request) Response {
-		l := req.logger.With().Str(UriParamMailboxId, log.SafeString(mailboxId))
+		l := req.logger.With()
 
 		accountId, err := req.GetAccountIdForMail()
 		if err != nil {
 			return errorResponse(single(accountId), err)
 		}
 		l = l.Str(logAccountId, accountId)
+
+		mailboxId, err := req.PathParamDoc(UriParamMailboxId, "the identifier of the mailbox to update")
+		if err != nil {
+			return errorResponse(single(accountId), err)
+		}
+		l = l.Str(UriParamMailboxId, log.SafeString(mailboxId))
 
 		var body jmap.MailboxChange
 		err = req.body(&body)
@@ -398,10 +415,12 @@ func (g *Groupware) CreateMailbox(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Delete Mailboxes by their unique identifiers.
+//
+// Returns the identifiers of the Mailboxes that have successfully been deleted.
+//
+// @api:example deletedmailboxes
 func (g *Groupware) DeleteMailbox(w http.ResponseWriter, r *http.Request) {
-	mailboxId := chi.URLParam(r, UriParamMailboxId)
-	mailboxIds := strings.Split(mailboxId, ",")
-
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()
 		accountId, err := req.GetAccountIdForMail()
@@ -410,11 +429,16 @@ func (g *Groupware) DeleteMailbox(w http.ResponseWriter, r *http.Request) {
 		}
 		l = l.Str(logAccountId, accountId)
 
+		mailboxIds, err := req.PathListParamDoc(UriParamMailboxId, "the identifier of the mailbox to delete")
+		if err != nil {
+			return errorResponse(single(accountId), err)
+		}
+		l = l.Array(UriParamMailboxId, log.SafeStringArray(mailboxIds))
+
 		if len(mailboxIds) < 1 {
-			return noContentResponse(single(accountId), req.session.State)
+			return noContentResponse(single(accountId), req.session.State) // no mailbox identifiers were mentioned in the request
 		}
 
-		l = l.Array(UriParamMailboxId, log.SafeStringArray(mailboxIds))
 		logger := log.From(l)
 
 		deleted, sessionState, state, lang, jerr := g.jmap.DeleteMailboxes(accountId, req.session, req.ctx, logger, req.language(), "", mailboxIds)
@@ -441,8 +465,8 @@ func scoreMailbox(m jmap.Mailbox) int {
 	return 1000
 }
 
-func sortMailboxesMap[K comparable](mailboxesByAccountId map[K][]jmap.Mailbox) map[K][]jmap.Mailbox {
-	sortedByAccountId := make(map[K][]jmap.Mailbox, len(mailboxesByAccountId))
+func sortMailboxesMap(mailboxesByAccountId map[string][]jmap.Mailbox) map[string][]jmap.Mailbox {
+	sortedByAccountId := make(map[string][]jmap.Mailbox, len(mailboxesByAccountId))
 	for accountId, unsorted := range mailboxesByAccountId {
 		mailboxes := make([]jmap.Mailbox, len(unsorted))
 		copy(mailboxes, unsorted)

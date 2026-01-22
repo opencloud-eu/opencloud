@@ -3,7 +3,6 @@ package groupware
 import (
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/jscontact"
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -68,7 +67,10 @@ func (g *Groupware) GetAddressbook(w http.ResponseWriter, r *http.Request) {
 
 		l := req.logger.With()
 
-		addressBookId := chi.URLParam(r, UriParamAddressBookId)
+		addressBookId, err := req.PathParam(UriParamAddressBookId)
+		if err != nil {
+			return errorResponse(single(accountId), err)
+		}
 		l = l.Str(UriParamAddressBookId, log.SafeString(addressBookId))
 
 		logger := log.From(l)
@@ -110,7 +112,10 @@ func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Requ
 
 		l := req.logger.With()
 
-		addressBookId := chi.URLParam(r, UriParamAddressBookId)
+		addressBookId, err := req.PathParam(UriParamAddressBookId)
+		if err != nil {
+			return errorResponse(single(accountId), err)
+		}
 		l = l.Str(UriParamAddressBookId, log.SafeString(addressBookId))
 
 		offset, ok, err := req.parseUIntParam(QueryParamOffset, 0)
@@ -157,7 +162,10 @@ func (g *Groupware) GetContactById(w http.ResponseWriter, r *http.Request) {
 
 		l := req.logger.With()
 
-		contactId := chi.URLParam(r, UriParamContactId)
+		contactId, err := req.PathParam(UriParamContactId)
+		if err != nil {
+			return errorResponse(single(accountId), err)
+		}
 		l = l.Str(UriParamContactId, log.SafeString(contactId))
 
 		logger := log.From(l)
@@ -183,11 +191,14 @@ func (g *Groupware) CreateContact(w http.ResponseWriter, r *http.Request) {
 
 		l := req.logger.With()
 
-		addressBookId := chi.URLParam(r, UriParamAddressBookId)
+		addressBookId, err := req.PathParam(UriParamAddressBookId)
+		if err != nil {
+			return errorResponse(single(accountId), err)
+		}
 		l = l.Str(UriParamAddressBookId, log.SafeString(addressBookId))
 
 		var create jscontact.ContactCard
-		err := req.body(&create)
+		err = req.bodydoc(&create, "The contact to create, which may not have its id attribute set")
 		if err != nil {
 			return errorResponse(single(accountId), err)
 		}
@@ -209,7 +220,10 @@ func (g *Groupware) DeleteContact(w http.ResponseWriter, r *http.Request) {
 		}
 		l := req.logger.With().Str(accountId, log.SafeString(accountId))
 
-		contactId := chi.URLParam(r, UriParamContactId)
+		contactId, err := req.PathParam(UriParamContactId)
+		if err != nil {
+			return errorResponse(single(accountId), err)
+		}
 		l.Str(UriParamContactId, log.SafeString(contactId))
 
 		logger := log.From(l)

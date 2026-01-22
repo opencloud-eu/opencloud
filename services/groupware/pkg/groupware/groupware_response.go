@@ -163,7 +163,7 @@ func etagNotFoundResponse(accountIds []string, sessionState jmap.SessionState, o
 	}
 }
 
-func notImplementesResponse() Response {
+func notImplementedResponse() Response {
 	return Response{
 		body:   nil,
 		status: http.StatusNotImplemented,

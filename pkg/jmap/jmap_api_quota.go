@@ -14,7 +14,7 @@ func (j *Client) GetQuotas(accountIds []string, session *Session, ctx context.Co
 
 	invocations := make([]Invocation, len(uniqueAccountIds))
 	for i, accountId := range uniqueAccountIds {
-		invocations[i] = invocation(CommandQuotaGet, MailboxQueryCommand{AccountId: accountId}, mcid(accountId, "0"))
+		invocations[i] = invocation(CommandQuotaGet, QuotaGetCommand{AccountId: accountId}, mcid(accountId, "0"))
 	}
 	cmd, err := j.request(session, logger, invocations...)
 	if err != nil {
