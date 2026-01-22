@@ -11,19 +11,20 @@ var (
 )
 
 const (
-	UriParamAccountId                 = "accountid"
-	UriParamMailboxId                 = "mailboxid"
-	UriParamEmailId                   = "emailid"
-	UriParamIdentityId                = "identityid"
-	UriParamBlobId                    = "blobid"
+	UriParamAccountId                 = "accountid"     // Identifier of the account
+	UriParamMailboxId                 = "mailboxid"     // Identifier of the mailbox
+	UriParamEmailId                   = "emailid"       // Identifier of the email
+	UriParamIdentityId                = "identityid"    // Identifier of the identity
+	UriParamBlobId                    = "blobid"        // Identifier of theblob
+	UriParamStreamId                  = "stream"        // Identifier of the stream
+	UriParamAddressBookId             = "addressbookid" // Identifier of the address book
+	UriParamCalendarId                = "calendarid"    // Identifier of the calendar
+	UriParamTaskListId                = "tasklistid"    // Identifier of the tasklist
+	UriParamContactId                 = "contactid"     // Identifier of the contact
+	UriParamEventId                   = "eventid"       // Idenfitier of the event
 	UriParamBlobName                  = "blobname"
-	UriParamStreamId                  = "stream"
+	UriParamSince                     = "since"
 	UriParamRole                      = "role"
-	UriParamAddressBookId             = "addressbookid"
-	UriParamCalendarId                = "calendarid"
-	UriParamTaskListId                = "tasklistid"
-	UriParamContactId                 = "contactid"
-	UriParamEventId                   = "eventid"
 	QueryParamMailboxSearchName       = "name"
 	QueryParamMailboxSearchRole       = "role"
 	QueryParamMailboxSearchSubscribed = "subscribed"
@@ -57,7 +58,7 @@ const (
 	QueryParamSeen                    = "seen"
 	QueryParamUndesirable             = "undesirable"
 	QueryParamMarkAsSeen              = "markAsSeen"
-	HeaderSince                       = "if-none-match"
+	HeaderParamSince                  = "if-none-match"
 )
 
 func (g *Groupware) Route(r chi.Router) {
@@ -100,6 +101,7 @@ func (g *Groupware) Route(r chi.Router) {
 				r.Route("/{mailboxid}", func(r chi.Router) {
 					r.Get("/", g.GetMailbox)
 					r.Get("/emails", g.GetAllEmailsInMailbox)
+					r.Get("/emails/since/{since}", g.GetAllEmailsInMailboxSince)
 					r.Get("/changes", g.GetMailboxChanges)
 					r.Patch("/", g.UpdateMailbox)
 					r.Delete("/", g.DeleteMailbox)

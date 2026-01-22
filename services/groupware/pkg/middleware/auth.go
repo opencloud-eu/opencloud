@@ -29,7 +29,7 @@ func Auth(opts ...account.Option) func(http.Handler) http.Handler {
 	opt := authOptions(opts...)
 	tokenManager, err := jwt.New(map[string]any{
 		"secret":  opt.JWTSecret,
-		"expires": int64(24 * 60 * 60),
+		"expires": int64(24 * 60 * 60), // token expiration in seconds
 	})
 	if err != nil {
 		opt.Logger.Fatal().Err(err).Msgf("Could not initialize token-manager")
@@ -39,19 +39,37 @@ func Auth(opts ...account.Option) func(http.Handler) http.Handler {
 			ctx := r.Context()
 			t := r.Header.Get(revactx.TokenHeader)
 			if t == "" {
-				opt.Logger.Error().Str(log.RequestIDString, r.Header.Get("X-Request-ID")).Msgf("missing access token in header %v", revactx.TokenHeader)
+				requestID := r.Header.Get("X-Request-ID")
+				traceID := GetTraceID(ctx)
+				l := opt.Logger.Error().Str(log.RequestIDString, log.SafeString(requestID))
+				if traceID != "" {
+					l = l.Str(LogTraceID, log.SafeString(traceID))
+				}
+				l.Msgf("missing access token in header %v", revactx.TokenHeader)
 				w.WriteHeader(http.StatusUnauthorized) // missing access token
 				return
 			}
 
 			u, tokenScope, err := tokenManager.DismantleToken(r.Context(), t)
 			if err != nil {
-				opt.Logger.Error().Str(log.RequestIDString, r.Header.Get("X-Request-ID")).Err(err).Msgf("invalid access token in header %v", revactx.TokenHeader)
+				requestID := r.Header.Get("X-Request-ID")
+				traceID := GetTraceID(ctx)
+				l := opt.Logger.Error().Str(log.RequestIDString, log.SafeString(requestID))
+				if traceID != "" {
+					l = l.Str(LogTraceID, log.SafeString(traceID))
+				}
+				l.Err(err).Msgf("invalid access token in header %v", revactx.TokenHeader)
 				w.WriteHeader(http.StatusUnauthorized) // invalid token
 				return
 			}
 			if ok, err := scope.VerifyScope(ctx, tokenScope, r); err != nil || !ok {
-				opt.Logger.Error().Str(log.RequestIDString, r.Header.Get("X-Request-ID")).Err(err).Msg("verifying scope failed")
+				requestID := r.Header.Get("X-Request-ID")
+				traceID := GetTraceID(ctx)
+				l := opt.Logger.Error().Str(log.RequestIDString, log.SafeString(requestID))
+				if traceID != "" {
+					l = l.Str(LogTraceID, log.SafeString(traceID))
+				}
+				l.Err(err).Msg("verifying scope failed")
 				w.WriteHeader(http.StatusUnauthorized) // invalid scope
 				return
 			}

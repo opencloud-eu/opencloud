@@ -17,6 +17,10 @@ type SwaggerGetQuotaResponse200 struct {
 // swagger:route GET /groupware/accounts/{account}/quota quota get_quota
 // Get quota limits.
 //
+// Retrieves the list of Quota configurations for a given account.
+//
+// Note that there may be multiple Quota objects for different resource types.
+//
 // responses:
 //
 //	200: GetQuotaResponse200
@@ -35,7 +39,8 @@ func (g *Groupware) GetQuota(w http.ResponseWriter, r *http.Request) {
 			return req.errorResponseFromJmap(single(accountId), jerr)
 		}
 		for _, v := range res {
-			return etagResponse(single(accountId), v.List, sessionState, QuotaResponseObjectType, state, lang)
+			body := v.List
+			return etagResponse(single(accountId), body, sessionState, QuotaResponseObjectType, state, lang)
 		}
 		return notFoundResponse(single(accountId), sessionState)
 	})
@@ -56,6 +61,9 @@ type SwaggerGetQuotaForAllAccountsResponse200 struct {
 // swagger:route GET /groupware/accounts/all/quota quota get_quota_for_all_accounts
 // Get quota limits for all accounts.
 //
+// Retrieves the Quota configuration for all the accounts the user currently has access to,
+// as a dictionary that has the account identifier as its key and an array of Quotas as its value.
+//
 // responses:
 //
 //	200: GetQuotaForAllAccountsResponse200
@@ -65,7 +73,7 @@ func (g *Groupware) GetQuotaForAllAccounts(w http.ResponseWriter, r *http.Reques
 	g.respond(w, r, func(req Request) Response {
 		accountIds := req.AllAccountIds()
 		if len(accountIds) < 1 {
-			return noContentResponse(accountIds, "")
+			return noContentResponse(accountIds, "") // user has no accounts
 		}
 		logger := log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(accountIds)))
 

@@ -33,7 +33,8 @@ func (g *Groupware) GetAccount(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return errorResponse(single(accountId), err)
 		}
-		return etagResponse(single(accountId), account, req.session.State, AccountResponseObjectType, jmap.State(req.session.State), "")
+		var body jmap.Account = account
+		return etagResponse(single(accountId), body, req.session.State, AccountResponseObjectType, jmap.State(req.session.State), "")
 	})
 }
 
@@ -66,7 +67,8 @@ func (g *Groupware) GetAccounts(w http.ResponseWriter, r *http.Request) {
 		}
 		// sort on accountId to have a stable order that remains the same with every query
 		slices.SortFunc(list, func(a, b AccountWithId) int { return strings.Compare(a.AccountId, b.AccountId) })
-		return etagResponse(structs.Map(list, func(a AccountWithId) string { return a.AccountId }), list, req.session.State, AccountResponseObjectType, jmap.State(req.session.State), "")
+		var RBODY []AccountWithId = list
+		return etagResponse(structs.Map(list, func(a AccountWithId) string { return a.AccountId }), RBODY, req.session.State, AccountResponseObjectType, jmap.State(req.session.State), "")
 	})
 }
 
@@ -94,7 +96,8 @@ func (g *Groupware) GetAccountsWithTheirIdentities(w http.ResponseWriter, r *htt
 		}
 		// sort on accountId to have a stable order that remains the same with every query
 		slices.SortFunc(list, func(a, b AccountWithIdAndIdentities) int { return strings.Compare(a.AccountId, b.AccountId) })
-		return etagResponse(structs.Map(list, func(a AccountWithIdAndIdentities) string { return a.AccountId }), list, sessionState, AccountResponseObjectType, state, lang)
+		var RBODY []AccountWithIdAndIdentities = list
+		return etagResponse(structs.Map(list, func(a AccountWithIdAndIdentities) string { return a.AccountId }), RBODY, sessionState, AccountResponseObjectType, state, lang)
 	})
 }
 
@@ -107,35 +110,4 @@ type AccountWithIdAndIdentities struct {
 	AccountId string `json:"accountId,omitempty"`
 	jmap.Account
 	Identities []jmap.Identity `json:"identities,omitempty"`
-}
-
-type AccountBootstrapResponse struct {
-	// The API version.
-	Version string `json:"version"`
-
-	// A list of capabilities of this API version.
-	Capabilities []string `json:"capabilities"`
-
-	// API limits.
-	Limits IndexLimits `json:"limits"`
-
-	// Accounts that are available to the user.
-	//
-	// The key of the mapis the identifier.
-	Accounts map[string]IndexAccount `json:"accounts"`
-
-	// Primary accounts for usage types.
-	PrimaryAccounts IndexPrimaryAccounts `json:"primaryAccounts"`
-
-	// Mailboxes.
-	Mailboxes map[string][]jmap.Mailbox `json:"mailboxes"`
-}
-
-// When the request suceeds.
-// swagger:response GetAccountBootstrapResponse200
-type SwaggerAccountBootstrapResponse struct {
-	// in: body
-	Body struct {
-		*AccountBootstrapResponse
-	}
 }

@@ -68,13 +68,63 @@ var (
 	errNoPrimaryAccountForBlob             = errors.New("no primary account for blob")
 	errNoPrimaryAccountForVacationResponse = errors.New("no primary account for vacation response")
 	errNoPrimaryAccountForSubmission       = errors.New("no primary account for submission")
-	errNoPrimaryAccountForTask             = errors.New("no primary account for task")
-	errNoPrimaryAccountForCalendar         = errors.New("no primary account for calendar")
-	errNoPrimaryAccountForContact          = errors.New("no primary account for contact")
 	errNoPrimaryAccountForQuota            = errors.New("no primary account for quota")
+	// errNoPrimaryAccountForTask             = errors.New("no primary account for task")
+	// errNoPrimaryAccountForCalendar         = errors.New("no primary account for calendar")
+	// errNoPrimaryAccountForContact          = errors.New("no primary account for contact")
 	// errNoPrimaryAccountForSieve            = errors.New("no primary account for sieve")
 	// errNoPrimaryAccountForWebsocket        = errors.New("no primary account for websocket")
 )
+
+func (r Request) HeaderParam(name string) (string, *Error) {
+	value := r.r.Header.Get(name)
+	if value == "" {
+		msg := fmt.Sprintf("Missing mandatory request header '%s'", name)
+		return "", r.observedParameterError(ErrorInvalidRequestParameter,
+			withDetail(msg),
+			withSource(&ErrorSource{Header: name}),
+		)
+	} else {
+		return value, nil
+	}
+}
+
+func (r Request) HeaderParamDoc(name string, _ string) (string, *Error) {
+	return r.HeaderParam(name)
+}
+
+func (r Request) OptHeaderParam(name string) string {
+	return r.r.Header.Get(name)
+}
+
+func (r Request) OptHeaderParamDoc(name string, _ string) string {
+	return r.OptHeaderParam(name)
+}
+
+func (r Request) PathParam(name string) (string, *Error) {
+	value := chi.URLParam(r.r, name)
+	if value == "" {
+		msg := fmt.Sprintf("Missing mandatory path parameter '%s'", name)
+		return "", r.observedParameterError(ErrorInvalidRequestParameter,
+			withDetail(msg),
+			withSource(&ErrorSource{Parameter: name}),
+		)
+	} else {
+		return value, nil
+	}
+}
+
+func (r Request) PathParamDoc(name string, _ string) (string, *Error) {
+	return r.PathParam(name)
+}
+
+func (r Request) PathListParamDoc(name string, _ string) ([]string, *Error) {
+	value, err := r.PathParam(name)
+	if err != nil {
+		return nil, err
+	}
+	return strings.Split(value, ","), nil
+}
 
 func (r Request) AllAccountIds() []string {
 	// TODO potentially filter on "subscribed" accounts?
@@ -311,6 +361,26 @@ func (r Request) parseMapParam(param string) (map[string]string, bool, *Error) {
 		}
 	}
 	return result, true, nil
+}
+
+func (r Request) parseOptStringListParam(param string) ([]string, bool, *Error) {
+	result := []string{}
+	q := r.r.URL.Query()
+	if !q.Has(param) {
+		return nil, false, nil
+	}
+	for _, value := range q[param] {
+		for _, v := range strings.Split(value, ",") {
+			if strings.TrimSpace(v) != "" {
+				result = append(result, v)
+			}
+		}
+	}
+	return result, true, nil
+}
+
+func (r Request) bodydoc(target any, _ string) *Error {
+	return r.body(target)
 }
 
 func (r Request) body(target any) *Error {

@@ -134,6 +134,7 @@ const (
 	CalendarEventType             = ObjectType("CalendarEvent")
 	CalendarEventNotificationType = ObjectType("CalendarEventNotification")
 	ParticipantIdentityType       = ObjectType("ParticipantIdentity")
+	FileNodeType                  = ObjectType("FileNode")
 
 	JmapKeywordPrefix    = "$"
 	JmapKeywordSeen      = "$seen"
@@ -2116,7 +2117,11 @@ const (
 	EmailPropertyHtmlBody      = "htmlBody"
 	EmailPropertyAttachments   = "attachments"
 	EmailPropertyHasAttachment = "hasAttachment"
+	EmailPropertyHasKeyword    = "hasKeyword"
 	EmailPropertyPreview       = "preview"
+
+	EmailSortPropertyAllInThreadHaveKeyword  = "allInThreadHaveKeyword"
+	EmailSortPropertySomeInThreadHaveKeyword = "someInThreadHaveKeyword"
 )
 
 var EmailProperties = []string{
@@ -3317,12 +3322,13 @@ type IdentitySetResponse struct {
 	NotDestroyed map[string]SetError `json:"notDestroyed,omitempty"`
 }
 
+// An Identity object stores information about an email address or domain the user may send from.
 type Identity struct {
 	// The id of the Identity.
-	Id string `json:"id,omitempty"`
+	Id string `json:"id,omitempty" doc:"!request"`
 
 	// The “From” name the client SHOULD use when creating a new Email from this Identity.
-	Name string `json:"name,omitempty"`
+	Name string `json:"name,omitempty" doc:"req"`
 
 	// The “From” email address the client MUST use when creating a new Email from this Identity.
 	//
@@ -4879,7 +4885,7 @@ type Shareable struct {
 // It then shows as well the current usage in regard to that limit.
 type Quota struct {
 	// The unique identifier for this object.
-	Id string `json:"id"`
+	Id string `json:"id" doc:"!request"`
 
 	// The resource type of the quota.
 	ResourceType ResourceType `json:"resourceType"`
@@ -4897,9 +4903,9 @@ type Quota struct {
 	// The Scope data type is used to represent the entities the quota applies to.
 	//
 	// It is defined as a "String" with values from the following set:
-	// !- `account`: The quota information applies to just the client's account.
-	// !- `domain`: The quota information applies to all accounts sharing this domain.
-	// !- `global`: The quota information applies to all accounts belonging to the server.
+	// - `account`: The quota information applies to just the client's account.
+	// - `domain`: The quota information applies to all accounts sharing this domain.
+	// - `global`: The quota information applies to all accounts belonging to the server.
 	Scope Scope `json:"scope"`
 
 	// The name of the quota.

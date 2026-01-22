@@ -1,12 +1,10 @@
 package groupware
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
@@ -22,9 +20,9 @@ func (g *Groupware) GetBlobMeta(w http.ResponseWriter, r *http.Request) {
 		}
 		l := req.logger.With().Str(logAccountId, accountId)
 
-		blobId := chi.URLParam(req.r, UriParamBlobId)
-		if blobId == "" {
-			return req.parameterErrorResponse(single(accountId), UriParamBlobId, fmt.Sprintf("Invalid value for path parameter '%v': empty", UriParamBlobId))
+		blobId, err := req.PathParam(UriParamBlobId)
+		if err != nil {
+			return errorResponse(single(accountId), err)
 		}
 		l = l.Str(UriParamBlobId, blobId)
 
@@ -34,8 +32,7 @@ func (g *Groupware) GetBlobMeta(w http.ResponseWriter, r *http.Request) {
 		if jerr != nil {
 			return req.errorResponseFromJmap(single(accountId), jerr)
 		}
-		blob := res
-		if blob == nil {
+		if res == nil {
 			return notFoundResponse(single(accountId), sessionState)
 		}
 		return etagResponse(single(accountId), res, sessionState, BlobResponseObjectType, state, lang)
@@ -72,10 +69,15 @@ func (g *Groupware) UploadBlob(w http.ResponseWriter, r *http.Request) {
 
 func (g *Groupware) DownloadBlob(w http.ResponseWriter, r *http.Request) {
 	g.stream(w, r, func(req Request, w http.ResponseWriter) *Error {
-		blobId := chi.URLParam(req.r, UriParamBlobId)
-		name := chi.URLParam(req.r, UriParamBlobName)
-		q := req.r.URL.Query()
-		typ := q.Get(QueryParamBlobType)
+		blobId, err := req.PathParam(UriParamBlobId)
+		if err != nil {
+			return err
+		}
+		name, err := req.PathParam(UriParamBlobName)
+		if err != nil {
+			return err
+		}
+		typ, _ := req.getStringParam(QueryParamBlobType, "")
 
 		accountId, gwerr := req.GetAccountIdForBlob()
 		if gwerr != nil {

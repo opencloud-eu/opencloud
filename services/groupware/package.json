@@ -1,15 +1,15 @@
 {
 	"dependencies": {
-		"@redocly/cli": "^2.4.0",
+		"@redocly/cli": "^2.14.5",
 		"@types/js-yaml": "^4.0.9",
 		"cheerio": "^1.1.2",
-		"js-yaml": "^4.1.0",
+		"js-yaml": "^4.1.1",
 		"ts-node": "^10.9.2",
-		"typescript": "^5.9.2"
+		"typescript": "^5.9.3"
 	},
-	"packageManager": "pnpm@10.18.1+sha512.77a884a165cbba2d8d1c19e3b4880eee6d2fcabd0d879121e282196b80042351d5eb3ca0935fa599da1dc51265cc68816ad2bddd2a2de5ea9fdf92adbec7cd34",
+	"packageManager": "pnpm@10.28.0+sha512.05df71d1421f21399e053fde567cea34d446fa02c76571441bfc1c7956e98e363088982d940465fd34480d4d90a0668bc12362f8aa88000a64e83d0b0e47be48",
 	"type": "module",
 	"devDependencies": {
-		"@types/node": "^24.3.1"
+		"@types/node": "^24.10.7"
 	}
 }

@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
@@ -68,7 +67,10 @@ func (g *Groupware) GetCalendarById(w http.ResponseWriter, r *http.Request) {
 
 		l := req.logger.With()
 
-		calendarId := chi.URLParam(r, UriParamCalendarId)
+		calendarId, err := req.PathParam(UriParamCalendarId)
+		if err != nil {
+			return errorResponse(single(accountId), err)
+		}
 		l = l.Str(UriParamCalendarId, log.SafeString(calendarId))
 
 		logger := log.From(l)
@@ -110,7 +112,10 @@ func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) 
 
 		l := req.logger.With()
 
-		calendarId := chi.URLParam(r, UriParamCalendarId)
+		calendarId, err := req.PathParam(UriParamCalendarId)
+		if err != nil {
+			return errorResponse(single(accountId), err)
+		}
 		l = l.Str(UriParamCalendarId, log.SafeString(calendarId))
 
 		offset, ok, err := req.parseUIntParam(QueryParamOffset, 0)
@@ -157,9 +162,6 @@ func (g *Groupware) CreateCalendarEvent(w http.ResponseWriter, r *http.Request) 
 
 		l := req.logger.With()
 
-		calendarId := chi.URLParam(r, UriParamCalendarId)
-		l = l.Str(UriParamCalendarId, log.SafeString(calendarId))
-
 		var create jmap.CalendarEvent
 		err := req.body(&create)
 		if err != nil {
@@ -175,6 +177,7 @@ func (g *Groupware) CreateCalendarEvent(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
+// @api:tag XYZ
 func (g *Groupware) DeleteCalendarEvent(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := req.needCalendarWithAccount()
@@ -183,9 +186,11 @@ func (g *Groupware) DeleteCalendarEvent(w http.ResponseWriter, r *http.Request) 
 		}
 		l := req.logger.With().Str(accountId, log.SafeString(accountId))
 
-		calendarId := chi.URLParam(r, UriParamCalendarId)
-		eventId := chi.URLParam(r, UriParamEventId)
-		l.Str(UriParamCalendarId, log.SafeString(calendarId)).Str(UriParamEventId, log.SafeString(eventId))
+		eventId, err := req.PathParam(UriParamEventId)
+		if err != nil {
+			return errorResponse(single(accountId), err)
+		}
+		l.Str(UriParamEventId, log.SafeString(eventId))
 
 		logger := log.From(l)
 
@@ -220,7 +225,10 @@ func (g *Groupware) ParseIcalBlob(w http.ResponseWriter, r *http.Request) {
 			return errorResponse(single(accountId), err)
 		}
 
-		blobId := chi.URLParam(r, UriParamBlobId)
+		blobId, err := req.PathParam(UriParamBlobId)
+		if err != nil {
+			return errorResponse(single(accountId), err)
+		}
 
 		blobIds := strings.Split(blobId, ",")
 		l := req.logger.With().Array(UriParamBlobId, log.SafeStringArray(blobIds))

@@ -3,7 +3,6 @@ package groupware
 import (
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 )
 
@@ -31,7 +30,8 @@ func (g *Groupware) GetTaskLists(w http.ResponseWriter, r *http.Request) {
 		}
 		var _ string = accountId
 
-		return etagResponse(single(accountId), AllTaskLists, req.session.State, TaskListResponseObjectType, TaskListsState, "")
+		var body []jmap.TaskList = AllTaskLists
+		return etagResponse(single(accountId), body, req.session.State, TaskListResponseObjectType, TaskListsState, "")
 	})
 }
 
@@ -61,7 +61,10 @@ func (g *Groupware) GetTaskListById(w http.ResponseWriter, r *http.Request) {
 		}
 		var _ string = accountId
 
-		tasklistId := chi.URLParam(r, UriParamTaskListId)
+		tasklistId, err := req.PathParam(UriParamTaskListId)
+		if err != nil {
+			return errorResponse(single(accountId), err)
+		}
 		// TODO replace with proper implementation
 		for _, tasklist := range AllTaskLists {
 			if tasklist.Id == tasklistId {
@@ -96,7 +99,10 @@ func (g *Groupware) GetTasksInTaskList(w http.ResponseWriter, r *http.Request) {
 		}
 		var _ string = accountId
 
-		tasklistId := chi.URLParam(r, UriParamTaskListId)
+		tasklistId, err := req.PathParam(UriParamTaskListId)
+		if err != nil {
+			return errorResponse(single(accountId), err)
+		}
 		// TODO replace with proper implementation
 		tasks, ok := TaskMapByTaskListId[tasklistId]
 		if !ok {

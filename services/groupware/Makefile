@@ -21,8 +21,10 @@ node_modules:
 	pnpm install
 
 .PHONY: swagger.yml
-swagger.yml:	apidoc.yml tsnode
-	swagger generate spec --include='groupware' --include='jmap' --include='jscalendar' --include='jscontact' --scan-models --input=$< | NODE_OPTIONS='--no-warnings --loader ts-node/esm' pnpm exec ts-node apidoc-process.ts > $@
+swagger.yml:	apidoc.yml tsnode openapi.yml
+	#swagger generate spec --include='groupware' --include='jmap' --include='jscalendar' --include='jscontact' --scan-models --input=$< | NODE_OPTIONS='--no-warnings --loader ts-node/esm' pnpm exec ts-node apidoc-process.ts > $@
+	#NODE_OPTIONS='--no-warnings --loader ts-node/esm' pnpm exec ts-node apidoc-process.ts > $@ < openapi.yml
+	cp openapi.yml $@
 
 APIDOC_PORT=9999
 
@@ -37,3 +39,10 @@ api.html: swagger.yml favicon.png tsnode
 
 .PHONY: apidoc-static
 apidoc-static: api.html
+
+.PHONY: examples
+examples:
+	cd ../../pkg/jmap/ && go test -tags=groupware_examples . -v -count=1 -run Example
+	cd ../../pkg/jscontact/ && go test -tags=groupware_examples . -v -count=1 -run Example
+	cd ../../pkg/jscalendar/ && go test -tags=groupware_examples . -v -count=1 -run Example
+	cd ./pkg/groupware/ && go test -tags=groupware_examples . -v -count=1 -run Example
