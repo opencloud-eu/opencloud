@@ -3,8 +3,6 @@
 package groupware
 
 import (
-	"time"
-
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
@@ -13,29 +11,29 @@ var (
 	exampleQuotaState = "veiv8iez"
 )
 
-type Exampler struct{}
+type Exemplar struct{}
 
-var j = jmap.ExamplerInstance
+var j = jmap.ExemplarInstance
 
 func Example() {
-	jmap.SerializeExamples(Exampler{})
+	jmap.SerializeExamples(Exemplar{})
 	//Output:
 }
 
-func (e Exampler) AccountQuota() AccountQuota {
+func (e Exemplar) AccountQuota() AccountQuota {
 	return AccountQuota{
 		Quotas: []jmap.Quota{j.Quota()},
 		State:  jmap.State(exampleQuotaState),
 	}
 }
 
-func (e Exampler) AccountQuotaMap() map[string]AccountQuota {
+func (e Exemplar) AccountQuotaMap() map[string]AccountQuota {
 	return map[string]AccountQuota{
 		j.AccountId: e.AccountQuota(),
 	}
 }
 
-func (e Exampler) AccountWithId() AccountWithId {
+func (e Exemplar) AccountWithId() AccountWithId {
 	a, _ := j.Account()
 	return AccountWithId{
 		AccountId: j.AccountId,
@@ -43,7 +41,7 @@ func (e Exampler) AccountWithId() AccountWithId {
 	}
 }
 
-func (e Exampler) AccountWithIdAndIdentities() AccountWithIdAndIdentities {
+func (e Exemplar) AccountWithIdAndIdentities() AccountWithIdAndIdentities {
 	a, _ := j.Account()
 	return AccountWithIdAndIdentities{
 		AccountId:  j.AccountId,
@@ -52,7 +50,7 @@ func (e Exampler) AccountWithIdAndIdentities() AccountWithIdAndIdentities {
 	}
 }
 
-func (e Exampler) IndexAccountMailCapabilities() IndexAccountMailCapabilities {
+func (e Exemplar) IndexAccountMailCapabilities() IndexAccountMailCapabilities {
 	m := j.SessionMailAccountCapabilities()
 	s := j.SessionSubmissionAccountCapabilities()
 	return IndexAccountMailCapabilities{
@@ -65,7 +63,7 @@ func (e Exampler) IndexAccountMailCapabilities() IndexAccountMailCapabilities {
 	}
 }
 
-func (e Exampler) IndexAccountSieveCapabilities() IndexAccountSieveCapabilities {
+func (e Exemplar) IndexAccountSieveCapabilities() IndexAccountSieveCapabilities {
 	s := j.SessionSieveAccountCapabilities()
 	return IndexAccountSieveCapabilities{
 		MaxSizeScriptName:  s.MaxSizeScriptName,
@@ -75,14 +73,14 @@ func (e Exampler) IndexAccountSieveCapabilities() IndexAccountSieveCapabilities 
 	}
 }
 
-func (e Exampler) IndexAccountCapabilities() IndexAccountCapabilities {
+func (e Exemplar) IndexAccountCapabilities() IndexAccountCapabilities {
 	return IndexAccountCapabilities{
 		Mail:  e.IndexAccountMailCapabilities(),
 		Sieve: e.IndexAccountSieveCapabilities(),
 	}
 }
 
-func (e Exampler) IndexAccount() IndexAccount {
+func (e Exemplar) IndexAccount() IndexAccount {
 	a, _ := j.Account()
 	return IndexAccount{
 		AccountId:    j.AccountId,
@@ -95,7 +93,7 @@ func (e Exampler) IndexAccount() IndexAccount {
 	}
 }
 
-func (e Exampler) IndexAccounts() []IndexAccount {
+func (e Exemplar) IndexAccounts() []IndexAccount {
 	return []IndexAccount{
 		e.IndexAccount(),
 		{
@@ -116,7 +114,7 @@ func (e Exampler) IndexAccounts() []IndexAccount {
 	}
 }
 
-func (e Exampler) IndexPrimaryAccounts() IndexPrimaryAccounts {
+func (e Exemplar) IndexPrimaryAccounts() IndexPrimaryAccounts {
 	return IndexPrimaryAccounts{
 		Mail:             j.AccountId,
 		Submission:       j.AccountId,
@@ -126,7 +124,7 @@ func (e Exampler) IndexPrimaryAccounts() IndexPrimaryAccounts {
 	}
 }
 
-func (e Exampler) IndexResponse() IndexResponse {
+func (e Exemplar) IndexResponse() IndexResponse {
 	return IndexResponse{
 		Version:      "4.0.0",
 		Capabilities: []string{"mail:1"},
@@ -141,7 +139,7 @@ func (e Exampler) IndexResponse() IndexResponse {
 	}
 }
 
-func (e Exampler) ErrorResponse() ErrorResponse {
+func (e Exemplar) ErrorResponse() ErrorResponse {
 	err := apiError("6d9c65d1-0368-4833-b09f-885aa0171b95", ErrorNoMailboxWithDraftRole)
 	return ErrorResponse{
 		Errors: []Error{
@@ -150,70 +148,42 @@ func (e Exampler) ErrorResponse() ErrorResponse {
 	}
 }
 
-func (e Exampler) MailboxesByAccountId() (map[string][]jmap.Mailbox, string) {
-	j := jmap.ExamplerInstance
+func (e Exemplar) MailboxesByAccountId() (map[string][]jmap.Mailbox, string) {
+	j := jmap.ExemplarInstance
 	return map[string][]jmap.Mailbox{
 		j.AccountId: j.Mailboxes(),
 	}, "All mailboxes for all accounts, without a role filter"
 }
 
-func (e Exampler) MailboxesByAccountIdFilteredOnInboxRole() (map[string][]jmap.Mailbox, string, string) {
-	j := jmap.ExamplerInstance
+func (e Exemplar) MailboxesByAccountIdFilteredOnInboxRole() (map[string][]jmap.Mailbox, string, string) {
+	j := jmap.ExemplarInstance
 	return map[string][]jmap.Mailbox{
 		j.AccountId: structs.Filter(j.Mailboxes(), func(m jmap.Mailbox) bool { return m.Role == jmap.JmapMailboxRoleInbox }),
 	}, "All mailboxes for all accounts, filtered on the 'inbox' role", "inboxrole"
 }
 
-func (e Exampler) EmailSearchResults() EmailSearchResults {
-	sent, _ := time.Parse(time.RFC3339, "2026-01-12T21:46:01Z")
-	received, _ := time.Parse(time.RFC3339, "2026-01-12T21:47:21Z")
-	j := jmap.ExamplerInstance
+func (e Exemplar) EmailSearchResults() EmailSearchResults {
+	j := jmap.ExemplarInstance
+	email := j.Email()
+	email.BodyStructure = nil
+	email.BodyValues = nil
 	return EmailSearchResults{
-		Results: []jmap.Email{
-			{
-				Id:         "ov7ienge",
-				BlobId:     "ccyxndo0fxob1jnm3z2lroex131oj7eo2ezo1djhlfgtsu7jgucfeaiasiba",
-				ThreadId:   "is",
-				MailboxIds: map[string]bool{j.MailboxInboxId: true},
-				Keywords:   map[string]bool{jmap.JmapKeywordAnswered: true},
-				Size:       1084,
-				ReceivedAt: received,
-				MessageId:  []string{"1768845021.1753110@example.com"},
-				Sender: []jmap.EmailAddress{
-					{Name: j.SenderName, Email: j.SenderEmailAddress},
-				},
-				From: []jmap.EmailAddress{
-					{Name: j.SenderName, Email: j.SenderEmailAddress},
-				},
-				To: []jmap.EmailAddress{
-					{Name: j.IdentityName, Email: j.EmailAddress},
-				},
-				Subject: "Remember the Cant",
-				SentAt:  sent,
-				TextBody: []jmap.EmailBodyPart{
-					{PartId: "1", BlobId: "ckyxndo0fxob1jnm3z2lroex131oj7eo2ezo1djhlfgtsu7jgucfeaiasibnebdw", Size: 115, Type: "text/plain", Charset: "utf-8"},
-				},
-				HtmlBody: []jmap.EmailBodyPart{
-					{PartId: "2", BlobId: "ckyxndo0fxob1jnm3z2lroex131oj7eo2ezo1djhlfgtsu7jgucfeaiasibnsbvjae", Size: 163, Type: "text/html", Charset: "utf-8"},
-				},
-				Preview: "The Canterbury was destroyed while investigating a false distress call from the Scopuli.",
-			},
-		},
+		Results:    []jmap.Email{email},
 		Total:      132,
 		Limit:      1,
 		QueryState: "seehug3p",
 	}
 }
 
-func (e Exampler) MailboxRolesByAccounts() (map[string][]string, string, string, string) {
-	j := jmap.ExamplerInstance
+func (e Exemplar) MailboxRolesByAccounts() (map[string][]string, string, string, string) {
+	j := jmap.ExemplarInstance
 	return map[string][]string{
 		j.AccountId:       jmap.JmapMailboxRoles,
 		j.SharedAccountId: jmap.JmapMailboxRoles,
 	}, "Roles of the Mailboxes of each Account", "", "mailboxrolesbyaccount"
 }
 
-func (e Exampler) DeletedMailboxes() ([]string, string, string, string) {
-	j := jmap.ExamplerInstance
+func (e Exemplar) DeletedMailboxes() ([]string, string, string, string) {
+	j := jmap.ExemplarInstance
 	return []string{j.MailboxProjectId, j.MailboxJunkId}, "Identifiers of the Mailboxes that have successfully been deleted", "", "deletedmailboxes"
 }

@@ -21,7 +21,7 @@ node_modules:
 	pnpm install
 
 .PHONY: swagger.yml
-swagger.yml: apidoc.yml
+swagger.yml: apidoc.yml examples
 	groupware-apidocs -C ../../ -t $< > $@
 
 APIDOC_PORT=9999
