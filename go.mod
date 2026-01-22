@@ -11,6 +11,7 @@ require (
 	github.com/MicahParks/keyfunc/v2 v2.1.0
 	github.com/MicahParks/keyfunc/v3 v3.3.11
 	github.com/Nerzal/gocloak/v13 v13.9.0
+	github.com/ProtonMail/go-crypto v1.1.6
 	github.com/bbalet/stopwords v1.0.0
 	github.com/beevik/etree v1.6.0
 	github.com/blevesearch/bleve/v2 v2.6.0
@@ -98,6 +99,7 @@ require (
 	github.com/theckman/yacspin v0.13.12
 	github.com/thejerf/suture/v4 v4.0.6
 	github.com/tidwall/gjson v1.19.0
+	github.com/tidwall/pretty v1.2.1
 	github.com/tidwall/sjson v1.2.5
 	github.com/tus/tusd/v2 v2.10.0
 	github.com/unrolled/secure v1.16.0
@@ -142,7 +144,6 @@ require (
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/ProtonMail/go-crypto v1.1.6 // indirect
 	github.com/RoaringBitmap/roaring/v2 v2.14.5 // indirect
 	github.com/agnivade/levenshtein v1.2.1 // indirect
 	github.com/ajg/form v1.5.1 // indirect
@@ -376,7 +377,6 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tchap/go-patricia/v2 v2.3.3 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
-	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tinylib/msgp v1.6.1 // indirect
 	github.com/tklauser/go-sysconf v0.3.16 // indirect
 	github.com/tklauser/numcpus v0.11.0 // indirect
