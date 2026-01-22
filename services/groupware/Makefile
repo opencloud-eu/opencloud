@@ -21,10 +21,8 @@ node_modules:
 	pnpm install
 
 .PHONY: swagger.yml
-swagger.yml:	apidoc.yml tsnode openapi.yml
-	#swagger generate spec --include='groupware' --include='jmap' --include='jscalendar' --include='jscontact' --scan-models --input=$< | NODE_OPTIONS='--no-warnings --loader ts-node/esm' pnpm exec ts-node apidoc-process.ts > $@
-	#NODE_OPTIONS='--no-warnings --loader ts-node/esm' pnpm exec ts-node apidoc-process.ts > $@ < openapi.yml
-	cp openapi.yml $@
+swagger.yml: apidoc.yml
+	groupware-apidocs -C ../../ -t $< > $@
 
 APIDOC_PORT=9999
 
