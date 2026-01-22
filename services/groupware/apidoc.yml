@@ -1,4 +1,8 @@
 openapi: 3.0.4
+info:
+  title: the title
+  summary: the summary
+  description: this is the description
 servers:
   - url: https://localhost:9200/
     description: Local Development Server
@@ -8,7 +12,9 @@ tags:
     description: APIs that are not categorized yet
   - name: bootstrap
     x-displayName: Bootstrapping
-    description: Initialization APIs
+    description: |-
+      APIs that are used to bootstrap clients, providing required initial information about the user,
+      such as capabilities and limits.
   - name: account
     x-displayName: Accounts
     description: APIs for accounts
