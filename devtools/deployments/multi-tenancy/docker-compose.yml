@@ -1,0 +1,119 @@
+---
+services:
+  # OpenCloud instance configured for multi-tenancy using keycloak as identity provider
+  # The graph service is setup to consume users via the CS3 API.
+  opencloud:
+    image: ${OC_DOCKER_IMAGE:-opencloudeu/opencloud-rolling}:${OC_DOCKER_TAG:-latest}
+    # changelog: https://github.com/opencloud-eu/opencloud/tree/main/changelog
+    # release notes: https://docs.opencloud.eu/opencloud_release_notes.html
+    networks:
+      opencloud-net:
+    entrypoint:
+      - /bin/sh
+    # run opencloud init to initialize a configuration file with random secrets
+    # it will fail on subsequent runs, because the config file already exists
+    # therefore we ignore the error and then start the opencloud server
+    command: ["-c", "opencloud init || true; opencloud server"]
+    environment:
+      OC_MULTI_TENANT_ENABLED: "true"
+      # enable services that are not started automatically
+      OC_URL: https://${OC_DOMAIN:-cloud.opencloud.test}
+      OC_LOG_LEVEL: ${LOG_LEVEL:-info}
+      OC_LOG_COLOR: "${LOG_PRETTY:-false}"
+      OC_LOG_PRETTY: "${LOG_PRETTY:-false}"
+      OC_EXCLUDE_RUN_SERVICES: idm,idp
+      PROXY_ROLE_ASSIGNMENT_DRIVER: "oidc"
+      OC_OIDC_ISSUER: https://${KEYCLOAK_DOMAIN:-keycloak.opencloud.test}/realms/openCloud
+      PROXY_OIDC_REWRITE_WELLKNOWN: "true"
+      WEB_OIDC_CLIENT_ID: ${OC_OIDC_CLIENT_ID:-web}
+      PROXY_USER_OIDC_CLAIM: "uuid"
+      PROXY_USER_CS3_CLAIM: "userid"
+      WEB_OPTION_ACCOUNT_EDIT_LINK_HREF: "https://${KEYCLOAK_DOMAIN:-keycloak.opencloud.test}/realms/openCloud/account"
+      # admin and demo accounts must be created in Keycloak
+      OC_ADMIN_USER_ID: ""
+      SETTINGS_SETUP_DEFAULT_ASSIGNMENTS: "false"
+      GRAPH_ASSIGN_DEFAULT_USER_ROLE: "false"
+      GRAPH_USERNAME_MATCH: "none"
+      GROUPS_DRIVER: "null"
+      # This is needed to set the correct CSP rules for OpenCloud
+      IDP_DOMAIN: ${KEYCLOAK_DOMAIN:-keycloak.opencloud.test}
+      # do not use SSL between the reverse proxy and OpenCloud
+      PROXY_TLS: "false"
+      # INSECURE: needed if OpenCloud / reverse proxy is using self generated certificates
+      OC_INSECURE: "${INSECURE:-false}"
+      # basic auth (not recommended, but needed for eg. WebDav clients that do not support OpenID Connect)
+      PROXY_ENABLE_BASIC_AUTH: "false"
+      GRAPH_IDENTITY_BACKEND: "cs3"
+      PROXY_CSP_CONFIG_FILE_LOCATION: /etc/opencloud/csp.yaml
+      OC_LDAP_URI: ldaps://ldap-server:1636
+      OC_LDAP_INSECURE: "true"
+      OC_LDAP_BIND_DN: "cn=admin,dc=opencloud,dc=eu"
+      OC_LDAP_BIND_PASSWORD: ${LDAP_BIND_PASSWORD:-admin}
+      OC_LDAP_USER_BASE_DN: "ou=users,dc=opencloud,dc=eu"
+      OC_LDAP_USER_SCHEMA_TENANT_ID: "openCloudMemberOfSchool"
+      PROXY_LOG_LEVEL: "debug"
+    volumes:
+      - ./config/opencloud/csp.yaml:/etc/opencloud/csp.yaml
+      # configure the .env file to use own paths instead of docker internal volumes
+      - ${OC_CONFIG_DIR:-opencloud-config}:/etc/opencloud
+      - ${OC_DATA_DIR:-opencloud-data}:/var/lib/opencloud
+    logging:
+      driver: ${LOG_DRIVER:-local}
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.opencloud.entrypoints=https"
+      - "traefik.http.routers.opencloud.rule=Host(`${OC_DOMAIN:-cloud.opencloud.test}`)"
+      - "traefik.http.routers.opencloud.service=opencloud"
+      - "traefik.http.services.opencloud.loadbalancer.server.port=9200"
+      - "traefik.http.routers.opencloud.${TRAEFIK_SERVICES_TLS_CONFIG}"
+  # Stand-alone instance of the 'graph' service to serve the provisioning API
+  provsioning:
+    image: ${OC_DOCKER_IMAGE:-opencloudeu/opencloud-rolling}:${OC_DOCKER_TAG:-latest}
+    networks:
+      opencloud-net:
+    entrypoint:
+      - /bin/sh
+    # run opencloud init to initialize a configuration file with random secrets
+    # it will fail on subsequent runs, because the config file already exists
+    # therefore we ignore the error and then start the opencloud server
+    command: ["-c", "opencloud init || true; opencloud graph server"]
+    environment:
+      OC_LOG_LEVEL: "debug"
+      OC_LOG_COLOR: "${LOG_PRETTY:-false}"
+      OC_LOG_PRETTY: "${LOG_PRETTY:-false}"
+      # This just runs the standalone graph service we don't need access to the registry
+      MICRO_REGISTRY: "memory"
+      # INSECURE: needed if OpenCloud / reverse proxy is using self generated certificates
+      OC_INSECURE: "${INSECURE:-false}"
+      GRAPH_HTTP_ADDR: "0.0.0.0:9120"
+      GRAPH_HTTP_API_TOKEN: "${PROVISIONING_API_TOKEN:-changeme}"
+      # disable listening for events
+      GRAPH_EVENTS_ENDPOINT: ""
+      GRAPH_STORE_NODES: ""
+      GRAPH_ASSIGN_DEFAULT_USER_ROLE: "false"
+      GRAPH_USERNAME_MATCH: "none"
+      GRAPH_LDAP_EDUCATION_RESOURCES_ENABLED: "true"
+      GRAPH_LDAP_SCHOOL_BASE_DN: "ou=tenants,dc=opencloud,dc=eu"
+      OC_LDAP_URI: ldaps://ldap-server:1636
+      OC_LDAP_INSECURE: "true"
+      OC_LDAP_BIND_DN: "cn=admin,dc=opencloud,dc=eu"
+      OC_LDAP_BIND_PASSWORD: ${LDAP_BIND_PASSWORD:-admin}
+      OC_LDAP_USER_BASE_DN: "ou=users,dc=opencloud,dc=eu"
+      OC_LDAP_USER_FILTER: "(objectclass=inetOrgPerson)"
+    volumes:
+      # configure the .env file to use own paths instead of docker internal volumes
+      - ${PROVISIONING_CONFIG_DIR:-provisioning-config}:/etc/opencloud
+    logging:
+      driver: ${LOG_DRIVER:-local}
+    restart: always
+    ports:
+      - "9120:9120"
+
+volumes:
+  opencloud-config:
+  opencloud-data:
+  provisioning-config:
+
+networks:
+  opencloud-net:

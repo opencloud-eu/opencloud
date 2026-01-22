@@ -30,6 +30,7 @@ import (
 	user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/google/uuid"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options"
@@ -74,6 +75,7 @@ type Lookup struct {
 
 	IDCache         IDCache
 	IDHistoryCache  IDCache
+	spaceRootCache  *lru.Cache[string, string]
 	metadataBackend metadata.Backend
 	userMapper      usermapper.Mapper
 	tm              node.TimeManager
@@ -85,11 +87,14 @@ func New(b metadata.Backend, um usermapper.Mapper, o *options.Options, tm node.T
 	idHistoryConf.Database = o.Options.IDCache.Table + "_history"
 	idHistoryConf.TTL = 1 * time.Minute
 
+	spaceRootCache, _ := lru.New[string, string](1000)
+
 	lu := &Lookup{
 		Options:         o,
 		metadataBackend: b,
 		IDCache:         NewStoreIDCache(o.Options.IDCache),
 		IDHistoryCache:  NewStoreIDCache(idHistoryConf),
+		spaceRootCache:  spaceRootCache,
 		userMapper:      um,
 		tm:              tm,
 	}
@@ -99,11 +104,17 @@ func New(b metadata.Backend, um usermapper.Mapper, o *options.Options, tm node.T
 
 // CacheID caches the path for the given space and node id
 func (lu *Lookup) CacheID(ctx context.Context, spaceID, nodeID, val string) error {
+	if spaceID == nodeID {
+		lu.spaceRootCache.Add(spaceID, val)
+	}
 	return lu.IDCache.Set(ctx, spaceID, nodeID, val)
 }
 
 // GetCachedID returns the cached path for the given space and node id
 func (lu *Lookup) GetCachedID(ctx context.Context, spaceID, nodeID string) (string, bool) {
+	if spaceID == nodeID {
+		return lu.getSpaceRootPathWithStatus(ctx, spaceID)
+	}
 	return lu.IDCache.Get(ctx, spaceID, nodeID)
 }
 
@@ -186,7 +197,7 @@ func (lu *Lookup) NodeFromID(ctx context.Context, id *provider.ResourceId) (n *n
 		// The Resource references the root of a space
 		return lu.NodeFromSpaceID(ctx, id.SpaceId)
 	}
-	return node.ReadNode(ctx, lu, id.SpaceId, id.OpaqueId, false, nil, false)
+	return node.ReadNode(ctx, lu, id.SpaceId, id.OpaqueId, "", false, nil, false)
 }
 
 // Pathify segments the beginning of a string into depth segments of width length
@@ -207,7 +218,7 @@ func Pathify(id string, depth, width int) string {
 
 // NodeFromSpaceID converts a resource id into a Node
 func (lu *Lookup) NodeFromSpaceID(ctx context.Context, spaceID string) (n *node.Node, err error) {
-	node, err := node.ReadNode(ctx, lu, spaceID, spaceID, false, nil, false)
+	node, err := node.ReadNode(ctx, lu, spaceID, spaceID, "", false, nil, false)
 	if err != nil {
 		return nil, err
 	}
@@ -283,19 +294,39 @@ func (lu *Lookup) InternalRoot() string {
 	return lu.Options.Root
 }
 
+func (lu *Lookup) getSpaceRootPathWithStatus(ctx context.Context, spaceID string) (string, bool) {
+	if val, ok := lu.spaceRootCache.Get(spaceID); ok {
+		return val, true
+	}
+	val, ok := lu.IDCache.Get(ctx, spaceID, spaceID)
+	if ok {
+		lu.spaceRootCache.Add(spaceID, val)
+	}
+	return val, ok
+}
+
+func (lu *Lookup) getSpaceRootPath(ctx context.Context, spaceID string) string {
+	val, _ := lu.getSpaceRootPathWithStatus(ctx, spaceID)
+	return val
+}
+
 // InternalSpaceRoot returns the internal path for a space
 func (lu *Lookup) InternalSpaceRoot(spaceID string) string {
-	return lu.InternalPath(spaceID, spaceID)
+	return lu.getSpaceRootPath(context.Background(), spaceID)
 }
 
 // InternalPath returns the internal path for a given ID
 func (lu *Lookup) InternalPath(spaceID, nodeID string) string {
 	if strings.Contains(nodeID, node.RevisionIDDelimiter) || strings.HasSuffix(nodeID, node.CurrentIDDelimiter) {
-		spaceRoot, _ := lu.IDCache.Get(context.Background(), spaceID, spaceID)
+		spaceRoot := lu.getSpaceRootPath(context.Background(), spaceID)
 		if len(spaceRoot) == 0 {
 			return ""
 		}
 		return filepath.Join(spaceRoot, MetadataDir, Pathify(nodeID, 4, 2))
+	}
+
+	if spaceID == nodeID {
+		return lu.getSpaceRootPath(context.Background(), spaceID)
 	}
 
 	path, _ := lu.IDCache.Get(context.Background(), spaceID, nodeID)
@@ -304,14 +335,14 @@ func (lu *Lookup) InternalPath(spaceID, nodeID string) string {
 }
 
 // LockfilePaths returns the paths(s) to the lockfile of the node
-func (lu *Lookup) LockfilePaths(spaceID, nodeID string) []string {
-	spaceRoot, _ := lu.IDCache.Get(context.Background(), spaceID, spaceID)
+func (lu *Lookup) LockfilePaths(n *node.Node) []string {
+	spaceRoot := lu.getSpaceRootPath(context.Background(), n.SpaceID)
 	if len(spaceRoot) == 0 {
 		return nil
 	}
-	paths := []string{filepath.Join(spaceRoot, MetadataDir, Pathify(nodeID, 4, 2)+".lock")}
+	paths := []string{filepath.Join(spaceRoot, MetadataDir, Pathify(n.ID, 4, 2)+".lock")}
 
-	nodepath := lu.InternalPath(spaceID, nodeID)
+	nodepath := n.InternalPath()
 	if len(nodepath) > 0 {
 		paths = append(paths, nodepath+".lock")
 	}
@@ -321,7 +352,7 @@ func (lu *Lookup) LockfilePaths(spaceID, nodeID string) []string {
 
 // VersionPath returns the path to the version of the node
 func (lu *Lookup) VersionPath(spaceID, nodeID, version string) string {
-	spaceRoot, _ := lu.IDCache.Get(context.Background(), spaceID, spaceID)
+	spaceRoot := lu.getSpaceRootPath(context.Background(), spaceID)
 	if len(spaceRoot) == 0 {
 		return ""
 	}
@@ -331,7 +362,7 @@ func (lu *Lookup) VersionPath(spaceID, nodeID, version string) string {
 
 // VersionPath returns the "current" path of the node
 func (lu *Lookup) CurrentPath(spaceID, nodeID string) string {
-	spaceRoot, _ := lu.IDCache.Get(context.Background(), spaceID, spaceID)
+	spaceRoot := lu.getSpaceRootPath(context.Background(), spaceID)
 	if len(spaceRoot) == 0 {
 		return ""
 	}
@@ -445,6 +476,9 @@ func (lu *Lookup) PurgeNode(n *node.Node) error {
 	rerr := os.RemoveAll(n.InternalPath())
 	if cerr := lu.IDCache.Delete(context.Background(), n.SpaceID, n.ID); cerr != nil {
 		return cerr
+	}
+	if n.ID == n.SpaceID {
+		lu.spaceRootCache.Remove(n.SpaceID)
 	}
 	return rerr
 }

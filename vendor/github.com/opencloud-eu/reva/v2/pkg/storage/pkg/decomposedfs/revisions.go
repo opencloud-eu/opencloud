@@ -69,7 +69,7 @@ func (fs *Decomposedfs) RestoreRevision(ctx context.Context, ref *provider.Refer
 
 	spaceID := ref.ResourceId.SpaceId
 	// check if the node is available and has not been deleted
-	n, err := node.ReadNode(ctx, fs.lu, spaceID, kp[0], false, nil, false)
+	n, err := node.ReadNode(ctx, fs.lu, spaceID, kp[0], "", false, nil, false)
 	if err != nil {
 		return err
 	}
@@ -185,7 +185,7 @@ func (fs *Decomposedfs) getRevisionNode(ctx context.Context, ref *provider.Refer
 
 	spaceID := ref.ResourceId.SpaceId
 	// check if the node is available and has not been deleted
-	n, err := node.ReadNode(ctx, fs.lu, spaceID, kp[0], false, nil, false)
+	n, err := node.ReadNode(ctx, fs.lu, spaceID, kp[0], "", false, nil, false)
 	if err != nil {
 		return nil, err
 	}

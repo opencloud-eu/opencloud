@@ -1,0 +1,45 @@
+---
+services:
+  opencloud:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.opencloud.entrypoints=https"
+      - "traefik.http.routers.opencloud.rule=Host(`${OC_DOMAIN:-cloud.opencloud.test}`)"
+      - "traefik.http.routers.opencloud.service=opencloud"
+      - "traefik.http.services.opencloud.loadbalancer.server.port=9200"
+      - "traefik.http.routers.opencloud.${TRAEFIK_SERVICES_TLS_CONFIG}"
+  traefik:
+    image: traefik:v3.3.1
+    # release notes: https://github.com/traefik/traefik/releases
+    networks:
+      opencloud-net:
+        aliases:
+          - ${OC_DOMAIN:-cloud.opencloud.test}
+          - ${KEYCLOAK_DOMAIN:-keycloak.opencloud.test}
+    entrypoint: [ "/bin/sh", "/opt/traefik/bin/docker-entrypoint-override.sh"]
+    environment:
+      - "TRAEFIK_SERVICES_TLS_CONFIG=${TRAEFIK_SERVICES_TLS_CONFIG:-tls.certresolver=letsencrypt}"
+      - "TRAEFIK_ACME_MAIL=${TRAEFIK_ACME_MAIL:-example@example.org}"
+      - "TRAEFIK_ACME_CASERVER=${TRAEFIK_ACME_CASERVER:-https://acme-v02.api.letsencrypt.org/directory}"
+      - "TRAEFIK_LOG_LEVEL=${TRAEFIK_LOG_LEVEL:-ERROR}"
+      - "TRAEFIK_ACCESS_LOG=${TRAEFIK_ACCESS_LOG:-false}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "${DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock:ro"
+      - "./config/traefik/docker-entrypoint-override.sh:/opt/traefik/bin/docker-entrypoint-override.sh"
+      - "${TRAEFIK_CERTS_DIR:-./certs}:/certs"
+      - "./config/traefik/dynamic:/etc/traefik/dynamic"
+    labels:
+      - "traefik.enable=${TRAEFIK_DASHBOARD:-false}"
+      # defaults to admin:admin
+      - "traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_BASIC_AUTH_USERS:-admin:$$apr1$$4vqie50r$$YQAmQdtmz5n9rEALhxJ4l.}"
+      - "traefik.http.routers.traefik.entrypoints=https"
+      - "traefik.http.routers.traefik.rule=Host(`${TRAEFIK_DOMAIN:-traefik.opencloud.test}`)"
+      - "traefik.http.routers.traefik.middlewares=traefik-auth"
+      - "traefik.http.routers.traefik.${TRAEFIK_SERVICES_TLS_CONFIG}"
+      - "traefik.http.routers.traefik.service=api@internal"
+    logging:
+      driver: ${LOG_DRIVER:-local}
+    restart: always

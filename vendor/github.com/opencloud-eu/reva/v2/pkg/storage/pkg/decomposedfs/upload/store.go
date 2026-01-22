@@ -213,7 +213,7 @@ func (store DecomposedFsStore) CreateNodeForUpload(ctx context.Context, session 
 		store.lu,
 	)
 	var err error
-	n.SpaceRoot, err = node.ReadNode(ctx, store.lu, session.SpaceID(), session.SpaceID(), false, nil, false)
+	n.SpaceRoot, err = node.ReadNode(ctx, store.lu, session.SpaceID(), session.SpaceID(), "", false, nil, false)
 	if err != nil {
 		return nil, err
 	}
@@ -316,7 +316,7 @@ func (store DecomposedFsStore) updateExistingNode(ctx context.Context, session *
 		return f.Close()
 	}
 
-	old, _ := node.ReadNode(ctx, store.lu, spaceID, n.ID, false, nil, false)
+	old, _ := node.ReadNode(ctx, store.lu, spaceID, n.ID, "", false, nil, false)
 	if _, err := node.CheckQuota(ctx, n.SpaceRoot, true, uint64(old.Blobsize), fsize); err != nil {
 		return unlock, err
 	}

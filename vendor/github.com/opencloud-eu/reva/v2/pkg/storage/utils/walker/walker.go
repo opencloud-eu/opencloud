@@ -78,13 +78,15 @@ func (r *revaWalker) walkRecursively(ctx context.Context, wd string, info *provi
 		return fn(wd, info, nil)
 	}
 
-	list, err := r.readDir(ctx, info.Id)
-	errFn := fn(wd, info, err)
-
-	if err != nil || errFn != nil {
-		return errFn
+	err := fn(wd, info, nil)
+	if err != nil {
+		return err
 	}
 
+	list, err := r.readDir(ctx, info.Id)
+	if err != nil {
+		return err
+	}
 	for _, file := range list {
 		err = r.walkRecursively(ctx, filepath.Join(wd, info.Path), file, fn)
 		if err != nil && (file.Type != provider.ResourceType_RESOURCE_TYPE_CONTAINER || err != filepath.SkipDir) {

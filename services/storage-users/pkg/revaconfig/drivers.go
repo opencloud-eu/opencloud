@@ -100,6 +100,7 @@ func Posix(cfg *config.Config, enableFSScan, enableFSWatch bool) map[string]inte
 		"scan_debounce_delay":         cfg.Drivers.Posix.ScanDebounceDelay,
 		"max_quota":                   cfg.Drivers.Posix.MaxQuota,
 		"disable_versioning":          cfg.Drivers.Posix.DisableVersioning,
+		"multi_tenant_enabled":        cfg.Commons.MultiTenantEnabled,
 		"propagator":                  cfg.Drivers.Posix.Propagator,
 		"async_propagator_options": map[string]interface{}{
 			"propagation_delay": cfg.Drivers.Posix.AsyncPropagatorOptions.PropagationDelay,
@@ -203,6 +204,7 @@ func Decomposed(cfg *config.Config) map[string]interface{} {
 		"asyncfileuploads":            cfg.Drivers.Decomposed.AsyncUploads,
 		"max_quota":                   cfg.Drivers.Decomposed.MaxQuota,
 		"disable_versioning":          cfg.Drivers.Decomposed.DisableVersioning,
+		"multi_tenant_enabled":        cfg.Commons.MultiTenantEnabled,
 		"filemetadatacache": map[string]interface{}{
 			"cache_store":               cfg.FilemetadataCache.Store,
 			"cache_nodes":               cfg.FilemetadataCache.Nodes,
@@ -257,6 +259,7 @@ func DecomposedNoEvents(cfg *config.Config) map[string]interface{} {
 		"max_concurrency":             cfg.Drivers.Decomposed.MaxConcurrency,
 		"max_quota":                   cfg.Drivers.Decomposed.MaxQuota,
 		"disable_versioning":          cfg.Drivers.Decomposed.DisableVersioning,
+		"multi_tenant_enabled":        cfg.Commons.MultiTenantEnabled,
 		"filemetadatacache": map[string]interface{}{
 			"cache_store":               cfg.FilemetadataCache.Store,
 			"cache_nodes":               cfg.FilemetadataCache.Nodes,
@@ -312,6 +315,7 @@ func DecomposedS3(cfg *config.Config) map[string]interface{} {
 		"lock_cycle_duration_factor":  cfg.Drivers.DecomposedS3.LockCycleDurationFactor,
 		"max_concurrency":             cfg.Drivers.DecomposedS3.MaxConcurrency,
 		"disable_versioning":          cfg.Drivers.DecomposedS3.DisableVersioning,
+		"multi_tenant_enabled":        cfg.Commons.MultiTenantEnabled,
 		"asyncfileuploads":            cfg.Drivers.DecomposedS3.AsyncUploads,
 		"filemetadatacache": map[string]interface{}{
 			"cache_store":               cfg.FilemetadataCache.Store,
@@ -370,6 +374,7 @@ func DecomposedS3NoEvents(cfg *config.Config) map[string]interface{} {
 		"max_acquire_lock_cycles":     cfg.Drivers.DecomposedS3.MaxAcquireLockCycles,
 		"max_concurrency":             cfg.Drivers.DecomposedS3.MaxConcurrency,
 		"disable_versioning":          cfg.Drivers.DecomposedS3.DisableVersioning,
+		"multi_tenant_enabled":        cfg.Commons.MultiTenantEnabled,
 		"lock_cycle_duration_factor":  cfg.Drivers.DecomposedS3.LockCycleDurationFactor,
 		"filemetadatacache": map[string]interface{}{
 			"cache_store":               cfg.FilemetadataCache.Store,

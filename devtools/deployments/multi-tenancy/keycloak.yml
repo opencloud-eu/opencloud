@@ -1,0 +1,55 @@
+---
+services:
+  opencloud:
+    environment:
+  postgres:
+    image: postgres:alpine
+    networks:
+      opencloud-net:
+    volumes:
+      - keycloak_postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: ${KC_DB_USERNAME:-keycloak}
+      POSTGRES_PASSWORD: ${KC_DB_PASSWORD:-keycloak}
+    logging:
+      driver: ${LOG_DRIVER:-local}
+    restart: always
+
+  keycloak:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.keycloak.entrypoints=https"
+      - "traefik.http.routers.keycloak.rule=Host(`${KEYCLOAK_DOMAIN:-keycloak.opencloud.test}`)"
+      - "traefik.http.routers.keycloak.${TRAEFIK_SERVICES_TLS_CONFIG}"
+      - "traefik.http.routers.keycloak.service=keycloak"
+      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+    image: quay.io/keycloak/keycloak:26.4
+    networks:
+      opencloud-net:
+    command: [ "start", "--spi-connections-http-client-default-disable-trust-manager=${INSECURE:-false}", "--import-realm" ]
+    entrypoint: [ "/bin/sh", "/opt/keycloak/bin/docker-entrypoint-override.sh" ]
+    volumes:
+      - "./config/keycloak/docker-entrypoint-override.sh:/opt/keycloak/bin/docker-entrypoint-override.sh"
+      - "./config/keycloak/openCloud-realm.dist.json:/opt/keycloak/data/import-dist/openCloud-realm.json"
+      - "./config/keycloak/themes/opencloud:/opt/keycloak/themes/opencloud"
+    environment:
+      OC_DOMAIN: ${OC_DOMAIN:-cloud.opencloud.test}
+      KC_HOSTNAME: ${KEYCLOAK_DOMAIN:-keycloak.opencloud.test}
+      KC_DB: postgres
+      KC_DB_URL: "jdbc:postgresql://postgres:5432/keycloak"
+      KC_DB_USERNAME: ${KC_DB_USERNAME:-keycloak}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD:-keycloak}
+      KC_FEATURES: impersonation
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_ENABLED: true
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-kcadmin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+    depends_on:
+      - postgres
+    logging:
+      driver: ${LOG_DRIVER:-local}
+    restart: always
+
+volumes:
+  keycloak_postgres_data:

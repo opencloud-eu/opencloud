@@ -1,0 +1,24 @@
+---
+# This file can be used to be added to the opencloud_full example
+# to browse the LDAP server with a web interface.
+# This is not a production ready setup.
+services:
+  ldap-manager:
+    image: phpldapadmin/phpldapadmin:latest
+    networks:
+      opencloud-net:
+    environment:
+      LDAP_HOST: ldap-server
+      LDAP_PORT: 1389
+      LDAP_LOGIN_OBJECTCLASS: "inetOrgPerson"
+      APP_URL: "https://${LDAP_MANAGER_DOMAIN:-ldap.opencloud.test}"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ldap-manager.entrypoints=https"
+      - "traefik.http.routers.ldap-manager.rule=Host(`${LDAP_MANAGER_DOMAIN:-ldap.opencloud.test}`)"
+      - "traefik.http.routers.ldap-manager.${TRAEFIK_SERVICES_TLS_CONFIG}"
+      - "traefik.http.routers.ldap-manager.service=ldap-manager"
+      - "traefik.http.services.ldap-manager.loadbalancer.server.port=8080"
+    logging:
+      driver: ${LOG_DRIVER:-local}
+    restart: always
