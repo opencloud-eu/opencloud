@@ -12,6 +12,7 @@
 
 ### ✅ Tests
 
+- [test-only] replace exception to assertions [[#2196](https://github.com/opencloud-eu/opencloud/pull/2196)]
 - test(api): auto-generate test virus files before test run [[#2191](https://github.com/opencloud-eu/opencloud/pull/2191)]
 - test(api): remove accountsHashDifficulty test suite [[#2190](https://github.com/opencloud-eu/opencloud/pull/2190)]
 - test(api): update without-remotephp expected-failures list [[#2184](https://github.com/opencloud-eu/opencloud/pull/2184)]
