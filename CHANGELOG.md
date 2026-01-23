@@ -51,6 +51,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/olekukonko/tablewriter from 1.1.2 to 1.1.3 [[#2186](https://github.com/opencloud-eu/opencloud/pull/2186)]
 - build(deps): bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.27.4 to 2.27.5 [[#2204](https://github.com/opencloud-eu/opencloud/pull/2204)]
 - build(deps): bump github.com/go-resty/resty/v2 from 2.7.0 to 2.17.1 [[#2197](https://github.com/opencloud-eu/opencloud/pull/2197)]
 - build(deps): bump github.com/open-policy-agent/opa from 1.11.1 to 1.12.3 [[#2166](https://github.com/opencloud-eu/opencloud/pull/2166)]
