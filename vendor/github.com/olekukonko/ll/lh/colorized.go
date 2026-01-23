@@ -29,6 +29,7 @@ type Palette struct {
 	Info      string // Color for Info level messages
 	Warn      string // Color for Warn level messages
 	Error     string // Color for Error level messages
+	Fatal     string // Color for Fatal level messages
 	Title     string // Color for dump titles (BEGIN/END separators)
 }
 
@@ -47,10 +48,11 @@ var darkPalette = Palette{
 	Hex:   "\033[38;5;156m", // Light green for hex values
 	Ascii: "\033[38;5;224m", // Light pink for ASCII values
 
-	Debug: "\033[36m", // Cyan for Debug level
-	Info:  "\033[32m", // Green for Info level
-	Warn:  "\033[33m", // Yellow for Warn level
-	Error: "\033[31m", // Red for Error level
+	Debug: "\033[36m",   // Cyan for Debug level
+	Info:  "\033[32m",   // Green for Info level
+	Warn:  "\033[33m",   // Yellow for Warn level
+	Error: "\033[31m",   // Standard red
+	Fatal: "\033[1;31m", // Bold red - stands out more
 }
 
 // lightPalette defines colors optimized for light terminal backgrounds.
@@ -68,10 +70,11 @@ var lightPalette = Palette{
 	Hex:   "\033[38;5;156m", // Light green for hex values
 	Ascii: "\033[38;5;224m", // Light pink for ASCII values
 
-	Debug: "\033[36m", // Cyan for Debug level
-	Info:  "\033[32m", // Green for Info level
-	Warn:  "\033[33m", // Yellow for Warn level
-	Error: "\033[31m", // Red for Error level
+	Debug: "\033[36m",   // Cyan for Debug level
+	Info:  "\033[32m",   // Green for Info level
+	Warn:  "\033[33m",   // Yellow for Warn level
+	Error: "\033[31m",   // Standard red
+	Fatal: "\033[1;31m", // Bold red - stands out more
 }
 
 // ColorizedHandler is a handler that outputs log entries with ANSI color codes.
@@ -250,6 +253,7 @@ func (h *ColorizedHandler) formatLevel(b *strings.Builder, e *lx.Entry) {
 		lx.LevelInfo:  h.palette.Info,  // Green
 		lx.LevelWarn:  h.palette.Warn,  // Yellow
 		lx.LevelError: h.palette.Error, // Red
+		lx.LevelFatal: h.palette.Fatal, // Bold Red
 	}[e.Level]
 
 	b.WriteString(color)

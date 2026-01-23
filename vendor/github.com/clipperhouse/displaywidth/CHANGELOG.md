@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.1]
+
+[Compare](https://github.com/clipperhouse/displaywidth/compare/v0.6.0...v0.6.1)
+
+### Changed
+- Perf improvements: replaced the ASCII lookup table with a simple
+  function. A bit more cache-friendly. More inlining.
+- Bug fix: single regional indicators are now treated as width 2, since that
+  is what actual terminals do.
+
 ## [0.6.0]
 
 [Compare](https://github.com/clipperhouse/displaywidth/compare/v0.5.0...v0.6.0)

@@ -667,3 +667,8 @@ func Inspect(values ...interface{}) {
 	o := NewInspector(defaultLogger)
 	o.Log(2, values...)
 }
+
+func Apply(opts ...Option) *Logger {
+	return defaultLogger.Apply(opts...)
+
+}
