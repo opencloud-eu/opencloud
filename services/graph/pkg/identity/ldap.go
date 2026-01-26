@@ -80,6 +80,7 @@ type LDAP struct {
 type userAttributeMap struct {
 	displayName    string
 	id             string
+	externalId     string
 	mail           string
 	userName       string
 	givenName      string

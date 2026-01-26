@@ -42,4 +42,4 @@ olcObjectClasses: ( openCloudOid:1.2.5 NAME 'openCloudEducationSchool'
   DESC 'OpenCloud education school objectclass'
   SUP openCloudObject
   AUXILIARY
-  MAY ( openCloudEducationSchoolNumber $ openCloudEducationSchoolTerminationTimestamp ) )
+  MAY ( openCloudEducationSchoolNumber $ openCloudEducationSchoolTerminationTimestamp $ openCloudEducationExternalId) )
