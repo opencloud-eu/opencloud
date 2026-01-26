@@ -1089,6 +1089,10 @@ func (fs *Decomposedfs) Download(ctx context.Context, ref *provider.Reference, o
 		return nil, nil, err
 	}
 
+	if n.IsProcessing(ctx) {
+		return nil, nil, errtypes.TooEarly("file is still being processed")
+	}
+
 	rp, err := fs.p.AssemblePermissions(ctx, n)
 	switch {
 	case err != nil:
