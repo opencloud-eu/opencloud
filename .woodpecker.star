@@ -1550,6 +1550,7 @@ def e2eTestPipeline(ctx):
                         "PLAYWRIGHT_BROWSERS_PATH": "%s/%s" % (dirs["base"], ".playwright"),
                         "BROWSER": "chromium",
                         "REPORT_TRACING": params["reportTracing"],
+                        "SLOW_MO": "500",
                     },
                     "commands": [
                         "cd %s/tests/e2e" % dirs["web"],
