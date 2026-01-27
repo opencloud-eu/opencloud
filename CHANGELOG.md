@@ -1,5 +1,15 @@
 # Changelog
 
+## [5.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v5.0.1) - 2026-01-27
+
+### ❤️ Thanks to all contributors! ❤️
+
+@saw-jan
+
+### ✅ Tests
+
+- test(api): wait for web-office readiness by checking discovery endpoint [[#2217](https://github.com/opencloud-eu/opencloud/pull/2217)]
+
 ## [5.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.0.0) - 2026-01-26
 
 ### ❤️ Thanks to all contributors! ❤️
