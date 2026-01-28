@@ -4,7 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@saw-jan
+@aduffeck, @saw-jan
+
+### 🐛 Bug Fixes
+
+- Do not ever set a TTL for the ID cache. It's not supposed to expire. [[#2223](https://github.com/opencloud-eu/opencloud/pull/2223)]
 
 ### ✅ Tests
 
