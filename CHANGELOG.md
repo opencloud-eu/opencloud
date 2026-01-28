@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@aduffeck, @saw-jan
+@ScharfViktor, @aduffeck, @saw-jan
 
 ### 🐛 Bug Fixes
 
@@ -13,6 +13,10 @@
 ### ✅ Tests
 
 - test(api): wait for web-office readiness by checking discovery endpoint [[#2217](https://github.com/opencloud-eu/opencloud/pull/2217)]
+
+### 📦️ Dependencies
+
+- reva-bump-2.42.1 [[#2225](https://github.com/opencloud-eu/opencloud/pull/2225)]
 
 ## [5.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.0.0) - 2026-01-26
 
