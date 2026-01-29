@@ -125,12 +125,7 @@ func WebfingerHandler(service svc.Service) func(w http.ResponseWriter, r *http.R
 			return
 		}
 
-		rels := make([]string, 0)
-		for k, v := range r.URL.Query() {
-			if k == "rel" {
-				rels = append(rels, v...)
-			}
-		}
+		rels := r.URL.Query()["rel"]
 
 		jrd, err := service.Webfinger(ctx, queryTarget, rels)
 		if errors.Is(err, serviceErrors.ErrNotFound) {
