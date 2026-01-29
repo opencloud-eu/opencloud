@@ -523,6 +523,7 @@ def main(ctx):
         testPipelines(ctx)
 
     build_release_pipelines = \
+        checkVersionPlaceholder() + \
         dockerReleases(ctx) + \
         binaryReleases(ctx)
 
@@ -1816,6 +1817,27 @@ def dockerReleases(ctx):
         pipelines.extend(repo_pipelines)
 
     return pipelines
+
+def checkVersionPlaceholder():
+    return [{
+        "name": "check-version-placeholder",
+        "steps": [
+            {
+                "name": "check-version-placeholder",
+                "image": OC_CI_ALPINE,
+                "commands": [
+                    "grep -r -e '%%NEXT%%' -e '%%NEXT_PRODUCTION_VERSION%%' %s/services %s/pkg > next_version.txt" % (
+                        dirs["base"],
+                        dirs["base"],
+                    ),
+                    'if [ -s next_version.txt ]; then echo "replace version placeholders"; cat next_version.txt; exit 1; fi',
+                ],
+            },
+        ],
+        "when": [
+            event["tag"],
+        ],
+    }]
 
 def dockerRelease(ctx, repo, build_type):
     build_args = {
