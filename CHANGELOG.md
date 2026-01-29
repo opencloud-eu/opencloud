@@ -10,6 +10,10 @@
 
 - [full-ci][tests-only] test: add hook failures to the test failures list [[#2041](https://github.com/opencloud-eu/opencloud/pull/2041)]
 
+### 📦️ Dependencies
+
+- build(deps): bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.27.5 to 2.27.6 [[#2238](https://github.com/opencloud-eu/opencloud/pull/2238)]
+
 ## [5.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v5.0.1) - 2026-01-28
 
 ### ❤️ Thanks to all contributors! ❤️
