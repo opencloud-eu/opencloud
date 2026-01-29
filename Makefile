@@ -102,7 +102,7 @@ help:
 	@echo -e "\tor run ${YELLOW}make -C docs help${RESET}"
 	@echo
 	@echo -e "${GREEN}Testing with test suite in docker:${RESET}\n"
-	@echo -e "${PURPLE}\tdocs: https://docs.opencloud.eu/docs/dev/server/testing//#testing-with-test-suite-in-docker${RESET}\n"
+	@echo -e "${PURPLE}\tdocs: https://docs.opencloud.eu/docs/dev/server/testing/#testing-with-test-suite-in-docker${RESET}\n"
 	@echo -e "\tsee ./tests/acceptance/docker/Makefile"
 	@echo -e "\tor run ${YELLOW}make -C tests/acceptance/docker help${RESET}"
 	@echo
