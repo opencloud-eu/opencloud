@@ -4,9 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@flimmy
+@flimmy, @saw-jan
 
+### ✅ Tests
 
+- [full-ci][tests-only] test: add hook failures to the test failures list [[#2041](https://github.com/opencloud-eu/opencloud/pull/2041)]
 
 ## [5.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v5.0.1) - 2026-01-28
 
