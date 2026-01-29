@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @flimmy, @saw-jan
+@AlexAndBear, @flimmy, @individual-it, @saw-jan
 
 ### ✅ Tests
 
