@@ -44,7 +44,7 @@ func TestOpenCloudInstanceAddLink(t *testing.T) {
 		"otherclaim":  "someone",
 	})
 	jrd := webfinger.JSONResourceDescriptor{}
-	provider.Add(ctx, &jrd)
+	provider.Add(ctx, "", &jrd)
 
 	if len(jrd.Links) != 1 {
 		t.Errorf("provider returned wrong number of links: %v, expected 1", len(jrd.Links))

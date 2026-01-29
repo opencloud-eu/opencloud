@@ -56,7 +56,7 @@ type JSONResourceDescriptor struct {
 	// values are strings or null.
 	//
 	// The "properties" member is OPTIONAL in the JRD.
-	Properties map[string]string `json:"properties,omitempty"`
+	Properties map[string]any `json:"properties,omitempty"`
 	// Links is an array of objects that contain link relation information
 	//
 	// The "links" array is OPTIONAL in the JRD.

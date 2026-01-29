@@ -17,15 +17,21 @@ type Config struct {
 
 	HTTP HTTP `yaml:"http"`
 
-	Instances    []Instance `yaml:"instances"`
-	Relations    []string   `yaml:"relations" env:"WEBFINGER_RELATIONS" desc:"A list of relation URIs or registered relation types to add to webfinger responses. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
-	IDP          string     `yaml:"idp" env:"OC_URL;OC_OIDC_ISSUER;WEBFINGER_OIDC_ISSUER" desc:"The identity provider href for the openid-discovery relation." introductionVersion:"1.0.0"`
-	DesktopIDP      string `yaml:"desktop_idp" env:"WEBFINGER_OIDC_ISSUER_DESKTOP" desc:"The identity provider href for desktop clients. When set, desktop clients will use this issuer instead of the default IDP. This allows configuring separate OIDC clients for web and desktop applications." introductionVersion:"%%NEXT%%"`
-	DesktopClientID string `yaml:"desktop_client_id" env:"WEBFINGER_OIDC_CLIENT_ID_DESKTOP" desc:"The OIDC client ID for desktop clients. When set along with WEBFINGER_OIDC_ISSUER_DESKTOP, this client ID will be provided to desktop clients via webfinger properties." introductionVersion:"%%NEXT%%"`
-	MobileIDP       string `yaml:"mobile_idp" env:"WEBFINGER_OIDC_ISSUER_MOBILE" desc:"The identity provider href for mobile clients. When set, mobile clients will use this issuer instead of the default IDP. This allows configuring separate OIDC clients for web and mobile applications." introductionVersion:"%%NEXT%%"`
-	MobileClientID  string `yaml:"mobile_client_id" env:"WEBFINGER_OIDC_CLIENT_ID_MOBILE" desc:"The OIDC client ID for mobile clients. When set along with WEBFINGER_OIDC_ISSUER_MOBILE, this client ID will be provided to mobile clients via webfinger properties." introductionVersion:"%%NEXT%%"`
-	OpenCloudURL string     `yaml:"opencloud_url" env:"OC_URL;WEBFINGER_OPENCLOUD_SERVER_INSTANCE_URL" desc:"The URL for the legacy OpenCloud server instance relation (not to be confused with the product OpenCloud Server). It defaults to the OC_URL but can be overridden to support some reverse proxy corner cases. To shard the deployment, multiple instances can be configured in the configuration file." introductionVersion:"1.0.0"`
-	Insecure     bool       `yaml:"insecure" env:"OC_INSECURE;WEBFINGER_INSECURE" desc:"Allow insecure connections to the WEBFINGER service." introductionVersion:"1.0.0"`
+	Instances           []Instance `yaml:"instances"`
+	Relations           []string   `yaml:"relations" env:"WEBFINGER_RELATIONS" desc:"A list of relation URIs or registered relation types to add to webfinger responses. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
+	IDP                 string     `yaml:"idp" env:"OC_URL;OC_OIDC_ISSUER;WEBFINGER_OIDC_ISSUER" desc:"The identity provider href for the openid-discovery relation." introductionVersion:"1.0.0"`
+	AndroidClientID     string     `yaml:"android_client_id" env:"WEBFINGER_ANDROID_OIDC_CLIENT_ID" desc:"The OIDC client ID for Android app." introductionVersion:"%%NEXT%%"`
+	AndroidClientScopes []string   `yaml:"android_client_scopes" env:"WEBFINGER_ANDROID_OIDC_CLIENT_SCOPES" desc:"The OIDC client scopes the Android app should request." introductionVersion:"%%NEXT%%"`
+	DesktopClientID     string     `yaml:"desktop_client_id" env:"WEBFINGER_DESKTOP_OIDC_CLIENT_ID" desc:"The OIDC client ID for the OpenCloud desktop application." introductionVersion:"%%NEXT%%"`
+	DesktopClientScopes []string   `yaml:"desktop_client_scopes" env:"WEBFINGER_DESKTOP_OIDC_CLIENT_SCOPES" desc:"The OIDC client scopes the OpenCloud desktop application should request." introductionVersion:"%%NEXT%%"`
+	IOSClientID         string     `yaml:"ios_client_id" env:"WEBFINGER_IOS_OIDC_CLIENT_ID" desc:"The OIDC client ID for the IOS app." introductionVersion:"%%NEXT%%"`
+	IOSClientScopes     []string   `yaml:"ios_client_scopes" env:"WEBFINGER_IOS_OIDC_CLIENT_SCOPES" desc:"The OIDC client scopes the IOS app should request." introductionVersion:"%%NEXT%%"`
+	WebClientID         string     `yaml:"web_client_id" env:"WEBFINGER_WEB_OIDC_CLIENT_ID" desc:"The OIDC client ID for the OpenCloud web client." introductionVersion:"%%NEXT%%"`
+	WebClientScopes     []string   `yaml:"web_client_scopes" env:"WEBFINGER_WEB_OIDC_CLIENT_SCOPES" desc:"The OIDC client scopes the OpenCloud web client should request." introductionVersion:"%%NEXT%%"`
+	OpenCloudURL        string     `yaml:"opencloud_url" env:"OC_URL;WEBFINGER_OPENCLOUD_SERVER_INSTANCE_URL" desc:"The URL for the legacy OpenCloud server instance relation (not to be confused with the product OpenCloud Server). It defaults to the OC_URL but can be overridden to support some reverse proxy corner cases. To shard the deployment, multiple instances can be configured in the configuration file." introductionVersion:"1.0.0"`
+	Insecure            bool       `yaml:"insecure" env:"OC_INSECURE;WEBFINGER_INSECURE" desc:"Allow insecure connections to the WEBFINGER service." introductionVersion:"1.0.0"`
+
+	OIDCClientConfigs map[string]OIDCClientConfig `yaml:"-"`
 
 	Context context.Context `yaml:"-"`
 }
@@ -37,4 +43,9 @@ type Instance struct {
 	Href   string            `yaml:"href"`
 	Titles map[string]string `yaml:"titles"`
 	Break  bool              `yaml:"break"`
+}
+
+type OIDCClientConfig struct {
+	ClientID string
+	Scopes   []string
 }

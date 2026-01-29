@@ -120,17 +120,7 @@ func getRelationProviders(cfg *config.Config) (map[string]service.RelationProvid
 	for _, relationURI := range cfg.Relations {
 		switch relationURI {
 		case relations.OpenIDConnectRel:
-			rels[relationURI] = relations.OpenIDDiscovery(cfg.IDP)
-		case relations.OpenIDConnectDesktopRel:
-			// Handled below - can also be auto-enabled via DesktopIDP config
-			if cfg.DesktopIDP != "" {
-				rels[relationURI] = relations.OpenIDDiscoveryDesktop(cfg.DesktopIDP, cfg.DesktopClientID)
-			}
-		case relations.OpenIDConnectMobileRel:
-			// Handled below - can also be auto-enabled via MobileIDP config
-			if cfg.MobileIDP != "" {
-				rels[relationURI] = relations.OpenIDDiscoveryMobile(cfg.MobileIDP, cfg.MobileClientID)
-			}
+			rels[relationURI] = relations.OpenIDDiscovery(cfg.IDP, cfg.OIDCClientConfigs)
 		case relations.OpenCloudInstanceRel:
 			var err error
 			rels[relationURI], err = relations.OpenCloudInstance(cfg.Instances, cfg.OpenCloudURL)
@@ -139,23 +129,6 @@ func getRelationProviders(cfg *config.Config) (map[string]service.RelationProvid
 			}
 		default:
 			return nil, fmt.Errorf("unknown relation '%s'", relationURI)
-		}
-	}
-
-	// Auto-enable desktop OIDC issuer when DesktopIDP is configured,
-	// even if not explicitly listed in Relations. This provides a simpler
-	// configuration experience - just set WEBFINGER_OIDC_ISSUER_DESKTOP.
-	// See: https://github.com/opencloud-eu/desktop/issues/246
-	if cfg.DesktopIDP != "" {
-		if _, exists := rels[relations.OpenIDConnectDesktopRel]; !exists {
-			rels[relations.OpenIDConnectDesktopRel] = relations.OpenIDDiscoveryDesktop(cfg.DesktopIDP, cfg.DesktopClientID)
-		}
-	}
-
-	// Auto-enable mobile OIDC issuer when MobileIDP is configured
-	if cfg.MobileIDP != "" {
-		if _, exists := rels[relations.OpenIDConnectMobileRel]; !exists {
-			rels[relations.OpenIDConnectMobileRel] = relations.OpenIDDiscoveryMobile(cfg.MobileIDP, cfg.MobileClientID)
 		}
 	}
 
