@@ -83,7 +83,7 @@ help:
 	@echo "Please use 'make <target>' where <target> is one of the following:"
 	@echo
 	@echo -e "${GREEN}Testing with test suite natively installed:${RESET}\n"
-	@echo -e "${PURPLE}\tdocs: https://docs.opencloud.eu/docs/dev/server/testing//#testing-with-test-suite-natively-installed${RESET}\n"
+	@echo -e "${PURPLE}\tdocs: https://docs.opencloud.eu/docs/dev/server/testing/#testing-with-test-suite-natively-installed${RESET}\n"
 	@echo -e "\tmake test-acceptance-api\t\t${BLUE}run API acceptance tests${RESET}"
 	@echo -e "\tmake clean-tests\t\t\t${BLUE}delete API tests framework dependencies${RESET}"
 	@echo
