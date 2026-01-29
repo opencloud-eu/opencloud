@@ -2230,7 +2230,7 @@ def genDocsPr(ctx):
                     "MY_TARGET_BRANCH": "${CI_COMMIT_BRANCH##stable-}",
                 },
                 "commands": [
-                    'export DOC_GIT_TARGET_FOLDER="$$(if [ \"$$MY_TARGET_BRANCH\" = \"main\" ]; then echo \"tmpdocs/docs/dev/server/_static/env-vars/\"; else echo \"tmpdocs/versioned_docs/version-$${MY_TARGET_BRANCH}/dev/server/_static/env-vars/\"; fi)"',
+                    'export DOC_GIT_TARGET_FOLDER="$$(if [ \"$$MY_TARGET_BRANCH\" = \"main\" ]; then echo \"tmpdocs/docs/_static/env-vars/\"; else echo \"tmpdocs/versioned_docs/version-$${MY_TARGET_BRANCH}/_static/env-vars/\"; fi)"',
                     'echo "$${CI_SSH_KEY}" > /root/id_rsa && chmod 600 /root/id_rsa',
                     'git config --global user.email "devops@opencloud.eu"',
                     'git config --global user.name "openclouders"',
