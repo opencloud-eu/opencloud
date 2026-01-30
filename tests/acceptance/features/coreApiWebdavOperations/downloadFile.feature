@@ -5,12 +5,11 @@ Feature: download file
 
   Background:
     Given user "Alice" has been created with default attributes
-    And user "Alice" has uploaded file with content "OpenCloud test text file 0" to "/textfile0.txt"
-    And user "Alice" has uploaded file with content "Welcome this is just an example file for developers." to "/welcome.txt"
 
   @smokeTest
   Scenario Outline: download a file
     Given using <dav-path-version> DAV path
+    And user "Alice" has uploaded file with content "OpenCloud test text file 0" to "/textfile0.txt"
     When user "Alice" downloads file "/textfile0.txt" using the WebDAV API
     Then the HTTP status code should be "200"
     And the downloaded content should be "OpenCloud test text file 0"
@@ -23,6 +22,7 @@ Feature: download file
   @issue-1346
   Scenario Outline: download a file with range
     Given using <dav-path-version> DAV path
+    And user "Alice" has uploaded file with content "Welcome this is just an example file for developers." to "/welcome.txt"
     When user "Alice" downloads file "/welcome.txt" with range "bytes=24-50" using the WebDAV API
     Then the HTTP status code should be "206"
     And the downloaded content should be "example file for developers"
@@ -112,6 +112,7 @@ Feature: download file
 
   Scenario Outline: download a file with single part ranges
     Given using <dav-path-version> DAV path
+    And user "Alice" has uploaded file with content "Welcome this is just an example file for developers." to "/welcome.txt"
     When user "Alice" downloads file "/welcome.txt" with range "bytes=0-51" using the WebDAV API
     Then the HTTP status code should be "206"
     And the following headers should be set
@@ -128,6 +129,7 @@ Feature: download file
 
   Scenario Outline: download a file with multipart ranges
     Given using <dav-path-version> DAV path
+    And user "Alice" has uploaded file with content "Welcome this is just an example file for developers." to "/welcome.txt"
     When user "Alice" downloads file "/welcome.txt" with range "bytes=0-6, 40-51" using the WebDAV API
     Then the HTTP status code should be "206" or "200"
     And if the HTTP status code was "206" then the following headers should match these regular expressions
@@ -155,6 +157,7 @@ Feature: download file
 
   Scenario Outline: download a file with last byte range out of bounds
     Given using <dav-path-version> DAV path
+    And user "Alice" has uploaded file with content "Welcome this is just an example file for developers." to "/welcome.txt"
     When user "Alice" downloads file "/welcome.txt" with range "bytes=0-55" using the WebDAV API
     Then the HTTP status code should be "206"
     And the downloaded content should be "Welcome this is just an example file for developers."
@@ -167,6 +170,7 @@ Feature: download file
 
   Scenario Outline: download a range at the end of a file
     Given using <dav-path-version> DAV path
+    And user "Alice" has uploaded file with content "Welcome this is just an example file for developers." to "/welcome.txt"
     When user "Alice" downloads file "/welcome.txt" with range "bytes=-11" using the WebDAV API
     Then the HTTP status code should be "206"
     And the downloaded content should be "developers."
@@ -179,6 +183,7 @@ Feature: download file
 
   Scenario Outline: download a file with range out of bounds
     Given using <dav-path-version> DAV path
+    And user "Alice" has uploaded file with content "Welcome this is just an example file for developers." to "/welcome.txt"
     When user "Alice" downloads file "/welcome.txt" with range "bytes=55-60" using the WebDAV API
     Then the HTTP status code should be "416"
     Examples:
@@ -276,6 +281,7 @@ Feature: download file
 
   Scenario Outline: try to download recently deleted file
     Given using <dav-path-version> DAV path
+    And user "Alice" has uploaded file with content "OpenCloud test text file 0" to "/textfile0.txt"
     When user "Alice" deletes file "textfile0.txt" using the WebDAV API
     Then the HTTP status code should be "204"
     When user "Alice" tries to download file "textfile0.txt" using the WebDAV API
@@ -285,3 +291,31 @@ Feature: download file
       | old              |
       | new              |
       | spaces           |
+
+  @web-issue-1893
+  Scenario Outline: download a file with special characters in the filename
+    Given using <dav-path-version> DAV path
+    And user "Alice" has uploaded file with content "test file" to <file-name>
+    When user "Alice" downloads file <file-name> using the WebDAV API
+    Then the HTTP status code should be "200"
+    And the downloaded content should be "test file"
+    Examples:
+      | dav-path-version | file-name        |
+      | old              | "😀 🤖.txt"      |
+      | old              | "नेपाली"           |
+      | old              | "C++ file.cpp"   |
+      | old              | "with\backslash" |
+      | old              | "file #2.txt"    |
+      | old              | "file ?2.pdf"    |
+      | new              | "😀 🤖.txt"      |
+      | new              | "नेपाली"           |
+      | new              | "C++ file.cpp"   |
+      | new              | "with\backslash" |
+      | new              | "file #2.txt"    |
+      | new              | "file ?2.pdf"    |
+      | spaces           | "😀 🤖.txt"      |
+      | spaces           | "नेपाली"           |
+      | spaces           | "C++ file.cpp"   |
+      | spaces           | "with\backslash" |
+      | spaces           | "file #2.txt"    |
+      | spaces           | "file ?2.pdf"    |

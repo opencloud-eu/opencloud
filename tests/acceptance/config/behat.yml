@@ -681,18 +681,9 @@ default:
         - WebDavLockingContext:
         - WebDavPropertiesContext:
 
-    coreApiWebdavMove1:
+    coreApiWebdavMove:
       paths:
-        - "%paths.base%/../features/coreApiWebdavMove1"
-      context: *common_ldap_suite_context
-      contexts:
-        - FeatureContext: *common_feature_context_params
-        - WebDavPropertiesContext:
-        - TrashbinContext:
-
-    coreApiWebdavMove2:
-      paths:
-        - "%paths.base%/../features/coreApiWebdavMove2"
+        - "%paths.base%/../features/coreApiWebdavMove"
       context: *common_ldap_suite_context
       contexts:
         - FeatureContext: *common_feature_context_params
