@@ -1,13 +1,14 @@
 # Changelog
 
-## [5.0.2](https://github.com/opencloud-eu/opencloud/releases/tag/v5.0.2) - 2026-02-01
+## [5.0.2](https://github.com/opencloud-eu/opencloud/releases/tag/v5.0.2) - 2026-02-02
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @flimmy, @individual-it, @saw-jan
+@AlexAndBear, @ScharfViktor, @flimmy, @individual-it, @saw-jan
 
 ### ✅ Tests
 
+- api-test: upload-rename-download file with back slash [[#2239](https://github.com/opencloud-eu/opencloud/pull/2239)]
 - [full-ci][tests-only] test: add hook failures to the test failures list [[#2041](https://github.com/opencloud-eu/opencloud/pull/2041)]
 
 ### 📦️ Dependencies
