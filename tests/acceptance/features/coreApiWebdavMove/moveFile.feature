@@ -438,6 +438,7 @@ Feature: move (rename) file
       | old              | "strängé नेपाली.txt"    | "testfile.txt"          |
       | old              | "file,comma.txt"        | "testfile.txt"          |
       | old              | " start with space.txt" | "testfile.txt"          |
+      | old              | "testfile.txt"          | "with\backslash"        |
       | new              | "testfile.txt"          | "'single'quotes.txt"    |
       | new              | "testfile.txt"          | '"double"quotes.txt'    |
       | new              | "testfile.txt"          | "strängé नेपाली.txt"    |
@@ -448,6 +449,7 @@ Feature: move (rename) file
       | new              | "strängé नेपाली.txt"    | "testfile.txt"          |
       | new              | "file,comma.txt"        | "testfile.txt"          |
       | new              | " start with space.txt" | "testfile.txt"          |
+      | new              | "testfile.txt"          | "with\backslash"        |
       | spaces           | "testfile.txt"          | "'single'quotes.txt"    |
       | spaces           | "testfile.txt"          | '"double"quotes.txt'    |
       | spaces           | "testfile.txt"          | "strängé नेपाली.txt"    |
@@ -458,6 +460,7 @@ Feature: move (rename) file
       | spaces           | "strängé नेपाली.txt"    | "testfile.txt"          |
       | spaces           | "file,comma.txt"        | "testfile.txt"          |
       | spaces           | " start with space.txt" | "testfile.txt"          |
+      | spaces           | "testfile.txt"          | "with\backslash"        |
 
 
   Scenario Outline: try to rename file to name having white space at the end
