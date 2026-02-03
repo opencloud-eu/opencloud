@@ -26,7 +26,6 @@ Feature: create files and folder
       | old              | "Sample,comma"   |
       | old              | "'single'"       |
       | old              | '"double"'       |
-      | old              | "with\backslash" |
       | new              | "upload"         |
       | new              | "strängé folder" |
       | new              | "C++ folder.cpp" |
@@ -39,7 +38,6 @@ Feature: create files and folder
       | new              | "'single'"       |
       | new              | '"double"'       |
       | new              | "नेपाली"         |
-      | new              | "with\backslash" |
       | spaces           | "upload"         |
       | spaces           | "strängé folder" |
       | spaces           | "C++ folder.cpp" |
@@ -51,7 +49,6 @@ Feature: create files and folder
       | spaces           | "Sample,comma"   |
       | spaces           | "'single'"       |
       | spaces           | '"double"'       |
-      | spaces           | "with\backslash" |
 
   @smokeTest
   Scenario Outline: get resourcetype property of a folder
@@ -145,7 +142,6 @@ Feature: create files and folder
       | old              | "Sample,comma.txt" |
       | old              | "'single'.txt"     |
       | old              | '"double".txt'     |
-      | old              | "with\backslash"   |
       | new              | "upload.txt"       |
       | new              | "strängéfile.txt"  |
       | new              | "C++ file.cpp"     |
@@ -157,7 +153,6 @@ Feature: create files and folder
       | new              | "Sample,comma.txt" |
       | new              | "'single'.txt"     |
       | new              | '"double".txt'     |
-      | new              | "with\backslash"   |
       | spaces           | "upload.txt"       |
       | spaces           | "strängéfile.txt"  |
       | spaces           | "C++ file.cpp"     |
@@ -169,7 +164,6 @@ Feature: create files and folder
       | spaces           | "Sample,comma.txt" |
       | spaces           | "'single'.txt"     |
       | spaces           | '"double".txt'     |
-      | spaces           | "with\backslash"   |
 
   @issue-10339 @issue-9568
   Scenario Outline: try to create file with '.', '..' and 'empty'
@@ -208,8 +202,30 @@ Feature: create files and folder
       | new              |             | 400              |
       | spaces           | /.          | 400              |
       | spaces           | /..         | 405              |
-      | spaces           | /../lorem   | 404              |
+      | spaces           | /../lorem   | 400              |
       | spaces           |             | 400              |
+
+
+  Scenario Outline: try to create folder with backslash
+    Given using <dav-path-version> DAV path
+    When user "Alice" creates folder "<folder-name>" using the WebDAV API
+    Then the HTTP status code should be "400"
+    Examples:
+      | dav-path-version | folder-name    |
+      | old              | with\backslash |
+      | new              | with\backslash |
+      | spaces           | with\backslash |
+
+
+  Scenario Outline: try to create file with backslash
+    Given using <dav-path-version> DAV path
+    When user "Alice" uploads file with content "some text" to "<file-name>" using the WebDAV API
+    Then the HTTP status code should be "400"
+    Examples:
+      | dav-path-version | file-name      |
+      | old              | with\backslash |
+      | new              | with\backslash |
+      | spaces           | with\backslash |
 
 
   Scenario Outline: create a file with dots in the name

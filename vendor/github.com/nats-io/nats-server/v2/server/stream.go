@@ -1,4 +1,4 @@
-// Copyright 2019-2025 The NATS Authors
+// Copyright 2019-2026 The NATS Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -425,6 +425,7 @@ type stream struct {
 	active    bool                    // Indicates that there are active internal subscriptions (for the subject filters)
 	// and/or mirror/sources consumers are scheduled to be established or already started.
 	closed atomic.Bool // Set to true when stop() is called on the stream.
+	cisrun atomic.Bool // Indicates one checkInterestState is already running.
 
 	// Mirror
 	mirror *sourceInfo
@@ -837,9 +838,9 @@ func (a *Account) addStreamWithAssignment(config *StreamConfig, fsConfig *FileSt
 
 	// Add created timestamp used for the store, must match that of the stream assignment if it exists.
 	if sa != nil {
-		js.mu.RLock()
+		// The following assignment does not require mutex
+		// protection: sa.Created is immutable.
 		mset.created = sa.Created
-		js.mu.RUnlock()
 	}
 
 	// Start our signaling routine to process consumers.
@@ -1821,7 +1822,7 @@ func (s *Server) checkStreamCfg(config *StreamConfig, acc *Account, pedantic boo
 	// check for duplicates
 	var iNames = make(map[string]struct{})
 	for _, src := range cfg.Sources {
-		if !isValidName(src.Name) {
+		if src == nil || !isValidName(src.Name) {
 			return StreamConfig{}, NewJSSourceInvalidStreamNameError()
 		}
 		if _, ok := iNames[src.composeIName()]; !ok {
@@ -3162,7 +3163,6 @@ func (mset *stream) setupMirrorConsumer() error {
 	}
 
 	mirror := mset.mirror
-	mirrorWg := &mirror.wg
 
 	// We want to throttle here in terms of how fast we request new consumers,
 	// or if the previous is still in progress.
@@ -3321,7 +3321,16 @@ func (mset *stream) setupMirrorConsumer() error {
 
 		// Wait for previous processMirrorMsgs go routine to be completely done.
 		// If none is running, this will not block.
-		mirrorWg.Wait()
+		mset.mu.Lock()
+		if mset.mirror == nil {
+			// Mirror config has been removed.
+			mset.mu.Unlock()
+			return
+		} else {
+			wg := &mset.mirror.wg
+			mset.mu.Unlock()
+			wg.Wait()
+		}
 
 		select {
 		case ccr := <-respCh:
@@ -6045,13 +6054,6 @@ func (mset *stream) processJetStreamMsg(subject, reply string, hdr, msg []byte, 
 		return nil
 	}
 
-	// If here we will attempt to store the message.
-	// Assume this will succeed.
-	olmsgId := mset.lmsgId
-	mset.lmsgId = msgId
-	mset.lseq++
-	tierName := mset.tier
-
 	// Republish state if needed.
 	var tsubj string
 	var tlseq uint64
@@ -6075,7 +6077,7 @@ func (mset *stream) processJetStreamMsg(subject, reply string, hdr, msg []byte, 
 	// If clustered this was already checked and we do not want to check here and possibly introduce skew.
 	// Don't error and log if we're tracing when clustered.
 	if !isClustered {
-		if exceeded, err := jsa.wouldExceedLimits(stype, tierName, mset.cfg.Replicas, subject, hdr, msg); exceeded {
+		if exceeded, err := jsa.wouldExceedLimits(stype, mset.tier, mset.cfg.Replicas, subject, hdr, msg); exceeded {
 			if err == nil {
 				err = NewJSAccountResourcesExceededError()
 			}
@@ -6134,11 +6136,7 @@ func (mset *stream) processJetStreamMsg(subject, reply string, hdr, msg []byte, 
 			mset.srv.Warnf("Filesystem permission denied while writing msg, disabling JetStream: %v", err)
 			return err
 		}
-		// If we did not succeed put those values back and increment clfs in case we are clustered.
-		var state StreamState
-		mset.store.FastState(&state)
-		mset.lseq = state.LastSeq
-		mset.lmsgId = olmsgId
+		// If we did not succeed increment clfs in case we are clustered.
 		bumpCLFS()
 
 		switch err {
@@ -6159,6 +6157,8 @@ func (mset *stream) processJetStreamMsg(subject, reply string, hdr, msg []byte, 
 	}
 
 	// If here we succeeded in storing the message.
+	mset.lmsgId = msgId
+	mset.lseq = seq
 
 	// If we have a msgId make sure to save.
 	// This will replace our estimate from the cluster layer if we are clustered.
@@ -7298,11 +7298,30 @@ func (mset *stream) checkInterestState() {
 		return
 	}
 
+	// Ensure only one of these runs at the same time.
+	if !mset.cisrun.CompareAndSwap(false, true) {
+		return
+	}
+	defer mset.cisrun.Store(false)
+
 	var ss StreamState
 	mset.store.FastState(&ss)
 
+	asflr := uint64(math.MaxUint64)
 	for _, o := range mset.getConsumers() {
 		o.checkStateForInterestStream(&ss)
+		o.mu.RLock()
+		chkflr := o.chkflr
+		o.mu.RUnlock()
+		asflr = min(asflr, chkflr)
+	}
+
+	mset.cfgMu.RLock()
+	rp := mset.cfg.Retention
+	mset.cfgMu.RUnlock()
+	// Remove as many messages from the "head" of the stream if there's no interest anymore.
+	if rp == InterestPolicy && asflr != math.MaxUint64 {
+		mset.store.Compact(asflr)
 	}
 }
 
@@ -7389,20 +7408,18 @@ func (mset *stream) swapSigSubs(o *consumer, newFilters []string) {
 		o.sigSubs = nil
 	}
 
-	if o.isLeader() {
-		if mset.csl == nil {
-			mset.csl = gsl.NewSublist[*consumer]()
-		}
-		// If no filters are preset, add fwcs to sublist for that consumer.
-		if newFilters == nil {
-			mset.csl.Insert(fwcs, o)
-			o.sigSubs = append(o.sigSubs, fwcs)
-			// If there are filters, add their subjects to sublist.
-		} else {
-			for _, filter := range newFilters {
-				mset.csl.Insert(filter, o)
-				o.sigSubs = append(o.sigSubs, filter)
-			}
+	if mset.csl == nil {
+		mset.csl = gsl.NewSublist[*consumer]()
+	}
+	// If no filters are present, add fwcs to sublist for that consumer.
+	if newFilters == nil {
+		mset.csl.Insert(fwcs, o)
+		o.sigSubs = append(o.sigSubs, fwcs)
+	} else {
+		// If there are filters, add their subjects to sublist.
+		for _, filter := range newFilters {
+			mset.csl.Insert(filter, o)
+			o.sigSubs = append(o.sigSubs, filter)
 		}
 	}
 	o.mu.Unlock()
@@ -7479,14 +7496,18 @@ func (mset *stream) partitionUnique(name string, partitions []string) bool {
 			if n == name {
 				continue
 			}
+			o.mu.RLock()
 			if o.subjf == nil {
+				o.mu.RUnlock()
 				return false
 			}
 			for _, filter := range o.subjf {
 				if SubjectsCollide(partition, filter.subject) {
+					o.mu.RUnlock()
 					return false
 				}
 			}
+			o.mu.RUnlock()
 		}
 	}
 	return true
