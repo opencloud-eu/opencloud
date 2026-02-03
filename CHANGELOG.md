@@ -4,7 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @ScharfViktor, @flimmy, @individual-it, @saw-jan
+@AlexAndBear, @ScharfViktor, @flimmy, @individual-it, @rhafer, @saw-jan
+
+### 📚 Documentation
+
+- docs(proxy): Clarify PROXY_OIDC_USERINFO_CACHE_TTL value [[#2256](https://github.com/opencloud-eu/opencloud/pull/2256)]
 
 ### ✅ Tests
 
