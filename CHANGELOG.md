@@ -6,14 +6,15 @@
 
 @AlexAndBear, @ScharfViktor, @flimmy, @individual-it, @rhafer, @saw-jan
 
+### ✅ Tests
+
+- adapt test for #514 [[#2255](https://github.com/opencloud-eu/opencloud/pull/2255)]
+- api-test: upload-rename-download file with back slash [[#2239](https://github.com/opencloud-eu/opencloud/pull/2239)]
+- [full-ci][tests-only] test: add hook failures to the test failures list [[#2041](https://github.com/opencloud-eu/opencloud/pull/2041)]
+
 ### 📚 Documentation
 
 - docs(proxy): Clarify PROXY_OIDC_USERINFO_CACHE_TTL value [[#2256](https://github.com/opencloud-eu/opencloud/pull/2256)]
-
-### ✅ Tests
-
-- api-test: upload-rename-download file with back slash [[#2239](https://github.com/opencloud-eu/opencloud/pull/2239)]
-- [full-ci][tests-only] test: add hook failures to the test failures list [[#2041](https://github.com/opencloud-eu/opencloud/pull/2041)]
 
 ### 📦️ Dependencies
 
