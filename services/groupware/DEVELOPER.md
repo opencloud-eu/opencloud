@@ -373,7 +373,7 @@ When using the OpenLDAP container, the necessary LDAP parameters are as follows:
 Run the following command on your host (requires the `ldap-tools` package with the `ldapsearch` CLI tool), which should output a list of DNs of demo users:
 
 ```bash
-ldapsearch -h localhost -D 'cn=admin,dc=opencloud,dc=eu' \
+ldapsearch -H ldap://localhost -D 'cn=admin,dc=opencloud,dc=eu' \
 -x -w 'admin' -b 'ou=users,dc=opencloud,dc=eu' -LLL \
 '(objectClass=person)' dn
 ```
@@ -728,6 +728,15 @@ curl --insecure -s -u "alan:demo" "https://cloud.opencloud.test/groupware/"
 ## Services
 
 ### Stalwart
+
+#### Docker Compose Configuration
+
+Stalwart is configured to authenticate and look up users and groups from LDAP, but we have two different options for running an LDAP server in our Docker Compose configuration in `devtools/deployments/opencloud_full/`:
+
+* either using the built-in "IDM" LDAP server
+* or using the OpenLDAP container
+
+In our Stalwart configuration, that choice is driven by the variable `STALWART_AUTH_DIRECTORY`, which can be set to either `idmldap` or `ldap`, accordingly, in `devtools/deployments/opencloud_full/.env`
 
 #### Web UI
 
