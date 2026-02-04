@@ -32,7 +32,7 @@ func Server(opts ...Option) (http.Service, error) {
 		return http.Service{}, fmt.Errorf("could not initialize http service: %w", err)
 	}
 
-	handle := svc.NewService(
+	handle, err := svc.NewService(
 		svc.Logger(options.Logger),
 		svc.Config(options.Config),
 		svc.Metrics(options.Metrics),
@@ -47,6 +47,9 @@ func Server(opts ...Option) (http.Service, error) {
 			opencloudmiddleware.Logger(options.Logger),
 		),
 	)
+	if err != nil {
+		return http.Service{}, err
+	}
 
 	{
 		handle = svc.NewInstrument(handle, options.Metrics)

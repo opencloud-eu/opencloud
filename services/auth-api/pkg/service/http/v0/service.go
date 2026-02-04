@@ -29,7 +29,7 @@ type Service interface {
 }
 
 // NewService returns a service implementation for Service.
-func NewService(opts ...Option) Service {
+func NewService(opts ...Option) (Service, error) {
 	options := newOptions(opts...)
 
 	m := chi.NewMux()
@@ -47,7 +47,7 @@ func NewService(opts ...Option) Service {
 
 	svc, err := NewAuthenticationApi(options.Config, &options.Logger, options.Metrics, options.TraceProvider, m)
 	if err != nil {
-		panic(err) // TODO p.bleser what to do when we encounter an error in a NewService() ?
+		return nil, err
 	}
 
 	m.Route(options.Config.HTTP.Root, func(r chi.Router) {
@@ -59,7 +59,7 @@ func NewService(opts ...Option) Service {
 		return nil
 	})
 
-	return svc
+	return svc, nil
 }
 
 type AuthenticationApi struct {
