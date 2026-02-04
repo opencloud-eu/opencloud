@@ -349,7 +349,6 @@ func (i *LDAP) getEducationClassByID(nameOrID string, requestMembers bool) (*lda
 	return i.getEducationObjectByNameOrID(
 		nameOrID,
 		i.userAttributeMap.id,
-		i.userAttributeMap.externalId,
 		i.educationConfig.classAttributeMap.externalID,
 		i.groupFilter,
 		i.educationConfig.classObjectClass,

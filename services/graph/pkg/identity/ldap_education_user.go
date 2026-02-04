@@ -318,7 +318,6 @@ func (i *LDAP) getEducationUserAttrTypes() []string {
 	return []string{
 		i.userAttributeMap.displayName,
 		i.userAttributeMap.id,
-		i.userAttributeMap.externalId,
 		i.userAttributeMap.mail,
 		i.userAttributeMap.userName,
 		i.userAttributeMap.surname,
@@ -346,7 +345,6 @@ func (i *LDAP) getEducationUserByNameOrID(nameOrID string) (*ldap.Entry, error) 
 		nameOrID,
 		i.userAttributeMap.userName,
 		i.userAttributeMap.id,
-		i.userAttributeMap.externalId,
 		i.userFilter,
 		i.educationConfig.userObjectClass,
 		i.userBaseDN,
@@ -354,9 +352,9 @@ func (i *LDAP) getEducationUserByNameOrID(nameOrID string) (*ldap.Entry, error) 
 	)
 }
 
-func (i *LDAP) getEducationObjectByNameOrID(nameOrID, nameAttribute, idAttribute, externalIdAttribute, objectFilter, objectClass, baseDN string, attributes []string) (*ldap.Entry, error) {
+func (i *LDAP) getEducationObjectByNameOrID(nameOrID, nameAttribute, idAttribute, objectFilter, objectClass, baseDN string, attributes []string) (*ldap.Entry, error) {
 	nameOrID = ldap.EscapeFilter(nameOrID)
-	filter := fmt.Sprintf("(|(%s=%s)(%s=%s)(%s=%s)", nameAttribute, nameOrID, idAttribute, nameOrID, externalIdAttribute, nameOrID)
+	filter := fmt.Sprintf("(|(%s=%s)(%s=%s))", nameAttribute, nameOrID, idAttribute, nameOrID)
 	return i.getEducationObjectByFilter(filter, baseDN, objectFilter, objectClass, attributes)
 }
 
