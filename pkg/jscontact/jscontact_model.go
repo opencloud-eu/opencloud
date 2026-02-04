@@ -13,37 +13,37 @@ import (
 
 // The kind of the name component.
 //
-// !- `title`: an honorific title or prefix, e.g., `Mr.`, `Ms.`, or `Dr.`
-// !- `given`: a given name, also known as "first name" or "personal name"
-// !- `given2`: a name that appears between the given and surname such as a middle name or patronymic name
-// !- `surname`: a surname, also known as "last name" or "family name"
-// !- `surname2`: a secondary surname (used in some cultures), also known as "maternal surname"
-// !- `credential`: a credential, also known as "accreditation qualifier" or "honorific suffix", e.g., `B.A.`, `Esq.`
-// !- `generation`: a generation marker or qualifier, e.g., `Jr.` or `III`
-// !- `separator`: a formatting separator between two ordered name non-separator components; the value property of the component includes the verbatim separator, for example, a hyphen character or even an empty string. This value has higher precedence than the defaultSeparator property of the Name. Implementations MUST NOT insert two consecutive separator components; instead, they SHOULD insert a single separator component with the combined value; this component kind MUST NOT be set if the `Name` `isOrdered` property value is `false`
+// * `title`: an honorific title or prefix, e.g., `Mr.`, `Ms.`, or `Dr.`
+// * `given`: a given name, also known as "first name" or "personal name"
+// * `given2`: a name that appears between the given and surname such as a middle name or patronymic name
+// * `surname`: a surname, also known as "last name" or "family name"
+// * `surname2`: a secondary surname (used in some cultures), also known as "maternal surname"
+// * `credential`: a credential, also known as "accreditation qualifier" or "honorific suffix", e.g., `B.A.`, `Esq.`
+// * `generation`: a generation marker or qualifier, e.g., `Jr.` or `III`
+// * `separator`: a formatting separator between two ordered name non-separator components; the value property of the component includes the verbatim separator, for example, a hyphen character or even an empty string. This value has higher precedence than the defaultSeparator property of the Name. Implementations MUST NOT insert two consecutive separator components; instead, they SHOULD insert a single separator component with the combined value; this component kind MUST NOT be set if the `Name` `isOrdered` property value is `false`
 type NameComponentKind string
 
 // The kind of the address component.
 //
 // The enumerated values are:
-// ! `room`: the room, suite number, or identifier
-// ! `apartment`: the extension designation such as the apartment number, unit, or box number
-// ! `floor`: the floor or level the address is located on
-// ! `building`: the building, tower, or condominium the address is located in
-// ! `number`: the street number, e.g., `"123"`; this value is not restricted to numeric values and can include any value such
+// * `room`: the room, suite number, or identifier
+// * `apartment`: the extension designation such as the apartment number, unit, or box number
+// * `floor`: the floor or level the address is located on
+// * `building`: the building, tower, or condominium the address is located in
+// * `number`: the street number, e.g., `"123"`; this value is not restricted to numeric values and can include any value such
 // as number ranges (`"112-10"`), grid style (`"39.2 RD"`), alphanumerics (`"N6W23001"`), or fractionals (`"123 1/2"`)
-// ! `name`: the street name
-// ! `block`: the block name or number
-// ! `subdistrict`: the subdistrict, ward, or other subunit of a district
-// ! `district`: the district name
-// ! `locality`: the municipality, city, town, village, post town, or other locality
-// ! `region`: the administrative area such as province, state, prefecture, county, or canton
-// ! `postcode`: the postal code, post code, ZIP code, or other short code associated with the address by the relevant country's postal system
-// ! `country`: the country name
-// ! `direction`: the cardinal direction or quadrant, e.g., "north"
-// ! `landmark`: the publicly known prominent feature that can substitute the street name and number, e.g., "White House" or "Taj Mahal"
-// ! `postOfficeBox`: the post office box number or identifier
-// ! `separator`: a formatting separator between two ordered address non-separator components; the value property of the component includes the
+// * `name`: the street name
+// * `block`: the block name or number
+// * `subdistrict`: the subdistrict, ward, or other subunit of a district
+// * `district`: the district name
+// * `locality`: the municipality, city, town, village, post town, or other locality
+// * `region`: the administrative area such as province, state, prefecture, county, or canton
+// * `postcode`: the postal code, post code, ZIP code, or other short code associated with the address by the relevant country's postal system
+// * `country`: the country name
+// * `direction`: the cardinal direction or quadrant, e.g., "north"
+// * `landmark`: the publicly known prominent feature that can substitute the street name and number, e.g., "White House" or "Taj Mahal"
+// * `postOfficeBox`: the post office box number or identifier
+// * `separator`: a formatting separator between two ordered address non-separator components; the value property of the component includes the
 // verbatim separator, for example, a hyphen character or even an empty string; this value has higher precedence than the `defaultSeparator` property
 // of the `Address`; implementations MUST NOT insert two consecutive separator components; instead, they SHOULD insert a single separator component
 // with the combined value; this component kind MUST NOT be set if the `Address` `isOrdered` property value is `false`.
@@ -56,39 +56,37 @@ type AddressComponentKind string
 // The relationship between the two objects is undefined if the set is empty.
 //
 // The initial list of enumerated relation types matches the IANA-registered TYPE `IANA-vCard“
-// parameter values of the vCard RELATED property ([Section 6.6.6 of RFC6350]):
-// !- `acquaintance`
-// !- `agent`
-// !- `child`
-// !- `co-resident`
-// !- `co-worker`
-// !- `colleague`
-// !- `contact`
-// !- `crush`
-// !- `date`
-// !- `emergency`
-// !- `friend`
-// !- `kin`
-// !- `me`
-// !- `met`
-// !- `muse`
-// !- `neighbor`
-// !- `parent`
-// !- `sibling`
-// !- `spouse`
-// !- `sweetheart`
-//
-// [Section 6.6.6 of RFC6350]: https://www.rfc-editor.org/rfc/rfc6350.html#section-6.6.6
+// parameter values of the vCard RELATED property ([Section 6.6.6 of RFC6350](https://www.rfc-editor.org/rfc/rfc6350.html#section-6.6.6)):
+// * `acquaintance`
+// * `agent`
+// * `child`
+// * `co-resident`
+// * `co-worker`
+// * `colleague`
+// * `contact`
+// * `crush`
+// * `date`
+// * `emergency`
+// * `friend`
+// * `kin`
+// * `me`
+// * `met`
+// * `muse`
+// * `neighbor`
+// * `parent`
+// * `sibling`
+// * `spouse`
+// * `sweetheart`
 type Relationship string
 
 // The enumerated common context values are:
-// !- `private`: the contact information that may be used in a private context.
-// !- `work`: the contact information that may be used in a professional context.
+// * `private`: the contact information that may be used in a private context.
+// * `work`: the contact information that may be used in a professional context.
 type MediaContext string
 
 // The enumerated common context values are:
-// !- `private`: the contact information that may be used in a private context.
-// !- `work`: the contact information that may be used in a professional context.
+// * `private`: the contact information that may be used in a private context.
+// * `work`: the contact information that may be used in a professional context.
 type NicknameContext string
 
 // The contexts in which to use this address.
@@ -96,38 +94,38 @@ type NicknameContext string
 // The boolean value MUST be `true`.
 //
 // In addition to the common contexts, allowed key values are:
-// ! `billing`: an address to be used for billing
-// ! `delivery`: an address to be used for delivering physical items
+// * `billing`: an address to be used for billing
+// * `delivery`: an address to be used for delivering physical items
 type AddressContext string
 
 // The enumerated common context values are:
-// !- `private`: the contact information that may be used in a private context.
-// !- `work`: the contact information that may be used in a professional context.
+// * `private`: the contact information that may be used in a private context.
+// * `work`: the contact information that may be used in a professional context.
 type DirectoryContext string
 
 // The enumerated common context values are:
-// !- `private`: the contact information that may be used in a private context.
-// !- `work`: the contact information that may be used in a professional context.
+// * `private`: the contact information that may be used in a private context.
+// * `work`: the contact information that may be used in a professional context.
 type EmailAddressContext string
 
 // The enumerated common context values are:
-// !- `private`: the contact information that may be used in a private context.
-// !- `work`: the contact information that may be used in a professional context.
+// * `private`: the contact information that may be used in a private context.
+// * `work`: the contact information that may be used in a professional context.
 type OnlineServiceContext string
 
 // The enumerated common context values are:
-// !- `private`: the contact information that may be used in a private context.
-// !- `work`: the contact information that may be used in a professional context.
+// * `private`: the contact information that may be used in a private context.
+// * `work`: the contact information that may be used in a professional context.
 type OrganizationContext string
 
 // The enumerated common context values are:
-// !- `private`: the contact information that may be used in a private context.
-// !- `work`: the contact information that may be used in a professional context.
+// * `private`: the contact information that may be used in a private context.
+// * `work`: the contact information that may be used in a professional context.
 type PronounsContext string
 
 // The enumerated common context values are:
-// !- `private`: the contact information that may be used in a private context.
-// !- `work`: the contact information that may be used in a professional context.
+// * `private`: the contact information that may be used in a private context.
+// * `work`: the contact information that may be used in a professional context.
 type PhoneContext string
 
 // The set of contact features that the phone number may be used for.
@@ -137,14 +135,14 @@ type PhoneContext string
 // The boolean value MUST be `true`.
 //
 // The enumerated values are:
-// !- `mobile`: this number is for a mobile phone
-// !- `voice`: this number supports calling by voice
-// !- `text`: this number supports text messages (SMS)
-// !- `video`: this number supports video conferencing
-// !- `main-number`: this number is a main phone number such as the number of the front desk at a company, as opposed to a direct-dial number of an individual employee
-// !- `textphone`: this number is for a device for people with hearing or speech difficulties
-// !- `fax`: this number supports sending faxes
-// !- `pager`: this number is for a pager or beeper
+// * `mobile`: this number is for a mobile phone
+// * `voice`: this number supports calling by voice
+// * `text`: this number supports text messages (SMS)
+// * `video`: this number supports video conferencing
+// * `main-number`: this number is a main phone number such as the number of the front desk at a company, as opposed to a direct-dial number of an individual employee
+// * `textphone`: this number is for a device for people with hearing or speech difficulties
+// * `fax`: this number supports sending faxes
+// * `pager`: this number is for a pager or beeper
 type PhoneFeature string
 
 // The organizational or situational kind of the title.
@@ -153,8 +151,8 @@ type PhoneFeature string
 // positions and roles as more temporary assignments such as in project management.
 //
 // The enumerated values are:
-// !- `title`
-// !- `role`
+// * `title`
+// * `role`
 type TitleKind string
 
 // The grammatical gender to use in salutations and other grammatical constructs.
@@ -163,12 +161,12 @@ type TitleKind string
 // `Sehr geehrte` (feminine) and `Sehr geehrter` (masculine).
 //
 // The enumerated values are:
-// !- `animate`
-// !- `common`
-// !- `feminine`
-// !- `inanimate`
-// !- `masculine`
-// !- `neuter`
+// * `animate`
+// * `common`
+// * `feminine`
+// * `inanimate`
+// * `masculine`
+// * `neuter`
 //
 // Note that the grammatical gender does not allow inferring the gender identities or assigned
 // sex of the contact.
@@ -177,46 +175,46 @@ type GrammaticalGenderType string
 // The kind of anniversary.
 //
 // The enumerated values are:
-// ! `birth`: a birthday anniversary
-// ! `death`: a deathday anniversary
-// ! `wedding`: a wedding day anniversary
+// * `birth`: a birthday anniversary
+// * `death`: a deathday anniversary
+// * `wedding`: a wedding day anniversary
 type AnniversaryKind string
 
 // The enumerated common context values are:
-// !- `private`: the contact information that may be used in a private context.
-// !- `work`: the contact information that may be used in a professional context.
+// * `private`: the contact information that may be used in a private context.
+// * `work`: the contact information that may be used in a professional context.
 type LanguagePrefContext string
 
 // The enumerated common context values are:
-// !- `private`: the contact information that may be used in a private context.
-// !- `work`: the contact information that may be used in a professional context.
+// * `private`: the contact information that may be used in a private context.
+// * `work`: the contact information that may be used in a professional context.
 type SchedulingAddressContext string
 
 // The kind of personal information.
 //
 // The enumerated values are:
-// ! `expertise`: a field of expertise or a credential
-// ! `hobby`: a hobby
-// ! `interest`: an interest
+// * `expertise`: a field of expertise or a credential
+// * `hobby`: a hobby
+// * `interest`: an interest
 type PersonalInfoKind string
 
 // The level of expertise or engagement in hobby or interest.
 //
 // The enumerated values are:
-// ! `high`
-// ! `medium`
-// ! `low`
+// * `high`
+// * `medium`
+// * `low`
 type PersonalInfoLevel string
 
 // The kind of the entity the Card represents (default: `individual“).
 //
 // Values are:
-// !- `individual`: a single person
-// !- `group`: a group of people or entities
-// !- `org`: an organization
-// !- `location`: a named location
-// !- `device`: a device such as an appliance, a computer, or a network element
-// !- `application`: a software application
+// * `individual`: a single person
+// * `group`: a group of people or entities
+// * `org`: an organization
+// * `location`: a named location
+// * `device`: a device such as an appliance, a computer, or a network element
+// * `application`: a software application
 //
 // example: individual
 type ContactCardKind string
@@ -231,8 +229,8 @@ type ContactCardKind string
 //
 // Clients often present these separately from other contact cards.
 //
-// The `members` property, as defined in [RFC 9553, Section 2.1.6], contains a set of UIDs for other
-// contacts that are the members of this group.
+// The `members` property, as defined in [RFC 9553, Section 2.1.6](https://www.rfc-editor.org/rfc/rfc9553#members),
+// contains a set of UIDs for other contacts that are the members of this group.
 //
 // Clients should consider the group to contain any `ContactCard` with a matching UID, from
 // any account they have access to with support for the `urn:ietf:params:jmap:contacts` capability.
@@ -243,8 +241,6 @@ type ContactCardKind string
 // temporarily loses access to this address book. The UIDs cannot be resolved so the contacts will
 // disappear from the group. However, if they are given permission to access the data again the UIDs
 // will be found and the contacts will reappear.
-//
-// [RFC 9553, Section 2.1.8]: https://www.rfc-editor.org/rfc/rfc9553#members
 type DirectoryKind string
 
 // The kind of the `Calendar` resource.
@@ -257,8 +253,8 @@ type DirectoryKind string
 //
 // Clients often present these separately from other contact cards.
 //
-// The `members` property, as defined in [RFC 9553, Section 2.1.6], contains a set of UIDs for other
-// contacts that are the members of this group.
+// The `members` property, as defined in [RFC 9553, Section 2.1.6](https://www.rfc-editor.org/rfc/rfc9553#members),
+// contains a set of UIDs for other contacts that are the members of this group.
 //
 // Clients should consider the group to contain any `ContactCard` with a matching UID, from
 // any account they have access to with support for the `urn:ietf:params:jmap:contacts` capability.
@@ -269,8 +265,6 @@ type DirectoryKind string
 // temporarily loses access to this address book. The UIDs cannot be resolved so the contacts will
 // disappear from the group. However, if they are given permission to access the data again the UIDs
 // will be found and the contacts will reappear.
-//
-// [RFC 9553, Section 2.1.8]: https://www.rfc-editor.org/rfc/rfc9553#members
 type CalendarKind string
 
 // The kind of the `Link` resource.
@@ -283,8 +277,8 @@ type CalendarKind string
 //
 // Clients often present these separately from other contact cards.
 //
-// The `members` property, as defined in [RFC 9553, Section 2.1.6], contains a set of UIDs for other
-// contacts that are the members of this group.
+// The `members` property, as defined in [RFC 9553, Section 2.1.6]( https://www.rfc-editor.org/rfc/rfc9553#members),
+// contains a set of UIDs for other contacts that are the members of this group.
 //
 // Clients should consider the group to contain any `ContactCard` with a matching UID, from
 // any account they have access to with support for the `urn:ietf:params:jmap:contacts` capability.
@@ -295,8 +289,6 @@ type CalendarKind string
 // temporarily loses access to this address book. The UIDs cannot be resolved so the contacts will
 // disappear from the group. However, if they are given permission to access the data again the UIDs
 // will be found and the contacts will reappear.
-//
-// [RFC 9553, Section 2.1.8]: https://www.rfc-editor.org/rfc/rfc9553#members
 type LinkKind string
 
 // The kind of the `Media` resource.
@@ -309,8 +301,8 @@ type LinkKind string
 //
 // Clients often present these separately from other contact cards.
 //
-// The `members` property, as defined in [RFC 9553, Section 2.1.6], contains a set of UIDs for other
-// contacts that are the members of this group.
+// The `members` property, as defined in [RFC 9553, Section 2.1.6](https://www.rfc-editor.org/rfc/rfc9553#members),
+// contains a set of UIDs for other contacts that are the members of this group.
 //
 // Clients should consider the group to contain any `ContactCard` with a matching UID, from
 // any account they have access to with support for the `urn:ietf:params:jmap:contacts` capability.
@@ -321,8 +313,6 @@ type LinkKind string
 // temporarily loses access to this address book. The UIDs cannot be resolved so the contacts will
 // disappear from the group. However, if they are given permission to access the data again the UIDs
 // will be found and the contacts will reappear.
-//
-// [RFC 9553, Section 2.1.8]: https://www.rfc-editor.org/rfc/rfc9553#members
 type MediaKind string
 
 // The contexts in which to use this resource.
@@ -337,8 +327,8 @@ type MediaKind string
 // Additional contexts may be defined in the properties or data types that make use of this property.
 //
 // The enumerated common context values are:
-// !- `private`: the contact information that may be used in a private context.
-// !- `work`: the contact information that may be used in a professional context.
+// * `private`: the contact information that may be used in a private context.
+// * `work`: the contact information that may be used in a professional context.
 type CalendarContext string
 
 // The contexts in which to use this resource.
@@ -353,8 +343,8 @@ type CalendarContext string
 // Additional contexts may be defined in the properties or data types that make use of this property.
 //
 // The enumerated common context values are:
-// !- `private`: the contact information that may be used in a private context.
-// !- `work`: the contact information that may be used in a professional context.
+// * `private`: the contact information that may be used in a private context.
+// * `work`: the contact information that may be used in a professional context.
 type CryptoKeyContext string
 
 // The contexts in which to use this resource.
@@ -369,8 +359,8 @@ type CryptoKeyContext string
 // Additional contexts may be defined in the properties or data types that make use of this property.
 //
 // The enumerated common context values are:
-// !- `private`: the contact information that may be used in a private context.
-// !- `work`: the contact information that may be used in a professional context.
+// * `private`: the contact information that may be used in a private context.
+// * `work`: the contact information that may be used in a professional context.
 type LinkContext string
 
 // The JSContact version of this Card.
@@ -811,21 +801,21 @@ var (
 // JSON Pointer evaluation algorithm.
 //
 // A patch within a `PatchObject` is only valid if all the following conditions apply:
-// !1. The pointer MAY reference inside an array, but if the last reference token in the pointer is an array index,
+// 1. The pointer MAY reference inside an array, but if the last reference token in the pointer is an array index,
 // then the patch value MUST NOT be null. The pointer MUST NOT use `"-"` as an array index in any of its reference
 // tokens (i.e., you MUST NOT insert/delete from an array, but you MAY replace the contents of its existing members.
 // To add or remove members, one needs to replace the complete array value).
-// !2. All reference tokens prior to the last (i.e., the value after the final slash) MUST already exist as values
+// 2. All reference tokens prior to the last (i.e., the value after the final slash) MUST already exist as values
 // in the object being patched. If the last reference token is an array index, then a member at this index MUST
 // already exist in the referenced array.
-// !3. There MUST NOT be two patches in the `PatchObject` where the pointer of
+// 3. There MUST NOT be two patches in the `PatchObject` where the pointer of
 // one is the prefix of the pointer of the other, e.g., `"addresses/1/city"` and `"addresses"`.
-// !4. The value for the patch MUST be valid for the property being set (of the correct type and obeying any
+// 4. The value for the patch MUST be valid for the property being set (of the correct type and obeying any
 // other applicable restrictions), or if null, the property MUST be optional.
 //
 // The value associated with each pointerdetermines how to apply that patch:
-// !- If null, remove the property from the patched object. If the key is not present in the parent, this is a no-op.
-// !- If non-null, set the value given as the value for this property (this may be a replacement or addition to the
+// * If null, remove the property from the patched object. If the key is not present in the parent, this is a no-op.
+// * If non-null, set the value given as the value for this property (this may be a replacement or addition to the
 // object being patched).
 //
 // A `PatchObject` does not define its own `@type` property. Instead, the `@type` property in a patch MUST be handled
@@ -834,8 +824,6 @@ var (
 // Implementations MUST reject a `PatchObject` in its entirety if any of its patches are invalid.
 //
 // Implementations MUST NOT apply partial patches.
-//
-// [RFC6901]: https://www.rfc-editor.org/rfc/rfc6901.html
 type PatchObject map[string]any
 
 type Calendar struct {
@@ -854,8 +842,8 @@ type Calendar struct {
 	//
 	// Clients often present these separately from other contact cards.
 	//
-	// The `members` property, as defined in [RFC 9553, Section 2.1.6], contains a set of UIDs for other
-	// contacts that are the members of this group.
+	// The `members` property, as defined in [RFC 9553, Section 2.1.6](https://www.rfc-editor.org/rfc/rfc9553#members),
+	// contains a set of UIDs for other contacts that are the members of this group.
 	//
 	// Clients should consider the group to contain any `ContactCard` with a matching UID, from
 	// any account they have access to with support for the `urn:ietf:params:jmap:contacts` capability.
@@ -866,20 +854,14 @@ type Calendar struct {
 	// temporarily loses access to this address book. The UIDs cannot be resolved so the contacts will
 	// disappear from the group. However, if they are given permission to access the data again the UIDs
 	// will be found and the contacts will reappear.
-	//
-	// [RFC 9553, Section 2.1.8]: https://www.rfc-editor.org/rfc/rfc9553#members
 	Kind CalendarKind `json:"kind,omitempty"`
 
 	// The resource value.
 	//
-	// This MUST be a URI as defined in [Section 3 of RFC3986].
-	//
-	// [Section 3 of RFC3986]: https://www.rfc-editor.org/rfc/rfc3986.html#section-3
+	// This MUST be a URI as defined in [Section 3 of RFC3986](https://www.rfc-editor.org/rfc/rfc3986.html#section-3).
 	Uri string `json:"uri,omitempty"`
 
-	// The [RFC2046 media type] of the resource identified by the uri property value.
-	//
-	// [RFC2046 media type]: https://www.rfc-editor.org/rfc/rfc2046.html
+	// The [RFC2046 media type](https://www.rfc-editor.org/rfc/rfc2046.html) of the resource identified by the uri property value.
 	MediaType string `json:"mediaType,omitempty"`
 
 	// The contexts in which to use this resource.
@@ -894,11 +876,11 @@ type Calendar struct {
 	// Additional contexts may be defined in the properties or data types that make use of this property.
 	//
 	// The enumerated common context values are:
-	// !- `private`: the contact information that may be used in a private context.
-	// !- `work`: the contact information that may be used in a professional context.
+	// * `private`: the contact information that may be used in a private context.
+	// * `work`: the contact information that may be used in a professional context.
 	Contexts map[CalendarContext]bool `json:"contexts,omitempty"`
 
-	// The [preference] of the resource in relation to other resources.
+	// The [preference](https://www.rfc-editor.org/rfc/rfc9553.html#prop-pref) of the resource in relation to other resources.
 	//
 	// A preference order for contact information.
 	//
@@ -912,11 +894,9 @@ type Calendar struct {
 	// Note that the preference is only defined in relation to contact information of the same type.
 	//
 	// For example, the preference orders within emails and phone numbers are independent of each other.
-	//
-	// [preference]: https://www.rfc-editor.org/rfc/rfc9553.html#prop-pref
 	Pref uint `json:"pref,omitzero"`
 
-	// A [custom label] for the value.
+	// A [custom label](https://www.rfc-editor.org/rfc/rfc9553.html#prop-label) for the value.
 	//
 	// The labels associated with the contact data.
 	//
@@ -925,8 +905,6 @@ type Calendar struct {
 	// Typically, these labels are displayed along with their associated contact data in graphical user interfaces.
 	//
 	// Note that succinct labels are best for proper display on small graphical interfaces and screens.
-	//
-	// [custom label]: https://www.rfc-editor.org/rfc/rfc9553.html#prop-label
 	Label string `json:"label,omitempty"`
 }
 
@@ -938,14 +916,10 @@ type CryptoKey struct {
 
 	// The resource value.
 	//
-	// This MUST be a URI as defined in [Section 3 of RFC3986].
-	//
-	// [Section 3 of RFC3986]: https://www.rfc-editor.org/rfc/rfc3986.html#section-3
+	// This MUST be a URI as defined in [Section 3 of RFC3986](https://www.rfc-editor.org/rfc/rfc3986.html#section-3).
 	Uri string `json:"uri,omitempty"`
 
-	// The [RFC2046 media type] of the resource identified by the uri property value.
-	//
-	// [RFC2046 media type]: https://www.rfc-editor.org/rfc/rfc2046.html
+	// The [RFC2046 media type](https://www.rfc-editor.org/rfc/rfc2046.html) of the resource identified by the uri property value.
 	MediaType string `json:"mediaType,omitempty"`
 
 	// The contexts in which to use this resource.
@@ -960,11 +934,11 @@ type CryptoKey struct {
 	// Additional contexts may be defined in the properties or data types that make use of this property.
 	//
 	// The enumerated common context values are:
-	// !- `private`: the contact information that may be used in a private context.
-	// !- `work`: the contact information that may be used in a professional context.
+	// * `private`: the contact information that may be used in a private context.
+	// * `work`: the contact information that may be used in a professional context.
 	Contexts map[CryptoKeyContext]bool `json:"contexts,omitempty"`
 
-	// The [preference] of the resource in relation to other resources.
+	// The [preference](https://www.rfc-editor.org/rfc/rfc9553.html#prop-pref) of the resource in relation to other resources.
 	//
 	// A preference order for contact information.
 	//
@@ -978,11 +952,9 @@ type CryptoKey struct {
 	// Note that the preference is only defined in relation to contact information of the same type.
 	//
 	// For example, the preference orders within emails and phone numbers are independent of each other.
-	//
-	// [preference]: https://www.rfc-editor.org/rfc/rfc9553.html#prop-pref
 	Pref uint `json:"pref,omitzero"`
 
-	// A [custom label] for the value.
+	// A [custom label](https://www.rfc-editor.org/rfc/rfc9553.html#prop-label) for the value.
 	//
 	// The labels associated with the contact data.
 	//
@@ -991,8 +963,6 @@ type CryptoKey struct {
 	// Typically, these labels are displayed along with their associated contact data in graphical user interfaces.
 	//
 	// Note that succinct labels are best for proper display on small graphical interfaces and screens.
-	//
-	// [custom label]: https://www.rfc-editor.org/rfc/rfc9553.html#prop-label
 	Label string `json:"label,omitempty"`
 }
 
@@ -1012,8 +982,8 @@ type Link struct {
 	//
 	// Clients often present these separately from other contact cards.
 	//
-	// The `members` property, as defined in [RFC 9553, Section 2.1.6], contains a set of UIDs for other
-	// contacts that are the members of this group.
+	// The `members` property, as defined in [RFC 9553, Section 2.1.6](https://www.rfc-editor.org/rfc/rfc9553#members),
+	// contains a set of UIDs for other contacts that are the members of this group.
 	//
 	// Clients should consider the group to contain any `ContactCard` with a matching UID, from
 	// any account they have access to with support for the `urn:ietf:params:jmap:contacts` capability.
@@ -1024,20 +994,14 @@ type Link struct {
 	// temporarily loses access to this address book. The UIDs cannot be resolved so the contacts will
 	// disappear from the group. However, if they are given permission to access the data again the UIDs
 	// will be found and the contacts will reappear.
-	//
-	// [RFC 9553, Section 2.1.8]: https://www.rfc-editor.org/rfc/rfc9553#members
 	Kind LinkKind `json:"kind,omitempty"`
 
 	// The resource value.
 	//
-	// This MUST be a URI as defined in [Section 3 of RFC3986].
-	//
-	// [Section 3 of RFC3986]: https://www.rfc-editor.org/rfc/rfc3986.html#section-3
+	// This MUST be a URI as defined in [Section 3 of RFC3986](https://www.rfc-editor.org/rfc/rfc3986.html#section-3).
 	Uri string `json:"uri,omitempty"`
 
-	// The [RFC2046 media type] of the resource identified by the uri property value.
-	//
-	// [RFC2046 media type]: https://www.rfc-editor.org/rfc/rfc2046.html
+	// The [RFC2046 media type](https://www.rfc-editor.org/rfc/rfc2046.html) of the resource identified by the uri property value.
 	MediaType string `json:"mediaType,omitempty"`
 
 	// The contexts in which to use this resource.
@@ -1052,11 +1016,11 @@ type Link struct {
 	// Additional contexts may be defined in the properties or data types that make use of this property.
 	//
 	// The enumerated common context values are:
-	// !- `private`: the contact information that may be used in a private context.
-	// !- `work`: the contact information that may be used in a professional context.
+	// * `private`: the contact information that may be used in a private context.
+	// * `work`: the contact information that may be used in a professional context.
 	Contexts map[LinkContext]bool `json:"contexts,omitempty"`
 
-	// The [preference] of the resource in relation to other resources.
+	// The [preference](https://www.rfc-editor.org/rfc/rfc9553.html#prop-pref) of the resource in relation to other resources.
 	//
 	// A preference order for contact information.
 	//
@@ -1070,11 +1034,9 @@ type Link struct {
 	// Note that the preference is only defined in relation to contact information of the same type.
 	//
 	// For example, the preference orders within emails and phone numbers are independent of each other.
-	//
-	// [preference]: https://www.rfc-editor.org/rfc/rfc9553.html#prop-pref
 	Pref uint `json:"pref,omitzero"`
 
-	// A [custom label] for the value.
+	// A [custom label](https://www.rfc-editor.org/rfc/rfc9553.html#prop-label) for the value.
 	//
 	// The labels associated with the contact data.
 	//
@@ -1083,8 +1045,6 @@ type Link struct {
 	// Typically, these labels are displayed along with their associated contact data in graphical user interfaces.
 	//
 	// Note that succinct labels are best for proper display on small graphical interfaces and screens.
-	//
-	// [custom label]: https://www.rfc-editor.org/rfc/rfc9553.html#prop-label
 	Label string `json:"label,omitempty"`
 }
 
@@ -1104,8 +1064,8 @@ type Directory struct {
 	//
 	// Clients often present these separately from other contact cards.
 	//
-	// The `members` property, as defined in [RFC 9553, Section 2.1.6], contains a set of UIDs for other
-	// contacts that are the members of this group.
+	// The `members` property, as defined in [RFC 9553, Section 2.1.6](https://www.rfc-editor.org/rfc/rfc9553#members),
+	// contains a set of UIDs for other contacts that are the members of this group.
 	//
 	// Clients should consider the group to contain any `ContactCard` with a matching UID, from
 	// any account they have access to with support for the `urn:ietf:params:jmap:contacts` capability.
@@ -1116,20 +1076,14 @@ type Directory struct {
 	// temporarily loses access to this address book. The UIDs cannot be resolved so the contacts will
 	// disappear from the group. However, if they are given permission to access the data again the UIDs
 	// will be found and the contacts will reappear.
-	//
-	// [RFC 9553, Section 2.1.8]: https://www.rfc-editor.org/rfc/rfc9553#members
 	Kind DirectoryKind `json:"kind,omitempty"`
 
 	// The resource value.
 	//
-	// This MUST be a URI as defined in Section 3 of [RFC3986-section3].
-	//
-	// [RFC3986-section3]: https://www.rfc-editor.org/rfc/rfc3986.html#section-3
+	// This MUST be a URI as defined in Section 3 of [RFC3986-section3](https://www.rfc-editor.org/rfc/rfc3986.html#section-3).
 	Uri string `json:"uri,omitempty"`
 
-	// The [RFC2046 media type] of the resource identified by the uri property value.
-	//
-	// [RFC2046 media type]: https://www.rfc-editor.org/rfc/rfc2046.html
+	// The [RFC2046 media type](https://www.rfc-editor.org/rfc/rfc2046.html) of the resource identified by the uri property value.
 	MediaType string `json:"mediaType,omitempty"`
 
 	// The contexts in which to use this resource.
@@ -1144,11 +1098,11 @@ type Directory struct {
 	// Additional contexts may be defined in the properties or data types that make use of this property.
 	//
 	// The enumerated common context values are:
-	// !- `private`: the contact information that may be used in a private context.
-	// !- `work`: the contact information that may be used in a professional context.
+	// * `private`: the contact information that may be used in a private context.
+	// * `work`: the contact information that may be used in a professional context.
 	Contexts map[DirectoryContext]bool `json:"contexts,omitempty"`
 
-	// The [preference] of the resource in relation to other resources.
+	// The [preference](https://www.rfc-editor.org/rfc/rfc9553.html#prop-pref) of the resource in relation to other resources.
 	//
 	// A preference order for contact information.
 	//
@@ -1162,11 +1116,9 @@ type Directory struct {
 	// Note that the preference is only defined in relation to contact information of the same type.
 	//
 	// For example, the preference orders within emails and phone numbers are independent of each other.
-	//
-	// [preference]: https://www.rfc-editor.org/rfc/rfc9553.html#prop-pref
 	Pref uint `json:"pref,omitzero"`
 
-	// A [custom label] for the value.
+	// A [custom label](https://www.rfc-editor.org/rfc/rfc9553.html#prop-label) for the value.
 	//
 	// The labels associated with the contact data.
 	//
@@ -1175,8 +1127,6 @@ type Directory struct {
 	// Typically, these labels are displayed along with their associated contact data in graphical user interfaces.
 	//
 	// Note that succinct labels are best for proper display on small graphical interfaces and screens.
-	//
-	// [custom label]: https://www.rfc-editor.org/rfc/rfc9553.html#prop-label
 	Label string `json:"label,omitempty"`
 
 	// The position of the directory resource in the list of all `Directory` objects having the same kind property
@@ -1208,8 +1158,8 @@ type Media struct {
 	//
 	// Clients often present these separately from other contact cards.
 	//
-	// The `members` property, as defined in [RFC 9553, Section 2.1.6], contains a set of UIDs for other
-	// contacts that are the members of this group.
+	// The `members` property, as defined in [RFC 9553, Section 2.1.6](https://www.rfc-editor.org/rfc/rfc9553#members),
+	// contains a set of UIDs for other contacts that are the members of this group.
 	//
 	// Clients should consider the group to contain any `ContactCard` with a matching UID, from
 	// any account they have access to with support for the `urn:ietf:params:jmap:contacts` capability.
@@ -1220,20 +1170,14 @@ type Media struct {
 	// temporarily loses access to this address book. The UIDs cannot be resolved so the contacts will
 	// disappear from the group. However, if they are given permission to access the data again the UIDs
 	// will be found and the contacts will reappear.
-	//
-	// [RFC 9553, Section 2.1.8]: https://www.rfc-editor.org/rfc/rfc9553#members
 	Kind MediaKind `json:"kind,omitempty"`
 
 	// The resource value.
 	//
-	// This MUST be a URI as defined in Section 3 of [RFC3986-section3].
-	//
-	// [RFC3986-section3]: https://www.rfc-editor.org/rfc/rfc3986.html#section-3
+	// This MUST be a URI as defined in Section 3 of [RFC3986-section3](https://www.rfc-editor.org/rfc/rfc3986.html#section-3).
 	Uri string `json:"uri,omitempty"`
 
-	// The [RFC2046 media type] of the resource identified by the uri property value.
-	//
-	// [RFC2046 media type]: https://www.rfc-editor.org/rfc/rfc2046.html
+	// The [RFC2046 media type](https://www.rfc-editor.org/rfc/rfc2046.html) of the resource identified by the uri property value.
 	MediaType string `json:"mediaType,omitempty"`
 
 	// The contexts in which to use this resource.
@@ -1248,11 +1192,11 @@ type Media struct {
 	// Additional contexts may be defined in the properties or data types that make use of this property.
 	//
 	// The enumerated common context values are:
-	// !- `private`: the contact information that may be used in a private context.
-	// !- `work`: the contact information that may be used in a professional context.
+	// * `private`: the contact information that may be used in a private context.
+	// * `work`: the contact information that may be used in a professional context.
 	Contexts map[MediaContext]bool `json:"contexts,omitempty"`
 
-	// The [preference] of the resource in relation to other resources.
+	// The [preference](https://www.rfc-editor.org/rfc/rfc9553.html#prop-pref) of the resource in relation to other resources.
 	//
 	// A preference order for contact information.
 	//
@@ -1266,11 +1210,9 @@ type Media struct {
 	// Note that the preference is only defined in relation to contact information of the same type.
 	//
 	// For example, the preference orders within emails and phone numbers are independent of each other.
-	//
-	// [preference]: https://www.rfc-editor.org/rfc/rfc9553.html#prop-pref
 	Pref uint `json:"pref,omitzero"`
 
-	// A [custom label] for the value.
+	// A [custom label](https://www.rfc-editor.org/rfc/rfc9553.html#prop-label) for the value.
 	//
 	// The labels associated with the contact data.
 	//
@@ -1279,8 +1221,6 @@ type Media struct {
 	// Typically, these labels are displayed along with their associated contact data in graphical user interfaces.
 	//
 	// Note that succinct labels are best for proper display on small graphical interfaces and screens.
-	//
-	// [custom label]: https://www.rfc-editor.org/rfc/rfc9553.html#prop-label
 	Label string `json:"label,omitempty"`
 
 	// An id for the Blob representing the binary contents of the resource.
@@ -1307,30 +1247,28 @@ type Relation struct {
 	//
 	// The relationship between the two objects is undefined if the set is empty.
 	//
-	// The initial list of enumerated relation types matches the IANA-registered TYPE `IANA-vCard``
-	// parameter values of the vCard RELATED property ([Section 6.6.6 of RFC6350]):
-	// !- `acquaintance`
-	// !- `agent`
-	// !- `child`
-	// !- `co-resident`
-	// !- `co-worker`
-	// !- `colleague`
-	// !- `contact`
-	// !- `crush`
-	// !- `date`
-	// !- `emergency`
-	// !- `friend`
-	// !- `kin`
-	// !- `me`
-	// !- `met`
-	// !- `muse`
-	// !- `neighbor`
-	// !- `parent`
-	// !- `sibling`
-	// !- `spouse`
-	// !- `sweetheart`
-	//
-	// [Section 6.6.6 of RFC6350]: https://www.rfc-editor.org/rfc/rfc6350.html#section-6.6.6
+	// The initial list of enumerated relation types matches the IANA-registered TYPE `IANA-vCard`
+	// parameter values of the vCard RELATED property ([Section 6.6.6 of RFC6350](https://www.rfc-editor.org/rfc/rfc6350.html#section-6.6.6)):
+	// * `acquaintance`
+	// * `agent`
+	// * `child`
+	// * `co-resident`
+	// * `co-worker`
+	// * `colleague`
+	// * `contact`
+	// * `crush`
+	// * `date`
+	// * `emergency`
+	// * `friend`
+	// * `kin`
+	// * `me`
+	// * `met`
+	// * `muse`
+	// * `neighbor`
+	// * `parent`
+	// * `sibling`
+	// * `spouse`
+	// * `sweetheart`
 	Relation map[Relationship]bool `json:"relation,omitempty"`
 }
 
@@ -1345,14 +1283,14 @@ type NameComponent struct {
 
 	// The kind of the name component.
 	//
-	// !- `title`: an honorific title or prefix, e.g., `Mr.`, `Ms.`, or `Dr.`
-	// !- `given`: a given name, also known as "first name" or "personal name"
-	// !- `given2`: a name that appears between the given and surname such as a middle name or patronymic name
-	// !- `surname`: a surname, also known as "last name" or "family name"
-	// !- `surname2`: a secondary surname (used in some cultures), also known as "maternal surname"
-	// !- `credential`: a credential, also known as "accreditation qualifier" or "honorific suffix", e.g., `B.A.`, `Esq.`
-	// !- `generation`: a generation marker or qualifier, e.g., `Jr.` or `III`
-	// !- `separator`: a formatting separator between two ordered name non-separator components; the value property of the component includes the verbatim separator, for example, a hyphen character or even an empty string. This value has higher precedence than the defaultSeparator property of the Name. Implementations MUST NOT insert two consecutive separator components; instead, they SHOULD insert a single separator component with the combined value; this component kind MUST NOT be set if the `Name` `isOrdered` property value is `false`
+	// * `title`: an honorific title or prefix, e.g., `Mr.`, `Ms.`, or `Dr.`
+	// * `given`: a given name, also known as "first name" or "personal name"
+	// * `given2`: a name that appears between the given and surname such as a middle name or patronymic name
+	// * `surname`: a surname, also known as "last name" or "family name"
+	// * `surname2`: a secondary surname (used in some cultures), also known as "maternal surname"
+	// * `credential`: a credential, also known as "accreditation qualifier" or "honorific suffix", e.g., `B.A.`, `Esq.`
+	// * `generation`: a generation marker or qualifier, e.g., `Jr.` or `III`
+	// * `separator`: a formatting separator between two ordered name non-separator components; the value property of the component includes the verbatim separator, for example, a hyphen character or even an empty string. This value has higher precedence than the defaultSeparator property of the Name. Implementations MUST NOT insert two consecutive separator components; instead, they SHOULD insert a single separator component with the combined value; this component kind MUST NOT be set if the `Name` `isOrdered` property value is `false`
 	Kind NameComponentKind `json:"kind"`
 
 	// The pronunciation of the name component.
@@ -1482,8 +1420,8 @@ type Title struct {
 	// positions and roles as more temporary assignments such as in project management.
 	//
 	// The enumerated values are:
-	// !- `title`
-	// !- `role`
+	// * `title`
+	// * `role`
 	Kind TitleKind `json:"kind,omitempty"`
 
 	// The identifier of the organization in which this title is held.
@@ -1500,12 +1438,12 @@ type SpeakToAs struct {
 	// `Sehr geehrte` (feminine) and `Sehr geehrter` (masculine).
 	//
 	// The enumerated values are:
-	// !- `animate`
-	// !- `common`
-	// !- `feminine`
-	// !- `inanimate`
-	// !- `masculine`
-	// !- `neuter`
+	// * `animate`
+	// * `common`
+	// * `feminine`
+	// * `inanimate`
+	// * `masculine`
+	// * `neuter`
 	//
 	// Note that the grammatical gender does not allow inferring the gender identities or assigned
 	// sex of the contact.
@@ -1540,9 +1478,7 @@ type Name struct {
 	Components []NameComponent `json:"components,omitempty"`
 
 	// The indicator if the name components in the components property are ordered.
-	//
-	// default: false
-	IsOrdered bool `json:"isOrdered,omitzero"`
+	IsOrdered bool `json:"isOrdered,omitzero" doc:"opt" default:"false"`
 
 	// The default separator to insert between name component values when concatenating all name component values to a single String.
 	//
@@ -1550,15 +1486,11 @@ type Name struct {
 	//
 	// The `defaultSeparator` property MUST NOT be set if the `Name` `isOrdered` property value is `false` or if
 	// the components property is not set.
-	//
-	// example: {"name": {  "components": [{ "kind": "given", "value": "Diego" }, { "kind": "surname", "value": "Rivera" }, { "kind": "surname2", "value": "Barrientos" }], "isOrdered": true}
 	DefaultSeparator string `json:"defaultSeparator,omitempty"`
 
 	// The full name representation of the `Name`.
 	//
 	// The `full` property MUST be set if the components property is not set.
-	//
-	// example: Mr. John Q. Public, Esq.
 	Full string `json:"full,omitempty"`
 
 	// The value to lexicographically sort the name in relation to other names when compared by a name component type.
@@ -1594,9 +1526,7 @@ type EmailAddress struct {
 
 	// The email address.
 	//
-	// This MUST be an addr-spec value as defined in [Section 3.4.1 of RFC5322].
-	//
-	// [Section 3.4.1 of RFC5322]: https://www.rfc-editor.org/rfc/rfc5322.html#section-3.4.1
+	// This MUST be an addr-spec value as defined in [Section 3.4.1 of RFC5322](https://www.rfc-editor.org/rfc/rfc5322.html#section-3.4.1).
 	Address string `json:"address"`
 
 	// The contexts in which to use this email address.
@@ -1682,9 +1612,6 @@ type Phone struct {
 	// The phone number as either a URI or free text.
 	//
 	// Typical URI schemes are `tel` [RFC3966] or `sip` [RFC3261], but any URI scheme is allowed.
-	//
-	// [RFC3966]: https://www.rfc-editor.org/rfc/rfc3966.html
-	// [RFC3261]: https://www.rfc-editor.org/rfc/rfc3261.html
 	Number string `json:"number"`
 
 	// The set of contact features that the phone number may be used for.
@@ -1694,14 +1621,14 @@ type Phone struct {
 	// The boolean value MUST be `true`.
 	//
 	// The enumerated values are:
-	// !- `mobile`: this number is for a mobile phone
-	// !- `voice`: this number supports calling by voice
-	// !- `text`: this number supports text messages (SMS)
-	// !- `video`: this number supports video conferencing
-	// !- `main-number`: this number is a main phone number such as the number of the front desk at a company, as opposed to a direct-dial number of an individual employee
-	// !- `textphone`: this number is for a device for people with hearing or speech difficulties
-	// !- `fax`: this number supports sending faxes
-	// !- `pager`: this number is for a pager or beeper
+	// * `mobile`: this number is for a mobile phone
+	// * `voice`: this number supports calling by voice
+	// * `text`: this number supports text messages (SMS)
+	// * `video`: this number supports video conferencing
+	// * `main-number`: this number is a main phone number such as the number of the front desk at a company, as opposed to a direct-dial number of an individual employee
+	// * `textphone`: this number is for a device for people with hearing or speech difficulties
+	// * `fax`: this number supports sending faxes
+	// * `pager`: this number is for a pager or beeper
 	Features map[PhoneFeature]bool `json:"features,omitempty"`
 
 	// The contexts in which to use the number.
@@ -1739,8 +1666,6 @@ type LanguagePref struct {
 	// The preferred language.
 	//
 	// This MUST be a language tag as defined in [RFC5646].
-	//
-	// [RFC5646]: https://www.rfc-editor.org/rfc/rfc5646.html
 	Language string `json:"language"`
 
 	// The contexts in which to use the language.
@@ -1807,24 +1732,24 @@ type AddressComponent struct {
 	// The kind of the address component.
 	//
 	// The enumerated values are:
-	// ! `room`: the room, suite number, or identifier
-	// ! `apartment`: the extension designation such as the apartment number, unit, or box number
-	// ! `floor`: the floor or level the address is located on
-	// ! `building`: the building, tower, or condominium the address is located in
-	// ! `number`: the street number, e.g., `"123"`; this value is not restricted to numeric values and can include any value such
+	// * `room`: the room, suite number, or identifier
+	// * `apartment`: the extension designation such as the apartment number, unit, or box number
+	// * `floor`: the floor or level the address is located on
+	// * `building`: the building, tower, or condominium the address is located in
+	// * `number`: the street number, e.g., `"123"`; this value is not restricted to numeric values and can include any value such
 	// as number ranges (`"112-10"`), grid style (`"39.2 RD"`), alphanumerics (`"N6W23001"`), or fractionals (`"123 1/2"`)
-	// ! `name`: the street name
-	// ! `block`: the block name or number
-	// ! `subdistrict`: the subdistrict, ward, or other subunit of a district
-	// ! `district`: the district name
-	// ! `locality`: the municipality, city, town, village, post town, or other locality
-	// ! `region`: the administrative area such as province, state, prefecture, county, or canton
-	// ! `postcode`: the postal code, post code, ZIP code, or other short code associated with the address by the relevant country's postal system
-	// ! `country`: the country name
-	// ! `direction`: the cardinal direction or quadrant, e.g., "north"
-	// ! `landmark`: the publicly known prominent feature that can substitute the street name and number, e.g., "White House" or "Taj Mahal"
-	// ! `postOfficeBox`: the post office box number or identifier
-	// ! `separator`: a formatting separator between two ordered address non-separator components; the value property of the component includes the
+	// * `name`: the street name
+	// * `block`: the block name or number
+	// * `subdistrict`: the subdistrict, ward, or other subunit of a district
+	// * `district`: the district name
+	// * `locality`: the municipality, city, town, village, post town, or other locality
+	// * `region`: the administrative area such as province, state, prefecture, county, or canton
+	// * `postcode`: the postal code, post code, ZIP code, or other short code associated with the address by the relevant country's postal system
+	// * `country`: the country name
+	// * `direction`: the cardinal direction or quadrant, e.g., "north"
+	// * `landmark`: the publicly known prominent feature that can substitute the street name and number, e.g., "White House" or "Taj Mahal"
+	// * `postOfficeBox`: the post office box number or identifier
+	// * `separator`: a formatting separator between two ordered address non-separator components; the value property of the component includes the
 	// verbatim separator, for example, a hyphen character or even an empty string; this value has higher precedence than the `defaultSeparator` property
 	// of the `Address`; implementations MUST NOT insert two consecutive separator components; instead, they SHOULD insert a single separator component
 	// with the combined value; this component kind MUST NOT be set if the `Address` `isOrdered` property value is `false`.
@@ -1861,25 +1786,17 @@ type Address struct {
 	Components []AddressComponent `json:"components,omitempty"`
 
 	// The indicator if the address components in the components property are ordered
-	//
-	// default: false
-	IsOrdered bool `json:"isOrdered,omitzero"`
+	IsOrdered bool `json:"isOrdered,omitzero" doc:"opt" default:"false"`
 
-	// The Alpha-2 country code as of [ISO.3166-1].
-	//
-	// [ISO.3166-1]: https://www.iso.org/iso-3166-country-codes.html
+	// The Alpha-2 country code as of [ISO.3166-1](https://www.iso.org/iso-3166-country-codes.html).
 	CountryCode string `json:"countryCode,omitempty"`
 
 	// A "geo:" URI [RFC5870] for the address.
-	//
-	// [RFC5870]: https://www.rfc-editor.org/rfc/rfc5870.html
 	Coordinates string `json:"coordinates,omitempty"`
 
 	// The time zone in which the address is located.
 	//
-	// This MUST be a time zone name registered in the IANA Time Zone Database [IANA-TZ].
-	//
-	// [IANA-TZ]: https://www.iana.org/time-zones
+	// This MUST be a time zone name registered in the IANA Time Zone Database [IANA-TZ](https://www.iana.org/time-zones).
 	TimeZone string `json:"timeZone,omitempty"`
 
 	// The contexts in which to use this address.
@@ -1887,8 +1804,8 @@ type Address struct {
 	// The boolean value MUST be `true`.
 	//
 	// In addition to the common contexts, allowed key values are:
-	// ! `billing`: an address to be used for billing
-	// ! `delivery`: an address to be used for delivering physical items
+	// * `billing`: an address to be used for billing
+	// * `delivery`: an address to be used for delivering physical items
 	Contexts map[AddressContext]bool `json:"contexts,omitempty"`
 
 	// The full address, including street, region, or country.
@@ -1980,16 +1897,14 @@ type PartialDate struct {
 
 	// The calendar system in which this date occurs, in lowercase.
 	//
-	// This MUST be either a calendar system name registered as a Common Locale Data Repository [CLDR] [RFC7529]
+	// This MUST be either a calendar system name registered as a Common Locale Data Repository
+	// [CLDR](https://github.com/unicode-org/cldr/blob/latest/common/bcp47/calendar.xml); [RFC7529]
 	// or a vendor-specific value.
 	//
 	// The year, month, and day still MUST be represented in the Gregorian calendar.
 	//
 	// Note that the year property might be required to convert the date between the Gregorian calendar
 	// and the respective calendar system.
-	//
-	// [CLDR]: https://github.com/unicode-org/cldr/blob/latest/common/bcp47/calendar.xml
-	// [RFC7529]: https://www.rfc-editor.org/rfc/rfc7529.html
 	CalendarScale string `json:"calendarScale,omitempty"`
 }
 
@@ -2018,9 +1933,9 @@ type Anniversary struct {
 	// The kind of anniversary.
 	//
 	// The enumerated values are:
-	// ! `birth`: a birthday anniversary
-	// ! `death`: a deathday anniversary
-	// ! `wedding`: a wedding day anniversary
+	// * `birth`: a birthday anniversary
+	// * `death`: a deathday anniversary
+	// * `wedding`: a wedding day anniversary
 	Kind AnniversaryKind `json:"kind"`
 
 	// The date of the anniversary in the Gregorian calendar.
@@ -2062,9 +1977,9 @@ type PersonalInfo struct {
 	// The kind of personal information.
 	//
 	// The enumerated values are:
-	// ! `expertise`: a field of expertise or a credential
-	// ! `hobby`: a hobby
-	// ! `interest`: an interest
+	// * `expertise`: a field of expertise or a credential
+	// * `hobby`: a hobby
+	// * `interest`: an interest
 	Kind PersonalInfoKind `json:"kind"`
 
 	// The actual information.
@@ -2073,9 +1988,9 @@ type PersonalInfo struct {
 	// The level of expertise or engagement in hobby or interest.
 	//
 	// The enumerated values are:
-	// ! `high`
-	// ! `medium`
-	// ! `low`
+	// * `high`
+	// * `medium`
+	// * `low`
 	Level PersonalInfoLevel `json:"level,omitempty"`
 
 	// The position of the personal information in the list of all `PersonalInfo` objects that
@@ -2088,7 +2003,7 @@ type PersonalInfo struct {
 	// Sorting such same-valued entries is implementation-specific.
 	ListAs uint `json:"listAs,omitzero"`
 
-	// A [custom label].
+	// A [custom label](https://www.rfc-editor.org/rfc/rfc9553.html#prop-label).
 	//
 	// The labels associated with the contact data.
 	//
@@ -2097,8 +2012,6 @@ type PersonalInfo struct {
 	// Typically, these labels are displayed along with their associated contact data in graphical user interfaces.
 	//
 	// Note that succinct labels are best for proper display on small graphical interfaces and screens.
-	//
-	// [custom label]: https://www.rfc-editor.org/rfc/rfc9553.html#prop-label
 	Label string `json:"label,omitempty"`
 }
 
@@ -2119,16 +2032,12 @@ type PersonalInfo struct {
 // this address book.
 // The UIDs cannot be resolved so the contacts will disappear from the group.
 // However, if they are given permission to access the data again the UIDs will be found and the contacts will reappear.
-//
-// [RFC9553]: https://www.rfc-editor.org/rfc/rfc9553.html
 type ContactCard struct {
 	// The id of the Card (immutable; server-set).
 	//
 	// The id uniquely identifies a Card with a particular “uid” within a particular account.
 	//
 	// This is a JMAP extension and not part of [RFC9553].
-	//
-	// [RFC9553]: https://www.rfc-editor.org/rfc/rfc9553.html
 	Id string `json:"id,omitempty"`
 
 	// The set of AddressBook ids this Card belongs to.
@@ -2140,8 +2049,6 @@ type ContactCard struct {
 	// The value for each key in the object MUST be true.
 	//
 	// This is a JMAP extension and not part of [RFC9553].
-	//
-	// [RFC9553]: https://www.rfc-editor.org/rfc/rfc9553.html
 	AddressBookIds map[string]bool `json:"addressBookIds,omitempty"`
 
 	// The JSContact type of the Card object: the value MUST be "Card".
@@ -2150,26 +2057,20 @@ type ContactCard struct {
 	// The JSContact version of this Card.
 	//
 	// The value MUST be one of the IANA-registered JSContact Version values for the version property.
-	//
-	// example: 1.0
 	Version JSContactVersion `json:"version"`
 
 	// The date and time when the Card was created (UTCDateTime).
-	//
-	// example: 2022-09-30T14:35:10Z
 	Created time.Time `json:"created,omitzero"`
 
-	// The kind of the entity the Card represents (default: `individual``).
+	// The kind of the entity the Card represents (default: `individual`).
 	//
 	// Values are:
-	// !- `individual``: a single person
-	// !- group: a group of people or entities
-	// !- org: an organization
-	// !- location: a named location
-	// !- device: a device such as an appliance, a computer, or a network element
-	// !- application: a software application
-	//
-	// example: individual
+	// * `individual`: a single person
+	// * `group`: a group of people or entities
+	// * `org`: an organization
+	// * `location`: a named location
+	// * `device`: a device such as an appliance, a computer, or a network element
+	// * `application`: a software application
 	Kind ContactCardKind `json:"kind,omitempty"`
 
 	// The language tag, as defined in [RFC5646].
@@ -2178,10 +2079,6 @@ type ContactCard struct {
 	// additional information such as the script.
 	//
 	// Note that values MAY be localized in the `localizations` property.
-	//
-	// [RFC5646]: https://www.rfc-editor.org/rfc/rfc5646.html
-	//
-	// example: de-AT
 	Language string `json:"language,omitempty"`
 
 	// The set of Cards that are members of this group Card.
@@ -2199,8 +2096,6 @@ type ContactCard struct {
 	// The identifier for the product that created the Card.
 	//
 	// If set, the value MUST be at least one character long.
-	//
-	// example: ACME Contacts App version 1.23.5
 	ProdId string `json:"prodId,omitempty"`
 
 	// The set of Card objects that relate to the Card.
@@ -2230,17 +2125,9 @@ type ContactCard struct {
 	// The value of the URN SHOULD be in the "uuid" namespace [RFC9562].
 	//
 	// [RFC9562] describes multiple versions of Universally Unique IDentifiers (UUIDs); UUID version 4 is RECOMMENDED.
-	//
-	// [RFC8141]: https://www.rfc-editor.org/rfc/rfc8141.html
-	// [RFC6350]: https://www.rfc-editor.org/rfc/rfc6350.html
-	// [RFC9562]: https://www.rfc-editor.org/rfc/rfc9562.html
-	//
-	// example: urn:uuid:f81d4fae-7dec-11d0-a765-00a0c91e6bf6
 	Uid string `json:"uid,omitempty"`
 
 	// The date and time when the data in the Card was last modified (UTCDateTime).
-	//
-	// example: 2021-10-31T22:27:10Z
 	Updated time.Time `json:"updated,omitzero"`
 
 	// The name of the entity represented by the Card.
@@ -2277,10 +2164,10 @@ type ContactCard struct {
 	// The calendaring resources of the entity represented by the Card, such as to look up free-busy information.
 	//
 	// A Calendar object has all properties of the Resource data type, with the following additional definitions:
-	// !- The `@type` property value MUST be `Calendar`, if set
-	// !- The `kind` property is mandatory. Its enumerated values are:
-	//   !- `calendar`: The resource is a calendar that contains entries such as calendar events or tasks
-	//   !- `freeBusy`: The resource allows for free-busy lookups, for example, to schedule group events
+	// * The `@type` property value MUST be `Calendar`, if set
+	// * The `kind` property is mandatory. Its enumerated values are:
+	//   * `calendar`: The resource is a calendar that contains entries such as calendar events or tasks
+	//   * `freeBusy`: The resource allows for free-busy lookups, for example, to schedule group events
 	Calendars map[string]Calendar `json:"calendars,omitempty"`
 
 	// The scheduling addresses by which the entity may receive calendar scheduling invitations.
@@ -2295,7 +2182,7 @@ type ContactCard struct {
 	// the `@type` property value MUST be `CryptoKey`, if set.
 	//
 	// The following example shows how to refer to an external cryptographic resource:
-	// ```
+	// ```json
 	// "cryptoKeys": {
 	//   "mykey1": {
 	//     "uri": "https://www.example.com/keys/jdoe.cer"
@@ -2307,32 +2194,32 @@ type ContactCard struct {
 	// The directories containing information about the entity represented by the Card.
 	//
 	// A Directory object has all properties of the `Resource` data type, with the following additional definitions:
-	// !- The `@type` property value MUST be `Directory`, if set
-	// !- The `kind` property is mandatory; tts enumerated values are:
-	//   !- `directory`: the resource is a directory service that the entity represented by the Card is a part of; this
+	// * The `@type` property value MUST be `Directory`, if set
+	// * The `kind` property is mandatory; tts enumerated values are:
+	//   * `directory`: the resource is a directory service that the entity represented by the Card is a part of; this
 	// typically is an organizational directory that also contains associated entities, e.g., co-workers and management
 	// in a company directory
-	//   !- `entry`: the resource is a directory entry of the entity represented by the Card; in contrast to the `directory`
+	//   * `entry`: the resource is a directory entry of the entity represented by the Card; in contrast to the `directory`
 	// type, this is the specific URI for the entity within a directory
 	Directories map[string]Directory `json:"directories,omitempty"`
 
 	// The links to resources that do not fit any of the other use-case-specific resource properties.
 	//
 	// A Link object has all properties of the `Resource` data type, with the following additional definitions:
-	// !- The `@type` property value MUST be `Link`, if set
-	// !- The `kind` property is optional; tts enumerated values are:
-	//   !- `contact``: the resource is a URI by which the entity represented by the Card may be contacted;
+	// * The `@type` property value MUST be `Link`, if set
+	// * The `kind` property is optional; tts enumerated values are:
+	//   * `contact`: the resource is a URI by which the entity represented by the Card may be contacted;
 	// this includes web forms or other media that require user interaction
 	Links map[string]Link `json:"links,omitempty"`
 
 	// The media resources such as photographs, avatars, or sounds that are associated with the entity represented by the Card.
 	//
 	// A Media object has all properties of the Resource data type, with the following additional definitions:
-	// !- the `@type` property value MUST be `Media`, if set
-	// !- the `kind` property is mandatory; its enumerated values are:
-	//   !- `photo`: the resource is a photograph or avatar
-	//   !- `sound`: the resource is audio media, e.g., to specify the proper pronunciation of the name property contents
-	//   !- `logo`: the resource is a graphic image or logo associated with the entity represented by the Card
+	// * the `@type` property value MUST be `Media`, if set
+	// * the `kind` property is mandatory; its enumerated values are:
+	//   * `photo`: the resource is a photograph or avatar
+	//   * `sound`: the resource is audio media, e.g., to specify the proper pronunciation of the name property contents
+	//   * `logo`: the resource is a graphic image or logo associated with the entity represented by the Card
 	Media map[string]Media `json:"media,omitempty"`
 
 	// The property values localized to languages other than the main `language` of the Card.
@@ -2347,19 +2234,17 @@ type ContactCard struct {
 	// A patch MUST NOT target the localizations property.
 	//
 	// Conceptually, a Card is localized as follows:
-	// !- Determine the language tag in which the Card should be localized.
-	// !- If the localizations property includes a key for that language, obtain the PatchObject value;
+	// * Determine the language tag in which the Card should be localized.
+	// * If the localizations property includes a key for that language, obtain the PatchObject value;
 	// if there is no such key, stop.
-	// !- Create a copy of the Card, but do not copy the localizations property.
-	// !- Apply all patches in the PatchObject to the copy of the Card.
-	// !- Optionally, set the language property in the copy of the Card.
-	// !- Use the patched copy of the Card as the localized variant of the original Card.
+	// * Create a copy of the Card, but do not copy the localizations property.
+	// * Apply all patches in the PatchObject to the copy of the Card.
+	// * Optionally, set the language property in the copy of the Card.
+	// * Use the patched copy of the Card as the localized variant of the original Card.
 	//
 	// A patch in the `PatchObject` may contain any value type.
 	//
 	// Its value MUST be a valid value according to the definition of the patched property.
-	//
-	// [RFC5646]: https://www.rfc-editor.org/rfc/rfc5646.html
 	Localizations map[string]PatchObject `json:"localizations,omitempty"`
 
 	// The memorable dates and events for the entity represented by the Card.

@@ -756,20 +756,20 @@ func (t *LocalDateTime) UnmarshalJSON(b []byte) error {
 // JSON Pointer evaluation algorithm.
 //
 // A patch within a `PatchObject` is only valid if all of the following conditions apply:
-// !1. The pointer MUST NOT reference inside an array (i.e., you MUST NOT insert/delete
+// 1. The pointer MUST NOT reference inside an array (i.e., you MUST NOT insert/delete
 // from an array; the array MUST be replaced in its entirety instead).
-// !2. All parts prior to the last (i.e., the value after the final slash) MUST already
+// 2. All parts prior to the last (i.e., the value after the final slash) MUST already
 // exist on the object being patched.
-// !3. There MUST NOT be two patches in the `PatchObject` where the pointer of one is
+// 3. There MUST NOT be two patches in the `PatchObject` where the pointer of one is
 // the prefix of the pointer of the other, e.g., `alerts/1/offset` and `alerts`.
-// !4. The value for the patch MUST be valid for the property being set (of the correct
+// 4. The value for the patch MUST be valid for the property being set (of the correct
 // type and obeying any other applicable restrictions), or, if null, the property
 // MUST be optional.
 //
 // The value associated with each pointer determines how to apply that patch:
-// !- If null, remove the property from the patched object. If the key is not present in the parent,
+// * If null, remove the property from the patched object. If the key is not present in the parent,
 // this a no-op.
-// !- If non-null, set the value given as the value for this property (this may be a replacement
+// * If non-null, set the value given as the value for this property (this may be a replacement
 // or addition to the object being patched).
 //
 // A `PatchObject` does not define its own `@type` property.
@@ -808,10 +808,10 @@ type Relation struct {
 	//
 	// Keys in the set MUST be one of the following values, specified in the
 	// property definition where the `Relation` object is used:
-	// !- `first`: The linked object is the first in a series the linking object is part of.
-	// !- `next`: The linked object is next in a series the linking object is part of.
-	// !- `child`: The linked object is a subpart of the linking object.
-	// !- `parent`: The linking object is a subpart of the linked object.
+	// * `first`: The linked object is the first in a series the linking object is part of.
+	// * `next`: The linked object is next in a series the linking object is part of.
+	// * `child`: The linked object is a subpart of the linking object.
+	// * `parent`: The linking object is a subpart of the linked object.
 	//
 	// The value for each key in the map MUST be true.
 	Relation map[Relationship]bool `json:"relation,omitempty"`
@@ -850,10 +850,10 @@ type Link struct {
 	// If set, the `rel` property MUST be set to icon.
 	//
 	// The value MUST be one of the following values:
-	// !- `badge`: an image meant to be displayed alongside the title of the object
-	// !- `graphic`: a full image replacement for the object itself
-	// !- `fullsize`: an image that is used to enhance the object
-	// !- `thumbnail`: a smaller variant of fullsize to be used when space for the image is constrained
+	// * `badge`: an image meant to be displayed alongside the title of the object
+	// * `graphic`: a full image replacement for the object itself
+	// * `fullsize`: an image that is used to enhance the object
+	// * `thumbnail`: a smaller variant of fullsize to be used when space for the image is constrained
 	Display Display `json:"display,omitempty"`
 
 	// This is a human-readable, plain-text description of the resource.
@@ -909,13 +909,13 @@ type VirtualLocation struct {
 	//
 	// The feature MUST be one of the following values; any value the client or server
 	// doesn't understand should be treated the same as if this feature is omitted:
-	// !- `audio`: Audio conferencing
-	// !- `chat`: Chat or instant messaging
-	// !- `feed`: Blog or atom feed
-	// !- `moderator`: Provides moderator-specific features
-	// !- `phone`: Phone conferencing
-	// !- `screen`: Screen sharing
-	// !- `video`: Video conferencing
+	// * `audio`: Audio conferencing
+	// * `chat`: Chat or instant messaging
+	// * `feed`: Blog or atom feed
+	// * `moderator`: Provides moderator-specific features
+	// * `phone`: Phone conferencing
+	// * `screen`: Screen sharing
+	// * `video`: Video conferencing
 	Features map[VirtualLocationFeature]bool `json:"features,omitempty"`
 }
 
@@ -953,13 +953,13 @@ type RecurrenceRule struct {
 	// This is the time span covered by each iteration of this recurrence rule.
 	//
 	// This MUST be one of the following values:
-	// !- `yearly`
-	// !- `monthly`
-	// !- `weekly`
-	// !- `daily`
-	// !- `hourly`
-	// !- `minutely`
-	// !- `secondly`
+	// * `yearly`
+	// * `monthly`
+	// * `weekly`
+	// * `daily`
+	// * `hourly`
+	// * `minutely`
+	// * `secondly`
 	//
 	// This is the `FREQ` part from iCalendar, converted to lowercase.
 	Frequency Frequency `json:"frequency,omitempty"`
@@ -969,53 +969,42 @@ type RecurrenceRule struct {
 	// If included, it MUST be an integer >= `1`.
 	//
 	// This is the `INTERVAL` part from iCalendar.
-	//
-	// Default: 1
-	Interval uint `json:"interval,omitzero"`
+	Interval uint `json:"interval,omitzero" doc:"opt" default:"1"`
 
 	// This is the calendar system in which this recurrence rule operates, in lowercase.
 	//
-	// This MUST be either a CLDR-registered calendar system name [CLDR] or a vendor-specific
-	// value.
+	// This MUST be either a CLDR-registered calendar system name [CLDR](https://github.com/unicode-org/cldr/blob/latest/common/bcp47/calendar.xml)
+	// or a vendor-specific value.
 	//
 	// This is the `RSCALE` part from iCalendar RSCALE [RFC7529], converted to lowercase.
-	//
-	// Default: gregorian
-	//
-	// [CLDR]: https://github.com/unicode-org/cldr/blob/latest/common/bcp47/calendar.xml
-	// [RFC7529]: https://www.rfc-editor.org/rfc/rfc7529.html
-	Rscale string `json:"rscale,omitempty"`
+	Rscale string `json:"rscale,omitempty" doc:"opt" default:"gregorian"`
 
 	// This is the behavior to use when the expansion of the recurrence produces invalid dates.
 	//
 	// This property only has an effect if the frequency is `yearly` or `monthly`.
 	//
 	// It MUST be one of the following values:
-	// !- `omit`
-	// !- `backward`
-	// !- `forward`
+	// * `omit`
+	// * `backward`
+	// * `forward`
 	//
 	// This is the `SKIP` part from iCalendar `RSCALE` [RFC7529], converted to lowercase.
-	//
-	// Default: omit
-	Skip Skip `json:"skip,omitempty"`
+	Skip Skip `json:"skip,omitempty" doc:"opt" default:"omit"`
 
 	// This is the day on which the week is considered to start, represented as a lowercase, abbreviated,
 	// and two-letter English day of the week.
 	//
 	// If included, it MUST be one of the following values:
-	// !- `mo`
-	// !- `tu`
-	// !- `we`
-	// !- `th`
-	// !- `fr`
-	// !- `sa`
-	// !- `su`
+	// * `mo`
+	// * `tu`
+	// * `we`
+	// * `th`
+	// * `fr`
+	// * `sa`
+	// * `su`
 	//
 	// This is the `WKST` part from iCalendar.
-	//
-	// Default: mo
-	FirstDayOfWeek DayOfWeek `json:"firstDayOfWeek,omitempty"`
+	FirstDayOfWeek DayOfWeek `json:"firstDayOfWeek,omitempty" doc:"opt" default:"mo"`
 
 	// These are days of the week on which to repeat.
 	ByDay []NDay `json:"byDay,omitempty"`
@@ -1043,8 +1032,6 @@ type RecurrenceRule struct {
 	// The array MUST have at least one entry if included.
 	//
 	// This is the `BYMONTH` part from iCalendar.
-	//
-	// [RFC7529]: https://www.rfc-editor.org/rfc/rfc7529.html
 	ByMonth []string `json:"byMonth,omitempty"`
 
 	// These are the days of the year on which to repeat.
@@ -1130,10 +1117,10 @@ type RecurrenceRule struct {
 }
 
 type Participant struct {
-	// This specifies the type of this object. This MUST be ` Participant`.
+	// This specifies the type of this object. This MUST be `Participant`.
 	Type TypeOfParticipant `json:"@type,omitempty"`
 
-	// This is the display name of the participant (e.g., `"Joe Bloggs"``).
+	// This is the display name of the participant (e.g., `"Joe Bloggs"`).
 	Name string `json:"name,omitempty"`
 
 	// This is the email address to use to contact the participant or, for example,
@@ -1167,10 +1154,10 @@ type Participant struct {
 	// or a vendor-specific value (see Section 3.3).
 	//
 	// Any value the client or server doesn't understand should be treated the same as if this property is omitted.
-	// !- `individual`: a single person
-	// !- `group`: a collection of people invited as a whole
-	// !- `location`: a physical location that needs to be scheduled, e.g., a conference room
-	// !- `resource`: a non-human resource other than a location, such as a projector
+	// * `individual`: a single person
+	// * `group`: a collection of people invited as a whole
+	// * `location`: a physical location that needs to be scheduled, e.g., a conference room
+	// * `resource`: a non-human resource other than a location, such as a projector
 	Kind ParticipantKind `json:"kind,omitempty"`
 
 	// This is a set of roles that this participant fulfills.
@@ -1181,15 +1168,15 @@ type Participant struct {
 	//
 	// The keys in the set MUST be one of the following values, another value registered in the IANA "JSCalendar Enum Values"
 	// registry, or a vendor-specific value (see Section 3.3):
-	// !- `owner`:  The participant is an owner of the object. This signifies they have permission to make changes to it
+	// * `owner`:  The participant is an owner of the object. This signifies they have permission to make changes to it
 	// that affect the other participants. Nonowner participants may only change properties that affect only themselves
 	// (for example, setting their own alerts or changing their RSVP status).
-	// !- `attendee`: The participant is expected to be present at the event.
-	// !- `optional`: The participant's involvement with the event is optional. This is expected to be primarily combined
+	// * `attendee`: The participant is expected to be present at the event.
+	// * `optional`: The participant's involvement with the event is optional. This is expected to be primarily combined
 	// with the `"attendee"` role.
-	// !- `informational`: The participant is copied for informational reasons and is not expected to attend.
-	// !- `chair`: The participant is in charge of the event/task when it occurs.
-	// !- `contact`:  The participant is someone that may be contacted for information about the event.
+	// * `informational`: The participant is copied for informational reasons and is not expected to attend.
+	// * `chair`: The participant is in charge of the event/task when it occurs.
+	// * `contact`:  The participant is someone that may be contacted for information about the event.
 	//
 	// The value for each key in the map MUST be true. It is expected that no more than one of the roles
 	// `"attendee"` and `"informational"` be present; if more than one are given, `"attendee"` takes precedence
@@ -1211,11 +1198,11 @@ type Participant struct {
 	//
 	// The value MUST be one of the following values, another value registered in the IANA "JSCalendar Enum Values" registry,
 	// or a vendor-specific value (see Section 3.3):
-	// !- `needs-action`: No status has yet been set by the participant.
-	// !- `accepted`: The invited participant will participate.
-	// !- `declined`: The invited participant will not participate.
-	// !- `tentative`: The invited participant may participate.
-	// !- `delegated`: The invited participant has delegated their attendance to another participant, as specified in the `delegatedTo` property.
+	// * `needs-action`: No status has yet been set by the participant.
+	// * `accepted`: The invited participant will participate.
+	// * `declined`: The invited participant will not participate.
+	// * `tentative`: The invited participant may participate.
+	// * `delegated`: The invited participant has delegated their attendance to another participant, as specified in the `delegatedTo` property.
 	ParticipationStatus ParticipationStatus `json:"participationStatus,omitempty"`
 
 	// This is a note from the participant to explain their participation status.
@@ -1230,12 +1217,10 @@ type Participant struct {
 	//
 	// The value MUST be one of the following values, another value registered in the IANA "JSCalendar Enum Values"
 	// registry, or a vendor-specific value (see Section 3.3):
-	// !- `server`: The calendar server will send the scheduling messages.
-	// !- `client`: The calendar client will send the scheduling messages.
-	// !- `none`: No scheduling messages are to be sent to this participant.
-	//
-	// Default: server
-	ScheduleAgent ScheduleAgent `json:"scheduleAgent,omitempty"`
+	// * `server`: The calendar server will send the scheduling messages.
+	// * `client`: The calendar client will send the scheduling messages.
+	// * `none`: No scheduling messages are to be sent to this participant.
+	ScheduleAgent ScheduleAgent `json:"scheduleAgent,omitempty" doc:"opt" default:"server"`
 
 	// A client may set the property on a participant to true to request that the server send a scheduling
 	// message to the participant when it would not normally do so (e.g., if no significant change is made
@@ -1254,7 +1239,8 @@ type Participant struct {
 
 	// This is a list of status codes, returned from the processing of the most recent scheduling message sent to this participant.
 	//
-	// The status codes MUST be valid statcode values as defined in the ABNF in [Section 3.8.8.3 of RFC5545].
+	// The status codes MUST be valid statcode values as defined in the ABNF in
+	// [Section 3.8.8.3 of RFC5545](https://www.rfc-editor.org/rfc/rfc5545#section-3.8.8.3).
 	//
 	// Servers MUST only add or change this property when they send a scheduling message to the participant.
 	//
@@ -1263,8 +1249,6 @@ type Participant struct {
 	// Clients MAY add, change, or remove the property for participants where the client is handling the scheduling.
 	//
 	// This property MUST NOT be included in scheduling messages.
-	//
-	// [Section 3.8.8.3 of RFC5545]: https://www.rfc-editor.org/rfc/rfc5545#section-3.8.8.3
 	ScheduleStatus []string `json:"scheduleStatus,omitempty"`
 
 	// This is the timestamp for the most recent response from this participant.
@@ -1342,7 +1326,7 @@ type Participant struct {
 	// The property value MUST be a positive integer between 0 and 100.
 	PercentComplete uint `json:"percentComplete,omitzero"`
 
-	// This is a URI as defined by [@!RFC3986] or any other IANA-registered form for a URI.
+	// This is a URI as defined by [RFC3986] or any other IANA-registered form for a URI.
 	//
 	// It is the same as the `CAL-ADDRESS` value of an `ATTENDEE` or `ORGANIZER` in iCalendar ([@!RFC5545]);
 	// it globally identifies a particular participant, even across different events.
@@ -1369,8 +1353,8 @@ type OffsetTrigger struct {
 	// This specifies the time property that the alert offset is relative to.
 	//
 	// The value MUST be one of the following:
-	// !- `start`: triggers the alert relative to the start of the calendar object
-	// !- `end`: triggers the alert relative to the end/due time of the calendar object
+	// * `start`: triggers the alert relative to the start of the calendar object
+	// * `end`: triggers the alert relative to the end/due time of the calendar object
 	RelativeTo RelativeTo `json:"relativeTo,omitempty"`
 }
 
@@ -1508,12 +1492,10 @@ type Alert struct {
 	//
 	// The value MUST be at most one of the following values, a value registered in the IANA "JSCalendar Enum Values"
 	// registry, or a vendor-specific value (see Section 3.3):
-	// !- `display`: The alert should be displayed as appropriate for the current device and user context.
-	// !- `email`: The alert should trigger an email sent out to the user, notifying them of the alert. This action is
+	// * `display`: The alert should be displayed as appropriate for the current device and user context.
+	// * `email`: The alert should trigger an email sent out to the user, notifying them of the alert. This action is
 	// typically only appropriate for server implementations.
-	//
-	// Default: display
-	Action AlertAction `json:"action,omitempty"`
+	Action AlertAction `json:"action,omitempty" doc:"opt" default:"display"`
 }
 
 func (a *Alert) UnmarshalJSON(b []byte) error {
@@ -1574,7 +1556,7 @@ type TimeZoneRule struct {
 	// Mandatory.
 	//
 	// example: -0500
-	OffsetFrom string `json:"offsetFrom"`
+	OffsetFrom string `json:"offsetFrom" doc:"req"`
 
 	// This is the TZOFFSETTO property from iCalendar: specifies the offset that is in use in this time zone observance.
 	//
@@ -1591,7 +1573,7 @@ type TimeZoneRule struct {
 	// Mandatory.
 	//
 	// example: +1245
-	OffsetTo string `json:"offsetTo"`
+	OffsetTo string `json:"offsetTo" doc:"req"`
 
 	// This is the `RRULE` property mapped.
 	//
@@ -1676,10 +1658,10 @@ type CommonObject struct {
 
 	// This is the identifier for the product that last updated the JSCalendar object.
 	//
-	// This should be set whenever the data in the object is modified (i.e., whenever the updated property is set)
+	// This should be set whenever the data in the object is modified (i.e., whenever the updated property is set).
 	//
-	// .The vendor of the implementation MUST ensure that this is a globally unique identifier, using
-	// ome technique such as a Formal Public Identifier (FPI) value, as defined in [ISO.9070.1991].
+	// The vendor of the implementation MUST ensure that this is a globally unique identifier, using
+	// ome technique such as a Formal Public Identifier (FPI) value, as defined in [ISO.9070.1991](https://www.iso.org/standard/16645.html).
 	//
 	// This property SHOULD NOT be used to alter the interpretation of a JSCalendar object beyond the semantics
 	// specified in this document.
@@ -1711,9 +1693,7 @@ type CommonObject struct {
 	//
 	// Descriptions of type text/html MAY contain cid URLs [RFC2392] to reference links in the calendar
 	// object by use of the cid property of the Link object.
-	//
-	// Default: text/plain
-	DescriptionContentType string `json:"descriptionContentType,omitempty"`
+	DescriptionContentType string `json:"descriptionContentType,omitempty" doc:"opt" default:"text/plain"`
 
 	// This is a map of link ids to `Link` objects, representing external resources associated with the object.
 	//
@@ -1728,8 +1708,6 @@ type CommonObject struct {
 
 	// This is the language tag, as defined in [RFC5646], that best describes the locale used for the text in
 	// the calendar object, if known.
-	//
-	// [RFC5646]: https://www.rfc-editor.org/rfc/rfc5646.html
 	Locale string `json:"locale,omitempty"`
 
 	// This is a set of keywords or tags that relate to the object.
@@ -1753,16 +1731,13 @@ type CommonObject struct {
 
 	// This is a color clients MAY use when displaying this calendar object.
 	//
-	// The value is a color name taken from the set of names defined in [Section 4.3 of CSS Color Module Level 3]
-	// or an RGB value in hexadecimal notation, as defined in [Section 4.2.1 of CSS Color Module Level 3].
-	//
-	// [Section 4.3 of CSS Color Module Level 3]: https://www.w3.org/TR/css-color-3/#svg-color
-	// [Section 4.2.1 of CSS Color Module Level 3]: https://www.w3.org/TR/css-color-3/#rgb-color
+	// The value is a color name taken from the set of names defined in
+	// [Section 4.3 of CSS Color Module Level 3](https://www.w3.org/TR/css-color-3/#svg-color)
+	// or an RGB value in hexadecimal notation, as defined in
+	// [Section 4.2.1 of CSS Color Module Level 3](https://www.w3.org/TR/css-color-3/#rgb-color).
 	Color string `json:"color,omitempty"`
 }
 
-// TODO
-//
 // ### Recurrence Properties
 //
 // Some events and tasks occur at regular or irregular intervals. Rather than having to copy the data for every occurrence,
@@ -1770,10 +1745,10 @@ type CommonObject struct {
 //
 // The recurrence set is the complete set of instances for an object. It is generated by considering the following properties in
 // order, all of which are optional:
-// !- The `recurrenceRules` property generates a set of extra date-times on which the object occurs.
-// !- The `excludedRecurrenceRules` property generates a set of date-times that are to be removed from the previously generated
+// * The `recurrenceRules` property generates a set of extra date-times on which the object occurs.
+// * The `excludedRecurrenceRules` property generates a set of date-times that are to be removed from the previously generated
 // set of date-times on which the object occurs.
-// !- The `recurrenceOverrides` property defines date-times that are added or excluded to form the final set. (This property
+// * The `recurrenceOverrides` property defines date-times that are added or excluded to form the final set. (This property
 // may also contain changes to the object to apply to particular instances.)
 type Object struct {
 	CommonObject
@@ -1816,9 +1791,7 @@ type Object struct {
 	// enhance the user's view of their schedule.
 	//
 	// Such events are also commonly known as "all-day" events.
-	//
-	// Default: false
-	ShowWithoutTime bool `json:"showWithoutTime,omitzero"`
+	ShowWithoutTime bool `json:"showWithoutTime,omitzero" doc:"opt" default:"false"`
 
 	// This is a map of location ids to `Location` objects, representing locations associated with the object.
 	Locations map[string]Location `json:"locations,omitempty"`
@@ -1903,20 +1876,20 @@ type Object struct {
 	// object's start or due date.
 	//
 	// A pointer in the `PatchObject` MUST be ignored if it starts with one of the following prefixes:
-	// !- `@type`
-	// !- `excludedRecurrenceRules`
-	// !- `method`
-	// !- `privacy`
-	// !- `prodId`
-	// !- `recurrenceId`
-	// !- `recurrenceIdTimeZone`
-	// !- `recurrenceOverrides`
-	// !- `recurrenceRules`
-	// !- `relatedTo`
-	// !- `replyTo`
-	// !- `sentBy`
-	// !- `timeZones`
-	// !- `uid`
+	// * `@type`
+	// * `excludedRecurrenceRules`
+	// * `method`
+	// * `privacy`
+	// * `prodId`
+	// * `recurrenceId`
+	// * `recurrenceIdTimeZone`
+	// * `recurrenceOverrides`
+	// * `recurrenceRules`
+	// * `relatedTo`
+	// * `replyTo`
+	// * `sentBy`
+	// * `timeZones`
+	// * `uid`
 	RecurrenceOverrides map[LocalDateTime]PatchObject `json:"recurrenceOverrides,omitempty"`
 
 	// This defines if this object is an overridden, excluded instance of a recurring JSCalendar object.
@@ -1950,9 +1923,9 @@ type Object struct {
 	//
 	// This MUST be one of the following values, another value registered in the IANA
 	// "JSCalendar Enum Values" registry, or a vendor-specific value (see Section 3.3):
-	// !- `free`
-	// !- `busy` (default)
-	FreeBusyStatus FreeBusyStatus `json:"freeBusyStatus,omitempty"`
+	// * `free`
+	// * `busy` (default)
+	FreeBusyStatus FreeBusyStatus `json:"freeBusyStatus,omitempty" doc:"opt" default:"busy"`
 
 	// Privacy level.
 	//
@@ -1970,27 +1943,27 @@ type Object struct {
 	//
 	// Any value the client or server doesn't understand should be preserved but treated as equivalent to private.
 	//
-	// !- `public`: The full details of the object are visible to those whom the object's calendar is shared with.
-	// !- `private`: The details of the object are hidden; only the basic time and metadata are shared.
-	// !- `secret`: The object is hidden completely (as though it did not exist) when the calendar this object is in is shared.
+	// * `public`: The full details of the object are visible to those whom the object's calendar is shared with.
+	// * `private`: The details of the object are hidden; only the basic time and metadata are shared.
+	// * `secret`: The object is hidden completely (as though it did not exist) when the calendar this object is in is shared.
 	//
 	// When the `privacy` property is set to `private`, the following properties MAY be shared; any other
 	// properties MUST NOT be shared:
-	// !- `@type`
-	// !- `created`
-	// !- `due`
-	// !- `duration`
-	// !- `estimatedDuration`
-	// !- `freeBusyStatus`
-	// !- `privacy`
-	// !- `recurrenceOverrides` (Only patches that apply to another permissible property are allowed to be shared.)
-	// !- `sequence`
-	// !- `showWithoutTime`
-	// !- `start`
-	// !- `timeZone`
-	// !- `timeZones`
-	// !- `uid`
-	// !- `updated`
+	// * `@type`
+	// * `created`
+	// * `due`
+	// * `duration`
+	// * `estimatedDuration`
+	// * `freeBusyStatus`
+	// * `privacy`
+	// * `recurrenceOverrides` (Only patches that apply to another permissible property are allowed to be shared.)
+	// * `sequence`
+	// * `showWithoutTime`
+	// * `start`
+	// * `timeZone`
+	// * `timeZones`
+	// * `uid`
+	// * `updated`
 	Privacy Privacy `json:"privacy,omitempty"`
 
 	// This represents methods by which participants may submit their response to the organizer of the calendar object.
@@ -2004,11 +1977,11 @@ type Object struct {
 	// This property MUST be omitted if no method is defined (rather than being specified as an empty object).
 	//
 	// The following methods are defined:
-	// !- `imip`: The organizer accepts an iCalendar Message-Based Interoperability Protocol (iMIP)
+	// * `imip`: The organizer accepts an iCalendar Message-Based Interoperability Protocol (iMIP)
 	// [RFC6047] response at this email address. The value MUST be a `mailto:` URI.
-	// !- `web`: Opening this URI in a web browser will provide the user with a page where they can
+	// * `web`: Opening this URI in a web browser will provide the user with a page where they can
 	// submit a reply to the organizer. The value MUST be a URL using the `https:` scheme.
-	// !- `other`: The organizer is identified by this URI, but the method for submitting the response
+	// * `other`: The organizer is identified by this URI, but the method for submitting the response
 	// is undefined.
 	ReplyTo map[ReplyMethod]string `json:"replyTo,omitempty"`
 
@@ -2051,9 +2024,7 @@ type Object struct {
 	//
 	// If an implementation cannot determine the user's default alerts, or none are set, it MUST process
 	// he alerts property as if `useDefaultAlerts` is set to false.
-	//
-	// Default: false
-	UseDefaultAlerts bool `json:"useDefaultAlerts,omitzero"`
+	UseDefaultAlerts bool `json:"useDefaultAlerts,omitzero" doc:"opt" default:"false"`
 
 	// This is a map of alert ids to Alert objects, representing alerts/reminders to display or send
 	// to the user for this calendar object.
@@ -2069,9 +2040,9 @@ type Object struct {
 	//
 	// All pointers for patches MUST end with one of the following suffixes; any patch that does not follow
 	// this MUST be ignored unless otherwise specified in a future RFC:
-	// !- `title`
-	// !- `description`
-	// !- `name`
+	// * `title`
+	// * `description`
+	// * `name`
 	//
 	// A patch MUST NOT have the prefix `recurrenceOverrides`; any localization of the override MUST be a
 	// patch to the `localizations` property inside the override instead.
@@ -2104,9 +2075,7 @@ type Object struct {
 	// long as they have the mayRSVP permission for the calendar.
 	//
 	// This is a JMAP addition to JSCalendar.
-	//
-	// default: false
-	MayInviteSelf bool `json:"mayInviteSelf,omitzero"`
+	MayInviteSelf bool `json:"mayInviteSelf,omitzero" doc:"opt" default:"false"`
 
 	// If true, any current participant with the `attendee` role may add new participants with the
 	// `attendee` role to the event.
@@ -2117,9 +2086,7 @@ type Object struct {
 	// for users to be allowed to make this change via JMAP.
 	//
 	// This is a JMAP addition to JSCalendar.
-	//
-	// default: false
-	MayInviteOthers bool `json:"mayInviteOthers,omitzero"`
+	MayInviteOthers bool `json:"mayInviteOthers,omitzero" doc:"opt" default:"false"`
 
 	// If true, only the owners of the event may see the full set of participants.
 	//
@@ -2128,9 +2095,7 @@ type Object struct {
 	// This property MUST NOT be altered in the `recurrenceOverrides`; it may only be set on the base object.
 	//
 	// This is a JMAP addition to JSCalendar.
-	//
-	// default: false
-	HideAttendees bool `json:"hideAttendees,omitzero"`
+	HideAttendees bool `json:"hideAttendees,omitzero" doc:"opt" default:"false"`
 }
 
 type Event struct {
@@ -2162,9 +2127,9 @@ type Event struct {
 	//
 	// If set, it MUST be one of the following values, another value registered in the IANA
 	// "JSCalendar Enum Values" registry, or a vendor-specific value (see Section 3.3):
-	// !- `confirmed`: indicates the event is definitely happening
-	// !- `cancelled`: indicates the event has been cancelled
-	// !- `tentative`: indicates the event may happen
+	// * `confirmed`: indicates the event is definitely happening
+	// * `cancelled`: indicates the event has been cancelled
+	// * `tentative`: indicates the event may happen
 	Status Status `json:"status,omitempty"`
 }
 
@@ -2190,18 +2155,18 @@ type Task struct {
 	// This defines the progress of this task.
 	//
 	// If omitted, the default progress (Section 4.4) of a Task is defined as follows (in order of evaluation):
-	// !- `completed`: if the progress property value of all participants is completed
-	// !- `failed`: if at least one progress property value of a participant is failed
-	// !- `in-process`: if at least one progress property value of a participant is in-process
-	// !- `needs-action`: if none of the other criteria match
+	// * `completed`: if the progress property value of all participants is completed
+	// * `failed`: if at least one progress property value of a participant is failed
+	// * `in-process`: if at least one progress property value of a participant is in-process
+	// * `needs-action`: if none of the other criteria match
 	//
 	// If set, it MUST be one of the following values, another value registered in the IANA "JSCalendar Enum Values"
 	// registry, or a vendor-specific value (see Section 3.3):
-	// !- `needs-action`: indicates the task needs action
-	// !- `in-process`: indicates the task is in process
-	// !- `completed`: indicates the task is completed
-	// !- `failed`: indicates the task failed
-	// !- `cancelled`: indicates the task was cancelled
+	// * `needs-action`: indicates the task needs action
+	// * `in-process`: indicates the task is in process
+	// * `completed`: indicates the task is completed
+	// * `failed`: indicates the task failed
+	// * `cancelled`: indicates the task was cancelled
 	Progress Progress `json:"progress,omitempty"`
 
 	// This specifies the date/time the progress property of either the task overall (Section 5.2.5) or
