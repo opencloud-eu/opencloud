@@ -1373,7 +1373,7 @@ github.com/open-policy-agent/opa/v1/version
 # github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89
 ## explicit; go 1.24.6
 github.com/opencloud-eu/icap-client
-# github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76
+# github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260204102724-10bcda1b3068
 ## explicit; go 1.18
 github.com/opencloud-eu/libre-graph-api-go
 # github.com/opencloud-eu/reva/v2 v2.42.4-0.20260209135152-4433469d98e8

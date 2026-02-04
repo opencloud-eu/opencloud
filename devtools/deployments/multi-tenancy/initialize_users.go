@@ -24,6 +24,7 @@ var demoTenants = []tenantWithUsers{
 	{
 		tenant: libregraph.EducationSchool{
 			DisplayName: libregraph.PtrString("Famous Coders"),
+			ExternalId:  libregraph.PtrString("famouscodersExternalID"),
 		},
 		users: []libregraph.EducationUser{
 			{
@@ -41,6 +42,7 @@ var demoTenants = []tenantWithUsers{
 	{
 		tenant: libregraph.EducationSchool{
 			DisplayName: libregraph.PtrString("Scientists"),
+			ExternalId:  libregraph.PtrString("scientistsExternalID"),
 		},
 		users: []libregraph.EducationUser{
 			{
