@@ -63,6 +63,7 @@ services:
       USERS_LDAP_BIND_PASSWORD: "admin"
       GROUPS_LDAP_BIND_PASSWORD: "admin"
       IDM_LDAPS_ADDR: 0.0.0.0:9235
+      GROUPWARE_JMAP_BASE_URL: https://${STALWART_DOMAIN:-stalwart.opencloud.test}
     volumes:
       - ./config/opencloud/app-registry.yaml:/etc/opencloud/app-registry.yaml
       - ./config/opencloud/csp.yaml:/etc/opencloud/csp.yaml
