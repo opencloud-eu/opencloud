@@ -482,7 +482,7 @@ To check whether it works correctly, the following `curl` command:
 curl -ks -D- -X POST \
 "https://keycloak.opencloud.test/realms/openCloud/protocol/openid-connect/token" \
 -d username=alan -d password=demo -d grant_type=password \
--d client_id=groupware -d scope=openid
+-d client_id=web -d scope=openid
 ```
 
 should provide you with a JSON response that contains an `access_token` property.
@@ -705,7 +705,7 @@ When using the &ldquo;production&rdquo; setup, first make sure to retrieve a JWT
 token=$(curl --silent --insecure --fail -X POST \
 "https://keycloak.opencloud.test/realms/openCloud/protocol/openid-connect/token" \
 -d username="alan" -d password="demo" \
--d grant_type=password -d client_id="groupware" -d scope=openid \
+-d grant_type=password -d client_id=web -d scope=openid \
 | jq -r '.access_token')
 ```
 
@@ -723,7 +723,7 @@ curl --insecure -s -u "alan:demo" "https://cloud.opencloud.test/groupware/"
 
 > [!TIP]
 > Until everything is documented, the complete list of URI routes can be found in \
-[`$OCDIR/opencloud/services/groupware/pkg/groupware/groupware_route.go`](./pkg/groupware/groupware_route.go)
+[`$OCDIR/opencloud/services/groupware/pkg/groupware/route.go`](./pkg/groupware/route.go)
 
 ## Services
 
