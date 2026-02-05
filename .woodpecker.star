@@ -659,7 +659,7 @@ def testPipelines(ctx):
         pipelines += wopiValidatorTests(ctx, storage, "cs3")
 
     #pipelines += localApiTestPipeline(ctx)
-    pipelines += coreApiTestPipeline(ctx)
+    pipelines = coreApiTestPipeline(ctx)
     #pipelines += e2eTestPipeline(ctx)
     #pipelines += multiServiceE2ePipeline(ctx)
 
@@ -1433,7 +1433,7 @@ def coreApiTest(part_number = 1, number_of_parts = 1, with_remote_php = False, s
             "SEND_SCENARIO_LINE_REFERENCES": True,
             "STORAGE_DRIVER": storage,
             "BEHAT_FILTER_TAGS": filter_tags,
-            "BEHAT_FEATULRE": "tests/acceptance/features/coreApiShareManagementToShares/moveShareInsideAnotherShare.feature",
+            "BEHAT_FEATURE": "tests/acceptance/features/coreApiShareManagementToShares/moveShareInsideAnotherShare.feature",
             "DIVIDE_INTO_NUM_PARTS": number_of_parts,
             "RUN_PART": part_number,
             "ACCEPTANCE_TEST_TYPE": "core-api",
