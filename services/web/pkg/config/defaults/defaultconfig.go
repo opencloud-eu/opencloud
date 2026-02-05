@@ -153,25 +153,30 @@ func Sanitize(cfg *config.Config) {
 		cfg.Web.Config.OpenIDConnect.MetadataURL = strings.TrimRight(cfg.Web.Config.OpenIDConnect.Authority, "/") + "/.well-known/openid-configuration"
 	}
 	// remove AccountEdit parent if no value is set
-	if cfg.Web.Config.Options.AccountEditLink.Href == "" {
+	if cfg.Web.Config.Options.AccountEditLink != nil &&
+		cfg.Web.Config.Options.AccountEditLink.Href == "" {
 		cfg.Web.Config.Options.AccountEditLink = nil
 	}
 	// remove Editor parent if no value is set
-	if !cfg.Web.Config.Options.Editor.AutosaveEnabled {
+	if cfg.Web.Config.Options.Editor != nil &&
+		!cfg.Web.Config.Options.Editor.AutosaveEnabled {
 		cfg.Web.Config.Options.Editor = nil
 	}
 	// remove FeedbackLink parent if no value is set
-	if cfg.Web.Config.Options.FeedbackLink.Href == "" &&
+	if cfg.Web.Config.Options.FeedbackLink != nil &&
+		cfg.Web.Config.Options.FeedbackLink.Href == "" &&
 		cfg.Web.Config.Options.FeedbackLink.AriaLabel == "" &&
 		cfg.Web.Config.Options.FeedbackLink.Description == "" {
 		cfg.Web.Config.Options.FeedbackLink = nil
 	}
 	// remove Upload parent if no value is set
-	if cfg.Web.Config.Options.Upload.CompanionURL == "" {
+	if cfg.Web.Config.Options.Upload != nil &&
+		cfg.Web.Config.Options.Upload.CompanionURL == "" {
 		cfg.Web.Config.Options.Upload = nil
 	}
 	// remove Embed parent if no value is set
-	if cfg.Web.Config.Options.Embed.Enabled == "" &&
+	if cfg.Web.Config.Options.Embed != nil &&
+		cfg.Web.Config.Options.Embed.Enabled == "" &&
 		cfg.Web.Config.Options.Embed.Target == "" &&
 		cfg.Web.Config.Options.Embed.MessagesOrigin == "" &&
 		cfg.Web.Config.Options.Embed.DelegateAuthentication &&
