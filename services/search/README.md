@@ -104,6 +104,8 @@ Additionally, the following optional settings can be set:
 
 *   `SEARCH_EXTRACTOR_TIKA_CLEAN_STOP_WORDS=true` (default: `true`): ignore stop words like `I`, `you`, `the` during content extraction.
 
+> **Note:** Enabling Tika does not automatically re-extract content from already indexed files. You need to delete the existing search index and trigger a full re-index. See [Manually Trigger Re-Indexing a Space](#manually-trigger-re-indexing-a-space) for details.
+
 ## Manually Trigger Re-Indexing a Space
 
 The service includes a command-line interface to trigger re-indexing a space:
@@ -117,6 +119,13 @@ It can also be used to re-index all spaces:
 ```shell
 opencloud search index --all-spaces
 ```
+
+> **Note:** The re-index command skips files whose modification time has not changed since they were last indexed. If you changed the extractor type (e.g., from `basic` to `tika`), you need to delete the existing search index first to force a full content re-extraction:
+>
+> ```shell
+> rm -rf $OC_BASE_DATA_PATH/search   # default: /var/lib/opencloud/search
+> opencloud search index --all-spaces
+> ```
 
 ## Metrics
 
