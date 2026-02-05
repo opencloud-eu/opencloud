@@ -31,13 +31,11 @@ import (
 type Verifier func(context.Context, *authpb.Scope, interface{}, *zerolog.Logger) (bool, error)
 
 var supportedScopes = map[string]Verifier{
-	"user":          userScope,
-	"publicshare":   publicshareScope,
-	"resourceinfo":  resourceinfoScope,
-	"share":         shareScope,
-	"receivedshare": receivedShareScope,
-	"lightweight":   lightweightAccountScope,
-	"ocmshare":      ocmShareScope,
+	"user":         userScope,
+	"publicshare":  publicshareScope,
+	"resourceinfo": resourceinfoScope,
+	"lightweight":  lightweightAccountScope,
+	"ocmshare":     ocmShareScope,
 }
 
 // VerifyScope is the function to be called when dismantling tokens to check if
