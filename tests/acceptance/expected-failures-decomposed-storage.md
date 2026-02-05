@@ -324,6 +324,13 @@ _ocdav: api compatibility, return correct status code_
 - [coreApiWebdavUploadTUS/uploadToShare.feature:376](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavUploadTUS/uploadToShare.feature#L376)
 - [coreApiWebdavUploadTUS/uploadToShare.feature:377](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavUploadTUS/uploadToShare.feature#L377)
 
+#### [Renaming resource to banned name is allowed in spaces webdav](https://github.com/owncloud/ocis/issues/3099)
+
+- [coreApiWebdavMove/moveFile.feature:143](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavMove/moveFile.feature#L143)
+- [coreApiWebdavMove/moveFolder.feature:36](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavMove/moveFolder.feature#L36)
+- [coreApiWebdavMove/moveFolder.feature:50](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavMove/moveFolder.feature#L50)
+- [coreApiWebdavMove/moveFolder.feature:64](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavMove/moveFolder.feature#L64)
+
 #### [Trying to delete other user's trashbin item returns 409 for spaces path instead of 404](https://github.com/owncloud/ocis/issues/9791)
 
 - [coreApiTrashbin/trashbinDelete.feature:92](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiTrashbin/trashbinDelete.feature#L92)
@@ -333,9 +340,9 @@ _ocdav: api compatibility, return correct status code_
 - [coreApiWebdavMove/moveFile.feature:100](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavMove/moveFile.feature#L100)
 - [coreApiWebdavMove/moveFile.feature:101](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavMove/moveFile.feature#L101)
 - [coreApiWebdavMove/moveFile.feature:102](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavMove/moveFile.feature#L102)
-- [coreApiWebdavMove/moveFolder.feature:217](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavMove/moveFolder.feature#L217)
-- [coreApiWebdavMove/moveFolder.feature:218](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavMove/moveFolder.feature#L218)
-- [coreApiWebdavMove/moveFolder.feature:219](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavMove/moveFolder.feature#L219)
+- [coreApiWebdavMove/moveFolder.feature:220](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavMove/moveFolder.feature#L220)
+- [coreApiWebdavMove/moveFolder.feature:221](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavMove/moveFolder.feature#L221)
+- [coreApiWebdavMove/moveFolder.feature:222](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavMove/moveFolder.feature#L222)
 - [coreApiWebdavMove/moveShareOnOpencloud.feature:334](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavMove/moveShareOnOpencloud.feature#L334)
 - [coreApiWebdavMove/moveShareOnOpencloud.feature:337](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavMove/moveShareOnOpencloud.feature#L337)
 - [coreApiWebdavMove/moveShareOnOpencloud.feature:340](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavMove/moveShareOnOpencloud.feature#L340)
@@ -362,6 +369,24 @@ _ocdav: api compatibility, return correct status code_
 - [coreApiWebdavPreviews/previews.feature:263](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L263)
 - [coreApiWebdavPreviews/previews.feature:264](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L264)
 - [coreApiWebdavPreviews/previews.feature:265](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L265)
+
+#### [Renaming a file with a slash in the filename makes the file inaccessible](https://github.com/opencloud-eu/web/issues/1893)
+
+- [coreApiWebdavProperties/createFileFolder.feature:29](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavProperties/createFileFolder.feature#L29)
+- [coreApiWebdavProperties/createFileFolder.feature:42](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavProperties/createFileFolder.feature#L42)
+- [coreApiWebdavProperties/createFileFolder.feature:148](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavProperties/createFileFolder.feature#L148)
+- [coreApiWebdavProperties/createFileFolder.feature:160](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavProperties/createFileFolder.feature#L160)
+- [coreApiWebdavProperties/createFileFolder.feature:172](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavProperties/createFileFolder.feature#L172)
+
+- [coreApiWebdavMove/moveFile.feature:441](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavMove/moveFile.feature#L441)
+- [coreApiWebdavMove/moveFile.feature:452](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavMove/moveFile.feature#L452)
+
+- [coreApiWebdavMove/moveFolder.feature:164](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavMove/moveFolder.feature#L164)
+- [coreApiWebdavMove/moveFolder.feature:179](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavMove/moveFolder.feature#L179)
+
+- [coreApiWebdavOperations/downloadFile.feature:307](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavOperations/downloadFile.feature#L307)
+- [coreApiWebdavOperations/downloadFile.feature:313](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavOperations/downloadFile.feature#L313)
+- [coreApiWebdavOperations/downloadFile.feature:319](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavOperations/downloadFile.feature#L319)
 
 ### Won't fix
 

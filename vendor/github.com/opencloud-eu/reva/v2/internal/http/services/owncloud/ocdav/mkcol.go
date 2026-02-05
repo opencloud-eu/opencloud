@@ -97,10 +97,6 @@ func (s *svc) handleSpacesMkCol(w http.ResponseWriter, r *http.Request, spaceID 
 
 	sublog := appctx.GetLogger(ctx).With().Str("path", r.URL.Path).Str("spaceid", spaceID).Str("handler", "mkcol").Logger()
 
-	if err := ValidateName(filename(r.URL.Path), s.nameValidators); err != nil {
-		return http.StatusBadRequest, err
-	}
-
 	parentRef, err := spacelookup.MakeStorageSpaceReference(spaceID, path.Dir(r.URL.Path))
 	if err != nil {
 		return http.StatusBadRequest, fmt.Errorf("invalid space id")
