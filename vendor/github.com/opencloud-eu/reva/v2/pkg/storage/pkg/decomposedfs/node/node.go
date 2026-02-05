@@ -591,6 +591,17 @@ func (n *Node) readOwner(ctx context.Context) (*userpb.UserId, error) {
 		return nil, err
 	}
 
+	// lookup Tenant in extended attributes
+	attr, err = n.SpaceRoot.XattrString(ctx, prefixes.SpaceTenantIDAttr)
+	switch {
+	case err == nil:
+		owner.TenantId = attr
+	case metadata.IsAttrUnset(err):
+		// ignore
+	default:
+		return nil, err
+	}
+
 	// lookup type in extended attributes
 	attr, err = n.SpaceRoot.XattrString(ctx, prefixes.OwnerTypeAttr)
 	switch {

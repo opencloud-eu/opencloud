@@ -130,8 +130,13 @@ func expandAndVerifyScope(ctx context.Context, req interface{}, tokenScope map[s
 }
 
 func resolveLightweightScope(ctx context.Context, ref *provider.Reference, scope *authpb.Scope, user *userpb.User, client gateway.GatewayAPIClient, mgr token.Manager) error {
+	refString, err := storagespace.FormatReference(ref)
+	if err != nil {
+		// cannot format reference, so cannot be valid
+		return errtypes.PermissionDenied("invalid reference")
+	}
 	// Check if this ref is cached
-	key := "lw:" + user.Id.OpaqueId + scopeDelimiter + getRefKey(ref)
+	key := "lw:" + user.Id.OpaqueId + scopeDelimiter + refString
 	if _, err := scopeExpansionCache.Get(key); err == nil {
 		return nil
 	}
@@ -164,13 +169,7 @@ func resolvePublicShare(ctx context.Context, ref *provider.Reference, scope *aut
 		return err
 	}
 
-	if err := checkCacheForNestedResource(ctx, ref, share.ResourceId, client, mgr); err == nil {
-		return nil
-	}
-
-	// Some services like wopi don't access the shared resource relative to the
-	// share root but instead relative to the shared resources parent.
-	return checkRelativeReference(ctx, ref, share.ResourceId, client)
+	return checkCacheForNestedResource(ctx, ref, share.ResourceId, client, mgr)
 }
 
 func resolveOCMShare(ctx context.Context, ref *provider.Reference, scope *authpb.Scope, client gateway.GatewayAPIClient, mgr token.Manager) error {
@@ -184,54 +183,7 @@ func resolveOCMShare(ctx context.Context, ref *provider.Reference, scope *authpb
 		ref.ResourceId = share.GetResourceId()
 	}
 
-	if err := checkCacheForNestedResource(ctx, ref, share.ResourceId, client, mgr); err == nil {
-		return nil
-	}
-
-	// Some services like wopi don't access the shared resource relative to the
-	// share root but instead relative to the shared resources parent.
-	return checkRelativeReference(ctx, ref, share.ResourceId, client)
-}
-
-// checkRelativeReference checks if the shared resource is being accessed via a relative reference
-// e.g.:
-// storage: abcd, space: efgh
-// /root (id: efgh)
-// - New file.txt (id: ijkl) <- shared resource
-//
-// If the requested reference looks like this:
-// Reference{ResourceId: {StorageId: "abcd", SpaceId: "efgh"}, Path: "./New file.txt"}
-// then the request is considered relative and this function would return true.
-// Only references which are relative to the immediate parent of a resource are considered valid.
-func checkRelativeReference(ctx context.Context, requested *provider.Reference, sharedResourceID *provider.ResourceId, client gateway.GatewayAPIClient) error {
-	sRes, err := client.Stat(ctx, &provider.StatRequest{Ref: &provider.Reference{ResourceId: sharedResourceID}})
-	if err != nil {
-		return err
-	}
-	if sRes.Status.Code != rpc.Code_CODE_OK {
-		return statuspkg.NewErrorFromCode(sRes.Status.Code, "auth interceptor")
-	}
-
-	sharedResource := sRes.Info
-
-	// Is this a shared space
-	if sharedResource.ParentId == nil {
-		// Is the requested resource part of the shared space?
-		if requested.ResourceId.StorageId != sharedResource.Id.StorageId || requested.ResourceId.SpaceId != sharedResource.Id.SpaceId {
-			return errtypes.PermissionDenied("space access forbidden via public link")
-		}
-	} else {
-		parentID := sharedResource.ParentId
-		parentID.StorageId = sharedResource.Id.StorageId
-
-		if !utils.ResourceIDEqual(parentID, requested.ResourceId) && utils.MakeRelativePath(sharedResource.Path) != requested.Path {
-			return errtypes.PermissionDenied("access forbidden via public link")
-		}
-	}
-
-	key := storagespace.FormatResourceID(sharedResourceID) + scopeDelimiter + getRefKey(requested)
-	_ = scopeExpansionCache.SetWithExpire(key, nil, scopeCacheExpiration*time.Second)
-	return nil
+	return checkCacheForNestedResource(ctx, ref, share.ResourceId, client, mgr)
 }
 
 func resolveUserShare(ctx context.Context, ref *provider.Reference, scope *authpb.Scope, client gateway.GatewayAPIClient, mgr token.Manager) error {
@@ -245,8 +197,14 @@ func resolveUserShare(ctx context.Context, ref *provider.Reference, scope *authp
 }
 
 func checkCacheForNestedResource(ctx context.Context, ref *provider.Reference, resource *provider.ResourceId, client gateway.GatewayAPIClient, mgr token.Manager) error {
+	refString, err := storagespace.FormatReference(ref)
+	if err != nil {
+		// cannot format reference, so cannot be valid
+		return errtypes.PermissionDenied("invalid reference")
+	}
+
 	// Check if this ref is cached
-	key := storagespace.FormatResourceID(resource) + scopeDelimiter + getRefKey(ref)
+	key := storagespace.FormatResourceID(resource) + scopeDelimiter + refString
 	if _, err := scopeExpansionCache.Get(key); err == nil {
 		return nil
 	}
@@ -270,40 +228,25 @@ func checkIfNestedResource(ctx context.Context, ref *provider.Reference, parent 
 		return false, statuspkg.NewErrorFromCode(statResponse.Status.Code, "auth interceptor")
 	}
 
-	pathResp, err := client.GetPath(ctx, &provider.GetPathRequest{ResourceId: statResponse.GetInfo().GetId()})
-	if err != nil {
-		return false, err
-	}
-	if pathResp.Status.Code != rpc.Code_CODE_OK {
-		return false, statuspkg.NewErrorFromCode(pathResp.Status.Code, "auth interceptor")
-	}
-	parentPath := pathResp.Path
+	parentInfo := statResponse.GetInfo()
 
-	childPath := ref.GetPath()
-	if childPath != "" && childPath != "." && strings.HasPrefix(childPath, parentPath) {
-		// if the request is relative from the root, we can return directly
-		return true, nil
-	}
-
-	// The request is not relative to the root. We need to find out if the requested resource is child of the `parent` (coming from token scope)
+	// We need to find out if the requested resource is child of the `parent` (coming from token scope)
 	// We mint a token as the owner of the public share and try to stat the reference
 	// TODO(ishank011): We need to find a better alternative to this
 	// NOTE: did somebody say service accounts? ...
-
 	var user *userpb.User
-	if statResponse.GetInfo().GetOwner().GetType() == userpb.UserType_USER_TYPE_SPACE_OWNER {
+	if parentInfo.GetOwner().GetType() == userpb.UserType_USER_TYPE_SPACE_OWNER {
 		// fake a space owner user
 		user = &userpb.User{
-			Id: statResponse.GetInfo().GetOwner(),
+			Id: parentInfo.GetOwner(),
 		}
 	} else {
-		userResp, err := client.GetUser(ctx, &userpb.GetUserRequest{UserId: statResponse.Info.Owner, SkipFetchingUserGroups: true})
+		userResp, err := client.GetUser(ctx, &userpb.GetUserRequest{UserId: parentInfo.GetOwner(), SkipFetchingUserGroups: true})
 		if err != nil || userResp.Status.Code != rpc.Code_CODE_OK {
 			return false, err
 		}
 		user = userResp.User
 	}
-
 	scope, err := scope.AddOwnerScope(map[string]*authpb.Scope{})
 	if err != nil {
 		return false, err
@@ -329,6 +272,24 @@ func checkIfNestedResource(ctx context.Context, ref *provider.Reference, parent 
 	if childStat.GetStatus().GetCode() != rpc.Code_CODE_OK {
 		return false, statuspkg.NewErrorFromCode(childStat.Status.Code, "auth interceptor")
 	}
+	childInfo := childStat.GetInfo()
+
+	// child can only be a nested resource if it is within the same space as parent
+	if childInfo.GetId().GetStorageId() != parentInfo.GetId().GetStorageId() ||
+		childInfo.GetId().GetSpaceId() != parentInfo.GetId().GetSpaceId() {
+		return false, nil
+	}
+
+	// Both resources are in the same space, now check paths
+	pathResp, err := client.GetPath(ctx, &provider.GetPathRequest{ResourceId: statResponse.GetInfo().GetId()})
+	if err != nil {
+		return false, err
+	}
+	if pathResp.Status.Code != rpc.Code_CODE_OK {
+		return false, statuspkg.NewErrorFromCode(pathResp.Status.Code, "auth interceptor")
+	}
+	parentPath := pathResp.Path
+
 	pathResp, err = client.GetPath(ctx, &provider.GetPathRequest{ResourceId: childStat.GetInfo().GetId()})
 	if err != nil {
 		return false, err
@@ -336,10 +297,9 @@ func checkIfNestedResource(ctx context.Context, ref *provider.Reference, parent 
 	if pathResp.GetStatus().GetCode() != rpc.Code_CODE_OK {
 		return false, statuspkg.NewErrorFromCode(pathResp.Status.Code, "auth interceptor")
 	}
-	childPath = pathResp.Path
+	childPath := pathResp.Path
 
 	return strings.HasPrefix(childPath, parentPath), nil
-
 }
 
 func extractRefFromListProvidersReq(v *registry.ListStorageProvidersRequest) (*provider.Reference, bool) {
@@ -512,18 +472,4 @@ func extractShareRef(req interface{}) (*collaboration.ShareReference, bool) {
 		return &collaboration.ShareReference{Spec: &collaboration.ShareReference_Id{Id: v.GetShare().GetShare().GetId()}}, true
 	}
 	return nil, false
-}
-
-func getRefKey(ref *provider.Reference) string {
-	if ref.GetPath() != "" {
-		return ref.Path
-	}
-
-	if ref.GetResourceId() != nil {
-		return storagespace.FormatResourceID(ref.ResourceId)
-	}
-
-	// on malicious request both path and rid could be empty
-	// we still should not panic
-	return ""
 }
