@@ -4,12 +4,20 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @aduffeck, @saw-jan
+@ScharfViktor, @aduffeck, @fschade, @kulmann, @micbar, @prashant-gurung899, @saw-jan
+
+### 🐛 Bug Fixes
+
+- Bump reva [[#2274](https://github.com/opencloud-eu/opencloud/pull/2274)]
+- [stable-4.0] fix: build time edition channels #2001 [[#2010](https://github.com/opencloud-eu/opencloud/pull/2010)]
+- [stable-4.0] fix: enforce trailing slash for server url [[#2002](https://github.com/opencloud-eu/opencloud/pull/2002)]
+- [stable-4.0] fix: enhance resource creation with detailed process information (#1978) [[#2000](https://github.com/opencloud-eu/opencloud/pull/2000)]
 
 ### ✅ Tests
 
 - [tests-only] port tests to stable #2087 #2039 [[#2185](https://github.com/opencloud-eu/opencloud/pull/2185)]
 - [full-ci][tests-only] port test fixes [[#2017](https://github.com/opencloud-eu/opencloud/pull/2017)]
+- [stable-4.0] Port #2011 [[#2018](https://github.com/opencloud-eu/opencloud/pull/2018)]
 
 ## [4.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.1) - 2025-12-15
 
