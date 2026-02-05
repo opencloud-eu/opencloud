@@ -1,10 +1,10 @@
 # Changelog
 
-## [4.0.2](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.2) - 2026-01-21
+## [4.0.2](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.2) - 2026-02-05
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @saw-jan
+@ScharfViktor, @aduffeck, @saw-jan
 
 ### ✅ Tests
 
