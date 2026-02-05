@@ -1,5 +1,15 @@
 # Changelog
 
+## [4.0.3](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.3) - 2026-02-05
+
+### ❤️ Thanks to all contributors! ❤️
+
+@aduffeck
+
+### 🐛 Bug Fixes
+
+- Bump reva 2.40.3 [[#2275](https://github.com/opencloud-eu/opencloud/pull/2275)]
+
 ## [4.0.2](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.2) - 2026-02-05
 
 ### ❤️ Thanks to all contributors! ❤️
