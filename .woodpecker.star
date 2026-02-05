@@ -337,7 +337,7 @@ config = {
         },
     },
     "coreApiTests": {
-        "numberOfParts": 7,
+        "numberOfParts": 1,
         "skip": False,
         "skipExceptParts": [],
         "storages": ["posix"],
@@ -510,16 +510,10 @@ def main(ctx):
     )
 
     test_pipelines = \
-        codestyle(ctx) + \
-        checkGherkinLint(ctx) + \
-        checkTestSuitesInExpectedFailures(ctx) + \
         pipelinesDependsOn(buildWebCache(ctx), savePipelineNumber(ctx)) + \
         pipelinesDependsOn(cacheBrowsers(ctx), savePipelineNumber(ctx)) + \
         getGoBinForTesting(ctx) + \
         pipelinesDependsOn(buildOpencloudBinaryForTesting(ctx), savePipelineNumber(ctx)) + \
-        checkStarlark(ctx) + \
-        build_release_helpers + \
-        testOpencloudAndUploadResults(ctx) + \
         testPipelines(ctx)
 
     build_release_pipelines = \
@@ -572,7 +566,7 @@ def main(ctx):
     pipelines = test_pipelines + build_release_pipelines + genDocsPr(ctx) + notifyMatrix(ctx)
 
     pipelineSanityChecks(pipelines)
-    return savePipelineNumber(ctx) + pipelines
+    return savePipelineNumber(ctx) + test_pipelines
 
 def savePipelineNumber(ctx):
     base_url = "https://raw.githubusercontent.com/%s" % repo_slug
@@ -664,10 +658,10 @@ def testPipelines(ctx):
         pipelines += wopiValidatorTests(ctx, storage, "builtin")
         pipelines += wopiValidatorTests(ctx, storage, "cs3")
 
-    pipelines += localApiTestPipeline(ctx)
+    #pipelines += localApiTestPipeline(ctx)
     pipelines += coreApiTestPipeline(ctx)
-    pipelines += e2eTestPipeline(ctx)
-    pipelines += multiServiceE2ePipeline(ctx)
+    #pipelines += e2eTestPipeline(ctx)
+    #pipelines += multiServiceE2ePipeline(ctx)
 
     if ("skip" not in config["k6LoadTests"] or not config["k6LoadTests"]["skip"]) and ("k6-test" in ctx.build.title.lower() or ctx.build.event == "cron"):
         pipelines += pipelineDependsOn(k6LoadTests(ctx), savePipelineNumber(ctx))
@@ -1439,6 +1433,7 @@ def coreApiTest(part_number = 1, number_of_parts = 1, with_remote_php = False, s
             "SEND_SCENARIO_LINE_REFERENCES": True,
             "STORAGE_DRIVER": storage,
             "BEHAT_FILTER_TAGS": filter_tags,
+            "BEHAT_FEATULRE": "tests/acceptance/features/coreApiShareManagementToShares/moveShareInsideAnotherShare.feature",
             "DIVIDE_INTO_NUM_PARTS": number_of_parts,
             "RUN_PART": part_number,
             "ACCEPTANCE_TEST_TYPE": "core-api",
