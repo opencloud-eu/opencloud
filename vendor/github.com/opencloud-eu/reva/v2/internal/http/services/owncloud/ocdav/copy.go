@@ -21,6 +21,7 @@ package ocdav
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"path"
 	"path/filepath"
@@ -274,7 +275,7 @@ func (s *svc) executePathCopy(ctx context.Context, selector pool.Selectable[gate
 
 		var uploadEP, uploadToken string
 		for _, p := range uRes.Protocols {
-			if p.Protocol == "simple" {
+			if p.Protocol == "tus" {
 				uploadEP, uploadToken = p.UploadEndpoint, p.Token
 			}
 		}
@@ -303,24 +304,10 @@ func (s *svc) executePathCopy(ctx context.Context, selector pool.Selectable[gate
 		}
 
 		// 4. do upload
-
-		httpUploadReq, err := rhttp.NewRequest(ctx, "PUT", uploadEP, httpDownloadRes.Body)
+		fileid, err = s.tusUpload(ctx, uploadEP, uploadToken, httpDownloadRes.Body, int64(cp.sourceInfo.GetSize()))
 		if err != nil {
 			return err
 		}
-		httpUploadReq.Header.Set(datagateway.TokenTransportHeader, uploadToken)
-		httpUploadReq.ContentLength = int64(cp.sourceInfo.GetSize())
-
-		httpUploadRes, err := s.client.Do(httpUploadReq)
-		if err != nil {
-			return err
-		}
-		defer httpUploadRes.Body.Close()
-		if httpUploadRes.StatusCode != http.StatusOK {
-			return err
-		}
-
-		fileid = httpUploadRes.Header.Get(net.HeaderOCFileID)
 	}
 
 	w.Header().Set(net.HeaderOCFileID, fileid)
@@ -498,7 +485,7 @@ func (s *svc) executeSpacesCopy(ctx context.Context, w http.ResponseWriter, sele
 
 		var uploadEP, uploadToken string
 		for _, p := range uRes.Protocols {
-			if p.Protocol == "simple" {
+			if p.Protocol == "tus" {
 				uploadEP, uploadToken = p.UploadEndpoint, p.Token
 			}
 		}
@@ -530,24 +517,10 @@ func (s *svc) executeSpacesCopy(ctx context.Context, w http.ResponseWriter, sele
 		}
 
 		// 4. do upload
-
-		httpUploadReq, err := rhttp.NewRequest(ctx, http.MethodPut, uploadEP, httpDownloadRes.Body)
+		fileid, err = s.tusUpload(ctx, uploadEP, uploadToken, httpDownloadRes.Body, int64(cp.sourceInfo.GetSize()))
 		if err != nil {
 			return err
 		}
-		httpUploadReq.Header.Set(datagateway.TokenTransportHeader, uploadToken)
-		httpUploadReq.ContentLength = int64(cp.sourceInfo.GetSize())
-
-		httpUploadRes, err := s.client.Do(httpUploadReq)
-		if err != nil {
-			return err
-		}
-		defer httpUploadRes.Body.Close()
-		if httpUploadRes.StatusCode != http.StatusOK {
-			return err
-		}
-
-		fileid = httpUploadRes.Header.Get(net.HeaderOCFileID)
 	}
 
 	w.Header().Set(net.HeaderOCFileID, fileid)
@@ -755,4 +728,56 @@ func (s *svc) prepareCopy(ctx context.Context, w http.ResponseWriter, r *http.Re
 	}
 
 	return &copy{source: srcRef, sourceInfo: srcStatRes.Info, depth: depth, successCode: successCode, destination: dstRef}
+}
+
+func (s *svc) tusUpload(ctx context.Context, uploadEP, uploadToken string, body io.Reader, size int64) (string, error) {
+	chunkSize := int64(10000000)
+	var offset int64
+	var fileid string
+
+	for offset < size {
+		n := chunkSize
+		if offset+n > size {
+			n = size - offset
+		}
+
+		req, err := rhttp.NewRequest(ctx, http.MethodPatch, uploadEP, io.LimitReader(body, n))
+		if err != nil {
+			return "", err
+		}
+
+		req.Header.Set(datagateway.TokenTransportHeader, uploadToken)
+		req.Header.Set(net.HeaderTusResumable, "1.0.0")
+		req.Header.Set(net.HeaderUploadOffset, strconv.FormatInt(offset, 10))
+		req.Header.Set(net.HeaderContentType, "application/offset+octet-stream")
+		req.ContentLength = n
+
+		res, err := s.client.Do(req)
+		if err != nil {
+			return "", err
+		}
+
+		if res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+			res.Body.Close()
+			return "", fmt.Errorf("unexpected status code during TUS upload: %d", res.StatusCode)
+		}
+
+		if id := res.Header.Get(net.HeaderOCFileID); id != "" {
+			fileid = id
+		}
+
+		newOffsetStr := res.Header.Get(net.HeaderUploadOffset)
+		res.Body.Close()
+
+		if newOffsetStr != "" {
+			newOffset, err := strconv.ParseInt(newOffsetStr, 10, 64)
+			if err != nil {
+				return "", fmt.Errorf("invalid Upload-Offset header: %v", err)
+			}
+			offset = newOffset
+		} else {
+			offset += n
+		}
+	}
+	return fileid, nil
 }

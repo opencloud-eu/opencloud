@@ -1,4 +1,4 @@
-// Copyright 2019-2025 The NATS Authors
+// Copyright 2019-2026 The NATS Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -1030,11 +1030,11 @@ func (mset *stream) addConsumerWithAssignment(config *ConsumerConfig, oname stri
 	}
 	if cName != _EMPTY_ {
 		if eo, ok := mset.consumers[cName]; ok {
-			mset.mu.Unlock()
 			if action == ActionCreate {
 				ocfg := eo.config()
 				copyConsumerMetadata(config, &ocfg)
 				if !reflect.DeepEqual(config, &ocfg) {
+					mset.mu.Unlock()
 					return nil, NewJSConsumerAlreadyExistsError()
 				}
 			}
@@ -1042,9 +1042,11 @@ func (mset *stream) addConsumerWithAssignment(config *ConsumerConfig, oname stri
 			if cfg.Retention == WorkQueuePolicy {
 				subjects := gatherSubjectFilters(config.FilterSubject, config.FilterSubjects)
 				if !mset.partitionUnique(cName, subjects) {
+					mset.mu.Unlock()
 					return nil, NewJSConsumerWQConsumerNotUniqueError()
 				}
 			}
+			mset.mu.Unlock()
 			err := eo.updateConfig(config)
 			if err == nil {
 				return eo, nil
@@ -1542,7 +1544,6 @@ func (o *consumer) setLeader(isLeader bool) {
 		if o.cfg.AckPolicy != AckNone {
 			if o.ackSub, err = o.subscribeInternal(o.ackSubj, o.pushAck); err != nil {
 				o.mu.Unlock()
-				o.deleteWithoutAdvisory()
 				return
 			}
 		}
@@ -1551,7 +1552,6 @@ func (o *consumer) setLeader(isLeader bool) {
 		// Will error if wrong mode to provide feedback to users.
 		if o.reqSub, err = o.subscribeInternal(o.nextMsgSubj, o.processNextMsgReq); err != nil {
 			o.mu.Unlock()
-			o.deleteWithoutAdvisory()
 			return
 		}
 
@@ -1561,7 +1561,6 @@ func (o *consumer) setLeader(isLeader bool) {
 			fcsubj := fmt.Sprintf(jsFlowControl, stream, o.name)
 			if o.fcSub, err = o.subscribeInternal(fcsubj, o.processFlowControl); err != nil {
 				o.mu.Unlock()
-				o.deleteWithoutAdvisory()
 				return
 			}
 		}
@@ -2401,7 +2400,8 @@ func (o *consumer) updateConfig(cfg *ConsumerConfig) error {
 
 	// Check for Subject Filters update.
 	newSubjects := gatherSubjectFilters(cfg.FilterSubject, cfg.FilterSubjects)
-	if !subjectSliceEqual(newSubjects, o.subjf.subjects()) {
+	updatedFilters := !subjectSliceEqual(newSubjects, o.subjf.subjects())
+	if updatedFilters {
 		newSubjf := make(subjectFilters, 0, len(newSubjects))
 		for _, newFilter := range newSubjects {
 			fs := &subjectFilter{
@@ -2440,15 +2440,17 @@ func (o *consumer) updateConfig(cfg *ConsumerConfig) error {
 	// Allowed but considered no-op, [Description, SampleFrequency, MaxWaiting, HeadersOnly]
 	o.cfg = *cfg
 
-	// Cleanup messages that lost interest.
-	if o.retention == InterestPolicy {
-		o.mu.Unlock()
-		o.cleanupNoInterestMessages(o.mset, false)
-		o.mu.Lock()
-	}
+	if updatedFilters {
+		// Cleanup messages that lost interest.
+		if o.retention == InterestPolicy {
+			o.mu.Unlock()
+			o.cleanupNoInterestMessages(o.mset, false)
+			o.mu.Lock()
+		}
 
-	// Re-calculate num pending on update.
-	o.streamNumPending()
+		// Re-calculate num pending on update.
+		o.streamNumPending()
+	}
 
 	return nil
 }
@@ -5115,9 +5117,14 @@ func (o *consumer) checkNumPending() (uint64, error) {
 		var state StreamState
 		o.mset.store.FastState(&state)
 		npc := o.numPending()
-		if o.sseq > state.LastSeq && npc > 0 || npc > state.Msgs {
-			// Re-calculate.
-			return o.streamNumPending()
+		// Make sure we can't report more messages than there are.
+		// TODO(nat): It's not great that this means consumer info has side effects,
+		// since we can't know whether anyone will call it or not. The previous num
+		// pending calculation that this replaces had the same problem though.
+		if o.sseq > state.LastSeq {
+			o.npc = 0
+		} else if npc > 0 {
+			o.npc = int64(min(npc, state.Msgs, state.LastSeq-o.sseq+1))
 		}
 	}
 	return o.numPending(), nil
@@ -5365,6 +5372,15 @@ func (o *consumer) trackPending(sseq, dseq uint64) {
 		o.pending = make(map[uint64]*Pending)
 	}
 
+	now := time.Now()
+	if p, ok := o.pending[sseq]; ok {
+		// Update timestamp but keep original consumer delivery sequence.
+		// So do not update p.Sequence.
+		p.Timestamp = now.UnixNano()
+	} else {
+		o.pending[sseq] = &Pending{dseq, now.UnixNano()}
+	}
+
 	// We could have a backoff that set a timer higher than what we need for this message.
 	// In that case, reset to lowest backoff required for a message redelivery.
 	minDelay := o.ackWait(0)
@@ -5377,17 +5393,9 @@ func (o *consumer) trackPending(sseq, dseq uint64) {
 		}
 		minDelay = o.ackWait(o.cfg.BackOff[bi])
 	}
-	minDeadline := time.Now().Add(minDelay)
+	minDeadline := now.Add(minDelay)
 	if o.ptmr == nil || o.ptmrEnd.After(minDeadline) {
 		o.resetPtmr(minDelay)
-	}
-
-	if p, ok := o.pending[sseq]; ok {
-		// Update timestamp but keep original consumer delivery sequence.
-		// So do not update p.Sequence.
-		p.Timestamp = time.Now().UnixNano()
-	} else {
-		o.pending[sseq] = &Pending{dseq, time.Now().UnixNano()}
 	}
 }
 
@@ -6503,6 +6511,10 @@ func (o *consumer) checkStateForInterestStream(ss *StreamState) error {
 					retryAsflr = seq
 				}
 			} else if seq <= dflr {
+				// Store the first entry above our ack floor, so we don't need to look it up again on retryAsflr=0.
+				if retryAsflr == 0 {
+					retryAsflr = seq
+				}
 				// If we have pending, we will need to walk through to delivered in case we missed any of those acks as well.
 				if _, ok := state.Pending[seq]; !ok {
 					// The filters are already taken into account,
@@ -6514,8 +6526,18 @@ func (o *consumer) checkStateForInterestStream(ss *StreamState) error {
 		}
 	}
 	// If retry floor was not overwritten, set to ack floor+1, we don't need to account for any retries below it.
+	// However, our ack floor may be lower than the next message we can receive, so we correct it upward if needed.
 	if retryAsflr == 0 {
-		retryAsflr = asflr + 1
+		if filters != nil {
+			_, nseq, err = store.LoadNextMsgMulti(filters, asflr+1, &smv)
+		} else {
+			_, nseq, err = store.LoadNextMsg(filter, wc, asflr+1, &smv)
+		}
+		if err == nil {
+			retryAsflr = max(asflr+1, nseq)
+		} else if err == ErrStoreEOF {
+			retryAsflr = ss.LastSeq + 1
+		}
 	}
 
 	o.mu.Lock()
