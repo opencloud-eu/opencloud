@@ -6,6 +6,10 @@
 
 @AlexAndBear, @ScharfViktor, @flimmy, @individual-it, @rhafer, @saw-jan
 
+### 🐛 Bug Fixes
+
+- [full-ci] reva-bump-2.42.3 [[#2276](https://github.com/opencloud-eu/opencloud/pull/2276)]
+
 ### ✅ Tests
 
 - adapt test for #514 [[#2255](https://github.com/opencloud-eu/opencloud/pull/2255)]
