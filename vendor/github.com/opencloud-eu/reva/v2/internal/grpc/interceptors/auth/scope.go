@@ -21,6 +21,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -283,8 +284,11 @@ func checkIfNestedResource(ctx context.Context, ref *provider.Reference, parent 
 		return false, statuspkg.NewErrorFromCode(pathResp.Status.Code, "auth interceptor")
 	}
 	childPath := pathResp.Path
-
-	return strings.HasPrefix(childPath, parentPath), nil
+	rel, err := filepath.Rel(parentPath, childPath)
+	if err != nil {
+		return false, err
+	}
+	return !strings.HasPrefix(rel, ".."), nil
 }
 
 func extractRefFromListProvidersReq(v *registry.ListStorageProvidersRequest) (*provider.Reference, bool) {
