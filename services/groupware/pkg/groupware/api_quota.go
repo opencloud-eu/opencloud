@@ -7,25 +7,11 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
-// When the request succeeds.
-// swagger:response GetQuotaResponse200
-type SwaggerGetQuotaResponse200 struct {
-	// in: body
-	Body []jmap.Quota
-}
-
-// swagger:route GET /groupware/accounts/{account}/quota quota get_quota
 // Get quota limits.
 //
 // Retrieves the list of Quota configurations for a given account.
 //
 // Note that there may be multiple Quota objects for different resource types.
-//
-// responses:
-//
-//	200: GetQuotaResponse200
-//	400: ErrorResponse400
-//	500: ErrorResponse500
 func (g *Groupware) GetQuota(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountId, err := req.GetAccountIdForQuota()
@@ -51,24 +37,10 @@ type AccountQuota struct {
 	State  jmap.State   `json:"state"`
 }
 
-// When the request succeeds.
-// swagger:response GetQuotaForAllAccountsResponse200
-type SwaggerGetQuotaForAllAccountsResponse200 struct {
-	// in: body
-	Body map[string]AccountQuota
-}
-
-// swagger:route GET /groupware/accounts/all/quota quota get_quota_for_all_accounts
 // Get quota limits for all accounts.
 //
 // Retrieves the Quota configuration for all the accounts the user currently has access to,
 // as a dictionary that has the account identifier as its key and an array of Quotas as its value.
-//
-// responses:
-//
-//	200: GetQuotaForAllAccountsResponse200
-//	400: ErrorResponse400
-//	500: ErrorResponse500
 func (g *Groupware) GetQuotaForAllAccounts(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountIds := req.AllAccountIds()

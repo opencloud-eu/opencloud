@@ -11,28 +11,12 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
-// When the request succeeds.
-// swagger:response MailboxResponse200
-type SwaggerGetMailboxById200 struct {
-	// in: body
-	Body struct {
-		*jmap.Mailbox
-	}
-}
-
-// swagger:route GET /groupware/accounts/{account}/mailboxes/{mailbox} mailbox mailboxes_by_id
 // Get a specific mailbox by its identifier.
 //
 // A Mailbox represents a named set of Emails.
+//
 // This is the primary mechanism for organising Emails within an account.
 // It is analogous to a folder or a label in other systems.
-//
-// responses:
-//
-//	200: MailboxResponse200
-//	400: ErrorResponse400
-//	404: ErrorResponse404
-//	500: ErrorResponse500
 func (g *Groupware) GetMailbox(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountId, err := req.GetAccountIdForMail()
@@ -58,42 +42,15 @@ func (g *Groupware) GetMailbox(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// swagger:parameters mailboxes
-type SwaggerMailboxesParams struct {
-	// The name of the mailbox, with substring matching.
-	// in: query
-	Name string `json:"name,omitempty"`
-	// The role of the mailbox.
-	// in: query
-	Role string `json:"role,omitempty"`
-	// Whether the mailbox is subscribed by the user or not.
-	// When omitted, the subscribed and unsubscribed mailboxes are returned.
-	// in: query
-	Subscribed bool `json:"subscribed,omitempty"`
-}
-
-// When the request succeeds.
-// swagger:response MailboxesResponse200
-type SwaggerMailboxesResponse200 struct {
-	// in: body
-	Body []jmap.Mailbox
-}
-
-// swagger:route GET /groupware/accounts/{account}/mailboxes mailbox mailboxes
 // Get the list of all the mailboxes of an account, potentially filtering on the
 // name and/or role of the mailbox.
 //
 // A Mailbox represents a named set of Emails.
+//
 // This is the primary mechanism for organising Emails within an account.
 // It is analogous to a folder or a label in other systems.
 //
 // When none of the query parameters are specified, all the mailboxes are returned.
-//
-// responses:
-//
-//	200: MailboxesResponse200
-//	400: ErrorResponse400
-//	500: ErrorResponse500
 func (g *Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		var filter jmap.MailboxFilterCondition
@@ -151,21 +108,7 @@ func (g *Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// When the request succeeds.
-// swagger:response MailboxesForAllAccountsResponse200
-type SwaggerMailboxesForAllAccountsResponse200 struct {
-	// in: body
-	Body map[string][]jmap.Mailbox
-}
-
-// swagger:route GET /groupware/accounts/all/mailboxes mailboxesforallaccounts mailbox
 // Get the list of all the mailboxes of all accounts of a user, potentially filtering on the role of the mailboxes.
-//
-// responses:
-//
-//	200: MailboxesForAllAccountsResponse200
-//	400: ErrorResponse400
-//	500: ErrorResponse500
 func (g *Groupware) GetMailboxesForAllAccounts(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountIds := req.AllAccountIds()
@@ -232,21 +175,7 @@ func (g *Groupware) GetMailboxByRoleForAllAccounts(w http.ResponseWriter, r *htt
 	})
 }
 
-// When the request succeeds.
-// swagger:response MailboxChangesResponse200
-type SwaggerMailboxChangesResponse200 struct {
-	// in: body
-	Body *jmap.MailboxChanges
-}
-
-// swagger:route GET /groupware/accounts/{account}/mailboxes/{mailbox}/changes mailbox mailboxchanges
 // Get the changes that occured in a given mailbox since a certain state.
-//
-// responses:
-//
-//	200: MailboxChangesResponse200
-//	400: ErrorResponse400
-//	500: ErrorResponse500
 func (g *Groupware) GetMailboxChanges(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()
@@ -287,21 +216,7 @@ func (g *Groupware) GetMailboxChanges(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// When the request succeeds.
-// swagger:response MailboxChangesForAllAccountsResponse200
-type SwaggerMailboxChangesForAllAccountsResponse200 struct {
-	// in: body
-	Body map[string]jmap.MailboxChanges
-}
-
-// swagger:route GET /groupware/accounts/all/mailboxes/changes mailbox mailboxchangesforallaccounts
 // Get the changes that occured in all the mailboxes of all accounts.
-//
-// responses:
-//
-//	200: MailboxChangesForAllAccountsResponse200
-//	400: ErrorResponse400
-//	500: ErrorResponse500
 func (g *Groupware) GetMailboxChangesForAllAccounts(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()

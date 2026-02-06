@@ -8,22 +8,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
-// When the request succeeds.
-// swagger:response GetAddressbooks200
-type SwaggerGetAddressbooks200 struct {
-	// in: body
-	Body []jmap.AddressBook
-}
-
-// swagger:route GET /groupware/accounts/{account}/addressbooks addressbook addressbooks
 // Get all addressbooks of an account.
-//
-// responses:
-//
-//	200: GetAddressbooks200
-//	400: ErrorResponse400
-//	404: ErrorResponse404
-//	500: ErrorResponse500
 func (g *Groupware) GetAddressbooks(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := req.needContactWithAccount()
@@ -40,24 +25,7 @@ func (g *Groupware) GetAddressbooks(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// When the request succeeds.
-// swagger:response GetAddressbookById200
-type SwaggerGetAddressbookById200 struct {
-	// in: body
-	Body struct {
-		*jmap.AddressBook
-	}
-}
-
-// swagger:route GET /groupware/accounts/{account}/addressbooks/{addressbookid} addressbook addressbook_by_id
 // Get an addressbook of an account by its identifier.
-//
-// responses:
-//
-//	200: GetAddressbookById200
-//	400: ErrorResponse400
-//	404: ErrorResponse404
-//	500: ErrorResponse500
 func (g *Groupware) GetAddressbook(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := req.needContactWithAccount()
@@ -82,27 +50,12 @@ func (g *Groupware) GetAddressbook(w http.ResponseWriter, r *http.Request) {
 		if len(addressbooks.NotFound) > 0 {
 			return notFoundResponse(single(accountId), sessionState)
 		} else {
-			return etagResponse(single(accountId), addressbooks, sessionState, AddressBookResponseObjectType, state, lang)
+			return etagResponse(single(accountId), addressbooks.AddressBooks[0], sessionState, AddressBookResponseObjectType, state, lang)
 		}
 	})
 }
 
-// When the request succeeds.
-// swagger:response GetContactsInAddressbook200
-type SwaggerGetContactsInAddressbook200 struct {
-	// in: body
-	Body []jscontact.ContactCard
-}
-
-// swagger:route GET /groupware/accounts/{account}/addressbooks/{addressbookid}/contacts contact contacts_in_addressbook
 // Get all the contacts in an addressbook of an account by its identifier.
-//
-// responses:
-//
-//	200: GetContactsInAddressbook200
-//	400: ErrorResponse400
-//	404: ErrorResponse404
-//	500: ErrorResponse500
 func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := req.needContactWithAccount()

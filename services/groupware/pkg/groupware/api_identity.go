@@ -10,22 +10,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
-// When the request suceeds.
-// swagger:response GetIdentitiesResponse
-type SwaggerGetIdentitiesResponse struct {
-	// in: body
-	Body []jmap.Identity
-}
-
-// swagger:route GET /groupware/accounts/{account}/identities identity identities
 // Get the list of identities that are associated with an account.
-//
-// responses:
-//
-//	200: GetIdentitiesResponse
-//	400: ErrorResponse400
-//	404: ErrorResponse404
-//	500: ErrorResponse500
 func (g *Groupware) GetIdentities(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountId, err := req.GetAccountIdForMail()

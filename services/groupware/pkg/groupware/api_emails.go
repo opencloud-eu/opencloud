@@ -20,25 +20,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/metrics"
 )
 
-// When the request succeeds without a "since" query parameter.
-// swagger:response GetAllEmailsInMailbox200
-type SwaggerGetAllEmailsInMailbox200 struct {
-	// in: body
-	Body struct {
-		*jmap.Emails
-	}
-}
-
-// When the request succeeds with a "since" query parameter.
-// swagger:response GetAllEmailsInMailboxSince200
-type SwaggerGetAllEmailsInMailboxSince200 struct {
-	// in: body
-	Body struct {
-		*jmap.MailboxChanges
-	}
-}
-
-// swagger:route GET /groupware/accounts/{account}/mailboxes/{mailbox}/emails/since/{since} email get_all_emails_in_mailbox_since
 // Get all the emails in a mailbox since a given state.
 //
 // Retrieve the list of all the emails that are in a given mailbox since a given state.
@@ -47,13 +28,6 @@ type SwaggerGetAllEmailsInMailboxSince200 struct {
 //
 // A limit and an offset may be specified using the query parameters 'limit' and 'offset',
 // respectively.
-//
-// responses:
-//
-//	 200: GetAllEmailsInMailboxSince200
-//		400: ErrorResponse400
-//		404: ErrorResponse404
-//		500: ErrorResponse500
 func (g *Groupware) GetAllEmailsInMailboxSince(w http.ResponseWriter, r *http.Request) {
 
 	maxChanges := uint(0)
@@ -86,7 +60,6 @@ func (g *Groupware) GetAllEmailsInMailboxSince(w http.ResponseWriter, r *http.Re
 
 }
 
-// swagger:route GET /groupware/accounts/{account}/mailboxes/{mailbox}/emails email get_all_emails_in_mailbox
 // Get all the emails in a mailbox.
 //
 // Retrieve the list of all the emails that are in a given mailbox.
@@ -95,13 +68,6 @@ func (g *Groupware) GetAllEmailsInMailboxSince(w http.ResponseWriter, r *http.Re
 //
 // A limit and an offset may be specified using the query parameters 'limit' and 'offset',
 // respectively.
-//
-// responses:
-//
-//	200: GetAllEmailsInMailbox200
-//	400: ErrorResponse400
-//	404: ErrorResponse404
-//	500: ErrorResponse500
 func (g *Groupware) GetAllEmailsInMailbox(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()
@@ -921,14 +887,6 @@ func (g *Groupware) ReplaceEmail(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// swagger:parameters update_email
-type SwaggerUpdateEmailBody struct {
-	// List of identifiers of emails to delete.
-	// in: body
-	// example: ["caen3iujoo8u", "aec8phaetaiz", "bohna0me"]
-	Body map[string]string
-}
-
 func (g *Groupware) UpdateEmail(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()
@@ -1043,15 +1001,7 @@ func (g *Groupware) UpdateEmailKeywords(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-// swagger:route POST /groupware/accounts/{account}/emails/{emailid}/keywords email add_email_keywords
 // Add keywords to an email by its unique identifier.
-//
-// responses:
-//
-//	204: Success204
-//	400: ErrorResponse400
-//	404: ErrorResponse404
-//	500: ErrorResponse500
 func (g *Groupware) AddEmailKeywords(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()
@@ -1111,15 +1061,7 @@ func (g *Groupware) AddEmailKeywords(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// swagger:route DELETE /groupware/accounts/{account}/emails/{emailid}/keywords email remove_email_keywords
 // Remove keywords of an email by its unique identifier.
-//
-// responses:
-//
-//	204: Success204
-//	400: ErrorResponse400
-//	404: ErrorResponse404
-//	500: ErrorResponse500
 func (g *Groupware) RemoveEmailKeywords(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()
@@ -1179,15 +1121,7 @@ func (g *Groupware) RemoveEmailKeywords(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-// swagger:route DELETE /groupware/accounts/{account}/emails/{emailid} email delete_email
 // Delete an email by its unique identifier.
-//
-// responses:
-//
-//	204: Success204
-//	400: ErrorResponse400
-//	404: ErrorResponse404
-//	500: ErrorResponse500
 func (g *Groupware) DeleteEmail(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()
@@ -1230,26 +1164,10 @@ func (g *Groupware) DeleteEmail(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// swagger:parameters delete_emails
-type SwaggerDeleteEmailsBody struct {
-	// List of identifiers of emails to delete.
-	// in: body
-	// example: ["caen3iujoo8u", "aec8phaetaiz", "bohna0me"]
-	Body []string
-}
-
-// swagger:route DELETE /groupware/accounts/{account}/emails email delete_emails
 // Delete a set of emails by their unique identifiers.
 //
 // The identifiers of the emails to delete are specified as part of the request
 // body, as an array of strings.
-//
-// responses:
-//
-//	204: Success204
-//	400: ErrorResponse400
-//	404: ErrorResponse404
-//	500: ErrorResponse500
 func (g *Groupware) DeleteEmails(w http.ResponseWriter, r *http.Request) {
 	/// @api body
 	g.respond(w, r, func(req Request) Response {
@@ -1511,23 +1429,14 @@ func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) {
 
 type EmailSummary struct {
 	// The id of the account this Email summary pertains to.
-	// required: true
-	// example: $accountId
 	AccountId string `json:"accountId,omitempty"`
 
 	// The id of the Email object.
 	//
 	// Note that this is the JMAP object id, NOT the Message-ID header field value of the message [RFC5322].
-	//
-	// [RFC5322]: https://www.rfc-editor.org/rfc/rfc5322.html
-	//
-	// required: true
-	// example: $emailId
 	Id string `json:"id,omitempty"`
 
 	// The id of the Thread to which this Email belongs.
-	//
-	// example: $threadId
 	ThreadId string `json:"threadId,omitempty"`
 
 	// The number of emails in the thread, including this one.
@@ -1539,8 +1448,6 @@ type EmailSummary struct {
 	// The set is represented as an object, with each key being a Mailbox id.
 	//
 	// The value for each key in the object MUST be true.
-	//
-	// example: $mailboxIds
 	MailboxIds map[string]bool `json:"mailboxIds,omitempty"`
 
 	// A set of keywords that apply to the Email.
@@ -1572,8 +1479,8 @@ type EmailSummary struct {
 	//
 	// Because JSON is case sensitive, servers MUST return keywords in lowercase.
 	//
-	// The [IMAP and JMAP Keywords] registry as established in [RFC5788] assigns semantic meaning to some other
-	// keywords in common use.
+	// The [IMAP and JMAP Keywords](https://www.iana.org/assignments/imap-jmap-keywords/) registry as established in
+	// [RFC5788] assigns semantic meaning to some other keywords in common use.
 	//
 	// New keywords may be established here in the future. In particular, note:
 	//
@@ -1584,54 +1491,36 @@ type EmailSummary struct {
 	//     Clients SHOULD set this flag when users report spam to help train automated spam-detection systems.
 	//   - $notjunk: The Email is definitely not spam.
 	//     Clients SHOULD set this flag when users indicate an Email is legitimate, to help train automated spam-detection systems.
-	//
-	// [IMAP and JMAP Keywords]: https://www.iana.org/assignments/imap-jmap-keywords/
-	// [RFC5788]: https://www.rfc-editor.org/rfc/rfc5788.html
-	//
-	// example: $emailKeywords
 	Keywords map[string]bool `json:"keywords,omitempty"`
 
 	// The size, in octets, of the raw data for the message [RFC5322]
 	// (as referenced by the blobId, i.e., the number of octets in the file the user would download).
-	//
-	// [RFC5322]: https://www.rfc-editor.org/rfc/rfc5322.html
 	Size int `json:"size"`
 
 	// The date the Email was received by the message store.
 	//
 	// This is the internal date in IMAP [RFC3501].
-	//
-	// [RFC3501]: https://www.rfc-editor.org/rfc/rfc3501.html
-	//
-	// example: $emailReceivedAt
 	ReceivedAt time.Time `json:"receivedAt,omitzero"`
 
-	// The value is identical to the value of header:Sender:asAddresses.
-	// example: $emailSenders
+	// The value is identical to the value of `header:Sender:asAddresses`.
 	Sender []jmap.EmailAddress `json:"sender,omitempty"`
 
-	// The value is identical to the value of header:From:asAddresses.
-	// example: $emailFroms
+	// The value is identical to the value of `header:From:asAddresses`.
 	From []jmap.EmailAddress `json:"from,omitempty"`
 
-	// The value is identical to the value of header:To:asAddresses.
-	// example: $emailTos
+	// The value is identical to the value of `header:To:asAddresses`.
 	To []jmap.EmailAddress `json:"to,omitempty"`
 
-	// The value is identical to the value of header:Cc:asAddresses.
-	// example: $emailCCs
+	// The value is identical to the value of `header:Cc:asAddresses`.
 	Cc []jmap.EmailAddress `json:"cc,omitempty"`
 
-	// The value is identical to the value of header:Bcc:asAddresses.
-	// example: $emailBCCs
+	// The value is identical to the value of `header:Bcc:asAddresses`.
 	Bcc []jmap.EmailAddress `json:"bcc,omitempty"`
 
-	// The value is identical to the value of header:Subject:asText.
-	// example: $emailSubject
+	// The value is identical to the value of `header:Subject:asText`.
 	Subject string `json:"subject,omitempty"`
 
-	// The value is identical to the value of header:Date:asDate.
-	// example: $emailSentAt
+	// The value is identical to the value of `header:Date:asDate`.
 	SentAt time.Time `json:"sentAt,omitzero"`
 
 	// This is true if there are one or more parts in the message that a client UI should offer as downloadable.
@@ -1643,26 +1532,21 @@ type EmailSummary struct {
 	// as embedded images in one of the text/html parts of the message.
 	//
 	// The server MAY set hasAttachment based on implementation-defined or site-configurable heuristics.
-	// example: true
 	HasAttachment bool `json:"hasAttachment,omitempty"`
 
 	// A list, traversing depth-first, of all parts in bodyStructure.
 	//
 	// They must satisfy either of the following conditions:
 	//
-	//   - not of type multipart/* and not included in textBody or htmlBody
-	//   - of type image/*, audio/*, or video/* and not in both textBody and htmlBody
+	// - not of type `multipart/*` and not included in textBody or htmlBody
+	// - of type `image/*`, `audio/*`, or `video/*` and not in both textBody and htmlBody
 	//
-	// None of these parts include subParts, including message/* types.
+	// None of these parts include subParts, including `message/*` types.
 	//
 	// Attached messages may be fetched using the Email/parse method and the blobId.
 	//
-	// Note that a text/html body part HTML may reference image parts in attachments by using cid:
+	// Note that a `text/html` body part HTML may reference image parts in attachments by using cid:
 	// links to reference the Content-Id, as defined in [RFC2392], or by referencing the Content-Location.
-	//
-	// [RFC2392]: https://www.rfc-editor.org/rfc/rfc2392.html
-	//
-	// example: $emailAttachments
 	Attachments []jmap.EmailBodyPart `json:"attachments,omitempty"`
 
 	// A plaintext fragment of the message body.
@@ -1679,8 +1563,6 @@ type EmailSummary struct {
 	// time, fetching this for an Email a second time MAY return a different result.
 	// However, the previous value is not considered incorrect, and the change SHOULD NOT cause the Email object
 	// to be considered as changed by the server.
-	//
-	// example: $emailPreview
 	Preview string `json:"preview,omitempty"`
 }
 
@@ -1712,34 +1594,6 @@ type emailWithAccountId struct {
 	email     jmap.Email
 }
 
-// When the request succeeds.
-// swagger:response GetLatestEmailsSummaryForAllAccounts200
-type SwaggerGetLatestEmailsSummaryForAllAccounts200 struct {
-	// in: body
-	Body []EmailSummary
-}
-
-// swagger:parameters get_latest_emails_summary_for_all_accounts
-type SwaggerGetLatestEmailsSummaryForAllAccountsParams struct {
-	// The maximum amount of email summaries to return.
-	// in: query
-	// example: 10
-	// default: 10
-	Limit uint `json:"limit"`
-
-	// Whether to include emails that have already been seen (read) or not.
-	// in: query
-	// example: true
-	// default: false
-	Seen bool `json:"seen"`
-
-	// Whether to include emails that have been flagged as junk or phishing.
-	// in: query
-	// example: false
-	// default: false
-	Undesirable bool `json:"undesirable"`
-}
-
 type EmailSummaries struct {
 	Emails []EmailSummary `json:"emails,omitempty"`
 	Total  uint           `json:"total,omitzero"`
@@ -1748,7 +1602,6 @@ type EmailSummaries struct {
 	State  jmap.State     `json:"state,omitempty"`
 }
 
-// swagger:route GET /groupware/accounts/all/emails/latest/summary email get_latest_emails_summary_for_all_accounts
 // Get a summary of the latest emails across all the mailboxes, across all of a user's accounts.
 //
 // Retrieves summaries of the latest emails of a user, in all accounts, across all mailboxes.
@@ -1757,15 +1610,8 @@ type EmailSummaries struct {
 //
 // The following additional query parameters may be specified to further filter the emails to summarize:
 //
-// !- `seen`: when `true`, emails that have already been seen (read) will be included as well (default is to only include emails that have not been read yet)
-// !- `undesirable`: when `true`, emails that are flagged as spam or phishing will also be summarized (default is to ignore those)
-//
-// responses:
-//
-//	200: GetLatestEmailsSummaryForAllAccounts200
-//	400: ErrorResponse400
-//	404: ErrorResponse404
-//	500: ErrorResponse500
+// * `seen`: when `true`, emails that have already been seen (read) will be included as well (default is to only include emails that have not been read yet)
+// * `undesirable`: when `true`, emails that are flagged as spam or phishing will also be summarized (default is to ignore those)
 func (g *Groupware) GetLatestEmailsSummaryForAllAccounts(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()
