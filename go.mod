@@ -64,7 +64,7 @@ require (
 	github.com/onsi/gomega v1.39.1
 	github.com/open-policy-agent/opa v1.12.3
 	github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89
-	github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76
+	github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260204102724-10bcda1b3068
 	github.com/opencloud-eu/reva/v2 v2.42.4-0.20260209135152-4433469d98e8
 	github.com/opensearch-project/opensearch-go/v4 v4.6.0
 	github.com/orcaman/concurrent-map v1.0.0
@@ -339,9 +339,9 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
-	github.com/samber/lo v1.51.0 // indirect
-	github.com/samber/slog-common v0.19.0 // indirect
-	github.com/samber/slog-zerolog/v2 v2.9.0 // indirect
+	github.com/samber/lo v1.52.0 // indirect
+	github.com/samber/slog-common v0.20.0 // indirect
+	github.com/samber/slog-zerolog/v2 v2.9.1 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/segmentio/kafka-go v0.4.50 // indirect
 	github.com/segmentio/ksuid v1.0.4 // indirect
