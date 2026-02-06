@@ -9,24 +9,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
-// When the request succeeds.
-// swagger:response GetAccountResponse200
-type SwaggerGetAccountResponse struct {
-	// in: body
-	Body struct {
-		*jmap.Account
-	}
-}
-
-// swagger:route GET /groupware/accounts/{account} account account
 // Get attributes of a given account.
-//
-// responses:
-//
-//	200: GetAccountResponse200
-//	400: ErrorResponse400
-//	404: ErrorResponse404
-//	500: ErrorResponse500
 func (g *Groupware) GetAccount(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountId, account, err := req.GetAccountForMail()
@@ -38,22 +21,7 @@ func (g *Groupware) GetAccount(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// When the request succeeds.
-// swagger:response GetAccountsResponse200
-type SwaggerGetAccountsResponse struct {
-	// in: body
-	Body map[string]jmap.Account
-}
-
-// swagger:route GET /groupware/accounts account accounts
 // Get the list of all of the user's accounts.
-//
-// responses:
-//
-//	200: GetAccountsResponse200
-//	400: ErrorResponse400
-//	404: ErrorResponse404
-//	500: ErrorResponse500
 func (g *Groupware) GetAccounts(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		list := make([]AccountWithId, len(req.session.Accounts))
@@ -72,6 +40,7 @@ func (g *Groupware) GetAccounts(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Get the list of all of the user's accounts, along with the list of all the identities for each of those accounts.
 func (g *Groupware) GetAccountsWithTheirIdentities(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		allAccountIds := req.AllAccountIds()

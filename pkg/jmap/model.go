@@ -1924,8 +1924,6 @@ type EmailBodyPart struct {
 	//
 	// This is scoped to the `emailId` and has no meaning outside of the JMAP Email object representation.
 	// This is null if, and only if, the part is of type `multipart/*`.
-	//
-	// example: $attachmentPartId
 	PartId string `json:"partId,omitempty"`
 
 	// The id representing the raw octets of the contents of the part, after decoding any known

@@ -1554,8 +1554,6 @@ type TimeZoneRule struct {
 	// Negative numbers represent time zones west of the prime meridian, or behind UTC.
 	//
 	// Mandatory.
-	//
-	// example: -0500
 	OffsetFrom string `json:"offsetFrom" doc:"req"`
 
 	// This is the TZOFFSETTO property from iCalendar: specifies the offset that is in use in this time zone observance.
@@ -1571,8 +1569,6 @@ type TimeZoneRule struct {
 	// Negative numbers represent time zones west of the prime meridian, or behind UTC.
 	//
 	// Mandatory.
-	//
-	// example: +1245
 	OffsetTo string `json:"offsetTo" doc:"req"`
 
 	// This is the `RRULE` property mapped.

@@ -215,8 +215,6 @@ type PersonalInfoLevel string
 // * `location`: a named location
 // * `device`: a device such as an appliance, a computer, or a network element
 // * `application`: a software application
-//
-// example: individual
 type ContactCardKind string
 
 // The kind of the `Directory` resource.
@@ -366,8 +364,6 @@ type LinkContext string
 // The JSContact version of this Card.
 //
 // The value MUST be one of the IANA-registered JSContact Version values for the version property.
-//
-// example: 1.0
 type JSContactVersion string
 
 type TypeOfAddress string
@@ -2038,7 +2034,7 @@ type ContactCard struct {
 	// The id uniquely identifies a Card with a particular “uid” within a particular account.
 	//
 	// This is a JMAP extension and not part of [RFC9553].
-	Id string `json:"id,omitempty"`
+	Id string `json:"id,omitempty" doc:"!request,req"`
 
 	// The set of AddressBook ids this Card belongs to.
 	//

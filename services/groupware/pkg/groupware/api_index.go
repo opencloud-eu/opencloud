@@ -142,22 +142,8 @@ type IndexResponse struct {
 	PrimaryAccounts IndexPrimaryAccounts `json:"primaryAccounts"`
 }
 
-// When the request suceeds.
-// swagger:response IndexResponse
-type SwaggerIndexResponse struct {
-	// in: body
-	Body struct {
-		*IndexResponse
-	}
-}
-
-// swagger:route GET /groupware bootstrap index
 // Get initial bootstrapping information for a user.
 // @api:tag bootstrap
-//
-// responses:
-//
-//	200: IndexResponse
 func (g *Groupware) Index(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountIds := req.AllAccountIds()
@@ -167,14 +153,14 @@ func (g *Groupware) Index(w http.ResponseWriter, r *http.Request) {
 			return req.errorResponseFromJmap(accountIds, err)
 		}
 
-		var RBODY IndexResponse = IndexResponse{
+		var body IndexResponse = IndexResponse{
 			Version:         Version,
 			Capabilities:    Capabilities,
 			Limits:          buildIndexLimits(req.session),
 			Accounts:        buildIndexAccounts(req.session, boot),
 			PrimaryAccounts: buildIndexPrimaryAccounts(req.session),
 		}
-		return etagResponse(accountIds, RBODY, sessionState, IndexResponseObjectType, state, lang)
+		return etagResponse(accountIds, body, sessionState, IndexResponseObjectType, state, lang)
 	})
 }
 
