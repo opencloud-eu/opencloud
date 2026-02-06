@@ -40,7 +40,7 @@ apidoc-static: api.html
 
 .PHONY: examples
 examples:
-	cd ../../pkg/jmap/ && go test -tags=groupware_examples . -v -count=1 -run Example
-	cd ../../pkg/jscontact/ && go test -tags=groupware_examples . -v -count=1 -run Example
-	cd ../../pkg/jscalendar/ && go test -tags=groupware_examples . -v -count=1 -run Example
-	cd ./pkg/groupware/ && go test -tags=groupware_examples . -v -count=1 -run Example
+	cd ../../pkg/jmap/ && go test -tags=groupware_examples . -v -count=1 -run '^.*Example$''
+	cd ../../pkg/jscontact/ && go test -tags=groupware_examples . -v -count=1 -run '^.*Example$''
+	cd ../../pkg/jscalendar/ && go test -tags=groupware_examples . -v -count=1 -run '^.*Example$''
+	cd ./pkg/groupware/ && go test -tags=groupware_examples . -v -count=1 -run '^.*Example$''
