@@ -9,6 +9,8 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	c "github.com/opencloud-eu/opencloud/pkg/jscontact"
 )
 
 func SerializeExamples(e any) {
@@ -801,6 +803,755 @@ func (e Exemplar) VacationResponseGetResponse() VacationResponseGetResponse {
 		State:     "quain7ku",
 		List: []VacationResponse{
 			e.VacationResponse(),
+		},
+	}
+}
+
+func (e Exemplar) AddressBook() AddressBook {
+	return AddressBook{
+		Id:           "bar5kike",
+		Name:         "My Friends",
+		Description:  "An address book of the people I trust",
+		IsDefault:    true,
+		IsSubscribed: true,
+		MyRights: AddressBookRights{
+			MayRead:   true,
+			MayWrite:  true,
+			MayAdmin:  true,
+			MayDelete: true,
+		},
+	}
+}
+
+func (e Exemplar) AddressBookGetResponse() AddressBookGetResponse {
+	a := e.AddressBook()
+	return AddressBookGetResponse{
+		AccountId: e.AccountId,
+		State:     "liew7dah",
+		NotFound:  []string{},
+		List:      []AddressBook{a},
+	}
+}
+
+func (e Exemplar) JSContactEmailAddress() c.EmailAddress {
+	return c.EmailAddress{
+		Type:    c.EmailAddressType,
+		Address: "camina@opa.org",
+		Contexts: map[c.EmailAddressContext]bool{
+			c.EmailAddressContextWork:    true,
+			c.EmailAddressContextPrivate: true,
+		},
+		Pref:  1,
+		Label: "bosmang",
+	}
+}
+
+func (e Exemplar) NameComponent() c.NameComponent {
+	return c.NameComponent{Type: c.NameComponentType, Value: "Camina", Kind: c.NameComponentKindGiven}
+}
+
+func (e Exemplar) OtherNameComponent() (c.NameComponent, string, string) {
+	return c.NameComponent{Type: c.NameComponentType, Value: "Drummer", Kind: c.NameComponentKindSurname}, "A surname NameComponent", "surname"
+}
+
+func (e Exemplar) NameComponents() []c.NameComponent {
+	a := e.NameComponent()
+	b, _, _ := e.OtherNameComponent()
+	return []c.NameComponent{a, b}
+}
+
+func (e Exemplar) Name() c.Name {
+	return c.Name{
+		Type: c.NameType,
+		Components: []c.NameComponent{
+			{Type: c.NameComponentType, Value: "Drummer", Kind: c.NameComponentKindSurname},
+			{Type: c.NameComponentType, Value: "Camina", Kind: c.NameComponentKindGiven},
+		},
+		IsOrdered:        true,
+		DefaultSeparator: ", ",
+	}
+}
+
+func (e Exemplar) OtherName() (c.Name, string, string) {
+	return c.Name{
+		Type: c.NameType,
+		Components: []c.NameComponent{
+			{Type: c.NameComponentType, Value: "Klaes", Kind: c.NameComponentKindGiven},
+			{Type: c.NameComponentType, Value: "Ashford", Kind: c.NameComponentKindSurname},
+		},
+		IsOrdered:        false,
+		DefaultSeparator: "  ",
+		Full:             "Klaes Ashford",
+	}, "Another Name", "other"
+}
+
+func (e Exemplar) ComplexName() (c.Name, string, string) {
+	return c.Name{
+		Type: c.NameType,
+		Components: []c.NameComponent{
+			{
+				Type:     c.NameComponentType,
+				Value:    "Diego",
+				Kind:     c.NameComponentKindGiven,
+				Phonetic: "/diˈeɪɡəʊ/",
+			},
+			{
+				Value: "Rivera",
+				Kind:  c.NameComponentKindSurname,
+			},
+			{
+				Value: "Barrientos",
+				Kind:  c.NameComponentKindSurname2,
+			},
+		},
+		IsOrdered:        true,
+		DefaultSeparator: " ",
+		Full:             "Diego Rivera Barrientos",
+		SortAs: map[string]string{
+			string(c.NameComponentKindSurname): "Rivera Barrientos",
+			string(c.NameComponentKindGiven):   "Diego",
+		},
+	}, "A complex name", "complex"
+}
+
+func (e Exemplar) Names() []c.Name {
+	a := e.Name()
+	b, _, _ := e.OtherName()
+	d, _, _ := e.ComplexName()
+	return []c.Name{a, b, d}
+}
+
+func (e Exemplar) Calendar() c.Calendar {
+	return c.Calendar{
+		Type:      c.CalendarType,
+		Kind:      c.CalendarKindCalendar,
+		Uri:       "https://opa.example.com/cal/3051dd3f-065a-4087-ab86-a790510aebe1.ics",
+		MediaType: "text/calendar",
+		Contexts: map[c.CalendarContext]bool{
+			c.CalendarContextPrivate: true,
+		},
+	}
+}
+
+func (e Exemplar) OtherCalendar() (c.Calendar, string, string) {
+	return c.Calendar{
+		Type:      c.CalendarType,
+		Kind:      c.CalendarKindCalendar,
+		Uri:       "https://opencloud.example.com/calendar/d05779b6-9638-4694-9869-008a61df6025",
+		MediaType: "application/jscontact+json",
+		Contexts: map[c.CalendarContext]bool{
+			c.CalendarContextWork: true,
+		},
+		Pref:  0,
+		Label: "business-contacts",
+	}, "A JSContact Calendar", "other"
+}
+
+func (e Exemplar) Calendars() []c.Calendar {
+	a := e.Calendar()
+	b, _, _ := e.OtherCalendar()
+	return []c.Calendar{a, b}
+}
+
+func (e Exemplar) Link() c.Link {
+	return c.Link{
+		Type:      c.LinkType,
+		Kind:      c.LinkKindContact,
+		Uri:       "https://opencloud.example.com/calendar/d05779b6-9638-4694-9869-008a61df6025",
+		MediaType: "application/jscontact+json",
+		Contexts: map[c.LinkContext]bool{
+			c.LinkContextWork: true,
+		},
+		Pref:  0,
+		Label: "sample",
+	}
+}
+
+func (e Exemplar) CryptoKey() c.CryptoKey {
+	return c.CryptoKey{
+		Type:      c.CryptoKeyType,
+		Uri:       "https://opencloud.example.com/keys/53c25ae8-2800-4905-86a9-92d765b9efb9.pgp",
+		MediaType: "application/pgp-keys",
+		Contexts: map[c.CryptoKeyContext]bool{
+			c.CryptoKeyContextWork: true,
+		},
+		Pref:  0,
+		Label: "work",
+	}
+}
+
+func (e Exemplar) Directory() c.Directory {
+	return c.Directory{
+		Type:      c.DirectoryType,
+		Kind:      c.DirectoryKindEntry,
+		Uri:       "https://opencloud.example.com/dir/38b850ea-f6ac-419d-8a26-1d19615cfa9b.vcf",
+		MediaType: "text/vcard",
+		Contexts: map[c.DirectoryContext]bool{
+			c.DirectoryContextWork: true,
+		},
+		Pref:   0,
+		Label:  "work",
+		ListAs: 3,
+	}
+}
+
+func (e Exemplar) Media() c.Media {
+	return c.Media{
+		Type:      c.MediaType,
+		Kind:      c.MediaKindLogo,
+		Uri:       "https://opencloud.eu/opencloud.svg",
+		MediaType: "image/svg+xml",
+		Contexts: map[c.MediaContext]bool{
+			c.MediaContextWork: true,
+		},
+		Pref:   0,
+		Label:  "logo",
+		BlobId: "1d92cf97e32b42ceb5538f0804a41891",
+	}
+}
+
+func (e Exemplar) Relation() c.Relation {
+	return c.Relation{
+		Type: c.RelationType,
+		Relation: map[c.Relationship]bool{
+			c.RelationCoWorker: true,
+			c.RelationFriend:   true,
+		},
+	}
+}
+
+func (e Exemplar) Nickname() c.Nickname {
+	return c.Nickname{
+		Type: c.NicknameType,
+		Name: "Bob",
+		Contexts: map[c.NicknameContext]bool{
+			c.NicknameContextPrivate: true,
+		},
+		Pref: 3,
+	}
+}
+
+func (e Exemplar) OrgUnit() c.OrgUnit {
+	return c.OrgUnit{
+		Type:   c.OrgUnitType,
+		Name:   "Skynet",
+		SortAs: "SKY",
+	}
+}
+
+func (e Exemplar) Organization() c.Organization {
+	return c.Organization{
+		Type:   c.OrganizationType,
+		Name:   "Cyberdyne",
+		SortAs: "CYBER",
+		Units: []c.OrgUnit{
+			{
+				Type:   c.OrgUnitType,
+				Name:   "Skynet",
+				SortAs: "SKY",
+			},
+			{
+				Type: c.OrgUnitType,
+				Name: "Cybernics",
+			},
+		},
+		Contexts: map[c.OrganizationContext]bool{
+			c.OrganizationContextWork: true,
+		},
+	}
+}
+
+func (e Exemplar) Pronouns() c.Pronouns {
+	return c.Pronouns{
+		Type:     c.PronounsType,
+		Pronouns: "they/them",
+		Contexts: map[c.PronounsContext]bool{
+			c.PronounsContextWork:    true,
+			c.PronounsContextPrivate: true,
+		},
+		Pref: 1,
+	}
+}
+
+func (e Exemplar) Title() c.Title {
+	return c.Title{
+		Type:           c.TitleType,
+		Name:           "Doctor",
+		Kind:           c.TitleKindTitle,
+		OrganizationId: "407e1992-9a2b-4e4f-a11b-85a509a4b5ae",
+	}
+}
+
+func (e Exemplar) SpeakToAs() c.SpeakToAs {
+	return c.SpeakToAs{
+		Type:              c.SpeakToAsType,
+		GrammaticalGender: c.GrammaticalGenderNeuter,
+		Pronouns: map[string]c.Pronouns{
+			"a": {
+				Type:     c.PronounsType,
+				Pronouns: "they/them",
+				Contexts: map[c.PronounsContext]bool{
+					c.PronounsContextPrivate: true,
+				},
+				Pref: 1,
+			},
+			"b": {
+				Type:     c.PronounsType,
+				Pronouns: "he/him",
+				Contexts: map[c.PronounsContext]bool{
+					c.PronounsContextWork: true,
+				},
+				Pref: 99,
+			},
+		},
+	}
+}
+
+func (e Exemplar) OnlineService() c.OnlineService {
+	return c.OnlineService{
+		Type:    c.OnlineServiceType,
+		Service: "OPA Network",
+		Contexts: map[c.OnlineServiceContext]bool{
+			c.OnlineServiceContextWork: true,
+		},
+		Uri:   "https://opa.org/cdrummer",
+		User:  "cdrummer@opa.org",
+		Pref:  12,
+		Label: "opa",
+	}
+}
+
+func (e Exemplar) Phone() c.Phone {
+	return c.Phone{
+		Type:   c.PhoneType,
+		Number: "+15551234567",
+		Features: map[c.PhoneFeature]bool{
+			c.PhoneFeatureText:       true,
+			c.PhoneFeatureMainNumber: true,
+			c.PhoneFeatureMobile:     true,
+			c.PhoneFeatureVideo:      true,
+			c.PhoneFeatureVoice:      true,
+		},
+		Contexts: map[c.PhoneContext]bool{
+			c.PhoneContextWork:    true,
+			c.PhoneContextPrivate: true,
+		},
+		Pref:  42,
+		Label: "opa",
+	}
+}
+
+func (e Exemplar) LanguagePref() c.LanguagePref {
+	return c.LanguagePref{
+		Type:     c.LanguagePrefType,
+		Language: "fr-BE",
+		Contexts: map[c.LanguagePrefContext]bool{
+			c.LanguagePrefContextPrivate: true,
+		},
+		Pref: 2,
+	}
+}
+
+func (e Exemplar) SchedulingAddress() c.SchedulingAddress {
+	return c.SchedulingAddress{
+		Type:  c.SchedulingAddressType,
+		Uri:   "mailto:camina@opa.org",
+		Label: "opa",
+		Contexts: map[c.SchedulingAddressContext]bool{
+			c.SchedulingAddressContextWork: true,
+		},
+		Pref: 3,
+	}
+}
+
+func (e Exemplar) AddressComponent() c.AddressComponent {
+	return c.AddressComponent{
+		Type:  c.AddressComponentType,
+		Kind:  c.AddressComponentKindPostcode,
+		Value: "20190",
+	}
+}
+func (e Exemplar) Address() c.Address {
+	return c.Address{
+		Type: c.AddressType,
+		Contexts: map[c.AddressContext]bool{
+			c.AddressContextDelivery: true,
+			c.AddressContextWork:     true,
+		},
+		Components: []c.AddressComponent{
+			{Type: c.AddressComponentType, Kind: c.AddressComponentKindNumber, Value: "54321"},
+			{Kind: c.AddressComponentKindSeparator, Value: " "},
+			{Kind: c.AddressComponentKindName, Value: "Oak St"},
+			{Kind: c.AddressComponentKindLocality, Value: "Reston"},
+			{Kind: c.AddressComponentKindRegion, Value: "VA"},
+			{Kind: c.AddressComponentKindSeparator, Value: " "},
+			{Kind: c.AddressComponentKindPostcode, Value: "20190"},
+			{Kind: c.AddressComponentKindCountry, Value: "USA"},
+		},
+		CountryCode:      "US",
+		DefaultSeparator: ", ",
+		IsOrdered:        true,
+	}
+}
+
+func (e Exemplar) PartialDate() c.PartialDate {
+	return c.PartialDate{
+		Type:          c.PartialDateType,
+		Year:          2025,
+		Month:         9,
+		Day:           25,
+		CalendarScale: "iso8601",
+	}
+}
+
+func (e Exemplar) Anniversary() (c.Anniversary, string, string) {
+	return c.Anniversary{
+		Type: c.AnniversaryType,
+		Kind: c.AnniversaryKindBirth,
+		Date: &c.PartialDate{
+			Type:  c.PartialDateType,
+			Year:  2026,
+			Month: 3,
+			Day:   14,
+		},
+	}, "An anniversary with a PartialDate", "partialdate"
+}
+
+func (e Exemplar) OtherAnniversary() (c.Anniversary, string, string) {
+	ts, _ := time.Parse(time.RFC3339, "2025-09-25T18:26:14.094725532+02:00")
+	return c.Anniversary{
+		Type: c.AnniversaryType,
+		Kind: c.AnniversaryKindBirth,
+		Date: &c.Timestamp{
+			Type: c.TimestampType,
+			Utc:  ts,
+		},
+	}, "An anniversary with a Timestamp", "timestamp"
+}
+
+func (e Exemplar) Author() c.Author {
+	return c.Author{
+		Type: c.AuthorType,
+		Name: "Camina Drummer",
+		Uri:  "https://opa.org/cdrummer",
+	}
+}
+
+func (e Exemplar) Note() c.Note {
+	ts, _ := time.Parse(time.RFC3339, "2025-09-25T18:26:14.094725532+02:00")
+	a := e.Author()
+	return c.Note{
+		Type:    c.NoteType,
+		Note:    "this is a note",
+		Created: ts,
+		Author:  &a,
+	}
+}
+
+func (e Exemplar) PersonalInfo() c.PersonalInfo {
+	return c.PersonalInfo{
+		Type:   c.PersonalInfoType,
+		Kind:   c.PersonalInfoKindExpertise,
+		Value:  "motivation",
+		Level:  c.PersonalInfoLevelHigh,
+		ListAs: 1,
+		Label:  "opa",
+	}
+}
+
+func (e Exemplar) ContactCard() c.ContactCard {
+	created, _ := time.Parse(time.RFC3339, "2025-09-25T18:26:14.094725532+02:00")
+	updated, _ := time.Parse(time.RFC3339, "2025-09-26T09:58:01+02:00")
+	return c.ContactCard{
+		Type: c.ContactCardType,
+		Kind: c.ContactCardKindGroup,
+		Id:   "20fba820-2f8e-432d-94f1-5abbb59d3ed7",
+		AddressBookIds: map[string]bool{
+			"79047052-ae0e-4299-8860-5bff1a139f3d": true,
+			"44eb6105-08c1-458b-895e-4ad1149dfabd": true,
+		},
+		Version:  c.JSContactVersion_1_0,
+		Created:  created,
+		Language: "fr-BE",
+		Members: map[string]bool{
+			"314815dd-81c8-4640-aace-6dc83121616d": true,
+			"c528b277-d8cb-45f2-b7df-1aa3df817463": true,
+			"81dea240-c0a4-4929-82e7-79e713a8bbe4": true,
+		},
+		ProdId: "OpenCloud Groupware 1.0",
+		RelatedTo: map[string]c.Relation{
+			"urn:uid:ca9d2a62-e068-43b6-a470-46506976d505": {
+				Type: c.RelationType,
+				Relation: map[c.Relationship]bool{
+					c.RelationContact: true,
+				},
+			},
+			"urn:uid:72183ec2-b218-4983-9c89-ff117eeb7c5e": {
+				Relation: map[c.Relationship]bool{
+					c.RelationEmergency: true,
+					c.RelationSpouse:    true,
+				},
+			},
+		},
+		Uid:     "1091f2bb-6ae6-4074-bb64-df74071d7033",
+		Updated: updated,
+		Name: &c.Name{
+			Type: c.NameType,
+			Components: []c.NameComponent{
+				{Type: c.NameComponentType, Value: "OpenCloud", Kind: c.NameComponentKindSurname},
+				{Value: " ", Kind: c.NameComponentKindSeparator},
+				{Value: "Team", Kind: c.NameComponentKindSurname2},
+			},
+			IsOrdered:        true,
+			DefaultSeparator: ", ",
+			SortAs: map[string]string{
+				string(c.NameComponentKindSurname): "OpenCloud Team",
+			},
+			Full: "OpenCloud Team",
+		},
+		Nicknames: map[string]c.Nickname{
+			"a": {
+				Type: c.NicknameType,
+				Name: "The Team",
+				Contexts: map[c.NicknameContext]bool{
+					c.NicknameContextWork: true,
+				},
+				Pref: 1,
+			},
+		},
+		Organizations: map[string]c.Organization{
+			"o": {
+				Type: c.OrganizationType,
+				Name: "OpenCloud GmbH",
+				Units: []c.OrgUnit{
+					{Type: c.OrgUnitType, Name: "Marketing", SortAs: "marketing"},
+					{Type: c.OrgUnitType, Name: "Sales"},
+					{Name: "Operations", SortAs: "ops"},
+				},
+				SortAs: "opencloud",
+				Contexts: map[c.OrganizationContext]bool{
+					c.OrganizationContextWork: true,
+				},
+			},
+		},
+		SpeakToAs: &c.SpeakToAs{
+			Type:              c.SpeakToAsType,
+			GrammaticalGender: c.GrammaticalGenderInanimate,
+			Pronouns: map[string]c.Pronouns{
+				"p": {
+					Type:     c.PronounsType,
+					Pronouns: "it",
+					Contexts: map[c.PronounsContext]bool{
+						c.PronounsContextWork: true,
+					},
+					Pref: 1,
+				},
+			},
+		},
+		Titles: map[string]c.Title{
+			"t": {
+				Type:           c.TitleType,
+				Name:           "The",
+				Kind:           c.TitleKindTitle,
+				OrganizationId: "o",
+			},
+		},
+		Emails: map[string]c.EmailAddress{
+			"e": {
+				Type:    c.EmailAddressType,
+				Address: "info@opencloud.eu.example.com",
+				Contexts: map[c.EmailAddressContext]bool{
+					c.EmailAddressContextWork: true,
+				},
+				Pref:  1,
+				Label: "work",
+			},
+		},
+		OnlineServices: map[string]c.OnlineService{
+			"s": {
+				Type:    c.OnlineServiceType,
+				Service: "The Misinformation Game",
+				Uri:     "https://misinfogame.com/91886aa0-3586-4ade-b9bb-ec031464a251",
+				User:    "opencloudeu",
+				Contexts: map[c.OnlineServiceContext]bool{
+					c.OnlineServiceContextWork: true,
+				},
+				Pref:  1,
+				Label: "imaginary",
+			},
+		},
+		Phones: map[string]c.Phone{
+			"p": {
+				Type:   c.PhoneType,
+				Number: "+1-804-222-1111",
+				Features: map[c.PhoneFeature]bool{
+					c.PhoneFeatureVoice: true,
+					c.PhoneFeatureText:  true,
+				},
+				Contexts: map[c.PhoneContext]bool{
+					c.PhoneContextWork: true,
+				},
+				Pref:  1,
+				Label: "imaginary",
+			},
+		},
+		PreferredLanguages: map[string]c.LanguagePref{
+			"wa": {
+				Type:     c.LanguagePrefType,
+				Language: "wa-BE",
+				Contexts: map[c.LanguagePrefContext]bool{
+					c.LanguagePrefContextPrivate: true,
+				},
+				Pref: 1,
+			},
+			"de": {
+				Language: "de-DE",
+				Contexts: map[c.LanguagePrefContext]bool{
+					c.LanguagePrefContextWork: true,
+				},
+				Pref: 2,
+			},
+		},
+		Calendars: map[string]c.Calendar{
+			"c": {
+				Type:      c.CalendarType,
+				Kind:      c.CalendarKindCalendar,
+				Uri:       "https://opencloud.eu/calendars/521b032b-a2b3-4540-81b9-3f6bccacaab2",
+				MediaType: "application/jscontact+json",
+				Contexts: map[c.CalendarContext]bool{
+					c.CalendarContextWork: true,
+				},
+				Pref:  1,
+				Label: "work",
+			},
+		},
+		SchedulingAddresses: map[string]c.SchedulingAddress{
+			"s": {
+				Type: c.SchedulingAddressType,
+				Uri:  "mailto:scheduling@opencloud.eu.example.com",
+				Contexts: map[c.SchedulingAddressContext]bool{
+					c.SchedulingAddressContextWork: true,
+				},
+				Pref:  1,
+				Label: "work",
+			},
+		},
+		Addresses: map[string]c.Address{
+			"k26": {
+				Type: c.AddressType,
+				Components: []c.AddressComponent{
+					{Type: c.AddressComponentType, Kind: c.AddressComponentKindBlock, Value: "2-7"},
+					{Kind: c.AddressComponentKindSeparator, Value: "-"},
+					{Kind: c.AddressComponentKindNumber, Value: "2"},
+					{Kind: c.AddressComponentKindSeparator, Value: " "},
+					{Kind: c.AddressComponentKindDistrict, Value: "Marunouchi"},
+					{Kind: c.AddressComponentKindLocality, Value: "Chiyoda-ku"},
+					{Kind: c.AddressComponentKindRegion, Value: "Tokyo"},
+					{Kind: c.AddressComponentKindSeparator, Value: " "},
+					{Kind: c.AddressComponentKindPostcode, Value: "100-8994"},
+				},
+				IsOrdered:        true,
+				DefaultSeparator: ", ",
+				Full:             "2-7-2 Marunouchi, Chiyoda-ku, Tokyo 100-8994",
+				CountryCode:      "JP",
+				Coordinates:      "geo:35.6796373,139.7616907",
+				TimeZone:         "JST",
+				Contexts: map[c.AddressContext]bool{
+					c.AddressContextDelivery: true,
+					c.AddressContextWork:     true,
+				},
+				Pref: 2,
+			},
+		},
+		CryptoKeys: map[string]c.CryptoKey{
+			"k1": {
+				Type:      c.CryptoKeyType,
+				Uri:       "https://opencloud.eu.example.com/keys/d550f57c-582c-43cc-8d94-822bded9ab36",
+				MediaType: "application/pgp-keys",
+				Contexts: map[c.CryptoKeyContext]bool{
+					c.CryptoKeyContextWork: true,
+				},
+				Pref:  1,
+				Label: "keys",
+			},
+		},
+		Directories: map[string]c.Directory{
+			"d1": {
+				Type:   c.DirectoryType,
+				Kind:   c.DirectoryKindEntry,
+				Uri:    "https://opencloud.eu.example.com/addressbook/8c2f0363-af0a-4d16-a9d5-8a9cd885d722",
+				ListAs: 1,
+			},
+		},
+		Links: map[string]c.Link{
+			"r1": {
+				Type: c.LinkType,
+				Kind: c.LinkKindContact,
+				Contexts: map[c.LinkContext]bool{
+					c.LinkContextWork: true,
+				},
+				Uri: "mailto:contact@opencloud.eu.example.com",
+			},
+		},
+		Media: map[string]c.Media{
+			"m": {
+				Type:      c.MediaType,
+				Kind:      c.MediaKindLogo,
+				Uri:       "https://opencloud.eu.example.com/opencloud.svg",
+				MediaType: "image/svg+xml",
+				Contexts: map[c.MediaContext]bool{
+					c.MediaContextWork: true,
+				},
+				Pref:   123,
+				Label:  "svg",
+				BlobId: "53feefbabeb146fcbe3e59e91462fa5f",
+			},
+		},
+		Anniversaries: map[string]c.Anniversary{
+			"birth": {
+				Type: c.AnniversaryType,
+				Kind: c.AnniversaryKindBirth,
+				Date: &c.PartialDate{
+					Type:          c.PartialDateType,
+					Year:          2025,
+					Month:         9,
+					Day:           26,
+					CalendarScale: "iso8601",
+				},
+			},
+		},
+		Keywords: map[string]bool{
+			"imaginary": true,
+			"test":      true,
+		},
+		Notes: map[string]c.Note{
+			"n1": {
+				Type:    c.NoteType,
+				Note:    "This is a note.",
+				Created: created,
+				Author: &c.Author{
+					Type: c.AuthorType,
+					Name: "Test Data",
+					Uri:  "https://isbn.example.com/a461f292-6bf1-470e-b08d-f6b4b0223fe3",
+				},
+			},
+		},
+		PersonalInfo: map[string]c.PersonalInfo{
+			"p1": {
+				Type:   c.PersonalInfoType,
+				Kind:   c.PersonalInfoKindExpertise,
+				Value:  "Clouds",
+				Level:  c.PersonalInfoLevelHigh,
+				ListAs: 1,
+				Label:  "experts",
+			},
+		},
+		Localizations: map[string]c.PatchObject{
+			"fr": {
+				"personalInfo": map[string]any{
+					"value": "Nuages",
+				},
+			},
 		},
 	}
 }
