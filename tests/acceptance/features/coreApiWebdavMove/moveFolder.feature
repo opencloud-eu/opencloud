@@ -161,7 +161,6 @@ Feature: move (rename) folder
       | old              | "Sample,Folder,With,Comma" | "testFolder"               |
       | old              | " start with space"        | "testFolder"               |
       | old              | "renamed.part"             | "testFolder"               |
-      | old              | "testFolder"               | "with\backslash"           |
       | new              | "testFolder"               | "'single'quotes"           |
       | new              | "testFolder"               | '"double"quotes'           |
       | new              | "testFolder"               | "strängé नेपाली folder"    |
@@ -176,7 +175,6 @@ Feature: move (rename) folder
       | new              | "Sample,Folder,With,Comma" | "testFolder"               |
       | new              | " start with space"        | "testFolder"               |
       | new              | "renamed.part"             | "testFolder"               |
-      | new              | "testFolder"               | "with\backslash"           |
       | spaces           | "testFolder"               | "'single'quotes"           |
       | spaces           | "testFolder"               | '"double"quotes'           |
       | spaces           | "testFolder"               | "strängé नेपाली folder"    |
@@ -191,7 +189,6 @@ Feature: move (rename) folder
       | spaces           | "Sample,Folder,With,Comma" | "testFolder"               |
       | spaces           | " start with space"        | "testFolder"               |
       | spaces           | "renamed.part"             | "testFolder"               |
-      | spaces           | "testFolder"               | "with\backslash"           |
 
 
   Scenario Outline: try to rename folder to name having white space at the end

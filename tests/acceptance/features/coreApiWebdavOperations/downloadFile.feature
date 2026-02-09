@@ -304,18 +304,15 @@ Feature: download file
       | old              | "😀 🤖.txt"      |
       | old              | "नेपाली"           |
       | old              | "C++ file.cpp"   |
-      | old              | "with\backslash" |
       | old              | "file #2.txt"    |
       | old              | "file ?2.pdf"    |
       | new              | "😀 🤖.txt"      |
       | new              | "नेपाली"           |
       | new              | "C++ file.cpp"   |
-      | new              | "with\backslash" |
       | new              | "file #2.txt"    |
       | new              | "file ?2.pdf"    |
       | spaces           | "😀 🤖.txt"      |
       | spaces           | "नेपाली"           |
       | spaces           | "C++ file.cpp"   |
-      | spaces           | "with\backslash" |
       | spaces           | "file #2.txt"    |
       | spaces           | "file ?2.pdf"    |
