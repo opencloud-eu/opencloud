@@ -83,7 +83,7 @@ help:
 	@echo "Please use 'make <target>' where <target> is one of the following:"
 	@echo
 	@echo -e "${GREEN}Testing with test suite natively installed:${RESET}\n"
-	@echo -e "${PURPLE}\tdocs: https://opencloud.dev/opencloud/development/testing/#testing-with-test-suite-natively-installed${RESET}\n"
+	@echo -e "${PURPLE}\ttests: https://github.com/opencloud-eu/opencloud/blob/main/tests/README.md#running-test-suite-in-local-environment${RESET}\n"
 	@echo -e "\tmake test-acceptance-api\t\t${BLUE}run API acceptance tests${RESET}"
 	@echo -e "\tmake clean-tests\t\t\t${BLUE}delete API tests framework dependencies${RESET}"
 	@echo
@@ -92,17 +92,11 @@ help:
 	@echo -e "${RED}You also should have a look at other available Makefiles:${RESET}"
 	@echo
 	@echo -e "${GREEN}opencloud:${RESET}\n"
-	@echo -e "${PURPLE}\tdocs: https://opencloud.dev/opencloud/development/build/${RESET}\n"
+	@echo -e "${PURPLE}\tdocs: https://github.com/opencloud-eu/opencloud/blob/main/README.md#build-opencloud${RESET}\n"
 	@echo -e "\tsee ./opencloud/Makefile"
-	@echo -e "\tor run ${YELLOW}make -C opencloud help${RESET}"
-	@echo
-	@echo -e "${GREEN}Documentation:${RESET}\n"
-	@echo -e "${PURPLE}\tdocs: https://opencloud.dev/opencloud/development/build-docs/${RESET}\n"
-	@echo -e "\tsee ./docs/Makefile"
-	@echo -e "\tor run ${YELLOW}make -C docs help${RESET}"
 	@echo
 	@echo -e "${GREEN}Testing with test suite in docker:${RESET}\n"
-	@echo -e "${PURPLE}\tdocs: https://opencloud.dev/opencloud/development/testing/#testing-with-test-suite-in-docker${RESET}\n"
+	@echo -e "${PURPLE}\ttests: https://github.com/opencloud-eu/opencloud/blob/main/tests/README.md#running-test-suite-in-docker${RESET}\n"
 	@echo -e "\tsee ./tests/acceptance/docker/Makefile"
 	@echo -e "\tor run ${YELLOW}make -C tests/acceptance/docker help${RESET}"
 	@echo
