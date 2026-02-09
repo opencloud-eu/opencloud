@@ -4,7 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@VicDeo, @rhafer
+@ScharfViktor, @VicDeo, @rhafer
+
+### 📚 Documentation
+
+- fix: make file urls [[#2304](https://github.com/opencloud-eu/opencloud/pull/2304)]
 
 ### 🐛 Bug Fixes
 
