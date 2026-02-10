@@ -497,7 +497,8 @@ def main(ctx):
 
     is_release_pr = (ctx.build.event == "pull_request" and ctx.build.sender == "openclouders" and "🎉 release" in ctx.build.title.lower())
     if is_release_pr:
-        return licenseCheck(ctx)
+        return checkVersionPlaceholder() + \
+               licenseCheck(ctx)
 
     build_release_helpers = \
         readyReleaseGo()
@@ -523,7 +524,6 @@ def main(ctx):
         testPipelines(ctx)
 
     build_release_pipelines = \
-        checkVersionPlaceholder() + \
         dockerReleases(ctx) + \
         binaryReleases(ctx)
 
@@ -1835,7 +1835,7 @@ def checkVersionPlaceholder():
             },
         ],
         "when": [
-            event["tag"],
+            event["pull_request"],
         ],
     }]
 
