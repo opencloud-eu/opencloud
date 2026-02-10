@@ -1,10 +1,14 @@
 # Changelog
 
-## [5.0.3](https://github.com/opencloud-eu/opencloud/releases/tag/v5.0.3) - 2026-02-10
+## [5.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.1.0) - 2026-02-10
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @VicDeo, @individual-it, @rhafer
+@ScharfViktor, @VicDeo, @dragonchaser, @individual-it, @rhafer
+
+### 📈 Enhancement
+
+- external tenant id [[#2258](https://github.com/opencloud-eu/opencloud/pull/2258)]
 
 ### 📚 Documentation
 
