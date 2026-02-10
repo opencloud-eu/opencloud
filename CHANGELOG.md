@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @VicDeo, @rhafer
+@ScharfViktor, @VicDeo, @individual-it, @rhafer
 
 ### 📚 Documentation
 
