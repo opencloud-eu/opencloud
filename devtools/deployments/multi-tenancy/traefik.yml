@@ -9,7 +9,7 @@ services:
       - "traefik.http.services.opencloud.loadbalancer.server.port=9200"
       - "traefik.http.routers.opencloud.${TRAEFIK_SERVICES_TLS_CONFIG}"
   traefik:
-    image: traefik:v3.3.1
+    image: traefik:v3.6.7
     # release notes: https://github.com/traefik/traefik/releases
     networks:
       opencloud-net:

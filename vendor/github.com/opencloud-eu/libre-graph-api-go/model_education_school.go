@@ -26,6 +26,8 @@ type EducationSchool struct {
 	DisplayName *string `json:"displayName,omitempty"`
 	// School number
 	SchoolNumber *string `json:"schoolNumber,omitempty"`
+	// External identifier of the school
+	ExternalId *string `json:"externalId,omitempty"`
 	// Date and time at which the service for this organization is scheduled to be terminated
 	TerminationDate NullableTime `json:"terminationDate,omitempty"`
 }
@@ -143,6 +145,38 @@ func (o *EducationSchool) SetSchoolNumber(v string) {
 	o.SchoolNumber = &v
 }
 
+// GetExternalId returns the ExternalId field value if set, zero value otherwise.
+func (o *EducationSchool) GetExternalId() string {
+	if o == nil || IsNil(o.ExternalId) {
+		var ret string
+		return ret
+	}
+	return *o.ExternalId
+}
+
+// GetExternalIdOk returns a tuple with the ExternalId field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *EducationSchool) GetExternalIdOk() (*string, bool) {
+	if o == nil || IsNil(o.ExternalId) {
+		return nil, false
+	}
+	return o.ExternalId, true
+}
+
+// HasExternalId returns a boolean if a field has been set.
+func (o *EducationSchool) HasExternalId() bool {
+	if o != nil && !IsNil(o.ExternalId) {
+		return true
+	}
+
+	return false
+}
+
+// SetExternalId gets a reference to the given string and assigns it to the ExternalId field.
+func (o *EducationSchool) SetExternalId(v string) {
+	o.ExternalId = &v
+}
+
 // GetTerminationDate returns the TerminationDate field value if set, zero value otherwise (both if not set or set to explicit null).
 func (o *EducationSchool) GetTerminationDate() time.Time {
 	if o == nil || IsNil(o.TerminationDate.Get()) {
@@ -203,6 +237,9 @@ func (o EducationSchool) ToMap() (map[string]interface{}, error) {
 	}
 	if !IsNil(o.SchoolNumber) {
 		toSerialize["schoolNumber"] = o.SchoolNumber
+	}
+	if !IsNil(o.ExternalId) {
+		toSerialize["externalId"] = o.ExternalId
 	}
 	if o.TerminationDate.IsSet() {
 		toSerialize["terminationDate"] = o.TerminationDate.Get()

@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/go-ldap/ldap/v3"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity/mocks"
-	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -45,6 +45,7 @@ var schoolEntry = ldap.NewEntry("ou=Test School",
 		"ou":                             {"Test School"},
 		"openCloudEducationSchoolNumber": {"0123"},
 		"openCloudUUID":                  {"abcd-defg"},
+		"openCloudEducationExternalId":   {"abcd-defg"},
 	})
 
 var schoolEntry1 = ldap.NewEntry("ou=Test School1",
@@ -52,20 +53,22 @@ var schoolEntry1 = ldap.NewEntry("ou=Test School1",
 		"ou":                             {"Test School1"},
 		"openCloudEducationSchoolNumber": {"0042"},
 		"openCloudUUID":                  {"hijk-defg"},
+		"openCloudEducationExternalId":   {"hijk-defg"},
 	})
 var schoolEntryWithTermination = ldap.NewEntry("ou=Test School",
 	map[string][]string{
 		"ou":                             {"Test School"},
 		"openCloudEducationSchoolNumber": {"0123"},
 		"openCloudUUID":                  {"abcd-defg"},
+		"openCloudEducationExternalId":   {"abcd-defg"},
 		"openCloudEducationSchoolTerminationTimestamp": {"20420131120000Z"},
 	})
 
 var (
-	filterSchoolSearchByIdExisting        = "(&(objectClass=openCloudEducationSchool)(|(openCloudUUID=abcd-defg)(openCloudEducationSchoolNumber=abcd-defg)))"
-	filterSchoolSearchByIdNonexistant     = "(&(objectClass=openCloudEducationSchool)(|(openCloudUUID=xxxx-xxxx)(openCloudEducationSchoolNumber=xxxx-xxxx)))"
-	filterSchoolSearchByNumberExisting    = "(&(objectClass=openCloudEducationSchool)(|(openCloudUUID=0123)(openCloudEducationSchoolNumber=0123)))"
-	filterSchoolSearchByNumberNonexistant = "(&(objectClass=openCloudEducationSchool)(|(openCloudUUID=3210)(openCloudEducationSchoolNumber=3210)))"
+	filterSchoolSearchByIdExisting        = "(&(objectClass=openCloudEducationSchool)(|(openCloudUUID=abcd-defg)(openCloudEducationSchoolNumber=abcd-defg)(openCloudEducationExternalId=abcd-defg)))"
+	filterSchoolSearchByIdNonexistant     = "(&(objectClass=openCloudEducationSchool)(|(openCloudUUID=xxxx-xxxx)(openCloudEducationSchoolNumber=xxxx-xxxx)(openCloudEducationExternalId=xxxx-xxxx)))"
+	filterSchoolSearchByNumberExisting    = "(&(objectClass=openCloudEducationSchool)(|(openCloudUUID=0123)(openCloudEducationSchoolNumber=0123)(openCloudEducationExternalId=0123)))"
+	filterSchoolSearchByNumberNonexistant = "(&(objectClass=openCloudEducationSchool)(|(openCloudUUID=3210)(openCloudEducationSchoolNumber=3210)(openCloudEducationExternalId=3210)))"
 )
 
 func TestCreateEducationSchool(t *testing.T) {

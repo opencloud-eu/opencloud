@@ -153,8 +153,19 @@ func (r ApiDeleteEducationUserRequest) Execute() (*http.Response, error) {
 /*
 DeleteEducationUser Delete educationUser
 
+Deletes an education user by their internal ID.
+
+**To delete by external ID:**
+If you only have an external ID, you must first retrieve the user's internal ID:
+1. Call `GET /graph/v1.0/education/users?$filter=externalId eq '{value}'`
+2. Extract the `id` from the response
+3. Use that `id` in this DELETE endpoint
+
+See the [ListEducationUsers](#/educationUser/ListEducationUsers) operation for query details.
+
+
  @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
- @param userId key: id or username of user
+ @param userId key: internal user id (UUID format) or username of user.  **Note:** If you only have an external ID, first query the user  with `GET /graph/v1.0/education/users?$filter=externalId eq '{value}'`  to retrieve the internal ID. 
  @return ApiDeleteEducationUserRequest
 */
 func (a *EducationUserApiService) DeleteEducationUser(ctx context.Context, userId string) ApiDeleteEducationUserRequest {
@@ -360,8 +371,15 @@ func (a *EducationUserApiService) GetEducationUserExecute(r ApiGetEducationUserR
 type ApiListEducationUsersRequest struct {
 	ctx context.Context
 	ApiService *EducationUserApiService
+	filter *string
 	orderby *[]string
 	expand *[]string
+}
+
+// Filter items by property values. Supports a subset of OData filter expressions.  **Supported filters:** - By external ID: &#x60;externalId eq &#39;ext_12345&#39;&#x60; 
+func (r ApiListEducationUsersRequest) Filter(filter string) ApiListEducationUsersRequest {
+	r.filter = &filter
+	return r
 }
 
 // Order items by property values
@@ -382,6 +400,13 @@ func (r ApiListEducationUsersRequest) Execute() (*CollectionOfEducationUser, *ht
 
 /*
 ListEducationUsers Get entities from education users
+
+Retrieves a collection of education users with optional filtering, ordering, and expansion.
+
+**Filtering by external ID:**
+Use `$filter` to query users by their external identifier, for example:
+`$filter=externalId eq 'EX12345'`
+
 
  @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  @return ApiListEducationUsersRequest
@@ -414,6 +439,9 @@ func (a *EducationUserApiService) ListEducationUsersExecute(r ApiListEducationUs
 	localVarQueryParams := url.Values{}
 	localVarFormParams := url.Values{}
 
+	if r.filter != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "$filter", r.filter, "form", "")
+	}
 	if r.orderby != nil {
 		parameterAddToHeaderOrQuery(localVarQueryParams, "$orderby", r.orderby, "form", "csv")
 	}
