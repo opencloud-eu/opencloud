@@ -1,6 +1,6 @@
 # Changelog
 
-## [5.0.3](https://github.com/opencloud-eu/opencloud/releases/tag/v5.0.3) - 2026-02-09
+## [5.0.3](https://github.com/opencloud-eu/opencloud/releases/tag/v5.0.3) - 2026-02-10
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -16,6 +16,7 @@
 
 ### 📦️ Dependencies
 
+- update reva after merge #514 [[#2309](https://github.com/opencloud-eu/opencloud/pull/2309)]
 - build(deps): bump github.com/go-chi/chi/v5 from 5.2.4 to 5.2.5 [[#2278](https://github.com/opencloud-eu/opencloud/pull/2278)]
 
 ## [5.0.2](https://github.com/opencloud-eu/opencloud/releases/tag/v5.0.2) - 2026-02-05
