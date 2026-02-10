@@ -23,12 +23,12 @@ type WsClient interface {
 }
 
 type WsClientFactory interface {
-	EnableNotifications(pushState State, sessionProvider func() (*Session, error), listener WsPushListener) (WsClient, Error)
+	EnableNotifications(ctx context.Context, pushState State, sessionProvider func() (*Session, error), listener WsPushListener) (WsClient, Error)
 	io.Closer
 }
 
 type SessionClient interface {
-	GetSession(baseurl *url.URL, username string, logger *log.Logger) (SessionResponse, Error)
+	GetSession(ctx context.Context, baseurl *url.URL, username string, logger *log.Logger) (SessionResponse, Error)
 	io.Closer
 }
 

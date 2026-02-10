@@ -6,11 +6,10 @@ import (
 
 	"github.com/oklog/run"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
-	"github.com/opencloud-eu/opencloud/pkg/version"
+	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/services/auth-api/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/auth-api/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/auth-api/pkg/logging"
-	"github.com/opencloud-eu/opencloud/services/auth-api/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/auth-api/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/auth-api/pkg/server/http"
 
@@ -28,15 +27,17 @@ func Server(cfg *config.Config) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := logging.Configure(cfg.Service.Name, cfg.Log)
 
+			tracerProvider, err := tracing.GetTraceProvider(cmd.Context(), cfg.Commons.TracesExporter, cfg.Service.Name)
+			if err != nil {
+				return err
+			}
+
 			var (
 				gr          = run.Group{}
 				ctx, cancel = context.WithCancel(context.Background())
-				m           = metrics.New()
 			)
 
 			defer cancel()
-
-			m.BuildInfo.WithLabelValues(version.GetString()).Set(1)
 
 			server, err := debug.Server(
 				debug.Logger(logger),
@@ -54,11 +55,10 @@ func Server(cfg *config.Config) *cobra.Command {
 			})
 
 			httpServer, err := http.Server(
-				http.Logger(logger),
-				http.Context(ctx),
-				http.Config(cfg),
-				http.Metrics(m),
-				http.Namespace(cfg.HTTP.Namespace),
+				&logger,
+				ctx,
+				cfg,
+				tracerProvider,
 			)
 			if err != nil {
 				logger.Info().

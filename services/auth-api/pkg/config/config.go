@@ -17,11 +17,9 @@ type Config struct {
 
 	HTTP HTTP `yaml:"http"`
 
-	Authentication AuthenticationAPI `yaml:"authentication_api"`
-
 	Context context.Context `yaml:"-"`
-}
 
-type AuthenticationAPI struct {
-	JwkEndpoint string `yaml:"jwk_endpoint"`
+	TokenManager *TokenManager `yaml:"token_manager"`
+
+	Auth Auth `yaml:"auth"`
 }

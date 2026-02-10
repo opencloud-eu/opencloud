@@ -31,8 +31,10 @@ func DefaultConfig() *config.Config {
 		Service: config.Service{
 			Name: "auth-api",
 		},
-		Authentication: config.AuthenticationAPI{
-			JwkEndpoint: "https://keycloak.opencloud.test/realms/openCloud/protocol/openid-connect/certs",
+		Auth: config.Auth{
+			Audiences:           []string{"stalwart"},
+			RequireSharedSecret: false,
+			SharedSecrets:       "",
 		},
 	}
 }
@@ -50,9 +52,15 @@ func EnsureDefaults(cfg *config.Config) {
 	} else if cfg.Log == nil {
 		cfg.Log = &config.Log{}
 	}
-
 	if cfg.Commons != nil {
 		cfg.HTTP.TLS = cfg.Commons.HTTPServiceTLS
+	}
+	if cfg.TokenManager == nil && cfg.Commons != nil && cfg.Commons.TokenManager != nil {
+		cfg.TokenManager = &config.TokenManager{
+			JWTSecret: cfg.Commons.TokenManager.JWTSecret,
+		}
+	} else if cfg.TokenManager == nil {
+		cfg.TokenManager = &config.TokenManager{}
 	}
 }
 

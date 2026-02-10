@@ -177,17 +177,6 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 
 	sessionUrl := baseUrl.JoinPath(".well-known", "jmap")
 
-	masterUsername := config.Mail.Master.Username
-	if masterUsername == "" {
-		logger.Error().Msg("failed to parse empty Mail.Master.Username")
-		return nil, GroupwareInitializationError{Message: "Mail.Master.Username is empty"}
-	}
-	masterPassword := config.Mail.Master.Password
-	if masterPassword == "" {
-		logger.Error().Msg("failed to parse empty Mail.Master.Password")
-		return nil, GroupwareInitializationError{Message: "Mail.Master.Password is empty"}
-	}
-
 	defaultEmailLimit := max(config.Mail.DefaultEmailLimit, 0)
 	maxBodyValueBytes := max(config.Mail.MaxBodyValueBytes, 0)
 	defaultContactLimit := max(config.Mail.DefaultContactLimit, 0)
@@ -218,6 +207,17 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 
 	var jmapClient jmap.Client
 	{
+		var auth jmap.HttpJmapClientAuthenticator
+		{
+			masterUsername := config.Mail.Master.Username
+			masterPassword := config.Mail.Master.Password
+			if masterUsername != "" && masterPassword != "" {
+				auth = jmap.NewMasterAuthHttpJmapClientAuthenticator(masterUsername, masterPassword)
+			} else {
+				auth = newRevaBearerHttpJmapClientAuthenticator()
+			}
+		}
+
 		var api *jmap.HttpJmapClient
 		{
 			// TODO add timeouts and other meaningful configuration settings for the HTTP client
@@ -235,8 +235,7 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 
 			api = jmap.NewHttpJmapClient(
 				&httpClient,
-				masterUsername,
-				masterPassword,
+				auth,
 				jmapMetricsAdapter,
 			)
 		}
@@ -250,7 +249,7 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 				wsDialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 			}
 
-			wsf, err = jmap.NewHttpWsClientFactory(wsDialer, masterUsername, masterPassword, logger, jmapMetricsAdapter)
+			wsf, err = jmap.NewHttpWsClientFactory(wsDialer, auth, logger, jmapMetricsAdapter)
 			if err != nil {
 				logger.Error().Err(err).Msg("failed to create websocket client")
 				return nil, GroupwareInitializationError{Message: "failed to create websocket client", Err: err}
@@ -478,7 +477,7 @@ func (g *Groupware) ServeSSE(w http.ResponseWriter, r *http.Request) {
 }
 
 // Provide a JMAP Session for the given user
-func (g *Groupware) session(user user, logger *log.Logger) (jmap.Session, bool, *GroupwareError, time.Time) {
+func (g *Groupware) session(ctx context.Context, user user, logger *log.Logger) (jmap.Session, bool, *GroupwareError, time.Time) {
 	if user == nil {
 		logger.Warn().Msg("user is nil")
 		return jmap.Session{}, false, nil, time.Time{}
@@ -490,7 +489,7 @@ func (g *Groupware) session(user user, logger *log.Logger) (jmap.Session, bool, 
 	}
 
 	// first look into the session cache
-	s := g.sessionCache.Get(name)
+	s := g.sessionCache.Get(ctx, name)
 	if s != nil {
 		if s.Success() {
 			return s.Get(), true, nil, s.Until()
@@ -587,7 +586,7 @@ func (g *Groupware) withSession(w http.ResponseWriter, r *http.Request, handler 
 	// retrieve a JMAP Session for that user
 	var session jmap.Session
 	{
-		s, ok, gwerr, retryAfter := g.session(user, logger)
+		s, ok, gwerr, retryAfter := g.session(ctx, user, logger)
 		if gwerr != nil {
 			g.metrics.SessionFailureCounter.Inc()
 			errorId := errorId(r, ctx)
@@ -721,7 +720,7 @@ func (g *Groupware) stream(w http.ResponseWriter, r *http.Request, handler func(
 
 	logger = log.From(logger.With().Str(logUserId, log.SafeString(user.GetId())))
 
-	session, ok, gwerr, retryAfter := g.session(user, logger)
+	session, ok, gwerr, retryAfter := g.session(ctx, user, logger)
 	if gwerr != nil {
 		errorId := errorId(r, ctx)
 		logger.Error().Str("code", gwerr.Code).Str("error", gwerr.Title).Str("detail", gwerr.Detail).Str(logErrorId, errorId).Msg("failed to determine JMAP session")

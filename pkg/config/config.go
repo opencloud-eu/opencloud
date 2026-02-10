@@ -89,6 +89,7 @@ type Config struct {
 	AppProvider       *appProvider.Config    `yaml:"app_provider"`
 	AppRegistry       *appRegistry.Config    `yaml:"app_registry"`
 	Audit             *audit.Config          `yaml:"audit"`
+	AuthApi           *authapi.Config        `yaml:"auth_api"`
 	AuthApp           *authapp.Config        `yaml:"auth_app"`
 	AuthBasic         *authbasic.Config      `yaml:"auth_basic"`
 	AuthBearer        *authbearer.Config     `yaml:"auth_bearer"`
@@ -126,5 +127,4 @@ type Config struct {
 	WebDAV            *webdav.Config         `yaml:"webdav"`
 	Webfinger         *webfinger.Config      `yaml:"webfinger"`
 	Search            *search.Config         `yaml:"search"`
-	AuthApi           *authapi.Config        `yaml:"authapi"`
 }

@@ -7,9 +7,7 @@ require (
 	github.com/CiscoM31/godata v1.0.11
 	github.com/KimMachineGun/automemlimit v0.7.5
 	github.com/Masterminds/semver v1.5.0
-	github.com/MicahParks/jwkset v0.8.0
 	github.com/MicahParks/keyfunc/v2 v2.1.0
-	github.com/MicahParks/keyfunc/v3 v3.3.11
 	github.com/Nerzal/gocloak/v13 v13.9.0
 	github.com/ProtonMail/go-crypto v1.1.6
 	github.com/bbalet/stopwords v1.0.0
@@ -103,7 +101,6 @@ require (
 	github.com/tidwall/sjson v1.2.5
 	github.com/tus/tusd/v2 v2.10.0
 	github.com/unrolled/secure v1.16.0
-	github.com/urfave/cli/v2 v2.27.7
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/wk8/go-ordered-map v1.0.0
 	github.com/xhit/go-simple-mail/v2 v2.16.0
@@ -382,6 +379,7 @@ require (
 	github.com/tklauser/numcpus v0.11.0 // indirect
 	github.com/toorop/go-dkim v0.0.0-20201103131630-e1cd1a0a5208 // indirect
 	github.com/trustelem/zxcvbn v1.0.1 // indirect
+	github.com/urfave/cli/v2 v2.27.7 // indirect
 	github.com/valyala/fastjson v1.6.10 // indirect
 	github.com/vektah/gqlparser/v2 v2.5.34 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect

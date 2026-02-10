@@ -1,6 +1,7 @@
 package jmap
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net/url"
@@ -55,8 +56,8 @@ func (j *Client) OnNotification(username string, stateChange StateChange) {
 }
 
 // Retrieve JMAP well-known data from the Stalwart server and create a Session from that.
-func (j *Client) FetchSession(sessionUrl *url.URL, username string, logger *log.Logger) (Session, Error) {
-	wk, err := j.session.GetSession(sessionUrl, username, logger)
+func (j *Client) FetchSession(ctx context.Context, sessionUrl *url.URL, username string, logger *log.Logger) (Session, Error) {
+	wk, err := j.session.GetSession(ctx, sessionUrl, username, logger)
 	if err != nil {
 		return Session{}, err
 	}
