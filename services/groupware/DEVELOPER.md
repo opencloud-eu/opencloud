@@ -79,16 +79,21 @@ done \
 
 ### Compose
 
-There are two options, either
+There are four options, either
 
-1. running the Groupware backend with OpenLDAP and Keycloak containers, more akin to a production setup;
-2. running the Groupware backend using the built-in LDAP and OIDC services, for a minimalistic setup that uses less resources and is more likely to be found in a home lab setup.
+1. running the Groupware backend with OpenLDAP and Keycloak containers, along with master authentication between the Groupware backend and Stalwart, more akin to a production setup;
+2. running the Groupware backend with OpenLDAP and Keycloak containers, along with OIDC Bearer token authentication between the Groupware backend and Stalwart, even more akin to a production setup;
+3. running the Groupware backend using the built-in LDAP and OIDC services, along with master authentication between the Groupware backend and Stalwart, for a minimalistic setup that uses less resources and is more likely to be found in a home lab setup;
+4. running the Groupware backend using the built-in LDAP and OIDC services, along with OIDC Bearer token authentication between the Groupware backend and Stalwart.
+
+> [!NOTE]
+> Note that option 2 is currently not implemented yet.
 
 In either case, the Docker Compose configuration in `$OCDIR/opencloud/devtools/deployments/opencloud_full/` needs to be modified.
 
-#### Production Setup
+#### Production Setup with Master Authentication
 
-<a name="prod-setup"></a>
+<a name="prod-setup-master"></a>
 
 ```mermaid
 ---
@@ -109,7 +114,7 @@ flowchart LR
   c --> kc
 ```
 
-Edit `$OCDIR/opencloud/devtools/deployments/opencloud_full/.env`, making the following changes (make sure to check out [the shell command-line that automates all of that, below](#automate-env-setup-prod)):
+Edit `$OCDIR/opencloud/devtools/deployments/opencloud_full/.env`, making the following changes (make sure to check out [the shell command-line that automates all of that, below](#automate-env-setup-prod-master)):
 
 * change the container image to `opencloudeu/opencloud:dev`:
 
@@ -170,7 +175,7 @@ Edit `$OCDIR/opencloud/devtools/deployments/opencloud_full/.env`, making the fol
 +#EXTERNALSITES=:web_extensions/externalsites.yml
 ```
 
-<a name="automate-env-setup-prod"></a>
+<a name="automate-env-setup-prod-master"></a>
 All those changes above can be automated with the following script:
 
 ```bash
@@ -193,9 +198,10 @@ perl -pi -e '
 ' .env
 ```
 
-#### Homelab Setup
+#### Homelab Setup with Master Authentication
 
 <a name="homelab-setup"></a>
+<a name="homelab-setup-master"></a>
 
 ```mermaid
 ---
@@ -212,7 +218,7 @@ flowchart LR
 
 ```
 
-Edit `$OCDIR/opencloud/devtools/deployments/opencloud_full/.env`, making the following changes (make sure to check out [the shell command-line that automates all of that, below](#automate-env-setup-homelab)):
+Edit `$OCDIR/opencloud/devtools/deployments/opencloud_full/.env`, making the following changes (make sure to check out [the shell command-line that automates all of that, below](#automate-env-setup-homelab-master)):
 
 * change the container image to `opencloudeu/opencloud:dev`:
 
@@ -280,7 +286,7 @@ Edit `$OCDIR/opencloud/devtools/deployments/opencloud_full/.env`, making the fol
 +#EXTERNALSITES=:web_extensions/externalsites.yml
 ```
 
-<a name="automate-env-setup-homelab"></a>
+<a name="automate-env-setup-homelab-master"></a>
 All those changes above can be automated with the following script:
 
 ```bash
@@ -307,6 +313,144 @@ perl -pi -e '
   s,^(COLLABORA)=(.+)$,#$1=$2,;
 ' .env
 ```
+
+#### Homelab Setup with OIDC Authentication
+
+<a name="homelab-setup-oidc"></a>
+
+```mermaid
+---
+title: Homelab Setup
+---
+flowchart LR
+  oc["`opencloud`"]
+  c["client"]
+  st["`stalwart`"]
+
+  c -- http --> oc
+  oc -- jmap --> st
+  st -- userinfo --> oc
+
+```
+
+Edit `$OCDIR/opencloud/devtools/deployments/opencloud_full/.env`, making the following changes (make sure to check out [the shell command-line that automates all of that, below](#automate-env-setup-homelab-oidc)):
+
+* change the container image to `opencloudeu/opencloud:dev`:
+
+```diff
+-OC_DOCKER_IMAGE=opencloudeu/opencloud-rolling
++OC_DOCKER_IMAGE=opencloudeu/opencloud
+-OC_DOCKER_TAG=
++OC_DOCKER_TAG=dev
+```
+
+* enable the creation of demo users:
+
+```diff
+-DEMO_USERS=
++DEMO_USERS=true
+```
+
+* add the `groupware` and the `auth-api` services to `START_ADDITIONAL_SERVICES`:
+
+```diff
+-START_ADDITIONAL_SERVICES="notifications"
++START_ADDITIONAL_SERVICES="notifications,groupware,auth-api"
+```
+
+* enable the Stalwart container:
+
+```diff
+-#STALWART=:stalwart.yml
++STALWART=:stalwart.yml
+```
+
+* change the authentication directory configuration for Stalwart to `idmoidc` in the `.env` file, using the variable `STALWART_AUTH_DIRECTORY`:
+
+```diff
+ # Domain of Stalwart
+ # Defaults to "stalwart.opencloud.test"
+ STALWART_DOMAIN=
+ # LDAP configuration to use for Stalwart:
+ # Can either be either
+ # - idmldap: for the built-in IDP/IDM, using Master Authentication between Groupware and Stalwart, and LDAP in Stalwart
+ # - idmoidc: built-in IDP/IDM, using OIDC Userinfo between Groupware and Stalwart
+ # - ldap: when using KeyCloak and OpenLDAP, with Master Authentication between Groupware and Stalwart, and LDAP in Stalwart
+-STALWART_AUTH_DIRECTORY=idmldap
++STALWART_AUTH_DIRECTORY=idmoidc
+```
+
+* while not required, it is recommended to enable basic authentication support which, while less secure, allows for easier tooling when developing and testing HTTP APIs, by adding `PROXY_ENABLE_BASIC_AUTH=true` somewhere before the last line of the `.env` file:
+
+```diff
++# Enable basic authentication to facilitate HTTP API testing
++# Do not do this in production.
++PROXY_ENABLE_BASIC_AUTH=true
++
+ ## IMPORTANT ##
+```
+
+* optionally disable the Collabora container
+
+```diff
+-COLLABORA=:collabora.yml
++#COLLABORA=:collabora.yml
+```
+
+* optionally disable UI containers
+
+```diff
+-UNZIP=:web_extensions/unzip.yml
+-DRAWIO=:web_extensions/drawio.yml
+-JSONVIEWER=:web_extensions/jsonviewer.yml
+-PROGRESSBARS=:web_extensions/progressbars.yml
+-EXTERNALSITES=:web_extensions/externalsites.yml
++#UNZIP=:web_extensions/unzip.yml
++#DRAWIO=:web_extensions/drawio.yml
++#JSONVIEWER=:web_extensions/jsonviewer.yml
++#PROGRESSBARS=:web_extensions/progressbars.yml
++#EXTERNALSITES=:web_extensions/externalsites.yml
+```
+
+<a name="automate-env-setup-homelab-oidc"></a>
+All those changes above can be automated with the following script:
+
+```bash
+cd "$OCDIR/opencloud/devtools/deployments/opencloud_full/"
+perl -pi -e '
+  BEGIN{$basic_auth=0}
+  s|^(OC_DOCKER_IMAGE)=.*$|$1=opencloudeu/opencloud|;
+  s|^(OC_DOCKER_TAG)=.*$|$1=dev|;
+  s|^(START_ADDITIONAL_SERVICES=".*(?<!groupware))"|$1,groupware"|;
+  s|^(START_ADDITIONAL_SERVICES=".*(?<!auth-api))"|$1,auth-api"|;
+  s,^(DEMO_USERS)=.+,$1=true,;
+  s,^#(STALWART)=(.+)$,$1=$2,;
+  s,^(STALWART_AUTH_DIRECTORY)=.+$,$1=idmoidc,;
+  s,^#(PROXY_ENABLE_BASIC_AUTH)=(.*)$,$1=true,;
+  $basic_auth=1 if /^PROXY_ENABLE_BASIC_AUTH=/;
+  print "\n# Enable basic authentication to facilitate HTTP API testing\n# Do not do this in production.\nPROXY_ENABLE_BASIC_AUTH=true\n\n" if /^## IMPORTANT ##/ && !$basic_auth;
+' .env
+```
+
+To disable Web UI services in case you are only interested in the backend service(s):
+
+```bash
+cd "$OCDIR/opencloud/devtools/deployments/opencloud_full/"
+perl -pi -e '
+  s|^([A-Z]+=:web_extensions/.*yml)$|#$1|;
+  s,^(COLLABORA)=(.+)$,#$1=$2,;
+' .env
+```
+
+> [!NOTE]
+> Unfortunately, as of now, the hostname or IP address of the host that runs the Groupware backend (or the OpenCloud single binary) needs to be configured manually
+> in `devtools/deployments/opencloud_full/config/stalwart/idmoidc.toml`, specifically in the variable `directory.oidc.endpoint.url` since it highly depends on whether
+> you are running it on the host (typically from an IDE)
+> or as another container in the Docker Compose project.
+> In the former case, it also depends on the operating system.
+> It is currently hard-wired to be `http://172.17.0.1:10000/auth/...`, which only works
+> * on Linux, where `172.17.0.1` _tends_ to be the gateway host IP address, for running the OpenCloud Groupware backend on the host
+> * when the environment variable `AUTHAPI_HTTP_ADDR` is set to `0.0.0.0:10000`, allowing for HTTP access to the auth-api backend, instead of limiting it to HTTPS through the proxy, which opens a whole can of worms with making Stalwart accept self-signed certificates
 
 ## Building
 
@@ -358,7 +502,7 @@ To check whether the various services are running correctly:
 
 #### Production Setup LDAP
 
-When using the &ldquo;production&rdquo; setup (as depicted in section [Production Setup](#prod-setup) above), queries can be performed directly against the \
+When using the &ldquo;production&rdquo; setup (as depicted in section [Production Setup](#prod-setup-master) above), queries can be performed directly against the \
 OpenLDAP container (`opencloud_full-openldap-1`) since its LDAP ports are mapped onto the host (to `:389` and `:636` for LDAP and LDAPS, respectively).
 
 When using the OpenLDAP container, the necessary LDAP parameters are as follows:
@@ -474,7 +618,7 @@ docker run --network 'opencloud_full_opencloud-net' --rm -ti alpine:3 \
 ### Testing Keycloak
 
 > [!NOTE]
-> Only available in the [&ldquo;production&rdquo; setup](#prod-setup)
+> Only available in the [&ldquo;production&rdquo; setup](#prod-setup-master)
 
 To check whether it works correctly, the following `curl` command:
 

@@ -175,7 +175,7 @@ func (s *StalwartTest) Close() error {
 }
 
 func (s *StalwartTest) Session(username string) *Session {
-	session, jerr := s.client.FetchSession(s.sessionUrl, username, s.logger)
+	session, jerr := s.client.FetchSession(s.ctx, s.sessionUrl, username, s.logger)
 	require.NoError(s.t, jerr)
 	require.NotNil(s.t, session.Capabilities.Mail)
 	require.NotNil(s.t, session.Capabilities.Calendars)
@@ -328,14 +328,11 @@ func newStalwartTest(t *testing.T) (*StalwartTest, error) {
 
 		eventListener := nullHttpJmapApiClientEventListener{}
 
-		api := NewHttpJmapClient(
-			&jh,
-			masterUsername,
-			masterPassword,
-			eventListener,
-		)
+		auth := NewMasterAuthHttpJmapClientAuthenticator(masterUsername, masterPassword)
 
-		wscf, err := NewHttpWsClientFactory(wsd, masterUsername, masterPassword, logger, eventListener)
+		api := NewHttpJmapClient(&jh, auth, eventListener)
+
+		wscf, err := NewHttpWsClientFactory(wsd, auth, logger, eventListener)
 		if err != nil {
 			return nil, err
 		}
@@ -455,7 +452,7 @@ func newStalwartTest(t *testing.T) (*StalwartTest, error) {
 		{
 			// check whether we can fetch a session for the provisioned users
 			for _, user := range users {
-				session, err := j.FetchSession(sessionUrl, user.name, logger)
+				session, err := j.FetchSession(ctx, sessionUrl, user.name, logger)
 				require.NoError(t, err, "failed to retrieve JMAP session for newly created principal '%s'", user.name)
 				require.Equal(t, user.name, session.Username)
 			}

@@ -1,6 +1,9 @@
 package metrics
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/prometheus/client_golang/prometheus"
+)
 
 var (
 	// Namespace defines the namespace for the defines metrics.
@@ -27,10 +30,7 @@ const (
 	AttemptFailureOutcome = "failure"
 )
 
-// New initializes the available metrics.
-func New(opts ...Option) *Metrics {
-	options := newOptions(opts...)
-
+func New(logger *log.Logger) (*Metrics, error) {
 	m := &Metrics{
 		BuildInfo: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: Namespace,
@@ -43,32 +43,35 @@ func New(opts ...Option) *Metrics {
 			Subsystem: Subsystem,
 			Name:      "authentication_duration_seconds",
 			Help:      "Authentication processing time in seconds",
-		}, []string{"type"}),
+		}, []string{"outcome"}),
 		Attempts: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: Namespace,
 			Subsystem: Subsystem,
-			Name:      "athentication_attempts_total",
+			Name:      "authentication_attempts_total",
 			Help:      "How many authentication attempts were processed",
-		}, []string{"outcome"}),
+		}, []string{"outcome", "type"}),
 	}
 
 	if err := prometheus.Register(m.BuildInfo); err != nil {
-		options.Logger.Error().
+		logger.Error().
 			Err(err).
 			Str("metric", "BuildInfo").
 			Msg("Failed to register prometheus metric")
+		return nil, err
 	}
 	if err := prometheus.Register(m.Duration); err != nil {
-		options.Logger.Error().
+		logger.Error().
 			Err(err).
 			Str("metric", "Duration").
 			Msg("Failed to register prometheus metric")
+		return nil, err
 	}
 	if err := prometheus.Register(m.Attempts); err != nil {
-		options.Logger.Error().
+		logger.Error().
 			Err(err).
 			Str("metric", "Attempts").
 			Msg("Failed to register prometheus metric")
+		return nil, err
 	}
-	return m
+	return m, nil
 }

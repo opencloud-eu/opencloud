@@ -1,6 +1,7 @@
 package jmap
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -60,6 +61,8 @@ func TestWs(t *testing.T) {
 
 	require := require.New(t)
 
+	ctx := context.Background()
+
 	s, err := newStalwartTest(t)
 	require.NoError(err)
 	defer s.Close()
@@ -111,7 +114,7 @@ func TestWs(t *testing.T) {
 		require.Empty(changes.Updated)
 	}
 
-	wsc, err := s.client.EnablePushNotifications(initialState, func() (*Session, error) { return session, nil })
+	wsc, err := s.client.EnablePushNotifications(ctx, initialState, func() (*Session, error) { return session, nil })
 	require.NoError(err)
 	defer wsc.Close()
 

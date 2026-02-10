@@ -6,7 +6,6 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/metrics"
-	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 )
@@ -21,7 +20,6 @@ type Options struct {
 	Context       context.Context
 	Config        *config.Config
 	Metrics       *metrics.HttpMetrics
-	Flags         []cli.Flag
 	TraceProvider trace.TracerProvider
 }
 

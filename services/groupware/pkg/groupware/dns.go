@@ -1,6 +1,7 @@
 package groupware
 
 import (
+	"context"
 	"errors"
 	"net"
 	"net/url"
@@ -17,7 +18,7 @@ var (
 )
 
 type DnsSessionUrlResolver struct {
-	defaultSessionUrlSupplier func(string) (*url.URL, *GroupwareError)
+	defaultSessionUrlSupplier func(context.Context, string) (*url.URL, *GroupwareError)
 	defaultDomain             string
 	domainGreenList           []string
 	domainRedList             []string
@@ -26,7 +27,7 @@ type DnsSessionUrlResolver struct {
 }
 
 func NewDnsSessionUrlResolver(
-	defaultSessionUrlSupplier func(string) (*url.URL, *GroupwareError),
+	defaultSessionUrlSupplier func(context.Context, string) (*url.URL, *GroupwareError),
 	defaultDomain string,
 	config *dns.ClientConfig,
 	domainGreenList []string,
@@ -71,7 +72,7 @@ func (d DnsSessionUrlResolver) isRedListed(domain string) bool {
 	return !slices.Contains(d.domainRedList, domain)
 }
 
-func (d DnsSessionUrlResolver) Resolve(username string) (*url.URL, *GroupwareError) {
+func (d DnsSessionUrlResolver) Resolve(ctx context.Context, username string) (*url.URL, *GroupwareError) {
 	// heuristic to detect whether the username is an email address
 	parts := strings.Split(username, "@")
 	domain := d.defaultDomain
@@ -80,7 +81,7 @@ func (d DnsSessionUrlResolver) Resolve(username string) (*url.URL, *GroupwareErr
 		// nevertheless then?
 		if d.defaultDomain == "" {
 			// we don't, then let's fall back to the static session URL instead
-			return d.defaultSessionUrlSupplier(username)
+			return d.defaultSessionUrlSupplier(ctx, username)
 		}
 	} else {
 		domain = parts[len(parts)-1]
@@ -138,7 +139,7 @@ func (d DnsSessionUrlResolver) Resolve(username string) (*url.URL, *GroupwareErr
 		}
 	}
 
-	return d.defaultSessionUrlSupplier(username)
+	return d.defaultSessionUrlSupplier(ctx, username)
 }
 
 func (d DnsSessionUrlResolver) dnsQuery(c *dns.Client, msg *dns.Msg) (*dns.Msg, error) {

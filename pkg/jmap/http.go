@@ -22,11 +22,10 @@ import (
 // Implementation of ApiClient, SessionClient and BlobClient that uses
 // HTTP to perform JMAP operations.
 type HttpJmapClient struct {
-	client         *http.Client
-	masterUser     string
-	masterPassword string
-	userAgent      string
-	listener       HttpJmapApiClientEventListener
+	client        *http.Client
+	userAgent     string
+	authenticator HttpJmapClientAuthenticator
+	listener      HttpJmapApiClientEventListener
 }
 
 var (
@@ -48,12 +47,6 @@ const (
 	logTypeResponse   = "response"
 	logTypePush       = "push"
 )
-
-/*
-func bearer(req *http.Request, token string) {
-	req.Header.Add("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(token)))
-}
-*/
 
 // Record JMAP HTTP execution events that may occur, e.g. using metrics.
 type HttpJmapApiClientEventListener interface {
@@ -86,18 +79,45 @@ func (l nullHttpJmapApiClientEventListener) OnFailedWsHandshakeRequestWithStatus
 
 var _ HttpJmapApiClientEventListener = nullHttpJmapApiClientEventListener{}
 
+type HttpJmapClientAuthenticator interface {
+	Authenticate(ctx context.Context, username string, logger *log.Logger, req *http.Request) Error
+	AuthenticateWS(ctx context.Context, username string, logger *log.Logger, headers http.Header) Error
+}
+
+type MasterAuthHttpJmapClientAuthenticator struct {
+	masterUser     string
+	masterPassword string
+}
+
+func NewMasterAuthHttpJmapClientAuthenticator(masterUser string, masterPassword string) HttpJmapClientAuthenticator {
+	return &MasterAuthHttpJmapClientAuthenticator{masterUser: masterUser, masterPassword: masterPassword}
+}
+
+var _ HttpJmapClientAuthenticator = &MasterAuthHttpJmapClientAuthenticator{}
+
+func (h *MasterAuthHttpJmapClientAuthenticator) Authenticate(ctx context.Context, username string, _ *log.Logger, req *http.Request) Error {
+	masterUsername := username + "%" + h.masterUser
+	req.SetBasicAuth(masterUsername, h.masterPassword)
+	return nil
+}
+
+func (h *MasterAuthHttpJmapClientAuthenticator) AuthenticateWS(ctx context.Context, username string, _ *log.Logger, headers http.Header) Error {
+	masterUsername := username + "%" + h.masterUser
+	headers.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(masterUsername+":"+h.masterPassword)))
+	return nil
+}
+
 // An implementation of HttpJmapApiClientMetricsRecorder that does nothing.
 func NullHttpJmapApiClientEventListener() HttpJmapApiClientEventListener {
 	return nullHttpJmapApiClientEventListener{}
 }
 
-func NewHttpJmapClient(client *http.Client, masterUser string, masterPassword string, listener HttpJmapApiClientEventListener) *HttpJmapClient {
+func NewHttpJmapClient(client *http.Client, authenticator HttpJmapClientAuthenticator, listener HttpJmapApiClientEventListener) *HttpJmapClient {
 	return &HttpJmapClient{
-		client:         client,
-		masterUser:     masterUser,
-		masterPassword: masterPassword,
-		userAgent:      "OpenCloud/" + version.GetString(),
-		listener:       listener,
+		client:        client,
+		authenticator: authenticator,
+		userAgent:     "OpenCloud/" + version.GetString(),
+		listener:      listener,
 	}
 }
 
@@ -117,17 +137,15 @@ func (e AuthenticationError) Unwrap() error {
 	return e.Err
 }
 
-func (h *HttpJmapClient) auth(username string, _ *log.Logger, req *http.Request) error {
-	masterUsername := username + "%" + h.masterUser
-	req.SetBasicAuth(masterUsername, h.masterPassword)
-	return nil
+func (h *HttpJmapClient) auth(ctx context.Context, username string, logger *log.Logger, req *http.Request) Error {
+	return h.authenticator.Authenticate(ctx, username, logger, req)
 }
 
 var (
 	errNilBaseUrl = errors.New("sessionUrl is nil")
 )
 
-func (h *HttpJmapClient) GetSession(sessionUrl *url.URL, username string, logger *log.Logger) (SessionResponse, Error) {
+func (h *HttpJmapClient) GetSession(ctx context.Context, sessionUrl *url.URL, username string, logger *log.Logger) (SessionResponse, Error) {
 	if sessionUrl == nil {
 		logger.Error().Msg("sessionUrl is nil")
 		return SessionResponse{}, SimpleError{code: JmapErrorInvalidHttpRequest, err: errNilBaseUrl}
@@ -147,7 +165,9 @@ func (h *HttpJmapClient) GetSession(sessionUrl *url.URL, username string, logger
 		logger.Error().Err(err).Msgf("failed to create GET request for %v", sessionUrl)
 		return SessionResponse{}, SimpleError{code: JmapErrorInvalidHttpRequest, err: err}
 	}
-	h.auth(username, logger, req)
+	if err := h.auth(ctx, username, logger, req); err != nil {
+		return SessionResponse{}, err
+	}
 	req.Header.Add("Cache-Control", "no-cache, no-store, must-revalidate") // spec recommendation
 
 	res, err := h.client.Do(req)
@@ -222,7 +242,9 @@ func (h *HttpJmapClient) Command(ctx context.Context, logger *log.Logger, sessio
 			logger.Trace().Str(logEndpoint, endpoint).Str(logProto, logProtoJmap).Str(logType, logTypeRequest).Msg(string(requestBytes))
 		}
 	}
-	h.auth(session.Username, logger, req)
+	if err := h.auth(ctx, session.Username, logger, req); err != nil {
+		return nil, "", err
+	}
 
 	res, err := h.client.Do(req)
 	if err != nil {
@@ -286,7 +308,9 @@ func (h *HttpJmapClient) UploadBinary(ctx context.Context, logger *log.Logger, s
 		}
 	}
 
-	h.auth(session.Username, logger, req)
+	if err := h.auth(ctx, session.Username, logger, req); err != nil {
+		return UploadedBlob{}, "", err
+	}
 
 	res, err := h.client.Do(req)
 	if err != nil {
@@ -357,7 +381,10 @@ func (h *HttpJmapClient) DownloadBinary(ctx context.Context, logger *log.Logger,
 			logger.Trace().Str(logEndpoint, endpoint).Str(logProto, logProtoJmap).Str(logType, logTypeRequest).Msg(string(requestBytes))
 		}
 	}
-	h.auth(session.Username, logger, req)
+
+	if err := h.auth(ctx, session.Username, logger, req); err != nil {
+		return nil, "", err
+	}
 
 	res, err := h.client.Do(req)
 	if err != nil {
@@ -435,16 +462,15 @@ type WebSocketPushDisable struct {
 }
 
 type HttpWsClientFactory struct {
-	dialer         *websocket.Dialer
-	masterUser     string
-	masterPassword string
-	logger         *log.Logger
-	eventListener  HttpJmapApiClientEventListener
+	dialer        *websocket.Dialer
+	authenticator HttpJmapClientAuthenticator
+	logger        *log.Logger
+	eventListener HttpJmapApiClientEventListener
 }
 
 var _ WsClientFactory = &HttpWsClientFactory{}
 
-func NewHttpWsClientFactory(dialer *websocket.Dialer, masterUser string, masterPassword string, logger *log.Logger,
+func NewHttpWsClientFactory(dialer *websocket.Dialer, authenticator HttpJmapClientAuthenticator, logger *log.Logger,
 	eventListener HttpJmapApiClientEventListener) (*HttpWsClientFactory, error) {
 	// RFC 8887: Section 4.2:
 	// Otherwise, the client MUST make an authenticated HTTP request [RFC7235] on the encrypted connection
@@ -453,21 +479,18 @@ func NewHttpWsClientFactory(dialer *websocket.Dialer, masterUser string, masterP
 	dialer.Subprotocols = []string{"jmap"}
 
 	return &HttpWsClientFactory{
-		dialer:         dialer,
-		masterUser:     masterUser,
-		masterPassword: masterPassword,
-		logger:         logger,
-		eventListener:  eventListener,
+		dialer:        dialer,
+		authenticator: authenticator,
+		logger:        logger,
+		eventListener: eventListener,
 	}, nil
 }
 
-func (w *HttpWsClientFactory) auth(username string, h http.Header) error {
-	masterUsername := username + "%" + w.masterUser
-	h.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(masterUsername+":"+w.masterPassword)))
-	return nil
+func (w *HttpWsClientFactory) auth(ctx context.Context, username string, logger *log.Logger, h http.Header) Error {
+	return w.authenticator.AuthenticateWS(ctx, username, logger, h)
 }
 
-func (w *HttpWsClientFactory) connect(sessionProvider func() (*Session, error)) (*websocket.Conn, string, string, Error) {
+func (w *HttpWsClientFactory) connect(ctx context.Context, sessionProvider func() (*Session, error)) (*websocket.Conn, string, string, Error) {
 	logger := w.logger
 
 	session, err := sessionProvider()
@@ -486,10 +509,8 @@ func (w *HttpWsClientFactory) connect(sessionProvider func() (*Session, error)) 
 	u := session.WebsocketUrl
 	endpoint := session.WebsocketEndpoint
 
-	ctx := context.Background() // TODO WS connection context with a timeout?
-
 	h := http.Header{}
-	w.auth(username, h)
+	w.auth(ctx, username, logger, h)
 	c, res, err := w.dialer.DialContext(ctx, u.String(), h)
 	if err != nil {
 		return nil, "", endpoint, SimpleError{code: JmapErrorFailedToEstablishWssConnection, err: err}
@@ -582,8 +603,8 @@ func (w *HttpWsClient) readPump() {
 	}
 }
 
-func (w *HttpWsClientFactory) EnableNotifications(pushState State, sessionProvider func() (*Session, error), listener WsPushListener) (WsClient, Error) {
-	c, username, endpoint, jerr := w.connect(sessionProvider)
+func (w *HttpWsClientFactory) EnableNotifications(ctx context.Context, pushState State, sessionProvider func() (*Session, error), listener WsPushListener) (WsClient, Error) {
+	c, username, endpoint, jerr := w.connect(ctx, sessionProvider)
 	if jerr != nil {
 		return nil, jerr
 	}

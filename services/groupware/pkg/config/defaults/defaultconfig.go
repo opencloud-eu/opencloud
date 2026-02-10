@@ -26,8 +26,8 @@ func DefaultConfig() *config.Config {
 		},
 		Mail: config.Mail{
 			Master: config.MailMasterAuth{
-				Username: "master",
-				Password: "admin",
+				Username: "",
+				Password: "",
 			},
 			BaseUrl:               "https://stalwart.opencloud.test",
 			Timeout:               30 * time.Second,

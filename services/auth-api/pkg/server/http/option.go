@@ -5,10 +5,6 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/auth-api/pkg/config"
-	"github.com/opencloud-eu/opencloud/services/auth-api/pkg/metrics"
-	"github.com/urfave/cli/v2"
-	"go.opentelemetry.io/otel/trace"
-	"go.opentelemetry.io/otel/trace/noop"
 )
 
 // Option defines a single option function.
@@ -20,9 +16,6 @@ type Options struct {
 	Logger        log.Logger
 	Context       context.Context
 	Config        *config.Config
-	Metrics       *metrics.Metrics
-	Flags         []cli.Flag
-	TraceProvider trace.TracerProvider
 }
 
 // newOptions initializes the available default options.
@@ -57,13 +50,6 @@ func Config(val *config.Config) Option {
 	}
 }
 
-// Metrics provides a function to set the metrics option.
-func Metrics(val *metrics.Metrics) Option {
-	return func(o *Options) {
-		o.Metrics = val
-	}
-}
-
 // Namespace provides a function to set the Namespace option.
 func Namespace(val string) Option {
 	return func(o *Options) {
@@ -71,13 +57,3 @@ func Namespace(val string) Option {
 	}
 }
 
-// TraceProvider provides a function to configure the trace provider
-func TraceProvider(traceProvider trace.TracerProvider) Option {
-	return func(o *Options) {
-		if traceProvider != nil {
-			o.TraceProvider = traceProvider
-		} else {
-			o.TraceProvider = noop.NewTracerProvider()
-		}
-	}
-}
