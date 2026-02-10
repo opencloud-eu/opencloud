@@ -84,7 +84,7 @@ type Lookup struct {
 // New returns a new Lookup instance
 func New(b metadata.Backend, um usermapper.Mapper, o *options.Options, tm node.TimeManager) *Lookup {
 	idHistoryConf := o.Options.IDCache
-	idHistoryConf.Database = o.Options.IDCache.Table + "_history"
+	idHistoryConf.Table = o.Options.IDCache.Table + "_history"
 	idHistoryConf.TTL = 1 * time.Minute
 
 	spaceRootCache, _ := lru.New[string, string](1000)
