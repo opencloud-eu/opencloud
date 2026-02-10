@@ -65,7 +65,7 @@ require (
 	github.com/open-policy-agent/opa v1.12.3
 	github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89
 	github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20250724122329-41ba6b191e76
-	github.com/opencloud-eu/reva/v2 v2.42.3
+	github.com/opencloud-eu/reva/v2 v2.42.4-0.20260209135152-4433469d98e8
 	github.com/opensearch-project/opensearch-go/v4 v4.6.0
 	github.com/orcaman/concurrent-map v1.0.0
 	github.com/pkg/errors v0.9.1
@@ -417,5 +417,3 @@ replace github.com/go-micro/plugins/v4/store/nats-js-kv => github.com/opencloud-
 
 // to get the logger injection (https://github.com/pablodz/inotifywaitgo/pull/11)
 replace github.com/pablodz/inotifywaitgo v0.0.9 => github.com/opencloud-eu/inotifywaitgo v0.0.0-20251111171128-a390bae3c5e9
-
-replace github.com/opencloud-eu/reva/v2 => github.com/aduffeck/reva/v2 v2.27.3-0.20260209115512-73c029375aec
