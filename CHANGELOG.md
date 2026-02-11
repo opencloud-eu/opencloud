@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @VicDeo, @dragonchaser, @individual-it, @rhafer
+@ScharfViktor, @VicDeo, @aduffeck, @dragonchaser, @individual-it, @rhafer
 
 ### 📈 Enhancement
 
