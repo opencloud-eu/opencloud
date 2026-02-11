@@ -20,6 +20,8 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/gabriel-vasile/mimetype from 1.4.12 to 1.4.13 [[#2316](https://github.com/opencloud-eu/opencloud/pull/2316)]
+- build(deps): bump go.opentelemetry.io/otel/exporters/stdout/stdouttrace from 1.39.0 to 1.40.0 [[#2279](https://github.com/opencloud-eu/opencloud/pull/2279)]
 - update reva after merge #514 [[#2309](https://github.com/opencloud-eu/opencloud/pull/2309)]
 - build(deps): bump github.com/go-chi/chi/v5 from 5.2.4 to 5.2.5 [[#2278](https://github.com/opencloud-eu/opencloud/pull/2278)]
 
