@@ -21,5 +21,6 @@ func New(cfg *config.Config) Runtime {
 
 // Start rpc runtime
 func (r *Runtime) Start(ctx context.Context) error {
-	return service.Start(ctx, service.WithConfig(r.c))
+	return service.StartV2(ctx, service.WithConfig(r.c))
+	//return service.Start(ctx, service.WithConfig(r.c))
 }
