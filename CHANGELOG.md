@@ -4,7 +4,12 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @VicDeo, @aduffeck, @dragonchaser, @individual-it, @rhafer
+@ScharfViktor, @VicDeo, @aduffeck, @dragonchaser, @individual-it, @rhafer, @schweigisito
+
+### 🐛 Bug Fixes
+
+- fix: fix typo in gateway service documentation [[#2332](https://github.com/opencloud-eu/opencloud/pull/2332)]
+- Sanitize web config only once [[#2286](https://github.com/opencloud-eu/opencloud/pull/2286)]
 
 ### 📈 Enhancement
 
@@ -13,10 +18,6 @@
 ### 📚 Documentation
 
 - fix: make file urls [[#2304](https://github.com/opencloud-eu/opencloud/pull/2304)]
-
-### 🐛 Bug Fixes
-
-- Sanitize web config only once [[#2286](https://github.com/opencloud-eu/opencloud/pull/2286)]
 
 ### 📦️ Dependencies
 
