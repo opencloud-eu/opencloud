@@ -30,6 +30,7 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 		logger.Warn().Msg("logout_token is missing")
 		render.Status(r, http.StatusBadRequest)
 		render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: "logout_token is missing"})
+		return
 	}
 
 	logoutToken, err := s.OidcClient.VerifyLogoutToken(r.Context(), r.PostFormValue("logout_token"))
@@ -56,6 +57,7 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 			return
 		}
 	} else if strings.TrimSpace(logoutToken.Subject) != "" {
+		// TODO: enter a mapping table between subject and sessionid when the oidc session is refreshed
 		records, err = s.UserInfoCache.Read(logoutToken.Subject)
 		if errors.Is(err, microstore.ErrNotFound) || len(records) == 0 {
 			render.Status(r, http.StatusOK)
@@ -68,10 +70,21 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 			render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: err.Error()})
 			return
 		}
+		for _, record := range records {
+			// take all previous records retrieved for this subject, and fetch the corresponding sessions
+			rs, err := s.UserInfoCache.Read(string(record.Value))
+			if errors.Is(err, microstore.ErrNotFound) || len(rs) == 0 {
+				// we do not care about errors here, since we already have entries from the subjects that need to be addressed
+				continue
+			}
+			// we append the additional sessions found through the mapping for later deletion
+			records = append(records, rs...)
+		}
 	} else {
 		logger.Warn().Msg("invalid logout token")
 		render.Status(r, http.StatusBadRequest)
 		render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: "invalid logout token"})
+		return
 	}
 
 	for _, record := range records {
@@ -95,11 +108,18 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 		err = s.UserInfoCache.Delete(logoutToken.SessionId)
 		if err != nil {
 			logger.Debug().Err(err).Msg("Failed to cleanup sessionid lookup entry")
+			render.Status(r, http.StatusBadRequest)
+			render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: err.Error()})
+			return
 		}
 	} else if strings.TrimSpace(logoutToken.Subject) != "" {
+		// TODO: do a lookup subject => sessionid and delete both entries
 		err = s.UserInfoCache.Delete(logoutToken.Subject)
 		if err != nil {
 			logger.Debug().Err(err).Msg("Failed to cleanup subject lookup entry")
+			render.Status(r, http.StatusBadRequest)
+			render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: err.Error()})
+			return
 		}
 	}
 
