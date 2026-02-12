@@ -4,10 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @VicDeo, @aduffeck, @dragonchaser, @individual-it, @rhafer, @schweigisito
+@ScharfViktor, @VicDeo, @aduffeck, @dragonchaser, @individual-it, @micbar, @rhafer, @schweigisito
 
 ### 🐛 Bug Fixes
 
+- fix: include sessionID in sse logout event [[#2327](https://github.com/opencloud-eu/opencloud/pull/2327)]
 - fix: fix typo in gateway service documentation [[#2332](https://github.com/opencloud-eu/opencloud/pull/2332)]
 - Sanitize web config only once [[#2286](https://github.com/opencloud-eu/opencloud/pull/2286)]
 
