@@ -124,6 +124,18 @@ func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[stri
 				if err != nil {
 					m.Logger.Error().Err(err).Msg("failed to write session lookup cache")
 				}
+
+				// create an additional entry mapping subject to session id
+				if sub := aClaims.Subject; sub != "" {
+					err = m.userInfoCache.Write(&store.Record{
+						Key:    sub,
+						Value:  []byte(sid),
+						Expiry: time.Until(expiration),
+					})
+					if err != nil {
+						m.Logger.Error().Err(err).Msg("failed to write subject lookup cache")
+					}
+				}
 			}
 		}
 	}()
