@@ -8,6 +8,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix: fix typo in variable description [[#2333](https://github.com/opencloud-eu/opencloud/pull/2333)]
 - fix: include sessionID in sse logout event [[#2327](https://github.com/opencloud-eu/opencloud/pull/2327)]
 - fix: fix typo in gateway service documentation [[#2332](https://github.com/opencloud-eu/opencloud/pull/2332)]
 - Sanitize web config only once [[#2286](https://github.com/opencloud-eu/opencloud/pull/2286)]
