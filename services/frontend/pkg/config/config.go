@@ -172,7 +172,7 @@ type OCDav struct {
 
 type NameValidation struct {
 	InvalidChars []string `yaml:"invalid_chars" env:"OCDAV_NAME_VALIDATION_INVALID_CHARS;FRONTENT_OCDAV_NAME_VALIDATION_INVALID_CHARS" desc:"List of characters that are not allowed in file or folder names." introductionVersion:"%%NEXT%%"`
-	MaxLength    int      `yaml:"max_length" env:"OCDAV_NAME_VALIDATION_MAX_LENGTH;FRONTENT_OCDAV_NAME_VALIDATION_MAX_LENGTH" desc:"Max lenght og file or folder names." introductionVersion:"%%NEXT%%"`
+	MaxLength    int      `yaml:"max_length" env:"OCDAV_NAME_VALIDATION_MAX_LENGTH;FRONTENT_OCDAV_NAME_VALIDATION_MAX_LENGTH" desc:"Max length of file or folder names." introductionVersion:"%%NEXT%%"`
 }
 
 type CacheWarmupDrivers struct {
