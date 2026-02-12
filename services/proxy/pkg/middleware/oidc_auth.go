@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -128,7 +129,7 @@ func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[stri
 				// create an additional entry mapping subject to session id
 				if sub := aClaims.Subject; sub != "" {
 					err = m.userInfoCache.Write(&store.Record{
-						Key:    sub,
+						Key:    fmt.Sprintf("%s.%s", sub, sid),
 						Value:  []byte(sid),
 						Expiry: time.Until(expiration),
 					})

@@ -41,27 +41,15 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var records []*microstore.Record
+	var cacheKeys map[string]bool
 
 	if strings.TrimSpace(logoutToken.SessionId) != "" {
-		records, err = s.UserInfoCache.Read(logoutToken.SessionId)
+		cacheKeys[logoutToken.SessionId] = true
+	} else if strings.TrimSpace(logoutToken.Subject) != "" {
+		records, err := s.UserInfoCache.Read(fmt.Sprintf("%s.*", logoutToken.Subject))
 		if errors.Is(err, microstore.ErrNotFound) || len(records) == 0 {
-			render.Status(r, http.StatusOK)
-			render.JSON(w, r, nil)
-			return
-		}
-		if err != nil {
-			logger.Error().Err(err).Msg("Error reading userinfo cache")
 			render.Status(r, http.StatusBadRequest)
 			render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: err.Error()})
-			return
-		}
-	} else if strings.TrimSpace(logoutToken.Subject) != "" {
-		// TODO: enter a mapping table between subject and sessionid when the oidc session is refreshed
-		records, err = s.UserInfoCache.Read(logoutToken.Subject)
-		if errors.Is(err, microstore.ErrNotFound) || len(records) == 0 {
-			render.Status(r, http.StatusOK)
-			render.JSON(w, r, nil)
 			return
 		}
 		if err != nil {
@@ -71,14 +59,8 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 			return
 		}
 		for _, record := range records {
-			// take all previous records retrieved for this subject, and fetch the corresponding sessions
-			rs, err := s.UserInfoCache.Read(string(record.Value))
-			if errors.Is(err, microstore.ErrNotFound) || len(rs) == 0 {
-				// we do not care about errors here, since we already have entries from the subjects that need to be addressed
-				continue
-			}
-			// we append the additional sessions found through the mapping for later deletion
-			records = append(records, rs...)
+			cacheKeys[string(record.Value)] = true
+			cacheKeys[record.Key] = false
 		}
 	} else {
 		logger.Warn().Msg("invalid logout token")
@@ -87,40 +69,42 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	for _, record := range records {
-		err = s.UserInfoCache.Delete(string(record.Value))
+	for key, isSID := range cacheKeys {
+		if isSID {
+			records, err := s.UserInfoCache.Read(key)
+			if err != nil && !errors.Is(err, microstore.ErrNotFound) {
+				logger.Error().Err(err).Msg("Error reading userinfo cache")
+				render.Status(r, http.StatusBadRequest)
+				render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: err.Error()})
+				return
+			}
+			for _, record := range records {
+				err = s.UserInfoCache.Delete(string(record.Value))
+				if err != nil && !errors.Is(err, microstore.ErrNotFound) {
+					logger.Error().Err(err).Msg("Error deleting userinfo cache")
+					render.Status(r, http.StatusBadRequest)
+					render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: err.Error()})
+					return
+				}
+			}
+		}
+
+		err = s.UserInfoCache.Delete(key)
 		if err != nil && !errors.Is(err, microstore.ErrNotFound) {
 			// Spec requires us to return a 400 BadRequest when the session could not be destroyed
-			logger.Err(err).Msg("could not delete user info from cache")
+			logger.Err(err).Msg(fmt.Errorf("could not delete session from cache (%s)", key).Error())
+			// We only return on requests that do only attempt to destroy a single session, not multiple
 			render.Status(r, http.StatusBadRequest)
 			render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: err.Error()})
 			return
 		}
-		err := s.publishBackchannelLogoutEvent(r.Context(), record, logoutToken)
-		if err != nil {
-			s.Logger.Warn().Err(err).Msg("could not publish backchannel logout event")
+		if isSID {
+			err := s.publishBackchannelLogoutEvent(r.Context(), key, logoutToken)
+			if err != nil {
+				s.Logger.Warn().Err(err).Msg("could not publish backchannel logout event")
+			}
 		}
 		logger.Debug().Msg("Deleted userinfo from cache")
-	}
-
-	if strings.TrimSpace(logoutToken.SessionId) != "" {
-		// we can ignore errors when cleaning up the lookup table
-		err = s.UserInfoCache.Delete(logoutToken.SessionId)
-		if err != nil {
-			logger.Debug().Err(err).Msg("Failed to cleanup sessionid lookup entry")
-			render.Status(r, http.StatusBadRequest)
-			render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: err.Error()})
-			return
-		}
-	} else if strings.TrimSpace(logoutToken.Subject) != "" {
-		// TODO: do a lookup subject => sessionid and delete both entries
-		err = s.UserInfoCache.Delete(logoutToken.Subject)
-		if err != nil {
-			logger.Debug().Err(err).Msg("Failed to cleanup subject lookup entry")
-			render.Status(r, http.StatusBadRequest)
-			render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: err.Error()})
-			return
-		}
 	}
 
 	render.Status(r, http.StatusOK)
@@ -128,11 +112,11 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 }
 
 // publishBackchannelLogoutEvent publishes a backchannel logout event when the callback revived from the identity provider
-func (s StaticRouteHandler) publishBackchannelLogoutEvent(ctx context.Context, record *microstore.Record, logoutToken *oidc.LogoutToken) error {
+func (s StaticRouteHandler) publishBackchannelLogoutEvent(ctx context.Context, cacheKey string, logoutToken *oidc.LogoutToken) error {
 	if s.EventsPublisher == nil {
 		return fmt.Errorf("the events publisher is not set")
 	}
-	urecords, err := s.UserInfoCache.Read(string(record.Value))
+	urecords, err := s.UserInfoCache.Read(cacheKey)
 	if err != nil {
 		return fmt.Errorf("reading userinfo cache: %w", err)
 	}
