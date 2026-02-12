@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/render"
 	"github.com/opencloud-eu/opencloud/pkg/oidc"
@@ -25,6 +26,12 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	if r.PostFormValue("logout_token") == "" {
+		logger.Warn().Msg("logout_token is missing")
+		render.Status(r, http.StatusBadRequest)
+		render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: "logout_token is missing"})
+	}
+
 	logoutToken, err := s.OidcClient.VerifyLogoutToken(r.Context(), r.PostFormValue("logout_token"))
 	if err != nil {
 		logger.Warn().Err(err).Msg("VerifyLogoutToken failed")
@@ -33,24 +40,41 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	records, err := s.UserInfoCache.Read(logoutToken.SessionId)
-	if errors.Is(err, microstore.ErrNotFound) || len(records) == 0 {
-		render.Status(r, http.StatusOK)
-		render.JSON(w, r, nil)
-		return
-	}
-	if err != nil {
-		logger.Error().Err(err).Msg("Error reading userinfo cache")
+	var records []*microstore.Record
+
+	if strings.TrimSpace(logoutToken.SessionId) != "" {
+		records, err = s.UserInfoCache.Read(logoutToken.SessionId)
+		if errors.Is(err, microstore.ErrNotFound) || len(records) == 0 {
+			render.Status(r, http.StatusOK)
+			render.JSON(w, r, nil)
+			return
+		}
+		if err != nil {
+			logger.Error().Err(err).Msg("Error reading userinfo cache")
+			render.Status(r, http.StatusBadRequest)
+			render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: err.Error()})
+			return
+		}
+	} else if strings.TrimSpace(logoutToken.Subject) != "" {
+		records, err = s.UserInfoCache.Read(logoutToken.Subject)
+		if errors.Is(err, microstore.ErrNotFound) || len(records) == 0 {
+			render.Status(r, http.StatusOK)
+			render.JSON(w, r, nil)
+			return
+		}
+		if err != nil {
+			logger.Error().Err(err).Msg("Error reading userinfo cache")
+			render.Status(r, http.StatusBadRequest)
+			render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: err.Error()})
+			return
+		}
+	} else {
+		logger.Warn().Msg("invalid logout token")
 		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: err.Error()})
-		return
+		render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: "invalid logout token"})
 	}
 
 	for _, record := range records {
-		err := s.publishBackchannelLogoutEvent(r.Context(), record, logoutToken)
-		if err != nil {
-			s.Logger.Warn().Err(err).Msg("could not publish backchannel logout event")
-		}
 		err = s.UserInfoCache.Delete(string(record.Value))
 		if err != nil && !errors.Is(err, microstore.ErrNotFound) {
 			// Spec requires us to return a 400 BadRequest when the session could not be destroyed
@@ -59,13 +83,24 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 			render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: err.Error()})
 			return
 		}
+		err := s.publishBackchannelLogoutEvent(r.Context(), record, logoutToken)
+		if err != nil {
+			s.Logger.Warn().Err(err).Msg("could not publish backchannel logout event")
+		}
 		logger.Debug().Msg("Deleted userinfo from cache")
 	}
 
-	// we can ignore errors when cleaning up the lookup table
-	err = s.UserInfoCache.Delete(logoutToken.SessionId)
-	if err != nil {
-		logger.Debug().Err(err).Msg("Failed to cleanup sessionid lookup entry")
+	if strings.TrimSpace(logoutToken.SessionId) != "" {
+		// we can ignore errors when cleaning up the lookup table
+		err = s.UserInfoCache.Delete(logoutToken.SessionId)
+		if err != nil {
+			logger.Debug().Err(err).Msg("Failed to cleanup sessionid lookup entry")
+		}
+	} else if strings.TrimSpace(logoutToken.Subject) != "" {
+		err = s.UserInfoCache.Delete(logoutToken.Subject)
+		if err != nil {
+			logger.Debug().Err(err).Msg("Failed to cleanup subject lookup entry")
+		}
 	}
 
 	render.Status(r, http.StatusOK)
