@@ -300,5 +300,6 @@ func backchannelLogoutEvent(e events.BackchannelLogout) (string, []string, Backc
 	return "backchannel-logout", []string{e.Executant.GetOpaqueId()}, BackchannelLogout{
 		UserID:    e.Executant.GetOpaqueId(),
 		Timestamp: e.Timestamp.String(),
+		SessionID: e.SessionId,
 	}
 }

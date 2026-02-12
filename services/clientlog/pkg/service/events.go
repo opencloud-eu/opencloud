@@ -16,4 +16,5 @@ type FileEvent struct {
 type BackchannelLogout struct {
 	UserID    string `json:"userid"`
 	Timestamp string `json:"timestamp"`
+	SessionID string `json:"sessionid"`
 }
