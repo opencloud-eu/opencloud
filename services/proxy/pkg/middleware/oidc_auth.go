@@ -3,19 +3,20 @@ package middleware
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"net"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/opencloud-eu/opencloud/pkg/oidc"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/pkg/errors"
 	"github.com/vmihailenco/msgpack/v5"
-	store "go-micro.dev/v4/store"
+	"go-micro.dev/v4/store"
 	"golang.org/x/crypto/sha3"
 	"golang.org/x/oauth2"
+
+	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/oidc"
 )
 
 const (
@@ -115,28 +116,26 @@ func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[stri
 				m.Logger.Error().Err(err).Msg("failed to write to userinfo cache")
 			}
 
-			if sid := aClaims.SessionID; sid != "" {
-				// reuse user cache for session id lookup
-				err = m.userInfoCache.Write(&store.Record{
-					Key:    sid,
-					Value:  []byte(encodedHash),
-					Expiry: time.Until(expiration),
-				})
-				if err != nil {
-					m.Logger.Error().Err(err).Msg("failed to write session lookup cache")
-				}
+			subject, sessionId := aClaims.Subject, aClaims.SessionID
+			// if no session id is present, we can't do a session lookup,
+			// so we can skip the cache entry for that.
+			if sessionId == "" {
+				return
+			}
 
-				// create an additional entry mapping subject to session id
-				if sub := aClaims.Subject; sub != "" {
-					err = m.userInfoCache.Write(&store.Record{
-						Key:    fmt.Sprintf("%s.%s", sub, sid),
-						Value:  []byte(sid),
-						Expiry: time.Until(expiration),
-					})
-					if err != nil {
-						m.Logger.Error().Err(err).Msg("failed to write subject lookup cache")
-					}
-				}
+			// if the claim has no subject, we can leave it empty,
+			// it's important to keep the dot in the key to prevent
+			// sufix and prefix exploration in the cache.
+			//
+			// ok: {key: ".sessionId"}
+			// ok: {key: "subject.sessionId"}
+			key := strings.Join([]string{subject, sessionId}, ".")
+			if err := m.userInfoCache.Write(&store.Record{
+				Key:    key,
+				Value:  []byte(encodedHash),
+				Expiry: time.Until(expiration),
+			}); err != nil {
+				m.Logger.Error().Err(err).Msg("failed to write session lookup cache")
 			}
 		}
 	}()

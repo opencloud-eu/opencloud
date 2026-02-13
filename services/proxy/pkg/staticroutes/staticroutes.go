@@ -4,12 +4,13 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	microstore "go-micro.dev/v4/store"
+
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/oidc"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
-	microstore "go-micro.dev/v4/store"
 )
 
 // StaticRouteHandler defines a Route Handler for static routes

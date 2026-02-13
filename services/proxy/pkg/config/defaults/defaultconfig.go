@@ -45,6 +45,8 @@ func DefaultConfig() *config.Config {
 			AccessTokenVerifyMethod: config.AccessTokenVerificationJWT,
 			SkipUserInfo:            false,
 			UserinfoCache: &config.Cache{
+				// toDo:
+				//  check if "memory" is the right default or if "nats-js-kv" is a better match
 				Store:    "memory",
 				Nodes:    []string{"127.0.0.1:9233"},
 				Database: "cache-userinfo",
