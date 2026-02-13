@@ -20,6 +20,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/tags"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/thumbnail"
@@ -31,11 +32,11 @@ import (
 
 const (
 	elementNameSearchFiles = "search-files"
-	// TODO elementNameFilterFiles = "filter-files"
+	elementNameFilterFiles = "filter-files"
 )
 
-// Search is the endpoint for retrieving search results for REPORT requests
-func (g Webdav) Search(w http.ResponseWriter, r *http.Request) {
+// Report is the endpoint for retrieving search results for REPORT requests
+func (g Webdav) Report(w http.ResponseWriter, r *http.Request) {
 	logger := g.log.SubloggerWithRequestID(r.Context())
 	rep, err := readReport(r.Body)
 	if err != nil {
@@ -44,8 +45,8 @@ func (g Webdav) Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if rep.SearchFiles == nil {
-		renderError(w, r, errBadRequest("missing search-files tag"))
+	if rep.SearchFiles == nil && rep.FilterFiles == nil {
+		renderError(w, r, errBadRequest("missing search-files or filter-files element"))
 		logger.Debug().Err(err).Msg("error reading report")
 		return
 	}
@@ -54,6 +55,81 @@ func (g Webdav) Search(w http.ResponseWriter, r *http.Request) {
 	ctx := revactx.ContextSetToken(r.Context(), t)
 	ctx = metadata.Set(ctx, revactx.TokenHeader, t)
 
+	if rep.SearchFiles != nil {
+		g.handleSearchFiles(ctx, w, r, rep, logger)
+		return
+	}
+	if rep.FilterFiles != nil {
+		g.handleFilterFiles(ctx, w, r, rep, logger)
+		return
+	}
+}
+
+func (g Webdav) handleFilterFiles(ctx context.Context, w http.ResponseWriter, r *http.Request, rep *report, log log.Logger) {
+	// if rep.FilterFiles.Rules.Favorite {
+	// 	// List the users favorite resources.
+	// 	client, err := g.gatewaySelector.Next()
+	// 	if err != nil {
+	// 		log.Error().Err(err).Msg("error selecting next gateway client")
+	// 		w.WriteHeader(http.StatusInternalServerError)
+	// 		return
+	// 	}
+	// 	currentUser := revactx.ContextMustGetUser(ctx)
+	// 	ok, err := utils.CheckPermission(ctx, permission.ListFavorites, client)
+	// 	if err != nil {
+	// 		log.Error().Err(err).Msg("error checking permission")
+	// 		w.WriteHeader(http.StatusInternalServerError)
+	// 		return
+	// 	}
+	// 	if !ok {
+	// 		log.Info().Interface("user", currentUser).Msg("user not allowed to list favorites")
+	// 		w.WriteHeader(http.StatusForbidden)
+	// 		return
+	// 	}
+	// 	favorites, err := g.favoritesManager.ListFavorites(ctx, currentUser.Id)
+	// 	if err != nil {
+	// 		log.Error().Err(err).Msg("error getting favorites")
+	// 		w.WriteHeader(http.StatusInternalServerError)
+	// 		return
+	// 	}
+
+	// 	infos := make([]*provider.ResourceInfo, 0, len(favorites))
+	// 	for i := range favorites {
+	// 		statRes, err := client.Stat(ctx, &providerv1beta1.StatRequest{Ref: &providerv1beta1.Reference{ResourceId: favorites[i]}})
+	// 		if err != nil {
+	// 			log.Error().Err(err).Msg("error getting resource info")
+	// 			continue
+	// 		}
+	// 		if statRes.Status.Code != rpcv1beta1.Code_CODE_OK {
+	// 			log.Error().Interface("stat_response", statRes).Msg("error getting resource info")
+	// 			continue
+	// 		}
+	// 		infos = append(infos, statRes.Info)
+	// 	}
+
+	// 	prefer := net.ParsePrefer(r.Header.Get("prefer"))
+	// 	returnMinimal := prefer[net.HeaderPreferReturn] == "minimal"
+
+	// 	responsesXML, err := propfind.MultistatusResponse(ctx, &propfind.XML{Prop: ff.Prop}, infos, s.c.PublicURL, namespace, nil, returnMinimal, nil)
+	// 	if err != nil {
+	// 		log.Error().Err(err).Msg("error formatting propfind")
+	// 		w.WriteHeader(http.StatusInternalServerError)
+	// 		return
+	// 	}
+	// 	w.Header().Set(net.HeaderDav, "1, 3, extended-mkcol")
+	// 	w.Header().Set(net.HeaderContentType, "application/xml; charset=utf-8")
+	// 	w.Header().Set(net.HeaderVary, net.HeaderPrefer)
+	// 	if returnMinimal {
+	// 		w.Header().Set(net.HeaderPreferenceApplied, "return=minimal")
+	// 	}
+	// 	w.WriteHeader(http.StatusMultiStatus)
+	// 	if _, err := w.Write(responsesXML); err != nil {
+	// 		log.Err(err).Msg("error writing response")
+	// 	}
+	// }
+}
+
+func (g Webdav) handleSearchFiles(ctx context.Context, w http.ResponseWriter, r *http.Request, rep *report, logger log.Logger) {
 	req := &searchsvc.SearchRequest{
 		Query:    rep.SearchFiles.Search.Pattern,
 		PageSize: int32(rep.SearchFiles.Search.Limit),
@@ -252,7 +328,6 @@ func hasPreview(md *provider.ResourceInfo, appendToOK func(p ...prop.PropertyXML
 
 type report struct {
 	SearchFiles *reportSearchFiles
-	// FilterFiles TODO add this for tag based search
 	FilterFiles *reportFilterFiles `xml:"filter-files"`
 }
 type reportSearchFiles struct {
@@ -307,22 +382,21 @@ func readReport(r io.Reader) (rep *report, err error) {
 		}
 
 		if v, ok := t.(xml.StartElement); ok {
-			if v.Name.Local == elementNameSearchFiles {
+			switch v.Name.Local {
+			case elementNameSearchFiles:
 				var repSF reportSearchFiles
 				err = decoder.DecodeElement(&repSF, &v)
 				if err != nil {
 					return nil, err
 				}
 				rep.SearchFiles = &repSF
-				/*
-					} else if v.Name.Local == elementNameFilterFiles {
-						var repFF reportFilterFiles
-						err = decoder.DecodeElement(&repFF, &v)
-						if err != nil {
-							return nil, http.StatusBadRequest, err
-						}
-						rep.FilterFiles = &repFF
-				*/
+			case elementNameFilterFiles:
+				var repFF reportFilterFiles
+				err = decoder.DecodeElement(&repFF, &v)
+				if err != nil {
+					return nil, err
+				}
+				rep.FilterFiles = &repFF
 			}
 		}
 	}

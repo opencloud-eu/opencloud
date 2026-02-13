@@ -3,6 +3,7 @@ package svc
 import (
 	"context"
 	"encoding/xml"
+	"errors"
 	"io"
 	"math/rand/v2"
 	"net/http"
@@ -17,8 +18,17 @@ import (
 	rpcv1beta1 "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
+
+	"github.com/opencloud-eu/opencloud/internal/http/interceptors/auth"
+	_ "github.com/opencloud-eu/opencloud/internal/http/interceptors/auth/credential/loader"
+	_ "github.com/opencloud-eu/opencloud/internal/http/interceptors/auth/token/loader"
+	_ "github.com/opencloud-eu/opencloud/internal/http/interceptors/auth/tokenwriter/loader"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/ocdav"
+	ocdavConfig "github.com/opencloud-eu/opencloud/services/webdav/pkg/ocdav/config"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/favorite"
+	favregistry "github.com/opencloud-eu/reva/v2/pkg/storage/favorite/registry"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/templates"
 	"github.com/riandyrn/otelchi"
 	merrors "go-micro.dev/v4/errors"
@@ -27,6 +37,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/registry"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
+	"github.com/opencloud-eu/opencloud/pkg/version"
 	thumbnailsmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/thumbnails/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	thumbnailssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/thumbnails/v0"
@@ -48,6 +59,20 @@ var (
 type Service interface {
 	ServeHTTP(w http.ResponseWriter, r *http.Request)
 	Thumbnail(w http.ResponseWriter, r *http.Request)
+}
+
+// Webdav implements the business logic for Service.
+type Webdav struct {
+	config           *config.Config
+	log              log.Logger
+	mux              *chi.Mux
+	searchClient     searchsvc.SearchProviderService
+	thumbnailsClient thumbnailssvc.ThumbnailService
+	gatewaySelector  pool.Selectable[gatewayv1beta1.GatewayAPIClient]
+	favoritesManager favorite.Manager
+
+	webDavHandler *ocdav.WebDavHandler
+	davHandler    *ocdav.DavHandler
 }
 
 // NewService returns a service implementation for Service.
@@ -79,6 +104,11 @@ func NewService(opts ...Option) (Service, error) {
 		return nil, err
 	}
 
+	fm, err := favoriteManager(conf)
+	if err != nil {
+		return nil, err
+	}
+
 	svc := Webdav{
 		config:           conf,
 		log:              options.Logger,
@@ -86,54 +116,114 @@ func NewService(opts ...Option) (Service, error) {
 		searchClient:     searchsvc.NewSearchProviderService("eu.opencloud.api.search", conf.GrpcClient),
 		thumbnailsClient: thumbnailssvc.NewThumbnailService("eu.opencloud.api.thumbnails", conf.GrpcClient),
 		gatewaySelector:  gatewaySelector,
+		favoritesManager: fm,
+		webDavHandler:    new(ocdav.WebDavHandler),
+		davHandler:       new(ocdav.DavHandler),
 	}
+
+	// Embed the ocdav service
+	ocdavCfg := &ocdavConfig.Config{
+		Prefix:                      conf.OCDav.Prefix,
+		WebdavNamespace:             conf.WebdavNamespace,
+		FilesNamespace:              conf.OCDav.FilesNamespace,
+		SharesNamespace:             conf.OCDav.SharesNamespace,
+		OCMNamespace:                conf.OCDav.OCMNamespace,
+		GatewaySvc:                  conf.RevaGateway,
+		Timeout:                     conf.OCDav.Timeout,
+		Insecure:                    conf.OCDav.Insecure,
+		EnableHTTPTpc:               conf.OCDav.EnableHTTPTPC,
+		PublicURL:                   conf.OCDav.PublicURL,
+		AllowPropfindDepthInfinitiy: conf.OCDav.AllowPropfindDepthInfinity,
+		NameValidation: ocdavConfig.NameValidation{
+			InvalidChars: conf.OCDav.NameValidation.InvalidChars,
+			MaxLength:    conf.OCDav.NameValidation.MaxLength,
+		},
+		MachineAuthAPIKey:      conf.OCDav.MachineAuthAPIKey,
+		Version:                version.Legacy,
+		VersionString:          version.LegacyString,
+		Edition:                version.Edition,
+		Product:                "OpenCloud",
+		ProductName:            "OpenCloud",
+		ProductVersion:         version.GetString(),
+		URLSigningSharedSecret: conf.Commons.URLSigningSecret,
+	}
+
+	ls := ocdav.NewCS3LS(gatewaySelector)
+	ocdav, err := ocdav.NewWith(ocdavCfg, svc.favoritesManager, ls, &options.Logger.Logger, gatewaySelector)
 
 	if svc.config.DisablePreviews {
 		svc.thumbnailsClient = nil
 	}
 
-	// register method with chi before any routing is set up
-	chi.RegisterMethod("REPORT")
+	authMiddleware, err := auth.New(map[string]any{}, ocdav.Unprotected(), options.TraceProvider)
+	if err != nil {
+		return nil, err
+	}
+	ocdavHandler := authMiddleware(ocdav.Handler())
 
+	previewOrOcdav := func(previewHandler http.HandlerFunc, fallbackHandler http.Handler) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Query().Get("preview") == "1" {
+				previewHandler(w, r)
+			} else {
+				fallbackHandler.ServeHTTP(w, r)
+			}
+		}
+	}
+
+	// register methods with chi before any routing is set up
+	chi.RegisterMethod("PROPFIND")
+	chi.RegisterMethod("PROPPATCH")
+	chi.RegisterMethod("MKCOL")
+	chi.RegisterMethod("COPY")
+	chi.RegisterMethod("MOVE")
+	chi.RegisterMethod("LOCK")
+	chi.RegisterMethod("UNLOCK")
+	chi.RegisterMethod("REPORT")
 	m.Route(options.Config.HTTP.Root, func(r chi.Router) {
+		r.Use(options.Middleware...)
 
 		if !svc.config.DisablePreviews {
 			r.Group(func(r chi.Router) {
 				r.Use(svc.DavUserContext())
 
-				r.Get("/remote.php/dav/spaces/{id}", svc.SpacesThumbnail)
-				r.Get("/remote.php/dav/spaces/{id}/*", svc.SpacesThumbnail)
-				r.Get("/dav/spaces/{id}", svc.SpacesThumbnail)
-				r.Get("/dav/spaces/{id}/*", svc.SpacesThumbnail)
-				r.MethodFunc("REPORT", "/remote.php/dav/spaces*", svc.Search)
-				r.MethodFunc("REPORT", "/dav/spaces*", svc.Search)
+				r.Get("/remote.php/dav/spaces/{id}", previewOrOcdav(svc.SpacesThumbnail, ocdavHandler))
+				r.Get("/remote.php/dav/spaces/{id}/*", previewOrOcdav(svc.SpacesThumbnail, ocdavHandler))
+				r.Get("/dav/spaces/{id}", previewOrOcdav(svc.SpacesThumbnail, ocdavHandler))
+				r.Get("/dav/spaces/{id}/*", previewOrOcdav(svc.SpacesThumbnail, ocdavHandler))
+				r.MethodFunc("REPORT", "/remote.php/dav/spaces*", svc.Report)
+				r.MethodFunc("REPORT", "/dav/spaces*", svc.Report)
 
-				r.Get("/remote.php/dav/files/{id}", svc.Thumbnail)
-				r.Get("/remote.php/dav/files/{id}/*", svc.Thumbnail)
-				r.Get("/dav/files/{id}", svc.Thumbnail)
-				r.Get("/dav/files/{id}/*", svc.Thumbnail)
+				r.Get("/remote.php/dav/files/{id}", previewOrOcdav(svc.Thumbnail, ocdavHandler))
+				r.Get("/remote.php/dav/files/{id}/*", previewOrOcdav(svc.Thumbnail, ocdavHandler))
+				r.Get("/dav/files/{id}", previewOrOcdav(svc.Thumbnail, ocdavHandler))
+				r.Get("/dav/files/{id}/*", previewOrOcdav(svc.Thumbnail, ocdavHandler))
 
-				r.MethodFunc("REPORT", "/remote.php/dav/files*", svc.Search)
-				r.MethodFunc("REPORT", "/dav/files*", svc.Search)
+				r.MethodFunc("REPORT", "/remote.php/dav/files*", svc.Report)
+				r.MethodFunc("REPORT", "/dav/files*", svc.Report)
 			})
 
 			r.Group(func(r chi.Router) {
 				r.Use(svc.DavPublicContext())
 
-				r.Head("/remote.php/dav/public-files/{token}/*", svc.PublicThumbnailHead)
-				r.Head("/dav/public-files/{token}/*", svc.PublicThumbnailHead)
+				r.Head("/remote.php/dav/public-files/{token}/*", previewOrOcdav(svc.PublicThumbnailHead, ocdavHandler))
+				r.Head("/dav/public-files/{token}/*", previewOrOcdav(svc.PublicThumbnailHead, ocdavHandler))
 
-				r.Get("/remote.php/dav/public-files/{token}/*", svc.PublicThumbnail)
-				r.Get("/dav/public-files/{token}/*", svc.PublicThumbnail)
+				r.Get("/remote.php/dav/public-files/{token}/*", previewOrOcdav(svc.PublicThumbnail, ocdavHandler))
+				r.Get("/dav/public-files/{token}/*", previewOrOcdav(svc.PublicThumbnail, ocdavHandler))
 			})
 
 			r.Group(func(r chi.Router) {
 				r.Use(svc.WebDAVContext())
-				r.Get("/remote.php/webdav/*", svc.Thumbnail)
-				r.Get("/webdav/*", svc.Thumbnail)
+				r.Get("/remote.php/webdav/*", previewOrOcdav(svc.Thumbnail, ocdavHandler))
+				r.Get("/webdav/*", previewOrOcdav(svc.Thumbnail, ocdavHandler))
 
-				r.MethodFunc("REPORT", "/remote.php/webdav*", svc.Search)
-				r.MethodFunc("REPORT", "/webdav*", svc.Search)
+				r.MethodFunc("REPORT", "/remote.php/webdav*", svc.Report)
+				r.MethodFunc("REPORT", "/webdav*", svc.Report)
+			})
+
+			r.Group(func(r chi.Router) {
+				r.Handle("/*", ocdavHandler)
 			})
 		}
 
@@ -147,14 +237,25 @@ func NewService(opts ...Option) (Service, error) {
 	return svc, nil
 }
 
-// Webdav implements the business logic for Service.
-type Webdav struct {
-	config           *config.Config
-	log              log.Logger
-	mux              *chi.Mux
-	searchClient     searchsvc.SearchProviderService
-	thumbnailsClient thumbnailssvc.ThumbnailService
-	gatewaySelector  pool.Selectable[gatewayv1beta1.GatewayAPIClient]
+func favoriteManager(conf *config.Config) (favorite.Manager, error) {
+	switch conf.FavoritesStore.Store {
+	case "memory":
+		if f, ok := favregistry.NewFuncs["memory"]; ok {
+			return f(nil)
+		}
+	case "nats-js-kv":
+		if f, ok := favregistry.NewFuncs["nats-js-kv"]; ok {
+			return f(map[string]any{
+				"nats_nodes":         conf.FavoritesStore.Nodes,
+				"nats_database":      conf.FavoritesStore.Database,
+				"nats_table":         conf.FavoritesStore.Table,
+				"nats_auth_username": conf.FavoritesStore.AuthUsername,
+				"nats_auth_password": conf.FavoritesStore.AuthPassword,
+			})
+		}
+	}
+
+	return nil, errors.New("invalid favorites store configured")
 }
 
 // ServeHTTP implements the Service interface.

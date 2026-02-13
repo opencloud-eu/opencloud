@@ -30,9 +30,48 @@ func DefaultConfig() *config.Config {
 			Root:      "/",
 			Namespace: "eu.opencloud.web",
 			CORS: config.CORS{
-				AllowedOrigins:   []string{"*"},
-				AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-				AllowedHeaders:   []string{"Authorization", "Origin", "Content-Type", "Accept", "X-Requested-With", "X-Request-Id", "Cache-Control"},
+				AllowedOrigins: []string{"https://localhost:9200"},
+				AllowedMethods: []string{
+					"OPTIONS",
+					"HEAD",
+					"GET",
+					"PUT",
+					"POST",
+					"PATCH",
+					"DELETE",
+					"MKCOL",
+					"PROPFIND",
+					"PROPPATCH",
+					"MOVE",
+					"COPY",
+					"REPORT",
+					"SEARCH",
+				},
+				AllowedHeaders: []string{
+					"Origin",
+					"Accept",
+					"Content-Type",
+					"Depth",
+					"Authorization",
+					"Ocs-Apirequest",
+					"If-None-Match",
+					"If-Match",
+					"Destination",
+					"Overwrite",
+					"X-Request-Id",
+					"X-Requested-With",
+					"Tus-Resumable",
+					"Tus-Checksum-Algorithm",
+					"Upload-Concat",
+					"Upload-Length",
+					"Upload-Metadata",
+					"Upload-Defer-Length",
+					"Upload-Expires",
+					"Upload-Checksum",
+					"Upload-Offset",
+					"X-HTTP-Method-Override",
+					"Cache-Control",
+				},
 				AllowCredentials: true,
 			},
 		},
@@ -42,6 +81,27 @@ func DefaultConfig() *config.Config {
 		OpenCloudPublicURL: "https://localhost:9200",
 		WebdavNamespace:    "/users/{{.Id.OpaqueId}}",
 		RevaGateway:        shared.DefaultRevaConfig().Address,
+		OCDav: config.OCDav{
+			Prefix:                "",
+			SkipUserGroupsInToken: false,
+
+			WebdavNamespace:            "/users/{{.Id.OpaqueId}}",
+			FilesNamespace:             "/users/{{.Id.OpaqueId}}",
+			SharesNamespace:            "/Shares",
+			OCMNamespace:               "/public",
+			PublicURL:                  "https://localhost:9200",
+			Insecure:                   false,
+			EnableHTTPTPC:              false,
+			Timeout:                    84300,
+			AllowPropfindDepthInfinity: false,
+			NameValidation: config.NameValidation{
+				InvalidChars: []string{"\f", "\r", "\n", "\\"},
+				MaxLength:    255,
+			},
+		},
+		FavoritesStore: config.FavoritesStore{
+			Store: "memory",
+		},
 	}
 }
 
@@ -57,6 +117,17 @@ func EnsureDefaults(cfg *config.Config) {
 
 	if cfg.Commons != nil {
 		cfg.HTTP.TLS = cfg.Commons.HTTPServiceTLS
+	}
+
+	if cfg.OCDav.MachineAuthAPIKey == "" && cfg.Commons != nil && cfg.Commons.MachineAuthAPIKey != "" {
+		cfg.OCDav.MachineAuthAPIKey = cfg.Commons.MachineAuthAPIKey
+	}
+
+	if (cfg.Commons != nil && cfg.Commons.OpenCloudURL != "") &&
+		(cfg.HTTP.CORS.AllowedOrigins == nil ||
+			len(cfg.HTTP.CORS.AllowedOrigins) == 1 &&
+				cfg.HTTP.CORS.AllowedOrigins[0] == "https://localhost:9200") {
+		cfg.HTTP.CORS.AllowedOrigins = []string{cfg.Commons.OpenCloudURL}
 	}
 }
 

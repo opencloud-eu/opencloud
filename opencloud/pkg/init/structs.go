@@ -46,6 +46,7 @@ type OpenCloudConfig struct {
 	AuthService       AuthService           `yaml:"auth_service"`
 	Clientlog         Clientlog             `yaml:"clientlog"`
 	Activitylog       Activitylog           `yaml:"activitylog"`
+	Webdav            WebdavServie          `yaml:"webdav"`
 }
 
 // Activitylog is the configuration for the activitylog service
@@ -104,7 +105,6 @@ type FrontendService struct {
 	AppHandler     InsecureService `yaml:"app_handler"`
 	Archiver       InsecureService
 	ServiceAccount ServiceAccount `yaml:"service_account"`
-	OCDav          InsecureService
 }
 
 // Gateway is the configuration for the gateway
@@ -249,4 +249,9 @@ type Userlog struct {
 // WopiApp is the configuration for the WOPI app
 type WopiApp struct {
 	Secret string `yaml:"secret"`
+}
+
+// WebdavServie is the configuration for the webdav service
+type WebdavServie struct {
+	OCDav InsecureService
 }

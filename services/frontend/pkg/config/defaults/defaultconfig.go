@@ -118,24 +118,6 @@ func DefaultConfig() *config.Config {
 			PublicShareMustHavePassword: true,
 			IncludeOCMSharees:           false,
 		},
-		OCDav: config.OCDav{
-			Prefix:                "",
-			SkipUserGroupsInToken: false,
-
-			WebdavNamespace:            "/users/{{.Id.OpaqueId}}",
-			FilesNamespace:             "/users/{{.Id.OpaqueId}}",
-			SharesNamespace:            "/Shares",
-			OCMNamespace:               "/public",
-			PublicURL:                  "https://localhost:9200",
-			Insecure:                   false,
-			EnableHTTPTPC:              false,
-			Timeout:                    84300,
-			AllowPropfindDepthInfinity: false,
-			NameValidation: config.NameValidation{
-				InvalidChars: []string{"\f", "\r", "\n", "\\"},
-				MaxLength:    255,
-			},
-		},
 		Middleware: config.Middleware{
 			Auth: config.Auth{
 				CredentialsByUserAgent: map[string]string{},

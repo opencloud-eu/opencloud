@@ -99,8 +99,6 @@ frontend:
   service_account:
     service_account_id: c05389b2-d94c-4d01-a9b5-a2f97952cc14
     service_account_secret: GW5.x1vDM&+NPRi++eV@.P7Tms4vj!=s
-  ocdav:
-    insecure: true
 auth_basic:
   auth_providers:
     ldap:
@@ -173,6 +171,9 @@ clientlog:
   service_account:
     service_account_id: c05389b2-d94c-4d01-a9b5-a2f97952cc14
     service_account_secret: GW5.x1vDM&+NPRi++eV@.P7Tms4vj!=s
+webdav:
+  ocdav:
+    insecure: true
 `
 	filePath := "etc/opencloud/foo.yaml"
 	fs := fstest.MapFS{

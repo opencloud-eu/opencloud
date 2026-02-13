@@ -281,7 +281,6 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 		cfg.Collaboration.App.Insecure = true
 		cfg.Frontend.AppHandler = _insecureService
 		cfg.Frontend.Archiver = _insecureService
-		cfg.Frontend.OCDav = _insecureService
 		cfg.Graph.Spaces = _insecureService
 		cfg.Graph.Events = _insecureEvents
 		cfg.Notifications.Notifications.Events = _insecureEvents
@@ -300,6 +299,7 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 
 		cfg.Thumbnails.Thumbnail.WebdavAllowInsecure = true
 		cfg.Thumbnails.Thumbnail.Cs3AllowInsecure = true
+		cfg.Webdav.OCDav = _insecureService
 	}
 	yamlOutput, err := yaml.Marshal(cfg)
 	if err != nil {

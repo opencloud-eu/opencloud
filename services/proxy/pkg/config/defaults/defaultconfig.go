@@ -205,47 +205,47 @@ func DefaultPolicies() []config.Policy {
 				// TODO what paths are returned? the href contains the full path so it should be possible to return urls from other spaces?
 				// TODO or we allow a REPORT on /dav/spaces to search all spaces and /dav/space/{spaceid} to search a specific space
 				// send webdav REPORT requests to search service
-				{
-					Type:     config.RegexRoute,
-					Method:   "REPORT",
-					Endpoint: "(/remote.php)?/(web)?dav",
-					Service:  "eu.opencloud.web.webdav",
-				},
-				{
-					Type:     config.QueryRoute,
-					Endpoint: "/dav/?preview=1",
-					Service:  "eu.opencloud.web.webdav",
-				},
-				{
-					Type:     config.QueryRoute,
-					Endpoint: "/webdav/?preview=1",
-					Service:  "eu.opencloud.web.webdav",
-				},
+				// {
+				// 	Type:     config.RegexRoute,
+				// 	Method:   "REPORT",
+				// 	Endpoint: "(/remote.php)?/(web)?dav",
+				// 	Service:  "eu.opencloud.web.webdav",
+				// },
+				// {
+				// 	Type:     config.QueryRoute,
+				// 	Endpoint: "/dav/?preview=1",
+				// 	Service:  "eu.opencloud.web.webdav",
+				// },
+				// {
+				// 	Type:     config.QueryRoute,
+				// 	Endpoint: "/webdav/?preview=1",
+				// 	Service:  "eu.opencloud.web.webdav",
+				// },
 				{
 					Endpoint: "/remote.php/",
-					Service:  "eu.opencloud.web.frontend",
+					Service:  "eu.opencloud.web.webdav",
 				},
 				{
 					Endpoint: "/dav/",
-					Service:  "eu.opencloud.web.frontend",
+					Service:  "eu.opencloud.web.webdav",
 				},
 				{
 					Endpoint: "/webdav/",
-					Service:  "eu.opencloud.web.frontend",
+					Service:  "eu.opencloud.web.webdav",
 				},
 				{
 					Endpoint:    "/status",
-					Service:     "eu.opencloud.web.frontend",
+					Service:     "eu.opencloud.web.webdav",
 					Unprotected: true,
 				},
 				{
 					Endpoint:    "/status.php",
-					Service:     "eu.opencloud.web.frontend",
+					Service:     "eu.opencloud.web.webdav",
 					Unprotected: true,
 				},
 				{
 					Endpoint: "/index.php/",
-					Service:  "eu.opencloud.web.frontend",
+					Service:  "eu.opencloud.web.webdav",
 				},
 				{
 					Endpoint: "/apps/",
