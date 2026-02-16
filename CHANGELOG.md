@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @VicDeo, @aduffeck, @dragonchaser, @individual-it, @micbar, @rhafer, @schweigisito
+@ScharfViktor, @VicDeo, @aduffeck, @dragonchaser, @individual-it, @kulmann, @micbar, @rhafer, @schweigisito
 
 ### 🐛 Bug Fixes
 
