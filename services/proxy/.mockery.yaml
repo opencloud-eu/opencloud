@@ -12,3 +12,8 @@ packages:
   github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles:
     interfaces:
       UserRoleAssigner: {}
+  go-micro.dev/v4/store:
+    config:
+      dir: pkg/staticroutes/internal/backchannellogout/mocks
+    interfaces:
+      Store: {}

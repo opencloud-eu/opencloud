@@ -37,6 +37,9 @@ import (
 //     all sessions besides the one that triggered the backchannel logout continue to exist in the identity provider,
 //     so the user will not be fully logged out until all sessions are logged out or expired.
 //     this leads to the situation that web renders the logout view even if the instance is not fully logged out yet.
+//
+// toDo:
+//   - check logs and errors to not contain any sensitive information like session ids or user ids (keys too)
 func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Request) {
 	logger := s.Logger.SubloggerWithRequestID(r.Context())
 	if err := r.ParseForm(); err != nil {
@@ -85,14 +88,14 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 		// the record value is the key of the record that contains the claim in its value
 		key, value := record.Key, string(record.Value)
 
-		subjectSession, ok := bcl.NewSuSe(key)
-		if !ok {
-			logger.Warn().Msgf("invalid logout record key: %s", key)
+		subjectSession, err := bcl.NewSuSe(key)
+		if err != nil {
+			// never leak any key-related information
+			logger.Warn().Err(err).Msgf("invalid logout record key: %s", "XXX")
 			continue
 		}
 
-		err := s.publishBackchannelLogoutEvent(r.Context(), subjectSession.Session, value)
-		if err != nil {
+		if err := s.publishBackchannelLogoutEvent(r.Context(), subjectSession.Session, value); err != nil {
 			s.Logger.Warn().Err(err).Msg("could not publish backchannel logout event")
 		}
 
@@ -109,7 +112,7 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 		// we can ignore errors when deleting the lookup record
 		err = s.UserInfoCache.Delete(key)
 		if err != nil {
-			logger.Debug().Err(err).Msg("Failed to cleanup sessionid lookup entry")
+			logger.Debug().Err(err).Msg("Failed to cleanup sessionId lookup entry")
 		}
 	}
 

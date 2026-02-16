@@ -19,8 +19,11 @@ type SuSe struct {
 	Session string
 }
 
+// ErrInvalidSessionOrSubject is returned when the provided key does not match the expected key format
+var ErrInvalidSessionOrSubject = errors.New("invalid session or subject")
+
 // NewSuSe parses the subject and session id from the given key and returns a SuSe struct
-func NewSuSe(key string) (SuSe, bool) {
+func NewSuSe(key string) (SuSe, error) {
 	var subject, session string
 	switch keys := strings.Split(strings.Join(strings.Fields(key), ""), "."); {
 	case len(keys) == 2 && keys[0] == "" && keys[1] != "":
@@ -33,10 +36,10 @@ func NewSuSe(key string) (SuSe, bool) {
 	case len(keys) == 1 && keys[0] != "":
 		session = keys[0]
 	default:
-		return SuSe{}, false
+		return SuSe{}, ErrInvalidSessionOrSubject
 	}
 
-	return SuSe{Session: session, Subject: subject}, true
+	return SuSe{Session: session, Subject: subject}, nil
 }
 
 // LogoutMode defines the mode of backchannel logout, either by session or by subject
@@ -104,9 +107,10 @@ func GetLogoutRecords(suse SuSe, mode LogoutMode, store microstore.Store) ([]*mi
 	// double-check if the found records match the requested subject and or session id as well,
 	// to prevent false positives.
 	for _, record := range records {
-		recordSuSe, ok := NewSuSe(record.Key)
-		if !ok {
-			return nil, microstore.ErrNotFound
+		recordSuSe, err := NewSuSe(record.Key)
+		if err != nil {
+			// never leak any key-related information
+			return nil, fmt.Errorf("%w %w: failed to parse logout record key: %s", err, ErrSuspiciousCacheResult, "XXX")
 		}
 
 		switch {
