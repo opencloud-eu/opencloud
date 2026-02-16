@@ -34,7 +34,7 @@ var (
 	// LatestTag is the latest released version plus the dev meta version.
 	// Will be overwritten by the release pipeline
 	// Needs a manual change for every tagged release
-	LatestTag = "5.0.2+dev"
+	LatestTag = "5.1.0+dev"
 
 	// Date indicates the build date.
 	// This has been removed, it looks like you can only replace static strings with recent go versions
