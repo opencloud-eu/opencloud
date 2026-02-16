@@ -116,7 +116,7 @@ func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[stri
 				m.Logger.Error().Err(err).Msg("failed to write to userinfo cache")
 			}
 
-			subject, sessionId := aClaims.Subject, aClaims.SessionID
+			subject, sessionId := strings.Join(strings.Fields(aClaims.Subject), ""), strings.Join(strings.Fields(aClaims.SessionID), "")
 			// if no session id is present, we can't do a session lookup,
 			// so we can skip the cache entry for that.
 			if sessionId == "" {
