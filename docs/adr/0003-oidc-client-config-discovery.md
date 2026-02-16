@@ -17,7 +17,7 @@ OpenCloud with various existing identity providers. For example:
 
 - Authentik basically creates a different issuer URL for each client. As OpenCloud
   can only work with a single issuer URL, all OpenCloud clients need to use the
-  same client id to work with Authetnik.
+  same client id to work with Authentik.
 - Some IDPs (kanidm) are not able to work with user-supplied client ids. They generate
   client ids automatically and do not allow to specify them manually.
 - To make features like automatic role assignment work, clients need to request
@@ -26,7 +26,7 @@ OpenCloud with various existing identity providers. For example:
 ## Decision Drivers
 
 * Support broader set of IDPs
-* Do required the user got configure anything additional on the client side
+* avoid any manual configuration adjustments on the client side
 
 ## Decision
 
@@ -34,7 +34,7 @@ Enhance the WebFinger service in OpenCloud to provide platform-specific OIDC
 discovery, enabling clients to query for the correct OIDC `client_id` and
 `scopes` based on their application type (e.g., web, desktop, android, ios).
 
-This is achieved by allowing and additional `platform` query parameter to be used
+This is achieved by allowing an additional `platform` query parameter to be used
 when querying the WebFinger endpoint. The response will include the appropriate
 `client_id` and `scopes` in the `properties` section of the response.
 
@@ -49,7 +49,7 @@ specify the `platform` parameter will continue to receive just the issuer inform
 GET /.well-known/webfinger?resource=https://cloud.opencloud.test&rel=http://openid.net/specs/connect/1.0/issuer&platform=desktop
 ```
 
-### Example Response
+### Server Response
 
 ```json
 {
@@ -65,3 +65,25 @@ GET /.well-known/webfinger?resource=https://cloud.opencloud.test&rel=http://open
 }
 ```
 
+### Server configuration (suggestion)
+
+To configure the OpenCloud server a couple of new config settings need to be introduced. This would
+be two new settings per client, e.g.:
+
+
+```
+WEBFINGER_ANDROID_OIDC_CLIENT_ID
+WEBFINGER_ANDROID_OIDC_CLIENT_SCOPE
+WEBFINGER_DESKTOP_OIDC_CLIENT_ID
+WEBFINGER_DESKTOP_OIDC_CLIENT_SCOPE
+WEBFINGER_IOS_OIDC_CLIENT_ID
+WEBFINGER_IOS_OIDC_CLIENT_SCOPE
+WEBFINGER_WEB_OIDC_CLIENT_ID
+WEBFINGER_WEB_OIDC_CLIENT_SCOPE
+```
+
+Additionally for backwards compatibility the existing `WEB_OIDC_CLIENT_ID` and
+`WEB_OIDC_CLIENT_SCOPE` settings should be used as fallback for the `web`
+platform. Also we should make it easy to configure the same settings for all
+platforms at once by using `OC_OIDC_CLIENT_ID` and `OC_OIDC_CLIENT_SCOPE` as
+fallback for all platforms if the platform-specific settings are not set.
