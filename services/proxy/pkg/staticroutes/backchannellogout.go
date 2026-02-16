@@ -16,17 +16,28 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
 
-// BackchannelLogout handles backchannel logout requests from the identity provider and invalidates the related sessions in the cache
+// backchannelLogout handles backchannel logout requests from the identity provider and invalidates the related sessions in the cache
 // spec: https://openid.net/specs/openid-connect-backchannel-1_0.html#BCRequest
 //
-// toDo:
-//   - keyCloak "Sign out all active sessions" fails to log out, no incoming request
-//   - if the keycloak setting "Backchannel logout session required" is disabled,
-//     we resolve the session by the subject which can lead to multiple session records,
-//     we then send a logout event to each connected client and delete our stored record (subject.session & claim).
-//     but the session still exists in the identity provider.
+// known side effects of backchannel logout in keycloak:
+//
+//   - keyCloak "Sign out all active sessions" does not send a backchannel logout request,
+//     as the devs mention, this may lead to thousands of backchannel logout requests,
+//     therefore, they recommend a short token lifetime.
+//     https://github.com/keycloak/keycloak/issues/27342#issuecomment-2408461913
+//
+//   - keyCloak user self-service portal, "Sign out all devices" may not send a backchannel
+//     logout request for each session, it's not mentionex explicitly,
+//     but maybe the reason for that is the same as for "Sign out all active sessions"
+//     to prevent a flood of backchannel logout requests.
+//
+//   - if the keycloak setting "Backchannel logout session required" is disabled (or the token has no session id),
+//     we resolve the session by the subject which can lead to multiple session records (subject.*),
+//     we then send a logout event (sse) to each connected client and delete our stored cache record (subject.session & claim).
+//     all sessions besides the one that triggered the backchannel logout continue to exist in the identity provider,
+//     so the user will not be fully logged out until all sessions are logged out or expired.
+//     this leads to the situation that web renders the logout view even if the instance is not fully logged out yet.
 func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Request) {
-	// parse the application/x-www-form-urlencoded POST request
 	logger := s.Logger.SubloggerWithRequestID(r.Context())
 	if err := r.ParseForm(); err != nil {
 		logger.Warn().Err(err).Msg("ParseForm failed")
