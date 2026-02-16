@@ -2,7 +2,7 @@
 title: "Discover OIDC Client configuration via WebFinger"
 ---
 
-* Status: pending
+* Status: accepted
 * Deciders: [@TheOneRing @kulmann @rhafer @dragotin]
 * Date: 2026-02-02
 
