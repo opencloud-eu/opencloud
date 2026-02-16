@@ -27,7 +27,7 @@ func (k *symmetricKey) Import(rawKey []byte) error {
 }
 
 var symmetricConvertibleKeys = []reflect.Type{
-	reflect.TypeOf((*SymmetricKey)(nil)).Elem(),
+	reflect.TypeFor[SymmetricKey](),
 }
 
 func octetSeqToRaw(key Key, hint any) (any, error) {

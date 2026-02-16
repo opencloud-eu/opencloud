@@ -6,6 +6,7 @@ package ast
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -387,10 +388,12 @@ func (tc *typeChecker) checkExprBuiltin(env *TypeEnv, expr *Expr) *Error {
 		return NewError(TypeErr, expr.Location, "undefined function %v", name)
 	}
 
-	// check if the expression refers to a function that contains an error
-	_, ok := tpe.(types.Any)
-	if ok {
-		return nil
+	if t, ok := tpe.(types.Any); ok {
+		// A type.Any with a len(0) is created by using types.A , this represents a potential non-local reference
+		// This is the exception when checking if the type represents a function
+		if len(t) == 0 {
+			return nil
+		}
 	}
 
 	ftpe, ok := tpe.(*types.Function)
@@ -1087,7 +1090,21 @@ func newRefErrInvalid(loc *Location, ref Ref, idx int, have, want types.Type, on
 }
 
 func newRefErrUnsupported(loc *Location, ref Ref, idx int, have types.Type) *Error {
-	err := newRefError(loc, ref)
+	var err *Error
+	switch have.(type) {
+	case *types.Function:
+		var function string
+		// drop any trailing references to unidentified parameters (e.g. __local1__)
+		if match, err := regexp.MatchString(`__local[0-9]+__`, ref[len(ref)-1].Value.String()); err == nil && match {
+			function = ref[:len(ref)-1].String()
+		} else {
+			function = ref.String()
+		}
+
+		err = NewError(TypeErr, loc, "function %s used as reference, not called", function)
+	default:
+		err = newRefError(loc, ref)
+	}
 	err.Details = &RefErrUnsupportedDetail{
 		Ref:  ref,
 		Pos:  idx,

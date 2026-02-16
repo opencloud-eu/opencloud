@@ -1,5 +1,4 @@
 //go:build jwx_goccy
-// +build jwx_goccy
 
 package json
 

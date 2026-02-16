@@ -3,6 +3,7 @@ package jwk
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"reflect"
 	"sort"
 
@@ -14,11 +15,15 @@ import (
 
 const keysKey = `keys` // appease linter
 
-// NewSet creates and empty `jwk.Set` object
-func NewSet() Set {
+func newSet() *set {
 	return &set{
 		privateParams: make(map[string]any),
 	}
+}
+
+// NewSet creates and empty `jwk.Set` object
+func NewSet() Set {
+	return newSet()
 }
 
 func (s *set) Set(n string, v any) error {
@@ -300,12 +305,15 @@ func (s *set) SetDecodeCtx(dc DecodeCtx) {
 }
 
 func (s *set) Clone() (Set, error) {
-	s2 := &set{}
+	s2 := newSet()
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	s2.keys = make([]Key, len(s.keys))
 	copy(s2.keys, s.keys)
+
+	maps.Copy(s2.privateParams, s.privateParams)
+
 	return s2, nil
 }

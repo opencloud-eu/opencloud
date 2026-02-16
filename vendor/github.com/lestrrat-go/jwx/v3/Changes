@@ -4,6 +4,13 @@ Changes
 v3 has many incompatibilities with v2. To see the full list of differences between
 v2 and v3, please read the Changes-v3.md file (https://github.com/lestrrat-go/jwx/blob/develop/v3/Changes-v3.md)
 
+v3.0.13 12 Jan 2026
+  * [jwt] The `jwt.WithContext()` option is now properly being passed to `jws.Verify()` from
+    `jwt.Parse()`.
+  * [jwx] github.com/lestrrat-go/httprc/v3 has been upgraded to remove dependency on 
+    github.com/lestrrat-go/option (v1)
+  * [jwk] `jwk.Clone()` has been fixed to properly work with private fields.
+
 v3.0.12 20 Oct 2025
   * [jwe] As part of the next change, now per-recipient headers that are empty
     are no longer serialized in flattened JSON serialization.
@@ -18,7 +25,7 @@ v3.0.12 20 Oct 2025
     were left to be included in the final serialization as-is. This caused duplicate
     headers to be present in both the protected headers and the per-recipient headers.
 
-    Since there maybe users who rely on this behavior already, instead of changing the
+    Since there may be users who rely on this behavior already, instead of changing the
     default behavior to fix this duplication, a new option to `jwe.Encrypt()` was added
     to allow clearing the per-recipient headers after merging to leave the `"headers"`
     field empty. This in effect makes the flattened JSON serialization more similar to
@@ -29,7 +36,7 @@ v3.0.12 20 Oct 2025
     headers need to be merged regardless. In full JSON serialization, we never
     merge the headers, so it is left up to the user to keep the headers disjoint.
 
-  * [jws] Calling the deprecated `jws.NewSigner()` function for the time will cause
+  * [jws] Calling the deprecated `jws.NewSigner()` function for the first time will cause
     legacy signers to be loaded automatically. Previously, you had to explicitly
     call `jws.Settings(jws.WithLegacySigners(true))` to enable legacy signers.
 

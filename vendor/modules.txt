@@ -342,9 +342,19 @@ github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1
 github.com/cs3org/go-cs3apis/cs3/storage/registry/v1beta1
 github.com/cs3org/go-cs3apis/cs3/tx/v1beta1
 github.com/cs3org/go-cs3apis/cs3/types/v1beta1
-# github.com/cyphar/filepath-securejoin v0.4.1
+# github.com/cyphar/filepath-securejoin v0.5.1
 ## explicit; go 1.18
 github.com/cyphar/filepath-securejoin
+github.com/cyphar/filepath-securejoin/internal/consts
+github.com/cyphar/filepath-securejoin/pathrs-lite
+github.com/cyphar/filepath-securejoin/pathrs-lite/internal
+github.com/cyphar/filepath-securejoin/pathrs-lite/internal/assert
+github.com/cyphar/filepath-securejoin/pathrs-lite/internal/fd
+github.com/cyphar/filepath-securejoin/pathrs-lite/internal/gocompat
+github.com/cyphar/filepath-securejoin/pathrs-lite/internal/kernelversion
+github.com/cyphar/filepath-securejoin/pathrs-lite/internal/linux
+github.com/cyphar/filepath-securejoin/pathrs-lite/internal/procfs
+github.com/cyphar/filepath-securejoin/pathrs-lite/procfs
 # github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 ## explicit
 github.com/davecgh/go-spew/spew
@@ -943,13 +953,13 @@ github.com/lestrrat-go/dsig-secp256k1
 # github.com/lestrrat-go/httpcc v1.0.1
 ## explicit; go 1.16
 github.com/lestrrat-go/httpcc
-# github.com/lestrrat-go/httprc/v3 v3.0.1
+# github.com/lestrrat-go/httprc/v3 v3.0.2
 ## explicit; go 1.23.0
 github.com/lestrrat-go/httprc/v3
 github.com/lestrrat-go/httprc/v3/errsink
 github.com/lestrrat-go/httprc/v3/proxysink
 github.com/lestrrat-go/httprc/v3/tracesink
-# github.com/lestrrat-go/jwx/v3 v3.0.12
+# github.com/lestrrat-go/jwx/v3 v3.0.13
 ## explicit; go 1.24.0
 github.com/lestrrat-go/jwx/v3
 github.com/lestrrat-go/jwx/v3/cert
@@ -979,9 +989,6 @@ github.com/lestrrat-go/jwx/v3/jwt
 github.com/lestrrat-go/jwx/v3/jwt/internal/errors
 github.com/lestrrat-go/jwx/v3/jwt/internal/types
 github.com/lestrrat-go/jwx/v3/transform
-# github.com/lestrrat-go/option v1.0.1
-## explicit; go 1.16
-github.com/lestrrat-go/option
 # github.com/lestrrat-go/option/v2 v2.0.0
 ## explicit; go 1.23
 github.com/lestrrat-go/option/v2
@@ -1283,7 +1290,7 @@ github.com/onsi/gomega/matchers/support/goraph/edge
 github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
-# github.com/open-policy-agent/opa v1.12.3
+# github.com/open-policy-agent/opa v1.13.1
 ## explicit; go 1.24.6
 github.com/open-policy-agent/opa/ast
 github.com/open-policy-agent/opa/ast/json
@@ -1313,13 +1320,13 @@ github.com/open-policy-agent/opa/internal/providers/aws/crypto
 github.com/open-policy-agent/opa/internal/providers/aws/v4
 github.com/open-policy-agent/opa/internal/ref
 github.com/open-policy-agent/opa/internal/rego/opa
-github.com/open-policy-agent/opa/internal/report
 github.com/open-policy-agent/opa/internal/runtime/init
 github.com/open-policy-agent/opa/internal/semver
 github.com/open-policy-agent/opa/internal/strings
 github.com/open-policy-agent/opa/internal/strvals
 github.com/open-policy-agent/opa/internal/uuid
 github.com/open-policy-agent/opa/internal/version
+github.com/open-policy-agent/opa/internal/versioncheck
 github.com/open-policy-agent/opa/internal/wasm/constant
 github.com/open-policy-agent/opa/internal/wasm/encoding
 github.com/open-policy-agent/opa/internal/wasm/instruction
@@ -2160,7 +2167,7 @@ github.com/unrolled/secure/cspbuilder
 # github.com/urfave/cli/v2 v2.27.7
 ## explicit; go 1.18
 github.com/urfave/cli/v2
-# github.com/valyala/fastjson v1.6.4
+# github.com/valyala/fastjson v1.6.7
 ## explicit; go 1.12
 github.com/valyala/fastjson
 github.com/valyala/fastjson/fastfloat
@@ -2724,6 +2731,9 @@ google.golang.org/protobuf/types/known/wrapperspb
 # gopkg.in/cenkalti/backoff.v1 v1.1.0
 ## explicit
 gopkg.in/cenkalti/backoff.v1
+# gopkg.in/ini.v1 v1.67.1
+## explicit; go 1.13
+gopkg.in/ini.v1
 # gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7
 ## explicit
 gopkg.in/tomb.v1
