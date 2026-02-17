@@ -8,6 +8,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp from 0.64.0 to 0.65.0 [[#2321](https://github.com/opencloud-eu/opencloud/pull/2321)]
 - build(deps): bump github.com/open-policy-agent/opa from 1.12.3 to 1.13.1 [[#2350](https://github.com/opencloud-eu/opencloud/pull/2350)]
 
 ## [5.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.1.0) - 2026-02-16
