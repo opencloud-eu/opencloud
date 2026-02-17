@@ -2,6 +2,8 @@
 //
 // It's internal because we don't want to expose _anything_ about these errors
 // so users absolutely cannot do anything other than use them as opaque errors.
+//
+//nolint:revive
 package errors
 
 import (

@@ -27,7 +27,7 @@ func astValueToJSONSchemaLoader(value ast.Value) (gojsonschema.JSONLoader, error
 			return nil, errors.New("invalid JSON string")
 		}
 		loader = gojsonschema.NewStringLoader(string(x))
-	case ast.Object:
+	case ast.Object, *ast.Array:
 		// In case of object serialize it to JSON representation.
 		var data any
 		data, err = ast.JSON(value)
@@ -110,7 +110,7 @@ func builtinJSONMatchSchema(bctx BuiltinContext, operands []*ast.Term, iter func
 	}
 
 	// In case of validation errors produce Rego array of objects to describe the errors.
-	arr := ast.NewArray()
+	arr := ast.NewArrayWithCapacity(len(result.Errors()))
 	for _, re := range result.Errors() {
 		o := ast.NewObject(
 			[...]*ast.Term{ast.StringTerm("error"), ast.StringTerm(re.String())},

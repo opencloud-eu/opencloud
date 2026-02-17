@@ -3,6 +3,7 @@ package jwt
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"time"
 
@@ -344,12 +345,10 @@ func (ccs claimContainsString) Validate(_ context.Context, t Token) error {
 		return ccs.makeErr(`claim %q does not exist or is not a []string: %w`, ccs.name, err)
 	}
 
-	for _, v := range list {
-		if v == ccs.value {
-			return nil
-		}
+	if !slices.Contains(list, ccs.value) {
+		return ccs.makeErr(`%q not satisfied`, ccs.name)
 	}
-	return ccs.makeErr(`%q not satisfied`, ccs.name)
+	return nil
 }
 
 // audienceClaimContainsString can be used to check if the audience claim, which is

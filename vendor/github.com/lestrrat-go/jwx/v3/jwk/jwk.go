@@ -13,6 +13,7 @@ import (
 	"io"
 	"math/big"
 	"reflect"
+	"slices"
 
 	"github.com/lestrrat-go/jwx/v3/internal/base64"
 	"github.com/lestrrat-go/jwx/v3/internal/json"
@@ -30,14 +31,14 @@ func bigIntToBytes(n *big.Int) ([]byte, error) {
 func init() {
 	if err := RegisterProbeField(reflect.StructField{
 		Name: "Kty",
-		Type: reflect.TypeOf(""),
+		Type: reflect.TypeFor[string](),
 		Tag:  `json:"kty"`,
 	}); err != nil {
 		panic(fmt.Errorf("failed to register mandatory probe for 'kty' field: %w", err))
 	}
 	if err := RegisterProbeField(reflect.StructField{
 		Name: "D",
-		Type: reflect.TypeOf(json.RawMessage(nil)),
+		Type: reflect.TypeFor[json.RawMessage](),
 		Tag:  `json:"d,omitempty"`,
 	}); err != nil {
 		panic(fmt.Errorf("failed to register mandatory probe for 'kty' field: %w", err))
@@ -665,10 +666,10 @@ func extractEmbeddedKey(keyif Key, concretTypes []reflect.Type) (Key, error) {
 	rv := reflect.ValueOf(keyif)
 
 	// If the value can be converted to one of the concrete types, then we're done
-	for _, t := range concretTypes {
-		if rv.Type().ConvertibleTo(t) {
-			return keyif, nil
-		}
+	if slices.ContainsFunc(concretTypes, func(t reflect.Type) bool {
+		return rv.Type().ConvertibleTo(t)
+	}) {
+		return keyif, nil
 	}
 
 	// When a struct implements the Key interface via embedding, you unfortunately

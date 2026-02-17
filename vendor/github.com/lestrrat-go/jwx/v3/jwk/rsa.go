@@ -115,8 +115,8 @@ func buildRSAPublicKey(key *rsa.PublicKey, n, e []byte) {
 }
 
 var rsaConvertibleKeys = []reflect.Type{
-	reflect.TypeOf((*RSAPrivateKey)(nil)).Elem(),
-	reflect.TypeOf((*RSAPublicKey)(nil)).Elem(),
+	reflect.TypeFor[RSAPrivateKey](),
+	reflect.TypeFor[RSAPublicKey](),
 }
 
 func rsaJWKToRaw(key Key, hint any) (any, error) {

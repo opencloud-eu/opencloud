@@ -211,7 +211,12 @@ func parseBytes(data []byte, options ...ParseOption) (Token, error) {
 	for _, o := range options {
 		if v, ok := o.(ValidateOption); ok {
 			ctx.validateOpts = append(ctx.validateOpts, v)
-			continue
+			// context is used for both verification and validation, so we can't just continue
+			switch o.Ident() {
+			case identContext{}:
+			default:
+				continue
+			}
 		}
 
 		switch o.Ident() {
@@ -228,7 +233,7 @@ func parseBytes(data []byte, options ...ParseOption) (Token, error) {
 				}
 			}
 			verifyOpts = append(verifyOpts, o)
-		case identKeySet{}, identVerifyAuto{}, identKeyProvider{}, identBase64Encoder{}:
+		case identKeySet{}, identVerifyAuto{}, identKeyProvider{}, identBase64Encoder{}, identContext{}:
 			verifyOpts = append(verifyOpts, o)
 		case identToken{}:
 			var token Token

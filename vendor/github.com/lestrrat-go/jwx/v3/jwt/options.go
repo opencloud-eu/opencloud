@@ -1,7 +1,9 @@
 package jwt
 
 import (
+	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/lestrrat-go/jwx/v3/jwa"
@@ -137,6 +139,14 @@ func toVerifyOptions(options ...Option) ([]jws.VerifyOption, error) {
 				return nil, fmt.Errorf(`failed to decode Base64Encoder: %w`, err)
 			}
 			voptions = append(voptions, jws.WithBase64Encoder(enc))
+		case identContext{}:
+			var ctx context.Context
+			if err := option.Value(&ctx); err != nil {
+				return nil, fmt.Errorf(`failed to decode Context: %w`, err)
+			}
+			voptions = append(voptions, jws.WithContext(ctx))
+		default:
+			return nil, fmt.Errorf(`invalid jws.VerifyOption %q passed`, `With`+strings.TrimPrefix(fmt.Sprintf(`%T`, option.Ident()), `jws.ident`))
 		}
 	}
 	return voptions, nil

@@ -3,7 +3,7 @@ package httprc
 import (
 	"time"
 
-	"github.com/lestrrat-go/option"
+	"github.com/lestrrat-go/option/v2"
 )
 
 type NewClientOption interface {
