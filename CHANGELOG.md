@@ -1,10 +1,14 @@
 # Changelog
 
-## [5.1.1](https://github.com/opencloud-eu/opencloud/releases/tag/v5.1.1) - 2026-02-17
+## [5.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.2.0) - 2026-02-17
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@rhafer
+@pat-s, @rhafer
+
+### 📈 Enhancement
+
+- feat: support desktop and mobile specific  `client_id` and `scopes` [[#2072](https://github.com/opencloud-eu/opencloud/pull/2072)]
 
 ### 📦️ Dependencies
 
