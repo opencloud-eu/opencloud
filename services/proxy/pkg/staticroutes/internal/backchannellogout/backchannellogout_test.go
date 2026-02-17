@@ -107,7 +107,7 @@ func TestGetLogoutMode(t *testing.T) {
 		{
 			name: "key variation: 'empty'",
 			suSe: SuSe{Session: "", Subject: ""},
-			want: LogoutModeUnknown,
+			want: LogoutModeUndefined,
 		},
 	}
 
@@ -155,7 +155,7 @@ func TestGetLogoutRecords(t *testing.T) {
 		{
 			name: "fails if mode is unknown",
 			suSe: SuSe{Session: "session-a"},
-			mode: LogoutModeUnknown,
+			mode: LogoutModeUndefined,
 			store: func(t *testing.T) store.Store {
 				return sessionStore
 			},
@@ -192,7 +192,7 @@ func TestGetLogoutRecords(t *testing.T) {
 			store: func(t *testing.T) store.Store {
 				s := mocks.NewStore(t)
 				s.EXPECT().Read(mock.Anything, mock.Anything).Return([]*store.Record{
-					&store.Record{Key: "invalid.record.key"},
+					{Key: "invalid.record.key"},
 				}, nil)
 				return s
 			},

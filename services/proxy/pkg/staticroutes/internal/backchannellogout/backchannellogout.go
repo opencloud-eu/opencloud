@@ -26,13 +26,17 @@ var ErrInvalidSessionOrSubject = errors.New("invalid session or subject")
 func NewSuSe(key string) (SuSe, error) {
 	var subject, session string
 	switch keys := strings.Split(strings.Join(strings.Fields(key), ""), "."); {
+	// key: '.session'
 	case len(keys) == 2 && keys[0] == "" && keys[1] != "":
 		session = keys[1]
+	// key: 'subject.'
 	case len(keys) == 2 && keys[0] != "" && keys[1] == "":
 		subject = keys[0]
+	// key: 'subject.session'
 	case len(keys) == 2 && keys[0] != "" && keys[1] != "":
 		subject = keys[0]
 		session = keys[1]
+	// key: 'session'
 	case len(keys) == 1 && keys[0] != "":
 		session = keys[0]
 	default:
@@ -46,8 +50,8 @@ func NewSuSe(key string) (SuSe, error) {
 type LogoutMode int
 
 const (
-	// LogoutModeUnknown is used when the logout mode cannot be determined
-	LogoutModeUnknown LogoutMode = iota
+	// LogoutModeUndefined is used when the logout mode cannot be determined
+	LogoutModeUndefined LogoutMode = iota
 	// LogoutModeSession is used when the logout mode is determined by the session id
 	LogoutModeSession
 	// LogoutModeSubject is used when the logout mode is determined by the subject
@@ -62,7 +66,7 @@ func GetLogoutMode(suse SuSe) LogoutMode {
 	case suse.Subject != "":
 		return LogoutModeSubject
 	default:
-		return LogoutModeUnknown
+		return LogoutModeUndefined
 	}
 }
 
@@ -91,6 +95,7 @@ func GetLogoutRecords(suse SuSe, mode LogoutMode, store microstore.Store) ([]*mi
 		return nil, fmt.Errorf("%w: cannot determine logout mode", ErrSuspiciousCacheResult)
 	}
 
+	// the go micro memory store requires a limit to work, why???
 	records, err := store.Read(key, append(opts, microstore.ReadLimit(1000))...)
 	if err != nil {
 		return nil, err
