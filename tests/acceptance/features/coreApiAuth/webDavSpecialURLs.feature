@@ -20,7 +20,7 @@ Feature: make webdav request with special urls
       | /dav//files/%username%/PARENT/parent.txt |
       | /webdav//PARENT                          |
       | //dav/files/%username%//FOLDER           |
-    Then the HTTP status code of responses on each endpoint should be "200,200,204,204,200" on OpenCloud or "204,204,204,204,204" on reva
+    Then the HTTP status code of responses on all endpoints should be "204"
 
 
   Scenario: send DELETE requests to webDav endpoints with 2 slashes using the spaces WebDAV API
@@ -30,7 +30,7 @@ Feature: make webdav request with special urls
       | //dav//spaces/%spaceid%/PARENT/parent.txt |
       | /dav//spaces/%spaceid%/PARENT             |
       | //dav/spaces/%spaceid%//FOLDER            |
-    Then the HTTP status code of responses on each endpoint should be "200,200,204,200" on OpenCloud or "204,204,204,204" on reva
+    Then the HTTP status code of responses on all endpoints should be "204"
 
 
   Scenario: send GET requests to webDav endpoints with 2 slashes
@@ -84,7 +84,7 @@ Feature: make webdav request with special urls
       | //dav//files/%username%/PARENT4 |
       | /dav/files/%username%//PARENT5  |
       | /dav//files/%username%/PARENT6  |
-    Then the HTTP status code of responses on each endpoint should be "200,201,200,200,201,201" on OpenCloud or "201,201,201,201,201,201" on reva
+    Then the HTTP status code of responses on all endpoints should be "201"
 
 
   Scenario: send MKCOL requests to webDav endpoints with 2 slashes using the spaces WebDAV API
@@ -96,7 +96,7 @@ Feature: make webdav request with special urls
       | //dav/spaces//%spaceid%/PARENT4 |
       | /dav/spaces/%spaceid%//PARENT5  |
       | /dav//spaces/%spaceid%/PARENT6  |
-    Then the HTTP status code of responses on each endpoint should be "200,201,200,200,201,201" on OpenCloud or "201,201,201,201,201,201" on reva
+    Then the HTTP status code of responses on all endpoints should be "201"
 
 
   Scenario: send MOVE requests to webDav endpoints with 2 slashes
@@ -107,7 +107,7 @@ Feature: make webdav request with special urls
       | /webdav//PARENT                           | /webdav/PARENT1                           |
       | //dav/files//%username%//PARENT1          | /dav/files/%username%/PARENT2             |
       | /dav//files/%username%/PARENT2/parent.txt | /dav/files/%username%/PARENT2/parent1.txt |
-    Then the HTTP status code of responses on each endpoint should be "200,201,201,200,404" on OpenCloud or "201,201,201,201,201" on reva
+    Then the HTTP status code of responses on all endpoints should be "201"
 
 
   Scenario: send MOVE requests to webDav endpoints with 2 slashes using the spaces WebDAV API
@@ -117,7 +117,7 @@ Feature: make webdav request with special urls
       | /dav/spaces/%spaceid%//PARENT             | /dav/spaces/%spaceid%/PARENT1             |
       | //dav/spaces/%spaceid%//PARENT1           | /dav/spaces/%spaceid%/PARENT2             |
       | //dav/spaces/%spaceid%/PARENT2/parent.txt | /dav/spaces/%spaceid%/PARENT2/parent1.txt |
-    Then the HTTP status code of responses on each endpoint should be "201,201,200,200" on OpenCloud or "201,201,201,201" on reva
+    Then the HTTP status code of responses on all endpoints should be "201"
 
 
   Scenario: send POST requests to webDav endpoints with 2 slashes
@@ -128,7 +128,7 @@ Feature: make webdav request with special urls
       | /dav//files/%username%/PARENT/parent.txt |
       | /webdav//PARENT                          |
       | //dav/files//%username%//FOLDER          |
-    Then the HTTP status code of responses on each endpoint should be "200,200,412,412,200" respectively
+    Then the HTTP status code of responses on all endpoints should be "412"
 
 
   Scenario: send POST requests to webDav endpoints with 2 slashes using the spaces WebDAV API
@@ -138,7 +138,7 @@ Feature: make webdav request with special urls
       | /dav//spaces/%spaceid%/PARENT/parent.txt |
       | /dav//spaces/%spaceid%/PARENT            |
       | //dav//spaces/%spaceid%//FOLDER          |
-    Then the HTTP status code of responses on each endpoint should be "200,412,412,200" respectively
+    Then the HTTP status code of responses on all endpoints should be "412"
 
 
   Scenario: send PROPFIND requests to webDav endpoints with 2 slashes
@@ -149,7 +149,7 @@ Feature: make webdav request with special urls
       | /dav//files/%username%/PARENT/parent.txt |
       | /webdav//PARENT                          |
       | //dav/files//%username%//FOLDER          |
-    Then the HTTP status code of responses on each endpoint should be "200,200,207,207,200" on OpenCloud or "207,207,207,207,207" on reva
+    Then the HTTP status code of responses on all endpoints should be "207"
 
 
   Scenario: send PROPFIND requests to webDav endpoints with 2 slashes using the spaces WebDAV API
@@ -159,7 +159,7 @@ Feature: make webdav request with special urls
       | /dav//spaces/%spaceid%/PARENT/parent.txt |
       | /dav//spaces/%spaceid%/PARENT            |
       | //dav/spaces//%spaceid%//FOLDER          |
-    Then the HTTP status code of responses on each endpoint should be "200,207,207,200" on OpenCloud or "207,207,207,207" on reva
+    Then the HTTP status code of responses on all endpoints should be "207"
 
 
   Scenario: send PROPPATCH requests to webDav endpoints with 2 slashes
@@ -170,7 +170,7 @@ Feature: make webdav request with special urls
       | /dav//files/%username%/PARENT/parent.txt |
       | /webdav//PARENT                          |
       | //dav//files/%username%//FOLDER          |
-    Then the HTTP status code of responses on each endpoint should be "200,200,400,400,200" respectively
+    Then the HTTP status code of responses on all endpoints should be "400"
 
 
   Scenario: send PROPPATCH requests to webDav endpoints with 2 slashes using the spaces WebDAV API
@@ -180,7 +180,7 @@ Feature: make webdav request with special urls
       | /dav//spaces/%spaceid%/PARENT/parent.txt |
       | /dav//spaces/%spaceid%/PARENT            |
       | //dav/spaces//%spaceid%//FOLDER          |
-    Then the HTTP status code of responses on each endpoint should be "200,400,400,200" respectively
+    Then the HTTP status code of responses on all endpoints should be "400"
 
 
   Scenario: send PUT requests to webDav endpoints with 2 slashes
@@ -191,7 +191,7 @@ Feature: make webdav request with special urls
       | //dav//files/%username%/textfile1.txt      |
       | /dav/files//%username%/textfile7.txt       |
       | //dav//files/%username%/PARENT//parent.txt |
-    Then the HTTP status code of responses on each endpoint should be "200,204,200,201,200" on OpenCloud or "204,204,204,201,204" on reva
+    Then the HTTP status code of responses on each endpoint should be "204,204,204,201,204" respectively
 
 
   Scenario: send PUT requests to webDav endpoints with 2 slashes using the spaces WebDAV API
@@ -202,4 +202,4 @@ Feature: make webdav request with special urls
       | //dav//spaces/%spaceid%/textfile1.txt      |
       | /dav/spaces//%spaceid%/textfile7.txt       |
       | //dav/spaces//%spaceid%/PARENT//parent.txt |
-    Then the HTTP status code of responses on each endpoint should be "200,204,200,201,200" on OpenCloud or "204,204,204,201,204" on reva
+    Then the HTTP status code of responses on each endpoint should be "204,204,204,201,204" respectively

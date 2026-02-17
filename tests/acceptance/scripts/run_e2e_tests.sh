@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # Set required environment variables
-export LOCAL_TEST=true
+export START_TIKA=true
 export WITH_WRAPPER=false
 
 TEST_SERVER_URL="https://opencloud-server:9200"
 
 # Start server
-make -C tests/acceptance/docker start-server
+make -C tests/acceptance/docker start-services
 
 # Wait until the server responds with HTTP 200
 echo "Waiting for server to start..."

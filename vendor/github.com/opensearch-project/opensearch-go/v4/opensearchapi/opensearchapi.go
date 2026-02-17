@@ -139,7 +139,7 @@ type ResponseShards struct {
 	Skipped    int                     `json:"skipped"`
 }
 
-// ResponseShardsFailure is a sub type of ReponseShards containing information about a failed shard
+// ResponseShardsFailure is a sub type of ResponseShards containing information about a failed shard
 type ResponseShardsFailure struct {
 	Shard  int    `json:"shard"`
 	Index  any    `json:"index"`

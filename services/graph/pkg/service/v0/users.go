@@ -306,10 +306,11 @@ func (g Graph) GetUsers(w http.ResponseWriter, r *http.Request) {
 		finalUsers := make([]*libregraph.User, len(users))
 		for i, u := range users {
 			finalUsers[i] = &libregraph.User{
-				Id:          u.Id,
-				DisplayName: u.DisplayName,
-				UserType:    u.UserType,
-				Identities:  u.Identities,
+				Id:                       u.Id,
+				DisplayName:              u.DisplayName,
+				UserType:                 u.UserType,
+				Identities:               u.Identities,
+				OnPremisesSamAccountName: u.OnPremisesSamAccountName,
 			}
 
 			if g.config.API.ShowUserEmailInResults {

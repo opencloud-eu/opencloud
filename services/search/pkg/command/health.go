@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config/parser"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/logging"
 
 	"github.com/spf13/cobra"
 )
@@ -20,7 +20,7 @@ func Health(cfg *config.Config) *cobra.Command {
 			return parser.ParseConfig(cfg)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger := logging.Configure(cfg.Service.Name, cfg.Log)
+			logger := log.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel)
 
 			resp, err := http.Get(
 				fmt.Sprintf(

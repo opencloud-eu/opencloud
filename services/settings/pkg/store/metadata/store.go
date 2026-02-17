@@ -74,14 +74,9 @@ func (s *Store) Init() {
 // New creates a new store
 func New(cfg *config.Config) settings.Manager {
 	s := Store{
-		Logger: olog.NewLogger(
-			olog.Color(cfg.Log.Color),
-			olog.Pretty(cfg.Log.Pretty),
-			olog.Level(cfg.Log.Level),
-			olog.File(cfg.Log.File),
-		),
-		cfg: cfg,
-		l:   &sync.Mutex{},
+		Logger: olog.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel),
+		cfg:    cfg,
+		l:      &sync.Mutex{},
 	}
 
 	return &s

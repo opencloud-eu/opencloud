@@ -3,79 +3,83 @@
 
 ### Prerequisites
 
-* [ ] DEV/QA: Kickoff meeting [Kickoff meeting] (https://???)
-* [ ] DEV/QA: Define client versions and provide list of breaking changes for desktop/mobile team
-* [ ] DEV/QA: Check new strings and align with clients
-* [ ] DEV/DOCS: Create list of pending docs tasks 
-* [ ] DEV: Create branch `release-x.x.x-rc.x` -> CODEFREEZE
-  * [ ] DEV: bump opencloud version in necessary files
-  * [ ] DEV: `changelog/CHANGELOG.tmpl`
-  * [ ] DEV: `pkg/version/version.go`
-  * [ ] DEV: `sonar-project.properties` 
-  * [ ] DEV: prepare changelog folder in `changelog/x.x.x_????_??_??`
-* [ ] DEV: Check successful CI run on release branch
-* [ ] DEV: Create signed tag `vx.y.z-rc.x`
-* [ ] DEV: Check successful CI run on `vx.y.z-rc.x` tag / BLOCKING for all further activity
-* [ ] DEV: Merge back release branch
-* [ ] DEV: bump released deployments to `vx.y.z-rc.x`
-* [ ] DEV: https://cloud.opencloud.eu/
-  * [ ] DEV: needs snapshot and migration
+* [ ] DEV/QA: bump web version
+* [ ] DEV/QA: bump reva version
+* [ ] DEV/QA: DEV: Create rc tag `vx.y.z-rc.x`
+* [ ] DEV: update introductionVersion
+* [ ] DEV: add new production version
 
 ### QA Phase
 
-* [ ] QA: Confirmatory testing (if needed)
-* [ ] QA: [Compatibility test](???)
-* [ ] QA: [Performance test](https://github.com/opencloud-eu/cdperf/tree/main/packages/k6-tests/src)
-* [ ] QA: Documentation test:
-  * [ ] QA: Single binary - setup
-  * [ ] QA: Docker - setup
-  * [ ] QA: Docker-compose - setup
-  * [ ] QA: helm/k8s - setup
-* [ ] QA: e2e with different deployment:
-  * [ ] QA: [wopi](???.works) 
-  * [ ] QA: [traefik](???.works)
-  * [ ] QA: [ldap](???.works)
+* [ ] QA: Compatibility test with posix fs
+* [ ] QA: Compatibility test with decomposed fs
+* [ ] DEV/QA: Performance test
+  * [ ] STORAGE_USERS_DRIVER=posix
+    * [ ] 75vu's, 60m
+    * [ ] 75vu's, 60m
+  * [ ] STORAGE_USERS_DRIVER=decomposed
+    * [ ] 75vu's, 60m
+    * [ ] 75vu's, 60m
+* [ ] QA: documentation test
+  * [ ] QA: Review documentation
+  * [ ] QA: Verify all new features documented
+  * [ ] QA: Create upgrade documentation
+  * [ ] QA: Check installation guides
+
 * [ ] QA: e2e with different storage:
-  * [ ] QA: local
-  * [ ] QA: nfs
-  * [ ] QA: s3
+  * [ ] QA: decomposed
+  * [ ] QA: decomposeds3
+  * [ ] QA: posix
+  * [ ] QA: posix with enabled watch_fs
+* [ ] QA: e2e with different deployments deployments:
+  * [ ] QA: e2e tests agains opencloud-charts
+  * [ ] QA: binary 
+  * [ ] QA: multitanacy 
+  * [ ] QA: docker using [docker-compose_test_plan](https://github.com/opencloud-eu/qa/blob/main/.github/ISSUE_TEMPLATE/docker-compose_test_plan_template.md)
 * [ ] QA: Different clients:
   * [ ] QA: desktop (define version) https://github.com/opencloud-eu/client/releases
-    * [ ] QA: against mac - smoke test
-    * [ ] QA: against windows - smoke test
+    * [ ] QA: against mac - exploratory testing
+    * [ ] QA: against windows - exploratory testing
     * [ ] QA: against linux (use auto tests)
   * [ ] QA: android (define version) https://github.com/opencloud-eu/android/releases
   * [ ] QA: ios (define version)
-* [ ] QA: [Smoke test](???) on Web Office (Collabora, Onlyoffice, Microsoft office)
-* [ ] QA: Smoke test Hello extension
-* [ ] QA: [Smoke test](???) ldap
-* [ ] QA: Collecting errors found
+* [ ] QA: check docs german translation
+  * [ ] QA: german translations desktop at 100%
+* [ ] QA: exploratory testing
 
-### After QA Phase
+### Collected bugs
+* [ ] Please place all bugs found here
 
-* [ ] Brief company-wide heads up via mail @tbsbdr
-* [ ] Create list of changed ENV vars and send to release-coordination@opencloud.eu
-  * [ ] Variable Name
-  * [ ] Introduced in version
-  * [ ] Default Value
-  * [ ] Description
-  * [ ] dependencies with user other components
-* [ ] DEV: Create branch `release-x.x.x`
-  * [ ] DEV: bump OpenCloud version in necessary files
-  * [ ] DEV: `pkg/version/version.go`
-  * [ ] DEV: `sonar-project.properties`
-  * [ ] DEV: released deployment versions
-  * [ ] DEV: prepare changelog folder in `changelog/x.x.x_???`
-* [ ] Release Notes + Breaking Changes @tbsbdr
-* [ ] Migration + Breaking Changes Admin Doc @???
-* [ ] DEV: Create final signed tag
-* [ ] DEV: Check successful CI run on `vx.y.z` tag / BLOCKING for all further activity
-* [ ] Merge release notes 
+### After QA Phase (IT related)
 
-### Post-release communication
-* [ ] DEV: Create a `docs-stable-x.y` branch based on the docs folder in the OpenCloud repo @micbar 
-* [ ] DEV/QA: Ping documentation in RC about the new release tag (for opencloud/helm chart version bump in docs)
-* [ ] DEV/QA: Ping marketing to update all download links (download mirrors are updated at the full hour, wait with ping until download is actually available)
-* [ ] DEV/QA: Ping @??? once the demo instances are running this release
-* [ ] DEV: Merge back release branch
-* [ ] DEV: Create stable-x.y branch in the OpenCloud repo from final tag
+* [ ] QA:bump version in pkg/version.go
+* [ ] QA: Run CI
+* [ ] DEV/QA: create final tag
+* [ ] QA: observe CI Run on tag
+* [ ] DEV/QA: Create a new `stable-*` branch
+  * [ ] (opencloud)[https://github.com/opencloud-eu/opencloud/branches]
+  * [ ] (web)[https://github.com/opencloud-eu/web/branches]
+  * [ ] (reva)[https://github.com/opencloud-eu/reva/branches]
+  * [ ] (opencloud-compose)[https://github.com/opencloud-eu/opencloud-compose/branches]
+* [ ] DEV/QA:: publish release notes to the docs
+* [ ] DEV/QA:: update (demo.opencloud.eu)[https://demo.opencloud.eu/]
+
+### After QA Phase ( Marketing / Product / Sales related )
+
+* [ ] notify marketing that the release is ready @tbsbdr
+* [ ] announce in the public channel (matrix channel)[https://matrix.to/#/#opencloud:matrix.org]
+* [ ] press information @AnneGo137
+  * [ ] press information @AnneGo137
+  * [ ] Blogentry @AnneGo137
+  * [ ] Internal meeting (Groupe Pre-Webinar) @db-ot
+  * [ ] Partner briefing (Partner should be informed about features, new) @matthias
+* [ ] Webinar DE & EN @AnneGo137
+  * [ ] Präsentation DE @tbsbdr / @db-ot
+  * [ ] Präsentation EN @tbsbdr / @db-ot
+* [ ] Website ergänzen @AnneGo137
+  * [ ] Features @AnneGo137
+  * [ ] Service & Support - New Enterprise Features @tbsbdr
+  * [ ] OpenCloud_Benefits.pdf updates @AnneGo137
+  * [ ] Welcome Files: Features as media @tbsbdr
+* [ ] Flyer update @AnneGo137
+* [ ] Sales presentation @matthias

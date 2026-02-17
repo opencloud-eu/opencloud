@@ -21,7 +21,7 @@ Feature: List upload sessions via CLI command
     And the CLI response should not contain these entries:
       | file0.txt |
 
-
+  @antivirus
   Scenario: list all upload sessions that are currently in postprocessing
     Given the following configs have been set:
       | config                           | value     |
@@ -39,7 +39,7 @@ Feature: List upload sessions via CLI command
     And the CLI response should not contain these entries:
       | virusFile.txt |
 
-
+  @antivirus
   Scenario: list all upload sessions that are infected by virus
     Given the following configs have been set:
       | config                           | value     |
@@ -109,7 +109,7 @@ Feature: List upload sessions via CLI command
     And the CLI response should not contain these entries:
       | file2.txt |
 
-
+  @antivirus
   Scenario: clean all upload sessions that are not in post-processing
     Given the following configs have been set:
       | config                           | value     |
@@ -126,7 +126,7 @@ Feature: List upload sessions via CLI command
     And the CLI response should not contain these entries:
       | file1.txt |
 
-
+  @antivirus
   Scenario: clean upload sessions that are not in post-processing and is not virus infected
     Given the following configs have been set:
       | config                           | value     |

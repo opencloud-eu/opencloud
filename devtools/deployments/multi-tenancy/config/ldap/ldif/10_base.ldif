@@ -1,0 +1,20 @@
+dn: dc=opencloud,dc=eu
+objectClass: organization
+objectClass: dcObject
+dc: opencloud
+o: openCloud
+
+dn: ou=users,dc=opencloud,dc=eu
+objectClass: organizationalUnit
+ou: users
+
+dn: cn=admin,dc=opencloud,dc=eu
+objectClass: inetOrgPerson
+objectClass: person
+cn: admin
+sn: admin
+uid: ldapadmin
+
+dn: ou=tenants,dc=opencloud,dc=eu
+objectClass: organizationalUnit
+ou: tenants

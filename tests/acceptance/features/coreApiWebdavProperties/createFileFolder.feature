@@ -122,7 +122,7 @@ Feature: create files and folder
       | new              |
       | spaces           |
 
-
+  @web-issue-1893
   Scenario Outline: create a file
     Given using <dav-path-version> DAV path
     When user "Alice" uploads file with content "some text" to <file-name> using the WebDAV API
@@ -202,8 +202,30 @@ Feature: create files and folder
       | new              |             | 400              |
       | spaces           | /.          | 400              |
       | spaces           | /..         | 405              |
-      | spaces           | /../lorem   | 404              |
+      | spaces           | /../lorem   | 400              |
       | spaces           |             | 400              |
+
+
+  Scenario Outline: try to create folder with backslash
+    Given using <dav-path-version> DAV path
+    When user "Alice" creates folder "<folder-name>" using the WebDAV API
+    Then the HTTP status code should be "400"
+    Examples:
+      | dav-path-version | folder-name    |
+      | old              | with\backslash |
+      | new              | with\backslash |
+      | spaces           | with\backslash |
+
+
+  Scenario Outline: try to create file with backslash
+    Given using <dav-path-version> DAV path
+    When user "Alice" uploads file with content "some text" to "<file-name>" using the WebDAV API
+    Then the HTTP status code should be "400"
+    Examples:
+      | dav-path-version | file-name      |
+      | old              | with\backslash |
+      | new              | with\backslash |
+      | spaces           | with\backslash |
 
 
   Scenario Outline: create a file with dots in the name

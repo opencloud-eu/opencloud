@@ -19,15 +19,11 @@ package zap
 
 import (
 	"encoding/binary"
-	"encoding/json"
 	"math"
 	"reflect"
 
 	"github.com/RoaringBitmap/roaring/v2"
 	"github.com/RoaringBitmap/roaring/v2/roaring64"
-	"github.com/bits-and-blooms/bitset"
-	index "github.com/blevesearch/bleve_index_api"
-	faiss "github.com/blevesearch/go-faiss"
 	segment "github.com/blevesearch/scorch_segment_api/v2"
 )
 
@@ -272,45 +268,7 @@ func (vpItr *VecPostingsIterator) BytesWritten() uint64 {
 	return 0
 }
 
-// vectorIndexWrapper conforms to scorch_segment_api's VectorIndex interface
-type vectorIndexWrapper struct {
-	search func(qVector []float32, k int64,
-		params json.RawMessage) (segment.VecPostingsList, error)
-	searchWithFilter func(qVector []float32, k int64, eligibleDocIDs []uint64,
-		params json.RawMessage) (segment.VecPostingsList, error)
-	close func()
-	size  func() uint64
-
-	obtainKCentroidCardinalitiesFromIVFIndex func(limit int, descending bool) (
-		[]index.CentroidCardinality, error)
-}
-
-func (i *vectorIndexWrapper) Search(qVector []float32, k int64,
-	params json.RawMessage) (
-	segment.VecPostingsList, error) {
-	return i.search(qVector, k, params)
-}
-
-func (i *vectorIndexWrapper) SearchWithFilter(qVector []float32, k int64,
-	eligibleDocIDs []uint64, params json.RawMessage) (
-	segment.VecPostingsList, error) {
-	return i.searchWithFilter(qVector, k, eligibleDocIDs, params)
-}
-
-func (i *vectorIndexWrapper) Close() {
-	i.close()
-}
-
-func (i *vectorIndexWrapper) Size() uint64 {
-	return i.size()
-}
-
-func (i *vectorIndexWrapper) ObtainKCentroidCardinalitiesFromIVFIndex(limit int, descending bool) (
-	[]index.CentroidCardinality, error) {
-	return i.obtainKCentroidCardinalitiesFromIVFIndex(limit, descending)
-}
-
-// InterpretVectorIndex returns a construct of closures (vectorIndexWrapper)
+// InterpretVectorIndex returns a struct based implementation (vectorIndexWrapper)
 // that will allow the caller to -
 // (1) search within an attached vector index
 // (2) search limited to a subset of documents within an attached vector index
@@ -319,248 +277,18 @@ func (i *vectorIndexWrapper) ObtainKCentroidCardinalitiesFromIVFIndex(limit int,
 func (sb *SegmentBase) InterpretVectorIndex(field string, requiresFiltering bool,
 	except *roaring.Bitmap) (
 	segment.VectorIndex, error) {
-	// Params needed for the closures
-	var vecIndex *faiss.IndexImpl
-	var vecDocIDMap map[int64]uint32
-	var docVecIDMap map[uint32][]int64
-	var vectorIDsToExclude []int64
-	var fieldIDPlus1 uint16
-	var vecIndexSize uint64
 
-	// Utility function to add the corresponding docID and scores for each vector
-	// returned after the kNN query to the newly
-	// created vecPostingsList
-	addIDsToPostingsList := func(pl *VecPostingsList, ids []int64, scores []float32) {
-		for i := 0; i < len(ids); i++ {
-			vecID := ids[i]
-			// Checking if it's present in the vecDocIDMap.
-			// If -1 is returned as an ID(insufficient vectors), this will ensure
-			// it isn't added to the final postings list.
-			if docID, ok := vecDocIDMap[vecID]; ok {
-				code := getVectorCode(docID, scores[i])
-				pl.postings.Add(code)
-			}
-		}
-	}
-
-	var (
-		wrapVecIndex = &vectorIndexWrapper{
-			search: func(qVector []float32, k int64, params json.RawMessage) (
-				segment.VecPostingsList, error) {
-				// 1. returned postings list (of type PostingsList) has two types of information - docNum and its score.
-				// 2. both the values can be represented using roaring bitmaps.
-				// 3. the Iterator (of type PostingsIterator) returned would operate in terms of VecPostings.
-				// 4. VecPostings would just have the docNum and the score. Every call of Next()
-				//    and Advance just returns the next VecPostings. The caller would do a vp.Number()
-				//    and the Score() to get the corresponding values
-				rv := &VecPostingsList{
-					except:   nil, // todo: handle the except bitmap within postings iterator.
-					postings: roaring64.New(),
-				}
-
-				if vecIndex == nil || vecIndex.D() != len(qVector) {
-					// vector index not found or dimensionality mismatched
-					return rv, nil
-				}
-
-				scores, ids, err := vecIndex.SearchWithoutIDs(qVector, k,
-					vectorIDsToExclude, params)
-				if err != nil {
-					return nil, err
-				}
-
-				addIDsToPostingsList(rv, ids, scores)
-
-				return rv, nil
-			},
-			searchWithFilter: func(qVector []float32, k int64,
-				eligibleDocIDs []uint64, params json.RawMessage) (
-				segment.VecPostingsList, error) {
-				// 1. returned postings list (of type PostingsList) has two types of information - docNum and its score.
-				// 2. both the values can be represented using roaring bitmaps.
-				// 3. the Iterator (of type PostingsIterator) returned would operate in terms of VecPostings.
-				// 4. VecPostings would just have the docNum and the score. Every call of Next()
-				//    and Advance just returns the next VecPostings. The caller would do a vp.Number()
-				//    and the Score() to get the corresponding values
-				rv := &VecPostingsList{
-					except:   nil, // todo: handle the except bitmap within postings iterator.
-					postings: roaring64.New(),
-				}
-				if vecIndex == nil || vecIndex.D() != len(qVector) {
-					// vector index not found or dimensionality mismatched
-					return rv, nil
-				}
-				// Check and proceed only if non-zero documents eligible per the filter query.
-				if len(eligibleDocIDs) == 0 {
-					return rv, nil
-				}
-				// If every element in the index is eligible (full selectivity),
-				// then this can basically be considered unfiltered kNN.
-				if len(eligibleDocIDs) == int(sb.numDocs) {
-					scores, ids, err := vecIndex.SearchWithoutIDs(qVector, k,
-						vectorIDsToExclude, params)
-					if err != nil {
-						return nil, err
-					}
-					addIDsToPostingsList(rv, ids, scores)
-					return rv, nil
-				}
-				// vector IDs corresponding to the local doc numbers to be
-				// considered for the search
-				vectorIDsToInclude := make([]int64, 0, len(eligibleDocIDs))
-				for _, id := range eligibleDocIDs {
-					vecIDs := docVecIDMap[uint32(id)]
-					// In the common case where vecIDs has only one element, which occurs
-					// when a document has only one vector field, we can
-					// avoid the unnecessary overhead of slice unpacking (append(vecIDs...)).
-					// Directly append the single element for efficiency.
-					if len(vecIDs) == 1 {
-						vectorIDsToInclude = append(vectorIDsToInclude, vecIDs[0])
-					} else {
-						vectorIDsToInclude = append(vectorIDsToInclude, vecIDs...)
-					}
-				}
-				// In case a doc has invalid vector fields but valid non-vector fields,
-				// filter hit IDs may be ineligible for the kNN since the document does
-				// not have any/valid vectors.
-				if len(vectorIDsToInclude) == 0 {
-					return rv, nil
-				}
-				// If the index is not an IVF index, then the search can be
-				// performed directly, using the Flat index.
-				if !vecIndex.IsIVFIndex() {
-					// vector IDs corresponding to the local doc numbers to be
-					// considered for the search
-					scores, ids, err := vecIndex.SearchWithIDs(qVector, k,
-						vectorIDsToInclude, params)
-					if err != nil {
-						return nil, err
-					}
-					addIDsToPostingsList(rv, ids, scores)
-					return rv, nil
-				}
-				// Determining which clusters, identified by centroid ID,
-				// have at least one eligible vector and hence, ought to be
-				// probed.
-				clusterVectorCounts, err := vecIndex.ObtainClusterVectorCountsFromIVFIndex(vectorIDsToInclude)
-				if err != nil {
-					return nil, err
-				}
-				var selector faiss.Selector
-				// If there are more elements to be included than excluded, it
-				// might be quicker to use an exclusion selector as a filter
-				// instead of an inclusion selector.
-				if float32(len(eligibleDocIDs))/float32(len(docVecIDMap)) > 0.5 {
-					// Use a bitset to efficiently track eligible document IDs.
-					// This reduces the lookup cost when checking if a document ID is eligible,
-					// compared to using a map or slice.
-					bs := bitset.New(uint(len(eligibleDocIDs)))
-					for _, docID := range eligibleDocIDs {
-						bs.Set(uint(docID))
-					}
-					ineligibleVectorIDs := make([]int64, 0, len(vecDocIDMap)-len(vectorIDsToInclude))
-					for docID, vecIDs := range docVecIDMap {
-						// Check if the document ID is NOT in the eligible set, marking it as ineligible.
-						if !bs.Test(uint(docID)) {
-							// In the common case where vecIDs has only one element, which occurs
-							// when a document has only one vector field, we can
-							// avoid the unnecessary overhead of slice unpacking (append(vecIDs...)).
-							// Directly append the single element for efficiency.
-							if len(vecIDs) == 1 {
-								ineligibleVectorIDs = append(ineligibleVectorIDs, vecIDs[0])
-							} else {
-								ineligibleVectorIDs = append(ineligibleVectorIDs, vecIDs...)
-							}
-						}
-					}
-					selector, err = faiss.NewIDSelectorNot(ineligibleVectorIDs)
-				} else {
-					selector, err = faiss.NewIDSelectorBatch(vectorIDsToInclude)
-				}
-				if err != nil {
-					return nil, err
-				}
-				// If no error occurred during the creation of the selector, then
-				// it should be deleted once the search is complete.
-				defer selector.Delete()
-				// Ordering the retrieved centroid IDs by increasing order
-				// of distance i.e. decreasing order of proximity to query vector.
-				centroidIDs := make([]int64, 0, len(clusterVectorCounts))
-				for centroidID := range clusterVectorCounts {
-					centroidIDs = append(centroidIDs, centroidID)
-				}
-				closestCentroidIDs, centroidDistances, err :=
-					vecIndex.ObtainClustersWithDistancesFromIVFIndex(qVector, centroidIDs)
-				if err != nil {
-					return nil, err
-				}
-				// Getting the nprobe value set at index time.
-				nprobe := int(vecIndex.GetNProbe())
-				// Determining the minimum number of centroids to be probed
-				// to ensure that at least 'k' vectors are collected while
-				// examining at least 'nprobe' centroids.
-				var eligibleDocsTillNow int64
-				minEligibleCentroids := len(closestCentroidIDs)
-				for i, centroidID := range closestCentroidIDs {
-					eligibleDocsTillNow += clusterVectorCounts[centroidID]
-					// Stop once we've examined at least 'nprobe' centroids and
-					// collected at least 'k' vectors.
-					if eligibleDocsTillNow >= k && i+1 >= nprobe {
-						minEligibleCentroids = i + 1
-						break
-					}
-				}
-				// Search the clusters specified by 'closestCentroidIDs' for
-				// vectors whose IDs are present in 'vectorIDsToInclude'
-				scores, ids, err := vecIndex.SearchClustersFromIVFIndex(
-					selector, closestCentroidIDs, minEligibleCentroids,
-					k, qVector, centroidDistances, params)
-				if err != nil {
-					return nil, err
-				}
-				addIDsToPostingsList(rv, ids, scores)
-				return rv, nil
-			},
-			close: func() {
-				// skipping the closing because the index is cached and it's being
-				// deferred to a later point of time.
-				sb.vecIndexCache.decRef(fieldIDPlus1)
-			},
-			size: func() uint64 {
-				return vecIndexSize
-			},
-			obtainKCentroidCardinalitiesFromIVFIndex: func(limit int, descending bool) ([]index.CentroidCardinality, error) {
-				if vecIndex == nil || !vecIndex.IsIVFIndex() {
-					return nil, nil
-				}
-
-				cardinalities, centroids, err := vecIndex.ObtainKCentroidCardinalitiesFromIVFIndex(limit, descending)
-				if err != nil {
-					return nil, err
-				}
-				centroidCardinalities := make([]index.CentroidCardinality, len(cardinalities))
-				for i, cardinality := range cardinalities {
-					centroidCardinalities[i] = index.CentroidCardinality{
-						Centroid:    centroids[i],
-						Cardinality: cardinality,
-					}
-				}
-				return centroidCardinalities, nil
-			},
-		}
-
-		err error
-	)
-
-	fieldIDPlus1 = sb.fieldsMap[field]
+	rv := &vectorIndexWrapper{sb: sb}
+	fieldIDPlus1 := sb.fieldsMap[field]
 	if fieldIDPlus1 <= 0 {
-		return wrapVecIndex, nil
+		return rv, nil
 	}
+	rv.fieldIDPlus1 = fieldIDPlus1
 
 	vectorSection := sb.fieldsSectionsMap[fieldIDPlus1-1][SectionFaissVectorIndex]
 	// check if the field has a vector section in the segment.
 	if vectorSection <= 0 {
-		return wrapVecIndex, nil
+		return rv, nil
 	}
 
 	pos := int(vectorSection)
@@ -574,15 +302,19 @@ func (sb *SegmentBase) InterpretVectorIndex(field string, requiresFiltering bool
 		pos += n
 	}
 
-	vecIndex, vecDocIDMap, docVecIDMap, vectorIDsToExclude, err =
+	var err error
+	rv.vecIndex, rv.vecDocIDMap, rv.docVecIDMap, rv.vectorIDsToExclude, err =
 		sb.vecIndexCache.loadOrCreate(fieldIDPlus1, sb.mem[pos:], requiresFiltering,
 			except)
-
-	if vecIndex != nil {
-		vecIndexSize = vecIndex.Size()
+	if err != nil {
+		return nil, err
 	}
 
-	return wrapVecIndex, err
+	if rv.vecIndex != nil {
+		rv.vecIndexSize = rv.vecIndex.Size()
+	}
+
+	return rv, nil
 }
 
 func (sb *SegmentBase) UpdateFieldStats(stats segment.FieldStats) {

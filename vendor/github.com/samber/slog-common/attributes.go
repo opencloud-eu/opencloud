@@ -38,6 +38,8 @@ func ReplaceAttrs(fn ReplaceAttrFn, groups []string, attrs ...slog.Attr) []slog.
 			attrs[i].Value = slog.GroupValue(ReplaceAttrs(fn, append(groups, attr.Key), value.Group()...)...)
 		} else if fn != nil {
 			attrs[i] = fn(groups, attr)
+		} else {
+			attrs[i].Value = value
 		}
 	}
 
@@ -215,7 +217,11 @@ func FormatErrorKey(values map[string]any, errorKeys ...string) map[string]any {
 	return values
 }
 
-func FormatError(err error) map[string]any {
+func FormatError(err error) any {
+	if e, ok := err.(slog.LogValuer); ok {
+		return e.LogValue()
+	}
+
 	return map[string]any{
 		"kind":  reflect.TypeOf(err).String(),
 		"error": err.Error(),
@@ -298,21 +304,28 @@ func FindAttribute(attrs []slog.Attr, groups []string, key string) (slog.Attr, b
 }
 
 func RemoveEmptyAttrs(attrs []slog.Attr) []slog.Attr {
-	return lo.FilterMap(attrs, func(attr slog.Attr, _ int) (slog.Attr, bool) {
-		if attr.Key == "" {
-			return attr, false
-		}
+	return lo.FlatMap(attrs, func(attr slog.Attr, _ int) []slog.Attr {
+		if attr.Key != "" {
+			if attr.Value.Kind() == slog.KindGroup {
+				values := RemoveEmptyAttrs(attr.Value.Group())
+				if len(values) == 0 {
+					return nil
+				}
 
-		if attr.Value.Kind() == slog.KindGroup {
-			values := RemoveEmptyAttrs(attr.Value.Group())
-			if len(values) == 0 {
-				return attr, false
+				attr.Value = slog.GroupValue(values...)
 			}
 
-			attr.Value = slog.GroupValue(values...)
-			return attr, true
+			if attr.Value.Equal(slog.Value{}) {
+				return nil
+			}
+
+			return []slog.Attr{attr}
 		}
 
-		return attr, !attr.Value.Equal(slog.Value{})
+		if attr.Value.Kind() != slog.KindGroup {
+			return nil
+		}
+
+		return RemoveEmptyAttrs(attr.Value.Group())
 	})
 }

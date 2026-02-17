@@ -131,6 +131,7 @@ func New(m map[string]interface{}, stream events.Stream, log *zerolog.Logger) (s
 	}
 
 	tp, err := tree.New(lu, bs, um, trashbin, p, o, stream, store.Create(
+		// TODO use a NewStoreIDCache here?
 		store.Store(o.IDCache.Store),
 		store.TTL(o.IDCache.TTL),
 		store.Size(o.IDCache.Size),
@@ -139,6 +140,9 @@ func New(m map[string]interface{}, stream events.Stream, log *zerolog.Logger) (s
 		microstore.Table(o.IDCache.Table),
 		store.DisablePersistence(o.IDCache.DisablePersistence),
 		store.Authentication(o.IDCache.AuthUsername, o.IDCache.AuthPassword),
+		store.TLSEnabled(o.IDCache.TLSEnabled),
+		store.TLSInsecure(o.IDCache.TLSInsecure),
+		store.TLSRootCA(o.IDCache.TLSRootCACertificate),
 	), log)
 	if err != nil {
 		return nil, err

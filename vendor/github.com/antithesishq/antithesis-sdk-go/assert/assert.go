@@ -17,12 +17,17 @@
 // [test properties]: https://antithesis.com/docs/using_antithesis/properties/
 // [workload]: https://antithesis.com/docs/getting_started/first_test/
 // [antithesis-go-generator]: https://antithesis.com/docs/using_antithesis/sdk/go/instrumentor/
-// [triage report]: https://antithesis.com/docs/reports/triage/
+// [triage report]: https://antithesis.com/docs/reports/
 // [here]: https://antithesis.com/docs/using_antithesis/sdk/fallback/
 // [Sometimes assertions]: https://antithesis.com/docs/best_practices/sometimes_assertions/
 //
-// [details]: https://antithesis.com/docs/reports/triage/#details
+// [details]: https://antithesis.com/docs/reports/
 package assert
+
+import (
+	"encoding/json"
+	"fmt"
+)
 
 type assertInfo struct {
 	Location    *locationInfo  `json:"location"`
@@ -34,6 +39,64 @@ type assertInfo struct {
 	Hit         bool           `json:"hit"`
 	MustHit     bool           `json:"must_hit"`
 	Condition   bool           `json:"condition"`
+}
+
+// Create a custom json marshaler for assertInfo so that we can force Errors to be marshaled with their error details.
+// Without this, custom errors are marshaled as an empty object because the default json marshaler doesn't include the error
+// (because it's a method - not an exported struct field).
+func (f assertInfo) MarshalJSON() ([]byte, error) {
+	type alias assertInfo // prevent infinite recursion
+	a := alias(f)
+	if a.Details != nil {
+		a.Details = normalizeMap(a.Details)
+	}
+	return json.Marshal(a)
+}
+
+type jsonError struct {
+	innerError error
+}
+
+func (e jsonError) MarshalJSON() ([]byte, error) {
+	// Marshal this as the debug output string instead of e.Error(). These should be equivalent, but Sprintf correctly
+	// handles nil values for us (which otherwise are annoying to defend against due to this - https://go.dev/doc/faq#nil_error)
+	return json.Marshal(fmt.Sprintf("%+v", e.innerError))
+}
+
+// Recursively replace any `error` with jsonError while doing a deep copy.
+// Most of the logic is in the normalize method below. This method exists to localize the type assertions
+// and provide a function that takes in/out a map instead of any.
+func normalizeMap(v map[string]any) map[string]any {
+	return normalize(v).(map[string]any)
+}
+
+func normalize(input any) any {
+	// This switch will miss some cases (pointers, structs, non-any types), but should catch a very large proportion of real error interfaces
+	// in real details objects. We can augment this if we find other cases common enough to support.
+	switch inputTyped := input.(type) {
+	case error:
+		// Check if the underlying error implements json.Marshaler, so that if the error
+		// already knows who to marshal itself, we don't override that.
+		if _, ok := inputTyped.(json.Marshaler); ok {
+			return inputTyped
+		} else {
+			return jsonError{inputTyped}
+		}
+	case map[string]any:
+		out := make(map[string]any, len(inputTyped))
+		for k, v := range inputTyped {
+			out[k] = normalize(v)
+		}
+		return out
+	case []any:
+		out := make([]any, len(inputTyped))
+		for i := range inputTyped {
+			out[i] = normalize(inputTyped[i])
+		}
+		return out
+	default:
+		return input
+	}
 }
 
 type wrappedAssertInfo struct {

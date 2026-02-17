@@ -58,7 +58,7 @@ Feature: default capabilities for normal user
                         "const": "%versionstring%"
                       },
                       "edition": {
-                        "const": "dev"
+                        "const": "%edition%"
                       },
                       "productname": {
                         "const": "%productname%"

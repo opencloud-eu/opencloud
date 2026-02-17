@@ -1,0 +1,32 @@
+---
+services:
+  ldap-server:
+    image: bitnamilegacy/openldap:2.6
+    networks:
+      opencloud-net:
+    entrypoint: [ "/bin/sh", "/opt/bitnami/scripts/openldap/docker-entrypoint-override.sh", "/opt/bitnami/scripts/openldap/run.sh" ]
+    environment:
+      BITNAMI_DEBUG: true
+      LDAP_TLS_VERIFY_CLIENT: never
+      LDAP_ENABLE_TLS: "yes"
+      LDAP_TLS_CA_FILE: /opt/bitnami/openldap/share/openldap.crt
+      LDAP_TLS_CERT_FILE: /opt/bitnami/openldap/share/openldap.crt
+      LDAP_TLS_KEY_FILE: /opt/bitnami/openldap/share/openldap.key
+      LDAP_ROOT: "dc=opencloud,dc=eu"
+      LDAP_ADMIN_PASSWORD: ${LDAP_BIND_PASSWORD:-admin}
+    ports:
+      - "127.0.0.1:389:1389"
+      - "127.0.0.1:636:1636"
+    volumes:
+      # Only use the base ldif file to create the base structure
+      - ./config/ldap/ldif/10_base.ldif:/ldifs/10_base.ldif
+      # Use the custom schema from opencloud because we are in full control of the ldap server
+      - ../shared/config/ldap/schemas/10_opencloud_schema.ldif:/schemas/10_opencloud_schema.ldif
+      - ../shared/config/ldap/schemas/20_opencloud_education_schema.ldif:/schemas/20_opencloud_education_schema.ldif
+      - ./config/ldap/docker-entrypoint-override.sh:/opt/bitnami/scripts/openldap/docker-entrypoint-override.sh
+      - ${LDAP_CERTS_DIR:-ldap-certs}:/opt/bitnami/openldap/share
+      - ${LDAP_DATA_DIR:-ldap-data}:/bitnami/openldap
+
+volumes:
+  ldap-certs:
+  ldap-data:

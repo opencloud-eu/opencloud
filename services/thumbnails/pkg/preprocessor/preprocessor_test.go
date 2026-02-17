@@ -149,6 +149,17 @@ var _ = Describe("ImageDecoder", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(img).ToNot(BeNil())
 		})
+
+		It("fails if the font is missing", func() {
+			decoder.fontLoader.fontMapData = &FontMapData{
+				FMap: &FontMap{
+					DefaultFont: "/some/unknown/font.otf",
+				},
+			}
+			img, err := decoder.Convert(bytes.NewReader([]byte("This is a test text")))
+			Expect(err).To(HaveOccurred())
+			Expect(img).To(BeNil())
+		})
 	})
 
 	Describe("test ForType", func() {

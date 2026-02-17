@@ -1,5 +1,3 @@
-//go:build ceph_preview
-
 package cephfs
 
 // Fd returns the integer open file descriptor in cephfs.

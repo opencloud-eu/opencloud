@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/signal"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/reva/v2/cmd/revad/runtime"
 	"github.com/spf13/cobra"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/version"
 	"github.com/opencloud-eu/opencloud/services/app-provider/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/app-provider/pkg/config/parser"
-	"github.com/opencloud-eu/opencloud/services/app-provider/pkg/logging"
 	"github.com/opencloud-eu/opencloud/services/app-provider/pkg/revaconfig"
 	"github.com/opencloud-eu/opencloud/services/app-provider/pkg/server/debug"
 )
@@ -29,7 +29,7 @@ func Server(cfg *config.Config) *cobra.Command {
 			return configlog.ReturnFatal(parser.ParseConfig(cfg))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger := logging.Configure(cfg.Service.Name, cfg.Log)
+			logger := log.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel)
 			traceProvider, err := tracing.GetTraceProvider(cmd.Context(), cfg.Commons.TracesExporter, cfg.Service.Name)
 			if err != nil {
 				return err

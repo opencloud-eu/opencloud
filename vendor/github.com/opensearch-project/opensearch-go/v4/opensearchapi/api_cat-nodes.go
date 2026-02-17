@@ -138,7 +138,7 @@ type CatNodesItemResp struct {
 	SuggestTotal                    *int    `json:"suggest.total,string"`
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r CatNodesResp) Inspect() Inspect {
 	return Inspect{
 		Response: r.response,

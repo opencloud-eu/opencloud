@@ -8,6 +8,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/generators"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/registry"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
 	"github.com/opencloud-eu/opencloud/pkg/service/grpc"
@@ -16,7 +17,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/notifications/pkg/channels"
 	"github.com/opencloud-eu/opencloud/services/notifications/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/notifications/pkg/config/parser"
-	"github.com/opencloud-eu/opencloud/services/notifications/pkg/logging"
 	"github.com/opencloud-eu/opencloud/services/notifications/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/notifications/pkg/service"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
@@ -38,7 +38,7 @@ func Server(cfg *config.Config) *cobra.Command {
 			return configlog.ReturnFatal(parser.ParseConfig(cfg))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger := logging.Configure(cfg.Service.Name, cfg.Log)
+			logger := log.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel)
 
 			traceProvider, err := tracing.GetTraceProvider(cmd.Context(), cfg.Commons.TracesExporter, cfg.Service.Name)
 			if err != nil {

@@ -51,8 +51,8 @@ func DefaultConfig() *config.Config {
 
 // EnsureDefaults adds default values to the configuration if they are not set yet
 func EnsureDefaults(cfg *config.Config) {
-	if cfg.Log == nil {
-		cfg.Log = &config.Log{}
+	if cfg.LogLevel == "" {
+		cfg.LogLevel = "error"
 	}
 }
 

@@ -216,7 +216,7 @@ func (tp *Tree) DownloadRevision(ctx context.Context, ref *provider.Reference, r
 
 	spaceID := ref.ResourceId.SpaceId
 	// check if the node is available and has not been deleted
-	n, err := node.ReadNode(ctx, tp.lookup, spaceID, kp[0], false, nil, false)
+	n, err := node.ReadNode(ctx, tp.lookup, spaceID, kp[0], "", false, nil, false)
 	if err != nil {
 		return nil, nil, err
 	}

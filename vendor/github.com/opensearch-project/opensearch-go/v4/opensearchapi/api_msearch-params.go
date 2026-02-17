@@ -33,7 +33,10 @@ import (
 
 // MSearchParams represents possible parameters for the MSearchReq
 type MSearchParams struct {
+	AllowNoIndices             *bool
 	CcsMinimizeRoundtrips      *bool
+	ExpandWildcards            string
+	IgnoreUnavailable          *bool
 	MaxConcurrentSearches      *int
 	MaxConcurrentShardRequests *int
 	PreFilterShardSize         *int
@@ -50,8 +53,20 @@ type MSearchParams struct {
 func (r MSearchParams) get() map[string]string {
 	params := make(map[string]string)
 
+	if r.AllowNoIndices != nil {
+		params["allow_no_indices"] = strconv.FormatBool(*r.AllowNoIndices)
+	}
+
 	if r.CcsMinimizeRoundtrips != nil {
 		params["ccs_minimize_roundtrips"] = strconv.FormatBool(*r.CcsMinimizeRoundtrips)
+	}
+
+	if r.ExpandWildcards != "" {
+		params["expand_wildcards"] = r.ExpandWildcards
+	}
+
+	if r.IgnoreUnavailable != nil {
+		params["ignore_unavailable"] = strconv.FormatBool(*r.IgnoreUnavailable)
 	}
 
 	if r.MaxConcurrentSearches != nil {

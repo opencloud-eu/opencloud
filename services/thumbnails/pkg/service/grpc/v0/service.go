@@ -12,13 +12,14 @@ import (
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/pkg/errors"
+	merrors "go-micro.dev/v4/errors"
+	"google.golang.org/grpc/metadata"
+
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
-	"github.com/pkg/errors"
-	merrors "go-micro.dev/v4/errors"
-	"google.golang.org/grpc/metadata"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	thumbnailssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/thumbnails/v0"
@@ -169,6 +170,10 @@ func (g Thumbnail) handleCS3Source(ctx context.Context, req *thumbnailssvc.GetTh
 	}
 	pp := preprocessor.ForType(sRes.GetInfo().GetMimeType(), ppOpts)
 	img, err := pp.Convert(r)
+	if err != nil {
+		g.logger.Error().Err(err).Msg("failed to convert image")
+	}
+
 	if img == nil || err != nil {
 		return "", merrors.NotFound(g.serviceID, "could not get image")
 	}

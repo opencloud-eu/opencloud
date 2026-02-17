@@ -75,7 +75,7 @@ type CatRecoveryItemResp struct {
 	TranslogOpsPercent   string `json:"translog_ops_percent"`
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r CatRecoveryResp) Inspect() Inspect {
 	return Inspect{
 		Response: r.response,

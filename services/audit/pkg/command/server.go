@@ -7,10 +7,10 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/generators"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
 	"github.com/opencloud-eu/opencloud/services/audit/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/audit/pkg/config/parser"
-	"github.com/opencloud-eu/opencloud/services/audit/pkg/logging"
 	"github.com/opencloud-eu/opencloud/services/audit/pkg/server/debug"
 	svc "github.com/opencloud-eu/opencloud/services/audit/pkg/service"
 	"github.com/opencloud-eu/opencloud/services/audit/pkg/types"
@@ -35,8 +35,7 @@ func Server(cfg *config.Config) *cobra.Command {
 				defer cancel()
 			}
 			ctx := cfg.Context
-
-			logger := logging.Configure(cfg.Service.Name, cfg.Log)
+			logger := log.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel)
 			gr := runner.NewGroup()
 
 			connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)

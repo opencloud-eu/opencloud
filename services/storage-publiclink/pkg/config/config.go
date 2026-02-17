@@ -7,10 +7,10 @@ import (
 )
 
 type Config struct {
-	Commons *shared.Commons `yaml:"-"` // don't use this directly as configuration for a service
-	Service Service         `yaml:"-"`
-	Log     *Log            `yaml:"log"`
-	Debug   Debug           `yaml:"debug"`
+	Commons  *shared.Commons `yaml:"-"` // don't use this directly as configuration for a service
+	Service  Service         `yaml:"-"`
+	LogLevel string          `yaml:"loglevel" env:"OC_LOG_LEVEL;STORAGE_PUBLICLINK_LOG_LEVEL" desc:"The log level. Valid values are: 'panic', 'fatal', 'error', 'warn', 'info', 'debug', 'trace'." introductionVersion:"1.0.0"`
+	Debug    Debug           `yaml:"debug"`
 
 	GRPC GRPCConfig `yaml:"grpc"`
 
@@ -22,13 +22,6 @@ type Config struct {
 	StorageProvider StorageProvider `yaml:"storage_provider"`
 
 	Context context.Context `yaml:"-"`
-}
-
-type Log struct {
-	Level  string `yaml:"level" env:"OC_LOG_LEVEL;STORAGE_PUBLICLINK_LOG_LEVEL" desc:"The log level. Valid values are: 'panic', 'fatal', 'error', 'warn', 'info', 'debug', 'trace'." introductionVersion:"1.0.0"`
-	Pretty bool   `yaml:"pretty" env:"OC_LOG_PRETTY;STORAGE_PUBLICLINK_LOG_PRETTY" desc:"Activates pretty log output." introductionVersion:"1.0.0"`
-	Color  bool   `yaml:"color" env:"OC_LOG_COLOR;STORAGE_PUBLICLINK_LOG_COLOR" desc:"Activates colorized log output." introductionVersion:"1.0.0"`
-	File   string `yaml:"file" env:"OC_LOG_FILE;STORAGE_PUBLICLINK_LOG_FILE" desc:"The path to the log file. Activates logging to this file if set." introductionVersion:"1.0.0"`
 }
 
 type Service struct {

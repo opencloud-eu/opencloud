@@ -1,0 +1,38 @@
+:root {
+    --pf-global--primary-color--100: #e2baff;
+    --pf-global--primary-color--200: #e2baff;
+    --pf-global--primary-color--dark-100: #e2baff;
+    --pf-global--Color--light-100: #20434f;
+}
+
+@font-face {
+    font-family: OpenCloud;
+    src: url('../fonts/OpenCloud500-Regular.woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: OpenCloud;
+    src: url('../fonts/OpenCloud750-Bold.woff2') format('woff2');
+    font-weight: bold;
+    font-style: normal;
+}
+
+body {
+    font-family: "OpenCloud", "Open Sans", Helvetica, Arial, sans-serif;
+    background: url(../img/background.png) no-repeat center !important;
+    background-size: cover !important;
+}
+
+.kc-logo-text {
+    background-image: url(../img/logo.svg) !important;
+    background-size: contain;
+    width: 400px;
+    margin: 0 !important;
+}
+
+#kc-header-wrapper{
+    display: flex;
+    justify-content: center;
+}

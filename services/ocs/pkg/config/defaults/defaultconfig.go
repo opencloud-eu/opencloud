@@ -49,16 +49,8 @@ func DefaultConfig() *config.Config {
 
 // EnsureDefaults adds default values to the configuration if they are not set yet
 func EnsureDefaults(cfg *config.Config) {
-	// provide with defaults for shared logging, since we need a valid destination address for "envdecode".
-	if cfg.Log == nil && cfg.Commons != nil && cfg.Commons.Log != nil {
-		cfg.Log = &config.Log{
-			Level:  cfg.Commons.Log.Level,
-			Pretty: cfg.Commons.Log.Pretty,
-			Color:  cfg.Commons.Log.Color,
-			File:   cfg.Commons.Log.File,
-		}
-	} else if cfg.Log == nil {
-		cfg.Log = &config.Log{}
+	if cfg.LogLevel == "" {
+		cfg.LogLevel = "error"
 	}
 
 	if cfg.TokenManager == nil && cfg.Commons != nil && cfg.Commons.TokenManager != nil {

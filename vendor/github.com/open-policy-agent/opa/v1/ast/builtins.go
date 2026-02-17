@@ -95,6 +95,7 @@ var DefaultBuiltins = [...]*Builtin{
 
 	// Arrays
 	ArrayConcat,
+	ArrayFlatten,
 	ArraySlice,
 	ArrayReverse,
 
@@ -151,6 +152,7 @@ var DefaultBuiltins = [...]*Builtin{
 	Sprintf,
 	StringReverse,
 	RenderTemplate,
+	InternalTemplateString,
 
 	// Numbers
 	NumbersRange,
@@ -892,6 +894,18 @@ var ArrayConcat = &Builtin{
 	CanSkipBctx: true,
 }
 
+var ArrayFlatten = &Builtin{
+	Name:        "array.flatten",
+	Description: "Non-recursively unpacks array items in arr into the flattened array. Other types are appended as-is.",
+	Decl: types.NewFunction(
+		types.Args(
+			types.Named("arr", types.NewArray(nil, types.A)).Description("the array to be flattened"),
+		),
+		types.Named("flattened", types.NewArray(nil, types.A)).Description("array flattened one level"),
+	),
+	CanSkipBctx: true,
+}
+
 var ArraySlice = &Builtin{
 	Name:        "array.slice",
 	Description: "Returns a slice of a given array. If `start` is greater or equal than `stop`, `slice` is `[]`.",
@@ -1109,7 +1123,7 @@ var Concat = &Builtin{
 		types.Named("output", types.S).Description("the joined string"),
 	),
 	Categories:  stringsCat,
-	CanSkipBctx: true,
+	CanSkipBctx: false,
 }
 
 var FormatInt = &Builtin{
@@ -1277,7 +1291,7 @@ var Replace = &Builtin{
 		types.Named("y", types.S).Description("string with replaced substrings"),
 	),
 	Categories:  stringsCat,
-	CanSkipBctx: true,
+	CanSkipBctx: false,
 }
 
 var ReplaceN = &Builtin{
@@ -1297,7 +1311,7 @@ The old string comparisons are done in argument order.`,
 		),
 		types.Named("output", types.S).Description("string with replaced substrings"),
 	),
-	CanSkipBctx: true,
+	CanSkipBctx: false,
 }
 
 var RegexReplace = &Builtin{
@@ -1822,7 +1836,8 @@ var ObjectKeys = &Builtin{
 /*
  *  Encoding
  */
-var encoding = category("encoding")
+// Not using 'encoding' to avoid having to alias stdlib "encoding" imports
+var catEncoding = category("encoding")
 
 var JSONMarshal = &Builtin{
 	Name:        "json.marshal",
@@ -1833,7 +1848,7 @@ var JSONMarshal = &Builtin{
 		),
 		types.Named("y", types.S).Description("the JSON string representation of `x`"),
 	),
-	Categories:  encoding,
+	Categories:  catEncoding,
 	CanSkipBctx: true,
 }
 
@@ -1855,7 +1870,7 @@ var JSONMarshalWithOptions = &Builtin{
 		),
 		types.Named("y", types.S).Description("the JSON string representation of `x`, with configured prefix/indent string(s) as appropriate"),
 	),
-	Categories:  encoding,
+	Categories:  catEncoding,
 	CanSkipBctx: true,
 }
 
@@ -1868,7 +1883,7 @@ var JSONUnmarshal = &Builtin{
 		),
 		types.Named("y", types.A).Description("the term deserialized from `x`"),
 	),
-	Categories:  encoding,
+	Categories:  catEncoding,
 	CanSkipBctx: true,
 }
 
@@ -1881,7 +1896,7 @@ var JSONIsValid = &Builtin{
 		),
 		types.Named("result", types.B).Description("`true` if `x` is valid JSON, `false` otherwise"),
 	),
-	Categories:  encoding,
+	Categories:  catEncoding,
 	CanSkipBctx: true,
 }
 
@@ -1894,7 +1909,7 @@ var Base64Encode = &Builtin{
 		),
 		types.Named("y", types.S).Description("base64 serialization of `x`"),
 	),
-	Categories:  encoding,
+	Categories:  catEncoding,
 	CanSkipBctx: true,
 }
 
@@ -1907,7 +1922,7 @@ var Base64Decode = &Builtin{
 		),
 		types.Named("y", types.S).Description("base64 deserialization of `x`"),
 	),
-	Categories:  encoding,
+	Categories:  catEncoding,
 	CanSkipBctx: true,
 }
 
@@ -1920,7 +1935,7 @@ var Base64IsValid = &Builtin{
 		),
 		types.Named("result", types.B).Description("`true` if `x` is valid base64 encoded value, `false` otherwise"),
 	),
-	Categories:  encoding,
+	Categories:  catEncoding,
 	CanSkipBctx: true,
 }
 
@@ -1933,7 +1948,7 @@ var Base64UrlEncode = &Builtin{
 		),
 		types.Named("y", types.S).Description("base64url serialization of `x`"),
 	),
-	Categories:  encoding,
+	Categories:  catEncoding,
 	CanSkipBctx: true,
 }
 
@@ -1946,7 +1961,7 @@ var Base64UrlEncodeNoPad = &Builtin{
 		),
 		types.Named("y", types.S).Description("base64url serialization of `x`"),
 	),
-	Categories:  encoding,
+	Categories:  catEncoding,
 	CanSkipBctx: true,
 }
 
@@ -1959,7 +1974,7 @@ var Base64UrlDecode = &Builtin{
 		),
 		types.Named("y", types.S).Description("base64url deserialization of `x`"),
 	),
-	Categories:  encoding,
+	Categories:  catEncoding,
 	CanSkipBctx: true,
 }
 
@@ -1972,7 +1987,7 @@ var URLQueryDecode = &Builtin{
 		),
 		types.Named("y", types.S).Description("URL-encoding deserialization of `x`"),
 	),
-	Categories:  encoding,
+	Categories:  catEncoding,
 	CanSkipBctx: true,
 }
 
@@ -1985,7 +2000,7 @@ var URLQueryEncode = &Builtin{
 		),
 		types.Named("y", types.S).Description("URL-encoding serialization of `x`"),
 	),
-	Categories:  encoding,
+	Categories:  catEncoding,
 	CanSkipBctx: true,
 }
 
@@ -2009,7 +2024,7 @@ var URLQueryEncodeObject = &Builtin{
 		),
 		types.Named("y", types.S).Description("the URL-encoded serialization of `object`"),
 	),
-	Categories:  encoding,
+	Categories:  catEncoding,
 	CanSkipBctx: true,
 }
 
@@ -2024,7 +2039,7 @@ var URLQueryDecodeObject = &Builtin{
 			types.S,
 			types.NewArray(nil, types.S)))).Description("the resulting object"),
 	),
-	Categories:  encoding,
+	Categories:  catEncoding,
 	CanSkipBctx: true,
 }
 
@@ -2037,7 +2052,7 @@ var YAMLMarshal = &Builtin{
 		),
 		types.Named("y", types.S).Description("the YAML string representation of `x`"),
 	),
-	Categories:  encoding,
+	Categories:  catEncoding,
 	CanSkipBctx: true,
 }
 
@@ -2050,7 +2065,7 @@ var YAMLUnmarshal = &Builtin{
 		),
 		types.Named("y", types.A).Description("the term deserialized from `x`"),
 	),
-	Categories:  encoding,
+	Categories:  catEncoding,
 	CanSkipBctx: true,
 }
 
@@ -2064,7 +2079,7 @@ var YAMLIsValid = &Builtin{
 		),
 		types.Named("result", types.B).Description("`true` if `x` is valid YAML, `false` otherwise"),
 	),
-	Categories:  encoding,
+	Categories:  catEncoding,
 	CanSkipBctx: true,
 }
 
@@ -2077,7 +2092,7 @@ var HexEncode = &Builtin{
 		),
 		types.Named("y", types.S).Description("serialization of `x` using hex-encoding"),
 	),
-	Categories:  encoding,
+	Categories:  catEncoding,
 	CanSkipBctx: true,
 }
 
@@ -2090,7 +2105,7 @@ var HexDecode = &Builtin{
 		),
 		types.Named("y", types.S).Description("deserialized from `x`"),
 	),
-	Categories:  encoding,
+	Categories:  catEncoding,
 	CanSkipBctx: true,
 }
 
@@ -3386,6 +3401,11 @@ var InternalPrint = &Builtin{
 var InternalTestCase = &Builtin{
 	Name: "internal.test_case",
 	Decl: types.NewFunction([]types.Type{types.NewArray(nil, types.A)}, nil),
+}
+
+var InternalTemplateString = &Builtin{
+	Name: "internal.template_string",
+	Decl: types.NewFunction([]types.Type{types.NewArray(nil, types.A)}, types.S),
 }
 
 /**

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"path"
 	"regexp"
 	"strings"
 
@@ -271,7 +272,11 @@ func (rt Router) regexRouteMatcher(pattern string, target url.URL) bool {
 }
 
 func prefixRouteMatcher(prefix string, target url.URL) bool {
-	return strings.HasPrefix(target.Path, prefix) && prefix != "/"
+	cleanTarget := path.Clean(target.Path)
+	if strings.HasSuffix(target.Path, "/") {
+		cleanTarget += "/"
+	}
+	return strings.HasPrefix(cleanTarget, prefix) && prefix != "/"
 }
 
 func singleJoiningSlash(a, b string) string {
@@ -288,7 +293,7 @@ func singleJoiningSlash(a, b string) string {
 
 func queryRouteMatcher(endpoint string, target url.URL) bool {
 	u, _ := url.Parse(endpoint)
-	if !strings.HasPrefix(target.Path, u.Path) || endpoint == "/" {
+	if !strings.HasPrefix(path.Clean(target.Path), u.Path) || endpoint == "/" {
 		return false
 	}
 	q := u.Query()

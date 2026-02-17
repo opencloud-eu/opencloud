@@ -54,7 +54,7 @@ type CatTaskResp struct {
 	XOpaqueID     string `json:"x_opaque_id"`
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r CatTasksResp) Inspect() Inspect {
 	return Inspect{
 		Response: r.response,

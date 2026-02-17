@@ -1,0 +1,105 @@
+x-common_config: &common_config
+  image: opencloudeu/opencloud:dev
+  restart: unless-stopped
+  entrypoint: /bin/sh
+  command: ["-c", "opencloud collaboration server"]
+  user: root
+
+x-common_env: &common_env
+  OC_CONFIG_DIR: /etc/opencloud
+  MICRO_REGISTRY: nats-js-kv
+  MICRO_REGISTRY_ADDRESS: opencloud-server:9233
+  COLLABORATION_LOG_LEVEL: info
+  COLLABORATION_GRPC_ADDR: 0.0.0.0:9301
+  COLLABORATION_HTTP_ADDR: 0.0.0.0:9300
+  COLLABORATION_DEBUG_ADDR: 0.0.0.0:9304
+  COLLABORATION_APP_PROOF_DISABLE: true
+  COLLABORATION_APP_INSECURE: true
+  COLLABORATION_CS3API_DATAGATEWAY_INSECURE: true
+  COLLABORATION_WOPI_SECRET: some-wopi-secret
+
+x-config_volume: &config_volume
+  - config:/etc/opencloud
+
+x-depends_on: &depends_on
+  - opencloud-server
+
+services:
+  opencloud-server:
+    environment:
+      OC_CONFIG_DIR: /etc/opencloud
+      GATEWAY_GRPC_ADDR: 0.0.0.0:9142
+      NATS_NATS_HOST: 0.0.0.0
+      NATS_NATS_PORT: 9233
+    volumes: *config_volume
+
+  fakeoffice:
+    image: alpine:latest
+    entrypoint: /bin/sh
+    command:
+      [
+        "-c",
+        "while true; do echo -e \"HTTP/1.1 200 OK\n\n$(cat /fakeoffice-discovery.xml)\" | nc -l -k -p 8080; done",
+      ]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://fakeoffice:8080"]
+    volumes:
+      - ./../../../config/woodpecker/hosting-discovery.xml:/fakeoffice-discovery.xml
+
+  collabora:
+    image: collabora/code:24.04.5.1.1
+    environment:
+      DONT_GEN_SSL_CERT: set
+      extra_params: --o:ssl.enable=true --o:ssl.termination=true --o:welcome.enable=false --o:net.frame_ancestors=https://opencloud-server:9200
+    entrypoint: /bin/sh
+    command: ["-c", "coolconfig generate-proof-key; /start-collabora-online.sh"]
+
+  onlyoffice:
+    image: onlyoffice/documentserver:7.5.1
+    environment:
+      WOPI_ENABLED: true
+      USE_UNAUTHORIZED_STORAGE: true
+    entrypoint: bash /entrypoint.sh
+    volumes:
+      - ./onlyoffice-entrypoint.sh:/entrypoint.sh
+
+  collaboration-fakeoffice:
+    <<: *common_config
+    environment:
+      <<: *common_env
+      COLLABORATION_SERVICE_NAME: collaboration-fakeoffice
+      COLLABORATION_APP_NAME: FakeOffice
+      COLLABORATION_APP_PRODUCT: Microsoft
+      COLLABORATION_APP_ADDR: http://fakeoffice:8080
+      COLLABORATION_WOPI_SRC: http://collaboration-fakeoffice:9300
+    volumes: *config_volume
+    depends_on: *depends_on
+
+  collaboration-collabora:
+    <<: *common_config
+    environment:
+      <<: *common_env
+      COLLABORATION_SERVICE_NAME: collaboration-collabora
+      COLLABORATION_APP_NAME: Collabora
+      COLLABORATION_APP_PRODUCT: Collabora
+      COLLABORATION_APP_ADDR: https://collabora:9980
+      COLLABORATION_APP_ICON: https://collabora:9980/favicon.ico
+      COLLABORATION_WOPI_SRC: http://collaboration-collabora:9300
+    volumes: *config_volume
+    depends_on: *depends_on
+
+  collaboration-onlyoffice:
+    <<: *common_config
+    environment:
+      <<: *common_env
+      COLLABORATION_SERVICE_NAME: collaboration-onlyoffice
+      COLLABORATION_APP_NAME: OnlyOffice
+      COLLABORATION_APP_PRODUCT: OnlyOffice
+      COLLABORATION_APP_ADDR: https://onlyoffice
+      COLLABORATION_APP_ICON: https://onlyoffice/web-apps/apps/documenteditor/main/resources/img/favicon.ico
+      COLLABORATION_WOPI_SRC: http://collaboration-onlyoffice:9300
+    volumes: *config_volume
+    depends_on: *depends_on
+
+volumes:
+  config:

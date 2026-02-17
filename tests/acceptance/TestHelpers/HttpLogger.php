@@ -77,7 +77,7 @@ class HttpLogger {
 		}
 
 		$logMessage = "\t\t_______________________________________________________________________\n\n";
-		$logMessage .= "\t\t==> REQUEST\n";
+		$logMessage .= "\t\t==> REQUEST [" . self::getCurrentDateTime() . "]\n";
 		$logMessage .= "\t\t$method $path\n";
 		$logMessage .= $query ? "\t\tQUERY: $query\n" : "";
 		$logMessage .= "\t\t$headers";
@@ -105,7 +105,7 @@ class HttpLogger {
 			$headers = $key . ": " . $value[0] . "\n";
 		}
 
-		$logMessage = "\t\t<== RESPONSE\n";
+		$logMessage = "\t\t<== RESPONSE [" . self::getCurrentDateTime() . "]\n";
 		$logMessage .= "\t\t$statusCode $statusMessage\n";
 		$logMessage .= "\t\t$headers";
 
@@ -120,5 +120,14 @@ class HttpLogger {
 
 		$logMessage = \rtrim($logMessage) . "\n\n";
 		self::writeLog(self::getScenarioLogPath(), $logMessage);
+	}
+
+	/**
+	 * Returns current date and time in format: 1999-01-31T23:01:59
+	 *
+	 * @return string
+	 */
+	public static function getCurrentDateTime(): string {
+		return date('Y-m-d\TG:i:s');
 	}
 }

@@ -40,7 +40,6 @@ import (
 	invitations "github.com/opencloud-eu/opencloud/services/invitations/pkg/command"
 	nats "github.com/opencloud-eu/opencloud/services/nats/pkg/command"
 	notifications "github.com/opencloud-eu/opencloud/services/notifications/pkg/command"
-	ocdav "github.com/opencloud-eu/opencloud/services/ocdav/pkg/command"
 	ocm "github.com/opencloud-eu/opencloud/services/ocm/pkg/command"
 	ocs "github.com/opencloud-eu/opencloud/services/ocs/pkg/command"
 	policies "github.com/opencloud-eu/opencloud/services/policies/pkg/command"
@@ -203,11 +202,6 @@ func NewService(ctx context.Context, options ...Option) (*Service, error) {
 		cfg.IDM.Context = ctx
 		cfg.IDM.Commons = cfg.Commons
 		return idm.Execute(cfg.IDM)
-	})
-	reg(3, opts.Config.OCDav.Service.Name, func(ctx context.Context, cfg *occfg.Config) error {
-		cfg.OCDav.Context = ctx
-		cfg.OCDav.Commons = cfg.Commons
-		return ocdav.Execute(cfg.OCDav)
 	})
 	reg(3, opts.Config.OCS.Service.Name, func(ctx context.Context, cfg *occfg.Config) error {
 		cfg.OCS.Context = ctx

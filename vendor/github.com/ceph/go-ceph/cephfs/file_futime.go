@@ -1,5 +1,3 @@
-//go:build ceph_preview
-
 package cephfs
 
 // Futime changes file/directory last access and modification times.

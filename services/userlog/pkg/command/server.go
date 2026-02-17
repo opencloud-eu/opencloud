@@ -7,6 +7,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/generators"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/registry"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
 	ogrpc "github.com/opencloud-eu/opencloud/pkg/service/grpc"
@@ -16,7 +17,6 @@ import (
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/config/parser"
-	"github.com/opencloud-eu/opencloud/services/userlog/pkg/logging"
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/server/http"
@@ -56,7 +56,7 @@ func Server(cfg *config.Config) *cobra.Command {
 			return configlog.ReturnFatal(parser.ParseConfig(cfg))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger := logging.Configure(cfg.Service.Name, cfg.Log)
+			logger := log.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel)
 			tracerProvider, err := tracing.GetTraceProvider(cmd.Context(), cfg.Commons.TracesExporter, cfg.Service.Name)
 			if err != nil {
 				return err

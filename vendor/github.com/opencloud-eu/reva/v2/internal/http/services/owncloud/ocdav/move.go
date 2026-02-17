@@ -131,6 +131,16 @@ func (s *svc) handleSpacesMove(w http.ResponseWriter, r *http.Request, srcSpaceI
 
 	dstSpaceID, dstRelPath := router.ShiftPath(dst)
 
+	if dstRelPath != "" && dstRelPath != "." && dstRelPath != "/" {
+		err := ValidateDestination(filename(dstRelPath), s.nameValidators)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			b, err := errors.Marshal(http.StatusBadRequest, "destination naming rules", "", "")
+			errors.HandleWebdavError(appctx.GetLogger(ctx), w, b, err)
+			return
+		}
+	}
+
 	dstRef, err := spacelookup.MakeStorageSpaceReference(dstSpaceID, dstRelPath)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)

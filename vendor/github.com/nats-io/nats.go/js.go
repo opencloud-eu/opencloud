@@ -1132,7 +1132,7 @@ func (js *js) PublishMsgAsync(m *Msg, opts ...PubOpt) (PubAckFuture, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := js.nc.publish(m.Subject, reply, hdr, m.Data); err != nil {
+	if err := js.nc.publish(m.Subject, reply, false, hdr, m.Data); err != nil {
 		js.clearPAF(id)
 		return nil, err
 	}
@@ -3560,7 +3560,7 @@ func (js *js) apiRequestWithContext(ctx context.Context, subj string, data []byt
 	}
 	if js.opts.shouldTrace {
 		ctrace := js.opts.ctrace
-		if ctrace.RequestSent != nil {
+		if ctrace.ResponseReceived != nil {
 			ctrace.ResponseReceived(subj, resp.Data, resp.Header)
 		}
 	}

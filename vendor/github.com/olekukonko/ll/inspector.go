@@ -79,7 +79,7 @@ func (o *Inspector) Log(skip int, values ...interface{}) {
 		}
 
 		// Construct log message with file, line, and JSON data
-		msg := fmt.Sprintf("[%s:%d] DUMP: %s", shortFile, line, string(jsonData))
+		msg := fmt.Sprintf("[%s:%d] INSPECT: %s", shortFile, line, string(jsonData))
 		o.logger.log(lx.LevelInfo, lx.ClassText, msg, nil, false)
 	}
 }

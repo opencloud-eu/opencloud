@@ -35,7 +35,7 @@ type ClusterPendingTasksResp struct {
 	response *opensearch.Response
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r ClusterPendingTasksResp) Inspect() Inspect {
 	return Inspect{Response: r.response}
 }

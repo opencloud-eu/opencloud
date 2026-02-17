@@ -141,8 +141,8 @@ func buildECDHPrivateKey(alg jwa.EllipticCurveAlgorithm, dbuf []byte) (*ecdh.Pri
 }
 
 var ecdsaConvertibleTypes = []reflect.Type{
-	reflect.TypeOf((*ECDSAPrivateKey)(nil)).Elem(),
-	reflect.TypeOf((*ECDSAPublicKey)(nil)).Elem(),
+	reflect.TypeFor[ECDSAPrivateKey](),
+	reflect.TypeFor[ECDSAPublicKey](),
 }
 
 func ecdsaJWKToRaw(keyif Key, hint any) (any, error) {

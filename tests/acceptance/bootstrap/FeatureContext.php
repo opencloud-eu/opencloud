@@ -37,11 +37,13 @@ use TestHelpers\SetupHelper;
 use TestHelpers\HttpRequestHelper;
 use TestHelpers\HttpLogger;
 use TestHelpers\OcHelper;
+use TestHelpers\StorageDriver;
 use TestHelpers\GraphHelper;
 use TestHelpers\WebDavHelper;
 use TestHelpers\SettingsHelper;
 use TestHelpers\OcConfigHelper;
 use TestHelpers\BehatHelper;
+use TestHelpers\UploadHelper;
 use Swaggest\JsonSchema\InvalidValue as JsonSchemaException;
 use Swaggest\JsonSchema\Exception\ArrayException;
 use Swaggest\JsonSchema\Exception\ConstException;
@@ -558,6 +560,38 @@ class FeatureContext extends BehatVariablesContext {
 	public static function setupLogDir(BeforeSuiteScope $scope): void {
 		if (!\file_exists(HttpLogger::getLogDir())) {
 			\mkdir(HttpLogger::getLogDir(), 0777, true);
+		}
+	}
+
+	/**
+	 * @BeforeScenario @antivirus
+	 *
+	 * @return void
+	 * @throws Exception
+	 */
+	public function createTestVirusFiles(): void {
+		$uploadDir = UploadHelper::getFilesForUploadDir() . 'filesWithVirus/';
+		$virusFile = $uploadDir . 'eicar.com';
+		$virusZipFile = $uploadDir . 'eicar_com.zip';
+
+		if (file_exists($virusFile) && file_exists($virusZipFile)) {
+			return;
+		}
+
+		if (!is_dir($uploadDir)) {
+			mkdir($uploadDir, 0755);
+		}
+
+		$res1 = HttpRequestHelper::sendRequestOnce('https://secure.eicar.org/eicar.com');
+		if ($res1->getStatusCode() !== 200) {
+			throw new Exception("Could not download eicar.com test virus file");
+		}
+		file_put_contents($virusFile, $res1->getBody()->getContents());
+
+		$res2 = HttpRequestHelper::sendRequestOnce('https://secure.eicar.org/eicar_com.zip');
+		file_put_contents($virusZipFile, $res2->getBody()->getContents());
+		if ($res2->getStatusCode() !== 200) {
+			throw new Exception("Could not download eicar_com.zip test virus file");
 		}
 	}
 
@@ -1577,7 +1611,7 @@ class FeatureContext extends BehatVariablesContext {
 	 *
 	 * @return mixed
 	 */
-	public function getJsonDecodedResponseBodyContent(ResponseInterface $response = null): mixed {
+	public function getJsonDecodedResponseBodyContent(?ResponseInterface $response = null): mixed {
 		$response = $response ?? $this->response;
 		$response->getBody()->rewind();
 		return HttpRequestHelper::getJsonDecodedResponseBodyContent($response);
@@ -2598,15 +2632,8 @@ class FeatureContext extends BehatVariablesContext {
 	/**
 	 * @return string
 	 */
-	public function acceptanceTestsDirLocation(): string {
-		return \dirname(__FILE__) . "/../";
-	}
-
-	/**
-	 * @return string
-	 */
 	public function workStorageDirLocation(): string {
-		return $this->acceptanceTestsDirLocation() . $this->temporaryStorageSubfolderName() . "/";
+		return UploadHelper::getAcceptanceTestsDir() . $this->temporaryStorageSubfolderName() . "/";
 	}
 
 	/**
@@ -2967,10 +2994,10 @@ class FeatureContext extends BehatVariablesContext {
 	public static function isExpectedToFail(string $scenarioLine): bool {
 		$expectedFailFile = \getenv('EXPECTED_FAILURES_FILE');
 		if (!$expectedFailFile) {
-			$expectedFailFile = __DIR__ . '/../expected-failures-localAPI-on-decomposed-storage.md';
-			if (\strpos($scenarioLine, "coreApi") === 0) {
-				$expectedFailFile = __DIR__ . '/../expected-failures-API-on-decomposed-storage.md';
+			if (OcHelper::getStorageDriver() === StorageDriver::POSIX) {
+				$expectedFailFile = __DIR__ . '/../expected-failures-posix-storage.md';
 			}
+			$expectedFailFile = __DIR__ . '/../expected-failures-decomposed-storage.md';
 		}
 
 		$reader = \fopen($expectedFailFile, 'r');

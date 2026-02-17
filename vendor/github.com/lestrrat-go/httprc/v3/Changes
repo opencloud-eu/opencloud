@@ -1,6 +1,10 @@
 Changes
 =======
 
+v3.0.2 05 Dev 2025
+* Code changes mainly due to upgraded linter.
+* github.com/lestrrat-go/option upgraded to v2
+
 v3.0.1  18 Aug 2025
 * Refresh() no longer requires the resource to be ready.
 

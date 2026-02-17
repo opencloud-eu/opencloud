@@ -13,7 +13,7 @@ This service is part of the storage services family and is responsible for:
 The storage-shares service integrates with:
 - `sharing` service - Manages and persists shares
 - `storage-users` service - Accesses the underlying file content
-- `frontend` and `ocdav` - Provide HTTP/WebDAV access to shares
+- `frontend` service - Provides HTTP/WebDAV access to shares
 
 ## Virtual Shares Folder
 

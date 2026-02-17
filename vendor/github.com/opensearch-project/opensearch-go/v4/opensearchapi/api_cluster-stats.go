@@ -60,7 +60,7 @@ type ClusterStatsResp struct {
 	response    *opensearch.Response
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r ClusterStatsResp) Inspect() Inspect {
 	return Inspect{Response: r.response}
 }
@@ -194,6 +194,7 @@ type ClusterStatsNodes struct {
 		Master              int `json:"master"`
 		RemoteClusterClient int `json:"remote_cluster_client"`
 		Search              int `json:"search"`
+		Warm                int `json:"warm"`
 	} `json:"count"`
 	Versions []string `json:"versions"`
 	Os       struct {

@@ -70,7 +70,7 @@ type MSearchResp struct {
 				Value    int    `json:"value"`
 				Relation string `json:"relation"`
 			} `json:"total"`
-			MaxScore float32     `json:"max_score"`
+			MaxScore *float32    `json:"max_score"`
 			Hits     []SearchHit `json:"hits"`
 		} `json:"hits"`
 		Status       int             `json:"status"`
@@ -79,7 +79,7 @@ type MSearchResp struct {
 	response *opensearch.Response
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r MSearchResp) Inspect() Inspect {
 	return Inspect{Response: r.response}
 }

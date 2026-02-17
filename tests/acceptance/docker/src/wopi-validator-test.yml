@@ -1,0 +1,86 @@
+services:
+  fakeoffice:
+    image: owncloudci/alpine:latest
+    entrypoint: /bin/sh
+    command:
+      [
+        "-c",
+        "while true; do echo -e \"HTTP/1.1 200 OK\n\n$(cat /hosting-discovery.xml)\" | nc -l -k -p 8080; done",
+      ]
+    ports:
+      - 8080:8080
+    extra_hosts:
+      - opencloud.local:${DOCKER_HOST:-host-gateway}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+    volumes:
+      - ./../../../config/woodpecker/hosting-discovery.xml:/hosting-discovery.xml
+
+  opencloud:
+    image: opencloudeu/opencloud:dev
+    container_name: opencloud-server
+    ports:
+      - 9200:9200
+    entrypoint: /bin/sh
+    command: ["-c", "opencloud init || true; sleep 10; opencloud server"]
+    environment:
+      OC_URL: https://opencloud-server:9200
+      OC_CONFIG_DIR: /etc/opencloud
+      STORAGE_USERS_DRIVER: posix
+      PROXY_ENABLE_BASIC_AUTH: true
+      OC_LOG_LEVEL: error
+      OC_LOG_COLOR: false
+      OC_INSECURE: true
+      IDM_ADMIN_PASSWORD: admin
+      GATEWAY_GRPC_ADDR: 0.0.0.0:9142
+      NATS_NATS_HOST: 0.0.0.0
+      NATS_NATS_PORT: 9233
+    volumes:
+      - config:/etc/opencloud
+    depends_on:
+      fakeoffice:
+        condition: service_healthy
+
+  collaboration:
+    image: opencloudeu/opencloud:dev
+    restart: unless-stopped
+    ports:
+      - 9300:9300
+    entrypoint:
+      - /bin/sh
+    command: ["-c", "opencloud collaboration server"]
+    environment:
+      OC_CONFIG_DIR: /etc/opencloud
+      MICRO_REGISTRY: nats-js-kv
+      MICRO_REGISTRY_ADDRESS: opencloud:9233
+      COLLABORATION_LOG_LEVEL: info
+      COLLABORATION_GRPC_ADDR: 0.0.0.0:9301
+      COLLABORATION_HTTP_ADDR: 0.0.0.0:9300
+      COLLABORATION_DEBUG_ADDR: 0.0.0.0:9304
+      COLLABORATION_APP_PROOF_DISABLE: true
+      COLLABORATION_APP_INSECURE: true
+      COLLABORATION_CS3API_DATAGATEWAY_INSECURE: true
+      COLLABORATION_WOPI_SECRET: some-wopi-secret
+      COLLABORATION_SERVICE_NAME: collaboration-fakeoffice
+      COLLABORATION_APP_NAME: FakeOffice
+      COLLABORATION_APP_PRODUCT: Microsoft
+      COLLABORATION_APP_ADDR: http://fakeoffice:8080
+      COLLABORATION_WOPI_SRC: http://collaboration:9300
+    volumes:
+      - config:/etc/opencloud
+    depends_on:
+      - opencloud
+  
+  wopi-validator:
+    image: ${WOPI_VALIDATOR_IMAGE:-opencloudeu/wopi-validator-ci}
+    volumes:
+      - ./run-wopi-validator.sh:/app/run-wopi-validator.sh
+    environment:
+      TEST_GROUP: ${TEST_GROUP:-PutRelativeFile}
+    entrypoint: /app/run-wopi-validator.sh
+    depends_on:
+      - collaboration
+    restart: "on-failure"
+
+volumes:
+  config:

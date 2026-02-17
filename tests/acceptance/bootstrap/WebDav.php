@@ -1644,11 +1644,11 @@ trait WebDav {
 		string $user,
 		string $source,
 		string $destination,
-		string $spaceId = null,
+		?string $spaceId = null,
 		?bool $isGivenStep = false
 	): ResponseInterface {
 		$user = $this->getActualUsername($user);
-		$file = \fopen($this->acceptanceTestsDirLocation() . $source, 'r');
+		$file = \fopen(UploadHelper::getAcceptanceTestsDir() . $source, 'r');
 		$this->pauseUploadDelete();
 		$response = $this->makeDavRequest(
 			$user,
@@ -1781,7 +1781,7 @@ trait WebDav {
 		}
 		return $this->uploadFileWithHeaders(
 			$user,
-			$this->acceptanceTestsDirLocation() . $source,
+			UploadHelper::getAcceptanceTestsDir() . $source,
 			$destination,
 			$headers,
 			$noOfChunks
@@ -2222,7 +2222,7 @@ trait WebDav {
 			$this->getBaseUrl(),
 			$user,
 			$this->getPasswordForUser($user),
-			$this->acceptanceTestsDirLocation() . $source,
+			UploadHelper::getAcceptanceTestsDir() . $source,
 			$destination,
 			$this->getStepLineRef(),
 			["X-OC-Mtime" => $mtime],
@@ -2257,7 +2257,7 @@ trait WebDav {
 			$this->getBaseUrl(),
 			$user,
 			$this->getPasswordForUser($user),
-			$this->acceptanceTestsDirLocation() . $source,
+			UploadHelper::getAcceptanceTestsDir() . $source,
 			$destination,
 			$this->getStepLineRef(),
 			["X-OC-Mtime" => $mtime],
@@ -4054,7 +4054,7 @@ trait WebDav {
 	 *
 	 * @return string|null
 	 */
-	public function getFileIdForPath(string $user, string $path, string $spaceId = null): ?string {
+	public function getFileIdForPath(string $user, string $path, ?string $spaceId = null): ?string {
 		$user = $this->getActualUsername($user);
 		try {
 			return WebDavHelper::getFileIdForPath(

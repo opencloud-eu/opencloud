@@ -51,6 +51,9 @@ type Client struct {
 // By default ALL urls are allowed. This may not be suitable for you if
 // are using this in a production environment. You are encouraged to specify
 // a whitelist using the `WithWhitelist` option.
+//
+// NOTE: In future versions, this function signature should be changed to
+// return an error to properly handle option parsing failures.
 func NewClient(options ...NewClientOption) *Client {
 	//nolint:staticcheck
 	var errSink ErrorSink = errsink.NewNop()
@@ -63,19 +66,18 @@ func NewClient(options ...NewClientOption) *Client {
 	defaultMaxInterval := DefaultMaxInterval
 
 	numWorkers := DefaultWorkers
-	//nolint:forcetypeassert
 	for _, option := range options {
 		switch option.Ident() {
 		case identHTTPClient{}:
-			httpcl = option.Value().(HTTPClient)
+			_ = option.Value(&httpcl)
 		case identWorkers{}:
-			numWorkers = option.Value().(int)
+			_ = option.Value(&numWorkers)
 		case identErrorSink{}:
-			errSink = option.Value().(ErrorSink)
+			_ = option.Value(&errSink)
 		case identTraceSink{}:
-			traceSink = option.Value().(TraceSink)
+			_ = option.Value(&traceSink)
 		case identWhitelist{}:
-			wl = option.Value().(Whitelist)
+			_ = option.Value(&wl)
 		}
 	}
 

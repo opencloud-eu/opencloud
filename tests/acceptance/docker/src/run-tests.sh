@@ -1,70 +1,42 @@
 #!/bin/bash
 
-#mkdir -p /drone/src/vendor-bin/behat
-#cp /tmp/vendor-bin/behat/composer.json /drone/src/vendor-bin/behat/composer.json
+mkdir -p "${OC_ROOT}/vendor-bin/behat"
+if [ ! -f "${OC_ROOT}/vendor-bin/behat/composer.json" ]; then
+    cp /tmp/vendor-bin/behat/composer.json "${OC_ROOT}/vendor-bin/behat/composer.json"
+fi
 
 git config --global advice.detachedHead false
 
 ## CONFIGURE TEST
+BEHAT_FILTER_TAGS='~@skip'
+EXPECTED_FAILURES_FILE=''
 
-if [ "$TEST_SOURCE" = "core" ]; then
-    export ACCEPTANCE_TEST_TYPE='core-api'
-    if [ "$STORAGE_DRIVER" = "decomposed" ]; then
-        export OC_REVA_DATA_ROOT=''
-        export BEHAT_FILTER_TAGS='~@skipOnOpencloud-decomposed-Storage'
-        export EXPECTED_FAILURES_FILE='/drone/src/tests/acceptance/expected-failures-API-on-decomposed-storage.md'
-    elif [ "$STORAGE_DRIVER" = "decomposeds3" ]; then
-        export BEHAT_FILTER_TAGS='~@skip&&~@skipOnOpencloud-decomposeds3-Storage'
-        export OC_REVA_DATA_ROOT=''
-    else
-        echo "non existing STORAGE selected"
-        exit 1
-    fi
-
-    unset BEHAT_SUITE
-
-elif [ "$TEST_SOURCE" = "opencloud" ]; then
-    if [ "$STORAGE_DRIVER" = "decomposed" ]; then
-        export BEHAT_FILTER_TAGS='~@skip&&~@skipOnOpencloud-decomposed-Storage'
-        export OC_REVA_DATA_ROOT=''
-    elif [ "$STORAGE_DRIVER" = "decomposeds3" ]; then
-        export BEHAT_FILTER_TAGS='~@skip&&~@skipOnOpencloud-decomposeds3-Storage'
-        export OC_REVA_DATA_ROOT=''
-    elif [ "$STORAGE_DRIVER" = "posix" ]; then
-        export BEHAT_FILTER_TAGS='~@skip&&~@skipOnOpencloud-posix-Storage'
-        export OC_REVA_DATA_ROOT=''
-    else
-        echo "non existing storage selected"
-        exit 1
-    fi
-
-    unset DIVIDE_INTO_NUM_PARTS
-    unset RUN_PART
-else
-    echo "non existing TEST_SOURCE selected"
-    exit 1
+if [ "$STORAGE_DRIVER" = "posix" ]; then
+    BEHAT_FILTER_TAGS+='&&~@skipOnOpencloud-posix-Storage'
+    EXPECTED_FAILURES_FILE="${OC_ROOT}/tests/acceptance/expected-failures-posix-storage.md"
+elif [ "$STORAGE_DRIVER" = "decomposed" ]; then
+    BEHAT_FILTER_TAGS+='&&~@skipOnOpencloud-decomposed-Storage'
+    EXPECTED_FAILURES_FILE="${OC_ROOT}/tests/acceptance/expected-failures-decomposed-storage.md"
 fi
 
-if [ ! -z "$BEHAT_FEATURE" ]; then
-    echo "feature selected: " + $BEHAT_FEATURE
-    # allow running without filters if its a feature
+export BEHAT_FILTER_TAGS
+export EXPECTED_FAILURES_FILE
 
+if [ -n "$BEHAT_FEATURE" ]; then
+    export BEHAT_FEATURE
+    echo "[INFO] Running feature: $BEHAT_FEATURE"
+    # allow running without filters if its a feature
     unset BEHAT_FILTER_TAGS
-    unset DIVIDE_INTO_NUM_PARTS
-    unset RUN_PART
+    unset BEHAT_SUITE
     unset EXPECTED_FAILURES_FILE
-else
+elif [ -n "$BEHAT_SUITE" ]; then
+    export BEHAT_SUITE
+    echo "[INFO] Running suite: $BEHAT_SUITE"
     unset BEHAT_FEATURE
 fi
 
 ## RUN TEST
+sleep 10
+make -C "$OC_ROOT" test-acceptance-api
 
-if [[ -z "$TEST_SOURCE" ]]; then
-    echo "non existing TEST_SOURCE selected"
-    exit 1
-else
-    sleep 10
-    make -C $OC_ROOT test-acceptance-api
-fi
-
-chmod -R 777 vendor-bin/**/vendor vendor-bin/**/composer.lock tests/acceptance/output
+chmod -R 777 "${OC_ROOT}/vendor-bin/"*"/vendor" "${OC_ROOT}/vendor-bin/"*"/composer.lock" "${OC_ROOT}/tests/acceptance/output" 2>/dev/null || true

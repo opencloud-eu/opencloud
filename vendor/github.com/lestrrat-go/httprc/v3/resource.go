@@ -41,17 +41,24 @@ func NewResource[T any](s string, transformer Transformer[T], options ...NewReso
 	var interval time.Duration
 	minInterval := DefaultMinInterval
 	maxInterval := DefaultMaxInterval
-	//nolint:forcetypeassert
 	for _, option := range options {
 		switch option.Ident() {
 		case identHTTPClient{}:
-			httpcl = option.Value().(HTTPClient)
+			if err := option.Value(&httpcl); err != nil {
+				return nil, fmt.Errorf(`httprc.NewResource: failed to parse HTTPClient option: %w`, err)
+			}
 		case identMinimumInterval{}:
-			minInterval = option.Value().(time.Duration)
+			if err := option.Value(&minInterval); err != nil {
+				return nil, fmt.Errorf(`httprc.NewResource: failed to parse MinimumInterval option: %w`, err)
+			}
 		case identMaximumInterval{}:
-			maxInterval = option.Value().(time.Duration)
+			if err := option.Value(&maxInterval); err != nil {
+				return nil, fmt.Errorf(`httprc.NewResource: failed to parse MaximumInterval option: %w`, err)
+			}
 		case identConstantInterval{}:
-			interval = option.Value().(time.Duration)
+			if err := option.Value(&interval); err != nil {
+				return nil, fmt.Errorf(`httprc.NewResource: failed to parse ConstantInterval option: %w`, err)
+			}
 		}
 	}
 	if transformer == nil {
@@ -109,7 +116,7 @@ func (r *ResourceBase[T]) Ready(ctx context.Context) error {
 // returns `A` or `B` depending on the type of the resource. When accessing the
 // resource through the `httprc.Resource` interface, use this method to obtain the
 // stored value.
-func (r *ResourceBase[T]) Get(dst interface{}) error {
+func (r *ResourceBase[T]) Get(dst any) error {
 	return blackmagic.AssignIfCompatible(dst, r.Resource())
 }
 

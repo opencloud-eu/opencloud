@@ -171,7 +171,6 @@ func DefaultConfig() *config.Config {
 			Store:    "nats-js-kv",
 			Nodes:    []string{"127.0.0.1:9233"},
 			Database: "ids-storage-users",
-			TTL:      24 * 60 * time.Second,
 		},
 		Tasks: config.Tasks{
 			PurgeTrashBin: config.PurgeTrashBin{
@@ -184,16 +183,8 @@ func DefaultConfig() *config.Config {
 
 // EnsureDefaults adds default values to the configuration if they are not set yet
 func EnsureDefaults(cfg *config.Config) {
-	// provide with defaults for shared logging, since we need a valid destination address for "envdecode".
-	if cfg.Log == nil && cfg.Commons != nil && cfg.Commons.Log != nil {
-		cfg.Log = &config.Log{
-			Level:  cfg.Commons.Log.Level,
-			Pretty: cfg.Commons.Log.Pretty,
-			Color:  cfg.Commons.Log.Color,
-			File:   cfg.Commons.Log.File,
-		}
-	} else if cfg.Log == nil {
-		cfg.Log = &config.Log{}
+	if cfg.LogLevel == "" {
+		cfg.LogLevel = "error"
 	}
 
 	if cfg.Reva == nil && cfg.Commons != nil {

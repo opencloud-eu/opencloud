@@ -19,7 +19,6 @@ Feature: service health check
       | http://%base_url_hostname%:9239/healthz | idm                |
       | http://%base_url_hostname%:9134/healthz | idp                |
       | http://%base_url_hostname%:9234/healthz | nats               |
-      | http://%base_url_hostname%:9163/healthz | ocdav              |
       | http://%base_url_hostname%:9281/healthz | ocm                |
       | http://%base_url_hostname%:9114/healthz | ocs                |
       | http://%base_url_hostname%:9255/healthz | postprocessing     |
@@ -74,7 +73,6 @@ Feature: service health check
       | http://%base_url_hostname%:9161/readyz | groups             |
       | http://%base_url_hostname%:9239/readyz | idm                |
       | http://%base_url_hostname%:9234/readyz | nats               |
-      | http://%base_url_hostname%:9163/readyz | ocdav              |
       | http://%base_url_hostname%:9281/readyz | ocm                |
       | http://%base_url_hostname%:9114/readyz | ocs                |
       | http://%base_url_hostname%:9255/readyz | postprocessing     |

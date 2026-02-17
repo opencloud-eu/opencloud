@@ -1,4 +1,4 @@
-// Copyright 2019-2025 The NATS Authors
+// Copyright 2019-2026 The NATS Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -425,6 +425,7 @@ type stream struct {
 	active    bool                    // Indicates that there are active internal subscriptions (for the subject filters)
 	// and/or mirror/sources consumers are scheduled to be established or already started.
 	closed atomic.Bool // Set to true when stop() is called on the stream.
+	cisrun atomic.Bool // Indicates one checkInterestState is already running.
 
 	// Mirror
 	mirror *sourceInfo
@@ -827,11 +828,19 @@ func (a *Account) addStreamWithAssignment(config *StreamConfig, fsConfig *FileSt
 			ipqLimitByLen[*inMsg](mlen),
 			ipqLimitBySize[*inMsg](msz),
 		),
-		gets: newIPQueue[*directGetReq](s, qpfx+"direct gets"),
-		qch:  make(chan struct{}),
-		mqch: make(chan struct{}),
-		uch:  make(chan struct{}, 4),
-		sch:  make(chan struct{}, 1),
+		gets:    newIPQueue[*directGetReq](s, qpfx+"direct gets"),
+		qch:     make(chan struct{}),
+		mqch:    make(chan struct{}),
+		uch:     make(chan struct{}, 4),
+		sch:     make(chan struct{}, 1),
+		created: time.Now().UTC(),
+	}
+
+	// Add created timestamp used for the store, must match that of the stream assignment if it exists.
+	if sa != nil {
+		// The following assignment does not require mutex
+		// protection: sa.Created is immutable.
+		mset.created = sa.Created
 	}
 
 	// Start our signaling routine to process consumers.
@@ -895,7 +904,6 @@ func (a *Account) addStreamWithAssignment(config *StreamConfig, fsConfig *FileSt
 		fsCfg.SyncAlways = false
 		fsCfg.AsyncFlush = true
 	}
-
 	if err := mset.setupStore(fsCfg); err != nil {
 		mset.stop(true, false)
 		return nil, NewJSStreamStoreFailedError(err)
@@ -1814,7 +1822,7 @@ func (s *Server) checkStreamCfg(config *StreamConfig, acc *Account, pedantic boo
 	// check for duplicates
 	var iNames = make(map[string]struct{})
 	for _, src := range cfg.Sources {
-		if !isValidName(src.Name) {
+		if src == nil || !isValidName(src.Name) {
 			return StreamConfig{}, NewJSSourceInvalidStreamNameError()
 		}
 		if _, ok := iNames[src.composeIName()]; !ok {
@@ -3155,7 +3163,6 @@ func (mset *stream) setupMirrorConsumer() error {
 	}
 
 	mirror := mset.mirror
-	mirrorWg := &mirror.wg
 
 	// We want to throttle here in terms of how fast we request new consumers,
 	// or if the previous is still in progress.
@@ -3314,7 +3321,16 @@ func (mset *stream) setupMirrorConsumer() error {
 
 		// Wait for previous processMirrorMsgs go routine to be completely done.
 		// If none is running, this will not block.
-		mirrorWg.Wait()
+		mset.mu.Lock()
+		if mset.mirror == nil {
+			// Mirror config has been removed.
+			mset.mu.Unlock()
+			return
+		} else {
+			wg := &mset.mirror.wg
+			mset.mu.Unlock()
+			wg.Wait()
+		}
 
 		select {
 		case ccr := <-respCh:
@@ -4086,28 +4102,61 @@ func (mset *stream) setStartingSequenceForSources(iNames map[string]struct{}) {
 		return
 	}
 
+	// From the provided list of sources, we build a sublist that contains
+	// the interested filters (including transforms). As we figure out the
+	// starting sequence for each source, we will eliminate the source from
+	// the map and then refresh the sublist, which in turn makes the sublist
+	// ideally more specific. This allows LoadPrevMsgsMulti to work most
+	// effectively.
+	// Because this is a SimpleSublist we can't just remove the entries per
+	// source so we have no other option but to rebuild it from scratch, but
+	// this is cheap enough to do so not the end of the world.
+	var sl *gsl.SimpleSublist
+	refreshSublist := func() {
+		sl = gsl.NewSimpleSublist()
+		for iName := range iNames {
+			si := mset.sources[iName]
+			if si == nil {
+				continue
+			}
+			if si.sf == _EMPTY_ {
+				sl.Insert(fwcs, struct{}{})
+			} else {
+				sl.Insert(si.sf, struct{}{})
+			}
+			for _, sf := range si.sfs {
+				if sf == _EMPTY_ {
+					sl.Insert(fwcs, struct{}{})
+				} else {
+					sl.Insert(sf, struct{}{})
+				}
+			}
+		}
+	}
+	refreshSublist()
+
 	var smv StoreMsg
-	for seq := state.LastSeq; seq >= state.FirstSeq; {
-		sm, err := mset.store.LoadPrevMsg(seq, &smv)
+	for last := state.LastSeq; ; {
+		sm, seq, err := mset.store.LoadPrevMsgMulti(sl, last, &smv)
 		if err == ErrStoreEOF || err != nil {
 			break
 		}
-		seq = sm.seq - 1
+		last = seq - 1
 		if len(sm.hdr) == 0 {
 			continue
 		}
-
-		ss := getHeader(JSStreamSource, sm.hdr)
+		ss := sliceHeader(JSStreamSource, sm.hdr)
 		if len(ss) == 0 {
 			continue
 		}
-		streamName, indexName, sseq := streamAndSeq(bytesToString(ss))
 
+		streamName, indexName, sseq := streamAndSeq(bytesToString(ss))
 		if _, ok := iNames[indexName]; ok {
 			si := mset.sources[indexName]
 			si.sseq = sseq
 			si.dseq = 0
 			delete(iNames, indexName)
+			refreshSublist()
 		} else if indexName == _EMPTY_ && streamName != _EMPTY_ {
 			for iName := range iNames {
 				// TODO streamSource is a linear walk, to optimize later
@@ -4116,6 +4165,7 @@ func (mset *stream) setStartingSequenceForSources(iNames map[string]struct{}) {
 					si.sseq = sseq
 					si.dseq = 0
 					delete(iNames, iName)
+					refreshSublist()
 					break
 				}
 			}
@@ -4197,26 +4247,61 @@ func (mset *stream) startingSequenceForSources() {
 		}
 	}()
 
+	// Generate a list of sources and, from that, a sublist that contains
+	// the interested filters (including transforms). As we figure out the
+	// starting sequence for each source, we will eliminate the source from
+	// the map and then refresh the sublist, which in turn makes the sublist
+	// ideally more specific. This allows LoadPrevMsgsMulti to work most
+	// effectively.
+	// Because this is a SimpleSublist we can't just remove the entries per
+	// source so we have no other option but to rebuild it from scratch, but
+	// this is cheap enough to do so not the end of the world.
+	sources := map[string]*StreamSource{}
+	for _, src := range mset.cfg.Sources {
+		sources[src.composeIName()] = src
+	}
+	var sl *gsl.SimpleSublist
+	refreshSublist := func() {
+		sl = gsl.NewSimpleSublist()
+		for _, src := range sources {
+			if src.FilterSubject == _EMPTY_ {
+				sl.Insert(fwcs, struct{}{})
+			} else {
+				sl.Insert(src.FilterSubject, struct{}{})
+			}
+			for _, tr := range src.SubjectTransforms {
+				if tr.Destination == _EMPTY_ {
+					sl.Insert(fwcs, struct{}{})
+				} else {
+					sl.Insert(tr.Destination, struct{}{})
+				}
+			}
+		}
+	}
+	refreshSublist()
+
 	update := func(iName string, seq uint64) {
 		// Only update active in case we have older ones in here that got configured out.
 		if si := mset.sources[iName]; si != nil {
 			if _, ok := seqs[iName]; !ok {
 				seqs[iName] = seq
+				delete(sources, iName)
+				refreshSublist()
 			}
 		}
 	}
 
 	var smv StoreMsg
-	for seq := state.LastSeq; ; {
-		sm, err := mset.store.LoadPrevMsg(seq, &smv)
+	for last := state.LastSeq; ; {
+		sm, seq, err := mset.store.LoadPrevMsgMulti(sl, last, &smv)
 		if err == ErrStoreEOF || err != nil {
 			break
 		}
-		seq = sm.seq - 1
+		last = seq - 1
 		if len(sm.hdr) == 0 {
 			continue
 		}
-		ss := getHeader(JSStreamSource, sm.hdr)
+		ss := sliceHeader(JSStreamSource, sm.hdr)
 		if len(ss) == 0 {
 			continue
 		}
@@ -4546,8 +4631,6 @@ func (mset *stream) unsubscribe(sub *subscription) {
 
 func (mset *stream) setupStore(fsCfg *FileStoreConfig) error {
 	mset.mu.Lock()
-	mset.created = time.Now().UTC()
-
 	switch mset.cfg.Storage {
 	case MemoryStorage:
 		ms, err := newMemStore(&mset.cfg)
@@ -5208,7 +5291,10 @@ func (mset *stream) getDirectRequest(req *JSApiMsgGetRequest, reply string) {
 	} else {
 		// This is a batch request, capture initial numPending.
 		isBatchRequest = true
-		np, validThrough = store.NumPending(seq, req.NextFor, false)
+		var err error
+		if np, validThrough, err = store.NumPending(seq, req.NextFor, false); err != nil {
+			return
+		}
 	}
 
 	// Grab MaxBytes
@@ -5301,7 +5387,10 @@ func (mset *stream) getDirectRequest(req *JSApiMsgGetRequest, reply string) {
 	if isBatchRequest {
 		// Update if the stream's last sequence has moved past our validThrough.
 		if mset.lseq > validThrough {
-			np, _ = store.NumPending(seq, req.NextFor, false)
+			var err error
+			if np, _, err = store.NumPending(seq, req.NextFor, false); err != nil {
+				return
+			}
 		}
 		hdr := fmt.Appendf(nil, eob, np, lseq)
 		mset.outq.send(newJSPubMsg(reply, _EMPTY_, _EMPTY_, hdr, nil, nil, 0))
@@ -5965,13 +6054,6 @@ func (mset *stream) processJetStreamMsg(subject, reply string, hdr, msg []byte, 
 		return nil
 	}
 
-	// If here we will attempt to store the message.
-	// Assume this will succeed.
-	olmsgId := mset.lmsgId
-	mset.lmsgId = msgId
-	mset.lseq++
-	tierName := mset.tier
-
 	// Republish state if needed.
 	var tsubj string
 	var tlseq uint64
@@ -5995,7 +6077,7 @@ func (mset *stream) processJetStreamMsg(subject, reply string, hdr, msg []byte, 
 	// If clustered this was already checked and we do not want to check here and possibly introduce skew.
 	// Don't error and log if we're tracing when clustered.
 	if !isClustered {
-		if exceeded, err := jsa.wouldExceedLimits(stype, tierName, mset.cfg.Replicas, subject, hdr, msg); exceeded {
+		if exceeded, err := jsa.wouldExceedLimits(stype, mset.tier, mset.cfg.Replicas, subject, hdr, msg); exceeded {
 			if err == nil {
 				err = NewJSAccountResourcesExceededError()
 			}
@@ -6054,11 +6136,7 @@ func (mset *stream) processJetStreamMsg(subject, reply string, hdr, msg []byte, 
 			mset.srv.Warnf("Filesystem permission denied while writing msg, disabling JetStream: %v", err)
 			return err
 		}
-		// If we did not succeed put those values back and increment clfs in case we are clustered.
-		var state StreamState
-		mset.store.FastState(&state)
-		mset.lseq = state.LastSeq
-		mset.lmsgId = olmsgId
+		// If we did not succeed increment clfs in case we are clustered.
 		bumpCLFS()
 
 		switch err {
@@ -6079,6 +6157,8 @@ func (mset *stream) processJetStreamMsg(subject, reply string, hdr, msg []byte, 
 	}
 
 	// If here we succeeded in storing the message.
+	mset.lmsgId = msgId
+	mset.lseq = seq
 
 	// If we have a msgId make sure to save.
 	// This will replace our estimate from the cluster layer if we are clustered.
@@ -7218,11 +7298,30 @@ func (mset *stream) checkInterestState() {
 		return
 	}
 
+	// Ensure only one of these runs at the same time.
+	if !mset.cisrun.CompareAndSwap(false, true) {
+		return
+	}
+	defer mset.cisrun.Store(false)
+
 	var ss StreamState
 	mset.store.FastState(&ss)
 
+	asflr := uint64(math.MaxUint64)
 	for _, o := range mset.getConsumers() {
 		o.checkStateForInterestStream(&ss)
+		o.mu.RLock()
+		chkflr := o.chkflr
+		o.mu.RUnlock()
+		asflr = min(asflr, chkflr)
+	}
+
+	mset.cfgMu.RLock()
+	rp := mset.cfg.Retention
+	mset.cfgMu.RUnlock()
+	// Remove as many messages from the "head" of the stream if there's no interest anymore.
+	if rp == InterestPolicy && asflr != math.MaxUint64 {
+		mset.store.Compact(asflr)
 	}
 }
 
@@ -7309,20 +7408,18 @@ func (mset *stream) swapSigSubs(o *consumer, newFilters []string) {
 		o.sigSubs = nil
 	}
 
-	if o.isLeader() {
-		if mset.csl == nil {
-			mset.csl = gsl.NewSublist[*consumer]()
-		}
-		// If no filters are preset, add fwcs to sublist for that consumer.
-		if newFilters == nil {
-			mset.csl.Insert(fwcs, o)
-			o.sigSubs = append(o.sigSubs, fwcs)
-			// If there are filters, add their subjects to sublist.
-		} else {
-			for _, filter := range newFilters {
-				mset.csl.Insert(filter, o)
-				o.sigSubs = append(o.sigSubs, filter)
-			}
+	if mset.csl == nil {
+		mset.csl = gsl.NewSublist[*consumer]()
+	}
+	// If no filters are present, add fwcs to sublist for that consumer.
+	if newFilters == nil {
+		mset.csl.Insert(fwcs, o)
+		o.sigSubs = append(o.sigSubs, fwcs)
+	} else {
+		// If there are filters, add their subjects to sublist.
+		for _, filter := range newFilters {
+			mset.csl.Insert(filter, o)
+			o.sigSubs = append(o.sigSubs, filter)
 		}
 	}
 	o.mu.Unlock()
@@ -7399,14 +7496,18 @@ func (mset *stream) partitionUnique(name string, partitions []string) bool {
 			if n == name {
 				continue
 			}
+			o.mu.RLock()
 			if o.subjf == nil {
+				o.mu.RUnlock()
 				return false
 			}
 			for _, filter := range o.subjf {
 				if SubjectsCollide(partition, filter.subject) {
+					o.mu.RUnlock()
 					return false
 				}
 			}
+			o.mu.RUnlock()
 		}
 	}
 	return true

@@ -103,7 +103,7 @@ type BulkRespItem struct {
 	} `json:"error,omitempty"`
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r BulkResp) Inspect() Inspect {
 	return Inspect{Response: r.response}
 }

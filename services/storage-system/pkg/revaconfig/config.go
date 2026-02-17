@@ -158,6 +158,7 @@ func metadataDrivers(localEndpoint string, cfg *config.Config) map[string]interf
 		"permissionssvc":             localEndpoint,
 		"max_acquire_lock_cycles":    cfg.Drivers.Decomposed.MaxAcquireLockCycles,
 		"lock_cycle_duration_factor": cfg.Drivers.Decomposed.LockCycleDurationFactor,
+		"multi_tenant_enabled":       false, // storage-system doesn't use tenants, even if it's enabled for storage-users
 		"disable_versioning":         true,
 		"statcache": map[string]interface{}{
 			"cache_store":    "noop",

@@ -54,7 +54,7 @@ type CatTemplateResp struct {
 	ComposedOf    string  `json:"composed_of"`
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r CatTemplatesResp) Inspect() Inspect {
 	return Inspect{
 		Response: r.response,

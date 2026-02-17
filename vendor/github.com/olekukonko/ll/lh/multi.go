@@ -3,6 +3,7 @@ package lh
 import (
 	"errors"
 	"fmt"
+
 	"github.com/olekukonko/ll/lx"
 )
 
@@ -27,6 +28,18 @@ type MultiHandler struct {
 func NewMultiHandler(h ...lx.Handler) *MultiHandler {
 	return &MultiHandler{
 		Handlers: h, // Initialize with provided handlers
+	}
+}
+
+// Len returns the number of handlers in the MultiHandler.
+func (h *MultiHandler) Len() int {
+	return len(h.Handlers)
+}
+
+// Append adds one or more lx.Handler instances to the MultiHandler's list of handlers.
+func (h *MultiHandler) Append(handlers ...lx.Handler) {
+	for _, e := range handlers {
+		h.Handlers = append(h.Handlers, e)
 	}
 }
 

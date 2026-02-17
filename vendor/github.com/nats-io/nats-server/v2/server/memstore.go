@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"math"
 	"slices"
-	"sort"
 	"sync"
 	"time"
 
@@ -445,7 +444,6 @@ func (ms *memStore) RegisterProcessJetStreamMsg(cb ProcessJetStreamMsgHandler) {
 
 // GetSeqFromTime looks for the first sequence number that has the message
 // with >= timestamp.
-// FIXME(dlc) - inefficient.
 func (ms *memStore) GetSeqFromTime(t time.Time) uint64 {
 	ts := t.UnixNano()
 	ms.mu.RLock()
@@ -469,18 +467,57 @@ func (ms *memStore) GetSeqFromTime(t time.Time) uint64 {
 
 	last := lmsg.ts
 	if ts == last {
-		return ms.state.LastSeq
+		return lmsg.seq
 	}
 	if ts > last {
 		return ms.state.LastSeq + 1
 	}
-	index := sort.Search(len(ms.msgs), func(i int) bool {
-		if msg := ms.msgs[ms.state.FirstSeq+uint64(i)]; msg != nil {
-			return msg.ts >= ts
+
+	var (
+		cts  int64
+		cseq uint64
+		off  uint64
+	)
+
+	// Using a binary search, but need to be aware of interior deletes.
+	fseq := ms.state.FirstSeq
+	lseq := ms.state.LastSeq
+	seq := lseq + 1
+loop:
+	for fseq <= lseq {
+		mid := fseq + (lseq-fseq)/2
+		off = 0
+		// Potentially skip over gaps. We keep the original middle but keep track of a
+		// potential delete range with an offset.
+		for {
+			msg := ms.msgs[mid+off]
+			if msg == nil {
+				off++
+				if mid+off <= lseq {
+					continue
+				} else {
+					// Continue search to the left. Purposely ignore the skipped deletes here.
+					lseq = mid - 1
+					continue loop
+				}
+			}
+			cts = msg.ts
+			cseq = msg.seq
+			break
 		}
-		return false
-	})
-	return uint64(index) + ms.state.FirstSeq
+		if cts >= ts {
+			seq = cseq
+			if mid == fseq {
+				break
+			}
+			// Continue search to the left.
+			lseq = mid - 1
+		} else {
+			// Continue search to the right (potentially skipping over interior deletes).
+			fseq = mid + off + 1
+		}
+	}
+	return seq
 }
 
 // FilteredState will return the SimpleState associated with the filtered subject and a proposed starting sequence.
@@ -861,17 +898,17 @@ func (ms *memStore) subjectsTotalsLocked(filterSubject string) map[string]uint64
 }
 
 // NumPending will return the number of pending messages matching the filter subject starting at sequence.
-func (ms *memStore) NumPending(sseq uint64, filter string, lastPerSubject bool) (total, validThrough uint64) {
+func (ms *memStore) NumPending(sseq uint64, filter string, lastPerSubject bool) (total, validThrough uint64, err error) {
 	// This needs to be a write lock, as filteredStateLocked can mutate the per-subject state.
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 
 	ss := ms.filteredStateLocked(sseq, filter, lastPerSubject)
-	return ss.Msgs, ms.state.LastSeq
+	return ss.Msgs, ms.state.LastSeq, nil
 }
 
 // NumPending will return the number of pending messages matching any subject in the sublist starting at sequence.
-func (ms *memStore) NumPendingMulti(sseq uint64, sl *gsl.SimpleSublist, lastPerSubject bool) (total, validThrough uint64) {
+func (ms *memStore) NumPendingMulti(sseq uint64, sl *gsl.SimpleSublist, lastPerSubject bool) (total, validThrough uint64, err error) {
 	if sl == nil {
 		return ms.NumPending(sseq, fwcs, lastPerSubject)
 	}
@@ -886,7 +923,7 @@ func (ms *memStore) NumPendingMulti(sseq uint64, sl *gsl.SimpleSublist, lastPerS
 	}
 	// If past the end no results.
 	if sseq > ms.state.LastSeq {
-		return 0, ms.state.LastSeq
+		return 0, ms.state.LastSeq, nil
 	}
 
 	update := func(fss *SimpleState) {
@@ -906,7 +943,7 @@ func (ms *memStore) NumPendingMulti(sseq uint64, sl *gsl.SimpleSublist, lastPerS
 	var havePartial bool
 	var totalSkipped uint64
 	// We will track start and end sequences as we go.
-	gsl.IntersectStree[SimpleState](ms.fss, sl, func(subj []byte, fss *SimpleState) {
+	stree.IntersectGSL[SimpleState](ms.fss, sl, func(subj []byte, fss *SimpleState) {
 		if fss.firstNeedsUpdate || fss.lastNeedsUpdate {
 			ms.recalculateForSubj(bytesToString(subj), fss)
 		}
@@ -924,7 +961,7 @@ func (ms *memStore) NumPendingMulti(sseq uint64, sl *gsl.SimpleSublist, lastPerS
 
 	// If we did not encounter any partials we can return here.
 	if !havePartial {
-		return ss.Msgs, ms.state.LastSeq
+		return ss.Msgs, ms.state.LastSeq, nil
 	}
 
 	// If we are here we need to scan the msgs.
@@ -1015,7 +1052,7 @@ func (ms *memStore) NumPendingMulti(sseq uint64, sl *gsl.SimpleSublist, lastPerS
 		ss.Msgs -= adjust
 	}
 
-	return ss.Msgs, ms.state.LastSeq
+	return ss.Msgs, ms.state.LastSeq, nil
 }
 
 // Will check the msg limit for this tracked subject.
@@ -1463,6 +1500,12 @@ func (ms *memStore) compact(seq uint64) (uint64, error) {
 	var purged, bytes uint64
 
 	ms.mu.Lock()
+	// Short-circuit if the store was already compacted past this point.
+	if ms.state.FirstSeq > seq {
+		ms.mu.Unlock()
+		return purged, nil
+	}
+
 	cb := ms.scb
 	if seq <= ms.state.LastSeq {
 		fseq := ms.state.FirstSeq
@@ -1828,6 +1871,40 @@ func (ms *memStore) LoadPrevMsg(start uint64, smp *StoreMsg) (sm *StoreMsg, err 
 	return nil, ErrStoreEOF
 }
 
+// LoadPrevMsgMulti will find the previous message matching any entry in the sublist.
+func (ms *memStore) LoadPrevMsgMulti(sl *gsl.SimpleSublist, start uint64, smp *StoreMsg) (sm *StoreMsg, skip uint64, err error) {
+	// TODO(dlc) - for now simple linear walk to get started.
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+
+	if start > ms.state.LastSeq {
+		start = ms.state.LastSeq
+	}
+
+	// If past the start no results.
+	if start < ms.state.FirstSeq || ms.state.Msgs == 0 {
+		return nil, ms.state.FirstSeq, ErrStoreEOF
+	}
+
+	// Initial setup.
+	fseq, lseq := start, ms.state.FirstSeq
+
+	for nseq := fseq; nseq >= lseq; nseq-- {
+		sm, ok := ms.msgs[nseq]
+		if !ok {
+			continue
+		}
+		if sl.HasInterest(sm.subj) {
+			if smp == nil {
+				smp = new(StoreMsg)
+			}
+			sm.copy(smp)
+			return smp, nseq, nil
+		}
+	}
+	return nil, ms.state.LastSeq, ErrStoreEOF
+}
+
 // RemoveMsg will remove the message from this store.
 // Will return the number of bytes removed.
 func (ms *memStore) RemoveMsg(seq uint64) (bool, error) {
@@ -2129,7 +2206,7 @@ type consumerMemStore struct {
 	closed bool
 }
 
-func (ms *memStore) ConsumerStore(name string, cfg *ConsumerConfig) (ConsumerStore, error) {
+func (ms *memStore) ConsumerStore(name string, _ time.Time, cfg *ConsumerConfig) (ConsumerStore, error) {
 	if ms == nil {
 		return nil, fmt.Errorf("memstore is nil")
 	}

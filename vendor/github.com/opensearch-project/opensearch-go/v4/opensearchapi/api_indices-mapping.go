@@ -103,7 +103,7 @@ type MappingGetResp struct {
 	response *opensearch.Response
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r MappingGetResp) Inspect() Inspect {
 	return Inspect{Response: r.response}
 }
@@ -142,7 +142,7 @@ type MappingPutResp struct {
 	response     *opensearch.Response
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r MappingPutResp) Inspect() Inspect {
 	return Inspect{Response: r.response}
 }
@@ -186,7 +186,7 @@ type MappingFieldResp struct {
 	response *opensearch.Response
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r MappingFieldResp) Inspect() Inspect {
 	return Inspect{Response: r.response}
 }

@@ -12,7 +12,7 @@ This service is part of the storage services family and is responsible for:
 
 The storage-publiclink service integrates with:
 - `sharing` service - Manages and persists public link shares
-- `frontend` and `ocdav` - Provide HTTP/WebDAV access to public links
+- `frontend` service - Provides HTTP/WebDAV access to public links
 - Storage drivers - Accesses the actual file content
 
 ## Storage Registry

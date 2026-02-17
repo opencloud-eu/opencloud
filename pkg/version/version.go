@@ -34,7 +34,7 @@ var (
 	// LatestTag is the latest released version plus the dev meta version.
 	// Will be overwritten by the release pipeline
 	// Needs a manual change for every tagged release
-	LatestTag = "4.0.0-rc.3+dev"
+	LatestTag = "5.1.0+dev"
 
 	// Date indicates the build date.
 	// This has been removed, it looks like you can only replace static strings with recent go versions
@@ -79,8 +79,11 @@ func initEdition() error {
 		_, err := semver.NewVersion(editionParts[1])
 		return err == nil
 	}) {
-		Edition = Dev
-		return fmt.Errorf(`unknown edition channel "%s"`, Edition)
+		defer func() {
+			Edition = Dev
+		}()
+
+		return fmt.Errorf(`unknown edition channel '%s'`, Edition)
 	}
 
 	return nil

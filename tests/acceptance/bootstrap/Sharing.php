@@ -450,7 +450,7 @@ trait Sharing {
 		string $user,
 		string $path,
 		bool $publicUpload = false,
-		string $sharePassword = null,
+		?string $sharePassword = null,
 		$permissions = null,
 		?string $linkName = null,
 		?string $expireDate = null
@@ -1207,7 +1207,7 @@ trait Sharing {
 	 */
 	public function deleteLastShareUsingSharingApi(
 		string $user,
-		string $sharer = null,
+		?string $sharer = null,
 		bool $deleteLastPublicLink = false
 	): ResponseInterface {
 		$user = $this->getActualUsername($user);
@@ -2672,7 +2672,7 @@ trait Sharing {
 	 * @return ResponseInterface
 	 * @throws GuzzleException
 	 */
-	public function expireShare(string $shareId = null): ResponseInterface {
+	public function expireShare(?string $shareId = null): ResponseInterface {
 		$adminUser = $this->getAdminUsername();
 		if ($shareId === null) {
 			$shareId = $this->getLastCreatedUserGroupShareId();

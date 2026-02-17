@@ -141,8 +141,8 @@ func buildOKPPrivateKey(alg jwa.EllipticCurveAlgorithm, xbuf []byte, dbuf []byte
 }
 
 var okpConvertibleKeys = []reflect.Type{
-	reflect.TypeOf((*OKPPrivateKey)(nil)).Elem(),
-	reflect.TypeOf((*OKPPublicKey)(nil)).Elem(),
+	reflect.TypeFor[OKPPrivateKey](),
+	reflect.TypeFor[OKPPublicKey](),
 }
 
 // This is half baked. I think it will blow up if we used ecdh.* keys and/or x25519 keys

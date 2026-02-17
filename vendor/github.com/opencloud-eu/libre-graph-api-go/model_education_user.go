@@ -28,6 +28,8 @@ type EducationUser struct {
 	// A collection of drives available for this user. Read-only.
 	Drives []Drive `json:"drives,omitempty"`
 	Drive *Drive `json:"drive,omitempty"`
+	// An external unique ID for the user. Use it to associate a user in another system, such as a student or employee ID number.
+	ExternalId *string `json:"externalId,omitempty"`
 	// Identities associated with this account.
 	Identities []ObjectIdentity `json:"identities,omitempty"`
 	// The SMTP address for the user, for example, 'jeff@contoso.opencloud.com'. Returned by default.
@@ -222,6 +224,38 @@ func (o *EducationUser) HasDrive() bool {
 // SetDrive gets a reference to the given Drive and assigns it to the Drive field.
 func (o *EducationUser) SetDrive(v Drive) {
 	o.Drive = &v
+}
+
+// GetExternalId returns the ExternalId field value if set, zero value otherwise.
+func (o *EducationUser) GetExternalId() string {
+	if o == nil || IsNil(o.ExternalId) {
+		var ret string
+		return ret
+	}
+	return *o.ExternalId
+}
+
+// GetExternalIdOk returns a tuple with the ExternalId field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *EducationUser) GetExternalIdOk() (*string, bool) {
+	if o == nil || IsNil(o.ExternalId) {
+		return nil, false
+	}
+	return o.ExternalId, true
+}
+
+// HasExternalId returns a boolean if a field has been set.
+func (o *EducationUser) HasExternalId() bool {
+	if o != nil && !IsNil(o.ExternalId) {
+		return true
+	}
+
+	return false
+}
+
+// SetExternalId gets a reference to the given string and assigns it to the ExternalId field.
+func (o *EducationUser) SetExternalId(v string) {
+	o.ExternalId = &v
 }
 
 // GetIdentities returns the Identities field value if set, zero value otherwise.
@@ -536,6 +570,9 @@ func (o EducationUser) ToMap() (map[string]interface{}, error) {
 	}
 	if !IsNil(o.Drive) {
 		toSerialize["drive"] = o.Drive
+	}
+	if !IsNil(o.ExternalId) {
+		toSerialize["externalId"] = o.ExternalId
 	}
 	if !IsNil(o.Identities) {
 		toSerialize["identities"] = o.Identities

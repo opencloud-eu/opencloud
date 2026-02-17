@@ -72,7 +72,7 @@ type NodesStatsResp struct {
 	response    *opensearch.Response
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r NodesStatsResp) Inspect() Inspect {
 	return Inspect{Response: r.response}
 }
@@ -624,6 +624,7 @@ type NodesStatsSearchBackpressure struct {
 			CancellationCount             int `json:"cancellation_count"`
 			CancellationLimitReachedCount int `json:"cancellation_limit_reached_count"`
 		} `json:"cancellation_stats"`
+		CompletionCount int `json:"completion_count"`
 	} `json:"search_task"`
 	SearchShardTask struct {
 		ResourceTrackerStats struct {
@@ -640,6 +641,7 @@ type NodesStatsSearchBackpressure struct {
 			CancellationCount             int `json:"cancellation_count"`
 			CancellationLimitReachedCount int `json:"cancellation_limit_reached_count"`
 		} `json:"cancellation_stats"`
+		CompletionCount int `json:"completion_count"`
 	} `json:"search_shard_task"`
 	Mode string `json:"mode"`
 }
@@ -678,10 +680,14 @@ type NodesStatsSearchPipeline struct {
 
 // NodesStatsTaskCancellation is a sub type of NodesStats containing stats about canceled tasks
 type NodesStatsTaskCancellation struct {
-	SearchShardTask struct {
-		CurrentCountPostCancel int `json:"current_count_post_cancel"`
-		TotalCountPostCancel   int `json:"total_count_post_cancel"`
-	} `json:"search_shard_task"`
+	SearchTask      NodesStatsTaskCancellationValues `json:"search_task"`
+	SearchShardTask NodesStatsTaskCancellationValues `json:"search_shard_task"`
+}
+
+// NodesStatsTaskCancellationValues is a sub type of NodesStatsTaskCancellation
+type NodesStatsTaskCancellationValues struct {
+	CurrentCountPostCancel int `json:"current_count_post_cancel"`
+	TotalCountPostCancel   int `json:"total_count_post_cancel"`
 }
 
 // NodesStatsIndicesSearchRequest is a sub type of NodesStatsIndices containing stats about search requests

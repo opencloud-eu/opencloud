@@ -20,9 +20,11 @@ package tus
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"path"
 	"regexp"
+	"runtime"
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/mitchellh/mapstructure"
@@ -253,6 +255,13 @@ func (l tusdLogger) Handle(_ context.Context, r slog.Record) error {
 	case slog.LevelError:
 		logev = l.log.Error()
 	}
+	// Extract caller information from slog.Record only for debug and info levels
+	if (r.Level == slog.LevelDebug || r.Level == slog.LevelInfo) && r.PC != 0 {
+		frames := runtime.CallersFrames([]uintptr{r.PC})
+		frame, _ := frames.Next()
+		// add line using zerolog's caller format
+		logev = logev.Str("line", fmt.Sprintf("%s:%d", frame.File, frame.Line))
+	}
 	r.Attrs(func(a slog.Attr) bool {
 		// Resolve the Attr's value before doing anything else.
 		a.Value = a.Value.Resolve()
@@ -281,7 +290,18 @@ func (l tusdLogger) Enabled(_ context.Context, _ slog.Level) bool { return true 
 func (l tusdLogger) WithAttrs(attr []slog.Attr) slog.Handler {
 	fields := make(map[string]interface{}, len(attr))
 	for _, a := range attr {
-		fields[a.Key] = a.Value.String()
+		switch a.Value.Kind() {
+		case slog.KindBool:
+			fields[a.Key] = a.Value.Bool()
+		case slog.KindInt64:
+			fields[a.Key] = a.Value.Int64()
+		case slog.KindUint64:
+			fields[a.Key] = a.Value.Uint64()
+		case slog.KindFloat64:
+			fields[a.Key] = a.Value.Float64()
+		default:
+			fields[a.Key] = a.Value.String()
+		}
 	}
 	c := l.log.With().Fields(fields).Logger()
 	sLog := tusdLogger{log: &c}

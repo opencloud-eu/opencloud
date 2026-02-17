@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/oklog/run"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -22,7 +23,6 @@ import (
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/config/parser"
-	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/logging"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/server/http"
@@ -55,7 +55,7 @@ func Server(cfg *config.Config) *cobra.Command {
 			return configlog.ReturnFatal(parser.ParseConfig(cfg))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger := logging.Configure(cfg.Service.Name, cfg.Log)
+			logger := log.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel)
 			tracerProvider, err := tracing.GetTraceProvider(cmd.Context(), cfg.Commons.TracesExporter, cfg.Service.Name)
 			if err != nil {
 				logger.Error().Err(err).Msg("Failed to initialize tracer")

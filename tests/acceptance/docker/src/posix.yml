@@ -2,8 +2,6 @@
 services:
   opencloud-server:
     environment:
-      # activate posix storage driver for users
-      STORAGE_USERS_DRIVER: posix
       # posix requires a shared cache store
       STORAGE_USERS_ID_CACHE_STORE: "nats-js-kv"
       STORAGE_USERS_POSIX_WATCH_FS: "true"

@@ -40,6 +40,8 @@ var (
 	// ErrOpNotSupported is returned in general for operations that are not
 	// supported.
 	ErrOpNotSupported = getError(-C.EOPNOTSUPP)
+	// ErrNotImplemented indicates a function is not implemented in by libcephfs.
+	ErrNotImplemented = getError(-C.ENOSYS)
 
 	// Private errors:
 

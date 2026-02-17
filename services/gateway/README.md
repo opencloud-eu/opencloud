@@ -104,7 +104,7 @@ SHARING_PUBLIC_JSONCS3_PROVIDER_ADDR="unix:/var/run/opencloud/storage-system.soc
 
 ## Storage Registry
 
-In order to add another storage provider the CS3 storage registry that is running as part of the CS3 gateway hes to be made aware of it. The easiest cleanest way to do it is to set `GATEWAY_STORAGE_REGISTRY_CONFIG_JSON=/path/to/storages.json` and list all storage providers like this:
+In order to add another storage provider the CS3 storage registry that is running as part of the CS3 gateway has to be made aware of it. The easiest and cleanest way to do it is to set `GATEWAY_STORAGE_REGISTRY_CONFIG_JSON=/path/to/storages.json` and list all storage providers like this:
 
 ```json
 {
@@ -172,4 +172,4 @@ In order to add another storage provider the CS3 storage registry that is runnin
 }
 ```
 
-In the above replace `{storage-users-mount-uuid}` with the mount UUID that was generated for the storage-users service. You can find it in the `config.yaml` generated on by `opencloud init`. The last entry `eu.opencloud.api.storage-hello` and its `providerid` `"hello-storage-id"` are an example for in additional storage provider, in this case running `hellofs`, an example minimal storage driver.
+In the above replace `{storage-users-mount-uuid}` with the mount UUID that was generated for the storage-users service. You can find it in the `config.yaml` generated on by `opencloud init`. The last entry `eu.opencloud.api.storage-hello` and its `providerid` `"hello-storage-id"` are an example for an additional storage provider, in this case running `hellofs`, an example minimal storage driver.

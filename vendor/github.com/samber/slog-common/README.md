@@ -20,12 +20,21 @@ This project gathers common functions for my [slog](https://pkg.go.dev/log/slog)
   <hr>
   <sup><b>Sponsored by:</b></sup>
   <br>
-  <a href="https://quickwit.io?utm_campaign=github_sponsorship&utm_medium=referral&utm_content=samber-slog-common&utm_source=github">
+  <a href="https://cast.ai/samuel">
     <div>
-      <img src="https://github.com/samber/oops/assets/2951285/49aaaa2b-b8c6-4f21-909f-c12577bb6a2e" width="240" alt="Quickwit">
+      <img src="https://github.com/user-attachments/assets/502f8fa8-e7e8-4754-a51f-036d0443e694" width="200" alt="Cast AI">
     </div>
     <div>
-      Cloud-native search engine for observability - An OSS alternative to Splunk, Elasticsearch, Loki, and Tempo.
+      Cut Kubernetes & AI costs, boost application stability
+    </div>
+  </a>
+  <br>
+  <a href="https://www.dash0.com?utm_campaign=148395251-samber%20github%20sponsorship&utm_source=github&utm_medium=sponsorship&utm_content=samber">
+    <div>
+      <img src="https://github.com/user-attachments/assets/b1f2e876-0954-4dc3-824d-935d29ba8f3f" width="200" alt="Dash0">
+    </div>
+    <div>
+      100% OpenTelemetry-native observability platform<br>Simple to use, built on open standards, and designed for full cost control
     </div>
   </a>
   <hr>

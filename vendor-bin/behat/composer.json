@@ -1,7 +1,7 @@
 {
   "config": {
     "platform": {
-      "php": "8.2"
+      "php": "8.3"
     },
     "allow-plugins": {
       "composer/package-versions-deprecated": true
@@ -20,7 +20,7 @@
     "guzzlehttp/guzzle": "^7.7",
     "phpunit/phpunit": "^9.6",
     "laminas/laminas-ldap": "^2.15",
-    "ankitpokhrel/tus-php": "^2.3",
+    "ankitpokhrel/tus-php": "^2.4",
     "swaggest/json-schema": "^0.12.42",
     "splitbrain/php-archive": "^1.3"
   }

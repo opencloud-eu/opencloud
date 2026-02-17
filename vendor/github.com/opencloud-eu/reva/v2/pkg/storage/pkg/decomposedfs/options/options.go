@@ -94,6 +94,8 @@ type Options struct {
 	DisableVersioning bool `mapstructure:"disable_versioning"`
 
 	MountID string `mapstructure:"mount_id"`
+
+	MultiTenantEnabled bool `mapstructure:"multi_tenant_enabled"`
 }
 
 // AsyncPropagatorOptions holds the configuration for the async propagator

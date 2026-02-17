@@ -38,12 +38,16 @@ func NewStoreIDCache(c cache.Config) *StoreIDCache {
 	return &StoreIDCache{
 		cache: store.Create(
 			store.Store(c.Store),
+			store.TTL(c.TTL),
 			store.Size(c.Size),
 			microstore.Nodes(c.Nodes...),
 			microstore.Database(c.Database),
 			microstore.Table(c.Table),
 			store.DisablePersistence(c.DisablePersistence),
 			store.Authentication(c.AuthUsername, c.AuthPassword),
+			store.TLSEnabled(c.TLSEnabled),
+			store.TLSInsecure(c.TLSInsecure),
+			store.TLSRootCA(c.TLSRootCACertificate),
 		),
 	}
 }

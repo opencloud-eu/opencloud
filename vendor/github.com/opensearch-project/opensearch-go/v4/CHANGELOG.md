@@ -2,6 +2,41 @@
 
 Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
+## [4.6.0]
+
+### Dependencies
+- Bump `github.com/aws/aws-sdk-go-v2/config` from 1.29.14 to 1.32.5 ([#707](https://github.com/opensearch-project/opensearch-go/pull/707), [#711](https://github.com/opensearch-project/opensearch-go/pull/711), [#719](https://github.com/opensearch-project/opensearch-go/pull/719), [#730](https://github.com/opensearch-project/opensearch-go/pull/730), [#737](https://github.com/opensearch-project/opensearch-go/pull/737), [#761](https://github.com/opensearch-project/opensearch-go/pull/761))
+- Bump `github.com/aws/aws-sdk-go-v2` from 1.36.4 to 1.41.0 ([#710](https://github.com/opensearch-project/opensearch-go/pull/710), [#720](https://github.com/opensearch-project/opensearch-go/pull/720), [#759](https://github.com/opensearch-project/opensearch-go/pull/759))
+- Bump `github.com/stretchr/testify` from 1.10.0 to 1.11.1 ([#728](https://github.com/opensearch-project/opensearch-go/pull/728))
+- Bump `github.com/aws/aws-sdk-go` from 1.55.7 to 1.55.8 ([#716](https://github.com/opensearch-project/opensearch-go/pull/716))
+
+### Added
+- Adds new fields for Opensearch 3.0 ([#702](https://github.com/opensearch-project/opensearch-go/pull/702))
+- Allow users to override signing port ([#721](https://github.com/opensearch-project/opensearch-go/pull/721))
+- Add `phase_took` features supported from OpenSearch 2.12 ([#722](https://github.com/opensearch-project/opensearch-go/pull/722))
+- Adds the action to refresh the search analyzers to the ISM plugin ([#686](https://github.com/opensearch-project/opensearch-go/pull/686))
+
+### Changed
+- Test against Opensearch 3.0 ([#702](https://github.com/opensearch-project/opensearch-go/pull/702))
+- Add more SuggestOptions to SearchResp ([#713](https://github.com/opensearch-project/opensearch-go/pull/713))
+- Updates Go version to 1.24 ([#674](https://github.com/opensearch-project/opensearch-go/pull/674))
+- Replace `golang.org/x/exp/slices` usage with built-in `slices` ([#674](https://github.com/opensearch-project/opensearch-go/pull/674))
+- Update golangci-linter to 1.64.8 ([#740](https://github.com/opensearch-project/opensearch-go/pull/740))
+- Change MaxScore to pointer ([#740](https://github.com/opensearch-project/opensearch-go/pull/740))
+- Update workflow action ([#760](https://github.com/opensearch-project/opensearch-go/pull/760))
+- Migrate to golangci-lint v2 ([#760](https://github.com/opensearch-project/opensearch-go/pull/760))
+
+### Deprecated
+
+### Removed
+
+### Fixed
+- Missing "caused by" information in StructError ([#752](https://github.com/opensearch-project/opensearch-go/pull/752))
+- Add missing `ignore_unavailable`, `allow_no_indices`, and `expand_wildcards` params to MSearch ([#757](https://github.com/opensearch-project/opensearch-go/pull/757))
+- Fix `UpdateResp` to correctly parse the `get` field when `_source` is requested in update operations. ([#739](https://github.com/opensearch-project/opensearch-go/pull/739))
+
+### Security
+
 ## [4.5.0]
 
 ### Dependencies
@@ -290,7 +325,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 - Uses `[]string` instead of `string` in `SnapshotDeleteRequest` ([#237](https://github.com/opensearch-project/opensearch-go/pull/237))
 - Updates workflows to reduce CI time, consolidate OpenSearch versions, update compatibility matrix ([#242](https://github.com/opensearch-project/opensearch-go/pull/242))
 - Moves @svencowart to emeritus maintainers ([#270](https://github.com/opensearch-project/opensearch-go/pull/270))
-- Reads, closes and replaces the http Reponse Body ([#300](https://github.com/opensearch-project/opensearch-go/pull/300))
+- Reads, closes and replaces the http Response Body ([#300](https://github.com/opensearch-project/opensearch-go/pull/300))
 
 ### Fixed
 
@@ -329,6 +364,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 - Bumps `github.com/stretchr/testify` from 1.8.0 to 1.8.1
 - Bumps `github.com/aws/aws-sdk-go` from 1.44.45 to 1.44.132
 
+[4.6.0]: https://github.com/opensearch-project/opensearch-go/compare/v4.5.0...v4.6.0
 [4.5.0]: https://github.com/opensearch-project/opensearch-go/compare/v4.4.0...v4.5.0
 [4.4.0]: https://github.com/opensearch-project/opensearch-go/compare/v4.3.0...v4.4.0
 [4.3.0]: https://github.com/opensearch-project/opensearch-go/compare/v4.2.0...v4.3.0

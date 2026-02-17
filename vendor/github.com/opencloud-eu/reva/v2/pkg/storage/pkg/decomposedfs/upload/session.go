@@ -170,7 +170,7 @@ func (session *DecomposedFsSession) HeaderIfUnmodifiedSince() string {
 
 // Node returns the node for the session
 func (session *DecomposedFsSession) Node(ctx context.Context) (*node.Node, error) {
-	return node.ReadNode(ctx, session.store.lu, session.SpaceID(), session.info.Storage["NodeId"], false, nil, true)
+	return node.ReadNode(ctx, session.store.lu, session.SpaceID(), session.info.Storage["NodeId"], "", false, nil, true)
 }
 
 // ID returns the upload session id

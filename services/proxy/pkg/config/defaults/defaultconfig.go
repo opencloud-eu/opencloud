@@ -223,33 +223,33 @@ func DefaultPolicies() []config.Policy {
 				},
 				{
 					Endpoint: "/remote.php/",
-					Service:  "eu.opencloud.web.ocdav",
+					Service:  "eu.opencloud.web.frontend",
 				},
 				{
 					Endpoint: "/dav/",
-					Service:  "eu.opencloud.web.ocdav",
+					Service:  "eu.opencloud.web.frontend",
 				},
 				{
 					Endpoint: "/webdav/",
-					Service:  "eu.opencloud.web.ocdav",
+					Service:  "eu.opencloud.web.frontend",
 				},
 				{
 					Endpoint:    "/status",
-					Service:     "eu.opencloud.web.ocdav",
+					Service:     "eu.opencloud.web.frontend",
 					Unprotected: true,
 				},
 				{
 					Endpoint:    "/status.php",
-					Service:     "eu.opencloud.web.ocdav",
+					Service:     "eu.opencloud.web.frontend",
 					Unprotected: true,
 				},
 				{
 					Endpoint: "/index.php/",
-					Service:  "eu.opencloud.web.ocdav",
+					Service:  "eu.opencloud.web.frontend",
 				},
 				{
 					Endpoint: "/apps/",
-					Service:  "eu.opencloud.web.ocdav",
+					Service:  "eu.opencloud.web.frontend",
 				},
 				{
 					Endpoint:    "/data",
@@ -262,7 +262,7 @@ func DefaultPolicies() []config.Policy {
 					Unprotected: true,
 				},
 				{
-					Endpoint: "/app/", // /app or /apps? ocdav only handles /apps
+					Endpoint: "/app/", // /app or /apps? frontend only handles /apps
 					Service:  "eu.opencloud.web.frontend",
 				},
 				{
@@ -298,16 +298,8 @@ func DefaultPolicies() []config.Policy {
 
 // EnsureDefaults adds default values to the configuration if they are not set yet
 func EnsureDefaults(cfg *config.Config) {
-	// provide with defaults for shared logging, since we need a valid destination address for "envdecode".
-	if cfg.Log == nil && cfg.Commons != nil && cfg.Commons.Log != nil {
-		cfg.Log = &config.Log{
-			Level:  cfg.Commons.Log.Level,
-			Pretty: cfg.Commons.Log.Pretty,
-			Color:  cfg.Commons.Log.Color,
-			File:   cfg.Commons.Log.File,
-		}
-	} else if cfg.Log == nil {
-		cfg.Log = &config.Log{}
+	if cfg.LogLevel == "" {
+		cfg.LogLevel = "error"
 	}
 
 	if cfg.OIDC.UserinfoCache == nil && cfg.Commons != nil && cfg.Commons.Cache != nil {

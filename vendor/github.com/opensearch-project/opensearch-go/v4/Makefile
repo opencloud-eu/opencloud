@@ -80,9 +80,7 @@ build-coverage:
 
 ##@ Development
 lint:  ## Run lint on the package
-	@printf "\033[2m→ Running lint...\033[0m\n"
-	go vet github.com/opensearch-project/opensearch-go/...
-	go list github.com/opensearch-project/opensearch-go/... | 'grep' -v internal | xargs golint -set_exit_status
+	@make linters
 
 package := "prettier"
 lint.markdown:
@@ -229,7 +227,7 @@ cluster.clean: ## Remove unused Docker volumes and networks
 	docker system prune --volumes --force
 
 linters:
-	docker run -t --rm -v $$(pwd):/app -v ~/.cache/golangci-lint/v1.54.2:/root/.cache -w /app golangci/golangci-lint:v1.54.2 golangci-lint run --timeout=5m
+	docker run -t --rm -v $$(pwd):/app -v ~/.cache/golangci-lint/v2.7.2:/root/.cache -w /app golangci/golangci-lint:v2.7.2 golangci-lint run --timeout=5m -v
 
 workflow: ## Run all github workflow commands here sequentially
 

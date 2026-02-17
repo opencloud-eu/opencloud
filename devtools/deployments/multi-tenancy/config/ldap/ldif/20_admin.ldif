@@ -1,0 +1,20 @@
+dn: uid=admin,ou=users,dc=opencloud,dc=eu
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: admin
+givenName: Admin
+sn: Admin
+cn: admin
+displayName: Admin
+description: An admin for this OpenCloud instance.
+mail: admin@example.org
+userPassword:: e1NTSEF9UWhmaFB3dERydTUydURoWFFObDRMbzVIckI3TkI5Nmo==
+
+dn: cn=administrators,ou=groups,dc=opencloud,dc=eu
+objectClass: groupOfNames
+objectClass: top
+cn: administrators
+description: OpenCloud Administrators
+member: uid=admin,ou=users,dc=opencloud,dc=eu

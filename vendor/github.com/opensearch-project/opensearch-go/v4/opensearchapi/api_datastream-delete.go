@@ -38,7 +38,7 @@ type DataStreamDeleteResp struct {
 	response     *opensearch.Response
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r DataStreamDeleteResp) Inspect() Inspect {
 	return Inspect{Response: r.response}
 }

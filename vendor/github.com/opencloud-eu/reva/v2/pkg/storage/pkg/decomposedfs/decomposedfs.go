@@ -169,6 +169,9 @@ func NewDefault(m map[string]interface{}, bs node.Blobstore, es events.Stream, l
 		microstore.Table(o.IDCache.Table),
 		store.DisablePersistence(o.IDCache.DisablePersistence),
 		store.Authentication(o.IDCache.AuthUsername, o.IDCache.AuthPassword),
+		store.TLSEnabled(o.IDCache.TLSEnabled),
+		store.TLSInsecure(o.IDCache.TLSInsecure),
+		store.TLSRootCA(o.IDCache.TLSRootCACertificate),
 	), log)
 
 	aspects := aspects.Aspects{
@@ -1084,6 +1087,10 @@ func (fs *Decomposedfs) Download(ctx context.Context, ref *provider.Reference, o
 	if !n.Exists {
 		err = errtypes.NotFound(filepath.Join(n.ParentID, n.Name))
 		return nil, nil, err
+	}
+
+	if n.IsProcessing(ctx) {
+		return nil, nil, errtypes.TooEarly("file is still being processed")
 	}
 
 	rp, err := fs.p.AssemblePermissions(ctx, n)

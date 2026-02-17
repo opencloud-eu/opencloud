@@ -44,15 +44,18 @@ var (
 
 // Config contains the configuring for a cache
 type Config struct {
-	Store              string        `mapstructure:"cache_store"`
-	Nodes              []string      `mapstructure:"cache_nodes"`
-	Database           string        `mapstructure:"cache_database"`
-	Table              string        `mapstructure:"cache_table"`
-	TTL                time.Duration `mapstructure:"cache_ttl"`
-	Size               int           `mapstructure:"cache_size"`
-	DisablePersistence bool          `mapstructure:"cache_disable_persistence"`
-	AuthUsername       string        `mapstructure:"cache_auth_username"`
-	AuthPassword       string        `mapstructure:"cache_auth_password"`
+	Store                string        `mapstructure:"cache_store"`
+	Nodes                []string      `mapstructure:"cache_nodes"`
+	Database             string        `mapstructure:"cache_database"`
+	Table                string        `mapstructure:"cache_table"`
+	TTL                  time.Duration `mapstructure:"cache_ttl"`
+	Size                 int           `mapstructure:"cache_size"`
+	DisablePersistence   bool          `mapstructure:"cache_disable_persistence"`
+	AuthUsername         string        `mapstructure:"cache_auth_username"`
+	AuthPassword         string        `mapstructure:"cache_auth_password"`
+	TLSEnabled           bool          `mapstructure:"cache_tls_enabled"`
+	TLSInsecure          bool          `mapstructure:"cache_tls_insecure"`
+	TLSRootCACertificate string        `mapstructure:"cache_tls_root_ca_certificate"`
 }
 
 // Cache handles key value operations on caches
@@ -243,5 +246,8 @@ func getStore(cfg Config) microstore.Store {
 		store.Size(cfg.Size),
 		store.DisablePersistence(cfg.DisablePersistence),
 		store.Authentication(cfg.AuthUsername, cfg.AuthPassword),
+		store.TLSEnabled(cfg.TLSEnabled),
+		store.TLSInsecure(cfg.TLSInsecure),
+		store.TLSRootCA(cfg.TLSRootCACertificate),
 	)
 }

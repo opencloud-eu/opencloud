@@ -62,7 +62,7 @@ class HttpRequestHelper {
 
 	/**
 	 *
-	 * @param string|null $url
+	 * @param string $url
 	 * @param string|null $xRequestId
 	 * @param string|null $method
 	 * @param string|null $user
@@ -80,8 +80,8 @@ class HttpRequestHelper {
 	 * @throws GuzzleException
 	 */
 	public static function sendRequestOnce(
-		?string $url,
-		?string $xRequestId,
+		string $url,
+		?string $xRequestId = null,
 		?string $method = 'GET',
 		?string $user = null,
 		?string $password = null,
@@ -100,7 +100,7 @@ class HttpRequestHelper {
 			$parsedUrl = parse_url($url);
 			$baseUrl = $parsedUrl['scheme'] . '://' . $parsedUrl['host'];
 			$baseUrl .= isset($parsedUrl['port']) ? ':' . $parsedUrl['port'] : '';
-			$testUrl = $baseUrl . "/graph/v1.0/use/$user";
+			$testUrl = $baseUrl . "/graph/v1.0/me";
 			if (OcHelper::isTestingOnReva()) {
 				$url = $baseUrl . "/ocs/v2.php/cloud/users/$user";
 			}
@@ -198,7 +198,7 @@ class HttpRequestHelper {
 		// wait for post-processing to finish if applicable
 		if (WebdavHelper::isDAVRequest($url)
 			&& \str_starts_with($url, OcHelper::getServerUrl())
-			&& \in_array($method, ["PUT", "MOVE", "COPY"])
+			&& \in_array($method, ["PUT", "MOVE", "COPY", "MKCOL"])
 			&& \in_array($response->getStatusCode(), [Response::HTTP_CREATED, Response::HTTP_NO_CONTENT])
 			&& OcConfigHelper::getPostProcessingDelay() === 0
 		) {

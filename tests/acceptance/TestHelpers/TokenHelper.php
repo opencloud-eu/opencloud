@@ -23,7 +23,7 @@ namespace TestHelpers;
 use GuzzleHttp\Client;
 use GuzzleHttp\Cookie\CookieJar;
 use GuzzleHttp\Exception\GuzzleException;
-use Exception;
+use PHPUnit\Framework\Assert;
 
 /**
  * Helper for obtaining bearer tokens for users
@@ -143,21 +143,15 @@ class TokenHelper {
 			]
 		);
 
-		if ($response->getStatusCode() !== 200) {
-			throw new Exception(
-				\sprintf(
-					'Token refresh failed: Expected status code 200 but received %d. Message: %s',
-					$response->getStatusCode(),
-					$response->getReasonPhrase()
-				)
-			);
-		}
-
+		Assert::assertEquals(
+			200,
+			$response->getStatusCode(),
+			'Token refresh failed: Expected status code 200 but received ' . $response->getStatusCode()
+		);
 		$data = json_decode($response->getBody()->getContents(), true);
 
-		if (!isset($data['access_token']) || !isset($data['refresh_token'])) {
-			throw new Exception('Missing tokens in refresh response');
-		}
+		Assert::assertArrayHasKey('access_token', $data, 'Missing access_token in refresh response');
+		Assert::assertArrayHasKey('refresh_token', $data, 'Missing refresh_token in refresh response');
 
 		return [
 			'access_token' => $data['access_token'],
@@ -253,21 +247,24 @@ class TokenHelper {
 	): string {
 		$response = self::makeLoginRequest($username, $password, $baseUrl, $cookieJar);
 
-		if ($response->getStatusCode() !== 200) {
-			throw new Exception(
-				\sprintf(
-					'Logon failed: Expected status code 200 but received %d. Message: %s',
-					$response->getStatusCode(),
-					$response->getReasonPhrase()
-				)
-			);
-		}
-
+		Assert::assertEquals(
+			200,
+			$response->getStatusCode(),
+			'Logon failed: Expected status code 200 but received: ' . $response->getStatusCode()
+		);
 		$data = json_decode($response->getBody()->getContents(), true);
 
-		if (!isset($data['hello']['continue_uri'])) {
-			throw new Exception('Missing continue_uri in logon response');
-		}
+		Assert::assertArrayHasKey(
+			'hello',
+			$data,
+			'Logon response does not contain "hello" object'
+		);
+
+		Assert::assertArrayHasKey(
+			'continue_uri',
+			$data['hello'],
+			'Missing continue_uri in logon response'
+		);
 
 		return $data['hello']['continue_uri'];
 	}
@@ -309,42 +306,17 @@ class TokenHelper {
 			]
 		);
 
-		if ($response->getStatusCode() !== 302) {
-			// Add debugging to understand what is happening
-			$body = $response->getBody()->getContents();
-			throw new Exception(
-				\sprintf(
-					'Authorization failed: Expected status code 302 but received %d. Message: %s. Body: %s',
-					$response->getStatusCode(),
-					$response->getReasonPhrase(),
-					$body
-				)
-			);
-		}
+		Assert::assertEquals(
+			302,
+			$response->getStatusCode(),
+			'Authorization request failed: Expected status code 302 but received: ' . $response->getStatusCode()
+		);
 
 		$location = $response->getHeader('Location')[0] ?? '';
-
-		if (empty($location)) {
-			throw new Exception('Missing Location header in authorization response');
-		}
+		Assert::assertNotEmpty($location, 'Missing Location header in authorization response');
 
 		parse_str(parse_url($location, PHP_URL_QUERY), $queryParams);
-
-		// Check for errors
-		if (isset($queryParams['error'])) {
-			throw new Exception(
-				\sprintf(
-					'Authorization error: %s - %s',
-					$queryParams['error'],
-					urldecode($queryParams['error_description'] ?? 'No description')
-				)
-			);
-		}
-
-		if (!isset($queryParams['code'])) {
-			throw new Exception('Missing auth code in redirect URL. Location: ' . $location);
-		}
-
+		Assert::assertArrayHasKey('code', $queryParams, 'Missing code parameter in redirect URL');
 		return $queryParams['code'];
 	}
 
@@ -383,21 +355,15 @@ class TokenHelper {
 			]
 		);
 
-		if ($response->getStatusCode() !== 200) {
-			throw new Exception(
-				\sprintf(
-					'Token request failed: Expected status code 200 but received %d. Message: %s',
-					$response->getStatusCode(),
-					$response->getReasonPhrase()
-				)
-			);
-		}
+		Assert::assertEquals(
+			200,
+			$response->getStatusCode(),
+			'Token request failed: Expected status code 200 but received: ' . $response->getStatusCode()
+		);
 
 		$data = json_decode($response->getBody()->getContents(), true);
-
-		if (!isset($data['access_token']) || !isset($data['refresh_token'])) {
-			throw new Exception('Missing tokens in response');
-		}
+		Assert::assertArrayHasKey('access_token', $data, 'Missing access_token in token response');
+		Assert::assertArrayHasKey('refresh_token', $data, 'Missing refresh_token in token response');
 
 		return [
 			'access_token' => $data['access_token'],

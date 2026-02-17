@@ -127,7 +127,7 @@ func TestRouter(t *testing.T) {
 			Name: "default",
 			Routes: []config.Route{
 				{Type: config.PrefixRoute, Endpoint: "/web/unprotected/demo/", Backend: "http://web", Unprotected: true},
-				{Type: config.PrefixRoute, Endpoint: "/dav", Backend: "http://ocdav"},
+				{Type: config.PrefixRoute, Endpoint: "/dav", Backend: "http://frontend"},
 				{Type: config.PrefixRoute, Method: "REPORT", Endpoint: "/dav", Backend: "http://opencloud-webdav"},
 			},
 		},
@@ -138,7 +138,7 @@ func TestRouter(t *testing.T) {
 	router := New(sel, policySelectorCfg, policies, log.NewLogger())
 
 	table := []matchertest{
-		{method: "PROPFIND", endpoint: "/dav/files/demo/", target: "ocdav"},
+		{method: "PROPFIND", endpoint: "/dav/files/demo/", target: "frontend"},
 		{method: "REPORT", endpoint: "/dav/files/demo/", target: "opencloud-webdav"},
 		{method: "GET", endpoint: "/web/unprotected/demo/", target: "web", unprotected: true},
 	}

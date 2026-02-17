@@ -43,7 +43,7 @@ type CatPendingTaskResp struct {
 	Source      string `json:"source"`
 }
 
-// Inspect returns the Inspect type containing the raw *opensearch.Reponse
+// Inspect returns the Inspect type containing the raw *opensearch.Response
 func (r CatPendingTasksResp) Inspect() Inspect {
 	return Inspect{
 		Response: r.response,

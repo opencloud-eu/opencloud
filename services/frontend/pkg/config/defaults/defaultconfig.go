@@ -5,7 +5,6 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
-	"github.com/opencloud-eu/opencloud/pkg/version"
 	"github.com/opencloud-eu/opencloud/services/frontend/pkg/config"
 )
 
@@ -88,7 +87,6 @@ func DefaultConfig() *config.Config {
 		DefaultUploadProtocol:    "tus",
 		DefaultLinkPermissions:   1,
 		SearchMinLength:          3,
-		Edition:                  version.Edition,
 		CheckForUpdates:          true,
 		Checksums: config.Checksums{
 			SupportedTypes:      []string{"sha1", "md5", "adler32"},
@@ -120,6 +118,24 @@ func DefaultConfig() *config.Config {
 			PublicShareMustHavePassword: true,
 			IncludeOCMSharees:           false,
 		},
+		OCDav: config.OCDav{
+			Prefix:                "",
+			SkipUserGroupsInToken: false,
+
+			WebdavNamespace:            "/users/{{.Id.OpaqueId}}",
+			FilesNamespace:             "/users/{{.Id.OpaqueId}}",
+			SharesNamespace:            "/Shares",
+			OCMNamespace:               "/public",
+			PublicURL:                  "https://localhost:9200",
+			Insecure:                   false,
+			EnableHTTPTPC:              false,
+			Timeout:                    84300,
+			AllowPropfindDepthInfinity: false,
+			NameValidation: config.NameValidation{
+				InvalidChars: []string{"\f", "\r", "\n", "\\"},
+				MaxLength:    255,
+			},
+		},
 		Middleware: config.Middleware{
 			Auth: config.Auth{
 				CredentialsByUserAgent: map[string]string{},
@@ -148,16 +164,8 @@ func DefaultConfig() *config.Config {
 
 // EnsureDefaults adds default values to the configuration if they are not set yet
 func EnsureDefaults(cfg *config.Config) {
-	// provide with defaults for shared logging, since we need a valid destination address for "envdecode".
-	if cfg.Log == nil && cfg.Commons != nil && cfg.Commons.Log != nil {
-		cfg.Log = &config.Log{
-			Level:  cfg.Commons.Log.Level,
-			Pretty: cfg.Commons.Log.Pretty,
-			Color:  cfg.Commons.Log.Color,
-			File:   cfg.Commons.Log.File,
-		}
-	} else if cfg.Log == nil {
-		cfg.Log = &config.Log{}
+	if cfg.LogLevel == "" {
+		cfg.LogLevel = "error"
 	}
 
 	if cfg.Reva == nil && cfg.Commons != nil {

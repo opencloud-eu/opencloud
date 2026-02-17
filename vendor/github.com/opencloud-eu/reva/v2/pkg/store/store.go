@@ -20,6 +20,8 @@ package store
 
 import (
 	"context"
+	"crypto/tls"
+	"fmt"
 	"strings"
 	"time"
 
@@ -31,6 +33,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/store/etcd"
 	"github.com/opencloud-eu/reva/v2/pkg/store/memory"
 	"go-micro.dev/v4/logger"
+	"go-micro.dev/v4/store"
 	microstore "go-micro.dev/v4/store"
 )
 
@@ -62,6 +65,11 @@ func Create(opts ...microstore.Option) microstore.Store {
 	}
 	for _, o := range opts {
 		o(options)
+	}
+
+	// ensure we have a logger
+	if options.Logger == nil {
+		options.Logger = logger.DefaultLogger
 	}
 
 	storeType, _ := options.Context.Value(typeContextKey{}).(string)
@@ -118,51 +126,114 @@ func Create(opts ...microstore.Option) microstore.Store {
 		}
 		return *ocMemStore
 	case TypeNatsJS:
-		ttl, _ := options.Context.Value(ttlContextKey{}).(time.Duration)
-		if mem, _ := options.Context.Value(disablePersistanceContextKey{}).(bool); mem {
-			opts = append(opts, natsjs.DefaultMemory())
-		}
-		// TODO nats needs a DefaultTTL option as it does not support per Write TTL ...
-		// FIXME nats has restrictions on the key, we cannot use slashes AFAICT
-		// host, port, clusterid
-		natsOptions := nats.GetDefaultOptions()
-		natsOptions.Name = "TODO" // we can pass in the service name to allow identifying the client, but that requires adding a custom context option
-		if auth, ok := options.Context.Value(authenticationContextKey{}).([]string); ok && len(auth) == 2 {
-			natsOptions.User = auth[0]
-			natsOptions.Password = auth[1]
-		}
-		return natsjs.NewStore(
+		opts, ttl, natsOptions := natsConfig(options.Logger, options.Context, opts)
+		store := natsjs.NewStore(
 			append(opts,
 				natsjs.NatsOptions(natsOptions), // always pass in properly initialized default nats options
-				natsjs.DefaultTTL(ttl))...,
-		) // TODO test with OpenCloud nats
-	case TypeNatsJSKV:
-		// NOTE: nats needs a DefaultTTL option as it does not support per Write TTL ...
-		ttl, _ := options.Context.Value(ttlContextKey{}).(time.Duration)
-		if mem, _ := options.Context.Value(disablePersistanceContextKey{}).(bool); mem {
-			opts = append(opts, natsjskv.DefaultMemory())
+				natsjs.DefaultTTL(ttl))...,      // nats needs a DefaultTTL option as it does not support per Write TTL
+		)
+
+		err := updateNatsStore(opts, ttl, natsOptions)
+		if err != nil {
+			options.Logger.Logf(logger.ErrorLevel, "failed to update nats-js store: '%s'", err.Error())
 		}
 
-		natsOptions := nats.GetDefaultOptions()
-		natsOptions.Name = "TODO" // we can pass in the service name to allow identifying the client, but that requires adding a custom context option
-		if auth, ok := options.Context.Value(authenticationContextKey{}).([]string); ok && len(auth) == 2 {
-			natsOptions.User = auth[0]
-			natsOptions.Password = auth[1]
-		}
-		return natsjskv.NewStore(
+		return store
+	case TypeNatsJSKV:
+		opts, ttl, natsOptions := natsConfig(options.Logger, options.Context, opts)
+		store := natsjskv.NewStore(
 			append(opts,
 				natsjskv.NatsOptions(natsOptions), // always pass in properly initialized default nats options
-				natsjskv.EncodeKeys(),
-				natsjskv.DefaultTTL(ttl))...,
+				natsjskv.EncodeKeys(),             // nats has restrictions on the key, we cannot use slashes
+				natsjskv.DefaultTTL(ttl))...,      // nats needs a DefaultTTL option as it does not support per Write TTL
 		)
+
+		err := updateNatsStore(opts, ttl, natsOptions)
+		if err != nil {
+			options.Logger.Logf(logger.ErrorLevel, "failed to update nats-js-kv store: '%s'", err.Error())
+		}
+
+		return store
 	case TypeMemory, "mem", "": // allow existing short form and use as default
 		return microstore.NewMemoryStore(opts...)
 	default:
-		// try to log an error
-		if options.Logger == nil {
-			options.Logger = logger.DefaultLogger
-		}
 		options.Logger.Logf(logger.ErrorLevel, "unknown store type: '%s', falling back to memory", storeType)
 		return microstore.NewMemoryStore(opts...)
 	}
+}
+
+func updateNatsStore(opts []store.Option, ttl time.Duration, natsOptions nats.Options) error {
+	options := store.Options{}
+	for _, o := range opts {
+		o(&options)
+	}
+
+	bucketName := options.Database
+	if bucketName == "" {
+		return fmt.Errorf("bucket name (database) must be set")
+	}
+
+	if len(options.Nodes) > 0 {
+		natsOptions.Servers = options.Nodes
+	}
+	nc, err := natsOptions.Connect()
+	if err != nil {
+		return fmt.Errorf("could not connect to nats: %w", err)
+	}
+	defer nc.Close()
+
+	js, err := nc.JetStream()
+	if err != nil {
+		return err
+	}
+
+	// NATS KV buckets are actually streams named "KV_<bucket_name>"
+	info, err := js.StreamInfo("KV_" + bucketName)
+	if err != nil {
+		return fmt.Errorf("failed to get bucket info: %w", err)
+	}
+
+	config := info.Config
+	config.MaxAge = ttl
+
+	_, err = js.UpdateStream(&config)
+	if err != nil {
+		return fmt.Errorf("failed to update bucket TTL: %w", err)
+	}
+
+	return nil
+}
+
+func natsConfig(log logger.Logger, ctx context.Context, opts []microstore.Option) ([]microstore.Option, time.Duration, nats.Options) {
+
+	if mem, _ := ctx.Value(disablePersistanceContextKey{}).(bool); mem {
+		opts = append(opts, natsjs.DefaultMemory())
+	}
+
+	ttl := time.Duration(0)
+	if d, ok := ctx.Value(ttlContextKey{}).(time.Duration); ok {
+		ttl = d
+	}
+
+	// preparing natsOptions before the switch to reuse the same code
+	natsOptions := nats.GetDefaultOptions()
+	natsOptions.Name = "TODO" // we can pass in the service name to allow identifying the client, but that requires adding a custom context option
+	if auth, ok := ctx.Value(authenticationContextKey{}).([]string); ok && len(auth) == 2 {
+		natsOptions.User = auth[0]
+		natsOptions.Password = auth[1]
+	}
+	if enableTLS, ok := ctx.Value(tlsEnabledContextKey{}).(bool); ok && enableTLS {
+		if rootca, ok := ctx.Value(tlsRootCAContextKey{}).(string); ok && rootca != "" {
+			// when root ca is configured use it. an insecure flag is ignored.
+			if err := nats.RootCAs(rootca)(&natsOptions); err != nil {
+				log.Log(logger.ErrorLevel, err)
+			}
+		} else {
+			// enable tls with insecure option
+			insecure := ctx.Value(tlsInsecureContextKey{}).(bool)
+			_ = nats.Secure(&tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: insecure})(&natsOptions)
+		}
+	}
+
+	return opts, ttl, natsOptions
 }

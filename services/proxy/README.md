@@ -28,7 +28,7 @@ policies:
       - endpoint: /
         service: eu.opencloud.web.web
       - endpoint: /dav/
-        service: eu.opencloud.web.ocdav
+        service: eu.opencloud.web.frontend
 ```
 
 For adding _additional_ routes to the default routes use:
