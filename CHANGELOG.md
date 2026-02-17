@@ -6,7 +6,9 @@
 
 @rhafer
 
+### 📦️ Dependencies
 
+- build(deps): bump github.com/open-policy-agent/opa from 1.12.3 to 1.13.1 [[#2350](https://github.com/opencloud-eu/opencloud/pull/2350)]
 
 ## [5.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.1.0) - 2026-02-16
 
