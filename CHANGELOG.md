@@ -4,10 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @pat-s, @rhafer
+@AlexAndBear, @butonic, @pat-s, @rhafer
 
 ### 📈 Enhancement
 
+- Add openCloudEducationExternalId to user [[#2357](https://github.com/opencloud-eu/opencloud/pull/2357)]
 - feat: app-registry adjust default mime-types [[#2354](https://github.com/opencloud-eu/opencloud/pull/2354)]
 - feat: support desktop and mobile specific  `client_id` and `scopes` [[#2072](https://github.com/opencloud-eu/opencloud/pull/2072)]
 
