@@ -17,6 +17,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump golang.org/x/net from 0.49.0 to 0.50.0 [[#2356](https://github.com/opencloud-eu/opencloud/pull/2356)]
 - build(deps): bump github.com/go-resty/resty/v2 from 2.17.1 to 2.17.2 [[#2355](https://github.com/opencloud-eu/opencloud/pull/2355)]
 - build(deps): bump go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp from 0.64.0 to 0.65.0 [[#2321](https://github.com/opencloud-eu/opencloud/pull/2321)]
 - build(deps): bump github.com/open-policy-agent/opa from 1.12.3 to 1.13.1 [[#2350](https://github.com/opencloud-eu/opencloud/pull/2350)]
