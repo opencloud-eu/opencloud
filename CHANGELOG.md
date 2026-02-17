@@ -6,6 +6,10 @@
 
 @pat-s, @rhafer
 
+### 📚 Documentation
+
+- adr(webfinger): Align example config with implementation [[#2353](https://github.com/opencloud-eu/opencloud/pull/2353)]
+
 ### 📈 Enhancement
 
 - feat: support desktop and mobile specific  `client_id` and `scopes` [[#2072](https://github.com/opencloud-eu/opencloud/pull/2072)]
