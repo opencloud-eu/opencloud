@@ -23,7 +23,7 @@ type tracing struct {
 }
 
 // Webfinger implements the Service interface.
-func (t tracing) Webfinger(ctx context.Context, queryTarget *url.URL, rels []string) (webfinger.JSONResourceDescriptor, error) {
+func (t tracing) Webfinger(ctx context.Context, queryTarget *url.URL, rels []string, platform string) (webfinger.JSONResourceDescriptor, error) {
 	spanOpts := []trace.SpanStartOption{
 		trace.WithSpanKind(trace.SpanKindServer),
 		trace.WithAttributes(
@@ -34,5 +34,5 @@ func (t tracing) Webfinger(ctx context.Context, queryTarget *url.URL, rels []str
 	ctx, span := t.tp.Tracer("webfinger").Start(ctx, "Webfinger", spanOpts...)
 	defer span.End()
 
-	return t.next.Webfinger(ctx, queryTarget, rels)
+	return t.next.Webfinger(ctx, queryTarget, rels, platform)
 }

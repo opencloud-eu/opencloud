@@ -7,6 +7,11 @@ import (
 	"github.com/opencloud-eu/opencloud/services/webfinger/pkg/relations"
 )
 
+var (
+	nativeAppScopes = []string{"openid", "profile", "email", "offline_access"}
+	webAppScopes    = []string{"openid", "profile", "email"}
+)
+
 // FullDefaultConfig returns a fully initialized default configuration
 func FullDefaultConfig() *config.Config {
 	cfg := DefaultConfig()
@@ -49,8 +54,16 @@ func DefaultConfig() *config.Config {
 				},
 			},
 		},
-		IDP:      "https://localhost:9200",
-		Insecure: false,
+		IDP:                 "https://localhost:9200",
+		Insecure:            false,
+		AndroidClientID:     "OpenCloudAndroid",
+		AndroidClientScopes: nativeAppScopes,
+		DesktopClientID:     "OpenCloudDesktop",
+		DesktopClientScopes: nativeAppScopes,
+		IOSClientID:         "OpenCloudIOS",
+		IOSClientScopes:     nativeAppScopes,
+		WebClientID:         "web",
+		WebClientScopes:     webAppScopes,
 	}
 }
 
@@ -77,5 +90,24 @@ func Sanitize(cfg *config.Config) {
 	// sanitize config
 	if cfg.HTTP.Root != "/" {
 		cfg.HTTP.Root = strings.TrimSuffix(cfg.HTTP.Root, "/")
+	}
+
+	cfg.OIDCClientConfigs = map[string]config.OIDCClientConfig{
+		"android": {
+			ClientID: cfg.AndroidClientID,
+			Scopes:   cfg.AndroidClientScopes,
+		},
+		"desktop": {
+			ClientID: cfg.DesktopClientID,
+			Scopes:   cfg.DesktopClientScopes,
+		},
+		"ios": {
+			ClientID: cfg.IOSClientID,
+			Scopes:   cfg.IOSClientScopes,
+		},
+		"web": {
+			ClientID: cfg.WebClientID,
+			Scopes:   cfg.WebClientScopes,
+		},
 	}
 }

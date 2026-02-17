@@ -120,7 +120,7 @@ func getRelationProviders(cfg *config.Config) (map[string]service.RelationProvid
 	for _, relationURI := range cfg.Relations {
 		switch relationURI {
 		case relations.OpenIDConnectRel:
-			rels[relationURI] = relations.OpenIDDiscovery(cfg.IDP)
+			rels[relationURI] = relations.OpenIDDiscovery(cfg.IDP, cfg.OIDCClientConfigs)
 		case relations.OpenCloudInstanceRel:
 			var err error
 			rels[relationURI], err = relations.OpenCloudInstance(cfg.Instances, cfg.OpenCloudURL)
@@ -131,5 +131,6 @@ func getRelationProviders(cfg *config.Config) (map[string]service.RelationProvid
 			return nil, fmt.Errorf("unknown relation '%s'", relationURI)
 		}
 	}
+
 	return rels, nil
 }

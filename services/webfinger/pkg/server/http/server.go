@@ -125,14 +125,11 @@ func WebfingerHandler(service svc.Service) func(w http.ResponseWriter, r *http.R
 			return
 		}
 
-		rels := make([]string, 0)
-		for k, v := range r.URL.Query() {
-			if k == "rel" {
-				rels = append(rels, v...)
-			}
-		}
+		rels := r.URL.Query()["rel"]
 
-		jrd, err := service.Webfinger(ctx, queryTarget, rels)
+		platform := r.URL.Query().Get("platform")
+
+		jrd, err := service.Webfinger(ctx, queryTarget, rels, platform)
 		if errors.Is(err, serviceErrors.ErrNotFound) {
 			// from https://www.rfc-editor.org/rfc/rfc7033#section-4.2
 			//

@@ -57,7 +57,7 @@ func OpenCloudInstance(instances []config.Instance, openCloudURL string) (servic
 	}, nil
 }
 
-func (l *openCloudInstance) Add(ctx context.Context, jrd *webfinger.JSONResourceDescriptor) {
+func (l *openCloudInstance) Add(ctx context.Context, _ string, jrd *webfinger.JSONResourceDescriptor) {
 	if jrd == nil {
 		jrd = &webfinger.JSONResourceDescriptor{}
 	}

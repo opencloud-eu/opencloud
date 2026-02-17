@@ -45,11 +45,11 @@ type Service interface {
 	//	    }
 	//	  ]
 	//	}
-	Webfinger(ctx context.Context, queryTarget *url.URL, rels []string) (webfinger.JSONResourceDescriptor, error)
+	Webfinger(ctx context.Context, queryTarget *url.URL, rels []string, platform string) (webfinger.JSONResourceDescriptor, error)
 }
 
 type RelationProvider interface {
-	Add(ctx context.Context, jrd *webfinger.JSONResourceDescriptor)
+	Add(ctx context.Context, platform string, jrd *webfinger.JSONResourceDescriptor)
 }
 
 // New returns a new instance of Service
@@ -81,7 +81,7 @@ type svc struct {
 // - one that looks up in instance by id (use template, read from json, read from ldap, read from graph)
 
 // Webfinger implements the service interface
-func (s svc) Webfinger(ctx context.Context, queryTarget *url.URL, rel []string) (webfinger.JSONResourceDescriptor, error) {
+func (s svc) Webfinger(ctx context.Context, queryTarget *url.URL, rel []string, platform string) (webfinger.JSONResourceDescriptor, error) {
 
 	jrd := webfinger.JSONResourceDescriptor{
 		Subject: queryTarget.String(),
@@ -90,13 +90,13 @@ func (s svc) Webfinger(ctx context.Context, queryTarget *url.URL, rel []string) 
 	if len(rel) == 0 {
 		// add all configured relation providers
 		for _, relation := range s.relationProviders {
-			relation.Add(ctx, &jrd)
+			relation.Add(ctx, platform, &jrd)
 		}
 	} else {
 		// only add requested relations
 		for _, r := range rel {
 			if relation, ok := s.relationProviders[r]; ok {
-				relation.Add(ctx, &jrd)
+				relation.Add(ctx, platform, &jrd)
 			}
 		}
 	}
