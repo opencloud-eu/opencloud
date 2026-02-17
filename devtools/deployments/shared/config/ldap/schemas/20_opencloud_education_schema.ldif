@@ -32,7 +32,7 @@ olcObjectClasses: ( openCloudOid:1.2.3 NAME 'openCloudEducationUser'
   DESC 'OpenCloud education user objectclass'
   SUP openCloudUser
   AUXILIARY
-  MAY ( userClass $ openCloudMemberOfSchool ) )
+  MAY ( openCloudEducationExternalId $ userClass $ openCloudMemberOfSchool ) )
 olcObjectClasses: ( openCloudOid:1.2.4 NAME 'openCloudEducationClass'
   DESC 'OpenCloud education class objectclass'
   SUP openCloudObject
