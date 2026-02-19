@@ -6,6 +6,10 @@
 
 @AlexAndBear, @butonic, @pat-s, @rhafer
 
+### 🐛 Bug Fixes
+
+- fix(oidc_auth): Fix userinfo cache expiration logic [[#2360](https://github.com/opencloud-eu/opencloud/pull/2360)]
+
 ### 📈 Enhancement
 
 - Add openCloudEducationExternalId to user [[#2357](https://github.com/opencloud-eu/opencloud/pull/2357)]
