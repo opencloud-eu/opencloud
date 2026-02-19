@@ -22,6 +22,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump google.golang.org/grpc from 1.78.0 to 1.79.1 [[#2362](https://github.com/opencloud-eu/opencloud/pull/2362)]
 - build(deps): bump github.com/onsi/ginkgo/v2 from 2.28.0 to 2.28.1 [[#2366](https://github.com/opencloud-eu/opencloud/pull/2366)]
 - build(deps): bump go.opentelemetry.io/contrib/zpages from 0.64.0 to 0.65.0 [[#2363](https://github.com/opencloud-eu/opencloud/pull/2363)]
 - build(deps): bump golang.org/x/net from 0.49.0 to 0.50.0 [[#2356](https://github.com/opencloud-eu/opencloud/pull/2356)]
