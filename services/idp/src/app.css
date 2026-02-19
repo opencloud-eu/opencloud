@@ -1,4 +1,3 @@
-/* additional css on top of kpop */
 @font-face {
     font-family: OpenCloud;
     src: url('./fonts/OpenCloud500-Regular.woff2') format('woff2');
@@ -17,14 +16,23 @@
 html {
     font-feature-settings: "cv11";
     color: #20434f !important;
+    height: 100%;
 }
 
 body {
     font-family: OpenCloud, sans-serif;
+    height: 100%;
+    margin: 0;
+    padding: 0;
 }
 
 strong {
     font-weight: 600;
+}
+
+#root {
+  height: 100%;
+  display: flex;
 }
 
 .oc-font-weight-light {

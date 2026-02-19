@@ -7,7 +7,7 @@
     "analyze": "source-map-explorer 'build/static/js/*.js'",
     "build": "node --openssl-legacy-provider scripts/build.js && rm -f build/service-worker.js",
     "licenses": "NODE_PATH=./node_modules node ../scripts/js-license-ranger.js",
-    "licenses:check": "license-checker-rseidelsohn --summary --relativeLicensePath --onlyAllow 'Python-2.0;Apache*;Apache License, Version 2.0;Apache-2.0;Apache 2.0;Artistic-2.0;BSD;BSD-3-Clause;CC-BY-3.0;CC-BY-4.0;CC0-1.0;ISC;MIT;MPL-2.0;Public Domain;Unicode-TOU;Unlicense;WTFPL;ODC-By-1.0;BlueOak-1.0.0;OFL-1.1'  --excludePackages 'identifier;kpop;unicoderegexp' --clarificationsFile license-checker-clarifications.json",
+    "licenses:check": "license-checker-rseidelsohn --summary --relativeLicensePath --onlyAllow 'Python-2.0;Apache*;Apache License, Version 2.0;Apache-2.0;Apache 2.0;Artistic-2.0;BSD;BSD-3-Clause;CC-BY-3.0;CC-BY-4.0;CC0-1.0;ISC;MIT;MPL-2.0;Public Domain;Unicode-TOU;Unlicense;WTFPL;ODC-By-1.0;BlueOak-1.0.0;OFL-1.1'  --excludePackages 'identifier;unicoderegexp' --clarificationsFile license-checker-clarifications.json",
     "licenses:csv": "license-checker-rseidelsohn --relativeLicensePath --csv --out ../../third-party-licenses/node/idp/third-party-licenses.csv",
     "licenses:save": "license-checker-rseidelsohn --relativeLicensePath --out /dev/null --files ../../third-party-licenses/node/idp/third-party-licenses",
     "lint": "eslint ./**/*.{tsx,ts,jsx,js}",
@@ -89,7 +89,6 @@
     "i18next-browser-languagedetector": "^8.1.0",
     "i18next-http-backend": "^3.0.2",
     "i18next-resources-to-backend": "^1.2.1",
-    "kpop": "https://download.kopano.io/community/kapp:/kpop-2.7.2.tgz",
     "query-string": "^9.2.0",
     "react": "^17.0.2",
     "react-app-polyfill": "^3.0.0",
@@ -154,10 +153,5 @@
     "webpack-manifest-plugin": "5.0.0",
     "workbox-webpack-plugin": "7.1.0"
   },
-  "packageManager": "pnpm@9.15.4",
-  "pnpm": {
-    "overrides": {
-      "kpop>cldr": ""
-    }
-  }
+  "packageManager": "pnpm@9.15.4"
 }
