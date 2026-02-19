@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/oidc"
 	"github.com/pkg/errors"
@@ -68,12 +67,13 @@ func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[stri
 	if len(record) > 0 {
 		if err = msgpack.Unmarshal(record[0].Value, &claims); err == nil {
 			m.Logger.Debug().Interface("claims", claims).Msg("cache hit for userinfo")
-			if ok := verifyExpiresAt(claims, m.TimeFunc()); !ok {
-				return nil, false, jwt.ErrTokenExpired
+			if verifyExpiresAt(claims, m.TimeFunc()) {
+				return claims, false, nil
 			}
-			return claims, false, nil
+			m.Logger.Debug().Msg("cached userinfo claims expired, ignoring cache")
+		} else {
+			m.Logger.Error().Err(err).Msg("failed to unmarshal cached userinfo, ignoring cache")
 		}
-		m.Logger.Error().Err(err).Msg("could not unmarshal userinfo")
 	}
 
 	aClaims, claims, err := m.oidcClient.VerifyAccessToken(req.Context(), token)
