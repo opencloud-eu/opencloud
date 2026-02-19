@@ -60,7 +60,7 @@ require (
 	github.com/oklog/run v1.2.0
 	github.com/olekukonko/tablewriter v1.1.3
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/ginkgo/v2 v2.28.0
+	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
 	github.com/open-policy-agent/opa v1.13.1
 	github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89
