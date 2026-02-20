@@ -43,6 +43,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
 
@@ -161,7 +162,7 @@ var _ = Describe("ocdav", func() {
 		sel := selector{
 			client: client,
 		}
-		handler, err = ocdav.NewWith(cfg, nil, ocdav.NewCS3LS(sel), nil, sel)
+		handler, err = ocdav.NewWith(cfg, nil, ocdav.NewCS3LS(sel), &zerolog.Logger{}, sel)
 		Expect(err).ToNot(HaveOccurred())
 
 		userspace = &cs3storageprovider.StorageSpace{
