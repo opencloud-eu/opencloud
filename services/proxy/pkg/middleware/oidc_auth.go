@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/pkg/errors"
 	"github.com/vmihailenco/msgpack/v5"
 	"go-micro.dev/v4/store"
@@ -117,13 +116,13 @@ func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[stri
 				m.Logger.Error().Err(err).Msg("failed to write to userinfo cache")
 			}
 
-			// if the claim has no subject, we can leave it empty,
-			// it's important to keep the dot in the key to prevent
-			// sufix and prefix exploration in the cache.
+			// fail if creating the storage key fails,
+			// it means there is no subject and no session.
 			//
 			// ok: {key: ".sessionId"}
 			// ok: {key: "subject."}
 			// ok: {key: "subject.sessionId"}
+			// fail: {key: "."}
 			subjectSessionKey, err := staticroutes.NewRecordKey(aClaims.Subject, aClaims.SessionID)
 			if err != nil {
 				m.Logger.Error().Err(err).Msg("failed to build subject.session")

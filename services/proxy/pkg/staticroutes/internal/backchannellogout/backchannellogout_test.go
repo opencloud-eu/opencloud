@@ -137,33 +137,33 @@ func TestGetLogoutMode(t *testing.T) {
 	tests := []struct {
 		name string
 		suSe SuSe
-		want LogoutMode
+		want logoutMode
 	}{
 		{
 			name: "key variation: '.session'",
 			suSe: mustNewSuSe(t, "", "session"),
-			want: LogoutModeSession,
+			want: logoutModeSession,
 		},
 		{
 			name: "key variation: 'subject.session'",
 			suSe: mustNewSuSe(t, "subject", "session"),
-			want: LogoutModeSession,
+			want: logoutModeSession,
 		},
 		{
 			name: "key variation: 'subject.'",
 			suSe: mustNewSuSe(t, "subject", ""),
-			want: LogoutModeSubject,
+			want: logoutModeSubject,
 		},
 		{
 			name: "key variation: 'empty'",
 			suSe: SuSe{},
-			want: LogoutModeUndefined,
+			want: logoutModeUndefined,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mode := GetLogoutMode(tt.suSe)
+			mode := getLogoutMode(tt.suSe)
 			require.Equal(t, tt.want, mode)
 		})
 	}
@@ -197,34 +197,13 @@ func TestGetLogoutRecords(t *testing.T) {
 	tests := []struct {
 		name        string
 		suSe        SuSe
-		mode        LogoutMode
 		store       func(t *testing.T) store.Store
 		wantRecords []*store.Record
 		wantErrs    []error
 	}{
 		{
-			name: "fails if mode is unknown",
-			suSe: mustNewSuSe(t, "", "session-a"),
-			mode: LogoutModeUndefined,
-			store: func(t *testing.T) store.Store {
-				return sessionStore
-			},
-			wantRecords: []*store.Record{},
-			wantErrs:    []error{ErrSuspiciousCacheResult},
-		},
-		{
-			name: "fails if mode is any random int",
-			suSe: mustNewSuSe(t, "", "session-a"),
-			mode: 999,
-			store: func(t *testing.T) store.Store {
-				return sessionStore
-			},
-			wantRecords: []*store.Record{},
-			wantErrs:    []error{ErrSuspiciousCacheResult}},
-		{
 			name: "fails if multiple session records are found",
 			suSe: mustNewSuSe(t, "", "session-a"),
-			mode: LogoutModeSession,
 			store: func(t *testing.T) store.Store {
 				s := mocks.NewStore(t)
 				s.EXPECT().Read(mock.Anything, mock.Anything).Return([]*store.Record{
@@ -238,7 +217,6 @@ func TestGetLogoutRecords(t *testing.T) {
 		{
 			name: "fails if the record key is not ok",
 			suSe: mustNewSuSe(t, "", "session-a"),
-			mode: LogoutModeSession,
 			store: func(t *testing.T) store.Store {
 				s := mocks.NewStore(t)
 				s.EXPECT().Read(mock.Anything, mock.Anything).Return([]*store.Record{
@@ -252,7 +230,6 @@ func TestGetLogoutRecords(t *testing.T) {
 		{
 			name: "fails if the session does not match the retrieved record",
 			suSe: mustNewSuSe(t, "", "session-a"),
-			mode: LogoutModeSession,
 			store: func(t *testing.T) store.Store {
 				s := mocks.NewStore(t)
 				s.EXPECT().Read(mock.Anything, mock.Anything).Return([]*store.Record{
@@ -265,7 +242,6 @@ func TestGetLogoutRecords(t *testing.T) {
 		{
 			name: "fails if the subject does not match the retrieved record",
 			suSe: mustNewSuSe(t, "subject-a", ""),
-			mode: LogoutModeSubject,
 			store: func(t *testing.T) store.Store {
 				s := mocks.NewStore(t)
 				s.EXPECT().Read(mock.Anything, mock.Anything).Return([]*store.Record{
@@ -279,7 +255,6 @@ func TestGetLogoutRecords(t *testing.T) {
 		{
 			name: "key variation: 'session-a'",
 			suSe: mustNewSuSe(t, "", "session-a"),
-			mode: LogoutModeSession,
 			store: func(*testing.T) store.Store {
 				return sessionStore
 			},
@@ -288,7 +263,6 @@ func TestGetLogoutRecords(t *testing.T) {
 		{
 			name: "key variation: 'session-b'",
 			suSe: mustNewSuSe(t, "", "session-b"),
-			mode: LogoutModeSession,
 			store: func(*testing.T) store.Store {
 				return sessionStore
 			},
@@ -297,7 +271,6 @@ func TestGetLogoutRecords(t *testing.T) {
 		{
 			name: "key variation: 'session-c'",
 			suSe: mustNewSuSe(t, "", "session-c"),
-			mode: LogoutModeSession,
 			store: func(*testing.T) store.Store {
 				return sessionStore
 			},
@@ -306,7 +279,6 @@ func TestGetLogoutRecords(t *testing.T) {
 		{
 			name: "key variation: 'ession-c'",
 			suSe: mustNewSuSe(t, "", "ession-c"),
-			mode: LogoutModeSession,
 			store: func(*testing.T) store.Store {
 				return sessionStore
 			},
@@ -316,7 +288,6 @@ func TestGetLogoutRecords(t *testing.T) {
 		{
 			name: "key variation: 'subject-a'",
 			suSe: mustNewSuSe(t, "subject-a", ""),
-			mode: LogoutModeSubject,
 			store: func(*testing.T) store.Store {
 				return sessionStore
 			},
@@ -325,7 +296,6 @@ func TestGetLogoutRecords(t *testing.T) {
 		{
 			name: "key variation: 'subject-'",
 			suSe: mustNewSuSe(t, "subject-", ""),
-			mode: LogoutModeSubject,
 			store: func(*testing.T) store.Store {
 				return sessionStore
 			},
@@ -336,7 +306,7 @@ func TestGetLogoutRecords(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			records, err := GetLogoutRecords(tt.suSe, tt.mode, tt.store(t))
+			records, err := GetLogoutRecords(tt.suSe, tt.store(t))
 			for _, wantErr := range tt.wantErrs {
 				require.ErrorIs(t, err, wantErr)
 			}

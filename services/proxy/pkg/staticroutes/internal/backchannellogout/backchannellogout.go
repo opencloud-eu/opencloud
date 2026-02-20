@@ -97,27 +97,27 @@ func NewSuSe(key string) (SuSe, error) {
 	return suse, nil
 }
 
-// LogoutMode defines the mode of backchannel logout, either by session or by subject
-type LogoutMode int
+// logoutMode defines the mode of backchannel logout, either by session or by subject
+type logoutMode int
 
 const (
-	// LogoutModeUndefined is used when the logout mode cannot be determined
-	LogoutModeUndefined LogoutMode = iota
-	// LogoutModeSubject is used when the logout mode is determined by the subject
-	LogoutModeSubject
-	// LogoutModeSession is used when the logout mode is determined by the session id
-	LogoutModeSession
+	// logoutModeUndefined is used when the logout mode cannot be determined
+	logoutModeUndefined logoutMode = iota
+	// logoutModeSubject is used when the logout mode is determined by the subject
+	logoutModeSubject
+	// logoutModeSession is used when the logout mode is determined by the session id
+	logoutModeSession
 )
 
-// GetLogoutMode determines the backchannel logout mode based on the presence of subject and session in the SuSe struct
-func GetLogoutMode(suse SuSe) LogoutMode {
+// getLogoutMode determines the backchannel logout mode based on the presence of subject and session in the SuSe struct
+func getLogoutMode(suse SuSe) logoutMode {
 	switch {
 	case suse.encodedSession == "" && suse.encodedSubject != "":
-		return LogoutModeSubject
+		return logoutModeSubject
 	case suse.encodedSession != "":
-		return LogoutModeSession
+		return logoutModeSession
 	default:
-		return LogoutModeUndefined
+		return logoutModeUndefined
 	}
 }
 
@@ -128,16 +128,19 @@ var ErrSuspiciousCacheResult = errors.New("suspicious cache result")
 // logout mode and the provided SuSe struct.
 // it uses a seperator to prevent sufix and prefix exploration in the cache and checks
 // if the retrieved records match the requested subject and or session id as well, to prevent false positives.
-func GetLogoutRecords(suse SuSe, mode LogoutMode, store microstore.Store) ([]*microstore.Record, error) {
+func GetLogoutRecords(suse SuSe, store microstore.Store) ([]*microstore.Record, error) {
+	// get subject.session mode
+	mode := getLogoutMode(suse)
+
 	var key string
 	var opts []microstore.ReadOption
 	switch mode {
-	case LogoutModeSubject:
+	case logoutModeSubject:
 		// the dot at the end prevents prefix exploration in the cache,
 		// so only keys that start with 'subject.*' will be returned, but not 'sub*'.
 		key = suse.encodedSubject + "."
 		opts = append(opts, microstore.ReadPrefix())
-	case LogoutModeSession:
+	case logoutModeSession:
 		// the dot at the beginning prevents sufix exploration in the cache,
 		// so only keys that end with '*.session' will be returned, but not '*sion'.
 		key = "." + suse.encodedSession
@@ -156,7 +159,7 @@ func GetLogoutRecords(suse SuSe, mode LogoutMode, store microstore.Store) ([]*mi
 		return nil, microstore.ErrNotFound
 	}
 
-	if mode == LogoutModeSession && len(records) > 1 {
+	if mode == logoutModeSession && len(records) > 1 {
 		return nil, errors.Join(errors.New("multiple session records found"), ErrSuspiciousCacheResult)
 	}
 
@@ -171,10 +174,10 @@ func GetLogoutRecords(suse SuSe, mode LogoutMode, store microstore.Store) ([]*mi
 
 		switch {
 		// in subject mode, the subject must match, but the session id can be different
-		case mode == LogoutModeSubject && suse.encodedSubject == recordSuSe.encodedSubject:
+		case mode == logoutModeSubject && suse.encodedSubject == recordSuSe.encodedSubject:
 			continue
 		// in session mode, the session id must match, but the subject can be different
-		case mode == LogoutModeSession && suse.encodedSession == recordSuSe.encodedSession:
+		case mode == logoutModeSession && suse.encodedSession == recordSuSe.encodedSession:
 			continue
 		}
 

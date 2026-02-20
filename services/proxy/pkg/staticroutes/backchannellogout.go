@@ -75,10 +75,7 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// find out which mode of backchannel logout we are in
-	// by checking if the session or subject is present in the token
-	logoutMode := bcl.GetLogoutMode(requestSubjectAndSession)
-	lookupRecords, err := bcl.GetLogoutRecords(requestSubjectAndSession, logoutMode, s.UserInfoCache)
+	lookupRecords, err := bcl.GetLogoutRecords(requestSubjectAndSession, s.UserInfoCache)
 	if errors.Is(err, microstore.ErrNotFound) || len(lookupRecords) == 0 {
 		render.Status(r, http.StatusOK)
 		render.JSON(w, r, nil)
