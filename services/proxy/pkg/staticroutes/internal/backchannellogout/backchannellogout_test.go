@@ -12,73 +12,123 @@ import (
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes/internal/backchannellogout/mocks"
 )
 
-func TestNewSuSe(t *testing.T) {
+func mustNewKey(t *testing.T, subject, session string) string {
+	key, err := NewKey(subject, session)
+	require.NoError(t, err)
+	return key
+}
+
+func mustNewSuSe(t *testing.T, subject, session string) SuSe {
+	suse, err := NewSuSe(mustNewKey(t, subject, session))
+	require.NoError(t, err)
+	return suse
+}
+
+func TestNewKey(t *testing.T) {
 	tests := []struct {
-		name     string
-		key      string
-		wantSuSe SuSe
-		wantErr  error
+		name    string
+		subject string
+		session string
+		wantKey string
+		wantErr error
 	}{
 		{
-			name:     "key variation: '.session'",
-			key:      ".session",
-			wantSuSe: SuSe{Session: "session", Subject: ""},
+			name:    "key variation: 'subject.session'",
+			subject: "subject",
+			session: "session",
+			wantKey: "c3ViamVjdA==.c2Vzc2lvbg==",
 		},
 		{
-			name:     "key variation: '.session'",
-			key:      ".session",
-			wantSuSe: SuSe{Session: "session", Subject: ""},
+			name:    "key variation: 'subject.'",
+			subject: "subject",
+			wantKey: "c3ViamVjdA==.",
 		},
 		{
-			name:     "key variation: 'session'",
-			key:      "session",
-			wantSuSe: SuSe{Session: "session", Subject: ""},
+			name:    "key variation: '.session'",
+			session: "session",
+			wantKey: ".c2Vzc2lvbg==",
 		},
 		{
-			name:     "key variation: 'subject.'",
-			key:      "subject.",
-			wantSuSe: SuSe{Session: "", Subject: "subject"},
-		},
-		{
-			name:     "key variation: 'subject.session'",
-			key:      "subject.session",
-			wantSuSe: SuSe{Session: "session", Subject: "subject"},
-		},
-		{
-			name:     "key variation: 'dot'",
-			key:      ".",
-			wantSuSe: SuSe{Session: "", Subject: ""},
-			wantErr:  ErrInvalidSessionOrSubject,
-		},
-		{
-			name:     "key variation: 'empty'",
-			key:      "",
-			wantSuSe: SuSe{Session: "", Subject: ""},
-			wantErr:  ErrInvalidSessionOrSubject,
-		},
-		{
-			name:     "key variation: 'whitespace . whitespace'",
-			key:      " . ",
-			wantSuSe: SuSe{Session: "", Subject: ""},
-			wantErr:  ErrInvalidSessionOrSubject,
-		},
-		{
-			name:     "key variation: 'whitespace subject whitespace . whitespace'",
-			key:      " subject . ",
-			wantSuSe: SuSe{Session: "", Subject: "subject"},
-		},
-		{
-			name:     "key variation: 'whitespace . whitespace session whitespace'",
-			key:      " . session ",
-			wantSuSe: SuSe{Session: "session", Subject: ""},
+			name:    "key variation: '.'",
+			wantErr: ErrInvalidKey,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			suSe, ok := NewSuSe(tt.key)
-			require.ErrorIs(t, tt.wantErr, ok)
-			require.Equal(t, tt.wantSuSe, suSe)
+			key, err := NewKey(tt.subject, tt.session)
+			require.ErrorIs(t, err, tt.wantErr)
+			require.Equal(t, tt.wantKey, key)
+		})
+	}
+}
+
+func TestNewSuSe(t *testing.T) {
+	tests := []struct {
+		name        string
+		key         string
+		wantSubject string
+		wantSession string
+		wantErr     error
+	}{
+		{
+			name:        "key variation: '.session'",
+			key:         mustNewKey(t, "", "session"),
+			wantSession: "session",
+		},
+		{
+			name:        "key variation: 'session'",
+			key:         mustNewKey(t, "", "session"),
+			wantSession: "session",
+		},
+		{
+			name:        "key variation: 'subject.'",
+			key:         mustNewKey(t, "subject", ""),
+			wantSubject: "subject",
+		},
+		{
+			name:        "key variation: 'subject.session'",
+			key:         mustNewKey(t, "subject", "session"),
+			wantSubject: "subject",
+			wantSession: "session",
+		},
+		{
+			name:    "key variation: 'dot'",
+			key:     ".",
+			wantErr: ErrInvalidSubjectOrSession,
+		},
+		{
+			name:    "key variation: 'empty'",
+			key:     "",
+			wantErr: ErrInvalidSubjectOrSession,
+		},
+		{
+			name:    "key variation: string('subject.session')",
+			key:     "subject.session",
+			wantErr: ErrInvalidSubjectOrSession,
+		},
+		{
+			name:    "key variation: string('subject.')",
+			key:     "subject.",
+			wantErr: ErrInvalidSubjectOrSession,
+		},
+		{
+			name:    "key variation: string('.session')",
+			key:     ".session",
+			wantErr: ErrInvalidSubjectOrSession,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			suSe, err := NewSuSe(tt.key)
+			require.ErrorIs(t, err, tt.wantErr)
+
+			subject, _ := suSe.Subject()
+			require.Equal(t, tt.wantSubject, subject)
+
+			session, _ := suSe.Session()
+			require.Equal(t, tt.wantSession, session)
 		})
 	}
 }
@@ -91,22 +141,22 @@ func TestGetLogoutMode(t *testing.T) {
 	}{
 		{
 			name: "key variation: '.session'",
-			suSe: SuSe{Session: "session", Subject: ""},
+			suSe: mustNewSuSe(t, "", "session"),
 			want: LogoutModeSession,
 		},
 		{
 			name: "key variation: 'subject.session'",
-			suSe: SuSe{Session: "session", Subject: "subject"},
+			suSe: mustNewSuSe(t, "subject", "session"),
 			want: LogoutModeSession,
 		},
 		{
 			name: "key variation: 'subject.'",
-			suSe: SuSe{Session: "", Subject: "subject"},
+			suSe: mustNewSuSe(t, "subject", ""),
 			want: LogoutModeSubject,
 		},
 		{
 			name: "key variation: 'empty'",
-			suSe: SuSe{Session: "", Subject: ""},
+			suSe: SuSe{},
 			want: LogoutModeUndefined,
 		},
 	}
@@ -126,10 +176,10 @@ func TestGetLogoutRecords(t *testing.T) {
 	recordClaimB := &store.Record{Key: "claim-b", Value: []byte("claim-b-data")}
 	recordClaimC := &store.Record{Key: "claim-c", Value: []byte("claim-c-data")}
 	recordClaimD := &store.Record{Key: "claim-d", Value: []byte("claim-d-data")}
-	recordSessionA := &store.Record{Key: ".session-a", Value: []byte(recordClaimA.Key)}
-	recordSessionB := &store.Record{Key: ".session-b", Value: []byte(recordClaimB.Key)}
-	recordSubjectASessionC := &store.Record{Key: "subject-a.session-c", Value: []byte(recordSessionA.Key)}
-	recordSubjectASessionD := &store.Record{Key: "subject-a.session-d", Value: []byte(recordSessionB.Key)}
+	recordSessionA := &store.Record{Key: mustNewKey(t, "", "session-a"), Value: []byte(recordClaimA.Key)}
+	recordSessionB := &store.Record{Key: mustNewKey(t, "", "session-b"), Value: []byte(recordClaimB.Key)}
+	recordSubjectASessionC := &store.Record{Key: mustNewKey(t, "subject-a", "session-c"), Value: []byte(recordSessionA.Key)}
+	recordSubjectASessionD := &store.Record{Key: mustNewKey(t, "subject-a", "session-d"), Value: []byte(recordSessionA.Key)}
 
 	for _, r := range []*store.Record{
 		recordClaimA,
@@ -154,7 +204,7 @@ func TestGetLogoutRecords(t *testing.T) {
 	}{
 		{
 			name: "fails if mode is unknown",
-			suSe: SuSe{Session: "session-a"},
+			suSe: mustNewSuSe(t, "", "session-a"),
 			mode: LogoutModeUndefined,
 			store: func(t *testing.T) store.Store {
 				return sessionStore
@@ -164,7 +214,7 @@ func TestGetLogoutRecords(t *testing.T) {
 		},
 		{
 			name: "fails if mode is any random int",
-			suSe: SuSe{Session: "session-a"},
+			suSe: mustNewSuSe(t, "", "session-a"),
 			mode: 999,
 			store: func(t *testing.T) store.Store {
 				return sessionStore
@@ -173,7 +223,7 @@ func TestGetLogoutRecords(t *testing.T) {
 			wantErrs:    []error{ErrSuspiciousCacheResult}},
 		{
 			name: "fails if multiple session records are found",
-			suSe: SuSe{Session: "session-a"},
+			suSe: mustNewSuSe(t, "", "session-a"),
 			mode: LogoutModeSession,
 			store: func(t *testing.T) store.Store {
 				s := mocks.NewStore(t)
@@ -187,7 +237,7 @@ func TestGetLogoutRecords(t *testing.T) {
 			wantErrs:    []error{ErrSuspiciousCacheResult}},
 		{
 			name: "fails if the record key is not ok",
-			suSe: SuSe{Session: "session-a"},
+			suSe: mustNewSuSe(t, "", "session-a"),
 			mode: LogoutModeSession,
 			store: func(t *testing.T) store.Store {
 				s := mocks.NewStore(t)
@@ -197,11 +247,11 @@ func TestGetLogoutRecords(t *testing.T) {
 				return s
 			},
 			wantRecords: []*store.Record{},
-			wantErrs:    []error{ErrInvalidSessionOrSubject, ErrSuspiciousCacheResult},
+			wantErrs:    []error{ErrInvalidSubjectOrSession, ErrSuspiciousCacheResult},
 		},
 		{
 			name: "fails if the session does not match the retrieved record",
-			suSe: SuSe{Session: "session-a"},
+			suSe: mustNewSuSe(t, "", "session-a"),
 			mode: LogoutModeSession,
 			store: func(t *testing.T) store.Store {
 				s := mocks.NewStore(t)
@@ -214,7 +264,7 @@ func TestGetLogoutRecords(t *testing.T) {
 			wantErrs:    []error{ErrSuspiciousCacheResult}},
 		{
 			name: "fails if the subject does not match the retrieved record",
-			suSe: SuSe{Subject: "subject-a"},
+			suSe: mustNewSuSe(t, "subject-a", ""),
 			mode: LogoutModeSubject,
 			store: func(t *testing.T) store.Store {
 				s := mocks.NewStore(t)
@@ -228,7 +278,7 @@ func TestGetLogoutRecords(t *testing.T) {
 		// key variation tests
 		{
 			name: "key variation: 'session-a'",
-			suSe: SuSe{Session: "session-a"},
+			suSe: mustNewSuSe(t, "", "session-a"),
 			mode: LogoutModeSession,
 			store: func(*testing.T) store.Store {
 				return sessionStore
@@ -237,7 +287,7 @@ func TestGetLogoutRecords(t *testing.T) {
 		},
 		{
 			name: "key variation: 'session-b'",
-			suSe: SuSe{Session: "session-b"},
+			suSe: mustNewSuSe(t, "", "session-b"),
 			mode: LogoutModeSession,
 			store: func(*testing.T) store.Store {
 				return sessionStore
@@ -246,7 +296,7 @@ func TestGetLogoutRecords(t *testing.T) {
 		},
 		{
 			name: "key variation: 'session-c'",
-			suSe: SuSe{Session: "session-c"},
+			suSe: mustNewSuSe(t, "", "session-c"),
 			mode: LogoutModeSession,
 			store: func(*testing.T) store.Store {
 				return sessionStore
@@ -255,7 +305,7 @@ func TestGetLogoutRecords(t *testing.T) {
 		},
 		{
 			name: "key variation: 'ession-c'",
-			suSe: SuSe{Session: "ession-c"},
+			suSe: mustNewSuSe(t, "", "ession-c"),
 			mode: LogoutModeSession,
 			store: func(*testing.T) store.Store {
 				return sessionStore
@@ -265,7 +315,7 @@ func TestGetLogoutRecords(t *testing.T) {
 		},
 		{
 			name: "key variation: 'subject-a'",
-			suSe: SuSe{Subject: "subject-a"},
+			suSe: mustNewSuSe(t, "subject-a", ""),
 			mode: LogoutModeSubject,
 			store: func(*testing.T) store.Store {
 				return sessionStore
@@ -274,7 +324,7 @@ func TestGetLogoutRecords(t *testing.T) {
 		},
 		{
 			name: "key variation: 'subject-'",
-			suSe: SuSe{Subject: "subject-"},
+			suSe: mustNewSuSe(t, "subject-", ""),
 			mode: LogoutModeSubject,
 			store: func(*testing.T) store.Store {
 				return sessionStore

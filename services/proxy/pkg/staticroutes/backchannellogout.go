@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/go-chi/render"
 	"github.com/pkg/errors"
@@ -15,6 +14,9 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
+
+// NewRecordKey converts the subject and session to a base64 encoded key
+var NewRecordKey = bcl.NewKey
 
 // backchannelLogout handles backchannel logout requests from the identity provider and invalidates the related sessions in the cache
 // spec: https://openid.net/specs/openid-connect-backchannel-1_0.html#BCRequest
@@ -37,9 +39,6 @@ import (
 //     all sessions besides the one that triggered the backchannel logout continue to exist in the identity provider,
 //     so the user will not be fully logged out until all sessions are logged out or expired.
 //     this leads to the situation that web renders the logout view even if the instance is not fully logged out yet.
-//
-// toDo:
-//   - check logs and errors to not contain any sensitive information like session ids or user ids (keys too)
 func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Request) {
 	logger := s.Logger.SubloggerWithRequestID(r.Context())
 	if err := r.ParseForm(); err != nil {
@@ -51,22 +50,31 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 
 	logoutToken, err := s.OidcClient.VerifyLogoutToken(r.Context(), r.PostFormValue("logout_token"))
 	if err != nil {
-		logger.Warn().Err(err).Msg("VerifyLogoutToken failed")
+		msg := "failed to verify logout token"
+		logger.Warn().Err(err).Msg(msg)
 		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: err.Error()})
+		render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: msg})
 		return
 	}
 
-	subject, session := strings.Join(strings.Fields(logoutToken.Subject), ""), strings.Join(strings.Fields(logoutToken.SessionId), "")
-	if subject == "" && session == "" {
-		jseErr := jse{Error: "invalid_request", ErrorDescription: "invalid logout token: subject and session id are empty"}
-		logger.Warn().Msg(jseErr.ErrorDescription)
+	lookupKey, err := bcl.NewKey(logoutToken.Subject, logoutToken.SessionId)
+	if err != nil {
+		msg := "failed to build key from logout token"
+		logger.Warn().Err(err).Msg(msg)
 		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, jseErr)
+		render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: msg})
 		return
 	}
 
-	requestSubjectAndSession := bcl.SuSe{Session: session, Subject: subject}
+	requestSubjectAndSession, err := bcl.NewSuSe(lookupKey)
+	if err != nil {
+		msg := "failed to build subjec.session from lookupKey"
+		logger.Error().Err(err).Msg(msg)
+		render.Status(r, http.StatusBadRequest)
+		render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: msg})
+		return
+	}
+
 	// find out which mode of backchannel logout we are in
 	// by checking if the session or subject is present in the token
 	logoutMode := bcl.GetLogoutMode(requestSubjectAndSession)
@@ -77,9 +85,10 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 		return
 	}
 	if err != nil {
-		logger.Error().Err(err).Msg("Error reading userinfo cache")
+		msg := "failed to read userinfo cache"
+		logger.Error().Err(err).Msg(msg)
 		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: err.Error()})
+		render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: msg})
 		return
 	}
 
@@ -91,28 +100,36 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 		subjectSession, err := bcl.NewSuSe(key)
 		if err != nil {
 			// never leak any key-related information
-			logger.Warn().Err(err).Msgf("invalid logout record key: %s", "XXX")
+			logger.Warn().Err(err).Msgf("failed to parse key: %s", key)
 			continue
 		}
 
-		if err := s.publishBackchannelLogoutEvent(r.Context(), subjectSession.Session, value); err != nil {
-			s.Logger.Warn().Err(err).Msg("could not publish backchannel logout event")
+		session, err := subjectSession.Session()
+		if err != nil {
+			logger.Warn().Err(err).Msgf("failed to read session for: %s", key)
+			continue
+		}
+
+		if err := s.publishBackchannelLogoutEvent(r.Context(), session, value); err != nil {
+			s.Logger.Warn().Err(err).Msgf("failed to publish backchannel logout event for: %s", key)
+			continue
 		}
 
 		err = s.UserInfoCache.Delete(value)
 		if err != nil && !errors.Is(err, microstore.ErrNotFound) {
 			// we have to return a 400 BadRequest when we fail to delete the session
 			// https://openid.net/specs/openid-connect-backchannel-1_0.html#rfc.section.2.8
-			logger.Err(err).Msg("could not delete user info from cache")
+			msg := "failed to delete record"
+			s.Logger.Warn().Err(err).Msgf("%s for: %s", msg, key)
 			render.Status(r, http.StatusBadRequest)
-			render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: err.Error()})
+			render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: msg})
 			return
 		}
 
 		// we can ignore errors when deleting the lookup record
 		err = s.UserInfoCache.Delete(key)
 		if err != nil {
-			logger.Debug().Err(err).Msg("Failed to cleanup sessionId lookup entry")
+			logger.Debug().Err(err).Msgf("failed to delete record for: %s", key)
 		}
 	}
 
@@ -123,29 +140,30 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 // publishBackchannelLogoutEvent publishes a backchannel logout event when the callback revived from the identity provider
 func (s *StaticRouteHandler) publishBackchannelLogoutEvent(ctx context.Context, sessionId, claimKey string) error {
 	if s.EventsPublisher == nil {
-		return fmt.Errorf("the events publisher is not set")
+		return errors.New("events publisher not set")
 	}
+
 	claimRecords, err := s.UserInfoCache.Read(claimKey)
-	if err != nil {
-		return fmt.Errorf("reading userinfo cache: %w", err)
-	}
-	if len(claimRecords) == 0 {
-		return fmt.Errorf("userinfo not found")
+	switch {
+	case err != nil:
+		return fmt.Errorf("failed to read userinfo cache: %w", err)
+	case len(claimRecords) == 0:
+		return fmt.Errorf("no claim found for key: %s", claimKey)
 	}
 
 	var claims map[string]interface{}
 	if err = msgpack.Unmarshal(claimRecords[0].Value, &claims); err != nil {
-		return fmt.Errorf("could not unmarshal userinfo: %w", err)
+		return fmt.Errorf("failed to unmarshal claims: %w", err)
 	}
 
 	oidcClaim, ok := claims[s.Config.UserOIDCClaim].(string)
 	if !ok {
-		return fmt.Errorf("could not get claim %w", err)
+		return fmt.Errorf("failed to get claim %w", err)
 	}
 
 	user, _, err := s.UserProvider.GetUserByClaims(ctx, s.Config.UserCS3Claim, oidcClaim)
 	if err != nil || user.GetId() == nil {
-		return fmt.Errorf("could not get user by claims: %w", err)
+		return fmt.Errorf("failed to get user by claims: %w", err)
 	}
 
 	e := events.BackchannelLogout{
@@ -155,7 +173,7 @@ func (s *StaticRouteHandler) publishBackchannelLogoutEvent(ctx context.Context, 
 	}
 
 	if err := events.Publish(ctx, s.EventsPublisher, e); err != nil {
-		return fmt.Errorf("could not publish user created event %w", err)
+		return fmt.Errorf("failed to publish user logout event %w", err)
 	}
 	return nil
 }

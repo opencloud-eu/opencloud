@@ -17,6 +17,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/oidc"
+	"github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes"
 )
 
 const (
@@ -116,22 +117,21 @@ func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[stri
 				m.Logger.Error().Err(err).Msg("failed to write to userinfo cache")
 			}
 
-			subject, sessionId := strings.Join(strings.Fields(aClaims.Subject), ""), strings.Join(strings.Fields(aClaims.SessionID), "")
-			// if no session id is present, we can't do a session lookup,
-			// so we can skip the cache entry for that.
-			if sessionId == "" {
-				return
-			}
-
 			// if the claim has no subject, we can leave it empty,
 			// it's important to keep the dot in the key to prevent
 			// sufix and prefix exploration in the cache.
 			//
 			// ok: {key: ".sessionId"}
+			// ok: {key: "subject."}
 			// ok: {key: "subject.sessionId"}
-			key := strings.Join([]string{subject, sessionId}, ".")
+			subjectSessionKey, err := staticroutes.NewRecordKey(aClaims.Subject, aClaims.SessionID)
+			if err != nil {
+				m.Logger.Error().Err(err).Msg("failed to build subject.session")
+				return
+			}
+
 			if err := m.userInfoCache.Write(&store.Record{
-				Key:    key,
+				Key:    subjectSessionKey,
 				Value:  []byte(encodedHash),
 				Expiry: time.Until(expiration),
 			}); err != nil {
