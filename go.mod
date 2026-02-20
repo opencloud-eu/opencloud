@@ -42,7 +42,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gookit/config/v2 v2.2.7
 	github.com/gorilla/mux v1.8.1
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.7
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0
 	github.com/invopop/validation v0.8.0
 	github.com/jellydator/ttlcache/v2 v2.11.1
 	github.com/jellydator/ttlcache/v3 v3.4.0
@@ -107,11 +107,11 @@ require (
 	golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac
 	golang.org/x/image v0.35.0
 	golang.org/x/net v0.50.0
-	golang.org/x/oauth2 v0.34.0
+	golang.org/x/oauth2 v0.35.0
 	golang.org/x/sync v0.19.0
 	golang.org/x/term v0.40.0
 	golang.org/x/text v0.34.0
-	google.golang.org/genproto/googleapis/api v0.0.0-20260128011058-8636f8732409
+	google.golang.org/genproto/googleapis/api v0.0.0-20260209200024-4cfbd4190f57
 	google.golang.org/grpc v1.79.1
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v2 v2.4.0
@@ -395,7 +395,7 @@ require (
 	golang.org/x/time v0.14.0 // indirect
 	golang.org/x/tools v0.41.0 // indirect
 	google.golang.org/genproto v0.0.0-20250303144028-a0af3efb3deb // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260128011058-8636f8732409 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260209200024-4cfbd4190f57 // indirect
 	gopkg.in/cenkalti/backoff.v1 v1.1.0 // indirect
 	gopkg.in/ini.v1 v1.67.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
