@@ -140,7 +140,7 @@
         "OC_ADD_RUN_SERVICES": "auth-api,groupware",
         "GROUPWARE_LOG_LEVEL": "trace",
 
-        "GROUPWARE_JMAP_MASTER_USERNAME": "",
+        "GROUPWARE_JMAP_MASTER_USERNAME": "master",
         "GROUPWARE_JMAP_MASTER_PASSWORD": "admin",
 
         "AUTHAPI_HTTP_ADDR": "0.0.0.0:10000",
