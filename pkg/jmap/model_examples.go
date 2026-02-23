@@ -1259,6 +1259,178 @@ func (e Exemplar) PersonalInfo() c.PersonalInfo {
 	}
 }
 
+func (e Exemplar) DesignContactCard() (c.ContactCard, string, string) {
+	created, _ := time.Parse(time.RFC3339, "2025-07-09T07:12:28+02:00")
+	updated, _ := time.Parse(time.RFC3339, "2025-07-10T09:58:01+02:00")
+	return c.ContactCard{
+		Type: c.ContactCardType,
+		Kind: c.ContactCardKindIndividual,
+		Id:   "loTh8ahmubei",
+		Uid:  "ffcb3f80-8334-46ff-882b-fcb7dff49204",
+		AddressBookIds: map[string]bool{
+			"79047052-ae0e-4299-8860-5bff1a139f3d": true,
+		},
+		Version:  c.JSContactVersion_1_0,
+		Created:  created,
+		Updated:  updated,
+		Language: "en-GB",
+		ProdId:   "OpenCloud Groupware 1.0",
+		Name: &c.Name{
+			Type: c.NameType,
+			Components: []c.NameComponent{
+				{Value: "Bessie", Kind: c.NameComponentKindGiven},
+				{Value: "Cooper", Kind: c.NameComponentKindSurname},
+			},
+			IsOrdered:        true,
+			DefaultSeparator: " ",
+		},
+		Nicknames: map[string]c.Nickname{
+			"soacaivie5Po": {
+				Name: "Bess",
+				Contexts: map[c.NicknameContext]bool{
+					c.NicknameContextPrivate: true,
+					c.NicknameContextWork:    true,
+				},
+			},
+		},
+		Anniversaries: map[string]c.Anniversary{
+			"at4Jaig2TeeT": {
+				Kind: c.AnniversaryKindBirth,
+				Date: c.PartialDate{
+					Type:  c.PartialDateType,
+					Year:  1980,
+					Month: 1,
+					Day:   22,
+				},
+			},
+		},
+		SpeakToAs: &c.SpeakToAs{
+			GrammaticalGender: c.GrammaticalGenderFeminine,
+		},
+		Notes: map[string]c.Note{
+			"beecaeViShu6": {
+				Note:    "Bess likes chocolate",
+				Created: created,
+				Author: &c.Author{
+					Name: "Stina",
+				},
+			},
+		},
+		Emails: map[string]c.EmailAddress{
+			"foo5Isheel2t": {
+				Address: "bessiecooper@mail.com",
+				Contexts: map[c.EmailAddressContext]bool{
+					c.EmailAddressContextWork:    true,
+					c.EmailAddressContextPrivate: true,
+				},
+			},
+			"bueVua3Eith8": {
+				Address: "bessiecooper@mail.com",
+				Contexts: map[c.EmailAddressContext]bool{
+					"home": true,
+				},
+			},
+		},
+		Phones: map[string]c.Phone{
+			"aish5bahQu4t": {
+				Number:   "+1-555-123-4567",
+				Contexts: map[c.PhoneContext]bool{c.PhoneContextWork: true},
+			},
+			"oopeej8ev9Oi": {
+				Number:   "+1-555-123-1234",
+				Contexts: map[c.PhoneContext]bool{c.PhoneContextPrivate: true, "home": true},
+			},
+		},
+		OnlineServices: map[string]c.OnlineService{
+			"soo6fohsh9Ae": {
+				Service:  "LinkedIn",
+				User:     "@bessiecooper",
+				Contexts: map[c.OnlineServiceContext]bool{c.OnlineServiceContextWork: true},
+			},
+		},
+		Addresses: map[string]c.Address{
+			"pieF3Uc2eg9M": {
+				Components: []c.AddressComponent{
+					{Kind: c.AddressComponentKindNumber, Value: "2972"},
+					{Kind: c.AddressComponentKindName, Value: "Westheimer Rd."},
+					{Kind: c.AddressComponentKindLocality, Value: "Santa Ana"},
+					{Kind: c.AddressComponentKindRegion, Value: "Illinois"},
+					{Kind: c.AddressComponentKindPostcode, Value: "85486"},
+				},
+				CountryCode: "USA",
+				Contexts:    map[c.AddressContext]bool{c.AddressContextWork: true, c.AddressContextPrivate: true},
+			},
+		},
+		Organizations: map[string]c.Organization{
+			"oocooXeiya9L": {
+				Name: "Organization's name",
+				Units: []c.OrgUnit{
+					{Name: "Department"},
+				},
+			},
+		},
+		Titles: map[string]c.Title{
+			"yohshohTh4so": {
+				Name:           "Job title",
+				Kind:           c.TitleKindTitle,
+				OrganizationId: "oocooXeiya9L",
+			},
+			"Pahd2Azeedai": {
+				Name:           "Role in project/company",
+				Kind:           c.TitleKindRole,
+				OrganizationId: "oocooXeiya9L",
+			},
+		},
+		RelatedTo: map[string]c.Relation{
+			"096fc269-ffc4-4f2f-978f-5bd1bb0962d5": {
+				Relation: map[c.Relationship]bool{
+					"manager": true,
+				},
+			},
+		},
+		Keywords: map[string]bool{
+			"sales":     true,
+			"important": true,
+		},
+		PreferredLanguages: map[string]c.LanguagePref{
+			"Aelujee9moi1": {
+				Language: "en-US",
+				Contexts: map[c.LanguagePrefContext]bool{
+					c.LanguagePrefContextPrivate: true,
+					c.LanguagePrefContextWork:    true,
+				},
+				Pref: 1,
+			},
+			"SheFai0Aishi": {
+				Language: "de-DE",
+				Contexts: map[c.LanguagePrefContext]bool{
+					c.LanguagePrefContextPrivate: true,
+				},
+				Pref: 2,
+			},
+		},
+		Media: map[string]c.Media{
+			"iegh7veeJ9ta": {
+				Kind:      c.MediaKindPhoto,
+				BlobId:    "ieP4huzohv8gexahzeizei0che2keedu",
+				MediaType: "image/png",
+				Contexts: map[c.MediaContext]bool{
+					c.MediaContextWork:    true,
+					c.MediaContextPrivate: true,
+				},
+			},
+			"Zae0ahPho6ae": {
+				Kind:      c.MediaKindLogo,
+				Uri:       "https://acme.com/logo.jpg",
+				MediaType: "image/jpeg",
+				Contexts: map[c.MediaContext]bool{
+					c.MediaContextWork: true,
+				},
+			},
+		},
+	}, "Another Contact Card", "other"
+}
+
 func (e Exemplar) ContactCard() c.ContactCard {
 	created, _ := time.Parse(time.RFC3339, "2025-09-25T18:26:14.094725532+02:00")
 	updated, _ := time.Parse(time.RFC3339, "2025-09-26T09:58:01+02:00")
