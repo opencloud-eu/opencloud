@@ -79,7 +79,7 @@ var (
 )
 
 const (
-	stalwartImage  = "ghcr.io/stalwartlabs/stalwart:v0.15.0-alpine"
+	stalwartImage  = "ghcr.io/stalwartlabs/stalwart:v0.15.5-alpine"
 	httpPort       = "8080"
 	imapsPort      = "993"
 	configTemplate = `
