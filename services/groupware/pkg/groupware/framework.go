@@ -50,6 +50,10 @@ const (
 	logStreamId             = "stream-id"
 	logPath                 = "path"
 	logMethod               = "method"
+	logPreviousState        = "old-state"
+	logNewState             = "new-state"
+	logCacheEvictionReason  = "reason"
+	logCacheType            = "type"
 )
 
 // Minimalistic representation of a user, containing only the attributes that are
