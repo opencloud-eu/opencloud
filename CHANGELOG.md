@@ -1,20 +1,21 @@
 # Changelog
 
-## [5.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.2.0) - 2026-02-22
+## [5.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.2.0) - 2026-02-23
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @butonic, @pat-s, @rhafer
+@AlexAndBear, @JammingBen, @butonic, @pat-s, @rhafer
+
+### 📈 Enhancement
+
+- feat(web): change surface colors to more modern ones [[#2377](https://github.com/opencloud-eu/opencloud/pull/2377)]
+- Add openCloudEducationExternalId to user [[#2357](https://github.com/opencloud-eu/opencloud/pull/2357)]
+- feat: app-registry adjust default mime-types [[#2354](https://github.com/opencloud-eu/opencloud/pull/2354)]
+- feat: support desktop and mobile specific  `client_id` and `scopes` [[#2072](https://github.com/opencloud-eu/opencloud/pull/2072)]
 
 ### 🐛 Bug Fixes
 
 - fix(oidc_auth): Fix userinfo cache expiration logic [[#2360](https://github.com/opencloud-eu/opencloud/pull/2360)]
-
-### 📈 Enhancement
-
-- Add openCloudEducationExternalId to user [[#2357](https://github.com/opencloud-eu/opencloud/pull/2357)]
-- feat: app-registry adjust default mime-types [[#2354](https://github.com/opencloud-eu/opencloud/pull/2354)]
-- feat: support desktop and mobile specific  `client_id` and `scopes` [[#2072](https://github.com/opencloud-eu/opencloud/pull/2072)]
 
 ### 📚 Documentation
 
