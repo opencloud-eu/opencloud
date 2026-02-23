@@ -116,23 +116,23 @@ type ttlcacheSessionCache struct {
 var _ sessionCache = &ttlcacheSessionCache{}
 var _ jmap.SessionEventListener = &ttlcacheSessionCache{}
 
-func (l *ttlcacheSessionCache) load(c *ttlcache.Cache[sessionCacheKey, cachedSession], key sessionCacheKey, ctx context.Context) cachedSession {
+func (l *ttlcacheSessionCache) load(key sessionCacheKey, ctx context.Context) cachedSession {
 	username := key.username()
 	sessionUrl, gwerr := l.sessionUrlProvider(ctx, username)
 	if gwerr != nil {
-		l.logger.Warn().Str("username", username).Str("code", gwerr.Code).Msgf("failed to determine session URL for '%v'", key)
+		l.logger.Warn().Str(logUsername, username).Str(logErrorCode, gwerr.Code).Msgf("failed to determine session URL for '%v'", key)
 		now := time.Now()
 		until := now.Add(l.errorTtl)
 		return failedSession{since: now, until: until, err: gwerr}
 	}
 	session, jerr := l.sessionSupplier(ctx, sessionUrl, username, l.logger)
 	if jerr != nil {
-		l.logger.Warn().Str("username", username).Err(jerr).Msgf("failed to create session for '%v'", key)
+		l.logger.Warn().Str(logUsername, username).Err(jerr).Msgf("failed to create session for '%v'", key)
 		now := time.Now()
 		until := now.Add(l.errorTtl)
 		return failedSession{since: now, until: until, err: groupwareErrorFromJmap(jerr)}
 	} else {
-		l.logger.Debug().Str("username", username).Msgf("successfully created session for '%v'", key)
+		l.logger.Debug().Str(logUsername, username).Msgf("successfully created session for '%v'", key)
 		now := time.Now()
 		until := now.Add(l.successTtl)
 		return succeededSession{since: now, until: until, session: session}
@@ -142,7 +142,7 @@ func (l *ttlcacheSessionCache) load(c *ttlcache.Cache[sessionCacheKey, cachedSes
 func (c *ttlcacheSessionCache) Get(ctx context.Context, username string) cachedSession {
 	key := toSessionCacheKey(username)
 	item, cached := c.sessionCache.GetOrSetFunc(key, func() cachedSession {
-		return c.load(c.sessionCache, key, ctx) // TODO can't set the TTL on the cached item
+		return c.load(key, ctx) // TODO can't set the TTL on the cached item
 	})
 	if item != nil {
 		value := item.Value()
@@ -266,7 +266,13 @@ func (b sessionCacheBuilder) build() (sessionCache, error) {
 			if !item.Value().Success() {
 				tipe = "failed"
 			}
-			b.logger.Trace().Msgf("%s session cache eviction of user '%v' after %v: %v", tipe, item.Key(), spentInCache, reason)
+			if b.logger.Trace().Enabled() {
+				b.logger.Trace().
+					Str(logUsername, item.Key().username()).
+					Str(logCacheEvictionReason, reason).
+					Str(logCacheType, tipe).
+					Msgf("%s session cache eviction of user '%v' after %v: %v", tipe, item.Key(), spentInCache, reason)
+			}
 		}
 	})
 
@@ -293,7 +299,13 @@ func (c ttlcacheSessionCache) OnSessionOutdated(session *jmap.Session, newSessio
 		c.outdatedSessionCounter.Inc()
 	}
 
-	c.logger.Trace().Msgf("removed outdated session for user '%v': state %v -> %v", session.Username, session.State, newSessionState)
+	if c.logger.Trace().Enabled() {
+		c.logger.Trace().
+			Str(logUsername, log.SafeString(session.Username)).
+			Str(logPreviousState, string(session.State)).
+			Str(logNewState, string(newSessionState)).
+			Msgf("removed outdated session for user '%v': state %v -> %v", session.Username, session.State, newSessionState)
+	}
 }
 
 // A Prometheus Collector for the Session cache metrics.
