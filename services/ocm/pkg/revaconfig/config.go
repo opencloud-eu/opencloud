@@ -76,6 +76,7 @@ func OCMConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]inter
 					"gatewaysvc":             cfg.Reva.Address,
 					"mesh_directory_url":     cfg.ScienceMesh.MeshDirectoryURL,
 					"directory_service_urls": cfg.ScienceMesh.DirectoryServiceURLs,
+					"ocm_client_insecure":    cfg.ScienceMesh.OCMClientInsecure,
 					"provider_domain":        providerDomain,
 					"events": map[string]interface{}{
 						"natsaddress":          cfg.Events.Endpoint,
