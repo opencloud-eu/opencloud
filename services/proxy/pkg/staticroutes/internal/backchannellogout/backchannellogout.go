@@ -68,21 +68,18 @@ var ErrInvalidSubjectOrSession = errors.New("invalid subject or session")
 // NewSuSe parses the subject and session id from the given key and returns a SuSe struct
 func NewSuSe(key string) (SuSe, error) {
 	suse := SuSe{}
-	switch keys := strings.Split(strings.Join(strings.Fields(key), ""), "."); {
-	// key: '.session'
-	case len(keys) == 2 && keys[0] == "" && keys[1] != "":
-		suse.encodedSession = keys[1]
-	// key: 'subject.'
-	case len(keys) == 2 && keys[0] != "" && keys[1] == "":
-		suse.encodedSubject = keys[0]
-	// key: 'subject.session'
-	case len(keys) == 2 && keys[0] != "" && keys[1] != "":
-		suse.encodedSubject = keys[0]
-		suse.encodedSession = keys[1]
-	// key: 'session'
-	case len(keys) == 1 && keys[0] != "":
+	keys := strings.Split(key, ".")
+	switch len(keys) {
+	case 1:
 		suse.encodedSession = keys[0]
+	case 2:
+		suse.encodedSubject = keys[0]
+		suse.encodedSession = keys[1]
 	default:
+		return suse, ErrInvalidSubjectOrSession
+	}
+
+	if suse.encodedSubject == "" && suse.encodedSession == "" {
 		return suse, ErrInvalidSubjectOrSession
 	}
 
@@ -134,13 +131,13 @@ func GetLogoutRecords(suse SuSe, store microstore.Store) ([]*microstore.Record, 
 
 	var key string
 	var opts []microstore.ReadOption
-	switch mode {
-	case logoutModeSubject:
+	switch {
+	case mode == logoutModeSubject && suse.encodedSubject != "":
 		// the dot at the end prevents prefix exploration in the cache,
 		// so only keys that start with 'subject.*' will be returned, but not 'sub*'.
 		key = suse.encodedSubject + "."
 		opts = append(opts, microstore.ReadPrefix())
-	case logoutModeSession:
+	case mode == logoutModeSession && suse.encodedSession != "":
 		// the dot at the beginning prevents sufix exploration in the cache,
 		// so only keys that end with '*.session' will be returned, but not '*sion'.
 		key = "." + suse.encodedSession
