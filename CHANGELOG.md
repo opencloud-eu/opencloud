@@ -1,10 +1,15 @@
 # Changelog
 
-## [5.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.2.0) - 2026-02-24
+## [5.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.2.0) - 2026-02-25
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @butonic, @pat-s, @rhafer
+@AlexAndBear, @JammingBen, @butonic, @dragonchaser, @pat-s, @rhafer
+
+### 🐛 Bug Fixes
+
+- resolve logout token subject:sessions for the idp backchannel logout [[#2328](https://github.com/opencloud-eu/opencloud/pull/2328)]
+- fix(oidc_auth): Fix userinfo cache expiration logic [[#2360](https://github.com/opencloud-eu/opencloud/pull/2360)]
 
 ### 📈 Enhancement
 
@@ -12,10 +17,6 @@
 - Add openCloudEducationExternalId to user [[#2357](https://github.com/opencloud-eu/opencloud/pull/2357)]
 - feat: app-registry adjust default mime-types [[#2354](https://github.com/opencloud-eu/opencloud/pull/2354)]
 - feat: support desktop and mobile specific  `client_id` and `scopes` [[#2072](https://github.com/opencloud-eu/opencloud/pull/2072)]
-
-### 🐛 Bug Fixes
-
-- fix(oidc_auth): Fix userinfo cache expiration logic [[#2360](https://github.com/opencloud-eu/opencloud/pull/2360)]
 
 ### 📚 Documentation
 
