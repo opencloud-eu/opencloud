@@ -86,6 +86,7 @@ type ScienceMesh struct {
 	MeshDirectoryURL     string `yaml:"science_mesh_directory_url" env:"OCM_MESH_DIRECTORY_URL" desc:"URL of the mesh directory service." introductionVersion:"1.0.0"`
 	DirectoryServiceURLs string `yaml:"directory_service_urls" env:"OCM_DIRECTORY_SERVICE_URLS" desc:"Space delimited URLs of the directory services." introductionVersion:"3.5.0"`
 	InviteAcceptDialog   string `yaml:"invite_accept_dialog" env:"OCM_INVITE_ACCEPT_DIALOG" desc:"/open-cloud-mesh/accept-invite;The frontend URL where to land when receiving an invitation" introductionVersion:"3.5.0"`
+	OCMClientInsecure    bool   `yaml:"ocm_client_insecure" env:"OC_INSECURE;OCM_CLIENT_INSECURE" desc:"Dev-only. Disable TLS verification for the OCM discovery client (directory fetch and provider discovery). Does not affect OCM invite manager, storage provider, or share provider. Do not set in production." introductionVersion:"%%NEXT%%"`
 }
 
 type OCMD struct {
