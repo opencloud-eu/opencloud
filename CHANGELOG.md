@@ -24,6 +24,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/kovidgoyal/imaging from 1.8.19 to 1.8.20 [[#2391](https://github.com/opencloud-eu/opencloud/pull/2391)]
 - build(deps): bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.27.7 to 2.28.0 [[#2375](https://github.com/opencloud-eu/opencloud/pull/2375)]
 - build(deps): bump github.com/open-policy-agent/opa from 1.13.1 to 1.13.2 [[#2374](https://github.com/opencloud-eu/opencloud/pull/2374)]
 - build(deps): bump google.golang.org/grpc from 1.78.0 to 1.79.1 [[#2362](https://github.com/opencloud-eu/opencloud/pull/2362)]
