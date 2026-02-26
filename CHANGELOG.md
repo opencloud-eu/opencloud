@@ -1,10 +1,10 @@
 # Changelog
 
-## [5.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.2.0) - 2026-02-25
+## [5.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.2.0) - 2026-02-26
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @butonic, @dragonchaser, @pat-s, @rhafer
+@AlexAndBear, @JammingBen, @MahdiBaghbani, @butonic, @dragonchaser, @pat-s, @rhafer
 
 ### 🐛 Bug Fixes
 
