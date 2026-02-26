@@ -303,7 +303,9 @@ func (d *decoder) processSOS(n int) error {
 						// SOS markers are processed.
 						continue
 					}
-					d.reconstructBlock(&b, bx, by, int(compIndex))
+					if err := d.reconstructBlock(&b, bx, by, int(compIndex)); err != nil {
+						return err
+					}
 				} // for j
 			} // for i
 			mcu++
@@ -455,21 +457,13 @@ func (d *decoder) reconstructProgressiveImage() error {
 		stride := mxx * d.comp[i].h
 		for by := 0; by*v < d.height; by++ {
 			for bx := 0; bx*h < d.width; bx++ {
-				d.reconstructBlock(&d.progCoeffs[i][by*stride+bx], bx, by, i)
+				if err := d.reconstructBlock(&d.progCoeffs[i][by*stride+bx], bx, by, i); err != nil {
+					return err
+				}
 			}
 		}
 	}
 	return nil
-}
-
-func level_shift(c int32) uint8 {
-	if c < -128 {
-		return 0
-	}
-	if c > 127 {
-		return 255
-	}
-	return uint8(c + 128)
 }
 
 func (d *decoder) storeFlexBlock(b *block, bx, by, compIndex int) {
@@ -490,7 +484,15 @@ func (d *decoder) storeFlexBlock(b *block, bx, by, compIndex int) {
 		y8 := y * 8
 		yv := y * v
 		for x := range 8 {
-			val := level_shift(b[y8+x])
+			c := b[y8+x]
+			var val uint8
+			if c < -128 {
+				val = 0
+			} else if c > 127 {
+				val = 255
+			} else {
+				val = uint8(c + 128)
+			}
 			xh := x * h
 			for yy := range v {
 				for xx := range h {
@@ -503,7 +505,7 @@ func (d *decoder) storeFlexBlock(b *block, bx, by, compIndex int) {
 
 // reconstructBlock dequantizes, performs the inverse DCT and stores the block
 // to the image.
-func (d *decoder) reconstructBlock(b *block, bx, by, compIndex int) {
+func (d *decoder) reconstructBlock(b *block, bx, by, compIndex int) error {
 	qt := &d.quant[d.comp[compIndex].tq]
 	for zig := range blockSize {
 		b[unzig[zig]] *= qt[zig]
@@ -515,7 +517,7 @@ func (d *decoder) reconstructBlock(b *block, bx, by, compIndex int) {
 	} else {
 		if d.flex {
 			d.storeFlexBlock(b, bx, by, compIndex)
-			return
+			return nil
 		}
 		switch compIndex {
 		case 0:
@@ -526,6 +528,8 @@ func (d *decoder) reconstructBlock(b *block, bx, by, compIndex int) {
 			dst, stride = d.img3.Cr[8*(by*d.img3.CStride+bx):], d.img3.CStride
 		case 3:
 			dst, stride = d.blackPix[8*(by*d.blackStride+bx):], d.blackStride
+		default:
+			return UnsupportedError("too many components")
 		}
 	}
 	// Level shift by +128, clip to [0, 255], and write to dst.
@@ -533,9 +537,18 @@ func (d *decoder) reconstructBlock(b *block, bx, by, compIndex int) {
 		y8 := y * 8
 		yStride := y * stride
 		for x := range 8 {
-			dst[yStride+x] = level_shift(b[y8+x])
+			c := b[y8+x]
+			if c < -128 {
+				c = 0
+			} else if c > 127 {
+				c = 255
+			} else {
+				c += 128
+			}
+			dst[yStride+x] = uint8(c)
 		}
 	}
+	return nil
 }
 
 // findRST advances past the next RST restart marker that matches expectedRST.
