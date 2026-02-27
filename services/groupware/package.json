@@ -1,6 +1,6 @@
 {
 	"dependencies": {
-		"@redocly/cli": "^2.15.1",
+		"@redocly/cli": "^2.20.0",
 		"@types/js-yaml": "^4.0.9",
 		"cheerio": "^1.2.0",
 		"js-yaml": "^4.1.1",
@@ -10,6 +10,6 @@
 	"packageManager": "pnpm@10.28.2+sha512.41872f037ad22f7348e3b1debbaf7e867cfd448f2726d9cf74c08f19507c31d2c8e7a11525b983febc2df640b5438dee6023ebb1f84ed43cc2d654d2bc326264",
 	"type": "module",
 	"devDependencies": {
-		"@types/node": "^24.10.10"
+		"@types/node": "^24.10.15"
 	}
 }
