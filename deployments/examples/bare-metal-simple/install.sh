@@ -48,6 +48,7 @@ get_latest_version
 
 dlversion="${OC_VERSION:-$latest_version}"
 dlurl="https://github.com/opencloud-eu/opencloud/releases/download/v${dlversion}/"
+dlurl2="https://github.com/opencloud-eu/opencloud/releases/download/${dlversion}/"
 
 sandbox="opencloud-sandbox-${dlversion}"
 
@@ -74,6 +75,17 @@ fi
 dlfile="opencloud-${dlversion}-${os}-${dlarch}"
 
 # download
+status=$(curl -I -L -o /dev/null -s -w "%{http_code}\n" "$dlurl/$dlfile")
+if [ "$status" -ne 200 ]; then
+       echo "HTTP code: $status ($dlurl/$dlfile)"
+       dlurl=$dlurl2
+       status=$(curl -I -L -o /dev/null -s -w "%{http_code}\n" "$dlurl2/$dlfile")
+       if [ "$status" -ne 200 ]; then
+               echo "HTTP code: $status ($dlurl/$dlfile)"
+               # exit -1       # or try nevertheless?
+       fi
+fi
+
 echo "Downloading ${dlurl}/${dlfile}"
 
 curl -L -o "${dlfile}" --progress-bar "${dlurl}/${dlfile}"
@@ -84,11 +96,11 @@ export OC_CONFIG_DIR="$basedir/config"
 export OC_BASE_DATA_PATH="$basedir/data"
 mkdir -p "$OC_CONFIG_DIR" "$OC_BASE_DATA_PATH"
 
+maincfg="$OC_CONFIG_DIR/opencloud.yaml"
+
 # It is bound to localhost for now to deal with non existing routes
 # to certain host names for example in WSL
 host="${OC_HOST:-localhost}"
-
-./${dlfile} init --insecure yes --ap admin
 
 echo '#!/bin/bash
 SCRIPT_DIR="$(dirname "$(readlink -f "${0}")")"
@@ -107,6 +119,14 @@ export OC_LOG_LEVEL=warning
 " >> runopencloud.sh
 
 chmod 755 runopencloud.sh
+
+if [ -f "$maincfg" ]; then
+    echo "Main config file $maincfg exists."
+    echo "Skipping initialization. This might be an update from a previous version."
+    echo "To restart the server, refer to the script in $basedir or $basedir/$sandbox"
+    exit 0
+fi
+./${dlfile} init --insecure yes --ap admin
 
 echo "Connect to OpenCloud via https://${host}:9200"
 echo ""
