@@ -107,9 +107,11 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 			continue
 		}
 
-		if err := s.publishBackchannelLogoutEvent(r.Context(), session, value); err != nil {
-			s.Logger.Warn().Err(err).Msgf("failed to publish backchannel logout event for: %s", key)
-			continue
+		if requestSubjectAndSession.Mode() == bcl.LogoutModeSession {
+			if err := s.publishBackchannelLogoutEvent(r.Context(), session, value); err != nil {
+				s.Logger.Warn().Err(err).Msgf("failed to publish backchannel logout event for: %s", key)
+				continue
+			}
 		}
 
 		err = s.UserInfoCache.Delete(value)

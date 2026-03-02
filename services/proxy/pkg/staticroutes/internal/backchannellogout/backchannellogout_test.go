@@ -69,28 +69,33 @@ func TestNewSuSe(t *testing.T) {
 		key         string
 		wantSubject string
 		wantSession string
+		wantMode    LogoutMode
 		wantErr     error
 	}{
 		{
 			name:        "key variation: '.session'",
 			key:         mustNewKey(t, "", "session"),
 			wantSession: "session",
+			wantMode:    LogoutModeSession,
 		},
 		{
 			name:        "key variation: 'session'",
 			key:         mustNewKey(t, "", "session"),
 			wantSession: "session",
+			wantMode:    LogoutModeSession,
 		},
 		{
 			name:        "key variation: 'subject.'",
 			key:         mustNewKey(t, "subject", ""),
 			wantSubject: "subject",
+			wantMode:    LogoutModeSubject,
 		},
 		{
 			name:        "key variation: 'subject.session'",
 			key:         mustNewKey(t, "subject", "session"),
 			wantSubject: "subject",
 			wantSession: "session",
+			wantMode:    LogoutModeSession,
 		},
 		{
 			name:    "key variation: 'dot'",
@@ -103,19 +108,22 @@ func TestNewSuSe(t *testing.T) {
 			wantErr: ErrInvalidSubjectOrSession,
 		},
 		{
-			name:    "key variation: string('subject.session')",
-			key:     "subject.session",
-			wantErr: ErrInvalidSubjectOrSession,
+			name:     "key variation: string('subject.session')",
+			key:      "subject.session",
+			wantErr:  ErrInvalidSubjectOrSession,
+			wantMode: LogoutModeSession,
 		},
 		{
-			name:    "key variation: string('subject.')",
-			key:     "subject.",
-			wantErr: ErrInvalidSubjectOrSession,
+			name:     "key variation: string('subject.')",
+			key:      "subject.",
+			wantErr:  ErrInvalidSubjectOrSession,
+			wantMode: LogoutModeSubject,
 		},
 		{
-			name:    "key variation: string('.session')",
-			key:     ".session",
-			wantErr: ErrInvalidSubjectOrSession,
+			name:     "key variation: string('.session')",
+			key:      ".session",
+			wantErr:  ErrInvalidSubjectOrSession,
+			wantMode: LogoutModeSession,
 		},
 	}
 
@@ -124,47 +132,14 @@ func TestNewSuSe(t *testing.T) {
 			suSe, err := NewSuSe(tt.key)
 			require.ErrorIs(t, err, tt.wantErr)
 
+			mode := suSe.Mode()
+			require.Equal(t, tt.wantMode, mode)
+
 			subject, _ := suSe.Subject()
 			require.Equal(t, tt.wantSubject, subject)
 
 			session, _ := suSe.Session()
 			require.Equal(t, tt.wantSession, session)
-		})
-	}
-}
-
-func TestGetLogoutMode(t *testing.T) {
-	tests := []struct {
-		name string
-		suSe SuSe
-		want logoutMode
-	}{
-		{
-			name: "key variation: '.session'",
-			suSe: mustNewSuSe(t, "", "session"),
-			want: logoutModeSession,
-		},
-		{
-			name: "key variation: 'subject.session'",
-			suSe: mustNewSuSe(t, "subject", "session"),
-			want: logoutModeSession,
-		},
-		{
-			name: "key variation: 'subject.'",
-			suSe: mustNewSuSe(t, "subject", ""),
-			want: logoutModeSubject,
-		},
-		{
-			name: "key variation: 'empty'",
-			suSe: SuSe{},
-			want: logoutModeUndefined,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mode := getLogoutMode(tt.suSe)
-			require.Equal(t, tt.want, mode)
 		})
 	}
 }
