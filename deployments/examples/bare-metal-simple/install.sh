@@ -88,7 +88,7 @@ mkdir -p "$OC_CONFIG_DIR" "$OC_BASE_DATA_PATH"
 # to certain host names for example in WSL
 host="${OC_HOST:-localhost}"
 
-./${dlfile} init --insecure yes --ap admin
+./${dlfile} init --insecure yes --admin-password admin
 
 echo '#!/bin/bash
 SCRIPT_DIR="$(dirname "$(readlink -f "${0}")")"

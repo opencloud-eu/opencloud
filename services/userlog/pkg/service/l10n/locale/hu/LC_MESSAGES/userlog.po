@@ -1,0 +1,118 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# 
+# Translators:
+# mitibor, 2026
+# 
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: EMAIL\n"
+"POT-Creation-Date: 2026-03-02 00:05+0000\n"
+"PO-Revision-Date: 2025-01-27 10:17+0000\n"
+"Last-Translator: mitibor, 2026\n"
+"Language-Team: Hungarian (https://app.transifex.com/opencloud-eu/teams/204053/hu/)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: hu\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: pkg/service/templates.go:39
+msgid "Access to Space {space} lost"
+msgstr "A hozzáférés megszűnt a(z) {space} tárhelyhez"
+
+#: pkg/service/templates.go:54
+msgid "Access to {resource} expired"
+msgstr "A hozzáférés a(z) {resource} erőforráshoz lejárt"
+
+#: pkg/service/templates.go:59
+msgid ""
+"Attention! The instance will be shut down and deprovisioned on {date}. "
+"Download all your data before that date as no access past that date is "
+"possible."
+msgstr ""
+"Figyelem! A példány {date} napon leállításra és felszámolásra kerül. Kérjük,"
+" ezen időpont előtt töltse le minden adatát, mivel ezt követően a hozzáférés"
+" már nem lesz lehetséges."
+
+#: pkg/service/templates.go:14
+msgid "File {resource} was deleted because it violates the policies"
+msgstr "A(z) {resource} fájl törlésre került, mert sérti az irányelveket"
+
+#: pkg/service/templates.go:58
+msgid "Instance will be shut down and deprovisioned"
+msgstr "A példány leállításra és felszámolásra kerül"
+
+#: pkg/service/templates.go:38
+msgid "Membership expired"
+msgstr "A tagság lejárt"
+
+#: pkg/service/templates.go:13
+msgid "Policies enforced"
+msgstr "Irányelvek érvényesítve"
+
+#: pkg/service/templates.go:23
+msgid "Removed from Space"
+msgstr "Eltávolítva a tárhelyről"
+
+#: pkg/service/templates.go:43
+msgid "Resource shared"
+msgstr "Erőforrás megosztva"
+
+#: pkg/service/templates.go:48
+msgid "Resource unshared"
+msgstr "Erőforrás megosztása visszavonva"
+
+#: pkg/service/templates.go:53
+msgid "Share expired"
+msgstr "A megosztás lejárt"
+
+#: pkg/service/templates.go:33
+msgid "Space deleted"
+msgstr "Tárhely törölve"
+
+#: pkg/service/templates.go:28
+msgid "Space disabled"
+msgstr "Tárhely letiltva"
+
+#: pkg/service/templates.go:18
+msgid "Space shared"
+msgstr "Tárhely megosztva"
+
+#: pkg/service/templates.go:8
+msgid "Virus found"
+msgstr "Vírus található"
+
+#: pkg/service/templates.go:9
+msgid "Virus found in {resource}. Upload not possible. Virus: {virus}"
+msgstr ""
+"Vírus található a(z) {resource} fájlban. A feltöltés nem lehetséges. Vírus: "
+"{virus}"
+
+#: pkg/service/templates.go:19
+msgid "{user} added you to Space {space}"
+msgstr "{user} hozzáadta Önt a(z) {space} tárhelyhez"
+
+#: pkg/service/templates.go:34
+msgid "{user} deleted Space {space}"
+msgstr "{user} törölte a(z) {space} tárhelyet"
+
+#: pkg/service/templates.go:29
+msgid "{user} disabled Space {space}"
+msgstr "{user} letiltotta a(z) {space} tárhelyet"
+
+#: pkg/service/templates.go:24
+msgid "{user} removed you from Space {space}"
+msgstr "{user} eltávolította Önt a(z) {space} tárhelyről"
+
+#: pkg/service/templates.go:44
+msgid "{user} shared {resource} with you"
+msgstr "{user} megosztotta Önnel a következő erőforrást: {resource}"
+
+#: pkg/service/templates.go:49
+msgid "{user} unshared {resource} with you"
+msgstr "{user} visszavonta a(z) {resource} erőforrás megosztását Önnel"
