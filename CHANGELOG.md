@@ -1,13 +1,14 @@
 # Changelog
 
-## [5.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.2.0) - 2026-02-26
+## [5.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.2.0) - 2026-03-02
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @MahdiBaghbani, @butonic, @dragonchaser, @pat-s, @rhafer
+@AlexAndBear, @JammingBen, @MahdiBaghbani, @butonic, @dragonchaser, @dragotin, @pat-s, @rhafer
 
 ### 🐛 Bug Fixes
 
+- [SKIP CI] Fix simple install script, use admin-password switch [[#2413](https://github.com/opencloud-eu/opencloud/pull/2413)]
 - resolve logout token subject:sessions for the idp backchannel logout [[#2328](https://github.com/opencloud-eu/opencloud/pull/2328)]
 - fix(oidc_auth): Fix userinfo cache expiration logic [[#2360](https://github.com/opencloud-eu/opencloud/pull/2360)]
 
