@@ -11,6 +11,7 @@ import (
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/justinas/alice"
+
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -73,6 +74,7 @@ func Server(cfg *config.Config) *cli.Command {
 				microstore.Nodes(cfg.PreSignedURL.SigningKeys.Nodes...),
 				microstore.Database("proxy"),
 				microstore.Table("signing-keys"),
+				store.DisablePersistence(cfg.PreSignedURL.SigningKeys.DisablePersistence),
 				store.Authentication(cfg.PreSignedURL.SigningKeys.AuthUsername, cfg.PreSignedURL.SigningKeys.AuthPassword),
 			)
 

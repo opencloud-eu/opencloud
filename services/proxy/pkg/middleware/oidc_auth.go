@@ -8,14 +8,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/opencloud-eu/opencloud/pkg/oidc"
 	"github.com/pkg/errors"
 	"github.com/vmihailenco/msgpack/v5"
-	store "go-micro.dev/v4/store"
+	"go-micro.dev/v4/store"
 	"golang.org/x/crypto/sha3"
 	"golang.org/x/oauth2"
+	"github.com/golang-jwt/jwt/v5"
+	
+	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/oidc"
+	"github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes"
 )
 
 const (
@@ -114,16 +116,25 @@ func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[stri
 				m.Logger.Error().Err(err).Msg("failed to write to userinfo cache")
 			}
 
-			if sid := aClaims.SessionID; sid != "" {
-				// reuse user cache for session id lookup
-				err = m.userInfoCache.Write(&store.Record{
-					Key:    sid,
-					Value:  []byte(encodedHash),
-					Expiry: time.Until(expiration),
-				})
-				if err != nil {
-					m.Logger.Error().Err(err).Msg("failed to write session lookup cache")
-				}
+			// fail if creating the storage key fails,
+			// it means there is no subject and no session.
+			//
+			// ok: {key: ".sessionId"}
+			// ok: {key: "subject."}
+			// ok: {key: "subject.sessionId"}
+			// fail: {key: "."}
+			subjectSessionKey, err := staticroutes.NewRecordKey(aClaims.Subject, aClaims.SessionID)
+			if err != nil {
+				m.Logger.Error().Err(err).Msg("failed to build subject.session")
+				return
+			}
+
+			if err := m.userInfoCache.Write(&store.Record{
+				Key:    subjectSessionKey,
+				Value:  []byte(encodedHash),
+				Expiry: time.Until(expiration),
+			}); err != nil {
+				m.Logger.Error().Err(err).Msg("failed to write session lookup cache")
 			}
 		}
 	}()
