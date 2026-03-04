@@ -324,7 +324,9 @@ func (r *LoggingPrometheusRegisterer) Register(c prometheus.Collector) error {
 
 func (r *LoggingPrometheusRegisterer) MustRegister(collectors ...prometheus.Collector) {
 	for _, c := range collectors {
-		r.Register(c)
+		if err := r.Register(c); err != nil {
+			r.logger.Error().Err(err).Msg("failed to register metrics collector")
+		}
 	}
 }
 

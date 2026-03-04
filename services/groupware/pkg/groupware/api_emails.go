@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"mime"
 	"net/http"
 	"slices"
@@ -1293,9 +1294,17 @@ func relatedEmailsFilter(email jmap.Email, beacon time.Time, days uint) jmap.Ema
 		}
 	}
 
-	timeFilter := jmap.EmailFilterCondition{
-		Before: beacon.Add(time.Duration(days) * time.Hour * 24),
-		After:  beacon.Add(time.Duration(-days) * time.Hour * 24),
+	var timeFilter jmap.EmailFilterCondition
+	{
+		if days > math.MaxInt64 {
+			days = math.MaxInt64 // avoid gosec G115 (CWE-190)
+		}
+		hours := int64(days) * 24
+		delta := time.Duration(hours) * time.Hour
+		timeFilter = jmap.EmailFilterCondition{
+			Before: beacon.Add(delta),
+			After:  beacon.Add(-delta),
+		}
 	}
 
 	var filter jmap.EmailFilterElement
@@ -1382,7 +1391,7 @@ func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) {
 			if results, ok := resultsByAccountId[accountId]; ok {
 				duration := time.Since(before)
 				if jerr != nil {
-					req.observeJmapError(jerr)
+					_ = req.observeJmapError(jerr)
 					l.Error().Err(jerr).Msgf("failed to query %v emails", RelationTypeSameSender)
 				} else {
 					req.observe(g.metrics.EmailSameSenderDuration.WithLabelValues(req.session.JmapEndpoint), duration.Seconds())
@@ -1402,7 +1411,7 @@ func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) {
 			emails, _, _, _, jerr := g.jmap.EmailsInThread(accountId, email.ThreadId, req.session, bgctx, l, req.language(), false, g.config.maxBodyValueBytes)
 			duration := time.Since(before)
 			if jerr != nil {
-				req.observeJmapError(jerr)
+				_ = req.observeJmapError(jerr)
 				l.Error().Err(jerr).Msgf("failed to list %v emails", RelationTypeSameThread)
 			} else {
 				req.observe(g.metrics.EmailSameThreadDuration.WithLabelValues(req.session.JmapEndpoint), duration.Seconds())
@@ -1735,8 +1744,8 @@ var sanitizableMediaTypes = []string{
 	"text/xhtml",
 }
 
-func (req *Request) sanitizeEmail(source jmap.Email) (jmap.Email, *Error) {
-	if !req.g.config.sanitize {
+func (r *Request) sanitizeEmail(source jmap.Email) (jmap.Email, *Error) {
+	if !r.g.config.sanitize {
 		return source, nil
 	}
 	memory := map[string]int{}
@@ -1746,8 +1755,8 @@ func (req *Request) sanitizeEmail(source jmap.Email) (jmap.Email, *Error) {
 			t, _, err := mime.ParseMediaType(p.Type)
 			if err != nil {
 				msg := fmt.Sprintf("failed to parse the mime type '%s'", p.Type)
-				req.logger.Error().Str("type", log.SafeString(p.Type)).Msg(msg)
-				return source, req.apiError(&ErrorFailedToSanitizeEmail, withDetail(msg))
+				r.logger.Error().Str("type", log.SafeString(p.Type)).Msg(msg)
+				return source, r.apiError(&ErrorFailedToSanitizeEmail, withDetail(msg))
 			}
 			if slices.Contains(sanitizableMediaTypes, t) {
 				if already, done := memory[p.PartId]; !done {
@@ -1783,13 +1792,13 @@ func (req *Request) sanitizeEmail(source jmap.Email) (jmap.Email, *Error) {
 	return source, nil
 }
 
-func (req *Request) sanitizeEmails(source []jmap.Email) ([]jmap.Email, *Error) {
-	if !req.g.config.sanitize {
+func (r *Request) sanitizeEmails(source []jmap.Email) ([]jmap.Email, *Error) {
+	if !r.g.config.sanitize {
 		return source, nil
 	}
 	result := make([]jmap.Email, len(source))
 	for i, email := range source {
-		sanitized, gwerr := req.sanitizeEmail(email)
+		sanitized, gwerr := r.sanitizeEmail(email)
 		if gwerr != nil {
 			return nil, gwerr
 		}

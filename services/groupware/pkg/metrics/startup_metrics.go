@@ -3,19 +3,20 @@ package metrics
 import (
 	"sync/atomic"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 var registered atomic.Bool
 
-func StartupMetrics(registerer prometheus.Registerer) {
+func StartupMetrics(registerer prometheus.Registerer, logger *log.Logger) {
 	// use an atomic boolean to make the operation idempotent,
 	// instead of causing a panic in case this function is
 	// called twice
 	if registered.CompareAndSwap(false, true) {
 		// https://github.com/prometheus/common/blob/8558a5b7db3c84fa38b4766966059a7bd5bfa2ee/version/info.go#L36-L56
-		registerer.Register(prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		if err := registerer.Register(prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 			Namespace: Namespace,
 			Subsystem: Subsystem,
 			Name:      "build_info",
@@ -23,6 +24,8 @@ func StartupMetrics(registerer prometheus.Registerer) {
 			ConstLabels: prometheus.Labels{
 				"version": version.GetString(),
 			},
-		}, func() float64 { return 1 }))
+		}, func() float64 { return 1 })); err != nil {
+			logger.Error().Err(err).Msg("failed to register startup metrics")
+		}
 	}
 }

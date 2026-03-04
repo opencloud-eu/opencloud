@@ -35,7 +35,7 @@ func NewDnsSessionUrlResolver(
 	dialTimeout time.Duration,
 	readTimeout time.Duration,
 ) (DnsSessionUrlResolver, error) {
-	// TODO the whole udp or tcp dialier configuration, see https://github.com/miekg/exdns/blob/master/q/q.go
+	// TODO the whole udp or tcp dialer configuration, see https://github.com/miekg/exdns/blob/master/q/q.go
 
 	c := &dns.Client{
 		DialTimeout: dialTimeout,
@@ -45,6 +45,8 @@ func NewDnsSessionUrlResolver(
 	return DnsSessionUrlResolver{
 		defaultSessionUrlSupplier: defaultSessionUrlSupplier,
 		defaultDomain:             defaultDomain,
+		domainGreenList:           domainGreenList,
+		domainRedList:             domainRedList,
 		config:                    config,
 		client:                    c,
 	}, nil

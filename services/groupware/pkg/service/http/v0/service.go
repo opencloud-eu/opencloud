@@ -58,7 +58,7 @@ func NewService(opts ...Option) (Service, error) {
 		}
 	}
 
-	metrics.StartupMetrics(registerer)
+	metrics.StartupMetrics(registerer, logger)
 
 	return gw, nil
 }

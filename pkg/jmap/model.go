@@ -100,7 +100,7 @@ const (
 	JmapSieve                = "urn:ietf:params:jmap:sieve"
 	JmapBlob                 = "urn:ietf:params:jmap:blob"
 	JmapQuota                = "urn:ietf:params:jmap:quota"
-	JmapWebsocket            = "urn:ietf:params:jmap:websocket"
+	JmapWebsocket            = "urn:ietf:params:jmap:websocket" // #nosec G101 false positive: these are not credentials
 	JmapPrincipals           = "urn:ietf:params:jmap:principals"
 	JmapPrincipalsOwner      = "urn:ietf:params:jmap:principals:owner"
 	JmapTasks                = "urn:ietf:params:jmap:tasks"

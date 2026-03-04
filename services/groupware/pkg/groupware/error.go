@@ -587,7 +587,7 @@ func errorId(r *http.Request, ctx context.Context) string {
 	}
 }
 
-func (r Request) errorId() string {
+func (r *Request) errorId() string {
 	return errorId(r.r, r.ctx)
 }
 
@@ -608,11 +608,11 @@ func apiError(id string, gwerr GroupwareError, options ...ErrorOpt) *Error {
 	return err
 }
 
-func (r Request) observedParameterError(gwerr GroupwareError, options ...ErrorOpt) *Error {
+func (r *Request) observedParameterError(gwerr GroupwareError, options ...ErrorOpt) *Error {
 	return r.observeParameterError(apiError(r.errorId(), gwerr, options...))
 }
 
-func (r Request) apiError(err *GroupwareError, options ...ErrorOpt) *Error {
+func (r *Request) apiError(err *GroupwareError, options ...ErrorOpt) *Error {
 	if err == nil {
 		return nil
 	}
@@ -620,7 +620,7 @@ func (r Request) apiError(err *GroupwareError, options ...ErrorOpt) *Error {
 	return apiError(errorId, *err, options...)
 }
 
-func (r Request) apiErrorFromJmap(err jmap.Error) *Error {
+func (r *Request) apiErrorFromJmap(err jmap.Error) *Error {
 	if err == nil {
 		return nil
 	}
@@ -637,6 +637,6 @@ func errorResponses(errors ...Error) ErrorResponse {
 	return ErrorResponse{Errors: errors}
 }
 
-func (r Request) errorResponseFromJmap(accountIds []string, err jmap.Error) Response {
+func (r *Request) errorResponseFromJmap(accountIds []string, err jmap.Error) Response {
 	return errorResponse(accountIds, r.apiErrorFromJmap(r.observeJmapError(err)))
 }

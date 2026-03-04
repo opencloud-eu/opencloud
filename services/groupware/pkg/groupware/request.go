@@ -26,8 +26,8 @@ import (
 )
 
 const (
-	// TODO remove this once Stalwart has actual support for Tasks, Calendars, Contacts and we don't need to mock it any more
-	IgnoreSessionCapabilityChecks = true
+	// TODO remove this once Stalwart has actual support for Tasks and we don't need to mock it any more
+	IgnoreSessionCapabilityChecksForTasks = true
 )
 
 // using a wrapper class for requests, to group multiple parameters, really to avoid crowding the
@@ -42,23 +42,23 @@ type Request struct {
 	session *jmap.Session
 }
 
-func isDefaultAccountid(accountId string) bool {
+func isDefaultAccountId(accountId string) bool {
 	return slices.Contains(defaultAccountIds, accountId)
 }
 
-func (r Request) push(typ string, event any) {
+func (r *Request) push(typ string, event any) {
 	r.g.push(r.user, typ, event)
 }
 
-func (r Request) GetUser() user {
+func (r *Request) GetUser() user {
 	return r.user
 }
 
-func (r Request) GetRequestId() string {
+func (r *Request) GetRequestId() string {
 	return chimiddleware.GetReqID(r.ctx)
 }
 
-func (r Request) GetTraceId() string {
+func (r *Request) GetTraceId() string {
 	return groupwaremiddleware.GetTraceID(r.ctx)
 }
 
@@ -76,7 +76,7 @@ var (
 	// errNoPrimaryAccountForWebsocket        = errors.New("no primary account for websocket")
 )
 
-func (r Request) HeaderParam(name string) (string, *Error) {
+func (r *Request) HeaderParam(name string) (string, *Error) {
 	value := r.r.Header.Get(name)
 	if value == "" {
 		msg := fmt.Sprintf("Missing mandatory request header '%s'", name)
@@ -89,19 +89,19 @@ func (r Request) HeaderParam(name string) (string, *Error) {
 	}
 }
 
-func (r Request) HeaderParamDoc(name string, _ string) (string, *Error) {
+func (r *Request) HeaderParamDoc(name string, _ string) (string, *Error) {
 	return r.HeaderParam(name)
 }
 
-func (r Request) OptHeaderParam(name string) string {
+func (r *Request) OptHeaderParam(name string) string {
 	return r.r.Header.Get(name)
 }
 
-func (r Request) OptHeaderParamDoc(name string, _ string) string {
+func (r *Request) OptHeaderParamDoc(name string, _ string) string {
 	return r.OptHeaderParam(name)
 }
 
-func (r Request) PathParam(name string) (string, *Error) {
+func (r *Request) PathParam(name string) (string, *Error) {
 	value := chi.URLParam(r.r, name)
 	if value == "" {
 		msg := fmt.Sprintf("Missing mandatory path parameter '%s'", name)
@@ -114,11 +114,11 @@ func (r Request) PathParam(name string) (string, *Error) {
 	}
 }
 
-func (r Request) PathParamDoc(name string, _ string) (string, *Error) {
+func (r *Request) PathParamDoc(name string, _ string) (string, *Error) {
 	return r.PathParam(name)
 }
 
-func (r Request) PathListParamDoc(name string, _ string) ([]string, *Error) {
+func (r *Request) PathListParamDoc(name string, _ string) ([]string, *Error) {
 	value, err := r.PathParam(name)
 	if err != nil {
 		return nil, err
@@ -126,14 +126,14 @@ func (r Request) PathListParamDoc(name string, _ string) ([]string, *Error) {
 	return strings.Split(value, ","), nil
 }
 
-func (r Request) AllAccountIds() []string {
+func (r *Request) AllAccountIds() []string {
 	// TODO potentially filter on "subscribed" accounts?
 	return structs.Uniq(structs.Keys(r.session.Accounts))
 }
 
-func (r Request) GetAccountIdWithoutFallback() (string, *Error) {
+func (r *Request) GetAccountIdWithoutFallback() (string, *Error) {
 	accountId := chi.URLParam(r.r, UriParamAccountId)
-	if accountId == "" || isDefaultAccountid(accountId) {
+	if accountId == "" || isDefaultAccountId(accountId) {
 		r.logger.Error().Err(errNoPrimaryAccountFallback).Msg("failed to determine the accountId")
 		return "", apiError(r.errorId(), ErrorNonExistingAccount,
 			withDetail("Failed to determine the account to use"),
@@ -143,9 +143,9 @@ func (r Request) GetAccountIdWithoutFallback() (string, *Error) {
 	return accountId, nil
 }
 
-func (r Request) getAccountId(fallback string, err error) (string, *Error) {
+func (r *Request) getAccountId(fallback string, err error) (string, *Error) {
 	accountId := chi.URLParam(r.r, UriParamAccountId)
-	if accountId == "" || isDefaultAccountid(accountId) {
+	if accountId == "" || isDefaultAccountId(accountId) {
 		accountId = fallback
 	}
 	if accountId == "" {
@@ -158,45 +158,45 @@ func (r Request) getAccountId(fallback string, err error) (string, *Error) {
 	return accountId, nil
 }
 
-func (r Request) GetAccountIdForMail() (string, *Error) {
+func (r *Request) GetAccountIdForMail() (string, *Error) {
 	return r.getAccountId(r.session.PrimaryAccounts.Mail, errNoPrimaryAccountForMail)
 }
 
-func (r Request) GetAccountIdForBlob() (string, *Error) {
+func (r *Request) GetAccountIdForBlob() (string, *Error) {
 	return r.getAccountId(r.session.PrimaryAccounts.Blob, errNoPrimaryAccountForBlob)
 }
 
-func (r Request) GetAccountIdForVacationResponse() (string, *Error) {
+func (r *Request) GetAccountIdForVacationResponse() (string, *Error) {
 	return r.getAccountId(r.session.PrimaryAccounts.VacationResponse, errNoPrimaryAccountForVacationResponse)
 }
 
-func (r Request) GetAccountIdForQuota() (string, *Error) {
+func (r *Request) GetAccountIdForQuota() (string, *Error) {
 	return r.getAccountId(r.session.PrimaryAccounts.Quota, errNoPrimaryAccountForQuota)
 }
 
-func (r Request) GetAccountIdForSubmission() (string, *Error) {
+func (r *Request) GetAccountIdForSubmission() (string, *Error) {
 	return r.getAccountId(r.session.PrimaryAccounts.Blob, errNoPrimaryAccountForSubmission)
 }
 
-func (r Request) GetAccountIdForTask() (string, *Error) {
+func (r *Request) GetAccountIdForTask() (string, *Error) {
 	// TODO we don't have these yet, not implemented in Stalwart
 	// return r.getAccountId(r.session.PrimaryAccounts.Task, errNoPrimaryAccountForTask)
 	return r.GetAccountIdForMail()
 }
 
-func (r Request) GetAccountIdForCalendar() (string, *Error) {
+func (r *Request) GetAccountIdForCalendar() (string, *Error) {
 	// TODO we don't have these yet, not implemented in Stalwart
 	// return r.getAccountId(r.session.PrimaryAccounts.Calendar, errNoPrimaryAccountForCalendar)
 	return r.GetAccountIdForMail()
 }
 
-func (r Request) GetAccountIdForContact() (string, *Error) {
+func (r *Request) GetAccountIdForContact() (string, *Error) {
 	// TODO we don't have these yet, not implemented in Stalwart
 	// return r.getAccountId(r.session.PrimaryAccounts.Contact, errNoPrimaryAccountForContact)
 	return r.GetAccountIdForMail()
 }
 
-func (r Request) GetAccountForMail() (string, jmap.Account, *Error) {
+func (r *Request) GetAccountForMail() (string, jmap.Account, *Error) {
 	accountId, err := r.GetAccountIdForMail()
 	if err != nil {
 		return "", jmap.Account{}, err
@@ -214,17 +214,17 @@ func (r Request) GetAccountForMail() (string, jmap.Account, *Error) {
 	return accountId, account, nil
 }
 
-func (r Request) parameterError(param string, detail string) *Error {
+func (r *Request) parameterError(param string, detail string) *Error {
 	return r.observedParameterError(ErrorInvalidRequestParameter,
 		withDetail(detail),
 		withSource(&ErrorSource{Parameter: param}))
 }
 
-func (r Request) parameterErrorResponse(accountIds []string, param string, detail string) Response {
+func (r *Request) parameterErrorResponse(accountIds []string, param string, detail string) Response {
 	return errorResponse(accountIds, r.parameterError(param, detail))
 }
 
-func (r Request) getStringParam(param string, defaultValue string) (string, bool) {
+func (r *Request) getStringParam(param string, defaultValue string) (string, bool) {
 	q := r.r.URL.Query()
 	if !q.Has(param) {
 		return defaultValue, false
@@ -236,7 +236,7 @@ func (r Request) getStringParam(param string, defaultValue string) (string, bool
 	return str, true
 }
 
-func (r Request) getMandatoryStringParam(param string) (string, *Error) {
+func (r *Request) getMandatoryStringParam(param string) (string, *Error) {
 	str := ""
 	q := r.r.URL.Query()
 	if q.Has(param) {
@@ -252,7 +252,7 @@ func (r Request) getMandatoryStringParam(param string) (string, *Error) {
 	return str, nil
 }
 
-func (r Request) parseIntParam(param string, defaultValue int) (int, bool, *Error) {
+func (r *Request) parseIntParam(param string, defaultValue int) (int, bool, *Error) {
 	q := r.r.URL.Query()
 	if !q.Has(param) {
 		return defaultValue, false, nil
@@ -276,7 +276,7 @@ func (r Request) parseIntParam(param string, defaultValue int) (int, bool, *Erro
 	return int(value), true, nil
 }
 
-func (r Request) parseUIntParam(param string, defaultValue uint) (uint, bool, *Error) {
+func (r *Request) parseUIntParam(param string, defaultValue uint) (uint, bool, *Error) {
 	q := r.r.URL.Query()
 	if !q.Has(param) {
 		return defaultValue, false, nil
@@ -300,7 +300,7 @@ func (r Request) parseUIntParam(param string, defaultValue uint) (uint, bool, *E
 	return uint(value), true, nil
 }
 
-func (r Request) parseDateParam(param string) (time.Time, bool, *Error) {
+func (r *Request) parseDateParam(param string) (time.Time, bool, *Error) {
 	q := r.r.URL.Query()
 	if !q.Has(param) {
 		return time.Time{}, false, nil
@@ -322,7 +322,7 @@ func (r Request) parseDateParam(param string) (time.Time, bool, *Error) {
 	return t, true, nil
 }
 
-func (r Request) parseBoolParam(param string, defaultValue bool) (bool, bool, *Error) {
+func (r *Request) parseBoolParam(param string, defaultValue bool) (bool, bool, *Error) {
 	q := r.r.URL.Query()
 	if !q.Has(param) {
 		return defaultValue, false, nil
@@ -344,7 +344,7 @@ func (r Request) parseBoolParam(param string, defaultValue bool) (bool, bool, *E
 	return b, true, nil
 }
 
-func (r Request) parseMapParam(param string) (map[string]string, bool, *Error) {
+func (r *Request) parseMapParam(param string) (map[string]string, bool, *Error) {
 	q := r.r.URL.Query()
 	if !q.Has(param) {
 		return map[string]string{}, false, nil
@@ -363,7 +363,7 @@ func (r Request) parseMapParam(param string) (map[string]string, bool, *Error) {
 	return result, true, nil
 }
 
-func (r Request) parseOptStringListParam(param string) ([]string, bool, *Error) {
+func (r *Request) parseOptStringListParam(param string) ([]string, bool, *Error) {
 	result := []string{}
 	q := r.r.URL.Query()
 	if !q.Has(param) {
@@ -379,11 +379,11 @@ func (r Request) parseOptStringListParam(param string) ([]string, bool, *Error) 
 	return result, true, nil
 }
 
-func (r Request) bodydoc(target any, _ string) *Error {
+func (r *Request) bodydoc(target any, _ string) *Error {
 	return r.body(target)
 }
 
-func (r Request) body(target any) *Error {
+func (r *Request) body(target any) *Error {
 	body := r.r.Body
 	defer func(b io.ReadCloser) {
 		err := b.Close()
@@ -400,30 +400,30 @@ func (r Request) body(target any) *Error {
 	return nil
 }
 
-func (r Request) language() string {
+func (r *Request) language() string {
 	return r.r.Header.Get("Accept-Language")
 }
 
-func (r Request) observe(obs prometheus.Observer, value float64) {
+func (r *Request) observe(obs prometheus.Observer, value float64) {
 	metrics.WithExemplar(obs, value, r.GetRequestId(), r.GetTraceId())
 }
 
-func (r Request) observeParameterError(err *Error) *Error {
+func (r *Request) observeParameterError(err *Error) *Error {
 	if err != nil {
 		r.g.metrics.ParameterErrorCounter.WithLabelValues(err.Code).Inc()
 	}
 	return err
 }
 
-func (r Request) observeJmapError(jerr jmap.Error) jmap.Error {
+func (r *Request) observeJmapError(jerr jmap.Error) jmap.Error {
 	if jerr != nil {
 		r.g.metrics.JmapErrorCounter.WithLabelValues(r.session.JmapEndpoint, strconv.Itoa(jerr.Code())).Inc()
 	}
 	return jerr
 }
 
-func (r Request) needTask(accountId string) (bool, Response) {
-	if !IgnoreSessionCapabilityChecks {
+func (r *Request) needTask(accountId string) (bool, Response) {
+	if !IgnoreSessionCapabilityChecksForTasks {
 		if r.session.Capabilities.Tasks == nil {
 			return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorMissingTasksSessionCapability), r.session.State)
 		}
@@ -431,7 +431,7 @@ func (r Request) needTask(accountId string) (bool, Response) {
 	return true, Response{}
 }
 
-func (r Request) needTaskForAccount(accountId string) (bool, Response) {
+func (r *Request) needTaskForAccount(accountId string) (bool, Response) {
 	if ok, resp := r.needTask(accountId); !ok {
 		return ok, resp
 	}
@@ -439,37 +439,31 @@ func (r Request) needTaskForAccount(accountId string) (bool, Response) {
 	if !ok {
 		return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorAccountNotFound), r.session.State)
 	}
-	if !IgnoreSessionCapabilityChecks {
-		if account.AccountCapabilities.Tasks == nil {
-			return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorMissingTasksAccountCapability), r.session.State)
-		}
+	if account.AccountCapabilities.Tasks == nil {
+		return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorMissingTasksAccountCapability), r.session.State)
 	}
 	return true, Response{}
 }
 
-func (r Request) needTaskWithAccount() (bool, string, Response) {
+func (r *Request) needTaskWithAccount() (bool, string, Response) {
 	accountId, err := r.GetAccountIdForTask()
 	if err != nil {
 		return false, "", errorResponse(single(accountId), err)
 	}
-	if !IgnoreSessionCapabilityChecks {
-		if ok, resp := r.needTaskForAccount(accountId); !ok {
-			return false, accountId, resp
-		}
+	if ok, resp := r.needTaskForAccount(accountId); !ok {
+		return false, accountId, resp
 	}
 	return true, accountId, Response{}
 }
 
-func (r Request) needCalendar(accountId string) (bool, Response) {
-	if !IgnoreSessionCapabilityChecks {
-		if r.session.Capabilities.Calendars == nil {
-			return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorMissingCalendarsSessionCapability), r.session.State)
-		}
+func (r *Request) needCalendar(accountId string) (bool, Response) {
+	if r.session.Capabilities.Calendars == nil {
+		return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorMissingCalendarsSessionCapability), r.session.State)
 	}
 	return true, Response{}
 }
 
-func (r Request) needCalendarForAccount(accountId string) (bool, Response) {
+func (r *Request) needCalendarForAccount(accountId string) (bool, Response) {
 	if ok, resp := r.needCalendar(accountId); !ok {
 		return ok, resp
 	}
@@ -477,35 +471,31 @@ func (r Request) needCalendarForAccount(accountId string) (bool, Response) {
 	if !ok {
 		return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorAccountNotFound), r.session.State)
 	}
-	if !IgnoreSessionCapabilityChecks {
-		if account.AccountCapabilities.Calendars == nil {
-			return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorMissingCalendarsAccountCapability), r.session.State)
-		}
+	if account.AccountCapabilities.Calendars == nil {
+		return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorMissingCalendarsAccountCapability), r.session.State)
 	}
 	return true, Response{}
 }
 
-func (r Request) needCalendarWithAccount() (bool, string, Response) {
+func (r *Request) needCalendarWithAccount() (bool, string, Response) {
 	accountId, err := r.GetAccountIdForCalendar()
 	if err != nil {
 		return false, "", errorResponse(single(accountId), err)
 	}
-	if !IgnoreSessionCapabilityChecks {
-		if ok, resp := r.needCalendarForAccount(accountId); !ok {
-			return false, accountId, resp
-		}
+	if ok, resp := r.needCalendarForAccount(accountId); !ok {
+		return false, accountId, resp
 	}
 	return true, accountId, Response{}
 }
 
-func (r Request) needContact(accountId string) (bool, Response) {
+func (r *Request) needContact(accountId string) (bool, Response) {
 	if r.session.Capabilities.Contacts == nil {
 		return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorMissingContactsSessionCapability), r.session.State)
 	}
 	return true, Response{}
 }
 
-func (r Request) needContactForAccount(accountId string) (bool, Response) {
+func (r *Request) needContactForAccount(accountId string) (bool, Response) {
 	if ok, resp := r.needContact(accountId); !ok {
 		return ok, resp
 	}
@@ -519,7 +509,7 @@ func (r Request) needContactForAccount(accountId string) (bool, Response) {
 	return true, Response{}
 }
 
-func (r Request) needContactWithAccount() (bool, string, Response) {
+func (r *Request) needContactWithAccount() (bool, string, Response) {
 	accountId, err := r.GetAccountIdForContact()
 	if err != nil {
 		return false, "", errorResponse(single(accountId), err)

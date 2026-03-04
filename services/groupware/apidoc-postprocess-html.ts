@@ -16,10 +16,9 @@ process.stdin.on('end', () => {
     process.stdout.write("\n")
   } catch (error) {
     if (error instanceof Error) {
-      console.error(`Error occured while post-processing HTML: ${error.message}`)
+      console.error(`Error occurred while post-processing HTML: ${error.message}`)
     } else {
       console.error("Unknown error occurred")
     }
   }
 });
-
