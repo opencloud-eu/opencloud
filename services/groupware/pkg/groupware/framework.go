@@ -230,7 +230,7 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 				httpTransport := http.DefaultTransport.(*http.Transport).Clone()
 				httpTransport.ResponseHeaderTimeout = responseHeaderTimeout
 				if insecureTls {
-					tlsConfig := &tls.Config{InsecureSkipVerify: true}
+					tlsConfig := &tls.Config{InsecureSkipVerify: true} // #nosec G402 insecure TLS is a configuration option for development
 					httpTransport.TLSClientConfig = tlsConfig
 				}
 				httpClient = *http.DefaultClient
@@ -242,6 +242,11 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 				auth,
 				jmapMetricsAdapter,
 			)
+			defer func() {
+				if err := api.Close(); err != nil {
+					logger.Error().Err(err).Msgf("failed to close HTTP JMAP API client")
+				}
+			}()
 		}
 
 		var wsf *jmap.HttpWsClientFactory
@@ -250,7 +255,7 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 				HandshakeTimeout: wsHandshakeTimeout,
 			}
 			if insecureTls {
-				wsDialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+				wsDialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} // #nosec G402 insecure TLS is a configuration option for development
 			}
 
 			wsf, err = jmap.NewHttpWsClientFactory(wsDialer, auth, logger, jmapMetricsAdapter)
@@ -262,6 +267,11 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 
 		// api implements all three interfaces:
 		jmapClient = jmap.NewClient(api, api, api, wsf)
+		defer func() {
+			if err := jmapClient.Close(); err != nil {
+				logger.Error().Err(err).Msgf("failed to close JMAP client")
+			}
+		}()
 	}
 
 	sessionCacheBuilder := newSessionCacheBuilder(
@@ -297,7 +307,6 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 	}
 
 	sessionCache, err := sessionCacheBuilder.build()
-
 	if err != nil {
 		// assuming that the error was logged in great detail upstream
 		return nil, GroupwareInitializationError{Message: "failed to initialize the session cache", Err: err}
@@ -311,11 +320,15 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 		if err != nil {
 			logger.Warn().Err(err).Msgf("failed to create metric %v", m.EventBufferSizeDesc.String())
 		} else {
-			prometheusRegistry.Register(metrics.ConstMetricCollector{Metric: eventBufferSizeMetric})
+			if err := prometheusRegistry.Register(metrics.ConstMetricCollector{Metric: eventBufferSizeMetric}); err != nil {
+				logger.Error().Err(err).Msg("failed to register event buffer size metric collector")
+			}
 		}
-		prometheusRegistry.Register(prometheus.NewGaugeFunc(m.EventBufferQueuedOpts, func() float64 {
+		if err := prometheusRegistry.Register(prometheus.NewGaugeFunc(m.EventBufferQueuedOpts, func() float64 {
 			return float64(len(eventChannel))
-		}))
+		})); err != nil {
+			logger.Error().Err(err).Msg("failed to reigster event buffer queue metric")
+		}
 	}
 
 	sseServer := sse.New()
@@ -328,9 +341,11 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 		sseServer.OnUnsubscribe = func(streamID string, sub *sse.Subscriber) {
 			sseSubscribers.Add(-1)
 		}
-		prometheusRegistry.Register(prometheus.NewGaugeFunc(m.SSESubscribersOpts, func() float64 {
+		if err := prometheusRegistry.Register(prometheus.NewGaugeFunc(m.SSESubscribersOpts, func() float64 {
 			return float64(sseSubscribers.Load())
-		}))
+		})); err != nil {
+			logger.Error().Err(err).Msg("failed to register SSE subscribers metric")
+		}
 	}
 
 	jobsChannel := make(chan Job, workerQueueSize)
@@ -339,12 +354,16 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 		if err != nil {
 			logger.Warn().Err(err).Msgf("failed to create metric %v", m.WorkersBufferSizeDesc.String())
 		} else {
-			prometheusRegistry.Register(metrics.ConstMetricCollector{Metric: totalWorkerBufferMetric})
+			if err := prometheusRegistry.Register(metrics.ConstMetricCollector{Metric: totalWorkerBufferMetric}); err != nil {
+				logger.Error().Err(err).Msg("failed to register total worker buffer metric")
+			}
 		}
 
-		prometheusRegistry.Register(prometheus.NewGaugeFunc(m.WorkersBufferQueuedOpts, func() float64 {
+		if err := prometheusRegistry.Register(prometheus.NewGaugeFunc(m.WorkersBufferQueuedOpts, func() float64 {
 			return float64(len(jobsChannel))
-		}))
+		})); err != nil {
+			logger.Error().Err(err).Msg("failed to register jobs channel size metric")
+		}
 	}
 
 	var busyWorkers atomic.Int32
@@ -353,12 +372,16 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 		if err != nil {
 			logger.Warn().Err(err).Msgf("failed to create metric %v", m.TotalWorkersDesc.String())
 		} else {
-			prometheusRegistry.Register(metrics.ConstMetricCollector{Metric: totalWorkersMetric})
+			if err := prometheusRegistry.Register(metrics.ConstMetricCollector{Metric: totalWorkersMetric}); err != nil {
+				logger.Error().Err(err).Msg("failed to register worker pool size metric")
+			}
 		}
 
-		prometheusRegistry.Register(prometheus.NewGaugeFunc(m.BusyWorkersOpts, func() float64 {
+		if err := prometheusRegistry.Register(prometheus.NewGaugeFunc(m.BusyWorkersOpts, func() float64 {
 			return float64(busyWorkers.Load())
-		}))
+		})); err != nil {
+			logger.Error().Err(err).Msg("failed to register busy workers metric")
+		}
 	}
 
 	g := &Groupware{
@@ -501,7 +524,7 @@ func (g *Groupware) session(ctx context.Context, user user, logger *log.Logger) 
 			return jmap.Session{}, false, s.Error(), s.Until()
 		}
 	}
-	// not sure this should/could happen:
+	// not sure whether this should/could happen:
 	logger.Warn().Msg("session cache returned nil")
 	return jmap.Session{}, false, nil, time.Time{}
 }
@@ -554,7 +577,9 @@ func (g *Groupware) serveError(w http.ResponseWriter, r *http.Request, error *Er
 	}
 	render.Status(r, error.NumStatus)
 	w.WriteHeader(error.NumStatus)
-	render.Render(w, r, errorResponses(*error))
+	if err := render.Render(w, r, errorResponses(*error)); err != nil {
+		g.logger.Error().Err(err).Msgf("failed to render error response")
+	}
 }
 
 // Execute a closure with a JMAP Session.
@@ -644,7 +669,9 @@ func (g *Groupware) sendResponse(w http.ResponseWriter, r *http.Request, respons
 		g.log(response.err)
 		w.Header().Add("Content-Type", ContentTypeJsonApi)
 		render.Status(r, response.err.NumStatus)
-		render.Render(w, r, errorResponses(*response.err))
+		if err := render.Render(w, r, errorResponses(*response.err)); err != nil {
+			g.logger.Error().Err(err).Msgf("failed to render error response")
+		}
 		return
 	}
 
@@ -757,7 +784,9 @@ func (g *Groupware) stream(w http.ResponseWriter, r *http.Request, handler func(
 		w.Header().Add("Content-Type", ContentTypeJsonApi)
 		render.Status(r, apierr.NumStatus)
 		w.WriteHeader(apierr.NumStatus)
-		render.Render(w, r, errorResponses(*apierr))
+		if err := render.Render(w, r, errorResponses(*apierr)); err != nil {
+			logger.Error().Err(err).Msgf("failed to render error response")
+		}
 	}
 }
 

@@ -44,3 +44,7 @@ examples:
 	cd ../../pkg/jscontact/ && go test -tags=groupware_examples . -v -count=1 -run '^.*Example$''
 	cd ../../pkg/jscalendar/ && go test -tags=groupware_examples . -v -count=1 -run '^.*Example$''
 	cd ./pkg/groupware/ && go test -tags=groupware_examples . -v -count=1 -run '^.*Example$''
+
+.PHONY: gosec
+gosec:
+	cd ../../ && gosec ./pkg/jmap/... ./pkg/jscalendar/... ./pkg/jscontact/... ./services/groupware/pkg/...

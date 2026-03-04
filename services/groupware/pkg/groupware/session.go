@@ -116,25 +116,25 @@ type ttlcacheSessionCache struct {
 var _ sessionCache = &ttlcacheSessionCache{}
 var _ jmap.SessionEventListener = &ttlcacheSessionCache{}
 
-func (l *ttlcacheSessionCache) load(key sessionCacheKey, ctx context.Context) cachedSession {
+func (c *ttlcacheSessionCache) load(key sessionCacheKey, ctx context.Context) cachedSession {
 	username := key.username()
-	sessionUrl, gwerr := l.sessionUrlProvider(ctx, username)
+	sessionUrl, gwerr := c.sessionUrlProvider(ctx, username)
 	if gwerr != nil {
-		l.logger.Warn().Str(logUsername, username).Str(logErrorCode, gwerr.Code).Msgf("failed to determine session URL for '%v'", key)
+		c.logger.Warn().Str(logUsername, username).Str(logErrorCode, gwerr.Code).Msgf("failed to determine session URL for '%v'", key)
 		now := time.Now()
-		until := now.Add(l.errorTtl)
+		until := now.Add(c.errorTtl)
 		return failedSession{since: now, until: until, err: gwerr}
 	}
-	session, jerr := l.sessionSupplier(ctx, sessionUrl, username, l.logger)
+	session, jerr := c.sessionSupplier(ctx, sessionUrl, username, c.logger)
 	if jerr != nil {
-		l.logger.Warn().Str(logUsername, username).Err(jerr).Msgf("failed to create session for '%v'", key)
+		c.logger.Warn().Str(logUsername, username).Err(jerr).Msgf("failed to create session for '%v'", key)
 		now := time.Now()
-		until := now.Add(l.errorTtl)
+		until := now.Add(c.errorTtl)
 		return failedSession{since: now, until: until, err: groupwareErrorFromJmap(jerr)}
 	} else {
-		l.logger.Debug().Str(logUsername, username).Msgf("successfully created session for '%v'", key)
+		c.logger.Debug().Str(logUsername, username).Msgf("successfully created session for '%v'", key)
 		now := time.Now()
-		until := now.Add(l.successTtl)
+		until := now.Add(c.successTtl)
 		return succeededSession{since: now, until: until, session: session}
 	}
 }
@@ -229,7 +229,7 @@ func (b *sessionCacheBuilder) withDnsAutoDiscovery(
 	return b
 }
 
-func (b sessionCacheBuilder) build() (sessionCache, error) {
+func (b *sessionCacheBuilder) build() (sessionCache, error) {
 	var cache *ttlcache.Cache[sessionCacheKey, cachedSession]
 
 	sessionUrlResolver, err := b.sessionUrlResolverFactory()
@@ -243,7 +243,9 @@ func (b sessionCacheBuilder) build() (sessionCache, error) {
 		ttlcache.WithDisableTouchOnHit[sessionCacheKey, cachedSession](),
 	)
 
-	b.prometheusRegistry.Register(sessionCacheMetricsCollector{desc: b.m.SessionCacheDesc, supply: cache.Metrics})
+	if err := b.prometheusRegistry.Register(sessionCacheMetricsCollector{desc: b.m.SessionCacheDesc, supply: cache.Metrics}); err != nil {
+		b.logger.Error().Err(err).Msg("failed to register session cache metrics")
+	}
 
 	cache.OnEviction(func(c context.Context, r ttlcache.EvictionReason, item *ttlcache.Item[sessionCacheKey, cachedSession]) {
 		if b.logger.Trace().Enabled() {
@@ -291,7 +293,7 @@ func (b sessionCacheBuilder) build() (sessionCache, error) {
 	return s, nil
 }
 
-func (c ttlcacheSessionCache) OnSessionOutdated(session *jmap.Session, newSessionState jmap.SessionState) {
+func (c *ttlcacheSessionCache) OnSessionOutdated(session *jmap.Session, newSessionState jmap.SessionState) {
 	// it's enough to remove the session from the cache, as it will be fetched on-demand
 	// the next time an operation is performed on behalf of the user
 	c.sessionCache.Delete(toSessionCacheKey(session.Username))

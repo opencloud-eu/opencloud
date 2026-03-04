@@ -117,7 +117,7 @@ func (g *Groupware) Route(r chi.Router) {
 					r.Post("/", g.SendEmail)
 					r.Patch("/", g.UpdateEmail)
 					r.Delete("/", g.DeleteEmail)
-					Report(r, "/", g.RelatedToEmail)
+					report(r, "/", g.RelatedToEmail)
 					r.Route("/related", func(r chi.Router) {
 						r.Get("/", g.RelatedToEmail)
 					})
@@ -178,6 +178,6 @@ func (g *Groupware) Route(r chi.Router) {
 	r.MethodNotAllowed(g.MethodNotAllowed)
 }
 
-func Report(r chi.Router, pattern string, h http.HandlerFunc) {
+func report(r chi.Router, pattern string, h http.HandlerFunc) {
 	r.MethodFunc("REPORT", pattern, h)
 }

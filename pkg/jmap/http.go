@@ -555,14 +555,15 @@ type HttpWsClient struct {
 }
 
 func (w *HttpWsClient) readPump() {
+	logger := log.From(w.logger.With().Str("username", w.username))
 	defer func() {
-		w.c.Close()
+		if err := w.c.Close(); err != nil {
+			logger.Warn().Err(err).Msg("failed to close websocket connection")
+		}
 	}()
 	//w.c.SetReadLimit(maxMessageSize)
 	//c.conn.SetReadDeadline(time.Now().Add(pongWait))
 	//c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
-
-	logger := log.From(w.logger.With().Str("username", w.username))
 
 	for {
 		if _, message, err := w.c.ReadMessage(); err != nil {

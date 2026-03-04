@@ -23,14 +23,14 @@ func newRevaContextUsernameProvider() userProvider {
 }
 
 var (
-	errUserNotInRevaContext = errors.New("failed to find user in reva context")
+	errUserNotInRevaContext = errors.New("failed to find user in Reva context")
 )
 
-func (r revaContextUsernameProvider) GetUser(req *http.Request, ctx context.Context, logger *log.Logger) (user, error) {
+func (r revaContextUsernameProvider) GetUser(_ *http.Request, ctx context.Context, logger *log.Logger) (user, error) {
 	u, ok := revactx.ContextGetUser(ctx)
 	if !ok {
 		err := errUserNotInRevaContext
-		logger.Error().Err(err).Ctx(ctx).Msgf("could not get user: user not in reva context: %v", ctx)
+		logger.Error().Err(err).Ctx(ctx).Msgf("could not get user: user not in Reva context: %v", ctx)
 		return nil, err
 	}
 	return revaUser{user: u}, nil
@@ -86,14 +86,14 @@ const (
 
 var tokenMissingInRevaContext = RevaError{
 	code: revaErrorTokenMissingInRevaContext,
-	err:  errors.New("Token is missing from Reva context"),
+	err:  errors.New("token is missing from Reva context"),
 }
 
-func (h *RevaBearerHttpJmapClientAuthenticator) Authenticate(ctx context.Context, username string, logger *log.Logger, req *http.Request) jmap.Error {
+func (h *RevaBearerHttpJmapClientAuthenticator) Authenticate(ctx context.Context, _ string, logger *log.Logger, req *http.Request) jmap.Error {
 	token, ok := revactx.ContextGetToken(ctx)
 	if !ok {
 		err := tokenMissingInRevaContext
-		logger.Error().Err(err).Ctx(ctx).Msgf("could not get token: token not in reva context: %v", ctx)
+		logger.Error().Err(err).Ctx(ctx).Msgf("could not get token: token not in Reva context: %v", ctx)
 		return err
 	} else {
 		req.Header.Add("Authorization", "Bearer "+token)
@@ -101,11 +101,11 @@ func (h *RevaBearerHttpJmapClientAuthenticator) Authenticate(ctx context.Context
 	}
 }
 
-func (h *RevaBearerHttpJmapClientAuthenticator) AuthenticateWS(ctx context.Context, username string, logger *log.Logger, headers http.Header) jmap.Error {
+func (h *RevaBearerHttpJmapClientAuthenticator) AuthenticateWS(ctx context.Context, _ string, logger *log.Logger, headers http.Header) jmap.Error {
 	token, ok := revactx.ContextGetToken(ctx)
 	if !ok {
 		err := tokenMissingInRevaContext
-		logger.Error().Err(err).Ctx(ctx).Msgf("could not get token: token not in reva context: %v", ctx)
+		logger.Error().Err(err).Ctx(ctx).Msgf("could not get token: token not in Reva context: %v", ctx)
 		return err
 	} else {
 		headers.Add("Authorization", "Bearer "+token)
