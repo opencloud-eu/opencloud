@@ -20,8 +20,10 @@ ARG REVISION
 ARG TARGETOS
 ARG TARGETARCH
 
-RUN apk add --no-cache attr bash ca-certificates curl inotify-tools libc6-compat mailcap tree vips patch && \
-	echo 'hosts: files dns' >| /etc/nsswitch.conf
+RUN apk add --no-cache attr bash ca-certificates curl imagemagick \
+                       inotify-tools libc6-compat mailcap tree vips \
+		       vips-magick patch && \
+    echo 'hosts: files dns' >| /etc/nsswitch.conf
 
 LABEL maintainer="openCloud GmbH <devops@opencloud.eu>" \
   org.opencontainers.image.title="OpenCloud" \
