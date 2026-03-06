@@ -4,7 +4,12 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @MahdiBaghbani, @butonic, @dragonchaser, @dragotin, @fschade, @pat-s, @rhafer
+@AlexAndBear, @JammingBen, @MahdiBaghbani, @ScharfViktor, @butonic, @dragonchaser, @dragotin, @fschade, @pat-s, @rhafer
+
+### 📚 Documentation
+
+- update links and references in CONTRIBUTING.md [[#2411](https://github.com/opencloud-eu/opencloud/pull/2411)]
+- adr(webfinger): Align example config with implementation [[#2353](https://github.com/opencloud-eu/opencloud/pull/2353)]
 
 ### 📈 Enhancement
 
@@ -19,10 +24,6 @@
 - [SKIP CI] Fix simple install script, use admin-password switch [[#2413](https://github.com/opencloud-eu/opencloud/pull/2413)]
 - resolve logout token subject:sessions for the idp backchannel logout [[#2328](https://github.com/opencloud-eu/opencloud/pull/2328)]
 - fix(oidc_auth): Fix userinfo cache expiration logic [[#2360](https://github.com/opencloud-eu/opencloud/pull/2360)]
-
-### 📚 Documentation
-
-- adr(webfinger): Align example config with implementation [[#2353](https://github.com/opencloud-eu/opencloud/pull/2353)]
 
 ### 📦️ Dependencies
 
