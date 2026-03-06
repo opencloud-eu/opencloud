@@ -6,6 +6,7 @@ package vips
 // #include "govips.h"
 import "C"
 import (
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -56,9 +57,9 @@ type Config struct {
 
 // Startup sets up the libvips support and ensures the versions are correct. Pass in nil for
 // default configuration.
-func Startup(config *Config) {
+func Startup(config *Config) error {
 	if hasShutdown {
-		panic("govips cannot be stopped and restarted")
+		return errors.New("govips cannot be stopped and restarted")
 	}
 
 	initLock.Lock()
@@ -69,15 +70,15 @@ func Startup(config *Config) {
 
 	if running {
 		govipsLog("govips", LogLevelInfo, "warning libvips already started")
-		return
+		return nil
 	}
 
 	if MajorVersion < 8 {
-		panic("govips requires libvips version 8.10+")
+		return errors.New("govips requires libvips version 8.10+")
 	}
 
 	if MajorVersion == 8 && MinorVersion < 10 {
-		panic("govips requires libvips version 8.10+")
+		return errors.New("govips requires libvips version 8.10+")
 	}
 
 	cName := C.CString("govips")
@@ -93,7 +94,7 @@ func Startup(config *Config) {
 
 	err := C.vips_init(cName)
 	if err != 0 {
-		panic(fmt.Sprintf("Failed to start vips code=%v", err))
+		return fmt.Errorf("failed to start vips code=%v", err)
 	}
 
 	running = true
@@ -147,6 +148,7 @@ func Startup(config *Config) {
 		int(C.vips_cache_get_max())))
 
 	initTypes()
+	return nil
 }
 
 func enableLogging() {
@@ -234,7 +236,9 @@ func ReadVipsMemStats(stats *MemoryStats) {
 func startupIfNeeded() {
 	if !running {
 		govipsLog("govips", LogLevelInfo, "libvips was forcibly started automatically, consider calling Startup/Shutdown yourself")
-		Startup(nil)
+		if err := Startup(nil); err != nil {
+			panic(err)
+		}
 	}
 }
 

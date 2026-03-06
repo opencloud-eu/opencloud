@@ -677,16 +677,14 @@ func ensureLoadICCPath(name *string) (err error) {
 	return
 }
 
+var tempDirOnce sync.Once
+var tempDirErr error
+
 func getTemporaryDirectory() (string, error) {
-	if temporaryDirectory != "" {
-		return temporaryDirectory, nil
-	}
-	var err error
-	temporaryDirectory, err = os.MkdirTemp("", "govips-")
-	if err != nil {
-		return "", err
-	}
-	return temporaryDirectory, nil
+	tempDirOnce.Do(func() {
+		temporaryDirectory, tempDirErr = os.MkdirTemp("", "govips-")
+	})
+	return temporaryDirectory, tempDirErr
 }
 
 var lockIcc sync.Mutex

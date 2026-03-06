@@ -29,50 +29,50 @@ int load_image_buffer(LoadParams *params, void *buf, size_t len,
     // shrink: int, fail: bool, autorotate: bool
     code = vips_jpegload_buffer(buf, len, out, "fail", params->fail,
                                 "autorotate", params->autorotate, "shrink",
-                                params->jpegShrink, NULL);
+                                params->jpegShrink, "access", params->access, NULL);
   } else if (imageType == PNG) {
-    code = vips_pngload_buffer(buf, len, out, NULL);
+    code = vips_pngload_buffer(buf, len, out, "access", params->access, NULL);
   } else if (imageType == WEBP) {
     // page: int, n: int, scale: double
     code = vips_webpload_buffer(buf, len, out, "page", params->page, "n",
-                                params->n, NULL);
+                                params->n, "access", params->access, NULL);
   } else if (imageType == TIFF) {
     // page: int, n: int, autorotate: bool, subifd: int
     code =
         vips_tiffload_buffer(buf, len, out, "page", params->page, "n",
-                             params->n, "autorotate", params->autorotate, NULL);
+                             params->n, "autorotate", params->autorotate, "access", params->access, NULL);
   } else if (imageType == GIF) {
     // page: int, n: int, scale: double
     code = vips_gifload_buffer(buf, len, out, "page", params->page, "n",
-                               params->n, NULL);
+                               params->n, "access", params->access, NULL);
   } else if (imageType == PDF) {
     // page: int, n: int, dpi: double, scale: double, background: color
     code = vips_pdfload_buffer(buf, len, out, "page", params->page, "n",
-                               params->n, "dpi", params->dpi, NULL);
+                               params->n, "dpi", params->dpi, "access", params->access, NULL);
   } else if (imageType == SVG) {
     // dpi: double, scale: double, unlimited: bool
     code = vips_svgload_buffer(buf, len, out, "dpi", params->dpi, "unlimited",
-                               params->svgUnlimited, NULL);
+                               params->svgUnlimited, "access", params->access, NULL);
   } else if (imageType == HEIF) {
     // added autorotate on load as currently it addresses orientation issues
     // https://github.com/libvips/libvips/pull/1680
     // page: int, n: int, thumbnail: bool
     code = vips_heifload_buffer(buf, len, out, "page", params->page, "n",
                                 params->n, "thumbnail", params->heifThumbnail,
-                                "autorotate", TRUE, NULL);
+                                "autorotate", TRUE, "access", params->access, NULL);
   } else if (imageType == MAGICK) {
     // page: int, n: int, density: string
     code = vips_magickload_buffer(buf, len, out, "page", params->page, "n",
-                                  params->n, NULL);
+                                  params->n, "access", params->access, NULL);
   } else if (imageType == AVIF) {
     code = vips_heifload_buffer(buf, len, out, "page", params->page, "n",
                                 params->n, "thumbnail", params->heifThumbnail,
-                                "autorotate", params->autorotate, NULL);
+                                "autorotate", params->autorotate, "access", params->access, NULL);
 
   }
   #if (VIPS_MAJOR_VERSION >= 8) && (VIPS_MINOR_VERSION >= 11)
   else if (imageType == JP2K) {
-       code = vips_jp2kload_buffer(buf, len, out, "page", params->page, NULL);
+       code = vips_jp2kload_buffer(buf, len, out, "page", params->page, "access", params->access, NULL);
   }
   #endif
 
@@ -100,17 +100,20 @@ int set_jpegload_options(VipsOperation *operation, LoadParams *params) {
   MAYBE_SET_BOOL(operation, params->autorotate, "autorotate");
   MAYBE_SET_BOOL(operation, params->fail, "fail");
   MAYBE_SET_INT(operation, params->jpegShrink, "shrink");
+  MAYBE_SET_INT(operation, params->access, "access");
   return 0;
 }
 
 int set_pngload_options(VipsOperation *operation, LoadParams *params) {
   MAYBE_SET_BOOL(operation, params->fail, "fail");
+  MAYBE_SET_INT(operation, params->access, "access");
   return 0;
 }
 
 int set_webpload_options(VipsOperation *operation, LoadParams *params) {
   MAYBE_SET_INT(operation, params->page, "page");
   MAYBE_SET_INT(operation, params->n, "n");
+  MAYBE_SET_INT(operation, params->access, "access");
   return 0;
 }
 
@@ -118,12 +121,14 @@ int set_tiffload_options(VipsOperation *operation, LoadParams *params) {
   MAYBE_SET_BOOL(operation, params->autorotate, "autorotate");
   MAYBE_SET_INT(operation, params->page, "page");
   MAYBE_SET_INT(operation, params->n, "n");
+  MAYBE_SET_INT(operation, params->access, "access");
   return 0;
 }
 
 int set_gifload_options(VipsOperation *operation, LoadParams *params) {
   MAYBE_SET_INT(operation, params->page, "page");
   MAYBE_SET_INT(operation, params->n, "n");
+  MAYBE_SET_INT(operation, params->access, "access");
   return 0;
 }
 
@@ -131,12 +136,14 @@ int set_pdfload_options(VipsOperation *operation, LoadParams *params) {
   MAYBE_SET_INT(operation, params->page, "page");
   MAYBE_SET_INT(operation, params->n, "n");
   MAYBE_SET_DOUBLE(operation, params->dpi, "dpi");
+  MAYBE_SET_INT(operation, params->access, "access");
   return 0;
 }
 
 int set_svgload_options(VipsOperation *operation, LoadParams *params) {
   MAYBE_SET_BOOL(operation, params->svgUnlimited, "unlimited");
   MAYBE_SET_DOUBLE(operation, params->dpi, "dpi");
+  MAYBE_SET_INT(operation, params->access, "access");
   return 0;
 }
 
@@ -145,11 +152,13 @@ int set_heifload_options(VipsOperation *operation, LoadParams *params) {
   MAYBE_SET_BOOL(operation, params->heifThumbnail, "thumbnail");
   MAYBE_SET_INT(operation, params->page, "page");
   MAYBE_SET_INT(operation, params->n, "n");
+  MAYBE_SET_INT(operation, params->access, "access");
   return 0;
 }
 
 int set_jp2kload_options(VipsOperation *operation, LoadParams *params) {
   MAYBE_SET_INT(operation, params->page, "page");
+  MAYBE_SET_INT(operation, params->access, "access");
   return 0;
 }
 
@@ -161,6 +170,7 @@ int set_jxlload_options(VipsOperation *operation, LoadParams *params) {
 int set_magickload_options(VipsOperation *operation, LoadParams *params) {
   MAYBE_SET_INT(operation, params->page, "page");
   MAYBE_SET_INT(operation, params->n, "n");
+  MAYBE_SET_INT(operation, params->access, "access");
   return 0;
 }
 
@@ -319,7 +329,10 @@ int set_tiffsave_options(VipsOperation *operation, SaveParams *params) {
 
 // https://libvips.github.io/libvips/API/current/VipsForeignSave.html#vips-magicksave-buffer
 int set_magicksave_options(VipsOperation *operation, SaveParams *params) {
-  int ret = vips_object_set(VIPS_OBJECT(operation), "format", "GIF", "bitdepth", params->gifBitdepth, NULL);
+  int ret = vips_object_set(VIPS_OBJECT(operation), "format", params->magickFormat,
+                            "optimize_gif_frames", params->magickOptimizeGifFrames,
+                            "optimize_gif_transparency", params->magickOptimizeGifTransparency,
+                            "bitdepth", params->magickBitDepth, NULL);
 
   if (!ret && params->quality) {
     ret = vips_object_set(VIPS_OBJECT(operation), "quality", params->quality,
@@ -481,6 +494,11 @@ int save_to_buffer(SaveParams *params) {
 #if (VIPS_MAJOR_VERSION >= 8) && (VIPS_MINOR_VERSION >= 12)
       return save_buffer("gifsave_buffer", params, set_gifsave_options);
 #else
+      // Gif save through ImageMagick below Vips Version 8.12
+      params->magickFormat="GIF";
+      params->magickOptimizeGifFrames=FALSE;
+      params->magickOptimizeGifTransparency=FALSE;
+      params->magickBitDepth=params->gifBitdepth;
       return save_buffer("magicksave_buffer", params, set_magicksave_options);
 #endif
     case AVIF:
@@ -489,6 +507,8 @@ int save_to_buffer(SaveParams *params) {
       return save_buffer("jp2ksave_buffer", params, set_jp2ksave_options);
     case JXL:
       return save_buffer("jxlsave_buffer", params, set_jxlsave_options);
+    case MAGICK:
+          return save_buffer("magicksave_buffer", params, set_magicksave_options);
     default:
       g_warning("Unsupported output type given: %d", params->outputFormat);
   }
@@ -509,6 +529,7 @@ LoadParams create_load_params(ImageType inputFormat) {
       .jpegShrink = defaultParam,
       .heifThumbnail = defaultParam,
       .svgUnlimited = defaultParam,
+      .access = defaultParam,
   };
   return p;
 }

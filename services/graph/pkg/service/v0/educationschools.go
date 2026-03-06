@@ -1,6 +1,7 @@
 package svc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -30,10 +31,10 @@ func (g Graph) GetEducationSchools(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	schools, err := g.identityEducationBackend.GetEducationSchools(r.Context())
+	schools, err := g.getEducationSchoolsFromBackend(r.Context(), odataReq)
 	if err != nil {
-		logger.Debug().Err(err).Msg("could not get schools: backend error")
-		errorcode.RenderError(w, r, err)
+		logger.Debug().Err(err).Interface("query", r.URL.Query()).Msg("could not get schools")
+		renderEqualityFilterError(w, r, err)
 		return
 	}
 
@@ -615,4 +616,16 @@ func sortEducationSchools(req *godata.GoDataRequest, schools []*libregraph.Educa
 	}
 
 	return schools, nil
+}
+
+// getEducationSchoolsFromBackend fetches schools from the backend, applying an OData $filter if present.
+func (g Graph) getEducationSchoolsFromBackend(ctx context.Context, odataReq *godata.GoDataRequest) ([]*libregraph.EducationSchool, error) {
+	if odataReq.Query.Filter != nil {
+		attr, value, err := g.getEqualityFilter(ctx, odataReq)
+		if err != nil {
+			return nil, err
+		}
+		return g.identityEducationBackend.FilterEducationSchoolsByAttribute(ctx, attr, value)
+	}
+	return g.identityEducationBackend.GetEducationSchools(ctx)
 }

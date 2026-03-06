@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
@@ -201,6 +202,17 @@ var _ = Describe("EducationUsers", func() {
 			svc.GetEducationUsers(rr, r)
 
 			Expect(rr.Code).To(Equal(http.StatusBadRequest))
+		})
+		When("used with a filter", func() {
+			It("fails with an unsupported filter ", func() {
+				svc.GetEducationUsers(rr, httptest.NewRequest(http.MethodGet, "/graph/v1.0/education/users?$filter="+url.QueryEscape("displayName ne 'test'"), nil))
+				Expect(rr.Code).To(Equal(http.StatusNotImplemented))
+			})
+			It("calls the backend with the filter", func() {
+				identityEducationBackend.On("FilterEducationUsersByAttribute", mock.Anything, "externalId", "id1234").Return([]*libregraph.EducationUser{}, nil)
+				svc.GetEducationUsers(rr, httptest.NewRequest(http.MethodGet, "/graph/v1.0/education/users?$filter="+url.QueryEscape("externalId eq 'id1234'"), nil))
+				Expect(rr.Code).To(Equal(http.StatusOK))
+			})
 		})
 	})
 

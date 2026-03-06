@@ -5,14 +5,15 @@ import (
 	"strings"
 
 	"github.com/CiscoM31/godata"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	settingsmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
-	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 )
 
 const (
 	appRoleID          = "appRoleId"
 	appRoleAssignments = "appRoleAssignments"
+	unsupportedFilter  = "unsupported filter"
 )
 
 func invalidFilterError() error {
@@ -20,7 +21,7 @@ func invalidFilterError() error {
 }
 
 func unsupportedFilterError() error {
-	return godata.NotImplementedError("unsupported filter")
+	return godata.NotImplementedError(unsupportedFilter)
 }
 
 func (g Graph) applyUserFilter(ctx context.Context, req *godata.GoDataRequest, root *godata.ParseNode) (users []*libregraph.User, err error) {
@@ -38,7 +39,7 @@ func (g Graph) applyUserFilter(ctx context.Context, req *godata.GoDataRequest, r
 	case godata.ExpressionTokenFunc:
 		return g.applyFilterFunction(ctx, req, root)
 	}
-	logger.Debug().Str("filter", req.Query.Filter.RawValue).Msg("filter is not supported")
+	logger.Debug().Str("filter", req.Query.Filter.RawValue).Msg(unsupportedFilter)
 	return users, unsupportedFilterError()
 }
 

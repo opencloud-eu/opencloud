@@ -47,3 +47,16 @@ func fromCArrayInt(out *C.int, n int) []int {
 	}
 	return result
 }
+
+func fromCArrayDouble(out *C.double, n int) []float64 {
+	if out == nil || n <= 0 {
+		return nil
+	}
+
+	data := make([]float64, n)
+	for i := 0; i < n; i++ {
+		data[i] = float64(*(*C.double)(unsafe.Pointer(uintptr(unsafe.Pointer(out)) + uintptr(i)*unsafe.Sizeof(C.double(0)))))
+	}
+
+	return data
+}

@@ -5,11 +5,13 @@ import (
 	"testing"
 
 	"github.com/go-ldap/ldap/v3"
-	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity/mocks"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
+
+const peopleBaseDN = "ou=people,dc=test"
 
 var eduUserAttrs = []string{
 	"displayname",
@@ -22,6 +24,7 @@ var eduUserAttrs = []string{
 	"userTypeAttribute",
 	"openCloudExternalIdentity",
 	"userClass",
+	"openCloudEducationExternalId",
 	"openCloudMemberOfSchool",
 }
 
@@ -68,7 +71,7 @@ var eduUserEntryWithSchool = ldap.NewEntry("uid=user,ou=people,dc=test",
 	})
 
 var sr1 *ldap.SearchRequest = &ldap.SearchRequest{
-	BaseDN:     "ou=people,dc=test",
+	BaseDN:     peopleBaseDN,
 	Scope:      2,
 	SizeLimit:  1,
 	Filter:     "(&(objectClass=openCloudEducationUser)(|(uid=abcd-defg)(entryUUID=abcd-defg)))",
@@ -76,7 +79,7 @@ var sr1 *ldap.SearchRequest = &ldap.SearchRequest{
 	Controls:   []ldap.Control(nil),
 }
 var sr2 *ldap.SearchRequest = &ldap.SearchRequest{
-	BaseDN:     "ou=people,dc=test",
+	BaseDN:     peopleBaseDN,
 	Scope:      2,
 	SizeLimit:  1,
 	Filter:     "(&(objectClass=openCloudEducationUser)(|(uid=xxxx-xxxx)(entryUUID=xxxx-xxxx)))",
@@ -163,7 +166,7 @@ func TestGetEducationUser(t *testing.T) {
 func TestGetEducationUsers(t *testing.T) {
 	lm := &mocks.Client{}
 	sr := &ldap.SearchRequest{
-		BaseDN:     "ou=people,dc=test",
+		BaseDN:     peopleBaseDN,
 		Scope:      2,
 		SizeLimit:  0,
 		Filter:     "(objectClass=openCloudEducationUser)",
@@ -178,12 +181,30 @@ func TestGetEducationUsers(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+func TestFilterEducationUsersByAttr(t *testing.T) {
+	lm := &mocks.Client{}
+	sr := &ldap.SearchRequest{
+		BaseDN:     peopleBaseDN,
+		Scope:      2,
+		SizeLimit:  0,
+		Filter:     "(&(objectClass=openCloudEducationUser)(openCloudEducationExternalId=id1234))",
+		Attributes: eduUserAttrs,
+		Controls:   []ldap.Control(nil),
+	}
+	lm.On("Search", sr).Return(&ldap.SearchResult{Entries: []*ldap.Entry{eduUserEntry}}, nil)
+	b, err := getMockedBackend(lm, eduConfig, &logger)
+	assert.Nil(t, err)
+	_, err = b.FilterEducationUsersByAttribute(context.Background(), "externalId", "id1234")
+	lm.AssertNumberOfCalls(t, "Search", 1)
+	assert.Nil(t, err)
+}
+
 func TestUpdateEducationUser(t *testing.T) {
 	lm := &mocks.Client{}
 	b, err := getMockedBackend(lm, eduConfig, &logger)
 	assert.Nil(t, err)
 	userSearchReq := &ldap.SearchRequest{
-		BaseDN:     "ou=people,dc=test",
+		BaseDN:     peopleBaseDN,
 		Scope:      2,
 		SizeLimit:  1,
 		Filter:     "(&(objectClass=openCloudEducationUser)(|(uid=testuser)(entryUUID=testuser)))",

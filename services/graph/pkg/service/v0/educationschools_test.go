@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -175,6 +176,18 @@ var _ = Describe("Schools", func() {
 
 			Expect(len(res.Value)).To(Equal(1))
 			Expect(res.Value[0].GetId()).To(Equal("school1"))
+		})
+
+		When("used with a filter", func() {
+			It("fails with an unsupported filter", func() {
+				svc.GetEducationSchools(rr, httptest.NewRequest(http.MethodGet, "/graph/v1.0/education/schools?$filter="+url.QueryEscape("displayName ne 'test'"), nil))
+				Expect(rr.Code).To(Equal(http.StatusNotImplemented))
+			})
+			It("calls the backend with the externalId filter", func() {
+				identityEducationBackend.On("FilterEducationSchoolsByAttribute", mock.Anything, "externalId", "ext1234").Return([]*libregraph.EducationSchool{newSchool}, nil)
+				svc.GetEducationSchools(rr, httptest.NewRequest(http.MethodGet, "/graph/v1.0/education/schools?$filter="+url.QueryEscape("externalId eq 'ext1234'"), nil))
+				Expect(rr.Code).To(Equal(http.StatusOK))
+			})
 		})
 	})
 

@@ -113,7 +113,7 @@ debug-linux-docker-amd64: release-dirs
 	GOARCH=amd64 \
 	go build \
         -gcflags="all=-N -l" \
-		-tags 'netgo $(TAGS)' \
+		-tags 'netgo,$(TAGS)' \
 		-buildmode=exe \
 		-trimpath \
 		-ldflags '-extldflags "-static" $(DEBUG_LDFLAGS) $(DOCKER_LDFLAGS)' \
@@ -125,7 +125,7 @@ debug-linux-docker-arm64: release-dirs
 	GOARCH=arm64 \
 	go build \
         -gcflags="all=-N -l" \
-		-tags 'netgo $(TAGS)' \
+		-tags 'netgo,$(TAGS)' \
 		-buildmode=exe \
 		-trimpath \
 		-ldflags '-extldflags "-static" $(DEBUG_LDFLAGS) $(DOCKER_LDFLAGS)' \

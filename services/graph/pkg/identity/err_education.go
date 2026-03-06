@@ -29,6 +29,11 @@ func (i *ErrEducationBackend) GetEducationSchools(ctx context.Context) ([]*libre
 	return nil, errNotImplemented
 }
 
+// FilterEducationSchoolsByAttribute implements the EducationBackend interface for the ErrEducationBackend backend.
+func (i *ErrEducationBackend) FilterEducationSchoolsByAttribute(ctx context.Context, attr, value string) ([]*libregraph.EducationSchool, error) {
+	return nil, errNotImplemented
+}
+
 // UpdateEducationSchool implements the EducationBackend interface for the ErrEducationBackend backend.
 func (i *ErrEducationBackend) UpdateEducationSchool(ctx context.Context, numberOrID string, school libregraph.EducationSchool) (*libregraph.EducationSchool, error) {
 	return nil, errNotImplemented
@@ -116,6 +121,11 @@ func (i *ErrEducationBackend) GetEducationUser(ctx context.Context, nameOrID str
 
 // GetEducationUsers implements the EducationBackend interface for the ErrEducationBackend backend.
 func (i *ErrEducationBackend) GetEducationUsers(ctx context.Context) ([]*libregraph.EducationUser, error) {
+	return nil, errNotImplemented
+}
+
+// FilterEducationUsersByAttribute implements the EducationBackend interface for the ErrEducationBackend backend.
+func (i *ErrEducationBackend) FilterEducationUsersByAttribute(ctx context.Context, attr, value string) ([]*libregraph.EducationUser, error) {
 	return nil, errNotImplemented
 }
 

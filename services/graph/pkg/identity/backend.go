@@ -68,6 +68,8 @@ type EducationBackend interface {
 	GetEducationSchool(ctx context.Context, nameOrID string) (*libregraph.EducationSchool, error)
 	// GetEducationSchools lists all schools
 	GetEducationSchools(ctx context.Context) ([]*libregraph.EducationSchool, error)
+	// FilterEducationSchoolsByAttribute list all schools where an attribute matches a value, e.g. all schools with a given externalId
+	FilterEducationSchoolsByAttribute(ctx context.Context, attr, value string) ([]*libregraph.EducationSchool, error)
 	// UpdateEducationSchool updates attributes of a school
 	UpdateEducationSchool(ctx context.Context, numberOrID string, school libregraph.EducationSchool) (*libregraph.EducationSchool, error)
 	// GetEducationSchoolUsers lists all members of a school
@@ -107,6 +109,8 @@ type EducationBackend interface {
 	GetEducationUser(ctx context.Context, nameOrID string) (*libregraph.EducationUser, error)
 	// GetEducationUsers lists all education users
 	GetEducationUsers(ctx context.Context) ([]*libregraph.EducationUser, error)
+	// FilterEducationUsersByAttribute list all education users where and attribute matches a value, e.g. all users with a given externalid
+	FilterEducationUsersByAttribute(ctx context.Context, attr, value string) ([]*libregraph.EducationUser, error)
 
 	// GetEducationClassTeachers returns the EducationUser teachers for an EducationClass
 	GetEducationClassTeachers(ctx context.Context, classID string) ([]*libregraph.EducationUser, error)

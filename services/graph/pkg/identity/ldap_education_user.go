@@ -12,11 +12,13 @@ import (
 
 type educationUserAttributeMap struct {
 	primaryRole string
+	externalID  string
 }
 
 func newEducationUserAttributeMap() educationUserAttributeMap {
 	return educationUserAttributeMap{
 		primaryRole: "userClass",
+		externalID:  "openCloudEducationExternalId",
 	}
 }
 
@@ -33,7 +35,7 @@ func (i *LDAP) CreateEducationUser(ctx context.Context, user libregraph.Educatio
 		return nil, err
 	}
 
-	if err := i.conn.Add(ar); err != nil {
+	if err = i.conn.Add(ar); err != nil {
 		var lerr *ldap.Error
 		logger.Debug().Err(err).Msg("error adding user")
 		if errors.As(err, &lerr) {
@@ -118,6 +120,7 @@ func (i *LDAP) UpdateEducationUser(ctx context.Context, nameOrID string, user li
 		i.userAttributeMap.givenName:                   user.GetGivenName(),
 		i.userAttributeMap.userType:                    user.GetUserType(),
 		i.educationConfig.userAttributeMap.primaryRole: user.GetPrimaryRole(),
+		i.educationConfig.userAttributeMap.externalID:  user.GetExternalId(),
 	}
 
 	for attribute, value := range properties {
@@ -205,39 +208,63 @@ func (i *LDAP) GetEducationUser(ctx context.Context, nameOrID string) (*libregra
 
 // GetEducationUsers implements the EducationBackend interface for the LDAP backend.
 func (i *LDAP) GetEducationUsers(ctx context.Context) ([]*libregraph.EducationUser, error) {
-	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("GetEducationUsers")
-
-	var userFilter string
-
+	var filter string
 	if i.userFilter == "" {
-		userFilter = fmt.Sprintf("(objectClass=%s)", i.educationConfig.userObjectClass)
+		filter = fmt.Sprintf("(objectClass=%s)", i.educationConfig.userObjectClass)
 	} else {
-		userFilter = fmt.Sprintf("(&%s(objectClass=%s))", i.userFilter, i.educationConfig.userObjectClass)
+		filter = fmt.Sprintf("(&%s(objectClass=%s))", i.userFilter, i.educationConfig.userObjectClass)
 	}
+	return i.searchEducationUsers(ctx, filter)
+}
 
+func (i *LDAP) FilterEducationUsersByAttribute(ctx context.Context, attr, value string) ([]*libregraph.EducationUser, error) {
+	logger := i.logger.SubloggerWithRequestID(ctx).With().Str("func", "FilterEducationUsersByAttribute").Logger()
+	logger.Debug().Str("backend", "ldap").Str("attribute", attr).Str("value", value).Msg("")
+
+	var ldapAttr string
+	switch attr {
+	case "displayname":
+		ldapAttr = i.userAttributeMap.displayName
+	case "mail":
+		ldapAttr = i.userAttributeMap.mail
+	case "userType":
+		ldapAttr = i.userAttributeMap.userType
+	case "primaryRole":
+		ldapAttr = i.educationConfig.userAttributeMap.primaryRole
+	case "externalId":
+		ldapAttr = i.educationConfig.userAttributeMap.externalID
+	default:
+		return nil, errorcode.New(errorcode.InvalidRequest, fmt.Sprintf("filtering by attribute '%s' is not supported", attr))
+	}
+	filter := fmt.Sprintf("(&%s(objectClass=%s)(%s=%s))", i.userFilter, i.educationConfig.userObjectClass, ldap.EscapeFilter(ldapAttr), ldap.EscapeFilter(value))
+	return i.searchEducationUsers(ctx, filter)
+}
+
+// searchEducationUsers builds and executes an LDAP search for education users and converts the results to EducationUser models.
+func (i *LDAP) searchEducationUsers(ctx context.Context, filter string) ([]*libregraph.EducationUser, error) {
 	searchRequest := ldap.NewSearchRequest(
 		i.userBaseDN,
 		i.userScope,
 		ldap.NeverDerefAliases, 0, 0, false,
-		userFilter,
+		filter,
 		i.getEducationUserAttrTypes(),
 		nil,
 	)
+	logger := i.logger.SubloggerWithRequestID(ctx)
 	logger.Debug().Str("backend", "ldap").
 		Str("base", searchRequest.BaseDN).
 		Str("filter", searchRequest.Filter).
 		Int("scope", searchRequest.Scope).
 		Int("sizelimit", searchRequest.SizeLimit).
 		Interface("attributes", searchRequest.Attributes).
-		Msg("GetEducationUsers")
+		Msg("searchEducationUsers")
+
 	res, err := i.conn.Search(searchRequest)
 	if err != nil {
 		return nil, errorcode.New(errorcode.ItemNotFound, err.Error())
 	}
 
 	users := make([]*libregraph.EducationUser, 0, len(res.Entries))
-
 	for _, e := range res.Entries {
 		u := i.createEducationUserModelFromLDAP(e)
 		// Skip invalid LDAP users
@@ -277,6 +304,10 @@ func (i *LDAP) userToEducationUser(user libregraph.User, e *ldap.Entry) *libregr
 		if primaryRole := e.GetEqualFoldAttributeValue(i.educationConfig.userAttributeMap.primaryRole); primaryRole != "" {
 			eduUser.SetPrimaryRole(primaryRole)
 		}
+
+		if externalID := e.GetEqualFoldAttributeValue(i.educationConfig.userAttributeMap.externalID); externalID != "" {
+			eduUser.SetExternalId(externalID)
+		}
 	}
 
 	return eduUser
@@ -285,6 +316,10 @@ func (i *LDAP) userToEducationUser(user libregraph.User, e *ldap.Entry) *libregr
 func (i *LDAP) educationUserToLDAPAttrValues(user libregraph.EducationUser, attrs ldapAttributeValues) (ldapAttributeValues, error) {
 	if role, ok := user.GetPrimaryRoleOk(); ok {
 		attrs[i.educationConfig.userAttributeMap.primaryRole] = []string{*role}
+	}
+
+	if externalID, ok := user.GetExternalIdOk(); ok {
+		attrs[i.educationConfig.userAttributeMap.externalID] = []string{*externalID}
 	}
 	attrs["objectClass"] = append(attrs["objectClass"], i.educationConfig.userObjectClass)
 	return attrs, nil
@@ -326,6 +361,7 @@ func (i *LDAP) getEducationUserAttrTypes() []string {
 		i.userAttributeMap.userType,
 		i.userAttributeMap.identities,
 		i.educationConfig.userAttributeMap.primaryRole,
+		i.educationConfig.userAttributeMap.externalID,
 		i.educationConfig.memberOfSchoolAttribute,
 	}
 }

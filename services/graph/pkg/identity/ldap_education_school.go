@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/go-ldap/ldap/v3"
@@ -49,10 +50,9 @@ const (
 )
 
 var (
-	errNotSet                 = errors.New("attribute not set")
-	errSchoolNameExists       = errorcode.New(errorcode.NameAlreadyExists, "A school with that name is already present")
-	errSchoolNumberExists     = errorcode.New(errorcode.NameAlreadyExists, "A school with that number is already present")
-	errSchoolExternalIdExists = errorcode.New(errorcode.NameAlreadyExists, "A school with that external id is already present")
+	errNotSet             = errors.New("attribute not set")
+	errSchoolNameExists   = errorcode.New(errorcode.NameAlreadyExists, "A school with that name is already present")
+	errSchoolNumberExists = errorcode.New(errorcode.NameAlreadyExists, "A school with that number is already present")
 )
 
 func defaultEducationConfig() educationConfig {
@@ -133,21 +133,6 @@ func (i *LDAP) CreateEducationSchool(ctx context.Context, school libregraph.Educ
 		default:
 			logger.Error().Err(err).Str("schoolNumber", school.GetSchoolNumber()).Msg("error looking up school by number")
 			return nil, errorcode.New(errorcode.GeneralException, "error looking up school by number")
-		}
-	}
-
-	// Check that the school external id is not already used
-	if school.HasExternalId() {
-		_, err := i.getSchoolByExternalId(school.GetExternalId())
-		switch {
-		case err == nil:
-			logger.Debug().Err(errSchoolExternalIdExists).Str("externalId", school.GetExternalId()).Msg("duplicate school external id")
-			return nil, errSchoolExternalIdExists
-		case errors.Is(err, ErrNotFound):
-			break
-		default:
-			logger.Error().Err(err).Str("externalId", school.GetExternalId()).Msg("error looking up school by external id")
-			return nil, errorcode.New(errorcode.GeneralException, "error looking up school by external id")
 		}
 	}
 
@@ -299,14 +284,14 @@ func (i *LDAP) updateSchoolProperties(ctx context.Context, dn string, currentSch
 }
 
 // UpdateEducationSchool updates the supplied school in the identity backend
-func (i *LDAP) UpdateEducationSchool(ctx context.Context, numberOrIDOrExternalID string, school libregraph.EducationSchool) (*libregraph.EducationSchool, error) {
+func (i *LDAP) UpdateEducationSchool(ctx context.Context, numberOrID string, school libregraph.EducationSchool) (*libregraph.EducationSchool, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
 	logger.Debug().Str("backend", "ldap").Msg("UpdateEducationSchool")
 	if !i.writeEnabled {
 		return nil, ErrReadOnly
 	}
 
-	e, err := i.getSchoolByNumberOrIDOrExternalID(numberOrIDOrExternalID)
+	e, err := i.getSchoolByNumberOrID(numberOrID)
 	if err != nil {
 		return nil, err
 	}
@@ -329,7 +314,7 @@ func (i *LDAP) UpdateEducationSchool(ctx context.Context, numberOrIDOrExternalID
 	}
 
 	// Read	back school from LDAP
-	e, err = i.getSchoolByNumberOrIDOrExternalID(i.getID(e))
+	e, err = i.getSchoolByNumberOrID(i.getID(e))
 	if err != nil {
 		return nil, err
 	}
@@ -343,7 +328,7 @@ func (i *LDAP) DeleteEducationSchool(ctx context.Context, id string) error {
 	if !i.writeEnabled {
 		return ErrReadOnly
 	}
-	e, err := i.getSchoolByNumberOrIDOrExternalID(id)
+	e, err := i.getSchoolByNumberOrID(id)
 	if err != nil {
 		return err
 	}
@@ -358,10 +343,10 @@ func (i *LDAP) DeleteEducationSchool(ctx context.Context, id string) error {
 }
 
 // GetEducationSchool implements the EducationBackend interface for the LDAP backend.
-func (i *LDAP) GetEducationSchool(ctx context.Context, numberOrIDOrExternalID string) (*libregraph.EducationSchool, error) {
+func (i *LDAP) GetEducationSchool(ctx context.Context, numberOrID string) (*libregraph.EducationSchool, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
 	logger.Debug().Str("backend", "ldap").Msg("GetEducationSchool")
-	e, err := i.getSchoolByNumberOrIDOrExternalID(numberOrIDOrExternalID)
+	e, err := i.getSchoolByNumberOrID(numberOrID)
 	if err != nil {
 		return nil, err
 	}
@@ -371,13 +356,36 @@ func (i *LDAP) GetEducationSchool(ctx context.Context, numberOrIDOrExternalID st
 
 // GetEducationSchools implements the EducationBackend interface for the LDAP backend.
 func (i *LDAP) GetEducationSchools(ctx context.Context) ([]*libregraph.EducationSchool, error) {
-	var filter string
-	filter = fmt.Sprintf("(objectClass=%s)", i.educationConfig.schoolObjectClass)
-
+	filter := fmt.Sprintf("(objectClass=%s)", i.educationConfig.schoolObjectClass)
 	if i.educationConfig.schoolFilter != "" {
 		filter = fmt.Sprintf("(&%s%s)", i.educationConfig.schoolFilter, filter)
 	}
+	return i.searchEducationSchools(ctx, filter)
+}
 
+// FilterEducationSchoolsByAttribute implements the EducationBackend interface for the LDAP backend.
+func (i *LDAP) FilterEducationSchoolsByAttribute(ctx context.Context, attr, value string) ([]*libregraph.EducationSchool, error) {
+	logger := i.logger.SubloggerWithRequestID(ctx).With().Str("func", "FilterEducationSchoolsByAttribute").Logger()
+	logger.Debug().Str("backend", "ldap").Str("attribute", attr).Str("value", value).Msg("")
+
+	var ldapAttr string
+	switch attr {
+	case "externalId":
+		ldapAttr = i.educationConfig.schoolAttributeMap.externalId
+	default:
+		return nil, errorcode.New(errorcode.InvalidRequest, fmt.Sprintf("filtering by attribute '%s' is not supported", attr))
+	}
+	filter := fmt.Sprintf("(&%s(objectClass=%s)(%s=%s))",
+		i.educationConfig.schoolFilter,
+		i.educationConfig.schoolObjectClass,
+		ldap.EscapeFilter(ldapAttr),
+		ldap.EscapeFilter(value),
+	)
+	return i.searchEducationSchools(ctx, filter)
+}
+
+// searchEducationSchools builds and executes an LDAP search for education schools and converts the results to EducationSchool models.
+func (i *LDAP) searchEducationSchools(ctx context.Context, filter string) ([]*libregraph.EducationSchool, error) {
 	searchRequest := ldap.NewSearchRequest(
 		i.educationConfig.schoolBaseDN,
 		i.educationConfig.schoolScope,
@@ -386,13 +394,15 @@ func (i *LDAP) GetEducationSchools(ctx context.Context) ([]*libregraph.Education
 		i.getEducationSchoolAttrTypes(),
 		nil,
 	)
-	i.logger.Debug().Str("backend", "ldap").
+	logger := i.logger.SubloggerWithRequestID(ctx)
+	logger.Debug().Str("backend", "ldap").
 		Str("base", searchRequest.BaseDN).
 		Str("filter", searchRequest.Filter).
 		Int("scope", searchRequest.Scope).
 		Int("sizelimit", searchRequest.SizeLimit).
 		Interface("attributes", searchRequest.Attributes).
-		Msg("GetEducationSchools")
+		Msg("searchEducationSchools")
+
 	res, err := i.conn.Search(searchRequest)
 	if err != nil {
 		return nil, errorcode.New(errorcode.ItemNotFound, err.Error())
@@ -436,11 +446,11 @@ func (i *LDAP) GetEducationSchoolUsers(ctx context.Context, schoolNumberOrID str
 }
 
 // AddUsersToEducationSchool adds new members (reference by a slice of IDs) to supplied school in the identity backend.
-func (i *LDAP) AddUsersToEducationSchool(ctx context.Context, schoolNumberOrIDOrExternalID string, memberIDs []string) error {
+func (i *LDAP) AddUsersToEducationSchool(ctx context.Context, schoolNumberOrID string, memberIDs []string) error {
 	logger := i.logger.SubloggerWithRequestID(ctx)
 	logger.Debug().Str("backend", "ldap").Msg("AddUsersToEducationSchool")
 
-	schoolEntry, err := i.getSchoolByNumberOrIDOrExternalID(schoolNumberOrIDOrExternalID)
+	schoolEntry, err := i.getSchoolByNumberOrID(schoolNumberOrID)
 	if err != nil {
 		return err
 	}
@@ -462,32 +472,31 @@ func (i *LDAP) AddUsersToEducationSchool(ctx context.Context, schoolNumberOrIDOr
 	}
 
 	for _, userEntry := range userEntries {
-		currentSchools := userEntry.GetEqualFoldAttributeValues(i.educationConfig.memberOfSchoolAttribute)
-		found := false
-		for _, currentSchool := range currentSchools {
-			if currentSchool == schoolID {
-				found = true
-				break
-			}
-		}
-		if !found {
-			mr := ldap.ModifyRequest{DN: userEntry.DN}
-			mr.Add(i.educationConfig.memberOfSchoolAttribute, []string{schoolID})
-			if err := i.conn.Modify(&mr); err != nil {
-				return err
-			}
+		if err := i.addEntryToSchool(userEntry, schoolID); err != nil {
+			return err
 		}
 	}
 
 	return nil
 }
 
+// addEntryToSchool adds the schoolID to the entry's memberOfSchool attribute if not already present.
+func (i *LDAP) addEntryToSchool(entry *ldap.Entry, schoolID string) error {
+	currentSchools := entry.GetEqualFoldAttributeValues(i.educationConfig.memberOfSchoolAttribute)
+	if slices.Contains(currentSchools, schoolID) {
+		return nil
+	}
+	mr := ldap.ModifyRequest{DN: entry.DN}
+	mr.Add(i.educationConfig.memberOfSchoolAttribute, []string{schoolID})
+	return i.conn.Modify(&mr)
+}
+
 // RemoveUserFromEducationSchool removes a single member (by ID) from a school
-func (i *LDAP) RemoveUserFromEducationSchool(ctx context.Context, schoolNumberOrIDOrExternalID string, memberID string) error {
+func (i *LDAP) RemoveUserFromEducationSchool(ctx context.Context, schoolNumberOrID string, memberID string) error {
 	logger := i.logger.SubloggerWithRequestID(ctx)
 	logger.Debug().Str("backend", "ldap").Msg("RemoveUserFromEducationSchool")
 
-	schoolEntry, err := i.getSchoolByNumberOrIDOrExternalID(schoolNumberOrIDOrExternalID)
+	schoolEntry, err := i.getSchoolByNumberOrID(schoolNumberOrID)
 	if err != nil {
 		return err
 	}
@@ -542,12 +551,12 @@ func (i *LDAP) GetEducationSchoolClasses(ctx context.Context, schoolNumberOrID s
 }
 
 func (i *LDAP) getEducationSchoolEntries(
-	schoolNumberOrIDOrExternalID, filter, objectClass, baseDN string,
+	schoolNumberOrID, filter, objectClass, baseDN string,
 	scope int,
 	attributes []string,
 	logger log.Logger,
 ) ([]*ldap.Entry, error) {
-	schoolEntry, err := i.getSchoolByNumberOrIDOrExternalID(schoolNumberOrIDOrExternalID)
+	schoolEntry, err := i.getSchoolByNumberOrID(schoolNumberOrID)
 	if err != nil {
 		return nil, err
 	}
@@ -584,11 +593,11 @@ func (i *LDAP) getEducationSchoolEntries(
 }
 
 // AddClassesToEducationSchool adds new members (reference by a slice of IDs) to supplied school in the identity backend.
-func (i *LDAP) AddClassesToEducationSchool(ctx context.Context, schoolNumberOrIDOrExternalID string, memberIDs []string) error {
+func (i *LDAP) AddClassesToEducationSchool(ctx context.Context, schoolNumberOrID string, memberIDs []string) error {
 	logger := i.logger.SubloggerWithRequestID(ctx)
 	logger.Debug().Str("backend", "ldap").Msg("AddClassesToEducationSchool")
 
-	schoolEntry, err := i.getSchoolByNumberOrIDOrExternalID(schoolNumberOrIDOrExternalID)
+	schoolEntry, err := i.getSchoolByNumberOrID(schoolNumberOrID)
 	if err != nil {
 		return err
 	}
@@ -610,20 +619,8 @@ func (i *LDAP) AddClassesToEducationSchool(ctx context.Context, schoolNumberOrID
 	}
 
 	for _, classEntry := range classEntries {
-		currentSchools := classEntry.GetEqualFoldAttributeValues(i.educationConfig.memberOfSchoolAttribute)
-		found := false
-		for _, currentSchool := range currentSchools {
-			if currentSchool == schoolID {
-				found = true
-				break
-			}
-		}
-		if !found {
-			mr := ldap.ModifyRequest{DN: classEntry.DN}
-			mr.Add(i.educationConfig.memberOfSchoolAttribute, []string{schoolID})
-			if err := i.conn.Modify(&mr); err != nil {
-				return err
-			}
+		if err := i.addEntryToSchool(classEntry, schoolID); err != nil {
+			return err
 		}
 	}
 
@@ -631,11 +628,11 @@ func (i *LDAP) AddClassesToEducationSchool(ctx context.Context, schoolNumberOrID
 }
 
 // RemoveClassFromEducationSchool removes a single member (by ID) from a school
-func (i *LDAP) RemoveClassFromEducationSchool(ctx context.Context, schoolNumberOrIDOrExternalID string, memberID string) error {
+func (i *LDAP) RemoveClassFromEducationSchool(ctx context.Context, schoolNumberOrID string, memberID string) error {
 	logger := i.logger.SubloggerWithRequestID(ctx)
 	logger.Debug().Str("backend", "ldap").Msg("RemoveClassFromEducationSchool")
 
-	schoolEntry, err := i.getSchoolByNumberOrIDOrExternalID(schoolNumberOrIDOrExternalID)
+	schoolEntry, err := i.getSchoolByNumberOrID(schoolNumberOrID)
 	if err != nil {
 		return err
 	}
@@ -673,16 +670,14 @@ func (i *LDAP) getSchoolByDN(dn string) (*ldap.Entry, error) {
 	return i.getEntryByDN(dn, i.getEducationSchoolAttrTypes(), filter)
 }
 
-func (i *LDAP) getSchoolByNumberOrIDOrExternalID(numberOrIDOrExternalID string) (*ldap.Entry, error) {
-	numberOrIDOrExternalID = ldap.EscapeFilter(numberOrIDOrExternalID)
+func (i *LDAP) getSchoolByNumberOrID(numberOrID string) (*ldap.Entry, error) {
+	numberOrID = ldap.EscapeFilter(numberOrID)
 	filter := fmt.Sprintf(
-		"(|(%s=%s)(%s=%s)(%s=%s))",
+		"(|(%s=%s)(%s=%s))",
 		i.educationConfig.schoolAttributeMap.id,
-		numberOrIDOrExternalID,
+		numberOrID,
 		i.educationConfig.schoolAttributeMap.schoolNumber,
-		numberOrIDOrExternalID,
-		i.educationConfig.schoolAttributeMap.externalId,
-		numberOrIDOrExternalID,
+		numberOrID,
 	)
 	return i.getSchoolByFilter(filter)
 }
@@ -693,16 +688,6 @@ func (i *LDAP) getSchoolByNumber(schoolNumber string) (*ldap.Entry, error) {
 		"(%s=%s)",
 		i.educationConfig.schoolAttributeMap.schoolNumber,
 		schoolNumber,
-	)
-	return i.getSchoolByFilter(filter)
-}
-
-func (i *LDAP) getSchoolByExternalId(schoolExternalId string) (*ldap.Entry, error) {
-	schoolExternalId = ldap.EscapeFilter(schoolExternalId)
-	filter := fmt.Sprintf(
-		"(%s=%s)",
-		i.educationConfig.schoolAttributeMap.externalId,
-		schoolExternalId,
 	)
 	return i.getSchoolByFilter(filter)
 }
@@ -820,6 +805,7 @@ func (i *LDAP) getEducationSchoolAttrTypes() []string {
 	return []string{
 		i.educationConfig.schoolAttributeMap.displayName,
 		i.educationConfig.schoolAttributeMap.id,
+		i.educationConfig.schoolAttributeMap.externalId,
 		i.educationConfig.schoolAttributeMap.schoolNumber,
 		i.educationConfig.schoolAttributeMap.terminationDate,
 	}

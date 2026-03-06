@@ -15,7 +15,7 @@ require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/cs3org/go-cs3apis v0.0.0-20250908152307-4ca807afe54e
-	github.com/davidbyttow/govips/v2 v2.16.0
+	github.com/davidbyttow/govips/v2 v2.17.0
 	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
 	github.com/dutchcoders/go-clamd v0.0.0-20170520113014-b970184f4d9e
 	github.com/gabriel-vasile/mimetype v1.4.13
