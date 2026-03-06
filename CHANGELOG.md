@@ -1,10 +1,18 @@
 # Changelog
 
-## [5.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.2.0) - 2026-03-05
+## [5.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.2.0) - 2026-03-06
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @AlexAndBear, @JammingBen, @MahdiBaghbani, @butonic, @dragonchaser, @dragotin, @fschade, @pat-s, @rhafer
+
+### 📈 Enhancement
+
+- feat(graph/education): Add support of 'eq' filters on users [[#2421](https://github.com/opencloud-eu/opencloud/pull/2421)]
+- feat(web): change surface colors to more modern ones [[#2377](https://github.com/opencloud-eu/opencloud/pull/2377)]
+- Add openCloudEducationExternalId to user [[#2357](https://github.com/opencloud-eu/opencloud/pull/2357)]
+- feat: app-registry adjust default mime-types [[#2354](https://github.com/opencloud-eu/opencloud/pull/2354)]
+- feat: support desktop and mobile specific  `client_id` and `scopes` [[#2072](https://github.com/opencloud-eu/opencloud/pull/2072)]
 
 ### 🐛 Bug Fixes
 
@@ -12,19 +20,13 @@
 - resolve logout token subject:sessions for the idp backchannel logout [[#2328](https://github.com/opencloud-eu/opencloud/pull/2328)]
 - fix(oidc_auth): Fix userinfo cache expiration logic [[#2360](https://github.com/opencloud-eu/opencloud/pull/2360)]
 
-### 📈 Enhancement
-
-- feat(web): change surface colors to more modern ones [[#2377](https://github.com/opencloud-eu/opencloud/pull/2377)]
-- Add openCloudEducationExternalId to user [[#2357](https://github.com/opencloud-eu/opencloud/pull/2357)]
-- feat: app-registry adjust default mime-types [[#2354](https://github.com/opencloud-eu/opencloud/pull/2354)]
-- feat: support desktop and mobile specific  `client_id` and `scopes` [[#2072](https://github.com/opencloud-eu/opencloud/pull/2072)]
-
 ### 📚 Documentation
 
 - adr(webfinger): Align example config with implementation [[#2353](https://github.com/opencloud-eu/opencloud/pull/2353)]
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/davidbyttow/govips/v2 from 2.16.0 to 2.17.0 [[#2420](https://github.com/opencloud-eu/opencloud/pull/2420)]
 - build(deps): bump github.com/nats-io/nats.go from 1.48.0 to 1.49.0 [[#2390](https://github.com/opencloud-eu/opencloud/pull/2390)]
 - build(deps): bump golang.org/x/net from 0.50.0 to 0.51.0 [[#2412](https://github.com/opencloud-eu/opencloud/pull/2412)]
 - build(deps): bump github.com/kovidgoyal/imaging from 1.8.19 to 1.8.20 [[#2391](https://github.com/opencloud-eu/opencloud/pull/2391)]
