@@ -26,6 +26,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump go.opentelemetry.io/otel from 1.40.0 to 1.41.0 [[#2425](https://github.com/opencloud-eu/opencloud/pull/2425)]
 - build(deps): bump github.com/davidbyttow/govips/v2 from 2.16.0 to 2.17.0 [[#2420](https://github.com/opencloud-eu/opencloud/pull/2420)]
 - build(deps): bump github.com/nats-io/nats.go from 1.48.0 to 1.49.0 [[#2390](https://github.com/opencloud-eu/opencloud/pull/2390)]
 - build(deps): bump golang.org/x/net from 0.50.0 to 0.51.0 [[#2412](https://github.com/opencloud-eu/opencloud/pull/2412)]
