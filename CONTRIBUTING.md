@@ -152,8 +152,7 @@ Unsure where to begin contributing to OpenCloud? You can start by looking throug
 It is fine to pick one of the lists following personal preference.
 While not perfect, the number of comments is a reasonable proxy for the impact a given change will have.
 
-To find out how to set up OpenCloud for local development, please refer to the [Developer Documentation](https://docs.opencloud.eu/docs/dev/web/getting-started).
-It contains a lot of information that will come in handy when starting to work on the project.
+To find out how to set up OpenCloud for local development, please refer to the [Developer Documentation](https://docs.opencloud.eu/docs/dev/web/getting-started) for the web side, and the general server [README](https://github.com/opencloud-eu/opencloud/blob/main/README.md) for backend setup. Both contain information that will come in handy when starting to work on the project.
 
 ### Pull Requests
 
