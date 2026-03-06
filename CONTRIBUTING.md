@@ -40,7 +40,7 @@ but it should be easily transferable to other (sub)projects.
 
 > **Note:** Please don't file an issue to ask a question. You'll get faster results by using the resources below.
 
-For general questions, please refer to [OpenCloud's FAQs](https://opencloud.eu/faq/) or check the [project page](https://github.com/opencloud-eu) for communication channels.
+For general questions, please refer to [OpenCloud's FAQs](https://docs.opencloud.eu/docs/admin/resources/faq/) or check the [project page](https://github.com/opencloud-eu) for communication channels.
 
 ## What to know before getting started
 
@@ -55,7 +55,7 @@ The OpenCloud project follows the strict GitHub workflow of development as brief
 ### OpenCloud Company, Engineering Partners and Community
 
 OpenCloud is largely created by developers who are employed by the [OpenCloud company](https://opencloud.eu), which is located in Germany.
-It is providing support for OpenCloud for customers mainly in the EU. In addition, there are engineering partners who also work full-time on OpenCloud related code, for example, on the component [REVA](https://github.com/cs3org/reva/).
+It is providing support for OpenCloud for customers mainly in the EU. In addition, there are engineering partners who also work full-time on OpenCloud related code, for example, on the component [REVA](https://github.com/opencloud-eu/reva/).
 
 Because of that fact, the pace that the development is moving forward is sometimes high for people who are not willing and/or able to spend a comparable amount of time to contribute.
 Even though this can be a challenge, it should not scare anybody away. Here is our clear commitment that we feel honored by everybody who is interested in our work and improves it, no matter how big the contribution might be.
@@ -113,7 +113,7 @@ Explain the problem and include additional details to help maintainers reproduce
 Provide more context by answering these questions:
 
 *   **Did the problem start happening recently** (e.g. after updating to a new version) or was this always a problem?
-*   If the problem started happening recently, **can you reproduce the problem in an older version?** What's the most recent version in which the problem doesn't happen? You can find more information about how to set up [test environments](https://docs.opencloud.eu/devel/testing) in the [developer documentation](https://docs.opencloud.eu/docs/dev/intro).
+*   If the problem started happening recently, **can you reproduce the problem in an older version?** What's the most recent version in which the problem doesn't happen? You can find more information about how to set up in the [Getting Started guide](https://docs.opencloud.eu/docs/admin/getting-started).
 *   **Can you reliably reproduce the issue?** If not, provide details about how often the problem happens and under which conditions it normally happens.
 
 Include details about your configuration and environment as asked for in the template.
@@ -146,15 +146,13 @@ Enhancement suggestions are tracked as [GitHub issues](https://guides.github.com
 
 Unsure where to begin contributing to OpenCloud? You can start by looking through these `Needs-help` issues:
 
-*   The [Good first issue](https://github.com/opencloud-eu/opencloud/labels/Topic%3Agood-first-issue) label marks good items to start with.
-*   [Tests needed](https://github.com/opencloud-eu/opencloud/labels/Interaction%3ANeeds-tests) - issues which would benefit from a test.
-*   [Help wanted issues](https://github.com/opencloud-eu/opencloud/labels/Interaction%3ANeeds-help) - issues which should be a bit more involved.
+*   The [Good first issue](https://github.com/opencloud-eu/opencloud/labels/Type%3Agood-first-issue) label marks good items to start with.
+*   The [Feature Request](https://github.com/opencloud-eu/opencloud/issues?q=state%3Aopen%20label%3AType%3AFeature-Request) label lists features the community would like to see implemented.
 
 It is fine to pick one of the lists following personal preference.
 While not perfect, the number of comments is a reasonable proxy for the impact a given change will have.
 
-To find out how to set up OpenCloud for local development, please refer to the [Developer Documentation](https://docs.opencloud.eu/docs/dev/web/getting-started).
-It contains a lot of information that will come in handy when starting to work on the project.
+To find out how to set up OpenCloud for local development, please refer to the [Developer Documentation](https://docs.opencloud.eu/docs/dev/web/getting-started) for the web side, and the general server [README](https://github.com/opencloud-eu/opencloud/blob/main/README.md) for backend setup. Both contain information that will come in handy when starting to work on the project.
 
 ### Pull Requests
 
@@ -221,7 +219,7 @@ To help you find issues and pull requests, each label can be used in search link
 The labels are loosely grouped by their purpose, but it's not required that every issue has a label from every group or that an issue can't have more than one label from the same group.
 
 The list here contains all the more general categories of issues which are followed by a colon and a specific value.
-For example, severity 1 looks like `Severity:sev1-critical`.
+For example, severity 1 looks like `Priority:p1-urgent`.
 
 #### Platform
 
@@ -257,7 +255,7 @@ Categorizes the issue to also indicate the type of the issue.
 
 #### Status
 
-The status in the ticket life cycle. Keep an eye on that one, especially for the `Waiting-for-Feedback` tag which might indicate that the reporter is asked for feedback.
+The status in the ticket life cycle. Keep an eye on that one, especially for the `Status:Needs-Review` tag which might indicate that the reporter is asked for feedback.
 
 #### Interaction
 
