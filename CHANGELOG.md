@@ -1,6 +1,6 @@
 # Changelog
 
-## [5.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.2.0) - 2026-03-07
+## [5.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.2.0) - 2026-03-08
 
 ### ❤️ Thanks to all contributors! ❤️
 
