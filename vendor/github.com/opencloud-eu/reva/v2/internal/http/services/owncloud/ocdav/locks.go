@@ -615,27 +615,27 @@ func writeLockInfo(w io.Writer, token string, ld LockDetails) (int, error) {
 	lockdiscovery.WriteString("<d:prop xmlns:d=\"DAV:\" xmlns:oc=\"http://owncloud.org/ns\"><d:lockdiscovery><d:activelock>\n")
 	lockdiscovery.WriteString("  <d:locktype><d:write/></d:locktype>\n")
 	lockdiscovery.WriteString("  <d:lockscope><d:exclusive/></d:lockscope>\n")
-	lockdiscovery.WriteString(fmt.Sprintf("  <d:depth>%s</d:depth>\n", depth))
+	fmt.Fprintf(&lockdiscovery, "  <d:depth>%s</d:depth>\n", depth)
 	if ld.OwnerXML != "" {
-		lockdiscovery.WriteString(fmt.Sprintf("  <d:owner>%s</d:owner>\n", ld.OwnerXML))
+		fmt.Fprintf(&lockdiscovery, "  <d:owner>%s</d:owner>\n", ld.OwnerXML)
 	}
 	if ld.Duration > 0 {
 		timeout := ld.Duration / time.Second
-		lockdiscovery.WriteString(fmt.Sprintf("  <d:timeout>Second-%d</d:timeout>\n", timeout))
+		fmt.Fprintf(&lockdiscovery, "  <d:timeout>Second-%d</d:timeout>\n", timeout)
 	} else {
 		lockdiscovery.WriteString("  <d:timeout>Infinite</d:timeout>\n")
 	}
 	if token != "" {
-		lockdiscovery.WriteString(fmt.Sprintf("  <d:locktoken><d:href>%s</d:href></d:locktoken>\n", prop.Escape(token)))
+		fmt.Fprintf(&lockdiscovery, "  <d:locktoken><d:href>%s</d:href></d:locktoken>\n", prop.Escape(token))
 	}
 	if href != "" {
-		lockdiscovery.WriteString(fmt.Sprintf("  <d:lockroot><d:href>%s</d:href></d:lockroot>\n", prop.Escape(href)))
+		fmt.Fprintf(&lockdiscovery, "  <d:lockroot><d:href>%s</d:href></d:lockroot>\n", prop.Escape(href))
 	}
 	if ld.OwnerName != "" {
-		lockdiscovery.WriteString(fmt.Sprintf("  <oc:ownername>%s</oc:ownername>\n", prop.Escape(ld.OwnerName)))
+		fmt.Fprintf(&lockdiscovery, "  <oc:ownername>%s</oc:ownername>\n", prop.Escape(ld.OwnerName))
 	}
 	if !ld.Locktime.IsZero() {
-		lockdiscovery.WriteString(fmt.Sprintf("  <oc:locktime>%s</oc:locktime>\n", prop.Escape(ld.Locktime.Format(time.RFC3339))))
+		fmt.Fprintf(&lockdiscovery, "  <oc:locktime>%s</oc:locktime>\n", prop.Escape(ld.Locktime.Format(time.RFC3339)))
 	}
 
 	lockdiscovery.WriteString("</d:activelock></d:lockdiscovery></d:prop>")

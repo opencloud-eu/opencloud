@@ -104,7 +104,7 @@ func (fs *Decomposedfs) AddGrant(ctx context.Context, ref *provider.Reference, g
 	// When the owner is empty but grants are set then we do want to check the grants.
 	// However, if we are trying to edit an existing grant we do not have to check for permission if the user owns the grant
 	// TODO: find a better to check this
-	if !(len(grants) == 0 && (owner == nil || owner.OpaqueId == "" || (owner.OpaqueId == grantNode.SpaceID && owner.Type == 8))) {
+	if len(grants) != 0 || (owner != nil && owner.OpaqueId != "" && (owner.OpaqueId != grantNode.SpaceID || owner.Type != 8)) {
 		rp, err := fs.p.AssemblePermissions(ctx, grantNode)
 		switch {
 		case err != nil:
@@ -218,13 +218,13 @@ func (fs *Decomposedfs) RemoveGrant(ctx context.Context, ref *provider.Reference
 		// FIXME we should invalidate the by-type index, but that requires reference counting
 	} else {
 		// invalidate space grant
-		switch {
-		case g.Grantee.Type == provider.GranteeType_GRANTEE_TYPE_USER:
+		switch g.Grantee.Type {
+		case provider.GranteeType_GRANTEE_TYPE_USER:
 			// remove from user index
 			if err := fs.userSpaceIndex.Remove(g.Grantee.GetUserId().GetOpaqueId(), grantNode.SpaceID); err != nil {
 				return err
 			}
-		case g.Grantee.Type == provider.GranteeType_GRANTEE_TYPE_GROUP:
+		case provider.GranteeType_GRANTEE_TYPE_GROUP:
 			// remove from group index
 			if err := fs.groupSpaceIndex.Remove(g.Grantee.GetGroupId().GetOpaqueId(), grantNode.SpaceID); err != nil {
 				return err

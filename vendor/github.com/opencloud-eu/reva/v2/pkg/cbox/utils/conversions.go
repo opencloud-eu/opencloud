@@ -265,10 +265,7 @@ func ConvertToCS3PublicShare(ctx context.Context, gateway gatewayv1beta1.Gateway
 	ts := &typespb.Timestamp{
 		Seconds: uint64(s.STime),
 	}
-	pwd := false
-	if s.ShareWith != "" {
-		pwd = true
-	}
+	pwd := s.ShareWith != ""
 	var expires *typespb.Timestamp
 	if s.Expiration != "" {
 		t, err := time.Parse("2006-01-02 15:04:05", s.Expiration)

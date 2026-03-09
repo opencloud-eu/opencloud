@@ -187,12 +187,14 @@ func (fs *hellofs) RestoreRecycleItem(ctx context.Context, ref *provider.Referen
 }
 
 // CreateHome creates a users home
+//
 // Deprecated: use CreateStorageSpace with type personal
 func (fs *hellofs) CreateHome(ctx context.Context) error {
 	return errtypes.NotSupported("unimplemented")
 }
 
 // GetHome returns the path to the users home
+//
 // Deprecated: use ListStorageSpaces with type personal
 func (fs *hellofs) GetHome(ctx context.Context) (string, error) {
 	return "", errtypes.NotSupported("unimplemented")

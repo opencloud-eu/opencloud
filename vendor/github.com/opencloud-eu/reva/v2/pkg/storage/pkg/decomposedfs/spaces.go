@@ -852,10 +852,10 @@ func (fs *Decomposedfs) updateIndexes(ctx context.Context, grantee *provider.Gra
 	}
 
 	// create space grant index
-	switch {
-	case grantee.Type == provider.GranteeType_GRANTEE_TYPE_USER:
+	switch grantee.Type {
+	case provider.GranteeType_GRANTEE_TYPE_USER:
 		return fs.linkSpaceByUser(ctx, grantee.GetUserId().GetOpaqueId(), spaceID, target)
-	case grantee.Type == provider.GranteeType_GRANTEE_TYPE_GROUP:
+	case provider.GranteeType_GRANTEE_TYPE_GROUP:
 		return fs.linkSpaceByGroup(ctx, grantee.GetGroupId().GetOpaqueId(), spaceID, target)
 	default:
 		return errtypes.BadRequest("invalid grantee type: " + grantee.GetType().String())
@@ -941,14 +941,14 @@ func (fs *Decomposedfs) StorageSpaceFromNode(ctx context.Context, n *node.Node, 
 				}
 				if n.IsSpaceRoot(ctx) {
 					// invalidate space grant
-					switch {
-					case g.Grantee.Type == provider.GranteeType_GRANTEE_TYPE_USER:
+					switch g.Grantee.Type {
+					case provider.GranteeType_GRANTEE_TYPE_USER:
 						// remove from user index
 						if err := fs.userSpaceIndex.Remove(g.Grantee.GetUserId().GetOpaqueId(), n.GetSpaceID()); err != nil {
 							sublog.Error().Err(err).Str("grantee", id).
 								Msg("failed to delete expired user space index")
 						}
-					case g.Grantee.Type == provider.GranteeType_GRANTEE_TYPE_GROUP:
+					case provider.GranteeType_GRANTEE_TYPE_GROUP:
 						// remove from group index
 						if err := fs.groupSpaceIndex.Remove(g.Grantee.GetGroupId().GetOpaqueId(), n.GetSpaceID()); err != nil {
 							sublog.Error().Err(err).Str("grantee", id).

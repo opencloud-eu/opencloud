@@ -211,7 +211,7 @@ func (cache cacheStore) PushToCache(key string, src interface{}) error {
 
 // List lists the keys on the configured database and table of the underlying store
 func (cache cacheStore) List(opts ...microstore.ListOption) ([]string, error) {
-	o := []microstore.ListOption{
+	o := []microstore.ListOption{ // nolint:prealloc
 		microstore.ListFrom(cache.database, cache.table),
 	}
 	o = append(o, opts...)
@@ -224,7 +224,7 @@ func (cache cacheStore) List(opts ...microstore.ListOption) ([]string, error) {
 
 // Delete deletes the given key on the configured database and table of the underlying store
 func (cache cacheStore) Delete(key string, opts ...microstore.DeleteOption) error {
-	o := []microstore.DeleteOption{
+	o := []microstore.DeleteOption{ // nolint:prealloc
 		microstore.DeleteFrom(cache.database, cache.table),
 	}
 	o = append(o, opts...)

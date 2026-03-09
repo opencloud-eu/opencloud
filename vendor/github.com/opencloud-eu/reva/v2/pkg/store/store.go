@@ -33,7 +33,6 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/store/etcd"
 	"github.com/opencloud-eu/reva/v2/pkg/store/memory"
 	"go-micro.dev/v4/logger"
-	"go-micro.dev/v4/store"
 	microstore "go-micro.dev/v4/store"
 )
 
@@ -162,8 +161,8 @@ func Create(opts ...microstore.Option) microstore.Store {
 	}
 }
 
-func updateNatsStore(opts []store.Option, ttl time.Duration, natsOptions nats.Options) error {
-	options := store.Options{}
+func updateNatsStore(opts []microstore.Option, ttl time.Duration, natsOptions nats.Options) error {
+	options := microstore.Options{}
 	for _, o := range opts {
 		o(&options)
 	}

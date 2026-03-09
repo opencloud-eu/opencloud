@@ -37,6 +37,7 @@ var (
 )
 
 // GetServiceUserContext returns an authenticated context of the given service user
+//
 // Deprecated: Use GetServiceUserContextWithContext()
 func GetServiceUserContext(serviceUserID string, gwc gateway.GatewayAPIClient, serviceUserSecret string) (context.Context, error) {
 	return GetServiceUserContextWithContext(context.Background(), gwc, serviceUserID, serviceUserSecret)

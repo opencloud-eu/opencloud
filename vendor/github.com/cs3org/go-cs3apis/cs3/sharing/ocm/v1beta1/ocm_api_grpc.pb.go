@@ -52,19 +52,18 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type OcmAPIClient interface {
-	// Creates a new ocm share.
+	// Creates a new OCM share.
 	// MUST return CODE_NOT_FOUND if the resource reference does not exist.
-	// MUST return CODE_ALREADY_EXISTS if the share already exists for the 4-tuple consisting of
+	// MUST return CODE_ALREADY_EXISTS if the share already exists for the 3-tuple consisting of
 	// (owner, shared_resource, grantee).
 	// New shares MUST be created in the state SHARE_STATE_PENDING, and MUST be sent
-	// to the remote system using the OCM API at:
-	// https://cs3org.github.io/OCM-API/docs.html?branch=v1.1.0&repo=OCM-API&user=cs3org#/paths/~1shares/post
+	// to the remote system using the `/ocm/shares` OCM API, see:
+	// https://cs3org.github.io/OCM-API/docs.html?branch=v1.2.0&repo=OCM-API&user=cs3org#/paths/~1shares/post
 	CreateOCMShare(ctx context.Context, in *CreateOCMShareRequest, opts ...grpc.CallOption) (*CreateOCMShareResponse, error)
-	// Removes a share.
+	// Removes an OCM share.
 	// MUST return CODE_NOT_FOUND if the share reference does not exist.
-	// This action SHALL be notified to the remote system
-	// using the OCM API at:
-	// https://cs3org.github.io/OCM-API/docs.html?branch=v1.1.0&repo=OCM-API&user=cs3org#/paths/~1notifications/post
+	// This action MUST be notified to the remote system using the `/ocm/notifications` OCM API at:
+	// https://cs3org.github.io/OCM-API/docs.html?branch=v1.2.0&repo=OCM-API&user=cs3org#/paths/~1notifications/post
 	RemoveOCMShare(ctx context.Context, in *RemoveOCMShareRequest, opts ...grpc.CallOption) (*RemoveOCMShareResponse, error)
 	// Gets share information for a single share.
 	// MUST return CODE_NOT_FOUND if the share reference does not exist.
@@ -72,17 +71,16 @@ type OcmAPIClient interface {
 	// Gets share information for a single share by its unlisted token.
 	// MUST return CODE_NOT_FOUND if the share does not exist.
 	GetOCMShareByToken(ctx context.Context, in *GetOCMShareByTokenRequest, opts ...grpc.CallOption) (*GetOCMShareByTokenResponse, error)
-	// List the shares the authenticated principal has created,
+	// List the shares the currently authenticated user has created,
 	// both as owner and creator. If a filter is specified, only
 	// shares satisfying the filter MUST be returned.
 	ListOCMShares(ctx context.Context, in *ListOCMSharesRequest, opts ...grpc.CallOption) (*ListOCMSharesResponse, error)
 	// Updates a share.
 	// MUST return CODE_NOT_FOUND if the share reference does not exist.
-	// This action SHALL be notified to the remote system
-	// using the OCM API at:
-	// https://cs3org.github.io/OCM-API/docs.html?branch=v1.1.0&repo=OCM-API&user=cs3org#/paths/~1notifications/post
+	// This action MUST be notified to the remote system using the `/ocm/notifications` OCM API at:
+	// https://cs3org.github.io/OCM-API/docs.html?branch=v1.2.0&repo=OCM-API&user=cs3org#/paths/~1notifications/post
 	UpdateOCMShare(ctx context.Context, in *UpdateOCMShareRequest, opts ...grpc.CallOption) (*UpdateOCMShareResponse, error)
-	// List all shares the authenticated principal has received.
+	// List all shares the currently authenticated user has received.
 	ListReceivedOCMShares(ctx context.Context, in *ListReceivedOCMSharesRequest, opts ...grpc.CallOption) (*ListReceivedOCMSharesResponse, error)
 	// Update the received share to change the share state or the display name.
 	// MUST return CODE_NOT_FOUND if the share reference does not exist.
@@ -185,19 +183,18 @@ func (c *ocmAPIClient) GetReceivedOCMShare(ctx context.Context, in *GetReceivedO
 // All implementations should embed UnimplementedOcmAPIServer
 // for forward compatibility
 type OcmAPIServer interface {
-	// Creates a new ocm share.
+	// Creates a new OCM share.
 	// MUST return CODE_NOT_FOUND if the resource reference does not exist.
-	// MUST return CODE_ALREADY_EXISTS if the share already exists for the 4-tuple consisting of
+	// MUST return CODE_ALREADY_EXISTS if the share already exists for the 3-tuple consisting of
 	// (owner, shared_resource, grantee).
 	// New shares MUST be created in the state SHARE_STATE_PENDING, and MUST be sent
-	// to the remote system using the OCM API at:
-	// https://cs3org.github.io/OCM-API/docs.html?branch=v1.1.0&repo=OCM-API&user=cs3org#/paths/~1shares/post
+	// to the remote system using the `/ocm/shares` OCM API, see:
+	// https://cs3org.github.io/OCM-API/docs.html?branch=v1.2.0&repo=OCM-API&user=cs3org#/paths/~1shares/post
 	CreateOCMShare(context.Context, *CreateOCMShareRequest) (*CreateOCMShareResponse, error)
-	// Removes a share.
+	// Removes an OCM share.
 	// MUST return CODE_NOT_FOUND if the share reference does not exist.
-	// This action SHALL be notified to the remote system
-	// using the OCM API at:
-	// https://cs3org.github.io/OCM-API/docs.html?branch=v1.1.0&repo=OCM-API&user=cs3org#/paths/~1notifications/post
+	// This action MUST be notified to the remote system using the `/ocm/notifications` OCM API at:
+	// https://cs3org.github.io/OCM-API/docs.html?branch=v1.2.0&repo=OCM-API&user=cs3org#/paths/~1notifications/post
 	RemoveOCMShare(context.Context, *RemoveOCMShareRequest) (*RemoveOCMShareResponse, error)
 	// Gets share information for a single share.
 	// MUST return CODE_NOT_FOUND if the share reference does not exist.
@@ -205,17 +202,16 @@ type OcmAPIServer interface {
 	// Gets share information for a single share by its unlisted token.
 	// MUST return CODE_NOT_FOUND if the share does not exist.
 	GetOCMShareByToken(context.Context, *GetOCMShareByTokenRequest) (*GetOCMShareByTokenResponse, error)
-	// List the shares the authenticated principal has created,
+	// List the shares the currently authenticated user has created,
 	// both as owner and creator. If a filter is specified, only
 	// shares satisfying the filter MUST be returned.
 	ListOCMShares(context.Context, *ListOCMSharesRequest) (*ListOCMSharesResponse, error)
 	// Updates a share.
 	// MUST return CODE_NOT_FOUND if the share reference does not exist.
-	// This action SHALL be notified to the remote system
-	// using the OCM API at:
-	// https://cs3org.github.io/OCM-API/docs.html?branch=v1.1.0&repo=OCM-API&user=cs3org#/paths/~1notifications/post
+	// This action MUST be notified to the remote system using the `/ocm/notifications` OCM API at:
+	// https://cs3org.github.io/OCM-API/docs.html?branch=v1.2.0&repo=OCM-API&user=cs3org#/paths/~1notifications/post
 	UpdateOCMShare(context.Context, *UpdateOCMShareRequest) (*UpdateOCMShareResponse, error)
-	// List all shares the authenticated principal has received.
+	// List all shares the currently authenticated user has received.
 	ListReceivedOCMShares(context.Context, *ListReceivedOCMSharesRequest) (*ListReceivedOCMSharesResponse, error)
 	// Update the received share to change the share state or the display name.
 	// MUST return CODE_NOT_FOUND if the share reference does not exist.

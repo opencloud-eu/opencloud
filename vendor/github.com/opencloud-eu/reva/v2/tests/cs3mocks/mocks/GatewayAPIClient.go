@@ -38,6 +38,8 @@ import (
 
 	grpc "google.golang.org/grpc"
 
+	incomingv1beta1 "github.com/cs3org/go-cs3apis/cs3/ocm/incoming/v1beta1"
+
 	invitev1beta1 "github.com/cs3org/go-cs3apis/cs3/ocm/invite/v1beta1"
 
 	linkv1beta1 "github.com/cs3org/go-cs3apis/cs3/sharing/link/v1beta1"
@@ -654,6 +656,79 @@ func (_c *GatewayAPIClient_CreateOCMCoreShare_Call) Return(_a0 *corev1beta1.Crea
 }
 
 func (_c *GatewayAPIClient_CreateOCMCoreShare_Call) RunAndReturn(run func(context.Context, *corev1beta1.CreateOCMCoreShareRequest, ...grpc.CallOption) (*corev1beta1.CreateOCMCoreShareResponse, error)) *GatewayAPIClient_CreateOCMCoreShare_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreateOCMIncomingShare provides a mock function with given fields: ctx, in, opts
+func (_m *GatewayAPIClient) CreateOCMIncomingShare(ctx context.Context, in *incomingv1beta1.CreateOCMIncomingShareRequest, opts ...grpc.CallOption) (*incomingv1beta1.CreateOCMIncomingShareResponse, error) {
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
+	}
+	ret := tmpRet
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateOCMIncomingShare")
+	}
+
+	var r0 *incomingv1beta1.CreateOCMIncomingShareResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *incomingv1beta1.CreateOCMIncomingShareRequest, ...grpc.CallOption) (*incomingv1beta1.CreateOCMIncomingShareResponse, error)); ok {
+		return rf(ctx, in, opts...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *incomingv1beta1.CreateOCMIncomingShareRequest, ...grpc.CallOption) *incomingv1beta1.CreateOCMIncomingShareResponse); ok {
+		r0 = rf(ctx, in, opts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*incomingv1beta1.CreateOCMIncomingShareResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *incomingv1beta1.CreateOCMIncomingShareRequest, ...grpc.CallOption) error); ok {
+		r1 = rf(ctx, in, opts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GatewayAPIClient_CreateOCMIncomingShare_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateOCMIncomingShare'
+type GatewayAPIClient_CreateOCMIncomingShare_Call struct {
+	*mock.Call
+}
+
+// CreateOCMIncomingShare is a helper method to define mock.On call
+//   - ctx context.Context
+//   - in *incomingv1beta1.CreateOCMIncomingShareRequest
+//   - opts ...grpc.CallOption
+func (_e *GatewayAPIClient_Expecter) CreateOCMIncomingShare(ctx interface{}, in interface{}, opts ...interface{}) *GatewayAPIClient_CreateOCMIncomingShare_Call {
+	return &GatewayAPIClient_CreateOCMIncomingShare_Call{Call: _e.mock.On("CreateOCMIncomingShare",
+		append([]interface{}{ctx, in}, opts...)...)}
+}
+
+func (_c *GatewayAPIClient_CreateOCMIncomingShare_Call) Run(run func(ctx context.Context, in *incomingv1beta1.CreateOCMIncomingShareRequest, opts ...grpc.CallOption)) *GatewayAPIClient_CreateOCMIncomingShare_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]grpc.CallOption, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(grpc.CallOption)
+			}
+		}
+		run(args[0].(context.Context), args[1].(*incomingv1beta1.CreateOCMIncomingShareRequest), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *GatewayAPIClient_CreateOCMIncomingShare_Call) Return(_a0 *incomingv1beta1.CreateOCMIncomingShareResponse, _a1 error) *GatewayAPIClient_CreateOCMIncomingShare_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *GatewayAPIClient_CreateOCMIncomingShare_Call) RunAndReturn(run func(context.Context, *incomingv1beta1.CreateOCMIncomingShareRequest, ...grpc.CallOption) (*incomingv1beta1.CreateOCMIncomingShareResponse, error)) *GatewayAPIClient_CreateOCMIncomingShare_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1311,6 +1386,79 @@ func (_c *GatewayAPIClient_DeleteOCMCoreShare_Call) Return(_a0 *corev1beta1.Dele
 }
 
 func (_c *GatewayAPIClient_DeleteOCMCoreShare_Call) RunAndReturn(run func(context.Context, *corev1beta1.DeleteOCMCoreShareRequest, ...grpc.CallOption) (*corev1beta1.DeleteOCMCoreShareResponse, error)) *GatewayAPIClient_DeleteOCMCoreShare_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteOCMIncomingShare provides a mock function with given fields: ctx, in, opts
+func (_m *GatewayAPIClient) DeleteOCMIncomingShare(ctx context.Context, in *incomingv1beta1.DeleteOCMIncomingShareRequest, opts ...grpc.CallOption) (*incomingv1beta1.DeleteOCMIncomingShareResponse, error) {
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
+	}
+	ret := tmpRet
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteOCMIncomingShare")
+	}
+
+	var r0 *incomingv1beta1.DeleteOCMIncomingShareResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *incomingv1beta1.DeleteOCMIncomingShareRequest, ...grpc.CallOption) (*incomingv1beta1.DeleteOCMIncomingShareResponse, error)); ok {
+		return rf(ctx, in, opts...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *incomingv1beta1.DeleteOCMIncomingShareRequest, ...grpc.CallOption) *incomingv1beta1.DeleteOCMIncomingShareResponse); ok {
+		r0 = rf(ctx, in, opts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*incomingv1beta1.DeleteOCMIncomingShareResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *incomingv1beta1.DeleteOCMIncomingShareRequest, ...grpc.CallOption) error); ok {
+		r1 = rf(ctx, in, opts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GatewayAPIClient_DeleteOCMIncomingShare_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteOCMIncomingShare'
+type GatewayAPIClient_DeleteOCMIncomingShare_Call struct {
+	*mock.Call
+}
+
+// DeleteOCMIncomingShare is a helper method to define mock.On call
+//   - ctx context.Context
+//   - in *incomingv1beta1.DeleteOCMIncomingShareRequest
+//   - opts ...grpc.CallOption
+func (_e *GatewayAPIClient_Expecter) DeleteOCMIncomingShare(ctx interface{}, in interface{}, opts ...interface{}) *GatewayAPIClient_DeleteOCMIncomingShare_Call {
+	return &GatewayAPIClient_DeleteOCMIncomingShare_Call{Call: _e.mock.On("DeleteOCMIncomingShare",
+		append([]interface{}{ctx, in}, opts...)...)}
+}
+
+func (_c *GatewayAPIClient_DeleteOCMIncomingShare_Call) Run(run func(ctx context.Context, in *incomingv1beta1.DeleteOCMIncomingShareRequest, opts ...grpc.CallOption)) *GatewayAPIClient_DeleteOCMIncomingShare_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]grpc.CallOption, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(grpc.CallOption)
+			}
+		}
+		run(args[0].(context.Context), args[1].(*incomingv1beta1.DeleteOCMIncomingShareRequest), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *GatewayAPIClient_DeleteOCMIncomingShare_Call) Return(_a0 *incomingv1beta1.DeleteOCMIncomingShareResponse, _a1 error) *GatewayAPIClient_DeleteOCMIncomingShare_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *GatewayAPIClient_DeleteOCMIncomingShare_Call) RunAndReturn(run func(context.Context, *incomingv1beta1.DeleteOCMIncomingShareRequest, ...grpc.CallOption) (*incomingv1beta1.DeleteOCMIncomingShareResponse, error)) *GatewayAPIClient_DeleteOCMIncomingShare_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -4381,6 +4529,79 @@ func (_c *GatewayAPIClient_ListContainerStream_Call) RunAndReturn(run func(conte
 	return _c
 }
 
+// ListExistingOCMShares provides a mock function with given fields: ctx, in, opts
+func (_m *GatewayAPIClient) ListExistingOCMShares(ctx context.Context, in *ocmv1beta1.ListOCMSharesRequest, opts ...grpc.CallOption) (*gatewayv1beta1.ListExistingOCMSharesResponse, error) {
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
+	}
+	ret := tmpRet
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListExistingOCMShares")
+	}
+
+	var r0 *gatewayv1beta1.ListExistingOCMSharesResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *ocmv1beta1.ListOCMSharesRequest, ...grpc.CallOption) (*gatewayv1beta1.ListExistingOCMSharesResponse, error)); ok {
+		return rf(ctx, in, opts...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *ocmv1beta1.ListOCMSharesRequest, ...grpc.CallOption) *gatewayv1beta1.ListExistingOCMSharesResponse); ok {
+		r0 = rf(ctx, in, opts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gatewayv1beta1.ListExistingOCMSharesResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *ocmv1beta1.ListOCMSharesRequest, ...grpc.CallOption) error); ok {
+		r1 = rf(ctx, in, opts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GatewayAPIClient_ListExistingOCMShares_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListExistingOCMShares'
+type GatewayAPIClient_ListExistingOCMShares_Call struct {
+	*mock.Call
+}
+
+// ListExistingOCMShares is a helper method to define mock.On call
+//   - ctx context.Context
+//   - in *ocmv1beta1.ListOCMSharesRequest
+//   - opts ...grpc.CallOption
+func (_e *GatewayAPIClient_Expecter) ListExistingOCMShares(ctx interface{}, in interface{}, opts ...interface{}) *GatewayAPIClient_ListExistingOCMShares_Call {
+	return &GatewayAPIClient_ListExistingOCMShares_Call{Call: _e.mock.On("ListExistingOCMShares",
+		append([]interface{}{ctx, in}, opts...)...)}
+}
+
+func (_c *GatewayAPIClient_ListExistingOCMShares_Call) Run(run func(ctx context.Context, in *ocmv1beta1.ListOCMSharesRequest, opts ...grpc.CallOption)) *GatewayAPIClient_ListExistingOCMShares_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]grpc.CallOption, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(grpc.CallOption)
+			}
+		}
+		run(args[0].(context.Context), args[1].(*ocmv1beta1.ListOCMSharesRequest), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *GatewayAPIClient_ListExistingOCMShares_Call) Return(_a0 *gatewayv1beta1.ListExistingOCMSharesResponse, _a1 error) *GatewayAPIClient_ListExistingOCMShares_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *GatewayAPIClient_ListExistingOCMShares_Call) RunAndReturn(run func(context.Context, *ocmv1beta1.ListOCMSharesRequest, ...grpc.CallOption) (*gatewayv1beta1.ListExistingOCMSharesResponse, error)) *GatewayAPIClient_ListExistingOCMShares_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListExistingPublicShares provides a mock function with given fields: ctx, in, opts
 func (_m *GatewayAPIClient) ListExistingPublicShares(ctx context.Context, in *linkv1beta1.ListPublicSharesRequest, opts ...grpc.CallOption) (*gatewayv1beta1.ListExistingPublicSharesResponse, error) {
 	var tmpRet mock.Arguments
@@ -6859,6 +7080,79 @@ func (_c *GatewayAPIClient_UpdateOCMCoreShare_Call) Return(_a0 *corev1beta1.Upda
 }
 
 func (_c *GatewayAPIClient_UpdateOCMCoreShare_Call) RunAndReturn(run func(context.Context, *corev1beta1.UpdateOCMCoreShareRequest, ...grpc.CallOption) (*corev1beta1.UpdateOCMCoreShareResponse, error)) *GatewayAPIClient_UpdateOCMCoreShare_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateOCMIncomingShare provides a mock function with given fields: ctx, in, opts
+func (_m *GatewayAPIClient) UpdateOCMIncomingShare(ctx context.Context, in *incomingv1beta1.UpdateOCMIncomingShareRequest, opts ...grpc.CallOption) (*incomingv1beta1.UpdateOCMIncomingShareResponse, error) {
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
+	}
+	ret := tmpRet
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateOCMIncomingShare")
+	}
+
+	var r0 *incomingv1beta1.UpdateOCMIncomingShareResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *incomingv1beta1.UpdateOCMIncomingShareRequest, ...grpc.CallOption) (*incomingv1beta1.UpdateOCMIncomingShareResponse, error)); ok {
+		return rf(ctx, in, opts...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *incomingv1beta1.UpdateOCMIncomingShareRequest, ...grpc.CallOption) *incomingv1beta1.UpdateOCMIncomingShareResponse); ok {
+		r0 = rf(ctx, in, opts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*incomingv1beta1.UpdateOCMIncomingShareResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *incomingv1beta1.UpdateOCMIncomingShareRequest, ...grpc.CallOption) error); ok {
+		r1 = rf(ctx, in, opts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GatewayAPIClient_UpdateOCMIncomingShare_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateOCMIncomingShare'
+type GatewayAPIClient_UpdateOCMIncomingShare_Call struct {
+	*mock.Call
+}
+
+// UpdateOCMIncomingShare is a helper method to define mock.On call
+//   - ctx context.Context
+//   - in *incomingv1beta1.UpdateOCMIncomingShareRequest
+//   - opts ...grpc.CallOption
+func (_e *GatewayAPIClient_Expecter) UpdateOCMIncomingShare(ctx interface{}, in interface{}, opts ...interface{}) *GatewayAPIClient_UpdateOCMIncomingShare_Call {
+	return &GatewayAPIClient_UpdateOCMIncomingShare_Call{Call: _e.mock.On("UpdateOCMIncomingShare",
+		append([]interface{}{ctx, in}, opts...)...)}
+}
+
+func (_c *GatewayAPIClient_UpdateOCMIncomingShare_Call) Run(run func(ctx context.Context, in *incomingv1beta1.UpdateOCMIncomingShareRequest, opts ...grpc.CallOption)) *GatewayAPIClient_UpdateOCMIncomingShare_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]grpc.CallOption, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(grpc.CallOption)
+			}
+		}
+		run(args[0].(context.Context), args[1].(*incomingv1beta1.UpdateOCMIncomingShareRequest), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *GatewayAPIClient_UpdateOCMIncomingShare_Call) Return(_a0 *incomingv1beta1.UpdateOCMIncomingShareResponse, _a1 error) *GatewayAPIClient_UpdateOCMIncomingShare_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *GatewayAPIClient_UpdateOCMIncomingShare_Call) RunAndReturn(run func(context.Context, *incomingv1beta1.UpdateOCMIncomingShareRequest, ...grpc.CallOption) (*incomingv1beta1.UpdateOCMIncomingShareResponse, error)) *GatewayAPIClient_UpdateOCMIncomingShare_Call {
 	_c.Call.Return(run)
 	return _c
 }

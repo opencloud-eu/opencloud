@@ -53,8 +53,8 @@ type UserAPIClient interface {
 	GetUserByClaim(ctx context.Context, in *GetUserByClaimRequest, opts ...grpc.CallOption) (*GetUserByClaimResponse, error)
 	// Gets the groups of a user.
 	GetUserGroups(ctx context.Context, in *GetUserGroupsRequest, opts ...grpc.CallOption) (*GetUserGroupsResponse, error)
-	// Finds users by any attribute of the user.
-	// TODO(labkode): to define the filters that make more sense.
+	// Finds users that match the specified filters.
+	// MAY return CODE_RESOURCE_EXHAUSTED if the filters return too many responses.
 	FindUsers(ctx context.Context, in *FindUsersRequest, opts ...grpc.CallOption) (*FindUsersResponse, error)
 }
 
@@ -112,8 +112,8 @@ type UserAPIServer interface {
 	GetUserByClaim(context.Context, *GetUserByClaimRequest) (*GetUserByClaimResponse, error)
 	// Gets the groups of a user.
 	GetUserGroups(context.Context, *GetUserGroupsRequest) (*GetUserGroupsResponse, error)
-	// Finds users by any attribute of the user.
-	// TODO(labkode): to define the filters that make more sense.
+	// Finds users that match the specified filters.
+	// MAY return CODE_RESOURCE_EXHAUSTED if the filters return too many responses.
 	FindUsers(context.Context, *FindUsersRequest) (*FindUsersResponse, error)
 }
 

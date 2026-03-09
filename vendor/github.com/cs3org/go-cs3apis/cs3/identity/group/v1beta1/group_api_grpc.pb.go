@@ -56,7 +56,8 @@ type GroupAPIClient interface {
 	GetMembers(ctx context.Context, in *GetMembersRequest, opts ...grpc.CallOption) (*GetMembersResponse, error)
 	// Tells if the group has certain member.
 	HasMember(ctx context.Context, in *HasMemberRequest, opts ...grpc.CallOption) (*HasMemberResponse, error)
-	// Finds groups whose names match the specified filter.
+	// Finds groups whose names match the specified filters.
+	// MAY return CODE_RESOURCE_EXHAUSTED if the filters return too many responses.
 	FindGroups(ctx context.Context, in *FindGroupsRequest, opts ...grpc.CallOption) (*FindGroupsResponse, error)
 }
 
@@ -125,7 +126,8 @@ type GroupAPIServer interface {
 	GetMembers(context.Context, *GetMembersRequest) (*GetMembersResponse, error)
 	// Tells if the group has certain member.
 	HasMember(context.Context, *HasMemberRequest) (*HasMemberResponse, error)
-	// Finds groups whose names match the specified filter.
+	// Finds groups whose names match the specified filters.
+	// MAY return CODE_RESOURCE_EXHAUSTED if the filters return too many responses.
 	FindGroups(context.Context, *FindGroupsRequest) (*FindGroupsResponse, error)
 }
 

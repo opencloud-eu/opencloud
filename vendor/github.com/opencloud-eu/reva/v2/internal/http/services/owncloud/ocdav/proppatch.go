@@ -340,7 +340,7 @@ func (s *svc) formatProppatchResponse(ctx context.Context, acceptedProps []xml.N
 	}
 
 	if len(acceptedProps) > 0 {
-		propstatBody := []prop.PropertyXML{}
+		propstatBody := make([]prop.PropertyXML, 0, len(acceptedProps))
 		for i := range acceptedProps {
 			propstatBody = append(propstatBody, prop.EscapedNS(acceptedProps[i].Space, acceptedProps[i].Local, ""))
 		}
@@ -351,7 +351,7 @@ func (s *svc) formatProppatchResponse(ctx context.Context, acceptedProps []xml.N
 	}
 
 	if len(removedProps) > 0 {
-		propstatBody := []prop.PropertyXML{}
+		propstatBody := make([]prop.PropertyXML, 0, len(removedProps))
 		for i := range removedProps {
 			propstatBody = append(propstatBody, prop.EscapedNS(removedProps[i].Space, removedProps[i].Local, ""))
 		}

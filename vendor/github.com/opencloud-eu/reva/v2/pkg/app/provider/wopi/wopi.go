@@ -335,12 +335,13 @@ func getAppURLs(c *config) (map[string]map[string]string, error) {
 
 	var appURLs map[string]map[string]string
 
-	if discRes.StatusCode == http.StatusOK {
+	switch discRes.StatusCode {
+	case http.StatusOK:
 		appURLs, err = parseWopiDiscovery(discRes.Body)
 		if err != nil {
 			return nil, errors.Wrap(err, "error parsing wopi discovery response")
 		}
-	} else if discRes.StatusCode == http.StatusNotFound {
+	case http.StatusNotFound:
 		// this may be a bridge-supported app
 		discReq, err = http.NewRequest("GET", c.AppIntURL, nil)
 		if err != nil {

@@ -1166,8 +1166,8 @@ func (fs *eosfs) ListGrants(ctx context.Context, ref *provider.Reference) ([]*pr
 	grantList := []*provider.Grant{}
 	for _, a := range acls {
 		var grantee *provider.Grantee
-		switch {
-		case a.Type == acl.TypeUser:
+		switch a.Type {
+		case acl.TypeUser:
 			// EOS Citrine ACLs are stored with uid for users.
 			// This needs to be resolved to the user opaque ID.
 			qualifier, err := fs.getUserIDGateway(ctx, a.Qualifier)
@@ -1178,7 +1178,7 @@ func (fs *eosfs) ListGrants(ctx context.Context, ref *provider.Reference) ([]*pr
 				Id:   &provider.Grantee_UserId{UserId: qualifier},
 				Type: grants.GetGranteeType(a.Type),
 			}
-		case a.Type == acl.TypeLightweight:
+		case acl.TypeLightweight:
 			a.Type = acl.TypeUser
 			grantee = &provider.Grantee{
 				Id:   &provider.Grantee_UserId{UserId: &userpb.UserId{OpaqueId: a.Qualifier}},

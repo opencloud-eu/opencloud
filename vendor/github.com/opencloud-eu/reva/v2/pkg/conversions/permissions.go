@@ -52,7 +52,7 @@ const (
 
 var (
 	// ErrPermissionNotInRange defines a permission specific error.
-	ErrPermissionNotInRange = fmt.Errorf("The provided permission is not between %d and %d", PermissionMinInput, PermissionMaxInput)
+	ErrPermissionNotInRange = fmt.Errorf("the provided permission is not between %d and %d", PermissionMinInput, PermissionMaxInput)
 	// ErrZeroPermission defines a permission specific error
 	ErrZeroPermission = errors.New("permission is zero")
 )

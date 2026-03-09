@@ -46,14 +46,11 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type OcmCoreAPIClient interface {
-	// Creates a new OCM share, in response to a call from remote to:
-	// https://cs3org.github.io/OCM-API/docs.html?branch=v1.2.0&repo=OCM-API&user=cs3org#/paths/~1shares/post
+	// Deprecated. Creates a new OCM share, in response to a call from the remote system
 	CreateOCMCoreShare(ctx context.Context, in *CreateOCMCoreShareRequest, opts ...grpc.CallOption) (*CreateOCMCoreShareResponse, error)
-	// Updates an OCM share, in response to a notification from the remote system to:
-	// https://cs3org.github.io/OCM-API/docs.html?branch=v1.2.0&repo=OCM-API&user=cs3org#/paths/~1notifications/post
+	// Deprecated. Updates an OCM share, in response to a notification from the remote system
 	UpdateOCMCoreShare(ctx context.Context, in *UpdateOCMCoreShareRequest, opts ...grpc.CallOption) (*UpdateOCMCoreShareResponse, error)
-	// Deletes an OCM share, in response to a notification from the remote system to:
-	// https://cs3org.github.io/OCM-API/docs.html?branch=v1.2.0&repo=OCM-API&user=cs3org#/paths/~1notifications/post
+	// Deprecated. Deletes an OCM share, in response to a notification from the remote system
 	DeleteOCMCoreShare(ctx context.Context, in *DeleteOCMCoreShareRequest, opts ...grpc.CallOption) (*DeleteOCMCoreShareResponse, error)
 }
 
@@ -96,14 +93,11 @@ func (c *ocmCoreAPIClient) DeleteOCMCoreShare(ctx context.Context, in *DeleteOCM
 // All implementations should embed UnimplementedOcmCoreAPIServer
 // for forward compatibility
 type OcmCoreAPIServer interface {
-	// Creates a new OCM share, in response to a call from remote to:
-	// https://cs3org.github.io/OCM-API/docs.html?branch=v1.2.0&repo=OCM-API&user=cs3org#/paths/~1shares/post
+	// Deprecated. Creates a new OCM share, in response to a call from the remote system
 	CreateOCMCoreShare(context.Context, *CreateOCMCoreShareRequest) (*CreateOCMCoreShareResponse, error)
-	// Updates an OCM share, in response to a notification from the remote system to:
-	// https://cs3org.github.io/OCM-API/docs.html?branch=v1.2.0&repo=OCM-API&user=cs3org#/paths/~1notifications/post
+	// Deprecated. Updates an OCM share, in response to a notification from the remote system
 	UpdateOCMCoreShare(context.Context, *UpdateOCMCoreShareRequest) (*UpdateOCMCoreShareResponse, error)
-	// Deletes an OCM share, in response to a notification from the remote system to:
-	// https://cs3org.github.io/OCM-API/docs.html?branch=v1.2.0&repo=OCM-API&user=cs3org#/paths/~1notifications/post
+	// Deprecated. Deletes an OCM share, in response to a notification from the remote system
 	DeleteOCMCoreShare(context.Context, *DeleteOCMCoreShareRequest) (*DeleteOCMCoreShareResponse, error)
 }
 

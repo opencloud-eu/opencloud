@@ -183,9 +183,13 @@ func (s *service) GetUserByClaim(ctx context.Context, req *userpb.GetUserByClaim
 }
 
 func (s *service) FindUsers(ctx context.Context, req *userpb.FindUsersRequest) (*userpb.FindUsersResponse, error) {
+	if len(req.Filters) > 1 || req.Filters[0].GetType() != userpb.Filter_TYPE_QUERY {
+		return nil, fmt.Errorf("only one query filter supported")
+	}
+
 	currentUser := revactx.ContextMustGetUser(ctx)
 
-	users, err := s.usermgr.FindUsers(ctx, req.Query, currentUser.GetId().GetTenantId(), req.SkipFetchingUserGroups)
+	users, err := s.usermgr.FindUsers(ctx, req.Filters[0].GetQuery(), currentUser.GetId().GetTenantId(), req.SkipFetchingUserGroups)
 	if err != nil {
 		res := &userpb.FindUsersResponse{
 			Status: status.NewInternal(ctx, "error finding users"),

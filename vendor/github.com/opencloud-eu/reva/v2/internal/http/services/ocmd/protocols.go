@@ -120,22 +120,9 @@ func (w *Webapp) ToOCMProtocol() *ocm.Protocol {
 	return ocmshare.NewWebappProtocol(w.URITemplate, utils.GetAppViewMode(w.ViewMode))
 }
 
-// Datatx contains the parameters for the Datatx protocol.
-type Datatx struct {
-	SharedSecret string `json:"sharedSecret" validate:"required"`
-	SourceURI    string `json:"srcUri" validate:"required"`
-	Size         uint64 `json:"size" validate:"required"`
-}
-
-// ToOCMProtocol convert the protocol to a ocm Protocol struct.
-func (w *Datatx) ToOCMProtocol() *ocm.Protocol {
-	return ocmshare.NewTransferProtocol(w.SourceURI, w.SharedSecret, w.Size)
-}
-
 var protocolImpl = map[string]reflect.Type{
 	"webdav": reflect.TypeOf(WebDAV{}),
 	"webapp": reflect.TypeOf(Webapp{}),
-	"datatx": reflect.TypeOf(Datatx{}),
 }
 
 // UnmarshalJSON implements the Unmarshaler interface.

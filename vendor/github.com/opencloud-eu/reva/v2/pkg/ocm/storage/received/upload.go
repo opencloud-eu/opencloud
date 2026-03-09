@@ -154,10 +154,10 @@ func (d *driver) GetUpload(ctx context.Context, id string) (tusd.Upload, error) 
 }
 func NewUpload(ctx context.Context, d *driver, storageRoot string, info tusd.FileInfo) (tusd.Upload, error) {
 	if info.MetaData["filename"] == "" {
-		return nil, errors.New("Decomposedfs: missing filename in metadata")
+		return nil, errors.New("decomposedfs: missing filename in metadata")
 	}
 	if info.MetaData["dir"] == "" {
-		return nil, errors.New("Decomposedfs: missing dir in metadata")
+		return nil, errors.New("decomposedfs: missing dir in metadata")
 	}
 
 	uploadRoot := filepath.Join(storageRoot, "uploads")
@@ -328,7 +328,7 @@ func (u *upload) FinishUpload(ctx context.Context) error {
 	// shareID, rel := shareInfoFromReference(u.Info.MetaData["ref"])
 	// p := getPathFromShareIDAndRelPath(shareID, rel)
 
-	serviceUserCtx, err := utils.GetServiceUserContext(u.d.c.ServiceAccountID, u.d.gateway, u.d.c.ServiceAccountSecret)
+	serviceUserCtx, err := utils.GetServiceUserContextWithContext(context.Background(), u.d.gateway, u.d.c.ServiceAccountID, u.d.c.ServiceAccountSecret)
 	if err != nil {
 		return err
 	}

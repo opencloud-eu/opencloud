@@ -459,9 +459,10 @@ func (fs *localfs) AddGrant(ctx context.Context, ref *provider.Reference, g *pro
 		return errors.Wrap(err, "localfs: error getting grantee type")
 	}
 	var grantee string
-	if granteeType == acl.TypeUser {
+	switch granteeType {
+	case acl.TypeUser:
 		grantee = fmt.Sprintf("%s:%s:%s@%s", granteeType, g.Grantee.GetUserId().OpaqueId, utils.UserTypeToString(g.Grantee.GetUserId().Type), g.Grantee.GetUserId().Idp)
-	} else if granteeType == acl.TypeGroup {
+	case acl.TypeGroup:
 		grantee = fmt.Sprintf("%s::%s@%s", granteeType, g.Grantee.GetGroupId().OpaqueId, g.Grantee.GetGroupId().Idp)
 	}
 
@@ -495,9 +496,10 @@ func (fs *localfs) ListGrants(ctx context.Context, ref *provider.Reference) ([]*
 		grantSplit := strings.Split(granteeID, ":")
 		grantee := &provider.Grantee{Type: grants.GetGranteeType(grantSplit[0])}
 		parts := strings.Split(grantSplit[2], "@")
-		if grantSplit[0] == acl.TypeUser {
+		switch grantSplit[0] {
+		case acl.TypeUser:
 			grantee.Id = &provider.Grantee_UserId{UserId: &userpb.UserId{OpaqueId: parts[0], Idp: parts[1], Type: utils.UserTypeMap(grantSplit[1])}}
-		} else if grantSplit[0] == acl.TypeGroup {
+		case acl.TypeGroup:
 			grantee.Id = &provider.Grantee_GroupId{GroupId: &grouppb.GroupId{OpaqueId: parts[0], Idp: parts[1]}}
 		}
 		permissions := grants.GetGrantPermissionSet(role)
@@ -523,9 +525,10 @@ func (fs *localfs) RemoveGrant(ctx context.Context, ref *provider.Reference, g *
 		return errors.Wrap(err, "localfs: error getting grantee type")
 	}
 	var grantee string
-	if granteeType == acl.TypeUser {
+	switch granteeType {
+	case acl.TypeUser:
 		grantee = fmt.Sprintf("%s:%s@%s", granteeType, g.Grantee.GetUserId().OpaqueId, g.Grantee.GetUserId().Idp)
-	} else if granteeType == acl.TypeGroup {
+	case acl.TypeGroup:
 		grantee = fmt.Sprintf("%s:%s@%s", granteeType, g.Grantee.GetGroupId().OpaqueId, g.Grantee.GetGroupId().Idp)
 	}
 

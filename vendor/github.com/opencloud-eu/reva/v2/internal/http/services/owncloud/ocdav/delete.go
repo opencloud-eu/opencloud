@@ -90,7 +90,7 @@ func (s *svc) handleDelete(ctx context.Context, w http.ResponseWriter, r *http.R
 		return http.StatusNoContent, nil
 	case res.Status.Code == rpc.Code_CODE_NOT_FOUND:
 		//lint:ignore ST1005 mimic the exact oc10 error message
-		return http.StatusNotFound, errors.New("Resource not found")
+		return http.StatusNotFound, errors.New("Resource not found") //nolint:staticcheck
 	case res.Status.Code == rpc.Code_CODE_PERMISSION_DENIED:
 		status = http.StatusForbidden
 		if lockID := utils.ReadPlainFromOpaque(res.Opaque, "lockid"); lockID != "" {
@@ -110,7 +110,7 @@ func (s *svc) handleDelete(ctx context.Context, w http.ResponseWriter, r *http.R
 			// TODO hide permission failed for users without access in every kind of request
 			// TODO should this be done in the driver?
 			//lint:ignore ST1005 mimic the exact oc10 error message
-			return http.StatusNotFound, errors.New("Resource not found")
+			return http.StatusNotFound, errors.New("Resource not found") //nolint:staticcheck
 		}
 		return status, errors.New("") // mimic the oc10 error messages which have an empty message in this case
 	case res.Status.Code == rpc.Code_CODE_INTERNAL && res.Status.Message == "can't delete mount path":

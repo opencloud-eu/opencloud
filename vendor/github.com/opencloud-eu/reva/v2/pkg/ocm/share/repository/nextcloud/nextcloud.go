@@ -430,7 +430,7 @@ func (sm *Manager) do(ctx context.Context, a Action, username string) (int, []by
 	log.Info().Msgf("am.do response %d %s", resp.StatusCode, body)
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return 0, nil, fmt.Errorf("Unexpected response code from EFSS API: %d", resp.StatusCode)
+		return 0, nil, fmt.Errorf("unexpected response code from EFSS API: %d", resp.StatusCode)
 	}
 	return resp.StatusCode, body, nil
 }

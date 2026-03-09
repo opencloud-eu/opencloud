@@ -83,8 +83,8 @@ type Lookup struct {
 
 // New returns a new Lookup instance
 func New(b metadata.Backend, um usermapper.Mapper, o *options.Options, tm node.TimeManager) *Lookup {
-	idHistoryConf := o.Options.IDCache
-	idHistoryConf.Table = o.Options.IDCache.Table + "_history"
+	idHistoryConf := o.IDCache
+	idHistoryConf.Table = o.IDCache.Table + "_history"
 	idHistoryConf.TTL = 1 * time.Minute
 
 	spaceRootCache, _ := lru.New[string, string](1000)
@@ -92,7 +92,7 @@ func New(b metadata.Backend, um usermapper.Mapper, o *options.Options, tm node.T
 	lu := &Lookup{
 		Options:         o,
 		metadataBackend: b,
-		IDCache:         NewStoreIDCache(o.Options.IDCache),
+		IDCache:         NewStoreIDCache(o.IDCache),
 		IDHistoryCache:  NewStoreIDCache(idHistoryConf),
 		spaceRootCache:  spaceRootCache,
 		userMapper:      um,
@@ -417,7 +417,7 @@ func (lu *Lookup) CopyMetadataWithSourceLock(ctx context.Context, src, target me
 	switch {
 	case lockedSource == nil:
 		return errors.New("no lock provided")
-	case lockedSource.File.Name() != lu.MetadataBackend().LockfilePath(src):
+	case lockedSource.Name() != lu.MetadataBackend().LockfilePath(src):
 		return errors.New("lockpath does not match filepath")
 	}
 

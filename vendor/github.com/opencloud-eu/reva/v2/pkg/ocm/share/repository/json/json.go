@@ -399,26 +399,22 @@ func (m *mgr) UpdateShare(ctx context.Context, user *userpb.User, ref *ocm.Share
 					}
 					if am := f.GetAccessMethods(); am != nil {
 						var (
-							webdavOptions   *ocm.WebDAVAccessMethod
-							webappOptions   *ocm.WebappAccessMethod
-							transferOptions *ocm.TransferAccessMethod
+							webdavOptions *ocm.WebDAVAccessMethod
+							webappOptions *ocm.WebappAccessMethod
 							// TODO: *AccessMethod_GenericOptions
 
-							newWebdavOptions   *ocm.WebDAVAccessMethod
-							newWebappOptions   *ocm.WebappAccessMethod
-							newTransferOptions *ocm.TransferAccessMethod
+							newWebdavOptions *ocm.WebDAVAccessMethod
+							newWebappOptions *ocm.WebappAccessMethod
 							// TODO: *AccessMethod_GenericOptions
 						)
 
 						for _, sm := range s.GetAccessMethods() {
 							webdavOptions = sm.GetWebdavOptions()
 							webappOptions = sm.GetWebappOptions()
-							transferOptions = sm.GetTransferOptions()
 						}
 
 						newWebdavOptions = am.GetWebdavOptions()
 						newWebappOptions = am.GetWebappOptions()
-						newTransferOptions = am.GetTransferOptions()
 
 						newAccesMethods := []*ocm.AccessMethod{}
 
@@ -450,19 +446,6 @@ func (m *mgr) UpdateShare(ctx context.Context, user *userpb.User, ref *ocm.Share
 							})
 						}
 
-						if newTransferOptions != nil {
-							newAccesMethods = append(newAccesMethods, &ocm.AccessMethod{
-								Term: &ocm.AccessMethod_TransferOptions{
-									TransferOptions: newTransferOptions,
-								},
-							})
-						} else if transferOptions != nil {
-							newAccesMethods = append(newAccesMethods, &ocm.AccessMethod{
-								Term: &ocm.AccessMethod_TransferOptions{
-									TransferOptions: transferOptions,
-								},
-							})
-						}
 						s.AccessMethods = newAccesMethods
 					}
 				}

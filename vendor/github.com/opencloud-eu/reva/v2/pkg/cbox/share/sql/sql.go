@@ -404,7 +404,7 @@ func (m *mgr) getReceivedByID(ctx context.Context, id *collaboration.ShareId) (*
 	user := ctxpkg.ContextMustGetUser(ctx)
 	uid := conversions.FormatUserID(user.Id)
 
-	params := []interface{}{uid, id.OpaqueId, uid}
+	params := []interface{}{uid, id.OpaqueId, uid} // nolint:prealloc
 	for _, v := range user.Groups {
 		params = append(params, v)
 	}
@@ -438,7 +438,7 @@ func (m *mgr) getReceivedByKey(ctx context.Context, key *collaboration.ShareKey)
 	uid := conversions.FormatUserID(user.Id)
 
 	shareType, shareWith := conversions.FormatGrantee(key.Grantee)
-	params := []interface{}{uid, conversions.FormatUserID(key.Owner), key.GetResourceId().SpaceId, key.ResourceId.OpaqueId, shareType, shareWith, shareWith}
+	params := []interface{}{uid, conversions.FormatUserID(key.Owner), key.GetResourceId().SpaceId, key.ResourceId.OpaqueId, shareType, shareWith, shareWith} // nolint:prealloc
 	for _, v := range user.Groups {
 		params = append(params, v)
 	}

@@ -1113,9 +1113,9 @@ func (fs *owncloudsqlfs) UnsetArbitraryMetadata(ctx context.Context, ref *provid
 			if err = xattr.Remove(ip, mdPrefix+k); err != nil {
 				// a non-existing attribute will return an error, which we can ignore
 				// (using string compare because the error type is syscall.Errno and not wrapped/recognizable)
-				if e, ok := err.(*xattr.Error); !ok || !(e.Err.Error() == "no data available" ||
+				if e, ok := err.(*xattr.Error); !ok || (e.Err.Error() != "no data available" &&
 					// darwin
-					e.Err.Error() == "attribute not found") {
+					e.Err.Error() != "attribute not found") {
 					log.Error().Err(err).
 						Str("ipath", ip).
 						Str("key", k).

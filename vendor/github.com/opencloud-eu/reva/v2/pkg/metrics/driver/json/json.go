@@ -72,7 +72,7 @@ type MetricsJSONDriver struct {
 // Configure configures this driver
 func (d *MetricsJSONDriver) Configure(c *config.Config) error {
 	if c.MetricsDataLocation == "" {
-		err := errors.New("Unable to initialize a metrics data driver, has the data location (metrics_data_location) been configured?")
+		err := errors.New("unable to initialize a metrics data driver, has the data location (metrics_data_location) been configured?")
 		return err
 	}
 

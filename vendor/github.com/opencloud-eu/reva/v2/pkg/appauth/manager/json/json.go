@@ -175,7 +175,7 @@ func (mgr *jsonManager) ListAppPasswords(ctx context.Context) ([]*apppb.AppPassw
 	userID := ctxpkg.ContextMustGetUser(ctx).GetId()
 	mgr.Lock()
 	defer mgr.Unlock()
-	appPasswords := []*apppb.AppPassword{}
+	appPasswords := make([]*apppb.AppPassword, 0, len(mgr.passwords[userID.String()]))
 	for _, pw := range mgr.passwords[userID.String()] {
 		appPasswords = append(appPasswords, pw)
 	}

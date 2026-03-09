@@ -13,14 +13,11 @@ type Validator func(string) error
 
 // ValidatorsFromConfig returns the configured Validators
 func ValidatorsFromConfig(c *config.Config) []Validator {
-	// we always want to exclude empty names
-	vals := []Validator{notEmpty()}
-
-	// forbidden characters
-	vals = append(vals, doesNotContain(c.NameValidation.InvalidChars))
-
-	// max length
-	vals = append(vals, isShorterThan(c.NameValidation.MaxLength))
+	vals := []Validator{
+		notEmpty(), // we always want to exclude empty names
+		doesNotContain(c.NameValidation.InvalidChars), // forbidden characters
+		isShorterThan(c.NameValidation.MaxLength),     // max length
+	}
 
 	return vals
 }

@@ -304,7 +304,7 @@ func (h *DavHandler) Handler(s *svc) http.Handler {
 				sig := q.Get("signature")
 				expiration := q.Get("expiration")
 				// We restrict the pre-signed urls to downloads.
-				if sig != "" && expiration != "" && !(r.Method == http.MethodGet || r.Method == http.MethodHead) {
+				if sig != "" && expiration != "" && (r.Method != http.MethodGet && r.Method != http.MethodHead) {
 					w.WriteHeader(http.StatusUnauthorized)
 					return
 				}
@@ -372,7 +372,7 @@ func (h *DavHandler) Handler(s *svc) http.Handler {
 				}
 				fallthrough
 			case sRes.Status.Code == rpc.Code_CODE_NOT_FOUND:
-				log.Debug().Str("token", token).Interface("status", res.Status).Msg("resource not found")
+				log.Debug().Str("token", token).Interface("status", res.Status).Msg("Resource not found")
 				w.WriteHeader(http.StatusNotFound) // log the difference
 				return
 			case sRes.Status.Code == rpc.Code_CODE_UNAUTHENTICATED:

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -37,10 +38,12 @@ func init() {
 }
 
 type manager struct {
-	sync.RWMutex // for lazy initialization
-	mds          metadata.Storage
-	generator    PasswordGenerator
-	initialized  bool
+	sync.RWMutex        // for lazy initialization
+	mds                 metadata.Storage
+	generator           PasswordGenerator
+	uTimeUpdateInterval time.Duration
+	updateRetryCount    int
+	initialized         bool
 }
 
 type config struct {
@@ -50,6 +53,10 @@ type config struct {
 	MachineAuthAPIKey string         `mapstructure:"machine_auth_apikey"`
 	Generator         string         `mapstructure:"password_generator"`
 	GeneratorConfig   map[string]any `mapstructure:"generator_config"`
+	// Time interval in seconds to update the UTime of a token when calling GetAppPassword. Default is 5 min.
+	// For testing set this -1 to disable automatic updates.
+	UTimeUpdateInterval int `mapstructure:"utime_update_interval_seconds"`
+	UpdateRetryCount    int `mapstructure:"update_retry_count"`
 }
 
 type updaterFunc func(map[string]*apppb.AppPassword) (map[string]*apppb.AppPassword, error)
@@ -82,6 +89,19 @@ func New(m map[string]any) (appauth.Manager, error) {
 	if c.Generator == "" {
 		c.Generator = "diceware"
 	}
+	if c.UpdateRetryCount <= 0 {
+		c.UpdateRetryCount = 5
+	}
+
+	var updateInterval time.Duration
+	switch c.UTimeUpdateInterval {
+	case -1:
+		updateInterval = 0
+	case 0:
+		updateInterval = 5 * time.Minute
+	default:
+		updateInterval = time.Duration(c.UTimeUpdateInterval) * time.Second
+	}
 
 	var pwgen PasswordGenerator
 	var err error
@@ -103,33 +123,39 @@ func New(m map[string]any) (appauth.Manager, error) {
 		return nil, err
 	}
 
-	return NewWithOptions(cs3, pwgen)
+	return NewWithOptions(cs3, pwgen, updateInterval, c.UpdateRetryCount)
 }
 
-func NewWithOptions(mds metadata.Storage, generator PasswordGenerator) (*manager, error) {
+func NewWithOptions(mds metadata.Storage, generator PasswordGenerator, uTimeUpdateInterval time.Duration, updateRetries int) (*manager, error) {
 	return &manager{
-		mds:       mds,
-		generator: generator,
+		mds:                 mds,
+		generator:           generator,
+		uTimeUpdateInterval: uTimeUpdateInterval,
+		updateRetryCount:    updateRetries,
 	}, nil
 }
 
 // GenerateAppPassword creates a password with specified scope to be used by
 // third-party applications.
 func (m *manager) GenerateAppPassword(ctx context.Context, scope map[string]*authpb.Scope, label string, expiration *typespb.Timestamp) (*apppb.AppPassword, error) {
+	logger := appctx.GetLogger(ctx)
 	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "GenerateAppPassword")
 	defer span.End()
 	if err := m.initialize(ctx); err != nil {
+		logger.Error().Err(err).Msg("initializing appauth manager failed")
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		return nil, err
 	}
 	token, err := m.generator.GeneratePassword()
 	if err != nil {
+		logger.Debug().Err(err).Msg("error generating new password")
 		return nil, errors.Wrap(err, "error creating new token")
 	}
 
 	tokenHashed, err := argon2id.CreateHash(token, argon2id.DefaultParams)
 	if err != nil {
+		logger.Debug().Err(err).Msg("error generating password hash")
 		return nil, errors.Wrap(err, "error creating new token")
 	}
 
@@ -137,6 +163,7 @@ func (m *manager) GenerateAppPassword(ctx context.Context, scope map[string]*aut
 	if user, ok := ctxpkg.ContextGetUser(ctx); ok {
 		userID = user.GetId()
 	} else {
+		logger.Debug().Err(err).Msg("no user in context")
 		return nil, errtypes.BadRequest("no user in context")
 	}
 
@@ -156,12 +183,13 @@ func (m *manager) GenerateAppPassword(ctx context.Context, scope map[string]*aut
 
 	id := uuid.New().String()
 
-	err = m.updateWithRetry(ctx, 5, true, userID, func(a map[string]*apppb.AppPassword) (map[string]*apppb.AppPassword, error) {
+	err = m.updateWithRetry(ctx, m.updateRetryCount, true, userID, func(a map[string]*apppb.AppPassword) (map[string]*apppb.AppPassword, error) {
 		a[id] = appPass
 		return a, nil
 	})
 
 	if err != nil {
+		logger.Debug().Err(err).Msg("failed to store new app password")
 		return nil, err
 	}
 
@@ -248,7 +276,7 @@ func (m *manager) InvalidateAppPassword(ctx context.Context, secretOrId string) 
 		return a, errtypes.NotFound("password not found")
 	}
 
-	err := m.updateWithRetry(ctx, 5, false, userID, updater)
+	err := m.updateWithRetry(ctx, m.updateRetryCount, false, userID, updater)
 	if err != nil {
 		log.Error().Err(err).Msg("getUserAppPasswords failed")
 		return errtypes.NotFound("password not found")
@@ -291,8 +319,8 @@ func (m *manager) GetAppPassword(ctx context.Context, user *userpb.UserId, secre
 				matchedID = id
 				// password not expired
 				// Updating the Utime will cause an Upload for every single GetAppPassword request. We are limiting this to one
-				// update per 5 minutes otherwise this backend will become unusable.
-				if time.Since(utils.TSToTime(pw.Utime)) > 5*time.Minute {
+				// update per 'uTimeUpdateInterval' (default 5 min) otherwise this backend will become unusable.
+				if time.Since(utils.TSToTime(pw.Utime)) > m.uTimeUpdateInterval {
 					a[id].Utime = utils.TSNow()
 					return a, nil
 				}
@@ -302,7 +330,7 @@ func (m *manager) GetAppPassword(ctx context.Context, user *userpb.UserId, secre
 		return nil, errtypes.NotFound("password not found")
 	}
 
-	err := m.updateWithRetry(ctx, 5, false, user, updater)
+	err := m.updateWithRetry(ctx, m.updateRetryCount, false, user, updater)
 	switch {
 	case err == nil:
 		fallthrough
@@ -317,6 +345,7 @@ func (m *manager) GetAppPassword(ctx context.Context, user *userpb.UserId, secre
 
 func (m *manager) initialize(ctx context.Context) error {
 	_, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "initialize")
+	logger := appctx.GetLogger(ctx)
 	defer span.End()
 	if m.initialized {
 		span.SetStatus(codes.Ok, "already initialized")
@@ -332,6 +361,7 @@ func (m *manager) initialize(ctx context.Context) error {
 	}
 
 	ctx = context.Background()
+	ctx = appctx.WithLogger(ctx, logger)
 	err := m.mds.Init(ctx, "jsoncs3-appauth-data")
 	if err != nil {
 		span.RecordError(err)
@@ -343,6 +373,7 @@ func (m *manager) initialize(ctx context.Context) error {
 }
 
 func (m *manager) updateWithRetry(ctx context.Context, retries int, createIfNotFound bool, userid *userpb.UserId, updater updaterFunc) error {
+	log := appctx.GetLogger(ctx)
 	_, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "initialize")
 	defer span.End()
 
@@ -355,6 +386,12 @@ func (m *manager) updateWithRetry(ctx context.Context, retries int, createIfNotF
 
 	// retry for the specified number of times, then error out
 	for i := 0; i < retries && retry; i++ {
+		if i > 0 {
+			// if we're retrying, wait a bit before the next try
+			jitter := time.Duration(rand.Int63n(int64(100 * time.Millisecond)))
+			time.Sleep(jitter + 100*time.Millisecond)
+		}
+
 		etag, userAppPasswords, err = m.getUserAppPasswords(ctx, userid)
 		switch err.(type) {
 		case nil:
@@ -363,11 +400,18 @@ func (m *manager) updateWithRetry(ctx context.Context, retries int, createIfNotF
 			if createIfNotFound {
 				userAppPasswords = map[string]*apppb.AppPassword{}
 			} else {
+				log.Debug().Err(err).Msg("getUserAppPasswords failed (not found)")
 				span.RecordError(err)
 				span.SetStatus(codes.Error, "downloading app tokens failed")
 				return err
 			}
+		case errtypes.TooEarly:
+			// Ideally this should never happen as we disable asynchronous uploads for the metadata storage.
+			log.Debug().Err(err).Int("try", i).Msg("getUserAppPasswords failed (too early, retrying)")
+			retry = true
+			continue
 		default:
+			log.Debug().Err(err).Msg("getUserAppPasswords failed")
 			span.RecordError(err)
 			span.SetStatus(codes.Error, "downloading app tokens failed")
 			return err
@@ -382,17 +426,20 @@ func (m *manager) updateWithRetry(ctx context.Context, retries int, createIfNotF
 		switch err.(type) {
 		case nil:
 			retry = false
-		case errtypes.PreconditionFailed:
+		case errtypes.Aborted:
+			log.Debug().Err(err).Int("attempt", i).Msg("updateUserAppPassword failed (retrying)")
 			retry = true
 		default:
+			log.Debug().Err(err).Int("attempt", i).Msg("updateUserAppPassword failed (not retrying)")
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
 			return err
 		}
 	}
 	if retry {
+		log.Debug().Err(err).Msg("updateUserAppPassword failed")
 		span.RecordError(err)
-		span.SetStatus(codes.Error, "updating app tokens failed")
+		span.SetStatus(codes.Error, "updating app token failed")
 		return err
 	}
 	return nil
@@ -424,7 +471,7 @@ func (m *manager) updateUserAppPassword(ctx context.Context, userid *userpb.User
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
-		log.Debug().Err(err).Msg("persisting provider cache failed")
+		log.Debug().Err(err).Msg("failed to upload AppPasswword")
 		return err
 	}
 	return nil

@@ -677,7 +677,7 @@ func (m *Manager) listSharesByIDs(ctx context.Context, user *userv1beta1.User, f
 					continue
 				}
 
-				if !(share.IsCreatedByUser(s, user) || share.IsGrantedToUser(s, user)) {
+				if !share.IsCreatedByUser(s, user) && !share.IsGrantedToUser(s, user) {
 					key := storagespace.FormatResourceID(resourceID)
 					if _, hit := statCache[key]; !hit {
 						req := &provider.StatRequest{

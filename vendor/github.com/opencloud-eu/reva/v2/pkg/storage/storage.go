@@ -137,9 +137,11 @@ type FS interface {
 	DeleteStorageSpace(ctx context.Context, req *provider.DeleteStorageSpaceRequest) error
 
 	// CreateHome creates a users home
+	//
 	// Deprecated: use CreateStorageSpace with type personal
 	CreateHome(ctx context.Context) error
 	// GetHome returns the path to the users home
+	//
 	// Deprecated: use ListStorageSpaces with type personal
 	GetHome(ctx context.Context) (string, error)
 }

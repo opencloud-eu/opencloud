@@ -183,11 +183,11 @@ func (i *Identity) Setup() error {
 
 	if sharedconf.MultiTenantEnabled() {
 		if i.User.Schema.TenantID == "" {
-			return fmt.Errorf("Invalid configuration: a 'tenantId' user schema attribute must be defined for multi-tenant setups")
+			return fmt.Errorf("invalid configuration: a 'tenantId' user schema attribute must be defined for multi-tenant setups")
 		}
 	} else {
 		if i.User.Schema.TenantID != "" {
-			return fmt.Errorf("Invalid configuration: Superfluous 'tenantId' user schema attribute defined for single-tenant setups")
+			return fmt.Errorf("invalid configuration: superfluous 'tenantId' user schema attribute defined for single-tenant setups")
 		}
 	}
 

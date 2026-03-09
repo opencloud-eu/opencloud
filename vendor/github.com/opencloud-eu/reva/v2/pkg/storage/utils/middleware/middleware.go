@@ -107,7 +107,7 @@ func (f *FS) GetHome(ctx context.Context) (string, error) {
 		}
 	}
 
-	res0, res1 := f.next.GetHome(ctx)
+	res0, res1 := f.next.GetHome(ctx) //nolint:staticcheck // we're just exposing the deprecated method here
 
 	for _, unhook := range unhooks {
 		if err := unhook(); err != nil {
@@ -134,7 +134,7 @@ func (f *FS) CreateHome(ctx context.Context) error {
 		}
 	}
 
-	res0 := f.next.CreateHome(ctx)
+	res0 := f.next.CreateHome(ctx) //nolint:staticcheck // we're just exposing the deprecated method here
 
 	for _, unhook := range unhooks {
 		if err := unhook(); err != nil {

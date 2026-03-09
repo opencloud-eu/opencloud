@@ -849,7 +849,7 @@ func (p *Handler) getSpaceResourceInfos(ctx context.Context, w http.ResponseWrit
 }
 
 func metadataKeysWithPrefix(prefix string, keys []string) []string {
-	fullKeys := []string{}
+	fullKeys := make([]string, 0, len(keys))
 	for _, key := range keys {
 		fullKeys = append(fullKeys, fmt.Sprintf("%s.%s", prefix, key))
 	}

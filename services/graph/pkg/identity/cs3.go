@@ -111,7 +111,14 @@ func (i *CS3) GetUsers(ctx context.Context, oreq *godata.GoDataRequest) ([]*libr
 	res, err := gatewayClient.FindUsers(ctx, &cs3user.FindUsersRequest{
 		// FIXME presence match is currently not implemented, an empty search currently leads to
 		// Unwilling To Perform": Search Error: error parsing filter: (&(objectclass=posixAccount)(|(cn=*)(displayname=*)(mail=*))), error: Present filter match for cn not implemented
-		Query: search,
+		Filters: []*cs3user.Filter{
+			{
+				Type: cs3user.Filter_TYPE_QUERY,
+				Term: &cs3user.Filter_Query{
+					Query: search,
+				},
+			},
+		},
 	})
 	switch {
 	case err != nil:
@@ -162,7 +169,14 @@ func (i *CS3) GetGroups(ctx context.Context, oreq *godata.GoDataRequest) ([]*lib
 	res, err := gatewayClient.FindGroups(ctx, &cs3group.FindGroupsRequest{
 		// FIXME presence match is currently not implemented, an empty search currently leads to
 		// Unwilling To Perform": Search Error: error parsing filter: (&(objectclass=posixAccount)(|(cn=*)(displayname=*)(mail=*))), error: Present filter match for cn not implemented
-		Filter: search,
+		Filters: []*cs3group.Filter{
+			{
+				Type: cs3group.Filter_TYPE_QUERY,
+				Term: &cs3group.Filter_Query{
+					Query: search,
+				},
+			},
+		},
 	})
 
 	switch {

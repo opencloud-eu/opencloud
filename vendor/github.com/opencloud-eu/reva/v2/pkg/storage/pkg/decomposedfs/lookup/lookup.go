@@ -279,6 +279,7 @@ func (lu *Lookup) LockfilePaths(n *node.Node) []string {
 }
 
 // VersionPath returns the internal path for a version of a node
+//
 // Deprecated: use InternalPath instead
 func (lu *Lookup) VersionPath(spaceID, nodeID, version string) string {
 	return lu.InternalPath(spaceID, nodeID) + node.RevisionIDDelimiter + version
@@ -337,7 +338,7 @@ func (lu *Lookup) CopyMetadataWithSourceLock(ctx context.Context, sourceNode, ta
 	switch {
 	case lockedSource == nil:
 		return errors.New("no lock provided")
-	case lockedSource.File.Name() != lu.MetadataBackend().LockfilePath(sourceNode):
+	case lockedSource.Name() != lu.MetadataBackend().LockfilePath(sourceNode):
 		return errors.New("lockpath does not match filepath")
 	}
 

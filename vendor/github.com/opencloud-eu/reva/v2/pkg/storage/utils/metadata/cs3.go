@@ -39,6 +39,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/net"
+	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -97,16 +98,19 @@ func (cs3 *CS3) Backend() string {
 
 // Init creates the metadata space
 func (cs3 *CS3) Init(ctx context.Context, spaceid string) (err error) {
+	logger := appctx.GetLogger(ctx)
 	ctx, span := tracer.Start(ctx, "Init")
 	defer span.End()
 
 	client, err := cs3.spacesClient()
 	if err != nil {
+		logger.Err(err).Msg("error getting spaces client")
 		return err
 	}
 
 	ctx, err = cs3.getAuthContext(ctx)
 	if err != nil {
+		logger.Err(err).Msg("error getting auth context")
 		return err
 	}
 
@@ -146,12 +150,14 @@ func (cs3 *CS3) Init(ctx context.Context, spaceid string) (err error) {
 	})
 	switch {
 	case err != nil:
+		logger.Err(err).Msg("error creating storage space")
 		return err
 	case cssr.Status.Code == rpc.Code_CODE_OK:
 		cs3.SpaceRoot = cssr.StorageSpace.Root
 	case cssr.Status.Code == rpc.Code_CODE_ALREADY_EXISTS:
 		return errtypes.AlreadyExists(fmt.Sprintf("user %s does not have access to metadata space %s, but it exists", cs3.serviceUser.Id.OpaqueId, spaceid))
 	default:
+		logger.Debug().Str("Status", cssr.Status.Message).Msg("error creating storage space")
 		return errtypes.NewErrtypeFromStatus(cssr.Status)
 	}
 	return nil

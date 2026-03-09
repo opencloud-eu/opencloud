@@ -92,10 +92,11 @@ func (m *Metrics) Update(meshData *meshdata.MeshData) error {
 }
 
 func (m *Metrics) exportSiteMetrics(site *meshdata.Site) error {
-	mutators := make([]tag.Mutator, 0)
-	mutators = append(mutators, tag.Insert(tag.MustNewKey(keySiteID), site.ID))
-	mutators = append(mutators, tag.Insert(tag.MustNewKey(keySiteName), site.Name))
-	mutators = append(mutators, tag.Insert(tag.MustNewKey(keyServiceType), "SCIENCEMESH_HCHECK"))
+	mutators := []tag.Mutator{
+		tag.Insert(tag.MustNewKey(keySiteID), site.ID),
+		tag.Insert(tag.MustNewKey(keySiteName), site.Name),
+		tag.Insert(tag.MustNewKey(keyServiceType), "SCIENCEMESH_HCHECK"),
+	}
 
 	// Create a new context to serve the metrics
 	if ctx, err := tag.New(context.Background(), mutators...); err == nil {

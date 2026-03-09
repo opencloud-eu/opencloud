@@ -144,7 +144,11 @@ func (s *service) GetGroupByClaim(ctx context.Context, req *grouppb.GetGroupByCl
 }
 
 func (s *service) FindGroups(ctx context.Context, req *grouppb.FindGroupsRequest) (*grouppb.FindGroupsResponse, error) {
-	groups, err := s.groupmgr.FindGroups(ctx, req.Filter, req.SkipFetchingMembers)
+	if len(req.Filters) > 1 || req.Filters[0].GetType() != grouppb.Filter_TYPE_QUERY {
+		return nil, fmt.Errorf("only one query filter supported")
+	}
+
+	groups, err := s.groupmgr.FindGroups(ctx, req.Filters[0].GetQuery(), req.SkipFetchingMembers)
 	if err != nil {
 		return &grouppb.FindGroupsResponse{
 			Status: status.NewInternal(ctx, "error finding groups"),

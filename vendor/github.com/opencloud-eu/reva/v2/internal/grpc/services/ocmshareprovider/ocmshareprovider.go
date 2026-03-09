@@ -201,38 +201,6 @@ func (s *service) getWebappProtocol(share *ocm.Share) *ocmd.Webapp {
 	}
 }
 
-func (s *service) getDataTransferProtocol(ctx context.Context, share *ocm.Share) *ocmd.Datatx {
-	var size uint64
-
-	gatewayClient, err := s.gatewaySelector.Next()
-	if err != nil {
-		return nil
-	}
-	// get the path of the share
-	statRes, err := gatewayClient.Stat(ctx, &providerpb.StatRequest{
-		Ref: &providerpb.Reference{
-			ResourceId: share.ResourceId,
-		},
-	})
-	if err != nil {
-		return nil
-	}
-
-	err = s.walker.Walk(ctx, statRes.GetInfo().GetId(), func(path string, info *providerpb.ResourceInfo, err error) error {
-		if info.Type == providerpb.ResourceType_RESOURCE_TYPE_FILE {
-			size += info.Size
-		}
-		return nil
-	})
-	if err != nil {
-		return nil
-	}
-	return &ocmd.Datatx{
-		SourceURI: s.webdavURL(ctx, share),
-		Size:      size,
-	}
-}
-
 func (s *service) getProtocols(ctx context.Context, share *ocm.Share) ocmd.Protocols {
 	var p ocmd.Protocols
 	for _, m := range share.AccessMethods {
@@ -242,8 +210,6 @@ func (s *service) getProtocols(ctx context.Context, share *ocm.Share) ocmd.Proto
 			newProtocol = s.getWebdavProtocol(ctx, share, t)
 		case *ocm.AccessMethod_WebappOptions:
 			newProtocol = s.getWebappProtocol(share)
-		case *ocm.AccessMethod_TransferOptions:
-			newProtocol = s.getDataTransferProtocol(ctx, share)
 		}
 		if newProtocol != nil {
 			p = append(p, newProtocol)

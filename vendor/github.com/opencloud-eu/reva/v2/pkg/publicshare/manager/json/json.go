@@ -557,7 +557,7 @@ func (m *manager) ListPublicShares(ctx context.Context, u *user.User, filters []
 			cache[key] = struct{}{}
 		}
 
-		if local.PublicShare.PasswordProtected && sign {
+		if local.PasswordProtected && sign {
 			if err := publicshare.AddSignature(&local.PublicShare, local.Password); err != nil {
 				return nil, err
 			}

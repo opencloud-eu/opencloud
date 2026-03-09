@@ -240,7 +240,8 @@ func CS3Share2ShareData(ctx context.Context, share *collaboration.Share) *ShareD
 		UIDFileOwner: LocalUserIDToString(share.GetOwner()),
 	}
 
-	if share.Grantee.Type == provider.GranteeType_GRANTEE_TYPE_USER {
+	switch share.Grantee.Type {
+	case provider.GranteeType_GRANTEE_TYPE_USER:
 		sd.ShareType = ShareTypeUser
 		sd.ShareWith = LocalUserIDToString(share.Grantee.GetUserId())
 		shareType := share.GetGrantee().GetUserId().GetType()
@@ -249,7 +250,7 @@ func CS3Share2ShareData(ctx context.Context, share *collaboration.Share) *ShareD
 		} else {
 			sd.ShareWithUserType = ShareWithUserTypeUser
 		}
-	} else if share.Grantee.Type == provider.GranteeType_GRANTEE_TYPE_GROUP {
+	case provider.GranteeType_GRANTEE_TYPE_GROUP:
 		sd.ShareType = ShareTypeGroup
 		sd.ShareWith = LocalGroupIDToString(share.Grantee.GetGroupId())
 	}
@@ -343,8 +344,8 @@ func ReceivedOCMShare2ShareData(share *ocm.ReceivedShare, path string) (*ShareDa
 		ShareType:    ShareTypeFederatedCloudShare,
 		Path:         shareTarget,
 		FileTarget:   shareTarget,
-		MimeType:     mime.Detect(share.ResourceType == provider.ResourceType_RESOURCE_TYPE_CONTAINER, share.Name),
-		ItemType:     ResourceType(share.ResourceType).String(),
+		MimeType:     mime.Detect(share.ResourceType == provider.ResourceType_RESOURCE_TYPE_CONTAINER, share.Name), //nolint:staticcheck // we will update our ocm implementation later
+		ItemType:     ResourceType(share.ResourceType).String(),                                                    //nolint:staticcheck // we will update our ocm implementation later
 		ItemSource: storagespace.FormatResourceID(&provider.ResourceId{
 			StorageId: utils.OCMStorageProviderID,
 			SpaceId:   share.Id.OpaqueId,

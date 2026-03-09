@@ -63,7 +63,7 @@ func (s *svc) handlePathMkcol(w http.ResponseWriter, r *http.Request, ns string)
 	case sr.Status.Code == rpc.Code_CODE_OK:
 		// https://www.rfc-editor.org/rfc/rfc4918#section-9.3.1:
 		// 405 (Method Not Allowed) - MKCOL can only be executed on an unmapped URL.
-		return http.StatusMethodNotAllowed, fmt.Errorf("The resource you tried to create already exists")
+		return http.StatusMethodNotAllowed, fmt.Errorf("The resource you tried to create already exists") //nolint:staticcheck
 	case sr.Status.Code == rpc.Code_CODE_ABORTED:
 		return http.StatusPreconditionFailed, errtypes.NewErrtypeFromStatus(sr.Status)
 	case sr.Status.Code != rpc.Code_CODE_NOT_FOUND:
@@ -133,7 +133,7 @@ func (s *svc) handleMkcol(ctx context.Context, w http.ResponseWriter, r *http.Re
 		// This should never happen because if the parent collection does not exist we should
 		// get a Code_CODE_FAILED_PRECONDITION. We play stupid and return what the response gave us
 		//lint:ignore ST1005 mimic the exact oc10 error message
-		return http.StatusNotFound, errors.New("Resource not found")
+		return http.StatusNotFound, errors.New("Resource not found") //nolint:staticcheck
 	case res.Status.Code == rpc.Code_CODE_PERMISSION_DENIED:
 		// check if user has access to parent
 		sRes, err := client.Stat(ctx, &provider.StatRequest{Ref: &provider.Reference{
@@ -148,7 +148,7 @@ func (s *svc) handleMkcol(ctx context.Context, w http.ResponseWriter, r *http.Re
 			// TODO hide permission failed for users without access in every kind of request
 			// TODO should this be done in the driver?
 			//lint:ignore ST1005 mimic the exact oc10 error message
-			return http.StatusNotFound, errors.New("Resource not found")
+			return http.StatusNotFound, errors.New("Resource not found") //nolint:staticcheck
 		}
 		return http.StatusForbidden, errors.New(sRes.Status.Message)
 	case res.Status.Code == rpc.Code_CODE_ABORTED:
@@ -163,7 +163,7 @@ func (s *svc) handleMkcol(ctx context.Context, w http.ResponseWriter, r *http.Re
 		// https://www.rfc-editor.org/rfc/rfc4918#section-9.3.1:
 		// 405 (Method Not Allowed) - MKCOL can only be executed on an unmapped URL.
 		//lint:ignore ST1005 mimic the exact oc10 error message
-		return http.StatusMethodNotAllowed, errors.New("The resource you tried to create already exists")
+		return http.StatusMethodNotAllowed, errors.New("The resource you tried to create already exists") //nolint:staticcheck
 	}
 	return rstatus.HTTPStatusFromCode(res.Status.Code), errtypes.NewErrtypeFromStatus(res.Status)
 }

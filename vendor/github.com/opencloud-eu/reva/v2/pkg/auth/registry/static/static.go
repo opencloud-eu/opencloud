@@ -50,7 +50,7 @@ type reg struct {
 }
 
 func (r *reg) ListProviders(ctx context.Context) ([]*registrypb.ProviderInfo, error) {
-	providers := []*registrypb.ProviderInfo{}
+	providers := make([]*registrypb.ProviderInfo, 0, len(r.rules))
 	for k, v := range r.rules {
 		providers = append(providers, &registrypb.ProviderInfo{
 			ProviderType: k,

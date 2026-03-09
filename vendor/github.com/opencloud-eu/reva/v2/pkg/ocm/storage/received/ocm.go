@@ -260,7 +260,7 @@ func convertStatToResourceInfo(ref *provider.Reference, f fs.FileInfo, share *oc
 
 	var name string
 	switch {
-	case share.ResourceType == provider.ResourceType_RESOURCE_TYPE_FILE:
+	case share.ResourceType == provider.ResourceType_RESOURCE_TYPE_FILE: //nolint:staticcheck // we will update our ocm implementation later
 		name = share.Name
 	case webdavFile.Path() == "/":
 		name = share.Name

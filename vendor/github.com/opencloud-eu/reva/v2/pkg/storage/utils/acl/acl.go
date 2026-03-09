@@ -79,7 +79,7 @@ func isComment(line string) bool {
 
 // Serialize always serializes to short text form
 func (m *ACLs) Serialize() string {
-	sysACL := []string{}
+	sysACL := make([]string, 0, len(m.Entries))
 	for _, e := range m.Entries {
 		sysACL = append(sysACL, e.CitrineSerialize())
 	}

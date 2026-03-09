@@ -49,7 +49,6 @@ import (
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	ocm "github.com/cs3org/go-cs3apis/cs3/sharing/ocm/v1beta1"
-	ocmv1beta1 "github.com/cs3org/go-cs3apis/cs3/sharing/ocm/v1beta1"
 	"github.com/jellydator/ttlcache/v2"
 	"github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocs/config"
 	"github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocs/response"
@@ -1305,8 +1304,8 @@ func (h *Handler) addFileInfo(ctx context.Context, s *conversions.ShareData, inf
 	s.ItemSource = storagespace.FormatResourceID(info.Id)
 	s.FileSource = s.ItemSource
 	s.Path = path.Join("/", info.Path)
-	switch {
-	case h.sharePrefix == "/":
+	switch h.sharePrefix {
+	case "/":
 		s.FileTarget = info.Path
 		client, err := h.getClient()
 		if err == nil {
@@ -1627,13 +1626,13 @@ func mapState(state collaboration.ShareState) int {
 	return mapped
 }
 
-func mapOCMState(state ocmv1beta1.ShareState) int {
+func mapOCMState(state ocm.ShareState) int {
 	switch state {
-	case ocmv1beta1.ShareState_SHARE_STATE_PENDING:
+	case ocm.ShareState_SHARE_STATE_PENDING:
 		return ocsStatePending
-	case ocmv1beta1.ShareState_SHARE_STATE_ACCEPTED:
+	case ocm.ShareState_SHARE_STATE_ACCEPTED:
 		return ocsStateAccepted
-	case ocmv1beta1.ShareState_SHARE_STATE_REJECTED:
+	case ocm.ShareState_SHARE_STATE_REJECTED:
 		return ocsStateRejected
 	default:
 		return ocsStateUnknown
@@ -1657,18 +1656,18 @@ func getStateFilter(s string) collaboration.ShareState {
 	return stateFilter
 }
 
-func getOCMStateFilter(s string) ocmv1beta1.ShareState {
+func getOCMStateFilter(s string) ocm.ShareState {
 	switch s {
 	case "all":
 		return ocsStateUnknown // no filter
 	case "0": // accepted
-		return ocmv1beta1.ShareState_SHARE_STATE_ACCEPTED
+		return ocm.ShareState_SHARE_STATE_ACCEPTED
 	case "1": // pending
-		return ocmv1beta1.ShareState_SHARE_STATE_PENDING
+		return ocm.ShareState_SHARE_STATE_PENDING
 	case "2": // rejected
-		return ocmv1beta1.ShareState_SHARE_STATE_REJECTED
+		return ocm.ShareState_SHARE_STATE_REJECTED
 	default:
-		return ocmv1beta1.ShareState_SHARE_STATE_ACCEPTED
+		return ocm.ShareState_SHARE_STATE_ACCEPTED
 	}
 }
 

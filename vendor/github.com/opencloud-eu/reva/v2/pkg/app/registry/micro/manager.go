@@ -139,7 +139,7 @@ func (m *manager) ListSupportedMimeTypes(ctx context.Context) ([]*registrypb.Mim
 	m.RLock()
 	defer m.RUnlock()
 
-	res := []*registrypb.MimeTypeInfo{}
+	res := make([]*registrypb.MimeTypeInfo, 0, len(m.config.MimeTypes))
 	for _, mime := range m.config.MimeTypes {
 		res = append(res, &registrypb.MimeTypeInfo{
 			MimeType:           mime.MimeType,

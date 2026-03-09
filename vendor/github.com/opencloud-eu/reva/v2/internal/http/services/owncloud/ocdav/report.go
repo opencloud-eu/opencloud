@@ -24,7 +24,6 @@ import (
 	"net/http"
 
 	rpcv1beta1 "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
-	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	providerv1beta1 "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/net"
 	"github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/propfind"
@@ -100,7 +99,7 @@ func (s *svc) doFilterFiles(w http.ResponseWriter, r *http.Request, ff *reportFi
 			return
 		}
 
-		infos := make([]*provider.ResourceInfo, 0, len(favorites))
+		infos := make([]*providerv1beta1.ResourceInfo, 0, len(favorites))
 		for i := range favorites {
 			statRes, err := client.Stat(ctx, &providerv1beta1.StatRequest{Ref: &providerv1beta1.Reference{ResourceId: favorites[i]}})
 			if err != nil {
@@ -179,14 +178,15 @@ func readReport(r io.Reader) (rep *report, status int, err error) {
 		}
 
 		if v, ok := t.(xml.StartElement); ok {
-			if v.Name.Local == elementNameSearchFiles {
+			switch v.Name.Local {
+			case elementNameSearchFiles:
 				var repSF reportSearchFiles
 				err = decoder.DecodeElement(&repSF, &v)
 				if err != nil {
 					return nil, http.StatusBadRequest, err
 				}
 				rep.SearchFiles = &repSF
-			} else if v.Name.Local == elementNameFilterFiles {
+			case elementNameFilterFiles:
 				var repFF reportFilterFiles
 				err = decoder.DecodeElement(&repFF, &v)
 				if err != nil {

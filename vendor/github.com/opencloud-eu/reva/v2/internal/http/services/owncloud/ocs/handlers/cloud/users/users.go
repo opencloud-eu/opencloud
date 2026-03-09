@@ -117,11 +117,11 @@ func (h *Handler) GetUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var user *cs3identity.User
-	switch {
-	case userid == "":
+	switch userid {
+	case "":
 		response.WriteOCSError(w, r, response.MetaBadRequest.StatusCode, "missing username", fmt.Errorf("missing username"))
 		return
-	case userid == currentUser.Username:
+	case currentUser.Username:
 		user = currentUser
 	default:
 		// FIXME allow fetching other users info? only for admins

@@ -384,7 +384,7 @@ func (s *svc) performHTTPPush(ctx context.Context, r *http.Request, w http.Respo
 	defer httpDownloadRes.Body.Close()
 	if httpDownloadRes.StatusCode != http.StatusOK {
 		w.WriteHeader(httpDownloadRes.StatusCode)
-		return fmt.Errorf("Remote PUT returned status code %d", httpDownloadRes.StatusCode)
+		return fmt.Errorf("remote PUT returned status code %d", httpDownloadRes.StatusCode)
 	}
 
 	// send performance markers periodically every PerfMarkerResponseTime (5 seconds unless configured)

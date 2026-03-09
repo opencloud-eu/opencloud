@@ -39,6 +39,7 @@ type UploadRequest struct {
 }
 
 // UploadsManager defines the interface for storage drivers that allow for managing uploads
+//
 // Deprecated: No longer used. Storage drivers should implement the UploadSessionLister.
 type UploadsManager interface {
 	ListUploads() ([]tusd.FileInfo, error)

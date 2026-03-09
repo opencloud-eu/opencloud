@@ -511,7 +511,7 @@ func (c *Client) SetAttr(ctx context.Context, auth eosclient.Authorization, attr
 	// We need to set the attrs on the version folder as they are not persisted across writes
 	// Except for the sys.eval.useracl attr as EOS uses that to determine if it needs to obey
 	// the user ACLs set on the file
-	if !(attr.Type == eosclient.SystemAttr && attr.Key == userACLEvalKey) {
+	if attr.Type != eosclient.SystemAttr || attr.Key != userACLEvalKey {
 		info, err = c.getRawFileInfoByPath(ctx, auth, path)
 		if err != nil {
 			return err
@@ -587,7 +587,7 @@ func (c *Client) UnsetAttr(ctx context.Context, auth eosclient.Authorization, at
 	// We need to set the attrs on the version folder as they are not persisted across writes
 	// Except for the sys.eval.useracl attr as EOS uses that to determine if it needs to obey
 	// the user ACLs set on the file
-	if !(attr.Type == eosclient.SystemAttr && attr.Key == userACLEvalKey) {
+	if attr.Type != eosclient.SystemAttr || attr.Key != userACLEvalKey {
 		info, err = c.getRawFileInfoByPath(ctx, auth, path)
 		if err != nil {
 			return err
@@ -927,10 +927,7 @@ func parseRecycleEntry(raw string) (*eosclient.DeletedEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	isDir := false
-	if kv["type"] == "recursive-dir" {
-		isDir = true
-	}
+	isDir := kv["type"] == "recursive-dir"
 	deletionMTime, err := strconv.ParseUint(strings.Split(kv["deletion-time"], ".")[0], 10, 64)
 	if err != nil {
 		return nil, err
@@ -1087,13 +1084,13 @@ func (c *Client) parseFileInfo(ctx context.Context, raw string, parseFavoriteKey
 		partsByEqual := strings.SplitN(p, "=", 2) // we have kv pairs like [size 14]
 		if len(partsByEqual) == 2 {
 			// handle xattrn and xattrv special cases
-			switch {
-			case partsByEqual[0] == "xattrn":
+			switch partsByEqual[0] {
+			case "xattrn":
 				previousXAttr = partsByEqual[1]
 				if previousXAttr != "user.acl" {
 					previousXAttr = strings.Replace(previousXAttr, "user.", "", 1)
 				}
-			case partsByEqual[0] == "xattrv":
+			case "xattrv":
 				attrs[previousXAttr] = partsByEqual[1]
 				previousXAttr = ""
 			default:

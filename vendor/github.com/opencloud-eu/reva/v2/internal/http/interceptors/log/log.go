@@ -180,10 +180,10 @@ type hijackLogger struct {
 }
 
 func (l *hijackLogger) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	h := l.responseLogger.w.(http.Hijacker)
+	h := l.w.(http.Hijacker)
 	conn, rw, err := h.Hijack()
-	if err == nil && l.responseLogger.status == 0 {
-		l.responseLogger.status = http.StatusSwitchingProtocols
+	if err == nil && l.status == 0 {
+		l.status = http.StatusSwitchingProtocols
 	}
 	return conn, rw, err
 }

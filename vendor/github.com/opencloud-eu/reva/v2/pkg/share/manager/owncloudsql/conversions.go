@@ -25,7 +25,6 @@ import (
 
 	grouppb "github.com/cs3org/go-cs3apis/cs3/identity/group/v1beta1"
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
-	userprovider "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	collaboration "github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
@@ -99,7 +98,7 @@ func (c *GatewayUserConverter) UserIDToUserName(ctx context.Context, userid *use
 	if err != nil {
 		return "", err
 	}
-	getUserResponse, err := gwConn.GetUser(ctx, &userprovider.GetUserRequest{
+	getUserResponse, err := gwConn.GetUser(ctx, &userpb.GetUserRequest{
 		UserId:                 userid,
 		SkipFetchingUserGroups: true,
 	})

@@ -484,7 +484,7 @@ func (m *mgr) UpdateReceivedShare(ctx context.Context, receivedShare *collaborat
 			return err
 		}
 		if affected < 1 {
-			return fmt.Errorf("No rows updated")
+			return fmt.Errorf("no rows updated")
 		}
 		return nil
 	}
@@ -538,7 +538,7 @@ func (m *mgr) getReceivedByID(ctx context.Context, id *collaboration.ShareId) (*
 	user := ctxpkg.ContextMustGetUser(ctx)
 	uid := user.Username
 
-	params := []interface{}{id.OpaqueId, id.OpaqueId, uid}
+	params := []interface{}{id.OpaqueId, id.OpaqueId, uid} //nolint:prealloc
 	for _, v := range user.Groups {
 		params = append(params, v)
 	}
@@ -559,16 +559,16 @@ func (m *mgr) getReceivedByID(ctx context.Context, id *collaboration.ShareId) (*
 	query := `
 	WITH results AS
 	(
-		SELECT s.*, storages.numeric_id 
+		SELECT s.*, storages.numeric_id
 		FROM oc_share s
 		LEFT JOIN oc_storages storages ON ` + homeConcat + `
 		WHERE s.id=? OR s.parent=? ` + userSelect + `
 	)
 	SELECT COALESCE(r.uid_owner, '') AS uid_owner, COALESCE(r.uid_initiator, '') AS uid_initiator, COALESCE(r.share_with, '')
 		AS share_with, COALESCE(r.file_source, '') AS file_source, COALESCE(r2.file_target, r.file_target), r.id, r.stime, r.permissions, r.share_type, COALESCE(r2.accepted, r.accepted),
-		r.numeric_id, COALESCE(r.parent, -1) AS parent 
-	FROM results r 
-	LEFT JOIN results r2 ON r.id = r2.parent 
+		r.numeric_id, COALESCE(r.parent, -1) AS parent
+	FROM results r
+	LEFT JOIN results r2 ON r.id = r2.parent
 	WHERE r.parent IS NULL;
 	`
 

@@ -145,7 +145,7 @@ func (siteacc *SiteAccounts) RequestHandler() http.Handler {
 
 		if !epHandled {
 			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte(fmt.Sprintf("Unknown endpoint %v", r.URL.Path)))
+			_, _ = fmt.Fprintf(w, "Unknown endpoint %v", r.URL.Path)
 		}
 	})
 }

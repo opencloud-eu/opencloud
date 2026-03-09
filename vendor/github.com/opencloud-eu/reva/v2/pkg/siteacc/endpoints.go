@@ -97,14 +97,14 @@ func getEndpoints() []endpoint {
 func callAdministrationEndpoint(siteacc *SiteAccounts, ep endpoint, w http.ResponseWriter, r *http.Request, session *html.Session) {
 	if err := siteacc.ShowAdministrationPanel(w, r, session); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(fmt.Sprintf("Unable to show the administration panel: %v", err)))
+		_, _ = fmt.Fprintf(w, "Unable to show the administration panel: %v", err)
 	}
 }
 
 func callAccountEndpoint(siteacc *SiteAccounts, ep endpoint, w http.ResponseWriter, r *http.Request, session *html.Session) {
 	if err := siteacc.ShowAccountPanel(w, r, session); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(fmt.Sprintf("Unable to show the account panel: %v", err)))
+		_, _ = fmt.Fprintf(w, "Unable to show the account panel: %v", err)
 	}
 }
 

@@ -25,6 +25,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/opencloud-eu/reva/v2/pkg/appauth"
 	"github.com/opencloud-eu/reva/v2/pkg/appauth/manager/registry"
+	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
@@ -104,8 +105,10 @@ func (s *service) UnprotectedEndpoints() []string {
 }
 
 func (s *service) GenerateAppPassword(ctx context.Context, req *appauthpb.GenerateAppPasswordRequest) (*appauthpb.GenerateAppPasswordResponse, error) {
+	logger := appctx.GetLogger(ctx)
 	pwd, err := s.am.GenerateAppPassword(ctx, req.TokenScope, req.Label, req.Expiration)
 	if err != nil {
+		logger.Debug().Err(err).Msg("error generating app password")
 		return &appauthpb.GenerateAppPasswordResponse{
 			Status: status.NewInternal(ctx, "error generating app password"),
 		}, nil
@@ -148,7 +151,7 @@ func (s *service) GetAppPassword(ctx context.Context, req *appauthpb.GetAppPassw
 	pwd, err := s.am.GetAppPassword(ctx, req.User, req.Password)
 	if err != nil {
 		return &appauthpb.GetAppPasswordResponse{
-			Status: status.NewInternal(ctx, "error getting app password via username/password"),
+			Status: status.NewStatusFromErrType(ctx, "error getting app password via username/password", err),
 		}, nil
 	}
 

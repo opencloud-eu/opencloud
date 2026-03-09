@@ -324,9 +324,10 @@ func (fs *owncloudsqlfs) GetUpload(ctx context.Context, id string) (tusd.Upload,
 	ctx = ctxpkg.ContextSetUser(ctx, u)
 	// TODO configure the logger the same way ... store and add traceid in file info
 
-	var opts []logger.Option
-	opts = append(opts, logger.WithLevel(info.Storage["LogLevel"]))
-	opts = append(opts, logger.WithWriter(os.Stderr, logger.ConsoleMode))
+	opts := []logger.Option{
+		logger.WithLevel(info.Storage["LogLevel"]),
+		logger.WithWriter(os.Stderr, logger.ConsoleMode),
+	}
 	l := logger.New(opts...)
 
 	sub := l.With().Int("pid", os.Getpid()).Logger()
