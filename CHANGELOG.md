@@ -27,6 +27,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/open-policy-agent/opa from 1.13.2 to 1.14.0 [[#2427](https://github.com/opencloud-eu/opencloud/pull/2427)]
 - build(deps): bump go.opentelemetry.io/otel from 1.40.0 to 1.41.0 [[#2425](https://github.com/opencloud-eu/opencloud/pull/2425)]
 - build(deps): bump github.com/davidbyttow/govips/v2 from 2.16.0 to 2.17.0 [[#2420](https://github.com/opencloud-eu/opencloud/pull/2420)]
 - build(deps): bump github.com/nats-io/nats.go from 1.48.0 to 1.49.0 [[#2390](https://github.com/opencloud-eu/opencloud/pull/2390)]
