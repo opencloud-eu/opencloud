@@ -140,7 +140,7 @@ type ApiListPermissionRoleDefinitionsRequest struct {
 	ApiService *RoleManagementApiService
 }
 
-func (r ApiListPermissionRoleDefinitionsRequest) Execute() (*UnifiedRoleDefinition, *http.Response, error) {
+func (r ApiListPermissionRoleDefinitionsRequest) Execute() ([]UnifiedRoleDefinition, *http.Response, error) {
 	return r.ApiService.ListPermissionRoleDefinitionsExecute(r)
 }
 
@@ -161,13 +161,13 @@ func (a *RoleManagementApiService) ListPermissionRoleDefinitions(ctx context.Con
 }
 
 // Execute executes the request
-//  @return UnifiedRoleDefinition
-func (a *RoleManagementApiService) ListPermissionRoleDefinitionsExecute(r ApiListPermissionRoleDefinitionsRequest) (*UnifiedRoleDefinition, *http.Response, error) {
+//  @return []UnifiedRoleDefinition
+func (a *RoleManagementApiService) ListPermissionRoleDefinitionsExecute(r ApiListPermissionRoleDefinitionsRequest) ([]UnifiedRoleDefinition, *http.Response, error) {
 	var (
 		localVarHTTPMethod   = http.MethodGet
 		localVarPostBody     interface{}
 		formFiles            []formFile
-		localVarReturnValue  *UnifiedRoleDefinition
+		localVarReturnValue  []UnifiedRoleDefinition
 	)
 
 	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "RoleManagementApiService.ListPermissionRoleDefinitions")

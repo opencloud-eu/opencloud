@@ -994,6 +994,13 @@ func (a *EducationSchoolApiService) ListSchoolUsersExecute(r ApiListSchoolUsersR
 type ApiListSchoolsRequest struct {
 	ctx context.Context
 	ApiService *EducationSchoolApiService
+	filter *string
+}
+
+// Filter items by property values. Supports a subset of OData filter expressions.  **Supported filters:** - By external ID: &#x60;externalId eq &#39;ext_12345&#39;&#x60; 
+func (r ApiListSchoolsRequest) Filter(filter string) ApiListSchoolsRequest {
+	r.filter = &filter
+	return r
 }
 
 func (r ApiListSchoolsRequest) Execute() (*CollectionOfSchools, *http.Response, error) {
@@ -1002,6 +1009,13 @@ func (r ApiListSchoolsRequest) Execute() (*CollectionOfSchools, *http.Response, 
 
 /*
 ListSchools Get a list of schools and their properties
+
+Retrieves a collection of education schools with optional filtering and ordering.
+
+**Filtering by external ID:**
+Use `$filter` to query schools by their external identifier, for example:
+`$filter=externalId eq 'EX12345'`
+
 
  @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  @return ApiListSchoolsRequest
@@ -1034,6 +1048,9 @@ func (a *EducationSchoolApiService) ListSchoolsExecute(r ApiListSchoolsRequest) 
 	localVarQueryParams := url.Values{}
 	localVarFormParams := url.Values{}
 
+	if r.filter != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "$filter", r.filter, "form", "")
+	}
 	// to determine the Content-Type header
 	localVarHTTPContentTypes := []string{}
 

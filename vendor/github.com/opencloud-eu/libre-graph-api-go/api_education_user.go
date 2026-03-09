@@ -165,7 +165,7 @@ See the [ListEducationUsers](#/educationUser/ListEducationUsers) operation for q
 
 
  @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
- @param userId key: internal user id (UUID format) or username of user.  **Note:** If you only have an external ID, first query the user  with `GET /graph/v1.0/education/users?$filter=externalId eq '{value}'`  to retrieve the internal ID. 
+ @param userId key: internal user id (UUID format) or username of user.  **Note:** If you only have an external ID, first query the user with `GET /graph/v1.0/education/users?$filter=externalId eq '{value}'` to retrieve the internal ID. 
  @return ApiDeleteEducationUserRequest
 */
 func (a *EducationUserApiService) DeleteEducationUser(ctx context.Context, userId string) ApiDeleteEducationUserRequest {

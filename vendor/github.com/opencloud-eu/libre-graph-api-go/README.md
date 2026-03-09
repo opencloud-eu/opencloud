@@ -141,10 +141,15 @@ Class | Method | HTTP request | Description
 *GroupApi* | [**UpdateGroup**](docs/GroupApi.md#updategroup) | **Patch** /v1.0/groups/{group-id} | Update entity in groups
 *GroupsApi* | [**CreateGroup**](docs/GroupsApi.md#creategroup) | **Post** /v1.0/groups | Add new entity to groups
 *GroupsApi* | [**ListGroups**](docs/GroupsApi.md#listgroups) | **Get** /v1.0/groups | Get entities from groups
+*InvitationsApi* | [**CreateInvitation**](docs/InvitationsApi.md#createinvitation) | **Post** /v1.0/invitations | Create a new invitation
+*InvitationsApi* | [**GetInvitation**](docs/InvitationsApi.md#getinvitation) | **Get** /v1.0/invitations/{invitation-id} | Get an invitation by key
+*InvitationsApi* | [**ListInvitations**](docs/InvitationsApi.md#listinvitations) | **Get** /v1.0/invitations | Get a list of invitations
 *MeChangepasswordApi* | [**ChangeOwnPassword**](docs/MeChangepasswordApi.md#changeownpassword) | **Post** /v1.0/me/changePassword | Change your own password
+*MeDriveApi* | [**FollowDriveItem**](docs/MeDriveApi.md#followdriveitem) | **Post** /v1.0/me/drive/items/{item-id}/follow | Follow a DriveItem
 *MeDriveApi* | [**GetHome**](docs/MeDriveApi.md#gethome) | **Get** /v1.0/me/drive | Get personal space for user
 *MeDriveApi* | [**ListSharedByMe**](docs/MeDriveApi.md#listsharedbyme) | **Get** /v1beta1/me/drive/sharedByMe | Get a list of driveItem objects shared by the current user.
 *MeDriveApi* | [**ListSharedWithMe**](docs/MeDriveApi.md#listsharedwithme) | **Get** /v1beta1/me/drive/sharedWithMe | Get a list of driveItem objects shared with the owner of a drive.
+*MeDriveApi* | [**UnfollowDriveItem**](docs/MeDriveApi.md#unfollowdriveitem) | **Delete** /v1.0/me/drive/following/{item-id} | Unfollow a DriveItem
 *MeDriveRootApi* | [**HomeGetRoot**](docs/MeDriveRootApi.md#homegetroot) | **Get** /v1.0/me/drive/root | Get root from personal space
 *MeDriveRootChildrenApi* | [**HomeGetChildren**](docs/MeDriveRootChildrenApi.md#homegetchildren) | **Get** /v1.0/me/drive/root/children | Get children from drive
 *MeDrivesApi* | [**ListMyDrives**](docs/MeDrivesApi.md#listmydrives) | **Get** /v1.0/me/drives | Get all drives where the current user is a regular member of
@@ -195,6 +200,7 @@ Class | Method | HTTP request | Description
  - [CollectionOfEducationClass](docs/CollectionOfEducationClass.md)
  - [CollectionOfEducationUser](docs/CollectionOfEducationUser.md)
  - [CollectionOfGroup](docs/CollectionOfGroup.md)
+ - [CollectionOfInvitations](docs/CollectionOfInvitations.md)
  - [CollectionOfPermissions](docs/CollectionOfPermissions.md)
  - [CollectionOfPermissionsWithAllowedValues](docs/CollectionOfPermissionsWithAllowedValues.md)
  - [CollectionOfSchools](docs/CollectionOfSchools.md)
@@ -212,6 +218,7 @@ Class | Method | HTTP request | Description
  - [EducationSchool](docs/EducationSchool.md)
  - [EducationUser](docs/EducationUser.md)
  - [EducationUserReference](docs/EducationUserReference.md)
+ - [EmailAddress](docs/EmailAddress.md)
  - [ExportPersonalDataRequest](docs/ExportPersonalDataRequest.md)
  - [FileSystemInfo](docs/FileSystemInfo.md)
  - [Folder](docs/Folder.md)
@@ -222,6 +229,8 @@ Class | Method | HTTP request | Description
  - [Identity](docs/Identity.md)
  - [IdentitySet](docs/IdentitySet.md)
  - [Image](docs/Image.md)
+ - [Invitation](docs/Invitation.md)
+ - [InvitedUserMessageInfo](docs/InvitedUserMessageInfo.md)
  - [ItemReference](docs/ItemReference.md)
  - [MemberReference](docs/MemberReference.md)
  - [ObjectIdentity](docs/ObjectIdentity.md)
@@ -234,6 +243,7 @@ Class | Method | HTTP request | Description
  - [Permission](docs/Permission.md)
  - [Photo](docs/Photo.md)
  - [Quota](docs/Quota.md)
+ - [Recipient](docs/Recipient.md)
  - [RemoteItem](docs/RemoteItem.md)
  - [SharePointIdentitySet](docs/SharePointIdentitySet.md)
  - [SharingInvitation](docs/SharingInvitation.md)
