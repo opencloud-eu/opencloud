@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @MahdiBaghbani, @ScharfViktor, @butonic, @dragonchaser, @dragotin, @fschade, @pat-s, @rhafer
+@AlexAndBear, @JammingBen, @MahdiBaghbani, @ScharfViktor, @aduffeck, @butonic, @dragonchaser, @dragotin, @fschade, @pat-s, @rhafer
 
 ### 📚 Documentation
 
