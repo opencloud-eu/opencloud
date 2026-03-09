@@ -247,10 +247,16 @@ func (s *svc) executePathCopy(ctx context.Context, selector pool.Selectable[gate
 			Ref: cp.destination,
 			Opaque: &typespb.Opaque{
 				Map: map[string]*typespb.OpaqueEntry{
-					"Upload-Length": {
+					net.HeaderUploadLength: {
 						Decoder: "plain",
 						// TODO: handle case where size is not known in advance
 						Value: []byte(strconv.FormatUint(cp.sourceInfo.GetSize(), 10)),
+					},
+					net.HeaderOCMtime: {
+						Decoder: "plain",
+						Value: []byte(
+							utils.TimeToOCMtime(utils.TSToTime(cp.sourceInfo.GetMtime())),
+						),
 					},
 				},
 			},
@@ -460,6 +466,12 @@ func (s *svc) executeSpacesCopy(ctx context.Context, w http.ResponseWriter, sele
 						Decoder: "plain",
 						// TODO: handle case where size is not known in advance
 						Value: []byte(strconv.FormatUint(cp.sourceInfo.GetSize(), 10)),
+					},
+					net.HeaderOCMtime: {
+						Decoder: "plain",
+						Value: []byte(
+							utils.TimeToOCMtime(utils.TSToTime(cp.sourceInfo.GetMtime())),
+						),
 					},
 				},
 			},
