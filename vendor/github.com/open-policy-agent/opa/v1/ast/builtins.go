@@ -1675,7 +1675,7 @@ var JSONPatch = &Builtin{
 		"Additionally works on sets, where a value contained in the set is considered to be its path.",
 	Decl: types.NewFunction(
 		types.Args(
-			types.Named("object", types.A).Description("the object to patch"), // TODO(sr): types.A?
+			types.Named("target", types.A).Description("the object, array or set to patch"),
 			types.Named("patches", types.NewArray(
 				nil,
 				types.NewObject(
@@ -3404,8 +3404,9 @@ var InternalTestCase = &Builtin{
 }
 
 var InternalTemplateString = &Builtin{
-	Name: "internal.template_string",
-	Decl: types.NewFunction([]types.Type{types.NewArray(nil, types.A)}, types.S),
+	Name:        "internal.template_string",
+	Decl:        types.NewFunction([]types.Type{types.NewArray(nil, types.A)}, types.S),
+	CanSkipBctx: true, // Uses bctx.Location for error reporting, but that is always provided in eval
 }
 
 /**
