@@ -12,7 +12,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2026-03-07 00:09+0000\n"
+"POT-Creation-Date: 2026-03-09 00:09+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Jannick Kuhr, 2026\n"
 "Language-Team: German (https://app.transifex.com/opencloud-eu/teams/204053/de/)\n"
@@ -25,7 +25,7 @@ msgstr ""
 #. name of the notification option 'Space Shared'
 #: pkg/store/defaults/templates.go:20
 msgid "Added as space member"
-msgstr "Als Space Mitglied hinzugefügt"
+msgstr "Als Space-Mitglied hinzugefügt"
 
 #. translation for the 'daily' email interval option
 #: pkg/store/defaults/templates.go:50
@@ -56,17 +56,17 @@ msgstr "Nie"
 #: pkg/store/defaults/templates.go:22
 msgid "Notify when I have been added as a member to a space"
 msgstr ""
-"Benachrichtigung wenn ich zu einem Space als Mitglied hinzugefügt wurde"
+"Benachrichtigung, wenn ich zu einem Space als Mitglied hinzugefügt wurde"
 
 #. description of the notification option 'Space Unshared'
 #: pkg/store/defaults/templates.go:26
 msgid "Notify when I have been removed as member from a space"
-msgstr "Benachrichtigung wenn ich Mitglied aus einem Space entfernt wurde"
+msgstr "Benachrichtigung, wenn ich Mitglied aus einem Space entfernt wurde"
 
 #. description of the notification option 'Share Received'
 #: pkg/store/defaults/templates.go:10
 msgid "Notify when I have received a share"
-msgstr "Benachrichtigung wenn ich eine Dateifreigabe bekommen habe"
+msgstr "Benachrichtigung, wenn ich eine Freigabe empfangen habe"
 
 #. description of the notification option 'File Rejected'
 #: pkg/store/defaults/templates.go:42
@@ -74,33 +74,35 @@ msgid ""
 "Notify when a file I uploaded was rejected because of a virus infection or "
 "policy violation"
 msgstr ""
-"Benachrichtigung wenn eine hochgeladene Datei aufgrund einer Vireninfektion "
-"oder eines Verstoßes gegen die Richtlinien abgelehnt wurde"
+"Benachrichtigung, wenn eine hochgeladene Datei aufgrund einer Vireninfektion"
+" oder eines Verstoßes gegen die Richtlinien abgelehnt wurde"
 
 #. description of the notification option 'Share Removed'
 #: pkg/store/defaults/templates.go:14
 msgid "Notify when a received share has been removed"
-msgstr "Benachrichtigung wenn eine empfangene Dateifreigabe beendet wurde"
+msgstr "Benachrichtigung, wenn eine empfangene Freigabe entfernt wurde"
 
 #. description of the notification option 'Share Expired'
 #: pkg/store/defaults/templates.go:18
 msgid "Notify when a received share has expired"
-msgstr "Benachrichtigung wenn eine empfangene Dateifreigabe abgelaufen ist"
+msgstr "Benachrichtigung, wenn eine empfangene Freigabe abgelaufen ist"
 
 #. description of the notification option 'Space Deleted'
 #: pkg/store/defaults/templates.go:38
 msgid "Notify when a space I am member of has been deleted"
-msgstr "Benachrichtigung wenn ein Space wo ich Mitglied bin gelöscht wurde"
+msgstr ""
+"Benachrichtigung, wenn ein Space, in dem ich Mitglied bin, gelöscht wurde"
 
 #. description of the notification option 'Space Disabled'
 #: pkg/store/defaults/templates.go:34
 msgid "Notify when a space I am member of has been disabled"
-msgstr "Benachrichtigung wenn ein Space wo ich Mitglied bin deaktiviert wurde"
+msgstr ""
+"Benachrichtigung, wenn ein Space, in dem ich Mitglied bin, deaktiviert wurde"
 
 #. description of the notification option 'Space Membership Expired'
 #: pkg/store/defaults/templates.go:30
 msgid "Notify when a space membership has expired"
-msgstr "Benachrichtigung wenn eine Space-Mitgliedschaft abgelaufen ist"
+msgstr "Benachrichtigung, wenn eine Space-Mitgliedschaft abgelaufen ist"
 
 #. name of the notification option 'Space Unshared'
 #: pkg/store/defaults/templates.go:24
@@ -120,7 +122,7 @@ msgstr "Freigabe abgelaufen"
 #. name of the notification option 'Share Received'
 #: pkg/store/defaults/templates.go:8
 msgid "Share Received"
-msgstr "Freigabe erhalten"
+msgstr "Freigabe empfangen"
 
 #. name of the notification option 'Share Removed'
 #: pkg/store/defaults/templates.go:12
