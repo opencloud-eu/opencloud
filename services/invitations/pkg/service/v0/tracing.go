@@ -21,6 +21,34 @@ type tracing struct {
 	tp   trace.TracerProvider
 }
 
+func (t tracing) List(ctx context.Context) (*invitations.Invitation, error) {
+	spanOpts := []trace.SpanStartOption{
+		trace.WithSpanKind(trace.SpanKindServer),
+		trace.WithAttributes(
+			attribute.KeyValue{
+				Key: "invitation", Value: attribute.StringValue("list"),
+			}),
+	}
+	ctx, span := t.tp.Tracer("invitations").Start(ctx, "List", spanOpts...)
+	defer span.End()
+
+	return t.next.List(ctx)
+}
+
+func (t tracing) Get(ctx context.Context, id string) (*invitations.Invitation, error) {
+	spanOpts := []trace.SpanStartOption{
+		trace.WithSpanKind(trace.SpanKindServer),
+		trace.WithAttributes(
+			attribute.KeyValue{
+				Key: "invitation", Value: attribute.StringValue("get"),
+			}),
+	}
+	ctx, span := t.tp.Tracer("invitations").Start(ctx, "Get", spanOpts...)
+	defer span.End()
+
+	return t.next.Get(ctx, id)
+}
+
 // Invite implements the Service interface.
 func (t tracing) Invite(ctx context.Context, invitation *invitations.Invitation) (*invitations.Invitation, error) {
 	spanOpts := []trace.SpanStartOption{

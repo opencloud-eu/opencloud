@@ -27,6 +27,8 @@ type Service interface {
 	//    invited user has to go through the redemption process to access any
 	//    resources they have been invited to.
 	Invite(ctx context.Context, invitation *invitations.Invitation) (*invitations.Invitation, error)
+	List(ctx context.Context) (*invitations.Invitation, error)
+	Get(ctx context.Context, id string) (*invitations.Invitation, error)
 }
 
 // Backend defines the behaviour of a user backend.
@@ -92,4 +94,18 @@ func (s svc) Invite(ctx context.Context, invitation *invitations.Invitation) (*i
 	}
 
 	return invitation, nil
+}
+
+// List implements the service interface
+func (s svc) List(ctx context.Context) (*invitations.Invitation, error) {
+	// TODO: implement
+	panic("implement me")
+	return nil, nil
+}
+
+// Get implements the service interface
+func (s svc) Get(ctx context.Context, id string) (*invitations.Invitation, error) {
+	// TODO: implement
+	panic("implement me")
+	return nil, nil
 }

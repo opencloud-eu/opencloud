@@ -71,7 +71,9 @@ func Server(opts ...Option) (ohttp.Service, error) {
 	))
 
 	mux.Route(options.Config.HTTP.Root, func(r chi.Router) {
-		r.Post("/invitations", InvitationHandler(service))
+		r.Post("/invitations", InvitationPostHandler(service))
+		r.Get("/invitations", InvitationListGetHandler(service))
+		r.Get("/invitations/{id}", InvitationGetHandler(service))
 	})
 
 	err = micro.RegisterHandler(svc.Server(), mux)
@@ -83,7 +85,7 @@ func Server(opts ...Option) (ohttp.Service, error) {
 	return svc, nil
 }
 
-func InvitationHandler(service svc.Service) func(w http.ResponseWriter, r *http.Request) {
+func InvitationPostHandler(service svc.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
@@ -102,6 +104,44 @@ func InvitationHandler(service svc.Service) func(w http.ResponseWriter, r *http.
 		}
 
 		render.Status(r, http.StatusCreated)
+		render.JSON(w, r, res)
+	}
+}
+
+func InvitationGetHandler(service svc.Service) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		id := chi.URLParam(r, "id")
+		if id == "" {
+			errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "missing invitation ID")
+			return
+		}
+
+		res, err := service.Get(ctx, id)
+		if err != nil {
+			render.Status(r, http.StatusInternalServerError)
+			render.PlainText(w, r, err.Error())
+			return
+		}
+
+		render.Status(r, http.StatusOK)
+		render.JSON(w, r, res)
+	}
+}
+
+func InvitationListGetHandler(service svc.Service) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		res, err := service.List(ctx)
+		if err != nil {
+			render.Status(r, http.StatusInternalServerError)
+			render.PlainText(w, r, err.Error())
+			return
+		}
+
+		render.Status(r, http.StatusOK)
 		render.JSON(w, r, res)
 	}
 }
