@@ -1,24 +1,15 @@
 Enhancement: Add blobstore CLI commands to storage-users service
 
-Added two new CLI commands under `ocis storage-users blobstore` to help
-operators verify and inspect the configured blobstore without needing
-direct access to the underlying storage system.
+Added blobstore CLI commands to verify connectivity to the configured
+blobstore and inspect individual blobs. The commands support the
+`ocis`/`decomposed` and `s3ng`/`decomposeds3` storage drivers.
 
-`blobstore check` performs a full upload/download/delete round-trip using
-a random payload. The payload size is configurable via `--blob-size` and
-accepts human-readable values such as `64`, `1KB` or `4MiB` (default: 64 bytes).
+`blobstore check` performs an upload/download/delete round-trip with a
+random payload. The payload size is configurable via `--blob-size`.
 
-`blobstore get` downloads a specific blob by its ID to verify it is
-readable. The blob can be identified either with `--blob-id` and
-`--space-id`, or by passing the raw blob path from a log line directly
-via `--path`. Both the s3ng key format
-(`<spaceID>/<pathified_blobID>`) and the ocis filesystem path format
-(`…/spaces/<pathified_spaceID>/blobs/<pathified_blobID>`) are accepted.
-When using the s3ng driver without a known blob size, an automatic retry
-with the actual size is performed on a size mismatch.
-
-Both commands read the existing service configuration, so they always
-target the same blobstore as the running service. Only the `ocis` and
-`s3ng` storage drivers are supported.
+`blobstore get` downloads an individual blob, identified by its ID and
+space ID or by a raw blobstore path from a log line. S3-backed drivers
+retry once with the actual blob size when the requested size does not
+match.
 
 https://github.com/owncloud/ocis/pull/12102
