@@ -193,6 +193,12 @@ The `blobstore` command group verifies connectivity to the configured blobstore 
 opencloud storage-users blobstore <command>
 ```
 
+```plaintext
+COMMANDS:
+   check  check blobstore connectivity via an upload/download/delete round-trip
+   get    get a blob from the blobstore by ID
+```
+
 #### Check
 
 Uploads a random blob, downloads and verifies it, then deletes it. All three steps must succeed.

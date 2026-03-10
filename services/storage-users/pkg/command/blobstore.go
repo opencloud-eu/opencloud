@@ -182,7 +182,8 @@ func initBlobstore(cfg *config.Config) (tree.Blobstore, error) {
 // retrieved object size does not match node.Blobsize, and captures the actual size.
 var blobSizeMismatchRe = regexp.MustCompile(`blob has unexpected size\. \d+ bytes expected, got (\d+) bytes`)
 
-// downloadBlob downloads a single blob identified by blobID and closes the reader.
+// downloadBlob downloads a single blob identified by blobID, drains the reader
+// to surface any streaming errors, then closes it.
 // If the s3ng blobstore rejects the download due to a size mismatch, the actual
 // size is extracted from the error and the download is retried with the correct value.
 func downloadBlob(bs tree.Blobstore, blobID, spaceID string, blobSize int64) error {
@@ -259,18 +260,21 @@ func runBlobstoreRoundTrip(bs tree.Blobstore, blobSize int) error {
 	// 4. Download and verify.
 	rc, err := bs.Download(testNode)
 	if err != nil {
-		_ = bs.Delete(testNode)
-		return fmt.Errorf("download failed: %w", err)
+		return roundTripFailure(bs, testNode, fmt.Errorf("download failed: %w", err))
 	}
-	downloaded, err := io.ReadAll(rc)
-	rc.Close()
-	if err != nil {
-		_ = bs.Delete(testNode)
-		return fmt.Errorf("failed to read downloaded data: %w", err)
+	downloaded, readErr := io.ReadAll(rc)
+	closeErr := rc.Close()
+	if readErr != nil {
+		if closeErr != nil {
+			return roundTripFailure(bs, testNode, fmt.Errorf("failed to read downloaded data: %w (also failed to close blob: %v)", readErr, closeErr))
+		}
+		return roundTripFailure(bs, testNode, fmt.Errorf("failed to read downloaded data: %w", readErr))
+	}
+	if closeErr != nil {
+		return roundTripFailure(bs, testNode, fmt.Errorf("failed to close downloaded blob: %w", closeErr))
 	}
 	if !bytes.Equal(data, downloaded) {
-		_ = bs.Delete(testNode)
-		return fmt.Errorf("data integrity check failed: downloaded content does not match uploaded content")
+		return roundTripFailure(bs, testNode, fmt.Errorf("data integrity check failed: downloaded content does not match uploaded content"))
 	}
 	fmt.Println("Download and verify: OK")
 
@@ -281,4 +285,11 @@ func runBlobstoreRoundTrip(bs tree.Blobstore, blobSize int) error {
 	fmt.Println("Delete: OK")
 	fmt.Println("Blobstore check successful.")
 	return nil
+}
+
+func roundTripFailure(bs tree.Blobstore, n *node.Node, cause error) error {
+	if err := bs.Delete(n); err != nil {
+		return fmt.Errorf("%w (also failed to clean up test blob: %v)", cause, err)
+	}
+	return cause
 }
