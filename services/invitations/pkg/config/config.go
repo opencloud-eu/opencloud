@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 )
@@ -20,6 +21,8 @@ type Config struct {
 	Keycloak     Keycloak      `yaml:"keycloak"`
 	TokenManager *TokenManager `yaml:"token_manager"`
 
+	Invitation Invitation `yaml:"invitation"`
+
 	Context context.Context `yaml:"-"`
 }
 
@@ -31,4 +34,8 @@ type Keycloak struct {
 	ClientRealm        string `yaml:"client_realm" env:"OC_KEYCLOAK_CLIENT_REALM;INVITATIONS_KEYCLOAK_CLIENT_REALM" desc:"The realm the client is defined in." introductionVersion:"1.0.0"`
 	UserRealm          string `yaml:"user_realm" env:"OC_KEYCLOAK_USER_REALM;INVITATIONS_KEYCLOAK_USER_REALM" desc:"The realm users are defined." introductionVersion:"1.0.0"`
 	InsecureSkipVerify bool   `yaml:"insecure_skip_verify" env:"OC_KEYCLOAK_INSECURE_SKIP_VERIFY;INVITATIONS_KEYCLOAK_INSECURE_SKIP_VERIFY" desc:"Disable TLS certificate validation for Keycloak connections. Do not set this in production environments." introductionVersion:"1.0.0"`
+}
+
+type Invitation struct {
+	MaxTTL time.Duration `yaml:"max_ttl" env:"INVITATIONS_MAX_TTL" desc:"The maximum time to live for an invitation. (defaults to 30 days)" introductionVersion:"%%NEXT%%"`
 }

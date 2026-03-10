@@ -2,6 +2,7 @@ package defaults
 
 import (
 	"strings"
+	"time"
 
 	"github.com/opencloud-eu/opencloud/services/invitations/pkg/config"
 )
@@ -38,6 +39,9 @@ func DefaultConfig() *config.Config {
 			ClientSecret: "",
 			ClientRealm:  "",
 			UserRealm:    "",
+		},
+		Invitation: config.Invitation{
+			MaxTTL: 30 * 24 * time.Hour,
 		},
 	}
 }
