@@ -1,5 +1,11 @@
 # Changelog
 
+## [5.2.1](https://github.com/opencloud-eu/opencloud/releases/tag/v5.2.1) - 2026-03-11
+
+### 📦️ Dependencies
+
+- build(deps): bump go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp from 0.65.0 to 0.67.0 [[#2442](https://github.com/opencloud-eu/opencloud/pull/2442)]
+
 ## [5.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.2.0) - 2026-03-09
 
 ### ❤️ Thanks to all contributors! ❤️
