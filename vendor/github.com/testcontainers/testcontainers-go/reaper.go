@@ -64,9 +64,10 @@ type ReaperProvider interface {
 	Config() TestcontainersConfig
 }
 
-// NewReaper creates a Reaper with a sessionID to identify containers and a provider to use
 // Deprecated: it's not possible to create a reaper any more. Compose module uses this method
 // to create a reaper for the compose stack.
+//
+// # NewReaper creates a Reaper with a sessionID to identify containers and a provider to use
 //
 // The caller must call Connect at least once on the returned Reaper and use the returned
 // result otherwise the reaper will be kept open until the process exits.
@@ -568,8 +569,9 @@ func (r *Reaper) handshake(conn net.Conn) error {
 	return nil
 }
 
-// Labels returns the container labels to use so that this Reaper cleans them up
 // Deprecated: internally replaced by core.DefaultLabels(sessionID)
+//
+// Labels returns the container labels to use so that this Reaper cleans them up
 func (r *Reaper) Labels() map[string]string {
 	return GenericLabels()
 }

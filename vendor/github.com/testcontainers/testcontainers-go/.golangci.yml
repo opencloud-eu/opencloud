@@ -23,6 +23,27 @@ linters:
     - thelper
     - usestdlibvars
   exclusions:
+    rules:
+      - linters:
+          - revive
+        path: "^exec/"
+        text: "var-naming: avoid package names that conflict with Go standard library package names"
+      - linters:
+          - revive
+        path: "^log/"
+        text: "var-naming: avoid package names that conflict with Go standard library package names"
+      - linters:
+          - revive
+        path: "modulegen/internal/(context|template)/"
+        text: "var-naming: avoid package names that conflict with Go standard library package names"
+      - linters:
+          - revive
+        path: "internal/sdk/types/"
+        text: "var-naming: avoid meaningless package names"
+      - linters:
+          - revive
+        path: "gcloud/internal/shared/"
+        text: "var-naming: avoid meaningless package names"
     presets:
       - comments
       - common-false-positives

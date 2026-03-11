@@ -54,7 +54,7 @@ const (
 
 var (
 	// createContainerFailDueToNameConflictRegex is a regular expression that matches the container is already in use error.
-	createContainerFailDueToNameConflictRegex = regexp.MustCompile("Conflict. The container name .* is already in use by container .*")
+	createContainerFailDueToNameConflictRegex = regexp.MustCompile("[Tt]he container name .* is already in use by .*")
 
 	// minLogProductionTimeout is the minimum log production timeout.
 	minLogProductionTimeout = time.Duration(5 * time.Second)

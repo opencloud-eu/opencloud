@@ -19,6 +19,12 @@ theme:
 extra_css:
     - css/extra.css
     - css/tc-header.css
+    - css/usage-metrics.css
+extra_javascript:
+    - https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js
+    - https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js
+    - https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js
+    - js/usage-metrics.js
 repo_name: testcontainers-go
 repo_url: https://github.com/testcontainers/testcontainers-go
 markdown_extensions:
@@ -86,6 +92,7 @@ nav:
         - modules/dynamodb.md
         - modules/elasticsearch.md
         - modules/etcd.md
+        - modules/forgejo.md
         - modules/gcloud.md
         - modules/grafana-lgtm.md
         - modules/inbucket.md
@@ -123,6 +130,7 @@ nav:
         - modules/socat.md
         - modules/solace.md
         - modules/surrealdb.md
+        - modules/tidb.md
         - modules/toxiproxy.md
         - modules/valkey.md
         - modules/vault.md
@@ -148,9 +156,10 @@ nav:
         - system_requirements/using_colima.md
         - system_requirements/using_podman.md
         - system_requirements/rancher.md
+    - Usage Metrics: usage-metrics.md
     - Dependabot: dependabot.md
     - Contributing: contributing.md
     - Getting help: getting_help.md
 edit_uri: edit/main/docs/
 extra:
-    latest_version: v0.40.0
+    latest_version: v0.41.0

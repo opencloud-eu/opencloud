@@ -100,6 +100,16 @@ func ExtractRegistry(image string, fallback string) string {
 
 	registry := exp[1]
 
+	// docker.io is an implicit reference, return fallback for normalization
+	if strings.EqualFold(registry, "docker.io") {
+		return fallback
+	}
+
+	// registry.hub.docker.com is an explicit registry reference, preserve it
+	if strings.EqualFold(registry, "registry.hub.docker.com") {
+		return "registry.hub.docker.com"
+	}
+
 	if IsURL(registry) {
 		return registry
 	}

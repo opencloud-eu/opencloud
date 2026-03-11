@@ -177,12 +177,12 @@ func exposeHostPorts(ctx context.Context, req *ContainerRequest, ports ...int) (
 
 // newSshdContainer creates a new SSHD container with the provided options.
 func newSshdContainer(ctx context.Context, opts ...ContainerCustomizer) (*sshdContainer, error) {
-	moduleOpts := []ContainerCustomizer{
+	moduleOpts := make([]ContainerCustomizer, 0, 3+len(opts))
+	moduleOpts = append(moduleOpts,
 		WithExposedPorts(sshPort),
 		WithEnv(map[string]string{"PASSWORD": sshPassword}),
 		WithWaitStrategy(wait.ForListeningPort(sshPort)),
-	}
-
+	)
 	moduleOpts = append(moduleOpts, opts...)
 
 	c, err := Run(ctx, sshdImage, moduleOpts...)

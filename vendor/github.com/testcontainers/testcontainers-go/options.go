@@ -343,7 +343,7 @@ func WithStartupCommand(execs ...Executable) CustomizeRequestOption {
 // is ready.
 func WithAfterReadyCommand(execs ...Executable) CustomizeRequestOption {
 	return func(req *GenericContainerRequest) error {
-		postReadiesHook := []ContainerHook{}
+		postReadiesHook := make([]ContainerHook, 0, len(execs))
 
 		for _, exec := range execs {
 			execFn := func(ctx context.Context, c Container) error {

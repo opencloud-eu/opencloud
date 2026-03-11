@@ -14,15 +14,15 @@ This is a **Go monorepo** containing:
 ## Environment Setup
 
 ### Go Version
-- **Required**: Go 1.24.7
+- **Required**: Go 1.25.7
 - **Tool**: Use [gvm](https://github.com/andrewkroh/gvm) for version management
 - **CRITICAL**: Always run this before ANY Go command:
   ```bash
   # For Apple Silicon (M1/M2/M3)
-  eval "$(gvm 1.24.7 --arch=arm64)"
+  eval "$(gvm 1.25.7 --arch=arm64)"
 
   # For Intel/AMD (x86_64)
-  eval "$(gvm 1.24.7 --arch=amd64)"
+  eval "$(gvm 1.25.7 --arch=amd64)"
   ```
 
 ### Project Structure
@@ -171,14 +171,14 @@ func Run(ctx context.Context, img string, opts ...testcontainers.ContainerCustom
 ### When Tests Fail
 1. **Read the error message carefully** - it usually tells you exactly what's wrong
 2. **Check if it's a lint issue** - run `make pre-commit` first
-3. **Verify Go version** - ensure using Go 1.24.7
+3. **Verify Go version** - ensure using Go 1.25.7
 4. **Check Docker** - some tests require Docker daemon running
 
 ## Common Pitfalls to Avoid
 
 ### Code Issues
 - ❌ Using interface types as return values
-- ❌ Forgetting to run `eval "$(gvm 1.24.7 --arch=arm64)"`
+- ❌ Forgetting to run `eval "$(gvm 1.25.7 --arch=arm64)"`
 - ❌ Not handling errors from built-in options
 - ❌ Using module-specific container names (`PostgresContainer`)
 - ❌ Calling `.Customize()` method instead of direct function call

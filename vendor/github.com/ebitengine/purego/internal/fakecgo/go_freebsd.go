@@ -16,7 +16,7 @@ func _cgo_sys_thread_start(ts *ThreadStart) {
 	var size size_t
 	var err int
 
-	//fprintf(stderr, "runtime/cgo: _cgo_sys_thread_start: fn=%p, g=%p\n", ts->fn, ts->g); // debug
+	// fprintf(stderr, "runtime/cgo: _cgo_sys_thread_start: fn=%p, g=%p\n", ts->fn, ts->g); // debug
 	sigfillset(&ign)
 	pthread_sigmask(SIG_SETMASK, &ign, &oset)
 
@@ -59,6 +59,11 @@ func threadentry(v unsafe.Pointer) unsafe.Pointer {
 // here we will store a pointer to the provided setg func
 var setg_func uintptr
 
+// x_cgo_init(G *g, void (*setg)(void*)) (runtime/cgo/gcc_linux_amd64.c)
+// This get's called during startup, adjusts stacklo, and provides a pointer to setg_gcc for us
+// Additionally, if we set _cgo_init to non-null, go won't do it's own TLS setup
+// This function can't be go:systemstack since go is not in a state where the systemcheck would work.
+//
 //go:nosplit
 func x_cgo_init(g *G, setg uintptr) {
 	var size size_t

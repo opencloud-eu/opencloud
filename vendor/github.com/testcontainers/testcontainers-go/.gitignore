@@ -23,3 +23,6 @@ TEST-*.xml
 
 # Coverage files
 coverage.out
+
+# Usage metrics script binary
+usage-metrics/scripts/collect-metrics

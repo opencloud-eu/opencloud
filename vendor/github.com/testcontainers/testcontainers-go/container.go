@@ -28,8 +28,9 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
+// Deprecated: Use [Container]
+//
 // DeprecatedContainer shows methods that were supported before, but are now deprecated
-// Deprecated: Use Container
 type DeprecatedContainer interface {
 	GetHostEndpoint(ctx context.Context, port string) (string, string, error)
 	GetIPAddress(ctx context.Context) (string, error)
