@@ -1204,8 +1204,8 @@ github.com/test-go/testify v1.1.4 h1:Tf9lntrKUMHiXQ07qBScBTSA0dhYQlu83hswqelv1iE
 github.com/test-go/testify v1.1.4/go.mod h1:rH7cfJo/47vWGdi4GPj16x3/t1xGOj2YxzmNQzk2ghU=
 github.com/testcontainers/testcontainers-go v0.41.0 h1:mfpsD0D36YgkxGj2LrIyxuwQ9i2wCKAD+ESsYM1wais=
 github.com/testcontainers/testcontainers-go v0.41.0/go.mod h1:pdFrEIfaPl24zmBjerWTTYaY0M6UHsqA1YSvsoU40MI=
-github.com/testcontainers/testcontainers-go/modules/opensearch v0.40.0 h1:3TIrGk0zXyO9CG2N6APo7auwWIwAvhkwE1reISif8LM=
-github.com/testcontainers/testcontainers-go/modules/opensearch v0.40.0/go.mod h1:VA0UCTPu+Gcs7MzdzBnSl0qDnxquuphv3ngSGdX97Xs=
+github.com/testcontainers/testcontainers-go/modules/opensearch v0.41.0 h1:xOHzMTJXgw/CQsrtemxLGDZGCSQg/AlaotVv273qC60=
+github.com/testcontainers/testcontainers-go/modules/opensearch v0.41.0/go.mod h1:vjKGTfDelOkOAzsFmf5YglHPnhyoHjPyDs9Z4Ane2xg=
 github.com/thanhpk/randstr v1.0.6 h1:psAOktJFD4vV9NEVb3qkhRSMvYh4ORRaj1+w/hn4B+o=
 github.com/thanhpk/randstr v1.0.6/go.mod h1:M/H2P1eNLZzlDwAzpkkkUvoyNNMbzRGhESZuEQk3r0U=
 github.com/theckman/yacspin v0.13.12 h1:CdZ57+n0U6JMuh2xqjnjRq5Haj6v1ner2djtLQRzJr4=

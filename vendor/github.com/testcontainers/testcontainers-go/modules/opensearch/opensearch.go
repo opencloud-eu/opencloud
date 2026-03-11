@@ -48,7 +48,8 @@ func Run(ctx context.Context, img string, opts ...testcontainers.ContainerCustom
 	username := settings.Username
 	password := settings.Password
 
-	moduleOpts := []testcontainers.ContainerCustomizer{
+	moduleOpts := make([]testcontainers.ContainerCustomizer, 0, 4+len(opts))
+	moduleOpts = append(moduleOpts,
 		testcontainers.WithEnv(map[string]string{
 			"discovery.type":              "single-node",
 			"DISABLE_INSTALL_DEMO_CONFIG": "true",
@@ -99,7 +100,7 @@ func Run(ctx context.Context, img string, opts ...testcontainers.ContainerCustom
 
 				return r.Tagline == "The OpenSearch Project: https://opensearch.org/"
 			})),
-	}
+	)
 
 	moduleOpts = append(moduleOpts, opts...)
 
