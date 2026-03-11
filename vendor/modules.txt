@@ -2154,7 +2154,7 @@ github.com/trustelem/zxcvbn/scoring
 # github.com/tus/tusd/v2 v2.8.0
 ## explicit; go 1.23.0
 github.com/tus/tusd/v2/pkg/handler
-# github.com/unrolled/secure v1.16.0 => github.com/DeepDiver1975/secure v0.0.0-20240611112133-abc838fb797c
+# github.com/unrolled/secure v1.16.0 => github.com/opencloud-eu/secure v0.0.0-20260312082735-b6f5cb2244e4
 ## explicit; go 1.13
 github.com/unrolled/secure
 github.com/unrolled/secure/cspbuilder
@@ -2756,6 +2756,6 @@ sigs.k8s.io/yaml
 ## explicit; go 1.13
 stash.kopano.io/kgol/rndm
 # github.com/studio-b12/gowebdav => github.com/kobergj/gowebdav v0.0.0-20250102091030-aa65266db202
-# github.com/unrolled/secure => github.com/DeepDiver1975/secure v0.0.0-20240611112133-abc838fb797c
+# github.com/unrolled/secure => github.com/opencloud-eu/secure v0.0.0-20260312082735-b6f5cb2244e4
 # go-micro.dev/v4 => github.com/butonic/go-micro/v4 v4.11.1-0.20241115112658-b5d4de5ed9b3
 # github.com/go-micro/plugins/v4/store/nats-js-kv => github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a

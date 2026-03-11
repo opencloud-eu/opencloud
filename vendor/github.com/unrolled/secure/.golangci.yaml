@@ -1,36 +1,32 @@
 run:
-  timeout: 5m
+  timeout: 10m
+  modules-download-mode: readonly
+  allow-parallel-runners: true
 
 linters:
   enable-all: true
   disable:
-    # Deprecated linters
-    - varcheck
-    - exhaustivestruct
-    - ifshort
-    - structcheck
-    - golint
-    - maligned
-    - interfacer
-    - nosnakecase
-    - deadcode
-    - scopelint
-    - rowserrcheck
-    - sqlclosecheck
-    - structcheck
-    - wastedassign
-    # Ignoring
-    - lll
-    - varnamelen
     - paralleltest
-    - testpackage
-    - goerr113
+    - gochecknoglobals
     - exhaustruct
-    - nestif
+    - wrapcheck
+    - tagliatelle
+    - depguard
+    - ireturn
     - funlen
-    - goconst
+    - varnamelen
+    - gomnd
+    - execinquery
+    - copyloopvar
+    - intrange
+    - gocognit
+    - lll
     - cyclop
     - gocyclo
-    - gocognit
+    - testpackage
+    - err113
+    - nestif
     - maintidx
     - contextcheck
+    - perfsprint
+    - exportloopref

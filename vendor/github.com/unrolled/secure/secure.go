@@ -12,26 +12,31 @@ import (
 type secureCtxKey string
 
 const (
-	stsHeader                          = "Strict-Transport-Security"
-	stsSubdomainString                 = "; includeSubDomains"
-	stsPreloadString                   = "; preload"
-	frameOptionsHeader                 = "X-Frame-Options"
-	frameOptionsValue                  = "DENY"
-	contentTypeHeader                  = "X-Content-Type-Options"
-	contentTypeValue                   = "nosniff"
-	xssProtectionHeader                = "X-XSS-Protection"
-	xssProtectionValue                 = "1; mode=block"
-	cspHeader                          = "Content-Security-Policy"
-	cspReportOnlyHeader                = "Content-Security-Policy-Report-Only"
-	referrerPolicyHeader               = "Referrer-Policy"
-	featurePolicyHeader                = "Feature-Policy"
-	permissionsPolicyHeader            = "Permissions-Policy"
-	coopHeader                         = "Cross-Origin-Opener-Policy"
+	stsHeader                    = "Strict-Transport-Security"
+	stsSubdomainString           = "; includeSubDomains"
+	stsPreloadString             = "; preload"
+	frameOptionsHeader           = "X-Frame-Options"
+	frameOptionsValue            = "DENY"
+	contentTypeHeader            = "X-Content-Type-Options"
+	contentTypeValue             = "nosniff"
+	xssProtectionHeader          = "X-XSS-Protection"
+	xssProtectionValue           = "1; mode=block"
+	cspHeader                    = "Content-Security-Policy"
+	cspReportOnlyHeader          = "Content-Security-Policy-Report-Only"
+	hpkpHeader                   = "Public-Key-Pins"
+	referrerPolicyHeader         = "Referrer-Policy"
+	featurePolicyHeader          = "Feature-Policy"
+	permissionsPolicyHeader      = "Permissions-Policy"
+	coopHeader                   = "Cross-Origin-Opener-Policy"
+	coepHeader                   = "Cross-Origin-Embedder-Policy"
+	corpHeader                   = "Cross-Origin-Resource-Policy"
+	dnsPreFetchControlHeader     = "X-DNS-Prefetch-Control"
+	permittedCrossDomainPolicies = "X-Permitted-Cross-Domain-Policies"
 	robotTagHeader                     = "X-Robots-Tag"
 	permittedCrossDomainPoliciesHeader = "X-Permitted-Cross-Domain-Policies"
 
-	ctxDefaultSecureHeaderKey = secureCtxKey("SecureResponseHeader")
-	cspNonceSize              = 16
+	ctxDefaultSecureHeaderKey    = secureCtxKey("SecureResponseHeader")
+	cspNonceSize                 = 16
 )
 
 // SSLHostFunc is a custom function type that can be used to dynamically set the SSL host of a request.
@@ -67,7 +72,7 @@ type Options struct {
 	SSLRedirect bool
 	// If SSLForceHost is true and SSLHost is set, requests will be forced to use SSLHost even the ones that are already using SSL. Default is false.
 	SSLForceHost bool
-	// If SSLTemporaryRedirect is true, a 302 will be used while redirecting. Default is false (301).
+	// If SSLTemporaryRedirect is true, then a 307 will be used while redirecting. Default is false (301).
 	SSLTemporaryRedirect bool
 	// If STSIncludeSubdomains is set to true, the `includeSubdomains` will be appended to the Strict-Transport-Security header. Default is false.
 	STSIncludeSubdomains bool
@@ -93,6 +98,18 @@ type Options struct {
 	// CrossOriginOpenerPolicy allows you to ensure a top-level document does not share a browsing context group with cross-origin documents. Default is "".
 	// Reference: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cross-Origin-Opener-Policy
 	CrossOriginOpenerPolicy string
+	// CrossOriginResourcePolicy header blocks others from loading your resources cross-origin in some cases.
+	// Reference https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cross-Origin-Opener-Policy
+	CrossOriginResourcePolicy string
+	// CrossOriginEmbedderPolicy header helps control what resources can be loaded cross-origin.
+	// Reference https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cross-Origin-Embedder-Policy
+	CrossOriginEmbedderPolicy string
+	// XDNSPrefetchControl header helps control DNS prefetching, which can improve user privacy at the expense of performance.
+	// Reference: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-DNS-Prefetch-Control
+	XDNSPrefetchControl string
+	// XPermittedCrossDomainPolicies header tells some clients (mostly Adobe products) your domain's policy for loading cross-domain content.
+	// Reference: https://owasp.org/www-project-secure-headers/
+	XPermittedCrossDomainPolicies string
 	// SSLHost is the host name that is used to redirect http requests to https. Default is "", which indicates to use the same host.
 	SSLHost string
 	// AllowedHosts is a slice of fully qualified domain names that are allowed. Default is an empty slice, which allows any and all host names.
@@ -100,12 +117,12 @@ type Options struct {
 	// AllowedHostsAreRegex determines, if the provided `AllowedHosts` slice contains valid regular expressions. If this flag is set to true, every request's host will be checked against these expressions. Default is false.
 	AllowedHostsAreRegex bool
 	// AllowRequestFunc is a custom function that allows you to determine if the request should proceed or not based on your own custom logic. Default is nil.
-	AllowRequestFunc AllowRequestFunc
+	AllowRequestFunc AllowRequestFunc `json:"-" toml:"-" yaml:"-"`
 	// HostsProxyHeaders is a set of header keys that may hold a proxied hostname value for the request.
 	HostsProxyHeaders []string
 	// SSLHostFunc is a function pointer, the return value of the function is the host name that has same functionality as `SSHost`. Default is nil.
 	// If SSLHostFunc is nil, the `SSLHost` option will be used.
-	SSLHostFunc *SSLHostFunc
+	SSLHostFunc *SSLHostFunc `json:"-" toml:"-" yaml:"-"`
 	// SSLProxyHeaders is set of header keys with associated values that would indicate a valid https request. Useful when using Nginx: `map[string]string{"X-Forwarded-Proto": "https"}`. Default is blank map.
 	SSLProxyHeaders map[string]string
 	// STSSeconds is the max-age of the Strict-Transport-Security header. Default is 0, which would NOT include the header.
@@ -472,6 +489,29 @@ func (s *Secure) processRequest(w http.ResponseWriter, r *http.Request) (http.He
 	// Cross Origin Opener Policy header.
 	if len(s.opt.CrossOriginOpenerPolicy) > 0 {
 		responseHeader.Set(coopHeader, s.opt.CrossOriginOpenerPolicy)
+	}
+
+	// Cross Origin Resource Policy header.
+	if len(s.opt.CrossOriginResourcePolicy) > 0 {
+		responseHeader.Set(corpHeader, s.opt.CrossOriginResourcePolicy)
+	}
+
+	// Cross-Origin-Embedder-Policy header.
+	if len(s.opt.CrossOriginEmbedderPolicy) > 0 {
+		responseHeader.Set(coepHeader, s.opt.CrossOriginEmbedderPolicy)
+	}
+
+	// X-DNS-Prefetch-Control header.
+	switch strings.ToLower(s.opt.XDNSPrefetchControl) {
+	case "on":
+		responseHeader.Set(dnsPreFetchControlHeader, "on")
+	case "off":
+		responseHeader.Set(dnsPreFetchControlHeader, "off")
+	}
+
+	// X-Permitted-Cross-Domain-Policies header.
+	if len(s.opt.XPermittedCrossDomainPolicies) > 0 {
+		responseHeader.Set(permittedCrossDomainPolicies, s.opt.XPermittedCrossDomainPolicies)
 	}
 
 	// X-Permitted-Cross-Domain-Policies

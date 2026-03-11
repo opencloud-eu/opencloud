@@ -12,7 +12,8 @@ type key int
 
 const cspNonceKey key = iota
 
-// CSPNonce returns the nonce value associated with the present request. If no nonce has been generated it returns an empty string.
+// CSPNonce returns the nonce value associated with the present request.
+// If no nonce has been generated it returns an empty string.
 func CSPNonce(c context.Context) string {
 	if val, ok := c.Value(cspNonceKey).(string); ok {
 		return val
