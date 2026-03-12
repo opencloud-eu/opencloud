@@ -527,46 +527,34 @@ func (c *Chain) wrapCallable(fn interface{}, args ...interface{}) (func() error,
 }
 
 // executeStep runs a single step, applying retries if configured.
+// This version is synchronous and avoids the bugs caused by the previous goroutine-based implementation.
 func (c *Chain) executeStep(ctx context.Context, step *chainStep) error {
+	// First, check if the context has already been canceled before starting the step.
+	// This allows the chain to fail fast.
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
+		// Context is still active, proceed.
 	}
+
+	// If the step has retry logic configured...
 	if step.config.retry != nil {
-		retry := step.config.retry.Transform(WithContext(ctx))
-		// Wrap step execution to respect context
-		wrappedFn := func() error {
-			type result struct {
-				err error
-			}
-			done := make(chan result, 1)
-			go func() {
-				done <- result{err: step.execute()}
-			}()
-			select {
-			case res := <-done:
-				return res.err
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-		}
-		return retry.Execute(wrappedFn)
+		// Create a new retry instance that is aware of the chain's context.
+		// The retry executor will be responsible for checking ctx.Done() between attempts.
+		retryExecutor := step.config.retry.Transform(WithContext(ctx))
+
+		// Execute the step's function directly. The retry mechanism will manage the loop,
+		// delays, and context cancellation checks. We pass step.execute without any
+		// extra goroutine wrappers.
+		return retryExecutor.Execute(step.execute)
 	}
-	// Non-retry case also respects context
-	type result struct {
-		err error
-	}
-	done := make(chan result, 1)
-	go func() {
-		done <- result{err: step.execute()}
-	}()
-	select {
-	case res := <-done:
-		return res.err
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+
+	// For a simple, non-retrying step, execute the function directly and synchronously
+	// in the current goroutine. This is the simplest, fastest, and most correct approach.
+	// It ensures that database connections are used and returned to the pool sequentially,
+	// preventing the deadlock issue.
+	return step.execute()
 }
 
 // enhanceError wraps an error with additional context from the step.

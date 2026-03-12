@@ -81,6 +81,13 @@ func (b *ConfigBuilder) WithTrimSpace(state tw.State) *ConfigBuilder {
 	return b
 }
 
+// WithTrimTab enables or disables automatic trimming of leading/trailing tabs.
+// Useful for preserving indentation in code blocks while trimming other whitespace.
+func (b *ConfigBuilder) WithTrimTab(state tw.State) *ConfigBuilder {
+	b.config.Behavior.TrimTab = state
+	return b
+}
+
 // WithDebug enables/disables debug logging
 func (b *ConfigBuilder) WithDebug(debug bool) *ConfigBuilder {
 	b.config.Debug = debug
@@ -793,6 +800,12 @@ func (bb *BehaviorConfigBuilder) WithAutoHide(state tw.State) *BehaviorConfigBui
 // WithTrimSpace enables/disables trim space
 func (bb *BehaviorConfigBuilder) WithTrimSpace(state tw.State) *BehaviorConfigBuilder {
 	bb.config.TrimSpace = state
+	return bb
+}
+
+// WithTrimTab enables/disables trim tab
+func (bb *BehaviorConfigBuilder) WithTrimTab(state tw.State) *BehaviorConfigBuilder {
+	bb.config.TrimTab = state
 	return bb
 }
 

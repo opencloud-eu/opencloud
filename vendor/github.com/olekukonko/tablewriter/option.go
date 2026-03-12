@@ -528,6 +528,17 @@ func WithTrimSpace(state tw.State) Option {
 	}
 }
 
+// WithTrimTab sets whether leading and trailing tab characters are automatically trimmed.
+// Logs the change if debugging is enabled.
+func WithTrimTab(state tw.State) Option {
+	return func(target *Table) {
+		target.config.Behavior.TrimTab = state
+		if target.logger != nil {
+			target.logger.Debugf("Option: WithTrimTab applied to Table: %v", state)
+		}
+	}
+}
+
 // WithTrimLine sets whether empty visual lines within a cell are trimmed.
 // Logs the change if debugging is enabled.
 func WithTrimLine(state tw.State) Option {
@@ -781,6 +792,7 @@ func defaultConfig() Config {
 		Behavior: tw.Behavior{
 			AutoHide:  tw.Off,
 			TrimSpace: tw.On,
+			TrimTab:   tw.On,
 			TrimLine:  tw.On,
 			Structs: tw.Struct{
 				AutoHeader: tw.Off,
@@ -920,6 +932,7 @@ func mergeConfig(dst, src Config) Config {
 	dst.Debug = src.Debug || dst.Debug
 	dst.Behavior.AutoHide = src.Behavior.AutoHide
 	dst.Behavior.TrimSpace = src.Behavior.TrimSpace
+	dst.Behavior.TrimTab = src.Behavior.TrimTab
 	dst.Behavior.Compact = src.Behavior.Compact
 	dst.Behavior.Header = src.Behavior.Header
 	dst.Behavior.Footer = src.Behavior.Footer

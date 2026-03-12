@@ -37,7 +37,7 @@ func NewMarkdown(configs ...tw.Rendition) *Markdown {
 	if len(configs) > 0 {
 		cfg = mergeMarkdownConfig(cfg, configs[0])
 	}
-	return &Markdown{config: cfg, logger: ll.New("markdown")}
+	return &Markdown{config: cfg, logger: ll.New("markdown").Disable()}
 }
 
 // mergeMarkdownConfig combines user-provided config with Markdown defaults, enforcing Markdown-specific settings.

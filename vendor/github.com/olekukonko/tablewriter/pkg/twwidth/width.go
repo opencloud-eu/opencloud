@@ -1,4 +1,3 @@
-// width.go
 package twwidth
 
 import (
@@ -34,9 +33,6 @@ var globalOptions Options
 // mu protects access to globalOptions for thread safety.
 var mu sync.Mutex
 
-// widthCache stores memoized results of Width calculations to improve performance.
-var widthCache *twcache.LRU[string, int]
-
 // ansi is a compiled regular expression for stripping ANSI escape codes from strings.
 var ansi = Filter()
 
@@ -53,24 +49,10 @@ func init() {
 		// If EastAsianWidth is ON (e.g. forced via Env Var), but we detect
 		// a modern environment, we might technically want to narrow borders
 		// while keeping text wide.
-		//
-		// Note: In the standard EastAsian logic, isEastAsian will
-		// ALREADY be false for modern environments, so this boolean implies
-		// a specific "Forced On" scenario.
 		ForceNarrowBorders: isEastAsian && isModernEnvironment(),
 	}
 
-	widthCache = twcache.NewLRU[string, int](cacheCapacity)
-}
-
-// makeCacheKey generates a string key for the LRU cache from the input string
-// and the current East Asian width setting.
-// Prefix "0:" for false, "1:" for true.
-func makeCacheKey(str string, eastAsianWidth bool) string {
-	if eastAsianWidth {
-		return cacheEastAsianPrefix + str
-	}
-	return cachePrefix + str
+	widthCache = twcache.NewLRU[cacheKey, int](cacheCapacity)
 }
 
 // Display calculates the visual width of a string using a specific runewidth.Condition.
@@ -122,21 +104,6 @@ func IsEastAsian() bool {
 	mu.Lock()
 	defer mu.Unlock()
 	return globalOptions.EastAsianWidth
-}
-
-// SetCacheCapacity changes the cache size dynamically
-// If capacity <= 0, disables caching entirely
-func SetCacheCapacity(capacity int) {
-	mu.Lock()
-	defer mu.Unlock()
-
-	if capacity <= 0 {
-		widthCache = nil // nil = fully disabled
-		return
-	}
-
-	newCache := twcache.NewLRU[string, int](capacity)
-	widthCache = newCache
 }
 
 // SetCondition sets the global East Asian width setting based on a runewidth.Condition.
@@ -362,6 +329,10 @@ func Truncate(s string, maxWidth int, suffix ...string) string {
 func Width(str string) int {
 	// Fast path ASCII (Optimization)
 	if len(str) == 1 && str[0] < 0x80 {
+		// Treat tab as special case even in fast path
+		if IsTab(rune(str[0])) {
+			return TabWidth()
+		}
 		return 1
 	}
 
@@ -369,17 +340,20 @@ func Width(str string) int {
 	currentOpts := globalOptions
 	mu.Unlock()
 
-	key := makeCacheKey(str, currentOpts.EastAsianWidth)
+	key := cacheKey{
+		eastAsian: currentOpts.EastAsianWidth,
+		str:       str,
+	}
 
 	// Check Cache (Optimization)
 	if w, found := widthCache.Get(key); found {
 		return w
 	}
 
-	stripped := ansi.ReplaceAllLiteralString(str, "")
+	//stripped := ansi.ReplaceAllLiteralString(str, "")
 	calculatedWidth := 0
 
-	for _, r := range stripped {
+	for _, r := range strip(str) {
 		calculatedWidth += calculateRunewidth(r, currentOpts)
 	}
 
@@ -407,19 +381,25 @@ func WidthNoCache(str string) int {
 // bypassing the global settings and cache. This is useful for one-shot calculations
 // where global state is not desired.
 func WidthWithOptions(str string, opts Options) int {
-	stripped := ansi.ReplaceAllLiteralString(str, "")
+	// stripped := ansi.ReplaceAllLiteralString(str, "")
 	calculatedWidth := 0
-	for _, r := range stripped {
+	for _, r := range strip(str) {
 		calculatedWidth += calculateRunewidth(r, opts)
 	}
 	return calculatedWidth
 }
 
 // calculateRunewidth calculates the width of a single rune based on the provided options.
-// It applies narrow overrides for box drawing characters if configured.
+// It applies narrow overrides for box drawing characters if configured and handles Tabs.
 func calculateRunewidth(r rune, opts Options) int {
 	if opts.ForceNarrowBorders && isBoxDrawingChar(r) {
 		return 1
+	}
+
+	// Explicitly handle Tabinal to ensure tables have enough space
+	// when TrimTab is Off.
+	if IsTab(r) {
+		return TabWidth()
 	}
 
 	dwOpts := displaywidth.Options{EastAsianWidth: opts.EastAsianWidth}
@@ -429,4 +409,11 @@ func calculateRunewidth(r rune, opts Options) int {
 // isBoxDrawingChar checks if a rune is within the Unicode Box Drawing range.
 func isBoxDrawingChar(r rune) bool {
 	return r >= 0x2500 && r <= 0x257F
+}
+
+func strip(s string) string {
+	if strings.IndexByte(s, '\x1b') == -1 {
+		return s
+	}
+	return ansi.ReplaceAllLiteralString(s, "")
 }

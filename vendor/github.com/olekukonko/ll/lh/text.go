@@ -1,9 +1,9 @@
 package lh
 
 import (
+	"bytes"
 	"fmt"
 	"io"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -11,12 +11,40 @@ import (
 	"github.com/olekukonko/ll/lx"
 )
 
+type TextOption func(*TextHandler)
+
+var textBufPool = sync.Pool{
+	New: func() any {
+		return new(bytes.Buffer)
+	},
+}
+
+// WithTextTimeFormat enables timestamp display and optionally sets a custom time format.
+// It configures the TextHandler to include temporal information in each log entry,
+// allowing for precise tracking of when log events occur.
+// If the format string is empty, it defaults to time.RFC3339.
+func WithTextTimeFormat(format string) TextOption {
+	return func(t *TextHandler) {
+		t.Timestamped(true, format)
+	}
+}
+
+// WithTextShowTime enables or disables timestamp display in log entries.
+// This option provides direct control over the visibility of the time prefix
+// without altering the underlying time format configured in the handler.
+// Setting show to true will prepend timestamps to all subsequent regular log outputs.
+func WithTextShowTime(show bool) TextOption {
+	return func(t *TextHandler) {
+		t.showTime = show
+	}
+}
+
 // TextHandler is a handler that outputs log entries as plain text.
 // It formats log entries with namespace, level, message, fields, and optional stack traces,
 // writing the result to the provided writer.
 // Thread-safe if the underlying writer is thread-safe.
 type TextHandler struct {
-	w          io.Writer // Destination for formatted log output
+	writer     io.Writer // Destination for formatted log output
 	showTime   bool      // Whether to display timestamps
 	timeFormat string    // Format for timestamps (defaults to time.RFC3339)
 	mu         sync.Mutex
@@ -29,12 +57,18 @@ type TextHandler struct {
 //	handler := NewTextHandler(os.Stdout)
 //	logger := ll.New("app").Enable().Handler(handler)
 //	logger.Info("Test") // Output: [app] INFO: Test
-func NewTextHandler(w io.Writer) *TextHandler {
-	return &TextHandler{
-		w:          w,
+func NewTextHandler(w io.Writer, opts ...TextOption) *TextHandler {
+	t := &TextHandler{
+		writer:     w,
 		showTime:   false,
 		timeFormat: time.RFC3339,
 	}
+
+	for _, opt := range opts {
+		opt(t)
+	}
+
+	return t
 }
 
 // Timestamped enables or disables timestamp display and optionally sets a custom time format.
@@ -50,6 +84,14 @@ func (h *TextHandler) Timestamped(enable bool, format ...string) {
 	}
 }
 
+// Output sets a new writer for the TextHandler.
+// Thread-safe - safe for concurrent use.
+func (h *TextHandler) Output(w io.Writer) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.writer = w
+}
+
 // Handle processes a log entry and writes it as plain text.
 // It delegates to specialized methods based on the entry's class (Dump, Raw, or regular).
 // Returns an error if writing to the underlying writer fails.
@@ -61,18 +103,15 @@ func (h *TextHandler) Handle(e *lx.Entry) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	// Special handling for dump output
 	if e.Class == lx.ClassDump {
 		return h.handleDumpOutput(e)
 	}
 
-	// Raw entries are written directly without formatting
 	if e.Class == lx.ClassRaw {
-		_, err := h.w.Write([]byte(e.Message))
+		_, err := h.writer.Write([]byte(e.Message))
 		return err
 	}
 
-	// Handle standard log entries
 	return h.handleRegularOutput(e)
 }
 
@@ -84,81 +123,68 @@ func (h *TextHandler) Handle(e *lx.Entry) error {
 //
 //	h.handleRegularOutput(&lx.Entry{Message: "test", Level: lx.LevelInfo}) // Writes "INFO: test"
 func (h *TextHandler) handleRegularOutput(e *lx.Entry) error {
-	var builder strings.Builder // Buffer for building formatted output
+	buf := textBufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer textBufPool.Put(buf)
 
-	// Add timestamp if enabled
 	if h.showTime {
-		builder.WriteString(e.Timestamp.Format(h.timeFormat))
-		builder.WriteString(lx.Space)
+		buf.WriteString(e.Timestamp.Format(h.timeFormat))
+		buf.WriteString(lx.Space)
 	}
 
-	// Format namespace based on style
 	switch e.Style {
 	case lx.NestedPath:
 		if e.Namespace != "" {
-			// Split namespace into parts and format as [parent]→[child]
 			parts := strings.Split(e.Namespace, lx.Slash)
 			for i, part := range parts {
-				builder.WriteString(lx.LeftBracket)
-				builder.WriteString(part)
-				builder.WriteString(lx.RightBracket)
+				buf.WriteString(lx.LeftBracket)
+				buf.WriteString(part)
+				buf.WriteString(lx.RightBracket)
 				if i < len(parts)-1 {
-					builder.WriteString(lx.Arrow)
+					buf.WriteString(lx.Arrow)
 				}
 			}
-			builder.WriteString(lx.Colon)
-			builder.WriteString(lx.Space)
+			buf.WriteString(lx.Colon)
+			buf.WriteString(lx.Space)
 		}
 	default: // FlatPath
 		if e.Namespace != "" {
-			// Format namespace as [parent/child]
-			builder.WriteString(lx.LeftBracket)
-			builder.WriteString(e.Namespace)
-			builder.WriteString(lx.RightBracket)
-			builder.WriteString(lx.Space)
+			buf.WriteString(lx.LeftBracket)
+			buf.WriteString(e.Namespace)
+			buf.WriteString(lx.RightBracket)
+			buf.WriteString(lx.Space)
 		}
 	}
 
-	// Add level and message
-	builder.WriteString(e.Level.String())
-	builder.WriteString(lx.Colon)
-	builder.WriteString(lx.Space)
-	builder.WriteString(e.Message)
+	buf.WriteString(e.Level.Name(e.Class))
+	// buf.WriteString(lx.Space)
+	buf.WriteString(lx.Colon)
+	buf.WriteString(lx.Space)
+	buf.WriteString(e.Message)
 
-	// Add fields in sorted order
 	if len(e.Fields) > 0 {
-		var keys []string
-		for k := range e.Fields {
-			keys = append(keys, k)
-		}
-		// Sort keys for consistent output
-		sort.Strings(keys)
-		builder.WriteString(lx.Space)
-		builder.WriteString(lx.LeftBracket)
-		for i, k := range keys {
+		buf.WriteString(lx.Space)
+		buf.WriteString(lx.LeftBracket)
+		for i, pair := range e.Fields {
 			if i > 0 {
-				builder.WriteString(lx.Space)
+				buf.WriteString(lx.Space)
 			}
-			// Format field as key=value
-			builder.WriteString(k)
-			builder.WriteString("=")
-			builder.WriteString(fmt.Sprint(e.Fields[k]))
+			buf.WriteString(pair.Key)
+			buf.WriteString("=")
+			fmt.Fprint(buf, pair.Value)
 		}
-		builder.WriteString(lx.RightBracket)
+		buf.WriteString(lx.RightBracket)
 	}
 
-	// Add stack trace if present
 	if len(e.Stack) > 0 {
-		h.formatStack(&builder, e.Stack)
+		h.formatStack(buf, e.Stack)
 	}
 
-	// Append newline for non-None levels
 	if e.Level != lx.LevelNone {
-		builder.WriteString(lx.Newline)
+		buf.WriteString(lx.Newline)
 	}
 
-	// Write formatted output to writer
-	_, err := h.w.Write([]byte(builder.String()))
+	_, err := h.writer.Write(buf.Bytes())
 	return err
 }
 
@@ -169,22 +195,20 @@ func (h *TextHandler) handleRegularOutput(e *lx.Entry) error {
 //
 //	h.handleDumpOutput(&lx.Entry{Class: lx.ClassDump, Message: "pos 00 hex: 61"}) // Writes "---- BEGIN DUMP ----\npos 00 hex: 61\n---- END DUMP ----\n"
 func (h *TextHandler) handleDumpOutput(e *lx.Entry) error {
-	// For text handler, we just add a newline before dump output
-	var builder strings.Builder // Buffer for building formatted output
+	buf := textBufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer textBufPool.Put(buf)
 
-	// Add timestamp if enabled
 	if h.showTime {
-		builder.WriteString(e.Timestamp.Format(h.timeFormat))
-		builder.WriteString(lx.Newline)
+		buf.WriteString(e.Timestamp.Format(h.timeFormat))
+		buf.WriteString(lx.Newline)
 	}
 
-	// Add separator lines and dump content
-	builder.WriteString("---- BEGIN DUMP ----\n")
-	builder.WriteString(e.Message)
-	builder.WriteString("---- END DUMP ----\n")
+	buf.WriteString("---- BEGIN DUMP ----\n")
+	buf.WriteString(e.Message)
+	buf.WriteString("---- END DUMP ----\n\n")
 
-	// Write formatted output to writer
-	_, err := h.w.Write([]byte(builder.String()))
+	_, err := h.writer.Write(buf.Bytes())
 	return err
 }
 
@@ -194,21 +218,18 @@ func (h *TextHandler) handleDumpOutput(e *lx.Entry) error {
 // Example (internal usage):
 //
 //	h.formatStack(&builder, []byte("goroutine 1 [running]:\nmain.main()\n\tmain.go:10")) // Appends formatted stack trace
-func (h *TextHandler) formatStack(b *strings.Builder, stack []byte) {
+func (h *TextHandler) formatStack(b *bytes.Buffer, stack []byte) {
 	lines := strings.Split(string(stack), "\n")
 	if len(lines) == 0 {
 		return
 	}
 
-	// Start stack trace section
 	b.WriteString("\n[stack]\n")
 
-	// First line: goroutine
 	b.WriteString("  ┌─ ")
 	b.WriteString(lines[0])
 	b.WriteString("\n")
 
-	// Iterate through remaining lines
 	for i := 1; i < len(lines); i++ {
 		line := strings.TrimSpace(lines[i])
 		if line == "" {
@@ -216,16 +237,13 @@ func (h *TextHandler) formatStack(b *strings.Builder, stack []byte) {
 		}
 
 		if strings.Contains(line, ".go") {
-			// File path lines get extra indent
 			b.WriteString("  ├       ")
 		} else {
-			// Function names
 			b.WriteString("  │   ")
 		}
 		b.WriteString(line)
 		b.WriteString("\n")
 	}
 
-	// End stack trace section
 	b.WriteString("  └\n")
 }

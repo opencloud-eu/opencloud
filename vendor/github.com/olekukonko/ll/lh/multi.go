@@ -32,15 +32,31 @@ func NewMultiHandler(h ...lx.Handler) *MultiHandler {
 }
 
 // Len returns the number of handlers in the MultiHandler.
+// Useful for monitoring or debugging handler composition.
+//
+// Example:
+//
+//	multi := &MultiHandler{}
+//	multi.Append(h1, h2, h3)
+//	count := multi.Len() // Returns 3
 func (h *MultiHandler) Len() int {
 	return len(h.Handlers)
 }
 
-// Append adds one or more lx.Handler instances to the MultiHandler's list of handlers.
+// Append adds one or more handlers to the MultiHandler.
+// Handlers will receive log entries in the order they were appended.
+// This method modifies the MultiHandler in place.
+//
+// Example:
+//
+//	multi := &MultiHandler{}
+//	multi.Append(
+//	    lx.NewJSONHandler(os.Stdout),
+//	    lx.NewTextHandler(logFile),
+//	)
+//	// Now multi broadcasts to both stdout and file
 func (h *MultiHandler) Append(handlers ...lx.Handler) {
-	for _, e := range handlers {
-		h.Handlers = append(h.Handlers, e)
-	}
+	h.Handlers = append(h.Handlers, handlers...)
 }
 
 // Handle implements the Handler interface, calling Handle on each handler in sequence.
@@ -56,7 +72,7 @@ func (h *MultiHandler) Handle(e *lx.Entry) error {
 		if err := handler.Handle(e); err != nil {
 			// fmt.Fprintf(os.Stderr, "MultiHandler error for handler %d: %v\n", i, err)
 			// Wrap error with handler index for context
-			errs = append(errs, fmt.Errorf("handler %d: %w", i, err))
+			errs = append(errs, fmt.Errorf("handler %d: %writer", i, err))
 		}
 	}
 	// Combine errors into a single error, or return nil if no errors

@@ -44,7 +44,7 @@ func NewBlueprint(configs ...tw.Rendition) *Blueprint {
 		// Merge user settings with default settings
 		cfg.Settings = mergeSettings(cfg.Settings, userCfg.Settings)
 	}
-	return &Blueprint{config: cfg, logger: ll.New("blueprint")}
+	return &Blueprint{config: cfg, logger: ll.New("blueprint").Disable()}
 }
 
 // Close performs cleanup (no-op in this implementation).
@@ -322,14 +322,22 @@ func (f *Blueprint) formatCell(content string, width int, padding tw.Padding, al
 		result.WriteString(content)
 		rightPaddingWidth = totalPaddingWidth - padLeftWidth
 		if rightPaddingWidth > 0 {
-			result.WriteString(tw.PadRight(tw.Empty, rightPadChar, rightPaddingWidth))
-			f.logger.Debugf("Applied right padding: '%s' for %d width", rightPadChar, rightPaddingWidth)
+			padChar := rightPadChar
+			if padChar == tw.Empty {
+				padChar = tw.Space
+			}
+			result.WriteString(tw.PadRight(tw.Empty, padChar, rightPaddingWidth))
+			f.logger.Debugf("Applied right padding: '%s' for %d width", padChar, rightPaddingWidth)
 		}
 	case tw.AlignRight:
 		leftPaddingWidth = totalPaddingWidth - padRightWidth
 		if leftPaddingWidth > 0 {
-			result.WriteString(tw.PadLeft(tw.Empty, leftPadChar, leftPaddingWidth))
-			f.logger.Debugf("Applied left padding: '%s' for %d width", leftPadChar, leftPaddingWidth)
+			padChar := leftPadChar
+			if padChar == tw.Empty {
+				padChar = tw.Space
+			}
+			result.WriteString(tw.PadLeft(tw.Empty, padChar, leftPaddingWidth))
+			f.logger.Debugf("Applied left padding: '%s' for %d width", padChar, leftPaddingWidth)
 		}
 		result.WriteString(content)
 		result.WriteString(rightPadChar)
@@ -337,15 +345,23 @@ func (f *Blueprint) formatCell(content string, width int, padding tw.Padding, al
 		leftPaddingWidth = (totalPaddingWidth-padLeftWidth-padRightWidth)/2 + padLeftWidth
 		rightPaddingWidth = totalPaddingWidth - leftPaddingWidth
 		if leftPaddingWidth > padLeftWidth {
-			result.WriteString(tw.PadLeft(tw.Empty, leftPadChar, leftPaddingWidth-padLeftWidth))
-			f.logger.Debugf("Applied left centering padding: '%s' for %d width", leftPadChar, leftPaddingWidth-padLeftWidth)
+			padChar := leftPadChar
+			if padChar == tw.Empty {
+				padChar = tw.Space
+			}
+			result.WriteString(tw.PadLeft(tw.Empty, padChar, leftPaddingWidth-padLeftWidth))
+			f.logger.Debugf("Applied left centering padding: '%s' for %d width", padChar, leftPaddingWidth-padLeftWidth)
 		}
 		result.WriteString(leftPadChar)
 		result.WriteString(content)
 		result.WriteString(rightPadChar)
 		if rightPaddingWidth > padRightWidth {
-			result.WriteString(tw.PadRight(tw.Empty, rightPadChar, rightPaddingWidth-padRightWidth))
-			f.logger.Debugf("Applied right centering padding: '%s' for %d width", rightPadChar, rightPaddingWidth-padRightWidth)
+			padChar := rightPadChar
+			if padChar == tw.Empty {
+				padChar = tw.Space
+			}
+			result.WriteString(tw.PadRight(tw.Empty, padChar, rightPaddingWidth-padRightWidth))
+			f.logger.Debugf("Applied right centering padding: '%s' for %d width", padChar, rightPaddingWidth-padRightWidth)
 		}
 	default:
 		// Default to left alignment
@@ -353,8 +369,12 @@ func (f *Blueprint) formatCell(content string, width int, padding tw.Padding, al
 		result.WriteString(content)
 		rightPaddingWidth = totalPaddingWidth - padLeftWidth
 		if rightPaddingWidth > 0 {
-			result.WriteString(tw.PadRight(tw.Empty, rightPadChar, rightPaddingWidth))
-			f.logger.Debugf("Applied right padding: '%s' for %d width", rightPadChar, rightPaddingWidth)
+			padChar := rightPadChar
+			if padChar == tw.Empty {
+				padChar = tw.Space
+			}
+			result.WriteString(tw.PadRight(tw.Empty, padChar, rightPaddingWidth))
+			f.logger.Debugf("Applied right padding: '%s' for %d width", padChar, rightPaddingWidth)
 		}
 	}
 

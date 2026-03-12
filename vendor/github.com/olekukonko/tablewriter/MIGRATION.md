@@ -448,7 +448,7 @@ func NewInvoiceRenderer() *InvoiceRenderer {
 		Settings:  tw.Settings{Separators: tw.SeparatorsNone, Lines: tw.LinesNone},
 		Streaming: false,
 	}
-	defaultLogger := ll.New("simple-invoice-renderer")
+	defaultLogger := ll.New("simple-invoice-renderer").Disable()
 	return &InvoiceRenderer{logger: defaultLogger, rendition: rendition}
 }
 

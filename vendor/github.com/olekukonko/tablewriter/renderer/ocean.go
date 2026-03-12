@@ -36,7 +36,7 @@ func NewOcean(oceanConfig ...OceanConfig) *Ocean {
 		config:      cfg,
 		oceanConfig: oCfg,
 		fixedWidths: tw.NewMapper[int, int](),
-		logger:      ll.New("ocean"),
+		logger:      ll.New("ocean").Disable(),
 	}
 	r.resetState()
 	return r

@@ -1,7 +1,6 @@
 package ll
 
 import (
-	"bufio"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -24,23 +23,25 @@ import (
 // log level, namespaces, context fields, output style, handler, middleware, and formatting.
 // It is thread-safe, using a read-write mutex to protect concurrent access to its fields.
 type Logger struct {
-	mu              sync.RWMutex           // Guards concurrent access to fields
-	enabled         bool                   // Determines if logging is enabled
-	suspend         atomic.Bool            // uses suspend path for most actions eg. skipping namespace checks
-	level           lx.LevelType           // Minimum log level (e.g., Debug, Info, Warn, Error)
-	namespaces      *lx.Namespace          // Manages namespace enable/disable states
-	currentPath     string                 // Current namespace path (e.g., "parent/child")
-	context         map[string]interface{} // Contextual fields included in all logs
-	style           lx.StyleType           // Namespace formatting style (FlatPath or NestedPath)
-	handler         lx.Handler             // Output handler for logs (e.g., text, JSON)
-	middleware      []Middleware           // Middleware functions to process log entries
-	prefix          string                 // Prefix prepended to log messages
-	indent          int                    // Number of double spaces for message indentation
-	stackBufferSize int                    // Buffer size for capturing stack traces
-	separator       string                 // Separator for namespace paths (e.g., "/")
-	entries         atomic.Int64           // Tracks total log entries sent to handler
+	mu              sync.RWMutex  // Guards concurrent access to fields
+	enabled         bool          // Determines if logging is enabled
+	suspend         atomic.Bool   // uses suspend path for most actions eg. skipping namespace checks
+	level           lx.LevelType  // Minimum log level (e.g., Debug, Info, Warn, Error)
+	atomicLevel     int32         // Shadow copy of level for lock-free checks
+	namespaces      *lx.Namespace // Manages namespace enable/disable states
+	currentPath     string        // Current namespace path (e.g., "parent/child")
+	context         lx.Fields     // Contextual fields included in all logs
+	style           lx.StyleType  // Namespace formatting style (FlatPath or NestedPath)
+	handler         lx.Handler    // Output handler for logs (e.g., text, JSON)
+	middleware      []Middleware  // Middleware functions to process log entries
+	prefix          string        // Prefix prepended to log messages
+	indent          int           // Number of double spaces for message indentation
+	stackBufferSize int           // Buffer size for capturing stack traces
+	separator       string        // Separator for namespace paths (e.g., "/")
+	entries         atomic.Int64  // Tracks total log entries sent to handler
 	fatalExits      bool
 	fatalStack      bool
+	labels          atomic.Pointer[[]string]
 }
 
 // New creates a new Logger with the given namespace and optional configurations.
@@ -55,9 +56,10 @@ func New(namespace string, opts ...Option) *Logger {
 	logger := &Logger{
 		enabled:         lx.DefaultEnabled,            // Defaults to disabled (false)
 		level:           lx.LevelDebug,                // Default minimum log level
+		atomicLevel:     int32(lx.LevelDebug),         // Initialize atomic level
 		namespaces:      defaultStore,                 // Shared namespace store
 		currentPath:     namespace,                    // Initial namespace path
-		context:         make(map[string]interface{}), // Empty context for fields
+		context:         make(lx.Fields, 0, 10),       // Empty context for fields
 		style:           lx.FlatPath,                  // Default namespace style ([parent/child])
 		handler:         lh.NewTextHandler(os.Stdout), // Default text output to stdout
 		middleware:      make([]Middleware, 0),        // Empty middleware chain
@@ -116,28 +118,15 @@ func (l *Logger) AddContext(pairs ...any) *Logger {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	// Lazy initialization of context map
 	if l.context == nil {
-		l.context = make(map[string]interface{})
+		l.context = make(lx.Fields, 0, len(pairs)/2)
 	}
 
-	// Process key-value pairs
 	for i := 0; i < len(pairs)-1; i += 2 {
-		key, ok := pairs[i].(string)
-		if !ok {
-			l.Warnf("AddContext: non-string key at index %d: %v", i, pairs[i])
-			continue
+		if key, ok := pairs[i].(string); ok {
+			l.context = append(l.context, lx.Field{Key: key, Value: pairs[i+1]})
 		}
-
-		value := pairs[i+1]
-		l.context[key] = value
 	}
-
-	// Optional: warn about uneven number of arguments
-	if len(pairs)%2 != 0 {
-		l.Warn("AddContext: uneven number of arguments, last value ignored")
-	}
-
 	return l
 }
 
@@ -195,18 +184,19 @@ func (l *Logger) Clone() *Logger {
 	defer l.mu.RUnlock()
 
 	return &Logger{
-		enabled:         l.enabled,                    // Copy enablement state
-		level:           l.level,                      // Copy log level
-		namespaces:      l.namespaces,                 // Share namespace store
-		currentPath:     l.currentPath,                // Copy namespace path
-		context:         make(map[string]interface{}), // Fresh context map
-		style:           l.style,                      // Copy namespace style
-		handler:         l.handler,                    // Copy output handler
-		middleware:      l.middleware,                 // Copy middleware chain
-		prefix:          l.prefix,                     // Copy message prefix
-		indent:          l.indent,                     // Copy indentation level
-		stackBufferSize: l.stackBufferSize,            // Copy stack trace buffer size
-		separator:       l.separator,                  // Default separator ("/")
+		enabled:         l.enabled,              // Copy enablement state
+		level:           l.level,                // Copy log level
+		atomicLevel:     l.atomicLevel,          // Copy atomic level
+		namespaces:      l.namespaces,           // Share namespace store
+		currentPath:     l.currentPath,          // Copy namespace path
+		context:         make(lx.Fields, 0, 10), // Fresh context map
+		style:           l.style,                // Copy namespace style
+		handler:         l.handler,              // Copy output handler
+		middleware:      l.middleware,           // Copy middleware chain
+		prefix:          l.prefix,               // Copy message prefix
+		indent:          l.indent,               // Copy indentation level
+		stackBufferSize: l.stackBufferSize,      // Copy stack trace buffer size
+		separator:       l.separator,            // Default separator ("/")
 		suspend:         l.suspend,
 	}
 }
@@ -227,9 +217,10 @@ func (l *Logger) Context(fields map[string]interface{}) *Logger {
 	newLogger := &Logger{
 		enabled:         l.enabled,
 		level:           l.level,
+		atomicLevel:     l.atomicLevel,
 		namespaces:      l.namespaces,
 		currentPath:     l.currentPath,
-		context:         make(map[string]interface{}),
+		context:         make(lx.Fields, 0, len(l.context)+len(fields)),
 		style:           l.style,
 		handler:         l.handler,
 		middleware:      l.middleware,
@@ -238,35 +229,19 @@ func (l *Logger) Context(fields map[string]interface{}) *Logger {
 		stackBufferSize: l.stackBufferSize,
 		separator:       l.separator,
 		suspend:         l.suspend,
+		fatalExits:      l.fatalExits,
+		fatalStack:      l.fatalStack,
 	}
 
-	// Copy parent's context fields
-	for k, v := range l.context {
-		newLogger.context[k] = v
-	}
+	// Copy parent's context fields (in order)
+	newLogger.context = append(newLogger.context, l.context...)
 
-	// Add new fields
+	// Add new fields from map
 	for k, v := range fields {
-		newLogger.context[k] = v
+		newLogger.context = append(newLogger.context, lx.Field{Key: k, Value: v})
 	}
 
 	return newLogger
-}
-
-// Dbg logs debug information, including the source file, line number, and expression
-// value, capturing the calling line of code. It is useful for debugging without temporary
-// print statements.
-// Example:
-//
-//	x := 42
-//	logger.Dbg(x) // Output: [file.go:123] x = 42
-func (l *Logger) Dbg(values ...interface{}) {
-	// Skip logging if Info level is not enabled
-	if !l.shouldLog(lx.LevelInfo) {
-		return
-	}
-
-	l.dbg(2, values...)
 }
 
 // Debug logs a message at Debug level, formatting it and delegating to the internal
@@ -434,7 +409,7 @@ func (l *Logger) output(skip int, values ...interface{}) {
 				"error": err.Error(),
 			}, "  ", "  ")
 		}
-		l.log(lx.LevelInfo, lx.ClassText, header+string(b), nil, false)
+		l.log(lx.LevelInfo, lx.ClassJSON, header+string(b), nil, false)
 	}
 }
 
@@ -503,10 +478,11 @@ func (l *Logger) Err(errs ...error) {
 	}
 
 	l.mu.Lock()
+	defer l.mu.Unlock()
 
-	// Initialize context map if nil
+	// Initialize context slice if nil
 	if l.context == nil {
-		l.context = make(map[string]interface{})
+		l.context = make(lx.Fields, 0, 4)
 	}
 
 	// Collect non-nil errors and build log message
@@ -527,15 +503,14 @@ func (l *Logger) Err(errs ...error) {
 	if count > 0 {
 		if count == 1 {
 			// Store single error directly
-			l.context["error"] = nonNilErrors[0]
+			l.context = append(l.context, lx.Field{Key: "error", Value: nonNilErrors[0]})
 		} else {
 			// Store slice of errors
-			l.context["error"] = nonNilErrors
+			l.context = append(l.context, lx.Field{Key: "error", Value: nonNilErrors})
 		}
 		// Log concatenated error messages
 		l.log(lx.LevelError, lx.ClassText, builder.String(), nil, false)
 	}
-	l.mu.Unlock()
 }
 
 // Error logs a message at Error level, formatting it and delegating to the internal
@@ -616,29 +591,27 @@ func (l *Logger) Fatalf(format string, args ...any) {
 //	logger := New("app").Enable()
 //	logger.Field(map[string]interface{}{"user": "alice"}).Info("Action") // Output: [app] INFO: Action [user=alice]
 func (l *Logger) Field(fields map[string]interface{}) *FieldBuilder {
-	fb := &FieldBuilder{logger: l, fields: make(map[string]interface{})}
+	fb := &FieldBuilder{logger: l, fields: make(lx.Fields, 0, len(fields))}
 
-	// check if suspended
 	if l.suspend.Load() {
 		return fb
 	}
 
-	// Copy fields from input map to FieldBuilder
+	// Copy fields from input map to FieldBuilder (preserving map iteration order)
 	for k, v := range fields {
-		fb.fields[k] = v
+		fb.fields = append(fb.fields, lx.Field{Key: k, Value: v})
 	}
 	return fb
 }
 
-// Fields starts a fluent chain for adding fields using variadic key-value pairs,
-// creating a FieldBuilder. Non-string keys or uneven pairs add an error field. It is
-// thread-safe via the FieldBuilder’s logger.
+// Fields starts a fluent chain for adding fields using variadic key-value pairs.
+// It creates a FieldBuilder to attach fields, handling non-string keys or uneven pairs by
+// adding an error field. Thread-safe via the FieldBuilder's logger.
 // Example:
 //
-//	logger := New("app").Enable()
 //	logger.Fields("user", "alice").Info("Action") // Output: [app] INFO: Action [user=alice]
 func (l *Logger) Fields(pairs ...any) *FieldBuilder {
-	fb := &FieldBuilder{logger: l, fields: make(map[string]interface{})}
+	fb := &FieldBuilder{logger: l, fields: make(lx.Fields, 0, len(pairs)/2)}
 
 	if l.suspend.Load() {
 		return fb
@@ -647,15 +620,21 @@ func (l *Logger) Fields(pairs ...any) *FieldBuilder {
 	// Process key-value pairs
 	for i := 0; i < len(pairs)-1; i += 2 {
 		if key, ok := pairs[i].(string); ok {
-			fb.fields[key] = pairs[i+1]
+			fb.fields = append(fb.fields, lx.Field{Key: key, Value: pairs[i+1]})
 		} else {
 			// Log error for non-string keys
-			fb.fields["error"] = fmt.Errorf("non-string key in Fields: %v", pairs[i])
+			fb.fields = append(fb.fields, lx.Field{
+				Key:   "error",
+				Value: fmt.Errorf("non-string key in Fields: %v", pairs[i]),
+			})
 		}
 	}
 	// Log error for uneven pairs
 	if len(pairs)%2 != 0 {
-		fb.fields["error"] = fmt.Errorf("uneven key-value pairs in Fields: [%v]", pairs[len(pairs)-1])
+		fb.fields = append(fb.fields, lx.Field{
+			Key:   "error",
+			Value: fmt.Errorf("uneven key-value pairs in Fields: [%v]", pairs[len(pairs)-1]),
+		})
 	}
 	return fb
 }
@@ -669,7 +648,12 @@ func (l *Logger) Fields(pairs ...any) *FieldBuilder {
 func (l *Logger) GetContext() map[string]interface{} {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
-	return l.context
+	// Convert slice to map for backward compatibility
+	contextMap := make(map[string]interface{}, len(l.context))
+	for _, pair := range l.context {
+		contextMap[pair.Key] = pair.Value
+	}
+	return contextMap
 }
 
 // GetHandler returns the logger's current handler for customization or inspection.
@@ -801,6 +785,28 @@ func (l *Logger) Len() int64 {
 	return l.entries.Load()
 }
 
+// Labels temporarily attaches one or more label names to the logger for the next log entry.
+// Labels are typically used for metrics, benchmarking, tracing, or categorizing logs in a structured way.
+//
+// The labels are stored atomically and intended to be short-lived, applying only to the next
+// log operation (or until overwritten by a subsequent call to Labels). Multiple labels can
+// be provided as separate string arguments.
+//
+// Example usage:
+//
+//	logger := New("app").Enable()
+//
+//	// Add labels for a specific operation
+//	logger.Labels("load_users", "process_orders").Measure(func() {
+//	    // ... perform work ...
+//	}, func() {
+//	    // ... optional callback ...
+//	})
+func (l *Logger) Labels(names ...string) *Logger {
+	l.labels.Store(&names) // store temporarily
+	return l
+}
+
 // Level sets the minimum log level, ignoring messages below it. It is thread-safe using
 // a write lock and returns the logger for chaining.
 // Example:
@@ -812,6 +818,7 @@ func (l *Logger) Level(level lx.LevelType) *Logger {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.level = level
+	atomic.StoreInt32(&l.atomicLevel, int32(level))
 	return l
 }
 
@@ -879,32 +886,6 @@ func (l *Logger) mark(skip int, names ...string) {
 	l.log(lx.LevelInfo, lx.ClassRaw, out, nil, false)
 }
 
-// Measure benchmarks function execution, logging the duration at Info level with a
-// "duration" field. It is thread-safe via Fields and log methods.
-// Example:
-//
-//	logger := New("app").Enable()
-//	duration := logger.Measure(func() { time.Sleep(time.Millisecond) })
-//	// Output: [app] INFO: function executed [duration=~1ms]
-func (l *Logger) Measure(fns ...func()) time.Duration {
-	start := time.Now()
-
-	for _, fn := range fns {
-		if fn != nil {
-			fn()
-		}
-	}
-
-	duration := time.Since(start)
-	l.Fields(
-		"duration_ns", duration.Nanoseconds(),
-		"duration", duration.String(),
-		"duration_ms", fmt.Sprintf("%.3fms", float64(duration.Nanoseconds())/1e6),
-	).Infof("execution completed")
-
-	return duration
-}
-
 // Namespace creates a child logger with a sub-namespace appended to the current path,
 // inheriting the parent’s configuration but with an independent context. It is thread-safe
 // using a read lock.
@@ -931,9 +912,10 @@ func (l *Logger) Namespace(name string) *Logger {
 	return &Logger{
 		enabled:         l.enabled,
 		level:           l.level,
+		atomicLevel:     l.atomicLevel,
 		namespaces:      l.namespaces,
 		currentPath:     fullPath,
-		context:         make(map[string]interface{}),
+		context:         make(lx.Fields, 0, 10),
 		style:           l.style,
 		handler:         l.handler,
 		middleware:      l.middleware,
@@ -1253,6 +1235,17 @@ func (l *Logger) Timestamped(enable bool, format ...string) *Logger {
 	return l
 }
 
+// Toggle enables or disables the logger based on the provided boolean value and returns the updated logger instance.
+func (l *Logger) Toggle(v bool) *Logger {
+	if v {
+		l.Resume()
+		return l.Enable()
+	}
+
+	l.Suspend()
+	return l.Disable()
+}
+
 // Use adds a middleware function to process log entries before they are handled, returning
 // a Middleware handle for removal. Middleware returning a non-nil error stops the log.
 // It is thread-safe using a write lock.
@@ -1315,58 +1308,6 @@ func (l *Logger) Warnf(format string, args ...any) {
 	l.Warn(fmt.Sprintf(format, args...))
 }
 
-// dbg is an internal helper for Dbg, logging debug information with source file and line
-// number, extracting the calling line of code. It is thread-safe via the log method.
-// Example (internal usage):
-//
-//	logger.Dbg(x) // Calls dbg(2, x)
-func (l *Logger) dbg(skip int, values ...interface{}) {
-	for _, exp := range values {
-		// Get caller information (file, line)
-		_, file, line, ok := runtime.Caller(skip)
-		if !ok {
-			l.log(lx.LevelError, lx.ClassText, "Dbg: Unable to parse runtime caller", nil, false)
-			return
-		}
-
-		// Open source file
-		f, err := os.Open(file)
-		if err != nil {
-			l.log(lx.LevelError, lx.ClassText, "Dbg: Unable to open expected file", nil, false)
-			return
-		}
-
-		// Scan file to find the line
-		scanner := bufio.NewScanner(f)
-		scanner.Split(bufio.ScanLines)
-		var out string
-		i := 1
-		for scanner.Scan() {
-			if i == line {
-				// Extract expression between parentheses
-				v := scanner.Text()[strings.Index(scanner.Text(), "(")+1 : len(scanner.Text())-strings.Index(reverseString(scanner.Text()), ")")-1]
-				// Format output with file, line, expression, and value
-				out = fmt.Sprintf("[%s:%d] %s = %+v", file[len(file)-strings.Index(reverseString(file), "/"):], line, v, exp)
-				break
-			}
-			i++
-		}
-		if err := scanner.Err(); err != nil {
-			l.log(lx.LevelError, lx.ClassText, err.Error(), nil, false)
-			return
-		}
-		// Log based on value type
-		switch exp.(type) {
-		case error:
-			l.log(lx.LevelError, lx.ClassText, out, nil, false)
-		default:
-			l.log(lx.LevelInfo, lx.ClassText, out, nil, false)
-		}
-
-		f.Close()
-	}
-}
-
 // joinPath joins a base path and a relative path using the logger's separator, handling
 // empty base or relative paths. It is used internally for namespace path construction.
 // Example (internal usage):
@@ -1394,7 +1335,7 @@ func (l *Logger) joinPath(base, relative string) string {
 //
 //	logger := New("app").Enable()
 //	logger.Info("Test") // Calls log(lx.LevelInfo, "Test", nil, false)
-func (l *Logger) log(level lx.LevelType, class lx.ClassType, msg string, fields map[string]interface{}, withStack bool) {
+func (l *Logger) log(level lx.LevelType, class lx.ClassType, msg string, fields lx.Fields, withStack bool) {
 	// Skip logging if level is not enabled
 	if !l.shouldLog(level) {
 		return
@@ -1408,9 +1349,6 @@ func (l *Logger) log(level lx.LevelType, class lx.ClassType, msg string, fields 
 		buf := make([]byte, l.stackBufferSize)
 		l.mu.RUnlock()
 		n := runtime.Stack(buf, false)
-		if fields == nil {
-			fields = make(map[string]interface{})
-		}
 		stack = buf[:n]
 	}
 
@@ -1428,28 +1366,31 @@ func (l *Logger) log(level lx.LevelType, class lx.ClassType, msg string, fields 
 	builder.WriteString(msg)
 	finalMsg := builder.String()
 
-	// Create log entry
+	// Create combined fields slice - THIS PRESERVES ORDER!
+	// Optimized slice allocation
+	var combinedFields lx.Fields
+	if len(l.context) == 0 {
+		combinedFields = fields
+	} else if len(fields) == 0 {
+		combinedFields = l.context
+	} else {
+		combinedFields = make(lx.Fields, 0, len(l.context)+len(fields))
+		// Add context fields first (in order)
+		combinedFields = append(combinedFields, l.context...)
+		// Add immediate fields
+		combinedFields = append(combinedFields, fields...)
+	}
+
+	// Create log entry with ordered fields
 	entry := &lx.Entry{
 		Timestamp: time.Now(),
 		Level:     level,
 		Message:   finalMsg,
 		Namespace: l.currentPath,
-		Fields:    fields,
+		Fields:    combinedFields, // Already ordered!
 		Style:     l.style,
 		Class:     class,
 		Stack:     stack,
-	}
-
-	// Merge context fields, avoiding overwrites
-	if len(l.context) > 0 {
-		if entry.Fields == nil {
-			entry.Fields = make(map[string]interface{})
-		}
-		for k, v := range l.context {
-			if _, exists := entry.Fields[k]; !exists {
-				entry.Fields[k] = v
-			}
-		}
 	}
 
 	// Apply middleware, stopping if any returns an error
@@ -1486,8 +1427,8 @@ func (l *Logger) shouldLog(level lx.LevelType) bool {
 		return false
 	}
 
-	// Skip if log level is below minimum
-	if level > l.level {
+	// Atomic fast path: read level without lock
+	if level > lx.LevelType(atomic.LoadInt32(&l.atomicLevel)) {
 		return false
 	}
 

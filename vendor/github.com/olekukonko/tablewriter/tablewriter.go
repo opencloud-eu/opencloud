@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
+	"unicode"
 
 	"github.com/olekukonko/errors"
 	"github.com/olekukonko/ll"
@@ -412,6 +413,15 @@ func (t *Table) Options(opts ...Option) *Table {
 		t.logger = ll.New("table").Handler(lh.NewTextHandler(t.trace))
 	}
 
+	// Disable and suspend the logger before applying options to prevent premature
+	// debug output from renderer methods (e.g., Blueprint.Rendition) triggered by
+	// options like WithRendition. Without this, a previously-enabled logger would
+	// still be active on the renderer during option application, causing debug
+	// messages even when WithDebug(false) is being applied.
+	t.logger.Disable()
+	t.logger.Suspend()
+	t.renderer.Logger(t.logger)
+
 	// loop through options
 	for _, opt := range opts {
 		opt(t)
@@ -546,16 +556,37 @@ func (t *Table) Counters() []tw.Counter {
 }
 
 // Trimmer trims whitespace from a string based on the Table’s configuration.
-// It conditionally applies strings.TrimSpace to the input string if the TrimSpace behavior
-// is enabled in t.config.Behavior, otherwise returning the string unchanged. This method
-// is used in the logging library to format strings for tabular output, ensuring consistent
-// display in log messages. Thread-safe as it only reads configuration and operates on the
-// input string.
+// It conditionally applies trimming based on TrimSpace and TrimTab settings.
+//
+// Behavior Matrix:
+// - TrimSpace=On, TrimTab=On:   Uses strings.TrimSpace (removes all Unicode space including \t).
+// - TrimSpace=On, TrimTab=Off:  Removes spaces/newlines but PRESERVES tabs.
+// - TrimSpace=Off, TrimTab=On:  Removes only tabs.
+// - TrimSpace=Off, TrimTab=Off: Returns string unchanged.
 func (t *Table) Trimmer(str string) string {
-	if t.config.Behavior.TrimSpace.Enabled() {
+	trimSpace := t.config.Behavior.TrimSpace.Enabled()
+	trimTab := t.config.Behavior.TrimTab.Enabled()
+
+	// Fast Path 1: If both are enabled (Default), use the stdlib optimized TrimSpace
+	if trimSpace && trimTab {
 		return strings.TrimSpace(str)
 	}
-	return str
+
+	// Fast Path 2: If both are disabled, return raw string
+	if !trimSpace && !trimTab {
+		return str
+	}
+
+	// Granular Trimming via TrimFunc
+	return strings.TrimFunc(str, func(r rune) bool {
+		if twwidth.IsTab(r) {
+			return trimTab // Return true to trim if TrimTab is On
+		}
+		if trimSpace {
+			return unicode.IsSpace(r) // Trim other whitespace if TrimSpace is On
+		}
+		return false
+	})
 }
 
 // appendSingle adds a single row to the table's row data.
@@ -935,6 +966,13 @@ func (t *Table) prepareContent(cells []string, config tw.CellConfig) [][]string 
 
 		cellContent = t.Trimmer(cellContent)
 
+		if strings.Contains(cellContent, twwidth.TabString.String()) {
+			// Get the detected width from the singleton
+			width := twwidth.TabWidth()
+			spaces := strings.Repeat(tw.Space, width)
+			cellContent = strings.ReplaceAll(cellContent, twwidth.TabString.String(), spaces)
+		}
+
 		colPad := config.Padding.Global
 		if i < len(config.Padding.PerColumn) && config.Padding.PerColumn[i].Paddable() {
 			colPad = config.Padding.PerColumn[i]
@@ -956,7 +994,7 @@ func (t *Table) prepareContent(cells []string, config tw.CellConfig) [][]string 
 				switch config.Formatting.AutoWrap {
 				case tw.WrapNormal:
 					var wrapped []string
-					if t.config.Behavior.TrimSpace.Enabled() {
+					if t.config.Behavior.TrimSpace.Enabled() && t.config.Behavior.TrimTab.Enabled() {
 						wrapped, _ = twwarp.WrapString(line, effectiveContentMaxWidth)
 					} else {
 						wrapped, _ = twwarp.WrapStringWithSpaces(line, effectiveContentMaxWidth)

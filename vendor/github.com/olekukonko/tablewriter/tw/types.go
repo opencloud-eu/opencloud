@@ -166,8 +166,9 @@ type Struct struct {
 // Behavior defines settings that control table rendering behaviors, such as column visibility and content formatting.
 type Behavior struct {
 	AutoHide  State // AutoHide determines whether empty columns are hidden. Ignored in streaming mode.
-	TrimSpace State // TrimSpace enables trimming of leading and trailing spaces from cell content.
+	TrimSpace State // TrimSpace determines trimming of leading and trailing spaces from cell content.
 	TrimLine  State // TrimLine determines whether empty visual lines within a cell are collapsed.
+	TrimTab   State // TrimTab determines trimming of leading and trailing tabs from cell content.
 
 	Header Control // Header specifies control settings for the table header.
 	Footer Control // Footer specifies control settings for the table footer.

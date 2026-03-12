@@ -139,7 +139,7 @@ func NewSVG(configs ...SVGConfig) *SVG {
 		allVisualLineData: make([][][]string, 3),
 		allVisualLineCtx:  make([][]tw.Formatting, 3),
 		vMergeTrack:       make(map[int]int),
-		logger:            ll.New("svg"),
+		logger:            ll.New("svg").Disable(),
 	}
 	for i := 0; i < 3; i++ {
 		r.allVisualLineData[i] = make([][]string, 0)

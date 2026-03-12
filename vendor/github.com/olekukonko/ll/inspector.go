@@ -31,7 +31,7 @@ func NewInspector(logger *Logger) *Inspector {
 // Example usage within a Logger method:
 //
 //	o := NewInspector(l)
-//	o.Log(2, someStruct) // Logs JSON representation with caller info
+//	o.Log(2, someStruct)
 func (o *Inspector) Log(skip int, values ...interface{}) {
 	// Skip if logger is suspended or Info level is disabled
 	if o.logger.suspend.Load() || !o.logger.shouldLog(lx.LevelInfo) {
@@ -74,13 +74,13 @@ func (o *Inspector) Log(skip int, values ...interface{}) {
 		}
 
 		if err != nil {
-			o.logger.log(lx.LevelError, lx.ClassText, fmt.Sprintf("Inspector: JSON encoding error: %v", err), nil, false)
+			o.logger.log(lx.LevelError, lx.ClassInspect, fmt.Sprintf("Inspector: JSON encoding error: %v", err), nil, false)
 			continue
 		}
 
 		// Construct log message with file, line, and JSON data
-		msg := fmt.Sprintf("[%s:%d] INSPECT: %s", shortFile, line, string(jsonData))
-		o.logger.log(lx.LevelInfo, lx.ClassText, msg, nil, false)
+		msg := fmt.Sprintf("[%s:%d] %s", shortFile, line, string(jsonData))
+		o.logger.log(lx.LevelInfo, lx.ClassInspect, msg, nil, false)
 	}
 }
 
