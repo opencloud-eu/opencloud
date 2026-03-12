@@ -4,6 +4,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/testcontainers/testcontainers-go/modules/opensearch from 0.40.0 to 0.41.0 [[#2458](https://github.com/opencloud-eu/opencloud/pull/2458)]
 - build(deps): bump go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc from 1.41.0 to 1.42.0 [[#2459](https://github.com/opencloud-eu/opencloud/pull/2459)]
 - build(deps): bump github.com/testcontainers/testcontainers-go from 0.40.0 to 0.41.0 [[#2453](https://github.com/opencloud-eu/opencloud/pull/2453)]
 - build(deps): bump golang.org/x/oauth2 from 0.35.0 to 0.36.0 [[#2452](https://github.com/opencloud-eu/opencloud/pull/2452)]
