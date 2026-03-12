@@ -2,6 +2,10 @@
 
 ## [5.2.1](https://github.com/opencloud-eu/opencloud/releases/tag/v5.2.1) - 2026-03-12
 
+### ❤️ Thanks to all contributors! ❤️
+
+@dragonchaser
+
 ### 📦️ Dependencies
 
 - build(deps): bump github.com/testcontainers/testcontainers-go/modules/opensearch from 0.40.0 to 0.41.0 [[#2458](https://github.com/opencloud-eu/opencloud/pull/2458)]
