@@ -2308,8 +2308,8 @@ go.opencensus.io/trace/tracestate
 ## explicit; go 1.24.0
 go.opentelemetry.io/auto/sdk
 go.opentelemetry.io/auto/sdk/internal/telemetry
-# go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.65.0
-## explicit; go 1.24.0
+# go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.67.0
+## explicit; go 1.25.0
 go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc
 go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc/internal
 # go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.67.0
@@ -2337,11 +2337,10 @@ go.opentelemetry.io/otel/semconv/internal/v4
 go.opentelemetry.io/otel/semconv/v1.20.0
 go.opentelemetry.io/otel/semconv/v1.20.0/httpconv
 go.opentelemetry.io/otel/semconv/v1.37.0
-go.opentelemetry.io/otel/semconv/v1.39.0
-go.opentelemetry.io/otel/semconv/v1.39.0/rpcconv
 go.opentelemetry.io/otel/semconv/v1.40.0
 go.opentelemetry.io/otel/semconv/v1.40.0/httpconv
 go.opentelemetry.io/otel/semconv/v1.40.0/otelconv
+go.opentelemetry.io/otel/semconv/v1.40.0/rpcconv
 # go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.42.0
 ## explicit; go 1.25.0
 go.opentelemetry.io/otel/exporters/otlp/otlptrace
@@ -2579,8 +2578,8 @@ google.golang.org/genproto/protobuf/field_mask
 google.golang.org/genproto/googleapis/api
 google.golang.org/genproto/googleapis/api/annotations
 google.golang.org/genproto/googleapis/api/httpbody
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20260209200024-4cfbd4190f57
-## explicit; go 1.24.0
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20260226221140-a57be14db171
+## explicit; go 1.25.0
 google.golang.org/genproto/googleapis/rpc/errdetails
 google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/grpc v1.79.2
