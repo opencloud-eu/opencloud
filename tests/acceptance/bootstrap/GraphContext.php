@@ -3207,4 +3207,133 @@ class GraphContext implements Context {
 
 		$this->featureContext->setResponse($response);
 	}
+
+	/**
+	 * @param string $user
+	 * @param string $itemId
+	 *
+	 * @return ResponseInterface
+	 */
+	public function markFavorite(string $user, string $itemId): ResponseInterface {
+		$response = GraphHelper::markFavorite(
+			$this->featureContext->getBaseUrl(),
+			$this->featureContext->getStepLineRef(),
+			$user,
+			$this->featureContext->getPasswordForUser($user),
+			$itemId
+		);
+
+		$this->featureContext->setResponse($response);
+		return $response;
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $itemId
+	 *
+	 * @return ResponseInterface
+	 */
+	public function unmarkFavorite(string $user, string $itemId): ResponseInterface {
+		$response = GraphHelper::unmarkFavorite(
+			$this->featureContext->getBaseUrl(),
+			$this->featureContext->getStepLineRef(),
+			$user,
+			$this->featureContext->getPasswordForUser($user),
+			$itemId
+		);
+		$this->featureContext->setResponse($response);
+		return $response;
+	}
+
+	/**
+	 * @When user :user marks :item :itemName as favorite from space :spaceName using the Graph API
+	 *
+	 * @param string $user
+	 * @param string $item (file|folder)
+	 * @param string $itemName
+	 * @param string $spaceName
+	 *
+	 * @return void
+	 */
+	public function userMarksItemFromSpaceAsFavoriteUsingTheGraphApi(
+		string $user,
+		string $item,
+		string $itemName,
+		string $spaceName
+	): void {
+		$itemId = ($item === 'file')
+			? $this->spacesContext->getFileId($user, $spaceName, $itemName)
+			: $this->spacesContext->getResourceId($user, $spaceName, $itemName);
+		$this->markFavorite($user, $itemId);
+	}
+
+	/**
+	 * @When user :user unmarks :item :itemName as favorite from space :spaceName using the Graph API
+	 *
+	 * @param string $user
+	 * @param string $item (file|folder)
+	 * @param string $itemName
+	 * @param string $spaceName
+	 *
+	 * @return void
+	 */
+	public function userUnmarksItemFromSpaceAsFavoriteUsingTheGraphApi(
+		string $user,
+		string $item,
+		string $itemName,
+		string $spaceName
+	): void {
+		$itemId = ($item === 'file')
+			? $this->spacesContext->getFileId($user, $spaceName, $itemName)
+			: $this->spacesContext->getResourceId($user, $spaceName, $itemName);
+		$this->unmarkFavorite($user, $itemId);
+	}
+
+	/**
+	 * @Given user :user has marked :item :itemName as favorite from space :spaceName
+	 *
+	 * @param string $user
+	 * @param string $item (folder|file)
+	 * @param string $itemName
+	 * @param string $spaceName
+	 *
+	 * @return void
+	 */
+	public function userHasMarkedItemFromSpaceAsFavoriteUsingTheGraphApi(
+		string $user,
+		string $item,
+		string $itemName,
+		string $spaceName
+	): void {
+		$itemId = ($item === 'file')
+			? $this->spacesContext->getFileId($user, $spaceName, $itemName)
+			: $this->spacesContext->getResourceId($user, $spaceName, $itemName);
+
+		$response = $this->markFavorite($user, $itemId);
+		$this->featureContext->theHTTPStatusCodeShouldBe(201, '', $response);
+	}
+
+	/**
+	 * @Given user :user has unmarked :item :itemName as favorite from space :spaceName
+	 *
+	 * @param string $user
+	 * @param string $item (folder|file)
+	 * @param string $itemName
+	 * @param string $spaceName
+	 *
+	 * @return void
+	 */
+	public function userHasUnmarkedItemFromSpaceAsFavoriteUsingTheGraphApi(
+		string $user,
+		string $item,
+		string $itemName,
+		string $spaceName
+	): void {
+		$itemId = ($item === 'file')
+			? $this->spacesContext->getFileId($user, $spaceName, $itemName)
+			: $this->spacesContext->getResourceId($user, $spaceName, $itemName);
+
+		$response = $this->unmarkFavorite($user, $itemId);
+		$this->featureContext->theHTTPStatusCodeShouldBe(204, '', $response);
+	}
 }

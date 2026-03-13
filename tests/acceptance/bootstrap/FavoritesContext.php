@@ -21,7 +21,6 @@
 use Behat\Behat\Context\Context;
 use Behat\Behat\Hook\Scope\BeforeScenarioScope;
 use Behat\Gherkin\Node\TableNode;
-use Psr\Http\Message\ResponseInterface;
 use TestHelpers\WebDavHelper;
 use TestHelpers\BehatHelper;
 
@@ -33,73 +32,6 @@ require_once 'bootstrap.php';
 class FavoritesContext implements Context {
 	private FeatureContext $featureContext;
 	private WebDavPropertiesContext $webDavPropertiesContext;
-
-	/**
-	 * @param string$user
-	 * @param string $path
-	 * @param string|null $spaceId
-	 *
-	 * @return ResponseInterface
-	 */
-	public function userFavoritesElement(string $user, string $path, ?string $spaceId = null): ResponseInterface {
-		return $this->changeFavStateOfAnElement(
-			$user,
-			$path,
-			1,
-			$spaceId
-		);
-	}
-
-	/**
-	 * @When user :user favorites element :path using the WebDAV API
-	 *
-	 * @param string $user
-	 * @param string $path
-	 *
-	 * @return void
-	 */
-	public function userFavoritesElementUsingWebDavApi(string $user, string $path): void {
-		$this->featureContext->setResponse($this->userFavoritesElement($user, $path));
-	}
-
-	/**
-	 * @Given user :user has favorited element :path
-	 *
-	 * @param string $user
-	 * @param string $path
-	 *
-	 * @return void
-	 */
-	public function userHasFavoritedElementUsingWebDavApi(string $user, string $path): void {
-		$this->featureContext->theHTTPStatusCodeShouldBe(207, '', $this->userFavoritesElement($user, $path));
-	}
-
-	/**
-	 * @param string $user
-	 * @param string $path
-	 *
-	 * @return ResponseInterface
-	 */
-	public function userUnfavoritesElement(string $user, string $path): ResponseInterface {
-		return $this->changeFavStateOfAnElement(
-			$user,
-			$path,
-			0,
-			null,
-		);
-	}
-
-	/**
-	 * @When user :user unfavorites element :path using the WebDAV API
-	 *
-	 * @param string $user
-	 * @param string $path
-	 *
-	 * @return void
-	 */
-	public function userUnfavoritesElementUsingWebDavApi(string $user, string $path): void {
-		$this->featureContext->setResponse($this->userUnfavoritesElement($user, $path));
-	}
 
 	/**
 	 * @Then /^user "([^"]*)" should (not|)\s?have the following favorited items$/
@@ -201,38 +133,6 @@ class FavoritesContext implements Context {
 	 */
 	public function asUserFileShouldNotBeFavorited(string $user, string $path): void {
 		$this->asUserFileOrFolderShouldBeFavorited($user, $path, 0);
-	}
-
-	/**
-	 * Set the elements of a proppatch
-	 *
-	 * @param string $user
-	 * @param string $path
-	 * @param int|null $favOrUnfav 1 = favorite, 0 = unfavorite
-	 * @param string|null $spaceId
-	 *
-	 * @return ResponseInterface
-	 */
-	public function changeFavStateOfAnElement(
-		string $user,
-		string $path,
-		?int $favOrUnfav,
-		?string $spaceId,
-	): ResponseInterface {
-		$renamedUser = $this->featureContext->getActualUsername($user);
-		return WebDavHelper::proppatch(
-			$this->featureContext->getBaseUrl(),
-			$renamedUser,
-			$this->featureContext->getPasswordForUser($user),
-			$path,
-			'favorite',
-			(string)$favOrUnfav,
-			$this->featureContext->getStepLineRef(),
-			"oc='http://owncloud.org/ns'",
-			$this->featureContext->getDavPathVersion(),
-			'files',
-			$spaceId
-		);
 	}
 
 	/**

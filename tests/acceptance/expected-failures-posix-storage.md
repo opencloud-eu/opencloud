@@ -268,31 +268,6 @@ _ocdav: api compatibility, return correct status code_
 - [coreApiAuth/webDavLOCKAuth.feature:46](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiAuth/webDavLOCKAuth.feature#L46)
 - [coreApiAuth/webDavLOCKAuth.feature:58](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiAuth/webDavLOCKAuth.feature#L58)
 
-#### [Support for favorites](https://github.com/owncloud/ocis/issues/1228)
-
-- [coreApiFavorites/favorites.feature:101](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiFavorites/favorites.feature#L101)
-- [coreApiFavorites/favorites.feature:102](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiFavorites/favorites.feature#L102)
-- [coreApiFavorites/favorites.feature:103](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiFavorites/favorites.feature#L103)
-- [coreApiFavorites/favorites.feature:124](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiFavorites/favorites.feature#L124)
-- [coreApiFavorites/favorites.feature:125](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiFavorites/favorites.feature#L125)
-- [coreApiFavorites/favorites.feature:126](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiFavorites/favorites.feature#L126)
-- [coreApiFavorites/favorites.feature:189](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiFavorites/favorites.feature#L189)
-- [coreApiFavorites/favorites.feature:190](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiFavorites/favorites.feature#L190)
-- [coreApiFavorites/favorites.feature:191](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiFavorites/favorites.feature#L191)
-- [coreApiFavorites/favorites.feature:145](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiFavorites/favorites.feature#L145)
-- [coreApiFavorites/favorites.feature:146](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiFavorites/favorites.feature#L146)
-- [coreApiFavorites/favorites.feature:147](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiFavorites/favorites.feature#L147)
-- [coreApiFavorites/favorites.feature:174](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiFavorites/favorites.feature#L174)
-- [coreApiFavorites/favorites.feature:175](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiFavorites/favorites.feature#L175)
-- [coreApiFavorites/favorites.feature:176](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiFavorites/favorites.feature#L176)
-- [coreApiFavorites/favoritesSharingToShares.feature:91](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiFavorites/favoritesSharingToShares.feature#L91)
-- [coreApiFavorites/favoritesSharingToShares.feature:92](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiFavorites/favoritesSharingToShares.feature#L92)
-- [coreApiFavorites/favoritesSharingToShares.feature:93](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiFavorites/favoritesSharingToShares.feature#L93)
-- [coreApiFavorites/favoritesSharingToShares.feature:112](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiFavorites/favoritesSharingToShares.feature#L112)
-- [coreApiFavorites/favoritesSharingToShares.feature:113](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiFavorites/favoritesSharingToShares.feature#L113)
-- [coreApiFavorites/favoritesSharingToShares.feature:114](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiFavorites/favoritesSharingToShares.feature#L114)
-- [apiSpacesShares/favorite.feature:56](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesShares/favorite.feature#L56)
-
 
 
 #### [WWW-Authenticate header for unauthenticated requests is not clear](https://github.com/owncloud/ocis/issues/2285)

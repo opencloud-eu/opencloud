@@ -72,7 +72,6 @@ SUITES=(
 CORE_SUITES=(
     "coreApiAuth"
     "coreApiCapabilities"
-    "coreApiFavorites"
     "coreApiMain"
     "coreApiShareCreateSpecialToShares1"
     "coreApiShareCreateSpecialToShares2"

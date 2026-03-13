@@ -492,17 +492,6 @@ default:
         - FeatureContext: *common_feature_context_params
         - CapabilitiesContext:
 
-    coreApiFavorites:
-      paths:
-        - "%paths.base%/../features/coreApiFavorites"
-      context: *common_ldap_suite_context
-      contexts:
-        - FeatureContext: *common_feature_context_params
-        - SpacesContext:
-        - FavoritesContext:
-        - WebDavPropertiesContext:
-        - SharingNgContext:
-
     coreApiShareCreateSpecialToShares1:
       paths:
         - "%paths.base%/../features/coreApiShareCreateSpecialToShares1"
