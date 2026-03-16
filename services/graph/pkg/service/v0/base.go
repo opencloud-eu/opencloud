@@ -278,6 +278,7 @@ func (g BaseGraphService) listUserShares(ctx context.Context, filters []*collabo
 	concreteFilters := []*collaboration.Filter{
 		share.UserGranteeFilter(),
 		share.GroupGranteeFilter(),
+		share.SpaceRootFilter(false),
 	}
 	concreteFilters = append(concreteFilters, filters...)
 

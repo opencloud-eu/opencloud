@@ -391,6 +391,25 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			Expect(len(permissions.LibreGraphPermissionsActionsAllowedValues)).ToNot(BeZero())
 			Expect(len(permissions.LibreGraphPermissionsRolesAllowedValues)).ToNot(BeZero())
 		})
+		It("sends SpaceRootFilter(false) when listing shares for a non-space-root item", func() {
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+			gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(listPublicSharesResponse, nil)
+			gatewayClient.On("ListShares",
+				mock.Anything,
+				mock.MatchedBy(func(req *collaboration.ListSharesRequest) bool {
+					for _, f := range req.Filters {
+						if f.Type == collaboration.Filter_TYPE_SPACE_ROOT && !f.GetSpaceRoot() {
+							return true
+						}
+					}
+					return false
+				}),
+			).Return(listSharesResponse, nil)
+
+			_, err := driveItemPermissionsService.ListPermissions(context.Background(), itemID, svc.ListPermissionsQueryOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			gatewayClient.AssertExpectations(GinkgoT())
+		})
 		It("returns one permission per share", func() {
 			statResponse.Info.PermissionSet = roleconversions.NewEditorRole().CS3ResourcePermissions()
 			listSharesResponse.Shares = []*collaboration.Share{
