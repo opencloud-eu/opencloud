@@ -16,6 +16,8 @@ import (
 	"github.com/opencloud-eu/opencloud/services/invitations/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/invitations/pkg/server/http"
 	"github.com/opencloud-eu/opencloud/services/invitations/pkg/service/v0"
+	"github.com/opencloud-eu/reva/v2/pkg/store"
+	microstore "go-micro.dev/v4/store"
 
 	"github.com/spf13/cobra"
 )
@@ -45,12 +47,20 @@ func Server(cfg *config.Config) *cobra.Command {
 			metrics := metrics.New(metrics.Logger(logger))
 			metrics.BuildInfo.WithLabelValues(version.GetString()).Set(1)
 
+			invitiationPersistanceStore := store.Create(
+				store.Store(cfg.Persistance.Store),
+				microstore.Nodes(cfg.Persistance.Nodes...),
+				microstore.Database(cfg.Persistance.Database),
+				store.Authentication(cfg.Persistance.AuthUsername, cfg.Persistance.AuthPassword),
+			)
+
 			gr := runner.NewGroup()
 			{
 
 				svc, err := service.New(
 					service.Logger(logger),
 					service.Config(cfg),
+					service.WithPersistance(&invitiationPersistanceStore),
 					// service.WithRelationProviders(relationProviders),
 				)
 				if err != nil {

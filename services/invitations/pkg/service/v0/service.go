@@ -8,6 +8,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/invitations/pkg/backends/keycloak"
 	"github.com/opencloud-eu/opencloud/services/invitations/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/invitations/pkg/invitations"
+	"go-micro.dev/v4/store"
 )
 
 // Service defines the extension handlers.
@@ -67,6 +68,8 @@ type svc struct {
 	config  *config.Config
 	log     log.Logger
 	backend Backend
+
+	persistance store.Store
 }
 
 // Invite implements the service interface

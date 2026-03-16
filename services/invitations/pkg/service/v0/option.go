@@ -3,6 +3,7 @@ package service
 import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/invitations/pkg/config"
+	"go-micro.dev/v4/store"
 )
 
 // Option defines a single option function.
@@ -12,6 +13,8 @@ type Option func(o *Options)
 type Options struct {
 	Logger log.Logger
 	Config *config.Config
+
+	Persistance *store.Store
 }
 
 // newOptions initializes the available default options.
@@ -36,5 +39,11 @@ func Logger(val log.Logger) Option {
 func Config(val *config.Config) Option {
 	return func(o *Options) {
 		o.Config = val
+	}
+}
+
+func WithPersistance(val *store.Store) Option {
+	return func(o *Options) {
+		o.Persistance = val
 	}
 }

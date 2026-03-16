@@ -24,6 +24,8 @@ type Config struct {
 	Invitation Invitation `yaml:"invitation"`
 
 	Context context.Context `yaml:"-"`
+
+	Persistance Persistance `yaml:"persistance"`
 }
 
 // Keycloak configuration
@@ -38,4 +40,13 @@ type Keycloak struct {
 
 type Invitation struct {
 	MaxTTL time.Duration `yaml:"max_ttl" env:"INVITATIONS_MAX_TTL" desc:"The maximum time to live for an invitation. (defaults to 30 days)" introductionVersion:"%%NEXT%%"`
+}
+
+type Persistance struct {
+	Store        string   `yaml:"store" env:"INVITATIONS_PERSISTANCE_STORE" desc:"The type of the cache store. Supported values are: 'memory', 'nats-js-kv'. See the text description for details." introductionVersion:"%%NEXT%%""`
+	Nodes        []string `yaml:"addresses" env:"INVITATIONS_PERSISTANCE_NODES" desc:"A list of nodes to access the configured store. This has no effect when 'memory' store is configured. Note that the behaviour how nodes are used is dependent on the library of the configured store. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+	Database     string   `yaml:"database" env:"INVITATIONS_PERSISTANCE_DATABASE" desc:"The database name the configured store should use." introductionVersion:"%%NEXT%%"`
+	Table        string   `yaml:"table" env:"INVITATIONS_PERSISTANCE_TABLE" desc:"The database table the store should use." introductionVersion:"%%NEXT%%"`
+	AuthUsername string   `yaml:"username" env:"INVITATIONS_PERSISTANCE_AUTH_USERNAME" desc:"The username to authenticate with the cache. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"%%NEXT%%"`
+	AuthPassword string   `yaml:"password" env:"INVITATIONS_PERSISTANCE_PASSWORD" desc:"The password to authenticate with the cache. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"%%NEXT%%"`
 }

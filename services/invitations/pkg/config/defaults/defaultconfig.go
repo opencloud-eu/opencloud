@@ -43,6 +43,14 @@ func DefaultConfig() *config.Config {
 		Invitation: config.Invitation{
 			MaxTTL: 30 * 24 * time.Hour,
 		},
+		Persistance: config.Persistance{
+			Store:        "memory",
+			Nodes:        []string{},
+			Database:     "",
+			Table:        "",
+			AuthUsername: "",
+			AuthPassword: "",
+		},
 	}
 }
 
