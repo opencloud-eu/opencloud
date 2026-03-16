@@ -4,7 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@aduffeck, @dragonchaser
+@ScharfViktor, @aduffeck, @dragonchaser
+
+### ✅ Tests
+
+- [test-only] favorites tests [[#2474](https://github.com/opencloud-eu/opencloud/pull/2474)]
 
 ### 📈 Enhancement
 
