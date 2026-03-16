@@ -109,55 +109,55 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 		storageUsersMountID = uuid.NewString()
 		serviceAccountID = uuid.NewString()
 
-		idmServicePassword, err = generators.GenerateRandomPassword(passwordLength)
+		idmServicePassword, err = secretFromEnvOrRandom("IDM_SVC_PASSWORD", passwordLength)
 		if err != nil {
 			return fmt.Errorf("could not generate random password for idm: %s", err)
 		}
-		idpServicePassword, err = generators.GenerateRandomPassword(passwordLength)
+		idpServicePassword, err = secretFromEnvOrRandom("IDM_IDPSVC_PASSWORD", passwordLength)
 		if err != nil {
 			return fmt.Errorf("could not generate random password for idp: %s", err)
 		}
 		ocAdminServicePassword = adminPassword
 		if ocAdminServicePassword == "" {
-			ocAdminServicePassword, err = generators.GenerateRandomPassword(passwordLength)
+			ocAdminServicePassword, err = secretFromEnvOrRandom("INITIAL_ADMIN_PASSWORD", passwordLength)
 			if err != nil {
 				return fmt.Errorf("could not generate random password for opencloud admin: %s", err)
 			}
 		}
 
-		revaServicePassword, err = generators.GenerateRandomPassword(passwordLength)
+		revaServicePassword, err = secretFromEnvOrRandom("IDM_REVASVC_PASSWORD", passwordLength)
 		if err != nil {
 			return fmt.Errorf("could not generate random password for reva: %s", err)
 		}
-		tokenManagerJwtSecret, err = generators.GenerateRandomPassword(passwordLength)
+		tokenManagerJwtSecret, err = secretFromEnvOrRandom("OC_JWT_SECRET", passwordLength)
 		if err != nil {
 			return fmt.Errorf("could not generate random password for tokenmanager: %s", err)
 		}
-		collaborationWOPISecret, err = generators.GenerateRandomPassword(passwordLength)
+		collaborationWOPISecret, err = secretFromEnvOrRandom("COLLABORATION_WOPI_SECRET", passwordLength)
 		if err != nil {
 			return fmt.Errorf("could not generate random wopi secret for collaboration service: %s", err)
 		}
-		machineAuthAPIKey, err = generators.GenerateRandomPassword(passwordLength)
+		machineAuthAPIKey, err = secretFromEnvOrRandom("OC_MACHINE_AUTH_API_KEY", passwordLength)
 		if err != nil {
 			return fmt.Errorf("could not generate random password for machineauthsecret: %s", err)
 		}
-		systemUserAPIKey, err = generators.GenerateRandomPassword(passwordLength)
+		systemUserAPIKey, err = secretFromEnvOrRandom("SYSTEM_USER_API_KEY", passwordLength)
 		if err != nil {
 			return fmt.Errorf("could not generate random system user API key: %s", err)
 		}
-		revaTransferSecret, err = generators.GenerateRandomPassword(passwordLength)
+		revaTransferSecret, err = secretFromEnvOrRandom("OC_TRANSFER_SECRET", passwordLength)
 		if err != nil {
 			return fmt.Errorf("could not generate random password for revaTransferSecret: %s", err)
 		}
-		urlSigningSecret, err = generators.GenerateRandomPassword(passwordLength)
+		urlSigningSecret, err = secretFromEnvOrRandom("OC_URL_SIGNING_SECRET", passwordLength)
 		if err != nil {
 			return fmt.Errorf("could not generate random secret for urlSigningSecret: %s", err)
 		}
-		thumbnailsTransferSecret, err = generators.GenerateRandomPassword(passwordLength)
+		thumbnailsTransferSecret, err = secretFromEnvOrRandom("THUMBNAILS_TRANSFER_SECRET", passwordLength)
 		if err != nil {
 			return fmt.Errorf("could not generate random password for thumbnailsTransferSecret: %s", err)
 		}
-		serviceAccountSecret, err = generators.GenerateRandomPassword(passwordLength)
+		serviceAccountSecret, err = secretFromEnvOrRandom("OC_SERVICE_ACCOUNT_SECRET", passwordLength)
 		if err != nil {
 			return fmt.Errorf("could not generate random secret for serviceAccountSecret: %s", err)
 		}

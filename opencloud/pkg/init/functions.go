@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"path"
 	"time"
+
+	"github.com/opencloud-eu/opencloud/pkg/generators"
 )
 
 func checkConfigPath(configPath string) error {
@@ -105,4 +107,11 @@ func writePatch(configPath string, yamlOutput []byte) error {
 	}
 	fmt.Printf("diff written to %s\n", patchPath)
 	return nil
+}
+
+func secretFromEnvOrRandom(envVar string, length int) (string, error) {
+	if v := os.Getenv(envVar); v != "" {
+		return v, nil
+	}
+	return generators.GenerateRandomPassword(length)
 }
