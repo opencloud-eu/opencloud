@@ -2,12 +2,14 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/invitations/pkg/backends/keycloak"
 	"github.com/opencloud-eu/opencloud/services/invitations/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/invitations/pkg/invitations"
+	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"go-micro.dev/v4/store"
 )
 
@@ -57,11 +59,13 @@ func New(opts ...Option) (Service, error) {
 		options.Config.Keycloak.InsecureSkipVerify,
 	)
 
-	return svc{
+	s := svc{
 		log:     options.Logger,
 		config:  options.Config,
 		backend: backend,
-	}, nil
+	}
+	s.persistance.Init()
+	return s, nil
 }
 
 type svc struct {
@@ -94,6 +98,25 @@ func (s svc) Invite(ctx context.Context, invitation *invitations.Invitation) (*i
 		if err != nil {
 			return nil, fmt.Errorf("%w: %s", ErrBackend, err)
 		}
+	}
+
+	// get logged in user
+	u, ok := revactx.ContextGetUser(ctx)
+	if !ok {
+		return nil, ErrUnauthorized
+	}
+
+	// serialize invitation
+	invitationBytes, err := json.Marshal(invitation)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrSerialization, err)
+	}
+
+	// persist invitation
+	err = s.persistance.Write(&store.Record{Key: fmt.Sprintf("%s|%s", u.GetId(), invitation.InvitedUserEmailAddress), Value: invitationBytes})
+
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrPersistence, err)
 	}
 
 	return invitation, nil
