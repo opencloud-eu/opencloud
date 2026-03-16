@@ -1,6 +1,6 @@
 # Changelog
 
-## [5.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.3.0) - 2026-03-15
+## [5.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.3.0) - 2026-03-16
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -12,6 +12,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc from 0.65.0 to 0.67.0 [[#2473](https://github.com/opencloud-eu/opencloud/pull/2473)]
 - build(deps): bump github.com/olekukonko/tablewriter from 1.1.3 to 1.1.4 [[#2468](https://github.com/opencloud-eu/opencloud/pull/2468)]
 - build(deps): bump go.opentelemetry.io/contrib/zpages from 0.65.0 to 0.67.0 [[#2467](https://github.com/opencloud-eu/opencloud/pull/2467)]
 - build(deps): bump github.com/testcontainers/testcontainers-go/modules/opensearch from 0.40.0 to 0.41.0 [[#2458](https://github.com/opencloud-eu/opencloud/pull/2458)]
