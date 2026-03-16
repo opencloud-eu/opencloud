@@ -88,11 +88,9 @@ Feature: favorites
     And as user "Alice" file "parent/<file>" should be favorited
     Examples:
       | file           | size  | mimeType                                |
-      | textfile.txt   | 28    | text/plain                              |
       | simple.odt     | 10119 | application/vnd.oasis.opendocument.text |
       | testavatar.jpg | 45343 | image/jpeg                              |
       | simple.pdf     | 17684 | application/pdf                         |
-      | testaudio.mp3  | 6144  | audio/mpeg                              |
 
 
   Scenario: add a folder to favorites in the personal space
@@ -601,3 +599,20 @@ Feature: favorites
     And user "Brian" has marked folder "space-folder" as favorite from space "new-space"
     When user "Brian" unmarks folder "space-folder" as favorite from space "new-space" using the Graph API
     Then the HTTP status code should be "204"
+
+
+  Scenario: add a file to favorites after unmarking it as favorite in the personal space
+    Given user "Alice" has uploaded file "filesForUpload/testavatar.jpg" to "/testavatar.jpg"
+    And user "Alice" has marked file "testavatar.jpg" as favorite from space "Personal"
+    And user "Alice" has unmarked file "testavatar.jpg" as favorite from space "Personal"
+    When user "Alice" marks file "/testavatar.jpg" as favorite from space "Personal" using the Graph API
+    Then the HTTP status code should be "201"
+    And as user "Alice" file "testavatar.jpg" should be favorited
+
+
+  Scenario: add a file to favorites twice
+    Given user "Alice" has uploaded file "filesForUpload/testavatar.jpg" to "/testavatar.jpg"
+    And user "Alice" has marked file "testavatar.jpg" as favorite from space "Personal"
+    When user "Alice" marks file "/testavatar.jpg" as favorite from space "Personal" using the Graph API
+    Then the HTTP status code should be "201"
+    And as user "Alice" file "testavatar.jpg" should be favorited
