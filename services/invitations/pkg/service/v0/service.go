@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/invitations/pkg/backends/keycloak"
 	"github.com/opencloud-eu/opencloud/services/invitations/pkg/config"
@@ -113,7 +114,13 @@ func (s svc) Invite(ctx context.Context, invitation *invitations.Invitation) (*i
 	}
 
 	// persist invitation
-	err = s.persistance.Write(&store.Record{Key: fmt.Sprintf("%s|%s", u.GetId(), invitation.InvitedUserEmailAddress), Value: invitationBytes})
+	err = s.persistance.Write(&store.Record{
+		Key: uuid.New().String(),
+		Metadata: map[string]interface{}{
+			"invitedUserEmailAddress": invitation.InvitedUserEmailAddress,
+			"inviterUserId":           u.GetId(),
+		},
+		Value: invitationBytes})
 
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrPersistence, err)
