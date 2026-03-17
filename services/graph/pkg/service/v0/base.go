@@ -51,22 +51,6 @@ type BaseGraphService struct {
 	availableRoles  []*libregraph.UnifiedRoleDefinition
 }
 
-func (g BaseGraphService) getSpaceRootPermissions(ctx context.Context, spaceID *storageprovider.StorageSpaceId, countOnly bool) ([]libregraph.Permission, int, error) {
-	gatewayClient, err := g.gatewaySelector.Next()
-
-	if err != nil {
-		g.logger.Debug().Err(err).Msg("selecting gatewaySelector failed")
-		return nil, 0, err
-	}
-	space, err := utils.GetSpace(ctx, spaceID.GetOpaqueId(), gatewayClient)
-	if err != nil {
-		return nil, 0, errorcode.FromUtilsStatusCodeError(err)
-	}
-
-	perm, count := g.cs3SpacePermissionsToLibreGraph(ctx, space, countOnly, APIVersion_1_Beta_1)
-	return perm, count, nil
-}
-
 func (g BaseGraphService) getDriveItem(ctx context.Context, ref *storageprovider.Reference) (*libregraph.DriveItem, error) {
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
@@ -269,6 +253,17 @@ func (g BaseGraphService) libreGraphPermissionFromCS3PublicShare(createdLink *li
 }
 
 func (g BaseGraphService) listUserShares(ctx context.Context, filters []*collaboration.Filter, driveItems driveItemsByResourceID) (driveItemsByResourceID, error) {
+	return g.listSharesWithSpaceRootFilter(ctx, false, filters, driveItems)
+}
+
+// listSpaceRootUserShares lists user/group shares whose resource is a space root (i.e. space
+// memberships). It uses SpaceRootFilter(true) so only space-root shares are returned, mirroring
+// how listUserShares works for regular file/folder shares.
+func (g BaseGraphService) listSpaceRootUserShares(ctx context.Context, filters []*collaboration.Filter, driveItems driveItemsByResourceID) (driveItemsByResourceID, error) {
+	return g.listSharesWithSpaceRootFilter(ctx, true, filters, driveItems)
+}
+
+func (g BaseGraphService) listSharesWithSpaceRootFilter(ctx context.Context, spaceRoot bool, filters []*collaboration.Filter, driveItems driveItemsByResourceID) (driveItemsByResourceID, error) {
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
 		g.logger.Error().Err(err).Msg("could not select next gateway client")
@@ -278,7 +273,7 @@ func (g BaseGraphService) listUserShares(ctx context.Context, filters []*collabo
 	concreteFilters := []*collaboration.Filter{
 		share.UserGranteeFilter(),
 		share.GroupGranteeFilter(),
-		share.SpaceRootFilter(false),
+		share.SpaceRootFilter(spaceRoot),
 	}
 	concreteFilters = append(concreteFilters, filters...)
 
@@ -563,9 +558,7 @@ func (g BaseGraphService) cs3OCMSharesToDriveItems(ctx context.Context, shares [
 func (g BaseGraphService) cs3UserShareToPermission(ctx context.Context, share *collaboration.Share, roleCondition string) (*libregraph.Permission, error) {
 	perm := libregraph.Permission{}
 	perm.SetRoles([]string{})
-	if roleCondition != unifiedrole.UnifiedRoleConditionDrive {
-		perm.SetId(share.GetId().GetOpaqueId())
-	}
+	perm.SetId(share.GetId().GetOpaqueId())
 	grantedTo := libregraph.SharePointIdentitySet{}
 	switch share.GetGrantee().GetType() {
 	case storageprovider.GranteeType_GRANTEE_TYPE_USER:
@@ -579,9 +572,6 @@ func (g BaseGraphService) cs3UserShareToPermission(ctx context.Context, share *c
 			return nil, errorcode.New(errorcode.GeneralException, err.Error())
 		default:
 			grantedTo.SetUser(user)
-			if roleCondition == unifiedrole.UnifiedRoleConditionDrive {
-				perm.SetId("u:" + user.GetId())
-			}
 		}
 	case storageprovider.GranteeType_GRANTEE_TYPE_GROUP:
 		group, err := groupIdToIdentity(ctx, g.identityCache, share.Grantee.GetGroupId().GetOpaqueId())
@@ -594,9 +584,6 @@ func (g BaseGraphService) cs3UserShareToPermission(ctx context.Context, share *c
 			return nil, errorcode.New(errorcode.GeneralException, err.Error())
 		default:
 			grantedTo.SetGroup(group)
-			if roleCondition == unifiedrole.UnifiedRoleConditionDrive {
-				perm.SetId("g:" + group.GetId())
-			}
 		}
 	}
 
@@ -927,35 +914,6 @@ func (g BaseGraphService) removeUserShare(ctx context.Context, permissionID stri
 	return nil
 }
 
-func (g BaseGraphService) removeSpacePermission(ctx context.Context, permissionID string, resourceId *storageprovider.ResourceId) error {
-	grantee, err := spacePermissionIdToCS3Grantee(permissionID)
-	if err != nil {
-		return err
-	}
-
-	gatewayClient, err := g.gatewaySelector.Next()
-	if err != nil {
-		g.logger.Debug().Err(err).Msg("selecting gatewaySelector failed")
-		return err
-	}
-	removeShareResp, err := gatewayClient.RemoveShare(ctx, &collaboration.RemoveShareRequest{
-		Ref: &collaboration.ShareReference{
-			Spec: &collaboration.ShareReference_Key{
-				Key: &collaboration.ShareKey{
-					ResourceId: resourceId,
-					Grantee:    &grantee,
-				},
-			},
-		},
-	})
-	if err := errorcode.FromCS3Status(removeShareResp.GetStatus(), err); err != nil {
-		return err
-	}
-
-	// We need to return an untyped nil here otherwise the error==nil check won't work
-	return nil
-}
-
 func (g BaseGraphService) getOCMPermissionResourceID(ctx context.Context, permissionID string) (*storageprovider.ResourceId, error) {
 	cs3Share, err := g.getCS3OCMShareByID(ctx, permissionID)
 	if err != nil {
@@ -1071,20 +1029,19 @@ func (g BaseGraphService) getPermissionByID(ctx context.Context, permissionID st
 		}
 		return permission, publicShare.GetResourceId(), nil
 	case IsSpaceRoot(itemID):
-		// itemID is referencing a spaceroot this is a space permission. Handle
-		// that here and get space id
-		resourceInfo, err := utils.GetResourceByID(ctx, itemID, gatewayClient)
+		// itemID is referencing a space root — use the share manager to look up the permission
+		driveItems := make(driveItemsByResourceID)
+		driveItems, err = g.listSpaceRootUserShares(ctx, []*collaboration.Filter{
+			share.ResourceIDFilter(itemID),
+		}, driveItems)
 		if err != nil {
 			return nil, nil, err
 		}
-
-		perms, _, err := g.getSpaceRootPermissions(ctx, resourceInfo.GetSpace().GetId(), false)
-		if err != nil {
-			return nil, nil, err
-		}
-		for _, p := range perms {
-			if p.GetId() == permissionID {
-				return &p, itemID, nil
+		for _, item := range driveItems {
+			for i := range item.Permissions {
+				if item.Permissions[i].GetId() == permissionID {
+					return &item.Permissions[i], itemID, nil
+				}
 			}
 		}
 	case errors.As(err, &errcode) && errcode.GetCode() == errorcode.ItemNotFound:
@@ -1239,29 +1196,10 @@ func (g BaseGraphService) updateUserShare(ctx context.Context, permissionID stri
 	}
 
 	var cs3UpdateShareReq collaboration.UpdateShareRequest
-	// When updating a space root we need to reference the share by resourceId and grantee
-	if IsSpaceRoot(itemID) {
-		grantee, err := spacePermissionIdToCS3Grantee(permissionID)
-		if err != nil {
-			g.logger.Debug().Err(err).Str("permissionid", permissionID).Msg("failed to parse space permission id")
-			return nil, err
-		}
-		cs3UpdateShareReq.Share = &collaboration.Share{
-			ResourceId: itemID,
-			Grantee:    &grantee,
-		}
-		cs3UpdateShareReq.Opaque = &types.Opaque{
-			Map: map[string]*types.OpaqueEntry{
-				"spacegrant": {},
-			},
-		}
-		cs3UpdateShareReq.Opaque = utils.AppendPlainToOpaque(cs3UpdateShareReq.Opaque, "spacetype", _spaceTypeProject)
-	} else {
-		cs3UpdateShareReq.Share = &collaboration.Share{
-			Id: &collaboration.ShareId{
-				OpaqueId: permissionID,
-			},
-		}
+	cs3UpdateShareReq.Share = &collaboration.Share{
+		Id: &collaboration.ShareId{
+			OpaqueId: permissionID,
+		},
 	}
 	fieldmask := []string{}
 	if expiration, ok := newPermission.GetExpirationDateTimeOk(); ok {

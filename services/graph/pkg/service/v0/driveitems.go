@@ -15,8 +15,6 @@ import (
 	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
-	grouppb "github.com/cs3org/go-cs3apis/cs3/identity/group/v1beta1"
-	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	cs3rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	storageprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
@@ -349,35 +347,6 @@ func (g Graph) GetDriveItemChildren(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, &ListResponse{Value: files})
 }
 
-func spacePermissionIdToCS3Grantee(permissionID string) (storageprovider.Grantee, error) {
-	// the permission ID for space permission is made of two parts
-	// the grantee type ('u' or user, 'g' for group) and the user or group id
-	var grantee storageprovider.Grantee
-	parts := strings.SplitN(permissionID, ":", 2)
-	if len(parts) != 2 {
-		return grantee, errorcode.New(errorcode.InvalidRequest, "invalid space permission id")
-	}
-	switch parts[0] {
-	case "u":
-		grantee.Type = storageprovider.GranteeType_GRANTEE_TYPE_USER
-		grantee.Id = &storageprovider.Grantee_UserId{
-			UserId: &userpb.UserId{
-				OpaqueId: parts[1],
-			},
-		}
-	case "g":
-		grantee.Type = storageprovider.GranteeType_GRANTEE_TYPE_GROUP
-		grantee.Id = &storageprovider.Grantee_GroupId{
-			GroupId: &grouppb.GroupId{
-				OpaqueId: parts[1],
-			},
-		}
-	default:
-		return grantee, errorcode.New(errorcode.InvalidRequest, "invalid space permission id")
-	}
-	return grantee, nil
-}
-
 func (g Graph) getRemoteItem(ctx context.Context, root *storageprovider.ResourceId, baseURL *url.URL) (*libregraph.RemoteItem, error) {
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
@@ -461,14 +430,22 @@ func cs3ResourceToDriveItem(logger *log.Logger, res *storageprovider.ResourceInf
 		parentRef.SetPath(path.Dir(res.GetPath()))
 		driveItem.ParentReference = parentRef
 	}
-	if res.GetType() == storageprovider.ResourceType_RESOURCE_TYPE_FILE && res.GetMimeType() != "" {
+	switch res.GetType() {
+	case storageprovider.ResourceType_RESOURCE_TYPE_FILE:
+		mimeType := res.GetMimeType()
+		if mimeType == "" {
+			mimeType = "application/octet-stream"
+		}
 		// We cannot use a libregraph.File here because the openapi codegenerator autodetects 'File' as a go type ...
 		driveItem.File = &libregraph.OpenGraphFile{
-			MimeType: &res.MimeType,
+			MimeType: &mimeType,
 		}
-	}
-	if res.GetType() == storageprovider.ResourceType_RESOURCE_TYPE_CONTAINER {
-		driveItem.Folder = &libregraph.Folder{}
+	case storageprovider.ResourceType_RESOURCE_TYPE_CONTAINER:
+		if IsSpaceRoot(res.GetId()) {
+			driveItem.SetRoot(map[string]any{})
+		} else {
+			driveItem.SetFolder(libregraph.Folder{})
+		}
 	}
 
 	if res.GetArbitraryMetadata() != nil {

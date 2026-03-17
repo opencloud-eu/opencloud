@@ -10,6 +10,7 @@ import (
 	ocm "github.com/cs3org/go-cs3apis/cs3/sharing/ocm/v1beta1"
 	"github.com/go-chi/render"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
+	"github.com/opencloud-eu/reva/v2/pkg/share"
 
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/thumbnail"
@@ -41,7 +42,11 @@ func (g Graph) listSharedWithMe(ctx context.Context, expandThumbnails bool) ([]l
 		return nil, err
 	}
 
-	listReceivedSharesResponse, err := gatewayClient.ListReceivedShares(ctx, &collaboration.ListReceivedSharesRequest{})
+	listReceivedSharesResponse, err := gatewayClient.ListReceivedShares(ctx, &collaboration.ListReceivedSharesRequest{
+		Filters: []*collaboration.Filter{
+			share.SpaceRootFilter(false),
+		},
+	})
 	if err := errorcode.FromCS3Status(listReceivedSharesResponse.GetStatus(), err); err != nil {
 		g.logger.Error().Err(err).Msg("listing shares failed")
 		return nil, err

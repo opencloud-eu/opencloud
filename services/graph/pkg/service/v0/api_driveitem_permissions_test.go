@@ -24,7 +24,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/stretchr/testify/mock"
 	"github.com/tidwall/gjson"
-	"google.golang.org/grpc"
 
 	roleconversions "github.com/opencloud-eu/reva/v2/pkg/conversions"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
@@ -461,6 +460,8 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		})
 		It("returns role denied", func() {
 			statResponse.Info.PermissionSet = roleconversions.NewManagerRole().CS3ResourcePermissions()
+			statResponse.Info.Type = provider.ResourceType_RESOURCE_TYPE_CONTAINER
+
 			listSharesResponse.Shares = []*collaboration.Share{
 				{
 					Id: &collaboration.ShareId{OpaqueId: "1"},
@@ -685,6 +686,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			}
 
 			gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(listSpacesResponse, nil)
+			gatewayClient.On("ListShares", mock.Anything, mock.Anything).Return(&collaboration.ListSharesResponse{Status: status.NewOK(ctx)}, nil)
 			gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(listPublicSharesResponse, nil)
 			statResponse.Info.Id = listSpacesResponse.StorageSpaces[0].Root
 			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
@@ -784,12 +786,10 @@ var _ = Describe("DriveItemPermissionsService", func() {
 
 			gatewayClient.On("RemoveShare",
 				mock.Anything,
-				mock.Anything,
-			).Return(func(ctx context.Context, in *collaboration.RemoveShareRequest, opts ...grpc.CallOption) (*collaboration.RemoveShareResponse, error) {
-				Expect(in.Ref.GetKey()).ToNot(BeNil())
-				Expect(in.Ref.GetKey().GetGrantee().GetUserId().GetOpaqueId()).To(Equal("userid"))
-				return &collaboration.RemoveShareResponse{Status: status.NewOK(ctx)}, nil
-			})
+				mock.MatchedBy(func(req *collaboration.RemoveShareRequest) bool {
+					return req.GetRef().GetId().GetOpaqueId() == "shareid"
+				}),
+			).Return(&collaboration.RemoveShareResponse{Status: status.NewOK(ctx)}, nil)
 
 			err := driveItemPermissionsService.DeletePermission(context.Background(),
 				&provider.ResourceId{
@@ -797,7 +797,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 					SpaceId:   "2",
 					OpaqueId:  "2",
 				},
-				"u:userid",
+				"shareid",
 			)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -1064,24 +1064,40 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			Expect(res).To(BeZero())
 		})
 		It("fails to update the space permissions for a space share when setting a file specific role", func() {
-			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
 			getPublicShareMockResponse.Share = nil
 			getPublicShareMockResponse.Status = status.NewNotFound(ctx, "not found")
 			gatewayClient.On("GetPublicShare", mock.Anything, mock.Anything).Return(getPublicShareMockResponse, nil)
 
-			gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(listSpacesResponse, nil)
-
-			statResponse.Info.Id = listSpacesResponse.StorageSpaces[0].Root
-			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
-			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(getUserResponse, nil)
-
-			driveItemPermission.SetRoles([]string{unifiedrole.UnifiedRoleFileEditorID})
 			spaceId := &provider.ResourceId{
 				StorageId: "1",
 				SpaceId:   "2",
 				OpaqueId:  "2",
 			}
-			res, err := driveItemPermissionsService.UpdatePermission(ctx, spaceId, "u:userid", driveItemPermission)
+			statResponse.Info.Id = spaceId
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+
+			gatewayClient.On("ListShares", mock.Anything, mock.Anything).Return(&collaboration.ListSharesResponse{
+				Status: status.NewOK(ctx),
+				Shares: []*collaboration.Share{
+					{
+						Id:         &collaboration.ShareId{OpaqueId: "spaceShareId"},
+						ResourceId: spaceId,
+						Grantee: &provider.Grantee{
+							Type: provider.GranteeType_GRANTEE_TYPE_USER,
+							Id: &provider.Grantee_UserId{
+								UserId: &userpb.UserId{OpaqueId: "userid"},
+							},
+						},
+						Permissions: &collaboration.SharePermissions{
+							Permissions: roleconversions.NewSpaceViewerRole().CS3ResourcePermissions(),
+						},
+					},
+				},
+			}, nil)
+			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(getUserResponse, nil)
+
+			driveItemPermission.SetRoles([]string{unifiedrole.UnifiedRoleFileEditorID})
+			res, err := driveItemPermissionsService.UpdatePermission(ctx, spaceId, "spaceShareId", driveItemPermission)
 			Expect(err).To(MatchError(errorcode.New(errorcode.InvalidRequest, "role not applicable to this resource")))
 			Expect(res).To(BeZero())
 		})

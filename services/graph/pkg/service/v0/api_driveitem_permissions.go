@@ -245,10 +245,6 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 
 	if shareid != "" {
 		permission.Id = conversions.ToPointer(shareid)
-	} else if IsSpaceRoot(statResponse.GetInfo().GetId()) {
-		// permissions on a space root are not handled by a share manager so
-		// they don't get a share-id
-		permission.SetId(identitySetToSpacePermissionID(permission.GetGrantedToV2()))
 	}
 
 	if expiration != nil {
@@ -414,12 +410,12 @@ func (s DriveItemPermissionsService) ListPermissions(ctx context.Context, itemID
 	var permissionsCount int
 
 	if IsSpaceRoot(statResponse.GetInfo().GetId()) {
-		var permissions []libregraph.Permission
-		permissions, permissionsCount, err = s.getSpaceRootPermissions(ctx, statResponse.GetInfo().GetSpace().GetId(), queryOptions.NoValues)
+		driveItems, err = s.listSpaceRootUserShares(ctx, []*collaboration.Filter{
+			share.ResourceIDFilter(itemID),
+		}, driveItems)
 		if err != nil {
 			return collectionOfPermissions, err
 		}
-		collectionOfPermissions.Value = permissions
 	} else {
 		// "normal" driveItem, populate user  permissions via share providers
 		driveItems, err = s.listUserShares(ctx, []*collaboration.Filter{
@@ -535,12 +531,10 @@ func (s DriveItemPermissionsService) DeletePermission(ctx context.Context, itemI
 	}
 
 	switch permissionType {
-	case User:
+	case User, Space:
 		return s.removeUserShare(ctx, permissionID)
 	case Public:
 		return s.removePublicShare(ctx, permissionID)
-	case Space:
-		return s.removeSpacePermission(ctx, permissionID, sharedResourceID)
 	case OCM:
 		return s.removeOCMPermission(ctx, permissionID)
 	default:
