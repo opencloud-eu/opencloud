@@ -69,4 +69,28 @@ var _ = Describe("Service", func() {
 			Expect(inv).To(BeNil())
 		})
 	})
+	Describe("List", func() {
+		It("should return a list of invitations", func() {
+			ctx = revactx.ContextSetUser(ctx, &userv1beta1.User{
+				Id: &userv1beta1.UserId{
+					OpaqueId: "testuser",
+				},
+			})
+			inv, err := testSvc.List(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(inv).ToNot(BeNil())
+		})
+	})
+	Describe("Get", func() {
+		It("should return an invitation", func() {
+			ctx = revactx.ContextSetUser(ctx, &userv1beta1.User{
+				Id: &userv1beta1.UserId{
+					OpaqueId: "testuser",
+				},
+			})
+			inv, err := testSvc.Get(ctx, "test")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(inv).ToNot(BeNil())
+		})
+	})
 })
