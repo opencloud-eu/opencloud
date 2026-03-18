@@ -69,26 +69,43 @@ var _ = Describe("Service", func() {
 			Expect(inv).To(BeNil())
 		})
 	})
+
 	Describe("List", func() {
 		It("should return a list of invitations", func() {
-			ctx = revactx.ContextSetUser(ctx, &userv1beta1.User{
+			user := &userv1beta1.User{
 				Id: &userv1beta1.UserId{
 					OpaqueId: "testuser",
 				},
-			})
-			inv, err := testSvc.List(ctx)
+			}
+			ctx = revactx.ContextSetUser(ctx, user)
+
+			// create a slice of invitations
+			invitations := []*invitations.Invitation{
+				{
+					InvitedUserEmailAddress: "test@example.org",
+				},
+				{
+					InvitedUserEmailAddress: "test2@example.org",
+				},
+			}
+			for _, inv := range invitations {
+				_, err := testSvc.Invite(ctx, inv)
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			inv, err := testSvc.List(ctx, user.GetId().GetOpaqueId())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(inv).ToNot(BeNil())
 		})
 	})
-	Describe("Get", func() {
+	Describe("GetByInvitedEmail", func() {
 		It("should return an invitation", func() {
 			ctx = revactx.ContextSetUser(ctx, &userv1beta1.User{
 				Id: &userv1beta1.UserId{
 					OpaqueId: "testuser",
 				},
 			})
-			inv, err := testSvc.Get(ctx, "test")
+			inv, err := testSvc.GetByInvitedEmail(ctx, "test@example.org")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(inv).ToNot(BeNil())
 		})

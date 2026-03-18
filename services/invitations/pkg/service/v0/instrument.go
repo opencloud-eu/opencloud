@@ -21,7 +21,7 @@ type instrument struct {
 	metrics *metrics.Metrics
 }
 
-func (i instrument) List(ctx context.Context) (*invitations.Invitation, error) {
+func (i instrument) List(ctx context.Context, userId string) ([]*invitations.Invitation, error) {
 	timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
 		us := v * 1000000
 
@@ -33,10 +33,10 @@ func (i instrument) List(ctx context.Context) (*invitations.Invitation, error) {
 
 	i.metrics.Counter.WithLabelValues().Inc()
 
-	return i.next.List(ctx)
+	return i.next.List(ctx, userId)
 }
 
-func (i instrument) Get(ctx context.Context, id string) (*invitations.Invitation, error) {
+func (i instrument) GetByInvitedEmail(ctx context.Context, email string) (*invitations.Invitation, error) {
 	timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
 		us := v * 1000000
 
@@ -48,7 +48,7 @@ func (i instrument) Get(ctx context.Context, id string) (*invitations.Invitation
 
 	i.metrics.Counter.WithLabelValues().Inc()
 
-	return i.next.Get(ctx, id)
+	return i.next.GetByInvitedEmail(ctx, email)
 }
 
 // Invite implements the Service interface.

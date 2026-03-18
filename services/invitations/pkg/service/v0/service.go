@@ -31,8 +31,8 @@ type Service interface {
 	//    invited user has to go through the redemption process to access any
 	//    resources they have been invited to.
 	Invite(ctx context.Context, invitation *invitations.Invitation) (*invitations.Invitation, error)
-	List(ctx context.Context) (*invitations.Invitation, error)
-	Get(ctx context.Context, id string) (*invitations.Invitation, error)
+	List(ctx context.Context, userId string) ([]*invitations.Invitation, error)
+	GetByInvitedEmail(ctx context.Context, email string) (*invitations.Invitation, error)
 }
 
 // Backend defines the behaviour of a user backend.
@@ -130,6 +130,7 @@ func (s svc) Invite(ctx context.Context, invitation *invitations.Invitation) (*i
 	// persist invitation
 	err = s.persistance.Write(&store.Record{
 		Key: uuid.New().String(),
+		// TODO: Fixme: persisting metadata does not help if you can not read it
 		Metadata: map[string]interface{}{
 			"invitedUserEmailAddress": invitation.InvitedUserEmailAddress,
 			"inviterUserId":           u.GetId(),
@@ -144,14 +145,43 @@ func (s svc) Invite(ctx context.Context, invitation *invitations.Invitation) (*i
 }
 
 // List implements the service interface
-func (s svc) List(ctx context.Context) (*invitations.Invitation, error) {
-	// TODO: implement
-	panic("implement me")
-	return nil, nil
+func (s svc) List(ctx context.Context, userId string) ([]*invitations.Invitation, error) {
+	fmt.Println("list invitations for user", userId)
+	// get logged in user
+	_, ok := revactx.ContextGetUser(ctx)
+	if !ok {
+		return nil, ErrUnauthorized
+	}
+
+	invitationsKeys, err := s.persistance.List()
+
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrPersistence, err)
+	}
+
+	invSlice := []*invitations.Invitation{}
+
+	for _, key := range invitationsKeys {
+		// TODO: fixme: we can not read the metadata back again (WTF)
+		invs, err := s.persistance.Read(key)
+		if err != nil {
+			// we cannot get the item, probably deleted in the meantime
+			continue
+		}
+		for _, value := range invs {
+			inv := &invitations.Invitation{}
+			err := json.Unmarshal(value.Value, inv)
+			if err != nil {
+				return nil, fmt.Errorf("%w: %s", ErrSerialization, err)
+			}
+			invSlice = append(invSlice, inv)
+		}
+	}
+	return invSlice, nil
 }
 
-// Get implements the service interface
-func (s svc) Get(ctx context.Context, id string) (*invitations.Invitation, error) {
+// GetByInvitedEmail implements the service interface
+func (s svc) GetByInvitedEmail(ctx context.Context, email string) (*invitations.Invitation, error) {
 	// TODO: implement
 	panic("implement me")
 	return nil, nil
