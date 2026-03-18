@@ -33,6 +33,7 @@ func DefaultConfig() *config.Config {
 		Service: config.Service{
 			Name: "invitations",
 		},
+		UseBackEndForInvitations: false,
 		Keycloak: config.Keycloak{
 			BasePath:     "",
 			ClientID:     "",

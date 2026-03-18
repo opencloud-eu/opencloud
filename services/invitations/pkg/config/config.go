@@ -18,6 +18,8 @@ type Config struct {
 
 	HTTP HTTP `yaml:"http"`
 
+	UseBackEndForInvitations bool `yaml:"use_backend_for_invitations" env:"INVITATIONS_USE_BACKEND_FOR_INVITATIONS" desc:"Use the backend for invitations." introductionVersion:"1.0.0"`
+
 	Keycloak     Keycloak      `yaml:"keycloak"`
 	TokenManager *TokenManager `yaml:"token_manager"`
 

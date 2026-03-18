@@ -87,17 +87,19 @@ func (s svc) Invite(ctx context.Context, invitation *invitations.Invitation) (*i
 		return nil, ErrMissingEmail
 	}
 
-	id, err := s.backend.CreateUser(ctx, invitation)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrBackend, err)
-	}
-
-	// As we only have a single backend, and that backend supports email, we don't have
-	// any code to handle mailing ourself yet.
-	if s.backend.CanSendMail() {
-		err := s.backend.SendMail(ctx, id)
+	if s.config.UseBackEndForInvitations {
+		id, err := s.backend.CreateUser(ctx, invitation)
 		if err != nil {
 			return nil, fmt.Errorf("%w: %s", ErrBackend, err)
+		}
+
+		// As we only have a single backend, and that backend supports email, we don't have
+		// any code to handle mailing ourself yet.
+		if s.backend.CanSendMail() {
+			err := s.backend.SendMail(ctx, id)
+			if err != nil {
+				return nil, fmt.Errorf("%w: %s", ErrBackend, err)
+			}
 		}
 	}
 
