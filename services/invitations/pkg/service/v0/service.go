@@ -65,7 +65,19 @@ func New(opts ...Option) (Service, error) {
 		config:  options.Config,
 		backend: backend,
 	}
-	s.persistance.Init()
+	switch options.Config.Persistance.Store {
+	case "nat-js-kv":
+		panic("not implemented yet")
+	case "memory":
+		s.persistance = store.NewMemoryStore()
+	default:
+		panic("unknown store")
+	}
+
+	if err := s.persistance.Init(store.Table("invitations")); err != nil {
+		s.log.Error().Err(err).Msg("error initializing store")
+		return nil, err
+	}
 	return s, nil
 }
 
