@@ -9,14 +9,35 @@ import (
 )
 
 var (
+	// Ideally, we would be using this for sorting, but unfortunately, it is currently not supported by
+	// Stalwart: https://github.com/stalwartlabs/stalwart/discussions/2918
 	/*
 		DefaultContactSort = []jmap.ContactCardComparator{
 			{Property: string(jscontact.ContactCardPropertyName) + "/surname", IsAscending: true},
 			{Property: string(jscontact.ContactCardPropertyName) + "/given", IsAscending: true},
 		}
+
+		SupportedContactSortingProperties = []string{
+			jscontact.ContactCardPropertyUpdated,
+			jscontact.ContactCardPropertyCreated,
+			"surname",
+			"given",
+		}
+
 	*/
+	// So we have to settle for this, as only 'updated' and 'created' are supported for now:
 	DefaultContactSort = []jmap.ContactCardComparator{
 		{Property: jscontact.ContactCardPropertyUpdated, IsAscending: true},
+	}
+
+	SupportedContactSortingProperties = []string{
+		jscontact.ContactCardPropertyUpdated,
+		jscontact.ContactCardPropertyCreated,
+	}
+
+	ContactSortingPropertyMapping = map[string]string{
+		"surname": string(jscontact.ContactCardPropertyName) + "/surname",
+		"given":   string(jscontact.ContactCardPropertyName) + "/given",
 	}
 )
 
@@ -105,7 +126,7 @@ func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Requ
 			InAddressBook: addressBookId,
 		}
 		var sortBy []jmap.ContactCardComparator
-		if sort, ok, resp := mapSort(accountIds, &req, DefaultContactSort, jscontact.ContactCardProperties, mapContactCardSort); !ok {
+		if sort, ok, resp := mapSort(accountIds, &req, DefaultContactSort, SupportedContactSortingProperties, mapContactCardSort); !ok {
 			return resp
 		} else {
 			sortBy = sort
@@ -225,5 +246,9 @@ func (g *Groupware) DeleteContact(w http.ResponseWriter, r *http.Request) {
 }
 
 func mapContactCardSort(s SortCrit) jmap.ContactCardComparator {
-	return jmap.ContactCardComparator{Property: s.Attribute, IsAscending: s.Ascending}
+	attr := s.Attribute
+	if mapped, ok := ContactSortingPropertyMapping[s.Attribute]; ok {
+		attr = mapped
+	}
+	return jmap.ContactCardComparator{Property: attr, IsAscending: s.Ascending}
 }
