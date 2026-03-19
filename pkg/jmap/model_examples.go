@@ -747,10 +747,10 @@ func (e Exemplar) Email() Email {
 		Subject: "Remember the Cant",
 		SentAt:  sent,
 		BodyValues: map[string]EmailBodyValue{
-			"1": EmailBodyValue{
+			"1": {
 				Value: "The demise of the Scopuli and Canterbury was an event where Protogen using its Stealth ship Anubis to capture the crew of the Scopuli to lure the ice-hauler Canterbury into a trap. This event increased tensions amongst Belters, and the two major powers within the Sol system, the Martian Congressional Republic and United Nations.",
 			},
-			"2": EmailBodyValue{
+			"2": {
 				Value: "<p>The demise of the <i>Scopuli</i> and <i>Canterbury</i> was an event where Protogen using its Stealth ship <i>Anubis</i> to capture the crew of the <i>Scopuli</i> to lure the ice-hauler <i>Canterbury</i> into a trap.</p><p>This event increased tensions amongst Belters, and the two major powers within the Sol system, the Martian Congressional Republic and United Nations.</p>",
 			},
 		},
@@ -823,6 +823,22 @@ func (e Exemplar) AddressBook() AddressBook {
 	}
 }
 
+func (e Exemplar) OtherAddressBook() (AddressBook, string, string) {
+	return AddressBook{
+		Id:           "aemaeWun6Fei",
+		Name:         "Shared",
+		Description:  "People I share Files with",
+		IsDefault:    false,
+		IsSubscribed: true,
+		MyRights: AddressBookRights{
+			MayRead:   true,
+			MayWrite:  true,
+			MayAdmin:  false,
+			MayDelete: false,
+		},
+	}, "Another AddressBook", "other"
+}
+
 func (e Exemplar) AddressBookGetResponse() AddressBookGetResponse {
 	a := e.AddressBook()
 	return AddressBookGetResponse{
@@ -830,6 +846,14 @@ func (e Exemplar) AddressBookGetResponse() AddressBookGetResponse {
 		State:     "liew7dah",
 		NotFound:  []string{},
 		List:      []AddressBook{a},
+	}
+}
+
+func (e Exemplar) AddressBooksResponse() AddressBooksResponse {
+	a := e.AddressBook()
+	b, _, _ := e.OtherAddressBook()
+	return AddressBooksResponse{
+		AddressBooks: []AddressBook{a, b},
 	}
 }
 
@@ -921,7 +945,7 @@ func (e Exemplar) Names() []c.Name {
 	return []c.Name{a, b, d}
 }
 
-func (e Exemplar) Calendar() c.Calendar {
+func (e Exemplar) JSCalendar() c.Calendar {
 	return c.Calendar{
 		Type:      c.CalendarType,
 		Kind:      c.CalendarKindCalendar,
@@ -933,7 +957,7 @@ func (e Exemplar) Calendar() c.Calendar {
 	}
 }
 
-func (e Exemplar) OtherCalendar() (c.Calendar, string, string) {
+func (e Exemplar) OtherJSCalendar() (c.Calendar, string, string) {
 	return c.Calendar{
 		Type:      c.CalendarType,
 		Kind:      c.CalendarKindCalendar,
@@ -947,10 +971,42 @@ func (e Exemplar) OtherCalendar() (c.Calendar, string, string) {
 	}, "A JSContact Calendar", "other"
 }
 
-func (e Exemplar) Calendars() []c.Calendar {
-	a := e.Calendar()
-	b, _, _ := e.OtherCalendar()
+func (e Exemplar) JSCalendars() []c.Calendar {
+	a := e.JSCalendar()
+	b, _, _ := e.OtherJSCalendar()
 	return []c.Calendar{a, b}
+}
+
+func (e Exemplar) Calendar() Calendar {
+	return Calendar{
+		Id:                    "uh3uchohteeC",
+		Name:                  "Default Calendar",
+		Description:           "The default calendar for this user",
+		Color:                 "blue",
+		IsSubscribed:          true,
+		IsVisible:             true,
+		IsDefault:             true,
+		IncludeInAvailability: IncludeInAvailabilityAll,
+		SortOrder:             0,
+		TimeZone:              "Europe/Berlin",
+		MyRights: &CalendarRights{
+			MayReadFreeBusy:  true,
+			MayReadItems:     true,
+			MayWriteAll:      true,
+			MayWriteOwn:      true,
+			MayUpdatePrivate: true,
+			MayRSVP:          true,
+			MayAdmin:         true,
+			MayDelete:        true,
+		},
+	}
+}
+
+func (e Exemplar) CalendarsResponse() CalendarsResponse {
+	a := e.Calendar()
+	return CalendarsResponse{
+		Calendars: []Calendar{a},
+	}
 }
 
 func (e Exemplar) Link() c.Link {
