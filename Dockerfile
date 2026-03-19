@@ -14,7 +14,7 @@
 # is a lot faster than the build steps below.
 
 
-FROM owncloudci/nodejs:18 AS generate
+FROM owncloudci/nodejs:22 AS generate
 
 COPY ./ /opencloud/
 
