@@ -8,6 +8,18 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
+var (
+	/*
+		DefaultContactSort = []jmap.ContactCardComparator{
+			{Property: string(jscontact.ContactCardPropertyName) + "/surname", IsAscending: true},
+			{Property: string(jscontact.ContactCardPropertyName) + "/given", IsAscending: true},
+		}
+	*/
+	DefaultContactSort = []jmap.ContactCardComparator{
+		{Property: jscontact.ContactCardPropertyUpdated, IsAscending: true},
+	}
+)
+
 // Get all addressbooks of an account.
 func (g *Groupware) GetAddressbooks(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
@@ -63,18 +75,19 @@ func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Requ
 		if !ok {
 			return resp
 		}
+		accountIds := single(accountId)
 
 		l := req.logger.With()
 
 		addressBookId, err := req.PathParam(UriParamAddressBookId)
 		if err != nil {
-			return errorResponse(single(accountId), err)
+			return errorResponseWithSessionState(accountIds, err, req.session.State)
 		}
 		l = l.Str(UriParamAddressBookId, log.SafeString(addressBookId))
 
 		offset, ok, err := req.parseUIntParam(QueryParamOffset, 0)
 		if err != nil {
-			return errorResponse(single(accountId), err)
+			return errorResponseWithSessionState(accountIds, err, req.session.State)
 		}
 		if ok {
 			l = l.Uint(QueryParamOffset, offset)
@@ -82,7 +95,7 @@ func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Requ
 
 		limit, ok, err := req.parseUIntParam(QueryParamLimit, g.defaults.contactLimit)
 		if err != nil {
-			return errorResponse(single(accountId), err)
+			return errorResponseWithSessionState(accountIds, err, req.session.State)
 		}
 		if ok {
 			l = l.Uint(QueryParamLimit, limit)
@@ -91,20 +104,23 @@ func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Requ
 		filter := jmap.ContactCardFilterCondition{
 			InAddressBook: addressBookId,
 		}
-		sortBy := []jmap.ContactCardComparator{{
-			Property: jscontact.ContactCardPropertyName, IsAscending: true,
-		}}
+		var sortBy []jmap.ContactCardComparator
+		if sort, ok, resp := mapSort(accountIds, &req, DefaultContactSort, jscontact.ContactCardProperties, mapContactCardSort); !ok {
+			return resp
+		} else {
+			sortBy = sort
+		}
 
 		logger := log.From(l)
-		contactsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryContactCards(single(accountId), req.session, req.ctx, logger, req.language(), filter, sortBy, offset, limit)
+		contactsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryContactCards(accountIds, req.session, req.ctx, logger, req.language(), filter, sortBy, offset, limit)
 		if jerr != nil {
-			return req.errorResponseFromJmap(single(accountId), jerr)
+			return req.errorResponseFromJmap(accountIds, jerr)
 		}
 
 		if contacts, ok := contactsByAccountId[accountId]; ok {
-			return etagResponse(single(accountId), contacts, sessionState, ContactResponseObjectType, state, lang)
+			return etagResponse(accountIds, contacts, sessionState, ContactResponseObjectType, state, lang)
 		} else {
-			return etagNotFoundResponse(single(accountId), sessionState, ContactResponseObjectType, state, lang)
+			return etagNotFoundResponse(accountIds, sessionState, ContactResponseObjectType, state, lang)
 		}
 	})
 }
@@ -206,4 +222,8 @@ func (g *Groupware) DeleteContact(w http.ResponseWriter, r *http.Request) {
 		}
 		return noContentResponseWithEtag(single(accountId), sessionState, ContactResponseObjectType, state)
 	})
+}
+
+func mapContactCardSort(s SortCrit) jmap.ContactCardComparator {
+	return jmap.ContactCardComparator{Property: s.Attribute, IsAscending: s.Ascending}
 }
