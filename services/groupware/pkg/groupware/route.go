@@ -58,6 +58,7 @@ const (
 	QueryParamSeen                    = "seen"
 	QueryParamUndesirable             = "undesirable"
 	QueryParamMarkAsSeen              = "markAsSeen"
+	QueryParamSort                    = "sort"
 	HeaderParamSince                  = "if-none-match"
 )
 

@@ -28,6 +28,8 @@ import (
 const (
 	// TODO remove this once Stalwart has actual support for Tasks and we don't need to mock it any more
 	IgnoreSessionCapabilityChecksForTasks = true
+
+	MaxSortParams = 16
 )
 
 // using a wrapper class for requests, to group multiple parameters, really to avoid crowding the
@@ -518,4 +520,56 @@ func (r *Request) needContactWithAccount() (bool, string, Response) {
 		return false, accountId, resp
 	}
 	return true, accountId, Response{}
+}
+
+type SortCrit struct {
+	Attribute string
+	Ascending bool
+}
+
+func (r *Request) parseSort(s string, props []string) ([]SortCrit, *Error) {
+	parts := strings.SplitN(s, ",", MaxSortParams)
+	result := []SortCrit{}
+	for _, part := range parts {
+		name := strings.TrimSpace(part)
+		if name == "" {
+			continue
+		}
+
+		asc := true
+		i := strings.LastIndex(name, ":")
+		if i == 0 {
+			// invalid spec, e.g. ':asc'
+			return nil, r.apiError(&ErrorInvalidSortProperty)
+		} else if i > 0 {
+			order := name[i+1:]
+			name = name[0:i]
+			switch order {
+			case "", "asc":
+				asc = true
+			case "desc":
+				asc = false
+			default:
+				return nil, r.apiError(&ErrorInvalidSortSpecification)
+			}
+		}
+		if len(props) > 0 && !slices.Contains(props, name) {
+			return nil, r.apiError(&ErrorInvalidSortProperty)
+		} else {
+			result = append(result, SortCrit{Attribute: name, Ascending: asc})
+		}
+	}
+	return result, nil
+}
+
+func mapSort[T any](accountIds []string, req *Request, defaultSort []T, props []string, mapper func(SortCrit) T) ([]T, bool, Response) {
+	if sortSpec, ok := req.getStringParam(QueryParamSort, ""); ok && strings.TrimSpace(sortSpec) != "" {
+		if sort, err := req.parseSort(sortSpec, props); err != nil {
+			return nil, false, errorResponseWithSessionState(accountIds, err, req.session.State)
+		} else {
+			return structs.Map(sort, mapper), true, Response{}
+		}
+	} else {
+		return defaultSort, true, Response{}
+	}
 }

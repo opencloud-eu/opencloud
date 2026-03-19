@@ -201,6 +201,8 @@ const (
 	ErrorCodeFailedToDeleteContact             = "DELCNT"
 	ErrorCodeNoMailboxWithDraftRole            = "NMBXDR"
 	ErrorCodeNoMailboxWithSentRole             = "NMBXSE"
+	ErrorCodeInvalidSortSpecification          = "INVSSP"
+	ErrorCodeInvalidSortProperty               = "INVSPR"
 )
 
 var (
@@ -456,6 +458,18 @@ var (
 		Title:  "Failed to find a Mailbox with the sent role",
 		Detail: "We could not find a Mailbox that has the sent role to store a sent email in.",
 	}
+	ErrorInvalidSortSpecification = GroupwareError{
+		Status: http.StatusBadRequest,
+		Code:   ErrorCodeInvalidSortSpecification,
+		Title:  "Invalid sort specification",
+		Detail: "The sort specification in the query parameter does not comply with the expected format.",
+	}
+	ErrorInvalidSortProperty = GroupwareError{
+		Status: http.StatusBadRequest,
+		Code:   ErrorCodeInvalidSortProperty,
+		Title:  "Invalid sort property",
+		Detail: "The sort property in the query parameter does not exist or is not acceptable.",
+	}
 )
 
 type ErrorOpt interface {
@@ -638,5 +652,5 @@ func errorResponses(errors ...Error) ErrorResponse {
 }
 
 func (r *Request) errorResponseFromJmap(accountIds []string, err jmap.Error) Response {
-	return errorResponse(accountIds, r.apiErrorFromJmap(r.observeJmapError(err)))
+	return errorResponseWithSessionState(accountIds, r.apiErrorFromJmap(r.observeJmapError(err)), r.session.State)
 }
