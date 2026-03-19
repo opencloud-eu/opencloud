@@ -21,7 +21,8 @@ func (g *Groupware) GetAddressbooks(w http.ResponseWriter, r *http.Request) {
 			return req.errorResponseFromJmap(single(accountId), jerr)
 		}
 
-		return etagResponse(single(accountId), addressbooks, sessionState, AddressBookResponseObjectType, state, lang)
+		var body jmap.AddressBooksResponse = addressbooks
+		return etagResponse(single(accountId), body, sessionState, AddressBookResponseObjectType, state, lang)
 	})
 }
 
@@ -90,7 +91,9 @@ func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Requ
 		filter := jmap.ContactCardFilterCondition{
 			InAddressBook: addressBookId,
 		}
-		sortBy := []jmap.ContactCardComparator{{Property: jscontact.ContactCardPropertyUpdated, IsAscending: false}}
+		sortBy := []jmap.ContactCardComparator{{
+			Property: jscontact.ContactCardPropertyName, IsAscending: true,
+		}}
 
 		logger := log.From(l)
 		contactsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryContactCards(single(accountId), req.session, req.ctx, logger, req.language(), filter, sortBy, offset, limit)
