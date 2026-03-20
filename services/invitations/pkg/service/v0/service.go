@@ -130,10 +130,9 @@ func (s svc) Invite(ctx context.Context, invitation *invitations.Invitation) (*i
 	// persist invitation
 	err = s.persistance.Write(&store.Record{
 		Key: uuid.New().String(),
-		// TODO: Fixme: persisting metadata does not help if you can not read it
 		Metadata: map[string]interface{}{
 			"invitedUserEmailAddress": invitation.InvitedUserEmailAddress,
-			"inviterUserId":           u.GetId(),
+			"inviterUserId":           u.GetId().GetOpaqueId(),
 		},
 		Value: invitationBytes})
 
@@ -159,16 +158,18 @@ func (s svc) List(ctx context.Context, userId string) ([]*invitations.Invitation
 		return nil, fmt.Errorf("%w: %s", ErrPersistence, err)
 	}
 
-	invSlice := []*invitations.Invitation{}
+	var invSlice []*invitations.Invitation
 
 	for _, key := range invitationsKeys {
-		// TODO: fixme: we can not read the metadata back again (WTF)
 		invs, err := s.persistance.Read(key)
 		if err != nil {
 			// we cannot get the item, probably deleted in the meantime
 			continue
 		}
 		for _, value := range invs {
+			if value.Metadata["inviterUserId"] != userId {
+				continue
+			}
 			inv := &invitations.Invitation{}
 			err := json.Unmarshal(value.Value, inv)
 			if err != nil {

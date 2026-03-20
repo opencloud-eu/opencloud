@@ -19,6 +19,7 @@ var _ = Describe("Service", func() {
 		testSvc service.Service
 		ctx     context.Context
 		invite  *invitations.Invitation
+		inviter *userv1beta1.User
 	)
 	BeforeEach(func() {
 		ctx = context.Background()
@@ -41,6 +42,15 @@ var _ = Describe("Service", func() {
 		invite = &invitations.Invitation{
 			InvitedUserEmailAddress: "test@example.com",
 		}
+
+		inviter = &userv1beta1.User{
+			DisplayName: "testuser",
+			Mail:        "testuser@example.org",
+			Id: &userv1beta1.UserId{
+				OpaqueId: "testuser",
+				Type:     userv1beta1.UserType_USER_TYPE_PRIMARY,
+			},
+		}
 	})
 
 	Describe("Invite", func() {
@@ -51,11 +61,7 @@ var _ = Describe("Service", func() {
 			Expect(inv).To(BeNil())
 		})
 		It("should return an invitation", func() {
-			ctx = revactx.ContextSetUser(ctx, &userv1beta1.User{
-				Id: &userv1beta1.UserId{
-					OpaqueId: "testuser",
-				},
-			})
+			ctx = revactx.ContextSetUser(ctx, inviter)
 			inv, err := testSvc.Invite(ctx, invite)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(inv).ToNot(BeNil())
@@ -72,12 +78,7 @@ var _ = Describe("Service", func() {
 
 	Describe("List", func() {
 		It("should return a list of invitations", func() {
-			user := &userv1beta1.User{
-				Id: &userv1beta1.UserId{
-					OpaqueId: "testuser",
-				},
-			}
-			ctx = revactx.ContextSetUser(ctx, user)
+			ctx = revactx.ContextSetUser(ctx, inviter)
 
 			// create a slice of invitations
 			invitations := []*invitations.Invitation{
@@ -93,11 +94,24 @@ var _ = Describe("Service", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			inv, err := testSvc.List(ctx, user.GetId().GetOpaqueId())
+			inv, err := testSvc.List(ctx, inviter.GetId().GetOpaqueId())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(inv).ToNot(BeNil())
+			Expect(len(inv)).To(Equal(2))
 		})
 	})
+	It("should return one invitation when two are set with different inviters", func() {
+		ctx = revactx.ContextSetUser(ctx, inviter)
+		_, err := testSvc.Invite(ctx, invite)
+		Expect(err).ToNot(HaveOccurred())
+		inviter.Id.OpaqueId = "testuser2"
+		_, err = testSvc.Invite(ctx, invite)
+		Expect(err).ToNot(HaveOccurred())
+		invitations, err := testSvc.List(ctx, inviter.GetId().GetOpaqueId())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(len(invitations)).To(Equal(1))
+	})
+
 	Describe("GetByInvitedEmail", func() {
 		It("should return an invitation", func() {
 			ctx = revactx.ContextSetUser(ctx, &userv1beta1.User{
