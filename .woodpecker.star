@@ -569,7 +569,7 @@ def main(ctx):
         ),
     )
 
-    pipelines = test_pipelines + build_release_pipelines + genDocsPr(ctx) + notifyMatrix(ctx)
+    pipelines = test_pipelines + build_release_pipelines + genDocsPr(ctx) + notifyMatrixCheckSteps(ctx)
 
     pipelineSanityChecks(pipelines)
     return savePipelineNumber(ctx) + pipelines
@@ -2283,9 +2283,9 @@ def genDocsPr(ctx):
         ],
     }]
 
-def notifyMatrix(ctx):
+def notifyMatrixCheckSteps(ctx):
     result = [{
-        "name": "chat-notifications",
+        "name": "all-checks-finished",
         "skip_clone": True,
         "runs_on": ["success", "failure"],
         "depends_on": getPipelineNames(testPipelines(ctx)),

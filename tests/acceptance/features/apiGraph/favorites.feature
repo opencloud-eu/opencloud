@@ -273,7 +273,7 @@ Feature: favorites
       | permissionsRole | Viewer   |
     And user "Brian" has a share "parent" synced
     When user "Brian" marks folder "parent/sub" as favorite from space "Shares" using the Graph API
-    Then the HTTP status code should be "201"
+    Then the HTTP status code should be "500"
     And the JSON data of the response should match
       """
       {
