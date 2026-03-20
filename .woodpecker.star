@@ -498,7 +498,8 @@ def main(ctx):
     is_release_pr = (ctx.build.event == "pull_request" and ctx.build.sender == "openclouders" and "🎉 release" in ctx.build.title.lower())
     if is_release_pr:
         return checkVersionPlaceholder() + \
-               licenseCheck(ctx)
+               licenseCheck(ctx) + \
+               notifyMatrixCheckSteps(ctx, getPipelineNames(licenseCheck(ctx) + checkVersionPlaceholder()))
 
     build_release_helpers = \
         readyReleaseGo()
@@ -569,7 +570,7 @@ def main(ctx):
         ),
     )
 
-    pipelines = test_pipelines + build_release_pipelines + genDocsPr(ctx) + notifyMatrixCheckSteps(ctx)
+    pipelines = test_pipelines + build_release_pipelines + genDocsPr(ctx) + notifyMatrixCheckSteps(ctx, getPipelineNames(testPipelines(ctx)))
 
     pipelineSanityChecks(pipelines)
     return savePipelineNumber(ctx) + pipelines
@@ -2283,12 +2284,12 @@ def genDocsPr(ctx):
         ],
     }]
 
-def notifyMatrixCheckSteps(ctx):
+def notifyMatrixCheckSteps(ctx, depends_on):
     result = [{
         "name": "all-checks-finished",
         "skip_clone": True,
         "runs_on": ["success", "failure"],
-        "depends_on": getPipelineNames(testPipelines(ctx)),
+        "depends_on": depends_on,
         "steps": [
             {
                 "name": "notify-matrix",
