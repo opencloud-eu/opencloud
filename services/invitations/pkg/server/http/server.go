@@ -16,6 +16,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	"github.com/opencloud-eu/opencloud/services/invitations/pkg/invitations"
 	svc "github.com/opencloud-eu/opencloud/services/invitations/pkg/service/v0"
+	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"go-micro.dev/v4"
 )
 
@@ -118,7 +119,7 @@ func InvitationGetHandler(service svc.Service) func(w http.ResponseWriter, r *ht
 			return
 		}
 
-		res, err := service.Get(ctx, id)
+		res, err := service.GetByInviteId(ctx, id)
 		if err != nil {
 			render.Status(r, http.StatusInternalServerError)
 			render.PlainText(w, r, err.Error())
@@ -134,7 +135,13 @@ func InvitationListGetHandler(service svc.Service) func(w http.ResponseWriter, r
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
-		res, err := service.List(ctx)
+		u, ok := revactx.ContextGetUser(ctx)
+		if !ok {
+			errorcode.NotAllowed.Render(w, r, http.StatusForbidden, "unauthorized")
+			return
+		}
+
+		res, err := service.List(ctx, u.GetId().GetOpaqueId())
 		if err != nil {
 			render.Status(r, http.StatusInternalServerError)
 			render.PlainText(w, r, err.Error())

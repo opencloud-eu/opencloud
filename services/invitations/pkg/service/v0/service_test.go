@@ -4,14 +4,13 @@ import (
 	"context"
 
 	"github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/invitations/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/invitations/pkg/invitations"
 	"github.com/opencloud-eu/opencloud/services/invitations/pkg/service/v0"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Service", func() {
@@ -112,16 +111,42 @@ var _ = Describe("Service", func() {
 		Expect(len(invitations)).To(Equal(1))
 	})
 
-	Describe("GetByInvitedEmail", func() {
+	Describe("GetByInviteId", func() {
 		It("should return an invitation", func() {
-			ctx = revactx.ContextSetUser(ctx, &userv1beta1.User{
-				Id: &userv1beta1.UserId{
-					OpaqueId: "testuser",
-				},
-			})
-			inv, err := testSvc.GetByInvitedEmail(ctx, "test@example.org")
+			mockUUID := "test-uuid"
+			testSvc, _ = service.New(
+				service.Logger(log.NewLogger()),
+				service.Config(&config.Config{
+					Persistance: config.Persistance{
+						Store: "memory",
+					},
+				}),
+				service.WithUUIDGenerator(func() string {
+					return mockUUID
+				}),
+			)
+
+			ctx = revactx.ContextSetUser(ctx, inviter)
+			_, err := testSvc.Invite(ctx, invite)
+			Expect(err).ToNot(HaveOccurred())
+
+			inv, err := testSvc.GetByInviteId(ctx, mockUUID)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(inv).ToNot(BeNil())
+			Expect(inv.InvitedUserEmailAddress).To(Equal(invite.InvitedUserEmailAddress))
+		})
+	})
+
+	Describe("GetByInvitedEmail", func() {
+		It("should return an invitation", func() {
+			ctx = revactx.ContextSetUser(ctx, inviter)
+			_, err := testSvc.Invite(ctx, invite)
+			Expect(err).ToNot(HaveOccurred())
+
+			inv, err := testSvc.GetByInvitedEmail(ctx, invite.InvitedUserEmailAddress)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(inv).ToNot(BeNil())
+			Expect(inv.InvitedUserEmailAddress).To(Equal(invite.InvitedUserEmailAddress))
 		})
 	})
 })

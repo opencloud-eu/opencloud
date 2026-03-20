@@ -31,9 +31,17 @@ func (l logging) List(ctx context.Context, userId string) ([]*invitations.Invita
 func (l logging) GetByInvitedEmail(ctx context.Context, email string) (*invitations.Invitation, error) {
 	l.logger.Debug().
 		Interface("invitation", email).
-		Msg("Get")
+		Msg("GetByInvitedEmail")
 
 	return l.next.GetByInvitedEmail(ctx, email)
+}
+
+func (l logging) GetByInviteId(ctx context.Context, id string) (*invitations.Invitation, error) {
+	l.logger.Debug().
+		Interface("invitation", id).
+		Msg("GetByInviteId")
+
+	return l.next.GetByInviteId(ctx, id)
 }
 
 // Invite implements the Service interface.

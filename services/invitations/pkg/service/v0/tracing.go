@@ -49,6 +49,20 @@ func (t tracing) GetByInvitedEmail(ctx context.Context, email string) (*invitati
 	return t.next.GetByInvitedEmail(ctx, email)
 }
 
+func (t tracing) GetByInviteId(ctx context.Context, id string) (*invitations.Invitation, error) {
+	spanOpts := []trace.SpanStartOption{
+		trace.WithSpanKind(trace.SpanKindServer),
+		trace.WithAttributes(
+			attribute.KeyValue{
+				Key: "invitation", Value: attribute.StringValue("get"),
+			}),
+	}
+	ctx, span := t.tp.Tracer("invitations").Start(ctx, "Get", spanOpts...)
+	defer span.End()
+
+	return t.next.GetByInviteId(ctx, id)
+}
+
 // Invite implements the Service interface.
 func (t tracing) Invite(ctx context.Context, invitation *invitations.Invitation) (*invitations.Invitation, error) {
 	spanOpts := []trace.SpanStartOption{

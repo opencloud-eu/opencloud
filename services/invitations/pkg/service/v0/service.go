@@ -33,6 +33,7 @@ type Service interface {
 	Invite(ctx context.Context, invitation *invitations.Invitation) (*invitations.Invitation, error)
 	List(ctx context.Context, userId string) ([]*invitations.Invitation, error)
 	GetByInvitedEmail(ctx context.Context, email string) (*invitations.Invitation, error)
+	GetByInviteId(ctx context.Context, id string) (*invitations.Invitation, error)
 }
 
 // Backend defines the behaviour of a user backend.
@@ -61,20 +62,25 @@ func New(opts ...Option) (Service, error) {
 	)
 
 	s := svc{
-		log:     options.Logger,
-		config:  options.Config,
-		backend: backend,
+		log:           options.Logger,
+		config:        options.Config,
+		backend:       backend,
+		uuidGenerator: options.UUIDGenerator,
+	}
+
+	if s.uuidGenerator == nil {
+		s.uuidGenerator = uuid.NewString
 	}
 	switch options.Config.Persistance.Store {
 	case "nat-js-kv":
 		panic("not implemented yet")
 	case "memory":
-		s.persistance = store.NewMemoryStore()
+		s.Persistance = store.NewMemoryStore()
 	default:
 		panic("unknown store")
 	}
 
-	if err := s.persistance.Init(store.Table("invitations")); err != nil {
+	if err := s.Persistance.Init(store.Table("invitations")); err != nil {
 		s.log.Error().Err(err).Msg("error initializing store")
 		return nil, err
 	}
@@ -86,7 +92,9 @@ type svc struct {
 	log     log.Logger
 	backend Backend
 
-	persistance store.Store
+	Persistance store.Store
+
+	uuidGenerator UUIDGenerator
 }
 
 // Invite implements the service interface
@@ -128,8 +136,8 @@ func (s svc) Invite(ctx context.Context, invitation *invitations.Invitation) (*i
 	}
 
 	// persist invitation
-	err = s.persistance.Write(&store.Record{
-		Key: uuid.New().String(),
+	err = s.Persistance.Write(&store.Record{
+		Key: s.uuidGenerator(),
 		Metadata: map[string]interface{}{
 			"invitedUserEmailAddress": invitation.InvitedUserEmailAddress,
 			"inviterUserId":           u.GetId().GetOpaqueId(),
@@ -147,12 +155,12 @@ func (s svc) Invite(ctx context.Context, invitation *invitations.Invitation) (*i
 func (s svc) List(ctx context.Context, userId string) ([]*invitations.Invitation, error) {
 	fmt.Println("list invitations for user", userId)
 	// get logged in user
-	_, ok := revactx.ContextGetUser(ctx)
+	u, ok := revactx.ContextGetUser(ctx)
 	if !ok {
 		return nil, ErrUnauthorized
 	}
 
-	invitationsKeys, err := s.persistance.List()
+	invitationsKeys, err := s.Persistance.List()
 
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrPersistence, err)
@@ -161,13 +169,14 @@ func (s svc) List(ctx context.Context, userId string) ([]*invitations.Invitation
 	var invSlice []*invitations.Invitation
 
 	for _, key := range invitationsKeys {
-		invs, err := s.persistance.Read(key)
+		invs, err := s.Persistance.Read(key)
 		if err != nil {
 			// we cannot get the item, probably deleted in the meantime
 			continue
 		}
 		for _, value := range invs {
-			if value.Metadata["inviterUserId"] != userId {
+			if value.Metadata["inviterUserId"] != userId ||
+				value.Metadata["inviterUserId"] != u.GetId().GetOpaqueId() {
 				continue
 			}
 			inv := &invitations.Invitation{}
@@ -181,9 +190,60 @@ func (s svc) List(ctx context.Context, userId string) ([]*invitations.Invitation
 	return invSlice, nil
 }
 
+// GetByInviteId implements the service interface
+func (s svc) GetByInviteId(ctx context.Context, inviteId string) (*invitations.Invitation, error) {
+	u, ok := revactx.ContextGetUser(ctx)
+	if !ok {
+		return nil, ErrUnauthorized
+	}
+
+	inv, err := s.Persistance.Read(inviteId)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrPersistence, err)
+	}
+
+	if inv[0].Metadata["inviterUserId"] != u.GetId().GetOpaqueId() {
+		return nil, ErrUnauthorized
+	}
+
+	invite := &invitations.Invitation{}
+	err = json.Unmarshal(inv[0].Value, invite)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrSerialization, err)
+	}
+
+	return invite, nil
+}
+
 // GetByInvitedEmail implements the service interface
 func (s svc) GetByInvitedEmail(ctx context.Context, email string) (*invitations.Invitation, error) {
-	// TODO: implement
-	panic("implement me")
-	return nil, nil
+	u, ok := revactx.ContextGetUser(ctx)
+	if !ok {
+		return nil, ErrUnauthorized
+	}
+
+	invitationsKeys, err := s.Persistance.List()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrPersistence, err)
+	}
+
+	for _, key := range invitationsKeys {
+		invs, err := s.Persistance.Read(key)
+		if err != nil {
+			continue
+		}
+		for _, value := range invs {
+			if value.Metadata["invitedUserEmailAddress"] == email &&
+				value.Metadata["inviterUserId"] == u.GetId().GetOpaqueId() {
+				invite := &invitations.Invitation{}
+				err := json.Unmarshal(value.Value, invite)
+				if err != nil {
+					return nil, fmt.Errorf("%w: %s", ErrSerialization, err)
+				}
+				return invite, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("%w: invitation not found", ErrPersistence)
 }
