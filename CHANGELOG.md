@@ -1,21 +1,24 @@
 # Changelog
 
-## [5.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.3.0) - 2026-03-16
+## [5.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.3.0) - 2026-03-20
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @aduffeck, @dragonchaser
-
-### ✅ Tests
-
-- [test-only] favorites tests [[#2474](https://github.com/opencloud-eu/opencloud/pull/2474)]
+@ScharfViktor, @aduffeck, @dragonchaser, @pascalwengerter
 
 ### 📈 Enhancement
 
+- Always enable favorites, remove FRONTEND_ENABLE_FAVORITES flag [[#2494](https://github.com/opencloud-eu/opencloud/pull/2494)]
 - Implement favorites [[#2454](https://github.com/opencloud-eu/opencloud/pull/2454)]
+
+### ✅ Tests
+
+- api-tests: search for favorites [[#2487](https://github.com/opencloud-eu/opencloud/pull/2487)]
+- [test-only] favorites tests [[#2474](https://github.com/opencloud-eu/opencloud/pull/2474)]
 
 ### 📦️ Dependencies
 
+- build(deps): bump golang.org/x/net from 0.51.0 to 0.52.0 [[#2472](https://github.com/opencloud-eu/opencloud/pull/2472)]
 - build(deps): bump go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc from 0.65.0 to 0.67.0 [[#2473](https://github.com/opencloud-eu/opencloud/pull/2473)]
 - build(deps): bump github.com/olekukonko/tablewriter from 1.1.3 to 1.1.4 [[#2468](https://github.com/opencloud-eu/opencloud/pull/2468)]
 - build(deps): bump go.opentelemetry.io/contrib/zpages from 0.65.0 to 0.67.0 [[#2467](https://github.com/opencloud-eu/opencloud/pull/2467)]
