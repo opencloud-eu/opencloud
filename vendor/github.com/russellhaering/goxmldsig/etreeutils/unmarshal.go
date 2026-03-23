@@ -9,7 +9,7 @@ import (
 // NSUnmarshalElement unmarshals the passed etree Element into the value pointed to by
 // v using encoding/xml in the context of the passed NSContext. If v implements
 // ElementKeeper, SetUnderlyingElement will be called on v with a reference to el.
-func NSUnmarshalElement(ctx NSContext, el *etree.Element, v interface{}) error {
+func NSUnmarshalElement(ctx NSContext, el *etree.Element, v any) error {
 	detatched, err := NSDetatch(ctx, el)
 	if err != nil {
 		return err
