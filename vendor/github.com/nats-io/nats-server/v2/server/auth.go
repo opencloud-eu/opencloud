@@ -421,7 +421,9 @@ func (c *client) matchesPinnedCert(tlsPinnedCerts PinnedCertSet) bool {
 }
 
 var (
-	mustacheRE = regexp.MustCompile(`{{2}([^}]+)}{2}`)
+	mustacheRE                             = regexp.MustCompile(`{{2}([^}]+)}{2}`)
+	maxPermTemplateSubjectExpansions       = 4096
+	errPermTemplateExpansionLimit    error = fmt.Errorf("template expansion exceeds limit")
 )
 
 func processUserPermissionsTemplate(lim jwt.UserPermissionLimits, ujwt *jwt.UserClaims, acc *Account) (jwt.UserPermissionLimits, error) {
@@ -456,11 +458,11 @@ func processUserPermissionsTemplate(lim jwt.UserPermissionLimits, ujwt *jwt.User
 		return p
 	}
 	isTag := func(op string) []string {
-		if strings.EqualFold("tag(", op[:4]) && strings.HasSuffix(op, ")") {
+		if len(op) >= 4 && strings.EqualFold("tag(", op[:4]) && strings.HasSuffix(op, ")") {
 			v := strings.TrimPrefix(op, "tag(")
 			v = strings.TrimSuffix(v, ")")
 			return []string{"tag", v}
-		} else if strings.EqualFold("account-tag(", op[:12]) && strings.HasSuffix(op, ")") {
+		} else if len(op) >= 12 && strings.EqualFold("account-tag(", op[:12]) && strings.HasSuffix(op, ")") {
 			v := strings.TrimPrefix(op, "account-tag(")
 			v = strings.TrimSuffix(v, ")")
 			return []string{"account-tag", v}
@@ -529,7 +531,7 @@ func processUserPermissionsTemplate(lim jwt.UserPermissionLimits, ujwt *jwt.User
 						// generate an invalid subject?
 						values[tokenNum] = []string{" "}
 					}
-				} else if failOnBadSubject {
+				} else {
 					return nil, fmt.Errorf("template operation in %q: %q is not defined", list[i], op)
 				}
 			}
@@ -544,6 +546,20 @@ func processUserPermissionsTemplate(lim jwt.UserPermissionLimits, ujwt *jwt.User
 					return nil, fmt.Errorf("generated invalid subject")
 				}
 			} else {
+				expCount := 1
+				for _, v := range values {
+					if len(v) == 0 {
+						expCount = 0
+						break
+					}
+					if expCount > maxPermTemplateSubjectExpansions/len(v) {
+						return nil, fmt.Errorf("%w: %d", errPermTemplateExpansionLimit, maxPermTemplateSubjectExpansions)
+					}
+					expCount *= len(v)
+				}
+				if len(emittedList) > maxPermTemplateSubjectExpansions-expCount {
+					return nil, fmt.Errorf("%w: %d", errPermTemplateExpansionLimit, maxPermTemplateSubjectExpansions)
+				}
 				a := nArrayCartesianProduct(values...)
 				for _, aa := range a {
 					subj := list[i]

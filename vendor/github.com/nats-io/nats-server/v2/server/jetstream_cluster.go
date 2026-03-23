@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"iter"
 	"math"
 	"math/rand"
 	"os"
@@ -29,6 +30,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -47,10 +49,11 @@ type jetStreamCluster struct {
 	streams map[string]map[string]*streamAssignment
 	// These are inflight proposals and used to apply limits when there are
 	// concurrent requests that would otherwise be accepted.
-	// We also record the group for the stream. This is needed since if we have
-	// concurrent requests for same account and stream we need to let it process to get
+	// We also record the assignment for the stream/consumer. This is needed since if we have
+	// concurrent requests for same account and stream/consumer we need to let it process to get
 	// a response but they need to be same group, peers etc. and sync subjects.
-	inflight map[string]map[string]*inflightInfo
+	inflightStreams   map[string]map[string]*inflightStreamInfo
+	inflightConsumers map[string]map[string]map[string]*inflightConsumerInfo
 	// Holds a map of a peer ID to the reply subject, to only respond after gaining
 	// quorum on the peer-remove action.
 	peerRemoveReply map[string]peerRemoveInfo
@@ -80,11 +83,18 @@ type jetStreamCluster struct {
 	lastMetaSnapDuration int64 // Duration in nanoseconds
 }
 
-// Used to track inflight stream add requests to properly re-use same group and sync subject.
-type inflightInfo struct {
-	rg   *raftGroup
-	sync string
-	cfg  *StreamConfig
+// Used to track inflight stream create/update/delete requests that have been proposed but not yet applied.
+type inflightStreamInfo struct {
+	ops     uint64 // Inflight operations, i.e. inflight stream creates/updates/deletes.
+	deleted bool   // Whether the stream has been deleted.
+	*streamAssignment
+}
+
+// Used to track inflight consumer create/update/delete requests that have been proposed but not yet applied.
+type inflightConsumerInfo struct {
+	ops     uint64 // Inflight operations, i.e. inflight consumer creates/updates/deletes.
+	deleted bool   // Whether the consumer has been deleted.
+	*consumerAssignment
 }
 
 // Used to track inflight peer-remove info to respond 'success' after quorum.
@@ -249,8 +259,6 @@ type consumerAssignment struct {
 	// Internal
 	responded   bool
 	recovering  bool
-	pending     bool
-	deleted     bool
 	err         error
 	unsupported *unsupportedConsumerAssignment
 }
@@ -326,7 +334,6 @@ type writeableConsumerAssignment struct {
 	Stream     string          `json:"stream"`
 	ConfigJSON json.RawMessage `json:"consumer"`
 	Group      *raftGroup      `json:"group"`
-	State      *ConsumerState  `json:"state,omitempty"`
 }
 
 // streamPurge is what the stream leader will replicate when purging a stream.
@@ -432,12 +439,12 @@ func (s *Server) JetStreamSnapshotMeta() error {
 		return errNotLeader
 	}
 
-	snap, err := js.metaSnapshot()
+	snap, _, _, err := js.metaSnapshot()
 	if err != nil {
 		return err
 	}
 
-	return meta.InstallSnapshot(snap)
+	return meta.InstallSnapshot(snap, false)
 }
 
 func (s *Server) JetStreamStepdownStream(account, stream string) error {
@@ -522,7 +529,7 @@ func (s *Server) JetStreamSnapshotStream(account, stream string) error {
 		mset.mu.Unlock()
 		return nil
 	}
-	err = mset.node.InstallSnapshot(mset.stateSnapshotLocked())
+	err = mset.node.InstallSnapshot(mset.stateSnapshotLocked(), false)
 	mset.mu.Unlock()
 
 	return err
@@ -689,10 +696,6 @@ func (js *jetStream) isConsumerHealthy(mset *stream, consumer string, ca *consum
 		js.mu.RUnlock()
 		return errors.New("consumer assignment or group missing")
 	}
-	if ca.deleted {
-		js.mu.RUnlock()
-		return nil // No further checks, consumer was deleted in the meantime.
-	}
 	created := ca.Created
 	node := ca.Group.node
 	js.mu.RUnlock()
@@ -742,11 +745,10 @@ func (js *jetStream) isConsumerHealthy(mset *stream, consumer string, ca *consum
 // subjectsOverlap checks all existing stream assignments for the account cross-cluster for subject overlap
 // Use only for clustered JetStream
 // Read lock should be held.
-func (jsc *jetStreamCluster) subjectsOverlap(acc string, subjects []string, osa *streamAssignment) bool {
-	asa := jsc.streams[acc]
-	for _, sa := range asa {
+func (js *jetStream) subjectsOverlap(acc string, subjects []string, osa *streamAssignment) bool {
+	for sa := range js.streamAssignmentsOrInflightSeq(acc) {
 		// can't overlap yourself, assume osa pre-checked for deep equal if passed
-		if osa != nil && sa == osa {
+		if osa != nil && sa.Config.Name == osa.Config.Name {
 			continue
 		}
 		for _, subj := range sa.Config.Subjects {
@@ -1182,18 +1184,95 @@ func (cc *jetStreamCluster) isConsumerLeader(account, stream, consumer string) b
 	return false
 }
 
-// Remove the stream `streamName` for the account `accName` from the inflight
-// proposals map. This is done on success (processStreamAssignment) or on
-// failure (processStreamAssignmentResults).
+// Track the stream for the account `accName` in the inflight proposals map.
+// This is done after proposing a stream change.
 // (Write) Lock held on entry.
-func (cc *jetStreamCluster) removeInflightProposal(accName, streamName string) {
-	streams, ok := cc.inflight[accName]
-	if !ok {
-		return
+func (cc *jetStreamCluster) trackInflightStreamProposal(accName string, sa *streamAssignment, deleted bool) {
+	if cc.inflightStreams == nil {
+		cc.inflightStreams = make(map[string]map[string]*inflightStreamInfo)
 	}
-	delete(streams, streamName)
-	if len(streams) == 0 {
-		delete(cc.inflight, accName)
+	streams, ok := cc.inflightStreams[accName]
+	if !ok {
+		streams = make(map[string]*inflightStreamInfo)
+		cc.inflightStreams[accName] = streams
+	}
+	if inflight, ok := streams[sa.Config.Name]; ok {
+		inflight.ops++
+		inflight.deleted = deleted
+		inflight.streamAssignment = sa
+	} else {
+		streams[sa.Config.Name] = &inflightStreamInfo{1, deleted, sa}
+	}
+}
+
+// Remove the stream `streamName` for the account `accName` from the inflight proposals map.
+// This is done after successful create/update/delete.
+// (Write) Lock held on entry.
+func (cc *jetStreamCluster) removeInflightStreamProposal(accName, streamName string) {
+	if streams, ok := cc.inflightStreams[accName]; !ok {
+		return // No accounts.
+	} else if inflight, ok := streams[streamName]; !ok {
+		return // No changes for this stream.
+	} else if inflight.ops > 1 {
+		// Decrement one pending operation.
+		inflight.ops--
+	} else {
+		// No pending operations left, clean up.
+		delete(streams, streamName)
+		if len(streams) == 0 {
+			delete(cc.inflightStreams, accName)
+		}
+	}
+}
+
+// Track the consumer for the `streamName` and account `accName` in the inflight proposals map.
+// This is done after proposing a consumer change.
+// (Write) Lock held on entry.
+func (cc *jetStreamCluster) trackInflightConsumerProposal(accName, streamName string, ca *consumerAssignment, deleted bool) {
+	if cc.inflightConsumers == nil {
+		cc.inflightConsumers = make(map[string]map[string]map[string]*inflightConsumerInfo)
+	}
+	streams, ok := cc.inflightConsumers[accName]
+	if !ok {
+		streams = make(map[string]map[string]*inflightConsumerInfo)
+		cc.inflightConsumers[accName] = streams
+	}
+	consumers, ok := streams[streamName]
+	if !ok {
+		consumers = make(map[string]*inflightConsumerInfo)
+		streams[streamName] = consumers
+	}
+	if inflight, ok := consumers[ca.Name]; ok {
+		inflight.ops++
+		inflight.deleted = deleted
+		inflight.consumerAssignment = ca
+	} else {
+		consumers[ca.Name] = &inflightConsumerInfo{1, deleted, ca}
+	}
+}
+
+// Remove the consumer `consumerName` for the `streamName` and account `accName` from the inflight proposals map.
+// This is done after successful create/update/delete.
+// (Write) Lock held on entry.
+func (cc *jetStreamCluster) removeInflightConsumerProposal(accName, streamName, consumerName string) {
+	if streams, ok := cc.inflightConsumers[accName]; !ok {
+		return // No accounts.
+	} else if consumers, ok := streams[streamName]; !ok {
+		return // No streams.
+	} else if inflight, ok := consumers[consumerName]; !ok {
+		return // No changes for this consumer.
+	} else if inflight.ops > 1 {
+		// Decrement one pending operation.
+		inflight.ops--
+	} else {
+		// No pending operations left, clean up.
+		delete(consumers, consumerName)
+		if len(consumers) == 0 {
+			delete(streams, streamName)
+		}
+		if len(streams) == 0 {
+			delete(cc.inflightConsumers, accName)
+		}
 	}
 }
 
@@ -1311,27 +1390,7 @@ func (js *jetStream) checkForOrphans() {
 		s.Debugf("JetStream cluster skipping check for orphans, not current with the meta-leader")
 		return
 	}
-
-	var streams []*stream
-	var consumers []*consumer
-
-	for accName, jsa := range js.accounts {
-		asa := cc.streams[accName]
-		jsa.mu.RLock()
-		for stream, mset := range jsa.streams {
-			if sa := asa[stream]; sa == nil {
-				streams = append(streams, mset)
-			} else {
-				// This one is good, check consumers now.
-				for _, o := range mset.getConsumers() {
-					if sa.consumers[o.String()] == nil {
-						consumers = append(consumers, o)
-					}
-				}
-			}
-		}
-		jsa.mu.RUnlock()
-	}
+	streams, consumers := js.getOrphans()
 	js.mu.Unlock()
 
 	for _, mset := range streams {
@@ -1365,6 +1424,31 @@ func (js *jetStream) checkForOrphans() {
 	}
 }
 
+// Returns orphaned streams and consumers that were recovered from disk, but don't
+// exist as clustered stream/consumer assignments.
+// Lock should be held.
+func (js *jetStream) getOrphans() (streams []*stream, consumers []*consumer) {
+	cc := js.cluster
+	for accName, jsa := range js.accounts {
+		asa := cc.streams[accName]
+		jsa.mu.RLock()
+		for stream, mset := range jsa.streams {
+			if sa := asa[stream]; sa == nil {
+				streams = append(streams, mset)
+			} else {
+				// This one is good, check consumers now.
+				for _, o := range mset.getConsumers() {
+					if sa.consumers[o.String()] == nil {
+						consumers = append(consumers, o)
+					}
+				}
+			}
+		}
+		jsa.mu.RUnlock()
+	}
+	return streams, consumers
+}
+
 func (js *jetStream) monitorCluster() {
 	s, n := js.server(), js.getMetaGroup()
 	qch, stopped, rqch, lch, aq := js.clusterQuitC(), js.clusterStoppedC(), n.QuitC(), n.LeadChangeC(), n.ApplyQ()
@@ -1380,6 +1464,7 @@ func (js *jetStream) monitorCluster() {
 	defer s.isMetaLeader.Store(false)
 
 	const compactInterval = time.Minute
+	const compactMinInterval = 15 * time.Second
 	t := time.NewTicker(compactInterval)
 	defer t.Stop()
 
@@ -1416,30 +1501,177 @@ func (js *jetStream) monitorCluster() {
 	recovering := true
 
 	// Snapshotting function.
+	var (
+		snapMu       sync.Mutex
+		snapshotting bool
+		// The first snapshot we do after recovery should clean up most of the log.
+		fallbackSnapshot = true
+		// Suppress non-forced snapshots after an error. Timer-based snapshots will become forced.
+		// If failures continue, we force a snapshot even if we were catching up others
+		// (otherwise we might indefinitely stall and grow log size).
+		failedSnapshots atomic.Uint32
+	)
 	doSnapshot := func(force bool) {
 		// Suppress during recovery.
-		if recovering {
+		// If snapshots have failed, and we're not forced to, we'll wait for the timer since it'll now be forced.
+		if recovering || (!force && failedSnapshots.Load() > 0) {
+			return
+		}
+		// Suppress if an async snapshot is already in progress.
+		snapMu.Lock()
+		if snapshotting {
+			snapMu.Unlock()
 			return
 		}
 		// Look up what the threshold is for compaction. Re-reading from config here as it is reloadable.
 		js.srv.optsMu.RLock()
 		ethresh := js.srv.opts.JetStreamMetaCompact
 		szthresh := js.srv.opts.JetStreamMetaCompactSize
+		// Allows reverting to sync/blocking snapshots instead of the default async snapshots.
+		syncSnapshot := js.srv.opts.JetStreamMetaCompactSync
 		js.srv.optsMu.RUnlock()
 		// Work out our criteria for snapshotting.
 		byEntries, bySize := ethresh > 0, szthresh > 0
 		byNeither := !byEntries && !bySize
 		// For the meta layer we want to snapshot when over the above threshold (which could be 0 by default).
-		if ne, nsz := n.Size(); force || byNeither || (byEntries && ne > ethresh) || (bySize && nsz > szthresh) || n.NeedSnapshot() {
-			snap, err := js.metaSnapshot()
-			if err != nil {
-				s.Warnf("Error generating JetStream cluster snapshot: %v", err)
-			} else if err = n.InstallSnapshot(snap); err == nil {
-				lastSnapTime = time.Now()
-			} else if err != errNoSnapAvailable && err != errNodeClosed {
+		ne, nsz := n.Size()
+		createSnapshot := force || byNeither || (byEntries && ne > ethresh) || (bySize && nsz > szthresh) || n.NeedSnapshot()
+		if !createSnapshot {
+			snapMu.Unlock()
+			return
+		}
+
+		// Start a checkpoint, we can either install the snapshot sync or async from here.
+		// If we had a significant number of failed snapshots, start relaxing Raft-layer checks
+		// to force it through. We might have been catching up a peer for a long period, and this
+		// protects our log size from growing indefinitely.
+		forceSnapshot := failedSnapshots.Load() > 4
+		c, err := n.CreateSnapshotCheckpoint(forceSnapshot)
+		if err != nil {
+			if err != errNoSnapAvailable && err != errNodeClosed {
 				s.Warnf("Error snapshotting JetStream cluster state: %v", err)
+				// If this is the first failure, reduce the interval of the snapshot timer.
+				// This ensures we're not waiting too long for snapshotting to eventually become forced.
+				if failedSnapshots.Load() == 0 {
+					t.Reset(compactMinInterval)
+				}
+				failedSnapshots.Add(1)
+			}
+			snapMu.Unlock()
+			return
+		}
+
+		// If we're meant to install an async snapshot, check if the underlying log has grown way too large.
+		// In that case, we fall back to a synchronous/blocking snapshot after all. This is a protective
+		// measure to prevent the log from growing faster than we can asynchronously compact.
+		if !fallbackSnapshot && !syncSnapshot {
+			if szthresh == 0 {
+				szthresh = compactSizeMin
+			}
+			if thresh := 10 * szthresh; nsz >= thresh {
+				s.rateLimitFormatWarnf("JetStream cluster metalayer log size has exceeded async threshold (%s), will fall back to blocking snapshot", friendlyBytes(thresh))
+				fallbackSnapshot = true
 			}
 		}
+
+		// Check if we should fall back to a blocking snapshot, either due to failures or extreme log size.
+		if fallbackSnapshot || syncSnapshot {
+			if !syncSnapshot {
+				s.rateLimitFormatWarnf("Metalayer blocking snapshot starting")
+			}
+			start := time.Now()
+			snap, nsa, nca, err := js.metaSnapshot()
+			if err != nil {
+				s.Warnf("Error generating JetStream cluster snapshot: %v", err)
+				c.Abort()
+			} else if csz, err := c.InstallSnapshot(snap); err == nil {
+				lastSnapTime = time.Now()
+				// If there was a failed snapshot before, we reduced the timer's interval.
+				// Reset it back to the original interval now.
+				if failedSnapshots.Load() > 0 {
+					t.Reset(compactInterval)
+				}
+				failedSnapshots.Store(0)
+				// Fallback snapshot was successful, the next one can be async again.
+				fallbackSnapshot = false
+				took := time.Since(start)
+				if !syncSnapshot || took > 2*time.Second {
+					s.rateLimitFormatWarnf("Metalayer blocking snapshot took %.3fs (streams: %d, consumers: %d, compacted: %s)",
+						took.Seconds(), nsa, nca, friendlyBytes(csz))
+				}
+			} else {
+				c.Abort()
+				if err != errNoSnapAvailable && err != errNodeClosed && err != errSnapAborted {
+					s.Warnf("Error snapshotting JetStream cluster state: %v", err)
+					// If this is the first failure, reduce the interval of the snapshot timer.
+					// This ensures we're not waiting too long for snapshotting to eventually become forced.
+					if failedSnapshots.Load() == 0 {
+						t.Reset(compactMinInterval)
+					}
+					failedSnapshots.Add(1)
+				}
+			}
+			snapMu.Unlock()
+			return
+		}
+
+		// Perform the snapshot asynchronously.
+		start := time.Now()
+		snapshotting = true
+		snapMu.Unlock()
+		s.startGoRoutine(func() {
+			defer s.grWG.Done()
+
+			abort := func(err error) {
+				snapMu.Lock()
+				c.Abort()
+				if err != errNoSnapAvailable && err != errNodeClosed && err != errSnapAborted {
+					s.Warnf("Error snapshotting JetStream cluster state: %v, will fall back to blocking snapshot", err)
+					fallbackSnapshot = true
+					// If this is the first failure, reduce the interval of the snapshot timer.
+					// This ensures we're not waiting too long for snapshotting to eventually become forced.
+					if failedSnapshots.Load() == 0 {
+						t.Reset(compactMinInterval)
+					}
+					failedSnapshots.Add(1)
+				}
+				snapshotting = false
+				snapMu.Unlock()
+			}
+
+			// The strategy of asynchronous snapshotting:
+			// - Not holding any locks. Only minimal for the Raft node itself, importantly not the JS lock.
+			// - Load the last snapshot.
+			// - Replay stream/consumer changes through the assignment state machine.
+			// - Encode and install as the new snapshot.
+			if data, err := c.LoadLastSnapshot(); err != nil && err != errNoSnapAvailable {
+				abort(err)
+			} else if streams, err := js.decodeMetaSnapshot(data); err != nil {
+				abort(err)
+			} else if err = js.collectStreamAndConsumerChanges(c, streams); err != nil {
+				abort(err)
+			} else if snap, nsa, nca, err := js.encodeMetaSnapshot(streams); err != nil {
+				abort(err)
+			} else if csz, err := c.InstallSnapshot(snap); err != nil {
+				abort(err)
+			} else {
+				// Successful snapshot.
+				lastSnapTime = time.Now()
+				// If there was a failed snapshot before, we reduced the timer's interval.
+				// Reset it back to the original interval now.
+				if failedSnapshots.Load() > 0 {
+					t.Reset(compactInterval)
+				}
+				failedSnapshots.Store(0)
+				if took := time.Since(start); took > 2*time.Second {
+					s.rateLimitFormatWarnf("Metalayer async snapshot took %.3fs (streams: %d, consumers: %d, compacted: %s)",
+						took.Seconds(), nsa, nca, friendlyBytes(csz))
+				}
+				snapMu.Lock()
+				snapshotting = false
+				snapMu.Unlock()
+			}
+		})
 	}
 
 	var ru *recoveryUpdates
@@ -1453,6 +1685,9 @@ func (js *jetStream) monitorCluster() {
 		select {
 		case <-s.quitCh:
 			// Server shutting down, but we might receive this before qch, so try to snapshot.
+			snapMu.Lock()
+			fallbackSnapshot = true
+			snapMu.Unlock()
 			doSnapshot(false)
 			return
 		case <-rqch:
@@ -1460,6 +1695,9 @@ func (js *jetStream) monitorCluster() {
 			return
 		case <-qch:
 			// Clean signal from shutdown routine so do best effort attempt to snapshot meta layer.
+			snapMu.Lock()
+			fallbackSnapshot = true
+			snapMu.Unlock()
 			doSnapshot(false)
 			return
 		case <-aq.ch:
@@ -1510,6 +1748,11 @@ func (js *jetStream) monitorCluster() {
 					// Snapshot now so we start with freshly compacted log.
 					doSnapshot(true)
 					if wasMetaRecovering {
+						// Reset, it could be we didn't need to install a snapshot. This ensures we don't degrade
+						// to a blocking snapshot if we install our first snapshot during normal operations.
+						snapMu.Lock()
+						fallbackSnapshot = false
+						snapMu.Unlock()
 						oc = time.AfterFunc(30*time.Second, js.checkForOrphans)
 						// Do a health check here as well.
 						go checkHealth()
@@ -1546,7 +1789,9 @@ func (js *jetStream) monitorCluster() {
 			}
 
 		case <-t.C:
-			doSnapshot(false)
+			// Start forcing snapshots if they failed previously.
+			forceIfFailed := failedSnapshots.Load() > 0
+			doSnapshot(forceIfFailed)
 			// Periodically check the cluster size.
 			if n.Leader() {
 				js.checkClusterSize()
@@ -1639,121 +1884,17 @@ func (js *jetStream) clusterStreamConfig(accName, streamName string) (StreamConf
 	return StreamConfig{}, false
 }
 
-func (js *jetStream) metaSnapshot() ([]byte, error) {
-	start := time.Now()
+func (js *jetStream) metaSnapshot() ([]byte, int, int, error) {
 	js.mu.RLock()
-	s := js.srv
+	defer js.mu.RUnlock()
 	cc := js.cluster
-	nsa := 0
-	nca := 0
-	for _, asa := range cc.streams {
-		nsa += len(asa)
-	}
-	streams := make([]writeableStreamAssignment, 0, nsa)
-	for _, asa := range cc.streams {
-		for _, sa := range asa {
-			wsa := writeableStreamAssignment{
-				Client:     sa.Client.forAssignmentSnap(),
-				Created:    sa.Created,
-				ConfigJSON: sa.ConfigJSON,
-				Group:      sa.Group,
-				Sync:       sa.Sync,
-				Consumers:  make([]*writeableConsumerAssignment, 0, len(sa.consumers)),
-			}
-			for _, ca := range sa.consumers {
-				// Skip if the consumer is pending, we can't include it in our snapshot.
-				// If the proposal fails after we marked it pending, it would result in a ghost consumer.
-				if ca.pending {
-					continue
-				}
-				wca := writeableConsumerAssignment{
-					Client:     ca.Client.forAssignmentSnap(),
-					Created:    ca.Created,
-					Name:       ca.Name,
-					Stream:     ca.Stream,
-					ConfigJSON: ca.ConfigJSON,
-					Group:      ca.Group,
-					State:      ca.State,
-				}
-				wsa.Consumers = append(wsa.Consumers, &wca)
-				nca++
-			}
-			streams = append(streams, wsa)
-		}
-	}
-
-	if len(streams) == 0 {
-		js.mu.RUnlock()
-		return nil, nil
-	}
-
-	// Track how long it took to marshal the JSON
-	mstart := time.Now()
-	b, err := json.Marshal(streams)
-	mend := time.Since(mstart)
-
-	js.mu.RUnlock()
-
-	// Must not be possible for a JSON marshaling error to result
-	// in an empty snapshot.
-	if err != nil {
-		return nil, err
-	}
-
-	// Track how long it took to compress the JSON.
-	cstart := time.Now()
-	snap := s2.Encode(nil, b)
-	cend := time.Since(cstart)
-	took := time.Since(start)
-
-	if took > time.Second {
-		s.rateLimitFormatWarnf("Metalayer snapshot took %.3fs (streams: %d, consumers: %d, marshal: %.3fs, s2: %.3fs, uncompressed: %d, compressed: %d)",
-			took.Seconds(), nsa, nca, mend.Seconds(), cend.Seconds(), len(b), len(snap))
-	}
-
-	// Track in jsz monitoring as well.
-	if cc != nil {
-		atomic.StoreInt64(&cc.lastMetaSnapTime, start.UnixNano())
-		atomic.StoreInt64(&cc.lastMetaSnapDuration, int64(took))
-	}
-
-	return snap, nil
+	return js.encodeMetaSnapshot(cc.streams)
 }
 
-func (js *jetStream) applyMetaSnapshot(buf []byte, ru *recoveryUpdates, isRecovering, startupRecovery bool) error {
-	var wsas []writeableStreamAssignment
-	if len(buf) > 0 {
-		jse, err := s2.Decode(nil, buf)
-		if err != nil {
-			return err
-		}
-		if err = json.Unmarshal(jse, &wsas); err != nil {
-			return err
-		}
-	}
-
-	// Build our new version here outside of js.
-	streams := make(map[string]map[string]*streamAssignment)
-	for _, wsa := range wsas {
-		as := streams[wsa.Client.serviceAccount()]
-		if as == nil {
-			as = make(map[string]*streamAssignment)
-			streams[wsa.Client.serviceAccount()] = as
-		}
-		sa := &streamAssignment{Client: wsa.Client, Created: wsa.Created, ConfigJSON: wsa.ConfigJSON, Group: wsa.Group, Sync: wsa.Sync}
-		decodeStreamAssignmentConfig(js.srv, sa)
-		if len(wsa.Consumers) > 0 {
-			sa.consumers = make(map[string]*consumerAssignment)
-			for _, wca := range wsa.Consumers {
-				if wca.Stream == _EMPTY_ {
-					wca.Stream = sa.Config.Name // Rehydrate from the stream name.
-				}
-				ca := &consumerAssignment{Client: wca.Client, Created: wca.Created, Name: wca.Name, Stream: wca.Stream, ConfigJSON: wca.ConfigJSON, Group: wca.Group, State: wca.State}
-				decodeConsumerAssignmentConfig(ca)
-				sa.consumers[ca.Name] = ca
-			}
-		}
-		as[sa.Config.Name] = sa
+func (js *jetStream) applyMetaSnapshot(buf []byte, ru *recoveryUpdates, isRecovering bool) error {
+	streams, err := js.decodeMetaSnapshot(buf)
+	if err != nil {
+		return err
 	}
 
 	js.mu.Lock()
@@ -1863,6 +2004,232 @@ func (js *jetStream) applyMetaSnapshot(buf []byte, ru *recoveryUpdates, isRecove
 		}
 	}
 
+	// If we're not recovering, we need to check if we have any left-over streams or consumers that aren't
+	// tracked in our assignments. This could happen if we've restarted and recovered streams or consumers
+	// from disk, but then got sent a snapshot to catch up from the meta-leader.
+	if !isRecovering {
+		// This logic is similar to that of checkForOrphans. But, this cleanup is focused on aligning with
+		// a snapshot from a meta leader as a result of catchup. We silently delete them here, instead of
+		// logging and sending out advisories.
+		js.mu.RLock()
+		deleteStreams, deleteConsumers := js.getOrphans()
+		js.mu.RUnlock()
+		for _, mset := range deleteStreams {
+			mset.stop(true, false)
+		}
+		for _, o := range deleteConsumers {
+			o.deleteWithoutAdvisory()
+		}
+	}
+	return nil
+}
+
+// Decode the meta snapshot from buf into the relevant stream and consumer assignments.
+func (js *jetStream) decodeMetaSnapshot(buf []byte) (map[string]map[string]*streamAssignment, error) {
+	var wsas []writeableStreamAssignment
+	if len(buf) > 0 {
+		jse, err := s2.Decode(nil, buf)
+		if err != nil {
+			return nil, err
+		}
+		if err = json.Unmarshal(jse, &wsas); err != nil {
+			return nil, err
+		}
+	}
+
+	// Build our new version here outside of js.
+	streams := make(map[string]map[string]*streamAssignment)
+	for _, wsa := range wsas {
+		as := streams[wsa.Client.serviceAccount()]
+		if as == nil {
+			as = make(map[string]*streamAssignment)
+			streams[wsa.Client.serviceAccount()] = as
+		}
+		sa := &streamAssignment{Client: wsa.Client, Created: wsa.Created, ConfigJSON: wsa.ConfigJSON, Group: wsa.Group, Sync: wsa.Sync}
+		if err := decodeStreamAssignmentConfig(js.srv, sa); err != nil {
+			return nil, err
+		}
+		if len(wsa.Consumers) > 0 {
+			sa.consumers = make(map[string]*consumerAssignment)
+			for _, wca := range wsa.Consumers {
+				if wca.Stream == _EMPTY_ {
+					wca.Stream = sa.Config.Name // Rehydrate from the stream name.
+				}
+				ca := &consumerAssignment{Client: wca.Client, Created: wca.Created, Name: wca.Name, Stream: wca.Stream, ConfigJSON: wca.ConfigJSON, Group: wca.Group}
+				if err := decodeConsumerAssignmentConfig(ca); err != nil {
+					return nil, err
+				}
+				sa.consumers[ca.Name] = ca
+			}
+		}
+		as[sa.Config.Name] = sa
+	}
+	return streams, nil
+}
+
+// Encode the meta assignments into an encoded and compressed buffer.
+// Returns the snapshot itself, and the amount of streams and consumers.
+func (js *jetStream) encodeMetaSnapshot(streams map[string]map[string]*streamAssignment) ([]byte, int, int, error) {
+	start := time.Now()
+	nsa := 0
+	nca := 0
+	for _, asa := range streams {
+		nsa += len(asa)
+	}
+	out := make([]writeableStreamAssignment, 0, nsa)
+	for _, asa := range streams {
+		for _, sa := range asa {
+			wsa := writeableStreamAssignment{
+				Client:     sa.Client.forAssignmentSnap(),
+				Created:    sa.Created,
+				ConfigJSON: sa.ConfigJSON,
+				Group:      sa.Group,
+				Sync:       sa.Sync,
+				Consumers:  make([]*writeableConsumerAssignment, 0, len(sa.consumers)),
+			}
+			for _, ca := range sa.consumers {
+				wca := writeableConsumerAssignment{
+					Client:     ca.Client.forAssignmentSnap(),
+					Created:    ca.Created,
+					Name:       ca.Name,
+					Stream:     ca.Stream,
+					ConfigJSON: ca.ConfigJSON,
+					Group:      ca.Group,
+				}
+				wsa.Consumers = append(wsa.Consumers, &wca)
+				nca++
+			}
+			out = append(out, wsa)
+		}
+	}
+
+	if len(out) == 0 {
+		return nil, nsa, nca, nil
+	}
+
+	// Track how long it took to marshal the JSON
+	mstart := time.Now()
+	b, err := json.Marshal(out)
+	mend := time.Since(mstart)
+
+	// Must not be possible for a JSON marshaling error to result
+	// in an empty snapshot.
+	if err != nil {
+		return nil, nsa, nca, err
+	}
+
+	// Track how long it took to compress the JSON.
+	cstart := time.Now()
+	snap := s2.Encode(nil, b)
+	cend := time.Since(cstart)
+	took := time.Since(start)
+
+	if took > 2*time.Second {
+		js.srv.rateLimitFormatWarnf("Metalayer snapshot generation took %.3fs (streams: %d, consumers: %d, marshal: %.3fs, s2: %.3fs, uncompressed: %s, compressed: %s)",
+			took.Seconds(), nsa, nca, mend.Seconds(), cend.Seconds(), friendlyBytes(len(b)), friendlyBytes(len(snap)))
+	}
+
+	// Track in jsz monitoring as well.
+	if cc := js.cluster; cc != nil {
+		atomic.StoreInt64(&cc.lastMetaSnapTime, start.UnixNano())
+		atomic.StoreInt64(&cc.lastMetaSnapDuration, int64(took))
+	}
+
+	return snap, nsa, nca, nil
+}
+
+// Given a checkpoint, collects all relevant append entries that can be snapshotted.
+func (js *jetStream) collectStreamAndConsumerChanges(c RaftNodeCheckpoint, streams map[string]map[string]*streamAssignment) error {
+	ru := &recoveryUpdates{
+		removeStreams:   make(map[string]*streamAssignment),
+		removeConsumers: make(map[string]map[string]*consumerAssignment),
+		addStreams:      make(map[string]*streamAssignment),
+		updateStreams:   make(map[string]*streamAssignment),
+		updateConsumers: make(map[string]map[string]*consumerAssignment),
+	}
+	for ae, err := range c.AppendEntriesSeq() {
+		if err != nil {
+			return err
+		}
+		for _, e := range ae.entries {
+			if e.Type == EntryNormal {
+				buf := e.Data
+				op := entryOp(buf[0])
+				switch op {
+				case assignStreamOp, updateStreamOp, removeStreamOp:
+					sa, err := decodeStreamAssignment(js.srv, buf[1:])
+					if err != nil {
+						js.srv.Errorf("JetStream cluster failed to decode stream assignment: %q", buf[1:])
+						panic(err)
+					}
+					if op == removeStreamOp {
+						ru.removeStream(sa)
+					} else {
+						ru.addStream(sa)
+					}
+				case assignConsumerOp:
+					ca, err := decodeConsumerAssignment(buf[1:])
+					if err != nil {
+						js.srv.Errorf("JetStream cluster failed to decode consumer assignment: %q", buf[1:])
+						panic(err)
+					}
+					ru.addOrUpdateConsumer(ca)
+				case assignCompressedConsumerOp:
+					ca, err := decodeConsumerAssignmentCompressed(buf[1:])
+					if err != nil {
+						js.srv.Errorf("JetStream cluster failed to decode compressed consumer assignment: %q", buf[1:])
+						panic(err)
+					}
+					ru.addOrUpdateConsumer(ca)
+				case removeConsumerOp:
+					ca, err := decodeConsumerAssignment(buf[1:])
+					if err != nil {
+						js.srv.Errorf("JetStream cluster failed to decode consumer assignment: %q", buf[1:])
+						panic(err)
+					}
+					ru.removeConsumer(ca)
+				default:
+					panic(fmt.Sprintf("JetStream Cluster Unknown meta entry op type: %v", entryOp(buf[0])))
+				}
+			}
+		}
+	}
+
+	// With our recovery structure, apply the stream/consumer diff.
+	for _, cas := range ru.removeConsumers {
+		for _, ca := range cas {
+			if asa, ok := streams[ca.Client.serviceAccount()]; ok {
+				if sa, ok := asa[ca.Stream]; ok {
+					delete(sa.consumers, ca.Name)
+				}
+			}
+		}
+	}
+	for _, sa := range ru.removeStreams {
+		if asa, ok := streams[sa.Client.serviceAccount()]; ok {
+			delete(asa, sa.Config.Name)
+		}
+	}
+	for _, sa := range ru.addStreams {
+		as := streams[sa.Client.serviceAccount()]
+		if as == nil {
+			as = make(map[string]*streamAssignment)
+			streams[sa.Client.serviceAccount()] = as
+		}
+		as[sa.Config.Name] = sa
+	}
+	for _, cas := range ru.updateConsumers {
+		for _, ca := range cas {
+			if asa, ok := streams[ca.Client.serviceAccount()]; ok {
+				if sa, ok := asa[ca.Stream]; ok {
+					if sa.consumers == nil {
+						sa.consumers = make(map[string]*consumerAssignment)
+					}
+					sa.consumers[ca.Name] = ca
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -1937,31 +2304,31 @@ func (js *jetStream) processAddPeer(peer string) {
 	}
 	si := sir.(nodeInfo)
 
-	for _, asa := range cc.streams {
-		for _, sa := range asa {
-			if sa.unsupported != nil {
+	for accName, sa := range js.streamAssignmentsOrInflightSeqAllAccounts() {
+		if sa.unsupported != nil {
+			continue
+		}
+		if sa.missingPeers() {
+			// Make sure the right cluster etc.
+			if si.cluster != sa.Client.Cluster {
 				continue
 			}
-			if sa.missingPeers() {
-				// Make sure the right cluster etc.
-				if si.cluster != sa.Client.Cluster {
+			// If we are here we can add in this peer.
+			csa := sa.copyGroup()
+			csa.Group.Peers = append(csa.Group.Peers, peer)
+			// Send our proposal for this csa. Also use same group definition for all the consumers as well.
+			cc.meta.Propose(encodeAddStreamAssignment(csa))
+			cc.trackInflightStreamProposal(accName, csa, false)
+			for ca := range js.consumerAssignmentsOrInflightSeq(accName, csa.Config.Name) {
+				if ca.unsupported != nil {
 					continue
 				}
-				// If we are here we can add in this peer.
-				csa := sa.copyGroup()
-				csa.Group.Peers = append(csa.Group.Peers, peer)
-				// Send our proposal for this csa. Also use same group definition for all the consumers as well.
-				cc.meta.Propose(encodeAddStreamAssignment(csa))
-				for _, ca := range sa.consumers {
-					if ca.unsupported != nil {
-						continue
-					}
-					// Ephemerals are R=1, so only auto-remap durables, or R>1.
-					if ca.Config.Durable != _EMPTY_ || len(ca.Group.Peers) > 1 {
-						cca := ca.copyGroup()
-						cca.Group.Peers = csa.Group.Peers
-						cc.meta.Propose(encodeAddConsumerAssignment(cca))
-					}
+				// Ephemerals are R=1, so only auto-remap durables, or R>1.
+				if ca.Config.Durable != _EMPTY_ || len(ca.Group.Peers) > 1 {
+					cca := ca.copyGroup()
+					cca.Group.Peers = csa.Group.Peers
+					cc.meta.Propose(encodeAddConsumerAssignment(cca))
+					cc.trackInflightConsumerProposal(accName, csa.Config.Name, cca, false)
 				}
 			}
 		}
@@ -2011,14 +2378,12 @@ func (js *jetStream) processRemovePeer(peer string) {
 	js.mu.Lock()
 	defer js.mu.Unlock()
 
-	for _, asa := range cc.streams {
-		for _, sa := range asa {
-			if sa.unsupported != nil {
-				continue
-			}
-			if rg := sa.Group; rg.isMember(peer) {
-				js.removePeerFromStreamLocked(sa, peer)
-			}
+	for _, sa := range js.streamAssignmentsOrInflightSeqAllAccounts() {
+		if sa.unsupported != nil {
+			continue
+		}
+		if rg := sa.Group; rg.isMember(peer) {
+			js.removePeerFromStreamLocked(sa, peer)
 		}
 	}
 }
@@ -2041,14 +2406,16 @@ func (js *jetStream) removePeerFromStreamLocked(sa *streamAssignment, peer strin
 		return false
 	}
 	replaced := cc.remapStreamAssignment(csa, peer)
+	accName := sa.Client.serviceAccount()
 	if !replaced {
-		s.Warnf("JetStream cluster could not replace peer for stream '%s > %s'", sa.Client.serviceAccount(), sa.Config.Name)
+		s.Warnf("JetStream cluster could not replace peer for stream '%s > %s'", accName, sa.Config.Name)
 	}
 
 	// Send our proposal for this csa. Also use same group definition for all the consumers as well.
 	cc.meta.Propose(encodeAddStreamAssignment(csa))
+	cc.trackInflightStreamProposal(accName, csa, false)
 	rg := csa.Group
-	for _, ca := range sa.consumers {
+	for ca := range js.consumerAssignmentsOrInflightSeq(accName, sa.Config.Name) {
 		if ca.unsupported != nil {
 			continue
 		}
@@ -2057,9 +2424,11 @@ func (js *jetStream) removePeerFromStreamLocked(sa *streamAssignment, peer strin
 			cca := ca.copyGroup()
 			cca.Group.Peers, cca.Group.Preferred = rg.Peers, _EMPTY_
 			cc.meta.Propose(encodeAddConsumerAssignment(cca))
+			cc.trackInflightConsumerProposal(accName, csa.Config.Name, cca, false)
 		} else if ca.Group.isMember(peer) {
 			// These are ephemerals. Check to see if we deleted this peer.
 			cc.meta.Propose(encodeDeleteConsumerAssignment(ca))
+			cc.trackInflightConsumerProposal(accName, csa.Config.Name, ca, true)
 		}
 	}
 	return replaced
@@ -2101,7 +2470,6 @@ func (ca *consumerAssignment) recoveryKey() string {
 func (js *jetStream) applyMetaEntries(entries []*Entry, ru *recoveryUpdates) (bool, bool, error) {
 	var didSnap bool
 	isRecovering := ru != nil
-	startupRecovery := js.isMetaRecovering()
 
 	for _, e := range entries {
 		// If we received a lower-level catchup entry, mark that we're recovering.
@@ -2115,7 +2483,7 @@ func (js *jetStream) applyMetaEntries(entries []*Entry, ru *recoveryUpdates) (bo
 		}
 
 		if e.Type == EntrySnapshot {
-			js.applyMetaSnapshot(e.Data, ru, isRecovering, startupRecovery)
+			js.applyMetaSnapshot(e.Data, ru, isRecovering)
 			didSnap = true
 		} else if e.Type == EntryRemovePeer {
 			if !js.isMetaRecovering() {
@@ -2570,9 +2938,10 @@ func (js *jetStream) monitorStream(mset *stream, sa *streamAssignment, sendSnaps
 	}()
 
 	const (
-		compactInterval = 2 * time.Minute
-		compactSizeMin  = 8 * 1024 * 1024
-		compactNumMin   = 65536
+		compactInterval    = 2 * time.Minute
+		compactMinInterval = 15 * time.Second
+		compactSizeMin     = 8 * 1024 * 1024
+		compactNumMin      = 65536
 	)
 
 	// Spread these out for large numbers on server restart.
@@ -2603,8 +2972,11 @@ func (js *jetStream) monitorStream(mset *stream, sa *streamAssignment, sendSnaps
 	// fully recovered from disk.
 	isRecovering := true
 
-	doSnapshot := func() {
-		if mset == nil || isRecovering || isRestore {
+	var failedSnapshots int
+	doSnapshot := func(force bool) {
+		// Suppress during recovery.
+		// If snapshots have failed, and we're not forced to, we'll wait for the timer since it'll now be forced.
+		if mset == nil || isRecovering || isRestore || (!force && failedSnapshots > 0) {
 			return
 		}
 
@@ -2623,10 +2995,27 @@ func (js *jetStream) monitorStream(mset *stream, sa *streamAssignment, sendSnaps
 
 		// Make sure all pending data is flushed before allowing snapshots.
 		mset.flushAllPending()
-		if err := n.InstallSnapshot(mset.stateSnapshot()); err == nil {
+
+		// If we had a significant number of failed snapshots, start relaxing Raft-layer checks
+		// to force it through. We might have been catching up a peer for a long period, and this
+		// protects our log size from growing indefinitely.
+		forceSnapshot := failedSnapshots > 4
+		if err := n.InstallSnapshot(mset.stateSnapshot(), forceSnapshot); err == nil {
 			lastState = curState
+			// If there was a failed snapshot before, we reduced the timer's interval.
+			// Reset it back to the original interval now.
+			if failedSnapshots > 0 {
+				t.Reset(compactInterval + rci)
+			}
+			failedSnapshots = 0
 		} else if err != errNoSnapAvailable && err != errNodeClosed && err != errCatchupsRunning {
 			s.RateLimitWarnf("Failed to install snapshot for '%s > %s' [%s]: %v", mset.acc.Name, mset.name(), n.Group(), err)
+			// If this is the first failure, reduce the interval of the snapshot timer.
+			// This ensures we're not waiting too long for snapshotting to eventually become forced.
+			if failedSnapshots == 0 {
+				t.Reset(compactMinInterval)
+			}
+			failedSnapshots++
 		}
 	}
 
@@ -2703,14 +3092,14 @@ func (js *jetStream) monitorStream(mset *stream, sa *streamAssignment, sendSnaps
 		select {
 		case <-s.quitCh:
 			// Server shutting down, but we might receive this before qch, so try to snapshot.
-			doSnapshot()
+			doSnapshot(false)
 			return
 		case <-mqch:
 			// Clean signal from shutdown routine so do best effort attempt to snapshot.
 			// Don't snapshot if not shutting down, monitor goroutine could be going away
 			// on a scale down or a remove for example.
 			if s.isShuttingDown() {
-				doSnapshot()
+				doSnapshot(false)
 			}
 			return
 		case <-qch:
@@ -2808,7 +3197,7 @@ func (js *jetStream) monitorStream(mset *stream, sa *streamAssignment, sendSnaps
 			// Check about snapshotting
 			// If we have at least min entries to compact, go ahead and try to snapshot/compact.
 			if ne >= compactNumMin || nb > compactSizeMin || mset.getCLFS() > pclfs {
-				doSnapshot()
+				doSnapshot(false)
 			}
 
 		case isLeader = <-lch:
@@ -2827,7 +3216,7 @@ func (js *jetStream) monitorStream(mset *stream, sa *streamAssignment, sendSnaps
 					restoreDoneCh = s.processStreamRestore(sa.Client, acc, sa.Config, _EMPTY_, sa.Reply, _EMPTY_)
 					continue
 				} else if n != nil && n.NeedSnapshot() {
-					doSnapshot()
+					doSnapshot(false)
 				}
 				// Always cancel if this was running.
 				stopDirectMonitoring()
@@ -2903,7 +3292,9 @@ func (js *jetStream) monitorStream(mset *stream, sa *streamAssignment, sendSnaps
 			stopDirectMonitoring()
 
 		case <-t.C:
-			doSnapshot()
+			// Start forcing snapshots if they failed previously.
+			forceIfFailed := failedSnapshots > 0
+			doSnapshot(forceIfFailed)
 
 		case <-uch:
 			// keep stream assignment current
@@ -3233,7 +3624,7 @@ func (mset *stream) resetClusteredState(err error) bool {
 			js.processClusterCreateStream(acc, sa)
 			// Reset consumers.
 			for _, ca := range consumers {
-				js.processClusterCreateConsumer(ca, nil, false)
+				js.processClusterCreateConsumer(nil, ca, nil, false)
 			}
 		}
 	}()
@@ -4048,7 +4439,7 @@ func (s *Server) sendStreamLeaderElectAdvisory(mset *stream) {
 	s.publishAdvisory(nil, subj, adv)
 }
 
-// Will lookup a stream assignment.
+// Will look up a stream assignment.
 // Lock should be held.
 func (js *jetStream) streamAssignment(account, stream string) (sa *streamAssignment) {
 	cc := js.cluster
@@ -4060,6 +4451,86 @@ func (js *jetStream) streamAssignment(account, stream string) (sa *streamAssignm
 		sa = as[stream]
 	}
 	return sa
+}
+
+// Will look up a stream assignment, either an applied or inflight assignment.
+// Lock should be held.
+func (js *jetStream) streamAssignmentOrInflight(account, stream string) *streamAssignment {
+	cc := js.cluster
+	if cc == nil {
+		return nil
+	}
+	if streams, ok := cc.inflightStreams[account]; ok {
+		if inflight, ok := streams[stream]; ok {
+			if !inflight.deleted {
+				return inflight.streamAssignment
+			} else {
+				return nil
+			}
+		}
+	}
+
+	if as := cc.streams[account]; as != nil {
+		return as[stream]
+	}
+	return nil
+}
+
+// Will gather all stream assignments for a specific account, both applied and inflight assignments.
+// Lock should be held.
+func (js *jetStream) streamAssignmentsOrInflightSeq(account string) iter.Seq[*streamAssignment] {
+	return func(yield func(*streamAssignment) bool) {
+		cc := js.cluster
+		if cc == nil {
+			return
+		}
+		inflight := cc.inflightStreams[account]
+		for _, i := range inflight {
+			if !i.deleted && !yield(i.streamAssignment) {
+				return
+			}
+		}
+		for _, sa := range cc.streams[account] {
+			// Skip if we already iterated over it as inflight.
+			if _, ok := inflight[sa.Config.Name]; ok {
+				continue
+			}
+			if !yield(sa) {
+				return
+			}
+		}
+	}
+}
+
+// Will gather all stream assignments for all accounts, both applied and inflight assignments.
+// Lock should be held.
+func (js *jetStream) streamAssignmentsOrInflightSeqAllAccounts() iter.Seq2[string, *streamAssignment] {
+	return func(yield func(string, *streamAssignment) bool) {
+		cc := js.cluster
+		if cc == nil {
+			return
+		}
+		for accName, inflight := range cc.inflightStreams {
+			for _, i := range inflight {
+				if !i.deleted && !yield(accName, i.streamAssignment) {
+					return
+				}
+			}
+		}
+		for accName, asa := range cc.streams {
+			for _, sa := range asa {
+				// Skip if we already iterated over it as inflight.
+				if inflight, ok := cc.inflightStreams[accName]; ok {
+					if _, ok := inflight[sa.Config.Name]; ok {
+						continue
+					}
+				}
+				if !yield(accName, sa) {
+					return
+				}
+			}
+		}
+	}
 }
 
 // processStreamAssignment is called when followers have replicated an assignment.
@@ -4077,13 +4548,13 @@ func (js *jetStream) processStreamAssignment(sa *streamAssignment) {
 		isMember = sa.Group.isMember(ourID)
 	}
 
-	// Remove this stream from the inflight proposals
-	cc.removeInflightProposal(accName, sa.Config.Name)
-
 	if s == nil || noMeta {
 		js.mu.Unlock()
 		return
 	}
+
+	// Remove this stream from the inflight proposals
+	cc.removeInflightStreamProposal(accName, sa.Config.Name)
 
 	accStreams := cc.streams[accName]
 	if accStreams == nil {
@@ -4189,6 +4660,10 @@ func (js *jetStream) processUpdateStreamAssignment(sa *streamAssignment) {
 		js.mu.Unlock()
 		return
 	}
+
+	// Remove this stream from the inflight proposals
+	cc.removeInflightStreamProposal(accName, sa.Config.Name)
+
 	ourID := cc.meta.ID()
 
 	var isMember bool
@@ -4339,6 +4814,8 @@ func (js *jetStream) processClusterUpdateStream(acc *Account, osa, sa *streamAss
 			s.Warnf("JetStream cluster detected stream remapping for '%s > %s' from %q to %q",
 				acc, cfg.Name, osa.Group.Name, sa.Group.Name)
 			mset.removeNode()
+			mset.signalMonitorQuit()
+			mset.monitorWg.Wait()
 			alreadyRunning, needsNode = false, true
 			// Make sure to clear from original.
 			js.mu.Lock()
@@ -4376,6 +4853,8 @@ func (js *jetStream) processClusterUpdateStream(acc *Account, osa, sa *streamAss
 		} else if numReplicas == 1 && alreadyRunning {
 			// We downgraded to R1. Make sure we cleanup the raft node and the stream monitor.
 			mset.removeNode()
+			mset.signalMonitorQuit()
+			mset.monitorWg.Wait()
 			// In case we need to shutdown the cluster specific subs, etc.
 			mset.mu.Lock()
 			// Stop responding to sync requests.
@@ -4560,7 +5039,7 @@ func (js *jetStream) processClusterCreateStream(acc *Account, sa *streamAssignme
 			}
 		} else if err == NewJSStreamNotFoundError() {
 			// Add in the stream here.
-			mset, err = acc.addStreamWithAssignment(sa.Config, nil, sa, false)
+			mset, err = acc.addStreamWithAssignment(sa.Config, nil, sa, false, false)
 		}
 		if mset != nil {
 			mset.setCreatedTime(created)
@@ -4761,6 +5240,7 @@ func (js *jetStream) processStreamRemoval(sa *streamAssignment) {
 			delete(cc.streams, accName)
 		}
 	}
+	cc.removeInflightStreamProposal(accName, sa.Config.Name)
 	js.mu.Unlock()
 
 	// During initial/startup recovery we'll not have registered the stream assignment,
@@ -4904,16 +5384,15 @@ func (js *jetStream) processConsumerAssignment(ca *consumerAssignment) {
 		return
 	}
 
-	// Might need this below.
-	numReplicas := sa.Config.Replicas
-
 	// Track if this existed already.
 	var wasExisting bool
 
 	// Check if we have an existing consumer assignment.
 	if sa.consumers == nil {
 		sa.consumers = make(map[string]*consumerAssignment)
-	} else if oca := sa.consumers[ca.Name]; oca != nil {
+	}
+	oca := sa.consumers[ca.Name]
+	if oca != nil {
 		wasExisting = true
 		// Copy over private existing state from former CA.
 		if ca.Group != nil {
@@ -4940,7 +5419,7 @@ func (js *jetStream) processConsumerAssignment(ca *consumerAssignment) {
 	// Place into our internal map under the stream assignment.
 	// Ok to replace an existing one, we check on process call below.
 	sa.consumers[ca.Name] = ca
-	ca.pending = false
+	cc.removeInflightConsumerProposal(accName, stream, consumerName)
 
 	// If unsupported, we can't register any further.
 	if ca.unsupported != nil {
@@ -4995,65 +5474,45 @@ func (js *jetStream) processConsumerAssignment(ca *consumerAssignment) {
 
 	// Check if this is for us..
 	if isMember {
-		js.processClusterCreateConsumer(ca, state, wasExisting)
-	} else {
-		// We need to be removed here, we are no longer assigned.
-		// Grab consumer if we have it.
-		var o *consumer
-		if mset, _ := acc.lookupStream(sa.Config.Name); mset != nil {
-			o = mset.lookupConsumer(ca.Name)
-		}
-
-		// Check if we have a raft node running, meaning we are no longer part of the group but were.
-		js.mu.Lock()
-		if node := ca.Group.node; node != nil {
+		js.processClusterCreateConsumer(oca, ca, state, wasExisting)
+	} else if mset, _ := acc.lookupStream(sa.Config.Name); mset != nil {
+		if o := mset.lookupConsumer(ca.Name); o != nil {
 			// We have one here even though we are not a member. This can happen on re-assignment.
-			s.Debugf("JetStream removing consumer '%s > %s > %s' from this server", sa.Client.serviceAccount(), sa.Config.Name, ca.Name)
-			if node.Leader() {
-				s.Debugf("JetStream consumer '%s > %s > %s' is being removed and was the leader, will perform stepdown",
-					sa.Client.serviceAccount(), sa.Config.Name, ca.Name)
-
-				peers, cn := node.Peers(), s.cachedClusterName()
-				migrating := numReplicas != len(peers)
-
-				// Select a new peer to transfer to. If we are a migrating make sure its from the new cluster.
-				var npeer string
-				for _, r := range peers {
-					if !r.Current {
-						continue
-					}
-					if !migrating {
-						npeer = r.ID
-						break
-					} else if sir, ok := s.nodeToInfo.Load(r.ID); ok && sir != nil {
-						si := sir.(nodeInfo)
-						if si.cluster != cn {
-							npeer = r.ID
-							break
-						}
-					}
-				}
-				// Clear the raftnode from our consumer so that a subsequent o.delete will not also issue a stepdown.
-				if o != nil {
-					o.clearRaftNode()
-				}
-				// Manually handle the stepdown and deletion of the node.
-				node.UpdateKnownPeers(ca.Group.Peers)
-				node.StepDown(npeer)
-				node.Delete()
-			} else {
-				node.UpdateKnownPeers(ca.Group.Peers)
-			}
-		}
-		// Always clear the old node.
-		ca.Group.node = nil
-		ca.err = nil
-		js.mu.Unlock()
-
-		if o != nil {
-			o.deleteWithoutAdvisory()
+			s.removeConsumer(o, ca)
 		}
 	}
+}
+
+// Common function to remove ourselves from this server.
+// This can happen on re-assignment, move, etc
+func (s *Server) removeConsumer(o *consumer, nca *consumerAssignment) {
+	if o == nil {
+		return
+	}
+	// Make sure to use the new stream assignment, not our own.
+	s.Debugf("JetStream removing consumer '%s > %s > %s' from this server", nca.Client.serviceAccount(), nca.Stream, nca.Name)
+	if node := o.raftNode(); node != nil {
+		node.StepDown(nca.Group.Preferred)
+		// shutdown monitor by shutting down raft.
+		node.Delete()
+	}
+
+	var isShuttingDown bool
+	// Make sure this node is no longer attached to our consumer assignment.
+	if js, _ := s.getJetStreamCluster(); js != nil {
+		js.mu.Lock()
+		nca.Group.node = nil
+		nca.err = nil
+		isShuttingDown = js.shuttingDown
+		js.mu.Unlock()
+	}
+
+	if !isShuttingDown {
+		// wait for monitor to be shutdown.
+		o.signalMonitorQuit()
+		o.monitorWg.Wait()
+	}
+	o.deleteWithoutAdvisory()
 }
 
 func (js *jetStream) processConsumerRemoval(ca *consumerAssignment) {
@@ -5076,7 +5535,6 @@ func (js *jetStream) processConsumerRemoval(ca *consumerAssignment) {
 			// Make sure this removal is for what we have, otherwise ignore.
 			if ca.Group != nil && oca.Group != nil && ca.Group.Name == oca.Group.Name {
 				needDelete = true
-				oca.deleted = true
 				delete(sa.consumers, ca.Name)
 				// Remember we used to be unsupported, just so we can send a successful delete response.
 				if ca.unsupported == nil {
@@ -5085,6 +5543,7 @@ func (js *jetStream) processConsumerRemoval(ca *consumerAssignment) {
 			}
 		}
 	}
+	cc.removeInflightConsumerProposal(accName, stream, name)
 	js.mu.Unlock()
 
 	// During initial/startup recovery we'll not have registered the consumer assignment,
@@ -5113,7 +5572,7 @@ type consumerAssignmentResult struct {
 }
 
 // processClusterCreateConsumer is when we are a member of the group and need to create the consumer.
-func (js *jetStream) processClusterCreateConsumer(ca *consumerAssignment, state *ConsumerState, wasExisting bool) {
+func (js *jetStream) processClusterCreateConsumer(oca, ca *consumerAssignment, state *ConsumerState, wasExisting bool) {
 	if ca == nil {
 		return
 	}
@@ -5153,6 +5612,19 @@ func (js *jetStream) processClusterCreateConsumer(ca *consumerAssignment, state 
 
 	// Check if we already have this consumer running.
 	o := mset.lookupConsumer(consumer)
+
+	if o != nil && oca != nil && oca.Group.Name != ca.Group.Name {
+		s.Warnf("JetStream cluster detected consumer remapping for '%s > %s' from %q to %q",
+			acc, ca.Name, oca.Group.Name, ca.Group.Name)
+		o.clearNode()
+		o.signalMonitorQuit()
+		o.monitorWg.Wait()
+		alreadyRunning = false
+		// Make sure to clear from original.
+		js.mu.Lock()
+		oca.Group.node = nil
+		js.mu.Unlock()
+	}
 
 	// Process the raft group and make sure it's running if needed.
 	storage := mset.config().Storage
@@ -5312,20 +5784,43 @@ func (js *jetStream) processClusterCreateConsumer(ca *consumerAssignment, state 
 			// Check for scale down to 1..
 			if node != nil && len(rg.Peers) == 1 {
 				o.clearNode()
-				o.setLeader(true)
+				o.signalMonitorQuit()
+				o.monitorWg.Wait()
 				// Need to clear from rg too.
 				js.mu.Lock()
 				rg.node = nil
 				client, subject, reply := ca.Client, ca.Subject, ca.Reply
 				js.mu.Unlock()
-				var resp = JSApiConsumerCreateResponse{ApiResponse: ApiResponse{Type: JSApiConsumerCreateResponseType}}
-				resp.ConsumerInfo = setDynamicConsumerInfoMetadata(o.info())
-				s.sendAPIResponse(client, acc, subject, reply, _EMPTY_, s.jsonResponse(&resp))
+				// Perform the leader change in a goroutine, otherwise we could block meta operations.
+				if o.shouldStartMonitor() {
+					started := s.startGoRoutine(
+						func() {
+							defer s.grWG.Done()
+							defer o.clearMonitorRunning()
+							o.setLeader(true)
+							var resp = JSApiConsumerCreateResponse{ApiResponse: ApiResponse{Type: JSApiConsumerCreateResponseType}}
+							resp.ConsumerInfo = setDynamicConsumerInfoMetadata(o.info())
+							s.sendAPIResponse(client, acc, subject, reply, _EMPTY_, s.jsonResponse(&resp))
+						},
+						pprofLabels{
+							"type":     "consumer",
+							"account":  mset.accName(),
+							"stream":   mset.name(),
+							"consumer": ca.Name,
+						},
+					)
+					if !started {
+						o.clearMonitorRunning()
+					}
+				}
 				return
 			}
 		}
 
 		if node == nil {
+			// Wait for the previous routine to stop running.
+			o.signalMonitorQuit()
+			o.monitorWg.Wait()
 			// Single replica consumer, process manually here.
 			js.mu.Lock()
 			// Force response in case we think this is an update.
@@ -5333,13 +5828,15 @@ func (js *jetStream) processClusterCreateConsumer(ca *consumerAssignment, state 
 				ca.responded = false
 			}
 			js.mu.Unlock()
-			js.processConsumerLeaderChange(o, true)
-		} else {
-			// Clustered consumer.
-			// Start our monitoring routine if needed.
-			if !alreadyRunning && o.shouldStartMonitor() {
+			cca := o.consumerAssignment()
+			// Perform the leader change in a goroutine, otherwise we could block meta operations.
+			if o.shouldStartMonitor() {
 				started := s.startGoRoutine(
-					func() { js.monitorConsumer(o, ca) },
+					func() {
+						defer s.grWG.Done()
+						defer o.clearMonitorRunning()
+						js.processConsumerLeaderChangeWithAssignment(o, cca, true)
+					},
 					pprofLabels{
 						"type":     "consumer",
 						"account":  mset.accName(),
@@ -5349,6 +5846,28 @@ func (js *jetStream) processClusterCreateConsumer(ca *consumerAssignment, state 
 				)
 				if !started {
 					o.clearMonitorRunning()
+				}
+			}
+		} else {
+			// Clustered consumer.
+			// Start our monitoring routine if needed.
+			if !alreadyRunning {
+				// Wait for the previous routine to stop running.
+				o.signalMonitorQuit()
+				o.monitorWg.Wait()
+				if o.shouldStartMonitor() {
+					started := s.startGoRoutine(
+						func() { js.monitorConsumer(o, ca) },
+						pprofLabels{
+							"type":     "consumer",
+							"account":  mset.accName(),
+							"stream":   mset.name(),
+							"consumer": ca.Name,
+						},
+					)
+					if !started {
+						o.clearMonitorRunning()
+					}
 				}
 			}
 			// For existing consumer, only send response if not recovering.
@@ -5446,6 +5965,61 @@ func (js *jetStream) consumerAssignment(account, stream, consumer string) *consu
 	return nil
 }
 
+// Will look up a consumer assignment, either an applied or inflight assignment.
+// Lock should be held.
+func (js *jetStream) consumerAssignmentOrInflight(account, stream, consumer string) *consumerAssignment {
+	cc := js.cluster
+	if cc == nil {
+		return nil
+	}
+	if streams, ok := cc.inflightConsumers[account]; ok {
+		if consumers, ok := streams[stream]; ok {
+			if inflight, ok := consumers[consumer]; ok {
+				if !inflight.deleted {
+					return inflight.consumerAssignment
+				} else {
+					return nil
+				}
+			}
+		}
+	}
+	if sa := js.streamAssignment(account, stream); sa != nil {
+		return sa.consumers[consumer]
+	}
+	return nil
+}
+
+// Will gather all consumer assignments for the specified account and stream, both applied and inflight assignments.
+// Lock should be held.
+func (js *jetStream) consumerAssignmentsOrInflightSeq(account, stream string) iter.Seq[*consumerAssignment] {
+	return func(yield func(*consumerAssignment) bool) {
+		cc := js.cluster
+		if cc == nil {
+			return
+		}
+
+		var inflight map[string]*inflightConsumerInfo
+		if streams, ok := cc.inflightConsumers[account]; ok {
+			inflight = streams[stream]
+		}
+		for _, i := range inflight {
+			if !i.deleted && !yield(i.consumerAssignment) {
+				return
+			}
+		}
+		sa := js.streamAssignment(account, stream)
+		for _, ca := range sa.consumers {
+			// Skip if we already iterated over it as inflight.
+			if _, ok := inflight[ca.Name]; ok {
+				continue
+			}
+			if !yield(ca) {
+				return
+			}
+		}
+	}
+}
+
 // consumerAssigned informs us if this server has this consumer assigned.
 func (jsa *jsAccount) consumerAssigned(stream, consumer string) bool {
 	jsa.mu.RLock()
@@ -5521,15 +6095,6 @@ func (o *consumer) raftGroup() *raftGroup {
 	return o.ca.Group
 }
 
-func (o *consumer) clearRaftNode() {
-	if o == nil {
-		return
-	}
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	o.node = nil
-}
-
 func (o *consumer) raftNode() RaftNode {
 	if o == nil {
 		return nil
@@ -5561,10 +6126,11 @@ func (js *jetStream) monitorConsumer(o *consumer, ca *consumerAssignment) {
 	defer s.Debugf("Exiting consumer monitor for '%s > %s > %s' [%s]", o.acc.Name, ca.Stream, ca.Name, n.Group())
 
 	const (
-		compactInterval = 2 * time.Minute
-		compactSizeMin  = 64 * 1024 // What is stored here is always small for consumers.
-		compactNumMin   = 1024
-		minSnapDelta    = 10 * time.Second
+		compactInterval    = 2 * time.Minute
+		compactMinInterval = 15 * time.Second
+		compactSizeMin     = 64 * 1024 // What is stored here is always small for consumers.
+		compactNumMin      = 1024
+		minSnapDelta       = 10 * time.Second
 	)
 
 	// Spread these out for large numbers on server restart.
@@ -5584,9 +6150,11 @@ func (js *jetStream) monitorConsumer(o *consumer, ca *consumerAssignment) {
 	// fully recovered from disk.
 	recovering := true
 
+	var failedSnapshots int
 	doSnapshot := func(force bool) {
 		// Bail if trying too fast and not in a forced situation.
-		if recovering || (!force && time.Since(lastSnapTime) < minSnapDelta) {
+		// If snapshots have failed, and we're not forced to, we'll wait for the timer since it'll now be forced.
+		if recovering || (!force && (time.Since(lastSnapTime) < minSnapDelta || failedSnapshots > 0)) {
 			return
 		}
 
@@ -5607,10 +6175,26 @@ func (js *jetStream) monitorConsumer(o *consumer, ca *consumerAssignment) {
 			// lot on an idle stream, log entries get distributed but the
 			// state never changes, therefore the log never gets compacted.
 			if !bytes.Equal(hash[:], lastSnap) || ne >= compactNumMin || nb >= compactSizeMin {
-				if err := n.InstallSnapshot(snap); err == nil {
+				// If we had a significant number of failed snapshots, start relaxing Raft-layer checks
+				// to force it through. We might have been catching up a peer for a long period, and this
+				// protects our log size from growing indefinitely.
+				forceSnapshot := failedSnapshots > 4
+				if err := n.InstallSnapshot(snap, forceSnapshot); err == nil {
 					lastSnap, lastSnapTime = hash[:], time.Now()
+					// If there was a failed snapshot before, we reduced the timer's interval.
+					// Reset it back to the original interval now.
+					if failedSnapshots > 0 {
+						t.Reset(compactInterval + rci)
+					}
+					failedSnapshots = 0
 				} else if err != errNoSnapAvailable && err != errNodeClosed && err != errCatchupsRunning {
 					s.RateLimitWarnf("Failed to install snapshot for '%s > %s > %s' [%s]: %v", o.acc.Name, ca.Stream, ca.Name, n.Group(), err)
+					// If this is the first failure, reduce the interval of the snapshot timer.
+					// This ensures we're not waiting too long for snapshotting to eventually become forced.
+					if failedSnapshots == 0 {
+						t.Reset(compactMinInterval)
+					}
+					failedSnapshots++
 				}
 			}
 		}
@@ -5783,7 +6367,9 @@ func (js *jetStream) monitorConsumer(o *consumer, ca *consumerAssignment) {
 			}
 
 		case <-t.C:
-			doSnapshot(false)
+			// Start forcing snapshots if they failed previously.
+			forceIfFailed := failedSnapshots > 0
+			doSnapshot(forceIfFailed)
 		}
 	}
 }
@@ -5809,7 +6395,7 @@ func (js *jetStream) applyConsumerEntries(o *consumer, ce *CommittedEntry, isLea
 					panic(err.Error())
 				}
 
-				if err = o.store.Update(state); err != nil {
+				if err = o.store.Update(state); err != nil && err != ErrStoreOldUpdate {
 					o.mu.RLock()
 					s, acc, mset, name := o.srv, o.acc, o.mset, o.name
 					o.mu.RUnlock()
@@ -6027,6 +6613,10 @@ func decodeDeliveredUpdate(buf []byte) (dseq, sseq, dc uint64, ts int64, err err
 }
 
 func (js *jetStream) processConsumerLeaderChange(o *consumer, isLeader bool) error {
+	return js.processConsumerLeaderChangeWithAssignment(o, nil, isLeader)
+}
+
+func (js *jetStream) processConsumerLeaderChangeWithAssignment(o *consumer, ca *consumerAssignment, isLeader bool) error {
 	stepDownIfLeader := func() error {
 		if node := o.raftNode(); node != nil && isLeader {
 			node.StepDown()
@@ -6038,7 +6628,9 @@ func (js *jetStream) processConsumerLeaderChange(o *consumer, isLeader bool) err
 		return stepDownIfLeader()
 	}
 
-	ca := o.consumerAssignment()
+	if ca == nil {
+		ca = o.consumerAssignment()
+	}
 	if ca == nil {
 		return stepDownIfLeader()
 	}
@@ -6218,12 +6810,7 @@ func (js *jetStream) processStreamAssignmentResults(sub *subscription, c *client
 		return
 	}
 
-	// This should have been done already in processStreamAssignment, but in
-	// case we have a code path that gets here with no processStreamAssignment,
-	// then we will do the proper thing. Otherwise will be a no-op.
-	cc.removeInflightProposal(result.Account, result.Stream)
-
-	if sa := js.streamAssignment(result.Account, result.Stream); sa != nil && !sa.reassigning {
+	if sa := js.streamAssignmentOrInflight(result.Account, result.Stream); sa != nil && !sa.reassigning {
 		canDelete := !result.Update && time.Since(sa.Created) < 5*time.Second
 
 		// See if we should retry in case this cluster is full but there are others.
@@ -6246,9 +6833,11 @@ func (js *jetStream) processStreamAssignmentResults(sub *subscription, c *client
 						rg.setPreferred(s)
 						// Get rid of previous attempt.
 						cc.meta.Propose(encodeDeleteStreamAssignment(sa))
+						cc.trackInflightStreamProposal(result.Account, sa, true)
 						// Propose new.
 						sa.Group, sa.err = rg, nil
 						cc.meta.Propose(encodeAddStreamAssignment(sa))
+						cc.trackInflightStreamProposal(result.Account, sa, false)
 						// When the new stream assignment is processed, sa.reassigning will be
 						// automatically set back to false. Until then, don't process any more
 						// assignment results.
@@ -6274,6 +6863,7 @@ func (js *jetStream) processStreamAssignmentResults(sub *subscription, c *client
 		if canDelete {
 			sa.err = NewJSClusterNotAssignedError()
 			cc.meta.Propose(encodeDeleteStreamAssignment(sa))
+			cc.trackInflightStreamProposal(result.Account, sa, true)
 		}
 	}
 }
@@ -6443,6 +7033,10 @@ func (js *jetStream) processLeaderChange(isLeader bool) {
 	// Clear replies for peer-removes.
 	js.cluster.peerRemoveReply = nil
 
+	// Clear inflight proposal tracking.
+	js.cluster.inflightStreams = nil
+	js.cluster.inflightConsumers = nil
+
 	if isLeader {
 		if meta := js.cluster.meta; meta != nil && meta.IsObserver() {
 			meta.StepDown()
@@ -6461,17 +7055,16 @@ func (js *jetStream) processLeaderChange(isLeader bool) {
 	// assignments with no sync subject after an update and no way to sync/catchup outside of the RAFT layer.
 	if isLeader && js.cluster.streamsCheck {
 		cc := js.cluster
-		for acc, asa := range cc.streams {
-			for _, sa := range asa {
-				if sa.unsupported != nil {
-					continue
-				}
-				if sa.Sync == _EMPTY_ {
-					s.Warnf("Stream assignment corrupt for stream '%s > %s'", acc, sa.Config.Name)
-					nsa := &streamAssignment{Group: sa.Group, Config: sa.Config, Subject: sa.Subject, Reply: sa.Reply, Client: sa.Client, Created: sa.Created}
-					nsa.Sync = syncSubjForStream()
-					cc.meta.Propose(encodeUpdateStreamAssignment(nsa))
-				}
+		for acc, sa := range js.streamAssignmentsOrInflightSeqAllAccounts() {
+			if sa.unsupported != nil {
+				continue
+			}
+			if sa.Sync == _EMPTY_ {
+				s.Warnf("Stream assignment corrupt for stream '%s > %s'", acc, sa.Config.Name)
+				nsa := &streamAssignment{Group: sa.Group, Config: sa.Config, Subject: sa.Subject, Reply: sa.Reply, Client: sa.Client, Created: sa.Created}
+				nsa.Sync = syncSubjForStream()
+				cc.meta.Propose(encodeUpdateStreamAssignment(nsa))
+				cc.trackInflightStreamProposal(acc, nsa, false)
 			}
 		}
 		// Clear check.
@@ -6927,18 +7520,21 @@ func groupName(prefix string, peers []string, storage StorageType) string {
 
 // returns stream count for this tier as well as applicable reservation size (not including cfg)
 // jetStream read lock should be held
-func tieredStreamAndReservationCount(asa map[string]*streamAssignment, tier string, cfg *StreamConfig) (int, int64) {
+func (js *jetStream) tieredStreamAndReservationCount(accName, tier string, cfg *StreamConfig) (int, int64) {
 	var numStreams int
 	var reservation int64
-	for _, sa := range asa {
+	for sa := range js.streamAssignmentsOrInflightSeq(accName) {
 		// Don't count the stream toward the limit if it already exists.
-		if (tier == _EMPTY_ || isSameTier(sa.Config, cfg)) && sa.Config.Name != cfg.Name {
+		if sa.Config.Name == cfg.Name {
+			continue
+		}
+		if tier == _EMPTY_ || isSameTier(sa.Config, cfg) {
 			numStreams++
 			if sa.Config.MaxBytes > 0 && sa.Config.Storage == cfg.Storage {
 				// If tier is empty, all storage is flat and we should adjust for replicas.
 				// Otherwise if tiered, storage replication already taken into consideration.
-				if tier == _EMPTY_ && cfg.Replicas > 1 {
-					reservation += sa.Config.MaxBytes * int64(cfg.Replicas)
+				if tier == _EMPTY_ && sa.Config.Replicas > 1 {
+					reservation += sa.Config.MaxBytes * int64(sa.Config.Replicas)
 				} else {
 					reservation += sa.Config.MaxBytes
 				}
@@ -7012,19 +7608,7 @@ func (js *jetStream) jsClusteredStreamLimitsCheck(acc *Account, cfg *StreamConfi
 		return apiErr
 	}
 
-	asa := js.cluster.streams[acc.Name]
-	numStreams, reservations := tieredStreamAndReservationCount(asa, tier, cfg)
-	// Check for inflight proposals...
-	if cc := js.cluster; cc != nil && cc.inflight != nil {
-		streams := cc.inflight[acc.Name]
-		numStreams += len(streams)
-		// If inflight contains the same stream, don't count toward exceeding maximum.
-		if cfg != nil {
-			if _, ok := streams[cfg.Name]; ok {
-				numStreams--
-			}
-		}
-	}
+	numStreams, reservations := js.tieredStreamAndReservationCount(acc.Name, tier, cfg)
 	if selectedLimits.MaxStreams > 0 && numStreams >= selectedLimits.MaxStreams {
 		return NewJSMaximumStreamsLimitError()
 	}
@@ -7059,8 +7643,8 @@ func (s *Server) jsClusteredStreamRequest(ci *ClientInfo, acc *Account, subject,
 	var rg *raftGroup
 	var syncSubject string
 
-	// Capture if we have existing assignment first.
-	if osa := js.streamAssignment(acc.Name, cfg.Name); osa != nil {
+	// Capture if we have existing/inflight assignment first.
+	if osa := js.streamAssignmentOrInflight(acc.Name, cfg.Name); osa != nil {
 		copyStreamMetadata(cfg, osa.Config)
 		if !reflect.DeepEqual(osa.Config, cfg) {
 			resp.Error = NewJSStreamNameExistError()
@@ -7078,7 +7662,7 @@ func (s *Server) jsClusteredStreamRequest(ci *ClientInfo, acc *Account, subject,
 	}
 
 	// Check for subject collisions here.
-	if cc.subjectsOverlap(acc.Name, cfg.Subjects, self) {
+	if js.subjectsOverlap(acc.Name, cfg.Subjects, self) {
 		resp.Error = NewJSStreamSubjectOverlapError()
 		s.sendAPIErrResponse(ci, acc, subject, reply, string(rmsg), s.jsonResponse(&resp))
 		return
@@ -7092,29 +7676,6 @@ func (s *Server) jsClusteredStreamRequest(ci *ClientInfo, acc *Account, subject,
 		return
 	}
 
-	// Make sure inflight is setup properly.
-	if cc.inflight == nil {
-		cc.inflight = make(map[string]map[string]*inflightInfo)
-	}
-	streams, ok := cc.inflight[acc.Name]
-	if !ok {
-		streams = make(map[string]*inflightInfo)
-		cc.inflight[acc.Name] = streams
-	}
-
-	// Raft group selection and placement.
-	if rg == nil {
-		// Check inflight before proposing in case we have an existing inflight proposal.
-		if existing, ok := streams[cfg.Name]; ok {
-			if !reflect.DeepEqual(existing.cfg, cfg) {
-				resp.Error = NewJSStreamNameExistError()
-				s.sendAPIErrResponse(ci, acc, subject, reply, string(rmsg), s.jsonResponse(&resp))
-				return
-			}
-			// We have existing for same stream. Re-use same group and syncSubject.
-			rg, syncSubject = existing.rg, existing.sync
-		}
-	}
 	// Create a new one here if needed.
 	if rg == nil {
 		nrg, err := js.createGroupForStream(ci, cfg)
@@ -7137,9 +7698,7 @@ func (s *Server) jsClusteredStreamRequest(ci *ClientInfo, acc *Account, subject,
 		// On success, add this as an inflight proposal so we can apply limits
 		// on concurrent create requests while this stream assignment has
 		// possibly not been processed yet.
-		if streams, ok := cc.inflight[acc.Name]; ok && self == nil {
-			streams[cfg.Name] = &inflightInfo{rg, syncSubject, cfg}
-		}
+		cc.trackInflightStreamProposal(acc.Name, sa, false)
 	}
 }
 
@@ -7213,7 +7772,7 @@ func (s *Server) jsClusteredStreamUpdateRequest(ci *ClientInfo, acc *Account, su
 
 	var resp = JSApiStreamUpdateResponse{ApiResponse: ApiResponse{Type: JSApiStreamUpdateResponseType}}
 
-	osa := js.streamAssignment(acc.Name, cfg.Name)
+	osa := js.streamAssignmentOrInflight(acc.Name, cfg.Name)
 	if osa == nil {
 		resp.Error = NewJSStreamNotFoundError()
 		s.sendAPIErrResponse(ci, acc, subject, reply, string(rmsg), s.jsonResponse(&resp))
@@ -7256,7 +7815,7 @@ func (s *Server) jsClusteredStreamUpdateRequest(ci *ClientInfo, acc *Account, su
 	}
 
 	// Check for subject collisions here.
-	if cc.subjectsOverlap(acc.Name, cfg.Subjects, osa) {
+	if js.subjectsOverlap(acc.Name, cfg.Subjects, osa) {
 		resp.Error = NewJSStreamSubjectOverlapError()
 		s.sendAPIErrResponse(ci, acc, subject, reply, string(rmsg), s.jsonResponse(&resp))
 		return
@@ -7412,7 +7971,7 @@ func (s *Server) jsClusteredStreamUpdateRequest(ci *ClientInfo, acc *Account, su
 		}
 
 		// Need to remap any consumers.
-		for _, ca := range osa.consumers {
+		for ca := range js.consumerAssignmentsOrInflightSeq(acc.Name, osa.Config.Name) {
 			// Legacy ephemerals are R=1 but present as R=0, so only auto-remap named consumers, or if we are downsizing the consumer peers.
 			// If stream is interest or workqueue policy always remaps since they require peer parity with stream.
 			numPeers := len(ca.Group.Peers)
@@ -7510,7 +8069,7 @@ func (s *Server) jsClusteredStreamUpdateRequest(ci *ClientInfo, acc *Account, su
 		}
 		rg.Peers = peerSet
 
-		for _, ca := range osa.consumers {
+		for ca := range js.consumerAssignmentsOrInflightSeq(acc.Name, osa.Config.Name) {
 			cca := ca.copyGroup()
 			r := cca.Config.replicas(osa.Config)
 			// shuffle part of cluster peer set we will be keeping
@@ -7554,11 +8113,15 @@ func (s *Server) jsClusteredStreamUpdateRequest(ci *ClientInfo, acc *Account, su
 	}
 
 	sa := &streamAssignment{Group: rg, Sync: osa.Sync, Created: osa.Created, Config: newCfg, Subject: subject, Reply: reply, Client: ci}
-	meta.Propose(encodeUpdateStreamAssignment(sa))
+	if err := meta.Propose(encodeUpdateStreamAssignment(sa)); err != nil {
+		return
+	}
+	cc.trackInflightStreamProposal(acc.Name, sa, false)
 
 	// Process any staged consumers.
 	for _, ca := range consumers {
 		meta.Propose(encodeAddConsumerAssignment(ca))
+		cc.trackInflightConsumerProposal(acc.Name, sa.Config.Name, ca, false)
 	}
 }
 
@@ -7575,7 +8138,7 @@ func (s *Server) jsClusteredStreamDeleteRequest(ci *ClientInfo, acc *Account, st
 		return
 	}
 
-	osa := js.streamAssignment(acc.Name, stream)
+	osa := js.streamAssignmentOrInflight(acc.Name, stream)
 	if osa == nil {
 		var resp = JSApiStreamDeleteResponse{ApiResponse: ApiResponse{Type: JSApiStreamDeleteResponseType}}
 		resp.Error = NewJSStreamNotFoundError()
@@ -7584,7 +8147,9 @@ func (s *Server) jsClusteredStreamDeleteRequest(ci *ClientInfo, acc *Account, st
 	}
 
 	sa := &streamAssignment{Group: osa.Group, Config: osa.Config, Subject: subject, Reply: reply, Client: ci, Created: osa.Created}
-	cc.meta.Propose(encodeDeleteStreamAssignment(sa))
+	if err := cc.meta.Propose(encodeDeleteStreamAssignment(sa)); err == nil {
+		cc.trackInflightStreamProposal(acc.Name, sa, true)
+	}
 }
 
 // Process a clustered purge request.
@@ -7661,7 +8226,7 @@ func (s *Server) jsClusteredStreamRestoreRequest(
 		return
 	}
 
-	if sa := js.streamAssignment(ci.serviceAccount(), cfg.Name); sa != nil {
+	if sa := js.streamAssignmentOrInflight(ci.serviceAccount(), cfg.Name); sa != nil {
 		resp.Error = NewJSStreamNameExistRestoreFailedError()
 		s.sendAPIErrResponse(ci, acc, subject, reply, string(rmsg), s.jsonResponse(&resp))
 		return
@@ -7679,7 +8244,9 @@ func (s *Server) jsClusteredStreamRestoreRequest(
 	sa := &streamAssignment{Group: rg, Sync: syncSubjForStream(), Config: cfg, Subject: subject, Reply: reply, Client: ci, Created: time.Now().UTC()}
 	// Now add in our restore state and pre-select a peer to handle the actual receipt of the snapshot.
 	sa.Restore = &req.State
-	cc.meta.Propose(encodeAddStreamAssignment(sa))
+	if err := cc.meta.Propose(encodeAddStreamAssignment(sa)); err == nil {
+		cc.trackInflightStreamProposal(ci.serviceAccount(), sa, false)
+	}
 }
 
 // Determine if all peers for this group are offline.
@@ -8057,9 +8624,10 @@ func (s *Server) jsClusteredConsumerDeleteRequest(ci *ClientInfo, acc *Account, 
 		s.sendAPIErrResponse(ci, acc, subject, reply, string(rmsg), s.jsonResponse(&resp))
 		return
 	}
-	oca.deleted = true
 	ca := &consumerAssignment{Group: oca.Group, Stream: stream, Name: consumer, Config: oca.Config, Subject: subject, Reply: reply, Client: ci, Created: oca.Created}
-	cc.meta.Propose(encodeDeleteConsumerAssignment(ca))
+	if err := cc.meta.Propose(encodeDeleteConsumerAssignment(ca)); err == nil {
+		cc.trackInflightConsumerProposal(acc.Name, stream, ca, true)
+	}
 }
 
 func encodeMsgDelete(md *streamMsgDelete) []byte {
@@ -8177,7 +8745,7 @@ func decodeStreamAssignmentConfig(s *Server, sa *streamAssignment) error {
 	sa.Config = &cfg
 	fixCfgMirrorWithDedupWindow(sa.Config)
 
-	if unsupported || err != nil || (sa.Config != nil && !supportsRequiredApiLevel(sa.Config.Metadata)) {
+	if unsupported || (sa.Config != nil && !supportsRequiredApiLevel(sa.Config.Metadata)) {
 		sa.unsupported = newUnsupportedStreamAssignment(s, sa, err)
 	}
 	return nil
@@ -8283,7 +8851,7 @@ func (s *Server) jsClusteredConsumerRequest(ci *ClientInfo, acc *Account, subjec
 	}
 
 	// Lookup the stream assignment.
-	sa := js.streamAssignment(acc.Name, stream)
+	sa := js.streamAssignmentOrInflight(acc.Name, stream)
 	if sa == nil {
 		resp.Error = NewJSStreamNotFoundError()
 		s.sendAPIErrResponse(ci, acc, subject, reply, string(rmsg), s.jsonResponse(&resp))
@@ -8309,26 +8877,25 @@ func (s *Server) jsClusteredConsumerRequest(ci *ClientInfo, acc *Account, subjec
 			maxc = selectedLimits.MaxConsumers
 		}
 		if maxc > 0 {
-			// Don't count DIRECTS.
-			total := 0
-			for cn, ca := range sa.consumers {
-				if ca.unsupported != nil {
-					continue
+			// If the consumer name is specified and we think it already exists, then
+			// we're likely updating an existing consumer, so don't count it. Otherwise
+			// we will incorrectly return NewJSMaximumConsumersLimitError for an update.
+			if oname == _EMPTY_ || js.consumerAssignmentOrInflight(acc.Name, stream, oname) == nil {
+				// Don't count DIRECTS.
+				total := 0
+				for ca := range js.consumerAssignmentsOrInflightSeq(acc.Name, stream) {
+					if ca.unsupported != nil {
+						continue
+					}
+					if ca.Config != nil && !ca.Config.Direct {
+						total++
+					}
 				}
-				// If the consumer name is specified and we think it already exists, then
-				// we're likely updating an existing consumer, so don't count it. Otherwise
-				// we will incorrectly return NewJSMaximumConsumersLimitError for an update.
-				if oname != _EMPTY_ && cn == oname && sa.consumers[oname] != nil {
-					continue
+				if total >= maxc {
+					resp.Error = NewJSMaximumConsumersLimitError()
+					s.sendAPIErrResponse(ci, acc, subject, reply, string(rmsg), s.jsonResponse(&resp))
+					return
 				}
-				if ca.Config != nil && !ca.Config.Direct {
-					total++
-				}
-			}
-			if total >= maxc {
-				resp.Error = NewJSMaximumConsumersLimitError()
-				s.sendAPIErrResponse(ci, acc, subject, reply, string(rmsg), s.jsonResponse(&resp))
-				return
 			}
 		}
 	}
@@ -8360,11 +8927,10 @@ func (s *Server) jsClusteredConsumerRequest(ci *ClientInfo, acc *Account, subjec
 	}
 
 	var ca *consumerAssignment
-
 	// See if we have an existing one already under same durable name or
 	// if name was set by the user.
 	if oname != _EMPTY_ {
-		if ca = sa.consumers[oname]; ca != nil && !ca.deleted {
+		if ca = js.consumerAssignmentOrInflight(acc.Name, stream, oname); ca != nil {
 			// Provided config might miss metadata, copy from existing config.
 			copyConsumerMetadata(cfg, ca.Config)
 
@@ -8426,10 +8992,8 @@ func (s *Server) jsClusteredConsumerRequest(ci *ClientInfo, acc *Account, subjec
 				// Make sure name is unique.
 				for {
 					oname = createConsumerName()
-					if sa.consumers != nil {
-						if sa.consumers[oname] != nil {
-							continue
-						}
+					if js.consumerAssignmentOrInflight(acc.Name, stream, oname) != nil {
+						continue
 					}
 					break
 				}
@@ -8467,19 +9031,16 @@ func (s *Server) jsClusteredConsumerRequest(ci *ClientInfo, acc *Account, subjec
 				s.sendAPIErrResponse(ci, acc, subject, reply, string(rmsg), s.jsonResponse(&resp))
 				return
 			}
-			// Check here to make sure we have not collided with another.
-			if len(sa.consumers) > 0 {
-				for _, oca := range sa.consumers {
-					if oca.Name == oname {
-						continue
-					}
-					for _, psubj := range gatherSubjectFilters(oca.Config.FilterSubject, oca.Config.FilterSubjects) {
-						for _, subj := range subjects {
-							if SubjectsCollide(subj, psubj) {
-								resp.Error = NewJSConsumerWQConsumerNotUniqueError()
-								s.sendAPIErrResponse(ci, acc, subject, reply, string(rmsg), s.jsonResponse(&resp))
-								return
-							}
+			for oca := range js.consumerAssignmentsOrInflightSeq(acc.Name, stream) {
+				if oca.Name == oname {
+					continue
+				}
+				for _, psubj := range gatherSubjectFilters(oca.Config.FilterSubject, oca.Config.FilterSubjects) {
+					for _, subj := range subjects {
+						if SubjectsCollide(subj, psubj) {
+							resp.Error = NewJSConsumerWQConsumerNotUniqueError()
+							s.sendAPIErrResponse(ci, acc, subject, reply, string(rmsg), s.jsonResponse(&resp))
+							return
 						}
 					}
 				}
@@ -8517,8 +9078,8 @@ func (s *Server) jsClusteredConsumerRequest(ci *ClientInfo, acc *Account, subjec
 			if !s.allPeersOffline(ca.Group) {
 				// Need to release js lock.
 				js.mu.Unlock()
-				if ci, err := sysRequest[ConsumerInfo](s, clusterConsumerInfoT, ci.serviceAccount(), sa.Config.Name, cfg.Durable); err != nil {
-					s.Warnf("Did not receive consumer info results for '%s > %s > %s' due to: %s", acc, sa.Config.Name, cfg.Durable, err)
+				if ci, err := sysRequest[ConsumerInfo](s, clusterConsumerInfoT, ci.serviceAccount(), sa.Config.Name, oname); err != nil {
+					s.Warnf("Did not receive consumer info results for '%s > %s > %s' due to: %s", acc, sa.Config.Name, oname, err)
 				} else if ci != nil {
 					if cl := ci.Cluster; cl != nil {
 						curLeader = getHash(cl.Leader)
@@ -8586,12 +9147,7 @@ func (s *Server) jsClusteredConsumerRequest(ci *ClientInfo, acc *Account, subjec
 
 	// Do formal proposal.
 	if err := cc.meta.Propose(encodeAddConsumerAssignment(ca)); err == nil {
-		// Mark this as pending.
-		if sa.consumers == nil {
-			sa.consumers = make(map[string]*consumerAssignment)
-		}
-		ca.pending = true
-		sa.consumers[ca.Name] = ca
+		cc.trackInflightConsumerProposal(acc.Name, stream, ca, false)
 	}
 }
 
@@ -8640,7 +9196,7 @@ func decodeConsumerAssignmentConfig(ca *consumerAssignment) error {
 		}
 	}
 	ca.Config = &cfg
-	if unsupported || err != nil || (ca.Config != nil && !supportsRequiredApiLevel(ca.Config.Metadata)) {
+	if unsupported || (ca.Config != nil && !supportsRequiredApiLevel(ca.Config.Metadata)) {
 		ca.unsupported = newUnsupportedConsumerAssignment(ca, err)
 	}
 	return nil
@@ -9377,6 +9933,7 @@ func (mset *stream) processSnapshot(snap *StreamReplicatedState, index uint64) (
 	defer releaseSyncOutSem()
 
 	// Do not let this go on forever.
+	start := time.Now()
 	const maxRetries = 3
 	var numRetries int
 
@@ -9500,6 +10057,7 @@ RETRY:
 						// We MUST ensure all data is flushed up to this point, if the store hadn't already.
 						// Because the snapshot needs to represent what has been persisted.
 						mset.flushAllPending()
+						s.Noticef("Catchup for stream '%s > %s' complete (took %v)", mset.account(), mset.name(), time.Since(start).Round(time.Millisecond))
 						return nil
 					}
 
@@ -10048,7 +10606,7 @@ func (mset *stream) runCatchup(sendSubject string, sreq *streamSyncRequest) {
 	sendNextBatchAndContinue := func(qch chan struct{}) bool {
 		// Check if we know we will not enter the loop because we are done.
 		if seq > last {
-			s.Noticef("Catchup for stream '%s > %s' complete (took %v)", mset.account(), mset.name(), time.Since(start))
+			s.Noticef("Catchup for stream '%s > %s' complete (took %v)", mset.account(), mset.name(), time.Since(start).Round(time.Millisecond))
 			// EOF
 			s.sendInternalMsgLocked(sendSubject, _EMPTY_, nil, nil)
 			return false
@@ -10158,11 +10716,11 @@ func (mset *stream) runCatchup(sendSubject string, sreq *streamSyncRequest) {
 						// when trying to recover after corruption, still not 100% sure. Could be off by 1 too somehow,
 						// but tested a ton of those with no success.
 						s.Warnf("Catchup for stream '%s > %s' completed (took %v), but requested sequence %d was larger than current state: %+v",
-							mset.account(), mset.name(), time.Since(start), seq, state)
+							mset.account(), mset.name(), time.Since(start).Round(time.Millisecond), seq, state)
 						// Try our best to redo our invalidated snapshot as well.
 						if n := mset.raftNode(); n != nil {
 							if snap := mset.stateSnapshot(); snap != nil {
-								n.InstallSnapshot(snap)
+								n.InstallSnapshot(snap, true)
 							}
 						}
 						// If we allow gap markers check if we have one pending.
@@ -10204,7 +10762,7 @@ func (mset *stream) runCatchup(sendSubject string, sreq *streamSyncRequest) {
 				if drOk && dr.First > 0 {
 					sendDR()
 				}
-				s.Noticef("Catchup for stream '%s > %s' complete (took %v)", mset.account(), mset.name(), time.Since(start))
+				s.Noticef("Catchup for stream '%s > %s' complete (took %v)", mset.account(), mset.name(), time.Since(start).Round(time.Millisecond))
 				// EOF
 				s.sendInternalMsgLocked(sendSubject, _EMPTY_, nil, nil)
 				return false
