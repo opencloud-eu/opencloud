@@ -21,6 +21,32 @@ type instrument struct {
 	metrics *metrics.Metrics
 }
 
+func (i instrument) DeleteById(ctx context.Context, id string) error {
+	timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
+		us := v * 1000000
+		i.metrics.Latency.WithLabelValues().Observe(us)
+		i.metrics.Duration.WithLabelValues().Observe(v)
+	}))
+
+	defer timer.ObserveDuration()
+	i.metrics.Counter.WithLabelValues().Inc()
+
+	return i.next.DeleteById(ctx, id)
+}
+
+func (i instrument) DeleteByInvitedEmail(ctx context.Context, email string) error {
+	timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
+		us := v * 1000000
+		i.metrics.Latency.WithLabelValues().Observe(us)
+		i.metrics.Duration.WithLabelValues().Observe(v)
+	}))
+
+	defer timer.ObserveDuration()
+	i.metrics.Counter.WithLabelValues().Inc()
+
+	return i.next.DeleteByInvitedEmail(ctx, email)
+}
+
 func (i instrument) List(ctx context.Context, userId string) ([]*invitations.Invitation, error) {
 	timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
 		us := v * 1000000

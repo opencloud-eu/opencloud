@@ -20,6 +20,22 @@ type logging struct {
 	logger log.Logger
 }
 
+func (l logging) DeleteById(ctx context.Context, id string) error {
+	l.logger.Debug().
+		Interface("invitation", id).
+		Msg("DeleteById")
+
+	return l.next.DeleteById(ctx, id)
+}
+
+func (l logging) DeleteByInvitedEmail(ctx context.Context, email string) error {
+	l.logger.Debug().
+		Interface("invitation", email).
+		Msg("DeleteByInvitedEmail")
+
+	return l.next.DeleteByInvitedEmail(ctx, email)
+}
+
 func (l logging) List(ctx context.Context, userId string) ([]*invitations.Invitation, error) {
 	l.logger.Debug().
 		Interface("invitation", "list").

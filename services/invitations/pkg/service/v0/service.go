@@ -34,6 +34,8 @@ type Service interface {
 	List(ctx context.Context, userId string) ([]*invitations.Invitation, error)
 	GetByInvitedEmail(ctx context.Context, email string) (*invitations.Invitation, error)
 	GetByInviteId(ctx context.Context, id string) (*invitations.Invitation, error)
+	DeleteById(ctx context.Context, id string) error
+	DeleteByInvitedEmail(ctx context.Context, email string) error
 }
 
 // Backend defines the behaviour of a user backend.
@@ -153,7 +155,6 @@ func (s svc) Invite(ctx context.Context, invitation *invitations.Invitation) (*i
 
 // List implements the service interface
 func (s svc) List(ctx context.Context, userId string) ([]*invitations.Invitation, error) {
-	fmt.Println("list invitations for user", userId)
 	// get logged in user
 	u, ok := revactx.ContextGetUser(ctx)
 	if !ok {
@@ -190,7 +191,51 @@ func (s svc) List(ctx context.Context, userId string) ([]*invitations.Invitation
 	return invSlice, nil
 }
 
-// GetByInviteId implements the service interface
+// DeleteById deletes invitation by id
+func (s svc) DeleteById(ctx context.Context, id string) error {
+	u, ok := revactx.ContextGetUser(ctx)
+	if !ok {
+		return ErrUnauthorized
+	}
+
+	toDelete, err := s.Persistance.Read(id)
+	if err != nil {
+		return fmt.Errorf("%w: %s", ErrPersistence, err)
+	}
+
+	if toDelete[0].Metadata["inviterUserId"] != u.GetId().GetOpaqueId() {
+		return ErrUnauthorized
+	}
+
+	return s.Persistance.Delete(id)
+}
+
+// DeleteByEmail deletes invitation by email of the invited person
+func (s svc) DeleteByInvitedEmail(ctx context.Context, email string) error {
+	u, ok := revactx.ContextGetUser(ctx)
+	if !ok {
+		return ErrUnauthorized
+	}
+	invKeyList, err := s.Persistance.List()
+	if err != nil {
+		return fmt.Errorf("%w: %s", ErrPersistence, err)
+	}
+	for _, key := range invKeyList {
+		inv, err := s.Persistance.Read(key)
+		if err != nil {
+			return fmt.Errorf("%w: %s", ErrPersistence, err)
+		}
+		for _, value := range inv {
+			if value.Metadata["invitedUserEmailAddress"] == email &&
+				u.GetId().GetOpaqueId() == value.Metadata["inviterUserId"].(string) {
+				return s.Persistance.Delete(key)
+			}
+		}
+	}
+	return nil
+}
+
+// GetByInviteId gets invitation by id
 func (s svc) GetByInviteId(ctx context.Context, inviteId string) (*invitations.Invitation, error) {
 	u, ok := revactx.ContextGetUser(ctx)
 	if !ok {
@@ -215,7 +260,7 @@ func (s svc) GetByInviteId(ctx context.Context, inviteId string) (*invitations.I
 	return invite, nil
 }
 
-// GetByInvitedEmail implements the service interface
+// GetByInvitedEmail gets invitation by email
 func (s svc) GetByInvitedEmail(ctx context.Context, email string) (*invitations.Invitation, error) {
 	u, ok := revactx.ContextGetUser(ctx)
 	if !ok {

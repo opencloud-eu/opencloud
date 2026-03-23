@@ -21,6 +21,34 @@ type tracing struct {
 	tp   trace.TracerProvider
 }
 
+func (t tracing) DeleteById(ctx context.Context, id string) error {
+	spanOpts := []trace.SpanStartOption{
+		trace.WithSpanKind(trace.SpanKindServer),
+		trace.WithAttributes(
+			attribute.KeyValue{
+				Key: "invitation", Value: attribute.StringValue(id),
+			}),
+	}
+	ctx, span := t.tp.Tracer("invitations").Start(ctx, "Delete", spanOpts...)
+	defer span.End()
+
+	return t.next.DeleteById(ctx, id)
+}
+
+func (t tracing) DeleteByInvitedEmail(ctx context.Context, email string) error {
+	spanOpts := []trace.SpanStartOption{
+		trace.WithSpanKind(trace.SpanKindServer),
+		trace.WithAttributes(
+			attribute.KeyValue{
+				Key: "invitation", Value: attribute.StringValue(email),
+			}),
+	}
+	ctx, span := t.tp.Tracer("invitations").Start(ctx, "Delete", spanOpts...)
+	defer span.End()
+
+	return t.next.DeleteByInvitedEmail(ctx, email)
+}
+
 func (t tracing) List(ctx context.Context, userId string) ([]*invitations.Invitation, error) {
 	spanOpts := []trace.SpanStartOption{
 		trace.WithSpanKind(trace.SpanKindServer),

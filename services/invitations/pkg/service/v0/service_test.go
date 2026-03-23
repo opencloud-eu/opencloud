@@ -149,4 +149,41 @@ var _ = Describe("Service", func() {
 			Expect(inv.InvitedUserEmailAddress).To(Equal(invite.InvitedUserEmailAddress))
 		})
 	})
+
+	Describe("DeleteById", func() {
+		It("should delete an invitation by ID", func() {
+			mockUUID := "test-uuid"
+			testSvc, _ = service.New(
+				service.Logger(log.NewLogger()),
+				service.Config(&config.Config{
+					Persistance: config.Persistance{
+						Store: "memory",
+					},
+				}),
+				service.WithUUIDGenerator(func() string {
+					return mockUUID
+				}),
+			)
+
+			ctx = revactx.ContextSetUser(ctx, inviter)
+			_, err := testSvc.Invite(ctx, invite)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = testSvc.DeleteById(ctx, mockUUID)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Describe("DeleteByInvitedEmail", func() {
+		It("should delete an invitation by email", func() {
+			ctx = revactx.ContextSetUser(ctx, inviter)
+			_, err := testSvc.Invite(ctx, invite)
+			Expect(err).ToNot(HaveOccurred())
+
+			inv, err := testSvc.GetByInvitedEmail(ctx, invite.InvitedUserEmailAddress)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(inv).ToNot(BeNil())
+			Expect(inv.InvitedUserEmailAddress).To(Equal(invite.InvitedUserEmailAddress))
+		})
+	})
 })
