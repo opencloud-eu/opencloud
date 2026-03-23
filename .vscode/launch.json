@@ -146,6 +146,10 @@
         "AUTHAPI_HTTP_ADDR": "0.0.0.0:10000",
         "AUTHAPI_AUTH_REQUIRE_SHARED_SECRET": "true",
         "AUTHAPI_AUTH_SHARED_SECRETS": "stalwart=maethaR9eiXaiph8ahn8ohH6dahPiequ;unused=eeyaigh6hae1zo5ahGeete6oohaiquei",
+
+        "WEB_ASSET_CORE_PATH": "${workspaceFolder}/../web/dist",
+        "WEB_UI_CONFIG_FILE": "${workspaceFolder}/../web/dev/docker/opencloud.web.config.json",
+        "FRONTEND_GROUPWARE_ENABLED": "true"
       }
     },
     {
