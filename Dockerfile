@@ -14,7 +14,7 @@
 # is a lot faster than the build steps below.
 
 
-FROM owncloudci/nodejs:22 AS generate
+FROM quay.io/opencloudeu/nodejs-ci:24 AS generate
 
 COPY ./ /opencloud/
 
