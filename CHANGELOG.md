@@ -18,6 +18,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/russellhaering/goxmldsig from 1.5.0 to 1.6.0 [[#2503](https://github.com/opencloud-eu/opencloud/pull/2503)]
 - build(deps): bump golang.org/x/net from 0.51.0 to 0.52.0 [[#2472](https://github.com/opencloud-eu/opencloud/pull/2472)]
 - build(deps): bump go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc from 0.65.0 to 0.67.0 [[#2473](https://github.com/opencloud-eu/opencloud/pull/2473)]
 - build(deps): bump github.com/olekukonko/tablewriter from 1.1.3 to 1.1.4 [[#2468](https://github.com/opencloud-eu/opencloud/pull/2468)]
