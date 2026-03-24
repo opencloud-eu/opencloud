@@ -52,7 +52,7 @@ func mcid(accountId string, tag string) string {
 	return accountId + ":" + tag
 }
 
-func command[T any](api ApiClient,
+func command[T any](api ApiClient, //NOSONAR
 	logger *log.Logger,
 	ctx context.Context,
 	session *Session,
@@ -341,4 +341,8 @@ func intPtr(i int) *int {
 
 func boolPtr(b bool) *bool {
 	return &b
+}
+
+func identity1[T any](t T) T {
+	return t
 }

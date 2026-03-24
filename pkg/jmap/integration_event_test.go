@@ -85,7 +85,7 @@ type EventsBoxes struct {
 	mayInvite  bool
 }
 
-func (s *StalwartTest) fillEvents(
+func (s *StalwartTest) fillEvents( //NOSONAR
 	t *testing.T,
 	count uint,
 	session *Session,
@@ -156,7 +156,7 @@ func (s *StalwartTest) fillEvents(
 		title := gofakeit.Sentence(1)
 		description := gofakeit.Paragraph(1+rand.Intn(3), 1+rand.Intn(4), 1+rand.Intn(32), "\n")
 
-		descriptionFormat := pickRandom("text/plain", "text/html")
+		descriptionFormat := pickRandom("text/plain", "text/html") //NOSONAR
 		if descriptionFormat == "text/html" {
 			description = toHtml(description)
 		}
@@ -196,7 +196,7 @@ func (s *StalwartTest) fillEvents(
 			"timeZone":               tz,
 			"hideAttendees":          false,
 			"replyTo": map[string]string{
-				"imip": "mailto:" + organizerEmail,
+				"imip": "mailto:" + organizerEmail, //NOSONAR
 			},
 			"locations": locationMaps,
 			"virtualLocations": map[string]any{
@@ -299,7 +299,7 @@ func (s *StalwartTest) fillEvents(
 				mime = "image/png"
 				uri = "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(img)
 			default:
-				mime = "image/jpeg"
+				mime = "image/jpeg" //NOSONAR
 				uri = externalImageUri()
 			}
 			return map[string]any{

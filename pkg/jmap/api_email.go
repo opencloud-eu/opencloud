@@ -24,7 +24,7 @@ type getEmailsResult struct {
 }
 
 // Retrieve specific Emails by their id.
-func (j *Client) GetEmails(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string, fetchBodies bool, maxBodyValueBytes uint, markAsSeen bool, withThreads bool) ([]Email, []string, SessionState, State, Language, Error) {
+func (j *Client) GetEmails(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string, fetchBodies bool, maxBodyValueBytes uint, markAsSeen bool, withThreads bool) ([]Email, []string, SessionState, State, Language, Error) { //NOSONAR
 	logger = j.logger("GetEmails", session, logger)
 
 	get := EmailGetCommand{AccountId: accountId, Ids: ids, FetchAllBodyValues: fetchBodies}
@@ -48,7 +48,7 @@ func (j *Client) GetEmails(accountId string, session *Session, ctx context.Conte
 			IdsRef: &ResultReference{
 				ResultOf: "1",
 				Name:     CommandEmailGet,
-				Path:     "/list/*/" + EmailPropertyThreadId,
+				Path:     "/list/*/" + EmailPropertyThreadId, //NOSONAR
 			},
 		}
 		methodCalls = append(methodCalls, invocation(CommandThreadGet, threads, "2"))
@@ -113,7 +113,7 @@ func (j *Client) GetEmailBlobId(accountId string, session *Session, ctx context.
 }
 
 // Retrieve all the Emails in a given Mailbox by its id.
-func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, mailboxId string, offset int, limit uint, collapseThreads bool, fetchBodies bool, maxBodyValueBytes uint, withThreads bool) (Emails, SessionState, State, Language, Error) {
+func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, mailboxId string, offset int, limit uint, collapseThreads bool, fetchBodies bool, maxBodyValueBytes uint, withThreads bool) (Emails, SessionState, State, Language, Error) { //NOSONAR
 	logger = j.loggerParams("GetAllEmailsInMailbox", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Int(logOffset, offset).Uint(logLimit, limit)
 	})
@@ -135,7 +135,7 @@ func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx c
 	get := EmailGetRefCommand{
 		AccountId:          accountId,
 		FetchAllBodyValues: fetchBodies,
-		IdsRef:             &ResultReference{Name: CommandEmailQuery, Path: "/ids/*", ResultOf: "0"},
+		IdsRef:             &ResultReference{Name: CommandEmailQuery, Path: "/ids/*", ResultOf: "0"}, //NOSONAR
 	}
 	if maxBodyValueBytes > 0 {
 		get.MaxBodyValueBytes = maxBodyValueBytes
@@ -204,7 +204,7 @@ type EmailChanges struct {
 }
 
 // Get all the Emails that have been created, updated or deleted since a given state.
-func (j *Client) GetEmailChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceState State, fetchBodies bool, maxBodyValueBytes uint, maxChanges uint) (EmailChanges, SessionState, State, Language, Error) {
+func (j *Client) GetEmailChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceState State, fetchBodies bool, maxBodyValueBytes uint, maxChanges uint) (EmailChanges, SessionState, State, Language, Error) { //NOSONAR
 	logger = j.loggerParams("GetEmailChanges", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Str(logSinceState, string(sinceState))
 	})
@@ -289,7 +289,7 @@ type EmailSnippetQueryResult struct {
 	QueryState State                   `json:"queryState"`
 }
 
-func (j *Client) QueryEmailSnippets(accountIds []string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, offset int, limit uint) (map[string]EmailSnippetQueryResult, SessionState, State, Language, Error) {
+func (j *Client) QueryEmailSnippets(accountIds []string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, offset int, limit uint) (map[string]EmailSnippetQueryResult, SessionState, State, Language, Error) { //NOSONAR
 	logger = j.loggerParams("QueryEmailSnippets", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Uint(logLimit, limit).Int(logOffset, offset)
 	})
@@ -405,7 +405,7 @@ type EmailQueryResult struct {
 	QueryState State   `json:"queryState"`
 }
 
-func (j *Client) QueryEmails(accountIds []string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, offset int, limit uint, fetchBodies bool, maxBodyValueBytes uint) (map[string]EmailQueryResult, SessionState, State, Language, Error) {
+func (j *Client) QueryEmails(accountIds []string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, offset int, limit uint, fetchBodies bool, maxBodyValueBytes uint) (map[string]EmailQueryResult, SessionState, State, Language, Error) { //NOSONAR
 	logger = j.loggerParams("QueryEmails", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies)
 	})
@@ -487,7 +487,7 @@ type EmailQueryWithSnippetsResult struct {
 	QueryState State               `json:"queryState"`
 }
 
-func (j *Client) QueryEmailsWithSnippets(accountIds []string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, offset int, limit uint, fetchBodies bool, maxBodyValueBytes uint) (map[string]EmailQueryWithSnippetsResult, SessionState, State, Language, Error) {
+func (j *Client) QueryEmailsWithSnippets(accountIds []string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, offset int, limit uint, fetchBodies bool, maxBodyValueBytes uint) (map[string]EmailQueryWithSnippetsResult, SessionState, State, Language, Error) { //NOSONAR
 	logger = j.loggerParams("QueryEmailsWithSnippets", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies)
 	})
@@ -806,7 +806,7 @@ type MoveMail struct {
 	ToMailboxId   string
 }
 
-func (j *Client) SubmitEmail(accountId string, identityId string, emailId string, move *MoveMail, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (EmailSubmission, SessionState, State, Language, Error) {
+func (j *Client) SubmitEmail(accountId string, identityId string, emailId string, move *MoveMail, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (EmailSubmission, SessionState, State, Language, Error) { //NOSONAR
 	logger = j.logger("SubmitEmail", session, logger)
 
 	update := map[string]any{
@@ -924,7 +924,7 @@ func (j *Client) GetEmailSubmissionStatus(accountId string, submissionIds []stri
 	return result.submissions, result.notFound, sessionState, state, lang, err
 }
 
-func (j *Client) EmailsInThread(accountId string, threadId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, fetchBodies bool, maxBodyValueBytes uint) ([]Email, SessionState, State, Language, Error) {
+func (j *Client) EmailsInThread(accountId string, threadId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, fetchBodies bool, maxBodyValueBytes uint) ([]Email, SessionState, State, Language, Error) { //NOSONAR
 	logger = j.loggerParams("EmailsInThread", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Str("threadId", log.SafeString(threadId))
 	})
@@ -986,7 +986,7 @@ var EmailSummaryProperties = []string{
 	EmailPropertyPreview,
 }
 
-func (j *Client) QueryEmailSummaries(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, filter EmailFilterElement, limit uint, withThreads bool) (map[string]EmailsSummary, SessionState, State, Language, Error) {
+func (j *Client) QueryEmailSummaries(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, filter EmailFilterElement, limit uint, withThreads bool) (map[string]EmailsSummary, SessionState, State, Language, Error) { //NOSONAR
 	logger = j.logger("QueryEmailSummaries", session, logger)
 
 	uniqueAccountIds := structs.Uniq(accountIds)

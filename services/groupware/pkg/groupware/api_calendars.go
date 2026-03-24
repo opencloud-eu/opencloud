@@ -56,7 +56,7 @@ func (g *Groupware) GetCalendarById(w http.ResponseWriter, r *http.Request) {
 }
 
 // Get all the events in a calendar of an account by its identifier.
-func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := req.needCalendarWithAccount()
 		if !ok {

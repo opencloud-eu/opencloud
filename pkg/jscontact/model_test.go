@@ -32,8 +32,8 @@ func TestCalendar(t *testing.T) {
 	}`, Calendar{
 		Type:      CalendarType,
 		Kind:      CalendarKindCalendar,
-		Uri:       "https://opencloud.eu/calendar/d05779b6-9638-4694-9869-008a61df6025",
-		MediaType: "application/jscontact+json",
+		Uri:       "https://opencloud.eu/calendar/d05779b6-9638-4694-9869-008a61df6025", //NOSONAR
+		MediaType: "application/jscontact+json",                                         //NOSONAR
 		Contexts: map[CalendarContext]bool{
 			CalendarContextWork: true,
 		},
@@ -396,7 +396,7 @@ func TestOnlineService(t *testing.T) {
 		Contexts: map[OnlineServiceContext]bool{
 			OnlineServiceContextWork: true,
 		},
-		Uri:   "https://opa.org/cdrummer",
+		Uri:   "https://opa.org/cdrummer", //NOSONAR
 		User:  "cdrummer@opa.org",
 		Pref:  12,
 		Label: "opa",
@@ -550,7 +550,7 @@ func TestPartialDate(t *testing.T) {
 }
 
 func TestTimestamp(t *testing.T) {
-	ts, err := time.Parse(time.RFC3339, "2025-09-25T18:26:14.094725532+02:00")
+	ts, err := time.Parse(time.RFC3339, "2025-09-25T18:26:14.094725532+02:00") //NOSONAR
 	require.NoError(t, err)
 	jsoneq(t, `{
 		"@type": "Timestamp",

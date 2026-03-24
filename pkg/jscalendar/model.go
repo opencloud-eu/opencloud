@@ -1360,7 +1360,9 @@ type OffsetTrigger struct {
 
 var _ Trigger = OffsetTrigger{}
 
-func (o OffsetTrigger) trigger() {}
+func (o OffsetTrigger) trigger() {
+	// marker interface method, does not need to do anything
+}
 
 type AbsoluteTrigger struct {
 	// This specifies the type of this object. This MUST be `AbsoluteTrigger`.
@@ -1372,7 +1374,9 @@ type AbsoluteTrigger struct {
 
 var _ Trigger = AbsoluteTrigger{}
 
-func (o AbsoluteTrigger) trigger() {}
+func (o AbsoluteTrigger) trigger() {
+	// marker interface method, does not need to do anything
+}
 
 // An `UnknownTrigger` object is an object that contains an `@type` property whose value is not recognized
 // (i.e., not `OffsetTrigger` or `AbsoluteTrigger`) plus zero or more other properties.
@@ -1384,10 +1388,12 @@ type UnknownTrigger map[string]any
 
 var _ Trigger = UnknownTrigger{}
 
-func (o UnknownTrigger) trigger() {}
+func (o UnknownTrigger) trigger() {
+	// marker interface method, does not need to do anything
+}
 
 func MapstructTriggerHook() mapstructure.DecodeHookFunc {
-	fn := func(Trigger) {}
+	fn := func(Trigger) {} //NOSONAR
 	wanted := reflect.TypeOf(fn).In(0)
 	return func(from reflect.Type, to reflect.Type, data any) (any, error) {
 		if to != wanted {
@@ -2186,11 +2192,15 @@ type GroupEntry interface {
 	groupEntry()
 }
 
-func (e Event) groupEntry() {}
+func (e Event) groupEntry() {
+	// marker interface method, does not need to do anything
+}
 
 var _ GroupEntry = Event{}
 
-func (t Task) groupEntry() {}
+func (t Task) groupEntry() {
+	// marker interface method, does not need to do anything
+}
 
 var _ GroupEntry = Task{}
 

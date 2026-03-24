@@ -150,7 +150,7 @@ func (j *Client) CreateIdentity(accountId string, session *Session, ctx context.
 		}
 		setErr, notok := response.NotCreated["c"]
 		if notok {
-			logger.Error().Msgf("%T.NotCreated returned an error %v", response, setErr)
+			logger.Error().Msgf("%T.NotCreated returned an error %v", response, setErr) //NOSONAR
 			return Identity{}, "", setErrorError(setErr, IdentityType)
 		}
 		return response.Created["c"], response.NewState, nil

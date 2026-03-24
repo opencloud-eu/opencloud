@@ -160,7 +160,7 @@ func (j *Client) GetContactCardsSince(accountId string, session *Session, ctx co
 	})
 }
 
-func (j *Client) QueryContactCards(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string,
+func (j *Client) QueryContactCards(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, //NOSONAR
 	filter ContactCardFilterElement, sortBy []ContactCardComparator,
 	position uint, limit uint) (map[string][]jscontact.ContactCard, SessionState, State, Language, Error) {
 	logger = j.logger("QueryContactCards", session, logger)

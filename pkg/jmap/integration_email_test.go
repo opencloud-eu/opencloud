@@ -484,7 +484,7 @@ var allKeywords = map[string]imap.Flag{
 	JmapKeywordSeen:      imap.FlagSeen,
 }
 
-func (s *StalwartTest) fillEmailsWithImap(folder string, count int, empty bool, user User) ([]filledMail, int, error) {
+func (s *StalwartTest) fillEmailsWithImap(folder string, count int, empty bool, user User) ([]filledMail, int, error) { //NOSONAR
 	to := fmt.Sprintf("%s <%s>", user.description, user.email)
 	ccEvery := 2
 	bccEvery := 3

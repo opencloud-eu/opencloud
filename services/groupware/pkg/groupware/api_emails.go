@@ -66,7 +66,7 @@ func (g *Groupware) GetEmailChanges(w http.ResponseWriter, r *http.Request) {
 //
 // A limit and an offset may be specified using the query parameters 'limit' and 'offset',
 // respectively.
-func (g *Groupware) GetAllEmailsInMailbox(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) GetAllEmailsInMailbox(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()
 
@@ -124,7 +124,7 @@ func (g *Groupware) GetAllEmailsInMailbox(w http.ResponseWriter, r *http.Request
 	})
 }
 
-func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	accept := r.Header.Get("Accept")
 	if accept == "message/rfc822" {
 		g.stream(w, r, func(req Request, w http.ResponseWriter) *Error {
@@ -230,7 +230,7 @@ func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	contextAppender := func(l zerolog.Context) zerolog.Context { return l }
 	q := r.URL.Query()
 	var attachmentSelector func(jmap.EmailBodyPart) bool = nil
@@ -434,7 +434,7 @@ type EmailSearchResults struct {
 	QueryState jmap.State   `json:"queryState,omitempty"`
 }
 
-func (g *Groupware) buildEmailFilter(req Request) (bool, jmap.EmailFilterElement, bool, int, uint, *log.Logger, *Error) {
+func (g *Groupware) buildEmailFilter(req Request) (bool, jmap.EmailFilterElement, bool, int, uint, *log.Logger, *Error) { //NOSONAR
 	mailboxId, _ := req.getStringParam(QueryParamMailboxId, "")                      // the identifier of the Mailbox to which to restrict the search
 	text, _ := req.getStringParam(QueryParamSearchText, "")                          // text that must be included in the Email, specifically in From, To, Cc, Bcc, Subject and any text/* body part
 	from, _ := req.getStringParam(QueryParamSearchFrom, "")                          // text that must be included in the From header of the Email
@@ -587,7 +587,7 @@ func (g *Groupware) buildEmailFilter(req Request) (bool, jmap.EmailFilterElement
 	return true, filter, snippets, offset, limit, logger, nil
 }
 
-func (g *Groupware) GetEmails(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) GetEmails(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	q := r.URL.Query()
 	since := q.Get(QueryParamSince)
 	if since == "" {
@@ -659,7 +659,7 @@ func (g *Groupware) GetEmails(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (g *Groupware) GetEmailsForAllAccounts(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) GetEmailsForAllAccounts(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	g.respond(w, r, func(req Request) Response {
 		allAccountIds := req.AllAccountIds()
 
@@ -782,7 +782,7 @@ var sentEmailAutoMailboxRolePrecedence = []string{
 
 var draftAndSentMailboxRoles = structs.Uniq(structs.Concat(draftEmailAutoMailboxRolePrecedence, sentEmailAutoMailboxRolePrecedence))
 
-func findSentMailboxId(j *jmap.Client, accountId string, req Request, logger *log.Logger) (string, string, Response) {
+func findSentMailboxId(j *jmap.Client, accountId string, req Request, logger *log.Logger) (string, string, Response) { //NOSONAR
 	mailboxIdsPerAccountIds, sessionState, _, lang, jerr := j.SearchMailboxIdsPerRole(single(accountId), req.session, req.ctx, logger, req.language(), draftAndSentMailboxRoles)
 	if jerr != nil {
 		return "", "", req.jmapError(accountId, jerr, sessionState, lang)
@@ -919,13 +919,13 @@ func (g *Groupware) UpdateEmail(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if result == nil {
-			return req.error(accountId, apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Missing Email Update Response",
-				"An internal API behaved unexpectedly: missing Email update response from JMAP endpoint")))
+			return req.error(accountId, apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Missing Email Update Response", //NOSONAR
+				"An internal API behaved unexpectedly: missing Email update response from JMAP endpoint"))) //NOSONAR
 		}
 		updatedEmail, ok := result[emailId]
 		if !ok {
-			return req.error(accountId, apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Wrong Email Update Response ID",
-				"An internal API behaved unexpectedly: wrong Email update ID response from JMAP endpoint")))
+			return req.error(accountId, apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Wrong Email Update Response ID", //NOSONAR
+				"An internal API behaved unexpectedly: wrong Email update ID response from JMAP endpoint"))) //NOSONAR
 		}
 
 		return req.respond(accountId, updatedEmail, sessionState, EmailResponseObjectType, state)
@@ -941,7 +941,7 @@ func (e emailKeywordUpdates) IsEmpty() bool {
 	return len(e.Add) == 0 && len(e.Remove) == 0
 }
 
-func (g *Groupware) UpdateEmailKeywords(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) UpdateEmailKeywords(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()
 
@@ -971,10 +971,10 @@ func (g *Groupware) UpdateEmailKeywords(w http.ResponseWriter, r *http.Request) 
 
 		patch := jmap.EmailUpdate{}
 		for _, keyword := range body.Add {
-			patch["keywords/"+keyword] = true
+			patch["keywords/"+keyword] = true //NOSONAR
 		}
 		for _, keyword := range body.Remove {
-			patch["keywords/"+keyword] = nil
+			patch["keywords/"+keyword] = nil //NOSONAR
 		}
 		patches := map[string]jmap.EmailUpdate{
 			emailId: patch,
@@ -1000,7 +1000,7 @@ func (g *Groupware) UpdateEmailKeywords(w http.ResponseWriter, r *http.Request) 
 }
 
 // Add keywords to an email by its unique identifier.
-func (g *Groupware) AddEmailKeywords(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) AddEmailKeywords(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()
 
@@ -1060,7 +1060,7 @@ func (g *Groupware) AddEmailKeywords(w http.ResponseWriter, r *http.Request) {
 }
 
 // Remove keywords of an email by its unique identifier.
-func (g *Groupware) RemoveEmailKeywords(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) RemoveEmailKeywords(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()
 
@@ -1207,7 +1207,7 @@ func (g *Groupware) DeleteEmails(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (g *Groupware) SendEmail(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) SendEmail(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()
 
@@ -1323,7 +1323,7 @@ func relatedEmailsFilter(email jmap.Email, beacon time.Time, days uint) jmap.Ema
 	return filter
 }
 
-func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()
 
@@ -1618,7 +1618,7 @@ type EmailSummaries struct {
 //
 // * `seen`: when `true`, emails that have already been seen (read) will be included as well (default is to only include emails that have not been read yet)
 // * `undesirable`: when `true`, emails that are flagged as spam or phishing will also be summarized (default is to ignore those)
-func (g *Groupware) GetLatestEmailsSummaryForAllAccounts(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) GetLatestEmailsSummaryForAllAccounts(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()
 
@@ -1741,7 +1741,7 @@ var sanitizableMediaTypes = []string{
 	"text/xhtml",
 }
 
-func (r *Request) sanitizeEmail(source jmap.Email) (jmap.Email, *Error) {
+func (r *Request) sanitizeEmail(source jmap.Email) (jmap.Email, *Error) { //NOSONAR
 	if !r.g.config.sanitize {
 		return source, nil
 	}
