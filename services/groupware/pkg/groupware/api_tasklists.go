@@ -16,7 +16,7 @@ func (g *Groupware) GetTaskLists(w http.ResponseWriter, r *http.Request) {
 		var _ string = accountId
 
 		var body []jmap.TaskList = AllTaskLists
-		return etagResponse(single(accountId), body, req.session.State, TaskListResponseObjectType, TaskListsState, "")
+		return req.respond(accountId, body, req.session.State, TaskListResponseObjectType, TaskListsState)
 	})
 }
 
@@ -31,15 +31,15 @@ func (g *Groupware) GetTaskListById(w http.ResponseWriter, r *http.Request) {
 
 		tasklistId, err := req.PathParam(UriParamTaskListId)
 		if err != nil {
-			return errorResponse(single(accountId), err)
+			return req.error(accountId, err)
 		}
 		// TODO replace with proper implementation
 		for _, tasklist := range AllTaskLists {
 			if tasklist.Id == tasklistId {
-				return response(single(accountId), tasklist, req.session.State, "")
+				return req.respond(accountId, tasklist, req.session.State, TaskListResponseObjectType, TaskListsState)
 			}
 		}
-		return etagNotFoundResponse(single(accountId), req.session.State, TaskListResponseObjectType, TaskListsState, "")
+		return req.etaggedNotFound(accountId, req.session.State, TaskListResponseObjectType, TaskListsState)
 	})
 }
 
@@ -54,13 +54,13 @@ func (g *Groupware) GetTasksInTaskList(w http.ResponseWriter, r *http.Request) {
 
 		tasklistId, err := req.PathParam(UriParamTaskListId)
 		if err != nil {
-			return errorResponse(single(accountId), err)
+			return req.error(accountId, err)
 		}
 		// TODO replace with proper implementation
 		tasks, ok := TaskMapByTaskListId[tasklistId]
 		if !ok {
-			return notFoundResponse(single(accountId), req.session.State)
+			return req.notFound(accountId, req.session.State, TaskResponseObjectType, TaskState)
 		}
-		return etagResponse(single(accountId), tasks, req.session.State, TaskResponseObjectType, TaskState, "")
+		return req.respond(accountId, tasks, req.session.State, TaskResponseObjectType, TaskState)
 	})
 }

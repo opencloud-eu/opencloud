@@ -651,6 +651,22 @@ func errorResponses(errors ...Error) ErrorResponse {
 	return ErrorResponse{Errors: errors}
 }
 
-func (r *Request) errorResponseFromJmap(accountIds []string, err jmap.Error) Response {
-	return errorResponseWithSessionState(accountIds, r.apiErrorFromJmap(r.observeJmapError(err)), r.session.State)
+func (r *Request) error(accountId string, err *Error) Response {
+	return errorResponse(single(accountId), err, r.session.State, jmap.NoLanguage)
+}
+
+func (r *Request) errorS(accountId string, err *Error, sessionState jmap.SessionState) Response {
+	return errorResponse(single(accountId), err, sessionState, jmap.NoLanguage)
+}
+
+func (r *Request) errorN(accountIds []string, err *Error) Response {
+	return errorResponse(accountIds, err, r.session.State, jmap.NoLanguage)
+}
+
+func (r *Request) jmapError(accountId string, err jmap.Error, sessionState jmap.SessionState, lang jmap.Language) Response {
+	return errorResponse(single(accountId), r.apiErrorFromJmap(r.observeJmapError(err)), sessionState, lang)
+}
+
+func (r *Request) jmapErrorN(accountIds []string, err jmap.Error, sessionState jmap.SessionState, lang jmap.Language) Response {
+	return errorResponse(accountIds, r.apiErrorFromJmap(r.observeJmapError(err)), sessionState, lang)
 }

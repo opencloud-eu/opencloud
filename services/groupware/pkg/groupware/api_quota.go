@@ -16,19 +16,19 @@ func (g *Groupware) GetQuota(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountId, err := req.GetAccountIdForQuota()
 		if err != nil {
-			return errorResponse(single(accountId), err)
+			return req.error(accountId, err)
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
 
 		res, sessionState, state, lang, jerr := g.jmap.GetQuotas(single(accountId), req.session, req.ctx, logger, req.language())
 		if jerr != nil {
-			return req.errorResponseFromJmap(single(accountId), jerr)
+			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
 		for _, v := range res {
 			body := v.List
-			return etagResponse(single(accountId), body, sessionState, QuotaResponseObjectType, state, lang)
+			return req.respond(accountId, body, sessionState, QuotaResponseObjectType, state)
 		}
-		return notFoundResponse(single(accountId), sessionState)
+		return req.notFound(accountId, sessionState, QuotaResponseObjectType, state)
 	})
 }
 
@@ -45,13 +45,13 @@ func (g *Groupware) GetQuotaForAllAccounts(w http.ResponseWriter, r *http.Reques
 	g.respond(w, r, func(req Request) Response {
 		accountIds := req.AllAccountIds()
 		if len(accountIds) < 1 {
-			return noContentResponse(accountIds, "") // user has no accounts
+			return req.noopN(accountIds) // user has no accounts
 		}
 		logger := log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(accountIds)))
 
 		res, sessionState, state, lang, jerr := g.jmap.GetQuotas(accountIds, req.session, req.ctx, logger, req.language())
 		if jerr != nil {
-			return req.errorResponseFromJmap(accountIds, jerr)
+			return req.jmapErrorN(accountIds, jerr, sessionState, lang)
 		}
 
 		result := make(map[string]AccountQuota, len(res))
@@ -61,6 +61,6 @@ func (g *Groupware) GetQuotaForAllAccounts(w http.ResponseWriter, r *http.Reques
 				Quotas: accountQuotas.List,
 			}
 		}
-		return etagResponse(accountIds, result, sessionState, QuotaResponseObjectType, state, lang)
+		return req.respondN(accountIds, result, sessionState, QuotaResponseObjectType, state)
 	})
 }

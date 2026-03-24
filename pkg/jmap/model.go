@@ -842,7 +842,11 @@ type SessionState string
 
 type State string
 
+const EmptyState = State("")
+
 type Language string
+
+const NoLanguage = Language("")
 
 type SessionResponse struct {
 	Capabilities SessionCapabilities `json:"capabilities"`
@@ -1350,7 +1354,7 @@ type MailboxChangesCommand struct {
 	// If supplied by the client, the value MUST be a positive integer greater than 0.
 	//
 	// If a value outside of this range is given, the server MUST reject the call with an invalidArguments error.
-	MaxChanges uint `json:"maxChanges,omitzero"`
+	MaxChanges *uint `json:"maxChanges,omitzero"`
 }
 
 type MailboxFilterElement interface {
@@ -1859,7 +1863,7 @@ type EmailChangesCommand struct {
 	// The server MAY choose to return fewer than this value but MUST NOT return more.
 	// If not given by the client, the server may choose how many to return.
 	// If supplied by the client, the value MUST be a positive integer greater than 0.
-	MaxChanges uint `json:"maxChanges,omitzero"`
+	MaxChanges *uint `json:"maxChanges,omitempty"`
 }
 
 type EmailAddress struct {
@@ -5307,6 +5311,47 @@ type ContactCardGetResponse struct {
 	NotFound []any `json:"notFound"`
 }
 
+type ContactCardChangesCommand struct {
+	// The id of the account to use.
+	AccountId string `json:"accountId"`
+
+	// The current state of the client.
+	// This is the string that was returned as the "state" argument in the "ContactCard/get" response.
+	// The server will return the changes that have occurred since this state.
+	SinceState string `json:"sinceState,omitempty"`
+
+	// The maximum number of ids to return in the response.
+	// The server MAY choose to return fewer than this value but MUST NOT return more.
+	// If not given by the client, the server may choose how many to return.
+	// If supplied by the client, the value MUST be a positive integer greater than 0.
+	// If a value outside of this range is given, the server MUST reject the call with an `invalidArguments` error.
+	MaxChanges *uint `json:"maxChanges,omitempty"`
+}
+
+type ContactCardChangesResponse struct {
+	// The id of the account used for the call.
+	AccountId string `json:"accountId"`
+
+	// This is the "sinceState" argument echoed back; it's the state from which the server is returning changes.
+	OldState State `json:"oldState"`
+
+	// This is the state the client will be in after applying the set of changes to the old state.
+	NewState State `json:"newState"`
+
+	// If true, the client may call "ContactCard/changes" again with the "newState" returned to get further updates.
+	// If false, "newState" is the current server state.
+	HasMoreChanges bool `json:"hasMoreChanges"`
+
+	// An array of ids for records that have been created since the old state.
+	Created []string `json:"created,omitempty"`
+
+	// An array of ids for records that have been updated since the old state.
+	Updated []string `json:"updated,omitempty"`
+
+	// An array of ids for records that have been destroyed since the old state.
+	Destroyed []string `json:"destroyed,omitempty"`
+}
+
 type ContactCardUpdate map[string]any
 
 type ContactCardSetCommand struct {
@@ -5884,6 +5929,7 @@ const (
 	CommandAddressBookGet      Command = "AddressBook/get"
 	CommandContactCardQuery    Command = "ContactCard/query"
 	CommandContactCardGet      Command = "ContactCard/get"
+	CommandContactCardChanges  Command = "ContactCard/changes"
 	CommandContactCardSet      Command = "ContactCard/set"
 	CommandCalendarEventParse  Command = "CalendarEvent/parse"
 	CommandCalendarGet         Command = "Calendar/get"
@@ -5916,6 +5962,7 @@ var CommandResponseTypeMap = map[Command]func() any{
 	CommandAddressBookGet:      func() any { return AddressBookGetResponse{} },
 	CommandContactCardQuery:    func() any { return ContactCardQueryResponse{} },
 	CommandContactCardGet:      func() any { return ContactCardGetResponse{} },
+	CommandContactCardChanges:  func() any { return ContactCardChangesResponse{} },
 	CommandContactCardSet:      func() any { return ContactCardSetResponse{} },
 	CommandCalendarEventParse:  func() any { return CalendarEventParseResponse{} },
 	CommandCalendarGet:         func() any { return CalendarGetResponse{} },

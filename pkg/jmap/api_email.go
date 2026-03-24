@@ -194,38 +194,18 @@ func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx c
 	})
 }
 
-func (j *Client) GetEmailChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceState State, maxChanges uint) (EmailChangesResponse, SessionState, State, Language, Error) {
-	logger = j.loggerParams("GetEmailChanges", session, logger, func(z zerolog.Context) zerolog.Context {
-		return z.Str(logSinceState, string(sinceState))
-	})
-
-	changes := EmailChangesCommand{
-		AccountId:  accountId,
-		SinceState: sinceState,
-	}
-	if maxChanges > 0 {
-		changes.MaxChanges = maxChanges
-	}
-
-	cmd, err := j.request(session, logger, invocation(CommandEmailChanges, changes, "0"))
-	if err != nil {
-		return EmailChangesResponse{}, "", "", "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
-	}
-
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (EmailChangesResponse, State, Error) {
-		var changesResponse EmailChangesResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailChanges, "0", &changesResponse)
-		if err != nil {
-			return EmailChangesResponse{}, "", err
-		}
-
-		return changesResponse, changesResponse.NewState, nil
-	})
+type EmailChanges struct {
+	HasMoreChanges bool     `json:"hasMoreChanges"`
+	OldState       State    `json:"oldState,omitempty"`
+	NewState       State    `json:"newState"`
+	Created        []Email  `json:"created,omitempty"`
+	Updated        []Email  `json:"updated,omitempty"`
+	Destroyed      []string `json:"destroyed,omitempty"`
 }
 
 // Get all the Emails that have been created, updated or deleted since a given state.
-func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceState State, fetchBodies bool, maxBodyValueBytes uint, maxChanges uint) (MailboxChanges, SessionState, State, Language, Error) {
-	logger = j.loggerParams("GetEmailsSince", session, logger, func(z zerolog.Context) zerolog.Context {
+func (j *Client) GetEmailChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceState State, fetchBodies bool, maxBodyValueBytes uint, maxChanges uint) (EmailChanges, SessionState, State, Language, Error) {
+	logger = j.loggerParams("GetEmailChanges", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Str(logSinceState, string(sinceState))
 	})
 
@@ -234,7 +214,7 @@ func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.
 		SinceState: sinceState,
 	}
 	if maxChanges > 0 {
-		changes.MaxChanges = maxChanges
+		changes.MaxChanges = &maxChanges
 	}
 
 	getCreated := EmailGetRefCommand{
@@ -260,33 +240,34 @@ func (j *Client) GetEmailsSince(accountId string, session *Session, ctx context.
 		invocation(CommandEmailGet, getUpdated, "2"),
 	)
 	if err != nil {
-		return MailboxChanges{}, "", "", "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return EmailChanges{}, "", "", "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (MailboxChanges, State, Error) {
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (EmailChanges, State, Error) {
 		var changesResponse EmailChangesResponse
 		err = retrieveResponseMatchParameters(logger, body, CommandEmailChanges, "0", &changesResponse)
 		if err != nil {
-			return MailboxChanges{}, "", err
+			return EmailChanges{}, "", err
 		}
 
 		var createdResponse EmailGetResponse
 		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "1", &createdResponse)
 		if err != nil {
 			logger.Error().Err(err).Send()
-			return MailboxChanges{}, "", err
+			return EmailChanges{}, "", err
 		}
 
 		var updatedResponse EmailGetResponse
 		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "2", &updatedResponse)
 		if err != nil {
 			logger.Error().Err(err).Send()
-			return MailboxChanges{}, "", err
+			return EmailChanges{}, "", err
 		}
 
-		return MailboxChanges{
+		return EmailChanges{
 			Destroyed:      changesResponse.Destroyed,
 			HasMoreChanges: changesResponse.HasMoreChanges,
+			OldState:       changesResponse.OldState,
 			NewState:       changesResponse.NewState,
 			Created:        createdResponse.List,
 			Updated:        updatedResponse.List,

@@ -14,10 +14,10 @@ func (g *Groupware) GetAccount(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountId, account, err := req.GetAccountForMail()
 		if err != nil {
-			return errorResponse(single(accountId), err)
+			return req.error(accountId, err)
 		}
 		var body jmap.Account = account
-		return etagResponse(single(accountId), body, req.session.State, AccountResponseObjectType, jmap.State(req.session.State), "")
+		return req.respond(accountId, body, req.session.State, AccountResponseObjectType, "")
 	})
 }
 
@@ -36,7 +36,7 @@ func (g *Groupware) GetAccounts(w http.ResponseWriter, r *http.Request) {
 		// sort on accountId to have a stable order that remains the same with every query
 		slices.SortFunc(list, func(a, b AccountWithId) int { return strings.Compare(a.AccountId, b.AccountId) })
 		var RBODY []AccountWithId = list
-		return etagResponse(structs.Map(list, func(a AccountWithId) string { return a.AccountId }), RBODY, req.session.State, AccountResponseObjectType, jmap.State(req.session.State), "")
+		return req.respondN(structs.Map(list, func(a AccountWithId) string { return a.AccountId }), RBODY, req.session.State, AccountResponseObjectType, "")
 	})
 }
 
@@ -46,7 +46,7 @@ func (g *Groupware) GetAccountsWithTheirIdentities(w http.ResponseWriter, r *htt
 		allAccountIds := req.AllAccountIds()
 		resp, sessionState, state, lang, err := g.jmap.GetIdentitiesForAllAccounts(allAccountIds, req.session, req.ctx, req.logger, req.language())
 		if err != nil {
-			return req.errorResponseFromJmap(allAccountIds, err)
+			return req.jmapErrorN(allAccountIds, err, sessionState, lang)
 		}
 		list := make([]AccountWithIdAndIdentities, len(req.session.Accounts))
 		i := 0
@@ -66,7 +66,7 @@ func (g *Groupware) GetAccountsWithTheirIdentities(w http.ResponseWriter, r *htt
 		// sort on accountId to have a stable order that remains the same with every query
 		slices.SortFunc(list, func(a, b AccountWithIdAndIdentities) int { return strings.Compare(a.AccountId, b.AccountId) })
 		var RBODY []AccountWithIdAndIdentities = list
-		return etagResponse(structs.Map(list, func(a AccountWithIdAndIdentities) string { return a.AccountId }), RBODY, sessionState, AccountResponseObjectType, state, lang)
+		return req.respondN(structs.Map(list, func(a AccountWithIdAndIdentities) string { return a.AccountId }), RBODY, sessionState, AccountResponseObjectType, state)
 	})
 }
 

@@ -16,13 +16,13 @@ func (g *Groupware) GetBlobMeta(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountId, err := req.GetAccountIdForBlob()
 		if err != nil {
-			return errorResponse(single(accountId), err)
+			return req.error(accountId, err)
 		}
 		l := req.logger.With().Str(logAccountId, accountId)
 
 		blobId, err := req.PathParam(UriParamBlobId)
 		if err != nil {
-			return errorResponse(single(accountId), err)
+			return req.error(accountId, err)
 		}
 		l = l.Str(UriParamBlobId, blobId)
 
@@ -30,12 +30,12 @@ func (g *Groupware) GetBlobMeta(w http.ResponseWriter, r *http.Request) {
 
 		res, sessionState, state, lang, jerr := g.jmap.GetBlobMetadata(accountId, req.session, req.ctx, logger, req.language(), blobId)
 		if jerr != nil {
-			return req.errorResponseFromJmap(single(accountId), jerr)
+			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
 		if res == nil {
-			return notFoundResponse(single(accountId), sessionState)
+			return req.notFound(accountId, sessionState, BlobResponseObjectType, state)
 		}
-		return etagResponse(single(accountId), res, sessionState, BlobResponseObjectType, state, lang)
+		return req.respond(accountId, res, sessionState, BlobResponseObjectType, state)
 	})
 }
 
@@ -54,16 +54,16 @@ func (g *Groupware) UploadBlob(w http.ResponseWriter, r *http.Request) {
 
 		accountId, err := req.GetAccountIdForBlob()
 		if err != nil {
-			return errorResponse(single(accountId), err)
+			return req.error(accountId, err)
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
 
 		resp, lang, jerr := g.jmap.UploadBlobStream(accountId, req.session, req.ctx, logger, req.language(), contentType, body)
 		if jerr != nil {
-			return req.errorResponseFromJmap(single(accountId), jerr)
+			return req.jmapError(accountId, jerr, req.session.State, lang)
 		}
 
-		return response(single(accountId), resp, req.session.State, lang)
+		return req.respondWithoutStatus(accountId, resp)
 	})
 }
 

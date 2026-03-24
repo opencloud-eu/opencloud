@@ -90,7 +90,7 @@ func TestWs(t *testing.T) {
 
 	var initialState State
 	{
-		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, session, s.ctx, s.logger, "", "", 0)
+		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, session, s.ctx, s.logger, "", State(""), true, 0, 0)
 		require.NoError(err)
 		require.Equal(session.State, sessionState)
 		require.NotEmpty(state)
@@ -104,7 +104,7 @@ func TestWs(t *testing.T) {
 	require.NotEmpty(initialState)
 
 	{
-		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, session, s.ctx, s.logger, "", initialState, 0)
+		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, session, s.ctx, s.logger, "", initialState, true, 0, 0)
 		require.NoError(err)
 		require.Equal(session.State, sessionState)
 		require.Equal(initialState, state)
@@ -147,7 +147,7 @@ func TestWs(t *testing.T) {
 	}
 	var lastState State
 	{
-		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, session, s.ctx, s.logger, "", initialState, 0)
+		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, session, s.ctx, s.logger, "", initialState, true, 0, 0)
 		require.NoError(err)
 		require.Equal(session.State, sessionState)
 		require.NotEqual(initialState, state)
@@ -158,7 +158,7 @@ func TestWs(t *testing.T) {
 		require.Empty(changes.Updated)
 		lastState = state
 
-		emailIds = append(emailIds, changes.Created...)
+		emailIds = append(emailIds, structs.Map(changes.Created, func(e Email) string { return e.Id })...)
 	}
 
 	{
@@ -181,7 +181,7 @@ func TestWs(t *testing.T) {
 		l.m.Unlock()
 	}
 	{
-		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, session, s.ctx, s.logger, "", lastState, 0)
+		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, session, s.ctx, s.logger, "", lastState, true, 0, 0)
 		require.NoError(err)
 		require.Equal(session.State, sessionState)
 		require.NotEqual(lastState, state)
@@ -192,7 +192,7 @@ func TestWs(t *testing.T) {
 		require.Empty(changes.Updated)
 		lastState = state
 
-		emailIds = append(emailIds, changes.Created...)
+		emailIds = append(emailIds, structs.Map(changes.Created, func(e Email) string { return e.Id })...)
 	}
 
 	{
@@ -215,7 +215,7 @@ func TestWs(t *testing.T) {
 		l.m.Unlock()
 	}
 	{
-		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, session, s.ctx, s.logger, "", lastState, 0)
+		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, session, s.ctx, s.logger, "", lastState, true, 0, 0)
 		require.NoError(err)
 		require.Equal(session.State, sessionState)
 		require.NotEqual(lastState, state)
