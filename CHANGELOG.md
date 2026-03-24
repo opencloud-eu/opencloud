@@ -1,6 +1,6 @@
 # Changelog
 
-## [5.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.3.0) - 2026-03-23
+## [5.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.3.0) - 2026-03-24
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -18,6 +18,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/nats-io/nats-server/v2 from 2.12.4 to 2.12.5 [[#2499](https://github.com/opencloud-eu/opencloud/pull/2499)]
 - build(deps): bump github.com/russellhaering/goxmldsig from 1.5.0 to 1.6.0 [[#2503](https://github.com/opencloud-eu/opencloud/pull/2503)]
 - build(deps): bump golang.org/x/net from 0.51.0 to 0.52.0 [[#2472](https://github.com/opencloud-eu/opencloud/pull/2472)]
 - build(deps): bump go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc from 0.65.0 to 0.67.0 [[#2473](https://github.com/opencloud-eu/opencloud/pull/2473)]
