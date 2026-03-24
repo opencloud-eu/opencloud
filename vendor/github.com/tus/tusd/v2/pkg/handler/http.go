@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"maps"
 	"net/http"
 	"strconv"
 )
@@ -67,13 +68,9 @@ func (resp1 HTTPResponse) MergeWith(resp2 HTTPResponse) HTTPResponse {
 	// into the header map from response 1.
 	newResp.Header = make(HTTPHeader, len(resp1.Header)+len(resp2.Header))
 
-	for key, value := range resp1.Header {
-		newResp.Header[key] = value
-	}
+	maps.Copy(newResp.Header, resp1.Header)
 
-	for key, value := range resp2.Header {
-		newResp.Header[key] = value
-	}
+	maps.Copy(newResp.Header, resp2.Header)
 
 	return newResp
 }

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"maps"
 	"sync"
 	"sync/atomic"
 )
@@ -123,9 +124,7 @@ func (e *ErrorsTotalMap) retrievePointerFor(err Error) *uint64 {
 func (e *ErrorsTotalMap) Load() map[ErrorsTotalMapEntry]*uint64 {
 	m := make(map[ErrorsTotalMapEntry]*uint64, len(e.counter))
 	e.lock.RLock()
-	for err, ptr := range e.counter {
-		m[err] = ptr
-	}
+	maps.Copy(m, e.counter)
 	e.lock.RUnlock()
 
 	return m

@@ -89,7 +89,7 @@ require (
 	github.com/thejerf/suture/v4 v4.0.6
 	github.com/tidwall/gjson v1.18.0
 	github.com/tidwall/sjson v1.2.5
-	github.com/tus/tusd/v2 v2.8.0
+	github.com/tus/tusd/v2 v2.9.2
 	github.com/unrolled/secure v1.16.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/xhit/go-simple-mail/v2 v2.16.0
@@ -392,7 +392,7 @@ require (
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.42.0 // indirect
-	google.golang.org/genproto v0.0.0-20250303144028-a0af3efb3deb // indirect
+	google.golang.org/genproto v0.0.0-20260128011058-8636f8732409 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260226221140-a57be14db171 // indirect
 	gopkg.in/cenkalti/backoff.v1 v1.1.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect

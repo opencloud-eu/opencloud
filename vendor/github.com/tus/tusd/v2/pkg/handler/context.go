@@ -80,18 +80,13 @@ func (h UnroutedHandler) getContext(w http.ResponseWriter, r *http.Request) *htt
 	return c
 }
 
-func (c httpContext) Value(key any) any {
-	// We overwrite the Value function to ensure that the values from the request
-	// context are returned because c.Context does not contain any values.
-	return c.req.Context().Value(key)
-}
-
-// newDelayedContext returns a context that is cancelled with a delay. If the parent context
+// newDelayedContext returns a context with delayed cancellation propagation. If the parent context
 // is done, the new context will also be cancelled but only after waiting the specified delay.
 // Note: The parent context MUST be cancelled or otherwise this will leak resources. In the
 // case of http.Request.Context, the net/http package ensures that the context is always cancelled.
 func newDelayedContext(parent context.Context, delay time.Duration) context.Context {
-	ctx, cancel := context.WithCancel(context.Background())
+	// Use context.WithoutCancel to preserve the values.
+	ctx, cancel := context.WithCancel(context.WithoutCancel(parent))
 	go func() {
 		<-parent.Done()
 		<-time.After(delay)

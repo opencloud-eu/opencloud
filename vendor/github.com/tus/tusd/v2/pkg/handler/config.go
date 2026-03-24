@@ -33,6 +33,9 @@ type Config struct {
 	// DisableTermination indicates whether the server will refuse termination
 	// requests of the uploaded file, by not mounting the DELETE handler.
 	DisableTermination bool
+	// DisableConcatenation indicates whether the server will refuse POST requests
+	// for creating uploads that use the concatenation extension.
+	DisableConcatenation bool
 	// Cors can be used to customize the handling of Cross-Origin Resource Sharing (CORS).
 	// See the CorsConfig struct for more details.
 	// Defaults to DefaultCorsConfig.
