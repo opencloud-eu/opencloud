@@ -615,6 +615,13 @@ docker run --network 'opencloud_full_opencloud-net' --rm -ti alpine:3 \
 /bin/sh -c "apk update && apk add openldap-clients && exec /bin/sh -il"
 ```
 
+Or, to combine it directly with the `ldapsearch` command:
+
+```bash
+docker run --network 'opencloud_full_opencloud-net' --rm alpine \
+/bin/sh -c "apk update -q && apk add -q openldap-clients && LDAPTLS_REQCERT=never ldapsearch -H 'ldaps://opencloud:9235' -D 'uid=reva,ou=sysusers,o=libregraph-idm' -x -w 'admin' -b 'o=libregraph-idm' -LLL '(objectClass=person)' dn"
+```
+
 ### Testing Keycloak
 
 > [!NOTE]
