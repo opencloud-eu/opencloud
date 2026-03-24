@@ -18,6 +18,8 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/tus/tusd/v2 from 2.8.0 to 2.9.2 [[#2485](https://github.com/opencloud-eu/opencloud/pull/2485)]
+- build(deps): bump google.golang.org/grpc from 1.79.2 to 1.79.3 [[#2519](https://github.com/opencloud-eu/opencloud/pull/2519)]
 - build(deps): bump github.com/nats-io/nats-server/v2 from 2.12.4 to 2.12.5 [[#2499](https://github.com/opencloud-eu/opencloud/pull/2499)]
 - build(deps): bump github.com/russellhaering/goxmldsig from 1.5.0 to 1.6.0 [[#2503](https://github.com/opencloud-eu/opencloud/pull/2503)]
 - build(deps): bump golang.org/x/net from 0.51.0 to 0.52.0 [[#2472](https://github.com/opencloud-eu/opencloud/pull/2472)]
