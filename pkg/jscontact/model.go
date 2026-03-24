@@ -1905,6 +1905,7 @@ type PartialDate struct {
 }
 
 func (_ PartialDate) isAnniversaryDate() {
+	// marker interface method, does not need to do anything
 }
 
 var _ AnniversaryDate = &PartialDate{}
@@ -1920,6 +1921,7 @@ type Timestamp struct {
 var _ AnniversaryDate = &Timestamp{}
 
 func (_ Timestamp) isAnniversaryDate() {
+	// marker interface method, does not need to do anything
 }
 
 type Anniversary struct {

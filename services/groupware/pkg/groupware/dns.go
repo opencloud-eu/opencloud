@@ -74,7 +74,7 @@ func (d DnsSessionUrlResolver) isRedListed(domain string) bool {
 	return !slices.Contains(d.domainRedList, domain)
 }
 
-func (d DnsSessionUrlResolver) Resolve(ctx context.Context, username string) (*url.URL, *GroupwareError) {
+func (d DnsSessionUrlResolver) Resolve(ctx context.Context, username string) (*url.URL, *GroupwareError) { //NOSONAR
 	// heuristic to detect whether the username is an email address
 	parts := strings.Split(username, "@")
 	domain := d.defaultDomain

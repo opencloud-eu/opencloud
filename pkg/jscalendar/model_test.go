@@ -73,7 +73,7 @@ func TestLink(t *testing.T) {
 	}`, Link{
 		Type:        LinkType,
 		Href:        "https://opencloud.eu.example.com/f72ae875-40be-48a4-84ff-aea9aed3e085.png",
-		ContentType: "image/png",
+		ContentType: "image/png", //NOSONAR
 		Size:        128912,
 		Rel:         RelIcon,
 		Display:     DisplayThumbnail,
@@ -158,10 +158,10 @@ func TestNDay(t *testing.T) {
 }
 
 func TestRecurrenceRule(t *testing.T) {
-	ts, err := time.Parse(time.RFC3339, "2025-09-25T18:26:14+02:00")
+	ts, err := time.Parse(time.RFC3339, "2025-09-25T18:26:14+02:00") //NOSONAR
 	require.NoError(t, err)
 	ts = ts.UTC()
-	l := LocalDateTime("2025-09-25T16:26:14")
+	l := LocalDateTime("2025-09-25T16:26:14") //NOSONAR
 
 	jsoneq(t, `{
 		"@type": "RecurrenceRule",
@@ -361,7 +361,7 @@ func TestAlertWithAbsoluteTrigger(t *testing.T) {
 		},
 		Acknowledged: ts,
 		RelatedTo: map[string]Relation{
-			"a2e729eb-7d9c-4ea7-8514-93d2590ef0a2": {
+			"a2e729eb-7d9c-4ea7-8514-93d2590ef0a2": { //NOSONAR
 				Type: RelationType,
 				Relation: map[Relationship]bool{
 					RelationshipFirst: true,

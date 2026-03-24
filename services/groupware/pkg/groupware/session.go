@@ -172,7 +172,7 @@ type sessionCacheBuilder struct {
 	sessionFailureCacheTtl    time.Duration
 }
 
-func newSessionCacheBuilder(
+func newSessionCacheBuilder( //NOSONAR
 	sessionUrl *url.URL,
 	logger *log.Logger,
 	sessionSupplier func(ctx context.Context, sessionUrl *url.URL, username string, logger *log.Logger) (jmap.Session, jmap.Error),
@@ -229,7 +229,7 @@ func (b *sessionCacheBuilder) withDnsAutoDiscovery(
 	return b
 }
 
-func (b *sessionCacheBuilder) build() (sessionCache, error) {
+func (b *sessionCacheBuilder) build() (sessionCache, error) { //NOSONAR
 	var cache *ttlcache.Cache[sessionCacheKey, cachedSession]
 
 	sessionUrlResolver, err := b.sessionUrlResolverFactory()

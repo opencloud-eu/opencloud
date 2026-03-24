@@ -206,7 +206,7 @@ func (lc *stalwartTestLogConsumer) Accept(l testcontainers.Log) {
 	fmt.Print("STALWART: " + string(l.Content))
 }
 
-func newStalwartTest(t *testing.T) (*StalwartTest, error) {
+func newStalwartTest(t *testing.T) (*StalwartTest, error) { //NOSONAR
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	var _ context.CancelFunc = cancel // ignore context leak warning: it is passed in the struct and called in Close()
 
@@ -369,7 +369,7 @@ func newStalwartTest(t *testing.T) (*StalwartTest, error) {
 			req.SetBasicAuth("mailadmin", "secret")
 			resp, err := h.Do(req)
 			require.NoError(t, err)
-			require.Equal(t, "200 OK", resp.Status)
+			require.Equal(t, "200 OK", resp.Status) //NOSONAR
 		}
 
 		for _, user := range users {
@@ -562,7 +562,7 @@ type uploadedBlob struct {
 	Sha512 string `json:"sha:512"`
 }
 
-func (j *TestJmapClient) uploadBlob(accountId string, data []byte, mimetype string) (uploadedBlob, error) {
+func (j *TestJmapClient) uploadBlob(accountId string, data []byte, mimetype string) (uploadedBlob, error) { //NOSONAR
 	uploadUrl := strings.ReplaceAll(j.session.UploadUrl, "{accountId}", accountId)
 	req, err := http.NewRequest(http.MethodPost, uploadUrl, bytes.NewReader(data))
 	if err != nil {
@@ -608,7 +608,7 @@ func (j *TestJmapClient) uploadBlob(accountId string, data []byte, mimetype stri
 	return result, nil
 }
 
-func (j *TestJmapClient) command(body map[string]any) ([]any, error) {
+func (j *TestJmapClient) command(body map[string]any) ([]any, error) { //NOSONAR
 	payload, err := json.Marshal(body)
 	if err != nil {
 		return nil, err

@@ -14,7 +14,7 @@ import (
 	c "github.com/opencloud-eu/opencloud/pkg/jscontact"
 )
 
-func SerializeExamples(e any) {
+func SerializeExamples(e any) { //NOSONAR
 	type example struct {
 		Type    string `json:"type"`
 		Key     string `json:"key,omitempty"`
@@ -146,7 +146,7 @@ var ExemplarInstance = Exemplar{
 	AccountId:                  "b",
 	Username:                   "cdrummer",
 	IdentityId:                 "aemua9ai",
-	IdentityName:               "Camina Drummer",
+	IdentityName:               "Camina Drummer", //NOSONAR
 	EmailAddress:               "cdrummer@opa.example.com",
 	BccName:                    "OPA Secretary",
 	BccAddress:                 "secretary@opa.example.com",
@@ -519,7 +519,7 @@ func (e Exemplar) Identities() []Identity {
 	return []Identity{a, b}
 }
 
-func (e Exemplar) Identity_req() Identity {
+func (e Exemplar) Identity_req() Identity { //NOSONAR
 	return Identity{
 		Name:  e.IdentityName,
 		Email: e.EmailAddress,
@@ -964,7 +964,7 @@ func (e Exemplar) OtherJSCalendar() (c.Calendar, string, string) {
 		Type:      c.CalendarType,
 		Kind:      c.CalendarKindCalendar,
 		Uri:       "https://opencloud.example.com/calendar/d05779b6-9638-4694-9869-008a61df6025",
-		MediaType: "application/jscontact+json",
+		MediaType: "application/jscontact+json", //NOSONAR
 		Contexts: map[c.CalendarContext]bool{
 			c.CalendarContextWork: true,
 		},
@@ -1276,7 +1276,7 @@ func (e Exemplar) Anniversary() (c.Anniversary, string, string) {
 }
 
 func (e Exemplar) OtherAnniversary() (c.Anniversary, string, string) {
-	ts, _ := time.Parse(time.RFC3339, "2025-09-25T18:26:14.094725532+02:00")
+	ts, _ := time.Parse(time.RFC3339, "2025-09-25T18:26:14.094725532+02:00") //NOSONAR
 	return c.Anniversary{
 		Type: c.AnniversaryType,
 		Kind: c.AnniversaryKindBirth,

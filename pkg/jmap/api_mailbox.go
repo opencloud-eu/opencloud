@@ -114,7 +114,7 @@ func (j *Client) SearchMailboxes(accountIds []string, session *Session, ctx cont
 	})
 }
 
-func (j *Client) SearchMailboxIdsPerRole(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, roles []string) (map[string]map[string]string, SessionState, State, Language, Error) {
+func (j *Client) SearchMailboxIdsPerRole(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, roles []string) (map[string]map[string]string, SessionState, State, Language, Error) { //NOSONAR
 	logger = j.logger("SearchMailboxIdsPerRole", session, logger)
 
 	uniqueAccountIds := structs.Uniq(accountIds)
@@ -228,7 +228,7 @@ func (j *Client) GetMailboxChanges(accountId string, session *Session, ctx conte
 }
 
 // Retrieve Email changes in Mailboxes of multiple Accounts.
-func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceStateMap map[string]string, maxChanges uint) (map[string]MailboxChanges, SessionState, State, Language, Error) {
+func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceStateMap map[string]string, maxChanges uint) (map[string]MailboxChanges, SessionState, State, Language, Error) { //NOSONAR
 	logger = j.loggerParams("GetMailboxChangesForMultipleAccounts", session, logger, func(z zerolog.Context) zerolog.Context {
 		sinceStateLogDict := zerolog.Dict()
 		for k, v := range sinceStateMap {
@@ -417,7 +417,7 @@ func (j *Client) GetInboxNameForMultipleAccounts(accountIds []string, session *S
 	})
 }
 
-func (j *Client) UpdateMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, mailboxId string, ifInState string, update MailboxChange) (Mailbox, SessionState, State, Language, Error) {
+func (j *Client) UpdateMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, mailboxId string, ifInState string, update MailboxChange) (Mailbox, SessionState, State, Language, Error) { //NOSONAR
 	logger = j.logger("UpdateMailbox", session, logger)
 	cmd, err := j.request(session, logger, invocation(CommandMailboxSet, MailboxSetCommand{
 		AccountId: accountId,

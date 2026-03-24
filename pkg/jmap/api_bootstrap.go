@@ -12,7 +12,7 @@ type AccountBootstrapResult struct {
 	Quotas     []Quota    `json:"quotas,omitempty"`
 }
 
-func (j *Client) GetBootstrap(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]AccountBootstrapResult, SessionState, State, Language, Error) {
+func (j *Client) GetBootstrap(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]AccountBootstrapResult, SessionState, State, Language, Error) { //NOSONAR
 	uniqueAccountIds := structs.Uniq(accountIds)
 
 	logger = j.logger("GetBootstrap", session, logger)

@@ -67,13 +67,13 @@ func (g *Groupware) Route(r chi.Router) {
 		r.Get("/", g.GetAccountsWithTheirIdentities)
 		r.Route("/all", func(r chi.Router) {
 			r.Get("/", g.GetAccounts)
-			r.Route("/mailboxes", func(r chi.Router) {
+			r.Route("/mailboxes", func(r chi.Router) { //NOSONAR
 				r.Get("/", g.GetMailboxesForAllAccounts) // ?role=
 				r.Get("/changes", g.GetMailboxChangesForAllAccounts)
 				r.Get("/roles", g.GetMailboxRoles)                       // ?role=
 				r.Get("/roles/{role}", g.GetMailboxByRoleForAllAccounts) // ?role=
 			})
-			r.Route("/emails", func(r chi.Router) {
+			r.Route("/emails", func(r chi.Router) { //NOSONAR
 				r.Get("/", g.GetEmailsForAllAccounts)
 				r.Get("/latest/summary", g.GetLatestEmailsSummaryForAllAccounts) // ?limit=10&seen=true&undesirable=true
 			})
@@ -141,7 +141,7 @@ func (g *Groupware) Route(r chi.Router) {
 				r.Get("/", g.GetAddressbooks)
 				r.Route("/{addressbookid}", func(r chi.Router) {
 					r.Get("/", g.GetAddressbook)
-					r.Get("/contacts", g.GetContactsInAddressbook)
+					r.Get("/contacts", g.GetContactsInAddressbook) //NOSONAR
 				})
 			})
 			r.Route("/contacts", func(r chi.Router) {

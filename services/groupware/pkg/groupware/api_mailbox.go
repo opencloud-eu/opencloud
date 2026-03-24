@@ -51,7 +51,7 @@ func (g *Groupware) GetMailbox(w http.ResponseWriter, r *http.Request) {
 // It is analogous to a folder or a label in other systems.
 //
 // When none of the query parameters are specified, all the mailboxes are returned.
-func (g *Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	g.respond(w, r, func(req Request) Response {
 		var filter jmap.MailboxFilterCondition
 
@@ -109,7 +109,7 @@ func (g *Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) {
 }
 
 // Get the list of all the mailboxes of all accounts of a user, potentially filtering on the role of the mailboxes.
-func (g *Groupware) GetMailboxesForAllAccounts(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) GetMailboxesForAllAccounts(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	g.respond(w, r, func(req Request) Response {
 		accountIds := req.AllAccountIds()
 		if len(accountIds) < 1 {

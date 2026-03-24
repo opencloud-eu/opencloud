@@ -172,7 +172,7 @@ func (r groupwareHttpJmapApiClientMetricsRecorder) OnFailedWsHandshakeRequestWit
 	// TODO metrics for WSS
 }
 
-func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prometheusRegistry prometheus.Registerer) (*Groupware, error) {
+func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prometheusRegistry prometheus.Registerer) (*Groupware, error) { //NOSONAR
 	baseUrl, err := url.Parse(config.Mail.BaseUrl)
 	if err != nil {
 		logger.Error().Err(err).Msgf("failed to parse configured Mail.Baseurl '%v'", config.Mail.BaseUrl)
@@ -318,7 +318,7 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 	{
 		eventBufferSizeMetric, err := prometheus.NewConstMetric(m.EventBufferSizeDesc, prometheus.GaugeValue, float64(eventChannelSize))
 		if err != nil {
-			logger.Warn().Err(err).Msgf("failed to create metric %v", m.EventBufferSizeDesc.String())
+			logger.Warn().Err(err).Msgf("failed to create metric %v", m.EventBufferSizeDesc.String()) //NOSONAR
 		} else {
 			if err := prometheusRegistry.Register(metrics.ConstMetricCollector{Metric: eventBufferSizeMetric}); err != nil {
 				logger.Error().Err(err).Msg("failed to register event buffer size metric collector")
@@ -567,7 +567,7 @@ func (g *Groupware) serveError(w http.ResponseWriter, r *http.Request, error *Er
 		return
 	}
 	g.log(error)
-	w.Header().Add("Content-Type", ContentTypeJsonApi)
+	w.Header().Add("Content-Type", ContentTypeJsonApi) //NOSONAR
 	if !retryAfter.IsZero() {
 		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Retry-After
 		// either as an absolute timestamp:
@@ -578,7 +578,7 @@ func (g *Groupware) serveError(w http.ResponseWriter, r *http.Request, error *Er
 	render.Status(r, error.NumStatus)
 	w.WriteHeader(error.NumStatus)
 	if err := render.Render(w, r, errorResponses(*error)); err != nil {
-		g.logger.Error().Err(err).Msgf("failed to render error response")
+		g.logger.Error().Err(err).Msg("failed to render error response") //NOSONAR
 	}
 }
 

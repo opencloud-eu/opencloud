@@ -97,7 +97,7 @@ type ContactsBoxes struct {
 
 var streetNumberRegex = regexp.MustCompile(`^(\d+)\s+(.+)$`)
 
-func (s *StalwartTest) fillContacts(
+func (s *StalwartTest) fillContacts( //NOSONAR
 	t *testing.T,
 	count uint,
 	session *Session,

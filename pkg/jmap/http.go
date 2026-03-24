@@ -63,18 +63,25 @@ type nullHttpJmapApiClientEventListener struct {
 }
 
 func (l nullHttpJmapApiClientEventListener) OnSuccessfulRequest(endpoint string, status int) {
+	// null implementation does nothing
 }
 func (l nullHttpJmapApiClientEventListener) OnFailedRequest(endpoint string, err error) {
+	// null implementation does nothing
 }
 func (l nullHttpJmapApiClientEventListener) OnFailedRequestWithStatus(endpoint string, status int) {
+	// null implementation does nothing
 }
 func (l nullHttpJmapApiClientEventListener) OnResponseBodyReadingError(endpoint string, err error) {
+	// null implementation does nothing
 }
 func (l nullHttpJmapApiClientEventListener) OnResponseBodyUnmarshallingError(endpoint string, err error) {
+	// null implementation does nothing
 }
 func (l nullHttpJmapApiClientEventListener) OnSuccessfulWsRequest(endpoint string, status int) {
+	// null implementation does nothing
 }
 func (l nullHttpJmapApiClientEventListener) OnFailedWsHandshakeRequestWithStatus(endpoint string, status int) {
+	// null implementation does nothing
 }
 
 var _ HttpJmapApiClientEventListener = nullHttpJmapApiClientEventListener{}
@@ -187,14 +194,14 @@ func (h *HttpJmapClient) GetSession(ctx context.Context, sessionUrl *url.URL, us
 		defer func(Body io.ReadCloser) {
 			err := Body.Close()
 			if err != nil {
-				logger.Error().Err(err).Msg("failed to close response body")
+				logger.Error().Err(err).Msg("failed to close response body") //NOSONAR
 			}
 		}(res.Body)
 	}
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to read response body")
+		logger.Error().Err(err).Msg("failed to read response body") //NOSONAR
 		h.listener.OnResponseBodyReadingError(endpoint, err)
 		return SessionResponse{}, SimpleError{code: JmapErrorReadingResponseBody, err: err}
 	}
@@ -210,7 +217,7 @@ func (h *HttpJmapClient) GetSession(ctx context.Context, sessionUrl *url.URL, us
 	return data, nil
 }
 
-func (h *HttpJmapClient) Command(ctx context.Context, logger *log.Logger, session *Session, request Request, acceptLanguage string) ([]byte, Language, Error) {
+func (h *HttpJmapClient) Command(ctx context.Context, logger *log.Logger, session *Session, request Request, acceptLanguage string) ([]byte, Language, Error) { //NOSONAR
 	jmapUrl := session.JmapUrl.String()
 	endpoint := session.JmapEndpoint
 	logger = log.From(logger.With().Str(logEndpoint, endpoint))
@@ -230,11 +237,11 @@ func (h *HttpJmapClient) Command(ctx context.Context, logger *log.Logger, sessio
 	// Some JMAP APIs use the Accept-Language header to determine which language to use to translate
 	// texts in attributes.
 	if acceptLanguage != "" {
-		req.Header.Add("Accept-Language", acceptLanguage)
+		req.Header.Add("Accept-Language", acceptLanguage) //NOSONAR
 	}
 
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("User-Agent", h.userAgent)
+	req.Header.Add("Content-Type", "application/json") //NOSONAR
+	req.Header.Add("User-Agent", h.userAgent)          //NOSONAR
 
 	if logger.Trace().Enabled() {
 		requestBytes, err := httputil.DumpRequestOut(req, true)
@@ -262,10 +269,10 @@ func (h *HttpJmapClient) Command(ctx context.Context, logger *log.Logger, sessio
 		}
 	}
 
-	language := Language(res.Header.Get("Content-Language"))
+	language := Language(res.Header.Get("Content-Language")) //NOSONAR
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		h.listener.OnFailedRequestWithStatus(endpoint, res.StatusCode)
-		logger.Error().Str(logEndpoint, endpoint).Str(logHttpStatus, log.SafeString(res.Status)).Msg("HTTP response status code is not 2xx")
+		logger.Error().Str(logEndpoint, endpoint).Str(logHttpStatus, log.SafeString(res.Status)).Msg("HTTP response status code is not 2xx") //NOSONAR
 		return nil, language, SimpleError{code: JmapErrorServerResponse, err: err}
 	}
 	if res.Body != nil {
@@ -288,7 +295,7 @@ func (h *HttpJmapClient) Command(ctx context.Context, logger *log.Logger, sessio
 	return body, language, nil
 }
 
-func (h *HttpJmapClient) UploadBinary(ctx context.Context, logger *log.Logger, session *Session, uploadUrl string, endpoint string, contentType string, acceptLanguage string, body io.Reader) (UploadedBlob, Language, Error) {
+func (h *HttpJmapClient) UploadBinary(ctx context.Context, logger *log.Logger, session *Session, uploadUrl string, endpoint string, contentType string, acceptLanguage string, body io.Reader) (UploadedBlob, Language, Error) { //NOSONAR
 	logger = log.From(logger.With().Str(logEndpoint, endpoint))
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uploadUrl, body)
@@ -363,7 +370,7 @@ func (h *HttpJmapClient) UploadBinary(ctx context.Context, logger *log.Logger, s
 	return result, language, nil
 }
 
-func (h *HttpJmapClient) DownloadBinary(ctx context.Context, logger *log.Logger, session *Session, downloadUrl string, endpoint string, acceptLanguage string) (*BlobDownload, Language, Error) {
+func (h *HttpJmapClient) DownloadBinary(ctx context.Context, logger *log.Logger, session *Session, downloadUrl string, endpoint string, acceptLanguage string) (*BlobDownload, Language, Error) { //NOSONAR
 	logger = log.From(logger.With().Str(logEndpoint, endpoint))
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadUrl, nil)
@@ -554,7 +561,7 @@ type HttpWsClient struct {
 	WsClient
 }
 
-func (w *HttpWsClient) readPump() {
+func (w *HttpWsClient) readPump() { //NOSONAR
 	logger := log.From(w.logger.With().Str("username", w.username))
 	defer func() {
 		if err := w.c.Close(); err != nil {

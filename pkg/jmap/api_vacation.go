@@ -12,21 +12,15 @@ const (
 	vacationResponseId = "singleton"
 )
 
-// https://jmap.io/spec-mail.html#vacationresponseget
 func (j *Client) GetVacationResponse(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (VacationResponseGetResponse, SessionState, State, Language, Error) {
-	logger = j.logger("GetVacationResponse", session, logger)
-	cmd, err := j.request(session, logger, invocation(CommandVacationResponseGet, VacationResponseGetCommand{AccountId: accountId}, "0"))
-	if err != nil {
-		return VacationResponseGetResponse{}, "", "", "", err
-	}
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (VacationResponseGetResponse, State, Error) {
-		var response VacationResponseGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandVacationResponseGet, "0", &response)
-		if err != nil {
-			return VacationResponseGetResponse{}, "", err
-		}
-		return response, response.State, nil
-	})
+	return getTemplate(j, "GetVacationResponse", CommandVacationResponseGet,
+		func(accountId string, ids []string) VacationResponseGetCommand {
+			return VacationResponseGetCommand{AccountId: accountId}
+		},
+		identity1,
+		func(resp VacationResponseGetResponse) State { return resp.State },
+		accountId, session, ctx, logger, acceptLanguage, []string{},
+	)
 }
 
 // Same as VacationResponse but without the id.

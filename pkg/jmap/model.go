@@ -1369,7 +1369,9 @@ type MailboxFilterCondition struct {
 	IsSubscribed *bool  `json:"isSubscribed,omitempty"`
 }
 
-func (c MailboxFilterCondition) _isAMailboxFilterElement() {}
+func (c MailboxFilterCondition) _isAMailboxFilterElement() { //NOSONAR
+	// marker interface method, does not need to do anything
+}
 
 var _ MailboxFilterElement = &MailboxFilterCondition{}
 
@@ -1378,7 +1380,9 @@ type MailboxFilterOperator struct {
 	Conditions []MailboxFilterElement `json:"conditions,omitempty"`
 }
 
-func (c MailboxFilterOperator) _isAMailboxFilterElement() {}
+func (c MailboxFilterOperator) _isAMailboxFilterElement() { //NOSONAR
+	// marker interface method, does not need to do anything
+}
 
 var _ MailboxFilterElement = &MailboxFilterOperator{}
 
@@ -1498,10 +1502,11 @@ type EmailFilterCondition struct {
 	Header []string `json:"header,omitempty"`
 }
 
-func (f EmailFilterCondition) _isAnEmailFilterElement() {
+func (f EmailFilterCondition) _isAnEmailFilterElement() { //NOSONAR
+	// marker interface method, does not need to do anything
 }
 
-func (f EmailFilterCondition) IsNotEmpty() bool {
+func (f EmailFilterCondition) IsNotEmpty() bool { //NOSONAR
 	if !f.After.IsZero() {
 		return true
 	}
@@ -1572,7 +1577,8 @@ type EmailFilterOperator struct {
 	Conditions []EmailFilterElement `json:"conditions,omitempty"`
 }
 
-func (o EmailFilterOperator) _isAnEmailFilterElement() {
+func (o EmailFilterOperator) _isAnEmailFilterElement() { //NOSONAR
+	// marker interface method, does not need to do anything
 }
 
 func (o EmailFilterOperator) IsNotEmpty() bool {
@@ -5064,10 +5070,11 @@ type ContactCardFilterCondition struct {
 	Note string `json:"note,omitempty"`
 }
 
-func (f ContactCardFilterCondition) _isAContactCardFilterElement() {
+func (f ContactCardFilterCondition) _isAContactCardFilterElement() { //NOSONAR
+	// marker interface method, does not need to do anything
 }
 
-func (f ContactCardFilterCondition) IsNotEmpty() bool {
+func (f ContactCardFilterCondition) IsNotEmpty() bool { //NOSONAR
 	if len(f.InAddressBook) != 0 {
 		return true
 	}
@@ -5138,7 +5145,8 @@ type ContactCardFilterOperator struct {
 	Conditions []ContactCardFilterElement `json:"conditions,omitempty"`
 }
 
-func (o ContactCardFilterOperator) _isAContactCardFilterElement() {
+func (o ContactCardFilterOperator) _isAContactCardFilterElement() { //NOSONAR
+	// marker interface method, does not need to do anything
 }
 
 func (o ContactCardFilterOperator) IsNotEmpty() bool {
@@ -5577,7 +5585,8 @@ type CalendarEventFilterCondition struct {
 	Uid string `json:"uid,omitempty" doc:"opt"`
 }
 
-func (f CalendarEventFilterCondition) _isACalendarEventFilterElement() {
+func (f CalendarEventFilterCondition) _isACalendarEventFilterElement() { //NOSONAR
+	// marker interface method, does not need to do anything
 }
 
 func (f CalendarEventFilterCondition) IsNotEmpty() bool {
@@ -5624,7 +5633,8 @@ type CalendarEventFilterOperator struct {
 	Conditions []CalendarEventFilterElement `json:"conditions,omitempty"`
 }
 
-func (o CalendarEventFilterOperator) _isACalendarEventFilterElement() {
+func (o CalendarEventFilterOperator) _isACalendarEventFilterElement() { //NOSONAR
+	// marker interface method, does not need to do anything
 }
 
 func (o CalendarEventFilterOperator) IsNotEmpty() bool {

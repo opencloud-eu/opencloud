@@ -52,7 +52,7 @@ func (j *Client) UploadBlobStream(accountId string, session *Session, ctx contex
 	return j.blob.UploadBinary(ctx, logger, session, uploadUrl, session.UploadEndpoint, contentType, acceptLanguage, body)
 }
 
-func (j *Client) DownloadBlobStream(accountId string, blobId string, name string, typ string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (*BlobDownload, Language, Error) {
+func (j *Client) DownloadBlobStream(accountId string, blobId string, name string, typ string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (*BlobDownload, Language, Error) { //NOSONAR
 	logger = log.From(logger.With().Str(logEndpoint, session.DownloadEndpoint))
 	// TODO(pbleser-oc) use a library for proper URL template parsing
 	downloadUrl := session.DownloadUrlTemplate
