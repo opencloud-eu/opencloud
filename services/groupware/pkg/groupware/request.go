@@ -223,7 +223,7 @@ func (r *Request) parameterError(param string, detail string) *Error {
 }
 
 func (r *Request) parameterErrorResponse(accountIds []string, param string, detail string) Response {
-	return errorResponse(accountIds, r.parameterError(param, detail))
+	return r.errorN(accountIds, r.parameterError(param, detail))
 }
 
 func (r *Request) getStringParam(param string, defaultValue string) (string, bool) {
@@ -427,7 +427,7 @@ func (r *Request) observeJmapError(jerr jmap.Error) jmap.Error {
 func (r *Request) needTask(accountId string) (bool, Response) {
 	if !IgnoreSessionCapabilityChecksForTasks {
 		if r.session.Capabilities.Tasks == nil {
-			return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorMissingTasksSessionCapability), r.session.State)
+			return false, errorResponse(single(accountId), r.apiError(&ErrorMissingTasksSessionCapability), r.session.State, jmap.Language(r.language()))
 		}
 	}
 	return true, Response{}
@@ -439,10 +439,10 @@ func (r *Request) needTaskForAccount(accountId string) (bool, Response) {
 	}
 	account, ok := r.session.Accounts[accountId]
 	if !ok {
-		return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorAccountNotFound), r.session.State)
+		return false, errorResponse(single(accountId), r.apiError(&ErrorAccountNotFound), r.session.State, jmap.NoLanguage)
 	}
 	if account.AccountCapabilities.Tasks == nil {
-		return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorMissingTasksAccountCapability), r.session.State)
+		return false, errorResponse(single(accountId), r.apiError(&ErrorMissingTasksAccountCapability), r.session.State, jmap.NoLanguage)
 	}
 	return true, Response{}
 }
@@ -450,7 +450,7 @@ func (r *Request) needTaskForAccount(accountId string) (bool, Response) {
 func (r *Request) needTaskWithAccount() (bool, string, Response) {
 	accountId, err := r.GetAccountIdForTask()
 	if err != nil {
-		return false, "", errorResponse(single(accountId), err)
+		return false, "", r.error(accountId, err)
 	}
 	if ok, resp := r.needTaskForAccount(accountId); !ok {
 		return false, accountId, resp
@@ -460,7 +460,7 @@ func (r *Request) needTaskWithAccount() (bool, string, Response) {
 
 func (r *Request) needCalendar(accountId string) (bool, Response) {
 	if r.session.Capabilities.Calendars == nil {
-		return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorMissingCalendarsSessionCapability), r.session.State)
+		return false, errorResponse(single(accountId), r.apiError(&ErrorMissingCalendarsSessionCapability), r.session.State, jmap.NoLanguage)
 	}
 	return true, Response{}
 }
@@ -471,10 +471,10 @@ func (r *Request) needCalendarForAccount(accountId string) (bool, Response) {
 	}
 	account, ok := r.session.Accounts[accountId]
 	if !ok {
-		return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorAccountNotFound), r.session.State)
+		return false, errorResponse(single(accountId), r.apiError(&ErrorAccountNotFound), r.session.State, jmap.NoLanguage)
 	}
 	if account.AccountCapabilities.Calendars == nil {
-		return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorMissingCalendarsAccountCapability), r.session.State)
+		return false, errorResponse(single(accountId), r.apiError(&ErrorMissingCalendarsAccountCapability), r.session.State, jmap.NoLanguage)
 	}
 	return true, Response{}
 }
@@ -482,7 +482,7 @@ func (r *Request) needCalendarForAccount(accountId string) (bool, Response) {
 func (r *Request) needCalendarWithAccount() (bool, string, Response) {
 	accountId, err := r.GetAccountIdForCalendar()
 	if err != nil {
-		return false, "", errorResponse(single(accountId), err)
+		return false, "", r.error(accountId, err)
 	}
 	if ok, resp := r.needCalendarForAccount(accountId); !ok {
 		return false, accountId, resp
@@ -492,7 +492,7 @@ func (r *Request) needCalendarWithAccount() (bool, string, Response) {
 
 func (r *Request) needContact(accountId string) (bool, Response) {
 	if r.session.Capabilities.Contacts == nil {
-		return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorMissingContactsSessionCapability), r.session.State)
+		return false, errorResponse(single(accountId), r.apiError(&ErrorMissingContactsSessionCapability), r.session.State, jmap.NoLanguage)
 	}
 	return true, Response{}
 }
@@ -503,10 +503,10 @@ func (r *Request) needContactForAccount(accountId string) (bool, Response) {
 	}
 	account, ok := r.session.Accounts[accountId]
 	if !ok {
-		return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorAccountNotFound), r.session.State)
+		return false, errorResponse(single(accountId), r.apiError(&ErrorAccountNotFound), r.session.State, jmap.NoLanguage)
 	}
 	if account.AccountCapabilities.Contacts == nil {
-		return false, errorResponseWithSessionState(single(accountId), r.apiError(&ErrorMissingContactsAccountCapability), r.session.State)
+		return false, errorResponse(single(accountId), r.apiError(&ErrorMissingContactsAccountCapability), r.session.State, jmap.NoLanguage)
 	}
 	return true, Response{}
 }
@@ -514,7 +514,7 @@ func (r *Request) needContactForAccount(accountId string) (bool, Response) {
 func (r *Request) needContactWithAccount() (bool, string, Response) {
 	accountId, err := r.GetAccountIdForContact()
 	if err != nil {
-		return false, "", errorResponse(single(accountId), err)
+		return false, "", r.error(accountId, err)
 	}
 	if ok, resp := r.needContactForAccount(accountId); !ok {
 		return false, accountId, resp
@@ -565,7 +565,7 @@ func (r *Request) parseSort(s string, props []string) ([]SortCrit, *Error) {
 func mapSort[T any](accountIds []string, req *Request, defaultSort []T, props []string, mapper func(SortCrit) T) ([]T, bool, Response) {
 	if sortSpec, ok := req.getStringParam(QueryParamSort, ""); ok && strings.TrimSpace(sortSpec) != "" {
 		if sort, err := req.parseSort(sortSpec, props); err != nil {
-			return nil, false, errorResponseWithSessionState(accountIds, err, req.session.State)
+			return nil, false, errorResponse(accountIds, err, req.session.State, jmap.NoLanguage)
 		} else {
 			return structs.Map(sort, mapper), true, Response{}
 		}

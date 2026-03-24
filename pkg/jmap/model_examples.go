@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/opencloud-eu/opencloud/pkg/jscontact"
 	c "github.com/opencloud-eu/opencloud/pkg/jscontact"
 )
 
@@ -697,9 +698,10 @@ func (e Exemplar) Mailboxes() []Mailbox {
 }
 
 func (e Exemplar) MailboxChanges() MailboxChanges {
+	a, _, _ := e.MailboxInbox()
 	return MailboxChanges{
 		NewState:  "aesh2ahj",
-		Created:   []Email{e.Email()},
+		Created:   []Mailbox{a},
 		Destroyed: []string{"baingow4"},
 	}
 }
@@ -1781,5 +1783,37 @@ func (e Exemplar) ContactCard() c.ContactCard {
 				},
 			},
 		},
+	}
+}
+
+func (e Exemplar) ContactCardChanges() (ContactCardChanges, string, string) {
+	c := e.ContactCard()
+	return ContactCardChanges{
+		OldState:       "xai3iiraipoo",
+		NewState:       "ni7thah7eeY4",
+		HasMoreChanges: true,
+		Created:        []jscontact.ContactCard{c},
+		Destroyed:      []string{"eaae", "bcba"},
+	}, "A created ContactCard and two deleted ones", "created"
+}
+
+func (e Exemplar) OtherContactCardChanges() (ContactCardChanges, string, string) {
+	c := e.ContactCard()
+	return ContactCardChanges{
+		OldState:       "xai3iiraipoo",
+		NewState:       "ni7thah7eeY4",
+		HasMoreChanges: false,
+		Updated:        []jscontact.ContactCard{c},
+	}, "An updated ContactCard", "updated"
+}
+
+func (e Exemplar) EmailChanges() EmailChanges {
+	emails := []Email{e.Email()}
+	return EmailChanges{
+		OldState:       "xai3iiraipoo",
+		NewState:       "ni7thah7eeY4",
+		HasMoreChanges: true,
+		Created:        emails,
+		Destroyed:      []string{"mmnan", "moxzz"},
 	}
 }

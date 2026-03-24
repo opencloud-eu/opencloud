@@ -23,7 +23,6 @@ const (
 	UriParamContactId                 = "contactid"     // Identifier of the contact
 	UriParamEventId                   = "eventid"       // Idenfitier of the event
 	UriParamBlobName                  = "blobname"
-	UriParamSince                     = "since"
 	UriParamRole                      = "role"
 	QueryParamMailboxSearchName       = "name"
 	QueryParamMailboxSearchRole       = "role"
@@ -102,8 +101,6 @@ func (g *Groupware) Route(r chi.Router) {
 				r.Route("/{mailboxid}", func(r chi.Router) {
 					r.Get("/", g.GetMailbox)
 					r.Get("/emails", g.GetAllEmailsInMailbox)
-					r.Get("/emails/since/{since}", g.GetAllEmailsInMailboxSince)
-					r.Get("/changes", g.GetMailboxChanges)
 					r.Patch("/", g.UpdateMailbox)
 					r.Delete("/", g.DeleteMailbox)
 				})
@@ -148,6 +145,7 @@ func (g *Groupware) Route(r chi.Router) {
 				})
 			})
 			r.Route("/contacts", func(r chi.Router) {
+				r.Get("/", g.GetAllContacts)
 				r.Post("/", g.CreateContact)
 				r.Delete("/{contactid}", g.DeleteContact)
 				r.Get("/{contactid}", g.GetContactById)
@@ -169,6 +167,11 @@ func (g *Groupware) Route(r chi.Router) {
 					r.Get("/", g.GetTaskListById)
 					r.Get("/tasks", g.GetTasksInTaskList)
 				})
+			})
+			r.Route("/changes", func(r chi.Router) {
+				r.Get("/contacts", g.GetContactsChanges)
+				r.Get("/mailboxes", g.GetMailboxChanges)
+				r.Get("/emails", g.GetEmailChanges)
 			})
 		})
 	})

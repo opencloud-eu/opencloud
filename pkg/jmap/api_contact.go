@@ -63,6 +63,103 @@ func (j *Client) GetContactCardsById(accountId string, session *Session, ctx con
 	})
 }
 
+func (j *Client) GetContactCards(accountId string, session *Session, ctx context.Context, logger *log.Logger,
+	acceptLanguage string, contactIds []string) ([]jscontact.ContactCard, SessionState, State, Language, Error) {
+	logger = j.logger("GetContactCards", session, logger)
+
+	cmd, err := j.request(session, logger, invocation(CommandContactCardGet, ContactCardGetCommand{
+		Ids:       contactIds,
+		AccountId: accountId,
+	}, "0"))
+	if err != nil {
+		return nil, "", "", "", err
+	}
+
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) ([]jscontact.ContactCard, State, Error) {
+		var response ContactCardGetResponse
+		err = retrieveResponseMatchParameters(logger, body, CommandContactCardGet, "0", &response)
+		if err != nil {
+			return nil, "", err
+		}
+		return response.List, response.State, nil
+	})
+}
+
+type ContactCardChanges struct {
+	OldState       State                   `json:"oldState,omitempty"`
+	NewState       State                   `json:"newState"`
+	HasMoreChanges bool                    `json:"hasMoreChanges"`
+	Created        []jscontact.ContactCard `json:"created,omitempty"`
+	Updated        []jscontact.ContactCard `json:"updated,omitempty"`
+	Destroyed      []string                `json:"destroyed,omitempty"`
+}
+
+func (j *Client) GetContactCardsSince(accountId string, session *Session, ctx context.Context, logger *log.Logger,
+	acceptLanguage string, sinceState string, maxChanges uint) (ContactCardChanges, SessionState, State, Language, Error) {
+	logger = j.logger("GetContactCards", session, logger)
+
+	maxChangesPtr := &maxChanges
+	if maxChanges < 1 {
+		maxChangesPtr = nil
+	}
+
+	cmd, err := j.request(session, logger,
+		invocation(CommandContactCardChanges, ContactCardChangesCommand{
+			AccountId:  accountId,
+			SinceState: sinceState,
+			MaxChanges: maxChangesPtr,
+		}, "0"),
+		invocation(CommandContactCardGet, ContactCardGetRefCommand{
+			AccountId: accountId,
+			IdsRef: &ResultReference{
+				ResultOf: "0",
+				Name:     CommandContactCardChanges,
+				Path:     "/created",
+			},
+		}, "1"),
+		invocation(CommandContactCardGet, ContactCardGetRefCommand{
+			AccountId: accountId,
+			IdsRef: &ResultReference{
+				ResultOf: "0",
+				Name:     CommandContactCardChanges,
+				Path:     "/updated",
+			},
+		}, "2"),
+	)
+	if err != nil {
+		return ContactCardChanges{}, "", "", "", err
+	}
+
+	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (ContactCardChanges, State, Error) {
+		result := ContactCardChanges{}
+		var changes ContactCardChangesResponse
+		err = retrieveResponseMatchParameters(logger, body, CommandContactCardChanges, "0", &changes)
+		if err != nil {
+			return ContactCardChanges{}, "", err
+		}
+		result.NewState = changes.NewState
+		result.OldState = changes.OldState
+		result.HasMoreChanges = changes.HasMoreChanges
+		result.Destroyed = changes.Destroyed
+
+		var created ContactCardGetResponse
+		err = retrieveResponseMatchParameters(logger, body, CommandContactCardGet, "1", &created)
+		if err != nil {
+			return ContactCardChanges{}, "", err
+		}
+		result.Created = created.List
+
+		var updated ContactCardGetResponse
+		err = retrieveResponseMatchParameters(logger, body, CommandContactCardGet, "2", &updated)
+		if err != nil {
+			return ContactCardChanges{}, "", err
+		}
+		result.Updated = updated.List
+
+		return result, changes.NewState, nil
+	})
+}
+
 func (j *Client) QueryContactCards(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string,
 	filter ContactCardFilterElement, sortBy []ContactCardComparator,
 	position uint, limit uint) (map[string][]jscontact.ContactCard, SessionState, State, Language, Error) {

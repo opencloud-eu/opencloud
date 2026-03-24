@@ -155,48 +155,41 @@ func (j *Client) SearchMailboxIdsPerRole(accountIds []string, session *Session, 
 }
 
 type MailboxChanges struct {
-	Destroyed      []string `json:"destroyed,omitzero"`
-	HasMoreChanges bool     `json:"hasMoreChanges,omitzero"`
-	NewState       State    `json:"newState"`
-	Created        []Email  `json:"created,omitempty"`
-	Updated        []Email  `json:"updated,omitempty"`
+	HasMoreChanges bool      `json:"hasMoreChanges"`
+	OldState       State     `json:"oldState,omitempty"`
+	NewState       State     `json:"newState"`
+	Created        []Mailbox `json:"created,omitempty"`
+	Updated        []Mailbox `json:"updated,omitempty"`
+	Destroyed      []string  `json:"destroyed,omitempty"`
 }
 
-// Retrieve Email changes in a given Mailbox since a given state.
-func (j *Client) GetMailboxChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, mailboxId string, sinceState string, fetchBodies bool, maxBodyValueBytes uint, maxChanges uint) (MailboxChanges, SessionState, State, Language, Error) {
-	logger = j.loggerParams("GetMailboxChanges", session, logger, func(z zerolog.Context) zerolog.Context {
-		return z.Bool(logFetchBodies, fetchBodies).Str(logSinceState, sinceState)
-	})
+// Retrieve Mailbox changes since a given state.
+// @apidoc mailboxes,changes
+func (j *Client) GetMailboxChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceState string, maxChanges uint) (MailboxChanges, SessionState, State, Language, Error) {
+	logger = j.logger("GetMailboxChanges", session, logger)
 
 	changes := MailboxChangesCommand{
 		AccountId:  accountId,
 		SinceState: sinceState,
+		MaxChanges: nil,
 	}
 	if maxChanges > 0 {
-		changes.MaxChanges = maxChanges
+		changes.MaxChanges = &maxChanges
 	}
 
-	getCreated := EmailGetRefCommand{
-		AccountId:          accountId,
-		FetchAllBodyValues: fetchBodies,
-		IdsRef:             &ResultReference{Name: CommandMailboxChanges, Path: "/created", ResultOf: "0"},
+	getCreated := MailboxGetRefCommand{
+		AccountId: accountId,
+		IdsRef:    &ResultReference{Name: CommandMailboxChanges, Path: "/created", ResultOf: "0"},
 	}
-	if maxBodyValueBytes > 0 {
-		getCreated.MaxBodyValueBytes = maxBodyValueBytes
-	}
-	getUpdated := EmailGetRefCommand{
-		AccountId:          accountId,
-		FetchAllBodyValues: fetchBodies,
-		IdsRef:             &ResultReference{Name: CommandMailboxChanges, Path: "/updated", ResultOf: "0"},
-	}
-	if maxBodyValueBytes > 0 {
-		getUpdated.MaxBodyValueBytes = maxBodyValueBytes
+	getUpdated := MailboxGetRefCommand{
+		AccountId: accountId,
+		IdsRef:    &ResultReference{Name: CommandMailboxChanges, Path: "/updated", ResultOf: "0"},
 	}
 
 	cmd, err := j.request(session, logger,
 		invocation(CommandMailboxChanges, changes, "0"),
-		invocation(CommandEmailGet, getCreated, "1"),
-		invocation(CommandEmailGet, getUpdated, "2"),
+		invocation(CommandMailboxGet, getCreated, "1"),
+		invocation(CommandMailboxGet, getUpdated, "2"),
 	)
 	if err != nil {
 		return MailboxChanges{}, "", "", "", err
@@ -209,15 +202,15 @@ func (j *Client) GetMailboxChanges(accountId string, session *Session, ctx conte
 			return MailboxChanges{}, "", err
 		}
 
-		var createdResponse EmailGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "1", &createdResponse)
+		var createdResponse MailboxGetResponse
+		err = retrieveResponseMatchParameters(logger, body, CommandMailboxGet, "1", &createdResponse)
 		if err != nil {
 			logger.Error().Err(err).Send()
 			return MailboxChanges{}, "", err
 		}
 
-		var updatedResponse EmailGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "2", &updatedResponse)
+		var updatedResponse MailboxGetResponse
+		err = retrieveResponseMatchParameters(logger, body, CommandMailboxGet, "2", &updatedResponse)
 		if err != nil {
 			logger.Error().Err(err).Send()
 			return MailboxChanges{}, "", err
@@ -226,6 +219,7 @@ func (j *Client) GetMailboxChanges(accountId string, session *Session, ctx conte
 		return MailboxChanges{
 			Destroyed:      mailboxResponse.Destroyed,
 			HasMoreChanges: mailboxResponse.HasMoreChanges,
+			OldState:       mailboxResponse.OldState,
 			NewState:       mailboxResponse.NewState,
 			Created:        createdResponse.List,
 			Updated:        createdResponse.List,
@@ -234,13 +228,13 @@ func (j *Client) GetMailboxChanges(accountId string, session *Session, ctx conte
 }
 
 // Retrieve Email changes in Mailboxes of multiple Accounts.
-func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceStateMap map[string]string, fetchBodies bool, maxBodyValueBytes uint, maxChanges uint) (map[string]MailboxChanges, SessionState, State, Language, Error) {
+func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceStateMap map[string]string, maxChanges uint) (map[string]MailboxChanges, SessionState, State, Language, Error) {
 	logger = j.loggerParams("GetMailboxChangesForMultipleAccounts", session, logger, func(z zerolog.Context) zerolog.Context {
 		sinceStateLogDict := zerolog.Dict()
 		for k, v := range sinceStateMap {
 			sinceStateLogDict.Str(log.SafeString(k), log.SafeString(v))
 		}
-		return z.Bool(logFetchBodies, fetchBodies).Dict(logSinceState, sinceStateLogDict)
+		return z.Dict(logSinceState, sinceStateLogDict)
 	})
 
 	uniqueAccountIds := structs.Uniq(accountIds)
@@ -261,29 +255,21 @@ func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, sessi
 		}
 
 		if maxChanges > 0 {
-			changes.MaxChanges = maxChanges
+			changes.MaxChanges = &maxChanges
 		}
 
-		getCreated := EmailGetRefCommand{
-			AccountId:          accountId,
-			FetchAllBodyValues: fetchBodies,
-			IdsRef:             &ResultReference{Name: CommandMailboxChanges, Path: "/created", ResultOf: mcid(accountId, "0")},
+		getCreated := MailboxGetRefCommand{
+			AccountId: accountId,
+			IdsRef:    &ResultReference{Name: CommandMailboxChanges, Path: "/created", ResultOf: mcid(accountId, "0")},
 		}
-		if maxBodyValueBytes > 0 {
-			getCreated.MaxBodyValueBytes = maxBodyValueBytes
-		}
-		getUpdated := EmailGetRefCommand{
-			AccountId:          accountId,
-			FetchAllBodyValues: fetchBodies,
-			IdsRef:             &ResultReference{Name: CommandMailboxChanges, Path: "/updated", ResultOf: mcid(accountId, "0")},
-		}
-		if maxBodyValueBytes > 0 {
-			getUpdated.MaxBodyValueBytes = maxBodyValueBytes
+		getUpdated := MailboxGetRefCommand{
+			AccountId: accountId,
+			IdsRef:    &ResultReference{Name: CommandMailboxChanges, Path: "/updated", ResultOf: mcid(accountId, "0")},
 		}
 
 		invocations[i*3+0] = invocation(CommandMailboxChanges, changes, mcid(accountId, "0"))
-		invocations[i*3+1] = invocation(CommandEmailGet, getCreated, mcid(accountId, "1"))
-		invocations[i*3+2] = invocation(CommandEmailGet, getUpdated, mcid(accountId, "2"))
+		invocations[i*3+1] = invocation(CommandMailboxGet, getCreated, mcid(accountId, "1"))
+		invocations[i*3+2] = invocation(CommandMailboxGet, getUpdated, mcid(accountId, "2"))
 	}
 
 	cmd, err := j.request(session, logger, invocations...)
@@ -301,14 +287,14 @@ func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, sessi
 				return nil, "", err
 			}
 
-			var createdResponse EmailGetResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, mcid(accountId, "1"), &createdResponse)
+			var createdResponse MailboxGetResponse
+			err = retrieveResponseMatchParameters(logger, body, CommandMailboxGet, mcid(accountId, "1"), &createdResponse)
 			if err != nil {
 				return nil, "", err
 			}
 
-			var updatedResponse EmailGetResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, mcid(accountId, "2"), &updatedResponse)
+			var updatedResponse MailboxGetResponse
+			err = retrieveResponseMatchParameters(logger, body, CommandMailboxGet, mcid(accountId, "2"), &updatedResponse)
 			if err != nil {
 				return nil, "", err
 			}
