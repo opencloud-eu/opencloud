@@ -1,10 +1,14 @@
 # Changelog
 
-## [5.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v5.3.0) - 2026-03-25
+## [6.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v6.0.0) - 2026-03-25
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @ScharfViktor, @aduffeck, @dragonchaser, @pascalwengerter
+
+### 💥 Breaking changes
+
+- Improve opensearch highlighting, fix favorites [[#2514](https://github.com/opencloud-eu/opencloud/pull/2514)]
 
 ### 📈 Enhancement
 
