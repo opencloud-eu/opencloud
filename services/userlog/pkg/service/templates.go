@@ -11,7 +11,7 @@ var (
 
 	PoliciesEnforced = NotificationTemplate{
 		Subject: l10n.Template("Policies enforced"),
-		Message: l10n.Template("File {resource} was deleted because it violates the policies"),
+		Message: l10n.Template("The file {resource} was deleted because it violates the restrictions of this cloud. This could be due to an unsupported file type, potentially harmful or prohibited content, or file size limits."),
 	}
 
 	SpaceShared = NotificationTemplate{
