@@ -1777,7 +1777,7 @@ Feature: Send a sharing invitations
                 },
                 "id": {
                   "type": "string",
-                  "pattern": "^g:%group_id_pattern%$"
+                  "pattern": "^%permissions_id_pattern%$"
                 },
                 "roles": {
                   "type": "array",

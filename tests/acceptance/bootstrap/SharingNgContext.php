@@ -420,7 +420,7 @@ class SharingNgContext implements Context {
 		$expirationDateTime = (\array_key_exists('expirationDateTime', $rows))
 			? \date(DATE_RFC3339, \strtotime($rows['expirationDateTime'])) : null;
 
-		return GraphHelper::sendSharingInvitationForDrive(
+		$response = GraphHelper::sendSharingInvitationForDrive(
 			$this->featureContext->getBaseUrl(),
 			$this->featureContext->getStepLineRef(),
 			$user,
@@ -432,6 +432,10 @@ class SharingNgContext implements Context {
 			$permissionsAction,
 			$expirationDateTime
 		);
+		if ($response->getStatusCode() === 200) {
+			$this->featureContext->shareNgAddToCreatedUserGroupShares($response);
+		}
+		return $response;
 	}
 
 	/**
@@ -651,12 +655,7 @@ class SharingNgContext implements Context {
 		string $sharee,
 		TableNode $table
 	) {
-		$permissionID = "";
-		if ($shareType === "user") {
-			$permissionID = "u:" . $this->featureContext->getAttributeOfCreatedUser($sharee, 'id');
-		} elseif ($shareType === "group") {
-			$permissionID = "g:" . $this->featureContext->getAttributeOfCreatedGroup($sharee, 'id');
-		}
+		$permissionID = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
 
 		$this->featureContext->setResponse(
 			$this->updateResourceShare(
@@ -1042,8 +1041,8 @@ class SharingNgContext implements Context {
 
 		$permissionID = match ($shareType) {
 			'link' => $this->featureContext->shareNgGetLastCreatedLinkShareID(),
-			'user' => 'u:' . $this->featureContext->getAttributeOfCreatedUser($recipient, 'id'),
-			'group' => 'g:' . $this->featureContext->getAttributeOfCreatedGroup($recipient, 'id'),
+			'user' => $this->featureContext->shareNgGetLastCreatedUserGroupShareID(),
+			'group' => $this->featureContext->shareNgGetLastCreatedUserGroupShareID(),
 			default => throw new Exception("shareType '$shareType' does not match user|group|link "),
 		};
 
@@ -1650,11 +1649,7 @@ class SharingNgContext implements Context {
 		TableNode $table
 	): void {
 		$bodyRows = $table->getRowsHash();
-		$permissionID = match ($bodyRows['shareType']) {
-			'user' => 'u:' . $this->featureContext->getAttributeOfCreatedUser($bodyRows['sharee'], 'id'),
-			'group' => 'g:' . $this->featureContext->getAttributeOfCreatedGroup($bodyRows['sharee'], 'id'),
-			default => throw new Exception("shareType {$bodyRows['shareType']} does not match user|group "),
-		};
+		$permissionID = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
 		$space = $bodyRows['space'];
 		$spaceId = ($this->spacesContext->getSpaceByName($user, $space))["id"];
 		$body = [];

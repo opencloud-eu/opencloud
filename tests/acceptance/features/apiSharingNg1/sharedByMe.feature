@@ -3407,7 +3407,7 @@ Feature: resources shared by user
                 "name",
                 "id",
                 "eTag",
-                "folder",
+                "root",
                 "lastModifiedDateTime",
                 "size"
               ],
@@ -3415,7 +3415,7 @@ Feature: resources shared by user
                 "name": {
                   "const": "."
                 },
-                "folder": {
+                "root": {
                   "const": {}
                 },
                 "id": {

@@ -278,7 +278,7 @@ Feature: Update permission of a share
           },
           "id": {
             "type": "string",
-            "pattern": "^u:%user_id_pattern%$"
+            "pattern": "^%permissions_id_pattern%$"
           },
           "roles": {
             "type": "array",
@@ -437,7 +437,7 @@ Feature: Update permission of a share
           },
           "id": {
             "type": "string",
-            "pattern": "^g:%group_id_pattern%$"
+            "pattern": "^%permissions_id_pattern%$"
           },
           "roles": {
             "type": "array",
@@ -517,7 +517,7 @@ Feature: Update permission of a share
           },
           "id": {
             "type": "string",
-            "pattern": "^g:%group_id_pattern%$"
+            "pattern": "^%permissions_id_pattern%$"
           },
           "roles": {
             "type": "array",
@@ -602,7 +602,7 @@ Feature: Update permission of a share
           },
           "id": {
             "type": "string",
-            "pattern": "^g:%group_id_pattern%$"
+            "pattern": "^%permissions_id_pattern%$"
           },
           "roles": {
             "type": "array",
@@ -680,7 +680,7 @@ Feature: Update permission of a share
           },
           "id": {
             "type": "string",
-            "pattern": "^g:%group_id_pattern%$"
+            "pattern": "^%permissions_id_pattern%$"
           },
           "roles": {
             "type": "array",
@@ -766,7 +766,7 @@ Feature: Update permission of a share
           },
           "id": {
             "type": "string",
-            "pattern": "^g:%group_id_pattern%$"
+            "pattern": "^%permissions_id_pattern%$"
           },
           "roles": {
             "type": "array",
@@ -842,7 +842,7 @@ Feature: Update permission of a share
           },
           "id": {
             "type": "string",
-            "pattern": "^u:%user_id_pattern%$"
+            "pattern": "^%permissions_id_pattern%$"
           },
           "roles": {
             "type": "array",
@@ -918,7 +918,7 @@ Feature: Update permission of a share
           },
           "id": {
             "type": "string",
-            "pattern": "^u:%user_id_pattern%$"
+            "pattern": "^%permissions_id_pattern%$"
           },
           "roles": {
             "type": "array",
@@ -1000,7 +1000,7 @@ Feature: Update permission of a share
           },
           "id": {
             "type": "string",
-            "pattern": "^u:%user_id_pattern%$"
+            "pattern": "^%permissions_id_pattern%$"
           },
           "roles": {
             "type": "array",
@@ -1077,7 +1077,7 @@ Feature: Update permission of a share
           },
           "id": {
             "type": "string",
-            "pattern": "^u:%user_id_pattern%$"
+            "pattern": "^%permissions_id_pattern%$"
           },
           "roles": {
             "type": "array",
@@ -1159,7 +1159,7 @@ Feature: Update permission of a share
           },
           "id": {
             "type": "string",
-            "pattern": "^u:%user_id_pattern%$"
+            "pattern": "^%permissions_id_pattern%$"
           },
           "roles": {
             "type": "array",
@@ -1417,7 +1417,7 @@ Feature: Update permission of a share
             }
           },
           "id": {
-            "pattern": "^u:%user_id_pattern%$"
+            "pattern": "^%permissions_id_pattern%$"
           }
         }
       }

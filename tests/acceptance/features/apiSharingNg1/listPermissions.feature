@@ -414,7 +414,7 @@ Feature: List a sharing permissions
                     },
                     "id": {
                       "type": "string",
-                      "pattern": "^u:%user_id_pattern%$"
+                      "pattern": "^%permissions_id_pattern%$"
                     },
                     "roles": {
                       "type": "array",
@@ -456,7 +456,7 @@ Feature: List a sharing permissions
                     },
                     "id": {
                       "type": "string",
-                      "pattern": "^u:%user_id_pattern%$"
+                      "pattern": "^%permissions_id_pattern%$"
                     },
                     "roles": {
                       "type": "array",
@@ -1428,7 +1428,7 @@ Feature: List a sharing permissions
                     },
                     "id": {
                       "type": "string",
-                      "pattern": "^u:%user_id_pattern%$"
+                      "pattern": "^%permissions_id_pattern%$"
                     },
                     "roles": {
                       "type": "array",
@@ -1470,7 +1470,7 @@ Feature: List a sharing permissions
                     },
                     "id": {
                       "type": "string",
-                      "pattern": "^u:%user_id_pattern%$"
+                      "pattern": "^%permissions_id_pattern%$"
                     },
                     "roles": {
                       "type": "array",
