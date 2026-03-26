@@ -1,12 +1,14 @@
 # Changelog
 
-## [4.0.4](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.4) - 2026-03-02
+## [4.0.4](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.4) - 2026-03-26
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@dragonchaser, @saw-jan
+@aduffeck, @dragonchaser, @saw-jan
 
+### 🐛 Bug Fixes
 
+- Backport bleve batch fix [[#2527](https://github.com/opencloud-eu/opencloud/pull/2527)]
 
 ## [4.0.3](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.3) - 2026-02-05
 
