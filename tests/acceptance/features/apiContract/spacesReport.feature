@@ -15,6 +15,7 @@ Feature: REPORT request to project space
   @issue-10329
   Scenario: check the response of the searched file
     Given user "Alice" has uploaded a file inside space "findData" with content "some content" to "testFile.txt"
+    And user "Alice" has marked file "testFile.txt" as favorite from space "findData"
     When user "Alice" searches for "testFile.txt" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Alice" should contain only these entries:
@@ -30,6 +31,7 @@ Feature: REPORT request to project space
       | oc:permissions     | RDNVW                     |
       | oc:privatelink     | %base_url%/f/[0-9a-z-$%]+ |
       | d:getcontentlength | 12                        |
+      | oc:favorite        | 1                         |
 
   @issue-10329
   Scenario: check the response of the searched sub-file
@@ -54,6 +56,7 @@ Feature: REPORT request to project space
   @issue-10329
   Scenario: check the response of the searched folder
     Given user "Alice" has created a folder "folderMain" in space "findData"
+    And user "Alice" has marked folder "folderMain" as favorite from space "findData"
     When user "Alice" searches for "folderMain" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Alice" should contain only these entries:
@@ -69,6 +72,7 @@ Feature: REPORT request to project space
       | oc:permissions   | RDNVCK                    |
       | oc:privatelink   | %base_url%/f/[0-9a-z-$%]+ |
       | oc:size          | 0                         |
+      | oc:favorite      | 1                         |
 
   @issue-10329
   Scenario: check the response of the searched sub-folder

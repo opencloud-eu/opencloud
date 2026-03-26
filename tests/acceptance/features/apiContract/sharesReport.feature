@@ -62,6 +62,7 @@ Feature: REPORT request to Shares space
       | oc:privatelink     | %base_url%/f/[0-9a-z-$%]+ |
       | d:getcontentlength | 34                        |
       | oc:remote-item-id  | %file_id_pattern%         |
+
     When user "Brian" searches for "testavatar.jpg" using the WebDAV API
     Then the HTTP status code should be "207"
     And the following headers should match these regular expressions

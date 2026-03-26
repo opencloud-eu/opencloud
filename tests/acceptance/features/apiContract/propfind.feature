@@ -124,6 +124,7 @@ Feature: Propfind test
   @issue-1523
   Scenario: propfind response contains a restored folder with correct name
     Given user "Alice" has created a folder "folderMain" in space "Personal"
+    And user "Alice" has marked folder "folderMain" as favorite from space "Personal"
     And user "Alice" has deleted folder "folderMain"
     And user "Alice" has created a folder "folderMain" in space "Personal"
     When user "Alice" restores the folder with original path "/folderMain" to "/folderMain (1)" using the trashbin API
@@ -136,6 +137,7 @@ Feature: Propfind test
       | oc:name        | folderMain        |
       | oc:permissions | RDNVCKZP          |
       | oc:size        | 0                 |
+      | oc:favorite    | 0                 |
     And as user "Alice" the PROPFIND response should contain a resource "folderMain (1)" with these key and value pairs:
       | key            | value             |
       | oc:fileid      | %file_id_pattern% |
@@ -143,3 +145,4 @@ Feature: Propfind test
       | oc:name        | folderMain (1)    |
       | oc:permissions | RDNVCKZP          |
       | oc:size        | 0                 |
+      | oc:favorite    | 1                 |
