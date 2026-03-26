@@ -51,7 +51,7 @@ func (g *Groupware) GetAccountsWithTheirIdentities(w http.ResponseWriter, r *htt
 		list := make([]AccountWithIdAndIdentities, len(req.session.Accounts))
 		i := 0
 		for accountId, account := range req.session.Accounts {
-			identities, ok := resp.Identities[accountId]
+			identities, ok := resp[accountId]
 			if !ok {
 				identities = []jmap.Identity{}
 			}

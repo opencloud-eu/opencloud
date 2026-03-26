@@ -233,7 +233,7 @@ func (r *Request) getStringParam(param string, defaultValue string) (string, boo
 	}
 	str := q.Get(param)
 	if str == "" {
-		return defaultValue, false
+		return defaultValue, true
 	}
 	return str, true
 }
@@ -346,23 +346,23 @@ func (r *Request) parseBoolParam(param string, defaultValue bool) (bool, bool, *
 	return b, true, nil
 }
 
+// Parses query parameters that have the form ?param.field1=...&param.field2=... into a map of strings.
+// When multiple values are defined for a field, the last one wins.
 func (r *Request) parseMapParam(param string) (map[string]string, bool, *Error) {
 	q := r.r.URL.Query()
-	if !q.Has(param) {
-		return map[string]string{}, false, nil
-	}
-
 	result := map[string]string{}
 	prefix := param + "."
+	found := false
 	for name, values := range q {
 		if strings.HasPrefix(name, prefix) {
+			found = true
 			if len(values) > 0 {
-				key := name[len(prefix)+1:]
-				result[key] = values[0]
+				key := name[len(prefix):]
+				result[key] = values[len(values)-1]
 			}
 		}
 	}
-	return result, true, nil
+	return result, found, nil
 }
 
 func (r *Request) parseOptStringListParam(param string) ([]string, bool, *Error) {
@@ -400,6 +400,26 @@ func (r *Request) body(target any) *Error {
 		return r.observedParameterError(ErrorInvalidRequestBody, withSource(&ErrorSource{Pointer: "/"})) // we don't get any details here
 	}
 	return nil
+}
+
+func (r *Request) optBody(target any) (bool, *Error) {
+	body := r.r.Body
+	defer func(b io.ReadCloser) {
+		err := b.Close()
+		if err != nil {
+			r.logger.Error().Err(err).Msg("failed to close request body")
+		}
+	}(body)
+	if body == nil || body == http.NoBody { // not sure whether this is always enough to detect an empty body, we might have to read the whole body into memory first
+		return false, nil
+	}
+
+	err := json.NewDecoder(body).Decode(target)
+	if err != nil {
+		r.logger.Warn().Msgf("failed to deserialize the request body: %s", err.Error())
+		return true, r.observedParameterError(ErrorInvalidRequestBody, withSource(&ErrorSource{Pointer: "/"})) // we don't get any details here
+	}
+	return true, nil
 }
 
 func (r *Request) language() string {
@@ -572,4 +592,12 @@ func mapSort[T any](accountIds []string, req *Request, defaultSort []T, props []
 	} else {
 		return defaultSort, true, Response{}
 	}
+}
+
+func toState(s string) jmap.State {
+	return jmap.State(s)
+}
+
+func ptr[T any](t T) *T {
+	return &t
 }

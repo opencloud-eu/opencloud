@@ -138,6 +138,8 @@ func groupwareErrorFromJmap(j jmap.Error) *GroupwareError {
 		return &ErrorInvalidRequestPayload
 	case jmap.JmapErrorInvalidJmapResponsePayload:
 		return &ErrorInvalidResponsePayload
+	case jmap.JmapInvalidObjectState:
+		return &ErrorInvalidObjectState
 	case jmap.JmapErrorUnspecifiedType, jmap.JmapErrorUnknownMethod, jmap.JmapErrorInvalidArguments, jmap.JmapErrorInvalidResultReference:
 		return &ErrorInvalidGroupwareRequest
 	case jmap.JmapErrorServerUnavailable:
@@ -203,6 +205,7 @@ const (
 	ErrorCodeNoMailboxWithSentRole             = "NMBXSE"
 	ErrorCodeInvalidSortSpecification          = "INVSSP"
 	ErrorCodeInvalidSortProperty               = "INVSPR"
+	ErrorCodeInvalidObjectState                = "INVOST"
 )
 
 var (
@@ -469,6 +472,12 @@ var (
 		Code:   ErrorCodeInvalidSortProperty,
 		Title:  "Invalid sort property",
 		Detail: "The sort property in the query parameter does not exist or is not acceptable.",
+	}
+	ErrorInvalidObjectState = GroupwareError{
+		Status: http.StatusBadRequest,
+		Code:   ErrorCodeInvalidObjectState,
+		Title:  "Invalid Object State",
+		Detail: "The request included an object state that does not exist.",
 	}
 )
 

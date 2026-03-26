@@ -94,7 +94,7 @@ func (j *Client) SetVacationResponse(accountId string, vacation VacationResponse
 		if len(getResponse.List) != 1 {
 			berr := fmt.Errorf("failed to find %s in %s response", string(VacationResponseType), string(CommandVacationResponseGet))
 			logger.Error().Msg(berr.Error())
-			return VacationResponse{}, "", simpleError(berr, JmapErrorInvalidJmapResponsePayload)
+			return VacationResponse{}, "", jmapError(berr, JmapErrorInvalidJmapResponsePayload)
 		}
 
 		return getResponse.List[0], setResponse.NewState, nil

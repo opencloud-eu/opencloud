@@ -9,75 +9,37 @@ import (
 )
 
 func (j *Client) GetAllIdentities(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) ([]Identity, SessionState, State, Language, Error) {
-	logger = j.logger("GetAllIdentities", session, logger)
-	cmd, err := j.request(session, logger, invocation(CommandIdentityGet, IdentityGetCommand{AccountId: accountId}, "0"))
-	if err != nil {
-		return nil, "", "", "", err
-	}
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) ([]Identity, State, Error) {
-		var response IdentityGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandIdentityGet, "0", &response)
-		if err != nil {
-			return nil, "", err
-		}
-		return response.List, response.State, nil
-	})
+	return getTemplate(j, "GetAllIdentities", CommandIdentityGet,
+		func(accountId string, ids []string) IdentityGetCommand {
+			return IdentityGetCommand{AccountId: accountId}
+		},
+		func(resp IdentityGetResponse) []Identity { return resp.List },
+		func(resp IdentityGetResponse) State { return resp.State },
+		accountId, session, ctx, logger, acceptLanguage, []string{},
+	)
 }
 
 func (j *Client) GetIdentities(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, identityIds []string) ([]Identity, SessionState, State, Language, Error) {
-	logger = j.logger("GetIdentities", session, logger)
-	cmd, err := j.request(session, logger, invocation(CommandIdentityGet, IdentityGetCommand{AccountId: accountId, Ids: identityIds}, "0"))
-	if err != nil {
-		return nil, "", "", "", err
-	}
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) ([]Identity, State, Error) {
-		var response IdentityGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandIdentityGet, "0", &response)
-		if err != nil {
-			return nil, "", err
-		}
-		return response.List, response.State, nil
-	})
+	return getTemplate(j, "GetIdentities", CommandIdentityGet,
+		func(accountId string, ids []string) IdentityGetCommand {
+			return IdentityGetCommand{AccountId: accountId, Ids: ids}
+		},
+		func(resp IdentityGetResponse) []Identity { return resp.List },
+		func(resp IdentityGetResponse) State { return resp.State },
+		accountId, session, ctx, logger, acceptLanguage, identityIds,
+	)
 }
 
-type IdentitiesGetResponse struct {
-	Identities map[string][]Identity `json:"identities,omitempty"`
-	NotFound   []string              `json:"notFound,omitempty"`
-}
-
-func (j *Client) GetIdentitiesForAllAccounts(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (IdentitiesGetResponse, SessionState, State, Language, Error) {
-	logger = j.logger("GetIdentitiesForAllAccounts", session, logger)
-	uniqueAccountIds := structs.Uniq(accountIds)
-	calls := make([]Invocation, len(uniqueAccountIds))
-	for i, accountId := range uniqueAccountIds {
-		calls[i] = invocation(CommandIdentityGet, IdentityGetCommand{AccountId: accountId}, strconv.Itoa(i))
-	}
-
-	cmd, err := j.request(session, logger, calls...)
-	if err != nil {
-		return IdentitiesGetResponse{}, "", "", "", err
-	}
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (IdentitiesGetResponse, State, Error) {
-		identities := make(map[string][]Identity, len(uniqueAccountIds))
-		stateByAccountId := make(map[string]State, len(uniqueAccountIds))
-		notFound := []string{}
-		for i, accountId := range uniqueAccountIds {
-			var response IdentityGetResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandIdentityGet, strconv.Itoa(i), &response)
-			if err != nil {
-				return IdentitiesGetResponse{}, "", err
-			} else {
-				identities[accountId] = response.List
-			}
-			stateByAccountId[accountId] = response.State
-			notFound = append(notFound, response.NotFound...)
-		}
-
-		return IdentitiesGetResponse{
-			Identities: identities,
-			NotFound:   structs.Uniq(notFound),
-		}, squashState(stateByAccountId), nil
-	})
+func (j *Client) GetIdentitiesForAllAccounts(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string][]Identity, SessionState, State, Language, Error) {
+	return getTemplateN(j, "GetIdentitiesForAllAccounts", CommandIdentityGet,
+		func(accountId string, ids []string) IdentityGetCommand {
+			return IdentityGetCommand{AccountId: accountId}
+		},
+		func(resp IdentityGetResponse) []Identity { return resp.List },
+		identity1,
+		func(resp IdentityGetResponse) State { return resp.State },
+		accountIds, session, ctx, logger, acceptLanguage, []string{},
+	)
 }
 
 type IdentitiesAndMailboxesGetResponse struct {

@@ -79,11 +79,11 @@ func (j *Client) loggerParams(operation string, _ *Session, logger *log.Logger, 
 
 func (j *Client) maxCallsCheck(calls int, session *Session, logger *log.Logger) Error {
 	if calls > session.Capabilities.Core.MaxCallsInRequest {
-		logger.Warn().
+		logger.Error().
 			Int("max-calls-in-request", session.Capabilities.Core.MaxCallsInRequest).
 			Int("calls-in-request", calls).
-			Msgf("number of calls in request payload (%d) would exceed the allowed maximum (%d)", session.Capabilities.Core.MaxCallsInRequest, calls)
-		return simpleError(errTooManyMethodCalls, JmapErrorTooManyMethodCalls)
+			Msgf("number of calls in request payload (%d) exceeds the allowed maximum (%d)", session.Capabilities.Core.MaxCallsInRequest, calls)
+		return jmapError(errTooManyMethodCalls, JmapErrorTooManyMethodCalls)
 	}
 	return nil
 }

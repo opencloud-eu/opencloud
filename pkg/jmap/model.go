@@ -1343,7 +1343,7 @@ type MailboxChangesCommand struct {
 	// This is the string that was returned as the state argument in the Mailbox/get response.
 	//
 	// The server will return the changes that have occurred since this state.
-	SinceState string `json:"sinceState,omitempty"`
+	SinceState State `json:"sinceState,omitempty"`
 
 	// The maximum number of ids to return in the response.
 	//
@@ -4960,11 +4960,64 @@ type AddressBookGetCommand struct {
 	Ids       []string `json:"ids,omitempty"`
 }
 
+type AddressBookGetRefCommand struct {
+	AccountId string           `json:"accountId"`
+	IdsRef    *ResultReference `json:"#ids,omitempty"`
+}
+
 type AddressBookGetResponse struct {
 	AccountId string        `json:"accountId"`
 	State     State         `json:"state,omitempty"`
 	List      []AddressBook `json:"list,omitempty"`
 	NotFound  []string      `json:"notFound,omitempty"`
+}
+
+type AddressBookChangesCommand struct {
+	// The id of the account to use.
+	AccountId string `json:"accountId"`
+
+	// The current state of the client.
+	//
+	// This is the string that was returned as the state argument in the AddressBook/get response.
+	//
+	// The server will return the changes that have occurred since this state.
+	SinceState State `json:"sinceState,omitempty"`
+
+	// The maximum number of ids to return in the response.
+	//
+	// The server MAY choose to return fewer than this value but MUST NOT return more.
+	//
+	// If not given by the client, the server may choose how many to return.
+	//
+	// If supplied by the client, the value MUST be a positive integer greater than 0.
+	//
+	// If a value outside of this range is given, the server MUST reject the call with an invalidArguments error.
+	MaxChanges *uint `json:"maxChanges,omitzero"`
+}
+
+type AddressBookChangesResponse struct {
+	// The id of the account used for the call.
+	AccountId string `json:"accountId"`
+
+	// This is the sinceState argument echoed back; it’s the state from which the server is returning changes.
+	OldState State `json:"oldState"`
+
+	// This is the state the client will be in after applying the set of changes to the old state.
+	NewState State `json:"newState"`
+
+	// If true, the client may call Mailbox/changes again with the newState returned to get further updates.
+	//
+	// If false, newState is the current server state.
+	HasMoreChanges bool `json:"hasMoreChanges"`
+
+	// An array of ids for records that have been created since the old state.
+	Created []string `json:"created,omitempty"`
+
+	// An array of ids for records that have been updated since the old state.
+	Updated []string `json:"updated,omitempty"`
+
+	// An array of ids for records that have been destroyed since the old state.
+	Destroyed []string `json:"destroyed,omitempty"`
 }
 
 type ContactCardComparator struct {
@@ -5326,7 +5379,7 @@ type ContactCardChangesCommand struct {
 	// The current state of the client.
 	// This is the string that was returned as the "state" argument in the "ContactCard/get" response.
 	// The server will return the changes that have occurred since this state.
-	SinceState string `json:"sinceState,omitempty"`
+	SinceState State `json:"sinceState,omitempty"`
 
 	// The maximum number of ids to return in the response.
 	// The server MAY choose to return fewer than this value but MUST NOT return more.
@@ -5496,11 +5549,63 @@ type CalendarGetCommand struct {
 	Ids       []string `json:"ids,omitempty"`
 }
 
+type CalendarGetRefCommand struct {
+	AccountId string           `json:"accountId"`
+	IdsRef    *ResultReference `json:"#ids,omitempty"`
+}
+
 type CalendarGetResponse struct {
 	AccountId string     `json:"accountId"`
 	State     State      `json:"state,omitempty"`
 	List      []Calendar `json:"list,omitempty"`
 	NotFound  []string   `json:"notFound,omitempty"`
+}
+
+type CalendarChangesCommand struct {
+	// The id of the account to use.
+	AccountId string `json:"accountId"`
+
+	// The current state of the client.
+	//
+	// This is the string that was returned as the state argument in the Calendar/get response.
+	//
+	// The server will return the changes that have occurred since this state.
+	SinceState State `json:"sinceState,omitempty"`
+
+	// The maximum number of ids to return in the response.
+	//
+	// The server MAY choose to return fewer than this value but MUST NOT return more.
+	//
+	// If not given by the client, the server may choose how many to return.
+	//
+	// If supplied by the client, the value MUST be a positive integer greater than 0.
+	//
+	// If a value outside of this range is given, the server MUST reject the call with an invalidArguments error.
+	MaxChanges *uint `json:"maxChanges,omitzero"`
+}
+
+type CalendarChangesResponse struct {
+	// The id of the account used for the call.
+	AccountId string `json:"accountId"`
+
+	// This is the "sinceState" argument echoed back; it's the state from which the server is returning changes.
+	OldState State `json:"oldState"`
+
+	// This is the state the client will be in after applying the set of changes to the old state.
+	NewState State `json:"newState"`
+
+	// If true, the client may call "Calendar/changes" again with the "newState" returned to get further updates.
+	// If false, "newState" is the current server state.
+	HasMoreChanges bool `json:"hasMoreChanges"`
+
+	// An array of ids for records that have been created since the old state.
+	Created []string `json:"created,omitempty"`
+
+	// An array of ids for records that have been updated since the old state.
+	Updated []string `json:"updated,omitempty"`
+
+	// An array of ids for records that have been destroyed since the old state.
+	Destroyed []string `json:"destroyed,omitempty"`
 }
 
 type CalendarEventComparator struct {
@@ -5807,6 +5912,53 @@ type CalendarEventGetResponse struct {
 	NotFound []any `json:"notFound"`
 }
 
+type CalendarEventChangesCommand struct {
+	// The id of the account to use.
+	AccountId string `json:"accountId"`
+
+	// The current state of the client.
+	//
+	// This is the string that was returned as the state argument in the CalendarEvent/get response.
+	//
+	// The server will return the changes that have occurred since this state.
+	SinceState State `json:"sinceState,omitempty"`
+
+	// The maximum number of ids to return in the response.
+	//
+	// The server MAY choose to return fewer than this value but MUST NOT return more.
+	//
+	// If not given by the client, the server may choose how many to return.
+	//
+	// If supplied by the client, the value MUST be a positive integer greater than 0.
+	//
+	// If a value outside of this range is given, the server MUST reject the call with an invalidArguments error.
+	MaxChanges *uint `json:"maxChanges,omitzero"`
+}
+
+type CalendarEventChangesResponse struct {
+	// The id of the account used for the call.
+	AccountId string `json:"accountId"`
+
+	// This is the "sinceState" argument echoed back; it's the state from which the server is returning changes.
+	OldState State `json:"oldState"`
+
+	// This is the state the client will be in after applying the set of changes to the old state.
+	NewState State `json:"newState"`
+
+	// If true, the client may call "CalendarEvent/changes" again with the "newState" returned to get further updates.
+	// If false, "newState" is the current server state.
+	HasMoreChanges bool `json:"hasMoreChanges"`
+
+	// An array of ids for records that have been created since the old state.
+	Created []string `json:"created,omitempty"`
+
+	// An array of ids for records that have been updated since the old state.
+	Updated []string `json:"updated,omitempty"`
+
+	// An array of ids for records that have been destroyed since the old state.
+	Destroyed []string `json:"destroyed,omitempty"`
+}
+
 type CalendarEventUpdate map[string]any
 
 type CalendarEventSetCommand struct {
@@ -5915,68 +6067,74 @@ type ErrorResponse struct {
 }
 
 const (
-	ErrorCommand               Command = "error" // only occurs in responses
-	CommandBlobGet             Command = "Blob/get"
-	CommandBlobUpload          Command = "Blob/upload"
-	CommandEmailGet            Command = "Email/get"
-	CommandEmailQuery          Command = "Email/query"
-	CommandEmailChanges        Command = "Email/changes"
-	CommandEmailSet            Command = "Email/set"
-	CommandEmailImport         Command = "Email/import"
-	CommandEmailSubmissionGet  Command = "EmailSubmission/get"
-	CommandEmailSubmissionSet  Command = "EmailSubmission/set"
-	CommandThreadGet           Command = "Thread/get"
-	CommandMailboxGet          Command = "Mailbox/get"
-	CommandMailboxSet          Command = "Mailbox/set"
-	CommandMailboxQuery        Command = "Mailbox/query"
-	CommandMailboxChanges      Command = "Mailbox/changes"
-	CommandIdentityGet         Command = "Identity/get"
-	CommandIdentitySet         Command = "Identity/set"
-	CommandVacationResponseGet Command = "VacationResponse/get"
-	CommandVacationResponseSet Command = "VacationResponse/set"
-	CommandSearchSnippetGet    Command = "SearchSnippet/get"
-	CommandQuotaGet            Command = "Quota/get"
-	CommandAddressBookGet      Command = "AddressBook/get"
-	CommandContactCardQuery    Command = "ContactCard/query"
-	CommandContactCardGet      Command = "ContactCard/get"
-	CommandContactCardChanges  Command = "ContactCard/changes"
-	CommandContactCardSet      Command = "ContactCard/set"
-	CommandCalendarEventParse  Command = "CalendarEvent/parse"
-	CommandCalendarGet         Command = "Calendar/get"
-	CommandCalendarEventQuery  Command = "CalendarEvent/query"
-	CommandCalendarEventGet    Command = "CalendarEvent/get"
-	CommandCalendarEventSet    Command = "CalendarEvent/set"
+	ErrorCommand                Command = "error" // only occurs in responses
+	CommandBlobGet              Command = "Blob/get"
+	CommandBlobUpload           Command = "Blob/upload"
+	CommandEmailGet             Command = "Email/get"
+	CommandEmailQuery           Command = "Email/query"
+	CommandEmailChanges         Command = "Email/changes"
+	CommandEmailSet             Command = "Email/set"
+	CommandEmailImport          Command = "Email/import"
+	CommandEmailSubmissionGet   Command = "EmailSubmission/get"
+	CommandEmailSubmissionSet   Command = "EmailSubmission/set"
+	CommandThreadGet            Command = "Thread/get"
+	CommandMailboxGet           Command = "Mailbox/get"
+	CommandMailboxSet           Command = "Mailbox/set"
+	CommandMailboxQuery         Command = "Mailbox/query"
+	CommandMailboxChanges       Command = "Mailbox/changes"
+	CommandIdentityGet          Command = "Identity/get"
+	CommandIdentitySet          Command = "Identity/set"
+	CommandVacationResponseGet  Command = "VacationResponse/get"
+	CommandVacationResponseSet  Command = "VacationResponse/set"
+	CommandSearchSnippetGet     Command = "SearchSnippet/get"
+	CommandQuotaGet             Command = "Quota/get"
+	CommandAddressBookGet       Command = "AddressBook/get"
+	CommandAddressBookChanges   Command = "AddressBook/changes"
+	CommandContactCardQuery     Command = "ContactCard/query"
+	CommandContactCardGet       Command = "ContactCard/get"
+	CommandContactCardChanges   Command = "ContactCard/changes"
+	CommandContactCardSet       Command = "ContactCard/set"
+	CommandCalendarEventParse   Command = "CalendarEvent/parse"
+	CommandCalendarGet          Command = "Calendar/get"
+	CommandCalendarChanges      Command = "Calendar/changes"
+	CommandCalendarEventQuery   Command = "CalendarEvent/query"
+	CommandCalendarEventGet     Command = "CalendarEvent/get"
+	CommandCalendarEventSet     Command = "CalendarEvent/set"
+	CommandCalendarEventChanges Command = "CalendarEvent/changes"
 )
 
 var CommandResponseTypeMap = map[Command]func() any{
-	ErrorCommand:               func() any { return ErrorResponse{} },
-	CommandBlobGet:             func() any { return BlobGetResponse{} },
-	CommandBlobUpload:          func() any { return BlobUploadResponse{} },
-	CommandMailboxQuery:        func() any { return MailboxQueryResponse{} },
-	CommandMailboxGet:          func() any { return MailboxGetResponse{} },
-	CommandMailboxSet:          func() any { return MailboxSetResponse{} },
-	CommandMailboxChanges:      func() any { return MailboxChangesResponse{} },
-	CommandEmailQuery:          func() any { return EmailQueryResponse{} },
-	CommandEmailChanges:        func() any { return EmailChangesResponse{} },
-	CommandEmailGet:            func() any { return EmailGetResponse{} },
-	CommandEmailSet:            func() any { return EmailSetResponse{} },
-	CommandEmailSubmissionGet:  func() any { return EmailSubmissionGetResponse{} },
-	CommandEmailSubmissionSet:  func() any { return EmailSubmissionSetResponse{} },
-	CommandThreadGet:           func() any { return ThreadGetResponse{} },
-	CommandIdentityGet:         func() any { return IdentityGetResponse{} },
-	CommandIdentitySet:         func() any { return IdentitySetResponse{} },
-	CommandVacationResponseGet: func() any { return VacationResponseGetResponse{} },
-	CommandVacationResponseSet: func() any { return VacationResponseSetResponse{} },
-	CommandSearchSnippetGet:    func() any { return SearchSnippetGetResponse{} },
-	CommandQuotaGet:            func() any { return QuotaGetResponse{} },
-	CommandAddressBookGet:      func() any { return AddressBookGetResponse{} },
-	CommandContactCardQuery:    func() any { return ContactCardQueryResponse{} },
-	CommandContactCardGet:      func() any { return ContactCardGetResponse{} },
-	CommandContactCardChanges:  func() any { return ContactCardChangesResponse{} },
-	CommandContactCardSet:      func() any { return ContactCardSetResponse{} },
-	CommandCalendarEventParse:  func() any { return CalendarEventParseResponse{} },
-	CommandCalendarGet:         func() any { return CalendarGetResponse{} },
-	CommandCalendarEventQuery:  func() any { return CalendarEventQueryResponse{} },
-	CommandCalendarEventGet:    func() any { return CalendarEventGetResponse{} },
-	CommandCalendarEventSet:    func() any { return CalendarEventSetResponse{} },
+	ErrorCommand:                func() any { return ErrorResponse{} },
+	CommandBlobGet:              func() any { return BlobGetResponse{} },
+	CommandBlobUpload:           func() any { return BlobUploadResponse{} },
+	CommandMailboxQuery:         func() any { return MailboxQueryResponse{} },
+	CommandMailboxGet:           func() any { return MailboxGetResponse{} },
+	CommandMailboxSet:           func() any { return MailboxSetResponse{} },
+	CommandMailboxChanges:       func() any { return MailboxChangesResponse{} },
+	CommandEmailQuery:           func() any { return EmailQueryResponse{} },
+	CommandEmailChanges:         func() any { return EmailChangesResponse{} },
+	CommandEmailGet:             func() any { return EmailGetResponse{} },
+	CommandEmailSet:             func() any { return EmailSetResponse{} },
+	CommandEmailSubmissionGet:   func() any { return EmailSubmissionGetResponse{} },
+	CommandEmailSubmissionSet:   func() any { return EmailSubmissionSetResponse{} },
+	CommandThreadGet:            func() any { return ThreadGetResponse{} },
+	CommandIdentityGet:          func() any { return IdentityGetResponse{} },
+	CommandIdentitySet:          func() any { return IdentitySetResponse{} },
+	CommandVacationResponseGet:  func() any { return VacationResponseGetResponse{} },
+	CommandVacationResponseSet:  func() any { return VacationResponseSetResponse{} },
+	CommandSearchSnippetGet:     func() any { return SearchSnippetGetResponse{} },
+	CommandQuotaGet:             func() any { return QuotaGetResponse{} },
+	CommandAddressBookGet:       func() any { return AddressBookGetResponse{} },
+	CommandAddressBookChanges:   func() any { return AddressBookChangesResponse{} },
+	CommandContactCardQuery:     func() any { return ContactCardQueryResponse{} },
+	CommandContactCardGet:       func() any { return ContactCardGetResponse{} },
+	CommandContactCardChanges:   func() any { return ContactCardChangesResponse{} },
+	CommandContactCardSet:       func() any { return ContactCardSetResponse{} },
+	CommandCalendarEventParse:   func() any { return CalendarEventParseResponse{} },
+	CommandCalendarGet:          func() any { return CalendarGetResponse{} },
+	CommandCalendarChanges:      func() any { return CalendarChangesResponse{} },
+	CommandCalendarEventQuery:   func() any { return CalendarEventQueryResponse{} },
+	CommandCalendarEventGet:     func() any { return CalendarEventGetResponse{} },
+	CommandCalendarEventSet:     func() any { return CalendarEventSetResponse{} },
+	CommandCalendarEventChanges: func() any { return CalendarEventChangesResponse{} },
 }

@@ -55,6 +55,41 @@ func (g *Groupware) GetCalendarById(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Get the changes that occured in a given mailbox since a certain state.
+// @api:tags calendars,changes
+func (g *Groupware) GetCalendarChanges(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		ok, accountId, resp := req.needCalendarWithAccount()
+		if !ok {
+			return resp
+		}
+
+		l := req.logger.With()
+
+		maxChanges, ok, err := req.parseUIntParam(QueryParamMaxChanges, 0)
+		if err != nil {
+			return req.error(accountId, err)
+		}
+		if ok {
+			l = l.Uint(QueryParamMaxChanges, maxChanges)
+		}
+
+		sinceState := jmap.State(req.OptHeaderParamDoc(HeaderParamSince, "Optionally specifies the state identifier from which on to list calendar changes"))
+		if sinceState != "" {
+			l = l.Str(HeaderParamSince, log.SafeString(string(sinceState)))
+		}
+
+		logger := log.From(l)
+
+		changes, sessionState, state, lang, jerr := g.jmap.GetCalendarChanges(accountId, req.session, req.ctx, logger, req.language(), sinceState, maxChanges)
+		if jerr != nil {
+			return req.jmapError(accountId, jerr, sessionState, lang)
+		}
+
+		return req.respond(accountId, changes, sessionState, CalendarResponseObjectType, state)
+	})
+}
+
 // Get all the events in a calendar of an account by its identifier.
 func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	g.respond(w, r, func(req Request) Response {
@@ -103,6 +138,39 @@ func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) 
 		} else {
 			return req.notFound(accountId, sessionState, EventResponseObjectType, state)
 		}
+	})
+}
+
+// Get changes to Contacts since a given State
+// @api:tags event,changes
+func (g *Groupware) GetEventChanges(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		ok, accountId, resp := req.needCalendarWithAccount()
+		if !ok {
+			return resp
+		}
+
+		l := req.logger.With()
+
+		var maxChanges uint = 0
+		if v, ok, err := req.parseUIntParam(QueryParamMaxChanges, 0); err != nil {
+			return req.error(accountId, err)
+		} else if ok {
+			maxChanges = v
+			l = l.Uint(QueryParamMaxChanges, v)
+		}
+
+		sinceState := jmap.State(req.OptHeaderParamDoc(HeaderParamSince, "Specifies the state identifier from which on to list event changes"))
+		l = l.Str(HeaderParamSince, log.SafeString(string(sinceState)))
+
+		logger := log.From(l)
+		changes, sessionState, state, lang, jerr := g.jmap.GetCalendarEventChanges(accountId, req.session, req.ctx, logger, req.language(), sinceState, maxChanges)
+		if jerr != nil {
+			return req.jmapError(accountId, jerr, sessionState, lang)
+		}
+		var body jmap.CalendarEventChanges = changes
+
+		return req.respond(accountId, body, sessionState, ContactResponseObjectType, state)
 	})
 }
 

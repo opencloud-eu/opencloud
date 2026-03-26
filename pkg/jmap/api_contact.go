@@ -37,6 +37,52 @@ func (j *Client) GetAddressbooks(accountId string, session *Session, ctx context
 	})
 }
 
+type AddressBookChanges struct {
+	HasMoreChanges bool          `json:"hasMoreChanges"`
+	OldState       State         `json:"oldState,omitempty"`
+	NewState       State         `json:"newState"`
+	Created        []AddressBook `json:"created,omitempty"`
+	Updated        []AddressBook `json:"updated,omitempty"`
+	Destroyed      []string      `json:"destroyed,omitempty"`
+}
+
+// Retrieve Address Book changes since a given state.
+// @apidoc addressbook,changes
+func (j *Client) GetAddressbookChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceState State, maxChanges uint) (AddressBookChanges, SessionState, State, Language, Error) {
+	return changesTemplate(j, "GetAddressbookChanges",
+		CommandAddressBookChanges, CommandAddressBookGet,
+		func() AddressBookChangesCommand {
+			return AddressBookChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: posUIntPtr(maxChanges)}
+		},
+		func(path string, rof string) AddressBookGetRefCommand {
+			return AddressBookGetRefCommand{
+				AccountId: accountId,
+				IdsRef: &ResultReference{
+					Name:     CommandAddressBookChanges,
+					Path:     path,
+					ResultOf: rof,
+				},
+			}
+		},
+		func(resp AddressBookChangesResponse) (State, State, bool, []string) {
+			return resp.OldState, resp.NewState, resp.HasMoreChanges, resp.Destroyed
+		},
+		func(resp AddressBookGetResponse) []AddressBook { return resp.List },
+		func(oldState, newState State, hasMoreChanges bool, created, updated []AddressBook, destroyed []string) AddressBookChanges {
+			return AddressBookChanges{
+				OldState:       oldState,
+				NewState:       newState,
+				HasMoreChanges: hasMoreChanges,
+				Created:        created,
+				Updated:        updated,
+				Destroyed:      destroyed,
+			}
+		},
+		func(resp AddressBookGetResponse) State { return resp.State },
+		session, ctx, logger, acceptLanguage,
+	)
+}
+
 func (j *Client) GetContactCardsById(accountId string, session *Session, ctx context.Context, logger *log.Logger,
 	acceptLanguage string, contactIds []string) (map[string]jscontact.ContactCard, SessionState, State, Language, Error) {
 	logger = j.logger("GetContactCardsById", session, logger)
@@ -65,24 +111,14 @@ func (j *Client) GetContactCardsById(accountId string, session *Session, ctx con
 
 func (j *Client) GetContactCards(accountId string, session *Session, ctx context.Context, logger *log.Logger,
 	acceptLanguage string, contactIds []string) ([]jscontact.ContactCard, SessionState, State, Language, Error) {
-	logger = j.logger("GetContactCards", session, logger)
-
-	cmd, err := j.request(session, logger, invocation(CommandContactCardGet, ContactCardGetCommand{
-		Ids:       contactIds,
-		AccountId: accountId,
-	}, "0"))
-	if err != nil {
-		return nil, "", "", "", err
-	}
-
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) ([]jscontact.ContactCard, State, Error) {
-		var response ContactCardGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandContactCardGet, "0", &response)
-		if err != nil {
-			return nil, "", err
-		}
-		return response.List, response.State, nil
-	})
+	return getTemplate(j, "GetContactCards", CommandContactCardGet,
+		func(accountId string, ids []string) ContactCardGetCommand {
+			return ContactCardGetCommand{AccountId: accountId, Ids: contactIds}
+		},
+		func(resp ContactCardGetResponse) []jscontact.ContactCard { return resp.List },
+		func(resp ContactCardGetResponse) State { return resp.State },
+		accountId, session, ctx, logger, acceptLanguage, contactIds,
+	)
 }
 
 type ContactCardChanges struct {
@@ -94,70 +130,40 @@ type ContactCardChanges struct {
 	Destroyed      []string                `json:"destroyed,omitempty"`
 }
 
-func (j *Client) GetContactCardsSince(accountId string, session *Session, ctx context.Context, logger *log.Logger,
-	acceptLanguage string, sinceState string, maxChanges uint) (ContactCardChanges, SessionState, State, Language, Error) {
-	logger = j.logger("GetContactCards", session, logger)
-
-	maxChangesPtr := &maxChanges
-	if maxChanges < 1 {
-		maxChangesPtr = nil
-	}
-
-	cmd, err := j.request(session, logger,
-		invocation(CommandContactCardChanges, ContactCardChangesCommand{
-			AccountId:  accountId,
-			SinceState: sinceState,
-			MaxChanges: maxChangesPtr,
-		}, "0"),
-		invocation(CommandContactCardGet, ContactCardGetRefCommand{
-			AccountId: accountId,
-			IdsRef: &ResultReference{
-				ResultOf: "0",
-				Name:     CommandContactCardChanges,
-				Path:     "/created",
-			},
-		}, "1"),
-		invocation(CommandContactCardGet, ContactCardGetRefCommand{
-			AccountId: accountId,
-			IdsRef: &ResultReference{
-				ResultOf: "0",
-				Name:     CommandContactCardChanges,
-				Path:     "/updated",
-			},
-		}, "2"),
+func (j *Client) GetContactCardChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger,
+	acceptLanguage string, sinceState State, maxChanges uint) (ContactCardChanges, SessionState, State, Language, Error) {
+	return changesTemplate(j, "GetContactCardChanges",
+		CommandContactCardChanges, CommandContactCardGet,
+		func() ContactCardChangesCommand {
+			return ContactCardChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: posUIntPtr(maxChanges)}
+		},
+		func(path string, rof string) ContactCardGetRefCommand {
+			return ContactCardGetRefCommand{
+				AccountId: accountId,
+				IdsRef: &ResultReference{
+					Name:     CommandContactCardChanges,
+					Path:     path,
+					ResultOf: rof,
+				},
+			}
+		},
+		func(resp ContactCardChangesResponse) (State, State, bool, []string) {
+			return resp.OldState, resp.NewState, resp.HasMoreChanges, resp.Destroyed
+		},
+		func(resp ContactCardGetResponse) []jscontact.ContactCard { return resp.List },
+		func(oldState, newState State, hasMoreChanges bool, created, updated []jscontact.ContactCard, destroyed []string) ContactCardChanges {
+			return ContactCardChanges{
+				OldState:       oldState,
+				NewState:       newState,
+				HasMoreChanges: hasMoreChanges,
+				Created:        created,
+				Updated:        updated,
+				Destroyed:      destroyed,
+			}
+		},
+		func(resp ContactCardGetResponse) State { return resp.State },
+		session, ctx, logger, acceptLanguage,
 	)
-	if err != nil {
-		return ContactCardChanges{}, "", "", "", err
-	}
-
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (ContactCardChanges, State, Error) {
-		result := ContactCardChanges{}
-		var changes ContactCardChangesResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandContactCardChanges, "0", &changes)
-		if err != nil {
-			return ContactCardChanges{}, "", err
-		}
-		result.NewState = changes.NewState
-		result.OldState = changes.OldState
-		result.HasMoreChanges = changes.HasMoreChanges
-		result.Destroyed = changes.Destroyed
-
-		var created ContactCardGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandContactCardGet, "1", &created)
-		if err != nil {
-			return ContactCardChanges{}, "", err
-		}
-		result.Created = created.List
-
-		var updated ContactCardGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandContactCardGet, "2", &updated)
-		if err != nil {
-			return ContactCardChanges{}, "", err
-		}
-		result.Updated = updated.List
-
-		return result, changes.NewState, nil
-	})
 }
 
 func (j *Client) QueryContactCards(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, //NOSONAR
@@ -253,7 +259,7 @@ func (j *Client) CreateContactCard(accountId string, session *Session, ctx conte
 		if created, ok := setResponse.Created["c"]; !ok || created == nil {
 			berr := fmt.Errorf("failed to find %s in %s response", string(ContactCardType), string(CommandContactCardSet))
 			logger.Error().Err(berr)
-			return nil, "", simpleError(berr, JmapErrorInvalidJmapResponsePayload)
+			return nil, "", jmapError(berr, JmapErrorInvalidJmapResponsePayload)
 		}
 
 		var getResponse ContactCardGetResponse
@@ -265,7 +271,7 @@ func (j *Client) CreateContactCard(accountId string, session *Session, ctx conte
 		if len(getResponse.List) < 1 {
 			berr := fmt.Errorf("failed to find %s in %s response", string(ContactCardType), string(CommandContactCardSet))
 			logger.Error().Err(berr)
-			return nil, "", simpleError(berr, JmapErrorInvalidJmapResponsePayload)
+			return nil, "", jmapError(berr, JmapErrorInvalidJmapResponsePayload)
 		}
 
 		return &getResponse.List[0], setResponse.NewState, nil

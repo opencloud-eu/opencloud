@@ -38,6 +38,7 @@ const (
 	JmapErrorWssFailedToRetrieveSession
 	JmapErrorSocketPushUnsupported
 	JmapErrorMissingCreatedObject
+	JmapInvalidObjectState
 )
 
 var (
@@ -49,32 +50,49 @@ type Error interface {
 	error
 }
 
-type SimpleError struct {
-	code int
-	err  error
+type JmapError struct {
+	code        int
+	err         error
+	typ         string
+	description string
 }
 
-var _ Error = &SimpleError{}
+var _ Error = &JmapError{}
 
-func (e SimpleError) Code() int {
+func (e JmapError) Code() int {
 	return e.code
 }
-func (e SimpleError) Unwrap() error {
+func (e JmapError) Unwrap() error {
 	return e.err
 }
-func (e SimpleError) Error() string {
+func (e JmapError) Error() string {
 	if e.err != nil {
 		return e.err.Error()
 	} else {
 		return ""
 	}
 }
+func (e JmapError) Type() string {
+	return e.typ
+}
+func (e JmapError) Description() string {
+	return e.description
+}
 
-func simpleError(err error, code int) Error {
+func jmapError(err error, code int) Error {
 	if err != nil {
-		return SimpleError{code: code, err: err}
+		return JmapError{code: code, err: err}
 	} else {
 		return nil
+	}
+}
+
+func jmapResponseError(code int, err error, typ string, description string) JmapError {
+	return JmapError{
+		code:        code,
+		err:         err,
+		typ:         typ,
+		description: description,
 	}
 }
 
@@ -85,5 +103,5 @@ func setErrorError(err SetError, objectType ObjectType) Error {
 	} else {
 		e = fmt.Errorf("failed to modify %s due to %s error: %s", objectType, err.Type, err.Description)
 	}
-	return SimpleError{code: JmapErrorSetError, err: e}
+	return JmapError{code: JmapErrorSetError, err: e}
 }
