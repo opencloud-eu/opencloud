@@ -12,6 +12,7 @@ func (j *Client) GetQuotas(accountIds []string, session *Session, ctx context.Co
 			return QuotaGetCommand{AccountId: accountId}
 		},
 		identity1,
+		identity1,
 		func(resp QuotaGetResponse) State { return resp.State },
 		accountIds, session, ctx, logger, acceptLanguage, []string{},
 	)

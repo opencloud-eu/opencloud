@@ -31,7 +31,7 @@ func (j *Client) GetBlobMetadata(accountId string, session *Session, ctx context
 
 		if len(response.List) != 1 {
 			logger.Error().Msgf("%T.List has %v entries instead of 1", response, len(response.List))
-			return nil, "", simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return nil, "", jmapError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 		get := response.List[0]
 		return &get, response.State, nil
@@ -112,17 +112,17 @@ func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Cont
 
 		if len(uploadResponse.Created) != 1 {
 			logger.Error().Msgf("%T.Created has %v entries instead of 1", uploadResponse, len(uploadResponse.Created))
-			return UploadedBlobWithHash{}, "", simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return UploadedBlobWithHash{}, "", jmapError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 		upload, ok := uploadResponse.Created["0"]
 		if !ok {
 			logger.Error().Msgf("%T.Created has no item '0'", uploadResponse)
-			return UploadedBlobWithHash{}, "", simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return UploadedBlobWithHash{}, "", jmapError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 
 		if len(getResponse.List) != 1 {
 			logger.Error().Msgf("%T.List has %v entries instead of 1", getResponse, len(getResponse.List))
-			return UploadedBlobWithHash{}, "", simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return UploadedBlobWithHash{}, "", jmapError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 		get := getResponse.List[0]
 

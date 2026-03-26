@@ -14,6 +14,7 @@ import (
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/opencloud-eu/opencloud/pkg/jscalendar"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
 type eventListeners[T any] struct {
@@ -72,7 +73,7 @@ func command[T any](api ApiClient, //NOSONAR
 	if err != nil {
 		logger.Error().Err(err).Msgf("failed to deserialize body JSON payload into a %T", response)
 		var zero T
-		return zero, "", "", language, SimpleError{code: JmapErrorDecodingResponseBody, err: err}
+		return zero, "", "", language, jmapError(err, JmapErrorDecodingResponseBody)
 	}
 
 	if response.SessionState != session.State {
@@ -96,6 +97,9 @@ func command[T any](api ApiClient, //NOSONAR
 					code = JmapErrorUnknownMethod
 				case MethodLevelErrorInvalidArguments:
 					code = JmapErrorInvalidArguments
+					if strings.HasPrefix(errorParameters.Description, "invalid JMAP State") {
+						code = JmapInvalidObjectState
+					}
 				case MethodLevelErrorInvalidResultReference:
 					code = JmapErrorInvalidResultReference
 				case MethodLevelErrorForbidden:
@@ -119,14 +123,14 @@ func command[T any](api ApiClient, //NOSONAR
 				err = errors.New(msg)
 				logger.Warn().Int("code", code).Str("type", errorParameters.Type).Msg(msg)
 				var zero T
-				return zero, response.SessionState, "", language, SimpleError{code: code, err: err}
+				return zero, response.SessionState, "", language, jmapResponseError(code, err, errorParameters.Type, errorParameters.Description)
 			} else {
 				code := JmapErrorUnspecifiedType
 				msg := fmt.Sprintf("found method level error in response '%v'", mr.Tag)
 				err := errors.New(msg)
 				logger.Warn().Int("code", code).Msg(msg)
 				var zero T
-				return zero, response.SessionState, "", language, SimpleError{code: code, err: err}
+				return zero, response.SessionState, "", language, jmapResponseError(code, err, errorParameters.Type, errorParameters.Description)
 			}
 		}
 	}
@@ -200,17 +204,33 @@ func retrieveResponseMatchParameters[T any](logger *log.Logger, data *Response, 
 	if !ok {
 		err := fmt.Errorf("failed to find JMAP response invocation match for command '%v' and tag '%v'", command, tag)
 		logger.Error().Msg(err.Error())
-		return simpleError(err, JmapErrorInvalidJmapResponsePayload)
+		return jmapError(err, JmapErrorInvalidJmapResponsePayload)
 	}
 	params := match.Parameters
 	typedParams, ok := params.(T)
 	if !ok {
 		err := fmt.Errorf("JMAP response invocation matches command '%v' and tag '%v' but the type %T does not match the expected %T", command, tag, params, *target)
 		logger.Error().Msg(err.Error())
-		return simpleError(err, JmapErrorInvalidJmapResponsePayload)
+		return jmapError(err, JmapErrorInvalidJmapResponsePayload)
 	}
 	*target = typedParams
 	return nil
+}
+
+func tryRetrieveResponseMatchParameters[T any](logger *log.Logger, data *Response, command Command, tag string, target *T) (bool, Error) {
+	match, ok := retrieveResponseMatch(data, command, tag)
+	if !ok {
+		return false, nil
+	}
+	params := match.Parameters
+	typedParams, ok := params.(T)
+	if !ok {
+		err := fmt.Errorf("JMAP response invocation matches command '%v' and tag '%v' but the type %T does not match the expected %T", command, tag, params, *target)
+		logger.Error().Msg(err.Error())
+		return true, jmapError(err, JmapErrorInvalidJmapResponsePayload)
+	}
+	*target = typedParams
+	return true, nil
 }
 
 func (i *Invocation) MarshalJSON() ([]byte, error) {
@@ -266,6 +286,14 @@ func (i *Invocation) UnmarshalJSON(bs []byte) error {
 
 func squashState(all map[string]State) State {
 	return squashStateFunc(all, func(s State) State { return s })
+}
+
+func squashStates(states ...State) State {
+	return State(strings.Join(structs.Map(states, func(s State) string { return string(s) }), ","))
+}
+
+func squashKeyedStates(m map[string]State) State {
+	return squashStateFunc(m, identity1)
 }
 
 func squashStateFunc[V any](all map[string]V, mapper func(V) State) State {
@@ -345,4 +373,12 @@ func boolPtr(b bool) *bool {
 
 func identity1[T any](t T) T {
 	return t
+}
+
+func posUIntPtr(i uint) *uint {
+	if i > 0 {
+		return &i
+	} else {
+		return nil
+	}
 }

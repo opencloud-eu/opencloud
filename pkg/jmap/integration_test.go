@@ -912,6 +912,7 @@ var basicColors = []string{
 	"aqua",
 }
 
+/*
 // https://www.w3.org/TR/SVG11/types.html#ColorKeywords
 var extendedColors = []string{
 	"aliceblue",
@@ -1062,6 +1063,7 @@ var extendedColors = []string{
 	"yellow",
 	"yellowgreen",
 }
+*/
 
 func propmap[T any](enabled bool, min int, max int, container map[string]any, name string, cardProperty *map[string]T, generator func(int, string) (map[string]any, T, error)) error {
 	if !enabled {

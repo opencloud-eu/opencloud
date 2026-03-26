@@ -22,3 +22,14 @@ func TestUnmarshallingError(t *testing.T) {
 	require.Equal("forbidden", er.Type)
 	require.Equal("You do not have access to account a", er.Description)
 }
+
+func TestSquashKeyedStates(t *testing.T) {
+	require := require.New(t)
+
+	result := squashKeyedStates(map[string]State{
+		"a": "aaa",
+		"b": "bbb",
+		"c": "ccc",
+	})
+	require.Equal("a:aaa,b:bbb,c:ccc", string(result))
+}

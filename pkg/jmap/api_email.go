@@ -56,8 +56,7 @@ func (j *Client) GetEmails(accountId string, session *Session, ctx context.Conte
 
 	cmd, err := j.request(session, logger, methodCalls...)
 	if err != nil {
-		logger.Error().Err(err).Send()
-		return nil, nil, "", "", "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return nil, nil, "", "", "", err
 	}
 	result, sessionState, state, language, gwerr := command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (getEmailsResult, State, Error) {
 		if markAsSeen {
@@ -95,8 +94,7 @@ func (j *Client) GetEmailBlobId(accountId string, session *Session, ctx context.
 	get := EmailGetCommand{AccountId: accountId, Ids: []string{id}, FetchAllBodyValues: false, Properties: []string{"blobId"}}
 	cmd, err := j.request(session, logger, invocation(CommandEmailGet, get, "0"))
 	if err != nil {
-		logger.Error().Err(err).Send()
-		return "", "", "", "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return "", "", "", "", err
 	}
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (string, State, Error) {
 		var response EmailGetResponse
@@ -240,7 +238,7 @@ func (j *Client) GetEmailChanges(accountId string, session *Session, ctx context
 		invocation(CommandEmailGet, getUpdated, "2"),
 	)
 	if err != nil {
-		return EmailChanges{}, "", "", "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return EmailChanges{}, "", "", "", err
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (EmailChanges, State, Error) {
@@ -536,8 +534,7 @@ func (j *Client) QueryEmailsWithSnippets(accountIds []string, filter EmailFilter
 
 	cmd, err := j.request(session, logger, invocations...)
 	if err != nil {
-		logger.Error().Err(err).Send()
-		return nil, "", "", "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return nil, "", "", "", err
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]EmailQueryWithSnippetsResult, State, Error) {
@@ -631,7 +628,7 @@ func (j *Client) ImportEmail(accountId string, session *Session, ctx context.Con
 		invocation(CommandBlobGet, getHash, "1"),
 	)
 	if err != nil {
-		return UploadedEmail{}, "", "", "", simpleError(err, JmapErrorInvalidJmapRequestPayload)
+		return UploadedEmail{}, "", "", "", err
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (UploadedEmail, State, Error) {
@@ -650,17 +647,17 @@ func (j *Client) ImportEmail(accountId string, session *Session, ctx context.Con
 
 		if len(uploadResponse.Created) != 1 {
 			logger.Error().Msgf("%T.Created has %v elements instead of 1", uploadResponse, len(uploadResponse.Created))
-			return UploadedEmail{}, "", simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return UploadedEmail{}, "", jmapError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 		upload, ok := uploadResponse.Created["0"]
 		if !ok {
 			logger.Error().Msgf("%T.Created has no element '0'", uploadResponse)
-			return UploadedEmail{}, "", simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return UploadedEmail{}, "", jmapError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 
 		if len(getResponse.List) != 1 {
 			logger.Error().Msgf("%T.List has %v elements instead of 1", getResponse, len(getResponse.List))
-			return UploadedEmail{}, "", simpleError(err, JmapErrorInvalidJmapResponsePayload)
+			return UploadedEmail{}, "", jmapError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 		get := getResponse.List[0]
 
@@ -714,7 +711,7 @@ func (j *Client) CreateEmail(accountId string, email EmailCreate, replaceId stri
 		if !ok {
 			berr := fmt.Errorf("failed to find %s in %s response", string(EmailType), string(CommandEmailSet))
 			logger.Error().Err(berr)
-			return nil, "", simpleError(berr, JmapErrorInvalidJmapResponsePayload)
+			return nil, "", jmapError(berr, JmapErrorInvalidJmapResponsePayload)
 		}
 
 		return created, setResponse.NewState, nil
@@ -886,7 +883,7 @@ func (j *Client) SubmitEmail(accountId string, identityId string, emailId string
 
 			return submission, setResponse.NewState, nil
 		} else {
-			err = simpleError(fmt.Errorf("failed to submit email: updated is empty"), 0) // TODO proper error handling
+			err = jmapError(fmt.Errorf("failed to submit email: updated is empty"), 0) // TODO proper error handling
 			return EmailSubmission{}, "", err
 		}
 	})

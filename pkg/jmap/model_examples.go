@@ -1817,3 +1817,50 @@ func (e Exemplar) EmailChanges() EmailChanges {
 		Destroyed:      []string{"mmnan", "moxzz"},
 	}
 }
+
+func (e Exemplar) Changes() Changes {
+	return Changes{
+		MaxChanges: 3,
+		Mailboxes: &MailboxChangesResponse{
+			AccountId:      e.AccountId,
+			OldState:       "n",
+			NewState:       "rafrag",
+			HasMoreChanges: true,
+			Created:        []string{"d", "e", "a"},
+		},
+		Emails: &EmailChangesResponse{
+			AccountId:      e.AccountId,
+			OldState:       "n",
+			NewState:       "rafrag",
+			HasMoreChanges: true,
+			Created:        []string{"bmaaaaal", "hqaaaab2", "hqaaaab0"},
+		},
+		Calendars: &CalendarChangesResponse{
+			AccountId:      e.AccountId,
+			OldState:       "n",
+			NewState:       "sci",
+			HasMoreChanges: false,
+			Created:        []string{"b"},
+		},
+		Events: &CalendarEventChangesResponse{
+			AccountId:      e.AccountId,
+			OldState:       "n",
+			NewState:       "sci",
+			HasMoreChanges: false,
+		},
+		Addressbooks: &AddressBookChangesResponse{
+			AccountId:      e.AccountId,
+			OldState:       "n",
+			NewState:       "sb2",
+			HasMoreChanges: false,
+			Created:        []string{"b", "c"},
+		},
+		Contacts: &ContactCardChangesResponse{
+			AccountId:      e.AccountId,
+			OldState:       "n",
+			NewState:       "rbsxqeay",
+			HasMoreChanges: true,
+			Created:        []string{"fq", "fr", "fs"},
+		},
+	}
+}

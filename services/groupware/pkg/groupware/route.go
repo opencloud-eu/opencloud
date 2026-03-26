@@ -58,6 +58,12 @@ const (
 	QueryParamUndesirable             = "undesirable"
 	QueryParamMarkAsSeen              = "markAsSeen"
 	QueryParamSort                    = "sort"
+	QueryParamMailboxes               = "mailboxes"
+	QueryParamEmails                  = "emails"
+	QueryParamAddressbooks            = "addressbooks"
+	QueryParamContacts                = "contacts"
+	QueryParamCalendars               = "calendars"
+	QueryParamEvents                  = "events"
 	HeaderParamSince                  = "if-none-match"
 )
 
@@ -154,7 +160,7 @@ func (g *Groupware) Route(r chi.Router) {
 				r.Get("/", g.GetCalendars)
 				r.Route("/{calendarid}", func(r chi.Router) {
 					r.Get("/", g.GetCalendarById)
-					r.Get("/events", g.GetEventsInCalendar)
+					r.Get("/events", g.GetEventsInCalendar) //NOSONAR
 				})
 			})
 			r.Route("/events", func(r chi.Router) {
@@ -169,10 +175,16 @@ func (g *Groupware) Route(r chi.Router) {
 				})
 			})
 			r.Route("/changes", func(r chi.Router) {
-				r.Get("/contacts", g.GetContactsChanges)
+				r.Get("/", g.GetChanges)
 				r.Get("/mailboxes", g.GetMailboxChanges)
 				r.Get("/emails", g.GetEmailChanges)
+				r.Get("/addressbooks", g.GetAddressBookChanges)
+				r.Get("/contacts", g.GetContactsChanges)
+				r.Get("/calendars", g.GetCalendarChanges)
+				r.Get("/events", g.GetEventChanges)
 			})
+			r.Get("/objects", g.GetObjects)
+			r.Post("/objects", g.GetObjects)
 		})
 	})
 

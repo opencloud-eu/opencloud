@@ -56,12 +56,12 @@ type Session struct {
 }
 
 var (
-	invalidSessionResponseErrorMissingUsername     = SimpleError{code: JmapErrorInvalidSessionResponse, err: errors.New("JMAP session response does not provide a username")}
-	invalidSessionResponseErrorMissingApiUrl       = SimpleError{code: JmapErrorInvalidSessionResponse, err: errors.New("JMAP session response does not provide an API URL")}
-	invalidSessionResponseErrorInvalidApiUrl       = SimpleError{code: JmapErrorInvalidSessionResponse, err: errors.New("JMAP session response provides an invalid API URL")}
-	invalidSessionResponseErrorMissingUploadUrl    = SimpleError{code: JmapErrorInvalidSessionResponse, err: errors.New("JMAP session response does not provide an upload URL")}
-	invalidSessionResponseErrorMissingDownloadUrl  = SimpleError{code: JmapErrorInvalidSessionResponse, err: errors.New("JMAP session response does not provide a download URL")}
-	invalidSessionResponseErrorInvalidWebsocketUrl = SimpleError{code: JmapErrorInvalidSessionResponse, err: errors.New("JMAP session response provides an invalid Websocket URL")}
+	invalidSessionResponseErrorMissingUsername     = jmapError(errors.New("JMAP session response does not provide a username"), JmapErrorInvalidSessionResponse)
+	invalidSessionResponseErrorMissingApiUrl       = jmapError(errors.New("JMAP session response does not provide an API URL"), JmapErrorInvalidSessionResponse)
+	invalidSessionResponseErrorInvalidApiUrl       = jmapError(errors.New("JMAP session response provides an invalid API URL"), JmapErrorInvalidSessionResponse)
+	invalidSessionResponseErrorMissingUploadUrl    = jmapError(errors.New("JMAP session response does not provide an upload URL"), JmapErrorInvalidSessionResponse)
+	invalidSessionResponseErrorMissingDownloadUrl  = jmapError(errors.New("JMAP session response does not provide a download URL"), JmapErrorInvalidSessionResponse)
+	invalidSessionResponseErrorInvalidWebsocketUrl = jmapError(errors.New("JMAP session response provides an invalid Websocket URL"), JmapErrorInvalidSessionResponse)
 )
 
 // Create a new Session from a SessionResponse.

@@ -9,6 +9,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
 // Get a specific mailbox by its identifier.
@@ -62,7 +63,7 @@ func (g *Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) { //NOS
 			hasCriteria = true
 		}
 		role, ok := req.getStringParam(QueryParamMailboxSearchRole, "") // the mailbox role to filter on
-		if role != "" {
+		if ok && role != "" {
 			filter.Role = role
 			hasCriteria = true
 		}
@@ -195,9 +196,9 @@ func (g *Groupware) GetMailboxChanges(w http.ResponseWriter, r *http.Request) {
 			l = l.Uint(QueryParamMaxChanges, maxChanges)
 		}
 
-		sinceState := req.OptHeaderParamDoc(HeaderParamSince, "Optionally specifies the state identifier from which on to list mailbox changes")
+		sinceState := jmap.State(req.OptHeaderParamDoc(HeaderParamSince, "Optionally specifies the state identifier from which on to list mailbox changes"))
 		if sinceState != "" {
-			l = l.Str(HeaderParamSince, log.SafeString(sinceState))
+			l = l.Str(HeaderParamSince, log.SafeString(string(sinceState)))
 		}
 
 		logger := log.From(l)
@@ -232,13 +233,13 @@ func (g *Groupware) GetMailboxChangesForAllAccounts(w http.ResponseWriter, r *ht
 		allAccountIds := req.AllAccountIds()
 		l.Array(logAccountId, log.SafeStringArray(allAccountIds))
 
-		sinceStateMap, ok, err := req.parseMapParam(QueryParamSince)
+		sinceStateStrMap, ok, err := req.parseMapParam(QueryParamSince)
 		if err != nil {
 			return req.errorN(allAccountIds, err)
 		}
 		if ok {
 			dict := zerolog.Dict()
-			for k, v := range sinceStateMap {
+			for k, v := range sinceStateStrMap {
 				dict.Str(log.SafeString(k), log.SafeString(v))
 			}
 			l = l.Dict(QueryParamSince, dict)
@@ -254,6 +255,7 @@ func (g *Groupware) GetMailboxChangesForAllAccounts(w http.ResponseWriter, r *ht
 
 		logger := log.From(l)
 
+		sinceStateMap := structs.MapValues(sinceStateStrMap, toState)
 		changesByAccountId, sessionState, state, lang, jerr := g.jmap.GetMailboxChangesForMultipleAccounts(allAccountIds, req.session, req.ctx, logger, req.language(), sinceStateMap, maxChanges)
 		if jerr != nil {
 			return req.jmapErrorN(allAccountIds, jerr, sessionState, lang)

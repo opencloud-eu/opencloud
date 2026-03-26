@@ -89,6 +89,41 @@ func (g *Groupware) GetAddressbook(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Get the changes that occured in a given mailbox since a certain state.
+// @api:tags mailbox,changes
+func (g *Groupware) GetAddressBookChanges(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		ok, accountId, resp := req.needContactWithAccount()
+		if !ok {
+			return resp
+		}
+
+		l := req.logger.With()
+
+		maxChanges, ok, err := req.parseUIntParam(QueryParamMaxChanges, 0)
+		if err != nil {
+			return req.error(accountId, err)
+		}
+		if ok {
+			l = l.Uint(QueryParamMaxChanges, maxChanges)
+		}
+
+		sinceState := jmap.State(req.OptHeaderParamDoc(HeaderParamSince, "Optionally specifies the state identifier from which on to list addressbook changes"))
+		if sinceState != "" {
+			l = l.Str(HeaderParamSince, log.SafeString(string(sinceState)))
+		}
+
+		logger := log.From(l)
+
+		changes, sessionState, state, lang, jerr := g.jmap.GetAddressbookChanges(accountId, req.session, req.ctx, logger, req.language(), sinceState, maxChanges)
+		if jerr != nil {
+			return req.jmapError(accountId, jerr, sessionState, lang)
+		}
+
+		return req.respond(accountId, changes, sessionState, AddressBookResponseObjectType, state)
+	})
+}
+
 // Get all the contacts in an addressbook of an account by its identifier.
 func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	g.respond(w, r, func(req Request) Response {
@@ -214,14 +249,11 @@ func (g *Groupware) GetContactsChanges(w http.ResponseWriter, r *http.Request) {
 			l = l.Uint(QueryParamMaxChanges, v)
 		}
 
-		sinceState, err := req.HeaderParamDoc(HeaderParamSince, "Specifies the state identifier from which on to list mailbox changes")
-		if err != nil {
-			return req.error(accountId, err)
-		}
-		l = l.Str(HeaderParamSince, log.SafeString(sinceState))
+		sinceState := jmap.State(req.OptHeaderParamDoc(HeaderParamSince, "Specifies the state identifier from which on to list contact changes"))
+		l = l.Str(HeaderParamSince, log.SafeString(string(sinceState)))
 
 		logger := log.From(l)
-		changes, sessionState, state, lang, jerr := g.jmap.GetContactCardsSince(accountId, req.session, req.ctx, logger, req.language(), sinceState, maxChanges)
+		changes, sessionState, state, lang, jerr := g.jmap.GetContactCardChanges(accountId, req.session, req.ctx, logger, req.language(), sinceState, maxChanges)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
