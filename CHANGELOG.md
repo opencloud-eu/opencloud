@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @aduffeck, @dragonchaser, @pascalwengerter
+@ScharfViktor, @aduffeck, @dragonchaser, @pascalwengerter, @smoothscholar
 
 ### 💥 Breaking changes
 
@@ -12,8 +12,13 @@
 
 ### 📈 Enhancement
 
+- feat: add openFilesInNewTab web config option [[#2522](https://github.com/opencloud-eu/opencloud/pull/2522)]
 - Always enable favorites, remove FRONTEND_ENABLE_FAVORITES flag [[#2494](https://github.com/opencloud-eu/opencloud/pull/2494)]
 - Implement favorites [[#2454](https://github.com/opencloud-eu/opencloud/pull/2454)]
+
+### 🐛 Bug Fixes
+
+- Fix bleve batches [[#2524](https://github.com/opencloud-eu/opencloud/pull/2524)]
 
 ### ✅ Tests
 
