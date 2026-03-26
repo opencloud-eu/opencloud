@@ -71,6 +71,11 @@ func (b *Batch) Move(id, parentID, location string) error {
 			if err := b.batch.Index(resource.ID, resource); err != nil {
 				return err
 			}
+			if b.batch.Size() >= b.size {
+				if err := b.Push(); err != nil {
+					return err
+				}
+			}
 		}
 
 		return nil
@@ -88,6 +93,11 @@ func (b *Batch) Delete(id string) error {
 			if err := b.batch.Index(resource.ID, resource); err != nil {
 				return err
 			}
+			if b.batch.Size() >= b.size {
+				if err := b.Push(); err != nil {
+					return err
+				}
+			}
 		}
 
 		return nil
@@ -104,6 +114,11 @@ func (b *Batch) Restore(id string) error {
 		for _, resource := range affectedResources {
 			if err := b.batch.Index(resource.ID, resource); err != nil {
 				return err
+			}
+			if b.batch.Size() >= b.size {
+				if err := b.Push(); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -142,6 +157,11 @@ func (b *Batch) Purge(id string, onlyDeleted bool) error {
 
 		for _, resource := range affectResources {
 			b.batch.Delete(resource.ID)
+			if b.batch.Size() >= b.size {
+				if err := b.Push(); err != nil {
+					return err
+				}
+			}
 		}
 
 		return nil
