@@ -12,6 +12,8 @@ type AccountBootstrapResult struct {
 	Quotas     []Quota    `json:"quotas,omitempty"`
 }
 
+var NS_MAIL_QUOTA = ns(JmapMail, JmapQuota)
+
 func (j *Client) GetBootstrap(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]AccountBootstrapResult, SessionState, State, Language, Error) { //NOSONAR
 	uniqueAccountIds := structs.Uniq(accountIds)
 
@@ -23,7 +25,7 @@ func (j *Client) GetBootstrap(accountIds []string, session *Session, ctx context
 		calls[i*2+1] = invocation(CommandQuotaGet, QuotaGetCommand{AccountId: accountId}, mcid(accountId, "Q"))
 	}
 
-	cmd, err := j.request(session, logger, calls...)
+	cmd, err := j.request(session, logger, NS_MAIL_QUOTA, calls...)
 	if err != nil {
 		return nil, "", "", "", err
 	}

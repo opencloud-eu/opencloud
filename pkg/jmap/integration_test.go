@@ -708,9 +708,9 @@ func (j *TestJmapClient) create(id string, objectType ObjectType, body map[strin
 	}).command(body)
 }
 
-func (j *TestJmapClient) create1(accountId string, objectType ObjectType, ns string, obj map[string]any) (string, error) {
+func (j *TestJmapClient) create1(accountId string, objectType ObjectType, ns JmapNamespace, obj map[string]any) (string, error) {
 	body := map[string]any{
-		"using": []string{JmapCore, ns},
+		"using": []string{string(JmapCore), string(ns)},
 		"methodCalls": []any{
 			[]any{
 				objectType + "/set",
@@ -727,11 +727,11 @@ func (j *TestJmapClient) create1(accountId string, objectType ObjectType, ns str
 	return j.create("c", objectType, body)
 }
 
-func (j *TestJmapClient) objectsById(accountId string, objectType ObjectType, scope string) (map[string]map[string]any, error) {
+func (j *TestJmapClient) objectsById(accountId string, objectType ObjectType, scope JmapNamespace) (map[string]map[string]any, error) {
 	m := map[string]map[string]any{}
 	{
 		body := map[string]any{
-			"using": []string{JmapCore, scope},
+			"using": []string{string(JmapCore), string(scope)},
 			"methodCalls": []any{
 				[]any{
 					objectType + "/get",

@@ -61,6 +61,13 @@ func (g *Groupware) GetChanges(w http.ResponseWriter, r *http.Request) { //NOSON
 			if state, ok := req.getStringParam(QueryParamEvents, ""); ok {
 				sinceState.Events = ptr(toState(state))
 			}
+			if state, ok := req.getStringParam(QueryParamIdentities, ""); ok {
+				sinceState.Identities = ptr(toState(state))
+			}
+			if state, ok := req.getStringParam(QueryParamEmailSubmissions, ""); ok {
+				sinceState.EmailSubmissions = ptr(toState(state))
+			}
+			//if state, ok := req.getStringParam(QueryParamQuotas, ""); ok { sinceState.Quotas = ptr(toState(state)) }
 			if sinceState.IsZero() {
 				return req.noop(accountId)
 			}

@@ -10,8 +10,8 @@ import (
 )
 
 func getTemplate[GETREQ any, GETRESP any, RESP any]( //NOSONAR
-	client *Client, name string, getCommand Command,
-	getCommandFactory func(string, []string) GETREQ,
+	client *Client, name string, using []JmapNamespace,
+	getCommand Command, getCommandFactory func(string, []string) GETREQ,
 	mapper func(GETRESP) RESP,
 	stateMapper func(GETRESP) State,
 	accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (RESP, SessionState, State, Language, Error) {
@@ -19,7 +19,7 @@ func getTemplate[GETREQ any, GETRESP any, RESP any]( //NOSONAR
 
 	var zero RESP
 
-	cmd, err := client.request(session, logger,
+	cmd, err := client.request(session, logger, using,
 		invocation(getCommand, getCommandFactory(accountId, ids), "0"),
 	)
 	if err != nil {
@@ -38,8 +38,8 @@ func getTemplate[GETREQ any, GETRESP any, RESP any]( //NOSONAR
 }
 
 func getTemplateN[GETREQ any, GETRESP any, ITEM any, RESP any]( //NOSONAR
-	client *Client, name string, getCommand Command,
-	getCommandFactory func(string, []string) GETREQ,
+	client *Client, name string, using []JmapNamespace,
+	getCommand Command, getCommandFactory func(string, []string) GETREQ,
 	itemMapper func(GETRESP) ITEM,
 	respMapper func(map[string]ITEM) RESP,
 	stateMapper func(GETRESP) State,
@@ -55,7 +55,7 @@ func getTemplateN[GETREQ any, GETRESP any, ITEM any, RESP any]( //NOSONAR
 		invocations[i] = invocation(getCommand, getCommandFactory(accountId, ids), mcid(accountId, "0"))
 	}
 
-	cmd, err := client.request(session, logger, invocations...)
+	cmd, err := client.request(session, logger, using, invocations...)
 	if err != nil {
 		return zero, "", "", "", err
 	}
@@ -77,7 +77,8 @@ func getTemplateN[GETREQ any, GETRESP any, ITEM any, RESP any]( //NOSONAR
 }
 
 func createTemplate[T any, SETREQ any, GETREQ any, SETRESP any, GETRESP any]( //NOSONAR
-	client *Client, name string, t ObjectType, setCommand Command, getCommand Command,
+	client *Client, name string, using []JmapNamespace, t ObjectType,
+	setCommand Command, getCommand Command,
 	setCommandFactory func(string, map[string]T) SETREQ,
 	getCommandFactory func(string, string) GETREQ,
 	createdMapper func(SETRESP) map[string]*T,
@@ -88,7 +89,7 @@ func createTemplate[T any, SETREQ any, GETREQ any, SETRESP any, GETRESP any]( //
 	logger = client.logger(name, session, logger)
 
 	createMap := map[string]T{"c": create}
-	cmd, err := client.request(session, logger,
+	cmd, err := client.request(session, logger, using,
 		invocation(setCommand, setCommandFactory(accountId, createMap), "0"),
 		invocation(getCommand, getCommandFactory(accountId, "#c"), "1"),
 	)
@@ -135,14 +136,14 @@ func createTemplate[T any, SETREQ any, GETREQ any, SETRESP any, GETRESP any]( //
 	})
 }
 
-func deleteTemplate[REQ any, RESP any](client *Client, name string, c Command, //NOSONAR
-	commandFactory func(string, []string) REQ,
+func deleteTemplate[REQ any, RESP any](client *Client, name string, using []JmapNamespace, //NOSONAR
+	c Command, commandFactory func(string, []string) REQ,
 	notDestroyedMapper func(RESP) map[string]SetError,
 	stateMapper func(RESP) State,
 	accountId string, destroy []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]SetError, SessionState, State, Language, Error) {
 	logger = client.logger(name, session, logger)
 
-	cmd, err := client.request(session, logger,
+	cmd, err := client.request(session, logger, using,
 		invocation(c, commandFactory(accountId, destroy), "0"),
 	)
 	if err != nil {
@@ -160,7 +161,7 @@ func deleteTemplate[REQ any, RESP any](client *Client, name string, c Command, /
 }
 
 func changesTemplate[CHANGESREQ any, GETREQ any, CHANGESRESP any, GETRESP any, ITEM any, RESP any]( //NOSONAR
-	client *Client, name string,
+	client *Client, name string, using []JmapNamespace,
 	changesCommand Command, getCommand Command,
 	changesCommandFactory func() CHANGESREQ,
 	getCommandFactory func(string, string) GETREQ,
@@ -175,7 +176,7 @@ func changesTemplate[CHANGESREQ any, GETREQ any, CHANGESRESP any, GETRESP any, I
 	changes := changesCommandFactory()
 	getCreated := getCommandFactory("/created", "0") //NOSONAR
 	getUpdated := getCommandFactory("/updated", "0") //NOSONAR
-	cmd, err := client.request(session, logger,
+	cmd, err := client.request(session, logger, using,
 		invocation(changesCommand, changes, "0"),
 		invocation(getCommand, getCreated, "1"),
 		invocation(getCommand, getUpdated, "2"),
@@ -215,8 +216,54 @@ func changesTemplate[CHANGESREQ any, GETREQ any, CHANGESRESP any, GETRESP any, I
 	})
 }
 
+func updatedTemplate[CHANGESREQ any, GETREQ any, CHANGESRESP any, GETRESP any, ITEM any, RESP any]( //NOSONAR
+	client *Client, name string, using []JmapNamespace,
+	changesCommand Command, getCommand Command,
+	changesCommandFactory func() CHANGESREQ,
+	getCommandFactory func(string, string) GETREQ,
+	changesMapper func(CHANGESRESP) (State, State, bool),
+	getMapper func(GETRESP) []ITEM,
+	respMapper func(State, State, bool, []ITEM) RESP,
+	stateMapper func(GETRESP) State,
+	session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (RESP, SessionState, State, Language, Error) {
+	logger = client.logger(name, session, logger)
+	var zero RESP
+
+	changes := changesCommandFactory()
+	getUpdated := getCommandFactory("/updated", "0") //NOSONAR
+	cmd, err := client.request(session, logger, using,
+		invocation(changesCommand, changes, "0"),
+		invocation(getCommand, getUpdated, "1"),
+	)
+	if err != nil {
+		return zero, "", "", "", err
+	}
+
+	return command(client.api, logger, ctx, session, client.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (RESP, State, Error) {
+		var changesResponse CHANGESRESP
+		err = retrieveResponseMatchParameters(logger, body, changesCommand, "0", &changesResponse)
+		if err != nil {
+			return zero, "", err
+		}
+
+		var updatedResponse GETRESP
+		err = retrieveResponseMatchParameters(logger, body, getCommand, "1", &updatedResponse)
+		if err != nil {
+			logger.Error().Err(err).Send()
+			return zero, "", err
+		}
+
+		oldState, newState, hasMoreChanges := changesMapper(changesResponse)
+		updated := getMapper(updatedResponse)
+
+		result := respMapper(oldState, newState, hasMoreChanges, updated)
+
+		return result, stateMapper(updatedResponse), nil
+	})
+}
+
 func changesTemplateN[CHANGESREQ any, GETREQ any, CHANGESRESP any, GETRESP any, ITEM any, CHANGESITEM any, RESP any]( //NOSONAR
-	client *Client, name string,
+	client *Client, name string, using []JmapNamespace,
 	accountIds []string, sinceStateMap map[string]State,
 	changesCommand Command, getCommand Command,
 	changesCommandFactory func(string, State) CHANGESREQ,
@@ -260,7 +307,7 @@ func changesTemplateN[CHANGESREQ any, GETREQ any, CHANGESRESP any, GETRESP any, 
 		invocations[i*3+2] = invocation(getCommand, getUpdated, mcid(accountId, "2"))
 	}
 
-	cmd, err := client.request(session, logger, invocations...)
+	cmd, err := client.request(session, logger, using, invocations...)
 	if err != nil {
 		return zero, "", "", "", err
 	}

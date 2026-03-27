@@ -10,7 +10,7 @@ import (
 )
 
 func (j *Client) GetBlobMetadata(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, id string) (*Blob, SessionState, State, Language, Error) {
-	cmd, jerr := j.request(session, logger,
+	cmd, jerr := j.request(session, logger, ns(JmapBlob),
 		invocation(CommandBlobGet, BlobGetCommand{
 			AccountId: accountId,
 			Ids:       []string{id},
@@ -89,7 +89,7 @@ func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Cont
 		Properties: []string{BlobPropertyDigestSha512},
 	}
 
-	cmd, jerr := j.request(session, logger,
+	cmd, jerr := j.request(session, logger, ns(JmapBlob),
 		invocation(CommandBlobUpload, upload, "0"),
 		invocation(CommandBlobGet, getHash, "1"),
 	)

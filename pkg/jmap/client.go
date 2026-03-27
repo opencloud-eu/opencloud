@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/url"
+	"slices"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/rs/zerolog"
@@ -91,13 +92,20 @@ func (j *Client) maxCallsCheck(calls int, session *Session, logger *log.Logger) 
 // Construct a Request from the given list of Invocation objects.
 //
 // If an issue occurs, then it is logged prior to returning it.
-func (j *Client) request(session *Session, logger *log.Logger, methodCalls ...Invocation) (Request, Error) {
+func (j *Client) request(session *Session, logger *log.Logger, using []JmapNamespace, methodCalls ...Invocation) (Request, Error) {
 	err := j.maxCallsCheck(len(methodCalls), session, logger)
 	if err != nil {
 		return Request{}, err
 	}
+
+	if using == nil {
+		using = JmapNamespaces
+	}
+	if !slices.Contains(using, JmapCore) {
+		using = slices.Insert(using, 0, JmapCore)
+	}
 	return Request{
-		Using:       []string{JmapCore, JmapMail, JmapContacts},
+		Using:       using,
 		MethodCalls: methodCalls,
 		CreatedIds:  nil,
 	}, nil

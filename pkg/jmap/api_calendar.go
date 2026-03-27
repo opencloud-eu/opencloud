@@ -7,10 +7,12 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
+var NS_CALENDARS = ns(JmapCalendars)
+
 func (j *Client) ParseICalendarBlob(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, blobIds []string) (CalendarEventParseResponse, SessionState, State, Language, Error) {
 	logger = j.logger("ParseICalendarBlob", session, logger)
 
-	cmd, err := j.request(session, logger,
+	cmd, err := j.request(session, logger, NS_CALENDARS,
 		invocation(CommandCalendarEventParse, CalendarEventParseCommand{AccountId: accountId, BlobIds: blobIds}, "0"),
 	)
 	if err != nil {
@@ -33,7 +35,7 @@ type CalendarsResponse struct {
 }
 
 func (j *Client) GetCalendars(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (CalendarsResponse, SessionState, State, Language, Error) {
-	return getTemplate(j, "GetCalendars", CommandCalendarGet,
+	return getTemplate(j, "GetCalendars", NS_CALENDARS, CommandCalendarGet,
 		func(accountId string, ids []string) CalendarGetCommand {
 			return CalendarGetCommand{AccountId: accountId, Ids: ids}
 		},
@@ -57,7 +59,7 @@ type CalendarChanges struct {
 // Retrieve Calendar changes since a given state.
 // @apidoc calendar,changes
 func (j *Client) GetCalendarChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceState State, maxChanges uint) (CalendarChanges, SessionState, State, Language, Error) {
-	return changesTemplate(j, "GetCalendarChanges",
+	return changesTemplate(j, "GetCalendarChanges", NS_CALENDARS,
 		CommandCalendarChanges, CommandCalendarGet,
 		func() CalendarChangesCommand {
 			return CalendarChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: posUIntPtr(maxChanges)}
@@ -126,7 +128,7 @@ func (j *Client) QueryCalendarEvents(accountIds []string, session *Session, ctx 
 			// Properties: CalendarEventProperties, // to also retrieve UTCStart and UTCEnd
 		}, mcid(accountId, "1"))
 	}
-	cmd, err := j.request(session, logger, invocations...)
+	cmd, err := j.request(session, logger, NS_CALENDARS, invocations...)
 	if err != nil {
 		return nil, "", "", "", err
 	}
@@ -161,7 +163,7 @@ type CalendarEventChanges struct {
 
 func (j *Client) GetCalendarEventChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger,
 	acceptLanguage string, sinceState State, maxChanges uint) (CalendarEventChanges, SessionState, State, Language, Error) {
-	return changesTemplate(j, "GetCalendarEventChanges",
+	return changesTemplate(j, "GetCalendarEventChanges", NS_CALENDARS,
 		CommandCalendarEventChanges, CommandCalendarEventGet,
 		func() CalendarEventChangesCommand {
 			return CalendarEventChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: posUIntPtr(maxChanges)}
@@ -196,7 +198,7 @@ func (j *Client) GetCalendarEventChanges(accountId string, session *Session, ctx
 }
 
 func (j *Client) CreateCalendarEvent(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, create CalendarEvent) (*CalendarEvent, SessionState, State, Language, Error) {
-	return createTemplate(j, "CreateCalendarEvent", CalendarEventType, CommandCalendarEventSet, CommandCalendarEventGet,
+	return createTemplate(j, "CreateCalendarEvent", NS_CALENDARS, CalendarEventType, CommandCalendarEventSet, CommandCalendarEventGet,
 		func(accountId string, create map[string]CalendarEvent) CalendarEventSetCommand {
 			return CalendarEventSetCommand{AccountId: accountId, Create: create}
 		},
@@ -219,7 +221,7 @@ func (j *Client) CreateCalendarEvent(accountId string, session *Session, ctx con
 }
 
 func (j *Client) DeleteCalendarEvent(accountId string, destroy []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]SetError, SessionState, State, Language, Error) {
-	return deleteTemplate(j, "DeleteCalendarEvent", CommandCalendarEventSet,
+	return deleteTemplate(j, "DeleteCalendarEvent", NS_CALENDARS, CommandCalendarEventSet,
 		func(accountId string, destroy []string) CalendarEventSetCommand {
 			return CalendarEventSetCommand{AccountId: accountId, Destroy: destroy}
 		},

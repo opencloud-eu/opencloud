@@ -64,3 +64,36 @@ func (g *Groupware) GetQuotaForAllAccounts(w http.ResponseWriter, r *http.Reques
 		return req.respondN(accountIds, result, sessionState, QuotaResponseObjectType, state)
 	})
 }
+
+// Get changes to Contacts since a given State
+// @api:tags contact,changes
+func (g *Groupware) GetQuotaChanges(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		accountId, err := req.GetAccountIdForQuota()
+		if err != nil {
+			return req.error(accountId, err)
+		}
+
+		l := req.logger.With().Str(logAccountId, accountId)
+
+		var maxChanges uint = 0
+		if v, ok, err := req.parseUIntParam(QueryParamMaxChanges, 0); err != nil {
+			return req.error(accountId, err)
+		} else if ok {
+			maxChanges = v
+			l = l.Uint(QueryParamMaxChanges, v)
+		}
+
+		sinceState := jmap.State(req.OptHeaderParamDoc(HeaderParamSince, "Specifies the state identifier from which on to list quota changes"))
+		l = l.Str(HeaderParamSince, log.SafeString(string(sinceState)))
+
+		logger := log.From(l)
+		changes, sessionState, state, lang, jerr := g.jmap.GetQuotaChanges(accountId, req.session, req.ctx, logger, req.language(), sinceState, maxChanges)
+		if jerr != nil {
+			return req.jmapError(accountId, jerr, sessionState, lang)
+		}
+		var body jmap.QuotaChanges = changes
+
+		return req.respond(accountId, body, sessionState, QuotaResponseObjectType, state)
+	})
+}

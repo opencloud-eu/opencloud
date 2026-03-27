@@ -8,8 +8,10 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
+var NS_IDENTITY = ns(JmapMail)
+
 func (j *Client) GetAllIdentities(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) ([]Identity, SessionState, State, Language, Error) {
-	return getTemplate(j, "GetAllIdentities", CommandIdentityGet,
+	return getTemplate(j, "GetAllIdentities", NS_IDENTITY, CommandIdentityGet,
 		func(accountId string, ids []string) IdentityGetCommand {
 			return IdentityGetCommand{AccountId: accountId}
 		},
@@ -20,7 +22,7 @@ func (j *Client) GetAllIdentities(accountId string, session *Session, ctx contex
 }
 
 func (j *Client) GetIdentities(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, identityIds []string) ([]Identity, SessionState, State, Language, Error) {
-	return getTemplate(j, "GetIdentities", CommandIdentityGet,
+	return getTemplate(j, "GetIdentities", NS_IDENTITY, CommandIdentityGet,
 		func(accountId string, ids []string) IdentityGetCommand {
 			return IdentityGetCommand{AccountId: accountId, Ids: ids}
 		},
@@ -31,7 +33,7 @@ func (j *Client) GetIdentities(accountId string, session *Session, ctx context.C
 }
 
 func (j *Client) GetIdentitiesForAllAccounts(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string][]Identity, SessionState, State, Language, Error) {
-	return getTemplateN(j, "GetIdentitiesForAllAccounts", CommandIdentityGet,
+	return getTemplateN(j, "GetIdentitiesForAllAccounts", NS_IDENTITY, CommandIdentityGet,
 		func(accountId string, ids []string) IdentityGetCommand {
 			return IdentityGetCommand{AccountId: accountId}
 		},
@@ -59,7 +61,7 @@ func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId string, accountIds [
 		calls[i+1] = invocation(CommandIdentityGet, IdentityGetCommand{AccountId: accountId}, strconv.Itoa(i+1))
 	}
 
-	cmd, err := j.request(session, logger, calls...)
+	cmd, err := j.request(session, logger, NS_IDENTITY, calls...)
 	if err != nil {
 		return IdentitiesAndMailboxesGetResponse{}, "", "", "", err
 	}
@@ -95,7 +97,7 @@ func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId string, accountIds [
 
 func (j *Client) CreateIdentity(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, identity Identity) (Identity, SessionState, State, Language, Error) {
 	logger = j.logger("CreateIdentity", session, logger)
-	cmd, err := j.request(session, logger, invocation(CommandIdentitySet, IdentitySetCommand{
+	cmd, err := j.request(session, logger, NS_IDENTITY, invocation(CommandIdentitySet, IdentitySetCommand{
 		AccountId: accountId,
 		Create: map[string]Identity{
 			"c": identity,
@@ -121,7 +123,7 @@ func (j *Client) CreateIdentity(accountId string, session *Session, ctx context.
 
 func (j *Client) UpdateIdentity(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, identity Identity) (Identity, SessionState, State, Language, Error) {
 	logger = j.logger("UpdateIdentity", session, logger)
-	cmd, err := j.request(session, logger, invocation(CommandIdentitySet, IdentitySetCommand{
+	cmd, err := j.request(session, logger, NS_IDENTITY, invocation(CommandIdentitySet, IdentitySetCommand{
 		AccountId: accountId,
 		Update: map[string]PatchObject{
 			"c": identity.AsPatch(),
@@ -147,7 +149,7 @@ func (j *Client) UpdateIdentity(accountId string, session *Session, ctx context.
 
 func (j *Client) DeleteIdentity(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) ([]string, SessionState, State, Language, Error) {
 	logger = j.logger("DeleteIdentity", session, logger)
-	cmd, err := j.request(session, logger, invocation(CommandIdentitySet, IdentitySetCommand{
+	cmd, err := j.request(session, logger, NS_IDENTITY, invocation(CommandIdentitySet, IdentitySetCommand{
 		AccountId: accountId,
 		Destroy:   ids,
 	}, "0"))
@@ -167,4 +169,49 @@ func (j *Client) DeleteIdentity(accountId string, session *Session, ctx context.
 		}
 		return response.Destroyed, response.NewState, nil
 	})
+}
+
+type IdentityChanges struct {
+	OldState       State      `json:"oldState,omitempty"`
+	NewState       State      `json:"newState"`
+	HasMoreChanges bool       `json:"hasMoreChanges"`
+	Created        []Identity `json:"created,omitempty"`
+	Updated        []Identity `json:"updated,omitempty"`
+	Destroyed      []string   `json:"destroyed,omitempty"`
+}
+
+func (j *Client) GetIdentityChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger,
+	acceptLanguage string, sinceState State, maxChanges uint) (IdentityChanges, SessionState, State, Language, Error) {
+	return changesTemplate(j, "GetIdentityChanges", NS_IDENTITY,
+		CommandIdentityChanges, CommandIdentityGet,
+		func() IdentityChangesCommand {
+			return IdentityChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: posUIntPtr(maxChanges)}
+		},
+		func(path string, rof string) IdentityGetRefCommand {
+			return IdentityGetRefCommand{
+				AccountId: accountId,
+				IdsRef: &ResultReference{
+					Name:     CommandIdentityChanges,
+					Path:     path,
+					ResultOf: rof,
+				},
+			}
+		},
+		func(resp IdentityChangesResponse) (State, State, bool, []string) {
+			return resp.OldState, resp.NewState, resp.HasMoreChanges, resp.Destroyed
+		},
+		func(resp IdentityGetResponse) []Identity { return resp.List },
+		func(oldState, newState State, hasMoreChanges bool, created, updated []Identity, destroyed []string) IdentityChanges {
+			return IdentityChanges{
+				OldState:       oldState,
+				NewState:       newState,
+				HasMoreChanges: hasMoreChanges,
+				Created:        created,
+				Updated:        updated,
+				Destroyed:      destroyed,
+			}
+		},
+		func(resp IdentityGetResponse) State { return resp.State },
+		session, ctx, logger, acceptLanguage,
+	)
 }

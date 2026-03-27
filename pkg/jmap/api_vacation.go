@@ -8,12 +8,14 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
+var NS_VACATION = ns(JmapVacationResponse)
+
 const (
 	vacationResponseId = "singleton"
 )
 
 func (j *Client) GetVacationResponse(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (VacationResponseGetResponse, SessionState, State, Language, Error) {
-	return getTemplate(j, "GetVacationResponse", CommandVacationResponseGet,
+	return getTemplate(j, "GetVacationResponse", NS_VACATION, CommandVacationResponseGet,
 		func(accountId string, ids []string) VacationResponseGetCommand {
 			return VacationResponseGetCommand{AccountId: accountId}
 		},
@@ -50,7 +52,7 @@ type VacationResponsePayload struct {
 func (j *Client) SetVacationResponse(accountId string, vacation VacationResponsePayload, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (VacationResponse, SessionState, State, Language, Error) {
 	logger = j.logger("SetVacationResponse", session, logger)
 
-	cmd, err := j.request(session, logger,
+	cmd, err := j.request(session, logger, NS_VACATION,
 		invocation(CommandVacationResponseSet, VacationResponseSetCommand{
 			AccountId: accountId,
 			Create: map[string]VacationResponse{
