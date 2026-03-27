@@ -27,6 +27,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/nats-io/nats-server/v2 from 2.12.5 to 2.12.6 [[#2525](https://github.com/opencloud-eu/opencloud/pull/2525)]
 - build(deps-dev): bump postcss-preset-env from 10.1.3 to 11.2.0 in /services/idp [[#2392](https://github.com/opencloud-eu/opencloud/pull/2392)]
 - build(deps): bump github.com/tus/tusd/v2 from 2.8.0 to 2.9.2 [[#2485](https://github.com/opencloud-eu/opencloud/pull/2485)]
 - build(deps): bump google.golang.org/grpc from 1.79.2 to 1.79.3 [[#2519](https://github.com/opencloud-eu/opencloud/pull/2519)]
