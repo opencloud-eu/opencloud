@@ -41,6 +41,7 @@ func CollaborationTracingMiddleware(next http.Handler) http.Handler {
 
 		if wopiUser, ok := ctxpkg.ContextGetUser(r.Context()); ok {
 			attrs = append(attrs, []attribute.KeyValue{
+				attribute.String("enduser.id", wopiUser.GetId().GetOpaqueId()),
 				attribute.String("cs3.user.idp", wopiUser.GetId().GetIdp()),
 				attribute.String("cs3.user.opaque", wopiUser.GetId().GetOpaqueId()),
 				attribute.String("cs3.user.type", wopiUser.GetId().GetType().String()),

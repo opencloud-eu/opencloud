@@ -8,6 +8,8 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -120,6 +122,8 @@ func (a PublicShareAuthenticator) Authenticate(r *http.Request) (*http.Request, 
 	}
 
 	r.Header.Add(headerRevaAccessToken, authResp.Token)
+
+	trace.SpanFromContext(r.Context()).SetAttributes(attribute.String("enduser.id", "public"))
 
 	a.Logger.Debug().
 		Str("authenticator", "public_share").

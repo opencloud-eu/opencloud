@@ -10,6 +10,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/router"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
 	cs3user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
@@ -234,6 +235,8 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
+
+	span.SetAttributes(attribute.String("enduser.id", user.GetId().GetOpaqueId()))
 
 	ri := router.ContextRoutingInfo(ctx)
 	if ri.RemoteUserHeader() != "" {
