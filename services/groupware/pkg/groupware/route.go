@@ -64,6 +64,9 @@ const (
 	QueryParamContacts                = "contacts"
 	QueryParamCalendars               = "calendars"
 	QueryParamEvents                  = "events"
+	QueryParamQuotas                  = "quotas"
+	QueryParamIdentities              = "identities"
+	QueryParamEmailSubmissions        = "submissions"
 	HeaderParamSince                  = "if-none-match"
 )
 

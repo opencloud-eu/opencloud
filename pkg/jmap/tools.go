@@ -382,3 +382,12 @@ func posUIntPtr(i uint) *uint {
 		return nil
 	}
 }
+
+func ns(namespaces ...JmapNamespace) []JmapNamespace {
+	result := make([]JmapNamespace, len(namespaces)+1)
+	result[0] = JmapCore
+	for i, n := range namespaces {
+		result[i+1] = n
+	}
+	return result
+}

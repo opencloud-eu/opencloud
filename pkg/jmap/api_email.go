@@ -11,6 +11,9 @@ import (
 	"github.com/rs/zerolog"
 )
 
+var NS_MAIL = ns(JmapMail)
+var NS_MAIL_SUBMISSION = ns(JmapMail, JmapSubmission)
+
 type Emails struct {
 	Emails []Email `json:"emails,omitempty"`
 	Total  uint    `json:"total,omitzero"`
@@ -54,7 +57,7 @@ func (j *Client) GetEmails(accountId string, session *Session, ctx context.Conte
 		methodCalls = append(methodCalls, invocation(CommandThreadGet, threads, "2"))
 	}
 
-	cmd, err := j.request(session, logger, methodCalls...)
+	cmd, err := j.request(session, logger, NS_MAIL, methodCalls...)
 	if err != nil {
 		return nil, nil, "", "", "", err
 	}
@@ -92,7 +95,7 @@ func (j *Client) GetEmailBlobId(accountId string, session *Session, ctx context.
 	logger = j.logger("GetEmailBlobId", session, logger)
 
 	get := EmailGetCommand{AccountId: accountId, Ids: []string{id}, FetchAllBodyValues: false, Properties: []string{"blobId"}}
-	cmd, err := j.request(session, logger, invocation(CommandEmailGet, get, "0"))
+	cmd, err := j.request(session, logger, NS_MAIL, invocation(CommandEmailGet, get, "0"))
 	if err != nil {
 		return "", "", "", "", err
 	}
@@ -156,7 +159,7 @@ func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx c
 		invocations = append(invocations, invocation(CommandThreadGet, threads, "2"))
 	}
 
-	cmd, err := j.request(session, logger, invocations...)
+	cmd, err := j.request(session, logger, NS_MAIL, invocations...)
 	if err != nil {
 		return Emails{}, "", "", "", err
 	}
@@ -232,7 +235,7 @@ func (j *Client) GetEmailChanges(accountId string, session *Session, ctx context
 		getUpdated.MaxBodyValueBytes = maxBodyValueBytes
 	}
 
-	cmd, err := j.request(session, logger,
+	cmd, err := j.request(session, logger, NS_MAIL,
 		invocation(CommandEmailChanges, changes, "0"),
 		invocation(CommandEmailGet, getCreated, "1"),
 		invocation(CommandEmailGet, getUpdated, "2"),
@@ -336,7 +339,7 @@ func (j *Client) QueryEmailSnippets(accountIds []string, filter EmailFilterEleme
 		invocations[i*3+2] = invocation(CommandSearchSnippetGet, snippet, mcid(accountId, "2"))
 	}
 
-	cmd, err := j.request(session, logger, invocations...)
+	cmd, err := j.request(session, logger, NS_MAIL, invocations...)
 	if err != nil {
 		return nil, "", "", "", err
 	}
@@ -440,7 +443,7 @@ func (j *Client) QueryEmails(accountIds []string, filter EmailFilterElement, ses
 		invocations[i*2+1] = invocation(CommandEmailGet, mails, mcid(accountId, "1"))
 	}
 
-	cmd, err := j.request(session, logger, invocations...)
+	cmd, err := j.request(session, logger, NS_MAIL, invocations...)
 	if err != nil {
 		return nil, "", "", "", err
 	}
@@ -532,7 +535,7 @@ func (j *Client) QueryEmailsWithSnippets(accountIds []string, filter EmailFilter
 		invocations[i*3+2] = invocation(CommandEmailGet, mails, mcid(accountId, "2"))
 	}
 
-	cmd, err := j.request(session, logger, invocations...)
+	cmd, err := j.request(session, logger, NS_MAIL, invocations...)
 	if err != nil {
 		return nil, "", "", "", err
 	}
@@ -623,7 +626,7 @@ func (j *Client) ImportEmail(accountId string, session *Session, ctx context.Con
 		Properties: []string{BlobPropertyDigestSha512},
 	}
 
-	cmd, err := j.request(session, logger,
+	cmd, err := j.request(session, logger, NS_MAIL,
 		invocation(CommandBlobUpload, upload, "0"),
 		invocation(CommandBlobGet, getHash, "1"),
 	)
@@ -682,7 +685,7 @@ func (j *Client) CreateEmail(accountId string, email EmailCreate, replaceId stri
 		set.Destroy = []string{replaceId}
 	}
 
-	cmd, err := j.request(session, logger,
+	cmd, err := j.request(session, logger, NS_MAIL,
 		invocation(CommandEmailSet, set, "0"),
 	)
 	if err != nil {
@@ -727,7 +730,7 @@ func (j *Client) CreateEmail(accountId string, email EmailCreate, replaceId stri
 //
 // To delete mails, use the DeleteEmails function instead.
 func (j *Client) UpdateEmails(accountId string, updates map[string]EmailUpdate, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]*Email, SessionState, State, Language, Error) {
-	cmd, err := j.request(session, logger,
+	cmd, err := j.request(session, logger, NS_MAIL,
 		invocation(CommandEmailSet, EmailSetCommand{
 			AccountId: accountId,
 			Update:    updates,
@@ -754,7 +757,7 @@ func (j *Client) UpdateEmails(accountId string, updates map[string]EmailUpdate, 
 }
 
 func (j *Client) DeleteEmails(accountId string, destroy []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]SetError, SessionState, State, Language, Error) {
-	cmd, err := j.request(session, logger,
+	cmd, err := j.request(session, logger, NS_MAIL,
 		invocation(CommandEmailSet, EmailSetCommand{
 			AccountId: accountId,
 			Destroy:   destroy,
@@ -836,7 +839,7 @@ func (j *Client) SubmitEmail(accountId string, identityId string, emailId string
 		Ids:       []string{"#" + id},
 	}
 
-	cmd, err := j.request(session, logger,
+	cmd, err := j.request(session, logger, NS_MAIL_SUBMISSION,
 		invocation(CommandEmailSubmissionSet, set, "0"),
 		invocation(CommandEmailSubmissionGet, get, "1"),
 	)
@@ -897,7 +900,7 @@ type emailSubmissionResult struct {
 func (j *Client) GetEmailSubmissionStatus(accountId string, submissionIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]EmailSubmission, []string, SessionState, State, Language, Error) {
 	logger = j.logger("GetEmailSubmissionStatus", session, logger)
 
-	cmd, err := j.request(session, logger, invocation(CommandEmailSubmissionGet, EmailSubmissionGetCommand{
+	cmd, err := j.request(session, logger, NS_MAIL_SUBMISSION, invocation(CommandEmailSubmissionGet, EmailSubmissionGetCommand{
 		AccountId: accountId,
 		Ids:       submissionIds,
 	}, "0"))
@@ -926,7 +929,7 @@ func (j *Client) EmailsInThread(accountId string, threadId string, session *Sess
 		return z.Bool(logFetchBodies, fetchBodies).Str("threadId", log.SafeString(threadId))
 	})
 
-	cmd, err := j.request(session, logger,
+	cmd, err := j.request(session, logger, NS_MAIL,
 		invocation(CommandThreadGet, ThreadGetCommand{
 			AccountId: accountId,
 			Ids:       []string{threadId},
@@ -1025,7 +1028,7 @@ func (j *Client) QueryEmailSummaries(accountIds []string, session *Session, ctx 
 			}, mcid(accountId, "2"))
 		}
 	}
-	cmd, err := j.request(session, logger, invocations...)
+	cmd, err := j.request(session, logger, NS_MAIL, invocations...)
 	if err != nil {
 		return nil, "", "", "", err
 	}
@@ -1066,6 +1069,51 @@ func (j *Client) QueryEmailSummaries(accountIds []string, session *Session, ctx 
 		}
 		return resp, squashStateFunc(resp, func(s EmailsSummary) State { return s.State }), nil
 	})
+}
+
+type EmailSubmissionChanges struct {
+	OldState       State             `json:"oldState,omitempty"`
+	NewState       State             `json:"newState"`
+	HasMoreChanges bool              `json:"hasMoreChanges"`
+	Created        []EmailSubmission `json:"created,omitempty"`
+	Updated        []EmailSubmission `json:"updated,omitempty"`
+	Destroyed      []string          `json:"destroyed,omitempty"`
+}
+
+func (j *Client) GetEmailSubmissionChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger,
+	acceptLanguage string, sinceState State, maxChanges uint) (EmailSubmissionChanges, SessionState, State, Language, Error) {
+	return changesTemplate(j, "GetEmailSubmissionChanges", NS_MAIL_SUBMISSION,
+		CommandEmailSubmissionChanges, CommandEmailSubmissionGet,
+		func() EmailSubmissionChangesCommand {
+			return EmailSubmissionChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: posUIntPtr(maxChanges)}
+		},
+		func(path string, rof string) EmailSubmissionGetRefCommand {
+			return EmailSubmissionGetRefCommand{
+				AccountId: accountId,
+				IdsRef: &ResultReference{
+					Name:     CommandEmailSubmissionChanges,
+					Path:     path,
+					ResultOf: rof,
+				},
+			}
+		},
+		func(resp EmailSubmissionChangesResponse) (State, State, bool, []string) {
+			return resp.OldState, resp.NewState, resp.HasMoreChanges, resp.Destroyed
+		},
+		func(resp EmailSubmissionGetResponse) []EmailSubmission { return resp.List },
+		func(oldState, newState State, hasMoreChanges bool, created, updated []EmailSubmission, destroyed []string) EmailSubmissionChanges {
+			return EmailSubmissionChanges{
+				OldState:       oldState,
+				NewState:       newState,
+				HasMoreChanges: hasMoreChanges,
+				Created:        created,
+				Updated:        updated,
+				Destroyed:      destroyed,
+			}
+		},
+		func(resp EmailSubmissionGetResponse) State { return resp.State },
+		session, ctx, logger, acceptLanguage,
+	)
 }
 
 func setThreadSize(threads *ThreadGetResponse, emails []Email) {
