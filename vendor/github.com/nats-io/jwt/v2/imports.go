@@ -126,7 +126,8 @@ type Imports []*Import
 
 // Validate checks if an import is valid for the wrapping account
 func (i *Imports) Validate(acctPubKey string, vr *ValidationResults) {
-	toSet := make(map[Subject]struct{}, len(*i))
+	// Group subjects by account to check for overlaps only within the same account
+	subsByAcct := make(map[string]map[Subject]struct{}, len(*i))
 	for _, v := range *i {
 		if v == nil {
 			vr.AddError("null import is not allowed")
@@ -140,15 +141,19 @@ func (i *Imports) Validate(acctPubKey string, vr *ValidationResults) {
 			if sub == "" {
 				sub = v.Subject
 			}
-			for k := range toSet {
-				if sub.IsContainedIn(k) || k.IsContainedIn(sub) {
-					vr.AddError("overlapping subject namespace for %q and %q", sub, k)
+			// Check for overlapping subjects only within the same account
+			for subOther := range subsByAcct[v.Account] {
+				if sub.IsContainedIn(subOther) || subOther.IsContainedIn(sub) {
+					vr.AddError("overlapping subject namespace for %q and %q in same account %q", sub, subOther, v.Account)
 				}
 			}
-			if _, ok := toSet[sub]; ok {
-				vr.AddError("overlapping subject namespace for %q", v.To)
+			if subsByAcct[v.Account] == nil {
+				subsByAcct[v.Account] = make(map[Subject]struct{}, len(*i))
 			}
-			toSet[sub] = struct{}{}
+			if _, ok := subsByAcct[v.Account][sub]; ok {
+				vr.AddError("overlapping subject namespace for %q in account %q", sub, v.Account)
+			}
+			subsByAcct[v.Account][sub] = struct{}{}
 		}
 		v.Validate(acctPubKey, vr)
 	}

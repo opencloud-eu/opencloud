@@ -326,7 +326,7 @@ func (session *DecomposedFsSession) Finalize(ctx context.Context) (err error) {
 	if !isProcessing || procssingID != session.ID() {
 		versionID := revisionNode.ID + node.RevisionIDDelimiter + session.MTime().UTC().Format(time.RFC3339Nano)
 		// There should be a revision node (created by the other upload that finished before us), read it and upload our blob there.
-		existingRevisionNode, err := node.ReadNode(ctx, session.store.lu, session.SpaceID(), versionID, false, spaceRoot, false)
+		existingRevisionNode, err := node.ReadNode(ctx, session.store.lu, session.SpaceID(), versionID, "", false, spaceRoot, false)
 		if err != nil || !existingRevisionNode.Exists {
 			// The revision node has not been created. Likely because the file on disk was modified externally and re-assilimated (watchfs == true)
 			// Let's create the revision node now and upload the blob to it.
@@ -379,7 +379,7 @@ func (session *DecomposedFsSession) createRevisionNodeForUpload(ctx context.Cont
 		prefixes.ChecksumPrefix + "md5":     md5h.Sum(nil),
 		prefixes.ChecksumPrefix + "adler32": adler32h.Sum(nil),
 	}
-	revisionNode, err := node.ReadNode(ctx, session.store.lu, session.SpaceID(), versionID, false, baseNode.SpaceRoot, false)
+	revisionNode, err := node.ReadNode(ctx, session.store.lu, session.SpaceID(), versionID, "", false, baseNode.SpaceRoot, false)
 	if err == nil {
 		mtime := session.MTime()
 		attrs.SetString(prefixes.BlobIDAttr, session.ID())
@@ -432,7 +432,7 @@ func (session *DecomposedFsSession) Cleanup(revertNodeMetadata, cleanBin, cleanI
 			if session.NodeExists() && session.info.MetaData["versionID"] != "" {
 				versionID := session.info.MetaData["versionID"]
 				sublog.Debug().Str("nodepath", n.InternalPath()).Str("versionID", versionID).Msg("restoring revision")
-				revisionNode, err := node.ReadNode(ctx, session.store.lu, session.SpaceID(), versionID, false, n.SpaceRoot, false)
+				revisionNode, err := node.ReadNode(ctx, session.store.lu, session.SpaceID(), versionID, "", false, n.SpaceRoot, false)
 				if err != nil {
 					sublog.Error().Err(err).Str("versionID", versionID).Msg("reading revision node failed")
 				}

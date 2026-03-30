@@ -138,6 +138,12 @@ type sconns struct {
 	leafs int32
 }
 
+// clampInt64ToInt32 safely converts an int64 limit to int32,
+// clamping values to the [math.MinInt32, math.MaxInt32] range.
+func clampInt64ToInt32(v int64) int32 {
+	return int32(max(math.MinInt32, min(math.MaxInt32, v)))
+}
+
 // Import stream mapping struct
 type streamImport struct {
 	acc     *Account
@@ -299,6 +305,7 @@ func (a *Account) shallowCopy(na *Account) {
 	na.Nkey = a.Nkey
 	na.Issuer = a.Issuer
 	na.traceDest, na.traceDestSampling = a.traceDest, a.traceDestSampling
+	na.nrgAccount = a.nrgAccount
 
 	if a.imports.streams != nil {
 		na.imports.streams = make([]*streamImport, 0, len(a.imports.streams))
@@ -1609,10 +1616,12 @@ func (a *Account) checkServiceImportsForCycles(from string, visited map[string]b
 				}
 				// Push ourselves and check si.acc
 				visited[a.Name] = true
-				if subjectIsSubsetMatch(si.from, from) {
-					from = si.from
+				// Make a copy to not overwrite the passed value.
+				f := from
+				if subjectIsSubsetMatch(si.from, f) {
+					f = si.from
 				}
-				if err := si.acc.checkServiceImportsForCycles(from, visited); err != nil {
+				if err := si.acc.checkServiceImportsForCycles(f, visited); err != nil {
 					return err
 				}
 				a.mu.RLock()
@@ -1667,10 +1676,12 @@ func (a *Account) checkStreamImportsForCycles(to string, visited map[string]bool
 			}
 			// Push ourselves and check si.acc
 			visited[a.Name] = true
-			if subjectIsSubsetMatch(si.to, to) {
-				to = si.to
+			// Make a copy to not overwrite the passed value.
+			t := to
+			if subjectIsSubsetMatch(si.to, t) {
+				t = si.to
 			}
-			if err := si.acc.checkStreamImportsForCycles(to, visited); err != nil {
+			if err := si.acc.checkStreamImportsForCycles(t, visited); err != nil {
 				return err
 			}
 			a.mu.RLock()
@@ -3715,10 +3726,10 @@ func (s *Server) updateAccountClaimsWithRefresh(a *Account, ac *jwt.AccountClaim
 
 	// Now do limits if they are present.
 	a.mu.Lock()
-	a.msubs = int32(ac.Limits.Subs)
-	a.mpay = int32(ac.Limits.Payload)
-	a.mconns = int32(ac.Limits.Conn)
-	a.mleafs = int32(ac.Limits.LeafNodeConn)
+	a.msubs = clampInt64ToInt32(ac.Limits.Subs)
+	a.mpay = clampInt64ToInt32(ac.Limits.Payload)
+	a.mconns = clampInt64ToInt32(ac.Limits.Conn)
+	a.mleafs = clampInt64ToInt32(ac.Limits.LeafNodeConn)
 	a.disallowBearer = ac.Limits.DisallowBearer
 	// Check for any revocations
 	if len(ac.Revocations) > 0 {

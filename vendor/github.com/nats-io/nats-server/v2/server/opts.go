@@ -389,6 +389,7 @@ type Options struct {
 	JetStreamRequestQueueLimit int64
 	JetStreamMetaCompact       uint64
 	JetStreamMetaCompactSize   uint64
+	JetStreamMetaCompactSync   bool
 	StreamMaxBufferedMsgs      int               `json:"-"`
 	StreamMaxBufferedSize      int64             `json:"-"`
 	StoreDir                   string            `json:"-"`
@@ -594,6 +595,11 @@ type WebsocketOpts struct {
 	// and write the response back to the client. This include the
 	// time needed for the TLS Handshake.
 	HandshakeTimeout time.Duration
+
+	// How often to send pings to WebSocket clients. When set to a non-zero
+	// duration, this overrides the default PingInterval for WebSocket connections.
+	// If not set or zero, the server's default PingInterval will be used.
+	PingInterval time.Duration
 
 	// Headers to be added to the upgrade response.
 	// Useful for adding custom headers like Strict-Transport-Security.
@@ -1263,7 +1269,9 @@ func (o *Options) processConfigFileLine(k string, v any, errors *[]error, warnin
 	case "proxy_protocol":
 		o.ProxyProtocol = v.(bool)
 	case "max_connections", "max_conn":
-		o.MaxConn = int(v.(int64))
+		if o.MaxConn = int(v.(int64)); o.MaxConn == 0 {
+			o.MaxConn = -1
+		}
 	case "max_traced_msg_len":
 		o.MaxTracedMsgLen = int(v.(int64))
 	case "max_subscriptions", "max_subs":
@@ -1685,7 +1693,7 @@ func (o *Options) processConfigFileLine(k string, v any, errors *[]error, warnin
 	case "reconnect_error_reports":
 		o.ReconnectErrorReports = int(v.(int64))
 	case "websocket", "ws":
-		if err := parseWebsocket(tk, o, errors); err != nil {
+		if err := parseWebsocket(tk, o, errors, warnings); err != nil {
 			*errors = append(*errors, err)
 			return
 		}
@@ -2321,7 +2329,7 @@ func parseJetStreamForAccount(v any, acc *Account, errors *[]error) error {
 			case "cluster_traffic":
 				vv, ok := mv.(string)
 				if !ok {
-					return &configErr{tk, fmt.Sprintf("Expected either 'system' or 'account' string value for %q, got %v", mk, mv)}
+					return &configErr{tk, fmt.Sprintf("Expected either 'system' or 'owner' string value for %q, got %v", mk, mv)}
 				}
 				switch vv {
 				case "system", _EMPTY_:
@@ -2648,6 +2656,8 @@ func parseJetStream(v any, opts *Options, errors *[]error, warnings *[]error) er
 					return &configErr{tk, fmt.Sprintf("Expected an absolute size for %q, got %v", mk, mv)}
 				}
 				opts.JetStreamMetaCompactSize = uint64(s)
+			case "meta_compact_sync":
+				opts.JetStreamMetaCompactSync = mv.(bool)
 			default:
 				if !tk.IsUsedVariable() {
 					err := &unknownConfigFieldErr{
@@ -5313,7 +5323,7 @@ func parseStringArray(fieldName string, tk token, lt *token, mv any, errors *[]e
 	}
 }
 
-func parseWebsocket(v any, o *Options, errors *[]error) error {
+func parseWebsocket(v any, o *Options, errors *[]error, warnings *[]error) error {
 	var lt token
 	defer convertPanicToErrorList(&lt, errors)
 
@@ -5414,6 +5424,8 @@ func parseWebsocket(v any, o *Options, errors *[]error) error {
 					o.Websocket.Headers[key] = headerValue
 				}
 			}
+		case "ping_interval":
+			o.Websocket.PingInterval = parseDuration("ping_interval", tk, mv, errors, warnings)
 		default:
 			if !tk.IsUsedVariable() {
 				err := &unknownConfigFieldErr{
@@ -6422,4 +6434,19 @@ func expandPath(p string) (string, error) {
 	}
 
 	return filepath.Join(home, p[1:]), nil
+}
+
+// RedactArgs redacts sensitive arguments from the command line.
+// For example, turns '--pass=secret' into '--pass=[REDACTED]'.
+func RedactArgs(args []string) {
+	secret := regexp.MustCompile("^-{1,2}(user|pass|auth)(=.*)?$")
+	for i, arg := range args {
+		if secret.MatchString(arg) {
+			if idx := strings.Index(arg, "="); idx != -1 {
+				args[i] = arg[:idx] + "=[REDACTED]"
+			} else if i+1 < len(args) {
+				args[i+1] = "[REDACTED]"
+			}
+		}
+	}
 }

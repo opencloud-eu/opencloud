@@ -296,8 +296,7 @@ type jsOpts struct {
 }
 
 const (
-	defaultRequestWait  = 5 * time.Second
-	defaultAccountCheck = 20 * time.Second
+	defaultRequestWait = 5 * time.Second
 )
 
 // JetStream returns a JetStreamContext for messaging and stream management.
@@ -1132,7 +1131,7 @@ func (js *js) PublishMsgAsync(m *Msg, opts ...PubOpt) (PubAckFuture, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := js.nc.publish(m.Subject, reply, hdr, m.Data); err != nil {
+	if err := js.nc.publish(m.Subject, reply, false, hdr, m.Data); err != nil {
 		js.clearPAF(id)
 		return nil, err
 	}
@@ -2835,12 +2834,15 @@ func ConsumerFilterSubjects(subjects ...string) SubOpt {
 func (sub *Subscription) ConsumerInfo() (*ConsumerInfo, error) {
 	sub.mu.Lock()
 	// TODO(dlc) - Better way to mark especially if we attach.
-	if sub.jsi == nil || sub.jsi.consumer == _EMPTY_ {
-		if sub.jsi.ordered {
-			sub.mu.Unlock()
+	if sub.jsi == nil {
+		sub.mu.Unlock()
+		return nil, ErrTypeSubscription
+	} else if sub.jsi.consumer == _EMPTY_ {
+		ordered := sub.jsi.ordered
+		sub.mu.Unlock()
+		if ordered {
 			return nil, ErrConsumerInfoOnOrderedReset
 		}
-		sub.mu.Unlock()
 		return nil, ErrTypeSubscription
 	}
 
@@ -3560,7 +3562,7 @@ func (js *js) apiRequestWithContext(ctx context.Context, subj string, data []byt
 	}
 	if js.opts.shouldTrace {
 		ctrace := js.opts.ctrace
-		if ctrace.RequestSent != nil {
+		if ctrace.ResponseReceived != nil {
 			ctrace.ResponseReceived(subj, resp.Data, resp.Header)
 		}
 	}

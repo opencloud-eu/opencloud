@@ -1,4 +1,4 @@
-// Copyright 2012-2025 The NATS Authors
+// Copyright 2012-2026 The NATS Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/rand"
 	"net"
 	"net/http"
@@ -34,8 +35,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"slices"
 
 	"github.com/klauspost/compress/s2"
 	"github.com/nats-io/jwt/v2"
@@ -154,7 +153,6 @@ const (
 	compressionNegotiated                         // Marks if this connection has negotiated compression level with remote.
 	didTLSFirst                                   // Marks if this connection requested and was accepted doing the TLS handshake first (prior to INFO).
 	isSlowConsumer                                // Marks connection as a slow consumer.
-	firstPong                                     // Marks if this is the first PONG received
 )
 
 // set the flag (would be equivalent to set the boolean to true)
@@ -870,6 +868,11 @@ func (c *client) registerWithAccount(acc *Account) error {
 	}
 
 	c.mu.Lock()
+	// This check does not apply to SYSTEM or JETSTREAM or ACCOUNT clients (because they don't have a `nc`...)
+	if c.isClosed() && !isInternalClient(c.kind) {
+		c.mu.Unlock()
+		return ErrConnectionClosed
+	}
 	kind := c.kind
 	srv := c.srv
 	c.acc = acc
@@ -929,14 +932,14 @@ func (c *client) applyAccountLimits() {
 	c.msubs = jwt.NoLimit
 	if c.opts.JWT != _EMPTY_ { // user jwt implies account
 		if uc, _ := jwt.DecodeUserClaims(c.opts.JWT); uc != nil {
-			atomic.StoreInt32(&c.mpay, int32(uc.Limits.Payload))
-			c.msubs = int32(uc.Limits.Subs)
+			atomic.StoreInt32(&c.mpay, clampInt64ToInt32(uc.Limits.Payload))
+			c.msubs = clampInt64ToInt32(uc.Limits.Subs)
 			if uc.IssuerAccount != _EMPTY_ && uc.IssuerAccount != uc.Issuer {
 				if scope, ok := c.acc.signingKeys[uc.Issuer]; ok {
 					if userScope, ok := scope.(*jwt.UserScope); ok {
 						// if signing key disappeared or changed and we don't get here, the client will be disconnected
-						c.mpay = int32(userScope.Template.Limits.Payload)
-						c.msubs = int32(userScope.Template.Limits.Subs)
+						c.mpay = clampInt64ToInt32(userScope.Template.Limits.Payload)
+						c.msubs = clampInt64ToInt32(userScope.Template.Limits.Subs)
 					}
 				}
 			}
@@ -1354,6 +1357,13 @@ func (c *client) flushClients(budget time.Duration) time.Time {
 	return last
 }
 
+func (c *client) resetReadLoopStallTime() {
+	if c.in.tst >= stallClientMaxDuration {
+		c.rateLimitFormatWarnf("Producer was stalled for a total of %v", c.in.tst.Round(time.Millisecond))
+	}
+	c.in.tst = 0
+}
+
 // readLoop is the main socket read functionality.
 // Runs in its own Go routine.
 func (c *client) readLoop(pre []byte) {
@@ -1431,21 +1441,6 @@ func (c *client) readLoop(pre []byte) {
 				return
 			}
 		}
-		if ws {
-			bufs, err = c.wsRead(wsr, reader, b[:n])
-			if bufs == nil && err != nil {
-				if err != io.EOF {
-					c.Errorf("read error: %v", err)
-				}
-				c.closeConnection(closedStateForErr(err))
-				return
-			} else if bufs == nil {
-				continue
-			}
-		} else {
-			bufs[0] = b[:n]
-		}
-
 		// Check if the account has mappings and if so set the local readcache flag.
 		// We check here to make sure any changes such as config reload are reflected here.
 		if c.kind == CLIENT || c.kind == LEAF {
@@ -1463,17 +1458,32 @@ func (c *client) readLoop(pre []byte) {
 		c.in.bytes = 0
 		c.in.subs = 0
 
+		if ws {
+			err = c.wsReadAndParse(wsr, reader, b[:n])
+			if err != nil {
+				// Match the normal parse path: any already-buffered deliveries
+				// need their pending flush signals drained before we close.
+				c.flushClients(0)
+				if err != io.EOF {
+					c.Errorf("read error: %v", err)
+				}
+				c.closeConnection(closedStateForErr(err))
+				return
+			}
+			c.resetReadLoopStallTime()
+			goto postParse
+		} else {
+			bufs[0] = b[:n]
+		}
+
 		// Main call into parser for inbound data. This will generate callouts
 		// to process messages, etc.
 		for i := 0; i < len(bufs); i++ {
 			if err := c.parse(bufs[i]); err != nil {
 				if err == ErrMinimumVersionRequired {
 					// Special case here, currently only for leaf node connections.
-					// When process the CONNECT protocol, if the minimum version
-					// required was not met, an error was printed and sent back to
-					// the remote, and connection was closed after a certain delay
-					// (to avoid "rapid" reconnection from the remote).
-					// We don't need to do any of the things below, simply return.
+					// processLeafConnect() already sent the rejection and closed
+					// the connection, so there is nothing else to do here.
 					return
 				}
 				if dur := time.Since(c.in.start); dur >= readLoopReportThreshold {
@@ -1490,13 +1500,10 @@ func (c *client) readLoop(pre []byte) {
 				}
 				return
 			}
-			// Clear total stalled time here.
-			if c.in.tst >= stallClientMaxDuration {
-				c.rateLimitFormatWarnf("Producer was stalled for a total of %v", c.in.tst.Round(time.Millisecond))
-			}
-			c.in.tst = 0
+			c.resetReadLoopStallTime()
 		}
 
+	postParse:
 		// If we are a ROUTER/LEAF and have processed an INFO, it is possible that
 		// we are asked to switch to compression now.
 		if checkCompress && c.in.flags.isSet(switchToCompression) {
@@ -1687,9 +1694,11 @@ func (c *client) flushOutbound() bool {
 
 		cw.Reset(&bb)
 		for _, buf := range collapsed {
-			if _, err = cw.Write(buf); err != nil {
-				break
+			if err == nil {
+				_, err = cw.Write(buf)
 			}
+			// Return always after consumed or error.
+			nbPoolPut(buf)
 		}
 		if err == nil {
 			err = cw.Close()
@@ -2114,41 +2123,37 @@ func (c *client) processErr(errStr string) {
 	}
 }
 
-// Password pattern matcher.
-var passPat = regexp.MustCompile(`"?\s*pass\S*?"?\s*[:=]\s*"?(([^",\r\n}])*)`)
-var tokenPat = regexp.MustCompile(`"?\s*auth_token\S*?"?\s*[:=]\s*"?(([^",\r\n}])*)`)
+// Matcher for pass/password and auth_token fields.
+var prefixAuthPat = regexp.MustCompile(`"?\s*(?:auth_token\S*?|pass\S*?)"?\s*[:=]\s*"?([^",\r\n}]*)`)
+
+// Exact matcher for fields sig, proxy_sig and nkey.
+// Overlapping field "sig" does not match inside "proxy_sig".
+var exactAuthPat = regexp.MustCompile(`(?:^|[^A-Za-z0-9_])"?\s*(?:proxy_sig|nkey|sig)"?\s*[:=]\s*"?([^",\r\n}]*)`)
 
 // removeSecretsFromTrace removes any notion of passwords/tokens from trace
 // messages for logging.
 func removeSecretsFromTrace(arg []byte) []byte {
-	buf := redact("pass", passPat, arg)
-	return redact("auth_token", tokenPat, buf)
+	buf := redact(prefixAuthPat, arg)
+	return redact(exactAuthPat, buf)
 }
 
-func redact(name string, pat *regexp.Regexp, proto []byte) []byte {
-	if !bytes.Contains(proto, []byte(name)) {
+func redact(pat *regexp.Regexp, proto []byte) []byte {
+	m := pat.FindAllSubmatchIndex(proto, -1)
+	if len(m) == 0 {
 		return proto
 	}
 	// Take a copy of the connect proto just for the trace message.
 	var _arg [4096]byte
 	buf := append(_arg[:0], proto...)
-
-	m := pat.FindAllSubmatchIndex(buf, -1)
-	if len(m) == 0 {
-		return proto
-	}
-
 	redactedPass := []byte("[REDACTED]")
-	for _, i := range m {
-		if len(i) < 4 {
+	for i := len(m) - 1; i >= 0; i-- {
+		match := m[i]
+		if len(match) < 4 {
 			continue
 		}
-		start := i[2]
-		end := i[3]
-
+		start, end := match[2], match[3]
 		// Replace value substring.
 		buf = append(buf[:start], append(redactedPass, buf[end:]...)...)
-		break
 	}
 	return buf
 }
@@ -2684,11 +2689,9 @@ func (c *client) processPong() {
 	c.rtt = computeRTT(c.rttStart)
 	srv := c.srv
 	reorderGWs := c.kind == GATEWAY && c.gw.outbound
-	firstPong := c.flags.setIfNotSet(firstPong)
 	var ri *routeInfo
-	// When receiving the first PONG, for a route with pooling, we may be
-	// instructed to start a new route.
-	if firstPong && c.kind == ROUTER && c.route != nil {
+	// For a route with pooling, we may be instructed to start a new route.
+	if c.kind == ROUTER && c.route != nil && c.route.startNewRoute != nil {
 		ri = c.route.startNewRoute
 		c.route.startNewRoute = nil
 	}
@@ -2732,9 +2735,12 @@ func (c *client) updateS2AutoCompressionLevel(co *CompressionOpts, compression *
 }
 
 // Will return the parts from the raw wire msg.
+// We return the `hdr` as a slice that is capped to the length of the headers
+// so that if the caller later tries to append to the returned header slice it
+// does not affect the message content.
 func (c *client) msgParts(data []byte) (hdr []byte, msg []byte) {
 	if c != nil && c.pa.hdr > 0 {
-		return data[:c.pa.hdr], data[c.pa.hdr:]
+		return data[:c.pa.hdr:c.pa.hdr], data[c.pa.hdr:]
 	}
 	return nil, data
 }
@@ -2803,9 +2809,10 @@ func (c *client) processHeaderPub(arg, remaining []byte) error {
 		// look for the tracing header and if found, we will generate a
 		// trace event with the max payload ingress error.
 		// Do this only for CLIENT connections.
-		if c.kind == CLIENT && len(remaining) > 0 {
-			if td := getHeader(MsgTraceDest, remaining); len(td) > 0 {
-				c.initAndSendIngressErrEvent(remaining, string(td), ErrMaxPayload)
+		if c.kind == CLIENT && c.pa.hdr > 0 && len(remaining) > 0 {
+			hdr := remaining[:min(len(remaining), c.pa.hdr)]
+			if td, ok := c.allowedMsgTraceDest(hdr, false); ok && td != _EMPTY_ {
+				c.initAndSendIngressErrEvent(hdr, td, ErrMaxPayload)
 			}
 		}
 		c.maxPayloadViolation(c.pa.size, maxPayload)
@@ -3022,7 +3029,7 @@ func (c *client) processSubEx(subject, queue, bsid []byte, cb msgHandler, noForw
 		return sub, nil
 	}
 
-	if err := c.addShadowSubscriptions(acc, sub, true); err != nil {
+	if err := c.addShadowSubscriptions(acc, sub); err != nil {
 		c.Errorf(err.Error())
 	}
 
@@ -3052,10 +3059,7 @@ type ime struct {
 // If the client's account has stream imports and there are matches for this
 // subscription's subject, then add shadow subscriptions in the other accounts
 // that export this subject.
-//
-// enact=false allows MQTT clients to get the list of shadow subscriptions
-// without enacting them, in order to first obtain matching "retained" messages.
-func (c *client) addShadowSubscriptions(acc *Account, sub *subscription, enact bool) error {
+func (c *client) addShadowSubscriptions(acc *Account, sub *subscription) error {
 	if acc == nil {
 		return ErrMissingAccount
 	}
@@ -3158,7 +3162,7 @@ func (c *client) addShadowSubscriptions(acc *Account, sub *subscription, enact b
 	for i := 0; i < len(ims); i++ {
 		ime := &ims[i]
 		// We will create a shadow subscription.
-		nsub, err := c.addShadowSub(sub, ime, enact)
+		nsub, err := c.addShadowSub(sub, ime)
 		if err != nil {
 			return err
 		}
@@ -3175,7 +3179,7 @@ func (c *client) addShadowSubscriptions(acc *Account, sub *subscription, enact b
 }
 
 // Add in the shadow subscription.
-func (c *client) addShadowSub(sub *subscription, ime *ime, enact bool) (*subscription, error) {
+func (c *client) addShadowSub(sub *subscription, ime *ime) (*subscription, error) {
 	c.mu.Lock()
 	nsub := *sub // copy
 	c.mu.Unlock()
@@ -3202,10 +3206,6 @@ func (c *client) addShadowSub(sub *subscription, ime *ime, enact bool) (*subscri
 		}
 	}
 	// Else use original subject
-
-	if !enact {
-		return &nsub, nil
-	}
 
 	c.Debugf("Creating import subscription on %q from account %q", nsub.subject, im.acc.Name)
 
@@ -3237,7 +3237,7 @@ func (c *client) canSubscribe(subject string, optQueue ...string) bool {
 		return true
 	}
 
-	allowed := true
+	allowed, checkAllow := true, true
 
 	// Optional queue group.
 	var queue string
@@ -3245,8 +3245,16 @@ func (c *client) canSubscribe(subject string, optQueue ...string) bool {
 		queue = optQueue[0]
 	}
 
+	// For CLIENT connections that are MQTT we will implicitly allow anything that starts with
+	// the "$MQTT.sub." or "$MQTT.deliver.pubrel." prefix. For other types of connections, we
+	// will implicitly allow anything that starts with the full "$MQTT." prefix. However,
+	// we don't just return here, we skip the check for "allow" but will check "deny".
+	if (c.isMqtt() && (strings.HasPrefix(subject, mqttSubPrefix) || strings.HasPrefix(subject, mqttPubRelDeliverySubjectPrefix))) ||
+		(c.kind != CLIENT && strings.HasPrefix(subject, mqttPrefix)) {
+		checkAllow = false
+	}
 	// Check allow list. If no allow list that means all are allowed. Deny can overrule.
-	if c.perms.sub.allow != nil {
+	if checkAllow && c.perms.sub.allow != nil {
 		r := c.perms.sub.allow.Match(subject)
 		allowed = len(r.psubs) > 0
 		if queue != _EMPTY_ && len(r.qsubs) > 0 {
@@ -3338,7 +3346,7 @@ func (c *client) unsubscribe(acc *Account, sub *subscription, force, remove bool
 	sub.shadow = nil
 	if len(shadowSubs) > 0 {
 		isSpokeLeaf = c.isSpokeLeafNode()
-		updateRoute = !isSpokeLeaf && (c.kind == CLIENT || c.kind == SYSTEM || c.kind == LEAF) && c.srv != nil
+		updateRoute = !isSpokeLeaf && (c.kind == CLIENT || c.kind == SYSTEM || c.kind == LEAF || c.kind == JETSTREAM) && c.srv != nil
 	}
 	sub.close()
 	c.mu.Unlock()
@@ -4052,6 +4060,41 @@ func (c *client) pubAllowed(subject string) bool {
 	return c.pubAllowedFullCheck(subject, true, false)
 }
 
+// allowedMsgTraceDest returns the trace destination if present and authorized.
+// It only considers static publish permissions and does not consume dynamic
+// reply permissions because the client is not publishing the trace event itself.
+func (c *client) allowedMsgTraceDest(hdr []byte, hasLock bool) (string, bool) {
+	if len(hdr) == 0 {
+		return _EMPTY_, true
+	}
+	td := sliceHeader(MsgTraceDest, hdr)
+	if len(td) == 0 {
+		return _EMPTY_, true
+	}
+	dest := bytesToString(td)
+	if c.kind == CLIENT {
+		if hasGWRoutedReplyPrefix(td) {
+			return dest, false
+		}
+		var acc *Account
+		var srv *Server
+		if !hasLock {
+			c.mu.Lock()
+		}
+		acc, srv = c.acc, c.srv
+		if !hasLock {
+			c.mu.Unlock()
+		}
+		if bytes.HasPrefix(td, clientNRGPrefix) && srv != nil && acc != srv.SystemAccount() {
+			return dest, false
+		}
+	}
+	if c.perms != nil && (c.perms.pub.allow != nil || c.perms.pub.deny != nil) && !c.pubAllowedFullCheck(dest, false, hasLock) {
+		return dest, false
+	}
+	return dest, true
+}
+
 // pubAllowedFullCheck checks on all publish permissioning depending
 // on the flag for dynamic reply permissions.
 func (c *client) pubAllowedFullCheck(subject string, fullCheck, hasLock bool) bool {
@@ -4063,9 +4106,15 @@ func (c *client) pubAllowedFullCheck(subject string, fullCheck, hasLock bool) bo
 	if ok {
 		return v.(bool)
 	}
-	allowed := true
+	allowed, checkAllow := true, true
+	// For any connections, other than CLIENT, we will implicitly allow anything that
+	// starts with the "$MQTT." prefix. However, we don't just return here,
+	// we skip the check for "allow" but will check "deny".
+	if c.kind != CLIENT && strings.HasPrefix(subject, mqttPrefix) {
+		checkAllow = false
+	}
 	// Cache miss, check allow then deny as needed.
-	if c.perms.pub.allow != nil {
+	if checkAllow && c.perms.pub.allow != nil {
 		np, _ := c.perms.pub.allow.NumInterest(subject)
 		allowed = np != 0
 	}
@@ -4181,10 +4230,19 @@ func (c *client) processInboundClientMsg(msg []byte) (bool, bool) {
 	genidAddr := &acc.sl.genid
 
 	// Check pub permissions
-	if c.perms != nil && (c.perms.pub.allow != nil || c.perms.pub.deny != nil) && !c.pubAllowedFullCheck(string(c.pa.subject), true, true) {
-		c.mu.Unlock()
-		c.pubPermissionViolation(c.pa.subject)
-		return false, true
+	if c.perms != nil && (c.perms.pub.allow != nil || c.perms.pub.deny != nil) {
+		if !c.pubAllowedFullCheck(string(c.pa.subject), true, true) {
+			c.mu.Unlock()
+			c.pubPermissionViolation(c.pa.subject)
+			return false, true
+		}
+	}
+	if c.pa.hdr > 0 {
+		if td, ok := c.allowedMsgTraceDest(msg[:c.pa.hdr], true); !ok {
+			c.mu.Unlock()
+			c.pubPermissionViolation(stringToBytes(td))
+			return false, true
+		}
 	}
 	c.mu.Unlock()
 
@@ -4384,26 +4442,41 @@ func (c *client) setupResponseServiceImport(acc *Account, si *serviceImport, tra
 	return rsi
 }
 
-// Will remove a header if present.
-func removeHeaderIfPresent(hdr []byte, key string) []byte {
-	start := getHeaderKeyIndex(key, hdr)
-	// key can't be first and we want to check that it is preceded by a '\n'
-	if start < 1 || hdr[start-1] != '\n' {
+// Will remove a status and description from the header if present.
+func removeHeaderStatusIfPresent(hdr []byte) []byte {
+	k := []byte("NATS/1.0")
+	kl, i := len(k), bytes.IndexByte(hdr, '\r')
+	if !bytes.HasPrefix(hdr, k) || i <= kl {
 		return hdr
 	}
-	index := start + len(key)
-	if index >= len(hdr) || hdr[index] != ':' {
-		return hdr
-	}
-	end := bytes.Index(hdr[start:], []byte(_CRLF_))
-	if end < 0 {
-		return hdr
-	}
-	hdr = append(hdr[:start], hdr[start+end+len(_CRLF_):]...)
-	if len(hdr) <= len(emptyHdrLine) {
+	hdr = append(hdr[:kl], hdr[i:]...)
+	if len(hdr) == len(emptyHdrLine) {
 		return nil
 	}
 	return hdr
+}
+
+// Will remove a header if present.
+func removeHeaderIfPresent(hdr []byte, key string) []byte {
+	for {
+		start := getHeaderKeyIndex(key, hdr)
+		// key can't be first and we want to check that it is preceded by a '\n'
+		if start < 1 || hdr[start-1] != '\n' {
+			return hdr
+		}
+		index := start + len(key)
+		if index >= len(hdr) || hdr[index] != ':' {
+			return hdr
+		}
+		end := bytes.Index(hdr[start:], []byte(_CRLF_))
+		if end < 0 {
+			return hdr
+		}
+		hdr = append(hdr[:start], hdr[start+end+len(_CRLF_):]...)
+		if len(hdr) <= len(emptyHdrLine) {
+			return nil
+		}
+	}
 }
 
 func removeHeaderIfPrefixPresent(hdr []byte, prefix string) []byte {
@@ -4560,6 +4633,19 @@ func getHeaderKeyIndex(key string, hdr []byte) int {
 	}
 }
 
+// setHeader will replace the value of the first existing key `key`
+// with the given value `val`, or add this new key at the end of
+// the headers.
+//
+// Note: If the key does not exist, or if it exists but the new value
+// would make the resulting byte slice larger than the original one,
+// a new byte slice is returned and the original is left untouched.
+// This is to prevent situations where caller may have a `hdr` and
+// `msg` that are the parts of an underlying buffer. Extending the
+// `hdr` would otherwise overwrite the `msg` part.
+//
+// If the new value is smaller, then the original `hdr` byte slice
+// is modified.
 func setHeader(key, val string, hdr []byte) []byte {
 	start := getHeaderKeyIndex(key, hdr)
 	if start >= 0 {
@@ -4574,15 +4660,45 @@ func setHeader(key, val string, hdr []byte) []byte {
 			return hdr // malformed headers
 		}
 		valEnd += valStart
-		suffix := slices.Clone(hdr[valEnd:])
-		newHdr := append(hdr[:valStart], val...)
-		return append(newHdr, suffix...)
+		// Length of the existing value (before the `\r`)
+		oldValLen := valEnd - valStart
+		// This is how many extra bytes we need for the new value.
+		// If <= 0, it means that we need less and so will reuse the `hdr` buffer.
+		if extra := len(val) - oldValLen; extra > 0 {
+			// Check that we don't overflow an "int".
+			if rem := math.MaxInt - hdrLen; rem < extra {
+				// We don't grow, and return the existing header.
+				return hdr
+			}
+			// The new size is the old size plus the extra bytes.
+			newHdrSize := hdrLen + extra
+			newHdr := make([]byte, newHdrSize)
+			// Copy the parts from `hdr` and `val` into the new buffer.
+			n := copy(newHdr, hdr[:valStart])
+			n += copy(newHdr[n:], val)
+			copy(newHdr[n:], hdr[valEnd:])
+			return newHdr
+		}
+		// We can write in place since it fits in the existing `hdr` buffer.
+		n := copy(hdr[valStart:], val)
+		n += copy(hdr[valStart+n:], hdr[valEnd:])
+		hdr = hdr[:valStart+n]
+		return hdr
 	}
 	if len(hdr) > 0 && bytes.HasSuffix(hdr, []byte("\r\n")) {
 		hdr = hdr[:len(hdr)-2]
 		val += "\r\n"
 	}
-	return fmt.Appendf(hdr, "%s: %s\r\n", key, val)
+	// Create the new buffer based on length of existing one and
+	// length of the new "<key>: <value>\r\n". Protect against "int" overflow.
+	newSize := uint64(len(hdr)) + uint64(len(key)) + 1 + 1 + uint64(len(val)) + 2
+	if newSize > uint64(math.MaxInt) {
+		// We don't grow, and return the existing header.
+		return hdr
+	}
+	newHdr := make([]byte, 0, int(newSize))
+	newHdr = append(newHdr, hdr...)
+	return fmt.Appendf(newHdr, "%s: %s\r\n", key, val)
 }
 
 // For bytes.HasPrefix below.
@@ -4697,27 +4813,38 @@ func (c *client) processServiceImport(si *serviceImport, acc *Account, msg []byt
 	if !isResponse {
 		isSysImport := siAcc == c.srv.SystemAccount()
 		var ci *ClientInfo
-		if hadPrevSi && c.pa.hdr >= 0 {
-			var cis ClientInfo
-			if err := json.Unmarshal(sliceHeader(ClientInfoHdr, msg[:c.pa.hdr]), &cis); err == nil {
-				ci = &cis
+		var cis *ClientInfo
+		if c.pa.hdr >= 0 {
+			var hci ClientInfo
+			if err := json.Unmarshal(sliceHeader(ClientInfoHdr, msg[:c.pa.hdr]), &hci); err == nil {
+				cis = &hci
+			}
+		}
+		if c.kind == LEAF && c.pa.hdr >= 0 && len(sliceHeader(ClientInfoHdr, msg[:c.pa.hdr])) > 0 {
+			// Leaf nodes may forward a Nats-Request-Info from a remote domain,
+			// but the local server must replace it with the identity of the
+			// authenticated leaf connection instead of trusting forwarded values.
+			ci = c.getClientInfo(share)
+			if hadPrevSi {
 				ci.Service = acc.Name
-				// Check if we are moving into a share details account from a non-shared
-				// and add in server and cluster details.
 				if !share && (si.share || isSysImport) {
 					c.addServerAndClusterInfo(ci)
 				}
+			} else if !share && isSysImport {
+				c.addServerAndClusterInfo(ci)
+			}
+		} else if hadPrevSi && cis != nil {
+			ci = cis
+			ci.Service = acc.Name
+			// Check if we are moving into a share details account from a non-shared
+			// and add in server and cluster details.
+			if !share && (si.share || isSysImport) {
+				c.addServerAndClusterInfo(ci)
 			}
 		} else if c.kind != LEAF || c.pa.hdr < 0 || len(sliceHeader(ClientInfoHdr, msg[:c.pa.hdr])) == 0 {
 			ci = c.getClientInfo(share)
 			// If we did not share but the imports destination is the system account add in the server and cluster info.
 			if !share && isSysImport {
-				c.addServerAndClusterInfo(ci)
-			}
-		} else if c.kind == LEAF && (si.share || isSysImport) {
-			// We have a leaf header here for ci, augment as above.
-			ci = c.getClientInfo(si.share)
-			if !si.share && isSysImport {
 				c.addServerAndClusterInfo(ci)
 			}
 		}
@@ -5341,8 +5468,10 @@ sendToRoutesOrLeafs:
 	// If we do have a deliver subject we need to do something with it.
 	// Again this is when JetStream (but possibly others) wants the system
 	// to rewrite the delivered subject. The way we will do that is place it
-	// at the end of the reply subject if it exists.
-	if len(deliver) > 0 && len(reply) > 0 {
+	// at the end of the reply subject if it exists. But only if this wasn't
+	// already performed, otherwise we'd end up with a duplicate '@' suffix
+	// resulting in a protocol error.
+	if len(deliver) > 0 && len(reply) > 0 && !remapped {
 		reply = append(reply, '@')
 		reply = append(reply, deliver...)
 	}
@@ -5501,6 +5630,9 @@ func (c *client) processPingTimer() {
 	if c.kind == ROUTER && opts.Cluster.PingInterval > 0 {
 		pingInterval = opts.Cluster.PingInterval
 	}
+	if c.isWebsocket() && opts.Websocket.PingInterval > 0 {
+		pingInterval = opts.Websocket.PingInterval
+	}
 	pingInterval = adjustPingInterval(c.kind, pingInterval)
 	now := time.Now()
 	needRTT := c.rtt == 0 || now.Sub(c.rttStart) > DEFAULT_RTT_MEASUREMENT_INTERVAL
@@ -5582,6 +5714,9 @@ func (c *client) setPingTimer() {
 	d := opts.PingInterval
 	if c.kind == ROUTER && opts.Cluster.PingInterval > 0 {
 		d = opts.Cluster.PingInterval
+	}
+	if c.isWebsocket() && opts.Websocket.PingInterval > 0 {
+		d = opts.Websocket.PingInterval
 	}
 	d = adjustPingInterval(c.kind, d)
 	c.ping.tmr = time.AfterFunc(d, c.processPingTimer)
@@ -5788,7 +5923,7 @@ func (c *client) processSubsOnConfigReload(awcsti map[string]struct{}) {
 		oldShadows := sub.shadow
 		sub.shadow = nil
 		c.mu.Unlock()
-		c.addShadowSubscriptions(acc, sub, true)
+		c.addShadowSubscriptions(acc, sub)
 		for _, nsub := range oldShadows {
 			nsub.im.acc.sl.Remove(nsub)
 		}
@@ -6616,6 +6751,9 @@ func (c *client) setFirstPingTimer() {
 
 	if c.kind == ROUTER && opts.Cluster.PingInterval > 0 {
 		d = opts.Cluster.PingInterval
+	}
+	if c.isWebsocket() && opts.Websocket.PingInterval > 0 {
+		d = opts.Websocket.PingInterval
 	}
 	if !opts.DisableShortFirstPing {
 		if c.kind != CLIENT {

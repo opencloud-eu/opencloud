@@ -63,9 +63,9 @@ const (
 	// LEAF connection as opposed to a CLIENT.
 	leafNodeWSPath = "/leafnode"
 
-	// This is the time the server will wait, when receiving a CONNECT,
-	// before closing the connection if the required minimum version is not met.
-	leafNodeWaitBeforeClose = 5 * time.Second
+	// When a soliciting leafnode is rejected because it does not meet the
+	// configured minimum version, delay the next reconnect attempt by this long.
+	leafNodeMinVersionReconnectDelay = 5 * time.Second
 )
 
 type leaf struct {
@@ -691,9 +691,8 @@ func (s *Server) connectToRemoteLeafNode(remote *leafNodeCfg, firstConnect bool)
 			} else {
 				s.Debugf("Trying to connect as leafnode to remote server on %q%s", rURL.Host, ipStr)
 
-				// Check if proxy is configured first, then check if URL supports it
-				if proxyURL != _EMPTY_ && isWSURL(rURL) {
-					// Use proxy for WebSocket connections - use original hostname, resolved IP for connection
+				// Check if proxy is configured
+				if proxyURL != _EMPTY_ {
 					targetHost := rURL.Host
 					// If URL doesn't include port, add the default port for the scheme
 					if rURL.Port() == _EMPTY_ {
@@ -2082,17 +2081,11 @@ func (c *client) processLeafNodeConnect(s *Server, arg []byte, lang string) erro
 	if mv := s.getOpts().LeafNode.MinVersion; mv != _EMPTY_ {
 		major, minor, update, _ := versionComponents(mv)
 		if !versionAtLeast(proto.Version, major, minor, update) {
-			// We are going to send back an INFO because otherwise recent
-			// versions of the remote server would simply break the connection
-			// after 2 seconds if not receiving it. Instead, we want the
-			// other side to just "stall" until we finish waiting for the holding
-			// period and close the connection below.
+			// Send back an INFO so recent remote servers process the rejection
+			// cleanly, then close immediately. The soliciting side applies the
+			// reconnect delay when it processes the error.
 			s.sendPermsAndAccountInfo(c)
-			c.sendErrAndErr(fmt.Sprintf("connection rejected since minimum version required is %q", mv))
-			select {
-			case <-c.srv.quitCh:
-			case <-time.After(leafNodeWaitBeforeClose):
-			}
+			c.sendErrAndErr(fmt.Sprintf("%s %q", ErrLeafNodeMinVersionRejected, mv))
 			c.closeConnection(MinimumVersionRequired)
 			return ErrMinimumVersionRequired
 		}
@@ -2760,6 +2753,14 @@ func (c *client) processLeafSub(argo []byte) (err error) {
 	}
 
 	acc := c.acc
+	// Guard against LS+ arriving before CONNECT has been processed, which
+	// can happen when compression is enabled.
+	if acc == nil {
+		c.mu.Unlock()
+		c.sendErr("Authorization Violation")
+		c.closeConnection(ProtocolViolation)
+		return nil
+	}
 	// Check if we have a loop.
 	ldsPrefix := bytes.HasPrefix(sub.subject, []byte(leafNodeLoopDetectionSubjectPrefix))
 
@@ -2832,7 +2833,7 @@ func (c *client) processLeafSub(argo []byte) (err error) {
 
 	// Only add in shadow subs if a new sub or qsub.
 	if osub == nil {
-		if err := c.addShadowSubscriptions(acc, sub, true); err != nil {
+		if err := c.addShadowSubscriptions(acc, sub); err != nil {
 			c.Errorf(err.Error())
 		}
 	}
@@ -2876,12 +2877,20 @@ func (c *client) processLeafUnsub(arg []byte) error {
 	// Indicate any activity, so pub and sub or unsubs.
 	c.in.subs++
 
-	acc := c.acc
 	srv := c.srv
 
 	c.mu.Lock()
 	if c.isClosed() {
 		c.mu.Unlock()
+		return nil
+	}
+
+	acc := c.acc
+	// Guard against LS- arriving before CONNECT has been processed.
+	if acc == nil {
+		c.mu.Unlock()
+		c.sendErr("Authorization Violation")
+		c.closeConnection(ProtocolViolation)
 		return nil
 	}
 
@@ -2916,8 +2925,7 @@ func (c *client) processLeafUnsub(arg []byte) error {
 
 func (c *client) processLeafHeaderMsgArgs(arg []byte) error {
 	// Unroll splitArgs to avoid runtime/heap issues
-	a := [MAX_MSG_ARGS][]byte{}
-	args := a[:0]
+	args := c.argsa[:0]
 	start := -1
 	for i, b := range arg {
 		switch b {
@@ -3000,8 +3008,7 @@ func (c *client) processLeafHeaderMsgArgs(arg []byte) error {
 
 func (c *client) processLeafMsgArgs(arg []byte) error {
 	// Unroll splitArgs to avoid runtime/heap issues
-	a := [MAX_MSG_ARGS][]byte{}
-	args := a[:0]
+	args := c.argsa[:0]
 	start := -1
 	for i, b := range arg {
 		switch b {
@@ -3181,6 +3188,11 @@ func (c *client) leafProcessErr(errStr string) {
 		c.Errorf("Leafnode connection dropped with same cluster name error. Delaying attempt to reconnect for %v", delay)
 		return
 	}
+	if strings.Contains(errStr, ErrLeafNodeMinVersionRejected.Error()) {
+		_, delay := c.setLeafConnectDelayIfSoliciting(leafNodeMinVersionReconnectDelay)
+		c.Errorf("Leafnode connection dropped due to minimum version requirement. Delaying attempt to reconnect for %v", delay)
+		return
+	}
 
 	// We will look for Loop detected error coming from the other side.
 	// If we solicit, set the connect delay.
@@ -3203,7 +3215,10 @@ func (c *client) setLeafConnectDelayIfSoliciting(delay time.Duration) (string, t
 		}
 		c.leaf.remote.setConnectDelay(delay)
 	}
-	accName := c.acc.Name
+	var accName string
+	if c.acc != nil {
+		accName = c.acc.Name
+	}
 	c.mu.Unlock()
 	return accName, delay
 }

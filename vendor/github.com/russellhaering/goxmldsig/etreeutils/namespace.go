@@ -3,6 +3,7 @@ package etreeutils
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"sort"
 
 	"github.com/beevik/etree"
@@ -63,9 +64,7 @@ func (ctx NSContext) CheckLimit() error {
 
 func (ctx NSContext) Copy() NSContext {
 	prefixes := make(map[string]string, len(ctx.prefixes)+4)
-	for k, v := range ctx.prefixes {
-		prefixes[k] = v
-	}
+	maps.Copy(prefixes, ctx.prefixes)
 
 	return NSContext{prefixes: prefixes, limit: ctx.limit}
 }
@@ -127,9 +126,7 @@ func (ctx NSContext) SubContext(el *etree.Element) (NSContext, error) {
 // Prefixes returns a copy of this context's prefix map.
 func (ctx NSContext) Prefixes() map[string]string {
 	prefixes := make(map[string]string, len(ctx.prefixes))
-	for k, v := range ctx.prefixes {
-		prefixes[k] = v
-	}
+	maps.Copy(prefixes, ctx.prefixes)
 
 	return prefixes
 }

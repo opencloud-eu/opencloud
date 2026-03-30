@@ -215,6 +215,9 @@ var (
 
 	// ErrMinimumVersionRequired is returned when a connection is not at the minimum version required.
 	ErrMinimumVersionRequired = errors.New("minimum version required")
+	// ErrLeafNodeMinVersionRejected is the leafnode protocol error prefix used
+	// when rejecting a remote due to leafnodes.min_version.
+	ErrLeafNodeMinVersionRejected = errors.New("connection rejected since minimum version required is")
 
 	// ErrInvalidMappingDestination is used for all subject mapping destination errors
 	ErrInvalidMappingDestination = errors.New("invalid mapping destination")
@@ -251,6 +254,9 @@ type mappingDestinationErr struct {
 }
 
 func (e *mappingDestinationErr) Error() string {
+	if e.token == _EMPTY_ {
+		return e.err.Error()
+	}
 	return fmt.Sprintf("%s in %s", e.err, e.token)
 }
 

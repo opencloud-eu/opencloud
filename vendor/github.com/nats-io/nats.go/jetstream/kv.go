@@ -178,7 +178,7 @@ type (
 		// the key value store in a streaming fashion (on a channel).
 		ListKeys(ctx context.Context, opts ...WatchOpt) (KeyLister, error)
 
-		// ListKeysFiltered ListKeysWithFilters returns a KeyLister for filtered keys in the bucket.
+		// ListKeysFiltered returns a KeyLister for filtered keys in the bucket.
 		ListKeysFiltered(ctx context.Context, filters ...string) (KeyLister, error)
 
 		// History will return all historical values for the key (up to
@@ -241,11 +241,16 @@ type (
 		// subject after it's stored.
 		RePublish *RePublish `json:"republish,omitempty"`
 
-		// Mirror defines the consiguration for mirroring another KeyValue
+		// Mirror defines the configuration for mirroring another KeyValue
 		// store.
 		Mirror *StreamSource `json:"mirror,omitempty"`
 
 		// Sources defines the configuration for sources of a KeyValue store.
+		// If no subject transforms are defined, it is assumed that a source is
+		// also a KV store and subject transforms will be set to correctly map
+		// keys from the source KV to the current one. If subject transforms are
+		// defined, they will be used as is. This allows using non-kv streams as
+		// sources.
 		Sources []*StreamSource `json:"sources,omitempty"`
 
 		// Compression sets the underlying stream compression.
@@ -323,6 +328,9 @@ type (
 
 		// Metadata returns the metadata associated with the bucket.
 		Metadata() map[string]string
+
+		// Config returns the configuration for the bucket.
+		Config() KeyValueConfig
 	}
 
 	// KeyWatcher is what is returned when doing a watch. It can be used to
@@ -471,7 +479,6 @@ const (
 	kvSubjectsTmpl          = "$KV.%s.>"
 	kvSubjectsPreTmpl       = "$KV.%s."
 	kvSubjectsPreDomainTmpl = "%s.$KV.%s."
-	kvNoPending             = "0"
 )
 
 const (
@@ -685,8 +692,14 @@ func (js *jetStream) prepareKeyValueConfig(ctx context.Context, cfg KeyValueConf
 		scfg.Mirror = m
 		scfg.MirrorDirect = true
 	} else if len(cfg.Sources) > 0 {
-		// For now we do not allow direct subjects for sources. If that is desired a user could use stream API directly.
 		for _, ss := range cfg.Sources {
+			// if subject transforms are already set, then use as is.
+			// this allows for full control of the source, e.g. using non-KV streams.
+			// Note that in this case, the Name is not modified and full stream name must be provided.
+			if len(ss.SubjectTransforms) > 0 {
+				scfg.Sources = append(scfg.Sources, ss)
+				continue
+			}
 			var sourceBucketName string
 			if strings.HasPrefix(ss.Name, kvBucketNamePre) {
 				sourceBucketName = ss.Name[len(kvBucketNamePre):]
@@ -819,6 +832,27 @@ func (s *KeyValueBucketStatus) IsCompressed() bool { return s.info.Config.Compre
 // removed by the TTL setting, 0 meaning markers are not supported.
 func (s *KeyValueBucketStatus) LimitMarkerTTL() time.Duration {
 	return s.info.Config.SubjectDeleteMarkerTTL
+}
+
+// Config returns the configuration for the bucket.
+func (s *KeyValueBucketStatus) Config() KeyValueConfig {
+	return KeyValueConfig{
+		Bucket:         s.bucket,
+		Description:    s.info.Config.Description,
+		MaxValueSize:   s.info.Config.MaxMsgSize,
+		History:        uint8(s.info.Config.MaxMsgsPerSubject),
+		TTL:            s.info.Config.MaxAge,
+		MaxBytes:       s.info.Config.MaxBytes,
+		Storage:        s.info.Config.Storage,
+		Replicas:       s.info.Config.Replicas,
+		Placement:      s.info.Config.Placement,
+		RePublish:      s.info.Config.RePublish,
+		Mirror:         s.info.Config.Mirror,
+		Sources:        s.info.Config.Sources,
+		Compression:    s.info.Config.Compression != NoCompression,
+		Metadata:       s.info.Config.Metadata,
+		LimitMarkerTTL: s.info.Config.SubjectDeleteMarkerTTL,
+	}
 }
 
 // Metadata returns the metadata associated with the bucket.
@@ -1170,6 +1204,8 @@ func (w *watcher) Stop() error {
 	return w.sub.Unsubscribe()
 }
 
+// WatchFiltered will watch for any updates to keys that match the provided
+// key filters. It can be configured with the same options as Watch.
 func (kv *kvs) WatchFiltered(ctx context.Context, keys []string, opts ...WatchOpt) (KeyWatcher, error) {
 	for _, key := range keys {
 		if !searchKeyValid(key) {
@@ -1291,6 +1327,8 @@ func (kv *kvs) WatchFiltered(ctx context.Context, keys []string, opts ...WatchOp
 		return nil, err
 	}
 	sub.SetClosedHandler(func(_ string) {
+		w.mu.Lock()
+		defer w.mu.Unlock()
 		close(w.updates)
 	})
 	// If there were no pending messages at the time of the creation
@@ -1352,7 +1390,7 @@ type keyLister struct {
 	keys    chan string
 }
 
-// Keys will return all keys.
+// ListKeys will return all keys.
 func (kv *kvs) ListKeys(ctx context.Context, opts ...WatchOpt) (KeyLister, error) {
 	opts = append(opts, IgnoreDeletes(), MetaOnly())
 	watcher, err := kv.WatchAll(ctx, opts...)
@@ -1379,7 +1417,7 @@ func (kv *kvs) ListKeys(ctx context.Context, opts ...WatchOpt) (KeyLister, error
 	return kl, nil
 }
 
-// ListKeysWithFilters returns a channel of keys matching the provided filters using WatchFiltered.
+// ListKeysFiltered returns a KeyLister for filtered keys in the bucket.
 func (kv *kvs) ListKeysFiltered(ctx context.Context, filters ...string) (KeyLister, error) {
 	watcher, err := kv.WatchFiltered(ctx, filters, IgnoreDeletes(), MetaOnly())
 	if err != nil {

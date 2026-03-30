@@ -421,7 +421,9 @@ func (c *client) matchesPinnedCert(tlsPinnedCerts PinnedCertSet) bool {
 }
 
 var (
-	mustacheRE = regexp.MustCompile(`{{2}([^}]+)}{2}`)
+	mustacheRE                             = regexp.MustCompile(`{{2}([^}]+)}{2}`)
+	maxPermTemplateSubjectExpansions       = 4096
+	errPermTemplateExpansionLimit    error = fmt.Errorf("template expansion exceeds limit")
 )
 
 func processUserPermissionsTemplate(lim jwt.UserPermissionLimits, ujwt *jwt.UserClaims, acc *Account) (jwt.UserPermissionLimits, error) {
@@ -456,11 +458,11 @@ func processUserPermissionsTemplate(lim jwt.UserPermissionLimits, ujwt *jwt.User
 		return p
 	}
 	isTag := func(op string) []string {
-		if strings.EqualFold("tag(", op[:4]) && strings.HasSuffix(op, ")") {
+		if len(op) >= 4 && strings.EqualFold("tag(", op[:4]) && strings.HasSuffix(op, ")") {
 			v := strings.TrimPrefix(op, "tag(")
 			v = strings.TrimSuffix(v, ")")
 			return []string{"tag", v}
-		} else if strings.EqualFold("account-tag(", op[:12]) && strings.HasSuffix(op, ")") {
+		} else if len(op) >= 12 && strings.EqualFold("account-tag(", op[:12]) && strings.HasSuffix(op, ")") {
 			v := strings.TrimPrefix(op, "account-tag(")
 			v = strings.TrimSuffix(v, ")")
 			return []string{"account-tag", v}
@@ -529,7 +531,7 @@ func processUserPermissionsTemplate(lim jwt.UserPermissionLimits, ujwt *jwt.User
 						// generate an invalid subject?
 						values[tokenNum] = []string{" "}
 					}
-				} else if failOnBadSubject {
+				} else {
 					return nil, fmt.Errorf("template operation in %q: %q is not defined", list[i], op)
 				}
 			}
@@ -544,6 +546,20 @@ func processUserPermissionsTemplate(lim jwt.UserPermissionLimits, ujwt *jwt.User
 					return nil, fmt.Errorf("generated invalid subject")
 				}
 			} else {
+				expCount := 1
+				for _, v := range values {
+					if len(v) == 0 {
+						expCount = 0
+						break
+					}
+					if expCount > maxPermTemplateSubjectExpansions/len(v) {
+						return nil, fmt.Errorf("%w: %d", errPermTemplateExpansionLimit, maxPermTemplateSubjectExpansions)
+					}
+					expCount *= len(v)
+				}
+				if len(emittedList) > maxPermTemplateSubjectExpansions-expCount {
+					return nil, fmt.Errorf("%w: %d", errPermTemplateExpansionLimit, maxPermTemplateSubjectExpansions)
+				}
 				a := nArrayCartesianProduct(values...)
 				for _, aa := range a {
 					subj := list[i]
@@ -588,6 +604,7 @@ func processUserPermissionsTemplate(lim jwt.UserPermissionLimits, ujwt *jwt.User
 func (s *Server) processClientOrLeafAuthentication(c *client, opts *Options) (authorized bool) {
 	var (
 		nkey *NkeyUser
+		ujwt string
 		juc  *jwt.UserClaims
 		acc  *Account
 		user *User
@@ -782,16 +799,23 @@ func (s *Server) processClientOrLeafAuthentication(c *client, opts *Options) (au
 
 	// Check if we have trustedKeys defined in the server. If so we require a user jwt.
 	if s.trustedKeys != nil {
-		if c.opts.JWT == _EMPTY_ && opts.DefaultSentinel != _EMPTY_ {
-			c.opts.JWT = opts.DefaultSentinel
+		ujwt = c.opts.JWT
+		if ujwt == _EMPTY_ && c.isMqtt() {
+			// For MQTT, we pass the password as the JWT too, but do so here so it's not
+			// publicly exposed in the client options if it isn't a JWT.
+			ujwt = c.opts.Password
 		}
-		if c.opts.JWT == _EMPTY_ {
+		if ujwt == _EMPTY_ && opts.DefaultSentinel != _EMPTY_ {
+			c.opts.JWT = opts.DefaultSentinel
+			ujwt = c.opts.JWT
+		}
+		if ujwt == _EMPTY_ {
 			s.mu.Unlock()
 			c.Debugf("Authentication requires a user JWT")
 			return false
 		}
 		// So we have a valid user jwt here.
-		juc, err = jwt.DecodeUserClaims(c.opts.JWT)
+		juc, err = jwt.DecodeUserClaims(ujwt)
 		if err != nil {
 			s.mu.Unlock()
 			c.Debugf("User JWT not valid: %v", err)
@@ -1061,6 +1085,11 @@ func (s *Server) processClientOrLeafAuthentication(c *client, opts *Options) (au
 		// Hold onto the user's public key.
 		c.mu.Lock()
 		c.pubKey = juc.Subject
+		// If this is a MQTT client, we purposefully didn't populate the JWT as it could contain
+		// a password or token. Now we know it's a valid JWT, we can populate it.
+		if c.isMqtt() {
+			c.opts.JWT = ujwt
+		}
 		c.tags = juc.Tags
 		c.nameTag = juc.Name
 		c.mu.Unlock()

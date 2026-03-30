@@ -107,7 +107,7 @@ func (fs *Decomposedfs) CreateStorageSpace(ctx context.Context, req *provider.Cr
 		alias = templates.WithSpacePropertiesAndUser(u, req.Type, req.Name, spaceID, fs.o.PersonalSpaceAliasTemplate)
 	}
 
-	root, err := node.ReadNode(ctx, fs.lu, spaceID, spaceID, true, nil, false) // will fall into `Exists` case below
+	root, err := node.ReadNode(ctx, fs.lu, spaceID, spaceID, "", true, nil, false) // will fall into `Exists` case below
 	switch {
 	case err != nil:
 		return nil, err
@@ -312,7 +312,7 @@ func (fs *Decomposedfs) ListStorageSpaces(ctx context.Context, filter []*provide
 
 	if spaceID != spaceIDAny && entry != spaceIDAny {
 		// try directly reading the node
-		n, err := node.ReadNode(ctx, fs.lu, spaceID, entry, true, nil, false) // permission to read disabled space is checked later
+		n, err := node.ReadNode(ctx, fs.lu, spaceID, entry, "", true, nil, false) // permission to read disabled space is checked later
 		if err != nil {
 			appctx.GetLogger(ctx).Error().Err(err).Str("id", entry).Msg("could not read node")
 			return nil, err
@@ -449,7 +449,7 @@ func (fs *Decomposedfs) ListStorageSpaces(ctx context.Context, filter []*provide
 					continue
 				}
 
-				n, err := node.ReadNode(ctx, fs.lu, spaceID, spaceID, true, nil, true)
+				n, err := node.ReadNode(ctx, fs.lu, spaceID, spaceID, "", true, nil, true)
 				if err != nil {
 					appctx.GetLogger(ctx).Error().Err(err).Str("id", spaceID).Msg("could not read node, skipping")
 					continue
@@ -519,7 +519,7 @@ func (fs *Decomposedfs) ListStorageSpaces(ctx context.Context, filter []*provide
 	// if there are no matches (or they happened to be spaces for the owner) and the node is a child return a space
 	if int64(len(matches)) <= numShares.Load() && entry != spaceID {
 		// try node id
-		n, err := node.ReadNode(ctx, fs.lu, spaceID, entry, true, nil, false) // permission to read disabled space is checked in storageSpaceFromNode
+		n, err := node.ReadNode(ctx, fs.lu, spaceID, entry, "", true, nil, false) // permission to read disabled space is checked in storageSpaceFromNode
 		if err != nil {
 			return nil, err
 		}
@@ -631,7 +631,7 @@ func (fs *Decomposedfs) UpdateStorageSpace(ctx context.Context, req *provider.Up
 	}
 
 	// check which permissions are needed
-	spaceNode, err := node.ReadNode(ctx, fs.lu, spaceID, spaceID, true, nil, false)
+	spaceNode, err := node.ReadNode(ctx, fs.lu, spaceID, spaceID, "", true, nil, false)
 	if err != nil {
 		return nil, err
 	}
@@ -733,7 +733,7 @@ func (fs *Decomposedfs) DeleteStorageSpace(ctx context.Context, req *provider.De
 		return err
 	}
 
-	n, err := node.ReadNode(ctx, fs.lu, spaceID, spaceID, true, nil, false) // permission to read disabled space is checked later
+	n, err := node.ReadNode(ctx, fs.lu, spaceID, spaceID, "", true, nil, false) // permission to read disabled space is checked later
 	if err != nil {
 		return err
 	}
