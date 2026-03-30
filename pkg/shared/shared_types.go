@@ -61,7 +61,7 @@ type Cache struct {
 // Commons holds configuration that are common to all extensions. Each extension can then decide whether
 // to overwrite its values.
 type Commons struct {
-	TracesExporter     string          `yaml:"traces_exporter" env:"OTEL_TRACES_EXPORTER" desc:"The exporter used for traces. Supports 'otlp', 'console' and 'none' (default)." introductionVersion:"%%NEXT%%"`
+	TracesExporter     string          `yaml:"traces_exporter" env:"OTEL_TRACES_EXPORTER" desc:"The exporter used for traces. Supports 'otlp', 'console' and 'none' (default)." introductionVersion:"6.0.0"`
 	Log                *Log            `yaml:"log"`
 	Cache              *Cache          `yaml:"cache"`
 	GRPCClientTLS      *GRPCClientTLS  `yaml:"grpc_client_tls"`

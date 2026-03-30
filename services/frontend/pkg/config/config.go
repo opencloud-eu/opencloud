@@ -158,7 +158,7 @@ type OCDav struct {
 
 	// Insecure certificates allowed when making requests to the gateway
 	Insecure      bool `yaml:"insecure" env:"OC_INSECURE;OCDAV_INSECURE;FRONTENT_OCDAV_INSECURE" desc:"Allow insecure connections to the GATEWAY service." introductionVersion:"1.0.0"`
-	EnableHTTPTPC bool `yaml:"enable_http_tpc" env:"OCDAV_ENABLE_HTTP_TPC;FRONTENT_OCDAV_ENABLE_HTTP_TPC" desc:"Enable HTTP / WebDAV Third-Party-Copy support." introductionVersion:"%%NEXT%%"`
+	EnableHTTPTPC bool `yaml:"enable_http_tpc" env:"OCDAV_ENABLE_HTTP_TPC;FRONTENT_OCDAV_ENABLE_HTTP_TPC" desc:"Enable HTTP / WebDAV Third-Party-Copy support." introductionVersion:"6.0.0"`
 	// Timeout in seconds when making requests to the gateway
 	Timeout int64 `yaml:"gateway_request_timeout" env:"OCDAV_GATEWAY_REQUEST_TIME;FRONTENT_OUTOCDAV_GATEWAY_REQUEST_TIMEOUT" desc:"Request timeout in seconds for requests from the oCDAV service to the GATEWAY service." introductionVersion:"1.0.0"`
 
@@ -170,8 +170,8 @@ type OCDav struct {
 }
 
 type NameValidation struct {
-	InvalidChars []string `yaml:"invalid_chars" env:"OCDAV_NAME_VALIDATION_INVALID_CHARS;FRONTENT_OCDAV_NAME_VALIDATION_INVALID_CHARS" desc:"List of characters that are not allowed in file or folder names." introductionVersion:"%%NEXT%%"`
-	MaxLength    int      `yaml:"max_length" env:"OCDAV_NAME_VALIDATION_MAX_LENGTH;FRONTENT_OCDAV_NAME_VALIDATION_MAX_LENGTH" desc:"Max length of file or folder names." introductionVersion:"%%NEXT%%"`
+	InvalidChars []string `yaml:"invalid_chars" env:"OCDAV_NAME_VALIDATION_INVALID_CHARS;FRONTENT_OCDAV_NAME_VALIDATION_INVALID_CHARS" desc:"List of characters that are not allowed in file or folder names." introductionVersion:"6.0.0"`
+	MaxLength    int      `yaml:"max_length" env:"OCDAV_NAME_VALIDATION_MAX_LENGTH;FRONTENT_OCDAV_NAME_VALIDATION_MAX_LENGTH" desc:"Max length of file or folder names." introductionVersion:"6.0.0"`
 }
 
 type CacheWarmupDrivers struct {
