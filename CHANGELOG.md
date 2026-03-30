@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @aduffeck, @dragonchaser, @pascalwengerter, @smoothscholar
+@ScharfViktor, @aduffeck, @dragonchaser, @micbar, @pascalwengerter, @smoothscholar
 
 ### 💥 Breaking changes
 
@@ -12,6 +12,7 @@
 
 ### 📈 Enhancement
 
+- feat: add userid to spans [[#2536](https://github.com/opencloud-eu/opencloud/pull/2536)]
 - feat: add openFilesInNewTab web config option [[#2522](https://github.com/opencloud-eu/opencloud/pull/2522)]
 - Always enable favorites, remove FRONTEND_ENABLE_FAVORITES flag [[#2494](https://github.com/opencloud-eu/opencloud/pull/2494)]
 - Implement favorites [[#2454](https://github.com/opencloud-eu/opencloud/pull/2454)]
