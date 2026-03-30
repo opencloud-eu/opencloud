@@ -1920,7 +1920,6 @@ def dockerRelease(ctx, repo, build_type):
                 },
                 "when": [
                     event["cron"],
-                    event["base"],
                     event["tag"],
                 ],
             },
