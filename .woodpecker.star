@@ -1827,7 +1827,7 @@ def checkVersionPlaceholder():
                 "name": "check-version-placeholder",
                 "image": OC_CI_ALPINE,
                 "commands": [
-                    "grep -r -e '%%NEXT%%' %s/services %s/pkg > next_version.txt" % (
+                    "grep -r -e '%%NEXT%%' %s/services %s/pkg > next_version.txt || true" % (
                         dirs["base"],
                         dirs["base"],
                     ),
