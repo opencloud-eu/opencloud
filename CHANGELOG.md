@@ -4,12 +4,16 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @aduffeck, @dragonchaser, @saw-jan
+@ScharfViktor, @aduffeck, @dragonchaser, @rhafer, @saw-jan
 
 ### 🐛 Bug Fixes
 
 - Backport bleve batch fix [[#2527](https://github.com/opencloud-eu/opencloud/pull/2527)]
 - Backport backchannel logout [[#2407](https://github.com/opencloud-eu/opencloud/pull/2407)]
+
+### 📦️ Dependencies
+
+- [stable-4.0] Bump some go dependencies [[#2544](https://github.com/opencloud-eu/opencloud/pull/2544)]
 
 ## [4.0.3](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.3) - 2026-02-05
 
