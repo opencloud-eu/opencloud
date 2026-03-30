@@ -504,7 +504,8 @@ def main(ctx):
 
     is_release_pr = (ctx.build.event == "pull_request" and ctx.build.sender == "openclouders" and "🎉 release" in ctx.build.title.lower())
     if is_release_pr:
-        return licenseCheck(ctx)
+        return licenseCheck(ctx) + \
+               notifyMatrixCheckSteps(ctx, getPipelineNames(licenseCheck(ctx)))
 
     build_release_helpers = \
         readyReleaseGo()
@@ -575,7 +576,7 @@ def main(ctx):
         ),
     )
 
-    pipelines = test_pipelines + build_release_pipelines + notifyMatrix(ctx)
+    pipelines = test_pipelines + build_release_pipelines + notifyMatrixCheckSteps(ctx, getPipelineNames(testPipelines(ctx)))
 
     pipelineSanityChecks(pipelines)
     return savePipelineNumber(ctx) + pipelines
@@ -2205,12 +2206,12 @@ def makeGoGenerate(module):
         },
     ]
 
-def notifyMatrix(ctx):
+def notifyMatrixCheckSteps(ctx, depends_on):
     result = [{
-        "name": "chat-notifications",
+        "name": "all-checks-finished",
         "skip_clone": True,
         "runs_on": ["success", "failure"],
-        "depends_on": getPipelineNames(testPipelines(ctx)),
+        "depends_on": depends_on,
         "steps": [
             {
                 "name": "notify-matrix",
