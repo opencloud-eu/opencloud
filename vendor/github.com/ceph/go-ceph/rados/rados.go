@@ -85,15 +85,17 @@ func NewConn() (*Conn, error) {
 }
 
 // NewConnWithUser creates a new connection object with a custom username.
-// It returns the connection and an error, if any.
+// The supplied username should not include a 'client.' prefix. It returns
+// the connection and an error, if any.
 func NewConnWithUser(user string) (*Conn, error) {
 	cUser := C.CString(user)
 	defer C.free(unsafe.Pointer(cUser))
 	return newConn(cUser)
 }
 
-// NewConnWithClusterAndUser creates a new connection object for a specific cluster and username.
-// It returns the connection and an error, if any.
+// NewConnWithClusterAndUser creates a new connection object for a specific
+// cluster and username. The supplied username should be in the 'client.<user>'
+// format. It returns the connection and an error, if any.
 func NewConnWithClusterAndUser(clusterName string, userName string) (*Conn, error) {
 	cClusterName := C.CString(clusterName)
 	defer C.free(unsafe.Pointer(cClusterName))

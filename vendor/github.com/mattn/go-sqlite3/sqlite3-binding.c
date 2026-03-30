@@ -1,7 +1,7 @@
 #ifndef USE_LIBSQLITE3
 /******************************************************************************
 ** This file is an amalgamation of many separate C source files from SQLite
-** version 3.51.2.  By combining all the individual C code files into this
+** version 3.51.3.  By combining all the individual C code files into this
 ** single large file, the entire code can be compiled as a single translation
 ** unit.  This allows many compilers to do optimizations that would not be
 ** possible if the files were compiled separately.  Performance improvements
@@ -19,7 +19,7 @@
 ** separate file. This file contains only code for the core SQLite library.
 **
 ** The content in this amalgamation comes from Fossil check-in
-** b270f8339eb13b504d0b2ba154ebca966b7d with changes in files:
+** 737ae4a34738ffa0c3ff7f9bb18df914dd1c with changes in files:
 **
 **    
 */
@@ -468,12 +468,12 @@ extern "C" {
 ** [sqlite3_libversion_number()], [sqlite3_sourceid()],
 ** [sqlite_version()] and [sqlite_source_id()].
 */
-#define SQLITE_VERSION        "3.51.2"
-#define SQLITE_VERSION_NUMBER 3051002
-#define SQLITE_SOURCE_ID      "2026-01-09 17:27:48 b270f8339eb13b504d0b2ba154ebca966b7dde08e40c3ed7d559749818cb2075"
+#define SQLITE_VERSION        "3.51.3"
+#define SQLITE_VERSION_NUMBER 3051003
+#define SQLITE_SOURCE_ID      "2026-03-13 10:38:09 737ae4a34738ffa0c3ff7f9bb18df914dd1cad163f28fd6b6e114a344fe6d618"
 #define SQLITE_SCM_BRANCH     "branch-3.51"
-#define SQLITE_SCM_TAGS       "release version-3.51.2"
-#define SQLITE_SCM_DATETIME   "2026-01-09T17:27:48.405Z"
+#define SQLITE_SCM_TAGS       "release version-3.51.3"
+#define SQLITE_SCM_DATETIME   "2026-03-13T10:38:09.694Z"
 
 /*
 ** CAPI3REF: Run-Time Library Version Numbers
@@ -14336,6 +14336,27 @@ struct fts5_api {
 #define SQLITE_MIN_LENGTH 30   /* Minimum value for the length limit */
 
 /*
+** Maximum size of any single memory allocation.
+**
+** This is not a limit on the total amount of memory used.  This is
+** a limit on the size parameter to sqlite3_malloc() and sqlite3_realloc().
+**
+** The upper bound is slightly less than 2GiB:  0x7ffffeff == 2,147,483,391
+** This provides a 256-byte safety margin for defense against 32-bit
+** signed integer overflow bugs when computing memory allocation sizes.
+** Paranoid applications might want to reduce the maximum allocation size
+** further for an even larger safety margin.  0x3fffffff or 0x0fffffff
+** or even smaller would be reasonable upper bounds on the size of a memory
+** allocations for most applications.
+*/
+#ifndef SQLITE_MAX_ALLOCATION_SIZE
+# define SQLITE_MAX_ALLOCATION_SIZE  2147483391
+#endif
+#if SQLITE_MAX_ALLOCATION_SIZE>2147483391
+# error Maximum size for SQLITE_MAX_ALLOCATION_SIZE is 2147483391
+#endif
+
+/*
 ** This is the maximum number of
 **
 **    * Columns in a table
@@ -21665,6 +21686,7 @@ SQLITE_PRIVATE Select *sqlite3SelectNew(Parse*,ExprList*,SrcList*,Expr*,ExprList
                          Expr*,ExprList*,u32,Expr*);
 SQLITE_PRIVATE void sqlite3SelectDelete(sqlite3*, Select*);
 SQLITE_PRIVATE void sqlite3SelectDeleteGeneric(sqlite3*,void*);
+SQLITE_PRIVATE void sqlite3SelectCheckOnClauses(Parse *pParse, Select *pSelect);
 SQLITE_PRIVATE Table *sqlite3SrcListLookup(Parse*, SrcList*);
 SQLITE_PRIVATE int sqlite3IsReadOnly(Parse*, Table*, Trigger*);
 SQLITE_PRIVATE void sqlite3OpenTable(Parse*, int iCur, int iDb, Table*, int);
@@ -31312,27 +31334,6 @@ static void mallocWithAlarm(int n, void **pp){
 }
 
 /*
-** Maximum size of any single memory allocation.
-**
-** This is not a limit on the total amount of memory used.  This is
-** a limit on the size parameter to sqlite3_malloc() and sqlite3_realloc().
-**
-** The upper bound is slightly less than 2GiB:  0x7ffffeff == 2,147,483,391
-** This provides a 256-byte safety margin for defense against 32-bit
-** signed integer overflow bugs when computing memory allocation sizes.
-** Paranoid applications might want to reduce the maximum allocation size
-** further for an even larger safety margin.  0x3fffffff or 0x0fffffff
-** or even smaller would be reasonable upper bounds on the size of a memory
-** allocations for most applications.
-*/
-#ifndef SQLITE_MAX_ALLOCATION_SIZE
-# define SQLITE_MAX_ALLOCATION_SIZE  2147483391
-#endif
-#if SQLITE_MAX_ALLOCATION_SIZE>2147483391
-# error Maximum size for SQLITE_MAX_ALLOCATION_SIZE is 2147483391
-#endif
-
-/*
 ** Allocate memory.  This routine is like sqlite3_malloc() except that it
 ** assumes the memory subsystem has already been initialized.
 */
@@ -31555,8 +31556,7 @@ SQLITE_PRIVATE void *sqlite3Realloc(void *pOld, u64 nBytes){
     sqlite3_free(pOld); /* IMP: R-26507-47431 */
     return 0;
   }
-  if( nBytes>=0x7fffff00 ){
-    /* The 0x7ffff00 limit term is explained in comments on sqlite3Malloc() */
+  if( nBytes>SQLITE_MAX_ALLOCATION_SIZE ){
     return 0;
   }
   nOld = sqlite3MallocSize(pOld);
@@ -69011,68 +69011,82 @@ static int walCheckpoint(
      && (rc = walBusyLock(pWal,xBusy,pBusyArg,WAL_READ_LOCK(0),1))==SQLITE_OK
     ){
       u32 nBackfill = pInfo->nBackfill;
-      pInfo->nBackfillAttempted = mxSafeFrame; SEH_INJECT_FAULT;
+      WalIndexHdr *pLive = (WalIndexHdr*)walIndexHdr(pWal);
 
-      /* Sync the WAL to disk */
-      rc = sqlite3OsSync(pWal->pWalFd, CKPT_SYNC_FLAGS(sync_flags));
+      /* Now that read-lock slot 0 is locked, check that the wal has not been
+      ** wrapped since the header was read for this checkpoint. If it was, then
+      ** there was no work to do anyway.  In this case the
+      ** (pInfo->nBackfill<pWal->hdr.mxFrame) test above only passed because
+      ** pInfo->nBackfill had already been set to 0 by the writer that wrapped
+      ** the wal file. It would also be dangerous to proceed, as there may be
+      ** fewer than pWal->hdr.mxFrame valid frames in the wal file.  */
+      int bChg = memcmp(pLive->aSalt, pWal->hdr.aSalt, sizeof(pWal->hdr.aSalt));
+      if( 0==bChg ){
+        pInfo->nBackfillAttempted = mxSafeFrame; SEH_INJECT_FAULT;
 
-      /* If the database may grow as a result of this checkpoint, hint
-      ** about the eventual size of the db file to the VFS layer.
-      */
-      if( rc==SQLITE_OK ){
-        i64 nReq = ((i64)mxPage * szPage);
-        i64 nSize;                    /* Current size of database file */
-        sqlite3OsFileControl(pWal->pDbFd, SQLITE_FCNTL_CKPT_START, 0);
-        rc = sqlite3OsFileSize(pWal->pDbFd, &nSize);
-        if( rc==SQLITE_OK && nSize<nReq ){
-          if( (nSize+65536+(i64)pWal->hdr.mxFrame*szPage)<nReq ){
-            /* If the size of the final database is larger than the current
-            ** database plus the amount of data in the wal file, plus the
-            ** maximum size of the pending-byte page (65536 bytes), then
-            ** must be corruption somewhere.  */
-            rc = SQLITE_CORRUPT_BKPT;
-          }else{
-            sqlite3OsFileControlHint(pWal->pDbFd, SQLITE_FCNTL_SIZE_HINT,&nReq);
-          }
-        }
+        /* Sync the WAL to disk */
+        rc = sqlite3OsSync(pWal->pWalFd, CKPT_SYNC_FLAGS(sync_flags));
 
-      }
-
-      /* Iterate through the contents of the WAL, copying data to the db file */
-      while( rc==SQLITE_OK && 0==walIteratorNext(pIter, &iDbpage, &iFrame) ){
-        i64 iOffset;
-        assert( walFramePgno(pWal, iFrame)==iDbpage );
-        SEH_INJECT_FAULT;
-        if( AtomicLoad(&db->u1.isInterrupted) ){
-          rc = db->mallocFailed ? SQLITE_NOMEM_BKPT : SQLITE_INTERRUPT;
-          break;
-        }
-        if( iFrame<=nBackfill || iFrame>mxSafeFrame || iDbpage>mxPage ){
-          continue;
-        }
-        iOffset = walFrameOffset(iFrame, szPage) + WAL_FRAME_HDRSIZE;
-        /* testcase( IS_BIG_INT(iOffset) ); // requires a 4GiB WAL file */
-        rc = sqlite3OsRead(pWal->pWalFd, zBuf, szPage, iOffset);
-        if( rc!=SQLITE_OK ) break;
-        iOffset = (iDbpage-1)*(i64)szPage;
-        testcase( IS_BIG_INT(iOffset) );
-        rc = sqlite3OsWrite(pWal->pDbFd, zBuf, szPage, iOffset);
-        if( rc!=SQLITE_OK ) break;
-      }
-      sqlite3OsFileControl(pWal->pDbFd, SQLITE_FCNTL_CKPT_DONE, 0);
-
-      /* If work was actually accomplished... */
-      if( rc==SQLITE_OK ){
-        if( mxSafeFrame==walIndexHdr(pWal)->mxFrame ){
-          i64 szDb = pWal->hdr.nPage*(i64)szPage;
-          testcase( IS_BIG_INT(szDb) );
-          rc = sqlite3OsTruncate(pWal->pDbFd, szDb);
-          if( rc==SQLITE_OK ){
-            rc = sqlite3OsSync(pWal->pDbFd, CKPT_SYNC_FLAGS(sync_flags));
-          }
-        }
+        /* If the database may grow as a result of this checkpoint, hint
+        ** about the eventual size of the db file to the VFS layer.
+        */
         if( rc==SQLITE_OK ){
-          AtomicStore(&pInfo->nBackfill, mxSafeFrame); SEH_INJECT_FAULT;
+          i64 nReq = ((i64)mxPage * szPage);
+          i64 nSize;                    /* Current size of database file */
+          sqlite3OsFileControl(pWal->pDbFd, SQLITE_FCNTL_CKPT_START, 0);
+          rc = sqlite3OsFileSize(pWal->pDbFd, &nSize);
+          if( rc==SQLITE_OK && nSize<nReq ){
+            if( (nSize+65536+(i64)pWal->hdr.mxFrame*szPage)<nReq ){
+              /* If the size of the final database is larger than the current
+              ** database plus the amount of data in the wal file, plus the
+              ** maximum size of the pending-byte page (65536 bytes), then
+              ** must be corruption somewhere.  */
+              rc = SQLITE_CORRUPT_BKPT;
+            }else{
+              sqlite3OsFileControlHint(
+                  pWal->pDbFd, SQLITE_FCNTL_SIZE_HINT, &nReq);
+            }
+          }
+
+        }
+
+        /* Iterate through the contents of the WAL, copying data to the
+        ** db file */
+        while( rc==SQLITE_OK && 0==walIteratorNext(pIter, &iDbpage, &iFrame) ){
+          i64 iOffset;
+          assert( walFramePgno(pWal, iFrame)==iDbpage );
+          SEH_INJECT_FAULT;
+          if( AtomicLoad(&db->u1.isInterrupted) ){
+            rc = db->mallocFailed ? SQLITE_NOMEM_BKPT : SQLITE_INTERRUPT;
+            break;
+          }
+          if( iFrame<=nBackfill || iFrame>mxSafeFrame || iDbpage>mxPage ){
+            continue;
+          }
+          iOffset = walFrameOffset(iFrame, szPage) + WAL_FRAME_HDRSIZE;
+          /* testcase( IS_BIG_INT(iOffset) ); // requires a 4GiB WAL file */
+          rc = sqlite3OsRead(pWal->pWalFd, zBuf, szPage, iOffset);
+          if( rc!=SQLITE_OK ) break;
+          iOffset = (iDbpage-1)*(i64)szPage;
+          testcase( IS_BIG_INT(iOffset) );
+          rc = sqlite3OsWrite(pWal->pDbFd, zBuf, szPage, iOffset);
+          if( rc!=SQLITE_OK ) break;
+        }
+        sqlite3OsFileControl(pWal->pDbFd, SQLITE_FCNTL_CKPT_DONE, 0);
+
+        /* If work was actually accomplished... */
+        if( rc==SQLITE_OK ){
+          if( mxSafeFrame==walIndexHdr(pWal)->mxFrame ){
+            i64 szDb = pWal->hdr.nPage*(i64)szPage;
+            testcase( IS_BIG_INT(szDb) );
+            rc = sqlite3OsTruncate(pWal->pDbFd, szDb);
+            if( rc==SQLITE_OK ){
+              rc = sqlite3OsSync(pWal->pDbFd, CKPT_SYNC_FLAGS(sync_flags));
+            }
+          }
+          if( rc==SQLITE_OK ){
+            AtomicStore(&pInfo->nBackfill, mxSafeFrame); SEH_INJECT_FAULT;
+          }
         }
       }
 
@@ -71122,6 +71136,7 @@ SQLITE_PRIVATE int sqlite3WalCheckpoint(
 
     /* Copy data from the log to the database file. */
     if( rc==SQLITE_OK ){
+      sqlite3FaultSim(660);
       if( pWal->hdr.mxFrame && walPagesize(pWal)!=nBuf ){
         rc = SQLITE_CORRUPT_BKPT;
       }else if( eMode2!=SQLITE_CHECKPOINT_NOOP ){
@@ -77557,7 +77572,7 @@ static int accessPayload(
 
   getCellInfo(pCur);
   aPayload = pCur->info.pPayload;
-  assert( offset+amt <= pCur->info.nPayload );
+  assert( (u64)offset+(u64)amt <= (u64)pCur->info.nPayload );
 
   assert( aPayload > pPage->aData );
   if( (uptr)(aPayload - pPage->aData) > (pBt->usableSize - pCur->info.nLocal) ){
@@ -86031,7 +86046,12 @@ SQLITE_PRIVATE int sqlite3VdbeMemFromBtree(
 ){
   int rc;
   pMem->flags = MEM_Null;
-  if( sqlite3BtreeMaxRecordSize(pCur)<offset+amt ){
+  testcase( amt==SQLITE_MAX_ALLOCATION_SIZE-1 );
+  testcase( amt==SQLITE_MAX_ALLOCATION_SIZE );
+  if( amt>=SQLITE_MAX_ALLOCATION_SIZE ){
+    return SQLITE_NOMEM_BKPT;
+  }
+  if( (u64)amt + (u64)offset > (u64)sqlite3BtreeMaxRecordSize(pCur) ){
     return SQLITE_CORRUPT_BKPT;
   }
   if( SQLITE_OK==(rc = sqlite3VdbeMemClearAndResize(pMem, amt+1)) ){
@@ -93444,7 +93464,7 @@ static int valueFromValueList(
     Mem sMem;     /* Raw content of current row */
     memset(&sMem, 0, sizeof(sMem));
     sz = sqlite3BtreePayloadSize(pRhs->pCsr);
-    rc = sqlite3VdbeMemFromBtreeZeroOffset(pRhs->pCsr,(int)sz,&sMem);
+    rc = sqlite3VdbeMemFromBtreeZeroOffset(pRhs->pCsr,sz,&sMem);
     if( rc==SQLITE_OK ){
       u8 *zBuf = (u8*)sMem.z;
       u32 iSerial;
@@ -111184,6 +111204,14 @@ static int resolveSelectStep(Walker *pWalker, Select *p){
     if( p->pNext && p->pEList->nExpr!=p->pNext->pEList->nExpr ){
       sqlite3SelectWrongNumTermsError(pParse, p->pNext);
       return WRC_Abort;
+    }
+
+    /* If the SELECT statement contains ON clauses that were moved into
+    ** the WHERE clause, go through and verify that none of the terms
+    ** in the ON clauses reference tables to the right of the ON clause. */
+    if( (p->selFlags & SF_OnToWhere) ){
+      sqlite3SelectCheckOnClauses(pParse, p);
+      if( pParse->nErr ) return WRC_Abort;
     }
 
     /* Advance to the next term of the compound
@@ -154357,7 +154385,7 @@ static int selectCheckOnClausesSelect(Walker *pWalker, Select *pSelect){
 ** Check all ON clauses in pSelect to verify that they do not reference
 ** columns to the right.
 */
-static void selectCheckOnClauses(Parse *pParse, Select *pSelect){
+SQLITE_PRIVATE void sqlite3SelectCheckOnClauses(Parse *pParse, Select *pSelect){
   Walker w;
   CheckOnCtx sCtx;
   assert( pSelect->selFlags & SF_OnToWhere );
@@ -154499,18 +154527,6 @@ SQLITE_PRIVATE int sqlite3Select(
     sqlite3TreeViewSelect(0, p, 0);
   }
 #endif
-
-  /* If the SELECT statement contains ON clauses that were moved into
-  ** the WHERE clause, go through and verify that none of the terms
-  ** in the ON clauses reference tables to the right of the ON clause.
-  ** Do this now, after name resolution, but before query flattening
-  */
-  if( p->selFlags & SF_OnToWhere ){
-    selectCheckOnClauses(pParse, p);
-    if( pParse->nErr ){
-      goto select_end;
-    }
-  }
 
   /* If the SF_UFSrcCheck flag is set, then this function is being called
   ** as part of populating the temp table for an UPDATE...FROM statement.
@@ -164677,6 +164693,15 @@ SQLITE_PRIVATE SQLITE_NOINLINE void sqlite3WhereRightJoinLoop(
       pSubWhere = sqlite3ExprAnd(pParse, pSubWhere,
                                  sqlite3ExprDup(pParse->db, pTerm->pExpr, 0));
     }
+  }
+  if( pLevel->iIdxCur ){
+    /* pSubWhere may contain expressions that read from an index on the
+    ** table on the RHS of the right join. All such expressions first test
+    ** if the index is pointing at a NULL row, and if so, read from the
+    ** table cursor instead. So ensure that the index cursor really is
+    ** pointing at a NULL row here, so that no values are read from it during
+    ** the scan of the RHS of the RIGHT join below.  */
+    sqlite3VdbeAddOp1(v, OP_NullRow, pLevel->iIdxCur);
   }
   pFrom = &uSrc.sSrc;
   pFrom->nSrc = 1;
@@ -224164,7 +224189,7 @@ static int rbuDeltaApply(
           /* ERROR: copy exceeds output file size */
           return -1;
         }
-        if( (int)(ofst+cnt) > lenSrc ){
+        if( (u64)ofst+(u64)cnt > (u64)lenSrc ){
           /* ERROR: copy extends past end of input */
           return -1;
         }
@@ -252451,7 +252476,7 @@ static void fts5DoSecureDelete(
   int iSegid = pSeg->pSeg->iSegid;
   u8 *aPg = pSeg->pLeaf->p;
   int nPg = pSeg->pLeaf->nn;
-  int iPgIdx = pSeg->pLeaf->szLeaf;
+  int iPgIdx = pSeg->pLeaf->szLeaf;         /* Offset of page footer */
 
   u64 iDelta = 0;
   int iNextOff = 0;
@@ -252530,7 +252555,7 @@ static void fts5DoSecureDelete(
         iSOP += fts5GetVarint32(&aPg[iSOP], nPos);
       }
       assert_nc( iSOP==pSeg->iLeafOffset );
-      iNextOff = pSeg->iLeafOffset + pSeg->nPos;
+      iNextOff = iSOP + pSeg->nPos;
     }
   }
 
@@ -260349,7 +260374,7 @@ static void fts5SourceIdFunc(
 ){
   assert( nArg==0 );
   UNUSED_PARAM2(nArg, apUnused);
-  sqlite3_result_text(pCtx, "fts5: 2026-01-09 17:27:48 b270f8339eb13b504d0b2ba154ebca966b7dde08e40c3ed7d559749818cb2075", -1, SQLITE_TRANSIENT);
+  sqlite3_result_text(pCtx, "fts5: 2026-03-13 10:38:09 737ae4a34738ffa0c3ff7f9bb18df914dd1cad163f28fd6b6e114a344fe6d618", -1, SQLITE_TRANSIENT);
 }
 
 /*

@@ -56,6 +56,17 @@ func (e OperationError) Error() string {
 		strings.Join(subErrors, ", "))
 }
 
+func (e OperationError) Unwrap() []error {
+	subErrors := make([]error, 0, len(e.StepErrors)+1)
+	if e.OpError != nil {
+		subErrors = append(subErrors, e.OpError)
+	}
+	for _, es := range e.StepErrors {
+		subErrors = append(subErrors, es)
+	}
+	return subErrors
+}
+
 // opStep provides an interface for types that are tied to the management of
 // data being input or output from write ops and read ops. The steps are
 // meant to simplify the internals of the ops themselves and be exportable when
