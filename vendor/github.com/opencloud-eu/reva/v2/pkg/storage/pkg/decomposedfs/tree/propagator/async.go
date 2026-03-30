@@ -295,7 +295,7 @@ func (p AsyncPropagator) propagate(ctx context.Context, pn PropagationNode, reca
 	defer func() { _ = unlock() }()
 
 	_, subspan = tracer.Start(ctx, "node.ReadNode")
-	n, err := node.ReadNode(ctx, p.lookup, pn.GetSpaceID(), pn.GetID(), false, nil, false)
+	n, err := node.ReadNode(ctx, p.lookup, pn.GetSpaceID(), pn.GetID(), "", false, nil, false)
 	if err != nil {
 		log.Error().Err(err).
 			Msg("Propagation failed. Could not read node.")

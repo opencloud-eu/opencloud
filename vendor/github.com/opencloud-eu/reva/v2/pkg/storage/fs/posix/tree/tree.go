@@ -503,7 +503,7 @@ func (t *Tree) ListFolder(ctx context.Context, n *node.Node) ([]*node.Node, erro
 					continue
 				}
 
-				child, err := node.ReadNode(ctx, t.lookup, n.SpaceID, nodeID, false, n.SpaceRoot, true)
+				child, err := node.ReadNode(ctx, t.lookup, n.SpaceID, nodeID, path, false, n.SpaceRoot, true)
 				if err != nil {
 					t.log.Error().Err(err).Str("path", path).Msg("failed to read node")
 					continue
@@ -708,9 +708,23 @@ func (t *Tree) createDirNode(ctx context.Context, n *node.Node) (err error) {
 		t.log.Error().Err(err).Str("spaceID", n.SpaceID).Str("id", n.ID).Str("path", path).Msg("could not cache id")
 	}
 
+	// Write mtime from filesystem to metadata to preven re-assimilation
+	d, err := os.Open(path)
+	if err != nil {
+
+		return err
+	}
+	fi, err := d.Stat()
+	if err != nil {
+		return err
+	}
+	mtime := fi.ModTime()
+
 	attributes := n.NodeMetadata(ctx)
+	attributes[prefixes.MTimeAttr] = []byte(mtime.UTC().Format(time.RFC3339Nano))
 	attributes[prefixes.IDAttr] = []byte(n.ID)
 	attributes[prefixes.TreesizeAttr] = []byte("0") // initialize as empty, TODO why bother? if it is not set we could treat it as 0?
+
 	if t.options.TreeTimeAccounting || t.options.TreeSizeAccounting {
 		attributes[prefixes.PropagationAttr] = []byte("1") // mark the node for propagation
 	}
