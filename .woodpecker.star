@@ -1827,7 +1827,7 @@ def checkVersionPlaceholder():
                 "name": "check-version-placeholder",
                 "image": OC_CI_ALPINE,
                 "commands": [
-                    "grep -r -e '%%NEXT%%' %s/services %s/pkg > next_version.txt" % (
+                    "grep -r -e '%%NEXT%%' %s/services %s/pkg > next_version.txt || true" % (
                         dirs["base"],
                         dirs["base"],
                     ),
@@ -1838,13 +1838,14 @@ def checkVersionPlaceholder():
         "when": [
             event["pull_request"],
         ],
+    },{
         "name": "check-version-placeholder-next-production-release",
         "steps": [
             {
                 "name": "check-version-placeholder",
                 "image": OC_CI_ALPINE,
                 "commands": [
-                    "grep -r -e '%%NEXT_PRODUCTION_VERSION%%' %s/services %s/pkg > next_production_version.txt" % (
+                    "grep -r -e '%%NEXT_PRODUCTION_VERSION%%' %s/services %s/pkg > next_production_version.txt || true" % (
                         dirs["base"],
                         dirs["base"],
                     ),
@@ -1854,7 +1855,9 @@ def checkVersionPlaceholder():
         ],
         "when": [
             event["pull_request"],
-            evaluate['CI_COMMIT_PULL_REQUEST_LABELS contains "production_release"']
+            {
+                "evaluate": 'CI_COMMIT_PULL_REQUEST_LABELS contains "production_release"',
+            },
         ],
     }]
 
