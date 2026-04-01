@@ -49,6 +49,9 @@ type Options struct {
 	UserOIDCClaim string
 	// UserCS3Claim to use when looking up a user in the CS3 API
 	UserCS3Claim string
+	// TenantOIDCClaim is a JMESPath expression to extract the tenant ID from the OIDC claims.
+	// When set, the extracted value is verified against the tenant ID on the resolved user.
+	TenantOIDCClaim string
 	// AutoprovisionAccounts when an accountResolver does not exist.
 	AutoprovisionAccounts bool
 	// EnableBasicAuth to allow basic auth
@@ -168,6 +171,13 @@ func UserOIDCClaim(val string) Option {
 func UserCS3Claim(val string) Option {
 	return func(o *Options) {
 		o.UserCS3Claim = val
+	}
+}
+
+// TenantOIDCClaim provides a function to set the TenantOIDCClaim config
+func TenantOIDCClaim(val string) Option {
+	return func(o *Options) {
+		o.TenantOIDCClaim = val
 	}
 }
 

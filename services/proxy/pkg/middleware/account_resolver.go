@@ -42,6 +42,7 @@ func AccountResolver(optionSetters ...Option) func(next http.Handler) http.Handl
 			userProvider:          options.UserProvider,
 			userOIDCClaim:         options.UserOIDCClaim,
 			userCS3Claim:          options.UserCS3Claim,
+			tenantOIDCClaim:       options.TenantOIDCClaim,
 			userRoleAssigner:      options.UserRoleAssigner,
 			autoProvisionAccounts: options.AutoprovisionAccounts,
 			multiTenantEnabled:    options.MultiTenantEnabled,
@@ -61,6 +62,7 @@ type accountResolver struct {
 	multiTenantEnabled    bool
 	userOIDCClaim         string
 	userCS3Claim          string
+	tenantOIDCClaim       string
 	// lastGroupSyncCache is used to keep track of when the last sync of group
 	// memberships was done for a specific user. This is used to trigger a sync
 	// with every single request.
@@ -68,7 +70,7 @@ type accountResolver struct {
 	eventsPublisher    events.Publisher
 }
 
-func readUserIDClaim(path string, claims map[string]interface{}) (string, error) {
+func readStringClaim(path string, claims map[string]interface{}) (string, error) {
 	// happy path
 	value, _ := claims[path].(string)
 	if value != "" {
@@ -118,7 +120,7 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if user == nil && claims != nil {
-		value, err := readUserIDClaim(m.userOIDCClaim, claims)
+		value, err := readStringClaim(m.userOIDCClaim, claims)
 		if err != nil {
 			m.logger.Error().Err(err).Msg("could not read user id claim")
 			w.WriteHeader(http.StatusInternalServerError)
@@ -167,6 +169,15 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			m.logger.Error().Str("userid", user.Id.OpaqueId).Msg("User does not have a tenantId assigned")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
+		}
+
+		// if a tenant claim is configured, verify it matches the tenant id on the resolved user
+		if m.tenantOIDCClaim != "" {
+			if err = m.verifyTenantClaim(user.GetId().GetTenantId(), claims); err != nil {
+				m.logger.Error().Err(err).Str("userid", user.GetId().GetOpaqueId()).Msg("Tenant claim mismatch")
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
 		}
 
 		// update user if needed
@@ -247,4 +258,15 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	span.End()
 	m.next.ServeHTTP(w, req)
+}
+
+func (m accountResolver) verifyTenantClaim(userTenantID string, claims map[string]interface{}) error {
+	claimTenantID, err := readStringClaim(m.tenantOIDCClaim, claims)
+	if err != nil {
+		return fmt.Errorf("could not read tenant claim: %w", err)
+	}
+	if claimTenantID != userTenantID {
+		return fmt.Errorf("tenant id from claim %q does not match user tenant id %q", claimTenantID, userTenantID)
+	}
+	return nil
 }
