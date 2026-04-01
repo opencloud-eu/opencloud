@@ -185,6 +185,8 @@ func (g *Groupware) Route(r chi.Router) {
 				r.Get("/contacts", g.GetContactsChanges)
 				r.Get("/calendars", g.GetCalendarChanges)
 				r.Get("/events", g.GetEventChanges)
+				// r.Get("/quotas", g.GetQuotaChanges)
+				r.Get("/identities", g.GetIdentityChanges)
 			})
 			r.Get("/objects", g.GetObjects)
 			r.Post("/objects", g.GetObjects)
