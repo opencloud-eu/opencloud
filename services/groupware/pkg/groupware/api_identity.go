@@ -126,3 +126,36 @@ func (g *Groupware) DeleteIdentity(w http.ResponseWriter, r *http.Request) {
 		}
 	})
 }
+
+// Get changes to Identities since a given State
+// @api:tags identity,changes
+func (g *Groupware) GetIdentityChanges(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		accountId, err := req.GetAccountIdForMail()
+		if err != nil {
+			return req.error(accountId, err)
+		}
+
+		l := req.logger.With().Str(logAccountId, accountId)
+
+		var maxChanges uint = 0
+		if v, ok, err := req.parseUIntParam(QueryParamMaxChanges, 0); err != nil {
+			return req.error(accountId, err)
+		} else if ok {
+			maxChanges = v
+			l = l.Uint(QueryParamMaxChanges, v)
+		}
+
+		sinceState := jmap.State(req.OptHeaderParamDoc(HeaderParamSince, "Specifies the state identifier from which on to list identity changes"))
+		l = l.Str(HeaderParamSince, log.SafeString(string(sinceState)))
+
+		logger := log.From(l)
+		changes, sessionState, state, lang, jerr := g.jmap.GetIdentityChanges(accountId, req.session, req.ctx, logger, req.language(), sinceState, maxChanges)
+		if jerr != nil {
+			return req.jmapError(accountId, jerr, sessionState, lang)
+		}
+		var body jmap.IdentityChanges = changes
+
+		return req.respond(accountId, body, sessionState, IdentityResponseObjectType, state)
+	})
+}

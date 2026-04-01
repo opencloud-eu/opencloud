@@ -65,7 +65,9 @@ func (g *Groupware) GetQuotaForAllAccounts(w http.ResponseWriter, r *http.Reques
 	})
 }
 
-// Get changes to Contacts since a given State
+// currently unsupported in Stalwart:
+/*
+// Get changes to Quotas since a given State
 // @api:tags contact,changes
 func (g *Groupware) GetQuotaChanges(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
@@ -97,3 +99,4 @@ func (g *Groupware) GetQuotaChanges(w http.ResponseWriter, r *http.Request) {
 		return req.respond(accountId, body, sessionState, QuotaResponseObjectType, state)
 	})
 }
+*/
