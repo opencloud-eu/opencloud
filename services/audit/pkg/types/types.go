@@ -111,6 +111,11 @@ type AuditEventFileRead struct {
 	AuditEventFiles
 }
 
+// AuditEventFileViewed is the event logged when a file is viewed (accessed without download intent)
+type AuditEventFileViewed struct {
+	AuditEventFiles
+}
+
 // AuditEventFileUpdated is the event logged when a file is updated
 // TODO: How to differentiate between new uploads and new version uploads?
 // FIXME: implement

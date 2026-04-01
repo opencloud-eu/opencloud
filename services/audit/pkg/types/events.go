@@ -19,6 +19,7 @@ func RegisteredEvents() []events.Unmarshaller {
 		events.ContainerCreated{},
 		events.FileUploaded{},
 		events.FileDownloaded{},
+		events.FileViewed{},
 		events.ItemTrashed{},
 		events.ItemMoved{},
 		events.ItemPurged{},

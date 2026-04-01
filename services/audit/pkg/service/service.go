@@ -73,6 +73,8 @@ func StartAuditLogger(ctx context.Context, ch <-chan events.Event, log log.Logge
 				auditEvent = types.FileUploaded(ev)
 			case events.FileDownloaded:
 				auditEvent = types.FileDownloaded(ev)
+			case events.FileViewed:
+				auditEvent = types.FileViewed(ev)
 			case events.ItemMoved:
 				auditEvent = types.ItemMoved(ev)
 			case events.ItemTrashed:

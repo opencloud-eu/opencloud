@@ -26,6 +26,7 @@ import (
 	"strconv"
 
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
+	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/reva/v2/internal/http/services/datagateway"
 	"github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/errors"
@@ -90,7 +91,21 @@ func (s *svc) handleGet(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	dReq := &provider.InitiateFileDownloadRequest{Ref: ref}
+	// Extract intent parameter from query string or header for audit logging
+	intent := r.URL.Query().Get("intent")
+	if intent == "" {
+		intent = r.Header.Get("X-OC-Intent")
+	}
+
+	var opaque *types.OpaqueEntry
+	if intent != "" {
+		opaque = utils.AppendPlainToOpaque(opaque, "oc:intent", intent)
+	}
+
+	dReq := &provider.InitiateFileDownloadRequest{
+		Ref:    ref,
+		Opaque: opaque,
+	}
 	dRes, err := client.InitiateFileDownload(ctx, dReq)
 	switch {
 	case err != nil:

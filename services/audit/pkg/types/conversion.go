@@ -265,6 +265,15 @@ func FileDownloaded(ev events.FileDownloaded) AuditEventFileRead {
 	}
 }
 
+// FileViewed converts a FileViewed event to an AuditEventFileViewed
+func FileViewed(ev events.FileViewed) AuditEventFileViewed {
+	iid, path, uid := extractFileDetails(ev.Ref, ev.Owner)
+	base := BasicAuditEvent(uid, formatTime(ev.Timestamp), MessageFileRead(ev.Executant.GetOpaqueId(), iid), "file_viewed")
+	return AuditEventFileViewed{
+		AuditEventFiles: FilesAuditEvent(base, iid, uid, path),
+	}
+}
+
 // ItemMoved converts a ItemMoved event to an AuditEventFileRenamed
 func ItemMoved(ev events.ItemMoved) AuditEventFileRenamed {
 	iid, path, uid := extractFileDetails(ev.Ref, ev.Owner)
