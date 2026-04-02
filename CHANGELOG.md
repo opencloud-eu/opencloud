@@ -1,5 +1,15 @@
 # Changelog
 
+## [6.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v6.1.0) - 2026-04-02
+
+### ❤️ Thanks to all contributors! ❤️
+
+@rhafer
+
+### 📈 Enhancement
+
+- feat(multi-tenancy): verify tenant via OIDC claim [[#2559](https://github.com/opencloud-eu/opencloud/pull/2559)]
+
 ## [6.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v6.0.0) - 2026-03-30
 
 ### ❤️ Thanks to all contributors! ❤️
