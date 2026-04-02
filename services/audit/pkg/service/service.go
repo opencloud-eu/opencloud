@@ -47,6 +47,8 @@ func StartAuditLogger(ctx context.Context, ch <-chan events.Event, log log.Logge
 				return
 			}
 
+			// Convert incoming reva event to audit event type using type switch.
+			// Each case converts the event and registers it in the audit log.
 			var auditEvent interface{}
 			switch ev := i.Event.(type) {
 			case events.ShareCreated:
@@ -74,6 +76,8 @@ func StartAuditLogger(ctx context.Context, ch <-chan events.Event, log log.Logge
 			case events.FileDownloaded:
 				auditEvent = types.FileDownloaded(ev)
 			case events.FileViewed:
+				// FileViewed distinguishes file previews from downloads for audit trail distinction.
+				// Emitted when user views file in browser/app (not downloading).
 				auditEvent = types.FileViewed(ev)
 			case events.ItemMoved:
 				auditEvent = types.ItemMoved(ev)
