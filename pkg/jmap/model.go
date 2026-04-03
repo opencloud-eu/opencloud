@@ -2861,7 +2861,7 @@ type MailboxGetResponse struct {
 
 	// This array contains the ids passed to the method for records that do not exist.
 	// The array is empty if all requested ids were found or if the ids argument passed in was either null or an empty array.
-	NotFound []any `json:"notFound"`
+	NotFound []string `json:"notFound"`
 }
 
 type MailboxChangesCommand struct {
@@ -3903,6 +3903,141 @@ type Calendar struct {
 	// The id of the calendar (immutable; server-set).
 	Id string `json:"id"`
 
+	// The user-visible name of the calendar.
+	//
+	// This may be any UTF-8 string of at least 1 character in length and maximum 255 octets in size.
+	Name string `json:"name"`
+
+	// An optional longer-form description of the calendar, to provide context in shared environments
+	// where users need more than just the name.
+	Description string `json:"description,omitempty"`
+
+	// A color to be used when displaying events associated with the calendar.
+	//
+	// If not null, the value MUST be a case-insensitive color name taken from the set of names
+	// defined in Section 4.3 of CSS Color Module Level 3 COLORS, or an RGB value in hexadecimal
+	// notation, as defined in Section 4.2.1 of CSS Color Module Level 3.
+	//
+	// The color SHOULD have sufficient contrast to be used as text on a white background.
+	Color string `json:"color,omitempty"`
+
+	// Defines the sort order of calendars when presented in the client’s UI, so it is consistent
+	// between devices.
+	//
+	// The number MUST be an integer in the range 0 <= sortOrder < 2^31.
+	//
+	// A calendar with a lower order should be displayed before a calendar with a higher order in any
+	// list of calendars in the client’s UI.
+	//
+	// Calendars with equal order SHOULD be sorted in alphabetical order by name.
+	//
+	// The sorting should take into account locale-specific character order convention.
+	SortOrder uint `json:"sortOrder,omitzero"`
+
+	// True if the user has indicated they wish to see this Calendar in their client.
+	//
+	// This SHOULD default to `false` for Calendars in shared accounts the user has access to and `true`
+	// for any new Calendars created by the user themself.
+	//
+	// If false, the calendar SHOULD only be displayed when the user explicitly requests it or to offer
+	// it for the user to subscribe to.
+	//
+	// For example, a company may have a large number of shared calendars which all employees have
+	// permission to access, but you would only subscribe to the ones you care about and want to be able
+	// to have normally accessible.
+	IsSubscribed bool `json:"isSubscribed"`
+
+	// Should the calendar’s events be displayed to the user at the moment?
+	//
+	// Clients MUST ignore this property if `isSubscribed` is false.
+	//
+	// If an event is in multiple calendars, it should be displayed if `isVisible` is `true`
+	// for any of those calendars.
+	IsVisible bool `json:"isVisible" default:"true" doc:"opt"`
+
+	// This SHOULD be true for exactly one calendar in any account, and MUST NOT be true for more
+	// than one calendar within an account (server-set).
+	//
+	// The default calendar should be used by clients whenever they need to choose a calendar
+	// for the user within this account, and they do not have any other information on which to make
+	// a choice.
+	//
+	// For example, if the user creates a new event, the client may automatically set the event as
+	// belonging to the default calendar from the user’s primary account.
+	IsDefault bool `json:"isDefault,omitzero"`
+
+	// Should the calendar’s events be used as part of availability calculation?
+	//
+	// This MUST be one of:
+	// * `all`: all events are considered.
+	// * `attending`: events the user is a confirmed or tentative participant of are considered.
+	// * `none`: all events are ignored (but may be considered if also in another calendar).
+	//
+	// This should default to “all” for the calendars in the user’s own account, and “none” for calendars shared with the user.
+	IncludeInAvailability IncludeInAvailability `json:"includeInAvailability,omitempty"`
+
+	// A map of alert ids to Alert objects (see [@!RFC8984], Section 4.5.2) to apply for events
+	// where `showWithoutTime` is `false` and `useDefaultAlerts` is `true`.
+	//
+	// Ids MUST be unique across all default alerts in the account, including those in other
+	// calendars; a UUID is recommended.
+	//
+	// The "trigger" MUST NOT be an `AbsoluteTrigger`, as this would fire for every event at the same
+	// time and so does not make sense for a default alert.
+	//
+	// If omitted on creation, the default is server dependent.
+	//
+	// For example, servers may choose to always default to null, or may copy the alerts from the default calendar.
+	DefaultAlertsWithTime map[string]jscalendar.Alert `json:"defaultAlertsWithTime,omitempty"`
+
+	// A map of alert ids to Alert objects (see [@!RFC8984], Section 4.5.2) to apply for events where
+	// `showWithoutTime` is `true` and `useDefaultAlerts` is `true`.
+	//
+	// Ids MUST be unique across all default alerts in the account, including those in other
+	// calendars; a UUID is recommended.
+	//
+	// The "trigger" MUST NOT be an `AbsoluteTrigger`, as this would fire for every event at the
+	// same time and so does not make sense for a default alert.
+	//
+	// If omitted on creation, the default is server dependent.
+	//
+	// For example, servers may choose to always default to null, or may copy the alerts from the default calendar.
+	DefaultAlertsWithoutTime map[string]jscalendar.Alert `json:"defaultAlertsWithoutTime,omitempty"`
+
+	// The time zone to use for events without a time zone when the server needs to resolve them into
+	// absolute time, e.g., for alerts or availability calculation.
+	//
+	// The value MUST be a time zone id from the IANA Time Zone Database TZDB.
+	//
+	// If null, the `timeZone` of the account’s associated `Principal` will be used.
+	//
+	// Clients SHOULD use this as the default for new events in this calendar if set.
+	TimeZone string `json:"timeZone,omitempty"`
+
+	// A map of `Principal` id to rights for principals this calendar is shared with.
+	//
+	// The principal to which this calendar belongs MUST NOT be in this set.
+	//
+	// This is null if the calendar is not shared with anyone.
+	//
+	// May be modified only if the user has the `mayAdmin` right.
+	//
+	// The account id for the principals may be found in the `urn:ietf:params:jmap:principals:owner`
+	// capability of the `Account` to which the calendar belongs.
+	ShareWith map[string]CalendarRights `json:"shareWith,omitempty"`
+
+	// The set of access rights the user has in relation to this Calendar.
+	//
+	// If any event is in multiple calendars, the user has the following rights:
+	// * The user may fetch the event if they have the mayReadItems right on any calendar the event is in.
+	// * The user may remove an event from a calendar (by modifying the event’s “calendarIds” property) if the user
+	// has the appropriate permission for that calendar.
+	// * The user may make other changes to the event if they have the right to do so in all calendars to which the
+	// event belongs.
+	MyRights *CalendarRights `json:"myRights,omitempty"`
+}
+
+type CalendarChange struct {
 	// The user-visible name of the calendar.
 	//
 	// This may be any UTF-8 string of at least 1 character in length and maximum 255 octets in size.
@@ -5150,6 +5285,122 @@ type AddressBookGetResponse struct {
 	NotFound  []string      `json:"notFound,omitempty"`
 }
 
+type AddressBookChange struct {
+	// The user-visible name of the AddressBook.
+	//
+	// This may be any UTF-8 string of at least 1 character in length and maximum 255 octets in size.
+	Name *string `json:"name"`
+
+	// An optional longer-form description of the AddressBook, to provide context in shared environments
+	// where users need more than just the name.
+	Description *string `json:"description,omitempty"`
+
+	// Defines the sort order of AddressBooks when presented in the client’s UI, so it is consistent between devices.
+	//
+	// The number MUST be an integer in the range 0 <= sortOrder < 2^31.
+	//
+	// An AddressBook with a lower order should be displayed before a AddressBook with a higher order in any list
+	// of AddressBooks in the client’s UI.
+	//
+	// AddressBooks with equal order SHOULD be sorted in alphabetical order by name.
+	//
+	// The sorting should take into account locale-specific character order convention.
+	SortOrder *uint `json:"sortOrder,omitzero" default:"0" doc:"opt"`
+
+	// True if the user has indicated they wish to see this AddressBook in their client.
+	//
+	// This SHOULD default to false for AddressBooks in shared accounts the user has access to and true for any
+	// new AddressBooks created by the user themself.
+	//
+	// If false, the AddressBook and its contents SHOULD only be displayed when the user explicitly requests it
+	// or to offer it for the user to subscribe to.
+	IsSubscribed *bool `json:"isSubscribed"`
+
+	// A map of Principal id to rights for principals this AddressBook is shared with.
+	//
+	// The principal to which this AddressBook belongs MUST NOT be in this set.
+	//
+	// This is null if the AddressBook is not shared with anyone.
+	//
+	// May be modified only if the user has the mayAdmin right.
+	//
+	// The account id for the principals may be found in the urn:ietf:params:jmap:principals:owner capability
+	// of the Account to which the AddressBook belongs.
+	ShareWith map[string]AddressBookRights `json:"shareWith,omitempty"`
+}
+
+func (a AddressBookChange) AsPatch() PatchObject {
+	p := PatchObject{}
+	if a.Name != nil {
+		p["name"] = *a.Name
+	}
+	if a.Description != nil {
+		p["description"] = *a.Description
+	}
+	if a.IsSubscribed != nil {
+		p["isSubscribed"] = *a.IsSubscribed
+	}
+	if a.ShareWith != nil {
+		p["shareWith"] = a.ShareWith
+	}
+	return p
+}
+
+type AddressBookSetCommand struct {
+	AccountId string                       `json:"accountId"`
+	IfInState string                       `json:"ifInState,omitempty"`
+	Create    map[string]AddressBookChange `json:"create,omitempty"`
+	Update    map[string]PatchObject       `json:"update,omitempty"`
+	Destroy   []string                     `json:"destroy,omitempty"`
+}
+
+type AddressBookSetResponse struct {
+	// The id of the account used for the call.
+	AccountId string `json:"accountId"`
+
+	// The state string that would have been returned by AddressBook/get before making the
+	// requested changes, or null if the server doesn’t know what the previous state
+	// string was.
+	OldState State `json:"oldState,omitempty"`
+
+	// The state string that will now be returned by Email/get.
+	NewState State `json:"newState"`
+
+	// A map of the creation id to an object containing any properties of the created Email object
+	// that were not sent by the client.
+	//
+	// This includes all server-set properties (such as the id in most object types) and any properties
+	// that were omitted by the client and thus set to a default by the server.
+	//
+	// This argument is null if no ContactCard objects were successfully created.
+	Created map[string]*AddressBook `json:"created,omitempty"`
+
+	// The keys in this map are the ids of all AddressBooks that were successfully updated.
+	//
+	// The value for each id is an AddressBook object containing any property that changed in a way not
+	// explicitly requested by the PatchObject sent to the server, or null if none.
+	//
+	// This lets the client know of any changes to server-set or computed properties.
+	//
+	// This argument is null if no ContactCard objects were successfully updated.
+	Updated map[string]*AddressBook `json:"updated,omitempty"`
+
+	// A list of ContactCard ids for records that were successfully destroyed, or null if none.
+	Destroyed []string `json:"destroyed,omitempty"`
+
+	// A map of the creation id to a SetError object for each record that failed to be created,
+	// or null if all successful.
+	NotCreated map[string]SetError `json:"notCreated,omitempty"`
+
+	// A map of the ContactCard id to a SetError object for each record that failed to be updated,
+	// or null if all successful.
+	NotUpdated map[string]SetError `json:"notUpdated,omitempty"`
+
+	// A map of the ContactCard id to a SetError object for each record that failed to be destroyed,
+	// or null if all successful.
+	NotDestroyed map[string]SetError `json:"notDestroyed,omitempty"`
+}
+
 type AddressBookChangesCommand struct {
 	// The id of the account to use.
 	AccountId string `json:"accountId"`
@@ -5547,7 +5798,7 @@ type ContactCardGetResponse struct {
 	// This array contains the ids passed to the method for records that do not exist.
 	//
 	// The array is empty if all requested ids were found or if the ids argument passed in was either null or an empty array.
-	NotFound []any `json:"notFound"`
+	NotFound []string `json:"notFound"`
 }
 
 type ContactCardChangesCommand struct {
@@ -5737,6 +5988,61 @@ type CalendarGetResponse struct {
 	State     State      `json:"state,omitempty"`
 	List      []Calendar `json:"list,omitempty"`
 	NotFound  []string   `json:"notFound,omitempty"`
+}
+
+type CalendarSetCommand struct {
+	AccountId string                    `json:"accountId"`
+	IfInState string                    `json:"ifInState,omitempty"`
+	Create    map[string]CalendarChange `json:"create,omitempty"`
+	Update    map[string]PatchObject    `json:"update,omitempty"`
+	Destroy   []string                  `json:"destroy,omitempty"`
+}
+
+type CalendarSetResponse struct {
+	// The id of the account used for the call.
+	AccountId string `json:"accountId"`
+
+	// The state string that would have been returned by Calendar/get before making the
+	// requested changes, or null if the server doesn’t know what the previous state
+	// string was.
+	OldState State `json:"oldState,omitempty"`
+
+	// The state string that will now be returned by Email/get.
+	NewState State `json:"newState"`
+
+	// A map of the creation id to an object containing any properties of the created Email object
+	// that were not sent by the client.
+	//
+	// This includes all server-set properties (such as the id in most object types) and any properties
+	// that were omitted by the client and thus set to a default by the server.
+	//
+	// This argument is null if no Calendar objects were successfully created.
+	Created map[string]*Calendar `json:"created,omitempty"`
+
+	// The keys in this map are the ids of all Calendars that were successfully updated.
+	//
+	// The value for each id is an Calendar object containing any property that changed in a way not
+	// explicitly requested by the PatchObject sent to the server, or null if none.
+	//
+	// This lets the client know of any changes to server-set or computed properties.
+	//
+	// This argument is null if no Calendar objects were successfully updated.
+	Updated map[string]*Calendar `json:"updated,omitempty"`
+
+	// A list of Calendar ids for records that were successfully destroyed, or null if none.
+	Destroyed []string `json:"destroyed,omitempty"`
+
+	// A map of the creation id to a SetError object for each record that failed to be created,
+	// or null if all successful.
+	NotCreated map[string]SetError `json:"notCreated,omitempty"`
+
+	// A map of the Calendar id to a SetError object for each record that failed to be updated,
+	// or null if all successful.
+	NotUpdated map[string]SetError `json:"notUpdated,omitempty"`
+
+	// A map of the Calendar id to a SetError object for each record that failed to be destroyed,
+	// or null if all successful.
+	NotDestroyed map[string]SetError `json:"notDestroyed,omitempty"`
 }
 
 type CalendarChangesCommand struct {
@@ -6087,7 +6393,7 @@ type CalendarEventGetResponse struct {
 	// This array contains the ids passed to the method for records that do not exist.
 	//
 	// The array is empty if all requested ids were found or if the ids argument passed in was either null or an empty array.
-	NotFound []any `json:"notFound"`
+	NotFound []string `json:"notFound"`
 }
 
 type CalendarEventChangesCommand struct {
@@ -6239,6 +6545,139 @@ type CalendarEventSetResponse struct {
 	NotDestroyed map[string]SetError `json:"notDestroyed,omitempty"`
 }
 
+type PrincipalGetCommand struct {
+	AccountId string   `json:"accountId"`
+	Ids       []string `json:"ids,omitempty"`
+}
+
+type PrincipalGetRefCommand struct {
+	AccountId string           `json:"accountId"`
+	IdsRef    *ResultReference `json:"#ids,omitempty"`
+}
+
+type PrincipalGetResponse struct {
+	// The id of the account used for the call.
+	AccountId string `json:"accountId"`
+
+	// A (preferably short) string representing the state on the server for all the data of this type in the account
+	// (not just the objects returned in this call).
+	// If the data changes, this string MUST change.
+	// If the Principal data is unchanged, servers SHOULD return the same state string on subsequent requests for this data type.
+	// When a client receives a response with a different state string to a previous call, it MUST either throw away all currently
+	// cached objects for the type or call Principal/changes to get the exact changes.
+	State State `json:"state"`
+
+	// An array of the Principal objects requested.
+	// This is the empty array if no objects were found or if the ids argument passed in was also an empty array.
+	// The results MAY be in a different order to the ids in the request arguments.
+	// If an identical id is included more than once in the request, the server MUST only include it once in either
+	// the list or the notFound argument of the response.
+	List []Principal `json:"list"`
+
+	// This array contains the ids passed to the method for records that do not exist.
+	// The array is empty if all requested ids were found or if the ids argument passed in was either null or an empty array.
+	NotFound []string `json:"notFound"`
+}
+
+type PrincipalFilterElement interface {
+	_isAPrincipalFilterElement() // marker method
+}
+
+type PrincipalFilterCondition struct {
+	// A list of Account ids.
+	// The Principal matches if any of the ids in this list are keys in the Principal's "accounts" property (i.e., if any of the Account ids belong to the Principal).
+	AccountIds []string `json:"accountIds,omitempty"`
+	// The email property of the Principal contains the given string.
+	Email string `json:"email,omitempty"`
+	// The name property of the Principal contains the given string.
+	Name string `json:"name,omitempty"`
+	// The name, email, or description property of the Principal contains the given string.
+	Text string `json:"text,omitempty"`
+	// The type must be exactly as given to match the condition.
+	Type PrincipalTypeOption `json:"type,omitempty"`
+	// The timeZone must be exactly as given to match the condition.
+	TimeZone string `json:"timeZone,omitempty"`
+}
+
+func (c PrincipalFilterCondition) _isAPrincipalFilterElement() { //NOSONAR
+	// marker interface method, does not need to do anything
+}
+
+var _ PrincipalFilterElement = &PrincipalFilterCondition{}
+
+type PrincipalFilterOperator struct {
+	Operator   FilterOperatorTerm       `json:"operator"`
+	Conditions []PrincipalFilterElement `json:"conditions,omitempty"`
+}
+
+func (c PrincipalFilterOperator) _isAPrincipalFilterElement() { //NOSONAR
+	// marker interface method, does not need to do anything
+}
+
+var _ PrincipalFilterElement = &PrincipalFilterOperator{}
+
+type PrincipalComparator struct {
+	Property       string `json:"property"`
+	IsAscending    bool   `json:"isAscending,omitempty"`
+	Limit          int    `json:"limit,omitzero"`
+	CalculateTotal bool   `json:"calculateTotal,omitempty"`
+}
+
+type PrincipalQueryCommand struct {
+	AccountId    string                 `json:"accountId"`
+	Filter       PrincipalFilterElement `json:"filter,omitempty"`
+	Sort         []PrincipalComparator  `json:"sort,omitempty"`
+	SortAsTree   bool                   `json:"sortAsTree,omitempty"`
+	FilterAsTree bool                   `json:"filterAsTree,omitempty"`
+}
+
+type PrincipalQueryResponse struct {
+	// The id of the account used for the call.
+	AccountId string `json:"accountId"`
+
+	// A string encoding the current state of the query on the server.
+	//
+	// This string MUST change if the results of the query (i.e., the matching ids and their sort order) have changed.
+	// The queryState string MAY change if something has changed on the server, which means the results may have
+	// changed but the server doesn’t know for sure.
+	//
+	// The queryState string only represents the ordered list of ids that match the particular query (including its
+	// sort/filter). There is no requirement for it to change if a property on an object matching the query changes
+	// but the query results are unaffected (indeed, it is more efficient if the queryState string does not change
+	// in this case). The queryState string only has meaning when compared to future responses to a query with the
+	// same type/sort/filter or when used with /queryChanges to fetch changes.
+	//
+	// Should a client receive back a response with a different queryState string to a previous call, it MUST either
+	// throw away the currently cached query and fetch it again (note, this does not require fetching the records
+	// again, just the list of ids) or call Mailbox/queryChanges to get the difference.
+	QueryState State `json:"queryState"`
+
+	// This is true if the server supports calling Mailbox/queryChanges with these filter/sort parameters.
+	//
+	// Note, this does not guarantee that the Mailbox/queryChanges call will succeed, as it may only be possible for
+	// a limited time afterwards due to server internal implementation details.
+	CanCalculateChanges bool `json:"canCalculateChanges"`
+
+	// The zero-based index of the first result in the ids array within the complete list of query results.
+	Position int `json:"position"`
+
+	// The list of ids for each Mailbox in the query results, starting at the index given by the position argument
+	// of this response and continuing until it hits the end of the results or reaches the limit number of ids.
+	//
+	// If position is >= total, this MUST be the empty list.
+	Ids []string `json:"ids"`
+
+	// The total number of Mailbox in the results (given the filter) (only if requested).
+	//
+	// This argument MUST be omitted if the calculateTotal request argument is not true.
+	Total int `json:"total,omitzero"`
+
+	// The limit enforced by the server on the maximum number of results to return (if set by the server).
+	//
+	// This is only returned if the server set a limit or used a different limit than that given in the request.
+	Limit int `json:"limit,omitzero"`
+}
+
 type ErrorResponse struct {
 	Type        string `json:"type"`
 	Description string `json:"description,omitempty"`
@@ -6270,6 +6709,7 @@ const (
 	CommandQuotaGet               Command = "Quota/get"
 	CommandQuotaChanges           Command = "Quota/changes"
 	CommandAddressBookGet         Command = "AddressBook/get"
+	CommandAddressBookSet         Command = "AddressBook/set"
 	CommandAddressBookChanges     Command = "AddressBook/changes"
 	CommandContactCardQuery       Command = "ContactCard/query"
 	CommandContactCardGet         Command = "ContactCard/get"
@@ -6277,11 +6717,14 @@ const (
 	CommandContactCardSet         Command = "ContactCard/set"
 	CommandCalendarEventParse     Command = "CalendarEvent/parse"
 	CommandCalendarGet            Command = "Calendar/get"
+	CommandCalendarSet            Command = "Calendar/set"
 	CommandCalendarChanges        Command = "Calendar/changes"
 	CommandCalendarEventQuery     Command = "CalendarEvent/query"
 	CommandCalendarEventGet       Command = "CalendarEvent/get"
 	CommandCalendarEventSet       Command = "CalendarEvent/set"
 	CommandCalendarEventChanges   Command = "CalendarEvent/changes"
+	CommandPrincipalGet           Command = "Principal/get"
+	CommandPrincipalQuery         Command = "Principal/query"
 )
 
 var CommandResponseTypeMap = map[Command]func() any{
@@ -6309,6 +6752,7 @@ var CommandResponseTypeMap = map[Command]func() any{
 	CommandQuotaGet:               func() any { return QuotaGetResponse{} },
 	CommandQuotaChanges:           func() any { return QuotaChangesResponse{} },
 	CommandAddressBookGet:         func() any { return AddressBookGetResponse{} },
+	CommandAddressBookSet:         func() any { return AddressBookSetResponse{} },
 	CommandAddressBookChanges:     func() any { return AddressBookChangesResponse{} },
 	CommandContactCardQuery:       func() any { return ContactCardQueryResponse{} },
 	CommandContactCardGet:         func() any { return ContactCardGetResponse{} },
@@ -6316,9 +6760,12 @@ var CommandResponseTypeMap = map[Command]func() any{
 	CommandContactCardSet:         func() any { return ContactCardSetResponse{} },
 	CommandCalendarEventParse:     func() any { return CalendarEventParseResponse{} },
 	CommandCalendarGet:            func() any { return CalendarGetResponse{} },
+	CommandCalendarSet:            func() any { return CalendarSetResponse{} },
 	CommandCalendarChanges:        func() any { return CalendarChangesResponse{} },
 	CommandCalendarEventQuery:     func() any { return CalendarEventQueryResponse{} },
 	CommandCalendarEventGet:       func() any { return CalendarEventGetResponse{} },
 	CommandCalendarEventSet:       func() any { return CalendarEventSetResponse{} },
 	CommandCalendarEventChanges:   func() any { return CalendarEventChangesResponse{} },
+	CommandPrincipalGet:           func() any { return PrincipalGetResponse{} },
+	CommandPrincipalQuery:         func() any { return PrincipalQueryResponse{} },
 }

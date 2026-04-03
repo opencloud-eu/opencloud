@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/opencloud-eu/opencloud/pkg/jscalendar"
 	"github.com/opencloud-eu/opencloud/pkg/jscontact"
 	c "github.com/opencloud-eu/opencloud/pkg/jscontact"
 )
@@ -491,6 +492,17 @@ func (e Exemplar) Quotas() []Quota {
 	}
 }
 
+func (e Exemplar) QuotaGetResponse() QuotaGetResponse {
+	return QuotaGetResponse{
+		AccountId: e.AccountId,
+		State:     "oroomoh1",
+		NotFound:  []string{"aab2n", "aab8f"},
+		List: []Quota{
+			e.Quota(),
+		},
+	}
+}
+
 func (e Exemplar) Identity() Identity {
 	return Identity{
 		Id:    e.IdentityId,
@@ -527,6 +539,15 @@ func (e Exemplar) Identity_req() Identity { //NOSONAR
 			{Name: e.BccName, Email: e.BccAddress},
 		},
 		TextSignature: &e.TextSignature,
+	}
+}
+
+func (e Exemplar) IdentityGetResponse() IdentityGetResponse {
+	return IdentityGetResponse{
+		AccountId: e.AccountId,
+		State:     "geechae0",
+		NotFound:  []string{"eea2"},
+		List:      e.Identities(),
 	}
 }
 
@@ -697,6 +718,15 @@ func (e Exemplar) Mailboxes() []Mailbox {
 	return []Mailbox{a, b, c, d, f, g}
 }
 
+func (e Exemplar) MailboxGetResponse() MailboxGetResponse {
+	return MailboxGetResponse{
+		AccountId: e.AccountId,
+		State:     "aesh2ahj",
+		List:      e.Mailboxes(),
+		NotFound:  []string{"ah"},
+	}
+}
+
 func (e Exemplar) MailboxChanges() MailboxChanges {
 	a, _, _ := e.MailboxInbox()
 	return MailboxChanges{
@@ -757,10 +787,10 @@ func (e Exemplar) Email() Email {
 			},
 		},
 		TextBody: []EmailBodyPart{
-			{PartId: "1", BlobId: "ckyxndo0fxob1jnm3z2lroex131oj7eo2ezo1djhlfgtsu7jgucfeaiasibnebdw", Size: 115, Type: "text/plain", Charset: "utf-8"},
+			{PartId: "1", BlobId: "ckyxndo0fxob1jnm3z2lroex131oj7eo2ezo1djhlfgtsu7jgucfeaiasibnebdw", Size: 115, Type: "text/plain", Charset: "utf-8"}, //NOSONAR
 		},
 		HtmlBody: []EmailBodyPart{
-			{PartId: "2", BlobId: "ckyxndo0fxob1jnm3z2lroex131oj7eo2ezo1djhlfgtsu7jgucfeaiasibnsbvjae", Size: 163, Type: "text/html", Charset: "utf-8"},
+			{PartId: "2", BlobId: "ckyxndo0fxob1jnm3z2lroex131oj7eo2ezo1djhlfgtsu7jgucfeaiasibnsbvjae", Size: 163, Type: "text/html", Charset: "utf-8"}, //NOSONAR
 		},
 		Preview: "The Canterbury was destroyed while investigating a false distress call from the Scopuli.",
 	}
@@ -783,6 +813,49 @@ func (e Exemplar) Emails() Emails {
 		Total:  132,
 		Limit:  1,
 		Offset: 5,
+	}
+}
+
+func (e Exemplar) EmailGetResponse() EmailGetResponse {
+	return EmailGetResponse{
+		AccountId: e.AccountId,
+		State:     "aesh2ahj",
+		NotFound:  []string{"ahx"},
+		List:      e.Emails().Emails,
+	}
+}
+
+func (e Exemplar) EmailSubmission() EmailSubmission {
+	sendAt, err := time.Parse(time.RFC3339, "2026-04-08T14:00:00.000Z")
+	if err != nil {
+		panic(err)
+	}
+	return EmailSubmission{
+		Id:         "cea1ae",
+		IdentityId: e.IdentityId,
+		EmailId:    e.EmailId,
+		ThreadId:   e.ThreadId,
+		Envelope: &Envelope{
+			MailFrom: Address{
+				Email: "camina@opa.org.example.com",
+			},
+			RcptTo: []Address{
+				{Email: "crissy@earth.gov.example.com"},
+			},
+		},
+		SendAt:     sendAt,
+		UndoStatus: UndoStatusPending,
+	}
+}
+
+func (e Exemplar) EmailSubmissionGetResponse() EmailSubmissionGetResponse {
+	return EmailSubmissionGetResponse{
+		AccountId: e.AccountId,
+		State:     "eiph2pha",
+		NotFound:  []string{"zfa92bn"},
+		List: []EmailSubmission{
+			e.EmailSubmission(),
+		},
 	}
 }
 
@@ -1008,6 +1081,16 @@ func (e Exemplar) CalendarsResponse() CalendarsResponse {
 	a := e.Calendar()
 	return CalendarsResponse{
 		Calendars: []Calendar{a},
+	}
+}
+
+func (e Exemplar) CalendarGetResponse() CalendarGetResponse {
+	a := e.Calendar()
+	return CalendarGetResponse{
+		AccountId: e.AccountId,
+		State:     "aesh2ahj",
+		List:      []Calendar{a},
+		NotFound:  []string{"eehn", "eehz"},
 	}
 }
 
@@ -1786,6 +1869,178 @@ func (e Exemplar) ContactCard() c.ContactCard {
 	}
 }
 
+func (e Exemplar) ContactCardGetResponse() ContactCardGetResponse {
+	a := e.ContactCard()
+	b, _, _ := e.DesignContactCard()
+	return ContactCardGetResponse{
+		AccountId: e.AccountId,
+		State:     "ewohl8ie",
+		NotFound:  []string{"eeaa2"},
+		List:      []c.ContactCard{a, b},
+	}
+}
+
+func (e Exemplar) CalendarEvent() CalendarEvent {
+	cal := e.Calendar()
+	return CalendarEvent{
+		Id:          "aeZaik2faash",
+		CalendarIds: map[string]bool{cal.Id: true},
+		IsDraft:     false,
+		IsOrigin:    true,
+		Event: jscalendar.Event{
+			Type: jscalendar.EventType,
+			Object: jscalendar.Object{
+				CommonObject: jscalendar.CommonObject{
+					Uid:                    "dda22c7e-7674-4811-ae2e-2cc1ac605f5c",
+					ProdId:                 "Groupware//1.0",
+					Created:                "2026-04-01T15:29:12.912Z",
+					Updated:                "2026-04-01T15:35:44.091Z",
+					Title:                  "James Holden's Intronisation Ceremony",
+					Description:            "James Holden will be confirmed as the President of the Transport Union, in room 2201 on station TSL-5.",
+					DescriptionContentType: "text/plain",
+					Links: map[string]jscalendar.Link{
+						"aig1oh": jscalendar.Link{
+							Type:        jscalendar.LinkType,
+							Href:        "https://expanse.fandom.com/wiki/TSL-5",
+							ContentType: "text/html",
+							Display:     "TSL-5",
+							Title:       "TSL-5",
+						},
+					},
+					Locale:   "en-US",
+					Keywords: map[string]bool{"union": true},
+					Categories: map[string]bool{
+						"meeting": true,
+					},
+					Color: "#ff0000",
+				},
+				ShowWithoutTime: false,
+				Locations: map[string]jscalendar.Location{
+					"eigha6": jscalendar.Location{
+						Type: jscalendar.LocationType,
+						Name: "Room 2201",
+						LocationTypes: map[jscalendar.LocationTypeOption]bool{
+							jscalendar.LocationTypeOptionOffice: true,
+						},
+						Coordinates: "geo:40.7495,-73.9681",
+						Links: map[string]jscalendar.Link{
+							"ohb6qu": jscalendar.Link{
+								Type:        jscalendar.LinkType,
+								Href:        "https://nss.org/what-is-l5/",
+								ContentType: "text/html",
+								Display:     "Lagrange Point 5",
+								Title:       "Lagrange Point 5",
+							},
+						},
+					},
+				},
+				Sequence:       0,
+				MainLocationId: "eigha6",
+				VirtualLocations: map[string]jscalendar.VirtualLocation{
+					"eec4ei": jscalendar.VirtualLocation{
+						Type: jscalendar.VirtualLocationType,
+						Name: "OpenTalk",
+						Uri:  "https://earth.gov.example.com/opentalk/l5/2022",
+						Features: map[jscalendar.VirtualLocationFeature]bool{
+							jscalendar.VirtualLocationFeatureVideo:  true,
+							jscalendar.VirtualLocationFeatureScreen: true,
+							jscalendar.VirtualLocationFeatureAudio:  true,
+						},
+					},
+				},
+				Priority:       1,
+				FreeBusyStatus: jscalendar.FreeBusyStatusBusy,
+				Privacy:        jscalendar.PrivacyPublic,
+				SentBy:         "avasarala@earth.gov.example.com",
+				Participants: map[string]jscalendar.Participant{
+					"xaku3f": jscalendar.Participant{
+						Type:  jscalendar.ParticipantType,
+						Name:  "Christjen Avasarala",
+						Email: "crissy@earth.gov.example.com",
+						Kind:  jscalendar.ParticipantKindIndividual,
+						Roles: map[jscalendar.Role]bool{
+							jscalendar.RoleRequired: true,
+							jscalendar.RoleChair:    true,
+							jscalendar.RoleOwner:    true,
+						},
+						ParticipationStatus: jscalendar.ParticipationStatusAccepted,
+					},
+					"chao1a": jscalendar.Participant{
+						Type:  jscalendar.ParticipantType,
+						Name:  "Camina Drummer",
+						Email: "camina@opa.org.example.com",
+						Kind:  jscalendar.ParticipantKindIndividual,
+						Roles: map[jscalendar.Role]bool{
+							jscalendar.RoleRequired: true,
+						},
+						ParticipationStatus:  jscalendar.ParticipationStatusAccepted,
+						ParticipationComment: "I'll definitely be there",
+						ExpectReply:          true,
+						InvitedBy:            "xaku3f",
+					},
+					"ees0oo": jscalendar.Participant{
+						Type:  jscalendar.ParticipantType,
+						Name:  "James Holden",
+						Email: "james.holden@rocinante.space",
+						Kind:  jscalendar.ParticipantKindIndividual,
+						Roles: map[jscalendar.Role]bool{
+							jscalendar.RoleRequired: true,
+						},
+						ParticipationStatus: jscalendar.ParticipationStatusAccepted,
+						ExpectReply:         true,
+						InvitedBy:           "xaku3f",
+					},
+				},
+				Alerts: map[string]jscalendar.Alert{
+					"kus9fa": jscalendar.Alert{
+						Type:   jscalendar.AlertType,
+						Action: jscalendar.AlertActionDisplay,
+						Trigger: jscalendar.OffsetTrigger{
+							Type:       jscalendar.OffsetTriggerType,
+							Offset:     "-PT1H",
+							RelativeTo: jscalendar.RelativeToStart,
+						},
+					},
+					"lohve9": jscalendar.Alert{
+						Type:   jscalendar.AlertType,
+						Action: jscalendar.AlertActionDisplay,
+						Trigger: jscalendar.OffsetTrigger{
+							Type:       jscalendar.OffsetTriggerType,
+							Offset:     "-PT10M",
+							RelativeTo: jscalendar.RelativeToStart,
+						},
+					},
+				},
+				MayInviteOthers: true,
+				HideAttendees:   false,
+			},
+		},
+	}
+}
+
+func (e Exemplar) CalendarEventGetResponse() CalendarEventGetResponse {
+	ev := e.CalendarEvent()
+	return CalendarEventGetResponse{
+		AccountId: e.AccountId,
+		State:     "zah1ooj0",
+		NotFound:  []string{"eea9"},
+		List: []CalendarEvent{
+			ev,
+		},
+	}
+}
+
+func (e Exemplar) AddressBookChanges() AddressBookChanges {
+	a := e.AddressBook()
+	return AddressBookChanges{
+		OldState:       "eebees6o",
+		NewState:       "gae1iey0",
+		HasMoreChanges: true,
+		Created:        []AddressBook{a},
+		Destroyed:      []string{"l9fn"},
+	}
+}
+
 func (e Exemplar) ContactCardChanges() (ContactCardChanges, string, string) {
 	c := e.ContactCard()
 	return ContactCardChanges{
@@ -1818,7 +2073,7 @@ func (e Exemplar) EmailChanges() EmailChanges {
 	}
 }
 
-func (e Exemplar) Changes() Changes {
+func (e Exemplar) Changes() (Changes, string, string) {
 	return Changes{
 		MaxChanges: 3,
 		Mailboxes: &MailboxChangesResponse{
@@ -1862,5 +2117,28 @@ func (e Exemplar) Changes() Changes {
 			HasMoreChanges: true,
 			Created:        []string{"fq", "fr", "fs"},
 		},
+	}, "A set of changes to objects", "changes"
+}
+
+func (e Exemplar) Objects() Objects {
+	mailboxes := e.MailboxGetResponse()
+	emails := e.EmailGetResponse()
+	calendars := e.CalendarGetResponse()
+	events := e.CalendarEventGetResponse()
+	addressbooks := e.AddressBookGetResponse()
+	contacts := e.ContactCardGetResponse()
+	quotas := e.QuotaGetResponse()
+	identities := e.IdentityGetResponse()
+	emailSubmissions := e.EmailSubmissionGetResponse()
+	return Objects{
+		Mailboxes:        &mailboxes,
+		Emails:           &emails,
+		Calendars:        &calendars,
+		Events:           &events,
+		Addressbooks:     &addressbooks,
+		Contacts:         &contacts,
+		Quotas:           &quotas,
+		Identities:       &identities,
+		EmailSubmissions: &emailSubmissions,
 	}
 }

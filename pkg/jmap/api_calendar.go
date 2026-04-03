@@ -161,6 +161,8 @@ type CalendarEventChanges struct {
 	Destroyed      []string        `json:"destroyed,omitempty"`
 }
 
+// Retrieve the changes in Calendar Events since a given State.
+// @api:tags event,changes
 func (j *Client) GetCalendarEventChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger,
 	acceptLanguage string, sinceState State, maxChanges uint) (CalendarEventChanges, SessionState, State, Language, Error) {
 	return changesTemplate(j, "GetCalendarEventChanges", NS_CALENDARS,
@@ -228,4 +230,39 @@ func (j *Client) DeleteCalendarEvent(accountId string, destroy []string, session
 		func(resp CalendarEventSetResponse) map[string]SetError { return resp.NotDestroyed },
 		func(resp CalendarEventSetResponse) State { return resp.NewState },
 		accountId, destroy, session, ctx, logger, acceptLanguage)
+}
+
+func (j *Client) CreateCalendar(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, create CalendarChange) (*Calendar, SessionState, State, Language, Error) {
+	return createTemplate(j, "CreateCalendar", NS_CALENDARS, CalendarType, CommandAddressBookSet, CommandAddressBookGet,
+		func(accountId string, create map[string]CalendarChange) CalendarSetCommand {
+			return CalendarSetCommand{AccountId: accountId, Create: create}
+		},
+		func(accountId string, ref string) CalendarGetCommand {
+			return CalendarGetCommand{AccountId: accountId, Ids: []string{ref}}
+		},
+		func(resp CalendarSetResponse) map[string]*Calendar {
+			return resp.Created
+		},
+		func(resp CalendarSetResponse) map[string]SetError {
+			return resp.NotCreated
+		},
+		func(resp CalendarGetResponse) []Calendar {
+			return resp.List
+		},
+		func(resp CalendarSetResponse) State {
+			return resp.NewState
+		},
+		accountId, session, ctx, logger, acceptLanguage, create,
+	)
+}
+
+func (j *Client) DeleteCalendar(accountId string, destroy []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]SetError, SessionState, State, Language, Error) {
+	return deleteTemplate(j, "DeleteCalendar", NS_ADDRESSBOOKS, CommandAddressBookSet,
+		func(accountId string, destroy []string) CalendarSetCommand {
+			return CalendarSetCommand{AccountId: accountId, Destroy: destroy}
+		},
+		func(resp CalendarSetResponse) map[string]SetError { return resp.NotDestroyed },
+		func(resp CalendarSetResponse) State { return resp.NewState },
+		accountId, destroy, session, ctx, logger, acceptLanguage,
+	)
 }

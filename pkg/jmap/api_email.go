@@ -204,7 +204,8 @@ type EmailChanges struct {
 	Destroyed      []string `json:"destroyed,omitempty"`
 }
 
-// Get all the Emails that have been created, updated or deleted since a given state.
+// Retrieve the changes in Emails since a given State.
+// @api:tags email,changes
 func (j *Client) GetEmailChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceState State, fetchBodies bool, maxBodyValueBytes uint, maxChanges uint) (EmailChanges, SessionState, State, Language, Error) { //NOSONAR
 	logger = j.loggerParams("GetEmailChanges", session, logger, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Str(logSinceState, string(sinceState))
@@ -1080,6 +1081,8 @@ type EmailSubmissionChanges struct {
 	Destroyed      []string          `json:"destroyed,omitempty"`
 }
 
+// Retrieve the changes in Email Submissions since a given State.
+// @api:tags email,changes
 func (j *Client) GetEmailSubmissionChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger,
 	acceptLanguage string, sinceState State, maxChanges uint) (EmailSubmissionChanges, SessionState, State, Language, Error) {
 	return changesTemplate(j, "GetEmailSubmissionChanges", NS_MAIL_SUBMISSION,

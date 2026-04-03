@@ -36,6 +36,8 @@ type ObjectsRequest struct {
 // The response then includes the new state after that maximum number if changes,
 // as well as a `hasMoreChanges` boolean flag which can be used to paginate the retrieval of
 // changes and the objects associated with the identifiers.
+//
+// @api:tags mailbox,email,addressbook,contact,calendar,event,quota,identity
 func (g *Groupware) GetObjects(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()

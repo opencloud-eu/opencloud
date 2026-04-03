@@ -26,6 +26,55 @@ const (
 	EnableMediaWithBlobId = false
 )
 
+type AddressBooksBoxes struct {
+	sharedReadOnly  bool
+	sharedReadWrite bool
+	sharedDelete    bool
+	sortOrdered     bool
+}
+
+func TestAddressBooks(t *testing.T) {
+	if skip(t) {
+		return
+	}
+
+	require := require.New(t)
+
+	s, err := newStalwartTest(t, withDirectoryQueries(true))
+	require.NoError(err)
+	defer s.Close()
+
+	user := pickUser()
+	session := s.Session(user.name)
+
+	principalIds := []string{}
+	{
+		principals, _, _, _, err := s.client.GetPrincipals(session.PrimaryAccounts.Mail, session, s.ctx, s.logger, "", []string{})
+		require.NoError(err)
+		require.NotEmpty(principals.Principals)
+		principalIds = structs.Map(principals.Principals, func(p Principal) string { return p.Id })
+	}
+
+	num := uint(5 + rand.Intn(30))
+	{
+		accountId := ""
+		a, boxes, abooks, err := s.fillAddressBook(t, num, session, user, principalIds)
+		require.NoError(err)
+		require.NotEmpty(a)
+		require.Len(abooks, int(num))
+		accountId = a
+
+		ids := structs.Map(abooks, func(a AddressBook) string { return a.Id })
+		{
+			errMap, _, _, _, err := s.client.DeleteAddressBook(accountId, ids, session, s.ctx, s.logger, "")
+			require.NoError(err)
+			require.Empty(errMap)
+		}
+
+		allBoxesAreTicked(t, boxes)
+	}
+}
+
 func TestContacts(t *testing.T) {
 	if skip(t) {
 		return
@@ -96,6 +145,73 @@ type ContactsBoxes struct {
 }
 
 var streetNumberRegex = regexp.MustCompile(`^(\d+)\s+(.+)$`)
+
+func (s *StalwartTest) fillAddressBook(
+	t *testing.T,
+	count uint,
+	session *Session,
+	_ User,
+	principalIds []string,
+) (string, AddressBooksBoxes, []AddressBook, error) {
+	require := require.New(t)
+
+	accountId := session.PrimaryAccounts.Contacts
+	require.NotEmpty(accountId, "no primary account for contacts in session")
+
+	boxes := AddressBooksBoxes{}
+	created := []AddressBook{}
+
+	printer := func(s string) { log.Println(s) }
+
+	for i := range count {
+		name := gofakeit.Company()
+		description := gofakeit.SentenceSimple()
+		subscribed := gofakeit.Bool()
+		abook := AddressBookChange{
+			Name:         &name,
+			Description:  &description,
+			IsSubscribed: &subscribed,
+		}
+		if i%2 == 0 {
+			abook.SortOrder = posUIntPtr(gofakeit.Uint())
+			boxes.sortOrdered = true
+		}
+		var sharing *AddressBookRights = nil
+		switch i % 4 {
+		default:
+			// no sharing
+		case 1:
+			sharing = &AddressBookRights{MayRead: true, MayWrite: true, MayAdmin: false, MayDelete: false}
+			boxes.sharedReadWrite = true
+		case 2:
+			sharing = &AddressBookRights{MayRead: true, MayWrite: false, MayAdmin: false, MayDelete: false}
+			boxes.sharedReadOnly = true
+		case 3:
+			sharing = &AddressBookRights{MayRead: true, MayWrite: true, MayAdmin: false, MayDelete: true}
+			boxes.sharedDelete = true
+		}
+		if sharing != nil {
+			numPrincipals := 1 + rand.Intn(len(principalIds)-1)
+			m := make(map[string]AddressBookRights, numPrincipals)
+			for _, p := range pickRandomN(numPrincipals, principalIds...) {
+				m[p] = *sharing
+			}
+			abook.ShareWith = m
+		}
+
+		a, sessionState, state, _, err := s.client.CreateAddressBook(accountId, session, s.ctx, s.logger, "", abook)
+		if err != nil {
+			return accountId, boxes, created, err
+		}
+		require.NotEmpty(sessionState)
+		require.NotEmpty(state)
+		require.NotNil(a)
+		created = append(created, *a)
+
+		printer(fmt.Sprintf("📔 created %*s/%v id=%v", int(math.Log10(float64(count))+1), strconv.Itoa(int(i+1)), count, a.Id))
+	}
+	return accountId, boxes, created, nil
+}
 
 func (s *StalwartTest) fillContacts( //NOSONAR
 	t *testing.T,

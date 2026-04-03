@@ -74,6 +74,8 @@ func (s StateMap) MarshalZerologObject(e *zerolog.Event) {
 	// if s.Quotas != nil { e.Str("quotas", string(*s.Quotas)) }
 }
 
+// Retrieve the changes in any type of objects at once since a given State.
+// @api:tags changes
 func (j *Client) GetChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, stateMap StateMap, maxChanges uint) (Changes, SessionState, State, Language, Error) { //NOSONAR
 	logger = log.From(j.logger("GetChanges", session, logger).With().Object("state", stateMap).Uint("maxChanges", maxChanges))
 

@@ -13,7 +13,7 @@ var NS_MAILBOX = ns(JmapMail)
 
 type MailboxesResponse struct {
 	Mailboxes []Mailbox `json:"mailboxes"`
-	NotFound  []any     `json:"notFound"`
+	NotFound  []string  `json:"notFound"`
 }
 
 func (j *Client) GetMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (MailboxesResponse, SessionState, State, Language, Error) {
@@ -172,6 +172,7 @@ func (j *Client) GetMailboxChanges(accountId string, session *Session, ctx conte
 }
 
 // Retrieve Mailbox changes of multiple Accounts.
+// @api:tags email,changes
 func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceStateMap map[string]State, maxChanges uint) (map[string]MailboxChanges, SessionState, State, Language, Error) { //NOSONAR
 	return changesTemplateN(j, "GetMailboxChangesForMultipleAccounts", NS_MAILBOX,
 		accountIds, sinceStateMap, CommandMailboxChanges, CommandMailboxGet,
