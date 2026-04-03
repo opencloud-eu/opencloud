@@ -29,6 +29,8 @@ type QuotaChanges struct {
 	Destroyed      []string `json:"destroyed,omitempty"`
 }
 
+// Retrieve the changes in Quotas since a given State.
+// @api:tags quota,changes
 func (j *Client) GetQuotaChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger,
 	acceptLanguage string, sinceState State, maxChanges uint) (QuotaChanges, SessionState, State, Language, Error) {
 	return changesTemplate(j, "GetQuotaChanges", NS_QUOTA,

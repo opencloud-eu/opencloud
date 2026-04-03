@@ -180,6 +180,8 @@ type IdentityChanges struct {
 	Destroyed      []string   `json:"destroyed,omitempty"`
 }
 
+// Retrieve the changes in Email Identities since a given State.
+// @api:tags email,changes
 func (j *Client) GetIdentityChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger,
 	acceptLanguage string, sinceState State, maxChanges uint) (IdentityChanges, SessionState, State, Language, Error) {
 	return changesTemplate(j, "GetIdentityChanges", NS_IDENTITY,

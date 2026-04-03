@@ -58,6 +58,9 @@ tags:
   - name: vacation
     x-displayName: Vacation Responses
     description: APIs about vacation responses
+  - name: blob
+    x-displayName: BLOBs
+    description: APIs about binary large objects
   - name: changes
     x-displayName: Changes
     description: APIs for retrieving changes to objects
@@ -89,6 +92,9 @@ x-tagGroups:
   - name: Quotas
     tags:
       - quota
+  - name: Blobs
+    tags:
+      - blob
   - name: changes
     tags:
       - changes

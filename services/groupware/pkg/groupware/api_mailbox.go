@@ -176,7 +176,7 @@ func (g *Groupware) GetMailboxByRoleForAllAccounts(w http.ResponseWriter, r *htt
 	})
 }
 
-// Get the changes that occured in a given mailbox since a certain state.
+// Get the changes tp Mailboxes since a certain State.
 // @api:tags mailbox,changes
 func (g *Groupware) GetMailboxChanges(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {

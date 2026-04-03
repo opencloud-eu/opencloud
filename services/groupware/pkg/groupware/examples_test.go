@@ -187,3 +187,17 @@ func (e Exemplar) DeletedMailboxes() ([]string, string, string, string) {
 	j := jmap.ExemplarInstance
 	return []string{j.MailboxProjectId, j.MailboxJunkId}, "Identifiers of the Mailboxes that have successfully been deleted", "", "deletedmailboxes"
 }
+
+func (e Exemplar) ObjectsRequest() ObjectsRequest {
+	return ObjectsRequest{
+		Mailboxes:        []string{"ahh9ye", "ahbei8"},
+		Emails:           []string{"koo6ka", "fa1ees", "zaish0", "iek2fo"},
+		Addressbooks:     []string{"ungu0a"},
+		Contacts:         []string{"oo8ahv", "lexue6", "mohth3"},
+		Calendars:        []string{"aa8aqu", "detho5"},
+		Events:           []string{"oo8thu", "mu9sha", "aim1sh", "sair6a"},
+		Quotas:           []string{"vei4ai"},
+		Identities:       []string{"iuj4ae", "mahv9y"},
+		EmailSubmissions: []string{"eidoo6", "aakie7", "uh7ous"},
+	}
+}

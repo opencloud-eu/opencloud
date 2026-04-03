@@ -76,19 +76,19 @@ func getTemplateN[GETREQ any, GETRESP any, ITEM any, RESP any]( //NOSONAR
 	})
 }
 
-func createTemplate[T any, SETREQ any, GETREQ any, SETRESP any, GETRESP any]( //NOSONAR
+func createTemplate[T any, C any, SETREQ any, GETREQ any, SETRESP any, GETRESP any]( //NOSONAR
 	client *Client, name string, using []JmapNamespace, t ObjectType,
 	setCommand Command, getCommand Command,
-	setCommandFactory func(string, map[string]T) SETREQ,
+	setCommandFactory func(string, map[string]C) SETREQ,
 	getCommandFactory func(string, string) GETREQ,
 	createdMapper func(SETRESP) map[string]*T,
 	notCreatedMapper func(SETRESP) map[string]SetError,
 	listMapper func(GETRESP) []T,
 	stateMapper func(SETRESP) State,
-	accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, create T) (*T, SessionState, State, Language, Error) {
+	accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, create C) (*T, SessionState, State, Language, Error) {
 	logger = client.logger(name, session, logger)
 
-	createMap := map[string]T{"c": create}
+	createMap := map[string]C{"c": create}
 	cmd, err := client.request(session, logger, using,
 		invocation(setCommand, setCommandFactory(accountId, createMap), "0"),
 		invocation(getCommand, getCommandFactory(accountId, "#c"), "1"),

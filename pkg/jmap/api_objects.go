@@ -20,6 +20,8 @@ type Objects struct {
 	EmailSubmissions *EmailSubmissionGetResponse `json:"submissions,omitempty"`
 }
 
+// Retrieve objects of all types by their identifiers in a single batch.
+// @api:tags changes
 func (j *Client) GetObjects(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, //NOSONAR
 	mailboxIds []string, emailIds []string,
 	addressbookIds []string, contactIds []string,

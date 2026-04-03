@@ -17,6 +17,7 @@ import (
 	"reflect"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"text/template"
@@ -120,7 +121,7 @@ tracer.log.level = "trace"
 tracer.log.lossy = false
 tracer.log.multiline = false
 tracer.log.type = "stdout"
-sharing.allow-directory-query = false
+sharing.allow-directory-query = {{.dirquery}}
 auth.dkim.sign = false
 auth.dkim.verify = "disable"
 auth.spf.verify.ehlo = "disable"
@@ -134,11 +135,11 @@ auth.iprev.verify = "disable"
 
 func skip(t *testing.T) bool {
 	if os.Getenv("CI") == "woodpecker" {
-		t.Skip("Skipping tests because CI==wookpecker")
+		t.Skip("Skipping tests because CI==woodpecker")
 		return true
 	}
 	if os.Getenv("CI_SYSTEM_NAME") == "woodpecker" {
-		t.Skip("Skipping tests because CI_SYSTEM_NAME==wookpecker")
+		t.Skip("Skipping tests because CI_SYSTEM_NAME==woodpecker")
 		return true
 	}
 	if os.Getenv("USE_TESTCONTAINERS") == "false" {
@@ -206,7 +207,13 @@ func (lc *stalwartTestLogConsumer) Accept(l testcontainers.Log) {
 	fmt.Print("STALWART: " + string(l.Content))
 }
 
-func newStalwartTest(t *testing.T) (*StalwartTest, error) { //NOSONAR
+func withDirectoryQueries(allowDirectoryQueries bool) func(map[string]any) {
+	return func(m map[string]any) {
+		m["dirquery"] = strconv.FormatBool(allowDirectoryQueries)
+	}
+}
+
+func newStalwartTest(t *testing.T, options ...func(map[string]any)) (*StalwartTest, error) { //NOSONAR
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	var _ context.CancelFunc = cancel // ignore context leak warning: it is passed in the struct and called in Close()
 
@@ -235,14 +242,20 @@ func newStalwartTest(t *testing.T) (*StalwartTest, error) { //NOSONAR
 
 	hostname := "localhost"
 
-	configBuf := bytes.NewBufferString("")
-	template.Must(template.New("").Parse(configTemplate)).Execute(configBuf, map[string]any{
+	settings := map[string]any{
 		"hostname":       hostname,
 		"masterusername": masterUsername,
 		"masterpassword": masterPasswordHash,
 		"httpPort":       httpPort,
 		"imapsPort":      imapsPort,
-	})
+		"dirquery":       "false",
+	}
+	for _, option := range options {
+		option(settings)
+	}
+
+	configBuf := bytes.NewBufferString("")
+	template.Must(template.New("").Parse(configTemplate)).Execute(configBuf, settings)
 	config := configBuf.String()
 	configReader := strings.NewReader(config)
 
@@ -1128,7 +1141,10 @@ func pickUser() User {
 }
 
 func pickRandoms[T any](s ...T) []T {
-	n := rand.Intn(len(s))
+	return pickRandomN[T](rand.Intn(len(s)), s...)
+}
+
+func pickRandomN[T any](n int, s ...T) []T {
 	if n == 0 {
 		return []T{}
 	}
@@ -1165,17 +1181,18 @@ func pickLocale() string {
 func allBoxesAreTicked[S any](t *testing.T, s S, exceptions ...string) {
 	v := reflect.ValueOf(s)
 	typ := v.Type()
+	tname := typ.Name()
 	for i := range v.NumField() {
 		name := typ.Field(i).Name
 		if slices.Contains(exceptions, name) {
-			log.Printf("(/) %s\n", name)
+			log.Printf("%s[🍒] %s\n", tname, name)
 			continue
 		}
 		value := v.Field(i).Bool()
 		if value {
-			log.Printf("(X) %s\n", name)
+			log.Printf("%s[✅] %s\n", tname, name)
 		} else {
-			log.Printf("( ) %s\n", name)
+			log.Printf("%s[❌] %s\n", tname, name)
 		}
 		require.True(t, value, "should be true: %v", name)
 	}

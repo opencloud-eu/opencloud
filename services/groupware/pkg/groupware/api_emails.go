@@ -21,8 +21,8 @@ import (
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/metrics"
 )
 
-// Get the changes that occured in a given mailbox since a certain state.
-// @api:tags mailbox,changes
+// Get the changes tp Emails since a certain State.
+// @api:tags email,changes
 func (g *Groupware) GetEmailChanges(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()
@@ -230,6 +230,9 @@ func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) { //NO
 	}
 }
 
+// Get the attachments of an email by its identifier.
+//
+// @api:tags email
 func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	contextAppender := func(l zerolog.Context) zerolog.Context { return l }
 	q := r.URL.Query()
@@ -941,6 +944,9 @@ func (e emailKeywordUpdates) IsEmpty() bool {
 	return len(e.Add) == 0 && len(e.Remove) == 0
 }
 
+// Update the keywords of an email by its identifier.
+//
+// @api:tags email
 func (g *Groupware) UpdateEmailKeywords(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()
@@ -1000,6 +1006,8 @@ func (g *Groupware) UpdateEmailKeywords(w http.ResponseWriter, r *http.Request) 
 }
 
 // Add keywords to an email by its unique identifier.
+//
+// @api:tags email
 func (g *Groupware) AddEmailKeywords(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()
@@ -1060,6 +1068,8 @@ func (g *Groupware) AddEmailKeywords(w http.ResponseWriter, r *http.Request) { /
 }
 
 // Remove keywords of an email by its unique identifier.
+//
+// @api:tags email
 func (g *Groupware) RemoveEmailKeywords(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()

@@ -200,6 +200,8 @@ const (
 	ErrorCodeFailedToDeleteEmail               = "DELEML"
 	ErrorCodeFailedToDeleteSomeIdentities      = "DELSID"
 	ErrorCodeFailedToSanitizeEmail             = "FSANEM"
+	ErrorCodeFailedToDeleteAddressBook         = "DELABK"
+	ErrorCodeFailedToDeleteCalendar            = "DELCAL"
 	ErrorCodeFailedToDeleteContact             = "DELCNT"
 	ErrorCodeNoMailboxWithDraftRole            = "NMBXDR"
 	ErrorCodeNoMailboxWithSentRole             = "NMBXSE"
@@ -443,11 +445,23 @@ var (
 		Title:  "Failed to sanitize an email",
 		Detail: "Email content sanitization failed.",
 	}
+	ErrorFailedToDeleteAddressBook = GroupwareError{
+		Status: http.StatusInternalServerError,
+		Code:   ErrorCodeFailedToDeleteAddressBook,
+		Title:  "Failed to delete address books",
+		Detail: "One or more address books could not be deleted.",
+	}
 	ErrorFailedToDeleteContact = GroupwareError{
 		Status: http.StatusInternalServerError,
 		Code:   ErrorCodeFailedToDeleteContact,
 		Title:  "Failed to delete contacts",
 		Detail: "One or more contacts could not be deleted.",
+	}
+	ErrorFailedToDeleteCalendar = GroupwareError{
+		Status: http.StatusInternalServerError,
+		Code:   ErrorCodeFailedToDeleteCalendar,
+		Title:  "Failed to delete calendar",
+		Detail: "One or more calendars could not be deleted.",
 	}
 	ErrorNoMailboxWithDraftRole = GroupwareError{
 		Status: http.StatusExpectationFailed,

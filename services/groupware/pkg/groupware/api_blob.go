@@ -67,17 +67,18 @@ func (g *Groupware) UploadBlob(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Download a BLOB by its identifier.
 func (g *Groupware) DownloadBlob(w http.ResponseWriter, r *http.Request) {
 	g.stream(w, r, func(req Request, w http.ResponseWriter) *Error {
-		blobId, err := req.PathParam(UriParamBlobId)
+		blobId, err := req.PathParam(UriParamBlobId) // the unique identifier of the blob to download
 		if err != nil {
 			return err
 		}
-		name, err := req.PathParam(UriParamBlobName)
+		name, err := req.PathParam(UriParamBlobName) // the filename of the blob to download, which is then used in the response and may be arbitrary if unknown
 		if err != nil {
 			return err
 		}
-		typ, _ := req.getStringParam(QueryParamBlobType, "")
+		typ, _ := req.getStringParam(QueryParamBlobType, "") // optionally, the Content-Type of the blob, which is then used in the response
 
 		accountId, gwerr := req.GetAccountIdForBlob()
 		if gwerr != nil {
