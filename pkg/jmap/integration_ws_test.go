@@ -32,18 +32,18 @@ func (l *testWsPushListener) OnNotification(username string, pushState StateChan
 	l.logger.Debug().Msgf("received %T: %v", pushState, pushState)
 	if changed, ok := pushState.Changed[l.mailAccountId]; ok {
 		l.m.Lock()
-		if st, ok := changed[EmailType]; ok {
+		if st, ok := changed[EmailName]; ok {
 			l.emailStates = append(l.emailStates, st)
 		}
-		if st, ok := changed[ThreadType]; ok {
+		if st, ok := changed[ThreadName]; ok {
 			l.threadStates = append(l.threadStates, st)
 		}
-		if st, ok := changed[MailboxType]; ok {
+		if st, ok := changed[MailboxName]; ok {
 			l.mailboxStates = append(l.mailboxStates, st)
 		}
 		l.m.Unlock()
 
-		unsupportedKeys := structs.Filter(structs.Keys(changed), func(o ObjectType) bool { return o != EmailType && o != ThreadType && o != MailboxType })
+		unsupportedKeys := structs.Filter(structs.Keys(changed), func(o ObjectTypeName) bool { return o != EmailName && o != ThreadName && o != MailboxName })
 		assert.Empty(l.t, unsupportedKeys)
 	}
 	unsupportedAccounts := structs.Filter(structs.Keys(pushState.Changed), func(s string) bool { return s != l.mailAccountId })

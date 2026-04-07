@@ -99,6 +99,15 @@ func MapKeys2[S comparable, T comparable, V any](m map[S]V, mapper func(S, V) T)
 	return r
 }
 
+func ToMap[E any, K comparable, V any](source []E, mapper func(E) (K, V)) map[K]V {
+	m := map[K]V{}
+	for _, e := range source {
+		k, v := mapper(e)
+		m[k] = v
+	}
+	return m
+}
+
 func ToBoolMap[E comparable](source []E) map[E]bool {
 	m := make(map[E]bool, len(source))
 	for _, v := range source {

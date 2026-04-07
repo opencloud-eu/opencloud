@@ -15,12 +15,12 @@ const (
 )
 
 func (j *Client) GetVacationResponse(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (VacationResponseGetResponse, SessionState, State, Language, Error) {
-	return getTemplate(j, "GetVacationResponse", NS_VACATION, CommandVacationResponseGet,
+	return get(j, "GetVacationResponse", NS_VACATION,
 		func(accountId string, ids []string) VacationResponseGetCommand {
 			return VacationResponseGetCommand{AccountId: accountId}
 		},
+		VacationResponseGetResponse{},
 		identity1,
-		func(resp VacationResponseGetResponse) State { return resp.State },
 		accountId, session, ctx, logger, acceptLanguage, []string{},
 	)
 }
@@ -53,7 +53,7 @@ func (j *Client) SetVacationResponse(accountId string, vacation VacationResponse
 	logger = j.logger("SetVacationResponse", session, logger)
 
 	cmd, err := j.request(session, logger, NS_VACATION,
-		invocation(CommandVacationResponseSet, VacationResponseSetCommand{
+		invocation(VacationResponseSetCommand{
 			AccountId: accountId,
 			Create: map[string]VacationResponse{
 				vacationResponseId: {
@@ -68,7 +68,7 @@ func (j *Client) SetVacationResponse(accountId string, vacation VacationResponse
 		}, "0"),
 		// chain a second request to get the current complete VacationResponse object
 		// after performing the changes, as that makes for a better API
-		invocation(CommandVacationResponseGet, VacationResponseGetCommand{AccountId: accountId}, "1"),
+		invocation(VacationResponseGetCommand{AccountId: accountId}, "1"),
 	)
 	if err != nil {
 		return VacationResponse{}, "", "", "", err
@@ -94,7 +94,7 @@ func (j *Client) SetVacationResponse(accountId string, vacation VacationResponse
 		}
 
 		if len(getResponse.List) != 1 {
-			berr := fmt.Errorf("failed to find %s in %s response", string(VacationResponseType), string(CommandVacationResponseGet))
+			berr := fmt.Errorf("failed to find %s in %s response", VacationResponseType, string(CommandVacationResponseGet))
 			logger.Error().Msg(berr.Error())
 			return VacationResponse{}, "", jmapError(berr, JmapErrorInvalidJmapResponsePayload)
 		}

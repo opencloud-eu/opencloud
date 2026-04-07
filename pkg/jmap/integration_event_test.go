@@ -105,7 +105,7 @@ func (s *StalwartTest) fillEvents( //NOSONAR
 
 	calendarId := ""
 	{
-		calendarsById, err := c.objectsById(accountId, CalendarType, JmapCalendars)
+		calendarsById, err := c.objectsById(accountId, CalendarType)
 		require.NoError(err)
 
 		for id, calendar := range calendarsById {
@@ -359,7 +359,7 @@ func (s *StalwartTest) fillEvents( //NOSONAR
 }
 
 func (s *StalwartTest) CreateEvent(j *TestJmapClient, accountId string, event map[string]any) (string, error) {
-	return j.create1(accountId, CalendarEventType, JmapCalendars, event)
+	return j.create1(accountId, CalendarEventType, event)
 }
 
 var rooms = []jscalendar.Location{

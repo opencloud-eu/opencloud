@@ -3,6 +3,7 @@ package jmap
 import (
 	"math/rand"
 	"regexp"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -47,6 +48,7 @@ func TestAddressBooks(t *testing.T) {
 	user := pickUser()
 	session := s.Session(user.name)
 
+	// we first need to retrieve the list of all the Principals in order to be able to use and test AddressBook sharing
 	principalIds := []string{}
 	{
 		principals, _, _, _, err := s.client.GetPrincipals(session.PrimaryAccounts.Mail, session, s.ctx, s.logger, "", []string{})
@@ -55,20 +57,87 @@ func TestAddressBooks(t *testing.T) {
 		principalIds = structs.Map(principals.Principals, func(p Principal) string { return p.Id })
 	}
 
+	accountId := session.PrimaryAccounts.Contacts
+
+	ss := SessionState("")
+	as := EmptyState
+
+	// we need to fetch the ID of the default AddressBook that automatically exists for each user, in order to exclude it
+	// from the tests below
+	defaultAddressBookId := ""
+	{
+		resp, sessionState, state, _, err := s.client.GetAddressbooks(accountId, session, s.ctx, s.logger, "", []string{})
+		require.NoError(err)
+		require.Empty(resp.NotFound)
+		require.Len(resp.AddressBooks, 1) // the personal addressbook that exists by default
+		defaultAddressBookId = resp.AddressBooks[0].Id
+		ss = sessionState
+		as = state
+	}
+
+	// we are going to create a random amount of AddressBook objects
 	num := uint(5 + rand.Intn(30))
 	{
-		accountId := ""
-		a, boxes, abooks, err := s.fillAddressBook(t, num, session, user, principalIds)
+		boxes, abooks, sessionState, state, err := s.fillAddressBook(t, accountId, num, session, user, principalIds)
 		require.NoError(err)
-		require.NotEmpty(a)
 		require.Len(abooks, int(num))
-		accountId = a
+		ss = sessionState
+		as = state
 
+		{
+			// lets retrieve all the existing AddressBook objects by passing an empty ID slice
+			resp, sessionState, state, _, err := s.client.GetAddressbooks(accountId, session, s.ctx, s.logger, "", []string{})
+			require.NoError(err)
+			require.Empty(resp.NotFound)
+			// lets skip the default AddressBook since we did not create that one
+			found := structs.Filter(resp.AddressBooks, func(a AddressBook) bool { return a.Id != defaultAddressBookId })
+			require.Len(found, int(num))
+			m := structs.Index(found, func(a AddressBook) string { return a.Id })
+			require.Len(m, int(num))
+			require.Equal(sessionState, ss)
+			require.Equal(state, as)
+
+			for _, a := range abooks {
+				require.Contains(m, a.Id)
+				found, ok := m[a.Id]
+				require.True(ok)
+				require.Equal(a, found)
+			}
+
+			ss = sessionState
+			as = state
+		}
+
+		// lets retrieve every AddressBook object we created by its ID
+		for _, a := range abooks {
+			resp, sessionState, state, _, err := s.client.GetAddressbooks(accountId, session, s.ctx, s.logger, "", []string{a.Id})
+			require.NoError(err)
+			require.Empty(resp.NotFound)
+			require.Len(resp.AddressBooks, 1)
+			require.Equal(sessionState, ss)
+			require.Equal(state, as)
+			require.Equal(resp.AddressBooks[0], a)
+		}
+
+		// lets modify each AddressBook
+		for _, a := range abooks {
+			changed, sessionState, state, _, err := s.client.UpdateAddressBook(accountId, session, s.ctx, s.logger, "", a.Id, AddressBookChange{Description: strPtr(a.Description + " (changed)"), IsSubscribed: boolPtr(!a.IsSubscribed)})
+			require.NoError(err)
+			require.NotEqual(a, changed)
+			require.Equal(sessionState, ss)
+			require.NotEqual(state, as)
+			require.Equal(a.Description+" (changed)", changed.Description)
+			require.Equal(!a.IsSubscribed, changed.IsSubscribed)
+		}
+
+		// now lets delete each AddressBook that we created, all at once
 		ids := structs.Map(abooks, func(a AddressBook) string { return a.Id })
 		{
-			errMap, _, _, _, err := s.client.DeleteAddressBook(accountId, ids, session, s.ctx, s.logger, "")
+			errMap, sessionState, state, _, err := s.client.DeleteAddressBook(accountId, ids, session, s.ctx, s.logger, "")
 			require.NoError(err)
 			require.Empty(errMap)
+			require.Equal(sessionState, ss)
+			require.NotEqual(state, as)
 		}
 
 		allBoxesAreTicked(t, boxes)
@@ -146,20 +215,20 @@ type ContactsBoxes struct {
 
 var streetNumberRegex = regexp.MustCompile(`^(\d+)\s+(.+)$`)
 
-func (s *StalwartTest) fillAddressBook(
+func (s *StalwartTest) fillAddressBook( //NOSONAR
 	t *testing.T,
+	accountId string,
 	count uint,
 	session *Session,
 	_ User,
 	principalIds []string,
-) (string, AddressBooksBoxes, []AddressBook, error) {
+) (AddressBooksBoxes, []AddressBook, SessionState, State, error) {
 	require := require.New(t)
-
-	accountId := session.PrimaryAccounts.Contacts
-	require.NotEmpty(accountId, "no primary account for contacts in session")
 
 	boxes := AddressBooksBoxes{}
 	created := []AddressBook{}
+	ss := SessionState("")
+	as := EmptyState
 
 	printer := func(s string) { log.Println(s) }
 
@@ -201,16 +270,24 @@ func (s *StalwartTest) fillAddressBook(
 
 		a, sessionState, state, _, err := s.client.CreateAddressBook(accountId, session, s.ctx, s.logger, "", abook)
 		if err != nil {
-			return accountId, boxes, created, err
+			return boxes, created, ss, as, err
 		}
 		require.NotEmpty(sessionState)
 		require.NotEmpty(state)
+		if ss != SessionState("") {
+			require.Equal(ss, sessionState)
+		}
+		if as != EmptyState {
+			require.NotEqual(as, state)
+		}
 		require.NotNil(a)
 		created = append(created, *a)
+		ss = sessionState
+		as = state
 
 		printer(fmt.Sprintf("📔 created %*s/%v id=%v", int(math.Log10(float64(count))+1), strconv.Itoa(int(i+1)), count, a.Id))
 	}
-	return accountId, boxes, created, nil
+	return boxes, created, ss, as, nil
 }
 
 func (s *StalwartTest) fillContacts( //NOSONAR
@@ -233,7 +310,7 @@ func (s *StalwartTest) fillContacts( //NOSONAR
 
 	addressbookId := ""
 	{
-		addressBooksById, err := c.objectsById(accountId, AddressBookType, JmapContacts)
+		addressBooksById, err := c.objectsById(accountId, AddressBookType)
 		require.NoError(err)
 
 		for id, addressbook := range addressBooksById {
@@ -242,7 +319,14 @@ func (s *StalwartTest) fillContacts( //NOSONAR
 					addressbookId = id
 					break
 				}
+			} else {
+				printer(fmt.Sprintf("abook without isDefault: %v", addressbook))
 			}
+		}
+		if addressbookId == "" {
+			ids := structs.Keys(addressBooksById)
+			slices.Sort(ids)
+			addressbookId = ids[0]
 		}
 	}
 	require.NotEmpty(addressbookId)
@@ -606,5 +690,5 @@ func (s *StalwartTest) fillContacts( //NOSONAR
 }
 
 func (s *StalwartTest) CreateContact(j *TestJmapClient, accountId string, contact map[string]any) (string, error) {
-	return j.create1(accountId, ContactCardType, JmapContacts, contact)
+	return j.create1(accountId, ContactCardType, contact)
 }

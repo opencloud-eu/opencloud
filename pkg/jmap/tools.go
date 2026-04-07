@@ -202,14 +202,14 @@ func retrieveResponseMatch(data *Response, command Command, tag string) (Invocat
 func retrieveResponseMatchParameters[T any](logger *log.Logger, data *Response, command Command, tag string, target *T) Error {
 	match, ok := retrieveResponseMatch(data, command, tag)
 	if !ok {
-		err := fmt.Errorf("failed to find JMAP response invocation match for command '%v' and tag '%v'", command, tag)
+		err := fmt.Errorf("failed to find JMAP response invocation match for command '%v' and tag '%v'", command, tag) // NOSONAR
 		logger.Error().Msg(err.Error())
 		return jmapError(err, JmapErrorInvalidJmapResponsePayload)
 	}
 	params := match.Parameters
 	typedParams, ok := params.(T)
 	if !ok {
-		err := fmt.Errorf("JMAP response invocation matches command '%v' and tag '%v' but the type %T does not match the expected %T", command, tag, params, *target)
+		err := fmt.Errorf("JMAP response invocation matches command '%v' and tag '%v' but the type %T does not match the expected %T", command, tag, params, *target) // NOSONAR
 		logger.Error().Msg(err.Error())
 		return jmapError(err, JmapErrorInvalidJmapResponsePayload)
 	}
@@ -231,6 +231,22 @@ func tryRetrieveResponseMatchParameters[T any](logger *log.Logger, data *Respons
 	}
 	*target = typedParams
 	return true, nil
+}
+
+func retrieveGet[C GetCommand, T GetResponse](logger *log.Logger, data *Response, command C, tag string, target *T) Error {
+	return retrieveResponseMatchParameters(logger, data, command.GetCommand(), tag, target)
+}
+
+func retrieveSet[C SetCommand, T SetResponse](logger *log.Logger, data *Response, command C, tag string, target *T) Error {
+	return retrieveResponseMatchParameters(logger, data, command.GetCommand(), tag, target)
+}
+
+func retrieveQuery[C QueryCommand, T QueryResponse](logger *log.Logger, data *Response, command C, tag string, target *T) Error {
+	return retrieveResponseMatchParameters(logger, data, command.GetCommand(), tag, target)
+}
+
+func retrieveChanges[C ChangesCommand, T ChangesResponse](logger *log.Logger, data *Response, command C, tag string, target *T) Error {
+	return retrieveResponseMatchParameters(logger, data, command.GetCommand(), tag, target)
 }
 
 func (i *Invocation) MarshalJSON() ([]byte, error) {
@@ -361,6 +377,10 @@ func mapPairs[K comparable, L, R any](left map[K]L, right map[K]R) map[K]pair[L,
 		}
 	}
 	return result
+}
+
+func strPtr(s string) *string {
+	return &s
 }
 
 func intPtr(i int) *int {

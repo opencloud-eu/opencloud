@@ -17,29 +17,29 @@ type MailboxesResponse struct {
 }
 
 func (j *Client) GetMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (MailboxesResponse, SessionState, State, Language, Error) {
-	return getTemplate(j, "GetMailbox", NS_MAILBOX, CommandCalendarGet,
+	return get(j, "GetMailbox", NS_MAILBOX,
 		func(accountId string, ids []string) MailboxGetCommand {
 			return MailboxGetCommand{AccountId: accountId, Ids: ids}
 		},
+		MailboxGetResponse{},
 		func(resp MailboxGetResponse) MailboxesResponse {
 			return MailboxesResponse{
 				Mailboxes: resp.List,
 				NotFound:  resp.NotFound,
 			}
 		},
-		func(resp MailboxGetResponse) State { return resp.State },
 		accountId, session, ctx, logger, acceptLanguage, ids,
 	)
 }
 
 func (j *Client) GetAllMailboxes(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string][]Mailbox, SessionState, State, Language, Error) {
-	return getTemplateN(j, "GetAllMailboxes", NS_MAILBOX, CommandCalendarGet,
+	return getN(j, "GetAllMailboxes", NS_MAILBOX,
 		func(accountId string, ids []string) MailboxGetCommand {
 			return MailboxGetCommand{AccountId: accountId}
 		},
+		MailboxGetResponse{},
 		func(resp MailboxGetResponse) []Mailbox { return resp.List },
 		identity1,
-		func(resp MailboxGetResponse) State { return resp.State },
 		accountIds, session, ctx, logger, acceptLanguage, []string{},
 	)
 }
@@ -51,8 +51,8 @@ func (j *Client) SearchMailboxes(accountIds []string, session *Session, ctx cont
 
 	invocations := make([]Invocation, len(uniqueAccountIds)*2)
 	for i, accountId := range uniqueAccountIds {
-		invocations[i*2+0] = invocation(CommandMailboxQuery, MailboxQueryCommand{AccountId: accountId, Filter: filter}, mcid(accountId, "0"))
-		invocations[i*2+1] = invocation(CommandMailboxGet, MailboxGetRefCommand{
+		invocations[i*2+0] = invocation(MailboxQueryCommand{AccountId: accountId, Filter: filter}, mcid(accountId, "0"))
+		invocations[i*2+1] = invocation(MailboxGetRefCommand{
 			AccountId: accountId,
 			IdsRef: &ResultReference{
 				Name:     CommandMailboxQuery,
@@ -91,7 +91,7 @@ func (j *Client) SearchMailboxIdsPerRole(accountIds []string, session *Session, 
 	invocations := make([]Invocation, len(uniqueAccountIds)*len(roles))
 	for i, accountId := range uniqueAccountIds {
 		for j, role := range roles {
-			invocations[i*len(roles)+j] = invocation(CommandMailboxQuery, MailboxQueryCommand{AccountId: accountId, Filter: MailboxFilterCondition{Role: role}}, mcid(accountId, role))
+			invocations[i*len(roles)+j] = invocation(MailboxQueryCommand{AccountId: accountId, Filter: MailboxFilterCondition{Role: role}}, mcid(accountId, role))
 		}
 	}
 	cmd, err := j.request(session, logger, NS_MAILBOX, invocations...)
@@ -146,11 +146,11 @@ func newMailboxChanges(oldState, newState State, hasMoreChanges bool, created, u
 // Retrieve Mailbox changes since a given state.
 // @apidoc mailboxes,changes
 func (j *Client) GetMailboxChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceState State, maxChanges uint) (MailboxChanges, SessionState, State, Language, Error) {
-	return changesTemplate(j, "GetMailboxChanges", NS_MAILBOX,
-		CommandMailboxChanges, CommandMailboxGet,
+	return changes(j, "GetMailboxChanges", NS_MAILBOX,
 		func() MailboxChangesCommand {
 			return MailboxChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: posUIntPtr(maxChanges)}
 		},
+		MailboxChangesResponse{},
 		func(path string, rof string) MailboxGetRefCommand {
 			return MailboxGetRefCommand{
 				AccountId: accountId,
@@ -161,12 +161,8 @@ func (j *Client) GetMailboxChanges(accountId string, session *Session, ctx conte
 				},
 			}
 		},
-		func(resp MailboxChangesResponse) (State, State, bool, []string) {
-			return resp.OldState, resp.NewState, resp.HasMoreChanges, resp.Destroyed
-		},
 		func(resp MailboxGetResponse) []Mailbox { return resp.List },
 		newMailboxChanges,
-		func(resp MailboxGetResponse) State { return resp.State },
 		session, ctx, logger, acceptLanguage,
 	)
 }
@@ -174,16 +170,14 @@ func (j *Client) GetMailboxChanges(accountId string, session *Session, ctx conte
 // Retrieve Mailbox changes of multiple Accounts.
 // @api:tags email,changes
 func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceStateMap map[string]State, maxChanges uint) (map[string]MailboxChanges, SessionState, State, Language, Error) { //NOSONAR
-	return changesTemplateN(j, "GetMailboxChangesForMultipleAccounts", NS_MAILBOX,
-		accountIds, sinceStateMap, CommandMailboxChanges, CommandMailboxGet,
+	return changesN(j, "GetMailboxChangesForMultipleAccounts", NS_MAILBOX,
+		accountIds, sinceStateMap,
 		func(accountId string, state State) MailboxChangesCommand {
 			return MailboxChangesCommand{AccountId: accountId, SinceState: state, MaxChanges: posUIntPtr(maxChanges)}
 		},
+		MailboxChangesResponse{},
 		func(accountId string, path string, ref string) MailboxGetRefCommand {
 			return MailboxGetRefCommand{AccountId: accountId, IdsRef: &ResultReference{Name: CommandMailboxChanges, Path: path, ResultOf: ref}}
-		},
-		func(resp MailboxChangesResponse) (State, State, bool, []string) {
-			return resp.OldState, resp.NewState, resp.HasMoreChanges, resp.Destroyed
 		},
 		func(resp MailboxGetResponse) []Mailbox { return resp.List },
 		newMailboxChanges,
@@ -206,13 +200,13 @@ func (j *Client) GetMailboxRolesForMultipleAccounts(accountIds []string, session
 
 	invocations := make([]Invocation, n*2)
 	for i, accountId := range uniqueAccountIds {
-		invocations[i*2+0] = invocation(CommandMailboxQuery, MailboxQueryCommand{
+		invocations[i*2+0] = invocation(MailboxQueryCommand{
 			AccountId: accountId,
 			Filter: MailboxFilterCondition{
 				HasAnyRole: &t,
 			},
 		}, mcid(accountId, "0"))
-		invocations[i*2+1] = invocation(CommandMailboxGet, MailboxGetRefCommand{
+		invocations[i*2+1] = invocation(MailboxGetRefCommand{
 			AccountId: accountId,
 			IdsRef: &ResultReference{
 				ResultOf: mcid(accountId, "0"),
@@ -259,7 +253,7 @@ func (j *Client) GetInboxNameForMultipleAccounts(accountIds []string, session *S
 
 	invocations := make([]Invocation, n*2)
 	for i, accountId := range uniqueAccountIds {
-		invocations[i*2+0] = invocation(CommandMailboxQuery, MailboxQueryCommand{
+		invocations[i*2+0] = invocation(MailboxQueryCommand{
 			AccountId: accountId,
 			Filter: MailboxFilterCondition{
 				Role: JmapMailboxRoleInbox,
@@ -299,7 +293,7 @@ func (j *Client) GetInboxNameForMultipleAccounts(accountIds []string, session *S
 
 func (j *Client) UpdateMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, mailboxId string, ifInState string, update MailboxChange) (Mailbox, SessionState, State, Language, Error) { //NOSONAR
 	logger = j.logger("UpdateMailbox", session, logger)
-	cmd, err := j.request(session, logger, NS_MAILBOX, invocation(CommandMailboxSet, MailboxSetCommand{
+	cmd, err := j.request(session, logger, NS_MAILBOX, invocation(MailboxSetCommand{
 		AccountId: accountId,
 		IfInState: ifInState,
 		Update: map[string]PatchObject{
@@ -327,7 +321,7 @@ func (j *Client) UpdateMailbox(accountId string, session *Session, ctx context.C
 
 func (j *Client) CreateMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ifInState string, create MailboxChange) (Mailbox, SessionState, State, Language, Error) {
 	logger = j.logger("CreateMailbox", session, logger)
-	cmd, err := j.request(session, logger, NS_MAILBOX, invocation(CommandMailboxSet, MailboxSetCommand{
+	cmd, err := j.request(session, logger, NS_MAILBOX, invocation(MailboxSetCommand{
 		AccountId: accountId,
 		IfInState: ifInState,
 		Create: map[string]MailboxChange{
@@ -359,7 +353,7 @@ func (j *Client) CreateMailbox(accountId string, session *Session, ctx context.C
 
 func (j *Client) DeleteMailboxes(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ifInState string, mailboxIds []string) ([]string, SessionState, State, Language, Error) {
 	logger = j.logger("DeleteMailbox", session, logger)
-	cmd, err := j.request(session, logger, NS_MAILBOX, invocation(CommandMailboxSet, MailboxSetCommand{
+	cmd, err := j.request(session, logger, NS_MAILBOX, invocation(MailboxSetCommand{
 		AccountId: accountId,
 		IfInState: ifInState,
 		Destroy:   mailboxIds,

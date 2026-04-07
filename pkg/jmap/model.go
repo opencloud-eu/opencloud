@@ -9,7 +9,16 @@ import (
 )
 
 // https://www.iana.org/assignments/jmap/jmap.xml#jmap-data-types
-type ObjectType string
+type ObjectTypeName string
+
+type ObjectType struct {
+	Name       ObjectTypeName
+	Namespaces []JmapNamespace
+}
+
+func (o ObjectType) String() string {
+	return string(o.Name)
+}
 
 // Where `UTCDate` is given as a type, it means a `Date` where the "time-offset"
 // component MUST be `"Z"` (i.e., it must be in UTC time).
@@ -111,29 +120,31 @@ const (
 	JmapTasksAlerts          = JmapNamespace("urn:ietf:params:jmap:tasks:alerts")
 	JmapTasksMultilingual    = JmapNamespace("urn:ietf:params:jmap:tasks:multilingual")
 	JmapTasksCustomTimezones = JmapNamespace("urn:ietf:params:jmap:tasks:customtimezones")
+	JmapFileNode             = JmapNamespace("urn:ietf:params:jmap:filenode")
 
-	CoreType                      = ObjectType("Core")
-	PushSubscriptionType          = ObjectType("PushSubscription")
-	MailboxType                   = ObjectType("Mailbox")
-	ThreadType                    = ObjectType("Thread")
-	EmailType                     = ObjectType("Email")
-	EmailDeliveryType             = ObjectType("EmailDelivery")
-	SearchSnippetType             = ObjectType("SearchSnippet")
-	IdentityType                  = ObjectType("Identity")
-	EmailSubmissionType           = ObjectType("EmailSubmission")
-	VacationResponseType          = ObjectType("VacationResponse")
-	MDNType                       = ObjectType("MDN")
-	QuotaType                     = ObjectType("Quota")
-	SieveScriptType               = ObjectType("SieveScript")
-	PrincipalType                 = ObjectType("PrincipalType")
-	ShareNotificationType         = ObjectType("ShareNotification")
-	AddressBookType               = ObjectType("AddressBook")
-	ContactCardType               = ObjectType("ContactCard")
-	CalendarType                  = ObjectType("Calendar")
-	CalendarEventType             = ObjectType("CalendarEvent")
-	CalendarEventNotificationType = ObjectType("CalendarEventNotification")
-	ParticipantIdentityType       = ObjectType("ParticipantIdentity")
-	FileNodeType                  = ObjectType("FileNode")
+	CoreName                      = ObjectTypeName("Core")
+	BlobName                      = ObjectTypeName("Blob")
+	PushSubscriptionName          = ObjectTypeName("PushSubscription")
+	MailboxName                   = ObjectTypeName("Mailbox")
+	ThreadName                    = ObjectTypeName("Thread")
+	EmailName                     = ObjectTypeName("Email")
+	EmailDeliveryName             = ObjectTypeName("EmailDelivery")
+	SearchSnippetName             = ObjectTypeName("SearchSnippet")
+	IdentityName                  = ObjectTypeName("Identity")
+	EmailSubmissionName           = ObjectTypeName("EmailSubmission")
+	VacationResponseName          = ObjectTypeName("VacationResponse")
+	MDNName                       = ObjectTypeName("MDN")
+	QuotaName                     = ObjectTypeName("Quota")
+	SieveScriptName               = ObjectTypeName("SieveScript")
+	PrincipalName                 = ObjectTypeName("Principal")
+	ShareNotificationName         = ObjectTypeName("ShareNotification")
+	AddressBookName               = ObjectTypeName("AddressBook")
+	ContactCardName               = ObjectTypeName("ContactCard")
+	CalendarName                  = ObjectTypeName("Calendar")
+	CalendarEventName             = ObjectTypeName("CalendarEvent")
+	CalendarEventNotificationName = ObjectTypeName("CalendarEventNotification")
+	ParticipantIdentityName       = ObjectTypeName("ParticipantIdentity")
+	FileNodeName                  = ObjectTypeName("FileNode")
 
 	JmapKeywordPrefix    = "$"
 	JmapKeywordSeen      = "$seen"
@@ -261,6 +272,10 @@ const (
 	IncludeInAvailabilityNone = IncludeInAvailability("none")
 )
 
+func newObjectType(name ObjectTypeName, namespaces ...JmapNamespace) ObjectType {
+	return ObjectType{Name: name, Namespaces: ns(namespaces...)}
+}
+
 var (
 	JmapNamespaces = []JmapNamespace{
 		JmapCore,
@@ -282,7 +297,58 @@ var (
 		JmapTasksAlerts,
 		JmapTasksMultilingual,
 		JmapTasksCustomTimezones,
+		JmapFileNode,
 	}
+
+	ObjectTypeNames = []ObjectTypeName{
+		CoreName,
+		BlobName,
+		PushSubscriptionName,
+		MailboxName,
+		ThreadName,
+		EmailName,
+		EmailDeliveryName,
+		SearchSnippetName,
+		IdentityName,
+		EmailSubmissionName,
+		VacationResponseName,
+		MDNName,
+		QuotaName,
+		SieveScriptName,
+		PrincipalName,
+		ShareNotificationName,
+		AddressBookName,
+		ContactCardName,
+		CalendarName,
+		CalendarEventName,
+		CalendarEventNotificationName,
+		ParticipantIdentityName,
+		FileNodeName,
+	}
+
+	CoreType                      = newObjectType(CoreName)
+	BlobType                      = newObjectType(BlobName, JmapBlob)
+	PushSubscriptionType          = newObjectType(PushSubscriptionName)
+	MailboxType                   = newObjectType(MailboxName, JmapMail)
+	ThreadType                    = newObjectType(ThreadName, JmapMail)
+	EmailType                     = newObjectType(EmailName, JmapMail)
+	EmailDeliveryType             = newObjectType(EmailDeliveryName, JmapMail)
+	SearchSnippetType             = newObjectType(SearchSnippetName, JmapMail)
+	IdentityType                  = newObjectType(IdentityName, JmapMail)
+	EmailSubmissionType           = newObjectType(EmailSubmissionName, JmapMail)
+	VacationResponseType          = newObjectType(VacationResponseName, JmapVacationResponse)
+	MDNType                       = newObjectType(MDNName, JmapMDN)
+	QuotaType                     = newObjectType(QuotaName, JmapQuota)
+	SieveScriptType               = newObjectType(SieveScriptName, JmapSieve)
+	PrincipalType                 = newObjectType(PrincipalName, JmapPrincipals)
+	ShareNotificationType         = newObjectType(ShareNotificationName, JmapPrincipals)
+	AddressBookType               = newObjectType(AddressBookName, JmapContacts)
+	ContactCardType               = newObjectType(ContactCardName, JmapContacts)
+	CalendarType                  = newObjectType(CalendarName, JmapCalendars)
+	CalendarEventType             = newObjectType(CalendarEventName, JmapCalendars)
+	CalendarEventNotificationType = newObjectType(CalendarEventNotificationName, JmapCalendars)
+	ParticipantIdentityType       = newObjectType(ParticipantIdentityName, JmapCalendars)
+	FileNodeType                  = newObjectType(FileNodeName, JmapFileNode)
 
 	ObjectTypes = []ObjectType{
 		CoreType,
@@ -1091,6 +1157,200 @@ type SetError struct {
 	InvalidRecipients []string `json:"invalidRecipients,omitempty"`
 }
 
+type Command string
+
+type Invocation struct {
+	Command    Command
+	Parameters any
+	Tag        string
+}
+
+func invocation(parameters JmapCommand, tag string) Invocation {
+	return Invocation{
+		Command:    parameters.GetCommand(),
+		Parameters: parameters,
+		Tag:        tag,
+	}
+}
+
+type TypeOfRequest string
+
+const RequestType = TypeOfRequest("Request")
+
+type Request struct {
+	// The set of capabilities the client wishes to use.
+	//
+	// The client MAY include capability identifiers even if the method calls it makes do not utilise those capabilities.
+	// The server advertises the set of specifications it supports in the Session object
+	// (see [Section 2](https://jmap.io/spec-core.html#the-jmap-session-resource)), as keys on the capabilities property.
+	Using []JmapNamespace `json:"using"`
+
+	// An array of method calls to process on the server.
+	//
+	// The method calls MUST be processed sequentially, in order.
+	MethodCalls []Invocation `json:"methodCalls"`
+
+	// A map of a (client-specified) creation id to the id the server assigned when a record was successfully created (optional).
+	CreatedIds map[string]string `json:"createdIds,omitempty"`
+
+	// This MUST be the string "Request".
+	// The specification extends the Response object with two additional arguments when used over a WebSocket.
+	Type TypeOfRequest `json:"@type,omitempty"`
+
+	// A client-specified identifier for the request to be echoed back in the response to this request (optional).
+	Id string `json:"id,omitempty"`
+}
+
+type TypeOfResponse string
+
+const ResponseType = TypeOfResponse("Response")
+
+type Response struct {
+	// An array of responses, in the same format as the methodCalls on the Request object.
+	// The output of the methods MUST be added to the methodResponses array in the same order that the methods are processed.
+	MethodResponses []Invocation `json:"methodResponses"`
+
+	// A map of a (client-specified) creation id to the id the server assigned when a record was successfully created.
+	//
+	// Optional; only returned if given in the request.
+	//
+	// This MUST include all creation ids passed in the original createdIds parameter of the Request object, as well as any
+	// additional ones added for newly created records.
+	CreatedIds map[string]string `json:"createdIds,omitempty"`
+
+	// The current value of the “state” string on the Session object, as described in [Section 2](https://jmap.io/spec-core.html#the-jmap-session-resource).
+	// Clients may use this to detect if this object has changed and needs to be refetched.
+	SessionState SessionState `json:"sessionState"`
+
+	// This MUST be the string "Response".
+	// The specification extends the Response object with two additional arguments when used over a WebSocket.
+	Type TypeOfResponse `json:"@type,omitempty"`
+
+	// MUST be returned if an identifier is included in the request (optional).
+	RequestId string `json:"requestId,omitempty"`
+}
+
+// Patch Object.
+//
+// Example:
+//
+//   - moves it from the drafts folder (which has Mailbox id `"7cb4e8ee-df87-4757-b9c4-2ea1ca41b38e"“)
+//     to the sent folder (which we presume has Mailbox id `"73dbcb4b-bffc-48bd-8c2a-a2e91ca672f6"“)
+//   - removes the `$draft` flag
+//
+// ```json
+//
+//	{
+//	  "mailboxIds/7cb4e8ee-df87-4757-b9c4-2ea1ca41b38e": null,
+//	  "mailboxIds/73dbcb4b-bffc-48bd-8c2a-a2e91ca672f6": true,
+//	  "keywords/$draft": null
+//	}
+//
+// ```
+type PatchObject map[string]any
+
+// Reference to Previous Method Results
+//
+// To allow clients to make more efficient use of the network and avoid round trips, an argument to one method
+// can be taken from the result of a previous method call in the same request.
+//
+// To do this, the client prefixes the argument name with # (an [octothorpe](https://en.wiktionary.org/wiki/octothorpe)).
+//
+// When processing a method call, the server MUST first check the arguments object for any names beginning with #.
+//
+// If found, the result reference should be resolved and the value used as the “real” argument.
+//
+// The method is then processed as normal.
+//
+// If any result reference fails to resolve, the whole method MUST be rejected with an invalidResultReference error.
+//
+// If an arguments object contains the same argument name in normal and referenced form (e.g., foo and #foo),
+// the method MUST return an invalidArguments error.
+//
+// To resolve:
+//
+//  1. Find the first response with a method call id identical to the resultOf property of the ResultReference
+//     in the methodResponses array from previously processed method calls in the same request.
+//     If none, evaluation fails.
+//  2. If the response name is not identical to the name property of the ResultReference, evaluation fails.
+//  3. Apply the path to the arguments object of the response (the second item in the response array)
+//     following the JSON Pointer algorithm [RFC6901](https://datatracker.ietf.org/doc/html/rfc6901),
+//     except with the following addition in “Evaluation” (see Section 4):
+//  4. If the currently referenced value is a JSON array, the reference token may be exactly the single character *,
+//     making the new referenced value the result of applying the rest of the JSON Pointer tokens to every item in the
+//     array and returning the results in the same order in a new array.
+//  5. If the result of applying the rest of the pointer tokens to each item was itself an array, the contents of this
+//     array are added to the output rather than the array itself (i.e., the result is flattened from an array of
+//     arrays to a single array).
+type ResultReference struct {
+	// The method call id of a previous method call in the current request.
+	ResultOf string `json:"resultOf"`
+
+	// The required name of a response to that method call.
+	Name Command `json:"name"`
+
+	// A pointer into the arguments of the response selected via the name and resultOf properties.
+	//
+	// This is a JSON Pointer [RFC6901](https://datatracker.ietf.org/doc/html/rfc6901), except it also allows
+	// the use of * to map through an array.
+	Path string `json:"path,omitempty"`
+}
+
+type JmapCommand interface {
+	GetCommand() Command
+	GetObjectType() ObjectType
+}
+
+type GetCommand interface {
+	JmapCommand
+	GetResponse() GetResponse
+}
+
+type GetResponse interface {
+	GetState() State
+	GetNotFound() []string
+}
+
+type SetCommand interface {
+	JmapCommand
+	GetResponse() SetResponse
+}
+
+type SetResponse interface {
+	GetNotCreated() map[string]SetError
+	GetNotUpdated() map[string]SetError
+	GetNotDestroyed() map[string]SetError
+	GetOldState() State
+	GetNewState() State
+}
+
+type Change interface {
+	AsPatch() PatchObject
+}
+
+type ChangesCommand interface {
+	JmapCommand
+	GetResponse() ChangesResponse
+}
+
+type ChangesResponse interface {
+	GetOldState() State
+	GetNewState() State
+	GetHasMoreChanges() bool
+	GetCreated() []string
+	GetUpdated() []string
+	GetDestroyed() []string
+}
+
+type QueryCommand interface {
+	JmapCommand
+	GetResponse() QueryResponse
+}
+
+type QueryResponse interface {
+	GetQueryState() State
+}
+
 type FilterOperatorTerm string
 
 const (
@@ -1308,6 +1568,8 @@ type MailboxChange struct {
 	IsSubscribed *bool `json:"isSubscribed,omitempty"`
 }
 
+var _ Change = MailboxChange{}
+
 func (m MailboxChange) AsPatch() PatchObject {
 	p := PatchObject{}
 	if m.Name != "" {
@@ -1333,10 +1595,22 @@ type MailboxGetCommand struct {
 	Ids       []string `json:"ids,omitempty"`
 }
 
+var _ GetCommand = &MailboxGetCommand{}
+
+func (c MailboxGetCommand) GetCommand() Command       { return CommandMailboxGet }
+func (c MailboxGetCommand) GetObjectType() ObjectType { return MailboxType }
+func (c MailboxGetCommand) GetResponse() GetResponse  { return MailboxGetResponse{} }
+
 type MailboxGetRefCommand struct {
 	AccountId string           `json:"accountId"`
 	IdsRef    *ResultReference `json:"#ids,omitempty"`
 }
+
+var _ GetCommand = &MailboxGetRefCommand{}
+
+func (c MailboxGetRefCommand) GetCommand() Command       { return CommandMailboxGet }
+func (c MailboxGetRefCommand) GetObjectType() ObjectType { return MailboxType }
+func (c MailboxGetRefCommand) GetResponse() GetResponse  { return MailboxGetResponse{} }
 
 type MailboxSetCommand struct {
 	AccountId string                   `json:"accountId"`
@@ -1345,6 +1619,12 @@ type MailboxSetCommand struct {
 	Update    map[string]PatchObject   `json:"update,omitempty"`
 	Destroy   []string                 `json:"destroy,omitempty"`
 }
+
+var _ SetCommand = &MailboxSetCommand{}
+
+func (c MailboxSetCommand) GetCommand() Command       { return CommandMailboxSet }
+func (c MailboxSetCommand) GetObjectType() ObjectType { return MailboxType }
+func (c MailboxSetCommand) GetResponse() SetResponse  { return MailboxSetResponse{} }
 
 type MailboxSetResponse struct {
 	AccountId    string              `json:"accountId"`
@@ -1357,6 +1637,14 @@ type MailboxSetResponse struct {
 	NotUpdated   map[string]SetError `json:"notUpdated,omitempty"`
 	NotDestroyed map[string]SetError `json:"notDestroyed,omitempty"`
 }
+
+var _ SetResponse = &MailboxSetResponse{}
+
+func (r MailboxSetResponse) GetOldState() State                   { return r.OldState }
+func (r MailboxSetResponse) GetNewState() State                   { return r.NewState }
+func (r MailboxSetResponse) GetNotCreated() map[string]SetError   { return r.NotCreated }
+func (r MailboxSetResponse) GetNotUpdated() map[string]SetError   { return r.NotUpdated }
+func (r MailboxSetResponse) GetNotDestroyed() map[string]SetError { return r.NotDestroyed }
 
 type MailboxFilterElement interface {
 	_isAMailboxFilterElement() // marker method
@@ -1401,6 +1689,12 @@ type MailboxQueryCommand struct {
 	SortAsTree   bool                 `json:"sortAsTree,omitempty"`
 	FilterAsTree bool                 `json:"filterAsTree,omitempty"`
 }
+
+var _ QueryCommand = &MailboxQueryCommand{}
+
+func (c MailboxQueryCommand) GetCommand() Command        { return CommandMailboxQuery }
+func (c MailboxQueryCommand) GetObjectType() ObjectType  { return MailboxType }
+func (c MailboxQueryCommand) GetResponse() QueryResponse { return MailboxQueryResponse{} }
 
 type EmailFilterElement interface {
 	_isAnEmailFilterElement() // marker method
@@ -1692,6 +1986,12 @@ type EmailQueryCommand struct {
 	CalculateTotal bool `json:"calculateTotal,omitempty"`
 }
 
+var _ QueryCommand = &EmailQueryCommand{}
+
+func (c EmailQueryCommand) GetCommand() Command        { return CommandEmailQuery }
+func (c EmailQueryCommand) GetObjectType() ObjectType  { return MailboxType }
+func (c EmailQueryCommand) GetResponse() QueryResponse { return EmailQueryResponse{} }
+
 type EmailGetCommand struct {
 	// The ids of the Email objects to return.
 	//
@@ -1752,52 +2052,11 @@ type EmailGetCommand struct {
 	MaxBodyValueBytes uint `json:"maxBodyValueBytes,omitempty"`
 }
 
-// Reference to Previous Method Results
-//
-// To allow clients to make more efficient use of the network and avoid round trips, an argument to one method
-// can be taken from the result of a previous method call in the same request.
-//
-// To do this, the client prefixes the argument name with # (an [octothorpe](https://en.wiktionary.org/wiki/octothorpe)).
-//
-// When processing a method call, the server MUST first check the arguments object for any names beginning with #.
-//
-// If found, the result reference should be resolved and the value used as the “real” argument.
-//
-// The method is then processed as normal.
-//
-// If any result reference fails to resolve, the whole method MUST be rejected with an invalidResultReference error.
-//
-// If an arguments object contains the same argument name in normal and referenced form (e.g., foo and #foo),
-// the method MUST return an invalidArguments error.
-//
-// To resolve:
-//
-//  1. Find the first response with a method call id identical to the resultOf property of the ResultReference
-//     in the methodResponses array from previously processed method calls in the same request.
-//     If none, evaluation fails.
-//  2. If the response name is not identical to the name property of the ResultReference, evaluation fails.
-//  3. Apply the path to the arguments object of the response (the second item in the response array)
-//     following the JSON Pointer algorithm [RFC6901](https://datatracker.ietf.org/doc/html/rfc6901),
-//     except with the following addition in “Evaluation” (see Section 4):
-//  4. If the currently referenced value is a JSON array, the reference token may be exactly the single character *,
-//     making the new referenced value the result of applying the rest of the JSON Pointer tokens to every item in the
-//     array and returning the results in the same order in a new array.
-//  5. If the result of applying the rest of the pointer tokens to each item was itself an array, the contents of this
-//     array are added to the output rather than the array itself (i.e., the result is flattened from an array of
-//     arrays to a single array).
-type ResultReference struct {
-	// The method call id of a previous method call in the current request.
-	ResultOf string `json:"resultOf"`
+var _ GetCommand = &EmailGetCommand{}
 
-	// The required name of a response to that method call.
-	Name Command `json:"name"`
-
-	// A pointer into the arguments of the response selected via the name and resultOf properties.
-	//
-	// This is a JSON Pointer [RFC6901](https://datatracker.ietf.org/doc/html/rfc6901), except it also allows
-	// the use of * to map through an array.
-	Path string `json:"path,omitempty"`
-}
+func (c EmailGetCommand) GetCommand() Command       { return CommandEmailGet }
+func (c EmailGetCommand) GetObjectType() ObjectType { return EmailType }
+func (c EmailGetCommand) GetResponse() GetResponse  { return EmailGetResponse{} }
 
 type EmailGetRefCommand struct {
 	// The ids of the Email objects to return.
@@ -1855,6 +2114,12 @@ type EmailGetRefCommand struct {
 	MaxBodyValueBytes uint `json:"maxBodyValueBytes,omitempty"`
 }
 
+var _ GetCommand = &EmailGetRefCommand{}
+
+func (c EmailGetRefCommand) GetCommand() Command       { return CommandEmailGet }
+func (c EmailGetRefCommand) GetObjectType() ObjectType { return EmailType }
+func (c EmailGetRefCommand) GetResponse() GetResponse  { return EmailGetResponse{} }
+
 type EmailChangesCommand struct {
 	// The id of the account to use.
 	AccountId string `json:"accountId"`
@@ -1872,6 +2137,12 @@ type EmailChangesCommand struct {
 	// If supplied by the client, the value MUST be a positive integer greater than 0.
 	MaxChanges *uint `json:"maxChanges,omitempty"`
 }
+
+var _ ChangesCommand = &EmailChangesCommand{}
+
+func (c EmailChangesCommand) GetCommand() Command          { return CommandEmailChanges }
+func (c EmailChangesCommand) GetObjectType() ObjectType    { return EmailType }
+func (c EmailChangesCommand) GetResponse() ChangesResponse { return EmailChangesResponse{} }
 
 type EmailAddress struct {
 	// The display-name of the mailbox [RFC5322](https://www.rfc-editor.org/rfc/rfc5322.html).
@@ -2483,6 +2754,12 @@ type EmailSubmissionGetCommand struct {
 	Properties []string `json:"properties,omitempty"`
 }
 
+var _ GetCommand = &EmailSubmissionGetCommand{}
+
+func (c EmailSubmissionGetCommand) GetCommand() Command       { return CommandEmailSubmissionGet }
+func (c EmailSubmissionGetCommand) GetObjectType() ObjectType { return EmailSubmissionType }
+func (c EmailSubmissionGetCommand) GetResponse() GetResponse  { return EmailSubmissionGetResponse{} }
+
 type EmailSubmissionGetRefCommand struct {
 	// The id of the account to use.
 	AccountId string `json:"accountId"`
@@ -2500,6 +2777,12 @@ type EmailSubmissionGetRefCommand struct {
 	// with an invalidArguments error.
 	Properties []string `json:"properties,omitempty"`
 }
+
+var _ GetCommand = &EmailSubmissionGetRefCommand{}
+
+func (c EmailSubmissionGetRefCommand) GetCommand() Command       { return CommandEmailSubmissionGet }
+func (c EmailSubmissionGetRefCommand) GetObjectType() ObjectType { return EmailSubmissionType }
+func (c EmailSubmissionGetRefCommand) GetResponse() GetResponse  { return EmailSubmissionGetResponse{} }
 
 type EmailSubmissionGetResponse struct {
 	// The id of the account used for the call.
@@ -2533,6 +2816,11 @@ type EmailSubmissionGetResponse struct {
 	NotFound []string `json:"notFound,omitempty"`
 }
 
+var _ GetResponse = &EmailSubmissionGetResponse{}
+
+func (r EmailSubmissionGetResponse) GetState() State       { return r.State }
+func (r EmailSubmissionGetResponse) GetNotFound() []string { return r.NotFound }
+
 type EmailSubmissionChangesCommand struct {
 	// The id of the account to use.
 	AccountId string `json:"accountId"`
@@ -2554,6 +2842,14 @@ type EmailSubmissionChangesCommand struct {
 	//
 	// If a value outside of this range is given, the server MUST reject the call with an invalidArguments error.
 	MaxChanges *uint `json:"maxChanges,omitzero"`
+}
+
+var _ ChangesCommand = &EmailSubmissionChangesCommand{}
+
+func (c EmailSubmissionChangesCommand) GetCommand() Command       { return CommandEmailSubmissionChanges }
+func (c EmailSubmissionChangesCommand) GetObjectType() ObjectType { return EmailSubmissionType }
+func (c EmailSubmissionChangesCommand) GetResponse() ChangesResponse {
+	return EmailSubmissionChangesResponse{}
 }
 
 type EmailSubmissionChangesResponse struct {
@@ -2581,24 +2877,14 @@ type EmailSubmissionChangesResponse struct {
 	Destroyed []string `json:"destroyed,omitempty"`
 }
 
-// Patch Object.
-//
-// Example:
-//
-//   - moves it from the drafts folder (which has Mailbox id `"7cb4e8ee-df87-4757-b9c4-2ea1ca41b38e"“)
-//     to the sent folder (which we presume has Mailbox id `"73dbcb4b-bffc-48bd-8c2a-a2e91ca672f6"“)
-//   - removes the `$draft` flag
-//
-// ```json
-//
-//	{
-//	  "mailboxIds/7cb4e8ee-df87-4757-b9c4-2ea1ca41b38e": null,
-//	  "mailboxIds/73dbcb4b-bffc-48bd-8c2a-a2e91ca672f6": true,
-//	  "keywords/$draft": null
-//	}
-//
-// ```
-type PatchObject map[string]any
+var _ ChangesResponse = &EmailSubmissionChangesResponse{}
+
+func (r EmailSubmissionChangesResponse) GetOldState() State      { return r.OldState }
+func (r EmailSubmissionChangesResponse) GetNewState() State      { return r.NewState }
+func (r EmailSubmissionChangesResponse) GetHasMoreChanges() bool { return r.HasMoreChanges }
+func (r EmailSubmissionChangesResponse) GetCreated() []string    { return r.Created }
+func (r EmailSubmissionChangesResponse) GetUpdated() []string    { return r.Updated }
+func (r EmailSubmissionChangesResponse) GetDestroyed() []string  { return r.Destroyed }
 
 // same as EmailSubmission but without the server-set attributes
 type EmailSubmissionCreate struct {
@@ -2636,6 +2922,12 @@ type EmailSubmissionSetCommand struct {
 	OnSuccessDestroyEmail []string `json:"onSuccessDestroyEmail,omitempty"`
 }
 
+var _ SetCommand = &EmailSubmissionSetCommand{}
+
+func (c EmailSubmissionSetCommand) GetCommand() Command       { return CommandEmailSubmissionSet }
+func (c EmailSubmissionSetCommand) GetObjectType() ObjectType { return EmailSubmissionType }
+func (c EmailSubmissionSetCommand) GetResponse() SetResponse  { return EmailSubmissionSetResponse{} }
+
 type CreatedEmailSubmission struct {
 	Id string `json:"id"`
 }
@@ -2663,81 +2955,17 @@ type EmailSubmissionSetResponse struct {
 	// null if all successful.
 	NotCreated map[string]SetError `json:"notCreated,omitempty"`
 
-	// TODO(pbleser-oc) add updated and destroyed when they are needed
+	NotUpdated   map[string]SetError `json:"notUpdated,omitempty"`
+	NotDestroyed map[string]SetError `json:"notDestroyed,omitempty"`
 }
 
-type Command string
+var _ SetResponse = &EmailSubmissionSetResponse{}
 
-type Invocation struct {
-	Command    Command
-	Parameters any
-	Tag        string
-}
-
-func invocation(command Command, parameters any, tag string) Invocation {
-	return Invocation{
-		Command:    command,
-		Parameters: parameters,
-		Tag:        tag,
-	}
-}
-
-type TypeOfRequest string
-
-const RequestType = TypeOfRequest("Request")
-
-type Request struct {
-	// The set of capabilities the client wishes to use.
-	//
-	// The client MAY include capability identifiers even if the method calls it makes do not utilise those capabilities.
-	// The server advertises the set of specifications it supports in the Session object
-	// (see [Section 2](https://jmap.io/spec-core.html#the-jmap-session-resource)), as keys on the capabilities property.
-	Using []JmapNamespace `json:"using"`
-
-	// An array of method calls to process on the server.
-	//
-	// The method calls MUST be processed sequentially, in order.
-	MethodCalls []Invocation `json:"methodCalls"`
-
-	// A map of a (client-specified) creation id to the id the server assigned when a record was successfully created (optional).
-	CreatedIds map[string]string `json:"createdIds,omitempty"`
-
-	// This MUST be the string "Request".
-	// The specification extends the Response object with two additional arguments when used over a WebSocket.
-	Type TypeOfRequest `json:"@type,omitempty"`
-
-	// A client-specified identifier for the request to be echoed back in the response to this request (optional).
-	Id string `json:"id,omitempty"`
-}
-
-type TypeOfResponse string
-
-const ResponseType = TypeOfResponse("Response")
-
-type Response struct {
-	// An array of responses, in the same format as the methodCalls on the Request object.
-	// The output of the methods MUST be added to the methodResponses array in the same order that the methods are processed.
-	MethodResponses []Invocation `json:"methodResponses"`
-
-	// A map of a (client-specified) creation id to the id the server assigned when a record was successfully created.
-	//
-	// Optional; only returned if given in the request.
-	//
-	// This MUST include all creation ids passed in the original createdIds parameter of the Request object, as well as any
-	// additional ones added for newly created records.
-	CreatedIds map[string]string `json:"createdIds,omitempty"`
-
-	// The current value of the “state” string on the Session object, as described in [Section 2](https://jmap.io/spec-core.html#the-jmap-session-resource).
-	// Clients may use this to detect if this object has changed and needs to be refetched.
-	SessionState SessionState `json:"sessionState"`
-
-	// This MUST be the string "Response".
-	// The specification extends the Response object with two additional arguments when used over a WebSocket.
-	Type TypeOfResponse `json:"@type,omitempty"`
-
-	// MUST be returned if an identifier is included in the request (optional).
-	RequestId string `json:"requestId,omitempty"`
-}
+func (r EmailSubmissionSetResponse) GetOldState() State                   { return r.OldState }
+func (r EmailSubmissionSetResponse) GetNewState() State                   { return r.NewState }
+func (r EmailSubmissionSetResponse) GetNotCreated() map[string]SetError   { return r.NotCreated }
+func (r EmailSubmissionSetResponse) GetNotUpdated() map[string]SetError   { return r.NotUpdated }
+func (r EmailSubmissionSetResponse) GetNotDestroyed() map[string]SetError { return r.NotDestroyed }
 
 type EmailQueryResponse struct {
 	// The id of the account used for the call.
@@ -2789,6 +3017,10 @@ type EmailQueryResponse struct {
 	Limit uint `json:"limit,omitempty,omitzero"`
 }
 
+var _ QueryResponse = &EmailQueryResponse{}
+
+func (r EmailQueryResponse) GetQueryState() State { return r.QueryState }
+
 type EmailGetResponse struct {
 	// The id of the account used for the call.
 	AccountId string `json:"accountId"`
@@ -2816,6 +3048,11 @@ type EmailGetResponse struct {
 	NotFound []string `json:"notFound"`
 }
 
+var _ GetResponse = &EmailGetResponse{}
+
+func (r EmailGetResponse) GetState() State       { return r.State }
+func (r EmailGetResponse) GetNotFound() []string { return r.NotFound }
+
 type EmailChangesResponse struct {
 	// The id of the account used for the call.
 	AccountId string `json:"accountId"`
@@ -2839,6 +3076,15 @@ type EmailChangesResponse struct {
 	// An array of ids for records that have been destroyed since the old state.
 	Destroyed []string `json:"destroyed,omitempty"`
 }
+
+var _ ChangesResponse = &EmailChangesResponse{}
+
+func (r EmailChangesResponse) GetOldState() State      { return r.OldState }
+func (r EmailChangesResponse) GetNewState() State      { return r.NewState }
+func (r EmailChangesResponse) GetHasMoreChanges() bool { return r.HasMoreChanges }
+func (r EmailChangesResponse) GetCreated() []string    { return r.Created }
+func (r EmailChangesResponse) GetUpdated() []string    { return r.Updated }
+func (r EmailChangesResponse) GetDestroyed() []string  { return r.Destroyed }
 
 type MailboxGetResponse struct {
 	// The id of the account used for the call.
@@ -2864,6 +3110,11 @@ type MailboxGetResponse struct {
 	NotFound []string `json:"notFound"`
 }
 
+var _ GetResponse = &MailboxGetResponse{}
+
+func (r MailboxGetResponse) GetState() State       { return r.State }
+func (r MailboxGetResponse) GetNotFound() []string { return r.NotFound }
+
 type MailboxChangesCommand struct {
 	// The id of the account to use.
 	AccountId string `json:"accountId"`
@@ -2886,6 +3137,12 @@ type MailboxChangesCommand struct {
 	// If a value outside of this range is given, the server MUST reject the call with an invalidArguments error.
 	MaxChanges *uint `json:"maxChanges,omitzero"`
 }
+
+var _ ChangesCommand = &MailboxChangesCommand{}
+
+func (c MailboxChangesCommand) GetCommand() Command          { return CommandMailboxChanges }
+func (c MailboxChangesCommand) GetObjectType() ObjectType    { return MailboxType }
+func (c MailboxChangesCommand) GetResponse() ChangesResponse { return MailboxChangesResponse{} }
 
 type MailboxChangesResponse struct {
 	// The id of the account used for the call.
@@ -2917,6 +3174,15 @@ type MailboxChangesResponse struct {
 	// If the server is unable to tell if only counts have changed, it MUST just be null.
 	UpdatedProperties []string `json:"updatedProperties,omitempty"`
 }
+
+var _ ChangesResponse = &MailboxChangesResponse{}
+
+func (r MailboxChangesResponse) GetOldState() State      { return r.OldState }
+func (r MailboxChangesResponse) GetNewState() State      { return r.NewState }
+func (r MailboxChangesResponse) GetHasMoreChanges() bool { return r.HasMoreChanges }
+func (r MailboxChangesResponse) GetCreated() []string    { return r.Created }
+func (r MailboxChangesResponse) GetUpdated() []string    { return r.Updated }
+func (r MailboxChangesResponse) GetDestroyed() []string  { return r.Destroyed }
 
 type MailboxQueryResponse struct {
 	// The id of the account used for the call.
@@ -2964,6 +3230,10 @@ type MailboxQueryResponse struct {
 	// This is only returned if the server set a limit or used a different limit than that given in the request.
 	Limit int `json:"limit,omitzero"`
 }
+
+var _ QueryResponse = &MailboxQueryResponse{}
+
+func (r MailboxQueryResponse) GetQueryState() State { return r.QueryState }
 
 type EmailCreate struct {
 	// The set of Mailbox ids this Email belongs to.
@@ -3122,6 +3392,12 @@ type EmailSetCommand struct {
 	Destroy []string `json:"destroy,omitempty"`
 }
 
+var _ SetCommand = &EmailSetCommand{}
+
+func (c EmailSetCommand) GetCommand() Command       { return CommandEmailSet }
+func (c EmailSetCommand) GetObjectType() ObjectType { return EmailType }
+func (c EmailSetCommand) GetResponse() SetResponse  { return EmailSubmissionSetResponse{} }
+
 type EmailSetResponse struct {
 	// The id of the account used for the call.
 	AccountId string `json:"accountId"`
@@ -3168,6 +3444,14 @@ type EmailSetResponse struct {
 	// or null if all successful.
 	NotDestroyed map[string]SetError `json:"notDestroyed,omitempty"`
 }
+
+var _ SetResponse = &EmailSetResponse{}
+
+func (r EmailSetResponse) GetOldState() State                   { return r.OldState }
+func (r EmailSetResponse) GetNewState() State                   { return r.NewState }
+func (r EmailSetResponse) GetNotCreated() map[string]SetError   { return r.NotCreated }
+func (r EmailSetResponse) GetNotUpdated() map[string]SetError   { return r.NotUpdated }
+func (r EmailSetResponse) GetNotDestroyed() map[string]SetError { return r.NotDestroyed }
 
 const (
 	EmailMimeType = "message/rfc822"
@@ -3264,28 +3548,57 @@ type ThreadGetCommand struct {
 	Ids       []string `json:"ids,omitempty"`
 }
 
+var _ GetCommand = &ThreadGetCommand{}
+
+func (c ThreadGetCommand) GetCommand() Command       { return CommandThreadGet }
+func (c ThreadGetCommand) GetObjectType() ObjectType { return ThreadType }
+func (c ThreadGetCommand) GetResponse() GetResponse  { return ThreadGetResponse{} }
+
 type ThreadGetRefCommand struct {
 	AccountId string           `json:"accountId"`
 	IdsRef    *ResultReference `json:"#ids,omitempty"`
 }
 
+var _ GetCommand = &ThreadGetRefCommand{}
+
+func (c ThreadGetRefCommand) GetCommand() Command       { return CommandThreadGet }
+func (c ThreadGetRefCommand) GetObjectType() ObjectType { return ThreadType }
+func (c ThreadGetRefCommand) GetResponse() GetResponse  { return ThreadGetResponse{} }
+
 type ThreadGetResponse struct {
 	AccountId string
 	State     State
 	List      []Thread
-	NotFound  []any
+	NotFound  []string
 }
+
+var _ GetResponse = &ThreadGetResponse{}
+
+func (r ThreadGetResponse) GetState() State       { return r.State }
+func (r ThreadGetResponse) GetNotFound() []string { return r.NotFound }
 
 type IdentityGetCommand struct {
 	AccountId string   `json:"accountId"`
 	Ids       []string `json:"ids,omitempty"`
 }
 
+var _ GetCommand = &IdentityGetCommand{}
+
+func (c IdentityGetCommand) GetCommand() Command       { return CommandIdentityGet }
+func (c IdentityGetCommand) GetObjectType() ObjectType { return IdentityType }
+func (c IdentityGetCommand) GetResponse() GetResponse  { return IdentityGetResponse{} }
+
 type IdentityGetRefCommand struct {
 	AccountId     string           `json:"accountId"`
 	IdsRef        *ResultReference `json:"#ids,omitempty"`
 	PropertiesRef *ResultReference `json:"#properties,omitempty"`
 }
+
+var _ GetCommand = &IdentityGetRefCommand{}
+
+func (c IdentityGetRefCommand) GetCommand() Command       { return CommandIdentityGet }
+func (c IdentityGetRefCommand) GetObjectType() ObjectType { return IdentityType }
+func (c IdentityGetRefCommand) GetResponse() GetResponse  { return IdentityGetResponse{} }
 
 type IdentityChangesCommand struct {
 	// The id of the account to use.
@@ -3309,6 +3622,12 @@ type IdentityChangesCommand struct {
 	// If a value outside of this range is given, the server MUST reject the call with an invalidArguments error.
 	MaxChanges *uint `json:"maxChanges,omitzero"`
 }
+
+var _ ChangesCommand = &IdentityChangesCommand{}
+
+func (c IdentityChangesCommand) GetCommand() Command          { return CommandIdentityChanges }
+func (c IdentityChangesCommand) GetObjectType() ObjectType    { return IdentityType }
+func (c IdentityChangesCommand) GetResponse() ChangesResponse { return IdentityChangesResponse{} }
 
 type IdentityChangesResponse struct {
 	// The id of the account used for the call.
@@ -3335,6 +3654,15 @@ type IdentityChangesResponse struct {
 	Destroyed []string `json:"destroyed,omitempty"`
 }
 
+var _ ChangesResponse = &IdentityChangesResponse{}
+
+func (r IdentityChangesResponse) GetOldState() State      { return r.OldState }
+func (r IdentityChangesResponse) GetNewState() State      { return r.NewState }
+func (r IdentityChangesResponse) GetHasMoreChanges() bool { return r.HasMoreChanges }
+func (r IdentityChangesResponse) GetCreated() []string    { return r.Created }
+func (r IdentityChangesResponse) GetUpdated() []string    { return r.Updated }
+func (r IdentityChangesResponse) GetDestroyed() []string  { return r.Destroyed }
+
 type IdentitySetCommand struct {
 	AccountId string                 `json:"accountId"`
 	IfInState string                 `json:"ifInState,omitempty"`
@@ -3342,6 +3670,12 @@ type IdentitySetCommand struct {
 	Update    map[string]PatchObject `json:"update,omitempty"`
 	Destroy   []string               `json:"destroy,omitempty"`
 }
+
+var _ SetCommand = &IdentitySetCommand{}
+
+func (c IdentitySetCommand) GetCommand() Command       { return CommandIdentitySet }
+func (c IdentitySetCommand) GetObjectType() ObjectType { return IdentityType }
+func (c IdentitySetCommand) GetResponse() SetResponse  { return IdentitySetResponse{} }
 
 type IdentitySetResponse struct {
 	AccountId    string              `json:"accountId"`
@@ -3354,6 +3688,14 @@ type IdentitySetResponse struct {
 	NotUpdated   map[string]SetError `json:"notUpdated,omitempty"`
 	NotDestroyed map[string]SetError `json:"notDestroyed,omitempty"`
 }
+
+var _ SetResponse = &IdentitySetResponse{}
+
+func (r IdentitySetResponse) GetOldState() State                   { return r.OldState }
+func (r IdentitySetResponse) GetNewState() State                   { return r.NewState }
+func (r IdentitySetResponse) GetNotCreated() map[string]SetError   { return r.NotCreated }
+func (r IdentitySetResponse) GetNotUpdated() map[string]SetError   { return r.NotUpdated }
+func (r IdentitySetResponse) GetNotDestroyed() map[string]SetError { return r.NotDestroyed }
 
 // An Identity object stores information about an email address or domain the user may send from.
 type Identity struct {
@@ -3399,6 +3741,8 @@ type Identity struct {
 	MayDelete bool `json:"mayDelete,omitzero"`
 }
 
+var _ Change = Identity{}
+
 func (i Identity) AsPatch() PatchObject {
 	p := PatchObject{}
 	if i.Name != "" {
@@ -3429,9 +3773,20 @@ type IdentityGetResponse struct {
 	NotFound  []string   `json:"notFound,omitempty"`
 }
 
+var _ GetResponse = &IdentityGetResponse{}
+
+func (r IdentityGetResponse) GetState() State       { return r.State }
+func (r IdentityGetResponse) GetNotFound() []string { return r.NotFound }
+
 type VacationResponseGetCommand struct {
 	AccountId string `json:"accountId"`
 }
+
+var _ GetCommand = &VacationResponseGetCommand{}
+
+func (c VacationResponseGetCommand) GetCommand() Command       { return CommandVacationResponseGet }
+func (c VacationResponseGetCommand) GetObjectType() ObjectType { return VacationResponseType }
+func (c VacationResponseGetCommand) GetResponse() GetResponse  { return VacationResponseGetResponse{} }
 
 // Vacation Response
 //
@@ -3491,8 +3846,13 @@ type VacationResponseGetResponse struct {
 	List []VacationResponse `json:"list,omitempty"`
 
 	// Contains identifiers of requested objects that were not found.
-	NotFound []any `json:"notFound,omitempty"`
+	NotFound []string `json:"notFound,omitempty"`
 }
+
+var _ GetResponse = &VacationResponseGetResponse{}
+
+func (r VacationResponseGetResponse) GetState() State       { return r.State }
+func (r VacationResponseGetResponse) GetNotFound() []string { return r.NotFound }
 
 type VacationResponseSetCommand struct {
 	AccountId string                      `json:"accountId"`
@@ -3501,6 +3861,12 @@ type VacationResponseSetCommand struct {
 	Update    map[string]PatchObject      `json:"update,omitempty"`
 	Destroy   []string                    `json:"destroy,omitempty"`
 }
+
+var _ SetCommand = &VacationResponseSetCommand{}
+
+func (c VacationResponseSetCommand) GetCommand() Command       { return CommandVacationResponseSet }
+func (c VacationResponseSetCommand) GetObjectType() ObjectType { return VacationResponseType }
+func (c VacationResponseSetCommand) GetResponse() SetResponse  { return VacationResponseSetResponse{} }
 
 type VacationResponseSetResponse struct {
 	AccountId    string                      `json:"accountId"`
@@ -3513,6 +3879,14 @@ type VacationResponseSetResponse struct {
 	NotUpdated   map[string]SetError         `json:"notUpdated,omitempty"`
 	NotDestroyed map[string]SetError         `json:"notDestroyed,omitempty"`
 }
+
+var _ SetResponse = &VacationResponseSetResponse{}
+
+func (r VacationResponseSetResponse) GetOldState() State                   { return r.OldState }
+func (r VacationResponseSetResponse) GetNewState() State                   { return r.NewState }
+func (r VacationResponseSetResponse) GetNotCreated() map[string]SetError   { return r.NotCreated }
+func (r VacationResponseSetResponse) GetNotUpdated() map[string]SetError   { return r.NotUpdated }
+func (r VacationResponseSetResponse) GetNotDestroyed() map[string]SetError { return r.NotDestroyed }
 
 // One of these attributes must be set, but not both.
 type DataSourceObject struct {
@@ -3529,6 +3903,11 @@ type BlobUploadCommand struct {
 	AccountId string                  `json:"accountId"`
 	Create    map[string]UploadObject `json:"create"`
 }
+
+var _ JmapCommand = &BlobUploadCommand{}
+
+func (c BlobUploadCommand) GetCommand() Command       { return CommandBlobUpload }
+func (c BlobUploadCommand) GetObjectType() ObjectType { return BlobType }
 
 type BlobUploadCreateResult struct {
 	Id   string `json:"id"`
@@ -3561,6 +3940,12 @@ type BlobGetCommand struct {
 	Length     int      `json:"length,omitzero"`
 }
 
+var _ GetCommand = &BlobGetCommand{}
+
+func (c BlobGetCommand) GetCommand() Command       { return CommandBlobGet }
+func (c BlobGetCommand) GetObjectType() ObjectType { return BlobType }
+func (c BlobGetCommand) GetResponse() GetResponse  { return BlobGetResponse{} }
+
 type BlobGetRefCommand struct {
 	AccountId  string           `json:"accountId"`
 	IdRef      *ResultReference `json:"#ids,omitempty"`
@@ -3568,6 +3953,12 @@ type BlobGetRefCommand struct {
 	Offset     int              `json:"offset,omitzero"`
 	Length     int              `json:"length,omitzero"`
 }
+
+var _ GetCommand = &BlobGetRefCommand{}
+
+func (c BlobGetRefCommand) GetCommand() Command       { return CommandBlobGet }
+func (c BlobGetRefCommand) GetObjectType() ObjectType { return BlobType }
+func (c BlobGetRefCommand) GetResponse() GetResponse  { return BlobGetResponse{} }
 
 type Blob struct {
 	// The unique identifier of the blob.
@@ -3646,8 +4037,13 @@ type BlobGetResponse struct {
 	//
 	// The array is empty if all requested ids were found or if the ids argument passed
 	// in was either null or an empty array.
-	NotFound []any `json:"notFound,omitempty"`
+	NotFound []string `json:"notFound,omitempty"`
 }
+
+var _ GetResponse = &BlobGetResponse{}
+
+func (r BlobGetResponse) GetState() State       { return r.State }
+func (r BlobGetResponse) GetNotFound() []string { return r.NotFound }
 
 type BlobDownload struct {
 	Body               io.ReadCloser
@@ -3710,11 +4106,19 @@ type SearchSnippetGetRefCommand struct {
 	EmailIdRef *ResultReference `json:"#emailIds,omitempty"`
 }
 
+var _ JmapCommand = &SearchSnippetGetRefCommand{}
+
+func (c SearchSnippetGetRefCommand) GetCommand() Command       { return CommandSearchSnippetGet }
+func (c SearchSnippetGetRefCommand) GetObjectType() ObjectType { return SearchSnippetType }
+
 type SearchSnippetGetResponse struct {
 	AccountId string          `json:"accountId"`
 	List      []SearchSnippet `json:"list,omitempty"`
 	NotFound  []string        `json:"notFound,omitempty"`
 }
+
+// this is not true, as the response to SearchSnippet/get does not have a state
+// var _ GetResponse = &SearchSnippetGetResponse{}
 
 type StateChangeType string
 
@@ -3735,7 +4139,7 @@ type StateChange struct {
 	// The client can compare the new state strings with its current values to see whether
 	// it has the current data for these types. If not, the changes can then be efficiently
 	// fetched in a single standard API request (using the /changes type methods).
-	Changed map[string]map[ObjectType]string `json:"changed"`
+	Changed map[string]map[ObjectTypeName]string `json:"changed"`
 
 	// A (preferably short) string that encodes the entire server state visible to the user
 	// (not just the objects returned in this call).
@@ -5209,11 +5613,23 @@ type QuotaGetCommand struct {
 	Ids       []string `json:"ids,omitempty"`
 }
 
+var _ GetCommand = &QuotaGetCommand{}
+
+func (c QuotaGetCommand) GetCommand() Command       { return CommandQuotaGet }
+func (c QuotaGetCommand) GetObjectType() ObjectType { return QuotaType }
+func (c QuotaGetCommand) GetResponse() GetResponse  { return QuotaGetResponse{} }
+
 type QuotaGetRefCommand struct {
 	AccountId     string           `json:"accountId"`
 	IdsRef        *ResultReference `json:"#ids,omitempty"`
 	PropertiesRef *ResultReference `json:"#properties,omitempty"`
 }
+
+var _ GetCommand = &QuotaGetRefCommand{}
+
+func (c QuotaGetRefCommand) GetCommand() Command       { return CommandQuotaGet }
+func (c QuotaGetRefCommand) GetObjectType() ObjectType { return QuotaType }
+func (c QuotaGetRefCommand) GetResponse() GetResponse  { return QuotaGetResponse{} }
 
 type QuotaGetResponse struct {
 	AccountId string   `json:"accountId"`
@@ -5221,6 +5637,11 @@ type QuotaGetResponse struct {
 	List      []Quota  `json:"list,omitempty"`
 	NotFound  []string `json:"notFound,omitempty"`
 }
+
+var _ GetResponse = &QuotaGetResponse{}
+
+func (r QuotaGetResponse) GetState() State       { return r.State }
+func (r QuotaGetResponse) GetNotFound() []string { return r.NotFound }
 
 type QuotaChangesCommand struct {
 	// The id of the account to use.
@@ -5243,6 +5664,12 @@ type QuotaChangesCommand struct {
 	// If the server is unable to tell if only "used" has changed, it MUST be null.
 	UpdatedProperties []string `json:"updatedProperties,omitempty"`
 }
+
+var _ ChangesCommand = &QuotaChangesCommand{}
+
+func (c QuotaChangesCommand) GetCommand() Command          { return CommandQuotaChanges }
+func (c QuotaChangesCommand) GetObjectType() ObjectType    { return QuotaType }
+func (c QuotaChangesCommand) GetResponse() ChangesResponse { return QuotaChangesResponse{} }
 
 type QuotaChangesResponse struct {
 	// The id of the account used for the call.
@@ -5268,15 +5695,36 @@ type QuotaChangesResponse struct {
 	Destroyed []string `json:"destroyed,omitempty"`
 }
 
+var _ ChangesResponse = &QuotaChangesResponse{}
+
+func (r QuotaChangesResponse) GetOldState() State      { return r.OldState }
+func (r QuotaChangesResponse) GetNewState() State      { return r.NewState }
+func (r QuotaChangesResponse) GetHasMoreChanges() bool { return r.HasMoreChanges }
+func (r QuotaChangesResponse) GetCreated() []string    { return r.Created }
+func (r QuotaChangesResponse) GetUpdated() []string    { return r.Updated }
+func (r QuotaChangesResponse) GetDestroyed() []string  { return r.Destroyed }
+
 type AddressBookGetCommand struct {
 	AccountId string   `json:"accountId"`
 	Ids       []string `json:"ids,omitempty"`
 }
 
+var _ GetCommand = &AddressBookGetCommand{}
+
+func (c AddressBookGetCommand) GetCommand() Command       { return CommandAddressBookGet }
+func (c AddressBookGetCommand) GetObjectType() ObjectType { return AddressBookType }
+func (c AddressBookGetCommand) GetResponse() GetResponse  { return AddressBookGetResponse{} }
+
 type AddressBookGetRefCommand struct {
 	AccountId string           `json:"accountId"`
 	IdsRef    *ResultReference `json:"#ids,omitempty"`
 }
+
+var _ GetCommand = &AddressBookGetRefCommand{}
+
+func (c AddressBookGetRefCommand) GetCommand() Command       { return CommandAddressBookGet }
+func (c AddressBookGetRefCommand) GetObjectType() ObjectType { return AddressBookType }
+func (c AddressBookGetRefCommand) GetResponse() GetResponse  { return AddressBookGetResponse{} }
 
 type AddressBookGetResponse struct {
 	AccountId string        `json:"accountId"`
@@ -5284,6 +5732,11 @@ type AddressBookGetResponse struct {
 	List      []AddressBook `json:"list,omitempty"`
 	NotFound  []string      `json:"notFound,omitempty"`
 }
+
+var _ GetResponse = &AddressBookGetResponse{}
+
+func (r AddressBookGetResponse) GetState() State       { return r.State }
+func (r AddressBookGetResponse) GetNotFound() []string { return r.NotFound }
 
 type AddressBookChange struct {
 	// The user-visible name of the AddressBook.
@@ -5329,6 +5782,8 @@ type AddressBookChange struct {
 	ShareWith map[string]AddressBookRights `json:"shareWith,omitempty"`
 }
 
+var _ Change = AddressBookChange{}
+
 func (a AddressBookChange) AsPatch() PatchObject {
 	p := PatchObject{}
 	if a.Name != nil {
@@ -5353,6 +5808,12 @@ type AddressBookSetCommand struct {
 	Update    map[string]PatchObject       `json:"update,omitempty"`
 	Destroy   []string                     `json:"destroy,omitempty"`
 }
+
+var _ SetCommand = &AddressBookSetCommand{}
+
+func (c AddressBookSetCommand) GetCommand() Command       { return CommandAddressBookSet }
+func (c AddressBookSetCommand) GetObjectType() ObjectType { return AddressBookType }
+func (c AddressBookSetCommand) GetResponse() SetResponse  { return AddressBookSetResponse{} }
 
 type AddressBookSetResponse struct {
 	// The id of the account used for the call.
@@ -5401,6 +5862,14 @@ type AddressBookSetResponse struct {
 	NotDestroyed map[string]SetError `json:"notDestroyed,omitempty"`
 }
 
+var _ SetResponse = &AddressBookSetResponse{}
+
+func (r AddressBookSetResponse) GetOldState() State                   { return r.OldState }
+func (r AddressBookSetResponse) GetNewState() State                   { return r.NewState }
+func (r AddressBookSetResponse) GetNotCreated() map[string]SetError   { return r.NotCreated }
+func (r AddressBookSetResponse) GetNotUpdated() map[string]SetError   { return r.NotUpdated }
+func (r AddressBookSetResponse) GetNotDestroyed() map[string]SetError { return r.NotDestroyed }
+
 type AddressBookChangesCommand struct {
 	// The id of the account to use.
 	AccountId string `json:"accountId"`
@@ -5423,6 +5892,12 @@ type AddressBookChangesCommand struct {
 	// If a value outside of this range is given, the server MUST reject the call with an invalidArguments error.
 	MaxChanges *uint `json:"maxChanges,omitzero"`
 }
+
+var _ ChangesCommand = &AddressBookChangesCommand{}
+
+func (c AddressBookChangesCommand) GetCommand() Command          { return CommandAddressBookChanges }
+func (c AddressBookChangesCommand) GetObjectType() ObjectType    { return AddressBookType }
+func (c AddressBookChangesCommand) GetResponse() ChangesResponse { return AddressBookChangesResponse{} }
 
 type AddressBookChangesResponse struct {
 	// The id of the account used for the call.
@@ -5448,6 +5923,15 @@ type AddressBookChangesResponse struct {
 	// An array of ids for records that have been destroyed since the old state.
 	Destroyed []string `json:"destroyed,omitempty"`
 }
+
+var _ ChangesResponse = &AddressBookChangesResponse{}
+
+func (r AddressBookChangesResponse) GetOldState() State      { return r.OldState }
+func (r AddressBookChangesResponse) GetNewState() State      { return r.NewState }
+func (r AddressBookChangesResponse) GetHasMoreChanges() bool { return r.HasMoreChanges }
+func (r AddressBookChangesResponse) GetCreated() []string    { return r.Created }
+func (r AddressBookChangesResponse) GetUpdated() []string    { return r.Updated }
+func (r AddressBookChangesResponse) GetDestroyed() []string  { return r.Destroyed }
 
 type ContactCardComparator struct {
 	// The name of the property on the objects to compare.
@@ -5688,6 +6172,12 @@ type ContactCardQueryCommand struct {
 	CalculateTotal bool `json:"calculateTotal,omitzero"`
 }
 
+var _ QueryCommand = &ContactCardQueryCommand{}
+
+func (c ContactCardQueryCommand) GetCommand() Command        { return CommandContactCardQuery }
+func (c ContactCardQueryCommand) GetObjectType() ObjectType  { return ContactCardType }
+func (c ContactCardQueryCommand) GetResponse() QueryResponse { return ContactCardQueryResponse{} }
+
 type ContactCardQueryResponse struct {
 	// The id of the account used for the call.
 	AccountId string `json:"accountId"`
@@ -5738,6 +6228,10 @@ type ContactCardQueryResponse struct {
 	Limit uint `json:"limit,omitempty,omitzero"`
 }
 
+var _ QueryResponse = &ContactCardQueryResponse{}
+
+func (r ContactCardQueryResponse) GetQueryState() State { return r.QueryState }
+
 type ContactCardGetCommand struct {
 	// The ids of the ContactCard objects to return.
 	//
@@ -5756,6 +6250,12 @@ type ContactCardGetCommand struct {
 	Properties []string `json:"properties,omitempty"`
 }
 
+var _ GetCommand = &ContactCardGetCommand{}
+
+func (c ContactCardGetCommand) GetCommand() Command       { return CommandContactCardGet }
+func (c ContactCardGetCommand) GetObjectType() ObjectType { return ContactCardType }
+func (c ContactCardGetCommand) GetResponse() GetResponse  { return ContactCardGetResponse{} }
+
 type ContactCardGetRefCommand struct {
 	// The ids of the ContactCard objects to return.
 	//
@@ -5773,6 +6273,12 @@ type ContactCardGetRefCommand struct {
 	// If an invalid property is requested, the call MUST be rejected with an invalidArguments error.
 	Properties []string `json:"properties,omitempty"`
 }
+
+var _ GetCommand = &ContactCardGetRefCommand{}
+
+func (c ContactCardGetRefCommand) GetCommand() Command       { return CommandContactCardGet }
+func (c ContactCardGetRefCommand) GetObjectType() ObjectType { return ContactCardType }
+func (c ContactCardGetRefCommand) GetResponse() GetResponse  { return ContactCardGetResponse{} }
 
 type ContactCardGetResponse struct {
 	// The id of the account used for the call.
@@ -5801,6 +6307,11 @@ type ContactCardGetResponse struct {
 	NotFound []string `json:"notFound"`
 }
 
+var _ GetResponse = &ContactCardGetResponse{}
+
+func (r ContactCardGetResponse) GetState() State       { return r.State }
+func (r ContactCardGetResponse) GetNotFound() []string { return r.NotFound }
+
 type ContactCardChangesCommand struct {
 	// The id of the account to use.
 	AccountId string `json:"accountId"`
@@ -5817,6 +6328,12 @@ type ContactCardChangesCommand struct {
 	// If a value outside of this range is given, the server MUST reject the call with an `invalidArguments` error.
 	MaxChanges *uint `json:"maxChanges,omitempty"`
 }
+
+var _ ChangesCommand = &ContactCardChangesCommand{}
+
+func (c ContactCardChangesCommand) GetCommand() Command          { return CommandContactCardChanges }
+func (c ContactCardChangesCommand) GetObjectType() ObjectType    { return ContactCardType }
+func (c ContactCardChangesCommand) GetResponse() ChangesResponse { return ContactCardChangesResponse{} }
 
 type ContactCardChangesResponse struct {
 	// The id of the account used for the call.
@@ -5841,6 +6358,15 @@ type ContactCardChangesResponse struct {
 	// An array of ids for records that have been destroyed since the old state.
 	Destroyed []string `json:"destroyed,omitempty"`
 }
+
+var _ ChangesResponse = &ContactCardChangesResponse{}
+
+func (r ContactCardChangesResponse) GetOldState() State      { return r.OldState }
+func (r ContactCardChangesResponse) GetNewState() State      { return r.NewState }
+func (r ContactCardChangesResponse) GetHasMoreChanges() bool { return r.HasMoreChanges }
+func (r ContactCardChangesResponse) GetCreated() []string    { return r.Created }
+func (r ContactCardChangesResponse) GetUpdated() []string    { return r.Updated }
+func (r ContactCardChangesResponse) GetDestroyed() []string  { return r.Destroyed }
 
 type ContactCardUpdate map[string]any
 
@@ -5897,6 +6423,12 @@ type ContactCardSetCommand struct {
 	Destroy []string `json:"destroy,omitempty"`
 }
 
+var _ SetCommand = &ContactCardSetCommand{}
+
+func (c ContactCardSetCommand) GetCommand() Command       { return CommandContactCardSet }
+func (c ContactCardSetCommand) GetObjectType() ObjectType { return ContactCardType }
+func (c ContactCardSetCommand) GetResponse() SetResponse  { return ContactCardSetResponse{} }
+
 type ContactCardSetResponse struct {
 	// The id of the account used for the call.
 	AccountId string `json:"accountId"`
@@ -5944,6 +6476,14 @@ type ContactCardSetResponse struct {
 	NotDestroyed map[string]SetError `json:"notDestroyed,omitempty"`
 }
 
+var _ SetResponse = &ContactCardSetResponse{}
+
+func (r ContactCardSetResponse) GetOldState() State                   { return r.OldState }
+func (r ContactCardSetResponse) GetNewState() State                   { return r.NewState }
+func (r ContactCardSetResponse) GetNotCreated() map[string]SetError   { return r.NotCreated }
+func (r ContactCardSetResponse) GetNotUpdated() map[string]SetError   { return r.NotUpdated }
+func (r ContactCardSetResponse) GetNotDestroyed() map[string]SetError { return r.NotDestroyed }
+
 type CalendarEventParseCommand struct {
 	// The id of the account to use.
 	AccountId string `json:"accountId"`
@@ -5956,6 +6496,11 @@ type CalendarEventParseCommand struct {
 	// If omitted, defaults to all the properties.
 	Properties []string `json:"properties,omitempty"`
 }
+
+var _ JmapCommand = &CalendarEventParseCommand{}
+
+func (c CalendarEventParseCommand) GetCommand() Command       { return CommandCalendarEventParse }
+func (c CalendarEventParseCommand) GetObjectType() ObjectType { return CalendarEventType }
 
 type CalendarEventParseResponse struct {
 	// The id of the account used for the call.
@@ -5978,10 +6523,22 @@ type CalendarGetCommand struct {
 	Ids       []string `json:"ids,omitempty"`
 }
 
+var _ GetCommand = &CalendarGetCommand{}
+
+func (c CalendarGetCommand) GetCommand() Command       { return CommandCalendarGet }
+func (c CalendarGetCommand) GetObjectType() ObjectType { return CalendarType }
+func (c CalendarGetCommand) GetResponse() GetResponse  { return CalendarGetResponse{} }
+
 type CalendarGetRefCommand struct {
 	AccountId string           `json:"accountId"`
 	IdsRef    *ResultReference `json:"#ids,omitempty"`
 }
+
+var _ GetCommand = &CalendarGetRefCommand{}
+
+func (c CalendarGetRefCommand) GetCommand() Command       { return CommandCalendarGet }
+func (c CalendarGetRefCommand) GetObjectType() ObjectType { return CalendarType }
+func (c CalendarGetRefCommand) GetResponse() GetResponse  { return CalendarGetResponse{} }
 
 type CalendarGetResponse struct {
 	AccountId string     `json:"accountId"`
@@ -5990,6 +6547,11 @@ type CalendarGetResponse struct {
 	NotFound  []string   `json:"notFound,omitempty"`
 }
 
+var _ GetResponse = &CalendarGetResponse{}
+
+func (r CalendarGetResponse) GetState() State       { return r.State }
+func (r CalendarGetResponse) GetNotFound() []string { return r.NotFound }
+
 type CalendarSetCommand struct {
 	AccountId string                    `json:"accountId"`
 	IfInState string                    `json:"ifInState,omitempty"`
@@ -5997,6 +6559,12 @@ type CalendarSetCommand struct {
 	Update    map[string]PatchObject    `json:"update,omitempty"`
 	Destroy   []string                  `json:"destroy,omitempty"`
 }
+
+var _ SetCommand = &CalendarSetCommand{}
+
+func (c CalendarSetCommand) GetCommand() Command       { return CommandCalendarSet }
+func (c CalendarSetCommand) GetObjectType() ObjectType { return CalendarType }
+func (c CalendarSetCommand) GetResponse() SetResponse  { return CalendarSetResponse{} }
 
 type CalendarSetResponse struct {
 	// The id of the account used for the call.
@@ -6045,6 +6613,14 @@ type CalendarSetResponse struct {
 	NotDestroyed map[string]SetError `json:"notDestroyed,omitempty"`
 }
 
+var _ SetResponse = &CalendarSetResponse{}
+
+func (r CalendarSetResponse) GetOldState() State                   { return r.OldState }
+func (r CalendarSetResponse) GetNewState() State                   { return r.NewState }
+func (r CalendarSetResponse) GetNotCreated() map[string]SetError   { return r.NotCreated }
+func (r CalendarSetResponse) GetNotUpdated() map[string]SetError   { return r.NotUpdated }
+func (r CalendarSetResponse) GetNotDestroyed() map[string]SetError { return r.NotDestroyed }
+
 type CalendarChangesCommand struct {
 	// The id of the account to use.
 	AccountId string `json:"accountId"`
@@ -6067,6 +6643,12 @@ type CalendarChangesCommand struct {
 	// If a value outside of this range is given, the server MUST reject the call with an invalidArguments error.
 	MaxChanges *uint `json:"maxChanges,omitzero"`
 }
+
+var _ ChangesCommand = &CalendarChangesCommand{}
+
+func (c CalendarChangesCommand) GetCommand() Command          { return CommandCalendarChanges }
+func (c CalendarChangesCommand) GetObjectType() ObjectType    { return CalendarType }
+func (c CalendarChangesCommand) GetResponse() ChangesResponse { return CalendarChangesResponse{} }
 
 type CalendarChangesResponse struct {
 	// The id of the account used for the call.
@@ -6091,6 +6673,15 @@ type CalendarChangesResponse struct {
 	// An array of ids for records that have been destroyed since the old state.
 	Destroyed []string `json:"destroyed,omitempty"`
 }
+
+var _ ChangesResponse = &CalendarChangesResponse{}
+
+func (r CalendarChangesResponse) GetOldState() State      { return r.OldState }
+func (r CalendarChangesResponse) GetNewState() State      { return r.NewState }
+func (r CalendarChangesResponse) GetHasMoreChanges() bool { return r.HasMoreChanges }
+func (r CalendarChangesResponse) GetCreated() []string    { return r.Created }
+func (r CalendarChangesResponse) GetUpdated() []string    { return r.Updated }
+func (r CalendarChangesResponse) GetDestroyed() []string  { return r.Destroyed }
 
 type CalendarEventComparator struct {
 	// The name of the property on the objects to compare.
@@ -6283,6 +6874,12 @@ type CalendarEventQueryCommand struct {
 	CalculateTotal bool `json:"calculateTotal,omitempty" doc:"opt" default:"false"`
 }
 
+var _ QueryCommand = &CalendarEventQueryCommand{}
+
+func (c CalendarEventQueryCommand) GetCommand() Command        { return CommandCalendarEventQuery }
+func (c CalendarEventQueryCommand) GetObjectType() ObjectType  { return CalendarEventType }
+func (c CalendarEventQueryCommand) GetResponse() QueryResponse { return CalendarEventQueryResponse{} }
+
 type CalendarEventQueryResponse struct {
 	// The id of the account used for the call.
 	AccountId string `json:"accountId"`
@@ -6333,6 +6930,10 @@ type CalendarEventQueryResponse struct {
 	Limit uint `json:"limit,omitempty,omitzero"`
 }
 
+var _ QueryResponse = &CalendarEventQueryResponse{}
+
+func (r CalendarEventQueryResponse) GetQueryState() State { return r.QueryState }
+
 type CalendarEventGetCommand struct {
 	// The ids of the CalendarEvent objects to return.
 	//
@@ -6351,6 +6952,12 @@ type CalendarEventGetCommand struct {
 	Properties []string `json:"properties,omitempty"`
 }
 
+var _ GetCommand = &CalendarEventGetCommand{}
+
+func (c CalendarEventGetCommand) GetCommand() Command       { return CommandCalendarEventGet }
+func (c CalendarEventGetCommand) GetObjectType() ObjectType { return CalendarEventType }
+func (c CalendarEventGetCommand) GetResponse() GetResponse  { return CalendarEventGetResponse{} }
+
 type CalendarEventGetRefCommand struct {
 	// The ids of the CalendarEvent objects to return.
 	//
@@ -6368,6 +6975,12 @@ type CalendarEventGetRefCommand struct {
 	// If an invalid property is requested, the call MUST be rejected with an invalidArguments error.
 	Properties []string `json:"properties,omitempty"`
 }
+
+var _ GetCommand = &CalendarEventGetRefCommand{}
+
+func (c CalendarEventGetRefCommand) GetCommand() Command       { return CommandCalendarEventGet }
+func (c CalendarEventGetRefCommand) GetObjectType() ObjectType { return CalendarEventType }
+func (c CalendarEventGetRefCommand) GetResponse() GetResponse  { return CalendarEventGetResponse{} }
 
 type CalendarEventGetResponse struct {
 	// The id of the account used for the call.
@@ -6396,6 +7009,11 @@ type CalendarEventGetResponse struct {
 	NotFound []string `json:"notFound"`
 }
 
+var _ GetResponse = &CalendarEventGetResponse{}
+
+func (r CalendarEventGetResponse) GetState() State       { return r.State }
+func (r CalendarEventGetResponse) GetNotFound() []string { return r.NotFound }
+
 type CalendarEventChangesCommand struct {
 	// The id of the account to use.
 	AccountId string `json:"accountId"`
@@ -6418,6 +7036,12 @@ type CalendarEventChangesCommand struct {
 	// If a value outside of this range is given, the server MUST reject the call with an invalidArguments error.
 	MaxChanges *uint `json:"maxChanges,omitzero"`
 }
+
+var _ ChangesCommand = &CalendarEventChangesCommand{}
+
+func (c CalendarEventChangesCommand) GetCommand() Command          { return CommandCalendarEventChanges }
+func (c CalendarEventChangesCommand) GetObjectType() ObjectType    { return CalendarEventType }
+func (c CalendarEventChangesCommand) GetResponse() ChangesResponse { return CalendarChangesResponse{} }
 
 type CalendarEventChangesResponse struct {
 	// The id of the account used for the call.
@@ -6442,6 +7066,15 @@ type CalendarEventChangesResponse struct {
 	// An array of ids for records that have been destroyed since the old state.
 	Destroyed []string `json:"destroyed,omitempty"`
 }
+
+var _ ChangesResponse = &CalendarEventChangesResponse{}
+
+func (r CalendarEventChangesResponse) GetOldState() State      { return r.OldState }
+func (r CalendarEventChangesResponse) GetNewState() State      { return r.NewState }
+func (r CalendarEventChangesResponse) GetHasMoreChanges() bool { return r.HasMoreChanges }
+func (r CalendarEventChangesResponse) GetCreated() []string    { return r.Created }
+func (r CalendarEventChangesResponse) GetUpdated() []string    { return r.Updated }
+func (r CalendarEventChangesResponse) GetDestroyed() []string  { return r.Destroyed }
 
 type CalendarEventUpdate map[string]any
 
@@ -6498,6 +7131,12 @@ type CalendarEventSetCommand struct {
 	Destroy []string `json:"destroy,omitempty"`
 }
 
+var _ SetCommand = &CalendarEventSetCommand{}
+
+func (c CalendarEventSetCommand) GetCommand() Command       { return CommandCalendarEventSet }
+func (c CalendarEventSetCommand) GetObjectType() ObjectType { return CalendarEventType }
+func (c CalendarEventSetCommand) GetResponse() SetResponse  { return CalendarSetResponse{} }
+
 type CalendarEventSetResponse struct {
 	// The id of the account used for the call.
 	AccountId string `json:"accountId"`
@@ -6545,15 +7184,35 @@ type CalendarEventSetResponse struct {
 	NotDestroyed map[string]SetError `json:"notDestroyed,omitempty"`
 }
 
+var _ SetResponse = &CalendarEventSetResponse{}
+
+func (r CalendarEventSetResponse) GetOldState() State                   { return r.OldState }
+func (r CalendarEventSetResponse) GetNewState() State                   { return r.NewState }
+func (r CalendarEventSetResponse) GetNotCreated() map[string]SetError   { return r.NotCreated }
+func (r CalendarEventSetResponse) GetNotUpdated() map[string]SetError   { return r.NotUpdated }
+func (r CalendarEventSetResponse) GetNotDestroyed() map[string]SetError { return r.NotDestroyed }
+
 type PrincipalGetCommand struct {
 	AccountId string   `json:"accountId"`
 	Ids       []string `json:"ids,omitempty"`
 }
 
+var _ GetCommand = &PrincipalGetCommand{}
+
+func (c PrincipalGetCommand) GetCommand() Command       { return CommandPrincipalGet }
+func (c PrincipalGetCommand) GetObjectType() ObjectType { return PrincipalType }
+func (c PrincipalGetCommand) GetResponse() GetResponse  { return PrincipalGetResponse{} }
+
 type PrincipalGetRefCommand struct {
 	AccountId string           `json:"accountId"`
 	IdsRef    *ResultReference `json:"#ids,omitempty"`
 }
+
+var _ GetCommand = &PrincipalGetRefCommand{}
+
+func (c PrincipalGetRefCommand) GetCommand() Command       { return CommandPrincipalGet }
+func (c PrincipalGetRefCommand) GetObjectType() ObjectType { return PrincipalType }
+func (c PrincipalGetRefCommand) GetResponse() GetResponse  { return PrincipalGetResponse{} }
 
 type PrincipalGetResponse struct {
 	// The id of the account used for the call.
@@ -6578,6 +7237,11 @@ type PrincipalGetResponse struct {
 	// The array is empty if all requested ids were found or if the ids argument passed in was either null or an empty array.
 	NotFound []string `json:"notFound"`
 }
+
+var _ GetResponse = &PrincipalGetResponse{}
+
+func (r PrincipalGetResponse) GetState() State       { return r.State }
+func (r PrincipalGetResponse) GetNotFound() []string { return r.NotFound }
 
 type PrincipalFilterElement interface {
 	_isAPrincipalFilterElement() // marker method
@@ -6677,6 +7341,10 @@ type PrincipalQueryResponse struct {
 	// This is only returned if the server set a limit or used a different limit than that given in the request.
 	Limit int `json:"limit,omitzero"`
 }
+
+var _ QueryResponse = &PrincipalQueryResponse{}
+
+func (r PrincipalQueryResponse) GetQueryState() State { return r.QueryState }
 
 type ErrorResponse struct {
 	Type        string `json:"type"`

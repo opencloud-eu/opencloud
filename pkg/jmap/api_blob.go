@@ -11,7 +11,7 @@ import (
 
 func (j *Client) GetBlobMetadata(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, id string) (*Blob, SessionState, State, Language, Error) {
 	cmd, jerr := j.request(session, logger, ns(JmapBlob),
-		invocation(CommandBlobGet, BlobGetCommand{
+		invocation(BlobGetCommand{
 			AccountId: accountId,
 			Ids:       []string{id},
 			// add BlobPropertyData to retrieve the data
@@ -90,8 +90,8 @@ func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Cont
 	}
 
 	cmd, jerr := j.request(session, logger, ns(JmapBlob),
-		invocation(CommandBlobUpload, upload, "0"),
-		invocation(CommandBlobGet, getHash, "1"),
+		invocation(upload, "0"),
+		invocation(getHash, "1"),
 	)
 	if jerr != nil {
 		return UploadedBlobWithHash{}, "", "", "", jerr
@@ -99,13 +99,13 @@ func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Cont
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (UploadedBlobWithHash, State, Error) {
 		var uploadResponse BlobUploadResponse
-		err := retrieveResponseMatchParameters(logger, body, CommandBlobUpload, "0", &uploadResponse)
+		err := retrieveResponseMatchParameters(logger, body, upload.GetCommand(), "0", &uploadResponse)
 		if err != nil {
 			return UploadedBlobWithHash{}, "", err
 		}
 
 		var getResponse BlobGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandBlobGet, "1", &getResponse)
+		err = retrieveResponseMatchParameters(logger, body, getHash.GetCommand(), "1", &getResponse)
 		if err != nil {
 			return UploadedBlobWithHash{}, "", err
 		}

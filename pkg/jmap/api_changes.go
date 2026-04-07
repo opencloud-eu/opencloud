@@ -81,31 +81,31 @@ func (j *Client) GetChanges(accountId string, session *Session, ctx context.Cont
 
 	methodCalls := []Invocation{}
 	if stateMap.Mailboxes != nil {
-		methodCalls = append(methodCalls, invocation(CommandMailboxChanges, MailboxChangesCommand{AccountId: accountId, SinceState: *stateMap.Mailboxes, MaxChanges: posUIntPtr(maxChanges)}, "mailboxes"))
+		methodCalls = append(methodCalls, invocation(MailboxChangesCommand{AccountId: accountId, SinceState: *stateMap.Mailboxes, MaxChanges: posUIntPtr(maxChanges)}, "mailboxes"))
 	}
 	if stateMap.Emails != nil {
-		methodCalls = append(methodCalls, invocation(CommandEmailChanges, EmailChangesCommand{AccountId: accountId, SinceState: *stateMap.Emails, MaxChanges: posUIntPtr(maxChanges)}, "emails"))
+		methodCalls = append(methodCalls, invocation(EmailChangesCommand{AccountId: accountId, SinceState: *stateMap.Emails, MaxChanges: posUIntPtr(maxChanges)}, "emails"))
 	}
 	if stateMap.Calendars != nil {
-		methodCalls = append(methodCalls, invocation(CommandCalendarChanges, CalendarChangesCommand{AccountId: accountId, SinceState: *stateMap.Calendars, MaxChanges: posUIntPtr(maxChanges)}, "calendars"))
+		methodCalls = append(methodCalls, invocation(CalendarChangesCommand{AccountId: accountId, SinceState: *stateMap.Calendars, MaxChanges: posUIntPtr(maxChanges)}, "calendars"))
 	}
 	if stateMap.Events != nil {
-		methodCalls = append(methodCalls, invocation(CommandCalendarEventChanges, CalendarEventChangesCommand{AccountId: accountId, SinceState: *stateMap.Events, MaxChanges: posUIntPtr(maxChanges)}, "events"))
+		methodCalls = append(methodCalls, invocation(CalendarEventChangesCommand{AccountId: accountId, SinceState: *stateMap.Events, MaxChanges: posUIntPtr(maxChanges)}, "events"))
 	}
 	if stateMap.Addressbooks != nil {
-		methodCalls = append(methodCalls, invocation(CommandAddressBookChanges, AddressBookChangesCommand{AccountId: accountId, SinceState: *stateMap.Addressbooks, MaxChanges: posUIntPtr(maxChanges)}, "addressbooks"))
+		methodCalls = append(methodCalls, invocation(AddressBookChangesCommand{AccountId: accountId, SinceState: *stateMap.Addressbooks, MaxChanges: posUIntPtr(maxChanges)}, "addressbooks"))
 	}
 	if stateMap.Addressbooks != nil {
-		methodCalls = append(methodCalls, invocation(CommandAddressBookChanges, AddressBookChangesCommand{AccountId: accountId, SinceState: *stateMap.Addressbooks, MaxChanges: posUIntPtr(maxChanges)}, "addressbooks"))
+		methodCalls = append(methodCalls, invocation(AddressBookChangesCommand{AccountId: accountId, SinceState: *stateMap.Addressbooks, MaxChanges: posUIntPtr(maxChanges)}, "addressbooks"))
 	}
 	if stateMap.Contacts != nil {
-		methodCalls = append(methodCalls, invocation(CommandContactCardChanges, ContactCardChangesCommand{AccountId: accountId, SinceState: *stateMap.Contacts, MaxChanges: posUIntPtr(maxChanges)}, "contacts"))
+		methodCalls = append(methodCalls, invocation(ContactCardChangesCommand{AccountId: accountId, SinceState: *stateMap.Contacts, MaxChanges: posUIntPtr(maxChanges)}, "contacts"))
 	}
 	if stateMap.Identities != nil {
-		methodCalls = append(methodCalls, invocation(CommandIdentityChanges, IdentityChangesCommand{AccountId: accountId, SinceState: *stateMap.Identities, MaxChanges: posUIntPtr(maxChanges)}, "identities"))
+		methodCalls = append(methodCalls, invocation(IdentityChangesCommand{AccountId: accountId, SinceState: *stateMap.Identities, MaxChanges: posUIntPtr(maxChanges)}, "identities"))
 	}
 	if stateMap.EmailSubmissions != nil {
-		methodCalls = append(methodCalls, invocation(CommandEmailSubmissionChanges, EmailSubmissionChangesCommand{AccountId: accountId, SinceState: *stateMap.EmailSubmissions, MaxChanges: posUIntPtr(maxChanges)}, "submissions"))
+		methodCalls = append(methodCalls, invocation(EmailSubmissionChangesCommand{AccountId: accountId, SinceState: *stateMap.EmailSubmissions, MaxChanges: posUIntPtr(maxChanges)}, "submissions"))
 	}
 	// if stateMap.Quotas != nil { methodCalls = append(methodCalls, invocation(CommandQuotaChanges, QuotaChangesCommand{AccountId: accountId, SinceState: *stateMap.Quotas, MaxChanges: posUIntPtr(maxChanges)}, "quotas")) }
 

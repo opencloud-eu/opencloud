@@ -61,31 +61,31 @@ func (j *Client) GetObjects(accountId string, session *Session, ctx context.Cont
 
 	methodCalls := []Invocation{}
 	if len(mailboxIds) > 0 {
-		methodCalls = append(methodCalls, invocation(CommandMailboxGet, MailboxGetCommand{AccountId: accountId, Ids: mailboxIds}, "mailboxes"))
+		methodCalls = append(methodCalls, invocation(MailboxGetCommand{AccountId: accountId, Ids: mailboxIds}, "mailboxes"))
 	}
 	if len(emailIds) > 0 {
-		methodCalls = append(methodCalls, invocation(CommandEmailGet, EmailGetCommand{AccountId: accountId, Ids: emailIds}, "emails"))
+		methodCalls = append(methodCalls, invocation(EmailGetCommand{AccountId: accountId, Ids: emailIds}, "emails"))
 	}
 	if len(addressbookIds) > 0 {
-		methodCalls = append(methodCalls, invocation(CommandAddressBookGet, AddressBookGetCommand{AccountId: accountId, Ids: addressbookIds}, "addressbooks"))
+		methodCalls = append(methodCalls, invocation(AddressBookGetCommand{AccountId: accountId, Ids: addressbookIds}, "addressbooks"))
 	}
 	if len(contactIds) > 0 {
-		methodCalls = append(methodCalls, invocation(CommandContactCardGet, ContactCardGetCommand{AccountId: accountId, Ids: contactIds}, "contacts"))
+		methodCalls = append(methodCalls, invocation(ContactCardGetCommand{AccountId: accountId, Ids: contactIds}, "contacts"))
 	}
 	if len(calendarIds) > 0 {
-		methodCalls = append(methodCalls, invocation(CommandCalendarGet, CalendarGetCommand{AccountId: accountId, Ids: calendarIds}, "calendars"))
+		methodCalls = append(methodCalls, invocation(CalendarGetCommand{AccountId: accountId, Ids: calendarIds}, "calendars"))
 	}
 	if len(eventIds) > 0 {
-		methodCalls = append(methodCalls, invocation(CommandCalendarEventGet, CalendarEventGetCommand{AccountId: accountId, Ids: eventIds}, "events"))
+		methodCalls = append(methodCalls, invocation(CalendarEventGetCommand{AccountId: accountId, Ids: eventIds}, "events"))
 	}
 	if len(quotaIds) > 0 {
-		methodCalls = append(methodCalls, invocation(CommandQuotaGet, QuotaGetCommand{AccountId: accountId, Ids: quotaIds}, "quotas"))
+		methodCalls = append(methodCalls, invocation(QuotaGetCommand{AccountId: accountId, Ids: quotaIds}, "quotas"))
 	}
 	if len(identityIds) > 0 {
-		methodCalls = append(methodCalls, invocation(CommandIdentityGet, IdentityGetCommand{AccountId: accountId, Ids: identityIds}, "identities"))
+		methodCalls = append(methodCalls, invocation(IdentityGetCommand{AccountId: accountId, Ids: identityIds}, "identities"))
 	}
 	if len(emailSubmissionIds) > 0 {
-		methodCalls = append(methodCalls, invocation(CommandEmailSubmissionGet, EmailSubmissionGetCommand{AccountId: accountId, Ids: emailSubmissionIds}, "emailSubmissionIds"))
+		methodCalls = append(methodCalls, invocation(EmailSubmissionGetCommand{AccountId: accountId, Ids: emailSubmissionIds}, "emailSubmissionIds"))
 	}
 
 	cmd, err := j.request(session, logger, NS_OBJECTS, methodCalls...)

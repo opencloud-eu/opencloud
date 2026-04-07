@@ -17,7 +17,7 @@ func (j *Client) GetPrincipals(accountId string, session *Session, ctx context.C
 	logger = j.logger("GetPrincipals", session, logger)
 
 	cmd, err := j.request(session, logger, NS_PRINCIPALS,
-		invocation(CommandPrincipalGet, PrincipalGetCommand{AccountId: accountId, Ids: ids}, "0"),
+		invocation(PrincipalGetCommand{AccountId: accountId, Ids: ids}, "0"),
 	)
 	if err != nil {
 		return PrincipalsResponse{}, "", "", "", err
