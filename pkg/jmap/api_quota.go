@@ -9,13 +9,13 @@ import (
 var NS_QUOTA = ns(JmapQuota)
 
 func (j *Client) GetQuotas(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]QuotaGetResponse, SessionState, State, Language, Error) {
-	return getTemplateN(j, "GetQuotas", NS_QUOTA, CommandQuotaGet,
+	return getN(j, "GetQuotas", NS_QUOTA,
 		func(accountId string, ids []string) QuotaGetCommand {
 			return QuotaGetCommand{AccountId: accountId}
 		},
+		QuotaGetResponse{},
 		identity1,
 		identity1,
-		func(resp QuotaGetResponse) State { return resp.State },
 		accountIds, session, ctx, logger, acceptLanguage, []string{},
 	)
 }
@@ -33,11 +33,11 @@ type QuotaChanges struct {
 // @api:tags quota,changes
 func (j *Client) GetQuotaChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger,
 	acceptLanguage string, sinceState State, maxChanges uint) (QuotaChanges, SessionState, State, Language, Error) {
-	return changesTemplate(j, "GetQuotaChanges", NS_QUOTA,
-		CommandQuotaChanges, CommandQuotaGet,
+	return changes(j, "GetQuotaChanges", NS_QUOTA,
 		func() QuotaChangesCommand {
 			return QuotaChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: posUIntPtr(maxChanges)}
 		},
+		QuotaChangesResponse{},
 		func(path string, rof string) QuotaGetRefCommand {
 			return QuotaGetRefCommand{
 				AccountId: accountId,
@@ -47,9 +47,6 @@ func (j *Client) GetQuotaChanges(accountId string, session *Session, ctx context
 					ResultOf: rof,
 				},
 			}
-		},
-		func(resp QuotaChangesResponse) (State, State, bool, []string) {
-			return resp.OldState, resp.NewState, resp.HasMoreChanges, resp.Destroyed
 		},
 		func(resp QuotaGetResponse) []Quota { return resp.List },
 		func(oldState, newState State, hasMoreChanges bool, created, updated []Quota, destroyed []string) QuotaChanges {
@@ -62,18 +59,17 @@ func (j *Client) GetQuotaChanges(accountId string, session *Session, ctx context
 				Destroyed:      destroyed,
 			}
 		},
-		func(resp QuotaGetResponse) State { return resp.State },
 		session, ctx, logger, acceptLanguage,
 	)
 }
 
 func (j *Client) GetQuotaUsageChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger,
 	acceptLanguage string, sinceState State, maxChanges uint) (QuotaChanges, SessionState, State, Language, Error) {
-	return updatedTemplate(j, "GetQuotaUsageChanges", NS_QUOTA,
-		CommandQuotaChanges, CommandQuotaGet,
+	return updates(j, "GetQuotaUsageChanges", NS_QUOTA,
 		func() QuotaChangesCommand {
 			return QuotaChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: posUIntPtr(maxChanges)}
 		},
+		QuotaChangesResponse{},
 		func(path string, rof string) QuotaGetRefCommand {
 			return QuotaGetRefCommand{
 				AccountId: accountId,
@@ -89,9 +85,6 @@ func (j *Client) GetQuotaUsageChanges(accountId string, session *Session, ctx co
 				},
 			}
 		},
-		func(resp QuotaChangesResponse) (State, State, bool) {
-			return resp.OldState, resp.NewState, resp.HasMoreChanges
-		},
 		func(resp QuotaGetResponse) []Quota { return resp.List },
 		func(oldState, newState State, hasMoreChanges bool, updated []Quota) QuotaChanges {
 			return QuotaChanges{
@@ -101,7 +94,6 @@ func (j *Client) GetQuotaUsageChanges(accountId string, session *Session, ctx co
 				Updated:        updated,
 			}
 		},
-		func(resp QuotaGetResponse) State { return resp.State },
 		session, ctx, logger, acceptLanguage,
 	)
 }

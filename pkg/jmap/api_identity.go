@@ -11,35 +11,35 @@ import (
 var NS_IDENTITY = ns(JmapMail)
 
 func (j *Client) GetAllIdentities(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) ([]Identity, SessionState, State, Language, Error) {
-	return getTemplate(j, "GetAllIdentities", NS_IDENTITY, CommandIdentityGet,
+	return get(j, "GetAllIdentities", NS_IDENTITY,
 		func(accountId string, ids []string) IdentityGetCommand {
 			return IdentityGetCommand{AccountId: accountId}
 		},
+		IdentityGetResponse{},
 		func(resp IdentityGetResponse) []Identity { return resp.List },
-		func(resp IdentityGetResponse) State { return resp.State },
 		accountId, session, ctx, logger, acceptLanguage, []string{},
 	)
 }
 
 func (j *Client) GetIdentities(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, identityIds []string) ([]Identity, SessionState, State, Language, Error) {
-	return getTemplate(j, "GetIdentities", NS_IDENTITY, CommandIdentityGet,
+	return get(j, "GetIdentities", NS_IDENTITY,
 		func(accountId string, ids []string) IdentityGetCommand {
 			return IdentityGetCommand{AccountId: accountId, Ids: ids}
 		},
+		IdentityGetResponse{},
 		func(resp IdentityGetResponse) []Identity { return resp.List },
-		func(resp IdentityGetResponse) State { return resp.State },
 		accountId, session, ctx, logger, acceptLanguage, identityIds,
 	)
 }
 
 func (j *Client) GetIdentitiesForAllAccounts(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string][]Identity, SessionState, State, Language, Error) {
-	return getTemplateN(j, "GetIdentitiesForAllAccounts", NS_IDENTITY, CommandIdentityGet,
+	return getN(j, "GetIdentitiesForAllAccounts", NS_IDENTITY,
 		func(accountId string, ids []string) IdentityGetCommand {
 			return IdentityGetCommand{AccountId: accountId}
 		},
+		IdentityGetResponse{},
 		func(resp IdentityGetResponse) []Identity { return resp.List },
 		identity1,
-		func(resp IdentityGetResponse) State { return resp.State },
 		accountIds, session, ctx, logger, acceptLanguage, []string{},
 	)
 }
@@ -56,9 +56,9 @@ func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId string, accountIds [
 	logger = j.logger("GetIdentitiesAndMailboxes", session, logger)
 
 	calls := make([]Invocation, len(uniqueAccountIds)+1)
-	calls[0] = invocation(CommandMailboxGet, MailboxGetCommand{AccountId: mailboxAccountId}, "0")
+	calls[0] = invocation(MailboxGetCommand{AccountId: mailboxAccountId}, "0")
 	for i, accountId := range uniqueAccountIds {
-		calls[i+1] = invocation(CommandIdentityGet, IdentityGetCommand{AccountId: accountId}, strconv.Itoa(i+1))
+		calls[i+1] = invocation(IdentityGetCommand{AccountId: accountId}, strconv.Itoa(i+1))
 	}
 
 	cmd, err := j.request(session, logger, NS_IDENTITY, calls...)
@@ -97,7 +97,7 @@ func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId string, accountIds [
 
 func (j *Client) CreateIdentity(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, identity Identity) (Identity, SessionState, State, Language, Error) {
 	logger = j.logger("CreateIdentity", session, logger)
-	cmd, err := j.request(session, logger, NS_IDENTITY, invocation(CommandIdentitySet, IdentitySetCommand{
+	cmd, err := j.request(session, logger, NS_IDENTITY, invocation(IdentitySetCommand{
 		AccountId: accountId,
 		Create: map[string]Identity{
 			"c": identity,
@@ -123,7 +123,7 @@ func (j *Client) CreateIdentity(accountId string, session *Session, ctx context.
 
 func (j *Client) UpdateIdentity(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, identity Identity) (Identity, SessionState, State, Language, Error) {
 	logger = j.logger("UpdateIdentity", session, logger)
-	cmd, err := j.request(session, logger, NS_IDENTITY, invocation(CommandIdentitySet, IdentitySetCommand{
+	cmd, err := j.request(session, logger, NS_IDENTITY, invocation(IdentitySetCommand{
 		AccountId: accountId,
 		Update: map[string]PatchObject{
 			"c": identity.AsPatch(),
@@ -149,7 +149,7 @@ func (j *Client) UpdateIdentity(accountId string, session *Session, ctx context.
 
 func (j *Client) DeleteIdentity(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) ([]string, SessionState, State, Language, Error) {
 	logger = j.logger("DeleteIdentity", session, logger)
-	cmd, err := j.request(session, logger, NS_IDENTITY, invocation(CommandIdentitySet, IdentitySetCommand{
+	cmd, err := j.request(session, logger, NS_IDENTITY, invocation(IdentitySetCommand{
 		AccountId: accountId,
 		Destroy:   ids,
 	}, "0"))
@@ -184,11 +184,11 @@ type IdentityChanges struct {
 // @api:tags email,changes
 func (j *Client) GetIdentityChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger,
 	acceptLanguage string, sinceState State, maxChanges uint) (IdentityChanges, SessionState, State, Language, Error) {
-	return changesTemplate(j, "GetIdentityChanges", NS_IDENTITY,
-		CommandIdentityChanges, CommandIdentityGet,
+	return changes(j, "GetIdentityChanges", NS_IDENTITY,
 		func() IdentityChangesCommand {
 			return IdentityChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: posUIntPtr(maxChanges)}
 		},
+		IdentityChangesResponse{},
 		func(path string, rof string) IdentityGetRefCommand {
 			return IdentityGetRefCommand{
 				AccountId: accountId,
@@ -198,9 +198,6 @@ func (j *Client) GetIdentityChanges(accountId string, session *Session, ctx cont
 					ResultOf: rof,
 				},
 			}
-		},
-		func(resp IdentityChangesResponse) (State, State, bool, []string) {
-			return resp.OldState, resp.NewState, resp.HasMoreChanges, resp.Destroyed
 		},
 		func(resp IdentityGetResponse) []Identity { return resp.List },
 		func(oldState, newState State, hasMoreChanges bool, created, updated []Identity, destroyed []string) IdentityChanges {
@@ -213,7 +210,6 @@ func (j *Client) GetIdentityChanges(accountId string, session *Session, ctx cont
 				Destroyed:      destroyed,
 			}
 		},
-		func(resp IdentityGetResponse) State { return resp.State },
 		session, ctx, logger, acceptLanguage,
 	)
 }

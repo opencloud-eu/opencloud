@@ -721,12 +721,12 @@ func (j *TestJmapClient) create(id string, objectType ObjectType, body map[strin
 	}).command(body)
 }
 
-func (j *TestJmapClient) create1(accountId string, objectType ObjectType, ns JmapNamespace, obj map[string]any) (string, error) {
+func (j *TestJmapClient) create1(accountId string, objectType ObjectType, obj map[string]any) (string, error) {
 	body := map[string]any{
-		"using": []string{string(JmapCore), string(ns)},
+		"using": structs.Map(objectType.Namespaces, func(n JmapNamespace) string { return string(n) }),
 		"methodCalls": []any{
 			[]any{
-				objectType + "/set",
+				objectType.Name + "/set",
 				map[string]any{
 					"accountId": accountId,
 					"create": map[string]any{
@@ -740,14 +740,14 @@ func (j *TestJmapClient) create1(accountId string, objectType ObjectType, ns Jma
 	return j.create("c", objectType, body)
 }
 
-func (j *TestJmapClient) objectsById(accountId string, objectType ObjectType, scope JmapNamespace) (map[string]map[string]any, error) {
+func (j *TestJmapClient) objectsById(accountId string, objectType ObjectType) (map[string]map[string]any, error) {
 	m := map[string]map[string]any{}
 	{
 		body := map[string]any{
-			"using": []string{string(JmapCore), string(scope)},
+			"using": structs.Map(objectType.Namespaces, func(n JmapNamespace) string { return string(n) }),
 			"methodCalls": []any{
 				[]any{
-					objectType + "/get",
+					objectType.Name + "/get",
 					map[string]any{
 						"accountId": accountId,
 					},

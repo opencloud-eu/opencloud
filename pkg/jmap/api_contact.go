@@ -15,7 +15,7 @@ func (j *Client) GetContactCardsById(accountId string, session *Session, ctx con
 	acceptLanguage string, contactIds []string) (map[string]jscontact.ContactCard, SessionState, State, Language, Error) {
 	logger = j.logger("GetContactCardsById", session, logger)
 
-	cmd, err := j.request(session, logger, NS_CONTACTS, invocation(CommandContactCardGet, ContactCardGetCommand{
+	cmd, err := j.request(session, logger, NS_CONTACTS, invocation(ContactCardGetCommand{
 		Ids:       contactIds,
 		AccountId: accountId,
 	}, "0"))
@@ -39,12 +39,12 @@ func (j *Client) GetContactCardsById(accountId string, session *Session, ctx con
 
 func (j *Client) GetContactCards(accountId string, session *Session, ctx context.Context, logger *log.Logger,
 	acceptLanguage string, contactIds []string) ([]jscontact.ContactCard, SessionState, State, Language, Error) {
-	return getTemplate(j, "GetContactCards", NS_CONTACTS, CommandContactCardGet,
+	return get(j, "GetContactCards", NS_CONTACTS,
 		func(accountId string, ids []string) ContactCardGetCommand {
 			return ContactCardGetCommand{AccountId: accountId, Ids: contactIds}
 		},
+		ContactCardGetResponse{},
 		func(resp ContactCardGetResponse) []jscontact.ContactCard { return resp.List },
-		func(resp ContactCardGetResponse) State { return resp.State },
 		accountId, session, ctx, logger, acceptLanguage, contactIds,
 	)
 }
@@ -62,11 +62,11 @@ type ContactCardChanges struct {
 // @api:tags contact,changes
 func (j *Client) GetContactCardChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger,
 	acceptLanguage string, sinceState State, maxChanges uint) (ContactCardChanges, SessionState, State, Language, Error) {
-	return changesTemplate(j, "GetContactCardChanges", NS_CONTACTS,
-		CommandContactCardChanges, CommandContactCardGet,
+	return changes(j, "GetContactCardChanges", NS_CONTACTS,
 		func() ContactCardChangesCommand {
 			return ContactCardChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: posUIntPtr(maxChanges)}
 		},
+		ContactCardChangesResponse{},
 		func(path string, rof string) ContactCardGetRefCommand {
 			return ContactCardGetRefCommand{
 				AccountId: accountId,
@@ -76,9 +76,6 @@ func (j *Client) GetContactCardChanges(accountId string, session *Session, ctx c
 					ResultOf: rof,
 				},
 			}
-		},
-		func(resp ContactCardChangesResponse) (State, State, bool, []string) {
-			return resp.OldState, resp.NewState, resp.HasMoreChanges, resp.Destroyed
 		},
 		func(resp ContactCardGetResponse) []jscontact.ContactCard { return resp.List },
 		func(oldState, newState State, hasMoreChanges bool, created, updated []jscontact.ContactCard, destroyed []string) ContactCardChanges {
@@ -91,7 +88,6 @@ func (j *Client) GetContactCardChanges(accountId string, session *Session, ctx c
 				Destroyed:      destroyed,
 			}
 		},
-		func(resp ContactCardGetResponse) State { return resp.State },
 		session, ctx, logger, acceptLanguage,
 	)
 }
@@ -120,8 +116,8 @@ func (j *Client) QueryContactCards(accountIds []string, session *Session, ctx co
 		if position > 0 {
 			query.Position = position
 		}
-		invocations[i*2+0] = invocation(CommandContactCardQuery, query, mcid(accountId, "0"))
-		invocations[i*2+1] = invocation(CommandContactCardGet, ContactCardGetRefCommand{
+		invocations[i*2+0] = invocation(query, mcid(accountId, "0"))
+		invocations[i*2+1] = invocation(ContactCardGetRefCommand{
 			AccountId: accountId,
 			IdsRef: &ResultReference{
 				Name:     CommandContactCardQuery,
@@ -158,13 +154,13 @@ func (j *Client) CreateContactCard(accountId string, session *Session, ctx conte
 	logger = j.logger("CreateContactCard", session, logger)
 
 	cmd, err := j.request(session, logger, NS_CONTACTS,
-		invocation(CommandContactCardSet, ContactCardSetCommand{
+		invocation(ContactCardSetCommand{
 			AccountId: accountId,
 			Create: map[string]jscontact.ContactCard{
 				"c": create,
 			},
 		}, "0"),
-		invocation(CommandContactCardGet, ContactCardGetCommand{
+		invocation(ContactCardGetCommand{
 			AccountId: accountId,
 			Ids:       []string{"#c"},
 		}, "1"),
@@ -187,7 +183,7 @@ func (j *Client) CreateContactCard(accountId string, session *Session, ctx conte
 		}
 
 		if created, ok := setResponse.Created["c"]; !ok || created == nil {
-			berr := fmt.Errorf("failed to find %s in %s response", string(ContactCardType), string(CommandContactCardSet))
+			berr := fmt.Errorf("failed to find %s in %s response", ContactCardType, string(CommandContactCardSet))
 			logger.Error().Err(berr)
 			return nil, "", jmapError(berr, JmapErrorInvalidJmapResponsePayload)
 		}
@@ -199,7 +195,7 @@ func (j *Client) CreateContactCard(accountId string, session *Session, ctx conte
 		}
 
 		if len(getResponse.List) < 1 {
-			berr := fmt.Errorf("failed to find %s in %s response", string(ContactCardType), string(CommandContactCardSet))
+			berr := fmt.Errorf("failed to find %s in %s response", ContactCardType, string(CommandContactCardSet))
 			logger.Error().Err(berr)
 			return nil, "", jmapError(berr, JmapErrorInvalidJmapResponsePayload)
 		}
@@ -212,7 +208,7 @@ func (j *Client) DeleteContactCard(accountId string, destroy []string, session *
 	logger = j.logger("DeleteContactCard", session, logger)
 
 	cmd, err := j.request(session, logger, NS_CONTACTS,
-		invocation(CommandContactCardSet, ContactCardSetCommand{
+		invocation(ContactCardSetCommand{
 			AccountId: accountId,
 			Destroy:   destroy,
 		}, "0"),

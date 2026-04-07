@@ -21,8 +21,8 @@ func (j *Client) GetBootstrap(accountIds []string, session *Session, ctx context
 
 	calls := make([]Invocation, len(uniqueAccountIds)*2)
 	for i, accountId := range uniqueAccountIds {
-		calls[i*2+0] = invocation(CommandIdentityGet, IdentityGetCommand{AccountId: accountId}, mcid(accountId, "I"))
-		calls[i*2+1] = invocation(CommandQuotaGet, QuotaGetCommand{AccountId: accountId}, mcid(accountId, "Q"))
+		calls[i*2+0] = invocation(IdentityGetCommand{AccountId: accountId}, mcid(accountId, "I"))
+		calls[i*2+1] = invocation(QuotaGetCommand{AccountId: accountId}, mcid(accountId, "Q"))
 	}
 
 	cmd, err := j.request(session, logger, NS_MAIL_QUOTA, calls...)
