@@ -12,6 +12,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps-dev): bump css-minimizer-webpack-plugin from 7.0.4 to 8.0.0 in /services/idp [[#2551](https://github.com/opencloud-eu/opencloud/pull/2551)]
 - build(deps): bump github.com/go-ldap/ldap/v3 from 3.4.12 to 3.4.13 [[#2526](https://github.com/opencloud-eu/opencloud/pull/2526)]
 - build(deps): bump github.com/open-policy-agent/opa from 1.14.1 to 1.15.0 [[#2535](https://github.com/opencloud-eu/opencloud/pull/2535)]
 
