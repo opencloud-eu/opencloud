@@ -1,6 +1,7 @@
 package ldap
 
 import (
+	"encoding/binary"
 	"fmt"
 	"strconv"
 
@@ -880,7 +881,16 @@ func (c *ControlDirSync) Encode() *ber.Packet {
 
 	val := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, nil, "Control Value (DirSync)")
 	seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "DirSync Control Value")
-	seq.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(c.Flags), "Flags"))
+
+	// Note: Active Directory expects a 4-byte unsigned integer for flags, but ASN.1 uses signed integers by default.
+	// As a result, the BER encoder may encode flags as a 5-byte signed integer; we force 4-byte encoding here.
+	flagsPacket := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, nil, "Flags")
+	flagsPacket.Value = int64(c.Flags)
+	flagsBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(flagsBytes, uint32(c.Flags))
+	flagsPacket.Data.Write(flagsBytes)
+	seq.AppendChild(flagsPacket)
+
 	seq.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(c.MaxAttrCount), "MaxAttrCount"))
 	seq.AppendChild(cookie)
 	val.AppendChild(seq)

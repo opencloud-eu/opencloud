@@ -1,0 +1,39 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+version: "2"
+linters:
+  enable:
+    - bodyclose
+    - godox
+    - nakedret
+    - predeclared
+    - unconvert
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - internal/md4
+    rules:
+      - path: negotiate_flags.go
+        linters:
+          - unused
+      - path: negotiator.go
+        text: "QF1001:"
+formatters:
+  enable:
+    - gofumpt
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - internal/md4
