@@ -12,6 +12,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/go-ldap/ldap/v3 from 3.4.12 to 3.4.13 [[#2526](https://github.com/opencloud-eu/opencloud/pull/2526)]
 - build(deps): bump github.com/open-policy-agent/opa from 1.14.1 to 1.15.0 [[#2535](https://github.com/opencloud-eu/opencloud/pull/2535)]
 
 ## [6.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v6.0.0) - 2026-03-30
