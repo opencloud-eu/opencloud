@@ -4,7 +4,10 @@
 
 package tiff
 
-import "io"
+import (
+	"io"
+	"slices"
+)
 
 // buffer buffers an io.Reader to satisfy io.ReaderAt.
 type buffer struct {
@@ -12,24 +15,19 @@ type buffer struct {
 	buf []byte
 }
 
+const fillChunkSize = 10 << 20 // 10 MB
+
 // fill reads data from b.r until the buffer contains at least end bytes.
 func (b *buffer) fill(end int) error {
 	m := len(b.buf)
-	if end > m {
-		if end > cap(b.buf) {
-			newcap := 1024
-			for newcap < end {
-				newcap *= 2
-			}
-			newbuf := make([]byte, end, newcap)
-			copy(newbuf, b.buf)
-			b.buf = newbuf
-		} else {
-			b.buf = b.buf[:end]
-		}
-		if n, err := io.ReadFull(b.r, b.buf[m:end]); err != nil {
-			end = m + n
-			b.buf = b.buf[:end]
+	for m < end {
+		next := min(end-m, fillChunkSize)
+		b.buf = slices.Grow(b.buf, next)
+		b.buf = b.buf[:m+next]
+		n, err := io.ReadFull(b.r, b.buf[m:m+next])
+		m += n
+		b.buf = b.buf[:m]
+		if err != nil {
 			return err
 		}
 	}
@@ -44,7 +42,8 @@ func (b *buffer) ReadAt(p []byte, off int64) (int, error) {
 	}
 
 	err := b.fill(end)
-	return copy(p, b.buf[o:end]), err
+	end = min(end, len(b.buf))
+	return copy(p, b.buf[min(o, end):end]), err
 }
 
 // Slice returns a slice of the underlying buffer. The slice contains
