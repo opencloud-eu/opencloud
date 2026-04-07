@@ -210,6 +210,10 @@ func GetLDAPError(packet *ber.Packet) error {
 		}
 		if response.ClassType == ber.ClassApplication && response.TagType == ber.TypeConstructed && len(response.Children) >= 3 {
 			if ber.Type(response.Children[0].Tag) == ber.Type(ber.TagInteger) || ber.Type(response.Children[0].Tag) == ber.Type(ber.TagEnumerated) {
+				if response.Children[0].Value == nil {
+					return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("Invalid result code in packet"), Packet: packet}
+				}
+
 				resultCode := uint16(response.Children[0].Value.(int64))
 				if resultCode == 0 { // No error
 					return nil
@@ -217,6 +221,9 @@ func GetLDAPError(packet *ber.Packet) error {
 
 				if ber.Type(response.Children[1].Tag) == ber.Type(ber.TagOctetString) &&
 					ber.Type(response.Children[2].Tag) == ber.Type(ber.TagOctetString) {
+					if response.Children[1].Value == nil {
+						return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("Invalid matchedDN in packet"), Packet: packet}
+					}
 					return &Error{
 						ResultCode: resultCode,
 						MatchedDN:  response.Children[1].Value.(string),
