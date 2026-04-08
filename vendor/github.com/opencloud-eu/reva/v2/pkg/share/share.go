@@ -136,6 +136,18 @@ func StateFilter(state collaboration.ShareState) *collaboration.Filter {
 	}
 }
 
+// SpaceRootFilter is an abstraction for filtering shares by whether the shared
+// resource is a space root. Pass true to include only space-root shares (space
+// membership), false to exclude them (file/folder shares only).
+func SpaceRootFilter(spaceRoot bool) *collaboration.Filter {
+	return &collaboration.Filter{
+		Type: collaboration.Filter_TYPE_SPACE_ROOT,
+		Term: &collaboration.Filter_SpaceRoot{
+			SpaceRoot: spaceRoot,
+		},
+	}
+}
+
 // IsCreatedByUser checks if the user is the owner or creator of the share.
 func IsCreatedByUser(share *collaboration.Share, user *userv1beta1.User) bool {
 	return utils.UserEqual(user.Id, share.Owner) || utils.UserEqual(user.Id, share.Creator)
@@ -172,6 +184,9 @@ func MatchesFilter(share *collaboration.Share, state collaboration.ShareState, f
 		return share.ResourceId.SpaceId == filter.GetSpaceId()
 	case collaboration.Filter_TYPE_STATE:
 		return state == filter.GetState()
+	case collaboration.Filter_TYPE_SPACE_ROOT:
+		isSpaceRoot := share.ResourceId.SpaceId == share.ResourceId.OpaqueId
+		return isSpaceRoot == filter.GetSpaceRoot()
 	default:
 		return false
 	}

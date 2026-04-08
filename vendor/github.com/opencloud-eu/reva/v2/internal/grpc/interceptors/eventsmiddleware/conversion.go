@@ -414,38 +414,45 @@ func SpaceEnabled(r *provider.UpdateStorageSpaceResponse, req *provider.UpdateSt
 }
 
 // SpaceShared converts the response to an event
-// func SpaceShared(req *provider.AddGrantRequest, executant, sharer *user.UserId, grantee *provider.Grantee) events.SpaceShared {
-func SpaceShared(r *provider.AddGrantResponse, req *provider.AddGrantRequest, executant *user.User) events.SpaceShared {
-	id := storagespace.FormatStorageID(req.Ref.ResourceId.StorageId, req.Ref.ResourceId.SpaceId)
+func SpaceShared(r *collaboration.CreateShareResponse, executant *user.User) events.SpaceShared {
+	id := storagespace.FormatStorageID(r.GetShare().GetResourceId().GetStorageId(), r.GetShare().GetResourceId().GetSpaceId())
 	return events.SpaceShared{
 		Executant:      executant.GetId(),
-		Creator:        req.Grant.Creator,
-		GranteeUserID:  req.Grant.GetGrantee().GetUserId(),
-		GranteeGroupID: req.Grant.GetGrantee().GetGroupId(),
+		Creator:        r.Share.GetCreator(),
+		GranteeUserID:  r.Share.GetGrantee().GetUserId(),
+		GranteeGroupID: r.Share.GetGrantee().GetGroupId(),
 		ID:             &provider.StorageSpaceId{OpaqueId: id},
 		Timestamp:      time.Now(),
 	}
 }
 
 // SpaceShareUpdated converts the response to an events
-func SpaceShareUpdated(r *provider.UpdateGrantResponse, req *provider.UpdateGrantRequest, executant *user.User) events.SpaceShareUpdated {
-	id := storagespace.FormatStorageID(req.Ref.ResourceId.StorageId, req.Ref.ResourceId.SpaceId)
+func SpaceShareUpdated(r *collaboration.UpdateShareResponse, executant *user.User) events.SpaceShareUpdated {
+	id := storagespace.FormatStorageID(r.GetShare().GetResourceId().GetStorageId(), r.GetShare().GetResourceId().GetSpaceId())
 	return events.SpaceShareUpdated{
 		Executant:      executant.GetId(),
-		GranteeUserID:  req.Grant.GetGrantee().GetUserId(),
-		GranteeGroupID: req.Grant.GetGrantee().GetGroupId(),
+		GranteeUserID:  r.GetShare().GetGrantee().GetUserId(),
+		GranteeGroupID: r.GetShare().GetGrantee().GetGroupId(),
 		ID:             &provider.StorageSpaceId{OpaqueId: id},
 		Timestamp:      time.Now(),
 	}
 }
 
 // SpaceUnshared  converts the response to an event
-func SpaceUnshared(r *provider.RemoveGrantResponse, req *provider.RemoveGrantRequest, executant *user.User) events.SpaceUnshared {
-	id := storagespace.FormatStorageID(req.Ref.ResourceId.StorageId, req.Ref.ResourceId.SpaceId)
+func SpaceUnshared(r *collaboration.RemoveShareResponse, req *collaboration.RemoveShareRequest, executant *user.User) events.SpaceUnshared {
+	var (
+		userid  *user.UserId
+		groupid *group.GroupId
+		rid     *provider.ResourceId
+	)
+	_ = utils.ReadJSONFromOpaque(r.Opaque, "granteeuserid", &userid)
+	_ = utils.ReadJSONFromOpaque(r.Opaque, "granteegroupid", &groupid)
+	_ = utils.ReadJSONFromOpaque(r.Opaque, "resourceid", &rid)
+	id := storagespace.FormatStorageID(rid.StorageId, rid.SpaceId)
 	return events.SpaceUnshared{
 		Executant:      executant.GetId(),
-		GranteeUserID:  req.Grant.GetGrantee().GetUserId(),
-		GranteeGroupID: req.Grant.GetGrantee().GetGroupId(),
+		GranteeUserID:  userid,
+		GranteeGroupID: groupid,
 		ID:             &provider.StorageSpaceId{OpaqueId: id},
 		Timestamp:      time.Now(),
 	}

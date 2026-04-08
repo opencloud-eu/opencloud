@@ -27,10 +27,12 @@ import (
 	"strings"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
+	grouppb "github.com/cs3org/go-cs3apis/cs3/identity/group/v1beta1"
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	collaboration "github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -54,6 +56,9 @@ const (
 	_fieldMaskPathMountPoint  = "mount_point"
 	_fieldMaskPathPermissions = "permissions"
 	_fieldMaskPathState       = "state"
+	_spaceTypePersonal        = "personal"
+	_spaceTypeProject         = "project"
+	_spaceTypeVirtual         = "virtual"
 )
 
 func init() {
@@ -166,13 +171,6 @@ func (s *service) isPathAllowed(path string) bool {
 func (s *service) CreateShare(ctx context.Context, req *collaboration.CreateShareRequest) (*collaboration.CreateShareResponse, error) {
 	log := appctx.GetLogger(ctx)
 	user := ctxpkg.ContextMustGetUser(ctx)
-	// Grants must not allow grant permissions
-	if HasGrantPermissions(req.GetGrant().GetPermissions().GetPermissions()) {
-		return &collaboration.CreateShareResponse{
-			Status: status.NewInvalidArg(ctx, "resharing not supported"),
-		}, nil
-	}
-
 	// check if the grantee is a user or group
 	if req.GetGrant().GetGrantee().GetType() == provider.GranteeType_GRANTEE_TYPE_USER {
 		// check if the tenantId of the user matches the tenantId of the target user
@@ -202,13 +200,23 @@ func (s *service) CreateShare(ctx context.Context, req *collaboration.CreateShar
 		}, nil
 	}
 
+	// use logged in user Idp as default, if the Grantee does not have an IDP set.
 	if req.GetGrant().GetGrantee().GetType() == provider.GranteeType_GRANTEE_TYPE_USER && req.GetGrant().GetGrantee().GetUserId().GetIdp() == "" {
-		// use logged in user Idp as default.
 		req.GetGrant().GetGrantee().Id = &provider.Grantee_UserId{
 			UserId: &userpb.UserId{
 				OpaqueId: req.GetGrant().GetGrantee().GetUserId().GetOpaqueId(),
 				Idp:      user.GetId().GetIdp(),
 				Type:     userpb.UserType_USER_TYPE_PRIMARY},
+		}
+	}
+	// some for group grantees
+	if req.GetGrant().GetGrantee().GetType() == provider.GranteeType_GRANTEE_TYPE_GROUP && req.GetGrant().GetGrantee().GetGroupId().GetIdp() == "" {
+		// use logged in user Idp as default.
+		req.GetGrant().GetGrantee().Id = &provider.Grantee_GroupId{
+			GroupId: &grouppb.GroupId{
+				OpaqueId: req.GetGrant().GetGrantee().GetGroupId().GetOpaqueId(),
+				Idp:      user.GetId().GetIdp(),
+				Type:     grouppb.GroupType_GROUP_TYPE_REGULAR},
 		}
 	}
 
@@ -224,6 +232,55 @@ func (s *service) CreateShare(ctx context.Context, req *collaboration.CreateShar
 		return &collaboration.CreateShareResponse{
 			Status: status.NewPermissionDenied(ctx, nil, "no permission to add grants on shared resource"),
 		}, err
+	}
+
+	isSpaceRoot := utils.IsSpaceRoot(sRes.GetInfo())
+	var noEvent bool
+
+	if isSpaceRoot {
+		if sRes.GetInfo().GetSpace().GetSpaceType() == _spaceTypePersonal || sRes.GetInfo().GetSpace().GetSpaceType() == _spaceTypeVirtual {
+			return &collaboration.CreateShareResponse{Status: status.NewInvalid(ctx, "space type is not eligible for sharing")}, nil
+		}
+	}
+
+	// do not allow share to myself or the owner if share is for a user
+	if req.GetGrant().GetGrantee().GetType() == provider.GranteeType_GRANTEE_TYPE_USER &&
+		(utils.UserEqual(req.GetGrant().GetGrantee().GetUserId(), user.Id) || utils.UserEqual(req.GetGrant().GetGrantee().GetUserId(), sRes.GetInfo().GetOwner())) {
+
+		denySelfShare := true
+		// To allow adding the initial "mananger" share for the creator of a space when need to make an exception here
+		// if the shared resource is a space root, that does not have any Share existin yet. Note, that we have already
+		// verified that the user adding the share does really have "AddGrant" permissions on the affected resource, so
+		// this "hack" should be ok.
+		if isSpaceRoot {
+			shares, err := s.sm.ListShares(
+				ctx,
+				[]*collaboration.Filter{share.ResourceIDFilter(req.GetResourceInfo().GetId())},
+			)
+			if err != nil {
+				return &collaboration.CreateShareResponse{
+					Status: status.NewInternal(ctx, "failed to list existing shares"),
+				}, nil
+			}
+			if len(shares) == 0 {
+				denySelfShare = false
+				noEvent = true
+			}
+		}
+		if denySelfShare {
+			err := errtypes.BadRequest("jsoncs3: owner/creator and grantee are the same")
+			return nil, err
+		}
+	}
+
+	// resharing is forbidden for not space roots
+	if !isSpaceRoot {
+		// Resharing of Files/Directories is forbidden. So the grants must not allow the "grant" permissions
+		if HasGrantPermissions(req.GetGrant().GetPermissions().GetPermissions()) {
+			return &collaboration.CreateShareResponse{
+				Status: status.NewInvalidArg(ctx, "resharing not supported"),
+			}, nil
+		}
 	}
 	// check if the share creator has sufficient permissions to do so.
 	if shareCreationAllowed := conversions.SufficientCS3Permissions(
@@ -256,15 +313,51 @@ func (s *service) CreateShare(ctx context.Context, req *collaboration.CreateShar
 		}, nil
 	}
 
+	var opaque *typesv1beta1.Opaque
+	if isSpaceRoot {
+		opaque = utils.SpaceGrantOpaque()
+	}
+
+	if noEvent {
+		opaque = &typesv1beta1.Opaque{
+			Map: map[string]*typesv1beta1.OpaqueEntry{
+				"noevent": {},
+			},
+		}
+	}
 	return &collaboration.CreateShareResponse{
 		Status: status.NewOK(ctx),
 		Share:  createdShare,
-		Opaque: utils.AppendPlainToOpaque(nil, "resourcename", sRes.GetInfo().GetName()),
+		Opaque: utils.AppendPlainToOpaque(opaque, "resourcename", sRes.GetInfo().GetName()),
 	}, nil
 }
 
 func HasGrantPermissions(p *provider.ResourcePermissions) bool {
 	return p.GetAddGrant() || p.GetUpdateGrant() || p.GetRemoveGrant() || p.GetDenyGrant()
+}
+
+// spaceRootHasRemainingManager returns true if the given resource has at least one share
+// (excluding the share with excludeShareOpaqueID) that grants both AddGrant and RemoveGrant.
+func (s *service) spaceRootHasRemainingManager(ctx context.Context, resourceID *provider.ResourceId, excludeShareOpaqueID string) (bool, error) {
+	shares, err := s.sm.ListShares(ctx, []*collaboration.Filter{
+		{
+			Type: collaboration.Filter_TYPE_RESOURCE_ID,
+			Term: &collaboration.Filter_ResourceId{ResourceId: resourceID},
+		},
+	})
+	if err != nil {
+		return false, err
+	}
+	for _, s := range shares {
+		if s.GetId().GetOpaqueId() == excludeShareOpaqueID {
+			continue
+		}
+		perms := s.GetPermissions().GetPermissions()
+		if perms.GetAddGrant() && perms.GetRemoveGrant() {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (s *service) RemoveShare(ctx context.Context, req *collaboration.RemoveShareRequest) (*collaboration.RemoveShareResponse, error) {
@@ -300,6 +393,20 @@ func (s *service) RemoveShare(ctx context.Context, req *collaboration.RemoveShar
 		}, err
 	}
 
+	// For space root shares, ensure at least one share with both AddGrant and RemoveGrant will remain
+	// so the space always has a manager who can administer grants.
+	if utils.IsSpaceRoot(sRes.GetInfo()) {
+		if ok, err := s.spaceRootHasRemainingManager(ctx, share.GetResourceId(), share.GetId().GetOpaqueId()); err != nil {
+			return &collaboration.RemoveShareResponse{
+				Status: status.NewInternal(ctx, "failed to list shares for space root"),
+			}, nil
+		} else if !ok {
+			return &collaboration.RemoveShareResponse{
+				Status: status.NewPermissionDenied(ctx, nil, "cannot remove the last share with manager permissions on a space root"),
+			}, nil
+		}
+	}
+
 	err = s.sm.Unshare(ctx, req.Ref)
 	if err != nil {
 		return &collaboration.RemoveShareResponse{
@@ -307,16 +414,20 @@ func (s *service) RemoveShare(ctx context.Context, req *collaboration.RemoveShar
 		}, nil
 	}
 
-	o := utils.AppendJSONToOpaque(nil, "resourceid", share.GetResourceId())
-	o = utils.AppendPlainToOpaque(o, "resourcename", sRes.GetInfo().GetName())
+	var opaque *typesv1beta1.Opaque
+	if utils.IsSpaceRoot(sRes.GetInfo()) {
+		opaque = utils.SpaceGrantOpaque()
+	}
+	opaque = utils.AppendJSONToOpaque(opaque, "resourceid", share.GetResourceId())
+	opaque = utils.AppendPlainToOpaque(opaque, "resourcename", sRes.GetInfo().GetName())
 	if user := share.GetGrantee().GetUserId(); user != nil {
-		o = utils.AppendJSONToOpaque(o, "granteeuserid", user)
+		opaque = utils.AppendJSONToOpaque(opaque, "granteeuserid", user)
 	} else {
-		o = utils.AppendJSONToOpaque(o, "granteegroupid", share.GetGrantee().GetGroupId())
+		opaque = utils.AppendJSONToOpaque(opaque, "granteegroupid", share.GetGrantee().GetGroupId())
 	}
 
 	return &collaboration.RemoveShareResponse{
-		Opaque: o,
+		Opaque: opaque,
 		Status: status.NewOK(ctx),
 	}, nil
 }
@@ -360,13 +471,6 @@ func (s *service) ListShares(ctx context.Context, req *collaboration.ListSharesR
 func (s *service) UpdateShare(ctx context.Context, req *collaboration.UpdateShareRequest) (*collaboration.UpdateShareResponse, error) {
 	log := appctx.GetLogger(ctx)
 	user := ctxpkg.ContextMustGetUser(ctx)
-
-	// Grants must not allow grant permissions
-	if HasGrantPermissions(req.GetShare().GetPermissions().GetPermissions()) {
-		return &collaboration.UpdateShareResponse{
-			Status: status.NewInvalidArg(ctx, "resharing not supported"),
-		}, nil
-	}
 
 	gatewayClient, err := s.gatewaySelector.Next()
 	if err != nil {
@@ -427,6 +531,15 @@ func (s *service) UpdateShare(ctx context.Context, req *collaboration.UpdateShar
 		}, err
 	}
 
+	// resharing is forbidden for not space roots
+	if !utils.IsSpaceRoot(sRes.GetInfo()) {
+		// Resharing of Files/Directories is forbidden. So the grants must not allow the "grant" permissions
+		if HasGrantPermissions(req.GetShare().GetPermissions().GetPermissions()) {
+			return &collaboration.UpdateShareResponse{
+				Status: status.NewInvalidArg(ctx, "resharing not supported"),
+			}, nil
+		}
+	}
 	// If this is a permissions update, check if user's permissions on the resource are sufficient to set the desired permissions
 	var newPermissions *provider.ResourcePermissions
 	if slices.Contains(req.GetUpdateMask().GetPaths(), _fieldMaskPathPermissions) {
@@ -438,6 +551,20 @@ func (s *service) UpdateShare(ctx context.Context, req *collaboration.UpdateShar
 		return &collaboration.UpdateShareResponse{
 			Status: status.NewPermissionDenied(ctx, nil, "insufficient permissions to create that kind of share"),
 		}, nil
+	}
+
+	// For space root shares, if the new permissions would strip AddGrant or RemoveGrant from this share,
+	// ensure at least one other share still has both so the space retains a manager.
+	if utils.IsSpaceRoot(sRes.GetInfo()) && newPermissions != nil && (!newPermissions.GetAddGrant() || !newPermissions.GetRemoveGrant()) {
+		if ok, err := s.spaceRootHasRemainingManager(ctx, currentShare.GetResourceId(), currentShare.GetId().GetOpaqueId()); err != nil {
+			return &collaboration.UpdateShareResponse{
+				Status: status.NewInternal(ctx, "failed to list shares for space root"),
+			}, nil
+		} else if !ok {
+			return &collaboration.UpdateShareResponse{
+				Status: status.NewPermissionDenied(ctx, nil, "cannot remove the last share with manager permissions on a space root"),
+			}, nil
+		}
 	}
 
 	// check if the requested permission are plausible for the Resource
@@ -457,10 +584,15 @@ func (s *service) UpdateShare(ctx context.Context, req *collaboration.UpdateShar
 		}, nil
 	}
 
+	var opaque *typesv1beta1.Opaque
+	if utils.IsSpaceRoot(sRes.GetInfo()) {
+		opaque = utils.SpaceGrantOpaque()
+	}
+
 	res := &collaboration.UpdateShareResponse{
 		Status: status.NewOK(ctx),
 		Share:  share,
-		Opaque: utils.AppendPlainToOpaque(nil, "resourcename", sRes.GetInfo().GetName()),
+		Opaque: utils.AppendPlainToOpaque(opaque, "resourcename", sRes.GetInfo().GetName()),
 	}
 	return res, nil
 }

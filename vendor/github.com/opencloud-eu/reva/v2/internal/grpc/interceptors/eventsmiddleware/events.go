@@ -81,15 +81,30 @@ func NewUnary(m map[string]interface{}) (grpc.UnaryServerInterceptor, int, error
 		switch v := res.(type) {
 		case *collaboration.CreateShareResponse:
 			if isSuccess(v) {
-				ev = ShareCreated(v, executant)
+				if utils.ExistsInOpaque(v.Opaque, "noevent") {
+					break
+				}
+				if utils.ExistsInOpaque(v.Opaque, "spacegrant") {
+					ev = SpaceShared(v, executant)
+				} else {
+					ev = ShareCreated(v, executant)
+				}
 			}
 		case *collaboration.RemoveShareResponse:
 			if isSuccess(v) {
-				ev = ShareRemoved(v, req.(*collaboration.RemoveShareRequest), executant)
+				if utils.ExistsInOpaque(v.Opaque, "spacegrant") {
+					ev = SpaceUnshared(v, req.(*collaboration.RemoveShareRequest), executant)
+				} else {
+					ev = ShareRemoved(v, req.(*collaboration.RemoveShareRequest), executant)
+				}
 			}
 		case *collaboration.UpdateShareResponse:
 			if isSuccess(v) {
-				ev = ShareUpdated(v, req.(*collaboration.UpdateShareRequest), executant)
+				if utils.ExistsInOpaque(v.Opaque, "spacegrant") {
+					ev = SpaceShareUpdated(v, executant)
+				} else {
+					ev = ShareUpdated(v, req.(*collaboration.UpdateShareRequest), executant)
+				}
 			}
 		case *collaboration.UpdateReceivedShareResponse:
 			if isSuccess(v) {
@@ -116,24 +131,6 @@ func NewUnary(m map[string]interface{}) (grpc.UnaryServerInterceptor, int, error
 		case *ocmcore.CreateOCMCoreShareResponse:
 			if isSuccess(v) {
 				ev = OCMCoreShareCreated(v, req.(*ocmcore.CreateOCMCoreShareRequest), executant)
-			}
-		case *provider.AddGrantResponse:
-			// TODO: update CS3 APIs
-			// FIXME these should be part of the RemoveGrantRequest object
-			// https://github.com/owncloud/ocis/issues/4312
-			r := req.(*provider.AddGrantRequest)
-			if isSuccess(v) && utils.ExistsInOpaque(r.Opaque, "spacegrant") {
-				ev = SpaceShared(v, r, executant)
-			}
-		case *provider.UpdateGrantResponse:
-			r := req.(*provider.UpdateGrantRequest)
-			if isSuccess(v) && utils.ExistsInOpaque(r.Opaque, "spacegrant") {
-				ev = SpaceShareUpdated(v, r, executant)
-			}
-		case *provider.RemoveGrantResponse:
-			r := req.(*provider.RemoveGrantRequest)
-			if isSuccess(v) && utils.ExistsInOpaque(r.Opaque, "spacegrant") {
-				ev = SpaceUnshared(v, req.(*provider.RemoveGrantRequest), executant)
 			}
 		case *provider.CreateContainerResponse:
 			if isSuccess(v) {

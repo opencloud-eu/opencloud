@@ -46,6 +46,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v2/pkg/share"
 	"github.com/opencloud-eu/reva/v2/pkg/sharedconf"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"github.com/pkg/errors"
@@ -1093,12 +1094,8 @@ func (s *service) resolveAcceptedShare(ctx context.Context, ref *provider.Refere
 	if ref.ResourceId.OpaqueId == utils.ShareStorageProviderID && ref.Path != "." {
 		lsRes, err := sharingCollaborationClient.ListReceivedShares(ctx, &collaboration.ListReceivedSharesRequest{
 			Filters: []*collaboration.Filter{
-				{
-					Type: collaboration.Filter_TYPE_STATE,
-					Term: &collaboration.Filter_State{
-						State: collaboration.ShareState_SHARE_STATE_ACCEPTED,
-					},
-				},
+				share.StateFilter(collaboration.ShareState_SHARE_STATE_ACCEPTED),
+				share.SpaceRootFilter(false),
 				// TODO filter by mountpoint?
 			},
 		})
@@ -1179,12 +1176,8 @@ func (s *service) fetchAcceptedShares(ctx context.Context, opaque *typesv1beta1.
 
 	lsRes, err := sharingCollaborationClient.ListReceivedShares(ctx, &collaboration.ListReceivedSharesRequest{
 		Filters: []*collaboration.Filter{
-			{
-				Type: collaboration.Filter_TYPE_STATE,
-				Term: &collaboration.Filter_State{
-					State: collaboration.ShareState_SHARE_STATE_ACCEPTED,
-				},
-			},
+			share.StateFilter(collaboration.ShareState_SHARE_STATE_ACCEPTED),
+			share.SpaceRootFilter(false),
 		},
 	})
 	if err != nil {

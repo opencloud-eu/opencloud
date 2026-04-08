@@ -36,6 +36,8 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	registry "github.com/cs3org/go-cs3apis/cs3/storage/registry/v1beta1"
 	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
+	"github.com/opencloud-eu/reva/v2/pkg/conversions"
+	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -224,6 +226,52 @@ func (s *svc) CreateStorageSpace(ctx context.Context, req *provider.CreateStorag
 		return &provider.CreateStorageSpaceResponse{
 			Status: status.NewStatusFromErrType(ctx, "gateway could not call CreateStorageSpace", err),
 		}, nil
+	}
+
+	// If the create space is not a "personal" space, we add a Share to the ShareProvider to give the creator
+	// of the space "manager" access to it.
+	// Note: the DecomposedFS storagadriver already adds a grant to the space root giving that access, the "CreateShare"
+	//       here is happeing so that that grant is also visible when listing permission (shares) on the spaceroot.
+	if req.GetType() != "personal" && createRes.GetStatus().GetCode() == rpc.Code_CODE_OK {
+		rollbackFn := func() {
+			dsRes, dsErr := s.DeleteStorageSpace(ctx, &provider.DeleteStorageSpaceRequest{
+				Id: createRes.GetStorageSpace().GetId(),
+			})
+			if dsErr != nil || dsRes.GetStatus().GetCode() != rpc.Code_CODE_OK {
+				log.Error().Err(dsErr).Interface("status", dsRes.GetStatus()).Interface("space_id", createRes.GetStorageSpace().GetId()).Msg("failed to delete space during rollback")
+			}
+		}
+
+		u := ctxpkg.ContextMustGetUser(ctx)
+		shareReq := &collaborationv1beta1.CreateShareRequest{
+			ResourceInfo: &provider.ResourceInfo{
+				Id: createRes.GetStorageSpace().GetRoot(),
+			},
+			Grant: &collaborationv1beta1.ShareGrant{
+				Grantee: &provider.Grantee{
+					Type: provider.GranteeType_GRANTEE_TYPE_USER,
+					Id: &provider.Grantee_UserId{
+						UserId: u.GetId(),
+					},
+				},
+				Permissions: &collaborationv1beta1.SharePermissions{
+					Permissions: conversions.NewManagerRole().CS3ResourcePermissions(),
+				},
+			},
+		}
+		csResp, err := s.CreateShare(ctx, shareReq)
+		if err != nil || csResp.GetStatus().GetCode() != rpc.Code_CODE_OK {
+			log.Error().Err(err).Interface("status", csResp.GetStatus()).Interface("space_id", createRes.GetStorageSpace().GetId()).Msg("failed to create initial share for space creator, rolling back space creation")
+			rollbackFn()
+
+			shareErrMsg := "failed to create initial share for space creator"
+			if err == nil {
+				shareErrMsg = csResp.GetStatus().GetMessage()
+			}
+			return &provider.CreateStorageSpaceResponse{
+				Status: status.NewInternal(ctx, shareErrMsg),
+			}, nil
+		}
 	}
 
 	return createRes, nil

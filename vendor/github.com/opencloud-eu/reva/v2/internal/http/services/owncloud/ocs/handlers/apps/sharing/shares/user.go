@@ -34,6 +34,7 @@ import (
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/permission"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v2/pkg/share"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
 
@@ -330,7 +331,7 @@ func (h *Handler) listUserShares(r *http.Request, filters []*collaboration.Filte
 	log := appctx.GetLogger(ctx)
 
 	lsUserSharesRequest := collaboration.ListSharesRequest{
-		Filters: filters,
+		Filters: append(filters, share.SpaceRootFilter(false)),
 	}
 
 	ocsDataPayload := make([]*conversions.ShareData, 0)

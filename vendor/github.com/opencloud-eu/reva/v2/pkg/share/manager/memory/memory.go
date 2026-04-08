@@ -82,11 +82,6 @@ func (m *manager) Share(ctx context.Context, md *provider.ResourceInfo, g *colla
 		Nanos:   uint32(now % 1000000000),
 	}
 
-	if g.Grantee.Type == provider.GranteeType_GRANTEE_TYPE_USER &&
-		(utils.UserEqual(g.Grantee.GetUserId(), user.Id) || utils.UserEqual(g.Grantee.GetUserId(), md.Owner)) {
-		return nil, errtypes.BadRequest("memory: owner/creator and grantee are the same")
-	}
-
 	// check if share already exists.
 	key := &collaboration.ShareKey{
 		Owner:      md.Owner,

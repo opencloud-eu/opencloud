@@ -78,7 +78,6 @@ var (
 type Handler struct {
 	gatewayAddr                           string
 	machineAuthAPIKey                     string
-	storageRegistryAddr                   string
 	publicURL                             string
 	sharePrefix                           string
 	homeNamespace                         string
@@ -129,7 +128,6 @@ type GatewayClientGetter func() (gateway.GatewayAPIClient, error)
 func (h *Handler) Init(c *config.Config) error {
 	h.gatewayAddr = c.GatewaySvc
 	h.machineAuthAPIKey = c.MachineAuthAPIKey
-	h.storageRegistryAddr = c.StorageregistrySvc
 	h.publicURL = c.Config.Host
 	h.sharePrefix = c.SharePrefix
 	h.homeNamespace = c.HomeNamespace
@@ -941,12 +939,11 @@ func (h *Handler) RemoveShare(w http.ResponseWriter, r *http.Request) {
 		h.removeFederatedShare(w, r, shareID)
 		return
 	}
-
-	if prov, ok := h.isSpaceShare(r, shareID); ok {
-		// The request is a remove space member request.
-		h.removeSpaceMember(w, r, shareID, prov)
+	if h.isSpaceShare(r, shareID) {
+		h.removeSpaceMember(w, r, shareID)
 		return
 	}
+
 	response.WriteOCSError(w, r, response.MetaNotFound.StatusCode, "cannot find share", nil)
 }
 

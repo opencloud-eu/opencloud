@@ -123,6 +123,13 @@ func (s *svc) routerInit(log *zerolog.Logger) error {
 					r.Delete("/", sharesHandler.RejectReceivedShare)
 					r.Put("/", sharesHandler.UpdateReceivedShare)
 				})
+				r.Route("/pending", func(r chi.Router) {
+					r.Post("/", func(w http.ResponseWriter, r *http.Request) {
+						w.WriteHeader(http.StatusMethodNotAllowed)
+					})
+					r.Delete("/", sharesHandler.ReceivedShareNotFound)
+					r.Put("/", sharesHandler.ReceivedShareNotFound)
+				})
 				r.Route("/remote_shares", func(r chi.Router) {
 					r.Get("/", sharesHandler.ListFederatedShares)
 					r.Get("/{shareid}", sharesHandler.GetFederatedShare)

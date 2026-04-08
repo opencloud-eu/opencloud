@@ -179,6 +179,10 @@ func (h *Handler) UpdateReceivedShare(w http.ResponseWriter, r *http.Request) {
 	response.WriteOCSSuccess(w, r, []*conversions.ShareData{data})
 }
 
+func (h *Handler) ReceivedShareNotFound(w http.ResponseWriter, r *http.Request) {
+	response.WriteOCSError(w, r, response.MetaNotFound.StatusCode, "cannot find share", nil)
+}
+
 func (h *Handler) updateReceivedShare(ctx context.Context, receivedShare *collaboration.ReceivedShare, fieldMask *fieldmaskpb.FieldMask) (*conversions.ShareData, response.Meta, error) {
 	logger := appctx.GetLogger(ctx)
 

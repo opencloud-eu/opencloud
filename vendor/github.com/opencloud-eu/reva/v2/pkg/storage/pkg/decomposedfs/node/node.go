@@ -58,7 +58,7 @@ import (
 var tracer trace.Tracer
 
 func init() {
-	tracer = otel.Tracer("github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/node")
+	tracer = otel.Tracer("github.com/cs3org/reva/pkg/storage/utils/decomposedfs/node")
 }
 
 // Define keys and values used in the node metadata

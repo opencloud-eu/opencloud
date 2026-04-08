@@ -470,6 +470,16 @@ func ExistsInOpaque(o *types.Opaque, key string) bool {
 	return ok
 }
 
+// SpaceGrantOpaque returns an Opaque with the "spacegrant" key set, which
+// signals to storage and event middleware that a grant targets a space root.
+func SpaceGrantOpaque() *types.Opaque {
+	return &types.Opaque{
+		Map: map[string]*types.OpaqueEntry{
+			"spacegrant": {},
+		},
+	}
+}
+
 // MergeOpaques will merge the opaques. If a key exists in both opaques
 // the values from the first opaque will be taken
 func MergeOpaques(o *types.Opaque, p *types.Opaque) *types.Opaque {

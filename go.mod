@@ -14,7 +14,7 @@ require (
 	github.com/blevesearch/bleve/v2 v2.5.7
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/coreos/go-oidc/v3 v3.18.0
-	github.com/cs3org/go-cs3apis v0.0.0-20260407125717-5d69ba49048b
+	github.com/cs3org/go-cs3apis v0.0.0-20260422093003-c97949ae7a1d
 	github.com/davidbyttow/govips/v2 v2.17.0
 	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
 	github.com/dutchcoders/go-clamd v0.0.0-20170520113014-b970184f4d9e
@@ -414,3 +414,5 @@ replace github.com/go-micro/plugins/v4/store/nats-js-kv => github.com/opencloud-
 
 // to get the logger injection (https://github.com/pablodz/inotifywaitgo/pull/11)
 replace github.com/pablodz/inotifywaitgo v0.0.9 => github.com/opencloud-eu/inotifywaitgo v0.0.0-20251111171128-a390bae3c5e9
+
+replace github.com/opencloud-eu/reva/v2 => github.com/rhafer/reva/v2 v2.0.0-20260422093550-1b04d5fbcc50

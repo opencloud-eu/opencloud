@@ -29,12 +29,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher"
 	"github.com/pablodz/inotifywaitgo/inotifywaitgo"
 	"github.com/rs/zerolog"
 	slogzerolog "github.com/samber/slog-zerolog/v2"
-
-	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher"
 )
 
 type InotifyWatcher struct {
@@ -43,7 +42,7 @@ type InotifyWatcher struct {
 	log     *zerolog.Logger
 }
 
-func NewWatcher(tree *Tree, o *options.Options, log *zerolog.Logger) (*InotifyWatcher, error) {
+func NewInotifyWatcher(tree *Tree, o *options.Options, log *zerolog.Logger) (*InotifyWatcher, error) {
 	return &InotifyWatcher{
 		tree:    tree,
 		options: o,
