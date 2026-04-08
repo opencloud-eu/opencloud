@@ -1801,6 +1801,7 @@ var _ = Describe("FileConnector", func() {
 				BreadcrumbDocName:       "test.txt",
 				PostMessageOrigin:       "https://cloud.opencloud.test",
 				EnableInsertRemoteImage: true,
+				EnableInsertRemoteFile:  true,
 				IsAnonymousUser:         true,
 			}
 
@@ -1993,6 +1994,7 @@ var _ = Describe("FileConnector", func() {
 				BreadcrumbDocName:       "test.txt",
 				PostMessageOrigin:       "https://cloud.opencloud.test",
 				EnableInsertRemoteImage: true,
+				EnableInsertRemoteFile:  true,
 				IsAdminUser:             true,
 			}
 
