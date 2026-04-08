@@ -10,9 +10,9 @@ import "github.com/samber/lo/internal/xrand"
 // Play: https://go.dev/play/p/0jY3Z0B7O_5
 func Filter[T any, Slice ~[]T](collection Slice, predicate func(item T) bool) Slice {
 	j := 0
-	for _, item := range collection {
-		if predicate(item) {
-			collection[j] = item
+	for i := range collection {
+		if predicate(collection[i]) {
+			collection[j] = collection[i]
 			j++
 		}
 	}
@@ -26,9 +26,9 @@ func Filter[T any, Slice ~[]T](collection Slice, predicate func(item T) bool) Sl
 // Note that the order of elements in the original slice is preserved in the output.
 func FilterI[T any, Slice ~[]T](collection Slice, predicate func(item T, index int) bool) Slice {
 	j := 0
-	for i, item := range collection {
-		if predicate(item, i) {
-			collection[j] = item
+	for i := range collection {
+		if predicate(collection[i], i) {
+			collection[j] = collection[i]
 			j++
 		}
 	}
@@ -38,17 +38,17 @@ func FilterI[T any, Slice ~[]T](collection Slice, predicate func(item T, index i
 // Map is a generic function that modifies the input slice in-place to contain the result of applying the provided
 // function to each element of the slice. The function returns the modified slice, which has the same length as the original.
 // Play: https://go.dev/play/p/0jY3Z0B7O_5
-func Map[T any, Slice ~[]T](collection Slice, fn func(item T) T) {
+func Map[T any, Slice ~[]T](collection Slice, transform func(item T) T) {
 	for i := range collection {
-		collection[i] = fn(collection[i])
+		collection[i] = transform(collection[i])
 	}
 }
 
 // MapI is a generic function that modifies the input slice in-place to contain the result of applying the provided
 // function to each element of the slice. The function returns the modified slice, which has the same length as the original.
-func MapI[T any, Slice ~[]T](collection Slice, fn func(item T, index int) T) {
+func MapI[T any, Slice ~[]T](collection Slice, transform func(item T, index int) T) {
 	for i := range collection {
-		collection[i] = fn(collection[i], i)
+		collection[i] = transform(collection[i], i)
 	}
 }
 

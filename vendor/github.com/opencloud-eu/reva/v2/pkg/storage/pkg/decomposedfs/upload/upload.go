@@ -435,6 +435,7 @@ func (session *DecomposedFsSession) Cleanup(revertNodeMetadata, cleanBin, cleanI
 				revisionNode, err := node.ReadNode(ctx, session.store.lu, session.SpaceID(), versionID, "", false, n.SpaceRoot, false)
 				if err != nil {
 					sublog.Error().Err(err).Str("versionID", versionID).Msg("reading revision node failed")
+					return
 				}
 
 				if !revisionNode.Exists {
