@@ -1,13 +1,14 @@
 # Changelog
 
-## [6.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v6.1.0) - 2026-04-07
+## [6.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v6.1.0) - 2026-04-08
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@rhafer
+@pedropintosilva, @rhafer
 
 ### 📈 Enhancement
 
+- feat: enable EnableInsertRemoteFile WOPI flag for Collabora [[#2555](https://github.com/opencloud-eu/opencloud/pull/2555)]
 - feat(multi-tenancy): verify tenant via OIDC claim [[#2559](https://github.com/opencloud-eu/opencloud/pull/2559)]
 
 ### 📦️ Dependencies
