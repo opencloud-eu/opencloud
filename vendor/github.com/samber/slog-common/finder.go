@@ -18,10 +18,12 @@ func FindAttrByGroupAndKey(attrs []slog.Attr, groups []string, key string) (slog
 	}
 
 	for i := range attrs {
-		if attrs[i].Key == key && attrs[i].Value.Kind() == slog.KindGroup {
-			return FindAttrByGroupAndKey(attrs[i].Value.Group(), groups[1:], key)
+		if attrs[i].Key == groups[0] && attrs[i].Value.Kind() == slog.KindGroup {
+			attr, found := FindAttrByGroupAndKey(attrs[i].Value.Group(), groups[1:], key)
+			if found {
+				return attr, true
+			}
 		}
 	}
-
 	return slog.Attr{}, false
 }

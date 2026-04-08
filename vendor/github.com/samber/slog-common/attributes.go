@@ -63,7 +63,7 @@ func AttrsToMap(attrs ...slog.Attr) map[string]any {
 }
 
 func RecordToAttrsMap(r slog.Record) map[string]any {
-	attrs := make([]slog.Attr, r.NumAttrs())
+	attrs := make([]slog.Attr, 0, r.NumAttrs())
 	r.Attrs(func(attr slog.Attr) bool {
 		attrs = append(attrs, attr)
 		return true
