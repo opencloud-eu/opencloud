@@ -1,7 +1,6 @@
 package jmap
 
 import (
-	"context"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -61,7 +60,7 @@ func TestWs(t *testing.T) {
 
 	require := require.New(t)
 
-	ctx := context.Background()
+	cotx := t.Context()
 
 	s, err := newStalwartTest(t)
 	require.NoError(err)
@@ -69,11 +68,12 @@ func TestWs(t *testing.T) {
 
 	user := pickUser()
 	session := s.Session(user.name)
+	ctx := s.Context(session)
 
 	mailAccountId := session.PrimaryAccounts.Mail
 	inboxFolder := ""
 	{
-		_, inboxFolder = s.findInbox(t, mailAccountId, session)
+		_, inboxFolder = s.findInbox(t, mailAccountId, ctx)
 	}
 
 	l := &testWsPushListener{t: t, username: user.name, logger: s.logger, mailAccountId: mailAccountId}
@@ -90,7 +90,7 @@ func TestWs(t *testing.T) {
 
 	var initialState State
 	{
-		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, session, s.ctx, s.logger, "", State(""), true, 0, 0)
+		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, EmptyState, true, 0, 0, ctx)
 		require.NoError(err)
 		require.Equal(session.State, sessionState)
 		require.NotEmpty(state)
@@ -104,7 +104,7 @@ func TestWs(t *testing.T) {
 	require.NotEmpty(initialState)
 
 	{
-		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, session, s.ctx, s.logger, "", initialState, true, 0, 0)
+		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, initialState, true, 0, 0, ctx)
 		require.NoError(err)
 		require.Equal(session.State, sessionState)
 		require.Equal(initialState, state)
@@ -114,7 +114,7 @@ func TestWs(t *testing.T) {
 		require.Empty(changes.Updated)
 	}
 
-	wsc, err := s.client.EnablePushNotifications(ctx, initialState, func() (*Session, error) { return session, nil })
+	wsc, err := s.client.EnablePushNotifications(cotx, initialState, func() (*Session, error) { return session, nil })
 	require.NoError(err)
 	defer wsc.Close()
 
@@ -147,7 +147,7 @@ func TestWs(t *testing.T) {
 	}
 	var lastState State
 	{
-		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, session, s.ctx, s.logger, "", initialState, true, 0, 0)
+		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, initialState, true, 0, 0, ctx)
 		require.NoError(err)
 		require.Equal(session.State, sessionState)
 		require.NotEqual(initialState, state)
@@ -181,7 +181,7 @@ func TestWs(t *testing.T) {
 		l.m.Unlock()
 	}
 	{
-		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, session, s.ctx, s.logger, "", lastState, true, 0, 0)
+		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, lastState, true, 0, 0, ctx)
 		require.NoError(err)
 		require.Equal(session.State, sessionState)
 		require.NotEqual(lastState, state)
@@ -215,7 +215,7 @@ func TestWs(t *testing.T) {
 		l.m.Unlock()
 	}
 	{
-		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, session, s.ctx, s.logger, "", lastState, true, 0, 0)
+		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, lastState, true, 0, 0, ctx)
 		require.NoError(err)
 		require.Equal(session.State, sessionState)
 		require.NotEqual(lastState, state)

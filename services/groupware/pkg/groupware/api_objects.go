@@ -120,8 +120,11 @@ func (g *Groupware) GetObjects(w http.ResponseWriter, r *http.Request) { //NOSON
 		}
 
 		logger := log.From(l)
-		objs, sessionState, state, lang, jerr := g.jmap.GetObjects(accountId, req.session, req.ctx, logger, req.language(),
-			mailboxIds, emailIds, addressbookIds, contactIds, calendarIds, eventIds, quotaIds, identityIds, emailSubmissionIds)
+		ctx := req.ctx.WithLogger(logger)
+		objs, sessionState, state, lang, jerr := g.jmap.GetObjects(accountId,
+			mailboxIds, emailIds, addressbookIds, contactIds, calendarIds, eventIds, quotaIds, identityIds, emailSubmissionIds,
+			ctx,
+		)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}

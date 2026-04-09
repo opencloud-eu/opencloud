@@ -40,10 +40,11 @@ func TestEmails(t *testing.T) {
 
 	user := pickUser()
 	session := s.Session(user.name)
+	ctx := s.Context(session)
 
 	accountId := session.PrimaryAccounts.Mail
 
-	inboxId, inboxFolder := s.findInbox(t, accountId, session)
+	inboxId, inboxFolder := s.findInbox(t, accountId, ctx)
 
 	var threads int = 0
 	var mails []filledMail = nil
@@ -55,7 +56,7 @@ func TestEmails(t *testing.T) {
 
 	{
 		{
-			resp, sessionState, _, _, err := s.client.GetAllIdentities(accountId, session, s.ctx, s.logger, "")
+			resp, sessionState, _, _, err := s.client.GetAllIdentities(accountId, ctx)
 			require.NoError(err)
 			require.Equal(session.State, sessionState)
 			require.Len(resp, 1)
@@ -64,7 +65,7 @@ func TestEmails(t *testing.T) {
 		}
 
 		{
-			respByAccountId, sessionState, _, _, err := s.client.GetAllMailboxes([]string{accountId}, session, s.ctx, s.logger, "")
+			respByAccountId, sessionState, _, _, err := s.client.GetAllMailboxes([]string{accountId}, ctx)
 			require.NoError(err)
 			require.Equal(session.State, sessionState)
 			require.Len(respByAccountId, 1)
@@ -80,7 +81,7 @@ func TestEmails(t *testing.T) {
 		}
 
 		{
-			resp, sessionState, _, _, err := s.client.GetAllEmailsInMailbox(accountId, session, s.ctx, s.logger, "", inboxId, 0, 0, true, false, 0, true)
+			resp, sessionState, _, _, err := s.client.GetAllEmailsInMailbox(accountId, inboxId, 0, 0, true, false, 0, true, ctx)
 			require.NoError(err)
 			require.Equal(session.State, sessionState)
 
@@ -94,7 +95,7 @@ func TestEmails(t *testing.T) {
 		}
 
 		{
-			resp, sessionState, _, _, err := s.client.GetAllEmailsInMailbox(accountId, session, s.ctx, s.logger, "", inboxId, 0, 0, false, false, 0, true)
+			resp, sessionState, _, _, err := s.client.GetAllEmailsInMailbox(accountId, inboxId, 0, 0, false, false, 0, true, ctx)
 			require.NoError(err)
 			require.Equal(session.State, sessionState)
 
@@ -122,6 +123,7 @@ func TestSendingEmails(t *testing.T) {
 
 	from := pickUser()
 	session := s.Session(from.name)
+	ctx := s.Context(session)
 	accountId := session.PrimaryAccounts.Mail
 
 	var to User
@@ -142,7 +144,7 @@ func TestSendingEmails(t *testing.T) {
 
 	var mailboxPerRole map[string]Mailbox
 	{
-		mailboxes, _, _, _, err := s.client.GetAllMailboxes([]string{accountId}, session, s.ctx, s.logger, "")
+		mailboxes, _, _, _, err := s.client.GetAllMailboxes([]string{accountId}, ctx)
 		require.NoError(err)
 		mailboxPerRole = structs.Index(mailboxes[accountId], func(m Mailbox) string { return m.Role })
 		require.Contains(mailboxPerRole, JmapMailboxRoleInbox)
@@ -152,7 +154,7 @@ func TestSendingEmails(t *testing.T) {
 	}
 	{
 		roles := []string{JmapMailboxRoleDrafts, JmapMailboxRoleSent, JmapMailboxRoleInbox}
-		m, _, _, _, err := s.client.SearchMailboxIdsPerRole([]string{accountId}, session, s.ctx, s.logger, "", roles)
+		m, _, _, _, err := s.client.SearchMailboxIdsPerRole([]string{accountId}, roles, ctx)
 		require.NoError(err)
 		require.Contains(m, accountId)
 		a := m[accountId]
@@ -166,7 +168,7 @@ func TestSendingEmails(t *testing.T) {
 		accountId string
 		session   *Session
 	}{{toAccountId, toSession}, {ccAccountId, ccSession}} {
-		mailboxes, _, _, _, err := s.client.GetAllMailboxes([]string{u.accountId}, u.session, s.ctx, s.logger, "")
+		mailboxes, _, _, _, err := s.client.GetAllMailboxes([]string{u.accountId}, ctx)
 		require.NoError(err)
 		for _, mailbox := range mailboxes[u.accountId] {
 			require.Equal(0, mailbox.TotalEmails)
@@ -180,7 +182,7 @@ func TestSendingEmails(t *testing.T) {
 	{
 		var identity Identity
 		{
-			identities, _, _, _, err := s.client.GetAllIdentities(accountId, session, s.ctx, s.logger, "")
+			identities, _, _, _, err := s.client.GetAllIdentities(accountId, ctx)
 			require.NoError(err)
 			require.NotEmpty(identities)
 			identity = identities[0]
@@ -191,12 +193,12 @@ func TestSendingEmails(t *testing.T) {
 			Subject:    subject,
 			MailboxIds: toBoolMapS(mailboxPerRole[JmapMailboxRoleDrafts].Id),
 		}
-		created, _, _, _, err := s.client.CreateEmail(accountId, create, "", session, s.ctx, s.logger, "")
+		created, _, _, _, err := s.client.CreateEmail(accountId, create, "", ctx)
 		require.NoError(err)
 		require.NotEmpty(created.Id)
 
 		{
-			emails, notFound, _, _, _, err := s.client.GetEmails(accountId, session, s.ctx, s.logger, "", []string{created.Id}, true, 0, false, false)
+			emails, notFound, _, _, _, err := s.client.GetEmails(accountId, []string{created.Id}, true, 0, false, false, ctx)
 			require.NoError(err)
 			require.Len(emails, 1)
 			require.Empty(notFound)
@@ -215,14 +217,14 @@ func TestSendingEmails(t *testing.T) {
 			Subject:    subject,
 			MailboxIds: toBoolMapS(mailboxPerRole[JmapMailboxRoleDrafts].Id),
 		}
-		updated, _, _, _, err := s.client.CreateEmail(accountId, update, created.Id, session, s.ctx, s.logger, "")
+		updated, _, _, _, err := s.client.CreateEmail(accountId, update, created.Id, ctx)
 		require.NoError(err)
 		require.NotEmpty(updated.Id)
 		require.NotEqual(created.Id, updated.Id)
 
 		var updatedMailboxId string
 		{
-			emails, notFound, _, _, _, err := s.client.GetEmails(accountId, session, s.ctx, s.logger, "", []string{created.Id, updated.Id}, true, 0, false, false)
+			emails, notFound, _, _, _, err := s.client.GetEmails(accountId, []string{created.Id, updated.Id}, true, 0, false, false, ctx)
 			require.NoError(err)
 			require.Len(emails, 1)
 			require.Len(notFound, 1)
@@ -241,7 +243,7 @@ func TestSendingEmails(t *testing.T) {
 			ToMailboxId:   mailboxPerRole[JmapMailboxRoleSent].Id,
 		}
 
-		sub, _, _, _, err := s.client.SubmitEmail(accountId, identity.Id, updated.Id, &move, session, s.ctx, s.logger, "")
+		sub, _, _, _, err := s.client.SubmitEmail(accountId, identity.Id, updated.Id, &move, ctx)
 		require.NoError(err)
 		require.NotEmpty(sub.Id)
 		require.NotEmpty(sub.ThreadId)
@@ -272,7 +274,7 @@ func TestSendingEmails(t *testing.T) {
 			}
 			time.Sleep(1 * time.Second)
 
-			subs, notFound, _, _, _, err := s.client.GetEmailSubmissionStatus(accountId, []string{sub.Id}, session, s.ctx, s.logger, "")
+			subs, notFound, _, _, _, err := s.client.GetEmailSubmissionStatus(accountId, []string{sub.Id}, ctx)
 			require.NoError(err)
 			require.Empty(notFound)
 			require.Contains(subs, sub.Id)
@@ -286,7 +288,7 @@ func TestSendingEmails(t *testing.T) {
 			accountId string
 			session   *Session
 		}{{to, toAccountId, toSession}, {cc, ccAccountId, ccSession}} {
-			mailboxes, _, _, _, err := s.client.GetAllMailboxes([]string{r.accountId}, r.session, s.ctx, s.logger, "")
+			mailboxes, _, _, _, err := s.client.GetAllMailboxes([]string{r.accountId}, ctx)
 			require.NoError(err)
 			inboxId := ""
 			for _, mailbox := range mailboxes[r.accountId] {
@@ -297,7 +299,7 @@ func TestSendingEmails(t *testing.T) {
 			}
 			require.NotEmpty(inboxId, "failed to find the Mailbox with the 'inbox' role for %v", r.user.name)
 
-			emails, _, _, _, err := s.client.QueryEmails([]string{r.accountId}, EmailFilterCondition{InMailbox: inboxId}, r.session, s.ctx, s.logger, "", 0, 0, true, 0)
+			emails, _, _, _, err := s.client.QueryEmails([]string{r.accountId}, EmailFilterCondition{InMailbox: inboxId}, 0, 0, true, 0, ctx)
 			require.NoError(err)
 			require.Contains(emails, r.accountId)
 			require.Len(emails[r.accountId].Emails, 1)
@@ -354,11 +356,11 @@ func matchEmail(t *testing.T, actual Email, expected filledMail, hasBodies bool)
 	}
 }
 
-func (s *StalwartTest) findInbox(t *testing.T, accountId string, session *Session) (string, string) {
+func (s *StalwartTest) findInbox(t *testing.T, accountId string, ctx Context) (string, string) {
 	require := require.New(t)
-	respByAccountId, sessionState, _, _, err := s.client.GetAllMailboxes([]string{accountId}, session, s.ctx, s.logger, "")
+	respByAccountId, sessionState, _, _, err := s.client.GetAllMailboxes([]string{accountId}, ctx)
 	require.NoError(err)
-	require.Equal(session.State, sessionState)
+	require.Equal(ctx.Session.State, sessionState)
 	require.Len(respByAccountId, 1)
 	require.Contains(respByAccountId, accountId)
 	resp := respByAccountId[accountId]

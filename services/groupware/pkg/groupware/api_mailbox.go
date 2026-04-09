@@ -30,7 +30,7 @@ func (g *Groupware) GetMailbox(w http.ResponseWriter, r *http.Request) {
 			return req.error(accountId, err)
 		}
 
-		mailboxes, sessionState, state, lang, jerr := g.jmap.GetMailbox(accountId, req.session, req.ctx, req.logger, req.language(), []string{mailboxId})
+		mailboxes, sessionState, state, lang, jerr := g.jmap.GetMailbox(accountId, single(mailboxId), req.ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -83,9 +83,10 @@ func (g *Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) { //NOS
 		}
 
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
+		ctx := req.ctx.WithLogger(logger)
 
 		if hasCriteria {
-			mailboxesByAccountId, sessionState, state, lang, err := g.jmap.SearchMailboxes(single(accountId), req.session, req.ctx, logger, req.language(), filter)
+			mailboxesByAccountId, sessionState, state, lang, err := g.jmap.SearchMailboxes(single(accountId), filter, ctx)
 			if err != nil {
 				return req.jmapError(accountId, err, sessionState, lang)
 			}
@@ -96,7 +97,7 @@ func (g *Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) { //NOS
 				return req.notFound(accountId, sessionState, MailboxResponseObjectType, state)
 			}
 		} else {
-			mailboxesByAccountId, sessionState, state, lang, err := g.jmap.GetAllMailboxes(single(accountId), req.session, req.ctx, logger, req.language())
+			mailboxesByAccountId, sessionState, state, lang, err := g.jmap.GetAllMailboxes(single(accountId), ctx)
 			if err != nil {
 				return req.jmapError(accountId, err, sessionState, lang)
 			}
@@ -117,6 +118,7 @@ func (g *Groupware) GetMailboxesForAllAccounts(w http.ResponseWriter, r *http.Re
 			return req.noopN(nil) // when the user has no accounts
 		}
 		logger := log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(accountIds)))
+		ctx := req.ctx.WithLogger(logger)
 
 		var filter jmap.MailboxFilterCondition
 		hasCriteria := false
@@ -134,13 +136,13 @@ func (g *Groupware) GetMailboxesForAllAccounts(w http.ResponseWriter, r *http.Re
 		}
 
 		if hasCriteria {
-			mailboxesByAccountId, sessionState, state, lang, err := g.jmap.SearchMailboxes(accountIds, req.session, req.ctx, logger, req.language(), filter)
+			mailboxesByAccountId, sessionState, state, lang, err := g.jmap.SearchMailboxes(accountIds, filter, ctx)
 			if err != nil {
 				return req.jmapErrorN(accountIds, err, sessionState, lang)
 			}
 			return req.respondN(accountIds, sortMailboxesMap(mailboxesByAccountId), sessionState, MailboxResponseObjectType, state)
 		} else {
-			mailboxesByAccountId, sessionState, state, lang, err := g.jmap.GetAllMailboxes(accountIds, req.session, req.ctx, logger, req.language())
+			mailboxesByAccountId, sessionState, state, lang, err := g.jmap.GetAllMailboxes(accountIds, ctx)
 			if err != nil {
 				return req.jmapErrorN(accountIds, err, sessionState, lang)
 			}
@@ -163,12 +165,13 @@ func (g *Groupware) GetMailboxByRoleForAllAccounts(w http.ResponseWriter, r *htt
 		}
 
 		logger := log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(accountIds)).Str("role", role))
+		ctx := req.ctx.WithLogger(logger)
 
 		filter := jmap.MailboxFilterCondition{
 			Role: role,
 		}
 
-		mailboxesByAccountId, sessionState, state, lang, jerr := g.jmap.SearchMailboxes(accountIds, req.session, req.ctx, logger, req.language(), filter)
+		mailboxesByAccountId, sessionState, state, lang, jerr := g.jmap.SearchMailboxes(accountIds, filter, ctx)
 		if jerr != nil {
 			return req.jmapErrorN(accountIds, jerr, sessionState, lang)
 		}
@@ -202,6 +205,7 @@ func (g *Groupware) GetMailboxChanges(w http.ResponseWriter, r *http.Request) {
 		}
 
 		logger := log.From(l)
+		ctx := req.ctx.WithLogger(logger)
 
 		// As for Emails and Contacts, one would expect this request without any prior state to
 		// be usable to list all the objects that currently exist, but that is not the case for
@@ -216,7 +220,7 @@ func (g *Groupware) GetMailboxChanges(w http.ResponseWriter, r *http.Request) {
 			)))
 		}
 
-		changes, sessionState, state, lang, jerr := g.jmap.GetMailboxChanges(accountId, req.session, req.ctx, logger, req.language(), sinceState, maxChanges)
+		changes, sessionState, state, lang, jerr := g.jmap.GetMailboxChanges(accountId, sinceState, maxChanges, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -254,9 +258,10 @@ func (g *Groupware) GetMailboxChangesForAllAccounts(w http.ResponseWriter, r *ht
 		}
 
 		logger := log.From(l)
+		ctx := req.ctx.WithLogger(logger)
 
 		sinceStateMap := structs.MapValues(sinceStateStrMap, toState)
-		changesByAccountId, sessionState, state, lang, jerr := g.jmap.GetMailboxChangesForMultipleAccounts(allAccountIds, req.session, req.ctx, logger, req.language(), sinceStateMap, maxChanges)
+		changesByAccountId, sessionState, state, lang, jerr := g.jmap.GetMailboxChangesForMultipleAccounts(allAccountIds, sinceStateMap, maxChanges, ctx)
 		if jerr != nil {
 			return req.jmapErrorN(allAccountIds, jerr, sessionState, lang)
 		}
@@ -273,8 +278,9 @@ func (g *Groupware) GetMailboxRoles(w http.ResponseWriter, r *http.Request) {
 		allAccountIds := req.AllAccountIds()
 		l.Array(logAccountId, log.SafeStringArray(allAccountIds))
 		logger := log.From(l)
+		ctx := req.ctx.WithLogger(logger)
 
-		rolesByAccountId, sessionState, state, lang, jerr := g.jmap.GetMailboxRolesForMultipleAccounts(allAccountIds, req.session, req.ctx, logger, req.language())
+		rolesByAccountId, sessionState, state, lang, jerr := g.jmap.GetMailboxRolesForMultipleAccounts(allAccountIds, ctx)
 		if jerr != nil {
 			return req.jmapErrorN(allAccountIds, jerr, sessionState, lang)
 		}
@@ -305,8 +311,9 @@ func (g *Groupware) UpdateMailbox(w http.ResponseWriter, r *http.Request) {
 			return req.error(accountId, err)
 		}
 		logger := log.From(l)
+		ctx := req.ctx.WithLogger(logger)
 
-		updated, sessionState, state, lang, jerr := g.jmap.UpdateMailbox(accountId, req.session, req.ctx, logger, req.language(), mailboxId, "", body)
+		updated, sessionState, state, lang, jerr := g.jmap.UpdateMailbox(accountId, mailboxId, body, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -330,8 +337,9 @@ func (g *Groupware) CreateMailbox(w http.ResponseWriter, r *http.Request) {
 			return req.error(accountId, err)
 		}
 		logger := log.From(l)
+		ctx := req.ctx.WithLogger(logger)
 
-		created, sessionState, state, lang, jerr := g.jmap.CreateMailbox(accountId, req.session, req.ctx, logger, req.language(), "", body)
+		created, sessionState, state, lang, jerr := g.jmap.CreateMailbox(accountId, body, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -365,8 +373,9 @@ func (g *Groupware) DeleteMailbox(w http.ResponseWriter, r *http.Request) {
 		}
 
 		logger := log.From(l)
+		ctx := req.ctx.WithLogger(logger)
 
-		deleted, sessionState, state, lang, jerr := g.jmap.DeleteMailboxes(accountId, req.session, req.ctx, logger, req.language(), "", mailboxIds)
+		deleted, sessionState, state, lang, jerr := g.jmap.DeleteMailboxes(accountId, mailboxIds, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}

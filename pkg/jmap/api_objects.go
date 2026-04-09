@@ -1,8 +1,6 @@
 package jmap
 
 import (
-	"context"
-
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
@@ -22,14 +20,15 @@ type Objects struct {
 
 // Retrieve objects of all types by their identifiers in a single batch.
 // @api:tags changes
-func (j *Client) GetObjects(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, //NOSONAR
+func (j *Client) GetObjects(accountId string, //NOSONAR
 	mailboxIds []string, emailIds []string,
 	addressbookIds []string, contactIds []string,
 	calendarIds []string, eventIds []string,
 	quotaIds []string, identityIds []string,
 	emailSubmissionIds []string,
+	ctx Context,
 ) (Objects, SessionState, State, Language, Error) {
-	l := j.logger("GetObjects", session, logger).With()
+	l := j.logger("GetObjects", ctx).With()
 	if len(mailboxIds) > 0 {
 		l = l.Array("mailboxIds", log.SafeStringArray(mailboxIds))
 	}
@@ -57,7 +56,8 @@ func (j *Client) GetObjects(accountId string, session *Session, ctx context.Cont
 	if len(emailSubmissionIds) > 0 {
 		l = l.Array("emailSubmissionIds", log.SafeStringArray(emailSubmissionIds))
 	}
-	logger = log.From(l)
+	logger := log.From(l)
+	ctx = ctx.WithLogger(logger)
 
 	methodCalls := []Invocation{}
 	if len(mailboxIds) > 0 {
@@ -88,17 +88,17 @@ func (j *Client) GetObjects(accountId string, session *Session, ctx context.Cont
 		methodCalls = append(methodCalls, invocation(EmailSubmissionGetCommand{AccountId: accountId, Ids: emailSubmissionIds}, "emailSubmissionIds"))
 	}
 
-	cmd, err := j.request(session, logger, NS_OBJECTS, methodCalls...)
+	cmd, err := j.request(ctx, NS_OBJECTS, methodCalls...)
 	if err != nil {
 		return Objects{}, "", "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (Objects, State, Error) {
+	return command(j, ctx, cmd, func(body *Response) (Objects, State, Error) {
 		objs := Objects{}
 		states := map[string]State{}
 
 		var mailboxes MailboxGetResponse
-		if ok, err := tryRetrieveResponseMatchParameters(logger, body, CommandMailboxGet, "mailboxes", &mailboxes); err != nil {
+		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandMailboxGet, "mailboxes", &mailboxes); err != nil {
 			return Objects{}, "", err
 		} else if ok {
 			objs.Mailboxes = &mailboxes
@@ -106,7 +106,7 @@ func (j *Client) GetObjects(accountId string, session *Session, ctx context.Cont
 		}
 
 		var emails EmailGetResponse
-		if ok, err := tryRetrieveResponseMatchParameters(logger, body, CommandEmailGet, "emails", &emails); err != nil {
+		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandEmailGet, "emails", &emails); err != nil {
 			return Objects{}, "", err
 		} else if ok {
 			objs.Emails = &emails
@@ -114,7 +114,7 @@ func (j *Client) GetObjects(accountId string, session *Session, ctx context.Cont
 		}
 
 		var calendars CalendarGetResponse
-		if ok, err := tryRetrieveResponseMatchParameters(logger, body, CommandCalendarGet, "calendars", &calendars); err != nil {
+		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandCalendarGet, "calendars", &calendars); err != nil {
 			return Objects{}, "", err
 		} else if ok {
 			objs.Calendars = &calendars
@@ -122,7 +122,7 @@ func (j *Client) GetObjects(accountId string, session *Session, ctx context.Cont
 		}
 
 		var events CalendarEventGetResponse
-		if ok, err := tryRetrieveResponseMatchParameters(logger, body, CommandCalendarEventGet, "events", &events); err != nil {
+		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandCalendarEventGet, "events", &events); err != nil {
 			return Objects{}, "", err
 		} else if ok {
 			objs.Events = &events
@@ -130,7 +130,7 @@ func (j *Client) GetObjects(accountId string, session *Session, ctx context.Cont
 		}
 
 		var addressbooks AddressBookGetResponse
-		if ok, err := tryRetrieveResponseMatchParameters(logger, body, CommandAddressBookGet, "addressbooks", &addressbooks); err != nil {
+		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandAddressBookGet, "addressbooks", &addressbooks); err != nil {
 			return Objects{}, "", err
 		} else if ok {
 			objs.Addressbooks = &addressbooks
@@ -138,7 +138,7 @@ func (j *Client) GetObjects(accountId string, session *Session, ctx context.Cont
 		}
 
 		var contacts ContactCardGetResponse
-		if ok, err := tryRetrieveResponseMatchParameters(logger, body, CommandContactCardGet, "contacts", &contacts); err != nil {
+		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandContactCardGet, "contacts", &contacts); err != nil {
 			return Objects{}, "", err
 		} else if ok {
 			objs.Contacts = &contacts
@@ -146,7 +146,7 @@ func (j *Client) GetObjects(accountId string, session *Session, ctx context.Cont
 		}
 
 		var quotas QuotaGetResponse
-		if ok, err := tryRetrieveResponseMatchParameters(logger, body, CommandQuotaGet, "quotas", &quotas); err != nil {
+		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandQuotaGet, "quotas", &quotas); err != nil {
 			return Objects{}, "", err
 		} else if ok {
 			objs.Quotas = &quotas
@@ -154,7 +154,7 @@ func (j *Client) GetObjects(accountId string, session *Session, ctx context.Cont
 		}
 
 		var identities IdentityGetResponse
-		if ok, err := tryRetrieveResponseMatchParameters(logger, body, CommandIdentityGet, "identities", &identities); err != nil {
+		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandIdentityGet, "identities", &identities); err != nil {
 			return Objects{}, "", err
 		} else if ok {
 			objs.Identities = &identities
@@ -162,7 +162,7 @@ func (j *Client) GetObjects(accountId string, session *Session, ctx context.Cont
 		}
 
 		var submissions EmailSubmissionGetResponse
-		if ok, err := tryRetrieveResponseMatchParameters(logger, body, CommandEmailSubmissionGet, "submissions", &submissions); err != nil {
+		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandEmailSubmissionGet, "submissions", &submissions); err != nil {
 			return Objects{}, "", err
 		} else if ok {
 			objs.EmailSubmissions = &submissions

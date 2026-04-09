@@ -8,8 +8,23 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
+type Context struct {
+	Session        *Session
+	Context        context.Context
+	Logger         *log.Logger
+	AcceptLanguage string
+}
+
+func (c Context) WithLogger(newLogger *log.Logger) Context {
+	return Context{Session: c.Session, Context: c.Context, AcceptLanguage: c.AcceptLanguage, Logger: newLogger}
+}
+
+func (c Context) WithContext(newContext context.Context) Context {
+	return Context{Session: c.Session, Context: newContext, AcceptLanguage: c.AcceptLanguage, Logger: c.Logger}
+}
+
 type ApiClient interface {
-	Command(ctx context.Context, logger *log.Logger, session *Session, request Request, acceptLanguage string) ([]byte, Language, Error)
+	Command(request Request, ctx Context) ([]byte, Language, Error)
 	io.Closer
 }
 
@@ -33,8 +48,8 @@ type SessionClient interface {
 }
 
 type BlobClient interface {
-	UploadBinary(ctx context.Context, logger *log.Logger, session *Session, uploadUrl string, endpoint string, contentType string, acceptLanguage string, content io.Reader) (UploadedBlob, Language, Error)
-	DownloadBinary(ctx context.Context, logger *log.Logger, session *Session, downloadUrl string, endpoint string, acceptLanguage string) (*BlobDownload, Language, Error)
+	UploadBinary(uploadUrl string, endpoint string, contentType string, content io.Reader, ctx Context) (UploadedBlob, Language, Error)
+	DownloadBinary(downloadUrl string, endpoint string, ctx Context) (*BlobDownload, Language, Error)
 	io.Closer
 }
 

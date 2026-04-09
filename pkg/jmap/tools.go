@@ -1,7 +1,6 @@
 package jmap
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,7 +12,6 @@ import (
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/opencloud-eu/opencloud/pkg/jscalendar"
-	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
 type eventListeners[T any] struct {
@@ -52,16 +50,19 @@ func mcid(accountId string, tag string) string {
 	return accountId + ":" + tag
 }
 
-func command[T any](api ApiClient, //NOSONAR
-	logger *log.Logger,
-	ctx context.Context,
-	session *Session,
-	sessionOutdatedHandler func(session *Session, newState SessionState),
+type Cmdr interface {
+	ApiSupplier
+	Hooks
+}
+
+func command[T any](client Cmdr, //NOSONAR
+	ctx Context,
 	request Request,
-	acceptLanguage string,
 	mapper func(body *Response) (T, State, Error)) (T, SessionState, State, Language, Error) {
 
-	responseBody, language, jmapErr := api.Command(ctx, logger, session, request, acceptLanguage)
+	logger := ctx.Logger
+
+	responseBody, language, jmapErr := client.Api().Command(request, ctx)
 	if jmapErr != nil {
 		var zero T
 		return zero, "", "", language, jmapErr
@@ -75,10 +76,8 @@ func command[T any](api ApiClient, //NOSONAR
 		return zero, "", "", language, jmapError(err, JmapErrorDecodingResponseBody)
 	}
 
-	if response.SessionState != session.State {
-		if sessionOutdatedHandler != nil {
-			sessionOutdatedHandler(session, response.SessionState)
-		}
+	if response.SessionState != ctx.Session.State {
+		client.OnSessionOutdated(ctx.Session, response.SessionState)
 	}
 
 	// search for an "error" response
@@ -199,25 +198,25 @@ func retrieveResponseMatch(data *Response, command Command, tag string) (Invocat
 	return Invocation{}, false
 }
 
-func retrieveResponseMatchParameters[T any](logger *log.Logger, data *Response, command Command, tag string, target *T) Error {
+func retrieveResponseMatchParameters[T any](ctx Context, data *Response, command Command, tag string, target *T) Error {
 	match, ok := retrieveResponseMatch(data, command, tag)
 	if !ok {
 		err := fmt.Errorf("failed to find JMAP response invocation match for command '%v' and tag '%v'", command, tag) // NOSONAR
-		logger.Error().Msg(err.Error())
+		ctx.Logger.Error().Msg(err.Error())
 		return jmapError(err, JmapErrorInvalidJmapResponsePayload)
 	}
 	params := match.Parameters
 	typedParams, ok := params.(T)
 	if !ok {
 		err := fmt.Errorf("JMAP response invocation matches command '%v' and tag '%v' but the type %T does not match the expected %T", command, tag, params, *target) // NOSONAR
-		logger.Error().Msg(err.Error())
+		ctx.Logger.Error().Msg(err.Error())
 		return jmapError(err, JmapErrorInvalidJmapResponsePayload)
 	}
 	*target = typedParams
 	return nil
 }
 
-func tryRetrieveResponseMatchParameters[T any](logger *log.Logger, data *Response, command Command, tag string, target *T) (bool, Error) {
+func tryRetrieveResponseMatchParameters[T any](ctx Context, data *Response, command Command, tag string, target *T) (bool, Error) {
 	match, ok := retrieveResponseMatch(data, command, tag)
 	if !ok {
 		return false, nil
@@ -226,23 +225,35 @@ func tryRetrieveResponseMatchParameters[T any](logger *log.Logger, data *Respons
 	typedParams, ok := params.(T)
 	if !ok {
 		err := fmt.Errorf("JMAP response invocation matches command '%v' and tag '%v' but the type %T does not match the expected %T", command, tag, params, *target)
-		logger.Error().Msg(err.Error())
+		ctx.Logger.Error().Msg(err.Error())
 		return true, jmapError(err, JmapErrorInvalidJmapResponsePayload)
 	}
 	*target = typedParams
 	return true, nil
 }
 
-func retrieveGet[T Foo, C GetCommand[T], R GetResponse[T]](logger *log.Logger, data *Response, command C, tag string, target *R) Error {
-	return retrieveResponseMatchParameters(logger, data, command.GetCommand(), tag, target)
+func retrieveGet[T Foo, C GetCommand[T], R GetResponse[T]](ctx Context, data *Response, command C, tag string, target *R) Error {
+	return retrieveResponseMatchParameters(ctx, data, command.GetCommand(), tag, target)
 }
 
-func retrieveSet[T Foo, C SetCommand[T], R SetResponse[T]](logger *log.Logger, data *Response, command C, tag string, target *R) Error {
-	return retrieveResponseMatchParameters(logger, data, command.GetCommand(), tag, target)
+func retrieveSet[T Foo, C SetCommand[T], R SetResponse[T]](ctx Context, data *Response, command C, tag string, target *R) Error {
+	return retrieveResponseMatchParameters(ctx, data, command.GetCommand(), tag, target)
 }
 
-func retrieveChanges[T Foo, C ChangesCommand[T], R ChangesResponse[T]](logger *log.Logger, data *Response, command C, tag string, target *R) Error {
-	return retrieveResponseMatchParameters(logger, data, command.GetCommand(), tag, target)
+func retrieveQuery[T Foo, C QueryCommand[T], R QueryResponse[T]](ctx Context, data *Response, command C, tag string, target *R) Error {
+	return retrieveResponseMatchParameters(ctx, data, command.GetCommand(), tag, target)
+}
+
+func retrieveChanges[T Foo, C ChangesCommand[T], R ChangesResponse[T]](ctx Context, data *Response, command C, tag string, target *R) Error {
+	return retrieveResponseMatchParameters(ctx, data, command.GetCommand(), tag, target)
+}
+
+func retrieveUpload[T Foo, C UploadCommand[T], R UploadResponse[T]](ctx Context, data *Response, command C, tag string, target *R) Error {
+	return retrieveResponseMatchParameters(ctx, data, command.GetCommand(), tag, target)
+}
+
+func retrieveParse[T Foo, C ParseCommand[T], R ParseResponse[T]](ctx Context, data *Response, command C, tag string, target *R) Error {
+	return retrieveResponseMatchParameters(ctx, data, command.GetCommand(), tag, target)
 }
 
 func (i *Invocation) MarshalJSON() ([]byte, error) {
@@ -396,9 +407,17 @@ func identity1[T any](t T) T {
 func list[T Foo, GETRESP GetResponse[T]](r GETRESP) []T { return r.GetList() }
 func getid[T Idable](r T) string                        { return r.GetId() }
 
-func posUIntPtr(i uint) *uint {
+func uintPtr(i uint) *uint {
 	if i > 0 {
 		return &i
+	} else {
+		return nil
+	}
+}
+
+func uintPtrIf(i uint, condition bool) *uint {
+	if condition {
+		return uintPtr(i)
 	} else {
 		return nil
 	}

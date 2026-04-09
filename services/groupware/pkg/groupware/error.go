@@ -632,7 +632,7 @@ func errorId(r *http.Request, ctx context.Context) string {
 }
 
 func (r *Request) errorId() string {
-	return errorId(r.r, r.ctx)
+	return errorId(r.r, r.cotx)
 }
 
 func apiError(id string, gwerr GroupwareError, options ...ErrorOpt) *Error {

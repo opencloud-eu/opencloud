@@ -1,7 +1,6 @@
 package jmap
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -48,25 +47,28 @@ func (f Mailboxes) MapChanges(oldState, newState State, hasMoreChanges bool, cre
 func fget[F Factory[T, GETREQ, GETRESP, CHANGES], T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], CHANGES any](f Factory[T, GETREQ, GETRESP, CHANGES], //NOSONAR
 	client *Client, name string,
 	accountId string, ids []string,
-	session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (GETRESP, SessionState, State, Language, Error) {
+	ctx Context) (GETRESP, SessionState, State, Language, Error) {
 	var getresp GETRESP
 	return get(client, name, f.Namespaces(),
 		f.CreateGetCommand,
 		getresp,
 		identity1,
-		accountId, session, ctx, logger, acceptLanguage, ids,
+		accountId, ids,
+		ctx,
 	)
 }
 
 func fgetA[F Factory[T, GETREQ, GETRESP, CHANGES], T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], CHANGES any](f Factory[T, GETREQ, GETRESP, CHANGES], //NOSONAR
 	client *Client, name string,
 	accountId string, ids []string,
-	session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) ([]T, SessionState, State, Language, Error) {
+	ctx Context) ([]T, SessionState, State, Language, Error) {
 	var getresp GETRESP
 	return getA(client, name, f.Namespaces(),
 		f.CreateGetCommand,
 		getresp,
-		accountId, session, ctx, logger, acceptLanguage, ids,
+		accountId,
+		ids,
+		ctx,
 	)
 }
 
@@ -75,22 +77,20 @@ func get[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP any]( //NOSON
 	getCommandFactory func(string, []string) GETREQ,
 	_ GETRESP,
 	mapper func(GETRESP) RESP,
-	accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (RESP, SessionState, State, Language, Error) {
-	logger = client.logger(name, session, logger)
+	accountId string, ids []string, ctx Context) (RESP, SessionState, State, Language, Error) {
+	ctx = ctx.WithLogger(client.logger(name, ctx))
 
 	var zero RESP
 
 	get := getCommandFactory(accountId, ids)
-	cmd, err := client.request(session, logger, using,
-		invocation(get, "0"),
-	)
+	cmd, err := client.request(ctx, using, invocation(get, "0"))
 	if err != nil {
 		return zero, "", "", "", err
 	}
 
-	return command(client.api, logger, ctx, session, client.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (RESP, State, Error) {
+	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
 		var response GETRESP
-		err = retrieveGet(logger, body, get, "0", &response)
+		err = retrieveGet(ctx, body, get, "0", &response)
 		if err != nil {
 			return zero, "", err
 		}
@@ -103,21 +103,22 @@ func getA[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T]]( //NOSONAR
 	client *Client, name string, using []JmapNamespace,
 	getCommandFactory func(string, []string) GETREQ,
 	resp GETRESP,
-	accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) ([]T, SessionState, State, Language, Error) {
-	return get(client, name, using, getCommandFactory, resp, func(r GETRESP) []T { return r.GetList() }, accountId, session, ctx, logger, acceptLanguage, ids)
+	accountId string, ids []string, ctx Context) ([]T, SessionState, State, Language, Error) {
+	return get(client, name, using, getCommandFactory, resp, func(r GETRESP) []T { return r.GetList() }, accountId, ids, ctx)
 }
 
 func fgetAN[F Factory[T, GETREQ, GETRESP, CHANGES], T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP any, CHANGES any](f Factory[T, GETREQ, GETRESP, CHANGES], //NOSONAR
 	client *Client, name string,
 	respMapper func(map[string][]T) RESP,
 	accountIds []string, ids []string,
-	session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (RESP, SessionState, State, Language, Error) {
+	ctx Context) (RESP, SessionState, State, Language, Error) {
 	var getresp GETRESP
 	return getAN(client, name, f.Namespaces(),
 		f.CreateGetCommand,
 		getresp,
 		respMapper,
-		accountIds, session, ctx, logger, acceptLanguage, ids,
+		accountIds, ids,
+		ctx,
 	)
 }
 
@@ -126,11 +127,12 @@ func getAN[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP any]( //NOS
 	getCommandFactory func(string, []string) GETREQ,
 	resp GETRESP,
 	respMapper func(map[string][]T) RESP,
-	accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (RESP, SessionState, State, Language, Error) {
+	accountIds []string, ids []string, ctx Context) (RESP, SessionState, State, Language, Error) {
 	return getN(client, name, using, getCommandFactory, resp,
 		func(r GETRESP) []T { return r.GetList() },
 		respMapper,
-		accountIds, session, ctx, logger, acceptLanguage, ids,
+		accountIds, ids,
+		ctx,
 	)
 }
 
@@ -140,8 +142,9 @@ func getN[T Foo, ITEM any, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP an
 	_ GETRESP,
 	itemMapper func(GETRESP) ITEM,
 	respMapper func(map[string]ITEM) RESP,
-	accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (RESP, SessionState, State, Language, Error) {
-	logger = client.logger(name, session, logger)
+	accountIds []string, ids []string, ctx Context) (RESP, SessionState, State, Language, Error) {
+	logger := client.logger(name, ctx)
+	ctx = ctx.WithLogger(logger)
 
 	var zero RESP
 
@@ -155,17 +158,17 @@ func getN[T Foo, ITEM any, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP an
 		invocations[i] = invocation(get, mcid(accountId, "0"))
 	}
 
-	cmd, err := client.request(session, logger, using, invocations...)
+	cmd, err := client.request(ctx, using, invocations...)
 	if err != nil {
 		return zero, "", "", "", err
 	}
 
-	return command(client.api, logger, ctx, session, client.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (RESP, State, Error) {
+	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
 		result := map[string]ITEM{}
 		responses := map[string]GETRESP{}
 		for _, accountId := range uniqueAccountIds {
 			var resp GETRESP
-			err = retrieveResponseMatchParameters(logger, body, c, mcid(accountId, "0"), &resp)
+			err = retrieveResponseMatchParameters(ctx, body, c, mcid(accountId, "0"), &resp)
 			if err != nil {
 				return zero, "", err
 			}
@@ -182,13 +185,15 @@ func create[T Foo, C any, SETREQ SetCommand[T], GETREQ GetCommand[T], SETRESP Se
 	getCommandFactory func(string, string) GETREQ,
 	createdMapper func(SETRESP) map[string]*T,
 	listMapper func(GETRESP) []T,
-	accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, create C) (*T, SessionState, State, Language, Error) {
-	logger = client.logger(name, session, logger)
+	accountId string, create C,
+	ctx Context) (*T, SessionState, State, Language, Error) {
+	logger := client.logger(name, ctx)
+	ctx = ctx.WithLogger(logger)
 
 	createMap := map[string]C{"c": create}
 	get := getCommandFactory(accountId, "#c")
 	set := setCommandFactory(accountId, createMap)
-	cmd, err := client.request(session, logger, using,
+	cmd, err := client.request(ctx, using,
 		invocation(set, "0"),
 		invocation(get, "1"),
 	)
@@ -196,9 +201,9 @@ func create[T Foo, C any, SETREQ SetCommand[T], GETREQ GetCommand[T], SETRESP Se
 		return nil, "", "", "", err
 	}
 
-	return command(client.api, logger, ctx, session, client.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (*T, State, Error) {
+	return command(client, ctx, cmd, func(body *Response) (*T, State, Error) {
 		var setResponse SETRESP
-		err = retrieveSet(logger, body, set, "0", &setResponse)
+		err = retrieveSet(ctx, body, set, "0", &setResponse)
 		if err != nil {
 			return nil, "", err
 		}
@@ -218,7 +223,7 @@ func create[T Foo, C any, SETREQ SetCommand[T], GETREQ GetCommand[T], SETRESP Se
 		}
 
 		var getResponse GETRESP
-		err = retrieveGet(logger, body, get, "1", &getResponse)
+		err = retrieveGet(ctx, body, get, "1", &getResponse)
 		if err != nil {
 			return nil, "", err
 		}
@@ -237,20 +242,21 @@ func create[T Foo, C any, SETREQ SetCommand[T], GETREQ GetCommand[T], SETRESP Se
 
 func destroy[T Foo, REQ SetCommand[T], RESP SetResponse[T]](client *Client, name string, using []JmapNamespace, //NOSONAR
 	setCommandFactory func(string, []string) REQ, _ RESP,
-	accountId string, destroy []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]SetError, SessionState, State, Language, Error) {
-	logger = client.logger(name, session, logger)
+	accountId string, destroy []string, ctx Context) (map[string]SetError, SessionState, State, Language, Error) {
+	logger := client.logger(name, ctx)
+	ctx = ctx.WithLogger(logger)
 
 	set := setCommandFactory(accountId, destroy)
-	cmd, err := client.request(session, logger, using,
+	cmd, err := client.request(ctx, using,
 		invocation(set, "0"),
 	)
 	if err != nil {
 		return nil, "", "", "", err
 	}
 
-	return command(client.api, logger, ctx, session, client.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]SetError, State, Error) {
+	return command(client, ctx, cmd, func(body *Response) (map[string]SetError, State, Error) {
 		var setResponse RESP
-		err = retrieveSet(logger, body, set, "0", &setResponse)
+		err = retrieveSet(ctx, body, set, "0", &setResponse)
 		if err != nil {
 			return nil, "", err
 		}
@@ -265,12 +271,12 @@ func changesA[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGES
 	_ GETRESP,
 	getCommandFactory func(string, string) GETREQ,
 	respMapper func(State, State, bool, []T, []T, []string) RESP,
-	session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (RESP, SessionState, State, Language, Error) {
+	ctx Context) (RESP, SessionState, State, Language, Error) {
 
 	return changes(client, name, using, changesCommandFactory, changesResp, getCommandFactory,
 		func(r GETRESP) []T { return r.GetList() },
 		respMapper,
-		session, ctx, logger, acceptLanguage,
+		ctx,
 	)
 }
 
@@ -281,15 +287,15 @@ func changes[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESR
 	getCommandFactory func(string, string) GETREQ,
 	getMapper func(GETRESP) []ITEM,
 	respMapper func(State, State, bool, []ITEM, []ITEM, []string) RESP,
-	session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (RESP, SessionState, State, Language, Error) {
-	logger = client.logger(name, session, logger)
+	ctx Context) (RESP, SessionState, State, Language, Error) {
+	logger := client.logger(name, ctx)
 	var zero RESP
 
 	changes := changesCommandFactory()
 	getCreated := getCommandFactory("/created", "0") //NOSONAR
 	getUpdated := getCommandFactory("/updated", "0") //NOSONAR
 
-	cmd, err := client.request(session, logger, using,
+	cmd, err := client.request(ctx.WithLogger(logger), using,
 		invocation(changes, "0"),
 		invocation(getCreated, "1"),
 		invocation(getUpdated, "2"),
@@ -298,22 +304,22 @@ func changes[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESR
 		return zero, "", "", "", err
 	}
 
-	return command(client.api, logger, ctx, session, client.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (RESP, State, Error) {
+	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
 		var changesResponse CHANGESRESP
-		err = retrieveChanges(logger, body, changes, "0", &changesResponse)
+		err = retrieveChanges(ctx, body, changes, "0", &changesResponse)
 		if err != nil {
 			return zero, "", err
 		}
 
 		var createdResponse GETRESP
-		err = retrieveGet(logger, body, getCreated, "1", &createdResponse)
+		err = retrieveGet(ctx, body, getCreated, "1", &createdResponse)
 		if err != nil {
 			logger.Error().Err(err).Send()
 			return zero, "", err
 		}
 
 		var updatedResponse GETRESP
-		err = retrieveGet(logger, body, getUpdated, "2", &updatedResponse)
+		err = retrieveGet(ctx, body, getUpdated, "2", &updatedResponse)
 		if err != nil {
 			logger.Error().Err(err).Send()
 			return zero, "", err
@@ -338,8 +344,8 @@ func changesN[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGES
 	changesItemMapper func(State, State, bool, []ITEM, []ITEM, []string) CHANGESITEM,
 	respMapper func(map[string]CHANGESITEM) RESP,
 	stateMapper func(GETRESP) State,
-	session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (RESP, SessionState, State, Language, Error) {
-	logger = client.loggerParams(name, session, logger, func(z zerolog.Context) zerolog.Context {
+	ctx Context) (RESP, SessionState, State, Language, Error) {
+	logger := client.loggerParams(name, ctx, func(z zerolog.Context) zerolog.Context {
 		sinceStateLogDict := zerolog.Dict()
 		for k, v := range sinceStateMap {
 			sinceStateLogDict.Str(log.SafeString(k), log.SafeString(string(v)))
@@ -377,29 +383,31 @@ func changesN[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGES
 		getCommand = getCreated.GetCommand()
 	}
 
-	cmd, err := client.request(session, logger, using, invocations...)
+	ctx = ctx.WithLogger(logger)
+
+	cmd, err := client.request(ctx, using, invocations...)
 	if err != nil {
 		return zero, "", "", "", err
 	}
 
-	return command(client.api, logger, ctx, session, client.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (RESP, State, Error) {
+	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
 		changesItemByAccount := make(map[string]CHANGESITEM, n)
 		stateByAccountId := make(map[string]State, n)
 		for _, accountId := range uniqueAccountIds {
 			var changesResponse CHANGESRESP
-			err = retrieveResponseMatchParameters(logger, body, changesCommand, mcid(accountId, "0"), &changesResponse)
+			err = retrieveResponseMatchParameters(ctx, body, changesCommand, mcid(accountId, "0"), &changesResponse)
 			if err != nil {
 				return zero, "", err
 			}
 
 			var createdResponse GETRESP
-			err = retrieveResponseMatchParameters(logger, body, getCommand, mcid(accountId, "1"), &createdResponse)
+			err = retrieveResponseMatchParameters(ctx, body, getCommand, mcid(accountId, "1"), &createdResponse)
 			if err != nil {
 				return zero, "", err
 			}
 
 			var updatedResponse GETRESP
-			err = retrieveResponseMatchParameters(logger, body, getCommand, mcid(accountId, "2"), &updatedResponse)
+			err = retrieveResponseMatchParameters(ctx, body, getCommand, mcid(accountId, "2"), &updatedResponse)
 			if err != nil {
 				return zero, "", err
 			}
@@ -420,13 +428,14 @@ func updates[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESR
 	getCommandFactory func(string, string) GETREQ,
 	getMapper func(GETRESP) []ITEM,
 	respMapper func(State, State, bool, []ITEM) RESP,
-	session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (RESP, SessionState, State, Language, Error) {
-	logger = client.logger(name, session, logger)
+	ctx Context) (RESP, SessionState, State, Language, Error) {
+	logger := client.logger(name, ctx)
+	ctx = ctx.WithLogger(logger)
 	var zero RESP
 
 	changes := changesCommandFactory()
 	getUpdated := getCommandFactory("/updated", "0") //NOSONAR
-	cmd, err := client.request(session, logger, using,
+	cmd, err := client.request(ctx, using,
 		invocation(changes, "0"),
 		invocation(getUpdated, "1"),
 	)
@@ -434,15 +443,15 @@ func updates[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESR
 		return zero, "", "", "", err
 	}
 
-	return command(client.api, logger, ctx, session, client.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (RESP, State, Error) {
+	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
 		var changesResponse CHANGESRESP
-		err = retrieveChanges(logger, body, changes, "0", &changesResponse)
+		err = retrieveChanges(ctx, body, changes, "0", &changesResponse)
 		if err != nil {
 			return zero, "", err
 		}
 
 		var updatedResponse GETRESP
-		err = retrieveGet(logger, body, getUpdated, "1", &updatedResponse)
+		err = retrieveGet(ctx, body, getUpdated, "1", &updatedResponse)
 		if err != nil {
 			logger.Error().Err(err).Send()
 			return zero, "", err
@@ -461,19 +470,20 @@ func update[T Foo, CHANGES Change, SET SetCommand[T], GET GetCommand[T], RESP an
 	notUpdatedExtractor func(SETRESP) map[string]SetError,
 	objExtractor func(GETRESP) RESP,
 	id string, changes CHANGES,
-	session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (RESP, SessionState, State, Language, Error) {
-	logger = client.logger(name, session, logger)
+	ctx Context) (RESP, SessionState, State, Language, Error) {
+	logger := client.logger(name, ctx)
+	ctx = ctx.WithLogger(logger)
 	update := setCommandFactory(map[string]PatchObject{id: changes.AsPatch()})
 	get := getCommandFactory(id)
-	cmd, err := client.request(session, logger, using, invocation(update, "0"), invocation(get, "1"))
+	cmd, err := client.request(ctx, using, invocation(update, "0"), invocation(get, "1"))
 	var zero RESP
 	if err != nil {
 		return zero, "", "", "", err
 	}
 
-	return command(client.api, logger, ctx, session, client.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (RESP, State, Error) {
+	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
 		var setResponse SETRESP
-		err = retrieveSet(logger, body, update, "0", &setResponse)
+		err = retrieveSet(ctx, body, update, "0", &setResponse)
 		if err != nil {
 			return zero, setResponse.GetNewState(), err
 		}
@@ -484,10 +494,107 @@ func update[T Foo, CHANGES Change, SET SetCommand[T], GET GetCommand[T], RESP an
 			return zero, "", setErrorError(setErr, update.GetObjectType())
 		}
 		var getResponse GETRESP
-		err = retrieveGet(logger, body, get, "1", &getResponse)
+		err = retrieveGet(ctx, body, get, "1", &getResponse)
 		if err != nil {
 			return zero, setResponse.GetNewState(), err
 		}
 		return objExtractor(getResponse), setResponse.GetNewState(), nil
+	})
+}
+
+func query[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T], QUERYRESP QueryResponse[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
+	client *Client, name string, using []JmapNamespace,
+	defaultSortBy []SORT,
+	queryCommandFactory func(filter FILTER, sortBy []SORT, limit uint, position uint) QUERY,
+	getCommandFactory func(cmd Command, path string, rof string) GET,
+	respMapper func(query QUERYRESP, get GETRESP) RESP,
+	filter FILTER, sortBy []SORT, limit uint, position uint,
+	ctx Context) (RESP, SessionState, State, Language, Error) {
+
+	logger := client.logger(name, ctx)
+	ctx = ctx.WithLogger(logger)
+
+	if sortBy == nil {
+		sortBy = defaultSortBy
+	}
+
+	query := queryCommandFactory(filter, sortBy, limit, position)
+	get := getCommandFactory(query.GetCommand(), "/ids/*", "0")
+
+	var zero RESP
+
+	cmd, err := client.request(ctx, using, invocation(query, "0"), invocation(get, "1"))
+	if err != nil {
+		return zero, "", "", "", err
+	}
+
+	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
+		var queryResponse QUERYRESP
+		err = retrieveQuery(ctx, body, query, "0", &queryResponse)
+		if err != nil {
+			return zero, EmptyState, err
+		}
+		var getResponse GETRESP
+		err = retrieveGet(ctx, body, get, "1", &getResponse)
+		if err != nil {
+			return zero, EmptyState, err
+		}
+		return respMapper(queryResponse, getResponse), queryResponse.GetQueryState(), nil
+	})
+}
+
+func queryN[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T], QUERYRESP QueryResponse[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
+	client *Client, name string, using []JmapNamespace,
+	defaultSortBy []SORT,
+	queryCommandFactory func(accountId string, filter FILTER, sortBy []SORT, position int, limit uint) QUERY,
+	getCommandFactory func(accountId string, cmd Command, path string, rof string) GET,
+	respMapper func(query QUERYRESP, get GETRESP) RESP,
+	accountIds []string,
+	filter FILTER, sortBy []SORT, limit uint, position int,
+	ctx Context) (map[string]RESP, SessionState, State, Language, Error) {
+	uniqueAccountIds := structs.Uniq(accountIds)
+
+	if sortBy == nil {
+		sortBy = defaultSortBy
+	}
+
+	invocations := make([]Invocation, len(uniqueAccountIds)*2)
+	var g GET
+	var q QUERY
+	for i, accountId := range uniqueAccountIds {
+		query := queryCommandFactory(accountId, filter, sortBy, position, limit)
+		get := getCommandFactory(accountId, query.GetCommand(), "/ids/*", mcid(accountId, "0"))
+		invocations[i*2+0] = invocation(query, mcid(accountId, "0"))
+		invocations[i*2+1] = invocation(get, mcid(accountId, "1"))
+		q = query
+		g = get
+	}
+
+	cmd, err := client.request(ctx, NS_CALENDARS, invocations...)
+	if err != nil {
+		return nil, "", "", "", err
+	}
+
+	return command(client, ctx, cmd, func(body *Response) (map[string]RESP, State, Error) {
+		resp := map[string]RESP{}
+		stateByAccountId := map[string]State{}
+		for _, accountId := range uniqueAccountIds {
+			var queryResponse QUERYRESP
+			err = retrieveQuery(ctx, body, q, mcid(accountId, "0"), &queryResponse)
+			if err != nil {
+				return nil, "", err
+			}
+			var getResponse GETRESP
+			err = retrieveGet(ctx, body, g, mcid(accountId, "1"), &getResponse)
+			if err != nil {
+				return nil, "", err
+			}
+			if len(getResponse.GetNotFound()) > 0 {
+				// TODO what to do when there are not-found calendarevents here? potentially nothing, they could have been deleted between query and get?
+			}
+			resp[accountId] = respMapper(queryResponse, getResponse)
+			stateByAccountId[accountId] = getResponse.GetState()
+		}
+		return resp, squashState(stateByAccountId), nil
 	})
 }

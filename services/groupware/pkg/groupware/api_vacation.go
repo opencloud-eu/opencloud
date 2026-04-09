@@ -20,8 +20,9 @@ func (g *Groupware) GetVacation(w http.ResponseWriter, r *http.Request) {
 			return req.error(accountId, err)
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
+		ctx := req.ctx.WithLogger(logger)
 
-		res, sessionState, state, lang, jerr := g.jmap.GetVacationResponse(accountId, req.session, req.ctx, logger, req.language())
+		res, sessionState, state, lang, jerr := g.jmap.GetVacationResponse(accountId, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -40,14 +41,15 @@ func (g *Groupware) SetVacation(w http.ResponseWriter, r *http.Request) {
 			return req.error(accountId, err)
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
+		ctx := req.ctx.WithLogger(logger)
 
-		var body jmap.VacationResponsePayload
+		var body jmap.VacationResponseChange
 		err = req.body(&body)
 		if err != nil {
 			return req.error(accountId, err)
 		}
 
-		res, sessionState, state, lang, jerr := g.jmap.SetVacationResponse(accountId, body, req.session, req.ctx, logger, req.language())
+		res, sessionState, state, lang, jerr := g.jmap.SetVacationResponse(accountId, body, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}

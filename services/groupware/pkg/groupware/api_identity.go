@@ -7,7 +7,6 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
 // Get the list of identities that are associated with an account.
@@ -18,7 +17,8 @@ func (g *Groupware) GetIdentities(w http.ResponseWriter, r *http.Request) {
 			return req.error(accountId, err)
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
-		res, sessionState, state, lang, jerr := g.jmap.GetAllIdentities(accountId, req.session, req.ctx, logger, req.language())
+		ctx := req.ctx.WithLogger(logger)
+		res, sessionState, state, lang, jerr := g.jmap.GetAllIdentities(accountId, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -37,7 +37,8 @@ func (g *Groupware) GetIdentityById(w http.ResponseWriter, r *http.Request) {
 			return req.error(accountId, err)
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId).Str(logIdentityId, id))
-		res, sessionState, state, lang, jerr := g.jmap.GetIdentities(accountId, req.session, req.ctx, logger, req.language(), []string{id})
+		ctx := req.ctx.WithLogger(logger)
+		res, sessionState, state, lang, jerr := g.jmap.GetIdentities(accountId, single(id), ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -56,14 +57,15 @@ func (g *Groupware) AddIdentity(w http.ResponseWriter, r *http.Request) {
 			return req.error(accountId, err)
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
+		ctx := req.ctx.WithLogger(logger)
 
-		var identity jmap.Identity
+		var identity jmap.IdentityChange
 		err = req.body(&identity)
 		if err != nil {
 			return req.error(accountId, err)
 		}
 
-		created, sessionState, state, lang, jerr := g.jmap.CreateIdentity(accountId, req.session, req.ctx, logger, req.language(), identity)
+		created, sessionState, state, lang, jerr := g.jmap.CreateIdentity(accountId, identity, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -77,15 +79,21 @@ func (g *Groupware) ModifyIdentity(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return req.error(accountId, err)
 		}
-		logger := log.From(req.logger.With().Str(logAccountId, accountId))
+		id, err := req.PathParamDoc(UriParamIdentityId, "The unique identifier of the Identity to modify")
+		if err != nil {
+			return req.error(accountId, err)
+		}
 
-		var identity jmap.Identity
+		logger := log.From(req.logger.With().Str(logAccountId, accountId).Str(UriParamIdentityId, log.SafeString(id)))
+		ctx := req.ctx.WithLogger(logger)
+
+		var identity jmap.IdentityChange
 		err = req.body(&identity)
 		if err != nil {
 			return req.error(accountId, err)
 		}
 
-		updated, sessionState, state, lang, jerr := g.jmap.UpdateIdentity(accountId, req.session, req.ctx, logger, req.language(), identity)
+		updated, sessionState, state, lang, jerr := g.jmap.UpdateIdentity(accountId, id, identity, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -100,7 +108,6 @@ func (g *Groupware) DeleteIdentity(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return req.error(accountId, err)
 		}
-		logger := log.From(req.logger.With().Str(logAccountId, accountId))
 
 		id, err := req.PathParam(UriParamIdentityId)
 		if err != nil {
@@ -111,18 +118,19 @@ func (g *Groupware) DeleteIdentity(w http.ResponseWriter, r *http.Request) {
 			return req.parameterErrorResponse(single(accountId), UriParamIdentityId, fmt.Sprintf("Invalid value for path parameter '%v': '%s': %s", UriParamIdentityId, log.SafeString(id), "empty list of identity ids"))
 		}
 
-		deletion, sessionState, state, lang, jerr := g.jmap.DeleteIdentity(accountId, req.session, req.ctx, logger, req.language(), ids)
+		logger := log.From(req.logger.With().Str(logAccountId, accountId).Array(UriParamIdentityId, log.SafeStringArray(ids)))
+		ctx := req.ctx.WithLogger(logger)
+
+		notDeleted, sessionState, state, lang, jerr := g.jmap.DeleteIdentity(accountId, ids, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
 
-		notDeletedIds := structs.Missing(ids, deletion)
-		if len(notDeletedIds) == 0 {
+		if len(notDeleted) == 0 {
 			return req.noContent(accountId, sessionState, IdentityResponseObjectType, state)
 		} else {
-			logger.Error().Array("not-deleted", log.SafeStringArray(notDeletedIds)).Msgf("failed to delete %d identities", len(notDeletedIds))
-			return req.errorS(accountId, req.apiError(&ErrorFailedToDeleteSomeIdentities,
-				withMeta(map[string]any{"ids": notDeletedIds})), sessionState)
+			logger.Error().Msgf("failed to delete %d identities", len(notDeleted))
+			return req.errorS(accountId, req.apiError(&ErrorFailedToDeleteSomeIdentities), sessionState)
 		}
 	})
 }
@@ -150,7 +158,8 @@ func (g *Groupware) GetIdentityChanges(w http.ResponseWriter, r *http.Request) {
 		l = l.Str(HeaderParamSince, log.SafeString(string(sinceState)))
 
 		logger := log.From(l)
-		changes, sessionState, state, lang, jerr := g.jmap.GetIdentityChanges(accountId, req.session, req.ctx, logger, req.language(), sinceState, maxChanges)
+		ctx := req.ctx.WithLogger(logger)
+		changes, sessionState, state, lang, jerr := g.jmap.GetIdentityChanges(accountId, sinceState, maxChanges, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}

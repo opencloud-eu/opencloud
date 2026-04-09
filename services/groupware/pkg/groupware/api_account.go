@@ -44,7 +44,7 @@ func (g *Groupware) GetAccounts(w http.ResponseWriter, r *http.Request) {
 func (g *Groupware) GetAccountsWithTheirIdentities(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		allAccountIds := req.AllAccountIds()
-		resp, sessionState, state, lang, err := g.jmap.GetIdentitiesForAllAccounts(allAccountIds, req.session, req.ctx, req.logger, req.language())
+		resp, sessionState, state, lang, err := g.jmap.GetIdentitiesForAllAccounts(allAccountIds, req.ctx)
 		if err != nil {
 			return req.jmapErrorN(allAccountIds, err, sessionState, lang)
 		}

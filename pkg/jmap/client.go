@@ -22,11 +22,25 @@ type Client struct {
 	WsPushListener
 }
 
+type ApiSupplier interface {
+	Api() ApiClient
+}
+
+type Hooks interface {
+	OnSessionOutdated(session *Session, newState SessionState)
+}
+
 var _ io.Closer = &Client{}
 var _ WsPushListener = &Client{}
+var _ ApiSupplier = &Client{}
+var _ Hooks = &Client{}
 
 func (j *Client) Close() error {
 	return errors.Join(j.api.Close(), j.session.Close(), j.blob.Close(), j.ws.Close())
+}
+
+func (j *Client) Api() ApiClient {
+	return j.api
 }
 
 func NewClient(session SessionClient, api ApiClient, blob BlobClient, ws WsClientFactory) Client {
@@ -44,7 +58,7 @@ func (j *Client) AddSessionEventListener(listener SessionEventListener) {
 	j.sessionEventListeners.add(listener)
 }
 
-func (j *Client) onSessionOutdated(session *Session, newSessionState SessionState) {
+func (j *Client) OnSessionOutdated(session *Session, newSessionState SessionState) {
 	j.sessionEventListeners.signal(func(listener SessionEventListener) {
 		listener.OnSessionOutdated(session, newSessionState)
 	})
@@ -65,25 +79,25 @@ func (j *Client) FetchSession(ctx context.Context, sessionUrl *url.URL, username
 	return newSession(wk)
 }
 
-func (j *Client) logger(operation string, _ *Session, logger *log.Logger) *log.Logger {
-	l := logger.With().Str(logOperation, operation)
+func (j *Client) logger(operation string, ctx Context) *log.Logger {
+	l := ctx.Logger.With().Str(logOperation, operation)
 	return log.From(l)
 }
 
-func (j *Client) loggerParams(operation string, _ *Session, logger *log.Logger, params func(zerolog.Context) zerolog.Context) *log.Logger {
-	l := logger.With().Str(logOperation, operation)
+func (j *Client) loggerParams(operation string, ctx Context, params func(zerolog.Context) zerolog.Context) *log.Logger {
+	l := ctx.Logger.With().Str(logOperation, operation)
 	if params != nil {
 		l = params(l)
 	}
 	return log.From(l)
 }
 
-func (j *Client) maxCallsCheck(calls int, session *Session, logger *log.Logger) Error {
-	if calls > session.Capabilities.Core.MaxCallsInRequest {
-		logger.Error().
-			Int("max-calls-in-request", session.Capabilities.Core.MaxCallsInRequest).
+func (j *Client) maxCallsCheck(calls int, ctx Context) Error {
+	if calls > ctx.Session.Capabilities.Core.MaxCallsInRequest {
+		ctx.Logger.Error().
+			Int("max-calls-in-request", ctx.Session.Capabilities.Core.MaxCallsInRequest).
 			Int("calls-in-request", calls).
-			Msgf("number of calls in request payload (%d) exceeds the allowed maximum (%d)", session.Capabilities.Core.MaxCallsInRequest, calls)
+			Msgf("number of calls in request payload (%d) exceeds the allowed maximum (%d)", ctx.Session.Capabilities.Core.MaxCallsInRequest, calls)
 		return jmapError(errTooManyMethodCalls, JmapErrorTooManyMethodCalls)
 	}
 	return nil
@@ -92,8 +106,8 @@ func (j *Client) maxCallsCheck(calls int, session *Session, logger *log.Logger) 
 // Construct a Request from the given list of Invocation objects.
 //
 // If an issue occurs, then it is logged prior to returning it.
-func (j *Client) request(session *Session, logger *log.Logger, using []JmapNamespace, methodCalls ...Invocation) (Request, Error) {
-	err := j.maxCallsCheck(len(methodCalls), session, logger)
+func (j *Client) request(ctx Context, using []JmapNamespace, methodCalls ...Invocation) (Request, Error) {
+	err := j.maxCallsCheck(len(methodCalls), ctx)
 	if err != nil {
 		return Request{}, err
 	}

@@ -1,11 +1,8 @@
 package jmap
 
 import (
-	"context"
 	"fmt"
 	"time"
-
-	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
 var NS_VACATION = ns(JmapVacationResponse)
@@ -14,19 +11,20 @@ const (
 	vacationResponseId = "singleton"
 )
 
-func (j *Client) GetVacationResponse(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (VacationResponseGetResponse, SessionState, State, Language, Error) {
+func (j *Client) GetVacationResponse(accountId string, ctx Context) (VacationResponseGetResponse, SessionState, State, Language, Error) {
 	return get(j, "GetVacationResponse", NS_VACATION,
 		func(accountId string, ids []string) VacationResponseGetCommand {
 			return VacationResponseGetCommand{AccountId: accountId}
 		},
 		VacationResponseGetResponse{},
 		identity1,
-		accountId, session, ctx, logger, acceptLanguage, []string{},
+		accountId, []string{},
+		ctx,
 	)
 }
 
 // Same as VacationResponse but without the id.
-type VacationResponsePayload struct {
+type VacationResponseChange struct {
 	// Should a vacation response be sent if a message arrives between the "fromDate" and "toDate"?
 	IsEnabled bool `json:"isEnabled"`
 	// If "isEnabled" is true, messages that arrive on or after this date-time (but before the "toDate" if defined) should receive the
@@ -49,33 +47,39 @@ type VacationResponsePayload struct {
 	HtmlBody string `json:"htmlBody,omitempty"`
 }
 
-func (j *Client) SetVacationResponse(accountId string, vacation VacationResponsePayload, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (VacationResponse, SessionState, State, Language, Error) {
-	logger = j.logger("SetVacationResponse", session, logger)
+func (j *Client) SetVacationResponse(accountId string, vacation VacationResponseChange,
+	ctx Context) (VacationResponse, SessionState, State, Language, Error) {
+	logger := j.logger("SetVacationResponse", ctx)
+	ctx = ctx.WithLogger(logger)
 
-	cmd, err := j.request(session, logger, NS_VACATION,
-		invocation(VacationResponseSetCommand{
-			AccountId: accountId,
-			Create: map[string]VacationResponse{
-				vacationResponseId: {
-					IsEnabled: vacation.IsEnabled,
-					FromDate:  vacation.FromDate,
-					ToDate:    vacation.ToDate,
-					Subject:   vacation.Subject,
-					TextBody:  vacation.TextBody,
-					HtmlBody:  vacation.HtmlBody,
-				},
+	set := VacationResponseSetCommand{
+		AccountId: accountId,
+		Create: map[string]VacationResponse{
+			vacationResponseId: {
+				IsEnabled: vacation.IsEnabled,
+				FromDate:  vacation.FromDate,
+				ToDate:    vacation.ToDate,
+				Subject:   vacation.Subject,
+				TextBody:  vacation.TextBody,
+				HtmlBody:  vacation.HtmlBody,
 			},
-		}, "0"),
+		},
+	}
+
+	get := VacationResponseGetCommand{AccountId: accountId}
+
+	cmd, err := j.request(ctx, NS_VACATION,
+		invocation(set, "0"),
 		// chain a second request to get the current complete VacationResponse object
 		// after performing the changes, as that makes for a better API
-		invocation(VacationResponseGetCommand{AccountId: accountId}, "1"),
+		invocation(get, "1"),
 	)
 	if err != nil {
 		return VacationResponse{}, "", "", "", err
 	}
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (VacationResponse, State, Error) {
+	return command(j, ctx, cmd, func(body *Response) (VacationResponse, State, Error) {
 		var setResponse VacationResponseSetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandVacationResponseSet, "0", &setResponse)
+		err = retrieveSet(ctx, body, set, "0", &setResponse)
 		if err != nil {
 			return VacationResponse{}, "", err
 		}
@@ -88,7 +92,7 @@ func (j *Client) SetVacationResponse(accountId string, vacation VacationResponse
 		}
 
 		var getResponse VacationResponseGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandVacationResponseGet, "1", &getResponse)
+		err = retrieveGet(ctx, body, get, "1", &getResponse)
 		if err != nil {
 			return VacationResponse{}, "", err
 		}
