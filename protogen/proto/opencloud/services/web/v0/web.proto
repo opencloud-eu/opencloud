@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package opencloud.services.web.v0;
+
+option go_package = "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/web/v0";
+
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "OpenCloud web";
+    version: "1.0.0";
+    contact: {
+      name: "OpenCloud GmbH";
+      url: "https://github.com/opencloud-eu/opencloud";
+      email: "support@opencloud.eu";
+    };
+    license: {
+      name: "Apache-2.0";
+      url: "https://github.com/opencloud-eu/opencloud/blob/main/LICENSE";
+    };
+  };
+  schemes: HTTP;
+  schemes: HTTPS;
+  consumes: "application/json";
+  produces: "application/json";
+  external_docs: {
+    description: "Developer Manual";
+    url: "https://docs.opencloud.eu/services/web/";
+  };
+};
+
+service WebService {
+  rpc ThemeAdd(ThemeAddRequest) returns (ThemeAddResponse);
+  rpc ThemeExists(ThemeExistsRequest) returns (ThemeExistsResponse);
+  rpc ThemeRemove(ThemeRemoveRequest) returns (ThemeRemoveResponse);
+}
+
+message ThemeAddRequest {
+  string id = 1; // The ID of the theme to add
+  bytes data = 2; // The theme data in bytes
+}
+
+message ThemeAddResponse {}
+
+message ThemeExistsRequest {
+  string id = 1; // The ID of the theme to check
+}
+
+message ThemeExistsResponse {
+  bool exists = 1; // Indicates if the theme exists
+}
+
+message ThemeRemoveRequest {
+  string id = 1; // The ID of the theme to remove
+}
+
+message ThemeRemoveResponse {}
