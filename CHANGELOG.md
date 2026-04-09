@@ -1,6 +1,6 @@
 # Changelog
 
-## [6.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v6.1.0) - 2026-04-08
+## [6.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v6.1.0) - 2026-04-09
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -8,6 +8,7 @@
 
 ### 📈 Enhancement
 
+- proxy: Allow mapping from an external tenant id to the internal id [[#2569](https://github.com/opencloud-eu/opencloud/pull/2569)]
 - feat: enable EnableInsertRemoteFile WOPI flag for Collabora [[#2555](https://github.com/opencloud-eu/opencloud/pull/2555)]
 - feat(multi-tenancy): verify tenant via OIDC claim [[#2559](https://github.com/opencloud-eu/opencloud/pull/2559)]
 
