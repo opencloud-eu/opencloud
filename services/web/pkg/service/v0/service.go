@@ -17,6 +17,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
+	consoleWebService "github.com/opencloud-eu/opencloud/services/console/pkg/web"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/assets"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/theme"
@@ -121,8 +122,8 @@ func (p Web) Config(w http.ResponseWriter, _ *http.Request) {
 	// decouple theme-related config changes
 	conf := *p.config
 	// check if the console theme exists and apply it
-	if conf.Web.ThemeServer == conf.Web.Config.Server && p.themeService.Exists("_console") {
-		conf.Web.ThemePath = path.Join("themes", "_console", "theme.json")
+	if conf.Web.ThemeServer == conf.Web.Config.Server && p.themeService.Exists(consoleWebService.ThemeID) {
+		conf.Web.ThemePath = path.Join("themes", consoleWebService.ThemeID, "theme.json")
 	}
 
 	// build theme url
