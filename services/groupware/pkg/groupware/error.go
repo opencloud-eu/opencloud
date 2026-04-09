@@ -208,6 +208,7 @@ const (
 	ErrorCodeInvalidSortSpecification          = "INVSSP"
 	ErrorCodeInvalidSortProperty               = "INVSPR"
 	ErrorCodeInvalidObjectState                = "INVOST"
+	ErrorCodeMultipleIdMatches                 = "MIDMAT"
 )
 
 var (
@@ -492,6 +493,12 @@ var (
 		Code:   ErrorCodeInvalidObjectState,
 		Title:  "Invalid Object State",
 		Detail: "The request included an object state that does not exist.",
+	}
+	ErrorMultipleIdMatches = GroupwareError{
+		Status: http.StatusConflict,
+		Code:   ErrorCodeMultipleIdMatches,
+		Title:  "Multiple unique identifier matches",
+		Detail: "A supposedly unique identifier matched multiple objects.",
 	}
 )
 

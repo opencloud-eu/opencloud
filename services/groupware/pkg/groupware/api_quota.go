@@ -24,9 +24,8 @@ func (g *Groupware) GetQuota(w http.ResponseWriter, r *http.Request) {
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
-		for _, v := range res {
-			body := v.List
-			return req.respond(accountId, body, sessionState, QuotaResponseObjectType, state)
+		for _, quotas := range res {
+			return req.respond(accountId, quotas, sessionState, QuotaResponseObjectType, state)
 		}
 		return req.notFound(accountId, sessionState, QuotaResponseObjectType, state)
 	})

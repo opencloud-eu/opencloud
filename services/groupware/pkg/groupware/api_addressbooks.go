@@ -20,7 +20,7 @@ func (g *Groupware) GetAddressbooks(w http.ResponseWriter, r *http.Request) {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
 
-		var body jmap.AddressBooksResponse = addressbooks
+		var body jmap.AddressBookGetResponse = addressbooks
 		return req.respond(accountId, body, sessionState, AddressBookResponseObjectType, state)
 	})
 }
@@ -47,10 +47,14 @@ func (g *Groupware) GetAddressbook(w http.ResponseWriter, r *http.Request) {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
 
-		if len(addressbooks.NotFound) > 0 {
-			return req.notFound(accountId, sessionState, AddressBookResponseObjectType, state)
-		} else {
-			return req.respond(accountId, addressbooks.AddressBooks[0], sessionState, AddressBookResponseObjectType, state)
+		switch len(addressbooks.List) {
+		case 0:
+			return req.notFound(accountId, sessionState, ContactResponseObjectType, state)
+		case 1:
+			return req.respond(accountId, addressbooks.List[0], sessionState, ContactResponseObjectType, state)
+		default:
+			logger.Error().Msgf("found %d addressbooks matching '%s' instead of 1", len(addressbooks.List), addressBookId)
+			return req.errorS(accountId, req.apiError(&ErrorMultipleIdMatches), sessionState)
 		}
 	})
 }

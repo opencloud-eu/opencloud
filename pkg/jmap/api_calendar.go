@@ -29,32 +29,18 @@ func (j *Client) ParseICalendarBlob(accountId string, session *Session, ctx cont
 	})
 }
 
-type CalendarsResponse struct {
-	Calendars []Calendar `json:"calendars"`
-	NotFound  []string   `json:"notFound,omitempty"`
-}
-
-func (j *Client) GetCalendars(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (CalendarsResponse, SessionState, State, Language, Error) {
+func (j *Client) GetCalendars(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (CalendarGetResponse, SessionState, State, Language, Error) {
 	return get(j, "GetCalendars", NS_CALENDARS,
 		func(accountId string, ids []string) CalendarGetCommand {
 			return CalendarGetCommand{AccountId: accountId, Ids: ids}
 		},
 		CalendarGetResponse{},
-		func(resp CalendarGetResponse) CalendarsResponse {
-			return CalendarsResponse{Calendars: resp.List, NotFound: resp.NotFound}
-		},
+		identity1,
 		accountId, session, ctx, logger, acceptLanguage, ids,
 	)
 }
 
-type CalendarChanges struct {
-	HasMoreChanges bool       `json:"hasMoreChanges"`
-	OldState       State      `json:"oldState,omitempty"`
-	NewState       State      `json:"newState"`
-	Created        []Calendar `json:"created,omitempty"`
-	Updated        []Calendar `json:"updated,omitempty"`
-	Destroyed      []string   `json:"destroyed,omitempty"`
-}
+type CalendarChanges = ChangesTemplate[Calendar]
 
 // Retrieve Calendar changes since a given state.
 // @apidoc calendar,changes
@@ -148,14 +134,7 @@ func (j *Client) QueryCalendarEvents(accountIds []string, session *Session, ctx 
 	})
 }
 
-type CalendarEventChanges struct {
-	OldState       State           `json:"oldState,omitempty"`
-	NewState       State           `json:"newState"`
-	HasMoreChanges bool            `json:"hasMoreChanges"`
-	Created        []CalendarEvent `json:"created,omitempty"`
-	Updated        []CalendarEvent `json:"updated,omitempty"`
-	Destroyed      []string        `json:"destroyed,omitempty"`
-}
+type CalendarEventChanges = ChangesTemplate[CalendarEvent]
 
 // Retrieve the changes in Calendar Events since a given State.
 // @api:tags event,changes
@@ -236,11 +215,25 @@ func (j *Client) CreateCalendar(accountId string, session *Session, ctx context.
 }
 
 func (j *Client) DeleteCalendar(accountId string, destroyIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]SetError, SessionState, State, Language, Error) {
-	return destroy(j, "DeleteCalendar", NS_ADDRESSBOOKS,
+	return destroy(j, "DeleteCalendar", NS_CALENDARS,
 		func(accountId string, destroy []string) CalendarSetCommand {
 			return CalendarSetCommand{AccountId: accountId, Destroy: destroy}
 		},
 		CalendarSetResponse{},
 		accountId, destroyIds, session, ctx, logger, acceptLanguage,
+	)
+}
+
+func (j *Client) UpdateCalendar(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, id string, changes CalendarChange) (Calendar, SessionState, State, Language, Error) {
+	return update(j, "UpdateCalendar", NS_CALENDARS,
+		func(update map[string]PatchObject) CalendarSetCommand {
+			return CalendarSetCommand{AccountId: accountId, Update: update}
+		},
+		func(id string) CalendarGetCommand {
+			return CalendarGetCommand{AccountId: accountId, Ids: []string{id}}
+		},
+		func(resp CalendarSetResponse) map[string]SetError { return resp.NotUpdated },
+		func(resp CalendarGetResponse) Calendar { return resp.List[0] },
+		id, changes, session, ctx, logger, acceptLanguage,
 	)
 }

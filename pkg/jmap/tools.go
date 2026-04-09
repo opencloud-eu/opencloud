@@ -14,7 +14,6 @@ import (
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/opencloud-eu/opencloud/pkg/jscalendar"
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
 type eventListeners[T any] struct {
@@ -87,6 +86,7 @@ func command[T any](api ApiClient, //NOSONAR
 	for _, mr := range response.MethodResponses {
 		if mr.Command == ErrorCommand {
 			if errorParameters, ok := mr.Parameters.(ErrorResponse); ok {
+				// TODO deal with stateMismatch differently, as it's not an error per se, but rather "optimistic update"
 				code := JmapErrorServerFail
 				switch errorParameters.Type {
 				case MethodLevelErrorServerUnavailable:
@@ -233,19 +233,15 @@ func tryRetrieveResponseMatchParameters[T any](logger *log.Logger, data *Respons
 	return true, nil
 }
 
-func retrieveGet[C GetCommand, T GetResponse](logger *log.Logger, data *Response, command C, tag string, target *T) Error {
+func retrieveGet[T Foo, C GetCommand[T], R GetResponse[T]](logger *log.Logger, data *Response, command C, tag string, target *R) Error {
 	return retrieveResponseMatchParameters(logger, data, command.GetCommand(), tag, target)
 }
 
-func retrieveSet[C SetCommand, T SetResponse](logger *log.Logger, data *Response, command C, tag string, target *T) Error {
+func retrieveSet[T Foo, C SetCommand[T], R SetResponse[T]](logger *log.Logger, data *Response, command C, tag string, target *R) Error {
 	return retrieveResponseMatchParameters(logger, data, command.GetCommand(), tag, target)
 }
 
-func retrieveQuery[C QueryCommand, T QueryResponse](logger *log.Logger, data *Response, command C, tag string, target *T) Error {
-	return retrieveResponseMatchParameters(logger, data, command.GetCommand(), tag, target)
-}
-
-func retrieveChanges[C ChangesCommand, T ChangesResponse](logger *log.Logger, data *Response, command C, tag string, target *T) Error {
+func retrieveChanges[T Foo, C ChangesCommand[T], R ChangesResponse[T]](logger *log.Logger, data *Response, command C, tag string, target *R) Error {
 	return retrieveResponseMatchParameters(logger, data, command.GetCommand(), tag, target)
 }
 
@@ -304,9 +300,11 @@ func squashState(all map[string]State) State {
 	return squashStateFunc(all, func(s State) State { return s })
 }
 
+/*
 func squashStates(states ...State) State {
 	return State(strings.Join(structs.Map(states, func(s State) string { return string(s) }), ","))
 }
+*/
 
 func squashKeyedStates(m map[string]State) State {
 	return squashStateFunc(m, identity1)
@@ -394,6 +392,9 @@ func boolPtr(b bool) *bool {
 func identity1[T any](t T) T {
 	return t
 }
+
+func list[T Foo, GETRESP GetResponse[T]](r GETRESP) []T { return r.GetList() }
+func getid[T Idable](r T) string                        { return r.GetId() }
 
 func posUIntPtr(i uint) *uint {
 	if i > 0 {

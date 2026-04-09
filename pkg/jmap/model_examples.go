@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/jscalendar"
-	"github.com/opencloud-eu/opencloud/pkg/jscontact"
 	c "github.com/opencloud-eu/opencloud/pkg/jscontact"
 )
 
@@ -924,14 +923,6 @@ func (e Exemplar) AddressBookGetResponse() AddressBookGetResponse {
 	}
 }
 
-func (e Exemplar) AddressBooksResponse() AddressBooksResponse {
-	a := e.AddressBook()
-	b, _, _ := e.OtherAddressBook()
-	return AddressBooksResponse{
-		AddressBooks: []AddressBook{a, b},
-	}
-}
-
 func (e Exemplar) JSContactEmailAddress() c.EmailAddress {
 	return c.EmailAddress{
 		Type:    c.EmailAddressType,
@@ -1074,13 +1065,6 @@ func (e Exemplar) Calendar() Calendar {
 			MayAdmin:         true,
 			MayDelete:        true,
 		},
-	}
-}
-
-func (e Exemplar) CalendarsResponse() CalendarsResponse {
-	a := e.Calendar()
-	return CalendarsResponse{
-		Calendars: []Calendar{a},
 	}
 }
 
@@ -1400,10 +1384,10 @@ func (e Exemplar) PersonalInfo() c.PersonalInfo {
 	}
 }
 
-func (e Exemplar) DesignContactCard() (c.ContactCard, string, string) {
+func (e Exemplar) DesignContactCard() (ContactCard, string, string) {
 	created, _ := time.Parse(time.RFC3339, "2025-07-09T07:12:28+02:00")
 	updated, _ := time.Parse(time.RFC3339, "2025-07-10T09:58:01+02:00")
-	return c.ContactCard{
+	return ContactCard{
 		Type: c.ContactCardType,
 		Kind: c.ContactCardKindIndividual,
 		Id:   "loTh8ahmubei",
@@ -1572,10 +1556,10 @@ func (e Exemplar) DesignContactCard() (c.ContactCard, string, string) {
 	}, "Another Contact Card", "other"
 }
 
-func (e Exemplar) ContactCard() c.ContactCard {
+func (e Exemplar) ContactCard() ContactCard {
 	created, _ := time.Parse(time.RFC3339, "2025-09-25T18:26:14.094725532+02:00")
 	updated, _ := time.Parse(time.RFC3339, "2025-09-26T09:58:01+02:00")
-	return c.ContactCard{
+	return ContactCard{
 		Type: c.ContactCardType,
 		Kind: c.ContactCardKindGroup,
 		Id:   "20fba820-2f8e-432d-94f1-5abbb59d3ed7",
@@ -1876,7 +1860,7 @@ func (e Exemplar) ContactCardGetResponse() ContactCardGetResponse {
 		AccountId: e.AccountId,
 		State:     "ewohl8ie",
 		NotFound:  []string{"eeaa2"},
-		List:      []c.ContactCard{a, b},
+		List:      []ContactCard{a, b},
 	}
 }
 
@@ -1899,7 +1883,7 @@ func (e Exemplar) CalendarEvent() CalendarEvent {
 					Description:            "James Holden will be confirmed as the President of the Transport Union, in room 2201 on station TSL-5.",
 					DescriptionContentType: "text/plain",
 					Links: map[string]jscalendar.Link{
-						"aig1oh": jscalendar.Link{
+						"aig1oh": {
 							Type:        jscalendar.LinkType,
 							Href:        "https://expanse.fandom.com/wiki/TSL-5",
 							ContentType: "text/html",
@@ -1916,7 +1900,7 @@ func (e Exemplar) CalendarEvent() CalendarEvent {
 				},
 				ShowWithoutTime: false,
 				Locations: map[string]jscalendar.Location{
-					"eigha6": jscalendar.Location{
+					"eigha6": {
 						Type: jscalendar.LocationType,
 						Name: "Room 2201",
 						LocationTypes: map[jscalendar.LocationTypeOption]bool{
@@ -1924,7 +1908,7 @@ func (e Exemplar) CalendarEvent() CalendarEvent {
 						},
 						Coordinates: "geo:40.7495,-73.9681",
 						Links: map[string]jscalendar.Link{
-							"ohb6qu": jscalendar.Link{
+							"ohb6qu": {
 								Type:        jscalendar.LinkType,
 								Href:        "https://nss.org/what-is-l5/",
 								ContentType: "text/html",
@@ -1937,7 +1921,7 @@ func (e Exemplar) CalendarEvent() CalendarEvent {
 				Sequence:       0,
 				MainLocationId: "eigha6",
 				VirtualLocations: map[string]jscalendar.VirtualLocation{
-					"eec4ei": jscalendar.VirtualLocation{
+					"eec4ei": {
 						Type: jscalendar.VirtualLocationType,
 						Name: "OpenTalk",
 						Uri:  "https://earth.gov.example.com/opentalk/l5/2022",
@@ -1953,7 +1937,7 @@ func (e Exemplar) CalendarEvent() CalendarEvent {
 				Privacy:        jscalendar.PrivacyPublic,
 				SentBy:         "avasarala@earth.gov.example.com",
 				Participants: map[string]jscalendar.Participant{
-					"xaku3f": jscalendar.Participant{
+					"xaku3f": {
 						Type:  jscalendar.ParticipantType,
 						Name:  "Christjen Avasarala",
 						Email: "crissy@earth.gov.example.com",
@@ -1965,7 +1949,7 @@ func (e Exemplar) CalendarEvent() CalendarEvent {
 						},
 						ParticipationStatus: jscalendar.ParticipationStatusAccepted,
 					},
-					"chao1a": jscalendar.Participant{
+					"chao1a": {
 						Type:  jscalendar.ParticipantType,
 						Name:  "Camina Drummer",
 						Email: "camina@opa.org.example.com",
@@ -1978,7 +1962,7 @@ func (e Exemplar) CalendarEvent() CalendarEvent {
 						ExpectReply:          true,
 						InvitedBy:            "xaku3f",
 					},
-					"ees0oo": jscalendar.Participant{
+					"ees0oo": {
 						Type:  jscalendar.ParticipantType,
 						Name:  "James Holden",
 						Email: "james.holden@rocinante.space",
@@ -1992,7 +1976,7 @@ func (e Exemplar) CalendarEvent() CalendarEvent {
 					},
 				},
 				Alerts: map[string]jscalendar.Alert{
-					"kus9fa": jscalendar.Alert{
+					"kus9fa": {
 						Type:   jscalendar.AlertType,
 						Action: jscalendar.AlertActionDisplay,
 						Trigger: jscalendar.OffsetTrigger{
@@ -2001,7 +1985,7 @@ func (e Exemplar) CalendarEvent() CalendarEvent {
 							RelativeTo: jscalendar.RelativeToStart,
 						},
 					},
-					"lohve9": jscalendar.Alert{
+					"lohve9": {
 						Type:   jscalendar.AlertType,
 						Action: jscalendar.AlertActionDisplay,
 						Trigger: jscalendar.OffsetTrigger{
@@ -2047,7 +2031,7 @@ func (e Exemplar) ContactCardChanges() (ContactCardChanges, string, string) {
 		OldState:       "xai3iiraipoo",
 		NewState:       "ni7thah7eeY4",
 		HasMoreChanges: true,
-		Created:        []jscontact.ContactCard{c},
+		Created:        []ContactCard{c},
 		Destroyed:      []string{"eaae", "bcba"},
 	}, "A created ContactCard and two deleted ones", "created"
 }
@@ -2058,7 +2042,7 @@ func (e Exemplar) OtherContactCardChanges() (ContactCardChanges, string, string)
 		OldState:       "xai3iiraipoo",
 		NewState:       "ni7thah7eeY4",
 		HasMoreChanges: false,
-		Updated:        []jscontact.ContactCard{c},
+		Updated:        []ContactCard{c},
 	}, "An updated ContactCard", "updated"
 }
 

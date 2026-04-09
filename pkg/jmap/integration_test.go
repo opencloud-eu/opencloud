@@ -1141,7 +1141,7 @@ func pickUser() User {
 }
 
 func pickRandoms[T any](s ...T) []T {
-	return pickRandomN[T](rand.Intn(len(s)), s...)
+	return pickRandomN(rand.Intn(len(s)), s...)
 }
 
 func pickRandomN[T any](n int, s ...T) []T {
@@ -1212,4 +1212,126 @@ func deepEqual[T any](t *testing.T, expected, actual T) {
 		}, cmp.Ignore()))
 	}
 	require.Empty(t, diff)
+}
+
+func containerTest[OBJ Idable, RESP GetResponse[OBJ], BOXES any, CHANGE Change](t *testing.T, //NOSONAR
+	acc func(session *Session) string,
+	obj func(RESP) []OBJ,
+	id func(OBJ) string,
+	get func(s *StalwartTest, accountId string, session *Session, ctx context.Context, logger *clog.Logger, acceptLanguage string, ids []string) (RESP, SessionState, State, Language, Error),
+	update func(s *StalwartTest, accountId string, session *Session, ctx context.Context, logger *clog.Logger, acceptLanguage string, id string, change CHANGE) (OBJ, SessionState, State, Language, Error),
+	destroy func(s *StalwartTest, accountId string, session *Session, ctx context.Context, logger *clog.Logger, acceptLanguage string, ids []string) (map[string]SetError, SessionState, State, Language, Error),
+	fill func(s *StalwartTest, t *testing.T, accountId string, count uint, session *Session, _ User, principalIds []string) (BOXES, []OBJ, SessionState, State, error),
+	change func(OBJ) CHANGE,
+	checkChanged func(t *testing.T, orig OBJ, change CHANGE, changed OBJ),
+) {
+	require := require.New(t)
+
+	s, err := newStalwartTest(t, withDirectoryQueries(true))
+	require.NoError(err)
+	defer s.Close()
+
+	user := pickUser()
+	session := s.Session(user.name)
+
+	accountId := acc(session)
+
+	// we first need to retrieve the list of all the Principals in order to be able to use and test sharing
+	principalIds := []string{}
+	{
+		principals, _, _, _, err := s.client.GetPrincipals(accountId, session, s.ctx, s.logger, "", []string{})
+		require.NoError(err)
+		require.NotEmpty(principals.Principals)
+		principalIds = structs.Map(principals.Principals, func(p Principal) string { return p.Id })
+	}
+
+	ss := SessionState("")
+	as := EmptyState
+
+	// we need to fetch the ID of the default object that automatically exists for each user, in order to exclude it
+	// from the tests below
+	defaultContainerId := ""
+	{
+		resp, sessionState, state, _, err := get(s, accountId, session, s.ctx, s.logger, "", []string{})
+		require.NoError(err)
+		require.Empty(resp.GetNotFound())
+		objs := obj(resp)
+		require.Len(objs, 1) // the personal calendar that exists by default
+		defaultContainerId = id(objs[0])
+		ss = sessionState
+		as = state
+	}
+
+	// we are going to create a random amount of objects
+	num := uint(5 + rand.Intn(30))
+	{
+		boxes, all, sessionState, state, err := fill(s, t, accountId, num, session, user, principalIds)
+		require.NoError(err)
+		require.Len(all, int(num))
+		ss = sessionState
+		as = state
+
+		{
+			// lets retrieve all the existing objects by passing an empty ID slice
+			resp, sessionState, state, _, err := get(s, accountId, session, s.ctx, s.logger, "", []string{})
+			require.NoError(err)
+			require.Empty(resp.GetNotFound())
+			objs := obj(resp)
+			// lets skip the default object since we did not create that one
+			found := structs.Filter(objs, func(a OBJ) bool { return id(a) != defaultContainerId })
+			require.Len(found, int(num))
+			m := structs.Index(found, id)
+			require.Len(m, int(num))
+			require.Equal(sessionState, ss)
+			require.Equal(state, as)
+
+			for _, a := range all {
+				i := id(a)
+				require.Contains(m, i)
+				found, ok := m[i]
+				require.True(ok)
+				require.Equal(a, found)
+			}
+
+			ss = sessionState
+			as = state
+		}
+
+		// lets retrieve every object we created by its ID
+		for _, a := range all {
+			i := id(a)
+			resp, sessionState, state, _, err := get(s, accountId, session, s.ctx, s.logger, "", []string{i})
+			require.NoError(err)
+			require.Empty(resp.GetNotFound())
+			objs := obj(resp)
+			require.Len(objs, 1)
+			require.Equal(sessionState, ss)
+			require.Equal(state, as)
+			require.Equal(objs[0], a)
+		}
+
+		// lets modify each AddressBook
+		for _, a := range all {
+			i := id(a)
+			ch := change(a)
+			changed, sessionState, state, _, err := update(s, accountId, session, s.ctx, s.logger, "", i, ch)
+			require.NoError(err)
+			require.NotEqual(a, changed)
+			require.Equal(sessionState, ss)
+			require.NotEqual(state, as)
+			checkChanged(t, a, ch, changed)
+		}
+
+		// now lets delete each object that we created, all at once
+		ids := structs.Map(all, id)
+		{
+			errMap, sessionState, state, _, err := destroy(s, accountId, session, s.ctx, s.logger, "", ids)
+			require.NoError(err)
+			require.Empty(errMap)
+			require.Equal(sessionState, ss)
+			require.NotEqual(state, as)
+		}
+
+		allBoxesAreTicked(t, boxes)
+	}
 }
