@@ -30,6 +30,7 @@ import (
 	authservice "github.com/opencloud-eu/opencloud/services/auth-service/pkg/command"
 	clientlog "github.com/opencloud-eu/opencloud/services/clientlog/pkg/command"
 	collaboration "github.com/opencloud-eu/opencloud/services/collaboration/pkg/command"
+	console "github.com/opencloud-eu/opencloud/services/console/pkg/command"
 	eventhistory "github.com/opencloud-eu/opencloud/services/eventhistory/pkg/command"
 	frontend "github.com/opencloud-eu/opencloud/services/frontend/pkg/command"
 	gateway "github.com/opencloud-eu/opencloud/services/gateway/pkg/command"
@@ -326,6 +327,11 @@ func NewService(ctx context.Context, options ...Option) (*Service, error) {
 		cfg.Collaboration.Context = ctx
 		cfg.Collaboration.Commons = cfg.Commons
 		return collaboration.Execute(cfg.Collaboration)
+	})
+	areg(opts.Config.Console.Service.Name, func(ctx context.Context, cfg *occfg.Config) error {
+		cfg.Console.Context = ctx
+		cfg.Console.Commons = cfg.Commons
+		return console.Execute(cfg.Console)
 	})
 	areg(opts.Config.Policies.Service.Name, func(ctx context.Context, cfg *occfg.Config) error {
 		cfg.Policies.Context = ctx
