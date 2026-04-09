@@ -15,7 +15,7 @@ func (g *Groupware) GetCalendars(w http.ResponseWriter, r *http.Request) {
 			return resp
 		}
 
-		calendars, sessionState, state, lang, jerr := g.jmap.GetCalendars(accountId, req.session, req.ctx, req.logger, req.language(), nil)
+		calendars, sessionState, state, lang, jerr := g.jmap.GetCalendars(accountId, nil, req.ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -41,7 +41,7 @@ func (g *Groupware) GetCalendarById(w http.ResponseWriter, r *http.Request) {
 		l = l.Str(UriParamCalendarId, log.SafeString(calendarId))
 
 		logger := log.From(l)
-		calendars, sessionState, state, lang, jerr := g.jmap.GetCalendars(accountId, req.session, req.ctx, logger, req.language(), []string{calendarId})
+		calendars, sessionState, state, lang, jerr := g.jmap.GetCalendars(accountId, single(calendarId), req.ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -83,8 +83,8 @@ func (g *Groupware) GetCalendarChanges(w http.ResponseWriter, r *http.Request) {
 		}
 
 		logger := log.From(l)
-
-		changes, sessionState, state, lang, jerr := g.jmap.GetCalendarChanges(accountId, req.session, req.ctx, logger, req.language(), sinceState, maxChanges)
+		ctx := req.ctx.WithLogger(logger)
+		changes, sessionState, state, lang, jerr := g.jmap.GetCalendarChanges(accountId, sinceState, maxChanges, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -109,7 +109,8 @@ func (g *Groupware) CreateCalendar(w http.ResponseWriter, r *http.Request) {
 		}
 
 		logger := log.From(l)
-		created, sessionState, state, lang, jerr := g.jmap.CreateCalendar(accountId, req.session, req.ctx, logger, req.language(), create)
+		ctx := req.ctx.WithLogger(logger)
+		created, sessionState, state, lang, jerr := g.jmap.CreateCalendar(accountId, create, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -132,8 +133,8 @@ func (g *Groupware) DeleteCalendar(w http.ResponseWriter, r *http.Request) {
 		l.Str(UriParamCalendarId, log.SafeString(calendarId))
 
 		logger := log.From(l)
-
-		deleted, sessionState, state, lang, jerr := g.jmap.DeleteCalendar(accountId, []string{calendarId}, req.session, req.ctx, logger, req.language())
+		ctx := req.ctx.WithLogger(logger)
+		deleted, sessionState, state, lang, jerr := g.jmap.DeleteCalendar(accountId, single(calendarId), ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}

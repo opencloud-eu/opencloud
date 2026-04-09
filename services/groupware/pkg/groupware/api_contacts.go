@@ -57,12 +57,12 @@ func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Requ
 		}
 		l = l.Str(UriParamAddressBookId, log.SafeString(addressBookId))
 
-		offset, ok, err := req.parseUIntParam(QueryParamOffset, 0)
+		offset, ok, err := req.parseIntParam(QueryParamOffset, 0)
 		if err != nil {
 			return req.errorN(accountIds, err)
 		}
 		if ok {
-			l = l.Uint(QueryParamOffset, offset)
+			l = l.Int(QueryParamOffset, offset)
 		}
 
 		limit, ok, err := req.parseUIntParam(QueryParamLimit, g.defaults.contactLimit)
@@ -84,7 +84,8 @@ func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Requ
 		}
 
 		logger := log.From(l)
-		contactsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryContactCards(accountIds, req.session, req.ctx, logger, req.language(), filter, sortBy, offset, limit)
+		ctx := req.ctx.WithLogger(logger)
+		contactsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryContactCards(accountIds, filter, sortBy, offset, limit, true, ctx)
 		if jerr != nil {
 			return req.jmapErrorN(accountIds, jerr, sessionState, lang)
 		}
@@ -113,7 +114,8 @@ func (g *Groupware) GetContactById(w http.ResponseWriter, r *http.Request) {
 		l = l.Str(UriParamContactId, log.SafeString(contactId))
 
 		logger := log.From(l)
-		contacts, sessionState, state, lang, jerr := g.jmap.GetContactCards(accountId, req.session, req.ctx, logger, req.language(), []string{contactId})
+		ctx := req.ctx.WithLogger(logger)
+		contacts, sessionState, state, lang, jerr := g.jmap.GetContactCards(accountId, single(contactId), ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -140,7 +142,8 @@ func (g *Groupware) GetAllContacts(w http.ResponseWriter, r *http.Request) {
 		l := req.logger.With()
 
 		logger := log.From(l)
-		contacts, sessionState, state, lang, jerr := g.jmap.GetContactCards(accountId, req.session, req.ctx, logger, req.language(), []string{})
+		ctx := req.ctx.WithLogger(logger)
+		contacts, sessionState, state, lang, jerr := g.jmap.GetContactCards(accountId, []string{}, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -173,7 +176,8 @@ func (g *Groupware) GetContactsChanges(w http.ResponseWriter, r *http.Request) {
 		l = l.Str(HeaderParamSince, log.SafeString(string(sinceState)))
 
 		logger := log.From(l)
-		changes, sessionState, state, lang, jerr := g.jmap.GetContactCardChanges(accountId, req.session, req.ctx, logger, req.language(), sinceState, maxChanges)
+		ctx := req.ctx.WithLogger(logger)
+		changes, sessionState, state, lang, jerr := g.jmap.GetContactCardChanges(accountId, sinceState, maxChanges, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -205,7 +209,8 @@ func (g *Groupware) CreateContact(w http.ResponseWriter, r *http.Request) {
 		}
 
 		logger := log.From(l)
-		created, sessionState, state, lang, jerr := g.jmap.CreateContactCard(accountId, req.session, req.ctx, logger, req.language(), create)
+		ctx := req.ctx.WithLogger(logger)
+		created, sessionState, state, lang, jerr := g.jmap.CreateContactCard(accountId, create, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -228,8 +233,8 @@ func (g *Groupware) DeleteContact(w http.ResponseWriter, r *http.Request) {
 		l.Str(UriParamContactId, log.SafeString(contactId))
 
 		logger := log.From(l)
-
-		deleted, sessionState, state, lang, jerr := g.jmap.DeleteContactCard(accountId, []string{contactId}, req.session, req.ctx, logger, req.language())
+		ctx := req.ctx.WithLogger(logger)
+		deleted, sessionState, state, lang, jerr := g.jmap.DeleteContactCard(accountId, single(contactId), ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}

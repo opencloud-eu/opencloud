@@ -1,7 +1,6 @@
 package jmap
 
 import (
-	"context"
 	"encoding/base64"
 	"io"
 	"strings"
@@ -9,28 +8,31 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
-func (j *Client) GetBlobMetadata(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, id string) (*Blob, SessionState, State, Language, Error) {
-	cmd, jerr := j.request(session, logger, ns(JmapBlob),
-		invocation(BlobGetCommand{
-			AccountId: accountId,
-			Ids:       []string{id},
-			// add BlobPropertyData to retrieve the data
-			Properties: []string{BlobPropertyDigestSha256, BlobPropertyDigestSha512, BlobPropertySize},
-		}, "0"),
+var NS_BLOB = ns(JmapBlob)
+
+func (j *Client) GetBlobMetadata(accountId string, id string, ctx Context) (*Blob, SessionState, State, Language, Error) {
+	get := BlobGetCommand{
+		AccountId: accountId,
+		Ids:       []string{id},
+		// add BlobPropertyData to retrieve the data
+		Properties: []string{BlobPropertyDigestSha256, BlobPropertyDigestSha512, BlobPropertySize},
+	}
+	cmd, jerr := j.request(ctx, NS_BLOB,
+		invocation(get, "0"),
 	)
 	if jerr != nil {
 		return nil, "", "", "", jerr
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (*Blob, State, Error) {
+	return command(j, ctx, cmd, func(body *Response) (*Blob, State, Error) {
 		var response BlobGetResponse
-		err := retrieveResponseMatchParameters(logger, body, CommandBlobGet, "0", &response)
+		err := retrieveGet(ctx, body, get, "0", &response)
 		if err != nil {
 			return nil, "", err
 		}
 
 		if len(response.List) != 1 {
-			logger.Error().Msgf("%T.List has %v entries instead of 1", response, len(response.List))
+			ctx.Logger.Error().Msgf("%T.List has %v entries instead of 1", response, len(response.List))
 			return nil, "", jmapError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 		get := response.List[0]
@@ -45,26 +47,28 @@ type UploadedBlobWithHash struct {
 	Sha512 string `json:"sha:512,omitempty"`
 }
 
-func (j *Client) UploadBlobStream(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, contentType string, body io.Reader) (UploadedBlob, Language, Error) {
-	logger = log.From(logger.With().Str(logEndpoint, session.UploadEndpoint))
+func (j *Client) UploadBlobStream(accountId string, contentType string, body io.Reader, ctx Context) (UploadedBlob, Language, Error) {
+	logger := log.From(ctx.Logger.With().Str(logEndpoint, ctx.Session.UploadEndpoint))
+	ctx = ctx.WithLogger(logger)
 	// TODO(pbleser-oc) use a library for proper URL template parsing
-	uploadUrl := strings.ReplaceAll(session.UploadUrlTemplate, "{accountId}", accountId)
-	return j.blob.UploadBinary(ctx, logger, session, uploadUrl, session.UploadEndpoint, contentType, acceptLanguage, body)
+	uploadUrl := strings.ReplaceAll(ctx.Session.UploadUrlTemplate, "{accountId}", accountId)
+	return j.blob.UploadBinary(uploadUrl, ctx.Session.UploadEndpoint, contentType, body, ctx)
 }
 
-func (j *Client) DownloadBlobStream(accountId string, blobId string, name string, typ string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (*BlobDownload, Language, Error) { //NOSONAR
-	logger = log.From(logger.With().Str(logEndpoint, session.DownloadEndpoint))
+func (j *Client) DownloadBlobStream(accountId string, blobId string, name string, typ string, ctx Context) (*BlobDownload, Language, Error) { //NOSONAR
+	logger := log.From(ctx.Logger.With().Str(logEndpoint, ctx.Session.DownloadEndpoint))
+	ctx = ctx.WithLogger(logger)
 	// TODO(pbleser-oc) use a library for proper URL template parsing
-	downloadUrl := session.DownloadUrlTemplate
+	downloadUrl := ctx.Session.DownloadUrlTemplate
 	downloadUrl = strings.ReplaceAll(downloadUrl, "{accountId}", accountId)
 	downloadUrl = strings.ReplaceAll(downloadUrl, "{blobId}", blobId)
 	downloadUrl = strings.ReplaceAll(downloadUrl, "{name}", name)
 	downloadUrl = strings.ReplaceAll(downloadUrl, "{type}", typ)
 	logger = log.From(logger.With().Str(logDownloadUrl, downloadUrl).Str(logBlobId, blobId))
-	return j.blob.DownloadBinary(ctx, logger, session, downloadUrl, session.DownloadEndpoint, acceptLanguage)
+	return j.blob.DownloadBinary(downloadUrl, ctx.Session.DownloadEndpoint, ctx)
 }
 
-func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, data []byte, contentType string) (UploadedBlobWithHash, SessionState, State, Language, Error) {
+func (j *Client) UploadBlob(accountId string, data []byte, contentType string, ctx Context) (UploadedBlobWithHash, SessionState, State, Language, Error) {
 	encoded := base64.StdEncoding.EncodeToString(data)
 
 	upload := BlobUploadCommand{
@@ -89,7 +93,7 @@ func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Cont
 		Properties: []string{BlobPropertyDigestSha512},
 	}
 
-	cmd, jerr := j.request(session, logger, ns(JmapBlob),
+	cmd, jerr := j.request(ctx, ns(JmapBlob),
 		invocation(upload, "0"),
 		invocation(getHash, "1"),
 	)
@@ -97,31 +101,31 @@ func (j *Client) UploadBlob(accountId string, session *Session, ctx context.Cont
 		return UploadedBlobWithHash{}, "", "", "", jerr
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (UploadedBlobWithHash, State, Error) {
+	return command(j, ctx, cmd, func(body *Response) (UploadedBlobWithHash, State, Error) {
 		var uploadResponse BlobUploadResponse
-		err := retrieveResponseMatchParameters(logger, body, upload.GetCommand(), "0", &uploadResponse)
+		err := retrieveUpload(ctx, body, upload, "0", &uploadResponse)
 		if err != nil {
 			return UploadedBlobWithHash{}, "", err
 		}
 
 		var getResponse BlobGetResponse
-		err = retrieveResponseMatchParameters(logger, body, getHash.GetCommand(), "1", &getResponse)
+		err = retrieveGet(ctx, body, getHash, "1", &getResponse)
 		if err != nil {
 			return UploadedBlobWithHash{}, "", err
 		}
 
 		if len(uploadResponse.Created) != 1 {
-			logger.Error().Msgf("%T.Created has %v entries instead of 1", uploadResponse, len(uploadResponse.Created))
+			ctx.Logger.Error().Msgf("%T.Created has %v entries instead of 1", uploadResponse, len(uploadResponse.Created))
 			return UploadedBlobWithHash{}, "", jmapError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 		upload, ok := uploadResponse.Created["0"]
 		if !ok {
-			logger.Error().Msgf("%T.Created has no item '0'", uploadResponse)
+			ctx.Logger.Error().Msgf("%T.Created has no item '0'", uploadResponse)
 			return UploadedBlobWithHash{}, "", jmapError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 
 		if len(getResponse.List) != 1 {
-			logger.Error().Msgf("%T.List has %v entries instead of 1", getResponse, len(getResponse.List))
+			ctx.Logger.Error().Msgf("%T.List has %v entries instead of 1", getResponse, len(getResponse.List))
 			return UploadedBlobWithHash{}, "", jmapError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 		get := getResponse.List[0]

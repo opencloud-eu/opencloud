@@ -1,37 +1,50 @@
 package jmap
 
-import (
-	"context"
-
-	"github.com/opencloud-eu/opencloud/pkg/log"
-)
-
 var NS_PRINCIPALS = ns(JmapPrincipals)
 
-type PrincipalsResponse struct {
-	Principals []Principal `json:"principals"`
-	NotFound   []string    `json:"notFound,omitempty"`
+func (j *Client) GetPrincipals(accountId string, ids []string, ctx Context) (PrincipalGetResponse, SessionState, State, Language, Error) {
+	return get(j, "GetPrincipals", NS_PRINCIPALS,
+		func(accountId string, ids []string) PrincipalGetCommand {
+			return PrincipalGetCommand{AccountId: accountId, Ids: ids}
+		},
+		PrincipalGetResponse{},
+		identity1,
+		accountId, ids,
+		ctx,
+	)
 }
 
-func (j *Client) GetPrincipals(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (PrincipalsResponse, SessionState, State, Language, Error) {
-	logger = j.logger("GetPrincipals", session, logger)
+type PrincipalSearchResults SearchResultsTemplate[Principal]
 
-	cmd, err := j.request(session, logger, NS_PRINCIPALS,
-		invocation(PrincipalGetCommand{AccountId: accountId, Ids: ids}, "0"),
+var _ SearchResults[Principal] = PrincipalSearchResults{}
+
+func (r PrincipalSearchResults) GetResults() []Principal      { return r.Results }
+func (r PrincipalSearchResults) GetCanCalculateChanges() bool { return r.CanCalculateChanges }
+func (r PrincipalSearchResults) GetPosition() uint            { return r.Position }
+func (r PrincipalSearchResults) GetLimit() uint               { return r.Limit }
+func (r PrincipalSearchResults) GetTotal() *uint              { return r.Total }
+
+func (j *Client) QueryPrincipals(accountId string,
+	filter PrincipalFilterElement, sortBy []PrincipalComparator,
+	position uint, limit uint, calculateTotal bool,
+	ctx Context) (PrincipalSearchResults, SessionState, State, Language, Error) {
+	return query(j, "QueryPrincipals", NS_PRINCIPALS,
+		[]PrincipalComparator{{Property: PrincipalPropertyName, IsAscending: true}},
+		func(filter PrincipalFilterElement, sortBy []PrincipalComparator, position uint, limit uint) PrincipalQueryCommand {
+			return PrincipalQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, Position: position, Limit: limit, CalculateTotal: calculateTotal}
+		},
+		func(cmd Command, path string, rof string) PrincipalGetRefCommand {
+			return PrincipalGetRefCommand{AccountId: accountId, IdsRef: &ResultReference{Name: cmd, Path: path, ResultOf: rof}}
+		},
+		func(query PrincipalQueryResponse, get PrincipalGetResponse) PrincipalSearchResults {
+			return PrincipalSearchResults{
+				Results:             get.List,
+				CanCalculateChanges: query.CanCalculateChanges,
+				Position:            query.Position,
+				Total:               uintPtrIf(query.Total, calculateTotal),
+				Limit:               query.Limit,
+			}
+		},
+		filter, sortBy, limit, position, ctx,
 	)
-	if err != nil {
-		return PrincipalsResponse{}, "", "", "", err
-	}
-
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (PrincipalsResponse, State, Error) {
-		var response PrincipalGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandPrincipalGet, "0", &response)
-		if err != nil {
-			return PrincipalsResponse{}, response.State, err
-		}
-		return PrincipalsResponse{
-			Principals: response.List,
-			NotFound:   response.NotFound,
-		}, response.State, nil
-	})
 }

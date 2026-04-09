@@ -1354,13 +1354,32 @@ type ChangesResponse[T Foo] interface {
 	GetMarker() T
 }
 
-type QueryCommand interface {
+type QueryCommand[T Foo] interface {
 	JmapCommand
-	GetResponse() QueryResponse
+	GetResponse() QueryResponse[T]
 }
 
-type QueryResponse interface {
+type QueryResponse[T Foo] interface {
 	GetQueryState() State
+	GetMarker() T
+}
+
+type UploadCommand[T Foo] interface {
+	JmapCommand
+	GetResponse() UploadResponse[T]
+}
+
+type UploadResponse[T Foo] interface {
+	GetMarker() T
+}
+
+type ParseCommand[T Foo] interface {
+	JmapCommand
+	GetResponse() ParseResponse[T]
+}
+
+type ParseResponse[T Foo] interface {
+	GetMarker() T
 }
 
 type ChangesTemplate[T Foo] struct {
@@ -1370,6 +1389,22 @@ type ChangesTemplate[T Foo] struct {
 	Created        []T      `json:"created,omitempty"`
 	Updated        []T      `json:"updated,omitempty"`
 	Destroyed      []string `json:"destroyed,omitempty"`
+}
+
+type SearchResultsTemplate[T Foo] struct {
+	Results             []T   `json:"results"`
+	CanCalculateChanges bool  `json:"canCalculateChanges"`
+	Position            uint  `json:"position"`
+	Limit               uint  `json:"limit,omitzero"`
+	Total               *uint `json:"total,omitzero"`
+}
+
+type SearchResults[T Foo] interface {
+	GetResults() []T
+	GetCanCalculateChanges() bool
+	GetPosition() uint
+	GetTotal() *uint
+	GetLimit() uint
 }
 
 type FilterOperatorTerm string
@@ -1656,8 +1691,8 @@ type MailboxSetResponse struct {
 	AccountId    string              `json:"accountId"`
 	OldState     State               `json:"oldState,omitempty"`
 	NewState     State               `json:"newState,omitempty"`
-	Created      map[string]Mailbox  `json:"created,omitempty"`
-	Updated      map[string]Mailbox  `json:"updated,omitempty"`
+	Created      map[string]*Mailbox `json:"created,omitempty"`
+	Updated      map[string]*Mailbox `json:"updated,omitempty"`
 	Destroyed    []string            `json:"destroyed,omitempty"`
 	NotCreated   map[string]SetError `json:"notCreated,omitempty"`
 	NotUpdated   map[string]SetError `json:"notUpdated,omitempty"`
@@ -1717,11 +1752,11 @@ type MailboxQueryCommand struct {
 	FilterAsTree bool                 `json:"filterAsTree,omitempty"`
 }
 
-var _ QueryCommand = &MailboxQueryCommand{}
+var _ QueryCommand[Mailbox] = &MailboxQueryCommand{}
 
-func (c MailboxQueryCommand) GetCommand() Command        { return CommandMailboxQuery }
-func (c MailboxQueryCommand) GetObjectType() ObjectType  { return MailboxType }
-func (c MailboxQueryCommand) GetResponse() QueryResponse { return MailboxQueryResponse{} }
+func (c MailboxQueryCommand) GetCommand() Command                 { return CommandMailboxQuery }
+func (c MailboxQueryCommand) GetObjectType() ObjectType           { return MailboxType }
+func (c MailboxQueryCommand) GetResponse() QueryResponse[Mailbox] { return MailboxQueryResponse{} }
 
 type EmailFilterElement interface {
 	_isAnEmailFilterElement() // marker method
@@ -2013,11 +2048,11 @@ type EmailQueryCommand struct {
 	CalculateTotal bool `json:"calculateTotal,omitempty"`
 }
 
-var _ QueryCommand = &EmailQueryCommand{}
+var _ QueryCommand[Email] = &EmailQueryCommand{}
 
-func (c EmailQueryCommand) GetCommand() Command        { return CommandEmailQuery }
-func (c EmailQueryCommand) GetObjectType() ObjectType  { return MailboxType }
-func (c EmailQueryCommand) GetResponse() QueryResponse { return EmailQueryResponse{} }
+func (c EmailQueryCommand) GetCommand() Command               { return CommandEmailQuery }
+func (c EmailQueryCommand) GetObjectType() ObjectType         { return MailboxType }
+func (c EmailQueryCommand) GetResponse() QueryResponse[Email] { return EmailQueryResponse{} }
 
 type EmailGetCommand struct {
 	// The ids of the Email objects to return.
@@ -3063,9 +3098,10 @@ type EmailQueryResponse struct {
 	Limit uint `json:"limit,omitempty,omitzero"`
 }
 
-var _ QueryResponse = &EmailQueryResponse{}
+var _ QueryResponse[Email] = &EmailQueryResponse{}
 
 func (r EmailQueryResponse) GetQueryState() State { return r.QueryState }
+func (r EmailQueryResponse) GetMarker() Email     { return Email{} }
 
 type EmailGetResponse struct {
 	// The id of the account used for the call.
@@ -3284,9 +3320,10 @@ type MailboxQueryResponse struct {
 	Limit int `json:"limit,omitzero"`
 }
 
-var _ QueryResponse = &MailboxQueryResponse{}
+var _ QueryResponse[Mailbox] = &MailboxQueryResponse{}
 
 func (r MailboxQueryResponse) GetQueryState() State { return r.QueryState }
+func (r MailboxQueryResponse) GetMarker() Mailbox   { return Mailbox{} }
 
 type EmailCreate struct {
 	// The set of Mailbox ids this Email belongs to.
@@ -3727,11 +3764,11 @@ func (r IdentityChangesResponse) GetDestroyed() []string  { return r.Destroyed }
 func (r IdentityChangesResponse) GetMarker() Identity     { return Identity{} }
 
 type IdentitySetCommand struct {
-	AccountId string                 `json:"accountId"`
-	IfInState string                 `json:"ifInState,omitempty"`
-	Create    map[string]Identity    `json:"create,omitempty"`
-	Update    map[string]PatchObject `json:"update,omitempty"`
-	Destroy   []string               `json:"destroy,omitempty"`
+	AccountId string                    `json:"accountId"`
+	IfInState string                    `json:"ifInState,omitempty"`
+	Create    map[string]IdentityChange `json:"create,omitempty"`
+	Update    map[string]PatchObject    `json:"update,omitempty"`
+	Destroy   []string                  `json:"destroy,omitempty"`
 }
 
 var _ SetCommand[Identity] = &IdentitySetCommand{}
@@ -3741,15 +3778,15 @@ func (c IdentitySetCommand) GetObjectType() ObjectType          { return Identit
 func (c IdentitySetCommand) GetResponse() SetResponse[Identity] { return IdentitySetResponse{} }
 
 type IdentitySetResponse struct {
-	AccountId    string              `json:"accountId"`
-	OldState     State               `json:"oldState,omitempty"`
-	NewState     State               `json:"newState,omitempty"`
-	Created      map[string]Identity `json:"created,omitempty"`
-	Updated      map[string]Identity `json:"updated,omitempty"`
-	Destroyed    []string            `json:"destroyed,omitempty"`
-	NotCreated   map[string]SetError `json:"notCreated,omitempty"`
-	NotUpdated   map[string]SetError `json:"notUpdated,omitempty"`
-	NotDestroyed map[string]SetError `json:"notDestroyed,omitempty"`
+	AccountId    string               `json:"accountId"`
+	OldState     State                `json:"oldState,omitempty"`
+	NewState     State                `json:"newState,omitempty"`
+	Created      map[string]*Identity `json:"created,omitempty"`
+	Updated      map[string]*Identity `json:"updated,omitempty"`
+	Destroyed    []string             `json:"destroyed,omitempty"`
+	NotCreated   map[string]SetError  `json:"notCreated,omitempty"`
+	NotUpdated   map[string]SetError  `json:"notUpdated,omitempty"`
+	NotDestroyed map[string]SetError  `json:"notDestroyed,omitempty"`
 }
 
 var _ SetResponse[Identity] = &IdentitySetResponse{}
@@ -3810,9 +3847,41 @@ var _ Idable = &Identity{}
 func (f Identity) GetObjectType() ObjectType { return IdentityType }
 func (f Identity) GetId() string             { return f.Id }
 
-var _ Change = Identity{}
+type IdentityChange struct {
+	// The “From” name the client SHOULD use when creating a new Email from this Identity.
+	Name string `json:"name,omitempty" doc:"req"`
 
-func (i Identity) AsPatch() PatchObject {
+	// The “From” email address the client MUST use when creating a new Email from this Identity.
+	//
+	// If the mailbox part of the address (the section before the “@”) is the single character
+	// * (e.g., *@example.com) then the client may use any valid address ending in that domain
+	// (e.g., foo@example.com).
+	Email string `json:"email,omitempty"`
+
+	// The Reply-To value the client SHOULD set when creating a new Email from this Identity.
+	ReplyTo string `json:"replyTo,omitempty"`
+
+	// The Bcc value the client SHOULD set when creating a new Email from this Identity.
+	Bcc *[]EmailAddress `json:"bcc,omitempty"`
+
+	// A signature the client SHOULD insert into new plaintext messages that will be sent from
+	// this Identity.
+	//
+	// Clients MAY ignore this and/or combine this with a client-specific signature preference.
+	TextSignature *string `json:"textSignature,omitempty"`
+
+	// A signature the client SHOULD insert into new HTML messages that will be sent from this
+	// Identity.
+	//
+	// This text MUST be an HTML snippet to be inserted into the <body></body> section of the HTML.
+	//
+	// Clients MAY ignore this and/or combine this with a client-specific signature preference.
+	HtmlSignature *string `json:"htmlSignature,omitempty"`
+}
+
+var _ Change = IdentityChange{}
+
+func (i IdentityChange) AsPatch() PatchObject {
 	p := PatchObject{}
 	if i.Name != "" {
 		p["name"] = i.Name
@@ -3985,10 +4054,11 @@ type BlobUploadCommand struct {
 	Create    map[string]UploadObject `json:"create"`
 }
 
-var _ JmapCommand = &BlobUploadCommand{}
+var _ UploadCommand[Blob] = &BlobUploadCommand{}
 
-func (c BlobUploadCommand) GetCommand() Command       { return CommandBlobUpload }
-func (c BlobUploadCommand) GetObjectType() ObjectType { return BlobType }
+func (c BlobUploadCommand) GetCommand() Command               { return CommandBlobUpload }
+func (c BlobUploadCommand) GetObjectType() ObjectType         { return BlobType }
+func (c BlobUploadCommand) GetResponse() UploadResponse[Blob] { return BlobUploadResponse{} }
 
 type BlobUploadCreateResult struct {
 	Id   string `json:"id"`
@@ -4000,6 +4070,10 @@ type BlobUploadResponse struct {
 	AccountId string                            `json:"accountId"`
 	Created   map[string]BlobUploadCreateResult `json:"created"`
 }
+
+var _ UploadResponse[Blob] = &BlobUploadResponse{}
+
+func (r BlobUploadResponse) GetMarker() Blob { return Blob{} }
 
 const (
 	BlobPropertyDataAsText   = "data:asText"
@@ -5837,6 +5911,28 @@ var _ Idable = &Principal{}
 func (f Principal) GetObjectType() ObjectType { return PrincipalType }
 func (f Principal) GetId() string             { return f.Id }
 
+const (
+	PrincipalPropertyId           = "id"
+	PrincipalPropertyType         = "type"
+	PrincipalPropertyName         = "name"
+	PrincipalPropertyDescription  = "description"
+	PrincipalPropertyEmail        = "email"
+	PrincipalPropertyTimeZone     = "timeZone"
+	PrincipalPropertyCapabilities = "capabilites"
+	PrincipalPropertyAccounts     = "accounts"
+)
+
+var PrincipalProperties = []string{
+	PrincipalPropertyId,
+	PrincipalPropertyType,
+	PrincipalPropertyName,
+	PrincipalPropertyDescription,
+	PrincipalPropertyEmail,
+	PrincipalPropertyTimeZone,
+	PrincipalPropertyCapabilities,
+	PrincipalPropertyAccounts,
+}
+
 type ShareChangePerson struct {
 	// The name of the person who made the change.
 	Name string `json:"name"`
@@ -6589,7 +6685,7 @@ type ContactCardQueryCommand struct {
 	//
 	// If the index is greater than or equal to the total number of objects in the results
 	// list, then the ids array in the response will be empty, but this is not an error.
-	Position uint `json:"position,omitzero" default:"0" doc:"opt"`
+	Position int `json:"position,omitzero" default:"0" doc:"opt"`
 
 	// An Email id.
 	//
@@ -6615,7 +6711,7 @@ type ContactCardQueryCommand struct {
 	// to the maximum; the new limit is returned with the response so the client is aware.
 	//
 	// If a negative value is given, the call MUST be rejected with an invalidArguments error.
-	Limit uint `json:"limit,omitzero" doc:"opt"`
+	Limit *uint `json:"limit,omitzero" doc:"opt"`
 
 	// Does the client wish to know the total number of results in the query?
 	//
@@ -6624,11 +6720,13 @@ type ContactCardQueryCommand struct {
 	CalculateTotal bool `json:"calculateTotal,omitzero"`
 }
 
-var _ QueryCommand = &ContactCardQueryCommand{}
+var _ QueryCommand[ContactCard] = &ContactCardQueryCommand{}
 
-func (c ContactCardQueryCommand) GetCommand() Command        { return CommandContactCardQuery }
-func (c ContactCardQueryCommand) GetObjectType() ObjectType  { return ContactCardType }
-func (c ContactCardQueryCommand) GetResponse() QueryResponse { return ContactCardQueryResponse{} }
+func (c ContactCardQueryCommand) GetCommand() Command       { return CommandContactCardQuery }
+func (c ContactCardQueryCommand) GetObjectType() ObjectType { return ContactCardType }
+func (c ContactCardQueryCommand) GetResponse() QueryResponse[ContactCard] {
+	return ContactCardQueryResponse{}
+}
 
 type ContactCardQueryResponse struct {
 	// The id of the account used for the call.
@@ -6680,9 +6778,10 @@ type ContactCardQueryResponse struct {
 	Limit uint `json:"limit,omitempty,omitzero"`
 }
 
-var _ QueryResponse = &ContactCardQueryResponse{}
+var _ QueryResponse[ContactCard] = &ContactCardQueryResponse{}
 
-func (r ContactCardQueryResponse) GetQueryState() State { return r.QueryState }
+func (r ContactCardQueryResponse) GetQueryState() State   { return r.QueryState }
+func (r ContactCardQueryResponse) GetMarker() ContactCard { return ContactCard{} }
 
 type ContactCardGetCommand struct {
 	// The ids of the ContactCard objects to return.
@@ -6960,10 +7059,13 @@ type CalendarEventParseCommand struct {
 	Properties []string `json:"properties,omitempty"`
 }
 
-var _ JmapCommand = &CalendarEventParseCommand{}
+var _ ParseCommand[CalendarEvent] = &CalendarEventParseCommand{}
 
 func (c CalendarEventParseCommand) GetCommand() Command       { return CommandCalendarEventParse }
 func (c CalendarEventParseCommand) GetObjectType() ObjectType { return CalendarEventType }
+func (c CalendarEventParseCommand) GetResponse() ParseResponse[CalendarEvent] {
+	return CalendarEventParseResponse{}
+}
 
 type CalendarEventParseResponse struct {
 	// The id of the account used for the call.
@@ -6980,6 +7082,10 @@ type CalendarEventParseResponse struct {
 	// CalendarEvents, or null if none.
 	NotParsable []string `json:"notParsable,omitempty"`
 }
+
+var _ ParseResponse[CalendarEvent] = &CalendarEventParseResponse{}
+
+func (r CalendarEventParseResponse) GetMarker() CalendarEvent { return CalendarEvent{} }
 
 type CalendarGetCommand struct {
 	AccountId string   `json:"accountId"`
@@ -7309,7 +7415,7 @@ type CalendarEventQueryCommand struct {
 	//
 	// If the index is greater than or equal to the total number of objects in the results
 	// list, then the ids array in the response will be empty, but this is not an error.
-	Position uint `json:"position,omitempty" doc:"opt"`
+	Position int `json:"position,omitempty" doc:"opt"`
 
 	// An Email id.
 	//
@@ -7335,7 +7441,7 @@ type CalendarEventQueryCommand struct {
 	// to the maximum; the new limit is returned with the response so the client is aware.
 	//
 	// If a negative value is given, the call MUST be rejected with an invalidArguments error.
-	Limit uint `json:"limit,omitempty" doc:"opt" default:"0"`
+	Limit *uint `json:"limit,omitempty" doc:"opt" default:"0"`
 
 	// Does the client wish to know the total number of results in the query?
 	//
@@ -7344,11 +7450,13 @@ type CalendarEventQueryCommand struct {
 	CalculateTotal bool `json:"calculateTotal,omitempty" doc:"opt" default:"false"`
 }
 
-var _ QueryCommand = &CalendarEventQueryCommand{}
+var _ QueryCommand[CalendarEvent] = &CalendarEventQueryCommand{}
 
-func (c CalendarEventQueryCommand) GetCommand() Command        { return CommandCalendarEventQuery }
-func (c CalendarEventQueryCommand) GetObjectType() ObjectType  { return CalendarEventType }
-func (c CalendarEventQueryCommand) GetResponse() QueryResponse { return CalendarEventQueryResponse{} }
+func (c CalendarEventQueryCommand) GetCommand() Command       { return CommandCalendarEventQuery }
+func (c CalendarEventQueryCommand) GetObjectType() ObjectType { return CalendarEventType }
+func (c CalendarEventQueryCommand) GetResponse() QueryResponse[CalendarEvent] {
+	return CalendarEventQueryResponse{}
+}
 
 type CalendarEventQueryResponse struct {
 	// The id of the account used for the call.
@@ -7400,9 +7508,10 @@ type CalendarEventQueryResponse struct {
 	Limit uint `json:"limit,omitempty,omitzero"`
 }
 
-var _ QueryResponse = &CalendarEventQueryResponse{}
+var _ QueryResponse[CalendarEvent] = &CalendarEventQueryResponse{}
 
-func (r CalendarEventQueryResponse) GetQueryState() State { return r.QueryState }
+func (r CalendarEventQueryResponse) GetQueryState() State     { return r.QueryState }
+func (r CalendarEventQueryResponse) GetMarker() CalendarEvent { return CalendarEvent{} }
 
 type CalendarEventGetCommand struct {
 	// The ids of the CalendarEvent objects to return.
@@ -7771,11 +7880,60 @@ type PrincipalComparator struct {
 }
 
 type PrincipalQueryCommand struct {
-	AccountId    string                 `json:"accountId"`
-	Filter       PrincipalFilterElement `json:"filter,omitempty"`
-	Sort         []PrincipalComparator  `json:"sort,omitempty"`
-	SortAsTree   bool                   `json:"sortAsTree,omitempty"`
-	FilterAsTree bool                   `json:"filterAsTree,omitempty"`
+	AccountId string                 `json:"accountId"`
+	Filter    PrincipalFilterElement `json:"filter,omitempty"`
+	Sort      []PrincipalComparator  `json:"sort,omitempty"`
+
+	// The zero-based index of the first id in the full list of results to return.
+	//
+	// If a negative value is given, it is an offset from the end of the list.
+	// Specifically, the negative value MUST be added to the total number of results given
+	// the filter, and if still negative, it’s clamped to 0. This is now the zero-based
+	// index of the first id to return.
+	//
+	// If the index is greater than or equal to the total number of objects in the results
+	// list, then the ids array in the response will be empty, but this is not an error.
+	Position uint `json:"position,omitzero" default:"0" doc:"opt"`
+
+	// An Email id.
+	//
+	// If supplied, the position argument is ignored.
+	// The index of this id in the results will be used in combination with the anchorOffset
+	// argument to determine the index of the first result to return.
+	Anchor string `json:"anchor,omitempty" doc:"opt"`
+
+	// The index of the first result to return relative to the index of the anchor,
+	// if an anchor is given.
+	//
+	// This MAY be negative.
+	//
+	// For example, -1 means the Principal immediately preceding the anchor is the first result in
+	// the list returned.
+	AnchorOffset int `json:"anchorOffset,omitzero" default:"0" doc:"opt"`
+
+	// The maximum number of results to return.
+	//
+	// If null, no limit presumed.
+	// The server MAY choose to enforce a maximum limit argument.
+	// In this case, if a greater value is given (or if it is null), the limit is clamped
+	// to the maximum; the new limit is returned with the response so the client is aware.
+	//
+	// If a negative value is given, the call MUST be rejected with an invalidArguments error.
+	Limit uint `json:"limit,omitzero" doc:"opt"`
+
+	// Does the client wish to know the total number of results in the query?
+	//
+	// This may be slow and expensive for servers to calculate, particularly with complex filters,
+	// so clients should take care to only request the total when needed.
+	CalculateTotal bool `json:"calculateTotal,omitzero"`
+}
+
+var _ QueryCommand[Principal] = PrincipalQueryCommand{}
+
+func (c PrincipalQueryCommand) GetCommand() Command       { return CommandPrincipalQuery }
+func (c PrincipalQueryCommand) GetObjectType() ObjectType { return PrincipalType }
+func (c PrincipalQueryCommand) GetResponse() QueryResponse[Principal] {
+	return PrincipalQueryResponse{}
 }
 
 type PrincipalQueryResponse struct {
@@ -7796,38 +7954,39 @@ type PrincipalQueryResponse struct {
 	//
 	// Should a client receive back a response with a different queryState string to a previous call, it MUST either
 	// throw away the currently cached query and fetch it again (note, this does not require fetching the records
-	// again, just the list of ids) or call Mailbox/queryChanges to get the difference.
+	// again, just the list of ids) or call Principal/queryChanges to get the difference.
 	QueryState State `json:"queryState"`
 
-	// This is true if the server supports calling Mailbox/queryChanges with these filter/sort parameters.
+	// This is true if the server supports calling Principal/queryChanges with these filter/sort parameters.
 	//
-	// Note, this does not guarantee that the Mailbox/queryChanges call will succeed, as it may only be possible for
+	// Note, this does not guarantee that the Principal/queryChanges call will succeed, as it may only be possible for
 	// a limited time afterwards due to server internal implementation details.
 	CanCalculateChanges bool `json:"canCalculateChanges"`
 
 	// The zero-based index of the first result in the ids array within the complete list of query results.
-	Position int `json:"position"`
+	Position uint `json:"position"`
 
-	// The list of ids for each Mailbox in the query results, starting at the index given by the position argument
+	// The list of ids for each Principal in the query results, starting at the index given by the position argument
 	// of this response and continuing until it hits the end of the results or reaches the limit number of ids.
 	//
 	// If position is >= total, this MUST be the empty list.
 	Ids []string `json:"ids"`
 
-	// The total number of Mailbox in the results (given the filter) (only if requested).
+	// The total number of Principal in the results (given the filter) (only if requested).
 	//
 	// This argument MUST be omitted if the calculateTotal request argument is not true.
-	Total int `json:"total,omitzero"`
+	Total uint `json:"total,omitzero"`
 
 	// The limit enforced by the server on the maximum number of results to return (if set by the server).
 	//
 	// This is only returned if the server set a limit or used a different limit than that given in the request.
-	Limit int `json:"limit,omitzero"`
+	Limit uint `json:"limit,omitzero"`
 }
 
-var _ QueryResponse = &PrincipalQueryResponse{}
+var _ QueryResponse[Principal] = &PrincipalQueryResponse{}
 
 func (r PrincipalQueryResponse) GetQueryState() State { return r.QueryState }
+func (r PrincipalQueryResponse) GetMarker() Principal { return Principal{} }
 
 type ErrorResponse struct {
 	Type        string `json:"type"`

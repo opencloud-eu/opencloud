@@ -148,7 +148,7 @@ func (g *Groupware) Index(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountIds := req.AllAccountIds()
 
-		boot, sessionState, state, lang, err := g.jmap.GetBootstrap(accountIds, req.session, req.ctx, req.logger, req.language())
+		boot, sessionState, state, lang, err := g.jmap.GetBootstrap(accountIds, req.ctx)
 		if err != nil {
 			return req.jmapErrorN(accountIds, err, sessionState, lang)
 		}

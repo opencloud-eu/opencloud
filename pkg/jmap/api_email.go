@@ -1,7 +1,6 @@
 package jmap
 
 import (
-	"context"
 	"encoding/base64"
 	"fmt"
 	"time"
@@ -27,8 +26,11 @@ type getEmailsResult struct {
 }
 
 // Retrieve specific Emails by their id.
-func (j *Client) GetEmails(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string, fetchBodies bool, maxBodyValueBytes uint, markAsSeen bool, withThreads bool) ([]Email, []string, SessionState, State, Language, Error) { //NOSONAR
-	logger = j.logger("GetEmails", session, logger)
+func (j *Client) GetEmails(accountId string, ids []string, //NOSONAR
+	fetchBodies bool, maxBodyValueBytes uint, markAsSeen bool, withThreads bool,
+	ctx Context) ([]Email, []string, SessionState, State, Language, Error) {
+	logger := j.logger("GetEmails", ctx)
+	ctx = ctx.WithLogger(logger)
 
 	get := EmailGetCommand{AccountId: accountId, Ids: ids, FetchAllBodyValues: fetchBodies}
 	if maxBodyValueBytes > 0 {
@@ -57,14 +59,14 @@ func (j *Client) GetEmails(accountId string, session *Session, ctx context.Conte
 		methodCalls = append(methodCalls, invocation(threads, "2"))
 	}
 
-	cmd, err := j.request(session, logger, NS_MAIL, methodCalls...)
+	cmd, err := j.request(ctx, NS_MAIL, methodCalls...)
 	if err != nil {
 		return nil, nil, "", "", "", err
 	}
-	result, sessionState, state, language, gwerr := command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (getEmailsResult, State, Error) {
+	result, sessionState, state, language, gwerr := command(j, ctx, cmd, func(body *Response) (getEmailsResult, State, Error) {
 		if markAsSeen {
 			var markResponse EmailSetResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandEmailSet, "0", &markResponse)
+			err = retrieveResponseMatchParameters(ctx, body, CommandEmailSet, "0", &markResponse)
 			if err != nil {
 				return getEmailsResult{}, "", err
 			}
@@ -74,13 +76,13 @@ func (j *Client) GetEmails(accountId string, session *Session, ctx context.Conte
 			}
 		}
 		var response EmailGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "1", &response)
+		err = retrieveResponseMatchParameters(ctx, body, CommandEmailGet, "1", &response)
 		if err != nil {
 			return getEmailsResult{}, "", err
 		}
 		if withThreads {
 			var threads ThreadGetResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandThreadGet, "2", &threads)
+			err = retrieveResponseMatchParameters(ctx, body, CommandThreadGet, "2", &threads)
 			if err != nil {
 				return getEmailsResult{}, "", err
 			}
@@ -91,17 +93,18 @@ func (j *Client) GetEmails(accountId string, session *Session, ctx context.Conte
 	return result.emails, result.notFound, sessionState, state, language, gwerr
 }
 
-func (j *Client) GetEmailBlobId(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, id string) (string, SessionState, State, Language, Error) {
-	logger = j.logger("GetEmailBlobId", session, logger)
+func (j *Client) GetEmailBlobId(accountId string, id string, ctx Context) (string, SessionState, State, Language, Error) {
+	logger := j.logger("GetEmailBlobId", ctx)
+	ctx = ctx.WithLogger(logger)
 
 	get := EmailGetCommand{AccountId: accountId, Ids: []string{id}, FetchAllBodyValues: false, Properties: []string{"blobId"}}
-	cmd, err := j.request(session, logger, NS_MAIL, invocation(get, "0"))
+	cmd, err := j.request(ctx, NS_MAIL, invocation(get, "0"))
 	if err != nil {
 		return "", "", "", "", err
 	}
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (string, State, Error) {
+	return command(j, ctx, cmd, func(body *Response) (string, State, Error) {
 		var response EmailGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "0", &response)
+		err = retrieveGet(ctx, body, get, "0", &response)
 		if err != nil {
 			return "", "", err
 		}
@@ -114,10 +117,13 @@ func (j *Client) GetEmailBlobId(accountId string, session *Session, ctx context.
 }
 
 // Retrieve all the Emails in a given Mailbox by its id.
-func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, mailboxId string, offset int, limit uint, collapseThreads bool, fetchBodies bool, maxBodyValueBytes uint, withThreads bool) (Emails, SessionState, State, Language, Error) { //NOSONAR
-	logger = j.loggerParams("GetAllEmailsInMailbox", session, logger, func(z zerolog.Context) zerolog.Context {
+func (j *Client) GetAllEmailsInMailbox(accountId string, mailboxId string, //NOSONAR
+	offset int, limit uint, collapseThreads bool, fetchBodies bool, maxBodyValueBytes uint, withThreads bool,
+	ctx Context) (Emails, SessionState, State, Language, Error) {
+	logger := j.loggerParams("GetAllEmailsInMailbox", ctx, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Int(logOffset, offset).Uint(logLimit, limit)
 	})
+	ctx = ctx.WithLogger(logger)
 
 	query := EmailQueryCommand{
 		AccountId:       accountId,
@@ -147,8 +153,9 @@ func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx c
 		invocation(get, "1"),
 	}
 
+	threads := ThreadGetRefCommand{}
 	if withThreads {
-		threads := ThreadGetRefCommand{
+		threads = ThreadGetRefCommand{
 			AccountId: accountId,
 			IdsRef: &ResultReference{
 				ResultOf: "1",
@@ -159,19 +166,19 @@ func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx c
 		invocations = append(invocations, invocation(threads, "2"))
 	}
 
-	cmd, err := j.request(session, logger, NS_MAIL, invocations...)
+	cmd, err := j.request(ctx, NS_MAIL, invocations...)
 	if err != nil {
 		return Emails{}, "", "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (Emails, State, Error) {
+	return command(j, ctx, cmd, func(body *Response) (Emails, State, Error) {
 		var queryResponse EmailQueryResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailQuery, "0", &queryResponse)
+		err = retrieveQuery(ctx, body, query, "0", &queryResponse)
 		if err != nil {
 			return Emails{}, "", err
 		}
 		var getResponse EmailGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "1", &getResponse)
+		err = retrieveGet(ctx, body, get, "1", &getResponse)
 		if err != nil {
 			logger.Error().Err(err).Send()
 			return Emails{}, "", err
@@ -179,7 +186,7 @@ func (j *Client) GetAllEmailsInMailbox(accountId string, session *Session, ctx c
 
 		if withThreads {
 			var thread ThreadGetResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandThreadGet, "2", &thread)
+			err = retrieveGet(ctx, body, threads, "2", &thread)
 			if err != nil {
 				return Emails{}, "", err
 			}
@@ -206,10 +213,13 @@ type EmailChanges struct {
 
 // Retrieve the changes in Emails since a given State.
 // @api:tags email,changes
-func (j *Client) GetEmailChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceState State, fetchBodies bool, maxBodyValueBytes uint, maxChanges uint) (EmailChanges, SessionState, State, Language, Error) { //NOSONAR
-	logger = j.loggerParams("GetEmailChanges", session, logger, func(z zerolog.Context) zerolog.Context {
+func (j *Client) GetEmailChanges(accountId string,
+	sinceState State, fetchBodies bool, maxBodyValueBytes uint, maxChanges uint,
+	ctx Context) (EmailChanges, SessionState, State, Language, Error) { //NOSONAR
+	logger := j.loggerParams("GetEmailChanges", ctx, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Str(logSinceState, string(sinceState))
 	})
+	ctx = ctx.WithLogger(logger)
 
 	changes := EmailChangesCommand{
 		AccountId:  accountId,
@@ -236,7 +246,7 @@ func (j *Client) GetEmailChanges(accountId string, session *Session, ctx context
 		getUpdated.MaxBodyValueBytes = maxBodyValueBytes
 	}
 
-	cmd, err := j.request(session, logger, NS_MAIL,
+	cmd, err := j.request(ctx, NS_MAIL,
 		invocation(changes, "0"),
 		invocation(getCreated, "1"),
 		invocation(getUpdated, "2"),
@@ -245,22 +255,22 @@ func (j *Client) GetEmailChanges(accountId string, session *Session, ctx context
 		return EmailChanges{}, "", "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (EmailChanges, State, Error) {
+	return command(j, ctx, cmd, func(body *Response) (EmailChanges, State, Error) {
 		var changesResponse EmailChangesResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailChanges, "0", &changesResponse)
+		err = retrieveChanges(ctx, body, changes, "0", &changesResponse)
 		if err != nil {
 			return EmailChanges{}, "", err
 		}
 
 		var createdResponse EmailGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "1", &createdResponse)
+		err = retrieveGet(ctx, body, getCreated, "1", &createdResponse)
 		if err != nil {
 			logger.Error().Err(err).Send()
 			return EmailChanges{}, "", err
 		}
 
 		var updatedResponse EmailGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "2", &updatedResponse)
+		err = retrieveGet(ctx, body, getUpdated, "2", &updatedResponse)
 		if err != nil {
 			logger.Error().Err(err).Send()
 			return EmailChanges{}, "", err
@@ -291,10 +301,13 @@ type EmailSnippetQueryResult struct {
 	QueryState State                   `json:"queryState"`
 }
 
-func (j *Client) QueryEmailSnippets(accountIds []string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, offset int, limit uint) (map[string]EmailSnippetQueryResult, SessionState, State, Language, Error) { //NOSONAR
-	logger = j.loggerParams("QueryEmailSnippets", session, logger, func(z zerolog.Context) zerolog.Context {
+func (j *Client) QueryEmailSnippets(accountIds []string, //NOSONAR
+	filter EmailFilterElement, offset int, limit uint,
+	ctx Context) (map[string]EmailSnippetQueryResult, SessionState, State, Language, Error) {
+	logger := j.loggerParams("QueryEmailSnippets", ctx, func(z zerolog.Context) zerolog.Context {
 		return z.Uint(logLimit, limit).Int(logOffset, offset)
 	})
+	ctx = ctx.WithLogger(logger)
 
 	uniqueAccountIds := structs.Uniq(accountIds)
 	invocations := make([]Invocation, len(uniqueAccountIds)*3)
@@ -340,28 +353,28 @@ func (j *Client) QueryEmailSnippets(accountIds []string, filter EmailFilterEleme
 		invocations[i*3+2] = invocation(snippet, mcid(accountId, "2"))
 	}
 
-	cmd, err := j.request(session, logger, NS_MAIL, invocations...)
+	cmd, err := j.request(ctx, NS_MAIL, invocations...)
 	if err != nil {
 		return nil, "", "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]EmailSnippetQueryResult, State, Error) {
+	return command(j, ctx, cmd, func(body *Response) (map[string]EmailSnippetQueryResult, State, Error) {
 		results := make(map[string]EmailSnippetQueryResult, len(uniqueAccountIds))
 		for _, accountId := range uniqueAccountIds {
 			var queryResponse EmailQueryResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandEmailQuery, mcid(accountId, "0"), &queryResponse)
+			err = retrieveResponseMatchParameters(ctx, body, CommandEmailQuery, mcid(accountId, "0"), &queryResponse)
 			if err != nil {
 				return nil, "", err
 			}
 
 			var mailResponse EmailGetResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, mcid(accountId, "1"), &mailResponse)
+			err = retrieveResponseMatchParameters(ctx, body, CommandEmailGet, mcid(accountId, "1"), &mailResponse)
 			if err != nil {
 				return nil, "", err
 			}
 
 			var snippetResponse SearchSnippetGetResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandSearchSnippetGet, mcid(accountId, "2"), &snippetResponse)
+			err = retrieveResponseMatchParameters(ctx, body, CommandSearchSnippetGet, mcid(accountId, "2"), &snippetResponse)
 			if err != nil {
 				return nil, "", err
 			}
@@ -407,10 +420,13 @@ type EmailQueryResult struct {
 	QueryState State   `json:"queryState"`
 }
 
-func (j *Client) QueryEmails(accountIds []string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, offset int, limit uint, fetchBodies bool, maxBodyValueBytes uint) (map[string]EmailQueryResult, SessionState, State, Language, Error) { //NOSONAR
-	logger = j.loggerParams("QueryEmails", session, logger, func(z zerolog.Context) zerolog.Context {
+func (j *Client) QueryEmails(accountIds []string,
+	filter EmailFilterElement, offset int, limit uint, fetchBodies bool, maxBodyValueBytes uint,
+	ctx Context) (map[string]EmailQueryResult, SessionState, State, Language, Error) { //NOSONAR
+	logger := j.loggerParams("QueryEmails", ctx, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies)
 	})
+	ctx = ctx.WithLogger(logger)
 
 	uniqueAccountIds := structs.Uniq(accountIds)
 	invocations := make([]Invocation, len(uniqueAccountIds)*2)
@@ -444,22 +460,22 @@ func (j *Client) QueryEmails(accountIds []string, filter EmailFilterElement, ses
 		invocations[i*2+1] = invocation(mails, mcid(accountId, "1"))
 	}
 
-	cmd, err := j.request(session, logger, NS_MAIL, invocations...)
+	cmd, err := j.request(ctx, NS_MAIL, invocations...)
 	if err != nil {
 		return nil, "", "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]EmailQueryResult, State, Error) {
+	return command(j, ctx, cmd, func(body *Response) (map[string]EmailQueryResult, State, Error) {
 		results := make(map[string]EmailQueryResult, len(uniqueAccountIds))
 		for _, accountId := range uniqueAccountIds {
 			var queryResponse EmailQueryResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandEmailQuery, mcid(accountId, "0"), &queryResponse)
+			err = retrieveResponseMatchParameters(ctx, body, CommandEmailQuery, mcid(accountId, "0"), &queryResponse)
 			if err != nil {
 				return nil, "", err
 			}
 
 			var emailsResponse EmailGetResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, mcid(accountId, "1"), &emailsResponse)
+			err = retrieveResponseMatchParameters(ctx, body, CommandEmailGet, mcid(accountId, "1"), &emailsResponse)
 			if err != nil {
 				return nil, "", err
 			}
@@ -489,10 +505,13 @@ type EmailQueryWithSnippetsResult struct {
 	QueryState State               `json:"queryState"`
 }
 
-func (j *Client) QueryEmailsWithSnippets(accountIds []string, filter EmailFilterElement, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, offset int, limit uint, fetchBodies bool, maxBodyValueBytes uint) (map[string]EmailQueryWithSnippetsResult, SessionState, State, Language, Error) { //NOSONAR
-	logger = j.loggerParams("QueryEmailsWithSnippets", session, logger, func(z zerolog.Context) zerolog.Context {
+func (j *Client) QueryEmailsWithSnippets(accountIds []string, //NOSONAR
+	filter EmailFilterElement, offset int, limit uint, fetchBodies bool, maxBodyValueBytes uint,
+	ctx Context) (map[string]EmailQueryWithSnippetsResult, SessionState, State, Language, Error) {
+	logger := j.loggerParams("QueryEmailsWithSnippets", ctx, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies)
 	})
+	ctx = ctx.WithLogger(logger)
 
 	uniqueAccountIds := structs.Uniq(accountIds)
 	invocations := make([]Invocation, len(uniqueAccountIds)*3)
@@ -536,28 +555,28 @@ func (j *Client) QueryEmailsWithSnippets(accountIds []string, filter EmailFilter
 		invocations[i*3+2] = invocation(mails, mcid(accountId, "2"))
 	}
 
-	cmd, err := j.request(session, logger, NS_MAIL, invocations...)
+	cmd, err := j.request(ctx, NS_MAIL, invocations...)
 	if err != nil {
 		return nil, "", "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]EmailQueryWithSnippetsResult, State, Error) {
+	return command(j, ctx, cmd, func(body *Response) (map[string]EmailQueryWithSnippetsResult, State, Error) {
 		result := make(map[string]EmailQueryWithSnippetsResult, len(uniqueAccountIds))
 		for _, accountId := range uniqueAccountIds {
 			var queryResponse EmailQueryResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandEmailQuery, mcid(accountId, "0"), &queryResponse)
+			err = retrieveResponseMatchParameters(ctx, body, CommandEmailQuery, mcid(accountId, "0"), &queryResponse)
 			if err != nil {
 				return nil, "", err
 			}
 
 			var snippetResponse SearchSnippetGetResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandSearchSnippetGet, mcid(accountId, "1"), &snippetResponse)
+			err = retrieveResponseMatchParameters(ctx, body, CommandSearchSnippetGet, mcid(accountId, "1"), &snippetResponse)
 			if err != nil {
 				return nil, "", err
 			}
 
 			var emailsResponse EmailGetResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, mcid(accountId, "2"), &emailsResponse)
+			err = retrieveResponseMatchParameters(ctx, body, CommandEmailGet, mcid(accountId, "2"), &emailsResponse)
 			if err != nil {
 				return nil, "", err
 			}
@@ -602,7 +621,7 @@ type UploadedEmail struct {
 	Sha512 string `json:"sha:512"`
 }
 
-func (j *Client) ImportEmail(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, data []byte) (UploadedEmail, SessionState, State, Language, Error) {
+func (j *Client) ImportEmail(accountId string, data []byte, ctx Context) (UploadedEmail, SessionState, State, Language, Error) {
 	encoded := base64.StdEncoding.EncodeToString(data)
 
 	upload := BlobUploadCommand{
@@ -627,7 +646,7 @@ func (j *Client) ImportEmail(accountId string, session *Session, ctx context.Con
 		Properties: []string{BlobPropertyDigestSha512},
 	}
 
-	cmd, err := j.request(session, logger, NS_MAIL,
+	cmd, err := j.request(ctx, NS_MAIL,
 		invocation(upload, "0"),
 		invocation(getHash, "1"),
 	)
@@ -635,32 +654,32 @@ func (j *Client) ImportEmail(accountId string, session *Session, ctx context.Con
 		return UploadedEmail{}, "", "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (UploadedEmail, State, Error) {
+	return command(j, ctx, cmd, func(body *Response) (UploadedEmail, State, Error) {
 		var uploadResponse BlobUploadResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandBlobUpload, "0", &uploadResponse)
+		err = retrieveResponseMatchParameters(ctx, body, CommandBlobUpload, "0", &uploadResponse)
 		if err != nil {
 			return UploadedEmail{}, "", err
 		}
 
 		var getResponse BlobGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandBlobGet, "1", &getResponse)
+		err = retrieveResponseMatchParameters(ctx, body, CommandBlobGet, "1", &getResponse)
 		if err != nil {
-			logger.Error().Err(err).Send()
+			ctx.Logger.Error().Err(err).Send()
 			return UploadedEmail{}, "", err
 		}
 
 		if len(uploadResponse.Created) != 1 {
-			logger.Error().Msgf("%T.Created has %v elements instead of 1", uploadResponse, len(uploadResponse.Created))
+			ctx.Logger.Error().Msgf("%T.Created has %v elements instead of 1", uploadResponse, len(uploadResponse.Created))
 			return UploadedEmail{}, "", jmapError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 		upload, ok := uploadResponse.Created["0"]
 		if !ok {
-			logger.Error().Msgf("%T.Created has no element '0'", uploadResponse)
+			ctx.Logger.Error().Msgf("%T.Created has no element '0'", uploadResponse)
 			return UploadedEmail{}, "", jmapError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 
 		if len(getResponse.List) != 1 {
-			logger.Error().Msgf("%T.List has %v elements instead of 1", getResponse, len(getResponse.List))
+			ctx.Logger.Error().Msgf("%T.List has %v elements instead of 1", getResponse, len(getResponse.List))
 			return UploadedEmail{}, "", jmapError(err, JmapErrorInvalidJmapResponsePayload)
 		}
 		get := getResponse.List[0]
@@ -675,7 +694,7 @@ func (j *Client) ImportEmail(accountId string, session *Session, ctx context.Con
 
 }
 
-func (j *Client) CreateEmail(accountId string, email EmailCreate, replaceId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (*Email, SessionState, State, Language, Error) {
+func (j *Client) CreateEmail(accountId string, email EmailCreate, replaceId string, ctx Context) (*Email, SessionState, State, Language, Error) {
 	set := EmailSetCommand{
 		AccountId: accountId,
 		Create: map[string]EmailCreate{
@@ -686,16 +705,16 @@ func (j *Client) CreateEmail(accountId string, email EmailCreate, replaceId stri
 		set.Destroy = []string{replaceId}
 	}
 
-	cmd, err := j.request(session, logger, NS_MAIL,
+	cmd, err := j.request(ctx, NS_MAIL,
 		invocation(set, "0"),
 	)
 	if err != nil {
 		return nil, "", "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (*Email, State, Error) {
+	return command(j, ctx, cmd, func(body *Response) (*Email, State, Error) {
 		var setResponse EmailSetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailSet, "0", &setResponse)
+		err = retrieveResponseMatchParameters(ctx, body, CommandEmailSet, "0", &setResponse)
 		if err != nil {
 			return nil, "", err
 		}
@@ -707,14 +726,14 @@ func (j *Client) CreateEmail(accountId string, email EmailCreate, replaceId stri
 
 		setErr, notok := setResponse.NotCreated["c"]
 		if notok {
-			logger.Error().Msgf("%T.NotCreated returned an error %v", setResponse, setErr)
+			ctx.Logger.Error().Msgf("%T.NotCreated returned an error %v", setResponse, setErr)
 			return nil, "", setErrorError(setErr, EmailType)
 		}
 
 		created, ok := setResponse.Created["c"]
 		if !ok {
 			berr := fmt.Errorf("failed to find %s in %s response", EmailType, string(CommandEmailSet))
-			logger.Error().Err(berr)
+			ctx.Logger.Error().Err(berr)
 			return nil, "", jmapError(berr, JmapErrorInvalidJmapResponsePayload)
 		}
 
@@ -730,20 +749,19 @@ func (j *Client) CreateEmail(accountId string, email EmailCreate, replaceId stri
 // To create drafts, use the CreateEmail function instead.
 //
 // To delete mails, use the DeleteEmails function instead.
-func (j *Client) UpdateEmails(accountId string, updates map[string]EmailUpdate, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]*Email, SessionState, State, Language, Error) {
-	cmd, err := j.request(session, logger, NS_MAIL,
-		invocation(EmailSetCommand{
-			AccountId: accountId,
-			Update:    updates,
-		}, "0"),
-	)
+func (j *Client) UpdateEmails(accountId string, updates map[string]EmailUpdate, ctx Context) (map[string]*Email, SessionState, State, Language, Error) {
+	set := EmailSetCommand{
+		AccountId: accountId,
+		Update:    updates,
+	}
+	cmd, err := j.request(ctx, NS_MAIL, invocation(set, "0"))
 	if err != nil {
 		return nil, "", "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]*Email, State, Error) {
+	return command(j, ctx, cmd, func(body *Response) (map[string]*Email, State, Error) {
 		var setResponse EmailSetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailSet, "0", &setResponse)
+		err = retrieveSet(ctx, body, set, "0", &setResponse)
 		if err != nil {
 			return nil, "", err
 		}
@@ -757,20 +775,19 @@ func (j *Client) UpdateEmails(accountId string, updates map[string]EmailUpdate, 
 	})
 }
 
-func (j *Client) DeleteEmails(accountId string, destroy []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]SetError, SessionState, State, Language, Error) {
-	cmd, err := j.request(session, logger, NS_MAIL,
-		invocation(EmailSetCommand{
-			AccountId: accountId,
-			Destroy:   destroy,
-		}, "0"),
-	)
+func (j *Client) DeleteEmails(accountId string, destroy []string, ctx Context) (map[string]SetError, SessionState, State, Language, Error) {
+	set := EmailSetCommand{
+		AccountId: accountId,
+		Destroy:   destroy,
+	}
+	cmd, err := j.request(ctx, NS_MAIL, invocation(set, "0"))
 	if err != nil {
 		return nil, "", "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]SetError, State, Error) {
+	return command(j, ctx, cmd, func(body *Response) (map[string]SetError, State, Error) {
 		var setResponse EmailSetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailSet, "0", &setResponse)
+		err = retrieveSet(ctx, body, set, "0", &setResponse)
 		if err != nil {
 			return nil, "", err
 		}
@@ -807,8 +824,10 @@ type MoveMail struct {
 	ToMailboxId   string
 }
 
-func (j *Client) SubmitEmail(accountId string, identityId string, emailId string, move *MoveMail, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (EmailSubmission, SessionState, State, Language, Error) { //NOSONAR
-	logger = j.logger("SubmitEmail", session, logger)
+func (j *Client) SubmitEmail(accountId string, identityId string, emailId string, move *MoveMail, //NOSONAR
+	ctx Context) (EmailSubmission, SessionState, State, Language, Error) {
+	logger := j.logger("SubmitEmail", ctx)
+	ctx = ctx.WithLogger(logger)
 
 	update := map[string]any{
 		EmailPropertyKeywords + "/" + JmapKeywordDraft: nil,  // unmark as draft
@@ -821,7 +840,7 @@ func (j *Client) SubmitEmail(accountId string, identityId string, emailId string
 
 	id := "s0"
 
-	set := EmailSubmissionSetCommand{
+	submit := EmailSubmissionSetCommand{
 		AccountId: accountId,
 		Create: map[string]EmailSubmissionCreate{
 			id: {
@@ -840,17 +859,17 @@ func (j *Client) SubmitEmail(accountId string, identityId string, emailId string
 		Ids:       []string{"#" + id},
 	}
 
-	cmd, err := j.request(session, logger, NS_MAIL_SUBMISSION,
-		invocation(set, "0"),
+	cmd, err := j.request(ctx, NS_MAIL_SUBMISSION,
+		invocation(submit, "0"),
 		invocation(get, "1"),
 	)
 	if err != nil {
 		return EmailSubmission{}, "", "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (EmailSubmission, State, Error) {
+	return command(j, ctx, cmd, func(body *Response) (EmailSubmission, State, Error) {
 		var submissionResponse EmailSubmissionSetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailSubmissionSet, "0", &submissionResponse)
+		err = retrieveSet(ctx, body, submit, "0", &submissionResponse)
 		if err != nil {
 			return EmailSubmission{}, "", err
 		}
@@ -866,14 +885,14 @@ func (j *Client) SubmitEmail(accountId string, identityId string, emailId string
 		// The response to this MUST be returned after the EmailSubmission/set response."
 		// from an example in the spec, it has the same tag as the EmailSubmission/set command ("0" in this case)
 		var setResponse EmailSetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailSet, "0", &setResponse)
+		err = retrieveResponseMatchParameters(ctx, body, CommandEmailSet, "0", &setResponse)
 		if err != nil {
 			return EmailSubmission{}, "", err
 		}
 
 		if len(setResponse.Updated) == 1 {
 			var getResponse EmailSubmissionGetResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandEmailSubmissionGet, "1", &getResponse)
+			err = retrieveGet(ctx, body, get, "1", &getResponse)
 			if err != nil {
 				return EmailSubmission{}, "", err
 			}
@@ -898,20 +917,22 @@ type emailSubmissionResult struct {
 	notFound    []string
 }
 
-func (j *Client) GetEmailSubmissionStatus(accountId string, submissionIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]EmailSubmission, []string, SessionState, State, Language, Error) {
-	logger = j.logger("GetEmailSubmissionStatus", session, logger)
+func (j *Client) GetEmailSubmissionStatus(accountId string, submissionIds []string, ctx Context) (map[string]EmailSubmission, []string, SessionState, State, Language, Error) {
+	logger := j.logger("GetEmailSubmissionStatus", ctx)
+	ctx = ctx.WithLogger(logger)
 
-	cmd, err := j.request(session, logger, NS_MAIL_SUBMISSION, invocation(EmailSubmissionGetCommand{
+	get := EmailSubmissionGetCommand{
 		AccountId: accountId,
 		Ids:       submissionIds,
-	}, "0"))
+	}
+	cmd, err := j.request(ctx, NS_MAIL_SUBMISSION, invocation(get, "0"))
 	if err != nil {
 		return nil, nil, "", "", "", err
 	}
 
-	result, sessionState, state, lang, err := command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (emailSubmissionResult, State, Error) {
+	result, sessionState, state, lang, err := command(j, ctx, cmd, func(body *Response) (emailSubmissionResult, State, Error) {
 		var response EmailSubmissionGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailSubmissionGet, "0", &response)
+		err = retrieveGet(ctx, body, get, "0", &response)
 		if err != nil {
 			return emailSubmissionResult{}, "", err
 		}
@@ -925,34 +946,41 @@ func (j *Client) GetEmailSubmissionStatus(accountId string, submissionIds []stri
 	return result.submissions, result.notFound, sessionState, state, lang, err
 }
 
-func (j *Client) EmailsInThread(accountId string, threadId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, fetchBodies bool, maxBodyValueBytes uint) ([]Email, SessionState, State, Language, Error) { //NOSONAR
-	logger = j.loggerParams("EmailsInThread", session, logger, func(z zerolog.Context) zerolog.Context {
+func (j *Client) EmailsInThread(accountId string, threadId string,
+	fetchBodies bool, maxBodyValueBytes uint,
+	ctx Context) ([]Email, SessionState, State, Language, Error) { //NOSONAR
+	logger := j.loggerParams("EmailsInThread", ctx, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies).Str("threadId", log.SafeString(threadId))
 	})
+	ctx = ctx.WithLogger(logger)
 
-	cmd, err := j.request(session, logger, NS_MAIL,
-		invocation(ThreadGetCommand{
-			AccountId: accountId,
-			Ids:       []string{threadId},
-		}, "0"),
-		invocation(EmailGetRefCommand{
-			AccountId: accountId,
-			IdsRef: &ResultReference{
-				ResultOf: "0",
-				Name:     CommandThreadGet,
-				Path:     "/list/*/emailIds",
-			},
-			FetchAllBodyValues: fetchBodies,
-			MaxBodyValueBytes:  maxBodyValueBytes,
-		}, "1"),
+	thread := ThreadGetCommand{
+		AccountId: accountId,
+		Ids:       []string{threadId},
+	}
+
+	get := EmailGetRefCommand{
+		AccountId: accountId,
+		IdsRef: &ResultReference{
+			ResultOf: "0",
+			Name:     CommandThreadGet,
+			Path:     "/list/*/emailIds",
+		},
+		FetchAllBodyValues: fetchBodies,
+		MaxBodyValueBytes:  maxBodyValueBytes,
+	}
+
+	cmd, err := j.request(ctx, NS_MAIL,
+		invocation(thread, "0"),
+		invocation(get, "1"),
 	)
 	if err != nil {
 		return nil, "", "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) ([]Email, State, Error) {
+	return command(j, ctx, cmd, func(body *Response) ([]Email, State, Error) {
 		var emailsResponse EmailGetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, "1", &emailsResponse)
+		err = retrieveGet(ctx, body, get, "1", &emailsResponse)
 		if err != nil {
 			return nil, "", err
 		}
@@ -987,8 +1015,11 @@ var EmailSummaryProperties = []string{
 	EmailPropertyPreview,
 }
 
-func (j *Client) QueryEmailSummaries(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, filter EmailFilterElement, limit uint, withThreads bool) (map[string]EmailsSummary, SessionState, State, Language, Error) { //NOSONAR
-	logger = j.logger("QueryEmailSummaries", session, logger)
+func (j *Client) QueryEmailSummaries(accountIds []string, //NOSONAR
+	filter EmailFilterElement, limit uint, withThreads bool,
+	ctx Context) (map[string]EmailsSummary, SessionState, State, Language, Error) {
+	logger := j.logger("QueryEmailSummaries", ctx)
+	ctx = ctx.WithLogger(logger)
 
 	uniqueAccountIds := structs.Uniq(accountIds)
 
@@ -1029,22 +1060,22 @@ func (j *Client) QueryEmailSummaries(accountIds []string, session *Session, ctx 
 			}, mcid(accountId, "2"))
 		}
 	}
-	cmd, err := j.request(session, logger, NS_MAIL, invocations...)
+	cmd, err := j.request(ctx, NS_MAIL, invocations...)
 	if err != nil {
 		return nil, "", "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]EmailsSummary, State, Error) {
+	return command(j, ctx, cmd, func(body *Response) (map[string]EmailsSummary, State, Error) {
 		resp := map[string]EmailsSummary{}
 		for _, accountId := range uniqueAccountIds {
 			var queryResponse EmailQueryResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandEmailQuery, mcid(accountId, "0"), &queryResponse)
+			err = retrieveResponseMatchParameters(ctx, body, CommandEmailQuery, mcid(accountId, "0"), &queryResponse)
 			if err != nil {
 				return nil, "", err
 			}
 
 			var response EmailGetResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandEmailGet, mcid(accountId, "1"), &response)
+			err = retrieveResponseMatchParameters(ctx, body, CommandEmailGet, mcid(accountId, "1"), &response)
 			if err != nil {
 				return nil, "", err
 			}
@@ -1053,7 +1084,7 @@ func (j *Client) QueryEmailSummaries(accountIds []string, session *Session, ctx 
 			}
 			if withThreads {
 				var thread ThreadGetResponse
-				err = retrieveResponseMatchParameters(logger, body, CommandThreadGet, mcid(accountId, "2"), &thread)
+				err = retrieveResponseMatchParameters(ctx, body, CommandThreadGet, mcid(accountId, "2"), &thread)
 				if err != nil {
 					return nil, "", err
 				}
@@ -1076,11 +1107,11 @@ type EmailSubmissionChanges = ChangesTemplate[EmailSubmission]
 
 // Retrieve the changes in Email Submissions since a given State.
 // @api:tags email,changes
-func (j *Client) GetEmailSubmissionChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger,
-	acceptLanguage string, sinceState State, maxChanges uint) (EmailSubmissionChanges, SessionState, State, Language, Error) {
+func (j *Client) GetEmailSubmissionChanges(accountId string, sinceState State, maxChanges uint,
+	ctx Context) (EmailSubmissionChanges, SessionState, State, Language, Error) {
 	return changes(j, "GetEmailSubmissionChanges", NS_MAIL_SUBMISSION,
 		func() EmailSubmissionChangesCommand {
-			return EmailSubmissionChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: posUIntPtr(maxChanges)}
+			return EmailSubmissionChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: uintPtr(maxChanges)}
 		},
 		EmailSubmissionChangesResponse{},
 		func(path string, rof string) EmailSubmissionGetRefCommand {
@@ -1104,7 +1135,7 @@ func (j *Client) GetEmailSubmissionChanges(accountId string, session *Session, c
 				Destroyed:      destroyed,
 			}
 		},
-		session, ctx, logger, acceptLanguage,
+		ctx,
 	)
 }
 

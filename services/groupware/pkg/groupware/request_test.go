@@ -1,7 +1,6 @@
 package groupware
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -12,8 +11,8 @@ import (
 
 func TestParseSort(t *testing.T) {
 	req := Request{
-		r:   &http.Request{},
-		ctx: context.Background(),
+		r:    &http.Request{},
+		cotx: t.Context(),
 	}
 	require := require.New(t)
 	{
@@ -84,7 +83,7 @@ func TestParseMap(t *testing.T) {
 			{
 				u, err := url.Parse(tt.uri)
 				require.NoError(err)
-				req = Request{r: &http.Request{URL: u}, ctx: context.Background()}
+				req = Request{r: &http.Request{URL: u}, cotx: t.Context()}
 			}
 			res, ok, err := req.parseMapParam("map")
 			require.Nil(err)

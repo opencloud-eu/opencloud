@@ -1,7 +1,6 @@
 package jmap
 
 import (
-	"context"
 	golog "log"
 	"math/rand"
 	"regexp"
@@ -20,7 +19,6 @@ import (
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/opencloud-eu/opencloud/pkg/jscontact"
-	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
@@ -45,17 +43,17 @@ func TestAddressBooks(t *testing.T) {
 		func(session *Session) string { return session.PrimaryAccounts.Contacts },
 		list,
 		getid,
-		func(s *StalwartTest, accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (AddressBookGetResponse, SessionState, State, Language, Error) {
-			return s.client.GetAddressbooks(accountId, session, ctx, logger, acceptLanguage, ids)
+		func(s *StalwartTest, accountId string, ids []string, ctx Context) (AddressBookGetResponse, SessionState, State, Language, Error) {
+			return s.client.GetAddressbooks(accountId, ids, ctx)
 		},
-		func(s *StalwartTest, accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, id string, change AddressBookChange) (AddressBook, SessionState, State, Language, Error) { //NOSONAR
-			return s.client.UpdateAddressBook(accountId, session, ctx, logger, acceptLanguage, id, change)
+		func(s *StalwartTest, accountId string, id string, change AddressBookChange, ctx Context) (AddressBook, SessionState, State, Language, Error) { //NOSONAR
+			return s.client.UpdateAddressBook(accountId, id, change, ctx)
 		},
-		func(s *StalwartTest, accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (map[string]SetError, SessionState, State, Language, Error) { //NOSONAR
-			return s.client.DeleteAddressBook(accountId, ids, session, ctx, logger, acceptLanguage)
+		func(s *StalwartTest, accountId string, ids []string, ctx Context) (map[string]SetError, SessionState, State, Language, Error) { //NOSONAR
+			return s.client.DeleteAddressBook(accountId, ids, ctx)
 		},
-		func(s *StalwartTest, t *testing.T, accountId string, count uint, session *Session, user User, principalIds []string) (AddressBookBoxes, []AddressBook, SessionState, State, error) {
-			return s.fillAddressBook(t, accountId, count, session, user, principalIds)
+		func(s *StalwartTest, t *testing.T, accountId string, count uint, ctx Context, user User, principalIds []string) (AddressBookBoxes, []AddressBook, SessionState, State, error) {
+			return s.fillAddressBook(t, accountId, count, ctx, user, principalIds)
 		},
 		func(orig AddressBook) AddressBookChange {
 			return AddressBookChange{
@@ -86,6 +84,7 @@ func TestContacts(t *testing.T) {
 
 	user := pickUser()
 	session := s.Session(user.name)
+	ctx := s.Context(session)
 
 	accountId, addressbookId, expectedContactCardsById, boxes, err := s.fillContacts(t, count, session, user)
 	require.NoError(err)
@@ -99,15 +98,19 @@ func TestContacts(t *testing.T) {
 		{Property: ContactCardPropertyCreated, IsAscending: true},
 	}
 
-	contactsByAccount, _, _, _, err := s.client.QueryContactCards([]string{accountId}, session, t.Context(), s.logger, "", filter, sortBy, 0, 0)
+	contactsByAccount, _, _, _, err := s.client.QueryContactCards([]string{accountId}, filter, sortBy, 0, 0, true, ctx)
 	require.NoError(err)
 
 	require.Len(contactsByAccount, 1)
 	require.Contains(contactsByAccount, accountId)
-	contacts := contactsByAccount[accountId]
-	require.Len(contacts, int(count))
+	results := contactsByAccount[accountId]
+	require.Len(results.Results, int(count))
+	require.Equal(uint(0), results.Limit)
+	require.Equal(uint(0), results.Position)
+	require.Equal(uint(0), results.Total)
+	require.Equal(true, results.CanCalculateChanges)
 
-	for _, actual := range contacts {
+	for _, actual := range results.Results {
 		expected, ok := expectedContactCardsById[actual.Id]
 		require.True(ok, "failed to find created contact by its id")
 		matchContact(t, actual, expected)
@@ -115,13 +118,13 @@ func TestContacts(t *testing.T) {
 
 	// retrieve all objects at once
 	{
-		ids := structs.Map(contacts, func(c ContactCard) string { return c.Id })
-		fetched, _, _, _, err := s.client.GetContactCards(accountId, session, t.Context(), s.logger, "", ids)
+		ids := structs.Map(results.Results, func(c ContactCard) string { return c.Id })
+		fetched, _, _, _, err := s.client.GetContactCards(accountId, ids, ctx)
 		require.NoError(err)
 		require.Empty(fetched.NotFound)
 		require.Len(fetched.List, len(ids))
 		byId := structs.Index(fetched.List, func(r ContactCard) string { return r.Id })
-		for _, actual := range contacts {
+		for _, actual := range results.Results {
 			expected, ok := byId[actual.Id]
 			require.True(ok, "failed to find created contact by its id")
 			matchContact(t, actual, expected)
@@ -129,8 +132,8 @@ func TestContacts(t *testing.T) {
 	}
 
 	// retrieve each object one by one
-	for _, actual := range contacts {
-		fetched, _, _, _, err := s.client.GetContactCards(accountId, session, t.Context(), s.logger, "", []string{actual.Id})
+	for _, actual := range results.Results {
+		fetched, _, _, _, err := s.client.GetContactCards(accountId, []string{actual.Id}, ctx)
 		require.NoError(err)
 		require.Len(fetched.List, 1)
 		matchContact(t, fetched.List[0], actual)
@@ -169,7 +172,7 @@ func (s *StalwartTest) fillAddressBook( //NOSONAR
 	t *testing.T,
 	accountId string,
 	count uint,
-	session *Session,
+	ctx Context,
 	_ User,
 	principalIds []string,
 ) (AddressBookBoxes, []AddressBook, SessionState, State, error) {
@@ -192,7 +195,7 @@ func (s *StalwartTest) fillAddressBook( //NOSONAR
 			IsSubscribed: &subscribed,
 		}
 		if i%2 == 0 {
-			abook.SortOrder = posUIntPtr(gofakeit.Uint())
+			abook.SortOrder = uintPtr(gofakeit.Uint())
 			boxes.sortOrdered = true
 		}
 		var sharing *AddressBookRights = nil
@@ -218,7 +221,7 @@ func (s *StalwartTest) fillAddressBook( //NOSONAR
 			abook.ShareWith = m
 		}
 
-		a, sessionState, state, _, err := s.client.CreateAddressBook(accountId, session, s.ctx, s.logger, "", abook)
+		a, sessionState, state, _, err := s.client.CreateAddressBook(accountId, abook, ctx)
 		if err != nil {
 			return boxes, created, ss, as, err
 		}

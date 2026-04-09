@@ -1,8 +1,6 @@
 package jmap
 
 import (
-	"context"
-
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/rs/zerolog"
 )
@@ -76,49 +74,50 @@ func (s StateMap) MarshalZerologObject(e *zerolog.Event) {
 
 // Retrieve the changes in any type of objects at once since a given State.
 // @api:tags changes
-func (j *Client) GetChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, stateMap StateMap, maxChanges uint) (Changes, SessionState, State, Language, Error) { //NOSONAR
-	logger = log.From(j.logger("GetChanges", session, logger).With().Object("state", stateMap).Uint("maxChanges", maxChanges))
+func (j *Client) GetChanges(accountId string, stateMap StateMap, maxChanges uint, ctx Context) (Changes, SessionState, State, Language, Error) { //NOSONAR
+	logger := log.From(j.logger("GetChanges", ctx).With().Object("state", stateMap).Uint("maxChanges", maxChanges))
+	ctx = ctx.WithLogger(logger)
 
 	methodCalls := []Invocation{}
 	if stateMap.Mailboxes != nil {
-		methodCalls = append(methodCalls, invocation(MailboxChangesCommand{AccountId: accountId, SinceState: *stateMap.Mailboxes, MaxChanges: posUIntPtr(maxChanges)}, "mailboxes"))
+		methodCalls = append(methodCalls, invocation(MailboxChangesCommand{AccountId: accountId, SinceState: *stateMap.Mailboxes, MaxChanges: uintPtr(maxChanges)}, "mailboxes"))
 	}
 	if stateMap.Emails != nil {
-		methodCalls = append(methodCalls, invocation(EmailChangesCommand{AccountId: accountId, SinceState: *stateMap.Emails, MaxChanges: posUIntPtr(maxChanges)}, "emails"))
+		methodCalls = append(methodCalls, invocation(EmailChangesCommand{AccountId: accountId, SinceState: *stateMap.Emails, MaxChanges: uintPtr(maxChanges)}, "emails"))
 	}
 	if stateMap.Calendars != nil {
-		methodCalls = append(methodCalls, invocation(CalendarChangesCommand{AccountId: accountId, SinceState: *stateMap.Calendars, MaxChanges: posUIntPtr(maxChanges)}, "calendars"))
+		methodCalls = append(methodCalls, invocation(CalendarChangesCommand{AccountId: accountId, SinceState: *stateMap.Calendars, MaxChanges: uintPtr(maxChanges)}, "calendars"))
 	}
 	if stateMap.Events != nil {
-		methodCalls = append(methodCalls, invocation(CalendarEventChangesCommand{AccountId: accountId, SinceState: *stateMap.Events, MaxChanges: posUIntPtr(maxChanges)}, "events"))
+		methodCalls = append(methodCalls, invocation(CalendarEventChangesCommand{AccountId: accountId, SinceState: *stateMap.Events, MaxChanges: uintPtr(maxChanges)}, "events"))
 	}
 	if stateMap.Addressbooks != nil {
-		methodCalls = append(methodCalls, invocation(AddressBookChangesCommand{AccountId: accountId, SinceState: *stateMap.Addressbooks, MaxChanges: posUIntPtr(maxChanges)}, "addressbooks"))
+		methodCalls = append(methodCalls, invocation(AddressBookChangesCommand{AccountId: accountId, SinceState: *stateMap.Addressbooks, MaxChanges: uintPtr(maxChanges)}, "addressbooks"))
 	}
 	if stateMap.Contacts != nil {
-		methodCalls = append(methodCalls, invocation(ContactCardChangesCommand{AccountId: accountId, SinceState: *stateMap.Contacts, MaxChanges: posUIntPtr(maxChanges)}, "contacts"))
+		methodCalls = append(methodCalls, invocation(ContactCardChangesCommand{AccountId: accountId, SinceState: *stateMap.Contacts, MaxChanges: uintPtr(maxChanges)}, "contacts"))
 	}
 	if stateMap.Identities != nil {
-		methodCalls = append(methodCalls, invocation(IdentityChangesCommand{AccountId: accountId, SinceState: *stateMap.Identities, MaxChanges: posUIntPtr(maxChanges)}, "identities"))
+		methodCalls = append(methodCalls, invocation(IdentityChangesCommand{AccountId: accountId, SinceState: *stateMap.Identities, MaxChanges: uintPtr(maxChanges)}, "identities"))
 	}
 	if stateMap.EmailSubmissions != nil {
-		methodCalls = append(methodCalls, invocation(EmailSubmissionChangesCommand{AccountId: accountId, SinceState: *stateMap.EmailSubmissions, MaxChanges: posUIntPtr(maxChanges)}, "submissions"))
+		methodCalls = append(methodCalls, invocation(EmailSubmissionChangesCommand{AccountId: accountId, SinceState: *stateMap.EmailSubmissions, MaxChanges: uintPtr(maxChanges)}, "submissions"))
 	}
 	// if stateMap.Quotas != nil { methodCalls = append(methodCalls, invocation(CommandQuotaChanges, QuotaChangesCommand{AccountId: accountId, SinceState: *stateMap.Quotas, MaxChanges: posUIntPtr(maxChanges)}, "quotas")) }
 
-	cmd, err := j.request(session, logger, NS_CHANGES, methodCalls...)
+	cmd, err := j.request(ctx, NS_CHANGES, methodCalls...)
 	if err != nil {
 		return Changes{}, "", "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (Changes, State, Error) {
+	return command(j, ctx, cmd, func(body *Response) (Changes, State, Error) {
 		changes := Changes{
 			MaxChanges: maxChanges,
 		}
 		states := map[string]State{}
 
 		var mailboxes MailboxChangesResponse
-		if ok, err := tryRetrieveResponseMatchParameters(logger, body, CommandMailboxChanges, "mailboxes", &mailboxes); err != nil {
+		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandMailboxChanges, "mailboxes", &mailboxes); err != nil {
 			return Changes{}, "", err
 		} else if ok {
 			changes.Mailboxes = &mailboxes
@@ -126,7 +125,7 @@ func (j *Client) GetChanges(accountId string, session *Session, ctx context.Cont
 		}
 
 		var emails EmailChangesResponse
-		if ok, err := tryRetrieveResponseMatchParameters(logger, body, CommandEmailChanges, "emails", &emails); err != nil {
+		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandEmailChanges, "emails", &emails); err != nil {
 			return Changes{}, "", err
 		} else if ok {
 			changes.Emails = &emails
@@ -134,7 +133,7 @@ func (j *Client) GetChanges(accountId string, session *Session, ctx context.Cont
 		}
 
 		var calendars CalendarChangesResponse
-		if ok, err := tryRetrieveResponseMatchParameters(logger, body, CommandCalendarChanges, "calendars", &calendars); err != nil {
+		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandCalendarChanges, "calendars", &calendars); err != nil {
 			return Changes{}, "", err
 		} else if ok {
 			changes.Calendars = &calendars
@@ -142,7 +141,7 @@ func (j *Client) GetChanges(accountId string, session *Session, ctx context.Cont
 		}
 
 		var events CalendarEventChangesResponse
-		if ok, err := tryRetrieveResponseMatchParameters(logger, body, CommandCalendarEventChanges, "events", &events); err != nil {
+		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandCalendarEventChanges, "events", &events); err != nil {
 			return Changes{}, "", err
 		} else if ok {
 			changes.Events = &events
@@ -150,7 +149,7 @@ func (j *Client) GetChanges(accountId string, session *Session, ctx context.Cont
 		}
 
 		var addressbooks AddressBookChangesResponse
-		if ok, err := tryRetrieveResponseMatchParameters(logger, body, CommandAddressBookChanges, "addressbooks", &addressbooks); err != nil {
+		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandAddressBookChanges, "addressbooks", &addressbooks); err != nil {
 			return Changes{}, "", err
 		} else if ok {
 			changes.Addressbooks = &addressbooks
@@ -158,7 +157,7 @@ func (j *Client) GetChanges(accountId string, session *Session, ctx context.Cont
 		}
 
 		var contacts ContactCardChangesResponse
-		if ok, err := tryRetrieveResponseMatchParameters(logger, body, CommandContactCardChanges, "contacts", &contacts); err != nil {
+		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandContactCardChanges, "contacts", &contacts); err != nil {
 			return Changes{}, "", err
 		} else if ok {
 			changes.Contacts = &contacts
@@ -166,7 +165,7 @@ func (j *Client) GetChanges(accountId string, session *Session, ctx context.Cont
 		}
 
 		var identities IdentityChangesResponse
-		if ok, err := tryRetrieveResponseMatchParameters(logger, body, CommandIdentityChanges, "identities", &identities); err != nil {
+		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandIdentityChanges, "identities", &identities); err != nil {
 			return Changes{}, "", err
 		} else if ok {
 			changes.Identities = &identities
@@ -174,7 +173,7 @@ func (j *Client) GetChanges(accountId string, session *Session, ctx context.Cont
 		}
 
 		var submissions EmailSubmissionChangesResponse
-		if ok, err := tryRetrieveResponseMatchParameters(logger, body, CommandEmailSubmissionChanges, "submissions", &submissions); err != nil {
+		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandEmailSubmissionChanges, "submissions", &submissions); err != nil {
 			return Changes{}, "", err
 		} else if ok {
 			changes.EmailSubmissions = &submissions

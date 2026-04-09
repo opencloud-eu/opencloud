@@ -24,12 +24,12 @@ func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) 
 		}
 		l = l.Str(UriParamCalendarId, log.SafeString(calendarId))
 
-		offset, ok, err := req.parseUIntParam(QueryParamOffset, 0)
+		offset, ok, err := req.parseIntParam(QueryParamOffset, 0)
 		if err != nil {
 			return req.error(accountId, err)
 		}
 		if ok {
-			l = l.Uint(QueryParamOffset, offset)
+			l = l.Int(QueryParamOffset, offset)
 		}
 
 		limit, ok, err := req.parseUIntParam(QueryParamLimit, g.defaults.contactLimit)
@@ -46,7 +46,8 @@ func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) 
 		sortBy := []jmap.CalendarEventComparator{{Property: jmap.CalendarEventPropertyUpdated, IsAscending: false}}
 
 		logger := log.From(l)
-		eventsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryCalendarEvents(single(accountId), req.session, req.ctx, logger, req.language(), filter, sortBy, offset, limit)
+		ctx := req.ctx.WithLogger(logger)
+		eventsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryCalendarEvents(single(accountId), filter, sortBy, offset, limit, true, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -82,7 +83,8 @@ func (g *Groupware) GetEventChanges(w http.ResponseWriter, r *http.Request) {
 		l = l.Str(HeaderParamSince, log.SafeString(string(sinceState)))
 
 		logger := log.From(l)
-		changes, sessionState, state, lang, jerr := g.jmap.GetCalendarEventChanges(accountId, req.session, req.ctx, logger, req.language(), sinceState, maxChanges)
+		ctx := req.ctx.WithLogger(logger)
+		changes, sessionState, state, lang, jerr := g.jmap.GetCalendarEventChanges(accountId, sinceState, maxChanges, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -108,7 +110,8 @@ func (g *Groupware) CreateCalendarEvent(w http.ResponseWriter, r *http.Request) 
 		}
 
 		logger := log.From(l)
-		created, sessionState, state, lang, jerr := g.jmap.CreateCalendarEvent(accountId, req.session, req.ctx, logger, req.language(), create)
+		ctx := req.ctx.WithLogger(logger)
+		created, sessionState, state, lang, jerr := g.jmap.CreateCalendarEvent(accountId, create, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -131,8 +134,8 @@ func (g *Groupware) DeleteCalendarEvent(w http.ResponseWriter, r *http.Request) 
 		l.Str(UriParamEventId, log.SafeString(eventId))
 
 		logger := log.From(l)
-
-		deleted, sessionState, state, lang, jerr := g.jmap.DeleteCalendarEvent(accountId, []string{eventId}, req.session, req.ctx, logger, req.language())
+		ctx := req.ctx.WithLogger(logger)
+		deleted, sessionState, state, lang, jerr := g.jmap.DeleteCalendarEvent(accountId, single(eventId), ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -174,8 +177,8 @@ func (g *Groupware) ParseIcalBlob(w http.ResponseWriter, r *http.Request) {
 		blobIds := strings.Split(blobId, ",")
 		l := req.logger.With().Array(UriParamBlobId, log.SafeStringArray(blobIds))
 		logger := log.From(l)
-
-		resp, sessionState, state, lang, jerr := g.jmap.ParseICalendarBlob(accountId, req.session, req.ctx, logger, req.language(), blobIds)
+		ctx := req.ctx.WithLogger(logger)
+		resp, sessionState, state, lang, jerr := g.jmap.ParseICalendarBlob(accountId, blobIds, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}

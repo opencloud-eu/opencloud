@@ -1,27 +1,21 @@
 package jmap
 
-import (
-	"context"
-
-	"github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/opencloud-eu/opencloud/pkg/structs"
-)
-
 var NS_CALENDARS = ns(JmapCalendars)
 
-func (j *Client) ParseICalendarBlob(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, blobIds []string) (CalendarEventParseResponse, SessionState, State, Language, Error) {
-	logger = j.logger("ParseICalendarBlob", session, logger)
+func (j *Client) ParseICalendarBlob(accountId string, blobIds []string, ctx Context) (CalendarEventParseResponse, SessionState, State, Language, Error) {
+	logger := j.logger("ParseICalendarBlob", ctx)
 
-	cmd, err := j.request(session, logger, NS_CALENDARS,
-		invocation(CalendarEventParseCommand{AccountId: accountId, BlobIds: blobIds}, "0"),
+	parse := CalendarEventParseCommand{AccountId: accountId, BlobIds: blobIds}
+	cmd, err := j.request(ctx.WithLogger(logger), NS_CALENDARS,
+		invocation(parse, "0"),
 	)
 	if err != nil {
 		return CalendarEventParseResponse{}, "", "", "", err
 	}
 
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (CalendarEventParseResponse, State, Error) {
+	return command(j, ctx, cmd, func(body *Response) (CalendarEventParseResponse, State, Error) {
 		var response CalendarEventParseResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandCalendarEventParse, "0", &response)
+		err = retrieveParse(ctx, body, parse, "0", &response)
 		if err != nil {
 			return CalendarEventParseResponse{}, "", err
 		}
@@ -29,14 +23,15 @@ func (j *Client) ParseICalendarBlob(accountId string, session *Session, ctx cont
 	})
 }
 
-func (j *Client) GetCalendars(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (CalendarGetResponse, SessionState, State, Language, Error) {
+func (j *Client) GetCalendars(accountId string, ids []string, ctx Context) (CalendarGetResponse, SessionState, State, Language, Error) {
 	return get(j, "GetCalendars", NS_CALENDARS,
 		func(accountId string, ids []string) CalendarGetCommand {
 			return CalendarGetCommand{AccountId: accountId, Ids: ids}
 		},
 		CalendarGetResponse{},
 		identity1,
-		accountId, session, ctx, logger, acceptLanguage, ids,
+		accountId, ids,
+		ctx,
 	)
 }
 
@@ -44,10 +39,10 @@ type CalendarChanges = ChangesTemplate[Calendar]
 
 // Retrieve Calendar changes since a given state.
 // @apidoc calendar,changes
-func (j *Client) GetCalendarChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceState State, maxChanges uint) (CalendarChanges, SessionState, State, Language, Error) {
+func (j *Client) GetCalendarChanges(accountId string, sinceState State, maxChanges uint, ctx Context) (CalendarChanges, SessionState, State, Language, Error) {
 	return changes(j, "GetCalendarChanges", NS_CALENDARS,
 		func() CalendarChangesCommand {
-			return CalendarChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: posUIntPtr(maxChanges)}
+			return CalendarChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: uintPtr(maxChanges)}
 		},
 		CalendarChangesResponse{},
 		func(path string, rof string) CalendarGetRefCommand {
@@ -71,78 +66,55 @@ func (j *Client) GetCalendarChanges(accountId string, session *Session, ctx cont
 				Destroyed:      destroyed,
 			}
 		},
-		session, ctx, logger, acceptLanguage,
+		ctx,
 	)
 }
 
-func (j *Client) QueryCalendarEvents(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, //NOSONAR
+type CalendarEventSearchResults SearchResultsTemplate[CalendarEvent]
+
+var _ SearchResults[CalendarEvent] = CalendarEventSearchResults{}
+
+func (r CalendarEventSearchResults) GetResults() []CalendarEvent  { return r.Results }
+func (r CalendarEventSearchResults) GetCanCalculateChanges() bool { return r.CanCalculateChanges }
+func (r CalendarEventSearchResults) GetPosition() uint            { return r.Position }
+func (r CalendarEventSearchResults) GetLimit() uint               { return r.Limit }
+func (r CalendarEventSearchResults) GetTotal() *uint              { return r.Total }
+
+func (j *Client) QueryCalendarEvents(accountIds []string, //NOSONAR
 	filter CalendarEventFilterElement, sortBy []CalendarEventComparator,
-	position uint, limit uint) (map[string][]CalendarEvent, SessionState, State, Language, Error) {
-	logger = j.logger("QueryCalendarEvents", session, logger)
-
-	uniqueAccountIds := structs.Uniq(accountIds)
-
-	if sortBy == nil {
-		sortBy = []CalendarEventComparator{{Property: CalendarEventPropertyStart, IsAscending: false}}
-	}
-
-	invocations := make([]Invocation, len(uniqueAccountIds)*2)
-	for i, accountId := range uniqueAccountIds {
-		query := CalendarEventQueryCommand{
-			AccountId: accountId,
-			Filter:    filter,
-			Sort:      sortBy,
-		}
-		if limit > 0 {
-			query.Limit = limit
-		}
-		if position > 0 {
-			query.Position = position
-		}
-		invocations[i*2+0] = invocation(query, mcid(accountId, "0"))
-		invocations[i*2+1] = invocation(CalendarEventGetRefCommand{
-			AccountId: accountId,
-			IdsRef: &ResultReference{
-				Name:     CommandCalendarEventQuery,
-				Path:     "/ids/*",
-				ResultOf: mcid(accountId, "0"),
-			},
-			// Properties: CalendarEventProperties, // to also retrieve UTCStart and UTCEnd
-		}, mcid(accountId, "1"))
-	}
-	cmd, err := j.request(session, logger, NS_CALENDARS, invocations...)
-	if err != nil {
-		return nil, "", "", "", err
-	}
-
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string][]CalendarEvent, State, Error) {
-		resp := map[string][]CalendarEvent{}
-		stateByAccountId := map[string]State{}
-		for _, accountId := range uniqueAccountIds {
-			var response CalendarEventGetResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandCalendarEventGet, mcid(accountId, "1"), &response)
-			if err != nil {
-				return nil, "", err
+	position int, limit uint, calculateTotal bool,
+	ctx Context) (map[string]CalendarEventSearchResults, SessionState, State, Language, Error) {
+	return queryN(j, "QueryCalendarEvents", NS_CALENDARS,
+		[]CalendarEventComparator{{Property: CalendarEventPropertyStart, IsAscending: false}},
+		func(accountId string, filter CalendarEventFilterElement, sortBy []CalendarEventComparator, position int, limit uint) CalendarEventQueryCommand {
+			return CalendarEventQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, Position: position, Limit: uintPtr(limit), CalculateTotal: calculateTotal}
+		},
+		func(accountId string, cmd Command, path string, rof string) CalendarEventGetRefCommand {
+			return CalendarEventGetRefCommand{AccountId: accountId, IdsRef: &ResultReference{Name: cmd, Path: path, ResultOf: rof}}
+		},
+		func(query CalendarEventQueryResponse, get CalendarEventGetResponse) CalendarEventSearchResults {
+			return CalendarEventSearchResults{
+				Results:             get.List,
+				CanCalculateChanges: query.CanCalculateChanges,
+				Position:            query.Position,
+				Total:               uintPtrIf(query.Total, calculateTotal),
+				Limit:               query.Limit,
 			}
-			if len(response.NotFound) > 0 {
-				// TODO what to do when there are not-found calendarevents here? potentially nothing, they could have been deleted between query and get?
-			}
-			resp[accountId] = response.List
-			stateByAccountId[accountId] = response.State
-		}
-		return resp, squashState(stateByAccountId), nil
-	})
+		},
+		accountIds,
+		filter, sortBy, limit, position, ctx,
+	)
 }
 
 type CalendarEventChanges = ChangesTemplate[CalendarEvent]
 
 // Retrieve the changes in Calendar Events since a given State.
 // @api:tags event,changes
-func (j *Client) GetCalendarEventChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger,
-	acceptLanguage string, sinceState State, maxChanges uint) (CalendarEventChanges, SessionState, State, Language, Error) {
+func (j *Client) GetCalendarEventChanges(accountId string, sinceState State, maxChanges uint,
+	ctx Context) (CalendarEventChanges, SessionState, State, Language, Error) {
 	return changes(j, "GetCalendarEventChanges", NS_CALENDARS,
 		func() CalendarEventChangesCommand {
-			return CalendarEventChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: posUIntPtr(maxChanges)}
+			return CalendarEventChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: uintPtr(maxChanges)}
 		},
 		CalendarEventChangesResponse{},
 		func(path string, rof string) CalendarEventGetRefCommand {
@@ -166,11 +138,11 @@ func (j *Client) GetCalendarEventChanges(accountId string, session *Session, ctx
 				Destroyed:      destroyed,
 			}
 		},
-		session, ctx, logger, acceptLanguage,
+		ctx,
 	)
 }
 
-func (j *Client) CreateCalendarEvent(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, event CalendarEvent) (*CalendarEvent, SessionState, State, Language, Error) {
+func (j *Client) CreateCalendarEvent(accountId string, event CalendarEvent, ctx Context) (*CalendarEvent, SessionState, State, Language, Error) {
 	return create(j, "CreateCalendarEvent", NS_CALENDARS,
 		func(accountId string, create map[string]CalendarEvent) CalendarEventSetCommand {
 			return CalendarEventSetCommand{AccountId: accountId, Create: create}
@@ -184,19 +156,23 @@ func (j *Client) CreateCalendarEvent(accountId string, session *Session, ctx con
 		func(resp CalendarEventGetResponse) []CalendarEvent {
 			return resp.List
 		},
-		accountId, session, ctx, logger, acceptLanguage, event)
+		accountId, event,
+		ctx,
+	)
 }
 
-func (j *Client) DeleteCalendarEvent(accountId string, destroyIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]SetError, SessionState, State, Language, Error) {
+func (j *Client) DeleteCalendarEvent(accountId string, destroyIds []string, ctx Context) (map[string]SetError, SessionState, State, Language, Error) {
 	return destroy(j, "DeleteCalendarEvent", NS_CALENDARS,
 		func(accountId string, destroy []string) CalendarEventSetCommand {
 			return CalendarEventSetCommand{AccountId: accountId, Destroy: destroy}
 		},
 		CalendarEventSetResponse{},
-		accountId, destroyIds, session, ctx, logger, acceptLanguage)
+		accountId, destroyIds,
+		ctx,
+	)
 }
 
-func (j *Client) CreateCalendar(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, calendar CalendarChange) (*Calendar, SessionState, State, Language, Error) {
+func (j *Client) CreateCalendar(accountId string, calendar CalendarChange, ctx Context) (*Calendar, SessionState, State, Language, Error) {
 	return create(j, "CreateCalendar", NS_CALENDARS,
 		func(accountId string, create map[string]CalendarChange) CalendarSetCommand {
 			return CalendarSetCommand{AccountId: accountId, Create: create}
@@ -210,21 +186,23 @@ func (j *Client) CreateCalendar(accountId string, session *Session, ctx context.
 		func(resp CalendarGetResponse) []Calendar {
 			return resp.List
 		},
-		accountId, session, ctx, logger, acceptLanguage, calendar,
+		accountId, calendar,
+		ctx,
 	)
 }
 
-func (j *Client) DeleteCalendar(accountId string, destroyIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]SetError, SessionState, State, Language, Error) {
+func (j *Client) DeleteCalendar(accountId string, destroyIds []string, ctx Context) (map[string]SetError, SessionState, State, Language, Error) {
 	return destroy(j, "DeleteCalendar", NS_CALENDARS,
 		func(accountId string, destroy []string) CalendarSetCommand {
 			return CalendarSetCommand{AccountId: accountId, Destroy: destroy}
 		},
 		CalendarSetResponse{},
-		accountId, destroyIds, session, ctx, logger, acceptLanguage,
+		accountId, destroyIds,
+		ctx,
 	)
 }
 
-func (j *Client) UpdateCalendar(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, id string, changes CalendarChange) (Calendar, SessionState, State, Language, Error) {
+func (j *Client) UpdateCalendar(accountId string, id string, changes CalendarChange, ctx Context) (Calendar, SessionState, State, Language, Error) {
 	return update(j, "UpdateCalendar", NS_CALENDARS,
 		func(update map[string]PatchObject) CalendarSetCommand {
 			return CalendarSetCommand{AccountId: accountId, Update: update}
@@ -234,6 +212,7 @@ func (j *Client) UpdateCalendar(accountId string, session *Session, ctx context.
 		},
 		func(resp CalendarSetResponse) map[string]SetError { return resp.NotUpdated },
 		func(resp CalendarGetResponse) Calendar { return resp.List[0] },
-		id, changes, session, ctx, logger, acceptLanguage,
+		id, changes,
+		ctx,
 	)
 }

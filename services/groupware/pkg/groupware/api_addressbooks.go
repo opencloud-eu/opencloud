@@ -15,7 +15,7 @@ func (g *Groupware) GetAddressbooks(w http.ResponseWriter, r *http.Request) {
 			return resp
 		}
 
-		addressbooks, sessionState, state, lang, jerr := g.jmap.GetAddressbooks(accountId, req.session, req.ctx, req.logger, req.language(), nil)
+		addressbooks, sessionState, state, lang, jerr := g.jmap.GetAddressbooks(accountId, []string{}, req.ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -42,7 +42,7 @@ func (g *Groupware) GetAddressbook(w http.ResponseWriter, r *http.Request) {
 		l = l.Str(UriParamAddressBookId, log.SafeString(addressBookId))
 
 		logger := log.From(l)
-		addressbooks, sessionState, state, lang, jerr := g.jmap.GetAddressbooks(accountId, req.session, req.ctx, logger, req.language(), []string{addressBookId})
+		addressbooks, sessionState, state, lang, jerr := g.jmap.GetAddressbooks(accountId, []string{addressBookId}, req.ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -84,8 +84,8 @@ func (g *Groupware) GetAddressBookChanges(w http.ResponseWriter, r *http.Request
 		}
 
 		logger := log.From(l)
-
-		changes, sessionState, state, lang, jerr := g.jmap.GetAddressbookChanges(accountId, req.session, req.ctx, logger, req.language(), sinceState, maxChanges)
+		ctx := req.ctx.WithLogger(logger)
+		changes, sessionState, state, lang, jerr := g.jmap.GetAddressbookChanges(accountId, sinceState, maxChanges, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -110,7 +110,8 @@ func (g *Groupware) CreateAddressBook(w http.ResponseWriter, r *http.Request) {
 		}
 
 		logger := log.From(l)
-		created, sessionState, state, lang, jerr := g.jmap.CreateAddressBook(accountId, req.session, req.ctx, logger, req.language(), create)
+		ctx := req.ctx.WithLogger(logger)
+		created, sessionState, state, lang, jerr := g.jmap.CreateAddressBook(accountId, create, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -133,8 +134,8 @@ func (g *Groupware) DeleteAddressBook(w http.ResponseWriter, r *http.Request) {
 		l.Str(UriParamAddressBookId, log.SafeString(addressBookId))
 
 		logger := log.From(l)
-
-		deleted, sessionState, state, lang, jerr := g.jmap.DeleteAddressBook(accountId, []string{addressBookId}, req.session, req.ctx, logger, req.language())
+		ctx := req.ctx.WithLogger(logger)
+		deleted, sessionState, state, lang, jerr := g.jmap.DeleteAddressBook(accountId, []string{addressBookId}, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}

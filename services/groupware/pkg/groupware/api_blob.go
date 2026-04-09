@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
@@ -27,8 +28,9 @@ func (g *Groupware) GetBlobMeta(w http.ResponseWriter, r *http.Request) {
 		l = l.Str(UriParamBlobId, blobId)
 
 		logger := log.From(l)
+		ctx := req.ctx.WithLogger(logger)
 
-		res, sessionState, state, lang, jerr := g.jmap.GetBlobMetadata(accountId, req.session, req.ctx, logger, req.language(), blobId)
+		res, sessionState, state, lang, jerr := g.jmap.GetBlobMetadata(accountId, blobId, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -57,8 +59,8 @@ func (g *Groupware) UploadBlob(w http.ResponseWriter, r *http.Request) {
 			return req.error(accountId, err)
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
-
-		resp, lang, jerr := g.jmap.UploadBlobStream(accountId, req.session, req.ctx, logger, req.language(), contentType, body)
+		ctx := req.ctx.WithLogger(logger)
+		resp, lang, jerr := g.jmap.UploadBlobStream(accountId, contentType, body, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, req.session.State, lang)
 		}
@@ -85,21 +87,22 @@ func (g *Groupware) DownloadBlob(w http.ResponseWriter, r *http.Request) {
 			return gwerr
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId).Str(UriParamBlobId, blobId))
+		ctx := req.ctx.WithLogger(logger)
 
-		return req.serveBlob(blobId, name, typ, logger, accountId, w)
+		return req.serveBlob(blobId, name, typ, ctx, accountId, w)
 	})
 }
 
-func (r *Request) serveBlob(blobId string, name string, typ string, logger *log.Logger, accountId string, w http.ResponseWriter) *Error {
+func (r *Request) serveBlob(blobId string, name string, typ string, ctx jmap.Context, accountId string, w http.ResponseWriter) *Error {
 	if typ == "" {
 		typ = DefaultBlobDownloadType
 	}
-	blob, lang, jerr := r.g.jmap.DownloadBlobStream(accountId, blobId, name, typ, r.session, r.ctx, logger, r.language())
+	blob, lang, jerr := r.g.jmap.DownloadBlobStream(accountId, blobId, name, typ, ctx)
 	if blob != nil && blob.Body != nil {
 		defer func(Body io.ReadCloser) {
 			err := Body.Close()
 			if err != nil {
-				logger.Error().Err(err).Msg("failed to close response body")
+				ctx.Logger.Error().Err(err).Msg("failed to close response body")
 			}
 		}(blob.Body)
 	}

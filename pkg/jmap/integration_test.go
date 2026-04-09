@@ -175,6 +175,15 @@ func (s *StalwartTest) Close() error {
 	return nil
 }
 
+func (s *StalwartTest) Context(session *Session) Context {
+	return Context{
+		Session:        session,
+		Context:        s.ctx,
+		Logger:         s.logger,
+		AcceptLanguage: "",
+	}
+}
+
 func (s *StalwartTest) Session(username string) *Session {
 	session, jerr := s.client.FetchSession(s.ctx, s.sessionUrl, username, s.logger)
 	require.NoError(s.t, jerr)
@@ -1218,10 +1227,10 @@ func containerTest[OBJ Idable, RESP GetResponse[OBJ], BOXES any, CHANGE Change](
 	acc func(session *Session) string,
 	obj func(RESP) []OBJ,
 	id func(OBJ) string,
-	get func(s *StalwartTest, accountId string, session *Session, ctx context.Context, logger *clog.Logger, acceptLanguage string, ids []string) (RESP, SessionState, State, Language, Error),
-	update func(s *StalwartTest, accountId string, session *Session, ctx context.Context, logger *clog.Logger, acceptLanguage string, id string, change CHANGE) (OBJ, SessionState, State, Language, Error),
-	destroy func(s *StalwartTest, accountId string, session *Session, ctx context.Context, logger *clog.Logger, acceptLanguage string, ids []string) (map[string]SetError, SessionState, State, Language, Error),
-	fill func(s *StalwartTest, t *testing.T, accountId string, count uint, session *Session, _ User, principalIds []string) (BOXES, []OBJ, SessionState, State, error),
+	get func(s *StalwartTest, accountId string, ids []string, ctx Context) (RESP, SessionState, State, Language, Error),
+	update func(s *StalwartTest, accountId string, id string, change CHANGE, ctx Context) (OBJ, SessionState, State, Language, Error),
+	destroy func(s *StalwartTest, accountId string, ids []string, ctx Context) (map[string]SetError, SessionState, State, Language, Error),
+	fill func(s *StalwartTest, t *testing.T, accountId string, count uint, ctx Context, _ User, principalIds []string) (BOXES, []OBJ, SessionState, State, error),
 	change func(OBJ) CHANGE,
 	checkChanged func(t *testing.T, orig OBJ, change CHANGE, changed OBJ),
 ) {
@@ -1233,16 +1242,17 @@ func containerTest[OBJ Idable, RESP GetResponse[OBJ], BOXES any, CHANGE Change](
 
 	user := pickUser()
 	session := s.Session(user.name)
+	ctx := s.Context(session)
 
 	accountId := acc(session)
 
 	// we first need to retrieve the list of all the Principals in order to be able to use and test sharing
 	principalIds := []string{}
 	{
-		principals, _, _, _, err := s.client.GetPrincipals(accountId, session, s.ctx, s.logger, "", []string{})
+		principals, _, _, _, err := s.client.GetPrincipals(accountId, []string{}, ctx)
 		require.NoError(err)
-		require.NotEmpty(principals.Principals)
-		principalIds = structs.Map(principals.Principals, func(p Principal) string { return p.Id })
+		require.NotEmpty(principals.List)
+		principalIds = structs.Map(principals.List, func(p Principal) string { return p.Id })
 	}
 
 	ss := SessionState("")
@@ -1252,7 +1262,7 @@ func containerTest[OBJ Idable, RESP GetResponse[OBJ], BOXES any, CHANGE Change](
 	// from the tests below
 	defaultContainerId := ""
 	{
-		resp, sessionState, state, _, err := get(s, accountId, session, s.ctx, s.logger, "", []string{})
+		resp, sessionState, state, _, err := get(s, accountId, []string{}, ctx)
 		require.NoError(err)
 		require.Empty(resp.GetNotFound())
 		objs := obj(resp)
@@ -1265,7 +1275,7 @@ func containerTest[OBJ Idable, RESP GetResponse[OBJ], BOXES any, CHANGE Change](
 	// we are going to create a random amount of objects
 	num := uint(5 + rand.Intn(30))
 	{
-		boxes, all, sessionState, state, err := fill(s, t, accountId, num, session, user, principalIds)
+		boxes, all, sessionState, state, err := fill(s, t, accountId, num, ctx, user, principalIds)
 		require.NoError(err)
 		require.Len(all, int(num))
 		ss = sessionState
@@ -1273,7 +1283,7 @@ func containerTest[OBJ Idable, RESP GetResponse[OBJ], BOXES any, CHANGE Change](
 
 		{
 			// lets retrieve all the existing objects by passing an empty ID slice
-			resp, sessionState, state, _, err := get(s, accountId, session, s.ctx, s.logger, "", []string{})
+			resp, sessionState, state, _, err := get(s, accountId, []string{}, ctx)
 			require.NoError(err)
 			require.Empty(resp.GetNotFound())
 			objs := obj(resp)
@@ -1300,7 +1310,7 @@ func containerTest[OBJ Idable, RESP GetResponse[OBJ], BOXES any, CHANGE Change](
 		// lets retrieve every object we created by its ID
 		for _, a := range all {
 			i := id(a)
-			resp, sessionState, state, _, err := get(s, accountId, session, s.ctx, s.logger, "", []string{i})
+			resp, sessionState, state, _, err := get(s, accountId, []string{i}, ctx)
 			require.NoError(err)
 			require.Empty(resp.GetNotFound())
 			objs := obj(resp)
@@ -1314,7 +1324,7 @@ func containerTest[OBJ Idable, RESP GetResponse[OBJ], BOXES any, CHANGE Change](
 		for _, a := range all {
 			i := id(a)
 			ch := change(a)
-			changed, sessionState, state, _, err := update(s, accountId, session, s.ctx, s.logger, "", i, ch)
+			changed, sessionState, state, _, err := update(s, accountId, i, ch, ctx)
 			require.NoError(err)
 			require.NotEqual(a, changed)
 			require.Equal(sessionState, ss)
@@ -1325,7 +1335,7 @@ func containerTest[OBJ Idable, RESP GetResponse[OBJ], BOXES any, CHANGE Change](
 		// now lets delete each object that we created, all at once
 		ids := structs.Map(all, id)
 		{
-			errMap, sessionState, state, _, err := destroy(s, accountId, session, s.ctx, s.logger, "", ids)
+			errMap, sessionState, state, _, err := destroy(s, accountId, ids, ctx)
 			require.NoError(err)
 			require.Empty(errMap)
 			require.Equal(sessionState, ss)

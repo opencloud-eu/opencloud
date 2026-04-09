@@ -1,7 +1,6 @@
 package jmap
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -17,7 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/opencloud-eu/opencloud/pkg/jscalendar"
-	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
@@ -36,17 +34,17 @@ func TestCalendars(t *testing.T) { //NOSONAR
 		func(session *Session) string { return session.PrimaryAccounts.Calendars },
 		func(resp CalendarGetResponse) []Calendar { return resp.List },
 		func(obj Calendar) string { return obj.Id },
-		func(s *StalwartTest, accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (CalendarGetResponse, SessionState, State, Language, Error) {
-			return s.client.GetCalendars(accountId, session, ctx, logger, acceptLanguage, ids)
+		func(s *StalwartTest, accountId string, ids []string, ctx Context) (CalendarGetResponse, SessionState, State, Language, Error) {
+			return s.client.GetCalendars(accountId, ids, ctx)
 		},
-		func(s *StalwartTest, accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, id string, change CalendarChange) (Calendar, SessionState, State, Language, Error) { //NOSONAR
-			return s.client.UpdateCalendar(accountId, session, ctx, logger, acceptLanguage, id, change)
+		func(s *StalwartTest, accountId string, id string, change CalendarChange, ctx Context) (Calendar, SessionState, State, Language, Error) { //NOSONAR
+			return s.client.UpdateCalendar(accountId, id, change, ctx)
 		},
-		func(s *StalwartTest, accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (map[string]SetError, SessionState, State, Language, Error) { //NOSONAR
-			return s.client.DeleteCalendar(accountId, ids, session, ctx, logger, acceptLanguage)
+		func(s *StalwartTest, accountId string, ids []string, ctx Context) (map[string]SetError, SessionState, State, Language, Error) { //NOSONAR
+			return s.client.DeleteCalendar(accountId, ids, ctx)
 		},
-		func(s *StalwartTest, t *testing.T, accountId string, count uint, session *Session, user User, principalIds []string) (CalendarBoxes, []Calendar, SessionState, State, error) {
-			return s.fillCalendar(t, accountId, count, session, user, principalIds)
+		func(s *StalwartTest, t *testing.T, accountId string, count uint, ctx Context, user User, principalIds []string) (CalendarBoxes, []Calendar, SessionState, State, error) {
+			return s.fillCalendar(t, accountId, count, ctx, user, principalIds)
 		},
 		func(orig Calendar) CalendarChange {
 			return CalendarChange{
@@ -77,6 +75,7 @@ func TestEvents(t *testing.T) {
 
 	user := pickUser()
 	session := s.Session(user.name)
+	ctx := s.Context(session)
 
 	accountId, calendarId, expectedEventsById, boxes, err := s.fillEvents(t, count, session, user)
 	require.NoError(err)
@@ -90,18 +89,49 @@ func TestEvents(t *testing.T) {
 		{Property: CalendarEventPropertyStart, IsAscending: true},
 	}
 
-	contactsByAccount, _, _, _, err := s.client.QueryCalendarEvents([]string{accountId}, session, t.Context(), s.logger, "", filter, sortBy, 0, 0)
-	require.NoError(err)
+	{
+		resultsByAccount, _, _, _, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, 0, 0, true, ctx)
+		require.NoError(err)
 
-	require.Len(contactsByAccount, 1)
-	require.Contains(contactsByAccount, accountId)
-	contacts := contactsByAccount[accountId]
-	require.Len(contacts, int(count))
+		require.Len(resultsByAccount, 1)
+		require.Contains(resultsByAccount, accountId)
+		results := resultsByAccount[accountId]
+		require.Len(results.Results, int(count))
+		require.Equal(uint(0), results.Limit)
+		require.Equal(uint(0), results.Position)
+		require.Equal(true, results.CanCalculateChanges)
+		require.NotNil(results.Total)
+		require.Equal(count, *results.Total)
 
-	for _, actual := range contacts {
-		expected, ok := expectedEventsById[actual.Id]
-		require.True(ok, "failed to find created contact by its id")
-		matchEvent(t, actual, expected)
+		for _, actual := range results.Results {
+			expected, ok := expectedEventsById[actual.Id]
+			require.True(ok, "failed to find created contact by its id")
+			matchEvent(t, actual, expected)
+		}
+	}
+
+	{
+		limit := uint(10)
+		slices := count / limit
+		remainder := count
+		require.Greater(slices, uint(1), "we need to have more than 10 objects in order to test the pagination of search results")
+		for i := range slices {
+			position := int(i * limit)
+			page := min(remainder, limit)
+			m, _, _, _, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, position, limit, true, ctx)
+			fmt.Printf("=== i=%d | limit=%d | remainder=%d | position=%d | limit=%d | results=%d\n", i, limit, remainder, position, limit, len(m[accountId].Results))
+			require.NoError(err)
+			require.Len(m, 1)
+			require.Contains(m, accountId)
+			results := m[accountId]
+			require.Equal(len(results.Results), int(page))
+			require.Equal(limit, results.Limit)
+			require.Equal(position, results.Position)
+			require.Equal(true, results.CanCalculateChanges)
+			require.NotNil(results.Total)
+			require.Equal(count, *results.Total)
+			remainder -= uint(len(results.Results))
+		}
 	}
 
 	exceptions := []string{}
@@ -127,7 +157,7 @@ func (s *StalwartTest) fillCalendar( //NOSONAR
 	t *testing.T,
 	accountId string,
 	count uint,
-	session *Session,
+	ctx Context,
 	_ User,
 	principalIds []string,
 ) (CalendarBoxes, []Calendar, SessionState, State, error) {
@@ -180,7 +210,7 @@ func (s *StalwartTest) fillCalendar( //NOSONAR
 			},
 		}
 		if i%2 == 0 {
-			cal.SortOrder = posUIntPtr(gofakeit.Uint())
+			cal.SortOrder = uintPtr(gofakeit.Uint())
 			boxes.sortOrdered = true
 		}
 		var sharing *CalendarRights = nil
@@ -233,7 +263,7 @@ func (s *StalwartTest) fillCalendar( //NOSONAR
 			cal.ShareWith = m
 		}
 
-		a, sessionState, state, _, err := s.client.CreateCalendar(accountId, session, s.ctx, s.logger, "", cal)
+		a, sessionState, state, _, err := s.client.CreateCalendar(accountId, cal, ctx)
 		if err != nil {
 			return boxes, created, ss, as, err
 		}

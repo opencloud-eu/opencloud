@@ -39,9 +39,10 @@ type Request struct {
 	g       *Groupware
 	user    user
 	r       *http.Request
-	ctx     context.Context
+	cotx    context.Context
 	logger  *log.Logger
 	session *jmap.Session
+	ctx     jmap.Context
 }
 
 func isDefaultAccountId(accountId string) bool {
@@ -57,11 +58,11 @@ func (r *Request) GetUser() user {
 }
 
 func (r *Request) GetRequestId() string {
-	return chimiddleware.GetReqID(r.ctx)
+	return chimiddleware.GetReqID(r.cotx)
 }
 
 func (r *Request) GetTraceId() string {
-	return groupwaremiddleware.GetTraceID(r.ctx)
+	return groupwaremiddleware.GetTraceID(r.cotx)
 }
 
 var (

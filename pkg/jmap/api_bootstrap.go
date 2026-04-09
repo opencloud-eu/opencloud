@@ -1,9 +1,6 @@
 package jmap
 
 import (
-	"context"
-
-	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
@@ -14,10 +11,11 @@ type AccountBootstrapResult struct {
 
 var NS_MAIL_QUOTA = ns(JmapMail, JmapQuota)
 
-func (j *Client) GetBootstrap(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]AccountBootstrapResult, SessionState, State, Language, Error) { //NOSONAR
+func (j *Client) GetBootstrap(accountIds []string, ctx Context) (map[string]AccountBootstrapResult, SessionState, State, Language, Error) { //NOSONAR
 	uniqueAccountIds := structs.Uniq(accountIds)
 
-	logger = j.logger("GetBootstrap", session, logger)
+	logger := j.logger("GetBootstrap", ctx)
+	ctx = ctx.WithLogger(logger)
 
 	calls := make([]Invocation, len(uniqueAccountIds)*2)
 	for i, accountId := range uniqueAccountIds {
@@ -25,18 +23,18 @@ func (j *Client) GetBootstrap(accountIds []string, session *Session, ctx context
 		calls[i*2+1] = invocation(QuotaGetCommand{AccountId: accountId}, mcid(accountId, "Q"))
 	}
 
-	cmd, err := j.request(session, logger, NS_MAIL_QUOTA, calls...)
+	cmd, err := j.request(ctx, NS_MAIL_QUOTA, calls...)
 	if err != nil {
 		return nil, "", "", "", err
 	}
-	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) (map[string]AccountBootstrapResult, State, Error) {
+	return command(j, ctx, cmd, func(body *Response) (map[string]AccountBootstrapResult, State, Error) {
 		identityPerAccount := map[string][]Identity{}
 		quotaPerAccount := map[string][]Quota{}
 		identityStatesPerAccount := map[string]State{}
 		quotaStatesPerAccount := map[string]State{}
 		for _, accountId := range uniqueAccountIds {
 			var identityResponse IdentityGetResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandIdentityGet, mcid(accountId, "I"), &identityResponse)
+			err = retrieveResponseMatchParameters(ctx, body, CommandIdentityGet, mcid(accountId, "I"), &identityResponse)
 			if err != nil {
 				return nil, "", err
 			} else {
@@ -45,7 +43,7 @@ func (j *Client) GetBootstrap(accountIds []string, session *Session, ctx context
 			}
 
 			var quotaResponse QuotaGetResponse
-			err = retrieveResponseMatchParameters(logger, body, CommandQuotaGet, mcid(accountId, "Q"), &quotaResponse)
+			err = retrieveResponseMatchParameters(ctx, body, CommandQuotaGet, mcid(accountId, "Q"), &quotaResponse)
 			if err != nil {
 				return nil, "", err
 			} else {

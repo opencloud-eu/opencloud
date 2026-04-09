@@ -1,21 +1,16 @@
 package jmap
 
-import (
-	"context"
-
-	"github.com/opencloud-eu/opencloud/pkg/log"
-)
-
 var NS_ADDRESSBOOKS = ns(JmapContacts)
 
-func (j *Client) GetAddressbooks(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (AddressBookGetResponse, SessionState, State, Language, Error) {
+func (j *Client) GetAddressbooks(accountId string, ids []string, ctx Context) (AddressBookGetResponse, SessionState, State, Language, Error) {
 	return get(j, "GetAddressbooks", NS_ADDRESSBOOKS,
 		func(accountId string, ids []string) AddressBookGetCommand {
 			return AddressBookGetCommand{AccountId: accountId, Ids: ids}
 		},
 		AddressBookGetResponse{},
 		identity1,
-		accountId, session, ctx, logger, acceptLanguage, ids,
+		accountId, ids,
+		ctx,
 	)
 }
 
@@ -23,10 +18,10 @@ type AddressBookChanges = ChangesTemplate[AddressBook]
 
 // Retrieve Address Book changes since a given state.
 // @apidoc addressbook,changes
-func (j *Client) GetAddressbookChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceState State, maxChanges uint) (AddressBookChanges, SessionState, State, Language, Error) {
+func (j *Client) GetAddressbookChanges(accountId string, sinceState State, maxChanges uint, ctx Context) (AddressBookChanges, SessionState, State, Language, Error) {
 	return changesA(j, "GetAddressbookChanges", NS_ADDRESSBOOKS,
 		func() AddressBookChangesCommand {
-			return AddressBookChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: posUIntPtr(maxChanges)}
+			return AddressBookChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: uintPtr(maxChanges)}
 		},
 		AddressBookChangesResponse{},
 		AddressBookGetResponse{},
@@ -50,11 +45,11 @@ func (j *Client) GetAddressbookChanges(accountId string, session *Session, ctx c
 				Destroyed:      destroyed,
 			}
 		},
-		session, ctx, logger, acceptLanguage,
+		ctx,
 	)
 }
 
-func (j *Client) CreateAddressBook(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, addressbook AddressBookChange) (*AddressBook, SessionState, State, Language, Error) {
+func (j *Client) CreateAddressBook(accountId string, addressbook AddressBookChange, ctx Context) (*AddressBook, SessionState, State, Language, Error) {
 	return create(j, "CreateAddressBook", NS_ADDRESSBOOKS,
 		func(accountId string, create map[string]AddressBookChange) AddressBookSetCommand {
 			return AddressBookSetCommand{AccountId: accountId, Create: create}
@@ -68,21 +63,23 @@ func (j *Client) CreateAddressBook(accountId string, session *Session, ctx conte
 		func(resp AddressBookGetResponse) []AddressBook {
 			return resp.List
 		},
-		accountId, session, ctx, logger, acceptLanguage, addressbook,
+		accountId, addressbook,
+		ctx,
 	)
 }
 
-func (j *Client) DeleteAddressBook(accountId string, destroyIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]SetError, SessionState, State, Language, Error) {
+func (j *Client) DeleteAddressBook(accountId string, destroyIds []string, ctx Context) (map[string]SetError, SessionState, State, Language, Error) {
 	return destroy(j, "DeleteAddressBook", NS_ADDRESSBOOKS,
 		func(accountId string, destroy []string) AddressBookSetCommand {
 			return AddressBookSetCommand{AccountId: accountId, Destroy: destroy}
 		},
 		AddressBookSetResponse{},
-		accountId, destroyIds, session, ctx, logger, acceptLanguage,
+		accountId, destroyIds,
+		ctx,
 	)
 }
 
-func (j *Client) UpdateAddressBook(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, id string, changes AddressBookChange) (AddressBook, SessionState, State, Language, Error) {
+func (j *Client) UpdateAddressBook(accountId string, id string, changes AddressBookChange, ctx Context) (AddressBook, SessionState, State, Language, Error) {
 	return update(j, "UpdateAddressBook", NS_ADDRESSBOOKS,
 		func(update map[string]PatchObject) AddressBookSetCommand {
 			return AddressBookSetCommand{AccountId: accountId, Update: update}
@@ -92,6 +89,7 @@ func (j *Client) UpdateAddressBook(accountId string, session *Session, ctx conte
 		},
 		func(resp AddressBookSetResponse) map[string]SetError { return resp.NotUpdated },
 		func(resp AddressBookGetResponse) AddressBook { return resp.List[0] },
-		id, changes, session, ctx, logger, acceptLanguage,
+		id, changes,
+		ctx,
 	)
 }

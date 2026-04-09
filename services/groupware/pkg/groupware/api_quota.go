@@ -19,8 +19,9 @@ func (g *Groupware) GetQuota(w http.ResponseWriter, r *http.Request) {
 			return req.error(accountId, err)
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
+		ctx := req.ctx.WithLogger(logger)
 
-		res, sessionState, state, lang, jerr := g.jmap.GetQuotas(single(accountId), req.session, req.ctx, logger, req.language())
+		res, sessionState, state, lang, jerr := g.jmap.GetQuotas(single(accountId), ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -47,8 +48,9 @@ func (g *Groupware) GetQuotaForAllAccounts(w http.ResponseWriter, r *http.Reques
 			return req.noopN(accountIds) // user has no accounts
 		}
 		logger := log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(accountIds)))
+		ctx := req.ctx.WithLogger(logger)
 
-		res, sessionState, state, lang, jerr := g.jmap.GetQuotas(accountIds, req.session, req.ctx, logger, req.language())
+		res, sessionState, state, lang, jerr := g.jmap.GetQuotas(accountIds, ctx)
 		if jerr != nil {
 			return req.jmapErrorN(accountIds, jerr, sessionState, lang)
 		}

@@ -217,7 +217,12 @@ func (h *HttpJmapClient) GetSession(ctx context.Context, sessionUrl *url.URL, us
 	return data, nil
 }
 
-func (h *HttpJmapClient) Command(ctx context.Context, logger *log.Logger, session *Session, request Request, acceptLanguage string) ([]byte, Language, Error) { //NOSONAR
+func (h *HttpJmapClient) Command(request Request, ctx Context) ([]byte, Language, Error) { //NOSONAR
+	session := ctx.Session
+	logger := ctx.Logger
+	acceptLanguage := ctx.AcceptLanguage
+	cotx := ctx.Context
+
 	jmapUrl := session.JmapUrl.String()
 	endpoint := session.JmapEndpoint
 	logger = log.From(logger.With().Str(logEndpoint, endpoint))
@@ -228,7 +233,7 @@ func (h *HttpJmapClient) Command(ctx context.Context, logger *log.Logger, sessio
 		return nil, "", jmapError(err, JmapErrorEncodingRequestBody)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, jmapUrl, bytes.NewBuffer(bodyBytes))
+	req, err := http.NewRequestWithContext(cotx, http.MethodPost, jmapUrl, bytes.NewBuffer(bodyBytes))
 	if err != nil {
 		logger.Error().Err(err).Msgf("failed to create POST request for %v", jmapUrl)
 		return nil, "", jmapError(err, JmapErrorCreatingRequest)
@@ -249,7 +254,7 @@ func (h *HttpJmapClient) Command(ctx context.Context, logger *log.Logger, sessio
 			logger.Trace().Str(logEndpoint, endpoint).Str(logProto, logProtoJmap).Str(logType, logTypeRequest).Msg(string(requestBytes))
 		}
 	}
-	if err := h.auth(ctx, session.Username, logger, req); err != nil {
+	if err := h.auth(cotx, session.Username, logger, req); err != nil {
 		return nil, "", err
 	}
 
@@ -295,10 +300,15 @@ func (h *HttpJmapClient) Command(ctx context.Context, logger *log.Logger, sessio
 	return body, language, nil
 }
 
-func (h *HttpJmapClient) UploadBinary(ctx context.Context, logger *log.Logger, session *Session, uploadUrl string, endpoint string, contentType string, acceptLanguage string, body io.Reader) (UploadedBlob, Language, Error) { //NOSONAR
+func (h *HttpJmapClient) UploadBinary(uploadUrl string, endpoint string, contentType string, body io.Reader, ctx Context) (UploadedBlob, Language, Error) { //NOSONAR
+	session := ctx.Session
+	logger := ctx.Logger
+	acceptLanguage := ctx.AcceptLanguage
+	cotx := ctx.Context
+
 	logger = log.From(logger.With().Str(logEndpoint, endpoint))
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uploadUrl, body)
+	req, err := http.NewRequestWithContext(cotx, http.MethodPost, uploadUrl, body)
 	if err != nil {
 		logger.Error().Err(err).Msgf("failed to create POST request for %v", uploadUrl)
 		return UploadedBlob{}, "", jmapError(err, JmapErrorCreatingRequest)
@@ -315,7 +325,7 @@ func (h *HttpJmapClient) UploadBinary(ctx context.Context, logger *log.Logger, s
 		}
 	}
 
-	if err := h.auth(ctx, session.Username, logger, req); err != nil {
+	if err := h.auth(cotx, session.Username, logger, req); err != nil {
 		return UploadedBlob{}, "", err
 	}
 
@@ -357,8 +367,6 @@ func (h *HttpJmapClient) UploadBinary(ctx context.Context, logger *log.Logger, s
 		return UploadedBlob{}, language, jmapError(err, JmapErrorServerResponse)
 	}
 
-	logger.Trace()
-
 	var result UploadedBlob
 	err = json.Unmarshal(responseBody, &result)
 	if err != nil {
@@ -370,10 +378,15 @@ func (h *HttpJmapClient) UploadBinary(ctx context.Context, logger *log.Logger, s
 	return result, language, nil
 }
 
-func (h *HttpJmapClient) DownloadBinary(ctx context.Context, logger *log.Logger, session *Session, downloadUrl string, endpoint string, acceptLanguage string) (*BlobDownload, Language, Error) { //NOSONAR
+func (h *HttpJmapClient) DownloadBinary(downloadUrl string, endpoint string, ctx Context) (*BlobDownload, Language, Error) { //NOSONAR
+	session := ctx.Session
+	logger := ctx.Logger
+	acceptLanguage := ctx.AcceptLanguage
+	cotx := ctx.Context
+
 	logger = log.From(logger.With().Str(logEndpoint, endpoint))
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadUrl, nil)
+	req, err := http.NewRequestWithContext(cotx, http.MethodGet, downloadUrl, nil)
 	if err != nil {
 		logger.Error().Err(err).Msgf("failed to create GET request for %v", downloadUrl)
 		return nil, "", jmapError(err, JmapErrorCreatingRequest)
@@ -389,7 +402,7 @@ func (h *HttpJmapClient) DownloadBinary(ctx context.Context, logger *log.Logger,
 		}
 	}
 
-	if err := h.auth(ctx, session.Username, logger, req); err != nil {
+	if err := h.auth(cotx, session.Username, logger, req); err != nil {
 		return nil, "", err
 	}
 
