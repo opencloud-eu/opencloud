@@ -2260,6 +2260,8 @@ type ContactCard struct {
 	PersonalInfo map[string]PersonalInfo `json:"personalInfo,omitempty"`
 }
 
+func (f ContactCard) GetId() string { return f.Id }
+
 const (
 	ContactCardPropertyId                  = "id"
 	ContactCardPropertyAddressBookIds      = "addressBookIds"

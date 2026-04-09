@@ -9,7 +9,68 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func get[GETREQ GetCommand, GETRESP GetResponse, RESP any]( //NOSONAR
+type Factory[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], CHANGES any] interface {
+	Namespaces() []JmapNamespace
+	CreateGetCommand(accountId string, ids []string) GETREQ
+	CreateGetResponse() GETRESP
+	MapChanges(oldState, newState State, hasMoreChanges bool, created, updated []T, destroyed []string) CHANGES
+}
+
+type Mailboxes string
+
+const MAILBOX = Mailboxes("MAILBOX")
+
+var _ Factory[Mailbox, MailboxGetCommand, MailboxGetResponse, MailboxChanges] = MAILBOX
+
+func (f Mailboxes) Namespaces() []JmapNamespace {
+	return NS_MAILBOX
+}
+
+func (f Mailboxes) CreateGetCommand(accountId string, ids []string) MailboxGetCommand {
+	return MailboxGetCommand{AccountId: accountId, Ids: ids}
+}
+
+func (f Mailboxes) CreateGetResponse() MailboxGetResponse {
+	return MailboxGetResponse{}
+}
+
+func (f Mailboxes) MapChanges(oldState, newState State, hasMoreChanges bool, created, updated []Mailbox, destroyed []string) MailboxChanges {
+	return MailboxChanges{
+		OldState:       oldState,
+		NewState:       newState,
+		HasMoreChanges: hasMoreChanges,
+		Created:        created,
+		Updated:        updated,
+		Destroyed:      destroyed,
+	}
+}
+
+func fget[F Factory[T, GETREQ, GETRESP, CHANGES], T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], CHANGES any](f Factory[T, GETREQ, GETRESP, CHANGES], //NOSONAR
+	client *Client, name string,
+	accountId string, ids []string,
+	session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (GETRESP, SessionState, State, Language, Error) {
+	var getresp GETRESP
+	return get(client, name, f.Namespaces(),
+		f.CreateGetCommand,
+		getresp,
+		identity1,
+		accountId, session, ctx, logger, acceptLanguage, ids,
+	)
+}
+
+func fgetA[F Factory[T, GETREQ, GETRESP, CHANGES], T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], CHANGES any](f Factory[T, GETREQ, GETRESP, CHANGES], //NOSONAR
+	client *Client, name string,
+	accountId string, ids []string,
+	session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) ([]T, SessionState, State, Language, Error) {
+	var getresp GETRESP
+	return getA(client, name, f.Namespaces(),
+		f.CreateGetCommand,
+		getresp,
+		accountId, session, ctx, logger, acceptLanguage, ids,
+	)
+}
+
+func get[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
 	client *Client, name string, using []JmapNamespace,
 	getCommandFactory func(string, []string) GETREQ,
 	_ GETRESP,
@@ -38,7 +99,42 @@ func get[GETREQ GetCommand, GETRESP GetResponse, RESP any]( //NOSONAR
 	})
 }
 
-func getN[GETREQ GetCommand, GETRESP GetResponse, ITEM any, RESP any]( //NOSONAR
+func getA[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T]]( //NOSONAR
+	client *Client, name string, using []JmapNamespace,
+	getCommandFactory func(string, []string) GETREQ,
+	resp GETRESP,
+	accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) ([]T, SessionState, State, Language, Error) {
+	return get(client, name, using, getCommandFactory, resp, func(r GETRESP) []T { return r.GetList() }, accountId, session, ctx, logger, acceptLanguage, ids)
+}
+
+func fgetAN[F Factory[T, GETREQ, GETRESP, CHANGES], T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP any, CHANGES any](f Factory[T, GETREQ, GETRESP, CHANGES], //NOSONAR
+	client *Client, name string,
+	respMapper func(map[string][]T) RESP,
+	accountIds []string, ids []string,
+	session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (RESP, SessionState, State, Language, Error) {
+	var getresp GETRESP
+	return getAN(client, name, f.Namespaces(),
+		f.CreateGetCommand,
+		getresp,
+		respMapper,
+		accountIds, session, ctx, logger, acceptLanguage, ids,
+	)
+}
+
+func getAN[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
+	client *Client, name string, using []JmapNamespace,
+	getCommandFactory func(string, []string) GETREQ,
+	resp GETRESP,
+	respMapper func(map[string][]T) RESP,
+	accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (RESP, SessionState, State, Language, Error) {
+	return getN(client, name, using, getCommandFactory, resp,
+		func(r GETRESP) []T { return r.GetList() },
+		respMapper,
+		accountIds, session, ctx, logger, acceptLanguage, ids,
+	)
+}
+
+func getN[T Foo, ITEM any, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
 	client *Client, name string, using []JmapNamespace,
 	getCommandFactory func(string, []string) GETREQ,
 	_ GETRESP,
@@ -80,7 +176,7 @@ func getN[GETREQ GetCommand, GETRESP GetResponse, ITEM any, RESP any]( //NOSONAR
 	})
 }
 
-func create[T any, C any, SETREQ SetCommand, GETREQ GetCommand, SETRESP SetResponse, GETRESP GetResponse]( //NOSONAR
+func create[T Foo, C any, SETREQ SetCommand[T], GETREQ GetCommand[T], SETRESP SetResponse[T], GETRESP GetResponse[T]]( //NOSONAR
 	client *Client, name string, using []JmapNamespace,
 	setCommandFactory func(string, map[string]C) SETREQ,
 	getCommandFactory func(string, string) GETREQ,
@@ -139,7 +235,7 @@ func create[T any, C any, SETREQ SetCommand, GETREQ GetCommand, SETRESP SetRespo
 	})
 }
 
-func destroy[REQ SetCommand, RESP SetResponse](client *Client, name string, using []JmapNamespace, //NOSONAR
+func destroy[T Foo, REQ SetCommand[T], RESP SetResponse[T]](client *Client, name string, using []JmapNamespace, //NOSONAR
 	setCommandFactory func(string, []string) REQ, _ RESP,
 	accountId string, destroy []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string]SetError, SessionState, State, Language, Error) {
 	logger = client.logger(name, session, logger)
@@ -162,7 +258,23 @@ func destroy[REQ SetCommand, RESP SetResponse](client *Client, name string, usin
 	})
 }
 
-func changes[CHANGESREQ ChangesCommand, GETREQ GetCommand, CHANGESRESP ChangesResponse, GETRESP GetResponse, ITEM any, RESP any]( //NOSONAR
+func changesA[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESRESP ChangesResponse[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
+	client *Client, name string, using []JmapNamespace,
+	changesCommandFactory func() CHANGESREQ,
+	changesResp CHANGESRESP,
+	_ GETRESP,
+	getCommandFactory func(string, string) GETREQ,
+	respMapper func(State, State, bool, []T, []T, []string) RESP,
+	session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (RESP, SessionState, State, Language, Error) {
+
+	return changes(client, name, using, changesCommandFactory, changesResp, getCommandFactory,
+		func(r GETRESP) []T { return r.GetList() },
+		respMapper,
+		session, ctx, logger, acceptLanguage,
+	)
+}
+
+func changes[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESRESP ChangesResponse[T], GETRESP GetResponse[T], ITEM any, RESP any]( //NOSONAR
 	client *Client, name string, using []JmapNamespace,
 	changesCommandFactory func() CHANGESREQ,
 	_ CHANGESRESP,
@@ -216,7 +328,7 @@ func changes[CHANGESREQ ChangesCommand, GETREQ GetCommand, CHANGESRESP ChangesRe
 	})
 }
 
-func changesN[CHANGESREQ ChangesCommand, GETREQ GetCommand, CHANGESRESP ChangesResponse, GETRESP GetResponse, ITEM any, CHANGESITEM any, RESP any]( //NOSONAR
+func changesN[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESRESP ChangesResponse[T], GETRESP GetResponse[T], ITEM any, CHANGESITEM any, RESP any]( //NOSONAR
 	client *Client, name string, using []JmapNamespace,
 	accountIds []string, sinceStateMap map[string]State,
 	changesCommandFactory func(string, State) CHANGESREQ,
@@ -301,7 +413,7 @@ func changesN[CHANGESREQ ChangesCommand, GETREQ GetCommand, CHANGESRESP ChangesR
 	})
 }
 
-func updates[CHANGESREQ ChangesCommand, GETREQ GetCommand, CHANGESRESP ChangesResponse, GETRESP GetResponse, ITEM any, RESP any]( //NOSONAR
+func updates[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESRESP ChangesResponse[T], GETRESP GetResponse[T], ITEM any, RESP any]( //NOSONAR
 	client *Client, name string, using []JmapNamespace,
 	changesCommandFactory func() CHANGESREQ,
 	_ CHANGESRESP,
@@ -343,7 +455,7 @@ func updates[CHANGESREQ ChangesCommand, GETREQ GetCommand, CHANGESRESP ChangesRe
 	})
 }
 
-func update[CHANGES Change, SET SetCommand, GET GetCommand, RESP any, SETRESP SetResponse, GETRESP GetResponse](client *Client, name string, using []JmapNamespace, //NOSONAR
+func update[T Foo, CHANGES Change, SET SetCommand[T], GET GetCommand[T], RESP any, SETRESP SetResponse[T], GETRESP GetResponse[T]](client *Client, name string, using []JmapNamespace, //NOSONAR
 	setCommandFactory func(map[string]PatchObject) SET,
 	getCommandFactory func(string) GET,
 	notUpdatedExtractor func(SETRESP) map[string]SetError,

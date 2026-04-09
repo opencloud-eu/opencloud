@@ -95,9 +95,6 @@ func (j *Client) GetChanges(accountId string, session *Session, ctx context.Cont
 	if stateMap.Addressbooks != nil {
 		methodCalls = append(methodCalls, invocation(AddressBookChangesCommand{AccountId: accountId, SinceState: *stateMap.Addressbooks, MaxChanges: posUIntPtr(maxChanges)}, "addressbooks"))
 	}
-	if stateMap.Addressbooks != nil {
-		methodCalls = append(methodCalls, invocation(AddressBookChangesCommand{AccountId: accountId, SinceState: *stateMap.Addressbooks, MaxChanges: posUIntPtr(maxChanges)}, "addressbooks"))
-	}
 	if stateMap.Contacts != nil {
 		methodCalls = append(methodCalls, invocation(ContactCardChangesCommand{AccountId: accountId, SinceState: *stateMap.Contacts, MaxChanges: posUIntPtr(maxChanges)}, "contacts"))
 	}

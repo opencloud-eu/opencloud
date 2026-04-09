@@ -35,8 +35,8 @@ func (g *Groupware) GetMailbox(w http.ResponseWriter, r *http.Request) {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
 
-		if len(mailboxes.Mailboxes) == 1 {
-			return req.respond(accountId, mailboxes.Mailboxes[0], sessionState, MailboxResponseObjectType, state)
+		if len(mailboxes.List) == 1 {
+			return req.respond(accountId, mailboxes.List[0], sessionState, MailboxResponseObjectType, state)
 		} else {
 			return req.notFound(accountId, sessionState, MailboxResponseObjectType, state)
 		}

@@ -1,6 +1,8 @@
 package jmap
 
 import (
+	"context"
+	golog "log"
 	"math/rand"
 	"regexp"
 	"slices"
@@ -11,7 +13,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
-	"log"
 	"math"
 	"strconv"
 	"strings"
@@ -19,6 +20,7 @@ import (
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/opencloud-eu/opencloud/pkg/jscontact"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
@@ -27,7 +29,7 @@ const (
 	EnableMediaWithBlobId = false
 )
 
-type AddressBooksBoxes struct {
+type AddressBookBoxes struct {
 	sharedReadOnly  bool
 	sharedReadWrite bool
 	sharedDelete    bool
@@ -39,109 +41,34 @@ func TestAddressBooks(t *testing.T) {
 		return
 	}
 
-	require := require.New(t)
-
-	s, err := newStalwartTest(t, withDirectoryQueries(true))
-	require.NoError(err)
-	defer s.Close()
-
-	user := pickUser()
-	session := s.Session(user.name)
-
-	// we first need to retrieve the list of all the Principals in order to be able to use and test AddressBook sharing
-	principalIds := []string{}
-	{
-		principals, _, _, _, err := s.client.GetPrincipals(session.PrimaryAccounts.Mail, session, s.ctx, s.logger, "", []string{})
-		require.NoError(err)
-		require.NotEmpty(principals.Principals)
-		principalIds = structs.Map(principals.Principals, func(p Principal) string { return p.Id })
-	}
-
-	accountId := session.PrimaryAccounts.Contacts
-
-	ss := SessionState("")
-	as := EmptyState
-
-	// we need to fetch the ID of the default AddressBook that automatically exists for each user, in order to exclude it
-	// from the tests below
-	defaultAddressBookId := ""
-	{
-		resp, sessionState, state, _, err := s.client.GetAddressbooks(accountId, session, s.ctx, s.logger, "", []string{})
-		require.NoError(err)
-		require.Empty(resp.NotFound)
-		require.Len(resp.AddressBooks, 1) // the personal addressbook that exists by default
-		defaultAddressBookId = resp.AddressBooks[0].Id
-		ss = sessionState
-		as = state
-	}
-
-	// we are going to create a random amount of AddressBook objects
-	num := uint(5 + rand.Intn(30))
-	{
-		boxes, abooks, sessionState, state, err := s.fillAddressBook(t, accountId, num, session, user, principalIds)
-		require.NoError(err)
-		require.Len(abooks, int(num))
-		ss = sessionState
-		as = state
-
-		{
-			// lets retrieve all the existing AddressBook objects by passing an empty ID slice
-			resp, sessionState, state, _, err := s.client.GetAddressbooks(accountId, session, s.ctx, s.logger, "", []string{})
-			require.NoError(err)
-			require.Empty(resp.NotFound)
-			// lets skip the default AddressBook since we did not create that one
-			found := structs.Filter(resp.AddressBooks, func(a AddressBook) bool { return a.Id != defaultAddressBookId })
-			require.Len(found, int(num))
-			m := structs.Index(found, func(a AddressBook) string { return a.Id })
-			require.Len(m, int(num))
-			require.Equal(sessionState, ss)
-			require.Equal(state, as)
-
-			for _, a := range abooks {
-				require.Contains(m, a.Id)
-				found, ok := m[a.Id]
-				require.True(ok)
-				require.Equal(a, found)
+	containerTest(t,
+		func(session *Session) string { return session.PrimaryAccounts.Contacts },
+		list,
+		getid,
+		func(s *StalwartTest, accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (AddressBookGetResponse, SessionState, State, Language, Error) {
+			return s.client.GetAddressbooks(accountId, session, ctx, logger, acceptLanguage, ids)
+		},
+		func(s *StalwartTest, accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, id string, change AddressBookChange) (AddressBook, SessionState, State, Language, Error) { //NOSONAR
+			return s.client.UpdateAddressBook(accountId, session, ctx, logger, acceptLanguage, id, change)
+		},
+		func(s *StalwartTest, accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (map[string]SetError, SessionState, State, Language, Error) { //NOSONAR
+			return s.client.DeleteAddressBook(accountId, ids, session, ctx, logger, acceptLanguage)
+		},
+		func(s *StalwartTest, t *testing.T, accountId string, count uint, session *Session, user User, principalIds []string) (AddressBookBoxes, []AddressBook, SessionState, State, error) {
+			return s.fillAddressBook(t, accountId, count, session, user, principalIds)
+		},
+		func(orig AddressBook) AddressBookChange {
+			return AddressBookChange{
+				Description:  strPtr(orig.Description + " (changed)"),
+				IsSubscribed: boolPtr(!orig.IsSubscribed),
 			}
-
-			ss = sessionState
-			as = state
-		}
-
-		// lets retrieve every AddressBook object we created by its ID
-		for _, a := range abooks {
-			resp, sessionState, state, _, err := s.client.GetAddressbooks(accountId, session, s.ctx, s.logger, "", []string{a.Id})
-			require.NoError(err)
-			require.Empty(resp.NotFound)
-			require.Len(resp.AddressBooks, 1)
-			require.Equal(sessionState, ss)
-			require.Equal(state, as)
-			require.Equal(resp.AddressBooks[0], a)
-		}
-
-		// lets modify each AddressBook
-		for _, a := range abooks {
-			changed, sessionState, state, _, err := s.client.UpdateAddressBook(accountId, session, s.ctx, s.logger, "", a.Id, AddressBookChange{Description: strPtr(a.Description + " (changed)"), IsSubscribed: boolPtr(!a.IsSubscribed)})
-			require.NoError(err)
-			require.NotEqual(a, changed)
-			require.Equal(sessionState, ss)
-			require.NotEqual(state, as)
-			require.Equal(a.Description+" (changed)", changed.Description)
-			require.Equal(!a.IsSubscribed, changed.IsSubscribed)
-		}
-
-		// now lets delete each AddressBook that we created, all at once
-		ids := structs.Map(abooks, func(a AddressBook) string { return a.Id })
-		{
-			errMap, sessionState, state, _, err := s.client.DeleteAddressBook(accountId, ids, session, s.ctx, s.logger, "")
-			require.NoError(err)
-			require.Empty(errMap)
-			require.Equal(sessionState, ss)
-			require.NotEqual(state, as)
-		}
-
-		allBoxesAreTicked(t, boxes)
-	}
+		},
+		func(t *testing.T, orig AddressBook, _ AddressBookChange, changed AddressBook) {
+			require.Equal(t, orig.Name, changed.Name)
+			require.Equal(t, orig.Description+" (changed)", changed.Description)
+			require.Equal(t, !orig.IsSubscribed, changed.IsSubscribed)
+		},
+	)
 }
 
 func TestContacts(t *testing.T) {
@@ -169,7 +96,7 @@ func TestContacts(t *testing.T) {
 		InAddressBook: addressbookId,
 	}
 	sortBy := []ContactCardComparator{
-		{Property: jscontact.ContactCardPropertyCreated, IsAscending: true},
+		{Property: ContactCardPropertyCreated, IsAscending: true},
 	}
 
 	contactsByAccount, _, _, _, err := s.client.QueryContactCards([]string{accountId}, session, t.Context(), s.logger, "", filter, sortBy, 0, 0)
@@ -186,6 +113,29 @@ func TestContacts(t *testing.T) {
 		matchContact(t, actual, expected)
 	}
 
+	// retrieve all objects at once
+	{
+		ids := structs.Map(contacts, func(c ContactCard) string { return c.Id })
+		fetched, _, _, _, err := s.client.GetContactCards(accountId, session, t.Context(), s.logger, "", ids)
+		require.NoError(err)
+		require.Empty(fetched.NotFound)
+		require.Len(fetched.List, len(ids))
+		byId := structs.Index(fetched.List, func(r ContactCard) string { return r.Id })
+		for _, actual := range contacts {
+			expected, ok := byId[actual.Id]
+			require.True(ok, "failed to find created contact by its id")
+			matchContact(t, actual, expected)
+		}
+	}
+
+	// retrieve each object one by one
+	for _, actual := range contacts {
+		fetched, _, _, _, err := s.client.GetContactCards(accountId, session, t.Context(), s.logger, "", []string{actual.Id})
+		require.NoError(err)
+		require.Len(fetched.List, 1)
+		matchContact(t, fetched.List[0], actual)
+	}
+
 	exceptions := []string{}
 	if !EnableMediaWithBlobId {
 		exceptions = append(exceptions, "mediaWithBlobId")
@@ -193,7 +143,7 @@ func TestContacts(t *testing.T) {
 	allBoxesAreTicked(t, boxes, exceptions...)
 }
 
-func matchContact(t *testing.T, actual jscontact.ContactCard, expected jscontact.ContactCard) {
+func matchContact(t *testing.T, actual ContactCard, expected ContactCard) {
 	// require.Equal(t, expected, actual)
 	deepEqual(t, expected, actual)
 }
@@ -222,15 +172,15 @@ func (s *StalwartTest) fillAddressBook( //NOSONAR
 	session *Session,
 	_ User,
 	principalIds []string,
-) (AddressBooksBoxes, []AddressBook, SessionState, State, error) {
+) (AddressBookBoxes, []AddressBook, SessionState, State, error) {
 	require := require.New(t)
 
-	boxes := AddressBooksBoxes{}
+	boxes := AddressBookBoxes{}
 	created := []AddressBook{}
 	ss := SessionState("")
 	as := EmptyState
 
-	printer := func(s string) { log.Println(s) }
+	printer := func(s string) { golog.Println(s) }
 
 	for i := range count {
 		name := gofakeit.Company()
@@ -295,7 +245,7 @@ func (s *StalwartTest) fillContacts( //NOSONAR
 	count uint,
 	session *Session,
 	user User,
-) (string, string, map[string]jscontact.ContactCard, ContactsBoxes, error) {
+) (string, string, map[string]ContactCard, ContactsBoxes, error) {
 	require := require.New(t)
 	c, err := NewTestJmapClient(session, user.name, user.password, true, true)
 	require.NoError(err)
@@ -303,7 +253,7 @@ func (s *StalwartTest) fillContacts( //NOSONAR
 
 	boxes := ContactsBoxes{}
 
-	printer := func(s string) { log.Println(s) }
+	printer := func(s string) { golog.Println(s) }
 
 	accountId := c.session.PrimaryAccounts.Contacts
 	require.NotEmpty(accountId, "no primary account for contacts in session")
@@ -331,7 +281,7 @@ func (s *StalwartTest) fillContacts( //NOSONAR
 	}
 	require.NotEmpty(addressbookId)
 
-	filled := map[string]jscontact.ContactCard{}
+	filled := map[string]ContactCard{}
 	for i := range count {
 		person := gofakeit.Person()
 		nameMap, nameObj := createName(person)
@@ -345,7 +295,7 @@ func (s *StalwartTest) fillContacts( //NOSONAR
 			"kind":           "individual",
 			"name":           nameMap,
 		}
-		card := jscontact.ContactCard{
+		card := ContactCard{
 			Type:           jscontact.ContactCardType,
 			Version:        "1.0",
 			AddressBookIds: toBoolMap([]string{addressbookId}),

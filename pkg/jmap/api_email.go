@@ -1072,14 +1072,7 @@ func (j *Client) QueryEmailSummaries(accountIds []string, session *Session, ctx 
 	})
 }
 
-type EmailSubmissionChanges struct {
-	OldState       State             `json:"oldState,omitempty"`
-	NewState       State             `json:"newState"`
-	HasMoreChanges bool              `json:"hasMoreChanges"`
-	Created        []EmailSubmission `json:"created,omitempty"`
-	Updated        []EmailSubmission `json:"updated,omitempty"`
-	Destroyed      []string          `json:"destroyed,omitempty"`
-}
+type EmailSubmissionChanges = ChangesTemplate[EmailSubmission]
 
 // Retrieve the changes in Email Submissions since a given State.
 // @api:tags email,changes

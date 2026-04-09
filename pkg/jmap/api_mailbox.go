@@ -11,37 +11,33 @@ import (
 
 var NS_MAILBOX = ns(JmapMail)
 
-type MailboxesResponse struct {
-	Mailboxes []Mailbox `json:"mailboxes"`
-	NotFound  []string  `json:"notFound"`
-}
+func (j *Client) GetMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (MailboxGetResponse, SessionState, State, Language, Error) {
+	/*
+		return get(j, "GetMailbox", NS_MAILBOX,
+			func(accountId string, ids []string) MailboxGetCommand {
+				return MailboxGetCommand{AccountId: accountId, Ids: ids}
+			},
+			MailboxGetResponse{},
+			identity1,
+			accountId, session, ctx, logger, acceptLanguage, ids,
+		)
+	*/
 
-func (j *Client) GetMailbox(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (MailboxesResponse, SessionState, State, Language, Error) {
-	return get(j, "GetMailbox", NS_MAILBOX,
-		func(accountId string, ids []string) MailboxGetCommand {
-			return MailboxGetCommand{AccountId: accountId, Ids: ids}
-		},
-		MailboxGetResponse{},
-		func(resp MailboxGetResponse) MailboxesResponse {
-			return MailboxesResponse{
-				Mailboxes: resp.List,
-				NotFound:  resp.NotFound,
-			}
-		},
-		accountId, session, ctx, logger, acceptLanguage, ids,
-	)
+	return fget[Mailboxes](MAILBOX, j, "GetMailbox", accountId, ids, session, ctx, logger, acceptLanguage)
 }
 
 func (j *Client) GetAllMailboxes(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) (map[string][]Mailbox, SessionState, State, Language, Error) {
-	return getN(j, "GetAllMailboxes", NS_MAILBOX,
-		func(accountId string, ids []string) MailboxGetCommand {
-			return MailboxGetCommand{AccountId: accountId}
-		},
-		MailboxGetResponse{},
-		func(resp MailboxGetResponse) []Mailbox { return resp.List },
-		identity1,
-		accountIds, session, ctx, logger, acceptLanguage, []string{},
-	)
+	/*
+		return getAN(j, "GetAllMailboxes", NS_MAILBOX,
+			func(accountId string, ids []string) MailboxGetCommand {
+				return MailboxGetCommand{AccountId: accountId}
+			},
+			MailboxGetResponse{},
+			identity1,
+			accountIds, session, ctx, logger, acceptLanguage, []string{},
+		)
+	*/
+	return fgetAN[Mailboxes](MAILBOX, j, "GetAllMailboxes", identity1, accountIds, []string{}, session, ctx, logger, acceptLanguage)
 }
 
 func (j *Client) SearchMailboxes(accountIds []string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, filter MailboxFilterElement) (map[string][]Mailbox, SessionState, State, Language, Error) {
@@ -123,14 +119,7 @@ func (j *Client) SearchMailboxIdsPerRole(accountIds []string, session *Session, 
 	})
 }
 
-type MailboxChanges struct {
-	HasMoreChanges bool      `json:"hasMoreChanges"`
-	OldState       State     `json:"oldState,omitempty"`
-	NewState       State     `json:"newState"`
-	Created        []Mailbox `json:"created,omitempty"`
-	Updated        []Mailbox `json:"updated,omitempty"`
-	Destroyed      []string  `json:"destroyed,omitempty"`
-}
+type MailboxChanges = ChangesTemplate[Mailbox]
 
 func newMailboxChanges(oldState, newState State, hasMoreChanges bool, created, updated []Mailbox, destroyed []string) MailboxChanges {
 	return MailboxChanges{
@@ -146,11 +135,12 @@ func newMailboxChanges(oldState, newState State, hasMoreChanges bool, created, u
 // Retrieve Mailbox changes since a given state.
 // @apidoc mailboxes,changes
 func (j *Client) GetMailboxChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceState State, maxChanges uint) (MailboxChanges, SessionState, State, Language, Error) {
-	return changes(j, "GetMailboxChanges", NS_MAILBOX,
+	return changesA(j, "GetMailboxChanges", NS_MAILBOX,
 		func() MailboxChangesCommand {
 			return MailboxChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: posUIntPtr(maxChanges)}
 		},
 		MailboxChangesResponse{},
+		MailboxGetResponse{},
 		func(path string, rof string) MailboxGetRefCommand {
 			return MailboxGetRefCommand{
 				AccountId: accountId,
@@ -161,7 +151,6 @@ func (j *Client) GetMailboxChanges(accountId string, session *Session, ctx conte
 				},
 			}
 		},
-		func(resp MailboxGetResponse) []Mailbox { return resp.List },
 		newMailboxChanges,
 		session, ctx, logger, acceptLanguage,
 	)
@@ -353,24 +342,25 @@ func (j *Client) CreateMailbox(accountId string, session *Session, ctx context.C
 
 func (j *Client) DeleteMailboxes(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ifInState string, mailboxIds []string) ([]string, SessionState, State, Language, Error) {
 	logger = j.logger("DeleteMailbox", session, logger)
-	cmd, err := j.request(session, logger, NS_MAILBOX, invocation(MailboxSetCommand{
+	set := MailboxSetCommand{
 		AccountId: accountId,
 		IfInState: ifInState,
 		Destroy:   mailboxIds,
-	}, "0"))
+	}
+	cmd, err := j.request(session, logger, NS_MAILBOX, invocation(set, "0"))
 	if err != nil {
 		return nil, "", "", "", err
 	}
 
 	return command(j.api, logger, ctx, session, j.onSessionOutdated, cmd, acceptLanguage, func(body *Response) ([]string, State, Error) {
 		var setResp MailboxSetResponse
-		err = retrieveResponseMatchParameters(logger, body, CommandMailboxSet, "0", &setResp)
+		err = retrieveSet(logger, body, set, "0", &setResp)
 		if err != nil {
 			return nil, "", err
 		}
-		setErr, notok := setResp.NotUpdated["u"]
+		setErr, notok := setResp.NotDestroyed["u"]
 		if notok {
-			logger.Error().Msgf("%T.NotUpdated returned an error %v", setResp, setErr)
+			logger.Error().Msgf("%T.NotDestroyed returned an error %v", setResp, setErr)
 			return nil, "", setErrorError(setErr, MailboxType)
 		}
 		return setResp.Destroyed, setResp.NewState, nil

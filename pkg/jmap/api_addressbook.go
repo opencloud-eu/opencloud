@@ -8,41 +8,28 @@ import (
 
 var NS_ADDRESSBOOKS = ns(JmapContacts)
 
-type AddressBooksResponse struct {
-	AddressBooks []AddressBook `json:"addressbooks"`
-	NotFound     []string      `json:"notFound,omitempty"`
-}
-
-func (j *Client) GetAddressbooks(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (AddressBooksResponse, SessionState, State, Language, Error) {
+func (j *Client) GetAddressbooks(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (AddressBookGetResponse, SessionState, State, Language, Error) {
 	return get(j, "GetAddressbooks", NS_ADDRESSBOOKS,
 		func(accountId string, ids []string) AddressBookGetCommand {
 			return AddressBookGetCommand{AccountId: accountId, Ids: ids}
 		},
 		AddressBookGetResponse{},
-		func(resp AddressBookGetResponse) AddressBooksResponse {
-			return AddressBooksResponse{AddressBooks: resp.List, NotFound: resp.NotFound}
-		},
+		identity1,
 		accountId, session, ctx, logger, acceptLanguage, ids,
 	)
 }
 
-type AddressBookChanges struct {
-	HasMoreChanges bool          `json:"hasMoreChanges"`
-	OldState       State         `json:"oldState,omitempty"`
-	NewState       State         `json:"newState"`
-	Created        []AddressBook `json:"created,omitempty"`
-	Updated        []AddressBook `json:"updated,omitempty"`
-	Destroyed      []string      `json:"destroyed,omitempty"`
-}
+type AddressBookChanges = ChangesTemplate[AddressBook]
 
 // Retrieve Address Book changes since a given state.
 // @apidoc addressbook,changes
 func (j *Client) GetAddressbookChanges(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, sinceState State, maxChanges uint) (AddressBookChanges, SessionState, State, Language, Error) {
-	return changes(j, "GetAddressbookChanges", NS_ADDRESSBOOKS,
+	return changesA(j, "GetAddressbookChanges", NS_ADDRESSBOOKS,
 		func() AddressBookChangesCommand {
 			return AddressBookChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: posUIntPtr(maxChanges)}
 		},
 		AddressBookChangesResponse{},
+		AddressBookGetResponse{},
 		func(path string, rof string) AddressBookGetRefCommand {
 			return AddressBookGetRefCommand{
 				AccountId: accountId,
@@ -53,7 +40,6 @@ func (j *Client) GetAddressbookChanges(accountId string, session *Session, ctx c
 				},
 			}
 		},
-		func(resp AddressBookGetResponse) []AddressBook { return resp.List },
 		func(oldState, newState State, hasMoreChanges bool, created, updated []AddressBook, destroyed []string) AddressBookChanges {
 			return AddressBookChanges{
 				OldState:       oldState,

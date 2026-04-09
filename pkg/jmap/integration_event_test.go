@@ -1,10 +1,11 @@
 package jmap
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log"
+	golog "log"
 	"math"
 	"math/rand"
 	"strconv"
@@ -16,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/opencloud-eu/opencloud/pkg/jscalendar"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
@@ -24,6 +26,41 @@ const (
 	EnableEventMayInviteFields              = false
 	EnableEventParticipantDescriptionFields = false
 )
+
+func TestCalendars(t *testing.T) { //NOSONAR
+	if skip(t) {
+		return
+	}
+
+	containerTest(t,
+		func(session *Session) string { return session.PrimaryAccounts.Calendars },
+		func(resp CalendarGetResponse) []Calendar { return resp.List },
+		func(obj Calendar) string { return obj.Id },
+		func(s *StalwartTest, accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (CalendarGetResponse, SessionState, State, Language, Error) {
+			return s.client.GetCalendars(accountId, session, ctx, logger, acceptLanguage, ids)
+		},
+		func(s *StalwartTest, accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, id string, change CalendarChange) (Calendar, SessionState, State, Language, Error) { //NOSONAR
+			return s.client.UpdateCalendar(accountId, session, ctx, logger, acceptLanguage, id, change)
+		},
+		func(s *StalwartTest, accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, ids []string) (map[string]SetError, SessionState, State, Language, Error) { //NOSONAR
+			return s.client.DeleteCalendar(accountId, ids, session, ctx, logger, acceptLanguage)
+		},
+		func(s *StalwartTest, t *testing.T, accountId string, count uint, session *Session, user User, principalIds []string) (CalendarBoxes, []Calendar, SessionState, State, error) {
+			return s.fillCalendar(t, accountId, count, session, user, principalIds)
+		},
+		func(orig Calendar) CalendarChange {
+			return CalendarChange{
+				Description:  strPtr(orig.Description + " (changed)"),
+				IsSubscribed: boolPtr(!orig.IsSubscribed),
+			}
+		},
+		func(t *testing.T, orig Calendar, _ CalendarChange, changed Calendar) {
+			require.Equal(t, orig.Name, changed.Name)
+			require.Equal(t, orig.Description+" (changed)", changed.Description)
+			require.Equal(t, !orig.IsSubscribed, changed.IsSubscribed)
+		},
+	)
+}
 
 func TestEvents(t *testing.T) {
 	if skip(t) {
@@ -79,6 +116,145 @@ func matchEvent(t *testing.T, actual CalendarEvent, expected CalendarEvent) {
 	deepEqual(t, expected, actual)
 }
 
+type CalendarBoxes struct {
+	sharedReadOnly  bool
+	sharedReadWrite bool
+	sharedDelete    bool
+	sortOrdered     bool
+}
+
+func (s *StalwartTest) fillCalendar( //NOSONAR
+	t *testing.T,
+	accountId string,
+	count uint,
+	session *Session,
+	_ User,
+	principalIds []string,
+) (CalendarBoxes, []Calendar, SessionState, State, error) {
+	require := require.New(t)
+
+	boxes := CalendarBoxes{}
+	created := []Calendar{}
+	ss := SessionState("")
+	as := EmptyState
+
+	printer := func(s string) { golog.Println(s) }
+
+	for i := range count {
+		name := gofakeit.Company()
+		description := gofakeit.SentenceSimple()
+		subscribed := gofakeit.Bool()
+		visible := gofakeit.Bool()
+		color := gofakeit.HexColor()
+		include := pickRandom(IncludeInAvailabilities...)
+		dawtId := gofakeit.UUID()
+		daotId := gofakeit.UUID()
+		cal := CalendarChange{
+			Name:                  &name,
+			Description:           &description,
+			IsSubscribed:          &subscribed,
+			Color:                 &color,
+			IsVisible:             &visible,
+			IncludeInAvailability: &include,
+			DefaultAlertsWithTime: map[string]jscalendar.Alert{
+				dawtId: {
+					Type: jscalendar.AlertType,
+					Trigger: jscalendar.OffsetTrigger{
+						Type:       jscalendar.OffsetTriggerType,
+						Offset:     "-PT5M",
+						RelativeTo: jscalendar.RelativeToStart,
+					},
+					Action: jscalendar.AlertActionDisplay,
+				},
+			},
+			DefaultAlertsWithoutTime: map[string]jscalendar.Alert{
+				daotId: {
+					Type: jscalendar.AlertType,
+					Trigger: jscalendar.OffsetTrigger{
+						Type:       jscalendar.OffsetTriggerType,
+						Offset:     "-PT24H",
+						RelativeTo: jscalendar.RelativeToStart,
+					},
+					Action: jscalendar.AlertActionDisplay,
+				},
+			},
+		}
+		if i%2 == 0 {
+			cal.SortOrder = posUIntPtr(gofakeit.Uint())
+			boxes.sortOrdered = true
+		}
+		var sharing *CalendarRights = nil
+		switch i % 4 {
+		default:
+			// no sharing
+		case 1:
+			sharing = &CalendarRights{
+				MayReadFreeBusy:  true,
+				MayReadItems:     true,
+				MayRSVP:          true,
+				MayAdmin:         false,
+				MayDelete:        false,
+				MayWriteAll:      false,
+				MayWriteOwn:      false,
+				MayUpdatePrivate: false,
+			}
+			boxes.sharedReadWrite = true
+		case 2:
+			sharing = &CalendarRights{
+				MayReadFreeBusy:  true,
+				MayReadItems:     true,
+				MayRSVP:          true,
+				MayAdmin:         false,
+				MayDelete:        false,
+				MayWriteAll:      false,
+				MayWriteOwn:      true,
+				MayUpdatePrivate: true,
+			}
+			boxes.sharedReadOnly = true
+		case 3:
+			sharing = &CalendarRights{
+				MayReadFreeBusy:  true,
+				MayReadItems:     true,
+				MayRSVP:          true,
+				MayAdmin:         false,
+				MayDelete:        true,
+				MayWriteAll:      true,
+				MayWriteOwn:      true,
+				MayUpdatePrivate: true,
+			}
+			boxes.sharedDelete = true
+		}
+		if sharing != nil {
+			numPrincipals := 1 + rand.Intn(len(principalIds)-1)
+			m := make(map[string]CalendarRights, numPrincipals)
+			for _, p := range pickRandomN(numPrincipals, principalIds...) {
+				m[p] = *sharing
+			}
+			cal.ShareWith = m
+		}
+
+		a, sessionState, state, _, err := s.client.CreateCalendar(accountId, session, s.ctx, s.logger, "", cal)
+		if err != nil {
+			return boxes, created, ss, as, err
+		}
+		require.NotEmpty(sessionState)
+		require.NotEmpty(state)
+		if ss != SessionState("") {
+			require.Equal(ss, sessionState)
+		}
+		if as != EmptyState {
+			require.NotEqual(as, state)
+		}
+		require.NotNil(a)
+		created = append(created, *a)
+		ss = sessionState
+		as = state
+
+		printer(fmt.Sprintf("📅 created %*s/%v id=%v", int(math.Log10(float64(count))+1), strconv.Itoa(int(i+1)), count, a.Id))
+	}
+	return boxes, created, ss, as, nil
+}
+
 type EventsBoxes struct {
 	categories bool
 	keywords   bool
@@ -98,7 +274,7 @@ func (s *StalwartTest) fillEvents( //NOSONAR
 
 	boxes := EventsBoxes{}
 
-	printer := func(s string) { log.Println(s) }
+	printer := func(s string) { golog.Println(s) }
 
 	accountId := c.session.PrimaryAccounts.Calendars
 	require.NotEmpty(accountId, "no primary account for calendars in session")

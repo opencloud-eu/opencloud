@@ -46,10 +46,14 @@ func (g *Groupware) GetCalendarById(w http.ResponseWriter, r *http.Request) {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
 
-		if len(calendars.NotFound) > 0 {
-			return req.notFound(accountId, sessionState, CalendarResponseObjectType, state)
-		} else {
-			return req.respond(accountId, calendars.Calendars[0], sessionState, CalendarResponseObjectType, state)
+		switch len(calendars.List) {
+		case 0:
+			return req.notFound(accountId, sessionState, ContactResponseObjectType, state)
+		case 1:
+			return req.respond(accountId, calendars.List[0], sessionState, ContactResponseObjectType, state)
+		default:
+			logger.Error().Msgf("found %d calendars matching '%s' instead of 1", len(calendars.List), calendarId)
+			return req.errorS(accountId, req.apiError(&ErrorMultipleIdMatches), sessionState)
 		}
 	})
 }

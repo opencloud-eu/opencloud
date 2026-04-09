@@ -11,23 +11,21 @@ import (
 var NS_IDENTITY = ns(JmapMail)
 
 func (j *Client) GetAllIdentities(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string) ([]Identity, SessionState, State, Language, Error) {
-	return get(j, "GetAllIdentities", NS_IDENTITY,
+	return getA(j, "GetAllIdentities", NS_IDENTITY,
 		func(accountId string, ids []string) IdentityGetCommand {
 			return IdentityGetCommand{AccountId: accountId}
 		},
 		IdentityGetResponse{},
-		func(resp IdentityGetResponse) []Identity { return resp.List },
 		accountId, session, ctx, logger, acceptLanguage, []string{},
 	)
 }
 
 func (j *Client) GetIdentities(accountId string, session *Session, ctx context.Context, logger *log.Logger, acceptLanguage string, identityIds []string) ([]Identity, SessionState, State, Language, Error) {
-	return get(j, "GetIdentities", NS_IDENTITY,
+	return getA(j, "GetIdentities", NS_IDENTITY,
 		func(accountId string, ids []string) IdentityGetCommand {
 			return IdentityGetCommand{AccountId: accountId, Ids: ids}
 		},
 		IdentityGetResponse{},
-		func(resp IdentityGetResponse) []Identity { return resp.List },
 		accountId, session, ctx, logger, acceptLanguage, identityIds,
 	)
 }
@@ -171,14 +169,7 @@ func (j *Client) DeleteIdentity(accountId string, session *Session, ctx context.
 	})
 }
 
-type IdentityChanges struct {
-	OldState       State      `json:"oldState,omitempty"`
-	NewState       State      `json:"newState"`
-	HasMoreChanges bool       `json:"hasMoreChanges"`
-	Created        []Identity `json:"created,omitempty"`
-	Updated        []Identity `json:"updated,omitempty"`
-	Destroyed      []string   `json:"destroyed,omitempty"`
-}
+type IdentityChanges = ChangesTemplate[Identity]
 
 // Retrieve the changes in Email Identities since a given State.
 // @api:tags email,changes

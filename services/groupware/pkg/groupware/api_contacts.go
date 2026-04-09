@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
-	"github.com/opencloud-eu/opencloud/pkg/jscontact"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
@@ -27,17 +26,17 @@ var (
 	*/
 	// So we have to settle for this, as only 'updated' and 'created' are supported for now:
 	DefaultContactSort = []jmap.ContactCardComparator{
-		{Property: jscontact.ContactCardPropertyUpdated, IsAscending: true},
+		{Property: jmap.ContactCardPropertyUpdated, IsAscending: true},
 	}
 
 	SupportedContactSortingProperties = []string{
-		jscontact.ContactCardPropertyUpdated,
-		jscontact.ContactCardPropertyCreated,
+		jmap.ContactCardPropertyUpdated,
+		jmap.ContactCardPropertyCreated,
 	}
 
 	ContactSortingPropertyMapping = map[string]string{
-		"surname": string(jscontact.ContactCardPropertyName) + "/surname",
-		"given":   string(jscontact.ContactCardPropertyName) + "/given",
+		"surname": string(jmap.ContactCardPropertyName) + "/surname",
+		"given":   string(jmap.ContactCardPropertyName) + "/given",
 	}
 )
 
@@ -114,15 +113,19 @@ func (g *Groupware) GetContactById(w http.ResponseWriter, r *http.Request) {
 		l = l.Str(UriParamContactId, log.SafeString(contactId))
 
 		logger := log.From(l)
-		contactsById, sessionState, state, lang, jerr := g.jmap.GetContactCardsById(accountId, req.session, req.ctx, logger, req.language(), []string{contactId})
+		contacts, sessionState, state, lang, jerr := g.jmap.GetContactCards(accountId, req.session, req.ctx, logger, req.language(), []string{contactId})
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
 
-		if contact, ok := contactsById[contactId]; ok {
-			return req.respond(accountId, contact, sessionState, ContactResponseObjectType, state)
-		} else {
+		switch len(contacts.List) {
+		case 0:
 			return req.notFound(accountId, sessionState, ContactResponseObjectType, state)
+		case 1:
+			return req.respond(accountId, contacts.List[0], sessionState, ContactResponseObjectType, state)
+		default:
+			logger.Error().Msgf("found %d contacts matching '%s' instead of 1", len(contacts.List), contactId)
+			return req.errorS(accountId, req.apiError(&ErrorMultipleIdMatches), sessionState)
 		}
 	})
 }
@@ -141,7 +144,7 @@ func (g *Groupware) GetAllContacts(w http.ResponseWriter, r *http.Request) {
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
-		var body []jscontact.ContactCard = contacts
+		var body []jmap.ContactCard = contacts.List
 
 		return req.respond(accountId, body, sessionState, ContactResponseObjectType, state)
 	})
@@ -195,7 +198,7 @@ func (g *Groupware) CreateContact(w http.ResponseWriter, r *http.Request) {
 		}
 		l = l.Str(UriParamAddressBookId, log.SafeString(addressBookId))
 
-		var create jscontact.ContactCard
+		var create jmap.ContactCard
 		err = req.bodydoc(&create, "The contact to create, which may not have its id attribute set")
 		if err != nil {
 			return req.error(accountId, err)
