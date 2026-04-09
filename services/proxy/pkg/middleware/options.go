@@ -76,7 +76,12 @@ type Options struct {
 	SkipUserInfo bool
 	// MultiTenantEnabled causes the account resolve middleware to reject users that don't have a tenant id assigned
 	MultiTenantEnabled bool
-	EventsPublisher    events.Publisher
+	// TenantIDMappingEnabled causes the account resolver to resolve the internal tenant ID from the external
+	// tenant ID in the OIDC claims via the gateway's TenantAPI before comparing it to the user's stored tenant ID.
+	TenantIDMappingEnabled bool
+	// ServiceAccount holds credentials used to authenticate internal service calls (e.g. TenantAPI lookups).
+	ServiceAccount         config.ServiceAccount
+	EventsPublisher        events.Publisher
 }
 
 // newOptions initializes the available default options.
@@ -255,6 +260,22 @@ func SkipUserInfo(val bool) Option {
 func MultiTenantEnabled(val bool) Option {
 	return func(o *Options) {
 		o.MultiTenantEnabled = val
+	}
+}
+
+// ServiceAccount sets the service account credentials used for authenticated internal calls.
+func ServiceAccount(sa config.ServiceAccount) Option {
+	return func(o *Options) {
+		o.ServiceAccount = sa
+	}
+}
+
+// TenantIDMappingEnabled sets the TenantIDMappingEnabled flag.
+// When true, the account resolver resolves the internal tenant ID from the external tenant ID
+// provided in the OIDC claims by calling the gateway's TenantAPI, instead of comparing directly.
+func TenantIDMappingEnabled(val bool) Option {
+	return func(o *Options) {
+		o.TenantIDMappingEnabled = val
 	}
 }
 

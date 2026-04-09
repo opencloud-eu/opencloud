@@ -60,6 +60,7 @@ type config struct {
 	OCMCoreEndpoint               string `mapstructure:"ocmcoresvc"`
 	UserProviderEndpoint          string `mapstructure:"userprovidersvc"`
 	GroupProviderEndpoint         string `mapstructure:"groupprovidersvc"`
+	TenantProviderEndpoint        string `mapstructure:"tenantprovidersvc"`
 	DataTxEndpoint                string `mapstructure:"datatx"`
 	DataGatewayEndpoint           string `mapstructure:"datagateway"`
 	PermissionsEndpoint           string `mapstructure:"permissionssvc"`
@@ -110,6 +111,12 @@ func (c *config) init() {
 	c.OCMCoreEndpoint = sharedconf.GetGatewaySVC(c.OCMCoreEndpoint)
 	c.UserProviderEndpoint = sharedconf.GetGatewaySVC(c.UserProviderEndpoint)
 	c.GroupProviderEndpoint = sharedconf.GetGatewaySVC(c.GroupProviderEndpoint)
+	// Fall back to userprovidersvc when no dedicated tenant provider is configured.
+	if c.TenantProviderEndpoint == "" {
+		c.TenantProviderEndpoint = c.UserProviderEndpoint
+	} else {
+		c.TenantProviderEndpoint = sharedconf.GetGatewaySVC(c.TenantProviderEndpoint)
+	}
 	c.DataTxEndpoint = sharedconf.GetGatewaySVC(c.DataTxEndpoint)
 
 	c.DataGatewayEndpoint = sharedconf.GetDataGateway(c.DataGatewayEndpoint)

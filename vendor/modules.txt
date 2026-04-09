@@ -316,7 +316,7 @@ github.com/crewjam/saml
 github.com/crewjam/saml/logger
 github.com/crewjam/saml/samlsp
 github.com/crewjam/saml/xmlenc
-# github.com/cs3org/go-cs3apis v0.0.0-20260310080202-fb97596763d6
+# github.com/cs3org/go-cs3apis v0.0.0-20260407125717-5d69ba49048b
 ## explicit; go 1.21
 github.com/cs3org/go-cs3apis/cs3/app/provider/v1beta1
 github.com/cs3org/go-cs3apis/cs3/app/registry/v1beta1
@@ -325,6 +325,7 @@ github.com/cs3org/go-cs3apis/cs3/auth/provider/v1beta1
 github.com/cs3org/go-cs3apis/cs3/auth/registry/v1beta1
 github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1
 github.com/cs3org/go-cs3apis/cs3/identity/group/v1beta1
+github.com/cs3org/go-cs3apis/cs3/identity/tenant/v1beta1
 github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1
 github.com/cs3org/go-cs3apis/cs3/ocm/core/v1beta1
 github.com/cs3org/go-cs3apis/cs3/ocm/incoming/v1beta1
@@ -1371,7 +1372,7 @@ github.com/opencloud-eu/icap-client
 # github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260310090739-853d972b282d
 ## explicit; go 1.18
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v2 v2.42.7-0.20260408072824-411780d0b756
+# github.com/opencloud-eu/reva/v2 v2.42.7-0.20260409144540-a3009b33f38b
 ## explicit; go 1.25.0
 github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v2/cmd/revad/runtime
@@ -1722,6 +1723,12 @@ github.com/opencloud-eu/reva/v2/pkg/store/etcd
 github.com/opencloud-eu/reva/v2/pkg/store/memory
 github.com/opencloud-eu/reva/v2/pkg/sysinfo
 github.com/opencloud-eu/reva/v2/pkg/tags
+github.com/opencloud-eu/reva/v2/pkg/tenant
+github.com/opencloud-eu/reva/v2/pkg/tenant/manager/ldap
+github.com/opencloud-eu/reva/v2/pkg/tenant/manager/loader
+github.com/opencloud-eu/reva/v2/pkg/tenant/manager/memory
+github.com/opencloud-eu/reva/v2/pkg/tenant/manager/null
+github.com/opencloud-eu/reva/v2/pkg/tenant/manager/registry
 github.com/opencloud-eu/reva/v2/pkg/token
 github.com/opencloud-eu/reva/v2/pkg/token/manager/demo
 github.com/opencloud-eu/reva/v2/pkg/token/manager/jwt

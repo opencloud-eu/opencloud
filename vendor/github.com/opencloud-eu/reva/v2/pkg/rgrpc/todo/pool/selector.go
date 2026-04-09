@@ -30,6 +30,7 @@ import (
 	authRegistry "github.com/cs3org/go-cs3apis/cs3/auth/registry/v1beta1"
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	identityGroup "github.com/cs3org/go-cs3apis/cs3/identity/group/v1beta1"
+	identityTenant "github.com/cs3org/go-cs3apis/cs3/identity/tenant/v1beta1"
 	identityUser "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	ocmCore "github.com/cs3org/go-cs3apis/cs3/ocm/core/v1beta1"
 	ocmInvite "github.com/cs3org/go-cs3apis/cs3/ocm/invite/v1beta1"
@@ -170,6 +171,16 @@ func IdentityGroupSelector(id string, options ...Option) (*Selector[identityGrou
 		"IdentityGroupSelector",
 		id,
 		identityGroup.NewGroupAPIClient,
+		options...,
+	), nil
+}
+
+// IdentityTentantSelector returns a Selector[identityTenant.TenantAPIClient].
+func IdentityTenantSelector(id string, options ...Option) (*Selector[identityTenant.TenantAPIClient], error) {
+	return GetSelector[identityTenant.TenantAPIClient](
+		"IdentityTenantSelector",
+		id,
+		identityTenant.NewTenantAPIClient,
 		options...,
 	), nil
 }

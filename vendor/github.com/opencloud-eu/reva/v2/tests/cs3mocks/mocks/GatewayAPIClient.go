@@ -56,6 +56,8 @@ import (
 
 	registryv1beta1 "github.com/cs3org/go-cs3apis/cs3/app/registry/v1beta1"
 
+	tenantv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/tenant/v1beta1"
+
 	txv1beta1 "github.com/cs3org/go-cs3apis/cs3/tx/v1beta1"
 
 	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
@@ -3503,6 +3505,152 @@ func (_c *GatewayAPIClient_GetShare_Call) Return(_a0 *collaborationv1beta1.GetSh
 }
 
 func (_c *GatewayAPIClient_GetShare_Call) RunAndReturn(run func(context.Context, *collaborationv1beta1.GetShareRequest, ...grpc.CallOption) (*collaborationv1beta1.GetShareResponse, error)) *GatewayAPIClient_GetShare_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetTenant provides a mock function with given fields: ctx, in, opts
+func (_m *GatewayAPIClient) GetTenant(ctx context.Context, in *tenantv1beta1.GetTenantRequest, opts ...grpc.CallOption) (*tenantv1beta1.GetTenantResponse, error) {
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
+	}
+	ret := tmpRet
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetTenant")
+	}
+
+	var r0 *tenantv1beta1.GetTenantResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *tenantv1beta1.GetTenantRequest, ...grpc.CallOption) (*tenantv1beta1.GetTenantResponse, error)); ok {
+		return rf(ctx, in, opts...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *tenantv1beta1.GetTenantRequest, ...grpc.CallOption) *tenantv1beta1.GetTenantResponse); ok {
+		r0 = rf(ctx, in, opts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*tenantv1beta1.GetTenantResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *tenantv1beta1.GetTenantRequest, ...grpc.CallOption) error); ok {
+		r1 = rf(ctx, in, opts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GatewayAPIClient_GetTenant_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTenant'
+type GatewayAPIClient_GetTenant_Call struct {
+	*mock.Call
+}
+
+// GetTenant is a helper method to define mock.On call
+//   - ctx context.Context
+//   - in *tenantv1beta1.GetTenantRequest
+//   - opts ...grpc.CallOption
+func (_e *GatewayAPIClient_Expecter) GetTenant(ctx interface{}, in interface{}, opts ...interface{}) *GatewayAPIClient_GetTenant_Call {
+	return &GatewayAPIClient_GetTenant_Call{Call: _e.mock.On("GetTenant",
+		append([]interface{}{ctx, in}, opts...)...)}
+}
+
+func (_c *GatewayAPIClient_GetTenant_Call) Run(run func(ctx context.Context, in *tenantv1beta1.GetTenantRequest, opts ...grpc.CallOption)) *GatewayAPIClient_GetTenant_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]grpc.CallOption, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(grpc.CallOption)
+			}
+		}
+		run(args[0].(context.Context), args[1].(*tenantv1beta1.GetTenantRequest), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *GatewayAPIClient_GetTenant_Call) Return(_a0 *tenantv1beta1.GetTenantResponse, _a1 error) *GatewayAPIClient_GetTenant_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *GatewayAPIClient_GetTenant_Call) RunAndReturn(run func(context.Context, *tenantv1beta1.GetTenantRequest, ...grpc.CallOption) (*tenantv1beta1.GetTenantResponse, error)) *GatewayAPIClient_GetTenant_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetTenantByClaim provides a mock function with given fields: ctx, in, opts
+func (_m *GatewayAPIClient) GetTenantByClaim(ctx context.Context, in *tenantv1beta1.GetTenantByClaimRequest, opts ...grpc.CallOption) (*tenantv1beta1.GetTenantByClaimResponse, error) {
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _m.Called(ctx, in, opts)
+	} else {
+		tmpRet = _m.Called(ctx, in)
+	}
+	ret := tmpRet
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetTenantByClaim")
+	}
+
+	var r0 *tenantv1beta1.GetTenantByClaimResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *tenantv1beta1.GetTenantByClaimRequest, ...grpc.CallOption) (*tenantv1beta1.GetTenantByClaimResponse, error)); ok {
+		return rf(ctx, in, opts...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *tenantv1beta1.GetTenantByClaimRequest, ...grpc.CallOption) *tenantv1beta1.GetTenantByClaimResponse); ok {
+		r0 = rf(ctx, in, opts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*tenantv1beta1.GetTenantByClaimResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *tenantv1beta1.GetTenantByClaimRequest, ...grpc.CallOption) error); ok {
+		r1 = rf(ctx, in, opts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GatewayAPIClient_GetTenantByClaim_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTenantByClaim'
+type GatewayAPIClient_GetTenantByClaim_Call struct {
+	*mock.Call
+}
+
+// GetTenantByClaim is a helper method to define mock.On call
+//   - ctx context.Context
+//   - in *tenantv1beta1.GetTenantByClaimRequest
+//   - opts ...grpc.CallOption
+func (_e *GatewayAPIClient_Expecter) GetTenantByClaim(ctx interface{}, in interface{}, opts ...interface{}) *GatewayAPIClient_GetTenantByClaim_Call {
+	return &GatewayAPIClient_GetTenantByClaim_Call{Call: _e.mock.On("GetTenantByClaim",
+		append([]interface{}{ctx, in}, opts...)...)}
+}
+
+func (_c *GatewayAPIClient_GetTenantByClaim_Call) Run(run func(ctx context.Context, in *tenantv1beta1.GetTenantByClaimRequest, opts ...grpc.CallOption)) *GatewayAPIClient_GetTenantByClaim_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]grpc.CallOption, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(grpc.CallOption)
+			}
+		}
+		run(args[0].(context.Context), args[1].(*tenantv1beta1.GetTenantByClaimRequest), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *GatewayAPIClient_GetTenantByClaim_Call) Return(_a0 *tenantv1beta1.GetTenantByClaimResponse, _a1 error) *GatewayAPIClient_GetTenantByClaim_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *GatewayAPIClient_GetTenantByClaim_Call) RunAndReturn(run func(context.Context, *tenantv1beta1.GetTenantByClaimRequest, ...grpc.CallOption) (*tenantv1beta1.GetTenantByClaimResponse, error)) *GatewayAPIClient_GetTenantByClaim_Call {
 	_c.Call.Return(run)
 	return _c
 }

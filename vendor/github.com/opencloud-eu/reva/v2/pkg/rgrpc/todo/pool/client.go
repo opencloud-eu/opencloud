@@ -26,6 +26,7 @@ import (
 	authregistry "github.com/cs3org/go-cs3apis/cs3/auth/registry/v1beta1"
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	group "github.com/cs3org/go-cs3apis/cs3/identity/group/v1beta1"
+	tenant "github.com/cs3org/go-cs3apis/cs3/identity/tenant/v1beta1"
 	user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	ocmcore "github.com/cs3org/go-cs3apis/cs3/ocm/core/v1beta1"
 	invitepb "github.com/cs3org/go-cs3apis/cs3/ocm/invite/v1beta1"
@@ -49,6 +50,12 @@ func GetGatewayServiceClient(id string, opts ...Option) (gateway.GatewayAPIClien
 // GetUserProviderServiceClient returns a UserProviderServiceClient.
 func GetUserProviderServiceClient(id string, opts ...Option) (user.UserAPIClient, error) {
 	selector, _ := IdentityUserSelector(id, opts...)
+	return selector.Next()
+}
+
+// GetTenantProviderServiceClient returns a TenantProviderServiceClient.
+func GetTenantProviderServiceClient(id string, opts ...Option) (tenant.TenantAPIClient, error) {
+	selector, _ := IdentityTenantSelector(id, opts...)
 	return selector.Next()
 }
 

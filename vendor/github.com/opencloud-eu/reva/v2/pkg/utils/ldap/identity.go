@@ -38,8 +38,9 @@ import (
 
 // Identity provides methods to query users and groups from an LDAP server
 type Identity struct {
-	User  userConfig  `mapstructure:",squash"`
-	Group groupConfig `mapstructure:",squash"`
+	User   userConfig   `mapstructure:",squash"`
+	Group  groupConfig  `mapstructure:",squash"`
+	Tenant tenantConfig `mapstructure:",squash"`
 }
 
 const tracerName = "pkg/utils/ldap"
@@ -69,6 +70,15 @@ type groupConfig struct {
 	substringFilterVal  int
 	// LocalDisabledDN contains the full DN of a group that contains disabled users.
 	LocalDisabledDN string `mapstructure:"group_local_disabled_dn"`
+}
+
+type tenantConfig struct {
+	BaseDN      string `mapstructure:"tenant_base_dn"`
+	Scope       string `mapstructure:"tenant_search_scope"`
+	scopeVal    int
+	Filter      string       `mapstructure:"tenant_filter"`
+	Objectclass string       `mapstructure:"tenant_objectclass"`
+	Schema      tenantSchema `mapstructure:"tenant_schema"`
 }
 
 type groupSchema struct {
@@ -106,6 +116,12 @@ type userSchema struct {
 	TenantID string `mapstructure:"tenantId"`
 }
 
+type tenantSchema struct {
+	ID         string `mapstructure:"id"`
+	ExternalID string `mapstructure:"externalId"`
+	Name       string `mapstructure:"name"`
+}
+
 // Default userConfig (somewhat inspired by Active Directory)
 var userDefaults = userConfig{
 	Scope:       "sub",
@@ -138,11 +154,23 @@ var groupDefaults = groupConfig{
 	SubstringFilterType: "initial",
 }
 
+// Default tenantConfig (works with OpenCloud's education Schema)
+var tenantDefaults = tenantConfig{
+	Scope:       "sub",
+	Objectclass: "openCloudEducationSchool",
+	Schema: tenantSchema{
+		ID:         "openCloudUUID",
+		ExternalID: "openCloudEducationExternalId",
+		Name:       "ou",
+	},
+}
+
 // New initializes the default config
 func New() Identity {
 	return Identity{
-		User:  userDefaults,
-		Group: groupDefaults,
+		User:   userDefaults,
+		Group:  groupDefaults,
+		Tenant: tenantDefaults,
 	}
 }
 
@@ -157,6 +185,10 @@ func (i *Identity) Setup() error {
 
 	if i.Group.scopeVal, err = stringToScope(i.Group.Scope); err != nil {
 		return fmt.Errorf("error configuring group scope: %w", err)
+	}
+
+	if i.Tenant.scopeVal, err = stringToScope(i.Tenant.Scope); err != nil {
+		return fmt.Errorf("error configuring tenant scope: %w", err)
 	}
 
 	if i.User.substringFilterVal, err = stringToFilterType(i.User.SubstringFilterType); err != nil {
@@ -847,6 +879,107 @@ func (i *Identity) getUserLDAPAttrTypes() []string {
 	}
 	return attrs
 }
+
+// GetLDAPTenantByID looks up a tenant by the supplied Id. Returns the corresponding
+// ldap.Entry
+func (i *Identity) GetLDAPTenantByID(ctx context.Context, lc ldap.Client, id string) (*ldap.Entry, error) {
+	var filter string
+	var err error
+	if filter, err = i.getTenantFilter(id); err != nil {
+		return nil, err
+	}
+	return i.GetLDAPTenantByFilter(ctx, lc, filter)
+}
+
+// GetLDAPTenantByAttribute looks up a single user by attribute (can be "externalid" or "id")
+func (i *Identity) GetLDAPTenantByAttribute(ctx context.Context, lc ldap.Client, attribute, value string) (*ldap.Entry, error) {
+	var filter string
+	var err error
+	if filter, err = i.getTenantAttributeFilter(attribute, value); err != nil {
+		return nil, err
+	}
+	return i.GetLDAPTenantByFilter(ctx, lc, filter)
+}
+
+// GetLDAPTenantByFilter looks up a single user by the supplied LDAP filter
+// returns the corresponding ldap.Entry
+func (i *Identity) GetLDAPTenantByFilter(ctx context.Context, lc ldap.Client, filter string) (*ldap.Entry, error) {
+	log := appctx.GetLogger(ctx)
+	_, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "GetLDAPTenantByFilter")
+	defer span.End()
+	searchRequest := ldap.NewSearchRequest(
+		i.Tenant.BaseDN, i.Tenant.scopeVal, ldap.NeverDerefAliases, 1, 0, false,
+		filter,
+		i.getTenantLDAPAttrTypes(),
+		nil,
+	)
+
+	setLDAPSearchSpanAttributes(span, searchRequest)
+	log.Debug().Str("backend", "ldap").Str("basedn", i.Tenant.BaseDN).Str("filter", filter).Int("scope", i.Tenant.scopeVal).Msg("LDAP Search")
+	res, err := lc.Search(searchRequest)
+	if err != nil {
+		log.Debug().Str("backend", "ldap").Err(err).Str("tenantfilter", filter).Msg("Error looking up tenant by filter")
+		var errmsg string
+		if lerr, ok := err.(*ldap.Error); ok {
+			if lerr.ResultCode == ldap.LDAPResultSizeLimitExceeded {
+				errmsg = fmt.Sprintf("too many results searching for tenant '%s'", filter)
+			}
+		}
+		span.SetAttributes(attribute.String("ldap.error", errmsg))
+		span.SetStatus(codes.Error, errmsg)
+		return nil, errtypes.NotFound(errmsg)
+	}
+	if len(res.Entries) == 0 {
+		return nil, errtypes.NotFound(filter)
+	}
+	span.SetStatus(codes.Ok, "")
+
+	return res.Entries[0], nil
+}
+
+func (i *Identity) getTenantLDAPAttrTypes() []string {
+	// The are the attributes we request unconditionally when looking up users
+	// as they are needed to populate a user object
+	return []string{
+		i.Tenant.Schema.ID,
+		i.Tenant.Schema.ExternalID,
+		i.Tenant.Schema.Name,
+	}
+}
+
+func (i *Identity) getTenantFilter(id string) (string, error) {
+	var escapedUUID string
+	escapedUUID, err := filterEscapeAttribute(i.Tenant.Schema.ID, false, id)
+	if err != nil {
+		return "", fmt.Errorf("error parsing id '%s' as UUID: %w", id, err)
+	}
+	return fmt.Sprintf("(&%s(objectclass=%s)(%s=%s))",
+		i.Tenant.Filter,
+		i.Tenant.Objectclass,
+		i.Tenant.Schema.ID,
+		escapedUUID,
+	), nil
+}
+
+func (i *Identity) getTenantAttributeFilter(attribute, value string) (string, error) {
+	switch attribute {
+	case "id":
+		attribute = i.Tenant.Schema.ID
+	case "externalid":
+		attribute = i.Tenant.Schema.ExternalID
+	}
+	escapedValue, err := filterEscapeAttribute("", false, value)
+	if err != nil {
+		return "", fmt.Errorf("error escaping filter value %q: %w", value, err)
+	}
+	return fmt.Sprintf("(&%s(objectclass=%s)(%s=%s))",
+		i.Tenant.Filter,
+		i.Tenant.Objectclass,
+		attribute,
+		escapedValue,
+	), nil
+}
+
 func setLDAPSearchSpanAttributes(span trace.Span, request *ldap.SearchRequest) {
 	span.SetAttributes(
 		attribute.String("ldap.basedn", request.BaseDN),

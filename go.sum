@@ -264,8 +264,8 @@ github.com/crewjam/httperr v0.2.0 h1:b2BfXR8U3AlIHwNeFFvZ+BV1LFvKLlzMjzaTnZMybNo
 github.com/crewjam/httperr v0.2.0/go.mod h1:Jlz+Sg/XqBQhyMjdDiC+GNNRzZTD7x39Gu3pglZ5oH4=
 github.com/crewjam/saml v0.4.14 h1:g9FBNx62osKusnFzs3QTN5L9CVA/Egfgm+stJShzw/c=
 github.com/crewjam/saml v0.4.14/go.mod h1:UVSZCf18jJkk6GpWNVqcyQJMD5HsRugBPf4I1nl2mME=
-github.com/cs3org/go-cs3apis v0.0.0-20260310080202-fb97596763d6 h1:Akwn9gHJugKd8M48LyV+WeIQ6yMXoxZdgZabR53I9q4=
-github.com/cs3org/go-cs3apis v0.0.0-20260310080202-fb97596763d6/go.mod h1:DedpcqXl193qF/08Y04IO0PpxyyMu8+GrkD6kWK2MEQ=
+github.com/cs3org/go-cs3apis v0.0.0-20260407125717-5d69ba49048b h1:WNwuveokaUXIAGrwVLWqJSk0BdJv8k+9RXipBItGuyY=
+github.com/cs3org/go-cs3apis v0.0.0-20260407125717-5d69ba49048b/go.mod h1:DedpcqXl193qF/08Y04IO0PpxyyMu8+GrkD6kWK2MEQ=
 github.com/cyberdelia/templates v0.0.0-20141128023046-ca7fffd4298c/go.mod h1:GyV+0YP4qX0UQ7r2MoYZ+AvYDp12OF5yg4q8rGnyNh4=
 github.com/cyphar/filepath-securejoin v0.5.1 h1:eYgfMq5yryL4fbWfkLpFFy2ukSELzaJOTaUTuh+oF48=
 github.com/cyphar/filepath-securejoin v0.5.1/go.mod h1:Sdj7gXlvMcPZsbhwhQ33GguGLDGQL7h7bg04C/+u9jI=
@@ -954,8 +954,8 @@ github.com/opencloud-eu/inotifywaitgo v0.0.0-20251111171128-a390bae3c5e9 h1:dIft
 github.com/opencloud-eu/inotifywaitgo v0.0.0-20251111171128-a390bae3c5e9/go.mod h1:JWyDC6H+5oZRdUJUgKuaye+8Ph5hEs6HVzVoPKzWSGI=
 github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260310090739-853d972b282d h1:JcqGDiyrcaQwVyV861TUyQgO7uEmsjkhfm7aQd84dOw=
 github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260310090739-853d972b282d/go.mod h1:pzatilMEHZFT3qV7C/X3MqOa3NlRQuYhlRhZTL+hN6Q=
-github.com/opencloud-eu/reva/v2 v2.42.7-0.20260408072824-411780d0b756 h1:Jbftg+S89x2PD7NVWhQB0+vlI/Qo0wv9rBwnM1N50yc=
-github.com/opencloud-eu/reva/v2 v2.42.7-0.20260408072824-411780d0b756/go.mod h1:hjMR/IerRm9xX4bthVRE9ZO/vhvrXVMbuvnnzwLjzK4=
+github.com/opencloud-eu/reva/v2 v2.42.7-0.20260409144540-a3009b33f38b h1:lLTcDZUErhKa88ho+bAecGDcnuIccVZVPoFKfWpLB28=
+github.com/opencloud-eu/reva/v2 v2.42.7-0.20260409144540-a3009b33f38b/go.mod h1:45YSzBU2klnEfdb6dlo6DMNr9ttE/7C9gd8n3g8Co3Y=
 github.com/opencloud-eu/secure v0.0.0-20260312082735-b6f5cb2244e4 h1:l2oB/RctH+t8r7QBj5p8thfEHCM/jF35aAY3WQ3hADI=
 github.com/opencloud-eu/secure v0.0.0-20260312082735-b6f5cb2244e4/go.mod h1:BmF5hyM6tXczk3MpQkFf1hpKSRqCyhqcbiQtiAF7+40=
 github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=

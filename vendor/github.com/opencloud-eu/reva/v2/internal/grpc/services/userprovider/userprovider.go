@@ -29,6 +29,7 @@ import (
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
 
+	tenantpb "github.com/cs3org/go-cs3apis/cs3/identity/tenant/v1beta1"
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
@@ -36,8 +37,11 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/plugin"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
+	"github.com/opencloud-eu/reva/v2/pkg/sharedconf"
+	"github.com/opencloud-eu/reva/v2/pkg/tenant"
+	tenantRegistry "github.com/opencloud-eu/reva/v2/pkg/tenant/manager/registry"
 	"github.com/opencloud-eu/reva/v2/pkg/user"
-	"github.com/opencloud-eu/reva/v2/pkg/user/manager/registry"
+	userRegistry "github.com/opencloud-eu/reva/v2/pkg/user/manager/registry"
 )
 
 func init() {
@@ -45,13 +49,28 @@ func init() {
 }
 
 type config struct {
-	Driver  string                            `mapstructure:"driver"`
-	Drivers map[string]map[string]interface{} `mapstructure:"drivers"`
+	Driver        string                            `mapstructure:"driver"`
+	Drivers       map[string]map[string]interface{} `mapstructure:"drivers"`
+	TenantDriver  string                            `mapstructure:"tenant_driver"`
+	TenantDrivers map[string]map[string]interface{} `mapstructure:"tenant_drivers"`
 }
 
 func (c *config) init() {
 	if c.Driver == "" {
 		c.Driver = "json"
+	}
+
+	// Fall back to user driver/drivers when no tenant-specific config is provided.
+	if c.TenantDriver == "" {
+		c.TenantDriver = c.Driver
+	}
+	if c.TenantDrivers == nil {
+		c.TenantDrivers = c.Drivers
+	}
+
+	// Force "null" driver if multi-tenancy is disabled
+	if !sharedconf.MultiTenantEnabled() {
+		c.TenantDriver = "null"
 	}
 }
 
@@ -80,7 +99,7 @@ func getDriver(c *config) (user.Manager, *plugin.RevaPlugin, error) {
 		return manager, p, nil
 	} else if _, ok := err.(errtypes.NotFound); ok {
 		// plugin not found, fetch the driver from the in-memory registry
-		if f, ok := registry.NewFuncs[c.Driver]; ok {
+		if f, ok := userRegistry.NewFuncs[c.Driver]; ok {
 			mgr, err := f(c.Drivers[c.Driver])
 			return mgr, nil, err
 		}
@@ -88,6 +107,14 @@ func getDriver(c *config) (user.Manager, *plugin.RevaPlugin, error) {
 		return nil, nil, err
 	}
 	return nil, nil, errtypes.NotFound(fmt.Sprintf("driver %s not found for user manager", c.Driver))
+}
+
+func getTenantManager(c *config) (tenant.Manager, error) {
+	if f, ok := tenantRegistry.NewFuncs[c.TenantDriver]; ok {
+		mgr, err := f(c.TenantDrivers[c.TenantDriver])
+		return mgr, err
+	}
+	return nil, errtypes.NotFound(fmt.Sprintf("driver %s not found for tenant manager", c.TenantDriver))
 }
 
 // New returns a new UserProviderServiceServer.
@@ -100,17 +127,27 @@ func New(m map[string]interface{}, ss *grpc.Server, _ *zerolog.Logger) (rgrpc.Se
 	if err != nil {
 		return nil, err
 	}
-	svc := &service{
-		usermgr: userManager,
-		plugin:  plug,
+	tenantManager, err := getTenantManager(c)
+	if err != nil {
+		return nil, err
 	}
 
-	return svc, nil
+	return NewWithManagers(userManager, tenantManager, plug), nil
+}
+
+// NewWithManagers returns a new UserProviderService with the given managers.
+func NewWithManagers(um user.Manager, tm tenant.Manager, plug *plugin.RevaPlugin) rgrpc.Service {
+	return &service{
+		usermgr:   um,
+		tenantmgr: tm,
+		plugin:    plug,
+	}
 }
 
 type service struct {
-	usermgr user.Manager
-	plugin  *plugin.RevaPlugin
+	usermgr   user.Manager
+	tenantmgr tenant.Manager
+	plugin    *plugin.RevaPlugin
 }
 
 func (s *service) Close() error {
@@ -126,6 +163,7 @@ func (s *service) UnprotectedEndpoints() []string {
 
 func (s *service) Register(ss *grpc.Server) {
 	userpb.RegisterUserAPIServer(ss, s)
+	tenantpb.RegisterTenantAPIServer(ss, s)
 }
 
 func (s *service) GetUser(ctx context.Context, req *userpb.GetUserRequest) (*userpb.GetUserResponse, error) {
@@ -231,4 +269,42 @@ func (s *service) GetUserGroups(ctx context.Context, req *userpb.GetUserGroupsRe
 		Groups: groups,
 	}
 	return res, nil
+}
+
+func (s *service) GetTenant(ctx context.Context, req *tenantpb.GetTenantRequest) (*tenantpb.GetTenantResponse, error) {
+	log := appctx.GetLogger(ctx)
+	t, err := s.tenantmgr.GetTenant(ctx, req.GetTenantId())
+	if err != nil {
+		log.Warn().Err(err).Interface("tenantid", req.GetTenantId()).Msg("error getting tenant")
+		res := &tenantpb.GetTenantResponse{
+			Status: status.NewInternal(ctx, "error getting tenant"),
+		}
+		if _, ok := err.(errtypes.NotFound); ok {
+			res.Status = status.NewNotFound(ctx, "tenant not found")
+		}
+		return res, nil
+	}
+	return &tenantpb.GetTenantResponse{
+		Status: status.NewOK(ctx),
+		Tenant: t,
+	}, nil
+}
+
+func (s *service) GetTenantByClaim(ctx context.Context, req *tenantpb.GetTenantByClaimRequest) (*tenantpb.GetTenantByClaimResponse, error) {
+	log := appctx.GetLogger(ctx)
+	t, err := s.tenantmgr.GetTenantByClaim(ctx, req.GetClaim(), req.GetValue())
+	if err != nil {
+		log.Warn().Err(err).Interface("claim", req.GetClaim()).Interface("value", req.GetValue()).Msg("error getting tenant")
+		res := &tenantpb.GetTenantByClaimResponse{
+			Status: status.NewInternal(ctx, "error getting tenant"),
+		}
+		if _, ok := err.(errtypes.NotFound); ok {
+			res.Status = status.NewNotFound(ctx, "tenant not found")
+		}
+		return res, nil
+	}
+	return &tenantpb.GetTenantByClaimResponse{
+		Status: status.NewOK(ctx),
+		Tenant: t,
+	}, nil
 }

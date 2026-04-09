@@ -45,6 +45,7 @@ func DefaultConfig() *config.Config {
 				GroupBaseDN:              "ou=groups,o=libregraph-idm",
 				UserScope:                "sub",
 				GroupScope:               "sub",
+				TenantScope:              "sub",
 				UserSubstringFilterType:  "any",
 				UserFilter:               "",
 				GroupFilter:              "",
