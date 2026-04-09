@@ -1,17 +1,10 @@
 package console
 
 import (
-	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
 )
-
-var DefaultHTTPClient = &http.Client{Transport: func() *http.Transport {
-	t := http.DefaultTransport.(*http.Transport).Clone()
-	t.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} // toDo: dev build flag
-	return t
-}()}
 
 type HTTPRequest struct {
 	*http.Request

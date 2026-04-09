@@ -14,6 +14,11 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/mohae/deepcopy"
 	"github.com/olekukonko/tablewriter"
+	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
+	"github.com/opencloud-eu/reva/v2/pkg/logger"
+	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/thejerf/suture/v4"
+
 	occfg "github.com/opencloud-eu/opencloud/pkg/config"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
@@ -60,10 +65,6 @@ import (
 	web "github.com/opencloud-eu/opencloud/services/web/pkg/command"
 	webdav "github.com/opencloud-eu/opencloud/services/webdav/pkg/command"
 	webfinger "github.com/opencloud-eu/opencloud/services/webfinger/pkg/command"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
-	"github.com/opencloud-eu/reva/v2/pkg/logger"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/thejerf/suture/v4"
 )
 
 var (
@@ -97,7 +98,7 @@ type Service struct {
 // calls are done explicitly to loadFromEnv().
 // Since this is the public constructor, options need to be added, at the moment only logging options
 // are supported in order to match the running OpenCloud services structured log.
-func NewService(ctx context.Context, options ...Option) (*Service, error) {
+func NewService(_ context.Context, options ...Option) (*Service, error) {
 	opts := NewOptions()
 
 	for _, f := range options {
@@ -507,6 +508,9 @@ func (s *Service) generateRunSet(cfg *occfg.Config) {
 func (s *Service) List(_ struct{}, reply *string) error {
 	tableString := &strings.Builder{}
 	table := tablewriter.NewTable(tableString)
+	defer func() {
+		_ = table.Close()
+	}()
 	table.Header([]string{"Service"})
 
 	names := []string{}
@@ -519,11 +523,15 @@ func (s *Service) List(_ struct{}, reply *string) error {
 	sort.Strings(names)
 
 	for n := range names {
-		table.Append([]string{names[n]})
+		_ = table.Append([]string{names[n]})
 	}
 
-	table.Render()
+	if err := table.Render(); err != nil {
+		return err
+	}
+
 	*reply = tableString.String()
+
 	return nil
 }
 
