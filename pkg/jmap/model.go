@@ -1,6 +1,7 @@
 package jmap
 
 import (
+	"encoding/json"
 	"io"
 	"time"
 
@@ -930,6 +931,8 @@ type SessionPrimaryAccounts struct {
 
 type SessionState string
 
+const EmptySessionState = SessionState("")
+
 type State string
 
 const EmptyState = State("")
@@ -1258,6 +1261,19 @@ type Idable interface {
 // ```
 type PatchObject map[string]any
 
+func toPatchObject[T any](value T) (PatchObject, error) {
+	b, err := json.Marshal(value)
+	if err != nil {
+		return PatchObject{}, err
+	}
+	var target PatchObject
+	err = json.Unmarshal(b, &target)
+	if err != nil {
+		return PatchObject{}, err
+	}
+	return target, nil
+}
+
 // Reference to Previous Method Results
 //
 // To allow clients to make more efficient use of the network and avoid round trips, an argument to one method
@@ -1336,7 +1352,7 @@ type SetResponse[T Foo] interface {
 }
 
 type Change interface {
-	AsPatch() PatchObject
+	AsPatch() (PatchObject, error)
 }
 
 type ChangesCommand[T Foo] interface {
@@ -1659,24 +1675,8 @@ type MailboxChange struct {
 
 var _ Change = MailboxChange{}
 
-func (m MailboxChange) AsPatch() PatchObject {
-	p := PatchObject{}
-	if m.Name != "" {
-		p["name"] = m.Name
-	}
-	if m.ParentId != "" {
-		p["parentId"] = m.ParentId
-	}
-	if m.Role != "" {
-		p["role"] = m.Role
-	}
-	if m.SortOrder != nil {
-		p["sortOrder"] = m.SortOrder
-	}
-	if m.IsSubscribed != nil {
-		p["isSubscribed"] = m.IsSubscribed
-	}
-	return p
+func (m MailboxChange) AsPatch() (PatchObject, error) {
+	return toPatchObject(m)
 }
 
 type MailboxGetCommand struct {
@@ -3953,27 +3953,8 @@ type IdentityChange struct {
 
 var _ Change = IdentityChange{}
 
-func (i IdentityChange) AsPatch() PatchObject {
-	p := PatchObject{}
-	if i.Name != "" {
-		p["name"] = i.Name
-	}
-	if i.Email != "" {
-		p["email"] = i.Email
-	}
-	if i.ReplyTo != "" {
-		p["replyTo"] = i.ReplyTo
-	}
-	if i.Bcc != nil {
-		p["bcc"] = i.Bcc
-	}
-	if i.TextSignature != nil {
-		p["textSignature"] = i.TextSignature
-	}
-	if i.HtmlSignature != nil {
-		p["htmlSignature"] = i.HtmlSignature
-	}
-	return p
+func (i IdentityChange) AsPatch() (PatchObject, error) {
+	return toPatchObject(i)
 }
 
 type IdentityGetResponse struct {
@@ -4794,6 +4775,222 @@ var ContactCardProperties = []string{
 	ContactCardPropertyPersonalInfo,
 }
 
+type ContactCardChange struct {
+	// The set of AddressBook ids this Card belongs to.
+	//
+	// A card MUST belong to at least one AddressBook at all times (until it is destroyed).
+	//
+	// The set is represented as an object, with each key being an AddressBook id.
+	//
+	// The value for each key in the object MUST be true.
+	//
+	// This is a JMAP extension and not part of [RFC9553].
+	AddressBookIds map[string]bool `json:"addressBookIds,omitempty"`
+
+	// The JSContact type of the Card object: the value MUST be "Card".
+	Type jscontact.TypeOfContactCard `json:"@type,omitempty"`
+
+	// The JSContact version of this Card.
+	//
+	// The value MUST be one of the IANA-registered JSContact Version values for the version property.
+	Version *jscontact.JSContactVersion `json:"version,omitzero"`
+
+	// The kind of the entity the Card represents (default: `individual`).
+	//
+	// Values are:
+	// * `individual`: a single person
+	// * `group`: a group of people or entities
+	// * `org`: an organization
+	// * `location`: a named location
+	// * `device`: a device such as an appliance, a computer, or a network element
+	// * `application`: a software application
+	Kind *jscontact.ContactCardKind `json:"kind,omitempty"`
+
+	// The language tag, as defined in [RFC5646].
+	//
+	// The language tag that best describes the language used for text in the Card, optionally including
+	// additional information such as the script.
+	//
+	// Note that values MAY be localized in the `localizations` property.
+	Language *string `json:"language,omitempty"`
+
+	// The set of Cards that are members of this group Card.
+	//
+	// Each key in the set is the uid property value of the member, and each boolean value MUST be `true`.
+	// If this property is set, then the value of the kind property MUST be `group`.
+	//
+	// The opposite is not true. A group Card will usually contain the members property to specify the members
+	// of the group, but it is not required to.
+	//
+	// A group Card without the members property can be considered an abstract grouping or one whose members
+	// are known empirically (e.g., `IETF Participants`).
+	Members map[string]bool `json:"members,omitempty"`
+
+	// The identifier for the product that created the Card.
+	//
+	// If set, the value MUST be at least one character long.
+	ProdId *string `json:"prodId,omitempty"`
+
+	// The set of Card objects that relate to the Card.
+	//
+	// The value is a map, where each key is the uid property value of the related Card, and the value
+	// defines the relation
+	//
+	// ```json
+	// {
+	//   "relatedTo": {
+	//     "urn:uuid:f81d4fae-7dec-11d0-a765-00a0c91e6bf6": {
+	//       "relation": {"friend": true}
+	//     },
+	//     "8cacdfb7d1ffdb59@example.com": {
+	//       "relation": {}
+	//     }
+	//   }
+	// }
+	// ```
+	RelatedTo map[string]jscontact.Relation `json:"relatedTo,omitempty"`
+
+	// The date and time when the data in the Card was last modified (UTCDateTime).
+	Updated *time.Time `json:"updated,omitzero"`
+
+	// The name of the entity represented by the Card.
+	//
+	// This can be any type of name, e.g., it can, but need not, be the legal name of a person.
+	Name *jscontact.Name `json:"name,omitempty"`
+
+	// The nicknames of the entity represented by the Card.
+	Nicknames map[string]jscontact.Nickname `json:"nicknames,omitempty"`
+
+	// The company or organization names and units associated with the Card.
+	Organizations map[string]jscontact.Organization `json:"organizations,omitempty"`
+
+	// The information that directs how to address, speak to, or refer to the entity that is represented by the Card.
+	SpeakToAs *jscontact.SpeakToAs `json:"speakToAs,omitempty"`
+
+	// The job titles or functional positions of the entity represented by the Card.
+	Titles map[string]jscontact.Title `json:"titles,omitempty"`
+
+	// The email addresses in which to contact the entity represented by the Card.
+	Emails map[string]jscontact.EmailAddress `json:"emails,omitempty"`
+
+	// The online services that are associated with the entity represented by the Card.
+	//
+	// This can be messaging services, social media profiles, and other.
+	OnlineServices map[string]jscontact.OnlineService `json:"onlineServices,omitempty"`
+
+	// The phone numbers by which to contact the entity represented by the Card.
+	Phones map[string]jscontact.Phone `json:"phones,omitempty"`
+
+	// The preferred languages for contacting the entity associated with the Card.
+	PreferredLanguages map[string]jscontact.LanguagePref `json:"preferredLanguages,omitempty"`
+
+	// The calendaring resources of the entity represented by the Card, such as to look up free-busy information.
+	//
+	// A Calendar object has all properties of the Resource data type, with the following additional definitions:
+	// * The `@type` property value MUST be `Calendar`, if set
+	// * The `kind` property is mandatory. Its enumerated values are:
+	//   * `calendar`: The resource is a calendar that contains entries such as calendar events or tasks
+	//   * `freeBusy`: The resource allows for free-busy lookups, for example, to schedule group events
+	Calendars map[string]jscontact.Calendar `json:"calendars,omitempty"`
+
+	// The scheduling addresses by which the entity may receive calendar scheduling invitations.
+	SchedulingAddresses map[string]jscontact.SchedulingAddress `json:"schedulingAddresses,omitempty"`
+
+	// The addresses of the entity represented by the Card, such as postal addresses or geographic locations.
+	Addresses map[string]jscontact.Address `json:"addresses,omitempty"`
+
+	// The cryptographic resources such as public keys and certificates associated with the entity represented by the Card.
+	//
+	// A CryptoKey object has all properties of the `Resource` data type, with the following additional definition:
+	// the `@type` property value MUST be `CryptoKey`, if set.
+	//
+	// The following example shows how to refer to an external cryptographic resource:
+	// ```json
+	// "cryptoKeys": {
+	//   "mykey1": {
+	//     "uri": "https://www.example.com/keys/jdoe.cer"
+	//   }
+	// }
+	// ```
+	CryptoKeys map[string]jscontact.CryptoKey `json:"cryptoKeys,omitempty"`
+
+	// The directories containing information about the entity represented by the Card.
+	//
+	// A Directory object has all properties of the `Resource` data type, with the following additional definitions:
+	// * The `@type` property value MUST be `Directory`, if set
+	// * The `kind` property is mandatory; tts enumerated values are:
+	//   * `directory`: the resource is a directory service that the entity represented by the Card is a part of; this
+	// typically is an organizational directory that also contains associated entities, e.g., co-workers and management
+	// in a company directory
+	//   * `entry`: the resource is a directory entry of the entity represented by the Card; in contrast to the `directory`
+	// type, this is the specific URI for the entity within a directory
+	Directories map[string]jscontact.Directory `json:"directories,omitempty"`
+
+	// The links to resources that do not fit any of the other use-case-specific resource properties.
+	//
+	// A Link object has all properties of the `Resource` data type, with the following additional definitions:
+	// * The `@type` property value MUST be `Link`, if set
+	// * The `kind` property is optional; tts enumerated values are:
+	//   * `contact`: the resource is a URI by which the entity represented by the Card may be contacted;
+	// this includes web forms or other media that require user interaction
+	Links map[string]jscontact.Link `json:"links,omitempty"`
+
+	// The media resources such as photographs, avatars, or sounds that are associated with the entity represented by the Card.
+	//
+	// A Media object has all properties of the Resource data type, with the following additional definitions:
+	// * the `@type` property value MUST be `Media`, if set
+	// * the `kind` property is mandatory; its enumerated values are:
+	//   * `photo`: the resource is a photograph or avatar
+	//   * `sound`: the resource is audio media, e.g., to specify the proper pronunciation of the name property contents
+	//   * `logo`: the resource is a graphic image or logo associated with the entity represented by the Card
+	Media map[string]jscontact.Media `json:"media,omitempty"`
+
+	// The property values localized to languages other than the main `language` of the Card.
+	//
+	// Localizations provide language-specific alternatives for existing property values and SHOULD NOT add new properties.
+	//
+	// The keys in the localizations property value are language tags [RFC5646]; the values are of type `PatchObject` and
+	// localize the Card in that language tag.
+	//
+	// The paths in the `PatchObject` are relative to the Card that includes the localizations property.
+	//
+	// A patch MUST NOT target the localizations property.
+	//
+	// Conceptually, a Card is localized as follows:
+	// * Determine the language tag in which the Card should be localized.
+	// * If the localizations property includes a key for that language, obtain the PatchObject value;
+	// if there is no such key, stop.
+	// * Create a copy of the Card, but do not copy the localizations property.
+	// * Apply all patches in the PatchObject to the copy of the Card.
+	// * Optionally, set the language property in the copy of the Card.
+	// * Use the patched copy of the Card as the localized variant of the original Card.
+	//
+	// A patch in the `PatchObject` may contain any value type.
+	//
+	// Its value MUST be a valid value according to the definition of the patched property.
+	Localizations map[string]jscontact.PatchObject `json:"localizations,omitempty"`
+
+	// The memorable dates and events for the entity represented by the Card.
+	Anniversaries map[string]jscontact.Anniversary `json:"anniversaries,omitempty"`
+
+	// The set of free-text keywords, also known as tags.
+	//
+	// Each key in the set is a keyword, and each boolean value MUST be `true`.
+	Keywords map[string]bool `json:"keywords,omitempty"`
+
+	// The free-text notes that are associated with the Card.
+	Notes map[string]jscontact.Note `json:"notes,omitempty"`
+
+	// The personal information of the entity represented by the Card.
+	PersonalInfo map[string]jscontact.PersonalInfo `json:"personalInfo,omitempty"`
+}
+
+var _ Change = ContactCardChange{}
+
+func (e ContactCardChange) AsPatch() (PatchObject, error) {
+	return toPatchObject(e)
+}
+
 type CalendarRights struct {
 	// The user may read the free-busy information for this calendar.
 	MayReadFreeBusy bool `json:"mayReadFreeBusy"`
@@ -5016,11 +5213,11 @@ type CalendarChange struct {
 	// The user-visible name of the calendar.
 	//
 	// This may be any UTF-8 string of at least 1 character in length and maximum 255 octets in size.
-	Name *string `json:"name"`
+	Name *string `json:"name,omitzero"`
 
 	// An optional longer-form description of the calendar, to provide context in shared environments
 	// where users need more than just the name.
-	Description *string `json:"description,omitempty"`
+	Description *string `json:"description,omitzero"`
 
 	// A color to be used when displaying events associated with the calendar.
 	//
@@ -5029,7 +5226,7 @@ type CalendarChange struct {
 	// notation, as defined in Section 4.2.1 of CSS Color Module Level 3.
 	//
 	// The color SHOULD have sufficient contrast to be used as text on a white background.
-	Color *string `json:"color,omitempty"`
+	Color *string `json:"color,omitzero"`
 
 	// Defines the sort order of calendars when presented in the client’s UI, so it is consistent
 	// between devices.
@@ -5055,7 +5252,7 @@ type CalendarChange struct {
 	// For example, a company may have a large number of shared calendars which all employees have
 	// permission to access, but you would only subscribe to the ones you care about and want to be able
 	// to have normally accessible.
-	IsSubscribed *bool `json:"isSubscribed"`
+	IsSubscribed *bool `json:"isSubscribed,omitempty"`
 
 	// Should the calendar’s events be displayed to the user at the moment?
 	//
@@ -5063,7 +5260,9 @@ type CalendarChange struct {
 	//
 	// If an event is in multiple calendars, it should be displayed if `isVisible` is `true`
 	// for any of those calendars.
-	IsVisible *bool `json:"isVisible" default:"true" doc:"opt"`
+	//
+	// Currently unsupported in Stalwart when modifying existing objects.
+	IsVisible *bool `json:"isVisible,omitempty" default:"true" doc:"opt"`
 
 	// Should the calendar’s events be used as part of availability calculation?
 	//
@@ -5138,35 +5337,8 @@ type CalendarChange struct {
 
 var _ Change = CalendarChange{}
 
-func (a CalendarChange) AsPatch() PatchObject {
-	p := PatchObject{}
-	if a.Name != nil {
-		p["name"] = *a.Name
-	}
-	if a.Description != nil {
-		p["description"] = *a.Description
-	}
-	if a.Color != nil {
-		p["color"] = *a.Color
-	}
-	if a.SortOrder != nil {
-		p["sortOrder"] = *a.SortOrder
-	}
-	if a.IsSubscribed != nil {
-		p["isSubscribed"] = *a.IsSubscribed
-	}
-	if a.IsVisible != nil {
-		p["isVisible"] = *a.IsVisible
-	}
-	if a.IncludeInAvailability != nil {
-		p["includeInAvailability"] = *a.IncludeInAvailability
-	}
-	// TODO DefaultAlertsWithTime
-	// TODO DefaultAlertsWithoutTime
-	// TODO TimeZone
-	// TODO ShareWith
-	// TODO MyRights
-	return p
+func (c CalendarChange) AsPatch() (PatchObject, error) {
+	return toPatchObject(c)
 }
 
 // A CalendarEvent object contains information about an event, or recurring series of events,
@@ -5250,6 +5422,79 @@ type CalendarEvent struct {
 	UtcEnd UTCDate `json:"utcEnd,omitzero"`
 
 	jscalendar.Event
+}
+
+type CalendarEventChange struct {
+	// The set of Calendar ids this event belongs to.
+	//
+	// An event MUST belong to one or more Calendars at all times (until it is destroyed).
+	//
+	// The set is represented as an object, with each key being a Calendar id.
+	//
+	// The value for each key in the object MUST be `true`.
+	CalendarIds map[string]bool `json:"calendarIds,omitempty"`
+
+	// If true, this event is to be considered a draft.
+	//
+	// The server will not send any scheduling messages to participants or send push notifications
+	// for alerts.
+	//
+	// This may only be set to `true` upon creation.
+	//
+	// Once set to `false`, the value cannot be updated to `true`.
+	//
+	// This property MUST NOT appear in `recurrenceOverrides`.
+	IsDraft *bool `json:"isDraft,omitzero"`
+
+	// Is this the authoritative source for this event (i.e., does it control scheduling for
+	// this event; the event has not been added as a result of an invitation from another calendar system)?
+	//
+	// This is true if, and only if:
+	// * the event’s `replyTo` property is null; or
+	// * the account will receive messages sent to at least one of the methods specified in the `replyTo` property of the event.
+	IsOrigin *bool `json:"isOrigin,omitzero"`
+
+	// For simple clients that do not implement time zone support.
+	//
+	// Clients should only use this if also asking the server to expand recurrences, as you cannot accurately
+	// expand a recurrence without the original time zone.
+	//
+	// This property is calculated at fetch time by the server.
+	//
+	// Time zones are political and they can and do change at any time.
+	//
+	// Fetching exactly the same property again may return a different results if the time zone data has been updated on the server.
+	//
+	// Time zone data changes are not considered `updates` to the event.
+	//
+	// If set, the server will convert the UTC date to the event's current time zone and store the local time.
+	//
+	// This property is not included in `CalendarEvent/get` responses by default and must be requested explicitly.
+	//
+	// Floating events (events without a time zone) will be interpreted as per the time zone given as a `CalendarEvent/get` argument.
+	//
+	// Note that it is not possible to accurately calculate the expansion of recurrence rules or recurrence overrides with the
+	// `utcStart` property rather than the local start time. Even simple recurrences such as "repeat weekly" may cross a
+	// daylight-savings boundary and end up at a different UTC time. Clients that wish to use "utcStart" are RECOMMENDED to
+	// request the server expand recurrences.
+	UtcStart UTCDate `json:"utcStart,omitzero"`
+
+	// The server calculates the end time in UTC from the start/timeZone/duration properties of the event.
+	//
+	// This property is not included by default and must be requested explicitly.
+	//
+	// Like `utcStart`, it is calculated at fetch time if requested and may change due to time zone data changes.
+	//
+	// Floating events will be interpreted as per the time zone given as a `CalendarEvent/get` argument.
+	UtcEnd UTCDate `json:"utcEnd,omitzero"`
+
+	jscalendar.EventChange
+}
+
+var _ Change = CalendarEventChange{}
+
+func (e CalendarEventChange) AsPatch() (PatchObject, error) {
+	return toPatchObject(e)
 }
 
 var _ Idable = &CalendarEvent{}
@@ -6356,7 +6601,7 @@ type AddressBookChange struct {
 	// The user-visible name of the AddressBook.
 	//
 	// This may be any UTF-8 string of at least 1 character in length and maximum 255 octets in size.
-	Name *string `json:"name"`
+	Name *string `json:"name,omitempty"`
 
 	// An optional longer-form description of the AddressBook, to provide context in shared environments
 	// where users need more than just the name.
@@ -6381,7 +6626,7 @@ type AddressBookChange struct {
 	//
 	// If false, the AddressBook and its contents SHOULD only be displayed when the user explicitly requests it
 	// or to offer it for the user to subscribe to.
-	IsSubscribed *bool `json:"isSubscribed"`
+	IsSubscribed *bool `json:"isSubscribed,omitzero"`
 
 	// A map of Principal id to rights for principals this AddressBook is shared with.
 	//
@@ -6398,21 +6643,8 @@ type AddressBookChange struct {
 
 var _ Change = AddressBookChange{}
 
-func (a AddressBookChange) AsPatch() PatchObject {
-	p := PatchObject{}
-	if a.Name != nil {
-		p["name"] = *a.Name
-	}
-	if a.Description != nil {
-		p["description"] = *a.Description
-	}
-	if a.IsSubscribed != nil {
-		p["isSubscribed"] = *a.IsSubscribed
-	}
-	if a.ShareWith != nil {
-		p["shareWith"] = a.ShareWith
-	}
-	return p
+func (a AddressBookChange) AsPatch() (PatchObject, error) {
+	return toPatchObject(a)
 }
 
 type AddressBookSetCommand struct {
@@ -6842,12 +7074,12 @@ type ContactCardQueryResponse struct {
 	// Only if requested.
 	//
 	// This argument MUST be omitted if the calculateTotal request argument is not true.
-	Total uint `json:"total,omitempty,omitzero"`
+	Total *uint `json:"total,omitempty"`
 
 	// The limit enforced by the server on the maximum number of results to return (if set by the server).
 	//
 	// This is only returned if the server set a limit or used a different limit than that given in the request.
-	Limit uint `json:"limit,omitempty,omitzero"`
+	Limit uint `json:"limit,omitzero"`
 }
 
 var _ QueryResponse[ContactCard] = &ContactCardQueryResponse{}
@@ -6999,8 +7231,6 @@ func (r ContactCardChangesResponse) GetUpdated() []string    { return r.Updated 
 func (r ContactCardChangesResponse) GetDestroyed() []string  { return r.Destroyed }
 func (r ContactCardChangesResponse) GetMarker() ContactCard  { return ContactCard{} }
 
-type ContactCardUpdate map[string]any
-
 type ContactCardSetCommand struct {
 	// The id of the account to use.
 	AccountId string `json:"accountId"`
@@ -7048,7 +7278,7 @@ type ContactCardSetCommand struct {
 	//
 	// The client may choose to optimise network usage by just sending the diff or may send the whole object; the server
 	// processes it the same either way.
-	Update map[string]ContactCardUpdate `json:"update,omitempty"`
+	Update map[string]PatchObject `json:"update,omitempty"`
 
 	// A list of ids for ContactCard objects to permanently delete, or null if no objects are to be destroyed.
 	Destroy []string `json:"destroy,omitempty"`
@@ -7572,12 +7802,12 @@ type CalendarEventQueryResponse struct {
 	// Only if requested.
 	//
 	// This argument MUST be omitted if the calculateTotal request argument is not true.
-	Total uint `json:"total,omitempty,omitzero"`
+	Total *uint `json:"total,omitempty"`
 
 	// The limit enforced by the server on the maximum number of results to return (if set by the server).
 	//
 	// This is only returned if the server set a limit or used a different limit than that given in the request.
-	Limit uint `json:"limit,omitempty,omitzero"`
+	Limit uint `json:"limit,omitzero"`
 }
 
 var _ QueryResponse[CalendarEvent] = &CalendarEventQueryResponse{}
@@ -7735,8 +7965,6 @@ func (r CalendarEventChangesResponse) GetUpdated() []string     { return r.Updat
 func (r CalendarEventChangesResponse) GetDestroyed() []string   { return r.Destroyed }
 func (r CalendarEventChangesResponse) GetMarker() CalendarEvent { return CalendarEvent{} }
 
-type CalendarEventUpdate map[string]any
-
 type CalendarEventSetCommand struct {
 	// The id of the account to use.
 	AccountId string `json:"accountId"`
@@ -7784,7 +8012,7 @@ type CalendarEventSetCommand struct {
 	//
 	// The client may choose to optimise network usage by just sending the diff or may send the whole object; the server
 	// processes it the same either way.
-	Update map[string]CalendarEventUpdate `json:"update,omitempty"`
+	Update map[string]PatchObject `json:"update,omitempty"`
 
 	// A list of ids for CalendarEvent objects to permanently delete, or null if no objects are to be destroyed.
 	Destroy []string `json:"destroy,omitempty"`

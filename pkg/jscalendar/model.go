@@ -790,6 +790,19 @@ func (t *LocalDateTime) UnmarshalJSON(b []byte) error {
 // automatically still inherit this.
 type PatchObject map[string]any
 
+func toPatchObject[T any](value T) (PatchObject, error) {
+	b, err := json.Marshal(value)
+	if err != nil {
+		return PatchObject{}, err
+	}
+	var target PatchObject
+	err = json.Unmarshal(b, &target)
+	if err != nil {
+		return PatchObject{}, err
+	}
+	return target, nil
+}
+
 // A Relation object defines the relation to other objects, using a possibly empty set of relation types.
 //
 // The object that defines this relation is the linking object, while the other object is the linked
@@ -1740,6 +1753,25 @@ type CommonObject struct {
 	Color string `json:"color,omitempty"`
 }
 
+type CommonObjectChange struct {
+	Uid                    *string         `json:"uid,omitempty"`
+	ProdId                 *string         `json:"prodId,omitempty"`
+	Created                UTCDateTime     `json:"created,omitzero"`
+	Updated                UTCDateTime     `json:"updated,omitzero"`
+	Title                  *string         `json:"title,omitempty"`
+	Description            *string         `json:"description,omitempty"`
+	DescriptionContentType *string         `json:"descriptionContentType,omitempty" doc:"opt" default:"text/plain"`
+	Links                  map[string]Link `json:"links,omitempty"`
+	Locale                 *string         `json:"locale,omitempty"`
+	Keywords               map[string]bool `json:"keywords,omitempty"`
+	Categories             map[string]bool `json:"categories,omitempty"`
+	Color                  *string         `json:"color,omitempty"`
+}
+
+func (m CommonObjectChange) AsPatch() (PatchObject, error) {
+	return toPatchObject(m)
+}
+
 // ### Recurrence Properties
 //
 // Some events and tasks occur at regular or irregular intervals. Rather than having to copy the data for every occurrence,
@@ -2100,6 +2132,40 @@ type Object struct {
 	HideAttendees bool `json:"hideAttendees,omitzero" doc:"opt" default:"false"`
 }
 
+type ObjectChange struct {
+	CommonObjectChange
+	RelatedTo               map[string]Relation           `json:"relatedTo,omitempty"`
+	Sequence                *uint                         `json:"sequence,omitzero"`
+	ShowWithoutTime         *bool                         `json:"showWithoutTime,omitzero" doc:"opt" default:"false"`
+	Locations               map[string]Location           `json:"locations,omitempty"`
+	MainLocationId          *string                       `json:"mainLocationId,omitempty"`
+	VirtualLocations        map[string]VirtualLocation    `json:"virtualLocations,omitempty"`
+	RecurrenceId            *LocalDateTime                `json:"recurrenceId,omitempty"`
+	RecurrenceIdTimeZone    string                        `json:"recurrenceIdTimeZone,omitempty"`
+	RecurrenceRule          *RecurrenceRule               `json:"recurrenceRule,omitempty"`
+	ExcludedRecurrenceRules []RecurrenceRule              `json:"excludedRecurrenceRules,omitempty"`
+	RecurrenceOverrides     map[LocalDateTime]PatchObject `json:"recurrenceOverrides,omitempty"`
+	Excluded                *bool                         `json:"excluded,omitzero"`
+	Priority                *int                          `json:"priority,omitzero"`
+	FreeBusyStatus          *FreeBusyStatus               `json:"freeBusyStatus,omitempty" doc:"opt" default:"busy"`
+	Privacy                 *Privacy                      `json:"privacy,omitempty"`
+	ReplyTo                 map[ReplyMethod]string        `json:"replyTo,omitempty"`
+	SentBy                  string                        `json:"sentBy,omitempty"`
+	Participants            map[string]Participant        `json:"participants,omitempty"`
+	RequestStatus           string                        `json:"requestStatus,omitempty"`
+	UseDefaultAlerts        *bool                         `json:"useDefaultAlerts,omitzero" doc:"opt" default:"false"`
+	Alerts                  map[string]Alert              `json:"alerts,omitempty"`
+	Localizations           map[string]PatchObject        `json:"localizations,omitempty"`
+	TimeZone                *string                       `json:"timeZone,omitempty"`
+	MayInviteSelf           *bool                         `json:"mayInviteSelf,omitzero" doc:"opt" default:"false"`
+	MayInviteOthers         *bool                         `json:"mayInviteOthers,omitzero" doc:"opt" default:"false"`
+	HideAttendees           *bool                         `json:"hideAttendees,omitzero" doc:"opt" default:"false"`
+}
+
+func (m ObjectChange) AsPatch() (PatchObject, error) {
+	return toPatchObject(m)
+}
+
 type Event struct {
 	Type TypeOfEvent `json:"@type,omitempty"`
 
@@ -2133,6 +2199,45 @@ type Event struct {
 	// * `cancelled`: indicates the event has been cancelled
 	// * `tentative`: indicates the event may happen
 	Status Status `json:"status,omitempty"`
+}
+
+type EventChange struct {
+	Type TypeOfEvent `json:"@type,omitempty"`
+
+	ObjectChange
+
+	// This is the date/time the event starts in the event's time zone (as specified in the timeZone property, see Section 4.7.1).
+	Start LocalDateTime `json:"start,omitempty"`
+
+	// This is the zero or positive duration of the event in the event's start time zone.
+	//
+	// The end time of an event can be found by adding the duration to the event's start time.
+	//
+	// An Event MAY involve start and end locations that are in different time zones
+	// (e.g., a transcontinental flight). This can be expressed using the `relativeTo` and `timeZone` properties of
+	// the `Event`'s Location objects (see Section 4.2.5).
+	Duration *Duration `json:"duration,omitempty"`
+
+	// This identifies the time zone in which this event ends, for cases where the start and time zones of the event differ
+	// (e.g., a transcontinental flight).
+	//
+	// If this property is not set, then the event starts and ends in the same time zone.
+	//
+	// This property MUST NOT be set if the timeZone property value is null or not set.
+	EndTimeZone string `json:"endTimeZone,omitempty"`
+
+	// This is the scheduling status (Section 4.4) of an Event.
+	//
+	// If set, it MUST be one of the following values, another value registered in the IANA
+	// "JSCalendar Enum Values" registry, or a vendor-specific value (see Section 3.3):
+	// * `confirmed`: indicates the event is definitely happening
+	// * `cancelled`: indicates the event has been cancelled
+	// * `tentative`: indicates the event may happen
+	Status *Status `json:"status,omitempty"`
+}
+
+func (e EventChange) AsPatch() (PatchObject, error) {
+	return toPatchObject(e)
 }
 
 type Task struct {

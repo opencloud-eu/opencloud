@@ -714,3 +714,33 @@ func TestEvent(t *testing.T) {
 		},
 	})
 }
+
+func TestPatch(t *testing.T) {
+	require := require.New(t)
+	for _, tt := range []struct {
+		change   ObjectChange
+		expected PatchObject
+	}{
+		{ObjectChange{}, PatchObject{}},
+		{ObjectChange{
+			CommonObjectChange: CommonObjectChange{
+				Uid: strPtr("e9787e0b-e824-4284-964e-6b5d77af4bc9"),
+			},
+		}, PatchObject{
+			"uid": "e9787e0b-e824-4284-964e-6b5d77af4bc9",
+		}},
+	} {
+		b, err := json.Marshal(tt.expected)
+		require.NoError(err)
+		title := string(b)
+		t.Run(title, func(t *testing.T) {
+			patch, err := tt.change.AsPatch()
+			require.NoError(err)
+			require.Equal(tt.expected, patch)
+		})
+	}
+}
+
+func strPtr(s string) *string {
+	return &s
+}
