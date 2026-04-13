@@ -29,7 +29,6 @@ assets/identifier/static/icon-lilac.svg: pnpm-build
 
 .PHONY: pnpm-build
 pnpm-build: node_modules
-	#pnpm test #TODO: activate
 	pnpm build
 
 .PHONY: node_modules

@@ -9,8 +9,7 @@
     "licenses": "NODE_PATH=./node_modules node ../scripts/js-license-ranger.js",
     "licenses:check": "license-checker-rseidelsohn --summary --relativeLicensePath --onlyAllow 'Python-2.0;Apache*;Apache License, Version 2.0;Apache-2.0;Apache 2.0;Artistic-2.0;BSD;BSD-3-Clause;CC-BY-3.0;CC-BY-4.0;CC0-1.0;ISC;MIT;MPL-2.0;Public Domain;Unicode-TOU;Unlicense;WTFPL;ODC-By-1.0;BlueOak-1.0.0;OFL-1.1'  --excludePackages 'identifier;unicoderegexp' --clarificationsFile license-checker-clarifications.json",
     "licenses:csv": "license-checker-rseidelsohn --relativeLicensePath --csv --out ../../third-party-licenses/node/idp/third-party-licenses.csv",
-    "licenses:save": "license-checker-rseidelsohn --relativeLicensePath --out /dev/null --files ../../third-party-licenses/node/idp/third-party-licenses",
-    "test": "node scripts/test.js --env=jsdom"
+    "licenses:save": "license-checker-rseidelsohn --relativeLicensePath --out /dev/null --files ../../third-party-licenses/node/idp/third-party-licenses"
   },
   "babel": {
     "presets": [
@@ -29,14 +28,8 @@
       "last 1 safari version"
     ]
   },
-  "jest": {
-    "collectCoverageFrom": [
-      "src/**/*.{js,jsx,ts,tsx}"
-    ]
-  },
   "dependencies": {
     "@material-ui/core": "^4.12.4",
-    "@types/jest": "^30.0.0",
     "@types/node": "^22.19.17",
     "@types/react": "^17.0.91",
     "@types/react-dom": "^17.0.26",
@@ -71,7 +64,6 @@
     "html-webpack-plugin": "^5.6.6",
     "i18next-conv": "^15.1.2",
     "i18next-parser": "^9.4.0",
-    "jest": "30.2.0",
     "license-checker-rseidelsohn": "4.4.2",
     "mini-css-extract-plugin": "2.9.2",
     "pnp-webpack-plugin": "1.7.0",
