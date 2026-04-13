@@ -109,16 +109,17 @@ func (g *Groupware) GetAllEmailsInMailbox(w http.ResponseWriter, r *http.Request
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
 
-		sanitized, err := req.sanitizeEmails(emails.Emails)
+		sanitized, err := req.sanitizeEmails(emails.Results)
 		if err != nil {
 			return req.error(accountId, err)
 		}
 
-		safe := jmap.Emails{
-			Emails: sanitized,
-			Total:  emails.Total,
-			Limit:  emails.Limit,
-			Offset: emails.Offset,
+		safe := jmap.EmailSearchResults{
+			Results:             sanitized,
+			Total:               emails.Total,
+			Limit:               emails.Limit,
+			Position:            emails.Position,
+			CanCalculateChanges: emails.CanCalculateChanges,
 		}
 
 		return req.respond(accountId, safe, sessionState, EmailResponseObjectType, state)
@@ -689,15 +690,17 @@ func (g *Groupware) GetEmailsForAllAccounts(w http.ResponseWriter, r *http.Reque
 			var totalOverAllAccounts uint = 0
 			total := 0
 			for _, results := range resultsByAccountId {
-				totalOverAllAccounts += results.Total
-				total += len(results.Snippets)
+				if results.Total != nil {
+					totalOverAllAccounts += *results.Total
+				}
+				total += len(results.Results)
 			}
 
 			flattened := make([]Snippet, total)
 			{
 				i := 0
 				for accountId, results := range resultsByAccountId {
-					for _, result := range results.Snippets {
+					for _, result := range results.Results {
 						flattened[i] = Snippet{
 							AccountId:             accountId,
 							SearchSnippetWithMeta: result,

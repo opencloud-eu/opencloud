@@ -85,8 +85,8 @@ func TestEmails(t *testing.T) {
 			require.NoError(err)
 			require.Equal(session.State, sessionState)
 
-			require.Equalf(threads, len(resp.Emails), "the number of collapsed emails in the inbox is expected to be %v, but is actually %v", threads, len(resp.Emails))
-			for _, e := range resp.Emails {
+			require.Equalf(threads, len(resp.Results), "the number of collapsed emails in the inbox is expected to be %v, but is actually %v", threads, len(resp.Results))
+			for _, e := range resp.Results {
 				require.Len(e.MessageId, 1)
 				expectation, ok := mailsByMessageId[e.MessageId[0]]
 				require.True(ok)
@@ -99,8 +99,8 @@ func TestEmails(t *testing.T) {
 			require.NoError(err)
 			require.Equal(session.State, sessionState)
 
-			require.Equalf(count, len(resp.Emails), "the number of emails in the inbox is expected to be %v, but is actually %v", count, len(resp.Emails))
-			for _, e := range resp.Emails {
+			require.Equalf(count, len(resp.Results), "the number of emails in the inbox is expected to be %v, but is actually %v", count, len(resp.Results))
+			for _, e := range resp.Results {
 				require.Len(e.MessageId, 1)
 				expectation, ok := mailsByMessageId[e.MessageId[0]]
 				require.True(ok)
@@ -168,7 +168,13 @@ func TestSendingEmails(t *testing.T) {
 		accountId string
 		session   *Session
 	}{{toAccountId, toSession}, {ccAccountId, ccSession}} {
-		mailboxes, _, _, _, err := s.client.GetAllMailboxes([]string{u.accountId}, ctx)
+		uctx := Context{
+			Session:        u.session,
+			Context:        ctx.Context,
+			Logger:         ctx.Logger,
+			AcceptLanguage: ctx.AcceptLanguage,
+		}
+		mailboxes, _, _, _, err := s.client.GetAllMailboxes([]string{u.accountId}, uctx)
 		require.NoError(err)
 		for _, mailbox := range mailboxes[u.accountId] {
 			require.Equal(0, mailbox.TotalEmails)
@@ -288,7 +294,13 @@ func TestSendingEmails(t *testing.T) {
 			accountId string
 			session   *Session
 		}{{to, toAccountId, toSession}, {cc, ccAccountId, ccSession}} {
-			mailboxes, _, _, _, err := s.client.GetAllMailboxes([]string{r.accountId}, ctx)
+			rctx := Context{
+				Session:        r.session,
+				Context:        ctx.Context,
+				Logger:         ctx.Logger,
+				AcceptLanguage: ctx.AcceptLanguage,
+			}
+			mailboxes, _, _, _, err := s.client.GetAllMailboxes([]string{r.accountId}, rctx)
 			require.NoError(err)
 			inboxId := ""
 			for _, mailbox := range mailboxes[r.accountId] {
@@ -299,7 +311,7 @@ func TestSendingEmails(t *testing.T) {
 			}
 			require.NotEmpty(inboxId, "failed to find the Mailbox with the 'inbox' role for %v", r.user.name)
 
-			emails, _, _, _, err := s.client.QueryEmails([]string{r.accountId}, EmailFilterCondition{InMailbox: inboxId}, 0, 0, true, 0, ctx)
+			emails, _, _, _, err := s.client.QueryEmails([]string{r.accountId}, EmailFilterCondition{InMailbox: inboxId}, 0, 0, true, 0, rctx)
 			require.NoError(err)
 			require.Contains(emails, r.accountId)
 			require.Len(emails[r.accountId].Emails, 1)

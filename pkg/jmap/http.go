@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -577,7 +578,7 @@ type HttpWsClient struct {
 func (w *HttpWsClient) readPump() { //NOSONAR
 	logger := log.From(w.logger.With().Str("username", w.username))
 	defer func() {
-		if err := w.c.Close(); err != nil {
+		if err := w.c.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
 			logger.Warn().Err(err).Msg("failed to close websocket connection")
 		}
 	}()

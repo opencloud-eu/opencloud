@@ -107,7 +107,8 @@ func TestContacts(t *testing.T) {
 	require.Len(results.Results, int(count))
 	require.Equal(uint(0), results.Limit)
 	require.Equal(uint(0), results.Position)
-	require.Equal(uint(0), results.Total)
+	require.NotNil(results.Total)
+	require.Equal(count, *results.Total)
 	require.Equal(true, results.CanCalculateChanges)
 
 	for _, actual := range results.Results {

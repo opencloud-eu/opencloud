@@ -9,7 +9,7 @@ import (
 var NS_IDENTITY = ns(JmapMail)
 
 func (j *Client) GetAllIdentities(accountId string, ctx Context) ([]Identity, SessionState, State, Language, Error) {
-	return getA(j, "GetAllIdentities", NS_IDENTITY,
+	return getA(j, "GetAllIdentities", IdentityType,
 		func(accountId string, ids []string) IdentityGetCommand {
 			return IdentityGetCommand{AccountId: accountId}
 		},
@@ -20,7 +20,7 @@ func (j *Client) GetAllIdentities(accountId string, ctx Context) ([]Identity, Se
 }
 
 func (j *Client) GetIdentities(accountId string, identityIds []string, ctx Context) ([]Identity, SessionState, State, Language, Error) {
-	return getA(j, "GetIdentities", NS_IDENTITY,
+	return getA(j, "GetIdentities", IdentityType,
 		func(accountId string, ids []string) IdentityGetCommand {
 			return IdentityGetCommand{AccountId: accountId, Ids: ids}
 		},
@@ -31,7 +31,7 @@ func (j *Client) GetIdentities(accountId string, identityIds []string, ctx Conte
 }
 
 func (j *Client) GetIdentitiesForAllAccounts(accountIds []string, ctx Context) (map[string][]Identity, SessionState, State, Language, Error) {
-	return getN(j, "GetIdentitiesForAllAccounts", NS_IDENTITY,
+	return getN(j, "GetIdentitiesForAllAccounts", IdentityType,
 		func(accountId string, ids []string) IdentityGetCommand {
 			return IdentityGetCommand{AccountId: accountId}
 		},
@@ -96,7 +96,7 @@ func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId string, accountIds [
 }
 
 func (j *Client) CreateIdentity(accountId string, identity IdentityChange, ctx Context) (*Identity, SessionState, State, Language, Error) {
-	return create(j, "CreateIdentity", NS_IDENTITY,
+	return create(j, "CreateIdentity", IdentityType,
 		func(accountId string, create map[string]IdentityChange) IdentitySetCommand {
 			return IdentitySetCommand{AccountId: accountId, Create: create}
 		},
@@ -115,7 +115,7 @@ func (j *Client) CreateIdentity(accountId string, identity IdentityChange, ctx C
 }
 
 func (j *Client) UpdateIdentity(accountId string, id string, changes IdentityChange, ctx Context) (Identity, SessionState, State, Language, Error) {
-	return update(j, "UpdateIdentity", NS_IDENTITY,
+	return update(j, "UpdateIdentity", IdentityType,
 		func(update map[string]PatchObject) IdentitySetCommand {
 			return IdentitySetCommand{AccountId: accountId, Update: update}
 		},
@@ -130,7 +130,7 @@ func (j *Client) UpdateIdentity(accountId string, id string, changes IdentityCha
 }
 
 func (j *Client) DeleteIdentity(accountId string, destroyIds []string, ctx Context) (map[string]SetError, SessionState, State, Language, Error) {
-	return destroy(j, "DeleteIdentity", NS_IDENTITY,
+	return destroy(j, "DeleteIdentity", IdentityType,
 		func(accountId string, destroy []string) IdentitySetCommand {
 			return IdentitySetCommand{AccountId: accountId, Destroy: destroyIds}
 		},
@@ -146,7 +146,7 @@ type IdentityChanges = ChangesTemplate[Identity]
 // @api:tags email,changes
 func (j *Client) GetIdentityChanges(accountId string, sinceState State, maxChanges uint,
 	ctx Context) (IdentityChanges, SessionState, State, Language, Error) {
-	return changes(j, "GetIdentityChanges", NS_IDENTITY,
+	return changes(j, "GetIdentityChanges", IdentityType,
 		func() IdentityChangesCommand {
 			return IdentityChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: uintPtr(maxChanges)}
 		},

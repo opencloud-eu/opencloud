@@ -126,7 +126,7 @@ func TestEvents(t *testing.T) {
 			results := m[accountId]
 			require.Equal(len(results.Results), int(page))
 			require.Equal(limit, results.Limit)
-			require.Equal(position, results.Position)
+			require.Equal(uint(position), results.Position)
 			require.Equal(true, results.CanCalculateChanges)
 			require.NotNil(results.Total)
 			require.Equal(count, *results.Total)

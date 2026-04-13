@@ -3,7 +3,7 @@ package jmap
 var NS_QUOTA = ns(JmapQuota)
 
 func (j *Client) GetQuotas(accountIds []string, ctx Context) (map[string]QuotaGetResponse, SessionState, State, Language, Error) {
-	return getN(j, "GetQuotas", NS_QUOTA,
+	return getN(j, "GetQuotas", QuotaType,
 		func(accountId string, ids []string) QuotaGetCommand {
 			return QuotaGetCommand{AccountId: accountId}
 		},
@@ -21,7 +21,7 @@ type QuotaChanges = ChangesTemplate[Quota]
 // @api:tags quota,changes
 func (j *Client) GetQuotaChanges(accountId string, sinceState State, maxChanges uint,
 	ctx Context) (QuotaChanges, SessionState, State, Language, Error) {
-	return changesA(j, "GetQuotaChanges", NS_QUOTA,
+	return changesA(j, "GetQuotaChanges", QuotaType,
 		func() QuotaChangesCommand {
 			return QuotaChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: uintPtr(maxChanges)}
 		},
@@ -53,7 +53,7 @@ func (j *Client) GetQuotaChanges(accountId string, sinceState State, maxChanges 
 
 func (j *Client) GetQuotaUsageChanges(accountId string, sinceState State, maxChanges uint,
 	ctx Context) (QuotaChanges, SessionState, State, Language, Error) {
-	return updates(j, "GetQuotaUsageChanges", NS_QUOTA,
+	return updates(j, "GetQuotaUsageChanges", QuotaType,
 		func() QuotaChangesCommand {
 			return QuotaChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: uintPtr(maxChanges)}
 		},

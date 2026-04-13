@@ -1564,6 +1564,34 @@ var _ Idable = &Mailbox{}
 func (f Mailbox) GetObjectType() ObjectType { return MailboxType }
 func (f Mailbox) GetId() string             { return f.Id }
 
+const (
+	MailboxPropertyId            = "id"
+	MailboxPropertyName          = "name"
+	MailboxPropertyParentId      = "parentId"
+	MailboxPropertyRole          = "role"
+	MailboxPropertySortOrder     = "sortOrder"
+	MailboxPropertyTotalEmails   = "totalEmails"
+	MailboxPropertyUnreadEmails  = "unreadEmails"
+	MailboxPropertyTotalThreads  = "totalThreads"
+	MailboxPropertyUnreadThreads = "unreadThreads"
+	MailboxPropertyMyRights      = "myRights"
+	MailboxPropertyIsSubscribed  = "isSubscribed"
+)
+
+var MailboxProperties = []string{
+	MailboxPropertyId,
+	MailboxPropertyName,
+	MailboxPropertyParentId,
+	MailboxPropertyRole,
+	MailboxPropertySortOrder,
+	MailboxPropertyTotalEmails,
+	MailboxPropertyUnreadEmails,
+	MailboxPropertyTotalThreads,
+	MailboxPropertyUnreadThreads,
+	MailboxPropertyMyRights,
+	MailboxPropertyIsSubscribed,
+}
+
 type MailboxChange struct {
 	// User-visible name for the Mailbox, e.g., “Inbox”.
 	//
@@ -1750,6 +1778,49 @@ type MailboxQueryCommand struct {
 	Sort         []MailboxComparator  `json:"sort,omitempty"`
 	SortAsTree   bool                 `json:"sortAsTree,omitempty"`
 	FilterAsTree bool                 `json:"filterAsTree,omitempty"`
+
+	// The zero-based index of the first id in the full list of results to return.
+	//
+	// If a negative value is given, it is an offset from the end of the list.
+	// Specifically, the negative value MUST be added to the total number of results given
+	// the filter, and if still negative, it’s clamped to 0. This is now the zero-based
+	// index of the first id to return.
+	//
+	// If the index is greater than or equal to the total number of objects in the results
+	// list, then the ids array in the response will be empty, but this is not an error.
+	Position int `json:"position,omitempty"`
+
+	// An Email id.
+	//
+	// If supplied, the position argument is ignored.
+	// The index of this id in the results will be used in combination with the anchorOffset
+	// argument to determine the index of the first result to return.
+	Anchor string `json:"anchor,omitempty"`
+
+	// The index of the first result to return relative to the index of the anchor,
+	// if an anchor is given.
+	//
+	// This MAY be negative.
+	//
+	// For example, -1 means the object immediately preceding the anchor is the first result in
+	// the list returned.
+	AnchorOffset int `json:"anchorOffset,omitzero" doc:"opt" default:"0"`
+
+	// The maximum number of results to return.
+	//
+	// If null, no limit presumed.
+	// The server MAY choose to enforce a maximum limit argument.
+	// In this case, if a greater value is given (or if it is null), the limit is clamped
+	// to the maximum; the new limit is returned with the response so the client is aware.
+	//
+	// If a negative value is given, the call MUST be rejected with an invalidArguments error.
+	Limit *uint `json:"limit,omitempty"`
+
+	// Does the client wish to know the total number of results in the query?
+	//
+	// This may be slow and expensive for servers to calculate, particularly with complex filters,
+	// so clients should take care to only request the total when needed.
+	CalculateTotal bool `json:"calculateTotal,omitempty"`
 }
 
 var _ QueryCommand[Mailbox] = &MailboxQueryCommand{}
@@ -3673,6 +3744,7 @@ var _ GetResponse[Thread] = &ThreadGetResponse{}
 func (r ThreadGetResponse) GetState() State       { return r.State }
 func (r ThreadGetResponse) GetNotFound() []string { return r.NotFound }
 func (r ThreadGetResponse) GetList() []Thread     { return r.List }
+func (r ThreadGetResponse) GetMarker() Thread     { return Thread{} }
 
 type IdentityGetCommand struct {
 	AccountId string   `json:"accountId"`
