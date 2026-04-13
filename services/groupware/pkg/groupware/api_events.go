@@ -159,6 +159,35 @@ func (g *Groupware) DeleteCalendarEvent(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
+func (g *Groupware) ModifyCalendarEvent(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		ok, accountId, resp := req.needCalendarWithAccount()
+		if !ok {
+			return resp
+		}
+		l := req.logger.With().Str(accountId, log.SafeString(accountId))
+		id, err := req.PathParamDoc(UriParamEventId, "The unique identifier of the Calendar Event to modify")
+		if err != nil {
+			return req.error(accountId, err)
+		}
+		l.Str(UriParamEventId, log.SafeString(id))
+
+		var change jmap.CalendarEventChange
+		err = req.body(&change)
+		if err != nil {
+			return req.error(accountId, err)
+		}
+
+		logger := log.From(l)
+		ctx := req.ctx.WithLogger(logger)
+		updated, sessionState, state, lang, jerr := g.jmap.UpdateCalendarEvent(accountId, id, change, ctx)
+		if jerr != nil {
+			return req.jmapError(accountId, jerr, sessionState, lang)
+		}
+		return req.respond(accountId, updated, sessionState, EventResponseObjectType, state)
+	})
+}
+
 // Parse a blob that contains an iCal file and return it as JSCalendar.
 //
 // @api:tags calendar,blob

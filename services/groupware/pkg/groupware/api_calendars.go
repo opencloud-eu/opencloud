@@ -95,7 +95,7 @@ func (g *Groupware) GetCalendarChanges(w http.ResponseWriter, r *http.Request) {
 
 func (g *Groupware) CreateCalendar(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
-		ok, accountId, resp := req.needContactWithAccount()
+		ok, accountId, resp := req.needCalendarWithAccount()
 		if !ok {
 			return resp
 		}
@@ -120,7 +120,7 @@ func (g *Groupware) CreateCalendar(w http.ResponseWriter, r *http.Request) {
 
 func (g *Groupware) DeleteCalendar(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
-		ok, accountId, resp := req.needContactWithAccount()
+		ok, accountId, resp := req.needCalendarWithAccount()
 		if !ok {
 			return resp
 		}
@@ -155,5 +155,34 @@ func (g *Groupware) DeleteCalendar(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		return req.noContent(accountId, sessionState, CalendarResponseObjectType, state)
+	})
+}
+
+func (g *Groupware) ModifyCalendar(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		ok, accountId, resp := req.needCalendarWithAccount()
+		if !ok {
+			return resp
+		}
+		l := req.logger.With().Str(accountId, log.SafeString(accountId))
+		id, err := req.PathParamDoc(UriParamCalendarId, "The unique identifier of the Calendar to modify")
+		if err != nil {
+			return req.error(accountId, err)
+		}
+		l.Str(UriParamCalendarId, log.SafeString(id))
+
+		var change jmap.CalendarChange
+		err = req.body(&change)
+		if err != nil {
+			return req.error(accountId, err)
+		}
+
+		logger := log.From(l)
+		ctx := req.ctx.WithLogger(logger)
+		updated, sessionState, state, lang, jerr := g.jmap.UpdateCalendar(accountId, id, change, ctx)
+		if jerr != nil {
+			return req.jmapError(accountId, jerr, sessionState, lang)
+		}
+		return req.respond(accountId, updated, sessionState, CalendarResponseObjectType, state)
 	})
 }

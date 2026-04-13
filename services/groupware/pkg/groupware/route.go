@@ -151,8 +151,9 @@ func (g *Groupware) Route(r chi.Router) {
 				r.Post("/", g.CreateAddressBook)
 				r.Route("/{addressbookid}", func(r chi.Router) {
 					r.Get("/", g.GetAddressbook)
-					r.Get("/contacts", g.GetContactsInAddressbook) //NOSONAR
+					r.Patch("/", g.ModifyAddressBook)
 					r.Delete("/", g.DeleteAddressBook)
+					r.Get("/contacts", g.GetContactsInAddressbook) //NOSONAR
 				})
 			})
 			r.Route("/contacts", func(r chi.Router) {
@@ -160,6 +161,7 @@ func (g *Groupware) Route(r chi.Router) {
 				r.Post("/", g.CreateContact)
 				r.Route("/{contactid}", func(r chi.Router) {
 					r.Get("/", g.GetContactById)
+					r.Patch("/", g.ModifyContact)
 					r.Delete("/", g.DeleteContact)
 				})
 			})
@@ -168,12 +170,14 @@ func (g *Groupware) Route(r chi.Router) {
 				r.Post("/", g.CreateCalendar)
 				r.Route("/{calendarid}", func(r chi.Router) {
 					r.Get("/", g.GetCalendarById)
-					r.Get("/events", g.GetEventsInCalendar) //NOSONAR
+					r.Patch("/", g.ModifyCalendar)
 					r.Delete("/", g.DeleteCalendar)
+					r.Get("/events", g.GetEventsInCalendar) //NOSONAR
 				})
 			})
 			r.Route("/events", func(r chi.Router) {
 				r.Post("/", g.CreateCalendarEvent)
+				r.Patch("/", g.ModifyCalendarEvent)
 				r.Delete("/{eventid}", g.DeleteCalendarEvent)
 			})
 			r.Route("/tasklists", func(r chi.Router) {
@@ -194,8 +198,10 @@ func (g *Groupware) Route(r chi.Router) {
 				// r.Get("/quotas", g.GetQuotaChanges)
 				r.Get("/identities", g.GetIdentityChanges)
 			})
-			r.Get("/objects", g.GetObjects)
-			r.Post("/objects", g.GetObjects)
+			r.Route("/objects", func(r chi.Router) {
+				r.Get("/", g.GetObjects)
+				r.Post("/", g.GetObjects) // this is actually a read-only operation
+			})
 		})
 	})
 

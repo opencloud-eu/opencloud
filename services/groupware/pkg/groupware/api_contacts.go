@@ -258,6 +258,35 @@ func (g *Groupware) DeleteContact(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (g *Groupware) ModifyContact(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		ok, accountId, resp := req.needContactWithAccount()
+		if !ok {
+			return resp
+		}
+		l := req.logger.With().Str(accountId, log.SafeString(accountId))
+		id, err := req.PathParamDoc(UriParamContactId, "The unique identifier of the Contact to modify")
+		if err != nil {
+			return req.error(accountId, err)
+		}
+		l.Str(UriParamContactId, log.SafeString(id))
+
+		var change jmap.ContactCardChange
+		err = req.body(&change)
+		if err != nil {
+			return req.error(accountId, err)
+		}
+
+		logger := log.From(l)
+		ctx := req.ctx.WithLogger(logger)
+		updated, sessionState, state, lang, jerr := g.jmap.UpdateContactCard(accountId, id, change, ctx)
+		if jerr != nil {
+			return req.jmapError(accountId, jerr, sessionState, lang)
+		}
+		return req.respond(accountId, updated, sessionState, ContactResponseObjectType, state)
+	})
+}
+
 func mapContactCardSort(s SortCrit) jmap.ContactCardComparator {
 	attr := s.Attribute
 	if mapped, ok := ContactSortingPropertyMapping[s.Attribute]; ok {
