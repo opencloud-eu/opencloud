@@ -40,34 +40,6 @@ class SharingNgContext implements Context {
 	private SpacesContext $spacesContext;
 
 	/**
-	 * @var array
-	 */
-	private array $permissions = [];
-
-	/**
-	 * @param string $sharee
-	 * @param ResponseInterface $response
-	 *
-	 * @return void
-	 */
-	public function setPermission(string $sharee, ResponseInterface $response): void {
-		$this->permissions[$sharee] = $this->featureContext->getJsonDecodedResponse($response)['value'][0]['id'];
-	}
-
-	/**
-	 * @param string $sharee
-	 *
-	 * @return string
-	 * @throws Exception
-	 */
-	public function getPermission(string $sharee): string {
-		if (!isset($this->permissions[$sharee])) {
-			throw new Exception("No permission found for '$sharee'");
-		}
-		return $this->permissions[$sharee];
-	}
-
-	/**
 	 * This will run before EVERY scenario.
 	 * It will set the properties for this object.
 	 *
@@ -388,7 +360,7 @@ class SharingNgContext implements Context {
 			$expirationDateTime
 		);
 		if ($response->getStatusCode() === 200) {
-			$this->setPermission($sharee, $response);
+			$this->featureContext->shareNgAddToCreatedUserGroupShares($response);
 		}
 		return $response;
 	}
@@ -461,7 +433,7 @@ class SharingNgContext implements Context {
 			$expirationDateTime
 		);
 		if ($response->getStatusCode() === 200) {
-			$this->setPermission($sharee, $response);
+			$this->featureContext->shareNgAddToCreatedUserGroupShares($response);
 		}
 		return $response;
 	}
@@ -639,7 +611,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 */
 	public function userHasUpdatedTheLastResourceShareWithTheFollowingProperties(string $user, TableNode $table): void {
-		$permissionID = $this->getPermission($table['sharee']);
+		$permissionID = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
 		$response = $this->updateResourceShare(
 			$user,
 			$table,
@@ -657,7 +629,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 */
 	public function userUpdatesTheLastShareWithFollowingPropertiesUsingGraphApi($user, TableNode $table) {
-		$permissionID = $this->getPermission($table['sharee']);
+		$permissionID = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
 		$this->featureContext->setResponse(
 			$this->updateResourceShare(
 				$user,
@@ -683,8 +655,7 @@ class SharingNgContext implements Context {
 		string $sharee,
 		TableNode $table
 	) {
-		$permissionID = $this->getPermission($table['sharee']);
-
+		$permissionID = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
 		$this->featureContext->setResponse(
 			$this->updateResourceShare(
 				$user,
@@ -1001,7 +972,6 @@ class SharingNgContext implements Context {
 	 * @param string $shareType (user|group|link)
 	 * @param string $space
 	 * @param string|null $resource
-	 * @param string|null $recipient
 	 *
 	 * @return ResponseInterface
 	 * @throws GuzzleException
@@ -1011,8 +981,7 @@ class SharingNgContext implements Context {
 		string $sharer,
 		string $shareType,
 		string $space,
-		?string $resource = null,
-		?string $recipient = null
+		?string $resource = null
 	): ResponseInterface {
 		$spaceId = ($this->spacesContext->getSpaceByName($sharer, $space))["id"];
 		$itemId = (isset($resource)) ? $this->spacesContext->getResourceId($sharer, $space, $resource)
@@ -1020,7 +989,7 @@ class SharingNgContext implements Context {
 
 		$permissionID = ($shareType === 'link')
 				? $this->featureContext->shareNgGetLastCreatedLinkShareID()
-				: $this->getPermission($recipient);
+				: $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
 
 		return
 			GraphHelper::removeAccessToSpaceItem(
@@ -1055,14 +1024,14 @@ class SharingNgContext implements Context {
 		$spaceId = ($this->spacesContext->getSpaceByName($sharer, $space))["id"];
 
 		// if recipient is not provided, it means user tries to remove own access, then we need to get the user permission id
-		if (!isset($recipient)) {
-			$this->setPermission($sharer, $this->getDrivePermissionsList($sharer, $space));
-			$permissionID = $this->getPermission($sharer);
+		if ($shareType == 'user' && !isset($recipient)) {
+			$this->featureContext->shareNgAddToCreatedUserGroupShares($this->getDrivePermissionsList($sharer, $space));
+			$permissionID = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
 		} else {
 			$permissionID = match ($shareType) {
 				'link' => $this->featureContext->shareNgGetLastCreatedLinkShareID(),
-				'user' => $this->getPermission($recipient),
-				'group' => $this->getPermission($recipient),
+				'user' => $this->featureContext->shareNgGetLastCreatedUserGroupShareID(),
+				'group' => $this->featureContext->shareNgGetLastCreatedUserGroupShareID(),
 				default => throw new Exception("shareType '$shareType' does not match user|group|link "),
 			};
 		}
@@ -1098,7 +1067,7 @@ class SharingNgContext implements Context {
 		string $resource,
 		string $space
 	): void {
-		$response = $this->removeAccessToSpaceItem($sharer, $recipientType, $space, $resource);
+		$response = $this->removeAccessToSpaceItem($sharer, $recipientType, $space, $resource, $recipient);
 		$this->featureContext->theHTTPStatusCodeShouldBe(204, "", $response);
 	}
 
@@ -1327,7 +1296,7 @@ class SharingNgContext implements Context {
 	 * @throws Exception|GuzzleException
 	 */
 	public function userHasDisabledSyncOfLastSharedResource(string $user): void {
-		$shareItemId = $this->getPermission($user);
+		$shareItemId = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
 		$shareSpaceId = GraphHelper::SHARES_SPACE_ID;
 		$itemId = $shareSpaceId . '!' . $shareItemId;
 		$response = GraphHelper::disableShareSync(
@@ -1355,7 +1324,7 @@ class SharingNgContext implements Context {
 	 * @throws Exception
 	 */
 	public function userDisablesSyncOfShareUsingTheGraphApi(string $user): void {
-		$shareItemId = $this->getPermission($user);
+		$shareItemId = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
 		$shareSpaceId = GraphHelper::SHARES_SPACE_ID;
 		$itemId = $shareSpaceId . '!' . $shareItemId;
 		$response = GraphHelper::disableShareSync(
@@ -1382,7 +1351,7 @@ class SharingNgContext implements Context {
 	 * @throws GuzzleException
 	 */
 	public function userHidesTheSharedResourceUsingTheGraphApi(string $user): void {
-		$shareItemId = $this->getPermission($user);
+		$shareItemId = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
 		$response = $this->hideOrUnhideSharedResource($user, $shareItemId);
 		$this->featureContext->setResponse($response);
 	}
@@ -1397,7 +1366,7 @@ class SharingNgContext implements Context {
 	 * @throws GuzzleException
 	 */
 	public function userHasHiddenTheShare(string $user): void {
-		$shareItemId = $this->getPermission($user);
+		$shareItemId = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
 		$response = $this->hideOrUnhideSharedResource($user, $shareItemId);
 		$this->featureContext->theHTTPStatusCodeShouldBe(200, '', $response);
 	}
@@ -1412,7 +1381,7 @@ class SharingNgContext implements Context {
 	 * @throws GuzzleException
 	 */
 	public function userUnhidesTheSharedResourceUsingTheGraphApi(string $user): void {
-		$shareItemId = $this->getPermission($user);
+		$shareItemId = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
 		$response = $this->hideOrUnhideSharedResource($user, $shareItemId, false);
 		$this->featureContext->setResponse($response);
 	}
@@ -1708,7 +1677,7 @@ class SharingNgContext implements Context {
 		TableNode $table
 	): void {
 		$bodyRows = $table->getRowsHash();
-		$permissionID = $this->getPermission($bodyRows['sharee']);
+		$permissionID = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
 		$space = $bodyRows['space'];
 		$spaceId = ($this->spacesContext->getSpaceByName($user, $space))["id"];
 		$body = [];
