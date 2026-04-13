@@ -398,10 +398,18 @@ func update[T Foo, CHANGES Change, SET SetCommand[T], GET GetCommand[T], RESP an
 	logger := client.logger(name, ctx)
 	ctx = ctx.WithLogger(logger)
 
-	update := setCommandFactory(map[string]PatchObject{id: changes.AsPatch()})
+	var zero RESP
+
+	var update SET
+	{
+		patch, err := changes.AsPatch()
+		if err != nil {
+			return zero, "", "", "", jmapError(err, JmapPatchObjectSerialization)
+		}
+		update = setCommandFactory(map[string]PatchObject{id: patch})
+	}
 	get := getCommandFactory(id)
 	cmd, err := client.request(ctx, objType.Namespaces, invocation(update, "0"), invocation(get, "1"))
-	var zero RESP
 	if err != nil {
 		return zero, "", "", "", err
 	}

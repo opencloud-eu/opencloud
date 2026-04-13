@@ -76,7 +76,7 @@ func (j *Client) QueryContactCards(accountIds []string,
 				Results:             get.List,
 				CanCalculateChanges: query.CanCalculateChanges,
 				Position:            query.Position,
-				Total:               uintPtrIf(query.Total, calculateTotal),
+				Total:               uintPtrIfPtr(query.Total, calculateTotal),
 				Limit:               query.Limit,
 			}
 		},
@@ -111,6 +111,21 @@ func (j *Client) DeleteContactCard(accountId string, destroyIds []string, ctx Co
 		},
 		ContactCardSetResponse{},
 		accountId, destroyIds,
+		ctx,
+	)
+}
+
+func (j *Client) UpdateContactCard(accountId string, id string, changes ContactCardChange, ctx Context) (ContactCard, SessionState, State, Language, Error) {
+	return update(j, "UpdateContactCard", ContactCardType,
+		func(update map[string]PatchObject) ContactCardSetCommand {
+			return ContactCardSetCommand{AccountId: accountId, Update: update}
+		},
+		func(id string) ContactCardGetCommand {
+			return ContactCardGetCommand{AccountId: accountId, Ids: []string{id}}
+		},
+		func(resp ContactCardSetResponse) map[string]SetError { return resp.NotUpdated },
+		func(resp ContactCardGetResponse) ContactCard { return resp.List[0] },
+		id, changes,
 		ctx,
 	)
 }

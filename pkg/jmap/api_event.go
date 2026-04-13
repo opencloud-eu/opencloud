@@ -29,7 +29,7 @@ func (j *Client) QueryCalendarEvents(accountIds []string, //NOSONAR
 				Results:             get.List,
 				CanCalculateChanges: query.CanCalculateChanges,
 				Position:            query.Position,
-				Total:               uintPtrIf(query.Total, calculateTotal),
+				Total:               uintPtrIfPtr(query.Total, calculateTotal),
 				Limit:               query.Limit,
 			}
 		},
@@ -100,6 +100,21 @@ func (j *Client) DeleteCalendarEvent(accountId string, destroyIds []string, ctx 
 		},
 		CalendarEventSetResponse{},
 		accountId, destroyIds,
+		ctx,
+	)
+}
+
+func (j *Client) UpdateCalendarEvent(accountId string, id string, changes CalendarEventChange, ctx Context) (CalendarEvent, SessionState, State, Language, Error) {
+	return update(j, "UpdateCalendarEvent", CalendarEventType,
+		func(update map[string]PatchObject) CalendarEventSetCommand {
+			return CalendarEventSetCommand{AccountId: accountId, Update: update}
+		},
+		func(id string) CalendarEventGetCommand {
+			return CalendarEventGetCommand{AccountId: accountId, Ids: []string{id}}
+		},
+		func(resp CalendarEventSetResponse) map[string]SetError { return resp.NotUpdated },
+		func(resp CalendarEventGetResponse) CalendarEvent { return resp.List[0] },
+		id, changes,
 		ctx,
 	)
 }

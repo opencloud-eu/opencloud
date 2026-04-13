@@ -2,11 +2,12 @@ package jmap
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	golog "log"
+	"maps"
 	"math"
 	"math/rand"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -77,7 +78,7 @@ func TestEvents(t *testing.T) {
 	session := s.Session(user.name)
 	ctx := s.Context(session)
 
-	accountId, calendarId, expectedEventsById, boxes, err := s.fillEvents(t, count, session, user)
+	accountId, calendarId, expectedEventsById, boxes, err := s.fillEvents(t, count, ctx, user)
 	require.NoError(err)
 	require.NotEmpty(accountId)
 	require.NotEmpty(calendarId)
@@ -89,8 +90,10 @@ func TestEvents(t *testing.T) {
 		{Property: CalendarEventPropertyStart, IsAscending: true},
 	}
 
+	ss := EmptySessionState
+	os := EmptyState
 	{
-		resultsByAccount, _, _, _, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, 0, 0, true, ctx)
+		resultsByAccount, sessionState, state, _, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, 0, 0, true, ctx)
 		require.NoError(err)
 
 		require.Len(resultsByAccount, 1)
@@ -108,6 +111,9 @@ func TestEvents(t *testing.T) {
 			require.True(ok, "failed to find created contact by its id")
 			matchEvent(t, actual, expected)
 		}
+
+		ss = sessionState
+		os = state
 	}
 
 	{
@@ -118,8 +124,7 @@ func TestEvents(t *testing.T) {
 		for i := range slices {
 			position := int(i * limit)
 			page := min(remainder, limit)
-			m, _, _, _, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, position, limit, true, ctx)
-			fmt.Printf("=== i=%d | limit=%d | remainder=%d | position=%d | limit=%d | results=%d\n", i, limit, remainder, position, limit, len(m[accountId].Results))
+			m, sessionState, _, _, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, position, limit, true, ctx)
 			require.NoError(err)
 			require.Len(m, 1)
 			require.Contains(m, accountId)
@@ -131,7 +136,52 @@ func TestEvents(t *testing.T) {
 			require.NotNil(results.Total)
 			require.Equal(count, *results.Total)
 			remainder -= uint(len(results.Results))
+
+			require.Equal(ss, sessionState)
 		}
+	}
+
+	for _, event := range expectedEventsById {
+		change := CalendarEventChange{
+			EventChange: jscalendar.EventChange{
+				Status: ptr(jscalendar.StatusCancelled),
+				ObjectChange: jscalendar.ObjectChange{
+					Sequence:        uintPtr(99),
+					ShowWithoutTime: boolPtr(true),
+				},
+			},
+		}
+		changed, sessionState, state, _, err := s.client.UpdateCalendarEvent(accountId, event.Id, change, ctx)
+		require.NoError(err)
+		require.Equal(jscalendar.StatusCancelled, changed.Status)
+		require.Equal(uint(99), changed.Sequence)
+		require.Equal(true, changed.ShowWithoutTime)
+		require.Equal(ss, sessionState)
+		require.NotEqual(os, state)
+		os = state
+	}
+
+	{
+		ids := structs.Map(slices.Collect(maps.Values(expectedEventsById)), func(e CalendarEvent) string { return e.Id })
+		errMap, sessionState, state, _, err := s.client.DeleteCalendarEvent(accountId, ids, ctx)
+		require.NoError(err)
+		require.Empty(errMap)
+
+		require.Equal(ss, sessionState)
+		require.NotEqual(os, state)
+		os = state
+	}
+
+	{
+		shouldBeEmpty, sessionState, state, _, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, 0, 0, true, ctx)
+		require.NoError(err)
+		require.Contains(shouldBeEmpty, accountId)
+		resp := shouldBeEmpty[accountId]
+		require.Empty(resp.Results)
+		require.NotNil(resp.Total)
+		require.Equal(uint(0), *resp.Total)
+		require.Equal(ss, sessionState)
+		require.Equal(os, state)
 	}
 
 	exceptions := []string{}
@@ -165,7 +215,7 @@ func (s *StalwartTest) fillCalendar( //NOSONAR
 
 	boxes := CalendarBoxes{}
 	created := []Calendar{}
-	ss := SessionState("")
+	ss := EmptySessionState
 	as := EmptyState
 
 	printer := func(s string) { golog.Println(s) }
@@ -269,7 +319,7 @@ func (s *StalwartTest) fillCalendar( //NOSONAR
 		}
 		require.NotEmpty(sessionState)
 		require.NotEmpty(state)
-		if ss != SessionState("") {
+		if ss != EmptySessionState {
 			require.Equal(ss, sessionState)
 		}
 		if as != EmptyState {
@@ -294,11 +344,11 @@ type EventsBoxes struct {
 func (s *StalwartTest) fillEvents( //NOSONAR
 	t *testing.T,
 	count uint,
-	session *Session,
+	ctx Context,
 	user User,
 ) (string, string, map[string]CalendarEvent, EventsBoxes, error) {
 	require := require.New(t)
-	c, err := NewTestJmapClient(session, user.name, user.password, true, true)
+	c, err := NewTestJmapClient(ctx.Session, user.name, user.password, true, true)
 	require.NoError(err)
 	defer c.Close()
 
@@ -332,7 +382,6 @@ func (s *StalwartTest) fillEvents( //NOSONAR
 		isDraft := false
 		mainLocationId := ""
 		locationIds := []string{}
-		locationMaps := map[string]map[string]any{}
 		locationObjs := map[string]jscalendar.Location{}
 		{
 			n := 1
@@ -340,8 +389,7 @@ func (s *StalwartTest) fillEvents( //NOSONAR
 				n++
 			}
 			for range n {
-				locationId, locationMap, locationObj := pickLocation()
-				locationMaps[locationId] = locationMap
+				locationId, locationObj := pickLocation()
 				locationObjs[locationId] = locationObj
 				locationIds = append(locationIds, locationId)
 				if n > 0 && mainLocationId == "" {
@@ -349,8 +397,8 @@ func (s *StalwartTest) fillEvents( //NOSONAR
 				}
 			}
 		}
-		virtualLocationId, virtualLocationMap, virtualLocationObj := pickVirtualLocation()
-		participantMaps, participantObjs, organizerEmail := createParticipants(uid, locationIds, []string{virtualLocationId})
+		virtualLocationId, virtualLocationObj := pickVirtualLocation()
+		participantObjs, organizerEmail := createParticipants(uid, locationIds, []string{virtualLocationId})
 		duration := pickRandom("PT30M", "PT45M", "PT1H", "PT90M")
 		tz := pickRandom(timezones...)
 		daysDiff := rand.Intn(31) - 15
@@ -379,52 +427,10 @@ func (s *StalwartTest) fillEvents( //NOSONAR
 		alertId := id()
 		alertOffset := pickRandom("-PT5M", "-PT10M", "-PT15M")
 
-		event := map[string]any{
-			"@type":                  "Event",
-			"calendarIds":            toBoolMapS(calendarId),
-			"isDraft":                isDraft,
-			"start":                  start,
-			"duration":               duration,
-			"status":                 string(status),
-			"uid":                    uid,
-			"prodId":                 productName,
-			"title":                  title,
-			"description":            description,
-			"descriptionContentType": descriptionFormat,
-			"locale":                 locale,
-			"color":                  color,
-			"sequence":               sequence,
-			"showWithoutTime":        false,
-			"freeBusyStatus":         string(freeBusy),
-			"privacy":                string(privacy),
-			"sentBy":                 organizerEmail,
-			"participants":           participantMaps,
-			"timeZone":               tz,
-			"hideAttendees":          false,
-			"replyTo": map[string]string{
-				"imip": "mailto:" + organizerEmail, //NOSONAR
-			},
-			"locations": locationMaps,
-			"virtualLocations": map[string]any{
-				virtualLocationId: virtualLocationMap,
-			},
-			"alerts": map[string]map[string]any{
-				alertId: {
-					"@type": "Alert",
-					"trigger": map[string]any{
-						"@type":      "OffsetTrigger",
-						"offset":     alertOffset,
-						"relativeTo": "start",
-					},
-				},
-			},
-		}
-
 		obj := CalendarEvent{
 			Id:          "",
 			CalendarIds: toBoolMapS(calendarId),
 			IsDraft:     isDraft,
-			IsOrigin:    true,
 			Event: jscalendar.Event{
 				Type:     jscalendar.EventType,
 				Start:    jscalendar.LocalDateTime(start),
@@ -449,7 +455,7 @@ func (s *StalwartTest) fillEvents( //NOSONAR
 					TimeZone:        tz,
 					HideAttendees:   false,
 					ReplyTo: map[jscalendar.ReplyMethod]string{
-						jscalendar.ReplyMethodImip: "mailto:" + organizerEmail,
+						jscalendar.ReplyMethodImip: "mailto:" + organizerEmail, //NOSONAR
 					},
 					Locations: locationObjs,
 					VirtualLocations: map[string]jscalendar.VirtualLocation{
@@ -470,31 +476,26 @@ func (s *StalwartTest) fillEvents( //NOSONAR
 		}
 
 		if EnableEventMayInviteFields {
-			event["mayInviteSelf"] = true
-			event["mayInviteOthers"] = true
 			obj.MayInviteSelf = true
 			obj.MayInviteOthers = true
 			boxes.mayInvite = true
 		}
 
 		if len(keywords) > 0 {
-			event["keywords"] = keywords
 			obj.Keywords = keywords
 			boxes.keywords = true
 		}
 
 		if len(categories) > 0 {
-			event["categories"] = categories
 			obj.Categories = categories
 			boxes.categories = true
 		}
 
 		if mainLocationId != "" {
-			event["mainLocationId"] = mainLocationId
 			obj.MainLocationId = mainLocationId
 		}
 
-		err = propmap(i%2 == 0, 1, 1, event, "links", &obj.Links, func(int, string) (map[string]any, jscalendar.Link, error) {
+		err = propmap(i%2 == 0, 1, 1, &obj.Links, func(int, string) (jscalendar.Link, error) {
 			mime := ""
 			uri := ""
 			rel := jscalendar.RelAbout
@@ -508,17 +509,12 @@ func (s *StalwartTest) fillEvents( //NOSONAR
 				mime = "image/jpeg" //NOSONAR
 				uri = externalImageUri()
 			}
-			return map[string]any{
-					"@type":       "Link",
-					"href":        uri,
-					"contentType": mime,
-					"rel":         string(rel),
-				}, jscalendar.Link{
-					Type:        jscalendar.LinkType,
-					Href:        uri,
-					ContentType: mime,
-					Rel:         rel,
-				}, nil
+			return jscalendar.Link{
+				Type:        jscalendar.LinkType,
+				Href:        uri,
+				ContentType: mime,
+				Rel:         rel,
+			}, nil
 		})
 
 		if rand.Intn(10) > 7 {
@@ -529,15 +525,6 @@ func (s *StalwartTest) fillEvents( //NOSONAR
 				count = 1 + rand.Intn(8)
 			} else {
 				count = 1 + rand.Intn(4)
-			}
-			event["recurrenceRule"] = map[string]any{
-				"@type":          "RecurrenceRule",
-				"frequency":      string(frequency),
-				"interval":       interval,
-				"rscale":         string(jscalendar.RscaleIso8601),
-				"skip":           string(jscalendar.SkipOmit),
-				"firstDayOfWeek": string(jscalendar.DayOfWeekMonday),
-				"count":          count,
 			}
 			rr := jscalendar.RecurrenceRule{
 				Type:           jscalendar.RecurrenceRuleType,
@@ -551,21 +538,16 @@ func (s *StalwartTest) fillEvents( //NOSONAR
 			obj.RecurrenceRule = &rr
 		}
 
-		id, err := s.CreateEvent(c, accountId, event)
+		created, _, _, _, err := s.client.CreateCalendarEvent(accountId, obj, ctx)
 		if err != nil {
 			return accountId, calendarId, nil, boxes, err
 		}
 
-		obj.Id = id
-		filled[id] = obj
+		filled[created.Id] = *created
 
 		printer(fmt.Sprintf("📅 created %*s/%v id=%v", int(math.Log10(float64(count))+1), strconv.Itoa(int(i+1)), count, uid))
 	}
 	return accountId, calendarId, filled, boxes, nil
-}
-
-func (s *StalwartTest) CreateEvent(j *TestJmapClient, accountId string, event map[string]any) (string, error) {
-	return j.create1(accountId, CalendarEventType, event)
 }
 
 var rooms = []jscalendar.Location{
@@ -630,56 +612,35 @@ var virtualRooms = []jscalendar.VirtualLocation{
 	},
 }
 
-func pickLocation() (string, map[string]any, jscalendar.Location) {
+func pickLocation() (string, jscalendar.Location) {
 	locationId := id()
 	room := rooms[rand.Intn(len(rooms))]
-	b, err := json.Marshal(room)
-	if err != nil {
-		panic(err)
-	}
-	var m map[string]any
-	err = json.Unmarshal(b, &m)
-	if err != nil {
-		panic(err)
-	}
-	return locationId, m, room
+	return locationId, room
 }
 
-func pickVirtualLocation() (string, map[string]any, jscalendar.VirtualLocation) {
+func pickVirtualLocation() (string, jscalendar.VirtualLocation) {
 	locationId := id()
 	vroom := virtualRooms[rand.Intn(len(virtualRooms))]
-	b, err := json.Marshal(vroom)
-	if err != nil {
-		panic(err)
-	}
-	var m map[string]any
-	err = json.Unmarshal(b, &m)
-	if err != nil {
-		panic(err)
-	}
-	return locationId, m, vroom
+	return locationId, vroom
 }
 
 var ChairRoles = toBoolMapS(jscalendar.RoleChair, jscalendar.RoleOwner)
 var RegularRoles = toBoolMapS(jscalendar.RoleOptional)
 
-func createParticipants(uid string, locationIds []string, virtualLocationIds []string) (map[string]map[string]any, map[string]jscalendar.Participant, string) {
+func createParticipants(uid string, locationIds []string, virtualLocationIds []string) (map[string]jscalendar.Participant, string) {
 	options := structs.Concat(locationIds, virtualLocationIds)
 	n := 1 + rand.Intn(4)
-	maps := map[string]map[string]any{}
 	objs := map[string]jscalendar.Participant{}
-	organizerId, organizerEmail, organizerMap, organizerObj := createParticipant(0, uid, pickRandom(options...), "", "")
-	maps[organizerId] = organizerMap
+	organizerId, organizerEmail, organizerObj := createParticipant(0, uid, pickRandom(options...), "", "")
 	objs[organizerId] = organizerObj
 	for i := 1; i < n; i++ {
-		id, _, participantMap, participantObj := createParticipant(i, uid, pickRandom(options...), organizerId, organizerEmail)
-		maps[id] = participantMap
+		id, _, participantObj := createParticipant(i, uid, pickRandom(options...), organizerId, organizerEmail)
 		objs[id] = participantObj
 	}
-	return maps, objs, organizerEmail
+	return objs, organizerEmail
 }
 
-func createParticipant(i int, uid string, locationId string, organizerEmail string, organizerId string) (string, string, map[string]any, jscalendar.Participant) {
+func createParticipant(i int, uid string, locationId string, organizerEmail string, organizerId string) (string, string, jscalendar.Participant) {
 	participantId := id()
 	person := gofakeit.Person()
 	roles := RegularRoles
@@ -731,26 +692,6 @@ func createParticipant(i int, uid string, locationId string, organizerEmail stri
 		}
 	}
 
-	m := map[string]any{
-		"@type":                "Participant",
-		"name":                 name,
-		"email":                email,
-		"calendarAddress":      calendarAddress,
-		"kind":                 "individual",
-		"roles":                structs.MapKeys(roles, func(r jscalendar.Role) string { return string(r) }),
-		"locationId":           locationId,
-		"language":             language,
-		"participationStatus":  string(status),
-		"participationComment": statusComment,
-		"expectReply":          true,
-		"scheduleAgent":        "server",
-		"scheduleSequence":     1,
-		"scheduleStatus":       []string{"1.0"},
-		"scheduleUpdated":      updated,
-		"sentBy":               organizerEmail,
-		"invitedBy":            organizerId,
-		"scheduleId":           "mailto:" + email,
-	}
 	o := jscalendar.Participant{
 		Type:                 jscalendar.ParticipantType,
 		Name:                 name,
@@ -773,36 +714,27 @@ func createParticipant(i int, uid string, locationId string, organizerEmail stri
 	}
 
 	if EnableEventParticipantDescriptionFields {
-		m["description"] = description
-		m["descriptionContentType"] = descriptionContentType
 		o.Description = description
 		o.DescriptionContentType = descriptionContentType
 	}
 
-	err = propmap(i%2 == 0, 1, 2, m, "links", &o.Links, func(int, string) (map[string]any, jscalendar.Link, error) {
+	err = propmap(i%2 == 0, 1, 2, &o.Links, func(int, string) (jscalendar.Link, error) {
 		href := externalImageUri()
 		title := person.FirstName + "'s Cake Day pick"
-		return map[string]any{
-				"@type":       "Link",
-				"href":        href,
-				"contentType": "image/jpeg",
-				"rel":         "icon",
-				"display":     "badge",
-				"title":       title,
-			}, jscalendar.Link{
-				Type:        jscalendar.LinkType,
-				Href:        href,
-				ContentType: "image/jpeg",
-				Rel:         jscalendar.RelIcon,
-				Display:     jscalendar.DisplayBadge,
-				Title:       title,
-			}, nil
+		return jscalendar.Link{
+			Type:        jscalendar.LinkType,
+			Href:        href,
+			ContentType: "image/jpeg",
+			Rel:         jscalendar.RelIcon,
+			Display:     jscalendar.DisplayBadge,
+			Title:       title,
+		}, nil
 	})
 	if err != nil {
 		panic(err)
 	}
 
-	return participantId, person.Contact.Email, m, o
+	return participantId, person.Contact.Email, o
 }
 
 var Keywords = []string{
@@ -824,4 +756,8 @@ var Categories = []string{
 
 func pickCategories() map[string]bool {
 	return toBoolMap(pickRandoms(Categories...))
+}
+
+func ptr[T any](t T) *T {
+	return &t
 }

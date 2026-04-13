@@ -707,48 +707,6 @@ func (c Commander[T]) command(body map[string]any) (T, error) {
 	return c.closure(methodResponses)
 }
 
-func (j *TestJmapClient) create(id string, objectType ObjectType, body map[string]any) (string, error) {
-	return newCommander(j, func(methodResponses []any) (string, error) {
-		z := methodResponses[0].([]any)
-		f := z[1].(map[string]any)
-		if x, ok := f["created"]; ok {
-			created := x.(map[string]any)
-			if c, ok := created[id].(map[string]any); ok {
-				return c["id"].(string), nil
-			} else {
-				return "", fmt.Errorf("failed to create %v", objectType)
-			}
-		} else {
-			if ncx, ok := f["notCreated"]; ok {
-				nc := ncx.(map[string]any)
-				c := nc[id].(map[string]any)
-				return "", fmt.Errorf("failed to create %v: %v", objectType, c["description"])
-			} else {
-				return "", fmt.Errorf("failed to create %v", objectType)
-			}
-		}
-	}).command(body)
-}
-
-func (j *TestJmapClient) create1(accountId string, objectType ObjectType, obj map[string]any) (string, error) {
-	body := map[string]any{
-		"using": structs.Map(objectType.Namespaces, func(n JmapNamespace) string { return string(n) }),
-		"methodCalls": []any{
-			[]any{
-				objectType.Name + "/set",
-				map[string]any{
-					"accountId": accountId,
-					"create": map[string]any{
-						"c": obj,
-					},
-				},
-				"0",
-			},
-		},
-	}
-	return j.create("c", objectType, body)
-}
-
 func (j *TestJmapClient) objectsById(accountId string, objectType ObjectType) (map[string]map[string]any, error) {
 	m := map[string]map[string]any{}
 	{
@@ -785,91 +743,60 @@ func (j *TestJmapClient) objectsById(accountId string, objectType ObjectType) (m
 	return m, nil
 }
 
-func createName(person *gofakeit.PersonInfo) (map[string]any, jscontact.Name) {
-	o := jscontact.Name{
+func createName(person *gofakeit.PersonInfo) jscontact.Name {
+	name := jscontact.Name{
 		Type: jscontact.NameType,
 	}
-	m := map[string]any{
-		"@type": "Name",
-	}
-	mComps := make([]map[string]string, 2)
-	oComps := make([]jscontact.NameComponent, 2)
-	mComps[0] = map[string]string{
-		"kind":  "given",
-		"value": person.FirstName,
-	}
-	oComps[0] = jscontact.NameComponent{
+	comps := make([]jscontact.NameComponent, 2)
+	comps[0] = jscontact.NameComponent{
 		Type:  jscontact.NameComponentType,
 		Kind:  jscontact.NameComponentKindGiven,
 		Value: person.FirstName,
 	}
-	mComps[1] = map[string]string{
-		"kind":  "surname",
-		"value": person.LastName,
-	}
-	oComps[1] = jscontact.NameComponent{
+	comps[1] = jscontact.NameComponent{
 		Type:  jscontact.NameComponentType,
 		Kind:  jscontact.NameComponentKindSurname,
 		Value: person.LastName,
 	}
-	m["components"] = mComps
-	o.Components = oComps
-	m["isOrdered"] = true
-	o.IsOrdered = true
-	m["defaultSeparator"] = " "
-	o.DefaultSeparator = " "
+	name.Components = comps
+	name.IsOrdered = true
+	name.DefaultSeparator = " "
 	full := fmt.Sprintf("%s %s", person.FirstName, person.LastName)
-	m["full"] = full
-	o.Full = full
-	return m, o
+	name.Full = full
+	return name
 }
 
-func createNickName(_ *gofakeit.PersonInfo) (map[string]any, jscontact.Nickname) {
+func createNickName(_ *gofakeit.PersonInfo) jscontact.Nickname {
 	name := gofakeit.PetName()
 	contexts := pickRandoms(jscontact.NicknameContextPrivate, jscontact.NicknameContextWork)
-	return map[string]any{
-			"@type":    "Nickname",
-			"name":     name,
-			"contexts": toBoolMap(structs.Map(contexts, func(s jscontact.NicknameContext) string { return string(s) })),
-		}, jscontact.Nickname{
-			Type:     jscontact.NicknameType,
-			Name:     name,
-			Contexts: orNilMap(toBoolMap(contexts)),
-		}
+	return jscontact.Nickname{
+		Type:     jscontact.NicknameType,
+		Name:     name,
+		Contexts: orNilMap(toBoolMap(contexts)),
+	}
 }
 
-func createEmail(person *gofakeit.PersonInfo, pref int) (map[string]any, jscontact.EmailAddress) {
+func createEmail(person *gofakeit.PersonInfo, pref int) jscontact.EmailAddress {
 	email := person.Contact.Email
 	contexts := pickRandoms1(jscontact.EmailAddressContextWork, jscontact.EmailAddressContextPrivate)
 	label := strings.ToLower(person.FirstName)
-	return map[string]any{
-			"@type":    "EmailAddress",
-			"address":  email,
-			"contexts": toBoolMap(structs.Map(contexts, func(s jscontact.EmailAddressContext) string { return string(s) })),
-			"label":    label,
-			"pref":     pref,
-		}, jscontact.EmailAddress{
-			Type:     jscontact.EmailAddressType,
-			Address:  email,
-			Contexts: orNilMap(toBoolMap(contexts)),
-			Label:    label,
-			Pref:     uint(pref),
-		}
+	return jscontact.EmailAddress{
+		Type:     jscontact.EmailAddressType,
+		Address:  email,
+		Contexts: orNilMap(toBoolMap(contexts)),
+		Label:    label,
+		Pref:     uint(pref),
+	}
 }
 
-func createSecondaryEmail(email string, pref int) (map[string]any, jscontact.EmailAddress) {
+func createSecondaryEmail(email string, pref int) jscontact.EmailAddress {
 	contexts := pickRandoms(jscontact.EmailAddressContextWork, jscontact.EmailAddressContextPrivate)
-	return map[string]any{
-			"@type":    "EmailAddress",
-			"address":  email,
-			"contexts": toBoolMap(structs.Map(contexts, func(s jscontact.EmailAddressContext) string { return string(s) })),
-			"pref":     pref,
-		}, jscontact.EmailAddress{
-			Type:     jscontact.EmailAddressType,
-			Address:  email,
-			Contexts: orNilMap(toBoolMap(contexts)),
-			Pref:     uint(pref),
-		}
+	return jscontact.EmailAddress{
+		Type:     jscontact.EmailAddressType,
+		Address:  email,
+		Contexts: orNilMap(toBoolMap(contexts)),
+		Pref:     uint(pref),
+	}
 }
 
 var idFirstLetters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -1087,27 +1014,22 @@ var extendedColors = []string{
 }
 */
 
-func propmap[T any](enabled bool, min int, max int, container map[string]any, name string, cardProperty *map[string]T, generator func(int, string) (map[string]any, T, error)) error {
+func propmap[T any](enabled bool, min int, max int, cardProperty *map[string]T, generator func(int, string) (T, error)) error {
 	if !enabled {
 		return nil
 	}
 	n := min + rand.Intn(max-min+1)
 
-	m := make(map[string]map[string]any, n)
 	o := make(map[string]T, n)
 	for i := range n {
 		id := id()
-		itemForMap, itemForCard, err := generator(i, id)
+		itemForCard, err := generator(i, id)
 		if err != nil {
 			return err
 		}
-		if itemForMap != nil {
-			m[id] = itemForMap
-			o[id] = itemForCard
-		}
+		o[id] = itemForCard
 	}
-	if len(m) > 0 {
-		container[name] = m
+	if len(o) > 0 {
 		*cardProperty = o
 	}
 	return nil
@@ -1255,19 +1177,18 @@ func containerTest[OBJ Idable, RESP GetResponse[OBJ], BOXES any, CHANGE Change](
 		principalIds = structs.Map(principals.List, func(p Principal) string { return p.Id })
 	}
 
-	ss := SessionState("")
+	ss := EmptySessionState
 	as := EmptyState
 
 	// we need to fetch the ID of the default object that automatically exists for each user, in order to exclude it
 	// from the tests below
-	defaultContainerId := ""
+	preExistingIds := []string{}
 	{
 		resp, sessionState, state, _, err := get(s, accountId, []string{}, ctx)
 		require.NoError(err)
 		require.Empty(resp.GetNotFound())
 		objs := obj(resp)
-		require.Len(objs, 1) // the personal calendar that exists by default
-		defaultContainerId = id(objs[0])
+		preExistingIds = structs.Map(objs, id)
 		ss = sessionState
 		as = state
 	}
@@ -1287,8 +1208,8 @@ func containerTest[OBJ Idable, RESP GetResponse[OBJ], BOXES any, CHANGE Change](
 			require.NoError(err)
 			require.Empty(resp.GetNotFound())
 			objs := obj(resp)
-			// lets skip the default object since we did not create that one
-			found := structs.Filter(objs, func(a OBJ) bool { return id(a) != defaultContainerId })
+			// lets skip the objects that already exist since we did not create those
+			found := structs.Filter(objs, func(a OBJ) bool { return !slices.Contains(preExistingIds, id(a)) })
 			require.Len(found, int(num))
 			m := structs.Index(found, id)
 			require.Len(m, int(num))
@@ -1320,7 +1241,25 @@ func containerTest[OBJ Idable, RESP GetResponse[OBJ], BOXES any, CHANGE Change](
 			require.Equal(objs[0], a)
 		}
 
-		// lets modify each AddressBook
+		// let's retrieve them all by their IDs, but this time all at once
+		{
+			ids := structs.Map(all, id)
+			resp, sessionState, state, _, err := get(s, accountId, ids, ctx)
+			require.NoError(err)
+			require.Empty(resp.GetNotFound())
+			objs := obj(resp)
+			require.Len(objs, len(all))
+			require.Equal(sessionState, ss)
+			require.Equal(state, as)
+			allById := structs.Index(all, id)
+			for _, r := range resp.GetList() {
+				a, ok := allById[r.GetId()]
+				require.True(ok, "failed to find object that was retrieved in mass ID request in the list of objects that were created")
+				require.Equal(a, r)
+			}
+		}
+
+		// lets modify each object
 		for _, a := range all {
 			i := id(a)
 			ch := change(a)

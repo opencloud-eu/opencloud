@@ -423,6 +423,14 @@ func uintPtrIf(i uint, condition bool) *uint {
 	}
 }
 
+func uintPtrIfPtr(i *uint, condition bool) *uint {
+	if condition {
+		return i
+	} else {
+		return nil
+	}
+}
+
 func ns(namespaces ...JmapNamespace) []JmapNamespace {
 	result := make([]JmapNamespace, len(namespaces)+1)
 	result[0] = JmapCore

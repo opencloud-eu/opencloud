@@ -39,6 +39,7 @@ const (
 	JmapErrorSocketPushUnsupported
 	JmapErrorMissingCreatedObject
 	JmapInvalidObjectState
+	JmapPatchObjectSerialization
 )
 
 var (
