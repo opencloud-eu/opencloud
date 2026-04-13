@@ -8,8 +8,6 @@ import LinearProgress from '@material-ui/core/LinearProgress';
 import Grid from '@material-ui/core/Grid';
 import Typography from '@material-ui/core/Typography';
 import Button from '@material-ui/core/Button';
-import renderIf from 'render-if';
-
 import { retryHello } from '../actions/common';
 import { ErrorMessage } from '../errors';
 
@@ -19,10 +17,10 @@ class Loading extends React.PureComponent {
 
     return (
         <Grid item align="center">
-          {renderIf(error === null)(() => (
+          {error === null && (
             <LinearProgress className="oc-progress" />
-          ))}
-          {renderIf(error !== null)(() => (
+          )}
+          {error !== null && (
             <div>
               <Typography variant="h5" gutterBottom align="center">
                 {t("konnect.loading.error.headline", "Failed to connect to server")}
@@ -40,7 +38,7 @@ class Loading extends React.PureComponent {
                 {t("konnect.login.retryButton.label", "Retry")}
               </Button>
             </div>
-          ))}
+          )}
         </Grid>
     );
   }
