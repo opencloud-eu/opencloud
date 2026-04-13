@@ -1854,10 +1854,10 @@ def checkVersionPlaceholder():
             },
         ],
         "when": [
-            event["pull_request"],
             {
-                "evaluate": 'CI_COMMIT_PULL_REQUEST_LABELS contains "production_release"',
-            },
+               "event": "pull_request",
+               "evaluate": 'CI_COMMIT_PULL_REQUEST_LABELS contains "production_release"',
+            }
         ],
     }]
 
