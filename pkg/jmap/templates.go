@@ -8,72 +8,8 @@ import (
 	"github.com/rs/zerolog"
 )
 
-type Factory[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], CHANGES any] interface {
-	Namespaces() []JmapNamespace
-	CreateGetCommand(accountId string, ids []string) GETREQ
-	CreateGetResponse() GETRESP
-	MapChanges(oldState, newState State, hasMoreChanges bool, created, updated []T, destroyed []string) CHANGES
-}
-
-type Mailboxes string
-
-const MAILBOX = Mailboxes("MAILBOX")
-
-var _ Factory[Mailbox, MailboxGetCommand, MailboxGetResponse, MailboxChanges] = MAILBOX
-
-func (f Mailboxes) Namespaces() []JmapNamespace {
-	return NS_MAILBOX
-}
-
-func (f Mailboxes) CreateGetCommand(accountId string, ids []string) MailboxGetCommand {
-	return MailboxGetCommand{AccountId: accountId, Ids: ids}
-}
-
-func (f Mailboxes) CreateGetResponse() MailboxGetResponse {
-	return MailboxGetResponse{}
-}
-
-func (f Mailboxes) MapChanges(oldState, newState State, hasMoreChanges bool, created, updated []Mailbox, destroyed []string) MailboxChanges {
-	return MailboxChanges{
-		OldState:       oldState,
-		NewState:       newState,
-		HasMoreChanges: hasMoreChanges,
-		Created:        created,
-		Updated:        updated,
-		Destroyed:      destroyed,
-	}
-}
-
-func fget[F Factory[T, GETREQ, GETRESP, CHANGES], T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], CHANGES any](f Factory[T, GETREQ, GETRESP, CHANGES], //NOSONAR
-	client *Client, name string,
-	accountId string, ids []string,
-	ctx Context) (GETRESP, SessionState, State, Language, Error) {
-	var getresp GETRESP
-	return get(client, name, f.Namespaces(),
-		f.CreateGetCommand,
-		getresp,
-		identity1,
-		accountId, ids,
-		ctx,
-	)
-}
-
-func fgetA[F Factory[T, GETREQ, GETRESP, CHANGES], T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], CHANGES any](f Factory[T, GETREQ, GETRESP, CHANGES], //NOSONAR
-	client *Client, name string,
-	accountId string, ids []string,
-	ctx Context) ([]T, SessionState, State, Language, Error) {
-	var getresp GETRESP
-	return getA(client, name, f.Namespaces(),
-		f.CreateGetCommand,
-		getresp,
-		accountId,
-		ids,
-		ctx,
-	)
-}
-
 func get[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
-	client *Client, name string, using []JmapNamespace,
+	client *Client, name string, objType ObjectType,
 	getCommandFactory func(string, []string) GETREQ,
 	_ GETRESP,
 	mapper func(GETRESP) RESP,
@@ -83,7 +19,7 @@ func get[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP any]( //NOSON
 	var zero RESP
 
 	get := getCommandFactory(accountId, ids)
-	cmd, err := client.request(ctx, using, invocation(get, "0"))
+	cmd, err := client.request(ctx, objType.Namespaces, invocation(get, "0"))
 	if err != nil {
 		return zero, "", "", "", err
 	}
@@ -100,35 +36,20 @@ func get[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP any]( //NOSON
 }
 
 func getA[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T]]( //NOSONAR
-	client *Client, name string, using []JmapNamespace,
+	client *Client, name string, objType ObjectType,
 	getCommandFactory func(string, []string) GETREQ,
 	resp GETRESP,
 	accountId string, ids []string, ctx Context) ([]T, SessionState, State, Language, Error) {
-	return get(client, name, using, getCommandFactory, resp, func(r GETRESP) []T { return r.GetList() }, accountId, ids, ctx)
-}
-
-func fgetAN[F Factory[T, GETREQ, GETRESP, CHANGES], T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP any, CHANGES any](f Factory[T, GETREQ, GETRESP, CHANGES], //NOSONAR
-	client *Client, name string,
-	respMapper func(map[string][]T) RESP,
-	accountIds []string, ids []string,
-	ctx Context) (RESP, SessionState, State, Language, Error) {
-	var getresp GETRESP
-	return getAN(client, name, f.Namespaces(),
-		f.CreateGetCommand,
-		getresp,
-		respMapper,
-		accountIds, ids,
-		ctx,
-	)
+	return get(client, name, objType, getCommandFactory, resp, func(r GETRESP) []T { return r.GetList() }, accountId, ids, ctx)
 }
 
 func getAN[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
-	client *Client, name string, using []JmapNamespace,
+	client *Client, name string, objType ObjectType,
 	getCommandFactory func(string, []string) GETREQ,
 	resp GETRESP,
 	respMapper func(map[string][]T) RESP,
 	accountIds []string, ids []string, ctx Context) (RESP, SessionState, State, Language, Error) {
-	return getN(client, name, using, getCommandFactory, resp,
+	return getN(client, name, objType, getCommandFactory, resp,
 		func(r GETRESP) []T { return r.GetList() },
 		respMapper,
 		accountIds, ids,
@@ -137,7 +58,7 @@ func getAN[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP any]( //NOS
 }
 
 func getN[T Foo, ITEM any, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
-	client *Client, name string, using []JmapNamespace,
+	client *Client, name string, objType ObjectType,
 	getCommandFactory func(string, []string) GETREQ,
 	_ GETRESP,
 	itemMapper func(GETRESP) ITEM,
@@ -158,7 +79,7 @@ func getN[T Foo, ITEM any, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP an
 		invocations[i] = invocation(get, mcid(accountId, "0"))
 	}
 
-	cmd, err := client.request(ctx, using, invocations...)
+	cmd, err := client.request(ctx, objType.Namespaces, invocations...)
 	if err != nil {
 		return zero, "", "", "", err
 	}
@@ -180,7 +101,7 @@ func getN[T Foo, ITEM any, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP an
 }
 
 func create[T Foo, C any, SETREQ SetCommand[T], GETREQ GetCommand[T], SETRESP SetResponse[T], GETRESP GetResponse[T]]( //NOSONAR
-	client *Client, name string, using []JmapNamespace,
+	client *Client, name string, objType ObjectType,
 	setCommandFactory func(string, map[string]C) SETREQ,
 	getCommandFactory func(string, string) GETREQ,
 	createdMapper func(SETRESP) map[string]*T,
@@ -193,7 +114,7 @@ func create[T Foo, C any, SETREQ SetCommand[T], GETREQ GetCommand[T], SETRESP Se
 	createMap := map[string]C{"c": create}
 	get := getCommandFactory(accountId, "#c")
 	set := setCommandFactory(accountId, createMap)
-	cmd, err := client.request(ctx, using,
+	cmd, err := client.request(ctx, objType.Namespaces,
 		invocation(set, "0"),
 		invocation(get, "1"),
 	)
@@ -240,14 +161,14 @@ func create[T Foo, C any, SETREQ SetCommand[T], GETREQ GetCommand[T], SETRESP Se
 	})
 }
 
-func destroy[T Foo, REQ SetCommand[T], RESP SetResponse[T]](client *Client, name string, using []JmapNamespace, //NOSONAR
+func destroy[T Foo, REQ SetCommand[T], RESP SetResponse[T]](client *Client, name string, objType ObjectType, //NOSONAR
 	setCommandFactory func(string, []string) REQ, _ RESP,
 	accountId string, destroy []string, ctx Context) (map[string]SetError, SessionState, State, Language, Error) {
 	logger := client.logger(name, ctx)
 	ctx = ctx.WithLogger(logger)
 
 	set := setCommandFactory(accountId, destroy)
-	cmd, err := client.request(ctx, using,
+	cmd, err := client.request(ctx, objType.Namespaces,
 		invocation(set, "0"),
 	)
 	if err != nil {
@@ -265,7 +186,7 @@ func destroy[T Foo, REQ SetCommand[T], RESP SetResponse[T]](client *Client, name
 }
 
 func changesA[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESRESP ChangesResponse[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
-	client *Client, name string, using []JmapNamespace,
+	client *Client, name string, objType ObjectType,
 	changesCommandFactory func() CHANGESREQ,
 	changesResp CHANGESRESP,
 	_ GETRESP,
@@ -273,7 +194,7 @@ func changesA[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGES
 	respMapper func(State, State, bool, []T, []T, []string) RESP,
 	ctx Context) (RESP, SessionState, State, Language, Error) {
 
-	return changes(client, name, using, changesCommandFactory, changesResp, getCommandFactory,
+	return changes(client, name, objType, changesCommandFactory, changesResp, getCommandFactory,
 		func(r GETRESP) []T { return r.GetList() },
 		respMapper,
 		ctx,
@@ -281,7 +202,7 @@ func changesA[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGES
 }
 
 func changes[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESRESP ChangesResponse[T], GETRESP GetResponse[T], ITEM any, RESP any]( //NOSONAR
-	client *Client, name string, using []JmapNamespace,
+	client *Client, name string, objType ObjectType,
 	changesCommandFactory func() CHANGESREQ,
 	_ CHANGESRESP,
 	getCommandFactory func(string, string) GETREQ,
@@ -295,7 +216,7 @@ func changes[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESR
 	getCreated := getCommandFactory("/created", "0") //NOSONAR
 	getUpdated := getCommandFactory("/updated", "0") //NOSONAR
 
-	cmd, err := client.request(ctx.WithLogger(logger), using,
+	cmd, err := client.request(ctx.WithLogger(logger), objType.Namespaces,
 		invocation(changes, "0"),
 		invocation(getCreated, "1"),
 		invocation(getUpdated, "2"),
@@ -335,7 +256,7 @@ func changes[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESR
 }
 
 func changesN[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESRESP ChangesResponse[T], GETRESP GetResponse[T], ITEM any, CHANGESITEM any, RESP any]( //NOSONAR
-	client *Client, name string, using []JmapNamespace,
+	client *Client, name string, objType ObjectType,
 	accountIds []string, sinceStateMap map[string]State,
 	changesCommandFactory func(string, State) CHANGESREQ,
 	_ CHANGESRESP,
@@ -362,8 +283,9 @@ func changesN[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGES
 	}
 
 	invocations := make([]Invocation, n*3)
-	getCommand := Command("")
-	changesCommand := Command("")
+	var ch CHANGESREQ
+	var gc GETREQ
+	var gu GETREQ
 	for i, accountId := range uniqueAccountIds {
 		sinceState, ok := sinceStateMap[accountId]
 		if !ok {
@@ -379,13 +301,14 @@ func changesN[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGES
 		invocations[i*3+1] = invocation(getCreated, mcid(accountId, "1"))
 		invocations[i*3+2] = invocation(getUpdated, mcid(accountId, "2"))
 
-		changesCommand = changes.GetCommand()
-		getCommand = getCreated.GetCommand()
+		ch = changes
+		gc = getCreated
+		gu = getUpdated
 	}
 
 	ctx = ctx.WithLogger(logger)
 
-	cmd, err := client.request(ctx, using, invocations...)
+	cmd, err := client.request(ctx, objType.Namespaces, invocations...)
 	if err != nil {
 		return zero, "", "", "", err
 	}
@@ -395,19 +318,19 @@ func changesN[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGES
 		stateByAccountId := make(map[string]State, n)
 		for _, accountId := range uniqueAccountIds {
 			var changesResponse CHANGESRESP
-			err = retrieveResponseMatchParameters(ctx, body, changesCommand, mcid(accountId, "0"), &changesResponse)
+			err = retrieveChanges(ctx, body, ch, mcid(accountId, "0"), &changesResponse)
 			if err != nil {
 				return zero, "", err
 			}
 
 			var createdResponse GETRESP
-			err = retrieveResponseMatchParameters(ctx, body, getCommand, mcid(accountId, "1"), &createdResponse)
+			err = retrieveGet(ctx, body, gc, mcid(accountId, "1"), &createdResponse)
 			if err != nil {
 				return zero, "", err
 			}
 
 			var updatedResponse GETRESP
-			err = retrieveResponseMatchParameters(ctx, body, getCommand, mcid(accountId, "2"), &updatedResponse)
+			err = retrieveGet(ctx, body, gu, mcid(accountId, "2"), &updatedResponse)
 			if err != nil {
 				return zero, "", err
 			}
@@ -422,7 +345,7 @@ func changesN[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGES
 }
 
 func updates[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESRESP ChangesResponse[T], GETRESP GetResponse[T], ITEM any, RESP any]( //NOSONAR
-	client *Client, name string, using []JmapNamespace,
+	client *Client, name string, objType ObjectType,
 	changesCommandFactory func() CHANGESREQ,
 	_ CHANGESRESP,
 	getCommandFactory func(string, string) GETREQ,
@@ -435,7 +358,7 @@ func updates[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESR
 
 	changes := changesCommandFactory()
 	getUpdated := getCommandFactory("/updated", "0") //NOSONAR
-	cmd, err := client.request(ctx, using,
+	cmd, err := client.request(ctx, objType.Namespaces,
 		invocation(changes, "0"),
 		invocation(getUpdated, "1"),
 	)
@@ -464,7 +387,8 @@ func updates[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESR
 	})
 }
 
-func update[T Foo, CHANGES Change, SET SetCommand[T], GET GetCommand[T], RESP any, SETRESP SetResponse[T], GETRESP GetResponse[T]](client *Client, name string, using []JmapNamespace, //NOSONAR
+func update[T Foo, CHANGES Change, SET SetCommand[T], GET GetCommand[T], RESP any, SETRESP SetResponse[T], GETRESP GetResponse[T]]( //NOSONAR
+	client *Client, name string, objType ObjectType,
 	setCommandFactory func(map[string]PatchObject) SET,
 	getCommandFactory func(string) GET,
 	notUpdatedExtractor func(SETRESP) map[string]SetError,
@@ -473,9 +397,10 @@ func update[T Foo, CHANGES Change, SET SetCommand[T], GET GetCommand[T], RESP an
 	ctx Context) (RESP, SessionState, State, Language, Error) {
 	logger := client.logger(name, ctx)
 	ctx = ctx.WithLogger(logger)
+
 	update := setCommandFactory(map[string]PatchObject{id: changes.AsPatch()})
 	get := getCommandFactory(id)
-	cmd, err := client.request(ctx, using, invocation(update, "0"), invocation(get, "1"))
+	cmd, err := client.request(ctx, objType.Namespaces, invocation(update, "0"), invocation(get, "1"))
 	var zero RESP
 	if err != nil {
 		return zero, "", "", "", err
@@ -503,7 +428,7 @@ func update[T Foo, CHANGES Change, SET SetCommand[T], GET GetCommand[T], RESP an
 }
 
 func query[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T], QUERYRESP QueryResponse[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
-	client *Client, name string, using []JmapNamespace,
+	client *Client, name string, objType ObjectType,
 	defaultSortBy []SORT,
 	queryCommandFactory func(filter FILTER, sortBy []SORT, limit uint, position uint) QUERY,
 	getCommandFactory func(cmd Command, path string, rof string) GET,
@@ -523,7 +448,7 @@ func query[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T]
 
 	var zero RESP
 
-	cmd, err := client.request(ctx, using, invocation(query, "0"), invocation(get, "1"))
+	cmd, err := client.request(ctx, objType.Namespaces, invocation(query, "0"), invocation(get, "1"))
 	if err != nil {
 		return zero, "", "", "", err
 	}
@@ -544,7 +469,7 @@ func query[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T]
 }
 
 func queryN[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T], QUERYRESP QueryResponse[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
-	client *Client, name string, using []JmapNamespace,
+	client *Client, name string, objType ObjectType,
 	defaultSortBy []SORT,
 	queryCommandFactory func(accountId string, filter FILTER, sortBy []SORT, position int, limit uint) QUERY,
 	getCommandFactory func(accountId string, cmd Command, path string, rof string) GET,
@@ -552,6 +477,9 @@ func queryN[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T
 	accountIds []string,
 	filter FILTER, sortBy []SORT, limit uint, position int,
 	ctx Context) (map[string]RESP, SessionState, State, Language, Error) {
+	logger := client.logger(name, ctx)
+	ctx = ctx.WithLogger(logger)
+
 	uniqueAccountIds := structs.Uniq(accountIds)
 
 	if sortBy == nil {
@@ -570,7 +498,7 @@ func queryN[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T
 		g = get
 	}
 
-	cmd, err := client.request(ctx, NS_CALENDARS, invocations...)
+	cmd, err := client.request(ctx, objType.Namespaces, invocations...)
 	if err != nil {
 		return nil, "", "", "", err
 	}

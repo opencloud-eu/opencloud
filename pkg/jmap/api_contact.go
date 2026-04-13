@@ -3,7 +3,7 @@ package jmap
 var NS_CONTACTS = ns(JmapContacts)
 
 func (j *Client) GetContactCards(accountId string, contactIds []string, ctx Context) (ContactCardGetResponse, SessionState, State, Language, Error) {
-	return get(j, "GetContactCards", NS_CONTACTS,
+	return get(j, "GetContactCards", ContactCardType,
 		func(accountId string, ids []string) ContactCardGetCommand {
 			return ContactCardGetCommand{AccountId: accountId, Ids: contactIds}
 		},
@@ -19,7 +19,7 @@ type ContactCardChanges = ChangesTemplate[ContactCard]
 // Retrieve the changes in Contact Cards since a given State.
 // @api:tags contact,changes
 func (j *Client) GetContactCardChanges(accountId string, sinceState State, maxChanges uint, ctx Context) (ContactCardChanges, SessionState, State, Language, Error) {
-	return changes(j, "GetContactCardChanges", NS_CONTACTS,
+	return changes(j, "GetContactCardChanges", ContactCardType,
 		func() ContactCardChangesCommand {
 			return ContactCardChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: uintPtr(maxChanges)}
 		},
@@ -63,7 +63,7 @@ func (j *Client) QueryContactCards(accountIds []string,
 	filter ContactCardFilterElement, sortBy []ContactCardComparator,
 	position int, limit uint, calculateTotal bool,
 	ctx Context) (map[string]ContactCardSearchResults, SessionState, State, Language, Error) {
-	return queryN(j, "QueryContactCards", NS_CONTACTS,
+	return queryN(j, "QueryContactCards", ContactCardType,
 		[]ContactCardComparator{{Property: ContactCardPropertyUpdated, IsAscending: false}},
 		func(accountId string, filter ContactCardFilterElement, sortBy []ContactCardComparator, position int, limit uint) ContactCardQueryCommand {
 			return ContactCardQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, Position: position, Limit: uintPtr(limit), CalculateTotal: calculateTotal}
@@ -86,7 +86,7 @@ func (j *Client) QueryContactCards(accountIds []string,
 }
 
 func (j *Client) CreateContactCard(accountId string, contact ContactCard, ctx Context) (*ContactCard, SessionState, State, Language, Error) {
-	return create(j, "CreateContactCard", NS_CONTACTS,
+	return create(j, "CreateContactCard", ContactCardType,
 		func(accountId string, create map[string]ContactCard) ContactCardSetCommand {
 			return ContactCardSetCommand{AccountId: accountId, Create: create}
 		},
@@ -105,7 +105,7 @@ func (j *Client) CreateContactCard(accountId string, contact ContactCard, ctx Co
 }
 
 func (j *Client) DeleteContactCard(accountId string, destroyIds []string, ctx Context) (map[string]SetError, SessionState, State, Language, Error) {
-	return destroy(j, "DeleteContactCard", NS_CONTACTS,
+	return destroy(j, "DeleteContactCard", ContactCardType,
 		func(accountId string, destroy []string) ContactCardSetCommand {
 			return ContactCardSetCommand{AccountId: accountId, Destroy: destroy}
 		},

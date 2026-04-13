@@ -806,12 +806,13 @@ func (e Exemplar) EmailBodyPart() EmailBodyPart {
 	}
 }
 
-func (e Exemplar) Emails() Emails {
-	return Emails{
-		Emails: []Email{e.Email()},
-		Total:  132,
-		Limit:  1,
-		Offset: 5,
+func (e Exemplar) Emails() EmailSearchResults {
+	return EmailSearchResults{
+		Results:             []Email{e.Email()},
+		Total:               uintPtr(132),
+		Limit:               1,
+		Position:            5,
+		CanCalculateChanges: true,
 	}
 }
 
@@ -820,7 +821,7 @@ func (e Exemplar) EmailGetResponse() EmailGetResponse {
 		AccountId: e.AccountId,
 		State:     "aesh2ahj",
 		NotFound:  []string{"ahx"},
-		List:      e.Emails().Emails,
+		List:      e.Emails().Results,
 	}
 }
 

@@ -12,7 +12,7 @@ const (
 )
 
 func (j *Client) GetVacationResponse(accountId string, ctx Context) (VacationResponseGetResponse, SessionState, State, Language, Error) {
-	return get(j, "GetVacationResponse", NS_VACATION,
+	return get(j, "GetVacationResponse", VacationResponseType,
 		func(accountId string, ids []string) VacationResponseGetCommand {
 			return VacationResponseGetCommand{AccountId: accountId}
 		},

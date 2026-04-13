@@ -1,6 +1,7 @@
 package jmap
 
 import (
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -223,7 +224,15 @@ func TestWs(t *testing.T) {
 		require.Equal(state, changes.NewState)
 		require.Empty(changes.Created)
 		require.Len(changes.Destroyed, 2)
-		require.EqualValues(emailIds, changes.Destroyed)
+		{
+			a := make([]string, len(emailIds))
+			copy(a, emailIds)
+			slices.Sort(emailIds)
+			b := make([]string, len(changes.Destroyed))
+			copy(b, changes.Destroyed)
+			slices.Sort(changes.Destroyed)
+			require.EqualValues(a, b)
+		}
 		require.Empty(changes.Updated)
 		lastState = state
 	}
