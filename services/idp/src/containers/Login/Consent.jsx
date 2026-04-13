@@ -4,8 +4,6 @@ import {connect} from 'react-redux';
 
 import {withTranslation, Trans} from 'react-i18next';
 
-import renderIf from 'render-if';
-
 import {withStyles} from '@material-ui/core/styles';
 import Button from '@material-ui/core/Button';
 import BaseTooltip from '@material-ui/core/Tooltip';
@@ -165,11 +163,11 @@ class Consent extends React.PureComponent {
                         </div>
                     </DialogActions>
 
-                    {renderIf(errors.http)(() => (
+                    {errors.http && (
                         <Typography variant="subtitle2" color="error" className={classes.message}>
                             <ErrorMessage error={errors.http}></ErrorMessage>
                         </Typography>
-                    ))}
+                    )}
                 </form>
             </DialogContent>
         );

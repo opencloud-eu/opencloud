@@ -4,8 +4,6 @@ import { connect } from 'react-redux';
 
 import { withTranslation } from 'react-i18next';
 
-import renderIf from 'render-if';
-
 import { withStyles } from '@material-ui/core/styles';
 import Button from '@material-ui/core/Button';
 import Typography from '@material-ui/core/Typography';
@@ -36,7 +34,7 @@ class Goodbyescreen extends React.PureComponent {
     const loading = hello === null;
     return (
       <ResponsiveScreen loading={loading} branding={branding}>
-        {renderIf(hello !== null && !hello.state)(() => (
+        {hello !== null && !hello.state && (
           <div>
             <Typography variant="h5" component="h3">
               {t("konnect.goodbye.headline", "Goodbye")}
@@ -48,8 +46,8 @@ class Goodbyescreen extends React.PureComponent {
               {t("konnect.goodbye.message.close", "You can close this window now.")}
             </Typography>
           </div>
-        ))}
-        {renderIf(hello !== null && hello.state === true)(() => (
+        )}
+        {hello !== null && hello.state === true && (
           <div>
             <Typography variant="h5" component="h3">
               {t("konnect.goodbye.confirm.headline", "Hello {{displayName}}", { displayName: hello.displayName })}
@@ -75,7 +73,7 @@ class Goodbyescreen extends React.PureComponent {
               </div>
             </DialogActions>
           </div>
-        ))}
+        )}
       </ResponsiveScreen>
     );
   }

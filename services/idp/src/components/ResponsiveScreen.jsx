@@ -1,7 +1,5 @@
 import React, { useContext } from 'react';
 import PropTypes from 'prop-types';
-import classNames from 'classnames';
-
 import { Trans } from 'react-i18next';
 
 import { withStyles } from '@material-ui/core/styles';
@@ -62,7 +60,7 @@ const ResponsiveScreen = (props) => {
       alignItems="center"
       direction="column"
       spacing={0}
-      className={classNames(classes.root, className)}
+      className={[classes.root, className].filter(Boolean).join(' ')}
       {...other}
     >
       <div className={classes.wrapper}>
