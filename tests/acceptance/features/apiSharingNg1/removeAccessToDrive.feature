@@ -137,7 +137,7 @@ Feature: Remove access to a drive
   Scenario: user cannot remove himself from the project space if he is the last manager using root endpoint
     Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "NewSpace" with the default quota using the Graph API
-    When user "Alice" tries to remove the access of user "Alice" from space "NewSpace" using root endpoint of the Graph API
+    When user "Alice" tries to remove own access from space "NewSpace" using root endpoint of the Graph API
     Then the HTTP status code should be "403"
     And the user "Alice" should have a space called "NewSpace"
 
@@ -152,7 +152,7 @@ Feature: Remove access to a drive
       | sharee          | group1   |
       | shareType       | group    |
       | permissionsRole | Manager  |
-    And user "Alice" has removed the access of user "Alice" from space "NewSpace"
+    And user "Alice" has removed own access from space "NewSpace"
     When user "Brian" tries to remove the access of group "group1" from space "NewSpace" using root endpoint of the Graph API
     Then the HTTP status code should be "403"
     And the user "Brian" should have a space called "NewSpace"
