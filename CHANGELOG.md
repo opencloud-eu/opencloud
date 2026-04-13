@@ -1,6 +1,6 @@
 # Changelog
 
-## [6.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v6.1.0) - 2026-04-12
+## [6.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v6.1.0) - 2026-04-13
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -14,6 +14,8 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/nats-io/nats.go from 1.49.0 to 1.50.0 [[#2587](https://github.com/opencloud-eu/opencloud/pull/2587)]
+- build(deps): bump go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc from 1.42.0 to 1.43.0 [[#2586](https://github.com/opencloud-eu/opencloud/pull/2586)]
 - chore: bump reva to latest main [[#2584](https://github.com/opencloud-eu/opencloud/pull/2584)]
 - build(deps): bump golang.org/x/image from 0.36.0 to 0.38.0 [[#2581](https://github.com/opencloud-eu/opencloud/pull/2581)]
 - build(deps-dev): bump css-minimizer-webpack-plugin from 7.0.4 to 8.0.0 in /services/idp [[#2551](https://github.com/opencloud-eu/opencloud/pull/2551)]
