@@ -14,6 +14,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps-dev): bump dotenv from 16.4.7 to 17.4.2 in /services/idp [[#2603](https://github.com/opencloud-eu/opencloud/pull/2603)]
 - chore: bump IDP javascript dependencies [[#2600](https://github.com/opencloud-eu/opencloud/pull/2600)]
 - build(deps): bump github.com/nats-io/nats.go from 1.49.0 to 1.50.0 [[#2587](https://github.com/opencloud-eu/opencloud/pull/2587)]
 - build(deps): bump go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc from 1.42.0 to 1.43.0 [[#2586](https://github.com/opencloud-eu/opencloud/pull/2586)]
