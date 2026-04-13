@@ -158,3 +158,32 @@ func (g *Groupware) DeleteAddressBook(w http.ResponseWriter, r *http.Request) {
 		return req.noContent(accountId, sessionState, AddressBookResponseObjectType, state)
 	})
 }
+
+func (g *Groupware) ModifyAddressBook(w http.ResponseWriter, r *http.Request) {
+	g.respond(w, r, func(req Request) Response {
+		ok, accountId, resp := req.needContactWithAccount()
+		if !ok {
+			return resp
+		}
+		l := req.logger.With().Str(accountId, log.SafeString(accountId))
+		id, err := req.PathParamDoc(UriParamAddressBookId, "The unique identifier of the AddressBook to modify")
+		if err != nil {
+			return req.error(accountId, err)
+		}
+		l.Str(UriParamAddressBookId, log.SafeString(id))
+
+		var change jmap.AddressBookChange
+		err = req.body(&change)
+		if err != nil {
+			return req.error(accountId, err)
+		}
+
+		logger := log.From(l)
+		ctx := req.ctx.WithLogger(logger)
+		updated, sessionState, state, lang, jerr := g.jmap.UpdateAddressBook(accountId, id, change, ctx)
+		if jerr != nil {
+			return req.jmapError(accountId, jerr, sessionState, lang)
+		}
+		return req.respond(accountId, updated, sessionState, AddressBookResponseObjectType, state)
+	})
+}
