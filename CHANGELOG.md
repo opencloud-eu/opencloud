@@ -1,10 +1,10 @@
 # Changelog
 
-## [6.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v6.1.0) - 2026-04-13
+## [6.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v6.1.0) - 2026-04-14
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@JammingBen, @pedropintosilva, @rhafer
+@JammingBen, @aduffeck, @pedropintosilva, @rhafer
 
 ### 📈 Enhancement
 
@@ -14,6 +14,7 @@
 
 ### 📦️ Dependencies
 
+- Bump reva  [[#2611](https://github.com/opencloud-eu/opencloud/pull/2611)]
 - chore(idp): clean up js dependencies [[#2607](https://github.com/opencloud-eu/opencloud/pull/2607)]
 - build(deps-dev): bump dotenv from 16.4.7 to 17.4.2 in /services/idp [[#2603](https://github.com/opencloud-eu/opencloud/pull/2603)]
 - chore: bump IDP javascript dependencies [[#2600](https://github.com/opencloud-eu/opencloud/pull/2600)]
