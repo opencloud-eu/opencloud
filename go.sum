@@ -954,8 +954,8 @@ github.com/opencloud-eu/inotifywaitgo v0.0.0-20251111171128-a390bae3c5e9 h1:dIft
 github.com/opencloud-eu/inotifywaitgo v0.0.0-20251111171128-a390bae3c5e9/go.mod h1:JWyDC6H+5oZRdUJUgKuaye+8Ph5hEs6HVzVoPKzWSGI=
 github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260310090739-853d972b282d h1:JcqGDiyrcaQwVyV861TUyQgO7uEmsjkhfm7aQd84dOw=
 github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260310090739-853d972b282d/go.mod h1:pzatilMEHZFT3qV7C/X3MqOa3NlRQuYhlRhZTL+hN6Q=
-github.com/opencloud-eu/reva/v2 v2.42.7-0.20260409144540-a3009b33f38b h1:lLTcDZUErhKa88ho+bAecGDcnuIccVZVPoFKfWpLB28=
-github.com/opencloud-eu/reva/v2 v2.42.7-0.20260409144540-a3009b33f38b/go.mod h1:45YSzBU2klnEfdb6dlo6DMNr9ttE/7C9gd8n3g8Co3Y=
+github.com/opencloud-eu/reva/v2 v2.42.7-0.20260413125349-61dfc72a7d60 h1:XzEgzKHK1uj/Y5dLq3jvj+bqoD91L3JPyN8AhVUXPxs=
+github.com/opencloud-eu/reva/v2 v2.42.7-0.20260413125349-61dfc72a7d60/go.mod h1:kLxe5tA2IfxRPHSHRN2KbrQ10C/I3O+WnPqUg6yD9cA=
 github.com/opencloud-eu/secure v0.0.0-20260312082735-b6f5cb2244e4 h1:l2oB/RctH+t8r7QBj5p8thfEHCM/jF35aAY3WQ3hADI=
 github.com/opencloud-eu/secure v0.0.0-20260312082735-b6f5cb2244e4/go.mod h1:BmF5hyM6tXczk3MpQkFf1hpKSRqCyhqcbiQtiAF7+40=
 github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=

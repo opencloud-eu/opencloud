@@ -1105,8 +1105,11 @@ func mdToPropResponse(ctx context.Context, pf *XML, md *provider.ResourceInfo, p
 				sublog.Error().Err(err).Msg("could not unmarshal link json")
 			}
 		}
-		if quota = utils.ReadPlainFromOpaque(md.Opaque, "quota"); quota == "" {
+		switch quota = utils.ReadPlainFromOpaque(md.Opaque, "quota"); quota {
+		case "":
 			quota = net.PropQuotaUnknown
+		case "0":
+			quota = net.PropQuotaUnlimited
 		}
 		if md.Opaque.Map["lock"] != nil && md.Opaque.Map["lock"].Decoder == "json" {
 			lock = &provider.Lock{}
