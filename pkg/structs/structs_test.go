@@ -2,6 +2,7 @@ package structs
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -52,7 +53,7 @@ func TestUniqWithInts(t *testing.T) {
 		{[]int{1, 1, 1}, []int{1}},
 	}
 	for i, tt := range tests {
-		t.Run(fmt.Sprintf("%d: testing %v", i+1, tt.input), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%d: testing %v", i+1, tt.input), func(t *testing.T) { //NOSONAR
 			result := Uniq(tt.input)
 			assert.EqualValues(t, tt.expected, result)
 		})
@@ -101,68 +102,84 @@ func TestKeys(t *testing.T) {
 	}
 }
 
-func TestMissing(t *testing.T) {
+func TestIndex(t *testing.T) {
 	tests := []struct {
-		source   []string
 		input    []string
-		expected []string
+		indexer  func(string) string
+		expected map[string]string
 	}{
-		{[]string{"a", "b", "c"}, []string{"c", "b", "a"}, []string{}},
-		{[]string{"a", "b", "c"}, []string{"c", "b"}, []string{"a"}},
-		{[]string{"a", "b", "c"}, []string{"c", "b", "a", "d"}, []string{}},
-		{[]string{}, []string{"c", "b"}, []string{}},
-		{[]string{"a", "b", "c"}, []string{}, []string{"a", "b", "c"}},
-		{[]string{"a", "b", "b", "c"}, []string{"a", "b"}, []string{"c"}},
+		{
+			[]string{"un", "deux", "trois"},
+			strings.ToUpper,
+			map[string]string{"UN": "un", "DEUX": "deux", "TROIS": "trois"},
+		},
 	}
 	for i, tt := range tests {
-		t.Run(fmt.Sprintf("%d: testing [%v] <-> [%v] == [%v]", i+1, strings.Join(tt.source, ", "), strings.Join(tt.input, ", "), strings.Join(tt.expected, ", ")), func(t *testing.T) {
-			result := Missing(tt.source, tt.input)
+		t.Run(fmt.Sprintf("%d: testing %v", i+1, tt.input), func(t *testing.T) {
+			result := Index(tt.input, tt.indexer)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
 
-func TestAny(t *testing.T) {
-	always := func(s string) bool { return true }
-	never := func(s string) bool { return false }
-	assert.True(t, Any([]string{"a", "b", "c"}, always))
-	assert.False(t, Any([]string{}, always))
-	assert.False(t, Any(nil, always))
-	assert.False(t, Any([]string{"a", "b", "c"}, never))
-	assert.False(t, Any(nil, never))
+func TestMap(t *testing.T) {
+	tests := []struct {
+		input    []string
+		mapper   func(string) int
+		expected []int
+	}{
+		{
+			nil,
+			func(s string) int { return len(s) },
+			nil,
+		},
+		{
+			[]string{},
+			func(s string) int { return len(s) },
+			[]int{},
+		},
+		{
+			[]string{"un", "deux", "trois"},
+			func(s string) int { return len(s) },
+			[]int{2, 4, 5},
+		},
+	}
+	for i, tt := range tests {
+		t.Run(fmt.Sprintf("%d: testing %v", i+1, tt.input), func(t *testing.T) {
+			result := Map(tt.input, tt.mapper)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }
 
-func TestAnyKey(t *testing.T) {
-	always := func(s string) bool { return true }
-	never := func(s string) bool { return false }
-
-	assert.True(t, AnyKey(map[string]bool{"a": true, "b": false}, always))
-	assert.False(t, AnyKey(map[string]bool{}, always))
-	assert.False(t, AnyKey[string, bool](nil, always))
-	assert.False(t, AnyKey(map[string]bool{"a": true, "b": false}, never))
-	assert.False(t, AnyKey[string, bool](nil, never))
-}
-
-func TestAnyValue(t *testing.T) {
-	always := func(b bool) bool { return true }
-	never := func(b bool) bool { return false }
-
-	assert.True(t, AnyValue(map[string]bool{"a": true, "b": false}, always))
-	assert.False(t, AnyValue(map[string]bool{}, always))
-	assert.False(t, AnyValue[string](nil, always))
-	assert.False(t, AnyValue(map[string]bool{"a": true, "b": false}, never))
-	assert.False(t, AnyValue[string](nil, never))
-}
-
-func TestAnyItem(t *testing.T) {
-	always := func(s string, b bool) bool { return true }
-	never := func(s string, b bool) bool { return false }
-
-	assert.True(t, AnyItem(map[string]bool{"a": true, "b": false}, always))
-	assert.False(t, AnyItem(map[string]bool{}, always))
-	assert.False(t, AnyItem(nil, always))
-	assert.False(t, AnyItem(map[string]bool{"a": true, "b": false}, never))
-	assert.False(t, AnyItem(nil, never))
+func TestMapSeq(t *testing.T) {
+	tests := []struct {
+		input    []string
+		mapper   func(string) int
+		expected []int
+	}{
+		{
+			nil,
+			func(s string) int { return len(s) },
+			nil,
+		},
+		{
+			[]string{},
+			func(s string) int { return len(s) },
+			nil,
+		},
+		{
+			[]string{"un", "deux", "trois"},
+			func(s string) int { return len(s) },
+			[]int{2, 4, 5},
+		},
+	}
+	for i, tt := range tests {
+		t.Run(fmt.Sprintf("%d: testing %v", i+1, tt.input), func(t *testing.T) {
+			result := slices.Collect(MapSeq(Seq(tt.input), tt.mapper))
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }
 
 func TestConcat(t *testing.T) {
@@ -170,4 +187,64 @@ func TestConcat(t *testing.T) {
 	assert.Equal(t, []string{"a"}, Concat([]string{"a"}))
 	assert.Equal(t, []string{"a"}, Concat([]string{}, nil, []string{"a"}))
 	assert.Equal(t, []string{}, Concat[string]())
+}
+
+func TestFilter(t *testing.T) {
+	tests := []struct {
+		input     []int
+		predicate func(int) bool
+		expected  []int
+	}{
+		{
+			nil,
+			func(i int) bool { return i%2 == 0 },
+			nil,
+		},
+		{
+			[]int{},
+			func(i int) bool { return i%2 == 0 },
+			[]int{},
+		},
+		{
+			[]int{1, 2, 3, 4, 5},
+			func(i int) bool { return i%2 == 0 },
+			[]int{2, 4},
+		},
+	}
+	for i, tt := range tests {
+		t.Run(fmt.Sprintf("%d: testing %v", i+1, tt.input), func(t *testing.T) {
+			result := Filter(tt.input, tt.predicate)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestFilterSeq(t *testing.T) {
+	tests := []struct {
+		input     []int
+		predicate func(int) bool
+		expected  []int
+	}{
+		{
+			nil,
+			func(i int) bool { return i%2 == 0 },
+			nil,
+		},
+		{
+			[]int{},
+			func(i int) bool { return i%2 == 0 },
+			nil,
+		},
+		{
+			[]int{1, 2, 3, 4, 5},
+			func(i int) bool { return i%2 == 0 },
+			[]int{2, 4},
+		},
+	}
+	for i, tt := range tests {
+		t.Run(fmt.Sprintf("%d: testing %v", i+1, tt.input), func(t *testing.T) {
+			result := slices.Collect(FilterSeq(Seq(tt.input), tt.predicate))
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }
