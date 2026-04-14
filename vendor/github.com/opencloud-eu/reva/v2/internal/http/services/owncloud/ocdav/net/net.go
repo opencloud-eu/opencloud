@@ -48,6 +48,8 @@ const (
 
 	// PropQuotaUnknown is the quota unknown property
 	PropQuotaUnknown = "-2"
+	// PropQuotaUnlimited is the quota unlimited property
+	PropQuotaUnlimited = "-3"
 	// PropOcFavorite is the favorite ns property
 	PropOcFavorite = "http://owncloud.org/ns/favorite"
 	// PropOcMetaPathForUser is the meta-path-for-user ns property
