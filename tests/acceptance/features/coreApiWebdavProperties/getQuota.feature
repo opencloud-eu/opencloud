@@ -9,11 +9,11 @@ Feature: get quota
     And user "Alice" has been created with default attributes
 
 
-  Scenario Outline: retrieving folder quota when no quota is set
+  Scenario Outline: retrieving folder quota when unlimited quota is set
     Given using <dav-path-version> DAV path
     When user "Admin" changes the quota of the personal space of user "Alice" to "0" using the Graph API
     Then the HTTP status code should be "200"
-    And as user "Alice" folder "/" should contain a property "d:quota-available-bytes" with value "0"
+    And as user "Alice" folder "/" should contain a property "d:quota-available-bytes" with value "-3"
     Examples:
       | dav-path-version |
       | old              |
