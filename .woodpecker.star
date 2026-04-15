@@ -1821,7 +1821,7 @@ def dockerReleases(ctx):
 
 def checkVersionPlaceholder():
     return [{
-        "name": "check-version-placeholder",
+        "name": "check-version-placeholder-next",
         "steps": [
             {
                 "name": "check-version-placeholder",
@@ -1837,6 +1837,27 @@ def checkVersionPlaceholder():
         ],
         "when": [
             event["pull_request"],
+        ],
+    }, {
+        "name": "check-version-placeholder-next-production-release",
+        "steps": [
+            {
+                "name": "check-version-placeholder",
+                "image": OC_CI_ALPINE,
+                "commands": [
+                    "grep -r -e '%%NEXT_PRODUCTION_VERSION%%' %s/services %s/pkg > next_production_version.txt || true" % (
+                        dirs["base"],
+                        dirs["base"],
+                    ),
+                    'if [ -s next_production_version.txt ]; then echo "replace version placeholders"; cat next_production_version.txt; exit 1; fi',
+                ],
+            },
+        ],
+        "when": [
+            {
+                "event": "pull_request",
+                "evaluate": 'CI_COMMIT_PULL_REQUEST_LABELS contains "production_release"',
+            },
         ],
     }]
 
