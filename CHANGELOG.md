@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@JammingBen, @aduffeck, @pedropintosilva, @rhafer
+@JammingBen, @aduffeck, @dragonchaser, @pedropintosilva, @rhafer
 
 ### 📈 Enhancement
 
