@@ -6,12 +6,15 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/go-chi/chi/v5"
+
 	gatewayv1beta1 "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/connector/utf7"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/locks"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/rs/zerolog"
+	"go-micro.dev/v4/selector"
 	microstore "go-micro.dev/v4/store"
 )
 
@@ -45,10 +48,10 @@ type HttpAdapter struct {
 
 // NewHttpAdapter will create a new HTTP adapter. A new connector using the
 // provided gateway API client and configuration will be used in the adapter
-func NewHttpAdapter(gws pool.Selectable[gatewayv1beta1.GatewayAPIClient], cfg *config.Config, st microstore.Store) *HttpAdapter {
+func NewHttpAdapter(gws pool.Selectable[gatewayv1beta1.GatewayAPIClient], cfg *config.Config, st microstore.Store, graphSelector selector.Selector) *HttpAdapter {
 	httpAdapter := &HttpAdapter{
 		con: NewConnector(
-			NewFileConnector(gws, cfg, st),
+			NewFileConnector(gws, cfg, st, graphSelector),
 			NewContentConnector(gws, cfg),
 		),
 	}
@@ -299,6 +302,50 @@ func (h *HttpAdapter) RenameFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.writeConnectorResponse(w, r, response)
+}
+
+// GetAvatar proxies the user's avatar from the Graph API.
+// The WOPI token in the query string provides authentication (validated by
+// the WopiContextAuthMiddleware). Collabora loads avatars via img.src which
+// is a plain browser GET — it cannot send auth headers.
+func (h *HttpAdapter) GetAvatar(w http.ResponseWriter, r *http.Request) {
+	logger := zerolog.Ctx(r.Context())
+	userID := chi.URLParam(r, "userID")
+	if userID == "" {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+
+	fileCon := h.con.GetFileConnector()
+	response, err := fileCon.GetAvatar(r.Context(), userID)
+	if err != nil {
+		var connErr *ConnectorError
+		if errors.As(err, &connErr) {
+			http.Error(w, http.StatusText(connErr.HttpCodeOut), connErr.HttpCodeOut)
+		} else {
+			logger.Error().Err(err).Msg("GetAvatar: failed to fetch avatar")
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		}
+		return
+	}
+	h.writeConnectorAvatarResponse(w, r, response)
+}
+
+func (h *HttpAdapter) writeConnectorAvatarResponse(w http.ResponseWriter, r *http.Request, response *ConnectorResponse) {
+	data, _ := response.Body.([]byte)
+	for key, value := range response.Headers {
+		w.Header().Set(key, value)
+	}
+	w.WriteHeader(response.Status)
+	written, err := w.Write(data)
+	if err != nil {
+		logger := zerolog.Ctx(r.Context())
+		logger.Error().
+			Err(err).
+			Int("TotalBytes", len(data)).
+			Int("WrittenBytes", written).
+			Msg("failed to write avatar contents in the HTTP response")
+	}
 }
 
 func (h *HttpAdapter) writeConnectorResponse(w http.ResponseWriter, r *http.Request, response *ConnectorResponse) {

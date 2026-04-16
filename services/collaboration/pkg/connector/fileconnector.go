@@ -8,10 +8,14 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"path"
 	"strings"
 	"time"
+
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
+	"go-micro.dev/v4/selector"
 
 	appproviderv1beta1 "github.com/cs3org/go-cs3apis/cs3/app/provider/v1beta1"
 	auth "github.com/cs3org/go-cs3apis/cs3/auth/provider/v1beta1"
@@ -94,23 +98,29 @@ type FileConnectorService interface {
 	// In case of conflict, this method will return the actual lockId in
 	// the file as second return value.
 	RenameFile(ctx context.Context, lockID, target string) (*ConnectorResponse, error)
+	// GetAvatar fetches the user's avatar image from the Graph API.
+	// The response Body contains the raw image bytes ([]byte) and the
+	// Headers contain Content-Type and Cache-Control.
+	GetAvatar(ctx context.Context, userID string) (*ConnectorResponse, error)
 }
 
 // FileConnector implements the "File" endpoint.
 // Currently, it handles file locks and getting the file info.
 // Note that operations might return any kind of error, not just ConnectorError
 type FileConnector struct {
-	gws   pool.Selectable[gatewayv1beta1.GatewayAPIClient]
-	cfg   *config.Config
-	store microstore.Store
+	gws           pool.Selectable[gatewayv1beta1.GatewayAPIClient]
+	cfg           *config.Config
+	store         microstore.Store
+	graphSelector selector.Selector
 }
 
 // NewFileConnector creates a new file connector
-func NewFileConnector(gws pool.Selectable[gatewayv1beta1.GatewayAPIClient], cfg *config.Config, st microstore.Store) *FileConnector {
+func NewFileConnector(gws pool.Selectable[gatewayv1beta1.GatewayAPIClient], cfg *config.Config, st microstore.Store, graphSelector selector.Selector) *FileConnector {
 	return &FileConnector{
-		gws:   gws,
-		cfg:   cfg,
-		store: st,
+		gws:           gws,
+		cfg:           cfg,
+		store:         st,
+		graphSelector: graphSelector,
 	}
 }
 
@@ -1303,6 +1313,18 @@ func (f *FileConnector) CheckFileInfo(ctx context.Context) (*ConnectorResponse, 
 		}
 	}
 
+	if !isPublicShare && !isAnonymousUser {
+		extraInfo := &fileinfo.UserExtraInfo{
+			Mail: user.GetMail(),
+		}
+		// Build a WOPI-proxied avatar URL so Collabora can load it via img.src
+		// without needing auth headers (the token is in the query string).
+		if avatarURL, err := f.createAvatarURL(wopiContext, collaborationURL, user.GetId().GetOpaqueId()); err == nil {
+			extraInfo.Avatar = avatarURL
+		}
+		infoMap[fileinfo.KeyUserExtraInfo] = extraInfo
+	}
+
 	// if the file content is empty and a template reference is set, add the template source URL
 	if wopiContext.TemplateReference != nil && statRes.GetInfo().GetSize() == 0 {
 		if tu, err := f.createDownloadURL(wopiContext, collaborationURL); err == nil {
@@ -1338,6 +1360,22 @@ func (f *FileConnector) createDownloadURL(wopiContext middleware.WopiContext, co
 	q.Add("access_token", token)
 	downloadURL.RawQuery = q.Encode()
 	return downloadURL.String(), nil
+}
+
+// createAvatarURL builds a WOPI-proxied avatar URL for the given user.
+// The collaboration service's /wopi/avatars/ endpoint will fetch the avatar
+// from the Graph API using the WOPI token for authentication.
+func (f *FileConnector) createAvatarURL(wopiContext middleware.WopiContext, collaborationURL *url.URL, userID string) (string, error) {
+	token, _, err := middleware.GenerateWopiToken(wopiContext, f.cfg, f.store)
+	if err != nil {
+		return "", err
+	}
+	avatarURL := *collaborationURL
+	avatarURL.Path = path.Join(collaborationURL.Path, "wopi/avatars/", userID)
+	q := avatarURL.Query()
+	q.Add("access_token", token)
+	avatarURL.RawQuery = q.Encode()
+	return avatarURL.String(), nil
 }
 
 func createHostUrl(mode string, u *url.URL, appName string, info *providerv1beta1.ResourceInfo) string {
@@ -1511,4 +1549,71 @@ func (f *FileConnector) getScopeByKeyPrefix(scopes map[string]*auth.Scope, keyPr
 		}
 	}
 	return fmt.Errorf("scope %s not found", keyPrefix)
+}
+
+// GetAvatar fetches the user's avatar image from the Graph API.
+// The returned ConnectorResponse carries the raw image bytes in Body ([]byte)
+// and Content-Type / Cache-Control in Headers.
+func (f *FileConnector) GetAvatar(ctx context.Context, userID string) (*ConnectorResponse, error) {
+	logger := zerolog.Ctx(ctx)
+
+	wopiContext, err := middleware.WopiContextFromCtx(ctx)
+	if err != nil {
+		logger.Error().Err(err).Msg("GetAvatar: missing WOPI context")
+		return nil, NewConnectorError(http.StatusUnauthorized, "missing WOPI context")
+	}
+
+	lgClient, err := f.setupLibregraphClient(ctx, wopiContext.AccessToken)
+	if err != nil {
+		logger.Error().Err(err).Msg("GetAvatar: failed to setup libregraph client")
+		return nil, NewConnectorError(http.StatusInternalServerError, "failed to setup libregraph client")
+	}
+
+	photoFile, httpResp, err := lgClient.UserPhotoApi.GetUserPhoto(ctx, userID).Execute()
+	if err != nil {
+		logger.Error().Err(err).Msg("GetAvatar: failed to fetch avatar from Graph API")
+		if httpResp != nil {
+			return nil, NewConnectorError(httpResp.StatusCode, http.StatusText(httpResp.StatusCode))
+		}
+		return nil, NewConnectorError(http.StatusBadGateway, "failed to fetch avatar")
+	}
+	defer photoFile.Close()
+
+	data, err := io.ReadAll(photoFile)
+	if err != nil {
+		logger.Error().Err(err).Msg("GetAvatar: failed to read avatar body")
+		return nil, NewConnectorError(http.StatusInternalServerError, "failed to read avatar body")
+	}
+
+	headers := map[string]string{
+		"Cache-Control": "public, max-age=300",
+	}
+	if ct := httpResp.Header.Get("Content-Type"); ct != "" {
+		headers["Content-Type"] = ct
+	}
+
+	return &ConnectorResponse{
+		Status:  http.StatusOK,
+		Headers: headers,
+		Body:    data,
+	}, nil
+}
+
+func (f *FileConnector) setupLibregraphClient(_ context.Context, cs3token string) (*libregraph.APIClient, error) {
+	next, err := f.graphSelector.Select("eu.opencloud.web.graph")
+	if err != nil {
+		return nil, err
+	}
+	node, err := next()
+	if err != nil {
+		return nil, err
+	}
+	lgconf := libregraph.NewConfiguration()
+	lgconf.Servers = libregraph.ServerConfigurations{
+		{
+			URL: fmt.Sprintf("%s://%s/graph", node.Metadata["protocol"], node.Address),
+		},
+	}
+	lgconf.DefaultHeader = map[string]string{ctxpkg.TokenHeader: cs3token}
+	return libregraph.NewAPIClient(lgconf), nil
 }

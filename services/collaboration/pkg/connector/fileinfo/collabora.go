@@ -1,5 +1,13 @@
 package fileinfo
 
+// UserExtraInfo contains additional user info shared across collaborative
+// editing views, such as the user's avatar image and email.
+// https://sdk.collaboraonline.com/docs/advanced_integration.html#userextrainfo
+type UserExtraInfo struct {
+	Avatar string `json:"avatar,omitempty"`
+	Mail   string `json:"mail,omitempty"`
+}
+
 // Collabora fileInfo properties
 //
 // Collabora WOPI check file info specification:
@@ -64,7 +72,8 @@ type Collabora struct {
 	IsAnonymousUser bool `json:"IsAnonymousUser,omitempty"`
 
 	// JSON object that contains additional info about the user, namely the avatar image.
-	//UserExtraInfo -> requires definition, currently not used
+	// Shared among all views in collaborative editing sessions.
+	UserExtraInfo *UserExtraInfo `json:"UserExtraInfo,omitempty"`
 	// JSON object that contains additional info about the user, but unlike the UserExtraInfo it is not shared among the views in collaborative editing sessions.
 	//UserPrivateInfo -> requires definition, currently not used
 
@@ -135,7 +144,8 @@ func (cinfo *Collabora) SetProperties(props map[string]interface{}) {
 			cinfo.SaveAsPostmessage = value.(bool)
 		case KeyEnableOwnerTermination:
 			cinfo.EnableOwnerTermination = value.(bool)
-		//UserExtraInfo -> requires definition, currently not used
+		case KeyUserExtraInfo:
+			cinfo.UserExtraInfo = value.(*UserExtraInfo)
 		//UserPrivateInfo -> requires definition, currently not used
 		case KeyWatermarkText:
 			cinfo.WatermarkText = value.(string)

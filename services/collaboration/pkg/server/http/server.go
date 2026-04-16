@@ -194,5 +194,20 @@ func prepareRoutes(r *chi.Mux, options Options) {
 				adapter.GetFile(w, r)
 			})
 		})
+
+		// Avatar proxy: serves user avatars authenticated by the WOPI token.
+		// Collabora loads avatars via img.src (plain GET, no auth headers),
+		// so the token must be in the URL query string.
+		r.Route("/avatars/{userID}", func(r chi.Router) {
+			r.Use(
+				func(h stdhttp.Handler) stdhttp.Handler {
+					return colabmiddleware.WopiContextAuthMiddleware(options.Config, options.Store, h)
+				},
+				colabmiddleware.CollaborationTracingMiddleware,
+			)
+			r.Get("/", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+				adapter.GetAvatar(w, r)
+			})
+		})
 	})
 }

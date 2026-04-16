@@ -143,22 +143,28 @@ func WopiContextAuthMiddleware(cfg *config.Config, st microstore.Store, next htt
 			Logger()
 		ctx = wopiLogger.WithContext(ctx)
 
-		hashedRef := helpers.HashResourceId(claims.WopiContext.FileReference.GetResourceId())
-		fileID := parseWopiFileID(cfg, r.URL.Path)
-		if claims.WopiContext.TemplateReference != nil {
-			hashedTemplateRef := helpers.HashResourceId(claims.WopiContext.TemplateReference.GetResourceId())
-			// the fileID could be one of the references within the access token if both are set
-			// because we can use the access token to get the contents of the template file
-			if fileID != hashedTemplateRef && fileID != hashedRef {
-				wopiLogger.Error().Msg("file reference in the URL doesn't match the one inside the access token")
-				http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-				return
-			}
-		} else {
-			if fileID != hashedRef {
-				wopiLogger.Error().Msg("file reference in the URL doesn't match the one inside the access token")
-				http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-				return
+		// Validate that the file ID in the URL matches the WOPI token's file
+		// reference. This check only applies to /wopi/files/ and /wopi/templates/
+		// paths. Other WOPI-authenticated endpoints (e.g. /wopi/avatars/) don't
+		// carry a file ID in the URL — they only need a valid WOPI token.
+		if strings.Contains(r.URL.Path, "/files/") || strings.Contains(r.URL.Path, "/templates/") {
+			hashedRef := helpers.HashResourceId(claims.WopiContext.FileReference.GetResourceId())
+			fileID := parseWopiFileID(cfg, r.URL.Path)
+			if claims.WopiContext.TemplateReference != nil {
+				hashedTemplateRef := helpers.HashResourceId(claims.WopiContext.TemplateReference.GetResourceId())
+				// the fileID could be one of the references within the access token if both are set
+				// because we can use the access token to get the contents of the template file
+				if fileID != hashedTemplateRef && fileID != hashedRef {
+					wopiLogger.Error().Msg("file reference in the URL doesn't match the one inside the access token")
+					http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+					return
+				}
+			} else {
+				if fileID != hashedRef {
+					wopiLogger.Error().Msg("file reference in the URL doesn't match the one inside the access token")
+					http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+					return
+				}
 			}
 		}
 

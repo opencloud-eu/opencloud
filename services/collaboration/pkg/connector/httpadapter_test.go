@@ -1,6 +1,7 @@
 package connector_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"strings"
 
 	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
+	"github.com/go-chi/chi/v5"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/opencloud-eu/opencloud/services/collaboration/mocks"
@@ -535,6 +537,72 @@ var _ = Describe("HttpAdapter", func() {
 			Expect(resp.StatusCode).To(Equal(200))
 			Expect(resp.Header.Get(connector.HeaderWopiLock)).To(Equal("abc123"))
 			Expect(resp.Header.Get(connector.HeaderWopiVersion)).To(Equal("v1234567"))
+		})
+	})
+
+	Describe("GetAvatar", func() {
+		It("Missing userID returns 400", func() {
+			// No chi route context means chi.URLParam returns ""
+			req := httptest.NewRequest("GET", "/wopi/avatars/", nil)
+			w := httptest.NewRecorder()
+
+			httpAdapter.GetAvatar(w, req)
+			Expect(w.Result().StatusCode).To(Equal(400))
+		})
+
+		It("ConnectorError propagates the status code", func() {
+			req := httptest.NewRequest("GET", "/wopi/avatars/user-123", nil)
+			rctx := chi.NewRouteContext()
+			rctx.URLParams.Add("userID", "user-123")
+			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+			w := httptest.NewRecorder()
+
+			fc.On("GetAvatar", mock.Anything, "user-123").Times(1).
+				Return(nil, connector.NewConnectorError(502, "Bad Gateway"))
+
+			httpAdapter.GetAvatar(w, req)
+			Expect(w.Result().StatusCode).To(Equal(502))
+		})
+
+		It("General error returns 500", func() {
+			req := httptest.NewRequest("GET", "/wopi/avatars/user-123", nil)
+			rctx := chi.NewRouteContext()
+			rctx.URLParams.Add("userID", "user-123")
+			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+			w := httptest.NewRecorder()
+
+			fc.On("GetAvatar", mock.Anything, "user-123").Times(1).
+				Return(nil, errors.New("unexpected failure"))
+
+			httpAdapter.GetAvatar(w, req)
+			Expect(w.Result().StatusCode).To(Equal(500))
+		})
+
+		It("Success writes Content-Type, Cache-Control and body", func() {
+			req := httptest.NewRequest("GET", "/wopi/avatars/user-123", nil)
+			rctx := chi.NewRouteContext()
+			rctx.URLParams.Add("userID", "user-123")
+			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+			w := httptest.NewRecorder()
+
+			avatarData := []byte{0xFF, 0xD8, 0xFF, 0xE0} // fake JPEG bytes
+			fc.On("GetAvatar", mock.Anything, "user-123").Times(1).Return(
+				&connector.ConnectorResponse{
+					Status: 200,
+					Headers: map[string]string{
+						"Content-Type":  "image/jpeg",
+						"Cache-Control": "public, max-age=300",
+					},
+					Body: avatarData,
+				}, nil)
+
+			httpAdapter.GetAvatar(w, req)
+			resp := w.Result()
+			Expect(resp.StatusCode).To(Equal(200))
+			Expect(resp.Header.Get("Content-Type")).To(Equal("image/jpeg"))
+			Expect(resp.Header.Get("Cache-Control")).To(Equal("public, max-age=300"))
+			body, _ := io.ReadAll(resp.Body)
+			Expect(body).To(Equal(avatarData))
 		})
 	})
 

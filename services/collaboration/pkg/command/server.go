@@ -23,6 +23,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/store"
 
 	"github.com/spf13/cobra"
+	"go-micro.dev/v4/selector"
 	microstore "go-micro.dev/v4/store"
 )
 
@@ -138,7 +139,7 @@ func Server(cfg *config.Config) *cobra.Command {
 
 			// start HTTP server
 			httpServer, err := http.Server(
-				http.Adapter(connector.NewHttpAdapter(gatewaySelector, cfg, st)),
+				http.Adapter(connector.NewHttpAdapter(gatewaySelector, cfg, st, selector.NewSelector(selector.Registry(registry.GetRegistry())))),
 				http.Logger(logger),
 				http.Config(cfg),
 				http.Context(ctx),

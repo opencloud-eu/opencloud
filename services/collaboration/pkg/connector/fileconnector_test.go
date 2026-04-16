@@ -65,7 +65,7 @@ var _ = Describe("FileConnector", func() {
 
 		gatewaySelector = mocks.NewSelectable[gateway.GatewayAPIClient](GinkgoT())
 		gatewaySelector.On("Next").Return(gatewayClient, nil)
-		fc = connector.NewFileConnector(gatewaySelector, cfg, nil)
+		fc = connector.NewFileConnector(gatewaySelector, cfg, nil, nil)
 
 		wopiCtx = middleware.WopiContext{
 			// a real token is needed for the PutRelativeFileSuggested tests
@@ -1996,13 +1996,24 @@ var _ = Describe("FileConnector", func() {
 				EnableInsertRemoteImage: true,
 				EnableInsertRemoteFile:  true,
 				IsAdminUser:             true,
+				UserExtraInfo: &fileinfo.UserExtraInfo{
+					Mail: "shaft@example.com",
+				},
 			}
 
 			response, err := fc.CheckFileInfo(ctx)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(response.Status).To(Equal(200))
-			Expect(response.Body.(*fileinfo.Collabora)).To(Equal(expectedFileInfo))
+			body := response.Body.(*fileinfo.Collabora)
+			// Avatar URL contains a dynamic WOPI token, so check prefix separately
+			Expect(body.UserExtraInfo).ToNot(BeNil())
+			Expect(body.UserExtraInfo.Avatar).To(ContainSubstring("/wopi/avatars/aabbcc?access_token="))
+			Expect(body.UserExtraInfo.Mail).To(Equal("shaft@example.com"))
+			// Clear dynamic fields for struct comparison
+			body.UserExtraInfo.Avatar = ""
+			expectedFileInfo.UserExtraInfo.Avatar = ""
+			Expect(body).To(Equal(expectedFileInfo))
 		})
 		It("Stat success with template", func() {
 			wopiCtx.TemplateReference = &providerv1beta1.Reference{
@@ -2095,6 +2106,20 @@ var _ = Describe("FileConnector", func() {
 			// the url is using a generated access token which always has a new ttl
 			// so we can't compare the whole url
 			Expect(templateSource).To(HavePrefix(expectedTemplateSource))
+		})
+	})
+
+	Describe("GetAvatar", func() {
+		It("No valid context returns Unauthorized error", func() {
+			// GetAvatar returns before touching the gateway selector.
+			gatewaySelector.EXPECT().Next().Unset()
+			ctx := context.Background()
+			response, err := fc.GetAvatar(ctx, "user-123")
+			Expect(response).To(BeNil())
+			Expect(err).To(HaveOccurred())
+			var connErr *connector.ConnectorError
+			Expect(errors.As(err, &connErr)).To(BeTrue())
+			Expect(connErr.HttpCodeOut).To(Equal(401))
 		})
 	})
 })
