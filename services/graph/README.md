@@ -9,7 +9,7 @@ for a detailed specification of the API implemented by the graph service.
 
 The following image gives an overview of the scenario when a client requests to list available spaces the user has access to. To do so, the client is directed with his request automatically via the proxy service to the graph service.
 
-<img src="https://raw.githubusercontent.com/opencloud-eu/opencloud/main/services/graph/images/mermaid-graph.svg" width="500" />
+<img src="https://raw.githubusercontent.com/opencloud-eu/opencloud/main/services/graph/images/mermaid-graph.svg" width="900" />
 
 ## Users and Groups API
 
