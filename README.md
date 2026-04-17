@@ -1,6 +1,6 @@
 ![OpenCloud logo](https://raw.githubusercontent.com/opencloud-eu/opencloud/refs/heads/main/opencloud_logo.png)
 
-[![status-badge](https://ci.opencloud.eu/api/badges/3/status.svg)](https://ci.opencloud.eu/repos/3)
+[![status-badge](https://ci.opencloud.rocks/api/badges/3/status.svg)](https://ci.opencloud.rocks/repos/3)
  [![Matrix](https://img.shields.io/matrix/opencloud%3Amatrix.org?logo=matrix)](https://app.element.io/#/room/#opencloud:matrix.org)
  [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
