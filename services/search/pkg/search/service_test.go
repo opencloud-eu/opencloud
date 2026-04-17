@@ -133,7 +133,7 @@ var _ = Describe("Searchprovider", func() {
 				Info:   ri,
 			}, nil)
 
-			err := s.IndexSpace(&sprovider.StorageSpaceId{OpaqueId: "storageid$spaceid!spaceid"})
+			err := s.IndexSpace(&sprovider.StorageSpaceId{OpaqueId: "storageid$spaceid!spaceid"}, false)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 	})

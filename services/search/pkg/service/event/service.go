@@ -74,7 +74,7 @@ func New(ctx context.Context, stream raw.Stream, logger log.Logger, tp trace.Tra
 	}
 
 	svc.indexSpaceDebouncer = NewSpaceDebouncer(time.Duration(debounceDuration)*time.Millisecond, 30*time.Second, func(id *provider.StorageSpaceId) {
-		if err := svc.index.IndexSpace(id); err != nil {
+		if err := svc.index.IndexSpace(id, false); err != nil {
 			svc.log.Error().Err(err).Interface("spaceID", id).Msg("error while indexing a space")
 		}
 	}, svc.log)

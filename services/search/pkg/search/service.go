@@ -46,7 +46,7 @@ const (
 type Searcher interface {
 	Search(ctx context.Context, req *searchsvc.SearchRequest) (*searchsvc.SearchResponse, error)
 
-	IndexSpace(rID *provider.StorageSpaceId) error
+	IndexSpace(rID *provider.StorageSpaceId, forceRescan bool) error
 	PurgeDeleted(spaceID *provider.StorageSpaceId) error
 
 	TrashItem(rID *provider.ResourceId)
@@ -443,7 +443,7 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 }
 
 // IndexSpace (re)indexes all resources of a given space.
-func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId) error {
+func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool) error {
 	ownerCtx, err := getAuthContext(s.serviceAccountID, s.gatewaySelector, s.serviceAccountSecret, s.logger)
 	if err != nil {
 		return err
@@ -500,6 +500,11 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId) error {
 			ResourceId: &rootID,
 		}
 		s.logger.Debug().Str("path", ref.Path).Msg("Walking tree")
+
+		if forceRescan {
+			s.doUpsertItem(ref, batch)
+			return nil
+		}
 
 		searchRes, err := s.engine.Search(ownerCtx, &searchsvc.SearchIndexRequest{
 			Query: "id:" + storagespace.FormatResourceID(info.Id) + ` mtime>=` + utils.TSToTime(info.Mtime).Format(time.RFC3339Nano),

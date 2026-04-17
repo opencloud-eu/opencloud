@@ -329,6 +329,9 @@
         },
         "userId": {
           "type": "string"
+        },
+        "forceReindex": {
+          "type": "boolean"
         }
       }
     },

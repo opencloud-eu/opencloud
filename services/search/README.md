@@ -118,6 +118,13 @@ It can also be used to re-index all spaces:
 opencloud search index --all-spaces
 ```
 
+Please note that a reindex only picks up new files. Files that have already been indexed are not indexed again, even if the configuration or the whole extractor has been changed. To force a full reindex you need to use the `force-reindex` flag:
+
+
+```shell
+opencloud search index --all-spaces --force-reindex
+```
+
 ## Metrics
 
 The search service exposes the following prometheus metrics at `<debug_endpoint>/metrics` (as configured using the `SEARCH_DEBUG_ADDR` env var):

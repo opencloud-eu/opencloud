@@ -104,6 +104,7 @@ message SearchIndexResponse {
 message IndexSpaceRequest {
   string space_id = 1;
   string user_id = 2;
+  bool force_reindex = 3;
 }
 
 message IndexSpaceResponse {

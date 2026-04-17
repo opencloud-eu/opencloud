@@ -40,16 +40,16 @@ func (_m *Searcher) EXPECT() *Searcher_Expecter {
 }
 
 // IndexSpace provides a mock function for the type Searcher
-func (_mock *Searcher) IndexSpace(rID *providerv1beta1.StorageSpaceId) error {
-	ret := _mock.Called(rID)
+func (_mock *Searcher) IndexSpace(rID *providerv1beta1.StorageSpaceId, forceRescan bool) error {
+	ret := _mock.Called(rID, forceRescan)
 
 	if len(ret) == 0 {
 		panic("no return value specified for IndexSpace")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(*providerv1beta1.StorageSpaceId) error); ok {
-		r0 = returnFunc(rID)
+	if returnFunc, ok := ret.Get(0).(func(*providerv1beta1.StorageSpaceId, bool) error); ok {
+		r0 = returnFunc(rID, forceRescan)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -63,18 +63,24 @@ type Searcher_IndexSpace_Call struct {
 
 // IndexSpace is a helper method to define mock.On call
 //   - rID *providerv1beta1.StorageSpaceId
-func (_e *Searcher_Expecter) IndexSpace(rID interface{}) *Searcher_IndexSpace_Call {
-	return &Searcher_IndexSpace_Call{Call: _e.mock.On("IndexSpace", rID)}
+//   - forceRescan bool
+func (_e *Searcher_Expecter) IndexSpace(rID interface{}, forceRescan interface{}) *Searcher_IndexSpace_Call {
+	return &Searcher_IndexSpace_Call{Call: _e.mock.On("IndexSpace", rID, forceRescan)}
 }
 
-func (_c *Searcher_IndexSpace_Call) Run(run func(rID *providerv1beta1.StorageSpaceId)) *Searcher_IndexSpace_Call {
+func (_c *Searcher_IndexSpace_Call) Run(run func(rID *providerv1beta1.StorageSpaceId, forceRescan bool)) *Searcher_IndexSpace_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 *providerv1beta1.StorageSpaceId
 		if args[0] != nil {
 			arg0 = args[0].(*providerv1beta1.StorageSpaceId)
 		}
+		var arg1 bool
+		if args[1] != nil {
+			arg1 = args[1].(bool)
+		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
@@ -85,7 +91,7 @@ func (_c *Searcher_IndexSpace_Call) Return(err error) *Searcher_IndexSpace_Call 
 	return _c
 }
 
-func (_c *Searcher_IndexSpace_Call) RunAndReturn(run func(rID *providerv1beta1.StorageSpaceId) error) *Searcher_IndexSpace_Call {
+func (_c *Searcher_IndexSpace_Call) RunAndReturn(run func(rID *providerv1beta1.StorageSpaceId, forceRescan bool) error) *Searcher_IndexSpace_Call {
 	_c.Call.Return(run)
 	return _c
 }
