@@ -611,7 +611,8 @@ def evaluateWorkflowStep():
     }]
 
 def cachePipeline(ctx, name, steps):
-    return {
+    steps = skipCheckStep(ctx, "base") + steps
+    pipeline = {
         "name": "cache-%s" % name,
         "steps": steps,
         "when": [
@@ -620,14 +621,14 @@ def cachePipeline(ctx, name, steps):
                 "branch": ["main", "stable-*"],
             },
             event["cron"],
-            {
-                "event": "pull_request",
-                "path": {
-                    "exclude": skipIfUnchanged(ctx, "base"),
-                },
-            },
+            event["pull_request"],
         ],
     }
+    prefixStepCommands(pipeline, [
+        ". ./.woodpecker.env",
+        '[ "$SKIP_WORKFLOW" = "true" ] && exit 0',
+    ])
+    return pipeline
 
 def buildWebCache(ctx):
     return [
@@ -676,9 +677,10 @@ def testPipelines(ctx):
     return pipelines
 
 def getGoBinForTesting(ctx):
-    return [{
+    pipeline = {
         "name": "get-go-bin-cache",
-        "steps": checkGoBinCache() +
+        "steps": skipCheckStep(ctx, "base") +
+                 checkGoBinCache() +
                  cacheGoBin(),
         "when": [
             event["tag"],
@@ -687,15 +689,15 @@ def getGoBinForTesting(ctx):
                 "event": ["push", "manual"],
                 "branch": ["main", "stable-*"],
             },
-            {
-                "event": "pull_request",
-                "path": {
-                    "exclude": skipIfUnchanged(ctx, "unit-tests"),
-                },
-            },
+            event["pull_request"],
         ],
         "workspace": workspace,
-    }]
+    }
+    prefixStepCommands(pipeline, [
+        ". ./.woodpecker.env",
+        '[ "$SKIP_WORKFLOW" = "true" ] && exit 0',
+    ])
+    return [pipeline]
 
 def checkGoBinCache():
     return [{
@@ -767,7 +769,7 @@ def restoreGoBinCache():
     ]
 
 def testOpencloud(ctx):
-    steps = evaluateWorkflowStep() + restoreGoBinCache() + makeGoGenerate("") + [
+    steps = skipCheckStep(ctx, "unit-tests") + evaluateWorkflowStep() + restoreGoBinCache() + makeGoGenerate("") + [
         {
             "name": "golangci-lint",
             "image": OC_CI_GOLANG,
@@ -839,12 +841,7 @@ def testOpencloud(ctx):
         "when": [
             event["base"],
             event["cron"],
-            {
-                "event": "pull_request",
-                "path": {
-                    "exclude": skipIfUnchanged(ctx, "unit-tests"),
-                },
-            },
+            event["pull_request"],
         ],
         "depends_on": getPipelineNames(getGoBinForTesting(ctx)),
         "workspace": workspace,
@@ -858,7 +855,7 @@ def testOpencloud(ctx):
     return [pipeline]
 
 def scanOpencloud(ctx):
-    steps = restoreGoBinCache() + makeGoGenerate("") + [
+    steps = skipCheckStep(ctx, "base") + restoreGoBinCache() + makeGoGenerate("") + [
         {
             "name": "govulncheck",
             "image": OC_CI_GOLANG,
@@ -869,42 +866,43 @@ def scanOpencloud(ctx):
         },
     ]
 
-    return {
+    pipeline = {
         "name": "go-vulnerability-scanning",
         "steps": steps,
         "when": [
             event["base"],
             event["cron"],
-            {
-                "event": "pull_request",
-                "path": {
-                    "exclude": skipIfUnchanged(ctx, "acceptance-tests"),
-                },
-            },
+            event["pull_request"],
         ],
         "depends_on": getPipelineNames(getGoBinForTesting(ctx)),
         "workspace": workspace,
     }
+    prefixStepCommands(pipeline, [
+        ". ./.woodpecker.env",
+        '[ "$SKIP_WORKFLOW" = "true" ] && exit 0',
+    ])
+    return [pipeline]
 
 def buildOpencloudBinaryForTesting(ctx):
-    return [{
+    pipeline = {
         "name": "build-opencloud-for-testing",
-        "steps": makeNodeGenerate("") +
+        "steps": skipCheckStep(ctx, "base") +
+                 makeNodeGenerate("") +
                  makeGoGenerate("") +
                  build() +
                  rebuildBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]),
         "when": [
             event["base"],
             event["cron"],
-            {
-                "event": "pull_request",
-                "path": {
-                    "exclude": skipIfUnchanged(ctx, "base"),
-                },
-            },
+            event["pull_request"],
         ],
         "workspace": workspace,
-    }]
+    }
+    prefixStepCommands(pipeline, [
+        ". ./.woodpecker.env",
+        '[ "$SKIP_WORKFLOW" = "true" ] && exit 0',
+    ])
+    return [pipeline]
 
 def vendorbinCodestyle(phpVersion):
     return [{
@@ -945,12 +943,7 @@ def checkTestSuitesInExpectedFailures(ctx):
         "when": [
             event["base"],
             event["cron"],
-            {
-                "event": "pull_request",
-                "path": {
-                    "exclude": skipIfUnchanged(ctx, "acceptance-tests"),
-                },
-            },
+            event["pull_request"],
         ],
     }]
 
@@ -970,12 +963,7 @@ def checkGherkinLint(ctx):
         "when": [
             event["base"],
             event["cron"],
-            {
-                "event": "pull_request",
-                "path": {
-                    "exclude": skipIfUnchanged(ctx, "lint"),
-                },
-            },
+            event["pull_request"],
         ],
     }]
 
@@ -1039,12 +1027,7 @@ def codestyle(ctx):
                 "when": [
                     event["base"],
                     event["cron"],
-                    {
-                        "event": "pull_request",
-                        "path": {
-                            "exclude": skipIfUnchanged(ctx, "lint"),
-                        },
-                    },
+                    event["pull_request"],
                 ],
             }
 
@@ -1055,7 +1038,8 @@ def codestyle(ctx):
 def cs3ApiTests(ctx, storage):
     pipeline = {
         "name": "test-cs3-API-%s" % storage,
-        "steps": evaluateWorkflowStep() +
+        "steps": skipCheckStep(ctx, "acceptance-tests") +
+                 evaluateWorkflowStep() +
                  restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
                  opencloudServer(storage, deploy_type = "cs3api_validator") +
                  [
@@ -1074,12 +1058,7 @@ def cs3ApiTests(ctx, storage):
         "when": [
             event["base"],
             event["cron"],
-            {
-                "event": "pull_request",
-                "path": {
-                    "exclude": skipIfUnchanged(ctx, "acceptance-tests"),
-                },
-            },
+            event["pull_request"],
         ],
     }
     prefixStepCommands(pipeline, [
@@ -1163,7 +1142,8 @@ def wopiValidatorTests(ctx, storage, wopiServerType):
     pipeline = {
         "name": "test-wopi-validator-%s-%s" % (wopiServerType, storage),
         "services": fakeOffice(),
-        "steps": evaluateWorkflowStep() +
+        "steps": skipCheckStep(ctx, "acceptance-tests") +
+                 evaluateWorkflowStep() +
                  restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
                  waitForServices("fake-office", ["fakeoffice:8080"]) +
                  opencloudServer(storage, deploy_type = "wopi_validator", extra_server_environment = extra_server_environment) +
@@ -1194,12 +1174,7 @@ def wopiValidatorTests(ctx, storage, wopiServerType):
         "when": [
             event["base"],
             event["cron"],
-            {
-                "event": "pull_request",
-                "path": {
-                    "exclude": skipIfUnchanged(ctx, "acceptance-tests"),
-                },
-            },
+            event["pull_request"],
         ],
     }
     prefixStepCommands(pipeline, [
@@ -1263,7 +1238,7 @@ def localApiTestPipeline(ctx):
 
                             pipeline = {
                                 "name": pipeline_name,
-                                "steps": evaluateWorkflowStep() + restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
+                                "steps": skipCheckStep(ctx, "acceptance-tests") + evaluateWorkflowStep() + restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
                                          (tikaService() if params["tikaNeeded"] else []) +
                                          (waitForWebOffices(["https://collabora:9980", "https://onlyoffice", "http://fakeoffice:8080"]) if params["collaborationServiceNeeded"] else []) +
                                          (waitForClamavService() if params["antivirusNeeded"] else []) +
@@ -1289,12 +1264,7 @@ def localApiTestPipeline(ctx):
                                 "when": [
                                     event["base"],
                                     event["cron"],
-                                    {
-                                        "event": "pull_request",
-                                        "path": {
-                                            "exclude": skipIfUnchanged(ctx, "acceptance-tests"),
-                                        },
-                                    },
+                                    event["pull_request"],
                                 ],
                             }
                             prefixStepCommands(pipeline, [
@@ -1392,7 +1362,8 @@ def coreApiTestPipeline(ctx):
 
                             pipeline = {
                                 "name": pipeline_name,
-                                "steps": evaluateWorkflowStep() +
+                                "steps": skipCheckStep(ctx, "acceptance-tests") +
+                                         evaluateWorkflowStep() +
                                          restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
                                          opencloudServer(
                                              storage,
@@ -1411,12 +1382,7 @@ def coreApiTestPipeline(ctx):
                                 "when": [
                                     event["base"],
                                     event["cron"],
-                                    {
-                                        "event": "pull_request",
-                                        "path": {
-                                            "exclude": skipIfUnchanged(ctx, "acceptance-tests"),
-                                        },
-                                    },
+                                    event["pull_request"],
                                 ],
                             }
                             prefixStepCommands(pipeline, [
@@ -1477,12 +1443,7 @@ def e2eTestPipeline(ctx):
     e2e_trigger = [
         event["base"],
         event["cron"],
-        {
-            "event": "pull_request",
-            "path": {
-                "exclude": skipIfUnchanged(ctx, "e2e-tests"),
-            },
-        },
+        event["pull_request"],
         {
             "event": "tag",
             "ref": "refs/tags/**",
@@ -1527,6 +1488,7 @@ def e2eTestPipeline(ctx):
         for storage in params["storages"]:
             for watch_fs_enabled in params["enableWatchFs"]:
                 steps_before = \
+                    skipCheckStep(ctx, "e2e-tests") + \
                     evaluateWorkflowStep() + \
                     restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBin"]) + \
                     restoreWebCache() + \
@@ -1612,12 +1574,7 @@ def multiServiceE2ePipeline(ctx):
     e2e_trigger = [
         event["base"],
         event["cron"],
-        {
-            "event": "pull_request",
-            "path": {
-                "exclude": skipIfUnchanged(ctx, "e2e-tests"),
-            },
-        },
+        event["pull_request"],
     ]
 
     if "skip-e2e" in ctx.build.title.lower():
@@ -1708,6 +1665,7 @@ def multiServiceE2ePipeline(ctx):
                     extra_server_environment["STORAGE_USERS_POSIX_WATCH_FS"] = True
 
                 steps = \
+                    skipCheckStep(ctx, "e2e-tests") + \
                     evaluateWorkflowStep() + \
                     restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBin"]) + \
                     restoreWebCache() + \
@@ -2677,12 +2635,7 @@ def checkStarlark(ctx):
         "when": [
             event["cron"],
             event["base"],
-            {
-                "event": "pull_request",
-                "path": {
-                    "exclude": skipIfUnchanged(ctx, "base"),
-                },
-            },
+            event["pull_request"],
         ],
     }]
 
@@ -2856,7 +2809,8 @@ def litmus(ctx, storage):
 
     pipeline = {
         "name": "test-litmus",
-        "steps": evaluateWorkflowStep() +
+        "steps": skipCheckStep(ctx, "litmus") +
+                 evaluateWorkflowStep() +
                  restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
                  opencloudServer(storage) +
                  setupForLitmus() +
@@ -2931,12 +2885,7 @@ def litmus(ctx, storage):
         "when": [
             event["cron"],
             event["base"],
-            {
-                "event": "pull_request",
-                "path": {
-                    "exclude": skipIfUnchanged(ctx, "litmus"),
-                },
-            },
+            event["pull_request"],
         ],
     }
 
@@ -3040,12 +2989,7 @@ def cacheBrowsers(ctx):
     e2e_trigger = [
         event["base"],
         event["cron"],
-        {
-            "event": "pull_request",
-            "path": {
-                "exclude": skipIfUnchanged(ctx, "e2e-tests"),
-            },
-        },
+        event["pull_request"],
         {
             "event": "tag",
             "ref": "refs/tags/**",
@@ -3536,3 +3480,16 @@ def waitForWebOffices(services = []):
             "commands": commands,
         },
     ]
+
+def skipCheckStep(ctx, type):
+    if ("full-ci" in ctx.build.title.lower() or ctx.build.event == "tag" or ctx.build.event == "cron"):
+        return []
+
+    return [{
+        "name": "skip-check",
+        "image": OC_CI_NODEJS_ALPINE,
+        "commands": [
+            "npm install minimatch",
+            "node tests/config/woodpecker/skip_if_unchanged.js %s" % type,
+        ],
+    }]
