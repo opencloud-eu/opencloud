@@ -1287,7 +1287,7 @@ github.com/onsi/gomega/matchers/support/goraph/edge
 github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
-# github.com/open-policy-agent/opa v1.15.1
+# github.com/open-policy-agent/opa v1.15.2
 ## explicit; go 1.25.0
 github.com/open-policy-agent/opa/ast
 github.com/open-policy-agent/opa/ast/json
