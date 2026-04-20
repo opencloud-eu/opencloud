@@ -147,11 +147,13 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 					"secure_view_app_addr": cfg.AppHandler.SecureViewAppAddr,
 				},
 				"archiver": map[string]interface{}{
-					"prefix":        cfg.Archiver.Prefix,
-					"timeout":       86400,
-					"insecure":      cfg.Archiver.Insecure,
-					"max_num_files": cfg.Archiver.MaxNumFiles,
-					"max_size":      cfg.Archiver.MaxSize,
+					"public_url":         cfg.PublicURL,
+					"prefix":             cfg.Archiver.Prefix,
+					"timeout":            86400,
+					"insecure":           cfg.Archiver.Insecure,
+					"max_num_files":      cfg.Archiver.MaxNumFiles,
+					"max_size":           cfg.Archiver.MaxSize,
+					"url_signing_secret": cfg.Commons.URLSigningSecret,
 				},
 				"datagateway": map[string]interface{}{
 					"prefix":                 cfg.DataGateway.Prefix,
