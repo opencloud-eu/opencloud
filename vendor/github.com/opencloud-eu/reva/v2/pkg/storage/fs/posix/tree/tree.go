@@ -68,7 +68,7 @@ var (
 )
 
 func init() {
-	tracer = otel.Tracer("github.com/cs3org/reva/pkg/storage/pkg/decomposedfs/tree")
+	tracer = otel.Tracer("github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/tree")
 }
 
 type Watcher interface {
@@ -160,7 +160,7 @@ func New(lu node.PathLookup, bs node.Blobstore, um usermapper.Mapper, trashbin *
 				return nil, err
 			}
 		default:
-			t.watcher, err = NewInotifyWatcher(t, o, log)
+			t.watcher, err = NewWatcher(t, o, log)
 			if err != nil {
 				return nil, err
 			}
@@ -360,6 +360,9 @@ func (t *Tree) CreateDir(ctx context.Context, n *node.Node) (err error) {
 
 // Move replaces the target with the source
 func (t *Tree) Move(ctx context.Context, oldNode *node.Node, newNode *node.Node) (err error) {
+	ctx, span := tracer.Start(ctx, "Move")
+	defer span.End()
+
 	if oldNode.SpaceID != newNode.SpaceID {
 		// WebDAV RFC https://www.rfc-editor.org/rfc/rfc4918#section-9.9.4 says to use
 		// > 502 (Bad Gateway) - This may occur when the destination is on another
@@ -382,6 +385,7 @@ func (t *Tree) Move(ctx context.Context, oldNode *node.Node, newNode *node.Node)
 		newNode.ID = oldNode.ID
 	}
 
+	_, subspan := tracer.Start(ctx, "os.Rename")
 	// rename node
 	err = os.Rename(
 		filepath.Join(oldParent, oldNode.Name),
@@ -390,7 +394,9 @@ func (t *Tree) Move(ctx context.Context, oldNode *node.Node, newNode *node.Node)
 	if err != nil {
 		return errors.Wrap(err, "posixfs: could not move child")
 	}
+	subspan.End()
 
+	_, subspan = tracer.Start(ctx, "update id cache and attributes")
 	// update the id cache
 	// invalidate old tree
 	err = t.lookup.IDCache.DeleteByPath(ctx, filepath.Join(oldNode.ParentPath(), oldNode.Name))
@@ -409,6 +415,9 @@ func (t *Tree) Move(ctx context.Context, oldNode *node.Node, newNode *node.Node)
 		return errors.Wrap(err, "posixfs: could not update node attributes")
 	}
 
+	subspan.End()
+
+	_, subspan = tracer.Start(ctx, "warmup id cache for moved subtree")
 	// update id cache for the moved subtree.
 	if oldNode.IsDir(ctx) {
 		err = t.WarmupIDCache(filepath.Join(newNode.ParentPath(), newNode.Name), false, false)
@@ -416,6 +425,7 @@ func (t *Tree) Move(ctx context.Context, oldNode *node.Node, newNode *node.Node)
 			return err
 		}
 	}
+	subspan.End()
 
 	// the size diff is the current treesize or blobsize of the old/source node
 	var sizeDiff int64
@@ -429,6 +439,7 @@ func (t *Tree) Move(ctx context.Context, oldNode *node.Node, newNode *node.Node)
 		sizeDiff = oldNode.Blobsize
 	}
 
+	_, subspan = tracer.Start(ctx, "propagate size changes")
 	err = t.Propagate(ctx, oldNode, -sizeDiff)
 	if err != nil {
 		return errors.Wrap(err, "posixfs: Move: could not propagate old node")
@@ -437,6 +448,7 @@ func (t *Tree) Move(ctx context.Context, oldNode *node.Node, newNode *node.Node)
 	if err != nil {
 		return errors.Wrap(err, "posixfs: Move: could not propagate new node")
 	}
+	subspan.End()
 	return nil
 }
 

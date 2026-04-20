@@ -153,6 +153,10 @@ func (b HybridBackend) getAll(ctx context.Context, n MetadataNode, skipCache, sk
 	}
 
 	if len(attrNames) == 0 {
+		err = b.metaCache.PushToCache(b.cacheKey(n), attribs)
+		if err != nil {
+			return nil, err
+		}
 		return attribs, nil
 	}
 
@@ -179,6 +183,9 @@ func (b HybridBackend) getAll(ctx context.Context, n MetadataNode, skipCache, sk
 
 	// merge the attributes from the offload file
 	offloaded, err := xattr.Get(path, _metadataOffloadedAttr)
+	if err != nil && !IsAttrUnset(err) {
+		return nil, err
+	}
 	if !skipOffloaded && err == nil && string(offloaded) == "1" {
 		msgpackAttribs := map[string][]byte{}
 		msgBytes, err := os.ReadFile(b.MetadataPath(n))
@@ -308,16 +315,9 @@ func (b HybridBackend) SetMultiple(ctx context.Context, n MetadataNode, attribs 
 		return fmt.Errorf("failed to set %d/%d xattrs: %w", xerrs, total, xerr)
 	}
 
-	attribs, err = b.getAll(ctx, n, true, false, false)
-	if err != nil {
-		return err
-	}
-	err = b.metaCache.PushToCache(b.cacheKey(n), attribs)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	// Update the cache with the new values
+	_, err = b.getAll(ctx, n, true, false, false)
+	return err
 }
 
 func (b HybridBackend) offloadMetadata(ctx context.Context, n MetadataNode) error {
@@ -439,11 +439,9 @@ func (b HybridBackend) Remove(ctx context.Context, n MetadataNode, key string, a
 		}
 	}
 
-	attribs, err := b.getAll(ctx, n, true, false, false)
-	if err != nil {
-		return err
-	}
-	return b.metaCache.PushToCache(b.cacheKey(n), attribs)
+	// Update the cache with the new values
+	_, err := b.getAll(ctx, n, true, false, false)
+	return err
 }
 
 // IsMetaFile returns whether the given path represents a meta file
@@ -455,15 +453,10 @@ func (b HybridBackend) Purge(ctx context.Context, n MetadataNode) error {
 	_, err := os.Stat(path)
 	if err == nil {
 		attribs, err := b.getAll(ctx, n, true, false, true)
-		if err != nil {
-			return err
-		}
-
-		for attr := range attribs {
-			if strings.HasPrefix(attr, prefixes.OcPrefix) {
-				err := xattr.Remove(path, attr)
-				if err != nil {
-					return err
+		if err == nil {
+			for attr := range attribs {
+				if strings.HasPrefix(attr, prefixes.OcPrefix) {
+					_ = xattr.Remove(path, attr)
 				}
 			}
 		}

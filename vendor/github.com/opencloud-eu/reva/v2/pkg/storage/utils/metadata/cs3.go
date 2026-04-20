@@ -49,7 +49,7 @@ import (
 var tracer trace.Tracer
 
 func init() {
-	tracer = otel.Tracer("github.com/cs3org/reva/pkg/storage/utils/metadata")
+	tracer = otel.Tracer("github.com/opencloud-eu/reva/v2/pkg/storage/utils/metadata")
 }
 
 // CS3 represents a metadata storage with a cs3 storage backend

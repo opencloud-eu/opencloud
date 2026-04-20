@@ -86,7 +86,7 @@ var (
 )
 
 func init() {
-	tracer = otel.Tracer("github.com/cs3org/reva/pkg/storage/pkg/decomposedfs")
+	tracer = otel.Tracer("github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs")
 }
 
 // Session is the interface that DecomposedfsSession implements. By combining tus.Upload,

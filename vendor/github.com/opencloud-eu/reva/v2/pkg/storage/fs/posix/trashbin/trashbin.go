@@ -50,7 +50,7 @@ var (
 )
 
 func init() {
-	tracer = otel.Tracer("github.com/cs3org/reva/pkg/storage/fs/posix/trashbin")
+	tracer = otel.Tracer("github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/trashbin")
 }
 
 type Trashbin struct {
