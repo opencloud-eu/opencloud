@@ -29,7 +29,7 @@ func Index(cfg *config.Config) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			allSpacesFlag, _ := cmd.Flags().GetBool("all-spaces")
 			spaceFlag, _ := cmd.Flags().GetString("space")
-			forceReindexFlag, _ := cmd.Flags().GetBool("force-reindex")
+			forceReindexFlag, _ := cmd.Flags().GetBool("force-rescan")
 			if spaceFlag == "" && !allSpacesFlag {
 				return errors.New("either --space or --all-spaces is required")
 			}
