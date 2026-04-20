@@ -10,6 +10,10 @@
 
 - Update CI badge URL in README.md [[#2614](https://github.com/opencloud-eu/opencloud/pull/2614)]
 
+### 🐛 Bug Fixes
+
+- Add a flag to the reindex command to force a full reindex [[#2606](https://github.com/opencloud-eu/opencloud/pull/2606)]
+
 ### 📈 Enhancement
 
 - proxy: Allow mapping from an external tenant id to the internal id [[#2569](https://github.com/opencloud-eu/opencloud/pull/2569)]
