@@ -264,9 +264,10 @@ func (t Tika) getAudio(meta map[string][]string) *libregraph.Audio {
 	//  TODO: audio.DiscCount: not provided by tika
 
 	if v, err := getFirstValue(meta, "xmpDM:duration"); err == nil {
-		if i, err := strconv.ParseInt(v, 10, 64); err == nil {
+		// Tika emits fractional seconds.
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
 			initAudio()
-			audio.SetDuration(i * 1000)
+			audio.SetDuration(int64(f * 1000))
 		}
 	}
 

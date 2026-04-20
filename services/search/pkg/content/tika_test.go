@@ -108,7 +108,7 @@ var _ = Describe("Tika", func() {
 					"xmpDM:audioSampleRate": "44100",
 					"channels": "2",
 					"dc:title": "Some Title",
-					"xmpDM:duration": "225",
+					"xmpDM:duration": "225.5",
 					"Content-Type": "audio/mpeg",
 					"samplerate": "44100"
 				}
@@ -130,7 +130,7 @@ var _ = Describe("Tika", func() {
 			// Expect(audio.Copyright).To(Equal(libregraph.PtrString("Some Copyright")))
 			Expect(audio.Disc).To(Equal(libregraph.PtrInt32(4)))
 			// Expect(audio.DiscCount).To(Equal(libregraph.PtrInt32(5)))
-			Expect(audio.Duration).To(Equal(libregraph.PtrInt64(225000)))
+			Expect(audio.Duration).To(Equal(libregraph.PtrInt64(225500)))
 			Expect(audio.Genre).To(Equal(libregraph.PtrString("Some Genre")))
 			// Expect(audio.HasDrm).To(Equal(libregraph.PtrBool(false)))
 			// Expect(audio.IsVariableBitrate).To(Equal(libregraph.PtrBool(true)))
