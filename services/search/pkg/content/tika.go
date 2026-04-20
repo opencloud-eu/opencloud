@@ -267,7 +267,7 @@ func (t Tika) getAudio(meta map[string][]string) *libregraph.Audio {
 		// Tika emits fractional seconds.
 		if f, err := strconv.ParseFloat(v, 64); err == nil {
 			initAudio()
-			audio.SetDuration(int64(f * 1000))
+			audio.SetDuration(int64(math.Round(f * 1000)))
 		}
 	}
 
