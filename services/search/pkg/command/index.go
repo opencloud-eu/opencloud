@@ -29,7 +29,7 @@ func Index(cfg *config.Config) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			allSpacesFlag, _ := cmd.Flags().GetBool("all-spaces")
 			spaceFlag, _ := cmd.Flags().GetString("space")
-			forceReindexFlag, _ := cmd.Flags().GetBool("force-rescan")
+			forceRescanFlag, _ := cmd.Flags().GetBool("force-rescan")
 			if spaceFlag == "" && !allSpacesFlag {
 				return errors.New("either --space or --all-spaces is required")
 			}
@@ -50,7 +50,7 @@ func Index(cfg *config.Config) *cobra.Command {
 			c := searchsvc.NewSearchProviderService("eu.opencloud.api.search", grpcClient)
 			_, err = c.IndexSpace(context.Background(), &searchsvc.IndexSpaceRequest{
 				SpaceId:      spaceFlag,
-				ForceReindex: forceReindexFlag,
+				ForceReindex: forceRescanFlag,
 			}, func(opts *client.CallOptions) { opts.RequestTimeout = 10 * time.Minute })
 			if err != nil {
 				fmt.Println("failed to index space: " + err.Error())
