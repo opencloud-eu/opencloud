@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"os/signal"
+	"time"
 
 	"github.com/urfave/cli/v2"
 
@@ -91,7 +92,13 @@ func Server(cfg *config.Config) *cli.Command {
 			gr.Add(runner.New(cfg.Service.Name+".svc", func() error {
 				return natsServer.ListenAndServe()
 			}, func() {
+				// INFO: this is a hotfix, we need to replace suture and wait for nats to
+				//       gracefully shutdown using rungroups
+				// 		 see https://github.com/opencloud-eu/opencloud/issues/2282
+				logger.Info().Msg("Gracefully shutting down the NATS server...")
 				natsServer.Shutdown()
+				time.Sleep(5 * time.Second) // wait for the server to shutdown gracefully
+				logger.Info().Msg("NATS server shutdown")
 			}))
 
 			grResults := gr.Run(ctx)
