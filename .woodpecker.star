@@ -893,8 +893,7 @@ def scanOpencloud(ctx):
 def buildOpencloudBinaryForTesting(ctx):
     pipeline = {
         "name": "build-opencloud-for-testing",
-        "steps": skipCheckStep(ctx, "base") +
-                 makeNodeGenerate("") +
+        "steps": makeNodeGenerate("") +
                  makeGoGenerate("") +
                  build() +
                  rebuildBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]),
@@ -905,10 +904,6 @@ def buildOpencloudBinaryForTesting(ctx):
         ],
         "workspace": workspace,
     }
-    prefixStepCommands(pipeline, [
-        ". ./.woodpecker.env",
-        '[ "$SKIP_WORKFLOW" = "true" ] && exit 0',
-    ])
     return [pipeline]
 
 def vendorbinCodestyle(phpVersion):
