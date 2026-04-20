@@ -191,18 +191,27 @@ const (
 	ErrorCodeAccountNotFound                   = "ACCNFD"
 	ErrorCodeAccountNotSupportedByMethod       = "ACCNSM"
 	ErrorCodeAccountReadOnly                   = "ACCRDO"
+	ErrorCodeMissingBlobSessionCapability      = "MSCBLO"
+	ErrorCodeMissingBlobAccountCapability      = "MACBLO"
+	ErrorCodeMissingMailsSessionCapability     = "MSCMAI"
+	ErrorCodeMissingMailsAccountCapability     = "MACMAI"
 	ErrorCodeMissingCalendarsSessionCapability = "MSCCAL"
 	ErrorCodeMissingCalendarsAccountCapability = "MACCAL"
 	ErrorCodeMissingContactsSessionCapability  = "MSCCON"
 	ErrorCodeMissingContactsAccountCapability  = "MACCON"
 	ErrorCodeMissingTasksSessionCapability     = "MSCTSK"
 	ErrorCodeMissingTasksAccountCapability     = "MACTSK"
+	ErrorCodeMissingQuotaSessionCapability     = "MSCMAI"
+	ErrorCodeMissingQuotaAccountCapability     = "MACMAI"
 	ErrorCodeFailedToDeleteEmail               = "DELEML"
 	ErrorCodeFailedToDeleteSomeIdentities      = "DELSID"
 	ErrorCodeFailedToSanitizeEmail             = "FSANEM"
 	ErrorCodeFailedToDeleteAddressBook         = "DELABK"
-	ErrorCodeFailedToDeleteCalendar            = "DELCAL"
+	ErrorCodeFailedToDeleteMailbox             = "DELMBX"
 	ErrorCodeFailedToDeleteContact             = "DELCNT"
+	ErrorCodeFailedToDeleteCalendar            = "DELCAL"
+	ErrorCodeFailedToDeleteEvent               = "DELEVT"
+	ErrorCodeFailedToDeleteIdentity            = "DELIDN"
 	ErrorCodeNoMailboxWithDraftRole            = "NMBXDR"
 	ErrorCodeNoMailboxWithSentRole             = "NMBXSE"
 	ErrorCodeInvalidSortSpecification          = "INVSSP"
@@ -392,6 +401,30 @@ var (
 		Title:  "The referenced Account is read-only",
 		Detail: "The Account that was referenced in the request only supports read-only operations.",
 	}
+	ErrorMissingBlobSessionCapability = GroupwareError{
+		Status: http.StatusExpectationFailed,
+		Code:   ErrorCodeMissingBlobAccountCapability,
+		Title:  "Session is missing the blob session capability",
+		Detail: "The JMAP Session of the user does not have the required capability for blobs.",
+	}
+	ErrorMissingBlobAccountCapability = GroupwareError{
+		Status: http.StatusExpectationFailed,
+		Code:   ErrorCodeMissingBlobSessionCapability,
+		Title:  "Account is missing the blob capability",
+		Detail: "The JMAP Account of the user does not have the required capability for blobs.",
+	}
+	ErrorMissingMailsSessionCapability = GroupwareError{
+		Status: http.StatusExpectationFailed,
+		Code:   ErrorCodeMissingMailsAccountCapability,
+		Title:  "Session is missing the mails session capability",
+		Detail: "The JMAP Session of the user does not have the required capability for mails.",
+	}
+	ErrorMissingMailsAccountCapability = GroupwareError{
+		Status: http.StatusExpectationFailed,
+		Code:   ErrorCodeMissingMailsSessionCapability,
+		Title:  "Account is missing the mails capability",
+		Detail: "The JMAP Account of the user does not have the required capability for mails.",
+	}
 	ErrorMissingCalendarsSessionCapability = GroupwareError{
 		Status: http.StatusExpectationFailed,
 		Code:   ErrorCodeMissingCalendarsAccountCapability,
@@ -428,6 +461,18 @@ var (
 		Title:  "Account is missing the tasks capability",
 		Detail: "The JMAP Account of the user does not have the required capability for tasks",
 	}
+	ErrorMissingQuotaSessionCapability = GroupwareError{
+		Status: http.StatusExpectationFailed,
+		Code:   ErrorCodeMissingQuotaSessionCapability,
+		Title:  "Session is missing the quota session capability",
+		Detail: "The JMAP Session of the user does not have the required capability for quotas.",
+	}
+	ErrorMissingQuotaAccountCapability = GroupwareError{
+		Status: http.StatusExpectationFailed,
+		Code:   ErrorCodeMissingQuotaAccountCapability,
+		Title:  "Account is missing the quota capability",
+		Detail: "The JMAP Account of the user does not have the required capability for quotas.",
+	}
 	ErrorFailedToDeleteEmail = GroupwareError{
 		Status: http.StatusInternalServerError,
 		Code:   ErrorCodeFailedToDeleteEmail,
@@ -452,17 +497,35 @@ var (
 		Title:  "Failed to delete address books",
 		Detail: "One or more address books could not be deleted.",
 	}
-	ErrorFailedToDeleteContact = GroupwareError{
+	ErrorFailedToDeleteMailbox = GroupwareError{
 		Status: http.StatusInternalServerError,
-		Code:   ErrorCodeFailedToDeleteContact,
-		Title:  "Failed to delete contacts",
-		Detail: "One or more contacts could not be deleted.",
+		Code:   ErrorCodeFailedToDeleteMailbox,
+		Title:  "Failed to delete mailboxes",
+		Detail: "One or more mailboxes could not be deleted.",
+	}
+	ErrorFailedToDeleteEvent = GroupwareError{
+		Status: http.StatusInternalServerError,
+		Code:   ErrorCodeFailedToDeleteEvent,
+		Title:  "Failed to delete events",
+		Detail: "One or more events could not be deleted.",
 	}
 	ErrorFailedToDeleteCalendar = GroupwareError{
 		Status: http.StatusInternalServerError,
 		Code:   ErrorCodeFailedToDeleteCalendar,
 		Title:  "Failed to delete calendar",
 		Detail: "One or more calendars could not be deleted.",
+	}
+	ErrorFailedToDeleteContact = GroupwareError{
+		Status: http.StatusInternalServerError,
+		Code:   ErrorCodeFailedToDeleteContact,
+		Title:  "Failed to delete contacts",
+		Detail: "One or more contacts could not be deleted.",
+	}
+	ErrorFailedToDeleteIdentity = GroupwareError{
+		Status: http.StatusInternalServerError,
+		Code:   ErrorCodeFailedToDeleteIdentity,
+		Title:  "Failed to delete identities",
+		Detail: "One or more identities could not be deleted.",
 	}
 	ErrorNoMailboxWithDraftRole = GroupwareError{
 		Status: http.StatusExpectationFailed,

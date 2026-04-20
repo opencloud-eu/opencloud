@@ -14,7 +14,16 @@ func (j *Client) GetAddressbooks(accountId string, ids []string, ctx Context) (A
 	)
 }
 
-type AddressBookChanges = ChangesTemplate[AddressBook]
+type AddressBookChanges ChangesTemplate[AddressBook]
+
+var _ Changes[AddressBook] = AddressBookChanges{}
+
+func (c AddressBookChanges) GetHasMoreChanges() bool   { return c.HasMoreChanges }
+func (c AddressBookChanges) GetOldState() State        { return c.OldState }
+func (c AddressBookChanges) GetNewState() State        { return c.NewState }
+func (c AddressBookChanges) GetCreated() []AddressBook { return c.Created }
+func (c AddressBookChanges) GetUpdated() []AddressBook { return c.Updated }
+func (c AddressBookChanges) GetDestroyed() []string    { return c.Destroyed }
 
 // Retrieve Address Book changes since a given state.
 // @apidoc addressbook,changes

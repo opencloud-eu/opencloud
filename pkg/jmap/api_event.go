@@ -12,6 +12,18 @@ func (r CalendarEventSearchResults) GetPosition() uint            { return r.Pos
 func (r CalendarEventSearchResults) GetLimit() uint               { return r.Limit }
 func (r CalendarEventSearchResults) GetTotal() *uint              { return r.Total }
 
+func (j *Client) GetCalendarEvents(accountId string, eventIds []string, ctx Context) (CalendarEventGetResponse, SessionState, State, Language, Error) {
+	return get(j, "GetCalendarEvents", CalendarEventType,
+		func(accountId string, ids []string) CalendarEventGetCommand {
+			return CalendarEventGetCommand{AccountId: accountId, Ids: eventIds}
+		},
+		CalendarEventGetResponse{},
+		identity1,
+		accountId, eventIds,
+		ctx,
+	)
+}
+
 func (j *Client) QueryCalendarEvents(accountIds []string, //NOSONAR
 	filter CalendarEventFilterElement, sortBy []CalendarEventComparator,
 	position int, limit uint, calculateTotal bool,
@@ -38,7 +50,16 @@ func (j *Client) QueryCalendarEvents(accountIds []string, //NOSONAR
 	)
 }
 
-type CalendarEventChanges = ChangesTemplate[CalendarEvent]
+type CalendarEventChanges ChangesTemplate[CalendarEvent]
+
+var _ Changes[CalendarEvent] = CalendarEventChanges{}
+
+func (c CalendarEventChanges) GetHasMoreChanges() bool     { return c.HasMoreChanges }
+func (c CalendarEventChanges) GetOldState() State          { return c.OldState }
+func (c CalendarEventChanges) GetNewState() State          { return c.NewState }
+func (c CalendarEventChanges) GetCreated() []CalendarEvent { return c.Created }
+func (c CalendarEventChanges) GetUpdated() []CalendarEvent { return c.Updated }
+func (c CalendarEventChanges) GetDestroyed() []string      { return c.Destroyed }
 
 // Retrieve the changes in Calendar Events since a given State.
 // @api:tags event,changes
@@ -74,9 +95,9 @@ func (j *Client) GetCalendarEventChanges(accountId string, sinceState State, max
 	)
 }
 
-func (j *Client) CreateCalendarEvent(accountId string, event CalendarEvent, ctx Context) (*CalendarEvent, SessionState, State, Language, Error) {
+func (j *Client) CreateCalendarEvent(accountId string, event CalendarEventChange, ctx Context) (*CalendarEvent, SessionState, State, Language, Error) {
 	return create(j, "CreateCalendarEvent", CalendarEventType,
-		func(accountId string, create map[string]CalendarEvent) CalendarEventSetCommand {
+		func(accountId string, create map[string]CalendarEventChange) CalendarEventSetCommand {
 			return CalendarEventSetCommand{AccountId: accountId, Create: create}
 		},
 		func(accountId string, ref string) CalendarEventGetCommand {

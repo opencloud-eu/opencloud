@@ -160,7 +160,7 @@ func (g *Groupware) Index(w http.ResponseWriter, r *http.Request) {
 			Accounts:        buildIndexAccounts(req.session, boot),
 			PrimaryAccounts: buildIndexPrimaryAccounts(req.session),
 		}
-		return req.respondN(accountIds, body, sessionState, IndexResponseObjectType, state)
+		return req.respondN(accountIds, body, sessionState, IndexResponseObjectType, state, lang)
 	})
 }
 

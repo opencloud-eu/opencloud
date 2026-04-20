@@ -16,7 +16,7 @@ func (g *Groupware) GetTaskLists(w http.ResponseWriter, r *http.Request) {
 		var _ string = accountId
 
 		var body []jmap.TaskList = AllTaskLists
-		return req.respond(accountId, body, req.session.State, TaskListResponseObjectType, TaskListsState)
+		return req.respond(accountId, body, req.session.State, TaskListResponseObjectType, TaskListsState, jmap.NoLanguage)
 	})
 }
 
@@ -36,7 +36,7 @@ func (g *Groupware) GetTaskListById(w http.ResponseWriter, r *http.Request) {
 		// TODO replace with proper implementation
 		for _, tasklist := range AllTaskLists {
 			if tasklist.Id == tasklistId {
-				return req.respond(accountId, tasklist, req.session.State, TaskListResponseObjectType, TaskListsState)
+				return req.respond(accountId, tasklist, req.session.State, TaskListResponseObjectType, TaskListsState, jmap.NoLanguage)
 			}
 		}
 		return req.etaggedNotFound(accountId, req.session.State, TaskListResponseObjectType, TaskListsState)
@@ -61,6 +61,6 @@ func (g *Groupware) GetTasksInTaskList(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return req.notFound(accountId, req.session.State, TaskResponseObjectType, TaskState)
 		}
-		return req.respond(accountId, tasks, req.session.State, TaskResponseObjectType, TaskState)
+		return req.respond(accountId, tasks, req.session.State, TaskResponseObjectType, TaskState, jmap.NoLanguage)
 	})
 }

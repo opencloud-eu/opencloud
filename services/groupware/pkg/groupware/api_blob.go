@@ -14,31 +14,7 @@ const (
 )
 
 func (g *Groupware) GetBlobMeta(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) Response {
-		accountId, err := req.GetAccountIdForBlob()
-		if err != nil {
-			return req.error(accountId, err)
-		}
-		l := req.logger.With().Str(logAccountId, accountId)
-
-		blobId, err := req.PathParam(UriParamBlobId)
-		if err != nil {
-			return req.error(accountId, err)
-		}
-		l = l.Str(UriParamBlobId, blobId)
-
-		logger := log.From(l)
-		ctx := req.ctx.WithLogger(logger)
-
-		res, sessionState, state, lang, jerr := g.jmap.GetBlobMetadata(accountId, blobId, ctx)
-		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
-		}
-		if res == nil {
-			return req.notFound(accountId, sessionState, BlobResponseObjectType, state)
-		}
-		return req.respond(accountId, res, sessionState, BlobResponseObjectType, state)
-	})
+	get(Blob, w, r, g, g.jmap.GetBlobMetadata)
 }
 
 func (g *Groupware) UploadBlob(w http.ResponseWriter, r *http.Request) {

@@ -2,6 +2,7 @@ package jmap
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"time"
 
@@ -1326,12 +1327,17 @@ type JmapCommand interface {
 	GetObjectType() ObjectType
 }
 
+type JmapResponse[T Foo] interface {
+	GetMarker() T
+}
+
 type GetCommand[T Foo] interface {
 	JmapCommand
 	GetResponse() GetResponse[T]
 }
 
 type GetResponse[T Foo] interface {
+	JmapResponse[T]
 	GetState() State
 	GetNotFound() []string
 	GetList() []T
@@ -1343,12 +1349,12 @@ type SetCommand[T Foo] interface {
 }
 
 type SetResponse[T Foo] interface {
+	JmapResponse[T]
 	GetNotCreated() map[string]SetError
 	GetNotUpdated() map[string]SetError
 	GetNotDestroyed() map[string]SetError
 	GetOldState() State
 	GetNewState() State
-	GetMarker() T
 }
 
 type Change interface {
@@ -1361,13 +1367,13 @@ type ChangesCommand[T Foo] interface {
 }
 
 type ChangesResponse[T Foo] interface {
+	JmapResponse[T]
 	GetOldState() State
 	GetNewState() State
 	GetHasMoreChanges() bool
 	GetCreated() []string
 	GetUpdated() []string
 	GetDestroyed() []string
-	GetMarker() T
 }
 
 type QueryCommand[T Foo] interface {
@@ -1376,8 +1382,8 @@ type QueryCommand[T Foo] interface {
 }
 
 type QueryResponse[T Foo] interface {
+	JmapResponse[T]
 	GetQueryState() State
-	GetMarker() T
 }
 
 type UploadCommand[T Foo] interface {
@@ -1386,7 +1392,7 @@ type UploadCommand[T Foo] interface {
 }
 
 type UploadResponse[T Foo] interface {
-	GetMarker() T
+	JmapResponse[T]
 }
 
 type ParseCommand[T Foo] interface {
@@ -1395,7 +1401,7 @@ type ParseCommand[T Foo] interface {
 }
 
 type ParseResponse[T Foo] interface {
-	GetMarker() T
+	JmapResponse[T]
 }
 
 type ChangesTemplate[T Foo] struct {
@@ -1405,6 +1411,15 @@ type ChangesTemplate[T Foo] struct {
 	Created        []T      `json:"created,omitempty"`
 	Updated        []T      `json:"updated,omitempty"`
 	Destroyed      []string `json:"destroyed,omitempty"`
+}
+
+type Changes[T Foo] interface {
+	GetHasMoreChanges() bool
+	GetOldState() State
+	GetNewState() State
+	GetCreated() []T
+	GetUpdated() []T
+	GetDestroyed() []string
 }
 
 type SearchResultsTemplate[T Foo] struct {
@@ -2965,6 +2980,7 @@ type EmailSubmissionGetResponse struct {
 
 var _ GetResponse[EmailSubmission] = &EmailSubmissionGetResponse{}
 
+func (r EmailSubmissionGetResponse) GetMarker() EmailSubmission { return EmailSubmission{} }
 func (r EmailSubmissionGetResponse) GetState() State            { return r.State }
 func (r EmailSubmissionGetResponse) GetNotFound() []string      { return r.NotFound }
 func (r EmailSubmissionGetResponse) GetList() []EmailSubmission { return r.List }
@@ -3268,6 +3284,7 @@ type MailboxGetResponse struct {
 
 var _ GetResponse[Mailbox] = &MailboxGetResponse{}
 
+func (r MailboxGetResponse) GetMarker() Mailbox    { return Mailbox{} }
 func (r MailboxGetResponse) GetState() State       { return r.State }
 func (r MailboxGetResponse) GetNotFound() []string { return r.NotFound }
 func (r MailboxGetResponse) GetList() []Mailbox    { return r.List }
@@ -3396,7 +3413,7 @@ var _ QueryResponse[Mailbox] = &MailboxQueryResponse{}
 func (r MailboxQueryResponse) GetQueryState() State { return r.QueryState }
 func (r MailboxQueryResponse) GetMarker() Mailbox   { return Mailbox{} }
 
-type EmailCreate struct {
+type EmailChange struct {
 	// The set of Mailbox ids this Email belongs to.
 	//
 	// An Email in the mail store MUST belong to one or more Mailboxes at all times
@@ -3498,7 +3515,11 @@ type EmailCreate struct {
 	Attachments []EmailBodyPart `json:"attachments,omitempty"`
 }
 
-type EmailUpdate map[string]any
+var _ Change = EmailChange{}
+
+func (e EmailChange) AsPatch() (PatchObject, error) {
+	return toPatchObject(e)
+}
 
 type EmailSetCommand struct {
 	// The id of the account to use.
@@ -3520,7 +3541,7 @@ type EmailSetCommand struct {
 	// Any such property may be omitted by the client.
 	//
 	// The client MUST omit any properties that may only be set by the server.
-	Create map[string]EmailCreate `json:"create,omitempty"`
+	Create map[string]EmailChange `json:"create,omitempty"`
 
 	// A map of an id to a `Patch` object to apply to the current Email object with that id,
 	// or null if no objects are to be updated.
@@ -3547,7 +3568,7 @@ type EmailSetCommand struct {
 	//
 	// The client may choose to optimise network usage by just sending the diff or may send the whole object; the server
 	// processes it the same either way.
-	Update map[string]EmailUpdate `json:"update,omitempty"`
+	Update map[string]PatchObject `json:"update,omitempty"`
 
 	// A list of ids for Email objects to permanently delete, or null if no objects are to be destroyed.
 	Destroy []string `json:"destroy,omitempty"`
@@ -3966,6 +3987,7 @@ type IdentityGetResponse struct {
 
 var _ GetResponse[Identity] = &IdentityGetResponse{}
 
+func (r IdentityGetResponse) GetMarker() Identity   { return Identity{} }
 func (r IdentityGetResponse) GetState() State       { return r.State }
 func (r IdentityGetResponse) GetNotFound() []string { return r.NotFound }
 func (r IdentityGetResponse) GetList() []Identity   { return r.List }
@@ -4050,6 +4072,7 @@ type VacationResponseGetResponse struct {
 
 var _ GetResponse[VacationResponse] = &VacationResponseGetResponse{}
 
+func (r VacationResponseGetResponse) GetMarker() VacationResponse { return VacationResponse{} }
 func (r VacationResponseGetResponse) GetState() State             { return r.State }
 func (r VacationResponseGetResponse) GetNotFound() []string       { return r.NotFound }
 func (r VacationResponseGetResponse) GetList() []VacationResponse { return r.List }
@@ -4195,6 +4218,26 @@ var _ Idable = &Blob{}
 func (f Blob) GetObjectType() ObjectType { return BlobType }
 func (f Blob) GetId() string             { return f.Id }
 
+type BlobChange struct {
+}
+
+var _ Change = BlobChange{}
+
+func (m BlobChange) AsPatch() (PatchObject, error) {
+	return nil, fmt.Errorf("BlobChange is unsupported")
+}
+
+type BlobChanges ChangesTemplate[Blob]
+
+var _ Changes[Blob] = BlobChanges{}
+
+func (c BlobChanges) GetHasMoreChanges() bool { return c.HasMoreChanges }
+func (c BlobChanges) GetOldState() State      { return c.OldState }
+func (c BlobChanges) GetNewState() State      { return c.NewState }
+func (c BlobChanges) GetCreated() []Blob      { return c.Created }
+func (c BlobChanges) GetUpdated() []Blob      { return c.Updated }
+func (c BlobChanges) GetDestroyed() []string  { return c.Destroyed }
+
 type BlobGetCommand struct {
 	AccountId  string   `json:"accountId"`
 	Ids        []string `json:"ids,omitempty"`
@@ -4255,6 +4298,7 @@ type BlobGetResponse struct {
 
 var _ GetResponse[Blob] = &BlobGetResponse{}
 
+func (r BlobGetResponse) GetMarker() Blob       { return Blob{} }
 func (r BlobGetResponse) GetState() State       { return r.State }
 func (r BlobGetResponse) GetNotFound() []string { return r.NotFound }
 func (r BlobGetResponse) GetList() []Blob       { return r.List }
@@ -6370,6 +6414,15 @@ var _ Idable = &Quota{}
 func (f Quota) GetObjectType() ObjectType { return QuotaType }
 func (f Quota) GetId() string             { return f.Id }
 
+type QuotaChange struct {
+}
+
+var _ Change = QuotaChange{}
+
+func (m QuotaChange) AsPatch() (PatchObject, error) {
+	return nil, fmt.Errorf("QuotaChange is unsupported")
+}
+
 // See [RFC8098] for the exact meaning of these different fields.
 //
 // These fields are defined as case insensitive in [RFC8098] but are case sensitive in this RFC
@@ -6492,6 +6545,7 @@ type QuotaGetResponse struct {
 
 var _ GetResponse[Quota] = &QuotaGetResponse{}
 
+func (r QuotaGetResponse) GetMarker() Quota      { return Quota{} }
 func (r QuotaGetResponse) GetState() State       { return r.State }
 func (r QuotaGetResponse) GetNotFound() []string { return r.NotFound }
 func (r QuotaGetResponse) GetList() []Quota      { return r.List }
@@ -6593,6 +6647,7 @@ type AddressBookGetResponse struct {
 
 var _ GetResponse[AddressBook] = &AddressBookGetResponse{}
 
+func (r AddressBookGetResponse) GetMarker() AddressBook { return AddressBook{} }
 func (r AddressBookGetResponse) GetState() State        { return r.State }
 func (r AddressBookGetResponse) GetNotFound() []string  { return r.NotFound }
 func (r AddressBookGetResponse) GetList() []AddressBook { return r.List }
@@ -7168,6 +7223,7 @@ type ContactCardGetResponse struct {
 
 var _ GetResponse[ContactCard] = &ContactCardGetResponse{}
 
+func (r ContactCardGetResponse) GetMarker() ContactCard { return ContactCard{} }
 func (r ContactCardGetResponse) GetState() State        { return r.State }
 func (r ContactCardGetResponse) GetNotFound() []string  { return r.NotFound }
 func (r ContactCardGetResponse) GetList() []ContactCard { return r.List }
@@ -7251,7 +7307,7 @@ type ContactCardSetCommand struct {
 	// Any such property may be omitted by the client.
 	//
 	// The client MUST omit any properties that may only be set by the server.
-	Create map[string]ContactCard `json:"create,omitempty"`
+	Create map[string]ContactCardChange `json:"create,omitempty"`
 
 	// A map of an id to a `Patch` object to apply to the current Email object with that id,
 	// or null if no objects are to be updated.
@@ -7420,6 +7476,7 @@ type CalendarGetResponse struct {
 
 var _ GetResponse[Calendar] = &CalendarGetResponse{}
 
+func (r CalendarGetResponse) GetMarker() Calendar   { return Calendar{} }
 func (r CalendarGetResponse) GetState() State       { return r.State }
 func (r CalendarGetResponse) GetNotFound() []string { return r.NotFound }
 func (r CalendarGetResponse) GetList() []Calendar   { return r.List }
@@ -7896,6 +7953,7 @@ type CalendarEventGetResponse struct {
 
 var _ GetResponse[CalendarEvent] = &CalendarEventGetResponse{}
 
+func (r CalendarEventGetResponse) GetMarker() CalendarEvent { return CalendarEvent{} }
 func (r CalendarEventGetResponse) GetState() State          { return r.State }
 func (r CalendarEventGetResponse) GetNotFound() []string    { return r.NotFound }
 func (r CalendarEventGetResponse) GetList() []CalendarEvent { return r.List }
@@ -7985,7 +8043,7 @@ type CalendarEventSetCommand struct {
 	// Any such property may be omitted by the client.
 	//
 	// The client MUST omit any properties that may only be set by the server.
-	Create map[string]CalendarEvent `json:"create,omitempty"`
+	Create map[string]CalendarEventChange `json:"create,omitempty"`
 
 	// A map of an id to a `Patch` object to apply to the current Email object with that id,
 	// or null if no objects are to be updated.

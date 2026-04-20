@@ -15,7 +15,16 @@ func (j *Client) GetQuotas(accountIds []string, ctx Context) (map[string]QuotaGe
 	)
 }
 
-type QuotaChanges = ChangesTemplate[Quota]
+type QuotaChanges ChangesTemplate[Quota]
+
+var _ Changes[Quota] = QuotaChanges{}
+
+func (c QuotaChanges) GetHasMoreChanges() bool { return c.HasMoreChanges }
+func (c QuotaChanges) GetOldState() State      { return c.OldState }
+func (c QuotaChanges) GetNewState() State      { return c.NewState }
+func (c QuotaChanges) GetCreated() []Quota     { return c.Created }
+func (c QuotaChanges) GetUpdated() []Quota     { return c.Updated }
+func (c QuotaChanges) GetDestroyed() []string  { return c.Destroyed }
 
 // Retrieve the changes in Quotas since a given State.
 // @api:tags quota,changes

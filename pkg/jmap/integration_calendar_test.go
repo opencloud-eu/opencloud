@@ -422,38 +422,37 @@ func (s *StalwartTest) fillEvents( //NOSONAR
 		keywords := pickKeywords()
 		categories := pickCategories()
 
-		sequence := 0
+		sequence := uint(0)
 
 		alertId := id()
 		alertOffset := pickRandom("-PT5M", "-PT10M", "-PT15M")
 
-		obj := CalendarEvent{
-			Id:          "",
+		obj := CalendarEventChange{
 			CalendarIds: toBoolMapS(calendarId),
-			IsDraft:     isDraft,
-			Event: jscalendar.Event{
+			IsDraft:     &isDraft,
+			EventChange: jscalendar.EventChange{
 				Type:     jscalendar.EventType,
 				Start:    jscalendar.LocalDateTime(start),
-				Duration: jscalendar.Duration(duration),
-				Status:   status,
-				Object: jscalendar.Object{
-					CommonObject: jscalendar.CommonObject{
-						Uid:                    uid,
-						ProdId:                 productName,
-						Title:                  title,
-						Description:            description,
-						DescriptionContentType: descriptionFormat,
-						Locale:                 locale,
-						Color:                  color,
+				Duration: ptr(jscalendar.Duration(duration)),
+				Status:   &status,
+				ObjectChange: jscalendar.ObjectChange{
+					CommonObjectChange: jscalendar.CommonObjectChange{
+						Uid:                    &uid,
+						ProdId:                 &productName,
+						Title:                  &title,
+						Description:            &description,
+						DescriptionContentType: &descriptionFormat,
+						Locale:                 &locale,
+						Color:                  &color,
 					},
-					Sequence:        uint(sequence),
-					ShowWithoutTime: false,
-					FreeBusyStatus:  freeBusy,
-					Privacy:         privacy,
+					Sequence:        uintPtr(sequence),
+					ShowWithoutTime: boolPtr(false),
+					FreeBusyStatus:  &freeBusy,
+					Privacy:         &privacy,
 					SentBy:          organizerEmail,
 					Participants:    participantObjs,
-					TimeZone:        tz,
-					HideAttendees:   false,
+					TimeZone:        &tz,
+					HideAttendees:   boolPtr(false),
 					ReplyTo: map[jscalendar.ReplyMethod]string{
 						jscalendar.ReplyMethodImip: "mailto:" + organizerEmail, //NOSONAR
 					},
@@ -476,8 +475,8 @@ func (s *StalwartTest) fillEvents( //NOSONAR
 		}
 
 		if EnableEventMayInviteFields {
-			obj.MayInviteSelf = true
-			obj.MayInviteOthers = true
+			obj.MayInviteSelf = boolPtr(true)
+			obj.MayInviteOthers = boolPtr(true)
 			boxes.mayInvite = true
 		}
 
@@ -492,7 +491,7 @@ func (s *StalwartTest) fillEvents( //NOSONAR
 		}
 
 		if mainLocationId != "" {
-			obj.MainLocationId = mainLocationId
+			obj.MainLocationId = &mainLocationId
 		}
 
 		err = propmap(i%2 == 0, 1, 1, &obj.Links, func(int, string) (jscalendar.Link, error) {

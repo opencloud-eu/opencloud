@@ -227,6 +227,16 @@ func (r *Request) parameterErrorResponse(accountIds []string, param string, deta
 	return r.errorN(accountIds, r.parameterError(param, detail))
 }
 
+func (r *Request) unsupportedParams(accountIds []string, params ...string) (bool, Response) {
+	q := r.r.URL.Query()
+	for _, p := range params {
+		if q.Has(p) {
+			return true, r.parameterErrorResponse(accountIds, p, "Unsupported query parameter")
+		}
+	}
+	return false, Response{}
+}
+
 func (r *Request) getStringParam(param string, defaultValue string) (string, bool) {
 	q := r.r.URL.Query()
 	if !q.Has(param) {
@@ -373,10 +383,8 @@ func (r *Request) parseOptStringListParam(param string) ([]string, bool, *Error)
 		return nil, false, nil
 	}
 	for _, value := range q[param] {
-		for _, v := range strings.Split(value, ",") {
-			if strings.TrimSpace(v) != "" {
-				result = append(result, v)
-			}
+		for v := range notEmptyString(trimmed(strings.SplitSeq(value, ","))) {
+			result = append(result, v)
 		}
 	}
 	return result, true, nil
@@ -443,6 +451,70 @@ func (r *Request) observeJmapError(jerr jmap.Error) jmap.Error {
 		r.g.metrics.JmapErrorCounter.WithLabelValues(r.session.JmapEndpoint, strconv.Itoa(jerr.Code())).Inc()
 	}
 	return jerr
+}
+
+func (r *Request) needBlob(accountId string) (bool, Response) {
+	if r.session.Capabilities.Blob == nil {
+		return false, errorResponse(single(accountId), r.apiError(&ErrorMissingBlobSessionCapability), r.session.State, jmap.NoLanguage)
+	}
+	return true, Response{}
+}
+
+func (r *Request) needBlobForAccount(accountId string) (bool, Response) {
+	if ok, resp := r.needBlob(accountId); !ok {
+		return ok, resp
+	}
+	account, ok := r.session.Accounts[accountId]
+	if !ok {
+		return false, errorResponse(single(accountId), r.apiError(&ErrorAccountNotFound), r.session.State, jmap.NoLanguage)
+	}
+	if account.AccountCapabilities.Blob == nil {
+		return false, errorResponse(single(accountId), r.apiError(&ErrorMissingBlobAccountCapability), r.session.State, jmap.NoLanguage)
+	}
+	return true, Response{}
+}
+
+func (r *Request) needBloblWithAccount() (bool, string, Response) {
+	accountId, err := r.GetAccountIdForBlob()
+	if err != nil {
+		return false, "", r.error(accountId, err)
+	}
+	if ok, resp := r.needBlobForAccount(accountId); !ok {
+		return false, accountId, resp
+	}
+	return true, accountId, Response{}
+}
+
+func (r *Request) needMail(accountId string) (bool, Response) {
+	if r.session.Capabilities.Mail == nil {
+		return false, errorResponse(single(accountId), r.apiError(&ErrorMissingMailsSessionCapability), r.session.State, jmap.NoLanguage)
+	}
+	return true, Response{}
+}
+
+func (r *Request) needMailForAccount(accountId string) (bool, Response) {
+	if ok, resp := r.needMail(accountId); !ok {
+		return ok, resp
+	}
+	account, ok := r.session.Accounts[accountId]
+	if !ok {
+		return false, errorResponse(single(accountId), r.apiError(&ErrorAccountNotFound), r.session.State, jmap.NoLanguage)
+	}
+	if account.AccountCapabilities.Contacts == nil {
+		return false, errorResponse(single(accountId), r.apiError(&ErrorMissingMailsAccountCapability), r.session.State, jmap.NoLanguage)
+	}
+	return true, Response{}
+}
+
+func (r *Request) needMailWithAccount() (bool, string, Response) {
+	accountId, err := r.GetAccountIdForMail()
+	if err != nil {
+		return false, "", r.error(accountId, err)
+	}
+	if ok, resp := r.needMailForAccount(accountId); !ok {
+		return false, accountId, resp
+	}
+	return true, accountId, Response{}
 }
 
 func (r *Request) needTask(accountId string) (bool, Response) {
@@ -543,6 +615,38 @@ func (r *Request) needContactWithAccount() (bool, string, Response) {
 	return true, accountId, Response{}
 }
 
+func (r *Request) needQuota(accountId string) (bool, Response) {
+	if r.session.Capabilities.Quota == nil {
+		return false, errorResponse(single(accountId), r.apiError(&ErrorMissingQuotaSessionCapability), r.session.State, jmap.NoLanguage)
+	}
+	return true, Response{}
+}
+
+func (r *Request) needQuotaForAccount(accountId string) (bool, Response) {
+	if ok, resp := r.needQuota(accountId); !ok {
+		return ok, resp
+	}
+	account, ok := r.session.Accounts[accountId]
+	if !ok {
+		return false, errorResponse(single(accountId), r.apiError(&ErrorAccountNotFound), r.session.State, jmap.NoLanguage)
+	}
+	if account.AccountCapabilities.Quota == nil {
+		return false, errorResponse(single(accountId), r.apiError(&ErrorMissingQuotaAccountCapability), r.session.State, jmap.NoLanguage)
+	}
+	return true, Response{}
+}
+
+func (r *Request) needQuotaWithAccount() (bool, string, Response) {
+	accountId, err := r.GetAccountIdForQuota()
+	if err != nil {
+		return false, "", r.error(accountId, err)
+	}
+	if ok, resp := r.needQuotaForAccount(accountId); !ok {
+		return false, accountId, resp
+	}
+	return true, accountId, Response{}
+}
+
 type SortCrit struct {
 	Attribute string
 	Ascending bool
@@ -597,8 +701,4 @@ func mapSort[T any](accountIds []string, req *Request, defaultSort []T, props []
 
 func toState(s string) jmap.State {
 	return jmap.State(s)
-}
-
-func ptr[T any](t T) *T {
-	return &t
 }

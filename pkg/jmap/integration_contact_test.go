@@ -332,13 +332,13 @@ func (s *StalwartTest) fillContacts( //NOSONAR
 		nameObj := createName(person)
 		language := pickLanguage()
 
-		card := ContactCard{
+		card := ContactCardChange{
 			Type:           jscontact.ContactCardType,
-			Version:        "1.0",
+			Version:        ptr(jscontact.JSContactVersion_1_0),
 			AddressBookIds: toBoolMap([]string{addressbookId}),
-			ProdId:         productName,
-			Language:       language,
-			Kind:           jscontact.ContactCardKindIndividual,
+			ProdId:         &productName,
+			Language:       &language,
+			Kind:           ptr(jscontact.ContactCardKindIndividual),
 			Name:           &nameObj,
 		}
 

@@ -47,6 +47,23 @@ type VacationResponseChange struct {
 	HtmlBody string `json:"htmlBody,omitempty"`
 }
 
+var _ Change = VacationResponseChange{}
+
+func (m VacationResponseChange) AsPatch() (PatchObject, error) {
+	return toPatchObject(m)
+}
+
+type VacationResponseChanges ChangesTemplate[VacationResponse]
+
+var _ Changes[VacationResponse] = VacationResponseChanges{}
+
+func (c VacationResponseChanges) GetHasMoreChanges() bool        { return c.HasMoreChanges }
+func (c VacationResponseChanges) GetOldState() State             { return c.OldState }
+func (c VacationResponseChanges) GetNewState() State             { return c.NewState }
+func (c VacationResponseChanges) GetCreated() []VacationResponse { return c.Created }
+func (c VacationResponseChanges) GetUpdated() []VacationResponse { return c.Updated }
+func (c VacationResponseChanges) GetDestroyed() []string         { return c.Destroyed }
+
 func (j *Client) SetVacationResponse(accountId string, vacation VacationResponseChange,
 	ctx Context) (VacationResponse, SessionState, State, Language, Error) {
 	logger := j.logger("SetVacationResponse", ctx)

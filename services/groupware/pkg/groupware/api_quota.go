@@ -13,22 +13,8 @@ import (
 //
 // Note that there may be multiple Quota objects for different resource types.
 func (g *Groupware) GetQuota(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) Response {
-		accountId, err := req.GetAccountIdForQuota()
-		if err != nil {
-			return req.error(accountId, err)
-		}
-		logger := log.From(req.logger.With().Str(logAccountId, accountId))
-		ctx := req.ctx.WithLogger(logger)
-
-		res, sessionState, state, lang, jerr := g.jmap.GetQuotas(single(accountId), ctx)
-		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
-		}
-		for _, quotas := range res {
-			return req.respond(accountId, quotas, sessionState, QuotaResponseObjectType, state)
-		}
-		return req.notFound(accountId, sessionState, QuotaResponseObjectType, state)
+	getFromMap(Quota, w, r, g, func(accountIds, _ []string, ctx jmap.Context) (map[string]jmap.QuotaGetResponse, jmap.SessionState, jmap.State, jmap.Language, jmap.Error) {
+		return g.jmap.GetQuotas(accountIds, ctx)
 	})
 }
 
@@ -62,42 +48,15 @@ func (g *Groupware) GetQuotaForAllAccounts(w http.ResponseWriter, r *http.Reques
 				Quotas: accountQuotas.List,
 			}
 		}
-		return req.respondN(accountIds, result, sessionState, QuotaResponseObjectType, state)
+		return req.respondN(accountIds, result, sessionState, QuotaResponseObjectType, state, lang)
 	})
 }
 
-// currently unsupported in Stalwart:
-/*
 // Get changes to Quotas since a given State
+//
+// Currently unsupported in Stalwart.
 // @api:tags contact,changes
+// @api:ignore
 func (g *Groupware) GetQuotaChanges(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) Response {
-		accountId, err := req.GetAccountIdForQuota()
-		if err != nil {
-			return req.error(accountId, err)
-		}
-
-		l := req.logger.With().Str(logAccountId, accountId)
-
-		var maxChanges uint = 0
-		if v, ok, err := req.parseUIntParam(QueryParamMaxChanges, 0); err != nil {
-			return req.error(accountId, err)
-		} else if ok {
-			maxChanges = v
-			l = l.Uint(QueryParamMaxChanges, v)
-		}
-
-		sinceState := jmap.State(req.OptHeaderParamDoc(HeaderParamSince, "Specifies the state identifier from which on to list quota changes"))
-		l = l.Str(HeaderParamSince, log.SafeString(string(sinceState)))
-
-		logger := log.From(l)
-		changes, sessionState, state, lang, jerr := g.jmap.GetQuotaChanges(accountId, req.session, req.ctx, logger, req.language(), sinceState, maxChanges)
-		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
-		}
-		var body jmap.QuotaChanges = changes
-
-		return req.respond(accountId, body, sessionState, QuotaResponseObjectType, state)
-	})
+	changes(Quota, w, r, g, g.jmap.GetQuotaChanges)
 }
-*/

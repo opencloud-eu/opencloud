@@ -34,9 +34,9 @@ func (j *Client) GetEmails(accountId string, ids []string, //NOSONAR
 	methodCalls := []Invocation{invokeGet}
 	var markEmails EmailSetCommand
 	if markAsSeen {
-		updates := make(map[string]EmailUpdate, len(ids))
+		updates := make(map[string]PatchObject, len(ids))
 		for _, id := range ids {
-			updates[id] = EmailUpdate{EmailPropertyKeywords + "/" + JmapKeywordSeen: true}
+			updates[id] = PatchObject{EmailPropertyKeywords + "/" + JmapKeywordSeen: true}
 		}
 		markEmails = EmailSetCommand{AccountId: accountId, Update: updates}
 		methodCalls = []Invocation{invocation(markEmails, "0"), invokeGet}
@@ -111,7 +111,15 @@ func (j *Client) GetEmailBlobId(accountId string, id string, ctx Context) (strin
 	})
 }
 
-type EmailSearchResults = SearchResultsTemplate[Email]
+type EmailSearchResults SearchResultsTemplate[Email]
+
+var _ SearchResults[Email] = EmailSearchResults{}
+
+func (r EmailSearchResults) GetResults() []Email          { return r.Results }
+func (r EmailSearchResults) GetCanCalculateChanges() bool { return r.CanCalculateChanges }
+func (r EmailSearchResults) GetPosition() uint            { return r.Position }
+func (r EmailSearchResults) GetLimit() uint               { return r.Limit }
+func (r EmailSearchResults) GetTotal() *uint              { return r.Total }
 
 // Retrieve all the Emails in a given Mailbox by its id.
 func (j *Client) GetAllEmailsInMailbox(accountId string, mailboxId string, //NOSONAR
@@ -200,14 +208,16 @@ func (j *Client) GetAllEmailsInMailbox(accountId string, mailboxId string, //NOS
 	})
 }
 
-type EmailChanges struct {
-	HasMoreChanges bool     `json:"hasMoreChanges"`
-	OldState       State    `json:"oldState,omitempty"`
-	NewState       State    `json:"newState"`
-	Created        []Email  `json:"created,omitempty"`
-	Updated        []Email  `json:"updated,omitempty"`
-	Destroyed      []string `json:"destroyed,omitempty"`
-}
+type EmailChanges ChangesTemplate[Email]
+
+var _ Changes[Email] = EmailChanges{}
+
+func (c EmailChanges) GetHasMoreChanges() bool { return c.HasMoreChanges }
+func (c EmailChanges) GetOldState() State      { return c.OldState }
+func (c EmailChanges) GetNewState() State      { return c.NewState }
+func (c EmailChanges) GetCreated() []Email     { return c.Created }
+func (c EmailChanges) GetUpdated() []Email     { return c.Updated }
+func (c EmailChanges) GetDestroyed() []string  { return c.Destroyed }
 
 // Retrieve the changes in Emails since a given State.
 // @api:tags email,changes
@@ -495,13 +505,13 @@ type EmailWithSnippets struct {
 type EmailQueryWithSnippetsResult struct {
 	Results    []EmailWithSnippets `json:"results"`
 	Total      uint                `json:"total"`
+	Position   uint                `json:"position"`
 	Limit      uint                `json:"limit,omitzero"`
-	Position   uint                `json:"position,omitzero"`
 	QueryState State               `json:"queryState"`
 }
 
 func (j *Client) QueryEmailsWithSnippets(accountIds []string, //NOSONAR
-	filter EmailFilterElement, offset int, limit uint, fetchBodies bool, maxBodyValueBytes uint,
+	filter EmailFilterElement, offset int, limit uint, collapseThreads bool, calculateTotal bool, fetchBodies bool, maxBodyValueBytes uint,
 	ctx Context) (map[string]EmailQueryWithSnippetsResult, SessionState, State, Language, Error) {
 	logger := j.loggerParams("QueryEmailsWithSnippets", ctx, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies)
@@ -515,8 +525,8 @@ func (j *Client) QueryEmailsWithSnippets(accountIds []string, //NOSONAR
 			AccountId:       accountId,
 			Filter:          filter,
 			Sort:            []EmailComparator{{Property: EmailPropertyReceivedAt, IsAscending: false}},
-			CollapseThreads: false,
-			CalculateTotal:  true,
+			CollapseThreads: collapseThreads,
+			CalculateTotal:  calculateTotal,
 		}
 		if offset > 0 {
 			query.Position = offset
@@ -689,10 +699,10 @@ func (j *Client) ImportEmail(accountId string, data []byte, ctx Context) (Upload
 
 }
 
-func (j *Client) CreateEmail(accountId string, email EmailCreate, replaceId string, ctx Context) (*Email, SessionState, State, Language, Error) {
+func (j *Client) CreateEmail(accountId string, email EmailChange, replaceId string, ctx Context) (*Email, SessionState, State, Language, Error) {
 	set := EmailSetCommand{
 		AccountId: accountId,
-		Create: map[string]EmailCreate{
+		Create: map[string]EmailChange{
 			"c": email,
 		},
 	}
@@ -744,7 +754,7 @@ func (j *Client) CreateEmail(accountId string, email EmailCreate, replaceId stri
 // To create drafts, use the CreateEmail function instead.
 //
 // To delete mails, use the DeleteEmails function instead.
-func (j *Client) UpdateEmails(accountId string, updates map[string]EmailUpdate, ctx Context) (map[string]*Email, SessionState, State, Language, Error) {
+func (j *Client) UpdateEmails(accountId string, updates map[string]PatchObject, ctx Context) (map[string]*Email, SessionState, State, Language, Error) {
 	set := EmailSetCommand{
 		AccountId: accountId,
 		Update:    updates,
@@ -768,6 +778,21 @@ func (j *Client) UpdateEmails(accountId string, updates map[string]EmailUpdate, 
 		}
 		return setResponse.Updated, setResponse.NewState, nil
 	})
+}
+
+func (j *Client) UpdateEmail(accountId string, id string, changes EmailChange, ctx Context) (Email, SessionState, State, Language, Error) {
+	return update(j, "UpdateEmail", EmailType,
+		func(update map[string]PatchObject) EmailSetCommand {
+			return EmailSetCommand{AccountId: accountId, Update: update}
+		},
+		func(id string) EmailGetCommand {
+			return EmailGetCommand{AccountId: accountId, Ids: []string{id}}
+		},
+		func(resp EmailSetResponse) map[string]SetError { return resp.NotUpdated },
+		func(resp EmailGetResponse) Email { return resp.List[0] },
+		id, changes,
+		ctx,
+	)
 }
 
 func (j *Client) DeleteEmails(accountId string, destroyIds []string, ctx Context) (map[string]SetError, SessionState, State, Language, Error) {

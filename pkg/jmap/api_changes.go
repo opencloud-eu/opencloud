@@ -10,7 +10,7 @@ import (
 
 var NS_CHANGES = ns(JmapMail, JmapContacts, JmapCalendars) //, JmapQuota)
 
-type Changes struct {
+type ObjectChanges struct {
 	MaxChanges       uint                            `json:"maxchanges,omitzero"`
 	Mailboxes        *MailboxChangesResponse         `json:"mailboxes,omitempty"`
 	Emails           *EmailChangesResponse           `json:"emails,omitempty"`
@@ -74,7 +74,7 @@ func (s StateMap) MarshalZerologObject(e *zerolog.Event) {
 
 // Retrieve the changes in any type of objects at once since a given State.
 // @api:tags changes
-func (j *Client) GetChanges(accountId string, stateMap StateMap, maxChanges uint, ctx Context) (Changes, SessionState, State, Language, Error) { //NOSONAR
+func (j *Client) GetChanges(accountId string, stateMap StateMap, maxChanges uint, ctx Context) (ObjectChanges, SessionState, State, Language, Error) { //NOSONAR
 	logger := log.From(j.logger("GetChanges", ctx).With().Object("state", stateMap).Uint("maxChanges", maxChanges))
 	ctx = ctx.WithLogger(logger)
 
@@ -107,18 +107,18 @@ func (j *Client) GetChanges(accountId string, stateMap StateMap, maxChanges uint
 
 	cmd, err := j.request(ctx, NS_CHANGES, methodCalls...)
 	if err != nil {
-		return Changes{}, "", "", "", err
+		return ObjectChanges{}, "", "", "", err
 	}
 
-	return command(j, ctx, cmd, func(body *Response) (Changes, State, Error) {
-		changes := Changes{
+	return command(j, ctx, cmd, func(body *Response) (ObjectChanges, State, Error) {
+		changes := ObjectChanges{
 			MaxChanges: maxChanges,
 		}
 		states := map[string]State{}
 
 		var mailboxes MailboxChangesResponse
 		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandMailboxChanges, "mailboxes", &mailboxes); err != nil {
-			return Changes{}, "", err
+			return ObjectChanges{}, "", err
 		} else if ok {
 			changes.Mailboxes = &mailboxes
 			states["mailbox"] = mailboxes.NewState
@@ -126,7 +126,7 @@ func (j *Client) GetChanges(accountId string, stateMap StateMap, maxChanges uint
 
 		var emails EmailChangesResponse
 		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandEmailChanges, "emails", &emails); err != nil {
-			return Changes{}, "", err
+			return ObjectChanges{}, "", err
 		} else if ok {
 			changes.Emails = &emails
 			states["emails"] = emails.NewState
@@ -134,7 +134,7 @@ func (j *Client) GetChanges(accountId string, stateMap StateMap, maxChanges uint
 
 		var calendars CalendarChangesResponse
 		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandCalendarChanges, "calendars", &calendars); err != nil {
-			return Changes{}, "", err
+			return ObjectChanges{}, "", err
 		} else if ok {
 			changes.Calendars = &calendars
 			states["calendars"] = calendars.NewState
@@ -142,7 +142,7 @@ func (j *Client) GetChanges(accountId string, stateMap StateMap, maxChanges uint
 
 		var events CalendarEventChangesResponse
 		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandCalendarEventChanges, "events", &events); err != nil {
-			return Changes{}, "", err
+			return ObjectChanges{}, "", err
 		} else if ok {
 			changes.Events = &events
 			states["events"] = events.NewState
@@ -150,7 +150,7 @@ func (j *Client) GetChanges(accountId string, stateMap StateMap, maxChanges uint
 
 		var addressbooks AddressBookChangesResponse
 		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandAddressBookChanges, "addressbooks", &addressbooks); err != nil {
-			return Changes{}, "", err
+			return ObjectChanges{}, "", err
 		} else if ok {
 			changes.Addressbooks = &addressbooks
 			states["addressbooks"] = addressbooks.NewState
@@ -158,7 +158,7 @@ func (j *Client) GetChanges(accountId string, stateMap StateMap, maxChanges uint
 
 		var contacts ContactCardChangesResponse
 		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandContactCardChanges, "contacts", &contacts); err != nil {
-			return Changes{}, "", err
+			return ObjectChanges{}, "", err
 		} else if ok {
 			changes.Contacts = &contacts
 			states["contacts"] = contacts.NewState
@@ -166,7 +166,7 @@ func (j *Client) GetChanges(accountId string, stateMap StateMap, maxChanges uint
 
 		var identities IdentityChangesResponse
 		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandIdentityChanges, "identities", &identities); err != nil {
-			return Changes{}, "", err
+			return ObjectChanges{}, "", err
 		} else if ok {
 			changes.Identities = &identities
 			states["identities"] = identities.NewState
@@ -174,7 +174,7 @@ func (j *Client) GetChanges(accountId string, stateMap StateMap, maxChanges uint
 
 		var submissions EmailSubmissionChangesResponse
 		if ok, err := tryRetrieveResponseMatchParameters(ctx, body, CommandEmailSubmissionChanges, "submissions", &submissions); err != nil {
-			return Changes{}, "", err
+			return ObjectChanges{}, "", err
 		} else if ok {
 			changes.EmailSubmissions = &submissions
 			states["submissions"] = submissions.NewState

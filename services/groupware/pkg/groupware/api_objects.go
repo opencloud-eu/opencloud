@@ -130,6 +130,6 @@ func (g *Groupware) GetObjects(w http.ResponseWriter, r *http.Request) { //NOSON
 		}
 		var body jmap.Objects = objs
 
-		return req.respond(accountId, body, sessionState, "", state)
+		return req.respond(accountId, body, sessionState, "", state, lang)
 	})
 }
