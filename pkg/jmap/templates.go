@@ -35,14 +35,6 @@ func get[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP any]( //NOSON
 	})
 }
 
-func getA[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T]]( //NOSONAR
-	client *Client, name string, objType ObjectType,
-	getCommandFactory func(string, []string) GETREQ,
-	resp GETRESP,
-	accountId string, ids []string, ctx Context) ([]T, SessionState, State, Language, Error) {
-	return get(client, name, objType, getCommandFactory, resp, func(r GETRESP) []T { return r.GetList() }, accountId, ids, ctx)
-}
-
 func getAN[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
 	client *Client, name string, objType ObjectType,
 	getCommandFactory func(string, []string) GETREQ,

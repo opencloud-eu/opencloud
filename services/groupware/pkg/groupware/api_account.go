@@ -10,14 +10,14 @@ import (
 )
 
 // Get attributes of a given account.
-func (g *Groupware) GetAccount(w http.ResponseWriter, r *http.Request) {
+func (g *Groupware) GetAccountById(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountId, account, err := req.GetAccountForMail()
 		if err != nil {
 			return req.error(accountId, err)
 		}
 		var body jmap.Account = account
-		return req.respond(accountId, body, req.session.State, AccountResponseObjectType, "")
+		return req.respond(accountId, body, req.session.State, AccountResponseObjectType, jmap.EmptyState, jmap.NoLanguage)
 	})
 }
 
@@ -36,7 +36,7 @@ func (g *Groupware) GetAccounts(w http.ResponseWriter, r *http.Request) {
 		// sort on accountId to have a stable order that remains the same with every query
 		slices.SortFunc(list, func(a, b AccountWithId) int { return strings.Compare(a.AccountId, b.AccountId) })
 		var RBODY []AccountWithId = list
-		return req.respondN(structs.Map(list, func(a AccountWithId) string { return a.AccountId }), RBODY, req.session.State, AccountResponseObjectType, "")
+		return req.respondN(structs.Map(list, func(a AccountWithId) string { return a.AccountId }), RBODY, req.session.State, AccountResponseObjectType, jmap.EmptyState, jmap.NoLanguage)
 	})
 }
 
@@ -66,7 +66,7 @@ func (g *Groupware) GetAccountsWithTheirIdentities(w http.ResponseWriter, r *htt
 		// sort on accountId to have a stable order that remains the same with every query
 		slices.SortFunc(list, func(a, b AccountWithIdAndIdentities) int { return strings.Compare(a.AccountId, b.AccountId) })
 		var RBODY []AccountWithIdAndIdentities = list
-		return req.respondN(structs.Map(list, func(a AccountWithIdAndIdentities) string { return a.AccountId }), RBODY, sessionState, AccountResponseObjectType, state)
+		return req.respondN(structs.Map(list, func(a AccountWithIdAndIdentities) string { return a.AccountId }), RBODY, sessionState, AccountResponseObjectType, state, lang)
 	})
 }
 
@@ -76,7 +76,7 @@ type AccountWithId struct {
 }
 
 type AccountWithIdAndIdentities struct {
-	AccountId string `json:"accountId,omitempty"`
-	jmap.Account
+	AccountId  string          `json:"accountId,omitempty"`
 	Identities []jmap.Identity `json:"identities,omitempty"`
+	jmap.Account
 }

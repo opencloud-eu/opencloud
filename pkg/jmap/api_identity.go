@@ -8,23 +8,13 @@ import (
 
 var NS_IDENTITY = ns(JmapMail)
 
-func (j *Client) GetAllIdentities(accountId string, ctx Context) ([]Identity, SessionState, State, Language, Error) {
-	return getA(j, "GetAllIdentities", IdentityType,
-		func(accountId string, ids []string) IdentityGetCommand {
-			return IdentityGetCommand{AccountId: accountId}
-		},
-		IdentityGetResponse{},
-		accountId, []string{},
-		ctx,
-	)
-}
-
-func (j *Client) GetIdentities(accountId string, identityIds []string, ctx Context) ([]Identity, SessionState, State, Language, Error) {
-	return getA(j, "GetIdentities", IdentityType,
+func (j *Client) GetIdentities(accountId string, identityIds []string, ctx Context) (IdentityGetResponse, SessionState, State, Language, Error) {
+	return get(j, "GetIdentities", IdentityType,
 		func(accountId string, ids []string) IdentityGetCommand {
 			return IdentityGetCommand{AccountId: accountId, Ids: ids}
 		},
 		IdentityGetResponse{},
+		identity1,
 		accountId, identityIds,
 		ctx,
 	)
@@ -140,7 +130,16 @@ func (j *Client) DeleteIdentity(accountId string, destroyIds []string, ctx Conte
 	)
 }
 
-type IdentityChanges = ChangesTemplate[Identity]
+type IdentityChanges ChangesTemplate[Identity]
+
+var _ Changes[Identity] = IdentityChanges{}
+
+func (c IdentityChanges) GetHasMoreChanges() bool { return c.HasMoreChanges }
+func (c IdentityChanges) GetOldState() State      { return c.OldState }
+func (c IdentityChanges) GetNewState() State      { return c.NewState }
+func (c IdentityChanges) GetCreated() []Identity  { return c.Created }
+func (c IdentityChanges) GetUpdated() []Identity  { return c.Updated }
+func (c IdentityChanges) GetDestroyed() []string  { return c.Destroyed }
 
 // Retrieve the changes in Email Identities since a given State.
 // @api:tags email,changes

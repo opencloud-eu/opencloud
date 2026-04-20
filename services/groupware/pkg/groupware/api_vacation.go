@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
-	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
 // Get vacation notice information.
@@ -14,19 +13,8 @@ import (
 //
 // The VacationResponse object represents the state of vacation-response-related settings for an account.
 func (g *Groupware) GetVacation(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) Response {
-		accountId, err := req.GetAccountIdForVacationResponse()
-		if err != nil {
-			return req.error(accountId, err)
-		}
-		logger := log.From(req.logger.With().Str(logAccountId, accountId))
-		ctx := req.ctx.WithLogger(logger)
-
-		res, sessionState, state, lang, jerr := g.jmap.GetVacationResponse(accountId, ctx)
-		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
-		}
-		return req.respond(accountId, res, sessionState, VacationResponseResponseObjectType, state)
+	get(VacationResponse, w, r, g, func(accountId string, ids []string, ctx jmap.Context) (jmap.VacationResponseGetResponse, jmap.SessionState, jmap.State, jmap.Language, jmap.Error) {
+		return g.jmap.GetVacationResponse(accountId, ctx)
 	})
 }
 
@@ -35,25 +23,7 @@ func (g *Groupware) GetVacation(w http.ResponseWriter, r *http.Request) {
 // A vacation response sends an automatic reply when a message is delivered to the mail store, informing the original
 // sender that their message may not be read for some time.
 func (g *Groupware) SetVacation(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) Response {
-		accountId, err := req.GetAccountIdForVacationResponse()
-		if err != nil {
-			return req.error(accountId, err)
-		}
-		logger := log.From(req.logger.With().Str(logAccountId, accountId))
-		ctx := req.ctx.WithLogger(logger)
-
-		var body jmap.VacationResponseChange
-		err = req.body(&body)
-		if err != nil {
-			return req.error(accountId, err)
-		}
-
-		res, sessionState, state, lang, jerr := g.jmap.SetVacationResponse(accountId, body, ctx)
-		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
-		}
-
-		return req.respond(accountId, res, sessionState, VacationResponseResponseObjectType, state)
+	modify(VacationResponse, w, r, g, func(accountId string, id string, change jmap.VacationResponseChange, ctx jmap.Context) (jmap.VacationResponse, jmap.SessionState, jmap.State, jmap.Language, jmap.Error) {
+		return g.jmap.SetVacationResponse(accountId, change, ctx)
 	})
 }

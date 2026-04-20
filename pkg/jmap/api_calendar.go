@@ -35,7 +35,16 @@ func (j *Client) GetCalendars(accountId string, ids []string, ctx Context) (Cale
 	)
 }
 
-type CalendarChanges = ChangesTemplate[Calendar]
+type CalendarChanges ChangesTemplate[Calendar]
+
+var _ Changes[Calendar] = CalendarChanges{}
+
+func (c CalendarChanges) GetHasMoreChanges() bool { return c.HasMoreChanges }
+func (c CalendarChanges) GetOldState() State      { return c.OldState }
+func (c CalendarChanges) GetNewState() State      { return c.NewState }
+func (c CalendarChanges) GetCreated() []Calendar  { return c.Created }
+func (c CalendarChanges) GetUpdated() []Calendar  { return c.Updated }
+func (c CalendarChanges) GetDestroyed() []string  { return c.Destroyed }
 
 // Retrieve Calendar changes since a given state.
 // @apidoc calendar,changes

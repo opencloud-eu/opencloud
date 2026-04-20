@@ -18,29 +18,12 @@ import (
 //
 // This is the primary mechanism for organising Emails within an account.
 // It is analogous to a folder or a label in other systems.
-func (g *Groupware) GetMailbox(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) Response {
-		accountId, err := req.GetAccountIdForMail()
-		if err != nil {
-			return req.error(accountId, err)
-		}
+func (g *Groupware) GetMailboxById(w http.ResponseWriter, r *http.Request) {
+	get(Mailbox, w, r, g, g.jmap.GetMailbox)
+}
 
-		mailboxId, err := req.PathParam(UriParamMailboxId)
-		if err != nil {
-			return req.error(accountId, err)
-		}
-
-		mailboxes, sessionState, state, lang, jerr := g.jmap.GetMailbox(accountId, single(mailboxId), req.ctx)
-		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
-		}
-
-		if len(mailboxes.List) == 1 {
-			return req.respond(accountId, mailboxes.List[0], sessionState, MailboxResponseObjectType, state)
-		} else {
-			return req.notFound(accountId, sessionState, MailboxResponseObjectType, state)
-		}
-	})
+func (g *Groupware) ModifyMailbox(w http.ResponseWriter, r *http.Request) {
+	modify(Mailbox, w, r, g, g.jmap.UpdateMailbox)
 }
 
 // Get the list of all the mailboxes of an account, potentially filtering on the
@@ -92,7 +75,7 @@ func (g *Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) { //NOS
 			}
 
 			if mailboxes, ok := mailboxesByAccountId[accountId]; ok {
-				return req.respond(accountId, sortMailboxSlice(mailboxes), sessionState, MailboxResponseObjectType, state)
+				return req.respond(accountId, sortMailboxSlice(mailboxes), sessionState, MailboxResponseObjectType, state, lang)
 			} else {
 				return req.notFound(accountId, sessionState, MailboxResponseObjectType, state)
 			}
@@ -102,7 +85,7 @@ func (g *Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) { //NOS
 				return req.jmapError(accountId, err, sessionState, lang)
 			}
 			if mailboxes, ok := mailboxesByAccountId[accountId]; ok {
-				return req.respond(accountId, sortMailboxSlice(mailboxes), sessionState, MailboxResponseObjectType, state)
+				return req.respond(accountId, sortMailboxSlice(mailboxes), sessionState, MailboxResponseObjectType, state, lang)
 			} else {
 				return req.notFound(accountId, sessionState, MailboxResponseObjectType, state)
 			}
@@ -140,13 +123,13 @@ func (g *Groupware) GetMailboxesForAllAccounts(w http.ResponseWriter, r *http.Re
 			if err != nil {
 				return req.jmapErrorN(accountIds, err, sessionState, lang)
 			}
-			return req.respondN(accountIds, sortMailboxesMap(mailboxesByAccountId), sessionState, MailboxResponseObjectType, state)
+			return req.respondN(accountIds, sortMailboxesMap(mailboxesByAccountId), sessionState, MailboxResponseObjectType, state, lang)
 		} else {
 			mailboxesByAccountId, sessionState, state, lang, err := g.jmap.GetAllMailboxes(accountIds, ctx)
 			if err != nil {
 				return req.jmapErrorN(accountIds, err, sessionState, lang)
 			}
-			return req.respondN(accountIds, sortMailboxesMap(mailboxesByAccountId), sessionState, MailboxResponseObjectType, state)
+			return req.respondN(accountIds, sortMailboxesMap(mailboxesByAccountId), sessionState, MailboxResponseObjectType, state, lang)
 		}
 	})
 }
@@ -175,58 +158,14 @@ func (g *Groupware) GetMailboxByRoleForAllAccounts(w http.ResponseWriter, r *htt
 		if jerr != nil {
 			return req.jmapErrorN(accountIds, jerr, sessionState, lang)
 		}
-		return req.respondN(accountIds, sortMailboxesMap(mailboxesByAccountId), sessionState, MailboxResponseObjectType, state)
+		return req.respondN(accountIds, sortMailboxesMap(mailboxesByAccountId), sessionState, MailboxResponseObjectType, state, lang)
 	})
 }
 
 // Get the changes tp Mailboxes since a certain State.
 // @api:tags mailbox,changes
 func (g *Groupware) GetMailboxChanges(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) Response {
-		l := req.logger.With()
-
-		accountId, err := req.GetAccountIdForMail()
-		if err != nil {
-			return req.error(accountId, err)
-		}
-		l = l.Str(logAccountId, accountId)
-
-		maxChanges, ok, err := req.parseUIntParam(QueryParamMaxChanges, 0)
-		if err != nil {
-			return req.error(accountId, err)
-		}
-		if ok {
-			l = l.Uint(QueryParamMaxChanges, maxChanges)
-		}
-
-		sinceState := jmap.State(req.OptHeaderParamDoc(HeaderParamSince, "Optionally specifies the state identifier from which on to list mailbox changes"))
-		if sinceState != "" {
-			l = l.Str(HeaderParamSince, log.SafeString(string(sinceState)))
-		}
-
-		logger := log.From(l)
-		ctx := req.ctx.WithLogger(logger)
-
-		// As for Emails and Contacts, one would expect this request without any prior state to
-		// be usable to list all the objects that currently exist, but that is not the case for
-		// Mailbox, at least in combination with Stalwart, as those are initial objects that
-		// "always existed", even with the initial State, and this the Mailbox/changes operation
-		// returns nothing.
-		// For this reason, when the "since" state is empty, we respond with an error.
-		if sinceState == "" {
-			return req.error(accountId, req.apiError(&ErrorInvalidUserRequest, withTitle(
-				"Mailbox changes without state is unsupported",
-				"Requesting Mailbox changes without an initial state is an unsupported operation",
-			)))
-		}
-
-		changes, sessionState, state, lang, jerr := g.jmap.GetMailboxChanges(accountId, sinceState, maxChanges, ctx)
-		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
-		}
-
-		return req.respond(accountId, changes, sessionState, MailboxResponseObjectType, state)
-	})
+	changes(Mailbox, w, r, g, g.jmap.GetMailboxChanges)
 }
 
 // Get the changes that occured in all the mailboxes of all accounts.
@@ -266,7 +205,7 @@ func (g *Groupware) GetMailboxChangesForAllAccounts(w http.ResponseWriter, r *ht
 			return req.jmapErrorN(allAccountIds, jerr, sessionState, lang)
 		}
 
-		return req.respondN(allAccountIds, changesByAccountId, sessionState, MailboxResponseObjectType, state)
+		return req.respondN(allAccountIds, changesByAccountId, sessionState, MailboxResponseObjectType, state, lang)
 	})
 }
 
@@ -285,67 +224,12 @@ func (g *Groupware) GetMailboxRoles(w http.ResponseWriter, r *http.Request) {
 			return req.jmapErrorN(allAccountIds, jerr, sessionState, lang)
 		}
 
-		return req.respondN(allAccountIds, rolesByAccountId, sessionState, MailboxResponseObjectType, state)
-	})
-}
-
-func (g *Groupware) UpdateMailbox(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) Response {
-		l := req.logger.With()
-
-		accountId, err := req.GetAccountIdForMail()
-		if err != nil {
-			return req.error(accountId, err)
-		}
-		l = l.Str(logAccountId, accountId)
-
-		mailboxId, err := req.PathParamDoc(UriParamMailboxId, "the identifier of the mailbox to update")
-		if err != nil {
-			return req.error(accountId, err)
-		}
-		l = l.Str(UriParamMailboxId, log.SafeString(mailboxId))
-
-		var body jmap.MailboxChange
-		err = req.body(&body)
-		if err != nil {
-			return req.error(accountId, err)
-		}
-		logger := log.From(l)
-		ctx := req.ctx.WithLogger(logger)
-
-		updated, sessionState, state, lang, jerr := g.jmap.UpdateMailbox(accountId, mailboxId, body, ctx)
-		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
-		}
-
-		return req.respond(accountId, updated, sessionState, MailboxResponseObjectType, state)
+		return req.respondN(allAccountIds, rolesByAccountId, sessionState, MailboxResponseObjectType, state, lang)
 	})
 }
 
 func (g *Groupware) CreateMailbox(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) Response {
-		l := req.logger.With()
-		accountId, err := req.GetAccountIdForMail()
-		if err != nil {
-			return req.error(accountId, err)
-		}
-		l = l.Str(logAccountId, accountId)
-
-		var body jmap.MailboxChange
-		err = req.body(&body)
-		if err != nil {
-			return req.error(accountId, err)
-		}
-		logger := log.From(l)
-		ctx := req.ctx.WithLogger(logger)
-
-		created, sessionState, state, lang, jerr := g.jmap.CreateMailbox(accountId, body, ctx)
-		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
-		}
-
-		return req.respond(accountId, created, sessionState, MailboxResponseObjectType, state)
-	})
+	create(Mailbox, w, r, g, nil, g.jmap.CreateMailbox)
 }
 
 // Delete Mailboxes by their unique identifiers.
@@ -354,34 +238,7 @@ func (g *Groupware) CreateMailbox(w http.ResponseWriter, r *http.Request) {
 //
 // @api:example deletedmailboxes
 func (g *Groupware) DeleteMailbox(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) Response {
-		l := req.logger.With()
-		accountId, err := req.GetAccountIdForMail()
-		if err != nil {
-			return req.error(accountId, err)
-		}
-		l = l.Str(logAccountId, accountId)
-
-		mailboxIds, err := req.PathListParamDoc(UriParamMailboxId, "the identifier of the mailbox to delete")
-		if err != nil {
-			return req.error(accountId, err)
-		}
-		l = l.Array(UriParamMailboxId, log.SafeStringArray(mailboxIds))
-
-		if len(mailboxIds) < 1 {
-			return req.noop(accountId) // no mailbox identifiers were mentioned in the request
-		}
-
-		logger := log.From(l)
-		ctx := req.ctx.WithLogger(logger)
-
-		deleted, sessionState, state, lang, jerr := g.jmap.DeleteMailboxes(accountId, mailboxIds, ctx)
-		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
-		}
-
-		return req.respond(accountId, deleted, sessionState, MailboxResponseObjectType, state)
-	})
+	delete(Mailbox, w, r, g, g.jmap.DeleteMailboxes)
 }
 
 var mailboxRoleSortOrderScore = map[string]int{

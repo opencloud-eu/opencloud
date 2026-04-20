@@ -82,8 +82,8 @@ func (g *Groupware) GetChanges(w http.ResponseWriter, r *http.Request) { //NOSON
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
-		var body jmap.Changes = changes
+		var body jmap.ObjectChanges = changes
 
-		return req.respond(accountId, body, sessionState, "", state)
+		return req.respond(accountId, body, sessionState, "", state, lang)
 	})
 }

@@ -43,7 +43,7 @@ func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) 
 		filter := jmap.CalendarEventFilterCondition{
 			InCalendar: calendarId,
 		}
-		sortBy := []jmap.CalendarEventComparator{{Property: jmap.CalendarEventPropertyUpdated, IsAscending: false}}
+		sortBy := []jmap.CalendarEventComparator{{Property: jmap.CalendarEventPropertyStart, IsAscending: false}}
 
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
@@ -53,139 +53,55 @@ func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) 
 		}
 
 		if events, ok := eventsByAccountId[accountId]; ok {
-			return req.respond(accountId, events, sessionState, EventResponseObjectType, state)
+			return req.respond(accountId, events, sessionState, EventResponseObjectType, state, lang)
 		} else {
 			return req.notFound(accountId, sessionState, EventResponseObjectType, state)
 		}
 	})
 }
 
-// Get changes to Contacts since a given State
+//func query[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], SEARCHRESULTS jmap.SearchResults[T]]( //NOSONAR
+
+func curryMapQuery[SRES jmap.SearchResults[T], T jmap.Foo, FILTER any, COMP any](
+	f func(accountIds []string, filter FILTER, sortBy []COMP, position int, limit uint, calculateTotal bool, ctx jmap.Context) (map[string]SRES, jmap.SessionState, jmap.State, jmap.Language, jmap.Error),
+) func(req Request, accountId string, filter FILTER, sortBy []COMP, offset int, limit uint, ctx jmap.Context) (SRES, jmap.SessionState, jmap.State, jmap.Language, jmap.Error) {
+	return func(req Request, accountId string, filter FILTER, sortBy []COMP, offset int, limit uint, ctx jmap.Context) (SRES, jmap.SessionState, jmap.State, jmap.Language, jmap.Error) {
+		m, sessionState, state, lang, err := f(single(accountId), filter, sortBy, offset, limit, true, ctx)
+		return m[accountId], sessionState, state, lang, err
+	}
+}
+
+func (g *Groupware) GetAllEvents(w http.ResponseWriter, r *http.Request) {
+	getallpaged(Event, w, r, g,
+		g.jmap.GetCalendarEvents,
+		func(cid string) jmap.CalendarEventFilterElement {
+			return jmap.CalendarEventFilterCondition{InCalendar: cid}
+		},
+		[]jmap.CalendarEventComparator{{Property: jmap.CalendarEventPropertyStart, IsAscending: true}},
+		curryMapQuery(g.jmap.QueryCalendarEvents),
+	)
+}
+
+func (g *Groupware) GetEventById(w http.ResponseWriter, r *http.Request) {
+	get(Event, w, r, g, g.jmap.GetCalendarEvents)
+}
+
+// Get changes to Calendar Events since a given State
 // @api:tags event,changes
 func (g *Groupware) GetEventChanges(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) Response {
-		ok, accountId, resp := req.needCalendarWithAccount()
-		if !ok {
-			return resp
-		}
-
-		l := req.logger.With()
-
-		var maxChanges uint = 0
-		if v, ok, err := req.parseUIntParam(QueryParamMaxChanges, 0); err != nil {
-			return req.error(accountId, err)
-		} else if ok {
-			maxChanges = v
-			l = l.Uint(QueryParamMaxChanges, v)
-		}
-
-		sinceState := jmap.State(req.OptHeaderParamDoc(HeaderParamSince, "Specifies the state identifier from which on to list event changes"))
-		l = l.Str(HeaderParamSince, log.SafeString(string(sinceState)))
-
-		logger := log.From(l)
-		ctx := req.ctx.WithLogger(logger)
-		changes, sessionState, state, lang, jerr := g.jmap.GetCalendarEventChanges(accountId, sinceState, maxChanges, ctx)
-		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
-		}
-		var body jmap.CalendarEventChanges = changes
-
-		return req.respond(accountId, body, sessionState, ContactResponseObjectType, state)
-	})
+	changes(Event, w, r, g, g.jmap.GetCalendarEventChanges)
 }
 
-func (g *Groupware) CreateCalendarEvent(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) Response {
-		ok, accountId, resp := req.needCalendarWithAccount()
-		if !ok {
-			return resp
-		}
-
-		l := req.logger.With()
-
-		var create jmap.CalendarEvent
-		err := req.body(&create)
-		if err != nil {
-			return req.error(accountId, err)
-		}
-
-		logger := log.From(l)
-		ctx := req.ctx.WithLogger(logger)
-		created, sessionState, state, lang, jerr := g.jmap.CreateCalendarEvent(accountId, create, ctx)
-		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
-		}
-		return req.respond(accountId, created, sessionState, EventResponseObjectType, state)
-	})
+func (g *Groupware) CreateEvent(w http.ResponseWriter, r *http.Request) {
+	create(Event, w, r, g, nil, g.jmap.CreateCalendarEvent)
 }
 
-func (g *Groupware) DeleteCalendarEvent(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) Response {
-		ok, accountId, resp := req.needCalendarWithAccount()
-		if !ok {
-			return resp
-		}
-		l := req.logger.With().Str(accountId, log.SafeString(accountId))
-
-		eventId, err := req.PathParam(UriParamEventId)
-		if err != nil {
-			return req.error(accountId, err)
-		}
-		l.Str(UriParamEventId, log.SafeString(eventId))
-
-		logger := log.From(l)
-		ctx := req.ctx.WithLogger(logger)
-		deleted, sessionState, state, lang, jerr := g.jmap.DeleteCalendarEvent(accountId, single(eventId), ctx)
-		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
-		}
-
-		for _, e := range deleted {
-			desc := e.Description
-			if desc != "" {
-				return req.errorS(accountId, apiError(
-					req.errorId(),
-					ErrorFailedToDeleteContact,
-					withDetail(e.Description),
-				), sessionState)
-			} else {
-				return req.errorS(accountId, apiError(
-					req.errorId(),
-					ErrorFailedToDeleteContact,
-				), sessionState)
-			}
-		}
-		return req.noContent(accountId, sessionState, EventResponseObjectType, state)
-	})
+func (g *Groupware) DeleteEvent(w http.ResponseWriter, r *http.Request) {
+	delete(Event, w, r, g, g.jmap.DeleteCalendarEvent)
 }
 
-func (g *Groupware) ModifyCalendarEvent(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) Response {
-		ok, accountId, resp := req.needCalendarWithAccount()
-		if !ok {
-			return resp
-		}
-		l := req.logger.With().Str(accountId, log.SafeString(accountId))
-		id, err := req.PathParamDoc(UriParamEventId, "The unique identifier of the Calendar Event to modify")
-		if err != nil {
-			return req.error(accountId, err)
-		}
-		l.Str(UriParamEventId, log.SafeString(id))
-
-		var change jmap.CalendarEventChange
-		err = req.body(&change)
-		if err != nil {
-			return req.error(accountId, err)
-		}
-
-		logger := log.From(l)
-		ctx := req.ctx.WithLogger(logger)
-		updated, sessionState, state, lang, jerr := g.jmap.UpdateCalendarEvent(accountId, id, change, ctx)
-		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
-		}
-		return req.respond(accountId, updated, sessionState, EventResponseObjectType, state)
-	})
+func (g *Groupware) ModifyEvent(w http.ResponseWriter, r *http.Request) {
+	modify(Event, w, r, g, g.jmap.UpdateCalendarEvent)
 }
 
 // Parse a blob that contains an iCal file and return it as JSCalendar.
@@ -211,6 +127,6 @@ func (g *Groupware) ParseIcalBlob(w http.ResponseWriter, r *http.Request) {
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
-		return req.respond(accountId, resp, sessionState, EventResponseObjectType, state)
+		return req.respond(accountId, resp, sessionState, EventResponseObjectType, state, lang)
 	})
 }

@@ -1,6 +1,10 @@
 package jmap
 
+import "github.com/opencloud-eu/opencloud/pkg/jscontact"
+
 var NS_CONTACTS = ns(JmapContacts)
+
+var DEFAULT_CONTACT_CARD_VERSION = jscontact.JSContactVersion_1_0
 
 func (j *Client) GetContactCards(accountId string, contactIds []string, ctx Context) (ContactCardGetResponse, SessionState, State, Language, Error) {
 	return get(j, "GetContactCards", ContactCardType,
@@ -14,7 +18,16 @@ func (j *Client) GetContactCards(accountId string, contactIds []string, ctx Cont
 	)
 }
 
-type ContactCardChanges = ChangesTemplate[ContactCard]
+type ContactCardChanges ChangesTemplate[ContactCard]
+
+var _ Changes[ContactCard] = ContactCardChanges{}
+
+func (c ContactCardChanges) GetHasMoreChanges() bool   { return c.HasMoreChanges }
+func (c ContactCardChanges) GetOldState() State        { return c.OldState }
+func (c ContactCardChanges) GetNewState() State        { return c.NewState }
+func (c ContactCardChanges) GetCreated() []ContactCard { return c.Created }
+func (c ContactCardChanges) GetUpdated() []ContactCard { return c.Updated }
+func (c ContactCardChanges) GetDestroyed() []string    { return c.Destroyed }
 
 // Retrieve the changes in Contact Cards since a given State.
 // @api:tags contact,changes
@@ -85,9 +98,12 @@ func (j *Client) QueryContactCards(accountIds []string,
 	)
 }
 
-func (j *Client) CreateContactCard(accountId string, contact ContactCard, ctx Context) (*ContactCard, SessionState, State, Language, Error) {
+func (j *Client) CreateContactCard(accountId string, contact ContactCardChange, ctx Context) (*ContactCard, SessionState, State, Language, Error) {
+	if contact.Version == nil {
+		contact.Version = &DEFAULT_CONTACT_CARD_VERSION
+	}
 	return create(j, "CreateContactCard", ContactCardType,
-		func(accountId string, create map[string]ContactCard) ContactCardSetCommand {
+		func(accountId string, create map[string]ContactCardChange) ContactCardSetCommand {
 			return ContactCardSetCommand{AccountId: accountId, Create: create}
 		},
 		func(accountId string, ids string) ContactCardGetCommand {

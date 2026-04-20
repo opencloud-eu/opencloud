@@ -91,7 +91,7 @@ func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Requ
 		}
 
 		if contacts, ok := contactsByAccountId[accountId]; ok {
-			return req.respondN(accountIds, contacts, sessionState, ContactResponseObjectType, state)
+			return req.respondN(accountIds, contacts, sessionState, ContactResponseObjectType, state, lang)
 		} else {
 			return req.notFoundN(accountIds, sessionState, ContactResponseObjectType, state)
 		}
@@ -99,192 +99,36 @@ func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Requ
 }
 
 func (g *Groupware) GetContactById(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) Response {
-		ok, accountId, resp := req.needContactWithAccount()
-		if !ok {
-			return resp
-		}
-
-		l := req.logger.With()
-
-		contactId, err := req.PathParam(UriParamContactId)
-		if err != nil {
-			return req.error(accountId, err)
-		}
-		l = l.Str(UriParamContactId, log.SafeString(contactId))
-
-		logger := log.From(l)
-		ctx := req.ctx.WithLogger(logger)
-		contacts, sessionState, state, lang, jerr := g.jmap.GetContactCards(accountId, single(contactId), ctx)
-		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
-		}
-
-		switch len(contacts.List) {
-		case 0:
-			return req.notFound(accountId, sessionState, ContactResponseObjectType, state)
-		case 1:
-			return req.respond(accountId, contacts.List[0], sessionState, ContactResponseObjectType, state)
-		default:
-			logger.Error().Msgf("found %d contacts matching '%s' instead of 1", len(contacts.List), contactId)
-			return req.errorS(accountId, req.apiError(&ErrorMultipleIdMatches), sessionState)
-		}
-	})
+	get(Contact, w, r, g, g.jmap.GetContactCards)
 }
 
 func (g *Groupware) GetAllContacts(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) Response {
-		ok, accountId, resp := req.needContactWithAccount()
-		if !ok {
-			return resp
-		}
-
-		l := req.logger.With()
-
-		logger := log.From(l)
-		ctx := req.ctx.WithLogger(logger)
-		contacts, sessionState, state, lang, jerr := g.jmap.GetContactCards(accountId, []string{}, ctx)
-		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
-		}
-		var body []jmap.ContactCard = contacts.List
-
-		return req.respond(accountId, body, sessionState, ContactResponseObjectType, state)
-	})
+	getallpaged(Contact, w, r, g,
+		g.jmap.GetContactCards,
+		func(cid string) jmap.ContactCardFilterElement {
+			return jmap.ContactCardFilterCondition{InAddressBook: cid}
+		},
+		[]jmap.ContactCardComparator{{Property: jmap.ContactCardPropertyUpdated, IsAscending: true}},
+		curryMapQuery(g.jmap.QueryContactCards),
+	)
 }
 
 // Get changes to Contacts since a given State
 // @api:tags contact,changes
 func (g *Groupware) GetContactsChanges(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) Response {
-		ok, accountId, resp := req.needContactWithAccount()
-		if !ok {
-			return resp
-		}
-
-		l := req.logger.With()
-
-		var maxChanges uint = 0
-		if v, ok, err := req.parseUIntParam(QueryParamMaxChanges, 0); err != nil {
-			return req.error(accountId, err)
-		} else if ok {
-			maxChanges = v
-			l = l.Uint(QueryParamMaxChanges, v)
-		}
-
-		sinceState := jmap.State(req.OptHeaderParamDoc(HeaderParamSince, "Specifies the state identifier from which on to list contact changes"))
-		l = l.Str(HeaderParamSince, log.SafeString(string(sinceState)))
-
-		logger := log.From(l)
-		ctx := req.ctx.WithLogger(logger)
-		changes, sessionState, state, lang, jerr := g.jmap.GetContactCardChanges(accountId, sinceState, maxChanges, ctx)
-		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
-		}
-		var body jmap.ContactCardChanges = changes
-
-		return req.respond(accountId, body, sessionState, ContactResponseObjectType, state)
-	})
+	changes(Contact, w, r, g, g.jmap.GetContactCardChanges)
 }
 
 func (g *Groupware) CreateContact(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) Response {
-		ok, accountId, resp := req.needContactWithAccount()
-		if !ok {
-			return resp
-		}
-
-		l := req.logger.With()
-
-		addressBookId, err := req.PathParam(UriParamAddressBookId)
-		if err != nil {
-			return req.error(accountId, err)
-		}
-		l = l.Str(UriParamAddressBookId, log.SafeString(addressBookId))
-
-		var create jmap.ContactCard
-		err = req.bodydoc(&create, "The contact to create, which may not have its id attribute set")
-		if err != nil {
-			return req.error(accountId, err)
-		}
-
-		logger := log.From(l)
-		ctx := req.ctx.WithLogger(logger)
-		created, sessionState, state, lang, jerr := g.jmap.CreateContactCard(accountId, create, ctx)
-		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
-		}
-		return req.respond(accountId, created, sessionState, ContactResponseObjectType, state)
-	})
+	create(Contact, w, r, g, nil, g.jmap.CreateContactCard)
 }
 
 func (g *Groupware) DeleteContact(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) Response {
-		ok, accountId, resp := req.needContactWithAccount()
-		if !ok {
-			return resp
-		}
-		l := req.logger.With().Str(accountId, log.SafeString(accountId))
-
-		contactId, err := req.PathParam(UriParamContactId)
-		if err != nil {
-			return req.error(accountId, err)
-		}
-		l.Str(UriParamContactId, log.SafeString(contactId))
-
-		logger := log.From(l)
-		ctx := req.ctx.WithLogger(logger)
-		deleted, sessionState, state, lang, jerr := g.jmap.DeleteContactCard(accountId, single(contactId), ctx)
-		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
-		}
-
-		for _, e := range deleted {
-			desc := e.Description
-			if desc != "" {
-				return req.error(accountId, apiError(
-					req.errorId(),
-					ErrorFailedToDeleteContact,
-					withDetail(e.Description),
-				))
-			} else {
-				return req.error(accountId, apiError(
-					req.errorId(),
-					ErrorFailedToDeleteContact,
-				))
-			}
-		}
-		return req.noContent(accountId, sessionState, ContactResponseObjectType, state)
-	})
+	delete(Contact, w, r, g, g.jmap.DeleteContactCard)
 }
 
 func (g *Groupware) ModifyContact(w http.ResponseWriter, r *http.Request) {
-	g.respond(w, r, func(req Request) Response {
-		ok, accountId, resp := req.needContactWithAccount()
-		if !ok {
-			return resp
-		}
-		l := req.logger.With().Str(accountId, log.SafeString(accountId))
-		id, err := req.PathParamDoc(UriParamContactId, "The unique identifier of the Contact to modify")
-		if err != nil {
-			return req.error(accountId, err)
-		}
-		l.Str(UriParamContactId, log.SafeString(id))
-
-		var change jmap.ContactCardChange
-		err = req.body(&change)
-		if err != nil {
-			return req.error(accountId, err)
-		}
-
-		logger := log.From(l)
-		ctx := req.ctx.WithLogger(logger)
-		updated, sessionState, state, lang, jerr := g.jmap.UpdateContactCard(accountId, id, change, ctx)
-		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
-		}
-		return req.respond(accountId, updated, sessionState, ContactResponseObjectType, state)
-	})
+	modify(Contact, w, r, g, g.jmap.UpdateContactCard)
 }
 
 func mapContactCardSort(s SortCrit) jmap.ContactCardComparator {

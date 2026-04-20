@@ -50,6 +50,11 @@ func mcid(accountId string, tag string) string {
 	return accountId + ":" + tag
 }
 
+func bail[R JmapResponse[T], T Foo](err Error) (R, SessionState, State, Language, Error) {
+	var zero R
+	return zero, EmptySessionState, EmptyState, NoLanguage, err
+}
+
 type Cmdr interface {
 	ApiSupplier
 	Hooks

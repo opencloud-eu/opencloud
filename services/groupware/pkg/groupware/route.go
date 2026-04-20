@@ -67,6 +67,8 @@ const (
 	QueryParamQuotas                  = "quotas"
 	QueryParamIdentities              = "identities"
 	QueryParamEmailSubmissions        = "submissions"
+	QueryParamId                      = "id"
+	QueryParamCalculateTotal          = "total"
 	HeaderParamSince                  = "if-none-match"
 )
 
@@ -91,27 +93,31 @@ func (g *Groupware) Route(r chi.Router) {
 			})
 		})
 		r.Route("/{accountid}", func(r chi.Router) {
-			r.Get("/", g.GetAccount)
+			r.Get("/", g.GetAccountById)
 			r.Route("/identities", func(r chi.Router) {
 				r.Get("/", g.GetIdentities)
-				r.Post("/", g.AddIdentity)
+				r.Post("/", g.CreateIdentity)
 				r.Route("/{identityid}", func(r chi.Router) {
 					r.Get("/", g.GetIdentityById)
 					r.Patch("/", g.ModifyIdentity)
 					r.Delete("/", g.DeleteIdentity)
 				})
 			})
-			r.Get("/vacation", g.GetVacation)
-			r.Put("/vacation", g.SetVacation)
-			r.Get("/quota", g.GetQuota)
+			r.Route("/vacation", func(r chi.Router) {
+				r.Get("/", g.GetVacation)
+				r.Put("/", g.SetVacation)
+			})
+			r.Route("/quota", func(r chi.Router) {
+				r.Get("/", g.GetQuota)
+			})
 			r.Route("/mailboxes", func(r chi.Router) {
 				r.Get("/", g.GetMailboxes) // ?name=&role=&subcribed=
 				r.Post("/", g.CreateMailbox)
 				r.Route("/{mailboxid}", func(r chi.Router) {
-					r.Get("/", g.GetMailbox)
-					r.Get("/emails", g.GetAllEmailsInMailbox)
-					r.Patch("/", g.UpdateMailbox)
+					r.Get("/", g.GetMailboxById)
+					r.Patch("/", g.ModifyMailbox)
 					r.Delete("/", g.DeleteMailbox)
+					r.Get("/emails", g.GetAllEmailsInMailbox)
 				})
 			})
 			r.Route("/emails", func(r chi.Router) {
@@ -150,7 +156,7 @@ func (g *Groupware) Route(r chi.Router) {
 				r.Get("/", g.GetAddressbooks)
 				r.Post("/", g.CreateAddressBook)
 				r.Route("/{addressbookid}", func(r chi.Router) {
-					r.Get("/", g.GetAddressbook)
+					r.Get("/", g.GetAddressbookById)
 					r.Patch("/", g.ModifyAddressBook)
 					r.Delete("/", g.DeleteAddressBook)
 					r.Get("/contacts", g.GetContactsInAddressbook) //NOSONAR
@@ -176,9 +182,13 @@ func (g *Groupware) Route(r chi.Router) {
 				})
 			})
 			r.Route("/events", func(r chi.Router) {
-				r.Post("/", g.CreateCalendarEvent)
-				r.Patch("/", g.ModifyCalendarEvent)
-				r.Delete("/{eventid}", g.DeleteCalendarEvent)
+				r.Get("/", g.GetAllEvents)
+				r.Post("/", g.CreateEvent)
+				r.Route("/{eventid}", func(r chi.Router) {
+					r.Get("/", g.GetEventById)
+					r.Patch("/", g.ModifyEvent)
+					r.Delete("/", g.DeleteEvent)
+				})
 			})
 			r.Route("/tasklists", func(r chi.Router) {
 				r.Get("/", g.GetTaskLists)

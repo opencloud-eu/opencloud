@@ -74,12 +74,12 @@ func etaggedResponse(accountIds []string, body any, sessionState jmap.SessionSta
 	}
 }
 
-func (r *Request) respond(accountId string, body any, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State) Response {
-	return etaggedResponse(single(accountId), body, sessionState, objectType, etag, jmap.Language(r.language()))
+func (r *Request) respond(accountId string, body any, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State, lang jmap.Language) Response {
+	return etaggedResponse(single(accountId), body, sessionState, objectType, etag, lang)
 }
 
-func (r *Request) respondN(accountIds []string, body any, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State) Response {
-	return etaggedResponse(accountIds, body, sessionState, objectType, etag, jmap.Language(r.language()))
+func (r *Request) respondN(accountIds []string, body any, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State, lang jmap.Language) Response {
+	return etaggedResponse(accountIds, body, sessionState, objectType, etag, lang)
 }
 
 /*

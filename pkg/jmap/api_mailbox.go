@@ -113,7 +113,16 @@ func (j *Client) SearchMailboxIdsPerRole(accountIds []string, roles []string, ct
 	})
 }
 
-type MailboxChanges = ChangesTemplate[Mailbox]
+type MailboxChanges ChangesTemplate[Mailbox]
+
+var _ Changes[Mailbox] = MailboxChanges{}
+
+func (c MailboxChanges) GetHasMoreChanges() bool { return c.HasMoreChanges }
+func (c MailboxChanges) GetOldState() State      { return c.OldState }
+func (c MailboxChanges) GetNewState() State      { return c.NewState }
+func (c MailboxChanges) GetCreated() []Mailbox   { return c.Created }
+func (c MailboxChanges) GetUpdated() []Mailbox   { return c.Updated }
+func (c MailboxChanges) GetDestroyed() []string  { return c.Destroyed }
 
 func newMailboxChanges(oldState, newState State, hasMoreChanges bool, created, updated []Mailbox, destroyed []string) MailboxChanges {
 	return MailboxChanges{

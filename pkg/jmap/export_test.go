@@ -79,3 +79,11 @@ func parseConsts(pkgID string, suffix string, typeName string) (map[string]strin
 	}
 	return result, nil
 }
+
+func firstKey[K comparable, V any](m map[K]V) (K, bool) {
+	for k := range m {
+		return k, true
+	}
+	var zero K
+	return zero, false
+}

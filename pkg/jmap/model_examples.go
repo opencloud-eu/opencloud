@@ -2058,8 +2058,8 @@ func (e Exemplar) EmailChanges() EmailChanges {
 	}
 }
 
-func (e Exemplar) Changes() (Changes, string, string) {
-	return Changes{
+func (e Exemplar) Changes() (ObjectChanges, string, string) {
+	return ObjectChanges{
 		MaxChanges: 3,
 		Mailboxes: &MailboxChangesResponse{
 			AccountId:      e.AccountId,

@@ -43,7 +43,6 @@ const (
 	logErrorSourceHeader    = "source-header"
 	logErrorSourceParameter = "source-parameter"
 	logErrorSourcePointer   = "source-pointer"
-	logIdentityId           = "identity-id"
 	logEmailId              = "email-id"
 	logJobDescription       = "job"
 	logJobId                = "job-id"
@@ -108,7 +107,7 @@ type Groupware struct {
 	jmap         *jmap.Client
 	userProvider userProvider
 	// SSE events that need to be pushed to clients.
-	eventChannel chan Event
+	eventChannel chan SSEvent
 	// Background jobs that need to be executed.
 	jobsChannel chan Job
 	// A threadsafe counter to generate the job IDs.
@@ -132,8 +131,8 @@ func (e GroupwareInitializationError) Unwrap() error {
 	return e.Err
 }
 
-// SSE Event.
-type Event struct {
+// Ssrver Sent Event.
+type SSEvent struct {
 	// The type of event, will be sent as the "type" attribute.
 	Type string
 	// The ID of the stream to push the event to, typically the username.
@@ -314,7 +313,7 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 	jmapClient.AddSessionEventListener(sessionCache)
 
 	// A channel to process SSE Events with a single worker.
-	eventChannel := make(chan Event, eventChannelSize)
+	eventChannel := make(chan SSEvent, eventChannelSize)
 	{
 		eventBufferSizeMetric, err := prometheus.NewConstMetric(m.EventBufferSizeDesc, prometheus.GaugeValue, float64(eventChannelSize))
 		if err != nil {
@@ -465,7 +464,7 @@ func (g *Groupware) listenForEvents() {
 
 func (g *Groupware) push(user user, typ string, body any) {
 	g.metrics.SSEEventsCounter.WithLabelValues(typ).Inc()
-	g.eventChannel <- Event{Type: typ, Stream: user.GetUsername(), Body: body}
+	g.eventChannel <- SSEvent{Type: typ, Stream: user.GetUsername(), Body: body}
 }
 
 func (g *Groupware) ServeHTTP(w http.ResponseWriter, r *http.Request) {

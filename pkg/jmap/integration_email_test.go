@@ -56,12 +56,12 @@ func TestEmails(t *testing.T) {
 
 	{
 		{
-			resp, sessionState, _, _, err := s.client.GetAllIdentities(accountId, ctx)
+			resp, sessionState, _, _, err := s.client.GetIdentities(accountId, []string{}, ctx)
 			require.NoError(err)
 			require.Equal(session.State, sessionState)
-			require.Len(resp, 1)
-			require.Equal(user.email, resp[0].Email)
-			require.Equal(user.description, resp[0].Name)
+			require.Len(resp.List, 1)
+			require.Equal(user.email, resp.List[0].Email)
+			require.Equal(user.description, resp.List[0].Name)
 		}
 
 		{
@@ -188,13 +188,13 @@ func TestSendingEmails(t *testing.T) {
 	{
 		var identity Identity
 		{
-			identities, _, _, _, err := s.client.GetAllIdentities(accountId, ctx)
+			resp, _, _, _, err := s.client.GetIdentities(accountId, []string{}, ctx)
 			require.NoError(err)
-			require.NotEmpty(identities)
-			identity = identities[0]
+			require.NotEmpty(resp.List)
+			identity = resp.List[0]
 		}
 
-		create := EmailCreate{
+		create := EmailChange{
 			Keywords:   toBoolMapS("test"),
 			Subject:    subject,
 			MailboxIds: toBoolMapS(mailboxPerRole[JmapMailboxRoleDrafts].Id),
@@ -214,7 +214,7 @@ func TestSendingEmails(t *testing.T) {
 			require.Contains(email.MailboxIds, mailboxPerRole[JmapMailboxRoleDrafts].Id)
 		}
 
-		update := EmailCreate{
+		update := EmailChange{
 			From:       []EmailAddress{{Name: fromName, Email: from.email}},
 			To:         []EmailAddress{{Name: to.description, Email: to.email}},
 			Cc:         []EmailAddress{{Name: cc.description, Email: cc.email}},
@@ -240,7 +240,7 @@ func TestSendingEmails(t *testing.T) {
 			require.Contains(email.MailboxIds, mailboxPerRole[JmapMailboxRoleDrafts].Id)
 			require.Equal(notFound[0], created.Id)
 			var ok bool
-			updatedMailboxId, ok = structs.FirstKey(email.MailboxIds)
+			updatedMailboxId, ok = firstKey(email.MailboxIds)
 			require.True(ok)
 		}
 
