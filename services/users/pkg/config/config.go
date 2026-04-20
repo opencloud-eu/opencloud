@@ -62,10 +62,10 @@ type LDAPDriver struct {
 	BindPassword             string          `yaml:"bind_password" env:"OC_LDAP_BIND_PASSWORD;USERS_LDAP_BIND_PASSWORD" desc:"Password to use for authenticating the 'bind_dn'." introductionVersion:"1.0.0"`
 	UserBaseDN               string          `yaml:"user_base_dn" env:"OC_LDAP_USER_BASE_DN;USERS_LDAP_USER_BASE_DN" desc:"Search base DN for looking up LDAP users." introductionVersion:"1.0.0"`
 	GroupBaseDN              string          `yaml:"group_base_dn" env:"OC_LDAP_GROUP_BASE_DN;USERS_LDAP_GROUP_BASE_DN" desc:"Search base DN for looking up LDAP groups." introductionVersion:"1.0.0"`
-	TenantBaseDN             string           `yaml:"tenant_base_dn" env:"OC_LDAP_TENANT_BASE_DN;USERS_LDAP_TENANT_BASE_DN" desc:"Search base DN for looking up LDAP tenants. Only relevant in multi-tenant setups." introductionVersion:"%%NEXT%%"`
-	TenantScope              string           `yaml:"tenant_scope" env:"OC_LDAP_TENANT_SCOPE;USERS_LDAP_TENANT_SCOPE" desc:"LDAP search scope to use when looking up tenants. Supported values are 'base', 'one' and 'sub'. Only relevant in multi-tenant setups." introductionVersion:"%%NEXT%%"`
-	TenantFilter             string           `yaml:"tenant_filter" env:"OC_LDAP_TENANT_FILTER;USERS_LDAP_TENANT_FILTER" desc:"LDAP filter to add to the default filters for tenant searches. Only relevant in multi-tenant setups." introductionVersion:"%%NEXT%%"`
-	TenantObjectClass        string           `yaml:"tenant_object_class" env:"OC_LDAP_TENANT_OBJECTCLASS;USERS_LDAP_TENANT_OBJECTCLASS" desc:"The object class to use for tenants in the default tenant search filter. Only relevant in multi-tenant setups." introductionVersion:"%%NEXT%%"`
+	TenantBaseDN             string           `yaml:"tenant_base_dn" env:"OC_LDAP_TENANT_BASE_DN;USERS_LDAP_TENANT_BASE_DN" desc:"Search base DN for looking up LDAP tenants. Only relevant in multi-tenant setups." introductionVersion:"6.1.0"`
+	TenantScope              string           `yaml:"tenant_scope" env:"OC_LDAP_TENANT_SCOPE;USERS_LDAP_TENANT_SCOPE" desc:"LDAP search scope to use when looking up tenants. Supported values are 'base', 'one' and 'sub'. Only relevant in multi-tenant setups." introductionVersion:"6.1.0"`
+	TenantFilter             string           `yaml:"tenant_filter" env:"OC_LDAP_TENANT_FILTER;USERS_LDAP_TENANT_FILTER" desc:"LDAP filter to add to the default filters for tenant searches. Only relevant in multi-tenant setups." introductionVersion:"6.1.0"`
+	TenantObjectClass        string           `yaml:"tenant_object_class" env:"OC_LDAP_TENANT_OBJECTCLASS;USERS_LDAP_TENANT_OBJECTCLASS" desc:"The object class to use for tenants in the default tenant search filter. Only relevant in multi-tenant setups." introductionVersion:"6.1.0"`
 	TenantSchema             LDAPTenantSchema `yaml:"tenant_schema"`
 	UserScope                string          `yaml:"user_scope" env:"OC_LDAP_USER_SCOPE;USERS_LDAP_USER_SCOPE" desc:"LDAP search scope to use when looking up users. Supported values are 'base', 'one' and 'sub'." introductionVersion:"1.0.0"`
 	GroupScope               string          `yaml:"group_scope" env:"OC_LDAP_GROUP_SCOPE;USERS_LDAP_GROUP_SCOPE" desc:"LDAP search scope to use when looking up groups. Supported values are 'base', 'one' and 'sub'." introductionVersion:"1.0.0"`
@@ -102,9 +102,9 @@ type LDAPGroupSchema struct {
 }
 
 type LDAPTenantSchema struct {
-	ID         string `yaml:"id" env:"OC_LDAP_TENANT_SCHEMA_ID;USERS_LDAP_TENANT_SCHEMA_ID" desc:"LDAP Attribute to use as the unique internal ID for tenants. Only relevant in multi-tenant setups." introductionVersion:"%%NEXT%%"`
-	ExternalID string `yaml:"external_id" env:"OC_LDAP_TENANT_SCHEMA_EXTERNAL_ID;USERS_LDAP_TENANT_SCHEMA_EXTERNAL_ID" desc:"LDAP Attribute that holds the external tenant ID as it appears in OIDC claims. Only relevant in multi-tenant setups." introductionVersion:"%%NEXT%%"`
-	Name       string `yaml:"name" env:"OC_LDAP_TENANT_SCHEMA_NAME;USERS_LDAP_TENANT_SCHEMA_NAME" desc:"LDAP Attribute to use for the human-readable name of a tenant. Only relevant in multi-tenant setups." introductionVersion:"%%NEXT%%"`
+	ID         string `yaml:"id" env:"OC_LDAP_TENANT_SCHEMA_ID;USERS_LDAP_TENANT_SCHEMA_ID" desc:"LDAP Attribute to use as the unique internal ID for tenants. Only relevant in multi-tenant setups." introductionVersion:"6.1.0"`
+	ExternalID string `yaml:"external_id" env:"OC_LDAP_TENANT_SCHEMA_EXTERNAL_ID;USERS_LDAP_TENANT_SCHEMA_EXTERNAL_ID" desc:"LDAP Attribute that holds the external tenant ID as it appears in OIDC claims. Only relevant in multi-tenant setups." introductionVersion:"6.1.0"`
+	Name       string `yaml:"name" env:"OC_LDAP_TENANT_SCHEMA_NAME;USERS_LDAP_TENANT_SCHEMA_NAME" desc:"LDAP Attribute to use for the human-readable name of a tenant. Only relevant in multi-tenant setups." introductionVersion:"6.1.0"`
 }
 
 type OwnCloudSQLDriver struct {
