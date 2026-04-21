@@ -16,7 +16,9 @@ func main() {
 	// INFO: this is a hotfix, we need to replace suture and wait for nats to
 	//       gracefully shutdown using rungroups
 	// 		 see https://github.com/opencloud-eu/opencloud/issues/2282
-	fmt.Println("Waiting for 30 seconds before exiting...")
-	time.Sleep(30 * time.Second)
-	fmt.Println("Exiting...")
+	if os.Getenv("TEST_SERVER_URL") == "" {
+		fmt.Println("Waiting for 30 seconds before exiting...")
+		time.Sleep(30 * time.Second)
+		fmt.Println("Exiting...")
+	}
 }
