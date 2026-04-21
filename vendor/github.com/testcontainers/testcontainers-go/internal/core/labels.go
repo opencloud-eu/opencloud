@@ -62,11 +62,11 @@ func MergeCustomLabels(dst, src map[string]string) error {
 	if dst == nil {
 		return errors.New("destination map is nil")
 	}
-	for key, value := range src {
+	for key := range src {
 		if strings.HasPrefix(key, LabelBase) {
 			return fmt.Errorf("key %q has %q prefix", key, LabelBase)
 		}
-		dst[key] = value
 	}
+	maps.Copy(dst, src)
 	return nil
 }

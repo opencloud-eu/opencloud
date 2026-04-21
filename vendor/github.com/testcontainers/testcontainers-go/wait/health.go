@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/docker/docker/api/types"
+	"github.com/moby/moby/api/types/container"
 )
 
 // Implement interface
@@ -87,7 +87,7 @@ func (ws *HealthStrategy) WaitUntilReady(ctx context.Context, target StrategyTar
 			if err := checkState(state); err != nil {
 				return err
 			}
-			if state.Health == nil || state.Health.Status != types.Healthy {
+			if state.Health == nil || state.Health.Status != container.Healthy {
 				time.Sleep(ws.PollInterval)
 				continue
 			}

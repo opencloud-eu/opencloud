@@ -8,6 +8,7 @@ formatters:
         - standard
         - default
         - prefix(github.com/testcontainers)
+
 linters:
   enable:
     - errorlint
@@ -115,4 +116,5 @@ output:
       path: stdout
 run:
   relative-path-mode: gitroot
+
 version: "2"

@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
 	"github.com/google/uuid"
+	"github.com/moby/moby/api/types/container"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/testcontainers/testcontainers-go/internal/core/network"
@@ -107,14 +107,12 @@ func exposeHostPorts(ctx context.Context, req *ContainerRequest, ports ...int) (
 		return sshdConnectHook, fmt.Errorf("inspect sshd container: %w", err)
 	}
 
-	// TODO: remove once we have docker context support via #2810
-	//nolint:staticcheck // SA1019: IPAddress is deprecated, but we need it for compatibility until v29
-	sshdIP := inspect.NetworkSettings.IPAddress
-	if sshdIP == "" {
-		single := len(inspect.NetworkSettings.Networks) == 1
-		for name, network := range inspect.NetworkSettings.Networks {
-			if name == sshdFirstNetwork || single {
-				sshdIP = network.IPAddress
+	var sshdIP string
+	single := len(inspect.NetworkSettings.Networks) == 1
+	for name, nw := range inspect.NetworkSettings.Networks {
+		if name == sshdFirstNetwork || single {
+			if nw.IPAddress.IsValid() {
+				sshdIP = nw.IPAddress.String()
 				break
 			}
 		}

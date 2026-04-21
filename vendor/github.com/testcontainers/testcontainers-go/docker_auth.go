@@ -14,7 +14,8 @@ import (
 	"sync"
 
 	"github.com/cpuguy83/dockercfg"
-	"github.com/docker/docker/api/types/registry"
+	"github.com/moby/moby/api/types/registry"
+	"github.com/moby/moby/client"
 
 	"github.com/testcontainers/testcontainers-go/internal/core"
 )
@@ -87,18 +88,18 @@ func getRegistryAuth(reg string, cfgs map[string]registry.AuthConfig) (registry.
 // It will use the docker daemon to get the default registry, returning "https://index.docker.io/v1/" if
 // it fails to get the information from the daemon
 func defaultRegistry(ctx context.Context) string {
-	client, err := NewDockerClientWithOpts(ctx)
+	apiClient, err := NewDockerClientWithOpts(ctx)
 	if err != nil {
 		return core.IndexDockerIO
 	}
-	defer client.Close()
+	defer apiClient.Close()
 
-	info, err := client.Info(ctx)
+	info, err := apiClient.Info(ctx, client.InfoOptions{})
 	if err != nil {
 		return core.IndexDockerIO
 	}
 
-	return info.IndexServerAddress
+	return info.Info.IndexServerAddress
 }
 
 // authConfigResult is a result looking up auth details for key.
@@ -205,7 +206,6 @@ func getDockerAuthConfigs() (map[string]registry.AuthConfig, error) {
 
 			ac := registry.AuthConfig{
 				Auth:          v.Auth,
-				Email:         v.Email,
 				IdentityToken: v.IdentityToken,
 				Password:      v.Password,
 				RegistryToken: v.RegistryToken,
