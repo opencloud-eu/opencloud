@@ -43,6 +43,10 @@ func Start(envMap []string) {
 	} else {
 		cmd.Env = append(os.Environ(), envMap...)
 	}
+	// Start the command in a new process group to be able to kill it and all its children
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+	}
 
 	logs, err := cmd.StderrPipe()
 	if err != nil {
@@ -121,7 +125,12 @@ func Stop() (bool, string) {
 		return true, "OpenCloud server is not running"
 	}
 
-	exec.Command("sh", "-c", "pkill -9 -f 'opencloud|nats-server' 2>/dev/null || true").Run()
+	// kill the process group to stop the server and all its children
+	if cmd.Process != nil {
+		syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
+		time.Sleep(10 * time.Second)
+		syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	}
 	
 	cmd = nil
 	return true, "OpenCloud server stopped successfully"
