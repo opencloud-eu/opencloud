@@ -153,7 +153,24 @@ func IsOpencloudRunning() bool {
 	return false
 }
 
+func waitAllServices(startTime time.Time, timeout time.Duration) {
+	timeoutS := timeout * time.Second
+
+	c := exec.Command(config.Get("bin"), "list")
+	_, err := c.CombinedOutput()
+	if err != nil {
+		if time.Since(startTime) <= timeoutS {
+			time.Sleep(500 * time.Millisecond)
+			waitAllServices(startTime, timeout)
+		}
+		return
+	}
+	log.Println("All services are up")
+}
+
 func WaitForConnection() (bool, string) {
+	waitAllServices(time.Now(), 30)
+	
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
