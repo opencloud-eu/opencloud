@@ -146,9 +146,7 @@ func AutoAcceptShares(ev events.ShareCreated, autoAcceptDefault bool, l log.Logg
 
 	wg := sync.WaitGroup{}
 	for i := 0; i < maxConcurrency; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for userID := range work {
 
 				if !autoAcceptShares(ctx, userID, autoAcceptDefault, vs) {
@@ -179,7 +177,7 @@ func AutoAcceptShares(ev events.ShareCreated, autoAcceptDefault bool, l log.Logg
 					}().Interface("status", resp.GetStatus()).Str("userid", userID.GetOpaqueId()).Msg("unexpected status code while accepting share")
 				}
 			}
-		}()
+		})
 	}
 
 	// Wait for all goroutines to finish

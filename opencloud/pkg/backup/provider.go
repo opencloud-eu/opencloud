@@ -75,25 +75,20 @@ func (dp *DataProvider) ProduceData() error {
 	wg := sync.WaitGroup{}
 
 	// crawl spaces
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		for _, d := range dirs {
 			dp.evaluateNodeDir(d)
 		}
-		wg.Done()
-	}()
+	})
 
 	// crawl trash
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		dp.evaluateTrashDir()
-		wg.Done()
-	}()
+	})
 
 	// crawl blobstore
 	if !dp.skipBlobs {
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			bs, err := dp.lbs.List()
 			if err != nil {
 				fmt.Println("error listing blobs", err)
@@ -102,8 +97,7 @@ func (dp *DataProvider) ProduceData() error {
 			for _, bn := range bs {
 				dp.Events <- BlobData{BlobPath: dp.lbs.Path(bn)}
 			}
-			wg.Done()
-		}()
+		})
 	}
 
 	// wait for all crawlers to finish

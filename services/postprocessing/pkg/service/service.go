@@ -109,9 +109,7 @@ func (pps *PostprocessingService) Run() error {
 	wg := sync.WaitGroup{}
 
 	for range pps.c.Workers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 
 		EventLoop:
 			for {
@@ -149,7 +147,7 @@ func (pps *PostprocessingService) Run() error {
 					}
 				}
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

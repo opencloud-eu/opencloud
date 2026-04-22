@@ -227,13 +227,11 @@ func listFolder(path string, ch chan<- string, workers chan struct{}) error {
 
 	for _, child := range children {
 		if child.IsDir() {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				if err := listFolder(filepath.Join(path, child.Name()), ch, workers); err != nil {
 					fmt.Println("error listing", path, err)
 				}
-			}()
+			})
 		}
 
 		if _versionRegex.MatchString(child.Name()) {

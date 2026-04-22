@@ -526,9 +526,7 @@ func trapShutdownCtx(s *Service, srv *http.Server, ctx context.Context) error {
 	s.Log.Info().Msg("starting graceful shutdown")
 	start := time.Now()
 	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), _defaultShutdownTimeoutDuration)
 		defer cancel()
 		s.Log.Debug().Msg("starting runtime listener shutdown")
@@ -537,7 +535,7 @@ func trapShutdownCtx(s *Service, srv *http.Server, ctx context.Context) error {
 			return
 		}
 		s.Log.Debug().Msg("runtime listener shutdown done")
-	}()
+	})
 
 	// shutdown services in the order defined in the config
 	// any services not listed will be shutdown in parallel afterwards

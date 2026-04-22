@@ -139,9 +139,7 @@ func (av Antivirus) Run() error {
 
 	wg := sync.WaitGroup{}
 	for range av.config.Workers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 
 		EventLoop:
 			for {
@@ -170,7 +168,7 @@ func (av Antivirus) Run() error {
 					break EventLoop
 				}
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

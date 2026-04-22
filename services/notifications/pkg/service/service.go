@@ -114,9 +114,7 @@ EventLoop:
 				break EventLoop
 			}
 			// TODO: needs to be replaced with a worker pool
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 
 				switch e := evt.Event.(type) {
 				case events.SpaceShared:
@@ -134,7 +132,7 @@ EventLoop:
 				case events.SendEmailsEvent:
 					s.sendGroupedEmailsJob(e, evt.ID)
 				}
-			}()
+			})
 
 			if s.stopped.Load() {
 				break EventLoop
