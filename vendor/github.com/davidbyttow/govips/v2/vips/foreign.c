@@ -114,6 +114,7 @@ int set_webpload_options(VipsOperation *operation, LoadParams *params) {
   MAYBE_SET_INT(operation, params->page, "page");
   MAYBE_SET_INT(operation, params->n, "n");
   MAYBE_SET_INT(operation, params->access, "access");
+  MAYBE_SET_DOUBLE(operation, params->webpScale, "scale");
   return 0;
 }
 
@@ -527,6 +528,7 @@ LoadParams create_load_params(ImageType inputFormat) {
       .n = defaultParam,
       .dpi = defaultParam,
       .jpegShrink = defaultParam,
+      .webpScale = defaultParam,
       .heifThumbnail = defaultParam,
       .svgUnlimited = defaultParam,
       .access = defaultParam,

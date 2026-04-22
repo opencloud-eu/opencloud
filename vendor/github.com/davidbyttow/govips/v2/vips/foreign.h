@@ -65,6 +65,7 @@ typedef struct LoadParams {
   Param n;
   Param dpi;
   Param jpegShrink;
+  Param webpScale;
   Param heifThumbnail;
   Param svgUnlimited;
   Param access;

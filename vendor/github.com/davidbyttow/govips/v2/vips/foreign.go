@@ -146,7 +146,10 @@ func (i ImageType) FileExt() string {
 
 // IsTypeSupported checks whether given image type is supported by govips
 func IsTypeSupported(imageType ImageType) bool {
-	startupIfNeeded()
+	if err := startupIfNeeded(); err != nil {
+		govipsLog("govips", LogLevelError, fmt.Sprintf("failed to start vips: %v", err))
+		return false
+	}
 
 	// BMP is supported via the magick loader
 	if imageType == ImageTypeBMP {
@@ -233,6 +236,7 @@ var heis = []byte("heis")
 var mif1 = []byte("mif1")
 var msf1 = []byte("msf1")
 var avif = []byte("avif")
+var avis = []byte("avis")
 
 func isHEIF(buf []byte) bool {
 	return bytes.Equal(buf[4:8], ftyp) && (bytes.Equal(buf[8:12], heic) ||
@@ -245,7 +249,8 @@ func isHEIF(buf []byte) bool {
 }
 
 func isAVIF(buf []byte) bool {
-	return bytes.Equal(buf[4:8], ftyp) && bytes.Equal(buf[8:12], avif)
+	return bytes.Equal(buf[4:8], ftyp) &&
+		(bytes.Equal(buf[8:12], avif) || bytes.Equal(buf[8:12], avis))
 }
 
 var svg = []byte("<svg")
@@ -363,6 +368,12 @@ func maybeSetIntParam(p IntParameter, cp *C.Param) {
 	}
 }
 
+func maybeSetDoubleParam(p Float64Parameter, cp *C.Param) {
+	if p.IsSet() {
+		C.set_double_param(cp, C.gdouble(p.Get()))
+	}
+}
+
 func createImportParams(format ImageType, params *ImportParams) C.LoadParams {
 	p := C.create_load_params(C.ImageType(format))
 
@@ -371,6 +382,7 @@ func createImportParams(format ImageType, params *ImportParams) C.LoadParams {
 	maybeSetIntParam(params.Page, &p.page)
 	maybeSetIntParam(params.NumPages, &p.n)
 	maybeSetIntParam(params.JpegShrinkFactor, &p.jpegShrink)
+	maybeSetDoubleParam(params.WebpScaleFactor, &p.webpScale)
 	maybeSetBoolParam(params.HeifThumbnail, &p.heifThumbnail)
 	maybeSetBoolParam(params.SvgUnlimited, &p.svgUnlimited)
 	maybeSetIntParam(params.Access, &p.access)

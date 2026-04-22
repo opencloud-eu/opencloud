@@ -357,8 +357,8 @@ github.com/cyphar/filepath-securejoin/pathrs-lite/procfs
 # github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 ## explicit
 github.com/davecgh/go-spew/spew
-# github.com/davidbyttow/govips/v2 v2.17.0
-## explicit; go 1.23.0
+# github.com/davidbyttow/govips/v2 v2.18.0
+## explicit; go 1.25.0
 github.com/davidbyttow/govips/v2/vips
 # github.com/deckarep/golang-set v1.8.0
 ## explicit; go 1.17

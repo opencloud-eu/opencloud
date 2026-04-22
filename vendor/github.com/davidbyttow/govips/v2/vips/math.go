@@ -13,7 +13,7 @@ func ValueOf(value float64) Scalar {
 	return Scalar{value, false}
 }
 
-// IsZero checkes whether the associated Scalar's value is zero.
+// IsZero checks whether the associated Scalar's value is zero.
 func (s *Scalar) IsZero() bool {
 	return s.Value == 0 && !s.Relative
 }

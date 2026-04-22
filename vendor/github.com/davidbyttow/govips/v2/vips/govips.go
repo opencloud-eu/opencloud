@@ -12,6 +12,8 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"testing"
 )
 
 const (
@@ -130,14 +132,13 @@ func Startup(config *Config) error {
 			C.vips_cache_set_max(defaultMaxCacheSize)
 		}
 
-		if config.CacheTrace {
-			C.vips_cache_set_trace(toGboolean(true))
-		}
+		C.vips_cache_set_trace(toGboolean(config.CacheTrace))
 	} else {
 		C.vips_concurrency_set(defaultConcurrencyLevel)
 		C.vips_cache_set_max(defaultMaxCacheSize)
 		C.vips_cache_set_max_mem(defaultMaxCacheMem)
 		C.vips_cache_set_max_files(defaultMaxCacheFiles)
+		C.vips_cache_set_trace(toGboolean(false))
 	}
 
 	govipsLog("govips", LogLevelInfo, fmt.Sprintf("vips %s started with concurrency=%d cache_max_files=%d cache_max_mem=%d cache_max=%d",
@@ -225,6 +226,23 @@ type MemoryStats struct {
 	Allocs  int64
 }
 
+var openImageRefs atomic.Int64
+
+// OpenImageRefs returns the number of ImageRef instances that haven't been closed.
+func OpenImageRefs() int64 {
+	return openImageRefs.Load()
+}
+
+// AssertNoLeaks fails the test if any ImageRef instances remain open.
+// Call this at the end of tests to catch leaked images.
+func AssertNoLeaks(t testing.TB) {
+	t.Helper()
+	n := openImageRefs.Load()
+	if n != 0 {
+		t.Errorf("govips: %d ImageRef(s) not closed (leaked)", n)
+	}
+}
+
 // ReadVipsMemStats returns various memory statistics such as allocated memory and open files.
 func ReadVipsMemStats(stats *MemoryStats) {
 	stats.Mem = int64(C.vips_tracked_get_mem())
@@ -233,13 +251,14 @@ func ReadVipsMemStats(stats *MemoryStats) {
 	stats.Files = int64(C.vips_tracked_get_files())
 }
 
-func startupIfNeeded() {
+func startupIfNeeded() error {
 	if !running {
 		govipsLog("govips", LogLevelInfo, "libvips was forcibly started automatically, consider calling Startup/Shutdown yourself")
 		if err := Startup(nil); err != nil {
-			panic(err)
+			return err
 		}
 	}
+	return nil
 }
 
 // InitTypes initializes caches and figures out which image types are supported
