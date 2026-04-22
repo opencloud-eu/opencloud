@@ -1,12 +1,10 @@
 package theme
 
 import (
-	"bytes"
 	"encoding/json"
-	"strings"
+	"io/fs"
 
 	"dario.cat/mergo"
-	"github.com/spf13/afero"
 )
 
 // KV is a generic key-value map.
@@ -26,43 +24,15 @@ func MergeKV(values ...KV) (KV, error) {
 	return kv, nil
 }
 
-// PatchKV injects the given values into to v.
-func PatchKV(v map[string]interface{}, values KV) KV {
-	if v == nil {
-		v = KV{}
-	}
-	for k, val := range values {
-		t := v
-		path := strings.Split(k, ".")
-		for i, p := range path {
-			if i == len(path)-1 {
-				switch val {
-				// if the value is nil, we delete the key
-				case nil:
-					delete(t, p)
-				default:
-					t[p] = val
-				}
-				break
-			}
-
-			if _, ok := t[p]; !ok {
-				t[p] = map[string]interface{}{}
-			}
-
-			t = t[p].(map[string]interface{})
-		}
-	}
-	return v
-}
-
 // LoadKV loads a key-value map from the given file system.
-func LoadKV(fsys afero.Fs, p string) (KV, error) {
+func LoadKV(fsys fs.FS, p string) (KV, error) {
 	f, err := fsys.Open(p)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 
 	var kv KV
 	err = json.NewDecoder(f).Decode(&kv)
@@ -71,28 +41,4 @@ func LoadKV(fsys afero.Fs, p string) (KV, error) {
 	}
 
 	return kv, nil
-}
-
-// WriteKV writes the given key-value map to the file system.
-func WriteKV(fsys afero.Fs, p string, kv KV) error {
-	data, err := json.Marshal(kv)
-	if err != nil {
-		return err
-	}
-
-	return afero.WriteReader(fsys, p, bytes.NewReader(data))
-}
-
-// UpdateKV updates the key-value map at the given path with the given values.
-func UpdateKV(fsys afero.Fs, p string, values KV) error {
-	var kv KV
-
-	existing, err := LoadKV(fsys, p)
-	if err == nil {
-		kv = existing
-	}
-
-	kv = PatchKV(kv, values)
-
-	return WriteKV(fsys, p, kv)
 }

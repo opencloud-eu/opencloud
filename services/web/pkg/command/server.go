@@ -10,11 +10,13 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
+	ogrpc "github.com/opencloud-eu/opencloud/pkg/service/grpc"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/server/debug"
+	"github.com/opencloud-eu/opencloud/services/web/pkg/server/grpc"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/server/http"
 
 	"github.com/spf13/cobra"
@@ -48,6 +50,10 @@ func Server(cfg *config.Config) *cobra.Command {
 				}
 			}
 
+			cfg.GrpcClient, err = ogrpc.NewClient(
+				append(ogrpc.GetClientOptions(cfg.GRPCClientTLS), ogrpc.WithTraceProvider(traceProvider))...,
+			)
+
 			var cancel context.CancelFunc
 			if cfg.Context == nil {
 				cfg.Context, cancel = signal.NotifyContext(context.Background(), runner.StopSignals...)
@@ -77,6 +83,23 @@ func Server(cfg *config.Config) *cobra.Command {
 				}
 
 				gr.Add(runner.NewGoMicroHttpServerRunner(cfg.Service.Name+".http", server))
+			}
+
+			{
+				grpcServer, err := grpc.Server(
+					grpc.Config(cfg),
+					grpc.Logger(logger),
+					grpc.Name(cfg.Service.Name),
+					grpc.Context(ctx),
+					grpc.JWTSecret(cfg.TokenManager.JWTSecret),
+					grpc.TraceProvider(traceProvider),
+				)
+				if err != nil {
+					logger.Info().Err(err).Str("transport", "grpc").Msg("Failed to initialize server")
+					return err
+				}
+
+				gr.Add(runner.NewGoMicroGrpcServerRunner(cfg.Service.Name+".grpc", grpcServer))
 			}
 
 			{
