@@ -2,12 +2,16 @@ package http
 
 import (
 	"fmt"
-
 	stdhttp "net/http"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
+	"github.com/riandyrn/otelchi"
+	"go-micro.dev/v4"
+
+	"github.com/opencloud-eu/reva/v2/pkg/events"
+
 	"github.com/opencloud-eu/opencloud/pkg/account"
 	"github.com/opencloud-eu/opencloud/pkg/cors"
 	"github.com/opencloud-eu/opencloud/pkg/middleware"
@@ -15,9 +19,6 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 	svc "github.com/opencloud-eu/opencloud/services/sse/pkg/service"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/riandyrn/otelchi"
-	"go-micro.dev/v4"
 )
 
 // Service is the service interface
@@ -82,12 +83,17 @@ func Server(opts ...Option) (http.Service, error) {
 		return http.Service{}, err
 	}
 
-	handle, err := svc.NewSSE(options.Config, options.Logger, ch, mux)
+	sseHandler, err := svc.NewSSEHandler(options.Context, options.Config, options.Logger, ch)
 	if err != nil {
 		return http.Service{}, err
 	}
 
-	if err := micro.RegisterHandler(service.Server(), handle); err != nil {
+	svcHandler, err := svc.New(mux, sseHandler)
+	if err != nil {
+		return http.Service{}, err
+	}
+
+	if err := micro.RegisterHandler(service.Server(), svcHandler); err != nil {
 		return http.Service{}, err
 	}
 
