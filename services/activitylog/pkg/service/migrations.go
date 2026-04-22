@@ -54,9 +54,9 @@ func (a *ActivitylogService) migrateToV1(_ context.Context, kv nats.KeyValue) er
 
 	// keyValueEnvelope is the data structure used by the go micro plugin which was used previously.
 	type keyValueEnvelope struct {
-		Key      string                 `json:"key"`
-		Data     []byte                 `json:"data"`
-		Metadata map[string]interface{} `json:"metadata"`
+		Key      string         `json:"key"`
+		Data     []byte         `json:"data"`
+		Metadata map[string]any `json:"metadata"`
 	}
 
 	for key := range keyChan {

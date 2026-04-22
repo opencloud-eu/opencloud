@@ -56,8 +56,8 @@ func (u *cs3User) UniqueID() string {
 }
 
 // BackendClaims returns additional claims the cs3 users provides
-func (u *cs3User) BackendClaims() map[string]interface{} {
-	claims := make(map[string]interface{})
+func (u *cs3User) BackendClaims() map[string]any {
+	claims := make(map[string]any)
 	claims[konnect.IdentifiedUserIDClaim] = u.u.GetId().GetOpaqueId()
 
 	return claims

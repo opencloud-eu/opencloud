@@ -37,7 +37,7 @@ func TestService_Get(t *testing.T) {
 	primaryFS := fsx.NewMemMapFs()
 	fallbackFS := fsx.NewFallbackFS(primaryFS, fsx.NewMemMapFs())
 
-	add := func(filename string, content interface{}) {
+	add := func(filename string, content any) {
 		b, err := json.Marshal(content)
 		assert.Nil(t, err)
 
@@ -45,11 +45,11 @@ func TestService_Get(t *testing.T) {
 	}
 
 	// baseTheme
-	add("base/theme.json", map[string]interface{}{
+	add("base/theme.json", map[string]any{
 		"base": "base",
 	})
 	// brandingTheme
-	add("_branding/theme.json", map[string]interface{}{
+	add("_branding/theme.json", map[string]any{
 		"_branding": "_branding",
 	})
 

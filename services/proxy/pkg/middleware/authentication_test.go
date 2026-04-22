@@ -126,7 +126,7 @@ var _ = Describe("Authenticating requests", Label("Authentication"), func() {
 				EnableBasicAuth(true),
 			)
 			testHandler := handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				Expect(oidc.FromContext(r.Context())).To(Equal(map[string]interface{}{
+				Expect(oidc.FromContext(r.Context())).To(Equal(map[string]any{
 					"sid": "a-session-id",
 					"exp": int64(1147483647),
 				}))
@@ -144,7 +144,7 @@ var _ = Describe("Authenticating requests", Label("Authentication"), func() {
 				EnableBasicAuth(true),
 			)
 			testHandler := handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				Expect(oidc.FromContext(r.Context())).To(Equal(map[string]interface{}{
+				Expect(oidc.FromContext(r.Context())).To(Equal(map[string]any{
 					"email":              "testuser@example.com",
 					"openclouduuid":      "OpaqueId",
 					"iss":                "IdpId",

@@ -45,12 +45,12 @@ func (s eventsNotifier) handleScienceMeshInviteTokenGenerated(e events.ScienceMe
 	// event that is optional when the event got triggered...
 	// this means if we get a validation error, we can't send the message and skip it
 	{
-		validationEnv := make(map[string]interface{}, len(msgENV))
+		validationEnv := make(map[string]any, len(msgENV))
 		for k, v := range msgENV {
 			validationEnv[k] = v
 		}
 		if errs := validate.ValidateMap(validationEnv,
-			map[string]interface{}{
+			map[string]any{
 				"RecipientMail": "required,email", // only recipient mail is required to send the message
 			}); len(errs) > 0 {
 			return // no mail, no message

@@ -90,7 +90,7 @@ func cleanup(_ *cobra.Command, cfg *config.Config) error {
 	if !ok {
 		return configlog.ReturnError(errors.New("Unknown share manager type '" + driver + "'"))
 	}
-	mgr, err := f(rcfg[driver].(map[string]interface{}))
+	mgr, err := f(rcfg[driver].(map[string]any))
 	if err != nil {
 		return configlog.ReturnError(err)
 	}
@@ -126,13 +126,13 @@ func cleanup(_ *cobra.Command, cfg *config.Config) error {
 	return nil
 }
 
-func revaShareConfig(cfg *sharing.Config) map[string]interface{} {
-	return map[string]interface{}{
-		"json": map[string]interface{}{
+func revaShareConfig(cfg *sharing.Config) map[string]any {
+	return map[string]any{
+		"json": map[string]any{
 			"file":         cfg.UserSharingDrivers.JSON.File,
 			"gateway_addr": cfg.Reva.Address,
 		},
-		"sql": map[string]interface{}{ // cernbox sql
+		"sql": map[string]any{ // cernbox sql
 			"db_username":                   cfg.UserSharingDrivers.SQL.DBUsername,
 			"db_password":                   cfg.UserSharingDrivers.SQL.DBPassword,
 			"db_host":                       cfg.UserSharingDrivers.SQL.DBHost,
@@ -142,7 +142,7 @@ func revaShareConfig(cfg *sharing.Config) map[string]interface{} {
 			"enable_expired_shares_cleanup": cfg.UserSharingDrivers.SQL.EnableExpiredSharesCleanup,
 			"janitor_run_interval":          cfg.UserSharingDrivers.SQL.JanitorRunInterval,
 		},
-		"owncloudsql": map[string]interface{}{
+		"owncloudsql": map[string]any{
 			"gateway_addr":     cfg.Reva.Address,
 			"storage_mount_id": cfg.UserSharingDrivers.OwnCloudSQL.UserStorageMountID,
 			"db_username":      cfg.UserSharingDrivers.OwnCloudSQL.DBUsername,
@@ -151,14 +151,14 @@ func revaShareConfig(cfg *sharing.Config) map[string]interface{} {
 			"db_port":          cfg.UserSharingDrivers.OwnCloudSQL.DBPort,
 			"db_name":          cfg.UserSharingDrivers.OwnCloudSQL.DBName,
 		},
-		"cs3": map[string]interface{}{
+		"cs3": map[string]any{
 			"gateway_addr":        cfg.UserSharingDrivers.CS3.ProviderAddr,
 			"provider_addr":       cfg.UserSharingDrivers.CS3.ProviderAddr,
 			"service_user_id":     cfg.UserSharingDrivers.CS3.SystemUserID,
 			"service_user_idp":    cfg.UserSharingDrivers.CS3.SystemUserIDP,
 			"machine_auth_apikey": cfg.UserSharingDrivers.CS3.SystemUserAPIKey,
 		},
-		"jsoncs3": map[string]interface{}{
+		"jsoncs3": map[string]any{
 			"gateway_addr":        cfg.Reva.Address,
 			"provider_addr":       cfg.UserSharingDrivers.JSONCS3.ProviderAddr,
 			"service_user_id":     cfg.UserSharingDrivers.JSONCS3.SystemUserID,

@@ -164,7 +164,7 @@ type Microsoft struct {
 }
 
 // SetProperties will set the file properties for the Microsoft implementation.
-func (minfo *Microsoft) SetProperties(props map[string]interface{}) {
+func (minfo *Microsoft) SetProperties(props map[string]any) {
 	for key, value := range props {
 		switch key {
 		case KeyBaseFileName:

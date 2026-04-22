@@ -17,7 +17,7 @@ type Cache struct {
 
 // CacheEntry represents an entry on the cache. You can type assert on V.
 type CacheEntry struct {
-	V          interface{}
+	V          any
 	expiration time.Time
 }
 
@@ -25,7 +25,7 @@ type CacheEntry struct {
 func NewCache(capacity int) Cache {
 	return Cache{
 		capacity: uint64(capacity),
-		pool: sync.Pool{New: func() interface{} {
+		pool: sync.Pool{New: func() any {
 			return new(CacheEntry)
 		}},
 	}
@@ -45,7 +45,7 @@ func (c *Cache) Load(key string) *CacheEntry {
 }
 
 // Store adds an entry for given key and value
-func (c *Cache) Store(key string, val interface{}, expiration time.Time) {
+func (c *Cache) Store(key string, val any, expiration time.Time) {
 	if c.length > c.capacity {
 		c.evict()
 	}
@@ -79,7 +79,7 @@ func (c *Cache) Delete(key string) bool {
 
 // evict frees memory from the cache by removing entries that exceeded the cache TTL.
 func (c *Cache) evict() {
-	c.entries.Range(func(key, mapEntry interface{}) bool {
+	c.entries.Range(func(key, mapEntry any) bool {
 		entry := mapEntry.(*CacheEntry)
 		if c.expired(entry) {
 			c.Delete(key.(string))

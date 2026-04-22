@@ -157,7 +157,7 @@ var _ = Describe("Schools", func() {
 			res := service.ListResponse{}
 			err = json.Unmarshal(data, &res)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res.Value).To(Equal([]interface{}{}))
+			Expect(res.Value).To(Equal([]any{}))
 		})
 
 		It("renders a list of schools", func() {

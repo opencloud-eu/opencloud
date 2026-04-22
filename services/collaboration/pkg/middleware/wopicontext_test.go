@@ -49,7 +49,7 @@ var _ = Describe("Wopi Context Middleware", func() {
 		})
 		mw = middleware.WopiContextAuthMiddleware(cfg, nil, next)
 
-		tknMngr, err = rjwt.New(map[string]interface{}{
+		tknMngr, err = rjwt.New(map[string]any{
 			"secret":  cfg.TokenManager.JWTSecret,
 			"expires": int64(24 * 60 * 60),
 		})

@@ -58,7 +58,7 @@ func TestPersistKey(t *testing.T) {
 
 	type args struct {
 		keyName string
-		pk      interface{}
+		pk      any
 	}
 	tests := []struct {
 		name string
@@ -104,7 +104,7 @@ func TestPersistCertificate(t *testing.T) {
 
 	type args struct {
 		certName string
-		pk       interface{}
+		pk       any
 	}
 	tests := []struct {
 		name    string

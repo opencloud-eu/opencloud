@@ -23,8 +23,8 @@ var (
 
 // Payload combines response metadata and data
 type Payload struct {
-	Meta data.Meta   `json:"meta" xml:"meta"`
-	Data interface{} `json:"data,omitempty" xml:"data,omitempty"`
+	Meta data.Meta `json:"meta" xml:"meta"`
+	Data any       `json:"data,omitempty" xml:"data,omitempty"`
 }
 
 // MarshalXML handles ocs specific wrapping of array members in 'element' tags for the data
@@ -81,7 +81,7 @@ func (rsp *Response) Render(w http.ResponseWriter, r *http.Request) error {
 }
 
 // DataRender creates an OK Payload for the given data
-func DataRender(d interface{}) render.Renderer {
+func DataRender(d any) render.Renderer {
 	return &Response{
 		&Payload{
 			Meta: data.MetaOK,

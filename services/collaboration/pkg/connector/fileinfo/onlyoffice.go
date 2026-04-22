@@ -130,7 +130,7 @@ type OnlyOffice struct {
 }
 
 // SetProperties will set the file properties for the OnlyOffice implementation.
-func (oinfo *OnlyOffice) SetProperties(props map[string]interface{}) {
+func (oinfo *OnlyOffice) SetProperties(props map[string]any) {
 	for key, value := range props {
 		switch key {
 		case KeyBaseFileName:

@@ -82,7 +82,7 @@ func OidcAuth(opts ...Option) func(http.Handler) http.Handler {
 					w.WriteHeader(http.StatusUnauthorized)
 					return
 				}
-				claims := map[string]interface{}{}
+				claims := map[string]any{}
 				err = userInfo.Claims(&claims)
 				if err != nil {
 					break

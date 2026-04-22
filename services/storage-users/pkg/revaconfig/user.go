@@ -5,8 +5,8 @@ import (
 )
 
 // StorageProviderDrivers are the drivers for the storage provider
-func StorageProviderDrivers(cfg *config.Config) map[string]interface{} {
-	return map[string]interface{}{
+func StorageProviderDrivers(cfg *config.Config) map[string]any {
+	return map[string]any{
 		"eos":          EOS(cfg),
 		"eoshome":      EOSHome(cfg),
 		"eosgrpc":      EOSGRPC(cfg),
@@ -24,8 +24,8 @@ func StorageProviderDrivers(cfg *config.Config) map[string]interface{} {
 }
 
 // DataProviderDrivers are the drivers for the storage provider
-func DataProviderDrivers(cfg *config.Config) map[string]interface{} {
-	return map[string]interface{}{
+func DataProviderDrivers(cfg *config.Config) map[string]any {
+	return map[string]any{
 		"eos":          EOS(cfg),
 		"eoshome":      EOSHome(cfg),
 		"eosgrpc":      EOSGRPC(cfg),

@@ -13,7 +13,7 @@ type NamedRWMutex struct {
 
 // NewNamedRWMutex returns a new instance of NamedRWMutex.
 func NewNamedRWMutex() NamedRWMutex {
-	return NamedRWMutex{pool: sync.Pool{New: func() interface{} {
+	return NamedRWMutex{pool: sync.Pool{New: func() any {
 		return new(sync.RWMutex)
 	}}}
 }

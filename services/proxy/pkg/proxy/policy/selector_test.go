@@ -79,10 +79,10 @@ func TestClaimsSelector(t *testing.T) {
 
 	var tests = []testCase{
 		{"unauthenticated", context.Background(), nil, "unauthenticated"},
-		{"default", oidc.NewContext(context.Background(), map[string]interface{}{oidc.OpenCloudRoutingPolicy: ""}), nil, "default"},
-		{"claim-value", oidc.NewContext(context.Background(), map[string]interface{}{oidc.OpenCloudRoutingPolicy: "opencloud.routing.policy-value"}), nil, "opencloud.routing.policy-value"},
+		{"default", oidc.NewContext(context.Background(), map[string]any{oidc.OpenCloudRoutingPolicy: ""}), nil, "default"},
+		{"claim-value", oidc.NewContext(context.Background(), map[string]any{oidc.OpenCloudRoutingPolicy: "opencloud.routing.policy-value"}), nil, "opencloud.routing.policy-value"},
 		{"cookie-only", context.Background(), &http.Cookie{Name: SelectorCookieName, Value: "cookie"}, "cookie"},
-		{"claim-can-override-cookie", oidc.NewContext(context.Background(), map[string]interface{}{oidc.OpenCloudRoutingPolicy: "opencloud.routing.policy-value"}), &http.Cookie{Name: SelectorCookieName, Value: "cookie"}, "opencloud.routing.policy-value"},
+		{"claim-can-override-cookie", oidc.NewContext(context.Background(), map[string]any{oidc.OpenCloudRoutingPolicy: "opencloud.routing.policy-value"}), &http.Cookie{Name: SelectorCookieName, Value: "cookie"}, "opencloud.routing.policy-value"},
 	}
 	for _, tc := range tests {
 		r := httptest.NewRequest("GET", "https://example.com", nil)

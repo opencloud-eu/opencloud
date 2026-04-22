@@ -21,6 +21,6 @@ func init() {
 func Default() *validator.Validate { return defaultValidator.Load().(*validator.Validate) }
 
 // StructCtx validates a struct and returns the error.
-func StructCtx(ctx context.Context, s interface{}) error {
+func StructCtx(ctx context.Context, s any) error {
 	return Default().StructCtx(ctx, s)
 }

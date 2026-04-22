@@ -39,7 +39,7 @@ func TestOpenCloudInstanceAddLink(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	ctx = oidc.NewContext(ctx, map[string]interface{}{
+	ctx = oidc.NewContext(ctx, map[string]any{
 		"customclaim": "some@fizz.buzz",
 		"otherclaim":  "someone",
 	})

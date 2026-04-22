@@ -21,7 +21,7 @@ type ListBlobstore interface {
 
 // DataProvider provides data for the consistency check
 type DataProvider struct {
-	Events chan interface{}
+	Events chan any
 
 	fsys      fs.FS
 	discpath  string
@@ -51,7 +51,7 @@ type BlobData struct {
 // NewProvider creates a new DataProvider object
 func NewProvider(fsys fs.FS, discpath string, lbs ListBlobstore) *DataProvider {
 	return &DataProvider{
-		Events: make(chan interface{}),
+		Events: make(chan any),
 
 		fsys:      fsys,
 		discpath:  discpath,

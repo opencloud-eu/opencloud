@@ -69,11 +69,11 @@ type Sharee struct {
 }
 
 // ActivityOption allows setting variables for an activity
-type ActivityOption func(context.Context, gateway.GatewayAPIClient, map[string]interface{}) error
+type ActivityOption func(context.Context, gateway.GatewayAPIClient, map[string]any) error
 
 // WithResource sets the resource variable for an activity
 func WithResource(ref *provider.Reference, addSpace bool, explicitResourceName string) ActivityOption {
-	return func(ctx context.Context, gwc gateway.GatewayAPIClient, vars map[string]interface{}) error {
+	return func(ctx context.Context, gwc gateway.GatewayAPIClient, vars map[string]any) error {
 		info, err := utils.GetResource(ctx, ref, gwc)
 		if err != nil {
 			if explicitResourceName == "" {
@@ -119,7 +119,7 @@ func WithResource(ref *provider.Reference, addSpace bool, explicitResourceName s
 
 // WithOldResource sets the oldResource variable for an activity
 func WithOldResource(ref *provider.Reference) ActivityOption {
-	return func(_ context.Context, _ gateway.GatewayAPIClient, vars map[string]interface{}) error {
+	return func(_ context.Context, _ gateway.GatewayAPIClient, vars map[string]any) error {
 		name := filepath.Base(ref.GetPath())
 		vars["oldResource"] = Resource{
 			Name: name,
@@ -130,7 +130,7 @@ func WithOldResource(ref *provider.Reference) ActivityOption {
 
 // WithTrashedResource sets the resource variable if the resource is trashed
 func WithTrashedResource(ref *provider.Reference, rid *provider.ResourceId) ActivityOption {
-	return func(ctx context.Context, gwc gateway.GatewayAPIClient, vars map[string]interface{}) error {
+	return func(ctx context.Context, gwc gateway.GatewayAPIClient, vars map[string]any) error {
 		vars["resource"] = Resource{
 			Name: filepath.Base(ref.GetPath()),
 		}
@@ -174,7 +174,7 @@ func WithTrashedResource(ref *provider.Reference, rid *provider.ResourceId) Acti
 
 // WithUser sets the user variable for an Activity
 func WithUser(uid *user.UserId, u *user.User, impersonator *user.User) ActivityOption {
-	return func(ctx context.Context, gwc gateway.GatewayAPIClient, vars map[string]interface{}) error {
+	return func(ctx context.Context, gwc gateway.GatewayAPIClient, vars map[string]any) error {
 		var target *user.User
 		switch {
 		case impersonator != nil:
@@ -206,7 +206,7 @@ func WithUser(uid *user.UserId, u *user.User, impersonator *user.User) ActivityO
 
 // WithSharee sets the sharee variable for an activity
 func WithSharee(uid *user.UserId, gid *group.GroupId) ActivityOption {
-	return func(ctx context.Context, gwc gateway.GatewayAPIClient, vars map[string]interface{}) error {
+	return func(ctx context.Context, gwc gateway.GatewayAPIClient, vars map[string]any) error {
 		switch {
 		case uid != nil:
 			u, err := utils.GetUserNoGroups(ctx, uid, gwc)
@@ -252,7 +252,7 @@ func WithSharee(uid *user.UserId, gid *group.GroupId) ActivityOption {
 
 // WithSpace sets the space variable for an activity
 func WithSpace(spaceid *provider.StorageSpaceId) ActivityOption {
-	return func(ctx context.Context, gwc gateway.GatewayAPIClient, vars map[string]interface{}) error {
+	return func(ctx context.Context, gwc gateway.GatewayAPIClient, vars map[string]any) error {
 		s, err := utils.GetSpace(ctx, spaceid.GetOpaqueId(), gwc)
 		if err != nil {
 			vars["space"] = Resource{
@@ -272,7 +272,7 @@ func WithSpace(spaceid *provider.StorageSpaceId) ActivityOption {
 
 // WithTranslation sets a variable that translation is needed for
 func WithTranslation(t *l10n.Translator, locale string, key string, values []string) ActivityOption {
-	return func(_ context.Context, _ gateway.GatewayAPIClient, vars map[string]interface{}) error {
+	return func(_ context.Context, _ gateway.GatewayAPIClient, vars map[string]any) error {
 		f := t.Translate(StrSomeField, locale)
 		if len(values) > 0 {
 			for i := range values {
@@ -289,7 +289,7 @@ func WithTranslation(t *l10n.Translator, locale string, key string, values []str
 
 // WithVar sets a variable for an activity
 func WithVar(key, id, name string) ActivityOption {
-	return func(_ context.Context, _ gateway.GatewayAPIClient, vars map[string]interface{}) error {
+	return func(_ context.Context, _ gateway.GatewayAPIClient, vars map[string]any) error {
 		vars[key] = Resource{
 			ID:   id,
 			Name: name,
@@ -299,7 +299,7 @@ func WithVar(key, id, name string) ActivityOption {
 }
 
 // NewActivity creates a new activity
-func NewActivity(message string, ts time.Time, eventID string, vars map[string]interface{}) libregraph.Activity {
+func NewActivity(message string, ts time.Time, eventID string, vars map[string]any) libregraph.Activity {
 	return libregraph.Activity{
 		Id:    eventID,
 		Times: libregraph.ActivityTimes{RecordedTime: ts},
@@ -311,13 +311,13 @@ func NewActivity(message string, ts time.Time, eventID string, vars map[string]i
 }
 
 // GetVars calls other service to gather the required data for the activity variables
-func (s *ActivitylogService) GetVars(ctx context.Context, opts ...ActivityOption) (map[string]interface{}, error) {
+func (s *ActivitylogService) GetVars(ctx context.Context, opts ...ActivityOption) (map[string]any, error) {
 	gwc, err := s.gws.Next()
 	if err != nil {
 		return nil, err
 	}
 
-	vars := make(map[string]interface{})
+	vars := make(map[string]any)
 	for _, opt := range opts {
 		if err := opt(ctx, gwc, vars); err != nil {
 			s.log.Info().Err(err).Msg("error getting activity vars")

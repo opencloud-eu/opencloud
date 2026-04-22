@@ -43,7 +43,7 @@ func New(config config.Postprocessing) *Postprocessing {
 }
 
 // Init is the first step of the postprocessing
-func (pp *Postprocessing) Init(_ events.BytesReceived) interface{} {
+func (pp *Postprocessing) Init(_ events.BytesReceived) any {
 	if len(pp.Steps) == 0 {
 		return pp.finished(events.PPOutcomeContinue)
 	}
@@ -52,7 +52,7 @@ func (pp *Postprocessing) Init(_ events.BytesReceived) interface{} {
 }
 
 // NextStep returns the next postprocessing step
-func (pp *Postprocessing) NextStep(ev events.PostprocessingStepFinished) interface{} {
+func (pp *Postprocessing) NextStep(ev events.PostprocessingStepFinished) any {
 	switch ev.Outcome {
 	case events.PPOutcomeContinue:
 		return pp.next(ev.FinishedStep)
@@ -68,7 +68,7 @@ func (pp *Postprocessing) NextStep(ev events.PostprocessingStepFinished) interfa
 }
 
 // CurrentStep returns the current postprocessing step
-func (pp *Postprocessing) CurrentStep() interface{} {
+func (pp *Postprocessing) CurrentStep() any {
 	if pp.Status.CurrentStep == events.PPStepFinished {
 		return pp.finished(pp.Status.Outcome)
 	}
@@ -76,7 +76,7 @@ func (pp *Postprocessing) CurrentStep() interface{} {
 }
 
 // Delay will sleep the configured time then continue
-func (pp *Postprocessing) Delay(f func(next interface{})) {
+func (pp *Postprocessing) Delay(f func(next any)) {
 	next := pp.next(events.PPStepDelay)
 	go func() {
 		time.Sleep(pp.config.Delayprocessing)
@@ -89,7 +89,7 @@ func (pp *Postprocessing) BackoffDuration() time.Duration {
 	return pp.config.RetryBackoffDuration * time.Duration(math.Pow(2, float64(pp.Failures-1)))
 }
 
-func (pp *Postprocessing) next(current events.Postprocessingstep) interface{} {
+func (pp *Postprocessing) next(current events.Postprocessingstep) any {
 	l := len(pp.Steps)
 	for i, s := range pp.Steps {
 		if s == current && i+1 < l {

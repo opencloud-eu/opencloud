@@ -17,7 +17,7 @@ func TestApplication_ToExternal(t *testing.T) {
 	app := apps.Application{
 		ID:         "app",
 		Entrypoint: "entrypoint.js",
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"foo": "bar",
 		},
 	}
@@ -114,7 +114,7 @@ func TestBuild(t *testing.T) {
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 
 		g.Expect(application.Entrypoint).To(gomega.Equal("app/entrypoint.js"))
-		g.Expect(application.Config).To(gomega.Equal(map[string]interface{}{
+		g.Expect(application.Config).To(gomega.Equal(map[string]any{
 			"k1": "1", "k2": "overwritten-from-config.json", "k3": "overwritten-from-apps.yaml", "injected_from_config_json": "11", "injected_from_apps_yaml": "22",
 		}))
 	}

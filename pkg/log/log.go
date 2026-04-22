@@ -37,7 +37,7 @@ func setMicroLogger() {
 	}
 	logger.DefaultLogger = mzlog.NewLogger(
 		logger.WithLevel(logger.Level(lev)),
-		logger.WithFields(map[string]interface{}{
+		logger.WithFields(map[string]any{
 			"system": "go-micro",
 		}),
 	)

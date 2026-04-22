@@ -18,7 +18,7 @@ import (
 
 var queryEscape = regexp.MustCompile(`([` + regexp.QuoteMeta(`+=&|><!(){}[]^\"~*?:\/`) + `\-\s])`)
 
-func getFieldValue[T any](m map[string]interface{}, key string) (out T) {
+func getFieldValue[T any](m map[string]any, key string) (out T) {
 	val, ok := m[key]
 	if !ok {
 		return
@@ -36,9 +36,9 @@ func resourceIDtoSearchID(id storageProvider.ResourceId) *searchMessage.Resource
 		OpaqueId:  id.GetOpaqueId()}
 }
 
-func getFieldSliceValue[T any](m map[string]interface{}, key string) (out []T) {
-	iv := getFieldValue[interface{}](m, key)
-	add := func(v interface{}) {
+func getFieldSliceValue[T any](m map[string]any, key string) (out []T) {
+	iv := getFieldValue[any](m, key)
+	add := func(v any) {
 		cv, ok := v.(T)
 		if !ok {
 			return
@@ -53,7 +53,7 @@ func getFieldSliceValue[T any](m map[string]interface{}, key string) (out []T) {
 	switch v := iv.(type) {
 	case T:
 		add(v)
-	case []interface{}:
+	case []any:
 		for _, rv := range v {
 			add(rv)
 		}
@@ -75,7 +75,7 @@ func getFragmentValue(m bleveSearch.FieldFragmentMap, key string, idx int) strin
 	return val[idx]
 }
 
-func getAudioValue[T any](fields map[string]interface{}) *T {
+func getAudioValue[T any](fields map[string]any) *T {
 	if !strings.HasPrefix(getFieldValue[string](fields, "MimeType"), "audio/") {
 		return nil
 	}
@@ -88,7 +88,7 @@ func getAudioValue[T any](fields map[string]interface{}) *T {
 	return nil
 }
 
-func getImageValue[T any](fields map[string]interface{}) *T {
+func getImageValue[T any](fields map[string]any) *T {
 	var image = newPointerOfType[T]()
 	if ok := unmarshalInterfaceMap(image, fields, "image."); ok {
 		return image
@@ -97,7 +97,7 @@ func getImageValue[T any](fields map[string]interface{}) *T {
 	return nil
 }
 
-func getLocationValue[T any](fields map[string]interface{}) *T {
+func getLocationValue[T any](fields map[string]any) *T {
 	var location = newPointerOfType[T]()
 	if ok := unmarshalInterfaceMap(location, fields, "location."); ok {
 		return location
@@ -106,7 +106,7 @@ func getLocationValue[T any](fields map[string]interface{}) *T {
 	return nil
 }
 
-func getPhotoValue[T any](fields map[string]interface{}) *T {
+func getPhotoValue[T any](fields map[string]any) *T {
 	var photo = newPointerOfType[T]()
 	if ok := unmarshalInterfaceMap(photo, fields, "photo."); ok {
 		return photo
@@ -121,7 +121,7 @@ func newPointerOfType[T any]() *T {
 	return ptr.(*T)
 }
 
-func unmarshalInterfaceMap(out any, flatMap map[string]interface{}, prefix string) bool {
+func unmarshalInterfaceMap(out any, flatMap map[string]any, prefix string) bool {
 	nonEmpty := false
 	obj := reflect.ValueOf(out).Elem()
 	for i := 0; i < obj.NumField(); i++ {

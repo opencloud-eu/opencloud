@@ -63,7 +63,7 @@ func (eh *EventHistoryService) StoreEvents() {
 			Key:    event.ID,
 			Value:  ev,
 			Expiry: eh.cfg.Store.TTL,
-			Metadata: map[string]interface{}{
+			Metadata: map[string]any{
 				"type": event.Type,
 			},
 		}); err != nil {

@@ -19,13 +19,13 @@ var (
 )
 
 // BindSourcesToStructs assigns any config value from a config file / env variable to struct `dst`.
-func BindSourcesToStructs(service string, dst interface{}) error {
+func BindSourcesToStructs(service string, dst any) error {
 	fileSystem := os.DirFS("/")
 	filePath := strings.TrimLeft(path.Join(defaults.BaseConfigPath(), service+".yaml"), "/")
 	return bindSourcesToStructs(fileSystem, filePath, service, dst)
 }
 
-func bindSourcesToStructs(fileSystem fs.FS, filePath, service string, dst interface{}) error {
+func bindSourcesToStructs(fileSystem fs.FS, filePath, service string, dst any) error {
 	cnf := gofig.NewWithOptions(service)
 	cnf.WithOptions(func(options *gofig.Options) {
 		options.ParseEnv = true

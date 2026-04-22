@@ -20,7 +20,7 @@ var (
 type UserBackend interface {
 	GetUserByClaims(ctx context.Context, claim, value string) (*cs3.User, string, error)
 	Authenticate(ctx context.Context, username string, password string) (*cs3.User, string, error)
-	CreateUserFromClaims(ctx context.Context, claims map[string]interface{}) (*cs3.User, error)
-	UpdateUserIfNeeded(ctx context.Context, user *cs3.User, claims map[string]interface{}) error
-	SyncGroupMemberships(ctx context.Context, user *cs3.User, claims map[string]interface{}) error
+	CreateUserFromClaims(ctx context.Context, claims map[string]any) (*cs3.User, error)
+	UpdateUserIfNeeded(ctx context.Context, user *cs3.User, claims map[string]any) error
+	SyncGroupMemberships(ctx context.Context, user *cs3.User, claims map[string]any) error
 }

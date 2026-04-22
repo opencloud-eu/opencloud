@@ -27,7 +27,7 @@ func base(text []byte, pos position) (*ast.Base, error) {
 	}, nil
 }
 
-func buildAST(n interface{}, text []byte, pos position) (*ast.Ast, error) {
+func buildAST(n any, text []byte, pos position) (*ast.Ast, error) {
 	b, err := base(text, pos)
 	if err != nil {
 		return nil, err
@@ -50,7 +50,7 @@ func buildAST(n interface{}, text []byte, pos position) (*ast.Ast, error) {
 	return a, nil
 }
 
-func buildStringNode(k, v interface{}, text []byte, pos position) (*ast.StringNode, error) {
+func buildStringNode(k, v any, text []byte, pos position) (*ast.StringNode, error) {
 	b, err := base(text, pos)
 	if err != nil {
 		return nil, err
@@ -73,7 +73,7 @@ func buildStringNode(k, v interface{}, text []byte, pos position) (*ast.StringNo
 	}, nil
 }
 
-func buildDateTimeNode(k, o, v interface{}, text []byte, pos position) (*ast.DateTimeNode, error) {
+func buildDateTimeNode(k, o, v any, text []byte, pos position) (*ast.DateTimeNode, error) {
 	b, err := base(text, pos)
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func buildDateTimeNode(k, o, v interface{}, text []byte, pos position) (*ast.Dat
 		Value:    value,
 	}, nil
 }
-func buildNaturalLanguageDateTimeNodes(k, v interface{}, text []byte, pos position) ([]ast.Node, error) {
+func buildNaturalLanguageDateTimeNodes(k, v any, text []byte, pos position) ([]ast.Node, error) {
 	b, err := base(text, pos)
 	if err != nil {
 		return nil, err
@@ -135,7 +135,7 @@ func buildNaturalLanguageDateTimeNodes(k, v interface{}, text []byte, pos positi
 
 }
 
-func buildBooleanNode(k, v interface{}, text []byte, pos position) (*ast.BooleanNode, error) {
+func buildBooleanNode(k, v any, text []byte, pos position) (*ast.BooleanNode, error) {
 	b, err := base(text, pos)
 	if err != nil {
 		return nil, err
@@ -182,7 +182,7 @@ func buildOperatorNode(text []byte, pos position) (*ast.OperatorNode, error) {
 	}, nil
 }
 
-func buildGroupNode(k, n interface{}, text []byte, pos position) (*ast.GroupNode, error) {
+func buildGroupNode(k, n any, text []byte, pos position) (*ast.GroupNode, error) {
 	b, err := base(text, pos)
 	if err != nil {
 		return nil, err

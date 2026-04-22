@@ -5,33 +5,33 @@ import (
 )
 
 // AuthBasicConfigFromStruct will adapt an OpenCloud config struct into a reva mapstructure to start a reva service.
-func AuthBasicConfigFromStruct(cfg *config.Config) map[string]interface{} {
-	rcfg := map[string]interface{}{
-		"shared": map[string]interface{}{
+func AuthBasicConfigFromStruct(cfg *config.Config) map[string]any {
+	rcfg := map[string]any{
+		"shared": map[string]any{
 			"jwt_secret":                cfg.TokenManager.JWTSecret,
 			"gatewaysvc":                cfg.Reva.Address,
 			"skip_user_groups_in_token": cfg.SkipUserGroupsInToken,
 			"grpc_client_options":       cfg.Reva.GetGRPCClientConfig(),
 			"multi_tenant_enabled":      cfg.Commons.MultiTenantEnabled,
 		},
-		"grpc": map[string]interface{}{
+		"grpc": map[string]any{
 			"network": cfg.GRPC.Protocol,
 			"address": cfg.GRPC.Addr,
-			"tls_settings": map[string]interface{}{
+			"tls_settings": map[string]any{
 				"enabled":     cfg.GRPC.TLS.Enabled,
 				"certificate": cfg.GRPC.TLS.Cert,
 				"key":         cfg.GRPC.TLS.Key,
 			},
 			// TODO build services dynamically
-			"services": map[string]interface{}{
-				"authprovider": map[string]interface{}{
+			"services": map[string]any{
+				"authprovider": map[string]any{
 					"auth_manager": cfg.AuthProvider,
-					"auth_managers": map[string]interface{}{
-						"json": map[string]interface{}{
+					"auth_managers": map[string]any{
+						"json": map[string]any{
 							"users": cfg.AuthProviders.JSON.File,
 						},
 						"ldap": ldapConfigFromString(cfg.AuthProviders.LDAP),
-						"owncloudsql": map[string]interface{}{
+						"owncloudsql": map[string]any{
 							"dbusername":        cfg.AuthProviders.OwnCloudSQL.DBUsername,
 							"dbpassword":        cfg.AuthProviders.OwnCloudSQL.DBPassword,
 							"dbhost":            cfg.AuthProviders.OwnCloudSQL.DBHost,
@@ -45,8 +45,8 @@ func AuthBasicConfigFromStruct(cfg *config.Config) map[string]interface{} {
 					},
 				},
 			},
-			"interceptors": map[string]interface{}{
-				"prometheus": map[string]interface{}{
+			"interceptors": map[string]any{
+				"prometheus": map[string]any{
 					"namespace": "opencloud",
 					"subsystem": "auth_basic",
 				},
@@ -56,8 +56,8 @@ func AuthBasicConfigFromStruct(cfg *config.Config) map[string]interface{} {
 	return rcfg
 }
 
-func ldapConfigFromString(cfg config.LDAPProvider) map[string]interface{} {
-	return map[string]interface{}{
+func ldapConfigFromString(cfg config.LDAPProvider) map[string]any {
+	return map[string]any{
 		"uri":                     cfg.URI,
 		"cacert":                  cfg.CACert,
 		"insecure":                cfg.Insecure,
@@ -76,7 +76,7 @@ func ldapConfigFromString(cfg config.LDAPProvider) map[string]interface{} {
 		"user_enabled_property":   cfg.UserSchema.Enabled,
 		"group_local_disabled_dn": cfg.LdapDisabledUsersGroupDN,
 		"idp":                     cfg.IDP,
-		"user_schema": map[string]interface{}{
+		"user_schema": map[string]any{
 			"id":              cfg.UserSchema.ID,
 			"tenantId":        cfg.UserSchema.TenantID,
 			"idIsOctetString": cfg.UserSchema.IDIsOctetString,
@@ -84,7 +84,7 @@ func ldapConfigFromString(cfg config.LDAPProvider) map[string]interface{} {
 			"displayName":     cfg.UserSchema.DisplayName,
 			"userName":        cfg.UserSchema.Username,
 		},
-		"group_schema": map[string]interface{}{
+		"group_schema": map[string]any{
 			"id":              cfg.GroupSchema.ID,
 			"idIsOctetString": cfg.GroupSchema.IDIsOctetString,
 			"mail":            cfg.GroupSchema.Mail,

@@ -19,7 +19,7 @@ import (
 )
 
 // Service is the service interface
-type Service interface{}
+type Service any
 
 // Server initializes the http service and server.
 func Server(opts ...Option) (http.Service, error) {

@@ -31,7 +31,7 @@ func (e NamedGroupInvalidNodesError) Error() string {
 
 // UnsupportedTimeRangeError records an error and the value that caused it.
 type UnsupportedTimeRangeError struct {
-	Value interface{}
+	Value any
 }
 
 func (e UnsupportedTimeRangeError) Error() string {

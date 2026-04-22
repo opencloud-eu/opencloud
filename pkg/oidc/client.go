@@ -205,7 +205,7 @@ type userInfoRaw struct {
 }
 
 // Claims unmarshals the raw JSON object claims into the provided object.
-func (u *UserInfo) Claims(v interface{}) error {
+func (u *UserInfo) Claims(v any) error {
 	if u.claims == nil {
 		return errors.New("oidc: claims not set")
 	}
@@ -359,7 +359,7 @@ func (c *oidcClient) VerifyLogoutToken(ctx context.Context, rawToken string) (*L
 	return &claims, nil
 }
 
-func unmarshalResp(r *http.Response, body []byte, v interface{}) error {
+func unmarshalResp(r *http.Response, body []byte, v any) error {
 	err := json.Unmarshal(body, &v)
 	if err == nil {
 		return nil

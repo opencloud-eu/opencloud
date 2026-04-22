@@ -173,7 +173,7 @@ func (pps *PostprocessingService) processEvent(e raw.Event) error {
 	pps.log.Debug().Str("Type", e.Type).Str("ID", e.ID).Msg("processing event received")
 
 	var (
-		next interface{}
+		next any
 		pp   *postprocessing.Postprocessing
 		err  error
 	)
@@ -249,7 +249,7 @@ func (pps *PostprocessingService) processEvent(e raw.Event) error {
 			pps.log.Error().Str("uploadID", ev.UploadID).Err(err).Msg("cannot get upload")
 			return fmt.Errorf("%w: cannot get upload", ErrEvent)
 		}
-		pp.Delay(func(next interface{}) {
+		pp.Delay(func(next any) {
 			if err := events.Publish(ctx, pps.pub, next); err != nil {
 				pps.log.Error().Err(err).Msg("cannot publish event")
 			}

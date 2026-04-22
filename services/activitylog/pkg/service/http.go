@@ -18,12 +18,12 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"google.golang.org/grpc/metadata"
 
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/opencloud/pkg/ast"
 	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/l10n"
 	ehmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/eventhistory/v0"
 	ehsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0"
-	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 )
 
 var (
@@ -121,7 +121,7 @@ func (s *ActivitylogService) HandleGetItemActivities(w http.ResponseWriter, r *h
 		var (
 			message string
 			ts      time.Time
-			vars    map[string]interface{}
+			vars    map[string]any
 		)
 
 		loc := l10n.MustGetUserLocale(r.Context(), activeUser.GetId().GetOpaqueId(), r.Header.Get(l10n.HeaderAcceptLanguage), s.valService)
@@ -252,7 +252,7 @@ func (s *ActivitylogService) HandleGetItemActivities(w http.ResponseWriter, r *h
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *ActivitylogService) unwrapEvent(e *ehmsg.Event) interface{} {
+func (s *ActivitylogService) unwrapEvent(e *ehmsg.Event) any {
 	etype, ok := s.registeredEvents[e.GetType()]
 	if !ok {
 		s.log.Error().Str("eventid", e.GetId()).Str("eventtype", e.GetType()).Msg("event not registered")

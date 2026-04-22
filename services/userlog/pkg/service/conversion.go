@@ -36,17 +36,17 @@ var (
 // OC10Notification is the oc10 style representation of an event
 // some fields are left out for simplicity
 type OC10Notification struct {
-	EventID        string                 `json:"notification_id"`
-	Service        string                 `json:"app"`
-	UserName       string                 `json:"user"`
-	Timestamp      string                 `json:"datetime"`
-	ResourceID     string                 `json:"object_id"`
-	ResourceType   string                 `json:"object_type"`
-	Subject        string                 `json:"subject"`
-	SubjectRaw     string                 `json:"subjectRich"`
-	Message        string                 `json:"message"`
-	MessageRaw     string                 `json:"messageRich"`
-	MessageDetails map[string]interface{} `json:"messageRichParameters"`
+	EventID        string         `json:"notification_id"`
+	Service        string         `json:"app"`
+	UserName       string         `json:"user"`
+	Timestamp      string         `json:"datetime"`
+	ResourceID     string         `json:"object_id"`
+	ResourceType   string         `json:"object_type"`
+	Subject        string         `json:"subject"`
+	SubjectRaw     string         `json:"subjectRich"`
+	Message        string         `json:"message"`
+	MessageRaw     string         `json:"messageRich"`
+	MessageDetails map[string]any `json:"messageRichParameters"`
 }
 
 // Converter is responsible for converting eventhistory events to OC10Notifications
@@ -80,7 +80,7 @@ func NewConverter(ctx context.Context, loc string, gatewaySelector pool.Selectab
 }
 
 // ConvertEvent converts an eventhistory event to an OC10Notification
-func (c *Converter) ConvertEvent(eventid string, event interface{}) (OC10Notification, error) {
+func (c *Converter) ConvertEvent(eventid string, event any) (OC10Notification, error) {
 	switch ev := event.(type) {
 	default:
 		return OC10Notification{}, fmt.Errorf("unknown event type: %T", ev)
@@ -140,7 +140,7 @@ func (c *Converter) spaceDeletedMessage(eventid string, executant *user.UserId, 
 		return OC10Notification{}, err
 	}
 
-	subj, subjraw, msg, msgraw, err := composeMessage(SpaceDeleted, c.locale, c.defaultLanguage, c.translationPath, map[string]interface{}{
+	subj, subjraw, msg, msgraw, err := composeMessage(SpaceDeleted, c.locale, c.defaultLanguage, c.translationPath, map[string]any{
 		"username":  usr.GetDisplayName(),
 		"spacename": spacename,
 	})
@@ -176,7 +176,7 @@ func (c *Converter) spaceMessage(eventid string, nt NotificationTemplate, execut
 		return OC10Notification{}, err
 	}
 
-	subj, subjraw, msg, msgraw, err := composeMessage(nt, c.locale, c.defaultLanguage, c.translationPath, map[string]interface{}{
+	subj, subjraw, msg, msgraw, err := composeMessage(nt, c.locale, c.defaultLanguage, c.translationPath, map[string]any{
 		"username":  usr.GetDisplayName(),
 		"spacename": space.GetName(),
 	})
@@ -210,7 +210,7 @@ func (c *Converter) shareMessage(eventid string, nt NotificationTemplate, execut
 		return OC10Notification{}, err
 	}
 
-	subj, subjraw, msg, msgraw, err := composeMessage(nt, c.locale, c.defaultLanguage, c.translationPath, map[string]interface{}{
+	subj, subjraw, msg, msgraw, err := composeMessage(nt, c.locale, c.defaultLanguage, c.translationPath, map[string]any{
 		"username":     usr.GetDisplayName(),
 		"resourcename": info.GetName(),
 	})
@@ -234,7 +234,7 @@ func (c *Converter) shareMessage(eventid string, nt NotificationTemplate, execut
 }
 
 func (c *Converter) virusMessage(eventid string, nt NotificationTemplate, executant *user.User, rid *storageprovider.ResourceId, filename string, virus string, ts time.Time) (OC10Notification, error) {
-	subj, subjraw, msg, msgraw, err := composeMessage(nt, c.locale, c.defaultLanguage, c.translationPath, map[string]interface{}{
+	subj, subjraw, msg, msgraw, err := composeMessage(nt, c.locale, c.defaultLanguage, c.translationPath, map[string]any{
 		"resourcename":     filename,
 		"virusdescription": virus,
 	})
@@ -242,11 +242,11 @@ func (c *Converter) virusMessage(eventid string, nt NotificationTemplate, execut
 		return OC10Notification{}, err
 	}
 
-	dets := map[string]interface{}{
+	dets := map[string]any{
 		"resource": map[string]string{
 			"name": filename,
 		},
-		"virus": map[string]interface{}{
+		"virus": map[string]any{
 			"name":     virus,
 			"scandate": ts,
 		},
@@ -268,14 +268,14 @@ func (c *Converter) virusMessage(eventid string, nt NotificationTemplate, execut
 }
 
 func (c *Converter) policiesMessage(eventid string, nt NotificationTemplate, executant *user.User, filename string, ts time.Time) (OC10Notification, error) {
-	subj, subjraw, msg, msgraw, err := composeMessage(nt, c.locale, c.defaultLanguage, c.translationPath, map[string]interface{}{
+	subj, subjraw, msg, msgraw, err := composeMessage(nt, c.locale, c.defaultLanguage, c.translationPath, map[string]any{
 		"resourcename": filename,
 	})
 	if err != nil {
 		return OC10Notification{}, err
 	}
 
-	dets := map[string]interface{}{
+	dets := map[string]any{
 		"resource": map[string]string{
 			"name": filename,
 		},
@@ -296,7 +296,7 @@ func (c *Converter) policiesMessage(eventid string, nt NotificationTemplate, exe
 }
 
 func (c *Converter) deprovisionMessage(nt NotificationTemplate, deproDate string) (OC10Notification, error) {
-	subj, subjraw, msg, msgraw, err := composeMessage(nt, c.locale, c.defaultLanguage, c.translationPath, map[string]interface{}{
+	subj, subjraw, msg, msgraw, err := composeMessage(nt, c.locale, c.defaultLanguage, c.translationPath, map[string]any{
 		"date": deproDate,
 	})
 	if err != nil {
@@ -313,7 +313,7 @@ func (c *Converter) deprovisionMessage(nt NotificationTemplate, deproDate string
 		SubjectRaw:     subjraw,
 		Message:        msg,
 		MessageRaw:     msgraw,
-		MessageDetails: map[string]interface{}{},
+		MessageDetails: map[string]any{},
 	}, nil
 }
 
@@ -362,7 +362,7 @@ func (c *Converter) getUser(ctx context.Context, userID *user.UserId) (*user.Use
 	return usr, err
 }
 
-func composeMessage(nt NotificationTemplate, locale, defaultLocale, path string, vars map[string]interface{}) (string, string, string, string, error) {
+func composeMessage(nt NotificationTemplate, locale, defaultLocale, path string, vars map[string]any) (string, string, string, string, error) {
 	subjectraw, messageraw := loadTemplates(nt, locale, defaultLocale, path)
 
 	subject, err := executeTemplate(subjectraw, vars)
@@ -376,10 +376,10 @@ func composeMessage(nt NotificationTemplate, locale, defaultLocale, path string,
 
 func loadTemplates(nt NotificationTemplate, locale, defaultLocale, path string) (string, string) {
 	t := l10n.NewTranslatorFromCommonConfig(defaultLocale, _domain, path, _translationFS, "l10n/locale").Locale(locale)
-	return t.Get(nt.Subject, []interface{}{}...), t.Get(nt.Message, []interface{}{}...)
+	return t.Get(nt.Subject, []any{}...), t.Get(nt.Message, []any{}...)
 }
 
-func executeTemplate(raw string, vars map[string]interface{}) (string, error) {
+func executeTemplate(raw string, vars map[string]any) (string, error) {
 	for o, n := range _placeholders {
 		raw = strings.ReplaceAll(raw, o, n)
 	}
@@ -395,8 +395,8 @@ func executeTemplate(raw string, vars map[string]interface{}) (string, error) {
 	return writer.String(), nil
 }
 
-func generateDetails(user *user.User, space *storageprovider.StorageSpace, item *storageprovider.ResourceInfo, shareid *collaboration.ShareId) map[string]interface{} {
-	details := make(map[string]interface{})
+func generateDetails(user *user.User, space *storageprovider.StorageSpace, item *storageprovider.ResourceInfo, shareid *collaboration.ShareId) map[string]any {
+	details := make(map[string]any)
 
 	if user != nil {
 		details["user"] = map[string]string{

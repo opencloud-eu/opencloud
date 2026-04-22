@@ -82,7 +82,7 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 				}
 			}
 
-			fs, err := f(drivers[cfg.Driver].(map[string]interface{}), fsStream, nil)
+			fs, err := f(drivers[cfg.Driver].(map[string]any), fsStream, nil)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to initialize filesystem driver '%s'\n", cfg.Driver)
 				return err

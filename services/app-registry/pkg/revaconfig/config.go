@@ -7,34 +7,34 @@ import (
 )
 
 // AppRegistryConfigFromStruct will adapt an OpenCloud config struct into a reva mapstructure to start a reva service.
-func AppRegistryConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]interface{} {
-	rcfg := map[string]interface{}{
-		"shared": map[string]interface{}{
+func AppRegistryConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]any {
+	rcfg := map[string]any{
+		"shared": map[string]any{
 			"jwt_secret":           cfg.TokenManager.JWTSecret,
 			"gatewaysvc":           cfg.Reva.Address,
 			"grpc_client_options":  cfg.Reva.GetGRPCClientConfig(),
 			"multi_tenant_enabled": cfg.Commons.MultiTenantEnabled,
 		},
-		"grpc": map[string]interface{}{
+		"grpc": map[string]any{
 			"network": cfg.GRPC.Protocol,
 			"address": cfg.GRPC.Addr,
-			"tls_settings": map[string]interface{}{
+			"tls_settings": map[string]any{
 				"enabled":     cfg.GRPC.TLS.Enabled,
 				"certificate": cfg.GRPC.TLS.Cert,
 				"key":         cfg.GRPC.TLS.Key,
 			},
-			"services": map[string]interface{}{
-				"appregistry": map[string]interface{}{
+			"services": map[string]any{
+				"appregistry": map[string]any{
 					"driver": "static",
-					"drivers": map[string]interface{}{
-						"static": map[string]interface{}{
+					"drivers": map[string]any{
+						"static": map[string]any{
 							"mime_types": mimetypes(cfg, logger),
 						},
 					},
 				},
 			},
-			"interceptors": map[string]interface{}{
-				"prometheus": map[string]interface{}{
+			"interceptors": map[string]any{
+				"prometheus": map[string]any{
 					"namespace": "opencloud",
 					"subsystem": "app_registry",
 				},
@@ -44,8 +44,8 @@ func AppRegistryConfigFromStruct(cfg *config.Config, logger log.Logger) map[stri
 	return rcfg
 }
 
-func mimetypes(cfg *config.Config, logger log.Logger) []map[string]interface{} {
-	var m []map[string]interface{}
+func mimetypes(cfg *config.Config, logger log.Logger) []map[string]any {
+	var m []map[string]any
 	if err := mapstructure.Decode(cfg.AppRegistry.MimeTypeConfig, &m); err != nil {
 		logger.Error().Err(err).Msg("Failed to decode appregistry mimetypes to mapstructure")
 		return nil

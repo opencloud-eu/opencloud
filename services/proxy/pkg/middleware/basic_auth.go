@@ -41,7 +41,7 @@ func (m BasicAuthenticator) Authenticate(r *http.Request) (*http.Request, bool) 
 	}
 
 	// fake oidc claims
-	claims := map[string]interface{}{
+	claims := map[string]any{
 		oidc.Iss:               user.Id.Idp,
 		oidc.PreferredUsername: user.Username,
 		oidc.Email:             user.Mail,

@@ -174,11 +174,11 @@ func (tb testBus) Consume(_ string, _ ...microevents.ConsumeOption) (<-chan micr
 	return ch, nil
 }
 
-func (tb testBus) Publish(_ string, _ interface{}, _ ...microevents.PublishOption) error {
+func (tb testBus) Publish(_ string, _ any, _ ...microevents.PublishOption) error {
 	return nil
 }
 
-func (tb testBus) publish(e interface{}) string {
+func (tb testBus) publish(e any) string {
 	ev := events.Event{
 		ID:    uuid.New().String(),
 		Type:  reflect.TypeOf(e).String(),

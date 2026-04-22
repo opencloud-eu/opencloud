@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jellydator/ttlcache/v3"
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	tenantpb "github.com/cs3org/go-cs3apis/cs3/identity/tenant/v1beta1"
 	rpcpb "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
+	"github.com/jellydator/ttlcache/v3"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/router"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles"
@@ -91,7 +91,7 @@ type accountResolver struct {
 	eventsPublisher events.Publisher
 }
 
-func readStringClaim(path string, claims map[string]interface{}) (string, error) {
+func readStringClaim(path string, claims map[string]any) (string, error) {
 	// happy path
 	value, _ := claims[path].(string)
 	if value != "" {
@@ -104,10 +104,10 @@ func readStringClaim(path string, claims map[string]interface{}) (string, error)
 	lastSegment := len(segments) - 1
 	for i := range segments {
 		if i < lastSegment {
-			if castedClaims, ok := subclaims[segments[i]].(map[string]interface{}); ok {
+			if castedClaims, ok := subclaims[segments[i]].(map[string]any); ok {
 				subclaims = castedClaims
-			} else if castedClaims, ok := subclaims[segments[i]].(map[interface{}]interface{}); ok {
-				subclaims = make(map[string]interface{}, len(castedClaims))
+			} else if castedClaims, ok := subclaims[segments[i]].(map[any]any); ok {
+				subclaims = make(map[string]any, len(castedClaims))
 				for k, v := range castedClaims {
 					if s, ok := k.(string); ok {
 						subclaims[s] = v
@@ -281,7 +281,7 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	m.next.ServeHTTP(w, req)
 }
 
-func (m accountResolver) verifyTenantClaim(ctx context.Context, userTenantID string, claims map[string]interface{}) error {
+func (m accountResolver) verifyTenantClaim(ctx context.Context, userTenantID string, claims map[string]any) error {
 	claimTenantID, err := readStringClaim(m.tenantOIDCClaim, claims)
 	if err != nil {
 		return fmt.Errorf("could not read tenant claim: %w", err)

@@ -51,7 +51,7 @@ type Application struct {
 	Entrypoint string `json:"entrypoint" validate:"required"`
 
 	// Config contains the application-specific configuration
-	Config map[string]interface{} `json:"config,omitempty"`
+	Config map[string]any `json:"config,omitempty"`
 }
 
 // ToExternal converts an Application to an ExternalApp configuration

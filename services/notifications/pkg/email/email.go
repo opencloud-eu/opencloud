@@ -116,7 +116,7 @@ func RenderGroupedEmailTemplate(gmt GroupedMessageTemplate, vars map[string]stri
 
 // emailTemplate builds the email template. It does not use any user provided input, so it is safe to use template.HTML.
 func emailTemplate(tpl *template.Template, mt MessageTemplate) (string, error) {
-	str, err := executeTemplate(tpl, map[string]interface{}{
+	str, err := executeTemplate(tpl, map[string]any{
 		"Greeting":     template.HTML(strings.TrimSpace(mt.Greeting)),     // #nosec G203
 		"MessageBody":  template.HTML(strings.TrimSpace(mt.MessageBody)),  // #nosec G203
 		"CallToAction": template.HTML(strings.TrimSpace(mt.CallToAction)), // #nosec G203
@@ -129,7 +129,7 @@ func emailTemplate(tpl *template.Template, mt MessageTemplate) (string, error) {
 
 // groupedEmailTemplate builds the email template. It does not use any user provided input, so it is safe to use template.HTML.
 func groupedEmailTemplate(tpl *template.Template, gmt GroupedMessageTemplate) (string, error) {
-	str, err := executeTemplate(tpl, map[string]interface{}{
+	str, err := executeTemplate(tpl, map[string]any{
 		"Greeting":    template.HTML(strings.TrimSpace(gmt.Greeting)),    // #nosec G203
 		"MessageBody": template.HTML(strings.TrimSpace(gmt.MessageBody)), // #nosec G203
 	})

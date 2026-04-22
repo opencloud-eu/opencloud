@@ -59,7 +59,7 @@ func NewMapping() (mapping.IndexMapping, error) {
 	indexMapping.DefaultAnalyzer = keyword.Name
 	indexMapping.DefaultMapping = docMapping
 	err := indexMapping.AddCustomAnalyzer("lowercaseKeyword",
-		map[string]interface{}{
+		map[string]any{
 			"type":      custom.Name,
 			"tokenizer": single.Name,
 			"token_filters": []string{
@@ -72,7 +72,7 @@ func NewMapping() (mapping.IndexMapping, error) {
 	}
 
 	err = indexMapping.AddCustomAnalyzer("fulltext",
-		map[string]interface{}{
+		map[string]any{
 			"type":      custom.Name,
 			"tokenizer": unicode.Name,
 			"token_filters": []string{

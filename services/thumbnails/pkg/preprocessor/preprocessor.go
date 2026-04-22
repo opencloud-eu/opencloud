@@ -26,14 +26,14 @@ import (
 
 // FileConverter is the interface for the file converter
 type FileConverter interface {
-	Convert(r io.Reader) (interface{}, error)
+	Convert(r io.Reader) (any, error)
 }
 
 // GifDecoder is a converter for the gif file
 type GifDecoder struct{}
 
 // Convert reads the gif file and returns the thumbnail image
-func (i GifDecoder) Convert(r io.Reader) (interface{}, error) {
+func (i GifDecoder) Convert(r io.Reader) (any, error) {
 	img, err := gif.DecodeAll(r)
 	if err != nil {
 		return nil, errors.Wrap(err, `could not decode the image`)
@@ -45,7 +45,7 @@ func (i GifDecoder) Convert(r io.Reader) (interface{}, error) {
 type GgsDecoder struct{ thumbnailpath string }
 
 // Convert reads the ggs file and returns the thumbnail image
-func (g GgsDecoder) Convert(r io.Reader) (interface{}, error) {
+func (g GgsDecoder) Convert(r io.Reader) (any, error) {
 	var buf bytes.Buffer
 	_, err := io.Copy(&buf, r)
 	if err != nil {
@@ -79,7 +79,7 @@ func (g GgsDecoder) Convert(r io.Reader) (interface{}, error) {
 type AudioDecoder struct{}
 
 // Convert reads the audio file and extracts the thumbnail image from the id3 tag
-func (i AudioDecoder) Convert(r io.Reader) (interface{}, error) {
+func (i AudioDecoder) Convert(r io.Reader) (any, error) {
 	b, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
@@ -108,7 +108,7 @@ type TxtToImageConverter struct {
 }
 
 // Convert reads the text file and renders it into a thumbnail image
-func (t TxtToImageConverter) Convert(r io.Reader) (interface{}, error) {
+func (t TxtToImageConverter) Convert(r io.Reader) (any, error) {
 	img := image.NewRGBA(image.Rect(0, 0, 640, 480))
 
 	imgBounds := img.Bounds()
@@ -203,7 +203,7 @@ type GGPStruct struct {
 type GgpDecoder struct{}
 
 // Convert reads the ggp file and returns the first thumbnail image
-func (j GgpDecoder) Convert(r io.Reader) (interface{}, error) {
+func (j GgpDecoder) Convert(r io.Reader) (any, error) {
 	ggp := &GGPStruct{}
 	err := json.NewDecoder(r).Decode(ggp)
 	if err != nil {
@@ -298,7 +298,7 @@ func drawWord(canvas *font.Drawer, word string, minX, maxX, incY, maxY fixed.Int
 }
 
 // ForType returns the converter for the specified mimeType
-func ForType(mimeType string, opts map[string]interface{}) FileConverter {
+func ForType(mimeType string, opts map[string]any) FileConverter {
 	// We can ignore the error here because we parse it in IsMimeTypeSupported before and if it fails
 	// return the service call. So we should only get here when the mimeType parses fine.
 	mimeType, _, _ = mime.ParseMediaType(mimeType)

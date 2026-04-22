@@ -32,10 +32,10 @@ func TestMergeKV(t *testing.T) {
 
 func TestPatchKV(t *testing.T) {
 	in := theme.KV{
-		"a": map[string]interface{}{
+		"a": map[string]any{
 			"value": "a",
 		},
-		"b": map[string]interface{}{
+		"b": map[string]any{
 			"value": "b",
 		},
 	}
@@ -46,18 +46,18 @@ func TestPatchKV(t *testing.T) {
 		"e.value.subvalue": "e-new",
 	})
 	assert.Equal(t, theme.KV{
-		"a": map[string]interface{}{
+		"a": map[string]any{
 			"value": "a",
 		},
-		"b": map[string]interface{}{
+		"b": map[string]any{
 			"value": "b-new",
 		},
-		"c": map[string]interface{}{
+		"c": map[string]any{
 			"value": "c-new",
 		},
 		"d": "d-new",
-		"e": map[string]interface{}{
-			"value": map[string]interface{}{
+		"e": map[string]any{
+			"value": map[string]any{
 				"subvalue": "e-new",
 			},
 		},
@@ -66,10 +66,10 @@ func TestPatchKV(t *testing.T) {
 
 func TestPatchKVUnset(t *testing.T) {
 	in := theme.KV{
-		"a": map[string]interface{}{
+		"a": map[string]any{
 			"value": "a",
 		},
-		"b": map[string]interface{}{
+		"b": map[string]any{
 			"value": "b",
 		},
 	}
@@ -78,7 +78,7 @@ func TestPatchKVUnset(t *testing.T) {
 		"b":       nil,
 	})
 	assert.Equal(t, theme.KV{
-		"a": map[string]interface{}{},
+		"a": map[string]any{},
 	}, out)
 }
 
@@ -91,15 +91,15 @@ func TestPatchKVwithNil(t *testing.T) {
 		"e.value.subvalue": "e-new",
 	})
 	assert.Equal(t, theme.KV{
-		"b": map[string]interface{}{
+		"b": map[string]any{
 			"value": "b-new",
 		},
-		"c": map[string]interface{}{
+		"c": map[string]any{
 			"value": "c-new",
 		},
 		"d": "d-new",
-		"e": map[string]interface{}{
-			"value": map[string]interface{}{
+		"e": map[string]any{
+			"value": map[string]any{
 				"subvalue": "e-new",
 			},
 		},
@@ -108,10 +108,10 @@ func TestPatchKVwithNil(t *testing.T) {
 
 func TestLoadKV(t *testing.T) {
 	in := theme.KV{
-		"a": map[string]interface{}{
+		"a": map[string]any{
 			"value": "a",
 		},
-		"b": map[string]interface{}{
+		"b": map[string]any{
 			"value": "b",
 		},
 	}
@@ -128,10 +128,10 @@ func TestLoadKV(t *testing.T) {
 
 func TestWriteKV(t *testing.T) {
 	in := theme.KV{
-		"a": map[string]interface{}{
+		"a": map[string]any{
 			"value": "a",
 		},
-		"b": map[string]interface{}{
+		"b": map[string]any{
 			"value": "b",
 		},
 	}
@@ -149,10 +149,10 @@ func TestWriteKV(t *testing.T) {
 
 func TestUpdateKV(t *testing.T) {
 	fileKV := theme.KV{
-		"a": map[string]interface{}{
+		"a": map[string]any{
 			"value": "a",
 		},
-		"b": map[string]interface{}{
+		"b": map[string]any{
 			"value": "b",
 		},
 	}
@@ -173,13 +173,13 @@ func TestUpdateKV(t *testing.T) {
 	var out theme.KV
 	assert.Nil(t, json.NewDecoder(f).Decode(&out))
 	assert.Equal(t, out, theme.KV{
-		"a": map[string]interface{}{
+		"a": map[string]any{
 			"value": "a",
 		},
-		"b": map[string]interface{}{
+		"b": map[string]any{
 			"value": "b-new",
 		},
-		"c": map[string]interface{}{
+		"c": map[string]any{
 			"value": "c-new",
 		},
 	})

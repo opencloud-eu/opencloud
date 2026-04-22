@@ -15,7 +15,7 @@ import (
 type ConnectorResponse struct {
 	Status  int
 	Headers map[string]string
-	Body    interface{}
+	Body    any
 }
 
 // NewResponse creates a new ConnectorResponse with just the specified status.
@@ -85,7 +85,7 @@ func NewResponseWithVersionAndLock(status int, mtime *types.Timestamp, lockID st
 // (success) status and the specified body. The headers will be nil.
 //
 // This is used for the `CheckFileInfo` method in order to return the fileinfo
-func NewResponseSuccessBody(body interface{}) *ConnectorResponse {
+func NewResponseSuccessBody(body any) *ConnectorResponse {
 	return &ConnectorResponse{
 		Status: 200,
 		Body:   body,
@@ -101,7 +101,7 @@ func NewResponseSuccessBody(body interface{}) *ConnectorResponse {
 func NewResponseSuccessBodyName(name string) *ConnectorResponse {
 	return &ConnectorResponse{
 		Status: 200,
-		Body: map[string]interface{}{
+		Body: map[string]any{
 			"Name": name,
 		},
 	}
@@ -115,7 +115,7 @@ func NewResponseSuccessBodyName(name string) *ConnectorResponse {
 func NewResponseSuccessBodyNameUrl(name, url string, hostEditURL string, hostViewURL string) *ConnectorResponse {
 	return &ConnectorResponse{
 		Status: 200,
-		Body: map[string]interface{}{
+		Body: map[string]any{
 			"Name":        name,
 			"Url":         url,
 			"HostEditUrl": hostEditURL,

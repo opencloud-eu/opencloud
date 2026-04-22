@@ -11,6 +11,7 @@ import (
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	cs3 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	rpcv1beta1 "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/oidc"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
@@ -18,7 +19,6 @@ import (
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	utils "github.com/opencloud-eu/reva/v2/pkg/utils"
-	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"go-micro.dev/v4/selector"
 )
 
@@ -161,7 +161,7 @@ func (c *cs3backend) Authenticate(ctx context.Context, username string, password
 // attributes from the provided `claims` map. On success it returns the new
 // user. If the user already exist this is not considered an error and the
 // function will just return the existing user.
-func (c *cs3backend) CreateUserFromClaims(ctx context.Context, claims map[string]interface{}) (*cs3.User, error) {
+func (c *cs3backend) CreateUserFromClaims(ctx context.Context, claims map[string]any) (*cs3.User, error) {
 	gatewayClient, err := c.gatewaySelector.Next()
 	if err != nil {
 		c.logger.Error().Err(err).Msg("could not select next gateway client")
@@ -233,7 +233,7 @@ func (c *cs3backend) CreateUserFromClaims(ctx context.Context, claims map[string
 	return &cs3UserCreated, nil
 }
 
-func (c cs3backend) UpdateUserIfNeeded(ctx context.Context, user *cs3.User, claims map[string]interface{}) error {
+func (c cs3backend) UpdateUserIfNeeded(ctx context.Context, user *cs3.User, claims map[string]any) error {
 	newUser, err := c.libregraphUserFromClaims(claims)
 	if err != nil {
 		c.logger.Error().Err(err).Interface("claims", claims).Msg("Error converting claims to user")
@@ -258,7 +258,7 @@ func (c cs3backend) UpdateUserIfNeeded(ctx context.Context, user *cs3.User, clai
 }
 
 // SyncGroupMemberships maintains a users group memberships based on an OIDC claim
-func (c cs3backend) SyncGroupMemberships(ctx context.Context, user *cs3.User, claims map[string]interface{}) error {
+func (c cs3backend) SyncGroupMemberships(ctx context.Context, user *cs3.User, claims map[string]any) error {
 	gatewayClient, err := c.gatewaySelector.Next()
 	if err != nil {
 		c.logger.Error().Err(err).Msg("could not select next gateway client")
@@ -293,7 +293,7 @@ func (c cs3backend) SyncGroupMemberships(ctx context.Context, user *cs3.User, cl
 	}
 
 	newGroupSet := make(map[string]struct{})
-	if groups, ok := claims[c.autoProvisionClaims.Groups].([]interface{}); ok {
+	if groups, ok := claims[c.autoProvisionClaims.Groups].([]any); ok {
 		for _, g := range groups {
 			if group, ok := g.(string); ok {
 				newGroupSet[group] = struct{}{}
@@ -469,7 +469,7 @@ func (c cs3backend) isAlreadyExists(resp *http.Response) (bool, error) {
 	return false, nil
 }
 
-func (c cs3backend) libregraphUserFromClaims(claims map[string]interface{}) (libregraph.User, error) {
+func (c cs3backend) libregraphUserFromClaims(claims map[string]any) (libregraph.User, error) {
 	user := libregraph.User{}
 	if dn, ok := claims[c.autoProvisionClaims.DisplayName].(string); ok {
 		user.SetDisplayName(dn)

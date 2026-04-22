@@ -15,7 +15,7 @@ import (
 type PngEncoder struct{}
 
 // Encode encodes to png format
-func (e PngEncoder) Encode(w io.Writer, img interface{}) error {
+func (e PngEncoder) Encode(w io.Writer, img any) error {
 	m, ok := img.(image.Image)
 	if !ok {
 		return errors.ErrInvalidType
@@ -37,7 +37,7 @@ func (e PngEncoder) MimeType() string {
 type JpegEncoder struct{}
 
 // Encode encodes to jpg
-func (e JpegEncoder) Encode(w io.Writer, img interface{}) error {
+func (e JpegEncoder) Encode(w io.Writer, img any) error {
 	m, ok := img.(image.Image)
 	if !ok {
 		return errors.ErrInvalidType

@@ -150,7 +150,7 @@ func (g Graph) GatherPersonalData(usr *user.User, ref *provider.Reference, token
 		g.logger.Error().Err(err).Str("userID", usr.GetId().GetOpaqueId()).Msg("cannot impersonate user")
 	}
 	// create data
-	data := make(map[string]interface{})
+	data := make(map[string]any)
 
 	// reva user
 	data["user"] = usr
@@ -316,12 +316,12 @@ func getLocation(r *http.Request) string {
 }
 
 // we want the events to look nice in the file, don't we?
-func convertEvents(evs []*ehmsg.Event) []map[string]interface{} {
-	out := make([]map[string]interface{}, len(evs))
+func convertEvents(evs []*ehmsg.Event) []map[string]any {
+	out := make([]map[string]any, len(evs))
 	for i, e := range evs {
-		var content map[string]interface{}
+		var content map[string]any
 		_ = json.Unmarshal(e.GetEvent(), &content)
-		out[i] = map[string]interface{}{
+		out[i] = map[string]any{
 			"id":    e.GetId(),
 			"type":  e.GetType(),
 			"event": content,

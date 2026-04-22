@@ -87,9 +87,9 @@ type walkSegmentsTest struct {
 	segments []string
 
 	// seperator to use
-	claims map[string]interface{}
+	claims map[string]any
 
-	expected interface{}
+	expected any
 
 	wantErr bool
 }
@@ -109,7 +109,7 @@ func (wst walkSegmentsTest) run(t *testing.T) {
 
 func TestWalkSegments(t *testing.T) {
 	byt := []byte(`{"first":{"second":{"third":["value1","value2"]},"foo":"bar"},"fizz":"buzz"}`)
-	var dat map[string]interface{}
+	var dat map[string]any
 	if err := json.Unmarshal(byt, &dat); err != nil {
 		t.Errorf("%v", err)
 	}
@@ -118,7 +118,7 @@ func TestWalkSegments(t *testing.T) {
 		{
 			name:     "one segment, single value",
 			segments: []string{"first"},
-			claims: map[string]interface{}{
+			claims: map[string]any{
 				"first": "value",
 			},
 			expected: "value",
@@ -127,7 +127,7 @@ func TestWalkSegments(t *testing.T) {
 		{
 			name:     "one segment, array value",
 			segments: []string{"first"},
-			claims: map[string]interface{}{
+			claims: map[string]any{
 				"first": []string{"value1", "value2"},
 			},
 			expected: []string{"value1", "value2"},
@@ -136,8 +136,8 @@ func TestWalkSegments(t *testing.T) {
 		{
 			name:     "two segments, single value",
 			segments: []string{"first", "second"},
-			claims: map[string]interface{}{
-				"first": map[string]interface{}{
+			claims: map[string]any{
+				"first": map[string]any{
 					"second": "value",
 				},
 			},
@@ -147,8 +147,8 @@ func TestWalkSegments(t *testing.T) {
 		{
 			name:     "two segments, array value",
 			segments: []string{"first", "second"},
-			claims: map[string]interface{}{
-				"first": map[string]interface{}{
+			claims: map[string]any{
+				"first": map[string]any{
 					"second": []string{"value1", "value2"},
 				},
 			},
@@ -159,15 +159,15 @@ func TestWalkSegments(t *testing.T) {
 			name:     "three segments, array value from json",
 			segments: []string{"first", "second", "third"},
 			claims:   dat,
-			expected: []interface{}{"value1", "value2"},
+			expected: []any{"value1", "value2"},
 			wantErr:  false,
 		},
 		{
 			name:     "three segments, array value with interface key",
 			segments: []string{"first", "second", "third"},
-			claims: map[string]interface{}{
-				"first": map[interface{}]interface{}{
-					"second": map[interface{}]interface{}{
+			claims: map[string]any{
+				"first": map[any]any{
+					"second": map[any]any{
 						"third": []string{"value1", "value2"},
 					},
 				},

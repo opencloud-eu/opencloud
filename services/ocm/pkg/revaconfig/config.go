@@ -9,7 +9,7 @@ import (
 )
 
 // OCMConfigFromStruct will adapt an OpenCloud config struct into a reva mapstructure to start a reva service.
-func OCMConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]interface{} {
+func OCMConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]any {
 
 	// Construct the ocm provider domain from the OpenCloud URL
 	providerDomain := ""
@@ -23,18 +23,18 @@ func OCMConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]inter
 		providerDomain = u.Host
 	}
 
-	return map[string]interface{}{
-		"shared": map[string]interface{}{
+	return map[string]any{
+		"shared": map[string]any{
 			"jwt_secret":           cfg.TokenManager.JWTSecret,
 			"gatewaysvc":           cfg.Reva.Address, // Todo or address?
 			"grpc_client_options":  cfg.Reva.GetGRPCClientConfig(),
 			"multi_tenant_enabled": cfg.Commons.MultiTenantEnabled,
 		},
-		"http": map[string]interface{}{
+		"http": map[string]any{
 			"network": cfg.HTTP.Protocol,
 			"address": cfg.HTTP.Addr,
-			"middlewares": map[string]interface{}{
-				"cors": map[string]interface{}{
+			"middlewares": map[string]any{
+				"cors": map[string]any{
 					"allowed_origins":   cfg.HTTP.CORS.AllowedOrigins,
 					"allowed_methods":   cfg.HTTP.CORS.AllowedMethods,
 					"allowed_headers":   cfg.HTTP.CORS.AllowedHeaders,
@@ -46,20 +46,20 @@ func OCMConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]inter
 					//"priority": ,
 					//"exposed_headers": ,
 				},
-				"auth": map[string]interface{}{
+				"auth": map[string]any{
 					"credentials_by_user_agent": cfg.Middleware.Auth.CredentialsByUserAgent,
 				},
-				"prometheus": map[string]interface{}{
+				"prometheus": map[string]any{
 					"namespace": "opencloud",
 					"subsystem": "ocm",
 				},
-				"requestid": map[string]interface{}{},
+				"requestid": map[string]any{},
 			},
 			// TODO build services dynamically
-			"services": map[string]interface{}{
-				"wellknown": map[string]interface{}{
+			"services": map[string]any{
+				"wellknown": map[string]any{
 					"prefix": ".well-known",
-					"ocmprovider": map[string]interface{}{
+					"ocmprovider": map[string]any{
 						"ocm_prefix":           cfg.OCMD.Prefix,
 						"endpoint":             cfg.Commons.OpenCloudURL,
 						"provider":             "OpenCloud",
@@ -70,7 +70,7 @@ func OCMConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]inter
 						"enable_datatx":        false,
 					},
 				},
-				"sciencemesh": map[string]interface{}{
+				"sciencemesh": map[string]any{
 					"prefix":                 cfg.ScienceMesh.Prefix,
 					"smtp_credentials":       map[string]string{},
 					"gatewaysvc":             cfg.Reva.Address,
@@ -78,7 +78,7 @@ func OCMConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]inter
 					"directory_service_urls": cfg.ScienceMesh.DirectoryServiceURLs,
 					"ocm_client_insecure":    cfg.ScienceMesh.OCMClientInsecure,
 					"provider_domain":        providerDomain,
-					"events": map[string]interface{}{
+					"events": map[string]any{
 						"natsaddress":          cfg.Events.Endpoint,
 						"natsclusterid":        cfg.Events.Cluster,
 						"tlsinsecure":          cfg.Events.TLSInsecure,
@@ -87,34 +87,34 @@ func OCMConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]inter
 						"authpassword":         cfg.Events.AuthPassword,
 					},
 				},
-				"ocmd": map[string]interface{}{
+				"ocmd": map[string]any{
 					"prefix":                        cfg.OCMD.Prefix,
 					"gatewaysvc":                    cfg.Reva.Address,
 					"expose_recipient_display_name": cfg.OCMD.ExposeRecipientDisplayName,
 				},
-				"dataprovider": map[string]interface{}{
+				"dataprovider": map[string]any{
 					"prefix": "data",
 					"driver": "ocmreceived",
-					"drivers": map[string]interface{}{
-						"ocmreceived": map[string]interface{}{
+					"drivers": map[string]any{
+						"ocmreceived": map[string]any{
 							"insecure":               cfg.OCMStorageProvider.Insecure,
 							"storage_root":           cfg.OCMStorageProvider.StorageRoot,
 							"service_account_id":     cfg.ServiceAccount.ID,
 							"service_account_secret": cfg.ServiceAccount.Secret,
 						},
 					},
-					"data_txs": map[string]interface{}{
-						"simple": map[string]interface{}{
+					"data_txs": map[string]any{
+						"simple": map[string]any{
 							"cache_store":    "noop",
 							"cache_database": "system",
 							"cache_table":    "stat",
 						},
-						"spaces": map[string]interface{}{
+						"spaces": map[string]any{
 							"cache_store":    "noop",
 							"cache_database": "system",
 							"cache_table":    "stat",
 						},
-						"tus": map[string]interface{}{
+						"tus": map[string]any{
 							"cache_store":    "noop",
 							"cache_database": "system",
 							"cache_table":    "stat",
@@ -123,19 +123,19 @@ func OCMConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]inter
 				},
 			},
 		},
-		"grpc": map[string]interface{}{
+		"grpc": map[string]any{
 			"network": cfg.GRPC.Protocol,
 			"address": cfg.GRPC.Addr,
-			"tls_settings": map[string]interface{}{
+			"tls_settings": map[string]any{
 				"enabled":     cfg.GRPC.TLS.Enabled,
 				"certificate": cfg.GRPC.TLS.Cert,
 				"key":         cfg.GRPC.TLS.Key,
 			},
-			"services": map[string]interface{}{
-				"ocminvitemanager": map[string]interface{}{
+			"services": map[string]any{
+				"ocminvitemanager": map[string]any{
 					"driver": cfg.OCMInviteManager.Driver,
-					"drivers": map[string]interface{}{
-						"json": map[string]interface{}{
+					"drivers": map[string]any{
+						"json": map[string]any{
 							"file": cfg.OCMInviteManager.Drivers.JSON.File,
 						},
 					},
@@ -144,18 +144,18 @@ func OCMConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]inter
 					"ocm_timeout":      int(math.Round(cfg.OCMInviteManager.Timeout.Seconds())),
 					"ocm_insecure":     cfg.OCMInviteManager.Insecure,
 				},
-				"ocmproviderauthorizer": map[string]interface{}{
+				"ocmproviderauthorizer": map[string]any{
 					"driver": cfg.OCMProviderAuthorizerDriver,
-					"drivers": map[string]interface{}{
-						"json": map[string]interface{}{
+					"drivers": map[string]any{
+						"json": map[string]any{
 							"providers": cfg.OCMProviderAuthorizerDrivers.JSON.Providers,
 						},
 					},
 				},
-				"ocmshareprovider": map[string]interface{}{
+				"ocmshareprovider": map[string]any{
 					"driver": cfg.OCMShareProvider.Driver,
-					"drivers": map[string]interface{}{
-						"json": map[string]interface{}{
+					"drivers": map[string]any{
+						"json": map[string]any{
 							"file": cfg.OCMShareProvider.Drivers.JSON.File,
 						},
 					},
@@ -165,28 +165,28 @@ func OCMConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]inter
 					"webapp_template": cfg.OCMShareProvider.WebappTemplate,
 					"client_insecure": cfg.OCMShareProvider.Insecure,
 				},
-				"ocmcore": map[string]interface{}{
+				"ocmcore": map[string]any{
 					"driver": cfg.OCMCore.Driver,
-					"drivers": map[string]interface{}{
-						"json": map[string]interface{}{
+					"drivers": map[string]any{
+						"json": map[string]any{
 							"file": cfg.OCMCore.Drivers.JSON.File,
 						},
 					},
 				},
-				"storageprovider": map[string]interface{}{
+				"storageprovider": map[string]any{
 					"driver": "ocmreceived",
-					"drivers": map[string]interface{}{
-						"ocmreceived": map[string]interface{}{
+					"drivers": map[string]any{
+						"ocmreceived": map[string]any{
 							"insecure":     cfg.OCMStorageProvider.Insecure,
 							"storage_root": cfg.OCMStorageProvider.StorageRoot,
 						},
 					},
 					"data_server_url": cfg.OCMStorageProvider.DataServerURL,
 				},
-				"authprovider": map[string]interface{}{
+				"authprovider": map[string]any{
 					"auth_manager": "ocmshares",
-					"auth_managers": map[string]interface{}{
-						"ocmshares": map[string]interface{}{
+					"auth_managers": map[string]any{
+						"ocmshares": map[string]any{
 							"gatewaysvc": cfg.Reva.Address,
 						},
 					},

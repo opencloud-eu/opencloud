@@ -28,13 +28,13 @@ import (
 )
 
 const (
-	testIdP               = "https://idx.example.com"
-	testTenantA           = "tenant-a"
-	testTenantB           = "tenant-b"
-	testJWTSecret         = "change-me"
-	testSvcAccountID      = "svc-account-id"
-	testSvcAccountSecret  = "svc-account-secret"
-	testSvcAccountToken   = "svc-account-token"
+	testIdP              = "https://idx.example.com"
+	testTenantA          = "tenant-a"
+	testTenantB          = "tenant-b"
+	testJWTSecret        = "change-me"
+	testSvcAccountID     = "svc-account-id"
+	testSvcAccountSecret = "svc-account-secret"
+	testSvcAccountToken  = "svc-account-token"
 )
 
 func TestTokenIsAddedWithMailClaim(t *testing.T) {
@@ -43,7 +43,7 @@ func TestTokenIsAddedWithMailClaim(t *testing.T) {
 		Mail: "foo@example.com",
 	}, nil, oidc.Email, "mail", false)
 
-	req, rw := mockRequest(map[string]interface{}{
+	req, rw := mockRequest(map[string]any{
 		oidc.Iss:   testIdP,
 		oidc.Email: "foo@example.com",
 	})
@@ -61,7 +61,7 @@ func TestTokenIsAddedWithUsernameClaim(t *testing.T) {
 		Mail: "foo@example.com",
 	}, nil, oidc.PreferredUsername, "username", false)
 
-	req, rw := mockRequest(map[string]interface{}{
+	req, rw := mockRequest(map[string]any{
 		oidc.Iss:               testIdP,
 		oidc.PreferredUsername: "foo",
 	})
@@ -81,9 +81,9 @@ func TestTokenIsAddedWithDotUsernamePathClaim(t *testing.T) {
 	}, nil, "li.un", "username", false)
 
 	// This is how lico adds the username to the access token
-	req, rw := mockRequest(map[string]interface{}{
+	req, rw := mockRequest(map[string]any{
 		oidc.Iss: testIdP,
-		"li": map[string]interface{}{
+		"li": map[string]any{
 			"un": "foo",
 		},
 	})
@@ -122,7 +122,7 @@ func TestTokenIsAddedWithDottedUsernameClaim(t *testing.T) {
 				Mail: "foo@example.com",
 			}, nil, tc.oidcClaim, "username", false)
 
-			req, rw := mockRequest(map[string]interface{}{
+			req, rw := mockRequest(map[string]any{
 				oidc.Iss: testIdP,
 				"li.un":  "foo",
 			})
@@ -149,7 +149,7 @@ func TestNSkipOnNoClaims(t *testing.T) {
 
 func TestUnauthorizedOnUserNotFound(t *testing.T) {
 	sut := newMockAccountResolver(nil, backend.ErrAccountNotFound, oidc.PreferredUsername, "username", false)
-	req, rw := mockRequest(map[string]interface{}{
+	req, rw := mockRequest(map[string]any{
 		oidc.Iss:               testIdP,
 		oidc.PreferredUsername: "foo",
 	})
@@ -163,7 +163,7 @@ func TestUnauthorizedOnUserNotFound(t *testing.T) {
 
 func TestUnauthorizedOnUserDisabled(t *testing.T) {
 	sut := newMockAccountResolver(nil, backend.ErrAccountDisabled, oidc.PreferredUsername, "username", false)
-	req, rw := mockRequest(map[string]interface{}{
+	req, rw := mockRequest(map[string]any{
 		oidc.Iss:               testIdP,
 		oidc.PreferredUsername: "foo",
 	})
@@ -177,7 +177,7 @@ func TestUnauthorizedOnUserDisabled(t *testing.T) {
 
 func TestInternalServerErrorOnMissingMailAndUsername(t *testing.T) {
 	sut := newMockAccountResolver(nil, backend.ErrAccountNotFound, oidc.Email, "mail", false)
-	req, rw := mockRequest(map[string]interface{}{
+	req, rw := mockRequest(map[string]any{
 		oidc.Iss: testIdP,
 	})
 
@@ -262,7 +262,7 @@ func TestTenantClaimValidation(t *testing.T) {
 				Username: "foo",
 			}
 
-			tokenManager, _ := jwt.New(map[string]interface{}{"secret": testJWTSecret, "expires": int64(60)})
+			tokenManager, _ := jwt.New(map[string]any{"secret": testJWTSecret, "expires": int64(60)})
 			s, _ := scope.AddOwnerScope(nil)
 			token, _ := tokenManager.MintToken(context.Background(), user, s)
 
@@ -281,7 +281,7 @@ func TestTenantClaimValidation(t *testing.T) {
 				MultiTenantEnabled(true),
 			)(mockHandler{})
 
-			req, rw := mockRequest(map[string]interface{}{
+			req, rw := mockRequest(map[string]any{
 				oidc.Iss:               testIdP,
 				oidc.PreferredUsername: "foo",
 				"tenant_id":            tc.requestTenant,
@@ -300,7 +300,7 @@ func TestTenantClaimValidation(t *testing.T) {
 }
 
 func newMockAccountResolver(userBackendResult *userv1beta1.User, userBackendErr error, oidcclaim, cs3claim string, multiTenant bool) http.Handler {
-	tokenManager, _ := jwt.New(map[string]interface{}{
+	tokenManager, _ := jwt.New(map[string]any{
 		"secret":  testJWTSecret,
 		"expires": int64(60),
 	})
@@ -330,7 +330,7 @@ func newMockAccountResolver(userBackendResult *userv1beta1.User, userBackendErr 
 	)(mockHandler{})
 }
 
-func mockRequest(claims map[string]interface{}) (*http.Request, *httptest.ResponseRecorder) {
+func mockRequest(claims map[string]any) (*http.Request, *httptest.ResponseRecorder) {
 	if claims == nil {
 		return httptest.NewRequest("GET", "http://example.com/foo", nil), httptest.NewRecorder()
 	}
@@ -362,7 +362,7 @@ func TestTenantIDMapping(t *testing.T) {
 		Username: "foo",
 	}
 
-	tokenManager, _ := jwt.New(map[string]interface{}{"secret": testJWTSecret, "expires": int64(60)})
+	tokenManager, _ := jwt.New(map[string]any{"secret": testJWTSecret, "expires": int64(60)})
 	s, _ := scope.AddOwnerScope(nil)
 	token, _ := tokenManager.MintToken(context.Background(), user, s)
 
@@ -449,7 +449,7 @@ func TestTenantIDMapping(t *testing.T) {
 				Value: externalTenantID,
 			}).Return(tc.tenantResponse, nil)
 
-			req, rw := mockRequest(map[string]interface{}{
+			req, rw := mockRequest(map[string]any{
 				oidc.Iss:               testIdP,
 				oidc.PreferredUsername: "foo",
 				"tenant_id":            externalTenantID,

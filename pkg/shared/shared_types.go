@@ -6,8 +6,8 @@ import "time"
 // is to unpack environment variables into a Go value. We do so with reflection, and this data structure is just a step
 // in between.
 type EnvBinding struct {
-	EnvVars     []string    // name of the environment var.
-	Destination interface{} // pointer to the original config value to modify.
+	EnvVars     []string // name of the environment var.
+	Destination any      // pointer to the original config value to modify.
 }
 
 // Log defines the available logging configuration.

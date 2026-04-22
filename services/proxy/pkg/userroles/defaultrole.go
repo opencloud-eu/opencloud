@@ -29,7 +29,7 @@ func NewDefaultRoleAssigner(opts ...Option) UserRoleAssigner {
 
 // UpdateUserRoleAssignment assigns the role "User" to the supplied user. Unless the user
 // already has a different role assigned.
-func (d defaultRoleAssigner) UpdateUserRoleAssignment(ctx context.Context, user *cs3.User, claims map[string]interface{}) (*cs3.User, error) {
+func (d defaultRoleAssigner) UpdateUserRoleAssignment(ctx context.Context, user *cs3.User, claims map[string]any) (*cs3.User, error) {
 	var roleIDs []string
 	if user.Id.Type != cs3.UserType_USER_TYPE_LIGHTWEIGHT {
 		var err error

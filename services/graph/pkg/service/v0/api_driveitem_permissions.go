@@ -684,7 +684,7 @@ func (api DriveItemPermissionsApi) Invite(w http.ResponseWriter, r *http.Request
 	}
 
 	render.Status(r, http.StatusOK)
-	render.JSON(w, r, &ListResponse{Value: []interface{}{permission}})
+	render.JSON(w, r, &ListResponse{Value: []any{permission}})
 }
 
 // SpaceRootInvite handles DriveItemInvite requests on a space root
@@ -717,7 +717,7 @@ func (api DriveItemPermissionsApi) SpaceRootInvite(w http.ResponseWriter, r *htt
 	}
 
 	render.Status(r, http.StatusOK)
-	render.JSON(w, r, &ListResponse{Value: []interface{}{permission}})
+	render.JSON(w, r, &ListResponse{Value: []any{permission}})
 }
 
 // ListPermissions handles ListPermissions requests

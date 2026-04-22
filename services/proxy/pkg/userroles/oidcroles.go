@@ -30,7 +30,7 @@ func NewOIDCRoleAssigner(opts ...Option) UserRoleAssigner {
 	}
 }
 
-func extractRoles(rolesClaim string, claims map[string]interface{}) (map[string]struct{}, error) {
+func extractRoles(rolesClaim string, claims map[string]any) (map[string]struct{}, error) {
 
 	claimRoles := map[string]struct{}{}
 	// happy path
@@ -50,7 +50,7 @@ func extractRoles(rolesClaim string, claims map[string]interface{}) (map[string]
 		for _, cr := range v {
 			claimRoles[cr] = struct{}{}
 		}
-	case []interface{}:
+	case []any:
 		for _, cri := range v {
 			cr, ok := cri.(string)
 			if !ok {
@@ -71,7 +71,7 @@ func extractRoles(rolesClaim string, claims map[string]interface{}) (map[string]
 
 // UpdateUserRoleAssignment assigns the role "User" to the supplied user. Unless the user
 // already has a different role assigned.
-func (ra oidcRoleAssigner) UpdateUserRoleAssignment(ctx context.Context, user *cs3.User, claims map[string]interface{}) (*cs3.User, error) {
+func (ra oidcRoleAssigner) UpdateUserRoleAssignment(ctx context.Context, user *cs3.User, claims map[string]any) (*cs3.User, error) {
 	logger := ra.logger.SubloggerWithRequestID(ctx).With().Str("userid", user.GetId().GetOpaqueId()).Logger()
 	roleNamesToRoleIDs, err := ra.roleNamesToRoleIDs()
 	if err != nil {

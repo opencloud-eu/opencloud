@@ -27,7 +27,7 @@ func MergeKV(values ...KV) (KV, error) {
 }
 
 // PatchKV injects the given values into to v.
-func PatchKV(v map[string]interface{}, values KV) KV {
+func PatchKV(v map[string]any, values KV) KV {
 	if v == nil {
 		v = KV{}
 	}
@@ -47,10 +47,10 @@ func PatchKV(v map[string]interface{}, values KV) KV {
 			}
 
 			if _, ok := t[p]; !ok {
-				t[p] = map[string]interface{}{}
+				t[p] = map[string]any{}
 			}
 
-			t = t[p].(map[string]interface{})
+			t = t[p].(map[string]any)
 		}
 	}
 	return v

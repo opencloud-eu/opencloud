@@ -10,12 +10,12 @@ import (
 func TestGatherData(t *testing.T) {
 	testcases := []struct {
 		Name     string
-		Events   []interface{}
+		Events   []any
 		Expected *backup.Consistency
 	}{
 		{
 			Name: "no symlinks - no blobs",
-			Events: []interface{}{
+			Events: []any{
 				nodeData("nodepath", "blobpath", true),
 			},
 			Expected: consistency(func(c *backup.Consistency) {
@@ -25,7 +25,7 @@ func TestGatherData(t *testing.T) {
 		},
 		{
 			Name: "symlink not required - no blobs",
-			Events: []interface{}{
+			Events: []any{
 				nodeData("nodepath", "blobpath", false),
 			},
 			Expected: consistency(func(c *backup.Consistency) {
@@ -34,7 +34,7 @@ func TestGatherData(t *testing.T) {
 		},
 		{
 			Name: "no inconsistencies",
-			Events: []interface{}{
+			Events: []any{
 				nodeData("nodepath", "blobpath", true),
 				linkData("linkpath", "nodepath"),
 				blobData("blobpath"),
@@ -44,7 +44,7 @@ func TestGatherData(t *testing.T) {
 		},
 		{
 			Name: "orphaned blob",
-			Events: []interface{}{
+			Events: []any{
 				nodeData("nodepath", "blobpath", true),
 				linkData("linkpath", "nodepath"),
 				blobData("blobpath"),
@@ -56,7 +56,7 @@ func TestGatherData(t *testing.T) {
 		},
 		{
 			Name: "missing node",
-			Events: []interface{}{
+			Events: []any{
 				linkData("linkpath", "nodepath"),
 				blobData("blobpath"),
 			},
@@ -67,7 +67,7 @@ func TestGatherData(t *testing.T) {
 		},
 		{
 			Name: "corrupt metadata",
-			Events: []interface{}{
+			Events: []any{
 				nodeData("nodepath", "blobpath", true, backup.InconsistencyMetadataMissing),
 				linkData("linkpath", "nodepath"),
 				blobData("blobpath"),
@@ -78,7 +78,7 @@ func TestGatherData(t *testing.T) {
 		},
 		{
 			Name: "corrupt metadata, no blob",
-			Events: []interface{}{
+			Events: []any{
 				nodeData("nodepath", "blobpath", true, backup.InconsistencyMetadataMissing),
 				linkData("linkpath", "nodepath"),
 			},
@@ -90,7 +90,7 @@ func TestGatherData(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		events := make(chan interface{})
+		events := make(chan any)
 
 		go func() {
 			for _, ev := range tc.Events {

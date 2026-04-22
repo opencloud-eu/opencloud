@@ -9,7 +9,7 @@ import (
 
 // DiffAst returns a human-readable report of the differences between two values
 // by default it ignores every ast node Base field.
-func DiffAst(x, y interface{}, opts ...cmp.Option) string {
+func DiffAst(x, y any, opts ...cmp.Option) string {
 	return cmp.Diff(
 		x,
 		y,

@@ -54,8 +54,8 @@ type OIDCAuthenticator struct {
 	TimeFunc                func() time.Time
 }
 
-func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[string]interface{}, bool, error) {
-	var claims map[string]interface{}
+func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[string]any, bool, error) {
+	var claims map[string]any
 
 	// use a 64 bytes long hash to have 256-bit collision resistance.
 	hash := make([]byte, 64)
@@ -159,7 +159,7 @@ func (m OIDCAuthenticator) extractExpiration(aClaims oidc.RegClaimsWithSID) time
 	return defaultExpiration
 }
 
-func verifyExpiresAt(claims map[string]interface{}, cmp time.Time) bool {
+func verifyExpiresAt(claims map[string]any, cmp time.Time) bool {
 	var expiry time.Time
 	switch v := claims["exp"].(type) {
 	case nil:

@@ -52,7 +52,7 @@ func (*NoopLockParser) ParseLock(id string) string {
 //
 // If the JSON string is not in the expected format, the original lockID will be returned.
 func (*LegacyLockParser) ParseLock(id string) string {
-	var decodedValues map[string]interface{}
+	var decodedValues map[string]any
 	err := json.Unmarshal([]byte(id), &decodedValues)
 	if err != nil || len(decodedValues) == 0 {
 		return id

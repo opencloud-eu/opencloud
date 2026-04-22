@@ -5,33 +5,33 @@ import (
 )
 
 // GroupsConfigFromStruct will adapt an OpenCloud config struct into a reva mapstructure to start a reva service.
-func GroupsConfigFromStruct(cfg *config.Config) map[string]interface{} {
-	return map[string]interface{}{
-		"shared": map[string]interface{}{
+func GroupsConfigFromStruct(cfg *config.Config) map[string]any {
+	return map[string]any{
+		"shared": map[string]any{
 			"jwt_secret":                cfg.TokenManager.JWTSecret,
 			"gatewaysvc":                cfg.Reva.Address,
 			"skip_user_groups_in_token": cfg.SkipUserGroupsInToken,
 			"grpc_client_options":       cfg.Reva.GetGRPCClientConfig(),
 			"multi_tenant_enabled":      cfg.Commons.MultiTenantEnabled,
 		},
-		"grpc": map[string]interface{}{
+		"grpc": map[string]any{
 			"network": cfg.GRPC.Protocol,
 			"address": cfg.GRPC.Addr,
-			"tls_settings": map[string]interface{}{
+			"tls_settings": map[string]any{
 				"enabled":     cfg.GRPC.TLS.Enabled,
 				"certificate": cfg.GRPC.TLS.Cert,
 				"key":         cfg.GRPC.TLS.Key,
 			},
 			// TODO build services dynamically
-			"services": map[string]interface{}{
-				"groupprovider": map[string]interface{}{
+			"services": map[string]any{
+				"groupprovider": map[string]any{
 					"driver": cfg.Driver,
-					"drivers": map[string]interface{}{
-						"json": map[string]interface{}{
+					"drivers": map[string]any{
+						"json": map[string]any{
 							"groups": cfg.Drivers.JSON.File,
 						},
 						"ldap": ldapConfigFromString(cfg.Drivers.LDAP),
-						"rest": map[string]interface{}{
+						"rest": map[string]any{
 							"client_id":           cfg.Drivers.REST.ClientID,
 							"client_secret":       cfg.Drivers.REST.ClientSecret,
 							"redis_address":       cfg.Drivers.REST.RedisAddr,
@@ -45,8 +45,8 @@ func GroupsConfigFromStruct(cfg *config.Config) map[string]interface{} {
 					},
 				},
 			},
-			"interceptors": map[string]interface{}{
-				"prometheus": map[string]interface{}{
+			"interceptors": map[string]any{
+				"prometheus": map[string]any{
 					"namespace": "opencloud",
 					"subsystem": "groups",
 				},
@@ -55,8 +55,8 @@ func GroupsConfigFromStruct(cfg *config.Config) map[string]interface{} {
 	}
 }
 
-func ldapConfigFromString(cfg config.LDAPDriver) map[string]interface{} {
-	return map[string]interface{}{
+func ldapConfigFromString(cfg config.LDAPDriver) map[string]any {
+	return map[string]any{
 		"uri":                         cfg.URI,
 		"cacert":                      cfg.CACert,
 		"insecure":                    cfg.Insecure,
@@ -72,14 +72,14 @@ func ldapConfigFromString(cfg config.LDAPDriver) map[string]interface{} {
 		"user_objectclass":            cfg.UserObjectClass,
 		"group_objectclass":           cfg.GroupObjectClass,
 		"idp":                         cfg.IDP,
-		"user_schema": map[string]interface{}{
+		"user_schema": map[string]any{
 			"id":              cfg.UserSchema.ID,
 			"idIsOctetString": cfg.UserSchema.IDIsOctetString,
 			"mail":            cfg.UserSchema.Mail,
 			"displayName":     cfg.UserSchema.DisplayName,
 			"userName":        cfg.UserSchema.Username,
 		},
-		"group_schema": map[string]interface{}{
+		"group_schema": map[string]any{
 			"id":              cfg.GroupSchema.ID,
 			"idIsOctetString": cfg.GroupSchema.IDIsOctetString,
 			"mail":            cfg.GroupSchema.Mail,

@@ -91,7 +91,7 @@ func NodeKey(n Node) string {
 }
 
 // NodeValue tries to return the node key
-func NodeValue(n Node) interface{} {
+func NodeValue(n Node) any {
 	switch node := n.(type) {
 	case *StringNode:
 		return node.Value

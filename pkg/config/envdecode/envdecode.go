@@ -58,7 +58,7 @@ type Decoder interface {
 // time.ParseDuration() function and *url.URL is supported via the
 // url.Parse() function. Slices are supported for all above mentioned
 // primitive types. Semicolon is used as delimiter in environment variables.
-func Decode(target interface{}) error {
+func Decode(target any) error {
 	nFields, err := decode(target, false)
 	if err != nil {
 		return err
@@ -75,7 +75,7 @@ func Decode(target interface{}) error {
 
 // StrictDecode is similar to Decode except all fields will have an implicit
 // ",strict" on all fields.
-func StrictDecode(target interface{}) error {
+func StrictDecode(target any) error {
 	nFields, err := decode(target, true)
 	if err != nil {
 		return err
@@ -90,7 +90,7 @@ func StrictDecode(target interface{}) error {
 	return nil
 }
 
-func decode(target interface{}, strict bool) (int, error) {
+func decode(target any, strict bool) (int, error) {
 	s := reflect.ValueOf(target)
 	if s.Kind() != reflect.Ptr || s.IsNil() {
 		return 0, ErrInvalidTarget
@@ -296,7 +296,7 @@ func decodePrimitiveType(f *reflect.Value, env string) error {
 
 // MustDecode calls Decode and terminates the process if any errors
 // are encountered.
-func MustDecode(target interface{}) {
+func MustDecode(target any) {
 	if err := Decode(target); err != nil {
 		FailureFunc(err)
 	}
@@ -304,7 +304,7 @@ func MustDecode(target interface{}) {
 
 // MustStrictDecode calls StrictDecode and terminates the process if any errors
 // are encountered.
-func MustStrictDecode(target interface{}) {
+func MustStrictDecode(target any) {
 	if err := StrictDecode(target); err != nil {
 		FailureFunc(err)
 	}
@@ -335,7 +335,7 @@ func (c ConfigInfoSlice) Swap(i, j int) {
 }
 
 // Returns a list of final configuration metadata sorted by envvar name
-func Export(target interface{}) ([]*ConfigInfo, error) {
+func Export(target any) ([]*ConfigInfo, error) {
 	s := reflect.ValueOf(target)
 	if s.Kind() != reflect.Ptr || s.IsNil() {
 		return nil, ErrInvalidTarget

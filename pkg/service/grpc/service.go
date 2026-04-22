@@ -99,7 +99,7 @@ func NewServiceWithClient(client client.Client, opts ...Option) (Service, error)
 // micro-plugin's opentracing wrapper: `opentracing.NewHandlerWrapper()`
 func LogHandler(l *log.Logger) func(fn server.HandlerFunc) server.HandlerFunc {
 	return func(fn server.HandlerFunc) server.HandlerFunc {
-		return func(ctx context.Context, req server.Request, rsp interface{}) error {
+		return func(ctx context.Context, req server.Request, rsp any) error {
 			now := time.Now()
 			spanContext := trace.SpanContextFromContext(ctx)
 			defer func() {

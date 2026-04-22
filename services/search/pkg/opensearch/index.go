@@ -90,7 +90,7 @@ func (m IndexManager) Apply(ctx context.Context, name string, client *opensearch
 			lv := localIndexJson.Get(lvPath).Raw
 			rv := remoteIndexJson.Get(rvPath).Raw
 
-			var lvv, rvv interface{}
+			var lvv, rvv any
 			if err := json.Unmarshal([]byte(lv), &lvv); err != nil {
 				return nil, nil, false
 			}

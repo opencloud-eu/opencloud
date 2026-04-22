@@ -955,7 +955,7 @@ var _ = Describe("FileConnector", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(response.Status).To(Equal(200))
 			Expect(response.Headers).To(BeNil())
-			rBody := response.Body.(map[string]interface{})
+			rBody := response.Body.(map[string]any)
 			Expect(rBody["Name"]).To(Equal("newDocument.docx"))
 			Expect(rBody["Url"]).To(HavePrefix("https://wopi.opencloud.test/wopi/files/")) // skip checking the actual reference
 			Expect(rBody["HostEditUrl"]).To(Equal("https://cloud.opencloud.test/external-test/personal/path/to/newDocument.docx?fileId=storageid%24spaceid%21opaqueid_newDoc&view_mode=write"))
@@ -1010,7 +1010,7 @@ var _ = Describe("FileConnector", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(response.Status).To(Equal(200))
 			Expect(response.Headers).To(BeNil())
-			rBody := response.Body.(map[string]interface{})
+			rBody := response.Body.(map[string]any)
 			Expect(rBody["Name"]).To(Equal("file.pdf"))
 			Expect(rBody["Url"]).To(HavePrefix("https://wopi.opencloud.test/wopi/files/")) // skip checking the actual reference
 			Expect(rBody["HostEditUrl"]).To(Equal("https://cloud.opencloud.test/external-test/personal/path/to/file.pdf?fileId=storageid%24spaceid%21opaqueid_newDoc&view_mode=write"))
@@ -1082,7 +1082,7 @@ var _ = Describe("FileConnector", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(response.Status).To(Equal(200))
 			Expect(response.Headers).To(BeNil())
-			rBody := response.Body.(map[string]interface{})
+			rBody := response.Body.(map[string]any)
 			Expect(rBody["Name"]).To(MatchRegexp(`[a-zA-Z0-9_-] file\.pdf`))
 			Expect(rBody["Url"]).To(HavePrefix("https://wopi.opencloud.test/wopi/files/")) // skip checking the actual reference
 			Expect(rBody["HostEditUrl"]).To(Equal("https://cloud.opencloud.test/external-test/personal/path/to/" + url.PathEscape(path.Base(*newFilePath)) + "?fileId=storageid%24spaceid%21opaqueid_newDoc&view_mode=write"))
@@ -1206,7 +1206,7 @@ var _ = Describe("FileConnector", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(response.Status).To(Equal(200))
 			Expect(response.Headers).To(BeNil())
-			rBody := response.Body.(map[string]interface{})
+			rBody := response.Body.(map[string]any)
 			Expect(rBody["Name"]).To(Equal("newDocument.docx"))
 			Expect(rBody["Url"]).To(HavePrefix("https://wopi.opencloud.test/wopi/files/")) // skip checking the actual reference
 			Expect(rBody["HostEditUrl"]).To(Equal("https://cloud.opencloud.test/external-test/personal/path/to/newDocument.docx?fileId=storageid%24spaceid%21opaqueid_newDoc&view_mode=write"))
@@ -1265,7 +1265,7 @@ var _ = Describe("FileConnector", func() {
 			Expect(response.Status).To(Equal(409))
 			Expect(response.Headers[connector.HeaderWopiLock]).To(Equal("zzz999"))
 			Expect(response.Headers[connector.HeaderWopiValidRT]).To(MatchRegexp(`[a-zA-Z0-9_-] convFile\.pdf`))
-			rBody := response.Body.(map[string]interface{})
+			rBody := response.Body.(map[string]any)
 			Expect(rBody["Name"]).To(Equal("convFile.pdf"))
 			Expect(rBody["Url"]).To(HavePrefix("https://wopi.opencloud.test/wopi/files/")) // skip checking the actual reference
 			Expect(rBody["HostEditUrl"]).To(Equal("https://cloud.opencloud.test/external-test/personal/path/to/convFile.pdf?fileId=storageid%24spaceid%21opaqueid_newDoc&view_mode=write"))
@@ -1575,7 +1575,7 @@ var _ = Describe("FileConnector", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(response.Status).To(Equal(200))
 			Expect(response.Headers).To(BeNil())
-			rBody := response.Body.(map[string]interface{})
+			rBody := response.Body.(map[string]any)
 			Expect(rBody["Name"]).To(MatchRegexp(`^[a-zA-Z0-9_-]+ newFile$`))
 		})
 
@@ -1607,7 +1607,7 @@ var _ = Describe("FileConnector", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(response.Status).To(Equal(200))
 			Expect(response.Headers).To(BeNil())
-			rBody := response.Body.(map[string]interface{})
+			rBody := response.Body.(map[string]any)
 			Expect(rBody["Name"]).To(Equal("newFile"))
 		})
 	})

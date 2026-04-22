@@ -12,7 +12,7 @@ import (
 )
 
 type signingKey struct {
-	priv interface{}
+	priv any
 	jwks *keyfunc.JWKS
 }
 
@@ -27,7 +27,7 @@ func TestLogoutVerify(t *testing.T) {
 				"iat": 1471566154,
 				"jti": "bWJq",
 				"sid": "08a5019c-17e1-4977-8f42-65a12843ea02",
-				"events": map[string]interface{}{
+				"events": map[string]any{
 					"http://schemas.openid.net/event/backchannel-logout": struct{}{},
 				},
 			}),
@@ -39,7 +39,7 @@ func TestLogoutVerify(t *testing.T) {
 			logoutToken: jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
 				"iss": "https://foo1",
 				"sub": "248289761001",
-				"events": map[string]interface{}{
+				"events": map[string]any{
 					"http://schemas.openid.net/event/backchannel-logout": struct{}{},
 				},
 			}),
@@ -55,7 +55,7 @@ func TestLogoutVerify(t *testing.T) {
 				"iat": 1471566154,
 				"jti": "bWJq",
 				"sid": "08a5019c-17e1-4977-8f42-65a12843ea02",
-				"events": map[string]interface{}{
+				"events": map[string]any{
 					"http://schemas.openid.net/event/backchannel-logout": struct{}{},
 				},
 			}),
@@ -70,7 +70,7 @@ func TestLogoutVerify(t *testing.T) {
 				"aud": "s6BhdRkqt3",
 				"iat": 1471566154,
 				"jti": "bWJq",
-				"events": map[string]interface{}{
+				"events": map[string]any{
 					"http://schemas.openid.net/event/backchannel-logout": struct{}{},
 				},
 			}),
@@ -87,7 +87,7 @@ func TestLogoutVerify(t *testing.T) {
 				"jti":   "bWJq",
 				"sid":   "08a5019c-17e1-4977-8f42-65a12843ea02",
 				"nonce": "123",
-				"events": map[string]interface{}{
+				"events": map[string]any{
 					"http://schemas.openid.net/event/backchannel-logout": struct{}{},
 				},
 			}),
@@ -103,7 +103,7 @@ func TestLogoutVerify(t *testing.T) {
 				"iat": 1471566154,
 				"jti": "bWJq",
 				"sid": "08a5019c-17e1-4977-8f42-65a12843ea02",
-				"events": map[string]interface{}{
+				"events": map[string]any{
 					"http://blah.blah.blash/event/backchannel-logout": struct{}{},
 				},
 			}),

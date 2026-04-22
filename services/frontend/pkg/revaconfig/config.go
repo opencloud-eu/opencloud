@@ -18,7 +18,7 @@ import (
 )
 
 // FrontendConfigFromStruct will adapt an OpenCloud config struct into a reva mapstructure to start a reva service.
-func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string]interface{}, error) {
+func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string]any, error) {
 	webURL, err := url.Parse(cfg.PublicURL)
 	if err != nil {
 		return nil, err
@@ -32,7 +32,7 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 		return nil, err
 	}
 
-	archivers := []map[string]interface{}{
+	archivers := []map[string]any{
 		{
 			"enabled":       true,
 			"version":       "2.0.0",
@@ -43,7 +43,7 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 		},
 	}
 
-	appProviders := []map[string]interface{}{
+	appProviders := []map[string]any{
 		{
 			"enabled":      true,
 			"version":      "1.1.0",
@@ -54,7 +54,7 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 		},
 	}
 
-	filesCfg := map[string]interface{}{
+	filesCfg := map[string]any{
 		"private_links":     true,
 		"bigfilechunking":   false,
 		"blacklisted_files": []string{},
@@ -68,7 +68,7 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 	}
 
 	if cfg.DefaultUploadProtocol == "tus" {
-		filesCfg["tus_support"] = map[string]interface{}{
+		filesCfg["tus_support"] = map[string]any{
 			"version":              "1.0.0",
 			"resumable":            "1.0.0",
 			"extension":            "creation,creation-with-upload",
@@ -87,19 +87,19 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 		changePasswordDisabled = true
 	}
 
-	return map[string]interface{}{
-		"shared": map[string]interface{}{
+	return map[string]any{
+		"shared": map[string]any{
 			"jwt_secret":                cfg.TokenManager.JWTSecret,
 			"gatewaysvc":                cfg.Reva.Address, // Todo or address?
 			"skip_user_groups_in_token": cfg.SkipUserGroupsInToken,
 			"grpc_client_options":       cfg.Reva.GetGRPCClientConfig(),
 			"multi_tenant_enabled":      cfg.Commons.MultiTenantEnabled,
 		},
-		"http": map[string]interface{}{
+		"http": map[string]any{
 			"network": cfg.HTTP.Protocol,
 			"address": cfg.HTTP.Addr,
-			"middlewares": map[string]interface{}{
-				"cors": map[string]interface{}{
+			"middlewares": map[string]any{
+				"cors": map[string]any{
 					"allowed_origins":   cfg.HTTP.CORS.AllowedOrigins,
 					"allowed_methods":   cfg.HTTP.CORS.AllowedMethods,
 					"allowed_headers":   cfg.HTTP.CORS.AllowedHeaders,
@@ -111,29 +111,29 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 					//"priority": ,
 					//"exposed_headers": ,
 				},
-				"auth": map[string]interface{}{
+				"auth": map[string]any{
 					"credentials_by_user_agent": cfg.Middleware.Auth.CredentialsByUserAgent,
 				},
-				"prometheus": map[string]interface{}{
+				"prometheus": map[string]any{
 					"namespace": "opencloud",
 					"subsystem": "frontend",
 				},
-				"requestid": map[string]interface{}{},
+				"requestid": map[string]any{},
 			},
 			// TODO build services dynamically
-			"services": map[string]interface{}{
+			"services": map[string]any{
 				// this reva service called "appprovider" comes from
 				// `internal/http/services/appprovider` and is a translation
 				// layer from the grpc app registry to http, used by e.g. OpenCloud Web
 				// It should not be confused with `internal/grpc/services/appprovider`
 				// which is currently only the driver for the CS3org WOPI server
-				"appprovider": map[string]interface{}{
+				"appprovider": map[string]any{
 					"prefix":                 cfg.AppHandler.Prefix,
 					"transfer_shared_secret": cfg.TransferSecret,
 					"timeout":                86400,
 					"insecure":               cfg.AppHandler.Insecure,
 					"webbaseuri":             webOpenInAppURL,
-					"web": map[string]interface{}{
+					"web": map[string]any{
 						"urlparamsmapping": map[string]string{
 							// param -> value mapper
 							// these mappers are static and are only subject to change when changed in oC Web
@@ -146,24 +146,24 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 					},
 					"secure_view_app_addr": cfg.AppHandler.SecureViewAppAddr,
 				},
-				"archiver": map[string]interface{}{
+				"archiver": map[string]any{
 					"prefix":        cfg.Archiver.Prefix,
 					"timeout":       86400,
 					"insecure":      cfg.Archiver.Insecure,
 					"max_num_files": cfg.Archiver.MaxNumFiles,
 					"max_size":      cfg.Archiver.MaxSize,
 				},
-				"datagateway": map[string]interface{}{
+				"datagateway": map[string]any{
 					"prefix":                 cfg.DataGateway.Prefix,
 					"transfer_shared_secret": cfg.TransferSecret,
 					"timeout":                86400,
 					"insecure":               true,
 				},
-				"ocs": map[string]interface{}{
+				"ocs": map[string]any{
 					"storage_registry_svc": cfg.Reva.Address,
 					"share_prefix":         cfg.OCS.SharePrefix,
 					"home_namespace":       cfg.OCS.HomeNamespace,
-					"stat_cache_config": map[string]interface{}{
+					"stat_cache_config": map[string]any{
 						"cache_store":               cfg.OCS.StatCacheType,
 						"cache_nodes":               cfg.OCS.StatCacheNodes,
 						"cache_database":            cfg.OCS.StatCacheDatabase,
@@ -179,8 +179,8 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 					"enable_denials":            cfg.OCS.EnableDenials,
 					"list_ocm_shares":           cfg.OCS.ListOCMShares,
 					"cache_warmup_driver":       cfg.OCS.CacheWarmupDriver,
-					"cache_warmup_drivers": map[string]interface{}{
-						"cbox": map[string]interface{}{
+					"cache_warmup_drivers": map[string]any{
+						"cbox": map[string]any{
 							"db_username": cfg.OCS.CacheWarmupDrivers.CBOX.DBUsername,
 							"db_password": cfg.OCS.CacheWarmupDrivers.CBOX.DBPassword,
 							"db_host":     cfg.OCS.CacheWarmupDrivers.CBOX.DBHost,
@@ -190,7 +190,7 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 							"gatewaysvc":  cfg.Reva.Address,
 						},
 					},
-					"config": map[string]interface{}{
+					"config": map[string]any{
 						"version": "1.7",
 						"website": "OpenCloud",
 						"host":    cfg.PublicURL,
@@ -198,12 +198,12 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 						"ssl":     "false",
 					},
 					"default_upload_protocol": cfg.DefaultUploadProtocol,
-					"capabilities": map[string]interface{}{
-						"capabilities": map[string]interface{}{
-							"core": map[string]interface{}{
+					"capabilities": map[string]any{
+						"capabilities": map[string]any{
+							"core": map[string]any{
 								"poll_interval": 60,
 								"webdav_root":   "remote.php/webdav",
-								"status": map[string]interface{}{
+								"status": map[string]any{
 									"installed":      true,
 									"maintenance":    false,
 									"needsDbUpgrade": false,
@@ -220,9 +220,9 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 								"support_sse":         !cfg.DisableSSE,
 								"support_radicale":    !cfg.DisableRadicale,
 							},
-							"graph": map[string]interface{}{
+							"graph": map[string]any{
 								"personal_data_export": true,
-								"users": map[string]interface{}{
+								"users": map[string]any{
 									"read_only_attributes":          readOnlyUserAttributes,
 									"create_disabled":               !cfg.LDAPServerWriteEnabled,
 									"delete_disabled":               !cfg.LDAPServerWriteEnabled,
@@ -230,15 +230,15 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 									"edit_login_allowed_disabled":   cfg.EditLoginAllowedDisabled,
 								},
 							},
-							"checksums": map[string]interface{}{
+							"checksums": map[string]any{
 								"supported_types":       cfg.Checksums.SupportedTypes,
 								"preferred_upload_type": cfg.Checksums.PreferredUploadType,
 							},
 							"files": filesCfg,
-							"dav": map[string]interface{}{
+							"dav": map[string]any{
 								"reports": []string{"search-files"},
 							},
-							"files_sharing": map[string]interface{}{
+							"files_sharing": map[string]any{
 								"api_enabled":                       true,
 								"group_sharing":                     true,
 								"sharing_roles":                     true,
@@ -248,7 +248,7 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 								"share_with_membership_groups_only": true,
 								"default_permissions":               22,
 								"search_min_length":                 cfg.SearchMinLength,
-								"public": map[string]interface{}{
+								"public": map[string]any{
 									"alias":                      true,
 									"enabled":                    true,
 									"send_mail":                  true,
@@ -258,43 +258,43 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 									"multiple":                   true,
 									"supports_upload_only":       true,
 									"default_permissions":        cfg.DefaultLinkPermissions,
-									"password": map[string]interface{}{
+									"password": map[string]any{
 										"enforced": false,
-										"enforced_for": map[string]interface{}{
+										"enforced_for": map[string]any{
 											"read_only":         cfg.OCS.PublicShareMustHavePassword,
 											"read_write":        cfg.OCS.WriteablePublicShareMustHavePassword,
 											"read_write_delete": cfg.OCS.WriteablePublicShareMustHavePassword,
 											"upload_only":       cfg.OCS.WriteablePublicShareMustHavePassword,
 										},
 									},
-									"expire_date": map[string]interface{}{
+									"expire_date": map[string]any{
 										"enabled": false,
 									},
 									"can_edit": true,
 								},
-								"user": map[string]interface{}{
+								"user": map[string]any{
 									"send_mail":       true,
 									"profile_picture": false,
-									"settings": []map[string]interface{}{
+									"settings": []map[string]any{
 										{
 											"enabled": true,
 											"version": "1.0.0",
 										},
 									},
-									"expire_date": map[string]interface{}{
+									"expire_date": map[string]any{
 										"enabled": true,
 									},
 								},
-								"user_enumeration": map[string]interface{}{
+								"user_enumeration": map[string]any{
 									"enabled":            true,
 									"group_members_only": true,
 								},
-								"federation": map[string]interface{}{
+								"federation": map[string]any{
 									"outgoing": cfg.EnableFederatedSharingOutgoing,
 									"incoming": cfg.EnableFederatedSharingIncoming,
 								},
 							},
-							"spaces": map[string]interface{}{
+							"spaces": map[string]any{
 								"version":    "1.0.0",
 								"enabled":    true,
 								"projects":   true,
@@ -302,49 +302,49 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 								"max_quota":  cfg.MaxQuota,
 							},
 							"theme": capabilities.Default().Theme,
-							"search": map[string]interface{}{
-								"property": map[string]interface{}{
-									"name": map[string]interface{}{
+							"search": map[string]any{
+								"property": map[string]any{
+									"name": map[string]any{
 										"enabled": true,
 									},
-									"mtime": map[string]interface{}{
+									"mtime": map[string]any{
 										"keywords": []string{"today", "last 7 days", "last 30 days", "this year", "last year"},
 										"enabled":  true,
 									},
-									"size": map[string]interface{}{
+									"size": map[string]any{
 										"enabled": false,
 									},
-									"mediatype": map[string]interface{}{
+									"mediatype": map[string]any{
 										"keywords": []string{"document", "spreadsheet", "presentation", "pdf", "image", "video", "audio", "folder", "archive"},
 										"enabled":  true,
 									},
-									"type": map[string]interface{}{
+									"type": map[string]any{
 										"enabled": true,
 									},
-									"tag": map[string]interface{}{
+									"tag": map[string]any{
 										"enabled": true,
 									},
-									"tags": map[string]interface{}{
+									"tags": map[string]any{
 										"enabled": true,
 									},
-									"content": map[string]interface{}{
+									"content": map[string]any{
 										"enabled": true,
 									},
-									"scope": map[string]interface{}{
+									"scope": map[string]any{
 										"enabled": true,
 									},
 								},
 							},
 							"password_policy": passwordPolicyCfg,
-							"notifications": map[string]interface{}{
+							"notifications": map[string]any{
 								"endpoints":    []string{"list", "get", "delete"},
 								"configurable": cfg.ConfigurableNotifications,
 							},
-							"groupware": map[string]interface{}{
+							"groupware": map[string]any{
 								"enabled": cfg.Groupware.Enabled,
 							},
 						},
-						"version": map[string]interface{}{
+						"version": map[string]any{
 							"product":        "OpenCloud",
 							"edition":        version.Edition,
 							"major":          version.ParsedLegacy().Major(),
@@ -357,7 +357,7 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 					"include_ocm_sharees":   cfg.OCS.IncludeOCMSharees,
 					"show_email_in_results": cfg.OCS.ShowUserEmailInResults,
 				},
-				"ocdav": map[string]interface{}{
+				"ocdav": map[string]any{
 					"prefix":           cfg.OCDav.Prefix,
 					"files_namespace":  cfg.OCDav.FilesNamespace,
 					"webdav_namespace": cfg.OCDav.WebdavNamespace,
@@ -378,7 +378,7 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 					"product_name":         "OpenCloud",
 					"product_version":      version.GetString(),
 					"allow_depth_infinity": cfg.OCDav.AllowPropfindDepthInfinity,
-					"validation": map[string]interface{}{
+					"validation": map[string]any{
 						"invalid_chars": cfg.OCDav.NameValidation.InvalidChars,
 						"max_length":    cfg.OCDav.NameValidation.MaxLength,
 					},
@@ -418,10 +418,10 @@ func fileExists(path string) bool {
 	return !info.IsDir()
 }
 
-func passwordPolicyConfig(cfg *config.Config) (map[string]interface{}, error) {
+func passwordPolicyConfig(cfg *config.Config) (map[string]any, error) {
 	_maxCharacters := 72
 	if cfg.PasswordPolicy.Disabled {
-		return map[string]interface{}{
+		return map[string]any{
 			"max_characters":        _maxCharacters,
 			"banned_passwords_list": nil,
 		}, nil
@@ -434,7 +434,7 @@ func passwordPolicyConfig(cfg *config.Config) (map[string]interface{}, error) {
 			return nil, fmt.Errorf("failed to load the banned passwords from a file %s: %w", cfg.PasswordPolicy.BannedPasswordsList, err)
 		}
 	}
-	return map[string]interface{}{
+	return map[string]any{
 		"max_characters":           _maxCharacters,
 		"min_digits":               cfg.PasswordPolicy.MinDigits,
 		"min_characters":           cfg.PasswordPolicy.MinCharacters,

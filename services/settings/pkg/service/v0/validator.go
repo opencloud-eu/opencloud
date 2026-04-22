@@ -137,7 +137,7 @@ func validateListRoleAssignmentsFiltered(req *settingssvc.ListRoleAssignmentsFil
 	)
 }
 
-func validateUserRoleAssignmentFilter(values interface{}) error {
+func validateUserRoleAssignmentFilter(values any) error {
 	filter, ok := values.(*settingsmsg.UserRoleAssignmentFilter)
 	if !ok {
 		return errors.New("expected UserRoleAssignmentFilter")
@@ -161,7 +161,7 @@ func validateUserRoleAssignmentFilter(values interface{}) error {
 	)
 }
 
-func validateFilterRoleID(value interface{}) error {
+func validateFilterRoleID(value any) error {
 	roleTerm, ok := value.(*settingsmsg.UserRoleAssignmentFilter_RoleId)
 	if !ok {
 		return errors.New("expected UserRoleAssignmentFilter_RoleId")
@@ -169,7 +169,7 @@ func validateFilterRoleID(value interface{}) error {
 	return validation.Validate(&roleTerm.RoleId, is.UUID)
 }
 
-func validateFilterAccountUUID(value interface{}) error {
+func validateFilterAccountUUID(value any) error {
 	accountTerm, ok := value.(*settingsmsg.UserRoleAssignmentFilter_AccountUuid)
 	if !ok {
 		return errors.New("expected UserRoleAssignmentFilter_AccountUuid")

@@ -696,7 +696,7 @@ func marshalToStringMap[T libregraph.MappedNullable](source T, target map[string
 	}
 }
 
-func valueToString(value interface{}) string {
+func valueToString(value any) string {
 	if value == nil {
 		return ""
 	}

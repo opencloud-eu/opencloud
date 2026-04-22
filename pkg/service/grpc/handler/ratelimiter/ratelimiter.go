@@ -21,7 +21,7 @@ func NewHandlerWrapper(limit int) server.HandlerWrapper {
 	}
 
 	return func(h server.HandlerFunc) server.HandlerFunc {
-		return func(ctx context.Context, req server.Request, rsp interface{}) error {
+		return func(ctx context.Context, req server.Request, rsp any) error {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()

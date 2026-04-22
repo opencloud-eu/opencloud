@@ -268,7 +268,7 @@ var _ = Describe("ActivitylogService", func() {
 	})
 })
 
-func activitites(acts ...interface{}) []RawActivity {
+func activitites(acts ...any) []RawActivity {
 	var activities []RawActivity
 	act := RawActivity{}
 	for _, a := range acts {

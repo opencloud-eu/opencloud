@@ -33,14 +33,14 @@ func SplitWithEscaping(s string, separator string, escapeString string) []string
 }
 
 // WalkSegments uses the given array of segments to walk the claims and return whatever interface was found
-func WalkSegments(segments []string, claims map[string]interface{}) (interface{}, error) {
+func WalkSegments(segments []string, claims map[string]any) (any, error) {
 	i := 0
 	for ; i < len(segments)-1; i++ {
 		switch castedClaims := claims[segments[i]].(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			claims = castedClaims
-		case map[interface{}]interface{}:
-			claims = make(map[string]interface{}, len(castedClaims))
+		case map[any]any:
+			claims = make(map[string]any, len(castedClaims))
 			for k, v := range castedClaims {
 				if s, ok := k.(string); ok {
 					claims[s] = v
@@ -56,7 +56,7 @@ func WalkSegments(segments []string, claims map[string]interface{}) (interface{}
 }
 
 // ReadStringClaim returns the string obtained by following the . seperated path in the claims
-func ReadStringClaim(path string, claims map[string]interface{}) (string, error) {
+func ReadStringClaim(path string, claims map[string]any) (string, error) {
 	// check the simple case first
 	value, _ := claims[path].(string)
 	if value != "" {

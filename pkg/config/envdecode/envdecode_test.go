@@ -552,7 +552,7 @@ type testConfigStrict struct {
 
 func TestInvalidStrict(t *testing.T) {
 	cases := []struct {
-		decoder             func(interface{}) error
+		decoder             func(any) error
 		rootValue           string
 		nestedValue         string
 		rootValueImplicit   string

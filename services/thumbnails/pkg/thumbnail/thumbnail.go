@@ -22,7 +22,7 @@ type Request struct {
 type Manager interface {
 	// Generate creates a thumbnail and stores it.
 	// The function returns a key with which the actual file can be retrieved.
-	Generate(r Request, img interface{}) (string, error)
+	Generate(r Request, img any) (string, error)
 	// CheckThumbnail checks if a thumbnail with the requested attributes exists.
 	// The function will return a status if the file exists and the key to the file.
 	CheckThumbnail(r Request) (string, bool)
@@ -49,7 +49,7 @@ type SimpleManager struct {
 }
 
 // Generate creates a thumbnail and stores it
-func (s SimpleManager) Generate(r Request, img interface{}) (string, error) {
+func (s SimpleManager) Generate(r Request, img any) (string, error) {
 	var match image.Rectangle
 
 	inputDimensions, err := r.Generator.Dimensions(img)

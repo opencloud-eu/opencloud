@@ -14,7 +14,7 @@ type PurgeTrashBin struct {
 }
 
 // Unmarshal to fulfill umarshaller interface
-func (PurgeTrashBin) Unmarshal(v []byte) (interface{}, error) {
+func (PurgeTrashBin) Unmarshal(v []byte) (any, error) {
 	e := PurgeTrashBin{}
 	err := json.Unmarshal(v, &e)
 	return e, err

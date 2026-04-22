@@ -15,12 +15,12 @@ func TestLegacyLockParser(t *testing.T) {
 	}{
 		{
 			name:      "JsonStringWithLKey",
-			lock:      createJsonString(map[string]interface{}{"L": "12345678", "F": 4, "E": 2, "C": "", "P": "3453345345346", "M": "12345678"}),
+			lock:      createJsonString(map[string]any{"L": "12345678", "F": 4, "E": 2, "C": "", "P": "3453345345346", "M": "12345678"}),
 			cleanLock: "12345678",
 		},
 		{
 			name:      "JsonStringWithSKey",
-			lock:      createJsonString(map[string]interface{}{"S": "12345678", "F": 4, "E": 2, "C": "", "P": "3453345345346", "M": "12345678"}),
+			lock:      createJsonString(map[string]any{"S": "12345678", "F": 4, "E": 2, "C": "", "P": "3453345345346", "M": "12345678"}),
 			cleanLock: "12345678",
 		},
 		{
@@ -30,7 +30,7 @@ func TestLegacyLockParser(t *testing.T) {
 		},
 		{
 			name:      "JsonStringUnknownFormat",
-			lock:      createJsonString(map[string]interface{}{"A": "12345678", "F": 4, "E": 2, "C": "", "P": "3453345345346", "X": "12345678"}),
+			lock:      createJsonString(map[string]any{"A": "12345678", "F": 4, "E": 2, "C": "", "P": "3453345345346", "X": "12345678"}),
 			cleanLock: `{"A":"12345678","C":"","E":2,"F":4,"P":"3453345345346","X":"12345678"}`,
 		},
 		{
@@ -78,7 +78,7 @@ func TestNoopLockParser(t *testing.T) {
 	}
 }
 
-func createJsonString(input map[string]interface{}) string {
+func createJsonString(input map[string]any) string {
 	rawData, err := json.Marshal(&input)
 	if err != nil {
 		return ""

@@ -141,10 +141,10 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 	)
 
 	spacePropertiesCache := ttlcache.New(
-		ttlcache.WithTTL[string, interface{}](
+		ttlcache.WithTTL[string, any](
 			time.Duration(options.Config.Spaces.ExtendedSpacePropertiesCacheTTL),
 		),
-		ttlcache.WithDisableTouchOnHit[string, interface{}](),
+		ttlcache.WithDisableTouchOnHit[string, any](),
 	)
 	go spacePropertiesCache.Start()
 

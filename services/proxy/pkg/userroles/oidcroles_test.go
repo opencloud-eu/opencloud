@@ -8,7 +8,7 @@ import (
 func TestExtractRolesArray(t *testing.T) {
 	byt := []byte(`{"roles":["a","b"]}`)
 
-	claims := map[string]interface{}{}
+	claims := map[string]any{}
 	err := json.Unmarshal(byt, &claims)
 	if err != nil {
 		t.Fatal(err)
@@ -29,7 +29,7 @@ func TestExtractRolesArray(t *testing.T) {
 func TestExtractRolesString(t *testing.T) {
 	byt := []byte(`{"roles":"a"}`)
 
-	claims := map[string]interface{}{}
+	claims := map[string]any{}
 	err := json.Unmarshal(byt, &claims)
 	if err != nil {
 		t.Fatal(err)
@@ -47,7 +47,7 @@ func TestExtractRolesString(t *testing.T) {
 func TestExtractRolesPathArray(t *testing.T) {
 	byt := []byte(`{"sub":{"roles":["a","b"]}}`)
 
-	claims := map[string]interface{}{}
+	claims := map[string]any{}
 	err := json.Unmarshal(byt, &claims)
 	if err != nil {
 		t.Fatal(err)
@@ -68,7 +68,7 @@ func TestExtractRolesPathArray(t *testing.T) {
 func TestExtractRolesPathString(t *testing.T) {
 	byt := []byte(`{"sub":{"roles":"a"}}`)
 
-	claims := map[string]interface{}{}
+	claims := map[string]any{}
 	err := json.Unmarshal(byt, &claims)
 	if err != nil {
 		t.Fatal(err)
@@ -86,7 +86,7 @@ func TestExtractRolesPathString(t *testing.T) {
 func TestExtractEscapedRolesPathString(t *testing.T) {
 	byt := []byte(`{"sub.roles":"a"}`)
 
-	claims := map[string]interface{}{}
+	claims := map[string]any{}
 	err := json.Unmarshal(byt, &claims)
 	if err != nil {
 		t.Fatal(err)
@@ -104,7 +104,7 @@ func TestExtractEscapedRolesPathString(t *testing.T) {
 func TestNoRoles(t *testing.T) {
 	byt := []byte(`{"sub":{"foo":"a"}}`)
 
-	claims := map[string]interface{}{}
+	claims := map[string]any{}
 	err := json.Unmarshal(byt, &claims)
 	if err != nil {
 		t.Fatal(err)

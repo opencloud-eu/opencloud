@@ -21,7 +21,7 @@ const (
 // Encoder encodes the thumbnail to a specific format.
 type Encoder interface {
 	// Encode encodes the image to a format.
-	Encode(w io.Writer, img interface{}) error
+	Encode(w io.Writer, img any) error
 	// Types returns the formats suffixes.
 	Types() []string
 	// MimeType returns the mimetype used by the encoder.
@@ -32,7 +32,7 @@ type Encoder interface {
 type GifEncoder struct{}
 
 // Encode encodes the image to a gif format
-func (e GifEncoder) Encode(w io.Writer, img interface{}) error {
+func (e GifEncoder) Encode(w io.Writer, img any) error {
 	g, ok := img.(*gif.GIF)
 	if !ok {
 		return errors.ErrInvalidType

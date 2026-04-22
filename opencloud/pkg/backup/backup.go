@@ -75,7 +75,7 @@ func CheckProviderConsistency(storagepath string, lbs ListBlobstore, fail bool) 
 }
 
 // GatherData gathers and evaluates data produced by the DataProvider
-func (c *Consistency) GatherData(events <-chan interface{}) {
+func (c *Consistency) GatherData(events <-chan any) {
 	for ev := range events {
 		switch d := ev.(type) {
 		case NodeData:

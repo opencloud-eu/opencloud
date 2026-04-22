@@ -13,38 +13,38 @@ import (
 )
 
 // SharingConfigFromStruct will adapt an OpenCloud config struct into a reva mapstructure to start a reva service.
-func SharingConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string]interface{}, error) {
+func SharingConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string]any, error) {
 	passwordPolicyCfg, err := passwordPolicyConfig(cfg)
 	if err != nil {
 		logger.Err(err).Send()
 		return nil, err
 	}
-	rcfg := map[string]interface{}{
-		"shared": map[string]interface{}{
+	rcfg := map[string]any{
+		"shared": map[string]any{
 			"jwt_secret":                cfg.TokenManager.JWTSecret,
 			"gatewaysvc":                cfg.Reva.Address,
 			"skip_user_groups_in_token": cfg.SkipUserGroupsInToken,
 			"grpc_client_options":       cfg.Reva.GetGRPCClientConfig(),
 			"multi_tenant_enabled":      cfg.Commons.MultiTenantEnabled,
 		},
-		"grpc": map[string]interface{}{
+		"grpc": map[string]any{
 			"network": cfg.GRPC.Protocol,
 			"address": cfg.GRPC.Addr,
-			"tls_settings": map[string]interface{}{
+			"tls_settings": map[string]any{
 				"enabled":     cfg.GRPC.TLS.Enabled,
 				"certificate": cfg.GRPC.TLS.Cert,
 				"key":         cfg.GRPC.TLS.Key,
 			},
 			// TODO build services dynamically
-			"services": map[string]interface{}{
-				"usershareprovider": map[string]interface{}{
+			"services": map[string]any{
+				"usershareprovider": map[string]any{
 					"driver": cfg.UserSharingDriver,
-					"drivers": map[string]interface{}{
-						"json": map[string]interface{}{
+					"drivers": map[string]any{
+						"json": map[string]any{
 							"file":         cfg.UserSharingDrivers.JSON.File,
 							"gateway_addr": cfg.Reva.Address,
 						},
-						"sql": map[string]interface{}{ // cernbox sql
+						"sql": map[string]any{ // cernbox sql
 							"db_username":                   cfg.UserSharingDrivers.SQL.DBUsername,
 							"db_password":                   cfg.UserSharingDrivers.SQL.DBPassword,
 							"db_host":                       cfg.UserSharingDrivers.SQL.DBHost,
@@ -54,7 +54,7 @@ func SharingConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string]
 							"enable_expired_shares_cleanup": cfg.UserSharingDrivers.SQL.EnableExpiredSharesCleanup,
 							"janitor_run_interval":          cfg.UserSharingDrivers.SQL.JanitorRunInterval,
 						},
-						"owncloudsql": map[string]interface{}{
+						"owncloudsql": map[string]any{
 							"gateway_addr":     cfg.Reva.Address,
 							"storage_mount_id": cfg.UserSharingDrivers.OwnCloudSQL.UserStorageMountID,
 							"db_username":      cfg.UserSharingDrivers.OwnCloudSQL.DBUsername,
@@ -63,14 +63,14 @@ func SharingConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string]
 							"db_port":          cfg.UserSharingDrivers.OwnCloudSQL.DBPort,
 							"db_name":          cfg.UserSharingDrivers.OwnCloudSQL.DBName,
 						},
-						"cs3": map[string]interface{}{
+						"cs3": map[string]any{
 							"gateway_addr":        cfg.UserSharingDrivers.CS3.ProviderAddr,
 							"provider_addr":       cfg.UserSharingDrivers.CS3.ProviderAddr,
 							"service_user_id":     cfg.UserSharingDrivers.CS3.SystemUserID,
 							"service_user_idp":    cfg.UserSharingDrivers.CS3.SystemUserIDP,
 							"machine_auth_apikey": cfg.UserSharingDrivers.CS3.SystemUserAPIKey,
 						},
-						"jsoncs3": map[string]interface{}{
+						"jsoncs3": map[string]any{
 							"gateway_addr":        cfg.Reva.Address,
 							"provider_addr":       cfg.UserSharingDrivers.JSONCS3.ProviderAddr,
 							"service_user_id":     cfg.UserSharingDrivers.JSONCS3.SystemUserID,
@@ -78,7 +78,7 @@ func SharingConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string]
 							"machine_auth_apikey": cfg.UserSharingDrivers.JSONCS3.SystemUserAPIKey,
 							"ttl":                 cfg.UserSharingDrivers.JSONCS3.CacheTTL,
 							"max_concurrency":     cfg.UserSharingDrivers.JSONCS3.MaxConcurrency,
-							"events": map[string]interface{}{
+							"events": map[string]any{
 								"natsaddress":          cfg.Events.Addr,
 								"natsclusterid":        cfg.Events.ClusterID,
 								"tlsinsecure":          cfg.Events.TLSInsecure,
@@ -89,18 +89,18 @@ func SharingConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string]
 						},
 					},
 				},
-				"publicshareprovider": map[string]interface{}{
+				"publicshareprovider": map[string]any{
 					"gateway_addr":                       cfg.Reva.Address,
 					"writeable_share_must_have_password": cfg.WriteableShareMustHavePassword,
 					"public_share_must_have_password":    cfg.PublicShareMustHavePassword,
 					"password_policy":                    passwordPolicyCfg,
 					"driver":                             cfg.PublicSharingDriver,
-					"drivers": map[string]interface{}{
-						"json": map[string]interface{}{
+					"drivers": map[string]any{
+						"json": map[string]any{
 							"file":         cfg.PublicSharingDrivers.JSON.File,
 							"gateway_addr": cfg.Reva.Address,
 						},
-						"sql": map[string]interface{}{
+						"sql": map[string]any{
 							"db_username":                   cfg.PublicSharingDrivers.SQL.DBUsername,
 							"db_password":                   cfg.PublicSharingDrivers.SQL.DBPassword,
 							"db_host":                       cfg.PublicSharingDrivers.SQL.DBHost,
@@ -110,14 +110,14 @@ func SharingConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string]
 							"enable_expired_shares_cleanup": cfg.PublicSharingDrivers.SQL.EnableExpiredSharesCleanup,
 							"janitor_run_interval":          cfg.PublicSharingDrivers.SQL.JanitorRunInterval,
 						},
-						"cs3": map[string]interface{}{
+						"cs3": map[string]any{
 							"gateway_addr":        cfg.PublicSharingDrivers.CS3.ProviderAddr,
 							"provider_addr":       cfg.PublicSharingDrivers.CS3.ProviderAddr,
 							"service_user_id":     cfg.PublicSharingDrivers.CS3.SystemUserID,
 							"service_user_idp":    cfg.PublicSharingDrivers.CS3.SystemUserIDP,
 							"machine_auth_apikey": cfg.PublicSharingDrivers.CS3.SystemUserAPIKey,
 						},
-						"jsoncs3": map[string]interface{}{
+						"jsoncs3": map[string]any{
 							"gateway_addr":                  cfg.Reva.Address,
 							"provider_addr":                 cfg.PublicSharingDrivers.JSONCS3.ProviderAddr,
 							"service_user_id":               cfg.PublicSharingDrivers.JSONCS3.SystemUserID,
@@ -128,8 +128,8 @@ func SharingConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string]
 					},
 				},
 			},
-			"interceptors": map[string]interface{}{
-				"eventsmiddleware": map[string]interface{}{
+			"interceptors": map[string]any{
+				"eventsmiddleware": map[string]any{
 					"group":            "sharing",
 					"type":             "nats",
 					"address":          cfg.Events.Addr,
@@ -141,7 +141,7 @@ func SharingConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string]
 					"username":         cfg.Events.AuthUsername,
 					"password":         cfg.Events.AuthPassword,
 				},
-				"prometheus": map[string]interface{}{
+				"prometheus": map[string]any{
 					"namespace": "opencloud",
 					"subsystem": "sharing",
 				},
@@ -179,10 +179,10 @@ func fileExists(path string) bool {
 	return !info.IsDir()
 }
 
-func passwordPolicyConfig(cfg *config.Config) (map[string]interface{}, error) {
+func passwordPolicyConfig(cfg *config.Config) (map[string]any, error) {
 	_maxCharacters := 72
 	if cfg.PasswordPolicy.Disabled {
-		return map[string]interface{}{
+		return map[string]any{
 			"max_characters":        _maxCharacters,
 			"banned_passwords_list": nil,
 		}, nil
@@ -195,7 +195,7 @@ func passwordPolicyConfig(cfg *config.Config) (map[string]interface{}, error) {
 			return nil, fmt.Errorf("failed to load the banned passwords from a file %s: %w", cfg.PasswordPolicy.BannedPasswordsList, err)
 		}
 	}
-	return map[string]interface{}{
+	return map[string]any{
 		"max_characters":           _maxCharacters,
 		"min_digits":               cfg.PasswordPolicy.MinDigits,
 		"min_characters":           cfg.PasswordPolicy.MinCharacters,

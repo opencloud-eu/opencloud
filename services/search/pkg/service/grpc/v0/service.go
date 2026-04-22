@@ -44,7 +44,7 @@ func NewHandler(opts ...Option) (searchsvc.SearchProviderHandler, error) {
 		return nil, err
 	}
 
-	tokenManager, err := jwt.New(map[string]interface{}{
+	tokenManager, err := jwt.New(map[string]any{
 		"secret":  options.JWTSecret,
 		"expires": int64(24 * 60 * 60),
 	})

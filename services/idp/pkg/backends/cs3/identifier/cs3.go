@@ -196,7 +196,7 @@ func (b *CS3Backend) ResolveUserByUsername(ctx context.Context, username string)
 }
 
 // RefreshSession implements the Backend interface.
-func (b *CS3Backend) RefreshSession(_ context.Context, _ string, _ *string, _ map[string]interface{}) error {
+func (b *CS3Backend) RefreshSession(_ context.Context, _ string, _ *string, _ map[string]any) error {
 	return nil
 }
 
@@ -208,7 +208,7 @@ func (b *CS3Backend) DestroySession(_ context.Context, sessionRef *string) error
 
 // UserClaims implements the Backend interface, providing user specific claims
 // for the user specified by the userID.
-func (b *CS3Backend) UserClaims(_ string, _ map[string]bool) map[string]interface{} {
+func (b *CS3Backend) UserClaims(_ string, _ map[string]bool) map[string]any {
 	return nil
 }
 

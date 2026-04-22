@@ -5,8 +5,8 @@ import (
 )
 
 // EOS is the config mapping for the EOS storage driver
-func EOS(cfg *config.Config) map[string]interface{} {
-	return map[string]interface{}{
+func EOS(cfg *config.Config) map[string]any {
+	return map[string]any{
 		"namespace":              cfg.Drivers.EOS.Root,
 		"shadow_namespace":       cfg.Drivers.EOS.ShadowNamespace,
 		"uploads_namespace":      cfg.Drivers.EOS.UploadsNamespace,
@@ -28,8 +28,8 @@ func EOS(cfg *config.Config) map[string]interface{} {
 }
 
 // EOSHome is the config mapping for the EOSHome storage driver
-func EOSHome(cfg *config.Config) map[string]interface{} {
-	return map[string]interface{}{
+func EOSHome(cfg *config.Config) map[string]any {
+	return map[string]any{
 		"namespace":              cfg.Drivers.EOS.Root,
 		"shadow_namespace":       cfg.Drivers.EOS.ShadowNamespace,
 		"uploads_namespace":      cfg.Drivers.EOS.UploadsNamespace,
@@ -52,8 +52,8 @@ func EOSHome(cfg *config.Config) map[string]interface{} {
 }
 
 // EOSGRPC is the config mapping for the EOSGRPC storage driver
-func EOSGRPC(cfg *config.Config) map[string]interface{} {
-	return map[string]interface{}{
+func EOSGRPC(cfg *config.Config) map[string]any {
+	return map[string]any{
 		"namespace":              cfg.Drivers.EOS.Root,
 		"shadow_namespace":       cfg.Drivers.EOS.ShadowNamespace,
 		"share_folder":           cfg.Drivers.EOS.ShareFolder,
@@ -77,16 +77,16 @@ func EOSGRPC(cfg *config.Config) map[string]interface{} {
 }
 
 // Local is the config mapping for the Local storage driver
-func Local(cfg *config.Config) map[string]interface{} {
-	return map[string]interface{}{
+func Local(cfg *config.Config) map[string]any {
+	return map[string]any{
 		"root":         cfg.Drivers.Local.Root,
 		"share_folder": cfg.Drivers.Local.ShareFolder,
 	}
 }
 
 // Posix is the config mapping for the Posix storage driver
-func Posix(cfg *config.Config, enableFSScan, enableFSWatch bool) map[string]interface{} {
-	return map[string]interface{}{
+func Posix(cfg *config.Config, enableFSScan, enableFSWatch bool) map[string]any {
+	return map[string]any{
 		"root":                        cfg.Drivers.Posix.Root,
 		"personalspacepath_template":  cfg.Drivers.Posix.PersonalSpacePathTemplate,
 		"personalspacealias_template": cfg.Drivers.Posix.PersonalSpaceAliasTemplate,
@@ -102,13 +102,13 @@ func Posix(cfg *config.Config, enableFSScan, enableFSWatch bool) map[string]inte
 		"disable_versioning":          cfg.Drivers.Posix.DisableVersioning,
 		"multi_tenant_enabled":        cfg.Commons.MultiTenantEnabled,
 		"propagator":                  cfg.Drivers.Posix.Propagator,
-		"async_propagator_options": map[string]interface{}{
+		"async_propagator_options": map[string]any{
 			"propagation_delay": cfg.Drivers.Posix.AsyncPropagatorOptions.PropagationDelay,
 		},
 		"max_acquire_lock_cycles":    cfg.Drivers.Posix.MaxAcquireLockCycles,
 		"lock_cycle_duration_factor": cfg.Drivers.Posix.LockCycleDurationFactor,
 		"max_concurrency":            cfg.Drivers.Posix.MaxConcurrency,
-		"idcache": map[string]interface{}{
+		"idcache": map[string]any{
 			"cache_store":               cfg.IDCache.Store,
 			"cache_nodes":               cfg.IDCache.Nodes,
 			"cache_database":            cfg.IDCache.Database,
@@ -116,7 +116,7 @@ func Posix(cfg *config.Config, enableFSScan, enableFSWatch bool) map[string]inte
 			"cache_auth_username":       cfg.IDCache.AuthUsername,
 			"cache_auth_password":       cfg.IDCache.AuthPassword,
 		},
-		"filemetadatacache": map[string]interface{}{
+		"filemetadatacache": map[string]any{
 			"cache_store":               cfg.FilemetadataCache.Store,
 			"cache_nodes":               cfg.FilemetadataCache.Nodes,
 			"cache_database":            cfg.FilemetadataCache.Database,
@@ -125,10 +125,10 @@ func Posix(cfg *config.Config, enableFSScan, enableFSWatch bool) map[string]inte
 			"cache_auth_username":       cfg.FilemetadataCache.AuthUsername,
 			"cache_auth_password":       cfg.FilemetadataCache.AuthPassword,
 		},
-		"events": map[string]interface{}{
+		"events": map[string]any{
 			"numconsumers": cfg.Events.NumConsumers,
 		},
-		"tokens": map[string]interface{}{
+		"tokens": map[string]any{
 			"transfer_shared_secret": cfg.Commons.TransferSecret,
 			"transfer_expires":       cfg.TransferExpires,
 			"download_endpoint":      cfg.DataServerURL,
@@ -147,8 +147,8 @@ func Posix(cfg *config.Config, enableFSScan, enableFSWatch bool) map[string]inte
 }
 
 // LocalHome is the config mapping for the LocalHome storage driver
-func LocalHome(cfg *config.Config) map[string]interface{} {
-	return map[string]interface{}{
+func LocalHome(cfg *config.Config) map[string]any {
+	return map[string]any{
 		"root":         cfg.Drivers.Local.Root,
 		"share_folder": cfg.Drivers.Local.ShareFolder,
 		"user_layout":  cfg.Drivers.Local.UserLayout,
@@ -156,8 +156,8 @@ func LocalHome(cfg *config.Config) map[string]interface{} {
 }
 
 // OwnCloudSQL is the config mapping for the OwnCloudSQL storage driver
-func OwnCloudSQL(cfg *config.Config) map[string]interface{} {
-	return map[string]interface{}{
+func OwnCloudSQL(cfg *config.Config) map[string]any {
+	return map[string]any{
 		"datadirectory":   cfg.Drivers.OwnCloudSQL.Root,
 		"upload_info_dir": cfg.Drivers.OwnCloudSQL.UploadInfoDir,
 		"share_folder":    cfg.Drivers.OwnCloudSQL.ShareFolder,
@@ -169,7 +169,7 @@ func OwnCloudSQL(cfg *config.Config) map[string]interface{} {
 		"dbport":          cfg.Drivers.OwnCloudSQL.DBPort,
 		"dbname":          cfg.Drivers.OwnCloudSQL.DBName,
 		"userprovidersvc": cfg.Drivers.OwnCloudSQL.UsersProviderEndpoint,
-		"tokens": map[string]interface{}{
+		"tokens": map[string]any{
 			"download_endpoint":      cfg.DataServerURL,
 			"datagateway_endpoint":   cfg.DataGatewayURL,
 			"transfer_shared_secret": cfg.Commons.TransferSecret,
@@ -179,11 +179,11 @@ func OwnCloudSQL(cfg *config.Config) map[string]interface{} {
 }
 
 // Decomposed is the config mapping for the Decomposed storage driver
-func Decomposed(cfg *config.Config) map[string]interface{} {
-	return map[string]interface{}{
+func Decomposed(cfg *config.Config) map[string]any {
+	return map[string]any{
 		"metadata_backend": "messagepack",
 		"propagator":       cfg.Drivers.Decomposed.Propagator,
-		"async_propagator_options": map[string]interface{}{
+		"async_propagator_options": map[string]any{
 			"propagation_delay": cfg.Drivers.Decomposed.AsyncPropagatorOptions.PropagationDelay,
 		},
 		"root":                        cfg.Drivers.Decomposed.Root,
@@ -204,7 +204,7 @@ func Decomposed(cfg *config.Config) map[string]interface{} {
 		"max_quota":                   cfg.Drivers.Decomposed.MaxQuota,
 		"disable_versioning":          cfg.Drivers.Decomposed.DisableVersioning,
 		"multi_tenant_enabled":        cfg.Commons.MultiTenantEnabled,
-		"filemetadatacache": map[string]interface{}{
+		"filemetadatacache": map[string]any{
 			"cache_store":               cfg.FilemetadataCache.Store,
 			"cache_nodes":               cfg.FilemetadataCache.Nodes,
 			"cache_database":            cfg.FilemetadataCache.Database,
@@ -213,7 +213,7 @@ func Decomposed(cfg *config.Config) map[string]interface{} {
 			"cache_auth_username":       cfg.FilemetadataCache.AuthUsername,
 			"cache_auth_password":       cfg.FilemetadataCache.AuthPassword,
 		},
-		"idcache": map[string]interface{}{
+		"idcache": map[string]any{
 			"cache_store":               cfg.IDCache.Store,
 			"cache_nodes":               cfg.IDCache.Nodes,
 			"cache_database":            cfg.IDCache.Database,
@@ -221,10 +221,10 @@ func Decomposed(cfg *config.Config) map[string]interface{} {
 			"cache_auth_username":       cfg.IDCache.AuthUsername,
 			"cache_auth_password":       cfg.IDCache.AuthPassword,
 		},
-		"events": map[string]interface{}{
+		"events": map[string]any{
 			"numconsumers": cfg.Events.NumConsumers,
 		},
-		"tokens": map[string]interface{}{
+		"tokens": map[string]any{
 			"transfer_shared_secret": cfg.Commons.TransferSecret,
 			"transfer_expires":       cfg.TransferExpires,
 			"download_endpoint":      cfg.DataServerURL,
@@ -234,11 +234,11 @@ func Decomposed(cfg *config.Config) map[string]interface{} {
 }
 
 // DecomposedsNoEvents is the config mapping for the Decomposed storage driver emitting no events
-func DecomposedNoEvents(cfg *config.Config) map[string]interface{} {
-	return map[string]interface{}{
+func DecomposedNoEvents(cfg *config.Config) map[string]any {
+	return map[string]any{
 		"metadata_backend": "messagepack",
 		"propagator":       cfg.Drivers.Decomposed.Propagator,
-		"async_propagator_options": map[string]interface{}{
+		"async_propagator_options": map[string]any{
 			"propagation_delay": cfg.Drivers.Decomposed.AsyncPropagatorOptions.PropagationDelay,
 		},
 		"root":                        cfg.Drivers.Decomposed.Root,
@@ -258,7 +258,7 @@ func DecomposedNoEvents(cfg *config.Config) map[string]interface{} {
 		"max_quota":                   cfg.Drivers.Decomposed.MaxQuota,
 		"disable_versioning":          cfg.Drivers.Decomposed.DisableVersioning,
 		"multi_tenant_enabled":        cfg.Commons.MultiTenantEnabled,
-		"filemetadatacache": map[string]interface{}{
+		"filemetadatacache": map[string]any{
 			"cache_store":               cfg.FilemetadataCache.Store,
 			"cache_nodes":               cfg.FilemetadataCache.Nodes,
 			"cache_database":            cfg.FilemetadataCache.Database,
@@ -267,7 +267,7 @@ func DecomposedNoEvents(cfg *config.Config) map[string]interface{} {
 			"cache_auth_username":       cfg.FilemetadataCache.AuthUsername,
 			"cache_auth_password":       cfg.FilemetadataCache.AuthPassword,
 		},
-		"idcache": map[string]interface{}{
+		"idcache": map[string]any{
 			"cache_store":               cfg.IDCache.Store,
 			"cache_nodes":               cfg.IDCache.Nodes,
 			"cache_database":            cfg.IDCache.Database,
@@ -279,11 +279,11 @@ func DecomposedNoEvents(cfg *config.Config) map[string]interface{} {
 }
 
 // DecomposedS3 is the config mapping for the decomposeds3 storage driver
-func DecomposedS3(cfg *config.Config) map[string]interface{} {
-	return map[string]interface{}{
+func DecomposedS3(cfg *config.Config) map[string]any {
+	return map[string]any{
 		"metadata_backend": "messagepack",
 		"propagator":       cfg.Drivers.DecomposedS3.Propagator,
-		"async_propagator_options": map[string]interface{}{
+		"async_propagator_options": map[string]any{
 			"propagation_delay": cfg.Drivers.DecomposedS3.AsyncPropagatorOptions.PropagationDelay,
 		},
 		"root":                        cfg.Drivers.DecomposedS3.Root,
@@ -314,7 +314,7 @@ func DecomposedS3(cfg *config.Config) map[string]interface{} {
 		"disable_versioning":          cfg.Drivers.DecomposedS3.DisableVersioning,
 		"multi_tenant_enabled":        cfg.Commons.MultiTenantEnabled,
 		"asyncfileuploads":            cfg.Drivers.DecomposedS3.AsyncUploads,
-		"filemetadatacache": map[string]interface{}{
+		"filemetadatacache": map[string]any{
 			"cache_store":               cfg.FilemetadataCache.Store,
 			"cache_nodes":               cfg.FilemetadataCache.Nodes,
 			"cache_database":            cfg.FilemetadataCache.Database,
@@ -323,7 +323,7 @@ func DecomposedS3(cfg *config.Config) map[string]interface{} {
 			"cache_auth_username":       cfg.FilemetadataCache.AuthUsername,
 			"cache_auth_password":       cfg.FilemetadataCache.AuthPassword,
 		},
-		"idcache": map[string]interface{}{
+		"idcache": map[string]any{
 			"cache_store":               cfg.IDCache.Store,
 			"cache_nodes":               cfg.IDCache.Nodes,
 			"cache_database":            cfg.IDCache.Database,
@@ -331,10 +331,10 @@ func DecomposedS3(cfg *config.Config) map[string]interface{} {
 			"cache_auth_username":       cfg.IDCache.AuthUsername,
 			"cache_auth_password":       cfg.IDCache.AuthPassword,
 		},
-		"events": map[string]interface{}{
+		"events": map[string]any{
 			"numconsumers": cfg.Events.NumConsumers,
 		},
-		"tokens": map[string]interface{}{
+		"tokens": map[string]any{
 			"transfer_shared_secret": cfg.Commons.TransferSecret,
 			"transfer_expires":       cfg.TransferExpires,
 			"download_endpoint":      cfg.DataServerURL,
@@ -344,11 +344,11 @@ func DecomposedS3(cfg *config.Config) map[string]interface{} {
 }
 
 // DecomposedS3NoEvents is the config mapping for the decomposeds3 storage driver emitting no events
-func DecomposedS3NoEvents(cfg *config.Config) map[string]interface{} {
-	return map[string]interface{}{
+func DecomposedS3NoEvents(cfg *config.Config) map[string]any {
+	return map[string]any{
 		"metadata_backend": "messagepack",
 		"propagator":       cfg.Drivers.DecomposedS3.Propagator,
-		"async_propagator_options": map[string]interface{}{
+		"async_propagator_options": map[string]any{
 			"propagation_delay": cfg.Drivers.DecomposedS3.AsyncPropagatorOptions.PropagationDelay,
 		},
 		"root":                        cfg.Drivers.DecomposedS3.Root,
@@ -372,7 +372,7 @@ func DecomposedS3NoEvents(cfg *config.Config) map[string]interface{} {
 		"disable_versioning":          cfg.Drivers.DecomposedS3.DisableVersioning,
 		"multi_tenant_enabled":        cfg.Commons.MultiTenantEnabled,
 		"lock_cycle_duration_factor":  cfg.Drivers.DecomposedS3.LockCycleDurationFactor,
-		"filemetadatacache": map[string]interface{}{
+		"filemetadatacache": map[string]any{
 			"cache_store":               cfg.FilemetadataCache.Store,
 			"cache_nodes":               cfg.FilemetadataCache.Nodes,
 			"cache_database":            cfg.FilemetadataCache.Database,
@@ -381,7 +381,7 @@ func DecomposedS3NoEvents(cfg *config.Config) map[string]interface{} {
 			"cache_auth_username":       cfg.FilemetadataCache.AuthUsername,
 			"cache_auth_password":       cfg.FilemetadataCache.AuthPassword,
 		},
-		"idcache": map[string]interface{}{
+		"idcache": map[string]any{
 			"cache_store":               cfg.IDCache.Store,
 			"cache_nodes":               cfg.IDCache.Nodes,
 			"cache_database":            cfg.IDCache.Database,

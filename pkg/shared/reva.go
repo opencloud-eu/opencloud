@@ -22,8 +22,8 @@ func (r *Reva) GetRevaOptions() []pool.Option {
 	return opts
 }
 
-func (r *Reva) GetGRPCClientConfig() map[string]interface{} {
-	return map[string]interface{}{
+func (r *Reva) GetGRPCClientConfig() map[string]any {
+	return map[string]any{
 		"tls_mode":   r.TLS.Mode,
 		"tls_cacert": r.TLS.CACert,
 	}

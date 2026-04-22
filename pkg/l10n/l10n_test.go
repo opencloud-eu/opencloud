@@ -389,8 +389,8 @@ func TestTranslateStruct(t *testing.T) {
 	}
 }
 
-func mock() func(string, ...interface{}) string {
-	return func(s string, i ...interface{}) string {
+func mock() func(string, ...any) string {
+	return func(s string, i ...any) string {
 		switch s {
 		case "description":
 			return "new Description"

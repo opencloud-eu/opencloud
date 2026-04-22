@@ -16,7 +16,7 @@ import (
 type UserRoleAssigner interface {
 	// UpdateUserRoleAssignment is called by the account resolver middleware. It updates the user's role assignment
 	// based on the user's (OIDC) claims. It adds the user's roles to the opaque data of the cs3.User struct
-	UpdateUserRoleAssignment(ctx context.Context, user *cs3.User, claims map[string]interface{}) (*cs3.User, error)
+	UpdateUserRoleAssignment(ctx context.Context, user *cs3.User, claims map[string]any) (*cs3.User, error)
 	// ApplyUserRole can be called by proxy middlewares, it looks up the user's roles and adds them
 	// the users "roles" key in the user's opaque data
 	ApplyUserRole(ctx context.Context, user *cs3.User) (*cs3.User, error)

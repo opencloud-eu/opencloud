@@ -13,8 +13,8 @@ import (
 
 // Generator generates a web friendly file version.
 type Generator interface {
-	Generate(size image.Rectangle, img interface{}) (interface{}, error)
-	Dimensions(img interface{}) (image.Rectangle, error)
+	Generate(size image.Rectangle, img any) (any, error)
+	Dimensions(img any) (image.Rectangle, error)
 	ProcessorID() string
 }
 
@@ -38,7 +38,7 @@ func (g GifGenerator) ProcessorID() string {
 }
 
 // Generate generates a alternative gif version.
-func (g GifGenerator) Generate(size image.Rectangle, img interface{}) (interface{}, error) {
+func (g GifGenerator) Generate(size image.Rectangle, img any) (any, error) {
 	// Code inspired by https://github.com/willnorris/gifresize/blob/db93a7e1dcb1c279f7eeb99cc6d90b9e2e23e871/gifresize.go
 
 	m, ok := img.(*gif.GIF)
@@ -70,7 +70,7 @@ func (g GifGenerator) Generate(size image.Rectangle, img interface{}) (interface
 	return m, nil
 }
 
-func (g GifGenerator) Dimensions(img interface{}) (image.Rectangle, error) {
+func (g GifGenerator) Dimensions(img any) (image.Rectangle, error) {
 	m, ok := img.(*gif.GIF)
 	if !ok {
 		return image.Rectangle{}, errors.ErrInvalidType

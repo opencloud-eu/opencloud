@@ -6,28 +6,28 @@ import (
 )
 
 // AppProviderConfigFromStruct will adapt an OpenCloud config struct into a reva mapstructure to start a reva service.
-func AppProviderConfigFromStruct(cfg *config.Config) map[string]interface{} {
-	rcfg := map[string]interface{}{
-		"shared": map[string]interface{}{
+func AppProviderConfigFromStruct(cfg *config.Config) map[string]any {
+	rcfg := map[string]any{
+		"shared": map[string]any{
 			"jwt_secret":           cfg.TokenManager.JWTSecret,
 			"gatewaysvc":           cfg.Reva.Address,
 			"grpc_client_options":  cfg.Reva.GetGRPCClientConfig(),
 			"multi_tenant_enabled": cfg.Commons.MultiTenantEnabled,
 		},
-		"grpc": map[string]interface{}{
+		"grpc": map[string]any{
 			"network": cfg.GRPC.Protocol,
 			"address": cfg.GRPC.Addr,
-			"tls_settings": map[string]interface{}{
+			"tls_settings": map[string]any{
 				"enabled":     cfg.GRPC.TLS.Enabled,
 				"certificate": cfg.GRPC.TLS.Cert,
 				"key":         cfg.GRPC.TLS.Key,
 			},
-			"services": map[string]interface{}{
-				"appprovider": map[string]interface{}{
+			"services": map[string]any{
+				"appprovider": map[string]any{
 					"app_provider_url": cfg.ExternalAddr,
 					"driver":           cfg.Driver,
-					"drivers": map[string]interface{}{
-						"wopi": map[string]interface{}{
+					"drivers": map[string]any{
+						"wopi": map[string]any{
 							"app_api_key":                   cfg.Drivers.WOPI.AppAPIKey,
 							"app_desktop_only":              cfg.Drivers.WOPI.AppDesktopOnly,
 							"app_icon_uri":                  cfg.Drivers.WOPI.AppIconURI,
@@ -45,8 +45,8 @@ func AppProviderConfigFromStruct(cfg *config.Config) map[string]interface{} {
 					},
 				},
 			},
-			"interceptors": map[string]interface{}{
-				"prometheus": map[string]interface{}{
+			"interceptors": map[string]any{
+				"prometheus": map[string]any{
 					"namespace": "opencloud",
 					"subsystem": "app_provider",
 				},

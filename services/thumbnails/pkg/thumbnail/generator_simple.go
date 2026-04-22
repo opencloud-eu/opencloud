@@ -28,7 +28,7 @@ func (g SimpleGenerator) ProcessorID() string {
 }
 
 // Generate generates a alternative image version.
-func (g SimpleGenerator) Generate(size image.Rectangle, img interface{}) (interface{}, error) {
+func (g SimpleGenerator) Generate(size image.Rectangle, img any) (any, error) {
 	m, ok := img.(image.Image)
 	if !ok {
 		return nil, errors.ErrInvalidType
@@ -37,7 +37,7 @@ func (g SimpleGenerator) Generate(size image.Rectangle, img interface{}) (interf
 	return g.processor.Process(m, size.Dx(), size.Dy(), imaging.Lanczos), nil
 }
 
-func (g SimpleGenerator) Dimensions(img interface{}) (image.Rectangle, error) {
+func (g SimpleGenerator) Dimensions(img any) (image.Rectangle, error) {
 	m, ok := img.(image.Image)
 	if !ok {
 		return image.Rectangle{}, errors.ErrInvalidType

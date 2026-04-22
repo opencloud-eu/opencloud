@@ -114,7 +114,7 @@ func (e ErrorCode) Render(w http.ResponseWriter, r *http.Request, status int, ms
 
 // CreateOdataError creates and populates a Graph ErrorCode object
 func (e ErrorCode) CreateOdataError(ctx context.Context, msg string) *libregraph.OdataError {
-	innererror := map[string]interface{}{
+	innererror := map[string]any{
 		"date": time.Now().UTC().Format(time.RFC3339),
 	}
 

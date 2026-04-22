@@ -32,7 +32,7 @@ func Auth(opts ...account.Option) func(http.Handler) http.Handler {
 	// Note: This largely duplicates what pkg/middleware/account.go already does (apart from a slightly different error
 	// handling). Ideally we should merge both middlewares.
 	opt := authOptions(opts...)
-	tokenManager, err := jwt.New(map[string]interface{}{
+	tokenManager, err := jwt.New(map[string]any{
 		"secret":  opt.JWTSecret,
 		"expires": int64(24 * 60 * 60),
 	})

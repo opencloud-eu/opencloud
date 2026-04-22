@@ -150,7 +150,7 @@ func (s *StaticRouteHandler) publishBackchannelLogoutEvent(ctx context.Context, 
 		return fmt.Errorf("no claim found for key: %s", claimKey)
 	}
 
-	var claims map[string]interface{}
+	var claims map[string]any
 	if err = msgpack.Unmarshal(claimRecords[0].Value, &claims); err != nil {
 		return fmt.Errorf("failed to unmarshal claims: %w", err)
 	}

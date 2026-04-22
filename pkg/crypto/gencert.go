@@ -63,7 +63,7 @@ func GenTempCertForAddr(addr string) (tls.Certificate, error) {
 }
 
 // persistCertificate generates a certificate using pk as private key and proceeds to store it into a file named certName.
-func persistCertificate(certName string, l log.Logger, pk interface{}) error {
+func persistCertificate(certName string, l log.Logger, pk any) error {
 	if err := ensureExistsDir(certName); err != nil {
 		return fmt.Errorf("creating certificate destination: %s", certName)
 	}
@@ -93,7 +93,7 @@ func persistCertificate(certName string, l log.Logger, pk interface{}) error {
 }
 
 // genCert generates a self signed certificate using a random rsa key.
-func generateCertificate(pk interface{}) ([]byte, error) {
+func generateCertificate(pk any) ([]byte, error) {
 	for _, h := range defaultHosts {
 		if ip := net.ParseIP(h); ip != nil {
 			acmeTemplate.IPAddresses = append(acmeTemplate.IPAddresses, ip)
@@ -106,7 +106,7 @@ func generateCertificate(pk interface{}) ([]byte, error) {
 }
 
 // persistKey persists the private key used to generate the certificate at the configured location.
-func persistKey(destination string, l log.Logger, pk interface{}) error {
+func persistKey(destination string, l log.Logger, pk any) error {
 	if err := ensureExistsDir(destination); err != nil {
 		return fmt.Errorf("creating key destination: %s", destination)
 	}
@@ -129,7 +129,7 @@ func persistKey(destination string, l log.Logger, pk interface{}) error {
 	return nil
 }
 
-func publicKey(pk interface{}) interface{} {
+func publicKey(pk any) any {
 	switch k := pk.(type) {
 	case *rsa.PrivateKey:
 		return &k.PublicKey
@@ -140,7 +140,7 @@ func publicKey(pk interface{}) interface{} {
 	}
 }
 
-func pemBlockForKey(pk interface{}, l log.Logger) *pem.Block {
+func pemBlockForKey(pk any, l log.Logger) *pem.Block {
 	switch k := pk.(type) {
 	case *rsa.PrivateKey:
 		return &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(k)}

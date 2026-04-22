@@ -97,7 +97,7 @@ type ExternalApp struct {
 	ID   string `json:"id,omitempty" yaml:"id"`
 	Path string `json:"path,omitempty" yaml:"path"`
 	// Config is completely dynamic, because it depends on the extension
-	Config map[string]interface{} `json:"config,omitempty" yaml:"config"`
+	Config map[string]any `json:"config,omitempty" yaml:"config"`
 }
 
 // ExternalAppConfig defines an external web app configuration.

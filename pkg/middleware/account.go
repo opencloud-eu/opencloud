@@ -33,7 +33,7 @@ const RoleIDs string = "Role-Ids"
 // and write it to the context. If there is no x-access-token the middleware is omitted.
 func ExtractAccountUUID(opts ...account.Option) func(http.Handler) http.Handler {
 	opt := newAccountOptions(opts...)
-	tokenManager, err := jwt.New(map[string]interface{}{
+	tokenManager, err := jwt.New(map[string]any{
 		"secret":  opt.JWTSecret,
 		"expires": int64(24 * 60 * 60),
 	})
