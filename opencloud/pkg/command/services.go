@@ -19,6 +19,7 @@ import (
 	authservice "github.com/opencloud-eu/opencloud/services/auth-service/pkg/command"
 	clientlog "github.com/opencloud-eu/opencloud/services/clientlog/pkg/command"
 	collaboration "github.com/opencloud-eu/opencloud/services/collaboration/pkg/command"
+	console "github.com/opencloud-eu/opencloud/services/console/pkg/command"
 	eventhistory "github.com/opencloud-eu/opencloud/services/eventhistory/pkg/command"
 	frontend "github.com/opencloud-eu/opencloud/services/frontend/pkg/command"
 	gateway "github.com/opencloud-eu/opencloud/services/gateway/pkg/command"
@@ -111,6 +112,11 @@ var serviceCommands = []register.Command{
 	func(cfg *config.Config) *cobra.Command {
 		return ServiceCommand(cfg, cfg.Collaboration.Service.Name, collaboration.GetCommands(cfg.Collaboration), func(c *config.Config) {
 			cfg.Collaboration.Commons = cfg.Commons
+		})
+	},
+	func(cfg *config.Config) *cobra.Command {
+		return ServiceCommand(cfg, cfg.Console.Service.Name, console.GetCommands(cfg.Console), func(c *config.Config) {
+			cfg.Console.Commons = cfg.Commons
 		})
 	},
 	func(cfg *config.Config) *cobra.Command {

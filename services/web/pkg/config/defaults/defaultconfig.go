@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/defaults"
+	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/config"
 )
 
@@ -24,6 +25,11 @@ func DefaultConfig() *config.Config {
 			Token:  "",
 			Pprof:  false,
 			Zpages: false,
+		},
+		GRPC: config.GRPCConfig{
+			Addr:      "127.0.0.1:9221",
+			Namespace: "eu.opencloud.api",
+			Protocol:  "tcp",
 		},
 		HTTP: config.HTTP{
 			Addr:      "127.0.0.1:9100",
@@ -85,12 +91,16 @@ func DefaultConfig() *config.Config {
 			ThemesPath: filepath.Join(defaults.BaseDataPath(), "web/assets/themes"),
 		},
 		GatewayAddress: "eu.opencloud.api.gateway",
+		Metadata: config.Metadata{
+			GatewayAddress: "eu.opencloud.api.storage-system",
+			StorageAddress: "eu.opencloud.api.storage-system",
+			SystemUserIDP:  "internal",
+		},
 		Web: config.Web{
 			ThemeServer: "https://localhost:9200",
 			ThemePath:   "/themes/opencloud/theme.json",
 			Config: config.WebConfig{
 				Server: "https://localhost:9200",
-				Theme:  "",
 				OpenIDConnect: config.OIDC{
 					MetadataURL:  "",
 					Authority:    "https://localhost:9200",
@@ -140,6 +150,14 @@ func EnsureDefaults(cfg *config.Config) {
 				cfg.HTTP.CORS.AllowedOrigins[0] == "https://localhost:9200") {
 		cfg.HTTP.CORS.AllowedOrigins = []string{cfg.Commons.OpenCloudURL}
 	}
+
+	if cfg.Metadata.SystemUserAPIKey == "" && cfg.Commons != nil && cfg.Commons.SystemUserAPIKey != "" {
+		cfg.Metadata.SystemUserAPIKey = cfg.Commons.SystemUserAPIKey
+	}
+
+	if cfg.Metadata.SystemUserID == "" && cfg.Commons != nil && cfg.Commons.SystemUserID != "" {
+		cfg.Metadata.SystemUserID = cfg.Commons.SystemUserID
+	}
 }
 
 // Sanitize sanitized the configuration
@@ -182,5 +200,13 @@ func Sanitize(cfg *config.Config) {
 		cfg.Web.Config.Options.Embed.DelegateAuthentication &&
 		cfg.Web.Config.Options.Embed.DelegateAuthenticationOrigin == "" {
 		cfg.Web.Config.Options.Embed = nil
+	}
+
+	if cfg.GRPCClientTLS == nil && cfg.Commons != nil {
+		cfg.GRPCClientTLS = structs.CopyOrZeroValue(cfg.Commons.GRPCClientTLS)
+	}
+
+	if cfg.GRPC.TLS == nil && cfg.Commons != nil {
+		cfg.GRPC.TLS = structs.CopyOrZeroValue(cfg.Commons.GRPCServiceTLS)
 	}
 }

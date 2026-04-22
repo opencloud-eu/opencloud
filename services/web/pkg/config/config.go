@@ -3,6 +3,8 @@ package config
 import (
 	"context"
 
+	"go-micro.dev/v4/client"
+
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 )
 
@@ -17,6 +19,9 @@ type Config struct {
 
 	HTTP HTTP `yaml:"http"`
 
+	GRPC       GRPCConfig    `yaml:"grpc"`
+	GrpcClient client.Client `yaml:"-"`
+
 	Asset Asset  `yaml:"asset"`
 	File  string `yaml:"file" env:"WEB_UI_CONFIG_FILE" desc:"Read the OpenCloud Web json based configuration from this path/file. The config file takes precedence over WEB_OPTION_xxx environment variables. See the text description for more details." introductionVersion:"1.0.0"`
 	Web   Web    `yaml:"web"`
@@ -24,8 +29,21 @@ type Config struct {
 
 	TokenManager *TokenManager `yaml:"token_manager"`
 
-	GatewayAddress string          `yaml:"gateway_addr" env:"WEB_GATEWAY_GRPC_ADDR" desc:"The bind address of the GRPC service." introductionVersion:"1.0.0"`
-	Context        context.Context `yaml:"-"`
+	GatewayAddress string                `yaml:"gateway_addr" env:"WEB_GATEWAY_GRPC_ADDR" desc:"The bind address of the GRPC service." introductionVersion:"1.0.0"`
+	Context        context.Context       `yaml:"-"`
+	GRPCClientTLS  *shared.GRPCClientTLS `yaml:"grpc_client_tls"`
+
+	Metadata Metadata `yaml:"metadata_config"`
+}
+
+// Metadata configures the metadata store to use
+type Metadata struct {
+	GatewayAddress string `yaml:"gateway_addr" env:"WEB_STORAGE_GATEWAY_GRPC_ADDR;STORAGE_GATEWAY_GRPC_ADDR" desc:"GRPC address of the STORAGE-SYSTEM service." introductionVersion:"%%NEXT%%"`
+	StorageAddress string `yaml:"storage_addr" env:"WEB_STORAGE_GRPC_ADDR;STORAGE_GRPC_ADDR" desc:"GRPC address of the STORAGE-SYSTEM service." introductionVersion:"%%NEXT%%"`
+
+	SystemUserID     string `yaml:"system_user_id" env:"OC_SYSTEM_USER_ID;WEB_SYSTEM_USER_ID" desc:"ID of the OpenCloud STORAGE-SYSTEM system user. Admins need to set the ID for the STORAGE-SYSTEM system user in this config option which is then used to reference the user. Any reasonable long string is possible, preferably this would be an UUIDv4 format." introductionVersion:"%%NEXT%%"`
+	SystemUserIDP    string `yaml:"system_user_idp" env:"OC_SYSTEM_USER_IDP;WEB_SYSTEM_USER_IDP" desc:"IDP of the OpenCloud STORAGE-SYSTEM system user." introductionVersion:"%%NEXT%%"`
+	SystemUserAPIKey string `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY" desc:"API key for the STORAGE-SYSTEM system user." introductionVersion:"%%NEXT%%"`
 }
 
 // Asset defines the available asset configuration.

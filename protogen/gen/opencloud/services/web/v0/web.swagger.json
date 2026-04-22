@@ -1,0 +1,80 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "OpenCloud web",
+    "version": "1.0.0",
+    "contact": {
+      "name": "OpenCloud GmbH",
+      "url": "https://github.com/opencloud-eu/opencloud",
+      "email": "support@opencloud.eu"
+    },
+    "license": {
+      "name": "Apache-2.0",
+      "url": "https://github.com/opencloud-eu/opencloud/blob/main/LICENSE"
+    }
+  },
+  "tags": [
+    {
+      "name": "WebService"
+    }
+  ],
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {},
+  "definitions": {
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    },
+    "v0ThemeAddResponse": {
+      "type": "object"
+    },
+    "v0ThemeExistsResponse": {
+      "type": "object",
+      "properties": {
+        "exists": {
+          "type": "boolean",
+          "title": "Indicates if the theme exists"
+        }
+      }
+    },
+    "v0ThemeRemoveResponse": {
+      "type": "object"
+    }
+  },
+  "externalDocs": {
+    "description": "Developer Manual",
+    "url": "https://docs.opencloud.eu/services/web/"
+  }
+}

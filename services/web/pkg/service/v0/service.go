@@ -10,23 +10,18 @@ import (
 	"strings"
 	"time"
 
-	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	"github.com/go-chi/chi/v5"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/riandyrn/otelchi"
 
 	"github.com/opencloud-eu/opencloud/pkg/account"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
-	"github.com/opencloud-eu/opencloud/pkg/x/io/fsx"
+	consoleWebService "github.com/opencloud-eu/opencloud/services/console/pkg/web"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/assets"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/theme"
 )
-
-// ErrConfigInvalid is returned when the config parse is invalid.
-var ErrConfigInvalid = `Invalid or missing config`
 
 // Service defines the service handlers.
 type Service interface {
@@ -50,22 +45,28 @@ func NewService(opts ...Option) (Service, error) {
 		),
 	)
 
-	svc := Web{
-		logger:          options.Logger,
-		config:          options.Config,
-		mux:             m,
-		coreFS:          options.CoreFS,
-		themeFS:         options.ThemeFS,
-		gatewaySelector: options.GatewaySelector,
-	}
-
 	themeService, err := theme.NewService(
 		theme.ServiceOptions{}.
-			WithThemeFS(options.ThemeFS).
-			WithGatewaySelector(options.GatewaySelector),
+			WithThemeFS(options.ThemeFS),
 	)
 	if err != nil {
-		return svc, err
+		return Web{}, err
+	}
+
+	themeAPI, err := theme.NewHTTP(
+		theme.HTTPOptions{}.
+			WithService(themeService).
+			WithLogger(options.Logger),
+	)
+	if err != nil {
+		return Web{}, err
+	}
+
+	svc := Web{
+		logger:       options.Logger,
+		config:       options.Config,
+		mux:          m,
+		themeService: themeService,
 	}
 
 	m.Route(options.Config.HTTP.Root, func(r chi.Router) {
@@ -75,11 +76,9 @@ func NewService(opts ...Option) (Service, error) {
 				account.Logger(options.Logger),
 				account.JWTSecret(options.Config.TokenManager.JWTSecret),
 			))
-			r.Post("/", themeService.LogoUpload)
-			r.Delete("/", themeService.LogoReset)
 		})
 		r.Route("/themes", func(r chi.Router) {
-			r.Get("/{id}/theme.json", themeService.Get)
+			r.Get("/{id}/theme.json", themeAPI.Get)
 			r.Mount("/", svc.Static(
 				options.ThemeFS.IOFS(),
 				path.Join(svc.config.HTTP.Root, "/themes"),
@@ -92,7 +91,7 @@ func NewService(opts ...Option) (Service, error) {
 			options.Config.HTTP.CacheTTL,
 		))
 		r.Mount("/", svc.Static(
-			svc.coreFS,
+			options.CoreFS,
 			svc.config.HTTP.Root,
 			options.Config.HTTP.CacheTTL,
 		))
@@ -107,12 +106,10 @@ func NewService(opts ...Option) (Service, error) {
 
 // Web defines the handlers for the web service.
 type Web struct {
-	logger          log.Logger
-	config          *config.Config
-	mux             *chi.Mux
-	coreFS          fs.FS
-	themeFS         *fsx.FallbackFS
-	gatewaySelector pool.Selectable[gateway.GatewayAPIClient]
+	logger       log.Logger
+	config       *config.Config
+	mux          *chi.Mux
+	themeService *theme.Service
 }
 
 // ServeHTTP implements the Service interface.
@@ -120,33 +117,34 @@ func (p Web) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p.mux.ServeHTTP(w, r)
 }
 
-func (p Web) getPayload() (payload []byte, err error) {
-	// render dynamically using config
+// Config handles HTTP requests to provide the current configuration as a JSON response.
+func (p Web) Config(w http.ResponseWriter, _ *http.Request) {
+	// decouple theme-related config changes
+	conf := *p.config
+	// check if the console theme exists and apply it
+	if conf.Web.ThemeServer == conf.Web.Config.Server && p.themeService.Exists(consoleWebService.ThemeID) {
+		conf.Web.ThemePath = path.Join("themes", consoleWebService.ThemeID, "theme.json")
+	}
 
 	// build theme url
-	if themeServer, err := url.Parse(p.config.Web.ThemeServer); err == nil {
-		p.config.Web.Config.Theme = themeServer.String() + p.config.Web.ThemePath
+	if themeServer, err := url.Parse(conf.Web.ThemeServer); err == nil {
+		themeServer.Path = conf.Web.ThemePath
+		conf.Web.Config.Theme = themeServer.String()
 	} else {
-		p.config.Web.Config.Theme = p.config.Web.ThemePath
+		conf.Web.Config.Theme = conf.Web.ThemePath
 	}
 
-	// make apps render as empty array if it is empty
+	// make apps render as an empty array if it is empty
 	// TODO remove once https://github.com/golang/go/issues/27589 is fixed
-	if len(p.config.Web.Config.Apps) == 0 {
-		p.config.Web.Config.Apps = make([]string, 0)
+	if len(conf.Web.Config.Apps) == 0 {
+		conf.Web.Config.Apps = make([]string, 0)
 	}
 
-	// ensure that the server url has a trailing slash
-	p.config.Web.Config.Server = strings.TrimRight(p.config.Web.Config.Server, "/") + "/"
-
-	return json.Marshal(p.config.Web.Config)
-}
-
-// Config implements the Service interface.
-func (p Web) Config(w http.ResponseWriter, _ *http.Request) {
-	payload, err := p.getPayload()
+	payload, err := json.Marshal(conf.Web.Config)
 	if err != nil {
-		http.Error(w, ErrConfigInvalid, http.StatusUnprocessableEntity)
+		msg := "Invalid or missing config"
+		p.logger.Error().Err(err).Msg(msg)
+		http.Error(w, msg, http.StatusUnprocessableEntity)
 		return
 	}
 
