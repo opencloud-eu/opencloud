@@ -1,6 +1,7 @@
 package theme
 
 import (
+	"errors"
 	"path"
 
 	"github.com/opencloud-eu/opencloud/pkg/capabilities"
@@ -8,8 +9,9 @@ import (
 )
 
 var (
-	_brandingRoot  = "_branding"
-	_themeFileName = "theme.json"
+	_brandingRoot          = "_branding"
+	_themeFileName         = "theme.json"
+	ErrBuildingThemeFailed = errors.New("building theme failed")
 )
 
 // themeDefaults contains the default values for the theme.
