@@ -509,7 +509,7 @@ func (s *StalwartTest) fillEmailsWithImap(folder string, count int, empty bool, 
 
 	tlsConfig := &tls.Config{InsecureSkipVerify: true}
 
-	c, err := imapclient.DialTLS(net.JoinHostPort(s.ip, strconv.Itoa(s.imapPort)), &imapclient.Options{TLSConfig: tlsConfig})
+	c, err := imapclient.DialTLS(net.JoinHostPort(s.ip, strconv.FormatUint(uint64(s.imapPort), 10)), &imapclient.Options{TLSConfig: tlsConfig})
 	if err != nil {
 		return nil, 0, err
 	}

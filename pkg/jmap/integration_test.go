@@ -152,7 +152,7 @@ func skip(t *testing.T) bool {
 type StalwartTest struct {
 	t           *testing.T
 	ip          string
-	imapPort    int
+	imapPort    uint16
 	container   *testcontainers.DockerContainer
 	ctx         context.Context
 	cancelCtx   context.CancelFunc
@@ -339,7 +339,7 @@ func newStalwartTest(t *testing.T, options ...func(map[string]any)) (*StalwartTe
 				Env:   os.Environ(),
 				Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
 			}
-			cmd := []string{Wireshark, "-pkSl", "-i", "lo", "-f", fmt.Sprintf("port %d", jmapPort.Int()), "-Y", "http||websocket"}
+			cmd := []string{Wireshark, "-pkSl", "-i", "lo", "-f", fmt.Sprintf("port %d", jmapPort.Num()), "-Y", "http||websocket"}
 			process, err := os.StartProcess(Wireshark, cmd, &attr)
 			require.NoError(t, err)
 			err = process.Release()
@@ -376,7 +376,7 @@ func newStalwartTest(t *testing.T, options ...func(map[string]any)) (*StalwartTe
 		apiPort, err := container.MappedPort(ctx, httpPort)
 		require.NoError(t, err)
 
-		url := fmt.Sprintf("http://%s:%d/api/principal", ip, apiPort.Int())
+		url := fmt.Sprintf("http://%s:%d/api/principal", ip, apiPort.Num())
 
 		for _, domain := range domains {
 			fmt.Printf("Creating domain '%v'\n", domain)
@@ -485,7 +485,7 @@ func newStalwartTest(t *testing.T, options ...func(map[string]any)) (*StalwartTe
 	return &StalwartTest{
 		t:           t,
 		ip:          ip,
-		imapPort:    int(imapPort.Num()),
+		imapPort:    imapPort.Num(),
 		container:   container,
 		ctx:         ctx,
 		cancelCtx:   cancel,
