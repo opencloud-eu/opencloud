@@ -28,7 +28,6 @@ func TestCleanContent(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.given, func(t *testing.T) {
 			Equal(t, tc.expect, content.CleanString(tc.given, "en"))
 		})

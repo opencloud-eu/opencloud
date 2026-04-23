@@ -87,7 +87,6 @@ func TestProcessorFor(t *testing.T) {
 	assert := tAssert.New(t)
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run("", func(t *testing.T) {
 			p, e := thumbnail.ProcessorFor(tt.id, tt.fileType)
 			assert.Equal(p.ID(), tt.wantP.ID())

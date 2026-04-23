@@ -145,7 +145,6 @@ var _ = Describe("ActivitylogService", func() {
 			}
 
 			for _, tc := range testCases {
-				tc := tc // capture range variable
 				Context(tc.Name, func() {
 					JustBeforeEach(func() {
 						getResource = func(_ context.Context, ref *provider.Reference) (*provider.ResourceInfo, error) {

@@ -129,7 +129,6 @@ func TestRegexSelector(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc // capture range variable
 		t.Run(tc.Name, func(t *testing.T) {
 			r := httptest.NewRequest("GET", "https://example.com", nil)
 			nr := r.WithContext(tc.Context)

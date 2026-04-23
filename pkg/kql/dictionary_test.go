@@ -417,7 +417,6 @@ func TestParse_Spec(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			testKQL(t, tc)
 		})
@@ -851,7 +850,6 @@ func TestParse_DateTimeRestrictionNode(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			testKQL(t, tc)
 		})
@@ -909,7 +907,6 @@ func TestParse_Errors(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			testKQL(t, tc)
 		})
@@ -964,7 +961,6 @@ func TestParse_DottedKey(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			testKQL(t, tc)
 		})
@@ -1421,7 +1417,6 @@ func TestParse_Stress(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			testKQL(t, tc)
 		})
