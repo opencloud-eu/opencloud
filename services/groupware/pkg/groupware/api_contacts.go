@@ -104,7 +104,6 @@ func (g *Groupware) GetContactById(w http.ResponseWriter, r *http.Request) {
 
 func (g *Groupware) GetAllContacts(w http.ResponseWriter, r *http.Request) {
 	getallpaged(Contact, w, r, g,
-		g.jmap.GetContactCards,
 		func(cid string) jmap.ContactCardFilterElement {
 			return jmap.ContactCardFilterCondition{InAddressBook: cid}
 		},

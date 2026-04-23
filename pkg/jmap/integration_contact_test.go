@@ -335,7 +335,7 @@ func (s *StalwartTest) fillContacts( //NOSONAR
 		card := ContactCardChange{
 			Type:           jscontact.ContactCardType,
 			Version:        ptr(jscontact.JSContactVersion_1_0),
-			AddressBookIds: toBoolMap([]string{addressbookId}),
+			AddressBookIds: toBoolPtrMap([]string{addressbookId}),
 			ProdId:         &productName,
 			Language:       &language,
 			Kind:           ptr(jscontact.ContactCardKindIndividual),

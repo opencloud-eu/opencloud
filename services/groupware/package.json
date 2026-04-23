@@ -1,6 +1,6 @@
 {
 	"dependencies": {
-		"@redocly/cli": "^2.25.3",
+		"@redocly/cli": "^2.29.1",
 		"@types/js-yaml": "^4.0.9",
 		"cheerio": "^1.2.0",
 		"js-yaml": "^4.1.1",

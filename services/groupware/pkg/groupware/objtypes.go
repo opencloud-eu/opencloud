@@ -6,6 +6,7 @@ import (
 
 type ObjectType[T jmap.Foo, CH jmap.Change, CHS jmap.Changes[T]] struct {
 	name                  string
+	plural                string
 	responseType          ResponseObjectType
 	uriParamName          string
 	containerUriParamName string
@@ -16,6 +17,7 @@ type ObjectType[T jmap.Foo, CH jmap.Change, CHS jmap.Changes[T]] struct {
 var (
 	Blob = ObjectType[jmap.Blob, jmap.BlobChange, jmap.BlobChanges]{
 		name:                  "blob",
+		plural:                "blobs",
 		responseType:          BlobResponseObjectType,
 		uriParamName:          UriParamBlobId,
 		containerUriParamName: "",
@@ -24,7 +26,8 @@ var (
 	}
 
 	AddressBook = ObjectType[jmap.AddressBook, jmap.AddressBookChange, jmap.AddressBookChanges]{
-		name:                  "address book",
+		name:                  "addressbook",
+		plural:                "addressbooks",
 		responseType:          AddressBookResponseObjectType,
 		uriParamName:          UriParamAddressBookId,
 		containerUriParamName: "",
@@ -34,6 +37,7 @@ var (
 
 	Calendar = ObjectType[jmap.Calendar, jmap.CalendarChange, jmap.CalendarChanges]{
 		name:                  "calendar",
+		plural:                "calendars",
 		responseType:          CalendarResponseObjectType,
 		uriParamName:          UriParamCalendarId,
 		containerUriParamName: "",
@@ -43,6 +47,7 @@ var (
 
 	Contact = ObjectType[jmap.ContactCard, jmap.ContactCardChange, jmap.ContactCardChanges]{
 		name:                  "contact",
+		plural:                "contacts",
 		responseType:          ContactResponseObjectType,
 		uriParamName:          UriParamContactId,
 		containerUriParamName: UriParamCalendarId,
@@ -52,6 +57,7 @@ var (
 
 	Email = ObjectType[jmap.Email, jmap.EmailChange, jmap.EmailChanges]{
 		name:                  "email",
+		plural:                "emails",
 		responseType:          EmailResponseObjectType,
 		uriParamName:          UriParamEmailId,
 		containerUriParamName: UriParamMailboxId,
@@ -61,6 +67,7 @@ var (
 
 	Event = ObjectType[jmap.CalendarEvent, jmap.CalendarEventChange, jmap.CalendarEventChanges]{
 		name:                  "event",
+		plural:                "events",
 		responseType:          EventResponseObjectType,
 		uriParamName:          UriParamEventId,
 		containerUriParamName: UriParamCalendarId,
@@ -70,6 +77,7 @@ var (
 
 	Identity = ObjectType[jmap.Identity, jmap.IdentityChange, jmap.IdentityChanges]{
 		name:                  "identity",
+		plural:                "identities",
 		responseType:          IdentityResponseObjectType,
 		uriParamName:          UriParamIdentityId,
 		containerUriParamName: "",
@@ -79,6 +87,7 @@ var (
 
 	Mailbox = ObjectType[jmap.Mailbox, jmap.MailboxChange, jmap.MailboxChanges]{
 		name:                  "mailbox",
+		plural:                "mailboxes",
 		responseType:          MailboxResponseObjectType,
 		uriParamName:          UriParamMailboxId,
 		containerUriParamName: "",
@@ -88,6 +97,7 @@ var (
 
 	Quota = ObjectType[jmap.Quota, jmap.QuotaChange, jmap.QuotaChanges]{
 		name:                  "quota",
+		plural:                "quotas",
 		responseType:          QuotaResponseObjectType,
 		uriParamName:          "",
 		containerUriParamName: "",
@@ -97,6 +107,7 @@ var (
 
 	VacationResponse = ObjectType[jmap.VacationResponse, jmap.VacationResponseChange, jmap.VacationResponseChanges]{
 		name:                  "vacation response",
+		plural:                "vacation responses",
 		responseType:          VacationResponseResponseObjectType,
 		uriParamName:          "",
 		containerUriParamName: "",

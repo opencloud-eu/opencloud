@@ -1039,6 +1039,7 @@ func (g *Groupware) DeleteEmails(w http.ResponseWriter, r *http.Request) {
 	deleteMany(Email, w, r, g, g.jmap.DeleteEmails)
 }
 
+// Send an existing email.
 func (g *Groupware) SendEmail(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()
@@ -1156,6 +1157,7 @@ func relatedEmailsFilter(email jmap.Email, beacon time.Time, days uint) jmap.Ema
 	return filter
 }
 
+// Retrieve objects that are related to a given Email.
 func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()

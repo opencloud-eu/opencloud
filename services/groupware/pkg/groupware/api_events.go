@@ -60,8 +60,6 @@ func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-//func query[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], SEARCHRESULTS jmap.SearchResults[T]]( //NOSONAR
-
 func curryMapQuery[SRES jmap.SearchResults[T], T jmap.Foo, FILTER any, COMP any](
 	f func(accountIds []string, filter FILTER, sortBy []COMP, position int, limit uint, calculateTotal bool, ctx jmap.Context) (map[string]SRES, jmap.SessionState, jmap.State, jmap.Language, jmap.Error),
 ) func(req Request, accountId string, filter FILTER, sortBy []COMP, offset int, limit uint, ctx jmap.Context) (SRES, jmap.SessionState, jmap.State, jmap.Language, jmap.Error) {
@@ -73,7 +71,6 @@ func curryMapQuery[SRES jmap.SearchResults[T], T jmap.Foo, FILTER any, COMP any]
 
 func (g *Groupware) GetAllEvents(w http.ResponseWriter, r *http.Request) {
 	getallpaged(Event, w, r, g,
-		g.jmap.GetCalendarEvents,
 		func(cid string) jmap.CalendarEventFilterElement {
 			return jmap.CalendarEventFilterCondition{InCalendar: cid}
 		},

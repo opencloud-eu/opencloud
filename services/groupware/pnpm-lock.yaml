@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@redocly/cli':
-        specifier: ^2.25.3
-        version: 2.25.3(@opentelemetry/api@1.9.1)(core-js@3.45.1)
+        specifier: ^2.29.1
+        version: 2.29.1(@opentelemetry/api@1.9.1)(core-js@3.45.1)
       '@types/js-yaml':
         specifier: ^4.0.9
         version: 4.0.9
@@ -82,6 +82,9 @@ packages:
   '@noble/hashes@1.8.0':
     resolution: {integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==}
     engines: {node: ^14.21.3 || >=16}
+
+  '@nodable/entities@2.1.0':
+    resolution: {integrity: sha512-nyT7T3nbMyBI/lvr6L5TyWbFJAI9FTgVRakNoBqCD+PmID8DzFrrNdLLtHMwMszOtqZa8PAOV24ZqDnQrhQINA==}
 
   '@opentelemetry/api-logs@0.202.0':
     resolution: {integrity: sha512-fTBjMqKCfotFWfLzaKyhjLvyEyq5vDKTTFfBmx21btv3gvy8Lq6N5Dh2OzqeuN4DjtpSvNT1uNVfg08eD2Rfxw==}
@@ -194,27 +197,27 @@ packages:
   '@redocly/cli-otel@0.1.2':
     resolution: {integrity: sha512-Bg7BoO5t1x3lVK+KhA5aGPmeXpQmdf6WtTYHhelKJCsQ+tRMiJoFAQoKHoBHAoNxXrhlS3K9lKFLHGmtxsFQfA==}
 
-  '@redocly/cli@2.25.3':
-    resolution: {integrity: sha512-02wjApwJwGD+kGWRoiFVY0Hq960ydMAMHrK3AJH2LMiYNYcrzAr1FSbA3OSylvg2gx3w/r1r710B+iMz3KJKbw==}
+  '@redocly/cli@2.29.1':
+    resolution: {integrity: sha512-n85tU21emkYc1k7IZhOFqIrEQizvQuHzHMOwcMZ503XNhzf9OYLLQ8AEcQl1hjpUGtJWsMeSJbpuEwewgb4T0Q==}
     engines: {node: '>=22.12.0 || >=20.19.0 <21.0.0', npm: '>=10'}
     hasBin: true
 
   '@redocly/config@0.22.0':
     resolution: {integrity: sha512-gAy93Ddo01Z3bHuVdPWfCwzgfaYgMdaZPcfL7JZ7hWJoK9V0lXDbigTWkhiPFAaLWzbOJ+kbUQG1+XwIm0KRGQ==}
 
-  '@redocly/config@0.45.0':
-    resolution: {integrity: sha512-V+wNusPQUaYV1c5s9iptfKQ2Ggno4bMeiyXdNILxqZS87gttwPfqlqHKHKFyz006voS3JsR295cbpx3GlsIxKg==}
+  '@redocly/config@0.48.1':
+    resolution: {integrity: sha512-vq8GM3e0KiglqkwE5Lb9XayrmZY4dHCs21BsvV92yAZN68f1N9cZUuwY1SwnztPbH06dn9uLzubBl/JNfImqfA==}
 
-  '@redocly/openapi-core@1.34.11':
-    resolution: {integrity: sha512-V09ayfnb5GyysmvARbt+voFZAjGcf7hSYxOYxSkCc4fbH/DTfq5YWoec8cflvmHHqyIFbqvmGKmYFzqhr9zxDg==}
+  '@redocly/openapi-core@1.34.12':
+    resolution: {integrity: sha512-b32XWsz6enN6K4bx8xWsqUaXTJR/DnYT3lL1CzDYzIYKw243NNlz6fexmr71q/U4HrEcMoJGBvwAfcxOb8ymQw==}
     engines: {node: '>=18.17.0', npm: '>=9.5.0'}
 
-  '@redocly/openapi-core@2.25.3':
-    resolution: {integrity: sha512-GIu3Mdym5IDIPCvXTzMZ6TQw/+7sKd52PdysxNVe7zBk22ExSGnVE9UAk9BaLOzXT77PJWDUwaimBdJoPpxHMA==}
+  '@redocly/openapi-core@2.29.1':
+    resolution: {integrity: sha512-T9FeS2+lpXR9V/XHqiJ53uGjoF1Hs80nRA9ACEXpTLF9a4jzzSANO92/f9HKuQvl0bHgyaIbP5OsBgVU3EP1KQ==}
     engines: {node: '>=22.12.0 || >=20.19.0 <21.0.0', npm: '>=10'}
 
-  '@redocly/respect-core@2.25.3':
-    resolution: {integrity: sha512-07m80JYdp7J7kH4D1Vqdpa2ZBFCv3QAwCoh2w9H3OjuT/rXQkBSkJQm1n70fzO/HuUf4azzULdp2XnsIpxP2qw==}
+  '@redocly/respect-core@2.29.1':
+    resolution: {integrity: sha512-TklpmSho4nSp2ySXWRUJlFQaHoN4BtSTTWabzQPetblAJ6KRVZtgFk6x8eD8KwWUaJj8c7ed4/KAIHOqTdNVxg==}
     engines: {node: '>=22.12.0 || >=20.19.0 <21.0.0', npm: '>=10'}
 
   '@tsconfig/node10@1.0.12':
@@ -299,8 +302,8 @@ packages:
   boolbase@1.0.0:
     resolution: {integrity: sha512-JZOSA7Mo9sNGB8+UjSgzdLtokWAky1zbztM3WRLCbZ70/3cTANmQmOdR7y2g+J0e2WXywy1yS468tY+IruqEww==}
 
-  brace-expansion@2.0.3:
-    resolution: {integrity: sha512-MCV/fYJEbqx68aE58kv2cA/kiky1G8vux3OR6/jbS+jIMe/6fJWa0DTzJU7dqijOWYwHi1t29FlfYI9uytqlpA==}
+  brace-expansion@2.1.0:
+    resolution: {integrity: sha512-TN1kCZAgdgweJhWWpgKYrQaMNHcDULHkWwQIspdtjV4Y5aurRdZpjAqn6yX3FPqTA9ngHCc4hJxMAMgGfve85w==}
 
   brace-expansion@5.0.5:
     resolution: {integrity: sha512-VZznLgtwhn+Mact9tfiwx64fA9erHH/MCXEUfB/0bX/6Fz6ny5EGTXYltMocqg4xFAQZtnO3DHWWXi8RiuN7cQ==}
@@ -399,8 +402,8 @@ packages:
     resolution: {integrity: sha512-cgwlv/1iFQiFnU96XXgROh8xTeetsnJiDsTc7TYCLFd9+/WNkIqPTxiM/8pSd8VIrhXGTf1Ny1q1hquVqDJB5w==}
     engines: {node: '>= 4'}
 
-  dompurify@3.3.3:
-    resolution: {integrity: sha512-Oj6pzI2+RqBfFG+qOaOLbFXLQ90ARpcGG6UePL82bJLtdsa6CYJD7nmiU8MW9nQNOtCHV3lZ/Bzq1X0QYbBZCA==}
+  dompurify@3.4.1:
+    resolution: {integrity: sha512-JahakDAIg1gyOm7dlgWSDjV4n7Ip2PKR55NIT6jrMfIgLFgWo81vdr1/QGqWtFNRqXP9UV71oVePtjqS2ebnPw==}
 
   domutils@3.2.2:
     resolution: {integrity: sha512-6kZKyUajlDuqlHKVX1w7gyslj9MPIXzIFiz/rGu35uC1wMi+kMhQwGhl4lt9unC9Vb9INnY9Z3/ZA3+FhASLaw==}
@@ -450,11 +453,11 @@ packages:
   fast-uri@3.1.0:
     resolution: {integrity: sha512-iPeeDKJSWf4IEOasVVrknXpaBV0IApz/gp7S2bb7Z4Lljbl2MGJRqInZiUrQwV16cpzw/D3S5j5Julj/gT52AA==}
 
-  fast-xml-builder@1.1.4:
-    resolution: {integrity: sha512-f2jhpN4Eccy0/Uz9csxh3Nu6q4ErKxf0XIsasomfOihuSUa3/xw6w8dnOtCDgEItQFJG8KyXPzQXzcODDrrbOg==}
+  fast-xml-builder@1.1.5:
+    resolution: {integrity: sha512-4TJn/8FKLeslLAH3dnohXqE3QSoxkhvaMzepOIZytwJXZO69Bfz0HBdDHzOTOon6G59Zrk6VQ2bEiv1t61rfkA==}
 
-  fast-xml-parser@5.5.9:
-    resolution: {integrity: sha512-jldvxr1MC6rtiZKgrFnDSvT8xuH+eJqxqOBThUVjYrxssYTo1avZLGql5l0a0BAERR01CadYzZ83kVEkbyDg+g==}
+  fast-xml-parser@5.7.1:
+    resolution: {integrity: sha512-8Cc3f8GUGUULg34pBch/KGyPLglS+OFs05deyOlY7fL2MTagYPKrVQNmR1fLF/yJ9PH5ZSTd3YDF6pnmeZU+zA==}
     hasBin: true
 
   foreach@2.0.6:
@@ -538,8 +541,8 @@ packages:
     resolution: {integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==}
     hasBin: true
 
-  lru-cache@11.2.7:
-    resolution: {integrity: sha512-aY/R+aEsRelme17KGQa/1ZSIpLpNYYrhcrepKTZgE+W3WM16YMCaPwOHLHsmopZHELU0Ojin1lPVxKR0MihncA==}
+  lru-cache@11.3.5:
+    resolution: {integrity: sha512-NxVFwLAnrd9i7KUBxC4DrUhmgjzOs+1Qm50D3oF1/oL+r1NpZ4gA7xvG0/zJ8evR7zIKn4vLf7qTNduWFtCrRw==}
     engines: {node: 20 || >=22}
 
   lunr@2.3.9:
@@ -668,8 +671,8 @@ packages:
   path-browserify@1.0.1:
     resolution: {integrity: sha512-b7uo2UCUOYZcnF/3ID0lulOJi/bafxa1xPe7ZPsammBSpjSWQkjNxlt635YGS2MiR9GjvuXCtz2emr3jbsz98g==}
 
-  path-expression-matcher@1.2.0:
-    resolution: {integrity: sha512-DwmPWeFn+tq7TiyJ2CxezCAirXjFxvaiD03npak3cRjlP9+OjTmSy1EpIrEbh+l6JgUundniloMLDQ/6VTdhLQ==}
+  path-expression-matcher@1.5.0:
+    resolution: {integrity: sha512-cbrerZV+6rvdQrrD+iGMcZFEiiSrbv9Tfdkvnusy6y0x0GKBXREFg/Y65GhIfm0tnLntThhzCnfKwp1WRjeCyQ==}
     engines: {node: '>=14.0.0'}
 
   path-scurry@2.0.2:
@@ -708,8 +711,8 @@ packages:
   prop-types@15.8.1:
     resolution: {integrity: sha512-oj87CgZICdulUohogVAR7AjlC0327U4el4L6eAvOqCeudMDVU0NThNaV+b9Df4dXgSP1gXMTnPdhfe/2qDH5cg==}
 
-  protobufjs@7.5.4:
-    resolution: {integrity: sha512-CvexbZtbov6jW2eXAvLukXjXUW1TzFaivC46BpWc/3BpcCysb5Vffu+B3XHMm8lVEuy2Mm4XGex8hBSg1yapPg==}
+  protobufjs@7.5.5:
+    resolution: {integrity: sha512-3wY1AxV+VBNW8Yypfd1yQY9pXnqTAN+KwQxL8iYm3/BjKYMNg4i0owhEe26PWDOMaIrzeeF98Lqd5NGz4omiIg==}
     engines: {node: '>=12.0.0'}
 
   queue-microtask@1.2.3:
@@ -718,10 +721,10 @@ packages:
   randombytes@2.1.0:
     resolution: {integrity: sha512-vYl3iOX+4CKUWuxGi9Ukhie6fsqXqS9FE2Zaic4tNFD2N2QQaXOMFbuKK4QmDHC0JO6B1Zp41J0LpT0oR68amQ==}
 
-  react-dom@19.2.4:
-    resolution: {integrity: sha512-AXJdLo8kgMbimY95O2aKQqsz2iWi9jMgKJhRBAxECE4IFxfcazB2LmzloIoibJI3C12IlY20+KFaLv+71bUJeQ==}
+  react-dom@19.2.5:
+    resolution: {integrity: sha512-J5bAZz+DXMMwW/wV3xzKke59Af6CHY7G4uYLN1OvBcKEsWOs4pQExj86BBKamxl/Ik5bx9whOrvBlSDfWzgSag==}
     peerDependencies:
-      react: ^19.2.4
+      react: ^19.2.5
 
   react-is@16.13.1:
     resolution: {integrity: sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==}
@@ -731,8 +734,8 @@ packages:
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
 
-  react@19.2.4:
-    resolution: {integrity: sha512-9nfp2hYpCwOjAN+8TZFGhtWEwgvWHXqESH8qT89AT/lWklpLON22Lc8pEtnpsZz7VmawabSU0gCjnj8aC0euHQ==}
+  react@19.2.5:
+    resolution: {integrity: sha512-llUJLzz1zTUBrskt2pwZgLq59AemifIftw4aB7JxOqf1HY2FDaGDxgwpAPVzHU1kdWabH7FauP4i1oEeer2WCA==}
     engines: {node: '>=0.10.0'}
 
   readable-stream@3.6.2:
@@ -827,8 +830,8 @@ packages:
     resolution: {integrity: sha512-Y38VPSHcqkFrCpFnQ9vuSXmquuv5oXOKpGeT6aGrr3o3Gc9AlVa6JBfUSOCnbxGGZF+/0ooI7KrPuUSztUdU5A==}
     engines: {node: '>=8'}
 
-  strnum@2.2.2:
-    resolution: {integrity: sha512-DnR90I+jtXNSTXWdwrEy9FakW7UX+qUZg28gj5fk2vxxl7uS/3bpI4fjFYVmdK9etptYBPNkpahuQnEwhwECqA==}
+  strnum@2.2.3:
+    resolution: {integrity: sha512-oKx6RUCuHfT3oyVjtnrmn19H1SiCqgJSg+54XqURKp5aCMbrXrhLjRN9TjuwMjiYstZ0MzDrHqkGZ5dFTKd+zg==}
 
   styled-components@6.3.9:
     resolution: {integrity: sha512-J72R4ltw0UBVUlEjTzI0gg2STOqlI9JBhQOL4Dxt7aJOnnSesy0qJDn4PYfMCafk9cWOaVg129Pesl5o+DIh0Q==}
@@ -1018,6 +1021,8 @@ snapshots:
 
   '@noble/hashes@1.8.0': {}
 
+  '@nodable/entities@2.1.0': {}
+
   '@opentelemetry/api-logs@0.202.0':
     dependencies:
       '@opentelemetry/api': 1.9.1
@@ -1057,7 +1062,7 @@ snapshots:
       '@opentelemetry/sdk-logs': 0.202.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-metrics': 2.0.1(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-trace-base': 2.0.1(@opentelemetry/api@1.9.1)
-      protobufjs: 7.5.4
+      protobufjs: 7.5.5
 
   '@opentelemetry/resources@2.0.1(@opentelemetry/api@1.9.1)':
     dependencies:
@@ -1135,15 +1140,15 @@ snapshots:
     dependencies:
       ulid: 2.4.0
 
-  '@redocly/cli@2.25.3(@opentelemetry/api@1.9.1)(core-js@3.45.1)':
+  '@redocly/cli@2.29.1(@opentelemetry/api@1.9.1)(core-js@3.45.1)':
     dependencies:
       '@opentelemetry/exporter-trace-otlp-http': 0.202.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/resources': 2.0.1(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-trace-node': 2.0.1(@opentelemetry/api@1.9.1)
       '@opentelemetry/semantic-conventions': 1.34.0
       '@redocly/cli-otel': 0.1.2
-      '@redocly/openapi-core': 2.25.3
-      '@redocly/respect-core': 2.25.3
+      '@redocly/openapi-core': 2.29.1
+      '@redocly/respect-core': 2.29.1
       abort-controller: 3.0.0
       ajv: '@redocly/ajv@8.18.0'
       ajv-formats: 3.0.1(@redocly/ajv@8.18.0)
@@ -1156,13 +1161,13 @@ snapshots:
       mobx: 6.15.0
       picomatch: 4.0.4
       pluralize: 8.0.0
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
-      redoc: 2.5.1(core-js@3.45.1)(mobx@6.15.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(styled-components@6.3.9(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
+      react: 19.2.5
+      react-dom: 19.2.5(react@19.2.5)
+      redoc: 2.5.1(core-js@3.45.1)(mobx@6.15.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(styled-components@6.3.9(react-dom@19.2.5(react@19.2.5))(react@19.2.5))
       semver: 7.7.4
       set-cookie-parser: 2.7.2
       simple-websocket: 9.1.0
-      styled-components: 6.3.9(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      styled-components: 6.3.9(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       ulid: 3.0.2
       undici: 6.24.0
       yargs: 17.0.1
@@ -1177,11 +1182,11 @@ snapshots:
 
   '@redocly/config@0.22.0': {}
 
-  '@redocly/config@0.45.0':
+  '@redocly/config@0.48.1':
     dependencies:
       json-schema-to-ts: 2.7.2
 
-  '@redocly/openapi-core@1.34.11':
+  '@redocly/openapi-core@1.34.12':
     dependencies:
       '@redocly/ajv': 8.11.2
       '@redocly/config': 0.22.0
@@ -1195,10 +1200,10 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@redocly/openapi-core@2.25.3':
+  '@redocly/openapi-core@2.29.1':
     dependencies:
       '@redocly/ajv': 8.18.0
-      '@redocly/config': 0.45.0
+      '@redocly/config': 0.48.1
       ajv: '@redocly/ajv@8.18.0'
       ajv-formats: 3.0.1(@redocly/ajv@8.18.0)
       colorette: 1.4.0
@@ -1208,12 +1213,12 @@ snapshots:
       pluralize: 8.0.0
       yaml-ast-parser: 0.0.43
 
-  '@redocly/respect-core@2.25.3':
+  '@redocly/respect-core@2.29.1':
     dependencies:
       '@faker-js/faker': 7.6.0
       '@noble/hashes': 1.8.0
       '@redocly/ajv': 8.18.0
-      '@redocly/openapi-core': 2.25.3
+      '@redocly/openapi-core': 2.29.1
       ajv: '@redocly/ajv@8.18.0'
       better-ajv-errors: 1.2.0(@redocly/ajv@8.18.0)
       colorette: 2.0.20
@@ -1285,7 +1290,7 @@ snapshots:
 
   boolbase@1.0.0: {}
 
-  brace-expansion@2.0.3:
+  brace-expansion@2.1.0:
     dependencies:
       balanced-match: 1.0.2
 
@@ -1391,7 +1396,7 @@ snapshots:
     dependencies:
       domelementtype: 2.3.0
 
-  dompurify@3.3.3:
+  dompurify@3.4.1:
     optionalDependencies:
       '@types/trusted-types': 2.0.7
 
@@ -1430,15 +1435,16 @@ snapshots:
 
   fast-uri@3.1.0: {}
 
-  fast-xml-builder@1.1.4:
+  fast-xml-builder@1.1.5:
     dependencies:
-      path-expression-matcher: 1.2.0
+      path-expression-matcher: 1.5.0
 
-  fast-xml-parser@5.5.9:
+  fast-xml-parser@5.7.1:
     dependencies:
-      fast-xml-builder: 1.1.4
-      path-expression-matcher: 1.2.0
-      strnum: 2.2.2
+      '@nodable/entities': 2.1.0
+      fast-xml-builder: 1.1.5
+      path-expression-matcher: 1.5.0
+      strnum: 2.2.3
 
   foreach@2.0.6: {}
 
@@ -1517,7 +1523,7 @@ snapshots:
     dependencies:
       js-tokens: 4.0.0
 
-  lru-cache@11.2.7: {}
+  lru-cache@11.3.5: {}
 
   lunr@2.3.9: {}
 
@@ -1533,27 +1539,27 @@ snapshots:
 
   minimatch@5.1.9:
     dependencies:
-      brace-expansion: 2.0.3
+      brace-expansion: 2.1.0
 
   minimist@1.2.8: {}
 
   minipass@7.1.3: {}
 
-  mobx-react-lite@4.1.1(mobx@6.15.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+  mobx-react-lite@4.1.1(mobx@6.15.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5):
     dependencies:
       mobx: 6.15.0
-      react: 19.2.4
-      use-sync-external-store: 1.6.0(react@19.2.4)
+      react: 19.2.5
+      use-sync-external-store: 1.6.0(react@19.2.5)
     optionalDependencies:
-      react-dom: 19.2.4(react@19.2.4)
+      react-dom: 19.2.5(react@19.2.5)
 
-  mobx-react@9.2.0(mobx@6.15.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+  mobx-react@9.2.0(mobx@6.15.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5):
     dependencies:
       mobx: 6.15.0
-      mobx-react-lite: 4.1.1(mobx@6.15.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      react: 19.2.4
+      mobx-react-lite: 4.1.1(mobx@6.15.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      react: 19.2.5
     optionalDependencies:
-      react-dom: 19.2.4(react@19.2.4)
+      react-dom: 19.2.5(react@19.2.5)
 
   mobx@6.15.0: {}
 
@@ -1615,7 +1621,7 @@ snapshots:
   openapi-sampler@1.7.2:
     dependencies:
       '@types/json-schema': 7.0.15
-      fast-xml-parser: 5.5.9
+      fast-xml-parser: 5.7.1
       json-pointer: 0.6.2
 
   outdent@0.8.0: {}
@@ -1635,11 +1641,11 @@ snapshots:
 
   path-browserify@1.0.1: {}
 
-  path-expression-matcher@1.2.0: {}
+  path-expression-matcher@1.5.0: {}
 
   path-scurry@2.0.2:
     dependencies:
-      lru-cache: 11.2.7
+      lru-cache: 11.3.5
       minipass: 7.1.3
 
   perfect-scrollbar@1.5.6: {}
@@ -1670,7 +1676,7 @@ snapshots:
       object-assign: 4.1.1
       react-is: 16.13.1
 
-  protobufjs@7.5.4:
+  protobufjs@7.5.5:
     dependencies:
       '@protobufjs/aspromise': 1.1.2
       '@protobufjs/base64': 1.1.2
@@ -1691,20 +1697,20 @@ snapshots:
     dependencies:
       safe-buffer: 5.2.1
 
-  react-dom@19.2.4(react@19.2.4):
+  react-dom@19.2.5(react@19.2.5):
     dependencies:
-      react: 19.2.4
+      react: 19.2.5
       scheduler: 0.27.0
 
   react-is@16.13.1: {}
 
-  react-tabs@6.1.1(react@19.2.4):
+  react-tabs@6.1.1(react@19.2.5):
     dependencies:
       clsx: 2.1.1
       prop-types: 15.8.1
-      react: 19.2.4
+      react: 19.2.5
 
-  react@19.2.4: {}
+  react@19.2.5: {}
 
   readable-stream@3.6.2:
     dependencies:
@@ -1712,32 +1718,32 @@ snapshots:
       string_decoder: 1.3.0
       util-deprecate: 1.0.2
 
-  redoc@2.5.1(core-js@3.45.1)(mobx@6.15.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(styled-components@6.3.9(react-dom@19.2.4(react@19.2.4))(react@19.2.4)):
+  redoc@2.5.1(core-js@3.45.1)(mobx@6.15.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(styled-components@6.3.9(react-dom@19.2.5(react@19.2.5))(react@19.2.5)):
     dependencies:
-      '@redocly/openapi-core': 1.34.11
+      '@redocly/openapi-core': 1.34.12
       classnames: 2.5.1
       core-js: 3.45.1
       decko: 1.2.0
-      dompurify: 3.3.3
+      dompurify: 3.4.1
       eventemitter3: 5.0.4
       json-pointer: 0.6.2
       lunr: 2.3.9
       mark.js: 8.11.1
       marked: 4.3.0
       mobx: 6.15.0
-      mobx-react: 9.2.0(mobx@6.15.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      mobx-react: 9.2.0(mobx@6.15.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       openapi-sampler: 1.7.2
       path-browserify: 1.0.1
       perfect-scrollbar: 1.5.6
       polished: 4.3.1
       prismjs: 1.30.0
       prop-types: 15.8.1
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
-      react-tabs: 6.1.1(react@19.2.4)
+      react: 19.2.5
+      react-dom: 19.2.5(react@19.2.5)
+      react-tabs: 6.1.1(react@19.2.5)
       slugify: 1.4.7
       stickyfill: 1.1.1
-      styled-components: 6.3.9(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      styled-components: 6.3.9(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       swagger2openapi: 7.0.8
       url-template: 2.0.8
     transitivePeerDependencies:
@@ -1823,9 +1829,9 @@ snapshots:
     dependencies:
       ansi-regex: 5.0.1
 
-  strnum@2.2.2: {}
+  strnum@2.2.3: {}
 
-  styled-components@6.3.9(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+  styled-components@6.3.9(react-dom@19.2.5(react@19.2.5))(react@19.2.5):
     dependencies:
       '@emotion/is-prop-valid': 1.4.0
       '@emotion/unitless': 0.10.0
@@ -1833,12 +1839,12 @@ snapshots:
       css-to-react-native: 3.2.0
       csstype: 3.2.3
       postcss: 8.4.49
-      react: 19.2.4
+      react: 19.2.5
       shallowequal: 1.1.0
       stylis: 4.3.6
       tslib: 2.8.1
     optionalDependencies:
-      react-dom: 19.2.4(react@19.2.4)
+      react-dom: 19.2.5(react@19.2.5)
 
   stylis@4.3.6: {}
 
@@ -1905,9 +1911,9 @@ snapshots:
 
   url-template@2.0.8: {}
 
-  use-sync-external-store@1.6.0(react@19.2.4):
+  use-sync-external-store@1.6.0(react@19.2.5):
     dependencies:
-      react: 19.2.4
+      react: 19.2.5
 
   util-deprecate@1.0.2: {}
 
