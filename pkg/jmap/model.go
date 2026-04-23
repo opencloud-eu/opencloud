@@ -4829,7 +4829,7 @@ type ContactCardChange struct {
 	// The value for each key in the object MUST be true.
 	//
 	// This is a JMAP extension and not part of [RFC9553].
-	AddressBookIds map[string]bool `json:"addressBookIds,omitempty"`
+	AddressBookIds map[string]*bool `json:"addressBookIds,omitempty"`
 
 	// The JSContact type of the Card object: the value MUST be "Card".
 	Type jscontact.TypeOfContactCard `json:"@type,omitempty"`
@@ -4837,7 +4837,7 @@ type ContactCardChange struct {
 	// The JSContact version of this Card.
 	//
 	// The value MUST be one of the IANA-registered JSContact Version values for the version property.
-	Version *jscontact.JSContactVersion `json:"version,omitzero"`
+	Version *jscontact.JSContactVersion `json:"version,omitempty"`
 
 	// The kind of the entity the Card represents (default: `individual`).
 	//
@@ -4868,7 +4868,7 @@ type ContactCardChange struct {
 	//
 	// A group Card without the members property can be considered an abstract grouping or one whose members
 	// are known empirically (e.g., `IETF Participants`).
-	Members map[string]bool `json:"members,omitempty"`
+	Members map[string]*bool `json:"members,omitempty"`
 
 	// The identifier for the product that created the Card.
 	//

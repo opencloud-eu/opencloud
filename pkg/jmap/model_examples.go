@@ -726,6 +726,11 @@ func (e Exemplar) MailboxGetResponse() MailboxGetResponse {
 	}
 }
 
+func (e Exemplar) MailboxChange() MailboxChange {
+	a, _, _ := e.MailboxInbox()
+	return copyTo[MailboxChange](a)
+}
+
 func (e Exemplar) MailboxChanges() MailboxChanges {
 	a, _, _ := e.MailboxInbox()
 	return MailboxChanges{
@@ -739,7 +744,7 @@ func (e Exemplar) UploadedBlob() UploadedBlob {
 	return UploadedBlob{
 		BlobId: "eisoochohl9iekohf5ramaiqu4oucaegheith7otae0xeeg7zuexia4ohjut",
 		Size:   12762,
-		Type:   "image/png",
+		Type:   "image/png", //NOSONAR
 	}
 }
 
@@ -895,6 +900,12 @@ func (e Exemplar) AddressBook() AddressBook {
 			MayAdmin:  true,
 			MayDelete: true,
 		},
+	}
+}
+
+func (e Exemplar) AddressBookChange() AddressBookChange {
+	return AddressBookChange{
+		Description: ptr("A different name"),
 	}
 }
 
@@ -1400,7 +1411,7 @@ func (e Exemplar) DesignContactCard() (ContactCard, string, string) {
 		Created:  created,
 		Updated:  updated,
 		Language: "en-GB",
-		ProdId:   "OpenCloud Groupware 1.0",
+		ProdId:   "OpenCloud Groupware 1.0", //NOSONAR
 		Name: &c.Name{
 			Type: c.NameType,
 			Components: []c.NameComponent{
@@ -1555,6 +1566,123 @@ func (e Exemplar) DesignContactCard() (ContactCard, string, string) {
 			},
 		},
 	}, "Another Contact Card", "other"
+}
+
+func (e Exemplar) IndividualContactCard() (ContactCard, string, string) {
+	return ContactCard{
+		Kind: c.ContactCardKindIndividual,
+		AddressBookIds: map[string]bool{
+			"c34c2bb4-4e8e-4579-b35d-6f6739a11146": true,
+		},
+		Language: "de-DE",
+		ProdId:   "OpenCloud Groupware 1.0",
+		RelatedTo: map[string]c.Relation{
+			"urn:uid:ca9d2a62-e068-43b6-a470-46506976d505": {
+				Type: c.RelationType,
+				Relation: map[c.Relationship]bool{
+					c.RelationContact: true,
+				},
+			},
+		},
+		Name: &c.Name{
+			Type: c.NameType,
+			Components: []c.NameComponent{
+				{Value: "Roberta", Kind: c.NameComponentKindGiven},
+				{Value: " ", Kind: c.NameComponentKindSeparator},
+				{Value: "Draper", Kind: c.NameComponentKindSurname},
+			},
+			IsOrdered: true,
+		},
+		Nicknames: map[string]c.Nickname{
+			"a": {
+				Type: c.NicknameType,
+				Name: "Bobby",
+				Contexts: map[c.NicknameContext]bool{
+					c.NicknameContextWork:    true,
+					c.NicknameContextPrivate: true,
+				},
+				Pref: 1,
+			},
+		},
+		Organizations: map[string]c.Organization{
+			"o": {
+				Type: c.OrganizationType,
+				Name: "Martian Marine Corps",
+				Units: []c.OrgUnit{
+					{Name: "Special Forces"},
+				},
+				Contexts: map[c.OrganizationContext]bool{
+					c.OrganizationContextWork: true,
+				},
+			},
+		},
+		SpeakToAs: &c.SpeakToAs{
+			Type:              c.SpeakToAsType,
+			GrammaticalGender: c.GrammaticalGenderFeminine,
+			Pronouns: map[string]c.Pronouns{
+				"p": {
+					Type:     c.PronounsType,
+					Pronouns: "she/her",
+					Contexts: map[c.PronounsContext]bool{
+						c.PronounsContextWork: true,
+					},
+					Pref: 1,
+				},
+			},
+		},
+		Emails: map[string]c.EmailAddress{
+			"e": {
+				Type:    c.EmailAddressType,
+				Address: "gunny@mmc.mars.gov.example.com",
+				Contexts: map[c.EmailAddressContext]bool{
+					c.EmailAddressContextWork: true,
+				},
+				Pref:  1,
+				Label: "work",
+			},
+		},
+		OnlineServices: map[string]c.OnlineService{
+			"s": {
+				Type:    c.OnlineServiceType,
+				Service: "MarsNet",
+				Uri:     "https://mars.example.com/@gunny",
+				User:    "gunny",
+				Contexts: map[c.OnlineServiceContext]bool{
+					c.OnlineServiceContextWork: true,
+				},
+				Pref: 1,
+			},
+		},
+		Phones: map[string]c.Phone{
+			"p": {
+				Type:   c.PhoneType,
+				Number: "+1-555-123-4567",
+				Features: map[c.PhoneFeature]bool{
+					c.PhoneFeatureVoice: true,
+					c.PhoneFeatureText:  true,
+				},
+				Contexts: map[c.PhoneContext]bool{
+					c.PhoneContextWork: true,
+				},
+				Pref: 1,
+			},
+		},
+		Media: map[string]c.Media{
+			"m": {
+				Type:      c.MediaType,
+				Kind:      c.MediaKindLogo,
+				Uri:       "https://static.wikia.nocookie.net/expanse/images/3/3a/Bobbie_S4_closeup.png/revision/latest?cb=20191206015449",
+				MediaType: "image/png",
+				Contexts: map[c.MediaContext]bool{
+					c.MediaContextWork: true,
+				},
+			},
+		},
+		Keywords: map[string]bool{
+			"imaginary": true,
+			"test":      true,
+		},
+	}, "A ContactCard for an individual", "individual"
 }
 
 func (e Exemplar) ContactCard() ContactCard {
@@ -1854,6 +1982,25 @@ func (e Exemplar) ContactCard() ContactCard {
 	}
 }
 
+func (e Exemplar) ContactCardChangeForCreate() (ContactCardChange, string, string) {
+	a, _, _ := e.IndividualContactCard()
+	return copyTo[ContactCardChange](a), "A ContactCard to create", "create"
+}
+
+func (e Exemplar) ContactCardChangeForUpdate() (ContactCardChange, string, string) {
+	return ContactCardChange{
+		AddressBookIds: map[string]*bool{
+			"c34c2bb4-4e8e-4579-b35d-6f6739a11146": nil,
+			"02b6977f-bb60-4511-949e-37f47a930382": boolPtr(true),
+		},
+		Nicknames: map[string]c.Nickname{
+			"a": {
+				Name: "Bobbie",
+			},
+		},
+	}, "Updates to a ContactCard", "update"
+}
+
 func (e Exemplar) ContactCardGetResponse() ContactCardGetResponse {
 	a := e.ContactCard()
 	b, _, _ := e.DesignContactCard()
@@ -2125,5 +2272,18 @@ func (e Exemplar) Objects() Objects {
 		Quotas:           &quotas,
 		Identities:       &identities,
 		EmailSubmissions: &emailSubmissions,
+	}
+}
+
+func copyTo[B any, A any](a A) B {
+	if b, err := json.Marshal(a); err != nil {
+		panic(err)
+	} else {
+		var t B
+		if err := json.Unmarshal(b, &t); err != nil {
+			panic(err)
+		} else {
+			return t
+		}
 	}
 }

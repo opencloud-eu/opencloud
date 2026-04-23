@@ -1055,6 +1055,14 @@ func toBoolMap[K comparable](s []K) map[K]bool {
 	return m
 }
 
+func toBoolPtrMap[K comparable](s []K) map[K]*bool {
+	m := make(map[K]*bool, len(s))
+	for _, e := range s {
+		m[e] = ptr(true)
+	}
+	return m
+}
+
 func toBoolMapS[K comparable](s ...K) map[K]bool {
 	m := make(map[K]bool, len(s))
 	for _, e := range s {

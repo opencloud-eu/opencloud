@@ -756,7 +756,3 @@ var Categories = []string{
 func pickCategories() map[string]bool {
 	return toBoolMap(pickRandoms(Categories...))
 }
-
-func ptr[T any](t T) *T {
-	return &t
-}

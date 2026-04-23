@@ -393,6 +393,10 @@ func mapPairs[K comparable, L, R any](left map[K]L, right map[K]R) map[K]pair[L,
 	return result
 }
 
+func ptr[T any](t T) *T {
+	return &t
+}
+
 func strPtr(s string) *string {
 	return &s
 }

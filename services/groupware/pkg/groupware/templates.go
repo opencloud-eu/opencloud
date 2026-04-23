@@ -7,9 +7,9 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
-// Create a new {{.Name}} using the JSON payload in the body if the `{{.Method}}` operation.
-//
-// When successful, it returns a `200 OK` with the {{.ObjType}} that was just created in the response.
+// Create a new {{.Name}} using the JSON payload in the body of the `{{.Verb}}` operation.
+// @api:response 200:T returns the {{.Name}} that was just created
+// @api:body CHANGE the {{.Name}} to create
 func create[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]](
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
@@ -47,6 +47,8 @@ func create[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]](
 	})
 }
 
+// Retrieve all the {{.Name}}.
+// @api:response 200:RESP returns all the {{.Names}}
 func getall[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jmap.GetResponse[T]]( //NOSONAR
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
@@ -74,11 +76,12 @@ func getall[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jmap.G
 	})
 }
 
-func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jmap.GetResponse[T], FILTER any, COMP any, SEARCHRESULTS jmap.SearchResults[T]]( //NOSONAR
+// Retrieve all the {{.Name}} with support for paging using the {{.QueryParam.QueryParamOffset.Name}} and {{.QueryParam.QueryParamLimit.Name}} query parameters.
+// @api:response 200:SEARCHRESULTS returns the {{.Names}} within the requested range, as well as the total amount of {{.Names}}
+func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], FILTER any, COMP any, SEARCHRESULTS jmap.SearchResults[T]]( //NOSONAR
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
 	g *Groupware,
-	getFunc func(accountId string, ids []string, ctx jmap.Context) (RESP, jmap.SessionState, jmap.State, jmap.Language, jmap.Error),
 	filterFunc func(containerId string) FILTER,
 	sortBy []COMP,
 	queryFunc func(req Request, accountId string, filter FILTER, sortBy []COMP, offset int, limit uint, ctx jmap.Context) (SEARCHRESULTS, jmap.SessionState, jmap.State, jmap.Language, jmap.Error),
@@ -90,13 +93,11 @@ func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP j
 		}
 		l := req.logger.With().Str(accountId, log.SafeString(accountId))
 
-		search := false
 		offset, ok, err := req.parseIntParam(QueryParamOffset, 0)
 		if err != nil {
 			return req.error(accountId, err)
 		}
 		if ok {
-			search = true
 			l = l.Int(QueryParamOffset, offset)
 		}
 
@@ -105,42 +106,33 @@ func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP j
 			return req.error(accountId, err)
 		}
 		if ok {
-			search = true
 			l = l.Uint(QueryParamLimit, limit)
 		}
 
-		if search {
-			containerId := ""
-			if o.containerUriParamName != "" {
-				var err *Error
-				containerId, err = req.PathParam(o.containerUriParamName)
-				if err != nil {
-					return req.error(accountId, err)
-				}
-				l = l.Str(o.containerUriParamName, log.SafeString(containerId))
+		containerId := ""
+		if o.containerUriParamName != "" {
+			var err *Error
+			containerId, err = req.PathParam(o.containerUriParamName)
+			if err != nil {
+				return req.error(accountId, err)
 			}
-
-			filter := filterFunc(containerId)
-
-			logger := log.From(l)
-			ctx := req.ctx.WithLogger(logger)
-			results, sessionState, state, lang, jerr := queryFunc(req, accountId, filter, sortBy, offset, limit, ctx)
-			if jerr != nil {
-				return req.jmapError(accountId, jerr, sessionState, lang)
-			}
-			return req.respond(accountId, results, sessionState, o.responseType, state, lang)
-		} else {
-			logger := log.From(l)
-			ctx := req.ctx.WithLogger(logger)
-			objs, sessionState, state, lang, jerr := getFunc(accountId, []string{}, ctx)
-			if jerr != nil {
-				return req.jmapError(accountId, jerr, sessionState, lang)
-			}
-			return req.respond(accountId, objs, sessionState, o.responseType, state, lang)
+			l = l.Str(o.containerUriParamName, log.SafeString(containerId))
 		}
+
+		filter := filterFunc(containerId)
+
+		logger := log.From(l)
+		ctx := req.ctx.WithLogger(logger)
+		results, sessionState, state, lang, jerr := queryFunc(req, accountId, filter, sortBy, offset, limit, ctx)
+		if jerr != nil {
+			return req.jmapError(accountId, jerr, sessionState, lang)
+		}
+		return req.respond(accountId, results, sessionState, o.responseType, state, lang)
 	})
 }
 
+// Query all the {{.Name}} with support for paging using the {{.QueryParam.QueryParamOffset.Name}} and {{.QueryParam.QueryParamLimit.Name}} query parameters.
+// @api:response 200:SEARCHRESULTS returns the {{.Names}} that match the filter, within the requested range, as well as the total amount of matches
 func query[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], SEARCHRESULTS jmap.SearchResults[T]]( //NOSONAR
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
@@ -193,6 +185,9 @@ func query[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], SEARCHRESULT
 	})
 }
 
+// Retrieve a specific {{.Name}} referenced by its unique identifier as specified in the path parameter `{{.UriParamName}}` in the path `{{.Path}}`
+// @api:response 200:T returns the {{.Name}} that matches the requested identifier, if it exists
+// @api:response 404 when there is no {{.Name}} for the requested identifier
 func get[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jmap.GetResponse[T]](
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
@@ -235,6 +230,9 @@ func get[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jmap.GetR
 	})
 }
 
+// Retrieve a specific {{.Name}} referenced by its unique identifier as specified in the path parameter `{{.UriParamName}}` in the path `{{.Path}}`
+// @api:response 200:T returns the {{.Name}} that matches the requested identifier, if it exists
+// @api:response 404 when there is no {{.Name}} for the requested identifier
 func getFromMap[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jmap.GetResponse[T]](
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
@@ -248,7 +246,6 @@ func getFromMap[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jm
 		}
 		l := req.logger.With().Str(accountId, log.SafeString(accountId))
 		id, err := req.PathParamDoc(o.uriParamName, "The unique identifier of the object to retrieve")
-		// TODO add id splitting
 		if err != nil {
 			return req.error(accountId, err)
 		}
@@ -278,6 +275,9 @@ func getFromMap[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jm
 	})
 }
 
+// Retrieve the changes that occured for {{.Name}}, optionally since an opaque state specified using the header `{{.HeaderParam.HeaderParamSince}}`,
+// optionally bounded by the query parameter `{{.QueryParam.QueryParamMaxChanges}}`.
+// @api:response 200:CHANGES returns the changes to {{.Names}}: created, updated, and identifiers of destroyed {{.Names}}
 func changes[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]](
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
@@ -315,6 +315,9 @@ func changes[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]](
 	})
 }
 
+// Delete a specific {{.Name}} referenced by its unique identifier as specified in the path parameter `{{.UriParamName}}` in the path `{{.Path}}`
+// @api:response 204 when the referenced {{.Name}} has been deleted successfully
+// @api:response 404 when there is no {{.Name}} for the requested identifier
 func delete[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSONAR
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
@@ -359,6 +362,10 @@ func delete[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSONAR
 	})
 }
 
+// Delete several {{.Name}} objects referenced by their unique identifiers as specified as an array in the body,
+// or using the query parameter `{{.QueryParam.QueryParamId}}`.
+// @api:response 204 when the referenced {{.Names}} have all been deleted successfully
+// @api:body ?[]string an array of identifiers of {{.Names}} to delete
 func deleteMany[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSONAR
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
@@ -434,6 +441,8 @@ func deleteMany[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSO
 	})
 }
 
+// Modify the specified {{.Name}} referenced its unique identifier, changes to attributes being specified as a JSON map in the request body.
+// @api:response 200:T the modified {{.Name}}
 func modify[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]](
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,

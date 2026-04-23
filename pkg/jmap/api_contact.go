@@ -98,6 +98,7 @@ func (j *Client) QueryContactCards(accountIds []string,
 	)
 }
 
+// @api:example create
 func (j *Client) CreateContactCard(accountId string, contact ContactCardChange, ctx Context) (*ContactCard, SessionState, State, Language, Error) {
 	if contact.Version == nil {
 		contact.Version = &DEFAULT_CONTACT_CARD_VERSION
@@ -131,6 +132,7 @@ func (j *Client) DeleteContactCard(accountId string, destroyIds []string, ctx Co
 	)
 }
 
+// @api:example update
 func (j *Client) UpdateContactCard(accountId string, id string, changes ContactCardChange, ctx Context) (ContactCard, SessionState, State, Language, Error) {
 	return update(j, "UpdateContactCard", ContactCardType,
 		func(update map[string]PatchObject) ContactCardSetCommand {
