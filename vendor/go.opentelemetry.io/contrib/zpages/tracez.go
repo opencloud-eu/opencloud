@@ -41,6 +41,8 @@ const (
 	spanLatencyBucketQueryField = "zlatencybucket"
 	// maxTraceMessageLength is the maximum length of a message in tracez output.
 	maxTraceMessageLength = 1024
+
+	maxRequestBodySize = 1 << 20 // 1MB
 )
 
 type summaryTableData struct {
@@ -79,6 +81,8 @@ func NewTracezHandler(sp *SpanProcessor) http.Handler {
 // ServeHTTP implements the http.Handler and is capable of serving "tracez" HTTP requests.
 func (th *tracezHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySize)
 	if err := r.ParseForm(); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return

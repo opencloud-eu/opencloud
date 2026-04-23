@@ -4,4 +4,4 @@
 package zpages // import "go.opentelemetry.io/contrib/zpages"
 
 // Version is the current release version of the zpages span processor.
-const Version = "0.67.0"
+const Version = "0.68.0"
