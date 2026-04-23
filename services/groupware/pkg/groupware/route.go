@@ -48,7 +48,7 @@ const (
 	QueryParamSearchMaxSize           = "maxsize"
 	QueryParamSearchKeyword           = "keyword"
 	QueryParamSearchMessageId         = "messageId"
-	QueryParamOffset                  = "offset"
+	QueryParamPosition                = "position"
 	QueryParamLimit                   = "limit"
 	QueryParamDays                    = "days"
 	QueryParamPartId                  = "partId"

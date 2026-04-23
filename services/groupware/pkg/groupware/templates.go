@@ -62,7 +62,7 @@ func getall[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jmap.G
 		}
 		l := req.logger.With().Str(accountId, log.SafeString(accountId))
 
-		if notok, resp := req.unsupportedParams(single(accountId), QueryParamOffset, QueryParamLimit); notok {
+		if notok, resp := req.unsupportedParams(single(accountId), QueryParamPosition, QueryParamLimit); notok {
 			return resp
 		}
 
@@ -76,7 +76,7 @@ func getall[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jmap.G
 	})
 }
 
-// Retrieve all the {{.Name}} with support for paging using the {{.QueryParam.QueryParamOffset.Name}} and {{.QueryParam.QueryParamLimit.Name}} query parameters.
+// Retrieve all the {{.Name}} with support for paging using the {{.QueryParam.QueryParamPosition.Name}} and {{.QueryParam.QueryParamLimit.Name}} query parameters.
 // @api:response 200:SEARCHRESULTS returns the {{.Names}} within the requested range, as well as the total amount of {{.Names}}
 func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], FILTER any, COMP any, SEARCHRESULTS jmap.SearchResults[T]]( //NOSONAR
 	o ObjectType[T, CHANGE, CHANGES],
@@ -84,7 +84,7 @@ func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], FILTER
 	g *Groupware,
 	filterFunc func(containerId string) FILTER,
 	sortBy []COMP,
-	queryFunc func(req Request, accountId string, filter FILTER, sortBy []COMP, offset int, limit uint, ctx jmap.Context) (SEARCHRESULTS, jmap.SessionState, jmap.State, jmap.Language, jmap.Error),
+	queryFunc func(req Request, accountId string, filter FILTER, sortBy []COMP, position int, limit uint, ctx jmap.Context) (SEARCHRESULTS, jmap.SessionState, jmap.State, jmap.Language, jmap.Error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
@@ -93,12 +93,12 @@ func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], FILTER
 		}
 		l := req.logger.With().Str(accountId, log.SafeString(accountId))
 
-		offset, ok, err := req.parseIntParam(QueryParamOffset, 0)
+		position, ok, err := req.parseIntParam(QueryParamPosition, 0)
 		if err != nil {
 			return req.error(accountId, err)
 		}
 		if ok {
-			l = l.Int(QueryParamOffset, offset)
+			l = l.Int(QueryParamPosition, position)
 		}
 
 		limit, ok, err := req.parseUIntParam(QueryParamLimit, uint(0))
@@ -123,7 +123,7 @@ func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], FILTER
 
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
-		results, sessionState, state, lang, jerr := queryFunc(req, accountId, filter, sortBy, offset, limit, ctx)
+		results, sessionState, state, lang, jerr := queryFunc(req, accountId, filter, sortBy, position, limit, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -131,14 +131,14 @@ func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], FILTER
 	})
 }
 
-// Query all the {{.Name}} with support for paging using the {{.QueryParam.QueryParamOffset.Name}} and {{.QueryParam.QueryParamLimit.Name}} query parameters.
+// Query all the {{.Name}} with support for paging using the {{.QueryParam.QueryParamPosition.Name}} and {{.QueryParam.QueryParamLimit.Name}} query parameters.
 // @api:response 200:SEARCHRESULTS returns the {{.Names}} that match the filter, within the requested range, as well as the total amount of matches
 func query[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], SEARCHRESULTS jmap.SearchResults[T]]( //NOSONAR
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
 	g *Groupware,
 	defaultLimit uint,
-	queryFunc func(req Request, accountId string, containerId string, offset int, limit uint, ctx jmap.Context) (SEARCHRESULTS, jmap.SessionState, jmap.State, jmap.Language, *Error),
+	queryFunc func(req Request, accountId string, containerId string, position int, limit uint, ctx jmap.Context) (SEARCHRESULTS, jmap.SessionState, jmap.State, jmap.Language, *Error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
@@ -157,12 +157,12 @@ func query[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], SEARCHRESULT
 			l = l.Str(o.containerUriParamName, log.SafeString(containerId))
 		}
 
-		offset, ok, err := req.parseIntParam(QueryParamOffset, 0)
+		position, ok, err := req.parseIntParam(QueryParamPosition, 0)
 		if err != nil {
 			return req.error(accountId, err)
 		}
 		if ok {
-			l = l.Int(QueryParamOffset, offset)
+			l = l.Int(QueryParamPosition, position)
 		}
 
 		limit, ok, err := req.parseUIntParam(QueryParamLimit, defaultLimit)
@@ -176,7 +176,7 @@ func query[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], SEARCHRESULT
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
 
-		results, sessionState, state, lang, err := queryFunc(req, accountId, containerId, offset, limit, ctx)
+		results, sessionState, state, lang, err := queryFunc(req, accountId, containerId, position, limit, ctx)
 		if err != nil {
 			return req.error(accountId, err)
 		}

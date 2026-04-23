@@ -56,7 +56,7 @@ type BlobClient interface {
 const (
 	logOperation   = "operation"
 	logFetchBodies = "fetch-bodies"
-	logOffset      = "offset"
+	logPosition    = "position"
 	logLimit       = "limit"
 	logDownloadUrl = "download-url"
 	logBlobId      = "blob-id"
