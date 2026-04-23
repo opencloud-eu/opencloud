@@ -1423,11 +1423,23 @@ type Changes[T Foo] interface {
 }
 
 type SearchResultsTemplate[T Foo] struct {
-	Results             []T   `json:"results"`
-	CanCalculateChanges bool  `json:"canCalculateChanges"`
-	Position            uint  `json:"position"`
-	Limit               uint  `json:"limit,omitzero"`
-	Total               *uint `json:"total,omitzero"`
+	// The list of objects that resulted from the query.
+	Results []T `json:"results"`
+
+	// This is true if the server supports calling queryChanges with these filter/sort parameters.
+	//
+	// Note, this does not guarantee that the queryChanges call will succeed, as it may only be possible for a limited time
+	// afterwards due to server internal implementation details.
+	CanCalculateChanges bool `json:"canCalculateChanges"`
+
+	// The pagination position that was requested using the `position` query parameter.
+	Position uint `json:"position"`
+
+	// The maximum amount of results to return, as requested using the `limit` query parameter.
+	Limit uint `json:"limit,omitzero"`
+
+	// The total amount of results that exist for the query.
+	Total *uint `json:"total,omitzero"`
 }
 
 type SearchResults[T Foo] interface {
