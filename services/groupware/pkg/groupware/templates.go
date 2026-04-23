@@ -48,7 +48,7 @@ func create[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]](
 }
 
 // Retrieve all the {{.Name}}.
-// @api:response 200:RESP returns all the {{.Names}}
+// @api:response 200:[]T returns all the {{.Names}}
 func getall[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jmap.GetResponse[T]]( //NOSONAR
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
