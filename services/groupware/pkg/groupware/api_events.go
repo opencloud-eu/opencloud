@@ -24,12 +24,12 @@ func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) 
 		}
 		l = l.Str(UriParamCalendarId, log.SafeString(calendarId))
 
-		offset, ok, err := req.parseIntParam(QueryParamOffset, 0)
+		position, ok, err := req.parseIntParam(QueryParamPosition, 0)
 		if err != nil {
 			return req.error(accountId, err)
 		}
 		if ok {
-			l = l.Int(QueryParamOffset, offset)
+			l = l.Int(QueryParamPosition, position)
 		}
 
 		limit, ok, err := req.parseUIntParam(QueryParamLimit, g.defaults.contactLimit)
@@ -47,7 +47,7 @@ func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) 
 
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
-		eventsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryCalendarEvents(single(accountId), filter, sortBy, offset, limit, true, ctx)
+		eventsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryCalendarEvents(single(accountId), filter, sortBy, position, limit, true, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -62,9 +62,9 @@ func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) 
 
 func curryMapQuery[SRES jmap.SearchResults[T], T jmap.Foo, FILTER any, COMP any](
 	f func(accountIds []string, filter FILTER, sortBy []COMP, position int, limit uint, calculateTotal bool, ctx jmap.Context) (map[string]SRES, jmap.SessionState, jmap.State, jmap.Language, jmap.Error),
-) func(req Request, accountId string, filter FILTER, sortBy []COMP, offset int, limit uint, ctx jmap.Context) (SRES, jmap.SessionState, jmap.State, jmap.Language, jmap.Error) {
-	return func(req Request, accountId string, filter FILTER, sortBy []COMP, offset int, limit uint, ctx jmap.Context) (SRES, jmap.SessionState, jmap.State, jmap.Language, jmap.Error) {
-		m, sessionState, state, lang, err := f(single(accountId), filter, sortBy, offset, limit, true, ctx)
+) func(req Request, accountId string, filter FILTER, sortBy []COMP, position int, limit uint, ctx jmap.Context) (SRES, jmap.SessionState, jmap.State, jmap.Language, jmap.Error) {
+	return func(req Request, accountId string, filter FILTER, sortBy []COMP, position int, limit uint, ctx jmap.Context) (SRES, jmap.SessionState, jmap.State, jmap.Language, jmap.Error) {
+		m, sessionState, state, lang, err := f(single(accountId), filter, sortBy, position, limit, true, ctx)
 		return m[accountId], sessionState, state, lang, err
 	}
 }

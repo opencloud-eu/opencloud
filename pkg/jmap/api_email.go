@@ -123,10 +123,10 @@ func (r EmailSearchResults) GetTotal() *uint              { return r.Total }
 
 // Retrieve all the Emails in a given Mailbox by its id.
 func (j *Client) GetAllEmailsInMailbox(accountId string, mailboxId string, //NOSONAR
-	offset int, limit uint, collapseThreads bool, fetchBodies bool, maxBodyValueBytes uint, withThreads bool,
+	position int, limit uint, collapseThreads bool, fetchBodies bool, maxBodyValueBytes uint, withThreads bool,
 	ctx Context) (EmailSearchResults, SessionState, State, Language, Error) {
 	logger := j.loggerParams("GetAllEmailsInMailbox", ctx, func(z zerolog.Context) zerolog.Context {
-		return z.Bool(logFetchBodies, fetchBodies).Int(logOffset, offset).Uint(logLimit, limit)
+		return z.Bool(logFetchBodies, fetchBodies).Int(logPosition, position).Uint(logLimit, limit)
 	})
 	ctx = ctx.WithLogger(logger)
 
@@ -137,8 +137,8 @@ func (j *Client) GetAllEmailsInMailbox(accountId string, mailboxId string, //NOS
 		CollapseThreads: collapseThreads,
 		CalculateTotal:  true,
 	}
-	if offset > 0 {
-		query.Position = offset
+	if position > 0 {
+		query.Position = position
 	}
 	if limit > 0 {
 		query.Limit = &limit
@@ -304,10 +304,10 @@ type SearchSnippetWithMeta struct {
 type EmailSnippetSearchResults SearchResultsTemplate[SearchSnippetWithMeta]
 
 func (j *Client) QueryEmailSnippets(accountIds []string, //NOSONAR
-	filter EmailFilterElement, offset int, limit uint,
+	filter EmailFilterElement, position int, limit uint,
 	ctx Context) (map[string]EmailSnippetSearchResults, SessionState, State, Language, Error) {
 	logger := j.loggerParams("QueryEmailSnippets", ctx, func(z zerolog.Context) zerolog.Context {
-		return z.Uint(logLimit, limit).Int(logOffset, offset)
+		return z.Uint(logLimit, limit).Int(logPosition, position)
 	})
 	ctx = ctx.WithLogger(logger)
 
@@ -321,8 +321,8 @@ func (j *Client) QueryEmailSnippets(accountIds []string, //NOSONAR
 			CollapseThreads: true,
 			CalculateTotal:  true,
 		}
-		if offset > 0 {
-			query.Position = offset
+		if position > 0 {
+			query.Position = position
 		}
 		if limit > 0 {
 			query.Limit = &limit
@@ -426,7 +426,7 @@ type EmailQueryResult struct {
 }
 
 func (j *Client) QueryEmails(accountIds []string,
-	filter EmailFilterElement, offset int, limit uint, fetchBodies bool, maxBodyValueBytes uint,
+	filter EmailFilterElement, position int, limit uint, fetchBodies bool, maxBodyValueBytes uint,
 	ctx Context) (map[string]EmailQueryResult, SessionState, State, Language, Error) { //NOSONAR
 	logger := j.loggerParams("QueryEmails", ctx, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies)
@@ -443,8 +443,8 @@ func (j *Client) QueryEmails(accountIds []string,
 			CollapseThreads: true,
 			CalculateTotal:  true,
 		}
-		if offset > 0 {
-			query.Position = offset
+		if position > 0 {
+			query.Position = position
 		}
 		if limit > 0 {
 			query.Limit = &limit
@@ -511,7 +511,7 @@ type EmailQueryWithSnippetsResult struct {
 }
 
 func (j *Client) QueryEmailsWithSnippets(accountIds []string, //NOSONAR
-	filter EmailFilterElement, offset int, limit uint, collapseThreads bool, calculateTotal bool, fetchBodies bool, maxBodyValueBytes uint,
+	filter EmailFilterElement, position int, limit uint, collapseThreads bool, calculateTotal bool, fetchBodies bool, maxBodyValueBytes uint,
 	ctx Context) (map[string]EmailQueryWithSnippetsResult, SessionState, State, Language, Error) {
 	logger := j.loggerParams("QueryEmailsWithSnippets", ctx, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies)
@@ -528,8 +528,8 @@ func (j *Client) QueryEmailsWithSnippets(accountIds []string, //NOSONAR
 			CollapseThreads: collapseThreads,
 			CalculateTotal:  calculateTotal,
 		}
-		if offset > 0 {
-			query.Position = offset
+		if position > 0 {
+			query.Position = position
 		}
 		if limit > 0 {
 			query.Limit = &limit
@@ -1000,11 +1000,11 @@ func (j *Client) EmailsInThread(accountId string, threadId string,
 }
 
 type EmailsSummary struct {
-	Emails []Email `json:"emails"`
-	Total  uint    `json:"total"`
-	Limit  uint    `json:"limit"`
-	Offset uint    `json:"offset"`
-	State  State   `json:"state"`
+	Emails   []Email `json:"emails"`
+	Total    uint    `json:"total"`
+	Limit    uint    `json:"limit"`
+	Position uint    `json:"position"`
+	State    State   `json:"state"`
 }
 
 var EmailSummaryProperties = []string{
@@ -1103,11 +1103,11 @@ func (j *Client) QueryEmailSummaries(accountIds []string, //NOSONAR
 			}
 
 			resp[accountId] = EmailsSummary{
-				Emails: response.List,
-				Total:  queryResponse.Total,
-				Limit:  queryResponse.Limit,
-				Offset: queryResponse.Position,
-				State:  response.State,
+				Emails:   response.List,
+				Total:    queryResponse.Total,
+				Limit:    queryResponse.Limit,
+				Position: queryResponse.Position,
+				State:    response.State,
 			}
 		}
 		return resp, squashStateFunc(resp, func(s EmailsSummary) State { return s.State }), nil

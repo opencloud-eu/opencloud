@@ -57,12 +57,12 @@ func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Requ
 		}
 		l = l.Str(UriParamAddressBookId, log.SafeString(addressBookId))
 
-		offset, ok, err := req.parseIntParam(QueryParamOffset, 0)
+		position, ok, err := req.parseIntParam(QueryParamPosition, 0)
 		if err != nil {
 			return req.errorN(accountIds, err)
 		}
 		if ok {
-			l = l.Int(QueryParamOffset, offset)
+			l = l.Int(QueryParamPosition, position)
 		}
 
 		limit, ok, err := req.parseUIntParam(QueryParamLimit, g.defaults.contactLimit)
@@ -85,7 +85,7 @@ func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Requ
 
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
-		contactsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryContactCards(accountIds, filter, sortBy, offset, limit, true, ctx)
+		contactsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryContactCards(accountIds, filter, sortBy, position, limit, true, ctx)
 		if jerr != nil {
 			return req.jmapErrorN(accountIds, jerr, sessionState, lang)
 		}

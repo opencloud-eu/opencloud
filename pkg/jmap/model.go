@@ -4242,7 +4242,7 @@ type BlobGetCommand struct {
 	AccountId  string   `json:"accountId"`
 	Ids        []string `json:"ids,omitempty"`
 	Properties []string `json:"properties,omitempty"`
-	Offset     int      `json:"offset,omitzero"`
+	Position   int      `json:"position,omitzero"`
 	Length     int      `json:"length,omitzero"`
 }
 
@@ -4256,7 +4256,7 @@ type BlobGetRefCommand struct {
 	AccountId  string           `json:"accountId"`
 	IdRef      *ResultReference `json:"#ids,omitempty"`
 	Properties []string         `json:"properties,omitempty"`
-	Offset     int              `json:"offset,omitzero"`
+	Position   int              `json:"position,omitzero"`
 	Length     int              `json:"length,omitzero"`
 }
 
