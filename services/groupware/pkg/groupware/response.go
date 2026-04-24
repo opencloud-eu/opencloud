@@ -170,10 +170,6 @@ func (r *Request) notFound(accountId string, sessionState jmap.SessionState, obj
 	return notFoundResponse(single(accountId), sessionState, objectType, etag)
 }
 
-func (r *Request) notFoundN(accountIds []string, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State) Response {
-	return notFoundResponse(accountIds, sessionState, objectType, etag)
-}
-
 func etaggedNotFoundResponse(accountIds []string, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State, contentLanguage jmap.Language) Response {
 	return Response{
 		accountIds:      accountIds,

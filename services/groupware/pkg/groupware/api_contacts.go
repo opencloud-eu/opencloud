@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
-	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
 var (
@@ -42,60 +41,70 @@ var (
 
 // Get all the contacts in an addressbook of an account by its identifier.
 func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Request) { //NOSONAR
-	g.respond(w, r, func(req Request) Response {
-		ok, accountId, resp := req.needContactWithAccount()
-		if !ok {
-			return resp
-		}
-		accountIds := single(accountId)
+	getallpaged(Contact, w, r, g, true,
+		func(addressbookId string) jmap.ContactCardFilterElement {
+			return jmap.ContactCardFilterCondition{InAddressBook: addressbookId}
+		},
+		[]jmap.ContactCardComparator{{Property: jmap.ContactCardPropertyUpdated, IsAscending: true}},
+		curryMapQuery(g.jmap.QueryContactCards),
+	)
 
-		l := req.logger.With()
+	/*
+		g.respond(w, r, func(req Request) Response {
+			ok, accountId, resp := req.needContactWithAccount()
+			if !ok {
+				return resp
+			}
+			accountIds := single(accountId)
 
-		addressBookId, err := req.PathParam(UriParamAddressBookId)
-		if err != nil {
-			return req.errorN(accountIds, err)
-		}
-		l = l.Str(UriParamAddressBookId, log.SafeString(addressBookId))
+			l := req.logger.With()
 
-		position, ok, err := req.parseIntParam(QueryParamPosition, 0)
-		if err != nil {
-			return req.errorN(accountIds, err)
-		}
-		if ok {
-			l = l.Int(QueryParamPosition, position)
-		}
+			addressBookId, err := req.PathParam(UriParamAddressBookId)
+			if err != nil {
+				return req.errorN(accountIds, err)
+			}
+			l = l.Str(UriParamAddressBookId, log.SafeString(addressBookId))
 
-		limit, ok, err := req.parseUIntParam(QueryParamLimit, g.defaults.contactLimit)
-		if err != nil {
-			return req.errorN(accountIds, err)
-		}
-		if ok {
-			l = l.Uint(QueryParamLimit, limit)
-		}
+			position, ok, err := req.parseIntParam(QueryParamPosition, 0)
+			if err != nil {
+				return req.errorN(accountIds, err)
+			}
+			if ok {
+				l = l.Int(QueryParamPosition, position)
+			}
 
-		filter := jmap.ContactCardFilterCondition{
-			InAddressBook: addressBookId,
-		}
-		var sortBy []jmap.ContactCardComparator
-		if sort, ok, resp := mapSort(accountIds, &req, DefaultContactSort, SupportedContactSortingProperties, mapContactCardSort); !ok {
-			return resp
-		} else {
-			sortBy = sort
-		}
+			limit, ok, err := req.parseUIntParam(QueryParamLimit, g.defaults.contactLimit)
+			if err != nil {
+				return req.errorN(accountIds, err)
+			}
+			if ok {
+				l = l.Uint(QueryParamLimit, limit)
+			}
 
-		logger := log.From(l)
-		ctx := req.ctx.WithLogger(logger)
-		contactsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryContactCards(accountIds, filter, sortBy, position, limit, true, ctx)
-		if jerr != nil {
-			return req.jmapErrorN(accountIds, jerr, sessionState, lang)
-		}
+			filter := jmap.ContactCardFilterCondition{
+				InAddressBook: addressBookId,
+			}
+			var sortBy []jmap.ContactCardComparator
+			if sort, ok, resp := mapSort(accountIds, &req, DefaultContactSort, SupportedContactSortingProperties, mapContactCardSort); !ok {
+				return resp
+			} else {
+				sortBy = sort
+			}
 
-		if contacts, ok := contactsByAccountId[accountId]; ok {
-			return req.respondN(accountIds, contacts, sessionState, ContactResponseObjectType, state, lang)
-		} else {
-			return req.notFoundN(accountIds, sessionState, ContactResponseObjectType, state)
-		}
-	})
+			logger := log.From(l)
+			ctx := req.ctx.WithLogger(logger)
+			contactsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryContactCards(accountIds, filter, sortBy, position, limit, true, ctx)
+			if jerr != nil {
+				return req.jmapErrorN(accountIds, jerr, sessionState, lang)
+			}
+
+			if contacts, ok := contactsByAccountId[accountId]; ok {
+				return req.respondN(accountIds, contacts, sessionState, ContactResponseObjectType, state, lang)
+			} else {
+				return req.notFoundN(accountIds, sessionState, ContactResponseObjectType, state)
+			}
+		})
+	*/
 }
 
 func (g *Groupware) GetContactById(w http.ResponseWriter, r *http.Request) {
@@ -103,9 +112,9 @@ func (g *Groupware) GetContactById(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *Groupware) GetAllContacts(w http.ResponseWriter, r *http.Request) {
-	getallpaged(Contact, w, r, g,
-		func(cid string) jmap.ContactCardFilterElement {
-			return jmap.ContactCardFilterCondition{InAddressBook: cid}
+	getallpaged(Contact, w, r, g, false,
+		func(_ string) jmap.ContactCardFilterElement {
+			return jmap.ContactCardFilterCondition{}
 		},
 		[]jmap.ContactCardComparator{{Property: jmap.ContactCardPropertyUpdated, IsAscending: true}},
 		curryMapQuery(g.jmap.QueryContactCards),
@@ -128,12 +137,4 @@ func (g *Groupware) DeleteContact(w http.ResponseWriter, r *http.Request) {
 
 func (g *Groupware) ModifyContact(w http.ResponseWriter, r *http.Request) {
 	modify(Contact, w, r, g, g.jmap.UpdateContactCard)
-}
-
-func mapContactCardSort(s SortCrit) jmap.ContactCardComparator {
-	attr := s.Attribute
-	if mapped, ok := ContactSortingPropertyMapping[s.Attribute]; ok {
-		attr = mapped
-	}
-	return jmap.ContactCardComparator{Property: attr, IsAscending: s.Ascending}
 }

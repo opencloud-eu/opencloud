@@ -248,3 +248,12 @@ func TestFilterSeq(t *testing.T) {
 		})
 	}
 }
+
+func TestSet(t *testing.T) {
+	s := Set([]string{"a", "b", "c", "b", "d"})
+	assert.Len(t, s, 4)
+	for _, e := range []string{"a", "b", "c", "d"} {
+		_, ok := s[e]
+		assert.True(t, ok)
+	}
+}

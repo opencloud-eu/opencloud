@@ -113,20 +113,26 @@ func (j *Client) GetEmailBlobId(accountId string, id string, ctx Context) (strin
 
 type EmailSearchResults SearchResultsTemplate[Email]
 
-var _ SearchResults[Email] = EmailSearchResults{}
+var _ SearchResults[Email] = &EmailSearchResults{}
 
-func (r EmailSearchResults) GetResults() []Email          { return r.Results }
-func (r EmailSearchResults) GetCanCalculateChanges() bool { return r.CanCalculateChanges }
-func (r EmailSearchResults) GetPosition() uint            { return r.Position }
-func (r EmailSearchResults) GetLimit() uint               { return r.Limit }
-func (r EmailSearchResults) GetTotal() *uint              { return r.Total }
+func (r *EmailSearchResults) GetResults() []Email          { return r.Results }
+func (r *EmailSearchResults) GetCanCalculateChanges() bool { return r.CanCalculateChanges }
+func (r *EmailSearchResults) GetPosition() uint            { return r.Position }
+func (r *EmailSearchResults) GetLimit() *uint              { return r.Limit }
+func (r *EmailSearchResults) GetTotal() *uint              { return r.Total }
+func (r *EmailSearchResults) RemoveResults()               { r.Results = nil }
+func (r *EmailSearchResults) SetLimit(limit *uint)         { r.Limit = limit }
 
 // Retrieve all the Emails in a given Mailbox by its id.
 func (j *Client) GetAllEmailsInMailbox(accountId string, mailboxId string, //NOSONAR
-	position int, limit uint, collapseThreads bool, fetchBodies bool, maxBodyValueBytes uint, withThreads bool,
-	ctx Context) (EmailSearchResults, SessionState, State, Language, Error) {
+	position int, limit *uint, collapseThreads bool, fetchBodies bool, maxBodyValueBytes uint, withThreads bool,
+	ctx Context) (*EmailSearchResults, SessionState, State, Language, Error) {
 	logger := j.loggerParams("GetAllEmailsInMailbox", ctx, func(z zerolog.Context) zerolog.Context {
-		return z.Bool(logFetchBodies, fetchBodies).Int(logPosition, position).Uint(logLimit, limit)
+		l := z.Bool(logFetchBodies, fetchBodies).Int(logPosition, position)
+		if limit != nil {
+			l = l.Uint(logLimit, *limit)
+		}
+		return l
 	})
 	ctx = ctx.WithLogger(logger)
 
@@ -136,12 +142,8 @@ func (j *Client) GetAllEmailsInMailbox(accountId string, mailboxId string, //NOS
 		Sort:            []EmailComparator{{Property: EmailPropertyReceivedAt, IsAscending: false}},
 		CollapseThreads: collapseThreads,
 		CalculateTotal:  true,
-	}
-	if position > 0 {
-		query.Position = position
-	}
-	if limit > 0 {
-		query.Limit = &limit
+		Position:        position,
+		Limit:           limit,
 	}
 
 	get := EmailGetRefCommand{
@@ -173,36 +175,36 @@ func (j *Client) GetAllEmailsInMailbox(accountId string, mailboxId string, //NOS
 
 	cmd, err := j.request(ctx, NS_MAIL, invocations...)
 	if err != nil {
-		return EmailSearchResults{}, "", "", "", err
+		return nil, "", "", "", err
 	}
 
-	return command(j, ctx, cmd, func(body *Response) (EmailSearchResults, State, Error) {
+	return command(j, ctx, cmd, func(body *Response) (*EmailSearchResults, State, Error) {
 		var queryResponse EmailQueryResponse
 		err = retrieveQuery(ctx, body, query, "0", &queryResponse)
 		if err != nil {
-			return EmailSearchResults{}, "", err
+			return nil, "", err
 		}
 		var getResponse EmailGetResponse
 		err = retrieveGet(ctx, body, get, "1", &getResponse)
 		if err != nil {
 			logger.Error().Err(err).Send()
-			return EmailSearchResults{}, "", err
+			return nil, "", err
 		}
 
 		if withThreads {
 			var thread ThreadGetResponse
 			err = retrieveGet(ctx, body, threads, "2", &thread)
 			if err != nil {
-				return EmailSearchResults{}, "", err
+				return nil, "", err
 			}
 			setThreadSize(&thread, getResponse.List)
 		}
 
-		return EmailSearchResults{
+		return &EmailSearchResults{
 			Results:             getResponse.List,
 			CanCalculateChanges: queryResponse.CanCalculateChanges,
 			Position:            queryResponse.Position,
-			Limit:               queryResponse.Limit,
+			Limit:               ptrIf(queryResponse.Limit, limit != nil),
 			Total:               uintPtr(queryResponse.Total),
 		}, queryResponse.QueryState, nil
 	})
@@ -304,10 +306,14 @@ type SearchSnippetWithMeta struct {
 type EmailSnippetSearchResults SearchResultsTemplate[SearchSnippetWithMeta]
 
 func (j *Client) QueryEmailSnippets(accountIds []string, //NOSONAR
-	filter EmailFilterElement, position int, limit uint,
+	filter EmailFilterElement, position int, limit *uint,
 	ctx Context) (map[string]EmailSnippetSearchResults, SessionState, State, Language, Error) {
 	logger := j.loggerParams("QueryEmailSnippets", ctx, func(z zerolog.Context) zerolog.Context {
-		return z.Uint(logLimit, limit).Int(logPosition, position)
+		l := z.Int(logPosition, position)
+		if limit != nil {
+			l = l.Uint(logLimit, *limit)
+		}
+		return l
 	})
 	ctx = ctx.WithLogger(logger)
 
@@ -320,12 +326,8 @@ func (j *Client) QueryEmailSnippets(accountIds []string, //NOSONAR
 			Sort:            []EmailComparator{{Property: EmailPropertyReceivedAt, IsAscending: false}},
 			CollapseThreads: true,
 			CalculateTotal:  true,
-		}
-		if position > 0 {
-			query.Position = position
-		}
-		if limit > 0 {
-			query.Limit = &limit
+			Position:        position,
+			Limit:           limit,
 		}
 
 		mails := EmailGetRefCommand{
@@ -409,7 +411,7 @@ func (j *Client) QueryEmailSnippets(accountIds []string, //NOSONAR
 				Results:             snippets,
 				CanCalculateChanges: queryResponse.CanCalculateChanges,
 				Total:               uintPtr(queryResponse.Total),
-				Limit:               queryResponse.Limit,
+				Limit:               ptrIf(queryResponse.Limit, limit != nil),
 				Position:            queryResponse.Position,
 			}
 		}
@@ -511,7 +513,7 @@ type EmailQueryWithSnippetsResult struct {
 }
 
 func (j *Client) QueryEmailsWithSnippets(accountIds []string, //NOSONAR
-	filter EmailFilterElement, position int, limit uint, collapseThreads bool, calculateTotal bool, fetchBodies bool, maxBodyValueBytes uint,
+	filter EmailFilterElement, position int, limit *uint, collapseThreads bool, calculateTotal bool, fetchBodies bool, maxBodyValueBytes uint,
 	ctx Context) (map[string]EmailQueryWithSnippetsResult, SessionState, State, Language, Error) {
 	logger := j.loggerParams("QueryEmailsWithSnippets", ctx, func(z zerolog.Context) zerolog.Context {
 		return z.Bool(logFetchBodies, fetchBodies)
@@ -527,12 +529,8 @@ func (j *Client) QueryEmailsWithSnippets(accountIds []string, //NOSONAR
 			Sort:            []EmailComparator{{Property: EmailPropertyReceivedAt, IsAscending: false}},
 			CollapseThreads: collapseThreads,
 			CalculateTotal:  calculateTotal,
-		}
-		if position > 0 {
-			query.Position = position
-		}
-		if limit > 0 {
-			query.Limit = &limit
+			Position:        position,
+			Limit:           limit,
 		}
 
 		snippet := SearchSnippetGetRefCommand{
@@ -1027,7 +1025,7 @@ var EmailSummaryProperties = []string{
 }
 
 func (j *Client) QueryEmailSummaries(accountIds []string, //NOSONAR
-	filter EmailFilterElement, limit uint, withThreads bool,
+	filter EmailFilterElement, limit *uint, withThreads bool, calculateTotal bool,
 	ctx Context) (map[string]EmailsSummary, SessionState, State, Language, Error) {
 	logger := j.logger("QueryEmailSummaries", ctx)
 	ctx = ctx.WithLogger(logger)
@@ -1042,12 +1040,11 @@ func (j *Client) QueryEmailSummaries(accountIds []string, //NOSONAR
 	invocations := make([]Invocation, len(uniqueAccountIds)*factor)
 	for i, accountId := range uniqueAccountIds {
 		get := EmailQueryCommand{
-			AccountId: accountId,
-			Filter:    filter,
-			Sort:      []EmailComparator{{Property: EmailPropertyReceivedAt, IsAscending: false}},
-		}
-		if limit > 0 {
-			get.Limit = &limit
+			AccountId:      accountId,
+			Filter:         filter,
+			Sort:           []EmailComparator{{Property: EmailPropertyReceivedAt, IsAscending: false}},
+			CalculateTotal: calculateTotal,
+			Limit:          limit,
 		}
 		invocations[i*factor+0] = invocation(get, mcid(accountId, "0"))
 

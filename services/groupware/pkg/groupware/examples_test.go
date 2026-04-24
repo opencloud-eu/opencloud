@@ -162,19 +162,6 @@ func (e Exemplar) MailboxesByAccountIdFilteredOnInboxRole() (map[string][]jmap.M
 	}, "All mailboxes for all accounts, filtered on the 'inbox' role", "inboxrole"
 }
 
-func (e Exemplar) EmailSearchResults() EmailSearchResults {
-	j := jmap.ExemplarInstance
-	email := j.Email()
-	email.BodyStructure = nil
-	email.BodyValues = nil
-	return EmailSearchResults{
-		Results:    []jmap.Email{email},
-		Total:      132,
-		Limit:      1,
-		QueryState: "seehug3p",
-	}
-}
-
 func (e Exemplar) MailboxRolesByAccounts() (map[string][]string, string, string, string) {
 	j := jmap.ExemplarInstance
 	return map[string][]string{

@@ -454,12 +454,12 @@ func (e Exemplar) Quota() Quota {
 		Used:         11696865,
 		HardLimit:    20000000000,
 		Name:         e.Username,
-		Types: []ObjectType{
-			EmailType,
-			SieveScriptType,
-			FileNodeType,
-			CalendarEventType,
-			ContactCardType,
+		Types: []ObjectTypeName{
+			EmailName,
+			SieveScriptName,
+			FileNodeName,
+			CalendarEventName,
+			ContactCardName,
 		},
 		Description: e.IdentityName,
 		SoftLimit:   19000000000,
@@ -477,12 +477,12 @@ func (e Exemplar) Quotas() []Quota {
 			Used:         29102918,
 			HardLimit:    50000000000,
 			Name:         e.SharedAccountId,
-			Types: []ObjectType{
-				EmailType,
-				SieveScriptType,
-				FileNodeType,
-				CalendarEventType,
-				ContactCardType,
+			Types: []ObjectTypeName{
+				EmailName,
+				SieveScriptName,
+				FileNodeName,
+				CalendarEventName,
+				ContactCardName,
 			},
 			Description: e.SharedAccountName,
 			SoftLimit:   90000000000,
@@ -562,7 +562,7 @@ func (e Exemplar) MailboxInbox() (Mailbox, string, string) {
 		Id:            e.MailboxInboxId,
 		Name:          "Inbox",
 		Role:          JmapMailboxRoleInbox,
-		SortOrder:     intPtr(0),
+		SortOrder:     ptr(0),
 		TotalEmails:   1291,
 		UnreadEmails:  82,
 		TotalThreads:  891,
@@ -578,7 +578,7 @@ func (e Exemplar) MailboxInbox() (Mailbox, string, string) {
 			MayDelete:      true,
 			MaySubmit:      true,
 		},
-		IsSubscribed: boolPtr(true),
+		IsSubscribed: truep,
 	}, "An Inbox Mailbox", "inbox"
 }
 
@@ -587,7 +587,7 @@ func (e Exemplar) MailboxInboxProjects() (Mailbox, string, string) {
 		Id:            e.MailboxProjectId,
 		ParentId:      e.MailboxInboxId,
 		Name:          "Projects",
-		SortOrder:     intPtr(0),
+		SortOrder:     ptr(0),
 		TotalEmails:   112,
 		UnreadEmails:  3,
 		TotalThreads:  85,
@@ -603,7 +603,7 @@ func (e Exemplar) MailboxInboxProjects() (Mailbox, string, string) {
 			MayDelete:      true,
 			MaySubmit:      true,
 		},
-		IsSubscribed: boolPtr(true),
+		IsSubscribed: truep,
 	}, "A Projects Mailbox under the Inbox", "projects"
 }
 
@@ -612,7 +612,7 @@ func (e Exemplar) MailboxDrafts() (Mailbox, string, string) {
 		Id:            e.MailboxDraftsId,
 		Name:          "Drafts",
 		Role:          JmapMailboxRoleDrafts,
-		SortOrder:     intPtr(0),
+		SortOrder:     ptr(0),
 		TotalEmails:   12,
 		UnreadEmails:  1,
 		TotalThreads:  12,
@@ -628,7 +628,7 @@ func (e Exemplar) MailboxDrafts() (Mailbox, string, string) {
 			MayDelete:      true,
 			MaySubmit:      true,
 		},
-		IsSubscribed: boolPtr(true),
+		IsSubscribed: truep,
 	}, "A Drafts Mailbox", "drafts"
 }
 
@@ -637,7 +637,7 @@ func (e Exemplar) MailboxSent() (Mailbox, string, string) {
 		Id:            e.MailboxSentId,
 		Name:          "Sent Items",
 		Role:          JmapMailboxRoleSent,
-		SortOrder:     intPtr(0),
+		SortOrder:     ptr(0),
 		TotalEmails:   1621,
 		UnreadEmails:  0,
 		TotalThreads:  1621,
@@ -653,7 +653,7 @@ func (e Exemplar) MailboxSent() (Mailbox, string, string) {
 			MayDelete:      true,
 			MaySubmit:      true,
 		},
-		IsSubscribed: boolPtr(true),
+		IsSubscribed: truep,
 	}, "A Sent Mailbox", "sent"
 }
 
@@ -662,7 +662,7 @@ func (e Exemplar) MailboxJunk() (Mailbox, string, string) {
 		Id:            e.MailboxJunkId,
 		Name:          "Junk Mail",
 		Role:          JmapMailboxRoleJunk,
-		SortOrder:     intPtr(0),
+		SortOrder:     ptr(0),
 		TotalEmails:   251,
 		UnreadEmails:  0,
 		TotalThreads:  251,
@@ -678,7 +678,7 @@ func (e Exemplar) MailboxJunk() (Mailbox, string, string) {
 			MayDelete:      true,
 			MaySubmit:      true,
 		},
-		IsSubscribed: boolPtr(true),
+		IsSubscribed: truep,
 	}, "A Junk Mailbox", "junk"
 }
 
@@ -687,7 +687,7 @@ func (e Exemplar) MailboxDeleted() (Mailbox, string, string) {
 		Id:            e.MailboxDeletedId,
 		Name:          "Deleted Items",
 		Role:          JmapMailboxRoleTrash,
-		SortOrder:     intPtr(0),
+		SortOrder:     ptr(0),
 		TotalEmails:   99,
 		UnreadEmails:  0,
 		TotalThreads:  91,
@@ -703,7 +703,7 @@ func (e Exemplar) MailboxDeleted() (Mailbox, string, string) {
 			MayDelete:      true,
 			MaySubmit:      true,
 		},
-		IsSubscribed: boolPtr(true),
+		IsSubscribed: truep,
 	}, "A Trash Mailbox", "deleted"
 }
 
@@ -815,7 +815,7 @@ func (e Exemplar) Emails() EmailSearchResults {
 	return EmailSearchResults{
 		Results:             []Email{e.Email()},
 		Total:               uintPtr(132),
-		Limit:               1,
+		Limit:               uintPtr(1),
 		Position:            5,
 		CanCalculateChanges: true,
 	}
@@ -1991,7 +1991,7 @@ func (e Exemplar) ContactCardChangeForUpdate() (ContactCardChange, string, strin
 	return ContactCardChange{
 		AddressBookIds: map[string]*bool{
 			"c34c2bb4-4e8e-4579-b35d-6f6739a11146": nil,
-			"02b6977f-bb60-4511-949e-37f47a930382": boolPtr(true),
+			"02b6977f-bb60-4511-949e-37f47a930382": truep,
 		},
 		Nicknames: map[string]c.Nickname{
 			"a": {

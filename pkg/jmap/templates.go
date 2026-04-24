@@ -430,11 +430,11 @@ func update[T Foo, CHANGES Change, SET SetCommand[T], GET GetCommand[T], RESP an
 func query[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T], QUERYRESP QueryResponse[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
 	client *Client, name string, objType ObjectType,
 	defaultSortBy []SORT,
-	queryCommandFactory func(filter FILTER, sortBy []SORT, limit uint, position uint) QUERY,
+	queryCommandFactory func(filter FILTER, sortBy []SORT, position uint, limit *uint) QUERY,
 	getCommandFactory func(cmd Command, path string, rof string) GET,
-	respMapper func(query QUERYRESP, get GETRESP) RESP,
-	filter FILTER, sortBy []SORT, limit uint, position uint,
-	ctx Context) (RESP, SessionState, State, Language, Error) {
+	respMapper func(query QUERYRESP, get GETRESP) *RESP,
+	filter FILTER, sortBy []SORT, limit *uint, position uint,
+	ctx Context) (*RESP, SessionState, State, Language, Error) {
 
 	logger := client.logger(name, ctx)
 	ctx = ctx.WithLogger(logger)
@@ -443,26 +443,24 @@ func query[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T]
 		sortBy = defaultSortBy
 	}
 
-	query := queryCommandFactory(filter, sortBy, limit, position)
+	query := queryCommandFactory(filter, sortBy, position, limit)
 	get := getCommandFactory(query.GetCommand(), "/ids/*", "0")
-
-	var zero RESP
 
 	cmd, err := client.request(ctx, objType.Namespaces, invocation(query, "0"), invocation(get, "1"))
 	if err != nil {
-		return zero, "", "", "", err
+		return nil, "", "", "", err
 	}
 
-	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
+	return command(client, ctx, cmd, func(body *Response) (*RESP, State, Error) {
 		var queryResponse QUERYRESP
 		err = retrieveQuery(ctx, body, query, "0", &queryResponse)
 		if err != nil {
-			return zero, EmptyState, err
+			return nil, EmptyState, err
 		}
 		var getResponse GETRESP
 		err = retrieveGet(ctx, body, get, "1", &getResponse)
 		if err != nil {
-			return zero, EmptyState, err
+			return nil, EmptyState, err
 		}
 		return respMapper(queryResponse, getResponse), queryResponse.GetQueryState(), nil
 	})
@@ -471,12 +469,12 @@ func query[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T]
 func queryN[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T], QUERYRESP QueryResponse[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
 	client *Client, name string, objType ObjectType,
 	defaultSortBy []SORT,
-	queryCommandFactory func(accountId string, filter FILTER, sortBy []SORT, position int, limit uint) QUERY,
+	queryCommandFactory func(accountId string, filter FILTER, sortBy []SORT, position int, limit *uint) QUERY,
 	getCommandFactory func(accountId string, cmd Command, path string, rof string) GET,
-	respMapper func(query QUERYRESP, get GETRESP) RESP,
+	respMapper func(query QUERYRESP, get GETRESP) *RESP,
 	accountIds []string,
-	filter FILTER, sortBy []SORT, limit uint, position int,
-	ctx Context) (map[string]RESP, SessionState, State, Language, Error) {
+	filter FILTER, sortBy []SORT, limit *uint, position int,
+	ctx Context) (map[string]*RESP, SessionState, State, Language, Error) {
 	logger := client.logger(name, ctx)
 	ctx = ctx.WithLogger(logger)
 
@@ -503,8 +501,8 @@ func queryN[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T
 		return nil, "", "", "", err
 	}
 
-	return command(client, ctx, cmd, func(body *Response) (map[string]RESP, State, Error) {
-		resp := map[string]RESP{}
+	return command(client, ctx, cmd, func(body *Response) (map[string]*RESP, State, Error) {
+		resp := map[string]*RESP{}
 		stateByAccountId := map[string]State{}
 		for _, accountId := range uniqueAccountIds {
 			var queryResponse QUERYRESP

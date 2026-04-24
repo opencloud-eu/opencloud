@@ -182,21 +182,21 @@ func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, //NOS
 	)
 }
 
-func (j *Client) GetMailboxRolesForMultipleAccounts(accountIds []string, ctx Context) (map[string][]string, SessionState, State, Language, Error) {
+func (j *Client) GetMailboxRolesForMultipleAccounts(accountIds []string, ctx Context) (map[string]*[]string, SessionState, State, Language, Error) {
 	return queryN(j, "GetMailboxRolesForMultipleAccounts", MailboxType,
 		[]MailboxComparator{{Property: MailboxPropertySortOrder, IsAscending: true}},
-		func(accountId string, filter MailboxFilterCondition, sortBy []MailboxComparator, _ int, _ uint) MailboxQueryCommand {
+		func(accountId string, filter MailboxFilterCondition, sortBy []MailboxComparator, _ int, _ *uint) MailboxQueryCommand {
 			return MailboxQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, SortAsTree: false, FilterAsTree: false, Position: 0, Limit: nil, CalculateTotal: false}
 		},
 		func(accountId string, cmd Command, path, rof string) MailboxGetRefCommand {
 			return MailboxGetRefCommand{AccountId: accountId, IdsRef: &ResultReference{Name: cmd, Path: path, ResultOf: rof}}
 		},
-		func(_ MailboxQueryResponse, get MailboxGetResponse) []string {
+		func(_ MailboxQueryResponse, get MailboxGetResponse) *[]string {
 			roles := structs.Map(get.List, func(m Mailbox) string { return m.Role })
 			slices.Sort(roles)
-			return roles
+			return &roles
 		},
-		accountIds, MailboxFilterCondition{HasAnyRole: boolPtr(true)}, nil, 0, 0,
+		accountIds, MailboxFilterCondition{HasAnyRole: truep}, nil, nil, 0,
 		ctx,
 	)
 }

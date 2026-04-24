@@ -82,6 +82,18 @@ func Index[K comparable, V any](source []V, indexer func(V) K) map[K]V {
 	return result
 }
 
+func Set[V comparable](source []V) map[V]struct{} {
+	if source == nil {
+		var zero map[V]struct{}
+		return zero
+	}
+	result := map[V]struct{}{}
+	for _, v := range source {
+		result[v] = struct{}{}
+	}
+	return result
+}
+
 // Creates a slice from a slice, putting each value from the source slice through the
 // mapper function to determine the value to store into the resulting slice.
 func Map[E any, R any](source []E, mapper func(E) R) []R {

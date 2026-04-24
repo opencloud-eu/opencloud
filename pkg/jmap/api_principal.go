@@ -16,33 +16,35 @@ func (j *Client) GetPrincipals(accountId string, ids []string, ctx Context) (Pri
 
 type PrincipalSearchResults SearchResultsTemplate[Principal]
 
-var _ SearchResults[Principal] = PrincipalSearchResults{}
+var _ SearchResults[Principal] = &PrincipalSearchResults{}
 
-func (r PrincipalSearchResults) GetResults() []Principal      { return r.Results }
-func (r PrincipalSearchResults) GetCanCalculateChanges() bool { return r.CanCalculateChanges }
-func (r PrincipalSearchResults) GetPosition() uint            { return r.Position }
-func (r PrincipalSearchResults) GetLimit() uint               { return r.Limit }
-func (r PrincipalSearchResults) GetTotal() *uint              { return r.Total }
+func (r *PrincipalSearchResults) GetResults() []Principal      { return r.Results }
+func (r *PrincipalSearchResults) GetCanCalculateChanges() bool { return r.CanCalculateChanges }
+func (r *PrincipalSearchResults) GetPosition() uint            { return r.Position }
+func (r *PrincipalSearchResults) GetLimit() *uint              { return r.Limit }
+func (r *PrincipalSearchResults) GetTotal() *uint              { return r.Total }
+func (r *PrincipalSearchResults) RemoveResults()               { r.Results = nil }
+func (r *PrincipalSearchResults) SetLimit(limit *uint)         { r.Limit = limit }
 
 func (j *Client) QueryPrincipals(accountId string,
 	filter PrincipalFilterElement, sortBy []PrincipalComparator,
-	position uint, limit uint, calculateTotal bool,
-	ctx Context) (PrincipalSearchResults, SessionState, State, Language, Error) {
+	position uint, limit *uint, calculateTotal bool,
+	ctx Context) (*PrincipalSearchResults, SessionState, State, Language, Error) {
 	return query(j, "QueryPrincipals", PrincipalType,
 		[]PrincipalComparator{{Property: PrincipalPropertyName, IsAscending: true}},
-		func(filter PrincipalFilterElement, sortBy []PrincipalComparator, position uint, limit uint) PrincipalQueryCommand {
+		func(filter PrincipalFilterElement, sortBy []PrincipalComparator, position uint, limit *uint) PrincipalQueryCommand {
 			return PrincipalQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, Position: position, Limit: limit, CalculateTotal: calculateTotal}
 		},
 		func(cmd Command, path string, rof string) PrincipalGetRefCommand {
 			return PrincipalGetRefCommand{AccountId: accountId, IdsRef: &ResultReference{Name: cmd, Path: path, ResultOf: rof}}
 		},
-		func(query PrincipalQueryResponse, get PrincipalGetResponse) PrincipalSearchResults {
-			return PrincipalSearchResults{
+		func(query PrincipalQueryResponse, get PrincipalGetResponse) *PrincipalSearchResults {
+			return &PrincipalSearchResults{
 				Results:             get.List,
 				CanCalculateChanges: query.CanCalculateChanges,
 				Position:            query.Position,
-				Total:               uintPtrIf(query.Total, calculateTotal),
-				Limit:               query.Limit,
+				Total:               ptrIf(query.Total, calculateTotal),
+				Limit:               ptrIf(query.Limit, limit != nil),
 			}
 		},
 		filter, sortBy, limit, position, ctx,

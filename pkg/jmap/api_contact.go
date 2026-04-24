@@ -64,33 +64,35 @@ func (j *Client) GetContactCardChanges(accountId string, sinceState State, maxCh
 
 type ContactCardSearchResults SearchResultsTemplate[ContactCard]
 
-var _ SearchResults[ContactCard] = ContactCardSearchResults{}
+var _ SearchResults[ContactCard] = &ContactCardSearchResults{}
 
-func (r ContactCardSearchResults) GetResults() []ContactCard    { return r.Results }
-func (r ContactCardSearchResults) GetCanCalculateChanges() bool { return r.CanCalculateChanges }
-func (r ContactCardSearchResults) GetPosition() uint            { return r.Position }
-func (r ContactCardSearchResults) GetLimit() uint               { return r.Limit }
-func (r ContactCardSearchResults) GetTotal() *uint              { return r.Total }
+func (r *ContactCardSearchResults) GetResults() []ContactCard    { return r.Results }
+func (r *ContactCardSearchResults) GetCanCalculateChanges() bool { return r.CanCalculateChanges }
+func (r *ContactCardSearchResults) GetPosition() uint            { return r.Position }
+func (r *ContactCardSearchResults) GetLimit() *uint              { return r.Limit }
+func (r *ContactCardSearchResults) GetTotal() *uint              { return r.Total }
+func (r *ContactCardSearchResults) RemoveResults()               { r.Results = nil }
+func (r *ContactCardSearchResults) SetLimit(limit *uint)         { r.Limit = limit }
 
 func (j *Client) QueryContactCards(accountIds []string,
 	filter ContactCardFilterElement, sortBy []ContactCardComparator,
-	position int, limit uint, calculateTotal bool,
-	ctx Context) (map[string]ContactCardSearchResults, SessionState, State, Language, Error) {
+	position int, limit *uint, calculateTotal bool,
+	ctx Context) (map[string]*ContactCardSearchResults, SessionState, State, Language, Error) {
 	return queryN(j, "QueryContactCards", ContactCardType,
 		[]ContactCardComparator{{Property: ContactCardPropertyUpdated, IsAscending: false}},
-		func(accountId string, filter ContactCardFilterElement, sortBy []ContactCardComparator, position int, limit uint) ContactCardQueryCommand {
-			return ContactCardQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, Position: position, Limit: uintPtr(limit), CalculateTotal: calculateTotal}
+		func(accountId string, filter ContactCardFilterElement, sortBy []ContactCardComparator, position int, limit *uint) ContactCardQueryCommand {
+			return ContactCardQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, Position: position, Limit: limit, CalculateTotal: calculateTotal}
 		},
 		func(accountId string, cmd Command, path string, rof string) ContactCardGetRefCommand {
 			return ContactCardGetRefCommand{AccountId: accountId, IdsRef: &ResultReference{Name: cmd, Path: path, ResultOf: rof}}
 		},
-		func(query ContactCardQueryResponse, get ContactCardGetResponse) ContactCardSearchResults {
-			return ContactCardSearchResults{
+		func(query ContactCardQueryResponse, get ContactCardGetResponse) *ContactCardSearchResults {
+			return &ContactCardSearchResults{
 				Results:             get.List,
 				CanCalculateChanges: query.CanCalculateChanges,
 				Position:            query.Position,
-				Total:               uintPtrIfPtr(query.Total, calculateTotal),
-				Limit:               query.Limit,
+				Total:               valueIf(query.Total, calculateTotal),
+				Limit:               ptrIf(query.Limit, limit != nil),
 			}
 		},
 		accountIds,

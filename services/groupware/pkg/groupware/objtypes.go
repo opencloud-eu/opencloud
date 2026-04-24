@@ -50,7 +50,7 @@ var (
 		plural:                "contacts",
 		responseType:          ContactResponseObjectType,
 		uriParamName:          UriParamContactId,
-		containerUriParamName: UriParamCalendarId,
+		containerUriParamName: UriParamAddressBookId,
 		accountFunc:           (*Request).needCalendarWithAccount,
 		failedToDeleteError:   ErrorFailedToDeleteContact,
 	}

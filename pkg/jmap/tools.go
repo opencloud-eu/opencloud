@@ -393,20 +393,13 @@ func mapPairs[K comparable, L, R any](left map[K]L, right map[K]R) map[K]pair[L,
 	return result
 }
 
-func ptr[T any](t T) *T {
+var (
+	truep  = ptr(true)
+	falsep = ptr(false)
+)
+
+func ptr[T any | string | int | uint | bool](t T) *T {
 	return &t
-}
-
-func strPtr(s string) *string {
-	return &s
-}
-
-func intPtr(i int) *int {
-	return &i
-}
-
-func boolPtr(b bool) *bool {
-	return &b
 }
 
 func identity1[T any](t T) T {
@@ -417,24 +410,20 @@ func list[T Foo, GETRESP GetResponse[T]](r GETRESP) []T { return r.GetList() }
 func getid[T Idable](r T) string                        { return r.GetId() }
 
 func uintPtr(i uint) *uint {
-	if i > 0 {
-		return &i
+	return ptr(i)
+}
+
+func valueIf[T any | uint | int | bool](value *T, condition bool) *T {
+	if condition {
+		return value
 	} else {
 		return nil
 	}
 }
 
-func uintPtrIf(i uint, condition bool) *uint {
+func ptrIf[T any | uint | int | bool](value T, condition bool) *T {
 	if condition {
-		return uintPtr(i)
-	} else {
-		return nil
-	}
-}
-
-func uintPtrIfPtr(i *uint, condition bool) *uint {
-	if condition {
-		return i
+		return &value
 	} else {
 		return nil
 	}

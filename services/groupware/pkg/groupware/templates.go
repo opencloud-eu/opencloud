@@ -24,6 +24,10 @@ func create[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]](
 		}
 		l := req.logger.With().Str(accountId, log.SafeString(accountId))
 
+		if notok, resp := req.unsupportedQueryParams(single(accountId), noSupportedQueryParams); notok {
+			return resp
+		}
+
 		var create CHANGE
 		err := req.body(&create)
 		if err != nil {
@@ -62,7 +66,7 @@ func getall[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jmap.G
 		}
 		l := req.logger.With().Str(accountId, log.SafeString(accountId))
 
-		if notok, resp := req.unsupportedParams(single(accountId), QueryParamPosition, QueryParamLimit); notok {
+		if notok, resp := req.unsupportedQueryParams(single(accountId), noSupportedQueryParams); notok {
 			return resp
 		}
 
@@ -76,15 +80,18 @@ func getall[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jmap.G
 	})
 }
 
+var paginationQueryParams = toSupportedQueryParams(QueryParamPosition, QueryParamLimit)
+
 // Retrieve all the {{.Name}} with support for paging using the {{.QueryParam.QueryParamPosition.Name}} and {{.QueryParam.QueryParamLimit.Name}} query parameters.
 // @api:response 200:SEARCHRESULTS returns the {{.Names}} within the requested range, as well as the total amount of {{.Names}}
 func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], FILTER any, COMP any, SEARCHRESULTS jmap.SearchResults[T]]( //NOSONAR
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
 	g *Groupware,
+	withContainerId bool,
 	filterFunc func(containerId string) FILTER,
 	sortBy []COMP,
-	queryFunc func(req Request, accountId string, filter FILTER, sortBy []COMP, position int, limit uint, ctx jmap.Context) (SEARCHRESULTS, jmap.SessionState, jmap.State, jmap.Language, jmap.Error),
+	queryFunc func(req Request, accountId string, filter FILTER, sortBy []COMP, position int, limit *uint, ctx jmap.Context) (SEARCHRESULTS, jmap.SessionState, jmap.State, jmap.Language, jmap.Error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
@@ -101,16 +108,20 @@ func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], FILTER
 			l = l.Int(QueryParamPosition, position)
 		}
 
-		limit, ok, err := req.parseUIntParam(QueryParamLimit, uint(0))
-		if err != nil {
-			return req.error(accountId, err)
-		}
-		if ok {
-			l = l.Uint(QueryParamLimit, limit)
+		var limit *uint = nil
+		{
+			v, ok, err := req.parseUIntParam(QueryParamLimit, uint(0))
+			if err != nil {
+				return req.error(accountId, err)
+			}
+			if ok {
+				l = l.Uint(QueryParamLimit, v)
+				limit = &v
+			}
 		}
 
 		containerId := ""
-		if o.containerUriParamName != "" {
+		if withContainerId && o.containerUriParamName != "" {
 			var err *Error
 			containerId, err = req.PathParam(o.containerUriParamName)
 			if err != nil {
@@ -119,14 +130,29 @@ func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], FILTER
 			l = l.Str(o.containerUriParamName, log.SafeString(containerId))
 		}
 
+		if notok, resp := req.unsupportedQueryParams(single(accountId), paginationQueryParams); notok {
+			return resp
+		}
+
 		filter := filterFunc(containerId)
+
+		jmaplimit := limit
+		if limit != nil && *limit == 0 {
+			jmaplimit = UintPtrOne
+		}
 
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
-		results, sessionState, state, lang, jerr := queryFunc(req, accountId, filter, sortBy, position, limit, ctx)
+		results, sessionState, state, lang, jerr := queryFunc(req, accountId, filter, sortBy, position, jmaplimit, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
+
+		if limit != nil && *limit == 0 {
+			results.RemoveResults()
+			results.SetLimit(UintPtrZero)
+		}
+
 		return req.respond(accountId, results, sessionState, o.responseType, state, lang)
 	})
 }
@@ -138,7 +164,7 @@ func query[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], SEARCHRESULT
 	w http.ResponseWriter, r *http.Request,
 	g *Groupware,
 	defaultLimit uint,
-	queryFunc func(req Request, accountId string, containerId string, position int, limit uint, ctx jmap.Context) (SEARCHRESULTS, jmap.SessionState, jmap.State, jmap.Language, *Error),
+	queryFunc func(req Request, accountId string, containerId string, position int, limit *uint, ctx jmap.Context) (SEARCHRESULTS, jmap.SessionState, jmap.State, jmap.Language, *Error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
@@ -165,20 +191,36 @@ func query[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], SEARCHRESULT
 			l = l.Int(QueryParamPosition, position)
 		}
 
-		limit, ok, err := req.parseUIntParam(QueryParamLimit, defaultLimit)
-		if err != nil {
-			return req.error(accountId, err)
-		}
-		if ok {
-			l = l.Uint(QueryParamLimit, limit)
+		var limit *uint = nil
+		{
+			v, ok, err := req.parseUIntParam(QueryParamLimit, defaultLimit)
+			if err != nil {
+				return req.error(accountId, err)
+			}
+			if ok {
+				l = l.Uint(QueryParamLimit, v)
+				limit = &v
+			} else if defaultLimit > 0 {
+				limit = &defaultLimit
+			}
 		}
 
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
 
-		results, sessionState, state, lang, err := queryFunc(req, accountId, containerId, position, limit, ctx)
+		jmaplimit := limit
+		if limit != nil && *limit == 0 {
+			jmaplimit = UintPtrOne
+		}
+
+		results, sessionState, state, lang, err := queryFunc(req, accountId, containerId, position, jmaplimit, ctx)
 		if err != nil {
 			return req.error(accountId, err)
+		}
+
+		if limit != nil && *limit == 0 {
+			results.RemoveResults()
+			results.SetLimit(UintPtrZero)
 		}
 
 		return req.respond(accountId, results, sessionState, o.responseType, state, lang)
@@ -208,6 +250,10 @@ func get[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jmap.GetR
 			}
 			l.Str(o.uriParamName, log.SafeString(id))
 			ids = single(id)
+		}
+
+		if notok, resp := req.unsupportedQueryParams(single(accountId), noSupportedQueryParams); notok {
+			return resp
 		}
 
 		logger := log.From(l)
@@ -251,6 +297,10 @@ func getFromMap[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jm
 		}
 		l.Str(o.uriParamName, log.SafeString(id))
 
+		if notok, resp := req.unsupportedQueryParams(single(accountId), noSupportedQueryParams); notok {
+			return resp
+		}
+
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
 		objMap, sessionState, state, lang, jerr := getFunc(single(accountId), single(id), ctx)
@@ -274,6 +324,8 @@ func getFromMap[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jm
 		}
 	})
 }
+
+var changesSupportedQueryParams = toSupportedQueryParams(QueryParamMaxChanges)
 
 // Retrieve the changes that occured for {{.Name}}, optionally since an opaque state specified using the header `{{.HeaderParam.HeaderParamSince}}`,
 // optionally bounded by the query parameter `{{.QueryParam.QueryParamMaxChanges}}`.
@@ -302,6 +354,10 @@ func changes[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]](
 		sinceState := jmap.State(req.OptHeaderParamDoc(HeaderParamSince, "Optionally specifies the state identifier from which on to list changes"))
 		if sinceState != "" {
 			l = l.Str(HeaderParamSince, log.SafeString(string(sinceState)))
+		}
+
+		if notok, resp := req.unsupportedQueryParams(single(accountId), changesSupportedQueryParams); notok {
+			return resp
 		}
 
 		logger := log.From(l)
@@ -336,6 +392,10 @@ func delete[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSONAR
 		}
 		l.Str(o.uriParamName, log.SafeString(id))
 
+		if notok, resp := req.unsupportedQueryParams(single(accountId), noSupportedQueryParams); notok {
+			return resp
+		}
+
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
 		setErrors, sessionState, state, lang, jerr := deleteFunc(accountId, single(id), ctx)
@@ -361,6 +421,8 @@ func delete[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSONAR
 		return req.noContent(accountId, sessionState, o.responseType, state)
 	})
 }
+
+var deleteManySupportedQueryParams = toSupportedQueryParams(QueryParamId)
 
 // Delete several {{.Name}} objects referenced by their unique identifiers as specified as an array in the body,
 // or using the query parameter `{{.QueryParam.QueryParamId}}`.
@@ -415,6 +477,10 @@ func deleteMany[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSO
 			l.Array("ids", log.SafeStringArray(ids))
 		}
 
+		if notok, resp := req.unsupportedQueryParams(single(accountId), deleteManySupportedQueryParams); notok {
+			return resp
+		}
+
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
 		setErrors, sessionState, state, lang, jerr := deleteFunc(accountId, ids, ctx)
@@ -460,6 +526,10 @@ func modify[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]](
 			return req.error(accountId, err)
 		}
 		l.Str(o.uriParamName, log.SafeString(id))
+
+		if notok, resp := req.unsupportedQueryParams(single(accountId), noSupportedQueryParams); notok {
+			return resp
+		}
 
 		var change CHANGE
 		err = req.body(&change)
