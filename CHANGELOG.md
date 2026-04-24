@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.0.6](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.6) - 2026-04-24
+
+### ❤️ Thanks to all contributors! ❤️
+
+@dragonchaser
+
+
+
 ## [4.0.5](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.5) - 2026-04-02
 
 ### ❤️ Thanks to all contributors! ❤️
