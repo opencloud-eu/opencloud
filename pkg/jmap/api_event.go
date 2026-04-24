@@ -4,13 +4,15 @@ var NS_CALENDAR_EVENTS = ns(JmapCalendars)
 
 type CalendarEventSearchResults SearchResultsTemplate[CalendarEvent]
 
-var _ SearchResults[CalendarEvent] = CalendarEventSearchResults{}
+var _ SearchResults[CalendarEvent] = &CalendarEventSearchResults{}
 
-func (r CalendarEventSearchResults) GetResults() []CalendarEvent  { return r.Results }
-func (r CalendarEventSearchResults) GetCanCalculateChanges() bool { return r.CanCalculateChanges }
-func (r CalendarEventSearchResults) GetPosition() uint            { return r.Position }
-func (r CalendarEventSearchResults) GetLimit() uint               { return r.Limit }
-func (r CalendarEventSearchResults) GetTotal() *uint              { return r.Total }
+func (r *CalendarEventSearchResults) GetResults() []CalendarEvent  { return r.Results }
+func (r *CalendarEventSearchResults) GetCanCalculateChanges() bool { return r.CanCalculateChanges }
+func (r *CalendarEventSearchResults) GetPosition() uint            { return r.Position }
+func (r *CalendarEventSearchResults) GetLimit() *uint              { return r.Limit }
+func (r *CalendarEventSearchResults) GetTotal() *uint              { return r.Total }
+func (r *CalendarEventSearchResults) RemoveResults()               { r.Results = nil }
+func (r *CalendarEventSearchResults) SetLimit(limit *uint)         { r.Limit = limit }
 
 func (j *Client) GetCalendarEvents(accountId string, eventIds []string, ctx Context) (CalendarEventGetResponse, SessionState, State, Language, Error) {
 	return get(j, "GetCalendarEvents", CalendarEventType,
@@ -26,23 +28,23 @@ func (j *Client) GetCalendarEvents(accountId string, eventIds []string, ctx Cont
 
 func (j *Client) QueryCalendarEvents(accountIds []string, //NOSONAR
 	filter CalendarEventFilterElement, sortBy []CalendarEventComparator,
-	position int, limit uint, calculateTotal bool,
-	ctx Context) (map[string]CalendarEventSearchResults, SessionState, State, Language, Error) {
+	position int, limit *uint, calculateTotal bool,
+	ctx Context) (map[string]*CalendarEventSearchResults, SessionState, State, Language, Error) {
 	return queryN(j, "QueryCalendarEvents", CalendarEventType,
 		[]CalendarEventComparator{{Property: CalendarEventPropertyStart, IsAscending: false}},
-		func(accountId string, filter CalendarEventFilterElement, sortBy []CalendarEventComparator, position int, limit uint) CalendarEventQueryCommand {
-			return CalendarEventQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, Position: position, Limit: uintPtr(limit), CalculateTotal: calculateTotal}
+		func(accountId string, filter CalendarEventFilterElement, sortBy []CalendarEventComparator, position int, limit *uint) CalendarEventQueryCommand {
+			return CalendarEventQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, Position: position, Limit: limit, CalculateTotal: calculateTotal}
 		},
 		func(accountId string, cmd Command, path string, rof string) CalendarEventGetRefCommand {
 			return CalendarEventGetRefCommand{AccountId: accountId, IdsRef: &ResultReference{Name: cmd, Path: path, ResultOf: rof}}
 		},
-		func(query CalendarEventQueryResponse, get CalendarEventGetResponse) CalendarEventSearchResults {
-			return CalendarEventSearchResults{
+		func(query CalendarEventQueryResponse, get CalendarEventGetResponse) *CalendarEventSearchResults {
+			return &CalendarEventSearchResults{
 				Results:             get.List,
 				CanCalculateChanges: query.CanCalculateChanges,
 				Position:            query.Position,
-				Total:               uintPtrIfPtr(query.Total, calculateTotal),
-				Limit:               query.Limit,
+				Total:               valueIf(query.Total, calculateTotal),
+				Limit:               ptrIf(query.Limit, limit != nil),
 			}
 		},
 		accountIds,

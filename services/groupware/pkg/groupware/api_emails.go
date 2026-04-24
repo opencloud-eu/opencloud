@@ -42,7 +42,7 @@ func (g *Groupware) GetAllEmailsInMailbox(w http.ResponseWriter, r *http.Request
 	fetchBodies := false
 	withThreads := true
 	query(Email, w, r, g, g.defaults.emailLimit,
-		func(req Request, accountId, containerId string, position int, limit uint, ctx jmap.Context) (jmap.EmailSearchResults, jmap.SessionState, jmap.State, jmap.Language, *Error) {
+		func(req Request, accountId, containerId string, position int, limit *uint, ctx jmap.Context) (*jmap.EmailSearchResults, jmap.SessionState, jmap.State, jmap.Language, *Error) {
 			emails, sessionState, state, lang, jerr := g.jmap.GetAllEmailsInMailbox(accountId, containerId, position, limit, collapseThreads, fetchBodies, g.config.maxBodyValueBytes, withThreads, ctx)
 			if jerr != nil {
 				return emails, sessionState, state, lang, req.apiErrorFromJmap(req.observeJmapError(jerr))
@@ -53,7 +53,7 @@ func (g *Groupware) GetAllEmailsInMailbox(w http.ResponseWriter, r *http.Request
 				return emails, sessionState, state, lang, err
 			}
 
-			safe := jmap.EmailSearchResults{
+			safe := &jmap.EmailSearchResults{
 				Results:             sanitized,
 				Total:               emails.Total,
 				Limit:               emails.Limit,
@@ -342,17 +342,12 @@ func (g *Groupware) getEmailsSince(w http.ResponseWriter, r *http.Request, since
 	})
 }
 
-type EmailSearchSnippetsResults struct {
-	Results    []Snippet  `json:"results,omitempty"`
-	Total      uint       `json:"total,omitzero"`
-	Limit      uint       `json:"limit,omitzero"`
-	QueryState jmap.State `json:"queryState,omitempty"`
-}
+type EmailSearchSnippetsResults jmap.SearchResultsTemplate[Snippet]
 
 type EmailWithSnippets struct {
-	AccountId string `json:"accountId,omitempty"`
+	AccountId string                  `json:"accountId,omitempty"`
+	Snippets  []SnippetWithoutEmailId `json:"snippets,omitempty"`
 	jmap.Email
-	Snippets []SnippetWithoutEmailId `json:"snippets,omitempty"`
 }
 
 type Snippet struct {
@@ -365,22 +360,9 @@ type SnippetWithoutEmailId struct {
 	Preview string `json:"preview,omitempty"`
 }
 
-type EmailWithSnippetsSearchResults struct {
-	Results    []EmailWithSnippets `json:"results"`
-	Total      *uint               `json:"total,omitzero"`
-	Position   uint                `json:"position"`
-	Limit      uint                `json:"limit,omitzero"`
-	QueryState jmap.State          `json:"queryState,omitempty"`
-}
+type EmailWithSnippetsSearchResults jmap.SearchResultsTemplate[EmailWithSnippets]
 
-type EmailSearchResults struct {
-	Results    []jmap.Email `json:"results"`
-	Total      uint         `json:"total,omitzero"`
-	Limit      uint         `json:"limit,omitzero"`
-	QueryState jmap.State   `json:"queryState,omitempty"`
-}
-
-func (g *Groupware) buildEmailFilter(req Request) (bool, jmap.EmailFilterElement, bool, int, uint, *log.Logger, *Error) { //NOSONAR
+func (g *Groupware) buildEmailFilter(req Request) (bool, jmap.EmailFilterElement, bool, int, *uint, *log.Logger, *Error) { //NOSONAR
 	mailboxId, _ := req.getStringParam(QueryParamMailboxId, "")                      // the identifier of the Mailbox to which to restrict the search
 	text, _ := req.getStringParam(QueryParamSearchText, "")                          // text that must be included in the Email, specifically in From, To, Cc, Bcc, Subject and any text/* body part
 	from, _ := req.getStringParam(QueryParamSearchFrom, "")                          // text that must be included in the From header of the Email
@@ -392,11 +374,11 @@ func (g *Groupware) buildEmailFilter(req Request) (bool, jmap.EmailFilterElement
 	messageId, _ := req.getStringParam(QueryParamSearchMessageId, "")                // value of the Message-ID header of the Email
 	notInMailboxIds, _, err := req.parseOptStringListParam(QueryParamNotInMailboxId) // a comma-separated list of identifiers of Mailboxes the Email must *not* be in
 	if err != nil {
-		return false, nil, false, 0, 0, nil, err
+		return false, nil, false, 0, nil, nil, err
 	}
 	keywords, _, err := req.parseOptStringListParam(QueryParamSearchKeyword) // the Email must have all those keywords
 	if err != nil {
-		return false, nil, false, 0, 0, nil, err
+		return false, nil, false, 0, nil, nil, err
 	}
 
 	snippets := false
@@ -405,23 +387,27 @@ func (g *Groupware) buildEmailFilter(req Request) (bool, jmap.EmailFilterElement
 
 	position, ok, err := req.parseIntParam(QueryParamPosition, 0) // pagination element position (offset)
 	if err != nil {
-		return false, nil, snippets, 0, 0, nil, err
+		return false, nil, snippets, 0, nil, nil, err
 	}
 	if ok {
 		l = l.Int(QueryParamPosition, position)
 	}
 
-	limit, ok, err := req.parseUIntParam(QueryParamLimit, g.defaults.emailLimit) // maximum number of results (size of a page)
-	if err != nil {
-		return false, nil, snippets, 0, 0, nil, err
-	}
-	if ok {
-		l = l.Uint(QueryParamLimit, limit)
+	var limit *uint = nil
+	{
+		v, ok, err := req.parseUIntParam(QueryParamLimit, g.defaults.emailLimit) // maximum number of results (size of a page)
+		if err != nil {
+			return false, nil, snippets, 0, nil, nil, err
+		}
+		if ok {
+			l = l.Uint(QueryParamLimit, v)
+			limit = &v
+		}
 	}
 
 	before, ok, err := req.parseDateParam(QueryParamSearchBefore) // the Email must have been received before this date-time
 	if err != nil {
-		return false, nil, snippets, 0, 0, nil, err
+		return false, nil, snippets, 0, nil, nil, err
 	}
 	if ok {
 		l = l.Time(QueryParamSearchBefore, before)
@@ -429,7 +415,7 @@ func (g *Groupware) buildEmailFilter(req Request) (bool, jmap.EmailFilterElement
 
 	after, ok, err := req.parseDateParam(QueryParamSearchAfter) // the Email must have been received after this date-time
 	if err != nil {
-		return false, nil, snippets, 0, 0, nil, err
+		return false, nil, snippets, 0, nil, nil, err
 	}
 	if ok {
 		l = l.Time(QueryParamSearchAfter, after)
@@ -468,7 +454,7 @@ func (g *Groupware) buildEmailFilter(req Request) (bool, jmap.EmailFilterElement
 
 	minSize, ok, err := req.parseIntParam(QueryParamSearchMinSize, 0) // the minimum size of the Email
 	if err != nil {
-		return false, nil, snippets, 0, 0, nil, err
+		return false, nil, snippets, 0, nil, nil, err
 	}
 	if ok {
 		l = l.Int(QueryParamSearchMinSize, minSize)
@@ -476,7 +462,7 @@ func (g *Groupware) buildEmailFilter(req Request) (bool, jmap.EmailFilterElement
 
 	maxSize, ok, err := req.parseIntParam(QueryParamSearchMaxSize, 0) // the maximum size of the Email
 	if err != nil {
-		return false, nil, snippets, 0, 0, nil, err
+		return false, nil, snippets, 0, nil, nil, err
 	}
 	if ok {
 		l = l.Int(QueryParamSearchMaxSize, maxSize)
@@ -575,47 +561,56 @@ func (g *Groupware) GetEmails(w http.ResponseWriter, r *http.Request) { //NOSONA
 			logger = log.From(l)
 			ctx := req.ctx.WithLogger(logger)
 
-			resultsByAccount, sessionState, state, lang, jerr := g.jmap.QueryEmailsWithSnippets(single(accountId), filter, position, limit, collapseThreads, calculateTotal, fetchBodies, g.config.maxBodyValueBytes, ctx)
+			jmaplimit := limit
+			if limit != nil && *limit == 0 {
+				jmaplimit = UintPtrOne
+			}
+
+			resultsByAccount, sessionState, state, lang, jerr := g.jmap.QueryEmailsWithSnippets(single(accountId), filter, position, jmaplimit, collapseThreads, calculateTotal, fetchBodies, g.config.maxBodyValueBytes, ctx)
 			if jerr != nil {
 				return req.jmapError(accountId, jerr, sessionState, lang)
 			}
 
 			if results, ok := resultsByAccount[accountId]; ok {
-				flattened := make([]EmailWithSnippets, len(results.Results))
-				for i, result := range results.Results {
-					var snippets []SnippetWithoutEmailId
-					if makesSnippets {
-						snippets := make([]SnippetWithoutEmailId, len(result.Snippets))
-						for j, snippet := range result.Snippets {
-							snippets[j] = SnippetWithoutEmailId{
-								Subject: snippet.Subject,
-								Preview: snippet.Preview,
+				var flattened []EmailWithSnippets
+				if limit != nil && *limit == 0 {
+					flattened = nil
+				} else {
+					flattened = make([]EmailWithSnippets, len(results.Results))
+					for i, result := range results.Results {
+						var snippets []SnippetWithoutEmailId
+						if makesSnippets {
+							snippets := make([]SnippetWithoutEmailId, len(result.Snippets))
+							for j, snippet := range result.Snippets {
+								snippets[j] = SnippetWithoutEmailId{
+									Subject: snippet.Subject,
+									Preview: snippet.Preview,
+								}
 							}
+						} else {
+							snippets = nil
 						}
-					} else {
-						snippets = nil
-					}
-					sanitized, err := req.sanitizeEmail(result.Email)
-					if err != nil {
-						return req.error(accountId, err)
-					}
-					flattened[i] = EmailWithSnippets{
-						Email:    sanitized,
-						Snippets: snippets,
+						sanitized, err := req.sanitizeEmail(result.Email)
+						if err != nil {
+							return req.error(accountId, err)
+						}
+						flattened[i] = EmailWithSnippets{
+							Email:    sanitized,
+							Snippets: snippets,
+						}
 					}
 				}
 
-				var total *uint = nil
-				if calculateTotal {
-					total = &results.Total
+				rlimit := &results.Limit
+				if limit != nil && *limit == 0 {
+					rlimit = UintPtrZero
 				}
 
 				return req.respond(accountId, EmailWithSnippetsSearchResults{
-					Results:    flattened,
-					Total:      total,
-					Position:   results.Position,
-					Limit:      results.Limit,
-					QueryState: results.QueryState,
+					Results:  flattened,
+					Total:    ptrIf(results.Total, calculateTotal),
+					Position: results.Position,
+					Limit:    rlimit,
 				}, sessionState, EmailResponseObjectType, state, lang)
 			} else {
 				return req.notFound(accountId, sessionState, EmailResponseObjectType, state)
@@ -639,8 +634,13 @@ func (g *Groupware) GetEmailsForAllAccounts(w http.ResponseWriter, r *http.Reque
 			filter = nil
 		}
 
+		jmaplimit := limit
+		if limit != nil && *limit == 0 {
+			jmaplimit = UintPtrOne
+		}
+
 		if makesSnippets {
-			resultsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryEmailSnippets(allAccountIds, filter, position, limit, ctx)
+			resultsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryEmailSnippets(allAccountIds, filter, position, jmaplimit, ctx)
 			if jerr != nil {
 				return req.jmapErrorN(allAccountIds, jerr, sessionState, lang)
 			}
@@ -654,35 +654,40 @@ func (g *Groupware) GetEmailsForAllAccounts(w http.ResponseWriter, r *http.Reque
 				total += len(results.Results)
 			}
 
-			flattened := make([]Snippet, total)
-			{
-				i := 0
-				for accountId, results := range resultsByAccountId {
-					for _, result := range results.Results {
-						flattened[i] = Snippet{
-							AccountId:             accountId,
-							SearchSnippetWithMeta: result,
+			var flattened []Snippet
+			if limit != nil && *limit == 0 {
+				flattened = []Snippet{}
+			} else {
+				flattened = make([]Snippet, total)
+				{
+					i := 0
+					for accountId, results := range resultsByAccountId {
+						for _, result := range results.Results {
+							flattened[i] = Snippet{
+								AccountId:             accountId,
+								SearchSnippetWithMeta: result,
+							}
 						}
 					}
 				}
-			}
 
-			slices.SortFunc(flattened, func(a, b Snippet) int { return a.ReceivedAt.Compare(b.ReceivedAt) })
+				slices.SortFunc(flattened, func(a, b Snippet) int { return a.ReceivedAt.Compare(b.ReceivedAt) })
+			}
 
 			// TODO position and limit over the aggregated results by account
 
 			body := EmailSearchSnippetsResults{
-				Results:    flattened,
-				Total:      totalOverAllAccounts,
-				Limit:      limit,
-				QueryState: state,
+				Results: flattened,
+				Total:   &totalOverAllAccounts,
+				Limit:   limit,
 			}
 
 			return req.respondN(allAccountIds, body, sessionState, EmailResponseObjectType, state, lang)
 		} else {
 			withThreads := true
+			calculateTotal := true
 
-			resultsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryEmailSummaries(allAccountIds, filter, limit, withThreads, ctx)
+			resultsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryEmailSummaries(allAccountIds, filter, jmaplimit, withThreads, calculateTotal, ctx)
 			if jerr != nil {
 				return req.jmapErrorN(allAccountIds, jerr, sessionState, lang)
 			}
@@ -694,27 +699,31 @@ func (g *Groupware) GetEmailsForAllAccounts(w http.ResponseWriter, r *http.Reque
 				total += len(results.Emails)
 			}
 
-			flattened := make([]jmap.Email, total)
-			{
-				i := 0
-				for accountId, results := range resultsByAccountId {
-					for _, result := range results.Emails {
-						result.AccountId = accountId
-						flattened[i] = result
-						i++
+			var flattened []jmap.Email
+			if limit != nil && *limit == 0 {
+				flattened = []jmap.Email{}
+			} else {
+				flattened = make([]jmap.Email, total)
+				{
+					i := 0
+					for accountId, results := range resultsByAccountId {
+						for _, result := range results.Emails {
+							result.AccountId = accountId
+							flattened[i] = result
+							i++
+						}
 					}
 				}
-			}
 
-			slices.SortFunc(flattened, func(a, b jmap.Email) int { return a.ReceivedAt.Compare(b.ReceivedAt) })
+				slices.SortFunc(flattened, func(a, b jmap.Email) int { return a.ReceivedAt.Compare(b.ReceivedAt) })
+			}
 
 			// TODO position and limit over the aggregated results by account
 
-			body := EmailSearchResults{
-				Results:    flattened,
-				Total:      totalAcrossAllAccounts,
-				Limit:      limit,
-				QueryState: state,
+			body := jmap.EmailSearchResults{
+				Results: flattened,
+				Total:   &totalAcrossAllAccounts,
+				Limit:   limit,
 			}
 
 			return req.respondN(allAccountIds, body, sessionState, EmailResponseObjectType, state, lang)
@@ -1410,6 +1419,10 @@ type EmailSummary struct {
 	Preview string `json:"preview,omitempty"`
 }
 
+var _ jmap.Foo = EmailSummary{}
+
+func (e EmailSummary) GetObjectType() jmap.ObjectType { return jmap.EmailType }
+
 func summarizeEmail(accountId string, email jmap.Email) EmailSummary {
 	return EmailSummary{
 		AccountId:     accountId,
@@ -1438,13 +1451,7 @@ type emailWithAccountId struct {
 	email     jmap.Email
 }
 
-type EmailSummaries struct {
-	Emails   []EmailSummary `json:"emails,omitempty"`
-	Total    uint           `json:"total,omitzero"`
-	Limit    uint           `json:"limit,omitzero"`
-	Position uint           `json:"position,omitzero"`
-	State    jmap.State     `json:"state,omitempty"`
-}
+type EmailSummaries jmap.SearchResultsTemplate[EmailSummary]
 
 // Get a summary of the latest emails across all the mailboxes, across all of a user's accounts.
 //
@@ -1513,7 +1520,9 @@ func (g *Groupware) GetLatestEmailsSummaryForAllAccounts(w http.ResponseWriter, 
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
 
-		emailsSummariesByAccount, sessionState, state, lang, jerr := g.jmap.QueryEmailSummaries(allAccountIds, filter, limit, true, ctx)
+		calculateTotal := true
+		withThreads := true
+		emailsSummariesByAccount, sessionState, state, lang, jerr := g.jmap.QueryEmailSummaries(allAccountIds, filter, &limit, withThreads, calculateTotal, ctx)
 		if jerr != nil {
 			return req.jmapErrorN(allAccountIds, jerr, sessionState, lang)
 		}
@@ -1539,12 +1548,16 @@ func (g *Groupware) GetLatestEmailsSummaryForAllAccounts(w http.ResponseWriter, 
 			summaries[i] = summarizeEmail(all[i].accountId, all[i].email)
 		}
 
-		return req.respondN(allAccountIds, EmailSummaries{
-			Emails:   summaries,
-			Total:    total,
-			Limit:    limit,
+		body := EmailSummaries{
+			Results:  summaries,
+			Limit:    &limit,
 			Position: position,
-		}, sessionState, EmailResponseObjectType, state, lang)
+		}
+		if calculateTotal {
+			body.Total = &total
+		}
+
+		return req.respondN(allAccountIds, body, sessionState, EmailResponseObjectType, state, lang)
 	})
 }
 

@@ -26,6 +26,8 @@ func (g *Groupware) ModifyMailbox(w http.ResponseWriter, r *http.Request) {
 	modify(Mailbox, w, r, g, g.jmap.UpdateMailbox)
 }
 
+var GetMailboxesParams = toSupportedQueryParams(QueryParamMailboxSearchName, QueryParamMailboxSearchRole, QueryParamMailboxSearchSubscribed)
+
 // Get the list of all the mailboxes of an account, potentially filtering on the
 // name and/or role of the mailbox.
 //
@@ -63,6 +65,10 @@ func (g *Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) { //NOS
 		if set {
 			filter.IsSubscribed = &subscribed
 			hasCriteria = true
+		}
+
+		if notok, resp := req.unsupportedQueryParams(single(accountId), GetMailboxesParams); notok {
+			return resp
 		}
 
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))

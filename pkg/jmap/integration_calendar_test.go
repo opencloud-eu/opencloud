@@ -49,8 +49,8 @@ func TestCalendars(t *testing.T) { //NOSONAR
 		},
 		func(orig Calendar) CalendarChange {
 			return CalendarChange{
-				Description:  strPtr(orig.Description + " (changed)"),
-				IsSubscribed: boolPtr(!orig.IsSubscribed),
+				Description:  ptr(orig.Description + " (changed)"),
+				IsSubscribed: ptr(!orig.IsSubscribed),
 			}
 		},
 		func(t *testing.T, orig Calendar, _ CalendarChange, changed Calendar) {
@@ -93,7 +93,7 @@ func TestEvents(t *testing.T) {
 	ss := EmptySessionState
 	os := EmptyState
 	{
-		resultsByAccount, sessionState, state, _, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, 0, 0, true, ctx)
+		resultsByAccount, sessionState, state, _, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, 0, nil, true, ctx)
 		require.NoError(err)
 
 		require.Len(resultsByAccount, 1)
@@ -124,7 +124,7 @@ func TestEvents(t *testing.T) {
 		for i := range slices {
 			position := int(i * limit)
 			page := min(remainder, limit)
-			m, sessionState, _, _, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, position, limit, true, ctx)
+			m, sessionState, _, _, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, position, &limit, true, ctx)
 			require.NoError(err)
 			require.Len(m, 1)
 			require.Contains(m, accountId)
@@ -147,7 +147,7 @@ func TestEvents(t *testing.T) {
 				Status: ptr(jscalendar.StatusCancelled),
 				ObjectChange: jscalendar.ObjectChange{
 					Sequence:        uintPtr(99),
-					ShowWithoutTime: boolPtr(true),
+					ShowWithoutTime: truep,
 				},
 			},
 		}
@@ -173,7 +173,7 @@ func TestEvents(t *testing.T) {
 	}
 
 	{
-		shouldBeEmpty, sessionState, state, _, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, 0, 0, true, ctx)
+		shouldBeEmpty, sessionState, state, _, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, 0, nil, true, ctx)
 		require.NoError(err)
 		require.Contains(shouldBeEmpty, accountId)
 		resp := shouldBeEmpty[accountId]
@@ -446,13 +446,13 @@ func (s *StalwartTest) fillEvents( //NOSONAR
 						Color:                  &color,
 					},
 					Sequence:        uintPtr(sequence),
-					ShowWithoutTime: boolPtr(false),
+					ShowWithoutTime: falsep,
 					FreeBusyStatus:  &freeBusy,
 					Privacy:         &privacy,
 					SentBy:          organizerEmail,
 					Participants:    participantObjs,
 					TimeZone:        &tz,
-					HideAttendees:   boolPtr(false),
+					HideAttendees:   falsep,
 					ReplyTo: map[jscalendar.ReplyMethod]string{
 						jscalendar.ReplyMethodImip: "mailto:" + organizerEmail, //NOSONAR
 					},
@@ -475,8 +475,8 @@ func (s *StalwartTest) fillEvents( //NOSONAR
 		}
 
 		if EnableEventMayInviteFields {
-			obj.MayInviteSelf = boolPtr(true)
-			obj.MayInviteOthers = boolPtr(true)
+			obj.MayInviteSelf = truep
+			obj.MayInviteOthers = truep
 			boxes.mayInvite = true
 		}
 

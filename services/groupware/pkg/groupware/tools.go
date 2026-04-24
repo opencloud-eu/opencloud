@@ -18,3 +18,18 @@ func trimmed(it iter.Seq[string]) iter.Seq[string] {
 func notEmptyString(it iter.Seq[string]) iter.Seq[string] {
 	return structs.FilterSeq(it, func(s string) bool { return s != "" })
 }
+
+func uintPtr(v uint) *uint {
+	return &v
+}
+
+var UintPtrOne *uint = uintPtr(1)
+var UintPtrZero *uint = uintPtr(0)
+
+func ptrIf[T any | uint | int | bool](t T, predicate bool) *T {
+	if predicate {
+		return &t
+	} else {
+		return nil
+	}
+}

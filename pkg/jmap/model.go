@@ -1424,7 +1424,7 @@ type Changes[T Foo] interface {
 
 type SearchResultsTemplate[T Foo] struct {
 	// The list of objects that resulted from the query.
-	Results []T `json:"results"`
+	Results []T `json:"results,omitempty"`
 
 	// This is true if the server supports calling queryChanges with these filter/sort parameters.
 	//
@@ -1436,10 +1436,10 @@ type SearchResultsTemplate[T Foo] struct {
 	Position uint `json:"position"`
 
 	// The maximum amount of results to return, as requested using the `limit` query parameter.
-	Limit uint `json:"limit,omitzero"`
+	Limit *uint `json:"limit,omitempty"`
 
 	// The total amount of results that exist for the query.
-	Total *uint `json:"total,omitzero"`
+	Total *uint `json:"total,omitempty"`
 }
 
 type SearchResults[T Foo] interface {
@@ -1447,7 +1447,9 @@ type SearchResults[T Foo] interface {
 	GetCanCalculateChanges() bool
 	GetPosition() uint
 	GetTotal() *uint
-	GetLimit() uint
+	GetLimit() *uint
+	RemoveResults()
+	SetLimit(*uint)
 }
 
 type FilterOperatorTerm string
@@ -6386,7 +6388,7 @@ type Quota struct {
 	// in the `using` section of the request.
 	//
 	// Further, the server MUST NOT return Quota objects for which there are no types recognized by the client.
-	Types []ObjectType `json:"types,omitempty"`
+	Types []ObjectTypeName `json:"types,omitempty"`
 
 	// The warn limit set by this quota, using the `resourceType` defined as unit of measure.
 	//
@@ -7082,7 +7084,7 @@ type ContactCardQueryCommand struct {
 	// to the maximum; the new limit is returned with the response so the client is aware.
 	//
 	// If a negative value is given, the call MUST be rejected with an invalidArguments error.
-	Limit *uint `json:"limit,omitzero" doc:"opt"`
+	Limit *uint `json:"limit,omitempty" doc:"opt"`
 
 	// Does the client wish to know the total number of results in the query?
 	//
@@ -8289,7 +8291,7 @@ type PrincipalQueryCommand struct {
 	// to the maximum; the new limit is returned with the response so the client is aware.
 	//
 	// If a negative value is given, the call MUST be rejected with an invalidArguments error.
-	Limit uint `json:"limit,omitzero" doc:"opt"`
+	Limit *uint `json:"limit,omitempty" doc:"opt"`
 
 	// Does the client wish to know the total number of results in the query?
 	//

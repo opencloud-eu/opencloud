@@ -59,8 +59,8 @@ func TestAddressBooks(t *testing.T) {
 		},
 		func(orig AddressBook) AddressBookChange {
 			return AddressBookChange{
-				Description:  strPtr(orig.Description + " (changed)"),
-				IsSubscribed: boolPtr(!orig.IsSubscribed),
+				Description:  ptr(orig.Description + " (changed)"),
+				IsSubscribed: ptr(!orig.IsSubscribed),
 			}
 		},
 		func(t *testing.T, orig AddressBook, _ AddressBookChange, changed AddressBook) {
@@ -100,7 +100,7 @@ func TestContacts(t *testing.T) {
 		{Property: ContactCardPropertyCreated, IsAscending: true},
 	}
 
-	contactsByAccount, ss, os, _, err := s.client.QueryContactCards([]string{accountId}, filter, sortBy, 0, 0, true, ctx)
+	contactsByAccount, ss, os, _, err := s.client.QueryContactCards([]string{accountId}, filter, sortBy, 0, nil, true, ctx)
 	require.NoError(err)
 
 	require.Len(contactsByAccount, 1)
@@ -146,7 +146,7 @@ func TestContacts(t *testing.T) {
 		now := time.Now().Truncate(time.Duration(1) * time.Second).UTC()
 		for _, event := range expectedContactCardsById {
 			change := ContactCardChange{
-				Language: strPtr("xyz"),
+				Language: ptr("xyz"),
 				Updated:  ptr(now),
 			}
 			changed, sessionState, state, _, err := s.client.UpdateContactCard(accountId, event.Id, change, ctx)
@@ -169,7 +169,7 @@ func TestContacts(t *testing.T) {
 		os = state
 	}
 	{
-		shouldBeEmpty, sessionState, state, _, err := s.client.QueryContactCards([]string{accountId}, filter, sortBy, 0, 0, true, ctx)
+		shouldBeEmpty, sessionState, state, _, err := s.client.QueryContactCards([]string{accountId}, filter, sortBy, 0, nil, true, ctx)
 		require.NoError(err)
 		require.Contains(shouldBeEmpty, accountId)
 		resp := shouldBeEmpty[accountId]

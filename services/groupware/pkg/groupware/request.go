@@ -227,11 +227,19 @@ func (r *Request) parameterErrorResponse(accountIds []string, param string, deta
 	return r.errorN(accountIds, r.parameterError(param, detail))
 }
 
-func (r *Request) unsupportedParams(accountIds []string, params ...string) (bool, Response) {
+type supportedQueryParams map[string]struct{}
+
+func toSupportedQueryParams(params ...string) supportedQueryParams {
+	return structs.Set(params)
+}
+
+var noSupportedQueryParams supportedQueryParams = toSupportedQueryParams()
+
+func (r *Request) unsupportedQueryParams(accountIds []string, allowed supportedQueryParams) (bool, Response) {
 	q := r.r.URL.Query()
-	for _, p := range params {
-		if q.Has(p) {
-			return true, r.parameterErrorResponse(accountIds, p, "Unsupported query parameter")
+	for n := range q {
+		if _, ok := allowed[n]; !ok {
+			return true, r.parameterErrorResponse(accountIds, n, "Unsupported query parameter")
 		}
 	}
 	return false, Response{}
@@ -390,9 +398,11 @@ func (r *Request) parseOptStringListParam(param string) ([]string, bool, *Error)
 	return result, true, nil
 }
 
+/*
 func (r *Request) bodydoc(target any, _ string) *Error {
 	return r.body(target)
 }
+*/
 
 func (r *Request) body(target any) *Error {
 	body := r.r.Body
@@ -685,18 +695,6 @@ func (r *Request) parseSort(s string, props []string) ([]SortCrit, *Error) {
 		}
 	}
 	return result, nil
-}
-
-func mapSort[T any](accountIds []string, req *Request, defaultSort []T, props []string, mapper func(SortCrit) T) ([]T, bool, Response) {
-	if sortSpec, ok := req.getStringParam(QueryParamSort, ""); ok && strings.TrimSpace(sortSpec) != "" {
-		if sort, err := req.parseSort(sortSpec, props); err != nil {
-			return nil, false, errorResponse(accountIds, err, req.session.State, jmap.NoLanguage)
-		} else {
-			return structs.Map(sort, mapper), true, Response{}
-		}
-	} else {
-		return defaultSort, true, Response{}
-	}
 }
 
 func toState(s string) jmap.State {
