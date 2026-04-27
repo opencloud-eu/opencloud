@@ -74,14 +74,14 @@ func (r *ContactCardSearchResults) GetTotal() *uint              { return r.Tota
 func (r *ContactCardSearchResults) RemoveResults()               { r.Results = nil }
 func (r *ContactCardSearchResults) SetLimit(limit *uint)         { r.Limit = limit }
 
-func (j *Client) QueryContactCards(accountIds []string,
+func (j *Client) QueryContactCards(accountIds []string, //NOSONAR
 	filter ContactCardFilterElement, sortBy []ContactCardComparator,
-	position int, limit *uint, calculateTotal bool,
+	position int, anchor string, anchorOffset *int, limit *uint, calculateTotal bool,
 	ctx Context) (map[string]*ContactCardSearchResults, SessionState, State, Language, Error) {
 	return queryN(j, "QueryContactCards", ContactCardType,
 		[]ContactCardComparator{{Property: ContactCardPropertyUpdated, IsAscending: false}},
-		func(accountId string, filter ContactCardFilterElement, sortBy []ContactCardComparator, position int, limit *uint) ContactCardQueryCommand {
-			return ContactCardQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, Position: position, Limit: limit, CalculateTotal: calculateTotal}
+		func(accountId string, filter ContactCardFilterElement, sortBy []ContactCardComparator, position int, anchor string, anchorOffset *int, limit *uint) ContactCardQueryCommand {
+			return ContactCardQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, Position: position, Anchor: anchor, AnchorOffset: anchorOffset, Limit: limit, CalculateTotal: calculateTotal}
 		},
 		func(accountId string, cmd Command, path string, rof string) ContactCardGetRefCommand {
 			return ContactCardGetRefCommand{AccountId: accountId, IdsRef: &ResultReference{Name: cmd, Path: path, ResultOf: rof}}
@@ -96,7 +96,7 @@ func (j *Client) QueryContactCards(accountIds []string,
 			}
 		},
 		accountIds,
-		filter, sortBy, limit, position, ctx,
+		filter, sortBy, position, anchor, anchorOffset, limit, ctx,
 	)
 }
 

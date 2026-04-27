@@ -100,14 +100,14 @@ func TestContacts(t *testing.T) {
 		{Property: ContactCardPropertyCreated, IsAscending: true},
 	}
 
-	contactsByAccount, ss, os, _, err := s.client.QueryContactCards([]string{accountId}, filter, sortBy, 0, nil, true, ctx)
+	contactsByAccount, ss, os, _, err := s.client.QueryContactCards([]string{accountId}, filter, sortBy, 0, "", nil, nil, true, ctx)
 	require.NoError(err)
 
 	require.Len(contactsByAccount, 1)
 	require.Contains(contactsByAccount, accountId)
 	results := contactsByAccount[accountId]
 	require.Len(results.Results, int(count))
-	require.Equal(uint(0), results.Limit)
+	require.Nil(results.Limit)
 	require.Equal(uint(0), results.Position)
 	require.NotNil(results.Total)
 	require.Equal(count, *results.Total)
@@ -143,6 +143,70 @@ func TestContacts(t *testing.T) {
 	}
 
 	{
+		limit := uint(10)
+		slices := count / limit
+		remainder := count
+		require.Greater(slices, uint(1), "we need to have more than 10 objects in order to test the pagination of search results")
+		for i := range slices {
+			position := int(i * limit)
+			page := min(remainder, limit)
+			m, sessionState, _, _, err := s.client.QueryContactCards([]string{accountId}, filter, sortBy, position, "", nil, &limit, true, ctx)
+			require.NoError(err)
+			require.Len(m, 1)
+			require.Contains(m, accountId)
+			results := m[accountId]
+			require.Equal(len(results.Results), int(page))
+			require.NotNil(results.Limit)
+			require.Equal(limit, *results.Limit)
+			require.Equal(uint(position), results.Position)
+			require.Equal(true, results.CanCalculateChanges)
+			require.NotNil(results.Total)
+			require.Equal(count, *results.Total)
+			remainder -= uint(len(results.Results))
+
+			require.Equal(ss, sessionState)
+		}
+	}
+
+	{
+		chunkSize := 3
+		anchor := results.Results[0].Id
+		offset := 0
+		i := 0
+		for chunk := range slices.Chunk(results.Results, chunkSize) {
+			m, sessionState, _, _, err := s.client.QueryContactCards([]string{accountId}, filter, sortBy, 0, anchor, &offset, uintPtr(chunkSize), true, ctx)
+			require.Equal(ss, sessionState)
+			require.NoError(err)
+			require.Len(m, 1)
+			require.Contains(m, accountId)
+			results := m[accountId]
+			l := len(results.Results)
+			require.LessOrEqual(l, chunkSize)
+			require.NotZero(l)
+			require.NotNil(results.Limit)
+			require.Equal(uint(chunkSize), *results.Limit)
+			//require.Equal(uint(i*chunkSize), results.Position)
+			require.Equal(true, results.CanCalculateChanges)
+			require.NotNil(results.Total)
+			require.Equal(count, *results.Total)
+
+			fmt.Printf("\x1b[34;1m===[%d]========================================\x1b[0m\n", i)
+			fmt.Printf("pos: %d\n", results.Position)
+			fmt.Printf("chunk  : %s\n", strings.Join(structs.Map(chunk, func(c ContactCard) string { return c.Id }), " | "))
+			fmt.Printf("results: %s\n", strings.Join(structs.Map(results.Results, func(c ContactCard) string { return c.Id }), " | "))
+			fmt.Printf("============================================\n")
+
+			for i := range l {
+				require.Equal(chunk[i].Id, results.Results[i].Id)
+			}
+			anchor = chunk[len(chunk)-1].Id
+			offset = 1
+			i++
+		}
+		require.True(false)
+	}
+
+	{
 		now := time.Now().Truncate(time.Duration(1) * time.Second).UTC()
 		for _, event := range expectedContactCardsById {
 			change := ContactCardChange{
@@ -169,7 +233,7 @@ func TestContacts(t *testing.T) {
 		os = state
 	}
 	{
-		shouldBeEmpty, sessionState, state, _, err := s.client.QueryContactCards([]string{accountId}, filter, sortBy, 0, nil, true, ctx)
+		shouldBeEmpty, sessionState, state, _, err := s.client.QueryContactCards([]string{accountId}, filter, sortBy, 0, "", nil, nil, true, ctx)
 		require.NoError(err)
 		require.Contains(shouldBeEmpty, accountId)
 		resp := shouldBeEmpty[accountId]

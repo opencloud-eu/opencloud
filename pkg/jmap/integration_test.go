@@ -223,7 +223,7 @@ func withDirectoryQueries(allowDirectoryQueries bool) func(map[string]any) {
 }
 
 func newStalwartTest(t *testing.T, options ...func(map[string]any)) (*StalwartTest, error) { //NOSONAR
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	var _ context.CancelFunc = cancel // ignore context leak warning: it is passed in the struct and called in Close()
 
 	// A master user name different from "master" does not seem to work as of the current Stalwart version

@@ -26,14 +26,14 @@ func (r *PrincipalSearchResults) GetTotal() *uint              { return r.Total 
 func (r *PrincipalSearchResults) RemoveResults()               { r.Results = nil }
 func (r *PrincipalSearchResults) SetLimit(limit *uint)         { r.Limit = limit }
 
-func (j *Client) QueryPrincipals(accountId string,
+func (j *Client) QueryPrincipals(accountId string, //NOSONAR
 	filter PrincipalFilterElement, sortBy []PrincipalComparator,
-	position uint, limit *uint, calculateTotal bool,
+	position int, anchor string, anchorOffset *int, limit *uint, calculateTotal bool,
 	ctx Context) (*PrincipalSearchResults, SessionState, State, Language, Error) {
 	return query(j, "QueryPrincipals", PrincipalType,
 		[]PrincipalComparator{{Property: PrincipalPropertyName, IsAscending: true}},
-		func(filter PrincipalFilterElement, sortBy []PrincipalComparator, position uint, limit *uint) PrincipalQueryCommand {
-			return PrincipalQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, Position: position, Limit: limit, CalculateTotal: calculateTotal}
+		func(filter PrincipalFilterElement, sortBy []PrincipalComparator, position int, anchor string, anchorOffset *int, limit *uint) PrincipalQueryCommand {
+			return PrincipalQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, Position: position, Anchor: anchor, AnchorOffset: anchorOffset, Limit: limit, CalculateTotal: calculateTotal}
 		},
 		func(cmd Command, path string, rof string) PrincipalGetRefCommand {
 			return PrincipalGetRefCommand{AccountId: accountId, IdsRef: &ResultReference{Name: cmd, Path: path, ResultOf: rof}}
@@ -47,6 +47,6 @@ func (j *Client) QueryPrincipals(accountId string,
 				Limit:               ptrIf(query.Limit, limit != nil),
 			}
 		},
-		filter, sortBy, limit, position, ctx,
+		filter, sortBy, position, anchor, anchorOffset, limit, ctx,
 	)
 }

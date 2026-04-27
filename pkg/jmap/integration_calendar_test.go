@@ -93,7 +93,7 @@ func TestEvents(t *testing.T) {
 	ss := EmptySessionState
 	os := EmptyState
 	{
-		resultsByAccount, sessionState, state, _, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, 0, nil, true, ctx)
+		resultsByAccount, sessionState, state, _, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, 0, "", nil, nil, true, ctx)
 		require.NoError(err)
 
 		require.Len(resultsByAccount, 1)
@@ -124,7 +124,7 @@ func TestEvents(t *testing.T) {
 		for i := range slices {
 			position := int(i * limit)
 			page := min(remainder, limit)
-			m, sessionState, _, _, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, position, &limit, true, ctx)
+			m, sessionState, _, _, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, position, "", nil, &limit, true, ctx)
 			require.NoError(err)
 			require.Len(m, 1)
 			require.Contains(m, accountId)
@@ -173,7 +173,7 @@ func TestEvents(t *testing.T) {
 	}
 
 	{
-		shouldBeEmpty, sessionState, state, _, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, 0, nil, true, ctx)
+		shouldBeEmpty, sessionState, state, _, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, 0, "", nil, nil, true, ctx)
 		require.NoError(err)
 		require.Contains(shouldBeEmpty, accountId)
 		resp := shouldBeEmpty[accountId]

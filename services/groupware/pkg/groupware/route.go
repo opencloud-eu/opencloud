@@ -49,6 +49,8 @@ const (
 	QueryParamSearchKeyword           = "keyword"
 	QueryParamSearchMessageId         = "messageId"
 	QueryParamPosition                = "position"
+	QueryParamAnchor                  = "anchor"
+	QueryParamAnchorOffset            = "offset"
 	QueryParamLimit                   = "limit"
 	QueryParamDays                    = "days"
 	QueryParamPartId                  = "partId"
