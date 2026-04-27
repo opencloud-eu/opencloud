@@ -42,8 +42,8 @@ func (g *Groupware) GetAllEmailsInMailbox(w http.ResponseWriter, r *http.Request
 	fetchBodies := false
 	withThreads := true
 	query(Email, w, r, g, g.defaults.emailLimit,
-		func(req Request, accountId, containerId string, position int, limit *uint, ctx jmap.Context) (*jmap.EmailSearchResults, jmap.SessionState, jmap.State, jmap.Language, *Error) {
-			emails, sessionState, state, lang, jerr := g.jmap.GetAllEmailsInMailbox(accountId, containerId, position, limit, collapseThreads, fetchBodies, g.config.maxBodyValueBytes, withThreads, ctx)
+		func(req Request, accountId, containerId string, position int, anchor string, anchorOffset *int, limit *uint, ctx jmap.Context) (*jmap.EmailSearchResults, jmap.SessionState, jmap.State, jmap.Language, *Error) { //NOSONAR
+			emails, sessionState, state, lang, jerr := g.jmap.GetAllEmailsInMailbox(accountId, containerId, position, anchor, anchorOffset, limit, collapseThreads, fetchBodies, g.config.maxBodyValueBytes, withThreads, ctx)
 			if jerr != nil {
 				return emails, sessionState, state, lang, req.apiErrorFromJmap(req.observeJmapError(jerr))
 			}

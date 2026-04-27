@@ -1833,7 +1833,7 @@ type MailboxQueryCommand struct {
 	//
 	// For example, -1 means the object immediately preceding the anchor is the first result in
 	// the list returned.
-	AnchorOffset int `json:"anchorOffset,omitzero" doc:"opt" default:"0"`
+	AnchorOffset *int `json:"anchorOffset,omitempty" doc:"opt" default:"0"`
 
 	// The maximum number of results to return.
 	//
@@ -2129,7 +2129,7 @@ type EmailQueryCommand struct {
 	//
 	// For example, -1 means the Email immediately preceding the anchor is the first result in
 	// the list returned.
-	AnchorOffset int `json:"anchorOffset,omitzero" doc:"opt" default:"0"`
+	AnchorOffset *int `json:"anchorOffset,omitempty" doc:"opt" default:"0"`
 
 	// The maximum number of results to return.
 	//
@@ -7074,7 +7074,7 @@ type ContactCardQueryCommand struct {
 	//
 	// For example, -1 means the Email immediately preceding the anchor is the first result in
 	// the list returned.
-	AnchorOffset int `json:"anchorOffset,omitzero" default:"0" doc:"opt"`
+	AnchorOffset *int `json:"anchorOffset,omitempty" default:"0" doc:"opt"`
 
 	// The maximum number of results to return.
 	//
@@ -7804,7 +7804,7 @@ type CalendarEventQueryCommand struct {
 	//
 	// For example, -1 means the Email immediately preceding the anchor is the first result in
 	// the list returned.
-	AnchorOffset int `json:"anchorOffset,omitzero" doc:"opt" default:"0"`
+	AnchorOffset *int `json:"anchorOffset,omitempty" doc:"opt" default:"0"`
 
 	// The maximum number of results to return.
 	//
@@ -8265,7 +8265,7 @@ type PrincipalQueryCommand struct {
 	//
 	// If the index is greater than or equal to the total number of objects in the results
 	// list, then the ids array in the response will be empty, but this is not an error.
-	Position uint `json:"position,omitzero" default:"0" doc:"opt"`
+	Position int `json:"position,omitzero" default:"0" doc:"opt"`
 
 	// An Email id.
 	//
@@ -8281,7 +8281,7 @@ type PrincipalQueryCommand struct {
 	//
 	// For example, -1 means the Principal immediately preceding the anchor is the first result in
 	// the list returned.
-	AnchorOffset int `json:"anchorOffset,omitzero" default:"0" doc:"opt"`
+	AnchorOffset *int `json:"anchorOffset,omitempty" default:"0" doc:"opt"`
 
 	// The maximum number of results to return.
 	//

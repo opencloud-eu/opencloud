@@ -125,7 +125,7 @@ func (r *EmailSearchResults) SetLimit(limit *uint)         { r.Limit = limit }
 
 // Retrieve all the Emails in a given Mailbox by its id.
 func (j *Client) GetAllEmailsInMailbox(accountId string, mailboxId string, //NOSONAR
-	position int, limit *uint, collapseThreads bool, fetchBodies bool, maxBodyValueBytes uint, withThreads bool,
+	position int, anchor string, anchorOffset *int, limit *uint, collapseThreads bool, fetchBodies bool, maxBodyValueBytes uint, withThreads bool,
 	ctx Context) (*EmailSearchResults, SessionState, State, Language, Error) {
 	logger := j.loggerParams("GetAllEmailsInMailbox", ctx, func(z zerolog.Context) zerolog.Context {
 		l := z.Bool(logFetchBodies, fetchBodies).Int(logPosition, position)
@@ -143,6 +143,8 @@ func (j *Client) GetAllEmailsInMailbox(accountId string, mailboxId string, //NOS
 		CollapseThreads: collapseThreads,
 		CalculateTotal:  true,
 		Position:        position,
+		Anchor:          anchor,
+		AnchorOffset:    anchorOffset,
 		Limit:           limit,
 	}
 

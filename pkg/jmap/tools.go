@@ -409,8 +409,8 @@ func identity1[T any](t T) T {
 func list[T Foo, GETRESP GetResponse[T]](r GETRESP) []T { return r.GetList() }
 func getid[T Idable](r T) string                        { return r.GetId() }
 
-func uintPtr(i uint) *uint {
-	return ptr(i)
+func uintPtr[T int | uint](i T) *uint {
+	return ptr(uint(i))
 }
 
 func valueIf[T any | uint | int | bool](value *T, condition bool) *T {

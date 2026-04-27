@@ -28,12 +28,12 @@ func (j *Client) GetCalendarEvents(accountId string, eventIds []string, ctx Cont
 
 func (j *Client) QueryCalendarEvents(accountIds []string, //NOSONAR
 	filter CalendarEventFilterElement, sortBy []CalendarEventComparator,
-	position int, limit *uint, calculateTotal bool,
+	position int, anchor string, anchorOffset *int, limit *uint, calculateTotal bool,
 	ctx Context) (map[string]*CalendarEventSearchResults, SessionState, State, Language, Error) {
 	return queryN(j, "QueryCalendarEvents", CalendarEventType,
 		[]CalendarEventComparator{{Property: CalendarEventPropertyStart, IsAscending: false}},
-		func(accountId string, filter CalendarEventFilterElement, sortBy []CalendarEventComparator, position int, limit *uint) CalendarEventQueryCommand {
-			return CalendarEventQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, Position: position, Limit: limit, CalculateTotal: calculateTotal}
+		func(accountId string, filter CalendarEventFilterElement, sortBy []CalendarEventComparator, position int, anchor string, anchorOffset *int, limit *uint) CalendarEventQueryCommand {
+			return CalendarEventQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, Position: position, Anchor: anchor, AnchorOffset: anchorOffset, Limit: limit, CalculateTotal: calculateTotal}
 		},
 		func(accountId string, cmd Command, path string, rof string) CalendarEventGetRefCommand {
 			return CalendarEventGetRefCommand{AccountId: accountId, IdsRef: &ResultReference{Name: cmd, Path: path, ResultOf: rof}}
@@ -48,7 +48,7 @@ func (j *Client) QueryCalendarEvents(accountIds []string, //NOSONAR
 			}
 		},
 		accountIds,
-		filter, sortBy, limit, position, ctx,
+		filter, sortBy, position, anchor, anchorOffset, limit, ctx,
 	)
 }
 

@@ -80,7 +80,7 @@ func getall[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jmap.G
 	})
 }
 
-var paginationQueryParams = toSupportedQueryParams(QueryParamPosition, QueryParamLimit)
+var paginationQueryParams = toSupportedQueryParams(QueryParamPosition, QueryParamAnchor, QueryParamAnchorOffset, QueryParamLimit)
 
 // Retrieve all the {{.Name}} with support for paging using the {{.QueryParam.QueryParamPosition.Name}} and {{.QueryParam.QueryParamLimit.Name}} query parameters.
 // @api:response 200:SEARCHRESULTS returns the {{.Names}} within the requested range, as well as the total amount of {{.Names}}
@@ -91,7 +91,7 @@ func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], FILTER
 	withContainerId bool,
 	filterFunc func(containerId string) FILTER,
 	sortBy []COMP,
-	queryFunc func(req Request, accountId string, filter FILTER, sortBy []COMP, position int, limit *uint, ctx jmap.Context) (SEARCHRESULTS, jmap.SessionState, jmap.State, jmap.Language, jmap.Error),
+	queryFunc func(req Request, accountId string, filter FILTER, sortBy []COMP, position int, anchor string, anchorOffset *int, limit *uint, ctx jmap.Context) (SEARCHRESULTS, jmap.SessionState, jmap.State, jmap.Language, jmap.Error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
@@ -106,6 +106,23 @@ func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], FILTER
 		}
 		if ok {
 			l = l.Int(QueryParamPosition, position)
+		}
+
+		anchor, ok := req.getStringParam(QueryParamAnchor, "")
+		if ok {
+			l = l.Str(QueryParamAnchor, log.SafeString(anchor))
+		}
+
+		var anchorOffset *int = nil
+		{
+			v, ok, err := req.parseIntParam(QueryParamAnchorOffset, 0)
+			if err != nil {
+				return req.error(accountId, err)
+			}
+			if ok {
+				l = l.Int(QueryParamAnchorOffset, v)
+				anchorOffset = &v
+			}
 		}
 
 		var limit *uint = nil
@@ -143,7 +160,7 @@ func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], FILTER
 
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
-		results, sessionState, state, lang, jerr := queryFunc(req, accountId, filter, sortBy, position, jmaplimit, ctx)
+		results, sessionState, state, lang, jerr := queryFunc(req, accountId, filter, sortBy, position, anchor, anchorOffset, jmaplimit, ctx)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, sessionState, lang)
 		}
@@ -164,7 +181,7 @@ func query[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], SEARCHRESULT
 	w http.ResponseWriter, r *http.Request,
 	g *Groupware,
 	defaultLimit uint,
-	queryFunc func(req Request, accountId string, containerId string, position int, limit *uint, ctx jmap.Context) (SEARCHRESULTS, jmap.SessionState, jmap.State, jmap.Language, *Error),
+	queryFunc func(req Request, accountId string, containerId string, position int, anchor string, anchorOffset *int, limit *uint, ctx jmap.Context) (SEARCHRESULTS, jmap.SessionState, jmap.State, jmap.Language, *Error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
@@ -191,6 +208,23 @@ func query[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], SEARCHRESULT
 			l = l.Int(QueryParamPosition, position)
 		}
 
+		anchor, ok := req.getStringParam(QueryParamAnchor, "")
+		if ok {
+			l = l.Str(QueryParamAnchor, log.SafeString(anchor))
+		}
+
+		var anchorOffset *int = nil
+		{
+			v, ok, err := req.parseIntParam(QueryParamAnchorOffset, 0)
+			if err != nil {
+				return req.error(accountId, err)
+			}
+			if ok {
+				l = l.Int(QueryParamAnchorOffset, v)
+				anchorOffset = &v
+			}
+		}
+
 		var limit *uint = nil
 		{
 			v, ok, err := req.parseUIntParam(QueryParamLimit, defaultLimit)
@@ -213,7 +247,7 @@ func query[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], SEARCHRESULT
 			jmaplimit = UintPtrOne
 		}
 
-		results, sessionState, state, lang, err := queryFunc(req, accountId, containerId, position, jmaplimit, ctx)
+		results, sessionState, state, lang, err := queryFunc(req, accountId, containerId, position, anchor, anchorOffset, jmaplimit, ctx)
 		if err != nil {
 			return req.error(accountId, err)
 		}

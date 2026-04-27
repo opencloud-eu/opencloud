@@ -81,7 +81,7 @@ func TestEmails(t *testing.T) {
 		}
 
 		{
-			resp, sessionState, _, _, err := s.client.GetAllEmailsInMailbox(accountId, inboxId, 0, nil, true, false, 0, true, ctx)
+			resp, sessionState, _, _, err := s.client.GetAllEmailsInMailbox(accountId, inboxId, 0, "", nil, nil, true, false, 0, true, ctx)
 			require.NoError(err)
 			require.Equal(session.State, sessionState)
 
@@ -95,7 +95,7 @@ func TestEmails(t *testing.T) {
 		}
 
 		{
-			resp, sessionState, _, _, err := s.client.GetAllEmailsInMailbox(accountId, inboxId, 0, nil, false, false, 0, true, ctx)
+			resp, sessionState, _, _, err := s.client.GetAllEmailsInMailbox(accountId, inboxId, 0, "", nil, nil, false, false, 0, true, ctx)
 			require.NoError(err)
 			require.Equal(session.State, sessionState)
 

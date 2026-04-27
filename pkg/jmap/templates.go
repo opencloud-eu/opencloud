@@ -430,10 +430,10 @@ func update[T Foo, CHANGES Change, SET SetCommand[T], GET GetCommand[T], RESP an
 func query[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T], QUERYRESP QueryResponse[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
 	client *Client, name string, objType ObjectType,
 	defaultSortBy []SORT,
-	queryCommandFactory func(filter FILTER, sortBy []SORT, position uint, limit *uint) QUERY,
+	queryCommandFactory func(filter FILTER, sortBy []SORT, position int, anchor string, anchorOffset *int, limit *uint) QUERY,
 	getCommandFactory func(cmd Command, path string, rof string) GET,
 	respMapper func(query QUERYRESP, get GETRESP) *RESP,
-	filter FILTER, sortBy []SORT, limit *uint, position uint,
+	filter FILTER, sortBy []SORT, position int, anchor string, anchorOffset *int, limit *uint,
 	ctx Context) (*RESP, SessionState, State, Language, Error) {
 
 	logger := client.logger(name, ctx)
@@ -443,7 +443,7 @@ func query[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T]
 		sortBy = defaultSortBy
 	}
 
-	query := queryCommandFactory(filter, sortBy, position, limit)
+	query := queryCommandFactory(filter, sortBy, position, anchor, anchorOffset, limit)
 	get := getCommandFactory(query.GetCommand(), "/ids/*", "0")
 
 	cmd, err := client.request(ctx, objType.Namespaces, invocation(query, "0"), invocation(get, "1"))
@@ -469,11 +469,11 @@ func query[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T]
 func queryN[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T], QUERYRESP QueryResponse[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
 	client *Client, name string, objType ObjectType,
 	defaultSortBy []SORT,
-	queryCommandFactory func(accountId string, filter FILTER, sortBy []SORT, position int, limit *uint) QUERY,
+	queryCommandFactory func(accountId string, filter FILTER, sortBy []SORT, position int, anchor string, anchorOffset *int, imit *uint) QUERY,
 	getCommandFactory func(accountId string, cmd Command, path string, rof string) GET,
 	respMapper func(query QUERYRESP, get GETRESP) *RESP,
 	accountIds []string,
-	filter FILTER, sortBy []SORT, limit *uint, position int,
+	filter FILTER, sortBy []SORT, position int, anchor string, anchorOffset *int, limit *uint,
 	ctx Context) (map[string]*RESP, SessionState, State, Language, Error) {
 	logger := client.logger(name, ctx)
 	ctx = ctx.WithLogger(logger)
@@ -488,7 +488,7 @@ func queryN[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T
 	var g GET
 	var q QUERY
 	for i, accountId := range uniqueAccountIds {
-		query := queryCommandFactory(accountId, filter, sortBy, position, limit)
+		query := queryCommandFactory(accountId, filter, sortBy, position, anchor, anchorOffset, limit)
 		get := getCommandFactory(accountId, query.GetCommand(), "/ids/*", mcid(accountId, "0"))
 		invocations[i*2+0] = invocation(query, mcid(accountId, "0"))
 		invocations[i*2+1] = invocation(get, mcid(accountId, "1"))
