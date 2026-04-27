@@ -26,9 +26,12 @@ const (
 func newTestSelector(t *testing.T, gw *cs3mocks.GatewayAPIClient) pool.Selectable[gateway.GatewayAPIClient] {
 	t.Helper()
 	// Unique key per test so pool's selector cache doesn't hand back a stale gw.
+	// t.Cleanup removes the entry from pool's global selectors map after the
+	// subtest, so global state doesn't grow across the suite.
 	svcName := "TestGatewaySelector"
 	key := "test.gateway." + t.Name()
 	pool.RemoveSelector(svcName + key)
+	t.Cleanup(func() { pool.RemoveSelector(svcName + key) })
 	return pool.GetSelector[gateway.GatewayAPIClient](
 		svcName,
 		key,
@@ -154,11 +157,13 @@ func TestResolveGraphPath(t *testing.T) {
 			expectURLPath:    "",
 		},
 		{
-			name:             "Stat unexpected status returns 404",
+			// Operational/unexpected CS3 statuses must NOT be collapsed to 404 —
+			// that would mask outages. Surface as 500 like other graph handlers do.
+			name:             "Stat unexpected status returns 500 (not 404 — don't mask outages)",
 			urlPath:          "/graph/v1.0/drives/" + testDriveID + "/root:/Anything:",
 			statCode:         cs3rpc.Code_CODE_INTERNAL,
 			expectStatCalled: true,
-			expectStatus:     http.StatusNotFound,
+			expectStatus:     http.StatusInternalServerError,
 			expectURLPath:    "",
 		},
 	}
