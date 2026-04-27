@@ -132,6 +132,12 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 
 	m := chi.NewMux()
 	m.Use(options.Middleware...)
+	// Must be top-level mux.Use, not r.Use inside a Route block: chi
+	// sub-router middleware runs after the prefix has already been matched,
+	// so URL rewriting at that point can't redirect to a different leaf
+	// route. Top-level middleware runs before any matching, so the rewritten
+	// URL is what chi walks the radix tree against.
+	m.Use(graphm.ResolveGraphPath(options.GatewaySelector, options.Logger))
 	m.Use(
 		otelchi.Middleware(
 			"graph",
