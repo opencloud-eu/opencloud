@@ -108,10 +108,11 @@ func TestContacts(t *testing.T) {
 	results := contactsByAccount[accountId]
 	require.Len(results.Results, int(count))
 	require.Nil(results.Limit)
-	require.Equal(uint(0), results.Position)
+	require.NotNil(results.Position)
+	require.Equal(uint(0), *results.Position)
 	require.NotNil(results.Total)
 	require.Equal(count, *results.Total)
-	require.Equal(true, results.CanCalculateChanges)
+	require.Equal(ChangeCalculation(true), results.CanCalculateChanges)
 
 	for _, actual := range results.Results {
 		expected, ok := expectedContactCardsById[actual.Id]
@@ -158,8 +159,9 @@ func TestContacts(t *testing.T) {
 			require.Equal(len(results.Results), int(page))
 			require.NotNil(results.Limit)
 			require.Equal(limit, *results.Limit)
-			require.Equal(uint(position), results.Position)
-			require.Equal(true, results.CanCalculateChanges)
+			require.NotNil(results.Position)
+			require.Equal(uint(position), *results.Position)
+			require.Equal(ChangeCalculation(true), results.CanCalculateChanges)
 			require.NotNil(results.Total)
 			require.Equal(count, *results.Total)
 			remainder -= uint(len(results.Results))
@@ -185,17 +187,9 @@ func TestContacts(t *testing.T) {
 			require.NotZero(l)
 			require.NotNil(results.Limit)
 			require.Equal(uint(chunkSize), *results.Limit)
-			//require.Equal(uint(i*chunkSize), results.Position)
-			require.Equal(true, results.CanCalculateChanges)
+			require.Equal(ChangeCalculation(true), results.CanCalculateChanges)
 			require.NotNil(results.Total)
 			require.Equal(count, *results.Total)
-
-			fmt.Printf("\x1b[34;1m===[%d]========================================\x1b[0m\n", i)
-			fmt.Printf("pos: %d\n", results.Position)
-			fmt.Printf("chunk  : %s\n", strings.Join(structs.Map(chunk, func(c ContactCard) string { return c.Id }), " | "))
-			fmt.Printf("results: %s\n", strings.Join(structs.Map(results.Results, func(c ContactCard) string { return c.Id }), " | "))
-			fmt.Printf("============================================\n")
-
 			for i := range l {
 				require.Equal(chunk[i].Id, results.Results[i].Id)
 			}
@@ -203,7 +197,6 @@ func TestContacts(t *testing.T) {
 			offset = 1
 			i++
 		}
-		require.True(false)
 	}
 
 	{

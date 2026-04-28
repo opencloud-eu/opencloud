@@ -92,17 +92,20 @@ func TestEvents(t *testing.T) {
 
 	ss := EmptySessionState
 	os := EmptyState
+	var results *CalendarEventSearchResults
 	{
 		resultsByAccount, sessionState, state, _, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, 0, "", nil, nil, true, ctx)
 		require.NoError(err)
 
 		require.Len(resultsByAccount, 1)
 		require.Contains(resultsByAccount, accountId)
-		results := resultsByAccount[accountId]
+		results = resultsByAccount[accountId]
+		require.NotNil(results)
 		require.Len(results.Results, int(count))
-		require.Equal(uint(0), results.Limit)
-		require.Equal(uint(0), results.Position)
-		require.Equal(true, results.CanCalculateChanges)
+		require.Nil(results.Limit)
+		require.NotNil(results.Position)
+		require.Equal(uint(0), *results.Position)
+		require.Equal(ChangeCalculation(true), results.CanCalculateChanges)
 		require.NotNil(results.Total)
 		require.Equal(count, *results.Total)
 
@@ -130,14 +133,45 @@ func TestEvents(t *testing.T) {
 			require.Contains(m, accountId)
 			results := m[accountId]
 			require.Equal(len(results.Results), int(page))
-			require.Equal(limit, results.Limit)
-			require.Equal(uint(position), results.Position)
-			require.Equal(true, results.CanCalculateChanges)
+			require.NotNil(results.Limit)
+			require.Equal(limit, *results.Limit)
+			require.NotNil(results.Position)
+			require.Equal(uint(position), *results.Position)
+			require.Equal(ChangeCalculation(true), results.CanCalculateChanges)
 			require.NotNil(results.Total)
 			require.Equal(count, *results.Total)
 			remainder -= uint(len(results.Results))
 
 			require.Equal(ss, sessionState)
+		}
+	}
+
+	{
+		chunkSize := 3
+		anchor := results.Results[0].Id
+		offset := 0
+		i := 0
+		for chunk := range slices.Chunk(results.Results, chunkSize) {
+			m, sessionState, _, _, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, 0, anchor, &offset, uintPtr(chunkSize), true, ctx)
+			require.Equal(ss, sessionState)
+			require.NoError(err)
+			require.Len(m, 1)
+			require.Contains(m, accountId)
+			results := m[accountId]
+			l := len(results.Results)
+			require.LessOrEqual(l, chunkSize)
+			require.NotZero(l)
+			require.NotNil(results.Limit)
+			require.Equal(uint(chunkSize), *results.Limit)
+			require.Equal(ChangeCalculation(true), results.CanCalculateChanges)
+			require.NotNil(results.Total)
+			require.Equal(count, *results.Total)
+			for i := range l {
+				require.Equal(chunk[i].Id, results.Results[i].Id)
+			}
+			anchor = chunk[len(chunk)-1].Id
+			offset = 1
+			i++
 		}
 	}
 

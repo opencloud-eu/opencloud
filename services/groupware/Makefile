@@ -32,7 +32,7 @@ serve-apidoc: swagger.yml tsnode
 
 api.html: swagger.yml favicon.png tsnode
 	pnpm exec redocly build-docs --output=$@.template --title="OpenCloud Groupware API" --theme.openapi.hideHostname=false --theme.openapi.hideTryItPanel=false --theme.openapi.pathInMiddlePanel=true $<
-	NODE_OPTIONS='--no-warnings --loader ts-node/esm' pnpm exec ts-node ./apidoc-postprocess-html.ts favicon.png < $@.template > $@
+	NODE_OPTIONS='--no-warnings' pnpm exec node ./apidoc-postprocess-html.js favicon.png < $@.template > $@
 	rm $@.template
 
 .PHONY: apidoc-static
@@ -48,3 +48,7 @@ examples:
 .PHONY: gosec
 gosec:
 	cd ../../ && gosec ./pkg/jmap/... ./pkg/jscalendar/... ./pkg/jscontact/... ./services/groupware/pkg/...
+
+.PHONY: update-redocly
+update-redocly:
+	pnpm update @redocly/cli@latest

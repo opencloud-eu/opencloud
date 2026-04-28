@@ -169,6 +169,9 @@ func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], FILTER
 			results.RemoveResults()
 			results.SetLimit(UintPtrZero)
 		}
+		if anchor != "" && results.GetPosition() != nil && *results.GetPosition() == 0 {
+			results.SetPosition(nil)
+		}
 
 		return req.respond(accountId, results, sessionState, o.responseType, state, lang)
 	})
@@ -255,6 +258,9 @@ func query[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], SEARCHRESULT
 		if limit != nil && *limit == 0 {
 			results.RemoveResults()
 			results.SetLimit(UintPtrZero)
+		}
+		if anchor != "" && results.GetPosition() != nil && *results.GetPosition() == 0 {
+			results.SetPosition(nil)
 		}
 
 		return req.respond(accountId, results, sessionState, o.responseType, state, lang)
