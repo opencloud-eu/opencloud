@@ -105,7 +105,18 @@ func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.
 			ctx := context.WithValue(r.Context(), OriginalPathContextKey, original)
 			r = r.WithContext(ctx)
 			r.URL.Path = rewritten
-			r.URL.RawPath = ""
+			// Match the chi-escaping workaround in Graph.ServeHTTP — RawPath
+			// must be a properly-escaped form of Path so chi's parameter
+			// binding works for rewritten requests too. Drive/item IDs
+			// contain `$` and `!`, both of which need percent-encoding for
+			// chi to round-trip them through its tree match.
+			// (See services/graph/pkg/service/v0/graph.go ServeHTTP and
+			// https://github.com/go-chi/chi/issues/641#issuecomment-883156692.)
+			//
+			// EscapedPath() re-encodes Path because the existing RawPath
+			// (set by Graph.ServeHTTP for the original URL) no longer
+			// unescapes to our rewritten Path.
+			r.URL.RawPath = r.URL.EscapedPath()
 			next.ServeHTTP(w, r)
 		})
 	}

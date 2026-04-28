@@ -178,7 +178,7 @@ func TestResolveGraphPath(t *testing.T) {
 
 			selector := newTestSelector(t, gw)
 			handler, seen := recordingHandler()
-			mw := middleware.ResolveGraphPath(selector, log.NewLogger())
+			mw := middleware.ResolveGraphPath(selector, log.NopLogger())
 
 			req := httptest.NewRequest(http.MethodGet, "http://localhost"+tt.urlPath, nil)
 			rr := httptest.NewRecorder()
@@ -213,7 +213,7 @@ func TestResolveGraphPath_OriginalPathContext(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	mw := middleware.ResolveGraphPath(selector, log.NewLogger())
+	mw := middleware.ResolveGraphPath(selector, log.NopLogger())
 	req := httptest.NewRequest(http.MethodGet, "http://localhost"+original, nil)
 	rr := httptest.NewRecorder()
 
