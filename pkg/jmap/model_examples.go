@@ -816,7 +816,7 @@ func (e Exemplar) Emails() EmailSearchResults {
 		Results:             []Email{e.Email()},
 		Total:               uintPtr(132),
 		Limit:               uintPtr(1),
-		Position:            5,
+		Position:            uintPtr(5),
 		CanCalculateChanges: true,
 	}
 }

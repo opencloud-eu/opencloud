@@ -66,13 +66,16 @@ type ContactCardSearchResults SearchResultsTemplate[ContactCard]
 
 var _ SearchResults[ContactCard] = &ContactCardSearchResults{}
 
-func (r *ContactCardSearchResults) GetResults() []ContactCard    { return r.Results }
-func (r *ContactCardSearchResults) GetCanCalculateChanges() bool { return r.CanCalculateChanges }
-func (r *ContactCardSearchResults) GetPosition() uint            { return r.Position }
-func (r *ContactCardSearchResults) GetLimit() *uint              { return r.Limit }
-func (r *ContactCardSearchResults) GetTotal() *uint              { return r.Total }
-func (r *ContactCardSearchResults) RemoveResults()               { r.Results = nil }
-func (r *ContactCardSearchResults) SetLimit(limit *uint)         { r.Limit = limit }
+func (r *ContactCardSearchResults) GetResults() []ContactCard { return r.Results }
+func (r *ContactCardSearchResults) GetCanCalculateChanges() ChangeCalculation {
+	return r.CanCalculateChanges
+}
+func (r *ContactCardSearchResults) GetPosition() *uint         { return r.Position }
+func (r *ContactCardSearchResults) GetLimit() *uint            { return r.Limit }
+func (r *ContactCardSearchResults) GetTotal() *uint            { return r.Total }
+func (r *ContactCardSearchResults) RemoveResults()             { r.Results = nil }
+func (r *ContactCardSearchResults) SetLimit(limit *uint)       { r.Limit = limit }
+func (r *ContactCardSearchResults) SetPosition(position *uint) { r.Position = position }
 
 func (j *Client) QueryContactCards(accountIds []string, //NOSONAR
 	filter ContactCardFilterElement, sortBy []ContactCardComparator,
@@ -89,8 +92,8 @@ func (j *Client) QueryContactCards(accountIds []string, //NOSONAR
 		func(query ContactCardQueryResponse, get ContactCardGetResponse) *ContactCardSearchResults {
 			return &ContactCardSearchResults{
 				Results:             get.List,
-				CanCalculateChanges: query.CanCalculateChanges,
-				Position:            query.Position,
+				CanCalculateChanges: ChangeCalculation(query.CanCalculateChanges),
+				Position:            ptrIf(query.Position, anchor == ""),
 				Total:               valueIf(query.Total, calculateTotal),
 				Limit:               ptrIf(query.Limit, limit != nil),
 			}

@@ -18,13 +18,16 @@ type PrincipalSearchResults SearchResultsTemplate[Principal]
 
 var _ SearchResults[Principal] = &PrincipalSearchResults{}
 
-func (r *PrincipalSearchResults) GetResults() []Principal      { return r.Results }
-func (r *PrincipalSearchResults) GetCanCalculateChanges() bool { return r.CanCalculateChanges }
-func (r *PrincipalSearchResults) GetPosition() uint            { return r.Position }
-func (r *PrincipalSearchResults) GetLimit() *uint              { return r.Limit }
-func (r *PrincipalSearchResults) GetTotal() *uint              { return r.Total }
-func (r *PrincipalSearchResults) RemoveResults()               { r.Results = nil }
-func (r *PrincipalSearchResults) SetLimit(limit *uint)         { r.Limit = limit }
+func (r *PrincipalSearchResults) GetResults() []Principal { return r.Results }
+func (r *PrincipalSearchResults) GetCanCalculateChanges() ChangeCalculation {
+	return r.CanCalculateChanges
+}
+func (r *PrincipalSearchResults) GetPosition() *uint         { return r.Position }
+func (r *PrincipalSearchResults) GetLimit() *uint            { return r.Limit }
+func (r *PrincipalSearchResults) GetTotal() *uint            { return r.Total }
+func (r *PrincipalSearchResults) RemoveResults()             { r.Results = nil }
+func (r *PrincipalSearchResults) SetLimit(limit *uint)       { r.Limit = limit }
+func (r *PrincipalSearchResults) SetPosition(position *uint) { r.Position = position }
 
 func (j *Client) QueryPrincipals(accountId string, //NOSONAR
 	filter PrincipalFilterElement, sortBy []PrincipalComparator,
@@ -41,8 +44,8 @@ func (j *Client) QueryPrincipals(accountId string, //NOSONAR
 		func(query PrincipalQueryResponse, get PrincipalGetResponse) *PrincipalSearchResults {
 			return &PrincipalSearchResults{
 				Results:             get.List,
-				CanCalculateChanges: query.CanCalculateChanges,
-				Position:            query.Position,
+				CanCalculateChanges: ChangeCalculation(query.CanCalculateChanges),
+				Position:            ptrIf(query.Position, anchor == ""),
 				Total:               ptrIf(query.Total, calculateTotal),
 				Limit:               ptrIf(query.Limit, limit != nil),
 			}

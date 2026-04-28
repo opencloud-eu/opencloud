@@ -362,7 +362,7 @@ type SnippetWithoutEmailId struct {
 
 type EmailWithSnippetsSearchResults jmap.SearchResultsTemplate[EmailWithSnippets]
 
-func (g *Groupware) buildEmailFilter(req Request) (bool, jmap.EmailFilterElement, bool, int, *uint, *log.Logger, *Error) { //NOSONAR
+func (g *Groupware) buildEmailFilter(req Request) (bool, jmap.EmailFilterElement, bool, int, string, *int, *uint, *log.Logger, *Error) { //NOSONAR
 	mailboxId, _ := req.getStringParam(QueryParamMailboxId, "")                      // the identifier of the Mailbox to which to restrict the search
 	text, _ := req.getStringParam(QueryParamSearchText, "")                          // text that must be included in the Email, specifically in From, To, Cc, Bcc, Subject and any text/* body part
 	from, _ := req.getStringParam(QueryParamSearchFrom, "")                          // text that must be included in the From header of the Email
@@ -374,11 +374,11 @@ func (g *Groupware) buildEmailFilter(req Request) (bool, jmap.EmailFilterElement
 	messageId, _ := req.getStringParam(QueryParamSearchMessageId, "")                // value of the Message-ID header of the Email
 	notInMailboxIds, _, err := req.parseOptStringListParam(QueryParamNotInMailboxId) // a comma-separated list of identifiers of Mailboxes the Email must *not* be in
 	if err != nil {
-		return false, nil, false, 0, nil, nil, err
+		return false, nil, false, 0, "", nil, nil, nil, err
 	}
 	keywords, _, err := req.parseOptStringListParam(QueryParamSearchKeyword) // the Email must have all those keywords
 	if err != nil {
-		return false, nil, false, 0, nil, nil, err
+		return false, nil, false, 0, "", nil, nil, nil, err
 	}
 
 	snippets := false
@@ -387,17 +387,34 @@ func (g *Groupware) buildEmailFilter(req Request) (bool, jmap.EmailFilterElement
 
 	position, ok, err := req.parseIntParam(QueryParamPosition, 0) // pagination element position (offset)
 	if err != nil {
-		return false, nil, snippets, 0, nil, nil, err
+		return false, nil, snippets, 0, "", nil, nil, nil, err
 	}
 	if ok {
 		l = l.Int(QueryParamPosition, position)
+	}
+
+	anchor, ok := req.getStringParam(QueryParamAnchor, "") // pagination element anchor
+	if ok {
+		l = l.Str(QueryParamAnchor, log.SafeString(anchor))
+	}
+
+	var anchorOffset *int = nil
+	{
+		v, ok, err := req.parseIntParam(QueryParamAnchorOffset, 0) // optional offset relative to the anchor
+		if err != nil {
+			return false, nil, snippets, 0, "", nil, nil, nil, err
+		}
+		if ok {
+			l = l.Int(QueryParamAnchorOffset, v)
+			anchorOffset = &v
+		}
 	}
 
 	var limit *uint = nil
 	{
 		v, ok, err := req.parseUIntParam(QueryParamLimit, g.defaults.emailLimit) // maximum number of results (size of a page)
 		if err != nil {
-			return false, nil, snippets, 0, nil, nil, err
+			return false, nil, snippets, 0, "", nil, nil, nil, err
 		}
 		if ok {
 			l = l.Uint(QueryParamLimit, v)
@@ -407,7 +424,7 @@ func (g *Groupware) buildEmailFilter(req Request) (bool, jmap.EmailFilterElement
 
 	before, ok, err := req.parseDateParam(QueryParamSearchBefore) // the Email must have been received before this date-time
 	if err != nil {
-		return false, nil, snippets, 0, nil, nil, err
+		return false, nil, snippets, 0, "", nil, nil, nil, err
 	}
 	if ok {
 		l = l.Time(QueryParamSearchBefore, before)
@@ -415,7 +432,7 @@ func (g *Groupware) buildEmailFilter(req Request) (bool, jmap.EmailFilterElement
 
 	after, ok, err := req.parseDateParam(QueryParamSearchAfter) // the Email must have been received after this date-time
 	if err != nil {
-		return false, nil, snippets, 0, nil, nil, err
+		return false, nil, snippets, 0, "", nil, nil, nil, err
 	}
 	if ok {
 		l = l.Time(QueryParamSearchAfter, after)
@@ -454,7 +471,7 @@ func (g *Groupware) buildEmailFilter(req Request) (bool, jmap.EmailFilterElement
 
 	minSize, ok, err := req.parseIntParam(QueryParamSearchMinSize, 0) // the minimum size of the Email
 	if err != nil {
-		return false, nil, snippets, 0, nil, nil, err
+		return false, nil, snippets, 0, "", nil, nil, nil, err
 	}
 	if ok {
 		l = l.Int(QueryParamSearchMinSize, minSize)
@@ -462,7 +479,7 @@ func (g *Groupware) buildEmailFilter(req Request) (bool, jmap.EmailFilterElement
 
 	maxSize, ok, err := req.parseIntParam(QueryParamSearchMaxSize, 0) // the maximum size of the Email
 	if err != nil {
-		return false, nil, snippets, 0, nil, nil, err
+		return false, nil, snippets, 0, "", nil, nil, nil, err
 	}
 	if ok {
 		l = l.Int(QueryParamSearchMaxSize, maxSize)
@@ -516,7 +533,7 @@ func (g *Groupware) buildEmailFilter(req Request) (bool, jmap.EmailFilterElement
 		}
 	}
 
-	return true, filter, snippets, position, limit, logger, nil
+	return true, filter, snippets, position, anchor, anchorOffset, limit, logger, nil
 }
 
 func (g *Groupware) GetEmails(w http.ResponseWriter, r *http.Request) { //NOSONAR
@@ -538,7 +555,7 @@ func (g *Groupware) GetEmails(w http.ResponseWriter, r *http.Request) { //NOSONA
 
 			l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
 
-			ok, filter, makesSnippets, position, limit, logger, err := g.buildEmailFilter(req)
+			ok, filter, makesSnippets, position, anchor, anchorOffset, limit, logger, err := g.buildEmailFilter(req)
 			if !ok {
 				return req.error(accountId, err)
 			}
@@ -566,7 +583,7 @@ func (g *Groupware) GetEmails(w http.ResponseWriter, r *http.Request) { //NOSONA
 				jmaplimit = UintPtrOne
 			}
 
-			resultsByAccount, sessionState, state, lang, jerr := g.jmap.QueryEmailsWithSnippets(single(accountId), filter, position, jmaplimit, collapseThreads, calculateTotal, fetchBodies, g.config.maxBodyValueBytes, ctx)
+			resultsByAccount, sessionState, state, lang, jerr := g.jmap.QueryEmailsWithSnippets(single(accountId), filter, position, anchor, anchorOffset, jmaplimit, collapseThreads, calculateTotal, fetchBodies, g.config.maxBodyValueBytes, ctx)
 			if jerr != nil {
 				return req.jmapError(accountId, jerr, sessionState, lang)
 			}
@@ -623,7 +640,7 @@ func (g *Groupware) GetEmailsForAllAccounts(w http.ResponseWriter, r *http.Reque
 	g.respond(w, r, func(req Request) Response {
 		allAccountIds := req.AllAccountIds()
 
-		ok, filter, makesSnippets, position, limit, logger, err := g.buildEmailFilter(req)
+		ok, filter, makesSnippets, position, anchor, anchorOffset, limit, logger, err := g.buildEmailFilter(req)
 		if !ok {
 			return req.errorN(allAccountIds, err)
 		}
@@ -640,7 +657,7 @@ func (g *Groupware) GetEmailsForAllAccounts(w http.ResponseWriter, r *http.Reque
 		}
 
 		if makesSnippets {
-			resultsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryEmailSnippets(allAccountIds, filter, position, jmaplimit, ctx)
+			resultsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryEmailSnippets(allAccountIds, filter, position, anchor, anchorOffset, jmaplimit, ctx)
 			if jerr != nil {
 				return req.jmapErrorN(allAccountIds, jerr, sessionState, lang)
 			}
@@ -687,7 +704,7 @@ func (g *Groupware) GetEmailsForAllAccounts(w http.ResponseWriter, r *http.Reque
 			withThreads := true
 			calculateTotal := true
 
-			resultsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryEmailSummaries(allAccountIds, filter, jmaplimit, withThreads, calculateTotal, ctx)
+			resultsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryEmailSummaries(allAccountIds, filter, position, anchor, anchorOffset, jmaplimit, withThreads, calculateTotal, ctx)
 			if jerr != nil {
 				return req.jmapErrorN(allAccountIds, jerr, sessionState, lang)
 			}
@@ -1478,15 +1495,38 @@ func (g *Groupware) GetLatestEmailsSummaryForAllAccounts(w http.ResponseWriter, 
 			l = l.Uint(QueryParamLimit, limit)
 		}
 
-		position, ok, err := req.parseUIntParam(QueryParamPosition, 0)
+		position, ok, err := req.parseIntParam(QueryParamPosition, 0)
 		if err != nil {
 			return req.errorN(allAccountIds, err)
 		}
-		if position > 0 {
+		if position != 0 {
 			return req.notImplementedN(allAccountIds, EmailResponseObjectType)
 		}
 		if ok {
 			l = l.Uint(QueryParamPosition, limit)
+		}
+
+		anchor, ok := req.getStringParam(QueryParamAnchor, "") // pagination element anchor
+		if anchor != "" {
+			return req.notImplementedN(allAccountIds, EmailResponseObjectType)
+		}
+		if ok {
+			l = l.Str(QueryParamAnchor, log.SafeString(anchor))
+		}
+
+		var anchorOffset *int = nil
+		{
+			v, ok, err := req.parseIntParam(QueryParamAnchorOffset, 0) // optional offset relative to the anchor
+			if err != nil {
+				return req.errorN(allAccountIds, err)
+			}
+			if ok {
+				return req.notImplementedN(allAccountIds, EmailResponseObjectType)
+			}
+			if ok {
+				l = l.Int(QueryParamAnchorOffset, v)
+				anchorOffset = &v
+			}
 		}
 
 		seen, ok, err := req.parseBoolParam(QueryParamSeen, false)
@@ -1522,7 +1562,7 @@ func (g *Groupware) GetLatestEmailsSummaryForAllAccounts(w http.ResponseWriter, 
 
 		calculateTotal := true
 		withThreads := true
-		emailsSummariesByAccount, sessionState, state, lang, jerr := g.jmap.QueryEmailSummaries(allAccountIds, filter, &limit, withThreads, calculateTotal, ctx)
+		emailsSummariesByAccount, sessionState, state, lang, jerr := g.jmap.QueryEmailSummaries(allAccountIds, filter, position, anchor, anchorOffset, &limit, withThreads, calculateTotal, ctx)
 		if jerr != nil {
 			return req.jmapErrorN(allAccountIds, jerr, sessionState, lang)
 		}
@@ -1551,7 +1591,7 @@ func (g *Groupware) GetLatestEmailsSummaryForAllAccounts(w http.ResponseWriter, 
 		body := EmailSummaries{
 			Results:  summaries,
 			Limit:    &limit,
-			Position: position,
+			Position: UintPtrZero, // TODO position from results
 		}
 		if calculateTotal {
 			body.Total = &total

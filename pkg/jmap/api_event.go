@@ -6,13 +6,16 @@ type CalendarEventSearchResults SearchResultsTemplate[CalendarEvent]
 
 var _ SearchResults[CalendarEvent] = &CalendarEventSearchResults{}
 
-func (r *CalendarEventSearchResults) GetResults() []CalendarEvent  { return r.Results }
-func (r *CalendarEventSearchResults) GetCanCalculateChanges() bool { return r.CanCalculateChanges }
-func (r *CalendarEventSearchResults) GetPosition() uint            { return r.Position }
-func (r *CalendarEventSearchResults) GetLimit() *uint              { return r.Limit }
-func (r *CalendarEventSearchResults) GetTotal() *uint              { return r.Total }
-func (r *CalendarEventSearchResults) RemoveResults()               { r.Results = nil }
-func (r *CalendarEventSearchResults) SetLimit(limit *uint)         { r.Limit = limit }
+func (r *CalendarEventSearchResults) GetResults() []CalendarEvent { return r.Results }
+func (r *CalendarEventSearchResults) GetCanCalculateChanges() ChangeCalculation {
+	return r.CanCalculateChanges
+}
+func (r *CalendarEventSearchResults) GetPosition() *uint         { return r.Position }
+func (r *CalendarEventSearchResults) GetLimit() *uint            { return r.Limit }
+func (r *CalendarEventSearchResults) GetTotal() *uint            { return r.Total }
+func (r *CalendarEventSearchResults) RemoveResults()             { r.Results = nil }
+func (r *CalendarEventSearchResults) SetLimit(limit *uint)       { r.Limit = limit }
+func (r *CalendarEventSearchResults) SetPosition(position *uint) { r.Position = position }
 
 func (j *Client) GetCalendarEvents(accountId string, eventIds []string, ctx Context) (CalendarEventGetResponse, SessionState, State, Language, Error) {
 	return get(j, "GetCalendarEvents", CalendarEventType,
@@ -41,8 +44,8 @@ func (j *Client) QueryCalendarEvents(accountIds []string, //NOSONAR
 		func(query CalendarEventQueryResponse, get CalendarEventGetResponse) *CalendarEventSearchResults {
 			return &CalendarEventSearchResults{
 				Results:             get.List,
-				CanCalculateChanges: query.CanCalculateChanges,
-				Position:            query.Position,
+				CanCalculateChanges: ChangeCalculation(query.CanCalculateChanges),
+				Position:            ptrIf(query.Position, anchor == ""),
 				Total:               valueIf(query.Total, calculateTotal),
 				Limit:               ptrIf(query.Limit, limit != nil),
 			}

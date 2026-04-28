@@ -1422,6 +1422,16 @@ type Changes[T Foo] interface {
 	GetDestroyed() []string
 }
 
+// using a custom type for the "canCalculateChanges" attribute in order to customize its rendering:
+// as it's going to be "true" in 99% if not 100% of cases with Stalwart, we only want to render this
+// attribute if its value is "false"
+
+type ChangeCalculation bool
+
+func (cc *ChangeCalculation) IsZero() bool {
+	return *cc == true
+}
+
 type SearchResultsTemplate[T Foo] struct {
 	// The list of objects that resulted from the query.
 	Results []T `json:"results,omitempty"`
@@ -1430,10 +1440,10 @@ type SearchResultsTemplate[T Foo] struct {
 	//
 	// Note, this does not guarantee that the queryChanges call will succeed, as it may only be possible for a limited time
 	// afterwards due to server internal implementation details.
-	CanCalculateChanges bool `json:"canCalculateChanges"`
+	CanCalculateChanges ChangeCalculation `json:"canCalculateChanges,omitzero"`
 
 	// The pagination position that was requested using the `position` query parameter.
-	Position uint `json:"position"`
+	Position *uint `json:"position,omitempty"`
 
 	// The maximum amount of results to return, as requested using the `limit` query parameter.
 	Limit *uint `json:"limit,omitempty"`
@@ -1444,12 +1454,13 @@ type SearchResultsTemplate[T Foo] struct {
 
 type SearchResults[T Foo] interface {
 	GetResults() []T
-	GetCanCalculateChanges() bool
-	GetPosition() uint
+	GetCanCalculateChanges() ChangeCalculation
+	GetPosition() *uint
 	GetTotal() *uint
 	GetLimit() *uint
 	RemoveResults()
 	SetLimit(*uint)
+	SetPosition(*uint)
 }
 
 type FilterOperatorTerm string
@@ -3175,7 +3186,7 @@ type EmailQueryResponse struct {
 	//
 	// Note, this does not guarantee that the Email/queryChanges call will succeed, as it may only be possible for a limited time
 	// afterwards due to server internal implementation details.
-	CanCalculateChanges bool `json:"canCalculateChanges"`
+	CanCalculateChanges ChangeCalculation `json:"canCalculateChanges,omitzero"`
 
 	// The zero-based index of the first result in the ids array within the complete list of query results.
 	Position uint `json:"position"`
@@ -3400,7 +3411,7 @@ type MailboxQueryResponse struct {
 	//
 	// Note, this does not guarantee that the Mailbox/queryChanges call will succeed, as it may only be possible for
 	// a limited time afterwards due to server internal implementation details.
-	CanCalculateChanges bool `json:"canCalculateChanges"`
+	CanCalculateChanges ChangeCalculation `json:"canCalculateChanges,omitzero"`
 
 	// The zero-based index of the first result in the ids array within the complete list of query results.
 	Position int `json:"position"`
@@ -7127,7 +7138,7 @@ type ContactCardQueryResponse struct {
 	//
 	// Note, this does not guarantee that the ContactCard/queryChanges call will succeed, as it may only be possible for a limited time
 	// afterwards due to server internal implementation details.
-	CanCalculateChanges bool `json:"canCalculateChanges"`
+	CanCalculateChanges ChangeCalculation `json:"canCalculateChanges,omitzero"`
 
 	// The zero-based index of the first result in the ids array within the complete list of query results.
 	Position uint `json:"position"`
@@ -7857,7 +7868,7 @@ type CalendarEventQueryResponse struct {
 	//
 	// Note, this does not guarantee that the CalendarEvent/queryChanges call will succeed, as it may only be possible for a limited time
 	// afterwards due to server internal implementation details.
-	CanCalculateChanges bool `json:"canCalculateChanges"`
+	CanCalculateChanges ChangeCalculation `json:"canCalculateChanges,omitzero"`
 
 	// The zero-based index of the first result in the ids array within the complete list of query results.
 	Position uint `json:"position"`
@@ -8333,7 +8344,7 @@ type PrincipalQueryResponse struct {
 	//
 	// Note, this does not guarantee that the Principal/queryChanges call will succeed, as it may only be possible for
 	// a limited time afterwards due to server internal implementation details.
-	CanCalculateChanges bool `json:"canCalculateChanges"`
+	CanCalculateChanges ChangeCalculation `json:"canCalculateChanges,omitzero"`
 
 	// The zero-based index of the first result in the ids array within the complete list of query results.
 	Position uint `json:"position"`
