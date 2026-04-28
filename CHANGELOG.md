@@ -1,12 +1,14 @@
 # Changelog
 
-## [4.0.6](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.6) - 2026-04-24
+## [4.0.6](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.6) - 2026-04-28
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@dragonchaser
+@dragonchaser, @rhafer
 
+### 🐛 Bug Fixes
 
+- [stable-4.0] More graceful shutdown fixes [[#2692](https://github.com/opencloud-eu/opencloud/pull/2692)]
 
 ## [4.0.5](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.5) - 2026-04-02
 
