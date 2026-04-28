@@ -166,6 +166,26 @@ func TestResolveGraphPath(t *testing.T) {
 			expectStatus:     http.StatusInternalServerError,
 			expectURLPath:    "",
 		},
+		{
+			// UNAUTHENTICATED is its own distinct outcome — must surface as 401,
+			// not 500, so clients can detect "your token is bad" vs "server error".
+			name:             "Stat UNAUTHENTICATED returns 401",
+			urlPath:          "/graph/v1.0/drives/" + testDriveID + "/root:/Documents:",
+			statCode:         cs3rpc.Code_CODE_UNAUTHENTICATED,
+			expectStatCalled: true,
+			expectStatus:     http.StatusUnauthorized,
+			expectURLPath:    "",
+		},
+		{
+			// Item-anchored form with a driveID that doesn't match the itemID's
+			// storage/space — the request is malformed; short-circuit to 400
+			// instead of doing a Stat that would only fail downstream.
+			name:             "drive id and item id storage/space mismatch returns 400",
+			urlPath:          "/graph/v1.0/drives/storage-users-2$other-space-id/items/" + testItemID + ":/notes.txt:/children",
+			expectStatCalled: false,
+			expectStatus:     http.StatusBadRequest,
+			expectURLPath:    "",
+		},
 	}
 
 	for _, tt := range tests {

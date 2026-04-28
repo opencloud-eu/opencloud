@@ -44,12 +44,20 @@ type contextKey string
 // tracing/logging consumers.
 const OriginalPathContextKey contextKey = "graph.original_path"
 
-// errPathNotFound is the sentinel returned when a colon-syntax URL matches
-// the pattern but the path either doesn't exist or the user lacks permission
-// to see it. Both cases collapse to a single 404 — never disclose existence
-// to unauthorized callers. Distinct from operational errors (gateway,
-// transport, unexpected status), which surface as 5xx.
-var errPathNotFound = errors.New("path not found")
+// Sentinels distinguishing the resolution outcomes that map to specific HTTP
+// statuses. Anything else surfaces as 500.
+//
+//   errPathNotFound   — path doesn't exist or the user lacks permission to
+//                       see it. Both collapse to 404 (no existence disclosure).
+//   errInvalidRequest — client sent a malformed input (unparseable drive/item
+//                       id, drive/item mismatch in item-anchored form). 400.
+//   errUnauthenticated — the gateway said the caller isn't authenticated for
+//                       the lookup (token expired, cross-storage auth, etc.). 401.
+var (
+	errPathNotFound    = errors.New("path not found")
+	errInvalidRequest  = errors.New("invalid request")
+	errUnauthenticated = errors.New("unauthenticated")
+)
 
 // ResolveGraphPath returns middleware that detects MS Graph colon-syntax
 // path lookup URLs and rewrites them to the canonical
@@ -84,6 +92,14 @@ func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.
 			case errors.Is(err, errPathNotFound):
 				l.Debug().Str("original", original).Msg("colon-path resolution: not found")
 				errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, "item not found")
+				return
+			case errors.Is(err, errInvalidRequest):
+				l.Debug().Str("original", original).Msg("colon-path resolution: invalid request")
+				errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "invalid request")
+				return
+			case errors.Is(err, errUnauthenticated):
+				l.Debug().Str("original", original).Msg("colon-path resolution: unauthenticated")
+				errorcode.Unauthenticated.Render(w, r, http.StatusUnauthorized, "unauthenticated")
 				return
 			case err != nil:
 				l.Error().Err(err).Str("original", original).Msg("colon-path resolution: internal error")
@@ -127,16 +143,19 @@ func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.
 // groups; this struct erases that difference for downstream resolution.
 type colonMatch struct {
 	prefix      string // canonical prefix up to and including /drives/{driveID}
+	driveIDStr  string // captured driveID for item-anchored form (empty for root-anchored, where anchorIDStr already IS the driveID)
 	anchorIDStr string // resource id to anchor path resolution (driveID for root, itemID for item-anchored)
 	relPath     string // relative path with leading slash
 	suffix      string // suffix with leading slash (e.g. "/children"); may be empty
 }
 
 // rewriteColonPath returns:
-//   - ""        + nil               — no colon-syntax pattern matched (passthrough)
-//   - rewritten + nil               — matched and resolved to a canonical URL
-//   - ""        + errPathNotFound   — matched but path doesn't exist or user lacks permission (caller renders 404)
-//   - ""        + other error       — matched but operational/internal error (caller renders 5xx)
+//   - ""        + nil                — no colon-syntax pattern matched (passthrough)
+//   - rewritten + nil                — matched and resolved to a canonical URL
+//   - ""        + errPathNotFound    — path doesn't exist or user lacks permission (404)
+//   - ""        + errInvalidRequest  — malformed input (400)
+//   - ""        + errUnauthenticated — gateway said caller isn't authenticated (401)
+//   - ""        + other error        — operational / internal failure (5xx)
 func rewriteColonPath(
 	ctx context.Context,
 	gws pool.Selectable[gateway.GatewayAPIClient],
@@ -156,10 +175,28 @@ func rewriteColonPath(
 	// "/", changing path semantics.
 	anchor, err := storagespace.ParseID(match.anchorIDStr)
 	if err != nil {
-		// An unparseable anchor ID can't reference a real resource — collapse
-		// to "not found" rather than leaking parser internals via 5xx.
+		// Unparseable input is malformed by the client, not "not found".
 		logger.Debug().Err(err).Str("anchor", match.anchorIDStr).Msg("invalid anchor id in colon path")
-		return "", errPathNotFound
+		return "", errInvalidRequest
+	}
+
+	// Item-anchored form ("/drives/{driveID}/items/{itemID}:/...") captures
+	// driveID separately. Validate the itemID belongs to the given driveID
+	// (storage + space prefix) — otherwise the request is malformed and we
+	// short-circuit instead of doing an unnecessary CS3 Stat.
+	if match.driveIDStr != "" {
+		drive, err := storagespace.ParseID(match.driveIDStr)
+		if err != nil {
+			logger.Debug().Err(err).Str("driveID", match.driveIDStr).Msg("invalid drive id in colon path")
+			return "", errInvalidRequest
+		}
+		if drive.GetStorageId() != anchor.GetStorageId() || drive.GetSpaceId() != anchor.GetSpaceId() {
+			logger.Debug().
+				Str("driveID", match.driveIDStr).
+				Str("itemID", match.anchorIDStr).
+				Msg("drive id does not match item id storage/space")
+			return "", errInvalidRequest
+		}
 	}
 
 	itemID, err := resolvePath(ctx, gws, logger, &anchor, match.relPath)
@@ -181,11 +218,15 @@ func matchInto(re *regexp.Regexp, s string, out *colonMatch, extract func([]stri
 }
 
 func rootMatchExtract(m []string) colonMatch {
+	// Root-anchored: anchorIDStr IS the driveID, so leave driveIDStr empty
+	// to skip the drive/item match check (it would compare driveID to itself).
 	return colonMatch{prefix: m[1], anchorIDStr: m[2], relPath: m[3], suffix: m[4]}
 }
 
 func itemMatchExtract(m []string) colonMatch {
-	return colonMatch{prefix: m[1], anchorIDStr: m[3], relPath: m[4], suffix: m[5]}
+	// Item-anchored: capture driveID (m[2]) so the resolver can validate it
+	// matches the itemID's storage/space.
+	return colonMatch{prefix: m[1], driveIDStr: m[2], anchorIDStr: m[3], relPath: m[4], suffix: m[5]}
 }
 
 // resolvePath translates a relative filesystem path (anchored at the given
@@ -220,6 +261,8 @@ func resolvePath(
 		// fall through
 	case cs3rpc.Code_CODE_NOT_FOUND, cs3rpc.Code_CODE_PERMISSION_DENIED:
 		return "", errPathNotFound
+	case cs3rpc.Code_CODE_UNAUTHENTICATED:
+		return "", errUnauthenticated
 	default:
 		return "", fmt.Errorf(
 			"CS3 Stat returned %s: %s",
