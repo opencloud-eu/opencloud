@@ -42,24 +42,6 @@ Feature: PROPPATCH file/folder
       | /dav/spaces/%spaceid%/PARENT/parent.txt |
     Then the HTTP status code of responses on all endpoints should be "401"
 
-  @issue-1347 @issue-1292
-  Scenario: send PROPPATCH requests to another user's webDav endpoints as normal user
-    When user "Brian" requests these endpoints with "PROPPATCH" to set property "favorite" about user "Alice"
-      | endpoint                                |
-      | /dav/files/%username%/textfile0.txt     |
-      | /dav/files/%username%/PARENT            |
-      | /dav/files/%username%/PARENT/parent.txt |
-    Then the HTTP status code of responses on all endpoints should be "404"
-
-  @issue-1347 @issue-1292
-  Scenario: send PROPPATCH requests to another user's webDav endpoints as normal user using the spaces WebDAV API
-    When user "Brian" requests these endpoints with "PROPPATCH" to set property "favorite" about user "Alice"
-      | endpoint                                |
-      | /dav/spaces/%spaceid%/textfile0.txt     |
-      | /dav/spaces/%spaceid%/PARENT            |
-      | /dav/spaces/%spaceid%/PARENT/parent.txt |
-    Then the HTTP status code of responses on all endpoints should be "404"
-
 
   Scenario: send PROPPATCH requests to webDav endpoints using invalid username but correct password
     When user "usero" requests these endpoints with "PROPPATCH" including body "doesnotmatter" using the password of user "Alice"

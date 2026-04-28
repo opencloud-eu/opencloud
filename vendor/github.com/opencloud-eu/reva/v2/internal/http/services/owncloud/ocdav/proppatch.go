@@ -155,6 +155,13 @@ func (s *svc) handleProppatch(ctx context.Context, w http.ResponseWriter, r *htt
 		}
 		for j := range patches[i].Props {
 			propNameXML := patches[i].Props[j].XMLName
+
+			// favorites are now managed by the Graph API and can no longer be set using PROPPATCH. To avoid confusion, we return a 403 Forbidden when clients try to set the oc:favorites property
+			if propNameXML.Local == "favorite" {
+				w.WriteHeader(http.StatusForbidden)
+				return nil, nil, false
+			}
+
 			// don't use path.Join. It removes the double slash! concatenate with a /
 			key := fmt.Sprintf("%s/%s", patches[i].Props[j].XMLName.Space, patches[i].Props[j].XMLName.Local)
 			value := string(patches[i].Props[j].InnerXML)

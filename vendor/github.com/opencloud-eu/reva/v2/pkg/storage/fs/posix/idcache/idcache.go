@@ -65,12 +65,12 @@ func (c *IDCache) DeleteByPath(ctx context.Context, path string) error {
 	} else {
 		err := c.kv.Purge(ctx, baseKey)
 		if err != nil && err != nats.ErrKeyNotFound {
-			appctx.GetLogger(ctx).Error().Err(err).Str("record", path).Str("spaceID", spaceID).Str("nodeID", nodeID).Msg("could not get spaceID and nodeID from cache")
+			appctx.GetLogger(ctx).Error().Err(err).Str("record", baseKey).Str("spaceID", spaceID).Str("nodeID", nodeID).Msg("could not purge from cache")
 		}
 
 		err = c.kv.Purge(ctx, cacheKey(spaceID, nodeID))
 		if err != nil && err != nats.ErrKeyNotFound {
-			appctx.GetLogger(ctx).Error().Err(err).Str("record", path).Str("spaceID", spaceID).Str("nodeID", nodeID).Msg("could not get spaceID and nodeID from cache")
+			appctx.GetLogger(ctx).Error().Err(err).Str("record", cacheKey(spaceID, nodeID)).Str("spaceID", spaceID).Str("nodeID", nodeID).Msg("could not purge from cache")
 		}
 	}
 
@@ -85,7 +85,6 @@ func (c *IDCache) DeleteByPath(ctx context.Context, path string) error {
 			break
 		}
 		key := update.Key()
-
 		spaceID, nodeID, ok := c.getByReverseCacheKey(ctx, key)
 		if !ok {
 			appctx.GetLogger(ctx).Error().Str("record", key).Msg("could not get spaceID and nodeID from cache")
@@ -94,12 +93,12 @@ func (c *IDCache) DeleteByPath(ctx context.Context, path string) error {
 
 		err := c.kv.Purge(ctx, key)
 		if err != nil && err != nats.ErrKeyNotFound {
-			appctx.GetLogger(ctx).Error().Err(err).Str("record", key).Str("spaceID", spaceID).Str("nodeID", nodeID).Msg("could not get spaceID and nodeID from cache")
+			appctx.GetLogger(ctx).Error().Err(err).Str("record", key).Str("spaceID", spaceID).Str("nodeID", nodeID).Msg("could not purge from cache")
 		}
 
 		err = c.kv.Purge(ctx, cacheKey(spaceID, nodeID))
 		if err != nil && err != nats.ErrKeyNotFound {
-			appctx.GetLogger(ctx).Error().Err(err).Str("record", key).Str("spaceID", spaceID).Str("nodeID", nodeID).Msg("could not get spaceID and nodeID from cache")
+			appctx.GetLogger(ctx).Error().Err(err).Str("record", cacheKey(spaceID, nodeID)).Str("spaceID", spaceID).Str("nodeID", nodeID).Msg("could not purge from cache")
 		}
 	}
 	return nil

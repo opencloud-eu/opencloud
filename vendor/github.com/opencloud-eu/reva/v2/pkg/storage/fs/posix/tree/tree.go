@@ -37,7 +37,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
 
-	user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
@@ -812,12 +811,4 @@ func isLockFile(path string) bool {
 
 func isTrash(path string) bool {
 	return strings.HasSuffix(path, ".trashinfo") || strings.HasSuffix(path, ".trashitem") || strings.Contains(path, ".Trash")
-}
-
-func (t *Tree) AddLabel(ctx context.Context, ref *provider.Reference, userID *user.UserId, label string) error {
-	return errtypes.NotSupported("AddLabel not implemented")
-}
-
-func (t *Tree) RemoveLabel(ctx context.Context, ref *provider.Reference, userID *user.UserId, label string) error {
-	return errtypes.NotSupported("RemoveLabel not implemented")
 }
