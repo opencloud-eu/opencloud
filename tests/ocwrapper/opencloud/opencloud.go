@@ -43,10 +43,6 @@ func Start(envMap []string) {
 	} else {
 		cmd.Env = append(os.Environ(), envMap...)
 	}
-	// Start the command in a new process group to be able to kill it and all its children
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-	}
 
 	logs, err := cmd.StderrPipe()
 	if err != nil {
@@ -125,15 +121,19 @@ func Stop() (bool, string) {
 		return true, "OpenCloud server is not running"
 	}
 
-	// kill the process group to stop the server and all its children
-	if cmd.Process != nil {
-		syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
-		time.Sleep(10 * time.Second)
-		syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	err := cmd.Process.Signal(syscall.SIGINT)
+	if err != nil {
+		if !strings.HasSuffix(err.Error(), "process already finished") {
+			log.Fatalln(err)
+		} else {
+			return true, "OpenCloud server is already stopped"
+		}
 	}
-	
+	cmd.Process.Wait()
+	success, message := waitUntilCompleteShutdown()
+
 	cmd = nil
-	return true, "OpenCloud server stopped successfully"
+	return success, message
 }
 
 func Restart(envMap []string) (bool, string) {
@@ -170,7 +170,7 @@ func waitAllServices(startTime time.Time, timeout time.Duration) {
 
 func WaitForConnection() (bool, string) {
 	waitAllServices(time.Now(), 30)
-	
+
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
@@ -214,7 +214,7 @@ func WaitForConnection() (bool, string) {
 }
 
 func waitUntilCompleteShutdown() (bool, string) {
-	timeout := 45 * time.Second
+	timeout := 30 * time.Second
 	startTime := time.Now()
 
 	c := exec.Command("sh", "-c", "ps ax | grep 'opencloud server' | grep -v grep | awk '{print $1}'")

@@ -434,12 +434,9 @@ func Start(ctx context.Context, o ...Option) error {
 	// prepare the set of services to run
 	s.generateRunSet(s.cfg)
 
-	// There are reasons not to do this, but we have race conditions ourselves. Until we resolve them, mind the following disclaimer:
-	// Calling ServeBackground will CORRECTLY start the supervisor running in a new goroutine. It is risky to directly run
-	// go supervisor.Serve()
-	// because that will briefly create a race condition as it starts up, if you try to .Add() services immediately afterward.
-	// https://pkg.go.dev/github.com/thejerf/suture/v4@v4.0.0#Supervisor
-	go s.Supervisor.ServeBackground(ctx)
+	// We need to control the order in which services are started and shut down,
+	// so we need a backgroud context that will outlive the service execution.
+	go s.Supervisor.ServeBackground(context.Background())
 
 	for i, service := range s.Services {
 		scheduleServiceTokens(s, service)

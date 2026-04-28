@@ -2260,7 +2260,6 @@ def opencloudServer(storage = "decomposed", accounts_hash_difficulty = 4, depend
     user = "0:0"
     container_name = OC_SERVER_NAME
     environment = {
-        "OC_CI_ENVIRONMENT": "true",
         "OC_URL": OC_URL,
         "OC_CONFIG_DIR": "/root/.opencloud/config",  # needed for checking config later
         "STORAGE_USERS_DRIVER": "%s" % storage,

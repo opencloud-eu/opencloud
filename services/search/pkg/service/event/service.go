@@ -88,7 +88,7 @@ func (s Service) Run() error {
 	}
 
 	if s.m != nil {
-		monitorMetrics(s.stream, "search-pull", s.m, s.log)
+		monitorMetrics(s.ctx, s.stream, "search-pull", s.m, s.log)
 	}
 
 	var wg sync.WaitGroup
@@ -202,25 +202,30 @@ func (s Service) processEvent(e raw.Event) error {
 	return nil
 }
 
-func monitorMetrics(stream raw.Stream, name string, m *metrics.Metrics, logger log.Logger) {
-	ctx := context.Background()
+func monitorMetrics(ctx context.Context, stream raw.Stream, name string, m *metrics.Metrics, logger log.Logger) {
 	consumer, err := stream.JetStream().Consumer(ctx, name)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to get consumer")
 	}
 	ticker := time.NewTicker(5 * time.Second)
 	go func() {
-		for range ticker.C {
-			info, err := consumer.Info(ctx)
-			if err != nil {
-				logger.Error().Err(err).Msg("failed to get consumer")
-				continue
-			}
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				info, err := consumer.Info(ctx)
+				if err != nil {
+					logger.Error().Err(err).Msg("failed to get consumer")
+					continue
+				}
 
-			m.EventsOutstandingAcks.Set(float64(info.NumAckPending))
-			m.EventsUnprocessed.Set(float64(info.NumPending))
-			m.EventsRedelivered.Set(float64(info.NumRedelivered))
-			logger.Trace().Msg("updated search event metrics")
+				m.EventsOutstandingAcks.Set(float64(info.NumAckPending))
+				m.EventsUnprocessed.Set(float64(info.NumPending))
+				m.EventsRedelivered.Set(float64(info.NumRedelivered))
+				logger.Trace().Msg("updated search event metrics")
+			}
 		}
 	}()
 }
