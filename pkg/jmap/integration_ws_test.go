@@ -230,7 +230,7 @@ func TestWs(t *testing.T) {
 			slices.Sort(emailIds)
 			b := make([]string, len(changes.Destroyed))
 			copy(b, changes.Destroyed)
-			slices.Sort(changes.Destroyed)
+			slices.Sort(b)
 			require.EqualValues(a, b)
 		}
 		require.Empty(changes.Updated)
