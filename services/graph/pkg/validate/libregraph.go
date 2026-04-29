@@ -47,7 +47,7 @@ func libregraphDriveItemInvite(v *validator.Validate) {
 func libregraphDriveRecipient(v *validator.Validate) {
 	v.RegisterStructValidationMapRules(map[string]string{
 		"ObjectId":                "ne=",
-		"LibreGraphRecipientType": "oneof=user group",
+		"LibreGraphRecipientType": "oneof=user group mail",
 	}, libregraph.DriveRecipient{})
 }
 

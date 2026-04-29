@@ -185,6 +185,48 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 		shareid = createShareResponse.GetShare().GetId().GetOpaqueId()
 		cTime = createShareResponse.GetShare().GetCtime()
 		expiration = createShareResponse.GetShare().GetExpiration()
+	case "mail":
+		email := strings.TrimSpace(objectID)
+		if len(email) == 0 {
+			return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, "invalid mail recipient")
+		}
+
+		createShareRequest := &collaboration.CreateShareRequest{
+			ResourceInfo: statResponse.GetInfo(),
+			Grant: &collaboration.ShareGrant{
+				Grantee: &storageprovider.Grantee{
+					Type: storageprovider.GranteeType_GRANTEE_TYPE_MAIL,
+					Id: &storageprovider.Grantee_Mail{
+						Mail: strings.ToLower(email),
+					},
+				},
+				Permissions: &collaboration.SharePermissions{
+					Permissions: cs3ResourcePermissions,
+				},
+			},
+		}
+		if invite.ExpirationDateTime != nil {
+			createShareRequest.GetGrant().Expiration = utils.TimeToTS(*invite.ExpirationDateTime)
+		}
+		createShareResponse, err := gatewayClient.CreateShare(ctx, createShareRequest)
+		if err := errorcode.FromCS3Status(createShareResponse.GetStatus(), err); err != nil {
+			s.logger.Debug().Err(err).Msg("share creation failed")
+			return libregraph.Permission{}, err
+		}
+		shareid = createShareResponse.GetShare().GetId().GetOpaqueId()
+		cTime = createShareResponse.GetShare().GetCtime()
+		expiration = createShareResponse.GetShare().GetExpiration()
+
+		identity := &libregraph.Identity{
+			Id:                 conversions.ToPointer(email),
+			DisplayName:        email,
+			LibreGraphUserType: conversions.ToPointer("Mail"),
+		}
+
+		permission.GrantedToV2 = &libregraph.SharePointIdentitySet{
+			User: identity,
+		}
+
 	default:
 		user, err := s.identityCache.GetCS3User(ctx, tenantId, objectID)
 		if errors.Is(err, identity.ErrNotFound) && s.config.IncludeOCMSharees {

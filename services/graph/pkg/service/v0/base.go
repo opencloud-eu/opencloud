@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"strings"
 	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -274,6 +275,7 @@ func (g BaseGraphService) listSharesWithSpaceRootFilter(ctx context.Context, spa
 		share.UserGranteeFilter(),
 		share.GroupGranteeFilter(),
 		share.SpaceRootFilter(spaceRoot),
+		share.MailGranteeFilter(),
 	}
 	concreteFilters = append(concreteFilters, filters...)
 
@@ -585,6 +587,14 @@ func (g BaseGraphService) cs3UserShareToPermission(ctx context.Context, share *c
 		default:
 			grantedTo.SetGroup(group)
 		}
+	case storageprovider.GranteeType_GRANTEE_TYPE_MAIL:
+		grantedTo.SetUser(libregraph.Identity{
+			Id:          libregraph.PtrString("mail:" + strings.ToLower(share.Grantee.GetMail())),
+			DisplayName: share.Grantee.GetMail(),
+		})
+		if roleCondition == unifiedrole.UnifiedRoleConditionDrive {
+			perm.SetId("m:" + strings.ToLower(share.Grantee.GetMail()))
+		}
 	}
 
 	// set expiration date
@@ -666,6 +676,13 @@ func (g BaseGraphService) cs3OCMShareToPermission(ctx context.Context, share *oc
 			if roleCondition == unifiedrole.UnifiedRoleConditionDrive {
 				perm.SetId("g:" + group.GetId())
 			}
+		}
+	case storageprovider.GranteeType_GRANTEE_TYPE_MAIL:
+		grantedTo.SetUser(libregraph.Identity{
+			Id: libregraph.PtrString(share.Grantee.GetMail()),
+		})
+		if roleCondition == unifiedrole.UnifiedRoleConditionDrive {
+			perm.SetId("m:" + share.Grantee.GetMail())
 		}
 	}
 
