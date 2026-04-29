@@ -16,7 +16,8 @@ func (g *Groupware) GetTaskLists(w http.ResponseWriter, r *http.Request) {
 		var _ string = accountId
 
 		var body []jmap.TaskList = AllTaskLists
-		return req.respond(accountId, body, req.session.State, TaskListResponseObjectType, TaskListsState, jmap.NoLanguage)
+		meta := TaskListsMeta{SessionState: req.session.State}
+		return req.respond(accountId, body, TaskListResponseObjectType, meta)
 	})
 }
 
@@ -34,9 +35,10 @@ func (g *Groupware) GetTaskListById(w http.ResponseWriter, r *http.Request) {
 			return req.error(accountId, err)
 		}
 		// TODO replace with proper implementation
+		meta := TaskListsMeta{SessionState: req.session.State}
 		for _, tasklist := range AllTaskLists {
 			if tasklist.Id == tasklistId {
-				return req.respond(accountId, tasklist, req.session.State, TaskListResponseObjectType, TaskListsState, jmap.NoLanguage)
+				return req.respond(accountId, tasklist, TaskListResponseObjectType, meta)
 			}
 		}
 		return req.etaggedNotFound(accountId, req.session.State, TaskListResponseObjectType, TaskListsState)
@@ -57,10 +59,11 @@ func (g *Groupware) GetTasksInTaskList(w http.ResponseWriter, r *http.Request) {
 			return req.error(accountId, err)
 		}
 		// TODO replace with proper implementation
+		meta := TaskMeta{SessionState: req.session.State}
 		tasks, ok := TaskMapByTaskListId[tasklistId]
 		if !ok {
-			return req.notFound(accountId, req.session.State, TaskResponseObjectType, TaskState)
+			return req.notFound(accountId, TaskResponseObjectType, meta)
 		}
-		return req.respond(accountId, tasks, req.session.State, TaskResponseObjectType, TaskState, jmap.NoLanguage)
+		return req.respond(accountId, tasks, TaskResponseObjectType, meta)
 	})
 }

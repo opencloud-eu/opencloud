@@ -134,11 +134,11 @@ func groupwareErrorFromJmap(j jmap.Error) *GroupwareError {
 		return &ErrorSendingRequest
 	case jmap.JmapErrorInvalidSessionResponse:
 		return &ErrorInvalidSessionResponse
-	case jmap.JmapErrorInvalidJmapRequestPayload:
+	case jmap.JmapErrorInvalidJmapRequestPayload, jmap.JmapErrorInvalidProperties:
 		return &ErrorInvalidRequestPayload
 	case jmap.JmapErrorInvalidJmapResponsePayload:
 		return &ErrorInvalidResponsePayload
-	case jmap.JmapInvalidObjectState:
+	case jmap.JmapErrorInvalidObjectState:
 		return &ErrorInvalidObjectState
 	case jmap.JmapErrorUnspecifiedType, jmap.JmapErrorUnknownMethod, jmap.JmapErrorInvalidArguments, jmap.JmapErrorInvalidResultReference:
 		return &ErrorInvalidGroupwareRequest
@@ -748,18 +748,18 @@ func (r *Request) error(accountId string, err *Error) Response {
 	return errorResponse(single(accountId), err, r.session.State, jmap.NoLanguage)
 }
 
-func (r *Request) errorS(accountId string, err *Error, sessionState jmap.SessionState) Response {
-	return errorResponse(single(accountId), err, sessionState, jmap.NoLanguage)
+func (r *Request) errorS(accountId string, err *Error, result jmap.ResultMetadata) Response {
+	return errorResponse(single(accountId), err, result.GetSessionState(), result.GetLanguage())
 }
 
 func (r *Request) errorN(accountIds []string, err *Error) Response {
 	return errorResponse(accountIds, err, r.session.State, jmap.NoLanguage)
 }
 
-func (r *Request) jmapError(accountId string, err jmap.Error, sessionState jmap.SessionState, lang jmap.Language) Response {
-	return errorResponse(single(accountId), r.apiErrorFromJmap(r.observeJmapError(err)), sessionState, lang)
+func (r *Request) jmapError(accountId string, err jmap.Error, result jmap.ResultMetadata) Response {
+	return errorResponse(single(accountId), r.apiErrorFromJmap(r.observeJmapError(err)), result.GetSessionState(), result.GetLanguage())
 }
 
-func (r *Request) jmapErrorN(accountIds []string, err jmap.Error, sessionState jmap.SessionState, lang jmap.Language) Response {
-	return errorResponse(accountIds, r.apiErrorFromJmap(r.observeJmapError(err)), sessionState, lang)
+func (r *Request) jmapErrorN(accountIds []string, err jmap.Error, result jmap.ResultMetadata) Response {
+	return errorResponse(accountIds, r.apiErrorFromJmap(r.observeJmapError(err)), result.GetSessionState(), result.GetLanguage())
 }

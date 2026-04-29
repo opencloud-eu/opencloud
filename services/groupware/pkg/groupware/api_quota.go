@@ -13,7 +13,7 @@ import (
 //
 // Note that there may be multiple Quota objects for different resource types.
 func (g *Groupware) GetQuota(w http.ResponseWriter, r *http.Request) {
-	getFromMap(Quota, w, r, g, func(accountIds, _ []string, ctx jmap.Context) (map[string]jmap.QuotaGetResponse, jmap.SessionState, jmap.State, jmap.Language, jmap.Error) {
+	getFromMap(Quota, w, r, g, func(accountIds, _ []string, ctx jmap.Context) (jmap.Result[map[string]jmap.QuotaGetResponse], jmap.Error) {
 		return g.jmap.GetQuotas(accountIds, ctx)
 	})
 }
@@ -36,19 +36,19 @@ func (g *Groupware) GetQuotaForAllAccounts(w http.ResponseWriter, r *http.Reques
 		logger := log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(accountIds)))
 		ctx := req.ctx.WithLogger(logger)
 
-		res, sessionState, state, lang, jerr := g.jmap.GetQuotas(accountIds, ctx)
+		result, jerr := g.jmap.GetQuotas(accountIds, ctx)
 		if jerr != nil {
-			return req.jmapErrorN(accountIds, jerr, sessionState, lang)
+			return req.jmapErrorN(accountIds, jerr, result)
 		}
 
-		result := make(map[string]AccountQuota, len(res))
-		for accountId, accountQuotas := range res {
-			result[accountId] = AccountQuota{
+		body := make(map[string]AccountQuota, len(result.Payload))
+		for accountId, accountQuotas := range result.Payload {
+			body[accountId] = AccountQuota{
 				State:  accountQuotas.State,
 				Quotas: accountQuotas.List,
 			}
 		}
-		return req.respondN(accountIds, result, sessionState, QuotaResponseObjectType, state, lang)
+		return req.respondN(accountIds, body, QuotaResponseObjectType, result)
 	})
 }
 

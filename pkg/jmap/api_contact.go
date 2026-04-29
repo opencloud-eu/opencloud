@@ -6,7 +6,7 @@ var NS_CONTACTS = ns(JmapContacts)
 
 var DEFAULT_CONTACT_CARD_VERSION = jscontact.JSContactVersion_1_0
 
-func (j *Client) GetContactCards(accountId string, contactIds []string, ctx Context) (ContactCardGetResponse, SessionState, State, Language, Error) {
+func (j *Client) GetContactCards(accountId string, contactIds []string, ctx Context) (Result[ContactCardGetResponse], Error) {
 	return get(j, "GetContactCards", ContactCardType,
 		func(accountId string, ids []string) ContactCardGetCommand {
 			return ContactCardGetCommand{AccountId: accountId, Ids: contactIds}
@@ -31,7 +31,7 @@ func (c ContactCardChanges) GetDestroyed() []string    { return c.Destroyed }
 
 // Retrieve the changes in Contact Cards since a given State.
 // @api:tags contact,changes
-func (j *Client) GetContactCardChanges(accountId string, sinceState State, maxChanges uint, ctx Context) (ContactCardChanges, SessionState, State, Language, Error) {
+func (j *Client) GetContactCardChanges(accountId string, sinceState State, maxChanges uint, ctx Context) (Result[ContactCardChanges], Error) {
 	return changes(j, "GetContactCardChanges", ContactCardType,
 		func() ContactCardChangesCommand {
 			return ContactCardChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: uintPtr(maxChanges)}
@@ -80,7 +80,7 @@ func (r *ContactCardSearchResults) SetPosition(position *uint) { r.Position = po
 func (j *Client) QueryContactCards(accountIds []string, //NOSONAR
 	filter ContactCardFilterElement, sortBy []ContactCardComparator,
 	position int, anchor string, anchorOffset *int, limit *uint, calculateTotal bool,
-	ctx Context) (map[string]*ContactCardSearchResults, SessionState, State, Language, Error) {
+	ctx Context) (Result[map[string]*ContactCardSearchResults], Error) {
 	return queryN(j, "QueryContactCards", ContactCardType,
 		[]ContactCardComparator{{Property: ContactCardPropertyUpdated, IsAscending: false}},
 		func(accountId string, filter ContactCardFilterElement, sortBy []ContactCardComparator, position int, anchor string, anchorOffset *int, limit *uint) ContactCardQueryCommand {
@@ -104,7 +104,7 @@ func (j *Client) QueryContactCards(accountIds []string, //NOSONAR
 }
 
 // @api:example create
-func (j *Client) CreateContactCard(accountId string, contact ContactCardChange, ctx Context) (*ContactCard, SessionState, State, Language, Error) {
+func (j *Client) CreateContactCard(accountId string, contact ContactCardChange, ctx Context) (Result[*ContactCard], Error) {
 	if contact.Version == nil {
 		contact.Version = &DEFAULT_CONTACT_CARD_VERSION
 	}
@@ -126,7 +126,7 @@ func (j *Client) CreateContactCard(accountId string, contact ContactCardChange, 
 	)
 }
 
-func (j *Client) DeleteContactCard(accountId string, destroyIds []string, ctx Context) (map[string]SetError, SessionState, State, Language, Error) {
+func (j *Client) DeleteContactCard(accountId string, destroyIds []string, ctx Context) (Result[map[string]SetError], Error) {
 	return destroy(j, "DeleteContactCard", ContactCardType,
 		func(accountId string, destroy []string) ContactCardSetCommand {
 			return ContactCardSetCommand{AccountId: accountId, Destroy: destroy}
@@ -138,7 +138,7 @@ func (j *Client) DeleteContactCard(accountId string, destroyIds []string, ctx Co
 }
 
 // @api:example update
-func (j *Client) UpdateContactCard(accountId string, id string, changes ContactCardChange, ctx Context) (ContactCard, SessionState, State, Language, Error) {
+func (j *Client) UpdateContactCard(accountId string, id string, changes ContactCardChange, ctx Context) (Result[ContactCard], Error) {
 	return update(j, "UpdateContactCard", ContactCardType,
 		func(update map[string]PatchObject) ContactCardSetCommand {
 			return ContactCardSetCommand{AccountId: accountId, Update: update}

@@ -17,7 +17,7 @@ func (r *CalendarEventSearchResults) RemoveResults()             { r.Results = n
 func (r *CalendarEventSearchResults) SetLimit(limit *uint)       { r.Limit = limit }
 func (r *CalendarEventSearchResults) SetPosition(position *uint) { r.Position = position }
 
-func (j *Client) GetCalendarEvents(accountId string, eventIds []string, ctx Context) (CalendarEventGetResponse, SessionState, State, Language, Error) {
+func (j *Client) GetCalendarEvents(accountId string, eventIds []string, ctx Context) (Result[CalendarEventGetResponse], Error) {
 	return get(j, "GetCalendarEvents", CalendarEventType,
 		func(accountId string, ids []string) CalendarEventGetCommand {
 			return CalendarEventGetCommand{AccountId: accountId, Ids: eventIds}
@@ -32,7 +32,7 @@ func (j *Client) GetCalendarEvents(accountId string, eventIds []string, ctx Cont
 func (j *Client) QueryCalendarEvents(accountIds []string, //NOSONAR
 	filter CalendarEventFilterElement, sortBy []CalendarEventComparator,
 	position int, anchor string, anchorOffset *int, limit *uint, calculateTotal bool,
-	ctx Context) (map[string]*CalendarEventSearchResults, SessionState, State, Language, Error) {
+	ctx Context) (Result[map[string]*CalendarEventSearchResults], Error) {
 	return queryN(j, "QueryCalendarEvents", CalendarEventType,
 		[]CalendarEventComparator{{Property: CalendarEventPropertyStart, IsAscending: false}},
 		func(accountId string, filter CalendarEventFilterElement, sortBy []CalendarEventComparator, position int, anchor string, anchorOffset *int, limit *uint) CalendarEventQueryCommand {
@@ -69,7 +69,7 @@ func (c CalendarEventChanges) GetDestroyed() []string      { return c.Destroyed 
 // Retrieve the changes in Calendar Events since a given State.
 // @api:tags event,changes
 func (j *Client) GetCalendarEventChanges(accountId string, sinceState State, maxChanges uint,
-	ctx Context) (CalendarEventChanges, SessionState, State, Language, Error) {
+	ctx Context) (Result[CalendarEventChanges], Error) {
 	return changes(j, "GetCalendarEventChanges", CalendarEventType,
 		func() CalendarEventChangesCommand {
 			return CalendarEventChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: uintPtr(maxChanges)}
@@ -100,7 +100,7 @@ func (j *Client) GetCalendarEventChanges(accountId string, sinceState State, max
 	)
 }
 
-func (j *Client) CreateCalendarEvent(accountId string, event CalendarEventChange, ctx Context) (*CalendarEvent, SessionState, State, Language, Error) {
+func (j *Client) CreateCalendarEvent(accountId string, event CalendarEventChange, ctx Context) (Result[*CalendarEvent], Error) {
 	return create(j, "CreateCalendarEvent", CalendarEventType,
 		func(accountId string, create map[string]CalendarEventChange) CalendarEventSetCommand {
 			return CalendarEventSetCommand{AccountId: accountId, Create: create}
@@ -119,7 +119,7 @@ func (j *Client) CreateCalendarEvent(accountId string, event CalendarEventChange
 	)
 }
 
-func (j *Client) DeleteCalendarEvent(accountId string, destroyIds []string, ctx Context) (map[string]SetError, SessionState, State, Language, Error) {
+func (j *Client) DeleteCalendarEvent(accountId string, destroyIds []string, ctx Context) (Result[map[string]SetError], Error) {
 	return destroy(j, "DeleteCalendarEvent", CalendarEventType,
 		func(accountId string, destroy []string) CalendarEventSetCommand {
 			return CalendarEventSetCommand{AccountId: accountId, Destroy: destroy}
@@ -130,7 +130,7 @@ func (j *Client) DeleteCalendarEvent(accountId string, destroyIds []string, ctx 
 	)
 }
 
-func (j *Client) UpdateCalendarEvent(accountId string, id string, changes CalendarEventChange, ctx Context) (CalendarEvent, SessionState, State, Language, Error) {
+func (j *Client) UpdateCalendarEvent(accountId string, id string, changes CalendarEventChange, ctx Context) (Result[CalendarEvent], Error) {
 	return update(j, "UpdateCalendarEvent", CalendarEventType,
 		func(update map[string]PatchObject) CalendarEventSetCommand {
 			return CalendarEventSetCommand{AccountId: accountId, Update: update}

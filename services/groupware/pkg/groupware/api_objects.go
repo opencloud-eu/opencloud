@@ -121,15 +121,15 @@ func (g *Groupware) GetObjects(w http.ResponseWriter, r *http.Request) { //NOSON
 
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
-		objs, sessionState, state, lang, jerr := g.jmap.GetObjects(accountId,
+		result, jerr := g.jmap.GetObjects(accountId,
 			mailboxIds, emailIds, addressbookIds, contactIds, calendarIds, eventIds, quotaIds, identityIds, emailSubmissionIds,
 			ctx,
 		)
 		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
+			return req.jmapError(accountId, jerr, result)
 		}
-		var body jmap.Objects = objs
+		var body jmap.Objects = result.Payload
 
-		return req.respond(accountId, body, sessionState, "", state, lang)
+		return req.respond(accountId, body, UnspecifiedResponseObjectType, result)
 	})
 }

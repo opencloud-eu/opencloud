@@ -2,7 +2,7 @@ package jmap
 
 var NS_PRINCIPALS = ns(JmapPrincipals)
 
-func (j *Client) GetPrincipals(accountId string, ids []string, ctx Context) (PrincipalGetResponse, SessionState, State, Language, Error) {
+func (j *Client) GetPrincipals(accountId string, ids []string, ctx Context) (Result[PrincipalGetResponse], Error) {
 	return get(j, "GetPrincipals", PrincipalType,
 		func(accountId string, ids []string) PrincipalGetCommand {
 			return PrincipalGetCommand{AccountId: accountId, Ids: ids}
@@ -32,7 +32,7 @@ func (r *PrincipalSearchResults) SetPosition(position *uint) { r.Position = posi
 func (j *Client) QueryPrincipals(accountId string, //NOSONAR
 	filter PrincipalFilterElement, sortBy []PrincipalComparator,
 	position int, anchor string, anchorOffset *int, limit *uint, calculateTotal bool,
-	ctx Context) (*PrincipalSearchResults, SessionState, State, Language, Error) {
+	ctx Context) (Result[*PrincipalSearchResults], Error) {
 	return query(j, "QueryPrincipals", PrincipalType,
 		[]PrincipalComparator{{Property: PrincipalPropertyName, IsAscending: true}},
 		func(filter PrincipalFilterElement, sortBy []PrincipalComparator, position int, anchor string, anchorOffset *int, limit *uint) PrincipalQueryCommand {

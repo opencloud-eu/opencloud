@@ -15,7 +15,7 @@ func create[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]](
 	w http.ResponseWriter, r *http.Request,
 	g *Groupware,
 	bodyFunc func(r Request, accountId string, body *CHANGE, ctx jmap.Context) (bool, Response),
-	createFunc func(accountId string, change CHANGE, ctx jmap.Context) (*T, jmap.SessionState, jmap.State, jmap.Language, jmap.Error),
+	createFunc func(accountId string, change CHANGE, ctx jmap.Context) (jmap.Result[*T], jmap.Error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
@@ -43,11 +43,11 @@ func create[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]](
 			}
 		}
 
-		created, sessionState, state, lang, jerr := createFunc(accountId, create, ctx)
+		result, jerr := createFunc(accountId, create, ctx)
 		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
+			return req.jmapError(accountId, jerr, result)
 		}
-		return req.respond(accountId, created, sessionState, o.responseType, state, lang)
+		return req.respond(accountId, result.Payload, o.responseType, result)
 	})
 }
 
@@ -57,7 +57,7 @@ func getall[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jmap.G
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
 	g *Groupware,
-	getFunc func(accountId string, ids []string, ctx jmap.Context) (RESP, jmap.SessionState, jmap.State, jmap.Language, jmap.Error),
+	getFunc func(accountId string, ids []string, ctx jmap.Context) (jmap.Result[RESP], jmap.Error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
@@ -72,11 +72,11 @@ func getall[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jmap.G
 
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
-		objs, sessionState, state, lang, jerr := getFunc(accountId, []string{}, ctx)
+		result, jerr := getFunc(accountId, []string{}, ctx)
 		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
+			return req.jmapError(accountId, jerr, result)
 		}
-		return req.respond(accountId, objs, sessionState, o.responseType, state, lang)
+		return req.respond(accountId, result.Payload, o.responseType, result)
 	})
 }
 
@@ -91,7 +91,7 @@ func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], FILTER
 	withContainerId bool,
 	filterFunc func(containerId string) FILTER,
 	sortBy []COMP,
-	queryFunc func(req Request, accountId string, filter FILTER, sortBy []COMP, position int, anchor string, anchorOffset *int, limit *uint, ctx jmap.Context) (SEARCHRESULTS, jmap.SessionState, jmap.State, jmap.Language, jmap.Error),
+	queryFunc func(req Request, accountId string, filter FILTER, sortBy []COMP, position int, anchor string, anchorOffset *int, limit *uint, ctx jmap.Context) (jmap.Result[SEARCHRESULTS], jmap.Error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
@@ -160,20 +160,20 @@ func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], FILTER
 
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
-		results, sessionState, state, lang, jerr := queryFunc(req, accountId, filter, sortBy, position, anchor, anchorOffset, jmaplimit, ctx)
+		result, jerr := queryFunc(req, accountId, filter, sortBy, position, anchor, anchorOffset, jmaplimit, ctx)
 		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
+			return req.jmapError(accountId, jerr, result)
 		}
 
 		if limit != nil && *limit == 0 {
-			results.RemoveResults()
-			results.SetLimit(UintPtrZero)
+			result.Payload.RemoveResults()
+			result.Payload.SetLimit(UintPtrZero)
 		}
-		if anchor != "" && results.GetPosition() != nil && *results.GetPosition() == 0 {
-			results.SetPosition(nil)
+		if anchor != "" && result.Payload.GetPosition() != nil && *result.Payload.GetPosition() == 0 {
+			result.Payload.SetPosition(nil)
 		}
 
-		return req.respond(accountId, results, sessionState, o.responseType, state, lang)
+		return req.respond(accountId, result.Payload, o.responseType, result)
 	})
 }
 
@@ -184,7 +184,7 @@ func query[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], SEARCHRESULT
 	w http.ResponseWriter, r *http.Request,
 	g *Groupware,
 	defaultLimit uint,
-	queryFunc func(req Request, accountId string, containerId string, position int, anchor string, anchorOffset *int, limit *uint, ctx jmap.Context) (SEARCHRESULTS, jmap.SessionState, jmap.State, jmap.Language, *Error),
+	queryFunc func(req Request, accountId string, containerId string, position int, anchor string, anchorOffset *int, limit *uint, ctx jmap.Context) (jmap.Result[SEARCHRESULTS], *Error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
@@ -250,20 +250,20 @@ func query[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], SEARCHRESULT
 			jmaplimit = UintPtrOne
 		}
 
-		results, sessionState, state, lang, err := queryFunc(req, accountId, containerId, position, anchor, anchorOffset, jmaplimit, ctx)
+		result, err := queryFunc(req, accountId, containerId, position, anchor, anchorOffset, jmaplimit, ctx)
 		if err != nil {
 			return req.error(accountId, err)
 		}
 
 		if limit != nil && *limit == 0 {
-			results.RemoveResults()
-			results.SetLimit(UintPtrZero)
+			result.Payload.RemoveResults()
+			result.Payload.SetLimit(UintPtrZero)
 		}
-		if anchor != "" && results.GetPosition() != nil && *results.GetPosition() == 0 {
-			results.SetPosition(nil)
+		if anchor != "" && result.Payload.GetPosition() != nil && *result.Payload.GetPosition() == 0 {
+			result.Payload.SetPosition(nil)
 		}
 
-		return req.respond(accountId, results, sessionState, o.responseType, state, lang)
+		return req.respond(accountId, result.Payload, o.responseType, result)
 	})
 }
 
@@ -274,7 +274,7 @@ func get[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jmap.GetR
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
 	g *Groupware,
-	getFunc func(accountId string, ids []string, ctx jmap.Context) (RESP, jmap.SessionState, jmap.State, jmap.Language, jmap.Error),
+	getFunc func(accountId string, ids []string, ctx jmap.Context) (jmap.Result[RESP], jmap.Error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
@@ -298,20 +298,20 @@ func get[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jmap.GetR
 
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
-		objs, sessionState, state, lang, jerr := getFunc(accountId, ids, ctx)
+		result, jerr := getFunc(accountId, ids, ctx)
 		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
+			return req.jmapError(accountId, jerr, result)
 		}
 
-		n := len(objs.GetList())
+		n := len(result.Payload.GetList())
 		switch n {
 		case 0:
-			return req.notFound(accountId, sessionState, ContactResponseObjectType, state)
+			return req.notFound(accountId, ContactResponseObjectType, result)
 		case 1:
-			return req.respond(accountId, objs.GetList()[0], sessionState, ContactResponseObjectType, state, lang)
+			return req.respond(accountId, result.Payload.GetList()[0], ContactResponseObjectType, result)
 		default:
 			logger.Error().Msgf("found %d %s matching '%s' instead of 1", n, o.responseType, ids)
-			return req.errorS(accountId, req.apiError(&ErrorMultipleIdMatches), sessionState)
+			return req.errorS(accountId, req.apiError(&ErrorMultipleIdMatches), result)
 		}
 	})
 }
@@ -323,7 +323,7 @@ func getFromMap[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jm
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
 	g *Groupware,
-	getFunc func(accountIds []string, ids []string, ctx jmap.Context) (map[string]RESP, jmap.SessionState, jmap.State, jmap.Language, jmap.Error),
+	getFunc func(accountIds []string, ids []string, ctx jmap.Context) (jmap.Result[map[string]RESP], jmap.Error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
@@ -343,24 +343,24 @@ func getFromMap[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jm
 
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
-		objMap, sessionState, state, lang, jerr := getFunc(single(accountId), single(id), ctx)
+		result, jerr := getFunc(single(accountId), single(id), ctx)
 		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
+			return req.jmapError(accountId, jerr, result)
 		}
 
-		if objs, ok := objMap[accountId]; ok {
+		if objs, ok := result.Payload[accountId]; ok {
 			n := len(objs.GetList())
 			switch n {
 			case 0:
-				return req.notFound(accountId, sessionState, ContactResponseObjectType, state)
+				return req.notFound(accountId, ContactResponseObjectType, result)
 			case 1:
-				return req.respond(accountId, objs.GetList()[0], sessionState, ContactResponseObjectType, state, lang)
+				return req.respond(accountId, objs.GetList()[0], ContactResponseObjectType, result)
 			default:
 				logger.Error().Msgf("found %d %s matching '%s' instead of 1", n, o.responseType, id)
-				return req.errorS(accountId, req.apiError(&ErrorMultipleIdMatches), sessionState)
+				return req.errorS(accountId, req.apiError(&ErrorMultipleIdMatches), result)
 			}
 		} else {
-			return req.notFound(accountId, sessionState, ContactResponseObjectType, state)
+			return req.notFound(accountId, ContactResponseObjectType, result)
 		}
 	})
 }
@@ -374,7 +374,7 @@ func changes[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]](
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
 	g *Groupware,
-	changesFunc func(accountId string, sinceState jmap.State, maxChanges uint, ctx jmap.Context) (CHANGES, jmap.SessionState, jmap.State, jmap.Language, jmap.Error),
+	changesFunc func(accountId string, sinceState jmap.State, maxChanges uint, ctx jmap.Context) (jmap.Result[CHANGES], jmap.Error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
@@ -402,23 +402,24 @@ func changes[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]](
 
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
-		changes, sessionState, state, lang, jerr := changesFunc(accountId, sinceState, maxChanges, ctx)
+		result, jerr := changesFunc(accountId, sinceState, maxChanges, ctx)
 		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
+			return req.jmapError(accountId, jerr, result)
 		}
 
-		return req.respond(accountId, changes, sessionState, o.responseType, state, lang)
+		return req.respond(accountId, result.Payload, o.responseType, result)
 	})
 }
 
 // Delete a specific {{.Name}} referenced by its unique identifier as specified in the path parameter `{{.UriParamName}}` in the path `{{.Path}}`
+// @api:success 204
 // @api:response 204 when the referenced {{.Name}} has been deleted successfully
 // @api:response 404 when there is no {{.Name}} for the requested identifier
 func delete[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSONAR
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
 	g *Groupware,
-	deleteFunc func(accountId string, ids []string, ctx jmap.Context) (map[string]jmap.SetError, jmap.SessionState, jmap.State, jmap.Language, jmap.Error),
+	deleteFunc func(accountId string, ids []string, ctx jmap.Context) (jmap.Result[map[string]jmap.SetError], jmap.Error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
@@ -438,12 +439,12 @@ func delete[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSONAR
 
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
-		setErrors, sessionState, state, lang, jerr := deleteFunc(accountId, single(id), ctx)
+		result, jerr := deleteFunc(accountId, single(id), ctx)
 		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
+			return req.jmapError(accountId, jerr, result)
 		}
 
-		for _, e := range setErrors {
+		for _, e := range result.Payload {
 			desc := e.Description
 			if desc != "" {
 				return req.error(accountId, apiError(
@@ -458,7 +459,7 @@ func delete[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSONAR
 				))
 			}
 		}
-		return req.noContent(accountId, sessionState, o.responseType, state)
+		return req.noContent(accountId, o.responseType, result)
 	})
 }
 
@@ -472,7 +473,7 @@ func deleteMany[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSO
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
 	g *Groupware,
-	deleteFunc func(accountId string, ids []string, ctx jmap.Context) (map[string]jmap.SetError, jmap.SessionState, jmap.State, jmap.Language, jmap.Error),
+	deleteFunc func(accountId string, ids []string, ctx jmap.Context) (jmap.Result[map[string]jmap.SetError], jmap.Error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
@@ -523,12 +524,12 @@ func deleteMany[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSO
 
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
-		setErrors, sessionState, state, lang, jerr := deleteFunc(accountId, ids, ctx)
+		result, jerr := deleteFunc(accountId, ids, ctx)
 		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
+			return req.jmapError(accountId, jerr, result)
 		}
 
-		for _, e := range setErrors {
+		for _, e := range result.Payload {
 			desc := e.Description
 			if desc != "" {
 				return req.error(accountId, apiError(
@@ -543,7 +544,7 @@ func deleteMany[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSO
 				))
 			}
 		}
-		return req.noContent(accountId, sessionState, o.responseType, state)
+		return req.noContent(accountId, o.responseType, result)
 	})
 }
 
@@ -553,7 +554,7 @@ func modify[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]](
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
 	g *Groupware,
-	updateFunc func(accountId string, id string, change CHANGE, ctx jmap.Context) (T, jmap.SessionState, jmap.State, jmap.Language, jmap.Error),
+	updateFunc func(accountId string, id string, change CHANGE, ctx jmap.Context) (jmap.Result[T], jmap.Error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
@@ -579,10 +580,10 @@ func modify[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]](
 
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
-		updated, sessionState, state, lang, jerr := updateFunc(accountId, id, change, ctx)
+		result, jerr := updateFunc(accountId, id, change, ctx)
 		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
+			return req.jmapError(accountId, jerr, result)
 		}
-		return req.respond(accountId, updated, sessionState, o.responseType, state, lang)
+		return req.respond(accountId, result.Payload, o.responseType, result)
 	})
 }

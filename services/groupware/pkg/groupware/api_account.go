@@ -17,7 +17,7 @@ func (g *Groupware) GetAccountById(w http.ResponseWriter, r *http.Request) {
 			return req.error(accountId, err)
 		}
 		var body jmap.Account = account
-		return req.respond(accountId, body, req.session.State, AccountResponseObjectType, jmap.EmptyState, jmap.NoLanguage)
+		return req.respond(accountId, body, AccountResponseObjectType, req.session)
 	})
 }
 
@@ -36,7 +36,7 @@ func (g *Groupware) GetAccounts(w http.ResponseWriter, r *http.Request) {
 		// sort on accountId to have a stable order that remains the same with every query
 		slices.SortFunc(list, func(a, b AccountWithId) int { return strings.Compare(a.AccountId, b.AccountId) })
 		var RBODY []AccountWithId = list
-		return req.respondN(structs.Map(list, func(a AccountWithId) string { return a.AccountId }), RBODY, req.session.State, AccountResponseObjectType, jmap.EmptyState, jmap.NoLanguage)
+		return req.respondN(structs.Map(list, func(a AccountWithId) string { return a.AccountId }), RBODY, AccountResponseObjectType, req.session)
 	})
 }
 
@@ -44,14 +44,14 @@ func (g *Groupware) GetAccounts(w http.ResponseWriter, r *http.Request) {
 func (g *Groupware) GetAccountsWithTheirIdentities(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		allAccountIds := req.AllAccountIds()
-		resp, sessionState, state, lang, err := g.jmap.GetIdentitiesForAllAccounts(allAccountIds, req.ctx)
+		resp, err := g.jmap.GetIdentitiesForAllAccounts(allAccountIds, req.ctx)
 		if err != nil {
-			return req.jmapErrorN(allAccountIds, err, sessionState, lang)
+			return req.jmapErrorN(allAccountIds, err, resp)
 		}
 		list := make([]AccountWithIdAndIdentities, len(req.session.Accounts))
 		i := 0
 		for accountId, account := range req.session.Accounts {
-			identities, ok := resp[accountId]
+			identities, ok := resp.Payload[accountId]
 			if !ok {
 				identities = []jmap.Identity{}
 			}
@@ -66,7 +66,7 @@ func (g *Groupware) GetAccountsWithTheirIdentities(w http.ResponseWriter, r *htt
 		// sort on accountId to have a stable order that remains the same with every query
 		slices.SortFunc(list, func(a, b AccountWithIdAndIdentities) int { return strings.Compare(a.AccountId, b.AccountId) })
 		var RBODY []AccountWithIdAndIdentities = list
-		return req.respondN(structs.Map(list, func(a AccountWithIdAndIdentities) string { return a.AccountId }), RBODY, sessionState, AccountResponseObjectType, state, lang)
+		return req.respondN(structs.Map(list, func(a AccountWithIdAndIdentities) string { return a.AccountId }), RBODY, AccountResponseObjectType, resp)
 	})
 }
 

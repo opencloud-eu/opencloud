@@ -11,7 +11,7 @@ type AccountBootstrapResult struct {
 
 var NS_MAIL_QUOTA = ns(JmapMail, JmapQuota)
 
-func (j *Client) GetBootstrap(accountIds []string, ctx Context) (map[string]AccountBootstrapResult, SessionState, State, Language, Error) { //NOSONAR
+func (j *Client) GetBootstrap(accountIds []string, ctx Context) (Result[map[string]AccountBootstrapResult], Error) { //NOSONAR
 	uniqueAccountIds := structs.Uniq(accountIds)
 
 	logger := j.logger("GetBootstrap", ctx)
@@ -25,7 +25,7 @@ func (j *Client) GetBootstrap(accountIds []string, ctx Context) (map[string]Acco
 
 	cmd, err := j.request(ctx, NS_MAIL_QUOTA, calls...)
 	if err != nil {
-		return nil, "", "", "", err
+		return ZeroResult[map[string]AccountBootstrapResult](), err
 	}
 	return command(j, ctx, cmd, func(body *Response) (map[string]AccountBootstrapResult, State, Error) {
 		identityPerAccount := map[string][]Identity{}

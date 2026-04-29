@@ -13,7 +13,7 @@ import (
 //
 // The VacationResponse object represents the state of vacation-response-related settings for an account.
 func (g *Groupware) GetVacation(w http.ResponseWriter, r *http.Request) {
-	get(VacationResponse, w, r, g, func(accountId string, ids []string, ctx jmap.Context) (jmap.VacationResponseGetResponse, jmap.SessionState, jmap.State, jmap.Language, jmap.Error) {
+	get(VacationResponse, w, r, g, func(accountId string, ids []string, ctx jmap.Context) (jmap.Result[jmap.VacationResponseGetResponse], jmap.Error) {
 		return g.jmap.GetVacationResponse(accountId, ctx)
 	})
 }
@@ -23,7 +23,7 @@ func (g *Groupware) GetVacation(w http.ResponseWriter, r *http.Request) {
 // A vacation response sends an automatic reply when a message is delivered to the mail store, informing the original
 // sender that their message may not be read for some time.
 func (g *Groupware) SetVacation(w http.ResponseWriter, r *http.Request) {
-	modify(VacationResponse, w, r, g, func(accountId string, id string, change jmap.VacationResponseChange, ctx jmap.Context) (jmap.VacationResponse, jmap.SessionState, jmap.State, jmap.Language, jmap.Error) {
+	modify(VacationResponse, w, r, g, func(accountId string, id string, change jmap.VacationResponseChange, ctx jmap.Context) (jmap.Result[jmap.VacationResponse], jmap.Error) {
 		return g.jmap.SetVacationResponse(accountId, change, ctx)
 	})
 }

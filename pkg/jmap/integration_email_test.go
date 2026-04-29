@@ -56,21 +56,21 @@ func TestEmails(t *testing.T) {
 
 	{
 		{
-			resp, sessionState, _, _, err := s.client.GetIdentities(accountId, []string{}, ctx)
+			result, err := s.client.GetIdentities(accountId, []string{}, ctx)
 			require.NoError(err)
-			require.Equal(session.State, sessionState)
-			require.Len(resp.List, 1)
-			require.Equal(user.email, resp.List[0].Email)
-			require.Equal(user.description, resp.List[0].Name)
+			require.Equal(session.State, result.GetSessionState())
+			require.Len(result.Payload.List, 1)
+			require.Equal(user.email, result.Payload.List[0].Email)
+			require.Equal(user.description, result.Payload.List[0].Name)
 		}
 
 		{
-			respByAccountId, sessionState, _, _, err := s.client.GetAllMailboxes([]string{accountId}, ctx)
+			result, err := s.client.GetAllMailboxes([]string{accountId}, ctx)
 			require.NoError(err)
-			require.Equal(session.State, sessionState)
-			require.Len(respByAccountId, 1)
-			require.Contains(respByAccountId, accountId)
-			resp := respByAccountId[accountId]
+			require.Equal(session.State, result.GetSessionState())
+			require.Len(result.Payload, 1)
+			require.Contains(result.Payload, accountId)
+			resp := result.Payload[accountId]
 			mailboxesUnreadByRole := map[string]int{}
 			for _, m := range resp {
 				if m.Role != "" {
@@ -81,12 +81,12 @@ func TestEmails(t *testing.T) {
 		}
 
 		{
-			resp, sessionState, _, _, err := s.client.GetAllEmailsInMailbox(accountId, inboxId, 0, "", nil, nil, true, false, 0, true, ctx)
+			result, err := s.client.GetAllEmailsInMailbox(accountId, inboxId, 0, "", nil, nil, true, false, 0, true, ctx)
 			require.NoError(err)
-			require.Equal(session.State, sessionState)
+			require.Equal(session.State, result.GetSessionState())
 
-			require.Equalf(threads, len(resp.Results), "the number of collapsed emails in the inbox is expected to be %v, but is actually %v", threads, len(resp.Results))
-			for _, e := range resp.Results {
+			require.Equalf(threads, len(result.Payload.Results), "the number of collapsed emails in the inbox is expected to be %v, but is actually %v", threads, len(result.Payload.Results))
+			for _, e := range result.Payload.Results {
 				require.Len(e.MessageId, 1)
 				expectation, ok := mailsByMessageId[e.MessageId[0]]
 				require.True(ok)
@@ -95,12 +95,12 @@ func TestEmails(t *testing.T) {
 		}
 
 		{
-			resp, sessionState, _, _, err := s.client.GetAllEmailsInMailbox(accountId, inboxId, 0, "", nil, nil, false, false, 0, true, ctx)
+			result, err := s.client.GetAllEmailsInMailbox(accountId, inboxId, 0, "", nil, nil, false, false, 0, true, ctx)
 			require.NoError(err)
-			require.Equal(session.State, sessionState)
+			require.Equal(session.State, result.GetSessionState())
 
-			require.Equalf(count, len(resp.Results), "the number of emails in the inbox is expected to be %v, but is actually %v", count, len(resp.Results))
-			for _, e := range resp.Results {
+			require.Equalf(count, len(result.Payload.Results), "the number of emails in the inbox is expected to be %v, but is actually %v", count, len(result.Payload.Results))
+			for _, e := range result.Payload.Results {
 				require.Len(e.MessageId, 1)
 				expectation, ok := mailsByMessageId[e.MessageId[0]]
 				require.True(ok)
@@ -144,9 +144,9 @@ func TestSendingEmails(t *testing.T) {
 
 	var mailboxPerRole map[string]Mailbox
 	{
-		mailboxes, _, _, _, err := s.client.GetAllMailboxes([]string{accountId}, ctx)
+		result, err := s.client.GetAllMailboxes([]string{accountId}, ctx)
 		require.NoError(err)
-		mailboxPerRole = structs.Index(mailboxes[accountId], func(m Mailbox) string { return m.Role })
+		mailboxPerRole = structs.Index(result.Payload[accountId], func(m Mailbox) string { return m.Role })
 		require.Contains(mailboxPerRole, JmapMailboxRoleInbox)
 		require.Contains(mailboxPerRole, JmapMailboxRoleDrafts)
 		require.Contains(mailboxPerRole, JmapMailboxRoleSent)
@@ -154,10 +154,10 @@ func TestSendingEmails(t *testing.T) {
 	}
 	{
 		roles := []string{JmapMailboxRoleDrafts, JmapMailboxRoleSent, JmapMailboxRoleInbox}
-		m, _, _, _, err := s.client.SearchMailboxIdsPerRole([]string{accountId}, roles, ctx)
+		result, err := s.client.SearchMailboxIdsPerRole([]string{accountId}, roles, ctx)
 		require.NoError(err)
-		require.Contains(m, accountId)
-		a := m[accountId]
+		require.Contains(result.Payload, accountId)
+		a := result.Payload[accountId]
 		for _, role := range roles {
 			require.Contains(a, role)
 		}
@@ -174,9 +174,9 @@ func TestSendingEmails(t *testing.T) {
 			Logger:         ctx.Logger,
 			AcceptLanguage: ctx.AcceptLanguage,
 		}
-		mailboxes, _, _, _, err := s.client.GetAllMailboxes([]string{u.accountId}, uctx)
+		result, err := s.client.GetAllMailboxes([]string{u.accountId}, uctx)
 		require.NoError(err)
-		for _, mailbox := range mailboxes[u.accountId] {
+		for _, mailbox := range result.Payload[u.accountId] {
 			require.Equal(0, mailbox.TotalEmails)
 		}
 	}
@@ -188,10 +188,10 @@ func TestSendingEmails(t *testing.T) {
 	{
 		var identity Identity
 		{
-			resp, _, _, _, err := s.client.GetIdentities(accountId, []string{}, ctx)
+			result, err := s.client.GetIdentities(accountId, []string{}, ctx)
 			require.NoError(err)
-			require.NotEmpty(resp.List)
-			identity = resp.List[0]
+			require.NotEmpty(result.Payload.List)
+			identity = result.Payload.List[0]
 		}
 
 		create := EmailChange{
@@ -199,16 +199,20 @@ func TestSendingEmails(t *testing.T) {
 			Subject:    subject,
 			MailboxIds: toBoolMapS(mailboxPerRole[JmapMailboxRoleDrafts].Id),
 		}
-		created, _, _, _, err := s.client.CreateEmail(accountId, create, "", ctx)
-		require.NoError(err)
-		require.NotEmpty(created.Id)
+		var created *Email
+		{
+			result, err := s.client.CreateEmail(accountId, create, "", ctx)
+			require.NoError(err)
+			created = result.Payload
+			require.NotEmpty(created.Id)
+		}
 
 		{
-			emails, notFound, _, _, _, err := s.client.GetEmails(accountId, []string{created.Id}, true, 0, false, false, ctx)
+			result, err := s.client.GetEmails(accountId, []string{created.Id}, true, 0, false, false, ctx)
 			require.NoError(err)
-			require.Len(emails, 1)
-			require.Empty(notFound)
-			email := emails[0]
+			require.Len(result.Payload.List, 1)
+			require.Empty(result.Payload.NotFound)
+			email := result.Payload.List[0]
 			require.Equal(created.Id, email.Id)
 			require.Len(email.MailboxIds, 1)
 			require.Contains(email.MailboxIds, mailboxPerRole[JmapMailboxRoleDrafts].Id)
@@ -223,22 +227,27 @@ func TestSendingEmails(t *testing.T) {
 			Subject:    subject,
 			MailboxIds: toBoolMapS(mailboxPerRole[JmapMailboxRoleDrafts].Id),
 		}
-		updated, _, _, _, err := s.client.CreateEmail(accountId, update, created.Id, ctx)
-		require.NoError(err)
-		require.NotEmpty(updated.Id)
-		require.NotEqual(created.Id, updated.Id)
+		var updated *Email
+		{
+			result, err := s.client.CreateEmail(accountId, update, created.Id, ctx)
+			require.NoError(err)
+			updated = result.Payload
+			require.NotNil(updated)
+			require.NotEmpty(updated.Id)
+			require.NotEqual(created.Id, updated.Id)
+		}
 
 		var updatedMailboxId string
 		{
-			emails, notFound, _, _, _, err := s.client.GetEmails(accountId, []string{created.Id, updated.Id}, true, 0, false, false, ctx)
+			result, err := s.client.GetEmails(accountId, []string{created.Id, updated.Id}, true, 0, false, false, ctx)
 			require.NoError(err)
-			require.Len(emails, 1)
-			require.Len(notFound, 1)
-			email := emails[0]
+			require.Len(result.Payload.List, 1)
+			require.Len(result.Payload.NotFound, 1)
+			email := result.Payload.List[0]
 			require.Equal(updated.Id, email.Id)
 			require.Len(email.MailboxIds, 1)
 			require.Contains(email.MailboxIds, mailboxPerRole[JmapMailboxRoleDrafts].Id)
-			require.Equal(notFound[0], created.Id)
+			require.Equal(result.Payload.NotFound[0], created.Id)
 			var ok bool
 			updatedMailboxId, ok = firstKey(email.MailboxIds)
 			require.True(ok)
@@ -249,24 +258,28 @@ func TestSendingEmails(t *testing.T) {
 			ToMailboxId:   mailboxPerRole[JmapMailboxRoleSent].Id,
 		}
 
-		sub, _, _, _, err := s.client.SubmitEmail(accountId, identity.Id, updated.Id, &move, ctx)
-		require.NoError(err)
-		require.NotEmpty(sub.Id)
-		require.NotEmpty(sub.ThreadId)
-		require.Equal(updated.Id, sub.EmailId)
-		require.Equal(identity.Id, sub.IdentityId)
-		require.Equal(sub.UndoStatus, UndoStatusPending) // this *might* be fragile: if the server is fast enough, would we get "final" here?
-		require.Empty(sub.DsnBlobIds)
-		require.Empty(sub.MdnBlobIds)
-		require.Equal(from.email, sub.Envelope.MailFrom.Email)
-		require.Nil(sub.Envelope.MailFrom.Parameters)
-		require.Len(sub.Envelope.RcptTo, 2)
-		require.Contains(sub.Envelope.RcptTo, Address{Email: to.email})
-		require.Contains(sub.Envelope.RcptTo, Address{Email: cc.email})
-		require.NotZero(sub.SendAt)
-		require.Len(sub.DeliveryStatus, 2)
-		require.Contains(sub.DeliveryStatus, to.email)
-		require.Contains(sub.DeliveryStatus, cc.email)
+		var sub EmailSubmission
+		{
+			result, err := s.client.SubmitEmail(accountId, identity.Id, updated.Id, &move, ctx)
+			require.NoError(err)
+			sub = result.Payload
+			require.NotEmpty(sub.Id)
+			require.NotEmpty(sub.ThreadId)
+			require.Equal(updated.Id, sub.EmailId)
+			require.Equal(identity.Id, sub.IdentityId)
+			require.Equal(sub.UndoStatus, UndoStatusPending) // this *might* be fragile: if the server is fast enough, would we get "final" here?
+			require.Empty(sub.DsnBlobIds)
+			require.Empty(sub.MdnBlobIds)
+			require.Equal(from.email, sub.Envelope.MailFrom.Email)
+			require.Nil(sub.Envelope.MailFrom.Parameters)
+			require.Len(sub.Envelope.RcptTo, 2)
+			require.Contains(sub.Envelope.RcptTo, Address{Email: to.email})
+			require.Contains(sub.Envelope.RcptTo, Address{Email: cc.email})
+			require.NotZero(sub.SendAt)
+			require.Len(sub.DeliveryStatus, 2)
+			require.Contains(sub.DeliveryStatus, to.email)
+			require.Contains(sub.DeliveryStatus, cc.email)
+		}
 
 		a := 0
 		maxAttempts := 3
@@ -280,10 +293,12 @@ func TestSendingEmails(t *testing.T) {
 			}
 			time.Sleep(1 * time.Second)
 
-			subs, notFound, _, _, _, err := s.client.GetEmailSubmissionStatus(accountId, []string{sub.Id}, ctx)
+			result, err := s.client.GetEmailSubmissionStatus(accountId, []string{sub.Id}, ctx)
 			require.NoError(err)
-			require.Empty(notFound)
-			require.Contains(subs, sub.Id)
+			require.Empty(result.Payload.NotFound)
+			submittedIds := structs.Map(result.Payload.List, func(s EmailSubmission) string { return s.Id })
+			require.Contains(submittedIds, sub.Id)
+			subs := structs.Index(result.Payload.List, func(s EmailSubmission) string { return s.Id })
 			delivery = subs[sub.Id].DeliveryStatus[to.email].Delivered
 		}
 
@@ -300,22 +315,24 @@ func TestSendingEmails(t *testing.T) {
 				Logger:         ctx.Logger,
 				AcceptLanguage: ctx.AcceptLanguage,
 			}
-			mailboxes, _, _, _, err := s.client.GetAllMailboxes([]string{r.accountId}, rctx)
-			require.NoError(err)
 			inboxId := ""
-			for _, mailbox := range mailboxes[r.accountId] {
-				if mailbox.Role == JmapMailboxRoleInbox {
-					inboxId = mailbox.Id
-					require.Equal(1, mailbox.TotalEmails)
+			{
+				result, err := s.client.GetAllMailboxes([]string{r.accountId}, rctx)
+				require.NoError(err)
+				for _, mailbox := range result.Payload[r.accountId] {
+					if mailbox.Role == JmapMailboxRoleInbox {
+						inboxId = mailbox.Id
+						require.Equal(1, mailbox.TotalEmails)
+					}
 				}
+				require.NotEmpty(inboxId, "failed to find the Mailbox with the 'inbox' role for %v", r.user.name)
 			}
-			require.NotEmpty(inboxId, "failed to find the Mailbox with the 'inbox' role for %v", r.user.name)
 
-			emails, _, _, _, err := s.client.QueryEmails([]string{r.accountId}, EmailFilterCondition{InMailbox: inboxId}, 0, 0, true, 0, rctx)
+			result, err := s.client.QueryEmails([]string{r.accountId}, EmailFilterCondition{InMailbox: inboxId}, 0, 0, true, 0, rctx)
 			require.NoError(err)
-			require.Contains(emails, r.accountId)
-			require.Len(emails[r.accountId].Emails, 1)
-			received := emails[r.accountId].Emails[0]
+			require.Contains(result.Payload, r.accountId)
+			require.Len(result.Payload[r.accountId].Emails, 1)
+			received := result.Payload[r.accountId].Emails[0]
 			require.Len(received.From, 1)
 			require.Equal(from.email, received.From[0].Email)
 			require.Equal(fromName, received.From[0].Name)
@@ -370,12 +387,12 @@ func matchEmail(t *testing.T, actual Email, expected filledMail, hasBodies bool)
 
 func (s *StalwartTest) findInbox(t *testing.T, accountId string, ctx Context) (string, string) {
 	require := require.New(t)
-	respByAccountId, sessionState, _, _, err := s.client.GetAllMailboxes([]string{accountId}, ctx)
+	result, err := s.client.GetAllMailboxes([]string{accountId}, ctx)
 	require.NoError(err)
-	require.Equal(ctx.Session.State, sessionState)
-	require.Len(respByAccountId, 1)
-	require.Contains(respByAccountId, accountId)
-	resp := respByAccountId[accountId]
+	require.Equal(ctx.Session.State, result.GetSessionState())
+	require.Len(result.Payload, 1)
+	require.Contains(result.Payload, accountId)
+	resp := result.Payload[accountId]
 
 	mailboxesNameByRole := map[string]string{}
 	mailboxesUnreadByRole := map[string]int{}
