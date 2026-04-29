@@ -121,16 +121,30 @@ func federatedIdToIdentity(ctx context.Context, cache cache.IdentityCache, cs3Us
 	return identity, err
 }
 
+// guestMailToIdentity converts a USER_TYPE_GUEST (used for guest invites vial mail) into a libregraph.Identity
+func guestMailToIdentity(cs3UserID *cs3User.UserId) (libregraph.Identity, error) {
+	identity := libregraph.Identity{
+		Id:                 libregraph.PtrString(cs3UserID.GetOpaqueId()),
+		LibreGraphUserType: libregraph.PtrString("Guest"),
+	}
+	identity.SetDisplayName(cs3UserID.GetOpaqueId())
+	identity.SetLibreGraphUserType("Guest")
+	return identity, nil
+}
+
 // cs3UserIdToIdentity looks up the user for the supplied cs3 userid using the cache and returns it
 // as a libregraph.Identity. Skips the user lookup if the id type is USER_TYPE_SPACE_OWNER
 func cs3UserIdToIdentity(ctx context.Context, cache cache.IdentityCache, cs3UserID *cs3User.UserId) (libregraph.Identity, error) {
-	if cs3UserID.GetType() == cs3User.UserType_USER_TYPE_FEDERATED {
+	switch cs3UserID.GetType() {
+	case cs3User.UserType_USER_TYPE_FEDERATED:
 		return federatedIdToIdentity(ctx, cache, cs3UserID)
-	}
-	if cs3UserID.GetType() != cs3User.UserType_USER_TYPE_SPACE_OWNER {
+	case cs3User.UserType_USER_TYPE_GUEST:
+		return guestMailToIdentity(cs3UserID)
+	case cs3User.UserType_USER_TYPE_SPACE_OWNER:
+		return libregraph.Identity{Id: libregraph.PtrString(cs3UserID.GetOpaqueId())}, nil
+	default:
 		return userIdToIdentity(ctx, cache, cs3UserID.GetTenantId(), cs3UserID.GetOpaqueId())
 	}
-	return libregraph.Identity{Id: libregraph.PtrString(cs3UserID.GetOpaqueId())}, nil
 }
 
 // groupIdToIdentity looks up the group for the supplied cs3 groupid using the cache and returns it

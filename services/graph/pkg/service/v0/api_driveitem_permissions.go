@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/mail"
 	"net/url"
 	"slices"
 	"strings"
@@ -188,6 +189,46 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 		shareid = createShareResponse.GetShare().GetId().GetOpaqueId()
 		cTime = createShareResponse.GetShare().GetCtime()
 		expiration = createShareResponse.GetShare().GetExpiration()
+	case "mail":
+		email := strings.TrimSpace(objectID)
+		if len(email) == 0 {
+			return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, "invalid mail recipient")
+		}
+
+		parsedMail, err := mail.ParseAddress(email)
+		if err != nil {
+			s.logger.Debug().Err(err).Msg("failed to parse mail recipient")
+			return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, "invalid mail recipient")
+		}
+
+		// we're only interested in the Address part of the mail address (this is what reva uses as the user id
+		// for the created share and grants) let's strip on any "Name" part that might be existing
+		email = parsedMail.Address
+
+		createShareRequest := createShareRequestToMail(email, statResponse.GetInfo(), cs3ResourcePermissions)
+
+		if invite.ExpirationDateTime != nil {
+			createShareRequest.GetGrant().Expiration = utils.TimeToTS(*invite.ExpirationDateTime)
+		}
+		createShareResponse, err := gatewayClient.CreateShare(ctx, createShareRequest)
+		if err := errorcode.FromCS3Status(createShareResponse.GetStatus(), err); err != nil {
+			s.logger.Debug().Err(err).Msg("share creation failed")
+			return libregraph.Permission{}, err
+		}
+		shareid = createShareResponse.GetShare().GetId().GetOpaqueId()
+		cTime = createShareResponse.GetShare().GetCtime()
+		expiration = createShareResponse.GetShare().GetExpiration()
+
+		identity := &libregraph.Identity{
+			Id:                 conversions.ToPointer(email),
+			DisplayName:        email,
+			LibreGraphUserType: conversions.ToPointer("Mail"),
+		}
+
+		permission.GrantedToV2 = &libregraph.SharePointIdentitySet{
+			User: identity,
+		}
+
 	default:
 		user, err := s.identityCache.GetCS3User(ctx, tenantId, objectID)
 		if errors.Is(err, identity.ErrNotFound) && s.config.IncludeOCMSharees {
@@ -326,6 +367,26 @@ func createShareRequestToFederatedUser(user *userpb.User, resourceId *storagepro
 						Permissions: cs3ResourcePermissions,
 					},
 				},
+			},
+		},
+	}
+}
+
+func createShareRequestToMail(mail string, info *storageprovider.ResourceInfo, cs3ResourcePermissions *storageprovider.ResourcePermissions) *collaboration.CreateShareRequest {
+	return &collaboration.CreateShareRequest{
+		ResourceInfo: info,
+		Grant: &collaboration.ShareGrant{
+			Grantee: &storageprovider.Grantee{
+				Type: storageprovider.GranteeType_GRANTEE_TYPE_USER,
+				Id: &storageprovider.Grantee_UserId{
+					UserId: &userpb.UserId{
+						Type:     userpb.UserType_USER_TYPE_GUEST,
+						OpaqueId: mail,
+					},
+				},
+			},
+			Permissions: &collaboration.SharePermissions{
+				Permissions: cs3ResourcePermissions,
 			},
 		},
 	}
