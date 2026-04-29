@@ -74,7 +74,7 @@ func (s StateMap) MarshalZerologObject(e *zerolog.Event) {
 
 // Retrieve the changes in any type of objects at once since a given State.
 // @api:tags changes
-func (j *Client) GetChanges(accountId string, stateMap StateMap, maxChanges uint, ctx Context) (ObjectChanges, SessionState, State, Language, Error) { //NOSONAR
+func (j *Client) GetChanges(accountId string, stateMap StateMap, maxChanges uint, ctx Context) (Result[ObjectChanges], Error) { //NOSONAR
 	logger := log.From(j.logger("GetChanges", ctx).With().Object("state", stateMap).Uint("maxChanges", maxChanges))
 	ctx = ctx.WithLogger(logger)
 
@@ -107,7 +107,7 @@ func (j *Client) GetChanges(accountId string, stateMap StateMap, maxChanges uint
 
 	cmd, err := j.request(ctx, NS_CHANGES, methodCalls...)
 	if err != nil {
-		return ObjectChanges{}, "", "", "", err
+		return ZeroResult[ObjectChanges](), err
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (ObjectChanges, State, Error) {

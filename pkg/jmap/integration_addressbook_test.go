@@ -45,13 +45,13 @@ func TestAddressBooks(t *testing.T) {
 		func(session *Session) string { return session.PrimaryAccounts.Contacts },
 		list,
 		getid,
-		func(s *StalwartTest, accountId string, ids []string, ctx Context) (AddressBookGetResponse, SessionState, State, Language, Error) {
+		func(s *StalwartTest, accountId string, ids []string, ctx Context) (Result[AddressBookGetResponse], Error) {
 			return s.client.GetAddressbooks(accountId, ids, ctx)
 		},
-		func(s *StalwartTest, accountId string, id string, change AddressBookChange, ctx Context) (AddressBook, SessionState, State, Language, Error) { //NOSONAR
+		func(s *StalwartTest, accountId string, id string, change AddressBookChange, ctx Context) (Result[AddressBook], Error) { //NOSONAR
 			return s.client.UpdateAddressBook(accountId, id, change, ctx)
 		},
-		func(s *StalwartTest, accountId string, ids []string, ctx Context) (map[string]SetError, SessionState, State, Language, Error) { //NOSONAR
+		func(s *StalwartTest, accountId string, ids []string, ctx Context) (Result[map[string]SetError], Error) { //NOSONAR
 			return s.client.DeleteAddressBook(accountId, ids, ctx)
 		},
 		func(s *StalwartTest, t *testing.T, accountId string, count uint, ctx Context, user User, principalIds []string) (AddressBookBoxes, []AddressBook, SessionState, State, error) {
@@ -100,19 +100,29 @@ func TestContacts(t *testing.T) {
 		{Property: ContactCardPropertyCreated, IsAscending: true},
 	}
 
-	contactsByAccount, ss, os, _, err := s.client.QueryContactCards([]string{accountId}, filter, sortBy, 0, "", nil, nil, true, ctx)
-	require.NoError(err)
+	var results *ContactCardSearchResults
+	ss := EmptySessionState
+	os := EmptyState
+	{
+		result, err := s.client.QueryContactCards([]string{accountId}, filter, sortBy, 0, "", nil, nil, true, ctx)
+		require.NoError(err)
 
-	require.Len(contactsByAccount, 1)
-	require.Contains(contactsByAccount, accountId)
-	results := contactsByAccount[accountId]
-	require.Len(results.Results, int(count))
-	require.Nil(results.Limit)
-	require.NotNil(results.Position)
-	require.Equal(uint(0), *results.Position)
-	require.NotNil(results.Total)
-	require.Equal(count, *results.Total)
-	require.Equal(ChangeCalculation(true), results.CanCalculateChanges)
+		require.Len(result.Payload, 1)
+		require.Contains(result.Payload, accountId)
+		results = result.Payload[accountId]
+		require.Len(results.Results, int(count))
+		require.Nil(results.Limit)
+		require.NotNil(results.Position)
+		require.Equal(uint(0), *results.Position)
+		require.NotNil(results.Total)
+		require.Equal(count, *results.Total)
+		require.Equal(ChangeCalculation(true), results.CanCalculateChanges)
+
+		ss = result.GetSessionState()
+		require.NotEmpty(ss)
+		os = result.GetState()
+		require.NotEmpty(os)
+	}
 
 	for _, actual := range results.Results {
 		expected, ok := expectedContactCardsById[actual.Id]
@@ -123,11 +133,11 @@ func TestContacts(t *testing.T) {
 	// retrieve all objects at once
 	{
 		ids := structs.Map(results.Results, func(c ContactCard) string { return c.Id })
-		fetched, _, _, _, err := s.client.GetContactCards(accountId, ids, ctx)
+		result, err := s.client.GetContactCards(accountId, ids, ctx)
 		require.NoError(err)
-		require.Empty(fetched.NotFound)
-		require.Len(fetched.List, len(ids))
-		byId := structs.Index(fetched.List, func(r ContactCard) string { return r.Id })
+		require.Empty(result.Payload.NotFound)
+		require.Len(result.Payload.List, len(ids))
+		byId := structs.Index(result.Payload.List, func(r ContactCard) string { return r.Id })
 		for _, actual := range results.Results {
 			expected, ok := byId[actual.Id]
 			require.True(ok, "failed to find created contact by its id")
@@ -137,10 +147,10 @@ func TestContacts(t *testing.T) {
 
 	// retrieve each object one by one
 	for _, actual := range results.Results {
-		fetched, _, _, _, err := s.client.GetContactCards(accountId, []string{actual.Id}, ctx)
+		result, err := s.client.GetContactCards(accountId, []string{actual.Id}, ctx)
 		require.NoError(err)
-		require.Len(fetched.List, 1)
-		matchContact(t, fetched.List[0], actual)
+		require.Len(result.Payload.List, 1)
+		matchContact(t, result.Payload.List[0], actual)
 	}
 
 	{
@@ -151,11 +161,11 @@ func TestContacts(t *testing.T) {
 		for i := range slices {
 			position := int(i * limit)
 			page := min(remainder, limit)
-			m, sessionState, _, _, err := s.client.QueryContactCards([]string{accountId}, filter, sortBy, position, "", nil, &limit, true, ctx)
+			result, err := s.client.QueryContactCards([]string{accountId}, filter, sortBy, position, "", nil, &limit, true, ctx)
 			require.NoError(err)
-			require.Len(m, 1)
-			require.Contains(m, accountId)
-			results := m[accountId]
+			require.Len(result.Payload, 1)
+			require.Contains(result.Payload, accountId)
+			results := result.Payload[accountId]
 			require.Equal(len(results.Results), int(page))
 			require.NotNil(results.Limit)
 			require.Equal(limit, *results.Limit)
@@ -166,7 +176,7 @@ func TestContacts(t *testing.T) {
 			require.Equal(count, *results.Total)
 			remainder -= uint(len(results.Results))
 
-			require.Equal(ss, sessionState)
+			require.Equal(ss, result.GetSessionState())
 		}
 	}
 
@@ -176,12 +186,12 @@ func TestContacts(t *testing.T) {
 		offset := 0
 		i := 0
 		for chunk := range slices.Chunk(results.Results, chunkSize) {
-			m, sessionState, _, _, err := s.client.QueryContactCards([]string{accountId}, filter, sortBy, 0, anchor, &offset, uintPtr(chunkSize), true, ctx)
-			require.Equal(ss, sessionState)
+			result, err := s.client.QueryContactCards([]string{accountId}, filter, sortBy, 0, anchor, &offset, uintPtr(chunkSize), true, ctx)
+			require.Equal(ss, result.GetSessionState())
 			require.NoError(err)
-			require.Len(m, 1)
-			require.Contains(m, accountId)
-			results := m[accountId]
+			require.Len(result.Payload, 1)
+			require.Contains(result.Payload, accountId)
+			results := result.Payload[accountId]
 			l := len(results.Results)
 			require.LessOrEqual(l, chunkSize)
 			require.NotZero(l)
@@ -206,35 +216,35 @@ func TestContacts(t *testing.T) {
 				Language: ptr("xyz"),
 				Updated:  ptr(now),
 			}
-			changed, sessionState, state, _, err := s.client.UpdateContactCard(accountId, event.Id, change, ctx)
+			result, err := s.client.UpdateContactCard(accountId, event.Id, change, ctx)
 			require.NoError(err)
-			require.Equal("xyz", changed.Language)
-			require.Equal(now, changed.Updated)
-			require.Equal(ss, sessionState)
-			require.NotEqual(os, state)
-			os = state
+			require.Equal("xyz", result.Payload.Language)
+			require.Equal(now, result.Payload.Updated)
+			require.Equal(ss, result.GetSessionState())
+			require.NotEqual(os, result.GetState())
+			os = result.GetState()
 		}
 	}
 	{
 		ids := structs.Map(slices.Collect(maps.Values(expectedContactCardsById)), func(e ContactCard) string { return e.Id })
-		errMap, sessionState, state, _, err := s.client.DeleteContactCard(accountId, ids, ctx)
+		result, err := s.client.DeleteContactCard(accountId, ids, ctx)
 		require.NoError(err)
-		require.Empty(errMap)
+		require.Empty(result.Payload)
 
-		require.Equal(ss, sessionState)
-		require.NotEqual(os, state)
-		os = state
+		require.Equal(ss, result.GetSessionState())
+		require.NotEqual(os, result.GetState())
+		os = result.GetState()
 	}
 	{
-		shouldBeEmpty, sessionState, state, _, err := s.client.QueryContactCards([]string{accountId}, filter, sortBy, 0, "", nil, nil, true, ctx)
+		result, err := s.client.QueryContactCards([]string{accountId}, filter, sortBy, 0, "", nil, nil, true, ctx)
 		require.NoError(err)
-		require.Contains(shouldBeEmpty, accountId)
-		resp := shouldBeEmpty[accountId]
+		require.Contains(result.Payload, accountId)
+		resp := result.Payload[accountId]
 		require.Empty(resp.Results)
 		require.NotNil(resp.Total)
 		require.Equal(uint(0), *resp.Total)
-		require.Equal(ss, sessionState)
-		require.Equal(os, state)
+		require.Equal(ss, result.GetSessionState())
+		require.Equal(os, result.GetState())
 	}
 
 	exceptions := []string{}
@@ -319,24 +329,24 @@ func (s *StalwartTest) fillAddressBook( //NOSONAR
 			abook.ShareWith = m
 		}
 
-		a, sessionState, state, _, err := s.client.CreateAddressBook(accountId, abook, ctx)
+		result, err := s.client.CreateAddressBook(accountId, abook, ctx)
 		if err != nil {
 			return boxes, created, ss, as, err
 		}
-		require.NotEmpty(sessionState)
-		require.NotEmpty(state)
+		require.NotEmpty(result.GetSessionState())
+		require.NotEmpty(result.GetState())
 		if ss != EmptySessionState {
-			require.Equal(ss, sessionState)
+			require.Equal(ss, result.GetSessionState())
 		}
 		if as != EmptyState {
-			require.NotEqual(as, state)
+			require.NotEqual(as, result.GetState())
 		}
-		require.NotNil(a)
-		created = append(created, *a)
-		ss = sessionState
-		as = state
+		require.NotNil(result.Payload)
+		created = append(created, *result.Payload)
+		ss = result.GetSessionState()
+		as = result.GetState()
 
-		printer(fmt.Sprintf("📔 created %*s/%v id=%v", int(math.Log10(float64(count))+1), strconv.Itoa(int(i+1)), count, a.Id))
+		printer(fmt.Sprintf("📔 created %*s/%v id=%v", int(math.Log10(float64(count))+1), strconv.Itoa(int(i+1)), count, result.Payload.Id))
 	}
 	return boxes, created, ss, as, nil
 }
@@ -644,13 +654,13 @@ func (s *StalwartTest) fillContacts( //NOSONAR
 			return "", "", nil, boxes, err
 		}
 
-		created, _, _, _, err := s.client.CreateContactCard(accountId, card, ctx)
+		result, err := s.client.CreateContactCard(accountId, card, ctx)
 		if err != nil {
 			return accountId, addressbookId, filled, boxes, err
 		}
-		require.NotNil(created)
-		filled[created.Id] = *created
-		printer(fmt.Sprintf("🧑🏻 created %*s/%v id=%v", int(math.Log10(float64(count))+1), strconv.Itoa(int(i+1)), count, created.Id))
+		require.NotNil(result.Payload)
+		filled[result.Payload.Id] = *result.Payload
+		printer(fmt.Sprintf("🧑🏻 created %*s/%v id=%v", int(math.Log10(float64(count))+1), strconv.Itoa(int(i+1)), count, result.Payload.Id))
 	}
 	return accountId, addressbookId, filled, boxes, nil
 }

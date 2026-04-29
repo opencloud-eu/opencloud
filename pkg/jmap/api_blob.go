@@ -10,7 +10,7 @@ import (
 
 var NS_BLOB = ns(JmapBlob)
 
-func (j *Client) GetBlobMetadata(accountId string, ids []string, ctx Context) (BlobGetResponse, SessionState, State, Language, Error) {
+func (j *Client) GetBlobMetadata(accountId string, ids []string, ctx Context) (Result[BlobGetResponse], Error) {
 	get := BlobGetCommand{
 		AccountId: accountId,
 		Ids:       ids,
@@ -21,7 +21,7 @@ func (j *Client) GetBlobMetadata(accountId string, ids []string, ctx Context) (B
 		invocation(get, "0"),
 	)
 	if jerr != nil {
-		return bail[BlobGetResponse](jerr)
+		return ZeroResult[BlobGetResponse](), jerr
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (BlobGetResponse, State, Error) {
@@ -62,7 +62,7 @@ func (j *Client) DownloadBlobStream(accountId string, blobId string, name string
 	return j.blob.DownloadBinary(downloadUrl, ctx.Session.DownloadEndpoint, ctx)
 }
 
-func (j *Client) UploadBlob(accountId string, data []byte, contentType string, ctx Context) (UploadedBlobWithHash, SessionState, State, Language, Error) {
+func (j *Client) UploadBlob(accountId string, data []byte, contentType string, ctx Context) (Result[UploadedBlobWithHash], Error) {
 	encoded := base64.StdEncoding.EncodeToString(data)
 
 	upload := BlobUploadCommand{
@@ -92,7 +92,7 @@ func (j *Client) UploadBlob(accountId string, data []byte, contentType string, c
 		invocation(getHash, "1"),
 	)
 	if jerr != nil {
-		return UploadedBlobWithHash{}, "", "", "", jerr
+		return ZeroResult[UploadedBlobWithHash](), jerr
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (UploadedBlobWithHash, State, Error) {

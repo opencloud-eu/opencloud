@@ -201,6 +201,16 @@ var AllTaskLists = []jmap.TaskList{TL1}
 
 var TaskListsState = jmap.State("mock")
 
+type TaskListsMeta struct {
+	SessionState jmap.SessionState
+}
+
+func (t TaskListsMeta) GetSessionState() jmap.SessionState { return t.SessionState }
+func (t TaskListsMeta) GetState() jmap.State               { return TaskListsState }
+func (t TaskListsMeta) GetLanguage() jmap.Language         { return jmap.NoLanguage }
+
+var _ jmap.ResultMetadata = TaskListsMeta{}
+
 var TaskMapByTaskListId = map[string][]jmap.Task{
 	TL1.Id: {
 		T1,
@@ -208,6 +218,16 @@ var TaskMapByTaskListId = map[string][]jmap.Task{
 }
 
 var TaskState = jmap.State("mock")
+
+type TaskMeta struct {
+	SessionState jmap.SessionState
+}
+
+func (t TaskMeta) GetSessionState() jmap.SessionState { return t.SessionState }
+func (t TaskMeta) GetState() jmap.State               { return TaskState }
+func (t TaskMeta) GetLanguage() jmap.Language         { return jmap.NoLanguage }
+
+var _ jmap.ResultMetadata = TaskListsMeta{}
 
 func mustParseTime(text string) time.Time {
 	t, err := time.Parse(time.RFC3339, text)

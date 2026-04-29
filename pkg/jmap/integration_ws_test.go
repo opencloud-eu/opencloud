@@ -91,28 +91,28 @@ func TestWs(t *testing.T) {
 
 	var initialState State
 	{
-		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, EmptyState, true, 0, 0, ctx)
+		result, err := s.client.GetEmailChanges(mailAccountId, EmptyState, true, 0, 0, ctx)
 		require.NoError(err)
-		require.Equal(session.State, sessionState)
-		require.NotEmpty(state)
+		require.Equal(session.State, result.GetSessionState())
+		require.NotEmpty(result.GetState())
 		//fmt.Printf("\x1b[45;1;4mChanges [%s]:\x1b[0m\n", state)
 		//for _, c := range changes.Created { fmt.Printf("%s %s\n", c.Id, c.Subject) }
-		initialState = state
-		require.Empty(changes.Created)
-		require.Empty(changes.Destroyed)
-		require.Empty(changes.Updated)
+		initialState = result.GetState()
+		require.Empty(result.Payload.Created)
+		require.Empty(result.Payload.Destroyed)
+		require.Empty(result.Payload.Updated)
 	}
 	require.NotEmpty(initialState)
 
 	{
-		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, initialState, true, 0, 0, ctx)
+		result, err := s.client.GetEmailChanges(mailAccountId, initialState, true, 0, 0, ctx)
 		require.NoError(err)
-		require.Equal(session.State, sessionState)
-		require.Equal(initialState, state)
-		require.Equal(initialState, changes.NewState)
-		require.Empty(changes.Created)
-		require.Empty(changes.Destroyed)
-		require.Empty(changes.Updated)
+		require.Equal(session.State, result.GetSessionState())
+		require.Equal(initialState, result.GetState())
+		require.Equal(initialState, result.Payload.NewState)
+		require.Empty(result.Payload.Created)
+		require.Empty(result.Payload.Destroyed)
+		require.Empty(result.Payload.Updated)
 	}
 
 	wsc, err := s.client.EnablePushNotifications(cotx, initialState, func() (*Session, error) { return session, nil })
@@ -148,18 +148,18 @@ func TestWs(t *testing.T) {
 	}
 	var lastState State
 	{
-		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, initialState, true, 0, 0, ctx)
+		result, err := s.client.GetEmailChanges(mailAccountId, initialState, true, 0, 0, ctx)
 		require.NoError(err)
-		require.Equal(session.State, sessionState)
-		require.NotEqual(initialState, state)
-		require.NotEqual(initialState, changes.NewState)
-		require.Equal(state, changes.NewState)
-		require.Len(changes.Created, 1)
-		require.Empty(changes.Destroyed)
-		require.Empty(changes.Updated)
-		lastState = state
+		require.Equal(session.State, result.GetSessionState())
+		require.NotEqual(initialState, result.GetState())
+		require.NotEqual(initialState, result.Payload.NewState)
+		require.Equal(result.GetState(), result.Payload.NewState)
+		require.Len(result.Payload.Created, 1)
+		require.Empty(result.Payload.Destroyed)
+		require.Empty(result.Payload.Updated)
+		lastState = result.GetState()
 
-		emailIds = append(emailIds, structs.Map(changes.Created, func(e Email) string { return e.Id })...)
+		emailIds = append(emailIds, structs.Map(result.Payload.Created, func(e Email) string { return e.Id })...)
 	}
 
 	{
@@ -182,18 +182,18 @@ func TestWs(t *testing.T) {
 		l.m.Unlock()
 	}
 	{
-		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, lastState, true, 0, 0, ctx)
+		result, err := s.client.GetEmailChanges(mailAccountId, lastState, true, 0, 0, ctx)
 		require.NoError(err)
-		require.Equal(session.State, sessionState)
-		require.NotEqual(lastState, state)
-		require.NotEqual(lastState, changes.NewState)
-		require.Equal(state, changes.NewState)
-		require.Len(changes.Created, 1)
-		require.Empty(changes.Destroyed)
-		require.Empty(changes.Updated)
-		lastState = state
+		require.Equal(session.State, result.GetSessionState())
+		require.NotEqual(lastState, result.GetState())
+		require.NotEqual(lastState, result.Payload.NewState)
+		require.Equal(result.GetState(), result.Payload.NewState)
+		require.Len(result.Payload.Created, 1)
+		require.Empty(result.Payload.Destroyed)
+		require.Empty(result.Payload.Updated)
+		lastState = result.GetState()
 
-		emailIds = append(emailIds, structs.Map(changes.Created, func(e Email) string { return e.Id })...)
+		emailIds = append(emailIds, structs.Map(result.Payload.Created, func(e Email) string { return e.Id })...)
 	}
 
 	{
@@ -216,25 +216,25 @@ func TestWs(t *testing.T) {
 		l.m.Unlock()
 	}
 	{
-		changes, sessionState, state, _, err := s.client.GetEmailChanges(mailAccountId, lastState, true, 0, 0, ctx)
+		result, err := s.client.GetEmailChanges(mailAccountId, lastState, true, 0, 0, ctx)
 		require.NoError(err)
-		require.Equal(session.State, sessionState)
-		require.NotEqual(lastState, state)
-		require.NotEqual(lastState, changes.NewState)
-		require.Equal(state, changes.NewState)
-		require.Empty(changes.Created)
-		require.Len(changes.Destroyed, 2)
+		require.Equal(session.State, result.GetSessionState())
+		require.NotEqual(lastState, result.GetState())
+		require.NotEqual(lastState, result.Payload.NewState)
+		require.Equal(result.GetState(), result.Payload.NewState)
+		require.Empty(result.Payload.Created)
+		require.Len(result.Payload.Destroyed, 2)
 		{
 			a := make([]string, len(emailIds))
 			copy(a, emailIds)
 			slices.Sort(emailIds)
-			b := make([]string, len(changes.Destroyed))
-			copy(b, changes.Destroyed)
+			b := make([]string, len(result.Payload.Destroyed))
+			copy(b, result.Payload.Destroyed)
 			slices.Sort(b)
 			require.EqualValues(a, b)
 		}
-		require.Empty(changes.Updated)
-		lastState = state
+		require.Empty(result.Payload.Updated)
+		lastState = result.GetState()
 	}
 
 	err = wsc.DisableNotifications()

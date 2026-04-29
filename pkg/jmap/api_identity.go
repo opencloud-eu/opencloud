@@ -8,7 +8,7 @@ import (
 
 var NS_IDENTITY = ns(JmapMail)
 
-func (j *Client) GetIdentities(accountId string, identityIds []string, ctx Context) (IdentityGetResponse, SessionState, State, Language, Error) {
+func (j *Client) GetIdentities(accountId string, identityIds []string, ctx Context) (Result[IdentityGetResponse], Error) {
 	return get(j, "GetIdentities", IdentityType,
 		func(accountId string, ids []string) IdentityGetCommand {
 			return IdentityGetCommand{AccountId: accountId, Ids: ids}
@@ -20,7 +20,7 @@ func (j *Client) GetIdentities(accountId string, identityIds []string, ctx Conte
 	)
 }
 
-func (j *Client) GetIdentitiesForAllAccounts(accountIds []string, ctx Context) (map[string][]Identity, SessionState, State, Language, Error) {
+func (j *Client) GetIdentitiesForAllAccounts(accountIds []string, ctx Context) (Result[map[string][]Identity], Error) {
 	return getN(j, "GetIdentitiesForAllAccounts", IdentityType,
 		func(accountId string, ids []string) IdentityGetCommand {
 			return IdentityGetCommand{AccountId: accountId}
@@ -39,7 +39,7 @@ type IdentitiesAndMailboxesGetResponse struct {
 	Mailboxes  []Mailbox             `json:"mailboxes"`
 }
 
-func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId string, accountIds []string, ctx Context) (IdentitiesAndMailboxesGetResponse, SessionState, State, Language, Error) {
+func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId string, accountIds []string, ctx Context) (Result[IdentitiesAndMailboxesGetResponse], Error) {
 	uniqueAccountIds := structs.Uniq(accountIds)
 
 	logger := j.logger("GetIdentitiesAndMailboxes", ctx)
@@ -53,7 +53,7 @@ func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId string, accountIds [
 
 	cmd, err := j.request(ctx, NS_IDENTITY, calls...)
 	if err != nil {
-		return IdentitiesAndMailboxesGetResponse{}, "", "", "", err
+		return ZeroResult[IdentitiesAndMailboxesGetResponse](), err
 	}
 	return command(j, ctx, cmd, func(body *Response) (IdentitiesAndMailboxesGetResponse, State, Error) {
 		identities := make(map[string][]Identity, len(uniqueAccountIds))
@@ -85,7 +85,7 @@ func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId string, accountIds [
 	})
 }
 
-func (j *Client) CreateIdentity(accountId string, identity IdentityChange, ctx Context) (*Identity, SessionState, State, Language, Error) {
+func (j *Client) CreateIdentity(accountId string, identity IdentityChange, ctx Context) (Result[*Identity], Error) {
 	return create(j, "CreateIdentity", IdentityType,
 		func(accountId string, create map[string]IdentityChange) IdentitySetCommand {
 			return IdentitySetCommand{AccountId: accountId, Create: create}
@@ -104,7 +104,7 @@ func (j *Client) CreateIdentity(accountId string, identity IdentityChange, ctx C
 	)
 }
 
-func (j *Client) UpdateIdentity(accountId string, id string, changes IdentityChange, ctx Context) (Identity, SessionState, State, Language, Error) {
+func (j *Client) UpdateIdentity(accountId string, id string, changes IdentityChange, ctx Context) (Result[Identity], Error) {
 	return update(j, "UpdateIdentity", IdentityType,
 		func(update map[string]PatchObject) IdentitySetCommand {
 			return IdentitySetCommand{AccountId: accountId, Update: update}
@@ -119,7 +119,7 @@ func (j *Client) UpdateIdentity(accountId string, id string, changes IdentityCha
 	)
 }
 
-func (j *Client) DeleteIdentity(accountId string, destroyIds []string, ctx Context) (map[string]SetError, SessionState, State, Language, Error) {
+func (j *Client) DeleteIdentity(accountId string, destroyIds []string, ctx Context) (Result[map[string]SetError], Error) {
 	return destroy(j, "DeleteIdentity", IdentityType,
 		func(accountId string, destroy []string) IdentitySetCommand {
 			return IdentitySetCommand{AccountId: accountId, Destroy: destroyIds}
@@ -144,7 +144,7 @@ func (c IdentityChanges) GetDestroyed() []string  { return c.Destroyed }
 // Retrieve the changes in Email Identities since a given State.
 // @api:tags email,changes
 func (j *Client) GetIdentityChanges(accountId string, sinceState State, maxChanges uint,
-	ctx Context) (IdentityChanges, SessionState, State, Language, Error) {
+	ctx Context) (Result[IdentityChanges], Error) {
 	return changes(j, "GetIdentityChanges", IdentityType,
 		func() IdentityChangesCommand {
 			return IdentityChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: uintPtr(maxChanges)}

@@ -55,6 +55,12 @@ type Session struct {
 	SessionResponse
 }
 
+var _ ResultMetadata = Session{}
+
+func (s Session) GetSessionState() SessionState { return s.State }
+func (s Session) GetState() State               { return EmptyState }
+func (s Session) GetLanguage() Language         { return NoLanguage }
+
 var (
 	invalidSessionResponseErrorMissingUsername     = jmapError(errors.New("JMAP session response does not provide a username"), JmapErrorInvalidSessionResponse)
 	invalidSessionResponseErrorMissingApiUrl       = jmapError(errors.New("JMAP session response does not provide an API URL"), JmapErrorInvalidSessionResponse)

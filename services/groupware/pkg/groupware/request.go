@@ -413,10 +413,13 @@ func (r *Request) body(target any) *Error {
 		}
 	}(body)
 
-	err := json.NewDecoder(body).Decode(target)
+	decoder := json.NewDecoder(body)
+	decoder.DisallowUnknownFields()
+	err := decoder.Decode(target)
 	if err != nil {
 		r.logger.Warn().Msgf("failed to deserialize the request body: %s", err.Error())
-		return r.observedParameterError(ErrorInvalidRequestBody, withSource(&ErrorSource{Pointer: "/"})) // we don't get any details here
+		// we don't get any structured details here
+		return r.observedParameterError(ErrorInvalidRequestBody, withSource(&ErrorSource{Pointer: "/"}), withDetail(err.Error()))
 	}
 	return nil
 }

@@ -50,11 +50,6 @@ func mcid(accountId string, tag string) string {
 	return accountId + ":" + tag
 }
 
-func bail[R JmapResponse[T], T Foo](err Error) (R, SessionState, State, Language, Error) {
-	var zero R
-	return zero, EmptySessionState, EmptyState, NoLanguage, err
-}
-
 type Cmdr interface {
 	ApiSupplier
 	Hooks
@@ -63,22 +58,22 @@ type Cmdr interface {
 func command[T any](client Cmdr, //NOSONAR
 	ctx Context,
 	request Request,
-	mapper func(body *Response) (T, State, Error)) (T, SessionState, State, Language, Error) {
+	mapper func(body *Response) (T, State, Error)) (Result[T], Error) {
 
 	logger := ctx.Logger
 
 	responseBody, language, jmapErr := client.Api().Command(request, ctx)
 	if jmapErr != nil {
-		var zero T
-		return zero, "", "", language, jmapErr
+		var zero Result[T]
+		return zero, jmapErr
 	}
 
 	var response Response
 	err := json.Unmarshal(responseBody, &response)
 	if err != nil {
 		logger.Error().Err(err).Msgf("failed to deserialize body JSON payload into a %T", response)
-		var zero T
-		return zero, "", "", language, jmapError(err, JmapErrorDecodingResponseBody)
+		var zero Result[T]
+		return zero, jmapError(err, JmapErrorDecodingResponseBody)
 	}
 
 	if response.SessionState != ctx.Session.State {
@@ -102,7 +97,7 @@ func command[T any](client Cmdr, //NOSONAR
 				case MethodLevelErrorInvalidArguments:
 					code = JmapErrorInvalidArguments
 					if strings.HasPrefix(errorParameters.Description, "invalid JMAP State") {
-						code = JmapInvalidObjectState
+						code = JmapErrorInvalidObjectState
 					}
 				case MethodLevelErrorInvalidResultReference:
 					code = JmapErrorInvalidResultReference
@@ -126,22 +121,20 @@ func command[T any](client Cmdr, //NOSONAR
 				msg := fmt.Sprintf("found method level error in response '%v', type: '%v', description: '%v'", mr.Tag, errorParameters.Type, errorParameters.Description)
 				err = errors.New(msg)
 				logger.Warn().Int("code", code).Str("type", errorParameters.Type).Msg(msg)
-				var zero T
-				return zero, response.SessionState, "", language, jmapResponseError(code, err, errorParameters.Type, errorParameters.Description)
+				return newPartialResult[T](response.SessionState, language), jmapResponseError(code, err, errorParameters.Type, errorParameters.Description)
 			} else {
 				code := JmapErrorUnspecifiedType
 				msg := fmt.Sprintf("found method level error in response '%v'", mr.Tag)
 				err := errors.New(msg)
 				logger.Warn().Int("code", code).Msg(msg)
-				var zero T
-				return zero, response.SessionState, "", language, jmapResponseError(code, err, errorParameters.Type, errorParameters.Description)
+				return newPartialResult[T](response.SessionState, language), jmapResponseError(code, err, errorParameters.Type, errorParameters.Description)
 			}
 		}
 	}
 
 	result, state, jerr := mapper(&response)
 	sessionState := response.SessionState
-	return result, sessionState, state, language, jerr
+	return newResult(result, sessionState, state, language), jerr
 }
 
 func mapstructStringToTimeHook() mapstructure.DecodeHookFunc {

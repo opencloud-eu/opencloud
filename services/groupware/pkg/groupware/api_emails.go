@@ -24,7 +24,7 @@ import (
 // Get the changes tp Emails since a certain State.
 // @api:tags email,changes
 func (g *Groupware) GetEmailChanges(w http.ResponseWriter, r *http.Request) {
-	changes(Email, w, r, g, func(accountId string, sinceState jmap.State, maxChanges uint, ctx jmap.Context) (jmap.EmailChanges, jmap.SessionState, jmap.State, jmap.Language, jmap.Error) {
+	changes(Email, w, r, g, func(accountId string, sinceState jmap.State, maxChanges uint, ctx jmap.Context) (jmap.Result[jmap.EmailChanges], jmap.Error) {
 		return g.jmap.GetEmailChanges(accountId, sinceState, true, g.config.maxBodyValueBytes, maxChanges, ctx)
 	})
 }
@@ -42,25 +42,26 @@ func (g *Groupware) GetAllEmailsInMailbox(w http.ResponseWriter, r *http.Request
 	fetchBodies := false
 	withThreads := true
 	query(Email, w, r, g, g.defaults.emailLimit,
-		func(req Request, accountId, containerId string, position int, anchor string, anchorOffset *int, limit *uint, ctx jmap.Context) (*jmap.EmailSearchResults, jmap.SessionState, jmap.State, jmap.Language, *Error) { //NOSONAR
-			emails, sessionState, state, lang, jerr := g.jmap.GetAllEmailsInMailbox(accountId, containerId, position, anchor, anchorOffset, limit, collapseThreads, fetchBodies, g.config.maxBodyValueBytes, withThreads, ctx)
+		func(req Request, accountId, containerId string, position int, anchor string, anchorOffset *int, limit *uint, ctx jmap.Context) (jmap.Result[*jmap.EmailSearchResults], *Error) { //NOSONAR
+			result, jerr := g.jmap.GetAllEmailsInMailbox(accountId, containerId, position, anchor, anchorOffset, limit, collapseThreads, fetchBodies, g.config.maxBodyValueBytes, withThreads, ctx)
 			if jerr != nil {
-				return emails, sessionState, state, lang, req.apiErrorFromJmap(req.observeJmapError(jerr))
+				return jmap.ZeroResult[*jmap.EmailSearchResults](), req.apiErrorFromJmap(req.observeJmapError(jerr))
 			}
 
-			sanitized, err := req.sanitizeEmails(emails.Results)
+			sanitized, err := req.sanitizeEmails(result.Payload.Results)
 			if err != nil {
-				return emails, sessionState, state, lang, err
+				return jmap.ZeroResult[*jmap.EmailSearchResults](), err
 			}
 
-			safe := &jmap.EmailSearchResults{
-				Results:             sanitized,
-				Total:               emails.Total,
-				Limit:               emails.Limit,
-				Position:            emails.Position,
-				CanCalculateChanges: emails.CanCalculateChanges,
-			}
-			return safe, sessionState, state, lang, nil
+			return jmap.RefineResult(result, func(orig *jmap.EmailSearchResults) *jmap.EmailSearchResults {
+				return &jmap.EmailSearchResults{
+					Results:             sanitized,
+					Total:               orig.Total,
+					Limit:               orig.Limit,
+					Position:            orig.Position,
+					CanCalculateChanges: orig.CanCalculateChanges,
+				}
+			}), nil
 		},
 	)
 }
@@ -93,20 +94,20 @@ func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) { //NO
 
 			logger := log.From(req.logger.With().Str(logAccountId, log.SafeString(accountId)).Str("id", log.SafeString(id)).Str("accept", log.SafeString(accept)))
 			ctx := req.ctx.WithLogger(logger)
-			blobId, _, _, _, jerr := g.jmap.GetEmailBlobId(accountId, id, ctx)
+			result, jerr := g.jmap.GetEmailBlobId(accountId, id, ctx)
 			if jerr != nil {
 				return req.apiErrorFromJmap(req.observeJmapError(jerr))
 			}
-			if blobId == "" {
+			if result.Payload == "" {
 				return nil
 			} else {
-				name := blobId + ".eml"
+				name := result.Payload + ".eml"
 				typ := accept
 				accountId, gwerr := req.GetAccountIdForBlob()
 				if gwerr != nil {
 					return gwerr
 				}
-				return req.serveBlob(blobId, name, typ, ctx, accountId, w)
+				return req.serveBlob(result.Payload, name, typ, ctx, accountId, w)
 			}
 		})
 	} else {
@@ -137,34 +138,34 @@ func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) { //NO
 			if len(ids) == 1 {
 				logger := log.From(l.Str(UriParamEmailId, log.SafeString(id)))
 				ctx := req.ctx.WithLogger(logger)
-				emails, _, sessionState, state, lang, jerr := g.jmap.GetEmails(accountId, ids, true, g.config.maxBodyValueBytes, markAsSeen, true, ctx)
+				result, jerr := g.jmap.GetEmails(accountId, ids, true, g.config.maxBodyValueBytes, markAsSeen, true, ctx)
 				if jerr != nil {
-					return req.jmapError(accountId, jerr, sessionState, lang)
+					return req.jmapError(accountId, jerr, result)
 				}
-				if len(emails) < 1 {
-					return req.notFound(accountId, sessionState, EmailResponseObjectType, state)
+				if len(result.Payload.List) < 1 {
+					return req.notFound(accountId, EmailResponseObjectType, result)
 				} else {
-					sanitized, err := req.sanitizeEmail(emails[0])
+					sanitized, err := req.sanitizeEmail(result.Payload.List[0])
 					if err != nil {
 						return req.error(accountId, err)
 					}
-					return req.respond(accountId, sanitized, sessionState, EmailResponseObjectType, state, lang)
+					return req.respond(accountId, sanitized, EmailResponseObjectType, result)
 				}
 			} else {
 				logger := log.From(l.Array(UriParamEmailId, log.SafeStringArray(ids)))
 				ctx := req.ctx.WithLogger(logger)
-				emails, _, sessionState, state, lang, jerr := g.jmap.GetEmails(accountId, ids, true, g.config.maxBodyValueBytes, markAsSeen, false, ctx)
+				result, jerr := g.jmap.GetEmails(accountId, ids, true, g.config.maxBodyValueBytes, markAsSeen, false, ctx)
 				if jerr != nil {
-					return req.jmapError(accountId, jerr, sessionState, lang)
+					return req.jmapError(accountId, jerr, result)
 				}
-				if len(emails) < 1 {
-					return req.notFound(accountId, sessionState, EmailResponseObjectType, state)
+				if len(result.Payload.List) < 1 {
+					return req.notFound(accountId, EmailResponseObjectType, result)
 				} else {
-					sanitized, err := req.sanitizeEmails(emails)
+					sanitized, err := req.sanitizeEmails(result.Payload.List)
 					if err != nil {
 						return req.error(accountId, err)
 					}
-					return req.respond(accountId, sanitized, sessionState, EmailResponseObjectType, state, lang)
+					return req.respond(accountId, sanitized, EmailResponseObjectType, result)
 				}
 			}
 		})
@@ -211,19 +212,19 @@ func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) 
 
 			logger := log.From(l)
 			ctx := req.ctx.WithLogger(logger)
-			emails, _, sessionState, state, lang, jerr := g.jmap.GetEmails(accountId, single(id), false, 0, false, false, ctx)
+			result, jerr := g.jmap.GetEmails(accountId, single(id), false, 0, false, false, ctx)
 			if jerr != nil {
-				return req.jmapError(accountId, jerr, sessionState, lang)
+				return req.jmapError(accountId, jerr, result)
 			}
-			if len(emails) < 1 {
-				return req.notFound(accountId, sessionState, EmailResponseObjectType, state)
+			if len(result.Payload.List) < 1 {
+				return req.notFound(accountId, EmailResponseObjectType, result)
 			}
-			email, err := req.sanitizeEmail(emails[0])
+			email, err := req.sanitizeEmail(result.Payload.List[0])
 			if err != nil {
 				return req.error(accountId, err)
 			}
 			var body []jmap.EmailBodyPart = email.Attachments
-			return req.respond(accountId, body, sessionState, EmailResponseObjectType, state, lang)
+			return req.respond(accountId, body, EmailResponseObjectType, result)
 		})
 	} else {
 		g.stream(w, r, func(req Request, w http.ResponseWriter) *Error {
@@ -248,15 +249,15 @@ func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) 
 			l = contextAppender(l)
 			logger := log.From(l)
 			ctx := req.ctx.WithLogger(logger)
-			emails, _, _, _, lang, jerr := g.jmap.GetEmails(mailAccountId, single(id), false, 0, false, false, ctx)
+			result, jerr := g.jmap.GetEmails(mailAccountId, single(id), false, 0, false, false, ctx)
 			if jerr != nil {
 				return req.apiErrorFromJmap(req.observeJmapError(jerr))
 			}
-			if len(emails) < 1 {
+			if len(result.Payload.List) < 1 {
 				return nil
 			}
 
-			email, err := req.sanitizeEmail(emails[0])
+			email, err := req.sanitizeEmail(result.Payload.List[0])
 			if err != nil {
 				return err
 			}
@@ -333,12 +334,12 @@ func (g *Groupware) getEmailsSince(w http.ResponseWriter, r *http.Request, since
 
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
-		changes, sessionState, state, lang, jerr := g.jmap.GetEmailChanges(accountId, since, true, g.config.maxBodyValueBytes, maxChanges, ctx)
+		result, jerr := g.jmap.GetEmailChanges(accountId, since, true, g.config.maxBodyValueBytes, maxChanges, ctx)
 		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
+			return req.jmapError(accountId, jerr, result)
 		}
 
-		return req.respond(accountId, changes, sessionState, EmailResponseObjectType, state, lang)
+		return req.respond(accountId, result.Payload, EmailResponseObjectType, result)
 	})
 }
 
@@ -583,12 +584,12 @@ func (g *Groupware) GetEmails(w http.ResponseWriter, r *http.Request) { //NOSONA
 				jmaplimit = UintPtrOne
 			}
 
-			resultsByAccount, sessionState, state, lang, jerr := g.jmap.QueryEmailsWithSnippets(single(accountId), filter, position, anchor, anchorOffset, jmaplimit, collapseThreads, calculateTotal, fetchBodies, g.config.maxBodyValueBytes, ctx)
+			result, jerr := g.jmap.QueryEmailsWithSnippets(single(accountId), filter, position, anchor, anchorOffset, jmaplimit, collapseThreads, calculateTotal, fetchBodies, g.config.maxBodyValueBytes, ctx)
 			if jerr != nil {
-				return req.jmapError(accountId, jerr, sessionState, lang)
+				return req.jmapError(accountId, jerr, result)
 			}
 
-			if results, ok := resultsByAccount[accountId]; ok {
+			if results, ok := result.Payload[accountId]; ok {
 				var flattened []EmailWithSnippets
 				if limit != nil && *limit == 0 {
 					flattened = nil
@@ -628,9 +629,9 @@ func (g *Groupware) GetEmails(w http.ResponseWriter, r *http.Request) { //NOSONA
 					Total:    ptrIf(results.Total, calculateTotal),
 					Position: results.Position,
 					Limit:    rlimit,
-				}, sessionState, EmailResponseObjectType, state, lang)
+				}, EmailResponseObjectType, result)
 			} else {
-				return req.notFound(accountId, sessionState, EmailResponseObjectType, state)
+				return req.notFound(accountId, EmailResponseObjectType, result)
 			}
 		})
 	}
@@ -657,14 +658,14 @@ func (g *Groupware) GetEmailsForAllAccounts(w http.ResponseWriter, r *http.Reque
 		}
 
 		if makesSnippets {
-			resultsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryEmailSnippets(allAccountIds, filter, position, anchor, anchorOffset, jmaplimit, ctx)
+			result, jerr := g.jmap.QueryEmailSnippets(allAccountIds, filter, position, anchor, anchorOffset, jmaplimit, ctx)
 			if jerr != nil {
-				return req.jmapErrorN(allAccountIds, jerr, sessionState, lang)
+				return req.jmapErrorN(allAccountIds, jerr, result)
 			}
 
 			var totalOverAllAccounts uint = 0
 			total := 0
-			for _, results := range resultsByAccountId {
+			for _, results := range result.Payload {
 				if results.Total != nil {
 					totalOverAllAccounts += *results.Total
 				}
@@ -678,7 +679,7 @@ func (g *Groupware) GetEmailsForAllAccounts(w http.ResponseWriter, r *http.Reque
 				flattened = make([]Snippet, total)
 				{
 					i := 0
-					for accountId, results := range resultsByAccountId {
+					for accountId, results := range result.Payload {
 						for _, result := range results.Results {
 							flattened[i] = Snippet{
 								AccountId:             accountId,
@@ -699,19 +700,19 @@ func (g *Groupware) GetEmailsForAllAccounts(w http.ResponseWriter, r *http.Reque
 				Limit:   limit,
 			}
 
-			return req.respondN(allAccountIds, body, sessionState, EmailResponseObjectType, state, lang)
+			return req.respondN(allAccountIds, body, EmailResponseObjectType, result)
 		} else {
 			withThreads := true
 			calculateTotal := true
 
-			resultsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryEmailSummaries(allAccountIds, filter, position, anchor, anchorOffset, jmaplimit, withThreads, calculateTotal, ctx)
+			result, jerr := g.jmap.QueryEmailSummaries(allAccountIds, filter, position, anchor, anchorOffset, jmaplimit, withThreads, calculateTotal, ctx)
 			if jerr != nil {
-				return req.jmapErrorN(allAccountIds, jerr, sessionState, lang)
+				return req.jmapErrorN(allAccountIds, jerr, result)
 			}
 
 			var totalAcrossAllAccounts uint = 0
 			total := 0
-			for _, results := range resultsByAccountId {
+			for _, results := range result.Payload {
 				totalAcrossAllAccounts += results.Total
 				total += len(results.Emails)
 			}
@@ -723,7 +724,7 @@ func (g *Groupware) GetEmailsForAllAccounts(w http.ResponseWriter, r *http.Reque
 				flattened = make([]jmap.Email, total)
 				{
 					i := 0
-					for accountId, results := range resultsByAccountId {
+					for accountId, results := range result.Payload {
 						for _, result := range results.Emails {
 							result.AccountId = accountId
 							flattened[i] = result
@@ -743,7 +744,7 @@ func (g *Groupware) GetEmailsForAllAccounts(w http.ResponseWriter, r *http.Reque
 				Limit:   limit,
 			}
 
-			return req.respondN(allAccountIds, body, sessionState, EmailResponseObjectType, state, lang)
+			return req.respondN(allAccountIds, body, EmailResponseObjectType, result)
 		}
 	})
 }
@@ -754,12 +755,12 @@ var draftEmailAutoMailboxRolePrecedence = []string{
 }
 
 func findDraftsMailboxId(j *jmap.Client, accountId string, req Request, ctx jmap.Context) (string, Response) {
-	mailboxIdsPerAccountIds, sessionState, _, lang, jerr := j.SearchMailboxIdsPerRole(single(accountId), draftEmailAutoMailboxRolePrecedence, ctx)
+	result, jerr := j.SearchMailboxIdsPerRole(single(accountId), draftEmailAutoMailboxRolePrecedence, ctx)
 	if jerr != nil {
-		return "", req.jmapError(accountId, jerr, sessionState, lang)
+		return "", req.jmapError(accountId, jerr, result)
 	} else {
 		for _, role := range draftEmailAutoMailboxRolePrecedence {
-			if mailboxId, ok := mailboxIdsPerAccountIds[accountId][role]; ok {
+			if mailboxId, ok := result.Payload[accountId][role]; ok {
 				return mailboxId, Response{}
 			}
 		}
@@ -777,13 +778,13 @@ var sentEmailAutoMailboxRolePrecedence = []string{
 var draftAndSentMailboxRoles = structs.Uniq(structs.Concat(draftEmailAutoMailboxRolePrecedence, sentEmailAutoMailboxRolePrecedence))
 
 func findSentMailboxId(j *jmap.Client, accountId string, req Request, ctx jmap.Context) (string, string, Response) { //NOSONAR
-	mailboxIdsPerAccountIds, sessionState, _, lang, jerr := j.SearchMailboxIdsPerRole(single(accountId), draftAndSentMailboxRoles, ctx)
+	result, jerr := j.SearchMailboxIdsPerRole(single(accountId), draftAndSentMailboxRoles, ctx)
 	if jerr != nil {
-		return "", "", req.jmapError(accountId, jerr, sessionState, lang)
+		return "", "", req.jmapError(accountId, jerr, result)
 	} else {
 		sentMailboxId := ""
 		for _, role := range sentEmailAutoMailboxRolePrecedence {
-			if mailboxId, ok := mailboxIdsPerAccountIds[accountId][role]; ok {
+			if mailboxId, ok := result.Payload[accountId][role]; ok {
 				sentMailboxId = mailboxId
 				break
 			}
@@ -793,7 +794,7 @@ func findSentMailboxId(j *jmap.Client, accountId string, req Request, ctx jmap.C
 		}
 		draftsMailboxId := ""
 		for _, role := range draftEmailAutoMailboxRolePrecedence {
-			if mailboxId, ok := mailboxIdsPerAccountIds[accountId][role]; ok {
+			if mailboxId, ok := result.Payload[accountId][role]; ok {
 				draftsMailboxId = mailboxId
 				break
 			}
@@ -810,7 +811,10 @@ func (g *Groupware) CreateEmail(w http.ResponseWriter, r *http.Request) {
 		func(r Request, accountId string, body *jmap.EmailChange, ctx jmap.Context) (bool, Response) {
 			if len(body.MailboxIds) < 1 {
 				mailboxId, resp := findDraftsMailboxId(g.jmap, accountId, r, ctx)
-				if mailboxId != "" {
+				if mailboxId != "" && body != nil {
+					if body.MailboxIds == nil {
+						body.MailboxIds = map[string]bool{}
+					}
 					body.MailboxIds[mailboxId] = true
 				} else {
 					return false, resp
@@ -818,7 +822,7 @@ func (g *Groupware) CreateEmail(w http.ResponseWriter, r *http.Request) {
 			}
 			return true, Response{}
 		},
-		func(accountId string, body jmap.EmailChange, ctx jmap.Context) (*jmap.Email, jmap.SessionState, jmap.State, jmap.Language, jmap.Error) {
+		func(accountId string, body jmap.EmailChange, ctx jmap.Context) (jmap.Result[*jmap.Email], jmap.Error) {
 			return g.jmap.CreateEmail(accountId, body, "", ctx)
 		},
 	)
@@ -844,7 +848,7 @@ func (g *Groupware) ReplaceEmail(w http.ResponseWriter, r *http.Request) {
 
 			return true, Response{}
 		},
-		func(accountId string, body jmap.EmailChange, ctx jmap.Context) (*jmap.Email, jmap.SessionState, jmap.State, jmap.Language, jmap.Error) {
+		func(accountId string, body jmap.EmailChange, ctx jmap.Context) (jmap.Result[*jmap.Email], jmap.Error) {
 			ctx = ctx.WithLogger(log.From(ctx.Logger.With().Str("replaceId", replaceId)))
 			return g.jmap.CreateEmail(accountId, body, replaceId, ctx)
 		},
@@ -907,22 +911,22 @@ func (g *Groupware) UpdateEmailKeywords(w http.ResponseWriter, r *http.Request) 
 			emailId: patch,
 		}
 
-		result, sessionState, state, lang, jerr := g.jmap.UpdateEmails(accountId, patches, ctx)
+		result, jerr := g.jmap.UpdateEmails(accountId, patches, ctx)
 		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
+			return req.jmapError(accountId, jerr, result)
 		}
 
-		if result == nil {
+		if result.Payload == nil {
 			return req.error(accountId, apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Missing Email Update Response", //NOSONAR
 				"An internal API behaved unexpectedly: missing Email update response from JMAP endpoint"))) //NOSONAR
 		}
-		updatedEmail, ok := result[emailId]
+		updatedEmail, ok := result.Payload[emailId]
 		if !ok {
 			return req.error(accountId, apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Wrong Email Update Response ID", //NOSONAR
 				"An internal API behaved unexpectedly: wrong Email update ID response from JMAP endpoint"))) //NOSONAR
 		}
 
-		return req.respond(accountId, updatedEmail, sessionState, EmailResponseObjectType, state, lang)
+		return req.respond(accountId, updatedEmail, EmailResponseObjectType, result)
 	})
 }
 
@@ -966,25 +970,25 @@ func (g *Groupware) AddEmailKeywords(w http.ResponseWriter, r *http.Request) { /
 			emailId: patch,
 		}
 
-		result, sessionState, state, lang, jerr := g.jmap.UpdateEmails(accountId, patches, ctx)
+		result, jerr := g.jmap.UpdateEmails(accountId, patches, ctx)
 		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
+			return req.jmapError(accountId, jerr, result)
 		}
 
-		if result == nil {
+		if result.Payload == nil {
 			return req.error(accountId, apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Missing Email Update Response",
 				"An internal API behaved unexpectedly: missing Email update response from JMAP endpoint")))
 		}
-		updatedEmail, ok := result[emailId]
+		updatedEmail, ok := result.Payload[emailId]
 		if !ok {
 			return req.error(accountId, apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Wrong Email Update Response ID",
 				"An internal API behaved unexpectedly: wrong Email update ID response from JMAP endpoint")))
 		}
 
 		if updatedEmail == nil {
-			return req.noContent(accountId, sessionState, EmailResponseObjectType, state)
+			return req.noContent(accountId, EmailResponseObjectType, result)
 		} else {
-			return req.respond(accountId, updatedEmail, sessionState, EmailResponseObjectType, state, lang)
+			return req.respond(accountId, updatedEmail, EmailResponseObjectType, result)
 		}
 	})
 }
@@ -1029,25 +1033,25 @@ func (g *Groupware) RemoveEmailKeywords(w http.ResponseWriter, r *http.Request) 
 			emailId: patch,
 		}
 
-		result, sessionState, state, lang, jerr := g.jmap.UpdateEmails(accountId, patches, ctx)
+		result, jerr := g.jmap.UpdateEmails(accountId, patches, ctx)
 		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
+			return req.jmapError(accountId, jerr, result)
 		}
 
-		if result == nil {
+		if result.Payload == nil {
 			return req.error(accountId, apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Missing Email Update Response",
 				"An internal API behaved unexpectedly: missing Email update response from JMAP endpoint")))
 		}
-		updatedEmail, ok := result[emailId]
+		updatedEmail, ok := result.Payload[emailId]
 		if !ok {
 			return req.error(accountId, apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Wrong Email Update Response ID",
 				"An internal API behaved unexpectedly: wrong Email update ID response from JMAP endpoint")))
 		}
 
 		if updatedEmail == nil {
-			return req.noContent(accountId, sessionState, EmailResponseObjectType, state)
+			return req.noContent(accountId, EmailResponseObjectType, result)
 		} else {
-			return req.respond(accountId, updatedEmail, sessionState, EmailResponseObjectType, state, lang)
+			return req.respond(accountId, updatedEmail, EmailResponseObjectType, result)
 		}
 	})
 }
@@ -1116,12 +1120,12 @@ func (g *Groupware) SendEmail(w http.ResponseWriter, r *http.Request) { //NOSONA
 
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
-		resp, sessionState, state, lang, jerr := g.jmap.SubmitEmail(accountId, identityId, emailId, move, ctx)
+		result, jerr := g.jmap.SubmitEmail(accountId, identityId, emailId, move, ctx)
 		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
+			return req.jmapError(accountId, jerr, result)
 		}
 
-		return req.respond(accountId, resp, sessionState, EmailResponseObjectType, state, lang)
+		return req.respond(accountId, result.Payload, EmailResponseObjectType, result)
 	})
 }
 
@@ -1221,21 +1225,21 @@ func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) { //N
 
 		reqId := req.GetRequestId()
 		getEmailsBefore := time.Now()
-		emails, _, sessionState, state, lang, jerr := g.jmap.GetEmails(accountId, single(id), true, g.config.maxBodyValueBytes, false, false, ctx)
+		result, jerr := g.jmap.GetEmails(accountId, single(id), true, g.config.maxBodyValueBytes, false, false, ctx)
 		getEmailsDuration := time.Since(getEmailsBefore)
 		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
+			return req.jmapError(accountId, jerr, result)
 		}
 
-		if len(emails) < 1 {
+		if len(result.Payload.List) < 1 {
 			req.observe(g.metrics.EmailByIdDuration.WithLabelValues(req.session.JmapEndpoint, metrics.Values.Result.NotFound), getEmailsDuration.Seconds())
 			logger.Trace().Msg("failed to find any emails matching id") // the id is already in the log field
-			return req.notFound(accountId, sessionState, EmailResponseObjectType, state)
+			return req.notFound(accountId, EmailResponseObjectType, result)
 		} else {
 			req.observe(g.metrics.EmailByIdDuration.WithLabelValues(req.session.JmapEndpoint, metrics.Values.Result.Found), getEmailsDuration.Seconds())
 		}
 
-		email := emails[0]
+		email := result.Payload.List[0]
 
 		beacon := email.ReceivedAt // TODO configurable: either relative to when the email was received, or relative to now
 		//beacon := time.Now()
@@ -1247,8 +1251,8 @@ func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) { //N
 		g.job(logger, RelationTypeSameSender, func(jobId uint64, l *log.Logger) {
 			before := time.Now()
 			ctx = ctx.WithLogger(logger).WithContext(bgctx)
-			resultsByAccountId, _, _, lang, jerr := g.jmap.QueryEmails(single(accountId), filter, 0, limit, false, g.config.maxBodyValueBytes, ctx)
-			if results, ok := resultsByAccountId[accountId]; ok {
+			results, jerr := g.jmap.QueryEmails(single(accountId), filter, 0, limit, false, g.config.maxBodyValueBytes, ctx)
+			if results, ok := results.Payload[accountId]; ok {
 				duration := time.Since(before)
 				if jerr != nil {
 					_ = req.observeJmapError(jerr)
@@ -1259,7 +1263,7 @@ func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) { //N
 					if err == nil {
 						l.Trace().Msgf("'%v' found %v other emails", RelationTypeSameSender, len(related))
 						if len(related) > 0 {
-							req.push(RelationEntityEmail, AboutEmailsEvent{Id: reqId, Emails: related, Source: RelationTypeSameSender, Language: lang})
+							req.push(RelationEntityEmail, AboutEmailsEvent{Id: reqId, Emails: related, Source: RelationTypeSameSender, Language: result.GetLanguage()})
 						}
 					}
 				}
@@ -1269,18 +1273,18 @@ func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) { //N
 		g.job(logger, RelationTypeSameThread, func(jobId uint64, l *log.Logger) {
 			before := time.Now()
 			ctx = ctx.WithLogger(logger).WithContext(bgctx)
-			emails, _, _, lang, jerr := g.jmap.EmailsInThread(accountId, email.ThreadId, false, g.config.maxBodyValueBytes, ctx)
+			results, jerr := g.jmap.EmailsInThread(accountId, email.ThreadId, false, g.config.maxBodyValueBytes, ctx)
 			duration := time.Since(before)
 			if jerr != nil {
 				_ = req.observeJmapError(jerr)
 				l.Error().Err(jerr).Msgf("failed to list %v emails", RelationTypeSameThread)
 			} else {
 				req.observe(g.metrics.EmailSameThreadDuration.WithLabelValues(req.session.JmapEndpoint), duration.Seconds())
-				related, err := req.sanitizeEmails(filterEmails(emails, email))
+				related, err := req.sanitizeEmails(filterEmails(results.Payload, email))
 				if err == nil {
 					l.Trace().Msgf("'%v' found %v other emails", RelationTypeSameThread, len(related))
 					if len(related) > 0 {
-						req.push(RelationEntityEmail, AboutEmailsEvent{Id: reqId, Emails: related, Source: RelationTypeSameThread, Language: lang})
+						req.push(RelationEntityEmail, AboutEmailsEvent{Id: reqId, Emails: related, Source: RelationTypeSameThread, Language: result.GetLanguage()})
 					}
 				}
 			}
@@ -1293,7 +1297,7 @@ func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) { //N
 		return req.respond(accountId, AboutEmailResponse{
 			Email:     sanitized,
 			RequestId: reqId,
-		}, sessionState, EmailResponseObjectType, state, lang)
+		}, EmailResponseObjectType, result)
 	})
 }
 
@@ -1562,19 +1566,19 @@ func (g *Groupware) GetLatestEmailsSummaryForAllAccounts(w http.ResponseWriter, 
 
 		calculateTotal := true
 		withThreads := true
-		emailsSummariesByAccount, sessionState, state, lang, jerr := g.jmap.QueryEmailSummaries(allAccountIds, filter, position, anchor, anchorOffset, &limit, withThreads, calculateTotal, ctx)
+		result, jerr := g.jmap.QueryEmailSummaries(allAccountIds, filter, position, anchor, anchorOffset, &limit, withThreads, calculateTotal, ctx)
 		if jerr != nil {
-			return req.jmapErrorN(allAccountIds, jerr, sessionState, lang)
+			return req.jmapErrorN(allAccountIds, jerr, result)
 		}
 
 		// sort in memory to respect the overall limit
 		total := uint(0)
-		for _, emails := range emailsSummariesByAccount {
+		for _, emails := range result.Payload {
 			total += uint(max(len(emails.Emails), 0))
 		}
 		all := make([]emailWithAccountId, total)
 		i := uint(0)
-		for accountId, emails := range emailsSummariesByAccount {
+		for accountId, emails := range result.Payload {
 			for _, email := range emails.Emails {
 				all[i] = emailWithAccountId{accountId: accountId, email: email}
 				i++
@@ -1597,7 +1601,7 @@ func (g *Groupware) GetLatestEmailsSummaryForAllAccounts(w http.ResponseWriter, 
 			body.Total = &total
 		}
 
-		return req.respondN(allAccountIds, body, sessionState, EmailResponseObjectType, state, lang)
+		return req.respondN(allAccountIds, body, EmailResponseObjectType, result)
 	})
 }
 

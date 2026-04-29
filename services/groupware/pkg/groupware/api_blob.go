@@ -36,9 +36,9 @@ func (g *Groupware) UploadBlob(w http.ResponseWriter, r *http.Request) {
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId))
 		ctx := req.ctx.WithLogger(logger)
-		resp, lang, jerr := g.jmap.UploadBlobStream(accountId, contentType, body, ctx)
+		resp, _, jerr := g.jmap.UploadBlobStream(accountId, contentType, body, ctx)
 		if jerr != nil {
-			return req.jmapError(accountId, jerr, req.session.State, lang)
+			return req.jmapError(accountId, jerr, req.session)
 		}
 
 		return req.respondWithoutStatus(accountId, resp)

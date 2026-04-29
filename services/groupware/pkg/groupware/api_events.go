@@ -72,11 +72,15 @@ func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) 
 }
 
 func curryMapQuery[SRES jmap.SearchResults[T], T jmap.Foo, FILTER any, COMP any](
-	f func(accountIds []string, filter FILTER, sortBy []COMP, position int, anchor string, anchorOffset *int, limit *uint, calculateTotal bool, ctx jmap.Context) (map[string]SRES, jmap.SessionState, jmap.State, jmap.Language, jmap.Error),
-) func(req Request, accountId string, filter FILTER, sortBy []COMP, position int, anchor string, anchorOffset *int, limit *uint, ctx jmap.Context) (SRES, jmap.SessionState, jmap.State, jmap.Language, jmap.Error) {
-	return func(req Request, accountId string, filter FILTER, sortBy []COMP, position int, anchor string, anchorOffset *int, limit *uint, ctx jmap.Context) (SRES, jmap.SessionState, jmap.State, jmap.Language, jmap.Error) { //NOSONAR
-		m, sessionState, state, lang, err := f(single(accountId), filter, sortBy, position, anchor, anchorOffset, limit, true, ctx)
-		return m[accountId], sessionState, state, lang, err
+	f func(accountIds []string, filter FILTER, sortBy []COMP, position int, anchor string, anchorOffset *int, limit *uint, calculateTotal bool, ctx jmap.Context) (jmap.Result[map[string]SRES], jmap.Error),
+) func(req Request, accountId string, filter FILTER, sortBy []COMP, position int, anchor string, anchorOffset *int, limit *uint, ctx jmap.Context) (jmap.Result[SRES], jmap.Error) {
+	return func(req Request, accountId string, filter FILTER, sortBy []COMP, position int, anchor string, anchorOffset *int, limit *uint, ctx jmap.Context) (jmap.Result[SRES], jmap.Error) { //NOSONAR
+		result, err := f(single(accountId), filter, sortBy, position, anchor, anchorOffset, limit, true, ctx)
+		if err != nil {
+			return jmap.ZeroResult[SRES](), err
+		} else {
+			return jmap.RefineResult(result, func(m map[string]SRES) SRES { return m[accountId] }), err
+		}
 	}
 }
 
@@ -130,10 +134,10 @@ func (g *Groupware) ParseIcalBlob(w http.ResponseWriter, r *http.Request) {
 		l := req.logger.With().Array(UriParamBlobId, log.SafeStringArray(blobIds))
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
-		resp, sessionState, state, lang, jerr := g.jmap.ParseICalendarBlob(accountId, blobIds, ctx)
+		result, jerr := g.jmap.ParseICalendarBlob(accountId, blobIds, ctx)
 		if jerr != nil {
-			return req.jmapError(accountId, jerr, sessionState, lang)
+			return req.jmapError(accountId, jerr, result)
 		}
-		return req.respond(accountId, resp, sessionState, EventResponseObjectType, state, lang)
+		return req.respond(accountId, result.Payload, EventResponseObjectType, result)
 	})
 }

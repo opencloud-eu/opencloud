@@ -13,21 +13,20 @@ func get[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP any]( //NOSON
 	getCommandFactory func(string, []string) GETREQ,
 	_ GETRESP,
 	mapper func(GETRESP) RESP,
-	accountId string, ids []string, ctx Context) (RESP, SessionState, State, Language, Error) {
+	accountId string, ids []string, ctx Context) (Result[RESP], Error) {
 	ctx = ctx.WithLogger(client.logger(name, ctx))
-
-	var zero RESP
 
 	get := getCommandFactory(accountId, ids)
 	cmd, err := client.request(ctx, objType.Namespaces, invocation(get, "0"))
 	if err != nil {
-		return zero, "", "", "", err
+		return ZeroResult[RESP](), err
 	}
 
 	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
 		var response GETRESP
 		err = retrieveGet(ctx, body, get, "0", &response)
 		if err != nil {
+			var zero RESP
 			return zero, "", err
 		}
 
@@ -40,7 +39,7 @@ func getAN[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP any]( //NOS
 	getCommandFactory func(string, []string) GETREQ,
 	resp GETRESP,
 	respMapper func(map[string][]T) RESP,
-	accountIds []string, ids []string, ctx Context) (RESP, SessionState, State, Language, Error) {
+	accountIds []string, ids []string, ctx Context) (Result[RESP], Error) {
 	return getN(client, name, objType, getCommandFactory, resp,
 		func(r GETRESP) []T { return r.GetList() },
 		respMapper,
@@ -55,11 +54,9 @@ func getN[T Foo, ITEM any, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP an
 	_ GETRESP,
 	itemMapper func(GETRESP) ITEM,
 	respMapper func(map[string]ITEM) RESP,
-	accountIds []string, ids []string, ctx Context) (RESP, SessionState, State, Language, Error) {
+	accountIds []string, ids []string, ctx Context) (Result[RESP], Error) {
 	logger := client.logger(name, ctx)
 	ctx = ctx.WithLogger(logger)
-
-	var zero RESP
 
 	uniqueAccountIds := structs.Uniq(accountIds)
 
@@ -73,7 +70,7 @@ func getN[T Foo, ITEM any, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP an
 
 	cmd, err := client.request(ctx, objType.Namespaces, invocations...)
 	if err != nil {
-		return zero, "", "", "", err
+		return ZeroResult[RESP](), err
 	}
 
 	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
@@ -83,6 +80,7 @@ func getN[T Foo, ITEM any, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP an
 			var resp GETRESP
 			err = retrieveResponseMatchParameters(ctx, body, c, mcid(accountId, "0"), &resp)
 			if err != nil {
+				var zero RESP
 				return zero, "", err
 			}
 			responses[accountId] = resp
@@ -99,7 +97,7 @@ func create[T Foo, C any, SETREQ SetCommand[T], GETREQ GetCommand[T], SETRESP Se
 	createdMapper func(SETRESP) map[string]*T,
 	listMapper func(GETRESP) []T,
 	accountId string, create C,
-	ctx Context) (*T, SessionState, State, Language, Error) {
+	ctx Context) (Result[*T], Error) {
 	logger := client.logger(name, ctx)
 	ctx = ctx.WithLogger(logger)
 
@@ -111,7 +109,7 @@ func create[T Foo, C any, SETREQ SetCommand[T], GETREQ GetCommand[T], SETRESP Se
 		invocation(get, "1"),
 	)
 	if err != nil {
-		return nil, "", "", "", err
+		return ZeroResult[*T](), err
 	}
 
 	return command(client, ctx, cmd, func(body *Response) (*T, State, Error) {
@@ -155,7 +153,7 @@ func create[T Foo, C any, SETREQ SetCommand[T], GETREQ GetCommand[T], SETRESP Se
 
 func destroy[T Foo, REQ SetCommand[T], RESP SetResponse[T]](client *Client, name string, objType ObjectType, //NOSONAR
 	setCommandFactory func(string, []string) REQ, _ RESP,
-	accountId string, destroy []string, ctx Context) (map[string]SetError, SessionState, State, Language, Error) {
+	accountId string, destroy []string, ctx Context) (Result[map[string]SetError], Error) {
 	logger := client.logger(name, ctx)
 	ctx = ctx.WithLogger(logger)
 
@@ -164,7 +162,7 @@ func destroy[T Foo, REQ SetCommand[T], RESP SetResponse[T]](client *Client, name
 		invocation(set, "0"),
 	)
 	if err != nil {
-		return nil, "", "", "", err
+		return ZeroResult[map[string]SetError](), err
 	}
 
 	return command(client, ctx, cmd, func(body *Response) (map[string]SetError, State, Error) {
@@ -184,8 +182,7 @@ func changesA[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGES
 	_ GETRESP,
 	getCommandFactory func(string, string) GETREQ,
 	respMapper func(State, State, bool, []T, []T, []string) RESP,
-	ctx Context) (RESP, SessionState, State, Language, Error) {
-
+	ctx Context) (Result[RESP], Error) {
 	return changes(client, name, objType, changesCommandFactory, changesResp, getCommandFactory,
 		func(r GETRESP) []T { return r.GetList() },
 		respMapper,
@@ -200,9 +197,8 @@ func changes[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESR
 	getCommandFactory func(string, string) GETREQ,
 	getMapper func(GETRESP) []ITEM,
 	respMapper func(State, State, bool, []ITEM, []ITEM, []string) RESP,
-	ctx Context) (RESP, SessionState, State, Language, Error) {
+	ctx Context) (Result[RESP], Error) {
 	logger := client.logger(name, ctx)
-	var zero RESP
 
 	changes := changesCommandFactory()
 	getCreated := getCommandFactory("/created", "0") //NOSONAR
@@ -214,13 +210,14 @@ func changes[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESR
 		invocation(getUpdated, "2"),
 	)
 	if err != nil {
-		return zero, "", "", "", err
+		return ZeroResult[RESP](), err
 	}
 
 	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
 		var changesResponse CHANGESRESP
 		err = retrieveChanges(ctx, body, changes, "0", &changesResponse)
 		if err != nil {
+			var zero RESP
 			return zero, "", err
 		}
 
@@ -228,6 +225,7 @@ func changes[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESR
 		err = retrieveGet(ctx, body, getCreated, "1", &createdResponse)
 		if err != nil {
 			logger.Error().Err(err).Send()
+			var zero RESP
 			return zero, "", err
 		}
 
@@ -235,6 +233,7 @@ func changes[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESR
 		err = retrieveGet(ctx, body, getUpdated, "2", &updatedResponse)
 		if err != nil {
 			logger.Error().Err(err).Send()
+			var zero RESP
 			return zero, "", err
 		}
 
@@ -257,7 +256,7 @@ func changesN[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGES
 	changesItemMapper func(State, State, bool, []ITEM, []ITEM, []string) CHANGESITEM,
 	respMapper func(map[string]CHANGESITEM) RESP,
 	stateMapper func(GETRESP) State,
-	ctx Context) (RESP, SessionState, State, Language, Error) {
+	ctx Context) (Result[RESP], Error) {
 	logger := client.loggerParams(name, ctx, func(z zerolog.Context) zerolog.Context {
 		sinceStateLogDict := zerolog.Dict()
 		for k, v := range sinceStateMap {
@@ -266,12 +265,10 @@ func changesN[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGES
 		return z.Dict(logSinceState, sinceStateLogDict)
 	})
 
-	var zero RESP
-
 	uniqueAccountIds := structs.Uniq(accountIds)
 	n := len(uniqueAccountIds)
 	if n < 1 {
-		return zero, "", "", "", nil
+		return ZeroResult[RESP](), nil
 	}
 
 	invocations := make([]Invocation, n*3)
@@ -302,7 +299,7 @@ func changesN[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGES
 
 	cmd, err := client.request(ctx, objType.Namespaces, invocations...)
 	if err != nil {
-		return zero, "", "", "", err
+		return ZeroResult[RESP](), err
 	}
 
 	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
@@ -312,18 +309,21 @@ func changesN[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGES
 			var changesResponse CHANGESRESP
 			err = retrieveChanges(ctx, body, ch, mcid(accountId, "0"), &changesResponse)
 			if err != nil {
+				var zero RESP
 				return zero, "", err
 			}
 
 			var createdResponse GETRESP
 			err = retrieveGet(ctx, body, gc, mcid(accountId, "1"), &createdResponse)
 			if err != nil {
+				var zero RESP
 				return zero, "", err
 			}
 
 			var updatedResponse GETRESP
 			err = retrieveGet(ctx, body, gu, mcid(accountId, "2"), &updatedResponse)
 			if err != nil {
+				var zero RESP
 				return zero, "", err
 			}
 
@@ -343,10 +343,9 @@ func updates[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESR
 	getCommandFactory func(string, string) GETREQ,
 	getMapper func(GETRESP) []ITEM,
 	respMapper func(State, State, bool, []ITEM) RESP,
-	ctx Context) (RESP, SessionState, State, Language, Error) {
+	ctx Context) (Result[RESP], Error) {
 	logger := client.logger(name, ctx)
 	ctx = ctx.WithLogger(logger)
-	var zero RESP
 
 	changes := changesCommandFactory()
 	getUpdated := getCommandFactory("/updated", "0") //NOSONAR
@@ -355,13 +354,14 @@ func updates[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESR
 		invocation(getUpdated, "1"),
 	)
 	if err != nil {
-		return zero, "", "", "", err
+		return ZeroResult[RESP](), err
 	}
 
 	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
 		var changesResponse CHANGESRESP
 		err = retrieveChanges(ctx, body, changes, "0", &changesResponse)
 		if err != nil {
+			var zero RESP
 			return zero, "", err
 		}
 
@@ -369,6 +369,7 @@ func updates[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESR
 		err = retrieveGet(ctx, body, getUpdated, "1", &updatedResponse)
 		if err != nil {
 			logger.Error().Err(err).Send()
+			var zero RESP
 			return zero, "", err
 		}
 
@@ -386,41 +387,42 @@ func update[T Foo, CHANGES Change, SET SetCommand[T], GET GetCommand[T], RESP an
 	notUpdatedExtractor func(SETRESP) map[string]SetError,
 	objExtractor func(GETRESP) RESP,
 	id string, changes CHANGES,
-	ctx Context) (RESP, SessionState, State, Language, Error) {
+	ctx Context) (Result[RESP], Error) {
 	logger := client.logger(name, ctx)
 	ctx = ctx.WithLogger(logger)
-
-	var zero RESP
 
 	var update SET
 	{
 		patch, err := changes.AsPatch()
 		if err != nil {
-			return zero, "", "", "", jmapError(err, JmapPatchObjectSerialization)
+			return ZeroResult[RESP](), jmapError(err, JmapErrorPatchObjectSerialization)
 		}
 		update = setCommandFactory(map[string]PatchObject{id: patch})
 	}
 	get := getCommandFactory(id)
 	cmd, err := client.request(ctx, objType.Namespaces, invocation(update, "0"), invocation(get, "1"))
 	if err != nil {
-		return zero, "", "", "", err
+		return ZeroResult[RESP](), err
 	}
 
 	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
 		var setResponse SETRESP
 		err = retrieveSet(ctx, body, update, "0", &setResponse)
 		if err != nil {
+			var zero RESP
 			return zero, setResponse.GetNewState(), err
 		}
 		nc := notUpdatedExtractor(setResponse)
 		setErr, notok := nc[id]
 		if notok {
 			logger.Error().Msgf("%T.NotUpdated returned an error %v", setResponse, setErr)
+			var zero RESP
 			return zero, "", setErrorError(setErr, update.GetObjectType())
 		}
 		var getResponse GETRESP
 		err = retrieveGet(ctx, body, get, "1", &getResponse)
 		if err != nil {
+			var zero RESP
 			return zero, setResponse.GetNewState(), err
 		}
 		return objExtractor(getResponse), setResponse.GetNewState(), nil
@@ -434,7 +436,7 @@ func query[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T]
 	getCommandFactory func(cmd Command, path string, rof string) GET,
 	respMapper func(query QUERYRESP, get GETRESP) *RESP,
 	filter FILTER, sortBy []SORT, position int, anchor string, anchorOffset *int, limit *uint,
-	ctx Context) (*RESP, SessionState, State, Language, Error) {
+	ctx Context) (Result[*RESP], Error) {
 
 	logger := client.logger(name, ctx)
 	ctx = ctx.WithLogger(logger)
@@ -448,7 +450,7 @@ func query[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T]
 
 	cmd, err := client.request(ctx, objType.Namespaces, invocation(query, "0"), invocation(get, "1"))
 	if err != nil {
-		return nil, "", "", "", err
+		return ZeroResult[*RESP](), err
 	}
 
 	return command(client, ctx, cmd, func(body *Response) (*RESP, State, Error) {
@@ -474,7 +476,7 @@ func queryN[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T
 	respMapper func(query QUERYRESP, get GETRESP) *RESP,
 	accountIds []string,
 	filter FILTER, sortBy []SORT, position int, anchor string, anchorOffset *int, limit *uint,
-	ctx Context) (map[string]*RESP, SessionState, State, Language, Error) {
+	ctx Context) (Result[map[string]*RESP], Error) {
 	logger := client.logger(name, ctx)
 	ctx = ctx.WithLogger(logger)
 
@@ -498,7 +500,7 @@ func queryN[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T
 
 	cmd, err := client.request(ctx, objType.Namespaces, invocations...)
 	if err != nil {
-		return nil, "", "", "", err
+		return ZeroResult[map[string]*RESP](), err
 	}
 
 	return command(client, ctx, cmd, func(body *Response) (map[string]*RESP, State, Error) {

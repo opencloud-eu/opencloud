@@ -9,6 +9,7 @@ import (
 type ResponseObjectType string
 
 const (
+	UnspecifiedResponseObjectType      = ResponseObjectType("")
 	IndexResponseObjectType            = ResponseObjectType("index")
 	AccountResponseObjectType          = ResponseObjectType("account")
 	IdentityResponseObjectType         = ResponseObjectType("identity")
@@ -74,12 +75,12 @@ func etaggedResponse(accountIds []string, body any, sessionState jmap.SessionSta
 	}
 }
 
-func (r *Request) respond(accountId string, body any, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State, lang jmap.Language) Response {
-	return etaggedResponse(single(accountId), body, sessionState, objectType, etag, lang)
+func (r *Request) respond(accountId string, body any, objectType ResponseObjectType, result jmap.ResultMetadata) Response {
+	return etaggedResponse(single(accountId), body, result.GetSessionState(), objectType, result.GetState(), result.GetLanguage())
 }
 
-func (r *Request) respondN(accountIds []string, body any, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State, lang jmap.Language) Response {
-	return etaggedResponse(accountIds, body, sessionState, objectType, etag, lang)
+func (r *Request) respondN(accountIds []string, body any, objectType ResponseObjectType, result jmap.ResultMetadata) Response {
+	return etaggedResponse(accountIds, body, result.GetSessionState(), objectType, result.GetState(), result.GetLanguage())
 }
 
 /*
@@ -126,8 +127,8 @@ func noContentResponseWithEtag(accountIds []string, sessionState jmap.SessionSta
 	}
 }
 
-func (r *Request) noContent(accountId string, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State) Response {
-	return noContentResponseWithEtag(single(accountId), sessionState, objectType, etag)
+func (r *Request) noContent(accountId string, objectType ResponseObjectType, result jmap.ResultMetadata) Response {
+	return noContentResponseWithEtag(single(accountId), result.GetSessionState(), objectType, result.GetState())
 }
 
 /*
@@ -166,8 +167,8 @@ func notFoundResponse(accountIds []string, sessionState jmap.SessionState, objec
 	}
 }
 
-func (r *Request) notFound(accountId string, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State) Response {
-	return notFoundResponse(single(accountId), sessionState, objectType, etag)
+func (r *Request) notFound(accountId string, objectType ResponseObjectType, result jmap.ResultMetadata) Response {
+	return notFoundResponse(single(accountId), result.GetSessionState(), objectType, result.GetState())
 }
 
 func etaggedNotFoundResponse(accountIds []string, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State, contentLanguage jmap.Language) Response {

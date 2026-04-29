@@ -38,8 +38,9 @@ const (
 	JmapErrorWssFailedToRetrieveSession
 	JmapErrorSocketPushUnsupported
 	JmapErrorMissingCreatedObject
-	JmapInvalidObjectState
-	JmapPatchObjectSerialization
+	JmapErrorInvalidObjectState
+	JmapErrorPatchObjectSerialization
+	JmapErrorInvalidProperties
 )
 
 var (
@@ -104,5 +105,10 @@ func setErrorError(err SetError, objectType ObjectType) Error {
 	} else {
 		e = fmt.Errorf("failed to modify %s due to %s error: %s", objectType, err.Type, err.Description)
 	}
-	return JmapError{code: JmapErrorSetError, err: e}
+	code := JmapErrorSetError
+	switch err.Type {
+	case SetErrorTypeInvalidProperties:
+		code = JmapErrorInvalidProperties
+	}
+	return JmapError{code: code, err: e}
 }

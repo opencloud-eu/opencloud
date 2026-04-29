@@ -1157,9 +1157,9 @@ func containerTest[OBJ Idable, RESP GetResponse[OBJ], BOXES any, CHANGE Change](
 	acc func(session *Session) string,
 	obj func(RESP) []OBJ,
 	id func(OBJ) string,
-	get func(s *StalwartTest, accountId string, ids []string, ctx Context) (RESP, SessionState, State, Language, Error),
-	update func(s *StalwartTest, accountId string, id string, change CHANGE, ctx Context) (OBJ, SessionState, State, Language, Error),
-	destroy func(s *StalwartTest, accountId string, ids []string, ctx Context) (map[string]SetError, SessionState, State, Language, Error),
+	get func(s *StalwartTest, accountId string, ids []string, ctx Context) (Result[RESP], Error),
+	update func(s *StalwartTest, accountId string, id string, change CHANGE, ctx Context) (Result[OBJ], Error),
+	destroy func(s *StalwartTest, accountId string, ids []string, ctx Context) (Result[map[string]SetError], Error),
 	fill func(s *StalwartTest, t *testing.T, accountId string, count uint, ctx Context, _ User, principalIds []string) (BOXES, []OBJ, SessionState, State, error),
 	change func(OBJ) CHANGE,
 	checkChanged func(t *testing.T, orig OBJ, change CHANGE, changed OBJ),
@@ -1179,10 +1179,10 @@ func containerTest[OBJ Idable, RESP GetResponse[OBJ], BOXES any, CHANGE Change](
 	// we first need to retrieve the list of all the Principals in order to be able to use and test sharing
 	principalIds := []string{}
 	{
-		principals, _, _, _, err := s.client.GetPrincipals(accountId, []string{}, ctx)
+		result, err := s.client.GetPrincipals(accountId, []string{}, ctx)
 		require.NoError(err)
-		require.NotEmpty(principals.List)
-		principalIds = structs.Map(principals.List, func(p Principal) string { return p.Id })
+		require.NotEmpty(result.Payload.List)
+		principalIds = structs.Map(result.Payload.List, func(p Principal) string { return p.Id })
 	}
 
 	ss := EmptySessionState
@@ -1192,37 +1192,43 @@ func containerTest[OBJ Idable, RESP GetResponse[OBJ], BOXES any, CHANGE Change](
 	// from the tests below
 	preExistingIds := []string{}
 	{
-		resp, sessionState, state, _, err := get(s, accountId, []string{}, ctx)
+		result, err := get(s, accountId, []string{}, ctx)
 		require.NoError(err)
-		require.Empty(resp.GetNotFound())
-		objs := obj(resp)
+		require.Empty(result.Payload.GetNotFound())
+		objs := obj(result.Payload)
 		preExistingIds = structs.Map(objs, id)
-		ss = sessionState
-		as = state
+		ss = result.GetSessionState()
+		as = result.GetState()
 	}
 
 	// we are going to create a random amount of objects
 	num := uint(5 + rand.Intn(30))
 	{
-		boxes, all, sessionState, state, err := fill(s, t, accountId, num, ctx, user, principalIds)
-		require.NoError(err)
-		require.Len(all, int(num))
-		ss = sessionState
-		as = state
+		var all []OBJ
+		var boxes BOXES
+		{
+			b, a, sessionState, state, err := fill(s, t, accountId, num, ctx, user, principalIds)
+			require.NoError(err)
+			require.Len(a, int(num))
+			ss = sessionState
+			as = state
+			boxes = b
+			all = a
+		}
 
 		{
 			// lets retrieve all the existing objects by passing an empty ID slice
-			resp, sessionState, state, _, err := get(s, accountId, []string{}, ctx)
+			result, err := get(s, accountId, []string{}, ctx)
 			require.NoError(err)
-			require.Empty(resp.GetNotFound())
-			objs := obj(resp)
+			require.Empty(result.Payload.GetNotFound())
+			objs := obj(result.Payload)
 			// lets skip the objects that already exist since we did not create those
 			found := structs.Filter(objs, func(a OBJ) bool { return !slices.Contains(preExistingIds, id(a)) })
 			require.Len(found, int(num))
 			m := structs.Index(found, id)
 			require.Len(m, int(num))
-			require.Equal(sessionState, ss)
-			require.Equal(state, as)
+			require.Equal(result.GetSessionState(), ss)
+			require.Equal(result.GetState(), as)
 
 			for _, a := range all {
 				i := id(a)
@@ -1232,35 +1238,35 @@ func containerTest[OBJ Idable, RESP GetResponse[OBJ], BOXES any, CHANGE Change](
 				require.Equal(a, found)
 			}
 
-			ss = sessionState
-			as = state
+			ss = result.GetSessionState()
+			as = result.GetState()
 		}
 
 		// lets retrieve every object we created by its ID
 		for _, a := range all {
 			i := id(a)
-			resp, sessionState, state, _, err := get(s, accountId, []string{i}, ctx)
+			result, err := get(s, accountId, []string{i}, ctx)
 			require.NoError(err)
-			require.Empty(resp.GetNotFound())
-			objs := obj(resp)
+			require.Empty(result.Payload.GetNotFound())
+			objs := obj(result.Payload)
 			require.Len(objs, 1)
-			require.Equal(sessionState, ss)
-			require.Equal(state, as)
+			require.Equal(result.GetSessionState(), ss)
+			require.Equal(result.GetState(), as)
 			require.Equal(objs[0], a)
 		}
 
 		// let's retrieve them all by their IDs, but this time all at once
 		{
 			ids := structs.Map(all, id)
-			resp, sessionState, state, _, err := get(s, accountId, ids, ctx)
+			result, err := get(s, accountId, ids, ctx)
 			require.NoError(err)
-			require.Empty(resp.GetNotFound())
-			objs := obj(resp)
+			require.Empty(result.Payload.GetNotFound())
+			objs := obj(result.Payload)
 			require.Len(objs, len(all))
-			require.Equal(sessionState, ss)
-			require.Equal(state, as)
+			require.Equal(result.GetSessionState(), ss)
+			require.Equal(result.GetState(), as)
 			allById := structs.Index(all, id)
-			for _, r := range resp.GetList() {
+			for _, r := range result.Payload.GetList() {
 				a, ok := allById[r.GetId()]
 				require.True(ok, "failed to find object that was retrieved in mass ID request in the list of objects that were created")
 				require.Equal(a, r)
@@ -1271,22 +1277,22 @@ func containerTest[OBJ Idable, RESP GetResponse[OBJ], BOXES any, CHANGE Change](
 		for _, a := range all {
 			i := id(a)
 			ch := change(a)
-			changed, sessionState, state, _, err := update(s, accountId, i, ch, ctx)
+			result, err := update(s, accountId, i, ch, ctx)
 			require.NoError(err)
-			require.NotEqual(a, changed)
-			require.Equal(sessionState, ss)
-			require.NotEqual(state, as)
-			checkChanged(t, a, ch, changed)
+			require.NotEqual(a, result.Payload)
+			require.Equal(result.GetSessionState(), ss)
+			require.NotEqual(result.GetState(), as)
+			checkChanged(t, a, ch, result.Payload)
 		}
 
 		// now lets delete each object that we created, all at once
 		ids := structs.Map(all, id)
 		{
-			errMap, sessionState, state, _, err := destroy(s, accountId, ids, ctx)
+			result, err := destroy(s, accountId, ids, ctx)
 			require.NoError(err)
-			require.Empty(errMap)
-			require.Equal(sessionState, ss)
-			require.NotEqual(state, as)
+			require.Empty(result.Payload)
+			require.Equal(result.GetSessionState(), ss)
+			require.NotEqual(result.GetState(), as)
 		}
 
 		allBoxesAreTicked(t, boxes)

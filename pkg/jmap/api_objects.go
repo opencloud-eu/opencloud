@@ -27,7 +27,7 @@ func (j *Client) GetObjects(accountId string, //NOSONAR
 	quotaIds []string, identityIds []string,
 	emailSubmissionIds []string,
 	ctx Context,
-) (Objects, SessionState, State, Language, Error) {
+) (Result[Objects], Error) {
 	l := j.logger("GetObjects", ctx).With()
 	if len(mailboxIds) > 0 {
 		l = l.Array("mailboxIds", log.SafeStringArray(mailboxIds))
@@ -90,7 +90,7 @@ func (j *Client) GetObjects(accountId string, //NOSONAR
 
 	cmd, err := j.request(ctx, NS_OBJECTS, methodCalls...)
 	if err != nil {
-		return Objects{}, "", "", "", err
+		return ZeroResult[Objects](), err
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (Objects, State, Error) {

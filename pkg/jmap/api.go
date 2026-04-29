@@ -62,3 +62,57 @@ const (
 	logBlobId      = "blob-id"
 	logSinceState  = "since-state"
 )
+
+type ResultMetadata interface {
+	GetSessionState() SessionState
+	GetState() State
+	GetLanguage() Language
+}
+
+type Result[T any] struct {
+	Payload      T
+	SessionState SessionState
+	State        State
+	Language     Language
+}
+
+func RefineResult[A, B any](a Result[A], refiner func(A) B) Result[B] {
+	return newResult(
+		refiner(a.Payload),
+		a.SessionState,
+		a.State,
+		a.Language,
+	)
+}
+
+func (r Result[T]) GetSessionState() SessionState {
+	return r.SessionState
+}
+
+func (r Result[T]) GetState() State {
+	return r.State
+}
+
+func (r Result[T]) GetLanguage() Language {
+	return r.Language
+}
+
+func newResult[T any](result T, sessionState SessionState, state State, language Language) Result[T] {
+	return Result[T]{
+		Payload:      result,
+		SessionState: sessionState,
+		State:        state,
+		Language:     language,
+	}
+}
+
+func newPartialResult[T any](sessionState SessionState, language Language) Result[T] {
+	return Result[T]{
+		SessionState: sessionState,
+		Language:     language,
+	}
+}
+
+func ZeroResult[T any]() Result[T] {
+	return Result[T]{}
+}
