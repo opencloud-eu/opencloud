@@ -2275,6 +2275,61 @@ func (e Exemplar) Objects() Objects {
 	}
 }
 
+func (e Exemplar) IdentityChanges() IdentityChanges {
+	i := e.Identity()
+	return IdentityChanges{
+		HasMoreChanges: true,
+		OldState:       "eu4niez2",
+		NewState:       "oj4aix4o",
+		Updated:        []Identity{i},
+	}
+}
+
+func (e Exemplar) CalendarChanges() CalendarChanges {
+	c := e.Calendar()
+	return CalendarChanges{
+		HasMoreChanges: false,
+		OldState:       "sai9choo",
+		NewState:       "eeth7eid",
+		Updated:        []Calendar{c},
+		Destroyed:      []string{"df", "dt"},
+	}
+}
+
+func (e Exemplar) CalendarEventChanges() CalendarEventChanges {
+	ev := e.CalendarEvent()
+	return CalendarEventChanges{
+		HasMoreChanges: false,
+		OldState:       "reem5ovu",
+		NewState:       "oopu1eev",
+		Updated:        []CalendarEvent{ev},
+		Destroyed:      []string{"zxa", "zxe", "zyy"},
+	}
+}
+
+func (e Exemplar) CalendarEventSearchResults() CalendarEventSearchResults {
+	ev := e.CalendarEvent()
+	return CalendarEventSearchResults{
+		Results:             []CalendarEvent{ev},
+		CanCalculateChanges: true,
+		Position:            ptr(uint(3)),
+		Limit:               ptr(uint(10)),
+		Total:               ptr(uint(4)),
+	}
+}
+
+func (e Exemplar) ContactCardSearchResults() ContactCardSearchResults {
+	c1 := e.ContactCard()
+	c2, _, _ := e.IndividualContactCard()
+	return ContactCardSearchResults{
+		Results:             []ContactCard{c1, c2},
+		CanCalculateChanges: true,
+		Position:            ptr(uint(3)),
+		Limit:               ptr(uint(10)),
+		Total:               ptr(uint(4)),
+	}
+}
+
 func copyTo[B any, A any](a A) B {
 	if b, err := json.Marshal(a); err != nil {
 		panic(err)
