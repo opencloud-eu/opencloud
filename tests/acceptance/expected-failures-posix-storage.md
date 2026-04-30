@@ -325,9 +325,9 @@ _ocdav: api compatibility, return correct status code_
 #### [COPY file/folder to same name is possible (but 500 code error for folder with spaces path)](https://github.com/owncloud/ocis/issues/8711)
 
 - [coreApiSharePublicLink2/copyFromPublicLink.feature:198](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiSharePublicLink2/copyFromPublicLink.feature#L198)
-- [coreApiWebdavProperties/copyFile.feature:1094](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavProperties/copyFile.feature#L1094)
-- [coreApiWebdavProperties/copyFile.feature:1095](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavProperties/copyFile.feature#L1095)
-- [coreApiWebdavProperties/copyFile.feature:1096](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavProperties/copyFile.feature#L1096)
+- [coreApiWebdavCopyCreate/copyFile.feature:1094](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavCopyCreate/copyFile.feature#L1094)
+- [coreApiWebdavCopyCreate/copyFile.feature:1095](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavCopyCreate/copyFile.feature#L1095)
+- [coreApiWebdavCopyCreate/copyFile.feature:1096](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavCopyCreate/copyFile.feature#L1096)
 
 #### [Trying to restore personal file to file of share received folder returns 403 but the share file is deleted (new dav path)](https://github.com/owncloud/ocis/issues/10356)
 

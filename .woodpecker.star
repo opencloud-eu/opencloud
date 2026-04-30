@@ -96,16 +96,18 @@ config = {
     "wopiValidatorTests": {
         "skip": False,
     },
-    "k6LoadTests": {
-        "skip": True,
-    },
     "localApiTests": {
-        "basic": {
+        "basic1": {
             "suites": [
-                "apiArchiver",
-                "apiContract",
-                "apiCors",
-                "apiAsyncUpload",
+                "apiDownloads",
+                "apiDepthInfinity",
+                "apiLocks",
+                "apiActivities",
+            ],
+            "skip": False,
+        },
+        "basic2": {
+            "suites": [
                 "apiDownloads",
                 "apiDepthInfinity",
                 "apiLocks",
@@ -337,33 +339,41 @@ config = {
         },
     },
     "coreApiTests": {
-        "numberOfParts": 7,
+        "numberOfParts": 8,
         "skip": False,
         "skipExceptParts": [],
         "storages": ["posix"],
     },
     "e2eTests": {
-        "part": {
+        "1": {
             "skip": False,
-            "totalParts": 4,  # divide and run all suites in parts (divide pipelines)
-            # suites to skip
-            "xsuites": [
-                "search",
-                "app-provider",
-                "app-provider-onlyOffice",
-                "app-store",
-                "keycloak",
-                "oidc",
-                "ocm",
-                "a11y",
-                "mobile-view",
-                "navigation",
+            "suites": [
+                "journeys",
+                "smoke",
             ],
         },
-        "search": {
+        "2": {
             "skip": False,
-            "suites": ["search"],  # suites to run
+            "suites": [
+                "admin-settings",
+                "spaces",
+            ],
+        },
+        "3": {
+            "skip": False,
+            "suites": [
+                "shares",
+                "search",
+            ],
             "tikaNeeded": True,
+        },
+        "4": {
+            "skip": False,
+            "suites": [
+                "user-settings",
+                "file-action",
+                "embed",
+            ],
         },
     },
     "e2eMultiService": {
@@ -670,9 +680,6 @@ def testPipelines(ctx):
     pipelines += coreApiTestPipeline(ctx)
     pipelines += e2eTestPipeline(ctx)
     pipelines += multiServiceE2ePipeline(ctx)
-
-    if ("skip" not in config["k6LoadTests"] or not config["k6LoadTests"]["skip"]) and ("k6-test" in ctx.build.title.lower() or ctx.build.event == "cron"):
-        pipelines += pipelineDependsOn(k6LoadTests(ctx), savePipelineNumber(ctx))
 
     return pipelines
 
@@ -1425,8 +1432,6 @@ def e2eTestPipeline(ctx):
     defaults = {
         "skip": False,
         "suites": [],
-        "xsuites": [],
-        "totalParts": 0,
         "tikaNeeded": False,
         "reportTracing": False,
         "enableWatchFs": [False],
@@ -1452,11 +1457,8 @@ def e2eTestPipeline(ctx):
 
     pipelines = []
 
-    if "skip-e2e" in ctx.build.title.lower():
-        return pipelines
-
-    if ctx.build.event == "tag":
-        return pipelines
+    if "skip-e2e" in ctx.build.title.lower() or ctx.build.event == "tag":
+        return []
 
     for name, suite in config["e2eTests"].items():
         if "skip" in suite and suite["skip"]:
@@ -1472,22 +1474,14 @@ def e2eTestPipeline(ctx):
         if "[decomposed]" in ctx.build.title.lower():
             params["storages"] = ["decomposed"]
 
-        e2e_args = ""
-        if params["totalParts"] > 0:
-            e2e_args = "--total-parts %d" % params["totalParts"]
-        elif params["suites"]:
-            e2e_args = "--suites %s" % ",".join(params["suites"])
-
-        # suites to skip
-        if params["xsuites"]:
-            e2e_args += " --xsuites %s" % ",".join(params["xsuites"])
+        e2e_args = "--suites %s" % ",".join(params["suites"]) if params["suites"] else ""
 
         if "with-tracing" in ctx.build.title.lower():
             params["reportTracing"] = True
 
         for storage in params["storages"]:
             for watch_fs_enabled in params["enableWatchFs"]:
-                steps_before = \
+                steps = \
                     skipCheckStep(ctx, "e2e-tests") + \
                     evaluateWorkflowStep() + \
                     restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBin"]) + \
@@ -1500,62 +1494,40 @@ def e2eTestPipeline(ctx):
                         extra_server_environment = extra_server_environment,
                         tika_enabled = params["tikaNeeded"],
                         watch_fs_enabled = watch_fs_enabled,
-                    )
-
-                step_e2e = {
-                    "name": "e2e-tests",
-                    "image": OC_CI_NODEJS,
-                    "environment": {
-                        "OC_BASE_URL": OC_DOMAIN,
-                        "HEADLESS": True,
-                        "RETRY": "1",
-                        "WEB_UI_CONFIG_FILE": "%s/%s" % (dirs["base"], dirs["opencloudConfig"]),
-                        "LOCAL_UPLOAD_DIR": "/uploads",
-                        "PLAYWRIGHT_BROWSERS_PATH": "%s/%s" % (dirs["base"], ".playwright"),
-                        "BROWSER": "chromium",
-                        "REPORT_TRACING": params["reportTracing"],
-                        "SLOW_MO": "500",
-                    },
-                    "commands": [
-                        "cd %s/tests/e2e" % dirs["web"],
-                    ],
-                }
-
-                steps_after = uploadTracingResult(ctx)
-
-                if params["totalParts"]:
-                    for index in range(params["totalParts"]):
-                        run_part = index + 1
-                        run_e2e = {}
-                        run_e2e.update(step_e2e)
-                        run_e2e["commands"] = [
+                    ) + \
+                    [{
+                        "name": "e2e-tests",
+                        "image": OC_CI_NODEJS,
+                        "environment": {
+                            "OC_BASE_URL": OC_DOMAIN,
+                            "HEADLESS": True,
+                            "RETRY": "1",
+                            "WEB_UI_CONFIG_FILE": "%s/%s" % (dirs["base"], dirs["opencloudConfig"]),
+                            "LOCAL_UPLOAD_DIR": "/uploads",
+                            "PLAYWRIGHT_BROWSERS_PATH": "%s/%s" % (dirs["base"], ".playwright"),
+                            "BROWSER": "chromium",
+                            "REPORT_TRACING": params["reportTracing"],
+                            "SLOW_MO": "300",
+                        },
+                        "commands": [
                             "cd %s/tests/e2e" % dirs["web"],
-                            "bash run-e2e.sh %s --run-part %d" % (e2e_args, run_part),
-                        ]
-                        pipeline = {
-                            "name": "test-e2e-%s-%s-%s%s" % (name, run_part, storage, "-watchfs" if watch_fs_enabled else ""),
-                            "steps": steps_before + [run_e2e] + steps_after,
-                            "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
-                            "when": e2e_trigger,
-                        }
-                        prefixStepCommands(pipeline, [
-                            ". ./.woodpecker.env",
-                            '[ "$SKIP_WORKFLOW" = "true" ] && exit 0',
-                        ])
-                        pipelines.append(pipeline)
-                else:
-                    step_e2e["commands"].append("bash run-e2e.sh %s" % e2e_args)
-                    pipeline = {
-                        "name": "test-e2e-%s-%s%s" % (name, storage, "-watchfs" if watch_fs_enabled else ""),
-                        "steps": steps_before + [step_e2e] + steps_after,
-                        "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
-                        "when": e2e_trigger,
-                    }
-                    prefixStepCommands(pipeline, [
-                        ". ./.woodpecker.env",
-                        '[ "$SKIP_WORKFLOW" = "true" ] && exit 0',
-                    ])
-                    pipelines.append(pipeline)
+                            "bash run-e2e.sh %s" % e2e_args,
+                        ],
+                    }] + \
+                    uploadTracingResult(ctx)
+
+                pipeline = {
+                    "name": "test-e2e-%s-%s%s" % (name, storage, "-watchfs" if watch_fs_enabled else ""),
+                    "steps": steps,
+                    "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
+                    "when": e2e_trigger,
+                }
+                prefixStepCommands(pipeline, [
+                    ". ./.woodpecker.env",
+                    '[ "$SKIP_WORKFLOW" = "true" ] && exit 0',
+                ])
+                pipelines.append(pipeline)
+
     return pipelines
 
 def multiServiceE2ePipeline(ctx):
@@ -3296,102 +3268,6 @@ def logRequests():
             ],
         },
     }]
-
-def k6LoadTests(ctx):
-    opencloud_remote_environment = {
-        "SSH_OC_REMOTE": {
-            "from_secret": "k6_ssh_opencloud_remote",
-        },
-        "SSH_OC_USERNAME": {
-            "from_secret": "k6_ssh_opencloud_user",
-        },
-        "SSH_OC_PASSWORD": {
-            "from_secret": "k6_ssh_opencloud_pass",
-        },
-        "TEST_SERVER_URL": {
-            "from_secret": "k6_ssh_opencloud_server_url",
-        },
-    }
-    k6_remote_environment = {
-        "SSH_K6_REMOTE": {
-            "from_secret": "k6_ssh_k6_remote",
-        },
-        "SSH_K6_USERNAME": {
-            "from_secret": "k6_ssh_k6_user",
-        },
-        "SSH_K6_PASSWORD": {
-            "from_secret": "k6_ssh_k6_pass",
-        },
-    }
-    environment = {}
-    environment.update(opencloud_remote_environment)
-    environment.update(k6_remote_environment)
-
-    if "skip" in config["k6LoadTests"] and config["k6LoadTests"]["skip"]:
-        return []
-
-    opencloud_git_base_url = "https://raw.githubusercontent.com/%s" % repo_slug
-    script_link = "%s/%s/tests/config/woodpecker/run_k6_tests.sh" % (opencloud_git_base_url, ctx.build.commit)
-
-    event_array = ["cron"]
-
-    if "k6-test" in ctx.build.title.lower():
-        event_array.append("pull_request")
-
-    pipeline = {
-        "name": "test-k6-load",
-        "skip_clone": True,
-        "steps": evaluateWorkflowStep() + [
-            {
-                "name": "k6-load-test",
-                "image": OC_CI_ALPINE,
-                "environment": environment,
-                "commands": [
-                    "curl -s -o run_k6_tests.sh %s" % script_link,
-                    "apk add --no-cache openssh-client sshpass",
-                    "sh %s/run_k6_tests.sh" % (dirs["base"]),
-                ],
-            },
-            {
-                "name": "opencloud-log",
-                "image": OC_CI_ALPINE,
-                "environment": opencloud_remote_environment,
-                "commands": [
-                    "curl -s -o run_k6_tests.sh %s" % script_link,
-                    "apk add --no-cache openssh-client sshpass",
-                    "sh %s/run_k6_tests.sh --opencloud-log" % (dirs["base"]),
-                ],
-                "when": [
-                    {
-                        "status": ["success", "failure"],
-                    },
-                ],
-            },
-            {
-                "name": "open-grafana-dashboard",
-                "image": OC_CI_ALPINE,
-                "commands": [
-                    "echo 'Grafana Dashboard: https://grafana.k6.infra.owncloud.works'",
-                ],
-                "when": [
-                    {
-                        "status": ["success", "failure"],
-                    },
-                ],
-            },
-        ],
-        "depends_on": [],
-        "when": [
-            {
-                "event": event_array,
-            },
-        ],
-    }
-    prefixStepCommands(pipeline, [
-        ". ./.woodpecker.env",
-        '[ "$SKIP_WORKFLOW" = "true" ] && exit 0',
-    ])
-    return [pipeline]
 
 def waitForServices(name, services = []):
     commands = []

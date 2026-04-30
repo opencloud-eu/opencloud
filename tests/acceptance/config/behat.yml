@@ -760,6 +760,15 @@ default:
         - SharingNgContext:
         - WebDavPropertiesContext:
         - OcConfigContext:
+      
+    coreApiWebdavCopyCreate:
+      paths:
+        - "%paths.base%/../features/coreApiWebdavCopyCreate"
+      context: *common_ldap_suite_context
+      contexts:
+        - FeatureContext: *common_feature_context_params
+        - SharingNgContext:
+        - OcConfigContext:
 
   extensions:
     rdx\behatvars\BehatVariablesExtension: ~
