@@ -103,6 +103,10 @@ func DefaultConfig() *config.Config {
 			DisplayName: "name",
 			Groups:      "groups",
 		},
+		OIDCProfilePicture: config.OIDCProfilePicture{
+			Claim:               "",
+			DisableLocalChanges: false,
+		},
 		EnableBasicAuth:               false,
 		InsecureBackends:              false,
 		CSPConfigFileLocation:         "",
