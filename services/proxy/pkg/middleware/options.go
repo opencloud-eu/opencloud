@@ -14,6 +14,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"go-micro.dev/v4/selector"
 	"go-micro.dev/v4/store"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -29,6 +30,8 @@ type Options struct {
 	PolicySelector config.PolicySelector
 	// HTTPClient to use for communication with the oidcAuth provider
 	HTTPClient *http.Client
+	// BackendHTTPClient to use for internal backend HTTP calls
+	BackendHTTPClient *http.Client
 	// UserProvider backend to use for resolving User
 	UserProvider backend.UserBackend
 	// UserRoleAssigner to user for assign a users default role
@@ -43,10 +46,14 @@ type Options struct {
 	OIDCIss string
 	// RevaGatewaySelector to send requests to the reva gateway
 	RevaGatewaySelector pool.Selectable[gateway.GatewayAPIClient]
+	// ServiceSelector to resolve internal HTTP services
+	ServiceSelector selector.Selector
 	// PreSignedURLConfig to configure the middleware
 	PreSignedURLConfig config.PreSignedURL
 	// UserOIDCClaim to read from the oidc claims
 	UserOIDCClaim string
+	// OIDCProfilePicture config for syncing profile pictures from OIDC claims
+	OIDCProfilePicture config.OIDCProfilePicture
 	// UserCS3Claim to use when looking up a user in the CS3 API
 	UserCS3Claim string
 	// TenantOIDCClaim is a JMESPath expression to extract the tenant ID from the OIDC claims.
@@ -116,6 +123,13 @@ func HTTPClient(c *http.Client) Option {
 	}
 }
 
+// BackendHTTPClient provides a function to set the backend http client config option.
+func BackendHTTPClient(c *http.Client) Option {
+	return func(o *Options) {
+		o.BackendHTTPClient = c
+	}
+}
+
 // SettingsRoleService provides a function to set the role service option.
 func SettingsRoleService(rc settingssvc.RoleService) Option {
 	return func(o *Options) {
@@ -158,6 +172,13 @@ func WithRevaGatewaySelector(val pool.Selectable[gateway.GatewayAPIClient]) Opti
 	}
 }
 
+// ServiceSelector provides a function to set the internal service selector option.
+func ServiceSelector(val selector.Selector) Option {
+	return func(o *Options) {
+		o.ServiceSelector = val
+	}
+}
+
 // PreSignedURLConfig provides a function to set the PreSignedURL config
 func PreSignedURLConfig(cfg config.PreSignedURL) Option {
 	return func(o *Options) {
@@ -169,6 +190,13 @@ func PreSignedURLConfig(cfg config.PreSignedURL) Option {
 func UserOIDCClaim(val string) Option {
 	return func(o *Options) {
 		o.UserOIDCClaim = val
+	}
+}
+
+// OIDCProfilePicture provides a function to set the OIDC profile picture config
+func OIDCProfilePicture(val config.OIDCProfilePicture) Option {
+	return func(o *Options) {
+		o.OIDCProfilePicture = val
 	}
 }
 

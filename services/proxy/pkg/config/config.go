@@ -39,6 +39,7 @@ type Config struct {
 	MachineAuthAPIKey             string              `yaml:"machine_auth_api_key" env:"OC_MACHINE_AUTH_API_KEY;PROXY_MACHINE_AUTH_API_KEY" desc:"Machine auth API key used to validate internal requests necessary to access resources from other services." introductionVersion:"1.0.0" mask:"password"`
 	AutoprovisionAccounts         bool                `yaml:"auto_provision_accounts" env:"PROXY_AUTOPROVISION_ACCOUNTS" desc:"Set this to 'true' to automatically provision users that do not yet exist in the users service on-demand upon first sign-in. To use this a write-enabled libregraph user backend needs to be setup an running." introductionVersion:"1.0.0"`
 	AutoProvisionClaims           AutoProvisionClaims `yaml:"auto_provision_claims"`
+	OIDCProfilePicture            OIDCProfilePicture  `yaml:"oidc_profile_picture"`
 	EnableBasicAuth               bool                `yaml:"enable_basic_auth" env:"PROXY_ENABLE_BASIC_AUTH" desc:"Set this to true to enable 'basic authentication' (username/password)." introductionVersion:"1.0.0"`
 	InsecureBackends              bool                `yaml:"insecure_backends" env:"PROXY_INSECURE_BACKENDS" desc:"Disable TLS certificate validation for all HTTP backend connections." introductionVersion:"1.0.0"`
 	BackendHTTPSCACert            string              `yaml:"backend_https_cacert" env:"PROXY_HTTPS_CACERT" desc:"Path/File for the root CA certificate used to validate the server’s TLS certificate for https enabled backend services." introductionVersion:"1.0.0"`
@@ -169,6 +170,12 @@ type AutoProvisionClaims struct {
 	Email       string `yaml:"email" env:"PROXY_AUTOPROVISION_CLAIM_EMAIL" desc:"The name of the OIDC claim that holds the email." introductionVersion:"1.0.0"`
 	DisplayName string `yaml:"display_name" env:"PROXY_AUTOPROVISION_CLAIM_DISPLAYNAME" desc:"The name of the OIDC claim that holds the display name." introductionVersion:"1.0.0"`
 	Groups      string `yaml:"groups" env:"PROXY_AUTOPROVISION_CLAIM_GROUPS" desc:"The name of the OIDC claim that holds the groups." introductionVersion:"1.0.0"`
+}
+
+// OIDCProfilePicture configures profile picture sync for OIDC users.
+type OIDCProfilePicture struct {
+	Claim                string `yaml:"claim" env:"PROXY_OIDC_PROFILE_PICTURE_CLAIM" desc:"The name of the OIDC claim that holds a URL to the user's profile picture. When set, the profile picture will be synced on login."`
+	DisableLocalChanges  bool   `yaml:"disable_local_changes" env:"PROXY_OIDC_PROFILE_PICTURE_DISABLE_LOCAL_CHANGES" desc:"When set, users authenticated via OIDC cannot change their profile picture locally (PUT/PATCH/DELETE on /graph/v1.0/me/photo/$value)."`
 }
 
 // PolicySelector is the toplevel-configuration for different selectors
