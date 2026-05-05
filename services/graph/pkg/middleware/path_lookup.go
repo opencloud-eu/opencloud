@@ -59,8 +59,8 @@ var (
 	errUnauthenticated = errors.New("unauthenticated")
 )
 
-// ResolveGraphPath returns middleware that detects MS Graph colon-syntax
-// path lookup URLs and rewrites them to the canonical
+// ResolveGraphPath returns middleware that detects colon-syntax path
+// lookup URLs and rewrites them to the canonical
 // /{version}/drives/{driveID}/items/{resolvedItemID}{suffix} form before
 // chi performs route matching. The requested API version is preserved
 // (for example, "v1.0" or "v1beta1").
@@ -116,7 +116,7 @@ func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.
 			l.Debug().
 				Str("original", original).
 				Str("rewritten", rewritten).
-				Msg("rewrote MS Graph colon-syntax path")
+				Msg("colon-path resolution: rewrote")
 
 			ctx := context.WithValue(r.Context(), OriginalPathContextKey, original)
 			r = r.WithContext(ctx)
