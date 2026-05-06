@@ -3334,4 +3334,169 @@ class GraphContext implements Context {
 		$response = $this->unmarkFavorite($user, $itemId);
 		$this->featureContext->theHTTPStatusCodeShouldBe(204, '', $response);
 	}
+
+	/**
+	 * Encode a colon-syntax path segment so slashes survive but the
+	 * structural ":" delimiters of the Graph URL remain literal.
+	 *
+	 * @param string $path
+	 *
+	 * @return string
+	 */
+	private function encodeColonPathSegment(string $path): string {
+		$path = \ltrim($path, '/');
+		$parts = \explode('/', $path);
+		$encoded = \array_map('rawurlencode', $parts);
+		return \implode('/', $encoded);
+	}
+
+	/**
+	 * Send a Graph API request and capture the response on FeatureContext.
+	 *
+	 * @param string $user
+	 * @param string $method
+	 * @param string $relativeUrl
+	 *
+	 * @return void
+	 */
+	private function sendGraphRequestAndCaptureResponse(
+		string $user,
+		string $method,
+		string $relativeUrl
+	): void {
+		$response = $this->featureContext->sendingToWithDirectUrl($user, $method, $relativeUrl);
+		$this->featureContext->setResponse($response);
+	}
+
+	/**
+	 * @When /^user "([^"]*)" gets the drive item with colon path "([^"]*)" of space "([^"]*)" using the Graph API version "(v1\.0|v1beta1)"$/
+	 *
+	 * Hits /graph/{version}/drives/{driveID}/root:/{path}, exercising the
+	 * colon-syntax path lookup middleware (root-anchored, no suffix).
+	 *
+	 * @param string $user
+	 * @param string $path
+	 * @param string $spaceName
+	 * @param string $apiVersion
+	 *
+	 * @return void
+	 */
+	public function userGetsDriveItemWithColonPathOfSpace(
+		string $user,
+		string $path,
+		string $spaceName,
+		string $apiVersion
+	): void {
+		$driveId = $this->spacesContext->getSpaceIdByName($user, $spaceName);
+		$encoded = $this->encodeColonPathSegment($path);
+		$url = "/graph/$apiVersion/drives/$driveId/root:/$encoded";
+		$this->sendGraphRequestAndCaptureResponse($user, "GET", $url);
+	}
+
+	/**
+	 * @When /^user "([^"]*)" gets the drive item with colon path "([^"]*)" of space "([^"]*)" with trailing colon using the Graph API version "(v1\.0|v1beta1)"$/
+	 *
+	 * Hits /graph/{version}/drives/{driveID}/root:/{path}: with the optional
+	 * trailing ":" — verifies the middleware accepts both forms.
+	 *
+	 * @param string $user
+	 * @param string $path
+	 * @param string $spaceName
+	 * @param string $apiVersion
+	 *
+	 * @return void
+	 */
+	public function userGetsDriveItemWithColonPathOfSpaceWithTrailingColon(
+		string $user,
+		string $path,
+		string $spaceName,
+		string $apiVersion
+	): void {
+		$driveId = $this->spacesContext->getSpaceIdByName($user, $spaceName);
+		$encoded = $this->encodeColonPathSegment($path);
+		$url = "/graph/$apiVersion/drives/$driveId/root:/$encoded:";
+		$this->sendGraphRequestAndCaptureResponse($user, "GET", $url);
+	}
+
+	/**
+	 * @When /^user "([^"]*)" gets the drive item with colon path "([^"]*)" relative to folder "([^"]*)" of space "([^"]*)" using the Graph API version "(v1\.0|v1beta1)"$/
+	 *
+	 * Hits /graph/{version}/drives/{driveID}/items/{itemID}:/{relPath}, the
+	 * item-anchored colon-syntax form.
+	 *
+	 * @param string $user
+	 * @param string $relPath
+	 * @param string $folderName
+	 * @param string $spaceName
+	 * @param string $apiVersion
+	 *
+	 * @return void
+	 */
+	public function userGetsDriveItemWithColonPathRelativeToFolderOfSpace(
+		string $user,
+		string $relPath,
+		string $folderName,
+		string $spaceName,
+		string $apiVersion
+	): void {
+		$driveId = $this->spacesContext->getSpaceIdByName($user, $spaceName);
+		$folderId = $this->spacesContext->getResourceId($user, $spaceName, $folderName);
+		$encoded = $this->encodeColonPathSegment($relPath);
+		$url = "/graph/$apiVersion/drives/$driveId/items/$folderId:/$encoded";
+		$this->sendGraphRequestAndCaptureResponse($user, "GET", $url);
+	}
+
+	/**
+	 * @When /^user "([^"]*)" lists permissions of the drive item with colon path "([^"]*)" of space "([^"]*)" using the Graph API version "(v1\.0|v1beta1)"$/
+	 *
+	 * Hits /graph/{version}/drives/{driveID}/root:/{path}:/permissions, the
+	 * "colon path with suffix" form (root-anchored colon path + canonical
+	 * sub-route).
+	 *
+	 * @param string $user
+	 * @param string $path
+	 * @param string $spaceName
+	 * @param string $apiVersion
+	 *
+	 * @return void
+	 */
+	public function userListsPermissionsOfDriveItemWithColonPathOfSpace(
+		string $user,
+		string $path,
+		string $spaceName,
+		string $apiVersion
+	): void {
+		$driveId = $this->spacesContext->getSpaceIdByName($user, $spaceName);
+		$encoded = $this->encodeColonPathSegment($path);
+		$url = "/graph/$apiVersion/drives/$driveId/root:/$encoded:/permissions";
+		$this->sendGraphRequestAndCaptureResponse($user, "GET", $url);
+	}
+
+	/**
+	 * @When /^user "([^"]*)" gets the drive item with colon path "([^"]*)" of the personal space of "([^"]*)" using the Graph API version "(v1\.0|v1beta1)"$/
+	 *
+	 * Same as userGetsDriveItemWithColonPathOfSpace, but the request is
+	 * issued by :user against the personal space drive ID of :owner. Used
+	 * for security tests where one user attempts to reach another user's
+	 * resource via colon syntax — should be indistinguishable from a
+	 * not-found result.
+	 *
+	 * @param string $user
+	 * @param string $path
+	 * @param string $owner
+	 * @param string $apiVersion
+	 *
+	 * @return void
+	 */
+	public function userGetsDriveItemWithColonPathOfPersonalSpaceOf(
+		string $user,
+		string $path,
+		string $owner,
+		string $apiVersion
+	): void {
+		$driveId = $this->spacesContext->getSpaceIdByName($owner, "Personal");
+		$encoded = $this->encodeColonPathSegment($path);
+		$url = "/graph/$apiVersion/drives/$driveId/root:/$encoded";
+		$this->sendGraphRequestAndCaptureResponse($user, "GET", $url);
+	}
 }
