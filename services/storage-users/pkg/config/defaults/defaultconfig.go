@@ -151,6 +151,7 @@ func DefaultConfig() *config.Config {
 				PermissionsEndpoint:        "eu.opencloud.api.settings",
 				AsyncUploads:               true,
 				ScanDebounceDelay:          1 * time.Second,
+				ScanFS:                     true,
 				WatchFS:                    false,
 				EnableFSRevisions:          false,
 				InotifyStatsFrequency:      5 * time.Minute,
