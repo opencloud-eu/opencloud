@@ -34,6 +34,15 @@ func ParseResolution(s string) (image.Rectangle, error) {
 // Resolutions is a list of image.Rectangle representing resolutions.
 type Resolutions []image.Rectangle
 
+func (rs Resolutions) contains(resolution image.Rectangle) bool {
+	for _, current := range rs {
+		if current == resolution {
+			return true
+		}
+	}
+	return false
+}
+
 // ParseResolutions creates an instance of Resolutions from resolution strings.
 func ParseResolutions(strs []string) (Resolutions, error) {
 	rs := make(Resolutions, 0, len(strs))

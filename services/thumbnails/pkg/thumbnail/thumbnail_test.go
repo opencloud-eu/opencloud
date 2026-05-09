@@ -1,7 +1,9 @@
 package thumbnail
 
 import (
+	"fmt"
 	"image"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -29,6 +31,94 @@ func (m NoOpManager) BuildKey(_ storage.Request) string {
 
 func (m NoOpManager) Set(_, _ string, _ []byte) error {
 	return nil
+}
+
+type memoryThumbnailStorage struct {
+	files map[string][]byte
+	puts  []string
+}
+
+func newMemoryThumbnailStorage() *memoryThumbnailStorage {
+	return &memoryThumbnailStorage{
+		files: map[string][]byte{},
+	}
+}
+
+func (s *memoryThumbnailStorage) Stat(key string) bool {
+	_, ok := s.files[key]
+	return ok
+}
+
+func (s *memoryThumbnailStorage) Get(key string) ([]byte, error) {
+	content, ok := s.files[key]
+	if !ok {
+		return nil, os.ErrNotExist
+	}
+	return content, nil
+}
+
+func (s *memoryThumbnailStorage) Put(key string, img []byte) error {
+	s.files[key] = img
+	s.puts = append(s.puts, key)
+	return nil
+}
+
+func (s *memoryThumbnailStorage) BuildKey(r storage.Request) string {
+	filetype := "unknown"
+	if len(r.Types) > 0 {
+		filetype = r.Types[0]
+	}
+
+	characteristic := ""
+	if r.Characteristic != "" {
+		characteristic = "-" + r.Characteristic
+	}
+
+	return fmt.Sprintf(
+		"%s/%dx%d%s.%s",
+		r.Checksum,
+		r.Resolution.Dx(),
+		r.Resolution.Dy(),
+		characteristic,
+		filetype,
+	)
+}
+
+type recordingGenerator struct {
+	dimensions image.Rectangle
+	generated  []image.Rectangle
+}
+
+func (g *recordingGenerator) Generate(size image.Rectangle, _ any) (any, error) {
+	g.generated = append(g.generated, size)
+	return size, nil
+}
+
+func (g *recordingGenerator) Dimensions(_ any) (image.Rectangle, error) {
+	return g.dimensions, nil
+}
+
+func (g *recordingGenerator) ProcessorID() string {
+	return "fit"
+}
+
+type recordingEncoder struct{}
+
+func (e recordingEncoder) Encode(w io.Writer, img any) error {
+	rect, ok := img.(image.Rectangle)
+	if !ok {
+		return fmt.Errorf("expected image.Rectangle")
+	}
+	_, err := fmt.Fprintf(w, "%dx%d", rect.Dx(), rect.Dy())
+	return err
+}
+
+func (e recordingEncoder) Types() []string {
+	return []string{typeJpeg}
+}
+
+func (e recordingEncoder) MimeType() string {
+	return "image/jpeg"
 }
 
 func BenchmarkGet(b *testing.B) {
@@ -142,6 +232,79 @@ func TestPrepareRequest(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSimpleManagerGenerateUsesClosestMatchForStorageKey(t *testing.T) {
+	resolutions, _ := ParseResolutions([]string{"64x64", "128x128", "256x256", "512x512"})
+	store := newMemoryThumbnailStorage()
+	generator := &recordingGenerator{
+		dimensions: image.Rect(0, 0, 2000, 1500),
+	}
+	sut := NewSimpleManager(resolutions, store, log.NewLogger(), 7680, 7680)
+	req := Request{
+		Resolution: image.Rect(0, 0, 1000, 1000),
+		Encoder:    recordingEncoder{},
+		Generator:  generator,
+		Checksum:   "1872ade88f3013edeb33decd74a4f947",
+	}
+
+	key, err := sut.Generate(req, image.Rect(0, 0, 2000, 1500))
+
+	assert.NoError(t, err)
+	assert.Equal(t, "1872ade88f3013edeb33decd74a4f947/512x512-fit.jpeg", key)
+	assert.Equal(t, []image.Rectangle{image.Rect(0, 0, 512, 512)}, generator.generated)
+	assert.Equal(t, []string{key}, store.puts)
+	assert.Equal(t, []byte("512x512"), store.files[key])
+	assert.NotContains(t, store.files, "1872ade88f3013edeb33decd74a4f947/1000x1000-fit.jpeg")
+}
+
+func TestSimpleManagerGenerateUsesClosestMatchForCacheHit(t *testing.T) {
+	resolutions, _ := ParseResolutions([]string{"64x64", "128x128", "256x256", "512x512"})
+	store := newMemoryThumbnailStorage()
+	cachedKey := "1872ade88f3013edeb33decd74a4f947/512x512-fit.jpeg"
+	store.files[cachedKey] = []byte("cached")
+	generator := &recordingGenerator{
+		dimensions: image.Rect(0, 0, 2000, 1500),
+	}
+	sut := NewSimpleManager(resolutions, store, log.NewLogger(), 7680, 7680)
+	req := Request{
+		Resolution: image.Rect(0, 0, 1000, 1000),
+		Encoder:    recordingEncoder{},
+		Generator:  generator,
+		Checksum:   "1872ade88f3013edeb33decd74a4f947",
+	}
+
+	key, err := sut.Generate(req, image.Rect(0, 0, 2000, 1500))
+
+	assert.NoError(t, err)
+	assert.Equal(t, cachedKey, key)
+	assert.Empty(t, generator.generated)
+	assert.Empty(t, store.puts)
+}
+
+func TestSimpleManagerCheckThumbnailIgnoresNonConfiguredRequestSize(t *testing.T) {
+	resolutions, _ := ParseResolutions([]string{"64x64", "128x128", "256x256", "512x512"})
+	store := newMemoryThumbnailStorage()
+	store.files["1872ade88f3013edeb33decd74a4f947/1000x1000-fit.jpeg"] = []byte("stale")
+	store.files["1872ade88f3013edeb33decd74a4f947/512x512-fit.jpeg"] = []byte("cached")
+	sut := NewSimpleManager(resolutions, store, log.NewLogger(), 7680, 7680)
+	req := Request{
+		Resolution: image.Rect(0, 0, 1000, 1000),
+		Encoder:    recordingEncoder{},
+		Generator:  &recordingGenerator{},
+		Checksum:   "1872ade88f3013edeb33decd74a4f947",
+	}
+
+	key, exists := sut.CheckThumbnail(req)
+
+	assert.Empty(t, key)
+	assert.False(t, exists)
+
+	req.Resolution = image.Rect(0, 0, 512, 512)
+	key, exists = sut.CheckThumbnail(req)
+
+	assert.Equal(t, "1872ade88f3013edeb33decd74a4f947/512x512-fit.jpeg", key)
+	assert.True(t, exists)
 }
 
 func TestPreviewGenerationTooBigImage(t *testing.T) {

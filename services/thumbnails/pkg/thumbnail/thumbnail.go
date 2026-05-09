@@ -63,6 +63,11 @@ func (s SimpleManager) Generate(r Request, img any) (string, error) {
 		return "", errors.ErrImageTooLarge
 	}
 
+	r.Resolution = match
+	if key, exists := s.checkThumbnail(r); exists {
+		return key, nil
+	}
+
 	thumbnail, err := r.Generator.Generate(match, img)
 	if err != nil {
 		return "", err
@@ -83,6 +88,13 @@ func (s SimpleManager) Generate(r Request, img any) (string, error) {
 
 // CheckThumbnail checks if a thumbnail with the requested attributes exists.
 func (s SimpleManager) CheckThumbnail(r Request) (string, bool) {
+	if len(s.resolutions) > 0 && !s.resolutions.contains(r.Resolution) {
+		return "", false
+	}
+	return s.checkThumbnail(r)
+}
+
+func (s SimpleManager) checkThumbnail(r Request) (string, bool) {
 	k := s.storage.BuildKey(mapToStorageRequest(r))
 	return k, s.storage.Stat(k)
 }
