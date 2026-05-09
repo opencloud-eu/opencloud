@@ -18,7 +18,14 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	thumbnailconfig "github.com/opencloud-eu/opencloud/services/thumbnails/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/thumbnail/storage"
+)
+
+const (
+	testThumbnailChecksum = "1872ade88f3013edeb33decd74a4f947"
+	testMatchedKey        = "18/72/ade88f3013edeb33decd74a4f947/512x512-fit.jpeg"
+	testRequestedKey      = "18/72/ade88f3013edeb33decd74a4f947/1000x1000-fit.jpeg"
 )
 
 type NoOpManager struct {
@@ -31,57 +38,6 @@ func (m NoOpManager) BuildKey(_ storage.Request) string {
 
 func (m NoOpManager) Set(_, _ string, _ []byte) error {
 	return nil
-}
-
-type memoryThumbnailStorage struct {
-	files map[string][]byte
-	puts  []string
-}
-
-func newMemoryThumbnailStorage() *memoryThumbnailStorage {
-	return &memoryThumbnailStorage{
-		files: map[string][]byte{},
-	}
-}
-
-func (s *memoryThumbnailStorage) Stat(key string) bool {
-	_, ok := s.files[key]
-	return ok
-}
-
-func (s *memoryThumbnailStorage) Get(key string) ([]byte, error) {
-	content, ok := s.files[key]
-	if !ok {
-		return nil, os.ErrNotExist
-	}
-	return content, nil
-}
-
-func (s *memoryThumbnailStorage) Put(key string, img []byte) error {
-	s.files[key] = img
-	s.puts = append(s.puts, key)
-	return nil
-}
-
-func (s *memoryThumbnailStorage) BuildKey(r storage.Request) string {
-	filetype := "unknown"
-	if len(r.Types) > 0 {
-		filetype = r.Types[0]
-	}
-
-	characteristic := ""
-	if r.Characteristic != "" {
-		characteristic = "-" + r.Characteristic
-	}
-
-	return fmt.Sprintf(
-		"%s/%dx%d%s.%s",
-		r.Checksum,
-		r.Resolution.Dx(),
-		r.Resolution.Dy(),
-		characteristic,
-		filetype,
-	)
 }
 
 type recordingGenerator struct {
@@ -119,6 +75,31 @@ func (e recordingEncoder) Types() []string {
 
 func (e recordingEncoder) MimeType() string {
 	return "image/jpeg"
+}
+
+func newManagerFixture(t *testing.T) (SimpleManager, storage.FileSystem, *recordingGenerator) {
+	t.Helper()
+
+	resolutions, err := ParseResolutions([]string{"64x64", "128x128", "256x256", "512x512"})
+	assert.NoError(t, err)
+
+	store := storage.NewFileSystemStorage(
+		thumbnailconfig.FileSystemStorage{RootDirectory: t.TempDir()},
+		log.NewLogger(),
+	)
+	generator := &recordingGenerator{dimensions: image.Rect(0, 0, 2000, 1500)}
+	manager := NewSimpleManager(resolutions, store, log.NewLogger(), 7680, 7680)
+
+	return manager, store, generator
+}
+
+func newTestThumbnailRequest(generator Generator, resolution image.Rectangle) Request {
+	return Request{
+		Resolution: resolution,
+		Encoder:    recordingEncoder{},
+		Generator:  generator,
+		Checksum:   testThumbnailChecksum,
+	}
 }
 
 func BenchmarkGet(b *testing.B) {
@@ -235,65 +216,40 @@ func TestPrepareRequest(t *testing.T) {
 }
 
 func TestSimpleManagerGenerateUsesClosestMatchForStorageKey(t *testing.T) {
-	resolutions, _ := ParseResolutions([]string{"64x64", "128x128", "256x256", "512x512"})
-	store := newMemoryThumbnailStorage()
-	generator := &recordingGenerator{
-		dimensions: image.Rect(0, 0, 2000, 1500),
-	}
-	sut := NewSimpleManager(resolutions, store, log.NewLogger(), 7680, 7680)
-	req := Request{
-		Resolution: image.Rect(0, 0, 1000, 1000),
-		Encoder:    recordingEncoder{},
-		Generator:  generator,
-		Checksum:   "1872ade88f3013edeb33decd74a4f947",
-	}
+	sut, store, generator := newManagerFixture(t)
+	req := newTestThumbnailRequest(generator, image.Rect(0, 0, 1000, 1000))
 
 	key, err := sut.Generate(req, image.Rect(0, 0, 2000, 1500))
 
 	assert.NoError(t, err)
-	assert.Equal(t, "1872ade88f3013edeb33decd74a4f947/512x512-fit.jpeg", key)
+	assert.Equal(t, testMatchedKey, key)
 	assert.Equal(t, []image.Rectangle{image.Rect(0, 0, 512, 512)}, generator.generated)
-	assert.Equal(t, []string{key}, store.puts)
-	assert.Equal(t, []byte("512x512"), store.files[key])
-	assert.NotContains(t, store.files, "1872ade88f3013edeb33decd74a4f947/1000x1000-fit.jpeg")
+	assert.False(t, store.Stat(testRequestedKey))
+
+	content, err := store.Get(key)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("512x512"), content)
 }
 
 func TestSimpleManagerGenerateUsesClosestMatchForCacheHit(t *testing.T) {
-	resolutions, _ := ParseResolutions([]string{"64x64", "128x128", "256x256", "512x512"})
-	store := newMemoryThumbnailStorage()
-	cachedKey := "1872ade88f3013edeb33decd74a4f947/512x512-fit.jpeg"
-	store.files[cachedKey] = []byte("cached")
-	generator := &recordingGenerator{
-		dimensions: image.Rect(0, 0, 2000, 1500),
-	}
-	sut := NewSimpleManager(resolutions, store, log.NewLogger(), 7680, 7680)
-	req := Request{
-		Resolution: image.Rect(0, 0, 1000, 1000),
-		Encoder:    recordingEncoder{},
-		Generator:  generator,
-		Checksum:   "1872ade88f3013edeb33decd74a4f947",
-	}
+	sut, store, generator := newManagerFixture(t)
+	req := newTestThumbnailRequest(generator, image.Rect(0, 0, 1000, 1000))
+
+	assert.NoError(t, store.Put(testMatchedKey, []byte("cached")))
 
 	key, err := sut.Generate(req, image.Rect(0, 0, 2000, 1500))
 
 	assert.NoError(t, err)
-	assert.Equal(t, cachedKey, key)
+	assert.Equal(t, testMatchedKey, key)
 	assert.Empty(t, generator.generated)
-	assert.Empty(t, store.puts)
 }
 
 func TestSimpleManagerCheckThumbnailIgnoresNonConfiguredRequestSize(t *testing.T) {
-	resolutions, _ := ParseResolutions([]string{"64x64", "128x128", "256x256", "512x512"})
-	store := newMemoryThumbnailStorage()
-	store.files["1872ade88f3013edeb33decd74a4f947/1000x1000-fit.jpeg"] = []byte("stale")
-	store.files["1872ade88f3013edeb33decd74a4f947/512x512-fit.jpeg"] = []byte("cached")
-	sut := NewSimpleManager(resolutions, store, log.NewLogger(), 7680, 7680)
-	req := Request{
-		Resolution: image.Rect(0, 0, 1000, 1000),
-		Encoder:    recordingEncoder{},
-		Generator:  &recordingGenerator{},
-		Checksum:   "1872ade88f3013edeb33decd74a4f947",
-	}
+	sut, store, generator := newManagerFixture(t)
+	req := newTestThumbnailRequest(generator, image.Rect(0, 0, 1000, 1000))
+
+	assert.NoError(t, store.Put(testRequestedKey, []byte("stale")))
+	assert.NoError(t, store.Put(testMatchedKey, []byte("cached")))
 
 	key, exists := sut.CheckThumbnail(req)
 
@@ -303,7 +259,7 @@ func TestSimpleManagerCheckThumbnailIgnoresNonConfiguredRequestSize(t *testing.T
 	req.Resolution = image.Rect(0, 0, 512, 512)
 	key, exists = sut.CheckThumbnail(req)
 
-	assert.Equal(t, "1872ade88f3013edeb33decd74a4f947/512x512-fit.jpeg", key)
+	assert.Equal(t, testMatchedKey, key)
 	assert.True(t, exists)
 }
 
