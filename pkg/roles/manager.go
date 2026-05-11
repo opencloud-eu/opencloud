@@ -15,7 +15,7 @@ import (
 const (
 	cacheDatabase  = "opencloud-pkg"
 	cacheTableName = "roles"
-	cacheTTL       = time.Hour
+	cacheTTL       = 24 * time.Hour
 )
 
 // Manager manages a cache of roles by fetching unknown roles from the settings.RoleService.

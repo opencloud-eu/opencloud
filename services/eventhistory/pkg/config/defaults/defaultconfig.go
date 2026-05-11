@@ -1,8 +1,6 @@
 package defaults
 
 import (
-	"time"
-
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/eventhistory/pkg/config"
 )
@@ -37,7 +35,7 @@ func DefaultConfig() *config.Config {
 			Nodes:    []string{"127.0.0.1:9233"},
 			Database: "eventhistory",
 			Table:    "",
-			TTL:      336 * time.Hour,
+			TTL:      0,
 		},
 		GRPC: config.GRPCConfig{
 			Addr:      "127.0.0.1:9274",

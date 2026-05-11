@@ -42,7 +42,7 @@ func DefaultConfig() *config.Config {
 		SigningKeys: &config.SigningKeys{
 			Store: "nats-js-kv", // signing keys are read by proxy, so we cannot use memory. It is not shared.
 			Nodes: []string{"127.0.0.1:9233"},
-			TTL:   time.Hour * 12,
+			TTL:   time.Hour * 24,
 		},
 	}
 }

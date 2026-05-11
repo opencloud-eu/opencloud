@@ -42,6 +42,7 @@ func DefaultConfig() *config.Config {
 			Nodes:    []string{"127.0.0.1:9233"},
 			Database: "postprocessing",
 			Table:    "",
+			TTL:      7 * 24 * time.Hour,
 		},
 	}
 }

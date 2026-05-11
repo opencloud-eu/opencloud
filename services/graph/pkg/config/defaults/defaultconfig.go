@@ -114,7 +114,7 @@ func DefaultConfig() *config.Config {
 			Store:    "memory",
 			Nodes:    []string{"127.0.0.1:9233"},
 			Database: "cache-roles",
-			TTL:      time.Hour * 336,
+			TTL:      time.Hour * 24,
 		},
 		Events: config.Events{
 			Endpoint:  "127.0.0.1:9233",

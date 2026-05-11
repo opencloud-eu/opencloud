@@ -166,7 +166,7 @@ func DefaultConfig() *config.Config {
 			Store:    "memory",
 			Nodes:    []string{"127.0.0.1:9233"},
 			Database: "storage-users",
-			TTL:      24 * 60 * time.Second,
+			TTL:      24 * time.Hour,
 		},
 		IDCache: config.IDCache{
 			Store:    "nats-js-kv",
