@@ -4,7 +4,12 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@ScharfViktor, @Sweeistaken, @aduffeck, @dragonchaser, @dschmidt, @fschade, @rhafer, @schweigisito
+@ScharfViktor, @Sweeistaken, @aduffeck, @dragonchaser, @dschmidt, @fschade, @pedropintosilva, @rhafer, @schweigisito
+
+### 📈 Enhancement
+
+- feat: enable EnableRemoteLinkPicker WOPI flag for Collabora Online [[#2663](https://github.com/opencloud-eu/opencloud/pull/2663)]
+- feat(kql): support dotted keys in property restrictions [[#2632](https://github.com/opencloud-eu/opencloud/pull/2632)]
 
 ### 🐛 Bug Fixes
 
@@ -19,10 +24,6 @@
 ### ✅ Tests
 
 - [api-tests] delete PROPATCH favorite tests [[#2689](https://github.com/opencloud-eu/opencloud/pull/2689)]
-
-### 📈 Enhancement
-
-- feat(kql): support dotted keys in property restrictions [[#2632](https://github.com/opencloud-eu/opencloud/pull/2632)]
 
 ### 📚 Documentation
 
