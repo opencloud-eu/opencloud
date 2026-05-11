@@ -14,8 +14,8 @@
 //
 // [Antithesis Go SDK]: https://antithesis.com/docs/using_antithesis/sdk/go/
 // [Antithesis platform]: https://antithesis.com
-// [test properties]: https://antithesis.com/docs/using_antithesis/properties/
-// [workload]: https://antithesis.com/docs/getting_started/first_test/
+// [test properties]: https://antithesis.com/docs/properties_assertions/properties/
+// [workload]: https://antithesis.com/docs/test_templates/first_test/
 // [antithesis-go-generator]: https://antithesis.com/docs/using_antithesis/sdk/go/instrumentor/
 // [triage report]: https://antithesis.com/docs/reports/
 // [here]: https://antithesis.com/docs/using_antithesis/sdk/fallback/

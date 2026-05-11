@@ -2,6 +2,7 @@ package stream
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -11,7 +12,9 @@ import (
 
 	"github.com/cenkalti/backoff"
 	"github.com/go-micro/plugins/v4/events/natsjs"
+	"github.com/nats-io/nats.go/jetstream"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
+	"github.com/opencloud-eu/reva/v2/pkg/events/raw"
 	"github.com/opencloud-eu/reva/v2/pkg/logger"
 )
 
@@ -65,7 +68,38 @@ func NatsFromConfig(connName string, disableDurability bool, cfg NatsConfig) (ev
 		opts = append(opts, natsjs.DisableDurableStreams())
 	}
 
-	return Nats(opts...)
+	s, err := Nats(opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	// apply a MaxAge to the main queue to prevent it from filling up
+	ctx := context.Background()
+	jsConn, err := raw.JetStream(ctx, connName, raw.Config{
+		Endpoint:             cfg.Endpoint,
+		Cluster:              cfg.Cluster,
+		TLSInsecure:          cfg.TLSInsecure,
+		TLSRootCACertificate: cfg.TLSRootCACertificate,
+		EnableTLS:            cfg.EnableTLS,
+		AuthUsername:         cfg.AuthUsername,
+		AuthPassword:         cfg.AuthPassword,
+	})
+	if err != nil {
+		return nil, err
+	}
+	streamCfg := jetstream.StreamConfig{
+		Name:   "main-queue",
+		MaxAge: 7 * 24 * time.Hour,
+	}
+	_, err = jsConn.CreateStream(ctx, streamCfg)
+	if err != nil {
+		// If the stream already exists, update its configuration
+		if err == jetstream.ErrStreamNameAlreadyInUse {
+			_, _ = jsConn.UpdateStream(ctx, streamCfg)
+		}
+	}
+
+	return s, nil
 }
 
 // nats returns a nats streaming client

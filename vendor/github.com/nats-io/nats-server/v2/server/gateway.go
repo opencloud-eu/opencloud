@@ -1156,9 +1156,7 @@ func (c *client) processGatewayInfo(info *Info) {
 				// defensive code above that if we did not register this connection
 				// because we already have an outbound for this name, then
 				// close this connection (and make sure it does not try to reconnect)
-				c.mu.Lock()
-				c.flags.set(noReconnect)
-				c.mu.Unlock()
+				c.setNoReconnect()
 				c.closeConnection(WrongGateway)
 				return
 			}
@@ -1981,7 +1979,7 @@ func (c *client) processGatewayRUnsub(arg []byte) error {
 		return nil
 	} else {
 		// Plain sub, assume optimistic sends, create entry.
-		e = &outsie{ni: make(map[string]struct{}), sl: NewSublistWithCache()}
+		e = &outsie{ni: make(map[string]struct{}), sl: NewSublistForServer(c.srv)}
 		newe = true
 	}
 	// This is when a sub or queue sub is supposed to be in
@@ -2090,7 +2088,7 @@ func (c *client) processGatewayRSub(arg []byte) error {
 	} else if queue == nil {
 		return nil
 	} else {
-		e = &outsie{ni: make(map[string]struct{}), sl: NewSublistWithCache()}
+		e = &outsie{ni: make(map[string]struct{}), sl: NewSublistForServer(c.srv)}
 		newe = true
 		useSl = true
 	}
@@ -2952,6 +2950,16 @@ func getSubjectFromGWRoutedReply(reply []byte, isOldPrefix bool) []byte {
 	return reply[gwSubjectOffset:]
 }
 
+// Returns the subject embedded in the given routed
+// reply subject and whether the prefix was stripped.
+// If the subject is not routed, returns it unchanged.
+func getGWRoutedSubjectOrSelf(subject []byte) ([]byte, bool) {
+	if isGWPrefix, oldPrefix := isGWRoutedSubjectAndIsOldPrefix(subject); isGWPrefix {
+		return getSubjectFromGWRoutedReply(subject, oldPrefix), true
+	}
+	return subject, false
+}
+
 // This should be invoked only from processInboundGatewayMsg() or
 // processInboundRoutedMsg() and is checking if the subject
 // (c.pa.subject) has the _GR_ prefix. If so, this is processed
@@ -3201,7 +3209,7 @@ func (c *client) gatewayAllSubsReceiveStart(info *Info) {
 		e.mode = Transitioning
 		e.Unlock()
 	} else {
-		e := &outsie{sl: NewSublistWithCache()}
+		e := &outsie{sl: NewSublistForServer(c.srv)}
 		e.mode = Transitioning
 		c.mu.Lock()
 		c.gw.outsim.Store(account, e)

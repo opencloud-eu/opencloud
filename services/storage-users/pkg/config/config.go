@@ -204,7 +204,7 @@ type PosixDriver struct {
 
 	EnableFSRevisions bool `yaml:"enable_fs_revisions" env:"STORAGE_USERS_POSIX_ENABLE_FS_REVISIONS" desc:"Allow for generating revisions from changes done to the local storage. Note: This doubles the number of bytes stored on disk because a copy of the current revision is stored to be turned into a revision later." introductionVersion:"1.0.0"`
 
-	ScanFS                   bool          `yaml:"scan_fs" env:"STORAGE_USERS_POSIX_SCAN_FS" desc:"Scan the filesystem at startup for changes and update the metadata accordingly." introductionVersion:"%%NEXT%%"`
+	ScanFS                   bool          `yaml:"scan_fs" env:"STORAGE_USERS_POSIX_SCAN_FS" desc:"Scan the filesystem at startup for changes and update the metadata accordingly." introductionVersion:"6.2.0"`
 	WatchFS                  bool          `yaml:"watch_fs" env:"STORAGE_USERS_POSIX_WATCH_FS" desc:"Enable the filesystem watcher to detect changes to the filesystem. This is used to detect changes to the filesystem and update the metadata accordingly." introductionVersion:"2.0.0"`
 	WatchType                string        `yaml:"watch_type" env:"STORAGE_USERS_POSIX_WATCH_TYPE" desc:"Type of the watcher to use for getting notified about changes to the filesystem. Currently available options are 'inotifywait' (default), 'cephfs', 'gpfswatchfolder' and 'gpfsfileauditlogging'." introductionVersion:"1.0.0"`
 	WatchPath                string        `yaml:"watch_path" env:"STORAGE_USERS_POSIX_WATCH_PATH" desc:"Path to the watch directory/file. Only applies to the 'gpfsfileauditlogging' and 'inotifywait' watcher, in which case it is the path of the file audit log file/base directory to watch." introductionVersion:"1.0.0"`

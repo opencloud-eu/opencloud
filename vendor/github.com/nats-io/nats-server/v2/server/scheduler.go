@@ -19,6 +19,7 @@ import (
 	"io"
 	"math"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/nats-io/nats-server/v2/server/thw"
@@ -77,6 +78,18 @@ func (ms *MsgScheduling) init(seq uint64, subj string, ts int64) {
 	delete(ms.inflight, subj)
 }
 
+func (ms *MsgScheduling) update(subj string, ts int64) {
+	if sched, ok := ms.schedules[subj]; ok {
+		// Remove and add separately, it's for the same sequence, but if replicated
+		// this server could not know the previous timestamp yet.
+		ms.ttls.Remove(sched.seq, sched.ts)
+		ms.ttls.Add(sched.seq, ts)
+		sched.ts = ts
+		delete(ms.inflight, subj)
+		ms.resetTimer()
+	}
+}
+
 func (ms *MsgScheduling) markInflight(subj string) {
 	if _, ok := ms.schedules[subj]; ok {
 		ms.inflight[subj] = struct{}{}
@@ -90,8 +103,7 @@ func (ms *MsgScheduling) isInflight(subj string) bool {
 
 func (ms *MsgScheduling) remove(seq uint64) {
 	if subj, ok := ms.seqToSubj[seq]; ok {
-		delete(ms.seqToSubj, seq)
-		delete(ms.schedules, subj)
+		ms.removeSubject(subj)
 	}
 }
 
@@ -100,6 +112,7 @@ func (ms *MsgScheduling) removeSubject(subj string) {
 		ms.ttls.Remove(sched.seq, sched.ts)
 		delete(ms.schedules, subj)
 		delete(ms.seqToSubj, sched.seq)
+		delete(ms.inflight, subj)
 	}
 }
 
@@ -142,11 +155,12 @@ func (ms *MsgScheduling) resetTimer() {
 	}
 }
 
-func (ms *MsgScheduling) getScheduledMessages(loadMsg func(seq uint64, smv *StoreMsg) *StoreMsg) []*inMsg {
+func (ms *MsgScheduling) getScheduledMessages(loadMsg func(seq uint64, smv *StoreMsg) *StoreMsg, loadLast func(subj string, smv *StoreMsg) *StoreMsg) []*inMsg {
 	var (
-		smv  StoreMsg
-		sm   *StoreMsg
-		msgs []*inMsg
+		smv    StoreMsg
+		srcSmv StoreMsg
+		sm     *StoreMsg
+		msgs   []*inMsg
 	)
 	ms.ttls.ExpireTasks(func(seq uint64, ts int64) bool {
 		// Need to grab the message for the specified sequence, and check
@@ -155,10 +169,26 @@ func (ms *MsgScheduling) getScheduledMessages(loadMsg func(seq uint64, smv *Stor
 		if sm != nil {
 			// If already inflight, don't duplicate a scheduled message. The stream could
 			// be replicated and the scheduled message could take some time to propagate.
-			if ms.isInflight(sm.subj) {
+			subj := sm.subj
+			if ms.isInflight(subj) {
 				return false
 			}
 			// Validate the contents are correct if not, we just remove it from THW.
+			pattern := bytesToString(sliceHeader(JSSchedulePattern, sm.hdr))
+			if pattern == _EMPTY_ {
+				ms.remove(seq)
+				return true
+			}
+			loc, apiErr := loadMessageScheduleLocation(sm.hdr)
+			if apiErr != nil {
+				ms.remove(seq)
+				return true
+			}
+			next, repeat, ok := parseMsgSchedule(pattern, loc, ts)
+			if !ok {
+				ms.remove(seq)
+				return true
+			}
 			ttl, ok := getMessageScheduleTTL(sm.hdr)
 			if !ok {
 				ms.remove(seq)
@@ -169,27 +199,43 @@ func (ms *MsgScheduling) getScheduledMessages(loadMsg func(seq uint64, smv *Stor
 				ms.remove(seq)
 				return true
 			}
+			rollup := getMessageScheduleRollup(sm.hdr)
+			source := getMessageScheduleSource(sm.hdr)
+			if source != _EMPTY_ {
+				// Fall back to the scheduled message's own content if the source has no last message.
+				if srcSm := loadLast(source, &srcSmv); srcSm != nil {
+					sm = srcSm
+				}
+			}
 
 			// Copy, as this is retrieved directly from storage, and we'll need to keep hold of this for some time.
 			// And in the case of headers, we'll copy all of them, but make changes.
 			hdr, msg := copyBytes(sm.hdr), copyBytes(sm.msg)
 
-			// Strip headers specific to the schedule.
-			hdr = removeHeaderIfPresent(hdr, JSSchedulePattern)
-			hdr = removeHeaderIfPrefixPresent(hdr, "Nats-Schedule-")
+			// Strip headers specific to message scheduling.
+			// Covers Nats-Schedule, Nats-Schedule-*, and Nats-Scheduler.
+			hdr = removeHeaderIfPrefixPresent(hdr, "Nats-Schedule")
+			// Strip headers that could prevent persisting this scheduled message.
 			hdr = removeHeaderIfPrefixPresent(hdr, "Nats-Expected-")
 			hdr = removeHeaderIfPresent(hdr, JSMsgId)
 			hdr = removeHeaderIfPresent(hdr, JSMessageTTL)
 			hdr = removeHeaderIfPresent(hdr, JSMsgRollup)
 
 			// Add headers for the scheduled message.
-			hdr = genHeader(hdr, JSScheduler, sm.subj)
-			hdr = genHeader(hdr, JSScheduleNext, JSScheduleNextPurge) // Purge the schedule message itself.
+			hdr = genHeader(hdr, JSScheduler, subj)
+			if !repeat {
+				hdr = genHeader(hdr, JSScheduleNext, JSScheduleNextPurge) // Purge the schedule message itself.
+			} else {
+				hdr = genHeader(hdr, JSScheduleNext, next.Format(time.RFC3339)) // Next time the schedule fires.
+			}
 			if ttl != _EMPTY_ {
 				hdr = genHeader(hdr, JSMessageTTL, ttl)
 			}
+			if rollup != _EMPTY_ {
+				hdr = genHeader(hdr, JSMsgRollup, rollup)
+			}
 			msgs = append(msgs, &inMsg{seq: seq, subj: target, hdr: hdr, msg: msg})
-			ms.markInflight(sm.subj)
+			ms.markInflight(subj)
 			return false
 		}
 		ms.remove(seq)
@@ -260,4 +306,71 @@ func (ms *MsgScheduling) decode(b []byte) (uint64, error) {
 		b = b[tn+vn:]
 	}
 	return stamp, nil
+}
+
+// parseMsgSchedule parses a message schedule pattern and returns the time
+// to fire, whether it is a repeating schedule, and whether the pattern was valid.
+func parseMsgSchedule(pattern string, loc *time.Location, ts int64) (time.Time, bool, bool) {
+	if pattern == _EMPTY_ {
+		return time.Time{}, false, true
+	}
+	// Exact time.
+	if strings.HasPrefix(pattern, "@at ") {
+		// Time zone is not supported for @at.
+		if loc != nil {
+			return time.Time{}, false, false
+		}
+		t, err := time.Parse(time.RFC3339, pattern[4:])
+		return t, false, err == nil
+	}
+	// Repeating on a simple interval.
+	if strings.HasPrefix(pattern, "@every ") {
+		// Time zone is not supported for @every.
+		if loc != nil {
+			return time.Time{}, false, false
+		}
+		dur, err := time.ParseDuration(pattern[7:])
+		if err != nil {
+			return time.Time{}, false, false
+		}
+		// Only allow intervals of at least a second.
+		if dur.Seconds() < 1 {
+			return time.Time{}, false, false
+		}
+		// If this schedule would trigger multiple times, for example after a restart, skip ahead and only fire once.
+		next := time.Unix(0, ts).UTC().Round(time.Second).Add(dur)
+		if now := time.Now().UTC(); next.Before(now) {
+			next = now.Round(time.Second).Add(dur)
+		}
+		return next, true, true
+	}
+
+	// Predefined schedules for cron.
+	switch pattern {
+	case "@yearly", "@annually":
+		pattern = "0 0 0 1 1 *"
+	case "@monthly":
+		pattern = "0 0 0 1 * *"
+	case "@weekly":
+		pattern = "0 0 0 * * 0"
+	case "@daily", "@midnight":
+		pattern = "0 0 0 * * *"
+	case "@hourly":
+		pattern = "0 0 * * * *"
+	}
+
+	// Parse the cron pattern.
+	next, err := parseCron(pattern, loc, ts)
+	if err != nil {
+		return time.Time{}, false, false
+	}
+	// If this schedule would trigger multiple times, for example after a restart, skip ahead and only fire once.
+	if now := time.Now().UTC(); next.Before(now) {
+		ts = now.Round(time.Second).UnixNano()
+		next, err = parseCron(pattern, loc, ts)
+		if err != nil {
+			return time.Time{}, false, false
+		}
+	}
+	return next, true, true
 }

@@ -31,7 +31,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"reflect"
 	"regexp"
 	"runtime"
 	"runtime/pprof"
@@ -234,7 +233,8 @@ type Server struct {
 		resolver    netResolver
 		dialTimeout time.Duration
 	}
-	leafRemoteCfgs     []*leafNodeCfg
+	leafRemoteCfgs     map[*leafNodeCfg]struct{}
+	rmLeafRemoteCfgs   map[string]*leafNodeCfg
 	leafRemoteAccounts sync.Map
 	leafNodeEnabled    bool
 	leafDisableConnect bool // Used in test only
@@ -367,7 +367,8 @@ type Server struct {
 	syncOutSem chan struct{}
 
 	// Queue to process JS API requests that come from routes (or gateways)
-	jsAPIRoutedReqs *ipQueue[*jsAPIRoutedReq]
+	jsAPIRoutedReqs     *ipQueue[*jsAPIRoutedReq]
+	jsAPIRoutedInfoReqs *ipQueue[*jsAPIRoutedReq]
 
 	// Delayed API responses.
 	delayedAPIResponses *ipQueue[*delayedAPIResponse]
@@ -643,32 +644,6 @@ func selectS2AutoModeBasedOnRTT(rtt time.Duration, rttThresholds []time.Duration
 		return CompressionS2Better
 	}
 	return CompressionS2Best
-}
-
-func compressOptsEqual(c1, c2 *CompressionOpts) bool {
-	if c1 == c2 {
-		return true
-	}
-	if (c1 == nil && c2 != nil) || (c1 != nil && c2 == nil) {
-		return false
-	}
-	if c1.Mode != c2.Mode {
-		return false
-	}
-	// For s2_auto, if one has an empty RTTThresholds, it is equivalent
-	// to the defaultCompressionS2AutoRTTThresholds array, so compare with that.
-	if c1.Mode == CompressionS2Auto {
-		if len(c1.RTTThresholds) == 0 && !reflect.DeepEqual(c2.RTTThresholds, defaultCompressionS2AutoRTTThresholds) {
-			return false
-		}
-		if len(c2.RTTThresholds) == 0 && !reflect.DeepEqual(c1.RTTThresholds, defaultCompressionS2AutoRTTThresholds) {
-			return false
-		}
-		if !reflect.DeepEqual(c1.RTTThresholds, c2.RTTThresholds) {
-			return false
-		}
-	}
-	return true
 }
 
 // Returns an array of s2 WriterOption based on the route compression mode.
@@ -1956,12 +1931,7 @@ func (s *Server) registerAccount(acc *Account) *Account {
 // Helper to set the sublist based on preferences.
 func (s *Server) setAccountSublist(acc *Account) {
 	if acc != nil && acc.sl == nil {
-		opts := s.getOpts()
-		if opts != nil && opts.NoSublistCache {
-			acc.sl = NewSublistNoCache()
-		} else {
-			acc.sl = NewSublistWithCache()
-		}
+		acc.sl = NewSublistForServer(s)
 	}
 }
 
@@ -2293,6 +2263,7 @@ func (s *Server) Start() {
 		s.Noticef("  Node:     %s", getHash(s.info.Name))
 	}
 	s.Noticef("  ID:       %s", s.info.ID)
+	s.printFeatureFlags(opts)
 
 	defer s.Noticef("Server is ready")
 
@@ -3586,7 +3557,7 @@ func (s *Server) saveClosedClient(c *client, nc net.Conn, subs map[string]*subsc
 	if c.acc != nil && c.acc.Name != globalAccountName {
 		cc.acc = c.acc.Name
 	}
-	cc.JWT = c.opts.JWT
+	cc.JWT = redactBearerJWT(c.opts.JWT)
 	cc.IssuerKey = issuerForClient(c)
 	cc.Tags = c.tags
 	cc.NameTag = c.nameTag

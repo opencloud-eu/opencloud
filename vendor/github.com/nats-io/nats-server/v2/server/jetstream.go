@@ -25,13 +25,13 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/minio/highwayhash"
+	"github.com/nats-io/nats-server/v2/server/gsl"
 	"github.com/nats-io/nats-server/v2/server/sysmem"
 	"github.com/nats-io/nats-server/v2/server/tpm"
 	"github.com/nats-io/nkeys"
@@ -103,22 +103,26 @@ type JetStreamAPIStats struct {
 // This is for internal accounting for JetStream for this server.
 type jetStream struct {
 	// These are here first because of atomics on 32bit systems.
-	apiInflight   int64
-	apiTotal      int64
-	apiErrors     int64
-	memReserved   int64
-	storeReserved int64
-	memUsed       int64
-	storeUsed     int64
-	queueLimit    int64
-	clustered     int32
-	mu            sync.RWMutex
-	srv           *Server
-	config        JetStreamConfig
-	cluster       *jetStreamCluster
-	accounts      map[string]*jsAccount
-	apiSubs       *Sublist
-	started       time.Time
+	apiInflight    int64
+	apiTotal       int64
+	apiErrors      int64
+	memMax         int64
+	memReserved    int64 // Requires JS lock to be held.
+	memUsed        int64
+	storeMax       int64
+	storeReserved  int64 // Requires JS lock to be held.
+	storeUsed      int64
+	queueLimit     int64
+	infoQueueLimit int64
+	clustered      int32
+	mu             sync.RWMutex
+	srv            *Server
+	config         JetStreamConfig
+	cluster        *jetStreamCluster
+	accounts       map[string]*jsAccount
+	apiSubs        *Sublist
+	infoSubs       *gsl.SimpleSublist // Subjects for info-specific queue.
+	started        time.Time
 
 	// System level request to purge a stream move
 	accountPurge *subscription
@@ -150,14 +154,12 @@ type jsaStorage struct {
 // an internal sub for a stream, so we will direct link to the stream
 // and walk backwards as needed vs multiple hash lookups and locks, etc.
 type jsAccount struct {
-	mu        sync.RWMutex
-	js        *jetStream
-	account   *Account
-	storeDir  string
-	inflight  sync.Map
-	streams   map[string]*stream
-	templates map[string]*streamTemplate // Deprecated: stream templates are deprecated and will be removed in a future version.
-	store     TemplateStore              // Deprecated: stream templates are deprecated and will be removed in a future version.
+	mu       sync.RWMutex
+	js       *jetStream
+	account  *Account
+	storeDir string
+	inflight sync.Map
+	streams  map[string]*stream
 
 	// From server
 	sendq *ipQueue[*pubMsg]
@@ -415,15 +417,19 @@ func (s *Server) initJetStreamEncryption() (err error) {
 
 // enableJetStream will start up the JetStream subsystem.
 func (s *Server) enableJetStream(cfg JetStreamConfig) error {
-	js := &jetStream{srv: s, config: cfg, accounts: make(map[string]*jsAccount), apiSubs: NewSublistNoCache()}
+	js := &jetStream{srv: s, config: cfg, accounts: make(map[string]*jsAccount), apiSubs: NewSublistNoCache(), infoSubs: gsl.NewSimpleSublist()}
 	s.gcbMu.Lock()
 	if s.gcbOutMax = s.getOpts().JetStreamMaxCatchup; s.gcbOutMax == 0 {
 		s.gcbOutMax = defaultMaxTotalCatchupOutBytes
 	}
 	s.gcbMu.Unlock()
 
+	atomic.StoreInt64(&js.memMax, cfg.MaxMemory)
+	atomic.StoreInt64(&js.storeMax, cfg.MaxStore)
+
 	// TODO: Not currently reloadable.
 	atomic.StoreInt64(&js.queueLimit, s.getOpts().JetStreamRequestQueueLimit)
+	atomic.StoreInt64(&js.infoQueueLimit, s.getOpts().JetStreamInfoQueueLimit)
 
 	s.js.Store(js)
 
@@ -1058,8 +1064,10 @@ func (s *Server) shutdownJetStream() {
 func (s *Server) JetStreamConfig() *JetStreamConfig {
 	var c *JetStreamConfig
 	if js := s.getJetStream(); js != nil {
+		js.mu.RLock()
 		copy := js.config
 		c = &(copy)
+		js.mu.RUnlock()
 	}
 	return c
 }
@@ -1217,54 +1225,6 @@ func (a *Account) EnableJetStream(limits map[string]JetStreamAccountLimits, tq c
 	} else {
 		// Restore any state here.
 		s.Debugf("Recovering JetStream state for account %q", a.Name)
-	}
-
-	// Check templates first since messsage sets will need proper ownership.
-	// FIXME(dlc) - Make this consistent.
-	tdir := filepath.Join(jsa.storeDir, tmplsDir)
-	if stat, err := os.Stat(tdir); err == nil && stat.IsDir() {
-		key := sha256.Sum256([]byte("templates"))
-		hh, err := highwayhash.NewDigest64(key[:])
-		if err != nil {
-			return err
-		}
-		fis, _ := os.ReadDir(tdir)
-		for _, fi := range fis {
-			metafile := filepath.Join(tdir, fi.Name(), JetStreamMetaFile)
-			metasum := filepath.Join(tdir, fi.Name(), JetStreamMetaFileSum)
-			buf, err := os.ReadFile(metafile)
-			if err != nil {
-				s.Warnf("  Error reading StreamTemplate metafile %q: %v", metasum, err)
-				continue
-			}
-			if _, err := os.Stat(metasum); os.IsNotExist(err) {
-				s.Warnf("  Missing StreamTemplate checksum for %q", metasum)
-				continue
-			}
-			sum, err := os.ReadFile(metasum)
-			if err != nil {
-				s.Warnf("  Error reading StreamTemplate checksum %q: %v", metasum, err)
-				continue
-			}
-			hh.Reset()
-			hh.Write(buf)
-			var hb [highwayhash.Size64]byte
-			checksum := hex.EncodeToString(hh.Sum(hb[:0]))
-			if checksum != string(sum) {
-				s.Warnf("  StreamTemplate checksums do not match %q vs %q", sum, checksum)
-				continue
-			}
-			var cfg StreamTemplateConfig
-			if err := json.Unmarshal(buf, &cfg); err != nil {
-				s.Warnf("  Error unmarshalling StreamTemplate metafile: %v", err)
-				continue
-			}
-			cfg.Config.Name = _EMPTY_
-			if _, err := a.addStreamTemplate(&cfg); err != nil {
-				s.Warnf("  Error recreating StreamTemplate %q: %v", cfg.Name, err)
-				continue
-			}
-		}
 	}
 
 	// Remember if we should be encrypted and what cipher we think we should use.
@@ -1510,15 +1470,6 @@ func (a *Account) EnableJetStream(limits map[string]JetStreamAccountLimits, tq c
 			return nil
 		}
 
-		if cfg.Template != _EMPTY_ {
-			jsa.mu.Lock()
-			err := jsa.addStreamNameToTemplate(cfg.Template, cfg.Name)
-			jsa.mu.Unlock()
-			if err != nil {
-				s.Warnf("  Error adding stream %q to template %q: %v", cfg.Name, cfg.Template, err)
-			}
-		}
-
 		// We had a bug that set a default de dupe window on mirror, despite that being not a valid config
 		fixCfgMirrorWithDedupWindow(&cfg.StreamConfig)
 
@@ -1587,6 +1538,7 @@ func (a *Account) EnableJetStream(limits map[string]JetStreamAccountLimits, tq c
 				batchId       string
 				batchSeq      uint64
 				commit        bool
+				commitEob     bool
 				batchStoreDir string
 				store         StreamStore
 				state         StreamState
@@ -1604,19 +1556,30 @@ func (a *Account) EnableJetStream(limits map[string]JetStreamAccountLimits, tq c
 			}
 			// We've observed a partial batch write. Write the remainder of the batch.
 			batchSeq++
-			_, batchStoreDir = getBatchStoreDir(mset, batchId)
+			_, batchStoreDir = getBatchStoreDir(jsa.storeDir, cfg.Name, batchId)
 			if _, err = os.Stat(batchStoreDir); err != nil {
 				s.Errorf("  Failed restoring partial batch write for stream '%s > %s' at sequence %d: %v",
 					mset.accName(), mset.name(), batchSeq, err)
 				goto SKIP
 			}
-			store, err = newBatchStore(mset, batchId)
+			store, err = newBatchStore(mset, batchId, cfg.Replicas, cfg.Storage, jsa.storeDir, cfg.Name)
 			if err != nil {
 				s.Errorf("  Failed restoring partial batch write for stream '%s > %s' at sequence %d: %v",
 					mset.accName(), mset.name(), batchSeq, err)
 				goto SKIP
 			}
 			store.FastState(&state)
+			sm, err = store.LoadMsg(state.LastSeq, &smv)
+			if err != nil || sm == nil {
+				s.Errorf("  Failed restoring partial batch write for stream '%s > %s' at sequence %d: last msg not found %d",
+					mset.accName(), mset.name(), batchSeq, state.LastSeq)
+				goto SKIP
+			}
+			commitEob = bytes.Equal(sliceHeader(JSBatchCommit, sm.hdr), []byte("eob"))
+			// If the commit ends with an "End Of Batch" message, we don't store this.
+			if commitEob {
+				state.LastSeq--
+			}
 			s.Noticef("  Restoring partial batch write for stream '%s > %s' (seq %d to %d)",
 				mset.accName(), mset.name(), batchSeq, state.LastSeq)
 			// Loop through items that weren't persisted yet.
@@ -1627,7 +1590,12 @@ func (a *Account) EnableJetStream(limits map[string]JetStreamAccountLimits, tq c
 						mset.accName(), mset.name(), seq, err)
 					break
 				}
-				mset.processJetStreamMsg(sm.subj, _EMPTY_, sm.hdr, sm.msg, 0, 0, nil, false, true)
+				hdr := sm.hdr
+				// If committed by EOB, the last message must get the normal commit header.
+				if commitEob && seq == state.LastSeq {
+					hdr = genHeader(hdr, JSBatchCommit, "1")
+				}
+				mset.processJetStreamMsg(sm.subj, _EMPTY_, hdr, sm.msg, 0, 0, nil, false, true)
 			}
 			store.Delete(true)
 		SKIP:
@@ -2342,14 +2310,14 @@ func (jsa *jsAccount) sendClusterUsageUpdate() {
 func (js *jetStream) wouldExceedLimits(storeType StorageType, sz int) bool {
 	var (
 		total *int64
-		max   int64
+		max   *int64
 	)
 	if storeType == MemoryStorage {
-		total, max = &js.memUsed, js.config.MaxMemory
+		total, max = &js.memUsed, &js.memMax
 	} else {
-		total, max = &js.storeUsed, js.config.MaxStore
+		total, max = &js.storeUsed, &js.storeMax
 	}
-	return (atomic.LoadInt64(total) + int64(sz)) > max
+	return (atomic.LoadInt64(total) + int64(sz)) > atomic.LoadInt64(max)
 }
 
 func (js *jetStream) limitsExceeded(storeType StorageType) bool {
@@ -2519,7 +2487,6 @@ func (jsa *jsAccount) acc() *Account {
 // Delete the JetStream resources.
 func (jsa *jsAccount) delete() {
 	var streams []*stream
-	var ts []string
 
 	jsa.mu.Lock()
 	// The update timer and subs need to be protected by usageMu lock
@@ -2538,19 +2505,10 @@ func (jsa *jsAccount) delete() {
 	for _, ms := range jsa.streams {
 		streams = append(streams, ms)
 	}
-	acc := jsa.account
-	for _, t := range jsa.templates {
-		ts = append(ts, t.Name)
-	}
-	jsa.templates = nil
 	jsa.mu.Unlock()
 
 	for _, mset := range streams {
 		mset.stop(false, false)
-	}
-
-	for _, t := range ts {
-		acc.deleteStreamTemplate(t)
 	}
 }
 
@@ -2763,325 +2721,6 @@ func (a *Account) checkForJetStream() (*Server, *jsAccount, error) {
 	return s, jsa, nil
 }
 
-// StreamTemplateConfig allows a configuration to auto-create streams based on this template when a message
-// is received that matches. Each new stream will use the config as the template config to create them.
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-type StreamTemplateConfig struct {
-	Name       string        `json:"name"`
-	Config     *StreamConfig `json:"config"`
-	MaxStreams uint32        `json:"max_streams"`
-}
-
-// StreamTemplateInfo
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-type StreamTemplateInfo struct {
-	Config  *StreamTemplateConfig `json:"config"`
-	Streams []string              `json:"streams"`
-}
-
-// streamTemplate
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-type streamTemplate struct {
-	mu  sync.Mutex
-	tc  *client
-	jsa *jsAccount
-	*StreamTemplateConfig
-	streams []string
-}
-
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-func (t *StreamTemplateConfig) deepCopy() *StreamTemplateConfig {
-	copy := *t
-	cfg := *t.Config
-	copy.Config = &cfg
-	return &copy
-}
-
-// addStreamTemplate will add a stream template to this account that allows auto-creation of streams.
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-func (a *Account) addStreamTemplate(tc *StreamTemplateConfig) (*streamTemplate, error) {
-	s, jsa, err := a.checkForJetStream()
-	if err != nil {
-		return nil, err
-	}
-	if tc.Config.Name != "" {
-		return nil, fmt.Errorf("template config name should be empty")
-	}
-	if len(tc.Name) > JSMaxNameLen {
-		return nil, fmt.Errorf("template name is too long, maximum allowed is %d", JSMaxNameLen)
-	}
-
-	// FIXME(dlc) - Hacky
-	tcopy := tc.deepCopy()
-	tcopy.Config.Name = "_"
-	cfg, apiErr := s.checkStreamCfg(tcopy.Config, a, false)
-	if apiErr != nil {
-		return nil, apiErr
-	}
-	tcopy.Config = &cfg
-	t := &streamTemplate{
-		StreamTemplateConfig: tcopy,
-		tc:                   s.createInternalJetStreamClient(),
-		jsa:                  jsa,
-	}
-	t.tc.registerWithAccount(a)
-
-	jsa.mu.Lock()
-	if jsa.templates == nil {
-		jsa.templates = make(map[string]*streamTemplate)
-		// Create the appropriate store
-		if cfg.Storage == FileStorage {
-			jsa.store = newTemplateFileStore(jsa.storeDir)
-		} else {
-			jsa.store = newTemplateMemStore()
-		}
-	} else if _, ok := jsa.templates[tcopy.Name]; ok {
-		jsa.mu.Unlock()
-		return nil, fmt.Errorf("template with name %q already exists", tcopy.Name)
-	}
-	jsa.templates[tcopy.Name] = t
-	jsa.mu.Unlock()
-
-	// FIXME(dlc) - we can not overlap subjects between templates. Need to have test.
-
-	// Setup the internal subscriptions to trap the messages.
-	if err := t.createTemplateSubscriptions(); err != nil {
-		return nil, err
-	}
-	if err := jsa.store.Store(t); err != nil {
-		t.delete()
-		return nil, err
-	}
-	return t, nil
-}
-
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-func (t *streamTemplate) createTemplateSubscriptions() error {
-	if t == nil {
-		return fmt.Errorf("no template")
-	}
-	if t.tc == nil {
-		return fmt.Errorf("template not enabled")
-	}
-	c := t.tc
-	if !c.srv.EventsEnabled() {
-		return ErrNoSysAccount
-	}
-	sid := 1
-	for _, subject := range t.Config.Subjects {
-		// Now create the subscription
-		if _, err := c.processSub([]byte(subject), nil, []byte(strconv.Itoa(sid)), t.processInboundTemplateMsg, false); err != nil {
-			c.acc.deleteStreamTemplate(t.Name)
-			return err
-		}
-		sid++
-	}
-	return nil
-}
-
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-func (t *streamTemplate) processInboundTemplateMsg(_ *subscription, pc *client, acc *Account, subject, reply string, msg []byte) {
-	if t == nil || t.jsa == nil {
-		return
-	}
-	jsa := t.jsa
-	cn := canonicalName(subject)
-
-	jsa.mu.Lock()
-	// If we already are registered then we can just return here.
-	if _, ok := jsa.streams[cn]; ok {
-		jsa.mu.Unlock()
-		return
-	}
-	jsa.mu.Unlock()
-
-	// Check if we are at the maximum and grab some variables.
-	t.mu.Lock()
-	c := t.tc
-	cfg := *t.Config
-	cfg.Template = t.Name
-	atLimit := len(t.streams) >= int(t.MaxStreams)
-	if !atLimit {
-		t.streams = append(t.streams, cn)
-	}
-	t.mu.Unlock()
-
-	if atLimit {
-		c.RateLimitWarnf("JetStream could not create stream for account %q on subject %q, at limit", acc.Name, subject)
-		return
-	}
-
-	// We need to create the stream here.
-	// Change the config from the template and only use literal subject.
-	cfg.Name = cn
-	cfg.Subjects = []string{subject}
-	mset, err := acc.addStream(&cfg)
-	if err != nil {
-		acc.validateStreams(t)
-		c.RateLimitWarnf("JetStream could not create stream for account %q on subject %q: %v", acc.Name, subject, err)
-		return
-	}
-
-	// Process this message directly by invoking mset.
-	mset.processInboundJetStreamMsg(nil, pc, acc, subject, reply, msg)
-}
-
-// lookupStreamTemplate looks up the names stream template.
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-func (a *Account) lookupStreamTemplate(name string) (*streamTemplate, error) {
-	_, jsa, err := a.checkForJetStream()
-	if err != nil {
-		return nil, err
-	}
-	jsa.mu.Lock()
-	defer jsa.mu.Unlock()
-	if jsa.templates == nil {
-		return nil, fmt.Errorf("template not found")
-	}
-	t, ok := jsa.templates[name]
-	if !ok {
-		return nil, fmt.Errorf("template not found")
-	}
-	return t, nil
-}
-
-// This function will check all named streams and make sure they are valid.
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-func (a *Account) validateStreams(t *streamTemplate) {
-	t.mu.Lock()
-	var vstreams []string
-	for _, sname := range t.streams {
-		if _, err := a.lookupStream(sname); err == nil {
-			vstreams = append(vstreams, sname)
-		}
-	}
-	t.streams = vstreams
-	t.mu.Unlock()
-}
-
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-func (t *streamTemplate) delete() error {
-	if t == nil {
-		return fmt.Errorf("nil stream template")
-	}
-
-	t.mu.Lock()
-	jsa := t.jsa
-	c := t.tc
-	t.tc = nil
-	defer func() {
-		if c != nil {
-			c.closeConnection(ClientClosed)
-		}
-	}()
-	t.mu.Unlock()
-
-	if jsa == nil {
-		return NewJSNotEnabledForAccountError()
-	}
-
-	jsa.mu.Lock()
-	if jsa.templates == nil {
-		jsa.mu.Unlock()
-		return fmt.Errorf("template not found")
-	}
-	if _, ok := jsa.templates[t.Name]; !ok {
-		jsa.mu.Unlock()
-		return fmt.Errorf("template not found")
-	}
-	delete(jsa.templates, t.Name)
-	acc := jsa.account
-	jsa.mu.Unlock()
-
-	// Remove streams associated with this template.
-	var streams []*stream
-	t.mu.Lock()
-	for _, name := range t.streams {
-		if mset, err := acc.lookupStream(name); err == nil {
-			streams = append(streams, mset)
-		}
-	}
-	t.mu.Unlock()
-
-	if jsa.store != nil {
-		if err := jsa.store.Delete(t); err != nil {
-			return fmt.Errorf("error deleting template from store: %v", err)
-		}
-	}
-
-	var lastErr error
-	for _, mset := range streams {
-		if err := mset.delete(); err != nil {
-			lastErr = err
-		}
-	}
-	return lastErr
-}
-
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-func (a *Account) deleteStreamTemplate(name string) error {
-	t, err := a.lookupStreamTemplate(name)
-	if err != nil {
-		return NewJSStreamTemplateNotFoundError()
-	}
-	return t.delete()
-}
-
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-func (a *Account) templates() []*streamTemplate {
-	var ts []*streamTemplate
-	_, jsa, err := a.checkForJetStream()
-	if err != nil {
-		return nil
-	}
-
-	jsa.mu.Lock()
-	for _, t := range jsa.templates {
-		// FIXME(dlc) - Copy?
-		ts = append(ts, t)
-	}
-	jsa.mu.Unlock()
-
-	return ts
-}
-
-// Will add a stream to a template, this is for recovery.
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-func (jsa *jsAccount) addStreamNameToTemplate(tname, mname string) error {
-	if jsa.templates == nil {
-		return fmt.Errorf("template not found")
-	}
-	t, ok := jsa.templates[tname]
-	if !ok {
-		return fmt.Errorf("template not found")
-	}
-	// We found template.
-	t.mu.Lock()
-	t.streams = append(t.streams, mname)
-	t.mu.Unlock()
-	return nil
-}
-
-// This will check if a template owns this stream.
-// jsAccount lock should be held
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-func (jsa *jsAccount) checkTemplateOwnership(tname, sname string) bool {
-	if jsa.templates == nil {
-		return false
-	}
-	t, ok := jsa.templates[tname]
-	if !ok {
-		return false
-	}
-	// We found template, make sure we are in streams.
-	for _, streamName := range t.streams {
-		if sname == streamName {
-			return true
-		}
-	}
-	return false
-}
-
 type Number interface {
 	int | int8 | int16 | int32 | int64 | uint | uint8 | uint16 | uint32 | uint64 | float32 | float64
 }
@@ -3107,10 +2746,11 @@ func isValidName(name string) bool {
 	return !strings.ContainsAny(name, " \t\r\n\f.*>")
 }
 
-// CanonicalName will replace all token separators '.' with '_'.
-// This can be used when naming streams or consumers with multi-token subjects.
-func canonicalName(name string) string {
-	return strings.ReplaceAll(name, ".", "_")
+func isValidAssetName(name string) bool {
+	if name == _EMPTY_ {
+		return false
+	}
+	return !strings.ContainsAny(name, " \t\r\n\f.*>\\/")
 }
 
 // To throttle the out of resources errors.

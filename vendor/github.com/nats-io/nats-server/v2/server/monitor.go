@@ -189,6 +189,17 @@ func newSubsList(client *client) []string {
 	return subs
 }
 
+func redactBearerJWT(userJWT string) string {
+	if userJWT == _EMPTY_ {
+		return _EMPTY_
+	}
+	uc, err := jwt.DecodeUserClaims(userJWT)
+	if err == nil && uc != nil && uc.BearerToken {
+		return _EMPTY_
+	}
+	return userJWT
+}
+
 // Connz returns a Connz struct containing information about connections.
 func (s *Server) Connz(opts *ConnzOptions) (*Connz, error) {
 	var (
@@ -441,6 +452,7 @@ func (s *Server) Connz(opts *ConnzOptions) (*Connz, error) {
 			ci.NameTag = client.acc.getNameTag()
 		}
 		client.mu.Unlock()
+		ci.JWT = redactBearerJWT(ci.JWT)
 		pconns[i] = ci
 		i++
 	}
@@ -487,6 +499,7 @@ func (s *Server) Connz(opts *ConnzOptions) (*Connz, error) {
 					cc.NameTag = acc.getNameTag()
 				}
 			}
+			cc.JWT = redactBearerJWT(cc.JWT)
 		}
 		pconns[i] = &cc.ConnInfo
 		i++
@@ -1271,6 +1284,7 @@ type Varz struct {
 	ConfigDigest          string                 `json:"config_digest"`                     // ConfigDigest is a calculated hash of the current configuration
 	Tags                  jwt.TagList            `json:"tags,omitempty"`                    // Tags are the tags assigned to the server in configuration
 	Metadata              map[string]string      `json:"metadata,omitempty"`                // Metadata is the metadata assigned to the server in configuration
+	FeatureFlags          map[string]bool        `json:"feature_flags,omitempty"`           // FeatureFlags is the feature flags enabled/disabled in configuration
 	TrustedOperatorsJwt   []string               `json:"trusted_operators_jwt,omitempty"`   // TrustedOperatorsJwt is the JWTs for all trusted operators
 	TrustedOperatorsClaim []*jwt.OperatorClaims  `json:"trusted_operators_claim,omitempty"` // TrustedOperatorsClaim is the decoded claims for each trusted operator
 	SystemAccount         string                 `json:"system_account,omitempty"`          // SystemAccount is the name of the System account
@@ -1570,8 +1584,13 @@ func (s *Server) updateJszVarz(js *jetStream, v *JetStreamVarz, doConfig bool) {
 				v.Meta.Replicas = ci.Replicas
 			}
 			if ipq := s.jsAPIRoutedReqs; ipq != nil {
-				v.Meta.Pending = ipq.len()
+				v.Meta.PendingRequests = ipq.len()
 			}
+			if ipq := s.jsAPIRoutedInfoReqs; ipq != nil {
+				v.Meta.PendingInfos = ipq.len()
+			}
+			v.Meta.Pending = v.Meta.PendingRequests + v.Meta.PendingInfos
+			v.Meta.Snapshot = s.metaClusterSnapshotStats(js, mg)
 		}
 	}
 }
@@ -1788,6 +1807,7 @@ func (s *Server) updateVarzConfigReloadableFields(v *Varz) {
 	v.ConfigDigest = opts.configDigest
 	v.Tags = opts.Tags
 	v.Metadata = opts.Metadata
+	v.FeatureFlags = opts.getMergedFeatureFlags()
 	// Update route URLs if applicable
 	if s.varzUpdateRouteURLs {
 		v.Cluster.URLs = urlsToStrings(opts.Routes)
@@ -3008,15 +3028,43 @@ type MetaSnapshotStats struct {
 	LastDuration   time.Duration `json:"last_duration,omitempty"` // LastDuration is how long the last meta snapshot took
 }
 
+// metaClusterSnapshotStats returns snapshot statistics for the meta group.
+func (s *Server) metaClusterSnapshotStats(js *jetStream, mg RaftNode) *MetaSnapshotStats {
+	entries, bytes := mg.Size()
+	snap := &MetaSnapshotStats{
+		PendingEntries: entries,
+		PendingSize:    bytes,
+	}
+
+	js.mu.RLock()
+	cluster := js.cluster
+	js.mu.RUnlock()
+
+	if cluster != nil {
+		timeNanos := atomic.LoadInt64(&cluster.lastMetaSnapTime)
+		durationNanos := atomic.LoadInt64(&cluster.lastMetaSnapDuration)
+		if timeNanos > 0 {
+			snap.LastTime = time.Unix(0, timeNanos).UTC()
+		}
+		if durationNanos > 0 {
+			snap.LastDuration = time.Duration(durationNanos)
+		}
+	}
+
+	return snap
+}
+
 // MetaClusterInfo shows information about the meta group.
 type MetaClusterInfo struct {
-	Name     string             `json:"name,omitempty"`     // Name is the name of the cluster
-	Leader   string             `json:"leader,omitempty"`   // Leader is the server name of the cluster leader
-	Peer     string             `json:"peer,omitempty"`     // Peer is unique ID of the leader
-	Replicas []*PeerInfo        `json:"replicas,omitempty"` // Replicas is a list of known peers
-	Size     int                `json:"cluster_size"`       // Size is the known size of the cluster
-	Pending  int                `json:"pending"`            // Pending is how many RAFT messages are not yet processed
-	Snapshot *MetaSnapshotStats `json:"snapshot"`           // Snapshot contains meta snapshot statistics
+	Name            string             `json:"name,omitempty"`     // Name is the name of the cluster
+	Leader          string             `json:"leader,omitempty"`   // Leader is the server name of the cluster leader
+	Peer            string             `json:"peer,omitempty"`     // Peer is unique ID of the leader
+	Replicas        []*PeerInfo        `json:"replicas,omitempty"` // Replicas is a list of known peers
+	Size            int                `json:"cluster_size"`       // Size is the known size of the cluster
+	Pending         int                `json:"pending"`            // Pending is how many RAFT messages are not yet processed
+	PendingRequests int                `json:"pending_requests"`   // PendingRequests is how many CRUD operations are queued for processing
+	PendingInfos    int                `json:"pending_infos"`      // PendingInfos is how many info operations are queued for processing
+	Snapshot        *MetaSnapshotStats `json:"snapshot"`           // Snapshot contains meta snapshot statistics
 }
 
 // JSInfo has detailed information on JetStream.
@@ -3233,32 +3281,18 @@ func (s *Server) Jsz(opts *JSzOptions) (*JSInfo, error) {
 
 	if mg := js.getMetaGroup(); mg != nil {
 		if ci := s.raftNodeToClusterInfo(mg); ci != nil {
-			entries, bytes := mg.Size()
 			jsi.Meta = &MetaClusterInfo{Name: ci.Name, Leader: ci.Leader, Peer: getHash(ci.Leader), Size: mg.ClusterSize()}
 			if isLeader {
 				jsi.Meta.Replicas = ci.Replicas
 			}
 			if ipq := s.jsAPIRoutedReqs; ipq != nil {
-				jsi.Meta.Pending = ipq.len()
+				jsi.Meta.PendingRequests = ipq.len()
 			}
-			// Add meta snapshot stats
-			jsi.Meta.Snapshot = &MetaSnapshotStats{
-				PendingEntries: entries,
-				PendingSize:    bytes,
+			if ipq := s.jsAPIRoutedInfoReqs; ipq != nil {
+				jsi.Meta.PendingInfos = ipq.len()
 			}
-			js.mu.RLock()
-			cluster := js.cluster
-			js.mu.RUnlock()
-			if cluster != nil {
-				timeNanos := atomic.LoadInt64(&cluster.lastMetaSnapTime)
-				durationNanos := atomic.LoadInt64(&cluster.lastMetaSnapDuration)
-				if timeNanos > 0 {
-					jsi.Meta.Snapshot.LastTime = time.Unix(0, timeNanos).UTC()
-				}
-				if durationNanos > 0 {
-					jsi.Meta.Snapshot.LastDuration = time.Duration(durationNanos)
-				}
-			}
+			jsi.Meta.Pending = jsi.Meta.PendingRequests + jsi.Meta.PendingInfos
+			jsi.Meta.Snapshot = s.metaClusterSnapshotStats(js, mg)
 		}
 	}
 
@@ -3695,6 +3729,20 @@ func (s *Server) healthz(opts *HealthzOptions) *HealthStatus {
 					})
 					continue
 				}
+				if streamWerr := s.getWriteErr(); streamWerr != nil {
+					if !details {
+						health.Status = na
+						health.Error = fmt.Sprintf("JetStream stream '%s > %s' write error: %v", acc, stream, streamWerr)
+						return health
+					}
+					health.Errors = append(health.Errors, HealthzError{
+						Type:    HealthzErrorStream,
+						Account: acc.Name,
+						Stream:  stream,
+						Error:   fmt.Sprintf("JetStream stream '%s > %s' write error: %v", acc, stream, streamWerr),
+					})
+					continue
+				}
 				if streamFound {
 					// if consumer option is passed, verify that the consumer exists on stream
 					if opts.Consumer != _EMPTY_ {
@@ -3771,49 +3819,37 @@ func (s *Server) healthz(opts *HealthzOptions) *HealthStatus {
 	meta = cc.meta
 	js.mu.RUnlock()
 
-	// If no meta leader.
-	if meta == nil || meta.GroupLeader() == _EMPTY_ {
-		if !details {
-			health.Status = na
-			health.Error = "JetStream has not established contact with a meta leader"
-		} else {
-			health.Errors = []HealthzError{
-				{
-					Type:  HealthzErrorJetStream,
-					Error: "JetStream has not established contact with a meta leader",
-				},
-			}
-		}
-		return health
+	// Check meta layer health.
+	var metaNoLeader, metaClosed, metaUnhealthy bool
+	var metaWerr error
+	if meta != nil {
+		metaNoLeader = meta.GroupLeader() == _EMPTY_
+		metaClosed = meta.State() == Closed
+		metaUnhealthy = !meta.Healthy()
+		metaWerr = meta.GetWriteErr()
 	}
-
-	// If we are not current with the meta leader.
-	if !meta.Healthy() {
-		if !details {
-			health.Status = na
-			health.Error = "JetStream is not current with the meta leader"
+	metaRecovering := js.isMetaRecovering()
+	if meta == nil || metaNoLeader || metaClosed || metaUnhealthy || metaWerr != nil || metaRecovering {
+		var desc string
+		if metaWerr != nil {
+			desc = fmt.Sprintf("JetStream meta layer write error: %v", metaWerr)
+		} else if metaClosed {
+			desc = "JetStream meta layer is not running"
+		} else if meta != nil && metaRecovering {
+			desc = "JetStream is still recovering meta layer"
+		} else if meta == nil || metaNoLeader {
+			desc = "JetStream has not established contact with a meta leader"
 		} else {
-			health.Errors = []HealthzError{
-				{
-					Type:  HealthzErrorJetStream,
-					Error: "JetStream is not current with the meta leader",
-				},
-			}
+			desc = "JetStream is not current with the meta leader"
 		}
-		return health
-	}
-
-	// Are we still recovering meta layer?
-	if js.isMetaRecovering() {
 		if !details {
 			health.Status = na
-			health.Error = "JetStream is still recovering meta layer"
-
+			health.Error = desc
 		} else {
 			health.Errors = []HealthzError{
 				{
 					Type:  HealthzErrorJetStream,
-					Error: "JetStream is still recovering meta layer",
+					Error: desc,
 				},
 			}
 		}
@@ -4090,6 +4126,8 @@ type RaftzGroup struct {
 	QuorumNeeded  int                       `json:"quorum_needed"`
 	Observer      bool                      `json:"observer,omitempty"`
 	Paused        bool                      `json:"paused,omitempty"`
+	Overrun       bool                      `json:"overrun,omitempty"`
+	OverrunCount  uint64                    `json:"overrun_count,omitempty"`
 	Committed     uint64                    `json:"committed"`
 	Applied       uint64                    `json:"applied"`
 	CatchingUp    bool                      `json:"catching_up,omitempty"`
@@ -4198,6 +4236,8 @@ func (s *Server) Raftz(opts *RaftzOptions) *RaftzStatus {
 			QuorumNeeded:  n.qn,
 			Observer:      n.observer,
 			Paused:        n.paused,
+			Overrun:       n.quorumPaused || n.isLeaderOverrun(),
+			OverrunCount:  n.overrunCount,
 			Committed:     n.commit,
 			Applied:       n.applied,
 			CatchingUp:    n.catchup != nil,

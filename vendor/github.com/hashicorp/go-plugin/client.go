@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2016, 2025
 // SPDX-License-Identifier: MPL-2.0
 
 package plugin
@@ -669,7 +669,7 @@ func (c *Client) Start() (addr net.Addr, err error) {
 	// Setup a temporary certificate for client/server mtls, and send the public
 	// certificate to the plugin.
 	if c.config.AutoMTLS {
-		c.logger.Info("configuring client automatic mTLS")
+		c.logger.Debug("configuring client automatic mTLS")
 		certPEM, keyPEM, err := generateCert()
 		if err != nil {
 			c.logger.Error("failed to generate client certificate", "error", err)
@@ -753,9 +753,12 @@ func (c *Client) Start() (addr net.Addr, err error) {
 	// Create a context for when we kill
 	c.doneCtx, c.ctxCancel = context.WithCancel(context.Background())
 
+	// Add two to pipesWaitGroup: one for logStderr, one for the goroutine
+	// below that consumes Stdout.  We mustn't continue to Add once we might Wait.
+	c.pipesWaitGroup.Add(2)
+
 	// Start goroutine that logs the stderr
 	c.clientWaitGroup.Add(1)
-	c.pipesWaitGroup.Add(1)
 	// logStderr calls c.pipesWaitGroup.Done()
 	go c.logStderr(runner.Name(), runner.Stderr())
 
@@ -791,7 +794,6 @@ func (c *Client) Start() (addr net.Addr, err error) {
 	// out of stdout
 	linesCh := make(chan string)
 	c.clientWaitGroup.Add(1)
-	c.pipesWaitGroup.Add(1)
 	go func() {
 		defer c.clientWaitGroup.Done()
 		defer c.pipesWaitGroup.Done()

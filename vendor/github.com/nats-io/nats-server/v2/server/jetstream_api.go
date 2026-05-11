@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -45,29 +46,6 @@ const (
 	// JSApiAccountInfo is for obtaining general information about JetStream for this account.
 	// Will return JSON response.
 	JSApiAccountInfo = "$JS.API.INFO"
-
-	// JSApiTemplateCreate is the endpoint to create new stream templates.
-	// Will return JSON response.
-	// Deprecated: stream templates are deprecated and will be removed in a future version.
-	JSApiTemplateCreate  = "$JS.API.STREAM.TEMPLATE.CREATE.*"
-	JSApiTemplateCreateT = "$JS.API.STREAM.TEMPLATE.CREATE.%s"
-
-	// JSApiTemplates is the endpoint to list all stream template names for this account.
-	// Will return JSON response.
-	// Deprecated: stream templates are deprecated and will be removed in a future version.
-	JSApiTemplates = "$JS.API.STREAM.TEMPLATE.NAMES"
-
-	// JSApiTemplateInfo is for obtaining general information about a named stream template.
-	// Will return JSON response.
-	// Deprecated: stream templates are deprecated and will be removed in a future version.
-	JSApiTemplateInfo  = "$JS.API.STREAM.TEMPLATE.INFO.*"
-	JSApiTemplateInfoT = "$JS.API.STREAM.TEMPLATE.INFO.%s"
-
-	// JSApiTemplateDelete is the endpoint to delete stream templates.
-	// Will return JSON response.
-	// Deprecated: stream templates are deprecated and will be removed in a future version.
-	JSApiTemplateDelete  = "$JS.API.STREAM.TEMPLATE.DELETE.*"
-	JSApiTemplateDeleteT = "$JS.API.STREAM.TEMPLATE.DELETE.%s"
 
 	// JSApiStreamCreate is the endpoint to create new streams.
 	// Will return JSON response.
@@ -177,6 +155,9 @@ const (
 	// JSApiRequestNextT is the prefix for the request next message(s) for a consumer in worker/pull mode.
 	JSApiRequestNextT = "$JS.API.CONSUMER.MSG.NEXT.%s.%s"
 
+	// JSApiConsumerResetT is the prefix for resetting a given consumer to a new starting sequence.
+	JSApiConsumerResetT = "$JS.API.CONSUMER.RESET.%s.%s"
+
 	// JSApiConsumerUnpinT is the prefix for unpinning subscription for a given consumer.
 	JSApiConsumerUnpin  = "$JS.API.CONSUMER.UNPIN.*.*"
 	JSApiConsumerUnpinT = "$JS.API.CONSUMER.UNPIN.%s.%s"
@@ -237,13 +218,15 @@ const (
 	// jsAckT is the template for the ack message stream coming back from a consumer
 	// when they ACK/NAK, etc a message.
 	jsAckT      = "$JS.ACK.%s.%s"
+	jsAckTv2    = "$JS.ACK.%s.%s.%s.%s"
 	jsAckPre    = "$JS.ACK."
 	jsAckPreLen = len(jsAckPre)
 
 	// jsFlowControl is for flow control subjects.
 	jsFlowControlPre = "$JS.FC."
 	// jsFlowControl is for FC responses.
-	jsFlowControl = "$JS.FC.%s.%s.*"
+	jsFlowControl   = "$JS.FC.%s.%s.*"
+	jsFlowControlV2 = "$JS.FC.%s.%s.%s.%s.*"
 
 	// JSAdvisoryPrefix is a prefix for all JetStream advisories.
 	JSAdvisoryPrefix = "$JS.EVENT.ADVISORY"
@@ -787,50 +770,19 @@ type JSApiConsumerGetNextRequest struct {
 	PriorityGroup
 }
 
-// JSApiStreamTemplateCreateResponse for creating templates.
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-type JSApiStreamTemplateCreateResponse struct {
+// JSApiConsumerResetRequest is for resetting a consumer to a specific sequence.
+type JSApiConsumerResetRequest struct {
+	Seq uint64 `json:"seq,omitempty"`
+}
+
+// JSApiConsumerResetResponse is a superset of JSApiConsumerCreateResponse, but including an explicit ResetSeq.
+type JSApiConsumerResetResponse struct {
 	ApiResponse
-	*StreamTemplateInfo
+	*ConsumerInfo
+	ResetSeq uint64 `json:"reset_seq"`
 }
 
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-const JSApiStreamTemplateCreateResponseType = "io.nats.jetstream.api.v1.stream_template_create_response"
-
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-type JSApiStreamTemplateDeleteResponse struct {
-	ApiResponse
-	Success bool `json:"success,omitempty"`
-}
-
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-const JSApiStreamTemplateDeleteResponseType = "io.nats.jetstream.api.v1.stream_template_delete_response"
-
-// JSApiStreamTemplateInfoResponse for information about stream templates.
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-type JSApiStreamTemplateInfoResponse struct {
-	ApiResponse
-	*StreamTemplateInfo
-}
-
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-const JSApiStreamTemplateInfoResponseType = "io.nats.jetstream.api.v1.stream_template_info_response"
-
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-type JSApiStreamTemplatesRequest struct {
-	ApiPagedRequest
-}
-
-// JSApiStreamTemplateNamesResponse list of templates
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-type JSApiStreamTemplateNamesResponse struct {
-	ApiResponse
-	ApiPaged
-	Templates []string `json:"streams"`
-}
-
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-const JSApiStreamTemplateNamesResponseType = "io.nats.jetstream.api.v1.stream_template_names_response"
+const JSApiConsumerResetResponseType = "io.nats.jetstream.api.v1.consumer_reset_response"
 
 // Structure that holds state for a JetStream API request that is processed
 // in a separate long-lived go routine. This is to avoid blocking connections.
@@ -911,11 +863,19 @@ func (js *jetStream) apiDispatch(sub *subscription, c *client, acc *Account, sub
 	// Copy the state. Note the JSAPI only uses the hdr index to piece apart the
 	// header from the msg body. No other references are needed.
 	// Check pending and warn if getting backed up.
-	pending, _ := s.jsAPIRoutedReqs.push(&jsAPIRoutedReq{jsub, sub, acc, subject, reply, copyBytes(rmsg), c.pa})
-	limit := atomic.LoadInt64(&js.queueLimit)
+	var queue *ipQueue[*jsAPIRoutedReq]
+	var limit int64
+	if js.infoSubs.HasInterest(subject) {
+		queue = s.jsAPIRoutedInfoReqs
+		limit = atomic.LoadInt64(&js.infoQueueLimit)
+	} else {
+		queue = s.jsAPIRoutedReqs
+		limit = atomic.LoadInt64(&js.queueLimit)
+	}
+	pending, _ := queue.push(&jsAPIRoutedReq{jsub, sub, acc, subject, reply, copyBytes(rmsg), c.pa})
 	if pending >= int(limit) {
-		s.rateLimitFormatWarnf("JetStream API queue limit reached, dropping %d requests", pending)
-		drained := int64(s.jsAPIRoutedReqs.drain())
+		s.rateLimitFormatWarnf("%s limit reached, dropping %d requests", queue.name, pending)
+		drained := int64(queue.drain())
 		atomic.AddInt64(&js.apiInflight, -drained)
 
 		s.publishAdvisory(nil, JSAdvisoryAPILimitReached, JSAPILimitReachedAdvisory{
@@ -935,29 +895,45 @@ func (s *Server) processJSAPIRoutedRequests() {
 	defer s.grWG.Done()
 
 	s.mu.RLock()
-	queue := s.jsAPIRoutedReqs
+	queue, infoqueue := s.jsAPIRoutedReqs, s.jsAPIRoutedInfoReqs
 	client := &client{srv: s, kind: JETSTREAM}
 	s.mu.RUnlock()
 
 	js := s.getJetStream()
 
+	processFromQueue := func(ipq *ipQueue[*jsAPIRoutedReq]) {
+		// Only pop one item at a time here, otherwise if the system is recovering
+		// from queue buildup, then one worker will pull off all the tasks and the
+		// others will be starved of work.
+		if r, ok := ipq.popOne(); ok && r != nil {
+			client.pa = r.pa
+			start := time.Now()
+			r.jsub.icb(r.sub, client, r.acc, r.subject, r.reply, r.msg)
+			if dur := time.Since(start); dur >= readLoopReportThreshold {
+				s.Warnf("Internal subscription on %q took too long: %v", r.subject, dur)
+			}
+			atomic.AddInt64(&js.apiInflight, -1)
+		}
+	}
+
 	for {
+		// First select case is prioritizing queue, we will only fall through
+		// to the second select case that considers infoqueue if queue is empty.
+		// This effectively means infos are deprioritized.
 		select {
 		case <-queue.ch:
-			// Only pop one item at a time here, otherwise if the system is recovering
-			// from queue buildup, then one worker will pull off all the tasks and the
-			// others will be starved of work.
-			for r, ok := queue.popOne(); ok && r != nil; r, ok = queue.popOne() {
-				client.pa = r.pa
-				start := time.Now()
-				r.jsub.icb(r.sub, client, r.acc, r.subject, r.reply, r.msg)
-				if dur := time.Since(start); dur >= readLoopReportThreshold {
-					s.Warnf("Internal subscription on %q took too long: %v", r.subject, dur)
-				}
-				atomic.AddInt64(&js.apiInflight, -1)
-			}
+			processFromQueue(queue)
 		case <-s.quitCh:
 			return
+		default:
+			select {
+			case <-infoqueue.ch:
+				processFromQueue(infoqueue)
+			case <-queue.ch:
+				processFromQueue(queue)
+			case <-s.quitCh:
+				return
+			}
 		}
 	}
 }
@@ -976,7 +952,8 @@ func (s *Server) setJetStreamExportSubs() error {
 	if mp > maxProcs {
 		mp = maxProcs
 	}
-	s.jsAPIRoutedReqs = newIPQueue[*jsAPIRoutedReq](s, "Routed JS API Requests")
+	s.jsAPIRoutedReqs = newIPQueue[*jsAPIRoutedReq](s, "JetStream API queue")
+	s.jsAPIRoutedInfoReqs = newIPQueue[*jsAPIRoutedReq](s, "JetStream API info queue")
 	for i := 0; i < mp; i++ {
 		s.startGoRoutine(s.processJSAPIRoutedRequests)
 	}
@@ -992,20 +969,13 @@ func (s *Server) setJetStreamExportSubs() error {
 	}
 
 	// API handles themselves.
+	// infopairs are deprioritized compared to pairs in processJSAPIRoutedRequests.
 	pairs := []struct {
 		subject string
 		handler msgHandler
 	}{
-		{JSApiAccountInfo, s.jsAccountInfoRequest},
-		{JSApiTemplateCreate, s.jsTemplateCreateRequest},
-		{JSApiTemplates, s.jsTemplateNamesRequest},
-		{JSApiTemplateInfo, s.jsTemplateInfoRequest},
-		{JSApiTemplateDelete, s.jsTemplateDeleteRequest},
 		{JSApiStreamCreate, s.jsStreamCreateRequest},
 		{JSApiStreamUpdate, s.jsStreamUpdateRequest},
-		{JSApiStreams, s.jsStreamNamesRequest},
-		{JSApiStreamList, s.jsStreamListRequest},
-		{JSApiStreamInfo, s.jsStreamInfoRequest},
 		{JSApiStreamDelete, s.jsStreamDeleteRequest},
 		{JSApiStreamPurge, s.jsStreamPurgeRequest},
 		{JSApiStreamSnapshot, s.jsStreamSnapshotRequest},
@@ -1018,20 +988,37 @@ func (s *Server) setJetStreamExportSubs() error {
 		{JSApiConsumerCreateEx, s.jsConsumerCreateRequest},
 		{JSApiConsumerCreate, s.jsConsumerCreateRequest},
 		{JSApiDurableCreate, s.jsConsumerCreateRequest},
-		{JSApiConsumers, s.jsConsumerNamesRequest},
-		{JSApiConsumerList, s.jsConsumerListRequest},
-		{JSApiConsumerInfo, s.jsConsumerInfoRequest},
 		{JSApiConsumerDelete, s.jsConsumerDeleteRequest},
 		{JSApiConsumerPause, s.jsConsumerPauseRequest},
 		{JSApiConsumerUnpin, s.jsConsumerUnpinRequest},
+	}
+	infopairs := []struct {
+		subject string
+		handler msgHandler
+	}{
+		{JSApiAccountInfo, s.jsAccountInfoRequest},
+		{JSApiStreams, s.jsStreamNamesRequest},
+		{JSApiStreamList, s.jsStreamListRequest},
+		{JSApiStreamInfo, s.jsStreamInfoRequest},
+		{JSApiConsumers, s.jsConsumerNamesRequest},
+		{JSApiConsumerList, s.jsConsumerListRequest},
+		{JSApiConsumerInfo, s.jsConsumerInfoRequest},
 	}
 
 	js.mu.Lock()
 	defer js.mu.Unlock()
 
-	for _, p := range pairs {
+	// As well as populating js.apiSubs for the dispatch function to use, we
+	// will also populate js.infoSubs, so that the dispatch function can
+	// decide quickly whether or not the request is an info request or not.
+	for _, p := range append(infopairs, pairs...) {
 		sub := &subscription{subject: []byte(p.subject), icb: p.handler}
 		if err := js.apiSubs.Insert(sub); err != nil {
+			return err
+		}
+	}
+	for _, p := range infopairs {
+		if err := js.infoSubs.Insert(p.subject, struct{}{}); err != nil {
 			return err
 		}
 	}
@@ -1239,7 +1226,7 @@ func (s *Server) unmarshalRequest(c *client, acc *Account, subject string, msg [
 
 			c.RateLimitWarnf("Invalid JetStream request '%s > %s': %s", acc, subject, err)
 
-			if s.JetStreamConfig().Strict {
+			if js := s.getJetStream(); js != nil && js.config.Strict {
 				return err
 			}
 
@@ -1345,233 +1332,12 @@ func (s *Server) jsAccountInfoRequest(sub *subscription, c *client, _ *Account, 
 }
 
 // Helpers for token extraction.
-func templateNameFromSubject(subject string) string {
-	return tokenAt(subject, 6)
-}
-
 func streamNameFromSubject(subject string) string {
 	return tokenAt(subject, 5)
 }
 
 func consumerNameFromSubject(subject string) string {
 	return tokenAt(subject, 6)
-}
-
-// Request to create a new template.
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-func (s *Server) jsTemplateCreateRequest(sub *subscription, c *client, _ *Account, subject, reply string, rmsg []byte) {
-	if c == nil {
-		return
-	}
-	ci, acc, hdr, msg, err := s.getRequestInfo(c, rmsg)
-	if err != nil {
-		s.Warnf(badAPIRequestT, msg)
-		return
-	}
-
-	var resp = JSApiStreamTemplateCreateResponse{ApiResponse: ApiResponse{Type: JSApiStreamTemplateCreateResponseType}}
-	if errorOnRequiredApiLevel(hdr) {
-		resp.Error = NewJSRequiredApiLevelError()
-		s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
-		return
-	}
-	if !acc.JetStreamEnabled() {
-		resp.Error = NewJSNotEnabledForAccountError()
-		s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
-		return
-	}
-
-	// Not supported for now.
-	if s.JetStreamIsClustered() {
-		resp.Error = NewJSClusterUnSupportFeatureError()
-		s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
-		return
-	}
-
-	var cfg StreamTemplateConfig
-	if err := s.unmarshalRequest(c, acc, subject, msg, &cfg); err != nil {
-		resp.Error = NewJSInvalidJSONError(err)
-		s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
-		return
-	}
-	templateName := templateNameFromSubject(subject)
-	if templateName != cfg.Name {
-		resp.Error = NewJSTemplateNameNotMatchSubjectError()
-		s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
-		return
-	}
-
-	t, err := acc.addStreamTemplate(&cfg)
-	if err != nil {
-		resp.Error = NewJSStreamTemplateCreateError(err, Unless(err))
-		s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
-		return
-	}
-	t.mu.Lock()
-	tcfg := t.StreamTemplateConfig.deepCopy()
-	streams := t.streams
-	if streams == nil {
-		streams = []string{}
-	}
-	t.mu.Unlock()
-	resp.StreamTemplateInfo = &StreamTemplateInfo{Config: tcfg, Streams: streams}
-	s.sendAPIResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(resp))
-}
-
-// Request for the list of all template names.
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-func (s *Server) jsTemplateNamesRequest(sub *subscription, c *client, _ *Account, subject, reply string, rmsg []byte) {
-	if c == nil {
-		return
-	}
-	ci, acc, hdr, msg, err := s.getRequestInfo(c, rmsg)
-	if err != nil {
-		s.Warnf(badAPIRequestT, msg)
-		return
-	}
-
-	var resp = JSApiStreamTemplateNamesResponse{ApiResponse: ApiResponse{Type: JSApiStreamTemplateNamesResponseType}}
-	if errorOnRequiredApiLevel(hdr) {
-		resp.Error = NewJSRequiredApiLevelError()
-		s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
-		return
-	}
-	if !acc.JetStreamEnabled() {
-		resp.Error = NewJSNotEnabledForAccountError()
-		s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
-		return
-	}
-
-	// Not supported for now.
-	if s.JetStreamIsClustered() {
-		resp.Error = NewJSClusterUnSupportFeatureError()
-		s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
-		return
-	}
-
-	var offset int
-	if isJSONObjectOrArray(msg) {
-		var req JSApiStreamTemplatesRequest
-		if err := s.unmarshalRequest(c, acc, subject, msg, &req); err != nil {
-			resp.Error = NewJSInvalidJSONError(err)
-			s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
-			return
-		}
-		offset = req.Offset
-	}
-
-	ts := acc.templates()
-	slices.SortFunc(ts, func(i, j *streamTemplate) int {
-		return cmp.Compare(i.StreamTemplateConfig.Name, j.StreamTemplateConfig.Name)
-	})
-
-	tcnt := len(ts)
-	if offset > tcnt {
-		offset = tcnt
-	}
-
-	for _, t := range ts[offset:] {
-		t.mu.Lock()
-		name := t.Name
-		t.mu.Unlock()
-		resp.Templates = append(resp.Templates, name)
-		if len(resp.Templates) >= JSApiNamesLimit {
-			break
-		}
-	}
-	resp.Total = tcnt
-	resp.Limit = JSApiNamesLimit
-	resp.Offset = offset
-	if resp.Templates == nil {
-		resp.Templates = []string{}
-	}
-	s.sendAPIResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(resp))
-}
-
-// Request for information about a stream template.
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-func (s *Server) jsTemplateInfoRequest(sub *subscription, c *client, _ *Account, subject, reply string, rmsg []byte) {
-	if c == nil {
-		return
-	}
-	ci, acc, hdr, msg, err := s.getRequestInfo(c, rmsg)
-	if err != nil {
-		s.Warnf(badAPIRequestT, msg)
-		return
-	}
-
-	var resp = JSApiStreamTemplateInfoResponse{ApiResponse: ApiResponse{Type: JSApiStreamTemplateInfoResponseType}}
-	if errorOnRequiredApiLevel(hdr) {
-		resp.Error = NewJSRequiredApiLevelError()
-		s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
-		return
-	}
-	if !acc.JetStreamEnabled() {
-		resp.Error = NewJSNotEnabledForAccountError()
-		s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
-		return
-	}
-	if !isEmptyRequest(msg) {
-		resp.Error = NewJSNotEmptyRequestError()
-		s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
-		return
-	}
-	name := templateNameFromSubject(subject)
-	t, err := acc.lookupStreamTemplate(name)
-	if err != nil {
-		resp.Error = NewJSStreamTemplateNotFoundError()
-		s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
-		return
-	}
-	t.mu.Lock()
-	cfg := t.StreamTemplateConfig.deepCopy()
-	streams := t.streams
-	if streams == nil {
-		streams = []string{}
-	}
-	t.mu.Unlock()
-
-	resp.StreamTemplateInfo = &StreamTemplateInfo{Config: cfg, Streams: streams}
-	s.sendAPIResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(resp))
-}
-
-// Request to delete a stream template.
-// Deprecated: stream templates are deprecated and will be removed in a future version.
-func (s *Server) jsTemplateDeleteRequest(sub *subscription, c *client, _ *Account, subject, reply string, rmsg []byte) {
-	if c == nil {
-		return
-	}
-	ci, acc, hdr, msg, err := s.getRequestInfo(c, rmsg)
-	if err != nil {
-		s.Warnf(badAPIRequestT, msg)
-		return
-	}
-
-	var resp = JSApiStreamTemplateDeleteResponse{ApiResponse: ApiResponse{Type: JSApiStreamTemplateDeleteResponseType}}
-	if errorOnRequiredApiLevel(hdr) {
-		resp.Error = NewJSRequiredApiLevelError()
-		s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
-		return
-	}
-	if !acc.JetStreamEnabled() {
-		resp.Error = NewJSNotEnabledForAccountError()
-		s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
-		return
-	}
-	if !isEmptyRequest(msg) {
-		resp.Error = NewJSNotEmptyRequestError()
-		s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
-		return
-	}
-	name := templateNameFromSubject(subject)
-	err = acc.deleteStreamTemplate(name)
-	if err != nil {
-		resp.Error = NewJSStreamTemplateDeleteError(err, Unless(err))
-		s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
-		return
-	}
-	resp.Success = true
-	s.sendAPIResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(resp))
 }
 
 func (s *Server) jsonResponse(v any) string {
@@ -2109,7 +1875,7 @@ func (s *Server) jsStreamInfoRequest(sub *subscription, c *client, a *Account, s
 	if cc != nil {
 		// Check to make sure the stream is assigned.
 		js.mu.RLock()
-		isLeader, sa := cc.isLeader(), js.streamAssignment(acc.Name, streamName)
+		isLeader, sa := cc.isLeader(), js.streamAssignmentOrInflight(acc.Name, streamName)
 		var offline bool
 		if sa != nil {
 			clusterWideConsCount = len(sa.consumers)
@@ -2338,7 +2104,7 @@ func (s *Server) jsStreamLeaderStepDownRequest(sub *subscription, c *client, _ *
 	}
 
 	js.mu.RLock()
-	isLeader, sa := cc.isLeader(), js.streamAssignment(acc.Name, name)
+	isLeader, sa := cc.isLeader(), js.streamAssignmentOrInflight(acc.Name, name)
 	js.mu.RUnlock()
 
 	if isLeader && sa == nil {
@@ -2455,7 +2221,7 @@ func (s *Server) jsConsumerLeaderStepDownRequest(sub *subscription, c *client, _
 	consumer := tokenAt(subject, 7)
 
 	js.mu.RLock()
-	isLeader, sa := cc.isLeader(), js.streamAssignment(acc.Name, stream)
+	isLeader, sa := cc.isLeader(), js.streamAssignmentOrInflight(acc.Name, stream)
 	js.mu.RUnlock()
 
 	if isLeader && sa == nil {
@@ -3456,7 +3222,7 @@ func (s *Server) jsMsgDeleteRequest(sub *subscription, c *client, _ *Account, su
 		}
 
 		js.mu.RLock()
-		isLeader, sa := cc.isLeader(), js.streamAssignment(acc.Name, stream)
+		isLeader, sa := cc.isLeader(), js.streamAssignmentOrInflight(acc.Name, stream)
 		js.mu.RUnlock()
 
 		if isLeader && sa == nil {
@@ -3581,7 +3347,7 @@ func (s *Server) jsMsgGetRequest(sub *subscription, c *client, _ *Account, subje
 		}
 
 		js.mu.RLock()
-		isLeader, sa := cc.isLeader(), js.streamAssignment(acc.Name, stream)
+		isLeader, sa := cc.isLeader(), js.streamAssignmentOrInflight(acc.Name, stream)
 		js.mu.RUnlock()
 
 		if isLeader && sa == nil {
@@ -3876,7 +3642,7 @@ func (s *Server) jsStreamPurgeRequest(sub *subscription, c *client, _ *Account, 
 		}
 
 		js.mu.RLock()
-		isLeader, sa := cc.isLeader(), js.streamAssignment(acc.Name, stream)
+		isLeader, sa := cc.isLeader(), js.streamAssignmentOrInflight(acc.Name, stream)
 		js.mu.RUnlock()
 
 		if isLeader && sa == nil {
@@ -4044,6 +3810,13 @@ func (s *Server) jsStreamRestoreRequest(sub *subscription, c *client, _ *Account
 	}
 	if stream != req.Config.Name {
 		resp.Error = NewJSStreamMismatchError()
+		s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
+		return
+	}
+
+	// Check for path like separators in the name.
+	if strings.ContainsAny(stream, `\/`) {
+		resp.Error = NewJSStreamNameContainsPathSeparatorsError()
 		s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
 		return
 	}
@@ -4597,11 +4370,49 @@ func (s *Server) jsConsumerCreateRequest(sub *subscription, c *client, a *Accoun
 	isClustered := s.JetStreamIsClustered()
 
 	// Determine if we should proceed here when we are in clustered mode.
+	direct := req.Config.Direct
 	if isClustered {
-		if req.Config.Direct {
-			// Check to see if we have this stream and are the stream leader.
-			if !acc.JetStreamIsStreamLeader(streamNameFromSubject(subject)) {
-				return
+		if direct {
+			// If it's just a direct consumer, check for stream leader.
+			if !req.Config.Sourcing {
+				// Check to see if we have this stream and are the stream leader.
+				if !acc.JetStreamIsStreamLeader(streamNameFromSubject(subject)) {
+					return
+				}
+			} else {
+				// Otherwise, we either need this to be answered by the stream or meta leader.
+				var cc *jetStreamCluster
+				js, cc = s.getJetStreamCluster()
+				if js == nil || cc == nil {
+					return
+				}
+				js.mu.RLock()
+				sa := js.streamAssignmentOrInflight(acc.Name, streamNameFromSubject(subject))
+				if sa == nil {
+					js.mu.RUnlock()
+					return
+				}
+				// If the stream is WQ or Interest, we need the meta leader to answer.
+				if sa.Config.Retention != LimitsPolicy {
+					direct = false
+				}
+				js.mu.RUnlock()
+				if direct {
+					// Check to see if we have this stream and are the stream leader.
+					if !acc.JetStreamIsStreamLeader(streamNameFromSubject(subject)) {
+						return
+					}
+				} else {
+					if js.isLeaderless() {
+						resp.Error = NewJSClusterNotAvailError()
+						s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
+						return
+					}
+					// Make sure we are meta leader.
+					if !s.JetStreamIsLeader() {
+						return
+					}
+				}
 			}
 		} else {
 			var cc *jetStreamCluster
@@ -4645,6 +4456,7 @@ func (s *Server) jsConsumerCreateRequest(sub *subscription, c *client, a *Accoun
 		// Legacy ephemeral.
 		rt = ccLegacyEphemeral
 		streamName = streamNameFromSubject(subject)
+		consumerName = req.Config.Name
 	} else {
 		// New style and durable legacy.
 		if tokenAt(subject, 4) == "DURABLE" {
@@ -4736,7 +4548,7 @@ func (s *Server) jsConsumerCreateRequest(sub *subscription, c *client, a *Accoun
 		return
 	}
 
-	if isClustered && !req.Config.Direct {
+	if isClustered && !direct {
 		s.jsClusteredConsumerRequest(ci, acc, subject, reply, rmsg, req.Stream, &req.Config, req.Action, req.Pedantic)
 		return
 	}
@@ -4760,6 +4572,23 @@ func (s *Server) jsConsumerCreateRequest(sub *subscription, c *client, a *Accoun
 		return
 	}
 
+	// If the consumer is a direct sourcing consumer, we need to "upgrade"
+	// it to be durable without AckNone if not a Limits-based stream.
+	if req.Config.Direct && req.Config.Sourcing && req.Config.Name != _EMPTY_ {
+		if !isClustered && stream.isInterestRetention() {
+			req.Config.Direct = false
+			req.Config.Durable = req.Config.Name
+			req.Config.AckPolicy = AckFlowControl
+			req.Config.AckWait = 0
+			req.Config.MaxDeliver = 0
+			req.Config.InactiveThreshold = 0
+		} else {
+			// Otherwise, need to append a randomized suffix since the source uses a stable name.
+			req.Config.Name = fmt.Sprintf("%s-%s", req.Config.Name, createConsumerName())
+			consumerName = req.Config.Name
+		}
+	}
+
 	if o := stream.lookupConsumer(consumerName); o != nil {
 		if o.offlineReason != _EMPTY_ {
 			resp.Error = NewJSConsumerOfflineReasonError(errors.New(o.offlineReason))
@@ -4770,6 +4599,12 @@ func (s *Server) jsConsumerCreateRequest(sub *subscription, c *client, a *Accoun
 		// it back to whatever the current configured value is.
 		o.mu.RLock()
 		req.Config.PauseUntil = o.cfg.PauseUntil
+		// If a durable sourcing consumer is used, we need to reset the deliver policy.
+		if req.Config.Sourcing && req.Config.Durable != _EMPTY_ {
+			req.Config.DeliverPolicy = o.cfg.DeliverPolicy
+			req.Config.OptStartSeq = o.cfg.OptStartSeq
+			req.Config.OptStartTime = o.cfg.OptStartTime
+		}
 		o.mu.RUnlock()
 	}
 
@@ -5079,7 +4914,7 @@ func (s *Server) jsConsumerInfoRequest(sub *subscription, c *client, _ *Account,
 		groupCreated := meta.Created()
 
 		js.mu.RLock()
-		isLeader, sa, ca := cc.isLeader(), js.streamAssignment(acc.Name, streamName), js.consumerAssignment(acc.Name, streamName, consumerName)
+		isLeader, sa, ca := cc.isLeader(), js.streamAssignmentOrInflight(acc.Name, streamName), js.consumerAssignmentOrInflight(acc.Name, streamName, consumerName)
 		var rg *raftGroup
 		var offline, isMember bool
 		if ca != nil {
@@ -5404,8 +5239,11 @@ func (s *Server) jsConsumerPauseRequest(sub *subscription, c *client, _ *Account
 			return
 		}
 
-		nca := *ca
+		nca := ca.clone()
+		// We're only holding the read lock and release below,
+		// we need a copy to prevent concurrent reads/writes.
 		ncfg := *ca.Config
+		ncfg.Metadata = maps.Clone(ncfg.Metadata)
 		nca.Config = &ncfg
 		meta := cc.meta
 		js.mu.RUnlock()
@@ -5420,7 +5258,7 @@ func (s *Server) jsConsumerPauseRequest(sub *subscription, c *client, _ *Account
 		// Only PauseUntil is updated above, so reuse config for both.
 		setStaticConsumerMetadata(nca.Config)
 
-		eca := encodeAddConsumerAssignment(&nca)
+		eca := encodeAddConsumerAssignment(nca)
 		meta.Propose(eca)
 
 		resp.PauseUntil = pauseUTC
@@ -5453,7 +5291,13 @@ func (s *Server) jsConsumerPauseRequest(sub *subscription, c *client, _ *Account
 		return
 	}
 
+	// We're only holding the read lock and release below,
+	// we need a copy to prevent concurrent reads/writes.
+	obs.mu.RLock()
 	ncfg := obs.cfg
+	ncfg.Metadata = maps.Clone(ncfg.Metadata)
+	obs.mu.RUnlock()
+
 	pauseUTC := req.PauseUntil.UTC()
 	if !pauseUTC.IsZero() {
 		ncfg.PauseUntil = &pauseUTC
