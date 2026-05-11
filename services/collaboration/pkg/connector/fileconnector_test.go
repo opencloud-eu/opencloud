@@ -1802,6 +1802,7 @@ var _ = Describe("FileConnector", func() {
 				PostMessageOrigin:       "https://cloud.opencloud.test",
 				EnableInsertRemoteImage: true,
 				EnableInsertRemoteFile:  true,
+				EnableRemoteLinkPicker:  true,
 				IsAnonymousUser:         true,
 			}
 
@@ -1995,6 +1996,7 @@ var _ = Describe("FileConnector", func() {
 				PostMessageOrigin:       "https://cloud.opencloud.test",
 				EnableInsertRemoteImage: true,
 				EnableInsertRemoteFile:  true,
+				EnableRemoteLinkPicker:  true,
 				IsAdminUser:             true,
 				UserExtraInfo: &fileinfo.UserExtraInfo{
 					Mail: "shaft@example.com",

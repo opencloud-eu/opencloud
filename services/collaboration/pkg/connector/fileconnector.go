@@ -1278,6 +1278,7 @@ func (f *FileConnector) CheckFileInfo(ctx context.Context) (*ConnectorResponse, 
 		fileinfo.KeyEnableOwnerTermination:     true, // only for collabora
 		fileinfo.KeyEnableInsertRemoteImage:    true,
 		fileinfo.KeyEnableInsertRemoteFile:     true,
+		fileinfo.KeyEnableRemoteLinkPicker:     true,
 		fileinfo.KeySupportsExtendedLockLength: true,
 		fileinfo.KeySupportsGetLock:            true,
 		fileinfo.KeySupportsLocks:              true,

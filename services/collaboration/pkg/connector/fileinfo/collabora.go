@@ -46,6 +46,8 @@ type Collabora struct {
 	EnableInsertRemoteImage bool `json:"EnableInsertRemoteImage,omitempty"`
 	// If set to true, this will enable the insertion of remote files chosen from the WOPI storage. A UI_InsertFile postMessage will be sent to the WOPI host to request the UI to select the file. This enables multimedia insertion and document comparison features.
 	EnableInsertRemoteFile bool `json:"EnableInsertRemoteFile,omitempty"`
+	// If set to true, this will enable picking a link to a remote file from the WOPI storage. A UI_PickLink postMessage will be sent to the WOPI host to request the UI to select the file. The host is expected to reply with an Action_InsertLink message carrying the file URL.
+	EnableRemoteLinkPicker bool `json:"EnableRemoteLinkPicker,omitempty"`
 	// If set to true, this will disable the insertion of image chosen from the local device. If EnableInsertRemoteImage is not set to true, then inserting images files is not possible.
 	DisableInsertLocalImage bool `json:"DisableInsertLocalImage,omitempty"`
 	// If set to true, hides the print option from the file menu bar in the UI.
@@ -124,6 +126,8 @@ func (cinfo *Collabora) SetProperties(props map[string]any) {
 			cinfo.EnableInsertRemoteImage = value.(bool)
 		case KeyEnableInsertRemoteFile:
 			cinfo.EnableInsertRemoteFile = value.(bool)
+		case KeyEnableRemoteLinkPicker:
+			cinfo.EnableRemoteLinkPicker = value.(bool)
 		case KeyDisableInsertLocalImage:
 			cinfo.DisableInsertLocalImage = value.(bool)
 		case KeyHidePrintOption:

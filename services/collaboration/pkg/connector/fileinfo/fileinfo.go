@@ -104,6 +104,7 @@ const (
 
 	KeyEnableInsertRemoteImage = "EnableInsertRemoteImage"
 	KeyEnableInsertRemoteFile  = "EnableInsertRemoteFile"
+	KeyEnableRemoteLinkPicker  = "EnableRemoteLinkPicker"
 	KeyDisableInsertLocalImage = "DisableInsertLocalImage"
 	KeyHidePrintOption         = "HidePrintOption"
 	KeyHideSaveOption          = "HideSaveOption"
