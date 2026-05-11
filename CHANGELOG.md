@@ -1,6 +1,6 @@
 # Changelog
 
-## [6.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v6.2.0) - 2026-05-08
+## [6.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v6.2.0) - 2026-05-11
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -8,6 +8,7 @@
 
 ### 🐛 Bug Fixes
 
+- Set new defaults for caches and stores [[#2702](https://github.com/opencloud-eu/opencloud/pull/2702)]
 - fix: remove typo in error message [[#2701](https://github.com/opencloud-eu/opencloud/pull/2701)]
 - fix(search): preserve value case for non-lowercased bleve fields [[#2633](https://github.com/opencloud-eu/opencloud/pull/2633)]
 - More graceful shutdown fixes [[#2690](https://github.com/opencloud-eu/opencloud/pull/2690)]
