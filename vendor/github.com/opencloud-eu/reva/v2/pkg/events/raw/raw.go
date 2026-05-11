@@ -71,9 +71,8 @@ type RawStream struct {
 	c Config
 }
 
-func FromConfig(ctx context.Context, name string, cfg Config) (Stream, error) {
-	var s Stream
-	b := backoff.NewExponentialBackOff()
+func JetStream(ctx context.Context, name string, cfg Config) (jetstream.JetStream, error) {
+	var js jetstream.JetStream
 
 	connect := func() error {
 		var tlsConf *tls.Config
@@ -120,27 +119,32 @@ func FromConfig(ctx context.Context, name string, cfg Config) (Stream, error) {
 			return err
 		}
 
-		jsConn, err := jetstream.New(conn)
-		if err != nil {
-			return err
-		}
-
-		js, err := jsConn.Stream(ctx, events.MainQueueName)
-		if err != nil {
-			return err
-		}
-
-		s = &RawStream{
-			js: js,
-			c:  cfg,
-		}
-		return nil
+		js, err = jetstream.New(conn)
+		return err
 	}
-	err := backoff.Retry(connect, b)
+
+	err := backoff.Retry(connect, backoff.NewExponentialBackOff())
 	if err != nil {
-		return s, errors.Wrap(err, "could not connect to nats jetstream")
+		return nil, errors.Wrap(err, "could not connect to nats jetstream")
 	}
-	return s, nil
+	return js, nil
+}
+
+func FromConfig(ctx context.Context, name string, cfg Config) (Stream, error) {
+	jsConn, err := JetStream(ctx, name, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	js, err := jsConn.Stream(ctx, events.MainQueueName)
+	if err != nil {
+		return nil, err
+	}
+
+	return &RawStream{
+		js: js,
+		c:  cfg,
+	}, nil
 }
 
 func (s *RawStream) Consume(group string, evs ...events.Unmarshaller) (<-chan Event, error) {

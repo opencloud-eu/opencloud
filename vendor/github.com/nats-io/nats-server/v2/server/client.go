@@ -1061,18 +1061,19 @@ func (c *client) setPermissions(perms *Permissions) {
 		return
 	}
 	c.perms = &permissions{}
+	slcache := c.srv != nil && !c.srv.getOpts().NoSublistCache
 
 	// Loop over publish permissions
 	if perms.Publish != nil {
 		if perms.Publish.Allow != nil {
-			c.perms.pub.allow = NewSublistWithCache()
+			c.perms.pub.allow = NewSublist(slcache)
 		}
 		for _, pubSubject := range perms.Publish.Allow {
 			sub := &subscription{subject: []byte(pubSubject)}
 			c.perms.pub.allow.Insert(sub)
 		}
 		if len(perms.Publish.Deny) > 0 {
-			c.perms.pub.deny = NewSublistWithCache()
+			c.perms.pub.deny = NewSublist(slcache)
 		}
 		for _, pubSubject := range perms.Publish.Deny {
 			sub := &subscription{subject: []byte(pubSubject)}
@@ -1091,7 +1092,7 @@ func (c *client) setPermissions(perms *Permissions) {
 	if perms.Subscribe != nil {
 		var err error
 		if len(perms.Subscribe.Allow) > 0 {
-			c.perms.sub.allow = NewSublistWithCache()
+			c.perms.sub.allow = NewSublist(slcache)
 		}
 		for _, subSubject := range perms.Subscribe.Allow {
 			sub := &subscription{}
@@ -1103,7 +1104,7 @@ func (c *client) setPermissions(perms *Permissions) {
 			c.perms.sub.allow.Insert(sub)
 		}
 		if len(perms.Subscribe.Deny) > 0 {
-			c.perms.sub.deny = NewSublistWithCache()
+			c.perms.sub.deny = NewSublist(slcache)
 			// Also hold onto this array for later.
 			c.darray = perms.Subscribe.Deny
 		}
@@ -1200,6 +1201,7 @@ func (c *client) mergeDenyPermissions(what denyType, denyPubs []string) {
 	if c.perms == nil {
 		c.perms = &permissions{}
 	}
+	slcache := c.srv != nil && !c.srv.getOpts().NoSublistCache
 	var perms []*perm
 	switch what {
 	case pub:
@@ -1211,7 +1213,7 @@ func (c *client) mergeDenyPermissions(what denyType, denyPubs []string) {
 	}
 	for _, p := range perms {
 		if p.deny == nil {
-			p.deny = NewSublistWithCache()
+			p.deny = NewSublist(slcache)
 		}
 	FOR_DENY:
 		for _, subj := range denyPubs {
@@ -2254,10 +2256,18 @@ func (c *client) processConnect(arg []byte) error {
 		// least ClientProtoInfo, we need to increment the following counter.
 		// This is decremented when client is removed from the server's
 		// clients map.
-		if kind == CLIENT && proto >= ClientProtoInfo {
+		if kind == CLIENT && proto >= ClientProtoInfo && firstConnect {
 			srv.mu.Lock()
 			srv.cproto++
 			srv.mu.Unlock()
+		}
+
+		// A second CONNECT may move the client into a different account via
+		// checkAuthentication. Drop any previously-registered subscriptions
+		// from the current account first so they don't leak in that account's
+		// sublist after the client switches.
+		if !firstConnect {
+			c.clearAccountSubs(false)
 		}
 
 		// Check for Auth
@@ -3273,19 +3283,20 @@ func (c *client) canSubscribe(subject string, optQueue ...string) bool {
 		r := c.perms.sub.deny.Match(subject)
 		allowed = len(r.psubs) == 0
 
-		if queue != _EMPTY_ && len(r.qsubs) > 0 {
+		if allowed && queue != _EMPTY_ && len(r.qsubs) > 0 {
 			// If the queue appears in the deny list, then DO NOT allow.
 			allowed = !queueMatches(queue, r.qsubs)
 		}
 
 		// We use the actual subscription to signal us to spin up the deny mperms
-		// and cache. We check if the subject is a wildcard that contains any of
+		// and cache. We check if the subject is a wildcard that intersects any of
 		// the deny clauses.
 		// FIXME(dlc) - We could be smarter and track when these go away and remove.
 		if allowed && c.mperms == nil && subjectHasWildcard(subject) {
-			// Whip through the deny array and check if this wildcard subject is within scope.
+			// Whip through the deny array and check if this wildcard subject can
+			// overlap with any denied deliveries.
 			for _, sub := range c.darray {
-				if subjectIsSubsetMatch(sub, subject) {
+				if SubjectsCollide(sub, subject) {
 					c.loadMsgDenyFilter()
 					break
 				}
@@ -3658,14 +3669,7 @@ func (c *client) deliverMsg(prodIsMQTT bool, sub *subscription, acc *Account, su
 
 	// Check if we are a leafnode and have perms to check.
 	if client.kind == LEAF && client.perms != nil {
-		var subjectToCheck []byte
-		if subject[0] == '_' && bytes.HasPrefix(subject, []byte(gwReplyPrefix)) {
-			subjectToCheck = subject[gwSubjectOffset:]
-		} else if subject[0] == '$' && bytes.HasPrefix(subject, []byte(oldGWReplyPrefix)) {
-			subjectToCheck = subject[oldGWReplyStart:]
-		} else {
-			subjectToCheck = subject
-		}
+		subjectToCheck, _ := getGWRoutedSubjectOrSelf(subject)
 		if !client.pubAllowedFullCheck(string(subjectToCheck), true, true) {
 			mt.addEgressEvent(client, sub, errMsgTracePubViolation)
 			client.mu.Unlock()
@@ -4068,7 +4072,7 @@ func (c *client) allowedMsgTraceDest(hdr []byte, hasLock bool) (string, bool) {
 		return _EMPTY_, true
 	}
 	td := sliceHeader(MsgTraceDest, hdr)
-	if len(td) == 0 {
+	if len(td) == 0 || bytes.Equal(td, traceDestDisabledAsBytes) {
 		return _EMPTY_, true
 	}
 	dest := bytesToString(td)
@@ -4131,17 +4135,7 @@ func (c *client) pubAllowedFullCheck(subject string, fullCheck, hasLock bool) bo
 		if !hasLock {
 			c.mu.Lock()
 		}
-		if resp := c.replies[subject]; resp != nil {
-			resp.n++
-			// Check if we have sent too many responses.
-			if c.perms.resp.MaxMsgs > 0 && resp.n > c.perms.resp.MaxMsgs {
-				delete(c.replies, subject)
-			} else if c.perms.resp.Expires > 0 && time.Since(resp.t) > c.perms.resp.Expires {
-				delete(c.replies, subject)
-			} else {
-				allowed = true
-			}
-		}
+		allowed = c.responseAllowed(subject)
 		if !hasLock {
 			c.mu.Unlock()
 		}
@@ -4155,6 +4149,25 @@ func (c *client) pubAllowedFullCheck(subject string, fullCheck, hasLock bool) bo
 	return allowed
 }
 
+// Returns true if this subject matches a tracked dynamic reply permission.
+// Lock must be held.
+func (c *client) responseAllowed(subject string) bool {
+	if c.perms == nil || c.perms.resp == nil {
+		return false
+	}
+	if resp := c.replies[subject]; resp != nil {
+		resp.n++
+		if c.perms.resp.MaxMsgs > 0 && resp.n > c.perms.resp.MaxMsgs {
+			delete(c.replies, subject)
+		} else if c.perms.resp.Expires > 0 && time.Since(resp.t) > c.perms.resp.Expires {
+			delete(c.replies, subject)
+		} else {
+			return true
+		}
+	}
+	return false
+}
+
 // Test whether a reply subject is a service import reply.
 func isServiceReply(reply []byte) bool {
 	// This function is inlined and checking this way is actually faster
@@ -4162,16 +4175,51 @@ func isServiceReply(reply []byte) bool {
 	return len(reply) > 3 && bytesToString(reply[:4]) == replyPrefix
 }
 
+// Test whether a subject is a JetStream ACK.
+func isJSAckSubject(subject []byte) bool {
+	return len(subject) > jsAckPreLen && bytesToString(subject[:jsAckPreLen]) == jsAckPre
+}
+
+// jsAckDeliverIdx returns the byte offset of the `@` separator in an encoded
+// `$JS.ACK....@<deliver>` reply, or -1 if reply is not in that form. Stream,
+// consumer, and subject tokens may legally contain `@`, so we accept only the
+// first `@` that follows the eight dots of the JS ACK token:
+//
+//	$JS.ACK.<stream>.<consumer>.<delivered>.<sseq>.<cseq>.<tm>.<pending>@<deliver>
+func jsAckDeliverIdx(reply []byte) int {
+	if !isJSAckSubject(reply) {
+		return -1
+	}
+	dots := 0
+	for i, b := range reply {
+		switch b {
+		case '.':
+			dots++
+		case '@':
+			if dots >= 8 {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+// replyHasJSAckSuffix reports whether reply is already in `$JS.ACK....@<deliver>`
+// form, so callers don't double-append the suffix on a re-entrant pass
+// (service-import or chained JS push).
+func replyHasJSAckSuffix(reply []byte) bool {
+	return jsAckDeliverIdx(reply) != -1
+}
+
 // Test whether a reply subject is a service import or a gateway routed reply.
 func isReservedReply(reply []byte) bool {
 	if isServiceReply(reply) {
 		return true
 	}
-	rLen := len(reply)
 	// Faster to check with string([:]) than byte-by-byte
-	if rLen > jsAckPreLen && bytesToString(reply[:jsAckPreLen]) == jsAckPre {
+	if isJSAckSubject(reply) {
 		return true
-	} else if rLen > gwReplyPrefixLen && bytesToString(reply[:gwReplyPrefixLen]) == gwReplyPrefix {
+	} else if len(reply) > gwReplyPrefixLen && bytesToString(reply[:gwReplyPrefixLen]) == gwReplyPrefix {
 		return true
 	}
 	return false
@@ -4370,7 +4418,7 @@ func (c *client) processInboundClientMsg(msg []byte) (bool, bool) {
 	// Now deal with gateways
 	if c.srv.gateway.enabled {
 		reply := c.pa.reply
-		if len(c.pa.deliver) > 0 && c.kind == JETSTREAM && len(c.pa.reply) > 0 {
+		if len(c.pa.deliver) > 0 && c.kind == JETSTREAM && len(reply) > 0 && !replyHasJSAckSuffix(reply) {
 			reply = append(reply, '@')
 			reply = append(reply, c.pa.deliver...)
 		}
@@ -4418,7 +4466,7 @@ func (c *client) handleGWReplyMap(msg []byte) bool {
 	}
 	if c.srv.gateway.enabled {
 		reply := c.pa.reply
-		if len(c.pa.deliver) > 0 && c.kind == JETSTREAM && len(c.pa.reply) > 0 {
+		if len(c.pa.deliver) > 0 && c.kind == JETSTREAM && len(reply) > 0 && !replyHasJSAckSuffix(reply) {
 			reply = append(reply, '@')
 			reply = append(reply, c.pa.deliver...)
 		}
@@ -4531,7 +4579,8 @@ func (c *client) setHeader(key, value string, msg []byte) []byte {
 	// Write original header if present.
 	if c.pa.hdr > LEN_CR_LF {
 		omi = c.pa.hdr
-		hdr := removeHeaderIfPresent(msg[:c.pa.hdr-LEN_CR_LF], key)
+		// Need to copy since we're removing the header in place.
+		hdr := removeHeaderIfPresent(copyBytes(msg[:c.pa.hdr-LEN_CR_LF]), key)
 		if len(hdr) == 0 {
 			bb.WriteString(hdrLine)
 		} else {
@@ -4825,6 +4874,12 @@ func (c *client) processServiceImport(si *serviceImport, acc *Account, msg []byt
 			// but the local server must replace it with the identity of the
 			// authenticated leaf connection instead of trusting forwarded values.
 			ci = c.getClientInfo(share)
+			if hadPrevSi && cis != nil && cis.Reply != _EMPTY_ {
+				ci.Reply = cis.Reply
+			} else if bytes.HasSuffix(c.pa.reply, []byte(FastBatchSuffix)) {
+				// Fast batch requires knowledge of the original reply subject.
+				ci.Reply = bytesToString(c.pa.reply)
+			}
 			if hadPrevSi {
 				ci.Service = acc.Name
 				if !share && (si.share || isSysImport) {
@@ -4843,6 +4898,10 @@ func (c *client) processServiceImport(si *serviceImport, acc *Account, msg []byt
 			}
 		} else if c.kind != LEAF || c.pa.hdr < 0 || len(sliceHeader(ClientInfoHdr, msg[:c.pa.hdr])) == 0 {
 			ci = c.getClientInfo(share)
+			// Fast batch requires knowledge of the original reply subject.
+			if bytes.HasSuffix(c.pa.reply, []byte(FastBatchSuffix)) {
+				ci.Reply = bytesToString(c.pa.reply)
+			}
 			// If we did not share but the imports destination is the system account add in the server and cluster info.
 			if !share && isSysImport {
 				c.addServerAndClusterInfo(ci)
@@ -4902,8 +4961,7 @@ func (c *client) processServiceImport(si *serviceImport, acc *Account, msg []byt
 				// We also need to disable the message trace headers so that
 				// if the message is routed, it does not initialize tracing in the
 				// remote.
-				positions := disableTraceHeaders(c, msg)
-				defer enableTraceHeaders(msg, positions)
+				msg = c.setHeader(MsgTraceDest, MsgTraceDestDisabled, msg)
 			}
 		}
 	}
@@ -5037,21 +5095,9 @@ func (c *client) processMsgResults(acc *Account, r *SublistResult, msg, deliver,
 	// Check for JetStream encoded reply subjects.
 	// For now these will only be on $JS.ACK prefixed reply subjects.
 	var remapped bool
-	if len(creply) > 0 && c.kind != CLIENT && !isInternalClient(c.kind) && bytes.HasPrefix(creply, []byte(jsAckPre)) {
+	if len(creply) > 0 && c.kind != CLIENT && !isInternalClient(c.kind) {
 		// We need to rewrite the subject and the reply.
-		// But, we must be careful that the stream name, consumer name, and subject can contain '@' characters.
-		// JS ACK contains at least 8 dots, find the first @ after this prefix.
-		// - $JS.ACK.<stream>.<consumer>.<delivered>.<sseq>.<cseq>.<tm>.<pending>
-		counter := 0
-		li := bytes.IndexFunc(creply, func(rn rune) bool {
-			if rn == '.' {
-				counter++
-			} else if rn == '@' {
-				return counter >= 8
-			}
-			return false
-		})
-		if li != -1 && li < len(creply)-1 {
+		if li := jsAckDeliverIdx(creply); li != -1 && li < len(creply)-1 {
 			remapped = true
 			subj, creply = creply[li+1:], creply[:li]
 		}
@@ -5471,7 +5517,7 @@ sendToRoutesOrLeafs:
 	// at the end of the reply subject if it exists. But only if this wasn't
 	// already performed, otherwise we'd end up with a duplicate '@' suffix
 	// resulting in a protocol error.
-	if len(deliver) > 0 && len(reply) > 0 && !remapped {
+	if len(deliver) > 0 && len(reply) > 0 && !remapped && !replyHasJSAckSuffix(reply) {
 		reply = append(reply, '@')
 		reply = append(reply, deliver...)
 	}
@@ -5754,11 +5800,12 @@ func (c *client) clearAuthTimer() bool {
 	return stopped
 }
 
-// We may reuse atmr for expiring user jwts,
-// so check connectReceived.
+// Track whether the parser should still enforce pre-CONNECT rules.
+// This is handshake state, not timer state, since some handshakes
+// use a different timer while still expecting CONNECT.
 // Lock assume held on entry.
 func (c *client) awaitingAuth() bool {
-	return !c.flags.isSet(connectReceived) && c.atmr != nil
+	return c.flags.isSet(expectConnect) && !c.flags.isSet(connectReceived)
 }
 
 // This will set the atmr for the JWT expiration time.
@@ -5987,37 +6034,12 @@ func (c *client) closeConnection(reason ClosedState) {
 		srv         = c.srv
 		noReconnect = c.flags.isSet(noReconnect)
 		acc         = c.acc
-		spoke       bool
 	)
-
-	// Snapshot for use if we are a client connection.
-	// FIXME(dlc) - we can just stub in a new one for client
-	// and reference existing one.
-	var subs []*subscription
-	if kind == CLIENT || kind == LEAF || kind == JETSTREAM {
-		var _subs [32]*subscription
-		subs = _subs[:0]
-		// Do not set c.subs to nil or delete the sub from c.subs here because
-		// it will be needed in saveClosedClient (which has been started as a
-		// go routine in markConnAsClosed). Cleanup will be done there.
-		for _, sub := range c.subs {
-			// Auto-unsubscribe subscriptions must be unsubscribed forcibly.
-			sub.max = 0
-			sub.close()
-			subs = append(subs, sub)
-		}
-		spoke = c.isSpokeLeafNode()
-	}
-
 	c.mu.Unlock()
 
-	// Remove client's or leaf node or jetstream subscriptions.
-	if acc != nil && (kind == CLIENT || kind == LEAF || kind == JETSTREAM) {
-		acc.sl.RemoveBatch(subs)
-	} else if kind == ROUTER {
+	if kind == ROUTER {
 		c.removeRemoteSubs()
 	}
-
 	if srv != nil {
 		// Unregister
 		srv.removeClient(c)
@@ -6025,45 +6047,11 @@ func (c *client) closeConnection(reason ClosedState) {
 		if acc != nil {
 			// Update remote subscriptions.
 			if kind == CLIENT || kind == LEAF || kind == JETSTREAM {
-				qsubs := map[string]*qsub{}
-				for _, sub := range subs {
-					// Call unsubscribe here to cleanup shadow subscriptions and such.
-					c.unsubscribe(acc, sub, true, false)
-					// Update route as normal for a normal subscriber.
-					if sub.queue == nil {
-						if !spoke {
-							srv.updateRouteSubscriptionMap(acc, sub, -1)
-							if srv.gateway.enabled {
-								srv.gatewayUpdateSubInterest(acc.Name, sub, -1)
-							}
-						}
-						acc.updateLeafNodes(sub, -1)
-					} else {
-						// We handle queue subscribers special in case we
-						// have a bunch we can just send one update to the
-						// connected routes.
-						num := int32(1)
-						if kind == LEAF {
-							num = sub.qw
-						}
-						key := keyFromSub(sub)
-						if esub, ok := qsubs[key]; ok {
-							esub.n += num
-						} else {
-							qsubs[key] = &qsub{sub, num}
-						}
-					}
-				}
-				// Process any qsubs here.
-				for _, esub := range qsubs {
-					if !spoke {
-						srv.updateRouteSubscriptionMap(acc, esub.sub, -(esub.n))
-						if srv.gateway.enabled {
-							srv.gatewayUpdateSubInterest(acc.Name, esub.sub, -(esub.n))
-						}
-					}
-					acc.updateLeafNodes(esub.sub, -(esub.n))
-				}
+				// Remove client's subscriptions from the account and unregister
+				// client from that account. Keep c.subs populated because
+				// saveClosedClient (started as a goroutine in markConnAsClosed)
+				// still needs to read it.
+				c.clearAccountSubs(true)
 			}
 			// Always remove from the account, otherwise we can leak clients.
 			// Note that SYSTEM and ACCOUNT types from above cleanup their own subs.
@@ -6088,6 +6076,87 @@ func (c *client) closeConnection(reason ClosedState) {
 	}
 
 	c.reconnect()
+}
+
+// clearAccountSubs removes the client's subscriptions from its current account
+// and unregisters it from that account. If close is true, c.subs is left
+// populated for saveClosedClient; otherwise c.subs is cleared and c.acc
+// registered back to the global account.
+// Client lock MUST NOT be held on entry.
+func (c *client) clearAccountSubs(close bool) {
+	c.mu.Lock()
+	kind := c.kind
+	srv := c.srv
+	acc := c.acc
+	if acc == nil || (kind != CLIENT && kind != LEAF && kind != JETSTREAM) {
+		c.mu.Unlock()
+		return
+	}
+	var _subs [32]*subscription
+	subs := _subs[:0]
+	// Do not set c.subs to nil or delete the sub from c.subs here because
+	// it will be needed in saveClosedClient (which has been started as a
+	// go routine in markConnAsClosed). Cleanup will be done there.
+	for _, sub := range c.subs {
+		// Auto-unsubscribe subscriptions must be unsubscribed forcibly.
+		sub.max = 0
+		sub.close()
+		subs = append(subs, sub)
+		if !close {
+			delete(c.subs, string(sub.sid))
+		}
+	}
+	spoke := c.isSpokeLeafNode()
+	c.mu.Unlock()
+
+	acc.sl.RemoveBatch(subs)
+
+	if srv != nil {
+		qsubs := map[string]*qsub{}
+		for _, sub := range subs {
+			// Call unsubscribe here to cleanup shadow subscriptions and such.
+			c.unsubscribe(acc, sub, true, false)
+			// Update route as normal for a normal subscriber.
+			if sub.queue == nil {
+				if !spoke {
+					srv.updateRouteSubscriptionMap(acc, sub, -1)
+					if srv.gateway.enabled {
+						srv.gatewayUpdateSubInterest(acc.Name, sub, -1)
+					}
+				}
+				acc.updateLeafNodes(sub, -1)
+			} else {
+				// We handle queue subscribers special in case we
+				// have a bunch we can just send one update to the
+				// connected routes.
+				num := int32(1)
+				if kind == LEAF {
+					num = sub.qw
+				}
+				key := keyFromSub(sub)
+				if esub, ok := qsubs[key]; ok {
+					esub.n += num
+				} else {
+					qsubs[key] = &qsub{sub, num}
+				}
+			}
+		}
+		// Process any qsubs here.
+		for _, esub := range qsubs {
+			if !spoke {
+				srv.updateRouteSubscriptionMap(acc, esub.sub, -(esub.n))
+				if srv.gateway.enabled {
+					srv.gatewayUpdateSubInterest(acc.Name, esub.sub, -(esub.n))
+				}
+			}
+			acc.updateLeafNodes(esub.sub, -(esub.n))
+		}
+	}
+
+	if !close {
+		// Register back to global account, mimicking the state after client initialization.
+		c.registerWithAccount(srv.globalAccount())
+	}
 }
 
 // Depending on the kind of connections, this may attempt to recreate a connection.
@@ -6180,7 +6249,7 @@ func (c *client) reconnect() {
 			srv.Debugf("Gateway %q not in configuration, not attempting reconnect", gwName)
 		}
 	} else if leafCfg != nil {
-		// Check if this is a solicited leaf node. Start up a reconnect.
+		// This is a solicited leaf node. Start up a reconnect.
 		srv.startGoRoutine(func() { srv.reConnectToRemoteLeafNode(leafCfg) })
 	}
 }

@@ -2008,5 +2008,215 @@
     "help": "",
     "url": "",
     "deprecates": ""
+  },
+  {
+    "constant": "JSMessageSchedulesSourceInvalidErr",
+    "code": 400,
+    "error_code": 10203,
+    "description": "message schedules source is invalid",
+    "comment": "",
+    "help": "",
+    "url": "",
+    "deprecates": ""
+  },
+  {
+    "constant": "JSConsumerInvalidResetErr",
+    "code": 400,
+    "error_code": 10204,
+    "description": "invalid reset: {err}",
+    "comment": "",
+    "help": "",
+    "url": "",
+    "deprecates": ""
+  },
+  {
+    "constant": "JSBatchPublishDisabledErr",
+    "code": 400,
+    "error_code": 10205,
+    "description": "batch publish is disabled",
+    "comment": "",
+    "help": "",
+    "url": "",
+    "deprecates": ""
+  },
+  {
+    "constant": "JSBatchPublishInvalidPatternErr",
+    "code": 400,
+    "error_code": 10206,
+    "description": "batch publish pattern is invalid",
+    "comment": "",
+    "help": "",
+    "url": "",
+    "deprecates": ""
+  },
+  {
+    "constant": "JSBatchPublishInvalidBatchIDErr",
+    "code": 400,
+    "error_code": 10207,
+    "description": "batch publish ID is invalid",
+    "comment": "",
+    "help": "",
+    "url": "",
+    "deprecates": ""
+  },
+  {
+    "constant": "JSBatchPublishUnknownBatchIDErr",
+    "code": 400,
+    "error_code": 10208,
+    "description": "batch publish ID unknown",
+    "comment": "",
+    "help": "",
+    "url": "",
+    "deprecates": ""
+  },
+  {
+    "constant": "JSMirrorWithBatchPublishErr",
+    "code": 400,
+    "error_code": 10209,
+    "description": "stream mirrors can not also use batch publishing",
+    "comment": "",
+    "help": "",
+    "url": "",
+    "deprecates": ""
+  },
+  {
+    "constant": "JSAtomicPublishTooManyInflight",
+    "code": 429,
+    "error_code": 10210,
+    "description": "atomic publish too many inflight",
+    "comment": "",
+    "help": "",
+    "url": "",
+    "deprecates": ""
+  },
+  {
+    "constant": "JSBatchPublishTooManyInflight",
+    "code": 429,
+    "error_code": 10211,
+    "description": "batch publish too many inflight",
+    "comment": "",
+    "help": "",
+    "url": "",
+    "deprecates": ""
+  },
+  {
+    "constant": "JSMessageSchedulesSchedulerInvalidErr",
+    "code": 400,
+    "error_code": 10212,
+    "description": "message schedules invalid scheduler",
+    "comment": "",
+    "help": "",
+    "url": "",
+    "deprecates": ""
+  },
+  {
+    "constant": "JSMirrorDurableConsumerCfgInvalid",
+    "code": 400,
+    "error_code": 10213,
+    "description": "stream mirror consumer config is invalid",
+    "comment": "",
+    "help": "",
+    "url": "",
+    "deprecates": ""
+  },
+  {
+    "constant": "JSMirrorConsumerRequiresAckFCErr",
+    "code": 400,
+    "error_code": 10214,
+    "description": "stream mirror consumer requires flow control ack policy",
+    "comment": "",
+    "help": "",
+    "url": "",
+    "deprecates": ""
+  },
+  {
+    "constant": "JSSourceDurableConsumerCfgInvalid",
+    "code": 400,
+    "error_code": 10215,
+    "description": "stream source consumer config is invalid",
+    "comment": "",
+    "help": "",
+    "url": "",
+    "deprecates": ""
+  },
+  {
+    "constant": "JSSourceDurableConsumerDuplicateDetected",
+    "code": 400,
+    "error_code": 10216,
+    "description": "duplicate stream source consumer detected",
+    "comment": "",
+    "help": "",
+    "url": "",
+    "deprecates": ""
+  },
+  {
+    "constant": "JSSourceConsumerRequiresAckFCErr",
+    "code": 400,
+    "error_code": 10217,
+    "description": "stream source consumer requires flow control ack policy",
+    "comment": "",
+    "help": "",
+    "url": "",
+    "deprecates": ""
+  },
+  {
+    "constant": "JSConsumerAckFCRequiresPushErr",
+    "code": 400,
+    "error_code": 10218,
+    "description": "flow control ack policy requires a push based consumer",
+    "comment": "",
+    "help": "",
+    "url": "",
+    "deprecates": ""
+  },
+  {
+    "constant": "JSConsumerAckFCRequiresFCErr",
+    "code": 400,
+    "error_code": 10219,
+    "description": "flow control ack policy requires flow control",
+    "comment": "",
+    "help": "",
+    "url": "",
+    "deprecates": ""
+  },
+  {
+    "constant": "JSConsumerAckFCRequiresMaxAckPendingErr",
+    "code": 400,
+    "error_code": 10220,
+    "description": "flow control ack policy requires max ack pending",
+    "comment": "",
+    "help": "",
+    "url": "",
+    "deprecates": ""
+  },
+  {
+    "constant": "JSConsumerAckFCRequiresNoAckWaitErr",
+    "code": 400,
+    "error_code": 10221,
+    "description": "flow control ack policy requires unset ack wait",
+    "comment": "",
+    "help": "",
+    "url": "",
+    "deprecates": ""
+  },
+  {
+    "constant": "JSConsumerAckFCRequiresNoMaxDeliverErr",
+    "code": 400,
+    "error_code": 10222,
+    "description": "flow control ack policy requires unset max deliver",
+    "comment": "",
+    "help": "",
+    "url": "",
+    "deprecates": ""
+  },
+  {
+    "constant": "JSMessageSchedulesTimeZoneInvalidErr",
+    "code": 400,
+    "error_code": 10223,
+    "description": "message schedules time zone is invalid",
+    "comment": "",
+    "help": "",
+    "url": "",
+    "deprecates": ""
   }
 ]

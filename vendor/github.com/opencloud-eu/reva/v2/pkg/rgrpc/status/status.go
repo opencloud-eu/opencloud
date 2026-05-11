@@ -68,6 +68,15 @@ func NewInternal(ctx context.Context, msg string) *rpc.Status {
 	}
 }
 
+// NewUnavailable returns a Status with CODE_UNAVAILABLE.
+func NewUnavailable(ctx context.Context, msg string) *rpc.Status {
+	return &rpc.Status{
+		Code:    rpc.Code_CODE_UNAVAILABLE,
+		Message: msg,
+		Trace:   getTrace(ctx),
+	}
+}
+
 // NewUnauthenticated returns a Status with CODE_UNAUTHENTICATED.
 func NewUnauthenticated(ctx context.Context, err error, msg string) *rpc.Status {
 	return &rpc.Status{
@@ -191,6 +200,10 @@ func NewStatusFromErrType(ctx context.Context, msg string, err error) *rpc.Statu
 		return NewUnimplemented(ctx, err, msg+":"+err.Error())
 	case errtypes.BadRequest:
 		return NewInvalid(ctx, msg+":"+err.Error())
+	case errtypes.Unavailable:
+		return NewUnavailable(ctx, msg+": "+err.Error())
+	case errtypes.IsUnavailable:
+		return NewUnavailable(ctx, msg+": "+err.Error())
 	}
 
 	// map GRPC status codes coming from the auth middleware

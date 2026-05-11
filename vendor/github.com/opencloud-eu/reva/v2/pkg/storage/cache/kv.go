@@ -72,7 +72,7 @@ func NewNatsKeyValueFromJetStream(c Config, js jetstream.JetStream) (jetstream.K
 		if err != nil {
 			kvConfig := jetstream.KeyValueConfig{
 				Bucket: c.Database,
-				TTL:    0, // we don't do TTLs for this store
+				TTL:    c.TTL,
 			}
 			if c.DisablePersistence {
 				kvConfig.Storage = jetstream.MemoryStorage

@@ -182,9 +182,12 @@ func (s *service) GetUser(ctx context.Context, req *userpb.GetUserRequest) (*use
 	user, err := s.usermgr.GetUser(ctx, req.UserId, req.SkipFetchingUserGroups)
 	if err != nil {
 		res := &userpb.GetUserResponse{}
-		if _, ok := err.(errtypes.NotFound); ok {
+		switch err.(type) {
+		case errtypes.NotFound:
 			res.Status = status.NewNotFound(ctx, "user not found")
-		} else {
+		case errtypes.Unavailable:
+			res.Status = status.NewUnavailable(ctx, "user provider temporarily unavailable")
+		default:
 			res.Status = status.NewInternal(ctx, "error getting user")
 		}
 		return res, nil
@@ -205,9 +208,12 @@ func (s *service) GetUserByClaim(ctx context.Context, req *userpb.GetUserByClaim
 	user, err := s.usermgr.GetUserByClaim(ctx, req.Claim, req.Value, tenantID, req.SkipFetchingUserGroups)
 	if err != nil {
 		res := &userpb.GetUserByClaimResponse{}
-		if _, ok := err.(errtypes.NotFound); ok {
+		switch err.(type) {
+		case errtypes.NotFound:
 			res.Status = status.NewNotFound(ctx, fmt.Sprintf("user not found %s %s", req.Claim, req.Value))
-		} else {
+		case errtypes.Unavailable:
+			res.Status = status.NewUnavailable(ctx, "user provider temporarily unavailable")
+		default:
 			res.Status = status.NewInternal(ctx, "error getting user by claim")
 		}
 		return res, nil

@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2016, 2025
 // SPDX-License-Identifier: MPL-2.0
 
 package plugin
@@ -307,7 +307,7 @@ func Serve(opts *ServeConfig) {
 	// If the client is configured using AutoMTLS, the certificate will be here,
 	// and we need to generate our own in response.
 	if tlsConfig == nil && clientCert != "" {
-		logger.Info("configuring server automatic mTLS")
+		logger.Debug("configuring server automatic mTLS")
 		clientCertPool := x509.NewCertPool()
 		if !clientCertPool.AppendCertsFromPEM([]byte(clientCert)) {
 			logger.Error("client cert provided but failed to parse", "cert", clientCert)

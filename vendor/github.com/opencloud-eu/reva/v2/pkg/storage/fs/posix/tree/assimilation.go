@@ -870,6 +870,9 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
 			isTrash(path) ||
 			t.isUpload(path) ||
 			t.isIndex(path) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		if t.isRootPath(path) {

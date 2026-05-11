@@ -166,31 +166,39 @@ func (c *client) parse(buf []byte) error {
 						goto authErr
 					}
 					var ok bool
-					// Check here for NoAuthUser. If this is set allow non CONNECT protos as our first.
-					// E.g. telnet proto demos.
-					if noAuthUser := s.getOpts().NoAuthUser; noAuthUser != _EMPTY_ {
-						s.mu.Lock()
-						user, exists := s.users[noAuthUser]
-						s.mu.Unlock()
-						if exists {
-							c.RegisterUser(user)
-							c.mu.Lock()
-							c.clearAuthTimer()
-							c.flags.set(connectReceived)
-							c.mu.Unlock()
-							authSet, ok = false, true
+					switch c.kind {
+					case CLIENT:
+						// Check here for NoAuthUser. If this is set allow non CONNECT protos as our first.
+						// E.g. telnet proto demos.
+						opts := s.getOpts()
+						noAuthUser := opts.NoAuthUser
+						if c.ws != nil {
+							if noAuthUserWS := opts.Websocket.NoAuthUser; noAuthUserWS != _EMPTY_ {
+								noAuthUser = noAuthUserWS
+							}
 						}
+						if noAuthUser != _EMPTY_ {
+							s.mu.Lock()
+							user, exists := s.users[noAuthUser]
+							s.mu.Unlock()
+							if exists {
+								c.RegisterUser(user)
+								c.mu.Lock()
+								c.clearAuthTimer()
+								c.flags.set(connectReceived)
+								c.mu.Unlock()
+								authSet, ok = false, true
+							}
+						}
+					case LEAF:
+						// Compressed inbound leaf-node negotiation may require INFO
+						// before CONNECT. Without compression, leaf connections must
+						// still start with CONNECT.
+						ok = (b == 'I' || b == 'i') && needsCompression(s.getOpts().LeafNode.Compression.Mode)
 					}
 					if !ok {
 						goto authErr
 					}
-				}
-				// If the connection is a gateway connection, make sure that
-				// if this is an inbound, it starts with a CONNECT.
-				if c.kind == GATEWAY && !c.gw.outbound && !c.gw.connected {
-					// Use auth violation since no CONNECT was sent.
-					// It could be a parseErr too.
-					goto authErr
 				}
 			}
 			switch b {
@@ -1250,10 +1258,17 @@ func protoSnippet(start, max int, buf []byte) string {
 // If so, an error is sent to the client and the connection is closed.
 // The error ErrMaxControlLine is returned.
 func (c *client) overMaxControlLineLimit(arg []byte, mcl int32) error {
+	// Widen to int64 so mcl*16 cannot overflow for large configured values.
+	effective := int64(mcl)
 	if c.kind != CLIENT {
-		return nil
+		// This is the upper bound on argBuf length for LEAF, ROUTER, and GATEWAY connections.
+		// These kinds need longer arg lines than CLIENT (which is capped at mcl=4096 by default)
+		// because cluster/leaf frames encode origin, account, reply, and queue groups.
+		// By default, this is 64 KB, which matches maxBufSize so a single oversized read
+		// is caught on the very next parse call.
+		effective *= 16
 	}
-	if len(arg) > int(mcl) {
+	if int64(len(arg)) > effective {
 		err := NewErrorCtx(ErrMaxControlLine, "State %d, max_control_line %d, Buffer len %d (snip: %s...)",
 			c.state, int(mcl), len(c.argBuf), protoSnippet(0, MAX_CONTROL_LINE_SNIPPET_SIZE, arg))
 		c.sendErr(err.Error())

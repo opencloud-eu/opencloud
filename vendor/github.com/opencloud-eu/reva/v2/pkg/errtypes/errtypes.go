@@ -203,6 +203,15 @@ func (e TooEarly) Error() string { return "error: too early: " + string(e) }
 // IsTooEarly implements the IsTooEarly interface.
 func (e TooEarly) IsTooEarly() {}
 
+// Unavailable is the error to use when a backend service (e.g. LDAP, database) is
+// temporarily unreachable. Callers should treat this as a transient failure and retry.
+type Unavailable string
+
+func (e Unavailable) Error() string { return "error: unavailable: " + string(e) }
+
+// IsUnavailable implements the IsUnavailable interface.
+func (e Unavailable) IsUnavailable() {}
+
 // IsNotFound is the interface to implement
 // to specify that a resource is not found.
 type IsNotFound interface {
@@ -293,6 +302,12 @@ type IsTooEarly interface {
 	IsTooEarly()
 }
 
+// IsUnavailable is the interface to implement to specify that a backend service is
+// temporarily unavailable and the caller should retry.
+type IsUnavailable interface {
+	IsUnavailable()
+}
+
 // NewErrtypeFromStatus maps a rpc status to an errtype
 func NewErrtypeFromStatus(status *rpc.Status) error {
 	switch status.Code {
@@ -329,6 +344,8 @@ func NewErrtypeFromStatus(status *rpc.Status) error {
 		return BadRequest(status.Message)
 	case rpc.Code_CODE_TOO_EARLY:
 		return TooEarly(status.Message)
+	case rpc.Code_CODE_UNAVAILABLE:
+		return Unavailable(status.Message)
 	default:
 		return InternalError(status.Message)
 	}
@@ -363,6 +380,8 @@ func NewErrtypeFromHTTPStatusCode(code int, message string) error {
 		return PartialContent(message)
 	case http.StatusTooEarly:
 		return TooEarly(message)
+	case http.StatusServiceUnavailable:
+		return Unavailable(message)
 	case StatusChecksumMismatch:
 		return ChecksumMismatch(message)
 	default:
@@ -399,6 +418,8 @@ func NewHTTPStatusCodeFromErrtype(err error) int {
 		return http.StatusPartialContent
 	case TooEarly:
 		return http.StatusTooEarly
+	case Unavailable:
+		return http.StatusServiceUnavailable
 	case ChecksumMismatch:
 		return StatusChecksumMismatch
 	default:

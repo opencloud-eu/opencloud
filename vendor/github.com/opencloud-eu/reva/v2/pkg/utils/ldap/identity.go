@@ -266,15 +266,10 @@ func (i *Identity) GetLDAPUserByFilter(ctx context.Context, lc ldap.Client, filt
 	res, err := lc.Search(searchRequest)
 	if err != nil {
 		log.Debug().Str("backend", "ldap").Err(err).Str("userfilter", filter).Msg("Error looking up user by filter")
-		var errmsg string
-		if lerr, ok := err.(*ldap.Error); ok {
-			if lerr.ResultCode == ldap.LDAPResultSizeLimitExceeded {
-				errmsg = fmt.Sprintf("too many results searching for user '%s'", filter)
-			}
-		}
-		span.SetAttributes(attribute.String("ldap.error", errmsg))
-		span.SetStatus(codes.Error, errmsg)
-		return nil, errtypes.NotFound(errmsg)
+		classified := classifySearchError(err, fmt.Sprintf("too many results searching for user '%s'", filter))
+		span.SetAttributes(attribute.String("ldap.error", classified.Error()))
+		span.SetStatus(codes.Error, classified.Error())
+		return nil, classified
 	}
 	if len(res.Entries) == 0 {
 		return nil, errtypes.NotFound(filter)
@@ -306,9 +301,10 @@ func (i *Identity) GetLDAPUserByDN(ctx context.Context, lc ldap.Client, dn strin
 	res, err := lc.Search(searchRequest)
 	if err != nil {
 		log.Debug().Str("backend", "ldap").Err(err).Str("dn", dn).Msg("Error looking up user by DN")
-		span.SetAttributes(attribute.String("ldap.error", err.Error()))
-		span.SetStatus(codes.Error, "")
-		return nil, errtypes.NotFound(dn)
+		classified := classifySearchError(err, "")
+		span.SetAttributes(attribute.String("ldap.error", classified.Error()))
+		span.SetStatus(codes.Error, classified.Error())
+		return nil, classified
 	}
 	span.SetStatus(codes.Ok, "")
 	if len(res.Entries) == 0 {
@@ -337,9 +333,10 @@ func (i *Identity) GetLDAPUsers(ctx context.Context, lc ldap.Client, query, tena
 	sr, err := lc.Search(searchRequest)
 	if err != nil {
 		log.Debug().Str("backend", "ldap").Err(err).Str("filter", filter).Msg("Error searching users")
-		span.SetAttributes(attribute.String("ldap.error", err.Error()))
-		span.SetStatus(codes.Error, "")
-		return nil, errtypes.NotFound(query)
+		classified := classifySearchError(err, "")
+		span.SetAttributes(attribute.String("ldap.error", classified.Error()))
+		span.SetStatus(codes.Error, classified.Error())
+		return nil, classified
 	}
 
 	span.SetAttributes(attribute.Int("ldap.result_count", len(sr.Entries)))
@@ -376,7 +373,8 @@ func (i *Identity) IsLDAPUserInDisabledGroup(ctx context.Context, lc ldap.Client
 	sr, err := lc.Search(searchRequest)
 	if err != nil {
 		log.Error().Str("backend", "ldap").Err(err).Str("filter", filter).Msg("Error looking up error group")
-		// Err on the side of caution.
+		// Err on the side of caution: treat search failures (including network
+		// errors) as if the user is in the disabled group.
 		span.SetAttributes(attribute.String("ldap.error", err.Error()))
 		span.SetStatus(codes.Error, "")
 		return true
@@ -423,10 +421,10 @@ func (i *Identity) GetLDAPUserGroups(ctx context.Context, lc ldap.Client, userEn
 			// not having any groups in LDAP
 			return []string{}, nil
 		}
-
-		span.SetAttributes(attribute.String("ldap.error", err.Error()))
-		span.SetStatus(codes.Error, "")
-		return []string{}, err
+		classified := classifySearchError(err, "")
+		span.SetAttributes(attribute.String("ldap.error", classified.Error()))
+		span.SetStatus(codes.Error, classified.Error())
+		return nil, classified
 	}
 	span.SetStatus(codes.Ok, "")
 	span.SetAttributes(attribute.Int("ldap.result_count", len(sr.Entries)))
@@ -504,15 +502,10 @@ func (i *Identity) GetLDAPGroupByFilter(ctx context.Context, lc ldap.Client, fil
 	res, err := lc.Search(searchRequest)
 	if err != nil {
 		log.Debug().Str("backend", "ldap").Err(err).Str("filter", filter).Msg("Error looking up group by filter")
-		var errmsg string
-		if lerr, ok := err.(*ldap.Error); ok {
-			if lerr.ResultCode == ldap.LDAPResultSizeLimitExceeded {
-				errmsg = fmt.Sprintf("too many results searching for group '%s'", filter)
-			}
-		}
-		span.SetAttributes(attribute.String("ldap.error", errmsg))
-		span.SetStatus(codes.Error, "")
-		return nil, errtypes.NotFound(errmsg)
+		classified := classifySearchError(err, fmt.Sprintf("too many results searching for group '%s'", filter))
+		span.SetAttributes(attribute.String("ldap.error", classified.Error()))
+		span.SetStatus(codes.Error, classified.Error())
+		return nil, classified
 	}
 	if len(res.Entries) == 0 {
 		return nil, errtypes.NotFound(filter)
@@ -543,10 +536,11 @@ func (i *Identity) GetLDAPGroups(ctx context.Context, lc ldap.Client, query stri
 	setLDAPSearchSpanAttributes(span, searchRequest)
 	sr, err := lc.Search(searchRequest)
 	if err != nil {
-		span.SetAttributes(attribute.String("ldap.error", err.Error()))
-		span.SetStatus(codes.Error, "")
 		log.Debug().Str("backend", "ldap").Err(err).Str("query", query).Msg("Error search for groups")
-		return nil, errtypes.NotFound(query)
+		classified := classifySearchError(err, "")
+		span.SetAttributes(attribute.String("ldap.error", classified.Error()))
+		span.SetStatus(codes.Error, classified.Error())
+		return nil, classified
 	}
 	span.SetStatus(codes.Ok, "")
 	return sr.Entries, nil
@@ -919,15 +913,10 @@ func (i *Identity) GetLDAPTenantByFilter(ctx context.Context, lc ldap.Client, fi
 	res, err := lc.Search(searchRequest)
 	if err != nil {
 		log.Debug().Str("backend", "ldap").Err(err).Str("tenantfilter", filter).Msg("Error looking up tenant by filter")
-		var errmsg string
-		if lerr, ok := err.(*ldap.Error); ok {
-			if lerr.ResultCode == ldap.LDAPResultSizeLimitExceeded {
-				errmsg = fmt.Sprintf("too many results searching for tenant '%s'", filter)
-			}
-		}
-		span.SetAttributes(attribute.String("ldap.error", errmsg))
-		span.SetStatus(codes.Error, errmsg)
-		return nil, errtypes.NotFound(errmsg)
+		classified := classifySearchError(err, fmt.Sprintf("too many results searching for tenant '%s'", filter))
+		span.SetAttributes(attribute.String("ldap.error", classified.Error()))
+		span.SetStatus(codes.Error, classified.Error())
+		return nil, classified
 	}
 	if len(res.Entries) == 0 {
 		return nil, errtypes.NotFound(filter)
@@ -978,6 +967,24 @@ func (i *Identity) getTenantAttributeFilter(attribute, value string) (string, er
 		attribute,
 		escapedValue,
 	), nil
+}
+
+// classifySearchError maps a raw error from lc.Search to the appropriate
+// errtypes value:
+//   - ldap.ErrorNetwork                → errtypes.Unavailable (transient; caller should retry)
+//   - ldap.LDAPResultSizeLimitExceeded → errtypes.NotFound(sizeExceededMsg)
+//   - anything else                    → errtypes.NotFound("") (preserving prior behaviour)
+//
+// The sizeExceededMsg is only used for the SizeLimitExceeded case; pass an
+// empty string if the caller does not need a custom message for that case.
+func classifySearchError(err error, sizeExceededMsg string) error {
+	if ldap.IsErrorWithCode(err, ldap.ErrorNetwork) {
+		return errtypes.Unavailable("ldap server unreachable: " + err.Error())
+	}
+	if sizeExceededMsg != "" && ldap.IsErrorWithCode(err, ldap.LDAPResultSizeLimitExceeded) {
+		return errtypes.NotFound(sizeExceededMsg)
+	}
+	return errtypes.NotFound("")
 }
 
 func setLDAPSearchSpanAttributes(span trace.Span, request *ldap.SearchRequest) {
