@@ -81,34 +81,25 @@ var _ = Describe("SpaceDebouncer", func() {
 			}
 		}, log.NewLogger())
 
-		// Initial call to start the timers
+		// Reset the debounce timer every 50ms (shorter than the 100ms debounce
+		// duration) but stop before the 250ms timeout fires. Continuing past the
+		// timeout would race with the work function's cleanup of pending state:
+		// a Debounce call arriving right after the timeout fires would find
+		// pending empty and schedule a second workItem, breaking the assertion
+		// below that the work function is invoked exactly once.
 		debouncer.Debounce(spaceid, nil)
-
-		// Continuously reset the debounce timer using a ticker, at an interval
-		// shorter than the debounce time.
-		ticker := time.NewTicker(50 * time.Millisecond)
-		defer ticker.Stop()
-
-		done := make(chan bool)
-		go func() {
-			for {
-				select {
-				case <-done:
-					return
-				case <-ticker.C:
-					debouncer.Debounce(spaceid, nil)
-				}
+		for i := 0; i < 4 && callCount.Load() == 0; i++ {
+			time.Sleep(50 * time.Millisecond)
+			if callCount.Load() == 0 {
+				debouncer.Debounce(spaceid, nil)
 			}
-		}()
+		}
 
-		// The debounce timer (100ms) should be reset every 50ms and thus never fire.
-		// The timeout timer (250ms) should fire regardless.
+		// The debounce timer (100ms) was reset roughly every 50ms and should
+		// not have fired. The timeout timer (250ms) should fire regardless.
 		Eventually(func() int {
 			return int(callCount.Load())
 		}, "300ms").Should(Equal(1))
-
-		// Stop the ticker goroutine
-		close(done)
 
 		// And it should not fire again
 		Consistently(func() int {
