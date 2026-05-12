@@ -1,5 +1,11 @@
 # Changelog
 
+## [6.2.1](https://github.com/opencloud-eu/opencloud/releases/tag/v6.2.1) - 2026-05-12
+
+### 📦️ Dependencies
+
+- build(deps): bump github.com/onsi/ginkgo/v2 from 2.28.1 to 2.28.3 [[#2739](https://github.com/opencloud-eu/opencloud/pull/2739)]
+
 ## [6.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v6.2.0) - 2026-05-11
 
 ### ❤️ Thanks to all contributors! ❤️
