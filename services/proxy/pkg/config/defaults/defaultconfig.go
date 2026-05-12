@@ -90,11 +90,8 @@ func DefaultConfig() *config.Config {
 			Username:    "preferred_username",
 			Email:       "email",
 			DisplayName: "name",
+			ProfilePicture: "",
 			Groups:      "groups",
-		},
-		OIDCProfilePicture: config.OIDCProfilePicture{
-			Claim:               "",
-			DisableLocalChanges: false,
 		},
 		EnableBasicAuth:               false,
 		InsecureBackends:              false,
