@@ -83,8 +83,7 @@ func AccountResolver(optionSetters ...Option) func(next http.Handler) http.Handl
 			lastGroupSyncCache:               lastGroupSyncCache,
 			tenantIDCache:                    tenantIDCache,
 			eventsPublisher:                  options.EventsPublisher,
-			profilePictureClaim:              options.OIDCProfilePicture.Claim,
-			disableLocalProfilePictureChange: options.OIDCProfilePicture.DisableLocalChanges,
+			profilePictureClaim:              options.AutoProvisionClaims.ProfilePicture,
 			httpClient:                       httpClient,
 			backendHTTPClient:                backendHTTPClient,
 			oidcIssuer:                       options.OIDCIss,
@@ -109,7 +108,6 @@ type accountResolver struct {
 	userCS3Claim                     string
 	tenantOIDCClaim                  string
 	profilePictureClaim              string
-	disableLocalProfilePictureChange bool
 	oidcIssuer                       string
 	httpClient                       *http.Client
 	backendHTTPClient                *http.Client
@@ -155,19 +153,6 @@ func readStringClaim(path string, claims map[string]any) (string, error) {
 	}
 
 	return value, fmt.Errorf("claim path '%s' not set or empty", path)
-}
-
-func (m accountResolver) isProfilePhotoMutation(req *http.Request) bool {
-	if req == nil {
-		return false
-	}
-	switch req.Method {
-	case http.MethodPut, http.MethodPatch, http.MethodDelete:
-	default:
-		return false
-	}
-	pathValue := strings.TrimSuffix(req.URL.Path, "/")
-	return strings.HasSuffix(pathValue, "/graph/v1.0/me/photo/$value")
 }
 
 func (m accountResolver) syncProfilePicture(ctx context.Context, req *http.Request, user *cs3user.User, token string, claims map[string]any) error {
@@ -334,12 +319,6 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if claims == nil && !ok {
 		span.End()
 		m.next.ServeHTTP(w, req)
-		return
-	}
-
-	if m.disableLocalProfilePictureChange && claims != nil && m.isProfilePhotoMutation(req) {
-		m.logger.Debug().Str("path", req.URL.Path).Msg("profile photo updates disabled for OIDC users")
-		w.WriteHeader(http.StatusForbidden)
 		return
 	}
 
