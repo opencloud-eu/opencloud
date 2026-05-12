@@ -45,6 +45,11 @@ var (
 	}
 )
 
+// register the REPORT method at init so it cannot race with concurrent route setup in other services.
+func init() {
+	chi.RegisterMethod("REPORT")
+}
+
 // Service defines the extension handlers.
 type Service interface {
 	ServeHTTP(w http.ResponseWriter, r *http.Request)
@@ -92,9 +97,6 @@ func NewService(opts ...Option) (Service, error) {
 	if svc.config.DisablePreviews {
 		svc.thumbnailsClient = nil
 	}
-
-	// register method with chi before any routing is set up
-	chi.RegisterMethod("REPORT")
 
 	m.Route(options.Config.HTTP.Root, func(r chi.Router) {
 
