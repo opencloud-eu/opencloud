@@ -121,17 +121,21 @@ func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.
 			ctx := context.WithValue(r.Context(), OriginalPathContextKey, original)
 			r = r.WithContext(ctx)
 			r.URL.Path = rewritten
-			// Match the chi-escaping workaround in Graph.ServeHTTP — RawPath
-			// must be a properly-escaped form of Path so chi's parameter
-			// binding works for rewritten requests too. Drive/item IDs
-			// contain `$` and `!`, both of which need percent-encoding for
-			// chi to round-trip them through its tree match.
-			// (See services/graph/pkg/service/v0/graph.go ServeHTTP and
-			// https://github.com/go-chi/chi/issues/641#issuecomment-883156692.)
+			// Match the chi-escaping workaround in Graph.ServeHTTP: RawPath
+			// must be a valid encoded form of Path so chi's tree match (which
+			// reads RawPath when non-empty) routes the rewritten URL the same
+			// way it routes the original. The previous RawPath (set by
+			// Graph.ServeHTTP) was for the pre-rewrite Path and no longer
+			// matches; EscapedPath recomputes a canonical encoding for the
+			// new Path.
 			//
-			// EscapedPath() re-encodes Path because the existing RawPath
-			// (set by Graph.ServeHTTP for the original URL) no longer
-			// unescapes to our rewritten Path.
+			// Drive/item IDs in this codebase have the shape
+			// {storage}${space}!{opaque}. EscapedPath leaves `$` literal (not
+			// escaped in path segments per RFC 3986) but encodes `!` as `%21`.
+			// chi.URLParam therefore returns the param with `%21`; downstream
+			// handlers (e.g. parseIDParam, GetDriveAndItemIDParam) already
+			// call url.PathUnescape before parsing the ID, so the round-trip
+			// works. See go-chi/chi#641 for the underlying chi behavior.
 			r.URL.RawPath = r.URL.EscapedPath()
 			next.ServeHTTP(w, r)
 		})

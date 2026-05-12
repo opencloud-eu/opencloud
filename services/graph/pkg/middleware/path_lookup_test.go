@@ -3,11 +3,13 @@ package middleware_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	cs3rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	storageprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
@@ -215,6 +217,63 @@ func TestResolveGraphPath(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestResolveGraphPath_ChiParamRoundTripWithSubDelims pins down what chi
+// actually returns from URLParam for rewritten URLs whose IDs contain `$`
+// and `!`, and verifies the PathUnescape round-trip downstream handlers
+// rely on still recovers the original ID.
+//
+// Specifically: r.URL.RawPath = r.URL.EscapedPath() leaves `$` literal but
+// encodes `!` as `%21` (net/url's encodePath behavior). chi.URLParam returns
+// the matched RawPath segment as-is, so the bound param contains `%21`.
+// Existing handlers (parseIDParam, GetDriveAndItemIDParam) call
+// url.PathUnescape on the param before parsing the ID, which recovers `!`.
+//
+// This test guards against any future change to the encoding strategy that
+// would silently break that round-trip, for example, switching to
+// url.PathEscape(itemID) and stuffing the result into r.URL.Path (which
+// expects the decoded form) and thereby double-encoding `!` to `%2521`.
+func TestResolveGraphPath_ChiParamRoundTripWithSubDelims(t *testing.T) {
+	gw := &cs3mocks.GatewayAPIClient{}
+	gw.On("Stat", mock.Anything, mock.Anything).
+		Return(statResponse(cs3rpc.Code_CODE_OK, true), nil)
+
+	selector := newTestSelector(t, gw)
+
+	var gotDriveID, gotItemID string
+	r := chi.NewRouter()
+	r.Use(middleware.ResolveGraphPath(selector, log.NopLogger()))
+	r.Route("/graph/v1.0/drives/{driveID}", func(r chi.Router) {
+		r.Get("/items/{itemID}/children", func(w http.ResponseWriter, r *http.Request) {
+			gotDriveID = chi.URLParam(r, "driveID")
+			gotItemID = chi.URLParam(r, "itemID")
+			w.WriteHeader(http.StatusOK)
+		})
+	})
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"http://localhost/graph/v1.0/drives/"+testDriveID+"/root:/Documents:/children",
+		nil,
+	)
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code, "chi must route the rewritten URL to the handler")
+
+	// driveID has only `$` (a sub-delim left literal by EscapedPath), so chi
+	// returns it without any percent-encoding.
+	assert.Equal(t, testDriveID, gotDriveID,
+		"chi.URLParam should return driveID unchanged: only `$` sub-delim, left literal by EscapedPath")
+
+	// itemID has both `$` and `!`. EscapedPath encodes `!` as `%21`, so chi
+	// returns the param with `%21` literal; PathUnescape recovers the
+	// original ID. This is the round-trip downstream handlers rely on.
+	unescaped, err := url.PathUnescape(gotItemID)
+	assert.NoError(t, err, "URLParam value must be a valid percent-encoded string")
+	assert.Equal(t, testItemID, unescaped,
+		"PathUnescape(chi.URLParam(itemID)) must recover the original ID")
 }
 
 // TestResolveGraphPath_OriginalPathContext verifies the rewrite preserves the
