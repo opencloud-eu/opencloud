@@ -2,6 +2,14 @@
 
 ## [6.2.1](https://github.com/opencloud-eu/opencloud/releases/tag/v6.2.1) - 2026-05-12
 
+### ❤️ Thanks to all contributors! ❤️
+
+@dschmidt
+
+### 🐛 Bug Fixes
+
+- docs(search): fix force-rescan flag name in README [[#2747](https://github.com/opencloud-eu/opencloud/pull/2747)]
+
 ### 📦️ Dependencies
 
 - build(deps): bump github.com/onsi/ginkgo/v2 from 2.28.1 to 2.28.3 [[#2739](https://github.com/opencloud-eu/opencloud/pull/2739)]
