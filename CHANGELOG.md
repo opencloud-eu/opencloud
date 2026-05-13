@@ -4,7 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@dschmidt, @rhafer
+@dschmidt, @micbar, @rhafer
+
+### ✅ Tests
+
+- fix: cleaner debounce timer test [[#2743](https://github.com/opencloud-eu/opencloud/pull/2743)]
 
 ### 🐛 Bug Fixes
 
