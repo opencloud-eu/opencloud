@@ -22,6 +22,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps-dev): bump dotenv-expand from 12.0.3 to 13.0.0 in /services/idp [[#2710](https://github.com/opencloud-eu/opencloud/pull/2710)]
 - build(deps): bump github.com/onsi/ginkgo/v2 from 2.28.1 to 2.28.3 [[#2739](https://github.com/opencloud-eu/opencloud/pull/2739)]
 
 ## [6.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v6.2.0) - 2026-05-11
