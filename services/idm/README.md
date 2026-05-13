@@ -1,6 +1,6 @@
 # IDM
 
-The IDM service provides a minimal LDAP Service, based on [Libregraph idm](https://github.com/owncloud/ocis/tree/master/services/idm), for OpenCloud. It is started as part of the default configuration and serves as a central place for storing user and group information.
+The IDM service provides a minimal LDAP Service, based on [Libregraph idm](https://github.com/libregraph/idm), for OpenCloud. It is started as part of the default configuration and serves as a central place for storing user and group information.
 
 It is mainly targeted at small OpenCloud installations. For larger setups it is recommended to replace IDM with a “real” LDAP server or to switch to an external identity management solution.
 
