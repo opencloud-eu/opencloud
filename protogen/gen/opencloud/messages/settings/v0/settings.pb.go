@@ -627,13 +627,13 @@ type Bundle struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id          string      `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty" yaml:"id"`                                                      // @gotags: yaml:"id"
-	Name        string      `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty" yaml:"name"`                                                  // @gotags: yaml:"name"
-	Type        Bundle_Type `protobuf:"varint,3,opt,name=type,proto3,enum=opencloud.messages.settings.v0.Bundle_Type" json:"type,omitempty" yaml:"type"` // @gotags: yaml:"type"
-	Extension   string      `protobuf:"bytes,4,opt,name=extension,proto3" json:"extension,omitempty" yaml:"extension"`                                        // @gotags: yaml:"extension"
-	DisplayName string      `protobuf:"bytes,5,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty" yaml:"display_name"`                 // @gotags: yaml:"display_name"
-	Settings    []*Setting  `protobuf:"bytes,6,rep,name=settings,proto3" json:"settings,omitempty" yaml:"settings"`                                          // @gotags: yaml:"settings"
-	Resource    *Resource   `protobuf:"bytes,7,opt,name=resource,proto3" json:"resource,omitempty" yaml:"resource"`                                          // @gotags: yaml:"resource"
+	Id          string      `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                                                      // @gotags: yaml:"id"
+	Name        string      `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                                                  // @gotags: yaml:"name"
+	Type        Bundle_Type `protobuf:"varint,3,opt,name=type,proto3,enum=opencloud.messages.settings.v0.Bundle_Type" json:"type,omitempty"` // @gotags: yaml:"type"
+	Extension   string      `protobuf:"bytes,4,opt,name=extension,proto3" json:"extension,omitempty"`                                        // @gotags: yaml:"extension"
+	DisplayName string      `protobuf:"bytes,5,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`                 // @gotags: yaml:"display_name"
+	Settings    []*Setting  `protobuf:"bytes,6,rep,name=settings,proto3" json:"settings,omitempty"`                                          // @gotags: yaml:"settings"
+	Resource    *Resource   `protobuf:"bytes,7,opt,name=resource,proto3" json:"resource,omitempty"`                                          // @gotags: yaml:"resource"
 }
 
 func (x *Bundle) Reset() {
@@ -722,10 +722,10 @@ type Setting struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id          string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty" yaml:"id"`                                      // @gotags: yaml:"id"
-	Name        string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty" yaml:"name"`                                  // @gotags: yaml:"name"
-	DisplayName string `protobuf:"bytes,3,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty" yaml:"display_name"` // @gotags: yaml:"display_name"
-	Description string `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty" yaml:"description"`                    // @gotags: yaml:"description"
+	Id          string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                                      // @gotags: yaml:"id"
+	Name        string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                                  // @gotags: yaml:"name"
+	DisplayName string `protobuf:"bytes,3,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"` // @gotags: yaml:"display_name"
+	Description string `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`                    // @gotags: yaml:"description"
 	// Types that are assignable to Value:
 	//
 	//	*Setting_IntValue
@@ -736,7 +736,7 @@ type Setting struct {
 	//	*Setting_PermissionValue
 	//	*Setting_MultiChoiceCollectionValue
 	Value    isSetting_Value `protobuf_oneof:"value"`
-	Resource *Resource       `protobuf:"bytes,11,opt,name=resource,proto3" json:"resource,omitempty" yaml:"resource"` // @gotags: yaml:"resource"
+	Resource *Resource       `protobuf:"bytes,11,opt,name=resource,proto3" json:"resource,omitempty"` // @gotags: yaml:"resource"
 }
 
 func (x *Setting) Reset() {
@@ -867,31 +867,31 @@ type isSetting_Value interface {
 }
 
 type Setting_IntValue struct {
-	IntValue *Int `protobuf:"bytes,5,opt,name=int_value,json=intValue,proto3,oneof" yaml:"int_value"` // @gotags: yaml:"int_value"
+	IntValue *Int `protobuf:"bytes,5,opt,name=int_value,json=intValue,proto3,oneof"` // @gotags: yaml:"int_value"
 }
 
 type Setting_StringValue struct {
-	StringValue *String `protobuf:"bytes,6,opt,name=string_value,json=stringValue,proto3,oneof" yaml:"string_value"` // @gotags: yaml:"string_value"
+	StringValue *String `protobuf:"bytes,6,opt,name=string_value,json=stringValue,proto3,oneof"` // @gotags: yaml:"string_value"
 }
 
 type Setting_BoolValue struct {
-	BoolValue *Bool `protobuf:"bytes,7,opt,name=bool_value,json=boolValue,proto3,oneof" yaml:"bool_value"` // @gotags: yaml:"bool_value"
+	BoolValue *Bool `protobuf:"bytes,7,opt,name=bool_value,json=boolValue,proto3,oneof"` // @gotags: yaml:"bool_value"
 }
 
 type Setting_SingleChoiceValue struct {
-	SingleChoiceValue *SingleChoiceList `protobuf:"bytes,8,opt,name=single_choice_value,json=singleChoiceValue,proto3,oneof" yaml:"single_choice_value"` // @gotags: yaml:"single_choice_value"
+	SingleChoiceValue *SingleChoiceList `protobuf:"bytes,8,opt,name=single_choice_value,json=singleChoiceValue,proto3,oneof"` // @gotags: yaml:"single_choice_value"
 }
 
 type Setting_MultiChoiceValue struct {
-	MultiChoiceValue *MultiChoiceList `protobuf:"bytes,9,opt,name=multi_choice_value,json=multiChoiceValue,proto3,oneof" yaml:"multi_choice_value"` // @gotags: yaml:"multi_choice_value"
+	MultiChoiceValue *MultiChoiceList `protobuf:"bytes,9,opt,name=multi_choice_value,json=multiChoiceValue,proto3,oneof"` // @gotags: yaml:"multi_choice_value"
 }
 
 type Setting_PermissionValue struct {
-	PermissionValue *Permission `protobuf:"bytes,10,opt,name=permission_value,json=permissionValue,proto3,oneof" yaml:"permission_value"` // @gotags: yaml:"permission_value"
+	PermissionValue *Permission `protobuf:"bytes,10,opt,name=permission_value,json=permissionValue,proto3,oneof"` // @gotags: yaml:"permission_value"
 }
 
 type Setting_MultiChoiceCollectionValue struct {
-	MultiChoiceCollectionValue *MultiChoiceCollection `protobuf:"bytes,12,opt,name=multi_choice_collection_value,json=multiChoiceCollectionValue,proto3,oneof" yaml:"multi_choice_collection_value"` // @gotags: yaml:"multi_choice_collection_value"
+	MultiChoiceCollectionValue *MultiChoiceCollection `protobuf:"bytes,12,opt,name=multi_choice_collection_value,json=multiChoiceCollectionValue,proto3,oneof"` // @gotags: yaml:"multi_choice_collection_value"
 }
 
 func (*Setting_IntValue) isSetting_Value() {}
@@ -913,11 +913,11 @@ type Int struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Default     int64  `protobuf:"varint,1,opt,name=default,proto3" json:"default,omitempty" yaml:"default"`        // @gotags: yaml:"default"
-	Min         int64  `protobuf:"varint,2,opt,name=min,proto3" json:"min,omitempty" yaml:"min"`                // @gotags: yaml:"min"
-	Max         int64  `protobuf:"varint,3,opt,name=max,proto3" json:"max,omitempty" yaml:"max"`                // @gotags: yaml:"max"
-	Step        int64  `protobuf:"varint,4,opt,name=step,proto3" json:"step,omitempty" yaml:"step"`              // @gotags: yaml:"step"
-	Placeholder string `protobuf:"bytes,5,opt,name=placeholder,proto3" json:"placeholder,omitempty" yaml:"placeholder"` // @gotags: yaml:"placeholder"
+	Default     int64  `protobuf:"varint,1,opt,name=default,proto3" json:"default,omitempty"`        // @gotags: yaml:"default"
+	Min         int64  `protobuf:"varint,2,opt,name=min,proto3" json:"min,omitempty"`                // @gotags: yaml:"min"
+	Max         int64  `protobuf:"varint,3,opt,name=max,proto3" json:"max,omitempty"`                // @gotags: yaml:"max"
+	Step        int64  `protobuf:"varint,4,opt,name=step,proto3" json:"step,omitempty"`              // @gotags: yaml:"step"
+	Placeholder string `protobuf:"bytes,5,opt,name=placeholder,proto3" json:"placeholder,omitempty"` // @gotags: yaml:"placeholder"
 }
 
 func (x *Int) Reset() {
@@ -992,11 +992,11 @@ type String struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Default     string `protobuf:"bytes,1,opt,name=default,proto3" json:"default,omitempty" yaml:"default"`                       // @gotags: yaml:"default"
-	Required    bool   `protobuf:"varint,2,opt,name=required,proto3" json:"required,omitempty" yaml:"required"`                    // @gotags: yaml:"required"
-	MinLength   int32  `protobuf:"varint,3,opt,name=min_length,json=minLength,proto3" json:"min_length,omitempty" yaml:"min_length"` // @gotags: yaml:"min_length"
-	MaxLength   int32  `protobuf:"varint,4,opt,name=max_length,json=maxLength,proto3" json:"max_length,omitempty" yaml:"max_length"` // @gotags: yaml:"max_length"
-	Placeholder string `protobuf:"bytes,5,opt,name=placeholder,proto3" json:"placeholder,omitempty" yaml:"placeholder"`               // @gotags: yaml:"placeholder"
+	Default     string `protobuf:"bytes,1,opt,name=default,proto3" json:"default,omitempty"`                       // @gotags: yaml:"default"
+	Required    bool   `protobuf:"varint,2,opt,name=required,proto3" json:"required,omitempty"`                    // @gotags: yaml:"required"
+	MinLength   int32  `protobuf:"varint,3,opt,name=min_length,json=minLength,proto3" json:"min_length,omitempty"` // @gotags: yaml:"min_length"
+	MaxLength   int32  `protobuf:"varint,4,opt,name=max_length,json=maxLength,proto3" json:"max_length,omitempty"` // @gotags: yaml:"max_length"
+	Placeholder string `protobuf:"bytes,5,opt,name=placeholder,proto3" json:"placeholder,omitempty"`               // @gotags: yaml:"placeholder"
 }
 
 func (x *String) Reset() {
@@ -1071,8 +1071,8 @@ type Bool struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Default bool   `protobuf:"varint,1,opt,name=default,proto3" json:"default,omitempty" yaml:"default"` // @gotags: yaml:"default"
-	Label   string `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty" yaml:"label"`      // @gotags: yaml:"label"
+	Default bool   `protobuf:"varint,1,opt,name=default,proto3" json:"default,omitempty"` // @gotags: yaml:"default"
+	Label   string `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`      // @gotags: yaml:"label"
 }
 
 func (x *Bool) Reset() {
@@ -1126,7 +1126,7 @@ type SingleChoiceList struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Options []*ListOption `protobuf:"bytes,1,rep,name=options,proto3" json:"options,omitempty" yaml:"options"` // @gotags: yaml:"options"
+	Options []*ListOption `protobuf:"bytes,1,rep,name=options,proto3" json:"options,omitempty"` // @gotags: yaml:"options"
 }
 
 func (x *SingleChoiceList) Reset() {
@@ -1173,7 +1173,7 @@ type MultiChoiceList struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Options []*ListOption `protobuf:"bytes,1,rep,name=options,proto3" json:"options,omitempty" yaml:"options"` // @gotags: yaml:"options"
+	Options []*ListOption `protobuf:"bytes,1,rep,name=options,proto3" json:"options,omitempty"` // @gotags: yaml:"options"
 }
 
 func (x *MultiChoiceList) Reset() {
@@ -1220,9 +1220,9 @@ type ListOption struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Value        *ListOptionValue `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty" yaml:"value"`                                   // @gotags: yaml:"value"
-	Default      bool             `protobuf:"varint,2,opt,name=default,proto3" json:"default,omitempty" yaml:"default"`                              // @gotags: yaml:"default"
-	DisplayValue string           `protobuf:"bytes,3,opt,name=display_value,json=displayValue,proto3" json:"display_value,omitempty" yaml:"display_value"` // @gotags: yaml:"display_value"
+	Value        *ListOptionValue `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`                                   // @gotags: yaml:"value"
+	Default      bool             `protobuf:"varint,2,opt,name=default,proto3" json:"default,omitempty"`                              // @gotags: yaml:"default"
+	DisplayValue string           `protobuf:"bytes,3,opt,name=display_value,json=displayValue,proto3" json:"display_value,omitempty"` // @gotags: yaml:"display_value"
 }
 
 func (x *ListOption) Reset() {
@@ -1283,7 +1283,7 @@ type MultiChoiceCollection struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Options []*MultiChoiceCollectionOption `protobuf:"bytes,1,rep,name=options,proto3" json:"options,omitempty" yaml:"options"` // @gotags: yaml:"options"
+	Options []*MultiChoiceCollectionOption `protobuf:"bytes,1,rep,name=options,proto3" json:"options,omitempty"` // @gotags: yaml:"options"
 }
 
 func (x *MultiChoiceCollection) Reset() {
@@ -1330,10 +1330,10 @@ type MultiChoiceCollectionOption struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Value        *MultiChoiceCollectionOptionValue `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty" yaml:"value"`                                   // @gotags: yaml:"value"
-	Key          string                            `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty" yaml:"key"`                                       // @gotags: yaml:"key"
-	Attribute    string                            `protobuf:"bytes,3,opt,name=attribute,proto3" json:"attribute,omitempty" yaml:"attribute"`                           // @gotags: yaml:"attribute"
-	DisplayValue string                            `protobuf:"bytes,4,opt,name=display_value,json=displayValue,proto3" json:"display_value,omitempty" yaml:"display_value"` // @gotags: yaml:"display_value"
+	Value        *MultiChoiceCollectionOptionValue `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`                                   // @gotags: yaml:"value"
+	Key          string                            `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`                                       // @gotags: yaml:"key"
+	Attribute    string                            `protobuf:"bytes,3,opt,name=attribute,proto3" json:"attribute,omitempty"`                           // @gotags: yaml:"attribute"
+	DisplayValue string                            `protobuf:"bytes,4,opt,name=display_value,json=displayValue,proto3" json:"display_value,omitempty"` // @gotags: yaml:"display_value"
 }
 
 func (x *MultiChoiceCollectionOption) Reset() {
@@ -1474,15 +1474,15 @@ type isMultiChoiceCollectionOptionValue_Option interface {
 }
 
 type MultiChoiceCollectionOptionValue_IntValue struct {
-	IntValue *Int `protobuf:"bytes,1,opt,name=int_value,json=intValue,proto3,oneof" yaml:"int_value"` // @gotags: yaml:"int_value"
+	IntValue *Int `protobuf:"bytes,1,opt,name=int_value,json=intValue,proto3,oneof"` // @gotags: yaml:"int_value"
 }
 
 type MultiChoiceCollectionOptionValue_StringValue struct {
-	StringValue *String `protobuf:"bytes,2,opt,name=string_value,json=stringValue,proto3,oneof" yaml:"string_value"` // @gotags: yaml:"string_value"
+	StringValue *String `protobuf:"bytes,2,opt,name=string_value,json=stringValue,proto3,oneof"` // @gotags: yaml:"string_value"
 }
 
 type MultiChoiceCollectionOptionValue_BoolValue struct {
-	BoolValue *Bool `protobuf:"bytes,3,opt,name=bool_value,json=boolValue,proto3,oneof" yaml:"bool_value"` // @gotags: yaml:"bool_value"
+	BoolValue *Bool `protobuf:"bytes,3,opt,name=bool_value,json=boolValue,proto3,oneof"` // @gotags: yaml:"bool_value"
 }
 
 func (*MultiChoiceCollectionOptionValue_IntValue) isMultiChoiceCollectionOptionValue_Option() {}
@@ -1496,8 +1496,8 @@ type Permission struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Operation  Permission_Operation  `protobuf:"varint,1,opt,name=operation,proto3,enum=opencloud.messages.settings.v0.Permission_Operation" json:"operation,omitempty" yaml:"operation"`    // @gotags: yaml:"operation"
-	Constraint Permission_Constraint `protobuf:"varint,2,opt,name=constraint,proto3,enum=opencloud.messages.settings.v0.Permission_Constraint" json:"constraint,omitempty" yaml:"constraint"` // @gotags: yaml:"constraint"
+	Operation  Permission_Operation  `protobuf:"varint,1,opt,name=operation,proto3,enum=opencloud.messages.settings.v0.Permission_Operation" json:"operation,omitempty"`    // @gotags: yaml:"operation"
+	Constraint Permission_Constraint `protobuf:"varint,2,opt,name=constraint,proto3,enum=opencloud.messages.settings.v0.Permission_Constraint" json:"constraint,omitempty"` // @gotags: yaml:"constraint"
 }
 
 func (x *Permission) Reset() {
@@ -1552,12 +1552,12 @@ type Value struct {
 	unknownFields protoimpl.UnknownFields
 
 	// id is the id of the Value. It is generated on saving it.
-	Id       string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty" yaml:"id"`                             // @gotags: yaml:"id"
-	BundleId string `protobuf:"bytes,2,opt,name=bundle_id,json=bundleId,proto3" json:"bundle_id,omitempty" yaml:"bundle_id"` // @gotags: yaml:"bundle_id"
+	Id       string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                             // @gotags: yaml:"id"
+	BundleId string `protobuf:"bytes,2,opt,name=bundle_id,json=bundleId,proto3" json:"bundle_id,omitempty"` // @gotags: yaml:"bundle_id"
 	// setting_id is the id of the setting from within its bundle.
-	SettingId   string    `protobuf:"bytes,3,opt,name=setting_id,json=settingId,proto3" json:"setting_id,omitempty" yaml:"setting_id"`       // @gotags: yaml:"setting_id"
-	AccountUuid string    `protobuf:"bytes,4,opt,name=account_uuid,json=accountUuid,proto3" json:"account_uuid,omitempty" yaml:"account_uuid"` // @gotags: yaml:"account_uuid"
-	Resource    *Resource `protobuf:"bytes,5,opt,name=resource,proto3" json:"resource,omitempty" yaml:"resource"`                          // @gotags: yaml:"resource"
+	SettingId   string    `protobuf:"bytes,3,opt,name=setting_id,json=settingId,proto3" json:"setting_id,omitempty"`       // @gotags: yaml:"setting_id"
+	AccountUuid string    `protobuf:"bytes,4,opt,name=account_uuid,json=accountUuid,proto3" json:"account_uuid,omitempty"` // @gotags: yaml:"account_uuid"
+	Resource    *Resource `protobuf:"bytes,5,opt,name=resource,proto3" json:"resource,omitempty"`                          // @gotags: yaml:"resource"
 	// Types that are assignable to Value:
 	//
 	//	*Value_BoolValue
@@ -1682,23 +1682,23 @@ type isValue_Value interface {
 }
 
 type Value_BoolValue struct {
-	BoolValue bool `protobuf:"varint,6,opt,name=bool_value,json=boolValue,proto3,oneof" yaml:"bool_value"` // @gotags: yaml:"bool_value"
+	BoolValue bool `protobuf:"varint,6,opt,name=bool_value,json=boolValue,proto3,oneof"` // @gotags: yaml:"bool_value"
 }
 
 type Value_IntValue struct {
-	IntValue int64 `protobuf:"varint,7,opt,name=int_value,json=intValue,proto3,oneof" yaml:"int_value"` // @gotags: yaml:"int_value"
+	IntValue int64 `protobuf:"varint,7,opt,name=int_value,json=intValue,proto3,oneof"` // @gotags: yaml:"int_value"
 }
 
 type Value_StringValue struct {
-	StringValue string `protobuf:"bytes,8,opt,name=string_value,json=stringValue,proto3,oneof" yaml:"string_value"` // @gotags: yaml:"string_value"
+	StringValue string `protobuf:"bytes,8,opt,name=string_value,json=stringValue,proto3,oneof"` // @gotags: yaml:"string_value"
 }
 
 type Value_ListValue struct {
-	ListValue *ListValue `protobuf:"bytes,9,opt,name=list_value,json=listValue,proto3,oneof" yaml:"list_value"` // @gotags: yaml:"list_value"
+	ListValue *ListValue `protobuf:"bytes,9,opt,name=list_value,json=listValue,proto3,oneof"` // @gotags: yaml:"list_value"
 }
 
 type Value_CollectionValue struct {
-	CollectionValue *CollectionValue `protobuf:"bytes,10,opt,name=collection_value,json=collectionValue,proto3,oneof" yaml:"collection_value"` // @gotags: yaml:"collection_value"
+	CollectionValue *CollectionValue `protobuf:"bytes,10,opt,name=collection_value,json=collectionValue,proto3,oneof"` // @gotags: yaml:"collection_value"
 }
 
 func (*Value_BoolValue) isValue_Value() {}
@@ -1716,7 +1716,7 @@ type ListValue struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Values []*ListOptionValue `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty" yaml:"values"` // @gotags: yaml:"values"
+	Values []*ListOptionValue `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"` // @gotags: yaml:"values"
 }
 
 func (x *ListValue) Reset() {
@@ -1836,15 +1836,15 @@ type isListOptionValue_Option interface {
 }
 
 type ListOptionValue_StringValue struct {
-	StringValue string `protobuf:"bytes,1,opt,name=string_value,json=stringValue,proto3,oneof" yaml:"string_value"` // @gotags: yaml:"string_value"
+	StringValue string `protobuf:"bytes,1,opt,name=string_value,json=stringValue,proto3,oneof"` // @gotags: yaml:"string_value"
 }
 
 type ListOptionValue_IntValue struct {
-	IntValue int64 `protobuf:"varint,2,opt,name=int_value,json=intValue,proto3,oneof" yaml:"int_value"` // @gotags: yaml:"int_value"
+	IntValue int64 `protobuf:"varint,2,opt,name=int_value,json=intValue,proto3,oneof"` // @gotags: yaml:"int_value"
 }
 
 type ListOptionValue_BoolValue struct {
-	BoolValue bool `protobuf:"varint,3,opt,name=bool_value,json=boolValue,proto3,oneof" yaml:"bool_value"` // @gotags: yaml:"bool_value"
+	BoolValue bool `protobuf:"varint,3,opt,name=bool_value,json=boolValue,proto3,oneof"` // @gotags: yaml:"bool_value"
 }
 
 func (*ListOptionValue_StringValue) isListOptionValue_Option() {}
@@ -1858,7 +1858,7 @@ type CollectionValue struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Values []*CollectionOption `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty" yaml:"values"` // @gotags: yaml:"values"
+	Values []*CollectionOption `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"` // @gotags: yaml:"values"
 }
 
 func (x *CollectionValue) Reset() {
@@ -1906,7 +1906,7 @@ type CollectionOption struct {
 	unknownFields protoimpl.UnknownFields
 
 	// required
-	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty" yaml:"key"` // @gotags: yaml:"key"
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"` // @gotags: yaml:"key"
 	// Types that are assignable to Option:
 	//
 	//	*CollectionOption_IntValue
@@ -1987,15 +1987,15 @@ type isCollectionOption_Option interface {
 }
 
 type CollectionOption_IntValue struct {
-	IntValue int64 `protobuf:"varint,2,opt,name=int_value,json=intValue,proto3,oneof" yaml:"int_value"` // @gotags: yaml:"int_value"
+	IntValue int64 `protobuf:"varint,2,opt,name=int_value,json=intValue,proto3,oneof"` // @gotags: yaml:"int_value"
 }
 
 type CollectionOption_StringValue struct {
-	StringValue string `protobuf:"bytes,3,opt,name=string_value,json=stringValue,proto3,oneof" yaml:"string_value"` // @gotags: yaml:"string_value"
+	StringValue string `protobuf:"bytes,3,opt,name=string_value,json=stringValue,proto3,oneof"` // @gotags: yaml:"string_value"
 }
 
 type CollectionOption_BoolValue struct {
-	BoolValue bool `protobuf:"varint,4,opt,name=bool_value,json=boolValue,proto3,oneof" yaml:"bool_value"` // @gotags: yaml:"bool_value"
+	BoolValue bool `protobuf:"varint,4,opt,name=bool_value,json=boolValue,proto3,oneof"` // @gotags: yaml:"bool_value"
 }
 
 func (*CollectionOption_IntValue) isCollectionOption_Option() {}

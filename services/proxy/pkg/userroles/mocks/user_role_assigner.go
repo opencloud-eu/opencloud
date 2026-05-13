@@ -107,7 +107,7 @@ func (_c *UserRoleAssigner_ApplyUserRole_Call) RunAndReturn(run func(ctx context
 }
 
 // UpdateUserRoleAssignment provides a mock function for the type UserRoleAssigner
-func (_mock *UserRoleAssigner) UpdateUserRoleAssignment(ctx context.Context, user *userv1beta1.User, claims map[string]interface{}) (*userv1beta1.User, error) {
+func (_mock *UserRoleAssigner) UpdateUserRoleAssignment(ctx context.Context, user *userv1beta1.User, claims map[string]any) (*userv1beta1.User, error) {
 	ret := _mock.Called(ctx, user, claims)
 
 	if len(ret) == 0 {
@@ -116,17 +116,17 @@ func (_mock *UserRoleAssigner) UpdateUserRoleAssignment(ctx context.Context, use
 
 	var r0 *userv1beta1.User
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *userv1beta1.User, map[string]interface{}) (*userv1beta1.User, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *userv1beta1.User, map[string]any) (*userv1beta1.User, error)); ok {
 		return returnFunc(ctx, user, claims)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *userv1beta1.User, map[string]interface{}) *userv1beta1.User); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *userv1beta1.User, map[string]any) *userv1beta1.User); ok {
 		r0 = returnFunc(ctx, user, claims)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*userv1beta1.User)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, *userv1beta1.User, map[string]interface{}) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *userv1beta1.User, map[string]any) error); ok {
 		r1 = returnFunc(ctx, user, claims)
 	} else {
 		r1 = ret.Error(1)
@@ -142,12 +142,12 @@ type UserRoleAssigner_UpdateUserRoleAssignment_Call struct {
 // UpdateUserRoleAssignment is a helper method to define mock.On call
 //   - ctx context.Context
 //   - user *userv1beta1.User
-//   - claims map[string]interface{}
+//   - claims map[string]any
 func (_e *UserRoleAssigner_Expecter) UpdateUserRoleAssignment(ctx interface{}, user interface{}, claims interface{}) *UserRoleAssigner_UpdateUserRoleAssignment_Call {
 	return &UserRoleAssigner_UpdateUserRoleAssignment_Call{Call: _e.mock.On("UpdateUserRoleAssignment", ctx, user, claims)}
 }
 
-func (_c *UserRoleAssigner_UpdateUserRoleAssignment_Call) Run(run func(ctx context.Context, user *userv1beta1.User, claims map[string]interface{})) *UserRoleAssigner_UpdateUserRoleAssignment_Call {
+func (_c *UserRoleAssigner_UpdateUserRoleAssignment_Call) Run(run func(ctx context.Context, user *userv1beta1.User, claims map[string]any)) *UserRoleAssigner_UpdateUserRoleAssignment_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -157,9 +157,9 @@ func (_c *UserRoleAssigner_UpdateUserRoleAssignment_Call) Run(run func(ctx conte
 		if args[1] != nil {
 			arg1 = args[1].(*userv1beta1.User)
 		}
-		var arg2 map[string]interface{}
+		var arg2 map[string]any
 		if args[2] != nil {
-			arg2 = args[2].(map[string]interface{})
+			arg2 = args[2].(map[string]any)
 		}
 		run(
 			arg0,
@@ -175,7 +175,7 @@ func (_c *UserRoleAssigner_UpdateUserRoleAssignment_Call) Return(user1 *userv1be
 	return _c
 }
 
-func (_c *UserRoleAssigner_UpdateUserRoleAssignment_Call) RunAndReturn(run func(ctx context.Context, user *userv1beta1.User, claims map[string]interface{}) (*userv1beta1.User, error)) *UserRoleAssigner_UpdateUserRoleAssignment_Call {
+func (_c *UserRoleAssigner_UpdateUserRoleAssignment_Call) RunAndReturn(run func(ctx context.Context, user *userv1beta1.User, claims map[string]any) (*userv1beta1.User, error)) *UserRoleAssigner_UpdateUserRoleAssignment_Call {
 	_c.Call.Return(run)
 	return _c
 }

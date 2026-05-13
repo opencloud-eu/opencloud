@@ -119,7 +119,7 @@ func (_c *UserBackend_Authenticate_Call) RunAndReturn(run func(ctx context.Conte
 }
 
 // CreateUserFromClaims provides a mock function for the type UserBackend
-func (_mock *UserBackend) CreateUserFromClaims(ctx context.Context, claims map[string]interface{}) (*userv1beta1.User, error) {
+func (_mock *UserBackend) CreateUserFromClaims(ctx context.Context, claims map[string]any) (*userv1beta1.User, error) {
 	ret := _mock.Called(ctx, claims)
 
 	if len(ret) == 0 {
@@ -128,17 +128,17 @@ func (_mock *UserBackend) CreateUserFromClaims(ctx context.Context, claims map[s
 
 	var r0 *userv1beta1.User
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, map[string]interface{}) (*userv1beta1.User, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, map[string]any) (*userv1beta1.User, error)); ok {
 		return returnFunc(ctx, claims)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, map[string]interface{}) *userv1beta1.User); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, map[string]any) *userv1beta1.User); ok {
 		r0 = returnFunc(ctx, claims)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*userv1beta1.User)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, map[string]interface{}) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, map[string]any) error); ok {
 		r1 = returnFunc(ctx, claims)
 	} else {
 		r1 = ret.Error(1)
@@ -153,20 +153,20 @@ type UserBackend_CreateUserFromClaims_Call struct {
 
 // CreateUserFromClaims is a helper method to define mock.On call
 //   - ctx context.Context
-//   - claims map[string]interface{}
+//   - claims map[string]any
 func (_e *UserBackend_Expecter) CreateUserFromClaims(ctx interface{}, claims interface{}) *UserBackend_CreateUserFromClaims_Call {
 	return &UserBackend_CreateUserFromClaims_Call{Call: _e.mock.On("CreateUserFromClaims", ctx, claims)}
 }
 
-func (_c *UserBackend_CreateUserFromClaims_Call) Run(run func(ctx context.Context, claims map[string]interface{})) *UserBackend_CreateUserFromClaims_Call {
+func (_c *UserBackend_CreateUserFromClaims_Call) Run(run func(ctx context.Context, claims map[string]any)) *UserBackend_CreateUserFromClaims_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 map[string]interface{}
+		var arg1 map[string]any
 		if args[1] != nil {
-			arg1 = args[1].(map[string]interface{})
+			arg1 = args[1].(map[string]any)
 		}
 		run(
 			arg0,
@@ -181,7 +181,7 @@ func (_c *UserBackend_CreateUserFromClaims_Call) Return(user *userv1beta1.User, 
 	return _c
 }
 
-func (_c *UserBackend_CreateUserFromClaims_Call) RunAndReturn(run func(ctx context.Context, claims map[string]interface{}) (*userv1beta1.User, error)) *UserBackend_CreateUserFromClaims_Call {
+func (_c *UserBackend_CreateUserFromClaims_Call) RunAndReturn(run func(ctx context.Context, claims map[string]any) (*userv1beta1.User, error)) *UserBackend_CreateUserFromClaims_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -267,7 +267,7 @@ func (_c *UserBackend_GetUserByClaims_Call) RunAndReturn(run func(ctx context.Co
 }
 
 // SyncGroupMemberships provides a mock function for the type UserBackend
-func (_mock *UserBackend) SyncGroupMemberships(ctx context.Context, user *userv1beta1.User, claims map[string]interface{}) error {
+func (_mock *UserBackend) SyncGroupMemberships(ctx context.Context, user *userv1beta1.User, claims map[string]any) error {
 	ret := _mock.Called(ctx, user, claims)
 
 	if len(ret) == 0 {
@@ -275,7 +275,7 @@ func (_mock *UserBackend) SyncGroupMemberships(ctx context.Context, user *userv1
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *userv1beta1.User, map[string]interface{}) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *userv1beta1.User, map[string]any) error); ok {
 		r0 = returnFunc(ctx, user, claims)
 	} else {
 		r0 = ret.Error(0)
@@ -291,12 +291,12 @@ type UserBackend_SyncGroupMemberships_Call struct {
 // SyncGroupMemberships is a helper method to define mock.On call
 //   - ctx context.Context
 //   - user *userv1beta1.User
-//   - claims map[string]interface{}
+//   - claims map[string]any
 func (_e *UserBackend_Expecter) SyncGroupMemberships(ctx interface{}, user interface{}, claims interface{}) *UserBackend_SyncGroupMemberships_Call {
 	return &UserBackend_SyncGroupMemberships_Call{Call: _e.mock.On("SyncGroupMemberships", ctx, user, claims)}
 }
 
-func (_c *UserBackend_SyncGroupMemberships_Call) Run(run func(ctx context.Context, user *userv1beta1.User, claims map[string]interface{})) *UserBackend_SyncGroupMemberships_Call {
+func (_c *UserBackend_SyncGroupMemberships_Call) Run(run func(ctx context.Context, user *userv1beta1.User, claims map[string]any)) *UserBackend_SyncGroupMemberships_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -306,9 +306,9 @@ func (_c *UserBackend_SyncGroupMemberships_Call) Run(run func(ctx context.Contex
 		if args[1] != nil {
 			arg1 = args[1].(*userv1beta1.User)
 		}
-		var arg2 map[string]interface{}
+		var arg2 map[string]any
 		if args[2] != nil {
-			arg2 = args[2].(map[string]interface{})
+			arg2 = args[2].(map[string]any)
 		}
 		run(
 			arg0,
@@ -324,13 +324,13 @@ func (_c *UserBackend_SyncGroupMemberships_Call) Return(err error) *UserBackend_
 	return _c
 }
 
-func (_c *UserBackend_SyncGroupMemberships_Call) RunAndReturn(run func(ctx context.Context, user *userv1beta1.User, claims map[string]interface{}) error) *UserBackend_SyncGroupMemberships_Call {
+func (_c *UserBackend_SyncGroupMemberships_Call) RunAndReturn(run func(ctx context.Context, user *userv1beta1.User, claims map[string]any) error) *UserBackend_SyncGroupMemberships_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // UpdateUserIfNeeded provides a mock function for the type UserBackend
-func (_mock *UserBackend) UpdateUserIfNeeded(ctx context.Context, user *userv1beta1.User, claims map[string]interface{}) error {
+func (_mock *UserBackend) UpdateUserIfNeeded(ctx context.Context, user *userv1beta1.User, claims map[string]any) error {
 	ret := _mock.Called(ctx, user, claims)
 
 	if len(ret) == 0 {
@@ -338,7 +338,7 @@ func (_mock *UserBackend) UpdateUserIfNeeded(ctx context.Context, user *userv1be
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *userv1beta1.User, map[string]interface{}) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *userv1beta1.User, map[string]any) error); ok {
 		r0 = returnFunc(ctx, user, claims)
 	} else {
 		r0 = ret.Error(0)
@@ -354,12 +354,12 @@ type UserBackend_UpdateUserIfNeeded_Call struct {
 // UpdateUserIfNeeded is a helper method to define mock.On call
 //   - ctx context.Context
 //   - user *userv1beta1.User
-//   - claims map[string]interface{}
+//   - claims map[string]any
 func (_e *UserBackend_Expecter) UpdateUserIfNeeded(ctx interface{}, user interface{}, claims interface{}) *UserBackend_UpdateUserIfNeeded_Call {
 	return &UserBackend_UpdateUserIfNeeded_Call{Call: _e.mock.On("UpdateUserIfNeeded", ctx, user, claims)}
 }
 
-func (_c *UserBackend_UpdateUserIfNeeded_Call) Run(run func(ctx context.Context, user *userv1beta1.User, claims map[string]interface{})) *UserBackend_UpdateUserIfNeeded_Call {
+func (_c *UserBackend_UpdateUserIfNeeded_Call) Run(run func(ctx context.Context, user *userv1beta1.User, claims map[string]any)) *UserBackend_UpdateUserIfNeeded_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -369,9 +369,9 @@ func (_c *UserBackend_UpdateUserIfNeeded_Call) Run(run func(ctx context.Context,
 		if args[1] != nil {
 			arg1 = args[1].(*userv1beta1.User)
 		}
-		var arg2 map[string]interface{}
+		var arg2 map[string]any
 		if args[2] != nil {
-			arg2 = args[2].(map[string]interface{})
+			arg2 = args[2].(map[string]any)
 		}
 		run(
 			arg0,
@@ -387,7 +387,7 @@ func (_c *UserBackend_UpdateUserIfNeeded_Call) Return(err error) *UserBackend_Up
 	return _c
 }
 
-func (_c *UserBackend_UpdateUserIfNeeded_Call) RunAndReturn(run func(ctx context.Context, user *userv1beta1.User, claims map[string]interface{}) error) *UserBackend_UpdateUserIfNeeded_Call {
+func (_c *UserBackend_UpdateUserIfNeeded_Call) RunAndReturn(run func(ctx context.Context, user *userv1beta1.User, claims map[string]any) error) *UserBackend_UpdateUserIfNeeded_Call {
 	_c.Call.Return(run)
 	return _c
 }
