@@ -1,10 +1,15 @@
 # Changelog
 
-## [6.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v6.3.0) - 2026-05-13
+## [7.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.0.0) - 2026-05-13
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @AlexAndBear, @SAY-5, @Svanvith, @butonic, @dschmidt, @micbar, @rhafer
+
+### 💥 Breaking changes
+
+- Persist space memberships in share manager [[#2760](https://github.com/opencloud-eu/opencloud/pull/2760)]
+- [feature/guest-links] bump reva, add service user config to "sharing" service [[#2735](https://github.com/opencloud-eu/opencloud/pull/2735)]
 
 ### 📚 Documentation
 
