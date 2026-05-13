@@ -52,13 +52,13 @@ type Options struct {
 	PreSignedURLConfig config.PreSignedURL
 	// UserOIDCClaim to read from the oidc claims
 	UserOIDCClaim string
-	// OIDCProfilePicture config for syncing profile pictures from OIDC claims
-	OIDCProfilePicture config.OIDCProfilePicture
 	// UserCS3Claim to use when looking up a user in the CS3 API
 	UserCS3Claim string
 	// TenantOIDCClaim is a JMESPath expression to extract the tenant ID from the OIDC claims.
 	// When set, the extracted value is verified against the tenant ID on the resolved user.
 	TenantOIDCClaim string
+	// AutoProvisionClaims to read the user info from the oidc claims
+	AutoProvisionClaims config.AutoProvisionClaims
 	// AutoprovisionAccounts when an accountResolver does not exist.
 	AutoprovisionAccounts bool
 	// EnableBasicAuth to allow basic auth
@@ -193,13 +193,6 @@ func UserOIDCClaim(val string) Option {
 	}
 }
 
-// OIDCProfilePicture provides a function to set the OIDC profile picture config
-func OIDCProfilePicture(val config.OIDCProfilePicture) Option {
-	return func(o *Options) {
-		o.OIDCProfilePicture = val
-	}
-}
-
 // UserCS3Claim provides a function to set the UserClaimType config
 func UserCS3Claim(val string) Option {
 	return func(o *Options) {
@@ -211,6 +204,13 @@ func UserCS3Claim(val string) Option {
 func TenantOIDCClaim(val string) Option {
 	return func(o *Options) {
 		o.TenantOIDCClaim = val
+	}
+}
+
+// AutoProvisionClaims provides a function to set the AutoProvisionClaims config
+func AutoProvisionClaims(cfg config.AutoProvisionClaims) Option {
+	return func(o *Options) {
+		o.AutoProvisionClaims = cfg
 	}
 }
 

@@ -74,6 +74,7 @@ func AccountResolver(optionSetters ...Option) func(next http.Handler) http.Handl
 			userOIDCClaim:                    options.UserOIDCClaim,
 			userCS3Claim:                     options.UserCS3Claim,
 			tenantOIDCClaim:                  options.TenantOIDCClaim,
+			autoProvisionClaims:              options.AutoProvisionClaims,
 			tenantIDMappingEnabled:           options.TenantIDMappingEnabled,
 			gatewaySelector:                  options.RevaGatewaySelector,
 			serviceAccount:                   options.ServiceAccount,
@@ -83,7 +84,6 @@ func AccountResolver(optionSetters ...Option) func(next http.Handler) http.Handl
 			lastGroupSyncCache:               lastGroupSyncCache,
 			tenantIDCache:                    tenantIDCache,
 			eventsPublisher:                  options.EventsPublisher,
-			profilePictureClaim:              options.AutoProvisionClaims.ProfilePicture,
 			httpClient:                       httpClient,
 			backendHTTPClient:                backendHTTPClient,
 			oidcIssuer:                       options.OIDCIss,
@@ -107,7 +107,7 @@ type accountResolver struct {
 	userOIDCClaim                    string
 	userCS3Claim                     string
 	tenantOIDCClaim                  string
-	profilePictureClaim              string
+	autoProvisionClaims              config.AutoProvisionClaims
 	oidcIssuer                       string
 	httpClient                       *http.Client
 	backendHTTPClient                *http.Client
@@ -163,9 +163,9 @@ func (m accountResolver) syncProfilePicture(ctx context.Context, req *http.Reque
 		return errors.New("missing user token for profile photo sync")
 	}
 
-	pictureURL, err := readStringClaim(m.profilePictureClaim, claims)
+	pictureURL, err := readStringClaim(m.autoProvisionClaims.ProfilePicture, claims)
 	if err != nil {
-		m.logger.Debug().Err(err).Str("claim", m.profilePictureClaim).Msg("profile picture claim missing")
+		m.logger.Debug().Err(err).Str("claim", m.autoProvisionClaims.ProfilePicture).Msg("profile picture claim missing")
 		return nil
 	}
 	if pictureURL == "" {
@@ -401,7 +401,7 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 
-		if m.profilePictureClaim != "" && oidc.NewSessionFlagFromContext(ctx) {
+		if m.autoProvisionClaims.ProfilePicture != "" && oidc.NewSessionFlagFromContext(ctx) {
 			if err := m.syncProfilePicture(ctx, req, user, token, claims); err != nil {
 				m.logger.Warn().Err(err).Str("userid", user.GetId().GetOpaqueId()).Msg("Failed to sync profile picture from OIDC claim")
 			}
