@@ -14,6 +14,8 @@ const (
 	BundleUUIDRoleUser = "d7beeea8-8ff4-406b-8fb6-ab2dd81e6b11"
 	// BundleUUIDRoleUserLight represents the user light role.
 	BundleUUIDRoleUserLight = "38071a68-456a-4553-846a-fa67bf5596cc"
+	// BundleUUIDRoleGuest represents the guest role.
+	BundleUUIDRoleGuest = "38071a68-456a-4553-846a-fa67bf5596cc"
 	// BundleUUIDProfile represents the user profile.
 	BundleUUIDProfile = "2a506de7-99bd-4f0d-994e-c38e72c28fd9"
 	// BundleUUIDServiceAccount represents the service account role.

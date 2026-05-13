@@ -36,7 +36,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/odata"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/userstate"
-	ocsettingssvc "github.com/opencloud-eu/opencloud/services/settings/pkg/service/v0"
 	"github.com/opencloud-eu/opencloud/services/settings/pkg/store/defaults"
 )
 
@@ -421,10 +420,10 @@ func (g Graph) PostUser(w http.ResponseWriter, r *http.Request) {
 		// to all new users for now, as create Account request does not have any role field
 		if _, err = g.roleService.AssignRoleToUser(r.Context(), &settingssvc.AssignRoleToUserRequest{
 			AccountUuid: *u.Id,
-			RoleId:      ocsettingssvc.BundleUUIDRoleUser,
+			RoleId:      defaults.BundleUUIDRoleUser,
 		}); err != nil {
 			// log as error, admin eventually needs to do something
-			logger.Error().Err(err).Str("id", *u.Id).Str("role", ocsettingssvc.BundleUUIDRoleUser).Msg("could not create user: role assignment failed")
+			logger.Error().Err(err).Str("id", *u.Id).Str("role", defaults.BundleUUIDRoleUser).Msg("could not create user: role assignment failed")
 			errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "role assignment failed")
 			return
 		}
