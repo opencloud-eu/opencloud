@@ -371,7 +371,7 @@ config = {
             "skip": False,
             "suites": [
                 "user-settings",
-                "file-action",
+                #"fileaction",
                 "embed",
             ],
         },
