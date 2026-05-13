@@ -88,7 +88,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@dschmidt, @micbar, @rhafer
+@butonic, @dschmidt, @micbar, @rhafer
 
 ### ✅ Tests
 
