@@ -4,7 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @SAY-5, @butonic, @dschmidt, @micbar, @rhafer
+@AlexAndBear, @SAY-5, @Svanvith, @butonic, @dschmidt, @micbar, @rhafer
+
+### 📚 Documentation
+
+- Update README with LDAP certificate details [[#2759](https://github.com/opencloud-eu/opencloud/pull/2759)]
 
 ### 🐛 Bug Fixes
 
