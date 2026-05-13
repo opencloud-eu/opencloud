@@ -88,7 +88,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@SAY-5, @butonic, @dschmidt, @micbar, @rhafer
+@AlexAndBear, @SAY-5, @butonic, @dschmidt, @micbar, @rhafer
 
 ### 🐛 Bug Fixes
 
