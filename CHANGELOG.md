@@ -1,18 +1,19 @@
 # Changelog
 
-## [6.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v6.3.0) - 2026-05-12
+## [6.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v6.3.0) - 2026-05-13
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@dschmidt
+@dschmidt, @rhafer
+
+### 🐛 Bug Fixes
+
+- fix: use runner to start activitylog service [[#2748](https://github.com/opencloud-eu/opencloud/pull/2748)]
+- docs(search): fix force-rescan flag name in README [[#2747](https://github.com/opencloud-eu/opencloud/pull/2747)]
 
 ### 📈 Enhancement
 
 - feat(graph): populate driveItem.webUrl per Libre Graph spec [[#2744](https://github.com/opencloud-eu/opencloud/pull/2744)]
-
-### 🐛 Bug Fixes
-
-- docs(search): fix force-rescan flag name in README [[#2747](https://github.com/opencloud-eu/opencloud/pull/2747)]
 
 ### 📦️ Dependencies
 
