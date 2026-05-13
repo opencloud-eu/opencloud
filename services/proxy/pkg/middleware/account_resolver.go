@@ -11,6 +11,7 @@ import (
 	tenantpb "github.com/cs3org/go-cs3apis/cs3/identity/tenant/v1beta1"
 	rpcpb "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	"github.com/jellydator/ttlcache/v3"
+	jmespath "github.com/jmespath-community/go-jmespath"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/router"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles"
@@ -92,38 +93,17 @@ type accountResolver struct {
 }
 
 func readStringClaim(path string, claims map[string]any) (string, error) {
-	// happy path
-	value, _ := claims[path].(string)
-	if value != "" {
-		return value, nil
+	result, err := jmespath.Search(path, claims)
+	if err != nil {
+		return "", err
 	}
 
-	// try splitting path at .
-	segments := oidc.SplitWithEscaping(path, ".", "\\")
-	subclaims := claims
-	lastSegment := len(segments) - 1
-	for i := range segments {
-		if i < lastSegment {
-			if castedClaims, ok := subclaims[segments[i]].(map[string]any); ok {
-				subclaims = castedClaims
-			} else if castedClaims, ok := subclaims[segments[i]].(map[any]any); ok {
-				subclaims = make(map[string]any, len(castedClaims))
-				for k, v := range castedClaims {
-					if s, ok := k.(string); ok {
-						subclaims[s] = v
-					} else {
-						return "", fmt.Errorf("could not walk claims path, key '%v' is not a string", k)
-					}
-				}
-			}
-		} else {
-			if value, _ = subclaims[segments[i]].(string); value != "" {
-				return value, nil
-			}
-		}
+	value, ok := result.(string)
+	if !ok || value == "" {
+		return "", fmt.Errorf("claim path '%s' not set or empty", path)
 	}
 
-	return value, fmt.Errorf("claim path '%s' not set or empty", path)
+	return value, nil
 }
 
 // TODO do not use the context to store values: https://medium.com/@cep21/how-to-correctly-use-context-context-in-go-1-7-8f2c0fafdf39

@@ -92,7 +92,8 @@ func TestExtractEscapedRolesPathString(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	roles, err := extractRoles("sub\\.roles", claims)
+	// JMESPath uses quoted identifiers to access keys containing dots
+	roles, err := extractRoles(`"sub.roles"`, claims)
 	if err != nil {
 		t.Fatal(err)
 	}

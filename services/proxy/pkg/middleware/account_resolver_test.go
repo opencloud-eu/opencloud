@@ -96,44 +96,23 @@ func TestTokenIsAddedWithDotUsernamePathClaim(t *testing.T) {
 	assert.Contains(t, token, "eyJ")
 }
 
-func TestTokenIsAddedWithDottedUsernameClaim(t *testing.T) {
-	tests := []struct {
-		name      string
-		oidcClaim string
-		// comment describing what the claim exercises
-		desc string
-	}{
-		{
-			name:      "escaped dot treated as literal key",
-			oidcClaim: "li\\.un",
-			desc:      "li\\.un escapes the dot so the claim is looked up as the literal key \"li.un\"",
-		},
-		{
-			name:      "dotted path falls back to literal key",
-			oidcClaim: "li.un",
-			desc:      "li.un is first tried as a nested path; when \"un\" is absent under \"li\", it falls back to the literal key \"li.un\"",
-		},
-	}
+func TestTokenIsAddedWithDotUsernameClaim(t *testing.T) {
+	sut := newMockAccountResolver(&userv1beta1.User{
+		Id:   &userv1beta1.UserId{Idp: "https://idx.example.com", OpaqueId: "123"},
+		Mail: "foo@example.com",
+	}, nil, `"li.un"`, "username", false)
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			sut := newMockAccountResolver(&userv1beta1.User{
-				Id:   &userv1beta1.UserId{Idp: testIdP, OpaqueId: "123"},
-				Mail: "foo@example.com",
-			}, nil, tc.oidcClaim, "username", false)
+	// JMESPath quoted identifier syntax accesses keys containing dots
+	req, rw := mockRequest(map[string]any{
+		oidc.Iss: testIdP,
+		"li.un":  "foo",
+	})
 
-			req, rw := mockRequest(map[string]any{
-				oidc.Iss: testIdP,
-				"li.un":  "foo",
-			})
+	sut.ServeHTTP(rw, req)
 
-			sut.ServeHTTP(rw, req)
-
-			token := req.Header.Get(revactx.TokenHeader)
-			assert.NotEmpty(t, token)
-			assert.Contains(t, token, "eyJ")
-		})
-	}
+	token := req.Header.Get(revactx.TokenHeader)
+	assert.NotEmpty(t, token)
+	assert.Contains(t, token, "eyJ")
 }
 
 func TestNSkipOnNoClaims(t *testing.T) {

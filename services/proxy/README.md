@@ -92,9 +92,13 @@ The name of an OIDC claim whose value should be used to maintain a user's group
 membership. The claim value should contain a list of group names the user should
 be a member of. Defaults to `groups`.
 * `PROXY_USER_OIDC_CLAIM`\
-When resolving and authenticated OIDC user, the value of this claims is used to
-lookup the user in the users service. For auto provisioning setups this usually is the
-same claims as set via `PROXY_AUTOPROVISION_CLAIM_USERNAME`.
+When resolving an authenticated OIDC user, this JMESPath expression is evaluated
+against the token claims to extract the user identifier used to look up the user
+in the users service. Simple claim names such as `sub`, `email` or
+`preferred_username` work as-is. Nested claims can be accessed with dot notation,
+e.g. `identity.username`. Claim keys that contain a literal dot must use
+JMESPath quoted identifier syntax, e.g. `"claim.name"`. For auto provisioning
+setups this is usually the same claim as `PROXY_AUTOPROVISION_CLAIM_USERNAME`.
 * `PROXY_USER_CS3_CLAIM`\
 This is the name of the user attribute in OpenCloud that is used to lookup the user by the
 value of the `PROXY_USER_OIDC_CLAIM`. For auto provisioning setups this usually
@@ -177,10 +181,14 @@ get the role 'user' assigned. (This is also the default behavior if `PROXY_ROLE_
 is unset.
 
 When `PROXY_ROLE_ASSIGNMENT_DRIVER` is set to `oidc` the role assignment for a user will happen
-based on the values of an OpenID Connect Claim of that user. The name of the OpenID Connect Claim to
-be used for the role assignment can be configured via the `PROXY_ROLE_ASSIGNMENT_OIDC_CLAIM`
-environment variable. It is also possible to define a mapping of claim values to role names defined
-in OpenCloud via a `yaml` configuration. See the following `proxy.yaml` snippet for an example.
+based on the values of an OIDC claim of that user. The claim to use is configured via
+`PROXY_ROLE_ASSIGNMENT_OIDC_CLAIM`, which accepts a JMESPath expression evaluated against
+the token claims. Simple claim names such as `roles` work as-is. Nested claims can be
+accessed with dot notation, e.g. `realm_access.roles`. Claim keys that contain a literal
+dot must use JMESPath quoted identifier syntax, e.g. `"claim.name"`. The claim value may
+be a single string or an array of strings. It is also possible to define a mapping of
+claim values to role names defined in OpenCloud via a `yaml` configuration. See the
+following `proxy.yaml` snippet for an example.
 
 ```yaml
 role_assignment:

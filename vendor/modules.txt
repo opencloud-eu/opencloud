@@ -838,6 +838,16 @@ github.com/jellydator/ttlcache/v3
 # github.com/jinzhu/now v1.1.5
 ## explicit; go 1.12
 github.com/jinzhu/now
+# github.com/jmespath-community/go-jmespath v1.1.1
+## explicit; go 1.18
+github.com/jmespath-community/go-jmespath
+github.com/jmespath-community/go-jmespath/pkg/api
+github.com/jmespath-community/go-jmespath/pkg/binding
+github.com/jmespath-community/go-jmespath/pkg/error
+github.com/jmespath-community/go-jmespath/pkg/functions
+github.com/jmespath-community/go-jmespath/pkg/interpreter
+github.com/jmespath-community/go-jmespath/pkg/parsing
+github.com/jmespath-community/go-jmespath/pkg/util
 # github.com/jonboulle/clockwork v0.5.0
 ## explicit; go 1.21
 github.com/jonboulle/clockwork
@@ -2447,6 +2457,7 @@ golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
 golang.org/x/crypto/ssh/knownhosts
 # golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac
 ## explicit; go 1.22.0
+golang.org/x/exp/constraints
 golang.org/x/exp/maps
 golang.org/x/exp/slices
 golang.org/x/exp/slog

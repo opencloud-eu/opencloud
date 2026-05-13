@@ -7,8 +7,8 @@ import (
 	"time"
 
 	cs3 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
+	jmespath "github.com/jmespath-community/go-jmespath"
 	"github.com/opencloud-eu/opencloud/pkg/middleware"
-	"github.com/opencloud-eu/opencloud/pkg/oidc"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"go-micro.dev/v4/metadata"
@@ -31,21 +31,13 @@ func NewOIDCRoleAssigner(opts ...Option) UserRoleAssigner {
 }
 
 func extractRoles(rolesClaim string, claims map[string]any) (map[string]struct{}, error) {
-
-	claimRoles := map[string]struct{}{}
-	// happy path
-	value, _ := claims[rolesClaim].(string)
-	if value != "" {
-		claimRoles[value] = struct{}{}
-		return claimRoles, nil
-	}
-
-	claim, err := oidc.WalkSegments(oidc.SplitWithEscaping(rolesClaim, ".", "\\"), claims)
+	result, err := jmespath.Search(rolesClaim, claims)
 	if err != nil {
 		return nil, err
 	}
 
-	switch v := claim.(type) {
+	claimRoles := map[string]struct{}{}
+	switch v := result.(type) {
 	case []string:
 		for _, cr := range v {
 			claimRoles[cr] = struct{}{}
@@ -54,13 +46,14 @@ func extractRoles(rolesClaim string, claims map[string]any) (map[string]struct{}
 		for _, cri := range v {
 			cr, ok := cri.(string)
 			if !ok {
-				err := errors.New("invalid role in claims")
-				return nil, err
+				return nil, errors.New("invalid role in claims")
 			}
-
 			claimRoles[cr] = struct{}{}
 		}
 	case string:
+		if v == "" {
+			return nil, errors.New("no roles in user claims")
+		}
 		claimRoles[v] = struct{}{}
 	default:
 		return nil, errors.New("no roles in user claims")

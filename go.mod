@@ -47,6 +47,7 @@ require (
 	github.com/jellydator/ttlcache/v2 v2.11.1
 	github.com/jellydator/ttlcache/v3 v3.4.0
 	github.com/jinzhu/now v1.1.5
+	github.com/jmespath-community/go-jmespath v1.1.1
 	github.com/justinas/alice v1.2.0
 	github.com/kovidgoyal/imaging v1.8.20
 	github.com/leonelquinteros/gotext v1.7.2
