@@ -4,16 +4,17 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@butonic, @dschmidt, @micbar, @rhafer
+@SAY-5, @butonic, @dschmidt, @micbar, @rhafer
+
+### 🐛 Bug Fixes
+
+- fix(webdav): register chi REPORT method in init to avoid race with settings [[#2712](https://github.com/opencloud-eu/opencloud/pull/2712)]
+- fix: use runner to start activitylog service [[#2748](https://github.com/opencloud-eu/opencloud/pull/2748)]
+- docs(search): fix force-rescan flag name in README [[#2747](https://github.com/opencloud-eu/opencloud/pull/2747)]
 
 ### ✅ Tests
 
 - fix: cleaner debounce timer test [[#2743](https://github.com/opencloud-eu/opencloud/pull/2743)]
-
-### 🐛 Bug Fixes
-
-- fix: use runner to start activitylog service [[#2748](https://github.com/opencloud-eu/opencloud/pull/2748)]
-- docs(search): fix force-rescan flag name in README [[#2747](https://github.com/opencloud-eu/opencloud/pull/2747)]
 
 ### 📈 Enhancement
 
