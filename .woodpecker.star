@@ -385,7 +385,7 @@ config = {
                 "shares",
                 "search",
                 "journeys",
-                "file-action",
+                #"file-action",
                 "spaces",
             ],
             "tikaNeeded": True,
