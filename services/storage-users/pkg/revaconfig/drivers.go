@@ -183,6 +183,7 @@ func OwnCloudSQL(cfg *config.Config) map[string]any {
 // Decomposed is the config mapping for the Decomposed storage driver
 func Decomposed(cfg *config.Config) map[string]any {
 	return map[string]any{
+		"mount_id":         cfg.MountID,
 		"metadata_backend": "messagepack",
 		"metadata_prefix":  cfg.Drivers.Decomposed.MetadataPrefix,
 		"propagator":       cfg.Drivers.Decomposed.Propagator,
