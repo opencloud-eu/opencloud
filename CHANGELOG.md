@@ -1,10 +1,10 @@
 # Changelog
 
-## [7.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.0.0) - 2026-05-14
+## [7.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.0.0) - 2026-05-15
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @SAY-5, @Svanvith, @butonic, @dschmidt, @micbar, @rhafer
+@AlexAndBear, @SAY-5, @ScharfViktor, @Svanvith, @butonic, @dschmidt, @micbar, @rhafer
 
 ### 💥 Breaking changes
 
@@ -13,6 +13,7 @@
 
 ### ✅ Tests
 
+- [full-ci] preview-tests. update fixtures for different processors [[#2767](https://github.com/opencloud-eu/opencloud/pull/2767)]
 - test: modify exclude list and add coverage upload [[#2762](https://github.com/opencloud-eu/opencloud/pull/2762)]
 - fix: cleaner debounce timer test [[#2743](https://github.com/opencloud-eu/opencloud/pull/2743)]
 
