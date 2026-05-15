@@ -404,7 +404,7 @@ func (s DriveItemPermissionsService) ListPermissions(ctx context.Context, itemID
 
 	driveItems := make(driveItemsByResourceID, 1)
 	// we can use the statResponse to build the drive item before fetching the shares
-	item, err := cs3ResourceToDriveItem(s.logger, s.publicBaseURL, statResponse.GetInfo())
+	item, err := s.cs3ResourceToDriveItem(statResponse.GetInfo())
 	if err != nil {
 		return collectionOfPermissions, err
 	}
