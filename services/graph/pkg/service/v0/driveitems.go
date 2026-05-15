@@ -204,7 +204,7 @@ func (g Graph) GetRootDriveChildren(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	files, err := formatDriveItems(g.logger, g.publicBaseURL, lRes.GetInfos())
+	files, err := g.formatDriveItems(lRes.GetInfos())
 	if err != nil {
 		g.logger.Error().Err(err).Msg("error encoding response as json")
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
@@ -269,7 +269,7 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, res.GetStatus().GetMessage())
 		return
 	}
-	driveItem, err := cs3ResourceToDriveItem(g.logger, g.publicBaseURL, res.GetInfo())
+	driveItem, err := g.cs3ResourceToDriveItem(res.GetInfo())
 	if err != nil {
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
 		return
@@ -337,7 +337,7 @@ func (g Graph) GetDriveItemChildren(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	files, err := formatDriveItems(g.logger, g.publicBaseURL, res.GetInfos())
+	files, err := g.formatDriveItems(res.GetInfos())
 	if err != nil {
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
 		return
@@ -385,10 +385,10 @@ func (g Graph) getRemoteItem(ctx context.Context, root *storageprovider.Resource
 	return item, nil
 }
 
-func formatDriveItems(logger *log.Logger, publicBaseURL *url.URL, mds []*storageprovider.ResourceInfo) ([]*libregraph.DriveItem, error) {
+func (g BaseGraphService) formatDriveItems(mds []*storageprovider.ResourceInfo) ([]*libregraph.DriveItem, error) {
 	responses := make([]*libregraph.DriveItem, 0, len(mds))
 	for i := range mds {
-		res, err := cs3ResourceToDriveItem(logger, publicBaseURL, mds[i])
+		res, err := g.cs3ResourceToDriveItem(mds[i])
 		if err != nil {
 			return nil, err
 		}
@@ -402,18 +402,15 @@ func cs3TimestampToTime(t *types.Timestamp) time.Time {
 	return time.Unix(int64(t.GetSeconds()), int64(t.GetNanos()))
 }
 
-func cs3ResourceToDriveItem(logger *log.Logger, publicBaseURL *url.URL, res *storageprovider.ResourceInfo) (*libregraph.DriveItem, error) {
+func (g BaseGraphService) cs3ResourceToDriveItem(res *storageprovider.ResourceInfo) (*libregraph.DriveItem, error) {
 	size := new(int64)
 	*size = int64(res.GetSize()) // TODO lurking overflow: make size of libregraph drive item use uint64
 
 	driveItem := &libregraph.DriveItem{
-		Id:   libregraph.PtrString(storagespace.FormatResourceID(res.GetId())),
-		Size: size,
+		Id:     libregraph.PtrString(storagespace.FormatResourceID(res.GetId())),
+		Size:   size,
+		WebUrl: g.webURLForResource(res.GetId()),
 	}
-
-	webURL := *publicBaseURL
-	webURL.Path = path.Join(webURL.Path, "f", storagespace.FormatResourceID(res.GetId()))
-	driveItem.WebUrl = libregraph.PtrString(webURL.String())
 
 	if name := path.Base(res.GetPath()); name != "" {
 		driveItem.Name = &name
@@ -453,10 +450,10 @@ func cs3ResourceToDriveItem(logger *log.Logger, publicBaseURL *url.URL, res *sto
 	}
 
 	if res.GetArbitraryMetadata() != nil {
-		driveItem.Audio = cs3ResourceToDriveItemAudioFacet(logger, res)
-		driveItem.Image = cs3ResourceToDriveItemImageFacet(logger, res)
-		driveItem.Location = cs3ResourceToDriveItemLocationFacet(logger, res)
-		driveItem.Photo = cs3ResourceToDriveItemPhotoFacet(logger, res)
+		driveItem.Audio = cs3ResourceToDriveItemAudioFacet(g.logger, res)
+		driveItem.Image = cs3ResourceToDriveItemImageFacet(g.logger, res)
+		driveItem.Location = cs3ResourceToDriveItemLocationFacet(g.logger, res)
+		driveItem.Photo = cs3ResourceToDriveItemPhotoFacet(g.logger, res)
 	}
 
 	return driveItem, nil

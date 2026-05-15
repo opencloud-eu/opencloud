@@ -850,17 +850,7 @@ func (g Graph) cs3StorageSpaceToDrive(ctx context.Context, baseURL *url.URL, spa
 		drive.Root.WebDavUrl = libregraph.PtrString(webDavURL.String())
 	}
 
-	webURL, err := url.Parse(g.config.Spaces.WebDavBase)
-	if err != nil {
-		logger.Error().
-			Err(err).
-			Str("url", g.config.Spaces.WebDavBase).
-			Msg("failed to parse webURL base url")
-		return nil, err
-	}
-
-	webURL.Path = path.Join(webURL.Path, "f", storagespace.FormatResourceID(spaceRid))
-	drive.WebUrl = libregraph.PtrString(webURL.String())
+	drive.WebUrl = g.webURLForResource(spaceRid)
 
 	if space.Owner != nil && space.Owner.Id != nil {
 		drive.Owner = &libregraph.IdentitySet{
