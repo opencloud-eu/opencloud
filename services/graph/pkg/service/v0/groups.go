@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/CiscoM31/godata"
-	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -250,7 +250,7 @@ func (g Graph) GetGroup(w http.ResponseWriter, r *http.Request) {
 		Msg("calling get group on backend")
 	group, err := g.identityBackend.GetGroup(r.Context(), groupID, r.URL.Query())
 	if err != nil {
-		logger.Debug().Err(err).Msg("could not get group: backend error")
+		logger.Error().Err(err).Msg("could not get group: backend error")
 		errorcode.RenderError(w, r, err)
 		return
 	}
