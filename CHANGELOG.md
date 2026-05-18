@@ -11,6 +11,13 @@
 - Persist space memberships in share manager [[#2760](https://github.com/opencloud-eu/opencloud/pull/2760)]
 - [feature/guest-links] bump reva, add service user config to "sharing" service [[#2735](https://github.com/opencloud-eu/opencloud/pull/2735)]
 
+### 🐛 Bug Fixes
+
+- No registry lookup in cli [[#2755](https://github.com/opencloud-eu/opencloud/pull/2755)]
+- fix(webdav): register chi REPORT method in init to avoid race with settings [[#2712](https://github.com/opencloud-eu/opencloud/pull/2712)]
+- fix: use runner to start activitylog service [[#2748](https://github.com/opencloud-eu/opencloud/pull/2748)]
+- docs(search): fix force-rescan flag name in README [[#2747](https://github.com/opencloud-eu/opencloud/pull/2747)]
+
 ### ✅ Tests
 
 - [full-ci] preview-tests. update fixtures for different processors [[#2767](https://github.com/opencloud-eu/opencloud/pull/2767)]
@@ -20,12 +27,6 @@
 ### 📚 Documentation
 
 - Update README with LDAP certificate details [[#2759](https://github.com/opencloud-eu/opencloud/pull/2759)]
-
-### 🐛 Bug Fixes
-
-- fix(webdav): register chi REPORT method in init to avoid race with settings [[#2712](https://github.com/opencloud-eu/opencloud/pull/2712)]
-- fix: use runner to start activitylog service [[#2748](https://github.com/opencloud-eu/opencloud/pull/2748)]
-- docs(search): fix force-rescan flag name in README [[#2747](https://github.com/opencloud-eu/opencloud/pull/2747)]
 
 ### 📈 Enhancement
 
