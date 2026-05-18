@@ -1,5 +1,15 @@
 # Changelog
 
+## [4.0.7](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.7) - 2026-05-18
+
+### ❤️ Thanks to all contributors! ❤️
+
+@rhafer
+
+### 🔒 Security
+
+- [stable/4.0] Backports [[#2761](https://github.com/opencloud-eu/opencloud/pull/2761)]
+
 ## [4.0.6](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.6) - 2026-04-29
 
 ### ❤️ Thanks to all contributors! ❤️
