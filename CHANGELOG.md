@@ -1,6 +1,6 @@
 # Changelog
 
-## [7.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.0.0) - 2026-05-18
+## [7.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.0.0) - 2026-05-19
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -13,6 +13,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix(debug): drop duplicate service field from probe fallback log [[#2786](https://github.com/opencloud-eu/opencloud/pull/2786)]
 - No registry lookup in cli [[#2755](https://github.com/opencloud-eu/opencloud/pull/2755)]
 - fix(webdav): register chi REPORT method in init to avoid race with settings [[#2712](https://github.com/opencloud-eu/opencloud/pull/2712)]
 - fix: use runner to start activitylog service [[#2748](https://github.com/opencloud-eu/opencloud/pull/2748)]
