@@ -1379,7 +1379,7 @@ func (fs *Decomposedfs) RestoreRecycleItem(ctx context.Context, space *provider.
 
 		// Warmup posix IDCache if restored path is a directory
 		if cachingTree, ok := fs.tp.(IDCachingTree); ok {
-			_ = cachingTree.WarmupIDCache(restoredNode.InternalPath(), false, false)
+			_ = cachingTree.WarmupIDCache(restoredNode.InternalPath(), true, false)
 		}
 	} else {
 		sizeDiff = restoredNode.Blobsize

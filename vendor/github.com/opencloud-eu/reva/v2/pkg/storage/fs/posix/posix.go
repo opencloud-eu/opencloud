@@ -122,7 +122,7 @@ func New(o *options.Options, stream events.Stream, cache, historyCache *idcache.
 	var lu *lookup.Lookup
 	switch o.MetadataBackend {
 	case "xattrs":
-		lu, err = lookup.New(metadata.NewXattrsBackend(o.FileMetadataCache), um, o, &timemanager.Manager{}, cache, historyCache)
+		lu, err = lookup.New(metadata.NewXattrsBackend(o.FileMetadataCache), um, o, &timemanager.Manager{}, cache, historyCache, log)
 		if err != nil {
 			return nil, err
 		}
@@ -136,7 +136,7 @@ func New(o *options.Options, stream events.Stream, cache, historyCache *idcache.
 
 				return filepath.Join(spaceRoot, lookup.MetadataDir)
 			},
-			o.FileMetadataCache), um, o, &timemanager.Manager{}, cache, historyCache)
+			o.FileMetadataCache), um, o, &timemanager.Manager{}, cache, historyCache, log)
 		if err != nil {
 			return nil, err
 		}

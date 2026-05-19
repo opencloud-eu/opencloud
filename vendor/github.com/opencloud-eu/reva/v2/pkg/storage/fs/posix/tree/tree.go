@@ -73,6 +73,10 @@ type Watcher interface {
 	Watch(path string)
 }
 
+type IDResolver interface {
+	IDsForPath(ctx context.Context, path string) (spaceID string, nodeID string, err error)
+}
+
 type scanItem struct {
 	Path    string
 	Recurse bool
@@ -80,11 +84,14 @@ type scanItem struct {
 
 // Tree manages a hierarchical tree
 type Tree struct {
-	lookup      *lookup.Lookup
 	blobstore   node.Blobstore
 	trashbin    *trashbin.Trashbin
 	propagator  propagator.Propagator
 	permissions permissions.Permissions
+
+	lookup         *lookup.Lookup
+	idResolver     IDResolver                // points at the lookup but can be overridden for testing
+	assimilateFunc func(item scanItem) error // function to call to assimilate a node, can be overridden for testing
 
 	options            *options.Options
 	personalSpacesRoot string
@@ -108,9 +115,10 @@ func New(lu node.PathLookup, bs node.Blobstore, um usermapper.Mapper, trashbin *
 	scanQueue := make(chan scanItem)
 
 	t := &Tree{
-		lookup:      lu.(*lookup.Lookup),
-		blobstore:   bs,
-		userMapper:  um,
+		lookup:     lu.(*lookup.Lookup),
+		blobstore:  bs,
+		userMapper: um,
+		// idResolver and assimilateFunc are wired below once t exists.
 		trashbin:    trashbin,
 		permissions: permissions,
 		options:     o,
@@ -125,6 +133,8 @@ func New(lu node.PathLookup, bs node.Blobstore, um usermapper.Mapper, trashbin *
 		personalSpacesRoot: filepath.Clean(filepath.Join(o.Root, templates.Base(o.PersonalSpacePathTemplate))),
 		projectSpacesRoot:  filepath.Clean(filepath.Join(o.Root, templates.Base(o.GeneralSpacePathTemplate))),
 	}
+	t.idResolver = t.lookup
+	t.assimilateFunc = t.assimilate
 	if err := t.checkStorage(); err != nil {
 		return nil, errors.Wrap(err, "tree: unfit storage '"+o.Root+"'")
 	}
@@ -518,16 +528,23 @@ func (t *Tree) ListFolder(ctx context.Context, n *node.Node) ([]*node.Node, erro
 			for name := range work {
 				path := filepath.Join(dir, name)
 
-				_, nodeID, err := t.lookup.IDsForPath(ctx, path)
+				_, nodeID, err := t.idResolver.IDsForPath(ctx, path)
 				if err != nil {
-					// we don't know about this node yet for some reason, assimilate it on the fly
+					if _, ok := err.(errtypes.IsNotFound); !ok {
+						// a NotFound error just means we don't know about this
+						// node yet. Any other error (e.g. an unavailable id
+						// cache backend) is a real failure that must not be
+						// silently turned into an assimilation attempt.
+						return errors.Wrap(err, "tree: error resolving ids for "+path)
+					}
+					// we don't know about this node yet, assimilate it on the fly
 					t.log.Info().Err(err).Str("path", path).Msg("encountered unknown entity while listing the directory. Assimilate.")
-					err = t.assimilate(scanItem{Path: path})
+					err = t.assimilateFunc(scanItem{Path: path})
 					if err != nil {
 						t.log.Error().Err(err).Str("path", path).Msg("failed to assimilate node")
 						continue
 					}
-					_, nodeID, err = t.lookup.IDsForPath(ctx, path)
+					_, nodeID, err = t.idResolver.IDsForPath(ctx, path)
 					if err != nil || nodeID == "" {
 						t.log.Error().Err(err).Str("path", path).Msg("still could not resolve node after assimilation")
 						continue
@@ -711,9 +728,9 @@ func (t *Tree) createDirNode(ctx context.Context, n *node.Node) (err error) {
 
 	idcache := t.lookup.IDCache
 	// create a directory node
-	parentPath, ok := idcache.Get(ctx, n.SpaceID, n.ParentID)
-	if !ok {
-		return errtypes.NotFound(n.ParentID)
+	parentPath, err := idcache.Get(ctx, n.SpaceID, n.ParentID)
+	if err != nil {
+		return err
 	}
 	path := filepath.Join(parentPath, n.Name)
 

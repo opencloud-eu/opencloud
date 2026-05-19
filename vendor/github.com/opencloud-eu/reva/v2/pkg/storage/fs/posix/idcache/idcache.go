@@ -24,9 +24,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
+	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 )
 
 type IDCache struct {
@@ -59,17 +59,20 @@ func (c *IDCache) Delete(ctx context.Context, spaceID, nodeID string) error {
 func (c *IDCache) DeleteByPath(ctx context.Context, path string) error {
 	baseKey := reverseCacheKey(path)
 
-	spaceID, nodeID, ok := c.GetByPath(ctx, path)
-	if !ok {
-		appctx.GetLogger(ctx).Error().Str("record", path).Msg("could not get spaceID and nodeID from cache")
+	spaceID, nodeID, err := c.GetByPath(ctx, path)
+	if err != nil {
+		if _, ok := err.(errtypes.NotFound); !ok {
+			return err
+		}
+		appctx.GetLogger(ctx).Error().Err(err).Str("record", path).Msg("could not get spaceID and nodeID from cache")
 	} else {
 		err := c.kv.Purge(ctx, baseKey)
-		if err != nil && err != nats.ErrKeyNotFound {
+		if err != nil && err != jetstream.ErrKeyNotFound {
 			appctx.GetLogger(ctx).Error().Err(err).Str("record", baseKey).Str("spaceID", spaceID).Str("nodeID", nodeID).Msg("could not purge from cache")
 		}
 
 		err = c.kv.Purge(ctx, cacheKey(spaceID, nodeID))
-		if err != nil && err != nats.ErrKeyNotFound {
+		if err != nil && err != jetstream.ErrKeyNotFound {
 			appctx.GetLogger(ctx).Error().Err(err).Str("record", cacheKey(spaceID, nodeID)).Str("spaceID", spaceID).Str("nodeID", nodeID).Msg("could not purge from cache")
 		}
 	}
@@ -85,19 +88,19 @@ func (c *IDCache) DeleteByPath(ctx context.Context, path string) error {
 			break
 		}
 		key := update.Key()
-		spaceID, nodeID, ok := c.getByReverseCacheKey(ctx, key)
-		if !ok {
-			appctx.GetLogger(ctx).Error().Str("record", key).Msg("could not get spaceID and nodeID from cache")
+		spaceID, nodeID, err := c.getByReverseCacheKey(ctx, key)
+		if err != nil {
+			appctx.GetLogger(ctx).Error().Err(err).Str("record", key).Msg("could not get spaceID and nodeID from cache")
 			continue
 		}
 
-		err := c.kv.Purge(ctx, key)
-		if err != nil && err != nats.ErrKeyNotFound {
+		err = c.kv.Purge(ctx, key)
+		if err != nil && err != jetstream.ErrKeyNotFound {
 			appctx.GetLogger(ctx).Error().Err(err).Str("record", key).Str("spaceID", spaceID).Str("nodeID", nodeID).Msg("could not purge from cache")
 		}
 
 		err = c.kv.Purge(ctx, cacheKey(spaceID, nodeID))
-		if err != nil && err != nats.ErrKeyNotFound {
+		if err != nil && err != jetstream.ErrKeyNotFound {
 			appctx.GetLogger(ctx).Error().Err(err).Str("record", cacheKey(spaceID, nodeID)).Str("spaceID", spaceID).Str("nodeID", nodeID).Msg("could not purge from cache")
 		}
 	}
@@ -121,32 +124,38 @@ func (c *IDCache) Set(ctx context.Context, spaceID, nodeID, val string) error {
 }
 
 // Get returns the value for a given key
-func (c *IDCache) Get(ctx context.Context, spaceID, nodeID string) (string, bool) {
+func (c *IDCache) Get(ctx context.Context, spaceID, nodeID string) (string, error) {
 	record, err := c.kv.Get(ctx, cacheKey(spaceID, nodeID))
 	if err != nil {
-		return "", false
+		if err == jetstream.ErrKeyNotFound {
+			return "", errtypes.NotFound("record not found in cache")
+		}
+		return "", err
 	}
-	return string(record.Value()), true
+	return string(record.Value()), nil
 }
 
-func (c *IDCache) getByReverseCacheKey(ctx context.Context, reverseKey string) (string, string, bool) {
+func (c *IDCache) getByReverseCacheKey(ctx context.Context, reverseKey string) (string, string, error) {
 	record, err := c.kv.Get(ctx, reverseKey)
 	if err != nil {
-		return "", "", false
+		if err == jetstream.ErrKeyNotFound {
+			return "", "", errtypes.NotFound("record not found in cache")
+		}
+		return "", "", err
 	}
 	decoded, err := base32.StdEncoding.DecodeString(string(record.Value()))
 	if err != nil {
-		return "", "", false
+		return "", "", err
 	}
 	parts := strings.SplitN(string(decoded), "!", 2)
 	if len(parts) != 2 {
-		return "", "", false
+		return "", "", errtypes.InternalError("invalid cache record")
 	}
-	return parts[0], parts[1], true
+	return parts[0], parts[1], nil
 }
 
 // GetByPath returns the key for a given value
-func (c *IDCache) GetByPath(ctx context.Context, path string) (string, string, bool) {
+func (c *IDCache) GetByPath(ctx context.Context, path string) (string, string, error) {
 	return c.getByReverseCacheKey(ctx, reverseCacheKey(path))
 }
 

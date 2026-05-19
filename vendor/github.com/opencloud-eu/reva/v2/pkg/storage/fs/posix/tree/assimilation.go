@@ -39,6 +39,7 @@ import (
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 
+	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata"
@@ -453,9 +454,9 @@ func (t *Tree) assimilate(item scanItem) error {
 			_ = unlock()
 		}()
 
-		previousPath, ok := t.lookup.GetCachedID(context.Background(), spaceID, id)
-		if previousPath == "" || !ok {
-			previousPath, ok = t.lookup.IDHistoryCache.Get(context.Background(), spaceID, id)
+		previousPath, err := t.lookup.GetCachedID(context.Background(), spaceID, id)
+		if previousPath == "" || err != nil {
+			previousPath, err = t.lookup.IDHistoryCache.Get(context.Background(), spaceID, id)
 		}
 
 		// compare metadata mtime with actual mtime. if it matches AND the path hasn't changed (move operation)
@@ -465,7 +466,7 @@ func (t *Tree) assimilate(item scanItem) error {
 		}
 
 		// was it moved or copied/restored with a clashing id?
-		if ok && len(parentID) > 0 && previousPath != item.Path {
+		if err == nil && len(parentID) > 0 && previousPath != item.Path {
 			_, err := os.Stat(previousPath)
 			if err == nil {
 				// this id clashes with an existing item -> clear metadata and re-assimilate
@@ -942,14 +943,22 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
 			if id != "" {
 				// Check if the item on the previous path still exists. In this case it might have been a copy with extended attributes -> set new ID
 				isCopy := false
-				previousPath, ok := t.lookup.GetCachedID(context.Background(), spaceID, id)
-				if ok && previousPath != path {
-					_, err := os.Stat(previousPath)
-					if err == nil {
-						// previous path (using the same id) still exists -> this is a copy
-						isCopy = true
+				previousPath, err := t.lookup.GetCachedID(context.Background(), spaceID, id)
+				switch err.(type) {
+				case errtypes.NotFound:
+					// previous path not found -> not a copy
+				case nil:
+					if previousPath != path {
+						_, err := os.Stat(previousPath)
+						if err == nil {
+							// previous path (using the same id) still exists -> this is a copy
+							isCopy = true
+						}
 					}
+				default:
+					return errors.Wrap(err, "failed to get previous path from cache")
 				}
+
 				if isCopy {
 					// copy detected -> re-assimilate
 					_ = t.assimilate(scanItem{Path: path})

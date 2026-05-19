@@ -41,6 +41,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/templates"
 	"github.com/pkg/errors"
 	"github.com/rogpeppe/go-internal/lockedfile"
+	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -58,8 +59,8 @@ func init() {
 
 // IDCache is a cache for node ids
 type IDCache interface {
-	Get(ctx context.Context, spaceID, nodeID string) (string, bool)
-	GetByPath(ctx context.Context, path string) (string, string, bool)
+	Get(ctx context.Context, spaceID, nodeID string) (string, error)
+	GetByPath(ctx context.Context, path string) (string, string, error)
 
 	Set(ctx context.Context, spaceID, nodeID, val string) error
 
@@ -79,10 +80,12 @@ type Lookup struct {
 	metadataBackend metadata.Backend
 	userMapper      usermapper.Mapper
 	tm              node.TimeManager
+	log             *zerolog.Logger
 }
 
 // New returns a new Lookup instance
-func New(b metadata.Backend, um usermapper.Mapper, o *options.Options, tm node.TimeManager, cache, historyCache *idcache.IDCache) (*Lookup, error) {
+func New(b metadata.Backend, um usermapper.Mapper, o *options.Options, tm node.TimeManager, cache, historyCache *idcache.IDCache, log *zerolog.Logger) (*Lookup, error) {
+
 	spaceRootCache, _ := lru.New[string, string](1000)
 
 	lu := &Lookup{
@@ -93,6 +96,7 @@ func New(b metadata.Backend, um usermapper.Mapper, o *options.Options, tm node.T
 		spaceRootCache:  spaceRootCache,
 		userMapper:      um,
 		tm:              tm,
+		log:             log,
 	}
 
 	return lu, nil
@@ -107,7 +111,7 @@ func (lu *Lookup) CacheID(ctx context.Context, spaceID, nodeID, val string) erro
 }
 
 // GetCachedID returns the cached path for the given space and node id
-func (lu *Lookup) GetCachedID(ctx context.Context, spaceID, nodeID string) (string, bool) {
+func (lu *Lookup) GetCachedID(ctx context.Context, spaceID, nodeID string) (string, error) {
 	if spaceID == nodeID {
 		return lu.getSpaceRootPathWithStatus(ctx, spaceID)
 	}
@@ -116,18 +120,26 @@ func (lu *Lookup) GetCachedID(ctx context.Context, spaceID, nodeID string) (stri
 
 func (lu *Lookup) IDsForPath(ctx context.Context, path string) (string, string, error) {
 	// IDsForPath returns the space and opaque id for the given path
-	spaceID, nodeID, ok := lu.IDCache.GetByPath(ctx, path)
-	if !ok {
-		return "", "", errtypes.NotFound("path not found in cache:" + path)
+	spaceID, nodeID, err := lu.IDCache.GetByPath(ctx, path)
+	if err != nil {
+		if _, ok := err.(errtypes.NotFound); !ok {
+			lu.log.Error().Err(err).Str("path", path).Msg("error looking up path in cache")
+		}
+		// fallback to disk
+		sID, nID, _, _, mErr := lu.metadataBackend.IdentifyPath(ctx, path)
+		if mErr == nil && nID != "" {
+			return sID, nID, nil
+		}
+		return "", "", err
 	}
 	return spaceID, nodeID, nil
 }
 
 // NodeFromPath returns the node for the given path
 func (lu *Lookup) NodeIDFromParentAndName(ctx context.Context, parent *node.Node, name string) (string, error) {
-	parentPath, ok := lu.GetCachedID(ctx, parent.SpaceID, parent.ID)
-	if !ok {
-		return "", errtypes.NotFound(parent.ID)
+	parentPath, err := lu.GetCachedID(ctx, parent.SpaceID, parent.ID)
+	if err != nil {
+		return "", err
 	}
 
 	childPath := filepath.Join(parentPath, name)
@@ -290,15 +302,15 @@ func (lu *Lookup) InternalRoot() string {
 	return lu.Options.Root
 }
 
-func (lu *Lookup) getSpaceRootPathWithStatus(ctx context.Context, spaceID string) (string, bool) {
+func (lu *Lookup) getSpaceRootPathWithStatus(ctx context.Context, spaceID string) (string, error) {
 	if val, ok := lu.spaceRootCache.Get(spaceID); ok {
-		return val, true
+		return val, nil
 	}
-	val, ok := lu.IDCache.Get(ctx, spaceID, spaceID)
-	if ok {
+	val, err := lu.IDCache.Get(ctx, spaceID, spaceID)
+	if err == nil {
 		lu.spaceRootCache.Add(spaceID, val)
 	}
-	return val, ok
+	return val, err
 }
 
 func (lu *Lookup) getSpaceRootPath(ctx context.Context, spaceID string) string {
@@ -338,9 +350,11 @@ func (lu *Lookup) LockfilePaths(n *node.Node) []string {
 	}
 	paths := []string{filepath.Join(spaceRoot, MetadataDir, Pathify(n.ID, 4, 2)+".lock")}
 
-	nodepath := n.InternalPath()
-	if len(nodepath) > 0 {
-		paths = append(paths, nodepath+".lock")
+	if lu.Options.WatchFS {
+		nodepath := n.InternalPath()
+		if len(nodepath) > 0 {
+			paths = append(paths, nodepath+".lock")
+		}
 	}
 
 	return paths

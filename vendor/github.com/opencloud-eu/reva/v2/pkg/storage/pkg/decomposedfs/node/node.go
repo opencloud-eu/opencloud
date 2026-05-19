@@ -173,7 +173,7 @@ type PathLookup interface {
 
 type IDCacher interface {
 	CacheID(ctx context.Context, spaceID, nodeID, val string) error
-	GetCachedID(ctx context.Context, spaceID, nodeID string) (string, bool)
+	GetCachedID(ctx context.Context, spaceID, nodeID string) (string, error)
 }
 
 type BaseNode struct {
