@@ -1,10 +1,10 @@
 # Changelog
 
-## [7.0.0-rc.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.0.0-rc.0) - 2026-05-20
+## [7.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.0.0) - 2026-05-20
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @SAY-5, @ScharfViktor, @Svanvith, @butonic, @dschmidt, @micbar, @rhafer
+@AlexAndBear, @SAY-5, @ScharfViktor, @Svanvith, @butonic, @dragonchaser, @dschmidt, @micbar, @rhafer
 
 ### 💥 Breaking changes
 
