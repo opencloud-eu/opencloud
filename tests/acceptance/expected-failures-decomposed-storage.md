@@ -342,6 +342,11 @@ _ocdav: api compatibility, return correct status code_
 - [coreApiWebdavPreviews/previews.feature:264](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L264)
 - [coreApiWebdavPreviews/previews.feature:265](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L265)
 
+
+#### [500 when user tries to delete group from space](https://github.com/opencloud-eu/opencloud/issues/2799)
+
+- [apiSharingNg1/removeAccessToDrive.feature:145](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSharingNg1/removeAccessToDrive.feature#L145)
+
 ### Won't fix
 
 Not everything needs to be implemented for opencloud.
