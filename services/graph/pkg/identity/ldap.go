@@ -1137,7 +1137,7 @@ func (i *LDAP) expandLDAPAttributeEntries(ctx context.Context, e *ldap.Entry, at
 		ue, err := i.getUserByDN(entryDN, searchTerm)
 		if err != nil {
 			// Ignore errors when reading a specific entry fails, just log them and continue
-			logger.Error().Err(err).Str("entry", entryDN).Msg("error reading attribute member entry")
+			logger.Warn().Err(err).Str("entry", entryDN).Msg("error reading attribute member entry")
 			continue
 		}
 		result = append(result, ue)
