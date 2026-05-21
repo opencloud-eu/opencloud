@@ -11,6 +11,12 @@ import (
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	"github.com/justinas/alice"
 
+	"github.com/opencloud-eu/reva/v2/pkg/events"
+	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
+	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v2/pkg/signedurl"
+	"github.com/opencloud-eu/reva/v2/pkg/store"
+
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -34,11 +40,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/opencloud-eu/reva/v2/pkg/signedurl"
-	"github.com/opencloud-eu/reva/v2/pkg/store"
 
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/spf13/cobra"
@@ -298,6 +299,7 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 		middleware.DefaultAccessTokenTTL(cfg.OIDC.UserinfoCache.TTL),
 		middleware.HTTPClient(oidcHTTPClient),
 		middleware.OIDCIss(cfg.OIDC.Issuer),
+		middleware.AccessTokenVerifyMethod(cfg.OIDC.AccessTokenVerifyMethod),
 		middleware.OIDCClient(oidc.NewOIDCClient(
 			oidc.WithAccessTokenVerifyMethod(cfg.OIDC.AccessTokenVerifyMethod),
 			oidc.WithLogger(logger),

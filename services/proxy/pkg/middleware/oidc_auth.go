@@ -16,7 +16,8 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/oidc"
-	"github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes"
+	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
+	bcl "github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes/backchannellogout"
 )
 
 const (
@@ -31,7 +32,6 @@ func NewOIDCAuthenticator(opts ...Option) *OIDCAuthenticator {
 	return &OIDCAuthenticator{
 		Logger:                  options.Logger,
 		userInfoCache:           options.UserInfoCache,
-		DefaultTokenCacheTTL:    options.DefaultAccessTokenTTL,
 		HTTPClient:              options.HTTPClient,
 		OIDCIss:                 options.OIDCIss,
 		oidcClient:              options.OIDCClient,
@@ -104,38 +104,49 @@ func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[stri
 	// always set an exp claim
 	claims["exp"] = expiration.Unix()
 	go func() {
-		if d, err := msgpack.Marshal(claims); err != nil {
+		d, err := msgpack.Marshal(claims)
+		if err != nil {
 			m.Logger.Error().Err(err).Msg("failed to marshal claims for userinfo cache")
-		} else {
-			err = m.userInfoCache.Write(&store.Record{
-				Key:    encodedHash,
-				Value:  d,
-				Expiry: time.Until(expiration),
-			})
-			if err != nil {
-				m.Logger.Error().Err(err).Msg("failed to write to userinfo cache")
-			}
+			return
+		}
 
-			// fail if creating the storage key fails,
-			// it means there is no subject and no session.
-			//
-			// ok: {key: ".sessionId"}
-			// ok: {key: "subject."}
-			// ok: {key: "subject.sessionId"}
-			// fail: {key: "."}
-			subjectSessionKey, err := staticroutes.NewRecordKey(aClaims.Subject, aClaims.SessionID)
-			if err != nil {
-				m.Logger.Error().Err(err).Msg("failed to build subject.session")
-				return
-			}
+		err = m.userInfoCache.Write(&store.Record{
+			Key:    encodedHash,
+			Value:  d,
+			Expiry: time.Until(expiration),
+		})
+		if err != nil {
+			m.Logger.Error().Err(err).Msg("failed to write to userinfo cache")
+		}
 
-			if err := m.userInfoCache.Write(&store.Record{
-				Key:    subjectSessionKey,
-				Value:  []byte(encodedHash),
-				Expiry: time.Until(expiration),
-			}); err != nil {
-				m.Logger.Error().Err(err).Msg("failed to write session lookup cache")
-			}
+		// fail if creating the storage key fails,
+		// it means there is no subject and no session.
+		//
+		// ok: {key: ".sessionId"}
+		// ok: {key: "subject."}
+		// ok: {key: "subject.sessionId"}
+		// fail: {key: "."}
+		subjectSessionKey, err := bcl.NewKey(aClaims.Subject, aClaims.SessionID)
+		switch {
+		// fails if the verify method is set to `none`, in that case the oidc client verification returns
+		// an empty oidcclient.RegClaimsWithSID but no err.
+		//
+		// revisit once:
+		//   - Authelia OpenID Connect Back-Channel Logout 1.0 is implemented,
+		//     e.g. https://www.authelia.com/roadmap/active/openid-connect-1.0-provider/#beta-9
+		case m.AccessTokenVerifyMethod == config.AccessTokenVerificationNone && errors.Is(err, bcl.ErrInvalidKey):
+			return
+		case err != nil:
+			m.Logger.Error().Err(err).Msg("failed to build subject.session")
+			return
+		}
+
+		if err := m.userInfoCache.Write(&store.Record{
+			Key:    subjectSessionKey,
+			Value:  []byte(encodedHash),
+			Expiry: time.Until(expiration),
+		}); err != nil {
+			m.Logger.Error().Err(err).Msg("failed to write session lookup cache")
 		}
 	}()
 

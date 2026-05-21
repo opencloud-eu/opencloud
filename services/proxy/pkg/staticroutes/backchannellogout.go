@@ -10,13 +10,11 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 	microstore "go-micro.dev/v4/store"
 
-	bcl "github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes/internal/backchannellogout"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
-)
 
-// NewRecordKey converts the subject and session to a base64 encoded key
-var NewRecordKey = bcl.NewKey
+	bcl "github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes/backchannellogout"
+)
 
 // backchannelLogout handles backchannel logout requests from the identity provider and invalidates the related sessions in the cache
 // spec: https://openid.net/specs/openid-connect-backchannel-1_0.html#BCRequest

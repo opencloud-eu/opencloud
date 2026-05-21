@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go-micro.dev/v4/store"
 
-	"github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes/internal/backchannellogout/mocks"
+	"github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes/backchannellogout/mocks"
 )
 
 func mustNewKey(t *testing.T, subject, session string) string {
