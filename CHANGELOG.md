@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @SAY-5, @ScharfViktor, @Svanvith, @butonic, @dragonchaser, @dschmidt, @fschade, @micbar, @rhafer
+@AlexAndBear, @SAY-5, @ScharfViktor, @Svanvith, @butonic, @dragonchaser, @dschmidt, @fschade, @micbar, @michaelstingl, @rhafer
 
 ### 💥 Breaking changes
 
@@ -17,6 +17,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix(notifications): don't re-escape email vars for each recipient [[#2805](https://github.com/opencloud-eu/opencloud/pull/2805)]
 - fix: remove unnecessary error log it the oidc access token verify method is set to none [[#2795](https://github.com/opencloud-eu/opencloud/pull/2795)]
 - fix(debug): drop duplicate service field from probe fallback log [[#2786](https://github.com/opencloud-eu/opencloud/pull/2786)]
 - No registry lookup in cli [[#2755](https://github.com/opencloud-eu/opencloud/pull/2755)]
