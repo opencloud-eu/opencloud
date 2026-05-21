@@ -221,6 +221,7 @@ func (c *ConnWithReconnect) ldapConnect(config Config) (*ldap.Conn, error) {
 		return nil, err
 	}
 	c.logger.Debug().Msg("LDAP Connected")
+	l.SetTimeout(30 * time.Second)
 	if config.BindDN != "" {
 		c.logger.Debug().Msgf("Binding as %s", config.BindDN)
 		err = l.Bind(config.BindDN, config.BindPassword)

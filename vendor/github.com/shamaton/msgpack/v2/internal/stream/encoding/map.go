@@ -8,7 +8,6 @@ import (
 )
 
 func (e *encoder) writeMapLength(l int) error {
-
 	// format
 	if l <= 0x0f {
 		if err := e.setByte1Int(def.FixMap + l); err != nil {

@@ -1,12 +1,17 @@
 package decoding
 
 import (
+	"encoding/binary"
+
+	"github.com/shamaton/msgpack/v2/def"
 	"github.com/shamaton/msgpack/v2/ext"
 	"github.com/shamaton/msgpack/v2/time"
 )
 
-var extCoderMap = map[int8]ext.Decoder{time.Decoder.Code(): time.Decoder}
-var extCoders = []ext.Decoder{time.Decoder}
+var (
+	extCoderMap = map[int8]ext.Decoder{time.Decoder.Code(): time.Decoder}
+	extCoders   = []ext.Decoder{time.Decoder}
+)
 
 // AddExtDecoder adds decoders for extension types.
 func AddExtDecoder(f ext.Decoder) {
@@ -42,6 +47,57 @@ func updateExtCoders() {
 	for k := range extCoderMap {
 		extCoders[i] = extCoderMap[k]
 		i++
+	}
+}
+
+func (d *decoder) extEndOffset(offset int) (bool, int, error) {
+	code, offset, err := d.readSize1(offset)
+	if err != nil {
+		return false, 0, err
+	}
+	return d.extEndOffsetWithCode(code, offset)
+}
+
+func (d *decoder) extEndOffsetWithCode(code byte, offset int) (bool, int, error) {
+	switch code {
+	case def.Fixext1:
+		_, offset, err := d.readSizeN(offset, def.Byte1+def.Byte1)
+		return true, offset, err
+	case def.Fixext2:
+		_, offset, err := d.readSizeN(offset, def.Byte1+def.Byte2)
+		return true, offset, err
+	case def.Fixext4:
+		_, offset, err := d.readSizeN(offset, def.Byte1+def.Byte4)
+		return true, offset, err
+	case def.Fixext8:
+		_, offset, err := d.readSizeN(offset, def.Byte1+def.Byte8)
+		return true, offset, err
+	case def.Fixext16:
+		_, offset, err := d.readSizeN(offset, def.Byte1+def.Byte16)
+		return true, offset, err
+	case def.Ext8:
+		size, offset, err := d.readSize1(offset)
+		if err != nil {
+			return true, 0, err
+		}
+		_, offset, err = d.readSizeN(offset, def.Byte1+int(size))
+		return true, offset, err
+	case def.Ext16:
+		sizeBytes, offset, err := d.readSize2(offset)
+		if err != nil {
+			return true, 0, err
+		}
+		_, offset, err = d.readSizeN(offset, def.Byte1+int(binary.BigEndian.Uint16(sizeBytes)))
+		return true, offset, err
+	case def.Ext32:
+		sizeBytes, offset, err := d.readSize4(offset)
+		if err != nil {
+			return true, 0, err
+		}
+		_, offset, err = d.readSizeN(offset, def.Byte1+int(binary.BigEndian.Uint32(sizeBytes)))
+		return true, offset, err
+	default:
+		return false, 0, nil
 	}
 }
 

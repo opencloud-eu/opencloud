@@ -41,7 +41,6 @@ func Encode(w io.Writer, v any, asArray bool) error {
 }
 
 func (e *encoder) create(rv reflect.Value) error {
-
 	switch rv.Kind() {
 	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
 		v := rv.Uint()

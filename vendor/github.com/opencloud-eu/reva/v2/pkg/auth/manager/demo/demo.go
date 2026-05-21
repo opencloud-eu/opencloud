@@ -27,6 +27,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/auth/manager/registry"
 	"github.com/opencloud-eu/reva/v2/pkg/auth/scope"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
+	"github.com/rs/zerolog"
 )
 
 func init() {
@@ -44,7 +45,7 @@ type Credentials struct {
 }
 
 // New returns a new auth Manager.
-func New(m map[string]interface{}) (auth.Manager, error) {
+func New(m map[string]any, _ *zerolog.Logger) (auth.Manager, error) {
 	// m not used
 	mgr := &manager{}
 	err := mgr.Configure(m)

@@ -32,6 +32,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 )
 
 // 'machine' is an authentication method used to impersonate users.
@@ -60,7 +61,7 @@ func (m *manager) Configure(conf map[string]interface{}) error {
 }
 
 // New creates a new manager for the 'machine' authentication
-func New(conf map[string]interface{}) (auth.Manager, error) {
+func New(conf map[string]any, _ *zerolog.Logger) (auth.Manager, error) {
 	m := &manager{}
 	err := m.Configure(conf)
 	if err != nil {

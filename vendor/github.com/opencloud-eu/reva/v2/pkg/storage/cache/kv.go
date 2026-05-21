@@ -8,21 +8,49 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/cenkalti/backoff"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	"github.com/rs/zerolog"
 )
 
-func NewNatsKeyValue(c Config) (jetstream.KeyValue, error) {
+func NewNatsKeyValue(c Config, log *zerolog.Logger) (jetstream.KeyValue, error) {
 	nodes := strings.Join(c.Nodes, ",")
 	if nodes == "" {
 		return nil, errors.New("at least one node is required")
 	}
-	opts := []nats.Option{}
+	opts := []nats.Option{
+		nats.DisconnectErrHandler(func(nc *nats.Conn, err error) {
+			log.Error().Err(err).Msg("Disconnected from NATS. Trying to reconnect...")
+		}),
+		nats.ReconnectHandler(func(nc *nats.Conn) {
+			log.Error().Msgf("Successfully reconnected to NATS at: %s", nc.ConnectedUrl())
+		}),
+		nats.ClosedHandler(func(nc *nats.Conn) {
+			// Alright, it's time to give up. Send ourselves a SIGTERM to trigger a graceful
+			// shutdown of the service.
+			log.Error().Msg("NATS connection closed permanently. Shutting down...")
+
+			pid := os.Getpid()
+			process, err := os.FindProcess(pid)
+			if err != nil {
+				fmt.Printf("Error finding process: %v\n", err)
+				return
+			}
+
+			err = process.Signal(syscall.SIGTERM)
+			if err != nil {
+				fmt.Printf("Error sending signal: %v\n", err)
+				return
+			}
+		}),
+	}
 	if c.AuthUsername != "" || c.AuthPassword != "" {
 		opts = append(opts, nats.UserInfo(c.AuthUsername, c.AuthPassword))
 	}

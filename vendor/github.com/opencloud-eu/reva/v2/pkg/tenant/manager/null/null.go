@@ -26,6 +26,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/tenant"
 	"github.com/opencloud-eu/reva/v2/pkg/tenant/manager/registry"
+	"github.com/rs/zerolog"
 )
 
 func init() {
@@ -36,7 +37,7 @@ type manager struct {
 }
 
 // New returns a tenant manager implementation that return NOT FOUND or empty result set for every call
-func New(m map[string]interface{}) (tenant.Manager, error) {
+func New(m map[string]any, _ *zerolog.Logger) (tenant.Manager, error) {
 	return &manager{}, nil
 }
 

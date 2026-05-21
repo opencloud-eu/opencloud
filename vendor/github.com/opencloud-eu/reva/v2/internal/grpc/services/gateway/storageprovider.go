@@ -234,11 +234,25 @@ func (s *svc) CreateStorageSpace(ctx context.Context, req *provider.CreateStorag
 	//       here is happeing so that that grant is also visible when listing permission (shares) on the spaceroot.
 	if req.GetType() != "personal" && createRes.GetStatus().GetCode() == rpc.Code_CODE_OK {
 		rollbackFn := func() {
-			dsRes, dsErr := s.DeleteStorageSpace(ctx, &provider.DeleteStorageSpaceRequest{
+			// Deleting a space needs to DeleteRequests, one to disable the Space ...
+			dr := &provider.DeleteStorageSpaceRequest{
 				Id: createRes.GetStorageSpace().GetId(),
-			})
+			}
+			dsRes, dsErr := s.DeleteStorageSpace(ctx, dr)
 			if dsErr != nil || dsRes.GetStatus().GetCode() != rpc.Code_CODE_OK {
-				log.Error().Err(dsErr).Interface("status", dsRes.GetStatus()).Interface("space_id", createRes.GetStorageSpace().GetId()).Msg("failed to delete space during rollback")
+				log.Error().Err(dsErr).Interface("status", dsRes.GetStatus()).Interface("space_id", createRes.GetStorageSpace().GetId()).Msg("failed to disable space during rollback")
+				// if disabling fails we won't be able to purge it either so give up here
+				return
+			}
+			// ... and other one to finally purge it
+			dr.Opaque = &typesv1beta1.Opaque{
+				Map: map[string]*typesv1beta1.OpaqueEntry{
+					"purge": {},
+				},
+			}
+			dsRes, dsErr = s.DeleteStorageSpace(ctx, dr)
+			if dsErr != nil || dsRes.GetStatus().GetCode() != rpc.Code_CODE_OK {
+				log.Error().Err(dsErr).Interface("status", dsRes.GetStatus()).Interface("space_id", createRes.GetStorageSpace().GetId()).Msg("failed to purge space during rollback")
 			}
 		}
 

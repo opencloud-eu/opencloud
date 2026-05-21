@@ -8,7 +8,6 @@ import (
 )
 
 func (d *decoder) asUint(offset int, k reflect.Kind) (uint64, int, error) {
-
 	code, _, err := d.readSize1(offset)
 	if err != nil {
 		return 0, 0, err

@@ -18,8 +18,10 @@ type structCacheTypeArray struct {
 }
 
 // struct cache map
-var mapSCTM = sync.Map{}
-var mapSCTA = sync.Map{}
+var (
+	mapSCTM = sync.Map{}
+	mapSCTA = sync.Map{}
+)
 
 func (d *decoder) setStruct(rv reflect.Value, offset int, k reflect.Kind) (int, error) {
 	/*
@@ -33,17 +35,23 @@ func (d *decoder) setStruct(rv reflect.Value, offset int, k reflect.Kind) (int, 
 		}
 	*/
 
-	for i := range extCoders {
-		if extCoders[i].IsType(offset, &d.data) {
-			v, offset, err := extCoders[i].AsValue(offset, k, &d.data)
-			if err != nil {
-				return 0, err
-			}
+	isExt, _, err := d.extEndOffset(offset)
+	if err != nil {
+		return 0, err
+	}
+	if isExt {
+		for i := range extCoders {
+			if extCoders[i].IsType(offset, &d.data) {
+				v, offset, err := extCoders[i].AsValue(offset, k, &d.data)
+				if err != nil {
+					return 0, err
+				}
 
-			// Validate that the receptacle is of the right value type.
-			if rv.Type() == reflect.TypeOf(v) {
-				rv.Set(reflect.ValueOf(v))
-				return offset, nil
+				// Validate that the receptacle is of the right value type.
+				if rv.Type() == reflect.TypeOf(v) {
+					rv.Set(reflect.ValueOf(v))
+					return offset, nil
+				}
 			}
 		}
 	}
@@ -277,38 +285,14 @@ func (d *decoder) jumpOffset(offset int) (int, error) {
 		}
 		offset = o
 
-	case code == def.Fixext1:
-		offset += def.Byte1 + def.Byte1
-	case code == def.Fixext2:
-		offset += def.Byte1 + def.Byte2
-	case code == def.Fixext4:
-		offset += def.Byte1 + def.Byte4
-	case code == def.Fixext8:
-		offset += def.Byte1 + def.Byte8
-	case code == def.Fixext16:
-		offset += def.Byte1 + def.Byte16
-
-	case code == def.Ext8:
-		b, o, err := d.readSize1(offset)
+	default:
+		isExt, o, err := d.extEndOffsetWithCode(code, offset)
 		if err != nil {
 			return 0, err
 		}
-		o += def.Byte1 + int(b)
-		offset = o
-	case code == def.Ext16:
-		bs, o, err := d.readSize2(offset)
-		if err != nil {
-			return 0, err
+		if isExt {
+			offset = o
 		}
-		o += def.Byte1 + int(binary.BigEndian.Uint16(bs))
-		offset = o
-	case code == def.Ext32:
-		bs, o, err := d.readSize4(offset)
-		if err != nil {
-			return 0, err
-		}
-		o += def.Byte1 + int(binary.BigEndian.Uint32(bs))
-		offset = o
 
 	}
 	return offset, nil

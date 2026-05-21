@@ -27,6 +27,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/group"
 	"github.com/opencloud-eu/reva/v2/pkg/group/manager/registry"
+	"github.com/rs/zerolog"
 )
 
 func init() {
@@ -37,7 +38,7 @@ type manager struct {
 }
 
 // New returns a group manager implementation that return NOT FOUND or empty result set for every call
-func New(m map[string]interface{}) (group.Manager, error) {
+func New(m map[string]any, _ *zerolog.Logger) (group.Manager, error) {
 	return &manager{}, nil
 }
 

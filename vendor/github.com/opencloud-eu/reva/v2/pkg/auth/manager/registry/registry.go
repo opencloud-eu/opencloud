@@ -20,11 +20,12 @@ package registry
 
 import (
 	"github.com/opencloud-eu/reva/v2/pkg/auth"
+	"github.com/rs/zerolog"
 )
 
 // NewFunc is the function that auth implementations
 // should register to at init time.
-type NewFunc func(map[string]interface{}) (auth.Manager, error)
+type NewFunc func(map[string]any, *zerolog.Logger) (auth.Manager, error)
 
 // NewFuncs is a map containing all the registered auth managers.
 var NewFuncs = map[string]NewFunc{}

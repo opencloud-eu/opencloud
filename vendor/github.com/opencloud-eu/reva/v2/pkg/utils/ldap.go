@@ -26,9 +26,9 @@ import (
 
 	"github.com/go-ldap/ldap/v3"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
-	"github.com/opencloud-eu/reva/v2/pkg/logger"
 	ldapReconnect "github.com/opencloud-eu/reva/v2/pkg/utils/ldap"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 )
 
 // LDAPConn holds the basic parameter for setting up an
@@ -44,10 +44,14 @@ type LDAPConn struct {
 // GetLDAPClientWithReconnect initializes a long-lived LDAP connection that
 // automatically reconnects on connection errors. It allows to set TLS options
 // e.g. to add trusted Certificates or disable Certificate verification
-func GetLDAPClientWithReconnect(c *LDAPConn) (ldap.Client, error) {
+func GetLDAPClientWithReconnect(c *LDAPConn, logger *zerolog.Logger) (ldap.Client, error) {
 	var tlsConf *tls.Config
+	if logger == nil {
+		nop := zerolog.Nop()
+		logger = &nop
+	}
 	if c.Insecure {
-		logger.New().Warn().Msg("SSL Certificate verification is disabled. This is strongly discouraged for production environments.")
+		logger.Warn().Msg("SSL Certificate verification is disabled. This is strongly discouraged for production environments.")
 		tlsConf = &tls.Config{
 			//nolint:gosec // We need the ability to run with "insecure" (dev/testing)
 			InsecureSkipVerify: true,
@@ -73,6 +77,8 @@ func GetLDAPClientWithReconnect(c *LDAPConn) (ldap.Client, error) {
 			TLSConfig:    tlsConf,
 		},
 	)
+
+	conn.SetLogger(logger)
 	return conn, nil
 }
 

@@ -32,7 +32,6 @@ func (e *encoder) writeSliceLength(l int) error {
 }
 
 func (e *encoder) writeFixedSlice(rv reflect.Value) (bool, error) {
-
 	switch sli := rv.Interface().(type) {
 	case []int:
 		for _, v := range sli {

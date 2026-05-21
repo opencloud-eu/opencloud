@@ -34,6 +34,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/user/manager/registry"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	ldapIdentity "github.com/opencloud-eu/reva/v2/pkg/utils/ldap"
+	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -68,14 +69,18 @@ func parseConfig(m map[string]interface{}) (*config, error) {
 }
 
 // New returns a user manager implementation that connects to a LDAP server to provide user metadata.
-func New(m map[string]interface{}) (user.Manager, error) {
+func New(m map[string]any, logger *zerolog.Logger) (user.Manager, error) {
+	if logger == nil {
+		nop := zerolog.Nop()
+		logger = &nop
+	}
 	mgr := &manager{}
 	err := mgr.Configure(m)
 	if err != nil {
 		return nil, err
 	}
 
-	mgr.ldapClient, err = utils.GetLDAPClientWithReconnect(&mgr.c.LDAPConn)
+	mgr.ldapClient, err = utils.GetLDAPClientWithReconnect(&mgr.c.LDAPConn, logger)
 	return mgr, err
 }
 

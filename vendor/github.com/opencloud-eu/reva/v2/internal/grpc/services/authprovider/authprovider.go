@@ -68,7 +68,7 @@ func parseConfig(m map[string]interface{}) (*config, error) {
 	return c, nil
 }
 
-func getAuthManager(manager string, m map[string]map[string]interface{}) (auth.Manager, *plugin.RevaPlugin, error) {
+func getAuthManager(manager string, m map[string]map[string]any, logger *zerolog.Logger) (auth.Manager, *plugin.RevaPlugin, error) {
 	if manager == "" {
 		return nil, nil, errtypes.InternalError("authsvc: driver not configured for auth manager")
 	}
@@ -86,7 +86,7 @@ func getAuthManager(manager string, m map[string]map[string]interface{}) (auth.M
 		return authManager, p, nil
 	} else if _, ok := err.(errtypes.NotFound); ok {
 		if f, ok := registry.NewFuncs[manager]; ok {
-			authmgr, err := f(m[manager])
+			authmgr, err := f(m[manager], logger)
 			return authmgr, nil, err
 		}
 	} else {
@@ -96,13 +96,13 @@ func getAuthManager(manager string, m map[string]map[string]interface{}) (auth.M
 }
 
 // New returns a new AuthProviderServiceServer.
-func New(m map[string]interface{}, ss *grpc.Server, _ *zerolog.Logger) (rgrpc.Service, error) {
+func New(m map[string]interface{}, ss *grpc.Server, logger *zerolog.Logger) (rgrpc.Service, error) {
 	c, err := parseConfig(m)
 	if err != nil {
 		return nil, err
 	}
 
-	authManager, plug, err := getAuthManager(c.AuthManager, c.AuthManagers)
+	authManager, plug, err := getAuthManager(c.AuthManager, c.AuthManagers, logger)
 	if err != nil {
 		return nil, err
 	}

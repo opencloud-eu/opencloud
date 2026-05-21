@@ -21,9 +21,12 @@ package idcache
 import (
 	"context"
 	"encoding/base32"
+	"errors"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
@@ -43,12 +46,16 @@ func NewStoreIDCache(kv jetstream.KeyValue) (*IDCache, error) {
 // Delete removes an entry from the cache
 func (c *IDCache) Delete(ctx context.Context, spaceID, nodeID string) error {
 	var rerr error
-	v, err := c.kv.Get(ctx, cacheKey(spaceID, nodeID))
+	v, err := retry(ctx, func() (jetstream.KeyValueEntry, error) {
+		return c.kv.Get(ctx, cacheKey(spaceID, nodeID))
+	})
 	if err == nil {
-		rerr = c.kv.Purge(ctx, reverseCacheKey(string(v.Value())))
+		rerr = retryErr(ctx, func() error {
+			return c.kv.Purge(ctx, reverseCacheKey(string(v.Value())))
+		})
 	}
 
-	err = c.kv.Purge(ctx, cacheKey(spaceID, nodeID))
+	err = retryErr(ctx, func() error { return c.kv.Purge(ctx, cacheKey(spaceID, nodeID)) })
 	if err != nil {
 		return err
 	}
@@ -66,18 +73,22 @@ func (c *IDCache) DeleteByPath(ctx context.Context, path string) error {
 		}
 		appctx.GetLogger(ctx).Error().Err(err).Str("record", path).Msg("could not get spaceID and nodeID from cache")
 	} else {
-		err := c.kv.Purge(ctx, baseKey)
+		err := retryErr(ctx, func() error {
+			return c.kv.Purge(ctx, baseKey)
+		})
 		if err != nil && err != jetstream.ErrKeyNotFound {
 			appctx.GetLogger(ctx).Error().Err(err).Str("record", baseKey).Str("spaceID", spaceID).Str("nodeID", nodeID).Msg("could not purge from cache")
 		}
 
-		err = c.kv.Purge(ctx, cacheKey(spaceID, nodeID))
+		err = retryErr(ctx, func() error {
+			return c.kv.Purge(ctx, cacheKey(spaceID, nodeID))
+		})
 		if err != nil && err != jetstream.ErrKeyNotFound {
 			appctx.GetLogger(ctx).Error().Err(err).Str("record", cacheKey(spaceID, nodeID)).Str("spaceID", spaceID).Str("nodeID", nodeID).Msg("could not purge from cache")
 		}
 	}
 
-	watcher, err := c.kv.Watch(ctx, baseKey+".>")
+	watcher, err := retry(ctx, func() (jetstream.KeyWatcher, error) { return c.kv.Watch(ctx, baseKey+".>") })
 	if err != nil {
 		return err
 	}
@@ -94,12 +105,16 @@ func (c *IDCache) DeleteByPath(ctx context.Context, path string) error {
 			continue
 		}
 
-		err = c.kv.Purge(ctx, key)
+		err = retryErr(ctx, func() error {
+			return c.kv.Purge(ctx, key)
+		})
 		if err != nil && err != jetstream.ErrKeyNotFound {
 			appctx.GetLogger(ctx).Error().Err(err).Str("record", key).Str("spaceID", spaceID).Str("nodeID", nodeID).Msg("could not purge from cache")
 		}
 
-		err = c.kv.Purge(ctx, cacheKey(spaceID, nodeID))
+		err = retryErr(ctx, func() error {
+			return c.kv.Purge(ctx, cacheKey(spaceID, nodeID))
+		})
 		if err != nil && err != jetstream.ErrKeyNotFound {
 			appctx.GetLogger(ctx).Error().Err(err).Str("record", cacheKey(spaceID, nodeID)).Str("spaceID", spaceID).Str("nodeID", nodeID).Msg("could not purge from cache")
 		}
@@ -109,23 +124,31 @@ func (c *IDCache) DeleteByPath(ctx context.Context, path string) error {
 
 // DeletePath removes only the path entry from the cache
 func (c *IDCache) DeletePath(ctx context.Context, path string) error {
-	return c.kv.Purge(ctx, reverseCacheKey(path))
+	return retryErr(ctx, func() error {
+		return c.kv.Purge(ctx, reverseCacheKey(path))
+	})
 }
 
 // Set adds a new entry to the cache
 func (c *IDCache) Set(ctx context.Context, spaceID, nodeID, val string) error {
-	_, err := c.kv.Put(ctx, cacheKey(spaceID, nodeID), []byte(val))
+	_, err := retry(ctx, func() (uint64, error) {
+		return c.kv.Put(ctx, cacheKey(spaceID, nodeID), []byte(val))
+	})
 	if err != nil {
 		return err
 	}
 
-	_, err = c.kv.Put(ctx, reverseCacheKey(val), []byte(cacheKey(spaceID, nodeID)))
+	_, err = retry(ctx, func() (uint64, error) {
+		return c.kv.Put(ctx, reverseCacheKey(val), []byte(cacheKey(spaceID, nodeID)))
+	})
 	return err
 }
 
 // Get returns the value for a given key
 func (c *IDCache) Get(ctx context.Context, spaceID, nodeID string) (string, error) {
-	record, err := c.kv.Get(ctx, cacheKey(spaceID, nodeID))
+	record, err := retry(ctx, func() (jetstream.KeyValueEntry, error) {
+		return c.kv.Get(ctx, cacheKey(spaceID, nodeID))
+	})
 	if err != nil {
 		if err == jetstream.ErrKeyNotFound {
 			return "", errtypes.NotFound("record not found in cache")
@@ -136,7 +159,9 @@ func (c *IDCache) Get(ctx context.Context, spaceID, nodeID string) (string, erro
 }
 
 func (c *IDCache) getByReverseCacheKey(ctx context.Context, reverseKey string) (string, string, error) {
-	record, err := c.kv.Get(ctx, reverseKey)
+	record, err := retry(ctx, func() (jetstream.KeyValueEntry, error) {
+		return c.kv.Get(ctx, reverseKey)
+	})
 	if err != nil {
 		if err == jetstream.ErrKeyNotFound {
 			return "", "", errtypes.NotFound("record not found in cache")
@@ -171,4 +196,41 @@ func reverseCacheKey(path string) string {
 	}
 
 	return strings.Join(encoded, ".")
+}
+
+func retry[T any](ctx context.Context, f func() (T, error)) (T, error) {
+	var v T
+	var err error
+	b := backoff.NewExponentialBackOff()
+	for range 5 {
+		v, err = f()
+		if err == nil || err == jetstream.ErrKeyNotFound {
+			return v, err
+		}
+
+		if !errors.Is(err, context.DeadlineExceeded) {
+			time.Sleep(b.NextBackOff())
+		}
+
+		appctx.GetLogger(ctx).Error().Err(err).Msg("error in jetstream kv operation, retrying")
+	}
+	return v, err
+}
+
+func retryErr(ctx context.Context, f func() error) error {
+	var err error
+	b := backoff.NewExponentialBackOff()
+	for range 5 {
+		err = f()
+		if err == nil || err == jetstream.ErrKeyNotFound {
+			return err
+		}
+
+		if !errors.Is(err, context.DeadlineExceeded) {
+			time.Sleep(b.NextBackOff())
+		}
+
+		appctx.GetLogger(ctx).Error().Err(err).Msg("error in jetstream kv operation, retrying")
+	}
+	return err
 }

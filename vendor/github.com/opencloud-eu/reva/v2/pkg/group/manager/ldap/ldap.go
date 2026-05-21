@@ -36,6 +36,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/sharedconf"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	ldapIdentity "github.com/opencloud-eu/reva/v2/pkg/utils/ldap"
+	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -70,7 +71,7 @@ func parseConfig(m map[string]interface{}) (*config, error) {
 }
 
 // New returns a group manager implementation that connects to a LDAP server to provide group metadata.
-func New(m map[string]interface{}) (group.Manager, error) {
+func New(m map[string]any, logger *zerolog.Logger) (group.Manager, error) {
 	if sharedconf.MultiTenantEnabled() {
 		return nil, errtypes.NotSupported("ldap group manager does not support multi-tenancy")
 	}
@@ -81,7 +82,7 @@ func New(m map[string]interface{}) (group.Manager, error) {
 		return nil, err
 	}
 
-	mgr.ldapClient, err = utils.GetLDAPClientWithReconnect(&mgr.c.LDAPConn)
+	mgr.ldapClient, err = utils.GetLDAPClientWithReconnect(&mgr.c.LDAPConn, logger)
 	if err != nil {
 		return nil, err
 	}

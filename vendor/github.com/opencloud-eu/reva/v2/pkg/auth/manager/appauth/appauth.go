@@ -31,6 +31,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 )
 
 func init() {
@@ -42,7 +43,7 @@ type manager struct {
 }
 
 // New returns a new auth Manager.
-func New(m map[string]interface{}) (auth.Manager, error) {
+func New(m map[string]any, logger *zerolog.Logger) (auth.Manager, error) {
 	mgr := &manager{}
 	err := mgr.Configure(m)
 	if err != nil {

@@ -32,6 +32,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/group"
 	"github.com/opencloud-eu/reva/v2/pkg/group/manager/registry"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -65,7 +66,7 @@ func parseConfig(m map[string]interface{}) (*config, error) {
 }
 
 // New returns a group manager implementation that reads a json file to provide group metadata.
-func New(m map[string]interface{}) (group.Manager, error) {
+func New(m map[string]any, _ *zerolog.Logger) (group.Manager, error) {
 	c, err := parseConfig(m)
 	if err != nil {
 		return nil, err

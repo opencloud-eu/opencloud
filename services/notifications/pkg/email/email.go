@@ -204,8 +204,9 @@ func validateMime(incipit []byte) bool {
 }
 
 func escapeStringMap(vars map[string]string) map[string]string {
-	for k := range vars {
-		vars[k] = html.EscapeString(vars[k])
+	escaped := make(map[string]string, len(vars))
+	for k, v := range vars {
+		escaped[k] = html.EscapeString(v)
 	}
-	return vars
+	return escaped
 }

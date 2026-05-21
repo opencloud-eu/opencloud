@@ -84,7 +84,7 @@ func parseConfig(m map[string]interface{}) (*config, error) {
 	return c, nil
 }
 
-func getDriver(c *config) (user.Manager, *plugin.RevaPlugin, error) {
+func getDriver(c *config, logger *zerolog.Logger) (user.Manager, *plugin.RevaPlugin, error) {
 	p, err := plugin.Load("userprovider", c.Driver)
 	if err == nil {
 		manager, ok := p.Plugin.(user.Manager)
@@ -100,7 +100,7 @@ func getDriver(c *config) (user.Manager, *plugin.RevaPlugin, error) {
 	} else if _, ok := err.(errtypes.NotFound); ok {
 		// plugin not found, fetch the driver from the in-memory registry
 		if f, ok := userRegistry.NewFuncs[c.Driver]; ok {
-			mgr, err := f(c.Drivers[c.Driver])
+			mgr, err := f(c.Drivers[c.Driver], logger)
 			return mgr, nil, err
 		}
 	} else {
@@ -109,25 +109,25 @@ func getDriver(c *config) (user.Manager, *plugin.RevaPlugin, error) {
 	return nil, nil, errtypes.NotFound(fmt.Sprintf("driver %s not found for user manager", c.Driver))
 }
 
-func getTenantManager(c *config) (tenant.Manager, error) {
+func getTenantManager(c *config, logger *zerolog.Logger) (tenant.Manager, error) {
 	if f, ok := tenantRegistry.NewFuncs[c.TenantDriver]; ok {
-		mgr, err := f(c.TenantDrivers[c.TenantDriver])
+		mgr, err := f(c.TenantDrivers[c.TenantDriver], logger)
 		return mgr, err
 	}
 	return nil, errtypes.NotFound(fmt.Sprintf("driver %s not found for tenant manager", c.TenantDriver))
 }
 
 // New returns a new UserProviderServiceServer.
-func New(m map[string]interface{}, ss *grpc.Server, _ *zerolog.Logger) (rgrpc.Service, error) {
+func New(m map[string]interface{}, ss *grpc.Server, logger *zerolog.Logger) (rgrpc.Service, error) {
 	c, err := parseConfig(m)
 	if err != nil {
 		return nil, err
 	}
-	userManager, plug, err := getDriver(c)
+	userManager, plug, err := getDriver(c, logger)
 	if err != nil {
 		return nil, err
 	}
-	tenantManager, err := getTenantManager(c)
+	tenantManager, err := getTenantManager(c, logger)
 	if err != nil {
 		return nil, err
 	}

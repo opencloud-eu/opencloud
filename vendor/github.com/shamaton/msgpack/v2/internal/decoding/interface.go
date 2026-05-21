@@ -163,13 +163,19 @@ func (d *decoder) asInterface(offset int, k reflect.Kind) (interface{}, int, err
 	*/
 
 	// ext
-	for i := range extCoders {
-		if extCoders[i].IsType(offset, &d.data) {
-			v, offset, err := extCoders[i].AsValue(offset, k, &d.data)
-			if err != nil {
-				return nil, 0, err
+	isExt, _, err := d.extEndOffset(offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	if isExt {
+		for i := range extCoders {
+			if extCoders[i].IsType(offset, &d.data) {
+				v, offset, err := extCoders[i].AsValue(offset, k, &d.data)
+				if err != nil {
+					return nil, 0, err
+				}
+				return v, offset, nil
 			}
-			return v, offset, nil
 		}
 	}
 	return nil, 0, d.errorTemplate(code, k)

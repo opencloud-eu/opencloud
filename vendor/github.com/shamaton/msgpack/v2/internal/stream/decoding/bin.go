@@ -17,7 +17,6 @@ func (d *decoder) isCodeBin(v byte) bool {
 }
 
 func (d *decoder) asBinWithCode(code byte, k reflect.Kind) ([]byte, error) {
-
 	switch code {
 	case def.Bin8:
 		l, err := d.readSize1()

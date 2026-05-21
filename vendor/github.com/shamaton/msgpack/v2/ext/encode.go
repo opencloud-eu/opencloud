@@ -26,8 +26,7 @@ type Encoder interface {
 // EncoderCommon provides utility methods for encoding various types of values into bytes.
 // It includes methods to encode integers and unsigned integers of different sizes,
 // as well as methods to write raw byte slices into a target byte slice.
-type EncoderCommon struct {
-}
+type EncoderCommon struct{}
 
 // SetByte1Int64 encodes a single byte from the given int64 value into the byte slice at the specified offset.
 // Returns the new offset after writing the byte.

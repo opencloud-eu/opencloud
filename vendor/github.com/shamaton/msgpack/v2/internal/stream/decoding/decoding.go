@@ -29,7 +29,8 @@ func Decode(r io.Reader, v interface{}, asArray bool) error {
 
 	rv = rv.Elem()
 
-	d := decoder{r: r,
+	d := decoder{
+		r:       r,
 		buf:     common.GetBuffer(),
 		asArray: asArray,
 	}

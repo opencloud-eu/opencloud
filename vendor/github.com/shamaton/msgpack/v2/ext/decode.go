@@ -23,8 +23,7 @@ type Decoder interface {
 }
 
 // DecoderCommon provides common utility methods for decoding data from bytes.
-type DecoderCommon struct {
-}
+type DecoderCommon struct{}
 
 // ReadSize1 reads a single byte from the given index in the byte slice.
 // Returns the byte and the new index after reading.
