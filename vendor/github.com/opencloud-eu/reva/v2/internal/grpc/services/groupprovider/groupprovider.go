@@ -60,22 +60,22 @@ func parseConfig(m map[string]interface{}) (*config, error) {
 	return c, nil
 }
 
-func getDriver(c *config) (group.Manager, error) {
+func getDriver(c *config, logger *zerolog.Logger) (group.Manager, error) {
 	if f, ok := registry.NewFuncs[c.Driver]; ok {
-		return f(c.Drivers[c.Driver])
+		return f(c.Drivers[c.Driver], logger)
 	}
 
 	return nil, errtypes.NotFound(fmt.Sprintf("driver %s not found for group manager", c.Driver))
 }
 
 // New returns a new GroupProviderServiceServer.
-func New(m map[string]interface{}, ss *grpc.Server, _ *zerolog.Logger) (rgrpc.Service, error) {
+func New(m map[string]any, ss *grpc.Server, logger *zerolog.Logger) (rgrpc.Service, error) {
 	c, err := parseConfig(m)
 	if err != nil {
 		return nil, err
 	}
 
-	groupManager, err := getDriver(c)
+	groupManager, err := getDriver(c, logger)
 	if err != nil {
 		return nil, err
 	}

@@ -32,14 +32,16 @@ func CreateStreamWriter(w io.Writer, buf *common.Buffer) StreamWriter {
 
 // WriteByte1Int64 writes a single byte representation of an int64 value.
 func (w *StreamWriter) WriteByte1Int64(value int64) error {
-	return w.buf.Write(w.w,
+	return w.buf.Write(
+		w.w,
 		byte(value),
 	)
 }
 
 // WriteByte2Int64 writes a two-byte representation of an int64 value.
 func (w *StreamWriter) WriteByte2Int64(value int64) error {
-	return w.buf.Write(w.w,
+	return w.buf.Write(
+		w.w,
 		byte(value>>8),
 		byte(value),
 	)
@@ -47,7 +49,8 @@ func (w *StreamWriter) WriteByte2Int64(value int64) error {
 
 // WriteByte4Int64 writes a four-byte representation of an int64 value.
 func (w *StreamWriter) WriteByte4Int64(value int64) error {
-	return w.buf.Write(w.w,
+	return w.buf.Write(
+		w.w,
 		byte(value>>24),
 		byte(value>>16),
 		byte(value>>8),
@@ -57,7 +60,8 @@ func (w *StreamWriter) WriteByte4Int64(value int64) error {
 
 // WriteByte8Int64 writes an eight-byte representation of an int64 value.
 func (w *StreamWriter) WriteByte8Int64(value int64) error {
-	return w.buf.Write(w.w,
+	return w.buf.Write(
+		w.w,
 		byte(value>>56),
 		byte(value>>48),
 		byte(value>>40),
@@ -71,14 +75,16 @@ func (w *StreamWriter) WriteByte8Int64(value int64) error {
 
 // WriteByte1Uint64 writes a single byte representation of a uint64 value.
 func (w *StreamWriter) WriteByte1Uint64(value uint64) error {
-	return w.buf.Write(w.w,
+	return w.buf.Write(
+		w.w,
 		byte(value),
 	)
 }
 
 // WriteByte2Uint64 writes a two-byte representation of a uint64 value.
 func (w *StreamWriter) WriteByte2Uint64(value uint64) error {
-	return w.buf.Write(w.w,
+	return w.buf.Write(
+		w.w,
 		byte(value>>8),
 		byte(value),
 	)
@@ -86,7 +92,8 @@ func (w *StreamWriter) WriteByte2Uint64(value uint64) error {
 
 // WriteByte4Uint64 writes a four-byte representation of a uint64 value.
 func (w *StreamWriter) WriteByte4Uint64(value uint64) error {
-	return w.buf.Write(w.w,
+	return w.buf.Write(
+		w.w,
 		byte(value>>24),
 		byte(value>>16),
 		byte(value>>8),
@@ -96,7 +103,8 @@ func (w *StreamWriter) WriteByte4Uint64(value uint64) error {
 
 // WriteByte8Uint64 writes an eight-byte representation of a uint64 value.
 func (w *StreamWriter) WriteByte8Uint64(value uint64) error {
-	return w.buf.Write(w.w,
+	return w.buf.Write(
+		w.w,
 		byte(value>>56),
 		byte(value>>48),
 		byte(value>>40),
@@ -110,14 +118,16 @@ func (w *StreamWriter) WriteByte8Uint64(value uint64) error {
 
 // WriteByte1Int writes a single byte representation of an int value.
 func (w *StreamWriter) WriteByte1Int(value int) error {
-	return w.buf.Write(w.w,
+	return w.buf.Write(
+		w.w,
 		byte(value),
 	)
 }
 
 // WriteByte2Int writes a two-byte representation of an int value.
 func (w *StreamWriter) WriteByte2Int(value int) error {
-	return w.buf.Write(w.w,
+	return w.buf.Write(
+		w.w,
 		byte(value>>8),
 		byte(value),
 	)
@@ -125,7 +135,8 @@ func (w *StreamWriter) WriteByte2Int(value int) error {
 
 // WriteByte4Int writes a four-byte representation of an int value.
 func (w *StreamWriter) WriteByte4Int(value int) error {
-	return w.buf.Write(w.w,
+	return w.buf.Write(
+		w.w,
 		byte(value>>24),
 		byte(value>>16),
 		byte(value>>8),
@@ -135,7 +146,8 @@ func (w *StreamWriter) WriteByte4Int(value int) error {
 
 // WriteByte4Uint32 writes a four-byte representation of a uint32 value.
 func (w *StreamWriter) WriteByte4Uint32(value uint32) error {
-	return w.buf.Write(w.w,
+	return w.buf.Write(
+		w.w,
 		byte(value>>24),
 		byte(value>>16),
 		byte(value>>8),

@@ -25,14 +25,14 @@ import (
 	"strconv"
 	"strings"
 
+	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	"github.com/mitchellh/mapstructure"
+	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/user"
 	"github.com/opencloud-eu/reva/v2/pkg/user/manager/registry"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"google.golang.org/protobuf/proto"
-
-	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
-	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 )
 
 func init() {
@@ -65,7 +65,7 @@ func parseConfig(m map[string]interface{}) (*config, error) {
 }
 
 // New returns a user manager implementation that reads a json file to provide user metadata.
-func New(m map[string]interface{}) (user.Manager, error) {
+func New(m map[string]interface{}, _ *zerolog.Logger) (user.Manager, error) {
 	mgr := &manager{}
 	err := mgr.Configure(m)
 	if err != nil {

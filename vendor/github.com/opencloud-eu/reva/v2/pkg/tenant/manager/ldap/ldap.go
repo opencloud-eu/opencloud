@@ -32,6 +32,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	ldapIdentity "github.com/opencloud-eu/reva/v2/pkg/utils/ldap"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 )
 
 func init() {
@@ -60,14 +61,14 @@ type manager struct {
 }
 
 // New returns a new user manager.
-func New(m map[string]interface{}) (tenant.Manager, error) {
+func New(m map[string]any, logger *zerolog.Logger) (tenant.Manager, error) {
 	mgr := &manager{}
 	err := mgr.Configure(m)
 	if err != nil {
 		return nil, err
 	}
 
-	mgr.ldap, err = utils.GetLDAPClientWithReconnect(&mgr.conf.LDAPConn)
+	mgr.ldap, err = utils.GetLDAPClientWithReconnect(&mgr.conf.LDAPConn, logger)
 
 	return mgr, err
 }

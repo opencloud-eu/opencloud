@@ -296,7 +296,6 @@ func (e *encoder) calcFixedMap(rv reflect.Value) (int, bool) {
 }
 
 func (e *encoder) writeMapLength(l int, offset int) int {
-
 	// format
 	if l <= 0x0f {
 		offset = e.setByte1Int(def.FixMap+l, offset)

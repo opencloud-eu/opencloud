@@ -2,13 +2,16 @@ package decoding
 
 import (
 	"encoding/binary"
+
 	"github.com/shamaton/msgpack/v2/def"
 	"github.com/shamaton/msgpack/v2/ext"
 	"github.com/shamaton/msgpack/v2/time"
 )
 
-var extCoderMap = map[int8]ext.StreamDecoder{time.StreamDecoder.Code(): time.StreamDecoder}
-var extCoders = []ext.StreamDecoder{time.StreamDecoder}
+var (
+	extCoderMap = map[int8]ext.StreamDecoder{time.StreamDecoder.Code(): time.StreamDecoder}
+	extCoders   = []ext.StreamDecoder{time.StreamDecoder}
+)
 
 // AddExtDecoder adds decoders for extension types.
 func AddExtDecoder(f ext.StreamDecoder) {

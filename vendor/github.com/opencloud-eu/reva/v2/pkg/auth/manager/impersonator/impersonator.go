@@ -27,6 +27,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/auth"
 	"github.com/opencloud-eu/reva/v2/pkg/auth/manager/registry"
 	"github.com/opencloud-eu/reva/v2/pkg/auth/scope"
+	"github.com/rs/zerolog"
 )
 
 func init() {
@@ -36,7 +37,7 @@ func init() {
 type mgr struct{}
 
 // New returns an auth manager implementation that allows to authenticate with any credentials.
-func New(c map[string]interface{}) (auth.Manager, error) {
+func New(c map[string]any, _ *zerolog.Logger) (auth.Manager, error) {
 	return &mgr{}, nil
 }
 

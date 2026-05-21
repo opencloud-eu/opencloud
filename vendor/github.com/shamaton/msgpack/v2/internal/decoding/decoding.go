@@ -19,7 +19,7 @@ type decoder struct {
 func Decode(data []byte, v interface{}, asArray bool) error {
 	d := decoder{data: data, asArray: asArray}
 
-	if d.data == nil || len(d.data) < 1 {
+	if len(d.data) < 1 {
 		return def.ErrNoData
 	}
 	rv := reflect.ValueOf(v)

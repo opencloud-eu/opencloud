@@ -5,6 +5,7 @@ import (
 
 	authpb "github.com/cs3org/go-cs3apis/cs3/auth/provider/v1beta1"
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
+	"github.com/rs/zerolog"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/opencloud-eu/reva/v2/pkg/auth"
@@ -46,7 +47,7 @@ func (m *manager) Configure(config map[string]interface{}) error {
 }
 
 // New creates a new manager for the 'service' authentication
-func New(conf map[string]interface{}) (auth.Manager, error) {
+func New(conf map[string]any, _ *zerolog.Logger) (auth.Manager, error) {
 	m := &manager{}
 	err := m.Configure(conf)
 	if err != nil {

@@ -6,8 +6,7 @@ import (
 )
 
 // Common is used encoding/decoding
-type Common struct {
-}
+type Common struct{}
 
 // CheckField returns flag whether should encode/decode or not and field name
 func (c *Common) CheckField(field reflect.StructField) (public, omit bool, name string) {

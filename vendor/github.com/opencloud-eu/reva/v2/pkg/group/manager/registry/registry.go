@@ -18,11 +18,14 @@
 
 package registry
 
-import "github.com/opencloud-eu/reva/v2/pkg/group"
+import (
+	"github.com/opencloud-eu/reva/v2/pkg/group"
+	"github.com/rs/zerolog"
+)
 
 // NewFunc is the function that group managers
 // should register at init time.
-type NewFunc func(map[string]interface{}) (group.Manager, error)
+type NewFunc func(map[string]any, *zerolog.Logger) (group.Manager, error)
 
 // NewFuncs is a map containing all the registered group managers.
 var NewFuncs = map[string]NewFunc{}

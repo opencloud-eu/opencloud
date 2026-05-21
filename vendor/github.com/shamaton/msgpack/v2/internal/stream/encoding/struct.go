@@ -23,7 +23,6 @@ var cachemap = sync.Map{}
 type structWriteFunc func(rv reflect.Value) error
 
 func (e *encoder) getStructWriter(typ reflect.Type) structWriteFunc {
-
 	for i := range extCoders {
 		if extCoders[i].Type() == typ {
 			return func(rv reflect.Value) error {
@@ -40,7 +39,6 @@ func (e *encoder) getStructWriter(typ reflect.Type) structWriteFunc {
 }
 
 func (e *encoder) writeStruct(rv reflect.Value) error {
-
 	for i := range extCoders {
 		if extCoders[i].Type() == rv.Type() {
 			w := ext.CreateStreamWriter(e.w, e.buf)

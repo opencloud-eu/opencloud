@@ -7,8 +7,10 @@ import (
 	"github.com/shamaton/msgpack/v2/time"
 )
 
-var extCoderMap = map[reflect.Type]ext.StreamEncoder{time.StreamEncoder.Type(): time.StreamEncoder}
-var extCoders = []ext.StreamEncoder{time.StreamEncoder}
+var (
+	extCoderMap = map[reflect.Type]ext.StreamEncoder{time.StreamEncoder.Type(): time.StreamEncoder}
+	extCoders   = []ext.StreamEncoder{time.StreamEncoder}
+)
 
 // AddExtEncoder adds encoders for extension types.
 func AddExtEncoder(f ext.StreamEncoder) {

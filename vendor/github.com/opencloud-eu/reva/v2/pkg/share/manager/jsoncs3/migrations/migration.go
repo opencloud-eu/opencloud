@@ -144,7 +144,7 @@ func New(logger zerolog.Logger,
 // indefinitely until ctx is cancelled. A lock whose timestamp is older than
 // lockTTL is considered stale and will be taken over.
 func (m *Migrations) acquireLock(ctx context.Context) (string, error) {
-	m.logger.Debug().Str("instance", m.instanceID).Msg("acquiring migration lock")
+	m.logger.Info().Str("instance", m.instanceID).Msg("acquiring migration lock")
 	for {
 		// Fast path: create the lock file only if it does not exist yet.
 		data, err := json.Marshal(lockData{Timestamp: time.Now(), InstanceID: m.instanceID})
@@ -157,7 +157,7 @@ func (m *Migrations) acquireLock(ctx context.Context) (string, error) {
 			IfNoneMatch: []string{"*"},
 		})
 		if err == nil {
-			m.logger.Debug().Str("instance", m.instanceID).Msg("migration lock acquired")
+			m.logger.Info().Str("instance", m.instanceID).Msg("migration lock acquired")
 			return res.Etag, nil
 		}
 
@@ -179,7 +179,7 @@ func (m *Migrations) acquireLock(ctx context.Context) (string, error) {
 			if _, ok := err.(errtypes.IsNotFound); ok {
 				// Lock was released between our upload attempt and the download;
 				// retry acquiring it immediately.
-				m.logger.Debug().Str("instance", m.instanceID).Msg("migration lock vanished during read; retrying")
+				m.logger.Info().Str("instance", m.instanceID).Msg("migration lock vanished during read; retrying")
 				continue
 			}
 			return "", err
@@ -192,7 +192,7 @@ func (m *Migrations) acquireLock(ctx context.Context) (string, error) {
 		}
 
 		if stale {
-			m.logger.Debug().
+			m.logger.Info().
 				Str("instance", m.instanceID).
 				Str("held_by", existing.InstanceID).
 				Time("lock_timestamp", existing.Timestamp).
@@ -209,15 +209,15 @@ func (m *Migrations) acquireLock(ctx context.Context) (string, error) {
 				IfMatchEtag: dl.Etag,
 			})
 			if err == nil {
-				m.logger.Debug().Str("instance", m.instanceID).Msg("migration lock acquired via stale takeover")
+				m.logger.Info().Str("instance", m.instanceID).Msg("migration lock acquired via stale takeover")
 				return res.Etag, nil
 			}
 			// Another instance took the stale lock before us; loop and retry.
-			m.logger.Debug().Str("instance", m.instanceID).Err(err).Msg("stale lock takeover lost race; retrying")
+			m.logger.Info().Str("instance", m.instanceID).Err(err).Msg("stale lock takeover lost race; retrying")
 			continue
 		}
 
-		m.logger.Debug().
+		m.logger.Info().
 			Str("instance", m.instanceID).
 			Str("held_by", existing.InstanceID).
 			Time("lock_timestamp", existing.Timestamp).

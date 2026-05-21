@@ -7,8 +7,10 @@ import (
 	"github.com/shamaton/msgpack/v2/def"
 )
 
-var emptyString = ""
-var emptyBytes = []byte{}
+var (
+	emptyString = ""
+	emptyBytes  = []byte{}
+)
 
 func (d *decoder) isCodeString(code byte) bool {
 	return d.isFixString(code) || code == def.Str8 || code == def.Str16 || code == def.Str32
@@ -83,7 +85,7 @@ func (d *decoder) asStringByteByLength(l int, _ reflect.Kind) ([]byte, error) {
 	if l < 1 {
 		return emptyBytes, nil
 	}
-	
+
 	// avoid common buffer reference
 	return d.copySizeN(l)
 }

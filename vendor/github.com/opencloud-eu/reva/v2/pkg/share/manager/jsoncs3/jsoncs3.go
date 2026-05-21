@@ -328,21 +328,13 @@ func (m *Manager) waitForInit(ctx context.Context) error {
 	}
 }
 
-// waitForMigrations blocks until both storage initialization and all data
-// migrations have completed on this instance, or until ctx is cancelled.
-// It is a strict superset of waitForInit and should be used by write operations
-// to ensure no writes race with an in-progress migration.
-func (m *Manager) waitForMigrations(ctx context.Context) error {
-	select {
-	case <-m.ready:
-	case <-ctx.Done():
-		return errors.Wrap(ctx.Err(), "share manager not yet initialized")
-	}
+// migrationsRunning returns true if migrations have not yet completed on this instance.
+func (m *Manager) migrationsRunning() bool {
 	select {
 	case <-m.migrationsDone:
-		return nil
-	case <-ctx.Done():
-		return errors.Wrap(ctx.Err(), "share manager migrations not yet complete")
+		return false
+	default:
+		return true
 	}
 }
 
@@ -396,10 +388,13 @@ func (m *Manager) ProcessEvents(ch <-chan events.Event) {
 func (m *Manager) Share(ctx context.Context, md *provider.ResourceInfo, g *collaboration.ShareGrant) (*collaboration.Share, error) {
 	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "Share")
 	defer span.End()
-	if err := m.waitForMigrations(ctx); err != nil {
+	if err := m.waitForInit(ctx); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		return nil, err
+	}
+	if m.migrationsRunning() {
+		return nil, errtypes.Aborted("share manager is currently migrating, please retry")
 	}
 
 	user := ctxpkg.ContextMustGetUser(ctx)
@@ -603,8 +598,11 @@ func (m *Manager) Unshare(ctx context.Context, ref *collaboration.ShareReference
 	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "Unshare")
 	defer span.End()
 
-	if err := m.waitForMigrations(ctx); err != nil {
+	if err := m.waitForInit(ctx); err != nil {
 		return err
+	}
+	if m.migrationsRunning() {
+		return errtypes.Aborted("share manager is currently migrating, please retry")
 	}
 
 	s, err := m.get(ctx, ref)
@@ -620,8 +618,11 @@ func (m *Manager) UpdateShare(ctx context.Context, ref *collaboration.ShareRefer
 	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "UpdateShare")
 	defer span.End()
 
-	if err := m.waitForMigrations(ctx); err != nil {
+	if err := m.waitForInit(ctx); err != nil {
 		return nil, err
+	}
+	if m.migrationsRunning() {
+		return nil, errtypes.Aborted("share manager is currently migrating, please retry")
 	}
 
 	var toUpdate *collaboration.Share
@@ -1165,8 +1166,11 @@ func (m *Manager) UpdateReceivedShare(ctx context.Context, receivedShare *collab
 	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "UpdateReceivedShare")
 	defer span.End()
 
-	if err := m.waitForMigrations(ctx); err != nil {
+	if err := m.waitForInit(ctx); err != nil {
 		return nil, err
+	}
+	if m.migrationsRunning() {
+		return nil, errtypes.Aborted("share manager is currently migrating, please retry")
 	}
 
 	rs, err := m.getReceived(ctx, &collaboration.ShareReference{Spec: &collaboration.ShareReference_Id{Id: receivedShare.Share.Id}})
@@ -1330,7 +1334,10 @@ func (m *Manager) removeShare(ctx context.Context, s *collaboration.Share, skipS
 func (m *Manager) CleanupStaleShares(ctx context.Context) {
 	log := appctx.GetLogger(ctx)
 
-	if err := m.waitForMigrations(ctx); err != nil {
+	if err := m.waitForInit(ctx); err != nil {
+		return
+	}
+	if m.migrationsRunning() {
 		return
 	}
 

@@ -18,8 +18,10 @@ type structCacheTypeArray struct {
 }
 
 // struct cache map
-var mapSCTM = sync.Map{}
-var mapSCTA = sync.Map{}
+var (
+	mapSCTM = sync.Map{}
+	mapSCTA = sync.Map{}
+)
 
 func (d *decoder) setStruct(code byte, rv reflect.Value, k reflect.Kind) error {
 	if len(extCoders) > 0 {

@@ -19,11 +19,12 @@ type structCache struct {
 
 var cachemap = sync.Map{}
 
-type structCalcFunc func(rv reflect.Value) (int, error)
-type structWriteFunc func(rv reflect.Value, offset int) int
+type (
+	structCalcFunc  func(rv reflect.Value) (int, error)
+	structWriteFunc func(rv reflect.Value, offset int) int
+)
 
 func (e *encoder) getStructCalc(typ reflect.Type) structCalcFunc {
-
 	for j := range extCoders {
 		if extCoders[j].Type() == typ {
 			return extCoders[j].CalcByteSize
@@ -33,11 +34,9 @@ func (e *encoder) getStructCalc(typ reflect.Type) structCalcFunc {
 		return e.calcStructArray
 	}
 	return e.calcStructMap
-
 }
 
 func (e *encoder) calcStruct(rv reflect.Value) (int, error) {
-
 	//if isTime, tm := e.isDateTime(rv); isTime {
 	//	size := e.calcTime(tm)
 	//	return size, nil
@@ -178,7 +177,6 @@ func (e *encoder) calcSizeWithOmitEmpty(rv reflect.Value, name string, omit bool
 }
 
 func (e *encoder) getStructWriter(typ reflect.Type) structWriteFunc {
-
 	for i := range extCoders {
 		if extCoders[i].Type() == typ {
 			return func(rv reflect.Value, offset int) int {
@@ -213,7 +211,6 @@ func (e *encoder) writeStruct(rv reflect.Value, offset int) int {
 }
 
 func (e *encoder) writeStructArray(rv reflect.Value, offset int) int {
-
 	cache, _ := cachemap.Load(rv.Type())
 	c := cache.(*structCache)
 
@@ -236,7 +233,6 @@ func (e *encoder) writeStructArray(rv reflect.Value, offset int) int {
 }
 
 func (e *encoder) writeStructMap(rv reflect.Value, offset int) int {
-
 	cache, _ := cachemap.Load(rv.Type())
 	c := cache.(*structCache)
 

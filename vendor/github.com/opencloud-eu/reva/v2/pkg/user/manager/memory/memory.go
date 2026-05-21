@@ -30,6 +30,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/user"
 	"github.com/opencloud-eu/reva/v2/pkg/user/manager/registry"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 )
 
 func init() {
@@ -68,7 +69,7 @@ type manager struct {
 }
 
 // New returns a new user manager.
-func New(m map[string]interface{}) (user.Manager, error) {
+func New(m map[string]any, _ *zerolog.Logger) (user.Manager, error) {
 	mgr := &manager{}
 	err := mgr.Configure(m)
 	return mgr, err

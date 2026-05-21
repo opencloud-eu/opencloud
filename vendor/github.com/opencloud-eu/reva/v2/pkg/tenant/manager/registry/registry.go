@@ -20,11 +20,12 @@ package registry
 
 import (
 	"github.com/opencloud-eu/reva/v2/pkg/tenant"
+	"github.com/rs/zerolog"
 )
 
 // NewFunc is the function that tenant managers
 // should register at init time.
-type NewFunc func(map[string]interface{}) (tenant.Manager, error)
+type NewFunc func(map[string]any, *zerolog.Logger) (tenant.Manager, error)
 
 // NewFuncs is a map containing all the registered user managers.
 var NewFuncs = map[string]NewFunc{}

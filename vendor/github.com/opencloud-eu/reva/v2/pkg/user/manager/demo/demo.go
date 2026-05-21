@@ -28,6 +28,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/user"
 	"github.com/opencloud-eu/reva/v2/pkg/user/manager/registry"
+	"github.com/rs/zerolog"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -40,7 +41,7 @@ type manager struct {
 }
 
 // New returns a new user manager.
-func New(m map[string]interface{}) (user.Manager, error) {
+func New(m map[string]interface{}, _ *zerolog.Logger) (user.Manager, error) {
 	mgr := &manager{}
 	err := mgr.Configure(m)
 	if err != nil {

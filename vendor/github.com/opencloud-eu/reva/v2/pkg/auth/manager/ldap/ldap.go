@@ -39,6 +39,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	ldapIdentity "github.com/opencloud-eu/reva/v2/pkg/utils/ldap"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 )
 
 func init() {
@@ -72,13 +73,13 @@ func parseConfig(m map[string]interface{}) (*config, error) {
 }
 
 // New returns an auth manager implementation that connects to a LDAP server to validate the user.
-func New(m map[string]interface{}) (auth.Manager, error) {
+func New(m map[string]any, logger *zerolog.Logger) (auth.Manager, error) {
 	manager := &mgr{}
 	err := manager.Configure(m)
 	if err != nil {
 		return nil, err
 	}
-	manager.ldapClient, err = utils.GetLDAPClientWithReconnect(&manager.c.LDAPConn)
+	manager.ldapClient, err = utils.GetLDAPClientWithReconnect(&manager.c.LDAPConn, logger)
 	if err != nil {
 		return nil, err
 	}

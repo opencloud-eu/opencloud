@@ -7,8 +7,10 @@ import (
 	"github.com/shamaton/msgpack/v2/def"
 )
 
-var emptyString = ""
-var emptyBytes = []byte{}
+var (
+	emptyString = ""
+	emptyBytes  = []byte{}
+)
 
 func (d *decoder) isCodeString(code byte) bool {
 	return d.isFixString(code) || code == def.Str8 || code == def.Str16 || code == def.Str32

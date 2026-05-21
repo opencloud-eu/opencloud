@@ -44,6 +44,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/rhttp"
 	"github.com/opencloud-eu/reva/v2/pkg/sharedconf"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"golang.org/x/oauth2"
 )
 
@@ -102,7 +103,7 @@ func parseConfig(m map[string]interface{}) (*config, error) {
 }
 
 // New returns an auth manager implementation that verifies the oidc token and obtains the user claims.
-func New(m map[string]interface{}) (auth.Manager, error) {
+func New(m map[string]any, _ *zerolog.Logger) (auth.Manager, error) {
 	manager := &mgr{}
 	err := manager.Configure(m)
 	if err != nil {

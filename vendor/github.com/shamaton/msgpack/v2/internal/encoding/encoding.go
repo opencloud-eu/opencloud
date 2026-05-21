@@ -253,7 +253,6 @@ func (e *encoder) calcLength(l int) (int, error) {
 }
 
 func (e *encoder) create(rv reflect.Value, offset int) int {
-
 	switch rv.Kind() {
 	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
 		v := rv.Uint()

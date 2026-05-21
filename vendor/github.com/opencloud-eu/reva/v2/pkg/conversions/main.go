@@ -30,9 +30,7 @@ import (
 
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/mime"
-	"github.com/opencloud-eu/reva/v2/pkg/publicshare"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/user"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 
 	grouppb "github.com/cs3org/go-cs3apis/cs3/identity/group/v1beta1"
@@ -42,8 +40,6 @@ import (
 	ocm "github.com/cs3org/go-cs3apis/cs3/sharing/ocm/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
-	publicsharemgr "github.com/opencloud-eu/reva/v2/pkg/publicshare/manager/registry"
-	usermgr "github.com/opencloud-eu/reva/v2/pkg/user/manager/registry"
 )
 
 const (
@@ -411,24 +407,6 @@ func LocalGroupIDToString(groupID *grouppb.GroupId) string {
 		return ""
 	}
 	return groupID.OpaqueId
-}
-
-// GetUserManager returns a connection to a user share manager
-func GetUserManager(manager string, m map[string]map[string]interface{}) (user.Manager, error) {
-	if f, ok := usermgr.NewFuncs[manager]; ok {
-		return f(m[manager])
-	}
-
-	return nil, fmt.Errorf("driver %s not found for user manager", manager)
-}
-
-// GetPublicShareManager returns a connection to a public share manager
-func GetPublicShareManager(manager string, m map[string]map[string]interface{}) (publicshare.Manager, error) {
-	if f, ok := publicsharemgr.NewFuncs[manager]; ok {
-		return f(m[manager])
-	}
-
-	return nil, fmt.Errorf("driver %s not found for public shares manager", manager)
 }
 
 // timestamp is assumed to be UTC ... just human readable ...

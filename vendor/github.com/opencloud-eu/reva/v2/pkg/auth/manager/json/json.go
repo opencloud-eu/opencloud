@@ -32,6 +32,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/auth/scope"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 )
 
 func init() {
@@ -78,7 +79,7 @@ func parseConfig(m map[string]interface{}) (*config, error) {
 }
 
 // New returns a new auth Manager.
-func New(m map[string]interface{}) (auth.Manager, error) {
+func New(m map[string]any, _ *zerolog.Logger) (auth.Manager, error) {
 	mgr := &manager{}
 	err := mgr.Configure(m)
 	if err != nil {

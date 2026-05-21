@@ -16,7 +16,6 @@ func (d *decoder) isNegativeFixNum(v byte) bool {
 }
 
 func (d *decoder) asInt(offset int, k reflect.Kind) (int64, int, error) {
-
 	code, _, err := d.readSize1(offset)
 	if err != nil {
 		return 0, 0, err

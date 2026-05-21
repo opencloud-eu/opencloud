@@ -39,6 +39,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"github.com/opencloud-eu/reva/v2/pkg/utils/cfg"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 )
 
 func init() {
@@ -59,7 +60,7 @@ func (c *config) ApplyDefaults() {
 }
 
 // New creates a new ocmshares authentication manager.
-func New(m map[string]interface{}) (auth.Manager, error) {
+func New(m map[string]any, _ *zerolog.Logger) (auth.Manager, error) {
 	var mgr manager
 	if err := mgr.Configure(m); err != nil {
 		return nil, err

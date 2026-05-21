@@ -127,7 +127,6 @@ func (e *encoder) writeSliceLength(l int, offset int) int {
 }
 
 func (e *encoder) writeFixedSlice(rv reflect.Value, offset int) (int, bool) {
-
 	switch sli := rv.Interface().(type) {
 	case []int:
 		offset = e.writeSliceLength(len(sli), offset)
