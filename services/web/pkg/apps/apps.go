@@ -89,20 +89,28 @@ func List(logger log.Logger, data map[string]config.App, fSystems ...fs.FS) []Ap
 				appData = data
 			}
 
-			application, err := build(fSystem, name, appData)
-			if err != nil {
-				// if app creation fails, log the error and continue with the next app
-				logger.Debug().Err(err).Str("path", entry.Name()).Msg("failed to load application")
-				continue
-			}
+			for _, appRoot := range []string{
+				name,
+				path.Join(name, "dist"), // some applications have their artifacts in the dist/ folder
+			} {
+				application, err := build(fSystem, appRoot, appData)
+				if err != nil {
+					// if app creation fails, log the error and continue with the next app
+					logger.Debug().Err(err).Str("path", entry.Name()).Msg("failed to load application")
+					continue
+				}
 
-			if application.Disabled {
-				// if the app is disabled, skip it
-				continue
-			}
+				if application.Disabled {
+					// if the app is disabled, skip it
+					continue
+				}
 
-			// everything is fine, add the application to the list of applications
-			registry[name] = application
+				// everything is fine, add the application to the list of applications
+				registry[name] = application
+
+				// application found, done here
+				break
+			}
 		}
 	}
 
@@ -123,7 +131,9 @@ func build(fSystem fs.FS, id string, globalConfig config.App) (Application, erro
 		if err != nil {
 			return Application{}, errors.Join(err, ErrMissingManifest)
 		}
-		defer r.Close()
+		defer func() {
+			_ = r.Close()
+		}()
 
 		if json.NewDecoder(r).Decode(&application) != nil {
 			return Application{}, errors.Join(err, ErrInvalidManifest)

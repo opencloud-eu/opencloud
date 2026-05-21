@@ -12,6 +12,7 @@ type Config struct {
 
 	Service Service `yaml:"-"`
 	App     App     `yaml:"app"`
+	Font    Font    `yaml:"font"`
 	Store   Store   `yaml:"store"`
 
 	TokenManager *TokenManager `yaml:"token_manager"`

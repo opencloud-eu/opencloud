@@ -7,12 +7,13 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/opencloud-eu/opencloud/services/proxy/pkg/router"
-	"github.com/opencloud-eu/opencloud/services/proxy/pkg/webdav"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+
+	"github.com/opencloud-eu/opencloud/services/proxy/pkg/router"
+	"github.com/opencloud-eu/opencloud/services/proxy/pkg/webdav"
 )
 
 var (

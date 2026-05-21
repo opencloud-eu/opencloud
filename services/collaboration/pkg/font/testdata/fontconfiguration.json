@@ -1,0 +1,22 @@
+{
+  "fonts": [
+    {
+      "copyright": "Copyright 2020 The Arimo Project Authors (https://github.com/googlefonts/arimo)",
+      "description": "Arimo was designed by Steve Matteson as an innovative, refreshing sans serif design that is metrically compatible with Arial(tm). Arimo offers improved on-screen readability characteristics and the pan-European WGL character set and solves the needs of developers looking for width-compatible fonts to address document portability across platforms.",
+      "designer": "Steve Matteson",
+      "designer_url": "http://www.monotype.com/studio",
+      "family": "Arimo",
+      "file": "arimo-regular.ttf",
+      "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This Font Software is distributed on an \"AS IS\" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the SIL Open Font License for the specific language, permissions and limitations governing your use of this Font Software.",
+      "license_url": "http://scripts.sil.org/OFL",
+      "manufacturer": "Monotype Imaging Inc.",
+      "stamp": "f405056d25ddc3ad89a852db367f1dc075d8c7212fddcf7c488e212efeb8b176",
+      "trademark": "Arimo is a trademark of Google Inc.",
+      "uri": "http://test.local/arimo-regular.ttf",
+      "vendor_url": "http://www.google.com/get/noto/",
+      "version": "Version 1.33"
+    }
+  ],
+  "kind": "fontconfiguration",
+  "server": "OpenCloud Fonts"
+}

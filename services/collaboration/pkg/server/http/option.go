@@ -3,17 +3,19 @@ package http
 import (
 	"context"
 
+	microstore "go-micro.dev/v4/store"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/connector"
-	microstore "go-micro.dev/v4/store"
-	"go.opentelemetry.io/otel/trace"
+	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/font"
 )
 
 // Option defines a single option function.
 type Option func(o *Options)
 
-// Options defines the available options for this package.
+// Options define the available options for this package.
 type Options struct {
 	Adapter        *connector.HttpAdapter
 	Logger         log.Logger
@@ -21,6 +23,7 @@ type Options struct {
 	Config         *config.Config
 	TracerProvider trace.TracerProvider
 	Store          microstore.Store
+	FontService    font.Service
 }
 
 // newOptions initializes the available default options.
@@ -34,7 +37,7 @@ func newOptions(opts ...Option) Options {
 	return opt
 }
 
-// App provides a function to set the logger option.
+// Adapter provides a function to set the Adapter option.
 func Adapter(val *connector.HttpAdapter) Option {
 	return func(o *Options) {
 		o.Adapter = val
@@ -73,5 +76,12 @@ func TracerProvider(val trace.TracerProvider) Option {
 func Store(val microstore.Store) Option {
 	return func(o *Options) {
 		o.Store = val
+	}
+}
+
+// FontService provides a function to set the FontService option
+func FontService(val font.Service) Option {
+	return func(o *Options) {
+		o.FontService = val
 	}
 }

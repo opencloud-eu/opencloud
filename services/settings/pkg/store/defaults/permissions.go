@@ -67,6 +67,25 @@ func ChangeLogoPermission(c settingsmsg.Permission_Constraint) *settingsmsg.Sett
 	}
 }
 
+// ManageFontsPermission is the permission to manage fonts
+func CollaborationManageFontsPermission(c settingsmsg.Permission_Constraint) *settingsmsg.Setting {
+	return &settingsmsg.Setting{
+		Id:          "ed83fc10-1f54-4a9e-b5a7-fb517f5f3e01",
+		Name:        "Collaboration.Fonts.Manage",
+		DisplayName: "Manage fonts",
+		Description: "This permission permits to manage the collaboration fonts.",
+		Resource: &settingsmsg.Resource{
+			Type: settingsmsg.Resource_TYPE_SYSTEM,
+		},
+		Value: &settingsmsg.Setting_PermissionValue{
+			PermissionValue: &settingsmsg.Permission{
+				Operation:  settingsmsg.Permission_OPERATION_READWRITE,
+				Constraint: c,
+			},
+		},
+	}
+}
+
 // CreatePublicLinkPermission is the permission to create public links
 func CreatePublicLinkPermission(c settingsmsg.Permission_Constraint) *settingsmsg.Setting {
 	return &settingsmsg.Setting{

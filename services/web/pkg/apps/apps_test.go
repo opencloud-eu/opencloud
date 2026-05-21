@@ -181,8 +181,20 @@ func TestList(t *testing.T) {
 		"app-3/manifest.json": &fstest.MapFile{
 			Data: []byte(`{"id":"app-3", "entrypoint":"entrypoint.js", "config": {"foo": "fs2"}}`),
 		},
+	}, fstest.MapFS{
+		"app-unknown":                   dir,
+		"app-unknown/bin/entrypoint.js": &fstest.MapFile{},
+		"app-unknown/bin/manifest.json": &fstest.MapFile{
+			Data: []byte(`{"id":"app-unknown", "entrypoint":"entrypoint.js"}`),
+		},
+	}, fstest.MapFS{
+		"app-dist":                    dir,
+		"app-dist/dist/entrypoint.js": &fstest.MapFile{},
+		"app-dist/dist/manifest.json": &fstest.MapFile{
+			Data: []byte(`{"id":"app-dist", "entrypoint":"entrypoint.js", "config": {"folder": "dist"}}`),
+		},
 	})
-	g.Expect(len(applications)).To(gomega.Equal(3))
+	g.Expect(len(applications)).To(gomega.Equal(4))
 
 	for _, application := range applications {
 		switch {
@@ -193,6 +205,8 @@ func TestList(t *testing.T) {
 		case application.Entrypoint == "app-3/entrypoint.js":
 			g.Expect(application.Config["foo"]).To(gomega.Equal("local conf 1"))
 			g.Expect(application.Config["bar"]).To(gomega.Equal("local conf 2"))
+		case application.Entrypoint == "app-dist/dist/entrypoint.js":
+			g.Expect(application.Config["folder"]).To(gomega.Equal("dist"))
 		default:
 			t.Fatalf("unexpected application %s", application.Entrypoint)
 		}

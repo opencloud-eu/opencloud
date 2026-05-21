@@ -66,3 +66,9 @@ go.work.sum
 
 # example deployments
 **/opencloud-sandbox-*
+
+# web apps
+!./services/web/assets/
+!./services/web/assets/apps/
+!./services/web/assets/apps/collaboration-settings
+!./services/web/assets/apps/collaboration-settings/**

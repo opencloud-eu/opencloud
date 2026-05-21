@@ -19,7 +19,6 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
-	"github.com/opencloud-eu/opencloud/pkg/x/io/fsx"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/assets"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/theme"
@@ -54,8 +53,6 @@ func NewService(opts ...Option) (Service, error) {
 		logger:          options.Logger,
 		config:          options.Config,
 		mux:             m,
-		coreFS:          options.CoreFS,
-		themeFS:         options.ThemeFS,
 		gatewaySelector: options.GatewaySelector,
 	}
 
@@ -92,7 +89,7 @@ func NewService(opts ...Option) (Service, error) {
 			options.Config.HTTP.CacheTTL,
 		))
 		r.Mount("/", svc.Static(
-			svc.coreFS,
+			options.CoreFS,
 			svc.config.HTTP.Root,
 			options.Config.HTTP.CacheTTL,
 		))
@@ -110,8 +107,6 @@ type Web struct {
 	logger          log.Logger
 	config          *config.Config
 	mux             *chi.Mux
-	coreFS          fs.FS
-	themeFS         *fsx.FallbackFS
 	gatewaySelector pool.Selectable[gateway.GatewayAPIClient]
 }
 

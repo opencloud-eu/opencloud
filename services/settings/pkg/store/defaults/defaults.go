@@ -79,6 +79,7 @@ func ServiceAccountBundle() *settingsmsg.Bundle {
 		Settings: []*settingsmsg.Setting{
 			AccountManagementPermission(All),
 			ChangeLogoPermission(All),
+			CollaborationManageFontsPermission(All),
 			CreatePublicLinkPermission(All),
 			CreateSharePermission(All),
 			CreateSpacesPermission(All),
@@ -115,6 +116,7 @@ func generateBundleAdminRole() *settingsmsg.Bundle {
 			AccountManagementPermission(All),
 			AutoAcceptSharesPermission(Own),
 			ChangeLogoPermission(All),
+			CollaborationManageFontsPermission(All),
 			CreatePublicLinkPermission(All),
 			CreateSharePermission(All),
 			CreateSpacesPermission(All),

@@ -1,0 +1,1 @@
+arimo-regular.ttf: https://github.com/ryanoasis/nerd-fonts/blob/master/src/unpatched-fonts/Arimo/Regular/Arimo-Regular.ttf
