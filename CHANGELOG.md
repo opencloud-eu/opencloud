@@ -11,8 +11,13 @@
 - Persist space memberships in share manager [[#2760](https://github.com/opencloud-eu/opencloud/pull/2760)]
 - [feature/guest-links] bump reva, add service user config to "sharing" service [[#2735](https://github.com/opencloud-eu/opencloud/pull/2735)]
 
+### 🔒 Security
+
+- fix: disallow thumbnails for tiff and jpeg2000 images [[#2758](https://github.com/opencloud-eu/opencloud/pull/2758)]
+
 ### 🐛 Bug Fixes
 
+- fix: remove unnecessary error log it the oidc access token verify method is set to none [[#2795](https://github.com/opencloud-eu/opencloud/pull/2795)]
 - fix(debug): drop duplicate service field from probe fallback log [[#2786](https://github.com/opencloud-eu/opencloud/pull/2786)]
 - No registry lookup in cli [[#2755](https://github.com/opencloud-eu/opencloud/pull/2755)]
 - fix(webdav): register chi REPORT method in init to avoid race with settings [[#2712](https://github.com/opencloud-eu/opencloud/pull/2712)]
@@ -35,6 +40,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/go-jose/go-jose/v3 from 3.0.4 to 3.0.5 [[#2798](https://github.com/opencloud-eu/opencloud/pull/2798)]
 - build(deps): bump golang.org/x/image from 0.38.0 to 0.40.0 [[#2740](https://github.com/opencloud-eu/opencloud/pull/2740)]
 - build(deps): bump github.com/tidwall/gjson from 1.18.0 to 1.19.0 [[#2750](https://github.com/opencloud-eu/opencloud/pull/2750)]
 - build(deps-dev): bump dotenv-expand from 12.0.3 to 13.0.0 in /services/idp [[#2710](https://github.com/opencloud-eu/opencloud/pull/2710)]
