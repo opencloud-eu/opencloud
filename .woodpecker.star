@@ -121,7 +121,7 @@ config = {
                 "apiSettings",
             ],
             "skip": False,
-            "withRemotePhp": [True],
+            "withRemotePhp": [False],
             "emailNeeded": True,
             "extraTestEnvironment": {
                 "EMAIL_HOST": "email",
@@ -144,14 +144,14 @@ config = {
                 #"collaborativePosix",
             ],
             "skip": False,
-            "withRemotePhp": [True],
+            "withRemotePhp": [False],
         },
         "graphUserGroup": {
             "suites": [
                 "apiGraphUserGroup",
             ],
             "skip": False,
-            "withRemotePhp": [True],
+            "withRemotePhp": [False],
         },
         "spaces": {
             "suites": [
@@ -209,7 +209,7 @@ config = {
                 "apiNotification",
             ],
             "skip": False,
-            "withRemotePhp": [True],
+            "withRemotePhp": [False],
             "emailNeeded": True,
             "extraTestEnvironment": {
                 "EMAIL_HOST": "email",
@@ -251,7 +251,7 @@ config = {
                 "apiOcm",
             ],
             "skip": False,
-            "withRemotePhp": [True],
+            "withRemotePhp": [False],
             "federationServer": True,
             "emailNeeded": True,
             "extraTestEnvironment": {
@@ -287,14 +287,14 @@ config = {
                 "apiAuthApp",
             ],
             "skip": False,
-            "withRemotePhp": [True],
+            "withRemotePhp": [False],
         },
         "cliCommands": {
             "suites": [
                 "cliCommands",
             ],
             "skip": False,
-            "withRemotePhp": [True],
+            "withRemotePhp": [False],
             "antivirusNeeded": True,
             "extraServerEnvironment": {
                 "ANTIVIRUS_SCANNER_TYPE": "clamav",
@@ -309,7 +309,7 @@ config = {
                 "apiTenancy",
             ],
             "skip": False,
-            "withRemotePhp": [True],
+            "withRemotePhp": [False],
             "ldapNeeded": True,
             "extraTestEnvironment": {
                 "USE_PREPARED_LDAP_USERS": True,
@@ -1199,7 +1199,7 @@ def localApiTestPipeline(ctx):
         "federationServer": False,
         "collaborationServiceNeeded": False,
         "extraCollaborationEnvironment": {},
-        "withRemotePhp": [True],
+        "withRemotePhp": [False],
         "enableWatchFs": [False],
         "ldapNeeded": False,
     }
@@ -1316,7 +1316,7 @@ def localApiTest(suites, storage = "decomposed", extra_environment = {}, with_re
 
 def coreApiTestPipeline(ctx):
     defaults = {
-        "withRemotePhp": [True],
+        "withRemotePhp": [False],
         "enableWatchFs": [False],
         "storages": ["posix"],
         "numberOfParts": 7,

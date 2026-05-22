@@ -157,7 +157,7 @@ func (s *svc) Close() error {
 }
 
 func (s *svc) Unprotected() []string {
-	return []string{"/status.php", "/status", "/remote.php/dav/public-files/", "/apps/files/", "/index.php/f/", "/index.php/s/", "/remote.php/dav/ocm/", "/dav/ocm/"}
+	return []string{"/status.php", "/status", "/remote.php/dav/public-files/", "/dav/public-files/", "/apps/files/", "/index.php/f/", "/index.php/s/", "/remote.php/dav/ocm/", "/dav/ocm/"}
 }
 
 func (s *svc) Handler() http.Handler {
