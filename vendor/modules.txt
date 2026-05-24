@@ -1849,9 +1849,6 @@ github.com/prometheus/procfs/internal/util
 github.com/prometheus/statsd_exporter/pkg/level
 github.com/prometheus/statsd_exporter/pkg/mapper
 github.com/prometheus/statsd_exporter/pkg/mapper/fsm
-# github.com/r3labs/sse/v2 v2.10.0
-## explicit; go 1.13
-github.com/r3labs/sse/v2
 # github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9
 ## explicit
 github.com/rcrowley/go-metrics
@@ -2109,6 +2106,10 @@ github.com/tklauser/go-sysconf
 # github.com/tklauser/numcpus v0.11.0
 ## explicit; go 1.24.0
 github.com/tklauser/numcpus
+# github.com/tmaxmax/go-sse v0.11.0
+## explicit; go 1.22
+github.com/tmaxmax/go-sse
+github.com/tmaxmax/go-sse/internal/parser
 # github.com/toorop/go-dkim v0.0.0-20201103131630-e1cd1a0a5208
 ## explicit
 github.com/toorop/go-dkim
@@ -2701,9 +2702,6 @@ google.golang.org/protobuf/types/known/fieldmaskpb
 google.golang.org/protobuf/types/known/structpb
 google.golang.org/protobuf/types/known/timestamppb
 google.golang.org/protobuf/types/known/wrapperspb
-# gopkg.in/cenkalti/backoff.v1 v1.1.0
-## explicit
-gopkg.in/cenkalti/backoff.v1
 # gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7
 ## explicit
 gopkg.in/tomb.v1
