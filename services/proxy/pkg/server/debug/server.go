@@ -18,11 +18,11 @@ func Server(opts ...Option) (*http.Server, error) {
 	options := newOptions(opts...)
 
 	healthHandlerConfiguration := handlers.NewCheckHandlerConfiguration().
-		WithLogger(options.Logger).
-		WithCheck("web reachability", checks.NewHTTPCheck(options.Config.HTTP.Addr))
+		WithLogger(options.Logger)
 
 	readyHandlerConfiguration := healthHandlerConfiguration.
-		WithCheck("nats reachability", checks.NewNatsCheck(options.Config.Events.Endpoint))
+		WithCheck("nats reachability", checks.NewNatsCheck(options.Config.Events.Endpoint)).
+		WithCheck("web reachability", checks.NewHTTPCheck(options.Config.HTTP.Addr))
 
 	var configDumpFunc http.HandlerFunc = configDump(options.Config)
 	return debug.NewService(

@@ -10,22 +10,19 @@ import (
 
 // NewTCPCheck returns a check that connects to a given tcp endpoint.
 func NewTCPCheck(address string) func(context.Context) error {
-	return func(_ context.Context) error {
-		address, err := handlers.FailSaveAddress(address)
+	address, err := handlers.FailSaveAddress(address)
+	if err != nil {
+		return func(context.Context) error {
+			return err
+		}
+	}
+
+	return func(ctx context.Context) error {
+		d := net.Dialer{Timeout: 3 * time.Second}
+		conn, err := d.DialContext(ctx, "tcp", address)
 		if err != nil {
 			return err
 		}
-
-		conn, err := net.DialTimeout("tcp", address, 3*time.Second)
-		if err != nil {
-			return err
-		}
-
-		err = conn.Close()
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return conn.Close()
 	}
 }

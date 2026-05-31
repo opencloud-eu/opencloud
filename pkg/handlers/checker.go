@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"maps"
-	"net"
 	"net/http"
 	"strings"
 
@@ -117,32 +116,11 @@ func (h *CheckHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // FailSaveAddress replaces wildcard addresses with the outbound IP.
 func FailSaveAddress(address string) (string, error) {
-	if strings.Contains(address, "0.0.0.0") || strings.Contains(address, "::") {
-		outboundIp, err := getOutBoundIP()
-		if err != nil {
-			return "", err
-		}
-		address = strings.Replace(address, "0.0.0.0", outboundIp, 1)
-		address = strings.Replace(address, "::", "["+outboundIp+"]", 1)
-		address = strings.Replace(address, "[::]", "["+outboundIp+"]", 1)
+	if strings.Contains(address, "0.0.0.0") {
+		return strings.Replace(address, "0.0.0.0", "localhost", 1), nil
+	}
+	if strings.Contains(address, "::") {
+		return strings.Replace(strings.Replace(address, "[::]", "localhost", 1), "::", "localhost", 1), nil
 	}
 	return address, nil
-}
-
-// getOutBoundIP returns the outbound IP address.
-func getOutBoundIP() (string, error) {
-	interfacesAddresses, err := net.InterfaceAddrs()
-	if err != nil {
-		return "", err
-	}
-
-	for _, address := range interfacesAddresses {
-		if ipNet, ok := address.(*net.IPNet); ok && !ipNet.IP.IsLoopback() {
-			if ipNet.IP.To4() != nil {
-				return ipNet.IP.String(), nil
-			}
-		}
-	}
-
-	return "", fmt.Errorf("no IP found")
 }
