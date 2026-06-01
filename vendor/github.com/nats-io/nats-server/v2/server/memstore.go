@@ -961,7 +961,7 @@ func (ms *memStore) NumPendingMulti(sseq uint64, sl *gsl.SimpleSublist, lastPerS
 	var havePartial bool
 	var totalSkipped uint64
 	// We will track start and end sequences as we go.
-	stree.IntersectGSL[SimpleState](ms.fss, sl, func(subj []byte, fss *SimpleState) {
+	stree.IntersectGSL[SimpleState](ms.fss, sl, func(subj []byte, fss *SimpleState) bool {
 		if fss.firstNeedsUpdate || fss.lastNeedsUpdate {
 			ms.recalculateForSubj(bytesToString(subj), fss)
 		}
@@ -975,6 +975,7 @@ func (ms *memStore) NumPendingMulti(sseq uint64, sl *gsl.SimpleSublist, lastPerS
 		} else {
 			totalSkipped += fss.Msgs
 		}
+		return true
 	})
 
 	// If we did not encounter any partials we can return here.
@@ -2595,13 +2596,15 @@ func (o *consumerMemStore) UpdateAcks(dseq, sseq uint64) error {
 		return ErrNoAckPolicy
 	}
 
+	// We do this regardless.
+	delete(o.state.Redelivered, sseq)
+
 	// On restarts the old leader may get a replay from the raft logs that are old.
 	if dseq <= o.state.AckFloor.Consumer {
 		return nil
 	}
 
 	if len(o.state.Pending) == 0 || o.state.Pending[sseq] == nil {
-		delete(o.state.Redelivered, sseq)
 		return ErrStoreMsgNotFound
 	}
 
@@ -2655,10 +2658,21 @@ func (o *consumerMemStore) UpdateAcks(dseq, sseq uint64) error {
 			}
 		}
 	}
-	// We do these regardless.
-	delete(o.state.Redelivered, sseq)
 
 	return nil
+}
+
+func (o *consumerMemStore) RemoveRedeliveredBelow(seq uint64) {
+	if seq == 0 {
+		return
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	for s := range o.state.Redelivered {
+		if s < seq {
+			delete(o.state.Redelivered, s)
+		}
+	}
 }
 
 func (o *consumerMemStore) UpdateConfig(cfg *ConsumerConfig) error {
