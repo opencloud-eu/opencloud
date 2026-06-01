@@ -25,6 +25,7 @@ import (
 	appRegistry "github.com/opencloud-eu/opencloud/services/app-registry/pkg/command"
 	audit "github.com/opencloud-eu/opencloud/services/audit/pkg/command"
 	authapp "github.com/opencloud-eu/opencloud/services/auth-app/pkg/command"
+	authauthelia "github.com/opencloud-eu/opencloud/services/auth-authelia/pkg/command"
 	authbasic "github.com/opencloud-eu/opencloud/services/auth-basic/pkg/command"
 	authmachine "github.com/opencloud-eu/opencloud/services/auth-machine/pkg/command"
 	authservice "github.com/opencloud-eu/opencloud/services/auth-service/pkg/command"
@@ -273,11 +274,6 @@ func NewService(ctx context.Context, options ...Option) (*Service, error) {
 		cfg.Webfinger.Commons = cfg.Commons
 		return webfinger.Execute(cfg.Webfinger)
 	})
-	reg(3, opts.Config.IDP.Service.Name, func(ctx context.Context, cfg *occfg.Config) error {
-		cfg.IDP.Context = ctx
-		cfg.IDP.Commons = cfg.Commons
-		return idp.Execute(cfg.IDP)
-	})
 	reg(3, opts.Config.Proxy.Service.Name, func(ctx context.Context, cfg *occfg.Config) error {
 		cfg.Proxy.Context = ctx
 		cfg.Proxy.Commons = cfg.Commons
@@ -308,10 +304,28 @@ func NewService(ctx context.Context, options ...Option) (*Service, error) {
 		return frontend.Execute(cfg.Frontend)
 	})
 
+	// auth-authelia is the default identity provider (OIDC). It runs in priority group 4 (after the
+	// post-group-3 wait) because its startup check dials the idm LDAP server (ldaps://...:9235), which
+	// is brought up by the idm service in group 3 - starting it in group 3 would race idm and fail with
+	// "connection refused". The lico-based 'idp' service is kept as an opt-in alternative (registered
+	// as an optional service below).
+	reg(4, opts.Config.AuthAuthelia.Service.Name, func(ctx context.Context, cfg *occfg.Config) error {
+		cfg.AuthAuthelia.Context = ctx
+		cfg.AuthAuthelia.Commons = cfg.Commons
+		return authauthelia.Execute(cfg.AuthAuthelia)
+	})
+
 	// populate optional services
 	areg := func(name string, exec func(context.Context, *occfg.Config) error) {
 		s.Additional[name] = NewSutureServiceBuilder(name, exec)
 	}
+	// The lico-based 'idp' service is the opt-in alternative to the default auth-authelia provider.
+	// Enable it via OC_ADD_RUN_SERVICES (and disable auth-authelia) to fall back to lico.
+	areg(opts.Config.IDP.Service.Name, func(ctx context.Context, cfg *occfg.Config) error {
+		cfg.IDP.Context = ctx
+		cfg.IDP.Commons = cfg.Commons
+		return idp.Execute(cfg.IDP)
+	})
 	areg(opts.Config.Antivirus.Service.Name, func(ctx context.Context, cfg *occfg.Config) error {
 		cfg.Antivirus.Context = ctx
 		cfg.Antivirus.Commons = cfg.Commons

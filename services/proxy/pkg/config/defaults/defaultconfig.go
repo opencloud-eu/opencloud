@@ -40,9 +40,18 @@ func DefaultConfig() *config.Config {
 			Name: "proxy",
 		},
 		OIDC: config.OIDC{
-			Issuer: "https://localhost:9200",
+			// The default IdP is the embedded Authelia provider, served under the '/authelia' base path,
+			// so the issuer is '<OC_URL>/authelia'. In supervised mode the runtime sets OC_OIDC_ISSUER
+			// accordingly; this literal covers the localhost default when no issuer env is set.
+			Issuer: "https://localhost:9200/authelia",
 
-			AccessTokenVerifyMethod: config.AccessTokenVerificationJWT,
+			// Authelia (the default IdP) issues opaque access tokens, not JWTs, so the proxy cannot
+			// verify them locally against the JWKS ('jwt' method). 'none' skips local JWT verification;
+			// tokens are instead validated against Authelia's /userinfo endpoint (SkipUserInfo is false
+			// below, and the result is cached). This is validation by the IdP, not a bypass. Switch to
+			// 'jwt' only if the IdP issues JWT access tokens (e.g. lico, or Authelia clients configured
+			// with access_token_signed_response_alg).
+			AccessTokenVerifyMethod: config.AccessTokenVerificationNone,
 			SkipUserInfo:            false,
 			UserinfoCache: &config.Cache{
 				Store:    "memory",
@@ -129,22 +138,17 @@ func DefaultPolicies() []config.Policy {
 					Unprotected: true,
 				},
 				{
-					Endpoint:    "/.well-known/openid-configuration",
-					Service:     "eu.opencloud.web.idp",
-					Unprotected: true,
-				},
-				{
 					Endpoint: "/branding/logo",
 					Service:  "eu.opencloud.web.web",
 				},
 				{
-					Endpoint:    "/konnect/",
-					Service:     "eu.opencloud.web.idp",
-					Unprotected: true,
-				},
-				{
-					Endpoint:    "/signin/",
-					Service:     "eu.opencloud.web.idp",
+					// The embedded Authelia provider (auth-authelia service) is the default IdP. It serves
+					// its login portal and all OIDC endpoints (incl. /authelia/.well-known/openid-configuration)
+					// under the '/authelia' base path on its own HTTP listener; this route forwards them to it.
+					// The OIDC issuer is '<OC_URL>/authelia'. When falling back to the lico 'idp' service,
+					// add the '/konnect/' and '/signin/' routes (and set the issuer to '<OC_URL>') instead.
+					Endpoint:    "/authelia",
+					Backend:     "http://127.0.0.1:9091",
 					Unprotected: true,
 				},
 				{

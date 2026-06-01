@@ -200,6 +200,15 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 				},
 			},
 		},
+		// The auth-authelia service renders its own authelia.yaml and binds to the embedded LDAP
+		// directory as the idm admin user (uid=libregraph) so it can modify user passwords (password
+		// change). That account's password is the 'idm' service-user password, reused here rather than
+		// seeding a dedicated Authelia account.
+		AuthAuthelia: LdapBasedService{
+			Ldap: LdapSettings{
+				BindPassword: idmServicePassword,
+			},
+		},
 		Collaboration: Collaboration{
 			WopiApp: WopiApp{
 				Secret: collaborationWOPISecret,

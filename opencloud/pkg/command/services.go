@@ -13,6 +13,7 @@ import (
 	appregistry "github.com/opencloud-eu/opencloud/services/app-registry/pkg/command"
 	audit "github.com/opencloud-eu/opencloud/services/audit/pkg/command"
 	authapp "github.com/opencloud-eu/opencloud/services/auth-app/pkg/command"
+	authauthelia "github.com/opencloud-eu/opencloud/services/auth-authelia/pkg/command"
 	authbasic "github.com/opencloud-eu/opencloud/services/auth-basic/pkg/command"
 	authbearer "github.com/opencloud-eu/opencloud/services/auth-bearer/pkg/command"
 	authmachine "github.com/opencloud-eu/opencloud/services/auth-machine/pkg/command"
@@ -81,6 +82,11 @@ var serviceCommands = []register.Command{
 	func(cfg *config.Config) *cobra.Command {
 		return ServiceCommand(cfg, cfg.AuthApp.Service.Name, authapp.GetCommands(cfg.AuthApp), func(_ *config.Config) {
 			cfg.AuthApp.Commons = cfg.Commons
+		})
+	},
+	func(cfg *config.Config) *cobra.Command {
+		return ServiceCommand(cfg, cfg.AuthAuthelia.Service.Name, authauthelia.GetCommands(cfg.AuthAuthelia), func(c *config.Config) {
+			cfg.AuthAuthelia.Commons = cfg.Commons
 		})
 	},
 	func(cfg *config.Config) *cobra.Command {

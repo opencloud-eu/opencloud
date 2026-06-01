@@ -29,6 +29,7 @@ type OpenCloudConfig struct {
 	Proxy             ProxyService          `yaml:"proxy"`
 	Frontend          FrontendService       `yaml:"frontend"`
 	AuthBasic         AuthbasicService      `yaml:"auth_basic"`
+	AuthAuthelia      LdapBasedService      `yaml:"auth_authelia"`
 	AuthBearer        AuthbearerService     `yaml:"auth_bearer"`
 	Users             UsersAndGroupsService `yaml:"users"`
 	Groups            UsersAndGroupsService `yaml:"groups"`

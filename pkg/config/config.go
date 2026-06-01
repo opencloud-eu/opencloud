@@ -8,6 +8,7 @@ import (
 	appRegistry "github.com/opencloud-eu/opencloud/services/app-registry/pkg/config"
 	audit "github.com/opencloud-eu/opencloud/services/audit/pkg/config"
 	authapp "github.com/opencloud-eu/opencloud/services/auth-app/pkg/config"
+	authAuthelia "github.com/opencloud-eu/opencloud/services/auth-authelia/pkg/config"
 	authbasic "github.com/opencloud-eu/opencloud/services/auth-basic/pkg/config"
 	authbearer "github.com/opencloud-eu/opencloud/services/auth-bearer/pkg/config"
 	authmachine "github.com/opencloud-eu/opencloud/services/auth-machine/pkg/config"
@@ -88,6 +89,7 @@ type Config struct {
 	AppRegistry       *appRegistry.Config    `yaml:"app_registry"`
 	Audit             *audit.Config          `yaml:"audit"`
 	AuthApp           *authapp.Config        `yaml:"auth_app"`
+	AuthAuthelia      *authAuthelia.Config   `yaml:"auth_authelia"`
 	AuthBasic         *authbasic.Config      `yaml:"auth_basic"`
 	AuthBearer        *authbearer.Config     `yaml:"auth_bearer"`
 	AuthMachine       *authmachine.Config    `yaml:"auth_machine"`
