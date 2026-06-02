@@ -28,12 +28,14 @@ import (
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	storageprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/sharedconf"
+
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
@@ -123,20 +125,22 @@ func (s *svc) Authenticate(ctx context.Context, req *gateway.AuthenticateRequest
 	ctx = metadata.AppendToOutgoingContext(ctx, ctxpkg.TokenHeader, token) // TODO(jfd): hardcoded metadata key. use  PerRPCCredentials?
 
 	// create home directory
-	createHomeRes, err := s.CreateHome(ctx, &storageprovider.CreateHomeRequest{})
-	if err != nil {
-		log.Err(err).Msg("error calling CreateHome")
-		return &gateway.AuthenticateResponse{
-			Status: status.NewInternal(ctx, "error creating user home"),
-		}, nil
-	}
+	if res.User.GetId().GetType() != userpb.UserType_USER_TYPE_SERVICE && res.User.GetId().GetType() != userpb.UserType_USER_TYPE_LIGHTWEIGHT {
+		createHomeRes, err := s.CreateHome(ctx, &storageprovider.CreateHomeRequest{})
+		if err != nil {
+			log.Err(err).Msg("error calling CreateHome")
+			return &gateway.AuthenticateResponse{
+				Status: status.NewInternal(ctx, "error creating user home"),
+			}, nil
+		}
 
-	if createHomeRes.Status.Code != rpc.Code_CODE_OK && createHomeRes.Status.Code != rpc.Code_CODE_ALREADY_EXISTS {
-		err := status.NewErrorFromCode(createHomeRes.Status.Code, "gateway")
-		log.Err(err).Msg("error calling Createhome")
-		return &gateway.AuthenticateResponse{
-			Status: status.NewInternal(ctx, "error creating user home"),
-		}, nil
+		if createHomeRes.Status.Code != rpc.Code_CODE_OK && createHomeRes.Status.Code != rpc.Code_CODE_ALREADY_EXISTS {
+			err := status.NewErrorFromCode(createHomeRes.Status.Code, "gateway")
+			log.Err(err).Msg("error calling Createhome")
+			return &gateway.AuthenticateResponse{
+				Status: status.NewInternal(ctx, "error creating user home"),
+			}, nil
+		}
 	}
 
 	gwRes := &gateway.AuthenticateResponse{

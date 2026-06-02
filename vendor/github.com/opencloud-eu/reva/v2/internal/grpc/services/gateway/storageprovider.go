@@ -28,20 +28,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BurntSushi/toml"
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
+	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	collaborationv1beta1 "github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
 	linkv1beta1 "github.com/cs3org/go-cs3apis/cs3/sharing/link/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	registry "github.com/cs3org/go-cs3apis/cs3/storage/registry/v1beta1"
 	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
-	"github.com/opencloud-eu/reva/v2/pkg/conversions"
-	"github.com/rs/zerolog/log"
-	"google.golang.org/grpc/codes"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
+	"github.com/opencloud-eu/reva/v2/pkg/conversions"
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/publicshare"
@@ -51,7 +48,12 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/share"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
+
+	"github.com/BurntSushi/toml"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
+	"google.golang.org/grpc/codes"
 	gstatus "google.golang.org/grpc/status"
 )
 
@@ -114,6 +116,19 @@ func (s *svc) CreateHome(ctx context.Context, req *provider.CreateHomeRequest) (
 		}, nil
 
 	}
+
+	if u.GetId().GetType() == userpb.UserType_USER_TYPE_SERVICE {
+		return &provider.CreateHomeResponse{
+			Status: status.NewInvalid(ctx, "gateway: refusing to create home for service user"),
+		}, nil
+	}
+
+	if u.GetId().GetType() == userpb.UserType_USER_TYPE_LIGHTWEIGHT {
+		return &provider.CreateHomeResponse{
+			Status: status.NewInvalid(ctx, "gateway: refusing to create home for lightweight user"),
+		}, nil
+	}
+
 	quotaStr := utils.ReadPlainFromOpaque(req.Opaque, "quota")
 	var quota *provider.Quota
 	if quotaStr != "" {

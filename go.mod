@@ -64,7 +64,7 @@ require (
 	github.com/open-policy-agent/opa v1.15.2
 	github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89
 	github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260310090739-853d972b282d
-	github.com/opencloud-eu/reva/v2 v2.46.1
+	github.com/opencloud-eu/reva/v2 v2.46.2-0.20260602061404-0e975e5456eb
 	github.com/opensearch-project/opensearch-go/v4 v4.6.0
 	github.com/orcaman/concurrent-map v1.0.0
 	github.com/pkg/errors v0.9.1
