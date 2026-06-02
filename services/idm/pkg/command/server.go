@@ -8,10 +8,11 @@ import (
 	"html/template"
 	"os"
 	"os/signal"
+	"path"
 	"strings"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
-	pkgcrypto "github.com/opencloud-eu/opencloud/pkg/crypto"
+	"github.com/opencloud-eu/opencloud/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
 	"github.com/opencloud-eu/opencloud/services/idm"
@@ -47,23 +48,19 @@ func Server(cfg *config.Config) *cobra.Command {
 			gr := runner.NewGroup()
 			{
 				servercfg := server.Config{
-					Logger:          log.LogrusWrap(logger.Logger),
-					LDAPHandler:     "boltdb",
-					LDAPSListenAddr: cfg.IDM.LDAPSAddr,
-					TLSCertFile:     cfg.IDM.Cert,
-					TLSKeyFile:      cfg.IDM.Key,
-					LDAPBaseDN:      "o=libregraph-idm",
-					LDAPAdminDN:     "uid=libregraph,ou=sysusers,o=libregraph-idm",
+					Logger:         log.LogrusWrap(logger.Logger),
+					LDAPHandler:    "boltdb",
+					LDAPListenAddr: cfg.IDM.LDAPAddr,
+					LDAPBaseDN:     "o=libregraph-idm",
+					LDAPAdminDN:    "uid=libregraph,ou=sysusers,o=libregraph-idm",
 
 					BoltDBFile: cfg.IDM.DatabasePath,
 				}
 
-				if cfg.IDM.LDAPSAddr != "" {
-					// Generate a self-signing cert if no certificate is present
-					if err := pkgcrypto.GenCert(cfg.IDM.Cert, cfg.IDM.Key, logger); err != nil {
-						logger.Fatal().Err(err).Msgf("Could not generate test-certificate")
-					}
+				if err := os.MkdirAll(path.Join(defaults.BaseDataPath(), "idm"), 0700); err != nil {
+					logger.Fatal().Err(err).Msgf("Could not create data directory for idm")
 				}
+
 				if _, err := os.Stat(servercfg.BoltDBFile); errors.Is(err, os.ErrNotExist) {
 					logger.Debug().Msg("Bootstrapping IDM database")
 					if err = bootstrap(logger, cfg, servercfg); err != nil {
