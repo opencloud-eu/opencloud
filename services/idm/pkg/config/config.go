@@ -26,7 +26,7 @@ type Config struct {
 }
 
 type Settings struct {
-	LDAPSAddr    string `yaml:"ldaps_addr" env:"IDM_LDAPS_ADDR" desc:"Listen address for the LDAPS listener (ip-addr:port)." introductionVersion:"1.0.0"`
+	LDAPAddr     string `yaml:"ldaps_addr" env:"IDM_LDAPS_ADDR" desc:"Listen address for the LDAPS listener (ip-addr:port)." introductionVersion:"1.0.0"`
 	Cert         string `yaml:"cert" env:"IDM_LDAPS_CERT" desc:"File name of the TLS server certificate for the LDAPS listener. If not defined, the root directory derives from $OC_BASE_DATA_PATH/idm." introductionVersion:"1.0.0"`
 	Key          string `yaml:"key" env:"IDM_LDAPS_KEY" desc:"File name for the TLS certificate key for the server certificate. If not defined, the root directory derives from $OC_BASE_DATA_PATH/idm." introductionVersion:"1.0.0"`
 	DatabasePath string `yaml:"database" env:"IDM_DATABASE_PATH" desc:"Full path to the IDM backend database. If not defined, the root directory derives from $OC_BASE_DATA_PATH/idm." introductionVersion:"1.0.0"`

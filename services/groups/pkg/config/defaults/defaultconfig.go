@@ -1,9 +1,6 @@
 package defaults
 
 import (
-	"path/filepath"
-
-	"github.com/opencloud-eu/opencloud/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/groups/pkg/config"
@@ -38,8 +35,7 @@ func DefaultConfig() *config.Config {
 		Driver: "ldap",
 		Drivers: config.Drivers{
 			LDAP: config.LDAPDriver{
-				URI:                      "ldaps://localhost:9235",
-				CACert:                   filepath.Join(defaults.BaseDataPath(), "idm", "ldap.crt"),
+				URI:                      "ldap://localhost:9235",
 				Insecure:                 false,
 				UserBaseDN:               "ou=users,o=libregraph-idm",
 				GroupBaseDN:              "ou=groups,o=libregraph-idm",
