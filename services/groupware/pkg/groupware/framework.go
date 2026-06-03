@@ -25,6 +25,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/structs"
 
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/metrics"
@@ -778,10 +779,9 @@ func (g *Groupware) sendResponse(w http.ResponseWriter, r *http.Request, respons
 	case 0:
 		break
 	case 1:
-		w.Header().Add(AccountIdResponseHeader, response.accountIds[0])
+		w.Header().Add(AccountIdResponseHeader, string(response.accountIds[0]))
 	default:
-		c := make([]string, len(response.accountIds))
-		copy(c, response.accountIds)
+		c := structs.Map(response.accountIds, func(a jmap.AccountId) string { return string(a) })
 		slices.Sort(c)
 		value := strings.Join(c, ",")
 		w.Header().Add(AccountIdsResponseHeader, value)
@@ -890,12 +890,12 @@ func single[S any](s S) []S {
 }
 
 type QueryParamsSupplier interface {
-	ForSupplier(supplierId string, accountId string) (jmap.QueryParams, bool, error)
-	ForAccountId(accountId string) (jmap.QueryParams, bool, error)
+	ForSupplier(supplierId SupplierId, accountId jmap.AccountId) (jmap.QueryParams, bool, error)
+	ForAccountId(accountId jmap.AccountId) (jmap.QueryParams, bool, error)
 }
 
-func mapQueryParams(supplierId string, accountIds []string, qps QueryParamsSupplier) (map[string]jmap.QueryParams, error) {
-	m := map[string]jmap.QueryParams{}
+func mapQueryParams(supplierId SupplierId, accountIds []jmap.AccountId, qps QueryParamsSupplier) (map[jmap.AccountId]jmap.QueryParams, error) {
+	m := map[jmap.AccountId]jmap.QueryParams{}
 	if supplierId == "" {
 		for _, accountId := range accountIds {
 			if q, ok, err := qps.ForAccountId(accountId); err != nil {
@@ -920,11 +920,11 @@ type ErrorQueryParamsSupplier struct {
 	err error
 }
 
-func (s ErrorQueryParamsSupplier) ForSupplier(supplierId string, accountId string) (jmap.QueryParams, bool, error) {
+func (s ErrorQueryParamsSupplier) ForSupplier(supplierId SupplierId, accountId jmap.AccountId) (jmap.QueryParams, bool, error) {
 	return jmap.NullQueryParams, false, s.err
 }
 
-func (s ErrorQueryParamsSupplier) ForAccountId(accountId string) (jmap.QueryParams, bool, error) {
+func (s ErrorQueryParamsSupplier) ForAccountId(accountId jmap.AccountId) (jmap.QueryParams, bool, error) {
 	return jmap.NullQueryParams, false, s.err
 }
 
@@ -933,11 +933,11 @@ var _ QueryParamsSupplier = ErrorQueryParamsSupplier{}
 type FirstQueryParamsSupplier struct {
 }
 
-func (s FirstQueryParamsSupplier) ForSupplier(supplierId string, accountId string) (jmap.QueryParams, bool, error) {
+func (s FirstQueryParamsSupplier) ForSupplier(supplierId SupplierId, accountId jmap.AccountId) (jmap.QueryParams, bool, error) {
 	return jmap.NullQueryParams, true, nil
 }
 
-func (s FirstQueryParamsSupplier) ForAccountId(accountId string) (jmap.QueryParams, bool, error) {
+func (s FirstQueryParamsSupplier) ForAccountId(accountId jmap.AccountId) (jmap.QueryParams, bool, error) {
 	return jmap.NullQueryParams, true, nil
 }
 
@@ -947,21 +947,21 @@ type StaticQueryParamsSupplier struct {
 	qp jmap.QueryParams
 }
 
-func (s StaticQueryParamsSupplier) ForSupplier(supplierId string, accountId string) (jmap.QueryParams, bool, error) {
+func (s StaticQueryParamsSupplier) ForSupplier(supplierId SupplierId, accountId jmap.AccountId) (jmap.QueryParams, bool, error) {
 	return s.qp, true, nil
 }
 
-func (s StaticQueryParamsSupplier) ForAccountId(accountId string) (jmap.QueryParams, bool, error) {
+func (s StaticQueryParamsSupplier) ForAccountId(accountId jmap.AccountId) (jmap.QueryParams, bool, error) {
 	return s.qp, true, nil
 }
 
 var _ QueryParamsSupplier = StaticQueryParamsSupplier{}
 
 type MultiSupplierQueryParamsSupplier struct {
-	m map[string]map[string]jmap.QueryParams
+	m map[SupplierId]map[jmap.AccountId]jmap.QueryParams
 }
 
-func (s MultiSupplierQueryParamsSupplier) ForSupplier(supplierId string, accountId string) (jmap.QueryParams, bool, error) {
+func (s MultiSupplierQueryParamsSupplier) ForSupplier(supplierId SupplierId, accountId jmap.AccountId) (jmap.QueryParams, bool, error) {
 	if a, ok := s.m[supplierId]; ok {
 		if b, ok := a[accountId]; ok {
 			return b, true, nil
@@ -970,7 +970,7 @@ func (s MultiSupplierQueryParamsSupplier) ForSupplier(supplierId string, account
 	return jmap.NullQueryParams, false, nil
 }
 
-func (s MultiSupplierQueryParamsSupplier) ForAccountId(accountId string) (jmap.QueryParams, bool, error) {
+func (s MultiSupplierQueryParamsSupplier) ForAccountId(accountId jmap.AccountId) (jmap.QueryParams, bool, error) {
 	switch len(s.m) {
 	case 1:
 		for _, v := range s.m {
@@ -989,14 +989,14 @@ func (s MultiSupplierQueryParamsSupplier) ForAccountId(accountId string) (jmap.Q
 var _ QueryParamsSupplier = MultiSupplierQueryParamsSupplier{}
 
 type SingleSupplierQueryParamsSupplier struct {
-	m map[string]jmap.QueryParams
+	m map[jmap.AccountId]jmap.QueryParams
 }
 
-func (s SingleSupplierQueryParamsSupplier) ForSupplier(supplierId string, accountId string) (jmap.QueryParams, bool, error) {
+func (s SingleSupplierQueryParamsSupplier) ForSupplier(supplierId SupplierId, accountId jmap.AccountId) (jmap.QueryParams, bool, error) {
 	return jmap.NullQueryParams, false, fmt.Errorf("unable to provide for supplier with single supplier token")
 }
 
-func (s SingleSupplierQueryParamsSupplier) ForAccountId(accountId string) (jmap.QueryParams, bool, error) {
+func (s SingleSupplierQueryParamsSupplier) ForAccountId(accountId jmap.AccountId) (jmap.QueryParams, bool, error) {
 	if b, ok := s.m[accountId]; ok {
 		return b, true, nil
 	}

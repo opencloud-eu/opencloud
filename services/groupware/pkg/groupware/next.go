@@ -13,7 +13,7 @@ type NextToken string
 
 const NoNextToken = NextToken("")
 
-func nextSingle(m map[string]jmap.QueryParams) (NextToken, error) {
+func nextSingle(m map[jmap.AccountId]jmap.QueryParams) (NextToken, error) {
 	if b, err := json.Marshal(m); err != nil {
 		return NoNextToken, err
 	} else {
@@ -21,7 +21,7 @@ func nextSingle(m map[string]jmap.QueryParams) (NextToken, error) {
 	}
 }
 
-func nextMulti(m map[string]map[string]jmap.QueryParams) (NextToken, error) {
+func nextMulti(m map[SupplierId]map[jmap.AccountId]jmap.QueryParams) (NextToken, error) {
 	if b, err := json.Marshal(m); err != nil {
 		return NoNextToken, err
 	} else {
@@ -42,7 +42,7 @@ func unnext(n NextToken) (QueryParamsSupplier, error) {
 		if b, err := DecodeBytesFromBase62(payload); err != nil {
 			return ErrorQueryParamsSupplier{err: err}, err
 		} else {
-			var m map[string]jmap.QueryParams
+			var m map[jmap.AccountId]jmap.QueryParams
 			if err := json.Unmarshal(b, &m); err != nil {
 				return ErrorQueryParamsSupplier{err: err}, err
 			} else {
@@ -54,7 +54,7 @@ func unnext(n NextToken) (QueryParamsSupplier, error) {
 		if b, err := DecodeBytesFromBase62(payload); err != nil {
 			return ErrorQueryParamsSupplier{err: err}, err
 		} else {
-			var m map[string]map[string]jmap.QueryParams
+			var m map[SupplierId]map[jmap.AccountId]jmap.QueryParams
 			if err := json.Unmarshal(b, &m); err != nil {
 				return ErrorQueryParamsSupplier{err: err}, err
 			} else {
@@ -68,11 +68,11 @@ func unnext(n NextToken) (QueryParamsSupplier, error) {
 }
 
 func curryNoNextMapQuery[SRES jmap.SearchResults[T], T jmap.Idable, FILTER any, COMP any](
-	f func(accountIds map[string]jmap.QueryParams, limit *uint, filter FILTER, sortBy []COMP, calculateTotal bool, ctx jmap.Context) (jmap.Result[map[string]SRES], error),
+	f func(accountIds map[jmap.AccountId]jmap.QueryParams, limit *uint, filter FILTER, sortBy []COMP, calculateTotal bool, ctx jmap.Context) (jmap.Result[map[jmap.AccountId]SRES], error),
 	sorter func(a, b T) int,
 	searchResultCtor func(canCalculateChanges jmap.ChangeCalculation, position *uint, limit *uint, total *uint, results []T) SRES,
-) func(req Request, accountIds []string, qps QueryParamsSupplier, limit *uint, filter FILTER, sortBy []COMP, ctx jmap.Context) (jmap.Result[SRES], NextToken, error) {
-	return func(_ Request, accountIds []string, qps QueryParamsSupplier, limit *uint, filter FILTER, sortBy []COMP, ctx jmap.Context) (jmap.Result[SRES], NextToken, error) { //NOSONAR
+) func(req Request, accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint, filter FILTER, sortBy []COMP, ctx jmap.Context) (jmap.Result[SRES], NextToken, error) {
+	return func(_ Request, accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint, filter FILTER, sortBy []COMP, ctx jmap.Context) (jmap.Result[SRES], NextToken, error) { //NOSONAR
 		if m, err := mapQueryParams("", accountIds, qps); err != nil {
 			return jmap.ZeroResult[SRES](), NoNextToken, err
 		} else {
@@ -80,7 +80,7 @@ func curryNoNextMapQuery[SRES jmap.SearchResults[T], T jmap.Idable, FILTER any, 
 			if err != nil {
 				return jmap.ZeroResult[SRES](), NoNextToken, err
 			} else {
-				singleAccountId := ""
+				var singleAccountId jmap.AccountId = ""
 				// TODO what about requests with zero accountIds, can these even happen at all?
 				if len(accountIds) == 1 {
 					// optimization: no need to combine the results of several accounts if the query was
@@ -91,14 +91,14 @@ func curryNoNextMapQuery[SRES jmap.SearchResults[T], T jmap.Idable, FILTER any, 
 					// all accounts: let's first calculate the number of results we have for each account
 					totalByAccount := structs.MapValues(result.Payload, func(a SRES) int { return len(a.GetResults()) })
 					// and let's now pick out the accounts that do have results
-					accountsWithResults := structs.FilterKeys(totalByAccount, func(_ string, total int) bool { return total > 0 })
+					accountsWithResults := structs.FilterKeys(totalByAccount, func(_ jmap.AccountId, total int) bool { return total > 0 })
 					if len(accountsWithResults) == 1 {
 						singleAccountId = accountsWithResults[0]
 					}
 					// TODO what if we don't have any results at all? (accountsWithResults == 0)
 				}
 				if singleAccountId != "" {
-					r, err := jmap.RefineResultPayload(result, func(a map[string]SRES) (SRES, bool, error) {
+					r, err := jmap.RefineResultPayload(result, func(a map[jmap.AccountId]SRES) (SRES, bool, error) {
 						r, ok := a[accountIds[0]]
 						return r, ok, nil
 					})
@@ -113,10 +113,10 @@ func curryNoNextMapQuery[SRES jmap.SearchResults[T], T jmap.Idable, FILTER any, 
 }
 
 func flattenMultipleAccounts[SRES jmap.SearchResults[T], T jmap.Idable](
-	accountIds []string,
+	accountIds []jmap.AccountId,
 	qps QueryParamsSupplier,
 	limit *uint,
-	result jmap.Result[map[string]SRES],
+	result jmap.Result[map[jmap.AccountId]SRES],
 	sorter func(a, b T) int,
 	searchResultCtor func(canCalculateChanges jmap.ChangeCalculation, position *uint, limit *uint, total *uint, results []T) SRES,
 ) (jmap.Result[SRES], NextToken, error) {
@@ -133,7 +133,7 @@ func flattenMultipleAccounts[SRES jmap.SearchResults[T], T jmap.Idable](
 
 		cc := true
 		total := uint(0)
-		lastByAccountId := map[string]string{}
+		lastByAccountId := map[jmap.AccountId]string{}
 		for accountId, searchResult := range result.Payload {
 			if !searchResult.GetCanCalculateChanges() {
 				cc = false
@@ -150,7 +150,7 @@ func flattenMultipleAccounts[SRES jmap.SearchResults[T], T jmap.Idable](
 
 		// 4. we need to build the NextToken by taking the ID of the last item
 		// we kept after shrinking, but separately for each accountId
-		n := map[string]jmap.QueryParams{}
+		n := map[jmap.AccountId]jmap.QueryParams{}
 		for accountId, lastId := range lastByAccountId {
 			n[accountId] = jmap.QueryParams{Anchor: lastId, AnchorOffset: ptr(1)}
 		}
@@ -160,7 +160,7 @@ func flattenMultipleAccounts[SRES jmap.SearchResults[T], T jmap.Idable](
 		if t, err := nextSingle(n); err != nil {
 			return jmap.ZeroResult[SRES](), NoNextToken, err
 		} else {
-			if r, err := jmap.RefineResultPayload(result, func(a map[string]SRES) (SRES, bool, error) {
+			if r, err := jmap.RefineResultPayload(result, func(a map[jmap.AccountId]SRES) (SRES, bool, error) {
 				return searchResultCtor(jmap.ChangeCalculation(cc), nil, limit, &total, all), true, nil
 			}); err != nil {
 				return jmap.ZeroResult[SRES](), NoNextToken, err
@@ -184,7 +184,7 @@ func flattenMultipleAccounts[SRES jmap.SearchResults[T], T jmap.Idable](
 		// no need to compute a NextToken since there was no limit,
 		// which means that this Result contains all the elements,
 		// and thus there is no "next" to query for
-		if r, err := jmap.RefineResultPayload(result, func(a map[string]SRES) (SRES, bool, error) {
+		if r, err := jmap.RefineResultPayload(result, func(a map[jmap.AccountId]SRES) (SRES, bool, error) {
 			return searchResultCtor(jmap.ChangeCalculation(cc), nil, limit, &total, all), true, nil
 		}); err != nil {
 			return jmap.ZeroResult[SRES](), NoNextToken, err

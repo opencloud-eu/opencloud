@@ -244,4 +244,3 @@ The alternative would be to have different APIs depending on what each endpoint 
 
 * endpoint with multiple backends or multiple accounts:<br>same as above with `?first=...` and `?next=...`
 * endpoint with a single backend and a single account:<br>`?position=...&anchor=...&offset=...&limit=...`
-

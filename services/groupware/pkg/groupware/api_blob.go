@@ -34,7 +34,7 @@ func (g *Groupware) UploadBlob(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return req.error(accountId, err)
 		}
-		logger := log.From(req.logger.With().Str(logAccountId, accountId))
+		logger := log.From(req.logger.With().Str(logAccountId, log.SafeString(accountId)))
 		ctx := req.ctx.WithLogger(logger)
 		resp, _, jerr := g.jmap.UploadBlobStream(accountId, contentType, body, ctx)
 		if jerr != nil {
@@ -63,7 +63,7 @@ func (g *Groupware) DownloadBlob(w http.ResponseWriter, r *http.Request) {
 		}
 		typ, _ := req.getStringParam(QueryParamBlobType, "") // optionally, the Content-Type of the blob, which is then used in the response
 
-		logger := log.From(req.logger.With().Str(logAccountId, accountId).Str(UriParamBlobId, blobId))
+		logger := log.From(req.logger.With().Str(logAccountId, log.SafeString(accountId)).Str(UriParamBlobId, blobId))
 		ctx := req.ctx.WithLogger(logger)
 
 		if err := req.serveBlob(blobId, name, typ, ctx, accountId, w); err != nil {
@@ -74,7 +74,7 @@ func (g *Groupware) DownloadBlob(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (r *Request) serveBlob(blobId string, name string, typ string, ctx jmap.Context, accountId string, w http.ResponseWriter) *Error { //NOSONAR
+func (r *Request) serveBlob(blobId string, name string, typ string, ctx jmap.Context, accountId jmap.AccountId, w http.ResponseWriter) *Error { //NOSONAR
 	if typ == "" {
 		typ = DefaultBlobDownloadType
 	}

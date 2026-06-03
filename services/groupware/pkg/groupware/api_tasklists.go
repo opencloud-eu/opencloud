@@ -13,7 +13,7 @@ func (g *Groupware) GetTaskLists(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return resp
 		}
-		var _ string = accountId
+		var _ jmap.AccountId = accountId
 
 		var body []jmap.TaskList = AllTaskLists
 		meta := TaskListsMeta{SessionState: req.session.State}
@@ -28,7 +28,7 @@ func (g *Groupware) GetTaskListById(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return resp
 		}
-		var _ string = accountId
+		var _ jmap.AccountId = accountId
 
 		tasklistId, err := req.PathParam(UriParamTaskListId)
 		if err != nil {
@@ -52,7 +52,7 @@ func (g *Groupware) GetTasksInTaskList(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return resp
 		}
-		var _ string = accountId
+		var _ jmap.AccountId = accountId
 
 		tasklistId, err := req.PathParam(UriParamTaskListId)
 		if err != nil {

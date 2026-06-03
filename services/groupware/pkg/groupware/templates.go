@@ -14,15 +14,15 @@ func create[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSONAR
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
 	g *Groupware,
-	bodyFunc func(r Request, accountId string, body *CHANGE, ctx jmap.Context) (bool, Response),
-	createFunc func(accountId string, change CHANGE, ctx jmap.Context) (jmap.Result[*T], error),
+	bodyFunc func(r Request, accountId jmap.AccountId, body *CHANGE, ctx jmap.Context) (bool, Response),
+	createFunc func(accountId jmap.AccountId, change CHANGE, ctx jmap.Context) (jmap.Result[*T], error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
 		if !ok {
 			return resp
 		}
-		l := req.logger.With().Str(accountId, log.SafeString(accountId))
+		l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
 
 		if notok, resp := req.unsupportedQueryParams(single(accountId), noSupportedQueryParams); notok {
 			return resp
@@ -66,14 +66,14 @@ func getall[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jmap.G
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
 	g *Groupware,
-	getFunc func(accountId string, ids []string, ctx jmap.Context) (jmap.Result[RESP], error),
+	getFunc func(accountId jmap.AccountId, ids []string, ctx jmap.Context) (jmap.Result[RESP], error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
 		if !ok {
 			return resp
 		}
-		l := req.logger.With().Str(accountId, log.SafeString(accountId))
+		l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
 
 		if notok, resp := req.unsupportedQueryParams(single(accountId), noSupportedQueryParams); notok {
 			return resp
@@ -112,14 +112,14 @@ func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], FILTER
 	withContainerId bool,
 	filterFunc func(containerId string) FILTER,
 	sortBy []COMP,
-	queryFunc func(req Request, accountIds []string, qps QueryParamsSupplier, limit *uint, filter FILTER, sortBy []COMP, ctx jmap.Context) (jmap.Result[SEARCHRESULTS], NextToken, error),
+	queryFunc func(req Request, accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint, filter FILTER, sortBy []COMP, ctx jmap.Context) (jmap.Result[SEARCHRESULTS], NextToken, error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
 		if !ok {
 			return resp
 		}
-		l := req.logger.With().Str(accountId, log.SafeString(accountId))
+		l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
 
 		var limit *uint = nil
 		{
@@ -147,34 +147,6 @@ func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], FILTER
 			} else {
 				supportedQueryParams = firstQueryParams
 				qps = FirstQueryParamsSupplier{}
-
-				/*
-					position, ok, err := req.parseIntParam(QueryParamPosition, 0)
-					if err != nil {
-						return req.error(accountId, err)
-					}
-					if ok {
-						l = l.Int(QueryParamPosition, position)
-					}
-
-					anchor, ok := req.getStringParam(QueryParamAnchor, "")
-					if ok {
-						l = l.Str(QueryParamAnchor, log.SafeString(anchor))
-					}
-
-					var anchorOffset *int = nil
-					{
-						v, ok, err := req.parseIntParam(QueryParamAnchorOffset, 0)
-						if err != nil {
-							return req.error(accountId, err)
-						}
-						if ok {
-							l = l.Int(QueryParamAnchorOffset, v)
-							anchorOffset = &v
-						}
-					}
-				*/
-
 			}
 		}
 
@@ -220,14 +192,14 @@ func query[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], SEARCHRESULT
 	w http.ResponseWriter, r *http.Request,
 	g *Groupware,
 	defaultLimit *uint,
-	queryFunc func(req Request, accountId string, containerId string, qp jmap.QueryParams, limit *uint, ctx jmap.Context) (jmap.Result[SEARCHRESULTS], error),
+	queryFunc func(req Request, accountId jmap.AccountId, containerId string, qp jmap.QueryParams, limit *uint, ctx jmap.Context) (jmap.Result[SEARCHRESULTS], error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
 		if !ok {
 			return resp
 		}
-		l := req.logger.With().Str(accountId, log.SafeString(accountId))
+		l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
 
 		containerId := ""
 		if o.containerUriParamName != "" {
@@ -366,14 +338,14 @@ func get[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jmap.GetR
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
 	g *Groupware,
-	getFunc func(accountId string, ids []string, ctx jmap.Context) (jmap.Result[RESP], error),
+	getFunc func(accountId jmap.AccountId, ids []string, ctx jmap.Context) (jmap.Result[RESP], error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
 		if !ok {
 			return resp
 		}
-		l := req.logger.With().Str(accountId, log.SafeString(accountId))
+		l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
 		ids := []string{}
 		if o.uriParamName != "" {
 			id, err := req.PathParamDoc(o.uriParamName, "The unique identifier of the object to retrieve")
@@ -423,14 +395,14 @@ func getFromMap[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jm
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
 	g *Groupware,
-	getFunc func(accountIds []string, ids []string, ctx jmap.Context) (jmap.Result[map[string]RESP], error),
+	getFunc func(accountIds []jmap.AccountId, ids []string, ctx jmap.Context) (jmap.Result[map[jmap.AccountId]RESP], error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
 		if !ok {
 			return resp
 		}
-		l := req.logger.With().Str(accountId, log.SafeString(accountId))
+		l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
 		id, err := req.PathParamDoc(o.uriParamName, "The unique identifier of the object to retrieve")
 		if err != nil {
 			return req.error(accountId, err)
@@ -482,14 +454,14 @@ func changes[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSONAR
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
 	g *Groupware,
-	changesFunc func(accountId string, sinceState jmap.State, maxChanges uint, ctx jmap.Context) (jmap.Result[CHANGES], error),
+	changesFunc func(accountId jmap.AccountId, sinceState jmap.State, maxChanges uint, ctx jmap.Context) (jmap.Result[CHANGES], error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
 		if !ok {
 			return resp
 		}
-		l := req.logger.With().Str(accountId, log.SafeString(accountId))
+		l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
 
 		maxChanges, ok, err := req.parseUIntParam(QueryParamMaxChanges, 0)
 		if err != nil {
@@ -535,14 +507,14 @@ func delete[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSONAR
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
 	g *Groupware,
-	deleteFunc func(accountId string, ids []string, ctx jmap.Context) (jmap.Result[map[string]jmap.SetError], error),
+	deleteFunc func(accountId jmap.AccountId, ids []string, ctx jmap.Context) (jmap.Result[map[string]jmap.SetError], error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
 		if !ok {
 			return resp
 		}
-		l := req.logger.With().Str(accountId, log.SafeString(accountId))
+		l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
 		id, err := req.PathParamDoc(o.uriParamName, "The unique identifier of the object to delete")
 		if err != nil {
 			return req.error(accountId, err)
@@ -597,14 +569,14 @@ func deleteMany[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSO
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
 	g *Groupware,
-	deleteFunc func(accountId string, ids []string, ctx jmap.Context) (jmap.Result[map[string]jmap.SetError], error),
+	deleteFunc func(accountId jmap.AccountId, ids []string, ctx jmap.Context) (jmap.Result[map[string]jmap.SetError], error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
 		if !ok {
 			return resp
 		}
-		l := req.logger.With().Str(accountId, log.SafeString(accountId))
+		l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
 
 		ids := []string{}
 		if o.uriParamName != "" {
@@ -686,14 +658,14 @@ func modify[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]](
 	o ObjectType[T, CHANGE, CHANGES],
 	w http.ResponseWriter, r *http.Request,
 	g *Groupware,
-	updateFunc func(accountId string, id string, change CHANGE, ctx jmap.Context) (jmap.Result[T], error),
+	updateFunc func(accountId jmap.AccountId, id string, change CHANGE, ctx jmap.Context) (jmap.Result[T], error),
 ) {
 	g.respond(w, r, func(req Request) Response {
 		ok, accountId, resp := o.accountFunc(&req)
 		if !ok {
 			return resp
 		}
-		l := req.logger.With().Str(accountId, log.SafeString(accountId))
+		l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
 		id, err := req.PathParamDoc(o.uriParamName, "The unique identifier of the object to modify")
 		if err != nil {
 			return req.error(accountId, err)

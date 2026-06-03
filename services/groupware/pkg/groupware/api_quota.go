@@ -5,6 +5,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
 // Get quota limits.
@@ -13,7 +14,7 @@ import (
 //
 // Note that there may be multiple Quota objects for different resource types.
 func (g *Groupware) GetQuota(w http.ResponseWriter, r *http.Request) {
-	getFromMap(Quota, w, r, g, func(accountIds, _ []string, ctx jmap.Context) (jmap.Result[map[string]jmap.QuotaGetResponse], error) {
+	getFromMap(Quota, w, r, g, func(accountIds []jmap.AccountId, _ []string, ctx jmap.Context) (jmap.Result[map[jmap.AccountId]jmap.QuotaGetResponse], error) {
 		return g.jmap.GetQuotas(accountIds, ctx)
 	})
 }
@@ -33,7 +34,7 @@ func (g *Groupware) GetQuotaForAllAccounts(w http.ResponseWriter, r *http.Reques
 		if len(accountIds) < 1 {
 			return req.noopN(accountIds) // user has no accounts
 		}
-		logger := log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(accountIds)))
+		logger := log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(structs.ToStrings(accountIds))))
 		ctx := req.ctx.WithLogger(logger)
 
 		result, jerr := g.jmap.GetQuotas(accountIds, ctx)
@@ -41,7 +42,7 @@ func (g *Groupware) GetQuotaForAllAccounts(w http.ResponseWriter, r *http.Reques
 			return req.jmapErrorN(accountIds, jerr, result)
 		}
 
-		body := make(map[string]AccountQuota, len(result.Payload))
+		body := make(map[jmap.AccountId]AccountQuota, len(result.Payload))
 		for accountId, accountQuotas := range result.Payload {
 			body[accountId] = AccountQuota{
 				State:  accountQuotas.State,

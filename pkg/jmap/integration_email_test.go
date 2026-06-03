@@ -65,7 +65,7 @@ func TestEmails(t *testing.T) {
 		}
 
 		{
-			result, err := s.client.GetAllMailboxes([]string{accountId}, ctx)
+			result, err := s.client.GetAllMailboxes([]AccountId{accountId}, ctx)
 			require.NoError(err)
 			require.Equal(session.State, result.GetSessionState())
 			require.Len(result.Payload, 1)
@@ -144,7 +144,7 @@ func TestSendingEmails(t *testing.T) {
 
 	var mailboxPerRole map[string]Mailbox
 	{
-		result, err := s.client.GetAllMailboxes([]string{accountId}, ctx)
+		result, err := s.client.GetAllMailboxes([]AccountId{accountId}, ctx)
 		require.NoError(err)
 		mailboxPerRole = structs.Index(result.Payload[accountId], func(m Mailbox) string { return m.Role })
 		require.Contains(mailboxPerRole, JmapMailboxRoleInbox)
@@ -154,7 +154,7 @@ func TestSendingEmails(t *testing.T) {
 	}
 	{
 		roles := []string{JmapMailboxRoleDrafts, JmapMailboxRoleSent, JmapMailboxRoleInbox}
-		result, err := s.client.SearchMailboxIdsPerRole([]string{accountId}, roles, ctx)
+		result, err := s.client.SearchMailboxIdsPerRole([]AccountId{accountId}, roles, ctx)
 		require.NoError(err)
 		require.Contains(result.Payload, accountId)
 		a := result.Payload[accountId]
@@ -165,7 +165,7 @@ func TestSendingEmails(t *testing.T) {
 
 	// let's ensure that the recipients have zero emails in their mailboxes before we send them any
 	for _, u := range []struct {
-		accountId string
+		accountId AccountId
 		session   *Session
 	}{{toAccountId, toSession}, {ccAccountId, ccSession}} {
 		uctx := Context{
@@ -174,7 +174,7 @@ func TestSendingEmails(t *testing.T) {
 			Logger:         ctx.Logger,
 			AcceptLanguage: ctx.AcceptLanguage,
 		}
-		result, err := s.client.GetAllMailboxes([]string{u.accountId}, uctx)
+		result, err := s.client.GetAllMailboxes([]AccountId{u.accountId}, uctx)
 		require.NoError(err)
 		for _, mailbox := range result.Payload[u.accountId] {
 			require.Equal(0, mailbox.TotalEmails)
@@ -306,7 +306,7 @@ func TestSendingEmails(t *testing.T) {
 
 		for _, r := range []struct {
 			user      User
-			accountId string
+			accountId AccountId
 			session   *Session
 		}{{to, toAccountId, toSession}, {cc, ccAccountId, ccSession}} {
 			rctx := Context{
@@ -317,7 +317,7 @@ func TestSendingEmails(t *testing.T) {
 			}
 			inboxId := ""
 			{
-				result, err := s.client.GetAllMailboxes([]string{r.accountId}, rctx)
+				result, err := s.client.GetAllMailboxes([]AccountId{r.accountId}, rctx)
 				require.NoError(err)
 				for _, mailbox := range result.Payload[r.accountId] {
 					if mailbox.Role == JmapMailboxRoleInbox {
@@ -328,7 +328,7 @@ func TestSendingEmails(t *testing.T) {
 				require.NotEmpty(inboxId, "failed to find the Mailbox with the 'inbox' role for %v", r.user.name)
 			}
 
-			result, err := s.client.QueryEmails([]string{r.accountId}, EmailFilterCondition{InMailbox: inboxId}, 0, 0, true, 0, rctx)
+			result, err := s.client.QueryEmails([]AccountId{r.accountId}, EmailFilterCondition{InMailbox: inboxId}, 0, 0, true, 0, rctx)
 			require.NoError(err)
 			require.Contains(result.Payload, r.accountId)
 			require.Len(result.Payload[r.accountId].Results, 1)
@@ -385,9 +385,9 @@ func matchEmail(t *testing.T, actual Email, expected filledMail, hasBodies bool)
 	}
 }
 
-func (s *StalwartTest) findInbox(t *testing.T, accountId string, ctx Context) (string, string) {
+func (s *StalwartTest) findInbox(t *testing.T, accountId AccountId, ctx Context) (string, string) {
 	require := require.New(t)
-	result, err := s.client.GetAllMailboxes([]string{accountId}, ctx)
+	result, err := s.client.GetAllMailboxes([]AccountId{accountId}, ctx)
 	require.NoError(err)
 	require.Equal(ctx.Session.State, result.GetSessionState())
 	require.Len(result.Payload, 1)

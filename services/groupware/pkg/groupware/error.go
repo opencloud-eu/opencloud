@@ -750,19 +750,19 @@ func errorResponses(errors ...Error) ErrorResponse {
 	return ErrorResponse{Errors: errors}
 }
 
-func (r *Request) error(accountId string, err *Error) Response {
+func (r *Request) error(accountId jmap.AccountId, err *Error) Response {
 	return errorResponse(single(accountId), err, r.session.State, jmap.NoLanguage)
 }
 
-func (r *Request) errorS(accountId string, err *Error, result jmap.ResultMetadata) Response {
+func (r *Request) errorS(accountId jmap.AccountId, err *Error, result jmap.ResultMetadata) Response {
 	return errorResponse(single(accountId), err, result.GetSessionState(), result.GetLanguage())
 }
 
-func (r *Request) errorN(accountIds []string, err *Error) Response {
+func (r *Request) errorN(accountIds []jmap.AccountId, err *Error) Response {
 	return errorResponse(accountIds, err, r.session.State, jmap.NoLanguage)
 }
 
-func (r *Request) jmapError(accountId string, err error, result jmap.ResultMetadata) Response {
+func (r *Request) jmapError(accountId jmap.AccountId, err error, result jmap.ResultMetadata) Response {
 	switch e := err.(type) {
 	case jmap.Error:
 		if result != nil {
@@ -779,7 +779,7 @@ func (r *Request) jmapError(accountId string, err error, result jmap.ResultMetad
 	}
 }
 
-func (r *Request) jmapErrorN(accountIds []string, err error, result jmap.ResultMetadata) Response {
+func (r *Request) jmapErrorN(accountIds []jmap.AccountId, err error, result jmap.ResultMetadata) Response {
 	switch e := err.(type) {
 	case jmap.Error:
 		if result != nil {

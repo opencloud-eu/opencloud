@@ -11,26 +11,28 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
+type SupplierId string
+
 type Supplier[T jmap.Foo] interface {
-	GetId() string
+	GetId() SupplierId
 	IsMine(id string) bool
 }
 
 type ListSupplier[T jmap.Foo, G jmap.GetResponse[T]] interface {
-	GetAll(accountId string, ids []string, ctx jmap.Context) (jmap.Result[G], error)
+	GetAll(accountId jmap.AccountId, ids []string, ctx jmap.Context) (jmap.Result[G], error)
 	Supplier[T]
 }
 
 type QuerySupplier[T jmap.Foo, R jmap.SearchResults[T], F jmap.FilterElement[T], C jmap.Comparator[T]] interface {
-	Query(accountIds []string, qps QueryParamsSupplier, limit *uint, filter F, sortBy []C, calculateTotal bool, ctx jmap.Context) (jmap.Result[map[string]R], error)
+	Query(accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint, filter F, sortBy []C, calculateTotal bool, ctx jmap.Context) (jmap.Result[map[jmap.AccountId]R], error)
 	Supplier[T]
 }
 
 // queryFunc func(req Request, accountIds []string, qps QueryParamsSupplier, limit *uint, filter FILTER, sortBy []COMP, ctx jmap.Context) (jmap.Result[SEARCHRESULTS], NextToken, error),
 func curryQueryFunc[SRES jmap.SearchResults[T], T jmap.Foo, FILTER any, COMP any](
-	f func(accountIds []string, qps QueryParamsSupplier, limit *uint, filter FILTER, sortBy []COMP, calculateTotal bool, ctx jmap.Context) (jmap.Result[SRES], NextToken, error),
-) func(req Request, accountIds []string, qps QueryParamsSupplier, limit *uint, filter FILTER, sortBy []COMP, ctx jmap.Context) (jmap.Result[SRES], NextToken, error) {
-	return func(_ Request, accountIds []string, qps QueryParamsSupplier, limit *uint, filter FILTER, sortBy []COMP, ctx jmap.Context) (jmap.Result[SRES], NextToken, error) { //NOSONAR
+	f func(accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint, filter FILTER, sortBy []COMP, calculateTotal bool, ctx jmap.Context) (jmap.Result[SRES], NextToken, error),
+) func(req Request, accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint, filter FILTER, sortBy []COMP, ctx jmap.Context) (jmap.Result[SRES], NextToken, error) {
+	return func(_ Request, accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint, filter FILTER, sortBy []COMP, ctx jmap.Context) (jmap.Result[SRES], NextToken, error) { //NOSONAR
 		result, next, err := f(accountIds, qps, limit, filter, sortBy, true, ctx)
 		if err != nil {
 			return jmap.ZeroResult[SRES](), next, err
@@ -40,8 +42,8 @@ func curryQueryFunc[SRES jmap.SearchResults[T], T jmap.Foo, FILTER any, COMP any
 	}
 }
 
-func agg[T jmap.Idable, R jmap.GetResponse[T]](accountId string, supplierIds []string, responses []*R, //NOSONAR
-	ctor func(accountId string, state jmap.State, notFound []string, list []T) R) (R, error) {
+func agg[T jmap.Idable, R jmap.GetResponse[T]](accountId jmap.AccountId, supplierIds []SupplierId, responses []*R, //NOSONAR
+	ctor func(accountId jmap.AccountId, state jmap.State, notFound []string, list []T) R) (R, error) {
 	if len(responses) < 1 {
 		var zero R
 		return zero, fmt.Errorf("requires at least one response")
@@ -54,7 +56,7 @@ func agg[T jmap.Idable, R jmap.GetResponse[T]](accountId string, supplierIds []s
 			return zero
 		}
 	})...)
-	states, err := structs.MeshMap(supplierIds, responses, func(id string, e *R) (string, jmap.State, bool) {
+	states, err := structs.MeshMap(supplierIds, responses, func(id SupplierId, e *R) (SupplierId, jmap.State, bool) {
 		if e != nil {
 			state := (*e).GetState()
 			if state != jmap.EmptyState {
@@ -85,8 +87,8 @@ func agg[T jmap.Idable, R jmap.GetResponse[T]](accountId string, supplierIds []s
 	return ctor(accountId, state, notFounds, lists), nil
 }
 
-func slist[T jmap.Idable, G jmap.GetResponse[T], S ListSupplier[T, G]](suppliers []S, accountId string, ids []string, ctx jmap.Context, //NOSONAR
-	ctor func(accountId string, state jmap.State, notFound []string, list []T) G) (jmap.Result[G], error) {
+func slist[T jmap.Idable, G jmap.GetResponse[T], S ListSupplier[T, G]](suppliers []S, accountId jmap.AccountId, ids []string, ctx jmap.Context, //NOSONAR
+	ctor func(accountId jmap.AccountId, state jmap.State, notFound []string, list []T) G) (jmap.Result[G], error) {
 	switch len(suppliers) {
 	case 0:
 		return jmap.ZeroResult[G](), nil
@@ -94,7 +96,7 @@ func slist[T jmap.Idable, G jmap.GetResponse[T], S ListSupplier[T, G]](suppliers
 		return suppliers[0].GetAll(accountId, ids, ctx)
 	default:
 		results := make([]*jmap.Result[G], len(suppliers))
-		supplierIds := make([]string, len(suppliers))
+		supplierIds := make([]SupplierId, len(suppliers))
 		for i, supplier := range suppliers {
 			supplierIds[i] = supplier.GetId()
 			localIds := []string{}
@@ -118,7 +120,7 @@ func slist[T jmap.Idable, G jmap.GetResponse[T], S ListSupplier[T, G]](suppliers
 			if err != nil {
 				return resp, jmap.EmptySessionState, jmap.EmptyState, jmap.NoLanguage, err
 			}
-			m, err := structs.MeshMap(supplierIds, sessionStates, func(id string, state *jmap.SessionState) (string, jmap.SessionState, bool) {
+			m, err := structs.MeshMap(supplierIds, sessionStates, func(id SupplierId, state *jmap.SessionState) (SupplierId, jmap.SessionState, bool) {
 				if state != nil && *state != jmap.EmptySessionState {
 					return id, *state, true
 				} else {
@@ -141,7 +143,7 @@ func slist[T jmap.Idable, G jmap.GetResponse[T], S ListSupplier[T, G]](suppliers
 	}
 }
 
-func fillMissingAccounts(qps QueryParamsSupplier, supplierId string, accountIds []string, n map[string]jmap.QueryParams) error {
+func fillMissingAccounts(qps QueryParamsSupplier, supplierId SupplierId, accountIds []jmap.AccountId, n map[jmap.AccountId]jmap.QueryParams) error {
 	for _, accountId := range accountIds {
 		if _, ok := n[accountId]; !ok {
 			// no result item was kept for this accountId
@@ -167,7 +169,7 @@ func fillMissingAccounts(qps QueryParamsSupplier, supplierId string, accountIds 
 }
 
 func squery[T jmap.Idable, R jmap.SearchResults[T], S QuerySupplier[T, R, F, C], F jmap.FilterElement[T], C jmap.Comparator[T]]( //NOSONAR
-	suppliers []S, accountIds []string, qps QueryParamsSupplier, limit *uint, filter F, sortBy []C,
+	suppliers []S, accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint, filter F, sortBy []C,
 	calculateTotal bool, ctx jmap.Context,
 	sorter func(T, T) int,
 	searchResultCtor func(canCalculateChanges jmap.ChangeCalculation, position *uint, limit *uint, total *uint, results []T) R) (
@@ -190,7 +192,7 @@ func squery[T jmap.Idable, R jmap.SearchResults[T], S QuerySupplier[T, R, F, C],
 			// use anchor and anchorOffset and limit:
 			// the anchor for the next query is the ID of the last element in the results for this query
 			// using an anchor offset of +1
-			n := map[string]jmap.QueryParams{}
+			n := map[jmap.AccountId]jmap.QueryParams{}
 			for accountId, payload := range result.Payload {
 				items := payload.GetResults()
 				last := items[len(items)-1]
@@ -199,7 +201,7 @@ func squery[T jmap.Idable, R jmap.SearchResults[T], S QuerySupplier[T, R, F, C],
 			if nextToken, err := nextSingle(n); err != nil {
 				return jmap.ZeroResult[R](), NoNextToken, err
 			} else {
-				single, err := jmap.RefineResultPayload(result, func(m map[string]R) (R, bool, error) {
+				single, err := jmap.RefineResultPayload(result, func(m map[jmap.AccountId]R) (R, bool, error) {
 					if r, ok := m[accountId]; ok {
 						return r, true, nil
 					} else {
@@ -211,7 +213,7 @@ func squery[T jmap.Idable, R jmap.SearchResults[T], S QuerySupplier[T, R, F, C],
 		} else {
 			// multiple accountIds => we need to merge/flatten the results, and we must use anchor and offset for the next page
 			payloads := []T{}
-			originals := map[string][]T{}
+			originals := map[jmap.AccountId][]T{}
 			cc := true
 			total := uint(0)
 			for accountId, searchResult := range result.Payload {
@@ -249,7 +251,7 @@ func squery[T jmap.Idable, R jmap.SearchResults[T], S QuerySupplier[T, R, F, C],
 				r = searchResultCtor(jmap.ChangeCalculation(cc), nil, limit, &total, payloads) // TODO can we determine the position here, instead of nil?
 			}
 
-			lastIdByAccountId := map[string]string{}
+			lastIdByAccountId := map[jmap.AccountId]string{}
 			// not amazing, but since the accountId information is not attached to every single
 			// search result element (e.g. a ContactCard), we have to iterate over the original results that we
 			// have by accountId to find them again, in order to determine the "last ID"
@@ -263,7 +265,7 @@ func squery[T jmap.Idable, R jmap.SearchResults[T], S QuerySupplier[T, R, F, C],
 				}
 			}
 
-			n := map[string]jmap.QueryParams{}
+			n := map[jmap.AccountId]jmap.QueryParams{}
 			for accountId, lastId := range lastIdByAccountId {
 				// the anchor for the next query is the ID of the last element in the results for this query
 				// using an anchor offset of +1
@@ -273,7 +275,7 @@ func squery[T jmap.Idable, R jmap.SearchResults[T], S QuerySupplier[T, R, F, C],
 				return jmap.ZeroResult[R](), NoNextToken, err
 			}
 
-			nextBySupplier := map[string]map[string]jmap.QueryParams{supplier.GetId(): n}
+			nextBySupplier := map[SupplierId]map[jmap.AccountId]jmap.QueryParams{supplier.GetId(): n}
 			if nextToken, err := nextMulti(nextBySupplier); err != nil {
 				return jmap.ZeroResult[R](), NoNextToken, err
 			} else {
@@ -287,11 +289,11 @@ func squery[T jmap.Idable, R jmap.SearchResults[T], S QuerySupplier[T, R, F, C],
 		}
 	default:
 		payloads := []T{}
-		originals := map[string]map[string][]T{}
+		originals := map[SupplierId]map[jmap.AccountId][]T{}
 		cc := true
 		total := uint(0)
 		sessionState := jmap.EmptySessionState
-		states := map[string]jmap.State{}
+		states := map[SupplierId]jmap.State{}
 		lang := jmap.NoLanguage
 		for _, supplier := range suppliers {
 			// we are not injecting id prefixes here for all the objects, as each supplier is responsible for doing that if necessary
@@ -306,7 +308,7 @@ func squery[T jmap.Idable, R jmap.SearchResults[T], S QuerySupplier[T, R, F, C],
 					lang = result.GetLanguage()
 				}
 				// iterate over results by accountId and flatten everything into the 'payloads' array
-				o := map[string][]T{}
+				o := map[jmap.AccountId][]T{}
 				for accountId, searchResult := range result.Payload {
 					o[accountId] = searchResult.GetResults()
 					if !searchResult.GetCanCalculateChanges() {
@@ -345,7 +347,7 @@ func squery[T jmap.Idable, R jmap.SearchResults[T], S QuerySupplier[T, R, F, C],
 			r = searchResultCtor(jmap.ChangeCalculation(cc), nil, limit, &total, payloads) // TODO cen we provide the position here instead of nil?
 		}
 
-		lastIdBySupplierByAccountId := map[string]map[string]string{}
+		lastIdBySupplierByAccountId := map[SupplierId]map[jmap.AccountId]string{}
 		// not amazing, but since the accountId and supplier information is not attached to every single
 		// search result element (e.g. a ContactCard), we have to iterate over the original results that we
 		// kept by supplier and by accountId to find them again, in order to determine the "last ID"
@@ -356,7 +358,7 @@ func squery[T jmap.Idable, R jmap.SearchResults[T], S QuerySupplier[T, R, F, C],
 				for accountId, items := range o {
 					if slices.IndexFunc(items, func(t T) bool { return t.GetId() == item.GetId() }) >= 0 {
 						if _, ok := lastIdBySupplierByAccountId[supplierId]; !ok {
-							lastIdBySupplierByAccountId[supplierId] = map[string]string{}
+							lastIdBySupplierByAccountId[supplierId] = map[jmap.AccountId]string{}
 						}
 						lastIdBySupplierByAccountId[supplierId][accountId] = item.GetId()
 					}
@@ -364,9 +366,9 @@ func squery[T jmap.Idable, R jmap.SearchResults[T], S QuerySupplier[T, R, F, C],
 			}
 		}
 
-		nextBySupplier := map[string]map[string]jmap.QueryParams{}
+		nextBySupplier := map[SupplierId]map[jmap.AccountId]jmap.QueryParams{}
 		for supplierId, m := range lastIdBySupplierByAccountId {
-			n := map[string]jmap.QueryParams{}
+			n := map[jmap.AccountId]jmap.QueryParams{}
 			for accountId, lastId := range m {
 				// the anchor for the next query is the ID of the last element in the results for this query
 				// using an anchor offset of +1
@@ -397,7 +399,7 @@ func squery[T jmap.Idable, R jmap.SearchResults[T], S QuerySupplier[T, R, F, C],
 
 const combinedStateEncodingPrefix = "="
 
-func combineState[S jmap.State | jmap.SessionState](m map[string]S) (S, error) {
+func combineState[K ~string, S jmap.State | jmap.SessionState](m map[K]S) (S, error) {
 	if b, err := json.Marshal(m); err != nil {
 		return "", err
 	} else {
@@ -406,13 +408,13 @@ func combineState[S jmap.State | jmap.SessionState](m map[string]S) (S, error) {
 	}
 }
 
-func splitState[S jmap.State | jmap.SessionState](state S) (map[string]S, error) {
+func splitState[K ~string, S jmap.State | jmap.SessionState](state S) (map[K]S, error) {
 	s := string(state)
 	if strings.HasPrefix(s, combinedStateEncodingPrefix) {
 		if b, err := base64.RawURLEncoding.DecodeString(s[len(combinedStateEncodingPrefix):]); err != nil {
 			return nil, err
 		} else {
-			m := map[string]S{}
+			m := map[K]S{}
 			if err := json.Unmarshal(b, &m); err != nil {
 				return nil, err
 			} else {
@@ -420,6 +422,6 @@ func splitState[S jmap.State | jmap.SessionState](state S) (map[string]S, error)
 			}
 		}
 	} else {
-		return map[string]S{"jmap": state}, nil
+		return map[K]S{K("jmap"): state}, nil
 	}
 }

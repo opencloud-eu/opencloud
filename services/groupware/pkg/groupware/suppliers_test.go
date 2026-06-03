@@ -10,20 +10,20 @@ import (
 )
 
 type PetSupplier struct {
-	id              string
-	petsByAccountId map[string][]Pet
+	id              SupplierId
+	petsByAccountId map[jmap.AccountId][]Pet
 }
 
 // var _ ListSupplier[Pet, PetGetResponse] = &PetSupplier{}
 var _ QuerySupplier[Pet, *PetSearchResults, PetFilterElement, PetComparator] = &PetSupplier{}
 
-func (s *PetSupplier) GetId() string {
+func (s *PetSupplier) GetId() SupplierId {
 	return s.id
 }
 func (s *PetSupplier) IsMine(id string) bool {
-	return strings.HasPrefix(id, s.id+":")
+	return strings.HasPrefix(id, string(s.id)+":")
 }
-func (s *PetSupplier) Query(accountIds []string, qps QueryParamsSupplier, limit *uint, filter PetFilterElement, sortBy []PetComparator, calculateTotal bool, ctx jmap.Context) (jmap.Result[map[string]*PetSearchResults], error) {
+func (s *PetSupplier) Query(accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint, filter PetFilterElement, sortBy []PetComparator, calculateTotal bool, ctx jmap.Context) (jmap.Result[map[jmap.AccountId]*PetSearchResults], error) {
 	return inmemquery(s.id, s.petsByAccountId, accountIds, qps, limit, calculateTotal,
 		func(results []Pet, canCalculateChanges jmap.ChangeCalculation, position *uint, limit *uint, total *uint) *PetSearchResults {
 			return &PetSearchResults{Results: results, CanCalculateChanges: canCalculateChanges, Position: position, Limit: limit, Total: total}
@@ -32,18 +32,18 @@ func (s *PetSupplier) Query(accountIds []string, qps QueryParamsSupplier, limit 
 }
 
 func inmemquery[T jmap.Idable, R jmap.SearchResults[T]](
-	supplierId string,
-	store map[string][]T,
-	accountIds []string,
+	supplierId SupplierId,
+	store map[jmap.AccountId][]T,
+	accountIds []jmap.AccountId,
 	qps QueryParamsSupplier, limit *uint,
 	calculateTotal bool,
 	searchResultCtor func(results []T, canCalculateChanges jmap.ChangeCalculation, position *uint, limit *uint, total *uint) R,
-) (jmap.Result[map[string]R], error) {
-	payload := make(map[string]R, len(accountIds))
+) (jmap.Result[map[jmap.AccountId]R], error) {
+	payload := make(map[jmap.AccountId]R, len(accountIds))
 	for _, accountId := range accountIds {
 		qp := jmap.NullQueryParams
 		if q, ok, err := qps.ForSupplier(supplierId, accountId); err != nil {
-			return jmap.ZeroResult[map[string]R](), err
+			return jmap.ZeroResult[map[jmap.AccountId]R](), err
 		} else if ok {
 			qp = q
 		}
@@ -91,7 +91,7 @@ func inmemquery[T jmap.Idable, R jmap.SearchResults[T]](
 
 		payload[accountId] = res
 	}
-	return jmap.Result[map[string]R]{
+	return jmap.Result[map[jmap.AccountId]R]{
 		Payload:      payload,
 		SessionState: jmap.EmptySessionState,
 		State:        jmap.EmptyState,
@@ -101,7 +101,7 @@ func inmemquery[T jmap.Idable, R jmap.SearchResults[T]](
 
 func pets(
 	suppliers []QuerySupplier[Pet, *PetSearchResults, PetFilterElement, PetComparator],
-	accountIds []string, qps QueryParamsSupplier, limit *uint,
+	accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint,
 	filter PetFilterElement, sortBy []PetComparator,
 	calculateTotal bool,
 	ctx jmap.Context) (jmap.Result[*PetSearchResults], NextToken, error) {
@@ -125,7 +125,7 @@ func TestSquery(t *testing.T) {
 	suppliers := []QuerySupplier[Pet, *PetSearchResults, PetFilterElement, PetComparator]{
 		&PetSupplier{
 			id: "X",
-			petsByAccountId: map[string][]Pet{
+			petsByAccountId: map[jmap.AccountId][]Pet{
 				"a": {
 					{id: "X:1", name: "ace"},
 					{id: "X:2", name: "bella"},
@@ -137,7 +137,7 @@ func TestSquery(t *testing.T) {
 		},
 		&PetSupplier{
 			id: "Y",
-			petsByAccountId: map[string][]Pet{
+			petsByAccountId: map[jmap.AccountId][]Pet{
 				"a": {
 					{id: "Y:1", name: "cupcake"},
 					{id: "Y:2", name: "elvis"},
@@ -149,14 +149,14 @@ func TestSquery(t *testing.T) {
 			},
 		},
 	}
-	f := func(accountIds []string, position int, anchor string, anchorOffset *int, limit *uint) (jmap.Result[*PetSearchResults], NextToken, error) {
+	f := func(accountIds []jmap.AccountId, position int, anchor string, anchorOffset *int, limit *uint) (jmap.Result[*PetSearchResults], NextToken, error) {
 		return pets(suppliers, accountIds,
 			StaticQueryParamsSupplier{qp: jmap.QueryParams{Position: position, Anchor: anchor, AnchorOffset: anchorOffset}}, limit,
 			PetFilterCondition{}, []PetComparator{{Property: "id", IsAscending: true}},
 			true, jmap.Context{},
 		)
 	}
-	n := func(accountIds []string, nextToken NextToken, limit *uint) (jmap.Result[*PetSearchResults], NextToken, error) {
+	n := func(accountIds []jmap.AccountId, nextToken NextToken, limit *uint) (jmap.Result[*PetSearchResults], NextToken, error) {
 		if qps, err := unnext(nextToken); err != nil {
 			return jmap.ZeroResult[*PetSearchResults](), NoNextToken, err
 		} else {
@@ -165,7 +165,7 @@ func TestSquery(t *testing.T) {
 	}
 
 	{
-		res, n, err := f([]string{"a", "b", "c"}, 0, "", nil, nil)
+		res, n, err := f([]jmap.AccountId{"a", "b", "c"}, 0, "", nil, nil)
 		require.NoError(err)
 		require.Len(res.Payload.Results, 7)
 		require.Equal(uint(len(res.Payload.Results)), *res.Payload.Total)
@@ -189,7 +189,7 @@ func TestSquery(t *testing.T) {
 	}
 	var nextToken NextToken
 	{
-		res, n, err := f([]string{"a", "b", "c"}, 0, "", nil, uintPtr(4))
+		res, n, err := f([]jmap.AccountId{"a", "b", "c"}, 0, "", nil, uintPtr(4))
 		nextToken = n
 		require.NoError(err)
 		require.Len(res.Payload.Results, 4)
@@ -210,7 +210,7 @@ func TestSquery(t *testing.T) {
 		}
 	}
 	{
-		res, _, err := n([]string{"a", "b", "c"}, nextToken, uintPtr(4))
+		res, _, err := n([]jmap.AccountId{"a", "b", "c"}, nextToken, uintPtr(4))
 		require.NoError(err)
 		require.Equal(uint(7), *res.Payload.Total)
 		require.Len(res.Payload.Results, 3)

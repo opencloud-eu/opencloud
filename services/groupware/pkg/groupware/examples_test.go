@@ -27,8 +27,8 @@ func (e Exemplar) AccountQuota() AccountQuota {
 	}
 }
 
-func (e Exemplar) AccountQuotaMap() map[string]AccountQuota {
-	return map[string]AccountQuota{
+func (e Exemplar) AccountQuotaMap() map[jmap.AccountId]AccountQuota {
+	return map[jmap.AccountId]AccountQuota{
 		j.AccountId: e.AccountQuota(),
 	}
 }
@@ -148,23 +148,23 @@ func (e Exemplar) ErrorResponse() ErrorResponse {
 	}
 }
 
-func (e Exemplar) MailboxesByAccountId() (map[string][]jmap.Mailbox, string) {
+func (e Exemplar) MailboxesByAccountId() (map[jmap.AccountId][]jmap.Mailbox, string) {
 	j := jmap.ExemplarInstance
-	return map[string][]jmap.Mailbox{
+	return map[jmap.AccountId][]jmap.Mailbox{
 		j.AccountId: j.Mailboxes(),
 	}, "All mailboxes for all accounts, without a role filter"
 }
 
-func (e Exemplar) MailboxesByAccountIdFilteredOnInboxRole() (map[string][]jmap.Mailbox, string, string) {
+func (e Exemplar) MailboxesByAccountIdFilteredOnInboxRole() (map[jmap.AccountId][]jmap.Mailbox, string, string) {
 	j := jmap.ExemplarInstance
-	return map[string][]jmap.Mailbox{
+	return map[jmap.AccountId][]jmap.Mailbox{
 		j.AccountId: structs.Filter(j.Mailboxes(), func(m jmap.Mailbox) bool { return m.Role == jmap.JmapMailboxRoleInbox }),
 	}, "All mailboxes for all accounts, filtered on the 'inbox' role", "inboxrole"
 }
 
-func (e Exemplar) MailboxRolesByAccounts() (map[string][]string, string, string, string) {
+func (e Exemplar) MailboxRolesByAccounts() (map[jmap.AccountId][]string, string, string, string) {
 	j := jmap.ExemplarInstance
-	return map[string][]string{
+	return map[jmap.AccountId][]string{
 		j.AccountId:       jmap.JmapMailboxRoles,
 		j.SharedAccountId: jmap.JmapMailboxRoles,
 	}, "Roles of the Mailboxes of each Account", "", "mailboxrolesbyaccount"

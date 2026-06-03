@@ -10,7 +10,7 @@ import (
 
 var NS_BLOB = ns(JmapBlob)
 
-func (j *Client) GetBlobMetadata(accountId string, ids []string, ctx Context) (Result[BlobGetResponse], error) {
+func (j *Client) GetBlobMetadata(accountId AccountId, ids []string, ctx Context) (Result[BlobGetResponse], error) {
 	get := BlobGetCommand{
 		AccountId: accountId,
 		Ids:       ids,
@@ -41,20 +41,20 @@ type UploadedBlobWithHash struct {
 	Sha512 string `json:"sha:512,omitempty"`
 }
 
-func (j *Client) UploadBlobStream(accountId string, contentType string, body io.Reader, ctx Context) (UploadedBlob, Language, error) {
+func (j *Client) UploadBlobStream(accountId AccountId, contentType string, body io.Reader, ctx Context) (UploadedBlob, Language, error) {
 	logger := log.From(ctx.Logger.With().Str(logEndpoint, ctx.Session.UploadEndpoint))
 	ctx = ctx.WithLogger(logger)
 	// TODO(pbleser-oc) use a library for proper URL template parsing
-	uploadUrl := strings.ReplaceAll(ctx.Session.UploadUrlTemplate, "{accountId}", accountId)
+	uploadUrl := strings.ReplaceAll(ctx.Session.UploadUrlTemplate, "{accountId}", string(accountId))
 	return j.blob.UploadBinary(uploadUrl, ctx.Session.UploadEndpoint, contentType, body, ctx)
 }
 
-func (j *Client) DownloadBlobStream(accountId string, blobId string, name string, typ string, ctx Context) (*BlobDownload, Language, error) { //NOSONAR
+func (j *Client) DownloadBlobStream(accountId AccountId, blobId string, name string, typ string, ctx Context) (*BlobDownload, Language, error) { //NOSONAR
 	logger := log.From(ctx.Logger.With().Str(logEndpoint, ctx.Session.DownloadEndpoint))
 	ctx = ctx.WithLogger(logger)
 	// TODO(pbleser-oc) use a library for proper URL template parsing
 	downloadUrl := ctx.Session.DownloadUrlTemplate
-	downloadUrl = strings.ReplaceAll(downloadUrl, "{accountId}", accountId)
+	downloadUrl = strings.ReplaceAll(downloadUrl, "{accountId}", string(accountId))
 	downloadUrl = strings.ReplaceAll(downloadUrl, "{blobId}", blobId)
 	downloadUrl = strings.ReplaceAll(downloadUrl, "{name}", name)
 	downloadUrl = strings.ReplaceAll(downloadUrl, "{type}", typ)
@@ -62,7 +62,7 @@ func (j *Client) DownloadBlobStream(accountId string, blobId string, name string
 	return j.blob.DownloadBinary(downloadUrl, ctx.Session.DownloadEndpoint, ctx)
 }
 
-func (j *Client) UploadBlob(accountId string, data []byte, contentType string, ctx Context) (Result[UploadedBlobWithHash], error) {
+func (j *Client) UploadBlob(accountId AccountId, data []byte, contentType string, ctx Context) (Result[UploadedBlobWithHash], error) {
 	encoded := base64.StdEncoding.EncodeToString(data)
 
 	upload := BlobUploadCommand{
@@ -131,5 +131,4 @@ func (j *Client) UploadBlob(accountId string, data []byte, contentType string, c
 			Sha512: get.DigestSha512,
 		}, getResponse.State, nil
 	})
-
 }

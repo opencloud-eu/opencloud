@@ -9,11 +9,12 @@ const (
 
 // Safely caps a string to a given size to avoid log bombing.
 // Use this function to wrap strings that are user input (HTTP headers, path parameters, URI parameters, HTTP body, ...).
-func SafeString(text string) string {
-	runes := []rune(text)
+func SafeString[S ~string](text S) string {
+	t := string(text)
+	runes := []rune(t)
 
 	if len(runes) <= logMaxStrLength {
-		return text
+		return t
 	} else {
 		return string(runes[0:logMaxStrLength-1]) + `\u2026` // hellip
 	}

@@ -124,8 +124,8 @@ func SerializeExamples(e any) { //NOSONAR
 }
 
 type Exemplar struct {
-	AccountId                  string
-	SharedAccountId            string
+	AccountId                  AccountId
+	SharedAccountId            AccountId
 	IdentityId                 string
 	IdentityName               string
 	EmailAddress               string
@@ -331,9 +331,9 @@ func (e Exemplar) SessionCalendarsParseAccountCapabilities() SessionCalendarsPar
 	return SessionCalendarsParseAccountCapabilities{}
 }
 
-func (e Exemplar) sessionPrincipalsAccountCapabilities(accountId string) SessionPrincipalsAccountCapabilities {
+func (e Exemplar) sessionPrincipalsAccountCapabilities(accountId AccountId) SessionPrincipalsAccountCapabilities {
 	return SessionPrincipalsAccountCapabilities{
-		CurrentUserPrincipalId: accountId,
+		CurrentUserPrincipalId: PrincipalId(accountId),
 	}
 }
 
@@ -380,7 +380,7 @@ func (e Exemplar) SessionTasksCustomTimezonesAccountCapabilities() SessionTasksC
 func (e Exemplar) SessionPrincipalsOwnerAccountCapabilities() SessionPrincipalsOwnerAccountCapabilities {
 	return SessionPrincipalsOwnerAccountCapabilities{
 		AccountIdForPrincipal: e.AccountId,
-		PrincipalId:           e.AccountId,
+		PrincipalId:           PrincipalId(e.AccountId),
 	}
 }
 
@@ -392,7 +392,7 @@ func (e Exemplar) SessionAccountCapabilities() SessionAccountCapabilities {
 	return e.sessionAccountCapabilities(e.AccountId)
 }
 
-func (e Exemplar) sessionAccountCapabilities(accountId string) SessionAccountCapabilities {
+func (e Exemplar) sessionAccountCapabilities(accountId AccountId) SessionAccountCapabilities {
 	mail := e.SessionMailAccountCapabilities()
 	submission := e.SessionSubmissionAccountCapabilities()
 	vacationResponse := e.SessionVacationResponseAccountCapabilities()
@@ -446,7 +446,7 @@ func (e Exemplar) Account() (Account, string) {
 
 func (e Exemplar) SharedAccount() (Account, string, string) {
 	return Account{
-		Name:                e.SharedAccountId,
+		Name:                string(e.SharedAccountId),
 		IsPersonal:          false,
 		IsReadOnly:          true,
 		AccountCapabilities: e.sessionAccountCapabilities(e.SharedAccountId),
@@ -489,7 +489,7 @@ func (e Exemplar) Quotas() []Quota {
 			Scope:        "account",
 			Used:         29102918,
 			HardLimit:    50000000000,
-			Name:         e.SharedAccountId,
+			Name:         string(e.SharedAccountId),
 			Types: []ObjectTypeName{
 				EmailName,
 				SieveScriptName,

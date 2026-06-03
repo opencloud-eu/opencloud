@@ -26,8 +26,8 @@ var TL1 = jmap.TaskList{
 	WorkflowStatuses: []string{
 		"new", "todo", "in-progress", "done",
 	},
-	ShareWith: map[string]jmap.TaskRights{
-		"eefeeb4p": {
+	ShareWith: map[jmap.PrincipalId]jmap.TaskRights{
+		jmap.PrincipalId("eefeeb4p"): {
 			MayReadItems:     true,
 			MayWriteAll:      false,
 			MayWriteOwn:      true,

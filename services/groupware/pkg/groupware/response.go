@@ -32,13 +32,13 @@ type Response struct {
 	err             *Error
 	etag            jmap.State
 	objectType      ResponseObjectType
-	accountIds      []string
+	accountIds      []jmap.AccountId
 	sessionState    jmap.SessionState
 	contentLanguage jmap.Language
 	next            NextToken
 }
 
-func errorResponse(accountIds []string, err *Error, sessionState jmap.SessionState, contentLanguage jmap.Language) Response {
+func errorResponse(accountIds []jmap.AccountId, err *Error, sessionState jmap.SessionState, contentLanguage jmap.Language) Response {
 	return Response{
 		accountIds:      accountIds,
 		body:            nil,
@@ -50,7 +50,7 @@ func errorResponse(accountIds []string, err *Error, sessionState jmap.SessionSta
 	}
 }
 
-func response(accountIds []string, body any, sessionState jmap.SessionState, contentLanguage jmap.Language) Response {
+func response(accountIds []jmap.AccountId, body any, sessionState jmap.SessionState, contentLanguage jmap.Language) Response {
 	return Response{
 		accountIds:      accountIds,
 		body:            body,
@@ -62,11 +62,11 @@ func response(accountIds []string, body any, sessionState jmap.SessionState, con
 	}
 }
 
-func (r *Request) respondWithoutStatus(accountId string, body any) Response {
+func (r *Request) respondWithoutStatus(accountId jmap.AccountId, body any) Response {
 	return response(single(accountId), body, r.session.State, jmap.Language(r.language()))
 }
 
-func etaggedResponse(accountIds []string, body any, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State, contentLanguage jmap.Language) Response {
+func etaggedResponse(accountIds []jmap.AccountId, body any, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State, contentLanguage jmap.Language) Response {
 	return Response{
 		accountIds:      accountIds,
 		body:            body,
@@ -79,15 +79,15 @@ func etaggedResponse(accountIds []string, body any, sessionState jmap.SessionSta
 	}
 }
 
-func (r *Request) respond(accountId string, body any, objectType ResponseObjectType, result jmap.ResultMetadata) Response {
+func (r *Request) respond(accountId jmap.AccountId, body any, objectType ResponseObjectType, result jmap.ResultMetadata) Response {
 	return etaggedResponse(single(accountId), body, result.GetSessionState(), objectType, result.GetState(), result.GetLanguage())
 }
 
-func (r *Request) respondN(accountIds []string, body any, objectType ResponseObjectType, result jmap.ResultMetadata) Response {
+func (r *Request) respondN(accountIds []jmap.AccountId, body any, objectType ResponseObjectType, result jmap.ResultMetadata) Response {
 	return etaggedResponse(accountIds, body, result.GetSessionState(), objectType, result.GetState(), result.GetLanguage())
 }
 
-func etaggedNextResponse(accountIds []string, body any, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State, contentLanguage jmap.Language, next NextToken) Response {
+func etaggedNextResponse(accountIds []jmap.AccountId, body any, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State, contentLanguage jmap.Language, next NextToken) Response {
 	return Response{
 		accountIds:      accountIds,
 		body:            body,
@@ -100,7 +100,7 @@ func etaggedNextResponse(accountIds []string, body any, sessionState jmap.Sessio
 	}
 }
 
-func (r *Request) respondNext(accountId string, body any, objectType ResponseObjectType, result jmap.ResultMetadata, next NextToken) Response {
+func (r *Request) respondNext(accountId jmap.AccountId, body any, objectType ResponseObjectType, result jmap.ResultMetadata, next NextToken) Response {
 	return etaggedNextResponse(single(accountId), body, result.GetSessionState(), objectType, result.GetState(), result.GetLanguage(), next)
 }
 
@@ -117,7 +117,7 @@ func etagOnlyResponse(body any, etag jmap.State, objectType ResponseObjectType, 
 }
 */
 
-func noContentResponse(accountIds []string, sessionState jmap.SessionState) Response {
+func noContentResponse(accountIds []jmap.AccountId, sessionState jmap.SessionState) Response {
 	return Response{
 		accountIds:   accountIds,
 		body:         nil,
@@ -129,15 +129,15 @@ func noContentResponse(accountIds []string, sessionState jmap.SessionState) Resp
 	}
 }
 
-func (r *Request) noop(accountId string) Response {
+func (r *Request) noop(accountId jmap.AccountId) Response {
 	return noContentResponse(single(accountId), r.session.State)
 }
 
-func (r *Request) noopN(accountIds []string) Response {
+func (r *Request) noopN(accountIds []jmap.AccountId) Response {
 	return noContentResponse(accountIds, r.session.State)
 }
 
-func noContentResponseWithEtag(accountIds []string, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State) Response {
+func noContentResponseWithEtag(accountIds []jmap.AccountId, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State) Response {
 	return Response{
 		accountIds:   accountIds,
 		body:         nil,
@@ -150,7 +150,7 @@ func noContentResponseWithEtag(accountIds []string, sessionState jmap.SessionSta
 	}
 }
 
-func (r *Request) noContent(accountId string, objectType ResponseObjectType, result jmap.ResultMetadata) Response {
+func (r *Request) noContent(accountId jmap.AccountId, objectType ResponseObjectType, result jmap.ResultMetadata) Response {
 	return noContentResponseWithEtag(single(accountId), result.GetSessionState(), objectType, result.GetState())
 }
 
@@ -178,7 +178,7 @@ func timeoutResponse(sessionState jmap.SessionState) Response {
 }
 */
 
-func notFoundResponse(accountIds []string, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State) Response {
+func notFoundResponse(accountIds []jmap.AccountId, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State) Response {
 	return Response{
 		accountIds:   accountIds,
 		body:         nil,
@@ -191,11 +191,11 @@ func notFoundResponse(accountIds []string, sessionState jmap.SessionState, objec
 	}
 }
 
-func (r *Request) notFound(accountId string, objectType ResponseObjectType, result jmap.ResultMetadata) Response {
+func (r *Request) notFound(accountId jmap.AccountId, objectType ResponseObjectType, result jmap.ResultMetadata) Response {
 	return notFoundResponse(single(accountId), result.GetSessionState(), objectType, result.GetState())
 }
 
-func etaggedNotFoundResponse(accountIds []string, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State, contentLanguage jmap.Language) Response {
+func etaggedNotFoundResponse(accountIds []jmap.AccountId, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State, contentLanguage jmap.Language) Response {
 	return Response{
 		accountIds:      accountIds,
 		body:            nil,
@@ -209,11 +209,11 @@ func etaggedNotFoundResponse(accountIds []string, sessionState jmap.SessionState
 	}
 }
 
-func (r *Request) etaggedNotFound(accountId string, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State) Response {
+func (r *Request) etaggedNotFound(accountId jmap.AccountId, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State) Response {
 	return etaggedNotFoundResponse(single(accountId), sessionState, objectType, etag, jmap.Language(r.language()))
 }
 
-func notImplementedResponse(accountIds []string, sessionState jmap.SessionState, objectType ResponseObjectType) Response {
+func notImplementedResponse(accountIds []jmap.AccountId, sessionState jmap.SessionState, objectType ResponseObjectType) Response {
 	return Response{
 		accountIds:   accountIds,
 		body:         nil,
@@ -225,6 +225,6 @@ func notImplementedResponse(accountIds []string, sessionState jmap.SessionState,
 	}
 }
 
-func (r *Request) notImplementedN(accountIds []string, objectType ResponseObjectType) Response {
+func (r *Request) notImplementedN(accountIds []jmap.AccountId, objectType ResponseObjectType) Response {
 	return notImplementedResponse(accountIds, r.session.State, objectType)
 }
