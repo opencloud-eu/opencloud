@@ -11,7 +11,7 @@ type AccountBootstrapResult struct {
 
 var NS_MAIL_QUOTA = ns(JmapMail, JmapQuota)
 
-func (j *Client) GetBootstrap(accountIds []string, ctx Context) (Result[map[string]AccountBootstrapResult], error) { //NOSONAR
+func (j *Client) GetBootstrap(accountIds []AccountId, ctx Context) (Result[map[AccountId]AccountBootstrapResult], error) { //NOSONAR
 	uniqueAccountIds := structs.Uniq(accountIds)
 
 	logger := j.logger("GetBootstrap", ctx)
@@ -25,13 +25,13 @@ func (j *Client) GetBootstrap(accountIds []string, ctx Context) (Result[map[stri
 
 	cmd, err := j.request(ctx, NS_MAIL_QUOTA, calls...)
 	if err != nil {
-		return ZeroResult[map[string]AccountBootstrapResult](), err
+		return ZeroResult[map[AccountId]AccountBootstrapResult](), err
 	}
-	return command(j, ctx, cmd, func(body *Response) (map[string]AccountBootstrapResult, State, Error) {
-		identityPerAccount := map[string][]Identity{}
-		quotaPerAccount := map[string][]Quota{}
-		identityStatesPerAccount := map[string]State{}
-		quotaStatesPerAccount := map[string]State{}
+	return command(j, ctx, cmd, func(body *Response) (map[AccountId]AccountBootstrapResult, State, Error) {
+		identityPerAccount := map[AccountId][]Identity{}
+		quotaPerAccount := map[AccountId][]Quota{}
+		identityStatesPerAccount := map[AccountId]State{}
+		quotaStatesPerAccount := map[AccountId]State{}
 		for _, accountId := range uniqueAccountIds {
 			var identityResponse IdentityGetResponse
 			err = retrieveResponseMatchParameters(ctx, body, CommandIdentityGet, mcid(accountId, "I"), &identityResponse)
@@ -52,7 +52,7 @@ func (j *Client) GetBootstrap(accountIds []string, ctx Context) (Result[map[stri
 			}
 		}
 
-		result := map[string]AccountBootstrapResult{}
+		result := map[AccountId]AccountBootstrapResult{}
 		for accountId, value := range identityPerAccount {
 			r, ok := result[accountId]
 			if !ok {

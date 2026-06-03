@@ -11,9 +11,9 @@ const (
 	vacationResponseId = "singleton"
 )
 
-func (j *Client) GetVacationResponse(accountId string, ctx Context) (Result[VacationResponseGetResponse], error) {
+func (j *Client) GetVacationResponse(accountId AccountId, ctx Context) (Result[VacationResponseGetResponse], error) {
 	return get(j, "GetVacationResponse", VacationResponseType,
-		func(accountId string, ids []string) VacationResponseGetCommand {
+		func(accountId AccountId, ids []string) VacationResponseGetCommand {
 			return VacationResponseGetCommand{AccountId: accountId}
 		},
 		VacationResponseGetResponse{},
@@ -64,7 +64,7 @@ func (c VacationResponseChanges) GetCreated() []VacationResponse { return c.Crea
 func (c VacationResponseChanges) GetUpdated() []VacationResponse { return c.Updated }
 func (c VacationResponseChanges) GetDestroyed() []string         { return c.Destroyed }
 
-func (j *Client) SetVacationResponse(accountId string, vacation VacationResponseChange,
+func (j *Client) SetVacationResponse(accountId AccountId, vacation VacationResponseChange,
 	ctx Context) (Result[VacationResponse], error) {
 	logger := j.logger("SetVacationResponse", ctx)
 	ctx = ctx.WithLogger(logger)

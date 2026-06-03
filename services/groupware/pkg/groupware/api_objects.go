@@ -45,7 +45,7 @@ func (g *Groupware) GetObjects(w http.ResponseWriter, r *http.Request) { //NOSON
 		if err != nil {
 			return req.error(accountId, err)
 		}
-		l = l.Str(logAccountId, accountId)
+		l = l.Str(logAccountId, log.SafeString(accountId))
 
 		mailboxIds := []string{}
 		emailIds := []string{}

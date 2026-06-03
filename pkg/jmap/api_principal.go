@@ -2,9 +2,9 @@ package jmap
 
 var NS_PRINCIPALS = ns(JmapPrincipals)
 
-func (j *Client) GetPrincipals(accountId string, ids []string, ctx Context) (Result[PrincipalGetResponse], error) {
+func (j *Client) GetPrincipals(accountId AccountId, ids []PrincipalId, ctx Context) (Result[PrincipalGetResponse], error) {
 	return get(j, "GetPrincipals", PrincipalType,
-		func(accountId string, ids []string) PrincipalGetCommand {
+		func(accountId AccountId, ids []PrincipalId) PrincipalGetCommand {
 			return PrincipalGetCommand{AccountId: accountId, Ids: ids}
 		},
 		PrincipalGetResponse{},
@@ -29,15 +29,15 @@ func (r *PrincipalSearchResults) RemoveResults()             { r.Results = nil }
 func (r *PrincipalSearchResults) SetLimit(limit *uint)       { r.Limit = limit }
 func (r *PrincipalSearchResults) SetPosition(position *uint) { r.Position = position }
 
-func (j *Client) QueryPrincipals(accountIds map[string]QueryParams, limit *uint, //NOSONAR
+func (j *Client) QueryPrincipals(accountIds map[AccountId]QueryParams, limit *uint, //NOSONAR
 	filter PrincipalFilterElement, sortBy []PrincipalComparator, calculateTotal bool,
-	ctx Context) (Result[map[string]*PrincipalSearchResults], error) {
+	ctx Context) (Result[map[AccountId]*PrincipalSearchResults], error) {
 	return queryN(j, "QueryPrincipals", PrincipalType,
 		[]PrincipalComparator{{Property: PrincipalPropertyName, IsAscending: true}},
-		func(accountId string, p QueryParams, limit *uint, filter PrincipalFilterElement, sortBy []PrincipalComparator) PrincipalQueryCommand {
+		func(accountId AccountId, p QueryParams, limit *uint, filter PrincipalFilterElement, sortBy []PrincipalComparator) PrincipalQueryCommand {
 			return PrincipalQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, Position: p.Position, Anchor: p.Anchor, AnchorOffset: p.AnchorOffset, Limit: limit, CalculateTotal: calculateTotal}
 		},
-		func(accountId string, cmd Command, path, rof string) PrincipalGetRefCommand {
+		func(accountId AccountId, cmd Command, path, rof string) PrincipalGetRefCommand {
 			return PrincipalGetRefCommand{AccountId: accountId, IdsRef: &ResultReference{Name: cmd, Path: path, ResultOf: rof}}
 		},
 		func(query PrincipalQueryResponse, queryParams QueryParams, limit *uint) *PrincipalSearchResults {

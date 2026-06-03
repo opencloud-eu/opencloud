@@ -34,7 +34,7 @@ func (g *Groupware) GetChanges(w http.ResponseWriter, r *http.Request) { //NOSON
 		if err != nil {
 			return req.error(accountId, err)
 		}
-		l = l.Str(logAccountId, accountId)
+		l = l.Str(logAccountId, log.SafeString(accountId))
 
 		var maxChanges uint = 0
 		if v, ok, err := req.parseUIntParam(QueryParamMaxChanges, 0); err != nil { // The maximum amount of changes to emit for each type of object.

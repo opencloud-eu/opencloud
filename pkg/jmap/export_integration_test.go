@@ -584,8 +584,8 @@ type uploadedBlob struct {
 	Sha512 string `json:"sha:512"`
 }
 
-func (j *TestJmapClient) uploadBlob(accountId string, data []byte, mimetype string) (uploadedBlob, error) { //NOSONAR
-	uploadUrl := strings.ReplaceAll(j.session.UploadUrl, "{accountId}", accountId)
+func (j *TestJmapClient) uploadBlob(accountId AccountId, data []byte, mimetype string) (uploadedBlob, error) { //NOSONAR
+	uploadUrl := strings.ReplaceAll(j.session.UploadUrl, "{accountId}", string(accountId))
 	req, err := http.NewRequest(http.MethodPost, uploadUrl, bytes.NewReader(data))
 	if err != nil {
 		return uploadedBlob{}, err
@@ -707,7 +707,7 @@ func (c Commander[T]) command(body map[string]any) (T, error) {
 	return c.closure(methodResponses)
 }
 
-func (j *TestJmapClient) objectsById(accountId string, objectType ObjectType) (map[string]map[string]any, error) {
+func (j *TestJmapClient) objectsById(accountId AccountId, objectType ObjectType) (map[string]map[string]any, error) {
 	m := map[string]map[string]any{}
 	{
 		body := map[string]any{
@@ -1154,13 +1154,13 @@ func deepEqual[T any](t *testing.T, expected, actual T) {
 }
 
 func containerTest[OBJ Idable, RESP GetResponse[OBJ], BOXES any, CHANGE Change](t *testing.T, //NOSONAR
-	acc func(session *Session) string,
+	acc func(session *Session) AccountId,
 	obj func(RESP) []OBJ,
 	id func(OBJ) string,
-	get func(s *StalwartTest, accountId string, ids []string, ctx Context) (Result[RESP], error),
-	update func(s *StalwartTest, accountId string, id string, change CHANGE, ctx Context) (Result[OBJ], error),
-	destroy func(s *StalwartTest, accountId string, ids []string, ctx Context) (Result[map[string]SetError], error),
-	fill func(s *StalwartTest, t *testing.T, accountId string, count uint, ctx Context, _ User, principalIds []string) (BOXES, []OBJ, SessionState, State, error),
+	get func(s *StalwartTest, accountId AccountId, ids []string, ctx Context) (Result[RESP], error),
+	update func(s *StalwartTest, accountId AccountId, id string, change CHANGE, ctx Context) (Result[OBJ], error),
+	destroy func(s *StalwartTest, accountId AccountId, ids []string, ctx Context) (Result[map[string]SetError], error),
+	fill func(s *StalwartTest, t *testing.T, accountId AccountId, count uint, ctx Context, _ User, principalIds []PrincipalId) (BOXES, []OBJ, SessionState, State, error),
 	change func(OBJ) CHANGE,
 	checkChanged func(t *testing.T, orig OBJ, change CHANGE, changed OBJ),
 ) {
@@ -1177,12 +1177,12 @@ func containerTest[OBJ Idable, RESP GetResponse[OBJ], BOXES any, CHANGE Change](
 	accountId := acc(session)
 
 	// we first need to retrieve the list of all the Principals in order to be able to use and test sharing
-	principalIds := []string{}
+	principalIds := []PrincipalId{}
 	{
-		result, err := s.client.GetPrincipals(accountId, []string{}, ctx)
+		result, err := s.client.GetPrincipals(accountId, []PrincipalId{}, ctx)
 		require.NoError(err)
 		require.NotEmpty(result.Payload.List)
-		principalIds = structs.Map(result.Payload.List, func(p Principal) string { return p.Id })
+		principalIds = structs.Map(result.Payload.List, func(p Principal) PrincipalId { return PrincipalId(p.Id) })
 	}
 
 	ss := EmptySessionState

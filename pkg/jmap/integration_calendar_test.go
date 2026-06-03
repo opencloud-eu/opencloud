@@ -32,19 +32,19 @@ func TestCalendars(t *testing.T) { //NOSONAR
 	}
 
 	containerTest(t,
-		func(session *Session) string { return session.PrimaryAccounts.Calendars },
+		func(session *Session) AccountId { return session.PrimaryAccounts.Calendars },
 		func(resp CalendarGetResponse) []Calendar { return resp.List },
 		func(obj Calendar) string { return obj.Id },
-		func(s *StalwartTest, accountId string, ids []string, ctx Context) (Result[CalendarGetResponse], error) {
+		func(s *StalwartTest, accountId AccountId, ids []string, ctx Context) (Result[CalendarGetResponse], error) {
 			return s.client.GetCalendars(accountId, ids, ctx)
 		},
-		func(s *StalwartTest, accountId string, id string, change CalendarChange, ctx Context) (Result[Calendar], error) { //NOSONAR
+		func(s *StalwartTest, accountId AccountId, id string, change CalendarChange, ctx Context) (Result[Calendar], error) { //NOSONAR
 			return s.client.UpdateCalendar(accountId, id, change, ctx)
 		},
-		func(s *StalwartTest, accountId string, ids []string, ctx Context) (Result[map[string]SetError], error) { //NOSONAR
+		func(s *StalwartTest, accountId AccountId, ids []string, ctx Context) (Result[map[string]SetError], error) { //NOSONAR
 			return s.client.DeleteCalendar(accountId, ids, ctx)
 		},
-		func(s *StalwartTest, t *testing.T, accountId string, count uint, ctx Context, user User, principalIds []string) (CalendarBoxes, []Calendar, SessionState, State, error) {
+		func(s *StalwartTest, t *testing.T, accountId AccountId, count uint, ctx Context, user User, principalIds []PrincipalId) (CalendarBoxes, []Calendar, SessionState, State, error) {
 			return s.fillCalendar(t, accountId, count, ctx, user, principalIds)
 		},
 		func(orig Calendar) CalendarChange {
@@ -94,7 +94,7 @@ func TestEvents(t *testing.T) {
 	os := EmptyState
 	var results *CalendarEventSearchResults
 	{
-		result, err := s.client.QueryCalendarEvents(toNullQueryParams([]string{accountId}), nil, filter, sortBy, true, ctx)
+		result, err := s.client.QueryCalendarEvents(toNullQueryParams([]AccountId{accountId}), nil, filter, sortBy, true, ctx)
 		require.NoError(err)
 
 		require.Len(result.Payload, 1)
@@ -127,7 +127,7 @@ func TestEvents(t *testing.T) {
 		for i := range slices {
 			position := int(i * limit)
 			page := min(remainder, limit)
-			result, err := s.client.QueryCalendarEvents(map[string]QueryParams{accountId: {Position: position}}, &limit, filter, sortBy, true, ctx)
+			result, err := s.client.QueryCalendarEvents(map[AccountId]QueryParams{accountId: {Position: position}}, &limit, filter, sortBy, true, ctx)
 			require.NoError(err)
 			require.Len(result.Payload, 1)
 			require.Contains(result.Payload, accountId)
@@ -152,7 +152,7 @@ func TestEvents(t *testing.T) {
 		offset := 0
 		i := 0
 		for chunk := range slices.Chunk(results.Results, chunkSize) {
-			result, err := s.client.QueryCalendarEvents(map[string]QueryParams{accountId: {Anchor: anchor, AnchorOffset: &offset}}, uintPtr(chunkSize), filter, sortBy, true, ctx)
+			result, err := s.client.QueryCalendarEvents(map[AccountId]QueryParams{accountId: {Anchor: anchor, AnchorOffset: &offset}}, uintPtr(chunkSize), filter, sortBy, true, ctx)
 			require.Equal(ss, result.GetSessionState())
 			require.NoError(err)
 			require.Len(result.Payload, 1)
@@ -207,7 +207,7 @@ func TestEvents(t *testing.T) {
 	}
 
 	{
-		result, err := s.client.QueryCalendarEvents(toNullQueryParams([]string{accountId}), nil, filter, sortBy, true, ctx)
+		result, err := s.client.QueryCalendarEvents(toNullQueryParams([]AccountId{accountId}), nil, filter, sortBy, true, ctx)
 		require.NoError(err)
 		require.Contains(result.Payload, accountId)
 		resp := result.Payload[accountId]
@@ -239,11 +239,11 @@ type CalendarBoxes struct {
 
 func (s *StalwartTest) fillCalendar( //NOSONAR
 	t *testing.T,
-	accountId string,
+	accountId AccountId,
 	count uint,
 	ctx Context,
 	_ User,
-	principalIds []string,
+	principalIds []PrincipalId,
 ) (CalendarBoxes, []Calendar, SessionState, State, error) {
 	require := require.New(t)
 
@@ -340,7 +340,7 @@ func (s *StalwartTest) fillCalendar( //NOSONAR
 		}
 		if sharing != nil {
 			numPrincipals := 1 + rand.Intn(len(principalIds)-1)
-			m := make(map[string]CalendarRights, numPrincipals)
+			m := make(map[PrincipalId]CalendarRights, numPrincipals)
 			for _, p := range pickRandomN(numPrincipals, principalIds...) {
 				m[p] = *sharing
 			}
@@ -380,7 +380,7 @@ func (s *StalwartTest) fillEvents( //NOSONAR
 	count uint,
 	ctx Context,
 	user User,
-) (string, string, map[string]CalendarEvent, EventsBoxes, error) {
+) (AccountId, string, map[string]CalendarEvent, EventsBoxes, error) {
 	require := require.New(t)
 	c, err := NewTestJmapClient(ctx.Session, user.name, user.password, true, true)
 	require.NoError(err)

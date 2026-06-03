@@ -10,7 +10,7 @@ type ObjectType[T jmap.Foo, CH jmap.Change, CHS jmap.Changes[T]] struct {
 	responseType          ResponseObjectType
 	uriParamName          string
 	containerUriParamName string
-	accountFunc           func(r *Request) (bool, string, Response)
+	accountFunc           func(r *Request) (bool, jmap.AccountId, Response)
 	failedToDeleteError   GroupwareError
 }
 

@@ -95,6 +95,10 @@ func Set[V comparable](source []V) map[V]struct{} {
 	return result
 }
 
+func ToStrings[A ~string](s []A) []string {
+	return Map(s, func(a A) string { return string(a) })
+}
+
 // Creates a slice from a slice, putting each value from the source slice through the
 // mapper function to determine the value to store into the resulting slice.
 func Map[E any, R any](source []E, mapper func(E) R) []R {
@@ -154,6 +158,16 @@ func MapO[E any, R any](source []E, indexer func(E) (R, bool)) []R {
 		}
 	}
 	return result
+}
+
+// Created a map from a map, mapping both the key and the value using the mapper function.
+func MapMap[A comparable, B any, X comparable, Y any](m map[A]B, mapper func(A, B) (X, Y)) map[X]Y {
+	r := make(map[X]Y, len(m))
+	for a, b := range m {
+		x, y := mapper(a, b)
+		r[x] = y
+	}
+	return r
 }
 
 // Creates a map from a map, keeping each key as-is, and using the mapper

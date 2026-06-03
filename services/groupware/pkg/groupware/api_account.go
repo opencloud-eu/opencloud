@@ -34,9 +34,9 @@ func (g *Groupware) GetAccounts(w http.ResponseWriter, r *http.Request) {
 			i++
 		}
 		// sort on accountId to have a stable order that remains the same with every query
-		slices.SortFunc(list, func(a, b AccountWithId) int { return strings.Compare(a.AccountId, b.AccountId) })
+		slices.SortFunc(list, func(a, b AccountWithId) int { return strings.Compare(string(a.AccountId), string(b.AccountId)) })
 		var RBODY []AccountWithId = list
-		return req.respondN(structs.Map(list, func(a AccountWithId) string { return a.AccountId }), RBODY, AccountResponseObjectType, req.session)
+		return req.respondN(structs.Map(list, func(a AccountWithId) jmap.AccountId { return a.AccountId }), RBODY, AccountResponseObjectType, req.session)
 	})
 }
 
@@ -64,19 +64,21 @@ func (g *Groupware) GetAccountsWithTheirIdentities(w http.ResponseWriter, r *htt
 			i++
 		}
 		// sort on accountId to have a stable order that remains the same with every query
-		slices.SortFunc(list, func(a, b AccountWithIdAndIdentities) int { return strings.Compare(a.AccountId, b.AccountId) })
+		slices.SortFunc(list, func(a, b AccountWithIdAndIdentities) int {
+			return strings.Compare(string(a.AccountId), string(b.AccountId))
+		})
 		var RBODY []AccountWithIdAndIdentities = list
-		return req.respondN(structs.Map(list, func(a AccountWithIdAndIdentities) string { return a.AccountId }), RBODY, AccountResponseObjectType, resp)
+		return req.respondN(structs.Map(list, func(a AccountWithIdAndIdentities) jmap.AccountId { return a.AccountId }), RBODY, AccountResponseObjectType, resp)
 	})
 }
 
 type AccountWithId struct {
-	AccountId string `json:"accountId,omitempty"`
+	AccountId jmap.AccountId `json:"accountId,omitempty"`
 	jmap.Account
 }
 
 type AccountWithIdAndIdentities struct {
-	AccountId  string          `json:"accountId,omitempty"`
+	AccountId  jmap.AccountId  `json:"accountId,omitempty"`
 	Identities []jmap.Identity `json:"identities,omitempty"`
 	jmap.Account
 }

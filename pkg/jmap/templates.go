@@ -8,12 +8,12 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func get[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
+func get[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], ID any, RESP any]( //NOSONAR
 	client *Client, name string, objType ObjectType,
-	getCommandFactory func(string, []string) GETREQ,
+	getCommandFactory func(AccountId, []ID) GETREQ,
 	_ GETRESP,
 	mapper func(GETRESP) RESP,
-	accountId string, ids []string, ctx Context) (Result[RESP], Error) {
+	accountId AccountId, ids []ID, ctx Context) (Result[RESP], Error) {
 	ctx = ctx.WithLogger(client.logger(name, ctx))
 
 	get := getCommandFactory(accountId, ids)
@@ -34,12 +34,12 @@ func get[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP any]( //NOSON
 	})
 }
 
-func getAN[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
+func getAN[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], ID any, RESP any]( //NOSONAR
 	client *Client, name string, objType ObjectType,
-	getCommandFactory func(string, []string) GETREQ,
+	getCommandFactory func(AccountId, []ID) GETREQ,
 	resp GETRESP,
-	respMapper func(map[string][]T) RESP,
-	accountIds []string, ids []string, ctx Context) (Result[RESP], Error) {
+	respMapper func(map[AccountId][]T) RESP,
+	accountIds []AccountId, ids []ID, ctx Context) (Result[RESP], Error) {
 	return getN(client, name, objType, getCommandFactory, resp,
 		func(r GETRESP) []T { return r.GetList() },
 		respMapper,
@@ -48,13 +48,13 @@ func getAN[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP any]( //NOS
 	)
 }
 
-func getN[T Foo, ITEM any, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
+func getN[T Foo, ITEM any, GETREQ GetCommand[T], GETRESP GetResponse[T], ID any, RESP any]( //NOSONAR
 	client *Client, name string, objType ObjectType,
-	getCommandFactory func(string, []string) GETREQ,
+	getCommandFactory func(AccountId, []ID) GETREQ,
 	_ GETRESP,
 	itemMapper func(GETRESP) ITEM,
-	respMapper func(map[string]ITEM) RESP,
-	accountIds []string, ids []string, ctx Context) (Result[RESP], Error) {
+	respMapper func(map[AccountId]ITEM) RESP,
+	accountIds []AccountId, ids []ID, ctx Context) (Result[RESP], Error) {
 	logger := client.logger(name, ctx)
 	ctx = ctx.WithLogger(logger)
 
@@ -74,8 +74,8 @@ func getN[T Foo, ITEM any, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP an
 	}
 
 	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
-		result := map[string]ITEM{}
-		responses := map[string]GETRESP{}
+		result := map[AccountId]ITEM{}
+		responses := map[AccountId]GETRESP{}
 		for _, accountId := range uniqueAccountIds {
 			var resp GETRESP
 			err = retrieveResponseMatchParameters(ctx, body, c, mcid(accountId, "0"), &resp)
@@ -92,11 +92,11 @@ func getN[T Foo, ITEM any, GETREQ GetCommand[T], GETRESP GetResponse[T], RESP an
 
 func create[T Foo, C any, SETREQ SetCommand[T], GETREQ GetCommand[T], SETRESP SetResponse[T], GETRESP GetResponse[T]]( //NOSONAR
 	client *Client, name string, objType ObjectType,
-	setCommandFactory func(string, map[string]C) SETREQ,
-	getCommandFactory func(string, string) GETREQ,
+	setCommandFactory func(AccountId, map[string]C) SETREQ,
+	getCommandFactory func(AccountId, string) GETREQ,
 	createdMapper func(SETRESP) map[string]*T,
 	listMapper func(GETRESP) []T,
-	accountId string, create C,
+	accountId AccountId, create C,
 	ctx Context) (Result[*T], Error) {
 	logger := client.logger(name, ctx)
 	ctx = ctx.WithLogger(logger)
@@ -152,8 +152,8 @@ func create[T Foo, C any, SETREQ SetCommand[T], GETREQ GetCommand[T], SETRESP Se
 }
 
 func destroy[T Foo, REQ SetCommand[T], RESP SetResponse[T]](client *Client, name string, objType ObjectType, //NOSONAR
-	setCommandFactory func(string, []string) REQ, _ RESP,
-	accountId string, destroy []string, ctx Context) (Result[map[string]SetError], Error) {
+	setCommandFactory func(AccountId, []string) REQ, _ RESP,
+	accountId AccountId, destroy []string, ctx Context) (Result[map[string]SetError], Error) {
 	logger := client.logger(name, ctx)
 	ctx = ctx.WithLogger(logger)
 
@@ -248,19 +248,19 @@ func changes[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESR
 
 func changesN[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESRESP ChangesResponse[T], GETRESP GetResponse[T], ITEM any, CHANGESITEM any, RESP any]( //NOSONAR
 	client *Client, name string, objType ObjectType,
-	accountIds []string, sinceStateMap map[string]State,
-	changesCommandFactory func(string, State) CHANGESREQ,
+	accountIds []AccountId, sinceStateMap map[AccountId]State,
+	changesCommandFactory func(AccountId, State) CHANGESREQ,
 	_ CHANGESRESP,
-	getCommandFactory func(string, string, string) GETREQ,
+	getCommandFactory func(AccountId, string, string) GETREQ,
 	getMapper func(GETRESP) []ITEM,
 	changesItemMapper func(State, State, bool, []ITEM, []ITEM, []string) CHANGESITEM,
-	respMapper func(map[string]CHANGESITEM) RESP,
+	respMapper func(map[AccountId]CHANGESITEM) RESP,
 	stateMapper func(GETRESP) State,
 	ctx Context) (Result[RESP], Error) {
 	logger := client.loggerParams(name, ctx, func(z zerolog.Context) zerolog.Context {
 		sinceStateLogDict := zerolog.Dict()
 		for k, v := range sinceStateMap {
-			sinceStateLogDict.Str(log.SafeString(k), log.SafeString(string(v)))
+			sinceStateLogDict.Str(log.SafeString(string(k)), log.SafeString(string(v)))
 		}
 		return z.Dict(logSinceState, sinceStateLogDict)
 	})
@@ -303,8 +303,8 @@ func changesN[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGES
 	}
 
 	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
-		changesItemByAccount := make(map[string]CHANGESITEM, n)
-		stateByAccountId := make(map[string]State, n)
+		changesItemByAccount := make(map[AccountId]CHANGESITEM, n)
+		stateByAccountId := make(map[AccountId]State, n)
 		for _, accountId := range uniqueAccountIds {
 			var changesResponse CHANGESRESP
 			err = retrieveChanges(ctx, body, ch, mcid(accountId, "0"), &changesResponse)
@@ -488,13 +488,13 @@ func query[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T]
 func queryN[T Foo, FILTER any, SORT any, QUERY QueryCommand[T, QUERY], GET GetCommand[T], QUERYRESP QueryResponse[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
 	client *Client, name string, objType ObjectType,
 	defaultSortBy []SORT,
-	queryCommandFactory func(accountId string, queryParams QueryParams, limit *uint, filter FILTER, sortBy []SORT) QUERY,
-	getCommandFactory func(accountId string, cmd Command, path string, rof string) GET,
+	queryCommandFactory func(accountId AccountId, queryParams QueryParams, limit *uint, filter FILTER, sortBy []SORT) QUERY,
+	getCommandFactory func(accountId AccountId, cmd Command, path string, rof string) GET,
 	respMapper0 func(query QUERYRESP, queryParams QueryParams, limit *uint) *RESP,
 	respMapper func(query QUERYRESP, get GETRESP, queryParams QueryParams, limit *uint) *RESP,
-	accountIds map[string]QueryParams,
+	accountIds map[AccountId]QueryParams,
 	limit *uint, filter FILTER, sortBy []SORT,
-	ctx Context) (Result[map[string]*RESP], Error) {
+	ctx Context) (Result[map[AccountId]*RESP], Error) {
 	logger := client.logger(name, ctx)
 	ctx = ctx.WithLogger(logger)
 
@@ -525,12 +525,12 @@ func queryN[T Foo, FILTER any, SORT any, QUERY QueryCommand[T, QUERY], GET GetCo
 
 	cmd, err := client.request(ctx, objType.Namespaces, invocations...)
 	if err != nil {
-		return ZeroResult[map[string]*RESP](), err
+		return ZeroResult[map[AccountId]*RESP](), err
 	}
 
-	return command(client, ctx, cmd, func(body *Response) (map[string]*RESP, State, Error) {
-		resp := map[string]*RESP{}
-		stateByAccountId := map[string]State{}
+	return command(client, ctx, cmd, func(body *Response) (map[AccountId]*RESP, State, Error) {
+		resp := map[AccountId]*RESP{}
+		stateByAccountId := map[AccountId]State{}
 		for accountId, queryParams := range accountIds {
 			var queryResponse QUERYRESP
 			err = retrieveQuery(ctx, body, q, mcid(accountId, "0"), &queryResponse)

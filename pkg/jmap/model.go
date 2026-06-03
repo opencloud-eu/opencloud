@@ -445,6 +445,10 @@ var (
 	}
 )
 
+type AccountId string
+
+type PrincipalId string
+
 type SessionMailAccountCapabilities struct {
 	// The maximum number of Mailboxes that can be can assigned to a single Email object.
 	//
@@ -683,16 +687,16 @@ type SessionTasksCustomTimezonesAccountCapabilities struct {
 
 type SessionPrincipalsAccountCapabilities struct {
 	// The id of the principal in this account that corresponds to the user fetching this object, if any.
-	CurrentUserPrincipalId string `json:"currentUserPrincipalId,omitempty"`
+	CurrentUserPrincipalId PrincipalId `json:"currentUserPrincipalId,omitempty"`
 }
 
 type SessionPrincipalsOwnerAccountCapabilities struct {
 	// The id of an account with the `urn:ietf:params:jmap:principals` capability that contains the
 	// corresponding `Principal` object.
-	AccountIdForPrincipal string `json:"accountIdForPrincipal,omitempty"`
+	AccountIdForPrincipal AccountId `json:"accountIdForPrincipal,omitempty"`
 
 	// The id of the `Principal` that owns this account.
-	PrincipalId string `json:"principalId,omitempty"`
+	PrincipalId PrincipalId `json:"principalId,omitempty"`
 }
 
 type SessionPrincipalAvailabilityAccountCapabilities struct {
@@ -821,7 +825,7 @@ type SessionPrincipalCapabilities struct {
 	//
 	// The corresponding Account object can be found in the Principal's "accounts" property, as
 	// per Section 2 of [RFC9670](https://www.rfc-editor.org/rfc/rfc9670.html).
-	AccountId string `json:"accountId,omitempty"`
+	AccountId AccountId `json:"accountId,omitempty"`
 
 	// If true, the user may call the "Principal/getAvailability" method with this Principal.
 	MayGetAvailability *bool `json:"mayGetAvailability,omitzero"`
@@ -916,19 +920,19 @@ type SessionCapabilities struct {
 }
 
 type SessionPrimaryAccounts struct {
-	Core             string `json:"urn:ietf:params:jmap:core,omitempty"`
-	Mail             string `json:"urn:ietf:params:jmap:mail,omitempty"`
-	Submission       string `json:"urn:ietf:params:jmap:submission,omitempty"`
-	VacationResponse string `json:"urn:ietf:params:jmap:vacationresponse,omitempty"`
-	Sieve            string `json:"urn:ietf:params:jmap:sieve,omitempty"`
-	Blob             string `json:"urn:ietf:params:jmap:blob,omitempty"`
-	Quota            string `json:"urn:ietf:params:jmap:quota,omitempty"`
-	Websocket        string `json:"urn:ietf:params:jmap:websocket,omitempty"`
-	Task             string `json:"urn:ietf:params:jmap:task,omitempty"`
-	Calendars        string `json:"urn:ietf:params:jmap:calendars,omitempty"`
-	CalendarsParse   string `json:"urn:ietf:params:jmap:calendars:parse,omitempty"`
-	Contacts         string `json:"urn:ietf:params:jmap:contacts,omitempty"`
-	ContactsParse    string `json:"urn:ietf:params:jmap:contacts:parse,omitempty"`
+	Core             AccountId `json:"urn:ietf:params:jmap:core,omitempty"`
+	Mail             AccountId `json:"urn:ietf:params:jmap:mail,omitempty"`
+	Submission       AccountId `json:"urn:ietf:params:jmap:submission,omitempty"`
+	VacationResponse AccountId `json:"urn:ietf:params:jmap:vacationresponse,omitempty"`
+	Sieve            AccountId `json:"urn:ietf:params:jmap:sieve,omitempty"`
+	Blob             AccountId `json:"urn:ietf:params:jmap:blob,omitempty"`
+	Quota            AccountId `json:"urn:ietf:params:jmap:quota,omitempty"`
+	Websocket        AccountId `json:"urn:ietf:params:jmap:websocket,omitempty"`
+	Task             AccountId `json:"urn:ietf:params:jmap:task,omitempty"`
+	Calendars        AccountId `json:"urn:ietf:params:jmap:calendars,omitempty"`
+	CalendarsParse   AccountId `json:"urn:ietf:params:jmap:calendars:parse,omitempty"`
+	Contacts         AccountId `json:"urn:ietf:params:jmap:contacts,omitempty"`
+	ContactsParse    AccountId `json:"urn:ietf:params:jmap:contacts:parse,omitempty"`
 }
 
 type SessionState string
@@ -946,7 +950,7 @@ const NoLanguage = Language("")
 type SessionResponse struct {
 	Capabilities SessionCapabilities `json:"capabilities"`
 
-	Accounts map[string]Account `json:"accounts,omitempty"`
+	Accounts map[AccountId]Account `json:"accounts,omitempty"`
 
 	// A map of capability URIs (as found in accountCapabilities) to the account id that is considered to be the user’s main or default
 	// account for data pertaining to that capability.
@@ -1164,6 +1168,8 @@ type SetError struct {
 
 type Command string
 
+const NoCommand = Command("")
+
 type Invocation struct {
 	Command    Command
 	Parameters any
@@ -1179,7 +1185,7 @@ func invocation(parameters JmapCommand, tag string) Invocation {
 }
 
 func skipInvocation() Invocation {
-	return Invocation{Command: ""}
+	return Invocation{Command: NoCommand}
 }
 
 type TypeOfRequest string
@@ -1239,10 +1245,12 @@ type Response struct {
 	RequestId string `json:"requestId,omitempty"`
 }
 
+// A JMAP object.
 type Foo interface {
 	GetObjectType() ObjectType
 }
 
+// A JMAP object that also has an identifier.
 type Idable interface {
 	GetId() string
 	Foo
@@ -1384,6 +1392,7 @@ type ChangesResponse[T Foo] interface {
 type QueryCommand[T Foo, SELF QueryCommand[T, SELF]] interface {
 	JmapCommand
 	GetResponse() QueryResponse[T]
+	// Wither that creates a new object of the same type, keeping all the same values except for the limit that is specified as parameter.
 	WithLimit(limit *uint) SELF
 }
 
@@ -1436,8 +1445,8 @@ type QueryParams struct {
 
 var NullQueryParams = QueryParams{Position: 0, Anchor: "", AnchorOffset: nil}
 
-func toNullQueryParams(accountIds []string) map[string]QueryParams {
-	return structs.ToMap(accountIds, func(k string) (string, QueryParams) { return k, NullQueryParams })
+func toNullQueryParams(accountIds []AccountId) map[AccountId]QueryParams {
+	return structs.ToMap(accountIds, func(k AccountId) (AccountId, QueryParams) { return k, NullQueryParams })
 }
 
 type FilterElement[T Foo] interface {
@@ -1751,8 +1760,8 @@ func (m MailboxChange) AsPatch() (PatchObject, error) {
 }
 
 type MailboxGetCommand struct {
-	AccountId string   `json:"accountId"`
-	Ids       []string `json:"ids,omitempty"`
+	AccountId AccountId `json:"accountId"`
+	Ids       []string  `json:"ids,omitempty"`
 }
 
 var _ GetCommand[Mailbox] = &MailboxGetCommand{}
@@ -1762,7 +1771,7 @@ func (c MailboxGetCommand) GetObjectType() ObjectType         { return MailboxTy
 func (c MailboxGetCommand) GetResponse() GetResponse[Mailbox] { return MailboxGetResponse{} }
 
 type MailboxGetRefCommand struct {
-	AccountId string           `json:"accountId"`
+	AccountId AccountId        `json:"accountId"`
 	IdsRef    *ResultReference `json:"#ids,omitempty"`
 }
 
@@ -1773,8 +1782,8 @@ func (c MailboxGetRefCommand) GetObjectType() ObjectType         { return Mailbo
 func (c MailboxGetRefCommand) GetResponse() GetResponse[Mailbox] { return MailboxGetResponse{} }
 
 type MailboxSetCommand struct {
-	AccountId string                   `json:"accountId"`
-	IfInState string                   `json:"ifInState,omitempty"`
+	AccountId AccountId                `json:"accountId"`
+	IfInState State                    `json:"ifInState,omitempty"`
 	Create    map[string]MailboxChange `json:"create,omitempty"`
 	Update    map[string]PatchObject   `json:"update,omitempty"`
 	Destroy   []string                 `json:"destroy,omitempty"`
@@ -1787,7 +1796,7 @@ func (c MailboxSetCommand) GetObjectType() ObjectType         { return MailboxTy
 func (c MailboxSetCommand) GetResponse() SetResponse[Mailbox] { return MailboxSetResponse{} }
 
 type MailboxSetResponse struct {
-	AccountId    string              `json:"accountId"`
+	AccountId    AccountId           `json:"accountId"`
 	OldState     State               `json:"oldState,omitempty"`
 	NewState     State               `json:"newState,omitempty"`
 	Created      map[string]*Mailbox `json:"created,omitempty"`
@@ -1853,7 +1862,7 @@ var _ Comparator[Mailbox] = &MailboxComparator{}
 func (c MailboxComparator) GetMarker() Mailbox { return Mailbox{} }
 
 type MailboxQueryCommand struct {
-	AccountId    string               `json:"accountId"`
+	AccountId    AccountId            `json:"accountId"`
 	Filter       MailboxFilterElement `json:"filter,omitempty"`
 	Sort         []MailboxComparator  `json:"sort,omitempty"`
 	SortAsTree   bool                 `json:"sortAsTree,omitempty"`
@@ -2157,7 +2166,7 @@ func (c EmailComparator) GetMarker() Email { return Email{} }
 // A client can use anchor instead of position to find the index of an id within a large set of results.
 type EmailQueryCommand struct {
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// Determines the set of Emails returned in the results.
 	//
@@ -2250,7 +2259,7 @@ type EmailGetCommand struct {
 	Ids []string `json:"ids,omitempty"`
 
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// If supplied, only the properties listed in the array are returned for each Email object.
 	//
@@ -2316,7 +2325,7 @@ type EmailGetRefCommand struct {
 	IdsRef *ResultReference `json:"#ids,omitempty"`
 
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// If supplied, only the properties listed in the array are returned for each Email object.
 	//
@@ -2372,7 +2381,7 @@ func (c EmailGetRefCommand) GetResponse() GetResponse[Email] { return EmailGetRe
 
 type EmailChangesCommand struct {
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// The current state of the client.
 	//
@@ -2634,7 +2643,7 @@ type Email struct {
 
 	// The account ID this email belongs to.
 	// Note that this is not part of the JMAP specification, and is only contained in all-account operations.
-	AccountId string `json:"accountId,omitempty"`
+	AccountId AccountId `json:"accountId,omitempty"`
 
 	// The set of Mailbox ids this Email belongs to.
 	//
@@ -2998,7 +3007,7 @@ func (f EmailSubmission) GetId() string             { return f.Id }
 
 type EmailSubmissionGetCommand struct {
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// The ids of the EmailSubmission objects to return.
 	//
@@ -3024,7 +3033,7 @@ func (c EmailSubmissionGetCommand) GetResponse() GetResponse[EmailSubmission] {
 
 type EmailSubmissionGetRefCommand struct {
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// The ids of the EmailSubmission objects to return.
 	//
@@ -3050,7 +3059,7 @@ func (c EmailSubmissionGetRefCommand) GetResponse() GetResponse[EmailSubmission]
 
 type EmailSubmissionGetResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// A (preferably short) string representing the state on the server for all the data
 	// of this type in the account (not just the objects returned in this call).
@@ -3089,7 +3098,7 @@ func (r EmailSubmissionGetResponse) GetList() []EmailSubmission { return r.List 
 
 type EmailSubmissionChangesCommand struct {
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// The current state of the client.
 	//
@@ -3120,7 +3129,7 @@ func (c EmailSubmissionChangesCommand) GetResponse() ChangesResponse[EmailSubmis
 
 type EmailSubmissionChangesResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// This is the sinceState argument echoed back; it’s the state from which the server is returning changes.
 	OldState State `json:"oldState"`
@@ -3169,7 +3178,7 @@ type EmailSubmissionCreate struct {
 }
 
 type EmailSubmissionSetCommand struct {
-	AccountId string                           `json:"accountId"`
+	AccountId AccountId                        `json:"accountId"`
 	Create    map[string]EmailSubmissionCreate `json:"create,omitempty"`
 	OldState  State                            `json:"oldState,omitempty"`
 	NewState  State                            `json:"newState,omitempty"`
@@ -3203,7 +3212,7 @@ type CreatedEmailSubmission struct {
 
 type EmailSubmissionSetResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// This is the sinceState argument echoed back; it’s the state from which the server is returning changes.
 	OldState State `json:"oldState"`
@@ -3239,7 +3248,7 @@ func (r EmailSubmissionSetResponse) GetMarker() EmailSubmission           { retu
 
 type EmailQueryResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// A string encoding the current state of the query on the server.
 	//
@@ -3294,7 +3303,7 @@ func (r EmailQueryResponse) GetMarker() Email     { return Email{} }
 
 type EmailGetResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// A (preferably short) string representing the state on the server for all the data of this type
 	// in the account (not just the objects returned in this call).
@@ -3328,7 +3337,7 @@ func (r EmailGetResponse) GetMarker() Email      { return Email{} }
 
 type EmailChangesResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// This is the sinceState argument echoed back; it’s the state from which the server is returning changes.
 	OldState State `json:"oldState"`
@@ -3362,7 +3371,7 @@ func (r EmailChangesResponse) GetMarker() Email        { return Email{} }
 
 type MailboxGetResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// A (preferably short) string representing the state on the server for all the data of this type in the account
 	// (not just the objects returned in this call).
@@ -3393,7 +3402,7 @@ func (r MailboxGetResponse) GetList() []Mailbox    { return r.List }
 
 type MailboxChangesCommand struct {
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// The current state of the client.
 	//
@@ -3424,7 +3433,7 @@ func (c MailboxChangesCommand) GetResponse() ChangesResponse[Mailbox] {
 
 type MailboxChangesResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// This is the sinceState argument echoed back; it’s the state from which the server is returning changes.
 	OldState State `json:"oldState"`
@@ -3465,7 +3474,7 @@ func (r MailboxChangesResponse) GetMarker() Mailbox      { return Mailbox{} }
 
 type MailboxQueryResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// A string encoding the current state of the query on the server.
 	//
@@ -3625,7 +3634,7 @@ func (e EmailChange) AsPatch() (PatchObject, error) {
 
 type EmailSetCommand struct {
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// This is a state string as returned by the `Email/get` method.
 	//
@@ -3633,7 +3642,7 @@ type EmailSetCommand struct {
 	// `stateMismatch` error returned.
 	//
 	// If null, any changes will be applied to the current state.
-	IfInState string `json:"ifInState,omitempty"`
+	IfInState State `json:"ifInState,omitempty"`
 
 	// A map of a creation id (a temporary id set by the client) to Email objects,
 	// or null if no objects are to be created.
@@ -3684,7 +3693,7 @@ func (c EmailSetCommand) GetResponse() SetResponse[Email] { return EmailSetRespo
 
 type EmailSetResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// The state string that would have been returned by Email/get before making the
 	// requested changes, or null if the server doesn’t know what the previous state
@@ -3760,7 +3769,7 @@ type EmailImport struct {
 }
 
 type EmailImportCommand struct {
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// This is a state string as returned by the Email/get method.
 	//
@@ -3769,7 +3778,7 @@ type EmailImportCommand struct {
 	// error returned.
 	//
 	// If null, any changes will be applied to the current state.
-	IfInState string `json:"ifInState,omitempty"`
+	IfInState State `json:"ifInState,omitempty"`
 
 	// A map of creation id (client specified) to EmailImport objects.
 	Emails map[string]EmailImport `json:"emails"`
@@ -3792,7 +3801,7 @@ type ImportedEmail struct {
 
 type EmailImportResponse struct {
 	// The id of the account used for this call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// The state string that would have been returned by Email/get on this account
 	// before making the requested changes, or null if the server doesn’t know
@@ -3834,8 +3843,8 @@ func (f Thread) GetObjectType() ObjectType { return ThreadType }
 func (f Thread) GetId() string             { return f.Id }
 
 type ThreadGetCommand struct {
-	AccountId string   `json:"accountId"`
-	Ids       []string `json:"ids,omitempty"`
+	AccountId AccountId `json:"accountId"`
+	Ids       []string  `json:"ids,omitempty"`
 }
 
 var _ GetCommand[Thread] = &ThreadGetCommand{}
@@ -3845,7 +3854,7 @@ func (c ThreadGetCommand) GetObjectType() ObjectType        { return ThreadType 
 func (c ThreadGetCommand) GetResponse() GetResponse[Thread] { return ThreadGetResponse{} }
 
 type ThreadGetRefCommand struct {
-	AccountId string           `json:"accountId"`
+	AccountId AccountId        `json:"accountId"`
 	IdsRef    *ResultReference `json:"#ids,omitempty"`
 }
 
@@ -3856,7 +3865,7 @@ func (c ThreadGetRefCommand) GetObjectType() ObjectType        { return ThreadTy
 func (c ThreadGetRefCommand) GetResponse() GetResponse[Thread] { return ThreadGetResponse{} }
 
 type ThreadGetResponse struct {
-	AccountId string
+	AccountId AccountId
 	State     State
 	List      []Thread
 	NotFound  []string
@@ -3870,8 +3879,8 @@ func (r ThreadGetResponse) GetList() []Thread     { return r.List }
 func (r ThreadGetResponse) GetMarker() Thread     { return Thread{} }
 
 type IdentityGetCommand struct {
-	AccountId string   `json:"accountId"`
-	Ids       []string `json:"ids,omitempty"`
+	AccountId AccountId `json:"accountId"`
+	Ids       []string  `json:"ids,omitempty"`
 }
 
 var _ GetCommand[Identity] = &IdentityGetCommand{}
@@ -3881,7 +3890,7 @@ func (c IdentityGetCommand) GetObjectType() ObjectType          { return Identit
 func (c IdentityGetCommand) GetResponse() GetResponse[Identity] { return IdentityGetResponse{} }
 
 type IdentityGetRefCommand struct {
-	AccountId     string           `json:"accountId"`
+	AccountId     AccountId        `json:"accountId"`
 	IdsRef        *ResultReference `json:"#ids,omitempty"`
 	PropertiesRef *ResultReference `json:"#properties,omitempty"`
 }
@@ -3894,7 +3903,7 @@ func (c IdentityGetRefCommand) GetResponse() GetResponse[Identity] { return Iden
 
 type IdentityChangesCommand struct {
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// The current state of the client.
 	//
@@ -3925,7 +3934,7 @@ func (c IdentityChangesCommand) GetResponse() ChangesResponse[Identity] {
 
 type IdentityChangesResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// This is the sinceState argument echoed back; it’s the state from which the server is returning changes.
 	OldState State `json:"oldState"`
@@ -3959,8 +3968,8 @@ func (r IdentityChangesResponse) GetDestroyed() []string  { return r.Destroyed }
 func (r IdentityChangesResponse) GetMarker() Identity     { return Identity{} }
 
 type IdentitySetCommand struct {
-	AccountId string                    `json:"accountId"`
-	IfInState string                    `json:"ifInState,omitempty"`
+	AccountId AccountId                 `json:"accountId"`
+	IfInState State                     `json:"ifInState,omitempty"`
 	Create    map[string]IdentityChange `json:"create,omitempty"`
 	Update    map[string]PatchObject    `json:"update,omitempty"`
 	Destroy   []string                  `json:"destroy,omitempty"`
@@ -3973,7 +3982,7 @@ func (c IdentitySetCommand) GetObjectType() ObjectType          { return Identit
 func (c IdentitySetCommand) GetResponse() SetResponse[Identity] { return IdentitySetResponse{} }
 
 type IdentitySetResponse struct {
-	AccountId    string               `json:"accountId"`
+	AccountId    AccountId            `json:"accountId"`
 	OldState     State                `json:"oldState,omitempty"`
 	NewState     State                `json:"newState,omitempty"`
 	Created      map[string]*Identity `json:"created,omitempty"`
@@ -4081,7 +4090,7 @@ func (i IdentityChange) AsPatch() (PatchObject, error) {
 }
 
 type IdentityGetResponse struct {
-	AccountId string     `json:"accountId"`
+	AccountId AccountId  `json:"accountId"`
 	State     State      `json:"state"`
 	List      []Identity `json:"list,omitempty"`
 	NotFound  []string   `json:"notFound,omitempty"`
@@ -4095,7 +4104,7 @@ func (r IdentityGetResponse) GetNotFound() []string { return r.NotFound }
 func (r IdentityGetResponse) GetList() []Identity   { return r.List }
 
 type VacationResponseGetCommand struct {
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 }
 
 var _ GetCommand[VacationResponse] = &VacationResponseGetCommand{}
@@ -4156,7 +4165,7 @@ func (f VacationResponse) GetId() string             { return f.Id }
 
 type VacationResponseGetResponse struct {
 	// The identifier of the account this response pertains to.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// A string representing the state on the server for all the data of this type in the account
 	// (not just the objects returned in this call).
@@ -4180,7 +4189,7 @@ func (r VacationResponseGetResponse) GetNotFound() []string       { return r.Not
 func (r VacationResponseGetResponse) GetList() []VacationResponse { return r.List }
 
 type VacationResponseSetCommand struct {
-	AccountId string                      `json:"accountId"`
+	AccountId AccountId                   `json:"accountId"`
 	IfInState string                      `json:"ifInState,omitempty"`
 	Create    map[string]VacationResponse `json:"create,omitempty"`
 	Update    map[string]PatchObject      `json:"update,omitempty"`
@@ -4196,7 +4205,7 @@ func (c VacationResponseSetCommand) GetResponse() SetResponse[VacationResponse] 
 }
 
 type VacationResponseSetResponse struct {
-	AccountId    string                      `json:"accountId"`
+	AccountId    AccountId                   `json:"accountId"`
 	OldState     State                       `json:"oldState,omitempty"`
 	NewState     State                       `json:"newState,omitempty"`
 	Created      map[string]VacationResponse `json:"created,omitempty"`
@@ -4228,7 +4237,7 @@ type UploadObject struct {
 }
 
 type BlobUploadCommand struct {
-	AccountId string                  `json:"accountId"`
+	AccountId AccountId               `json:"accountId"`
 	Create    map[string]UploadObject `json:"create"`
 }
 
@@ -4245,7 +4254,7 @@ type BlobUploadCreateResult struct {
 }
 
 type BlobUploadResponse struct {
-	AccountId string                            `json:"accountId"`
+	AccountId AccountId                         `json:"accountId"`
 	Created   map[string]BlobUploadCreateResult `json:"created"`
 }
 
@@ -4341,11 +4350,11 @@ func (c BlobChanges) GetUpdated() []Blob      { return c.Updated }
 func (c BlobChanges) GetDestroyed() []string  { return c.Destroyed }
 
 type BlobGetCommand struct {
-	AccountId  string   `json:"accountId"`
-	Ids        []string `json:"ids,omitempty"`
-	Properties []string `json:"properties,omitempty"`
-	Position   int      `json:"position,omitzero"`
-	Length     int      `json:"length,omitzero"`
+	AccountId  AccountId `json:"accountId"`
+	Ids        []string  `json:"ids,omitempty"`
+	Properties []string  `json:"properties,omitempty"`
+	Position   int       `json:"position,omitzero"`
+	Length     int       `json:"length,omitzero"`
 }
 
 var _ GetCommand[Blob] = &BlobGetCommand{}
@@ -4355,7 +4364,7 @@ func (c BlobGetCommand) GetObjectType() ObjectType      { return BlobType }
 func (c BlobGetCommand) GetResponse() GetResponse[Blob] { return BlobGetResponse{} }
 
 type BlobGetRefCommand struct {
-	AccountId  string           `json:"accountId"`
+	AccountId  AccountId        `json:"accountId"`
 	IdRef      *ResultReference `json:"#ids,omitempty"`
 	Properties []string         `json:"properties,omitempty"`
 	Position   int              `json:"position,omitzero"`
@@ -4370,7 +4379,7 @@ func (c BlobGetRefCommand) GetResponse() GetResponse[Blob] { return BlobGetRespo
 
 type BlobGetResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// A string representing the state on the server for all the data of this type in the
 	// account (not just the objects returned in this call).
@@ -4461,7 +4470,7 @@ func (f SearchSnippet) GetObjectType() ObjectType { return SearchSnippetType }
 
 type SearchSnippetGetRefCommand struct {
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// The same filter as passed to Email/query.
 	Filter EmailFilterElement `json:"filter,omitempty"`
@@ -4476,7 +4485,7 @@ func (c SearchSnippetGetRefCommand) GetCommand() Command       { return CommandS
 func (c SearchSnippetGetRefCommand) GetObjectType() ObjectType { return SearchSnippetType }
 
 type SearchSnippetGetResponse struct {
-	AccountId string          `json:"accountId"`
+	AccountId AccountId       `json:"accountId"`
 	List      []SearchSnippet `json:"list,omitempty"`
 	NotFound  []string        `json:"notFound,omitempty"`
 }
@@ -4503,7 +4512,7 @@ type StateChange struct {
 	// The client can compare the new state strings with its current values to see whether
 	// it has the current data for these types. If not, the changes can then be efficiently
 	// fetched in a single standard API request (using the /changes type methods).
-	Changed map[string]map[ObjectTypeName]string `json:"changed"`
+	Changed map[AccountId]map[ObjectTypeName]string `json:"changed"`
 
 	// A (preferably short) string that encodes the entire server state visible to the user
 	// (not just the objects returned in this call).
@@ -4586,7 +4595,7 @@ type AddressBook struct {
 	//
 	// The account id for the principals may be found in the urn:ietf:params:jmap:principals:owner capability
 	// of the Account to which the AddressBook belongs.
-	ShareWith map[string]AddressBookRights `json:"shareWith,omitempty"`
+	ShareWith map[PrincipalId]AddressBookRights `json:"shareWith,omitempty"`
 
 	// The set of access rights the user has in relation to this AddressBook (server-set).
 	MyRights AddressBookRights `json:"myRights"`
@@ -5337,7 +5346,7 @@ type Calendar struct {
 	//
 	// The account id for the principals may be found in the `urn:ietf:params:jmap:principals:owner`
 	// capability of the `Account` to which the calendar belongs.
-	ShareWith map[string]CalendarRights `json:"shareWith,omitempty"`
+	ShareWith map[PrincipalId]CalendarRights `json:"shareWith,omitempty"`
 
 	// The set of access rights the user has in relation to this Calendar.
 	//
@@ -5468,7 +5477,7 @@ type CalendarChange struct {
 	//
 	// The account id for the principals may be found in the `urn:ietf:params:jmap:principals:owner`
 	// capability of the `Account` to which the calendar belongs.
-	ShareWith map[string]CalendarRights `json:"shareWith,omitempty"`
+	ShareWith map[PrincipalId]CalendarRights `json:"shareWith,omitempty"`
 
 	// The set of access rights the user has in relation to this Calendar.
 	//
@@ -5790,7 +5799,7 @@ type CalendarAlert struct {
 	Type TypeOfCalendarAlert `json:"@type,omitempty"`
 
 	// The account id for the calendar in which the alert triggered.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// The CalendarEvent id for the alert that triggered.
 	//
@@ -5818,7 +5827,7 @@ type Person struct {
 	// The id of the `Principal` corresponding to the person who made the change, if any.
 	//
 	// This will be null if the change was due to receving an iTIP message.
-	PrincipalId string `json:"principalId,omitempty"`
+	PrincipalId PrincipalId `json:"principalId,omitempty"`
 
 	// The `scheduleId` URI of the person who made the change, if any.
 	//
@@ -6052,7 +6061,7 @@ type TaskList struct {
 	//
 	// The account id for the principals may be found in the `urn:ietf:params:jmap:principals:owner` capability
 	// of the `Account` to which the task list belongs.
-	ShareWith map[string]TaskRights `json:"shareWith,omitempty"`
+	ShareWith map[PrincipalId]TaskRights `json:"shareWith,omitempty"`
 
 	// The set of access rights the user has in relation to this `TaskList`.
 	//
@@ -6366,7 +6375,7 @@ type Principal struct {
 
 	// A map of account id to `Account` object for each JMAP Account containing data for
 	// this principal that the user has access to, or null if none.
-	Accounts map[string]Account `json:"accounts,omitempty"`
+	Accounts map[AccountId]Account `json:"accounts,omitempty"`
 }
 
 var _ Idable = &Principal{}
@@ -6598,7 +6607,7 @@ type MDN struct {
 
 type SendMDN struct {
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// The id of the `Identity` to associate with these MDNs.
 	//
@@ -6616,8 +6625,8 @@ type SendMDN struct {
 }
 
 type QuotaGetCommand struct {
-	AccountId string   `json:"accountId"`
-	Ids       []string `json:"ids,omitempty"`
+	AccountId AccountId `json:"accountId"`
+	Ids       []string  `json:"ids,omitempty"`
 }
 
 var _ GetCommand[Quota] = &QuotaGetCommand{}
@@ -6627,7 +6636,7 @@ func (c QuotaGetCommand) GetObjectType() ObjectType       { return QuotaType }
 func (c QuotaGetCommand) GetResponse() GetResponse[Quota] { return QuotaGetResponse{} }
 
 type QuotaGetRefCommand struct {
-	AccountId     string           `json:"accountId"`
+	AccountId     AccountId        `json:"accountId"`
 	IdsRef        *ResultReference `json:"#ids,omitempty"`
 	PropertiesRef *ResultReference `json:"#properties,omitempty"`
 }
@@ -6639,10 +6648,10 @@ func (c QuotaGetRefCommand) GetObjectType() ObjectType       { return QuotaType 
 func (c QuotaGetRefCommand) GetResponse() GetResponse[Quota] { return QuotaGetResponse{} }
 
 type QuotaGetResponse struct {
-	AccountId string   `json:"accountId"`
-	State     State    `json:"state,omitempty"`
-	List      []Quota  `json:"list,omitempty"`
-	NotFound  []string `json:"notFound,omitempty"`
+	AccountId AccountId `json:"accountId"`
+	State     State     `json:"state,omitempty"`
+	List      []Quota   `json:"list,omitempty"`
+	NotFound  []string  `json:"notFound,omitempty"`
 }
 
 var _ GetResponse[Quota] = &QuotaGetResponse{}
@@ -6654,7 +6663,7 @@ func (r QuotaGetResponse) GetList() []Quota      { return r.List }
 
 type QuotaChangesCommand struct {
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// The current state of the client.
 	// This is the string that was returned as the "state" argument in the "Quota/get" response.
@@ -6682,7 +6691,7 @@ func (c QuotaChangesCommand) GetResponse() ChangesResponse[Quota] { return Quota
 
 type QuotaChangesResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// This is the "sinceState" argument echoed back; it's the state from which the server is returning changes.
 	OldState State `json:"oldState"`
@@ -6715,8 +6724,8 @@ func (r QuotaChangesResponse) GetDestroyed() []string  { return r.Destroyed }
 func (r QuotaChangesResponse) GetMarker() Quota        { return Quota{} }
 
 type AddressBookGetCommand struct {
-	AccountId string   `json:"accountId"`
-	Ids       []string `json:"ids,omitempty"`
+	AccountId AccountId `json:"accountId"`
+	Ids       []string  `json:"ids,omitempty"`
 }
 
 var _ GetCommand[AddressBook] = &AddressBookGetCommand{}
@@ -6728,7 +6737,7 @@ func (c AddressBookGetCommand) GetResponse() GetResponse[AddressBook] {
 }
 
 type AddressBookGetRefCommand struct {
-	AccountId string           `json:"accountId"`
+	AccountId AccountId        `json:"accountId"`
 	IdsRef    *ResultReference `json:"#ids,omitempty"`
 }
 
@@ -6741,7 +6750,7 @@ func (c AddressBookGetRefCommand) GetResponse() GetResponse[AddressBook] {
 }
 
 type AddressBookGetResponse struct {
-	AccountId string        `json:"accountId"`
+	AccountId AccountId     `json:"accountId"`
 	State     State         `json:"state,omitempty"`
 	List      []AddressBook `json:"list,omitempty"`
 	NotFound  []string      `json:"notFound,omitempty"`
@@ -6795,7 +6804,7 @@ type AddressBookChange struct {
 	//
 	// The account id for the principals may be found in the urn:ietf:params:jmap:principals:owner capability
 	// of the Account to which the AddressBook belongs.
-	ShareWith map[string]AddressBookRights `json:"shareWith,omitempty"`
+	ShareWith map[PrincipalId]AddressBookRights `json:"shareWith,omitempty"`
 }
 
 var _ Change = AddressBookChange{}
@@ -6805,8 +6814,8 @@ func (a AddressBookChange) AsPatch() (PatchObject, error) {
 }
 
 type AddressBookSetCommand struct {
-	AccountId string                       `json:"accountId"`
-	IfInState string                       `json:"ifInState,omitempty"`
+	AccountId AccountId                    `json:"accountId"`
+	IfInState State                        `json:"ifInState,omitempty"`
 	Create    map[string]AddressBookChange `json:"create,omitempty"`
 	Update    map[string]PatchObject       `json:"update,omitempty"`
 	Destroy   []string                     `json:"destroy,omitempty"`
@@ -6822,7 +6831,7 @@ func (c AddressBookSetCommand) GetResponse() SetResponse[AddressBook] {
 
 type AddressBookSetResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// The state string that would have been returned by AddressBook/get before making the
 	// requested changes, or null if the server doesn’t know what the previous state
@@ -6878,7 +6887,7 @@ func (r AddressBookSetResponse) GetMarker() AddressBook               { return A
 
 type AddressBookChangesCommand struct {
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// The current state of the client.
 	//
@@ -6909,7 +6918,7 @@ func (c AddressBookChangesCommand) GetResponse() ChangesResponse[AddressBook] {
 
 type AddressBookChangesResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// This is the sinceState argument echoed back; it’s the state from which the server is returning changes.
 	OldState State `json:"oldState"`
@@ -7144,7 +7153,7 @@ func (o ContactCardFilterOperator) IsNotEmpty() bool {
 }
 
 type ContactCardQueryCommand struct {
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	Filter ContactCardFilterElement `json:"filter,omitempty"`
 
@@ -7216,7 +7225,7 @@ func (c ContactCardQueryCommand) WithLimit(limit *uint) ContactCardQueryCommand 
 
 type ContactCardQueryResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// A string encoding the current state of the query on the server.
 	//
@@ -7277,7 +7286,7 @@ type ContactCardGetCommand struct {
 	Ids []string `json:"ids,omitempty"`
 
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// If supplied, only the properties listed in the array are returned for each ContactCard object.
 	//
@@ -7303,7 +7312,7 @@ type ContactCardGetRefCommand struct {
 	IdsRef *ResultReference `json:"#ids,omitempty"`
 
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// If supplied, only the properties listed in the array are returned for each ContactCard object.
 	//
@@ -7323,7 +7332,7 @@ func (c ContactCardGetRefCommand) GetResponse() GetResponse[ContactCard] {
 
 type ContactCardGetResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// A (preferably short) string representing the state on the server for all the data of this type
 	// in the account (not just the objects returned in this call).
@@ -7357,7 +7366,7 @@ func (r ContactCardGetResponse) GetList() []ContactCard { return r.List }
 
 type ContactCardChangesCommand struct {
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// The current state of the client.
 	// This is the string that was returned as the "state" argument in the "ContactCard/get" response.
@@ -7382,7 +7391,7 @@ func (c ContactCardChangesCommand) GetResponse() ChangesResponse[ContactCard] {
 
 type ContactCardChangesResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// This is the "sinceState" argument echoed back; it's the state from which the server is returning changes.
 	OldState State `json:"oldState"`
@@ -7416,7 +7425,7 @@ func (r ContactCardChangesResponse) GetMarker() ContactCard  { return ContactCar
 
 type ContactCardSetCommand struct {
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// This is a state string as returned by the `ContactCard/get` method.
 	//
@@ -7424,7 +7433,7 @@ type ContactCardSetCommand struct {
 	// `stateMismatch` error returned.
 	//
 	// If null, any changes will be applied to the current state.
-	IfInState string `json:"ifInState,omitempty"`
+	IfInState State `json:"ifInState,omitempty"`
 
 	// A map of a creation id (a temporary id set by the client) to ContactCard objects,
 	// or null if no objects are to be created.
@@ -7477,7 +7486,7 @@ func (c ContactCardSetCommand) GetResponse() SetResponse[ContactCard] {
 
 type ContactCardSetResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// The state string that would have been returned by ContactCard/get before making the
 	// requested changes, or null if the server doesn’t know what the previous state
@@ -7533,7 +7542,7 @@ func (r ContactCardSetResponse) GetMarker() ContactCard               { return C
 
 type CalendarEventParseCommand struct {
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// The ids of the blobs to parse
 	BlobIds []string `json:"blobIds,omitempty"`
@@ -7554,7 +7563,7 @@ func (c CalendarEventParseCommand) GetResponse() ParseResponse[CalendarEvent] {
 
 type CalendarEventParseResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// A map of blob ids to parsed CalendarEvent objects representations for each successfully
 	// parsed blob, or null if none.
@@ -7573,8 +7582,8 @@ var _ ParseResponse[CalendarEvent] = &CalendarEventParseResponse{}
 func (r CalendarEventParseResponse) GetMarker() CalendarEvent { return CalendarEvent{} }
 
 type CalendarGetCommand struct {
-	AccountId string   `json:"accountId"`
-	Ids       []string `json:"ids,omitempty"`
+	AccountId AccountId `json:"accountId"`
+	Ids       []string  `json:"ids,omitempty"`
 }
 
 var _ GetCommand[Calendar] = &CalendarGetCommand{}
@@ -7584,7 +7593,7 @@ func (c CalendarGetCommand) GetObjectType() ObjectType          { return Calenda
 func (c CalendarGetCommand) GetResponse() GetResponse[Calendar] { return CalendarGetResponse{} }
 
 type CalendarGetRefCommand struct {
-	AccountId string           `json:"accountId"`
+	AccountId AccountId        `json:"accountId"`
 	IdsRef    *ResultReference `json:"#ids,omitempty"`
 }
 
@@ -7595,7 +7604,7 @@ func (c CalendarGetRefCommand) GetObjectType() ObjectType          { return Cale
 func (c CalendarGetRefCommand) GetResponse() GetResponse[Calendar] { return CalendarGetResponse{} }
 
 type CalendarGetResponse struct {
-	AccountId string     `json:"accountId"`
+	AccountId AccountId  `json:"accountId"`
 	State     State      `json:"state,omitempty"`
 	List      []Calendar `json:"list,omitempty"`
 	NotFound  []string   `json:"notFound,omitempty"`
@@ -7609,8 +7618,8 @@ func (r CalendarGetResponse) GetNotFound() []string { return r.NotFound }
 func (r CalendarGetResponse) GetList() []Calendar   { return r.List }
 
 type CalendarSetCommand struct {
-	AccountId string                    `json:"accountId"`
-	IfInState string                    `json:"ifInState,omitempty"`
+	AccountId AccountId                 `json:"accountId"`
+	IfInState State                     `json:"ifInState,omitempty"`
 	Create    map[string]CalendarChange `json:"create,omitempty"`
 	Update    map[string]PatchObject    `json:"update,omitempty"`
 	Destroy   []string                  `json:"destroy,omitempty"`
@@ -7626,7 +7635,7 @@ func (c CalendarSetCommand) GetResponse() SetResponse[Calendar] {
 
 type CalendarSetResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// The state string that would have been returned by Calendar/get before making the
 	// requested changes, or null if the server doesn’t know what the previous state
@@ -7682,7 +7691,7 @@ func (r CalendarSetResponse) GetMarker() Calendar                  { return Cale
 
 type CalendarChangesCommand struct {
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// The current state of the client.
 	//
@@ -7713,7 +7722,7 @@ func (c CalendarChangesCommand) GetResponse() ChangesResponse[Calendar] {
 
 type CalendarChangesResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// This is the "sinceState" argument echoed back; it's the state from which the server is returning changes.
 	OldState State `json:"oldState"`
@@ -7893,7 +7902,7 @@ func (o CalendarEventFilterOperator) IsNotEmpty() bool {
 var _ CalendarEventFilterElement = &CalendarEventFilterOperator{}
 
 type CalendarEventQueryCommand struct {
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	Filter CalendarEventFilterElement `json:"filter,omitempty"`
 
@@ -7965,7 +7974,7 @@ func (c CalendarEventQueryCommand) WithLimit(limit *uint) CalendarEventQueryComm
 
 type CalendarEventQueryResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// A string encoding the current state of the query on the server.
 	//
@@ -8026,7 +8035,7 @@ type CalendarEventGetCommand struct {
 	Ids []string `json:"ids,omitempty"`
 
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// If supplied, only the properties listed in the array are returned for each CalendarEvent object.
 	//
@@ -8052,7 +8061,7 @@ type CalendarEventGetRefCommand struct {
 	IdsRef *ResultReference `json:"#ids,omitempty"`
 
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// If supplied, only the properties listed in the array are returned for each CalendarEvent object.
 	//
@@ -8072,7 +8081,7 @@ func (c CalendarEventGetRefCommand) GetResponse() GetResponse[CalendarEvent] {
 
 type CalendarEventGetResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// A (preferably short) string representing the state on the server for all the data of this type
 	// in the account (not just the objects returned in this call).
@@ -8106,7 +8115,7 @@ func (r CalendarEventGetResponse) GetList() []CalendarEvent { return r.List }
 
 type CalendarEventChangesCommand struct {
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// The current state of the client.
 	//
@@ -8137,7 +8146,7 @@ func (c CalendarEventChangesCommand) GetResponse() ChangesResponse[CalendarEvent
 
 type CalendarEventChangesResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// This is the "sinceState" argument echoed back; it's the state from which the server is returning changes.
 	OldState State `json:"oldState"`
@@ -8171,7 +8180,7 @@ func (r CalendarEventChangesResponse) GetMarker() CalendarEvent { return Calenda
 
 type CalendarEventSetCommand struct {
 	// The id of the account to use.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// This is a state string as returned by the `CalendarEvent/get` method.
 	//
@@ -8179,7 +8188,7 @@ type CalendarEventSetCommand struct {
 	// `stateMismatch` error returned.
 	//
 	// If null, any changes will be applied to the current state.
-	IfInState string `json:"ifInState,omitempty"`
+	IfInState State `json:"ifInState,omitempty"`
 
 	// A map of a creation id (a temporary id set by the client) to CalendarEvent objects,
 	// or null if no objects are to be created.
@@ -8232,7 +8241,7 @@ func (c CalendarEventSetCommand) GetResponse() SetResponse[CalendarEvent] {
 
 type CalendarEventSetResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// The state string that would have been returned by CalendarEvent/get before making the
 	// requested changes, or null if the server doesn’t know what the previous state
@@ -8287,8 +8296,8 @@ func (r CalendarEventSetResponse) GetNotDestroyed() map[string]SetError { return
 func (r CalendarEventSetResponse) GetMarker() CalendarEvent             { return CalendarEvent{} }
 
 type PrincipalGetCommand struct {
-	AccountId string   `json:"accountId"`
-	Ids       []string `json:"ids,omitempty"`
+	AccountId AccountId     `json:"accountId"`
+	Ids       []PrincipalId `json:"ids,omitempty"`
 }
 
 var _ GetCommand[Principal] = &PrincipalGetCommand{}
@@ -8298,7 +8307,7 @@ func (c PrincipalGetCommand) GetObjectType() ObjectType           { return Princ
 func (c PrincipalGetCommand) GetResponse() GetResponse[Principal] { return PrincipalGetResponse{} }
 
 type PrincipalGetRefCommand struct {
-	AccountId string           `json:"accountId"`
+	AccountId AccountId        `json:"accountId"`
 	IdsRef    *ResultReference `json:"#ids,omitempty"`
 }
 
@@ -8310,7 +8319,7 @@ func (c PrincipalGetRefCommand) GetResponse() GetResponse[Principal] { return Pr
 
 type PrincipalGetResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// A (preferably short) string representing the state on the server for all the data of this type in the account
 	// (not just the objects returned in this call).
@@ -8346,7 +8355,7 @@ type PrincipalFilterElement interface {
 type PrincipalFilterCondition struct {
 	// A list of Account ids.
 	// The Principal matches if any of the ids in this list are keys in the Principal's "accounts" property (i.e., if any of the Account ids belong to the Principal).
-	AccountIds []string `json:"accountIds,omitempty"`
+	AccountIds []AccountId `json:"accountIds,omitempty"`
 	// The email property of the Principal contains the given string.
 	Email string `json:"email,omitempty"`
 	// The name property of the Principal contains the given string.
@@ -8394,7 +8403,7 @@ var _ Comparator[Principal] = &PrincipalComparator{}
 func (c PrincipalComparator) GetMarker() Principal { return Principal{} }
 
 type PrincipalQueryCommand struct {
-	AccountId string                 `json:"accountId"`
+	AccountId AccountId              `json:"accountId"`
 	Filter    PrincipalFilterElement `json:"filter,omitempty"`
 	Sort      []PrincipalComparator  `json:"sort,omitempty"`
 
@@ -8464,7 +8473,7 @@ func (c PrincipalQueryCommand) WithLimit(limit *uint) PrincipalQueryCommand {
 
 type PrincipalQueryResponse struct {
 	// The id of the account used for the call.
-	AccountId string `json:"accountId"`
+	AccountId AccountId `json:"accountId"`
 
 	// A string encoding the current state of the query on the server.
 	//

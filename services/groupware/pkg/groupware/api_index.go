@@ -90,7 +90,7 @@ type IndexAccountCapabilities struct {
 }
 
 type IndexAccount struct {
-	AccountId string `json:"accountId"`
+	AccountId jmap.AccountId `json:"accountId"`
 
 	// A user-friendly string to show when presenting content from this Account,
 	// e.g., the email address representing the owner of the account.
@@ -116,11 +116,11 @@ type IndexAccount struct {
 
 // Primary account identifiers per API usage type.
 type IndexPrimaryAccounts struct {
-	Mail             string `json:"mail"`
-	Submission       string `json:"submission"`
-	Blob             string `json:"blob"`
-	VacationResponse string `json:"vacationResponse"`
-	Sieve            string `json:"sieve"`
+	Mail             jmap.AccountId `json:"mail"`
+	Submission       jmap.AccountId `json:"submission"`
+	Blob             jmap.AccountId `json:"blob"`
+	VacationResponse jmap.AccountId `json:"vacationResponse"`
+	Sieve            jmap.AccountId `json:"sieve"`
 }
 
 type IndexResponse struct {
@@ -185,7 +185,7 @@ func buildIndexPrimaryAccounts(session *jmap.Session) IndexPrimaryAccounts {
 	}
 }
 
-func buildIndexAccounts(session *jmap.Session, boot map[string]jmap.AccountBootstrapResult) []IndexAccount {
+func buildIndexAccounts(session *jmap.Session, boot map[jmap.AccountId]jmap.AccountBootstrapResult) []IndexAccount {
 	accounts := make([]IndexAccount, len(session.Accounts))
 	i := 0
 	for accountId, account := range session.Accounts {
@@ -206,7 +206,7 @@ func buildIndexAccounts(session *jmap.Session, boot map[string]jmap.AccountBoots
 		accounts[i] = indexAccount
 		i++
 	}
-	slices.SortFunc(accounts, func(a, b IndexAccount) int { return strings.Compare(a.AccountId, b.AccountId) })
+	slices.SortFunc(accounts, func(a, b IndexAccount) int { return strings.Compare(string(a.AccountId), string(b.AccountId)) })
 	return accounts
 }
 

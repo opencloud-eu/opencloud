@@ -45,8 +45,8 @@ type Request struct {
 	ctx     jmap.Context
 }
 
-func isDefaultAccountId(accountId string) bool {
-	return slices.Contains(defaultAccountIds, accountId)
+func isDefaultAccountId(accountId jmap.AccountId) bool {
+	return slices.Contains(defaultAccountIds, string(accountId))
 }
 
 func (r *Request) push(typ string, event any) {
@@ -129,13 +129,13 @@ func (r *Request) PathListParamDoc(name string, _ string) ([]string, *Error) {
 	return strings.Split(value, ","), nil
 }
 
-func (r *Request) AllAccountIds() []string {
+func (r *Request) AllAccountIds() []jmap.AccountId {
 	// TODO potentially filter on "subscribed" accounts?
 	return structs.Uniq(structs.Keys(r.session.Accounts))
 }
 
-func (r *Request) GetAccountIdWithoutFallback() (string, *Error) {
-	accountId := chi.URLParam(r.r, UriParamAccountId)
+func (r *Request) GetAccountIdWithoutFallback() (jmap.AccountId, *Error) {
+	accountId := jmap.AccountId(chi.URLParam(r.r, UriParamAccountId))
 	if accountId == "" || isDefaultAccountId(accountId) {
 		r.logger.Error().Err(errNoPrimaryAccountFallback).Msg("failed to determine the accountId")
 		return "", apiError(r.errorId(), ErrorNonExistingAccount,
@@ -146,8 +146,8 @@ func (r *Request) GetAccountIdWithoutFallback() (string, *Error) {
 	return accountId, nil
 }
 
-func (r *Request) getAccountId(fallback string, err error) (string, *Error) {
-	accountId := chi.URLParam(r.r, UriParamAccountId)
+func (r *Request) getAccountId(fallback jmap.AccountId, err error) (jmap.AccountId, *Error) {
+	accountId := jmap.AccountId(chi.URLParam(r.r, UriParamAccountId))
 	if accountId == "" || isDefaultAccountId(accountId) {
 		accountId = fallback
 	}
@@ -161,45 +161,45 @@ func (r *Request) getAccountId(fallback string, err error) (string, *Error) {
 	return accountId, nil
 }
 
-func (r *Request) GetAccountIdForMail() (string, *Error) {
+func (r *Request) GetAccountIdForMail() (jmap.AccountId, *Error) {
 	return r.getAccountId(r.session.PrimaryAccounts.Mail, errNoPrimaryAccountForMail)
 }
 
-func (r *Request) GetAccountIdForBlob() (string, *Error) {
+func (r *Request) GetAccountIdForBlob() (jmap.AccountId, *Error) {
 	return r.getAccountId(r.session.PrimaryAccounts.Blob, errNoPrimaryAccountForBlob)
 }
 
-func (r *Request) GetAccountIdForVacationResponse() (string, *Error) {
+func (r *Request) GetAccountIdForVacationResponse() (jmap.AccountId, *Error) {
 	return r.getAccountId(r.session.PrimaryAccounts.VacationResponse, errNoPrimaryAccountForVacationResponse)
 }
 
-func (r *Request) GetAccountIdForQuota() (string, *Error) {
+func (r *Request) GetAccountIdForQuota() (jmap.AccountId, *Error) {
 	return r.getAccountId(r.session.PrimaryAccounts.Quota, errNoPrimaryAccountForQuota)
 }
 
-func (r *Request) GetAccountIdForSubmission() (string, *Error) {
+func (r *Request) GetAccountIdForSubmission() (jmap.AccountId, *Error) {
 	return r.getAccountId(r.session.PrimaryAccounts.Blob, errNoPrimaryAccountForSubmission)
 }
 
-func (r *Request) GetAccountIdForTask() (string, *Error) {
+func (r *Request) GetAccountIdForTask() (jmap.AccountId, *Error) {
 	// TODO we don't have these yet, not implemented in Stalwart
 	// return r.getAccountId(r.session.PrimaryAccounts.Task, errNoPrimaryAccountForTask)
 	return r.GetAccountIdForMail()
 }
 
-func (r *Request) GetAccountIdForCalendar() (string, *Error) {
+func (r *Request) GetAccountIdForCalendar() (jmap.AccountId, *Error) {
 	// TODO we don't have these yet, not implemented in Stalwart
 	// return r.getAccountId(r.session.PrimaryAccounts.Calendar, errNoPrimaryAccountForCalendar)
 	return r.GetAccountIdForMail()
 }
 
-func (r *Request) GetAccountIdForContact() (string, *Error) {
+func (r *Request) GetAccountIdForContact() (jmap.AccountId, *Error) {
 	// TODO we don't have these yet, not implemented in Stalwart
 	// return r.getAccountId(r.session.PrimaryAccounts.Contact, errNoPrimaryAccountForContact)
 	return r.GetAccountIdForMail()
 }
 
-func (r *Request) GetAccountForMail() (string, jmap.Account, *Error) {
+func (r *Request) GetAccountForMail() (jmap.AccountId, jmap.Account, *Error) {
 	accountId, err := r.GetAccountIdForMail()
 	if err != nil {
 		return "", jmap.Account{}, err
@@ -210,7 +210,7 @@ func (r *Request) GetAccountForMail() (string, jmap.Account, *Error) {
 		r.logger.Debug().Msgf("failed to find account '%v'", accountId)
 		// TODO metric for inexistent accounts
 		return accountId, jmap.Account{}, apiError(r.errorId(), ErrorNonExistingAccount,
-			withDetail(fmt.Sprintf("The account '%v' does not exist", log.SafeString(accountId))),
+			withDetail(fmt.Sprintf("The account '%v' does not exist", log.SafeString(string(accountId)))),
 			withSource(&ErrorSource{Parameter: UriParamAccountId}),
 		)
 	}
@@ -223,11 +223,11 @@ func (r *Request) parameterError(param string, detail string) *Error {
 		withSource(&ErrorSource{Parameter: param}))
 }
 
-func (r *Request) parameterErrorResponse(accountId string, param string, detail string) Response {
+func (r *Request) parameterErrorResponse(accountId jmap.AccountId, param string, detail string) Response {
 	return r.error(accountId, r.parameterError(param, detail))
 }
 
-func (r *Request) parameterErrorResponseN(accountIds []string, param string, detail string) Response {
+func (r *Request) parameterErrorResponseN(accountIds []jmap.AccountId, param string, detail string) Response {
 	return r.errorN(accountIds, r.parameterError(param, detail))
 }
 
@@ -239,7 +239,7 @@ func toSupportedQueryParams(params ...string) supportedQueryParams {
 
 var noSupportedQueryParams supportedQueryParams = toSupportedQueryParams()
 
-func (r *Request) unsupportedQueryParams(accountIds []string, allowed supportedQueryParams) (bool, Response) {
+func (r *Request) unsupportedQueryParams(accountIds []jmap.AccountId, allowed supportedQueryParams) (bool, Response) {
 	q := r.r.URL.Query()
 	for n := range q {
 		if _, ok := allowed[n]; !ok {
@@ -470,14 +470,14 @@ func (r *Request) observeJmapError(jerr jmap.Error) jmap.Error {
 	return jerr
 }
 
-func (r *Request) needBlob(accountId string) (bool, Response) {
+func (r *Request) needBlob(accountId jmap.AccountId) (bool, Response) {
 	if r.session.Capabilities.Blob == nil {
 		return false, errorResponse(single(accountId), r.apiError(&ErrorMissingBlobSessionCapability), r.session.State, jmap.NoLanguage)
 	}
 	return true, Response{}
 }
 
-func (r *Request) needBlobForAccount(accountId string) (bool, Response) {
+func (r *Request) needBlobForAccount(accountId jmap.AccountId) (bool, Response) {
 	if ok, resp := r.needBlob(accountId); !ok {
 		return ok, resp
 	}
@@ -491,7 +491,7 @@ func (r *Request) needBlobForAccount(accountId string) (bool, Response) {
 	return true, Response{}
 }
 
-func (r *Request) needBloblWithAccount() (bool, string, Response) {
+func (r *Request) needBloblWithAccount() (bool, jmap.AccountId, Response) {
 	accountId, err := r.GetAccountIdForBlob()
 	if err != nil {
 		return false, "", r.error(accountId, err)
@@ -502,14 +502,14 @@ func (r *Request) needBloblWithAccount() (bool, string, Response) {
 	return true, accountId, Response{}
 }
 
-func (r *Request) needMail(accountId string) (bool, Response) {
+func (r *Request) needMail(accountId jmap.AccountId) (bool, Response) {
 	if r.session.Capabilities.Mail == nil {
 		return false, errorResponse(single(accountId), r.apiError(&ErrorMissingMailsSessionCapability), r.session.State, jmap.NoLanguage)
 	}
 	return true, Response{}
 }
 
-func (r *Request) needMailForAccount(accountId string) (bool, Response) {
+func (r *Request) needMailForAccount(accountId jmap.AccountId) (bool, Response) {
 	if ok, resp := r.needMail(accountId); !ok {
 		return ok, resp
 	}
@@ -523,7 +523,7 @@ func (r *Request) needMailForAccount(accountId string) (bool, Response) {
 	return true, Response{}
 }
 
-func (r *Request) needMailWithAccount() (bool, string, Response) {
+func (r *Request) needMailWithAccount() (bool, jmap.AccountId, Response) {
 	accountId, err := r.GetAccountIdForMail()
 	if err != nil {
 		return false, "", r.error(accountId, err)
@@ -534,7 +534,7 @@ func (r *Request) needMailWithAccount() (bool, string, Response) {
 	return true, accountId, Response{}
 }
 
-func (r *Request) needTask(accountId string) (bool, Response) {
+func (r *Request) needTask(accountId jmap.AccountId) (bool, Response) {
 	if !IgnoreSessionCapabilityChecksForTasks {
 		if r.session.Capabilities.Tasks == nil {
 			return false, errorResponse(single(accountId), r.apiError(&ErrorMissingTasksSessionCapability), r.session.State, jmap.Language(r.language()))
@@ -543,7 +543,7 @@ func (r *Request) needTask(accountId string) (bool, Response) {
 	return true, Response{}
 }
 
-func (r *Request) needTaskForAccount(accountId string) (bool, Response) {
+func (r *Request) needTaskForAccount(accountId jmap.AccountId) (bool, Response) {
 	if ok, resp := r.needTask(accountId); !ok {
 		return ok, resp
 	}
@@ -557,7 +557,7 @@ func (r *Request) needTaskForAccount(accountId string) (bool, Response) {
 	return true, Response{}
 }
 
-func (r *Request) needTaskWithAccount() (bool, string, Response) {
+func (r *Request) needTaskWithAccount() (bool, jmap.AccountId, Response) {
 	accountId, err := r.GetAccountIdForTask()
 	if err != nil {
 		return false, "", r.error(accountId, err)
@@ -568,14 +568,14 @@ func (r *Request) needTaskWithAccount() (bool, string, Response) {
 	return true, accountId, Response{}
 }
 
-func (r *Request) needCalendar(accountId string) (bool, Response) {
+func (r *Request) needCalendar(accountId jmap.AccountId) (bool, Response) {
 	if r.session.Capabilities.Calendars == nil {
 		return false, errorResponse(single(accountId), r.apiError(&ErrorMissingCalendarsSessionCapability), r.session.State, jmap.NoLanguage)
 	}
 	return true, Response{}
 }
 
-func (r *Request) needCalendarForAccount(accountId string) (bool, Response) {
+func (r *Request) needCalendarForAccount(accountId jmap.AccountId) (bool, Response) {
 	if ok, resp := r.needCalendar(accountId); !ok {
 		return ok, resp
 	}
@@ -589,7 +589,7 @@ func (r *Request) needCalendarForAccount(accountId string) (bool, Response) {
 	return true, Response{}
 }
 
-func (r *Request) needCalendarWithAccount() (bool, string, Response) {
+func (r *Request) needCalendarWithAccount() (bool, jmap.AccountId, Response) {
 	accountId, err := r.GetAccountIdForCalendar()
 	if err != nil {
 		return false, "", r.error(accountId, err)
@@ -600,14 +600,14 @@ func (r *Request) needCalendarWithAccount() (bool, string, Response) {
 	return true, accountId, Response{}
 }
 
-func (r *Request) needContact(accountId string) (bool, Response) {
+func (r *Request) needContact(accountId jmap.AccountId) (bool, Response) {
 	if r.session.Capabilities.Contacts == nil {
 		return false, errorResponse(single(accountId), r.apiError(&ErrorMissingContactsSessionCapability), r.session.State, jmap.NoLanguage)
 	}
 	return true, Response{}
 }
 
-func (r *Request) needContactForAccount(accountId string) (bool, Response) {
+func (r *Request) needContactForAccount(accountId jmap.AccountId) (bool, Response) {
 	if ok, resp := r.needContact(accountId); !ok {
 		return ok, resp
 	}
@@ -621,7 +621,7 @@ func (r *Request) needContactForAccount(accountId string) (bool, Response) {
 	return true, Response{}
 }
 
-func (r *Request) needContactWithAccount() (bool, string, Response) {
+func (r *Request) needContactWithAccount() (bool, jmap.AccountId, Response) {
 	accountId, err := r.GetAccountIdForContact()
 	if err != nil {
 		return false, "", r.error(accountId, err)
@@ -632,14 +632,14 @@ func (r *Request) needContactWithAccount() (bool, string, Response) {
 	return true, accountId, Response{}
 }
 
-func (r *Request) needQuota(accountId string) (bool, Response) {
+func (r *Request) needQuota(accountId jmap.AccountId) (bool, Response) {
 	if r.session.Capabilities.Quota == nil {
 		return false, errorResponse(single(accountId), r.apiError(&ErrorMissingQuotaSessionCapability), r.session.State, jmap.NoLanguage)
 	}
 	return true, Response{}
 }
 
-func (r *Request) needQuotaForAccount(accountId string) (bool, Response) {
+func (r *Request) needQuotaForAccount(accountId jmap.AccountId) (bool, Response) {
 	if ok, resp := r.needQuota(accountId); !ok {
 		return ok, resp
 	}
@@ -653,7 +653,7 @@ func (r *Request) needQuotaForAccount(accountId string) (bool, Response) {
 	return true, Response{}
 }
 
-func (r *Request) needQuotaWithAccount() (bool, string, Response) {
+func (r *Request) needQuotaWithAccount() (bool, jmap.AccountId, Response) {
 	accountId, err := r.GetAccountIdForQuota()
 	if err != nil {
 		return false, "", r.error(accountId, err)
@@ -706,4 +706,8 @@ func (r *Request) parseSort(s string, props []string) ([]SortCrit, *Error) {
 
 func toState(s string) jmap.State {
 	return jmap.State(s)
+}
+
+func toAccountIdState(accountId string, state string) (jmap.AccountId, jmap.State) {
+	return jmap.AccountId(accountId), jmap.State(state)
 }

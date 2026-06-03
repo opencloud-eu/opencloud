@@ -20,7 +20,7 @@ type Objects struct {
 
 // Retrieve objects of all types by their identifiers in a single batch.
 // @api:tags changes
-func (j *Client) GetObjects(accountId string, //NOSONAR
+func (j *Client) GetObjects(accountId AccountId, //NOSONAR
 	mailboxIds []string, emailIds []string,
 	addressbookIds []string, contactIds []string,
 	calendarIds []string, eventIds []string,

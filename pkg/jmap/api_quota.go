@@ -2,9 +2,9 @@ package jmap
 
 var NS_QUOTA = ns(JmapQuota)
 
-func (j *Client) GetQuotas(accountIds []string, ctx Context) (Result[map[string]QuotaGetResponse], error) {
+func (j *Client) GetQuotas(accountIds []AccountId, ctx Context) (Result[map[AccountId]QuotaGetResponse], error) {
 	return getN(j, "GetQuotas", QuotaType,
-		func(accountId string, ids []string) QuotaGetCommand {
+		func(accountId AccountId, ids []string) QuotaGetCommand {
 			return QuotaGetCommand{AccountId: accountId}
 		},
 		QuotaGetResponse{},
@@ -28,7 +28,7 @@ func (c QuotaChanges) GetDestroyed() []string  { return c.Destroyed }
 
 // Retrieve the changes in Quotas since a given State.
 // @api:tags quota,changes
-func (j *Client) GetQuotaChanges(accountId string, sinceState State, maxChanges uint,
+func (j *Client) GetQuotaChanges(accountId AccountId, sinceState State, maxChanges uint,
 	ctx Context) (Result[QuotaChanges], error) {
 	return changesA(j, "GetQuotaChanges", QuotaType,
 		func() QuotaChangesCommand {
@@ -60,7 +60,7 @@ func (j *Client) GetQuotaChanges(accountId string, sinceState State, maxChanges 
 	)
 }
 
-func (j *Client) GetQuotaUsageChanges(accountId string, sinceState State, maxChanges uint,
+func (j *Client) GetQuotaUsageChanges(accountId AccountId, sinceState State, maxChanges uint,
 	ctx Context) (Result[QuotaChanges], error) {
 	return updates(j, "GetQuotaUsageChanges", QuotaType,
 		func() QuotaChangesCommand {

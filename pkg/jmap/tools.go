@@ -44,13 +44,13 @@ func newEventListeners[T any]() *eventListeners[T] {
 
 // Create an identifier to use as a method call ID, from the specified accountId and additional
 // tag, to make something unique within that API request.
-func mcid(accountId string, tag string) string {
+func mcid(accountId AccountId, tag string) string {
 	// https://jmap.io/spec-core.html#the-invocation-data-type
 	// May be any string of data:
 	// An arbitrary string from the client to be echoed back with the responses emitted by that method
 	// call (a method may return 1 or more responses, as it may make implicit calls to other methods;
 	// all responses initiated by this method call get the same method call id in the response).
-	return accountId + ":" + tag
+	return string(accountId) + ":" + tag
 }
 
 type Cmdr interface {
@@ -308,7 +308,7 @@ func (i *Invocation) UnmarshalJSON(bs []byte) error {
 	return nil
 }
 
-func squashState(all map[string]State) State {
+func squashState[K ~string](all map[K]State) State {
 	return squashStateFunc(all, func(s State) State { return s })
 }
 
@@ -318,11 +318,11 @@ func squashStates(states ...State) State {
 }
 */
 
-func squashKeyedStates(m map[string]State) State {
+func squashKeyedStates[K ~string](m map[K]State) State {
 	return squashStateFunc(m, identity1)
 }
 
-func squashStateFunc[V any](all map[string]V, mapper func(V) State) State {
+func squashStateFunc[K ~string, V any](all map[K]V, mapper func(V) State) State {
 	n := len(all)
 	if n == 0 {
 		return State("")
@@ -334,7 +334,7 @@ func squashStateFunc[V any](all map[string]V, mapper func(V) State) State {
 	}
 
 	parts := make([]string, n)
-	sortedKeys := make([]string, n)
+	sortedKeys := make([]K, n)
 	i := 0
 	for k := range all {
 		sortedKeys[i] = k
@@ -343,15 +343,15 @@ func squashStateFunc[V any](all map[string]V, mapper func(V) State) State {
 	slices.Sort(sortedKeys)
 	for i, k := range sortedKeys {
 		if v, ok := all[k]; ok {
-			parts[i] = k + ":" + string(mapper(v))
+			parts[i] = string(k) + ":" + string(mapper(v))
 		} else {
-			parts[i] = k + ":"
+			parts[i] = string(k) + ":"
 		}
 	}
 	return State(strings.Join(parts, ","))
 }
 
-func squashStateMaps(first map[string]State, second map[string]State) State {
+func squashStateMaps(first map[AccountId]State, second map[AccountId]State) State {
 	return squashStateFunc(mapPairs(first, second), func(p pair[State, State]) State {
 		if p.left != nil {
 			if p.right != nil {

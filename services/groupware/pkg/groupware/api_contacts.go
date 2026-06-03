@@ -82,7 +82,7 @@ func (g *Groupware) ModifyContact(w http.ResponseWriter, r *http.Request) {
 	modify(Contact, w, r, g, g.jmap.UpdateContactCard)
 }
 
-func (g *Groupware) contacts(accountIds []string, qps QueryParamsSupplier, limit *uint, //NOSONAR
+func (g *Groupware) contacts(accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint, //NOSONAR
 	filter jmap.ContactCardFilterElement, sortBy []jmap.ContactCardComparator, calculateTotal bool,
 	ctx jmap.Context) (jmap.Result[*jmap.ContactCardSearchResults], NextToken, error) {
 	return squery(g.contactCardQuerySuppliers, accountIds, qps, limit, filter, sortBy, calculateTotal, ctx,

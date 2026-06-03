@@ -71,7 +71,7 @@ func (g *Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) { //NOS
 			return resp
 		}
 
-		logger := log.From(req.logger.With().Str(logAccountId, accountId))
+		logger := log.From(req.logger.With().Str(logAccountId, log.SafeString(accountId)))
 		ctx := req.ctx.WithLogger(logger)
 
 		if hasCriteria {
@@ -106,7 +106,7 @@ func (g *Groupware) GetMailboxesForAllAccounts(w http.ResponseWriter, r *http.Re
 		if len(accountIds) < 1 {
 			return req.noopN(nil) // when the user has no accounts
 		}
-		logger := log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(accountIds)))
+		logger := log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(structs.ToStrings(accountIds))))
 		ctx := req.ctx.WithLogger(logger)
 
 		var filter jmap.MailboxFilterCondition
@@ -153,7 +153,7 @@ func (g *Groupware) GetMailboxByRoleForAllAccounts(w http.ResponseWriter, r *htt
 			return req.errorN(accountIds, err)
 		}
 
-		logger := log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(accountIds)).Str("role", role))
+		logger := log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(structs.ToStrings(accountIds))).Str("role", role))
 		ctx := req.ctx.WithLogger(logger)
 
 		filter := jmap.MailboxFilterCondition{
@@ -180,7 +180,7 @@ func (g *Groupware) GetMailboxChangesForAllAccounts(w http.ResponseWriter, r *ht
 		l := req.logger.With()
 
 		allAccountIds := req.AllAccountIds()
-		l.Array(logAccountId, log.SafeStringArray(allAccountIds))
+		l.Array(logAccountId, log.SafeStringArray(structs.ToStrings(allAccountIds)))
 
 		sinceStateStrMap, ok, err := req.parseMapParam(QueryParamSince)
 		if err != nil {
@@ -205,7 +205,7 @@ func (g *Groupware) GetMailboxChangesForAllAccounts(w http.ResponseWriter, r *ht
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
 
-		sinceStateMap := structs.MapValues(sinceStateStrMap, toState)
+		sinceStateMap := structs.MapMap(sinceStateStrMap, toAccountIdState)
 		result, jerr := g.jmap.GetMailboxChangesForMultipleAccounts(allAccountIds, sinceStateMap, maxChanges, ctx)
 		if jerr != nil {
 			return req.jmapErrorN(allAccountIds, jerr, result)
@@ -221,7 +221,7 @@ func (g *Groupware) GetMailboxRoles(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		l := req.logger.With()
 		allAccountIds := req.AllAccountIds()
-		l.Array(logAccountId, log.SafeStringArray(allAccountIds))
+		l.Array(logAccountId, log.SafeStringArray(structs.ToStrings(allAccountIds)))
 		logger := log.From(l)
 		ctx := req.ctx.WithLogger(logger)
 
@@ -257,8 +257,8 @@ func scoreMailbox(m jmap.Mailbox) int {
 	return 1000
 }
 
-func sortMailboxesMap(mailboxesByAccountId map[string][]jmap.Mailbox) map[string][]jmap.Mailbox {
-	sortedByAccountId := make(map[string][]jmap.Mailbox, len(mailboxesByAccountId))
+func sortMailboxesMap(mailboxesByAccountId map[jmap.AccountId][]jmap.Mailbox) map[jmap.AccountId][]jmap.Mailbox {
+	sortedByAccountId := make(map[jmap.AccountId][]jmap.Mailbox, len(mailboxesByAccountId))
 	for accountId, unsorted := range mailboxesByAccountId {
 		mailboxes := make([]jmap.Mailbox, len(unsorted))
 		copy(mailboxes, unsorted)

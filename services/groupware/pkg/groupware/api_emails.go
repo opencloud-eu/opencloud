@@ -24,7 +24,7 @@ import (
 // Get the changes tp Emails since a certain State.
 // @api:tags email,changes
 func (g *Groupware) GetEmailChanges(w http.ResponseWriter, r *http.Request) {
-	changes(Email, w, r, g, func(accountId string, sinceState jmap.State, maxChanges uint, ctx jmap.Context) (jmap.Result[jmap.EmailChanges], error) {
+	changes(Email, w, r, g, func(accountId jmap.AccountId, sinceState jmap.State, maxChanges uint, ctx jmap.Context) (jmap.Result[jmap.EmailChanges], error) {
 		return g.jmap.GetEmailChanges(accountId, sinceState, true, g.config.maxBodyValueBytes, maxChanges, ctx)
 	})
 }
@@ -42,7 +42,7 @@ func (g *Groupware) GetAllEmailsInMailbox(w http.ResponseWriter, r *http.Request
 	fetchBodies := false
 	withThreads := true
 	query(Email, w, r, g, g.defaults.emailLimit,
-		func(req Request, accountId string, containerId string, qp jmap.QueryParams, limit *uint, ctx jmap.Context) (jmap.Result[*jmap.EmailSearchResults], error) { //NOSONAR
+		func(req Request, accountId jmap.AccountId, containerId string, qp jmap.QueryParams, limit *uint, ctx jmap.Context) (jmap.Result[*jmap.EmailSearchResults], error) { //NOSONAR
 			result, jerr := g.jmap.GetAllEmailsInMailbox(accountId, containerId, qp, limit, collapseThreads, fetchBodies, g.config.maxBodyValueBytes, withThreads, ctx)
 			if jerr != nil {
 				return jmap.ZeroResult[*jmap.EmailSearchResults](), jerr
@@ -348,13 +348,13 @@ func (g *Groupware) getEmailsSince(w http.ResponseWriter, r *http.Request, since
 type EmailSearchSnippetsResults jmap.SearchResultsTemplate[Snippet]
 
 type EmailWithSnippets struct {
-	AccountId string                  `json:"accountId,omitempty"`
+	AccountId jmap.AccountId          `json:"accountId,omitempty"`
 	Snippets  []SnippetWithoutEmailId `json:"snippets,omitempty"`
 	jmap.Email
 }
 
 type Snippet struct {
-	AccountId string `json:"accountId,omitempty"`
+	AccountId jmap.AccountId `json:"accountId,omitempty"`
 	jmap.SearchSnippetWithMeta
 }
 
@@ -649,7 +649,7 @@ func (g *Groupware) GetEmailsForAllAccounts(w http.ResponseWriter, r *http.Reque
 		if !ok {
 			return req.errorN(allAccountIds, err)
 		}
-		logger = log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(allAccountIds)))
+		logger = log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(structs.ToStrings(allAccountIds))))
 		ctx := req.ctx.WithLogger(logger)
 
 		if !filter.IsNotEmpty() {
@@ -758,7 +758,7 @@ var draftEmailAutoMailboxRolePrecedence = []string{
 	jmap.JmapMailboxRoleInbox,  // but if there is none, we will use the Mailbox with the inbox role instead
 }
 
-func findDraftsMailboxId(j *jmap.Client, accountId string, req Request, ctx jmap.Context) (string, Response) {
+func findDraftsMailboxId(j *jmap.Client, accountId jmap.AccountId, req Request, ctx jmap.Context) (string, Response) {
 	result, jerr := j.SearchMailboxIdsPerRole(single(accountId), draftEmailAutoMailboxRolePrecedence, ctx)
 	if jerr != nil {
 		return "", req.jmapError(accountId, jerr, result)
@@ -781,7 +781,7 @@ var sentEmailAutoMailboxRolePrecedence = []string{
 
 var draftAndSentMailboxRoles = structs.Uniq(structs.Concat(draftEmailAutoMailboxRolePrecedence, sentEmailAutoMailboxRolePrecedence))
 
-func findSentMailboxId(j *jmap.Client, accountId string, req Request, ctx jmap.Context) (string, string, Response) { //NOSONAR
+func findSentMailboxId(j *jmap.Client, accountId jmap.AccountId, req Request, ctx jmap.Context) (string, string, Response) { //NOSONAR
 	result, jerr := j.SearchMailboxIdsPerRole(single(accountId), draftAndSentMailboxRoles, ctx)
 	if jerr != nil {
 		return "", "", req.jmapError(accountId, jerr, result)
@@ -812,7 +812,7 @@ func findSentMailboxId(j *jmap.Client, accountId string, req Request, ctx jmap.C
 
 func (g *Groupware) CreateEmail(w http.ResponseWriter, r *http.Request) {
 	create(Email, w, r, g,
-		func(r Request, accountId string, body *jmap.EmailChange, ctx jmap.Context) (bool, Response) {
+		func(r Request, accountId jmap.AccountId, body *jmap.EmailChange, ctx jmap.Context) (bool, Response) {
 			if len(body.MailboxIds) < 1 {
 				mailboxId, resp := findDraftsMailboxId(g.jmap, accountId, r, ctx)
 				if mailboxId != "" && body != nil {
@@ -826,7 +826,7 @@ func (g *Groupware) CreateEmail(w http.ResponseWriter, r *http.Request) {
 			}
 			return true, Response{}
 		},
-		func(accountId string, body jmap.EmailChange, ctx jmap.Context) (jmap.Result[*jmap.Email], error) {
+		func(accountId jmap.AccountId, body jmap.EmailChange, ctx jmap.Context) (jmap.Result[*jmap.Email], error) {
 			return g.jmap.CreateEmail(accountId, body, "", ctx)
 		},
 	)
@@ -835,7 +835,7 @@ func (g *Groupware) CreateEmail(w http.ResponseWriter, r *http.Request) {
 func (g *Groupware) ReplaceEmail(w http.ResponseWriter, r *http.Request) {
 	replaceId := ""
 	create(Email, w, r, g,
-		func(r Request, accountId string, body *jmap.EmailChange, ctx jmap.Context) (bool, Response) {
+		func(r Request, accountId jmap.AccountId, body *jmap.EmailChange, ctx jmap.Context) (bool, Response) {
 			if len(body.MailboxIds) < 1 {
 				mailboxId, resp := findDraftsMailboxId(g.jmap, accountId, r, ctx)
 				if mailboxId != "" {
@@ -852,7 +852,7 @@ func (g *Groupware) ReplaceEmail(w http.ResponseWriter, r *http.Request) {
 
 			return true, Response{}
 		},
-		func(accountId string, body jmap.EmailChange, ctx jmap.Context) (jmap.Result[*jmap.Email], error) {
+		func(accountId jmap.AccountId, body jmap.EmailChange, ctx jmap.Context) (jmap.Result[*jmap.Email], error) {
 			ctx = ctx.WithLogger(log.From(ctx.Logger.With().Str("replaceId", replaceId)))
 			return g.jmap.CreateEmail(accountId, body, replaceId, ctx)
 		},
@@ -883,7 +883,7 @@ func (g *Groupware) UpdateEmailKeywords(w http.ResponseWriter, r *http.Request) 
 		if gwerr != nil {
 			return req.error(accountId, gwerr)
 		}
-		l.Str(logAccountId, accountId)
+		l.Str(logAccountId, log.SafeString(accountId))
 
 		emailId, err := req.PathParam(UriParamEmailId)
 		if err != nil {
@@ -945,7 +945,7 @@ func (g *Groupware) AddEmailKeywords(w http.ResponseWriter, r *http.Request) { /
 		if gwerr != nil {
 			return req.error(accountId, gwerr)
 		}
-		l.Str(logAccountId, accountId)
+		l.Str(logAccountId, log.SafeString(accountId))
 
 		emailId, err := req.PathParam(UriParamEmailId)
 		if err != nil {
@@ -1008,7 +1008,7 @@ func (g *Groupware) RemoveEmailKeywords(w http.ResponseWriter, r *http.Request) 
 		if err != nil {
 			return req.error(accountId, err)
 		}
-		l.Str(logAccountId, accountId)
+		l.Str(logAccountId, log.SafeString(accountId))
 
 		emailId, err := req.PathParam(UriParamEmailId)
 		if err != nil {
@@ -1082,7 +1082,7 @@ func (g *Groupware) SendEmail(w http.ResponseWriter, r *http.Request) { //NOSONA
 		if gwerr != nil {
 			return req.error(accountId, gwerr)
 		}
-		l.Str(logAccountId, accountId)
+		l.Str(logAccountId, log.SafeString(accountId))
 
 		emailId, err := req.PathParam(UriParamEmailId)
 		if err != nil {
@@ -1309,7 +1309,7 @@ func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) { //N
 
 type EmailSummary struct {
 	// The id of the account this Email summary pertains to.
-	AccountId string `json:"accountId,omitempty"`
+	AccountId jmap.AccountId `json:"accountId,omitempty"`
 
 	// The id of the Email object.
 	//
@@ -1450,7 +1450,7 @@ var _ jmap.Foo = EmailSummary{}
 
 func (e EmailSummary) GetObjectType() jmap.ObjectType { return jmap.EmailType }
 
-func summarizeEmail(accountId string, email jmap.Email) EmailSummary {
+func summarizeEmail(accountId jmap.AccountId, email jmap.Email) EmailSummary {
 	return EmailSummary{
 		AccountId:     accountId,
 		Id:            email.Id,
@@ -1474,7 +1474,7 @@ func summarizeEmail(accountId string, email jmap.Email) EmailSummary {
 }
 
 type emailWithAccountId struct {
-	accountId string
+	accountId jmap.AccountId
 	email     jmap.Email
 }
 
@@ -1495,7 +1495,7 @@ func (g *Groupware) GetLatestEmailsSummaryForAllAccounts(w http.ResponseWriter, 
 		l := req.logger.With()
 
 		allAccountIds := req.AllAccountIds()
-		l.Array(logAccountId, log.SafeStringArray(allAccountIds))
+		l.Array(logAccountId, log.SafeStringArray(structs.ToStrings(allAccountIds)))
 
 		limit, ok, err := req.parseUIntParam(QueryParamLimit, 10) // TODO from configuration
 		if err != nil {

@@ -34,8 +34,8 @@ func (g *Groupware) ModifyAddressBook(w http.ResponseWriter, r *http.Request) {
 	modify(AddressBook, w, r, g, g.jmap.UpdateAddressBook)
 }
 
-func (g *Groupware) addressbooks(accountId string, ids []string, ctx jmap.Context) (jmap.Result[jmap.AddressBookGetResponse], error) {
-	return slist(g.addressBookListSuppliers, accountId, ids, ctx, func(accountId string, state jmap.State, notFound []string, list []jmap.AddressBook) jmap.AddressBookGetResponse {
+func (g *Groupware) addressbooks(accountId jmap.AccountId, ids []string, ctx jmap.Context) (jmap.Result[jmap.AddressBookGetResponse], error) {
+	return slist(g.addressBookListSuppliers, accountId, ids, ctx, func(accountId jmap.AccountId, state jmap.State, notFound []string, list []jmap.AddressBook) jmap.AddressBookGetResponse {
 		return jmap.AddressBookGetResponse{AccountId: accountId, State: state, NotFound: notFound, List: list}
 	})
 }

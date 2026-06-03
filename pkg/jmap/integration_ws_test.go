@@ -17,7 +17,7 @@ type testWsPushListener struct {
 	t             *testing.T
 	logger        *log.Logger
 	username      string
-	mailAccountId string
+	mailAccountId AccountId
 	calls         atomic.Uint32
 	m             sync.Mutex
 	emailStates   []string
@@ -46,7 +46,7 @@ func (l *testWsPushListener) OnNotification(username string, pushState StateChan
 		unsupportedKeys := structs.Filter(structs.Keys(changed), func(o ObjectTypeName) bool { return o != EmailName && o != ThreadName && o != MailboxName })
 		assert.Empty(l.t, unsupportedKeys)
 	}
-	unsupportedAccounts := structs.Filter(structs.Keys(pushState.Changed), func(s string) bool { return s != l.mailAccountId })
+	unsupportedAccounts := structs.Filter(structs.Keys(pushState.Changed), func(s AccountId) bool { return s != l.mailAccountId })
 	assert.Empty(l.t, unsupportedAccounts)
 }
 
