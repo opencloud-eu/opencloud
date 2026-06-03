@@ -1384,10 +1384,6 @@ type ChangesResponse[T Foo] interface {
 type QueryCommand[T Foo, SELF QueryCommand[T, SELF]] interface {
 	JmapCommand
 	GetResponse() QueryResponse[T]
-	GetPosition() int
-	GetAnchor() string
-	GetAnchorOffset() *int
-	GetLimit() *uint
 	WithLimit(limit *uint) SELF
 }
 
@@ -1912,10 +1908,6 @@ var _ QueryCommand[Mailbox, MailboxQueryCommand] = &MailboxQueryCommand{}
 func (c MailboxQueryCommand) GetCommand() Command                 { return CommandMailboxQuery }
 func (c MailboxQueryCommand) GetObjectType() ObjectType           { return MailboxType }
 func (c MailboxQueryCommand) GetResponse() QueryResponse[Mailbox] { return &MailboxQueryResponse{} }
-func (c MailboxQueryCommand) GetPosition() int                    { return c.Position }
-func (c MailboxQueryCommand) GetAnchor() string                   { return c.Anchor }
-func (c MailboxQueryCommand) GetAnchorOffset() *int               { return c.AnchorOffset }
-func (c MailboxQueryCommand) GetLimit() *uint                     { return c.Limit }
 func (c MailboxQueryCommand) WithLimit(limit *uint) MailboxQueryCommand {
 	return MailboxQueryCommand{
 		AccountId:      c.AccountId,
@@ -2236,10 +2228,6 @@ var _ QueryCommand[Email, EmailQueryCommand] = &EmailQueryCommand{}
 func (c EmailQueryCommand) GetCommand() Command               { return CommandEmailQuery }
 func (c EmailQueryCommand) GetObjectType() ObjectType         { return MailboxType }
 func (c EmailQueryCommand) GetResponse() QueryResponse[Email] { return &EmailQueryResponse{} }
-func (c EmailQueryCommand) GetPosition() int                  { return c.Position }
-func (c EmailQueryCommand) GetAnchor() string                 { return c.Anchor }
-func (c EmailQueryCommand) GetAnchorOffset() *int             { return c.AnchorOffset }
-func (c EmailQueryCommand) GetLimit() *uint                   { return c.Limit }
 func (c EmailQueryCommand) WithLimit(limit *uint) EmailQueryCommand {
 	return EmailQueryCommand{
 		AccountId:       c.AccountId,
@@ -7213,10 +7201,6 @@ func (c ContactCardQueryCommand) GetObjectType() ObjectType { return ContactCard
 func (c ContactCardQueryCommand) GetResponse() QueryResponse[ContactCard] {
 	return &ContactCardQueryResponse{}
 }
-func (c ContactCardQueryCommand) GetPosition() int      { return c.Position }
-func (c ContactCardQueryCommand) GetAnchor() string     { return c.Anchor }
-func (c ContactCardQueryCommand) GetAnchorOffset() *int { return c.AnchorOffset }
-func (c ContactCardQueryCommand) GetLimit() *uint       { return c.Limit }
 func (c ContactCardQueryCommand) WithLimit(limit *uint) ContactCardQueryCommand {
 	return ContactCardQueryCommand{
 		AccountId:      c.AccountId,
@@ -7966,10 +7950,6 @@ func (c CalendarEventQueryCommand) GetObjectType() ObjectType { return CalendarE
 func (c CalendarEventQueryCommand) GetResponse() QueryResponse[CalendarEvent] {
 	return &CalendarEventQueryResponse{}
 }
-func (c CalendarEventQueryCommand) GetPosition() int      { return c.Position }
-func (c CalendarEventQueryCommand) GetAnchor() string     { return c.Anchor }
-func (c CalendarEventQueryCommand) GetAnchorOffset() *int { return c.AnchorOffset }
-func (c CalendarEventQueryCommand) GetLimit() *uint       { return c.Limit }
 func (c CalendarEventQueryCommand) WithLimit(limit *uint) CalendarEventQueryCommand {
 	return CalendarEventQueryCommand{
 		AccountId:      c.AccountId,
@@ -8469,10 +8449,6 @@ func (c PrincipalQueryCommand) GetObjectType() ObjectType { return PrincipalType
 func (c PrincipalQueryCommand) GetResponse() QueryResponse[Principal] {
 	return &PrincipalQueryResponse{}
 }
-func (c PrincipalQueryCommand) GetPosition() int      { return c.Position }
-func (c PrincipalQueryCommand) GetAnchor() string     { return c.Anchor }
-func (c PrincipalQueryCommand) GetAnchorOffset() *int { return c.AnchorOffset }
-func (c PrincipalQueryCommand) GetLimit() *uint       { return c.Limit }
 func (c PrincipalQueryCommand) WithLimit(limit *uint) PrincipalQueryCommand {
 	return PrincipalQueryCommand{
 		AccountId:      c.AccountId,
