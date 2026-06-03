@@ -35,13 +35,13 @@ func TestCalendars(t *testing.T) { //NOSONAR
 		func(session *Session) string { return session.PrimaryAccounts.Calendars },
 		func(resp CalendarGetResponse) []Calendar { return resp.List },
 		func(obj Calendar) string { return obj.Id },
-		func(s *StalwartTest, accountId string, ids []string, ctx Context) (Result[CalendarGetResponse], Error) {
+		func(s *StalwartTest, accountId string, ids []string, ctx Context) (Result[CalendarGetResponse], error) {
 			return s.client.GetCalendars(accountId, ids, ctx)
 		},
-		func(s *StalwartTest, accountId string, id string, change CalendarChange, ctx Context) (Result[Calendar], Error) { //NOSONAR
+		func(s *StalwartTest, accountId string, id string, change CalendarChange, ctx Context) (Result[Calendar], error) { //NOSONAR
 			return s.client.UpdateCalendar(accountId, id, change, ctx)
 		},
-		func(s *StalwartTest, accountId string, ids []string, ctx Context) (Result[map[string]SetError], Error) { //NOSONAR
+		func(s *StalwartTest, accountId string, ids []string, ctx Context) (Result[map[string]SetError], error) { //NOSONAR
 			return s.client.DeleteCalendar(accountId, ids, ctx)
 		},
 		func(s *StalwartTest, t *testing.T, accountId string, count uint, ctx Context, user User, principalIds []string) (CalendarBoxes, []Calendar, SessionState, State, error) {
@@ -94,7 +94,7 @@ func TestEvents(t *testing.T) {
 	os := EmptyState
 	var results *CalendarEventSearchResults
 	{
-		result, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, 0, "", nil, nil, true, ctx)
+		result, err := s.client.QueryCalendarEvents(toNullQueryParams([]string{accountId}), nil, filter, sortBy, true, ctx)
 		require.NoError(err)
 
 		require.Len(result.Payload, 1)
@@ -127,7 +127,7 @@ func TestEvents(t *testing.T) {
 		for i := range slices {
 			position := int(i * limit)
 			page := min(remainder, limit)
-			result, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, position, "", nil, &limit, true, ctx)
+			result, err := s.client.QueryCalendarEvents(map[string]QueryParams{accountId: {Position: position}}, &limit, filter, sortBy, true, ctx)
 			require.NoError(err)
 			require.Len(result.Payload, 1)
 			require.Contains(result.Payload, accountId)
@@ -152,7 +152,7 @@ func TestEvents(t *testing.T) {
 		offset := 0
 		i := 0
 		for chunk := range slices.Chunk(results.Results, chunkSize) {
-			result, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, 0, anchor, &offset, uintPtr(chunkSize), true, ctx)
+			result, err := s.client.QueryCalendarEvents(map[string]QueryParams{accountId: {Anchor: anchor, AnchorOffset: &offset}}, uintPtr(chunkSize), filter, sortBy, true, ctx)
 			require.Equal(ss, result.GetSessionState())
 			require.NoError(err)
 			require.Len(result.Payload, 1)
@@ -207,7 +207,7 @@ func TestEvents(t *testing.T) {
 	}
 
 	{
-		result, err := s.client.QueryCalendarEvents([]string{accountId}, filter, sortBy, 0, "", nil, nil, true, ctx)
+		result, err := s.client.QueryCalendarEvents(toNullQueryParams([]string{accountId}), nil, filter, sortBy, true, ctx)
 		require.NoError(err)
 		require.Contains(result.Payload, accountId)
 		resp := result.Payload[accountId]

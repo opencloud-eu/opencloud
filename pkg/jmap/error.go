@@ -60,6 +60,8 @@ type JmapError struct {
 }
 
 var _ Error = &JmapError{}
+var _ error = &JmapError{}
+var _ error = JmapError{}
 
 func (e JmapError) Code() int {
 	return e.code

@@ -10,7 +10,7 @@ import (
 
 var NS_BLOB = ns(JmapBlob)
 
-func (j *Client) GetBlobMetadata(accountId string, ids []string, ctx Context) (Result[BlobGetResponse], Error) {
+func (j *Client) GetBlobMetadata(accountId string, ids []string, ctx Context) (Result[BlobGetResponse], error) {
 	get := BlobGetCommand{
 		AccountId: accountId,
 		Ids:       ids,
@@ -41,7 +41,7 @@ type UploadedBlobWithHash struct {
 	Sha512 string `json:"sha:512,omitempty"`
 }
 
-func (j *Client) UploadBlobStream(accountId string, contentType string, body io.Reader, ctx Context) (UploadedBlob, Language, Error) {
+func (j *Client) UploadBlobStream(accountId string, contentType string, body io.Reader, ctx Context) (UploadedBlob, Language, error) {
 	logger := log.From(ctx.Logger.With().Str(logEndpoint, ctx.Session.UploadEndpoint))
 	ctx = ctx.WithLogger(logger)
 	// TODO(pbleser-oc) use a library for proper URL template parsing
@@ -49,7 +49,7 @@ func (j *Client) UploadBlobStream(accountId string, contentType string, body io.
 	return j.blob.UploadBinary(uploadUrl, ctx.Session.UploadEndpoint, contentType, body, ctx)
 }
 
-func (j *Client) DownloadBlobStream(accountId string, blobId string, name string, typ string, ctx Context) (*BlobDownload, Language, Error) { //NOSONAR
+func (j *Client) DownloadBlobStream(accountId string, blobId string, name string, typ string, ctx Context) (*BlobDownload, Language, error) { //NOSONAR
 	logger := log.From(ctx.Logger.With().Str(logEndpoint, ctx.Session.DownloadEndpoint))
 	ctx = ctx.WithLogger(logger)
 	// TODO(pbleser-oc) use a library for proper URL template parsing
@@ -62,7 +62,7 @@ func (j *Client) DownloadBlobStream(accountId string, blobId string, name string
 	return j.blob.DownloadBinary(downloadUrl, ctx.Session.DownloadEndpoint, ctx)
 }
 
-func (j *Client) UploadBlob(accountId string, data []byte, contentType string, ctx Context) (Result[UploadedBlobWithHash], Error) {
+func (j *Client) UploadBlob(accountId string, data []byte, contentType string, ctx Context) (Result[UploadedBlobWithHash], error) {
 	encoded := base64.StdEncoding.EncodeToString(data)
 
 	upload := BlobUploadCommand{

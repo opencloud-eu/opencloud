@@ -14,6 +14,9 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/jscalendar"
 )
 
+var UintPtrOne *uint = uintPtr(1)
+var UintPtrZero *uint = uintPtr(0)
+
 type eventListeners[T any] struct {
 	listeners []T
 	m         sync.Mutex
@@ -141,7 +144,7 @@ func mapstructStringToTimeHook() mapstructure.DecodeHookFunc {
 	// mapstruct isn't able to properly map RFC3339 date strings into Time
 	// objects, which is why we require this custom hook,
 	// see https://github.com/mitchellh/mapstructure/issues/41
-	wanted := reflect.TypeOf(time.Time{})
+	wanted := reflect.TypeFor[time.Time]()
 	return func(from reflect.Type, to reflect.Type, data any) (any, error) {
 		if to != wanted {
 			return data, nil
@@ -238,7 +241,7 @@ func retrieveSet[T Foo, C SetCommand[T], R SetResponse[T]](ctx Context, data *Re
 	return retrieveResponseMatchParameters(ctx, data, command.GetCommand(), tag, target)
 }
 
-func retrieveQuery[T Foo, C QueryCommand[T], R QueryResponse[T]](ctx Context, data *Response, command C, tag string, target *R) Error {
+func retrieveQuery[T Foo, C QueryCommand[T, C], R QueryResponse[T]](ctx Context, data *Response, command C, tag string, target *R) Error {
 	return retrieveResponseMatchParameters(ctx, data, command.GetCommand(), tag, target)
 }
 

@@ -33,3 +33,11 @@ func ptrIf[T any | uint | int | bool](t T, predicate bool) *T {
 		return nil
 	}
 }
+
+func ptrIfNot[T comparable](t T, notThis T) *T {
+	if t != notThis {
+		return &t
+	} else {
+		return nil
+	}
+}

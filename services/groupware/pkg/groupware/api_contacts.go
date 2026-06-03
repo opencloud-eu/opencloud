@@ -45,66 +45,9 @@ func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Requ
 		func(addressbookId string) jmap.ContactCardFilterElement {
 			return jmap.ContactCardFilterCondition{InAddressBook: addressbookId}
 		},
-		[]jmap.ContactCardComparator{{Property: jmap.ContactCardPropertyUpdated, IsAscending: true}},
-		curryMapQuery(g.jmap.QueryContactCards),
+		[]jmap.ContactCardComparator{{Property: jmap.ContactCardPropertyCreated, IsAscending: true}},
+		curryQueryFunc(g.contacts),
 	)
-
-	/*
-		g.respond(w, r, func(req Request) Response {
-			ok, accountId, resp := req.needContactWithAccount()
-			if !ok {
-				return resp
-			}
-			accountIds := single(accountId)
-
-			l := req.logger.With()
-
-			addressBookId, err := req.PathParam(UriParamAddressBookId)
-			if err != nil {
-				return req.errorN(accountIds, err)
-			}
-			l = l.Str(UriParamAddressBookId, log.SafeString(addressBookId))
-
-			position, ok, err := req.parseIntParam(QueryParamPosition, 0)
-			if err != nil {
-				return req.errorN(accountIds, err)
-			}
-			if ok {
-				l = l.Int(QueryParamPosition, position)
-			}
-
-			limit, ok, err := req.parseUIntParam(QueryParamLimit, g.defaults.contactLimit)
-			if err != nil {
-				return req.errorN(accountIds, err)
-			}
-			if ok {
-				l = l.Uint(QueryParamLimit, limit)
-			}
-
-			filter := jmap.ContactCardFilterCondition{
-				InAddressBook: addressBookId,
-			}
-			var sortBy []jmap.ContactCardComparator
-			if sort, ok, resp := mapSort(accountIds, &req, DefaultContactSort, SupportedContactSortingProperties, mapContactCardSort); !ok {
-				return resp
-			} else {
-				sortBy = sort
-			}
-
-			logger := log.From(l)
-			ctx := req.ctx.WithLogger(logger)
-			contactsByAccountId, sessionState, state, lang, jerr := g.jmap.QueryContactCards(accountIds, filter, sortBy, position, limit, true, ctx)
-			if jerr != nil {
-				return req.jmapErrorN(accountIds, jerr, sessionState, lang)
-			}
-
-			if contacts, ok := contactsByAccountId[accountId]; ok {
-				return req.respondN(accountIds, contacts, sessionState, ContactResponseObjectType, state, lang)
-			} else {
-				return req.notFoundN(accountIds, sessionState, ContactResponseObjectType, state)
-			}
-		})
-	*/
 }
 
 func (g *Groupware) GetContactById(w http.ResponseWriter, r *http.Request) {
@@ -116,8 +59,8 @@ func (g *Groupware) GetAllContacts(w http.ResponseWriter, r *http.Request) {
 		func(_ string) jmap.ContactCardFilterElement {
 			return jmap.ContactCardFilterCondition{}
 		},
-		[]jmap.ContactCardComparator{{Property: jmap.ContactCardPropertyUpdated, IsAscending: true}},
-		curryMapQuery(g.jmap.QueryContactCards),
+		[]jmap.ContactCardComparator{{Property: jmap.ContactCardPropertyCreated, IsAscending: true}},
+		curryQueryFunc(g.contacts),
 	)
 }
 
@@ -137,4 +80,21 @@ func (g *Groupware) DeleteContact(w http.ResponseWriter, r *http.Request) {
 
 func (g *Groupware) ModifyContact(w http.ResponseWriter, r *http.Request) {
 	modify(Contact, w, r, g, g.jmap.UpdateContactCard)
+}
+
+func (g *Groupware) contacts(accountIds []string, qps QueryParamsSupplier, limit *uint, //NOSONAR
+	filter jmap.ContactCardFilterElement, sortBy []jmap.ContactCardComparator, calculateTotal bool,
+	ctx jmap.Context) (jmap.Result[*jmap.ContactCardSearchResults], NextToken, error) {
+	return squery(g.contactCardQuerySuppliers, accountIds, qps, limit, filter, sortBy, calculateTotal, ctx,
+		func(a, b jmap.ContactCard) int { return a.Created.Compare(b.Created) },
+		func(canCalculateChanges jmap.ChangeCalculation, position, limit, total *uint, results []jmap.ContactCard) *jmap.ContactCardSearchResults {
+			return &jmap.ContactCardSearchResults{
+				Results:             results,
+				CanCalculateChanges: canCalculateChanges,
+				Position:            position,
+				Limit:               limit,
+				Total:               total,
+			}
+		},
+	)
 }

@@ -2,7 +2,7 @@ package jmap
 
 var NS_PRINCIPALS = ns(JmapPrincipals)
 
-func (j *Client) GetPrincipals(accountId string, ids []string, ctx Context) (Result[PrincipalGetResponse], Error) {
+func (j *Client) GetPrincipals(accountId string, ids []string, ctx Context) (Result[PrincipalGetResponse], error) {
 	return get(j, "GetPrincipals", PrincipalType,
 		func(accountId string, ids []string) PrincipalGetCommand {
 			return PrincipalGetCommand{AccountId: accountId, Ids: ids}
@@ -29,27 +29,36 @@ func (r *PrincipalSearchResults) RemoveResults()             { r.Results = nil }
 func (r *PrincipalSearchResults) SetLimit(limit *uint)       { r.Limit = limit }
 func (r *PrincipalSearchResults) SetPosition(position *uint) { r.Position = position }
 
-func (j *Client) QueryPrincipals(accountId string, //NOSONAR
-	filter PrincipalFilterElement, sortBy []PrincipalComparator,
-	position int, anchor string, anchorOffset *int, limit *uint, calculateTotal bool,
-	ctx Context) (Result[*PrincipalSearchResults], Error) {
-	return query(j, "QueryPrincipals", PrincipalType,
+func (j *Client) QueryPrincipals(accountIds map[string]QueryParams, limit *uint, //NOSONAR
+	filter PrincipalFilterElement, sortBy []PrincipalComparator, calculateTotal bool,
+	ctx Context) (Result[map[string]*PrincipalSearchResults], error) {
+	return queryN(j, "QueryPrincipals", PrincipalType,
 		[]PrincipalComparator{{Property: PrincipalPropertyName, IsAscending: true}},
-		func(filter PrincipalFilterElement, sortBy []PrincipalComparator, position int, anchor string, anchorOffset *int, limit *uint) PrincipalQueryCommand {
-			return PrincipalQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, Position: position, Anchor: anchor, AnchorOffset: anchorOffset, Limit: limit, CalculateTotal: calculateTotal}
+		func(accountId string, p QueryParams, limit *uint, filter PrincipalFilterElement, sortBy []PrincipalComparator) PrincipalQueryCommand {
+			return PrincipalQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, Position: p.Position, Anchor: p.Anchor, AnchorOffset: p.AnchorOffset, Limit: limit, CalculateTotal: calculateTotal}
 		},
-		func(cmd Command, path string, rof string) PrincipalGetRefCommand {
+		func(accountId string, cmd Command, path, rof string) PrincipalGetRefCommand {
 			return PrincipalGetRefCommand{AccountId: accountId, IdsRef: &ResultReference{Name: cmd, Path: path, ResultOf: rof}}
 		},
-		func(query PrincipalQueryResponse, get PrincipalGetResponse) *PrincipalSearchResults {
+		func(query PrincipalQueryResponse, queryParams QueryParams, limit *uint) *PrincipalSearchResults {
+			return &PrincipalSearchResults{
+				Results:             []Principal{},
+				CanCalculateChanges: ChangeCalculation(query.CanCalculateChanges),
+				Position:            valueIf(query.Position, queryParams.Anchor == ""),
+				Total:               ptrIf(query.Total, calculateTotal),
+				Limit:               valueIf(query.Limit, limit != nil),
+			}
+		},
+		func(query PrincipalQueryResponse, get PrincipalGetResponse, queryParams QueryParams, limit *uint) *PrincipalSearchResults {
 			return &PrincipalSearchResults{
 				Results:             get.List,
 				CanCalculateChanges: ChangeCalculation(query.CanCalculateChanges),
-				Position:            ptrIf(query.Position, anchor == ""),
+				Position:            valueIf(query.Position, queryParams.Anchor == ""),
 				Total:               ptrIf(query.Total, calculateTotal),
-				Limit:               ptrIf(query.Limit, limit != nil),
+				Limit:               valueIf(query.Limit, limit != nil),
 			}
 		},
-		filter, sortBy, position, anchor, anchorOffset, limit, ctx,
+		accountIds, limit, filter, sortBy,
+		ctx,
 	)
 }

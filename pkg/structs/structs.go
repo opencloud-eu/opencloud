@@ -2,6 +2,7 @@
 package structs
 
 import (
+	"fmt"
 	"iter"
 	"maps"
 	"slices"
@@ -308,4 +309,53 @@ func FilterSeq[T any](it iter.Seq[T], predicate func(T) bool) iter.Seq[T] {
 			}
 		}
 	}
+}
+
+func FilterKeys[K comparable, V any](m map[K]V, predicate func(K, V) bool) []K {
+	if m == nil {
+		return []K{}
+	}
+	r := []K{}
+	for k, v := range m {
+		if predicate(k, v) {
+			r = append(r, k)
+		}
+	}
+	return r
+}
+
+func FilterValues[K comparable, V any](m map[K]V, predicate func(K, V) bool) []V {
+	if m == nil {
+		return []V{}
+	}
+	r := []V{}
+	for k, v := range m {
+		if predicate(k, v) {
+			r = append(r, v)
+		}
+	}
+	return r
+}
+
+func MeshMap[A any, B any, K comparable, V any](keys []A, values []B, mapper func(A, B) (K, V, bool)) (map[K]V, error) {
+	m := map[K]V{}
+	if len(keys) != len(values) {
+		return nil, fmt.Errorf("different length for slices")
+	}
+	for i := range keys {
+		if k, v, b := mapper(keys[i], values[i]); b {
+			m[k] = v
+		}
+	}
+	return m, nil
+}
+
+func First[T any](values []T, predicate func(T) bool) (T, bool) {
+	for _, value := range values {
+		if predicate(value) {
+			return value, true
+		}
+	}
+	var zero T
+	return zero, false
 }

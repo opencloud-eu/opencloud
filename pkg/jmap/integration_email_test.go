@@ -81,7 +81,7 @@ func TestEmails(t *testing.T) {
 		}
 
 		{
-			result, err := s.client.GetAllEmailsInMailbox(accountId, inboxId, 0, "", nil, nil, true, false, 0, true, ctx)
+			result, err := s.client.GetAllEmailsInMailbox(accountId, inboxId, NullQueryParams, nil, true, false, 0, true, ctx)
 			require.NoError(err)
 			require.Equal(session.State, result.GetSessionState())
 
@@ -95,7 +95,7 @@ func TestEmails(t *testing.T) {
 		}
 
 		{
-			result, err := s.client.GetAllEmailsInMailbox(accountId, inboxId, 0, "", nil, nil, false, false, 0, true, ctx)
+			result, err := s.client.GetAllEmailsInMailbox(accountId, inboxId, NullQueryParams, nil, false, false, 0, true, ctx)
 			require.NoError(err)
 			require.Equal(session.State, result.GetSessionState())
 
@@ -331,8 +331,8 @@ func TestSendingEmails(t *testing.T) {
 			result, err := s.client.QueryEmails([]string{r.accountId}, EmailFilterCondition{InMailbox: inboxId}, 0, 0, true, 0, rctx)
 			require.NoError(err)
 			require.Contains(result.Payload, r.accountId)
-			require.Len(result.Payload[r.accountId].Emails, 1)
-			received := result.Payload[r.accountId].Emails[0]
+			require.Len(result.Payload[r.accountId].Results, 1)
+			received := result.Payload[r.accountId].Results[0]
 			require.Len(received.From, 1)
 			require.Equal(from.email, received.From[0].Email)
 			require.Equal(fromName, received.From[0].Name)

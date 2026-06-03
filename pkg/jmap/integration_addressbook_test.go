@@ -45,13 +45,13 @@ func TestAddressBooks(t *testing.T) {
 		func(session *Session) string { return session.PrimaryAccounts.Contacts },
 		list,
 		getid,
-		func(s *StalwartTest, accountId string, ids []string, ctx Context) (Result[AddressBookGetResponse], Error) {
+		func(s *StalwartTest, accountId string, ids []string, ctx Context) (Result[AddressBookGetResponse], error) {
 			return s.client.GetAddressbooks(accountId, ids, ctx)
 		},
-		func(s *StalwartTest, accountId string, id string, change AddressBookChange, ctx Context) (Result[AddressBook], Error) { //NOSONAR
+		func(s *StalwartTest, accountId string, id string, change AddressBookChange, ctx Context) (Result[AddressBook], error) { //NOSONAR
 			return s.client.UpdateAddressBook(accountId, id, change, ctx)
 		},
-		func(s *StalwartTest, accountId string, ids []string, ctx Context) (Result[map[string]SetError], Error) { //NOSONAR
+		func(s *StalwartTest, accountId string, ids []string, ctx Context) (Result[map[string]SetError], error) { //NOSONAR
 			return s.client.DeleteAddressBook(accountId, ids, ctx)
 		},
 		func(s *StalwartTest, t *testing.T, accountId string, count uint, ctx Context, user User, principalIds []string) (AddressBookBoxes, []AddressBook, SessionState, State, error) {
@@ -104,7 +104,7 @@ func TestContacts(t *testing.T) {
 	ss := EmptySessionState
 	os := EmptyState
 	{
-		result, err := s.client.QueryContactCards([]string{accountId}, filter, sortBy, 0, "", nil, nil, true, ctx)
+		result, err := s.client.QueryContactCards(toNullQueryParams([]string{accountId}), nil, filter, sortBy, true, ctx)
 		require.NoError(err)
 
 		require.Len(result.Payload, 1)
@@ -161,7 +161,7 @@ func TestContacts(t *testing.T) {
 		for i := range slices {
 			position := int(i * limit)
 			page := min(remainder, limit)
-			result, err := s.client.QueryContactCards([]string{accountId}, filter, sortBy, position, "", nil, &limit, true, ctx)
+			result, err := s.client.QueryContactCards(map[string]QueryParams{accountId: {Position: position}}, &limit, filter, sortBy, true, ctx)
 			require.NoError(err)
 			require.Len(result.Payload, 1)
 			require.Contains(result.Payload, accountId)
@@ -186,7 +186,7 @@ func TestContacts(t *testing.T) {
 		offset := 0
 		i := 0
 		for chunk := range slices.Chunk(results.Results, chunkSize) {
-			result, err := s.client.QueryContactCards([]string{accountId}, filter, sortBy, 0, anchor, &offset, uintPtr(chunkSize), true, ctx)
+			result, err := s.client.QueryContactCards(map[string]QueryParams{accountId: {Anchor: anchor, AnchorOffset: &offset}}, uintPtr(chunkSize), filter, sortBy, true, ctx)
 			require.Equal(ss, result.GetSessionState())
 			require.NoError(err)
 			require.Len(result.Payload, 1)
@@ -236,7 +236,7 @@ func TestContacts(t *testing.T) {
 		os = result.GetState()
 	}
 	{
-		result, err := s.client.QueryContactCards([]string{accountId}, filter, sortBy, 0, "", nil, nil, true, ctx)
+		result, err := s.client.QueryContactCards(toNullQueryParams([]string{accountId}), nil, filter, sortBy, true, ctx)
 		require.NoError(err)
 		require.Contains(result.Payload, accountId)
 		resp := result.Payload[accountId]

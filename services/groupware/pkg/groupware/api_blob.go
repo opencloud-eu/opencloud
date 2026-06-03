@@ -47,29 +47,34 @@ func (g *Groupware) UploadBlob(w http.ResponseWriter, r *http.Request) {
 
 // Download a BLOB by its identifier.
 func (g *Groupware) DownloadBlob(w http.ResponseWriter, r *http.Request) {
-	g.stream(w, r, func(req Request, w http.ResponseWriter) *Error {
+	g.stream(w, r, func(req Request, w http.ResponseWriter) (bool, Response) {
+		ok, accountId, resp := req.needBloblWithAccount()
+		if !ok {
+			return false, resp
+		}
+
 		blobId, err := req.PathParam(UriParamBlobId) // the unique identifier of the blob to download
 		if err != nil {
-			return err
+			return false, req.error(accountId, err)
 		}
 		name, err := req.PathParam(UriParamBlobName) // the filename of the blob to download, which is then used in the response and may be arbitrary if unknown
 		if err != nil {
-			return err
+			return false, req.error(accountId, err)
 		}
 		typ, _ := req.getStringParam(QueryParamBlobType, "") // optionally, the Content-Type of the blob, which is then used in the response
 
-		accountId, gwerr := req.GetAccountIdForBlob()
-		if gwerr != nil {
-			return gwerr
-		}
 		logger := log.From(req.logger.With().Str(logAccountId, accountId).Str(UriParamBlobId, blobId))
 		ctx := req.ctx.WithLogger(logger)
 
-		return req.serveBlob(blobId, name, typ, ctx, accountId, w)
+		if err := req.serveBlob(blobId, name, typ, ctx, accountId, w); err != nil {
+			return false, req.error(accountId, err)
+		} else {
+			return true, req.noop(accountId)
+		}
 	})
 }
 
-func (r *Request) serveBlob(blobId string, name string, typ string, ctx jmap.Context, accountId string, w http.ResponseWriter) *Error {
+func (r *Request) serveBlob(blobId string, name string, typ string, ctx jmap.Context, accountId string, w http.ResponseWriter) *Error { //NOSONAR
 	if typ == "" {
 		typ = DefaultBlobDownloadType
 	}
@@ -83,7 +88,12 @@ func (r *Request) serveBlob(blobId string, name string, typ string, ctx jmap.Con
 		}(blob.Body)
 	}
 	if jerr != nil {
-		return r.apiErrorFromJmap(jerr)
+		switch e := jerr.(type) {
+		case jmap.Error:
+			return r.apiErrorFromJmap(e)
+		default:
+			return apiError(r.errorId(), ErrorGeneric, withDetail(e.Error()))
+		}
 	}
 	if blob == nil {
 		w.WriteHeader(http.StatusNotFound)

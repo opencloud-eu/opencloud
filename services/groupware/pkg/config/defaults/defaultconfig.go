@@ -52,6 +52,7 @@ func DefaultConfig() *config.Config {
 				AllowedHeaders:   []string{"Authorization", "Origin", "Content-Type", "Accept", "X-Requested-With", "X-Request-Id", "Trace-Id", "Cache-Control"},
 				AllowCredentials: true,
 			},
+			OpenCloudPublicURL: "https://localhost:9200/",
 		},
 		Service: config.Service{
 			Name: "groupware",

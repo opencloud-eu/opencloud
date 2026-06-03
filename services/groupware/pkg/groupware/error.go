@@ -2,6 +2,7 @@ package groupware
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -109,6 +110,11 @@ type GroupwareError struct {
 	Code   string
 	Title  string
 	Detail string
+	error
+}
+
+func (g GroupwareError) Error() string {
+	return fmt.Sprintf("[%s] %s: %s", g.Code, g.Title, g.Detail)
 }
 
 func groupwareErrorFromJmap(j jmap.Error) *GroupwareError {
@@ -756,10 +762,36 @@ func (r *Request) errorN(accountIds []string, err *Error) Response {
 	return errorResponse(accountIds, err, r.session.State, jmap.NoLanguage)
 }
 
-func (r *Request) jmapError(accountId string, err jmap.Error, result jmap.ResultMetadata) Response {
-	return errorResponse(single(accountId), r.apiErrorFromJmap(r.observeJmapError(err)), result.GetSessionState(), result.GetLanguage())
+func (r *Request) jmapError(accountId string, err error, result jmap.ResultMetadata) Response {
+	switch e := err.(type) {
+	case jmap.Error:
+		if result != nil {
+			return errorResponse(single(accountId), r.apiErrorFromJmap(r.observeJmapError(e)), result.GetSessionState(), result.GetLanguage())
+		} else {
+			return errorResponse(single(accountId), r.apiErrorFromJmap(r.observeJmapError(e)), r.session.GetSessionState(), jmap.NoLanguage)
+		}
+	case GroupwareError:
+		errorId := r.errorId()
+		return r.error(accountId, apiError(errorId, e))
+	default:
+		errorId := r.errorId()
+		return r.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())))
+	}
 }
 
-func (r *Request) jmapErrorN(accountIds []string, err jmap.Error, result jmap.ResultMetadata) Response {
-	return errorResponse(accountIds, r.apiErrorFromJmap(r.observeJmapError(err)), result.GetSessionState(), result.GetLanguage())
+func (r *Request) jmapErrorN(accountIds []string, err error, result jmap.ResultMetadata) Response {
+	switch e := err.(type) {
+	case jmap.Error:
+		if result != nil {
+			return errorResponse(accountIds, r.apiErrorFromJmap(r.observeJmapError(e)), result.GetSessionState(), result.GetLanguage())
+		} else {
+			return errorResponse(accountIds, r.apiErrorFromJmap(r.observeJmapError(e)), r.session.GetSessionState(), jmap.NoLanguage)
+		}
+	case GroupwareError:
+		errorId := r.errorId()
+		return r.errorN(accountIds, apiError(errorId, e))
+	default:
+		errorId := r.errorId()
+		return r.errorN(accountIds, apiError(errorId, ErrorGeneric, withDetail(e.Error())))
+	}
 }

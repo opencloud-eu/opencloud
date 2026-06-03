@@ -17,7 +17,7 @@ func (r *CalendarEventSearchResults) RemoveResults()             { r.Results = n
 func (r *CalendarEventSearchResults) SetLimit(limit *uint)       { r.Limit = limit }
 func (r *CalendarEventSearchResults) SetPosition(position *uint) { r.Position = position }
 
-func (j *Client) GetCalendarEvents(accountId string, eventIds []string, ctx Context) (Result[CalendarEventGetResponse], Error) {
+func (j *Client) GetCalendarEvents(accountId string, eventIds []string, ctx Context) (Result[CalendarEventGetResponse], error) {
 	return get(j, "GetCalendarEvents", CalendarEventType,
 		func(accountId string, ids []string) CalendarEventGetCommand {
 			return CalendarEventGetCommand{AccountId: accountId, Ids: eventIds}
@@ -29,29 +29,37 @@ func (j *Client) GetCalendarEvents(accountId string, eventIds []string, ctx Cont
 	)
 }
 
-func (j *Client) QueryCalendarEvents(accountIds []string, //NOSONAR
-	filter CalendarEventFilterElement, sortBy []CalendarEventComparator,
-	position int, anchor string, anchorOffset *int, limit *uint, calculateTotal bool,
-	ctx Context) (Result[map[string]*CalendarEventSearchResults], Error) {
+func (j *Client) QueryCalendarEvents(accountIds map[string]QueryParams, limit *uint, //NOSONAR
+	filter CalendarEventFilterElement, sortBy []CalendarEventComparator, calculateTotal bool,
+	ctx Context) (Result[map[string]*CalendarEventSearchResults], error) {
 	return queryN(j, "QueryCalendarEvents", CalendarEventType,
 		[]CalendarEventComparator{{Property: CalendarEventPropertyStart, IsAscending: false}},
-		func(accountId string, filter CalendarEventFilterElement, sortBy []CalendarEventComparator, position int, anchor string, anchorOffset *int, limit *uint) CalendarEventQueryCommand {
-			return CalendarEventQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, Position: position, Anchor: anchor, AnchorOffset: anchorOffset, Limit: limit, CalculateTotal: calculateTotal}
+		func(accountId string, queryParams QueryParams, limit *uint, filter CalendarEventFilterElement, sortBy []CalendarEventComparator) CalendarEventQueryCommand {
+			return CalendarEventQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, Position: queryParams.Position, Anchor: queryParams.Anchor, AnchorOffset: queryParams.AnchorOffset, Limit: limit, CalculateTotal: calculateTotal}
 		},
 		func(accountId string, cmd Command, path string, rof string) CalendarEventGetRefCommand {
 			return CalendarEventGetRefCommand{AccountId: accountId, IdsRef: &ResultReference{Name: cmd, Path: path, ResultOf: rof}}
 		},
-		func(query CalendarEventQueryResponse, get CalendarEventGetResponse) *CalendarEventSearchResults {
+		func(query CalendarEventQueryResponse, queryParams QueryParams, limit *uint) *CalendarEventSearchResults {
+			return &CalendarEventSearchResults{
+				Results:             []CalendarEvent{},
+				CanCalculateChanges: ChangeCalculation(query.CanCalculateChanges),
+				Position:            valueIf(query.Position, queryParams.Anchor == ""),
+				Total:               valueIf(query.Total, calculateTotal),
+				Limit:               valueIf(query.Limit, limit != nil),
+			}
+		},
+		func(query CalendarEventQueryResponse, get CalendarEventGetResponse, queryParams QueryParams, limit *uint) *CalendarEventSearchResults {
 			return &CalendarEventSearchResults{
 				Results:             get.List,
 				CanCalculateChanges: ChangeCalculation(query.CanCalculateChanges),
-				Position:            ptrIf(query.Position, anchor == ""),
+				Position:            valueIf(query.Position, queryParams.Anchor == ""),
 				Total:               valueIf(query.Total, calculateTotal),
-				Limit:               ptrIf(query.Limit, limit != nil),
+				Limit:               valueIf(query.Limit, limit != nil),
 			}
 		},
-		accountIds,
-		filter, sortBy, position, anchor, anchorOffset, limit, ctx,
+		accountIds, limit,
+		filter, sortBy, ctx,
 	)
 }
 
@@ -69,7 +77,7 @@ func (c CalendarEventChanges) GetDestroyed() []string      { return c.Destroyed 
 // Retrieve the changes in Calendar Events since a given State.
 // @api:tags event,changes
 func (j *Client) GetCalendarEventChanges(accountId string, sinceState State, maxChanges uint,
-	ctx Context) (Result[CalendarEventChanges], Error) {
+	ctx Context) (Result[CalendarEventChanges], error) {
 	return changes(j, "GetCalendarEventChanges", CalendarEventType,
 		func() CalendarEventChangesCommand {
 			return CalendarEventChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: uintPtr(maxChanges)}
@@ -100,7 +108,7 @@ func (j *Client) GetCalendarEventChanges(accountId string, sinceState State, max
 	)
 }
 
-func (j *Client) CreateCalendarEvent(accountId string, event CalendarEventChange, ctx Context) (Result[*CalendarEvent], Error) {
+func (j *Client) CreateCalendarEvent(accountId string, event CalendarEventChange, ctx Context) (Result[*CalendarEvent], error) {
 	return create(j, "CreateCalendarEvent", CalendarEventType,
 		func(accountId string, create map[string]CalendarEventChange) CalendarEventSetCommand {
 			return CalendarEventSetCommand{AccountId: accountId, Create: create}
@@ -119,7 +127,7 @@ func (j *Client) CreateCalendarEvent(accountId string, event CalendarEventChange
 	)
 }
 
-func (j *Client) DeleteCalendarEvent(accountId string, destroyIds []string, ctx Context) (Result[map[string]SetError], Error) {
+func (j *Client) DeleteCalendarEvent(accountId string, destroyIds []string, ctx Context) (Result[map[string]SetError], error) {
 	return destroy(j, "DeleteCalendarEvent", CalendarEventType,
 		func(accountId string, destroy []string) CalendarEventSetCommand {
 			return CalendarEventSetCommand{AccountId: accountId, Destroy: destroy}
@@ -130,7 +138,7 @@ func (j *Client) DeleteCalendarEvent(accountId string, destroyIds []string, ctx 
 	)
 }
 
-func (j *Client) UpdateCalendarEvent(accountId string, id string, changes CalendarEventChange, ctx Context) (Result[CalendarEvent], Error) {
+func (j *Client) UpdateCalendarEvent(accountId string, id string, changes CalendarEventChange, ctx Context) (Result[CalendarEvent], error) {
 	return update(j, "UpdateCalendarEvent", CalendarEventType,
 		func(update map[string]PatchObject) CalendarEventSetCommand {
 			return CalendarEventSetCommand{AccountId: accountId, Update: update}

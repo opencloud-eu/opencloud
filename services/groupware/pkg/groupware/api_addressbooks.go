@@ -2,16 +2,18 @@ package groupware
 
 import (
 	"net/http"
+
+	"github.com/opencloud-eu/opencloud/pkg/jmap"
 )
 
 // Get all addressbooks of an account.
 func (g *Groupware) GetAddressbooks(w http.ResponseWriter, r *http.Request) {
-	getall(AddressBook, w, r, g, g.jmap.GetAddressbooks)
+	getall(AddressBook, w, r, g, g.addressbooks)
 }
 
 // Get an addressbook of an account by its identifier.
 func (g *Groupware) GetAddressbookById(w http.ResponseWriter, r *http.Request) {
-	get(AddressBook, w, r, g, g.jmap.GetAddressbooks)
+	get(AddressBook, w, r, g, g.addressbooks)
 }
 
 // Get the changes to Address Books since a certain State.
@@ -30,4 +32,10 @@ func (g *Groupware) DeleteAddressBook(w http.ResponseWriter, r *http.Request) {
 
 func (g *Groupware) ModifyAddressBook(w http.ResponseWriter, r *http.Request) {
 	modify(AddressBook, w, r, g, g.jmap.UpdateAddressBook)
+}
+
+func (g *Groupware) addressbooks(accountId string, ids []string, ctx jmap.Context) (jmap.Result[jmap.AddressBookGetResponse], error) {
+	return slist(g.addressBookListSuppliers, accountId, ids, ctx, func(accountId string, state jmap.State, notFound []string, list []jmap.AddressBook) jmap.AddressBookGetResponse {
+		return jmap.AddressBookGetResponse{AccountId: accountId, State: state, NotFound: notFound, List: list}
+	})
 }

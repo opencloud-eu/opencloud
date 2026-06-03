@@ -27,7 +27,7 @@ func (j *Client) GetObjects(accountId string, //NOSONAR
 	quotaIds []string, identityIds []string,
 	emailSubmissionIds []string,
 	ctx Context,
-) (Result[Objects], Error) {
+) (Result[Objects], error) {
 	l := j.logger("GetObjects", ctx).With()
 	if len(mailboxIds) > 0 {
 		l = l.Array("mailboxIds", log.SafeStringArray(mailboxIds))
