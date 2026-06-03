@@ -65,6 +65,7 @@ type Graph struct {
 	permissionsService       Permissions
 	valueService             settingssvc.ValueService
 	specialDriveItemsCache   *ttlcache.Cache[string, any]
+	userProfilePhotoService  UsersUserProfilePhotoProvider
 	eventsPublisher          events.Publisher
 	searchService            searchsvc.SearchProviderService
 	keycloakClient           keycloak.Client
@@ -72,6 +73,7 @@ type Graph struct {
 	metrics                  *metrics.Metrics
 	traceProvider            trace.TracerProvider
 	natskv                   jetstream.KeyValue
+	profilePictureHTTPClient HTTPClient
 }
 
 var _ Service = Graph{} // ensure that the Graph struct implements all of the Service interface

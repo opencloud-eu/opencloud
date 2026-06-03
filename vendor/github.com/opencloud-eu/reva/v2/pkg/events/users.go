@@ -122,8 +122,9 @@ func (BackchannelLogout) Unmarshal(v []byte) (interface{}, error) {
 
 // UserSignedIn is emitted when a user signs in
 type UserSignedIn struct {
-	Executant *user.UserId
-	Timestamp *types.Timestamp
+	Executant  *user.UserId
+	PictureURL string `json:",omitempty"`
+	Timestamp  *types.Timestamp
 }
 
 // Unmarshal to fulfill umarshaller interface

@@ -30,6 +30,7 @@ type Options struct {
 	Logger                   log.Logger
 	Config                   *config.Config
 	Metrics                  *metrics.Metrics
+	ProfilePictureHTTPClient HTTPClient
 	Middleware               []func(http.Handler) http.Handler
 	RequireAdminMiddleware   func(http.Handler) http.Handler
 	GatewaySelector          pool.Selectable[gateway.GatewayAPIClient]
@@ -46,6 +47,13 @@ type Options struct {
 	EventHistoryClient       ehsvc.EventHistoryService
 	TraceProvider            trace.TracerProvider
 	NatsKeyValue             jetstream.KeyValue
+}
+
+// ProfilePictureHTTPClient provides a function to set the HTTP client used for downloading OIDC profile pictures.
+func ProfilePictureHTTPClient(val HTTPClient) Option {
+	return func(o *Options) {
+		o.ProfilePictureHTTPClient = val
+	}
 }
 
 // newOptions initializes the available default options.
