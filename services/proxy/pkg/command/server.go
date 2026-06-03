@@ -3,10 +3,8 @@ package command
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"net/http"
-	"os"
 	"os/signal"
 	"time"
 
@@ -285,28 +283,6 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 		Timeout: time.Second * 10,
 	}
 
-	backendTLSConfig := &tls.Config{
-		MinVersion:         tls.VersionTLS12,
-		InsecureSkipVerify: cfg.InsecureBackends, //nolint:gosec
-	}
-	if cfg.BackendHTTPSCACert != "" {
-		certs := x509.NewCertPool()
-		pemData, err := os.ReadFile(cfg.BackendHTTPSCACert)
-		if err != nil {
-			logger.Fatal().Err(err).Msg("Failed to read backend HTTPS CA certificate")
-		}
-		if !certs.AppendCertsFromPEM(pemData) {
-			logger.Fatal().Msg("Failed to append backend HTTPS CA certificate")
-		}
-		backendTLSConfig.RootCAs = certs
-	}
-	backendHTTPClient := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: backendTLSConfig,
-		},
-		Timeout: time.Second * 10,
-	}
-
 	var authenticators []middleware.Authenticator
 	if cfg.EnableBasicAuth {
 		logger.Warn().Msg("basic auth enabled, use only for testing or development")
@@ -395,10 +371,6 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 			middleware.TraceProvider(traceProvider),
 			middleware.UserProvider(userProvider),
 			middleware.UserRoleAssigner(roleAssigner),
-			middleware.HTTPClient(oidcHTTPClient),
-			middleware.BackendHTTPClient(backendHTTPClient),
-			middleware.OIDCIss(cfg.OIDC.Issuer),
-			middleware.ServiceSelector(serviceSelector),
 			middleware.SkipUserInfo(cfg.OIDC.SkipUserInfo),
 			middleware.UserOIDCClaim(cfg.UserOIDCClaim),
 			middleware.UserCS3Claim(cfg.UserCS3Claim),

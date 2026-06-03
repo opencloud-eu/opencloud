@@ -1,14 +1,10 @@
 package middleware
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"net/url"
-	"strings"
 	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -18,7 +14,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/router"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles"
-	"go-micro.dev/v4/selector"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
@@ -30,11 +25,6 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
-)
-
-const (
-	graphServiceName      = "eu.opencloud.web.graph"
-	maxProfilePhotoBytes  = 10 << 20
 )
 
 // AccountResolver provides a middleware which mints a jwt and adds it to the proxied request based
@@ -56,61 +46,44 @@ func AccountResolver(optionSetters ...Option) func(next http.Handler) http.Handl
 	)
 	go tenantIDCache.Start()
 
-	httpClient := options.HTTPClient
-	if httpClient == nil {
-		httpClient = &http.Client{Timeout: 10 * time.Second}
-	}
-	backendHTTPClient := options.BackendHTTPClient
-	if backendHTTPClient == nil {
-		backendHTTPClient = &http.Client{Timeout: 10 * time.Second}
-	}
-
 	return func(next http.Handler) http.Handler {
 		return &accountResolver{
-			next:                             next,
-			logger:                           logger,
-			tracer:                           tracer,
-			userProvider:                     options.UserProvider,
-			userOIDCClaim:                    options.UserOIDCClaim,
-			userCS3Claim:                     options.UserCS3Claim,
-			tenantOIDCClaim:                  options.TenantOIDCClaim,
-			autoProvisionClaims:              options.AutoProvisionClaims,
-			tenantIDMappingEnabled:           options.TenantIDMappingEnabled,
-			gatewaySelector:                  options.RevaGatewaySelector,
-			serviceAccount:                   options.ServiceAccount,
-			userRoleAssigner:                 options.UserRoleAssigner,
-			autoProvisionAccounts:            options.AutoprovisionAccounts,
-			multiTenantEnabled:               options.MultiTenantEnabled,
-			lastGroupSyncCache:               lastGroupSyncCache,
-			tenantIDCache:                    tenantIDCache,
-			eventsPublisher:                  options.EventsPublisher,
-			httpClient:                       httpClient,
-			backendHTTPClient:                backendHTTPClient,
-			oidcIssuer:                       options.OIDCIss,
-			serviceSelector:                  options.ServiceSelector,
+			next:                   next,
+			logger:                 logger,
+			tracer:                 tracer,
+			userProvider:           options.UserProvider,
+			userOIDCClaim:          options.UserOIDCClaim,
+			userCS3Claim:           options.UserCS3Claim,
+			tenantOIDCClaim:        options.TenantOIDCClaim,
+			autoProvisionClaims:    options.AutoProvisionClaims,
+			tenantIDMappingEnabled: options.TenantIDMappingEnabled,
+			gatewaySelector:        options.RevaGatewaySelector,
+			serviceAccount:         options.ServiceAccount,
+			userRoleAssigner:       options.UserRoleAssigner,
+			autoProvisionAccounts:  options.AutoprovisionAccounts,
+			multiTenantEnabled:     options.MultiTenantEnabled,
+			lastGroupSyncCache:     lastGroupSyncCache,
+			tenantIDCache:          tenantIDCache,
+			eventsPublisher:        options.EventsPublisher,
 		}
 	}
 }
 
 type accountResolver struct {
-	next                             http.Handler
-	logger                           log.Logger
-	tracer                           trace.Tracer
-	userProvider                     backend.UserBackend
-	userRoleAssigner                 userroles.UserRoleAssigner
-	autoProvisionAccounts            bool
-	multiTenantEnabled               bool
-	tenantIDMappingEnabled           bool
-	gatewaySelector                  pool.Selectable[gateway.GatewayAPIClient]
-	serviceSelector                  selector.Selector
-	serviceAccount                   config.ServiceAccount
-	userOIDCClaim                    string
-	userCS3Claim                     string
-	tenantOIDCClaim                  string
-	autoProvisionClaims              config.AutoProvisionClaims
-	oidcIssuer                       string
-	httpClient                       *http.Client
-	backendHTTPClient                *http.Client
+	next                   http.Handler
+	logger                 log.Logger
+	tracer                 trace.Tracer
+	userProvider           backend.UserBackend
+	userRoleAssigner       userroles.UserRoleAssigner
+	autoProvisionAccounts  bool
+	multiTenantEnabled     bool
+	tenantIDMappingEnabled bool
+	gatewaySelector        pool.Selectable[gateway.GatewayAPIClient]
+	serviceAccount         config.ServiceAccount
+	userOIDCClaim          string
+	userCS3Claim           string
+	tenantOIDCClaim        string
+	autoProvisionClaims    config.AutoProvisionClaims
 	// lastGroupSyncCache is used to keep track of when the last sync of group
 	// memberships was done for a specific user. This is used to trigger a sync
 	// with every single request.
@@ -155,157 +128,16 @@ func readStringClaim(path string, claims map[string]any) (string, error) {
 	return value, fmt.Errorf("claim path '%s' not set or empty", path)
 }
 
-func (m accountResolver) syncProfilePicture(ctx context.Context, req *http.Request, user *cs3user.User, token string, claims map[string]any) error {
-	if user == nil {
-		return errors.New("missing user for profile photo sync")
+func (m accountResolver) readProfilePictureURL(claims map[string]any) string {
+	if m.autoProvisionClaims.ProfilePicture == "" {
+		return ""
 	}
-	if token == "" {
-		return errors.New("missing user token for profile photo sync")
-	}
-
 	pictureURL, err := readStringClaim(m.autoProvisionClaims.ProfilePicture, claims)
 	if err != nil {
 		m.logger.Debug().Err(err).Str("claim", m.autoProvisionClaims.ProfilePicture).Msg("profile picture claim missing")
-		return nil
+		return ""
 	}
-	if pictureURL == "" {
-		return nil
-	}
-
-	parsedURL, err := url.Parse(pictureURL)
-	if err != nil {
-		return fmt.Errorf("invalid profile picture URL: %w", err)
-	}
-	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
-		return fmt.Errorf("unsupported profile picture URL scheme: %s", parsedURL.Scheme)
-	}
-	if parsedURL.Host == "" {
-		return fmt.Errorf("profile picture URL is missing a host")
-	}
-
-	authHeader := ""
-	if req != nil {
-		authHeader = req.Header.Get("Authorization")
-	}
-
-	photo, err := m.fetchProfilePicture(ctx, parsedURL, authHeader)
-	if err != nil {
-		return err
-	}
-
-	return m.updateGraphProfilePhoto(ctx, token, photo)
-}
-
-func (m accountResolver) fetchProfilePicture(ctx context.Context, pictureURL *url.URL, authHeader string) ([]byte, error) {
-	client := m.httpClient
-	if client == nil {
-		client = http.DefaultClient
-	}
-
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, pictureURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-	request.Header.Set("Accept", "image/*")
-	if authHeader != "" && m.shouldAttachOIDCToken(pictureURL) {
-		request.Header.Set("Authorization", authHeader)
-	}
-
-	resp, err := client.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return nil, fmt.Errorf("profile picture request returned %s", resp.Status)
-	}
-
-	limited := io.LimitReader(resp.Body, int64(maxProfilePhotoBytes)+1)
-	data, err := io.ReadAll(limited)
-	if err != nil {
-		return nil, err
-	}
-	if len(data) == 0 {
-		return nil, errors.New("profile picture response was empty")
-	}
-	if len(data) > maxProfilePhotoBytes {
-		return nil, fmt.Errorf("profile picture exceeds %d bytes", maxProfilePhotoBytes)
-	}
-	contentType := http.DetectContentType(data)
-	if !strings.HasPrefix(contentType, "image/") {
-		return nil, fmt.Errorf("unsupported profile picture content type: %s", contentType)
-	}
-
-	return data, nil
-}
-
-func (m accountResolver) shouldAttachOIDCToken(pictureURL *url.URL) bool {
-	if m.oidcIssuer == "" || pictureURL == nil {
-		return false
-	}
-	issuerURL, err := url.Parse(m.oidcIssuer)
-	if err != nil || issuerURL.Host == "" {
-		return false
-	}
-	return strings.EqualFold(issuerURL.Host, pictureURL.Host)
-}
-
-func (m accountResolver) updateGraphProfilePhoto(ctx context.Context, token string, photo []byte) error {
-	if token == "" {
-		return errors.New("missing access token for graph profile photo update")
-	}
-	baseURL, err := m.graphBaseURL()
-	if err != nil {
-		return err
-	}
-
-	endpoint := baseURL + "/v1.0/me/photo/$value"
-	request, err := http.NewRequestWithContext(ctx, http.MethodPut, endpoint, bytes.NewReader(photo))
-	if err != nil {
-		return err
-	}
-	request.Header.Set(revactx.TokenHeader, token)
-	request.Header.Set("Content-Type", http.DetectContentType(photo))
-
-	client := m.backendHTTPClient
-	if client == nil {
-		client = http.DefaultClient
-	}
-	resp, err := client.Do(request)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-		return fmt.Errorf("graph profile photo update failed: %s (%s)", resp.Status, strings.TrimSpace(string(body)))
-	}
-
-	return nil
-}
-
-func (m accountResolver) graphBaseURL() (string, error) {
-	if m.serviceSelector == nil {
-		return "", errors.New("service selector not configured")
-	}
-	selectNext, err := m.serviceSelector.Select(graphServiceName)
-	if err != nil {
-		return "", err
-	}
-	node, err := selectNext()
-	if err != nil {
-		return "", err
-	}
-	scheme := node.Metadata["protocol"]
-	if node.Metadata["use_tls"] == "true" {
-		scheme = "https"
-	}
-	if scheme == "" {
-		scheme = "http"
-	}
-	return fmt.Sprintf("%s://%s/graph", scheme, node.Address), nil
+	return pictureURL
 }
 
 // TODO do not use the context to store values: https://medium.com/@cep21/how-to-correctly-use-context-context-in-go-1-7-8f2c0fafdf39
@@ -401,12 +233,6 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 
-		if m.autoProvisionClaims.ProfilePicture != "" && oidc.NewSessionFlagFromContext(ctx) {
-			if err := m.syncProfilePicture(ctx, req, user, token, claims); err != nil {
-				m.logger.Warn().Err(err).Str("userid", user.GetId().GetOpaqueId()).Msg("Failed to sync profile picture from OIDC claim")
-			}
-		}
-
 		// resolve the user's roles
 		user, err = m.userRoleAssigner.UpdateUserRoleAssignment(ctx, user, claims)
 		if err != nil {
@@ -417,9 +243,11 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		// If this is a new session, publish user login event
 		if newSession := oidc.NewSessionFlagFromContext(ctx); newSession && m.eventsPublisher != nil {
+			pictureURL := m.readProfilePictureURL(claims)
 			event := events.UserSignedIn{
-				Executant: user.Id,
-				Timestamp: utils.TimeToTS(time.Now()),
+				Executant:  user.Id,
+				PictureURL: pictureURL,
+				Timestamp:  utils.TimeToTS(time.Now()),
 			}
 			if err := events.Publish(req.Context(), m.eventsPublisher, event); err != nil {
 				m.logger.Error().Err(err).Msg("could not publish user signin event.")

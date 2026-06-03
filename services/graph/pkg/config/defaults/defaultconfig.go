@@ -110,6 +110,10 @@ func DefaultConfig() *config.Config {
 				EducationResourcesEnabled: false,
 			},
 		},
+		OIDCProfilePicture: config.OIDCProfilePicture{
+			OIDCIssuer:   "https://localhost:9200",
+			URLAllowlist: []string{},
+		},
 		Cache: &config.Cache{
 			Store:    "memory",
 			Nodes:    []string{"127.0.0.1:9233"},
@@ -189,6 +193,10 @@ func EnsureDefaults(cfg *config.Config) {
 
 	if cfg.Metadata.SystemUserID == "" && cfg.Commons != nil && cfg.Commons.SystemUserID != "" {
 		cfg.Metadata.SystemUserID = cfg.Commons.SystemUserID
+	}
+
+	if cfg.OIDCProfilePicture.OIDCIssuer == "" && cfg.Commons != nil && cfg.Commons.OpenCloudURL != "" {
+		cfg.OIDCProfilePicture.OIDCIssuer = cfg.Commons.OpenCloudURL
 	}
 
 }

@@ -1,20 +1,25 @@
 package svc
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	ldapv3 "github.com/go-ldap/ldap/v3"
+	"github.com/gobwas/glob"
 	"github.com/jellydator/ttlcache/v3"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity/cache"
 	"github.com/riandyrn/otelchi"
@@ -40,8 +45,9 @@ import (
 
 const (
 	// HeaderPurge defines the header name for the purge header.
-	HeaderPurge     = "Purge"
-	displayNameAttr = "displayName"
+	HeaderPurge          = "Purge"
+	displayNameAttr      = "displayName"
+	maxProfilePhotoBytes = 10 << 20
 )
 
 // Service defines the service handlers.
@@ -198,6 +204,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 		BaseGraphService:         baseGraphService,
 		mux:                      m,
 		specialDriveItemsCache:   spacePropertiesCache,
+		userProfilePhotoService:  options.UserProfilePhotoService,
 		eventsPublisher:          options.EventsPublisher,
 		eventsConsumer:           options.EventsConsumer,
 		searchService:            options.SearchService,
@@ -207,6 +214,10 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 		traceProvider:            options.TraceProvider,
 		valueService:             options.ValueService,
 		natskv:                   options.NatsKeyValue,
+		profilePictureHTTPClient: options.ProfilePictureHTTPClient,
+	}
+	if svc.profilePictureHTTPClient == nil {
+		svc.profilePictureHTTPClient = http.DefaultClient
 	}
 
 	if err := setIdentityBackends(options, &svc); err != nil {
@@ -585,6 +596,11 @@ func (g *Graph) StartListenForLogonEvents(ctx context.Context, l log.Logger) err
 					if err := g.identityBackend.UpdateLastSignInDate(ctx, ev.Executant.OpaqueId, utils.TSToTime(ev.Timestamp)); err != nil {
 						l.Error().Err(err).Str("userid", ev.Executant.OpaqueId).Msg("Error updating last sign in date")
 					}
+					if ev.PictureURL != "" {
+						if err := g.syncProfilePictureFromURL(ctx, ev.Executant.GetOpaqueId(), ev.PictureURL); err != nil {
+							l.Warn().Err(err).Str("userid", ev.Executant.GetOpaqueId()).Msg("Failed to sync profile picture from OIDC claim")
+						}
+					}
 				}
 			case <-ctx.Done():
 				l.Info().Msg("context cancelled")
@@ -593,6 +609,125 @@ func (g *Graph) StartListenForLogonEvents(ctx context.Context, l log.Logger) err
 		}
 	}()
 	return nil
+}
+
+func (g *Graph) syncProfilePictureFromURL(ctx context.Context, userID, rawURL string) error {
+	if g.userProfilePhotoService == nil {
+		return errors.New("profile photo service not configured")
+	}
+	if userID == "" {
+		return errors.New("missing user id for profile picture sync")
+	}
+	if !g.isProfilePictureURLAllowed(rawURL) {
+		return fmt.Errorf("profile picture URL not allowed: %s", rawURL)
+	}
+
+	data, err := g.fetchProfilePicture(ctx, rawURL)
+	if err != nil {
+		return err
+	}
+
+	return g.userProfilePhotoService.UpdatePhoto(ctx, userID, bytes.NewReader(data))
+}
+
+func (g *Graph) fetchProfilePicture(ctx context.Context, rawURL string) ([]byte, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Set("Accept", "image/*")
+
+	resp, err := g.profilePictureHTTPClient.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("profile picture request returned %s", resp.Status)
+	}
+
+	limited := io.LimitReader(resp.Body, int64(maxProfilePhotoBytes)+1)
+	data, err := io.ReadAll(limited)
+	if err != nil {
+		return nil, err
+	}
+	if len(data) == 0 {
+		return nil, errors.New("profile picture response was empty")
+	}
+	if len(data) > maxProfilePhotoBytes {
+		return nil, fmt.Errorf("profile picture exceeds %d bytes", maxProfilePhotoBytes)
+	}
+	contentType := http.DetectContentType(data)
+	if !strings.HasPrefix(contentType, "image/") {
+		return nil, fmt.Errorf("unsupported profile picture content type: %s", contentType)
+	}
+
+	return data, nil
+}
+
+func (g *Graph) isProfilePictureURLAllowed(rawURL string) bool {
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil || parsedURL.Host == "" {
+		return false
+	}
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return false
+	}
+
+	for _, pattern := range g.profilePictureAllowlistPatterns() {
+		if pattern == "*" {
+			return true
+		}
+		if urlPatternMatches(pattern, parsedURL) {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *Graph) profilePictureAllowlistPatterns() []string {
+	if len(g.config.OIDCProfilePicture.URLAllowlist) > 0 {
+		return g.config.OIDCProfilePicture.URLAllowlist
+	}
+	issuerURL, err := url.Parse(g.config.OIDCProfilePicture.OIDCIssuer)
+	if err != nil || issuerURL.Host == "" {
+		return nil
+	}
+	return []string{fmt.Sprintf("%s://%s", issuerURL.Scheme, issuerURL.Host)}
+}
+
+func urlPatternMatches(pattern string, target *url.URL) bool {
+	if target == nil {
+		return false
+	}
+	parsedPattern, err := url.Parse(pattern)
+	if err == nil && parsedPattern.Host != "" {
+		if parsedPattern.Scheme != "" && !strings.EqualFold(parsedPattern.Scheme, target.Scheme) {
+			return false
+		}
+		hostMatcher, err := glob.Compile(strings.ToLower(parsedPattern.Host))
+		if err != nil {
+			return false
+		}
+		if !hostMatcher.Match(strings.ToLower(target.Host)) {
+			return false
+		}
+		if parsedPattern.Path == "" || parsedPattern.Path == "/" {
+			return true
+		}
+		if strings.HasSuffix(parsedPattern.Path, "*") {
+			prefix := strings.TrimSuffix(parsedPattern.Path, "*")
+			return strings.HasPrefix(target.Path, prefix)
+		}
+		return path.Clean(parsedPattern.Path) == path.Clean(target.Path)
+	}
+
+	hostMatcher, err := glob.Compile(strings.ToLower(pattern))
+	if err != nil {
+		return false
+	}
+	return hostMatcher.Match(strings.ToLower(target.Host))
 }
 
 // parseHeaderPurge parses the 'Purge' header.

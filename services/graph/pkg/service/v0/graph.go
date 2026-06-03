@@ -62,6 +62,7 @@ type Graph struct {
 	permissionsService       Permissions
 	valueService             settingssvc.ValueService
 	specialDriveItemsCache   *ttlcache.Cache[string, any]
+	userProfilePhotoService  UsersUserProfilePhotoProvider
 	eventsPublisher          events.Publisher
 	eventsConsumer           events.Consumer
 	searchService            searchsvc.SearchProviderService
@@ -69,6 +70,7 @@ type Graph struct {
 	historyClient            ehsvc.EventHistoryService
 	traceProvider            trace.TracerProvider
 	natskv                   jetstream.KeyValue
+	profilePictureHTTPClient HTTPClient
 }
 
 // ServeHTTP implements the Service interface.
