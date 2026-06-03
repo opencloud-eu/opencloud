@@ -132,11 +132,11 @@ func TestMapMap(t *testing.T) {
 		n := MapMap(m, func(a string, b int) (string, int) { return strings.ToUpper(a), b + 100 })
 		assert.Len(t, n, 3)
 		assert.Contains(t, n, "UN")
-		assert.Equal(t, 1001, n["UN"])
+		assert.Equal(t, 101, n["UN"])
 		assert.Contains(t, n, "DEUX")
-		assert.Equal(t, 1002, n["DEUX"])
+		assert.Equal(t, 102, n["DEUX"])
 		assert.Contains(t, n, "TROIS")
-		assert.Equal(t, 1003, n["TROIS"])
+		assert.Equal(t, 103, n["TROIS"])
 	}
 }
 

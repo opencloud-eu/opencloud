@@ -175,7 +175,7 @@ func TestSquery(t *testing.T) {
 		}
 		require.Equal(jmap.IncapableOfChangeCalculation, res.Payload.CanCalculateChanges)
 		require.Nil(res.Payload.Limit)
-		require.Equal(uint(0), *res.Payload.Position)
+		require.Nil(res.Payload.Position)
 		{
 			m, err := unnext(n)
 			require.NoError(err)
@@ -197,7 +197,7 @@ func TestSquery(t *testing.T) {
 		}
 		require.Equal(jmap.IncapableOfChangeCalculation, res.Payload.CanCalculateChanges)
 		require.Equal(uint(4), *res.Payload.Limit)
-		require.Equal(uint(0), *res.Payload.Position)
+		require.Nil(res.Payload.Position)
 		{
 			m, err := unnext(n)
 			require.NoError(err)
@@ -210,9 +210,9 @@ func TestSquery(t *testing.T) {
 		require.Equal(uint(7), *res.Payload.Total)
 		require.Len(res.Payload.Results, 3)
 		{
-			require.Equal("fluffy", res.Payload.Results[4].name)
-			require.Equal("mitzi", res.Payload.Results[5].name)
-			require.Equal("rambo", res.Payload.Results[6].name)
+			require.Equal("fluffy", res.Payload.Results[0].name)
+			require.Equal("mitzi", res.Payload.Results[1].name)
+			require.Equal("rambo", res.Payload.Results[2].name)
 		}
 	}
 }
