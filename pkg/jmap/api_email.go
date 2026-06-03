@@ -176,7 +176,7 @@ func (j *Client) GetAllEmailsInMailbox(accountId AccountId, mailboxId string, //
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (*EmailSearchResults, State, Error) {
-		var queryResponse *EmailQueryResponse
+		var queryResponse EmailQueryResponse
 		err = retrieveQuery(ctx, body, query, "0", &queryResponse)
 		if err != nil {
 			return nil, "", err
