@@ -119,7 +119,7 @@ func DefaultConfig() *config.Config {
 			},
 		},
 		Ldap: config.Ldap{
-			URI:                  "ldap://localhost:9235",
+			URI:                  "ldap://localhost:9236",
 			BindDN:               "uid=idp,ou=sysusers,o=libregraph-idm",
 			BaseDN:               "ou=users,o=libregraph-idm",
 			Scope:                "sub",

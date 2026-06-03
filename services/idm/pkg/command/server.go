@@ -59,6 +59,8 @@ func Server(cfg *config.Config) *cobra.Command {
 
 				if cfg.IDM.LDAPSAddr != "" {
 					servercfg.LDAPSListenAddr = cfg.IDM.LDAPSAddr
+					servercfg.TLSCertFile = cfg.IDM.Cert
+					servercfg.TLSKeyFile = cfg.IDM.Key
 				}
 
 				if err := os.MkdirAll(path.Join(defaults.BaseDataPath(), "idm"), 0700); err != nil {

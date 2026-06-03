@@ -77,7 +77,7 @@ func DefaultConfig() *config.Config {
 		Identity: config.Identity{
 			Backend: "ldap",
 			LDAP: config.LDAP{
-				URI:                      "ldap://localhost:9235",
+				URI:                      "ldap://localhost:9236",
 				Insecure:                 false,
 				BindDN:                   "uid=libregraph,ou=sysusers,o=libregraph-idm",
 				UseServerUUID:            false,

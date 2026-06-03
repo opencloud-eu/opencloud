@@ -2,6 +2,7 @@ package parser
 
 import (
 	"errors"
+	"net"
 
 	occfg "github.com/opencloud-eu/opencloud/pkg/config"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
@@ -51,6 +52,26 @@ func Validate(cfg *config.Config) error {
 
 	if cfg.ServiceUserPasswords.Reva == "" {
 		return shared.MissingServiceUserPassword(cfg.Service.Name, "REVA")
+	}
+
+	ip, err := net.ResolveTCPAddr("tcp", cfg.IDM.LDAPAddr) // validate the LDAP address if set
+
+	if err != nil {
+		return errors.New("invalid configuration: 'ldap_addr' is not a valid address")
+	}
+
+	if !ip.IP.IsLoopback() {
+		// loopback addresses are allowed to be used with ldap_addr, but not with ldaps_addr, for security reasons
+		return errors.New("invalid configuration: 'ldap_addr' is set but 'ldaps_addr' is not set. For security reasons, the 'ldap_addr' setting is only allowed to be used with loopback addresses. Please set 'ldaps_addr' to a valid address and port to listen for LDAPS connections")
+	}
+
+	if cfg.IDM.LDAPSAddr != "" {
+		if cfg.IDM.Cert == "" {
+			return errors.New("invalid configuration: 'ldaps_addr' is set but 'cert' is not set. Please set 'cert' to a valid path to a TLS certificate")
+		}
+		if cfg.IDM.Key == "" {
+			return errors.New("invalid configuration: 'ldaps_addr' is set but 'key' is not set. Please set 'key' to a valid path to a TLS certificate key")
+		}
 	}
 
 	return nil

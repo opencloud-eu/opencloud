@@ -35,7 +35,7 @@ func DefaultConfig() *config.Config {
 		Driver: "ldap",
 		Drivers: config.Drivers{
 			LDAP: config.LDAPDriver{
-				URI:                      "ldap://localhost:9235",
+				URI:                      "ldap://localhost:9236",
 				Insecure:                 false,
 				UserBaseDN:               "ou=users,o=libregraph-idm",
 				GroupBaseDN:              "ou=groups,o=libregraph-idm",
