@@ -2,6 +2,7 @@ package defaults
 
 import (
 	"path"
+	"strings"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/services/idm/pkg/config"
@@ -49,5 +50,10 @@ func EnsureDefaults(cfg *config.Config) {
 
 // Sanitize sanitizes the configuration
 func Sanitize(cfg *config.Config) {
-	// nothing to sanitize here
+	if cfg.IDM.LDAPSAddr == "" &&
+		cfg.IDM.LDAPAddr != "" &&
+		(!strings.Contains(cfg.IDM.LDAPAddr, "127.0.0.1") &&
+			!strings.Contains(cfg.IDM.LDAPAddr, "localhost")) {
+		panic("Invalid configuration: 'ldap_addr' is set but 'ldaps_addr' is not set. For security reasons, the 'ldap_addr' setting is only allowed to be used with loopback addresses. Please set 'ldaps_addr' to a valid address and port to listen for LDAPS connections.")
+	}
 }

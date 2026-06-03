@@ -57,6 +57,10 @@ func Server(cfg *config.Config) *cobra.Command {
 					BoltDBFile: cfg.IDM.DatabasePath,
 				}
 
+				if cfg.IDM.LDAPSAddr != "" {
+					servercfg.LDAPSListenAddr = cfg.IDM.LDAPSAddr
+				}
+
 				if err := os.MkdirAll(path.Join(defaults.BaseDataPath(), "idm"), 0700); err != nil {
 					logger.Fatal().Err(err).Msgf("Could not create data directory for idm")
 				}
