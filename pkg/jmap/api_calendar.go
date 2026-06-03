@@ -10,7 +10,7 @@ func (j *Client) ParseICalendarBlob(accountId AccountId, blobIds []string, ctx C
 		invocation(parse, "0"),
 	)
 	if err != nil {
-		return ZeroResult[CalendarEventParseResponse](), err
+		return ZeroResultV[CalendarEventParseResponse](), err
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (CalendarEventParseResponse, State, Error) {

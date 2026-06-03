@@ -275,3 +275,37 @@ func TestSet(t *testing.T) {
 		assert.True(t, ok)
 	}
 }
+
+func TestReduce(t *testing.T) {
+	{
+		result := Reduce(0, []int{1, 2, 3}, func(a, b int) int { return a + b })
+		assert.Equal(t, 6, result)
+	}
+	{
+		result := Reduce(0, []int{}, func(a, b int) int { return a + b })
+		assert.Equal(t, 0, result)
+	}
+}
+
+func TestFlatten(t *testing.T) {
+	{
+		result := Flatten([][]int{{1, 2, 3}, {4}, {5, 6, 7}, {}, {8}})
+		assert.Equal(t, []int{1, 2, 3, 4, 5, 6, 7, 8}, result)
+	}
+	{
+		result := Flatten([][]int{})
+		assert.Equal(t, []int{}, result)
+	}
+	{
+		result := Flatten([][]int{nil, nil})
+		assert.Equal(t, []int{}, result)
+	}
+	{
+		result := Flatten([][]int{nil, {}, {1}})
+		assert.Equal(t, []int{1}, result)
+	}
+	{
+		result := Flatten[int](nil)
+		assert.Equal(t, []int{}, result)
+	}
+}

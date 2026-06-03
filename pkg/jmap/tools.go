@@ -14,6 +14,10 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/jscalendar"
 )
 
+func single[S any](s S) []S {
+	return []S{s}
+}
+
 var UintPtrOne *uint = uintPtr(1)
 var UintPtrZero *uint = uintPtr(0)
 
@@ -65,18 +69,18 @@ func command[T any](client Cmdr, //NOSONAR
 
 	logger := ctx.Logger
 
+	before := time.Now()
 	responseBody, language, jmapErr := client.Api().Command(request, ctx)
+	duration := time.Since(before)
 	if jmapErr != nil {
-		var zero Result[T]
-		return zero, jmapErr
+		return ZeroResult[T](single(duration)), jmapErr
 	}
 
 	var response Response
 	err := json.Unmarshal(responseBody, &response)
 	if err != nil {
 		logger.Error().Err(err).Msgf("failed to deserialize body JSON payload into a %T", response)
-		var zero Result[T]
-		return zero, jmapError(err, JmapErrorDecodingResponseBody)
+		return ZeroResult[T](single(duration)), jmapError(err, JmapErrorDecodingResponseBody)
 	}
 
 	if response.SessionState != ctx.Session.State {
@@ -124,20 +128,20 @@ func command[T any](client Cmdr, //NOSONAR
 				msg := fmt.Sprintf("found method level error in response '%v', type: '%v', description: '%v'", mr.Tag, errorParameters.Type, errorParameters.Description)
 				err = errors.New(msg)
 				logger.Warn().Int("code", code).Str("type", errorParameters.Type).Msg(msg)
-				return newPartialResult[T](response.SessionState, language), jmapResponseError(code, err, errorParameters.Type, errorParameters.Description)
+				return newPartialResult[T](response.SessionState, language, single(duration)), jmapResponseError(code, err, errorParameters.Type, errorParameters.Description)
 			} else {
 				code := JmapErrorUnspecifiedType
 				msg := fmt.Sprintf("found method level error in response '%v'", mr.Tag)
 				err := errors.New(msg)
 				logger.Warn().Int("code", code).Msg(msg)
-				return newPartialResult[T](response.SessionState, language), jmapResponseError(code, err, errorParameters.Type, errorParameters.Description)
+				return newPartialResult[T](response.SessionState, language, single(duration)), jmapResponseError(code, err, errorParameters.Type, errorParameters.Description)
 			}
 		}
 	}
 
 	result, state, jerr := mapper(&response)
 	sessionState := response.SessionState
-	return newResult(result, sessionState, state, language), jerr
+	return NewResult(result, sessionState, state, language, single(duration)), jerr
 }
 
 func mapstructStringToTimeHook() mapstructure.DecodeHookFunc {

@@ -53,7 +53,7 @@ func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId AccountId, accountId
 
 	cmd, err := j.request(ctx, NS_IDENTITY, calls...)
 	if err != nil {
-		return ZeroResult[IdentitiesAndMailboxesGetResponse](), err
+		return ZeroResultV[IdentitiesAndMailboxesGetResponse](), err
 	}
 	return command(j, ctx, cmd, func(body *Response) (IdentitiesAndMailboxesGetResponse, State, Error) {
 		identities := make(map[AccountId][]Identity, len(uniqueAccountIds))

@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -32,16 +33,18 @@ func (g *Groupware) UploadBlob(w http.ResponseWriter, r *http.Request) {
 
 		accountId, err := req.GetAccountIdForBlob()
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 		logger := log.From(req.logger.With().Str(logAccountId, log.SafeString(accountId)))
 		ctx := req.ctx.WithLogger(logger)
+		before := time.Now()
 		resp, _, jerr := g.jmap.UploadBlobStream(accountId, contentType, body, ctx)
+		duration := time.Since(before)
 		if jerr != nil {
 			return req.jmapError(accountId, jerr, req.session)
 		}
 
-		return req.respondWithoutStatus(accountId, resp)
+		return req.respondWithoutStatus(accountId, resp, single(duration))
 	})
 }
 
@@ -55,21 +58,22 @@ func (g *Groupware) DownloadBlob(w http.ResponseWriter, r *http.Request) {
 
 		blobId, err := req.PathParam(UriParamBlobId) // the unique identifier of the blob to download
 		if err != nil {
-			return false, req.error(accountId, err)
+			return false, req.errorV(accountId, err)
 		}
 		name, err := req.PathParam(UriParamBlobName) // the filename of the blob to download, which is then used in the response and may be arbitrary if unknown
 		if err != nil {
-			return false, req.error(accountId, err)
+			return false, req.errorV(accountId, err)
 		}
 		typ, _ := req.getStringParam(QueryParamBlobType, "") // optionally, the Content-Type of the blob, which is then used in the response
 
 		logger := log.From(req.logger.With().Str(logAccountId, log.SafeString(accountId)).Str(UriParamBlobId, blobId))
 		ctx := req.ctx.WithLogger(logger)
 
+		before := time.Now()
 		if err := req.serveBlob(blobId, name, typ, ctx, accountId, w); err != nil {
-			return false, req.error(accountId, err)
+			return false, req.error(accountId, err, single(time.Since(before)))
 		} else {
-			return true, req.noop(accountId)
+			return true, req.noop(accountId, single(time.Since(before)))
 		}
 	})
 }

@@ -32,7 +32,7 @@ func (g *Groupware) GetTaskListById(w http.ResponseWriter, r *http.Request) {
 
 		tasklistId, err := req.PathParam(UriParamTaskListId)
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 		// TODO replace with proper implementation
 		meta := TaskListsMeta{SessionState: req.session.State}
@@ -41,7 +41,7 @@ func (g *Groupware) GetTaskListById(w http.ResponseWriter, r *http.Request) {
 				return req.respond(accountId, tasklist, TaskListResponseObjectType, meta)
 			}
 		}
-		return req.etaggedNotFound(accountId, req.session.State, TaskListResponseObjectType, TaskListsState)
+		return req.etaggedNotFound(accountId, req.session.State, TaskListResponseObjectType, TaskListsState, zeroDurations)
 	})
 }
 
@@ -56,7 +56,7 @@ func (g *Groupware) GetTasksInTaskList(w http.ResponseWriter, r *http.Request) {
 
 		tasklistId, err := req.PathParam(UriParamTaskListId)
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 		// TODO replace with proper implementation
 		meta := TaskMeta{SessionState: req.session.State}

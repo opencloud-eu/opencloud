@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"time"
 )
 
 type SessionEventListener interface {
@@ -60,6 +61,7 @@ var _ ResultMetadata = Session{}
 func (s Session) GetSessionState() SessionState { return s.State }
 func (s Session) GetState() State               { return EmptyState }
 func (s Session) GetLanguage() Language         { return NoLanguage }
+func (s Session) GetDurations() []time.Duration { return nil }
 
 var (
 	invalidSessionResponseErrorMissingUsername     = jmapError(errors.New("JMAP session response does not provide a username"), JmapErrorInvalidSessionResponse)

@@ -25,7 +25,7 @@ func (j *Client) GetBootstrap(accountIds []AccountId, ctx Context) (Result[map[A
 
 	cmd, err := j.request(ctx, NS_MAIL_QUOTA, calls...)
 	if err != nil {
-		return ZeroResult[map[AccountId]AccountBootstrapResult](), err
+		return ZeroResultV[map[AccountId]AccountBootstrapResult](), err
 	}
 	return command(j, ctx, cmd, func(body *Response) (map[AccountId]AccountBootstrapResult, State, Error) {
 		identityPerAccount := map[AccountId][]Identity{}

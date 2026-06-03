@@ -31,7 +31,7 @@ func create[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSONAR
 		var create CHANGE
 		err := req.body(&create)
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 
 		logger := log.From(l)
@@ -49,10 +49,10 @@ func create[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSONAR
 				return req.jmapError(accountId, e, result)
 			case GroupwareError:
 				errorId := req.errorId()
-				return req.error(accountId, apiError(errorId, e))
+				return req.error(accountId, apiError(errorId, e), result.GetDurations())
 			default:
 				errorId := req.errorId()
-				return req.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())))
+				return req.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())), result.GetDurations())
 			}
 		} else {
 			return req.respond(accountId, result.Payload, o.responseType, result)
@@ -87,10 +87,10 @@ func getall[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jmap.G
 				return req.jmapError(accountId, e, result)
 			case GroupwareError:
 				errorId := req.errorId()
-				return req.error(accountId, apiError(errorId, e))
+				return req.error(accountId, apiError(errorId, e), result.GetDurations())
 			default:
 				errorId := req.errorId()
-				return req.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())))
+				return req.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())), result.GetDurations())
 			}
 		} else {
 			return req.respond(accountId, result.Payload, o.responseType, result)
@@ -125,7 +125,7 @@ func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], FILTER
 		{
 			v, ok, err := req.parseUIntParam(QueryParamLimit, uint(0))
 			if err != nil {
-				return req.error(accountId, err)
+				return req.errorV(accountId, err)
 			}
 			if ok {
 				l = l.Uint(QueryParamLimit, v)
@@ -140,7 +140,7 @@ func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], FILTER
 				supportedQueryParams = nextQueryParams
 				if n, err := unnext(NextToken(s)); err != nil {
 					errorId := req.errorId()
-					return req.error(accountId, apiError(errorId, ErrorGeneric, withDetail(err.Error()))) // TODO replace ErrorGeneric
+					return req.errorV(accountId, apiError(errorId, ErrorGeneric, withDetail(err.Error()))) // TODO replace ErrorGeneric
 				} else {
 					qps = n
 				}
@@ -155,7 +155,7 @@ func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], FILTER
 			var err *Error
 			containerId, err = req.PathParam(o.containerUriParamName)
 			if err != nil {
-				return req.error(accountId, err)
+				return req.errorV(accountId, err)
 			}
 			l = l.Str(o.containerUriParamName, log.SafeString(containerId))
 		}
@@ -174,10 +174,10 @@ func getallpaged[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], FILTER
 				return req.jmapError(accountId, e, result)
 			case GroupwareError:
 				errorId := req.errorId()
-				return req.error(accountId, apiError(errorId, e))
+				return req.error(accountId, apiError(errorId, e), result.GetDurations())
 			default:
 				errorId := req.errorId()
-				return req.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())))
+				return req.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())), result.GetDurations())
 			}
 		} else {
 			return req.respondNext(accountId, result.Payload, o.responseType, result, nextNextToken)
@@ -206,7 +206,7 @@ func query[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], SEARCHRESULT
 			var err *Error
 			containerId, err = req.PathParam(o.containerUriParamName)
 			if err != nil {
-				return req.error(accountId, err)
+				return req.errorV(accountId, err)
 			}
 			l = l.Str(o.containerUriParamName, log.SafeString(containerId))
 		}
@@ -215,7 +215,7 @@ func query[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], SEARCHRESULT
 		{
 			v, ok, err := req.parseUIntParam(QueryParamLimit, 0)
 			if err != nil {
-				return req.error(accountId, err)
+				return req.errorV(accountId, err)
 			}
 			if ok {
 				l = l.Uint(QueryParamLimit, v)
@@ -232,11 +232,11 @@ func query[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], SEARCHRESULT
 				supportedQueryParams = nextQueryParams
 				if n, err := unnext(NextToken(s)); err != nil {
 					errorId := req.errorId()
-					return req.error(accountId, apiError(errorId, ErrorGeneric, withDetail(err.Error()))) // TODO replace ErrorGeneric
+					return req.errorV(accountId, apiError(errorId, ErrorGeneric, withDetail(err.Error()))) // TODO replace ErrorGeneric
 				} else {
 					if q, ok, err := n.ForAccountId(accountId); err != nil {
 						errorId := req.errorId()
-						return req.error(accountId, apiError(errorId, ErrorGeneric, withDetail(err.Error()))) // TODO replace ErrorGeneric
+						return req.errorV(accountId, apiError(errorId, ErrorGeneric, withDetail(err.Error()))) // TODO replace ErrorGeneric
 					} else if ok {
 						qp = q
 					} else {
@@ -310,10 +310,10 @@ func query[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], SEARCHRESULT
 				return req.jmapError(accountId, e, result)
 			case GroupwareError:
 				errorId := req.errorId()
-				return req.error(accountId, apiError(errorId, e))
+				return req.error(accountId, apiError(errorId, e), result.GetDurations())
 			default:
 				errorId := req.errorId()
-				return req.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())))
+				return req.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())), result.GetDurations())
 			}
 		} else {
 			/*
@@ -350,7 +350,7 @@ func get[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jmap.GetR
 		if o.uriParamName != "" {
 			id, err := req.PathParamDoc(o.uriParamName, "The unique identifier of the object to retrieve")
 			if err != nil {
-				return req.error(accountId, err)
+				return req.errorV(accountId, err)
 			}
 			l.Str(o.uriParamName, log.SafeString(id))
 			ids = single(id)
@@ -368,10 +368,10 @@ func get[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jmap.GetR
 				return req.jmapError(accountId, e, result)
 			case GroupwareError:
 				errorId := req.errorId()
-				return req.error(accountId, apiError(errorId, e))
+				return req.error(accountId, apiError(errorId, e), result.GetDurations())
 			default:
 				errorId := req.errorId()
-				return req.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())))
+				return req.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())), result.GetDurations())
 			}
 		} else {
 			n := len(result.Payload.GetList())
@@ -405,7 +405,7 @@ func getFromMap[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jm
 		l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
 		id, err := req.PathParamDoc(o.uriParamName, "The unique identifier of the object to retrieve")
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 		l.Str(o.uriParamName, log.SafeString(id))
 
@@ -421,10 +421,10 @@ func getFromMap[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T], RESP jm
 				return req.jmapError(accountId, e, result)
 			case GroupwareError:
 				errorId := req.errorId()
-				return req.error(accountId, apiError(errorId, e))
+				return req.error(accountId, apiError(errorId, e), result.GetDurations())
 			default:
 				errorId := req.errorId()
-				return req.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())))
+				return req.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())), result.GetDurations())
 			}
 		} else {
 			if objs, ok := result.Payload[accountId]; ok {
@@ -465,7 +465,7 @@ func changes[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSONAR
 
 		maxChanges, ok, err := req.parseUIntParam(QueryParamMaxChanges, 0)
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 		if ok {
 			l = l.Uint(QueryParamMaxChanges, maxChanges)
@@ -488,10 +488,10 @@ func changes[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSONAR
 				return req.jmapError(accountId, e, result)
 			case GroupwareError:
 				errorId := req.errorId()
-				return req.error(accountId, apiError(errorId, e))
+				return req.error(accountId, apiError(errorId, e), result.GetDurations())
 			default:
 				errorId := req.errorId()
-				return req.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())))
+				return req.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())), result.GetDurations())
 			}
 		} else {
 			return req.respond(accountId, result.Payload, o.responseType, result)
@@ -517,7 +517,7 @@ func delete[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSONAR
 		l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
 		id, err := req.PathParamDoc(o.uriParamName, "The unique identifier of the object to delete")
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 		l.Str(o.uriParamName, log.SafeString(id))
 
@@ -533,10 +533,10 @@ func delete[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSONAR
 				return req.jmapError(accountId, e, result)
 			case GroupwareError:
 				errorId := req.errorId()
-				return req.error(accountId, apiError(errorId, e))
+				return req.error(accountId, apiError(errorId, e), result.GetDurations())
 			default:
 				errorId := req.errorId()
-				return req.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())))
+				return req.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())), result.GetDurations())
 			}
 		} else {
 			for _, e := range result.Payload {
@@ -546,12 +546,12 @@ func delete[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSONAR
 						req.errorId(),
 						o.failedToDeleteError,
 						withDetail(e.Description),
-					))
+					), result.GetDurations())
 				} else {
 					return req.error(accountId, apiError(
 						req.errorId(),
 						o.failedToDeleteError,
-					))
+					), result.GetDurations())
 				}
 			}
 			return req.noContent(accountId, o.responseType, result)
@@ -582,7 +582,7 @@ func deleteMany[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSO
 		if o.uriParamName != "" {
 			pathId, err := req.PathParam(o.uriParamName)
 			if err != nil {
-				return req.error(accountId, err)
+				return req.errorV(accountId, err)
 			}
 			if ok {
 				ids = append(ids, pathId)
@@ -591,7 +591,7 @@ func deleteMany[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSO
 		{
 			queryIds, ok, err := req.parseOptStringListParam(QueryParamId)
 			if err != nil {
-				return req.error(accountId, err)
+				return req.errorV(accountId, err)
 			}
 			if ok {
 				ids = append(ids, queryIds...)
@@ -601,13 +601,13 @@ func deleteMany[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSO
 			var bodyIds []string
 			err := req.body(&bodyIds)
 			if err != nil {
-				return req.error(accountId, err)
+				return req.errorV(accountId, err)
 			}
 			ids = append(ids, bodyIds...)
 		}
 		switch len(ids) {
 		case 0:
-			return req.noop(accountId)
+			return req.noop(accountId, zeroDurations)
 		case 1:
 			l.Str("id", log.SafeString(ids[0]))
 		default:
@@ -626,10 +626,10 @@ func deleteMany[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSO
 				return req.jmapError(accountId, e, result)
 			case GroupwareError:
 				errorId := req.errorId()
-				return req.error(accountId, apiError(errorId, e))
+				return req.error(accountId, apiError(errorId, e), result.GetDurations())
 			default:
 				errorId := req.errorId()
-				return req.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())))
+				return req.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())), result.GetDurations())
 			}
 		} else {
 			for _, e := range result.Payload {
@@ -639,12 +639,12 @@ func deleteMany[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]]( //NOSO
 						req.errorId(),
 						o.failedToDeleteError,
 						withDetail(e.Description),
-					))
+					), result.GetDurations())
 				} else {
 					return req.error(accountId, apiError(
 						req.errorId(),
 						o.failedToDeleteError,
-					))
+					), result.GetDurations())
 				}
 			}
 			return req.noContent(accountId, o.responseType, result)
@@ -668,7 +668,7 @@ func modify[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]](
 		l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
 		id, err := req.PathParamDoc(o.uriParamName, "The unique identifier of the object to modify")
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 		l.Str(o.uriParamName, log.SafeString(id))
 
@@ -679,7 +679,7 @@ func modify[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]](
 		var change CHANGE
 		err = req.body(&change)
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 
 		logger := log.From(l)
@@ -690,10 +690,10 @@ func modify[T jmap.Foo, CHANGE jmap.Change, CHANGES jmap.Changes[T]](
 				return req.jmapError(accountId, e, result)
 			case GroupwareError:
 				errorId := req.errorId()
-				return req.error(accountId, apiError(errorId, e))
+				return req.error(accountId, apiError(errorId, e), result.GetDurations())
 			default:
 				errorId := req.errorId()
-				return req.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())))
+				return req.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())), result.GetDurations())
 			}
 		} else {
 			return req.respond(accountId, result.Payload, o.responseType, result)

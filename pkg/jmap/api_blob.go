@@ -21,7 +21,7 @@ func (j *Client) GetBlobMetadata(accountId AccountId, ids []string, ctx Context)
 		invocation(get, "0"),
 	)
 	if jerr != nil {
-		return ZeroResult[BlobGetResponse](), jerr
+		return ZeroResultV[BlobGetResponse](), jerr
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (BlobGetResponse, State, Error) {
@@ -92,7 +92,7 @@ func (j *Client) UploadBlob(accountId AccountId, data []byte, contentType string
 		invocation(getHash, "1"),
 	)
 	if jerr != nil {
-		return ZeroResult[UploadedBlobWithHash](), jerr
+		return ZeroResultV[UploadedBlobWithHash](), jerr
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (UploadedBlobWithHash, State, Error) {

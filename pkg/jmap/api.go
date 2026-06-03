@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/url"
+	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
@@ -68,6 +69,7 @@ type ResultMetadata interface {
 	GetSessionState() SessionState
 	GetState() State
 	GetLanguage() Language
+	GetDurations() []time.Duration
 }
 
 type Result[T any] struct {
@@ -75,21 +77,22 @@ type Result[T any] struct {
 	SessionState SessionState
 	State        State
 	Language     Language
+	Durations    []time.Duration
 }
 
 func RefineResultPayload[A, B any](a Result[A], refiner func(A) (B, bool, error)) (Result[B], error) {
 	if payloads, ok, err := refiner(a.Payload); err != nil {
-		return ZeroResult[B](), err
+		return ZeroResult[B](a.Durations), err
 	} else if ok {
-		return newResult(payloads, a.SessionState, a.State, a.Language), nil
+		return NewResult(payloads, a.SessionState, a.State, a.Language, a.Durations), nil
 	} else {
-		return ZeroResult[B](), nil
+		return ZeroResult[B](a.Durations), nil
 	}
 }
 
 func RefineResult[A, B any](a Result[A], refiner func(A, SessionState, State, Language) (B, SessionState, State, Language)) Result[B] {
 	b, bss, bs, bl := refiner(a.Payload, a.SessionState, a.State, a.Language)
-	return newResult(b, bss, bs, bl)
+	return NewResult(b, bss, bs, bl, a.Durations)
 }
 
 func RefineResultSlice[A, B any](a []*Result[A], refiner func([]*A, []*SessionState, []*State, []*Language) (B, SessionState, State, Language, error)) (Result[B], error) {
@@ -121,38 +124,52 @@ func RefineResultSlice[A, B any](a []*Result[A], refiner func([]*A, []*SessionSt
 			return nil
 		}
 	})
+	durations := structs.Flatten(structs.Map(a, func(e *Result[A]) []time.Duration {
+		return e.Durations
+	}))
 	b, bss, bs, bl, err := refiner(payloads, sessionStates, states, languages)
-	return newResult(b, bss, bs, bl), err
+	return NewResult(b, bss, bs, bl, durations), err
 }
 
 func (r Result[T]) GetSessionState() SessionState {
 	return r.SessionState
 }
-
 func (r Result[T]) GetState() State {
 	return r.State
 }
-
 func (r Result[T]) GetLanguage() Language {
 	return r.Language
 }
+func (r Result[T]) GetDurations() []time.Duration {
+	return r.Durations
+}
 
-func newResult[T any](result T, sessionState SessionState, state State, language Language) Result[T] {
+func NewResult[T any](payload T, sessionState SessionState, state State, language Language, durations []time.Duration) Result[T] {
 	return Result[T]{
-		Payload:      result,
+		Payload:      payload,
 		SessionState: sessionState,
 		State:        state,
 		Language:     language,
+		Durations:    durations,
 	}
 }
 
-func newPartialResult[T any](sessionState SessionState, language Language) Result[T] {
+func newPartialResult[T any](sessionState SessionState, language Language, durations []time.Duration) Result[T] {
 	return Result[T]{
 		SessionState: sessionState,
 		Language:     language,
+		Durations:    durations,
 	}
 }
 
-func ZeroResult[T any]() Result[T] {
-	return Result[T]{}
+func ZeroResult[T any](durations []time.Duration) Result[T] {
+	return Result[T]{Durations: durations}
+}
+
+func ZeroResultV[T any]() Result[T] {
+	return Result[T]{Durations: nil}
+}
+
+func ZeroResultM[T any](t Result[T]) Result[T] {
+	return Result[T]{Durations: t.GetDurations()}
 }

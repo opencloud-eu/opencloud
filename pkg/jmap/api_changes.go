@@ -107,7 +107,7 @@ func (j *Client) GetChanges(accountId AccountId, stateMap StateMap, maxChanges u
 
 	cmd, err := j.request(ctx, NS_CHANGES, methodCalls...)
 	if err != nil {
-		return ZeroResult[ObjectChanges](), err
+		return ZeroResultV[ObjectChanges](), err
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (ObjectChanges, State, Error) {

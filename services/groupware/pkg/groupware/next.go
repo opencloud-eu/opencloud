@@ -74,11 +74,11 @@ func curryNoNextMapQuery[SRES jmap.SearchResults[T], T jmap.Idable, FILTER any, 
 ) func(req Request, accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint, filter FILTER, sortBy []COMP, ctx jmap.Context) (jmap.Result[SRES], NextToken, error) {
 	return func(_ Request, accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint, filter FILTER, sortBy []COMP, ctx jmap.Context) (jmap.Result[SRES], NextToken, error) { //NOSONAR
 		if m, err := mapQueryParams("", accountIds, qps); err != nil {
-			return jmap.ZeroResult[SRES](), NoNextToken, err
+			return jmap.ZeroResultV[SRES](), NoNextToken, err
 		} else {
 			result, err := f(m, limit, filter, sortBy, true, ctx)
 			if err != nil {
-				return jmap.ZeroResult[SRES](), NoNextToken, err
+				return jmap.ZeroResult[SRES](result.Durations), NoNextToken, err
 			} else {
 				var singleAccountId jmap.AccountId = ""
 				// TODO what about requests with zero accountIds, can these even happen at all?
@@ -155,15 +155,15 @@ func flattenMultipleAccounts[SRES jmap.SearchResults[T], T jmap.Idable](
 			n[accountId] = jmap.QueryParams{Anchor: lastId, AnchorOffset: ptr(1)}
 		}
 		if err := fillMissingAccounts(qps, "", accountIds, n); err != nil {
-			return jmap.ZeroResult[SRES](), NoNextToken, err
+			return jmap.ZeroResult[SRES](result.Durations), NoNextToken, err
 		}
 		if t, err := nextSingle(n); err != nil {
-			return jmap.ZeroResult[SRES](), NoNextToken, err
+			return jmap.ZeroResult[SRES](result.Durations), NoNextToken, err
 		} else {
 			if r, err := jmap.RefineResultPayload(result, func(a map[jmap.AccountId]SRES) (SRES, bool, error) {
 				return searchResultCtor(jmap.ChangeCalculation(cc), nil, limit, &total, all), true, nil
 			}); err != nil {
-				return jmap.ZeroResult[SRES](), NoNextToken, err
+				return jmap.ZeroResult[SRES](result.Durations), NoNextToken, err
 			} else {
 				return r, t, nil
 			}
@@ -187,7 +187,7 @@ func flattenMultipleAccounts[SRES jmap.SearchResults[T], T jmap.Idable](
 		if r, err := jmap.RefineResultPayload(result, func(a map[jmap.AccountId]SRES) (SRES, bool, error) {
 			return searchResultCtor(jmap.ChangeCalculation(cc), nil, limit, &total, all), true, nil
 		}); err != nil {
-			return jmap.ZeroResult[SRES](), NoNextToken, err
+			return jmap.ZeroResult[SRES](result.Durations), NoNextToken, err
 		} else {
 			return r, NoNextToken, nil
 		}

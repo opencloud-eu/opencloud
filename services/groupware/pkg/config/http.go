@@ -12,10 +12,11 @@ type CORS struct {
 
 // HTTP defines the available http configuration.
 type HTTP struct {
-	Addr               string                `yaml:"addr" env:"GROUPWARE_HTTP_ADDR" desc:"The bind address of the HTTP service." introductionVersion:"1.0.0"`
-	TLS                shared.HTTPServiceTLS `yaml:"tls"`
-	Root               string                `yaml:"root" env:"GROUPWARE_HTTP_ROOT" desc:"Subdirectory that serves as the root for this HTTP service." introductionVersion:"1.0.0"`
-	Namespace          string                `yaml:"-"`
-	CORS               CORS                  `yaml:"cors"`
-	OpenCloudPublicURL string                `yaml:"opencloud_public_url" env:"OC_URL;OC_PUBLIC_URL;GROUPWARE_PUBLIC_URL"`
+	Addr                  string                `yaml:"addr" env:"GROUPWARE_HTTP_ADDR" desc:"The bind address of the HTTP service." introductionVersion:"1.0.0"`
+	TLS                   shared.HTTPServiceTLS `yaml:"tls"`
+	Root                  string                `yaml:"root" env:"GROUPWARE_HTTP_ROOT" desc:"Subdirectory that serves as the root for this HTTP service." introductionVersion:"1.0.0"`
+	Namespace             string                `yaml:"-"`
+	CORS                  CORS                  `yaml:"cors"`
+	OpenCloudPublicURL    string                `yaml:"opencloud_public_url" env:"OC_URL;OC_PUBLIC_URL;GROUPWARE_PUBLIC_URL"`
+	SendDurationsResponse bool                  `yaml:"send_durations_response" env:"GROUPWARE_SEND_DURATIONS_RESPONSE"`
 }

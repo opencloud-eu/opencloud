@@ -82,12 +82,12 @@ func (g *Groupware) ParseIcalBlob(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountId, err := req.GetAccountIdForBlob()
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 
 		blobId, err := req.PathParam(UriParamBlobId)
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 
 		blobIds := strings.Split(blobId, ",")

@@ -30,7 +30,7 @@ func (c *JmapContactCardSupplier) GetAll(accountId jmap.AccountId, ids []string,
 }
 func (c *JmapContactCardSupplier) Query(accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint, filter jmap.ContactCardFilterElement, sortBy []jmap.ContactCardComparator, calculateTotal bool, ctx jmap.Context) (jmap.Result[map[jmap.AccountId]*jmap.ContactCardSearchResults], error) { //NOSONAR
 	if m, err := mapQueryParams(c.GetId(), accountIds, qps); err != nil {
-		return jmap.ZeroResult[map[jmap.AccountId]*jmap.ContactCardSearchResults](), err
+		return jmap.ZeroResultV[map[jmap.AccountId]*jmap.ContactCardSearchResults](), err
 	} else {
 		return c.client.QueryContactCards(m, limit, filter, sortBy, calculateTotal, ctx)
 	}

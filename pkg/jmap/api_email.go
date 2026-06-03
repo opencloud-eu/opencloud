@@ -51,7 +51,7 @@ func (j *Client) GetEmails(accountId AccountId, ids []string, //NOSONAR
 
 	cmd, err := j.request(ctx, NS_MAIL, methodCalls...)
 	if err != nil {
-		return ZeroResult[EmailGetResponse](), err
+		return ZeroResultV[EmailGetResponse](), err
 	}
 	return command(j, ctx, cmd, func(body *Response) (EmailGetResponse, State, Error) {
 		if markAsSeen {
@@ -89,7 +89,7 @@ func (j *Client) GetEmailBlobId(accountId AccountId, id string, ctx Context) (Re
 	get := EmailGetCommand{AccountId: accountId, Ids: []string{id}, FetchAllBodyValues: false, Properties: []string{"blobId"}}
 	cmd, err := j.request(ctx, NS_MAIL, invocation(get, "0"))
 	if err != nil {
-		return ZeroResult[string](), err
+		return ZeroResultV[string](), err
 	}
 	return command(j, ctx, cmd, func(body *Response) (string, State, Error) {
 		var response EmailGetResponse
@@ -172,7 +172,7 @@ func (j *Client) GetAllEmailsInMailbox(accountId AccountId, mailboxId string, //
 
 	cmd, err := j.request(ctx, NS_MAIL, invocations...)
 	if err != nil {
-		return ZeroResult[*EmailSearchResults](), err
+		return ZeroResultV[*EmailSearchResults](), err
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (*EmailSearchResults, State, Error) {
@@ -259,7 +259,7 @@ func (j *Client) GetEmailChanges(accountId AccountId,
 		invocation(getUpdated, "2"),
 	)
 	if err != nil {
-		return ZeroResult[EmailChanges](), err
+		return ZeroResultV[EmailChanges](), err
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (EmailChanges, State, Error) {
@@ -358,7 +358,7 @@ func (j *Client) QueryEmailSnippets(accountIds []AccountId, //NOSONAR
 
 	cmd, err := j.request(ctx, NS_MAIL, invocations...)
 	if err != nil {
-		return ZeroResult[map[AccountId]EmailSnippetSearchResults](), err
+		return ZeroResultV[map[AccountId]EmailSnippetSearchResults](), err
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (map[AccountId]EmailSnippetSearchResults, State, Error) {
@@ -470,7 +470,7 @@ func (j *Client) QueryEmails(accountIds []AccountId,
 
 	cmd, err := j.request(ctx, NS_MAIL, invocations...)
 	if err != nil {
-		return ZeroResult[map[AccountId]EmailSearchResults](), err
+		return ZeroResultV[map[AccountId]EmailSearchResults](), err
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (map[AccountId]EmailSearchResults, State, Error) {
@@ -565,7 +565,7 @@ func (j *Client) QueryEmailsWithSnippets(accountIds []AccountId, //NOSONAR
 
 	cmd, err := j.request(ctx, NS_MAIL, invocations...)
 	if err != nil {
-		return ZeroResult[map[AccountId]EmailQueryWithSnippetsResult](), err
+		return ZeroResultV[map[AccountId]EmailQueryWithSnippetsResult](), err
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (map[AccountId]EmailQueryWithSnippetsResult, State, Error) {
@@ -659,7 +659,7 @@ func (j *Client) ImportEmail(accountId AccountId, data []byte, ctx Context) (Res
 		invocation(getHash, "1"),
 	)
 	if err != nil {
-		return ZeroResult[UploadedEmail](), err
+		return ZeroResultV[UploadedEmail](), err
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (UploadedEmail, State, Error) {
@@ -717,7 +717,7 @@ func (j *Client) CreateEmail(accountId AccountId, email EmailChange, replaceId s
 		invocation(set, "0"),
 	)
 	if err != nil {
-		return ZeroResult[*Email](), err
+		return ZeroResultV[*Email](), err
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (*Email, State, Error) {
@@ -764,7 +764,7 @@ func (j *Client) UpdateEmails(accountId AccountId, updates map[string]PatchObjec
 	}
 	cmd, err := j.request(ctx, NS_MAIL, invocation(set, "0"))
 	if err != nil {
-		return ZeroResult[map[string]*Email](), err
+		return ZeroResultV[map[string]*Email](), err
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (map[string]*Email, State, Error) {
@@ -878,7 +878,7 @@ func (j *Client) SubmitEmail(accountId AccountId, identityId string, emailId str
 		invocation(get, "1"),
 	)
 	if err != nil {
-		return ZeroResult[EmailSubmission](), err
+		return ZeroResultV[EmailSubmission](), err
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (EmailSubmission, State, Error) {
@@ -936,7 +936,7 @@ func (j *Client) GetEmailSubmissionStatus(accountId AccountId, submissionIds []s
 	}
 	cmd, err := j.request(ctx, NS_MAIL_SUBMISSION, invocation(get, "0"))
 	if err != nil {
-		return ZeroResult[EmailSubmissionGetResponse](), err
+		return ZeroResultV[EmailSubmissionGetResponse](), err
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (EmailSubmissionGetResponse, State, Error) {
@@ -978,7 +978,7 @@ func (j *Client) EmailsInThread(accountId AccountId, threadId string,
 		invocation(get, "1"),
 	)
 	if err != nil {
-		return ZeroResult[[]Email](), err
+		return ZeroResultV[[]Email](), err
 	}
 
 	return command(j, ctx, cmd, func(body *Response) ([]Email, State, Error) {
@@ -1067,7 +1067,7 @@ func (j *Client) QueryEmailSummaries(accountIds []AccountId, //NOSONAR
 	}
 	cmd, err := j.request(ctx, NS_MAIL, invocations...)
 	if err != nil {
-		return ZeroResult[map[AccountId]EmailsSummary](), err
+		return ZeroResultV[map[AccountId]EmailsSummary](), err
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (map[AccountId]EmailsSummary, State, Error) {

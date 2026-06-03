@@ -32,7 +32,7 @@ func (g *Groupware) GetQuotaForAllAccounts(w http.ResponseWriter, r *http.Reques
 	g.respond(w, r, func(req Request) Response {
 		accountIds := req.AllAccountIds()
 		if len(accountIds) < 1 {
-			return req.noopN(accountIds) // user has no accounts
+			return req.noopN(accountIds, zeroDurations) // user has no accounts
 		}
 		logger := log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(structs.ToStrings(accountIds))))
 		ctx := req.ctx.WithLogger(logger)

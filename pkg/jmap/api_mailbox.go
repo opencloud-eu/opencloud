@@ -52,7 +52,7 @@ func (j *Client) SearchMailboxes(accountIds []AccountId, filter MailboxFilterEle
 	}
 	cmd, err := j.request(ctx, NS_MAILBOX, invocations...)
 	if err != nil {
-		return ZeroResult[map[AccountId][]Mailbox](), err
+		return ZeroResultV[map[AccountId][]Mailbox](), err
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (map[AccountId][]Mailbox, State, Error) {
@@ -86,7 +86,7 @@ func (j *Client) SearchMailboxIdsPerRole(accountIds []AccountId, roles []string,
 	}
 	cmd, err := j.request(ctx, NS_MAILBOX, invocations...)
 	if err != nil {
-		return ZeroResult[map[AccountId]map[string]string](), err
+		return ZeroResultV[map[AccountId]map[string]string](), err
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (map[AccountId]map[string]string, State, Error) {
@@ -210,7 +210,7 @@ func (j *Client) GetInboxNameForMultipleAccounts(accountIds []AccountId, ctx Con
 	uniqueAccountIds := structs.Uniq(accountIds)
 	n := len(uniqueAccountIds)
 	if n < 1 {
-		return ZeroResult[map[AccountId]string](), nil
+		return ZeroResultV[map[AccountId]string](), nil
 	}
 
 	invocations := make([]Invocation, n*2)
@@ -225,7 +225,7 @@ func (j *Client) GetInboxNameForMultipleAccounts(accountIds []AccountId, ctx Con
 
 	cmd, err := j.request(ctx, NS_MAILBOX, invocations...)
 	if err != nil {
-		return ZeroResult[map[AccountId]string](), err
+		return ZeroResultV[map[AccountId]string](), err
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (map[AccountId]string, State, Error) {
