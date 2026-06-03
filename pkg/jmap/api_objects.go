@@ -90,7 +90,7 @@ func (j *Client) GetObjects(accountId AccountId, //NOSONAR
 
 	cmd, err := j.request(ctx, NS_OBJECTS, methodCalls...)
 	if err != nil {
-		return ZeroResult[Objects](), err
+		return ZeroResultV[Objects](), err
 	}
 
 	return command(j, ctx, cmd, func(body *Response) (Objects, State, Error) {

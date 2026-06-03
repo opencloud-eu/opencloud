@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
@@ -35,7 +36,7 @@ func curryQueryFunc[SRES jmap.SearchResults[T], T jmap.Foo, FILTER any, COMP any
 	return func(_ Request, accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint, filter FILTER, sortBy []COMP, ctx jmap.Context) (jmap.Result[SRES], NextToken, error) { //NOSONAR
 		result, next, err := f(accountIds, qps, limit, filter, sortBy, true, ctx)
 		if err != nil {
-			return jmap.ZeroResult[SRES](), next, err
+			return jmap.ZeroResult[SRES](result.Durations), next, err
 		} else {
 			return result, next, err
 		}
@@ -91,7 +92,7 @@ func slist[T jmap.Idable, G jmap.GetResponse[T], S ListSupplier[T, G]](suppliers
 	ctor func(accountId jmap.AccountId, state jmap.State, notFound []string, list []T) G) (jmap.Result[G], error) {
 	switch len(suppliers) {
 	case 0:
-		return jmap.ZeroResult[G](), nil
+		return jmap.ZeroResultV[G](), nil
 	case 1:
 		return suppliers[0].GetAll(accountId, ids, ctx)
 	default:
@@ -177,16 +178,16 @@ func squery[T jmap.Idable, R jmap.SearchResults[T], S QuerySupplier[T, R, F, C],
 ) {
 	s := len(suppliers)
 	if s == 0 {
-		return jmap.ZeroResult[R](), NoNextToken, nil
+		return jmap.ZeroResultV[R](), NoNextToken, nil
 	}
 
 	switch s {
 	case 1:
 		supplier := suppliers[0]
 		if result, err := supplier.Query(accountIds, qps, limit, filter, sortBy, calculateTotal, ctx); err != nil {
-			return jmap.ZeroResult[R](), NoNextToken, err
+			return jmap.ZeroResult[R](result.Durations), NoNextToken, err
 		} else if len(accountIds) == 0 {
-			return jmap.ZeroResult[R](), NoNextToken, nil
+			return jmap.ZeroResult[R](result.Durations), NoNextToken, nil
 		} else if len(accountIds) == 1 {
 			accountId := accountIds[0]
 			// use anchor and anchorOffset and limit:
@@ -199,7 +200,7 @@ func squery[T jmap.Idable, R jmap.SearchResults[T], S QuerySupplier[T, R, F, C],
 				n[accountId] = jmap.QueryParams{Anchor: last.GetId(), AnchorOffset: ptr(1)}
 			}
 			if nextToken, err := nextSingle(n); err != nil {
-				return jmap.ZeroResult[R](), NoNextToken, err
+				return jmap.ZeroResult[R](result.Durations), NoNextToken, err
 			} else {
 				single, err := jmap.RefineResultPayload(result, func(m map[jmap.AccountId]R) (R, bool, error) {
 					if r, ok := m[accountId]; ok {
@@ -272,19 +273,18 @@ func squery[T jmap.Idable, R jmap.SearchResults[T], S QuerySupplier[T, R, F, C],
 				n[accountId] = jmap.QueryParams{Anchor: lastId, AnchorOffset: ptr(1)}
 			}
 			if err := fillMissingAccounts(qps, supplier.GetId(), accountIds, n); err != nil {
-				return jmap.ZeroResult[R](), NoNextToken, err
+				return jmap.ZeroResult[R](result.Durations), NoNextToken, err
 			}
 
 			nextBySupplier := map[SupplierId]map[jmap.AccountId]jmap.QueryParams{supplier.GetId(): n}
 			if nextToken, err := nextMulti(nextBySupplier); err != nil {
-				return jmap.ZeroResult[R](), NoNextToken, err
+				return jmap.ZeroResult[R](result.Durations), NoNextToken, err
 			} else {
-				return jmap.Result[R]{
-					Payload:      r,
-					SessionState: result.GetSessionState(),
-					State:        result.GetState(),
-					Language:     result.GetLanguage(),
-				}, nextToken, nil
+				if refined, err := jmap.RefineResultPayload(result, func(a map[jmap.AccountId]R) (R, bool, error) { return r, true, nil }); err != nil {
+					return jmap.ZeroResult[R](result.Durations), NoNextToken, err
+				} else {
+					return refined, nextToken, nil
+				}
 			}
 		}
 	default:
@@ -295,11 +295,13 @@ func squery[T jmap.Idable, R jmap.SearchResults[T], S QuerySupplier[T, R, F, C],
 		sessionState := jmap.EmptySessionState
 		states := map[SupplierId]jmap.State{}
 		lang := jmap.NoLanguage
-		for _, supplier := range suppliers {
+		durations := make([][]time.Duration, len(suppliers))
+		for i, supplier := range suppliers {
 			// we are not injecting id prefixes here for all the objects, as each supplier is responsible for doing that if necessary
 			if result, err := supplier.Query(accountIds, qps, limit, filter, sortBy, calculateTotal, ctx); err != nil {
-				return jmap.ZeroResult[R](), NoNextToken, err
+				return jmap.ZeroResult[R](result.Durations), NoNextToken, err
 			} else {
+				durations[i] = result.Durations
 				if result.GetSessionState() != jmap.EmptySessionState {
 					sessionState = result.GetSessionState()
 				}
@@ -375,23 +377,18 @@ func squery[T jmap.Idable, R jmap.SearchResults[T], S QuerySupplier[T, R, F, C],
 				n[accountId] = jmap.QueryParams{Anchor: lastId, AnchorOffset: ptr(1)}
 			}
 			if err := fillMissingAccounts(qps, supplierId, accountIds, n); err != nil {
-				return jmap.ZeroResult[R](), NoNextToken, err
+				return jmap.ZeroResult[R](structs.Flatten(durations)), NoNextToken, err
 			}
 			nextBySupplier[supplierId] = n
 		}
 
 		if nextToken, err := nextMulti(nextBySupplier); err != nil {
-			return jmap.ZeroResult[R](), NoNextToken, err
+			return jmap.ZeroResult[R](structs.Flatten(durations)), NoNextToken, err
 		} else {
 			if state, err := combineState(states); err != nil {
-				return jmap.ZeroResult[R](), NoNextToken, err
+				return jmap.ZeroResult[R](structs.Flatten(durations)), NoNextToken, err
 			} else {
-				return jmap.Result[R]{
-					Payload:      r,
-					SessionState: sessionState,
-					State:        state,
-					Language:     lang,
-				}, nextToken, nil
+				return jmap.NewResult(r, sessionState, state, lang, structs.Flatten(durations)), nextToken, nil
 			}
 		}
 	}

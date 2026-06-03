@@ -208,6 +208,7 @@ type TaskListsMeta struct {
 func (t TaskListsMeta) GetSessionState() jmap.SessionState { return t.SessionState }
 func (t TaskListsMeta) GetState() jmap.State               { return TaskListsState }
 func (t TaskListsMeta) GetLanguage() jmap.Language         { return jmap.NoLanguage }
+func (t TaskListsMeta) GetDurations() []time.Duration      { return zeroDurations }
 
 var _ jmap.ResultMetadata = TaskListsMeta{}
 
@@ -226,6 +227,7 @@ type TaskMeta struct {
 func (t TaskMeta) GetSessionState() jmap.SessionState { return t.SessionState }
 func (t TaskMeta) GetState() jmap.State               { return TaskState }
 func (t TaskMeta) GetLanguage() jmap.Language         { return jmap.NoLanguage }
+func (t TaskMeta) GetDurations() []time.Duration      { return zeroDurations }
 
 var _ jmap.ResultMetadata = TaskListsMeta{}
 

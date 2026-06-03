@@ -32,13 +32,13 @@ func (g *Groupware) GetChanges(w http.ResponseWriter, r *http.Request) { //NOSON
 		l := req.logger.With()
 		accountId, err := req.GetAccountIdForMail()
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 		l = l.Str(logAccountId, log.SafeString(accountId))
 
 		var maxChanges uint = 0
 		if v, ok, err := req.parseUIntParam(QueryParamMaxChanges, 0); err != nil { // The maximum amount of changes to emit for each type of object.
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		} else if ok {
 			maxChanges = v
 			l = l.Uint(QueryParamMaxChanges, v)
@@ -72,7 +72,7 @@ func (g *Groupware) GetChanges(w http.ResponseWriter, r *http.Request) { //NOSON
 			}
 			//if state, ok := req.getStringParam(QueryParamQuotas, ""); ok { sinceState.Quotas = ptr(toState(state)) }
 			if sinceState.IsZero() {
-				return req.noop(accountId) // No content response if no object IDs were requested.
+				return req.noop(accountId, zeroDurations) // No content response if no object IDs were requested.
 			}
 		}
 

@@ -43,7 +43,7 @@ func inmemquery[T jmap.Idable, R jmap.SearchResults[T]](
 	for _, accountId := range accountIds {
 		qp := jmap.NullQueryParams
 		if q, ok, err := qps.ForSupplier(supplierId, accountId); err != nil {
-			return jmap.ZeroResult[map[jmap.AccountId]R](), err
+			return jmap.ZeroResultV[map[jmap.AccountId]R](), err
 		} else if ok {
 			qp = q
 		}
@@ -91,12 +91,7 @@ func inmemquery[T jmap.Idable, R jmap.SearchResults[T]](
 
 		payload[accountId] = res
 	}
-	return jmap.Result[map[jmap.AccountId]R]{
-		Payload:      payload,
-		SessionState: jmap.EmptySessionState,
-		State:        jmap.EmptyState,
-		Language:     jmap.NoLanguage,
-	}, nil
+	return jmap.NewResult(payload, jmap.EmptySessionState, jmap.EmptyState, jmap.NoLanguage, nil), nil
 }
 
 func pets(
@@ -158,7 +153,7 @@ func TestSquery(t *testing.T) {
 	}
 	n := func(accountIds []jmap.AccountId, nextToken NextToken, limit *uint) (jmap.Result[*PetSearchResults], NextToken, error) {
 		if qps, err := unnext(nextToken); err != nil {
-			return jmap.ZeroResult[*PetSearchResults](), NoNextToken, err
+			return jmap.ZeroResultV[*PetSearchResults](), NoNextToken, err
 		} else {
 			return pets(suppliers, accountIds, qps, limit, PetFilterCondition{}, []PetComparator{{Property: "id", IsAscending: true}}, true, jmap.Context{})
 		}

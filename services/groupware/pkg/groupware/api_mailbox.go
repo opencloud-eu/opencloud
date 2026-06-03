@@ -55,12 +55,12 @@ func (g *Groupware) GetMailboxes(w http.ResponseWriter, r *http.Request) { //NOS
 
 		accountId, err := req.GetAccountIdForMail()
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 
 		subscribed, set, err := req.parseBoolParam(QueryParamMailboxSearchSubscribed, false)
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 		if set {
 			filter.IsSubscribed = &subscribed
@@ -104,7 +104,7 @@ func (g *Groupware) GetMailboxesForAllAccounts(w http.ResponseWriter, r *http.Re
 	g.respond(w, r, func(req Request) Response {
 		accountIds := req.AllAccountIds()
 		if len(accountIds) < 1 {
-			return req.noopN(nil) // when the user has no accounts
+			return req.noopN(nil, zeroDurations) // when the user has no accounts
 		}
 		logger := log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(structs.ToStrings(accountIds))))
 		ctx := req.ctx.WithLogger(logger)
@@ -118,7 +118,7 @@ func (g *Groupware) GetMailboxesForAllAccounts(w http.ResponseWriter, r *http.Re
 		}
 
 		if subscribed, set, err := req.parseBoolParam(QueryParamMailboxSearchSubscribed, false); err != nil {
-			return req.errorN(accountIds, err)
+			return req.errorNV(accountIds, err)
 		} else if set {
 			filter.IsSubscribed = &subscribed
 			hasCriteria = true
@@ -145,12 +145,12 @@ func (g *Groupware) GetMailboxByRoleForAllAccounts(w http.ResponseWriter, r *htt
 	g.respond(w, r, func(req Request) Response {
 		accountIds := req.AllAccountIds()
 		if len(accountIds) < 1 {
-			return req.noopN(accountIds) // when the user has no accounts
+			return req.noopN(accountIds, zeroDurations) // when the user has no accounts
 		}
 
 		role, err := req.PathParamDoc(UriParamRole, "Role of the mailboxes to retrieve across all accounts")
 		if err != nil {
-			return req.errorN(accountIds, err)
+			return req.errorNV(accountIds, err)
 		}
 
 		logger := log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(structs.ToStrings(accountIds))).Str("role", role))
@@ -184,7 +184,7 @@ func (g *Groupware) GetMailboxChangesForAllAccounts(w http.ResponseWriter, r *ht
 
 		sinceStateStrMap, ok, err := req.parseMapParam(QueryParamSince)
 		if err != nil {
-			return req.errorN(allAccountIds, err)
+			return req.errorNV(allAccountIds, err)
 		}
 		if ok {
 			dict := zerolog.Dict()
@@ -196,7 +196,7 @@ func (g *Groupware) GetMailboxChangesForAllAccounts(w http.ResponseWriter, r *ht
 
 		maxChanges, ok, err := req.parseUIntParam(QueryParamMaxChanges, 0)
 		if err != nil {
-			return req.errorN(allAccountIds, err)
+			return req.errorNV(allAccountIds, err)
 		}
 		if ok {
 			l = l.Uint(QueryParamMaxChanges, maxChanges)

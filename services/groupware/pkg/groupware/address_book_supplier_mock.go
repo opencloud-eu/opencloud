@@ -75,16 +75,17 @@ func (c *MockContactCardSupplier) GetAll(accountId jmap.AccountId, ids []string,
 	if len(ids) > 0 {
 		abooks = structs.Filter(abooks, func(a jmap.AddressBook) bool { return slices.Contains(ids, a.Id) })
 	}
-	return jmap.Result[jmap.AddressBookGetResponse]{
-		SessionState: jmap.EmptySessionState,
-		State:        "mock",
-		Language:     jmap.NoLanguage,
-		Payload: jmap.AddressBookGetResponse{
+	return jmap.NewResult(
+		jmap.AddressBookGetResponse{
 			AccountId: accountId,
 			State:     "mock",
 			List:      abooks,
 		},
-	}, nil
+		jmap.EmptySessionState,
+		jmap.State("mock"),
+		jmap.NoLanguage,
+		nil,
+	), nil
 }
 func (c *MockContactCardSupplier) Query(accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint, filter jmap.ContactCardFilterElement, sortBy []jmap.ContactCardComparator, calculateTotal bool, ctx jmap.Context) (jmap.Result[map[jmap.AccountId]*jmap.ContactCardSearchResults], error) { //NOSONAR
 	payload := make(map[jmap.AccountId]*jmap.ContactCardSearchResults, len(accountIds))
@@ -93,7 +94,7 @@ func (c *MockContactCardSupplier) Query(accountIds []jmap.AccountId, qps QueryPa
 		all := []jmap.ContactCard{}
 		var qp jmap.QueryParams
 		if q, ok, err := qps.ForSupplier(c.GetId(), accountId); err != nil {
-			return jmap.ZeroResult[map[jmap.AccountId]*jmap.ContactCardSearchResults](), err
+			return jmap.ZeroResultV[map[jmap.AccountId]*jmap.ContactCardSearchResults](), err
 		} else if ok {
 			qp = q
 		} else {
@@ -141,10 +142,5 @@ func (c *MockContactCardSupplier) Query(accountIds []jmap.AccountId, qps QueryPa
 		payload[accountId] = res
 	}
 
-	return jmap.Result[map[jmap.AccountId]*jmap.ContactCardSearchResults]{
-		Payload:      payload,
-		SessionState: jmap.EmptySessionState,
-		State:        jmap.EmptyState,
-		Language:     jmap.NoLanguage,
-	}, nil
+	return jmap.NewResult(payload, jmap.EmptySessionState, jmap.EmptyState, jmap.NoLanguage, nil), nil
 }

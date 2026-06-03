@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
@@ -750,32 +751,41 @@ func errorResponses(errors ...Error) ErrorResponse {
 	return ErrorResponse{Errors: errors}
 }
 
-func (r *Request) error(accountId jmap.AccountId, err *Error) Response {
-	return errorResponse(single(accountId), err, r.session.State, jmap.NoLanguage)
+// Validation error prior to performing any requests
+func (r *Request) errorV(accountId jmap.AccountId, err *Error) Response {
+	return errorResponse(single(accountId), err, r.session.State, jmap.NoLanguage, zeroDurations)
+}
+
+func (r *Request) error(accountId jmap.AccountId, err *Error, durations []time.Duration) Response {
+	return errorResponse(single(accountId), err, r.session.State, jmap.NoLanguage, durations)
 }
 
 func (r *Request) errorS(accountId jmap.AccountId, err *Error, result jmap.ResultMetadata) Response {
-	return errorResponse(single(accountId), err, result.GetSessionState(), result.GetLanguage())
+	return errorResponse(single(accountId), err, result.GetSessionState(), result.GetLanguage(), result.GetDurations())
 }
 
-func (r *Request) errorN(accountIds []jmap.AccountId, err *Error) Response {
-	return errorResponse(accountIds, err, r.session.State, jmap.NoLanguage)
+func (r *Request) errorN(accountIds []jmap.AccountId, err *Error, durations []time.Duration) Response {
+	return errorResponse(accountIds, err, r.session.State, jmap.NoLanguage, durations)
+}
+
+func (r *Request) errorNV(accountIds []jmap.AccountId, err *Error) Response {
+	return errorResponse(accountIds, err, r.session.State, jmap.NoLanguage, zeroDurations)
 }
 
 func (r *Request) jmapError(accountId jmap.AccountId, err error, result jmap.ResultMetadata) Response {
 	switch e := err.(type) {
 	case jmap.Error:
 		if result != nil {
-			return errorResponse(single(accountId), r.apiErrorFromJmap(r.observeJmapError(e)), result.GetSessionState(), result.GetLanguage())
+			return errorResponse(single(accountId), r.apiErrorFromJmap(r.observeJmapError(e)), result.GetSessionState(), result.GetLanguage(), result.GetDurations())
 		} else {
-			return errorResponse(single(accountId), r.apiErrorFromJmap(r.observeJmapError(e)), r.session.GetSessionState(), jmap.NoLanguage)
+			return errorResponse(single(accountId), r.apiErrorFromJmap(r.observeJmapError(e)), r.session.GetSessionState(), jmap.NoLanguage, zeroDurations)
 		}
 	case GroupwareError:
 		errorId := r.errorId()
-		return r.error(accountId, apiError(errorId, e))
+		return r.error(accountId, apiError(errorId, e), result.GetDurations())
 	default:
 		errorId := r.errorId()
-		return r.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())))
+		return r.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())), result.GetDurations())
 	}
 }
 
@@ -783,15 +793,15 @@ func (r *Request) jmapErrorN(accountIds []jmap.AccountId, err error, result jmap
 	switch e := err.(type) {
 	case jmap.Error:
 		if result != nil {
-			return errorResponse(accountIds, r.apiErrorFromJmap(r.observeJmapError(e)), result.GetSessionState(), result.GetLanguage())
+			return errorResponse(accountIds, r.apiErrorFromJmap(r.observeJmapError(e)), result.GetSessionState(), result.GetLanguage(), result.GetDurations())
 		} else {
-			return errorResponse(accountIds, r.apiErrorFromJmap(r.observeJmapError(e)), r.session.GetSessionState(), jmap.NoLanguage)
+			return errorResponse(accountIds, r.apiErrorFromJmap(r.observeJmapError(e)), r.session.GetSessionState(), jmap.NoLanguage, zeroDurations)
 		}
 	case GroupwareError:
 		errorId := r.errorId()
-		return r.errorN(accountIds, apiError(errorId, e))
+		return r.errorN(accountIds, apiError(errorId, e), result.GetDurations())
 	default:
 		errorId := r.errorId()
-		return r.errorN(accountIds, apiError(errorId, ErrorGeneric, withDetail(e.Error())))
+		return r.errorN(accountIds, apiError(errorId, ErrorGeneric, withDetail(e.Error())), result.GetDurations())
 	}
 }

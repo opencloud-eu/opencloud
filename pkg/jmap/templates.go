@@ -19,7 +19,7 @@ func get[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], ID any, RESP any](
 	get := getCommandFactory(accountId, ids)
 	cmd, err := client.request(ctx, objType.Namespaces, invocation(get, "0"))
 	if err != nil {
-		return ZeroResult[RESP](), err
+		return ZeroResultV[RESP](), err
 	}
 
 	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
@@ -70,7 +70,7 @@ func getN[T Foo, ITEM any, GETREQ GetCommand[T], GETRESP GetResponse[T], ID any,
 
 	cmd, err := client.request(ctx, objType.Namespaces, invocations...)
 	if err != nil {
-		return ZeroResult[RESP](), err
+		return ZeroResultV[RESP](), err
 	}
 
 	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
@@ -109,7 +109,7 @@ func create[T Foo, C any, SETREQ SetCommand[T], GETREQ GetCommand[T], SETRESP Se
 		invocation(get, "1"),
 	)
 	if err != nil {
-		return ZeroResult[*T](), err
+		return ZeroResultV[*T](), err
 	}
 
 	return command(client, ctx, cmd, func(body *Response) (*T, State, Error) {
@@ -162,7 +162,7 @@ func destroy[T Foo, REQ SetCommand[T], RESP SetResponse[T]](client *Client, name
 		invocation(set, "0"),
 	)
 	if err != nil {
-		return ZeroResult[map[string]SetError](), err
+		return ZeroResultV[map[string]SetError](), err
 	}
 
 	return command(client, ctx, cmd, func(body *Response) (map[string]SetError, State, Error) {
@@ -210,7 +210,7 @@ func changes[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESR
 		invocation(getUpdated, "2"),
 	)
 	if err != nil {
-		return ZeroResult[RESP](), err
+		return ZeroResultV[RESP](), err
 	}
 
 	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
@@ -268,7 +268,7 @@ func changesN[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGES
 	uniqueAccountIds := structs.Uniq(accountIds)
 	n := len(uniqueAccountIds)
 	if n < 1 {
-		return ZeroResult[RESP](), nil
+		return ZeroResultV[RESP](), nil
 	}
 
 	invocations := make([]Invocation, n*3)
@@ -299,7 +299,7 @@ func changesN[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGES
 
 	cmd, err := client.request(ctx, objType.Namespaces, invocations...)
 	if err != nil {
-		return ZeroResult[RESP](), err
+		return ZeroResultV[RESP](), err
 	}
 
 	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
@@ -354,7 +354,7 @@ func updates[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESR
 		invocation(getUpdated, "1"),
 	)
 	if err != nil {
-		return ZeroResult[RESP](), err
+		return ZeroResultV[RESP](), err
 	}
 
 	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
@@ -395,14 +395,14 @@ func update[T Foo, CHANGES Change, SET SetCommand[T], GET GetCommand[T], RESP an
 	{
 		patch, err := changes.AsPatch()
 		if err != nil {
-			return ZeroResult[RESP](), jmapError(err, JmapErrorPatchObjectSerialization)
+			return ZeroResultV[RESP](), jmapError(err, JmapErrorPatchObjectSerialization)
 		}
 		update = setCommandFactory(map[string]PatchObject{id: patch})
 	}
 	get := getCommandFactory(id)
 	cmd, err := client.request(ctx, objType.Namespaces, invocation(update, "0"), invocation(get, "1"))
 	if err != nil {
-		return ZeroResult[RESP](), err
+		return ZeroResultV[RESP](), err
 	}
 
 	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
@@ -525,7 +525,7 @@ func queryN[T Foo, FILTER any, SORT any, QUERY QueryCommand[T, QUERY], GET GetCo
 
 	cmd, err := client.request(ctx, objType.Namespaces, invocations...)
 	if err != nil {
-		return ZeroResult[map[AccountId]*RESP](), err
+		return ZeroResultV[map[AccountId]*RESP](), err
 	}
 
 	return command(client, ctx, cmd, func(body *Response) (map[AccountId]*RESP, State, Error) {

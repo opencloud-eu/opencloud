@@ -45,11 +45,11 @@ func (g *Groupware) GetAllEmailsInMailbox(w http.ResponseWriter, r *http.Request
 		func(req Request, accountId jmap.AccountId, containerId string, qp jmap.QueryParams, limit *uint, ctx jmap.Context) (jmap.Result[*jmap.EmailSearchResults], error) { //NOSONAR
 			result, jerr := g.jmap.GetAllEmailsInMailbox(accountId, containerId, qp, limit, collapseThreads, fetchBodies, g.config.maxBodyValueBytes, withThreads, ctx)
 			if jerr != nil {
-				return jmap.ZeroResult[*jmap.EmailSearchResults](), jerr
+				return jmap.ZeroResultM(result), jerr
 			}
 			sanitized, err := req.sanitizeEmails(result.Payload.Results)
 			if err != nil {
-				return jmap.ZeroResult[*jmap.EmailSearchResults](), err
+				return jmap.ZeroResultM(result), err
 			}
 			return jmap.RefineResultPayload(result, func(orig *jmap.EmailSearchResults) (*jmap.EmailSearchResults, bool, error) {
 				return &jmap.EmailSearchResults{
@@ -70,12 +70,12 @@ func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) { //NO
 		g.stream(w, r, func(req Request, w http.ResponseWriter) (bool, Response) {
 			accountId, err := req.GetAccountIdForMail()
 			if err != nil {
-				return false, req.error(accountId, err)
+				return false, req.errorV(accountId, err)
 			}
 
 			id, err := req.PathParam(UriParamEmailId)
 			if err != nil {
-				return false, req.error(accountId, err)
+				return false, req.errorV(accountId, err)
 			}
 			ids := strings.Split(id, ",")
 			if len(ids) != 1 {
@@ -84,7 +84,7 @@ func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) { //NO
 
 			_, ok, err := req.parseBoolParam(QueryParamMarkAsSeen, false)
 			if err != nil {
-				return false, req.error(accountId, err)
+				return false, req.errorV(accountId, err)
 			}
 			if ok {
 				return false, req.parameterErrorResponse(accountId, QueryParamMarkAsSeen, fmt.Sprintf("when the Accept header is set to '%s', the API does not support setting %s", accept, QueryParamMarkAsSeen))
@@ -97,18 +97,19 @@ func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) { //NO
 				return false, req.jmapError(accountId, jerr, result)
 			}
 			if result.Payload == "" {
-				return true, req.noop(accountId)
+				return true, req.noop(accountId, result.GetDurations())
 			} else {
 				name := result.Payload + ".eml"
 				typ := accept
 				accountId, gwerr := req.GetAccountIdForBlob()
 				if gwerr != nil {
-					return false, req.error(accountId, gwerr)
+					return false, req.error(accountId, gwerr, result.GetDurations())
 				}
+				before := time.Now()
 				if err := req.serveBlob(result.Payload, name, typ, ctx, accountId, w); err != nil {
-					return false, req.error(accountId, err)
+					return false, req.error(accountId, err, append(result.GetDurations(), time.Since(before)))
 				} else {
-					return true, req.noop(accountId)
+					return true, req.noop(accountId, append(result.GetDurations(), time.Since(before)))
 				}
 			}
 		})
@@ -116,13 +117,13 @@ func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) { //NO
 		g.respond(w, r, func(req Request) Response {
 			accountId, err := req.GetAccountIdForMail()
 			if err != nil {
-				return req.error(accountId, err)
+				return req.errorV(accountId, err)
 			}
 			l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
 
 			id, err := req.PathParam(UriParamEmailId)
 			if err != nil {
-				return req.error(accountId, err)
+				return req.errorV(accountId, err)
 			}
 			ids := strings.Split(id, ",")
 			if len(ids) < 1 {
@@ -131,7 +132,7 @@ func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) { //NO
 
 			markAsSeen, ok, err := req.parseBoolParam(QueryParamMarkAsSeen, false)
 			if err != nil {
-				return req.error(accountId, err)
+				return req.errorV(accountId, err)
 			}
 			if ok {
 				l = l.Bool(QueryParamMarkAsSeen, markAsSeen)
@@ -149,7 +150,7 @@ func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) { //NO
 				} else {
 					sanitized, err := req.sanitizeEmail(result.Payload.List[0])
 					if err != nil {
-						return req.error(accountId, req.apiError(err))
+						return req.errorV(accountId, req.apiError(err))
 					}
 					return req.respond(accountId, sanitized, EmailResponseObjectType, result)
 				}
@@ -165,7 +166,7 @@ func (g *Groupware) GetEmailsById(w http.ResponseWriter, r *http.Request) { //NO
 				} else {
 					sanitized, err := req.sanitizeEmails(result.Payload.List)
 					if err != nil {
-						return req.error(accountId, req.apiError(err))
+						return req.errorV(accountId, req.apiError(err))
 					}
 					return req.respond(accountId, sanitized, EmailResponseObjectType, result)
 				}
@@ -209,7 +210,7 @@ func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) 
 
 			id, err := req.PathParam(UriParamEmailId)
 			if err != nil {
-				return req.error(accountId, err)
+				return req.errorV(accountId, err)
 			}
 
 			logger := log.From(l)
@@ -222,7 +223,7 @@ func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) 
 				return req.notFound(accountId, EmailResponseObjectType, result)
 			}
 			if email, err := req.sanitizeEmail(result.Payload.List[0]); err != nil {
-				return req.error(accountId, req.apiError(err))
+				return req.errorV(accountId, req.apiError(err))
 			} else {
 				var body []jmap.EmailBodyPart = email.Attachments
 				return req.respond(accountId, body, EmailResponseObjectType, result)
@@ -241,7 +242,7 @@ func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) 
 
 			id, err := req.PathParam(UriParamEmailId)
 			if err != nil {
-				return false, req.error(mailAccountId, err)
+				return false, req.errorV(mailAccountId, err)
 			}
 
 			l := req.logger.With().
@@ -256,12 +257,12 @@ func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) 
 				return false, req.jmapError(mailAccountId, jerr, result)
 			}
 			if len(result.Payload.List) < 1 {
-				return true, req.noop(mailAccountId)
+				return true, req.noop(mailAccountId, result.GetDurations())
 			}
 
 			email, gwerr := req.sanitizeEmail(result.Payload.List[0])
 			if gwerr != nil {
-				return false, req.error(mailAccountId, req.apiError(gwerr))
+				return false, req.errorV(mailAccountId, req.apiError(gwerr))
 			}
 			var attachment *jmap.EmailBodyPart = nil
 			for _, part := range email.Attachments {
@@ -271,9 +272,10 @@ func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) 
 				}
 			}
 			if attachment == nil {
-				return true, req.noop(mailAccountId)
+				return true, req.noop(mailAccountId, result.GetDurations())
 			}
 
+			before := time.Now()
 			blob, lang, jerr := g.jmap.DownloadBlobStream(blobAccountId, attachment.BlobId, attachment.Name, attachment.Type, ctx)
 			if blob != nil && blob.Body != nil {
 				defer func(Body io.ReadCloser) {
@@ -288,7 +290,7 @@ func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) 
 			}
 			if blob == nil {
 				w.WriteHeader(http.StatusNotFound)
-				return true, req.noop(blobAccountId)
+				return true, req.noop(blobAccountId, result.GetDurations())
 			}
 
 			if blob.Type != "" {
@@ -307,11 +309,12 @@ func (g *Groupware) GetEmailAttachments(w http.ResponseWriter, r *http.Request) 
 				w.Header().Add("Content-Language", string(lang))
 			}
 			_, cerr := io.Copy(w, blob.Body)
+			durations := append(result.GetDurations(), time.Since(before))
 			if cerr != nil {
-				return false, req.error(blobAccountId, req.observedParameterError(ErrorStreamingResponse))
+				return false, req.error(blobAccountId, req.observedParameterError(ErrorStreamingResponse), durations)
 			}
 
-			return true, req.noop(blobAccountId)
+			return true, req.noop(blobAccountId, durations)
 		})
 	}
 }
@@ -322,13 +325,13 @@ func (g *Groupware) getEmailsSince(w http.ResponseWriter, r *http.Request, since
 
 		accountId, err := req.GetAccountIdForMail()
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 		l = l.Str(logAccountId, log.SafeString(accountId))
 
 		maxChanges, ok, err := req.parseUIntParam(QueryParamMaxChanges, 0)
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 		if ok {
 			l = l.Uint(QueryParamMaxChanges, maxChanges)
@@ -555,14 +558,14 @@ func (g *Groupware) GetEmails(w http.ResponseWriter, r *http.Request) { //NOSONA
 		g.respond(w, r, func(req Request) Response {
 			accountId, err := req.GetAccountIdForMail()
 			if err != nil {
-				return req.error(accountId, err)
+				return req.errorV(accountId, err)
 			}
 
 			l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
 
 			ok, filter, makesSnippets, position, anchor, anchorOffset, limit, logger, err := g.buildEmailFilter(req)
 			if !ok {
-				return req.error(accountId, err)
+				return req.errorV(accountId, err)
 			}
 
 			if !filter.IsNotEmpty() {
@@ -571,7 +574,7 @@ func (g *Groupware) GetEmails(w http.ResponseWriter, r *http.Request) { //NOSONA
 
 			calculateTotal := true
 			if b, ok, err := req.parseBoolParam(QueryParamCalculateTotal, true); err != nil {
-				return req.error(accountId, err)
+				return req.errorV(accountId, err)
 			} else if ok {
 				calculateTotal = b
 				l = l.Bool(QueryParamCalculateTotal, calculateTotal)
@@ -599,11 +602,11 @@ func (g *Groupware) GetEmails(w http.ResponseWriter, r *http.Request) { //NOSONA
 					flattened = nil
 				} else {
 					flattened = make([]EmailWithSnippets, len(results.Results))
-					for i, result := range results.Results {
+					for i, emails := range results.Results {
 						var snippets []SnippetWithoutEmailId
 						if makesSnippets {
-							snippets := make([]SnippetWithoutEmailId, len(result.Snippets))
-							for j, snippet := range result.Snippets {
+							snippets := make([]SnippetWithoutEmailId, len(emails.Snippets))
+							for j, snippet := range emails.Snippets {
 								snippets[j] = SnippetWithoutEmailId{
 									Subject: snippet.Subject,
 									Preview: snippet.Preview,
@@ -612,9 +615,9 @@ func (g *Groupware) GetEmails(w http.ResponseWriter, r *http.Request) { //NOSONA
 						} else {
 							snippets = nil
 						}
-						sanitized, err := req.sanitizeEmail(result.Email)
+						sanitized, err := req.sanitizeEmail(emails.Email)
 						if err != nil {
-							return req.error(accountId, req.apiError(err))
+							return req.error(accountId, req.apiError(err), result.GetDurations())
 						}
 						flattened[i] = EmailWithSnippets{
 							Email:    sanitized,
@@ -647,7 +650,7 @@ func (g *Groupware) GetEmailsForAllAccounts(w http.ResponseWriter, r *http.Reque
 
 		ok, filter, makesSnippets, position, anchor, anchorOffset, limit, logger, err := g.buildEmailFilter(req)
 		if !ok {
-			return req.errorN(allAccountIds, err)
+			return req.errorNV(allAccountIds, err)
 		}
 		logger = log.From(req.logger.With().Array(logAccountId, log.SafeStringArray(structs.ToStrings(allAccountIds))))
 		ctx := req.ctx.WithLogger(logger)
@@ -770,7 +773,7 @@ func findDraftsMailboxId(j *jmap.Client, accountId jmap.AccountId, req Request, 
 		}
 		// couldn't find a Mailbox with the drafts role for that account,
 		// we have to return an error... ?
-		return "", req.error(accountId, apiError(req.errorId(), ErrorNoMailboxWithDraftRole))
+		return "", req.error(accountId, apiError(req.errorId(), ErrorNoMailboxWithDraftRole), result.GetDurations())
 	}
 }
 
@@ -794,7 +797,7 @@ func findSentMailboxId(j *jmap.Client, accountId jmap.AccountId, req Request, ct
 			}
 		}
 		if sentMailboxId == "" {
-			return "", "", req.error(accountId, apiError(req.errorId(), ErrorNoMailboxWithSentRole))
+			return "", "", req.error(accountId, apiError(req.errorId(), ErrorNoMailboxWithSentRole), result.GetDurations())
 		}
 		draftsMailboxId := ""
 		for _, role := range draftEmailAutoMailboxRolePrecedence {
@@ -804,7 +807,7 @@ func findSentMailboxId(j *jmap.Client, accountId jmap.AccountId, req Request, ct
 			}
 		}
 		if draftsMailboxId == "" {
-			return "", "", req.error(accountId, apiError(req.errorId(), ErrorNoMailboxWithDraftRole))
+			return "", "", req.error(accountId, apiError(req.errorId(), ErrorNoMailboxWithDraftRole), result.GetDurations())
 		}
 		return draftsMailboxId, sentMailboxId, Response{}
 	}
@@ -847,7 +850,7 @@ func (g *Groupware) ReplaceEmail(w http.ResponseWriter, r *http.Request) {
 			var err *Error
 			replaceId, err = r.PathParam(UriParamEmailId)
 			if err != nil {
-				return false, r.error(accountId, err)
+				return false, r.errorV(accountId, err)
 			}
 
 			return true, Response{}
@@ -881,13 +884,13 @@ func (g *Groupware) UpdateEmailKeywords(w http.ResponseWriter, r *http.Request) 
 
 		accountId, gwerr := req.GetAccountIdForMail()
 		if gwerr != nil {
-			return req.error(accountId, gwerr)
+			return req.errorV(accountId, gwerr)
 		}
 		l.Str(logAccountId, log.SafeString(accountId))
 
 		emailId, err := req.PathParam(UriParamEmailId)
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 		l.Str(UriParamEmailId, log.SafeString(emailId))
 
@@ -897,11 +900,11 @@ func (g *Groupware) UpdateEmailKeywords(w http.ResponseWriter, r *http.Request) 
 		var body emailKeywordUpdates
 		err = req.body(&body)
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 
 		if body.IsEmpty() {
-			return req.noop(accountId)
+			return req.noopV(accountId)
 		}
 
 		patch := jmap.PatchObject{}
@@ -922,12 +925,12 @@ func (g *Groupware) UpdateEmailKeywords(w http.ResponseWriter, r *http.Request) 
 
 		if result.Payload == nil {
 			return req.error(accountId, apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Missing Email Update Response", //NOSONAR
-				"An internal API behaved unexpectedly: missing Email update response from JMAP endpoint"))) //NOSONAR
+				"An internal API behaved unexpectedly: missing Email update response from JMAP endpoint")), result.GetDurations()) //NOSONAR
 		}
 		updatedEmail, ok := result.Payload[emailId]
 		if !ok {
 			return req.error(accountId, apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Wrong Email Update Response ID", //NOSONAR
-				"An internal API behaved unexpectedly: wrong Email update ID response from JMAP endpoint"))) //NOSONAR
+				"An internal API behaved unexpectedly: wrong Email update ID response from JMAP endpoint")), result.GetDurations()) //NOSONAR
 		}
 
 		return req.respond(accountId, updatedEmail, EmailResponseObjectType, result)
@@ -943,13 +946,13 @@ func (g *Groupware) AddEmailKeywords(w http.ResponseWriter, r *http.Request) { /
 
 		accountId, gwerr := req.GetAccountIdForMail()
 		if gwerr != nil {
-			return req.error(accountId, gwerr)
+			return req.errorV(accountId, gwerr)
 		}
 		l.Str(logAccountId, log.SafeString(accountId))
 
 		emailId, err := req.PathParam(UriParamEmailId)
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 		l.Str(UriParamEmailId, log.SafeString(emailId))
 
@@ -959,11 +962,11 @@ func (g *Groupware) AddEmailKeywords(w http.ResponseWriter, r *http.Request) { /
 		var body []string
 		err = req.body(&body)
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 
 		if len(body) < 1 {
-			return req.noop(accountId)
+			return req.noopV(accountId)
 		}
 
 		patch := jmap.PatchObject{}
@@ -981,12 +984,12 @@ func (g *Groupware) AddEmailKeywords(w http.ResponseWriter, r *http.Request) { /
 
 		if result.Payload == nil {
 			return req.error(accountId, apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Missing Email Update Response",
-				"An internal API behaved unexpectedly: missing Email update response from JMAP endpoint")))
+				"An internal API behaved unexpectedly: missing Email update response from JMAP endpoint")), result.GetDurations())
 		}
 		updatedEmail, ok := result.Payload[emailId]
 		if !ok {
 			return req.error(accountId, apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Wrong Email Update Response ID",
-				"An internal API behaved unexpectedly: wrong Email update ID response from JMAP endpoint")))
+				"An internal API behaved unexpectedly: wrong Email update ID response from JMAP endpoint")), result.GetDurations())
 		}
 
 		if updatedEmail == nil {
@@ -1006,13 +1009,13 @@ func (g *Groupware) RemoveEmailKeywords(w http.ResponseWriter, r *http.Request) 
 
 		accountId, err := req.GetAccountIdForMail()
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 		l.Str(logAccountId, log.SafeString(accountId))
 
 		emailId, err := req.PathParam(UriParamEmailId)
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 		l.Str(UriParamEmailId, log.SafeString(emailId))
 
@@ -1022,11 +1025,11 @@ func (g *Groupware) RemoveEmailKeywords(w http.ResponseWriter, r *http.Request) 
 		var body []string
 		err = req.body(&body)
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 
 		if len(body) < 1 {
-			return req.noop(accountId)
+			return req.noopV(accountId)
 		}
 
 		patch := jmap.PatchObject{}
@@ -1044,12 +1047,12 @@ func (g *Groupware) RemoveEmailKeywords(w http.ResponseWriter, r *http.Request) 
 
 		if result.Payload == nil {
 			return req.error(accountId, apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Missing Email Update Response",
-				"An internal API behaved unexpectedly: missing Email update response from JMAP endpoint")))
+				"An internal API behaved unexpectedly: missing Email update response from JMAP endpoint")), result.GetDurations())
 		}
 		updatedEmail, ok := result.Payload[emailId]
 		if !ok {
 			return req.error(accountId, apiError(req.errorId(), ErrorApiInconsistency, withTitle("API Inconsistency: Wrong Email Update Response ID",
-				"An internal API behaved unexpectedly: wrong Email update ID response from JMAP endpoint")))
+				"An internal API behaved unexpectedly: wrong Email update ID response from JMAP endpoint")), result.GetDurations())
 		}
 
 		if updatedEmail == nil {
@@ -1080,19 +1083,19 @@ func (g *Groupware) SendEmail(w http.ResponseWriter, r *http.Request) { //NOSONA
 
 		accountId, gwerr := req.GetAccountIdForMail()
 		if gwerr != nil {
-			return req.error(accountId, gwerr)
+			return req.errorV(accountId, gwerr)
 		}
 		l.Str(logAccountId, log.SafeString(accountId))
 
 		emailId, err := req.PathParam(UriParamEmailId)
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 		l.Str(UriParamEmailId, log.SafeString(emailId))
 
 		identityId, err := req.getMandatoryStringParam(QueryParamIdentityId)
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 		l.Str(QueryParamIdentityId, log.SafeString(identityId))
 
@@ -1198,30 +1201,30 @@ func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) { //N
 
 		accountId, err := req.GetAccountIdForMail()
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 		l = l.Str(logAccountId, log.SafeString(accountId))
 
 		id, err := req.PathParam(UriParamEmailId)
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 		l = l.Str(logEmailId, log.SafeString(id))
 
 		limit, ok, err := req.parseUIntParam(QueryParamLimit, 10) // TODO configurable default limit
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 		if ok {
-			l = l.Uint("limit", limit)
+			l = l.Uint(QueryParamLimit, limit)
 		}
 
 		days, ok, err := req.parseUIntParam(QueryParamDays, 5) // TODO configurable default days
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 		if ok {
-			l = l.Uint("days", days)
+			l = l.Uint(QueryParamDays, days)
 		}
 
 		logger := log.From(l)
@@ -1297,7 +1300,7 @@ func (g *Groupware) RelatedToEmail(w http.ResponseWriter, r *http.Request) { //N
 		})
 
 		if sanitized, err := req.sanitizeEmail(email); err != nil {
-			return req.error(accountId, req.apiError(err))
+			return req.errorV(accountId, req.apiError(err))
 		} else {
 			return req.respond(accountId, AboutEmailResponse{
 				Email:     sanitized,
@@ -1499,7 +1502,7 @@ func (g *Groupware) GetLatestEmailsSummaryForAllAccounts(w http.ResponseWriter, 
 
 		limit, ok, err := req.parseUIntParam(QueryParamLimit, 10) // TODO from configuration
 		if err != nil {
-			return req.errorN(allAccountIds, err)
+			return req.errorNV(allAccountIds, err)
 		}
 		if ok {
 			l = l.Uint(QueryParamLimit, limit)
@@ -1507,7 +1510,7 @@ func (g *Groupware) GetLatestEmailsSummaryForAllAccounts(w http.ResponseWriter, 
 
 		position, ok, err := req.parseIntParam(QueryParamPosition, 0)
 		if err != nil {
-			return req.errorN(allAccountIds, err)
+			return req.errorNV(allAccountIds, err)
 		}
 		if position != 0 {
 			return req.notImplementedN(allAccountIds, EmailResponseObjectType)
@@ -1528,7 +1531,7 @@ func (g *Groupware) GetLatestEmailsSummaryForAllAccounts(w http.ResponseWriter, 
 		{
 			v, ok, err := req.parseIntParam(QueryParamAnchorOffset, 0) // optional offset relative to the anchor
 			if err != nil {
-				return req.errorN(allAccountIds, err)
+				return req.errorNV(allAccountIds, err)
 			}
 			if ok {
 				return req.notImplementedN(allAccountIds, EmailResponseObjectType)
@@ -1541,7 +1544,7 @@ func (g *Groupware) GetLatestEmailsSummaryForAllAccounts(w http.ResponseWriter, 
 
 		seen, ok, err := req.parseBoolParam(QueryParamSeen, false)
 		if err != nil {
-			return req.errorN(allAccountIds, err)
+			return req.errorNV(allAccountIds, err)
 		}
 		if ok {
 			l = l.Bool(QueryParamSeen, seen)
@@ -1549,7 +1552,7 @@ func (g *Groupware) GetLatestEmailsSummaryForAllAccounts(w http.ResponseWriter, 
 
 		undesirable, ok, err := req.parseBoolParam(QueryParamUndesirable, false)
 		if err != nil {
-			return req.errorN(allAccountIds, err)
+			return req.errorNV(allAccountIds, err)
 		}
 		if ok {
 			l = l.Bool(QueryParamUndesirable, undesirable)

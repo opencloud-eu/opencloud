@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -82,9 +83,10 @@ type Job struct {
 }
 
 type groupwareConfig struct {
-	maxBodyValueBytes uint
-	sanitize          bool
-	publicUrl         *url.URL
+	maxBodyValueBytes     uint
+	sanitize              bool
+	publicUrl             *url.URL
+	sendDurationsResponse bool
 }
 
 type groupwareDefaults struct {
@@ -187,6 +189,7 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 
 	defaultEmailLimit := ptrIfNot(max(config.Mail.DefaultEmailLimit, 0), 0)
 	maxBodyValueBytes := max(config.Mail.MaxBodyValueBytes, 0)
+	sendDurationsResponse := config.HTTP.SendDurationsResponse
 	defaultContactLimit := ptrIfNot(max(config.Mail.DefaultContactLimit, 0), 0)
 	responseHeaderTimeout := max(config.Mail.ResponseHeaderTimeout, 0)
 	sessionCacheMaxCapacity := uint64(max(config.Mail.SessionCache.MaxCapacity, 0))
@@ -426,9 +429,10 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 			contactLimit: defaultContactLimit,
 		},
 		config: groupwareConfig{
-			maxBodyValueBytes: maxBodyValueBytes,
-			sanitize:          sanitize,
-			publicUrl:         publicUrl,
+			maxBodyValueBytes:     maxBodyValueBytes,
+			sanitize:              sanitize,
+			publicUrl:             publicUrl,
+			sendDurationsResponse: sendDurationsResponse,
 		},
 		eventChannel:              eventChannel,
 		jobsChannel:               jobsChannel,
@@ -701,11 +705,17 @@ func (g *Groupware) withSession(w http.ResponseWriter, r *http.Request, handler 
 }
 
 const (
-	SessionStateResponseHeader = "Session-State"
-	StateResponseHeader        = "State"
-	ObjectTypeResponseHeader   = "Object-Type"
-	AccountIdResponseHeader    = "Account-Id"
-	AccountIdsResponseHeader   = "Account-Ids"
+	SessionStateResponseHeader    = "Session-State"
+	StateResponseHeader           = "State"
+	ObjectTypeResponseHeader      = "Object-Type"
+	AccountIdResponseHeader       = "Account-Id"
+	AccountIdsResponseHeader      = "Account-Ids"
+	LinkResponseHeader            = "Link"
+	DurationsResponseHeader       = "Durations"
+	DurationsNanosResponseHeader  = "Durations-Nanos"
+	NextResponseHeader            = "Next"
+	ContentLanguageResponseHeader = "Content-Language"
+	ETagResponseHeader            = "ETag"
 )
 
 // Send the Response object as an HTTP response.
@@ -725,11 +735,11 @@ func (g *Groupware) sendResponse(w http.ResponseWriter, r *http.Request, respons
 	}
 
 	if response.contentLanguage != "" {
-		w.Header().Add("Content-Language", string(response.contentLanguage))
+		w.Header().Add(ContentLanguageResponseHeader, string(response.contentLanguage))
 	}
 
 	if response.next != "" && response.next != NoNextToken {
-		w.Header().Add("next", string(response.next)) // TODO add RESTful links for next?
+		w.Header().Add(NextResponseHeader, string(response.next)) // TODO add RESTful links for next?
 
 		base := g.config.publicUrl.JoinPath("/groupware/contacts")
 
@@ -745,7 +755,7 @@ func (g *Groupware) sendResponse(w http.ResponseWriter, r *http.Request, respons
 				q.Set(QueryParamLimit, limit)
 			}
 			u.RawQuery = q.Encode()
-			w.Header().Add("Link", fmt.Sprintf(`<%s>; rel="next">`, u.String()))
+			w.Header().Add(LinkResponseHeader, fmt.Sprintf(`<%s>; rel="next">`, u.String()))
 		}
 		{
 			u := base
@@ -754,7 +764,7 @@ func (g *Groupware) sendResponse(w http.ResponseWriter, r *http.Request, respons
 				q.Set(QueryParamLimit, limit)
 			}
 			u.RawQuery = q.Encode()
-			w.Header().Add("Link", fmt.Sprintf(`<%s>; rel="first">`, u.String()))
+			w.Header().Add(LinkResponseHeader, fmt.Sprintf(`<%s>; rel="first">`, u.String()))
 		}
 	}
 
@@ -765,7 +775,7 @@ func (g *Groupware) sendResponse(w http.ResponseWriter, r *http.Request, respons
 			challenge := r.Header.Get("if-none-match")                                      // https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-None-Match
 			quotedEtag := "\"" + etag + "\""                                                // https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/ETag#etag_value
 			notModified = challenge != "" && (challenge == etag || challenge == quotedEtag) // be a bit flexible/permissive here with the quoting
-			w.Header().Add("ETag", quotedEtag)
+			w.Header().Add(ETagResponseHeader, quotedEtag)
 			w.Header().Add(StateResponseHeader, etag)
 		}
 	}
@@ -785,6 +795,11 @@ func (g *Groupware) sendResponse(w http.ResponseWriter, r *http.Request, respons
 		slices.Sort(c)
 		value := strings.Join(c, ",")
 		w.Header().Add(AccountIdsResponseHeader, value)
+	}
+
+	if g.config.sendDurationsResponse && len(response.durations) > 0 {
+		w.Header().Add(DurationsNanosResponseHeader, strings.Join(structs.Map(response.durations, func(d time.Duration) string { return strconv.FormatInt(d.Nanoseconds(), 10) }), ", "))
+		w.Header().Add(DurationsResponseHeader, strings.Join(structs.Map(response.durations, func(d time.Duration) string { return d.String() }), ", "))
 	}
 
 	if notModified {

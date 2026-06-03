@@ -14,7 +14,7 @@ func (g *Groupware) GetAccountById(w http.ResponseWriter, r *http.Request) {
 	g.respond(w, r, func(req Request) Response {
 		accountId, account, err := req.GetAccountForMail()
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 		var body jmap.Account = account
 		return req.respond(accountId, body, AccountResponseObjectType, req.session)

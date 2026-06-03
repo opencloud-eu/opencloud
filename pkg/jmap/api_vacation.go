@@ -92,7 +92,7 @@ func (j *Client) SetVacationResponse(accountId AccountId, vacation VacationRespo
 		invocation(get, "1"),
 	)
 	if err != nil {
-		return ZeroResult[VacationResponse](), err
+		return ZeroResultV[VacationResponse](), err
 	}
 	return command(j, ctx, cmd, func(body *Response) (VacationResponse, State, Error) {
 		var setResponse VacationResponseSetResponse

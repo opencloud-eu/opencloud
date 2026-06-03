@@ -43,7 +43,7 @@ func (g *Groupware) GetObjects(w http.ResponseWriter, r *http.Request) { //NOSON
 		l := req.logger.With()
 		accountId, err := req.GetAccountIdForMail()
 		if err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		}
 		l = l.Str(logAccountId, log.SafeString(accountId))
 
@@ -59,7 +59,7 @@ func (g *Groupware) GetObjects(w http.ResponseWriter, r *http.Request) { //NOSON
 		{
 			var objects ObjectsRequest
 			if ok, err := req.optBody(&objects); err != nil {
-				return req.error(accountId, err)
+				return req.errorV(accountId, err)
 			} else if ok {
 				mailboxIds = append(mailboxIds, objects.Mailboxes...)
 				emailIds = append(emailIds, objects.Emails...)
@@ -74,47 +74,47 @@ func (g *Groupware) GetObjects(w http.ResponseWriter, r *http.Request) { //NOSON
 		}
 
 		if list, ok, err := req.parseOptStringListParam(QueryParamMailboxes); err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		} else if ok {
 			mailboxIds = append(mailboxIds, list...)
 		}
 		if list, ok, err := req.parseOptStringListParam(QueryParamEmails); err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		} else if ok {
 			emailIds = append(emailIds, list...)
 		}
 		if list, ok, err := req.parseOptStringListParam(QueryParamAddressbooks); err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		} else if ok {
 			addressbookIds = append(addressbookIds, list...)
 		}
 		if list, ok, err := req.parseOptStringListParam(QueryParamContacts); err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		} else if ok {
 			contactIds = append(contactIds, list...)
 		}
 		if list, ok, err := req.parseOptStringListParam(QueryParamCalendars); err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		} else if ok {
 			calendarIds = append(calendarIds, list...)
 		}
 		if list, ok, err := req.parseOptStringListParam(QueryParamEvents); err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		} else if ok {
 			eventIds = append(eventIds, list...)
 		}
 		if list, ok, err := req.parseOptStringListParam(QueryParamQuotas); err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		} else if ok {
 			quotaIds = append(quotaIds, list...)
 		}
 		if list, ok, err := req.parseOptStringListParam(QueryParamIdentities); err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		} else if ok {
 			identityIds = append(identityIds, list...)
 		}
 		if list, ok, err := req.parseOptStringListParam(QueryParamEmailSubmissions); err != nil {
-			return req.error(accountId, err)
+			return req.errorV(accountId, err)
 		} else if ok {
 			emailSubmissionIds = append(emailSubmissionIds, list...)
 		}

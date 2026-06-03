@@ -373,3 +373,23 @@ func First[T any](values []T, predicate func(T) bool) (T, bool) {
 	var zero T
 	return zero, false
 }
+
+func Reduce[T any](initialValue T, s []T, reducer func(a, b T) T) T {
+	reduced := initialValue
+	for _, value := range s {
+		reduced = reducer(reduced, value)
+	}
+	return reduced
+}
+
+func Flatten[T any](s [][]T) []T {
+	l := 0
+	for _, r := range s {
+		l += len(r)
+	}
+	result := make([]T, 0, l)
+	for _, r := range s {
+		result = append(result, r...)
+	}
+	return result
+}
